@@ -1,4 +1,5 @@
-IDIR =-I../include -I/usr/include/mysql
+TOPDIR=../..
+IDIR =-I$(TOPDIR)/include -I/usr/include/mysql
 CC=gcc
 CFLAGS=$(IDIR) -g -DVVC_DBG
 LDIR =-L/usr/lib/mysql
