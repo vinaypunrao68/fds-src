@@ -5,11 +5,10 @@
  *              
  * 
  *-----------------------------------------------------------------------------------------*/
-
-typedef  fds_data_hash_t int[4]; /* 128 bit unique hash */
+#include <fds_commons.h>
 
 typedef fds_data_obj_t {
-   fds_data_hash_t  data_hash; 
+   fds_int32_t      data_hash[4]; 
    fds_uint8_t      conflict_id;
    fds_uint8_t      data_obj_size;
    fds_uint8_t      archive;   /* 00=no archive, 01=local archive, 02=site2 archive */
