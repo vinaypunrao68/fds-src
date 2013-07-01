@@ -34,12 +34,12 @@ typedef unsigned long long uint64_t;
 #endif
 
 // FDS definitions of variable types
-typedef unsigned int fds_uint32_t;
-typedef int          fds_int32_t; 
+typedef unsigned int  fds_uint32_t;
+typedef int           fds_int32_t; 
 typedef unsigned short fds_uint16_t;  
-typedef short  fds_int16_t;
-typedef char     fds_char_t;
-typedef bool fds_bool_t;
+typedef short          fds_int16_t;
+typedef char           fds_char_t;
+typedef bool           fds_bool_t;
 typedef unsigned long long fds_uint64_t;
 
 #endif

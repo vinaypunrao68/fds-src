@@ -6,38 +6,50 @@ typedef enum {
    FDSP_MSG_VERIFY_OBJ_REQ,
    FDSP_MSG_UPDATE_CAT_OBJ_REQ,
    FDSP_MSG_OFFSET_WRITE_OBJ_REQ,
+   FDSP_MSG_REDIR_WRITE_OBJ_REQ,
 
    FDSP_MSG_PUT_OBJ_RSP,
    FDSP_MSG_GET_OBJ_RSP,
    FDSP_MSG_VERIFY_OBJ_RSP,
    FDSP_MSG_UPDATE_CAT_OBJ_RSP
    FDSP_MSG_OFFSET_WRITE_OBJ_RSP,
+   FDSP_MSG_REDIR_WRITE_OBJ_RSP,
 };
 
 typedef struct _fdsp_put_object_t {
   fds_object_id_t   data_obj_id;
   fds_uint32_t      data_obj_len;
   fds_uint32_t      volume_offset; /* Offset inside the volume where the object resides */
-  fds_char *        data_obj;
+  fds_char         data_obj[0];
 } fdsp_put_object_t;
 
 typedef struct _fdsp_get_object_t {
   fds_object_id_t   data_obj_id;
   fds_uint32_t      data_obj_len;
-  fds_char *        data_obj;
+  fds_char *        data_obj[0];
 } fdsp_get_object_t;
 
 typedef struct _fdsp_offset_write_object_t {
   fds_object_id_t   data_obj_id_old;
   fds_uint32_t      data_obj_len;
   fds_object_id_t   data_obj_id_new;
-  fds_char *        data_obj;
+  fds_char *        data_obj[0];
 } fdsp_offset_write_object_t;
+
+
+typedef struct _fdsp_redir_write_object_t {
+  fds_object_id_t   data_obj_id_old;
+  fds_uint32_t      data_obj_len;
+  fds_uint32_t      data_obj_suboffset; /* Offset within the object where the actual data is modified */
+  fds_uint32_t      data_obj_sublen;
+  fds_object_id_t   data_obj_id_new;
+  fds_char *        data_obj[0];
+} fdsp_redir_write_object_t;
 
 typedef struct _fdsp_verify_object_t {
   fds_object_id_t   data_obj_id;
   fds_uint32_t      data_obj_len;
-  fds_char *        data_obj;
+  fds_char *        data_obj[0];
 } fdsp_verify_object_t;
 
 typedef struct _fdsp_update_catalog_t {
@@ -73,6 +85,7 @@ typedef _fdsp_msg_t {
     fds_uint32_t        payload_len;
     fds_uint32_t        num_objects;  /* Payload could contain more than one object */
     fds_uint32_t        frag_len;     /* Fragment Length */
+    fds_uint32_t        frag_num;     /* Fragment number for partial transfer */
 
     /* Volume entity idenfiers */
     fds_uint32_t        tennant_id;      /* Tennant owning the Local-domain and Storage hypervisor */
