@@ -1,7 +1,7 @@
 #include <string.h>
 
 // #define MAX_BLK_NAME_SZ           255
-#include "fds_commons.h"
+// #include "fds_commons.h"
 #include "vvc_private.h"
 #include "vvclib.h"
 
@@ -34,14 +34,15 @@ vvc_vhdl_t vvc_vol_create(volid_t vol_id, const char *db_name, int max_blocks) {
   memset(vdb, 0, sizeof(vvc_vdb_t));
   vdb->vol_id = vol_id;
   if (db_name != NULL) {
-    #ifdef LIB_KERNEL
+#ifdef LIB_KERNEL
     return (0);
-    #endif
+#else
     vdb->db_name = (char *)vvc_malloc(strlen(db_name) + 1);
     strcpy(vdb->db_name, db_name);
     if (vvc_db_connect(vdb)){
       return (0);
-    }    
+    }
+#endif
   }
   vdb->vvc_table = lh_new(vvce_hash, vvce_cmp);
   vdb->max_num_blks = max_blocks;

@@ -3,6 +3,8 @@
 #include "vvc_private.h"
 #define VVC_MAX_QUERY_STR_SZ   1024
 
+#ifndef LIB_KERNEL
+
 int vvc_db_connect(vvc_vdb_t *vdb) {
 
     MYSQL *db_con = mysql_init(NULL);
@@ -168,7 +170,7 @@ int vvc_db_entry_update(vvc_vdb_t *vdb, vvce_t *prev_vvce, vvce_t *new_vvce) {
 	sprintf(tmp_query_string, "INSERT INTO VVC (VolID, BlockName, BlockNameHash, SegmentID, DOID) VALUES (%d, \'%s\', \'%s\', %d, \'%s\');",
 		vdb->vol_id, new_vvce->blk_name, "NoHashYet", i, new_vvce->doid_list[i]);
       } else {
-	if (strncmp(&prev_vvce->doid_list[i], &new_vvce->doid_list[i], sizeof(doid_t)) == 0) {
+	if (strncmp((const char *)&prev_vvce->doid_list[i], (const char *)&new_vvce->doid_list[i], sizeof(doid_t)) == 0) {
 	  continue;
 	}
 	sprintf(tmp_query_string, "UPDATE VVC SET DOID = \'%s\' WHERE VolID = %d AND BlockName = \'%s\' AND SegmentID = %d;",
@@ -223,3 +225,32 @@ int vvc_db_entry_delete(vvc_vdb_t *vdb, vvce_t *vvce) {
   return (0);
 
 }
+
+#else
+
+int vvc_db_connect(vvc_vdb_t *vdb) {
+  return (0);
+}
+
+int vvc_db_entry_load(vvc_vdb_t *vdb, const char *blk_name) {
+  return (0);
+}
+
+int vvc_db_entries_load(vvc_vdb_t *vdb) {
+  return (0);
+}
+
+int vvc_db_entry_create(vvc_vdb_t *vdb, vvce_t *vvce) {
+  return (0);
+}
+
+int vvc_db_entry_update(vvc_vdb_t *vdb, vvce_t *prev_vvce, vvce_t *new_vvce) {
+  return (0);
+}
+
+int vvc_db_entry_delete(vvc_vdb_t *vdb, vvce_t *vvce) {
+  return (0);
+}
+
+
+#endif

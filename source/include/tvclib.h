@@ -16,7 +16,9 @@ tvc_vhdl_t tvc_vol_create(volid_t vol_id, const char *db_name, const char *file_
 
 tvc_vhdl_t tvc_vol_load(volid_t vol_id, const char *db_name, const char *file_path);
 
-int tvc_entry_append(tvc_vhdl_t vhdl, uint64_t timestamp, const char *blk_name, int segment_id, const doid_t doid);
+int tvc_entry_append(tvc_vhdl_t vhdl, uint32_t txn_id, uint64_t timestamp, const char *blk_name, int segment_id, const doid_t doid, unsigned int *entry_ref_hint);
+
+int tvc_entry_status_update(tvc_vhdl_t vhdl, uint32_t txn_id, int64_t entry_ref_hint, unsigned char status);
 
 int tvc_mark_checkpoint(tvc_vhdl_t vhdl, uint64_t timestamp, volid_t tpc_vol_id);
 

@@ -102,9 +102,9 @@ tvc_vhdl_t tvc_vol_load(volid_t vol_id, const char *db_name, const char *file_pa
   }
   return ((tvc_vhdl_t) tdb);
 
-};
+}
 
-int tvc_entry_append(tvc_vhdl_t vhdl, uint64_t timestamp, const char *blk_name, int segment_id, const doid_t doid) {
+int tvc_entry_append(tvc_vhdl_t vhdl, uint32_t txn_id, uint64_t timestamp, const char *blk_name, int segment_id, const doid_t doid, unsigned int *entry_ref_hint) {
 
   tvc_db_t    *tdb = (tvc_db_t *)vhdl;
   tvc_jrnle_t *jrnle;
@@ -114,8 +114,8 @@ int tvc_entry_append(tvc_vhdl_t vhdl, uint64_t timestamp, const char *blk_name, 
 
   // Pass 0 for relative time for now. We will reset this to the right value later
   // when we know what is the base checkpoint time we will use
-  jrnle = jrnl_entry_alloc(blk_name, segment_id, doid, 0);
-
+  jrnle = jrnl_entry_alloc(blk_name, txn_id, segment_id, doid, 0);
+  jrnle->txn_status = FDS_DMGR_TXN_STATUS_OPEN;
   write_sz = jrnle->blk_name_sz + sizeof(tvc_jrnle_t);
 
   if (tdb->current_tail == tdb->current_file_sz) {
@@ -164,11 +164,48 @@ int tvc_entry_append(tvc_vhdl_t vhdl, uint64_t timestamp, const char *blk_name, 
   // Append the entry to the log file
   lseek(tdb->fd, write_offset, SEEK_SET);
   write(tdb->fd, jrnle, write_sz);
+  *entry_ref_hint = write_offset;
 
   tvc_update_tail(tdb, new_tail);
   tdb->current_file_sz = new_file_sz;
   
   free(jrnle);
+  return (0);
+
+}
+
+int tvc_entry_status_update(tvc_vhdl_t hdl, uint32_t txn_id, int64_t entry_ref_hint, unsigned char status) {
+
+  tvc_db_t *tdb = (tvc_db_t *)hdl;
+  unsigned int file_offset;
+  tvc_jrnle_t jrnle;
+
+  if (entry_ref_hint < 0) {
+    // We have to search the whole log file for this txn! 
+    // Return error for now.
+    return (-1);
+  }
+
+  file_offset = (unsigned int)entry_ref_hint;
+  if (!(offset_in_valid_range(tdb, file_offset))) {
+    // We do not have that entry any more! The log has rolled over!
+    return (-1);
+  }
+
+  // Now get journal entry at this offset
+  lseek(tdb->fd, file_offset, SEEK_SET);
+  read(tdb->fd, &jrnle, sizeof(tvc_jrnle_t));  
+
+  // Sanity check on the txn id
+  if (jrnle.txn_id != txn_id) {
+    return (-1);
+  }
+  // Update status
+  jrnle.txn_status = status;
+  // Write back the journal entry
+  lseek(tdb->fd, file_offset, SEEK_SET);
+  write(tdb->fd, &jrnle, sizeof(tvc_jrnle_t));
+
   return (0);
 
 }

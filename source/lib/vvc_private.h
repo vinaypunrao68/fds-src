@@ -1,6 +1,12 @@
 #include <openssl/lhash.h>
+#ifndef LIB_KERNEL
 #include <my_global.h>
 #include <mysql.h>
+#else
+//#include <linux/slab.h>
+#include <linux/kernel.h>
+#include <linux/module.h>
+#endif
 
 #include "fds_commons.h"
 
@@ -66,7 +72,11 @@ typedef struct __vvc_vdb {
 
   volid_t    vol_id;
   char       *db_name;
+#ifndef LIB_KERNEL
   MYSQL      *db_con;
+#else
+  void       *db_con;
+#endif
   int        num_blks;
   int        max_num_blks;
   _LHASH     *vvc_table; // a hash table containing vvc_entry_t structures

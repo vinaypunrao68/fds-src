@@ -34,10 +34,12 @@ typedef struct __tvc_db_t {
 typedef struct __tvc_jrnl_entry {
 
   uint32_t      rel_timestamp;
+  uint32_t      txn_id;
   uint16_t      segment_id;
   doid_t        doid;
   unsigned char blk_name_sz;
-  char          pad[1]; // Make it a multiple of 4 bytes till here
+  unsigned char txn_status;
+  char          pad[0]; // Make it a multiple of 4 bytes till here
   char          blk_name[0];
 
 } tvc_jrnle_t;
@@ -225,7 +227,7 @@ static  __inline__ int tvc_retrieve_maxfilesize(tvc_db_t *tdb) {
 
 
 
-static __inline__ tvc_jrnle_t *jrnl_entry_alloc(const char *blk_name, int segment_id, const doid_t doid, uint32_t rel_time) {
+static __inline__ tvc_jrnle_t *jrnl_entry_alloc(const char *blk_name, uint32_t txn_id, int segment_id, const doid_t doid, uint32_t rel_time) {
 
   tvc_jrnle_t *jrnle;
   int blk_name_sz;
@@ -237,6 +239,7 @@ static __inline__ tvc_jrnle_t *jrnl_entry_alloc(const char *blk_name, int segmen
   }
 
   jrnle = (tvc_jrnle_t *)malloc(blk_name_sz + sizeof(tvc_jrnle_t));
+  jrnle->txn_id = txn_id;
   jrnle->rel_timestamp = rel_time;
   jrnle->segment_id = segment_id;
   memcpy(&jrnle->doid[0], &doid[0], sizeof(doid_t));
