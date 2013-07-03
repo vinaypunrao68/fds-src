@@ -10,5 +10,6 @@
 #include <pthread.h>
 
 #define FDS_STOR_MGR_LISTEN_PORT 6969
+#define FDS_STOR_MGR_DGRAM_PORT 6969
 #define FDS_MAX_WAITING_CONNS  10
 #endif

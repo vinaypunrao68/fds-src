@@ -1,8 +1,8 @@
 #include <pthread.h>
 #include <stdio.h>
 
-#ifndef _QUEUE_H
-#define _QUEUE_H
+#ifndef _MSG_QUEUE_H
+#define _MSG_QUEUE_H
 
 #define QUEUE_INITIALIZER(buffer) { buffer, sizeof(buffer) / sizeof(buffer[0]), 0, 0, 0, PTHREAD_MUTEX_INITIALIZER, PTHREAD_COND_INITIALIZER, PTHREAD_COND_INITIALIZER }
 

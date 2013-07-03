@@ -26,14 +26,14 @@ typedef struct _fdsp_put_object_t {
 typedef struct _fdsp_get_object_t {
   fds_object_id_t   data_obj_id;
   fds_uint32_t      data_obj_len;
-  fds_char *        data_obj[0];
+  fds_char         data_obj[0];
 } fdsp_get_object_t;
 
 typedef struct _fdsp_offset_write_object_t {
   fds_object_id_t   data_obj_id_old;
   fds_uint32_t      data_obj_len;
   fds_object_id_t   data_obj_id_new;
-  fds_char *        data_obj[0];
+  fds_char         data_obj[0];
 } fdsp_offset_write_object_t;
 
 
@@ -43,13 +43,13 @@ typedef struct _fdsp_redir_write_object_t {
   fds_uint32_t      data_obj_suboffset; /* Offset within the object where the actual data is modified */
   fds_uint32_t      data_obj_sublen;
   fds_object_id_t   data_obj_id_new;
-  fds_char *        data_obj[0];
+  fds_char         data_obj[0];
 } fdsp_redir_write_object_t;
 
 typedef struct _fdsp_verify_object_t {
   fds_object_id_t   data_obj_id;
   fds_uint32_t      data_obj_len;
-  fds_char *        data_obj[0];
+  fds_char         data_obj[0];
 } fdsp_verify_object_t;
 
 typedef struct _fdsp_update_catalog_t {

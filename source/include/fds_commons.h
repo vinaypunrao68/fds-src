@@ -42,4 +42,9 @@ typedef char           fds_char_t;
 typedef bool           fds_bool_t;
 typedef unsigned long long fds_uint64_t;
 
+typedef struct {
+ fds_uint32_t  hash_low;
+ fds_uint32_t  hash_high;  
+} fds_object_id_t;
+
 #endif

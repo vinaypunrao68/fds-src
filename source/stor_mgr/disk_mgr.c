@@ -57,3 +57,8 @@ void fds_disk_mgr_main() {
 void fds_disk_mgr_exit() {
 
 }
+
+
+void disk_mgr_io() {
+
+}

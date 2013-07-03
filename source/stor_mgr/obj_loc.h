@@ -17,6 +17,7 @@ typedef struct {
 typedef struct {
  fds_char      filename;
  fds_uint32_t  file_offset;
+ fds_uint32_t  disk_num;
 } fds_data_location_t;
 
 fds_object_location_entry_t fds_object_loc[4096];
