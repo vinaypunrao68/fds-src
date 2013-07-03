@@ -242,7 +242,7 @@ void fds_stor_mgr_main(int xport_protocol)
    return; 
 }
     
-int main(int argc, void *argv)
+int main(int argc, void **argv)
 {
   fds_stor_mgr_main(FDS_XPORT_PROTO_UDP);
 }
