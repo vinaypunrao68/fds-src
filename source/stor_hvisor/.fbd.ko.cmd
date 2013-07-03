@@ -1,0 +1,1 @@
+cmd_/home/sanjay/sprint-1/source/stor_hvisor/fbd.ko := ld -r -m elf_x86_64 -T /usr/src/kernels/3.9.4-200.fc18.x86_64/scripts/module-common.lds --build-id  -o /home/sanjay/sprint-1/source/stor_hvisor/fbd.ko /home/sanjay/sprint-1/source/stor_hvisor/fbd.o /home/sanjay/sprint-1/source/stor_hvisor/fbd.mod.o

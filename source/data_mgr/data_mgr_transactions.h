@@ -2,8 +2,8 @@ struct __dmgr_vol_cache;
 
 typedef struct __dmgr_transaction{
 
-  uint32_t txn_id;
-  uint64_t open_time;
+  fds_uint32_t txn_id;
+  fds_uint64_t open_time;
   volid_t vol_id;
   struct __dmgr_vol_cache *vol_info;
   char *blk_name;
@@ -117,7 +117,7 @@ static __inline__ int dmgr_txn_cache_vol_create(volid_t vol_id) {
 }
 
 
-static __inline__ dmgr_txn_t  *dmgr_txn_create(volid_t vol_id, uint32_t txn_id) {
+static __inline__ dmgr_txn_t  *dmgr_txn_create(volid_t vol_id, fds_uint32_t txn_id) {
 
   dmgr_txn_t *txn;
   dmgr_vol_cache_t *vol_cache, *dummy_vcache;
@@ -147,7 +147,7 @@ static __inline__ dmgr_txn_t  *dmgr_txn_create(volid_t vol_id, uint32_t txn_id) 
 
 }
 
-static __inline__ dmgr_txn_t *dmgr_txn_get(volid_t vol_id, uint32_t txn_id) {
+static __inline__ dmgr_txn_t *dmgr_txn_get(volid_t vol_id, fds_uint32_t txn_id) {
 
   dmgr_txn_t *txn, *dummy_txn;
   dmgr_vol_cache_t *vol_cache, *dummy_vcache;

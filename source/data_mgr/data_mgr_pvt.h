@@ -27,7 +27,7 @@
 
 typedef struct __fds_node_t {
 
-  uint32_t node_ip;
+  fds_uint32_t node_ip;
  
 } fds_node_t;
 
@@ -36,7 +36,7 @@ typedef struct __rsp_info {
   int      sockfd;
   void     *rsp_to_addr; // sockaddr_t to respond to;
   int      addr_len;
-  uint32_t req_id; // need to include back in the response
+  fds_uint32_t req_id; // need to include back in the response
 
 } rsp_info_t;
 
@@ -53,26 +53,26 @@ typedef struct __dm_req {
 typedef struct __dm_load_vol_req {
 
   dm_req_t     req_hdr;
-  uint16_t     vvc_vol_id;
+  fds_uint16_t     vvc_vol_id;
   
 } dm_load_vol_req_t;
 
 typedef struct __dm_open_txn_req {
 
   dm_req_t     req_hdr;
-  uint32_t     txn_id;
-  uint16_t     vvc_vol_id;
-  uint64_t     vvc_blk_id;
+  fds_uint32_t     txn_id;
+  fds_uint16_t     vvc_vol_id;
+  fds_uint64_t     vvc_blk_id;
   doid_t       vvc_obj_id;
-  uint64_t     vvc_update_time;
+  fds_uint64_t     vvc_update_time;
   
 } dm_open_txn_req_t;
 
 typedef struct __dm_commit_txn_req {
 
   dm_req_t     req_hdr;
-  uint32_t     txn_id;
-  uint16_t     vvc_vol_id;
+  fds_uint32_t     txn_id;
+  fds_uint16_t     vvc_vol_id;
   
 } dm_commit_txn_req_t;
 
@@ -191,7 +191,7 @@ typedef struct __dm_req_queue {
   pthread_cond_t not_empty;
   dm_req_t  *head;
   dm_req_t  *tail;
-  uint32_t num_items;
+  fds_uint32_t num_items;
 
 } dm_req_queue_t;
 

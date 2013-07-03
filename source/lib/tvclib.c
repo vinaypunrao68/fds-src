@@ -4,7 +4,7 @@
 
 #include "tvc_private.h"
 
-static int tvc_crt_checkpoint(tvc_db_t *tdb, uint64_t timestamp, volid_t tpc_vol_id, unsigned int file_offset);
+static int tvc_crt_checkpoint(tvc_db_t *tdb, fds_uint64_t timestamp, volid_t tpc_vol_id, unsigned int file_offset);
 static int tvc_move_head(tvc_db_t *tdb, unsigned int after_offset); 
 
 tvc_vhdl_t tvc_vol_create(volid_t vol_id, const char *db_name, const char *file_path, unsigned int max_file_sz) {
@@ -104,11 +104,11 @@ tvc_vhdl_t tvc_vol_load(volid_t vol_id, const char *db_name, const char *file_pa
 
 }
 
-int tvc_entry_append(tvc_vhdl_t vhdl, uint32_t txn_id, uint64_t timestamp, const char *blk_name, int segment_id, const doid_t doid, unsigned int *entry_ref_hint) {
+int tvc_entry_append(tvc_vhdl_t vhdl, fds_uint32_t txn_id, fds_uint64_t timestamp, const char *blk_name, int segment_id, const doid_t doid, unsigned int *entry_ref_hint) {
 
   tvc_db_t    *tdb = (tvc_db_t *)vhdl;
   tvc_jrnle_t *jrnle;
-  uint64_t    rel_time, new_chkpt_time;
+  fds_uint64_t    rel_time, new_chkpt_time;
   unsigned int new_tail, write_offset, write_sz, new_file_sz;
   int should_create_new_head = 0;
 
@@ -174,7 +174,7 @@ int tvc_entry_append(tvc_vhdl_t vhdl, uint32_t txn_id, uint64_t timestamp, const
 
 }
 
-int tvc_entry_status_update(tvc_vhdl_t hdl, uint32_t txn_id, int64_t entry_ref_hint, unsigned char status) {
+int tvc_entry_status_update(tvc_vhdl_t hdl, fds_uint32_t txn_id, int64_t entry_ref_hint, unsigned char status) {
 
   tvc_db_t *tdb = (tvc_db_t *)hdl;
   unsigned int file_offset;
@@ -210,7 +210,7 @@ int tvc_entry_status_update(tvc_vhdl_t hdl, uint32_t txn_id, int64_t entry_ref_h
 
 }
 
-int tvc_crt_checkpoint(tvc_db_t *tdb, uint64_t timestamp, volid_t tpc_vol_id, unsigned int file_offset) {
+int tvc_crt_checkpoint(tvc_db_t *tdb, fds_uint64_t timestamp, volid_t tpc_vol_id, unsigned int file_offset) {
 
   char *tmp_query_string;
 
@@ -241,7 +241,7 @@ int tvc_crt_checkpoint(tvc_db_t *tdb, uint64_t timestamp, volid_t tpc_vol_id, un
 
 static int tvc_move_head(tvc_db_t *tdb, unsigned int start_offset) {
 
-  uint64_t orig_head_chkpoint_time, next_chkpt_time;
+  fds_uint64_t orig_head_chkpoint_time, next_chkpt_time;
   unsigned int next_chkpt_offset, orig_head_offset;
   int next_chkpt_found;
 
@@ -319,7 +319,7 @@ static int tvc_move_head(tvc_db_t *tdb, unsigned int start_offset) {
  
 }
 
-int tvc_mark_checkpoint(tvc_vhdl_t vhdl, uint64_t timestamp, volid_t tpc_vol_id) {
+int tvc_mark_checkpoint(tvc_vhdl_t vhdl, fds_uint64_t timestamp, volid_t tpc_vol_id) {
 
   tvc_db_t *tdb = (tvc_db_t *)vhdl;
   unsigned int file_offset;
@@ -337,10 +337,10 @@ int tvc_mark_checkpoint(tvc_vhdl_t vhdl, uint64_t timestamp, volid_t tpc_vol_id)
   
 }
 
-int tvc_entries_get(tvc_vhdl_t vhdl, uint64_t start_time, int *n_entries, tvce_t *tvc_entries, int *end_of_log) {
+int tvc_entries_get(tvc_vhdl_t vhdl, fds_uint64_t start_time, int *n_entries, tvce_t *tvc_entries, int *end_of_log) {
 
   tvc_db_t *tdb = (tvc_db_t *)vhdl;
-  uint64_t chkpt_time, next_chkpt_time;
+  fds_uint64_t chkpt_time, next_chkpt_time;
   unsigned int chkpt_offset, next_chkpt_offset, curr_offset, next_rd_offset;
   int chkpt_found, next_chkpt_found, i;
 
@@ -371,7 +371,7 @@ int tvc_entries_get(tvc_vhdl_t vhdl, uint64_t start_time, int *n_entries, tvce_t
   *end_of_log = 0;
 
   while(1) {
-    uint64_t jrnl_timestamp;
+    fds_uint64_t jrnl_timestamp;
     tvc_jrnle_t tmp_jrnle;
     char    *jrnl_blk_name;
 

@@ -16,12 +16,12 @@ typedef struct __tvc_db_t {
   volid_t vol_id;
   char     *db_name;
   char     *file_path;
-  uint32_t max_file_sz;
-  uint32_t current_file_sz;
-  uint32_t current_head;
-  uint32_t current_tail;
-  uint64_t last_chkpt_time;
-  uint64_t head_chkpt_time;
+  fds_uint32_t max_file_sz;
+  fds_uint32_t current_file_sz;
+  fds_uint32_t current_head;
+  fds_uint32_t current_tail;
+  fds_uint64_t last_chkpt_time;
+  fds_uint64_t head_chkpt_time;
   MYSQL    *db_con; 
   int      fd; // file descriptor
   int      meta_fd; // file descriptor to store meta data like head and tail.
@@ -33,9 +33,9 @@ typedef struct __tvc_db_t {
 
 typedef struct __tvc_jrnl_entry {
 
-  uint32_t      rel_timestamp;
-  uint32_t      txn_id;
-  uint16_t      segment_id;
+  fds_uint32_t      rel_timestamp;
+  fds_uint32_t      txn_id;
+  fds_uint16_t      segment_id;
   doid_t        doid;
   unsigned char blk_name_sz;
   unsigned char txn_status;
@@ -47,8 +47,8 @@ typedef struct __tvc_jrnl_entry {
 
 typedef struct __tvc_chkpt_info {
 
-  uint64_t  timestamp;
-  uint32_t  tvc_file_offset;
+  fds_uint64_t  timestamp;
+  fds_uint32_t  tvc_file_offset;
   volid_t   tpc_vol_id;
 
 } tvc_chkpt_info_t;
@@ -227,7 +227,7 @@ static  __inline__ int tvc_retrieve_maxfilesize(tvc_db_t *tdb) {
 
 
 
-static __inline__ tvc_jrnle_t *jrnl_entry_alloc(const char *blk_name, uint32_t txn_id, int segment_id, const doid_t doid, uint32_t rel_time) {
+static __inline__ tvc_jrnle_t *jrnl_entry_alloc(const char *blk_name, fds_uint32_t txn_id, int segment_id, const doid_t doid, fds_uint32_t rel_time) {
 
   tvc_jrnle_t *jrnle;
   int blk_name_sz;
@@ -249,7 +249,7 @@ static __inline__ tvc_jrnle_t *jrnl_entry_alloc(const char *blk_name, uint32_t t
 
 }
 
-static __inline__ int fill_tvc_entry(tvce_t *tvc_entry, tvc_jrnle_t *jrnle, char *jrnl_blk_name, uint64_t jrnl_timestamp) {
+static __inline__ int fill_tvc_entry(tvce_t *tvc_entry, tvc_jrnle_t *jrnle, char *jrnl_blk_name, fds_uint64_t jrnl_timestamp) {
   tvc_entry->timestamp = jrnl_timestamp;
   tvc_entry->blk_name = jrnl_blk_name;
   tvc_entry->segment_id = jrnle->segment_id;
@@ -257,7 +257,7 @@ static __inline__ int fill_tvc_entry(tvce_t *tvc_entry, tvc_jrnle_t *jrnle, char
   return (0);
 }
 
-static __inline__ int tvc_chkpt_delete(tvc_db_t *tdb, uint64_t basetime) {
+static __inline__ int tvc_chkpt_delete(tvc_db_t *tdb, fds_uint64_t basetime) {
 
   char *tmp_query_string;
 
@@ -322,7 +322,7 @@ static int tvc_delete_chkpts_outside_valid_range(tvc_db_t *tdb) {
   a_row = mysql_fetch_row(res);
   while (a_row) {
       unsigned int chkpt_offset;
-      uint64_t chkpoint_time;
+      fds_uint64_t chkpoint_time;
 
       chkpt_offset = strtoul((const char *)a_row[1], 0, 0);
       chkpoint_time = strtoull((const char *)a_row[0], 0, 0);
@@ -348,12 +348,12 @@ char *sort_string[5] = {"DESC", "DESC", "DESC", "ASC", "ASC"};
 
 
 static int tvc_get_next_chkpoint_wrt_offset(tvc_db_t *tdb, unsigned int ref_offset, int direction,
-					    int *next_chkpoint_found, uint64_t *next_chkpoint_time, unsigned int *next_chkpoint_offset) {
+					    int *next_chkpoint_found, fds_uint64_t *next_chkpoint_time, unsigned int *next_chkpoint_offset) {
 
   char *tmp_query_string;
   MYSQL_RES *res;
   MYSQL_ROW a_row;
-  uint32_t chkpt_offset;
+  fds_uint32_t chkpt_offset;
   char *cmp_str;
 
   tmp_query_string = (char *)malloc(TVC_MAX_QUERY_STR_SZ);
@@ -402,15 +402,15 @@ static int tvc_get_next_chkpoint_wrt_offset(tvc_db_t *tdb, unsigned int ref_offs
 }
 
 
-static int tvc_get_next_chkpoint_in_time(tvc_db_t *tdb, uint64_t ref_time, int direction, int *next_chkpoint_found,
-    uint64_t *next_chkpoint_time, unsigned int *next_chkpoint_offset) {
+static int tvc_get_next_chkpoint_in_time(tvc_db_t *tdb, fds_uint64_t ref_time, int direction, int *next_chkpoint_found,
+    fds_uint64_t *next_chkpoint_time, unsigned int *next_chkpoint_offset) {
 
   char *tmp_query_string;
   MYSQL_RES *res;
   MYSQL_ROW a_row;
-  uint32_t chkpt_offset;
+  fds_uint32_t chkpt_offset;
   char *cmp_str, *sort_str;
-  uint64_t reference_time;
+  fds_uint64_t reference_time;
 
   tmp_query_string = (char *)malloc(TVC_MAX_QUERY_STR_SZ);
 
@@ -483,7 +483,7 @@ static int tvc_get_next_chkpoint_in_time(tvc_db_t *tdb, uint64_t ref_time, int d
 #define tvc_get_chkpoint_at_offset(tdb, start_offset, pnext_chkpt_found, pnext_chkpt_time, pnext_chkpt_offset) \
   tvc_get_next_chkpoint_wrt_offset(tdb, start_offset, DIR_AT, pnext_chkpt_found, pnext_chkpt_time, pnext_chkpt_offset)
 
-static __inline__ tvc_get_basetime_for_offset(tvc_db_t *tdb, unsigned int offset, int *chkpt_found, uint64_t *chkpt_time){
+static __inline__ tvc_get_basetime_for_offset(tvc_db_t *tdb, unsigned int offset, int *chkpt_found, fds_uint64_t *chkpt_time){
 
   unsigned int chkpt_offset;
 
@@ -503,7 +503,7 @@ static __inline__ int tvc_retrieve_chkpoint_times(tvc_db_t *tdb){
 
    unsigned int chkpt_offset;
    int chkpt_found;
-   uint64_t chkpt_time;
+   fds_uint64_t chkpt_time;
 
    if (tvc_get_chkpoint_at_offset(tdb, tdb->current_head, &chkpt_found, &chkpt_time, &chkpt_offset) < 0){
      printf("Unable to retrieve head check point\n");
