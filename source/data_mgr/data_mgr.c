@@ -170,13 +170,14 @@ int main( int argc, char *argv[] ) {
   dmgr_log(LOG_NOTICE, "Data Mgr Daemon alive with pid %d\n", getpid());
 
   dmgr_txn_cache_init();
-  dmgr_log(LOG_NOTICE, "Data Mgr Daemon initialized txn cache %d\n", getpid());
+  dmgr_log(LOG_NOTICE, "Data Mgr Daemon initialized txn cache\n");
 
-  req_fd=socket(AF_INET,SOCK_DGRAM,0);
+  req_fd=socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP);
 
   bzero(&servaddr,sizeof(servaddr));
   servaddr.sin_family = AF_INET;
-  servaddr.sin_addr.s_addr=htonl(INADDR_ANY);
+  //servaddr.sin_addr.s_addr=htonl(INADDR_ANY);
+  servaddr.sin_addr.s_addr=htonl(0xc0a80105);
   servaddr.sin_port=htons(FDS_DMGR_SVR_PORT);
   bind(req_fd,(struct sockaddr *)&servaddr,sizeof(servaddr));
 
@@ -302,18 +303,26 @@ void handle_load_volume_req(dm_wthread_t *wt_info, dm_req_t *req) {
 void handle_open_txn_req(dm_wthread_t *wt_info, dm_req_t *req) {
 
   char *succ_resp_msg = "Thank you. Transaction opened.";
-  char *err_resp_msg = "Oops. Open Transaction failed.";
+  char *err_resp_msg1 = "Oops. Open Transaction failed.";
+  char *err_resp_msg2 = "Oops. Commit Transaction failed.";
   int to_send, n;
   dm_open_txn_req_t *ot_req = (dm_open_txn_req_t *)req;
   dmgr_txn_t *txn;
   char *resp_msg;
 
+  if (!(dmgr_txn_cache_vol_created(ot_req->vvc_vol_id))) {
+    dmgr_txn_cache_vol_create(ot_req->vvc_vol_id);
+  }
   txn = dmgr_txn_create(ot_req->vvc_vol_id, ot_req->txn_id);
   dmgr_fill_txn_info(txn, ot_req);
   if (dmgr_txn_open(txn) < 0) {
-    resp_msg = err_resp_msg;
+    resp_msg = err_resp_msg1;
   } else {
-    resp_msg = succ_resp_msg;
+    if (dmgr_txn_commit(txn) < 0) {
+      resp_msg = err_resp_msg2;
+    } else {
+      resp_msg = succ_resp_msg;
+    }
   }
 
   to_send = strlen(resp_msg) + 1;

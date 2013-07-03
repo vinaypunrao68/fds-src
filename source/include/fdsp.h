@@ -56,6 +56,7 @@ typedef struct _fdsp_verify_object_t {
 
 typedef struct _fdsp_update_catalog_t {
   fds_uint32_t      volume_offset;       /* Offset inside the volume where the object resides */
+  fds_object_id_t   data_obj_id;         /* Object id of the object that this block is being mapped to */
   fds_uint32_t      dm_transaction_id;  /* Transaction id */
   fds_uint32_t      dm_operation;       /* Transaction type = OPEN, COMMIT, CANCEL */
 } fdsp_update_catalog_t;

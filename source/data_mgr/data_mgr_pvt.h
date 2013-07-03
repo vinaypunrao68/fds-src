@@ -4,6 +4,7 @@
 
 #include "fds_commons.h"
 #include "data_mgr.h"
+#include "fdsp.h"
 
 #include <openssl/lhash.h>
 
@@ -95,36 +96,45 @@ int dmgr_req_struct_size[] = {
 
 }; 
 
-#define DM_MSG_REQ_ID(msg) 786
-#define DM_MSG_CMD_CODE(msg) FDS_DMGR_CMD_OPEN_TXN
-#define DM_MSG_LV_VOLID(mesg) 1
-#define DM_MSG_OT_TXNID(mesg) 818
-#define DM_MSG_OT_VOLID(mesg) 1
-#define DM_MSG_OT_BLKID(mesg) 10325
-#define DM_MSG_OT_UPDTIME(mesg) 0xab01cd34
+#define DM_MSG_REQ_ID(fdsp_msg) fdsp_msg->msg_id
+#define DM_MSG_VOLID(fdsp_msg) fdsp_msg->glob_volume_id
 
-#define DM_MSG_CT_TXNID(mesg) 818
-#define DM_MSG_CT_VOLID(mesg) 1
+#define DM_MSG_CMD_CODE(dm_msg) dm_msg->dm_operation
+#define DM_MSG_OT_TXNID(dm_msg) dm_msg->dm_transaction_id
+#define DM_MSG_OT_BLKID(dm_msg) dm_msg->volume_offset
+#define DM_MSG_OT_UPDTIME(dm_msg) 0xab01cd34
+
+#define DM_MSG_CT_TXNID(dm_msg) dm_msg->dm_transaction_id
 
 #define DM_MSG_CaT_TXNID DM_MSG_CT_TXNID
-#define DM_MSG_CaT_VOLID DM_MSG_CT_VOLID
 
 doid_t test_obj_id = {'o','b','j','i','d','-','x','y','z'};
-#define DM_MSG_OT_OBJID(mesg) test_obj_id
+#define DM_MSG_OT_OBJID_PTR(dm_msg) &(dm_msg->data_obj_id)
 
 static __inline__ int alloc_and_fill_dm_req_from_msg(const char *mesg, dm_req_t *req, 
 						     void *cli_addr, int cli_addr_len, dm_req_t **p_dm_req) {
 
-  int cmd = DM_MSG_CMD_CODE(mesg);
-  int alloc_sz = dmgr_req_struct_size[cmd];
+  int cmd;
+  int alloc_sz;
 
+  fdsp_msg_t *fdsp_msg = (fdsp_msg_t *) mesg;
+  fdsp_update_catalog_t *dm_msg;
+
+  // For now, the only cmd code we are interested in.
+  if (fdsp_msg->msg_code !=  FDSP_MSG_UPDATE_CAT_OBJ_REQ) {
+    return (-1);
+  }
+  dm_msg = (fdsp_update_catalog_t *)&(fdsp_msg->payload.update_catalog);
+
+  cmd = DM_MSG_CMD_CODE(dm_msg);
+  alloc_sz = dmgr_req_struct_size[cmd];
   req = (dm_req_t *)malloc(alloc_sz);
   memset(req, 0, alloc_sz);
 
   req->rsp_info.rsp_to_addr = (void *) malloc(cli_addr_len);
   memcpy(req->rsp_info.rsp_to_addr, cli_addr, cli_addr_len);
   req->rsp_info.addr_len = cli_addr_len;
-  req->rsp_info.req_id = DM_MSG_REQ_ID(mesg);
+  req->rsp_info.req_id = DM_MSG_REQ_ID(fdsp_msg);
   req->cmd = cmd;
 
   switch(cmd) {
@@ -133,7 +143,7 @@ static __inline__ int alloc_and_fill_dm_req_from_msg(const char *mesg, dm_req_t 
     {
       dm_load_vol_req_t *lv_req = (dm_load_vol_req_t *)req;
 
-      lv_req->vvc_vol_id = DM_MSG_LV_VOLID(mesg);
+      lv_req->vvc_vol_id = DM_MSG_VOLID(fdsp_msg);
       break;
 
     };
@@ -142,11 +152,11 @@ static __inline__ int alloc_and_fill_dm_req_from_msg(const char *mesg, dm_req_t 
     {
       dm_open_txn_req_t *ot_req = (dm_open_txn_req_t *)req;
 
-      ot_req->txn_id = DM_MSG_OT_TXNID(mesg);
-      ot_req->vvc_vol_id = DM_MSG_OT_VOLID(mesg);
-      ot_req->vvc_blk_id = DM_MSG_OT_BLKID(mesg);
-      memcpy(ot_req->vvc_obj_id, DM_MSG_OT_OBJID(mesg), sizeof(doid_t));
-      ot_req->vvc_update_time = DM_MSG_OT_UPDTIME(mesg);
+      ot_req->txn_id = DM_MSG_OT_TXNID(dm_msg);
+      ot_req->vvc_vol_id = DM_MSG_VOLID(fdsp_msg);
+      ot_req->vvc_blk_id = DM_MSG_OT_BLKID(dm_msg);
+      memcpy(ot_req->vvc_obj_id, DM_MSG_OT_OBJID_PTR(dm_msg), sizeof(doid_t));
+      ot_req->vvc_update_time = DM_MSG_OT_UPDTIME(dm_msg);
       break;
 
     };
@@ -154,16 +164,16 @@ static __inline__ int alloc_and_fill_dm_req_from_msg(const char *mesg, dm_req_t 
   case FDS_DMGR_CMD_COMMIT_TXN:
     {
       dm_commit_txn_req_t *ct_req = (dm_commit_txn_req_t *)req;
-      ct_req->txn_id = DM_MSG_CT_TXNID(mesg);
-      ct_req->vvc_vol_id = DM_MSG_CT_VOLID(mesg);
+      ct_req->txn_id = DM_MSG_CT_TXNID(dm_msg);
+      ct_req->vvc_vol_id = DM_MSG_VOLID(fdsp_msg);
       break;
     }
 
   case FDS_DMGR_CMD_CANCEL_TXN:
     {
       dm_cancel_txn_req_t *ca_req = (dm_cancel_txn_req_t *)req;
-      ca_req->txn_id = DM_MSG_CaT_TXNID(mesg);
-      ca_req->vvc_vol_id = DM_MSG_CaT_VOLID(mesg);
+      ca_req->txn_id = DM_MSG_CaT_TXNID(dm_msg);
+      ca_req->vvc_vol_id = DM_MSG_VOLID(fdsp_msg);
       break;
     }
 

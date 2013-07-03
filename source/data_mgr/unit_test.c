@@ -7,6 +7,7 @@
 
 #include "fds_commons.h"
 #include "data_mgr.h"
+#include "fdsp.h"
 
 char cmd_wd[128];
 int sockfd;
@@ -50,13 +51,24 @@ int main(int argc, char *argv[]) {
 #define RCV_BUF_SZ FDS_DMGR_MAX_REQ_SZ
 char rcv_msg[RCV_BUF_SZ];
 
+doid_t test_obj_id = {'o','b','j','i','d','-','x','y','z', 0};
+
 int process_opentr_cmd(char *line_ptr) {
-  char *req_msg = "Please open a transaction";
+  //char *req_msg = "Please open a transaction";
+  fdsp_msg_t fdsp_msg;
   int n;
 
-  n = sendto(sockfd, req_msg, strlen(req_msg)+1, 0, 
+  fdsp_msg.msg_id = 21;
+  fdsp_msg.msg_code =  FDSP_MSG_UPDATE_CAT_OBJ_REQ;
+  fdsp_msg.glob_volume_id = 3;
+  fdsp_msg.payload.update_catalog.volume_offset = 4096;
+  fdsp_msg.payload.update_catalog.dm_transaction_id = 76;
+  fdsp_msg.payload.update_catalog.dm_operation = FDS_DMGR_CMD_OPEN_TXN;
+  memcpy(&fdsp_msg.payload.update_catalog.data_obj_id, test_obj_id, sizeof(doid_t));
+
+  n = sendto(sockfd, &fdsp_msg, sizeof(fdsp_msg_t), 0, 
 	 (const struct sockaddr *)&servaddr, sizeof(servaddr));
-  if (n < strlen(req_msg) + 1) {
+  if (n < sizeof(fdsp_msg_t)) {
     printf("Socket send error.\n");
     return (-1);
   }
@@ -72,7 +84,33 @@ int process_opentr_cmd(char *line_ptr) {
 }
 
 int process_committr_cmd(char *line_ptr) {
+
+  fdsp_msg_t fdsp_msg;
+  int n;
+
+  fdsp_msg.msg_id = 21;
+  fdsp_msg.msg_code =  FDSP_MSG_UPDATE_CAT_OBJ_REQ;
+  fdsp_msg.glob_volume_id = 3;
+  fdsp_msg.payload.update_catalog.volume_offset = 4096;
+  fdsp_msg.payload.update_catalog.dm_transaction_id = 76;
+  fdsp_msg.payload.update_catalog.dm_operation = FDS_DMGR_CMD_COMMIT_TXN;
+  memcpy(&fdsp_msg.payload.update_catalog.data_obj_id, test_obj_id, sizeof(doid_t));
+
+  n = sendto(sockfd, &fdsp_msg, sizeof(fdsp_msg_t), 0, 
+	 (const struct sockaddr *)&servaddr, sizeof(servaddr));
+  if (n < sizeof(fdsp_msg_t)) {
+    printf("Socket send error.\n");
+    return (-1);
+  }
+  n = recvfrom(sockfd, rcv_msg, RCV_BUF_SZ, 0, NULL, NULL);
+  if (n < 0) {
+    printf("Socket rcv error.\n");
+    return (-1);
+  }
+  // Assume whole response fits in one DGRAM for now, packable in less than REQ_BUF_SZ bytes
+  printf("Received response :%s\n", rcv_msg);
   return (0);
+
 }
 
 int process_canceltr_cmd(char *line_ptr) {

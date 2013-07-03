@@ -2,7 +2,8 @@
 
 #define __FDS_DMGR_H
 
-#define FDS_DMGR_SVR_PORT 11148
+//#define FDS_DMGR_SVR_PORT 11148
+#define FDS_DMGR_SVR_PORT 9601
 
 #define FDS_DMGR_MAX_REQ_SZ 16384
 

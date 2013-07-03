@@ -20,8 +20,8 @@ unsigned long vol_trans_table_hash(const void *entry) {
 }
 
 int vol_trans_table_cmp(const void *arg1, const void *arg2) {
-  const dmgr_txn_t *txn1 = (dmgr_txn_t *)txn1;
-  const dmgr_txn_t *txn2 = (dmgr_txn_t *)txn2;
+  const dmgr_txn_t *txn1 = (dmgr_txn_t *)arg1;
+  const dmgr_txn_t *txn2 = (dmgr_txn_t *)arg2;
   if (txn1->txn_id == txn2->txn_id) {
     return (0);
   }
@@ -116,6 +116,21 @@ static __inline__ int dmgr_txn_cache_vol_create(volid_t vol_id) {
   return(0);
 }
 
+static __inline__ int dmgr_txn_cache_vol_created(volid_t vol_id) {
+
+  dmgr_vol_cache_t dummy_vol_cache;
+  dmgr_vol_cache_t *vol_cache;
+
+  dummy_vol_cache.vol_id = vol_id;
+  pthread_mutex_lock(&txn_cache_vol_table_lock);
+  vol_cache = (dmgr_vol_cache_t *)lh_retrieve(txn_cache_volume_table, &dummy_vol_cache);
+  pthread_mutex_unlock(&txn_cache_vol_table_lock);
+
+  if (vol_cache) {
+    return (1); //TRUE
+  }
+  return (0);
+}
 
 static __inline__ dmgr_txn_t  *dmgr_txn_create(volid_t vol_id, fds_uint32_t txn_id) {
 
@@ -192,7 +207,7 @@ static __inline__ int dmgr_txn_open(dmgr_txn_t *txn) {
 
     vol_cache = txn->vol_info;
     pthread_mutex_lock(&vol_cache->vol_tvc_lock);
-    if (tvc_entry_append(&vol_cache->tvc_hdl, txn->txn_id, txn->open_time, txn->blk_name, 0, txn->doid, &ref_hint) < 0) {
+    if (tvc_entry_append(vol_cache->tvc_hdl, txn->txn_id, txn->open_time, txn->blk_name, 0, txn->doid, &ref_hint) < 0) {
       pthread_mutex_unlock(&vol_cache->vol_tvc_lock);
       return (-1);
     }
@@ -230,7 +245,7 @@ static __inline__ int dmgr_txn_commit(dmgr_txn_t *txn) {
 
     // Step 3: Mark txn as commited in TVC
     pthread_mutex_lock(&vol_cache->vol_tvc_lock);
-    rc = tvc_entry_status_update(&vol_cache->tvc_hdl, txn->txn_id, txn->tvc_ref_hint, FDS_DMGR_TXN_STATUS_COMMITED);
+    rc = tvc_entry_status_update(vol_cache->tvc_hdl, txn->txn_id, txn->tvc_ref_hint, FDS_DMGR_TXN_STATUS_COMMITED);
     pthread_mutex_unlock(&vol_cache->vol_tvc_lock);
     if (rc < 0) {
       return (-1);
@@ -247,7 +262,7 @@ static __inline__ int dmgr_txn_cancel(dmgr_txn_t *txn) {
 
     // Step 2: Mark txn as commited in TVC
     pthread_mutex_lock(&vol_cache->vol_tvc_lock);
-    rc = tvc_entry_status_update(&vol_cache->tvc_hdl, txn->txn_id, txn->tvc_ref_hint, FDS_DMGR_TXN_STATUS_CANCELED);
+    rc = tvc_entry_status_update(vol_cache->tvc_hdl, txn->txn_id, txn->tvc_ref_hint, FDS_DMGR_TXN_STATUS_CANCELED);
     pthread_mutex_unlock(&vol_cache->vol_tvc_lock);
     if (rc < 0) {
       return (-1);
