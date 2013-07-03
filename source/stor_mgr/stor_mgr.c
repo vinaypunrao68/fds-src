@@ -24,17 +24,18 @@ fds_sm_err_t stor_mgr_check_duplicate(fds_object_id_t *object_id, fds_uint32_t o
 fds_sm_err_t stor_mgr_write_object(fds_object_id_t *object_id, fds_uint32_t obj_len, fds_char_t *data_object, fds_data_location_t *data_loc)
 {
    //Hash the object_id to DiskNumber, FileName
+fds_uint32_t disk_num = 0;
    
 
    // Now append the object to the end of this filename
-   //disk_mgr_write_object(object_id, obj_len, data_object);
+   disk_mgr_write_object(object_id, obj_len, data_object, data_loc, disk_num);
 }
 
 fds_sm_err_t stor_mgr_write_obj_loc(fds_object_id_t *object_id, fds_uint32_t obj_len, fds_uint32_t volid, fds_data_location_t *data_loc)
 {
 fds_uint32_t disk_num = 0;
    // Enqueue the object location entry into the thread that maintains global index file
-   //disk_mgr_write_obj_loc(object_id, obj_len, data_object, disk_num);
+   //disk_mgr_write_obj_loc(object_id, obj_len, volid, data_loc);
 }
 /*------------------------------------------------------------------------- ------------
  * FDSP Protocol message processing 

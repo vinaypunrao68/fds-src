@@ -40,11 +40,13 @@ typedef unsigned short fds_uint16_t;
 typedef short          fds_int16_t;
 typedef char           fds_char_t;
 typedef bool           fds_bool_t;
+typedef long           fds_long_t;
 typedef unsigned long long fds_uint64_t;
 
-typedef struct {
- fds_uint32_t  hash_low;
- fds_uint32_t  hash_high;  
-} fds_object_id_t;
 
+typedef struct {
+  fds_uint32_t  hash_low;
+  fds_uint32_t  hash_high;
+  fds_char_t    last[16];
+} fds_object_id_t;
 #endif

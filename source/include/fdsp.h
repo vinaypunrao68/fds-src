@@ -2,6 +2,11 @@
 #define __FDSP_H__
 #include <fds_commons.h>
 
+#define FDS_CLUSTER_TCP_PORT_SM         6900
+#define FDS_CLUSTER_TCP_PORT_DM         6901
+#define FDS_CLUSTER_UDP_PORT_SM         9600
+#define FDS_CLUSTER_UDP_PORT_DM         9601
+
 typedef enum {
    FDSP_MSG_PUT_OBJ_REQ,
    FDSP_MSG_GET_OBJ_REQ,
