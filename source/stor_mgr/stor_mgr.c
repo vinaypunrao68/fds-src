@@ -76,6 +76,7 @@ fds_sm_err_t stor_mgr_put_obj_req(fdsp_msg_t *fdsp_msg) {
     // 
     // stor_mgr_verify_msg(fdsp_msg);
 
+    printf("StorageHVisor --> StorMgr : FDSP_MSG_PUT_OBJ_REQ ObjectId %x:%x:%x:%x\n",put_obj_req->data_obj_id.hash_high, put_obj_req->data_obj_id.hash_low, (fds_int32_t )put_obj_req->data_obj_id.last, (fds_int32_t )put_obj_req->data_obj_id.last[4]);
     stor_mgr_put_obj(put_obj_req, fdsp_msg->glob_volume_id, fdsp_msg->num_objects);
 }
 
@@ -162,7 +163,7 @@ void fds_stor_mgr_main(int xport_protocol)
     pthread_t pthr;
     struct sockaddr_in serv_addr, cli_addr;
     int  n;
-    char buffer[4096+128];
+    char buffer[4096+256];
 
     if (xport_protocol == FDS_XPORT_PROTO_TCP) {
         sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -225,7 +226,7 @@ void fds_stor_mgr_main(int xport_protocol)
       bzero((char *) &serv_addr, sizeof(serv_addr));
       portno = FDS_STOR_MGR_DGRAM_PORT;
       serv_addr.sin_family = AF_INET;
-      serv_addr.sin_addr.s_addr = INADDR_ANY;
+      serv_addr.sin_addr.s_addr=htonl(0xc0a80105);  
       serv_addr.sin_port = htons(portno);
       bind(sockfd,(struct sockaddr *)&serv_addr,sizeof(serv_addr));
 
