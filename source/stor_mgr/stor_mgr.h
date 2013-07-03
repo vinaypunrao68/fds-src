@@ -8,6 +8,9 @@
 #include <netinet/in.h>
 #include <fds_commons.h>
 #include <pthread.h>
+#include <fdsp.h>
+#include <stor_mgr_err.h>
+#include <obj_loc.h>
 
 #define FDS_STOR_MGR_LISTEN_PORT 6969
 #define FDS_STOR_MGR_DGRAM_PORT 6969

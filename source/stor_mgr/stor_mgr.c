@@ -3,7 +3,7 @@
 fds_bool_t  stor_mgr_stopping = FALSE;
 #define FDS_XPORT_PROTO_TCP 1
 #define FDS_XPORT_PROTO_UDP 2
-#define FDSP_MAX_MSG_LEN (4*1024 + 128)
+#define FDSP_MAX_MSG_LEN (4*(4*1024 + 128))
 fds_stor_mgr_init() 
 {
 // Create all data structures 
@@ -12,35 +12,55 @@ fds_stor_mgr_init()
 }
 
 
-fds_stor_mgr_exit()
+void fds_stor_mgr_exit()
 {
 }
 
+fds_sm_err_t stor_mgr_check_duplicate(fds_object_id_t *object_id, fds_uint32_t obj_len, fds_char_t *data_object)
+{
+  return FDS_SM_OK;
+}
 
+fds_sm_err_t stor_mgr_write_object(fds_object_id_t *object_id, fds_uint32_t obj_len, fds_char_t *data_object, fds_data_location_t *data_loc)
+{
+   //Hash the object_id to DiskNumber, FileName
+   
+
+   // Now append the object to the end of this filename
+   //disk_mgr_write_object(object_id, obj_len, data_object);
+}
+
+fds_sm_err_t stor_mgr_write_obj_loc(fds_object_id_t *object_id, fds_uint32_t obj_len, fds_uint32_t volid, fds_data_location_t *data_loc)
+{
+fds_uint32_t disk_num = 0;
+   // Enqueue the object location entry into the thread that maintains global index file
+   //disk_mgr_write_obj_loc(object_id, obj_len, data_object, disk_num);
+}
 /*------------------------------------------------------------------------- ------------
  * FDSP Protocol message processing 
  -------------------------------------------------------------------------------------*/
-void stor_mgr_put_obj(fdsp_put_object_t *put_obj_req, fds_uint32_t volid, fds_uint32_t num_objs)
+fds_sm_err_t stor_mgr_put_obj(fdsp_put_object_t *put_obj_req, fds_uint32_t volid, fds_uint32_t num_objs)
 {
-fds_char *put_obj_buf = (fdsp_put_object_t *) put_obj_req;
+fds_char_t *put_obj_buf = (fds_char_t *) put_obj_req;
 fds_data_location_t object_location_offset;
-int result = 0;
+int obj_num=0;
+fds_sm_err_t result = FDS_SM_OK;
 
-   for(int obj_num = 0; obj_num < num_objs; obj_num++) {
+   for(obj_num = 0; obj_num < num_objs; obj_num++) {
        // Find if this object is a duplicate
-       result = stor_mgr_check_duplicate(put_obj_req->data_object_id, put_obj_req->data_obj_len, put_obj_req->data_object);
+       result = stor_mgr_check_duplicate(&put_obj_req->data_obj_id, put_obj_req->data_obj_len, (fds_char_t *)&put_obj_req->data_obj[0]);
 
-       if ( result != FDS_ERR_DUPLICATE) {
+       if ( result != FDS_SM_ERR_DUPLICATE) {
            // First write the object itself after hashing the objectId to Disknum/filename & obtain an offset entry
-           result = stor_mgr_write_object(put_obj_req->data_object_id, put_obj_req->data_obj_len,
-                             put_obj_req->data_object, &object_location_offset);
+           result = stor_mgr_write_object(&put_obj_req->data_obj_id, put_obj_req->data_obj_len,
+                             (fds_char_t *)&put_obj_req->data_obj[0], &object_location_offset);
 
            // Now write the object location entry in the global index file
-           stor_mgr_write_obj_loc(put_obj_req->data_object_id, put_obj_req->data_obj_len, put_obj_req->volid, 
+           stor_mgr_write_obj_loc(&put_obj_req->data_obj_id, put_obj_req->data_obj_len, volid, 
                                   &object_location_offset);
 
        } else {
-          stor_mgr_update_obj_loc(put_obj_req->data_object_id, put_obj_req->data_obj_len, put_obj_req->volid );
+           stor_mgr_write_obj_loc(&put_obj_req->data_obj_id, put_obj_req->data_obj_len, volid, NULL);
        }
        // Move the buffer pointer to the next object
        put_obj_buf += (sizeof(fdsp_put_object_t) + put_obj_req->data_obj_len); 
@@ -48,23 +68,36 @@ int result = 0;
    }
 }
 
-void stor_mgr_put_obj_req(fdsp_msg_t *fdsp_msg) {
-   fdsp_put_obj_t *put_obj_req = (fdsp_put_obj_req *)fdsp_msg->payload;
+fds_sm_err_t stor_mgr_put_obj_req(fdsp_msg_t *fdsp_msg) {
+   fdsp_put_object_t *put_obj_req = (fdsp_put_object_t *)&fdsp_msg->payload;
 
     // Verify the integrity of the FDSP msg using chksums
     // 
-    stor_mgr_verify_msg(fdsp_msg);
+    // stor_mgr_verify_msg(fdsp_msg);
 
     stor_mgr_put_obj(put_obj_req, fdsp_msg->glob_volume_id, fdsp_msg->num_objects);
 }
 
-void stor_mgr_get_obj(fdsp_get_object_t *get_obj_req) {
-     stor_mgr_read_object(get_obj_req->data_obj_id, get_obj_req->data_obj_len, &get_obj_req->data_obj);
+fds_sm_err_t stor_mgr_get_obj(fdsp_get_object_t *get_obj_req, fds_uint32_t volid, fds_uint32_t num_objs) {
+     // stor_mgr_read_object(get_obj_req->data_obj_id, get_obj_req->data_obj_len, &get_obj_req->data_obj);
 }
 
-int stor_mgr_proc_fdsp_msg(void *msg) 
+fds_sm_err_t stor_mgr_get_obj_req(fdsp_msg_t *fdsp_msg) {
+   fdsp_get_object_t *get_obj_req = (fdsp_get_object_t *)&fdsp_msg->payload;
+
+    // Verify the integrity of the FDSP msg using chksums
+    // 
+    // stor_mgr_verify_msg(fdsp_msg);
+
+    stor_mgr_get_obj(get_obj_req, fdsp_msg->glob_volume_id, fdsp_msg->num_objects);
+}
+
+
+fds_sm_err_t stor_mgr_proc_fdsp_msg(void *msg) 
 {
  fdsp_msg_t *fdsp_msg = (fdsp_msg_t *)msg;
+ fds_sm_err_t result;
+
  switch(fdsp_msg->msg_code) {
     case FDSP_MSG_PUT_OBJ_REQ:
         result = stor_mgr_put_obj_req(fdsp_msg);
