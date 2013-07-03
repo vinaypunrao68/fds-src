@@ -1,9 +1,17 @@
+#ifdef LIB_KERNEL
+#include <linux/string.h>
+#else 
 #include <string.h>
+#endif
 
 // #define MAX_BLK_NAME_SZ           255
 // #include "fds_commons.h"
 #include "vvc_private.h"
 #include "vvclib.h"
+
+#ifdef LIB_KERNEL
+#include "vvc_db.c"
+#endif
 
 unsigned long vvce_hash(const void *entry) {
   int i;
@@ -92,7 +100,7 @@ int vvc_entry_create(vvc_vhdl_t vhdl, const char *blk_name, int num_segments, co
     return (-EEXISTS);
   }
   lh_insert(vdb->vvc_table, vvce);
-  if (rc = vvc_db_entry_create(vdb, vvce)) {
+  if ((rc = vvc_db_entry_create(vdb, vvce)) != 0) {
     return(rc);
   }
   

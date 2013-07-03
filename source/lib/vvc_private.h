@@ -1,11 +1,13 @@
-#include <openssl/lhash.h>
 #ifndef LIB_KERNEL
 #include <my_global.h>
 #include <mysql.h>
+#include <openssl/lhash.h>
 #else
-//#include <linux/slab.h>
-#include <linux/kernel.h>
+#include <linux/init.h>
 #include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/slab.h>
+#include "lhash.h"
 #endif
 
 #include "fds_commons.h"

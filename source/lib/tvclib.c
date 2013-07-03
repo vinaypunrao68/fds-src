@@ -147,7 +147,7 @@ int tvc_entry_append(tvc_vhdl_t vhdl, uint32_t txn_id, uint64_t timestamp, const
 
   rel_time = timestamp - tdb->last_chkpt_time;
 
-  if (!(tdb->last_chkpt_time) || (rel_time >= UINT32_MAX)) {
+  if (!(tdb->last_chkpt_time) || (rel_time >= FDS_UINT32_MAX)) {
     if (tvc_crt_checkpoint(tdb, timestamp, INV_VOL_ID, write_offset)) {
       return (-1);
     }
