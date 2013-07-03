@@ -26,7 +26,8 @@
 
 struct fbd_contbl {
 
-	struct  socket *sock;
+	struct  socket *sock_sm;
+	struct  socket *sock_dm;
 	struct sockaddr_storage dest_addr;
 	struct sockaddr_storage loc_addr;
 
@@ -60,26 +61,31 @@ struct fbd_device {
 	/* sysfs  data structure support */
 	struct device	dev;
 	/* network connection details */
-	struct socket *sock;
+	struct socket *sock_sm;
+	struct socket *sock_dm;
 	long int   tcp_destAddr;
 	long int   udp_destAddr;
 	int 	   proto_type;
 	/* message header */
-	FDS_MSG		*msg;
+	fdsp_msg_t	*dm_msg;
+	fdsp_msg_t	*sm_msg;
+//	FDS_MSG		*msg;
 };
 
-#define  FBD_CMD_READ		01
-#define  FBD_CMD_WRITE		02
-#define  FBD_CMD_FLUSH		03
-#define  FBD_CMD_DISCARD	04
+#define  FBD_CMD_READ			01
+#define  FBD_CMD_WRITE			02
+#define  FBD_CMD_FLUSH			03
+#define  FBD_CMD_DISCARD		04
 
 /* proto defines  */
-#define FBD_PROTO_TCP		01	
-#define FBD_PROTO_UDP		02
-#define FBD_PROTO_MCAST		03
+#define FBD_PROTO_TCP			01	
+#define FBD_PROTO_UDP			02
+#define FBD_PROTO_MCAST			03
 
-#define FBD_DEV_MAJOR_NUM	63
-#define FBD_MINORS_PER_MAJOR    16
+#define FBD_DEV_MAJOR_NUM		63
+#define FBD_MINORS_PER_MAJOR   		16
 
-#define FBD_CLUSTER_TCP_PORT	6969
-#define FBD_CLUSTER_UDP_PORT	9696
+#define FBD_CLUSTER_TCP_PORT_SM		6900
+#define FBD_CLUSTER_TCP_PORT_DM		6901
+#define FBD_CLUSTER_UDP_PORT_SM		9600
+#define FBD_CLUSTER_UDP_PORT_DM		9601

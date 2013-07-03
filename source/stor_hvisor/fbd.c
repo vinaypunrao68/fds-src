@@ -42,6 +42,8 @@
 
 #include <asm/uaccess.h>
 #include <asm/types.h>
+#include "../include/fds_commons.h"
+#include "../include/fdsp.h"
 #include "fds.h"
 #include "fbd.h"
 #include "fbd_hash.h"
@@ -409,11 +411,12 @@ static void set_sock_callbacks(struct socket *sock, struct fbd_contbl *con)
 }
 
 /*
- open the connection with fds cluster 
+ open the connection with  SM and DM  
 */
-static struct socket *fds_cluster_conn(struct fbd_contbl *pCon)
+
+static struct socket *fds_cluster_conn_sm(struct fbd_contbl *pCon)
 {
-        struct socket *sock;
+        struct socket *sock_sm;
 	struct sockaddr_in *dAddr;
         int ret = 0;
 
@@ -425,68 +428,68 @@ static struct socket *fds_cluster_conn(struct fbd_contbl *pCon)
 
 	if ( fbd_dev->proto_type == FBD_PROTO_TCP)
 	{
-printk(" TCP - socket create  \n");
-        	ret = sock_create_kern(AF_INET, SOCK_STREAM, IPPROTO_TCP, &sock);
+printk("  SM TCP - socket create  \n");
+        	ret = sock_create_kern(AF_INET, SOCK_STREAM, IPPROTO_TCP, &sock_sm);
         	if (ret)
 		{
-			printk("Error: creating the TCP socket  \n");
+			printk("Error: creating the SM TCP socket  \n");
                 	return ERR_PTR(ret);
 		}
 
 
 		dAddr->sin_family = AF_INET;
 		dAddr->sin_addr.s_addr = htonl(fbd_dev->tcp_destAddr);
-		dAddr->sin_port = htons(FBD_CLUSTER_TCP_PORT);
+		dAddr->sin_port = htons(FBD_CLUSTER_TCP_PORT_SM);
 
 
-        	ret = sock->ops->connect(sock, (struct sockaddr *)dAddr, sizeof(*dAddr),
+        	ret = sock_sm->ops->connect(sock_sm, (struct sockaddr *)dAddr, sizeof(*dAddr),
                                  O_NONBLOCK);
 	
 		if (ret == -EINPROGRESS) 
 		{
-			printk(" connection  in progress  sk_state = %u\n", sock->sk->sk_state);
+			printk(" SM connection  in progress  sk_state = %u\n", sock_sm->sk->sk_state);
 			return NULL;
 		}
 
         	if (ret < 0)
 		{
                 	printk("Error: TCP connect  error %d\n", ret);
-			sock_release(sock);
-			pCon->sock = NULL;
-			fbd_dev->sock = NULL;
+			sock_release(sock_sm);
+			pCon->sock_sm = NULL;
+			fbd_dev->sock_sm = NULL;
 			return NULL;
 		}
-		set_sock_callbacks(sock,pCon);
+		set_sock_callbacks(sock_sm,pCon);
 	}
 	else if (fbd_dev->proto_type == FBD_PROTO_UDP)
 	{
-printk(" UDP - socket create  \n");
-       		ret = sock_create_kern(AF_INET, SOCK_DGRAM, IPPROTO_UDP, &sock);
+printk(" SM UDP - socket create  \n");
+       		ret = sock_create_kern(AF_INET, SOCK_DGRAM, IPPROTO_UDP, &sock_sm);
        		if (ret < 0)
 		{
-			printk("Error: creating the UDP socket  \n");
+			printk("Error SM : creating the UDP socket  \n");
                 	return ERR_PTR(ret);
 		}
 
-printk(" Successfully created UDP socket \n");
+printk(" Successfully created  SM UDP socket \n");
 		dAddr->sin_family = AF_INET;
 		dAddr->sin_addr.s_addr = htonl(fbd_dev->udp_destAddr);
-		dAddr->sin_port = htons(FBD_CLUSTER_UDP_PORT);
+		dAddr->sin_port = htons(FBD_CLUSTER_UDP_PORT_SM);
 
-        	ret = sock->ops->connect(sock, (struct sockaddr *)dAddr, sizeof(*dAddr),
+        	ret = sock_sm->ops->connect(sock_sm, (struct sockaddr *)dAddr, sizeof(*dAddr),
                                  O_NONBLOCK);
 	
 //		if (ret == -EINPROGRESS) 
 		if (ret < 0) 
 		{
-			printk(" connection  in progress  sk_state = %u\n", sock->sk->sk_state);
+			printk(" SM connection  in progress  sk_state = %u\n", sock_sm->sk->sk_state);
 			return NULL;
 		}
 	}
 
-printk(" Connection successfull \n");
-       	pCon->sock = sock;
-	fbd_dev->sock = sock;
+printk(" SM Connection successfull \n");
+       	pCon->sock_sm = sock_sm;
+	fbd_dev->sock_sm = sock_sm;
 
 
         if (ret < 0)
@@ -494,20 +497,112 @@ printk(" Connection successfull \n");
 		printk(" Error: creating the cluster connection : %d \n", ret);
                 return ERR_PTR(ret);
 	}
-        return sock;
+        return sock_sm;
 }
+
+
+static struct socket *fds_cluster_conn_dm(struct fbd_contbl *pCon)
+{
+        struct socket *sock_dm;
+	struct sockaddr_in *dAddr;
+        int ret = 0;
+
+	/* allocate the  common  socket  address buffer for tcp/udp */
+	dAddr  = kmalloc( sizeof ( struct sockaddr_in ), GFP_KERNEL);
+	if (dAddr == NULL)
+		printk(" Error DM: Allocating the memory for socket address structure \n");
+	memset(dAddr,0, sizeof(struct sockaddr_in));
+
+	if ( fbd_dev->proto_type == FBD_PROTO_TCP)
+	{
+printk(" DM TCP - socket create  \n");
+        	ret = sock_create_kern(AF_INET, SOCK_STREAM, IPPROTO_TCP, &sock_dm);
+        	if (ret)
+		{
+			printk("DM Error: creating the TCP socket  \n");
+                	return ERR_PTR(ret);
+		}
+
+
+		dAddr->sin_family = AF_INET;
+		dAddr->sin_addr.s_addr = htonl(fbd_dev->tcp_destAddr);
+		dAddr->sin_port = htons(FBD_CLUSTER_TCP_PORT_DM);
+
+
+        	ret = sock_dm->ops->connect(sock_dm, (struct sockaddr *)dAddr, sizeof(*dAddr),
+                                 O_NONBLOCK);
+	
+		if (ret == -EINPROGRESS) 
+		{
+			printk(" DM connection  in progress  sk_state = %u\n", sock_dm->sk->sk_state);
+			return NULL;
+		}
+
+        	if (ret < 0)
+		{
+                	printk("Error DM : TCP connect  error %d\n", ret);
+			sock_release(sock_dm);
+			pCon->sock_dm = NULL;
+			fbd_dev->sock_dm = NULL;
+			return NULL;
+		}
+		set_sock_callbacks(sock_dm,pCon);
+	}
+	else if (fbd_dev->proto_type == FBD_PROTO_UDP)
+	{
+printk(" DM UDP - socket create  \n");
+       		ret = sock_create_kern(AF_INET, SOCK_DGRAM, IPPROTO_UDP, &sock_dm);
+       		if (ret < 0)
+		{
+			printk("Error DM : creating the UDP socket  \n");
+                	return ERR_PTR(ret);
+		}
+
+printk(" Successfully created UDP  DM socket \n");
+		dAddr->sin_family = AF_INET;
+		dAddr->sin_addr.s_addr = htonl(fbd_dev->udp_destAddr);
+		dAddr->sin_port = htons(FBD_CLUSTER_UDP_PORT_DM);
+
+        	ret = sock_dm->ops->connect(sock_dm, (struct sockaddr *)dAddr, sizeof(*dAddr),
+                                 O_NONBLOCK);
+	
+//		if (ret == -EINPROGRESS) 
+		if (ret < 0) 
+		{
+			printk(" DM connection  in progress  sk_state = %u\n", sock_dm->sk->sk_state);
+			return NULL;
+		}
+	}
+
+printk(" DM Connection successfull \n");
+       	pCon->sock_dm = sock_dm;
+	fbd_dev->sock_dm = sock_dm;
+
+
+        if (ret < 0)
+	{
+		printk(" Error DM : creating the cluster connection : %d \n", ret);
+                return ERR_PTR(ret);
+	}
+        return sock_dm;
+}
+
+
+
 
 /* socket dis connect */
 static int close_cluster_con(struct fbd_contbl *con)
 {
 	int rc;
 
-	printk(" terminating the cluster connectionon %p sock %p\n", con, con->sock);
-	if (!con->sock)
-		return 0;
-	rc = con->sock->ops->shutdown(con->sock, SHUT_RDWR);
-	sock_release(con->sock);
-	con->sock = NULL;
+//	if (!con->sock)
+//		return 0;
+	rc = con->sock_sm->ops->shutdown(con->sock_sm, SHUT_RDWR);
+	rc = con->sock_dm->ops->shutdown(con->sock_dm, SHUT_RDWR);
+	sock_release(con->sock_sm);
+	sock_release(con->sock_dm);
+	con->sock_sm = NULL;
+	con->sock_dm = NULL;
 	return rc;
 }
 
@@ -614,9 +709,15 @@ printk("fbd_process_cluster_conn:  received:%x fbd:%pfbd_dev:%p proto:%d fbd_con
 	}
 
 	/* init the sockets */
-	fbd_dev->sock = fds_cluster_conn(fbd_con); 
-	if (fbd_dev->sock == NULL){
-		printk(" Error: socket is not created  yet .. \n");
+	fbd_dev->sock_sm = fds_cluster_conn_sm(fbd_con); 
+	if (fbd_dev->sock_sm == NULL){
+		printk(" Error SM: socket is not created  yet .. \n");
+		return -1;
+	}
+
+	fbd_dev->sock_dm = fds_cluster_conn_dm(fbd_con); 
+	if (fbd_dev->sock_dm == NULL){
+		printk(" Error DM: socket is not created  yet .. \n");
 		return -1;
 	}
 
@@ -659,10 +760,16 @@ printk(" inside sock_shutdown \n");
 	 * calling socket ops directly here */
 	if (lock)
 		mutex_lock(&fbd->tx_lock);
-	if (fbd->sock) {
-		dev_warn(disk_to_dev(fbd->disk), "shutting down socket\n");
-		kernel_sock_shutdown(fbd->sock, SHUT_RDWR);
-		fbd->sock = NULL;
+	if (fbd->sock_sm){
+		dev_warn(disk_to_dev(fbd->disk), "SM shutting down socket\n");
+		kernel_sock_shutdown(fbd->sock_sm, SHUT_RDWR);
+		fbd->sock_sm = NULL;
+	}
+
+	if (fbd->sock_dm){
+		dev_warn(disk_to_dev(fbd->disk), "DM shutting down socket\n");
+		kernel_sock_shutdown(fbd->sock_dm, SHUT_RDWR);
+		fbd->sock_dm = NULL;
 	}
 	if (lock)
 		mutex_unlock(&fbd->tx_lock);
@@ -678,37 +785,35 @@ static void fbd_xmit_timeout(unsigned long arg)
 }
 
 
-static int send_data(struct fbd_device *fbd, int send, void *buf, int size,
+
+static int send_data_dm(struct fbd_device *fbd, int send, void *buf, int size,
 		int msg_flags)
 {
-	struct socket *sock = fbd_con->sock;
+	struct socket *sock_dm = fbd_con->sock_dm;
 	int result;
 	struct msghdr msg;
-	struct kvec iov[2];
-//	struct kvec iov;
+	struct kvec iov;
 	sigset_t blocked, oldset;
 	unsigned long pflags = current->flags;
 	fbd->xmit_timeout = 1000;
 
-	if (!sock)
+	if (!sock_dm)
 	{
-		printk("Trying to send  the  I/O's on closed socket \n");
+		printk("Trying to send  on closed  DM socket \n");
 		return -EINVAL;
 	}
 
-	/* block the signals interrupting  the  I/O transmission */
+	/* block the signals interrupting  the  transmission */
 	siginitsetinv(&blocked, sigmask(SIGKILL));
 	sigprocmask(SIG_SETMASK, &blocked, &oldset);
 
 	current->flags |= PF_MEMALLOC;
 	do {
 		/* init the  message headr to vec[0] */
-		sock->sk->sk_allocation = GFP_NOIO | __GFP_MEMALLOC;
+		sock_dm->sk->sk_allocation = GFP_NOIO | __GFP_MEMALLOC;
 		
-		iov[0].iov_base = fbd->msg;
-		iov[0].iov_len = sizeof(FDS_MSG);
-		iov[1].iov_base = buf;
-		iov[1].iov_len = size;
+		iov.iov_base = (void *)fbd->dm_msg;
+		iov.iov_len = sizeof(fdsp_msg_t);
 		msg.msg_name = NULL;
 		msg.msg_namelen = 0;
 		msg.msg_control = NULL;
@@ -725,13 +830,11 @@ static int send_data(struct fbd_device *fbd, int send, void *buf, int size,
 				ti.expires = jiffies + fbd->xmit_timeout;
 				add_timer(&ti);
 			}
-			result = kernel_sendmsg(sock, &msg, iov, 2, size+sizeof(FDS_MSG));
-//			result = kernel_sendmsg(sock, &msg, &iov, 1, size);
+			result = kernel_sendmsg(sock_dm, &msg, &iov, 1, size);
 			if (fbd->xmit_timeout)
 				del_timer_sync(&ti);
 		} else
-			result = kernel_recvmsg(sock, &msg, iov, 2, size, msg.msg_flags);
-//			result = kernel_recvmsg(sock, &msg, &iov, 1, size, msg.msg_flags);
+			result = kernel_recvmsg(sock_dm, &msg, &iov, 1, size, msg.msg_flags);
 
 		if (signal_pending(current)) {
 			siginfo_t info;
@@ -758,24 +861,141 @@ static int send_data(struct fbd_device *fbd, int send, void *buf, int size,
 	return result;
 }
 
-#if 0
-static inline int fbd_transmit_bvec(struct fbd_device *fbd, struct bio_vec *bvec, int flag)
+static int send_data_sm(struct fbd_device *fbd, int send, void *buf, int size,
+		int msg_flags)
 {
+	struct socket *sock_sm = fbd_con->sock_sm;
 	int result;
-	void *kaddr = kmap(bvec->bv_page);
-	mutex_lock(&fbd->tx_lock);
-printk("sending len: %d  offset: %d  flag:%d\n",bvec->bv_len, bvec->bv_offset, flag);
-	result = send_data(fbd, 1, kaddr + bvec->bv_offset, bvec->bv_len,flag);
-	if ( result < 0)
+	struct msghdr msg;
+	struct kvec iov[2];
+//	struct kvec iov;
+	sigset_t blocked, oldset;
+	unsigned long pflags = current->flags;
+	fbd->xmit_timeout = 1000;
+
+	if (!sock_sm)
 	{
-		printk(" Error: Error  sending the data \n ");
+		printk("Trying to send  the  I/O's on closed SM socket \n");
+		return -EINVAL;
 	}
-	mutex_unlock(&fbd->tx_lock);
-	kunmap(bvec->bv_page);
+
+	/* block the signals interrupting  the  I/O transmission */
+	siginitsetinv(&blocked, sigmask(SIGKILL));
+	sigprocmask(SIG_SETMASK, &blocked, &oldset);
+
+	current->flags |= PF_MEMALLOC;
+	do {
+		/* init the  message headr to vec[0] */
+		sock_sm->sk->sk_allocation = GFP_NOIO | __GFP_MEMALLOC;
+		
+		iov[0].iov_base = (void *)fbd->sm_msg;
+		iov[0].iov_len = sizeof(fdsp_msg_t);
+		iov[1].iov_base = buf;
+		iov[1].iov_len = size;
+		msg.msg_name = NULL;
+		msg.msg_namelen = 0;
+		msg.msg_control = NULL;
+		msg.msg_controllen = 0;
+		msg.msg_flags = msg_flags | MSG_NOSIGNAL;
+
+		if (send) {
+			struct timer_list ti;
+
+			if (fbd->xmit_timeout) {
+				init_timer(&ti);
+				ti.function = fbd_xmit_timeout;
+				ti.data = (unsigned long)current;
+				ti.expires = jiffies + fbd->xmit_timeout;
+				add_timer(&ti);
+			}
+			result = kernel_sendmsg(sock_sm, &msg, iov, 2, size+sizeof(fdsp_msg_t));
+//			result = kernel_sendmsg(sock_sm, &msg, &iov, 1, size);
+			if (fbd->xmit_timeout)
+				del_timer_sync(&ti);
+		} else
+			result = kernel_recvmsg(sock_sm, &msg, iov, 2, size, msg.msg_flags);
+//			result = kernel_recvmsg(sock_sm, &msg, &iov, 1, size, msg.msg_flags);
+
+		if (signal_pending(current)) {
+			siginfo_t info;
+			printk(KERN_WARNING "fbd (pid %d: %s) got signal %d\n",
+				task_pid_nr(current), current->comm,
+				dequeue_signal_lock(current, &current->blocked, &info));
+			result = -EINTR;
+			sock_shutdown(fbd, !send);
+			break;
+		}
+
+		if (result <= 0) {
+			if (result == 0)
+				result = -EPIPE; /* short read */
+			break;
+		}
+		size -= result;
+		buf += result;
+	} while (size > 0);
+
+	sigprocmask(SIG_SETMASK, &oldset, NULL);
+	tsk_restore_flags(current, pflags, PF_MEMALLOC);
+
 	return result;
 }
 
-#endif
+static  int fds_init_sm_hdr(fdsp_msg_t *psm_msg)
+{
+	psm_msg->msg_code = FDSP_MSG_PUT_OBJ_REQ;
+	psm_msg->msg_id =  1;
+
+	psm_msg->major_ver = 0xa5;
+	psm_msg->minor_ver = 0x5a;
+
+	psm_msg->num_objects = 1;
+	psm_msg->frag_len = 0;
+	psm_msg->frag_num = 0;
+
+	psm_msg->tennant_id = 0;
+	psm_msg->local_domain_id = 0;
+	psm_msg->glob_volume_id = 0;
+
+	psm_msg->src_id = 1;
+	psm_msg->dst_id = 0;
+//	psm_msg->src_ip_addr[4]
+//	psm_msg->dst_ip_addr[4]
+
+//	psm_msg->result;
+//	psm_msg->err_msg;
+//	psm_msg->err_code;
+
+	return 0;
+}
+
+static  int fds_init_dm_hdr(fdsp_msg_t *pdm_msg)
+{
+	pdm_msg->msg_code = FDSP_MSG_PUT_OBJ_REQ;
+	pdm_msg->msg_id =  1;
+
+	pdm_msg->major_ver = 0xa5;
+	pdm_msg->minor_ver = 0x5a;
+
+	pdm_msg->num_objects = 1;
+	pdm_msg->frag_len = 0;
+	pdm_msg->frag_num = 0;
+
+	pdm_msg->tennant_id = 0;
+	pdm_msg->local_domain_id = 0;
+	pdm_msg->glob_volume_id = 0;
+
+	pdm_msg->src_id = 1;
+	pdm_msg->dst_id = 0;
+//	pdm_msg->src_ip_addr[4]
+//	pdm_msg->dst_ip_addr[4]
+
+//	pdm_msg->result;
+//	pdm_msg->err_msg;
+//	pdm_msg->err_code;
+
+	return 0;
+}
 
 static int fbd_process_queue_buffers(struct request *req)
 {
@@ -822,11 +1042,22 @@ static int fbd_process_queue_buffers(struct request *req)
 
 			MurmurHash3_x64_128 ( (kaddr + bv->bv_offset), bv->bv_len,0,&doid );
 			
-			memcpy((void *)&fbd->msg->doid.doid, (void *)&doid, sizeof(doid));
+			fds_init_sm_hdr(fbd->sm_msg);
+			fbd->sm_msg->payload_len = bv->bv_len;
+			memcpy((void *)&(fbd->sm_msg->payload.put_obj.data_obj_id), (void *)&doid, sizeof(doid));
+			fds_init_dm_hdr(fbd->dm_msg);
+			fbd->dm_msg->payload_len = bv->bv_len;
+			memcpy((void *)&(fbd->dm_msg->payload.put_obj.data_obj_id), (void *)&doid, sizeof(doid));
 
+printk("sending len: %d  offset: %d  flag:%d sock_buf:%p  doid:%llx\n",bv->bv_len, bv->bv_offset, flag,kaddr,(u64)doid);
 			mutex_lock(&fbd->tx_lock);
-			printk("sending len: %d  offset: %d  flag:%d sock_buf:%p  doid:%llx\n",bv->bv_len, bv->bv_offset, flag,kaddr,(u64)doid);
-			result = send_data(fbd, 1, kaddr + bv->bv_offset, bv->bv_len,flag);
+			result = send_data_sm(fbd, 1, kaddr + bv->bv_offset, bv->bv_len,flag);
+			if ( result < 0)
+			{
+				printk(" Error: Error  sending the data \n ");
+			}
+
+			result = send_data_dm(fbd, 1, fbd->dm_msg, sizeof(fdsp_msg_t),flag);
 			if ( result < 0)
 			{
 				printk(" Error: Error  sending the data \n ");
@@ -836,6 +1067,7 @@ static int fbd_process_queue_buffers(struct request *req)
 
 		}
 		sector_offset += sectors;
+printk(" sector offset : %d \n",sector_offset);
 	}
   
 	printk("\n\n");
@@ -956,9 +1188,9 @@ static void fbd_process_queue(struct request_queue *q)
 			continue;
 		}
 
-		if (fbd->sock == NULL)
+		if ((fbd->sock_dm == NULL) || (fbd->sock_sm == NULL))
 		{
-			printk (KERN_NOTICE "Error: Socket is not open yet \n");
+			printk (KERN_NOTICE "Error SM-DM: Socket is not open yet \n");
 			__blk_end_request_all(req, 0);
 			continue;
 		}
@@ -1197,16 +1429,22 @@ static int __init fbd_init(void)
 		return -ENOMEM;
 
 	/* allocate message buffer */
-	fbd_dev->msg = kzalloc(sizeof(FDS_MSG), GFP_KERNEL);
-	memset(fbd_dev->msg,0, sizeof(FDS_MSG));
-	if (!fbd_dev->msg)
+	fbd_dev->dm_msg = kzalloc(sizeof(fdsp_msg_t), GFP_KERNEL);
+	memset(fbd_dev->dm_msg,0, sizeof(fdsp_msg_t));
+	if (!fbd_dev->dm_msg)
+		return -ENOMEM;
+
+	fbd_dev->sm_msg = kzalloc(sizeof(fdsp_msg_t), GFP_KERNEL);
+	memset(fbd_dev->sm_msg,0, sizeof(fdsp_msg_t));
+	if (!fbd_dev->sm_msg)
 		return -ENOMEM;
 	
 	rc = fbd_bus_add_device(fbd_dev);
 	if (rc)
 	{
 		printk(" Error: Adding bus to the  block device failed %x \n",rc);
-		kfree(fbd_dev->msg);
+		kfree(fbd_dev->dm_msg);
+		kfree(fbd_dev->sm_msg);
 		kfree(fbd_dev);
 		kfree(fbd_con);
 		return rc;
@@ -1270,7 +1508,8 @@ static int __init fbd_init(void)
 out:
 	blk_cleanup_queue(fbd_dev->disk->queue);
 	put_disk(fbd_dev->disk);
-	kfree(fbd_dev->msg);
+	kfree(fbd_dev->dm_msg);
+	kfree(fbd_dev->sm_msg);
 	kfree(fbd_dev);
 	kfree(fbd_con);
 	return err;
@@ -1289,7 +1528,8 @@ static void __exit fbd_cleanup(void)
 	device_unregister(&fbd_dev->dev);
 	fbd_sysfs_cleanup();
 	unregister_blkdev(FBD_DEV_MAJOR_NUM, "fbd");
-	kfree(fbd_dev->msg);
+	kfree(fbd_dev->dm_msg);
+	kfree(fbd_dev->sm_msg);
 	kfree(fbd_dev);
 	kfree(fbd_con);
 	printk("fbd: Removing the  device  Major Number %d\n", FBD_DEV_MAJOR_NUM);

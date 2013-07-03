@@ -2,9 +2,11 @@
 #  
 # if KERNELRELEASE is defined, we've been invoked from the
 # kernel build system and can use its language.
-ifneq (${KERNELRELEASE},)
-    obj-m := fbd.o
+TOPDIR = ../include
+EXTRA_CFLAGS += -I$(M)../include
 
+ifneq (${KERNELRELEASE},)
+	obj-m := fbd.o
 # Otherwise we were called directly from the command line.
 #Invoke the kernel build system.
 else
@@ -13,7 +15,7 @@ else
 	KERNEL_SOURCE := /usr/src/kernels/3.9.4-200.fc18.x86_64
 	PWD := $(shell pwd)
 default:
-	${MAKE} -C ${KERNEL_SOURCE} SUBDIRS=${PWD} modules
+	${MAKE} -I$(TOPDIR) -C ${KERNEL_SOURCE} SUBDIRS=${PWD} modules
 clean:
 	${MAKE} -C ${KERNEL_SOURCE} SUBDIRS=${PWD} clean
 endif
