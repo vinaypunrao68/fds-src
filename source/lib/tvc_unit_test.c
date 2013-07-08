@@ -28,12 +28,15 @@ int main (int argc, char *argv[]) {
   if (strcmp(argv[3], "load") == 0) {
     vhdl = tvc_vol_load(atoi(argv[1]), "FDS_SP_DB", argv[2]);
   } else {
+    unsigned int ref_hint;
+
     vhdl = tvc_vol_create(atoi(argv[1]), "FDS_SP_DB", argv[2], 256);
-    tvc_entry_append(vhdl, 0x4488, "aabbcc.dd",0, test_doid[0]);
-    tvc_entry_append(vhdl, 0x200004488, "bbccdd.ee",0, test_doid[1]);
-    tvc_entry_append(vhdl, 0x200004489, "ccddee.ff",0, test_doid[2]);
-    tvc_entry_append(vhdl, 0x200005289, "ddeeff.gg",1, test_doid[3]);
-    tvc_entry_append(vhdl, 0x400004890, "eeffgg.hh",2, test_doid[4]);
+    tvc_entry_append(vhdl, 11, 0x4488, "aabbcc.dd",0, test_doid[0], &ref_hint);
+    tvc_entry_append(vhdl, 12, 0x200004488, "bbccdd.ee",0, test_doid[1], &ref_hint);
+    tvc_entry_append(vhdl, 13, 0x200004489, "ccddee.ff",0, test_doid[2], &ref_hint);
+    tvc_entry_append(vhdl, 14, 0x200005289, "ddeeff.gg",1, test_doid[3], &ref_hint);
+    tvc_entry_append(vhdl, 15, 0x400004890, "eeffgg.hh",2, test_doid[4], &ref_hint);
+
   }
 
   // exit(0);

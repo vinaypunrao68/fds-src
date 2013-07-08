@@ -1,9 +1,17 @@
+#ifdef LIB_KERNEL
+//#include <linux/string.h>
+#else 
 #include <string.h>
+#endif
 
 // #define MAX_BLK_NAME_SZ           255
-#include "fds_commons.h"
+// #include "fds_commons.h"
 #include "vvc_private.h"
 #include "vvclib.h"
+
+//#ifdef LIB_KERNEL
+//#include "vvc_db.c"
+//#endif
 
 unsigned long vvce_hash(const void *entry) {
   int i;
@@ -34,14 +42,15 @@ vvc_vhdl_t vvc_vol_create(volid_t vol_id, const char *db_name, int max_blocks) {
   memset(vdb, 0, sizeof(vvc_vdb_t));
   vdb->vol_id = vol_id;
   if (db_name != NULL) {
-    #ifdef LIB_KERNEL
+#ifdef LIB_KERNEL
     return (0);
-    #endif
+#else
     vdb->db_name = (char *)vvc_malloc(strlen(db_name) + 1);
     strcpy(vdb->db_name, db_name);
     if (vvc_db_connect(vdb)){
       return (0);
-    }    
+    }
+#endif
   }
   vdb->vvc_table = lh_new(vvce_hash, vvce_cmp);
   vdb->max_num_blks = max_blocks;
@@ -91,7 +100,7 @@ int vvc_entry_create(vvc_vhdl_t vhdl, const char *blk_name, int num_segments, co
     return (-EEXISTS);
   }
   lh_insert(vdb->vvc_table, vvce);
-  if (rc = vvc_db_entry_create(vdb, vvce)) {
+  if ((rc = vvc_db_entry_create(vdb, vvce)) != 0) {
     return(rc);
   }
   
@@ -153,7 +162,7 @@ int vvc_entry_delete(vvc_vhdl_t vhdl, const char *blk_name) {
 
   vvc_vdb_t *vdb = (vvc_vdb_t *)vhdl;
   vvce_t *tmp_vvce, *vvce;
-  int rc;
+  int rc=0;
 
   tmp_vvce = vvce_create(blk_name, 0, 0);
   vvce = lh_delete(vdb->vvc_table, tmp_vvce);
