@@ -176,8 +176,8 @@ int main( int argc, char *argv[] ) {
 
   bzero(&servaddr,sizeof(servaddr));
   servaddr.sin_family = AF_INET;
-  //servaddr.sin_addr.s_addr=htonl(INADDR_ANY);
-  servaddr.sin_addr.s_addr=htonl(0xc0a80105);
+  servaddr.sin_addr.s_addr=htonl(INADDR_ANY);
+  //servaddr.sin_addr.s_addr=htonl(0xc0a80105);
   servaddr.sin_port=htons(FDS_DMGR_SVR_PORT);
   bind(req_fd,(struct sockaddr *)&servaddr,sizeof(servaddr));
 
