@@ -1,5 +1,5 @@
 #ifdef LIB_KERNEL
-#include <linux/string.h>
+//#include <linux/string.h>
 #else 
 #include <string.h>
 #endif
@@ -162,7 +162,7 @@ int vvc_entry_delete(vvc_vhdl_t vhdl, const char *blk_name) {
 
   vvc_vdb_t *vdb = (vvc_vdb_t *)vhdl;
   vvce_t *tmp_vvce, *vvce;
-  int rc;
+  int rc=0;
 
   tmp_vvce = vvce_create(blk_name, 0, 0);
   vvce = lh_delete(vdb->vvc_table, tmp_vvce);

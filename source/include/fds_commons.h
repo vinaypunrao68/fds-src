@@ -2,14 +2,18 @@
 
 #define __FDS_COMMONS
 
-//#include <linux/types.h>
+
+#ifndef LIB_KERNEL
 #include <sys/types.h>
+#else
+#include <linux/types.h>
+#endif
 #include <stdbool.h>
 
 typedef unsigned char doid_t[20];
 #define SET_DOID_INV(doid) memset(doid, 0xff, 20)
 
-static __inline__  is_doid_inv(doid_t doid) {
+static __inline__  int is_doid_inv(doid_t doid) {
   int i;
   for (i = 0; i < sizeof(doid_t); i++) {
     if (doid[i] != 0xff) {
