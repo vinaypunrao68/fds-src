@@ -24,7 +24,7 @@ fds_sm_err_t stor_mgr_check_duplicate(fds_object_id_t *object_id, fds_uint32_t o
 fds_sm_err_t stor_mgr_write_object(fds_object_id_t *object_id, fds_uint32_t obj_len, fds_char_t *data_object, fds_data_location_t *data_loc)
 {
    //Hash the object_id to DiskNumber, FileName
-fds_uint32_t disk_num = 0;
+fds_uint32_t disk_num = 1;
    
 
    // Now append the object to the end of this filename
@@ -33,7 +33,7 @@ fds_uint32_t disk_num = 0;
 
 fds_sm_err_t stor_mgr_write_obj_loc(fds_object_id_t *object_id, fds_uint32_t obj_len, fds_uint32_t volid, fds_data_location_t *data_loc)
 {
-fds_uint32_t disk_num = 0;
+fds_uint32_t disk_num = 1;
    // Enqueue the object location entry into the thread that maintains global index file
    //disk_mgr_write_obj_loc(object_id, obj_len, volid, data_loc);
 }
@@ -75,6 +75,8 @@ fds_sm_err_t stor_mgr_put_obj_req(fdsp_msg_t *fdsp_msg) {
     // Verify the integrity of the FDSP msg using chksums
     // 
     // stor_mgr_verify_msg(fdsp_msg);
+    put_obj_req->data_obj_id.hash_high = ntohs(put_obj_req->data_obj_id.hash_high);
+    put_obj_req->data_obj_id.hash_low = ntohs(put_obj_req->data_obj_id.hash_low);
 
     printf("StorageHVisor --> StorMgr : FDSP_MSG_PUT_OBJ_REQ ObjectId %x:%x:%x:%x\n",put_obj_req->data_obj_id.hash_high, put_obj_req->data_obj_id.hash_low, (fds_int32_t )put_obj_req->data_obj_id.last, (fds_int32_t )put_obj_req->data_obj_id.last[4]);
     stor_mgr_put_obj(put_obj_req, fdsp_msg->glob_volume_id, fdsp_msg->num_objects);
@@ -226,7 +228,7 @@ void fds_stor_mgr_main(int xport_protocol)
       bzero((char *) &serv_addr, sizeof(serv_addr));
       portno = FDS_STOR_MGR_DGRAM_PORT;
       serv_addr.sin_family = AF_INET;
-      serv_addr.sin_addr.s_addr=htonl(0xc0a80105);  
+      serv_addr.sin_addr.s_addr= INADDR_ANY;  
       serv_addr.sin_port = htons(portno);
       bind(sockfd,(struct sockaddr *)&serv_addr,sizeof(serv_addr));
 
@@ -246,6 +248,7 @@ void fds_stor_mgr_main(int xport_protocol)
     
 int main(int argc, void **argv)
 {
+  fds_stor_mgr_init();
   fds_stor_mgr_main(FDS_XPORT_PROTO_UDP);
 }
 
