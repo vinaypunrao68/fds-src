@@ -1,7 +1,7 @@
 #ifndef LIB_KERNEL
 #include "string.h"
-#include "vvc_private.h"
 #endif
+#include "vvc_private.h"
 
 #define VVC_MAX_QUERY_STR_SZ   1024
 

@@ -9,9 +9,9 @@
 #include "vvc_private.h"
 #include "vvclib.h"
 
-#ifdef LIB_KERNEL
-#include "vvc_db.c"
-#endif
+//#ifdef LIB_KERNEL
+//#include "vvc_db.c"
+//#endif
 
 unsigned long vvce_hash(const void *entry) {
   int i;

@@ -2,7 +2,7 @@ TOPDIR := $(PWD)/../..
 IDIR := -I$(TOPDIR)/include -I$(TOPDIR)/sys/include -I/usr/include
 EXTRA_CFLAGS := -DLIB_KERNEL $(IDIR)
 
-SRC := vvclib.c
+SRC := vvclib.c vvc_db.c
 
 libfdsk-objs = $(SRC:.c=.o)
 
