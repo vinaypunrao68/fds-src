@@ -1,20 +1,108 @@
-typedef void * _LHASH;
+#define _LHASH _FDS_HASH
+#define FDSH_MAX_BUCKETS 8192
+#define lh_new(hfn, cfn) fdsh_new(FDSH_MAX_BUCKETS, hfn, cfn)
+#define lh_insert fdsh_insert
+#define lh_retrieve fdsh_retrieve
+#define lh_delete fdsh_delete
+
+typedef void *_FDS_HASH;
 
 typedef unsigned long (*hash_fn_t)(const void *entry);
 typedef int (*cmp_fn_t)(const void *entry1, const void *entry2);
 
-static _LHASH *lh_new(hash_fn_t hfn, cmp_fn_t cfn) {
+typedef struct __fds_ht_elem {
+  void *entry;
+  struct __fds_ht_elem *next;
+} fdsh_elem;
+
+typedef struct __fds_ht_bucket {
+  fdsh_elem *head;
+} fdsh_bucket;
+ 
+typedef struct __fds_ht_table {
+  unsigned int n_bkts;
+  hash_fn_t hfn;
+  cmp_fn_t cfn;
+  fdsh_bucket *h_bkts; // array
+} fdsh_table;
+
+
+static _FDS_HASH *fdsh_new(unsigned int max_bkts, hash_fn_t hfn, cmp_fn_t cfn) {
+
+  fdsh_table *tbl = (fdsh_table *)kmalloc(sizeof(fdsh_table), GFP_KERNEL);
+  tbl->n_bkts = max_bkts;
+  tbl->hfn = hfn;
+  tbl->cfn = cfn;
+  tbl->h_bkts = (fdsh_bucket *)kmalloc(sizeof(fdsh_bucket) * max_bkts, GFP_KERNEL);
+  memset(tbl->h_bkts, 0, sizeof(fdsh_bucket) * max_bkts);
+  return ((_FDS_HASH)tbl);
+}
+
+// If an elem already exists with the same key, replace the existing elem with the new one
+// and return the old entry
+static void *fdsh_insert(_FDS_HASH htable, void *entry) {
+
+  unsigned int bkt;
+  fdsh_elem *next, *new_elem;
+  fdsh_table *tbl = (fdsh_table *)htable;
+  void *r_entry = NULL;
+
+  bkt = tbl->hfn(entry) % tbl->n_bkts;
+  next = tbl->h_bkts[bkt].head;
+  while (next != NULL) {
+    if (tbl->cfn(next->entry, entry) == 0) {
+      r_entry = next->entry;
+      next->entry = entry;
+      return (r_entry);
+    }
+    next = next->next;
+  }
+  new_elem = (fdsh_elem *)kmalloc(sizeof(fdsh_elem), GFP_KERNEL);
+  new_elem->entry = entry;
+  new_elem->next = tbl->h_bkts[bkt].head;
+  tbl->h_bkts[bkt].head = new_elem;
+
   return (NULL);
 }
 
-static void *lh_insert(_LHASH htable, void *entry) {
+static void *fdsh_retrieve(_LHASH htable, void *entry) {
+
+  unsigned int bkt;
+  fdsh_elem *next;
+  fdsh_table *tbl = (fdsh_table *)htable;
+  void *r_entry = NULL;
+
+  bkt = tbl->hfn(entry) % tbl->n_bkts;
+  next = tbl->h_bkts[bkt].head;
+  while (next != NULL) {
+    if (tbl->cfn(next->entry, entry) == 0) {
+      r_entry = next->entry;
+      return (r_entry);
+    }
+    next = next->next;
+  }
   return (NULL);
 }
 
-static void *lh_retrieve(_LHASH htable, void *entry) {
-  return (NULL);
-}
+static void *fdsh_delete(_LHASH htable, void *entry) {
 
-static void *lh_delete(_LHASH htable, void *entry) {
+  unsigned int bkt;
+  fdsh_elem *next, **p_next;
+  fdsh_table *tbl = (fdsh_table *)htable;
+  void *r_entry = NULL;
+
+  bkt = tbl->hfn(entry) % tbl->n_bkts;
+  next = tbl->h_bkts[bkt].head;
+  p_next = &(tbl->h_bkts[bkt].head);
+  while (next != NULL) {
+    if (tbl->cfn(next->entry, entry) == 0) {
+      *p_next = next->next;
+      r_entry = next->entry;
+      kfree(next);
+      return (r_entry);
+    }
+    next = next->next;
+  }
+
   return (NULL);
 }
