@@ -78,7 +78,7 @@ fds_sm_err_t stor_mgr_put_obj_req(fdsp_msg_t *fdsp_msg) {
     put_obj_req->data_obj_id.hash_high = ntohs(put_obj_req->data_obj_id.hash_high);
     put_obj_req->data_obj_id.hash_low = ntohs(put_obj_req->data_obj_id.hash_low);
 
-    printf("StorageHVisor --> StorMgr : FDSP_MSG_PUT_OBJ_REQ ObjectId %x:%x:%x:%x\n",put_obj_req->data_obj_id.hash_high, put_obj_req->data_obj_id.hash_low, (fds_int32_t )put_obj_req->data_obj_id.last, (fds_int32_t )put_obj_req->data_obj_id.last[4]);
+    printf("StorageHVisor --> StorMgr : FDSP_MSG_PUT_OBJ_REQ ObjectId %lx:%lx\n",put_obj_req->data_obj_id.hash_high, put_obj_req->data_obj_id.hash_low);
     stor_mgr_put_obj(put_obj_req, fdsp_msg->glob_volume_id, fdsp_msg->num_objects);
 }
 

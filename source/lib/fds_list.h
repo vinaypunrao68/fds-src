@@ -1,17 +1,17 @@
 /*
- *  * Generic Doubly Linked List Library
- *   */
+ *  * Doubly Linked List Library
+ *
+ */
 
+#include <pthread.h>
 #include <fds_commons.h>
-
+#define FDS_LIST_CHECK_MEMBERSHIP 0
 typedef enum {
-    FDS_LIST_ELEM_ON_LIST     = FDS_MAGIC(0x1eaf), /* fds_list_elem_t value when an element is on a list */
-    FDS_LIST_ELEM_OFF_LIST    = FDS_MAGIC(0x9032), /* delem_t value when an element is off lists */
-    FDS_LIST_INITIALIZED      = FDS_MAGIC(0x0627), /* fds_list_t value when it has been initialized */
+    FDS_LIST_ELEM_ON_LIST     = 0x1eaf, /* fds_list_elem_t value when an element is on a list */
+    FDS_LIST_ELEM_OFF_LIST    = 0x9032, /* delem_t value when an element is off lists */
+    FDS_LIST_INITIALIZED      = 0x0627, /* fds_list_t value when it has been initialized */
 } fds_magic_t;
 
-#define FDS_DBG_BADELEM   ((fds_list_elem_t *)0xdeadbeef)
-#define FDS_DBG_BADLIST   ((fds_list_t *)0xfeedface)
 
 
 
@@ -27,21 +27,25 @@ typedef struct {
 #endif
 } fds_list_elem_t;
 
+#define FDS_LIST_BADELEM   ((fds_list_elem_t *)0xdeadbeef)
+#define FDS_LIST_BADLIST   ((fds_list_t *)0xfeedface)
+
 
 /**
  *  * Generic List Head structure
  *   */
-typedef struct _fds_list {
+typedef struct _fds_list_t {
     fds_list_elem_t   *head;        /* Pointer to the first element in the list */
     fds_list_elem_t   *tail;        /* Pointer to the last element in the list */
     fds_uint32_t count;    /* Number of members in the list */
-    fds_uint32_t __lock;   /* mutex to lock the list */
+    pthread_rwlock_t plock;   /* mutex to lock the list */
+    fds_char_t   check;
 
 #ifdef FDS_DEBUG
     fds_magic_t magic;     /* Set to DL_INITIALIZED when initialized */
     fds_bool_t check;      /* If TRUE, check consistency of the list */
 #endif
-};
+} fds_list_t;
 
 
 static inline void fds_init_elem(fds_list_elem_t *elem)
@@ -49,24 +53,24 @@ static inline void fds_init_elem(fds_list_elem_t *elem)
     elem->next = elem->prev = FDS_LIST_BADELEM;
 
 #ifdef FDS_DEBUG
-    elem->list = FDS_DBG_BADLIST;
+    elem->list = FDS_LIST_BADLIST;
     elem->magic = FDS_OFF_LIST;
 #endif
 }
 
-
+#ifdef FDS_DEBUG
 static void fds_list_consistency_check(const fds_list_t *list)
 {
     if (list->check) {
         fds_list_elem_t *e;
-        fds_list_elem_t *p = NULL;
-        dd_uint32_t n = 0;
+        fds_list_elem_t *p = (fds_list_elem_t *)0;
+        fds_uint32_t n = 0;
 
         for (e = list->head; e != NULL; e = e->next) {
             if (FDS_LIST_CHECK_MEMBERSHIP) {
                 assert(e->list == list);
             }
-            assert(e->magic == FDS_ELEM_ON_LIST);
+            assert(e->magic == FDS_LIST_ELEM_ON_LIST);
             assert(e->prev == p);
             assert(e->next != FDS_LIST_BADELEM);
 
@@ -76,6 +80,7 @@ static void fds_list_consistency_check(const fds_list_t *list)
         assert(n == list->count);
     }
 }
+#endif
 
 
 static inline fds_bool_t fds_list_is_empty(const fds_list_t *list)

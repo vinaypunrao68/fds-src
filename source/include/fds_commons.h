@@ -45,8 +45,8 @@ typedef unsigned long long fds_uint64_t;
 
 
 typedef struct {
-  fds_uint32_t  hash_low;
-  fds_uint32_t  hash_high;
-  fds_char_t    last[16];
+  fds_long_t   hash_high;
+  fds_long_t   hash_low;
+  fds_char_t  conflict_id;
 } fds_object_id_t;
 #endif
