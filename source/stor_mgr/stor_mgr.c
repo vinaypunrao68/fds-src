@@ -75,10 +75,10 @@ fds_sm_err_t stor_mgr_put_obj_req(fdsp_msg_t *fdsp_msg) {
     // Verify the integrity of the FDSP msg using chksums
     // 
     // stor_mgr_verify_msg(fdsp_msg);
-    put_obj_req->data_obj_id.hash_high = ntohs(put_obj_req->data_obj_id.hash_high);
-    put_obj_req->data_obj_id.hash_low = ntohs(put_obj_req->data_obj_id.hash_low);
+//    put_obj_req->data_obj_id.hash_high = ntohs(put_obj_req->data_obj_id.hash_high);
+//    put_obj_req->data_obj_id.hash_low = ntohs(put_obj_req->data_obj_id.hash_low);
 
-    printf("StorageHVisor --> StorMgr : FDSP_MSG_PUT_OBJ_REQ ObjectId %lx:%lx\n",put_obj_req->data_obj_id.hash_high, put_obj_req->data_obj_id.hash_low);
+    printf("StorageHVisor --> StorMgr : FDSP_MSG_PUT_OBJ_REQ ObjectId %llx:%llx\n",put_obj_req->data_obj_id.hash_high, put_obj_req->data_obj_id.hash_low);
     stor_mgr_put_obj(put_obj_req, fdsp_msg->glob_volume_id, fdsp_msg->num_objects);
 }
 

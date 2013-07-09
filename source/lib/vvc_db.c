@@ -124,6 +124,7 @@ int vvc_db_entry_create(vvc_vdb_t *vdb, vvce_t *vvce) {
 
   int i;
   char *tmp_query_string;
+  int n_chars = 0;
 
   if (!vdb->db_name) {
     return (0);
@@ -133,13 +134,16 @@ int vvc_db_entry_create(vvc_vdb_t *vdb, vvce_t *vvce) {
   
   for (i = 0; i < vvce->num_segments; i++) {
 
-    sprintf(tmp_query_string, "INSERT INTO VVC (VolID, BlockName, BlockNameHash, SegmentID, DOID) VALUES (%d, \'%s\', \'%s\', %d, \'%s\');",
-	    vdb->vol_id, vvce->blk_name, "NoHashYet", i, vvce->doid_list[i] 
+    n_chars = sprintf(tmp_query_string, "INSERT INTO VVC (VolID, BlockName, BlockNameHash, SegmentID, DOID) VALUES (%d, \'%s\', \'%s\', %d, \'",
+	    vdb->vol_id, vvce->blk_name, "NoHashYet", i 
 	    );
+    memcpy(&tmp_query_string[n_chars], vvce->doid_list[i], sizeof(doid_t));
+    n_chars += sizeof(fds_object_id_t);
+    n_chars += sprintf(&tmp_query_string[n_chars], "\');"); 
 #ifdef VVC_DBG
     vvc_print("Query string: %s\n", tmp_query_string);
 #endif
-    if (mysql_query(vdb->db_con, tmp_query_string)) {
+    if (mysql_real_query(vdb->db_con, tmp_query_string, n_chars)) {
       fprintf(stderr, "%s\n", mysql_error(vdb->db_con));
       vvc_mfree(tmp_query_string);
       return(-1);
@@ -155,6 +159,7 @@ int vvc_db_entry_update(vvc_vdb_t *vdb, vvce_t *prev_vvce, vvce_t *new_vvce) {
   int i;
   int max_segments;
   char *tmp_query_string;
+  int n_chars=0;
 
   if (!vdb->db_name) {
     return (0);

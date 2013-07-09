@@ -109,6 +109,7 @@ int dmgr_req_struct_size[] = {
 #define DM_MSG_CaT_TXNID DM_MSG_CT_TXNID
 
 doid_t test_obj_id = {'o','b','j','i','d','-','x','y','z'};
+#define DM_MSG_OT_OBJID(fdsp_msg) fdsp_msg->payload.update_catalog.data_obj_id
 #define DM_MSG_OT_OBJID_PTR(fdsp_msg) &(fdsp_msg->payload.update_catalog.data_obj_id)
 
 static __inline__ int alloc_and_fill_dm_req_from_msg(const char *mesg, 
@@ -130,7 +131,7 @@ static __inline__ int alloc_and_fill_dm_req_from_msg(const char *mesg,
 
   cmd = DM_MSG_CMD_CODE(fdsp_msg);
   volid = DM_MSG_VOLID(fdsp_msg);
-  dmgr_log(LOG_INFO, "Constructing request with command code %d for volume id %d", cmd, volid);
+  dmgr_log(LOG_INFO, "Constructing request with command code %d for volume id %d\n", cmd, volid);
 
   alloc_sz = dmgr_req_struct_size[cmd];
   req = (dm_req_t *)malloc(alloc_sz);
@@ -156,11 +157,16 @@ static __inline__ int alloc_and_fill_dm_req_from_msg(const char *mesg,
   case FDS_DMGR_CMD_OPEN_TXN:
     {
       dm_open_txn_req_t *ot_req = (dm_open_txn_req_t *)req;
+      int i;
+      fds_object_id_t *p_obj_id;
 
       ot_req->txn_id = DM_MSG_OT_TXNID(fdsp_msg);
       ot_req->vvc_vol_id = DM_MSG_VOLID(fdsp_msg);
       ot_req->vvc_blk_id = DM_MSG_OT_BLKID(fdsp_msg);
-      memcpy(ot_req->vvc_obj_id, DM_MSG_OT_OBJID_PTR(fdsp_msg), sizeof(fds_object_id_t));
+      p_obj_id = &(DM_MSG_OT_OBJID(fdsp_msg));
+      memcpy(ot_req->vvc_obj_id, p_obj_id, sizeof(fds_object_id_t));
+      dmgr_log(LOG_INFO, "Open transaction request with blk %d, obj_id - %llx%llx\n", 
+	       DM_MSG_VOLID(fdsp_msg), p_obj_id->hash_high, p_obj_id->hash_low);
       ot_req->vvc_update_time = DM_MSG_OT_UPDTIME(dm_msg);
       break;
 

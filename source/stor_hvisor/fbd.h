@@ -26,8 +26,7 @@
 
 struct fbd_contbl {
 
-	struct  socket *sock_sm;
-	struct  socket *sock_dm;
+	struct  socket *sock;
 	struct sockaddr_storage dest_addr;
 	struct sockaddr_storage loc_addr;
 
@@ -61,15 +60,13 @@ struct fbd_device {
 	/* sysfs  data structure support */
 	struct device	dev;
 	/* network connection details */
-	struct socket *sock_sm;
-	struct socket *sock_dm;
+	struct socket *sock;
 	long int   tcp_destAddr;
 	long int   udp_destAddr;
 	int 	   proto_type;
 	/* message header */
-	fdsp_msg_t	*dm_msg;
-	fdsp_msg_t	*sm_msg;
-//	FDS_MSG		*msg;
+	fdsp_msg_t	dm_msg;
+	fdsp_msg_t	sm_msg;
 };
 
 #define  FBD_CMD_READ			01

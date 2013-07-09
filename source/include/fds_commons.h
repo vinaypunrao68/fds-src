@@ -34,17 +34,18 @@ typedef char           fds_char_t;
 typedef bool           fds_bool_t;
 typedef long           fds_long_t;
 typedef unsigned long long fds_uint64_t;
+typedef long long fds_int64_t;
 
 #define FDS_UINT16_MAX (unsigned short) 0xffff
 #define FDS_UINT32_MAX (unsigned int) 0xffffffff
 
 typedef struct {
-  fds_uint64_t   hash_high;
-  fds_uint64_t   hash_low;
-  fds_char_t  conflict_id;
+  fds_int64_t   hash_high;
+  fds_int64_t   hash_low;
+  fds_char_t    conflict_id;
 } fds_object_id_t;
 
-typedef unsigned char doid_t[17];
+typedef unsigned char doid_t[20];
 #define SET_DOID_INV(doid) memset(doid, 0xff, sizeof(doid_t))
 
 static __inline__  int is_doid_inv(doid_t doid) {

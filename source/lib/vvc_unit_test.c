@@ -157,7 +157,9 @@ void process_show_cmd(char *line_ptr) {
   } else {
     printf("%s %d", blk_name, n_segments);
     for (i = 0; i < n_segments; i++) {
-      printf(" %s", doid_list[i]);
+      fds_object_id_t *p_obj_id;
+      p_obj_id = (fds_object_id_t *)&doid_list[i][0];
+      printf(" %llx-%llx", p_obj_id->hash_high, p_obj_id->hash_low);
     }
     printf("\n");
   }
