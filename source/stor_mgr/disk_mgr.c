@@ -20,7 +20,9 @@ fds_char_t shard_file_name[64];
    memset(shard_file_name, 0x0, 64);
    sprintf(shard_file_name, "%s/shard_file.%d", disk_info[i].xfs_mount_point_name, disk_info[i].shard_file_num);
    disk_info[i].shard_file_desc = fopen(shard_file_name, "w+");
-   //fseek(disk_info[i].shard_file_desc, 0L, SEEK_END);
+   if (disk_info[i].shard_file_desc != NULL) {
+       fseek(disk_info[i].shard_file_desc, 0L, SEEK_END);
+   }
   }
 }
 
