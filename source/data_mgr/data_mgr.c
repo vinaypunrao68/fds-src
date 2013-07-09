@@ -88,7 +88,6 @@ dm_req_t *get_next_request(int req_fd) {
   }
   // Assume one req in one DGRAM for now, packable in less than REQ_BUF_SZ bytes
   dmgr_log(LOG_DEBUG, "Received %d bytes from client\n", n);
-  dmgr_log(LOG_NOTICE, "Received from Client: %s\n", req_msg);
 
  
   // Some basic sanity check here
@@ -96,10 +95,11 @@ dm_req_t *get_next_request(int req_fd) {
     dmgr_log(LOG_WARNING, "Corrupt or ill formed message from client\n");
     return (0);
   }
-  if (alloc_and_fill_dm_req_from_msg(req_msg, dm_req, &cliaddr, len, &dm_req) < 0) {
+  if (alloc_and_fill_dm_req_from_msg(req_msg, &cliaddr, len, &dm_req) < 0) {
     dmgr_log(LOG_WARNING, "Ill formed message from client\n");
     return (0);
   }
+  dmgr_log(LOG_NOTICE, "Received from Client command: %d\n", dm_req->cmd);
   dm_req->rsp_info.sockfd = req_fd;
   return (dm_req);
 
@@ -213,7 +213,7 @@ void *worker_thread_main(void *wt_arg) {
     dm_req_t *next_req;
 
     next_req = queue_dequeue(wt_info->req_queue); //blocking
-    dmgr_log(LOG_DEBUG, "Worker thread %d dequeueing work item\n", wt_info->id);
+    dmgr_log(LOG_DEBUG, "Worker thread %d dequeueing work item with cmd %d\n", wt_info->id, next_req->cmd);
     process_request(wt_info, next_req);
     dmgr_log(LOG_DEBUG, "Worker thread %d completed work item\n", wt_info->id);
 
@@ -232,21 +232,27 @@ void process_request(dm_wthread_t *wt_info, dm_req_t *req) {
   switch(req->cmd) {
 
   case FDS_DMGR_CMD_NOOP:
+    dmgr_log(LOG_INFO, "No Op command received\n");
     handle_noop_req(wt_info, req);
     break;
 
   case FDS_DMGR_CMD_LOAD_VOLUME:
+    dmgr_log(LOG_INFO, "Load Vol command received\n");
     handle_load_volume_req(wt_info, req);
+    break;
 
   case FDS_DMGR_CMD_OPEN_TXN:
+    dmgr_log(LOG_INFO, "Open transaction command received\n");
     handle_open_txn_req(wt_info, req);
     break;
 
   case FDS_DMGR_CMD_COMMIT_TXN:
+    dmgr_log(LOG_INFO, "Commit transaction command received\n");
     handle_commit_txn_req(wt_info, req);
     break;
 
   case FDS_DMGR_CMD_CANCEL_TXN:
+    dmgr_log(LOG_INFO, "Cancel transaction command received\n");
     handle_cancel_txn_req(wt_info, req);
     break;
 
@@ -316,9 +322,11 @@ void handle_open_txn_req(dm_wthread_t *wt_info, dm_req_t *req) {
   txn = dmgr_txn_create(ot_req->vvc_vol_id, ot_req->txn_id);
   dmgr_fill_txn_info(txn, ot_req);
   if (dmgr_txn_open(txn) < 0) {
+    dmgr_log(LOG_WARNING, "Error opening transaction\n");
     resp_msg = err_resp_msg1;
   } else {
     if (dmgr_txn_commit(txn) < 0) {
+      dmgr_log(LOG_WARNING, "Error committing transaction\n");
       resp_msg = err_resp_msg2;
     } else {
       resp_msg = succ_resp_msg;
@@ -354,6 +362,7 @@ void handle_commit_txn_req(dm_wthread_t *wt_info, dm_req_t *req) {
 
   txn = dmgr_txn_get(ct_req->vvc_vol_id, ct_req->txn_id);
   if ((!txn) || (dmgr_txn_commit(txn) < 0)) {
+    dmgr_log(LOG_WARNING, "Error committing transaction\n");
     resp_msg = err_resp_msg;
   } else {
     resp_msg = succ_resp_msg;

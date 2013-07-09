@@ -10,20 +10,6 @@
 #endif
 #include <stdbool.h>
 
-typedef unsigned char doid_t[20];
-#define SET_DOID_INV(doid) memset(doid, 0xff, 20)
-
-static __inline__  int is_doid_inv(doid_t doid) {
-  int i;
-  for (i = 0; i < sizeof(doid_t); i++) {
-    if (doid[i] != 0xff) {
-      return (0);
-    }
-  }
-  return (1);
-}
-
-
 typedef unsigned int volid_t;
 #define INV_VOL_ID (unsigned int)(-1)
 
@@ -53,10 +39,23 @@ typedef unsigned long long fds_uint64_t;
 #define FDS_UINT32_MAX (unsigned int) 0xffffffff
 
 typedef struct {
-  fds_long_t   hash_high;
-  fds_long_t   hash_low;
+  fds_uint64_t   hash_high;
+  fds_uint64_t   hash_low;
   fds_char_t  conflict_id;
 } fds_object_id_t;
+
+typedef unsigned char doid_t[17];
+#define SET_DOID_INV(doid) memset(doid, 0xff, sizeof(doid_t))
+
+static __inline__  int is_doid_inv(doid_t doid) {
+  int i;
+  for (i = 0; i < sizeof(doid_t); i++) {
+    if (doid[i] != 0xff) {
+      return (0);
+    }
+  }
+  return (1);
+}
 
 enum {
 
