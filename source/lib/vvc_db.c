@@ -125,6 +125,7 @@ int vvc_db_entry_create(vvc_vdb_t *vdb, vvce_t *vvce) {
   int i;
   char *tmp_query_string;
   int n_chars = 0;
+  doid_hex_string tmp_doid_str;
 
   if (!vdb->db_name) {
     return (0);
@@ -134,12 +135,14 @@ int vvc_db_entry_create(vvc_vdb_t *vdb, vvce_t *vvce) {
   
   for (i = 0; i < vvce->num_segments; i++) {
 
-    n_chars = sprintf(tmp_query_string, "INSERT INTO VVC (VolID, BlockName, BlockNameHash, SegmentID, DOID) VALUES (%d, \'%s\', \'%s\', %d, \'",
-	    vdb->vol_id, vvce->blk_name, "NoHashYet", i 
-	    );
+    n_chars = sprintf(tmp_query_string, "INSERT INTO VVC (VolID, BlockName, BlockNameHash, SegmentID, DOID) VALUES (%d, \'%s\', \'%s\', %d, x\'%s\');",
+		      vdb->vol_id, vvce->blk_name, "NoHashYet", i, doid_to_hex(vvce->doid_list[i], &tmp_doid_str[0]) 
+		      );
+    /*
     memcpy(&tmp_query_string[n_chars], vvce->doid_list[i], sizeof(doid_t));
     n_chars += sizeof(fds_object_id_t);
-    n_chars += sprintf(&tmp_query_string[n_chars], "\');"); 
+    n_chars += sprintf(&tmp_query_string[n_chars], "\');");
+    */
 #ifdef VVC_DBG
     vvc_print("Query string: %s\n", tmp_query_string);
 #endif
@@ -160,6 +163,7 @@ int vvc_db_entry_update(vvc_vdb_t *vdb, vvce_t *prev_vvce, vvce_t *new_vvce) {
   int max_segments;
   char *tmp_query_string;
   int n_chars=0;
+  doid_hex_string tmp_doid_str;
 
   if (!vdb->db_name) {
     return (0);
@@ -174,14 +178,14 @@ int vvc_db_entry_update(vvc_vdb_t *vdb, vvce_t *prev_vvce, vvce_t *new_vvce) {
     if (i < new_vvce->num_segments) {
 
       if (i >= prev_vvce->num_segments) {
-	sprintf(tmp_query_string, "INSERT INTO VVC (VolID, BlockName, BlockNameHash, SegmentID, DOID) VALUES (%d, \'%s\', \'%s\', %d, \'%s\');",
-		vdb->vol_id, new_vvce->blk_name, "NoHashYet", i, new_vvce->doid_list[i]);
+	sprintf(tmp_query_string, "INSERT INTO VVC (VolID, BlockName, BlockNameHash, SegmentID, DOID) VALUES (%d, \'%s\', \'%s\', %d, x\'%s\');",
+		vdb->vol_id, new_vvce->blk_name, "NoHashYet", i, doid_to_hex(new_vvce->doid_list[i], &tmp_doid_str[0]));
       } else {
 	if (strncmp((const char *)&prev_vvce->doid_list[i], (const char *)&new_vvce->doid_list[i], sizeof(doid_t)) == 0) {
 	  continue;
 	}
-	sprintf(tmp_query_string, "UPDATE VVC SET DOID = \'%s\' WHERE VolID = %d AND BlockName = \'%s\' AND SegmentID = %d;",
-		new_vvce->doid_list[i], vdb->vol_id, new_vvce->blk_name, i);
+	sprintf(tmp_query_string, "UPDATE VVC SET DOID = x\'%s\' WHERE VolID = %d AND BlockName = \'%s\' AND SegmentID = %d;",
+		doid_to_hex(new_vvce->doid_list[i], &tmp_doid_str[0]), vdb->vol_id, new_vvce->blk_name, i);
       }
 
     } else if (i < prev_vvce->num_segments) {

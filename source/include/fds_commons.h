@@ -5,6 +5,7 @@
 
 #ifndef LIB_KERNEL
 #include <sys/types.h>
+#include "string.h"
 #else
 #include <linux/types.h>
 #endif
@@ -15,15 +16,6 @@ typedef unsigned int volid_t;
 
 #define FALSE 0
 #define TRUE 1
-
-#if 0
-typedef short int16_t;
-typedef unsigned short uint16_t;
-typedef int int32_t;
-typedef unsigned int uint32_t;
-typedef long long int64_t;
-typedef unsigned long long uint64_t;
-#endif
 
 // FDS definitions of variable types
 typedef unsigned int  fds_uint32_t;
@@ -57,6 +49,19 @@ static __inline__  int is_doid_inv(doid_t doid) {
   }
   return (1);
 }
+
+typedef unsigned char doid_hex_string[41];
+
+static __inline__ unsigned char *doid_to_hex(doid_t obj_id, unsigned char *buf) {
+
+  int i;
+  
+  for (i = 0; i < sizeof(doid_t); i++) {
+    sprintf(&(buf[2*i]), "%02x", obj_id[i]);
+  } 
+  return (buf);
+  
+}  
 
 enum {
 
