@@ -416,7 +416,7 @@ static int send_data_dm(struct fbd_device *fbd, int send, void *buf, int size,
 	struct kvec iov;
 	sigset_t blocked, oldset;
 	unsigned long pflags = current->flags;
-	fbd->xmit_timeout = 10000;
+	fbd->xmit_timeout = 1000;
 
 
 
@@ -665,7 +665,11 @@ static int fbd_process_queue_buffers(struct request *req)
 //	sector_t start_sect = blk_rq_pos(req);
    	int dir = rq_data_dir(req);
 	int sectors;
+//	u64	doid;
+	struct  DOID {
 	u64	doid;
+	u64	doid1;
+	}doid;
                                         
 	int ret = 0;
 	fbd = req->rq_disk->private_data;
@@ -707,18 +711,18 @@ static int fbd_process_queue_buffers(struct request *req)
 			fbd->dm_msg.payload.update_catalog.volume_offset = bv->bv_offset;
 			memcpy((void *)&(fbd->dm_msg.payload.update_catalog.data_obj_id), (void *)&doid, sizeof(doid));
 
-printk("sending len: %d  offset: %d  flag:%d sock_buf:%p  doid:%llx",bv->bv_len, bv->bv_offset, flag,kaddr,(u64)doid);
+printk("sending len: %d  offset: %d  flag:%d sock_buf:%p  doid:%llx:%llx",bv->bv_len, bv->bv_offset, flag,kaddr,doid.doid, doid.doid1);
 			mutex_lock(&fbd->tx_lock);
 			result = send_data_sm(fbd, 1, kaddr + bv->bv_offset, bv->bv_len,flag);
 			if ( result < 0)
 			{
-				printk(" Error %d: Error  sending the data \n ",result);
+				printk("  SM:Error %d: Error  sending the data \n ",result);
 			}
 
 			result = send_data_dm(fbd, 1, &fbd->dm_msg, sizeof(fdsp_msg_t),flag);
 			if ( result < 0)
 			{
-				printk(" Error %d: Error  sending the data \n ",result);
+				printk(" DM:Error %d: Error  sending the data \n ",result);
 			}
 
 			mutex_unlock(&fbd->tx_lock);
