@@ -64,6 +64,7 @@ int process_opentr_cmd(char *line_ptr) {
   fdsp_msg.payload.update_catalog.volume_offset = 4096;
   fdsp_msg.payload.update_catalog.dm_transaction_id = 76;
   fdsp_msg.payload.update_catalog.dm_operation = FDS_DMGR_CMD_OPEN_TXN;
+  printf("Sending Dm msg with msg code %d and cmd code %d\n", fdsp_msg.msg_id, fdsp_msg.payload.update_catalog.dm_operation);
   memcpy(&fdsp_msg.payload.update_catalog.data_obj_id, test_obj_id, sizeof(doid_t));
 
   n = sendto(sockfd, &fdsp_msg, sizeof(fdsp_msg_t), 0, 
@@ -71,6 +72,8 @@ int process_opentr_cmd(char *line_ptr) {
   if (n < sizeof(fdsp_msg_t)) {
     printf("Socket send error.\n");
     return (-1);
+  } else {
+    printf("Sent %d bytes\n", n);
   }
   n = recvfrom(sockfd, rcv_msg, RCV_BUF_SZ, 0, NULL, NULL);
   if (n < 0) {
