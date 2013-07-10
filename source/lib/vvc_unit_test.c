@@ -84,8 +84,12 @@ void process_add_cmd(char *line_ptr) {
   doid_list = (doid_t **)malloc(n_segments * sizeof(doid_t *) + n_segments * sizeof (doid_t));
 
   for (i = 0; i < n_segments; i++) {
+    fds_object_id_t *p_obj_id;
+
     doid_list[i] = (doid_t *) ((char *)doid_list + n_segments * sizeof(doid_t *) + i * sizeof(doid_t));
-    sscanf(next_pos, "%s%n", doid_list[i], &bytes_read);
+    memset(&doid_list[i][0], 0, sizeof(doid_t));
+    p_obj_id  = (fds_object_id_t *)&(doid_list[i][0]);
+    sscanf(next_pos, "%llx-%llx%n", &(p_obj_id->hash_high), &(p_obj_id->hash_low), &bytes_read);
     next_pos += bytes_read;
   }
 
@@ -113,8 +117,12 @@ void process_update_cmd(char *line_ptr) {
   doid_list = (doid_t **)malloc(n_segments * sizeof(doid_t *) + n_segments * sizeof (doid_t));
 
   for (i = 0; i < n_segments; i++) {
+    fds_object_id_t *p_obj_id;
+
     doid_list[i] = (doid_t *) ((char *)doid_list + n_segments * sizeof(doid_t *) + i * sizeof(doid_t));
-    sscanf(next_pos, "%s%n", doid_list[i], &bytes_read);
+    memset(&doid_list[i][0], 0, sizeof(doid_t));
+    p_obj_id  = (fds_object_id_t *)&(doid_list[i][0]);
+    sscanf(next_pos, "%llx-%llx%n", &p_obj_id->hash_high, &p_obj_id->hash_low, &bytes_read);
     next_pos += bytes_read;
   }
 
