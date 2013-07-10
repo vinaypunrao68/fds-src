@@ -30,10 +30,19 @@ typedef struct __fds_ht_table {
 static _FDS_HASH *fdsh_new(unsigned int max_bkts, hash_fn_t hfn, cmp_fn_t cfn) {
 
   fdsh_table *tbl = (fdsh_table *)kmalloc(sizeof(fdsh_table), GFP_KERNEL);
+  if (tbl == NULL) {
+    printk("Unable to allocate memory for hash table structure\n");
+    return ((_FDS_HASH)0);
+  }
+
   tbl->n_bkts = max_bkts;
   tbl->hfn = hfn;
   tbl->cfn = cfn;
-  tbl->h_bkts = (fdsh_bucket *)kmalloc(sizeof(fdsh_bucket) * max_bkts, GFP_KERNEL);
+  tbl->h_bkts = (fdsh_bucket *)vmalloc(sizeof(fdsh_bucket) * max_bkts);
+  if (tbl->h_bkts == NULL) {
+    printk("Unable to allocate memory for hash table buckets - requested (%x) bytes\n", (sizeof (fdsh_bucket) * max_bkts));
+    return ((_FDS_HASH)0);
+  }
   memset(tbl->h_bkts, 0, sizeof(fdsh_bucket) * max_bkts);
   return ((_FDS_HASH)tbl);
 }

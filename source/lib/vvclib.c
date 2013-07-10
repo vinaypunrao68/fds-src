@@ -39,6 +39,12 @@ int vvce_cmp(const void *arg1, const void *arg2) {
 vvc_vhdl_t vvc_vol_create(volid_t vol_id, const char *db_name, int max_blocks) {
 
   vvc_vdb_t *vdb = (vvc_vdb_t *)vvc_malloc(sizeof(vvc_vdb_t));
+
+  if (vdb == NULL) {
+    vvc_print("Mem allocation failed for vdb\n");
+    return (0);
+  }
+
   memset(vdb, 0, sizeof(vvc_vdb_t));
   vdb->vol_id = vol_id;
   if (db_name != NULL) {
@@ -53,6 +59,10 @@ vvc_vhdl_t vvc_vol_create(volid_t vol_id, const char *db_name, int max_blocks) {
 #endif
   }
   vdb->vvc_table = lh_new(vvce_hash, vvce_cmp);
+  if (!(vdb->vvc_table)) {
+    vvc_print("Could not create hash table\n");
+    return (0);
+  }
   vdb->max_num_blks = max_blocks;
   return (vvc_vhdl_t)vdb;
 
@@ -63,6 +73,12 @@ vvc_vhdl_t vvc_vol_create(volid_t vol_id, const char *db_name, int max_blocks) {
 vvc_vhdl_t vvc_vol_load(volid_t vol_id, const char *db_name) {
 
   vvc_vdb_t *vdb = (vvc_vdb_t *)vvc_malloc(sizeof(vvc_vdb_t));
+
+  if (vdb == NULL) {
+    vvc_print("Mem allocation failed for vdb\n");
+    return (0);
+  }
+
   memset(vdb, 0, sizeof(vvc_vdb_t));
   vdb->vol_id = vol_id;
   if (db_name == NULL) {
