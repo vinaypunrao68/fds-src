@@ -8,7 +8,7 @@ typedef struct __dmgr_transaction{
   struct __dmgr_vol_cache *vol_info;
   char *blk_name;
   int segment_id;
-  doid_t doid;
+  fds_doid_t doid;
   int txn_status;
   unsigned int tvc_ref_hint;
 
@@ -193,7 +193,7 @@ static __inline__ int dmgr_fill_txn_info(dmgr_txn_t *txn, dm_open_txn_req_t *ot_
   txn->blk_name = (char *)malloc(32);
   sprintf(txn->blk_name, "%llu", ot_req->vvc_blk_id);
   txn->segment_id = 0;
-  memcpy(txn->doid, ot_req->vvc_obj_id, sizeof(doid_t));
+  memcpy(&txn->doid, &ot_req->vvc_obj_id, sizeof(fds_doid_t));
   txn->open_time = ot_req->vvc_update_time;
   return (0);
 }
@@ -207,7 +207,7 @@ static __inline__ int dmgr_txn_open(dmgr_txn_t *txn) {
 
     vol_cache = txn->vol_info;
     pthread_mutex_lock(&vol_cache->vol_tvc_lock);
-    if (tvc_entry_append(vol_cache->tvc_hdl, txn->txn_id, txn->open_time, txn->blk_name, 0, txn->doid, &ref_hint) < 0) {
+    if (tvc_entry_append(vol_cache->tvc_hdl, txn->txn_id, txn->open_time, txn->blk_name, 0, (const unsigned char *)&(txn->doid.bytes[0]), &ref_hint) < 0) {
       pthread_mutex_unlock(&vol_cache->vol_tvc_lock);
       return (-1);
     }
@@ -229,7 +229,7 @@ static __inline__ int dmgr_txn_commit(dmgr_txn_t *txn) {
     // Step 1: Update VVC
     pthread_mutex_lock(&vol_cache->vol_vvc_lock);
     vvc_entry_get(vol_cache->vvc_hdl, txn->blk_name, &n_segments, &doid_list);
-    p_doid = &txn->doid; 
+    p_doid = (doid_t *)&(txn->doid.bytes[0]); 
     if (n_segments <= 0) {
       rc = vvc_entry_create(vol_cache->vvc_hdl, txn->blk_name, 1, (const doid_t **)&p_doid);
     } else {

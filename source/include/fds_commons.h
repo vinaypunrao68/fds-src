@@ -38,12 +38,20 @@ typedef struct {
 } fds_object_id_t;
 
 typedef unsigned char doid_t[20];
-#define SET_DOID_INV(doid) memset(doid, 0xff, sizeof(doid_t))
 
-static __inline__  int is_doid_inv(doid_t doid) {
+typedef union {
+
+  fds_object_id_t obj_id; // object id fields
+  unsigned char bytes[20]; // byte array
+
+} fds_doid_t;
+
+#define SET_DOID_INV(p_doid) memset(p_doid, 0xff, sizeof(fds_doid_t))
+
+static __inline__  int is_doid_inv(fds_doid_t *p_doid) {
   int i;
-  for (i = 0; i < sizeof(doid_t); i++) {
-    if (doid[i] != 0xff) {
+  for (i = 0; i < sizeof(fds_doid_t); i++) {
+    if (p_doid->bytes[i] != 0xff) {
       return (0);
     }
   }
@@ -52,12 +60,12 @@ static __inline__  int is_doid_inv(doid_t doid) {
 
 typedef unsigned char doid_hex_string[41];
 
-static __inline__ unsigned char *doid_to_hex(doid_t obj_id, unsigned char *buf) {
+static __inline__ unsigned char *doid_to_hex(doid_t doid, unsigned char *buf) {
 
   int i;
   
   for (i = 0; i < sizeof(doid_t); i++) {
-    sprintf(&(buf[2*i]), "%02x", obj_id[i]);
+    sprintf(&(buf[2*i]), "%02x", doid[i]);
   } 
   return (buf);
   

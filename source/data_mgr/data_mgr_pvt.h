@@ -60,18 +60,18 @@ typedef struct __dm_load_vol_req {
 
 typedef struct __dm_open_txn_req {
 
-  dm_req_t     req_hdr;
+  dm_req_t         req_hdr;
   fds_uint32_t     txn_id;
   fds_uint16_t     vvc_vol_id;
   fds_uint64_t     vvc_blk_id;
-  doid_t       vvc_obj_id;
+  fds_doid_t       vvc_obj_id;
   fds_uint64_t     vvc_update_time;
   
 } dm_open_txn_req_t;
 
 typedef struct __dm_commit_txn_req {
 
-  dm_req_t     req_hdr;
+  dm_req_t         req_hdr;
   fds_uint32_t     txn_id;
   fds_uint16_t     vvc_vol_id;
   
@@ -164,7 +164,7 @@ static __inline__ int alloc_and_fill_dm_req_from_msg(const char *mesg,
       ot_req->vvc_vol_id = DM_MSG_VOLID(fdsp_msg);
       ot_req->vvc_blk_id = DM_MSG_OT_BLKID(fdsp_msg);
       p_obj_id = &(DM_MSG_OT_OBJID(fdsp_msg));
-      memcpy(ot_req->vvc_obj_id, p_obj_id, sizeof(fds_object_id_t));
+      memcpy(&(ot_req->vvc_obj_id.obj_id), p_obj_id, sizeof(fds_object_id_t));
       dmgr_log(LOG_INFO, "Open transaction request with blk %d, obj_id - %llx%llx\n", 
 	       DM_MSG_VOLID(fdsp_msg), p_obj_id->hash_high, p_obj_id->hash_low);
       ot_req->vvc_update_time = DM_MSG_OT_UPDTIME(dm_msg);

@@ -13,7 +13,7 @@ char cmd_wd[128];
 int sockfd;
 struct sockaddr_in servaddr;
 
-
+fds_doid_t test_obj_id;
 
 int main(int argc, char *argv[]) {
 
@@ -26,6 +26,10 @@ int main(int argc, char *argv[]) {
   servaddr.sin_family = AF_INET;
   servaddr.sin_addr.s_addr=inet_addr(argv[1]);
   servaddr.sin_port=htons(FDS_DMGR_SVR_PORT);
+
+  memset((char *)&test_obj_id, 0, sizeof(fds_doid_t)); 
+  test_obj_id.obj_id.hash_high = 0xabcd1234;
+  test_obj_id.obj_id.hash_low = 0xefef5678;
 
   while(1) {
     printf(">");
@@ -51,9 +55,8 @@ int main(int argc, char *argv[]) {
 #define RCV_BUF_SZ FDS_DMGR_MAX_REQ_SZ
 char rcv_msg[RCV_BUF_SZ];
 
-doid_t test_obj_id = {'o','b','j','i','d','-','x','y','z', 0};
-
 int process_opentr_cmd(char *line_ptr) {
+
   //char *req_msg = "Please open a transaction";
   fdsp_msg_t fdsp_msg;
   int n;
@@ -65,7 +68,7 @@ int process_opentr_cmd(char *line_ptr) {
   fdsp_msg.payload.update_catalog.dm_transaction_id = 76;
   fdsp_msg.payload.update_catalog.dm_operation = FDS_DMGR_CMD_OPEN_TXN;
   printf("Sending Dm msg with msg code %d and cmd code %d\n", fdsp_msg.msg_id, fdsp_msg.payload.update_catalog.dm_operation);
-  memcpy(&fdsp_msg.payload.update_catalog.data_obj_id, test_obj_id, sizeof(doid_t));
+  memcpy(&fdsp_msg.payload.update_catalog.data_obj_id, &test_obj_id.obj_id, sizeof(fds_object_id_t));
 
   n = sendto(sockfd, &fdsp_msg, sizeof(fdsp_msg_t), 0, 
 	 (const struct sockaddr *)&servaddr, sizeof(servaddr));
@@ -97,7 +100,7 @@ int process_committr_cmd(char *line_ptr) {
   fdsp_msg.payload.update_catalog.volume_offset = 4096;
   fdsp_msg.payload.update_catalog.dm_transaction_id = 76;
   fdsp_msg.payload.update_catalog.dm_operation = FDS_DMGR_CMD_COMMIT_TXN;
-  memcpy(&fdsp_msg.payload.update_catalog.data_obj_id, test_obj_id, sizeof(doid_t));
+  memcpy(&fdsp_msg.payload.update_catalog.data_obj_id, &test_obj_id.obj_id, sizeof(fds_object_id_t));
 
   n = sendto(sockfd, &fdsp_msg, sizeof(fdsp_msg_t), 0, 
 	 (const struct sockaddr *)&servaddr, sizeof(servaddr));
