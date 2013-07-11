@@ -18,3 +18,4 @@
 #define  FBD_READ_DATA			106
 #define  FBD_ADD_DEV			107
 #define  FBD_DEL_DEV			108
+#define  FBD_READ_VVC_CATALOG		109
