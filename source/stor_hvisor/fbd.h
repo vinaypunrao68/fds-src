@@ -2,6 +2,7 @@
  This  include the shared  defines for fbd driver conffigurations 
 */
 
+
 /* flags  */
 #define FBD_READ_ONLY    (1 << 0)
 #define FBD_SEND_FLUSH   (1 << 1)
@@ -20,6 +21,8 @@
 #define  FBD_ADD_DEV			107
 #define  FBD_DEL_DEV			108
 #define  FBD_READ_VVC_CATALOG		109
+#define  FBD_READ_DMT_TBL		110
+#define  FBD_READ_DLT_TBL		111
 
 
 
