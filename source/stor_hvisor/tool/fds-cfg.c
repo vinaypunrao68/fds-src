@@ -1,3 +1,19 @@
+/* Copyright (c) 2013 - 2014 All Right Reserved
+ *   Company= Formation  Data Systems. 
+ * 
+ *  This source is subject to the Formation Data systems Permissive License.
+ *  All other rights reserved.
+ * 
+ * THIS CODE AND INFORMATION ARE PROVIDED "AS IS" WITHOUT WARRANTY OF ANY 
+ * KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A
+ * PARTICULAR PURPOSE.
+ *  
+ * 
+ * This file contains the  data  structures and code  corresponds to 
+ *        -  driver configuration tool and  device interfaces
+ */
+
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/types.h>

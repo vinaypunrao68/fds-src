@@ -16,6 +16,8 @@
 *	- glue data structures for  dm/sm look up launch and  processing 
 */
 
+#ifndef _FDS_h
+#define _FDS_h
 
 #define  FDS_MAX_DM_NODES_PER_CLST 	16
 #define  FDS_MAX_SM_NODES_PER_CLST	16
@@ -88,3 +90,4 @@ int show_dlt_entry(volid_t  vol_id);
 
 /* hypervisor  cache catalog */
 
+#endif
