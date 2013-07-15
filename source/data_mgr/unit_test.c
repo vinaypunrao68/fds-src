@@ -59,6 +59,7 @@ int process_opentr_cmd(char *line_ptr) {
 
   //char *req_msg = "Please open a transaction";
   fdsp_msg_t fdsp_msg;
+  fdsp_msg_t *resp_msg;
   int n;
 
   fdsp_msg.msg_id = 21;
@@ -83,8 +84,10 @@ int process_opentr_cmd(char *line_ptr) {
     printf("Socket rcv error.\n");
     return (-1);
   }
+  resp_msg =(fdsp_msg_t *)rcv_msg;
   // Assume whole response fits in one DGRAM for now, packable in less than REQ_BUF_SZ bytes
-  printf("Received response :%s\n", rcv_msg);
+  printf("Received response :%d, %d, %s\n", resp_msg->result, resp_msg->err_code,
+	 (resp_msg->result == FDSP_ERR_OK)? "NULL":resp_msg->err_msg.err_msg);
   return (0);
 
 }
@@ -92,6 +95,7 @@ int process_opentr_cmd(char *line_ptr) {
 int process_committr_cmd(char *line_ptr) {
 
   fdsp_msg_t fdsp_msg;
+  fdsp_msg_t *resp_msg;
   int n;
 
   fdsp_msg.msg_id = 21;
@@ -113,8 +117,11 @@ int process_committr_cmd(char *line_ptr) {
     printf("Socket rcv error.\n");
     return (-1);
   }
+  resp_msg =(fdsp_msg_t *)rcv_msg;
   // Assume whole response fits in one DGRAM for now, packable in less than REQ_BUF_SZ bytes
-  printf("Received response :%s\n", rcv_msg);
+  printf("Received response :%d, %d, %s\n", resp_msg->result, resp_msg->err_code,
+	 (resp_msg->result == FDSP_ERR_OK)? "NULL":resp_msg->err_msg.err_msg);
+
   return (0);
 
 }

@@ -275,20 +275,30 @@ void handle_noop_req(dm_wthread_t *wt_info, dm_req_t *req) {
 
 void handle_load_volume_req(dm_wthread_t *wt_info, dm_req_t *req) {
   
-  char *succ_resp_msg = "Thank you. Volume loaded.";
-  char *err_resp_msg = "Oops, load volume failed.";
-  char *resp_msg;
+  fdsp_msg_t resp_msg;
+  char *err_msg = 0;
   int to_send, n;
+  int result = FDSP_ERR_OK;
+  int err_code = 0;
   dm_load_vol_req_t *lv_req = (dm_load_vol_req_t *)req;
   
   if (dmgr_txn_cache_vol_create(lv_req->vvc_vol_id) < 0) {
-    resp_msg = err_resp_msg;
+    result = FDSP_ERR_FAILED;
+    err_msg = "Could not create volume\n"; 
   } else {
-    resp_msg = succ_resp_msg;
+    result = FDSP_ERR_OK;
   }
 
-  to_send = strlen(resp_msg) + 1;
-  n = sendto(req->rsp_info.sockfd, resp_msg, to_send, 0,
+  memset(&resp_msg, 0, sizeof(fdsp_msg_t));
+
+  resp_msg.msg_code = FDSP_MSG_UPDATE_CAT_OBJ_RSP;
+  resp_msg.result = result;
+  if (err_msg) {
+    strncpy(resp_msg.err_msg.err_msg, err_msg, sizeof (fdsp_error_msg_t));
+  }
+
+  to_send = sizeof(resp_msg);
+  n = sendto(req->rsp_info.sockfd, &resp_msg, to_send, 0,
 	     req->rsp_info.rsp_to_addr, req->rsp_info.addr_len);
 
   if (n < 0) {
@@ -299,8 +309,8 @@ void handle_load_volume_req(dm_wthread_t *wt_info, dm_req_t *req) {
     dmgr_log(LOG_ERROR, "DMgr socket error. Only %d bytes of %d sent. \n", n, to_send);
     return;
   }
-  dmgr_log(LOG_DEBUG, "Worker thread %d responded to request: %s\n",
-           wt_info->id, resp_msg);
+  dmgr_log(LOG_DEBUG, "Worker thread %d responded to request.\n",
+           wt_info->id);
   return;
 
 
@@ -314,7 +324,10 @@ void handle_open_txn_req(dm_wthread_t *wt_info, dm_req_t *req) {
   int to_send, n;
   dm_open_txn_req_t *ot_req = (dm_open_txn_req_t *)req;
   dmgr_txn_t *txn;
-  char *resp_msg;
+  char *err_msg = 0;
+  fdsp_msg_t resp_msg;
+  int result = FDSP_ERR_OK;
+  int err_code = 0;
 
   if (!(dmgr_txn_cache_vol_created(ot_req->vvc_vol_id))) {
     dmgr_txn_cache_vol_create(ot_req->vvc_vol_id);
@@ -323,18 +336,29 @@ void handle_open_txn_req(dm_wthread_t *wt_info, dm_req_t *req) {
   dmgr_fill_txn_info(txn, ot_req);
   if (dmgr_txn_open(txn) < 0) {
     dmgr_log(LOG_WARNING, "Error opening transaction\n");
-    resp_msg = err_resp_msg1;
+    result = FDSP_ERR_FAILED;
+    err_msg = err_resp_msg1;
   } else {
     if (dmgr_txn_commit(txn) < 0) {
       dmgr_log(LOG_WARNING, "Error committing transaction\n");
-      resp_msg = err_resp_msg2;
+      result = FDSP_ERR_FAILED;
+      err_msg = err_resp_msg2;
     } else {
-      resp_msg = succ_resp_msg;
+      result = FDSP_ERR_OK;
     }
   }
 
-  to_send = strlen(resp_msg) + 1;
-  n = sendto(req->rsp_info.sockfd, resp_msg, to_send, 0,
+  memset(&resp_msg, 0, sizeof(fdsp_msg_t));
+
+  resp_msg.msg_code = FDSP_MSG_UPDATE_CAT_OBJ_RSP;
+  resp_msg.result = result;
+  if (err_msg) {
+    strncpy(resp_msg.err_msg.err_msg, err_msg, sizeof (fdsp_error_msg_t));
+  }
+
+  to_send = sizeof(resp_msg);
+
+  n = sendto(req->rsp_info.sockfd, &resp_msg, to_send, 0,
 	 req->rsp_info.rsp_to_addr, req->rsp_info.addr_len);
 
   if (n < 0) {
@@ -345,8 +369,8 @@ void handle_open_txn_req(dm_wthread_t *wt_info, dm_req_t *req) {
     dmgr_log(LOG_ERROR, "DMgr socket error. Only %d bytes of %d sent. \n", n, to_send);
     return;
   }
-  dmgr_log(LOG_DEBUG, "Worker thread %d responded to request: %s\n",
-	   wt_info->id, resp_msg);
+  dmgr_log(LOG_DEBUG, "Worker thread %d responded to request\n",
+	   wt_info->id);
   return;
 
 }
@@ -358,21 +382,34 @@ void handle_commit_txn_req(dm_wthread_t *wt_info, dm_req_t *req) {
   int to_send, n;
   dm_commit_txn_req_t *ct_req = (dm_commit_txn_req_t *)req;
   dmgr_txn_t *txn;
-  char *resp_msg;
+  char *err_msg = 0;
+  fdsp_msg_t resp_msg;
+  int result = FDSP_ERR_OK;
+  int err_code = 0;
 
   txn = dmgr_txn_get(ct_req->vvc_vol_id, ct_req->txn_id);
   if ((!txn) || (dmgr_txn_commit(txn) < 0)) {
     dmgr_log(LOG_WARNING, "Error committing transaction\n");
-    resp_msg = err_resp_msg;
+    result = FDSP_ERR_FAILED;
+    err_msg = err_resp_msg;
   } else {
-    resp_msg = succ_resp_msg;
+    result = FDSP_ERR_OK;
   }
   // if this is a vvc modify req, we will need to send association table update to SM
   // until then, don't destroy the txn object but keep it around in commited state.
   dmgr_txn_destroy(txn);
 
-  to_send = strlen(resp_msg) + 1;
-  n = sendto(req->rsp_info.sockfd, resp_msg, to_send, 0,
+  memset(&resp_msg, 0, sizeof(fdsp_msg_t));
+
+  resp_msg.msg_code = FDSP_MSG_UPDATE_CAT_OBJ_RSP;
+  resp_msg.result = result;
+  if (err_msg) {
+    strncpy(resp_msg.err_msg.err_msg, err_msg, sizeof (fdsp_error_msg_t));
+  }
+
+  to_send = sizeof(resp_msg);
+
+  n = sendto(req->rsp_info.sockfd, &resp_msg, to_send, 0,
 	 req->rsp_info.rsp_to_addr, req->rsp_info.addr_len);
 
   if (n < 0) {
@@ -383,8 +420,8 @@ void handle_commit_txn_req(dm_wthread_t *wt_info, dm_req_t *req) {
     dmgr_log(LOG_ERROR, "DMgr socket error. Only %d bytes of %d sent. \n", n, to_send);
     return;
   }
-  dmgr_log(LOG_DEBUG, "Worker thread %d responded to request: %s\n",
-	   wt_info->id, resp_msg);
+  dmgr_log(LOG_DEBUG, "Worker thread %d responded to request.\n",
+	   wt_info->id);
   return;
 
 }
@@ -396,18 +433,31 @@ void handle_cancel_txn_req(dm_wthread_t *wt_info, dm_req_t *req) {
   int to_send, n;
   dm_cancel_txn_req_t *ct_req = (dm_cancel_txn_req_t *)req;
   dmgr_txn_t *txn;
-  char *resp_msg;
+  char *err_msg = 0;
+  fdsp_msg_t resp_msg;
+  int result = FDSP_ERR_OK;
+  int err_code = 0;
 
   txn = dmgr_txn_get(ct_req->vvc_vol_id, ct_req->txn_id);
   if ((!txn) || (dmgr_txn_cancel(txn) < 0)) {
-    resp_msg = err_resp_msg;
+    result = FDSP_ERR_FAILED;
+    err_msg = err_resp_msg;
   } else {
-    resp_msg = succ_resp_msg;
+    result = FDSP_ERR_OK;
   }
   dmgr_txn_destroy(txn);
 
-  to_send = strlen(resp_msg) + 1;
-  n = sendto(req->rsp_info.sockfd, resp_msg, to_send, 0,
+  memset(&resp_msg, 0, sizeof(fdsp_msg_t));
+
+  resp_msg.msg_code = FDSP_MSG_UPDATE_CAT_OBJ_RSP;
+  resp_msg.result = result;
+  if (err_msg) {
+    strncpy(resp_msg.err_msg.err_msg, err_msg, sizeof (fdsp_error_msg_t));
+  }
+
+  to_send = sizeof(resp_msg);
+
+  n = sendto(req->rsp_info.sockfd, &resp_msg, to_send, 0,
 	 req->rsp_info.rsp_to_addr, req->rsp_info.addr_len);
 
   if (n < 0) {
@@ -418,8 +468,8 @@ void handle_cancel_txn_req(dm_wthread_t *wt_info, dm_req_t *req) {
     dmgr_log(LOG_ERROR, "DMgr socket error. Only %d bytes of %d sent. \n", n, to_send);
     return;
   }
-  dmgr_log(LOG_DEBUG, "Worker thread %d responded to request: %s\n",
-	   wt_info->id, resp_msg);
+  dmgr_log(LOG_DEBUG, "Worker thread %d responded to request.\n",
+	   wt_info->id);
   return;
 
 }
