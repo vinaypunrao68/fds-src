@@ -42,9 +42,10 @@
 
 #include <asm/uaccess.h>
 #include <asm/types.h>
+#include "vvclib.h"
+#include "fds.h"
 #include "../include/fds_commons.h"
 #include "../include/fdsp.h"
-#include "fds.h"
 #include "fbd.h"
 #include "fbd_hash.h"
 
@@ -287,6 +288,47 @@ static struct device_type fbd_device_type = {
 	.groups		= fbd_attr_groups,
 	.release	= fbd_sysfs_dev_release,
 };
+
+
+static int fbd_read_dmt_tbl(struct block_device *bdev, struct fbd_device *fbd, int data)
+{
+	show_dmt_entry(data);
+  return 0;
+}
+
+static int fbd_read_dlt_tbl(struct block_device *bdev, struct fbd_device *fbd, int data)
+{
+	show_dlt_entry(data);
+
+  return 0;
+}
+
+static int fbd_read_vvc_catalog(struct block_device *bdev, struct fbd_device *fbd, int data)
+{
+	int n_segments = 0;
+	doid_t *doid_list = 0;
+	int i, rc;
+
+	rc = vvc_entry_get(fbd->vhdl, fbd->blk_name, &n_segments, &doid_list);
+
+	if (rc)
+	{
+		printk("Error on retrieving vvc entry. Error code : %d\n", rc);
+	}
+	else
+	{
+		printk("block name : %s \n",fbd->blk_name);
+		printk("Num segments: %d \n", n_segments);
+		for (i = 0; i < n_segments; i++) {
+			fds_object_id_t *p_obj_id;
+			p_obj_id = (fds_object_id_t *)&doid_list[i][0];
+			printk("doid: %llx-%llx", p_obj_id->hash_high, p_obj_id->hash_low);
+		}
+		printk("\n");
+	}
+	return 0;
+}
+
 
 
 static int fbd_set_tgt_blksize(struct block_device *bdev, struct fbd_device *fbd, int data)
@@ -652,7 +694,7 @@ static  int fds_init_dm_hdr(fdsp_msg_t *pdm_msg)
 
 static int fbd_process_queue_buffers(struct request *req)
 {
-	int result = 0;
+	int rc, result = 0;
 	int flag;
 	struct fbd_device *fbd;
 	void *kaddr = NULL;
@@ -666,10 +708,14 @@ static int fbd_process_queue_buffers(struct request *req)
    	int dir = rq_data_dir(req);
 	int sectors;
 //	u64	doid;
+
 	struct  DOID {
 	u64	doid;
 	u64	doid1;
 	}doid;
+
+	struct DOID 	*doid_list1;
+	struct DOID 	**doid_list;
                                         
 	int ret = 0;
 	fbd = req->rq_disk->private_data;
@@ -700,6 +746,17 @@ static int fbd_process_queue_buffers(struct request *req)
 			/* get the DOID */
 
 			MurmurHash3_x64_128 ( (kaddr + bv->bv_offset), bv->bv_len,0,&doid );
+
+			/* add vvc entry  */
+			doid_list1 = &doid;
+			doid_list = &doid_list1;
+			rc = vvc_entry_update(fbd->vhdl, fbd->blk_name, 1, (const doid_t **)doid_list);
+
+			if (rc)
+			{
+				printk("Error on creating vvc entry. Error code : %d\n", rc);
+			}
+
 			
 			fds_init_sm_hdr(&(fbd->sm_msg));
 			memcpy((void *)&(fbd->sm_msg.payload.put_obj.data_obj_id), (void *)&doid, sizeof(doid));
@@ -922,6 +979,15 @@ static int __fbd_dev_ioctl(struct block_device *bdev, struct fbd_device *fbd,
 		return 0;
 	case FBD_SET_TGT_BLK_SIZE:
 		fbd_set_tgt_blksize(bdev, fbd, data);
+		break;
+	case FBD_READ_VVC_CATALOG:
+		fbd_read_vvc_catalog(bdev, fbd, data);
+		break;
+	case FBD_READ_DMT_TBL:
+		fbd_read_dmt_tbl(bdev, fbd, data);
+		break;
+	case FBD_READ_DLT_TBL:
+		fbd_read_dlt_tbl(bdev, fbd, data);
 		break;
 	case FBD_WRITE_DATA:
 		break;
@@ -1151,6 +1217,23 @@ static int __init fbd_init(void)
 	sprintf(disk->disk_name, "fbd%d",disk->first_minor);
 	set_capacity(disk, 0);
 	add_disk(disk);
+
+	/* vvc vol create */
+	fbd_dev->vol_id = 0; /*  this should be comming from OM */
+	if((fbd_dev->vhdl = vvc_vol_create(fbd_dev->vol_id, NULL,1024)) == 0 )
+	{
+		printk(" Error: creating the  vvc  volume \n");
+		goto out;	
+	}
+
+	/* init  DMT and DLT tables */
+	fds_init_dmt();
+	fds_init_dlt();
+	/* sample  code to populate the DMT and DLT tables  */
+	populate_dmt_dlt_tbl();
+
+	/* init the blk name  testing only */
+	strncpy(fbd_dev->blk_name,"fds.txt",7);
 		
 	mutex_unlock(&fbd_dev->tx_lock);
 	fbd_thread_id = kthread_create(fbd_io_thread, fbd_dev, fbd_dev->disk->disk_name);

@@ -82,8 +82,27 @@ static void fds_list_consistency_check(const fds_list_t *list)
 }
 #endif
 
+static inline fds_list_rlock(fds_list_t *list)
+{
+   pthread_rw_rdlock(list->plock);
+}
 
-static inline fds_bool_t fds_list_is_empty(const fds_list_t *list)
+static inline fds_list_wlock(fds_list_t *list)
+{
+   pthread_rw_wrlock(list->plock);
+}
+
+static inline fds_list_rulock(fds_list_t *list)
+{
+   pthread_rw_rdunlock(list->plock);
+}
+
+static inline fds_list_wunlock(fds_list_t *list)
+{
+   pthread_rw_wrunlock(list->plock);
+}
+
+static inline fds_bool_t fds_list_is_empty(fds_list_t *list)
 {
     fds_bool_t is_empty;
 
@@ -158,8 +177,8 @@ static inline void *_fds_list_dequeue(fds_list_t *list)
         list->count--;
 
         /*
- *          * Reset the link fields within the element
- *                   */
+         * Reset the link fields within the element
+         */
         fds_list_init_elem(elem);
     } else {
         fds_assert(list->tail == NULL);

@@ -16,9 +16,13 @@
 *	- glue data structures for  dm/sm look up launch and  processing 
 */
 
+#ifndef _FDS_h
+#define _FDS_h
+
 #define  FDS_MAX_DM_NODES_PER_CLST 	16
 #define  FDS_MAX_SM_NODES_PER_CLST	16
-#define  FDS_
+#define  FDS_MAC_DM_ENTRIES 	        256	
+#define  FDS_MAC_SM_ENTRIES 	        256	
 
 #define  FDS_NODE_OFFLINE		0
 #define  FDS_NODE_ONLINE		1
@@ -33,8 +37,6 @@
 #define  FDS_NODE_TYPE_SEND		2
 #define  FDS_NODE_TYPE_BCKP		3
 
-/* fds mesage command  */
-#define FDS_CMD_IO			1
 
 /* DOID  structure  */
 typedef  struct base_doid {
@@ -57,10 +59,10 @@ typedef struct fds_doid {
 
 typedef  struct dm_nodes {
 	uint32_t node_ipaddr;   /* ip address of the node */
-	uint8_t  stor_type; 	/* type  of the storage in the node */
 	uint8_t  node_state; 	/* state of the node online/offline */
 	uint8_t  num_nodes;	/* number of DM nodes in the cluster */
 	uint8_t  node_type;	/* primary, secondary .... */
+	struct   list_head list;
 
 }DM_NODES;
 
@@ -68,31 +70,24 @@ typedef  struct dm_nodes {
 
 typedef  struct sm_nodes {
 	uint32_t node_ipaddr;   /* ip address of the node */
+	uint8_t  stor_type; 	/* type  of the storage in the node */
 	uint8_t  node_state; 	/* state of the node online/offline */
 	uint8_t  num_nodes;	/* number of DM nodes in the cluster */
 	uint8_t  node_type;	/* primary, secondary .... */
+	struct   list_head list;
 
 }SM_NODES;
 
+int fds_init_dmt(void);
+int fds_init_dlt(void);
+int add_dlt_entry(SM_NODES *newdlt, uint32_t doid_key);
+int add_dmt_entry(DM_NODES  *newdmt, volid_t  vol_id);
+int del_dmt_entry( uint32_t ipaddr, volid_t  vol_id);
+int del_dlt_entry(uint32_t ipaddr, uint32_t doid_key);
+int populate_dmt_dlt_tbl(void);
+int show_dmt_entry(volid_t  vol_id);
+int show_dlt_entry(volid_t  vol_id);
 
 /* hypervisor  cache catalog */
 
-/* message data  structures  */
-typedef struct fds_msghdr {
-	uint16_t   msg_type;
-	uint16_t   msg_cmd;
-	uint32_t   hdr_len;
-}FDS_MSGHDR;
-
-typedef  struct  fds_iodesc {
-	uint32_t   buf_ptr;
-	uint32_t   buf_offset;
-	uint32_t   blk_len;
-
-}FDS_IODESC;
-
-typedef  struct fds_msg {
-	FDS_MSGHDR  hdr;
-	FDS_DOID    doid;
-	FDS_IODESC  iodesc;	
-}FDS_MSG;
+#endif

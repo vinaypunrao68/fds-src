@@ -1,6 +1,21 @@
-/*
- This  include the shared  defines for fbd driver conffigurations 
-*/
+/* Copyright (c) 2013 - 2014 All Right Reserved
+ *   Company= Formation  Data Systems. 
+ * 
+ *  This source is subject to the Formation Data systems Permissive License.
+ *  All other rights reserved.
+ * 
+ * THIS CODE AND INFORMATION ARE PROVIDED "AS IS" WITHOUT WARRANTY OF ANY 
+ * KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A
+ * PARTICULAR PURPOSE.
+ *  
+ * 
+ * This file contains the  data  structures and code  corresponds to 
+ *              - shared  defines for fbd driver conffigurations 
+ */
+
+#ifndef _FBD_h
+#define _FBD_h
 
 /* flags  */
 #define FBD_READ_ONLY    (1 << 0)
@@ -19,6 +34,9 @@
 #define  FBD_READ_DATA			106
 #define  FBD_ADD_DEV			107
 #define  FBD_DEL_DEV			108
+#define  FBD_READ_VVC_CATALOG		109
+#define  FBD_READ_DMT_TBL		110
+#define  FBD_READ_DLT_TBL		111
 
 
 
@@ -67,6 +85,10 @@ struct fbd_device {
 	/* message header */
 	fdsp_msg_t	dm_msg;
 	fdsp_msg_t	sm_msg;
+	/*  vvc  defs */
+	volid_t 	vol_id;
+	vvc_vhdl_t	vhdl;
+	char blk_name[100]
 };
 
 #define  FBD_CMD_READ			01
@@ -86,3 +108,5 @@ struct fbd_device {
 #define FBD_CLUSTER_TCP_PORT_DM		6901
 #define FBD_CLUSTER_UDP_PORT_SM		9600
 #define FBD_CLUSTER_UDP_PORT_DM		9601
+
+#endif
