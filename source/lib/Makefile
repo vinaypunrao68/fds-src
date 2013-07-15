@@ -16,14 +16,14 @@ UTEST_SRCS = tvc_unit_test.c vvc_unit_test.c
 OBJS = $(SRCS:%.c=%.o)
 UTEST_OBJS = $(UTEST_SRCS:%.c=%.o)
 
-ALL: libfds.a tvc_unit_test vvc_unit_test
-klib: libfds_k.o
+all: libfds.a tvc_unit_test vvc_unit_test
+#klib: libfds_k.o
 
 %.o: %.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-libfds_k.o: vvclib.c
-	$(CC) -c -o $@ $< $(LIBK_CFLAGS)
+#libfds_k.o: vvclib.c
+#	$(CC) -c -o $@ $< $(LIBK_CFLAGS)
 
 libfds.a: $(OBJS)
 	ar -rcs $@ $(OBJS)

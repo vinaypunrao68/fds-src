@@ -9,7 +9,7 @@ OBJS = $(SRCS:%.c=%.o)
 
 DEPS = $(TOPDIR)/include/data_mgr.h $(TOPDIR)/include/fds_commons.h data_mgr_pvt.h
 
-ALL: dmgrd unit_test
+all: dmgrd unit_test
 
 %.o: %.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
