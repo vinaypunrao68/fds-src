@@ -126,6 +126,7 @@ typedef struct _fdsp_msg_t {
     fdsp_err_t          err_code;
 
     /* Checksum of the entire message including the payload/objects */
+    fds_int32_t         req_cookie; 
     fds_int32_t         msg_chksum; 
 
     /* FDSP actual payload, variable length */
