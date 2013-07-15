@@ -267,6 +267,16 @@ void process_request(dm_wthread_t *wt_info, dm_req_t *req) {
 
 }
 
+#define FILL_RESP_FLDS(resp_msg, result, e_msg, cookie) \
+  memset(&resp_msg, 0, sizeof(fdsp_msg_t)); \
+  resp_msg.msg_code = FDSP_MSG_UPDATE_CAT_OBJ_RSP; \
+  resp_msg.result = result; \
+  if (e_msg) { \
+    strncpy(resp_msg.err_msg.err_msg, e_msg, sizeof (fdsp_error_msg_t)); \
+  } \
+  resp_msg.req_cookie = cookie
+
+
 void handle_noop_req(dm_wthread_t *wt_info, dm_req_t *req) {
 
   return;
@@ -289,13 +299,7 @@ void handle_load_volume_req(dm_wthread_t *wt_info, dm_req_t *req) {
     result = FDSP_ERR_OK;
   }
 
-  memset(&resp_msg, 0, sizeof(fdsp_msg_t));
-
-  resp_msg.msg_code = FDSP_MSG_UPDATE_CAT_OBJ_RSP;
-  resp_msg.result = result;
-  if (err_msg) {
-    strncpy(resp_msg.err_msg.err_msg, err_msg, sizeof (fdsp_error_msg_t));
-  }
+  FILL_RESP_FLDS(resp_msg, result, err_msg, req->rsp_info.req_cookie);
 
   to_send = sizeof(resp_msg);
   n = sendto(req->rsp_info.sockfd, &resp_msg, to_send, 0,
@@ -348,13 +352,7 @@ void handle_open_txn_req(dm_wthread_t *wt_info, dm_req_t *req) {
     }
   }
 
-  memset(&resp_msg, 0, sizeof(fdsp_msg_t));
-
-  resp_msg.msg_code = FDSP_MSG_UPDATE_CAT_OBJ_RSP;
-  resp_msg.result = result;
-  if (err_msg) {
-    strncpy(resp_msg.err_msg.err_msg, err_msg, sizeof (fdsp_error_msg_t));
-  }
+  FILL_RESP_FLDS(resp_msg, result, err_msg, req->rsp_info.req_cookie);
 
   to_send = sizeof(resp_msg);
 
@@ -399,13 +397,7 @@ void handle_commit_txn_req(dm_wthread_t *wt_info, dm_req_t *req) {
   // until then, don't destroy the txn object but keep it around in commited state.
   dmgr_txn_destroy(txn);
 
-  memset(&resp_msg, 0, sizeof(fdsp_msg_t));
-
-  resp_msg.msg_code = FDSP_MSG_UPDATE_CAT_OBJ_RSP;
-  resp_msg.result = result;
-  if (err_msg) {
-    strncpy(resp_msg.err_msg.err_msg, err_msg, sizeof (fdsp_error_msg_t));
-  }
+  FILL_RESP_FLDS(resp_msg, result, err_msg, req->rsp_info.req_cookie);
 
   to_send = sizeof(resp_msg);
 
@@ -447,13 +439,7 @@ void handle_cancel_txn_req(dm_wthread_t *wt_info, dm_req_t *req) {
   }
   dmgr_txn_destroy(txn);
 
-  memset(&resp_msg, 0, sizeof(fdsp_msg_t));
-
-  resp_msg.msg_code = FDSP_MSG_UPDATE_CAT_OBJ_RSP;
-  resp_msg.result = result;
-  if (err_msg) {
-    strncpy(resp_msg.err_msg.err_msg, err_msg, sizeof (fdsp_error_msg_t));
-  }
+  FILL_RESP_FLDS(resp_msg, result, err_msg, req->rsp_info.req_cookie);
 
   to_send = sizeof(resp_msg);
 

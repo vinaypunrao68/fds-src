@@ -38,6 +38,7 @@ typedef struct __rsp_info {
   void     *rsp_to_addr; // sockaddr_t to respond to;
   int      addr_len;
   fds_uint32_t req_id; // need to include back in the response
+  fds_uint32_t req_cookie; // need to include back in the response so request can correlate response with the request
 
 } rsp_info_t;
 
@@ -98,8 +99,9 @@ int dmgr_req_struct_size[] = {
 
 #define DM_MSG_REQ_ID(fdsp_msg) fdsp_msg->msg_id
 #define DM_MSG_VOLID(fdsp_msg) fdsp_msg->glob_volume_id
-
+#define DM_MSG_REQ_COOKIE(fdsp_msg) fdsp_msg->req_cookie
 #define DM_MSG_CMD_CODE(fdsp_msg) fdsp_msg->payload.update_catalog.dm_operation
+
 #define DM_MSG_OT_TXNID(fdsp_msg) fdsp_msg->payload.update_catalog.dm_transaction_id
 #define DM_MSG_OT_BLKID(fdsp_msg) fdsp_msg->payload.update_catalog.volume_offset
 #define DM_MSG_OT_UPDTIME(dm_msg) 0xab01cd34
@@ -141,6 +143,7 @@ static __inline__ int alloc_and_fill_dm_req_from_msg(const char *mesg,
   memcpy(req->rsp_info.rsp_to_addr, cli_addr, cli_addr_len);
   req->rsp_info.addr_len = cli_addr_len;
   req->rsp_info.req_id = DM_MSG_REQ_ID(fdsp_msg);
+  req->rsp_info.req_cookie = DM_MSG_REQ_COOKIE(fdsp_msg);
   req->cmd = cmd;
 
   switch(cmd) {

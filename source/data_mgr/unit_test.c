@@ -63,6 +63,7 @@ int process_opentr_cmd(char *line_ptr) {
   int n;
 
   fdsp_msg.msg_id = 21;
+  fdsp_msg.req_cookie = 11131719;
   fdsp_msg.msg_code =  FDSP_MSG_UPDATE_CAT_OBJ_REQ;
   fdsp_msg.glob_volume_id = 3;
   fdsp_msg.payload.update_catalog.volume_offset = 4096;
@@ -86,7 +87,7 @@ int process_opentr_cmd(char *line_ptr) {
   }
   resp_msg =(fdsp_msg_t *)rcv_msg;
   // Assume whole response fits in one DGRAM for now, packable in less than REQ_BUF_SZ bytes
-  printf("Received response :%d, %d, %s\n", resp_msg->result, resp_msg->err_code,
+  printf("Received response for req %d :%d, %d, %s\n", resp_msg->req_cookie, resp_msg->result, resp_msg->err_code,
 	 (resp_msg->result == FDSP_ERR_OK)? "NULL":resp_msg->err_msg.err_msg);
   return (0);
 
@@ -99,6 +100,7 @@ int process_committr_cmd(char *line_ptr) {
   int n;
 
   fdsp_msg.msg_id = 21;
+  fdsp_msg.req_cookie = 2329;
   fdsp_msg.msg_code =  FDSP_MSG_UPDATE_CAT_OBJ_REQ;
   fdsp_msg.glob_volume_id = 3;
   fdsp_msg.payload.update_catalog.volume_offset = 4096;
@@ -119,7 +121,7 @@ int process_committr_cmd(char *line_ptr) {
   }
   resp_msg =(fdsp_msg_t *)rcv_msg;
   // Assume whole response fits in one DGRAM for now, packable in less than REQ_BUF_SZ bytes
-  printf("Received response :%d, %d, %s\n", resp_msg->result, resp_msg->err_code,
+  printf("Received response for request %d:%d, %d, %s\n", resp_msg->req_cookie, resp_msg->result, resp_msg->err_code,
 	 (resp_msg->result == FDSP_ERR_OK)? "NULL":resp_msg->err_msg.err_msg);
 
   return (0);
