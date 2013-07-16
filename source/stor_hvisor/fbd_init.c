@@ -1,6 +1,6 @@
 /* Copyright (c) 2013 - 2014 All Right Reserved
- *   Company= Formation  Data Systems. 
- * 
+ x   Company= Formation  Data Systems. 
+ o* 
  *  This source is subject to the Formation Data systems Permissive License.
  *  All other rights reserved.
  * 
@@ -53,9 +53,14 @@
 static DEFINE_SPINLOCK(fbd_lock);
 static struct fbd_device *fbd_dev;
 struct task_struct *fbd_thread_id;
+struct task_struct *fbd_thread_id_rx;
 static DEFINE_MUTEX(ctl_mutex);
 
 struct  fbd_contbl *fbd_con;
+extern  FDS_JOURN rwlog_tbl[];
+atomic_t fds_data_ready;
+atomic_t fds_exit;
+DECLARE_WAIT_QUEUE_HEAD(thread_wait);
 
 
 /*
@@ -71,28 +76,65 @@ static int init_fbdtbl(void)
 	return 0;
 }
 
-static  void  fds_sock_read_ready(struct sock *sk)
+
+
+uint8_t  rx_buf[5120]; /* 4k block size +  some more mesage header, needs to be refined */
+static  int  fds_rx_io_proc(void *data)
 {
+	struct socket *sock = fbd_con->sock;
 	struct msghdr msg;
 	struct kvec iov;
+	struct sockaddr_in cAddr;
+	int  length;
 
-	struct sockaddr_in client;
-//        struct sockaddr *address;
+	if (!sock)
+	{
+		printk("Trying to send  on closed  DM socket \n");
+	}
 
-	msg.msg_name = &client; 
-	msg.msg_namelen = sizeof( struct sockaddr_in ); 
+	if ( fbd_dev->proto_type != FBD_PROTO_TCP)
+	{
+		cAddr.sin_family = AF_INET;
+		cAddr.sin_addr.s_addr = htonl(fbd_dev->udp_destAddr);
+		cAddr.sin_port = htons(FBD_CLUSTER_UDP_PORT_DM);
+
+		msg.msg_name = &cAddr;
+		msg.msg_namelen = sizeof(cAddr);
+	}
+	else
+	{
+		msg.msg_name = NULL;
+		msg.msg_namelen = 0;
+	}
+
+
+
 	msg.msg_control = NULL; 
 	msg.msg_controllen = 0;
-	msg.msg_iov    = &iov; 
+	msg.msg_iov    = (void *)&iov; 
 	msg.msg_iovlen = 1;
-#if 0
-	iov.iov_base = buffer;
-	iov.iov_len  = sizeof(buffer);
-	len = sock_recvmsg( udpsocket, &msg,  sizeof(buffer), 0 ); 
-	if ( len < 0 )
-		printk(" Error:  reading the message from the  socket \n");
-#endif
 
+    	set_user_nice(current, 19);
+	while (!kthread_should_stop() && !atomic_read(&fds_exit)) 
+	{
+
+		wait_event_interruptible(thread_wait, atomic_read(&fds_data_ready) || atomic_read(&fds_exit));
+
+		if (kthread_should_stop() || atomic_read(&fds_exit))
+			break;
+
+		iov.iov_base = rx_buf;
+		iov.iov_len  = sizeof(rx_buf);
+		sock = fbd_con->sock;
+
+		while ((length = kernel_recvmsg(sock,&msg, &iov, 1, sizeof(rx_buf),  \
+							MSG_NOSIGNAL | MSG_DONTWAIT)) > 0)
+		  fds_process_rx_message(rx_buf);
+
+		  atomic_set(&fds_data_ready, 0);
+			
+	}
+	return 0;
 }
 
 static  void  fds_sock_write_ready(struct sock *sk)
@@ -123,11 +165,20 @@ static  void  fds_sock_process_state(struct sock *sk)
 
 }
 
+
+static  void  fds_rx_data_ready(struct sock *sk)
+{
+
+	atomic_set(&fds_data_ready, 1);
+	wake_up_interruptible(&thread_wait);
+
+}
+
 static void set_sock_callbacks(struct socket *sock, struct fbd_contbl *con)
 {
 	struct sock *sk = sock->sk;
 	sk->sk_user_data = (void *)con;
-	sk->sk_data_ready = fds_sock_read_ready;
+	sk->sk_data_ready = fds_rx_data_ready;
 	sk->sk_write_space = fds_sock_write_ready;
 	sk->sk_state_change = fds_sock_process_state;
 }
@@ -180,7 +231,6 @@ printk(" TCP - socket create  \n");
 	}
 	else if (fbd_dev->proto_type == FBD_PROTO_UDP)
 	{
-printk("  UDP - socket create  \n");
        		ret = sock_create_kern(AF_INET, SOCK_DGRAM, IPPROTO_UDP, &sock);
        		if (ret < 0)
 		{
@@ -190,26 +240,11 @@ printk("  UDP - socket create  \n");
 
 		/* setup the call back for the socket  */
 		set_sock_callbacks(sock,pCon);
-printk(" Successfully created UDP  socket \n");
-#if 0
-		dAddr.sin_family = AF_INET;
-		dAddr.sin_addr.s_addr = htonl(fbd_dev->udp_destAddr);
-		dAddr.sin_port = htons(FBD_CLUSTER_UDP_PORT_DM);
-
-        	ret = sock->ops->connect(sock, (struct sockaddr *)&dAddr, sizeof(dAddr),
-                                 O_NONBLOCK);
-	
-//		if (ret == -EINPROGRESS) 
-		if (ret < 0) 
-		{
-			printk(" connection  in progress  sk_state = %u\n", sock->sk->sk_state);
-			return NULL;
-		}
-#endif
+		printk(" Successfully created UDP  socket \n");
 	}
 
        	pCon->sock = sock;
-	fbd_dev->sock = sock;
+		fbd_dev->sock = sock;
 
 
         if (ret < 0)
@@ -447,6 +482,99 @@ static void fbd_xmit_timeout(unsigned long arg)
 
 
 
+static int send_msg_sm(struct fbd_device *fbd, int send, void *buf, int size,
+		int msg_flags)
+{
+	int result;
+	struct timer_list ti;
+	struct sockaddr_in dAddr;
+	struct socket *sock = fbd_con->sock;
+	struct msghdr msg;
+	struct kvec iov;
+	sigset_t blocked, oldset;
+	unsigned long pflags = current->flags;
+	fbd->xmit_timeout = 1000;
+
+
+
+	if (!sock)
+	{
+		printk("Trying to send  on closed  SM socket \n");
+		return -EINVAL;
+	}
+
+	if ( fbd_dev->proto_type != FBD_PROTO_TCP)
+	{
+		dAddr.sin_family = AF_INET;
+		dAddr.sin_addr.s_addr = htonl(fbd_dev->udp_destAddr);
+		dAddr.sin_port = htons(FBD_CLUSTER_UDP_PORT_SM);
+
+		msg.msg_name = &dAddr;
+		msg.msg_namelen = sizeof(dAddr);
+	}
+	else
+	{
+		msg.msg_name = NULL;
+		msg.msg_namelen = 0;
+	}
+	
+printk(" port: %d \n",FBD_CLUSTER_UDP_PORT_SM);
+	/* block the signals interrupting  the  transmission */
+	siginitsetinv(&blocked, sigmask(SIGKILL));
+	sigprocmask(SIG_SETMASK, &blocked, &oldset);
+
+	current->flags |= PF_MEMALLOC;
+	do {
+		/* init the  message headr to vec[0] */
+//		sock->sk->sk_allocation = GFP_NOIO | __GFP_MEMALLOC;
+		sock->sk->sk_allocation = GFP_NOIO;
+		
+		iov.iov_base = (void *)(buf); /* sm  message */
+		iov.iov_len = sizeof(fdsp_msg_t);
+		msg.msg_control = NULL;
+		msg.msg_controllen = 0;
+		msg.msg_flags = msg_flags | MSG_NOSIGNAL;
+
+
+		if (fbd->xmit_timeout) {
+			init_timer(&ti);
+			ti.function = fbd_xmit_timeout;
+			ti.data = (unsigned long)current;
+			ti.expires = jiffies + fbd->xmit_timeout;
+			add_timer(&ti);
+		}
+		result = kernel_sendmsg(sock, &msg, &iov, 1, size);
+		if (fbd->xmit_timeout)
+			del_timer_sync(&ti);
+
+		if (signal_pending(current)) {
+			siginfo_t info;
+			printk(KERN_WARNING "fbd (pid %d: %s) got signal %d\n",
+				task_pid_nr(current), current->comm,
+				dequeue_signal_lock(current, &current->blocked, &info));
+			result = -EINTR;
+			sock_shutdown(fbd, !send);
+			break;
+		}
+
+		if (result <= 0) {
+			if (result == 0)
+				result = -EPIPE; /* short read */
+			break;
+		}
+		size -= result;
+		buf += result;
+	} while (size > 0);
+
+	sigprocmask(SIG_SETMASK, &oldset, NULL);
+//	tsk_restore_flags(current, pflags, PF_MEMALLOC);
+	current->flags &= ~PF_MEMALLOC;
+	current->flags |=  pflags & PF_MEMALLOC;
+
+	return result;
+}
+
+
 static int send_data_dm(struct fbd_device *fbd, int send, void *buf, int size,
 		int msg_flags)
 {
@@ -494,8 +622,8 @@ printk(" port: %d \n",FBD_CLUSTER_UDP_PORT_DM);
 //		sock->sk->sk_allocation = GFP_NOIO | __GFP_MEMALLOC;
 		sock->sk->sk_allocation = GFP_NOIO;
 		
-		iov.iov_base = (void *)&(fbd->dm_msg);
-		iov.iov_len = sizeof(fdsp_msg_t);
+		iov.iov_base = (void *)(buf);
+		iov.iov_len = size;
 		msg.msg_control = NULL;
 		msg.msg_controllen = 0;
 		msg.msg_flags = msg_flags | MSG_NOSIGNAL;
@@ -539,8 +667,10 @@ printk(" port: %d \n",FBD_CLUSTER_UDP_PORT_DM);
 	return result;
 }
 
+
+
 static int send_data_sm(struct fbd_device *fbd, int send, void *buf, int size,
-		int msg_flags)
+		int msg_flags,fdsp_msg_t *sm_msg )
 {
 	struct timer_list ti;
 	struct sockaddr_in dAddr;
@@ -585,7 +715,7 @@ printk(" port: %d \n",FBD_CLUSTER_UDP_PORT_SM);
 //		sock->sk->sk_allocation = GFP_NOIO | __GFP_MEMALLOC;
 		sock->sk->sk_allocation = GFP_NOIO;
 		
-		iov[0].iov_base = (void *)&fbd->sm_msg;
+		iov[0].iov_base = (void *)sm_msg;
 		iov[0].iov_len = sizeof(fdsp_msg_t);
 		iov[1].iov_base = buf;
 		iov[1].iov_len = size;
@@ -692,6 +822,97 @@ static  int fds_init_dm_hdr(fdsp_msg_t *pdm_msg)
 	return 0;
 }
 
+
+static int fbd_process_read_request(struct request *req)
+{
+	int rc, result = 0;
+	struct fbd_device *fbd;
+	struct bio_vec *bv;
+	struct req_iterator iter;
+   	int dir = rq_data_dir(req);
+  	int n_segments = 0;
+	int flag;
+	fdsp_msg_t   *sm_msg;
+	uint32_t     trans_id;
+
+	struct  DOID {
+	u64	doid;
+	u64	doid1;
+	}doid;
+
+	struct DOID 	*doid_list1;
+	struct DOID 	**doid_list;
+
+	fbd = req->rq_disk->private_data;
+
+	rq_for_each_segment(bv, req, iter)	
+	{
+		flag = 0;
+
+		switch (dir)
+		{
+		 case READ:
+			doid_list1 = &doid;
+			doid_list = &doid_list1;
+  			rc = vvc_entry_get(fbd->vhdl, fbd->blk_name, &n_segments,doid_list);
+			if (rc)
+			{
+				printk("Error reading the VVC catalog  Error code : %d\n", rc);
+			}
+
+			sm_msg = kzalloc(sizeof(*sm_msg), GFP_KERNEL);
+			if (!sm_msg)
+			{
+				printk("Error Read: Allocating the memory for sm message header \n");
+				return -ENOMEM;
+			}
+
+
+			fds_init_sm_hdr(sm_msg);
+			sm_msg->msg_code = FDSP_MSG_GET_OBJ_REQ;
+			sm_msg->msg_id =  1;
+			memcpy((void *)&(sm_msg->payload.put_obj.data_obj_id), (void *)&doid, sizeof(doid));
+			sm_msg->payload.put_obj.data_obj_len = bv->bv_len;
+			sm_msg->payload.put_obj.volume_offset = bv->bv_offset;
+			printk("Read Req len: %d  offset: %d  flag:%d sm_msg:%p \
+				doid:%llx:%llx",bv->bv_len, bv->bv_offset, flag,sm_msg,doid.doid, doid.doid1);
+			/* open transaction  */
+			trans_id = get_trans_id();
+
+			rwlog_tbl[trans_id].trans_state = FDS_TRANS_OPEN;
+			rwlog_tbl[trans_id].write_ctx = (void *)req;
+			rwlog_tbl[trans_id].sm_msg = (void *)sm_msg; 
+			rwlog_tbl[trans_id].dm_msg = NULL;
+			rwlog_tbl[trans_id].sm_ack_cnt = 0;
+			rwlog_tbl[trans_id].dm_ack_cnt = 0;
+
+			sm_msg->req_cookie = trans_id;
+
+			mutex_lock(&fbd->tx_lock);
+
+			result = send_msg_sm(fbd, 1, sm_msg, bv->bv_len,flag);
+			if ( result < 0)
+			{
+				printk("  SM:Error %d: Error  sending the data \n ",result);
+			}
+			break;
+		 case WRITE:
+			printk(" Error: command mis-match. Not expecting  write  in Read thread \n");
+			goto End;
+			
+		 default:
+			printk(" Unknown  command \n");
+			goto End;
+		}
+
+	}
+
+
+End:
+	printk("\n");
+	return result;
+}
+
 static int fbd_process_queue_buffers(struct request *req)
 {
 	int rc, result = 0;
@@ -701,10 +922,11 @@ static int fbd_process_queue_buffers(struct request *req)
                  
 	struct bio_vec *bv;
 	struct req_iterator iter;
+	fdsp_msg_t   *sm_msg;
+	fdsp_msg_t   *dm_msg;
+	uint32_t     trans_id;
                            
 	sector_t sector_offset = 0;
-//	sector_t nsect = blk_rq_sectors(req);
-//	sector_t start_sect = blk_rq_pos(req);
    	int dir = rq_data_dir(req);
 	int sectors;
 //	u64	doid;
@@ -757,26 +979,54 @@ static int fbd_process_queue_buffers(struct request *req)
 				printk("Error on creating vvc entry. Error code : %d\n", rc);
 			}
 
+			sm_msg = kzalloc(sizeof(*sm_msg), GFP_KERNEL);
+			if (!sm_msg)
+			{
+				printk(" Error Allocating the memory for sm message header \n");
+				return -ENOMEM;
+			}
+
+			dm_msg = kzalloc(sizeof(*sm_msg), GFP_KERNEL);
+			if (!dm_msg)
+			{
+				printk(" Error Allocating the memory for dm message header \n");
+				return -ENOMEM;
+			}
 			
-			fds_init_sm_hdr(&(fbd->sm_msg));
-			memcpy((void *)&(fbd->sm_msg.payload.put_obj.data_obj_id), (void *)&doid, sizeof(doid));
-			fbd->sm_msg.payload.put_obj.data_obj_len = bv->bv_len;
-			fbd->sm_msg.payload.put_obj.volume_offset = bv->bv_offset;
+			fds_init_sm_hdr(sm_msg);
+			memcpy((void *)&(sm_msg->payload.put_obj.data_obj_id), (void *)&doid, sizeof(doid));
+			sm_msg->payload.put_obj.data_obj_len = bv->bv_len;
+			sm_msg->payload.put_obj.volume_offset = bv->bv_offset;
 
-			fds_init_dm_hdr(&fbd->dm_msg);
-			fbd->dm_msg.payload_len = bv->bv_len;
-			fbd->dm_msg.payload.update_catalog.volume_offset = bv->bv_offset;
-			memcpy((void *)&(fbd->dm_msg.payload.update_catalog.data_obj_id), (void *)&doid, sizeof(doid));
+			fds_init_dm_hdr(dm_msg);
+			dm_msg->payload_len = bv->bv_len;
+			dm_msg->payload.update_catalog.volume_offset = bv->bv_offset;
+			memcpy((void *)&(dm_msg->payload.update_catalog.data_obj_id), (void *)&doid, sizeof(doid));
 
-printk("sending len: %d  offset: %d  flag:%d sock_buf:%p  doid:%llx:%llx",bv->bv_len, bv->bv_offset, flag,kaddr,doid.doid, doid.doid1);
+			trans_id = get_trans_id();
+
+printk("Write Req len: %d  offset: %d  flag:%d sock_buf:%p t_id: %d doid:%llx:%llx",bv->bv_len, bv->bv_offset, flag,kaddr,trans_id,doid.doid, doid.doid1);
+			/* open transaction  */
+
+			rwlog_tbl[trans_id].trans_state = FDS_TRANS_OPEN;
+			rwlog_tbl[trans_id].write_ctx = (void *)req;
+printk(" write ctx: %p: %p \n ",rwlog_tbl[trans_id].write_ctx, req);
+			rwlog_tbl[trans_id].sm_msg = (void *)sm_msg; 
+			rwlog_tbl[trans_id].dm_msg = (void *)dm_msg;
+			rwlog_tbl[trans_id].sm_ack_cnt = 0;
+			rwlog_tbl[trans_id].dm_ack_cnt = 0;
+
+			sm_msg->req_cookie = trans_id;
+			dm_msg->req_cookie = trans_id;
+
 			mutex_lock(&fbd->tx_lock);
-			result = send_data_sm(fbd, 1, kaddr + bv->bv_offset, bv->bv_len,flag);
+			result = send_data_sm(fbd, 1, kaddr + bv->bv_offset, bv->bv_len,flag, sm_msg);
 			if ( result < 0)
 			{
 				printk("  SM:Error %d: Error  sending the data \n ",result);
 			}
 
-			result = send_data_dm(fbd, 1, &fbd->dm_msg, sizeof(fdsp_msg_t),flag);
+			result = send_data_dm(fbd, 1, dm_msg, sizeof(fdsp_msg_t),flag);
 			if ( result < 0)
 			{
 				printk(" DM:Error %d: Error  sending the data \n ",result);
@@ -784,10 +1034,12 @@ printk("sending len: %d  offset: %d  flag:%d sock_buf:%p  doid:%llx:%llx",bv->bv
 
 			mutex_unlock(&fbd->tx_lock);
 			kunmap(bv->bv_page);
+
 			break;
 		case READ:
-			break;
-
+			printk(" Error: command mis-match. Not expecting  read  in Write thread \n");
+			goto End;
+			
 		default:
 			printk(" Unknown  command \n");
 			goto End;
@@ -842,10 +1094,11 @@ static  int fbd_process_io_cmds (struct fbd_device *fbd, struct request *req)
 
 	case FBD_CMD_WRITE:
 		result = fbd_process_queue_buffers(req);
-		__blk_end_request_all(req, 0);
+		__blk_end_request_all(req, 0); /* response will get out in rx thread */ 
 		break;
 
 	case FBD_CMD_READ:
+		fbd_process_read_request(req);
 		__blk_end_request_all(req, 0);
 		break;
 
@@ -937,7 +1190,6 @@ static void fbd_process_queue(struct request_queue *q)
 
 		}
 		
-
 		 spin_unlock_irq(q->queue_lock);
 
 		/*
@@ -1219,7 +1471,7 @@ static int __init fbd_init(void)
 	add_disk(disk);
 
 	/* vvc vol create */
-	fbd_dev->vol_id = 0; /*  this should be comming from OM */
+	fbd_dev->vol_id = 1; /*  this should be comming from OM */
 	if((fbd_dev->vhdl = vvc_vol_create(fbd_dev->vol_id, NULL,1024)) == 0 )
 	{
 		printk(" Error: creating the  vvc  volume \n");
@@ -1234,6 +1486,9 @@ static int __init fbd_init(void)
 
 	/* init the blk name  testing only */
 	strncpy(fbd_dev->blk_name,"fds.txt",7);
+
+	/* the read write trans  table */
+	fds_init_trans_log();
 		
 	mutex_unlock(&fbd_dev->tx_lock);
 	fbd_thread_id = kthread_create(fbd_io_thread, fbd_dev, fbd_dev->disk->disk_name);
@@ -1242,6 +1497,13 @@ static int __init fbd_init(void)
 		goto out;	
 	}
 	wake_up_process(fbd_thread_id);
+
+	fbd_thread_id_rx = kthread_create(fds_rx_io_proc, fbd_dev, fbd_dev->disk->disk_name);
+	if (IS_ERR(fbd_thread_id_rx)) {
+		printk(" Error: creating the   RX IO thread \n");
+		goto out;	
+	}
+	wake_up_process(fbd_thread_id_rx);
 
 	return 0;
 out:
@@ -1262,6 +1524,13 @@ static void __exit fbd_cleanup(void)
 		put_disk(disk);
 	}
 	kthread_stop(fbd_thread_id);
+	if(fbd_thread_id_rx)
+        {
+		atomic_set(&fds_exit, 1);
+		wake_up_interruptible(&thread_wait);
+		kthread_stop(fbd_thread_id_rx);
+
+	}
 	device_unregister(&fbd_dev->dev);
 	fbd_sysfs_cleanup();
 	unregister_blkdev(FBD_DEV_MAJOR_NUM, "fbd");
