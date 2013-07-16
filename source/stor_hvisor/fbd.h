@@ -22,9 +22,6 @@
 #define FBD_SEND_FLUSH   (1 << 1)
 #define FBD_SEND_TRIM    (1 << 2)
 
-
-#define  FBD_FAILURE 		1
-
 #define  FBD_OPEN_TARGET_CON_TCP	100
 #define  FBD_OPEN_TARGET_CON_UDP	101
 #define  FBD_CLOSE_TARGET_CON		102
@@ -88,7 +85,7 @@ struct fbd_device {
 	/*  vvc  defs */
 	volid_t 	vol_id;
 	vvc_vhdl_t	vhdl;
-	char blk_name[100]
+	char blk_name[100];
 };
 
 #define  FBD_CMD_READ			01

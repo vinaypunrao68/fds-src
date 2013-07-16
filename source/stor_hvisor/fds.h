@@ -23,6 +23,7 @@
 #define  FDS_MAX_SM_NODES_PER_CLST	16
 #define  FDS_MAC_DM_ENTRIES 	        256	
 #define  FDS_MAC_SM_ENTRIES 	        256	
+#define  FDS_READ_WRITE_LOG_ENTRIES 	256	
 
 #define  FDS_NODE_OFFLINE		0
 #define  FDS_NODE_ONLINE		1
@@ -36,6 +37,15 @@
 #define  FDS_NODE_TYPE_PRIM		1
 #define  FDS_NODE_TYPE_SEND		2
 #define  FDS_NODE_TYPE_BCKP		3
+
+#define  FDS_TRANS_OPEN			0x55
+#define  FDS_TRANS_DONE			0xAA
+#define  FDS_TRANS_EMPTY		0x00
+
+#define  FDS_MIN_ACK			1
+
+#define  FDS_SUCCESS			0
+#define  FDS_FAILURE			1
 
 
 /* DOID  structure  */
@@ -78,6 +88,20 @@ typedef  struct sm_nodes {
 
 }SM_NODES;
 
+typedef struct fds_journ {
+	uint8_t  replc_cnt;
+	uint8_t  sm_ack_cnt;
+	uint8_t  dm_ack_cnt;
+	uint8_t  trans_state;
+	void	 *read_ctx;
+	void	 *write_ctx;
+	void	 *sm_msg;
+	void	 *dm_msg;
+	uint8_t   lt_flag;
+	uint8_t   st_flag;
+}FDS_JOURN;
+
+
 int fds_init_dmt(void);
 int fds_init_dlt(void);
 int add_dlt_entry(SM_NODES *newdlt, uint32_t doid_key);
@@ -87,6 +111,9 @@ int del_dlt_entry(uint32_t ipaddr, uint32_t doid_key);
 int populate_dmt_dlt_tbl(void);
 int show_dmt_entry(volid_t  vol_id);
 int show_dlt_entry(volid_t  vol_id);
+int fds_init_trans_log(void);
+int   fds_process_rx_message(uint8_t  *rx_buf);
+int get_trans_id(void);
 
 /* hypervisor  cache catalog */
 
