@@ -97,6 +97,14 @@ fds_sm_err_t stor_mgr_get_obj_req(fdsp_msg_t *fdsp_msg) {
     stor_mgr_get_obj(get_obj_req, fdsp_msg->glob_volume_id, fdsp_msg->num_objects);
 }
 
+static inline void fdsp_swap_mgr_id(fdsp_msg_t *fdsp_msg) {
+ fdsp_mgr_id_t temp_id;
+ temp_id = fdsp_msg->dst_id;
+ fdsp_msg->dst_id = fdsp_msg->src_id;
+ fdsp_msg->src_id = temp_id;
+}
+
+
 void stor_mgr_send_fdsp_msg_response(fdsp_msg_t *fdsp_msg, struct sockaddr *cli_addr, socklen_t clilen) {
  fds_sm_err_t result;
 
@@ -104,10 +112,12 @@ void stor_mgr_send_fdsp_msg_response(fdsp_msg_t *fdsp_msg, struct sockaddr *cli_
     case FDSP_MSG_PUT_OBJ_REQ:
         printf("SH-->SM : Rcvd Cookie %x \n",fdsp_msg->req_cookie);
         fdsp_msg->msg_code = FDSP_MSG_PUT_OBJ_RSP;
+        fdsp_swap_mgr_id(fdsp_msg);
         break;
 
     case FDSP_MSG_GET_OBJ_REQ:
         fdsp_msg->msg_code = FDSP_MSG_GET_OBJ_RSP;
+        fdsp_swap_mgr_id(fdsp_msg);
         break;
 
     case FDSP_MSG_VERIFY_OBJ_REQ:
@@ -124,9 +134,8 @@ void stor_mgr_send_fdsp_msg_response(fdsp_msg_t *fdsp_msg, struct sockaddr *cli_
  }
  sendto(fds_stor_mgr_blk.sockfd, fdsp_msg, sizeof(fdsp_msg_t), 0,
                cli_addr, clilen);
- 
-
 }
+
 
 fds_sm_err_t stor_mgr_proc_fdsp_msg(void *msg, struct sockaddr *cli_addr, socklen_t socklen) 
 {
