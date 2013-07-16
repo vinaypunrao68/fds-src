@@ -4,6 +4,7 @@ fds_bool_t  stor_mgr_stopping = FALSE;
 #define FDS_XPORT_PROTO_TCP 1
 #define FDS_XPORT_PROTO_UDP 2
 #define FDSP_MAX_MSG_LEN (4*(4*1024 + 128))
+stor_mgr_ctrl_blk_t fds_stor_mgr_blk;
 fds_stor_mgr_init() 
 {
 // Create all data structures 
@@ -75,10 +76,10 @@ fds_sm_err_t stor_mgr_put_obj_req(fdsp_msg_t *fdsp_msg) {
     // Verify the integrity of the FDSP msg using chksums
     // 
     // stor_mgr_verify_msg(fdsp_msg);
-//    put_obj_req->data_obj_id.hash_high = ntohs(put_obj_req->data_obj_id.hash_high);
-//    put_obj_req->data_obj_id.hash_low = ntohs(put_obj_req->data_obj_id.hash_low);
+    //put_obj_req->data_obj_id.hash_high = ntohl(put_obj_req->data_obj_id.hash_high);
+    //put_obj_req->data_obj_id.hash_low = ntohl(put_obj_req->data_obj_id.hash_low);
 
-    printf("StorageHVisor --> StorMgr : FDSP_MSG_PUT_OBJ_REQ ObjectId %llx:%llx\n",put_obj_req->data_obj_id.hash_high, put_obj_req->data_obj_id.hash_low);
+    printf("StorageHVisor --> StorMgr : FDSP_MSG_PUT_OBJ_REQ ObjectId %016llx:%016llx \n",put_obj_req->data_obj_id.hash_high, put_obj_req->data_obj_id.hash_low);
     stor_mgr_put_obj(put_obj_req, fdsp_msg->glob_volume_id, fdsp_msg->num_objects);
 }
 
@@ -96,8 +97,38 @@ fds_sm_err_t stor_mgr_get_obj_req(fdsp_msg_t *fdsp_msg) {
     stor_mgr_get_obj(get_obj_req, fdsp_msg->glob_volume_id, fdsp_msg->num_objects);
 }
 
+void stor_mgr_send_fdsp_msg_response(fdsp_msg_t *fdsp_msg, struct sockaddr *cli_addr, socklen_t clilen) {
+ fds_sm_err_t result;
 
-fds_sm_err_t stor_mgr_proc_fdsp_msg(void *msg) 
+ switch(fdsp_msg->msg_code) {
+    case FDSP_MSG_PUT_OBJ_REQ:
+        printf("SH-->SM : Rcvd Cookie %x \n",fdsp_msg->req_cookie);
+        fdsp_msg->msg_code = FDSP_MSG_PUT_OBJ_RSP;
+        break;
+
+    case FDSP_MSG_GET_OBJ_REQ:
+        fdsp_msg->msg_code = FDSP_MSG_GET_OBJ_RSP;
+        break;
+
+    case FDSP_MSG_VERIFY_OBJ_REQ:
+        break;
+
+    case FDSP_MSG_OFFSET_WRITE_OBJ_REQ:
+        break;
+
+    case FDSP_MSG_REDIR_WRITE_OBJ_REQ :
+        break;
+
+    default :
+        break;
+ }
+ sendto(fds_stor_mgr_blk.sockfd, fdsp_msg, sizeof(fdsp_msg_t), 0,
+               cli_addr, clilen);
+ 
+
+}
+
+fds_sm_err_t stor_mgr_proc_fdsp_msg(void *msg, struct sockaddr *cli_addr, socklen_t socklen) 
 {
  fdsp_msg_t *fdsp_msg = (fdsp_msg_t *)msg;
  fds_sm_err_t result;
@@ -126,7 +157,10 @@ fds_sm_err_t stor_mgr_proc_fdsp_msg(void *msg)
     default :
         break;
  }
+
+ stor_mgr_send_fdsp_msg_response(fdsp_msg, cli_addr, socklen);
 }
+       
 
 /*------------------------------------------------------------------------- ------------
  * Storage Mgr Request processor : Picks up FDSP msgs from socket and schedules their processing
@@ -147,7 +181,7 @@ int sock = * ((int *)sock_ptr);
         }
        
         /* Process the FDSP msg from DM or SH */ 
-        stor_mgr_proc_fdsp_msg((void *)buffer);
+        stor_mgr_proc_fdsp_msg((void *)buffer, 0, 0);
 
    }
    return NULL;
@@ -168,7 +202,7 @@ void fds_stor_mgr_main(int xport_protocol)
     char buffer[4096+256];
 
     if (xport_protocol == FDS_XPORT_PROTO_TCP) {
-        sockfd = socket(AF_INET, SOCK_STREAM, 0);
+        fds_stor_mgr_blk.sockfd = sockfd = socket(AF_INET, SOCK_STREAM, 0);
         if (sockfd < 0) 
         {
             perror("ERROR opening socket");
@@ -223,7 +257,7 @@ void fds_stor_mgr_main(int xport_protocol)
         } /* end of while */
    } else {
       /* UDP based processing */
-      sockfd=socket(AF_INET,SOCK_DGRAM,0);
+      fds_stor_mgr_blk.sockfd = sockfd=socket(AF_INET,SOCK_DGRAM,0);
 
       bzero((char *) &serv_addr, sizeof(serv_addr));
       portno = FDS_STOR_MGR_DGRAM_PORT;
@@ -239,7 +273,7 @@ void fds_stor_mgr_main(int xport_protocol)
          printf("Received the FDSP msg:\n");
          
          /* Process the FDSP msg from DM or SH */ 
-         stor_mgr_proc_fdsp_msg((void *)buffer);
+         stor_mgr_proc_fdsp_msg((void *)buffer, &cli_addr, clilen);
       }
    }
     
