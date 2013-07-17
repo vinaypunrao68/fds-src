@@ -113,9 +113,6 @@ int   fds_process_rx_message(uint8_t  *rx_buf)
 	}
 
 printk("  cookie: %d sm ack: %d  ctx:%p\n",rx_msg->req_cookie,rwlog_tbl[rx_msg->req_cookie].sm_ack_cnt,rwlog_tbl[rx_msg->req_cookie].write_ctx);
-		req = (struct request *)rwlog_tbl[rx_msg->req_cookie].write_ctx;
-		__blk_end_request_all(req, 0);
-printk(" release complete \n");
 
 #if 0
 	if((rwlog_tbl[rx_msg->req_cookie].sm_ack_cnt ==  FDS_MIN_ACK) &&

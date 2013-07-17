@@ -611,7 +611,7 @@ static int send_data_dm(struct fbd_device *fbd, int send, void *buf, int size,
 		msg.msg_namelen = 0;
 	}
 	
-printk(" port: %d \n",FBD_CLUSTER_UDP_PORT_DM);
+printk(" port: %d  Heade size: %d\n",FBD_CLUSTER_UDP_PORT_DM,size);
 	/* block the signals interrupting  the  transmission */
 	siginitsetinv(&blocked, sigmask(SIGKILL));
 	sigprocmask(SIG_SETMASK, &blocked, &oldset);
@@ -1094,7 +1094,7 @@ static  int fbd_process_io_cmds (struct fbd_device *fbd, struct request *req)
 
 	case FBD_CMD_WRITE:
 		result = fbd_process_queue_buffers(req);
-		__blk_end_request_all(req, 0); /* response will get out in rx thread */ 
+//		__blk_end_request_all(req, 0); /* response will get out in rx thread */ 
 		break;
 
 	case FBD_CMD_READ:
