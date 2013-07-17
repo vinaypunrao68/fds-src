@@ -1,20 +1,93 @@
 #include <stor_mgr.h>
+#include <disk_mgr.h>
 
 fds_bool_t  stor_mgr_stopping = FALSE;
 #define FDS_XPORT_PROTO_TCP 1
 #define FDS_XPORT_PROTO_UDP 2
 #define FDSP_MAX_MSG_LEN (4*(4*1024 + 128))
+
 stor_mgr_ctrl_blk_t fds_stor_mgr_blk;
+
+fds_sm_err_t
+stor_mgr_put_obj(fdsp_put_object_t *put_obj_req,
+		 fds_uint32_t       volid,
+		 fds_uint32_t       num_objs);
+
+fds_sm_err_t
+stor_mgr_get_obj(fdsp_get_object_t *get_obj_req,
+		 fds_uint32_t       volid,
+		 fds_uint32_t       num_objs);
+
+// Use a single global levelDB for now
+leveldb::DB* db;
+
+void
 fds_stor_mgr_init() 
 {
-// Create all data structures 
-   fds_disk_mgr_init();
-    
+  // Create all data structures 
+  fds_disk_mgr_init();
+  
+  // Create leveldb
+  leveldb::Options options;
+  options.create_if_missing = true;
+  leveldb::Status status = leveldb::DB::Open(options, "/tmp/testdb", &db);
+  assert(status.ok());
+
+  std::cout << "LevelDB status is " << status.ToString() << std::endl;
 }
 
 
 void fds_stor_mgr_exit()
 {
+  delete db;
+}
+
+void fds_stor_mgr_unit_test()
+{
+  fds_sm_err_t err;
+
+  err = FDS_SM_OK;
+
+  std::cout << "Running unit test" << std::endl;
+  
+  /*
+   * Create fake objects
+   */
+  std::string object_data("Hi, I'm object data.");
+  fdsp_put_object_t *put_obj_req;
+  put_obj_req = (fdsp_put_object_t *)malloc(sizeof(fdsp_put_object_t) +
+					    object_data.length() + 1);
+  memset(&(put_obj_req->data_obj_id),
+	 0x00,
+	 sizeof(put_obj_req->data_obj_id));
+  put_obj_req->data_obj_id.hash_low = 0x101;
+  put_obj_req->data_obj_len = object_data.length() + 1;
+  memcpy((char *)put_obj_req->data_obj,
+	 object_data.c_str(),
+	 put_obj_req->data_obj_len);
+
+  /*
+   * Create fake volume ID
+   */
+  fds_uint32_t vol_id   = 0xbeef;
+  fds_uint32_t num_objs = 1;
+
+  /*
+   * Write fake object.
+   */
+  err = stor_mgr_put_obj(put_obj_req, vol_id, num_objs);
+  if (err != FDS_SM_OK) {
+    std::cout << "Failed to put object " << std::endl;
+    free(put_obj_req);
+    return;
+  }
+
+  fdsp_get_object_t get_obj_req;
+  memset(&(get_obj_req.data_obj_id),
+	 0x00,
+	 sizeof(get_obj_req.data_obj_id));
+  get_obj_req.data_obj_id.hash_low = 0x101;
+  err = stor_mgr_get_obj(&get_obj_req, vol_id, num_objs);
 }
 
 fds_sm_err_t stor_mgr_check_duplicate(fds_object_id_t *object_id, fds_uint32_t obj_len, fds_char_t *data_object)
@@ -52,7 +125,7 @@ fds_sm_err_t result = FDS_SM_OK;
        // Find if this object is a duplicate
        result = stor_mgr_check_duplicate(&put_obj_req->data_obj_id, put_obj_req->data_obj_len, (fds_char_t *)&put_obj_req->data_obj[0]);
 
-       if ( result != FDS_SM_ERR_DUPLICATE) {
+       if (result != FDS_SM_ERR_DUPLICATE) {
            // First write the object itself after hashing the objectId to Disknum/filename & obtain an offset entry
            result = stor_mgr_write_object(&put_obj_req->data_obj_id, put_obj_req->data_obj_len,
                              (fds_char_t *)&put_obj_req->data_obj[0], &object_location_offset);
@@ -60,6 +133,28 @@ fds_sm_err_t result = FDS_SM_OK;
            // Now write the object location entry in the global index file
            stor_mgr_write_obj_loc(&put_obj_req->data_obj_id, put_obj_req->data_obj_len, volid, 
                                   &object_location_offset);
+
+	   /*
+	    * This is the levelDB insertion. It's a totally
+	    * separate DB from the one above.
+	    */
+	   leveldb::Slice key((char *)&(put_obj_req->data_obj_id),
+			      sizeof(put_obj_req->data_obj_id));
+	   leveldb::Slice value((char*)put_obj_req->data_obj,
+				put_obj_req->data_obj_len);
+	   leveldb::WriteOptions writeopts;
+	   writeopts.sync = true;
+	   leveldb::Status status = db->Put(writeopts,
+					    key,
+					    value);
+
+	   if (! status.ok()) {
+	     std::cout << "Failed to put object "
+		       << status.ToString() << std::endl;
+	   } else {
+	     std::cout << "Successfully put key "
+		       << key.ToString() << std::endl;
+	   }
 
        } else {
            stor_mgr_write_obj_loc(&put_obj_req->data_obj_id, put_obj_req->data_obj_len, volid, NULL);
@@ -85,6 +180,19 @@ fds_sm_err_t stor_mgr_put_obj_req(fdsp_msg_t *fdsp_msg) {
 
 fds_sm_err_t stor_mgr_get_obj(fdsp_get_object_t *get_obj_req, fds_uint32_t volid, fds_uint32_t num_objs) {
      // stor_mgr_read_object(get_obj_req->data_obj_id, get_obj_req->data_obj_len, &get_obj_req->data_obj);
+
+  leveldb::Slice key((char *)&(get_obj_req->data_obj_id),
+		     sizeof(get_obj_req->data_obj_id));
+  std::string value;
+  leveldb::Status status = db->Get(leveldb::ReadOptions(), key, &value);
+
+  if (! status.ok()) {
+    std::cout << "Failed to get key " << key.ToString() << " with status "
+	      << status.ToString() << std::endl;
+  } else {
+    std::cout << "Successfully got value " << value << std::endl;
+  }
+
 }
 
 fds_sm_err_t stor_mgr_get_obj_req(fdsp_msg_t *fdsp_msg) {
@@ -175,25 +283,25 @@ fds_sm_err_t stor_mgr_proc_fdsp_msg(void *msg, struct sockaddr *cli_addr, sockle
  * Storage Mgr Request processor : Picks up FDSP msgs from socket and schedules their processing
  -------------------------------------------------------------------------------------*/
 void *stor_mgr_req_processor(void *sock_ptr) {
-int n;
-int sock = * ((int *)sock_ptr);
-    char buffer[256];
-
-    bzero(buffer,256);
-
-    while(!stor_mgr_stopping) { 
-        n = read(sock,buffer,255);
-        if (n < 0)
-        {
-            perror("ERROR reading from socket");
-            pthread_exit(NULL);
-        }
-       
-        /* Process the FDSP msg from DM or SH */ 
-        stor_mgr_proc_fdsp_msg((void *)buffer, 0, 0);
-
-   }
-   return NULL;
+  int n;
+  int sock = * ((int *)sock_ptr);
+  char buffer[256];
+  
+  bzero(buffer,256);
+  
+  while(!stor_mgr_stopping) { 
+    n = read(sock,buffer,255);
+    if (n < 0)
+      {
+	perror("ERROR reading from socket");
+	pthread_exit(NULL);
+      }
+    
+    /* Process the FDSP msg from DM or SH */ 
+    stor_mgr_proc_fdsp_msg((void *)buffer, 0, 0);
+    
+  }
+  return NULL;
 }
 
 
@@ -239,8 +347,9 @@ void fds_stor_mgr_main(int xport_protocol)
         clilen = sizeof(cli_addr);
         
         /* Accept actual connection from the client */
-        newsockfd = accept(sockfd, (struct sockaddr *)&cli_addr, 
-                                    &clilen);
+        newsockfd = accept(sockfd,
+			   (struct sockaddr *)&cli_addr, 
+			   (socklen_t *)&clilen);
         if (newsockfd < 0) 
         {
             perror("ERROR on accept");
@@ -250,7 +359,8 @@ void fds_stor_mgr_main(int xport_protocol)
         while(!stor_mgr_stopping)
         {
             newsockfd = accept(sockfd, 
-                    (struct sockaddr *) &cli_addr, &clilen);
+			       (struct sockaddr *) &cli_addr,
+			       (socklen_t *)&clilen);
             if (newsockfd < 0)
             {
                 perror("ERROR on accept");
@@ -278,20 +388,50 @@ void fds_stor_mgr_main(int xport_protocol)
       for (;;)
       {
          clilen = sizeof(cli_addr);
-         n = recvfrom(sockfd,buffer,FDSP_MAX_MSG_LEN,0,(struct sockaddr *)&cli_addr,&clilen);
+         n = recvfrom(sockfd,
+		      buffer,
+		      FDSP_MAX_MSG_LEN,
+		      0,
+		      (struct sockaddr *)&cli_addr,
+		      (socklen_t *)&clilen);
          printf("Received the FDSP msg:\n");
          
          /* Process the FDSP msg from DM or SH */ 
-         stor_mgr_proc_fdsp_msg((void *)buffer, &cli_addr, clilen);
+         stor_mgr_proc_fdsp_msg((void *)buffer,
+				(struct sockaddr *)&cli_addr,
+				clilen);
       }
    }
     
    return; 
 }
     
-int main(int argc, void **argv)
+int main(int argc, char *argv[])
 {
+  bool unit_test;
+
+  unit_test = false;
+
+  if (argc > 1) {
+    for (int i = 1; i < argc; i++) {
+      std::string arg(argv[i]);
+      if (arg == "--unit_test") {
+	unit_test = true;
+      } else {
+	std::cerr << "Unknown option" << std::endl;
+	return 0;
+      }
+    }
+    
+  }
   fds_stor_mgr_init();
+
+  if (unit_test) {
+    fds_stor_mgr_unit_test();
+    fds_stor_mgr_exit();
+    return 0;
+  }
+
   fds_stor_mgr_main(FDS_XPORT_PROTO_UDP);
 }
 

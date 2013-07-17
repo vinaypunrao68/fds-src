@@ -10,6 +10,7 @@
 #include <linux/types.h>
 #endif
 #include <stdbool.h>
+#include <cstdio>
 
 typedef unsigned int volid_t;
 #define INV_VOL_ID (unsigned int)(-1)
@@ -60,12 +61,12 @@ static __inline__  int is_doid_inv(fds_doid_t *p_doid) {
 
 typedef unsigned char doid_hex_string[41];
 
-static __inline__ unsigned char *doid_to_hex(doid_t doid, unsigned char *buf) {
-
+static __inline__ unsigned char *doid_to_hex(doid_t obj_id,
+					     unsigned char *buf) {
   int i;
   
   for (i = 0; i < sizeof(doid_t); i++) {
-    sprintf(&(buf[2*i]), "%02x", doid[i]);
+    std::sprintf((char*)&(buf[2*i]), "%02x", obj_id[i]);
   } 
   return (buf);
   

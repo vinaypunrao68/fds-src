@@ -40,4 +40,15 @@ typedef struct {
   fds_object_id_t  data_obj_id;
   fds_uint32_t     data_obj_len;
 } fds_shard_obj_hdr_t;
+
+void
+fds_disk_mgr_init();
+
+fds_sm_err_t
+disk_mgr_write_object(fds_object_id_t     *object_id, 
+		      fds_uint32_t         obj_len, 
+		      fds_char_t          *object,
+		      fds_data_location_t *data_loc,
+		      fds_uint32_t         disk_num);
+
 #endif

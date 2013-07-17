@@ -24,5 +24,5 @@ typedef struct {
 } fds_object_location_entry_t;
 
 
-fds_object_location_entry_t fds_object_loc_cache[4096];
+// fds_object_location_entry_t fds_object_loc_cache[4096];
 #endif

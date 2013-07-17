@@ -12,6 +12,10 @@
 #include <fdsp.h>
 #include <stor_mgr_err.h>
 #include <obj_loc.h>
+#include <unistd.h>
+#include <assert.h>
+#include "leveldb/db.h"
+#include <iostream>
 
 #define FDS_STOR_MGR_LISTEN_PORT FDS_CLUSTER_TCP_PORT_SM
 #define FDS_STOR_MGR_DGRAM_PORT FDS_CLUSTER_UDP_PORT_SM
