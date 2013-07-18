@@ -1,5 +1,5 @@
-#include <stor_mgr.h>
-#include <disk_mgr.h>
+#include "stor_mgr.h"
+#include "disk_mgr.h"
 
 fds_bool_t  stor_mgr_stopping = FALSE;
 #define FDS_XPORT_PROTO_TCP 1

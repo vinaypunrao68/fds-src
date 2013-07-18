@@ -1,6 +1,6 @@
 #ifndef __OBJ_LOC_H__
 #define __OBJ_LOC_H__
-#include <fds_commons.h>
+#include "fds_commons.h"
 typedef enum {
 FDS_DATA_LOC_TIER_SSD,
 FDS_DATA_LOC_TIER_HD,
