@@ -306,6 +306,7 @@ void process_request(dm_wthread_t *wt_info, dm_req_t *req) {
 #define FILL_RESP_FLDS(resp_msg, result, e_msg, cookie) \
   memset(&resp_msg, 0, sizeof(fdsp_msg_t)); \
   resp_msg.msg_code = FDSP_MSG_UPDATE_CAT_OBJ_RSP; \
+  resp_msg.src_id = FDSP_DATA_MGR; \
   resp_msg.result = result; \
   if (e_msg) { \
     strncpy(resp_msg.err_msg.err_msg, e_msg, sizeof (fdsp_error_msg_t)); \
