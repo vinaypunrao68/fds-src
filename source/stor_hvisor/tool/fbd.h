@@ -21,3 +21,4 @@
 #define  FBD_READ_VVC_CATALOG		109
 #define  FBD_READ_DMT_TBL		110
 #define  FBD_READ_DLT_TBL		111
+#define  FBD_SET_BASE_PORT              112

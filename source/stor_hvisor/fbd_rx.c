@@ -124,9 +124,9 @@ printk("  cookie: %d sm ack: %d  ctx:%p\n",rx_msg->req_cookie,rwlog_tbl[rx_msg->
 	    	
 		/* get the request  context  from   trans log */
 		req = (struct request *)rwlog_tbl[rx_msg->req_cookie].write_ctx;
-		__blk_end_request_all(req, 0);
+		//__blk_end_request_all(req, 0);
 		/* clear the  trans log */
-		fds_trans_cleanup(rx_msg->req_cookie);
+		// fds_trans_cleanup(rx_msg->req_cookie);
 printk(" responding to the block devivce \n");
 	}
 	else
