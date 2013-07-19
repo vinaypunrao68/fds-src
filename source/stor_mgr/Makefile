@@ -13,7 +13,7 @@ OBJS = $(SRCS:%.cc=%.o)
 
 BINS = stor_mgr
 
-ALL: stor_mgr 
+all: stor_mgr 
 
 %.o: %.cc $(DEPS)
 	$(CPPC) -c -o $@ $< $(CFLAGS)
