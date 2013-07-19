@@ -2,7 +2,7 @@ TOPDIR=..
 IDIR =-I$(TOPDIR)/include -I/usr/include/mysql
 CC=gcc
 CFLAGS=$(IDIR) -g -DTVC_DBG -DVVC_DBG
-LDIR =-L/usr/lib/mysql -L.
+LDIR =-L/usr/lib/mysql -L/usr/lib64/mysql -L.
 LIBS=$(LDIR) -lssl -lcrypto -lmysqlclient -lfds
 
 LIBK_IDIR=-I$(TOPDIR)/include -I/usr/src/kernels/3.3.4-5.fc17.i686/include/ -I/usr/src/kernels/3.3.4-5.fc17.i686/arch/x86/include/

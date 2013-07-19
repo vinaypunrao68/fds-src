@@ -1,7 +1,7 @@
 CC=gcc
 TOPDIR=..
 IDIR =-I$(TOPDIR)/include 
-LDIR =-L$(TOPDIR)/lib -L. -L/usr/lib/mysql
+LDIR =-L$(TOPDIR)/lib -L. -L/usr/lib/mysql -L/usr/lib64/mysql
 CFLAGS=$(IDIR) -g -DDMGR_LIVE_DEBUG
 LIBS=$(LDIR) -lpthread -lfds -lssl -lcrypto -lmysqlclient
 SRCS = data_mgr.c unit_test.c

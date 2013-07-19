@@ -15,8 +15,8 @@
 typedef unsigned int volid_t;
 #define INV_VOL_ID (unsigned int)(-1)
 
-#define FALSE 0
-#define TRUE 1
+// #define FALSE 0
+// #define TRUE 1
 
 // FDS definitions of variable types
 typedef unsigned int  fds_uint32_t;

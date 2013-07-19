@@ -7,11 +7,11 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <fds_commons.h>
+#include "fds_commons.h"
 #include <pthread.h>
-#include <fdsp.h>
-#include <stor_mgr_err.h>
-#include <obj_loc.h>
+#include "fdsp.h"
+#include "stor_mgr_err.h"
+#include "obj_loc.h"
 #include <unistd.h>
 #include <assert.h>
 #include "leveldb/db.h"

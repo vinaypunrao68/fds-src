@@ -7,15 +7,15 @@ LIBS=-lpthread $(TOPDIR)/lib/leveldb-1.12.0/libleveldb.a
 
 DEPS = 
 
-SRCS = stor_mgr.c disk_mgr.c
+SRCS = stor_mgr.cc disk_mgr.cc
 
-OBJS = $(SRCS:%.c=%.o)
+OBJS = $(SRCS:%.cc=%.o)
 
 BINS = stor_mgr
 
 ALL: stor_mgr 
 
-%.o: %.c $(DEPS)
+%.o: %.cc $(DEPS)
 	$(CPPC) -c -o $@ $< $(CFLAGS)
 
 stor_mgr: stor_mgr.o disk_mgr.o 
