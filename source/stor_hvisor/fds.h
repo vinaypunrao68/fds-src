@@ -42,10 +42,14 @@
 #define  FDS_TRANS_DONE			0xAA
 #define  FDS_TRANS_EMPTY		0x00
 
-#define  FDS_MIN_ACK			1
-
 #define  FDS_SUCCESS			0
 #define  FDS_FAILURE			1
+
+#define  FDS_TIMER_TIMEOUT		1
+
+#define  FDS_MIN_ACK			1
+#define  FDS_SET_ACK			1
+#define  FDS_CLS_ACK			0
 
 
 /* DOID  structure  */
@@ -72,6 +76,7 @@ typedef  struct dm_nodes {
 	uint8_t  node_state; 	/* state of the node online/offline */
 	uint8_t  num_nodes;	/* number of DM nodes in the cluster */
 	uint8_t  node_type;	/* primary, secondary .... */
+	uint8_t  node_id;       /* node identifier , this might be overloaded with IP address */
 	struct   list_head list;
 
 }DM_NODES;
@@ -84,22 +89,40 @@ typedef  struct sm_nodes {
 	uint8_t  node_state; 	/* state of the node online/offline */
 	uint8_t  num_nodes;	/* number of DM nodes in the cluster */
 	uint8_t  node_type;	/* primary, secondary .... */
+	uint8_t  node_id;       /* node identifier , this might be overloaded with IP address */
 	struct   list_head list;
 
 }SM_NODES;
+
+typedef  struct ip_node {
+	uint32_t ipAddr;
+	uint8_t  ack_status;
+	uint8_t  commit_status;
+}IP_NODE;
 
 typedef struct fds_journ {
 	uint8_t  replc_cnt;
 	uint8_t  sm_ack_cnt;
 	uint8_t  dm_ack_cnt;
 	uint8_t  trans_state;
+	void	 *fbd_ptr;
 	void	 *read_ctx;
 	void	 *write_ctx;
 	void	 *sm_msg;
 	void	 *dm_msg;
-	uint8_t   lt_flag;
-	uint8_t   st_flag;
+	uint16_t   lt_flag;
+	uint16_t   st_flag;
+	IP_NODE	   dm_ack[FDS_MAX_DM_NODES_PER_CLST];
+	IP_NODE	   sm_ack[FDS_MAX_SM_NODES_PER_CLST];
 }FDS_JOURN;
+
+/* bit manupulation macros */
+
+#define fds_bit_get(p,m) ((p) & (m))
+#define fds_bit_set(p,m) ((p) |= (m))
+#define fds_bit_clear(p,m) ((p) &= ~(m))
+#define fds_bit_flip(p,m) ((p) ^= (m))
+#define fds_bit(x)  (0x01 << (x))
 
 
 int fds_init_dmt(void);
@@ -112,7 +135,7 @@ int populate_dmt_dlt_tbl(void);
 int show_dmt_entry(volid_t  vol_id);
 int show_dlt_entry(volid_t  vol_id);
 int fds_init_trans_log(void);
-int   fds_process_rx_message(uint8_t  *rx_buf);
+int fds_process_rx_message(uint8_t  *rx_buf);
 int get_trans_id(void);
 
 /* hypervisor  cache catalog */

@@ -76,6 +76,7 @@ struct fbd_device {
 	struct device	dev;
 	/* network connection details */
 	struct socket *sock;
+	long int   src_ip_addr;
 	long int   tcp_destAddr;
 	long int   udp_destAddr;
 	int 	   proto_type;
@@ -106,4 +107,5 @@ struct fbd_device {
 #define FBD_CLUSTER_UDP_PORT_SM		9600
 #define FBD_CLUSTER_UDP_PORT_DM		9601
 
+int send_data_dm(struct fbd_device *fbd, int send, void *buf, int size, int msg_flags);
 #endif

@@ -46,12 +46,13 @@
 #include "fds.h"
 #include "../include/fds_commons.h"
 #include "../include/fdsp.h"
+#include "../include/data_mgr.h"
 #include "fbd.h"
 #include "fbd_hash.h"
 
 
 static DEFINE_SPINLOCK(fbd_lock);
-static struct fbd_device *fbd_dev;
+struct fbd_device *fbd_dev;
 struct task_struct *fbd_thread_id;
 struct task_struct *fbd_thread_id_rx;
 static DEFINE_MUTEX(ctl_mutex);
@@ -575,7 +576,7 @@ printk(" port: %d \n",FBD_CLUSTER_UDP_PORT_SM);
 }
 
 
-static int send_data_dm(struct fbd_device *fbd, int send, void *buf, int size,
+int send_data_dm(struct fbd_device *fbd, int send, void *buf, int size,
 		int msg_flags)
 {
 	int result;
@@ -817,7 +818,7 @@ static  int fds_init_dm_hdr(fdsp_msg_t *pdm_msg)
 //	pdm_msg->err_msg;
 //	pdm_msg->err_code;
 	pdm_msg->payload.update_catalog.dm_transaction_id = 0;
-	pdm_msg->payload.update_catalog.dm_operation = 2;
+	pdm_msg->payload.update_catalog.dm_operation = FDS_DMGR_CMD_OPEN_TXN;
 
 	return 0;
 }
@@ -873,6 +874,7 @@ static int fbd_process_read_request(struct request *req)
 			sm_msg->msg_id =  1;
 			memcpy((void *)&(sm_msg->payload.put_obj.data_obj_id), (void *)&doid, sizeof(doid));
 			sm_msg->payload.put_obj.data_obj_len = bv->bv_len;
+			sm_msg->payload_len = bv->bv_len;
 			sm_msg->payload.put_obj.volume_offset = bv->bv_offset;
 			printk("Read Req len: %d  offset: %d  flag:%d sm_msg:%p \
 				doid:%llx:%llx",bv->bv_len, bv->bv_offset, flag,sm_msg,doid.doid, doid.doid1);
@@ -880,6 +882,7 @@ static int fbd_process_read_request(struct request *req)
 			trans_id = get_trans_id();
 
 			rwlog_tbl[trans_id].trans_state = FDS_TRANS_OPEN;
+			rwlog_tbl[trans_id].fbd_ptr = (void *)fbd;
 			rwlog_tbl[trans_id].write_ctx = (void *)req;
 			rwlog_tbl[trans_id].sm_msg = (void *)sm_msg; 
 			rwlog_tbl[trans_id].dm_msg = NULL;
@@ -915,7 +918,7 @@ End:
 
 static int fbd_process_queue_buffers(struct request *req)
 {
-	int rc, result = 0;
+	int result = 0;
 	int flag;
 	struct fbd_device *fbd;
 	void *kaddr = NULL;
@@ -936,8 +939,6 @@ static int fbd_process_queue_buffers(struct request *req)
 	u64	doid1;
 	}doid;
 
-	struct DOID 	*doid_list1;
-	struct DOID 	**doid_list;
                                         
 	int ret = 0;
 	fbd = req->rq_disk->private_data;
@@ -969,16 +970,6 @@ static int fbd_process_queue_buffers(struct request *req)
 
 			MurmurHash3_x64_128 ( (kaddr + bv->bv_offset), bv->bv_len,0,&doid );
 
-			/* add vvc entry  */
-			doid_list1 = &doid;
-			doid_list = &doid_list1;
-			rc = vvc_entry_update(fbd->vhdl, fbd->blk_name, 1, (const doid_t **)doid_list);
-
-			if (rc)
-			{
-				printk("Error on creating vvc entry. Error code : %d\n", rc);
-			}
-
 			sm_msg = kzalloc(sizeof(*sm_msg), GFP_KERNEL);
 			if (!sm_msg)
 			{
@@ -994,10 +985,14 @@ static int fbd_process_queue_buffers(struct request *req)
 			}
 			
 			fds_init_sm_hdr(sm_msg);
+			memcpy(sm_msg->src_ip_addr, &fbd->src_ip_addr, 4); 
+			memcpy(sm_msg->src_ip_addr, &fbd->udp_destAddr, 4);
 			memcpy((void *)&(sm_msg->payload.put_obj.data_obj_id), (void *)&doid, sizeof(doid));
 			sm_msg->payload.put_obj.data_obj_len = bv->bv_len;
 			sm_msg->payload.put_obj.volume_offset = bv->bv_offset;
 
+			memcpy(sm_msg->src_ip_addr, &fbd->src_ip_addr, 4); 
+			memcpy(sm_msg->src_ip_addr, &fbd->udp_destAddr, 4);
 			fds_init_dm_hdr(dm_msg);
 			dm_msg->payload_len = bv->bv_len;
 			dm_msg->payload.update_catalog.volume_offset = bv->bv_offset;
@@ -1098,6 +1093,7 @@ static  int fbd_process_io_cmds (struct fbd_device *fbd, struct request *req)
 		break;
 
 	case FBD_CMD_READ:
+		printk(" Read request  from the block device \n");
 		fbd_process_read_request(req);
 		__blk_end_request_all(req, 0);
 		break;
@@ -1486,6 +1482,7 @@ static int __init fbd_init(void)
 
 	/* init the blk name  testing only */
 	strncpy(fbd_dev->blk_name,"fds.txt",7);
+	fbd_dev->src_ip_addr =  0xc0a80102;
 
 	/* the read write trans  table */
 	fds_init_trans_log();
