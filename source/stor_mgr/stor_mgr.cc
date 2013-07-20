@@ -1,7 +1,7 @@
 #include "stor_mgr.h"
 #include "disk_mgr.h"
 
-fds_bool_t  stor_mgr_stopping = FALSE;
+fds_bool_t  stor_mgr_stopping = 0;
 #define FDS_XPORT_PROTO_TCP 1
 #define FDS_XPORT_PROTO_UDP 2
 #define FDSP_MAX_MSG_LEN (4*(4*1024 + 128))
@@ -29,7 +29,7 @@ fds_stor_mgr_init()
   
   // Create leveldb
   leveldb::Options options;
-  options.create_if_missing = true;
+  options.create_if_missing = 1;
   leveldb::Status status = leveldb::DB::Open(options, "/tmp/testdb", &db);
   assert(status.ok());
 
@@ -111,6 +111,8 @@ fds_uint32_t disk_num = 1;
    // Enqueue the object location entry into the thread that maintains global index file
    //disk_mgr_write_obj_loc(object_id, obj_len, volid, data_loc);
 }
+
+
 /*------------------------------------------------------------------------- ------------
  * FDSP Protocol message processing 
  -------------------------------------------------------------------------------------*/
@@ -410,13 +412,13 @@ int main(int argc, char *argv[])
 {
   bool unit_test;
 
-  unit_test = false;
+  unit_test = 0;
 
   if (argc > 1) {
     for (int i = 1; i < argc; i++) {
       std::string arg(argv[i]);
       if (arg == "--unit_test") {
-	unit_test = true;
+	unit_test = 1;
       } else {
 	std::cerr << "Unknown option" << std::endl;
 	return 0;
