@@ -57,7 +57,6 @@ static  int fds_set_dmack_status( uint32_t ipAddr[0], uint32_t  trans_id)
 
 	for (node = 0; node < FDS_MAX_DM_NODES_PER_CLST; node++)
 	{
-			if (rwlog_tbl[trans_id].dm_ack[node].ipAddr == *ipAddr)
 			if (memcmp(&rwlog_tbl[trans_id].dm_ack[node].ipAddr, ipAddr,4))
 				return (rwlog_tbl[trans_id].dm_ack[node].ack_status = FDS_SET_ACK);
 	}
@@ -258,7 +257,7 @@ static int fds_process_write(fdsp_msg_t  *wr_msg)
 		  - respond to the block device 
 		*/
 		req = (struct request *)rwlog_tbl[trans_id].write_ctx;
-		__blk_end_request_all(req, 0);
+		// __blk_end_request_all(req, 0);
 
 		/*
 		  -  add the vvc entry
@@ -283,7 +282,8 @@ static int fds_process_write(fdsp_msg_t  *wr_msg)
 			if (rwlog_tbl[trans_id].dm_ack[node].ack_status)
 			{
 	    		wr_msg->payload.update_catalog.dm_operation = FDS_DMGR_CMD_COMMIT_TXN;
-				result = send_data_dm(fbd, 1, wr_msg, sizeof(fdsp_msg_t),flag);
+			result = send_data_dm(fbd, 1, wr_msg, sizeof(fdsp_msg_t),flag,
+					      rwlog_tbl[trans_id].dm_ack[node].ipAddr);
 				if ( result < 0)
 				{
 					printk(" DM:Error %d: sending the data \n ",result);

@@ -39,6 +39,7 @@
 #include <linux/net.h>
 #include <linux/kthread.h>
 #include <net/tcp.h>
+#include <linux/list.h>
 
 #include <asm/uaccess.h>
 #include <asm/types.h>
@@ -401,6 +402,12 @@ static int fbd_set_tgt_size(struct block_device *bdev, struct fbd_device *fbd, i
 
 }
 
+static int fbd_set_base_port(struct block_device *bdev, struct fbd_device *fbd, int data) {
+  fbd->stor_mgr_port = data;
+  fbd->data_mgr_port = data+1;
+  return (0);
+}
+
 static int fbd_process_cluster_conn(struct block_device *bdev, struct fbd_device *fbd, int data)
 {
 
@@ -484,10 +491,10 @@ static void fbd_xmit_timeout(unsigned long arg)
 
 
 static int send_msg_sm(struct fbd_device *fbd, int send, void *buf, int size,
-		int msg_flags)
+		       int msg_flags, long int node_ipaddr)
 {
 	int result;
-	struct timer_list ti;
+	//struct timer_list ti;
 	struct sockaddr_in dAddr;
 	struct socket *sock = fbd_con->sock;
 	struct msghdr msg;
@@ -495,7 +502,6 @@ static int send_msg_sm(struct fbd_device *fbd, int send, void *buf, int size,
 	sigset_t blocked, oldset;
 	unsigned long pflags = current->flags;
 	fbd->xmit_timeout = 1000;
-
 
 
 	if (!sock)
@@ -507,8 +513,8 @@ static int send_msg_sm(struct fbd_device *fbd, int send, void *buf, int size,
 	if ( fbd_dev->proto_type != FBD_PROTO_TCP)
 	{
 		dAddr.sin_family = AF_INET;
-		dAddr.sin_addr.s_addr = htonl(fbd_dev->udp_destAddr);
-		dAddr.sin_port = htons(FBD_CLUSTER_UDP_PORT_SM);
+		dAddr.sin_addr.s_addr = htonl(node_ipaddr);
+		dAddr.sin_port = htons(fbd->stor_mgr_port);
 
 		msg.msg_name = &dAddr;
 		msg.msg_namelen = sizeof(dAddr);
@@ -519,7 +525,7 @@ static int send_msg_sm(struct fbd_device *fbd, int send, void *buf, int size,
 		msg.msg_namelen = 0;
 	}
 	
-printk(" port: %d \n",FBD_CLUSTER_UDP_PORT_SM);
+printk(" SM ip addr - 0x%x, port: %d \n",node_ipaddr, fbd->stor_mgr_port);
 	/* block the signals interrupting  the  transmission */
 	siginitsetinv(&blocked, sigmask(SIGKILL));
 	sigprocmask(SIG_SETMASK, &blocked, &oldset);
@@ -536,7 +542,7 @@ printk(" port: %d \n",FBD_CLUSTER_UDP_PORT_SM);
 		msg.msg_controllen = 0;
 		msg.msg_flags = msg_flags | MSG_NOSIGNAL;
 
-
+#if 0
 		if (fbd->xmit_timeout) {
 			init_timer(&ti);
 			ti.function = fbd_xmit_timeout;
@@ -544,10 +550,15 @@ printk(" port: %d \n",FBD_CLUSTER_UDP_PORT_SM);
 			ti.expires = jiffies + fbd->xmit_timeout;
 			add_timer(&ti);
 		}
+#endif
 		result = kernel_sendmsg(sock, &msg, &iov, 1, size);
+	if (result < size) {
+	 printk("Send failed or truncated, result = %d\n", result);
+        }
+#if 0
 		if (fbd->xmit_timeout)
 			del_timer_sync(&ti);
-
+#endif
 		if (signal_pending(current)) {
 			siginfo_t info;
 			printk(KERN_WARNING "fbd (pid %d: %s) got signal %d\n",
@@ -575,12 +586,11 @@ printk(" port: %d \n",FBD_CLUSTER_UDP_PORT_SM);
 	return result;
 }
 
-
 int send_data_dm(struct fbd_device *fbd, int send, void *buf, int size,
-		int msg_flags)
+		 int msg_flags, long int node_ipaddr)
 {
 	int result;
-	struct timer_list ti;
+	// struct timer_list ti;
 	struct sockaddr_in dAddr;
 	struct socket *sock = fbd_con->sock;
 	struct msghdr msg;
@@ -600,8 +610,8 @@ int send_data_dm(struct fbd_device *fbd, int send, void *buf, int size,
 	if ( fbd_dev->proto_type != FBD_PROTO_TCP)
 	{
 		dAddr.sin_family = AF_INET;
-		dAddr.sin_addr.s_addr = htonl(fbd_dev->udp_destAddr);
-		dAddr.sin_port = htons(FBD_CLUSTER_UDP_PORT_DM);
+		dAddr.sin_addr.s_addr = htonl(node_ipaddr);
+		dAddr.sin_port = htons(fbd->data_mgr_port);
 
 		msg.msg_name = &dAddr;
 		msg.msg_namelen = sizeof(dAddr);
@@ -612,7 +622,7 @@ int send_data_dm(struct fbd_device *fbd, int send, void *buf, int size,
 		msg.msg_namelen = 0;
 	}
 	
-printk(" port: %d  Heade size: %d\n",FBD_CLUSTER_UDP_PORT_DM,size);
+printk(" DM ip addr - 0x%x, port: %d  Heade size: %d\n",node_ipaddr, fbd->data_mgr_port,size);
 	/* block the signals interrupting  the  transmission */
 	siginitsetinv(&blocked, sigmask(SIGKILL));
 	sigprocmask(SIG_SETMASK, &blocked, &oldset);
@@ -629,7 +639,7 @@ printk(" port: %d  Heade size: %d\n",FBD_CLUSTER_UDP_PORT_DM,size);
 		msg.msg_controllen = 0;
 		msg.msg_flags = msg_flags | MSG_NOSIGNAL;
 
-
+#if 0
 		if (fbd->xmit_timeout) {
 			init_timer(&ti);
 			ti.function = fbd_xmit_timeout;
@@ -637,9 +647,12 @@ printk(" port: %d  Heade size: %d\n",FBD_CLUSTER_UDP_PORT_DM,size);
 			ti.expires = jiffies + fbd->xmit_timeout;
 			add_timer(&ti);
 		}
+#endif
 		result = kernel_sendmsg(sock, &msg, &iov, 1, size);
+#if 0
 		if (fbd->xmit_timeout)
 			del_timer_sync(&ti);
+#endif
 
 		if (signal_pending(current)) {
 			siginfo_t info;
@@ -671,9 +684,9 @@ printk(" port: %d  Heade size: %d\n",FBD_CLUSTER_UDP_PORT_DM,size);
 
 
 static int send_data_sm(struct fbd_device *fbd, int send, void *buf, int size,
-		int msg_flags,fdsp_msg_t *sm_msg )
+			int msg_flags,fdsp_msg_t *sm_msg, long int node_ipaddr)
 {
-	struct timer_list ti;
+  //	struct timer_list ti;
 	struct sockaddr_in dAddr;
 	struct socket *sock = fbd_con->sock;
 	int result;
@@ -692,8 +705,8 @@ static int send_data_sm(struct fbd_device *fbd, int send, void *buf, int size,
 	if ( fbd_dev->proto_type != FBD_PROTO_TCP)
 	{
 		dAddr.sin_family = AF_INET;
-		dAddr.sin_addr.s_addr = htonl(fbd_dev->udp_destAddr);
-		dAddr.sin_port = htons(FBD_CLUSTER_UDP_PORT_SM);
+		dAddr.sin_addr.s_addr = htonl(node_ipaddr);
+		dAddr.sin_port = htons(fbd->stor_mgr_port);
 
 		msg.msg_name = &dAddr;
 		msg.msg_namelen = sizeof(dAddr);
@@ -704,7 +717,7 @@ static int send_data_sm(struct fbd_device *fbd, int send, void *buf, int size,
 		msg.msg_namelen = 0;
 	}
 
-printk(" port: %d \n",FBD_CLUSTER_UDP_PORT_SM);
+printk(" SM ipaddr - 0x%x, port: %d \n", node_ipaddr, fbd->stor_mgr_port);
 
 	/* block the signals interrupting  the  I/O transmission */
 	siginitsetinv(&blocked, sigmask(SIGKILL));
@@ -724,6 +737,8 @@ printk(" port: %d \n",FBD_CLUSTER_UDP_PORT_SM);
 		msg.msg_controllen = 0;
 		msg.msg_flags = msg_flags | MSG_NOSIGNAL;
 
+#if 0
+		struct timer_list ti;
 		if (fbd->xmit_timeout) {
 			init_timer(&ti);
 			ti.function = fbd_xmit_timeout;
@@ -731,12 +746,16 @@ printk(" port: %d \n",FBD_CLUSTER_UDP_PORT_SM);
 			ti.expires = jiffies + fbd->xmit_timeout;
 			add_timer(&ti);
 		}
-
+#endif
 		result = kernel_sendmsg(sock, &msg, iov, 2, size+sizeof(fdsp_msg_t));
+		if (result < size) {
+			printk("Send failed or truncated. result - %d\n", result);
+		}
 
+#if 0
 		if (fbd->xmit_timeout)
 			del_timer_sync(&ti);
-
+#endif
 		if (signal_pending(current)) {
 			siginfo_t info;
 			printk(KERN_WARNING "fbd (pid %d: %s) got signal %d\n",
@@ -893,7 +912,7 @@ static int fbd_process_read_request(struct request *req)
 
 			mutex_lock(&fbd->tx_lock);
 
-			result = send_msg_sm(fbd, 1, sm_msg, bv->bv_len,flag);
+			result = send_msg_sm(fbd, 1, sm_msg, bv->bv_len,flag, fbd->udp_destAddr);
 			if ( result < 0)
 			{
 				printk("  SM:Error %d: Error  sending the data \n ",result);
@@ -938,6 +957,12 @@ static int fbd_process_queue_buffers(struct request *req)
 	u64	doid;
 	u64	doid1;
 	}doid;
+	unsigned int doid_dlt_key;
+	struct timer_list *p_ti;
+	DM_NODES *dm_nodes;
+	SM_NODES *sm_nodes;
+	DM_NODES *tmp_dm_node;
+	SM_NODES *tmp_sm_node;
 
                                         
 	int ret = 0;
@@ -998,6 +1023,8 @@ static int fbd_process_queue_buffers(struct request *req)
 			dm_msg->payload.update_catalog.volume_offset = bv->bv_offset;
 			memcpy((void *)&(dm_msg->payload.update_catalog.data_obj_id), (void *)&doid, sizeof(doid));
 
+			doid_dlt_key = doid.doid >> 56;
+
 			trans_id = get_trans_id();
 
 printk("Write Req len: %d  offset: %d  flag:%d sock_buf:%p t_id: %d doid:%llx:%llx",bv->bv_len, bv->bv_offset, flag,kaddr,trans_id,doid.doid, doid.doid1);
@@ -1015,19 +1042,42 @@ printk(" write ctx: %p: %p \n ",rwlog_tbl[trans_id].write_ctx, req);
 			dm_msg->req_cookie = trans_id;
 
 			mutex_lock(&fbd->tx_lock);
-			result = send_data_sm(fbd, 1, kaddr + bv->bv_offset, bv->bv_len,flag, sm_msg);
-			if ( result < 0)
-			{
+
+			sm_nodes = get_sm_nodes_for_doid_key(doid_dlt_key);
+			list_for_each_entry(tmp_sm_node,& sm_nodes->list, list) {
+
+			  result = send_data_sm(fbd, 1, kaddr + bv->bv_offset, bv->bv_len,flag, sm_msg, tmp_sm_node->node_ipaddr);
+			  if ( result < 0)
+			    {
 				printk("  SM:Error %d: Error  sending the data \n ",result);
+			    }
 			}
 
-			result = send_data_dm(fbd, 1, dm_msg, sizeof(fdsp_msg_t),flag);
-			if ( result < 0)
-			{
-				printk(" DM:Error %d: Error  sending the data \n ",result);
+			dm_nodes = get_dm_nodes_for_volume(fbd->vol_id);
+			list_for_each_entry(tmp_dm_node, & dm_nodes->list, list) {
+
+			  result = send_data_dm(fbd, 1, dm_msg, sizeof(fdsp_msg_t),flag, tmp_dm_node->node_ipaddr);
+			  if ( result < 0)
+			    {
+			      printk(" DM:Error %d: Error  sending the data \n ",result);
+			    }
+
 			}
 
 			mutex_unlock(&fbd->tx_lock);
+			// Schedule timer here to track the responses
+#if 0
+			if (fbd->xmit_timeout) {
+			  p_ti = (struct timer_list *)kzalloc(sizeof(struct timer_list), GFP_KERNEL);
+			  init_timer(p_ti);
+			  p_ti->function = fbd_xmit_timeout;
+			  p_ti->data = (unsigned long)current;
+			  p_ti->expires = jiffies + fbd->xmit_timeout;
+			  add_timer(p_ti);
+			  rwlog_tbl[trans_id].p_ti = p_ti;
+			}
+#endif			
+
 			kunmap(bv->bv_page);
 
 			break;
@@ -1089,7 +1139,7 @@ static  int fbd_process_io_cmds (struct fbd_device *fbd, struct request *req)
 
 	case FBD_CMD_WRITE:
 		result = fbd_process_queue_buffers(req);
-//		__blk_end_request_all(req, 0); /* response will get out in rx thread */ 
+		__blk_end_request_all(req, 0); /* response will get out in rx thread */ 
 		break;
 
 	case FBD_CMD_READ:
@@ -1227,6 +1277,9 @@ static int __fbd_dev_ioctl(struct block_device *bdev, struct fbd_device *fbd,
 		return 0;
 	case FBD_SET_TGT_BLK_SIZE:
 		fbd_set_tgt_blksize(bdev, fbd, data);
+		break;
+	case FBD_SET_BASE_PORT:
+         	fbd_set_base_port(bdev, fbd, data);
 		break;
 	case FBD_READ_VVC_CATALOG:
 		fbd_read_vvc_catalog(bdev, fbd, data);
@@ -1473,6 +1526,9 @@ static int __init fbd_init(void)
 		printk(" Error: creating the  vvc  volume \n");
 		goto out;	
 	}
+
+	fbd_dev->stor_mgr_port = FBD_CLUSTER_UDP_PORT_SM;
+	fbd_dev->data_mgr_port = FBD_CLUSTER_UDP_PORT_DM;
 
 	/* init  DMT and DLT tables */
 	fds_init_dmt();

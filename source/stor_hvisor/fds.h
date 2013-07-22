@@ -110,6 +110,7 @@ typedef struct fds_journ {
 	void	 *write_ctx;
 	void	 *sm_msg;
 	void	 *dm_msg;
+        struct   timer_list *p_ti;
 	uint16_t   lt_flag;
 	uint16_t   st_flag;
 	IP_NODE	   dm_ack[FDS_MAX_DM_NODES_PER_CLST];
@@ -133,7 +134,9 @@ int del_dmt_entry( uint32_t ipaddr, volid_t  vol_id);
 int del_dlt_entry(uint32_t ipaddr, uint32_t doid_key);
 int populate_dmt_dlt_tbl(void);
 int show_dmt_entry(volid_t  vol_id);
-int show_dlt_entry(volid_t  vol_id);
+int show_dlt_entry(uint32_t doid_key);
+DM_NODES *get_dm_nodes_for_volume(volid_t vol_id);
+SM_NODES *get_sm_nodes_for_doid_key(uint32_t doid_key);
 int fds_init_trans_log(void);
 int fds_process_rx_message(uint8_t  *rx_buf);
 int get_trans_id(void);

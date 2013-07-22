@@ -99,7 +99,12 @@ int del_dlt_entry(uint32_t ipaddr, uint32_t doid_key)
   return 0;
 }
 
-int show_dlt_entry(volid_t  doid_key)
+SM_NODES *get_sm_nodes_for_doid_key(uint32_t doid_key)
+{
+  return (&dlt_tbl[doid_key]);
+}
+
+int show_dlt_entry(uint32_t  doid_key)
 {
 	SM_NODES  *tmpdmt;
 
@@ -110,9 +115,14 @@ int show_dlt_entry(volid_t  doid_key)
 
 }
 
+DM_NODES *get_dm_nodes_for_volume(volid_t vol_id)
+{
+  return (&dmt_tbl[vol_id]);
+}
+
 int show_dmt_entry(volid_t  vol_id)
 {
-	SM_NODES  *tmpdlt;
+	DM_NODES  *tmpdlt;
 
 	list_for_each_entry(tmpdlt, &dmt_tbl[vol_id].list, list)
 		printk(" ipaddr: %x node_state:%d node_type:%d \n",tmpdlt->node_ipaddr, tmpdlt->node_state,tmpdlt->node_type);
@@ -127,38 +137,75 @@ int populate_dmt_dlt_tbl(void)
 
 	DM_NODES  *adddmt;
 	SM_NODES  *adddlt;
-	volid_t	  vol_id = 0x01;
-	uint32_t  doid_sm_key = 0x30;
+	volid_t	  vol_id = 0;
+	uint32_t  doid_sm_key = 0;
 	
 
-	adddmt = kzalloc(sizeof(*adddmt), GFP_KERNEL);
-	if (!adddmt)
-	{
+	for (vol_id = 0; vol_id < FDS_MAC_DM_ENTRIES; vol_id++) {
+
+	  adddmt = kzalloc(sizeof(*adddmt), GFP_KERNEL);
+	  if (!adddmt)
+	    {
 		printk("Error Allocating the dmt node \n");
 		return -ENOMEM;
+	    }
+
+	  adddmt->node_ipaddr = 0xc0a8016e;
+	  adddmt->node_state = FDS_NODE_ONLINE;
+	  adddmt->num_nodes = 1;
+	  adddmt->node_type = FDS_NODE_TYPE_PRIM;
+
+	  add_dmt_entry(adddmt, vol_id);
+
+	  adddmt = kzalloc(sizeof(*adddmt), GFP_KERNEL);
+	  if (!adddmt)
+	    {
+	      printk("Error Allocating the dmt node \n");
+	      return -ENOMEM;
+	    }
+
+	  adddmt->node_ipaddr = 0xc0a80102;
+	  adddmt->node_state = FDS_NODE_ONLINE;
+	  adddmt->num_nodes = 1;
+	  adddmt->node_type = FDS_NODE_TYPE_SEND;
+
+	  add_dmt_entry(adddmt, vol_id);
+
 	}
 
-	adddmt->node_ipaddr = 0xc0a8016e;
-	adddmt->node_state = FDS_NODE_ONLINE;
-	adddmt->num_nodes = 1;
-	adddmt->node_type = FDS_NODE_TYPE_PRIM;
+	for (doid_sm_key = 0; doid_sm_key < FDS_MAC_SM_ENTRIES; doid_sm_key++) {
 
-	add_dmt_entry(adddmt, vol_id);
+	  adddlt = kzalloc(sizeof(*adddlt), GFP_KERNEL);
+	  if (!adddlt)
+	    {
+	      printk("Error Allocating the dlt node \n");
+	      return -ENOMEM;
+	    }
 
-	adddlt = kzalloc(sizeof(*adddlt), GFP_KERNEL);
-	if (!adddlt)
-	{
-		printk("Error Allocating the dlt node \n");
-		return -ENOMEM;
+	  adddlt->node_ipaddr = 0xc0a80102;
+	  adddlt->stor_type = FDS_STORAGE_TYPE_SSD;
+	  adddlt->node_state = FDS_NODE_ONLINE;
+	  adddlt->num_nodes = 1;
+	  adddlt->node_type =  FDS_NODE_TYPE_PRIM;
+
+	  add_dlt_entry(adddlt, doid_sm_key);
+
+	  adddlt = kzalloc(sizeof(*adddlt), GFP_KERNEL);
+	  if (!adddlt)
+	    {
+	      printk("Error Allocating the dlt node \n");
+	      return -ENOMEM;
+	    }
+
+	  adddlt->node_ipaddr = 0xc0a8016e;
+	  adddlt->stor_type = FDS_STORAGE_TYPE_SSD;
+	  adddlt->node_state = FDS_NODE_ONLINE;
+	  adddlt->num_nodes = 1;
+	  adddlt->node_type =  FDS_NODE_TYPE_SEND;
+
+	  add_dlt_entry(adddlt, doid_sm_key);
+
 	}
-
-	adddlt->node_ipaddr = 0xc0a8016e;
-	adddlt->stor_type = FDS_STORAGE_TYPE_SSD;
-	adddlt->node_state = FDS_NODE_ONLINE;
-	adddlt->num_nodes = 1;
-	adddlt->node_type =  FDS_NODE_TYPE_PRIM;
-
-	add_dlt_entry(adddlt, doid_sm_key);
 
   return 0;
 }
