@@ -34,7 +34,7 @@
 #define  FBD_READ_VVC_CATALOG		109
 #define  FBD_READ_DMT_TBL		110
 #define  FBD_READ_DLT_TBL		111
-
+#define  FBD_SET_BASE_PORT              112
 
 
 /* cluster transport structure */
@@ -76,8 +76,11 @@ struct fbd_device {
 	struct device	dev;
 	/* network connection details */
 	struct socket *sock;
+	long int   src_ip_addr;
 	long int   tcp_destAddr;
 	long int   udp_destAddr;
+        int stor_mgr_port;
+        int data_mgr_port;
 	int 	   proto_type;
 	/* message header */
 	fdsp_msg_t	dm_msg;
@@ -106,4 +109,5 @@ struct fbd_device {
 #define FBD_CLUSTER_UDP_PORT_SM		9600
 #define FBD_CLUSTER_UDP_PORT_DM		9601
 
+int send_data_dm(struct fbd_device *fbd, int send, void *buf, int size, int msg_flags, long int node_ipaddr);
 #endif

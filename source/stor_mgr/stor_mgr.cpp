@@ -2,6 +2,7 @@
 #include "disk_mgr.h"
 
 fds_bool_t  stor_mgr_stopping = false;
+
 #define FDS_XPORT_PROTO_TCP 1
 #define FDS_XPORT_PROTO_UDP 2
 #define FDSP_MAX_MSG_LEN (4*(4*1024 + 128))
@@ -29,7 +30,7 @@ fds_stor_mgr_init()
   
   // Create leveldb
   leveldb::Options options;
-  options.create_if_missing = true;
+  options.create_if_missing = 1;
   leveldb::Status status = leveldb::DB::Open(options, "/tmp/testdb", &db);
   assert(status.ok());
 
@@ -111,6 +112,8 @@ fds_uint32_t disk_num = 1;
    // Enqueue the object location entry into the thread that maintains global index file
    //disk_mgr_write_obj_loc(object_id, obj_len, volid, data_loc);
 }
+
+
 /*------------------------------------------------------------------------- ------------
  * FDSP Protocol message processing 
  -------------------------------------------------------------------------------------*/
@@ -310,9 +313,9 @@ void *stor_mgr_req_processor(void *sock_ptr) {
 /*------------------------------------------------------------------------------------- 
  * Storage Mgr main  processor : Listen on the socket and spawn or assign thread from a pool
  -------------------------------------------------------------------------------------*/
-void fds_stor_mgr_main(int xport_protocol)
+void fds_stor_mgr_main(int xport_protocol, int port_no)
 {
-    int sockfd, newsockfd, portno, clilen, err=0;
+    int sockfd, newsockfd, clilen, err=0;
     pthread_t pthr;
     struct sockaddr_in serv_addr, cli_addr;
     int  n;
@@ -327,10 +330,10 @@ void fds_stor_mgr_main(int xport_protocol)
         }
     
         bzero((char *) &serv_addr, sizeof(serv_addr));
-        portno = FDS_STOR_MGR_LISTEN_PORT;
+        // portno = FDS_STOR_MGR_LISTEN_PORT;
         serv_addr.sin_family = AF_INET;
         serv_addr.sin_addr.s_addr = INADDR_ANY;
-        serv_addr.sin_port = htons(portno);
+        serv_addr.sin_port = htons(port_no);
      
         /* Now bind the host address using bind() call.*/
         if (bind(sockfd, (struct sockaddr *) &serv_addr,
@@ -379,10 +382,10 @@ void fds_stor_mgr_main(int xport_protocol)
       fds_stor_mgr_blk.sockfd = sockfd=socket(AF_INET,SOCK_DGRAM,0);
 
       bzero((char *) &serv_addr, sizeof(serv_addr));
-      portno = FDS_STOR_MGR_DGRAM_PORT;
+      // portno = FDS_STOR_MGR_DGRAM_PORT;
       serv_addr.sin_family = AF_INET;
       serv_addr.sin_addr.s_addr= INADDR_ANY;  
-      serv_addr.sin_port = htons(portno);
+      serv_addr.sin_port = htons(port_no);
       bind(sockfd,(struct sockaddr *)&serv_addr,sizeof(serv_addr));
 
       for (;;)
@@ -409,14 +412,18 @@ void fds_stor_mgr_main(int xport_protocol)
 int main(int argc, char *argv[])
 {
   bool unit_test;
+  int port_number = FDS_STOR_MGR_DGRAM_PORT;
 
-  unit_test = false;
+  unit_test = 0;
 
   if (argc > 1) {
     for (int i = 1; i < argc; i++) {
       std::string arg(argv[i]);
       if (arg == "--unit_test") {
 	unit_test = true;
+      } else if (arg == "-p") {
+	port_number = atoi(argv[i+1]);
+	i++;
       } else {
 	std::cerr << "Unknown option" << std::endl;
 	return 0;
@@ -424,6 +431,9 @@ int main(int argc, char *argv[])
     }
     
   }
+
+  printf("Stor Mgr port_number : %d\n", port_number);
+
   fds_stor_mgr_init();
 
   if (unit_test) {
@@ -432,7 +442,7 @@ int main(int argc, char *argv[])
     return 0;
   }
 
-  fds_stor_mgr_main(FDS_XPORT_PROTO_UDP);
+  fds_stor_mgr_main(FDS_XPORT_PROTO_UDP, port_number);
 }
 
 

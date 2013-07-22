@@ -1,4 +1,4 @@
-SUBDIRS := lib data_mgr
+SUBDIRS := lib data_mgr stor_mgr
 
 .PHONY : all clean
 

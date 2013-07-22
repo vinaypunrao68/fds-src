@@ -80,6 +80,18 @@ static int connect_cluster_tcp_udp(int ipaddr, int cmd, int dev_id)
 	return ret;
 }
 
+static int set_base_port_number(int port_number, int cmd, int dev_id)
+{
+	int ret = 0;
+	if((ret = ioctl(dev_id, cmd, port_number)) < 0)
+	{
+		printf("Error %d: Setting base port number \n",ret);
+		return ret;
+	}
+
+	return ret;
+}
+
 static int disconnect_cluster(int ipaddr, int cmd, int dev_id)
 {
 	int ret = 0;
@@ -143,6 +155,7 @@ void usage(char* errmsg, ...)
 			"a                     Add new block device \n"
 			"-t <tgt-ipaddr>       TCP-Open Cluster Connection \n"
 			"-u <tgt-ipaddr>       UDP-Open Cluster Connection \n"
+		        "-p <port-number>      Base Port number for Stor Mgr and Data Mgr \n"
 			"-r <vvc-count>        Read  VVC  catalog  \n"
 			"-m <vol-id>           Read DMT  table  \n"
 			"-l <doid-key>         Read DLT  table  \n"
@@ -160,6 +173,7 @@ int    main(int argc, char *argv[])
 	int  vol_id,doid_key; 
 	int  fbd= 0;
 	long int  ipaddr=0;
+	int  port_number;
 	int  opt;
 
 	struct option long_options[] = {
@@ -168,6 +182,7 @@ int    main(int argc, char *argv[])
 		{ "add-dev", no_argument, NULL, 'a' },
 		{ "tgt-ipaddr", required_argument, NULL, 't' },
 		{ "tgt-ipaddr", required_argument, NULL, 'u' },
+		{ "port", required_argument, NULL, 'p'},
 		{ "vvc-count", required_argument, NULL, 'r' },
 		{ "vold-id", required_argument, NULL, 'm' },
 		{ "doid-key", required_argument, NULL, 'l' },
@@ -181,7 +196,7 @@ int    main(int argc, char *argv[])
 	if (fbd < 0)
 	  	printf( "Cannot open  the device: Please emake sure the  device is  created \n");
 
-	while((opt=getopt_long_only(argc, argv, "-d:-b:a:-t:-u:-r:-m:-l:c:h:", long_options, NULL))>=0) 
+	while((opt=getopt_long_only(argc, argv, "-d:-b:a:-t:-u:-p:-r:-m:-l:c:h:", long_options, NULL))>=0) 
 	{
 		switch(opt) {
 		case 'b':
@@ -204,6 +219,9 @@ int    main(int argc, char *argv[])
 			connect_cluster_tcp_udp(ntohl(ipaddr),FBD_OPEN_TARGET_CON_UDP,fbd);
 			printf(" Received the response from  driver \n");
 			break;
+		case 'p':
+		        port_number = (int)strtol(optarg, NULL, 0);
+			set_base_port_number(port_number, FBD_SET_BASE_PORT, fbd);
 		case 'r':
 			blk_cnt=(int)strtol(optarg, NULL, 0);
 			read_vvc_catalog(blk_cnt,FBD_READ_VVC_CATALOG,fbd);

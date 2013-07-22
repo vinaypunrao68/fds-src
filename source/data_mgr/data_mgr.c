@@ -150,6 +150,37 @@ dm_wthread_t  *get_next_worker() {
 
 }
 
+int get_cmd_line_options(int argc, char *argv[], int *port_number) {
+  
+  int opterr = 0;
+  int c;
+  *port_number = FDS_DMGR_SVR_PORT;
+     
+  while ((c = getopt (argc, argv, "p:")) != -1) {
+
+    switch (c)
+      {
+      case 'p':
+	*port_number = atoi(optarg);
+	break;
+      case '?':
+	if (optopt == 'p')
+	  fprintf (stderr, "Option -%c requires an argument.\n", optopt);
+	else if (isprint (optopt))
+	  fprintf (stderr, "Unknown option `-%c'.\n", optopt);
+	else
+	  fprintf (stderr,
+		   "Unknown option character `\\x%x'.\n",
+		   optopt);
+	return 1;
+      default:
+	abort ();
+      }
+
+  }
+  return (0);
+}
+
 
 int main( int argc, char *argv[] ) {
 
@@ -158,6 +189,9 @@ int main( int argc, char *argv[] ) {
   socklen_t len;
   int i;
   dm_wthread_t *next_worker;
+  int svr_port_number;
+
+  get_cmd_line_options(argc, argv, &svr_port_number);
  
 #ifndef DMGR_LIVE_DEBUG
 
@@ -178,13 +212,15 @@ int main( int argc, char *argv[] ) {
   servaddr.sin_family = AF_INET;
   servaddr.sin_addr.s_addr=htonl(INADDR_ANY);
   //servaddr.sin_addr.s_addr=htonl(0xc0a80105);
-  servaddr.sin_port=htons(FDS_DMGR_SVR_PORT);
+  servaddr.sin_port=htons(svr_port_number);
   bind(req_fd,(struct sockaddr *)&servaddr,sizeof(servaddr));
 
   // create worker threads
   for (i = 0; i < DMGR_NUM_WORKERS; i++) {
     worker_thread[i] = create_worker_thread(i);
   }
+
+  dmgr_log(LOG_NOTICE, "Data Mgr Daemon listening on port %d\n", svr_port_number);
 
   while (1){
     dm_req_t *next_req;
@@ -270,6 +306,7 @@ void process_request(dm_wthread_t *wt_info, dm_req_t *req) {
 #define FILL_RESP_FLDS(resp_msg, result, e_msg, cookie) \
   memset(&resp_msg, 0, sizeof(fdsp_msg_t)); \
   resp_msg.msg_code = FDSP_MSG_UPDATE_CAT_OBJ_RSP; \
+  resp_msg.src_id = FDSP_DATA_MGR; \
   resp_msg.result = result; \
   if (e_msg) { \
     strncpy(resp_msg.err_msg.err_msg, e_msg, sizeof (fdsp_error_msg_t)); \

@@ -6,11 +6,11 @@
 #ifndef LIB_KERNEL
 #include <sys/types.h>
 #include "string.h"
+#include <stdio.h>
 #else
 #include <linux/types.h>
 #endif
 #include <stdbool.h>
-#include <stdio.h>
 
 typedef unsigned int volid_t;
 #define INV_VOL_ID (unsigned int)(-1)
