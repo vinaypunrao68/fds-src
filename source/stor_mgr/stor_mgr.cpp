@@ -1,7 +1,7 @@
 #include "stor_mgr.h"
 #include "disk_mgr.h"
 
-fds_bool_t  stor_mgr_stopping = FALSE;
+fds_bool_t  stor_mgr_stopping = false;
 #define FDS_XPORT_PROTO_TCP 1
 #define FDS_XPORT_PROTO_UDP 2
 #define FDSP_MAX_MSG_LEN (4*(4*1024 + 128))
