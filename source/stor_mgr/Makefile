@@ -1,5 +1,5 @@
 TOPDIR=..
-IDIR =-I. -I$(TOPDIR)/include -I$(TOPDIR)/lib/leveldb-1.12.0/include/
+IDIR =-I. -I$(TOPDIR)/include -I$(TOPDIR)/lib/leveldb-1.12.0/include/ -I..
 CC=gcc
 CPPC=g++
 CFLAGS=$(IDIR) -g -L$(TOPDIR)/lib/leveldb-1.12.0/
