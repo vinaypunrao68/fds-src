@@ -29,6 +29,10 @@ int vvc_db_connect(vvc_vdb_t *vdb) {
 
 }
 
+void vvc_db_disconnect(vvc_vdb_t *vdb) {
+  mysql_close(vdb->db_con);
+}
+
 int vvc_db_entry_load(vvc_vdb_t *vdb, const char *blk_name) {
 
   int i, num_segments;
@@ -235,6 +239,34 @@ int vvc_db_entry_delete(vvc_vdb_t *vdb, vvce_t *vvce) {
 
   return (0);
 
+}
+
+int vvc_db_vol_delete_entries(vvc_vdb_t *vdb) {
+
+  char *tmp_query_string;
+
+  /*
+   * db name should be valid
+   */
+  if (!vdb->db_name) {
+    return -1;
+  }
+
+  tmp_query_string = (char *)vvc_malloc(VVC_MAX_QUERY_STR_SZ);
+  sprintf(tmp_query_string, "DELETE FROM VVC WHERE VolID = %d;", vdb->vol_id);
+  
+#ifdef VVC_DBG
+  vvc_print("Query string: %s\n", tmp_query_string);
+#endif
+  if (mysql_query(vdb->db_con, tmp_query_string) != 0) {
+    fprintf(stderr, "%s\n", mysql_error(vdb->db_con));
+    vvc_mfree(tmp_query_string);
+    return(-1);
+  }
+  
+  vvc_mfree(tmp_query_string);
+
+  return 0;
 }
 
 #else

@@ -4,6 +4,7 @@
 #define lh_insert fdsh_insert
 #define lh_retrieve fdsh_retrieve
 #define lh_delete fdsh_delete
+#define lh_free fdsh_free
 
 typedef void *_FDS_HASH;
 
@@ -114,4 +115,13 @@ static void *fdsh_delete(_LHASH htable, void *entry) {
   }
 
   return (NULL);
+}
+
+static void *fdsh_free(_LHASH htable) {
+  /*
+   * Do nothing for now because this in kernel
+   * implementation will be depracated when the
+   * hypervisor code moves to user space.
+   */
+  return NULL;
 }

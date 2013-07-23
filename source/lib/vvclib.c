@@ -68,6 +68,48 @@ vvc_vhdl_t vvc_vol_create(volid_t vol_id, const char *db_name, int max_blocks) {
 
 }
 
+void
+vvc_vol_destroy(vvc_vhdl_t vhdl) {
+
+  vvc_vdb_t *vdb;
+
+  vdb = (vvc_vdb_t *)vhdl;
+
+#ifdef LIB_KERNEL
+#else
+  /*
+   * Destrying user space vdb
+   */
+  if (vhdl == NULL) {
+    vvc_print("vhdl handle is NULL already\n");
+  } else {
+    vvc_print("Destroying non-NULL vhdl handle\n");
+    /* Delete volume's table entries */
+    vvc_db_vol_delete_entries(vdb);
+
+    /* Disconnect mysql */
+    vvc_db_disconnect(vdb);
+    /*
+     * We should free each vvc hash table entry.
+     * Note that this is currently unimplemented
+     * until we move this to c++ and use the STL's
+     * unordered_map<>. In the meantime, we may
+     * leak memory as we only free the vvc_table
+     * and not its entries.
+     */
+    /* Free vvc hash table */
+    free(vdb->vvc_table);
+    /* Free db_name */
+    free(vdb->db_name);
+    /* Free vhdl */
+    free(vdb);
+    vvc_print("Destroyed non-NULL vhdl handle\n");
+  }
+#endif
+
+  return;
+}
+
 #ifndef LIB_KERNEL
 // This is used to load an existing volume from DB. In-memory DB clients should always call vol_create.
 vvc_vhdl_t vvc_vol_load(volid_t vol_id, const char *db_name) {
@@ -189,4 +231,8 @@ int vvc_entry_delete(vvc_vhdl_t vhdl, const char *blk_name) {
   vvce_destroy(tmp_vvce);
   return (rc);
 
+}
+
+int vvc_entry_next() {
+  return 0;
 }

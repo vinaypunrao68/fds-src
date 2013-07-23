@@ -10,6 +10,7 @@ vvc_vhdl_t vhdl = 0;
 char cmd_wd[128];
 
 void process_crtvol_cmd(char *cmd_line);
+void process_dstryvol_cmd(char *cmd_line);
 void process_loadvol_cmd(char *cmd_line);
 void process_add_cmd(char *cmd_line);
 void process_update_cmd(char *cmd_line);
@@ -29,6 +30,8 @@ int main(int argc, char *argv) {
       break;
     } else if (strcmp(cmd_wd, "crtvol") == 0) {
       process_crtvol_cmd(line_ptr);
+    } else if (strcmp(cmd_wd, "dstryvol") == 0) {
+      process_dstryvol_cmd(line_ptr);
     } else if (strcmp(cmd_wd, "loadvol") == 0) {
       process_loadvol_cmd(line_ptr);
     } else if (strcmp(cmd_wd, "add") == 0) {
@@ -58,6 +61,15 @@ void process_crtvol_cmd(char *line_ptr) {
 
   sscanf(line_ptr, "crtvol %d", &vol_id);
   vhdl = vvc_vol_create(vol_id, "FDS_SP_DB", 1024);
+  return;
+}
+
+void process_dstryvol_cmd(char *line_ptr) {
+
+  volid_t vol_id;
+
+  sscanf(line_ptr, "dstryvol %d", &vol_id);
+  vvc_vol_destroy(vhdl);
   return;
 }
 
