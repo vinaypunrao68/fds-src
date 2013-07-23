@@ -6,6 +6,11 @@ typedef void *vvc_vhdl_t;
 
 vvc_vhdl_t vvc_vol_create(volid_t vol_id, const char *db_name, int max_blocks);
 
+/*
+ * Destroys an existing volume catalog.
+ */
+void vvc_vol_destroy(vvc_vhdl_t vhdl);
+
 // This is used to load an existing volume from DB. In-memory DB clients should always call vol_create.
 vvc_vhdl_t vvc_vol_load(volid_t vol_id, const char *db_name);
 
@@ -20,6 +25,8 @@ int vvc_entry_add(vvc_vhdl_t vhdl, const char *blk_name, int segment_num, const 
 int vvc_entry_remove(vvc_vhdl_t vhdl, const char *blk_name, int segment_num);
 
 int vvc_entry_delete(vvc_vhdl_t vhdl, const char *blk_name);
+
+int vvc_entry_next();
 
 enum {
 
