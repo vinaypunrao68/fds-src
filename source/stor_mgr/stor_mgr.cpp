@@ -186,7 +186,7 @@ fds_sm_err_t stor_mgr_get_obj(fdsp_get_object_t *get_obj_req, fds_uint32_t volid
 
   leveldb::Slice key((char *)&(get_obj_req->data_obj_id),
 		     sizeof(get_obj_req->data_obj_id));
-  std::string value;
+  std::string value(&get_obj_req->data_obj[0]);
   leveldb::Status status = db->Get(leveldb::ReadOptions(), key, &value);
 
   if (! status.ok()) {
@@ -205,6 +205,7 @@ fds_sm_err_t stor_mgr_get_obj_req(fdsp_msg_t *fdsp_msg) {
     // 
     // stor_mgr_verify_msg(fdsp_msg);
 
+    printf("StorageHVisor --> StorMgr : FDSP_MSG_GET_OBJ_REQ ObjectId %016llx:%016llx \n",get_obj_req->data_obj_id.hash_high, get_obj_req->data_obj_id.hash_low);
     stor_mgr_get_obj(get_obj_req, fdsp_msg->glob_volume_id, fdsp_msg->num_objects);
 }
 
