@@ -294,6 +294,9 @@ fds_sm_err_t stor_mgr_proc_fdsp_msg(void *msg, struct sockaddr *cli_addr, sockle
  }
 
  stor_mgr_send_fdsp_msg_response(fdsp_rsp_msg, cli_addr, socklen);
+ if (fdsp_msg != fdsp_rsp_msg) {
+    free(fdsp_rsp_msg);
+ }
 }
        
 
