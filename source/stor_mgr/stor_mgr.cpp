@@ -177,7 +177,7 @@ fds_sm_err_t stor_mgr_put_obj_req(fdsp_msg_t *fdsp_msg) {
     //put_obj_req->data_obj_id.hash_high = ntohl(put_obj_req->data_obj_id.hash_high);
     //put_obj_req->data_obj_id.hash_low = ntohl(put_obj_req->data_obj_id.hash_low);
 
-    printf("StorageHVisor --> StorMgr : FDSP_MSG_PUT_OBJ_REQ ObjectId %016llx:%016llx \n",put_obj_req->data_obj_id.hash_high, put_obj_req->data_obj_id.hash_low);
+    printf("StorageHVisor --> StorMgr : FDSP_MSG_PUT_OBJ_REQ ObjectId %016llx:%016llx %x\n",put_obj_req->data_obj_id.hash_high, put_obj_req->data_obj_id.hash_low, put_obj_req->volume_offset);
     stor_mgr_put_obj(put_obj_req, fdsp_msg->glob_volume_id, fdsp_msg->num_objects);
 }
 
@@ -219,17 +219,22 @@ static inline void fdsp_swap_mgr_id(fdsp_msg_t *fdsp_msg) {
 
 void stor_mgr_send_fdsp_msg_response(fdsp_msg_t *fdsp_msg, struct sockaddr *cli_addr, socklen_t clilen) {
  fds_sm_err_t result;
+ fds_uint32_t len=0;
+ fdsp_get_object_t *get_obj_req;
 
  switch(fdsp_msg->msg_code) {
     case FDSP_MSG_PUT_OBJ_REQ:
         printf("SH-->SM : Rcvd Cookie %x \n",fdsp_msg->req_cookie);
         fdsp_msg->msg_code = FDSP_MSG_PUT_OBJ_RSP;
+        len = sizeof(fdsp_msg_t);
         fdsp_swap_mgr_id(fdsp_msg);
         break;
 
     case FDSP_MSG_GET_OBJ_REQ:
         fdsp_msg->msg_code = FDSP_MSG_GET_OBJ_RSP;
+        get_obj_req = (fdsp_get_object_t *)&fdsp_msg->payload;
         fdsp_swap_mgr_id(fdsp_msg);
+        len= sizeof(fdsp_msg_t) + get_obj_req->data_obj_len;
         break;
 
     case FDSP_MSG_VERIFY_OBJ_REQ:
@@ -244,7 +249,7 @@ void stor_mgr_send_fdsp_msg_response(fdsp_msg_t *fdsp_msg, struct sockaddr *cli_
     default :
         break;
  }
- sendto(fds_stor_mgr_blk.sockfd, fdsp_msg, sizeof(fdsp_msg_t), 0,
+ sendto(fds_stor_mgr_blk.sockfd, fdsp_msg, len, 0,
                cli_addr, clilen);
 }
 
@@ -252,15 +257,24 @@ void stor_mgr_send_fdsp_msg_response(fdsp_msg_t *fdsp_msg, struct sockaddr *cli_
 fds_sm_err_t stor_mgr_proc_fdsp_msg(void *msg, struct sockaddr *cli_addr, socklen_t socklen) 
 {
  fdsp_msg_t *fdsp_msg = (fdsp_msg_t *)msg;
+ fdsp_msg_t *fdsp_rsp_msg;
  fds_sm_err_t result;
+ fdsp_get_object_t *get_obj_req;
+ fdsp_get_object_t *get_obj_rsp;
 
  switch(fdsp_msg->msg_code) {
     case FDSP_MSG_PUT_OBJ_REQ:
+        fdsp_rsp_msg = fdsp_msg;
         result = stor_mgr_put_obj_req(fdsp_msg);
         break;
 
     case FDSP_MSG_GET_OBJ_REQ:
-        result = stor_mgr_get_obj_req(fdsp_msg);
+        fdsp_rsp_msg = (fdsp_msg_t *)malloc(sizeof(fdsp_msg_t) + ((fdsp_get_object_t *)(&fdsp_msg->payload))->data_obj_len);
+        memcpy(fdsp_rsp_msg, fdsp_msg, sizeof(fdsp_msg_t));
+        get_obj_req = (fdsp_get_object_t *)&fdsp_msg->payload;
+        get_obj_rsp = (fdsp_get_object_t *)&fdsp_rsp_msg->payload;
+        memcpy(get_obj_rsp, get_obj_req, sizeof(fdsp_get_object_t));
+        result = stor_mgr_get_obj_req(fdsp_rsp_msg);
         break;
 
     case FDSP_MSG_VERIFY_OBJ_REQ:
@@ -279,7 +293,7 @@ fds_sm_err_t stor_mgr_proc_fdsp_msg(void *msg, struct sockaddr *cli_addr, sockle
         break;
  }
 
- stor_mgr_send_fdsp_msg_response(fdsp_msg, cli_addr, socklen);
+ stor_mgr_send_fdsp_msg_response(fdsp_rsp_msg, cli_addr, socklen);
 }
        
 
