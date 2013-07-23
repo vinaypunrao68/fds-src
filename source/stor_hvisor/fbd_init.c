@@ -453,6 +453,7 @@ static void fbd_end_request(struct request *req)
 
 
 	spin_lock_irqsave(q->queue_lock, flags);
+	if(req)
 	__blk_end_request_all(req, error);
 	spin_unlock_irqrestore(q->queue_lock, flags);
 }
@@ -860,8 +861,9 @@ static int fbd_process_read_request(struct request *req)
 	u64	doid1;
 	}doid;
 
-	struct DOID 	*doid_list1;
-	struct DOID 	**doid_list;
+//	struct DOID 	*doid_list1;
+//	struct DOID 	**doid_list;
+	fds_doid_t	*doid_list;
 
 	fbd = req->rq_disk->private_data;
 
@@ -872,19 +874,24 @@ static int fbd_process_read_request(struct request *req)
 		switch (dir)
 		{
 		 case READ:
-			doid_list1 = &doid;
-			doid_list = &doid_list1;
-  			rc = vvc_entry_get(fbd->vhdl, fbd->blk_name, &n_segments,doid_list);
+//			doid_list1 = &doid;
+//			doid_list = &doid_list1;
+  			rc = vvc_entry_get(fbd->vhdl, fbd->blk_name, &n_segments,(doid_t **)&doid_list);
 			if (rc)
 			{
-				printk("Error reading the VVC catalog  Error code : %d\n", rc);
-				return (rc);
+			  //	printk("Error reading the VVC catalog  Error code : %d req:%p\n", rc,req);
+				/* for now just return the  and ack the read. we will have to come up with logic to handle these cases */
+				__blk_end_request_all(req, 0);
+				result=rc;
+				return result;
 			}
 
 			sm_msg = kzalloc(sizeof(*sm_msg), GFP_KERNEL);
 			if (!sm_msg)
 			{
-				printk("Error Read: Allocating the memory for sm message header \n");
+				printk("Error Read: Allocating the memory for sm message header %p\n",req);
+				if(req)
+				__blk_end_request_all(req, -EIO);
 				return -ENOMEM;
 			}
 
@@ -892,12 +899,12 @@ static int fbd_process_read_request(struct request *req)
 			fds_init_sm_hdr(sm_msg);
 			sm_msg->msg_code = FDSP_MSG_GET_OBJ_REQ;
 			sm_msg->msg_id =  1;
-			memcpy((void *)&(sm_msg->payload.put_obj.data_obj_id), (void *)&doid, sizeof(doid));
-			sm_msg->payload.put_obj.data_obj_len = bv->bv_len;
+			memcpy((void *)&(sm_msg->payload.get_obj.data_obj_id), (void *)&(doid_list[0].bytes[0]), sizeof(doid));
+			sm_msg->payload.get_obj.data_obj_len = bv->bv_len;
 			sm_msg->payload_len = bv->bv_len;
-			sm_msg->payload.put_obj.volume_offset = bv->bv_offset;
+printk(" read  page addr: %p \n", bv->bv_page);
 			printk("Read Req len: %d  offset: %d  flag:%d sm_msg:%p \
-				doid:%llx:%llx",bv->bv_len, bv->bv_offset, flag,sm_msg,doid.doid, doid.doid1);
+				doid:%llx:%llx",bv->bv_len, bv->bv_offset, flag,sm_msg, doid_list[0].obj_id.hash_high, doid_list[0].obj_id.hash_low);
 			/* open transaction  */
 			trans_id = get_trans_id();
 
@@ -913,19 +920,27 @@ static int fbd_process_read_request(struct request *req)
 
 			mutex_lock(&fbd->tx_lock);
 
-			result = send_msg_sm(fbd, 1, sm_msg, bv->bv_len,flag, fbd->udp_destAddr);
+			result = send_msg_sm(fbd, 1, sm_msg, sizeof(fdsp_msg_t), flag, fbd->udp_destAddr);
 			if ( result < 0)
 			{
-				printk("  SM:Error %d: Error  sending the data \n ",result);
-				return (result);
+				printk("  READ-SM:Error %d: Error  sending the data %p \n ",result,req);
+				mutex_unlock(&fbd->tx_lock);
+				if(req)
+				__blk_end_request_all(req, -EIO);
+				return result;
 			}
+			mutex_unlock(&fbd->tx_lock);
 			break;
 		 case WRITE:
-			printk(" Error: command mis-match. Not expecting  write  in Read thread \n");
+			printk(" Error: command mis-match. Not expecting  write  in Read thread %p \n",req);
+			if(req)
+			__blk_end_request_all(req, -EIO);
 			goto End;
 			
 		 default:
-			printk(" Unknown  command \n");
+			printk(" Unknown  command  %p \n",req);
+			if(req)
+			__blk_end_request_all(req, -EIO);
 			goto End;
 		}
 
@@ -933,7 +948,6 @@ static int fbd_process_read_request(struct request *req)
 
 
 End:
-	printk("\n");
 	return result;
 }
 
@@ -1001,14 +1015,18 @@ static int fbd_process_queue_buffers(struct request *req)
 			sm_msg = kzalloc(sizeof(*sm_msg), GFP_KERNEL);
 			if (!sm_msg)
 			{
-				printk(" Error Allocating the memory for sm message header \n");
+				printk(" Error Allocating the memory for sm message header  %p\n",req);
+				if(req)
+				__blk_end_request_all(req, -EIO);
 				return -ENOMEM;
 			}
 
 			dm_msg = kzalloc(sizeof(*sm_msg), GFP_KERNEL);
 			if (!dm_msg)
 			{
-				printk(" Error Allocating the memory for dm message header \n");
+				printk(" Error Allocating the memory for dm message header  %p \n",req);
+				if(req)
+				__blk_end_request_all(req, -EIO);
 				return -ENOMEM;
 			}
 			
@@ -1030,15 +1048,15 @@ static int fbd_process_queue_buffers(struct request *req)
 
 			trans_id = get_trans_id();
 
-printk("Write Req len: %d  offset: %d  flag:%d sock_buf:%p t_id: %d doid:%llx:%llx",bv->bv_len, bv->bv_offset, flag,kaddr,trans_id,doid.doid, doid.doid1);
+printk("Write Req len: %d  offset: %d  flag:%d sock_buf:%p t_id: %d doid:%llx:%llx \n",bv->bv_len, bv->bv_offset, flag,kaddr,trans_id,doid.doid, doid.doid1);
 			/* open transaction  */
 
                         rwlog_tbl[trans_id].fbd_ptr = fbd;
 			rwlog_tbl[trans_id].trans_state = FDS_TRANS_OPEN;
 			rwlog_tbl[trans_id].write_ctx = (void *)req;
-printk(" write ctx: %p: %p \n ",rwlog_tbl[trans_id].write_ctx, req);
 			rwlog_tbl[trans_id].sm_msg = (void *)sm_msg; 
 			rwlog_tbl[trans_id].dm_msg = (void *)dm_msg;
+			rwlog_tbl[trans_id].fbd_ptr = (void *)fbd;
 			rwlog_tbl[trans_id].sm_ack_cnt = 0;
 			rwlog_tbl[trans_id].dm_ack_cnt = 0;
 			rwlog_tbl[trans_id].dm_commit_cnt = 0;
@@ -1059,10 +1077,16 @@ printk(" write ctx: %p: %p \n ",rwlog_tbl[trans_id].write_ctx, req);
 			  
 			  if ( result < 0)
 			    {
-				printk("  SM:Error %d: Error  sending the data \n ",result);
+			      printk(" WRITE-SM:Error: Error  sending the data  %p\n",req);
+			      if(req)
+				__blk_end_request_all(req, -EIO);
+			      mutex_unlock(&fbd->tx_lock);
+			      kunmap(bv->bv_page);
+			      return result;
 			    }
 			}
 			rwlog_tbl[trans_id].num_sm_nodes = num_nodes;
+
 
 			dm_nodes = get_dm_nodes_for_volume(fbd->vol_id);
 			num_nodes = 0;
@@ -1075,9 +1099,13 @@ printk(" write ctx: %p: %p \n ",rwlog_tbl[trans_id].write_ctx, req);
 			  result = send_data_dm(fbd, 1, dm_msg, sizeof(fdsp_msg_t),flag, tmp_dm_node->node_ipaddr);
 			  if ( result < 0)
 			    {
-			      printk(" DM:Error %d: Error  sending the data \n ",result);
+			      printk("WRITE-DM:Error: Error  sending the data  %p\n ",req);
+			      if(req)
+				__blk_end_request_all(req, -EIO);
+			      mutex_unlock(&fbd->tx_lock);
+			      kunmap(bv->bv_page);
+			      return result;
 			    }
-
 			}
 			rwlog_tbl[trans_id].num_dm_nodes = num_nodes;
 
@@ -1099,20 +1127,25 @@ printk(" write ctx: %p: %p \n ",rwlog_tbl[trans_id].write_ctx, req);
 
 			break;
 		case READ:
-			printk(" Error: command mis-match. Not expecting  read  in Write thread \n");
+			printk(" Error: command mis-match. Not expecting  read  in Write thread %p \n",req);
+			if(req)
+			__blk_end_request_all(req, -EIO);
 			goto End;
 			
 		default:
-			printk(" Unknown  command \n");
+			printk(" Unknown  command i %p\n",req);
+			if(req)
+			__blk_end_request_all(req, -EIO);
 			goto End;
 
 		}
 		sector_offset += sectors;
+		bv->bv_page = bv->bv_page + bv->bv_len;
+		
 	}
   
 End:
-	printk("\n");
-	return ret;
+	return result;
 }
 
 
@@ -1146,11 +1179,14 @@ static  int fbd_process_io_cmds (struct fbd_device *fbd, struct request *req)
 	}
 
 	fbd->active_req = req;
+	// printk(" active  incomming request :%p \n",req);
 
 	switch(loc_cmd)
 	{
 	case FBD_CMD_FLUSH:
+		printk(" flush  command from block \n");
 		blk_queue_flush(fbd->disk->queue, REQ_FLUSH);
+		if(req)
 		__blk_end_request_all(req, 0);
 		break;
 
@@ -1160,10 +1196,7 @@ static  int fbd_process_io_cmds (struct fbd_device *fbd, struct request *req)
 		break;
 
 	case FBD_CMD_READ:
-		printk(" Read request  from the block device \n");
-		if (fbd_process_read_request(req) < 0) {
-			__blk_end_request_all(req, 0);
-		}
+		fbd_process_read_request(req);
 		break;
 
 	default:
@@ -1226,6 +1259,7 @@ static void fbd_process_queue(struct request_queue *q)
 		fbd = req->rq_disk->private_data;
 		if (req->cmd_type != REQ_TYPE_FS) {
 			printk (KERN_NOTICE " Non valid  command request is skipped \n");
+			if(req)
 			__blk_end_request_all(req, 0);
 			continue;
 		}
@@ -1233,6 +1267,7 @@ static void fbd_process_queue(struct request_queue *q)
 		if (fbd->sock == NULL)
 		{
 			printk (KERN_NOTICE "Error SM-DM: Socket is not open yet \n");
+			if(req)
 			__blk_end_request_all(req, 0);
 			continue;
 		}
@@ -1241,32 +1276,24 @@ static void fbd_process_queue(struct request_queue *q)
 		if ((rq_data_dir(req) == WRITE) &&  (fbd->flags & FBD_READ_ONLY))
 		 {
 			printk("Error: writting read only disk \n");
+			if(req)
 			__blk_end_request_all(req, -EROFS);
 			continue;
          }
 
-		/* for now drop all read */
-
-		if ((rq_data_dir(req) == READ))
-		{
-			__blk_end_request_all(req, 0);
-			continue;
-
-		}
-		
 		 spin_unlock_irq(q->queue_lock);
 
 		/*
-		 * queue  the padckets to the  waiting queue 		
+		 * queue  the packets to the  waiting queue 		
 		 */
 
 		spin_lock_irq(&fbd->queue_lock);
 		/* we can  maintain per dev queue  for high performance and consistency  */
-                list_add_tail(&req->queuelist, &fbd_dev->waiting_queue);
-                spin_unlock_irq(&fbd->queue_lock);
+        list_add_tail(&req->queuelist, &fbd_dev->waiting_queue);
+        spin_unlock_irq(&fbd->queue_lock);
 
-                wake_up(&fbd->waiting_wq);
-				spin_lock_irq(q->queue_lock);
+        wake_up(&fbd->waiting_wq);
+		spin_lock_irq(q->queue_lock);
 
 
 	}
@@ -1332,9 +1359,7 @@ static int fbd_dev_ioctl(struct block_device *bdev, fmode_t mode,
 
 
 	mutex_lock(&fbd->tx_lock);
-//	spin_lock_irq(&fbd->queue_lock);
 	error = __fbd_dev_ioctl(bdev, fbd, cmd, arg);
-//	spin_unlock_irq(&fbd->queue_lock);
 	mutex_unlock(&fbd->tx_lock);
 
 	return error;

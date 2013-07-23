@@ -216,10 +216,12 @@ void  fds_st_cb_proc(uint32_t trans_id)
 	 		- send a message to OM - please check on this node ??
 		*/ 
 
+printk(" inside the  st call backl \n");
 		/* mark the  timeout flag  */
 		rwlog_tbl[trans_id].st_flag  = FDS_TIMER_TIMEOUT;
 		fds_trans_cleanup(trans_id);
-		__blk_end_request_all(req, -EIO); /* Err to  block driver */
+		if(req)
+			__blk_end_request_all(req, -EIO); /* Err to  block driver */
 	}
 	else if (sm_msg->msg_code == FDSP_MSG_GET_OBJ_REQ)
 	{
@@ -243,6 +245,8 @@ static int fds_process_read( uint8_t  *rx_buf)
 	int dir;
 	uint32_t trans_id; 
 	void *kaddr = NULL;
+	uint8_t  *buf;
+	int  i = 0;
 	
 
 	rd_msg = (fdsp_msg_t *)rx_buf;
@@ -251,34 +255,47 @@ static int fds_process_read( uint8_t  *rx_buf)
 	req = (struct request *)rwlog_tbl[trans_id].write_ctx;
    	dir = rq_data_dir(req);
 
-
+printk(" inside  the read function \n");
 	rq_for_each_segment(bv, req, iter)	
 	{
+		printk(" length: %d   page: %p \n ", bv->bv_len, bv->bv_page);
 		kaddr = kmap(bv->bv_page);
 		memcpy((void *)kaddr, (void *)(rx_buf +sizeof(fdsp_msg_t)), bv->bv_len); 
 		/*
-		  - how to handle the  lenth miss-match ( requested  length and  recived legth from SM
+		  - how to handle the  length miss-match ( requested  length and  recived legth from SM
 		  - we will have to handle sending more data due to length difference
 		*/
 
+		buf = ((rx_buf + sizeof(fdsp_msg_t)));
+		for(i = 0; i < 200; i++)
+			printk(" %c: ", *buf++);
+
+//		bv->bv_page = bv->bv_page + bv->bv_len;
 	}
+
 	/*
 	 - respond to the block device- data ready 
 	*/
-		__blk_end_request_all(req, 0); 
+	
+	printk(" responding to  the block : %p \n ",req);
+	if(req)
+	__blk_end_request_all(req, 0); 
 
 	return 0;
 }
 
 static int fds_process_write(fdsp_msg_t  *rx_msg)
 {
+	fdsp_msg_t   *sm_msg_ptr;
 	int rc, result = 0;
 	int flag = 0, node=0;
 	struct request *req; 
 	struct fbd_device *fbd;
+
 	uint32_t trans_id;
-	// fds_object_id_t *doid_list1;
+	fds_object_id_t *p_obj_doid;
 	fds_doid_t *doid_list[1];
+
 	fdsp_msg_t *wr_msg;
 	FDS_JOURN  *txn;
 
@@ -288,14 +305,10 @@ static int fds_process_write(fdsp_msg_t  *rx_msg)
 
 
 	fbd = (struct fbd_device *)(txn->fbd_ptr);
-	    	
-	/* 
-	   -get the request  context  from   trans log 
-	   - respond to the block device 
-	*/
 	req = (struct request *)txn->write_ctx;
-
 	wr_msg = txn->dm_msg;
+	sm_msg_ptr = (fdsp_msg_t *)(rwlog_tbl[trans_id].sm_msg);
+
 
 	if (txn->trans_state == FDS_TRANS_OPEN) {
 	  if ((txn->sm_ack_cnt < FDS_MIN_ACK) || (txn->dm_ack_cnt < FDS_MIN_ACK)) {
@@ -303,20 +316,27 @@ static int fds_process_write(fdsp_msg_t  *rx_msg)
 	  }
 	  printk(" **** State Transition to OPENED *** : Received min ack from  DM and SM \n\n");
 	  txn->trans_state = FDS_TRANS_OPENED;
-#if 0	
+	
 		/*
 		  -  add the vvc entry
 		  -  If we are thinking of adding the cache , we may have to keep a copy on the cache 
 		*/
+		
+		doid_list[0] = &(sm_msg_ptr->payload.put_obj.data_obj_id);
 
-		doid_list[0] = &(wr_msg->payload.put_obj.data_obj_id);
 		rc = vvc_entry_update(fbd->vhdl, fbd->blk_name, 1, (const doid_t **)doid_list);
 		if (rc)
 		{
 			printk("Error on creating vvc entry. Error code : %d\n", rc);
 		}
+
+#if 0
+		if (req)
+		__blk_end_request_all(req, 0);
+
 #endif
-	    // __blk_end_request_all(req, 0);
+
+
 	} else if (txn->trans_state == FDS_TRANS_OPENED) {
 	  if (txn->dm_commit_cnt >= FDS_MIN_ACK) {
 	    printk(" **** State Transition to COMMITTED *** : Received min commits from  DM \n\n ");
