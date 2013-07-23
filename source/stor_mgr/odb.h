@@ -1,19 +1,22 @@
-/**
+/*
+ * Copyright 2013 Formation Data Systems, Inc.
+ */
+
+/*
  * Object database class. The object database is a key-value store
  * that provides local objec storage.
  */
-#ifndef FDS_OBJECT_DATABASE_H_
-#define FDS_OBJECT_DATABASE_H_
+#ifndef SOURCE_STOR_MGR_ODB_H_
+#define SOURCE_STOR_MGR_ODB_H_
 
-#include <iostream>
+#include <iostream>  // NOLINT(*)
 
-#include "stor_mgr_err.h"
+#include "stor_mgr/stor_mgr_err.h"
 
 namespace osm {
-  
-  class ObjectDB {
-  public:
 
+  class ObjectDB {
+ public:
     /*
      * Default constructor
      */
@@ -25,10 +28,10 @@ namespace osm {
     ~ObjectDB();
 
     fds_sm_err_t open();
-    
-  private:
+
+ private:
   };
 
-} // namespace osm
+}  // namespace osm
 
-#endif // FDS_OBJECT_DATABASE_H_
+#endif  // SOURCE_STOR_MGR_ODB_H_
