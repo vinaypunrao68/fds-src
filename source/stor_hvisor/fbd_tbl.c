@@ -164,7 +164,7 @@ int populate_dmt_dlt_tbl(void)
 	      return -ENOMEM;
 	    }
 
-	  adddmt->node_ipaddr = 0xc0a80102;
+	  adddmt->node_ipaddr = 0xc0a80103;
 	  adddmt->node_state = FDS_NODE_ONLINE;
 	  adddmt->num_nodes = 1;
 	  adddmt->node_type = FDS_NODE_TYPE_SEND;
@@ -182,7 +182,7 @@ int populate_dmt_dlt_tbl(void)
 	      return -ENOMEM;
 	    }
 
-	  adddlt->node_ipaddr = 0xc0a80102;
+	  adddlt->node_ipaddr = 0xc0a80103;
 	  adddlt->stor_type = FDS_STORAGE_TYPE_SSD;
 	  adddlt->node_state = FDS_NODE_ONLINE;
 	  adddlt->num_nodes = 1;
