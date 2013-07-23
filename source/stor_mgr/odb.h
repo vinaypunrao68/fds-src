@@ -11,7 +11,7 @@
 
 #include <iostream>  // NOLINT(*)
 
-#include "stor_mgr/stor_mgr_err.h"
+#include "stor_mgr_err.h"
 
 namespace osm {
 

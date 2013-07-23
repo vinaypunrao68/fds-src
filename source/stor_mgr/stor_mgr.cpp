@@ -23,7 +23,7 @@ stor_mgr_get_obj(fdsp_get_object_t *get_obj_req,
 leveldb::DB* db;
 
 void
-fds_stor_mgr_init() 
+fds_stor_mgr_init( char *db_locn) 
 {
   // Create all data structures 
   fds_disk_mgr_init();
@@ -31,7 +31,7 @@ fds_stor_mgr_init()
   // Create leveldb
   leveldb::Options options;
   options.create_if_missing = 1;
-  leveldb::Status status = leveldb::DB::Open(options, "/tmp/testdb", &db);
+  leveldb::Status status = leveldb::DB::Open(options, db_locn, &db);
   assert(status.ok());
 
   std::cout << "LevelDB status is " << status.ToString() << std::endl;
@@ -431,6 +431,7 @@ int main(int argc, char *argv[])
 {
   bool unit_test;
   int port_number = FDS_STOR_MGR_DGRAM_PORT;
+  char *db_locn = "/tmp/testdb";
 
   unit_test = 0;
 
@@ -442,6 +443,9 @@ int main(int argc, char *argv[])
       } else if (arg == "-p") {
 	port_number = atoi(argv[i+1]);
 	i++;
+      } else if (arg == "-d") {
+	db_locn = argv[i+1];
+	i++;
       } else {
 	std::cerr << "Unknown option" << std::endl;
 	return 0;
@@ -452,7 +456,7 @@ int main(int argc, char *argv[])
 
   printf("Stor Mgr port_number : %d\n", port_number);
 
-  fds_stor_mgr_init();
+  fds_stor_mgr_init(db_locn);
 
   if (unit_test) {
     fds_stor_mgr_unit_test();

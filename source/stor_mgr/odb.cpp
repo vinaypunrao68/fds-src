@@ -2,7 +2,7 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 
-#include "stor_mgr/odb.h"
+#include "odb.h"
 
 namespace osm {
 

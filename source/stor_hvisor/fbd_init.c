@@ -131,7 +131,7 @@ static  int  fds_rx_io_proc(void *data)
 
 		while ((length = kernel_recvmsg(sock,&msg, &iov, 1, sizeof(rx_buf),  \
 							MSG_NOSIGNAL | MSG_DONTWAIT)) > 0)
-		  fds_process_rx_message(rx_buf);
+		  fds_process_rx_message(rx_buf, ntohl(cAddr.sin_addr.s_addr));
 
 		  atomic_set(&fds_data_ready, 0);
 			
@@ -878,6 +878,7 @@ static int fbd_process_read_request(struct request *req)
 			if (rc)
 			{
 				printk("Error reading the VVC catalog  Error code : %d\n", rc);
+				return (rc);
 			}
 
 			sm_msg = kzalloc(sizeof(*sm_msg), GFP_KERNEL);
@@ -916,6 +917,7 @@ static int fbd_process_read_request(struct request *req)
 			if ( result < 0)
 			{
 				printk("  SM:Error %d: Error  sending the data \n ",result);
+				return (result);
 			}
 			break;
 		 case WRITE:
@@ -963,6 +965,7 @@ static int fbd_process_queue_buffers(struct request *req)
 	SM_NODES *sm_nodes;
 	DM_NODES *tmp_dm_node;
 	SM_NODES *tmp_sm_node;
+	int num_nodes;
 
                                         
 	int ret = 0;
@@ -1030,6 +1033,7 @@ static int fbd_process_queue_buffers(struct request *req)
 printk("Write Req len: %d  offset: %d  flag:%d sock_buf:%p t_id: %d doid:%llx:%llx",bv->bv_len, bv->bv_offset, flag,kaddr,trans_id,doid.doid, doid.doid1);
 			/* open transaction  */
 
+                        rwlog_tbl[trans_id].fbd_ptr = fbd;
 			rwlog_tbl[trans_id].trans_state = FDS_TRANS_OPEN;
 			rwlog_tbl[trans_id].write_ctx = (void *)req;
 printk(" write ctx: %p: %p \n ",rwlog_tbl[trans_id].write_ctx, req);
@@ -1037,6 +1041,7 @@ printk(" write ctx: %p: %p \n ",rwlog_tbl[trans_id].write_ctx, req);
 			rwlog_tbl[trans_id].dm_msg = (void *)dm_msg;
 			rwlog_tbl[trans_id].sm_ack_cnt = 0;
 			rwlog_tbl[trans_id].dm_ack_cnt = 0;
+			rwlog_tbl[trans_id].dm_commit_cnt = 0;
 
 			sm_msg->req_cookie = trans_id;
 			dm_msg->req_cookie = trans_id;
@@ -1044,18 +1049,29 @@ printk(" write ctx: %p: %p \n ",rwlog_tbl[trans_id].write_ctx, req);
 			mutex_lock(&fbd->tx_lock);
 
 			sm_nodes = get_sm_nodes_for_doid_key(doid_dlt_key);
+			num_nodes = 0;
 			list_for_each_entry(tmp_sm_node,& sm_nodes->list, list) {
 
+			  rwlog_tbl[trans_id].sm_ack[num_nodes].ipAddr = tmp_sm_node->node_ipaddr;
+			  rwlog_tbl[trans_id].sm_ack[num_nodes].ack_status = FDS_CLS_ACK;
+			  num_nodes++;
 			  result = send_data_sm(fbd, 1, kaddr + bv->bv_offset, bv->bv_len,flag, sm_msg, tmp_sm_node->node_ipaddr);
+			  
 			  if ( result < 0)
 			    {
 				printk("  SM:Error %d: Error  sending the data \n ",result);
 			    }
 			}
+			rwlog_tbl[trans_id].num_sm_nodes = num_nodes;
 
 			dm_nodes = get_dm_nodes_for_volume(fbd->vol_id);
+			num_nodes = 0;
 			list_for_each_entry(tmp_dm_node, & dm_nodes->list, list) {
 
+			  rwlog_tbl[trans_id].dm_ack[num_nodes].ipAddr = tmp_dm_node->node_ipaddr;
+			  rwlog_tbl[trans_id].dm_ack[num_nodes].ack_status = FDS_CLS_ACK;
+			  rwlog_tbl[trans_id].dm_ack[num_nodes].commit_status = FDS_CLS_ACK;
+			  num_nodes++;
 			  result = send_data_dm(fbd, 1, dm_msg, sizeof(fdsp_msg_t),flag, tmp_dm_node->node_ipaddr);
 			  if ( result < 0)
 			    {
@@ -1063,6 +1079,7 @@ printk(" write ctx: %p: %p \n ",rwlog_tbl[trans_id].write_ctx, req);
 			    }
 
 			}
+			rwlog_tbl[trans_id].num_dm_nodes = num_nodes;
 
 			mutex_unlock(&fbd->tx_lock);
 			// Schedule timer here to track the responses
@@ -1144,8 +1161,9 @@ static  int fbd_process_io_cmds (struct fbd_device *fbd, struct request *req)
 
 	case FBD_CMD_READ:
 		printk(" Read request  from the block device \n");
-		fbd_process_read_request(req);
-		__blk_end_request_all(req, 0);
+		if (fbd_process_read_request(req) < 0) {
+			__blk_end_request_all(req, 0);
+		}
 		break;
 
 	default:

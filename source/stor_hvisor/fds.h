@@ -38,9 +38,12 @@
 #define  FDS_NODE_TYPE_SEND		2
 #define  FDS_NODE_TYPE_BCKP		3
 
-#define  FDS_TRANS_OPEN			0x55
-#define  FDS_TRANS_DONE			0xAA
 #define  FDS_TRANS_EMPTY		0x00
+#define  FDS_TRANS_OPEN			0x1
+#define  FDS_TRANS_OPENED               0x2
+#define  FDS_TRANS_COMMITTED            0x3
+#define  FDS_TRANS_SYNCED		0x4
+#define  FDS_TRANS_DONE                 0x5
 
 #define  FDS_SUCCESS			0
 #define  FDS_FAILURE			1
@@ -48,9 +51,11 @@
 #define  FDS_TIMER_TIMEOUT		1
 
 #define  FDS_MIN_ACK			1
-#define  FDS_SET_ACK			1
 #define  FDS_CLS_ACK			0
+#define  FDS_SET_ACK			1
 
+#define  FDS_COMMIT_MSG_SENT            1
+#define  FDS_COMMIT_MSG_ACKED           2
 
 /* DOID  structure  */
 typedef  struct base_doid {
@@ -104,6 +109,7 @@ typedef struct fds_journ {
 	uint8_t  replc_cnt;
 	uint8_t  sm_ack_cnt;
 	uint8_t  dm_ack_cnt;
+        uint8_t  dm_commit_cnt;
 	uint8_t  trans_state;
 	void	 *fbd_ptr;
 	void	 *read_ctx;
@@ -113,7 +119,9 @@ typedef struct fds_journ {
         struct   timer_list *p_ti;
 	uint16_t   lt_flag;
 	uint16_t   st_flag;
+        uint8_t    num_dm_nodes;
 	IP_NODE	   dm_ack[FDS_MAX_DM_NODES_PER_CLST];
+        uint8_t    num_sm_nodes;
 	IP_NODE	   sm_ack[FDS_MAX_SM_NODES_PER_CLST];
 }FDS_JOURN;
 
@@ -138,7 +146,7 @@ int show_dlt_entry(uint32_t doid_key);
 DM_NODES *get_dm_nodes_for_volume(volid_t vol_id);
 SM_NODES *get_sm_nodes_for_doid_key(uint32_t doid_key);
 int fds_init_trans_log(void);
-int fds_process_rx_message(uint8_t  *rx_buf);
+int fds_process_rx_message(uint8_t  *rx_buf, uint32_t src_ip);
 int get_trans_id(void);
 
 /* hypervisor  cache catalog */

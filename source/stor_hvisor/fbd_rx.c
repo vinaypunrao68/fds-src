@@ -38,27 +38,51 @@ FDS_JOURN	rwlog_tbl[FDS_READ_WRITE_LOG_ENTRIES];
 	- we may have to  revisit this logic.
 */
 #if 0
-static  int fds_get_dmack_status( uint32_t ipAddr[0], uint32_t trans_id)
+static  int fds_get_dmack_status( uint32_t ipAddr, uint32_t trans_id)
 {
 	int node =0;
 
 	for (node = 0; node < FDS_MAX_DM_NODES_PER_CLST; node++)
 	{
-			if (memcmp(&rwlog_tbl[trans_id].dm_ack[node].ipAddr,ipAddr,4))
+			if (memcmp(&rwlog_tbl[trans_id].dm_ack[node].ipAddr,&ipAddr,4) == 0)
 				return (rwlog_tbl[trans_id].dm_ack[node].ack_status);
 	}
 	return 0;
 }
 #endif
 
-static  int fds_set_dmack_status( uint32_t ipAddr[0], uint32_t  trans_id)
+static  int fds_set_dmack_status( uint32_t ipAddr, uint32_t  trans_id)
 {
 	int node =0;
 
 	for (node = 0; node < FDS_MAX_DM_NODES_PER_CLST; node++)
 	{
-			if (memcmp(&rwlog_tbl[trans_id].dm_ack[node].ipAddr, ipAddr,4))
-				return (rwlog_tbl[trans_id].dm_ack[node].ack_status = FDS_SET_ACK);
+	  if (memcmp(&rwlog_tbl[trans_id].dm_ack[node].ipAddr, &ipAddr,4) == 0) {
+	    if (rwlog_tbl[trans_id].dm_ack[node].ack_status < FDS_SET_ACK) {
+	      rwlog_tbl[trans_id].dm_ack_cnt++; 
+	      rwlog_tbl[trans_id].dm_ack[node].ack_status = FDS_SET_ACK;
+	    }
+	    return (0);
+	  }
+	}
+
+	return 0;
+
+}
+
+static  int fds_set_dm_commit_status( uint32_t ipAddr, uint32_t  trans_id)
+{
+	int node =0;
+
+	for (node = 0; node < FDS_MAX_DM_NODES_PER_CLST; node++)
+	{
+	  if (memcmp(&rwlog_tbl[trans_id].dm_ack[node].ipAddr, &ipAddr,4) == 0) {
+	    if (rwlog_tbl[trans_id].dm_ack[node].commit_status == FDS_COMMIT_MSG_SENT) {
+	      rwlog_tbl[trans_id].dm_commit_cnt++; 
+	      rwlog_tbl[trans_id].dm_ack[node].commit_status = FDS_COMMIT_MSG_ACKED;
+	    }
+	    return (0);
+	  }
 	}
 
 	return 0;
@@ -67,53 +91,58 @@ static  int fds_set_dmack_status( uint32_t ipAddr[0], uint32_t  trans_id)
 
 #if 0
 
-static  int fds_cls_dmack_status( uint32_t ipAddr[0], uint32_t  trans_id)
+static  int fds_cls_dmack_status( uint32_t ipAddr, uint32_t  trans_id)
 {
 	int node =0;
 
 	for (node = 0; node < FDS_MAX_DM_NODES_PER_CLST; node++)
 	{
-			if (memcmp(&rwlog_tbl[trans_id].dm_ack[node].ipAddr,ipAddr,4)
+	  if (memcmp(&rwlog_tbl[trans_id].dm_ack[node].ipAddr,&ipAddr,4) == 0)
 				return (rwlog_tbl[trans_id].dm_ack[node].ack_status = FDS_CLS_ACK);
 	}
 	return 0;
 }
 
 
-static  int fds_get_smack_status( uint32_t ipAddr[0], uint32_t trans_id)
+static  int fds_get_smack_status( uint32_t ipAddr, uint32_t trans_id)
 {
 	int node =0;
 
 	for (node = 0; node < FDS_MAX_SM_NODES_PER_CLST; node++)
 	{
-			if (memcmp(&rwlog_tbl[trans_id].sm_ack[node].ipAddr,ipAddr,4))
+			if (memcmp(&rwlog_tbl[trans_id].sm_ack[node].ipAddr,&ipAddr,4))
 				return (rwlog_tbl[trans_id].sm_ack[node].ack_status);
 	}
 	return 0;
 }
 #endif
 
-static  int fds_set_smack_status( uint32_t ipAddr[0], uint32_t  trans_id)
+static  int fds_set_smack_status( uint32_t ipAddr, uint32_t  trans_id)
 {
 	int node =0;
 
 	for (node = 0; node < FDS_MAX_SM_NODES_PER_CLST; node++)
 	{
-			if (memcmp(&rwlog_tbl[trans_id].sm_ack[node].ipAddr,ipAddr,4))
-				return (rwlog_tbl[trans_id].sm_ack[node].ack_status = FDS_SET_ACK);
+	  if (memcmp(&rwlog_tbl[trans_id].sm_ack[node].ipAddr, &ipAddr, 4) == 0) {
+	    if (rwlog_tbl[trans_id].sm_ack[node].ack_status != FDS_SET_ACK) {
+	      rwlog_tbl[trans_id].sm_ack[node].ack_status = FDS_SET_ACK;
+	      rwlog_tbl[trans_id].sm_ack_cnt++;
+	    }
+	    return (0);
+	  }
 	}
 
 	return 0;
 }
 
 #if 0
-static  int fds_cls_smack_status( uint32_t ipAddr[0], uint32_t  trans_id)
+static  int fds_cls_smack_status( uint32_t ipAddr, uint32_t  trans_id)
 {
 	int node =0;
 
 	for (node = 0; node < FDS_MAX_SM_NODES_PER_CLST; node++)
 	{
-			if (memcpy(&rwlog_tbl[trans_id].sm_ack[node].ipAddr, ipAddr,4))
+			if (memcmp(&rwlog_tbl[trans_id].sm_ack[node].ipAddr, &ipAddr,4) == 0)
 				return (rwlog_tbl[trans_id].sm_ack[node].ack_status = FDS_CLS_ACK);
 	}
 	return 0;
@@ -128,8 +157,8 @@ int fds_trans_cleanup( uint32_t  trans_id)
 		kfree(rwlog_tbl[trans_id].sm_msg);
 
 	
-	if( rwlog_tbl[trans_id].sm_msg)
-		kfree(rwlog_tbl[trans_id].sm_msg);
+	if( rwlog_tbl[trans_id].dm_msg)
+		kfree(rwlog_tbl[trans_id].dm_msg);
 
 	rwlog_tbl[trans_id].trans_state = FDS_TRANS_EMPTY;
 
@@ -217,7 +246,8 @@ static int fds_process_read( uint8_t  *rx_buf)
 	
 
 	rd_msg = (fdsp_msg_t *)rx_buf;
-	trans_id = rd_msg->req_cookie; 
+	trans_id = rd_msg->req_cookie;
+	printk("Processing read response for trans %d\n", trans_id);
 	req = (struct request *)rwlog_tbl[trans_id].write_ctx;
    	dir = rq_data_dir(req);
 
@@ -240,62 +270,100 @@ static int fds_process_read( uint8_t  *rx_buf)
 	return 0;
 }
 
-static int fds_process_write(fdsp_msg_t  *wr_msg)
+static int fds_process_write(fdsp_msg_t  *rx_msg)
 {
 	int rc, result = 0;
 	int flag = 0, node=0;
 	struct request *req; 
 	struct fbd_device *fbd;
-	uint32_t trans_id = wr_msg->req_cookie; 
-	fds_object_id_t *doid_list1;
-	fds_object_id_t **doid_list;
+	uint32_t trans_id;
+	// fds_object_id_t *doid_list1;
+	fds_doid_t *doid_list[1];
+	fdsp_msg_t *wr_msg;
+	FDS_JOURN  *txn;
 
-		fbd = (struct fbd_device *)(rwlog_tbl[trans_id].fbd_ptr);
+	trans_id = rx_msg->req_cookie; 
+	txn = &rwlog_tbl[trans_id];
+	// Check sanity here, if this transaction is valid and matches with the cookie we got from the message
+
+
+	fbd = (struct fbd_device *)(txn->fbd_ptr);
 	    	
-		/* 
-		  -get the request  context  from   trans log 
-		  - respond to the block device 
-		*/
-		req = (struct request *)rwlog_tbl[trans_id].write_ctx;
-		// __blk_end_request_all(req, 0);
+	/* 
+	   -get the request  context  from   trans log 
+	   - respond to the block device 
+	*/
+	req = (struct request *)txn->write_ctx;
 
+	wr_msg = txn->dm_msg;
+
+	if (txn->trans_state == FDS_TRANS_OPEN) {
+	  if ((txn->sm_ack_cnt < FDS_MIN_ACK) || (txn->dm_ack_cnt < FDS_MIN_ACK)) {
+	    return (0);
+	  }
+	  printk(" **** State Transition to OPENED *** : Received min ack from  DM and SM \n\n");
+	  txn->trans_state = FDS_TRANS_OPENED;
+#if 0	
 		/*
 		  -  add the vvc entry
 		  -  If we are thinking of adding the cache , we may have to keep a copy on the cache 
-	     */
-		
-		doid_list1 = &(wr_msg->payload.put_obj.data_obj_id);
-		doid_list = &doid_list1;
+		*/
+
+		doid_list[0] = &(wr_msg->payload.put_obj.data_obj_id);
 		rc = vvc_entry_update(fbd->vhdl, fbd->blk_name, 1, (const doid_t **)doid_list);
 		if (rc)
 		{
 			printk("Error on creating vvc entry. Error code : %d\n", rc);
 		}
+#endif
+	    // __blk_end_request_all(req, 0);
+	} else if (txn->trans_state == FDS_TRANS_OPENED) {
+	  if (txn->dm_commit_cnt >= FDS_MIN_ACK) {
+	    printk(" **** State Transition to COMMITTED *** : Received min commits from  DM \n\n ");
+	    txn->trans_state = FDS_TRANS_COMMITTED;
+	  }
+	} else if (txn->trans_state == FDS_TRANS_COMMITTED) {
+	  if ((txn->sm_ack_cnt == txn->num_sm_nodes) && (txn->dm_commit_cnt == txn->num_dm_nodes)) {
+	    printk(" **** State Transition to SYCNED *** : Received all acks and commits from  DM and SM \n\n ");
+	    txn->trans_state = FDS_TRANS_SYNCED;
+	    // destroy the txn, reclaim the space and return from here
+	  }
+	}
+	
+
+	if (txn->trans_state > FDS_TRANS_OPEN) {
 
 		/*
-		   -  browse through the list of the DM nodes sent the response .
-		   -  respond to  DM - commit 
+		   -  browse through the list of the DM nodes that sent the open txn response .
+		   -  send  DM - commit request 
 		 */
 		
 		for (node = 0; node < FDS_MAX_DM_NODES_PER_CLST; node++)
 		{
-			if (rwlog_tbl[trans_id].dm_ack[node].ack_status)
-			{
-	    		wr_msg->payload.update_catalog.dm_operation = FDS_DMGR_CMD_COMMIT_TXN;
-			result = send_data_dm(fbd, 1, wr_msg, sizeof(fdsp_msg_t),flag,
-					      rwlog_tbl[trans_id].dm_ack[node].ipAddr);
-				if ( result < 0)
+		  if (txn->dm_ack[node].ack_status) {
+			  if ((txn->dm_ack[node].commit_status) == FDS_CLS_ACK)
+			    {
+			      wr_msg->payload.update_catalog.dm_operation = FDS_DMGR_CMD_COMMIT_TXN;
+			      result = send_data_dm(fbd, 1, wr_msg, sizeof(fdsp_msg_t),flag,
+						    rwlog_tbl[trans_id].dm_ack[node].ipAddr);
+			      if ( result < 0)
 				{
-					printk(" DM:Error %d: sending the data \n ",result);
+				  printk(" DM:Error %d: sending the data \n ",result);
 				}
-			}
+			      else {
+				txn->dm_ack[node].commit_status = FDS_COMMIT_MSG_SENT;
+			      }
+			    }
+		  }
 		}
+
+	}
 
 	return 0;
 }
 
 
-int   fds_process_rx_message(uint8_t  *rx_buf)
+ int   fds_process_rx_message(uint8_t  *rx_buf, uint32_t src_ip)
 {
 	fdsp_msg_t	*rx_msg;
 
@@ -307,8 +375,9 @@ int   fds_process_rx_message(uint8_t  *rx_buf)
 	}
 	rx_msg  = (fdsp_msg_t *)rx_buf;
 
-	printk("cookie: %d  src_id:%d msg_code:%d\n",rx_msg->req_cookie,rx_msg->src_id,rx_msg->msg_code );
+	printk("Rx Info: cookie: %d ; src_id:%d ; src_ip: 0x%x ; msg_code:%d \n",rx_msg->req_cookie,rx_msg->src_id,src_ip, rx_msg->msg_code );
 
+#if 0
 	/* check for the bogus message */
 	if (rwlog_tbl[rx_msg->req_cookie].trans_state != FDS_TRANS_OPEN) 
 	{
@@ -316,6 +385,7 @@ int   fds_process_rx_message(uint8_t  *rx_buf)
 		/* free  the buffer  and return */
 		return -1;
 	}
+#endif
 
 	if (rx_msg->src_id == FDSP_STOR_MGR ) 
 	{
@@ -329,10 +399,11 @@ int   fds_process_rx_message(uint8_t  *rx_buf)
 		switch (rx_msg->msg_code)
 		{
 			case  FDSP_MSG_PUT_OBJ_RSP:
-					rwlog_tbl[rx_msg->req_cookie].sm_ack_cnt++; 
-					fds_set_smack_status(rx_msg->src_ip_addr, rx_msg->req_cookie);
+			  printk(" SM PUT OBJ RSP ; ");
+					fds_set_smack_status(src_ip, rx_msg->req_cookie);
 					break;				
 			case  FDSP_MSG_GET_OBJ_RSP:
+			  printk(" SM GET OBJ RSP ; ");
 					break;				
 			case  FDSP_MSG_VERIFY_OBJ_RSP:
 					break;				
@@ -356,31 +427,33 @@ int   fds_process_rx_message(uint8_t  *rx_buf)
 
 		if (rx_msg->msg_code == FDSP_MSG_UPDATE_CAT_OBJ_RSP)
 		{
-				rwlog_tbl[rx_msg->req_cookie].dm_ack_cnt++; 
-				fds_set_dmack_status(rx_msg->src_ip_addr, rx_msg->req_cookie);
-				printk(" recived the DM ack response \n");
+		  if (rx_msg->payload.update_catalog.dm_operation == FDS_DMGR_CMD_OPEN_TXN) {
+		    fds_set_dmack_status(src_ip, rx_msg->req_cookie);
+		    printk(" DM OpenTrans RSP ;");
+		  } else {
+		    fds_set_dm_commit_status(src_ip, rx_msg->req_cookie);
+		    printk(" DM CommitTrans RSP ; ");
+		  }
 		}
 		else 
 		{
-				printk(" Error:%d Wrong mesage code received from  SM \n",rx_msg->msg_code);
-				return -1;
+		  printk(" Error:%d Wrong mesage code received from  SM \n",rx_msg->msg_code);
+		  return -1;
 		}
 	}
 
-	printk("  cookie: %d sm ack: %d  ctx:%p\n",rx_msg->req_cookie,rwlog_tbl[rx_msg->req_cookie].sm_ack_cnt, \
-							rwlog_tbl[rx_msg->req_cookie].write_ctx);
+	printk(" Txn State: cookie: %d ; sm-acks : %d ; dm-acks : %d ; dm-commits : %d ; st_flag %d ; ctx:%p \n",
+	       rx_msg->req_cookie,rwlog_tbl[rx_msg->req_cookie].sm_ack_cnt,
+	       rwlog_tbl[rx_msg->req_cookie].dm_ack_cnt,
+	       rwlog_tbl[rx_msg->req_cookie].dm_commit_cnt,
+	       rwlog_tbl[rx_msg->req_cookie].st_flag,
+	       rwlog_tbl[rx_msg->req_cookie].write_ctx);
 
 	/* if we  get two( min)  response  from  DM and SM, start processing   the read and write  */ 
 
 	if ((rx_msg->msg_code == FDSP_MSG_PUT_OBJ_RSP ) || (rx_msg->msg_code == FDSP_MSG_UPDATE_CAT_OBJ_RSP ))
 	{
-		if((rwlog_tbl[rx_msg->req_cookie].sm_ack_cnt ==  FDS_MIN_ACK) &&
-	   	   (rwlog_tbl[rx_msg->req_cookie].dm_ack_cnt ==  FDS_MIN_ACK) &&
-	   	   (!rwlog_tbl[rx_msg->req_cookie].st_flag))
-		{
-printk(" received min ack from  DM and SM \n ");
-			fds_process_write(rx_msg);
-		}
+	  fds_process_write(rx_msg);
 	}
 
 	if (rx_msg->msg_code == FDSP_MSG_GET_OBJ_RSP)
