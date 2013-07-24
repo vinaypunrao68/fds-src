@@ -143,7 +143,7 @@ fds_sm_err_t result = FDS_SM_OK;
 	    */
 	   leveldb::Slice key((char *)&(put_obj_req->data_obj_id),
 			      sizeof(put_obj_req->data_obj_id));
-	   leveldb::Slice value((char*)put_obj_req->data_obj,
+	   leveldb::Slice value((char*)&(put_obj_req->data_obj[0]),
 				put_obj_req->data_obj_len);
 	   leveldb::WriteOptions writeopts;
 	   writeopts.sync = true;
@@ -182,22 +182,19 @@ fds_sm_err_t stor_mgr_put_obj_req(fdsp_msg_t *fdsp_msg) {
 }
 
 fds_sm_err_t stor_mgr_get_obj(fdsp_get_object_t *get_obj_req, fds_uint32_t volid, fds_uint32_t num_objs) {
-     // stor_mgr_read_object(get_obj_req->data_obj_id, get_obj_req->data_obj_len, &get_obj_req->data_obj);
-
+     // stor_mgr_read_object(get_obj_req->data_obj_id, get_obj_req->data_obj_len, &get_obj_req->data_obj);5
   leveldb::Slice key((char *)&(get_obj_req->data_obj_id),
 		     sizeof(get_obj_req->data_obj_id));
-  std::string value(&get_obj_req->data_obj[0]);
-  //std::string value;
+  std::string value;
   leveldb::Status status = db->Get(leveldb::ReadOptions(), key, &value);
 
   if (! status.ok()) {
     std::cout << "Failed to get key " << key.ToString() << " with status "
 	      << status.ToString() << std::endl;
   } else {
-    memcpy(&get_obj_req->data_obj[0], value.c_str(), get_obj_req->data_obj_len);
+    value.copy((char *)&get_obj_req->data_obj[0], get_obj_req->data_obj_len, 0); 
     std::cout << "Successfully got value " << value << std::endl;
   }
-
 }
 
 fds_sm_err_t stor_mgr_get_obj_req(fdsp_msg_t *fdsp_msg) {

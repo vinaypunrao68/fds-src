@@ -732,7 +732,7 @@ printk(" SM ipaddr - 0x%x, port: %d \n", node_ipaddr, fbd->stor_mgr_port);
 		sock->sk->sk_allocation = GFP_NOIO;
 		
 		iov[0].iov_base = (void *)sm_msg;
-		iov[0].iov_len = sizeof(fdsp_msg_t);
+		iov[0].iov_len = sizeof(fdsp_msg_t) - sizeof(fdsp_payload_t) + sizeof(fdsp_put_object_t); // Data starts right at the end of fdsp_put_object
 		iov[1].iov_base = buf;
 		iov[1].iov_len = size;
 		msg.msg_control = NULL;
@@ -749,7 +749,7 @@ printk(" SM ipaddr - 0x%x, port: %d \n", node_ipaddr, fbd->stor_mgr_port);
 			add_timer(&ti);
 		}
 #endif
-		result = kernel_sendmsg(sock, &msg, iov, 2, size+sizeof(fdsp_msg_t));
+		result = kernel_sendmsg(sock, &msg, iov, 2, (size+iov[0].iov_len));
 		if (result < size) {
 			printk("Send failed or truncated. result - %d\n", result);
 		}
