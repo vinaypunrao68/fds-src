@@ -148,6 +148,7 @@ SM_NODES *get_sm_nodes_for_doid_key(uint32_t doid_key);
 int fds_init_trans_log(void);
 int fds_process_rx_message(uint8_t  *rx_buf, uint32_t src_ip);
 int get_trans_id(void);
+void fbd_process_read_timeout(unsigned long arg);
 
 /* hypervisor  cache catalog */
 

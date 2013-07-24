@@ -480,6 +480,7 @@ printk(" inside sock_shutdown \n");
 		mutex_unlock(&fbd->tx_lock);
 }
 
+#if 0
 static void fbd_xmit_timeout(unsigned long arg)
 {
 	struct task_struct *task = (struct task_struct *)arg;
@@ -488,7 +489,7 @@ static void fbd_xmit_timeout(unsigned long arg)
 		task->comm, task->pid);
 	force_sig(SIGKILL, task);
 }
-
+#endif
 
 
 static int send_msg_sm(struct fbd_device *fbd, int send, void *buf, int size,
@@ -854,7 +855,9 @@ static int fbd_process_read_request(struct request *req)
   	int n_segments = 0;
 	int flag;
 	fdsp_msg_t   *sm_msg;
-	uint32_t     trans_id;
+	uint32_t     trans_id = 0;
+	struct timer_list *p_ti;
+	
 
 	struct  DOID {
 	u64	doid;
@@ -904,7 +907,7 @@ static int fbd_process_read_request(struct request *req)
 			sm_msg->payload_len = bv->bv_len;
 printk(" read  page addr: %p \n", bv->bv_page);
 			printk("Read Req len: %d  offset: %d  flag:%d sm_msg:%p \
-				doid:%llx:%llx",bv->bv_len, bv->bv_offset, flag,sm_msg, doid_list[0].obj_id.hash_high, doid_list[0].obj_id.hash_low);
+				doid:%llx:%llx \n",bv->bv_len, bv->bv_offset, flag,sm_msg, doid_list[0].obj_id.hash_high, doid_list[0].obj_id.hash_low);
 			/* open transaction  */
 			trans_id = get_trans_id();
 
@@ -945,7 +948,13 @@ printk(" read  page addr: %p \n", bv->bv_page);
 		}
 
 	}
-
+	p_ti = (struct timer_list *)kzalloc(sizeof(struct timer_list), GFP_KERNEL);
+	init_timer(p_ti);
+	p_ti->function = fbd_process_read_timeout;
+	p_ti->data = (unsigned long)trans_id;
+	p_ti->expires = jiffies + HZ*5;
+	add_timer(p_ti);
+	rwlog_tbl[trans_id].p_ti = p_ti;
 
 End:
 	return result;
@@ -974,7 +983,6 @@ static int fbd_process_queue_buffers(struct request *req)
 	u64	doid1;
 	}doid;
 	unsigned int doid_dlt_key;
-	struct timer_list *p_ti;
 	DM_NODES *dm_nodes;
 	SM_NODES *sm_nodes;
 	DM_NODES *tmp_dm_node;
@@ -1179,7 +1187,7 @@ static  int fbd_process_io_cmds (struct fbd_device *fbd, struct request *req)
 	}
 
 	fbd->active_req = req;
-	// printk(" active  incomming request :%p \n",req);
+	printk(" active  incomming request :%p \n",req);
 
 	switch(loc_cmd)
 	{
@@ -1192,7 +1200,7 @@ static  int fbd_process_io_cmds (struct fbd_device *fbd, struct request *req)
 
 	case FBD_CMD_WRITE:
 		result = fbd_process_queue_buffers(req);
-		__blk_end_request_all(req, 0); /* response will get out in rx thread */ 
+		// __blk_end_request_all(req, 0); /* response will get out in rx thread */ 
 		break;
 
 	case FBD_CMD_READ:

@@ -187,12 +187,14 @@ fds_sm_err_t stor_mgr_get_obj(fdsp_get_object_t *get_obj_req, fds_uint32_t volid
   leveldb::Slice key((char *)&(get_obj_req->data_obj_id),
 		     sizeof(get_obj_req->data_obj_id));
   std::string value(&get_obj_req->data_obj[0]);
+  //std::string value;
   leveldb::Status status = db->Get(leveldb::ReadOptions(), key, &value);
 
   if (! status.ok()) {
     std::cout << "Failed to get key " << key.ToString() << " with status "
 	      << status.ToString() << std::endl;
   } else {
+    memcpy(&get_obj_req->data_obj[0], value.c_str(), get_obj_req->data_obj_len);
     std::cout << "Successfully got value " << value << std::endl;
   }
 

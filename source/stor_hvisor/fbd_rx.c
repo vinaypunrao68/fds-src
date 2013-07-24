@@ -188,6 +188,9 @@ void  fds_lt_cb_proc( uint32_t  trans_id)
 	return;
 }
 
+
+
+
 void  fds_st_cb_proc(uint32_t trans_id)
 {
 	struct request *req; 
@@ -236,9 +239,29 @@ printk(" inside the  st call backl \n");
 	return;
 }
 
+
+void fbd_process_read_timeout(unsigned long arg)
+{
+  uint32_t trans_id;
+  FDS_JOURN *txn;
+  struct request *req;
+
+  trans_id = (uint32_t)arg;
+  txn = &rwlog_tbl[trans_id];
+  req = txn->write_ctx;
+  if (req) {
+    txn->trans_state = FDS_TRANS_EMPTY;
+    txn->write_ctx = 0;
+    printk(" Timing out, responding to  the block : %p \n ",req);
+    __blk_end_request_all(req, 0); 
+  }
+  
+}
+
 static int fds_process_read( uint8_t  *rx_buf)
 {
 	fdsp_msg_t  *rd_msg;
+	fdsp_get_object_t *get_obj_rsp;
 	struct request *req; 
 	struct bio_vec *bv;
 	struct req_iterator iter;
@@ -246,29 +269,36 @@ static int fds_process_read( uint8_t  *rx_buf)
 	uint32_t trans_id; 
 	void *kaddr = NULL;
 	uint8_t  *buf;
-	int  i = 0;
 	
 
 	rd_msg = (fdsp_msg_t *)rx_buf;
 	trans_id = rd_msg->req_cookie;
+	if (rwlog_tbl[trans_id].trans_state == FDS_TRANS_EMPTY) {
+	  return (0);
+	}
+
 	printk("Processing read response for trans %d\n", trans_id);
 	req = (struct request *)rwlog_tbl[trans_id].write_ctx;
    	dir = rq_data_dir(req);
-
+	rwlog_tbl[trans_id].trans_state = FDS_TRANS_EMPTY;
+	rwlog_tbl[trans_id].write_ctx = 0;
+	del_timer(rwlog_tbl[trans_id].p_ti);
+	get_obj_rsp = (fdsp_get_object_t *)&(rd_msg->payload);
+	
 printk(" inside  the read function \n");
 	rq_for_each_segment(bv, req, iter)	
 	{
 		printk(" length: %d   page: %p \n ", bv->bv_len, bv->bv_page);
 		kaddr = kmap(bv->bv_page);
-		memcpy((void *)kaddr, (void *)(rx_buf +sizeof(fdsp_msg_t)), bv->bv_len); 
+		memcpy((void *)kaddr, (void *)&(get_obj_rsp->data_obj[0]), bv->bv_len); 
 		/*
 		  - how to handle the  length miss-match ( requested  length and  recived legth from SM
 		  - we will have to handle sending more data due to length difference
 		*/
 
-		buf = ((rx_buf + sizeof(fdsp_msg_t)));
-		for(i = 0; i < 200; i++)
-			printk(" %c: ", *buf++);
+		buf = &get_obj_rsp->data_obj[0];
+		//		for(i = 0; i < 200; i++)
+		//	printk(" %c: ", *buf++);
 
 //		bv->bv_page = bv->bv_page + bv->bv_len;
 	}
@@ -293,7 +323,6 @@ static int fds_process_write(fdsp_msg_t  *rx_msg)
 	struct fbd_device *fbd;
 
 	uint32_t trans_id;
-	fds_object_id_t *p_obj_doid;
 	fds_doid_t *doid_list[1];
 
 	fdsp_msg_t *wr_msg;
@@ -314,29 +343,9 @@ static int fds_process_write(fdsp_msg_t  *rx_msg)
 	  if ((txn->sm_ack_cnt < FDS_MIN_ACK) || (txn->dm_ack_cnt < FDS_MIN_ACK)) {
 	    return (0);
 	  }
-	  printk(" **** State Transition to OPENED *** : Received min ack from  DM and SM \n\n");
+	  printk(" **** State Transition to OPENED *** : Received min ack from  DM and SM. \n\n");
 	  txn->trans_state = FDS_TRANS_OPENED;
 	
-		/*
-		  -  add the vvc entry
-		  -  If we are thinking of adding the cache , we may have to keep a copy on the cache 
-		*/
-		
-		doid_list[0] = &(sm_msg_ptr->payload.put_obj.data_obj_id);
-
-		rc = vvc_entry_update(fbd->vhdl, fbd->blk_name, 1, (const doid_t **)doid_list);
-		if (rc)
-		{
-			printk("Error on creating vvc entry. Error code : %d\n", rc);
-		}
-
-#if 0
-		if (req)
-		__blk_end_request_all(req, 0);
-
-#endif
-
-
 	} else if (txn->trans_state == FDS_TRANS_OPENED) {
 	  if (txn->dm_commit_cnt >= FDS_MIN_ACK) {
 	    printk(" **** State Transition to COMMITTED *** : Received min commits from  DM \n\n ");
@@ -344,13 +353,32 @@ static int fds_process_write(fdsp_msg_t  *rx_msg)
 	  }
 	} else if (txn->trans_state == FDS_TRANS_COMMITTED) {
 	  if ((txn->sm_ack_cnt == txn->num_sm_nodes) && (txn->dm_commit_cnt == txn->num_dm_nodes)) {
-	    printk(" **** State Transition to SYCNED *** : Received all acks and commits from  DM and SM \n\n ");
+	    printk(" **** State Transition to SYCNED *** : Received all acks and commits from  DM and SM. Ending req %p \n\n ", req);
 	    txn->trans_state = FDS_TRANS_SYNCED;
+	    /*
+	      -  add the vvc entry
+	      -  If we are thinking of adding the cache , we may have to keep a copy on the cache 
+	    */
+	    
+	    doid_list[0] = (fds_doid_t *)&(sm_msg_ptr->payload.put_obj.data_obj_id);
+	    
+	    rc = vvc_entry_update(fbd->vhdl, fbd->blk_name, 1, (const doid_t **)doid_list);
+	    if (rc)
+	      {
+		printk("Error on creating vvc entry. Error code : %d\n", rc);
+	      }
+	    
+#if 1
+	    if (req)
+	      __blk_end_request_all(req, 0);
+
+#endif
+
+	    return (0);
 	    // destroy the txn, reclaim the space and return from here
 	  }
 	}
 	
-
 	if (txn->trans_state > FDS_TRANS_OPEN) {
 
 		/*
