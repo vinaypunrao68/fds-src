@@ -217,7 +217,6 @@ int    main(int argc, char *argv[])
 		case 'u':
 			ipaddr = inet_addr(optarg);
 			connect_cluster_tcp_udp(ntohl(ipaddr),FBD_OPEN_TARGET_CON_UDP,fbd);
-			printf(" Received the response from  driver \n");
 			break;
 		case 'p':
 		        port_number = (int)strtol(optarg, NULL, 0);
@@ -246,7 +245,6 @@ int    main(int argc, char *argv[])
 		}
 	}
 	
-printf(" closing the device \n");
   close(fbd);
   return 0;
 }

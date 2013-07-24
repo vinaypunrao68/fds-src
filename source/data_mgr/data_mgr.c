@@ -303,9 +303,11 @@ void process_request(dm_wthread_t *wt_info, dm_req_t *req) {
 
 }
 
-#define FILL_RESP_FLDS(resp_msg, result, e_msg, cookie) \
+#define FILL_RESP_FLDS(resp_msg, result, e_msg, cookie, opn, txn_id)	\
   memset(&resp_msg, 0, sizeof(fdsp_msg_t)); \
   resp_msg.msg_code = FDSP_MSG_UPDATE_CAT_OBJ_RSP; \
+  resp_msg.payload.update_catalog.dm_operation = opn; \
+  resp_msg.payload.update_catalog.dm_transaction_id = txn_id; \
   resp_msg.src_id = FDSP_DATA_MGR; \
   resp_msg.result = result; \
   if (e_msg) { \
@@ -336,7 +338,7 @@ void handle_load_volume_req(dm_wthread_t *wt_info, dm_req_t *req) {
     result = FDSP_ERR_OK;
   }
 
-  FILL_RESP_FLDS(resp_msg, result, err_msg, req->rsp_info.req_cookie);
+  FILL_RESP_FLDS(resp_msg, result, err_msg, req->rsp_info.req_cookie, 0, 0);
 
   to_send = sizeof(resp_msg);
   n = sendto(req->rsp_info.sockfd, &resp_msg, to_send, 0,
@@ -380,16 +382,18 @@ void handle_open_txn_req(dm_wthread_t *wt_info, dm_req_t *req) {
     result = FDSP_ERR_FAILED;
     err_msg = err_resp_msg1;
   } else {
+#if 0
     if (dmgr_txn_commit(txn) < 0) {
       dmgr_log(LOG_WARNING, "Error committing transaction\n");
       result = FDSP_ERR_FAILED;
       err_msg = err_resp_msg2;
     } else {
+#endif
       result = FDSP_ERR_OK;
-    }
+      //    }
   }
 
-  FILL_RESP_FLDS(resp_msg, result, err_msg, req->rsp_info.req_cookie);
+  FILL_RESP_FLDS(resp_msg, result, err_msg, req->rsp_info.req_cookie, FDS_DMGR_CMD_OPEN_TXN, ot_req->txn_id);
 
   to_send = sizeof(resp_msg);
 
@@ -429,12 +433,12 @@ void handle_commit_txn_req(dm_wthread_t *wt_info, dm_req_t *req) {
     err_msg = err_resp_msg;
   } else {
     result = FDSP_ERR_OK;
+    // if this is a vvc modify req, we will need to send association table update to SM
+    // until then, don't destroy the txn object but keep it around in commited state.
+    dmgr_txn_destroy(txn);
   }
-  // if this is a vvc modify req, we will need to send association table update to SM
-  // until then, don't destroy the txn object but keep it around in commited state.
-  dmgr_txn_destroy(txn);
 
-  FILL_RESP_FLDS(resp_msg, result, err_msg, req->rsp_info.req_cookie);
+  FILL_RESP_FLDS(resp_msg, result, err_msg, req->rsp_info.req_cookie, FDS_DMGR_CMD_COMMIT_TXN, ct_req->txn_id);
 
   to_send = sizeof(resp_msg);
 
@@ -476,7 +480,7 @@ void handle_cancel_txn_req(dm_wthread_t *wt_info, dm_req_t *req) {
   }
   dmgr_txn_destroy(txn);
 
-  FILL_RESP_FLDS(resp_msg, result, err_msg, req->rsp_info.req_cookie);
+  FILL_RESP_FLDS(resp_msg, result, err_msg, req->rsp_info.req_cookie, FDS_DMGR_CMD_CANCEL_TXN, ct_req->txn_id);
 
   to_send = sizeof(resp_msg);
 

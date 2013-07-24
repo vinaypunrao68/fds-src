@@ -26,7 +26,7 @@ int vvc_entry_remove(vvc_vhdl_t vhdl, const char *blk_name, int segment_num);
 
 int vvc_entry_delete(vvc_vhdl_t vhdl, const char *blk_name);
 
-int vvc_entry_next();
+int vvc_entry_next(void);
 
 enum {
 
