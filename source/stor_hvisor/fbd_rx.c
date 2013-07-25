@@ -240,7 +240,7 @@ printk(" inside the  st call backl \n");
 }
 
 
-void fbd_process_read_timeout(unsigned long arg)
+void fbd_process_req_timeout(unsigned long arg)
 {
   uint32_t trans_id;
   FDS_JOURN *txn;
@@ -248,12 +248,14 @@ void fbd_process_read_timeout(unsigned long arg)
 
   trans_id = (uint32_t)arg;
   txn = &rwlog_tbl[trans_id];
-  req = txn->write_ctx;
-  if (req) {
+  if (txn->trans_state != FDS_TRANS_EMPTY) {
     txn->trans_state = FDS_TRANS_EMPTY;
-    txn->write_ctx = 0;
-    printk(" Timing out, responding to  the block : %p \n ",req);
-    __blk_end_request_all(req, 0); 
+    req = txn->write_ctx;
+    if (req) { 
+      txn->write_ctx = 0;
+      printk(" Timing out, responding to  the block : %p \n ",req);
+      __blk_end_request_all(req, 0); 
+    }
   }
   
 }
@@ -331,6 +333,10 @@ static int fds_process_write(fdsp_msg_t  *rx_msg)
 	trans_id = rx_msg->req_cookie; 
 	txn = &rwlog_tbl[trans_id];
 	// Check sanity here, if this transaction is valid and matches with the cookie we got from the message
+	if (txn->trans_state == FDS_TRANS_EMPTY) {
+	  return (0);
+	}
+
 
 
 	fbd = (struct fbd_device *)(txn->fbd_ptr);
@@ -367,15 +373,15 @@ static int fds_process_write(fdsp_msg_t  *rx_msg)
 	      {
 		printk("Error on creating vvc entry. Error code : %d\n", rc);
 	      }
-	    
-#if 1
+
+	    // destroy the txn, reclaim the space and return from here	    
+	    txn->trans_state = FDS_TRANS_EMPTY;
+	    txn->write_ctx = 0;
+	    del_timer(txn->p_ti);
 	    if (req)
 	      __blk_end_request_all(req, 0);
 
-#endif
-
 	    return (0);
-	    // destroy the txn, reclaim the space and return from here
 	  }
 	}
 	

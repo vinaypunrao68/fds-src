@@ -527,7 +527,7 @@ static int send_msg_sm(struct fbd_device *fbd, int send, void *buf, int size,
 		msg.msg_namelen = 0;
 	}
 	
-printk(" SM ip addr - 0x%x, port: %d \n",node_ipaddr, fbd->stor_mgr_port);
+	printk(" SM ip addr - 0x%x, port: %d \n",(unsigned int) node_ipaddr, fbd->stor_mgr_port);
 	/* block the signals interrupting  the  transmission */
 	siginitsetinv(&blocked, sigmask(SIGKILL));
 	sigprocmask(SIG_SETMASK, &blocked, &oldset);
@@ -624,7 +624,7 @@ int send_data_dm(struct fbd_device *fbd, int send, void *buf, int size,
 		msg.msg_namelen = 0;
 	}
 	
-printk(" DM ip addr - 0x%x, port: %d  Heade size: %d\n",node_ipaddr, fbd->data_mgr_port,size);
+	printk(" DM ip addr - 0x%x, port: %d  Heade size: %d\n", (unsigned int) node_ipaddr, fbd->data_mgr_port,size);
 	/* block the signals interrupting  the  transmission */
 	siginitsetinv(&blocked, sigmask(SIGKILL));
 	sigprocmask(SIG_SETMASK, &blocked, &oldset);
@@ -719,7 +719,7 @@ static int send_data_sm(struct fbd_device *fbd, int send, void *buf, int size,
 		msg.msg_namelen = 0;
 	}
 
-printk(" SM ipaddr - 0x%x, port: %d \n", node_ipaddr, fbd->stor_mgr_port);
+	printk(" SM ipaddr - 0x%x, port: %d \n", (unsigned int) node_ipaddr, fbd->stor_mgr_port);
 
 	/* block the signals interrupting  the  I/O transmission */
 	siginitsetinv(&blocked, sigmask(SIGKILL));
@@ -950,7 +950,7 @@ printk(" read  page addr: %p \n", bv->bv_page);
 	}
 	p_ti = (struct timer_list *)kzalloc(sizeof(struct timer_list), GFP_KERNEL);
 	init_timer(p_ti);
-	p_ti->function = fbd_process_read_timeout;
+	p_ti->function = fbd_process_req_timeout;
 	p_ti->data = (unsigned long)trans_id;
 	p_ti->expires = jiffies + HZ*5;
 	add_timer(p_ti);
@@ -988,9 +988,8 @@ static int fbd_process_queue_buffers(struct request *req)
 	DM_NODES *tmp_dm_node;
 	SM_NODES *tmp_sm_node;
 	int num_nodes;
+	struct timer_list *p_ti;
 
-                                        
-	int ret = 0;
 	fbd = req->rq_disk->private_data;
 	
 	rq_for_each_segment(bv, req, iter)	
@@ -1119,17 +1118,14 @@ printk("Write Req len: %d  offset: %d  flag:%d sock_buf:%p t_id: %d doid:%llx:%l
 
 			mutex_unlock(&fbd->tx_lock);
 			// Schedule timer here to track the responses
-#if 0
-			if (fbd->xmit_timeout) {
-			  p_ti = (struct timer_list *)kzalloc(sizeof(struct timer_list), GFP_KERNEL);
-			  init_timer(p_ti);
-			  p_ti->function = fbd_xmit_timeout;
-			  p_ti->data = (unsigned long)current;
-			  p_ti->expires = jiffies + fbd->xmit_timeout;
-			  add_timer(p_ti);
-			  rwlog_tbl[trans_id].p_ti = p_ti;
-			}
-#endif			
+
+			p_ti = (struct timer_list *)kzalloc(sizeof(struct timer_list), GFP_KERNEL);
+			init_timer(p_ti);
+			p_ti->function = fbd_process_req_timeout;
+			p_ti->data = (unsigned long)trans_id;
+			p_ti->expires = jiffies + HZ*5;
+			add_timer(p_ti);
+			rwlog_tbl[trans_id].p_ti = p_ti;
 
 			kunmap(bv->bv_page);
 
