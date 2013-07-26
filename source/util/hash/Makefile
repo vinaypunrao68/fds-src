@@ -26,7 +26,6 @@ SRCS = \
 	MurmurHash2.cpp \
 	MurmurHash3.cpp \
 	Platform.cpp \
-	PMurHash.c \
 	Random.cpp \
 	sha1.cpp \
 	SpeedTest.cpp \
@@ -36,19 +35,26 @@ SRCS = \
 	SuperFastHash.cpp \
 	Types.cpp
 
-OBJS = $(SRCS:%.cpp=%.o) $(SRC:%.c=%.o)
+C_SRCS = \
+	PMurHash.c
+
+OBJS = $(SRCS:%.cpp=%.o)
+C_OBJS = $(C_SRCS:%.c=%.o)
 
 BINS = main
 
-all: $(OBJS) $(BINS)
+all: $(OBJS) $(C_OBJS) $(BINS)
 
 %.o: %.cpp $(DEPS)
 	$(CPPC) -c -o $@ $< $(CFLAGS)
 
-main: main.cpp $(OBJS)
-	$(CPPC) -o $@ main.cpp $(OBJS) $(CFLAGS)
+%.o: %.c $(DEPS)
+	$(CPPC) -c -o $@ $< $(CFLAGS)
+
+main: main.cpp $(OBJS) $(C_OBJS)
+	$(CPPC) -o $@ main.cpp $(OBJS) $(C_OBJS) $(CFLAGS)
 
 .PHONY: clean
 
 clean:
-	rm -f $(OBJS) $(BINS) *.core
+	rm -f $(OBJS) $(C_OBJS) $(BINS) *.core
