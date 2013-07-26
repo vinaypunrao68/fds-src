@@ -11,10 +11,14 @@
 #include <ios>
 #include <string>
 #include <list>
+#include <vector>
 
 #include "stor_mgr/odb.h"
 #include "util/random.h"
 #include "util/testutil.h"
+#include "util/hash/MurmurHash3.h"
+
+#define MURMUR_SIZE 4
 
 namespace osm {
 
@@ -24,13 +28,23 @@ class UnitTest {
   ObjectDB               *odb;
   std::string             file;
 
+  std::string ToHex(const fds_uint32_t *key, fds_uint32_t len) {
+    std::ostringstream hash_oss;
+
+    hash_oss << std::hex << std::setfill('0') << std::nouppercase;
+    for (std::string::size_type i = 0; i < len; ++i) {
+      hash_oss << std::setw(8) << key[i];
+    }
+
+    return hash_oss.str();
+  }
+
   std::string ToHex(const std::string& key) {
     std::ostringstream hash_oss;
 
+    hash_oss << std::hex << std::setfill('0') << std::nouppercase;
     for (std::string::size_type i = 0; i < key.size(); ++i) {
-      hash_oss << std::hex << std::setfill('0')
-               << std::setw(2) << std::nouppercase
-               << static_cast<int>(key[i]);
+      hash_oss << std::setw(2) << static_cast<int>(key[i]);
     }
 
     return hash_oss.str();
@@ -50,7 +64,9 @@ class UnitTest {
     dl.vol_id  = 0;
     dl.file_id = 0;
     ObjectBuf obj;
-    std::string obj_hex;
+    fds_uint32_t murmur_buf[MURMUR_SIZE];
+    std::string murmur_hex;
+    std::vector<std::string> written_objs;
 
     /*
      * Create random data generator
@@ -71,6 +87,17 @@ class UnitTest {
       leveldb::test::RandomString(&rnd, object_size, &obj.data);
       obj.size = object_size;
 
+      /*
+       * Calculate and store murmur3 hash.
+       */
+      memset(murmur_buf, 0x00, sizeof(fds_uint32_t) * MURMUR_SIZE);
+      MurmurHash3_x86_128(obj.data.c_str(),
+                          obj.data.size(),
+                          0,
+                          murmur_buf);
+      murmur_hex = ToHex(murmur_buf, MURMUR_SIZE);
+      written_objs.push_back(murmur_hex);
+
       err = odb->Put(dl, obj);
       if (err != fds::ERR_OK) {
         std::cout << "Failed to put at key " << dl.offset << std::endl;
@@ -90,6 +117,21 @@ class UnitTest {
         std::cout << "Failed to get key " << dl.offset << std::endl;
         delete odb;
         return -1;
+      }
+
+      /*
+       * Re-calculate the murmur3 hash.
+       */
+      memset(murmur_buf, 0x00, sizeof(fds_uint32_t) * MURMUR_SIZE);
+      MurmurHash3_x86_128(get_obj.data.c_str(),
+                          get_obj.data.size(),
+                          0,
+                          murmur_buf);
+      murmur_hex = ToHex(murmur_buf, MURMUR_SIZE);
+
+      if (written_objs[i] != murmur_hex) {
+        std::cout << "Failed to get correct data for key "
+                  << dl.offset << std::endl;
       }
     }
     std::cout << "Successfully got " << iterations
