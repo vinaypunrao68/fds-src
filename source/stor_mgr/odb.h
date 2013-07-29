@@ -18,6 +18,7 @@
 #include "leveldb/env.h"
 #include "util/histogram.h"
 
+namespace fds {
 namespace osm {
 
   class ObjectDB {
@@ -129,5 +130,6 @@ namespace osm {
     }
   };
 }  // namespace osm
+}  // namespace fds
 
 #endif  // SOURCE_STOR_MGR_ODB_H_

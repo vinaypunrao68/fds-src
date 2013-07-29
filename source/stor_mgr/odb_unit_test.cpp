@@ -20,6 +20,7 @@
 
 #define MURMUR_SIZE 4
 
+namespace fds {
 namespace osm {
 
 class UnitTest {
@@ -28,6 +29,7 @@ class UnitTest {
   ObjectDB               *odb;
   std::string             file;
 
+  /*
   std::string ToHex(const fds_uint32_t *key, fds_uint32_t len) {
     std::ostringstream hash_oss;
 
@@ -49,6 +51,7 @@ class UnitTest {
 
     return hash_oss.str();
   }
+  */
 
   /** Basic functionality test.
    * @return 0 on success, < 0 on failure.
@@ -95,7 +98,7 @@ class UnitTest {
                           obj.data.size(),
                           0,
                           murmur_buf);
-      murmur_hex = ToHex(murmur_buf, MURMUR_SIZE);
+      murmur_hex = ObjectID::ToHex(murmur_buf, MURMUR_SIZE);
       written_objs.push_back(murmur_hex);
 
       err = odb->Put(dl, obj);
@@ -127,7 +130,7 @@ class UnitTest {
                           get_obj.data.size(),
                           0,
                           murmur_buf);
-      murmur_hex = ToHex(murmur_buf, MURMUR_SIZE);
+      murmur_hex = ObjectID::ToHex(murmur_buf, MURMUR_SIZE);
 
       if (written_objs[i] != murmur_hex) {
         std::cout << "Failed to get correct data for key "
@@ -186,18 +189,22 @@ class UnitTest {
 };
 
 }  // namespace osm
+}  // namespace fds
 
 int main(int argc, char *argv[]) {
     std::string db_filename;
 
-    for (int i = 0; i < argc; i++) {
+    for (int i = 1; i < argc; i++) {
       if (strncmp(argv[i], "--filename=", 11) == 0) {
         db_filename = argv[i] + 11;
         std::cout << "Set filename to " << db_filename << std::endl;
+      } else {
+        std::cout << "Invalid argument " << argv[i] << std::endl;
+        return -1;
       }
     }
 
-    osm::UnitTest unittest(db_filename);
+    fds::osm::UnitTest unittest(db_filename);
     unittest.Run();
 
     return 0;

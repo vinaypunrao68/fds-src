@@ -9,6 +9,7 @@
 #include "leveldb/db.h"
 #include "leveldb/filter_policy.h"
 
+namespace fds {
 namespace osm {
 
 #define WRITE_BUFFER_SIZE   50 * 1024 * 1024;
@@ -102,3 +103,4 @@ fds::Error ObjectDB::Get(const DiskLoc& disk_location,
 }
 
 }  // namespace osm
+}  // namespace fds
