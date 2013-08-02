@@ -3,8 +3,8 @@ IDIR =-I.
 
 CPPC =g++
 #OPTS ?= -g2               # (A) Debug mode
-#OPTS ?= -O2 -g2 -DNDEBUG # (B) Profiling mode
-OPTS ?= -O2 -DNDEBUG     # (C) Production mode
+#OPTS ?= -O2 -g2 -DNDEBUG  # (B) Profiling mode
+OPTS ?= -O2 -DNDEBUG       # (C) Production mode
 CFLAGS = $(OPTS)
 LIBS =
 
