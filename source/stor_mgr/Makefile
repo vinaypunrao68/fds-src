@@ -40,4 +40,4 @@ odb_unit_test: odb_unit_test.cpp odb.o $(HASHUTIL) $(TESTUTIL)
 .PHONY: clean
 
 clean:
-	rm -f $(OBJS) $(UTEST_OBJS) $(BINS) $(TESTS) *~ core 
+	rm -f $(OBJS) $(UTEST_OBJS) $(BINS) $(TESTS)

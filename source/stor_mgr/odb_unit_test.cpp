@@ -29,30 +29,6 @@ class UnitTest {
   ObjectDB               *odb;
   std::string             file;
 
-  /*
-  std::string ToHex(const fds_uint32_t *key, fds_uint32_t len) {
-    std::ostringstream hash_oss;
-
-    hash_oss << std::hex << std::setfill('0') << std::nouppercase;
-    for (std::string::size_type i = 0; i < len; ++i) {
-      hash_oss << std::setw(8) << key[i];
-    }
-
-    return hash_oss.str();
-  }
-
-  std::string ToHex(const std::string& key) {
-    std::ostringstream hash_oss;
-
-    hash_oss << std::hex << std::setfill('0') << std::nouppercase;
-    for (std::string::size_type i = 0; i < key.size(); ++i) {
-      hash_oss << std::setw(2) << static_cast<int>(key[i]);
-    }
-
-    return hash_oss.str();
-  }
-  */
-
   /** Basic functionality test.
    * @return 0 on success, < 0 on failure.
    */
