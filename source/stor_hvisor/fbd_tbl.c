@@ -14,11 +14,17 @@
  *                - dmt and dlt table  data structures amd API's 
  */
 
+#include <net/sock.h>
+#include <linux/net.h>
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/list.h>
 #include "vvclib.h"
+#include "../include/fds_commons.h"
+#include "../include/fdsp.h"
+#include "blktap.h"
+#include "fbd.h"
 #include "fds.h"
 
 DM_NODES 	dmt_tbl[FDS_MAC_DM_ENTRIES];
@@ -28,7 +34,7 @@ int  fds_init_dmt(void)
 {
   int i =0;
 	
-	for(i=0; i<= FDS_MAC_DM_ENTRIES; i++)
+	for(i=0; i< FDS_MAC_DM_ENTRIES; i++)
 	{
 		INIT_LIST_HEAD(&(dmt_tbl[i].list));	
 

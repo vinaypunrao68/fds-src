@@ -89,6 +89,18 @@ struct fbd_device {
 	volid_t 	vol_id;
 	vvc_vhdl_t	vhdl;
 	char blk_name[100];
+	/* blk tap  structures */
+	unsigned long     dev_inuse;
+
+	struct blktap_ring    ring;
+//	struct blktap_device   device;
+	struct blktap_page_pool  *pool;
+
+	wait_queue_head_t       remove_wait;
+	struct work_struct      remove_work;
+	struct file 		*filp;
+
+	struct blktap_statistics       stats;
 };
 
 #define  FBD_CMD_READ			01

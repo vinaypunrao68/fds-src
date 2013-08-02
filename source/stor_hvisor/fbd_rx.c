@@ -24,11 +24,12 @@
 #include <net/sock.h>
 #include <linux/net.h>
 #include "vvclib.h"
-#include "fds.h"
 #include "../include/fds_commons.h"
 #include "../include/fdsp.h"
 #include "../include/data_mgr.h"
+#include "blktap.h"
 #include "fbd.h"
+#include "fds.h"
 
 
 FDS_JOURN	rwlog_tbl[FDS_READ_WRITE_LOG_ENTRIES];

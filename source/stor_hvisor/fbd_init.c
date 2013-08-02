@@ -44,11 +44,12 @@
 #include <asm/uaccess.h>
 #include <asm/types.h>
 #include "vvclib.h"
-#include "fds.h"
 #include "../include/fds_commons.h"
 #include "../include/fdsp.h"
 #include "../include/data_mgr.h"
+#include "blktap.h"
 #include "fbd.h"
+#include "fds.h"
 #include "fbd_hash.h"
 
 
@@ -1254,6 +1255,8 @@ static void fbd_process_queue(struct request_queue *q)
 {
 	struct request *req;
     struct fbd_device *fbd;
+
+	return;
 	
 	while ((req = blk_fetch_request(q)) != NULL) {
 
@@ -1524,17 +1527,18 @@ static int __init fbd_init(void)
 	if (!disk)
 		goto out;
 	fbd_dev->disk = disk;
-	disk->queue = blk_init_queue(fbd_process_queue, &fbd_lock);
+	disk->queue = blk_init_queue(blktap_device_do_request, &fbd_lock);
+//	disk->queue = blk_init_queue(blktap_device_run_queue, &fbd_lock);
 	if (!disk->queue) {
 		printk(" Error: Initializing the  block disk  queues \n");
 		put_disk(disk);
 		goto out;
 	}
-
 	queue_flag_set_unlocked(QUEUE_FLAG_NONROT, disk->queue);
 	disk->queue->limits.discard_granularity = 512;
 	disk->queue->limits.max_discard_sectors = UINT_MAX;
 	disk->queue->limits.discard_zeroes_data = 0;
+	disk->queue->queuedata = fbd_dev;
 
 	if (register_blkdev(FBD_DEV_MAJOR_NUM, "fbd")) {
 		err = -EIO;
@@ -1566,6 +1570,7 @@ static int __init fbd_init(void)
 	set_capacity(disk, 0);
 	add_disk(disk);
 
+#if 0
 	/* vvc vol create */
 	fbd_dev->vol_id = 1; /*  this should be comming from OM */
 	if((fbd_dev->vhdl = vvc_vol_create(fbd_dev->vol_id, NULL,1024)) == 0 )
@@ -1589,8 +1594,13 @@ static int __init fbd_init(void)
 
 	/* the read write trans  table */
 	fds_init_trans_log();
+
+#endif
+	/* init the blk ring  */
+	blktap_init();
+	blktap_ring_create(fbd_dev);
 		
-	mutex_unlock(&fbd_dev->tx_lock);
+//	mutex_unlock(&fbd_dev->tx_lock);
 	fbd_thread_id = kthread_create(fbd_io_thread, fbd_dev, fbd_dev->disk->disk_name);
 	if (IS_ERR(fbd_thread_id)) {
 		printk(" Error: creating the  IO thread \n");
@@ -1634,6 +1644,9 @@ static void __exit fbd_cleanup(void)
 	device_unregister(&fbd_dev->dev);
 	fbd_sysfs_cleanup();
 	unregister_blkdev(FBD_DEV_MAJOR_NUM, "fbd");
+printk(" unresgister blkdev \n");
+	blktap_exit();
+printk(" blktap exit \n");
 	kfree(fbd_dev);
 	kfree(fbd_con);
 	printk("fbd: Removing the  device  Major Number %d\n", FBD_DEV_MAJOR_NUM);

@@ -150,6 +150,51 @@ int fds_process_rx_message(uint8_t  *rx_buf, uint32_t src_ip);
 int get_trans_id(void);
 void fbd_process_req_timeout(unsigned long arg);
 
+
+/* blk tap  changes */
+int blktap_control_destroy_tap(struct fbd_device *);
+size_t blktap_control_debug(struct fbd_device *, char *, size_t);
+
+int blktap_ring_init(void);
+void blktap_ring_exit(void);
+size_t blktap_ring_debug(struct fbd_device *, char *, size_t);
+int blktap_ring_create(struct fbd_device *);
+int blktap_ring_destroy(struct fbd_device *);
+struct blktap_request *blktap_ring_make_request(struct fbd_device *);
+void blktap_ring_free_request(struct fbd_device *,struct blktap_request *);
+void blktap_ring_submit_request(struct fbd_device *, struct blktap_request *);
+int blktap_ring_map_request(struct fbd_device *, struct file *, struct blktap_request *);
+void blktap_ring_unmap_request(struct fbd_device *, struct blktap_request *);
+void blktap_ring_set_message(struct fbd_device *, int);
+void blktap_ring_kick_user(struct fbd_device *);
+
+int blktap_sysfs_init(void);
+void blktap_sysfs_exit(void);
+int blktap_sysfs_create(struct fbd_device *);
+void blktap_sysfs_destroy(struct fbd_device *);
+
+int blktap_device_init(void);
+void blktap_device_exit(void);
+size_t blktap_device_debug(struct fbd_device *, char *, size_t);
+int blktap_device_create(struct fbd_device *, struct blktap_device_info *);
+int blktap_device_destroy(struct fbd_device *);
+void blktap_device_destroy_sync(struct fbd_device *);
+void blktap_device_run_queue(struct request_queue *q);
+void blktap_device_do_request(struct request_queue *q);
+void blktap_device_end_request(struct fbd_device *, struct blktap_request *, int);
+
+int blktap_page_pool_init(struct kobject *);
+void blktap_page_pool_exit(void);
+struct blktap_page_pool *blktap_page_pool_get(const char *);
+
+size_t blktap_request_debug(struct fbd_device *, char *, size_t);
+struct blktap_request *blktap_request_alloc(struct fbd_device *);
+int blktap_request_get_pages(struct fbd_device *, struct blktap_request *, int);
+void blktap_request_free(struct fbd_device *, struct blktap_request *);
+void blktap_request_bounce(struct fbd_device *, struct blktap_request *, int);
+void blktap_exit(void);
+int blktap_init(void);
+
 /* hypervisor  cache catalog */
 
 #endif
