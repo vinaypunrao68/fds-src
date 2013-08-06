@@ -619,7 +619,11 @@ int hvisor_process_read_request(void *dev_hdl, td_request_t *req, complete_req_c
 	int      data_size    = req->secs * HVISOR_SECTOR_SIZE;
 	uint64_t data_offset  = req->sec * (uint64_t)HVISOR_SECTOR_SIZE;
 	char *data_buf = req->buf;
-
+	SM_NODES *sm_nodes;
+        SM_NODES *tmp_sm_node;
+	long int sm_ipAddr;
+	unsigned int doid_dlt_key;
+	
 	// fbd = req->rq_disk->private_data;
 	fbd = fbd_dev;
 
@@ -648,12 +652,13 @@ int hvisor_process_read_request(void *dev_hdl, td_request_t *req, complete_req_c
 	sm_msg->msg_code = FDSP_MSG_GET_OBJ_REQ;
 	sm_msg->msg_id =  1;
 	memcpy((void *)&(sm_msg->payload.get_obj.data_obj_id), (void *)&(doid_list[0].bytes[0]), sizeof(doid));
+	doid_dlt_key = doid_list[0].bytes[0];
 	sm_msg->payload.get_obj.data_obj_len = data_size;
 	sm_msg->payload_len = data_size;
 	printf(" read buf addr: %p \n", data_buf);
-	printf("Read Req len: %d  offset: %d  flag:%d sm_msg:%p \
+	printf("Read Req len: %d  offset: %d sm_msg:%p \
 				doid:%llx:%llx \n",
-	       data_size, data_offset, flag, sm_msg, doid_list[0].obj_id.hash_high, doid_list[0].obj_id.hash_low);
+	       data_size, (int32_t) data_offset, sm_msg, doid_list[0].obj_id.hash_high, doid_list[0].obj_id.hash_low);
 			/* open transaction  */
 	trans_id = get_trans_id();
 
@@ -670,9 +675,15 @@ int hvisor_process_read_request(void *dev_hdl, td_request_t *req, complete_req_c
 
 	sm_msg->req_cookie = trans_id;
 
+	sm_nodes = get_sm_nodes_for_doid_key(doid_dlt_key);
+        list_for_each_entry(tmp_sm_node,& sm_nodes->list, list) {
+		sm_ipAddr = tmp_sm_node->node_ipaddr;
+		break;
+	}
+
 	pthread_mutex_lock(&fbd->tx_lock);
 
-	result = send_msg_sm(fbd, 1, sm_msg, sizeof(fdsp_msg_t), 0, fbd->udp_destAddr);
+	result = send_msg_sm(fbd, 1, sm_msg, sizeof(fdsp_msg_t), 0, sm_ipAddr);
 	if ( result < 0)
 	  {
 	    printf("  READ-SM:Error %d: Error  sending the data %p \n ",result,req);
@@ -769,8 +780,8 @@ int hvisor_process_write_request(void *dev_hdl, td_request_t *req, complete_req_
 
 	trans_id = get_trans_id();
 
-	printf("Write Req len: %d  offset: %d  flag:%d sock_buf:%p t_id: %d doid:%llx:%llx \n",
-	       data_size, data_offset, flag, data_buf, trans_id, doid.doid, doid.doid1);
+	printf("Write Req len: %d  offset: %d  buf:%p t_id: %d doid:%llx:%llx \n",
+	       data_size, (uint32_t) data_offset, data_buf, trans_id, doid.doid, doid.doid1);
 	/* open transaction  */
 
 	rwlog_tbl[trans_id].fbd_ptr = fbd;
