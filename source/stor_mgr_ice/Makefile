@@ -16,7 +16,7 @@ TARGETS		= $(FDS_CFG)
 
 OBJS		= FDSP.o StorMgr.o odb.o DiskMgr.o
 
-MY_LIBS          = /home/sanjay/fds11/source/lib/leveldb-1.12.0/libleveldb.so
+MY_LIBS          = ../lib/leveldb-1.12.0/libleveldb.so
 
 COBJS		= #StorHvisorClient.o
 
