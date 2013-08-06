@@ -11,6 +11,11 @@
 #include "util/concurrency/Synchronization.h"
 #include "util/concurrency/ThreadPool.h"
 
+// #include "util/Log.h"
+
+// #define BOOST_LOG_DYN_LINK 1
+// #define BOOST_ALL_DYN_LINK 1
+
 namespace fds {
 
 class ConcUnitTest {
@@ -34,7 +39,7 @@ class ConcUnitTest {
    */
   static void mt_thread_loop(ConcUnitTest *ut, int seed, int its, bool use_mutex) {
     boost::xtime xt;
-    boost::xtime_get(&xt, boost::TIME_UTC);
+    boost::xtime_get(&xt, boost::TIME_UTC_);
 
     if (use_mutex) {
       ut->global_mutex->lock();
@@ -114,7 +119,7 @@ class ConcUnitTest {
               << " is starting some work!" << std::endl;
 
     boost::xtime xt;
-    boost::xtime_get(&xt, boost::TIME_UTC);
+    boost::xtime_get(&xt, boost::TIME_UTC_);
     xt.sec += 5;
     boost::thread::sleep(xt);
 
@@ -256,7 +261,7 @@ class ConcUnitTest {
      * Sleep for a bit then wake the threads
      */
     boost::xtime xt;
-    boost::xtime_get(&xt, boost::TIME_UTC);
+    boost::xtime_get(&xt, boost::TIME_UTC_);
     xt.sec += 3;
     boost::thread::sleep(xt);
     std::cout << "Main thread is going to notify" << std::endl;
@@ -379,6 +384,8 @@ int main(int argc, char* argv[]) {
     } else {
       unittest.Run(testname);
     }
+
+    // BOOST_LOG_TRIVIAL(trace) << "A trace severity message";
 
   return 0;
 }

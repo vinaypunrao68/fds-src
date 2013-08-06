@@ -1,5 +1,5 @@
 TOPDIR  = ..
-ROOTDIR = ../..
+ROOTDIR = $(TOPDIR)
 BOOSTIDIR = /usr/local/include/
 BOOSTLDIR = /usr/local/lib/
 IDIR = -I. -I$(ROOTDIR) -I$(BOOSTIDIR)
@@ -11,26 +11,24 @@ OPTS ?= -g2               # (A) Debug mode
 
 CFLAGS = $(IDIR) $(OPTS) -D_REENTRANT
 
-BOOST_LIBS = -lboost_thread -lboost_system
+BOOST_LIBS = -lboost_log -lboost_system -lboost_thread -lboost_date_time
 LIBS = $(BOOST_LIBS) -lpthread
 
 SRCS = \
-	Mutex.cpp \
-	Synchronization.cpp \
-	ThreadPool.cpp
+	Log.cpp
 
 OBJS = $(SRCS:%.cpp=%.o)
 
 TESTS = \
-	conc_unit_test
+	log_unit_test
 
 all: $(TESTS)
 
 %.o: %.cpp $(DEPS)
 	$(CPPC) -c -o $@ $< $(CFLAGS)
 
-conc_unit_test: conc_unit_test.cpp $(OBJS)
-	$(CPPC) -o $@ conc_unit_test.cpp $(OBJS) $(LIBS) $(CFLAGS)
+log_unit_test: log_unit_test.cpp $(OBJS)
+	$(CPPC) -o $@ log_unit_test.cpp $(OBJS) $(LIBS) $(CFLAGS)
 
 .PHONY: clean
 

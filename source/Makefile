@@ -1,4 +1,4 @@
-SUBDIRS := lib data_mgr util/hash util/concurrency lib/leveldb-1.12.0 stor_mgr
+SUBDIRS := lib data_mgr util util/hash util/concurrency lib/leveldb-1.12.0 stor_mgr
 
 .PHONY : all clean
 
