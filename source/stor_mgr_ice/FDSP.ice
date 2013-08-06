@@ -57,20 +57,20 @@ class FDSP_PutObjType {
   FDS_ObjectIdType   data_obj_id;
   int      data_obj_len;
   int      volume_offset; /* Offset inside the volume where the object resides */
-  Ice::ByteSeq data_obj;
+  string data_obj;
 };
 
 class FDSP_GetObjType {
   FDS_ObjectIdType   data_obj_id;
   int      data_obj_len;
-  Ice::ByteSeq   data_obj;
+  string  data_obj;
 };
 
 class FDSP_OffsetWriteObjType {
   FDS_ObjectIdType   data_obj_id_old;
   int      data_obj_len;
   FDS_ObjectIdType   data_obj_id_new;
-  Ice::ByteSeq  data_obj;
+  string  data_obj;
 };
 
 
@@ -80,14 +80,14 @@ class FDSP_RedirReadObjType {
   int      data_obj_suboffset; /* Offset within the object where the actual data is modified */
   int      data_obj_sublen;
   FDS_ObjectIdType   data_obj_id_new;
-  Ice::ByteSeq   data_obj;
+  string   data_obj;
 }; 
 
 
 class FDSP_VerifyObjType {
   FDS_ObjectIdType   data_obj_id;
   int      data_obj_len;
-  Ice::ByteSeq  data_obj;
+  string  data_obj;
 };
 
 

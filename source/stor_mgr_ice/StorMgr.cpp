@@ -9,7 +9,7 @@ fds_bool_t  stor_mgr_stopping = false;
 #define FDS_XPORT_PROTO_UDP 2
 #define FDSP_MAX_MSG_LEN (4*(4*1024 + 128))
 
-ObjectStorMgr *ObjStorMgr;
+ObjectStorMgr *objStorMgr;
 
 // Use a single global levelDB for now
 leveldb::DB* db;
@@ -23,13 +23,13 @@ ObjectStorMgrI::~ObjectStorMgrI() {
 void
 ObjectStorMgrI::PutObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_PutObjTypePtr &put_obj, const Ice::Current&) {
   std::cout << "In the interface putobject()" << std::endl;
-  ObjStorMgr->PutObject(msg_hdr, put_obj);
+  objStorMgr->PutObject(msg_hdr, put_obj);
 }
 
 void
 ObjectStorMgrI::GetObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_GetObjTypePtr& get_obj, const Ice::Current&) {
   std::cout << "In the interface getobject()" << std::endl;
-  ObjStorMgr->GetObject(msg_hdr, get_obj);
+  objStorMgr->GetObject(msg_hdr, get_obj);
 }
 
 void
@@ -162,6 +162,7 @@ ObjectStorMgr::putObjectInternal(FDSP_PutObjTypePtr put_obj_req,
 FDSDataLocEntryType object_location_offset;
 fds_uint32_t obj_num=0;
 fds_sm_err_t result = FDS_SM_OK;
+fds::Error err(fds::ERR_OK);
 
    for(obj_num = 0; obj_num < num_objs; obj_num++) {
        // Find if this object is a duplicate
@@ -185,22 +186,20 @@ fds_sm_err_t result = FDS_SM_OK;
 	    * This is the levelDB insertion. It's a totally
 	    * separate DB from the one above.
 	    */
-	   leveldb::Slice key((char *)&(put_obj_req->data_obj_id),
-			      sizeof(put_obj_req->data_obj_id));
-	   leveldb::Slice value((char*)put_obj_req->data_obj.data(),
-				put_obj_req->data_obj_len);
-	   leveldb::WriteOptions writeopts;
-	   writeopts.sync = true;
-	   leveldb::Status status = db->Put(writeopts,
-					    key,
-					    value);
+           DiskLoc dl;
+           dl.vol_id = volid;
+           dl.file_id = 0;
+           dl.offset = put_obj_req->volume_offset;
+           ObjectBuf obj;
+           obj.size = put_obj_req->data_obj_len;
+	   obj.data  = put_obj_req->data_obj;
+	   err = objStorDB->Put( dl, obj);
 
-	   if (! status.ok()) {
+	   if (err != fds::ERR_OK) {
 	     std::cout << "Failed to put object "
-		       << status.ToString() << std::endl;
+		       << err << std::endl;
 	   } else {
-	     std::cout << "Successfully put key "
-		       << key.ToString() << std::endl;
+	     std::cout << "Successfully put key " << std::endl;
 	   }
 
        } else {
@@ -231,18 +230,22 @@ ObjectStorMgr::getObjectInternal(FDSP_GetObjTypePtr get_obj_req,
                                 fds_uint32_t volid, 
                                 fds_uint32_t num_objs) 
 {
+     DiskLoc dl;
+     dl.vol_id = volid;
+     dl.file_id = 0;
+     ObjectBuf obj;
+     obj.size = get_obj_req->data_obj_len;
+     obj.data = get_obj_req->data_obj;
+     fds::Error err(fds::ERR_OK);
      // stor_mgr_read_object(get_obj_req->data_obj_id, get_obj_req->data_obj_len, &get_obj_req->data_obj);
 
-  leveldb::Slice key((char *)&(get_obj_req->data_obj_id),
-		     sizeof(get_obj_req->data_obj_id));
-  std::string value((char *)get_obj_req->data_obj.data());
-  leveldb::Status status = db->Get(leveldb::ReadOptions(), key, &value);
+  err = objStorDB->Get(dl, obj);
 
-  if (! status.ok()) {
-    std::cout << "Failed to get key " << key.ToString() << " with status "
-	      << status.ToString() << std::endl;
+  if (err != fds::ERR_OK) {
+    std::cout << "Failed to get key " << dl.vol_id << ":" << dl.file_id << ":" << dl.offset << " with status "
+	      << err << std::endl;
   } else {
-    std::cout << "Successfully got value " << value << std::endl;
+    std::cout << "Successfully got value " << obj.data.c_str() << std::endl;
   }
 
   return FDS_SM_OK;
@@ -332,7 +335,7 @@ int main(int argc, char *argv[])
     }
     
   }
-  ObjectStorMgr *objStorMgr = new ObjectStorMgr();
+  objStorMgr = new ObjectStorMgr();
 
   if (unit_test) {
     objStorMgr->unitTest();

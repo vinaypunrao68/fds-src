@@ -67,8 +67,8 @@ StorHvisorClient::run(int argc, char* argv[])
         //fdspDPAPI->addClient(ident);
 
 
-		fdsp_msg_hdr->minor_ver = 0;
-		fdsp_msg_hdr->msg_code = FDSP_MSG_PUT_OBJ_REQ;
+	fdsp_msg_hdr->minor_ver = 0;
+	fdsp_msg_hdr->msg_code = FDSP_MSG_PUT_OBJ_REQ;
         fdsp_msg_hdr->msg_id =  1;
 
         fdsp_msg_hdr->major_ver = 0xa5;
