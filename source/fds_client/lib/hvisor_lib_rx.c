@@ -100,12 +100,12 @@ void fbd_process_req_timeout(unsigned long arg)
   
 }
 
-void fbd_complete_req(uint32_t trans_id, int status) {
+void fbd_complete_req(uint32_t trans_id, td_request_t *req, int status) {
 
   FDS_JOURN *txn;
 
   txn = &rwlog_tbl[trans_id];
-  txn->comp_req(txn->comp_arg1, txn->comp_arg2, (td_request_t *)txn->write_ctx, status);
+  txn->comp_req(txn->comp_arg1, txn->comp_arg2, req,  status);
 
 }
 
@@ -153,7 +153,7 @@ static int fds_process_read( uint8_t  *rx_buf)
 	printf(" responding to  the block : %p \n ",req);
 	if(req) {
 	  // __blk_end_request_all(req, 0); 
-	  fbd_complete_req(trans_id, 0);
+	  fbd_complete_req(trans_id, req, 0);
 	}
 
 	return 0;
@@ -224,7 +224,7 @@ static int fds_process_write(fdsp_msg_t  *rx_msg)
 	    // del_timer(txn->p_ti);
 	    if (req) {
 	      //__blk_end_request_all(req, 0);
-	      fbd_complete_req(trans_id, 0);
+	      fbd_complete_req(trans_id, req, 0);
 	    }
 	    return (0);
 	  }

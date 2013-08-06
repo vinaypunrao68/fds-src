@@ -438,6 +438,8 @@ hvisor_complete_td_request(void *arg1, void *arg2,
         vreq->secs_pending -= treq->secs;
         vreq->blocked = treq->blocked;
 
+	/*
+	// Ignore errors for now to continue with testing
         if (err) {
                 vreq->status = BLKIF_RSP_ERROR;
                 vreq->error  = (vreq->error ? : err);
@@ -445,7 +447,7 @@ hvisor_complete_td_request(void *arg1, void *arg2,
                         vbd->errors++;
                 }
         }
-
+	*/
 	hvisor_complete_vbd_request(vbd, vreq);
 	free(treq);
 }
