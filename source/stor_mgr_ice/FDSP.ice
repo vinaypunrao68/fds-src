@@ -150,20 +150,20 @@ interface FDSP_DataPathReq {
     void RedirReadObject(FDSP_MsgHdrType *fdsp_msg, FDSP_RedirReadObjType *redir_write_obj_req);
 };
 
-/*
-interface FDSP_DataPathRespCback {
-    void GetObjectResp(FDSP_MsgHdrType *fdsp_msg, FDSP_GetObjType *get_obj_req);
 
-    void PutObjectResp(FDSP_MsgHdrType *fdsp_msg, FDSP_PutObjType *put_obj_req);
+interface FDSP_DataPathResp {
+    void GetObjectResp(FDSP_MsgHdrType fdsp_msg, FDSP_GetObjType get_obj_req);
 
-    void UpdateCatalogObjectResp(FDSP_MsgHdrType *fdsp_msg, FDSP_UpdateCatalogType *cat_obj_req);
+    void PutObjectResp(FDSP_MsgHdrType fdsp_msg, FDSP_PutObjType put_obj_req);
 
-    void OffsetWriteObjectResp(FDSP_MsgHdrType *fdsp_msg, FDSP_OffsetWriteObjType *offset_write_obj_req);
+    void UpdateCatalogObjectResp(FDSP_MsgHdrType fdsp_msg, FDSP_UpdateCatalogType cat_obj_req);
 
-    void RedirReadObjectResp(FDSP_MsgHdrType *fdsp_msg, FDSP_RedirReadObjType *redir_write_obj_req);
+    void OffsetWriteObjectResp(FDSP_MsgHdrType fdsp_msg, FDSP_OffsetWriteObjType offset_write_obj_req);
+
+    void RedirReadObjectResp(FDSP_MsgHdrType fdsp_msg, FDSP_RedirReadObjType redir_write_obj_req);
 
 };
-*/
+
 
 };
 #endif
