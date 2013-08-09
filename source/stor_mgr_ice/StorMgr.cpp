@@ -24,17 +24,23 @@ void
 ObjectStorMgrI::PutObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_PutObjTypePtr &put_obj, const Ice::Current&) {
   std::cout << "In the interface putobject()" << std::endl;
   objStorMgr->PutObject(msg_hdr, put_obj);
+  msg_hdr->msg_code = FDSP_MSG_PUT_OBJ_RSP;
+  objStorMgr->swapMgrId(msg_hdr);
+  objStorMgr->fdspDataPathClient->PutObjectResp(msg_hdr, put_obj);
 }
 
 void
 ObjectStorMgrI::GetObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_GetObjTypePtr& get_obj, const Ice::Current&) {
   std::cout << "In the interface getobject()" << std::endl;
   objStorMgr->GetObject(msg_hdr, get_obj);
+  msg_hdr->msg_code = FDSP_MSG_GET_OBJ_RSP;
+  objStorMgr->swapMgrId(msg_hdr);
+  objStorMgr->fdspDataPathClient->GetObjectResp(msg_hdr, get_obj);
 }
 
 void
 ObjectStorMgrI::UpdateCatalogObject(const FDSP_MsgHdrTypePrx &msg_hdr, const FDSP_UpdateCatalogTypePrx& update_catalog , const Ice::Current&) {
-  std::cout << "In the interface updatecatalog()" << std::endl;
+  std::cout << "Wrong Interface Call: In the interface updatecatalog()" << std::endl;
 }
 
 void
@@ -46,7 +52,40 @@ void
 ObjectStorMgrI::RedirReadObject(const FDSP_MsgHdrTypePrx &msg_hdr, const FDSP_RedirReadObjTypePrx& redir_read_obj, const Ice::Current&) {
   std::cout << "In the interface redirread()" << std::endl;
 }
+//--------------------------------------------------------------------------------------------------
+ObjectStorMgrClientI::ObjectStorMgrClientI() 
+{
+}
 
+ObjectStorMgrClientI::~ObjectStorMgrClientI() 
+{
+}
+
+void
+ObjectStorMgrClientI::PutObjectResp(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_PutObjTypePtr &put_obj, const Ice::Current&) 
+{
+}
+
+void
+ObjectStorMgrClientI::GetObjectResp(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_GetObjTypePtr& get_obj, const Ice::Current&) {
+}
+
+void
+ObjectStorMgrClientI::UpdateCatalogObjectResp(const FDSP_MsgHdrTypePtr &msg_hdr, 
+                                              const FDSP_UpdateCatalogTypePtr& update_catalog , const Ice::Current&) 
+{
+}
+
+void
+ObjectStorMgrClientI::OffsetWriteObjectResp(const FDSP_MsgHdrTypePtr& msg_hdr, const FDSP_OffsetWriteObjTypePtr& offset_write_obj, const Ice::Current&) 
+{
+}
+
+void
+ObjectStorMgrClientI::RedirReadObjectResp(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_RedirReadObjTypePtr& redir_read_obj, const Ice::Current&) {
+}
+
+//--------------------------------------------------------------------------------------------------
 ObjectStorMgr::ObjectStorMgr() 
 {
   // Create all data structures 
@@ -158,7 +197,7 @@ ObjectStorMgr::putObjectInternal(FDSP_PutObjTypePtr put_obj_req,
                                  fds_uint32_t volid, 
                                  fds_uint32_t num_objs)
 {
-//fds_char_t *put_obj_buf = reinterpret_cast<fds_char_t *> (put_obj_req);
+//fds_char_t *put_obj_buf = put_obj_req._ptr;
 FDSDataLocEntryType object_location_offset;
 fds_uint32_t obj_num=0;
 fds_sm_err_t result = FDS_SM_OK;
@@ -223,6 +262,7 @@ void ObjectStorMgr::PutObject(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_Put
 
     printf("StorageHVisor --> StorMgr : FDSP_MSG_PUT_OBJ_REQ ObjectId %016llx:%016llx \n",put_obj_req->data_obj_id.hash_high, put_obj_req->data_obj_id.hash_low);
     putObjectInternal(put_obj_req, fdsp_msg->glob_volume_id, fdsp_msg->num_objects);
+
 }
 
 fds_sm_err_t 
@@ -246,6 +286,7 @@ ObjectStorMgr::getObjectInternal(FDSP_GetObjTypePtr get_obj_req,
 	      << err << std::endl;
   } else {
     std::cout << "Successfully got value " << obj.data.c_str() << std::endl;
+    get_obj_req->data_obj = obj.data;
   }
 
   return FDS_SM_OK;
@@ -264,7 +305,7 @@ ObjectStorMgr::GetObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
     getObjectInternal(get_obj_req, fdsp_msg->glob_volume_id, fdsp_msg->num_objects);
 }
 
-inline void ObjectStorMgr::swapMgrId(FDSP_MsgHdrType *fdsp_msg) {
+inline void ObjectStorMgr::swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg) {
  FDSP_MgrIdType temp_id;
  temp_id = fdsp_msg->dst_id;
  fdsp_msg->dst_id = fdsp_msg->src_id;
@@ -286,16 +327,15 @@ std::string endPointStr;
     }
 
     callbackOnInterrupt();
-    string udpEndPoint = "udp -p 9600";
-    string tcpEndPoint = "tcp -p 6900";
+    string udpEndPoint = "udp -p 9601";
+    string tcpEndPoint = "tcp -p 6901";
 
     Ice::ObjectAdapterPtr adapter = communicator()->createObjectAdapterWithEndpoints("ObjectStorMgrSvr", tcpEndPoint);
-    //ObjectStorMgrIPtr  *objStorSvr = new ObjectStorMgrI();
-    // FDS_ProtocolInterface::ObjectStorMgrIPtr  objStorSvr = new ObjectStorMgrI();
-    FDS_ProtocolInterface::FDSP_DataPathReqPtr objStorSrv = new ObjectStorMgrI();
-    // ObjectStorMgrI objStorSrv;
-    adapter->add(objStorSrv, communicator()->stringToIdentity("ObjectStorMgrSvr"));
+    fdspDataPathServer = new ObjectStorMgrI();
+    adapter->add(fdspDataPathServer, communicator()->stringToIdentity("ObjectStorMgrSvr"));
 
+    fdspDataPathClient = new ObjectStorMgrClientI();
+    adapter->add(fdspDataPathClient, communicator()->stringToIdentity("ObjectStorMgrClient")); 
     //_workQueue->start();
     adapter->activate();
 

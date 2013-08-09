@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
+#include <ctype.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -10,17 +11,16 @@
 
 #include <pthread.h>
 
-#include "vvclib.h"
-#include "tvclib.h"
-
-#include "data_mgr.h"
-#include "data_mgr_pvt.h"
-#include "data_mgr_transactions.h"
+#include "dm.h"
 
 dm_wthread_t *worker_thread[DMGR_NUM_WORKERS];
 
 _LHASH *txn_cache_volume_table; 
 pthread_mutex_t txn_cache_vol_table_lock;
+
+void init () {
+  dmgr_txn_cache_init();
+}
 
 static void daemonize(void)
 {
@@ -80,7 +80,7 @@ dm_req_t *get_next_request(int req_fd) {
 
   n = recvfrom(req_fd, req_msg, REQ_BUF_SZ, 0, (struct sockaddr *)&cliaddr, &len);
   if (n < 0) {
-    dmgr_log(LOG_ERROR, "DMgr recv failed on socket\n");
+    dmgr_log(LOG_ERR, "DMgr recv failed on socket\n");
     return (NULL);
   }
   if (n == 0) {
@@ -181,7 +181,7 @@ int get_cmd_line_options(int argc, char *argv[], int *port_number) {
   return (0);
 }
 
-
+/*
 int main( int argc, char *argv[] ) {
 
   int req_fd;
@@ -237,6 +237,7 @@ int main( int argc, char *argv[] ) {
   }
 
 }
+*/
 
 void process_request(dm_wthread_t *wt_info, dm_req_t *req);
 
@@ -309,7 +310,7 @@ void process_request(dm_wthread_t *wt_info, dm_req_t *req) {
   resp_msg.payload.update_catalog.dm_operation = opn; \
   resp_msg.payload.update_catalog.dm_transaction_id = txn_id; \
   resp_msg.src_id = FDSP_DATA_MGR; \
-  resp_msg.result = result; \
+  resp_msg.result = (fdsp_result_t)result;      \
   if (e_msg) { \
     strncpy(resp_msg.err_msg.err_msg, e_msg, sizeof (fdsp_error_msg_t)); \
   } \
@@ -325,7 +326,7 @@ void handle_noop_req(dm_wthread_t *wt_info, dm_req_t *req) {
 void handle_load_volume_req(dm_wthread_t *wt_info, dm_req_t *req) {
   
   fdsp_msg_t resp_msg;
-  char *err_msg = 0;
+  std::string err_msg;
   int to_send, n;
   int result = FDSP_ERR_OK;
   int err_code = 0;
@@ -333,23 +334,23 @@ void handle_load_volume_req(dm_wthread_t *wt_info, dm_req_t *req) {
   
   if (dmgr_txn_cache_vol_create(lv_req->vvc_vol_id) < 0) {
     result = FDSP_ERR_FAILED;
-    err_msg = "Could not create volume\n"; 
+    err_msg = "Could not create volume\n";
   } else {
     result = FDSP_ERR_OK;
   }
 
-  FILL_RESP_FLDS(resp_msg, result, err_msg, req->rsp_info.req_cookie, 0, 0);
+  FILL_RESP_FLDS(resp_msg, result, err_msg.c_str(), req->rsp_info.req_cookie, 0, 0);
 
   to_send = sizeof(resp_msg);
   n = sendto(req->rsp_info.sockfd, &resp_msg, to_send, 0,
-	     req->rsp_info.rsp_to_addr, req->rsp_info.addr_len);
+	     (const struct sockaddr*)req->rsp_info.rsp_to_addr, req->rsp_info.addr_len);
 
   if (n < 0) {
-    dmgr_log(LOG_ERROR, "DMgr send failed on socket: %s \n", strerror(errno));
+    dmgr_log(LOG_ERR, "DMgr send failed on socket: %s \n", strerror(errno));
     return;
   }
   if (n < to_send) {
-    dmgr_log(LOG_ERROR, "DMgr socket error. Only %d bytes of %d sent. \n", n, to_send);
+    dmgr_log(LOG_ERR, "DMgr socket error. Only %d bytes of %d sent. \n", n, to_send);
     return;
   }
   dmgr_log(LOG_DEBUG, "Worker thread %d responded to request.\n",
@@ -361,13 +362,13 @@ void handle_load_volume_req(dm_wthread_t *wt_info, dm_req_t *req) {
 
 void handle_open_txn_req(dm_wthread_t *wt_info, dm_req_t *req) {
 
-  char *succ_resp_msg = "Thank you. Transaction opened.";
-  char *err_resp_msg1 = "Oops. Open Transaction failed.";
-  char *err_resp_msg2 = "Oops. Commit Transaction failed.";
+  const char *succ_resp_msg = "Thank you. Transaction opened.";
+  const char *err_resp_msg1 = "Oops. Open Transaction failed.";
+  const char *err_resp_msg2 = "Oops. Commit Transaction failed.";
   int to_send, n;
   dm_open_txn_req_t *ot_req = (dm_open_txn_req_t *)req;
   dmgr_txn_t *txn;
-  char *err_msg = 0;
+  std::string err_msg;
   fdsp_msg_t resp_msg;
   int result = FDSP_ERR_OK;
   int err_code = 0;
@@ -393,35 +394,38 @@ void handle_open_txn_req(dm_wthread_t *wt_info, dm_req_t *req) {
       //    }
   }
 
-  FILL_RESP_FLDS(resp_msg, result, err_msg, req->rsp_info.req_cookie, FDS_DMGR_CMD_OPEN_TXN, ot_req->txn_id);
+    // FILL_RESP_FLDS(resp_msg, result, err_msg, req->rsp_info.req_cookie, FDS_DMGR_CMD_OPEN_TXN, ot_req->txn_id);
 
-  to_send = sizeof(resp_msg);
+    // to_send = sizeof(resp_msg);
 
-  n = sendto(req->rsp_info.sockfd, &resp_msg, to_send, 0,
-	 req->rsp_info.rsp_to_addr, req->rsp_info.addr_len);
-
+    // n = sendto(req->rsp_info.sockfd, &resp_msg, to_send, 0,
+    //      (const struct sockaddr*)req->rsp_info.rsp_to_addr, req->rsp_info.addr_len);
+    
+    n = 0;
   if (n < 0) {
-    dmgr_log(LOG_ERROR, "DMgr send failed on socket: %s \n", strerror(errno));
+    dmgr_log(LOG_ERR, "DMgr send failed on socket: %s \n", strerror(errno));
     return;
   }
   if (n < to_send) {
-    dmgr_log(LOG_ERROR, "DMgr socket error. Only %d bytes of %d sent. \n", n, to_send);
+    dmgr_log(LOG_ERR, "DMgr socket error. Only %d bytes of %d sent. \n", n, to_send);
     return;
   }
-  dmgr_log(LOG_DEBUG, "Worker thread %d responded to request\n",
-	   wt_info->id);
+  if (wt_info != NULL) {
+    dmgr_log(LOG_DEBUG, "Worker thread %d responded to request\n",
+             wt_info->id);
+  }
   return;
 
 }
 
 void handle_commit_txn_req(dm_wthread_t *wt_info, dm_req_t *req) {
 
-  char *succ_resp_msg = "Thank you. Transaction committed.";
-  char *err_resp_msg = "Oops. Commit Transaction failed.";
+  const char *succ_resp_msg = "Thank you. Transaction committed.";
+  const char *err_resp_msg = "Oops. Commit Transaction failed.";
   int to_send, n;
   dm_commit_txn_req_t *ct_req = (dm_commit_txn_req_t *)req;
   dmgr_txn_t *txn;
-  char *err_msg = 0;
+  std::string err_msg;
   fdsp_msg_t resp_msg;
   int result = FDSP_ERR_OK;
   int err_code = 0;
@@ -438,35 +442,38 @@ void handle_commit_txn_req(dm_wthread_t *wt_info, dm_req_t *req) {
     dmgr_txn_destroy(txn);
   }
 
-  FILL_RESP_FLDS(resp_msg, result, err_msg, req->rsp_info.req_cookie, FDS_DMGR_CMD_COMMIT_TXN, ct_req->txn_id);
+  // FILL_RESP_FLDS(resp_msg, result, err_msg, req->rsp_info.req_cookie, FDS_DMGR_CMD_COMMIT_TXN, ct_req->txn_id);
 
-  to_send = sizeof(resp_msg);
+  // to_send = sizeof(resp_msg);
 
-  n = sendto(req->rsp_info.sockfd, &resp_msg, to_send, 0,
-	 req->rsp_info.rsp_to_addr, req->rsp_info.addr_len);
+  // n = sendto(req->rsp_info.sockfd, &resp_msg, to_send, 0,
+  // (const struct sockaddr*)req->rsp_info.rsp_to_addr, req->rsp_info.addr_len);
+  n = 0;
 
   if (n < 0) {
-    dmgr_log(LOG_ERROR, "DMgr send failed on socket: %s \n", strerror(errno));
+    dmgr_log(LOG_ERR, "DMgr send failed on socket: %s \n", strerror(errno));
     return;
   }
   if (n < to_send) {
-    dmgr_log(LOG_ERROR, "DMgr socket error. Only %d bytes of %d sent. \n", n, to_send);
+    dmgr_log(LOG_ERR, "DMgr socket error. Only %d bytes of %d sent. \n", n, to_send);
     return;
   }
-  dmgr_log(LOG_DEBUG, "Worker thread %d responded to request.\n",
-	   wt_info->id);
-  return;
+  if (wt_info != NULL) {
+    dmgr_log(LOG_DEBUG, "Worker thread %d responded to request.\n",
+             wt_info->id);
+  }
 
+  return;
 }
 
 void handle_cancel_txn_req(dm_wthread_t *wt_info, dm_req_t *req) {
 
-  char *succ_resp_msg = "Thank you. Transaction canceled.";
-  char *err_resp_msg = "Oops. Cancel Transaction failed.";
+  const char *succ_resp_msg = "Thank you. Transaction canceled.";
+  const char *err_resp_msg = "Oops. Cancel Transaction failed.";
   int to_send, n;
   dm_cancel_txn_req_t *ct_req = (dm_cancel_txn_req_t *)req;
   dmgr_txn_t *txn;
-  char *err_msg = 0;
+  std::string err_msg;
   fdsp_msg_t resp_msg;
   int result = FDSP_ERR_OK;
   int err_code = 0;
@@ -480,19 +487,19 @@ void handle_cancel_txn_req(dm_wthread_t *wt_info, dm_req_t *req) {
   }
   dmgr_txn_destroy(txn);
 
-  FILL_RESP_FLDS(resp_msg, result, err_msg, req->rsp_info.req_cookie, FDS_DMGR_CMD_CANCEL_TXN, ct_req->txn_id);
+  FILL_RESP_FLDS(resp_msg, result, err_msg.c_str(), req->rsp_info.req_cookie, FDS_DMGR_CMD_CANCEL_TXN, ct_req->txn_id);
 
   to_send = sizeof(resp_msg);
 
   n = sendto(req->rsp_info.sockfd, &resp_msg, to_send, 0,
-	 req->rsp_info.rsp_to_addr, req->rsp_info.addr_len);
+             (const struct sockaddr*)req->rsp_info.rsp_to_addr, req->rsp_info.addr_len);
 
   if (n < 0) {
-    dmgr_log(LOG_ERROR, "DMgr send failed on socket: %s \n", strerror(errno));
+    dmgr_log(LOG_ERR, "DMgr send failed on socket: %s \n", strerror(errno));
     return;
   }
   if (n < to_send) {
-    dmgr_log(LOG_ERROR, "DMgr socket error. Only %d bytes of %d sent. \n", n, to_send);
+    dmgr_log(LOG_ERR, "DMgr socket error. Only %d bytes of %d sent. \n", n, to_send);
     return;
   }
   dmgr_log(LOG_DEBUG, "Worker thread %d responded to request.\n",

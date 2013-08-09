@@ -6,12 +6,21 @@
 
 // #define MAX_BLK_NAME_SZ           255
 // #include "fds_commons.h"
-#include "vvc_private.h"
-#include "vvclib.h"
+// #include "vvc_private.h"
+
+#include "include/vvclib.h"
 
 //#ifdef LIB_KERNEL
-//#include "vvc_db.c"
+// #include "vvc_db.c"
 //#endif
+
+enum {
+
+  SUCCESS,
+  EEXISTS,
+  ENOENTRY
+
+};
 
 unsigned long vvce_hash(const void *entry) {
   int i;
@@ -110,7 +119,7 @@ vvc_vol_destroy(vvc_vhdl_t vhdl) {
   return;
 }
 
-#ifndef LIB_KERNEL
+// #ifndef LIB_KERNEL
 // This is used to load an existing volume from DB. In-memory DB clients should always call vol_create.
 vvc_vhdl_t vvc_vol_load(volid_t vol_id, const char *db_name) {
 
@@ -141,7 +150,7 @@ vvc_vhdl_t vvc_vol_load(volid_t vol_id, const char *db_name) {
 
   return (0);
 }
-#endif
+// #endif
 
 int vvc_entry_create(vvc_vhdl_t vhdl, const char *blk_name, int num_segments, const doid_t **doid_list) {
 
@@ -152,7 +161,7 @@ int vvc_entry_create(vvc_vhdl_t vhdl, const char *blk_name, int num_segments, co
 
   vvce = vvce_create(blk_name, num_segments, doid_list);
 
-  prev_entry = lh_retrieve(vdb->vvc_table, vvce);
+  prev_entry = (vvce_t *)lh_retrieve(vdb->vvc_table, vvce);
   if (prev_entry) {
     vvce_destroy(vvce);
     return (-EEXISTS);
@@ -172,7 +181,7 @@ int vvc_entry_get(vvc_vhdl_t vhdl, const char *blk_name, int *num_segments, doid
   vvce_t *tmp_vvce, *vvce;
 
   tmp_vvce = vvce_create(blk_name, 0, 0);
-  vvce = lh_retrieve(vdb->vvc_table, tmp_vvce);
+  vvce = (vvce_t *)lh_retrieve(vdb->vvc_table, tmp_vvce);
   vvce_destroy(tmp_vvce);
 
   if (vvce) {
@@ -200,7 +209,7 @@ int vvc_entry_update(vvc_vhdl_t vhdl, const char *blk_name, int num_segments, co
   int rc;
 
   vvce = vvce_create(blk_name, num_segments, doid_list);
-  prev_entry = lh_insert(vdb->vvc_table, vvce);
+  prev_entry = (vvce_t *)lh_insert(vdb->vvc_table, vvce);
 
   rc = vvc_db_entry_update(vdb, prev_entry, vvce);
 
@@ -223,7 +232,7 @@ int vvc_entry_delete(vvc_vhdl_t vhdl, const char *blk_name) {
   int rc=0;
 
   tmp_vvce = vvce_create(blk_name, 0, 0);
-  vvce = lh_delete(vdb->vvc_table, tmp_vvce);
+  vvce = (vvce_t *)lh_delete(vdb->vvc_table, tmp_vvce);
   if (vvce) {
     rc = vvc_db_entry_delete(vdb, vvce);
     vvce_destroy(vvce);

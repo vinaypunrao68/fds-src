@@ -7,8 +7,8 @@ module FDS_ProtocolInterface {
 
 
 struct FDS_ObjectIdType {
-  long   hash_high;
-  long   hash_low;
+  double   hash_high;
+  double   hash_low;
   byte    conflict_id;
 };
 
@@ -143,13 +143,12 @@ interface FDSP_DataPathReq {
 
     void PutObject(FDSP_MsgHdrType fdsp_msg, FDSP_PutObjType put_obj_req);
 
-    void UpdateCatalogObject(FDSP_MsgHdrType *fdsp_msg, FDSP_UpdateCatalogType *cat_obj_req);
+    void UpdateCatalogObject(FDSP_MsgHdrType fdsp_msg, FDSP_UpdateCatalogType cat_obj_req);
 
     void OffsetWriteObject(FDSP_MsgHdrType *fdsp_msg, FDSP_OffsetWriteObjType *offset_write_obj_req);
 
     void RedirReadObject(FDSP_MsgHdrType *fdsp_msg, FDSP_RedirReadObjType *redir_write_obj_req);
 };
-
 
 interface FDSP_DataPathResp {
     void GetObjectResp(FDSP_MsgHdrType fdsp_msg, FDSP_GetObjType get_obj_req);
@@ -163,7 +162,6 @@ interface FDSP_DataPathResp {
     void RedirReadObjectResp(FDSP_MsgHdrType fdsp_msg, FDSP_RedirReadObjType redir_write_obj_req);
 
 };
-
 
 };
 #endif

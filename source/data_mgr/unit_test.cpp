@@ -3,7 +3,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-
+#include <arpa/inet.h>
 
 #include "fds_commons.h"
 #include "data_mgr.h"
@@ -14,6 +14,10 @@ int sockfd;
 struct sockaddr_in servaddr;
 
 fds_doid_t test_obj_id;
+
+int process_opentr_cmd(char *line_ptr);
+int process_committr_cmd(char *line_ptr);
+int process_canceltr_cmd(char *line_ptr);
 
 int main(int argc, char *argv[]) {
 

@@ -18,8 +18,6 @@
 #include <iostream>
 #include <Ice/Ice.h>
 #include <DiskMgr.h>
-// #include <Metrics.h>
-// #include <IcePatch2/FileInfo.h>
 
 #define FDS_STOR_MGR_LISTEN_PORT FDS_CLUSTER_TCP_PORT_SM
 #define FDS_STOR_MGR_DGRAM_PORT FDS_CLUSTER_UDP_PORT_SM
@@ -27,16 +25,10 @@
 
 
 using namespace FDS_ProtocolInterface;
-// using namespace IceDelegate::FDS_ProtocolInterface;
 using namespace fds;
 using namespace osm;
 using namespace std;
 using namespace Ice;
-// using namespace IceMX;
-// using namespace IcePatch2;
-// using namespace IceProxy::Ice;
-// using namespace IceDelegateM::Ice;
-// using namespace IceDelegateM::IceMX;
 
 class ObjectStorMgr : virtual public Ice::Application {
 public:
@@ -48,6 +40,9 @@ public:
    ObjectDB      *objIndexDB;
 // IndexDb       volIndexDb;
 
+  FDS_ProtocolInterface::FDSP_DataPathReqPtr fdspDataPathServer;
+  FDS_ProtocolInterface::FDSP_DataPathRespPtr fdspDataPathClient;
+
 //methods
    ObjectStorMgr();
    ~ObjectStorMgr();
@@ -56,7 +51,7 @@ public:
    void PutObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr, const FDS_ProtocolInterface::FDSP_PutObjTypePtr& put_obj);
    void GetObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr, const FDS_ProtocolInterface::FDSP_GetObjTypePtr& get_obj);
 
-   inline void swapMgrId(FDSP_MsgHdrType *fdsp_msg);
+   inline void swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg);
 
    virtual int run(int, char*[]);
    void interruptCallback(int);
@@ -88,25 +83,40 @@ class ObjectStorMgrI : public FDS_ProtocolInterface::FDSP_DataPathReq
 {
 public:
 
-  ObjectStorMgrI();// { };
-  ~ObjectStorMgrI();// { };
+  ObjectStorMgrI();
+  ~ObjectStorMgrI();
 
   // virtual void shutdown(const Ice::Current&);
   virtual void PutObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_PutObjTypePtr &put_obj, const Ice::Current&);
-    // void PutObject(const ::FDS_ProtocolInterface::FDSP_MsgHdrTypePrx&, const ::FDS_ProtocolInterface::FDSP_PutObjTypePrx&, const ::Ice::Current& = ::Ice::Current()) { };
-    // void PutObject(const FDSP_MsgHdrTypePrx &msg_hdr, const FDSP_PutObjTypePrx &put_obj, const ::Ice::Context* cont, ::IceInternal::InvocationObserver& Obs) { }
 
   virtual void GetObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_GetObjTypePtr& get_obj, const Ice::Current&);
-    // void GetObject(const ::FDS_ProtocolInterface::FDSP_MsgHdrTypePrx&, const ::FDS_ProtocolInterface::FDSP_GetObjTypePrx&, const ::Ice::Current& = ::Ice::Current()) { };
 
   virtual void UpdateCatalogObject(const FDSP_MsgHdrTypePrx &msg_hdr, const FDSP_UpdateCatalogTypePrx& update_catalog , const Ice::Current&);
-    // void UpdateCatalogObject(const ::FDS_ProtocolInterface::FDSP_MsgHdrTypePrx&, const ::FDS_ProtocolInterface::FDSP_UpdateCatalogTypePrx&, const ::Ice::Current& = ::Ice::Current()) { };
 
   virtual void OffsetWriteObject(const FDSP_MsgHdrTypePrx& msg_hdr, const FDSP_OffsetWriteObjTypePrx& offset_write_obj, const Ice::Current&);
-    // void OffsetWriteObject(const ::FDS_ProtocolInterface::FDSP_MsgHdrTypePrx&, const ::FDS_ProtocolInterface::FDSP_OffsetWriteObjTypePrx&, const ::Ice::Current& = ::Ice::Current()) { };
 
   virtual void RedirReadObject(const FDSP_MsgHdrTypePrx &msg_hdr, const FDSP_RedirReadObjTypePrx& redir_read_obj, const Ice::Current&);
-    // void RedirReadObject(const ::FDS_ProtocolInterface::FDSP_MsgHdrTypePrx&, const ::FDS_ProtocolInterface::FDSP_RedirReadObjTypePrx&, const ::Ice::Current& = ::Ice::Current()) { };
+
+};
+
+
+class ObjectStorMgrClientI : public FDS_ProtocolInterface::FDSP_DataPathResp 
+{
+public:
+
+  ObjectStorMgrClientI();
+  ~ObjectStorMgrClientI();
+
+  // virtual void shutdown(const Ice::Current&);
+  virtual void PutObjectResp(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_PutObjTypePtr &put_obj, const Ice::Current&);
+
+  virtual void GetObjectResp(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_GetObjTypePtr& get_obj, const Ice::Current&);
+
+  virtual void UpdateCatalogObjectResp(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_UpdateCatalogTypePtr& update_catalog , const Ice::Current&);
+
+  virtual void OffsetWriteObjectResp(const FDSP_MsgHdrTypePtr& msg_hdr, const FDSP_OffsetWriteObjTypePtr& offset_write_obj, const Ice::Current&);
+
+  virtual void RedirReadObjectResp(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_RedirReadObjTypePtr& redir_read_obj, const Ice::Current&);
 
 };
 #endif

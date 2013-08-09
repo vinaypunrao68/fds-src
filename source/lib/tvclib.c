@@ -1,3 +1,5 @@
+#include <sys/stat.h>
+
 #include <string.h>
 #include "fds_commons.h"
 #include "tvclib.h"
