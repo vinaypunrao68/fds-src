@@ -1,6 +1,8 @@
 // API declarations 
 #include "fds_commons.h"
 
+#include "fds_types.h"
+
 typedef void *tvc_vhdl_t;
 
 typedef struct __tvcentry {

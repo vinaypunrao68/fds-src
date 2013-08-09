@@ -17,7 +17,7 @@ void process_update_cmd(char *cmd_line);
 void process_delete_cmd(char *cmd_line);
 void process_show_cmd(char *cmd_line);
 
-int main(int argc, char *argv) {
+int main(int argc, char *argv[]) {
 
   char *line_ptr = 0;
   size_t n_bytes;

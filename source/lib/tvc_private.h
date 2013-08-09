@@ -1,6 +1,8 @@
 #include <my_global.h>
 #include <mysql.h>
-#include <string.h>
+// #include <string.h>
+
+#include <string>
 
 #include "fds_commons.h"
 
@@ -343,8 +345,8 @@ static int tvc_delete_chkpts_outside_valid_range(tvc_db_t *tdb) {
 #define DIR_STRICTLY_AFTER 4 
 #define DIR_LATEST 5
 
-char *cmp_string[5] = {"<", "<=", "=", ">=", ">"};
-char *sort_string[5] = {"DESC", "DESC", "DESC", "ASC", "ASC"};
+const char *cmp_string[5] = {"<", "<=", "=", ">=", ">"};
+const char *sort_string[5] = {"DESC", "DESC", "DESC", "ASC", "ASC"};
 
 
 static int tvc_get_next_chkpoint_wrt_offset(tvc_db_t *tdb, unsigned int ref_offset, int direction,
@@ -409,7 +411,8 @@ static int tvc_get_next_chkpoint_in_time(tvc_db_t *tdb, fds_uint64_t ref_time, i
   MYSQL_RES *res;
   MYSQL_ROW a_row;
   fds_uint32_t chkpt_offset;
-  char *cmp_str, *sort_str;
+  std::string cmp_str;
+  std::string sort_str;
   fds_uint64_t reference_time;
 
   tmp_query_string = (char *)malloc(TVC_MAX_QUERY_STR_SZ);
@@ -424,7 +427,7 @@ static int tvc_get_next_chkpoint_in_time(tvc_db_t *tdb, fds_uint64_t ref_time, i
     reference_time = ref_time;
   }
   sprintf(tmp_query_string, "SELECT BaseTime, TVCFileOffset FROM TVC_CHKPT_IDX WHERE VolID = %d AND BaseTime %s %llu AND TVCFileOffset >= 0 ORDER BY BaseTime %s;",
-	  tdb->vol_id, cmp_str, reference_time, sort_str);
+	  tdb->vol_id, cmp_str.c_str(), reference_time, sort_str.c_str());
 
 #ifdef TVC_DBG
   printf("Query string: %s\n", tmp_query_string);
@@ -483,7 +486,7 @@ static int tvc_get_next_chkpoint_in_time(tvc_db_t *tdb, fds_uint64_t ref_time, i
 #define tvc_get_chkpoint_at_offset(tdb, start_offset, pnext_chkpt_found, pnext_chkpt_time, pnext_chkpt_offset) \
   tvc_get_next_chkpoint_wrt_offset(tdb, start_offset, DIR_AT, pnext_chkpt_found, pnext_chkpt_time, pnext_chkpt_offset)
 
-static __inline__ tvc_get_basetime_for_offset(tvc_db_t *tdb, unsigned int offset, int *chkpt_found, fds_uint64_t *chkpt_time){
+int tvc_get_basetime_for_offset(tvc_db_t *tdb, unsigned int offset, int *chkpt_found, fds_uint64_t *chkpt_time){
 
   unsigned int chkpt_offset;
 

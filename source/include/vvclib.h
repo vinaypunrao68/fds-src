@@ -1,6 +1,9 @@
 // API declarations 
 #define MAX_BLK_NAME_SZ           255
 #include "fds_commons.h"
+#include "fds_types.h"
+
+#include "lib/vvc_db.h"
 
 typedef void *vvc_vhdl_t;
 
@@ -28,10 +31,3 @@ int vvc_entry_delete(vvc_vhdl_t vhdl, const char *blk_name);
 
 int vvc_entry_next(void);
 
-enum {
-
-  SUCCESS,
-  EEXISTS,
-  ENOENTRY
-
-};

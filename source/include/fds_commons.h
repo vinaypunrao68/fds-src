@@ -15,18 +15,9 @@
 typedef unsigned int volid_t;
 #define INV_VOL_ID (unsigned int)(-1)
 
-// #define FALSE 0
-// #define TRUE 1
-
-// FDS definitions of variable types
-typedef unsigned int  fds_uint32_t;
-typedef int           fds_int32_t; 
-typedef unsigned short fds_uint16_t;  
-typedef short          fds_int16_t;
-typedef char           fds_char_t;
-typedef bool           fds_bool_t;
-typedef long           fds_long_t;
-typedef unsigned long long fds_uint64_t;
+/*
+  TODO: Move this definition into fds_types.h
+*/
 typedef long long fds_int64_t;
 
 #define FDS_UINT16_MAX (unsigned short) 0xffff
@@ -35,7 +26,7 @@ typedef long long fds_int64_t;
 typedef struct {
   fds_int64_t   hash_high;
   fds_int64_t   hash_low;
-  fds_char_t    conflict_id;
+  char    conflict_id;
 } fds_object_id_t;
 
 typedef unsigned char doid_t[20];
