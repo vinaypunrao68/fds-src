@@ -10,31 +10,19 @@
 top_srcdir	= ../lib/Ice-3.5.0/cpp
 top_srcdir_ldb	= ../
 
-FDS_CFG		= StorMgr
+TARGETS		= FDSP.o
 
-TARGETS		= $(FDS_CFG)
+OBJS		= FDSP.o 
 
-OBJS		= StorMgr.o odb.o DiskMgr.o
-ICE_OBJS	= ../fdsp/FDSP.o
+SRCS		= $(OBJS:.o=.cpp) 
 
-MY_LIBS          = ../lib/leveldb-1.12.0/libleveldb.so
-
-COBJS		= #StorHvisorClient.o
-
-SRCS		= $(OBJS:.o=.cpp) \
-		  $(COBJS:.o=.cpp)
-
-# SLICE_SRCS	= FDSP.ice
+SLICE_SRCS	= FDSP.ice
 
 include $(top_srcdir)/config/Make.rules
 
 CPPFLAGS	:= -I. $(CPPFLAGS) -I $(top_srcdir)include/Ice \
-	-I$(top_srcdir_ldb)lib/leveldb-1.12.0/include \
-	-I$(top_srcdir_ldb)lib/leveldb-1.12.0 \
 	-I$(top_srcdir_ldb)/ \
-	-I$(top_srcdir_ldb)include \
-	-I../fdsp
+	-I$(top_srcdir_ldb)include
 
-$(FDS_CFG): $(OBJS) $(COBJS) $(ICE_OBJS)
-	rm -f $@
-	$(CXX) $(LDFLAGS) -o $@ $(OBJS) $(COBJS) $(ICE_OBJS) $(LIBS) $(MY_LIBS)
+.PHONY: clean
+

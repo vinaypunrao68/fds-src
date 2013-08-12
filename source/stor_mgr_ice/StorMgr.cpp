@@ -39,17 +39,17 @@ ObjectStorMgrI::GetObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_GetObjTy
 }
 
 void
-ObjectStorMgrI::UpdateCatalogObject(const FDSP_MsgHdrTypePrx &msg_hdr, const FDSP_UpdateCatalogTypePrx& update_catalog , const Ice::Current&) {
+ObjectStorMgrI::UpdateCatalogObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_UpdateCatalogTypePtr& update_catalog , const Ice::Current&) {
   std::cout << "Wrong Interface Call: In the interface updatecatalog()" << std::endl;
 }
 
 void
-ObjectStorMgrI::OffsetWriteObject(const FDSP_MsgHdrTypePrx& msg_hdr, const FDSP_OffsetWriteObjTypePrx& offset_write_obj, const Ice::Current&) {
+ObjectStorMgrI::OffsetWriteObject(const FDSP_MsgHdrTypePtr& msg_hdr, const FDSP_OffsetWriteObjTypePtr& offset_write_obj, const Ice::Current&) {
   std::cout << "In the interface offsetwrite()" << std::endl;
 }
 
 void
-ObjectStorMgrI::RedirReadObject(const FDSP_MsgHdrTypePrx &msg_hdr, const FDSP_RedirReadObjTypePrx& redir_read_obj, const Ice::Current&) {
+ObjectStorMgrI::RedirReadObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_RedirReadObjTypePtr& redir_read_obj, const Ice::Current&) {
   std::cout << "In the interface redirread()" << std::endl;
 }
 //--------------------------------------------------------------------------------------------------
@@ -260,7 +260,7 @@ void ObjectStorMgr::PutObject(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_Put
     //put_obj_req->data_obj_id.hash_high = ntohl(put_obj_req->data_obj_id.hash_high);
     //put_obj_req->data_obj_id.hash_low = ntohl(put_obj_req->data_obj_id.hash_low);
 
-    printf("StorageHVisor --> StorMgr : FDSP_MSG_PUT_OBJ_REQ ObjectId %016llx:%016llx \n",put_obj_req->data_obj_id.hash_high, put_obj_req->data_obj_id.hash_low);
+  printf("StorageHVisor --> StorMgr : FDSP_MSG_PUT_OBJ_REQ ObjectId %016llx:%016llx \n",(long long unsigned int) put_obj_req->data_obj_id.hash_high, (long long unsigned int)put_obj_req->data_obj_id.hash_low);
     putObjectInternal(put_obj_req, fdsp_msg->glob_volume_id, fdsp_msg->num_objects);
 
 }
