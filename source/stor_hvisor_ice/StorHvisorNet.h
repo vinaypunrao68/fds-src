@@ -320,6 +320,7 @@ class FDSP_NetworkCon {
 public:
 	Ice::InitializationData  initData;
 	FDSP_DataPathReqPrx  fdspDPAPI;
+        FDSP_DataPathRespPtr fdspDataPathResp;
 	FDSP_Proc_Io	     procIo;
 	void  CreateNetworkEndPoint( FDSP_NetworkRec *netRec );
 	void  InitIceObejcts();
