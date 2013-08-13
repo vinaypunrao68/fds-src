@@ -21,7 +21,7 @@ class DataMgr : virtual public Ice::Application {
 private:
   fds_uint32_t sockfd;
   FDS_ProtocolInterface::FDSP_DataPathReqPtr dataMgrSrv;
-  FDS_ProtocolInterface::FDSP_DataPathRespPtr dataMgrCli;
+  FDS_ProtocolInterface::FDSP_DataPathRespPrx dataMgrCli;
   
 public:
   virtual int run(int argc, char* argv[]);
@@ -32,34 +32,21 @@ public:
 
 class DataMgrI : public FDS_ProtocolInterface::FDSP_DataPathReq {
 public:
+  DataMgrI(const Ice::CommunicatorPtr& communicator);
   DataMgrI();
   ~DataMgrI();
+  Ice::CommunicatorPtr _communicator;
 
-  virtual void PutObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_PutObjTypePtr &put_obj, const Ice::Current&);
+  void PutObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_PutObjTypePtr &put_obj, const Ice::Current&);
   
-  virtual void GetObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_GetObjTypePtr& get_obj, const Ice::Current&);
+  void GetObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_GetObjTypePtr& get_obj, const Ice::Current&);
 
-  virtual void UpdateCatalogObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_UpdateCatalogTypePtr& update_catalog , const Ice::Current&);
+  void UpdateCatalogObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_UpdateCatalogTypePtr& update_catalog , const Ice::Current&);
 
-  virtual void OffsetWriteObject(const FDSP_MsgHdrTypePtr& msg_hdr, const FDSP_OffsetWriteObjTypePtr& offset_write_obj, const Ice::Current&);
+  void OffsetWriteObject(const FDSP_MsgHdrTypePtr& msg_hdr, const FDSP_OffsetWriteObjTypePtr& offset_write_obj, const Ice::Current&);
 
-  virtual void RedirReadObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_RedirReadObjTypePtr& redir_read_obj, const Ice::Current&);
-};
-
-class DataMgrClientI : public FDS_ProtocolInterface::FDSP_DataPathResp {
-public:
-  DataMgrClientI();
-  ~DataMgrClientI();
-
-  virtual void PutObjectResp(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_PutObjTypePtr &put_obj, const Ice::Current&);
-
-  virtual void GetObjectResp(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_GetObjTypePtr& get_obj, const Ice::Current&);
-
-  virtual void UpdateCatalogObjectResp(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_UpdateCatalogTypePtr& update_catalog , const Ice::Current&);
-
-  virtual void OffsetWriteObjectResp(const FDSP_MsgHdrTypePtr& msg_hdr, const FDSP_OffsetWriteObjTypePtr& offset_write_obj, const Ice::Current&);
-
-  virtual void RedirReadObjectResp(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_RedirReadObjTypePtr& redir_read_obj, const Ice::Current&);
+  void RedirReadObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_RedirReadObjTypePtr& redir_read_obj, const Ice::Current&);
+  void AssociateRespCallback(const Ice::Identity&, const Ice::Current&);
 };
 
 // }  // namespace fds

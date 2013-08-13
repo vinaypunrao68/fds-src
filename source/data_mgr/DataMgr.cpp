@@ -20,11 +20,8 @@ int DataMgr::run(int argc, char* argv[]) {
   
   Ice::ObjectAdapterPtr adapter = communicator()->createObjectAdapterWithEndpoints("DataMgrSvr", tcpEndPoint);
 
-  dataMgrSrv = new DataMgrI();
+  dataMgrSrv = new DataMgrI(communicator());
   adapter->add(dataMgrSrv, communicator()->stringToIdentity("DataMgrSvr"));
-
-  dataMgrCli = new DataMgrClientI();
-  adapter->add(dataMgrCli, communicator()->stringToIdentity("DataMgrCli"));
 
   /*
    * Init the dm
@@ -47,21 +44,16 @@ void DataMgr::swapMgrId(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_ms
 DataMgrI::DataMgrI() {
 }
 
+DataMgrI::DataMgrI(const Ice::CommunicatorPtr& communicator): _communicator(communicator) {
+}
+
 DataMgrI::~DataMgrI() {
 }
 
-DataMgrClientI::DataMgrClientI() {
+void DataMgrI::GetObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_GetObjTypePtr& update_catalog , const Ice::Current&) {
 }
-
-DataMgrClientI::~DataMgrClientI() {
+void DataMgrI::PutObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_PutObjTypePtr& update_catalog , const Ice::Current&) {
 }
-
-void DataMgrI::PutObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_PutObjTypePtr &put_obj, const Ice::Current&) {
-}
-
-void DataMgrI::GetObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_GetObjTypePtr& get_obj, const Ice::Current&) {
-}
-
 void DataMgrI::UpdateCatalogObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_UpdateCatalogTypePtr& update_catalog , const Ice::Current&) {
   std::cout << "Update Catalog Object!!!!" << std::endl
             << "Volume offset: " << update_catalog->volume_offset << std::endl
@@ -96,34 +88,10 @@ void DataMgrI::RedirReadObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_Red
 }
 
 void
-DataMgrClientI::PutObjectResp(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_PutObjTypePtr &put_obj, const Ice::Current&) 
-{
-}
+DataMgrI::AssociateRespCallback(const Ice::Identity& ident, const Ice::Current& current) {
+  cout << "Associating response Callback client to DataMgr`" << _communicator->identityToString(ident) << "'"<< endl;
 
-void
-DataMgrClientI::GetObjectResp(const FDSP_MsgHdrTypePtr &msg_hdr,
-                              const FDSP_GetObjTypePtr& get_obj,
-                              const Ice::Current&) {
-}
-
-void
-DataMgrClientI::UpdateCatalogObjectResp(const FDSP_MsgHdrTypePtr &msg_hdr, 
-                                        const FDSP_UpdateCatalogTypePtr& update_catalog ,
-                                        const Ice::Current&) 
-{
-}
-
-void
-DataMgrClientI::OffsetWriteObjectResp(const FDSP_MsgHdrTypePtr& msg_hdr,
-                                      const FDSP_OffsetWriteObjTypePtr& offset_write_obj,
-                                      const Ice::Current&)
-{
-}
-
-void
-DataMgrClientI::RedirReadObjectResp(const FDSP_MsgHdrTypePtr &msg_hdr,
-                                    const FDSP_RedirReadObjTypePtr& redir_read_obj,
-                                    const Ice::Current&) {
+  dataMgr->dataMgrCli = FDSP_DataPathRespPrx::uncheckedCast(current.con->createProxy(ident));
 }
 
 int main(int argc, char *argv[]) {
