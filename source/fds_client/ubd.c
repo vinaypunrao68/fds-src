@@ -24,6 +24,7 @@
 #include "tapdisk-ring.h"
 //#include "tap-ctl.h"
 
+#include "ubd.h"
 #include "hvisor_lib.h"
 
 #define HVISOR_SECTOR_SIZE 512
@@ -426,17 +427,17 @@ hvisor_complete_vbd_request(td_vbd_t *vbd, td_vbd_request_t *vreq) {
 
 static void
 hvisor_complete_td_request(void *arg1, void *arg2,
-			   td_request_t *treq, int res)
+			   fbd_request_t *freq, int res)
 {
         int err;
-	td_image_t *image = treq->image;
+	// td_image_t *image = freq->image;
 	td_vbd_t *vbd = (td_vbd_t *)arg1;
 	td_vbd_request_t *vreq = (td_vbd_request_t *)arg2;
 
         err = (res <= 0 ? res : -res);
-        vbd->secs_pending  -= treq->secs;
-        vreq->secs_pending -= treq->secs;
-        vreq->blocked = treq->blocked;
+        vbd->secs_pending  -= freq->secs;
+        vreq->secs_pending -= freq->secs;
+        // vreq->blocked = freq->blocked;
 
 	/*
 	// Ignore errors for now to continue with testing
@@ -449,7 +450,7 @@ hvisor_complete_td_request(void *arg1, void *arg2,
         }
 	*/
 	hvisor_complete_vbd_request(vbd, vreq);
-	free(treq);
+	free(freq);
 }
 
 
@@ -461,25 +462,31 @@ void hvisor_queue_read(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq)
 	char test_c;
 	int i;
 	int rc = 0;
-	td_request_t *p_new_treq;
+	fbd_request_t *p_new_req;
 
-	p_new_treq = (td_request_t *)malloc(sizeof(td_request_t));
-	memcpy(p_new_treq, &treq, sizeof(td_request_t));
+	p_new_req = (fbd_request_t *)malloc(sizeof(td_request_t));
+	memset(p_new_req, 0 , sizeof(fbd_request_t *));
+	p_new_req->sec = treq.sec;
+	p_new_req->secs = treq.secs;
+	p_new_req->buf = treq.buf;
+	p_new_req->op = treq.op;
+	p_new_req->req_data = (void *)vreq;
 
-	printf("Received read request at offset %llx for %d bytes, buf - %p \n", offset, size, p_new_treq->buf);
+
+	printf("Received read request at offset %llx for %d bytes, buf - %p \n", offset, size, p_new_req->buf);
 
 #if 0	
 	if (offset + size < sizeof(data_image)) {
-	  memcpy(p_new_treq->buf, data_image + offset, size);
+	  memcpy(p_new_req->buf, data_image + offset, size);
 	}
 	for (i = 0; i < size; i++) {
-	  printf("%2x", p_new_treq->buf[i]);
+	  printf("%2x", p_new_req->buf[i]);
 	}
 	printf("\n");
 #endif
-	rc = hvisor_process_read_request(hvisor_hdl, p_new_treq, hvisor_complete_td_request, (void *)vbd, (void *)vreq);
+	rc = hvisor_process_read_request(hvisor_hdl, p_new_req, hvisor_complete_td_request, (void *)vbd, (void *)vreq);
 	if (rc) {
-	  hvisor_complete_td_request((void *)vbd, (void *)vreq, p_new_treq, rc);
+	  hvisor_complete_td_request((void *)vbd, (void *)vreq, p_new_req, rc);
 	}
 }
 
@@ -489,26 +496,31 @@ void hvisor_queue_write(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq
 	uint64_t offset  = treq.sec * (uint64_t)HVISOR_SECTOR_SIZE;
 	int i;
 	int rc = 0;
-	td_request_t *p_new_treq;
+	fbd_request_t *p_new_req;
 
-	p_new_treq = (td_request_t *)malloc(sizeof(td_request_t));
-	memcpy(p_new_treq, &treq, sizeof(td_request_t));
+	p_new_req = (fbd_request_t *)malloc(sizeof(td_request_t));
+	memset(p_new_req, 0 , sizeof(fbd_request_t *));
+	p_new_req->sec = treq.sec;
+	p_new_req->secs = treq.secs;
+	p_new_req->buf = treq.buf;
+	p_new_req->op = treq.op;
+	p_new_req->req_data = (void *)vreq;
 
 #if 0
-	printf("Received write request at offset %llx for %d bytes, buf - %p : \n", offset, size, p_new_treq->buf);
+	printf("Received write request at offset %llx for %d bytes, buf - %p : \n", offset, size, p_new_req->buf);
 	for (i = 0; i < size; i++) {
 	  printf("%2x", treq.buf[i]);
 	}
 	printf("\n");
 
 	if (offset + size < sizeof(data_image)) {
-	  memcpy(data_image + offset, p_new_treq->buf, size);
+	  memcpy(data_image + offset, p_new_req->buf, size);
 	}
 #endif	
 
-	rc = hvisor_process_write_request(hvisor_hdl, p_new_treq, hvisor_complete_td_request, (void *)vbd, (void *)vreq);
+	rc = hvisor_process_write_request(hvisor_hdl, p_new_req, hvisor_complete_td_request, (void *)vbd, (void *)vreq);
 	if (rc) {
-	  hvisor_complete_td_request((void *)vbd, (void *)vreq, p_new_treq, rc);
+	  hvisor_complete_td_request((void *)vbd, (void *)vreq, p_new_req, rc);
 	}
 
 }
