@@ -30,9 +30,9 @@
 #include <linux/log2.h>
 //#include <scsi/scsi.h>
 //#include <scsi/scsi_ioctl.h>
-#include "vvclib.h"
-#include "../include/fds_commons.h"
-#include "../include/fdsp.h"
+// #include "vvclib.h"
+// #include "../include/fds_commons.h"
+// #include "../include/fdsp.h"
 #include "blktap.h"
 #include "fbd.h"
 #include "fds.h"

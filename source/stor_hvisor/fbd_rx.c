@@ -23,10 +23,10 @@
 #include <linux/list.h>
 #include <net/sock.h>
 #include <linux/net.h>
-#include "vvclib.h"
-#include "../include/fds_commons.h"
-#include "../include/fdsp.h"
-#include "../include/data_mgr.h"
+// #include "vvclib.h"
+// #include "../include/fds_commons.h"
+// #include "../include/fdsp.h"
+// #include "../include/data_mgr.h"
 #include "blktap.h"
 #include "fbd.h"
 #include "fds.h"
@@ -190,7 +190,7 @@ void  fds_lt_cb_proc( uint32_t  trans_id)
 }
 
 
-
+#if 0
 
 void  fds_st_cb_proc(uint32_t trans_id)
 {
@@ -240,6 +240,7 @@ printk(" inside the  st call backl \n");
 	return;
 }
 
+#endif
 
 void fbd_process_req_timeout(unsigned long arg)
 {
@@ -263,6 +264,11 @@ void fbd_process_req_timeout(unsigned long arg)
 
 static int fds_process_read( uint8_t  *rx_buf)
 {
+
+  return 0;
+
+#if 0
+
 	fdsp_msg_t  *rd_msg;
 	fdsp_get_object_t *get_obj_rsp;
 	struct request *req; 
@@ -315,10 +321,19 @@ printk(" inside  the read function \n");
 	__blk_end_request_all(req, 0); 
 
 	return 0;
+#endif
+
 }
+
+
+#if 0
+
 
 static int fds_process_write(fdsp_msg_t  *rx_msg)
 {
+
+  return 0;
+
 	fdsp_msg_t   *sm_msg_ptr;
 	int rc, result = 0;
 	int flag = 0, node=0;
@@ -415,11 +430,19 @@ static int fds_process_write(fdsp_msg_t  *rx_msg)
 	}
 
 	return 0;
+
 }
+
+#endif
 
 
  int   fds_process_rx_message(uint8_t  *rx_buf, uint32_t src_ip)
 {
+
+
+  return 0;
+
+#if 0
 	fdsp_msg_t	*rx_msg;
 
 	/*  get the fds  header */
@@ -432,15 +455,6 @@ static int fds_process_write(fdsp_msg_t  *rx_msg)
 
 	printk("Rx Info: cookie: %d ; src_id:%d ; src_ip: 0x%x ; msg_code:%d \n",rx_msg->req_cookie,rx_msg->src_id,src_ip, rx_msg->msg_code );
 
-#if 0
-	/* check for the bogus message */
-	if (rwlog_tbl[rx_msg->req_cookie].trans_state != FDS_TRANS_OPEN) 
-	{
-		printk(" Error: %d Incorrect message received \n",rx_msg->req_cookie);
-		/* free  the buffer  and return */
-		return -1;
-	}
-#endif
 
 	if (rx_msg->src_id == FDSP_STOR_MGR ) 
 	{
@@ -517,6 +531,8 @@ static int fds_process_write(fdsp_msg_t  *rx_msg)
 	/* for now release  response  to  block, else driver will hang */
 
 	return 0;
+#endif
+
 }
 
 

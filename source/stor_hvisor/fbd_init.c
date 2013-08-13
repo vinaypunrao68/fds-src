@@ -43,10 +43,10 @@
 
 #include <asm/uaccess.h>
 #include <asm/types.h>
-#include "vvclib.h"
-#include "../include/fds_commons.h"
-#include "../include/fdsp.h"
-#include "../include/data_mgr.h"
+// #include "vvclib.h"
+//#include "../include/fds_commons.h"
+//#include "../include/fdsp.h"
+//#include "../include/data_mgr.h"
 #include "blktap.h"
 #include "fbd.h"
 #include "fds.h"
@@ -341,6 +341,8 @@ static int fbd_read_dlt_tbl(struct block_device *bdev, struct fbd_device *fbd, i
   return 0;
 }
 
+#if 0
+
 static int fbd_read_vvc_catalog(struct block_device *bdev, struct fbd_device *fbd, int data)
 {
 	int n_segments = 0;
@@ -367,6 +369,7 @@ static int fbd_read_vvc_catalog(struct block_device *bdev, struct fbd_device *fb
 	return 0;
 }
 
+#endif
 
 
 static int fbd_set_tgt_blksize(struct block_device *bdev, struct fbd_device *fbd, int data)
@@ -492,6 +495,7 @@ static void fbd_xmit_timeout(unsigned long arg)
 }
 #endif
 
+#if 0
 
 static int send_msg_sm(struct fbd_device *fbd, int send, void *buf, int size,
 		       int msg_flags, long int node_ipaddr)
@@ -545,7 +549,6 @@ static int send_msg_sm(struct fbd_device *fbd, int send, void *buf, int size,
 		msg.msg_controllen = 0;
 		msg.msg_flags = msg_flags | MSG_NOSIGNAL;
 
-#if 0
 		if (fbd->xmit_timeout) {
 			init_timer(&ti);
 			ti.function = fbd_xmit_timeout;
@@ -553,15 +556,12 @@ static int send_msg_sm(struct fbd_device *fbd, int send, void *buf, int size,
 			ti.expires = jiffies + fbd->xmit_timeout;
 			add_timer(&ti);
 		}
-#endif
 		result = kernel_sendmsg(sock, &msg, &iov, 1, size);
 	if (result < size) {
 	 printk("Send failed or truncated, result = %d\n", result);
         }
-#if 0
 		if (fbd->xmit_timeout)
 			del_timer_sync(&ti);
-#endif
 		if (signal_pending(current)) {
 			siginfo_t info;
 			printk(KERN_WARNING "fbd (pid %d: %s) got signal %d\n",
@@ -642,7 +642,7 @@ int send_data_dm(struct fbd_device *fbd, int send, void *buf, int size,
 		msg.msg_controllen = 0;
 		msg.msg_flags = msg_flags | MSG_NOSIGNAL;
 
-#if 0
+		// #if 0
 		if (fbd->xmit_timeout) {
 			init_timer(&ti);
 			ti.function = fbd_xmit_timeout;
@@ -650,12 +650,12 @@ int send_data_dm(struct fbd_device *fbd, int send, void *buf, int size,
 			ti.expires = jiffies + fbd->xmit_timeout;
 			add_timer(&ti);
 		}
-#endif
+		// #endif
 		result = kernel_sendmsg(sock, &msg, &iov, 1, size);
-#if 0
+		// #if 0
 		if (fbd->xmit_timeout)
 			del_timer_sync(&ti);
-#endif
+		// #endif
 
 		if (signal_pending(current)) {
 			siginfo_t info;
@@ -740,7 +740,7 @@ static int send_data_sm(struct fbd_device *fbd, int send, void *buf, int size,
 		msg.msg_controllen = 0;
 		msg.msg_flags = msg_flags | MSG_NOSIGNAL;
 
-#if 0
+		// #if 0
 		struct timer_list ti;
 		if (fbd->xmit_timeout) {
 			init_timer(&ti);
@@ -749,16 +749,16 @@ static int send_data_sm(struct fbd_device *fbd, int send, void *buf, int size,
 			ti.expires = jiffies + fbd->xmit_timeout;
 			add_timer(&ti);
 		}
-#endif
+		// #endif
 		result = kernel_sendmsg(sock, &msg, iov, 2, (size+iov[0].iov_len));
 		if (result < size) {
 			printk("Send failed or truncated. result - %d\n", result);
 		}
 
-#if 0
+		// #if 0
 		if (fbd->xmit_timeout)
 			del_timer_sync(&ti);
-#endif
+		// #endif
 		if (signal_pending(current)) {
 			siginfo_t info;
 			printk(KERN_WARNING "fbd (pid %d: %s) got signal %d\n",
@@ -1003,11 +1003,11 @@ static int fbd_process_queue_buffers(struct request *req)
 		sectors = bv->bv_len / 512;
 		
 		flag = 0;
-#if 0
+		// #if 0
 		/* if you want to  send the all theblokc at once  set this flag  */
 		if (!rq_iter_last(req, iter))
 			flag = MSG_MORE;
-#endif
+		// #endif
 
 		switch (dir)
 		{
@@ -1153,7 +1153,7 @@ End:
 	return result;
 }
 
-
+#endif
 
 static  int fbd_process_io_cmds (struct fbd_device *fbd, struct request *req)
 {
@@ -1196,12 +1196,12 @@ static  int fbd_process_io_cmds (struct fbd_device *fbd, struct request *req)
 		break;
 
 	case FBD_CMD_WRITE:
-		result = fbd_process_queue_buffers(req);
+	  // result = fbd_process_queue_buffers(req);
 		// __blk_end_request_all(req, 0); /* response will get out in rx thread */ 
 		break;
 
 	case FBD_CMD_READ:
-		fbd_process_read_request(req);
+	  // fbd_process_read_request(req);
 		break;
 
 	default:
@@ -1334,7 +1334,7 @@ static int __fbd_dev_ioctl(struct block_device *bdev, struct fbd_device *fbd,
          	fbd_set_base_port(bdev, fbd, data);
 		break;
 	case FBD_READ_VVC_CATALOG:
-		fbd_read_vvc_catalog(bdev, fbd, data);
+	  // fbd_read_vvc_catalog(bdev, fbd, data);
 		break;
 	case FBD_READ_DMT_TBL:
 		fbd_read_dmt_tbl(bdev, fbd, data);

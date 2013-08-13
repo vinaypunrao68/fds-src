@@ -29,9 +29,9 @@
 #include <linux/blkdev.h>
 #include <linux/mman.h>
 #include <linux/mm.h>
-#include "vvclib.h"
-#include "../include/fds_commons.h"
-#include "../include/fdsp.h"
+// #include "vvclib.h"
+// #include "../include/fds_commons.h"
+// #include "../include/fdsp.h"
 #include "blktap.h"
 #include "fbd.h"
 #include "fds.h"

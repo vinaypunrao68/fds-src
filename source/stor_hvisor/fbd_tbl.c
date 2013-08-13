@@ -20,9 +20,9 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/list.h>
-#include "vvclib.h"
-#include "../include/fds_commons.h"
-#include "../include/fdsp.h"
+// #include "vvclib.h"
+// #include "../include/fds_commons.h"
+// #include "../include/fdsp.h"
 #include "blktap.h"
 #include "fbd.h"
 #include "fds.h"
@@ -65,7 +65,7 @@ int  add_dlt_entry(SM_NODES *newdlt, uint32_t doid_key)
   return 0;
 }
 
-int add_dmt_entry(DM_NODES  *newdmt, volid_t  vol_id)
+int add_dmt_entry(DM_NODES  *newdmt, int  vol_id)
 {
  	if(newdmt == NULL)
 		printk(" Error: New dmt  Node is empty \n");
@@ -75,7 +75,7 @@ int add_dmt_entry(DM_NODES  *newdmt, volid_t  vol_id)
 }
 
 
-int del_dmt_entry( uint32_t ipaddr, volid_t  vol_id)
+int del_dmt_entry( uint32_t ipaddr, int  vol_id)
 {
 	DM_NODES  *tmpdmt;
 
@@ -121,12 +121,12 @@ int show_dlt_entry(uint32_t  doid_key)
 
 }
 
-DM_NODES *get_dm_nodes_for_volume(volid_t vol_id)
+DM_NODES *get_dm_nodes_for_volume(int vol_id)
 {
   return (&dmt_tbl[vol_id]);
 }
 
-int show_dmt_entry(volid_t  vol_id)
+int show_dmt_entry(int  vol_id)
 {
 	DM_NODES  *tmpdlt;
 
@@ -143,7 +143,7 @@ int populate_dmt_dlt_tbl(void)
 
 	DM_NODES  *adddmt;
 	SM_NODES  *adddlt;
-	volid_t	  vol_id = 0;
+	int	  vol_id = 0;
 	uint32_t  doid_sm_key = 0;
 	
 

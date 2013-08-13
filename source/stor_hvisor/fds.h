@@ -137,13 +137,13 @@ typedef struct fds_journ {
 int fds_init_dmt(void);
 int fds_init_dlt(void);
 int add_dlt_entry(SM_NODES *newdlt, uint32_t doid_key);
-int add_dmt_entry(DM_NODES  *newdmt, volid_t  vol_id);
-int del_dmt_entry( uint32_t ipaddr, volid_t  vol_id);
+int add_dmt_entry(DM_NODES  *newdmt, int  vol_id);
+int del_dmt_entry( uint32_t ipaddr, int  vol_id);
 int del_dlt_entry(uint32_t ipaddr, uint32_t doid_key);
 int populate_dmt_dlt_tbl(void);
-int show_dmt_entry(volid_t  vol_id);
+int show_dmt_entry(int vol_id);
 int show_dlt_entry(uint32_t doid_key);
-DM_NODES *get_dm_nodes_for_volume(volid_t vol_id);
+DM_NODES *get_dm_nodes_for_volume(int vol_id);
 SM_NODES *get_sm_nodes_for_doid_key(uint32_t doid_key);
 int fds_init_trans_log(void);
 int fds_process_rx_message(uint8_t  *rx_buf, uint32_t src_ip);

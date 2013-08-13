@@ -83,11 +83,11 @@ struct fbd_device {
         int data_mgr_port;
 	int 	   proto_type;
 	/* message header */
-	fdsp_msg_t	dm_msg;
-	fdsp_msg_t	sm_msg;
+  //	fdsp_msg_t	dm_msg;
+  //	fdsp_msg_t	sm_msg;
 	/*  vvc  defs */
-	volid_t 	vol_id;
-	vvc_vhdl_t	vhdl;
+	int 	vol_id;
+  //	vvc_vhdl	vhdl;
 	char blk_name[100];
 	/* blk tap  structures */
 	unsigned long     dev_inuse;
