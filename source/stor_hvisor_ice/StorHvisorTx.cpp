@@ -6,6 +6,7 @@
 #include <Ice/Object.h>
 #include <IceUtil/Iterator.h>
 #include "list.h"
+#include "ubd.h"
 #include "StorHvisorNet.h"
 #include "StorHvisorCPP.h"
 #include "hvisor_lib.h"
@@ -22,7 +23,7 @@ extern int vvc_entry_get(vvc_vhdl_t vhdl, const char *blk_name, int *num_segment
 
 
 BEGIN_C_DECLS
-int StorHvisorProcIoRd(void *dev_hdl, td_request_t *req, complete_req_cb_t comp_req, void *arg1, void *arg2)
+int StorHvisorProcIoRd(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp_req, void *arg1, void *arg2)
 {
 	int rc, result = 0;
 	struct fbd_device *fbd;
@@ -111,7 +112,7 @@ int StorHvisorProcIoRd(void *dev_hdl, td_request_t *req, complete_req_cb_t comp_
 	return 0;
 }
 
-int StorHvisorProcIoWr(void *dev_hdl, td_request_t *req, complete_req_cb_t comp_req, void *arg1, void *arg2)
+int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp_req, void *arg1, void *arg2)
 
 {
 	int   trans_id;

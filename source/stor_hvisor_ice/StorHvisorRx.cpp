@@ -5,6 +5,7 @@
 #include <Ice/BasicStream.h>
 #include <Ice/Object.h>
 #include <IceUtil/Iterator.h>
+#include "ubd.h"
 #include "StorHvisorNet.h"
 #include "list.h"
 #include "StorHvisorCPP.h"
@@ -94,7 +95,7 @@ void FDSP_ProcRx::fbd_process_req_timeout(unsigned long arg)
   
 }
 
-void FDSP_ProcRx::fbd_complete_req(int trans_id, td_request_t *req, int status)
+void FDSP_ProcRx::fbd_complete_req(int trans_id, fbd_request_t *req, int status)
 {
 
   FDSP_fdsJourn  *txn;
@@ -107,7 +108,7 @@ void FDSP_ProcRx::fbd_complete_req(int trans_id, td_request_t *req, int status)
 
 int FDSP_ProcRx::fds_process_get_obj_resp(FDSP_MsgHdrType *rd_msg, FDSP_GetObjType *get_obj_rsp )
 {
-	td_request_t *req; 
+	fbd_request_t *req; 
 	int trans_id;
 //	int   data_size;
 //	int64_t data_offset;
@@ -120,7 +121,7 @@ int FDSP_ProcRx::fds_process_get_obj_resp(FDSP_MsgHdrType *rd_msg, FDSP_GetObjTy
 	}
 
 	printf("Processing read response for trans %d\n", trans_id);
-	req = (td_request_t *)NETPtr.procIo.rwlog_tbl[trans_id].write_ctx;
+	req = (fbd_request_t *)NETPtr.procIo.rwlog_tbl[trans_id].write_ctx;
 //	data_size    = req->secs * HVISOR_SECTOR_SIZE;
 //	data_offset  = req->sec * (uint64_t)HVISOR_SECTOR_SIZE;
 //	data_buf = req->buf;
@@ -165,7 +166,7 @@ int FDSP_ProcRx::fds_process_update_catalog_resp(FDSP_MsgHdrTypePtr rx_msg, FDSP
 	FDSP_MsgHdrTypePtr   sm_msg_ptr;
 	int rc;
 	int node=0;
-	td_request_t *req; 
+	fbd_request_t *req; 
 	struct fbd_device *fbd;
 
 	int trans_id;
@@ -182,7 +183,7 @@ int FDSP_ProcRx::fds_process_update_catalog_resp(FDSP_MsgHdrTypePtr rx_msg, FDSP
 	}
 
 	fbd = (struct fbd_device *)(txn->fbd_ptr);
-	req = (td_request_t *)txn->write_ctx;
+	req = (fbd_request_t *)txn->write_ctx;
 	wr_msg = txn->dm_msg;
 	sm_msg_ptr = NETPtr.procIo.rwlog_tbl[trans_id].sm_msg;
 

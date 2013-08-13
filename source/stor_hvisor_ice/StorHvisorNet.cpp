@@ -5,6 +5,7 @@
 #include <Ice/BasicStream.h>
 #include <Ice/Object.h>
 #include <IceUtil/Iterator.h>
+#include "ubd.h"
 #include "StorHvisorNet.h"
 //#include "hvisor_lib.h"
 #include "StorHvisorCPP.h"
@@ -87,6 +88,7 @@ void FDSP_NetworkCon::CreateNetworkEndPoint( FDSP_NetworkRec *netRec )
 
 
 
+BEGIN_C_DECLS
 void *hvisor_lib_init(void)
 {
         int err = -ENOMEM;
@@ -122,4 +124,5 @@ out:
         free(fbd_dev);
         return (void *)err;
 }
+END_C_DECLS
 

@@ -9,7 +9,7 @@
 top_srcdir	= ../lib/Ice-3.5.0/cpp
 HV_LIBS		= ../util/hash/MurmurHash3.o
 
-FDS_CFG		= StorHvisorNet
+FDS_CFG		= StorHvisor.a
 
 TARGETS		= $(FDS_CFG)
 
@@ -31,6 +31,7 @@ CPPFLAGS	:= -I. $(CPPFLAGS) -I $(top_srcdir)/include/Ice -I../include -I../util/
 
 # create only  .o for now 
 $(FDS_CFG): $(OBJS) $(COBJS) $(ICE_OBJS)
-	rm -f $@
+	ar rc  $@  $(OBJS) $(COBJS) $(ICE_OBJS)
+#	rm -f $@
 #	$(CXX)  $@ $(OBJS) $(COBJS) $(LIBS) $(HV_LIBS)
 #	$(CXX) $(LDFLAGS) -o $@ $(OBJS) $(COBJS) $(LIBS) $(HV_LIBS)

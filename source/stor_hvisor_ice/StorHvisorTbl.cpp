@@ -21,6 +21,7 @@
 #include <Ice/BasicStream.h>
 #include <Ice/Object.h>
 #include <IceUtil/Iterator.h>
+#include "ubd.h"
 #include <StorHvisorNet.h>
 
 #include <stdio.h>

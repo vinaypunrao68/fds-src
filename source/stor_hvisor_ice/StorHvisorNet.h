@@ -102,14 +102,15 @@ public:
 };
 #endif
 
+#if 0
 typedef double                     td_sector_t;
-typedef struct td_request            td_request_t;
+typedef struct fbd_request            fbd_request_t;
 typedef struct td_image_handle       td_image_t;
 
 
 /*  these need to be removed once andrew  cleans up the DM */
 
-struct td_request {
+struct fbd_request {
         int                          op;
         char                        *buf;
         td_sector_t                  sec;
@@ -130,6 +131,7 @@ struct td_request {
         share_tuple_t                memshr_hnd;
 #endif
 };
+#endif
 
 typedef void *vvc_vhdl_t;
 struct fbd_device {
@@ -169,7 +171,7 @@ typedef union {
 
 } fds_doid_t;
 
-typedef void (*complete_req_cb_t)(void *arg1, void *arg2, td_request_t *treq, int res);
+typedef void (*complete_req_cb_t)(void *arg1, void *arg2, fbd_request_t *treq, int res);
 typedef unsigned char doid_t[20];
 
 /*************************************************************************** */
@@ -307,7 +309,7 @@ public:
 	int fds_set_dm_commit_status( int ipAddr, int  trans_id);
 	int fds_set_smack_status( int ipAddr, int  trans_id);
 	void fbd_process_req_timeout(unsigned long arg);
-	void fbd_complete_req(int trans_id, td_request_t *req, int status);
+	void fbd_complete_req(int trans_id, fbd_request_t *req, int status);
 	int fds_process_get_obj_resp(FDSP_MsgHdrType *rd_msg, FDSP_GetObjType *get_obj_rsp );
 	int fds_process_put_obj_resp(FDSP_MsgHdrTypePtr rx_msg, FDSP_PutObjTypePtr put_obj_rsp );
 	int fds_process_update_catalog_resp(FDSP_MsgHdrTypePtr rx_msg, FDSP_UpdateCatalogTypePtr cat_obj_rsp );
