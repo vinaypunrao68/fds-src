@@ -263,6 +263,7 @@ int main(int argc, char *argv[]) {
   }
 
   hvisor_hdl = hvisor_lib_init();
+  init_DPAPI();
 
   printf("All done. About to enter wait loop\n");
   __hvisor_run(vbd);
@@ -484,7 +485,7 @@ void hvisor_queue_read(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq)
 	}
 	printf("\n");
 #endif
-	rc = hvisor_process_read_request(hvisor_hdl, p_new_req, hvisor_complete_td_request, (void *)vbd, (void *)vreq);
+	rc = StorHvisorProcIoRd(hvisor_hdl, p_new_req, hvisor_complete_td_request, (void *)vbd, (void *)vreq);
 	if (rc) {
 	  hvisor_complete_td_request((void *)vbd, (void *)vreq, p_new_req, rc);
 	}
@@ -518,7 +519,7 @@ void hvisor_queue_write(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq
 	}
 #endif	
 
-	rc = hvisor_process_write_request(hvisor_hdl, p_new_req, hvisor_complete_td_request, (void *)vbd, (void *)vreq);
+	rc = StorHvisorProcIoWr(hvisor_hdl, p_new_req, hvisor_complete_td_request, (void *)vbd, (void *)vreq);
 	if (rc) {
 	  hvisor_complete_td_request((void *)vbd, (void *)vreq, p_new_req, rc);
 	}

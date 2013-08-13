@@ -47,6 +47,9 @@ void init_DPAPI()
     try {
 		NETPtr.InitIceObejcts();
 		NETPtr.CreateNetworkEndPoint(&netRec);
+		NETPtr.procIo.procT.fds_init_dmt();
+		NETPtr.procIo.procT.fds_init_dlt();
+		NETPtr.procIo.procT.populate_dmt_dlt_tbl();
 
     } catch (const Ice::Exception& ex) {
         cerr << ex << endl;
@@ -75,16 +78,15 @@ void FDSP_NetworkCon::CreateNetworkEndPoint( FDSP_NetworkRec *netRec )
         ident.name = IceUtil::generateUUID();
         ident.category = "";
 
-        fdspDataPathResp  = new FDSP_DataPathRespCbackI;
-        if (!fdspDataPathResp)
+        FDS_ProtocolInterface::FDSP_DataPathRespPtr fdspDataPathRespCback = new FDSP_DataPathRespCbackI;
+        if (!fdspDataPathRespCback)
             throw "Invalid fdspDataPathRespCback";
-        adapterDM->add(fdspDataPathResp, ident);
-        adapterDM->add(fdspDataPathResp, ident);
+        adapterDM->add(fdspDataPathRespCback, ident);
+        adapterDM->add(fdspDataPathRespCback, ident);
 
         adapterDM->activate();
 
         NETPtr.fdspDPAPI->ice_getConnection()->setAdapter(adapterDM);
-        NETPtr.fdspDPAPI->AssociateRespCallback(ident);
 }
 
 
