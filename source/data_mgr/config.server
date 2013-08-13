@@ -3,7 +3,7 @@
 # "Hello". The following line sets the endpoints for this
 # adapter.
 #
-DataMgr.Endpoints=tcp -h localhost -p 6901
+DataMgr.Endpoints=tcp -h localhost -p 6900
 
 #
 # Warn about connection exceptions
