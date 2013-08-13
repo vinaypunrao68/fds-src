@@ -12,9 +12,8 @@ fds_bool_t  stor_mgr_stopping = false;
 ObjectStorMgr *objStorMgr;
 
 // Use a single global levelDB for now
-leveldb::DB* db;
 
-ObjectStorMgrI::ObjectStorMgrI() {
+ObjectStorMgrI::ObjectStorMgrI(const Ice::CommunicatorPtr& communicator): _communicator(communicator) {
 }
 
 ObjectStorMgrI::~ObjectStorMgrI() {
@@ -22,7 +21,7 @@ ObjectStorMgrI::~ObjectStorMgrI() {
 
 void
 ObjectStorMgrI::PutObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_PutObjTypePtr &put_obj, const Ice::Current&) {
-  std::cout << "In the interface putobject()" << std::endl;
+  std::cout << "Putobject()" << std::endl;
   objStorMgr->PutObject(msg_hdr, put_obj);
   msg_hdr->msg_code = FDSP_MSG_PUT_OBJ_RSP;
   objStorMgr->swapMgrId(msg_hdr);
@@ -31,7 +30,7 @@ ObjectStorMgrI::PutObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_PutObjTy
 
 void
 ObjectStorMgrI::GetObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_GetObjTypePtr& get_obj, const Ice::Current&) {
-  std::cout << "In the interface getobject()" << std::endl;
+  std::cout << "Getobject()" << std::endl;
   objStorMgr->GetObject(msg_hdr, get_obj);
   msg_hdr->msg_code = FDSP_MSG_GET_OBJ_RSP;
   objStorMgr->swapMgrId(msg_hdr);
@@ -52,39 +51,13 @@ void
 ObjectStorMgrI::RedirReadObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_RedirReadObjTypePtr& redir_read_obj, const Ice::Current&) {
   std::cout << "In the interface redirread()" << std::endl;
 }
-//--------------------------------------------------------------------------------------------------
-ObjectStorMgrClientI::ObjectStorMgrClientI() 
-{
-}
-
-ObjectStorMgrClientI::~ObjectStorMgrClientI() 
-{
-}
 
 void
-ObjectStorMgrClientI::PutObjectResp(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_PutObjTypePtr &put_obj, const Ice::Current&) 
-{
-}
+ObjectStorMgrI::AssociateRespCallback(const Ice::Identity& ident, const Ice::Current& current) {
+  cout << "Associating response Callback client to ObjStorMgr`" << _communicator->identityToString(ident) << "'"<< endl;
 
-void
-ObjectStorMgrClientI::GetObjectResp(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_GetObjTypePtr& get_obj, const Ice::Current&) {
+  objStorMgr->fdspDataPathClient = FDSP_DataPathRespPrx::uncheckedCast(current.con->createProxy(ident));
 }
-
-void
-ObjectStorMgrClientI::UpdateCatalogObjectResp(const FDSP_MsgHdrTypePtr &msg_hdr, 
-                                              const FDSP_UpdateCatalogTypePtr& update_catalog , const Ice::Current&) 
-{
-}
-
-void
-ObjectStorMgrClientI::OffsetWriteObjectResp(const FDSP_MsgHdrTypePtr& msg_hdr, const FDSP_OffsetWriteObjTypePtr& offset_write_obj, const Ice::Current&) 
-{
-}
-
-void
-ObjectStorMgrClientI::RedirReadObjectResp(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_RedirReadObjTypePtr& redir_read_obj, const Ice::Current&) {
-}
-
 //--------------------------------------------------------------------------------------------------
 ObjectStorMgr::ObjectStorMgr() 
 {
@@ -190,7 +163,7 @@ ObjectStorMgr::writeObjLocation(FDS_ObjectIdType *object_id,
 
 
 /*------------------------------------------------------------------------- ------------
- * FDSP Protocol message processing 
+ * FDSP Protocol internal processing 
  -------------------------------------------------------------------------------------*/
 fds_sm_err_t 
 ObjectStorMgr::putObjectInternal(FDSP_PutObjTypePtr put_obj_req, 
@@ -225,14 +198,11 @@ fds::Error err(fds::ERR_OK);
 	    * This is the levelDB insertion. It's a totally
 	    * separate DB from the one above.
 	    */
-           DiskLoc dl;
-           dl.vol_id = volid;
-           dl.file_id = 0;
-           dl.offset = put_obj_req->volume_offset;
+           ObjectID obj_id(put_obj_req->data_obj_id.hash_high, put_obj_req->data_obj_id.hash_low);
            ObjectBuf obj;
            obj.size = put_obj_req->data_obj_len;
 	   obj.data  = put_obj_req->data_obj;
-	   err = objStorDB->Put( dl, obj);
+	   err = objStorDB->Put( obj_id, obj);
 
 	   if (err != fds::ERR_OK) {
 	     std::cout << "Failed to put object "
@@ -270,19 +240,16 @@ ObjectStorMgr::getObjectInternal(FDSP_GetObjTypePtr get_obj_req,
                                 fds_uint32_t volid, 
                                 fds_uint32_t num_objs) 
 {
-     DiskLoc dl;
-     dl.vol_id = volid;
-     dl.file_id = 0;
-     ObjectBuf obj;
-     obj.size = get_obj_req->data_obj_len;
-     obj.data = get_obj_req->data_obj;
-     fds::Error err(fds::ERR_OK);
-     // stor_mgr_read_object(get_obj_req->data_obj_id, get_obj_req->data_obj_len, &get_obj_req->data_obj);
+    ObjectID obj_id(get_obj_req->data_obj_id.hash_high, get_obj_req->data_obj_id.hash_low);
+    ObjectBuf obj;
+    obj.size = get_obj_req->data_obj_len;
+    obj.data = get_obj_req->data_obj;
+    fds::Error err(fds::ERR_OK);
 
-  err = objStorDB->Get(dl, obj);
+  err = objStorDB->Get(obj_id, obj);
 
   if (err != fds::ERR_OK) {
-    std::cout << "Failed to get key " << dl.vol_id << ":" << dl.file_id << ":" << dl.offset << " with status "
+    std::cout << "Failed to get key " << obj_id << " with status "
 	      << err << std::endl;
   } else {
     std::cout << "Successfully got value " << obj.data.c_str() << std::endl;
@@ -331,11 +298,9 @@ std::string endPointStr;
     string tcpEndPoint = "tcp -p 6901";
 
     Ice::ObjectAdapterPtr adapter = communicator()->createObjectAdapterWithEndpoints("ObjectStorMgrSvr", tcpEndPoint);
-    fdspDataPathServer = new ObjectStorMgrI();
+    fdspDataPathServer = new ObjectStorMgrI(communicator());
     adapter->add(fdspDataPathServer, communicator()->stringToIdentity("ObjectStorMgrSvr"));
 
-    fdspDataPathClient = new ObjectStorMgrClientI();
-    adapter->add(fdspDataPathClient, communicator()->stringToIdentity("ObjectStorMgrClient")); 
     //_workQueue->start();
     adapter->activate();
 

@@ -148,6 +148,8 @@ interface FDSP_DataPathReq {
     void OffsetWriteObject(FDSP_MsgHdrType fdsp_msg, FDSP_OffsetWriteObjType offset_write_obj_req);
 
     void RedirReadObject(FDSP_MsgHdrType fdsp_msg, FDSP_RedirReadObjType redir_write_obj_req);
+
+    void AssociateRespCallback(Ice::Identity ident); // Associate Response callback ICE-object with DM/SM 
 };
 
 

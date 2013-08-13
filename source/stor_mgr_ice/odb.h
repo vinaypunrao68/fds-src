@@ -39,6 +39,11 @@ namespace osm {
     fds::Error Get(const DiskLoc& disk_location,
                    ObjectBuf& obj_buf);
 
+    fds::Error Put(const ObjectID& obj_id,
+                   const ObjectBuf& object_buf);
+
+    fds::Error Get(const ObjectID& obj_id,
+                   ObjectBuf& obj_buf);
     void PrintHistoAll() {
       std::cout << "Microseconds per op:" << std::endl
                 << histo_all.ToString() << std::endl;
