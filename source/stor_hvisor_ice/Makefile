@@ -13,7 +13,7 @@ FDS_CFG		= StorHvisorNet
 
 TARGETS		= $(FDS_CFG)
 
-OBJS		= FDSP.o 
+ICE_OBJS	= ../fdsp/FDSP.o
 
 COBJS		= StorHvisorNet.o\
 		  StorHvisorTx.o\
@@ -23,14 +23,14 @@ COBJS		= StorHvisorNet.o\
 SRCS		= $(OBJS:.o=.cpp) \
 		  $(COBJS:.o=.cpp)
 
-SLICE_SRCS	= FDSP.ice
+#SLICE_SRCS	= FDSP.ice
 
 include $(top_srcdir)/config/Make.rules
 
-CPPFLAGS	:= -I. $(CPPFLAGS) -I $(top_srcdir)/include/Ice -I../include -I../util/hash -I../fds_client/include
+CPPFLAGS	:= -I. $(CPPFLAGS) -I $(top_srcdir)/include/Ice -I../include -I../util/hash -I../fds_client/include -I../fdsp
 
 # create only  .o for now 
-$(FDS_CFG): $(OBJS) $(COBJS)
+$(FDS_CFG): $(OBJS) $(COBJS) $(ICE_OBJS)
 	rm -f $@
 #	$(CXX)  $@ $(OBJS) $(COBJS) $(LIBS) $(HV_LIBS)
 #	$(CXX) $(LDFLAGS) -o $@ $(OBJS) $(COBJS) $(LIBS) $(HV_LIBS)
