@@ -12,7 +12,7 @@
 
 #include <list>
 
-#include "lib/fds_types.h"
+#include "include/fds_types.h"
 #include "util/concurrency/Mutex.h"
 #include "util/concurrency/Thread.h"
 

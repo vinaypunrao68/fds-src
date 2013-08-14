@@ -12,7 +12,8 @@
 
 #include <string>
 
-#include "lib/fds_err.h"
+#include "include/fds_types.h"
+#include "include/fds_err.h"
 #include "lib/leveldb-1.12.0/include/leveldb/db.h"
 #include "lib/leveldb-1.12.0/include/leveldb/env.h"
 

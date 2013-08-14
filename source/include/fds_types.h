@@ -35,11 +35,15 @@ typedef bool      fds_bool_t;
 typedef uint64_t  fds_uint64_t;
 typedef long      fds_long_t;
 
-// UDP & TCP port numbers reserver fo StorMgr and DataMgr servers
+/*
+ * UDP & TCP port numbers reserver for
+ * StorMgr and DataMgr servers.
+ */
 #define FDS_CLUSTER_TCP_PORT_SM         6900
 #define FDS_CLUSTER_TCP_PORT_DM         6901
 #define FDS_CLUSTER_UDP_PORT_SM         9600
 #define FDS_CLUSTER_UDP_PORT_DM         9601
+
 /**
  * In-memory representation of an object ID
  */

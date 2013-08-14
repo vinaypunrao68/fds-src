@@ -13,7 +13,7 @@
 #include <string>
 
 #include "include/fds_types.h"
-#include "lib/fds_err.h"
+#include "include/fds_err.h"
 #include "lib/VolumeCatalog.h"
 
 namespace fds {
