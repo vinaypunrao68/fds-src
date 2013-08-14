@@ -10,13 +10,13 @@
 top_srcdir	= ../lib/Ice-3.5.0/cpp
 top_srcdir_ldb	= ../
 
-TARGETS		= FDSP.o
+TARGETS		= FDSP.o fds_pubsub.o
 
-OBJS		= FDSP.o 
+OBJS		= FDSP.o fds_pubsub.o
 
 SRCS		= $(OBJS:.o=.cpp) 
 
-SLICE_SRCS	= FDSP.ice
+SLICE_SRCS	= FDSP.ice fds_pubsub.ice
 
 include $(top_srcdir)/config/Make.rules
 
