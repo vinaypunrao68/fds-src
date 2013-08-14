@@ -325,25 +325,27 @@ void handle_noop_req(dm_wthread_t *wt_info, dm_req_t *req) {
 
 void handle_load_volume_req(dm_wthread_t *wt_info, dm_req_t *req) {
   
-  fdsp_msg_t resp_msg;
+  // fdsp_msg_t resp_msg;
   std::string err_msg;
   int to_send, n;
-  int result = FDSP_ERR_OK;
+  int result = 0; //FDSP_ERR_OK;
   int err_code = 0;
   dm_load_vol_req_t *lv_req = (dm_load_vol_req_t *)req;
   
   if (dmgr_txn_cache_vol_create(lv_req->vvc_vol_id) < 0) {
-    result = FDSP_ERR_FAILED;
+    // result = FDSP_ERR_FAILED;
+    result = 0;
     err_msg = "Could not create volume\n";
   } else {
-    result = FDSP_ERR_OK;
+    // result = FDSP_ERR_OK;
+    result = 0;
   }
 
-  FILL_RESP_FLDS(resp_msg, result, err_msg.c_str(), req->rsp_info.req_cookie, 0, 0);
+  // FILL_RESP_FLDS(resp_msg, result, err_msg.c_str(), req->rsp_info.req_cookie, 0, 0);
 
-  to_send = sizeof(resp_msg);
-  n = sendto(req->rsp_info.sockfd, &resp_msg, to_send, 0,
-	     (const struct sockaddr*)req->rsp_info.rsp_to_addr, req->rsp_info.addr_len);
+  // to_send = sizeof(resp_msg);
+  // n = sendto(req->rsp_info.sockfd, &resp_msg, to_send, 0,
+  //	     (const struct sockaddr*)req->rsp_info.rsp_to_addr, req->rsp_info.addr_len);
 
   if (n < 0) {
     dmgr_log(LOG_ERR, "DMgr send failed on socket: %s \n", strerror(errno));
@@ -369,8 +371,8 @@ void handle_open_txn_req(dm_wthread_t *wt_info, dm_req_t *req) {
   dm_open_txn_req_t *ot_req = (dm_open_txn_req_t *)req;
   dmgr_txn_t *txn;
   std::string err_msg;
-  fdsp_msg_t resp_msg;
-  int result = FDSP_ERR_OK;
+  // fdsp_msg_t resp_msg;
+  int result = 0; // FDSP_ERR_OK;
   int err_code = 0;
 
   if (!(dmgr_txn_cache_vol_created(ot_req->vvc_vol_id))) {
@@ -380,17 +382,20 @@ void handle_open_txn_req(dm_wthread_t *wt_info, dm_req_t *req) {
   dmgr_fill_txn_info(txn, ot_req);
   if (dmgr_txn_open(txn) < 0) {
     dmgr_log(LOG_WARNING, "Error opening transaction\n");
-    result = FDSP_ERR_FAILED;
+    // result = FDSP_ERR_FAILED;
+    result = 0;
     err_msg = err_resp_msg1;
   } else {
 #if 0
     if (dmgr_txn_commit(txn) < 0) {
       dmgr_log(LOG_WARNING, "Error committing transaction\n");
-      result = FDSP_ERR_FAILED;
+      // result = FDSP_ERR_FAILED;
+      result = 0;
       err_msg = err_resp_msg2;
     } else {
 #endif
-      result = FDSP_ERR_OK;
+      // result = FDSP_ERR_OK;
+      result = 0;
       //    }
   }
 
@@ -426,17 +431,17 @@ void handle_commit_txn_req(dm_wthread_t *wt_info, dm_req_t *req) {
   dm_commit_txn_req_t *ct_req = (dm_commit_txn_req_t *)req;
   dmgr_txn_t *txn;
   std::string err_msg;
-  fdsp_msg_t resp_msg;
-  int result = FDSP_ERR_OK;
+  // fdsp_msg_t resp_msg;
+  int result = 0; // FDSP_ERR_OK;
   int err_code = 0;
 
   txn = dmgr_txn_get(ct_req->vvc_vol_id, ct_req->txn_id);
   if ((!txn) || (dmgr_txn_commit(txn) < 0)) {
     dmgr_log(LOG_WARNING, "Error committing transaction\n");
-    result = FDSP_ERR_FAILED;
+    // result = FDSP_ERR_FAILED;
     err_msg = err_resp_msg;
   } else {
-    result = FDSP_ERR_OK;
+    // result = FDSP_ERR_OK;
     // if this is a vvc modify req, we will need to send association table update to SM
     // until then, don't destroy the txn object but keep it around in commited state.
     dmgr_txn_destroy(txn);
@@ -474,25 +479,26 @@ void handle_cancel_txn_req(dm_wthread_t *wt_info, dm_req_t *req) {
   dm_cancel_txn_req_t *ct_req = (dm_cancel_txn_req_t *)req;
   dmgr_txn_t *txn;
   std::string err_msg;
-  fdsp_msg_t resp_msg;
-  int result = FDSP_ERR_OK;
+  // fdsp_msg_t resp_msg;
+  int result = 0; //FDSP_ERR_OK;
   int err_code = 0;
 
   txn = dmgr_txn_get(ct_req->vvc_vol_id, ct_req->txn_id);
   if ((!txn) || (dmgr_txn_cancel(txn) < 0)) {
-    result = FDSP_ERR_FAILED;
+    // result = FDSP_ERR_FAILED;
     err_msg = err_resp_msg;
   } else {
-    result = FDSP_ERR_OK;
+    // result = FDSP_ERR_OK;
   }
   dmgr_txn_destroy(txn);
 
-  FILL_RESP_FLDS(resp_msg, result, err_msg.c_str(), req->rsp_info.req_cookie, FDS_DMGR_CMD_CANCEL_TXN, ct_req->txn_id);
+  // FILL_RESP_FLDS(resp_msg, result, err_msg.c_str(), req->rsp_info.req_cookie, FDS_DMGR_CMD_CANCEL_TXN, ct_req->txn_id);
 
-  to_send = sizeof(resp_msg);
+  // to_send = sizeof(resp_msg);
 
-  n = sendto(req->rsp_info.sockfd, &resp_msg, to_send, 0,
-             (const struct sockaddr*)req->rsp_info.rsp_to_addr, req->rsp_info.addr_len);
+  // n = sendto(req->rsp_info.sockfd, &resp_msg, to_send, 0,
+  //        (const struct sockaddr*)req->rsp_info.rsp_to_addr, req->rsp_info.addr_len);
+  n = 0;
 
   if (n < 0) {
     dmgr_log(LOG_ERR, "DMgr send failed on socket: %s \n", strerror(errno));

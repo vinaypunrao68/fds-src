@@ -29,27 +29,27 @@ namespace fds {
   
   class Error {
  private:
-    fds_errno_t errno;
+    fds_errno_t _errno;
     std::string errstr;
 
  public:
     Error()
-        : errno(ERR_OK),
+        : _errno(ERR_OK),
         errstr(fds_errstrs[ERR_OK]) {
     }
 
     Error(fds_errno_t errno_arg)
-        : errno(errno_arg),
+        : _errno(errno_arg),
         errstr(fds_errstrs[errno_arg]) {
     }
 
     Error(Error& err)
-        : errno(err.errno),
+        : _errno(err._errno),
         errstr(err.errstr) {
     }
 
     fds_errno_t GetErrno() const {
-      return errno;
+      return _errno;
     }
 
     std::string GetErrstr() const {
@@ -57,15 +57,16 @@ namespace fds {
     }
 
     Error& operator=(const Error& rhs) {
-      errno = rhs.errno;
+      _errno = rhs._errno;
+      return *this;
     }
 
     bool operator==(const fds_errno_t& rhs) {
-      return (this->errno == rhs);
+      return (this->_errno == rhs);
     }
 
     bool operator!=(const fds_errno_t& rhs) {
-      return (this->errno != rhs);
+      return (this->_errno != rhs);
     }
 
     ~Error() { }

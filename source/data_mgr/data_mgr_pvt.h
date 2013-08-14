@@ -4,9 +4,10 @@
 
 #include <pthread.h>
 
-#include "fds_commons.h"
+//#include "fds_commons.h"
 #include "include/data_mgr.h"
-#include "include/fdsp.h"
+// #include "include/fdsp.h"
+#include "include/fds_types.h"
 
 #include <openssl/lhash.h>
 
@@ -67,7 +68,8 @@ typedef struct __dm_open_txn_req {
   fds_uint32_t     txn_id;
   fds_uint16_t     vvc_vol_id;
   fds_uint64_t     vvc_blk_id;
-  fds_doid_t       vvc_obj_id;
+  // fds_doid_t       vvc_obj_id;
+  fds::ObjectID    vvc_obj_id;
   fds_uint64_t     vvc_update_time;
   
 } dm_open_txn_req_t;

@@ -11,22 +11,22 @@
 using namespace std;
 using namespace FDS_ProtocolInterface;
 
-class FDSP_DataPathRespCbackI : public FDSP_DataPathRespCback
+class FDSP_DataPathRespCbackI : public FDSP_DataPathResp
 {
 public:
-    void GetObjectResp(const FDSP_MsgHdrTypePrx&, const FDSP_GetObjTypePrx&, const Ice::Current&) {
+    void GetObjectResp(const FDSP_MsgHdrTypePtr&, const FDSP_GetObjTypePtr&, const Ice::Current&) {
     }
 
-    void PutObjectResp(const FDSP_MsgHdrTypePrx&, const FDSP_PutObjTypePrx&, const Ice::Current&) {
+    void PutObjectResp(const FDSP_MsgHdrTypePtr&, const FDSP_PutObjTypePtr&, const Ice::Current&) {
     }
 
-    void UpdateCatalogObjectResp(const FDSP_MsgHdrTypePrx& fdsp_msg, const FDSP_UpdateCatalogTypePrx& cat_obj_req, const Ice::Current &) {
+    void UpdateCatalogObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_UpdateCatalogTypePtr& cat_obj_req, const Ice::Current &) {
     }
 
-    void OffsetWriteObjectResp(const FDSP_MsgHdrTypePrx& fdsp_msg, const FDSP_OffsetWriteObjTypePrx& offset_write_obj_req, const Ice::Current &) {
+    void OffsetWriteObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_OffsetWriteObjTypePtr& offset_write_obj_req, const Ice::Current &) {
 
     }
-    void RedirReadObjectResp(const FDSP_MsgHdrTypePrx& fdsp_msg, const FDSP_RedirReadObjTypePrx& redir_write_obj_req, const Ice::Current &)
+    void RedirReadObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_RedirReadObjTypePtr& redir_write_obj_req, const Ice::Current &)
     { 
     }
 };
@@ -42,7 +42,8 @@ StorHvisorClient::run(int argc, char* argv[])
     int status = 0;
 
 	 FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr = new FDSP_MsgHdrType;
-	 FDS_ProtocolInterface::FDSP_PutObjTypePtr put_obj_req = new FDSP_PutObjType;
+	 // FDS_ProtocolInterface::FDSP_PutObjTypePtr put_obj_req = new FDSP_PutObjType;
+         FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr up_cat_req = new FDSP_UpdateCatalogType;
 
     try {
          FDSP_DataPathReqPrx fdspDPAPI = FDSP_DataPathReqPrx::checkedCast(communicator()->propertyToProxy ("StorHvisorClient.Proxy"));
@@ -57,7 +58,7 @@ StorHvisorClient::run(int argc, char* argv[])
         ident.name = IceUtil::generateUUID();
         ident.category = "";
 
-        FDSP_DataPathRespCbackPtr fdspDataPathRespCback = new FDSP_DataPathRespCbackI;
+        FDSP_DataPathRespPtr fdspDataPathRespCback = new FDSP_DataPathRespCbackI;
         if (!fdspDataPathRespCback)
             throw "Invalid fdspDataPathRespCback";
 
@@ -68,7 +69,8 @@ StorHvisorClient::run(int argc, char* argv[])
 
 
 	fdsp_msg_hdr->minor_ver = 0;
-	fdsp_msg_hdr->msg_code = FDSP_MSG_PUT_OBJ_REQ;
+	// fdsp_msg_hdr->msg_code = FDSP_MSG_PUT_OBJ_REQ;
+        fdsp_msg_hdr->msg_code = FDSP_MSG_UPDATE_CAT_OBJ_REQ;
         fdsp_msg_hdr->msg_id =  1;
 
         fdsp_msg_hdr->major_ver = 0xa5;
@@ -83,12 +85,20 @@ StorHvisorClient::run(int argc, char* argv[])
         fdsp_msg_hdr->glob_volume_id = 0;
 
         fdsp_msg_hdr->src_id = FDSP_STOR_HVISOR;
-        fdsp_msg_hdr->dst_id = FDSP_STOR_MGR;
+        // fdsp_msg_hdr->dst_id = FDSP_STOR_MGR;
+        fdsp_msg_hdr->dst_id = FDSP_DATA_MGR;
 
         fdsp_msg_hdr->err_code=FDSP_ERR_SM_NO_SPACE;
         fdsp_msg_hdr->result=FDSP_ERR_OK;
 
-        fdspDPAPI->PutObject(fdsp_msg_hdr, put_obj_req);
+        up_cat_req->volume_offset = 1234;
+        up_cat_req->dm_transaction_id = 6789;
+        up_cat_req->data_obj_id.hash_high = 0xdead;
+        up_cat_req->data_obj_id.hash_low = 0xbeef;
+        up_cat_req->dm_operation = 8888;
+
+        // fdspDPAPI->PutObject(fdsp_msg_hdr, put_obj_req);
+        fdspDPAPI->UpdateCatalogObject(fdsp_msg_hdr, up_cat_req);
     } catch (const Ice::Exception& ex) {
         cerr << ex << endl;
         status = 1;

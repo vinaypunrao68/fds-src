@@ -86,10 +86,10 @@ int dmgr_txn_open(dmgr_txn_t *txn) {
 
     vol_cache = txn->vol_info;
     pthread_mutex_lock(&vol_cache->vol_tvc_lock);
-    if (tvc_entry_append(vol_cache->tvc_hdl, txn->txn_id, txn->open_time, txn->blk_name, 0, (const unsigned char *)&(txn->doid.bytes[0]), &ref_hint) < 0) {
-      pthread_mutex_unlock(&vol_cache->vol_tvc_lock);
-      return (-1);
-    }
+    // if (tvc_entry_append(vol_cache->tvc_hdl, txn->txn_id, txn->open_time, txn->blk_name, 0, (const unsigned char *)&(txn->doid.bytes[0]), &ref_hint) < 0) {
+    //pthread_mutex_unlock(&vol_cache->vol_tvc_lock);
+    //return (-1);
+    //}
     txn->tvc_ref_hint = ref_hint;
     txn->txn_status = FDS_DMGR_TXN_STATUS_OPEN;
     pthread_mutex_unlock(&vol_cache->vol_tvc_lock);
@@ -107,12 +107,12 @@ int dmgr_txn_commit(dmgr_txn_t *txn) {
     // Step 1: Update VVC
     pthread_mutex_lock(&vol_cache->vol_vvc_lock);
     vvc_entry_get(vol_cache->vvc_hdl, txn->blk_name, &n_segments, &doid_list);
-    p_doid = (doid_t *)&(txn->doid.bytes[0]); 
+    // p_doid = (doid_t *)&(txn->doid.bytes[0]); 
     if (n_segments <= 0) {
-      rc = vvc_entry_create(vol_cache->vvc_hdl, txn->blk_name, 1, (const doid_t **)&p_doid);
+      // rc = vvc_entry_create(vol_cache->vvc_hdl, txn->blk_name, 1, (const doid_t **)&p_doid);
     } else {
       free(doid_list);
-      rc = vvc_entry_update(vol_cache->vvc_hdl, txn->blk_name, 1, (const doid_t **)&p_doid);
+      // rc = vvc_entry_update(vol_cache->vvc_hdl, txn->blk_name, 1, (const doid_t **)&p_doid);
     }
     pthread_mutex_unlock(&vol_cache->vol_vvc_lock);
     if (rc < 0) {

@@ -3,6 +3,7 @@
  */
 #define BOOST_LOG_DYN_LINK 1
 
+#include <boost/log/expressions.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/log/support/date_time.hpp>
 #include <boost/log/attributes/current_process_name.hpp>
@@ -55,18 +56,18 @@ void fds_log::init(const std::string& logfile,
   /*
    * Create the with file name and rotation.
    */
-  sink = boost::make_shared< file_sink >(keywords::file_name = logfile + "_%N.log",
-                                         keywords::rotation_size = ROTATION_SIZE);
+  sink = boost::make_shared< file_sink >(boost::log::keywords::file_name = logfile + "_%N.log",
+                                         boost::log::keywords::rotation_size = ROTATION_SIZE);
 
   /*
    * Setup log sub-directory location
    */
   if (logloc.empty()) {
-    sink->locked_backend()->set_file_collector(sinks::file::make_collector(
-        keywords::target = "."));
+    sink->locked_backend()->set_file_collector(boost::log::sinks::file::make_collector(
+        boost::log::keywords::target = "."));
   } else {
-    sink->locked_backend()->set_file_collector(sinks::file::make_collector(
-        keywords::target = logloc));
+    sink->locked_backend()->set_file_collector(boost::log::sinks::file::make_collector(
+        boost::log::keywords::target = logloc));
   }
 
   /*
@@ -75,45 +76,47 @@ void fds_log::init(const std::string& logfile,
    */
   sink->locked_backend()->scan_for_files();
 
+  sink->locked_backend()->auto_flush(true);
+
   /*
    * Set the filter to not print messages below
    * a certain level.
    */
   sink->set_filter(
-      expr::attr<severity_level>("Severity").or_default(normal) >= level);
+      boost::log::expressions::attr<severity_level>("Severity").or_default(normal) >= level);
   
   /*
    * Setup the attributes
    */
-  attrs::counter< unsigned int > RecordID(1);
-  logging::core::get()->add_global_attribute("RecordID", RecordID);
-  attrs::local_clock TimeStamp;
-  logging::core::get()->add_global_attribute("TimeStamp", TimeStamp);
-  logging::core::get()->add_global_attribute(
+  boost::log::attributes::counter< unsigned int > RecordID(1);
+  boost::log::core::get()->add_global_attribute("RecordID", RecordID);
+  boost::log::attributes::local_clock TimeStamp;
+  boost::log::core::get()->add_global_attribute("TimeStamp", TimeStamp);
+  boost::log::core::get()->add_global_attribute(
       "ProcessName",
-      attrs::current_process_name());  
-  logging::core::get()->add_global_attribute(
+      boost::log::attributes::current_process_name());  
+  boost::log::core::get()->add_global_attribute(
       "ProcessID",
-      attrs::current_process_id());
-  logging::core::get()->add_global_attribute(
+      boost::log::attributes::current_process_id());
+  boost::log::core::get()->add_global_attribute(
       "ThreadID",
-      attrs::current_thread_id());
+      boost::log::attributes::current_thread_id());
 
   /*
    * Set the format
    */
-  sink->set_formatter(expr::stream
-                      << expr::format_date_time< boost::posix_time::ptime >("TimeStamp", "%d.%m.%Y %H:%M:%S.%f")
-                      << "] [" << expr::attr< severity_level >("Severity")
+  sink->set_formatter(boost::log::expressions::stream
+                      << boost::log::expressions::format_date_time< boost::posix_time::ptime >("TimeStamp", "%d.%m.%Y %H:%M:%S.%f")
+                      << "] [" << boost::log::expressions::attr< severity_level >("Severity")
                       << "] ["
-                      << expr::attr< attrs::current_thread_id::value_type >("ThreadID")
+                      << boost::log::expressions::attr< boost::log::attributes::current_thread_id::value_type >("ThreadID")
                       << "] - "
-                      << expr::smessage);
+                      << boost::log::expressions::smessage);
 
   /*
    * Add the sink to the core.
    */
-  logging::core::get()->add_sink(sink);  
+  boost::log::core::get()->add_sink(sink);  
 }
 
 fds_log::fds_log() {
@@ -158,4 +161,4 @@ fds_log::fds_log(const std::string& logfile,
 fds_log::~fds_log() {
 }
 
-}
+}  // namespace fds

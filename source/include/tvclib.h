@@ -1,5 +1,9 @@
-// API declarations 
-#include "fds_commons.h"
+/*
+ * Copyright 2013 Formation Data Systems, Inc.
+ */
+
+#ifndef SOURCE_INCLUDE_TVCLIB_H_
+#define SOURCE_INCLUDE_TVCLIB_H_
 
 #include "fds_types.h"
 
@@ -25,3 +29,5 @@ int tvc_entry_status_update(tvc_vhdl_t vhdl, fds_uint32_t txn_id, int64_t entry_
 int tvc_mark_checkpoint(tvc_vhdl_t vhdl, fds_uint64_t timestamp, volid_t tpc_vol_id);
 
 int tvc_entries_get(tvc_vhdl_t vhdl, fds_uint64_t start_time, int *n_entries, tvce_t *tvc_entries, int *end_of_log);
+
+#endif  // SOURCE_INCLUDE_TVCLIB_H_

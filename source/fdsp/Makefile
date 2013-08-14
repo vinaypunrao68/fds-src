@@ -23,6 +23,7 @@ include $(top_srcdir)/config/Make.rules
 CPPFLAGS	:= -I. $(CPPFLAGS) -I $(top_srcdir)include/Ice \
 	-I$(top_srcdir_ldb)/ \
 	-I$(top_srcdir_ldb)include
+SLICE2CPPFLAGS	:= --underscore $(SLICE2CPPFLAGS)
 
 .PHONY: clean
 

@@ -94,9 +94,6 @@ void FDSP_NetworkCon::CreateNetworkEndPoint( FDSP_NetworkRec *netRec )
 BEGIN_C_DECLS
 void *hvisor_lib_init(void)
 {
-        int err = -ENOMEM;
-//        int rc;
-
         fbd_dev = (fbd_device *)malloc(sizeof(*fbd_dev));
         if (!fbd_dev)
           return (void *)-ENOMEM;
@@ -125,7 +122,7 @@ void *hvisor_lib_init(void)
         return (fbd_dev);
 out:
         free(fbd_dev);
-        return (void *)err;
+        return NULL;
 }
 END_C_DECLS
 

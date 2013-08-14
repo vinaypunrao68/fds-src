@@ -16,10 +16,12 @@ int alloc_and_fill_dm_req_from_msg(const char *mesg,
   int cmd;
   int alloc_sz;
 
-  fdsp_msg_t *fdsp_msg = (fdsp_msg_t *) mesg;
-  fdsp_update_catalog_t *dm_msg;
+  // fdsp_msg_t *fdsp_msg = (fdsp_msg_t *) mesg;
+  // fdsp_update_catalog_t *dm_msg;
   dm_req_t *req;
   volid_t volid;
+
+  /*
 
   // For now, the only cmd code we are interested in.
   if (fdsp_msg->msg_code !=  FDSP_MSG_UPDATE_CAT_OBJ_REQ) {
@@ -92,6 +94,7 @@ int alloc_and_fill_dm_req_from_msg(const char *mesg,
   }
 
   *p_dm_req = req;
+  */
 
   return (0);
 

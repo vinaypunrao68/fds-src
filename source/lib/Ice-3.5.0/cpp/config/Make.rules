@@ -259,7 +259,7 @@ endif
 
 ICECPPFLAGS		= -I$(slicedir)
 
-SLICE2CPPFLAGS		= $(ICECPPFLAGS) --underscore
+SLICE2CPPFLAGS		= $(ICECPPFLAGS)
 
 ifeq ($(ice_dir), /usr) 
     LDFLAGS		= $(LDPLATFORMFLAGS) $(CXXFLAGS)

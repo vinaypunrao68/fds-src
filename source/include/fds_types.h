@@ -24,16 +24,16 @@
  */
 
 // FDS definitions of variable types
-typedef uint32_t fds_uint32_t;
-typedef int32_t  fds_int32_t;
-typedef uint16_t fds_uint16_t;
-typedef int16_t  fds_int16_t;
-typedef uint8_t  fds_uint8_t;
-typedef int8_t   fds_int8_t;
-typedef char     fds_char_t;
-typedef bool     fds_bool_t;
-typedef uint64_t fds_uint64_t;
-typedef long     fds_long_t;
+typedef uint32_t  fds_uint32_t;
+typedef int32_t   fds_int32_t;
+typedef uint16_t  fds_uint16_t;
+typedef int16_t   fds_int16_t;
+typedef uint8_t   fds_uint8_t;
+typedef int8_t    fds_int8_t;
+typedef char      fds_char_t;
+typedef bool      fds_bool_t;
+typedef uint64_t  fds_uint64_t;
+typedef long      fds_long_t;
 
 // UDP & TCP port numbers reserver fo StorMgr and DataMgr servers
 #define FDS_CLUSTER_TCP_PORT_SM         6900
@@ -72,6 +72,33 @@ namespace fds {
 
     ~ObjectID() { }
 
+    void SetId(fds_uint64_t _high, fds_uint64_t _low) {
+      hash_high = _high;
+      hash_low  = _low;
+    }
+    
+    /*
+     * Returns the size of the OID in bytes.
+     */
+    fds_uint32_t GetLen() const {
+      return sizeof(hash_high) + sizeof(hash_low);
+    }
+
+    /*
+     * Returns a string representation.
+     */
+    std::string ToString() const {
+      char str[GetLen()];
+      memcpy(str, &hash_high, sizeof(fds_uint64_t));
+      memcpy(str + sizeof(fds_uint64_t), &hash_low, sizeof(fds_uint64_t));
+
+      return std::string(str, GetLen());
+    }
+
+    /*
+     * Static members for transforming ObjectIDs.
+     * Just utility functions.
+     */
     static std::string ToHex(const ObjectID& oid) {
       std::ostringstream hash_oss;
 

@@ -1,3 +1,10 @@
+/*
+ * Copyright 2013 Formation Data Systems, Inc.
+ */
+
+#ifndef SOURCE_DATA_MGR_DATA_MGR_TRANSACTIONS_H_
+#define SOURCE_DATA_MGR_DATA_MGR_TRANSACTIONS_H_
+
 #include <pthread.h>
 
 #include "include/vvclib.h"
@@ -7,7 +14,8 @@
 
 #include "data_mgr_pvt.h"
 
-#include "include/fds_commons.h"
+// #include "include/fds_commons.h"
+// #include "include/fds_types.h"
 
 struct __dmgr_vol_cache;
 
@@ -19,7 +27,8 @@ typedef struct __dmgr_transaction{
   struct __dmgr_vol_cache *vol_info;
   char *blk_name;
   int segment_id;
-  fds_doid_t doid;
+  // fds_doid_t doid;
+  fds::ObjectID doid;
   int txn_status;
   unsigned int tvc_ref_hint;
 
@@ -135,7 +144,10 @@ static __inline__ int dmgr_fill_txn_info(dmgr_txn_t *txn, dm_open_txn_req_t *ot_
   txn->blk_name = (char *)malloc(32);
   sprintf(txn->blk_name, "%llu", ot_req->vvc_blk_id);
   txn->segment_id = 0;
-  memcpy(&txn->doid, &ot_req->vvc_obj_id, sizeof(fds_doid_t));
+  /*
+   * TODO: Resolve
+   */
+  // memcpy(&txn->doid, &ot_req->vvc_obj_id, sizeof(fds_doid_t));
   txn->open_time = ot_req->vvc_update_time;
   return (0);
 }
@@ -163,3 +175,4 @@ static __inline__ int dmgr_txn_destroy(dmgr_txn_t *txn) {
   return (0);
 
 }
+#endif  // SOURCE_DATA_MGR_DATA_MGR_TRANSACTIONS_H_
