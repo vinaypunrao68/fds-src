@@ -65,6 +65,8 @@ int main(int argc, char* argv[])
 
 	msg_hdr_ptr->msg_code = FDS_Node_Add;
 	msg_hdr_ptr->msg_id = 0;
+	msg_hdr_ptr->tennant_id = 1;
+	msg_hdr_ptr->domain_id = 1;
 
 	node_info_ptr->node_id = node_id;
 	if (cmd == CMD_NODE_UP) {

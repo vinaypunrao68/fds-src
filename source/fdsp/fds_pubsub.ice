@@ -41,6 +41,8 @@ class FDS_PubSub_MsgHdrType {
     int        major_ver;  /* Major version number of this message */
     int        minor_ver;  /* Minor version number of this message */
     int        msg_id;     /* Message id to discard duplicate request & maintain causal order */
+    int	       tennant_id; 
+    int        domain_id;	
 };
 
 interface FDS_OMgr_Subscriber {
