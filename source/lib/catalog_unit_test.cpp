@@ -20,6 +20,6 @@ int main(int argc, char *argv[]) {
 
     delete rec;
   }
-  
+
   return 0;
 }

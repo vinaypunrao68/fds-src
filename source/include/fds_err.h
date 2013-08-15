@@ -5,8 +5,6 @@
 #ifndef SOURCE_LIB_FDS_ERR_H_
 #define SOURCE_LIB_FDS_ERR_H_
 
-#include "fds_types.h"
-
 #include <sstream>
 #include <string>
 
@@ -17,6 +15,7 @@ namespace fds {
     "Data is a duplicate",
     "Unable to write data to disk",
     "Unable to read data from disk",
+    "Unable to query into catalog",
   };
   
   typedef enum {
@@ -24,47 +23,69 @@ namespace fds {
     ERR_DUPLICATE         = 1,
     ERR_DISK_WRITE_FAILED = 2,
     ERR_DISK_READ_FAILED  = 3,
+    ERR_CAT_QUERY_FAILED  = 4,
     ERR_MAX
   } fds_errno_t;
   
   class Error {
  private:
-    fds_errno_t fds_errno;
-    std::string fds_errstr;
+    fds_errno_t _errno;
+    /*
+     * TODO: Change the local errstr to be a table
+     * lookup rather than a member variable.
+     */
+    std::string errstr;
 
  public:
-    Error() : fds_errno(ERR_OK),fds_errstr(fds_errstrs[ERR_OK]) {
+    Error()
+        : _errno(ERR_OK),
+        errstr(fds_errstrs[ERR_OK]) {
     }
 
     Error(fds_errno_t errno_arg)
-        : fds_errno(errno_arg),
-        fds_errstr(fds_errstrs[errno_arg]) {
+        : _errno(errno_arg),
+        errstr(fds_errstrs[errno_arg]) {
     }
 
     Error(Error& err)
-        : fds_errno(err.fds_errno),
-        fds_errstr(err.fds_errstr) {
+        : _errno(err._errno),
+        errstr(err.errstr) {
     }
 
     fds_errno_t GetErrno() const {
-      return fds_errno;
+      return _errno;
     }
 
     std::string GetErrstr() const {
-      return fds_errstr;
+      return errstr;
     }
 
     Error& operator=(const Error& rhs) {
-      fds_errno = rhs.fds_errno;
+      _errno = rhs._errno;
+      errstr = rhs.errstr;
       return *this;
     }
 
+    Error& operator=(const fds_errno_t& rhs) {
+      _errno = rhs;
+      errstr = fds_errstrs[_errno];
+      return *this;
+    }
+
+    bool operator==(const Error& rhs) {
+      return (this->_errno == rhs._errno);
+    }
+
     bool operator==(const fds_errno_t& rhs) {
-      return (this->fds_errno == rhs);
+      return (this->_errno == rhs);
+    }
+
+    bool operator!=(const Error& rhs) {
+      return (this->_errno != rhs._errno);
     }
 
     bool operator!=(const fds_errno_t& rhs) {
-      return (this->fds_errno != rhs);
+      return (this->_errno != rhs);
     }
 
     ~Error() { }

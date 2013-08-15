@@ -13,6 +13,7 @@
 #include <string>
 
 #include "stor_mgr/stor_mgr_err.h"
+#include "include/fds_types.h"
 #include "include/fds_err.h"
 #include "leveldb/db.h"
 #include "leveldb/env.h"

@@ -35,11 +35,15 @@ typedef bool      fds_bool_t;
 typedef uint64_t  fds_uint64_t;
 typedef long      fds_long_t;
 
-// UDP & TCP port numbers reserver fo StorMgr and DataMgr servers
+/*
+ * UDP & TCP port numbers reserver for
+ * StorMgr and DataMgr servers.
+ */
 #define FDS_CLUSTER_TCP_PORT_SM         6900
 #define FDS_CLUSTER_TCP_PORT_DM         6901
 #define FDS_CLUSTER_UDP_PORT_SM         9600
 #define FDS_CLUSTER_UDP_PORT_DM         9601
+
 /**
  * In-memory representation of an object ID
  */
@@ -72,6 +76,14 @@ namespace fds {
 
     ~ObjectID() { }
 
+    fds_uint64_t GetHigh() const {
+      return hash_high;
+    }
+
+    fds_uint64_t GetLow() const {
+      return hash_low;
+    }
+
     void SetId(fds_uint64_t _high, fds_uint64_t _low) {
       hash_high = _high;
       hash_low  = _low;
@@ -93,6 +105,24 @@ namespace fds {
       memcpy(str + sizeof(fds_uint64_t), &hash_low, sizeof(fds_uint64_t));
 
       return std::string(str, GetLen());
+    }
+
+    /*
+     * Operators
+     */
+    bool operator==(const ObjectID& rhs) {
+      return ((this->hash_high == rhs.hash_high) &&
+              (this->hash_low == rhs.hash_low));
+    }
+
+    bool operator!=(const ObjectID& rhs) {
+      return !(*this == rhs);
+    }
+
+    ObjectID& operator=(const ObjectID& rhs) {
+      hash_high = rhs.hash_high;
+      hash_low = rhs.hash_low;
+      return *this;
     }
 
     /*

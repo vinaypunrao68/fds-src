@@ -9,7 +9,7 @@
 #include <boost/thread/condition.hpp>
 #include <boost/thread/locks.hpp>
 
-#include "lib/fds_types.h"
+#include "include/fds_types.h"
 #include "util/concurrency/Mutex.h"
 
 namespace fds {

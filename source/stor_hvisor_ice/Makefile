@@ -15,9 +15,10 @@ TARGETS		= $(FDS_CFG)
 
 ICE_OBJS	= ../fdsp/FDSP.o
 
-COBJS		= StorHvisorNet.o\
-		  StorHvisorTx.o\
-		  StorHvisorTbl.o\
+COBJS		= StorHvisorNet.o \
+		  VolumeCatalogCache.o \
+		  StorHvisorTx.o  \
+		  StorHvisorTbl.o \
 		  StorHvisorRx.o
 
 SRCS		= $(OBJS:.o=.cpp) \
@@ -25,9 +26,14 @@ SRCS		= $(OBJS:.o=.cpp) \
 
 #SLICE_SRCS	= FDSP.ice
 
+#
+# Use C++11 for additional STL support
+#
+CPP11		= yes
+
 include $(top_srcdir)/config/Make.rules
 
-CPPFLAGS	:= -I. $(CPPFLAGS) -I $(top_srcdir)/include/Ice -I../include -I../util/hash -I../fds_client/include -I../fdsp
+CPPFLAGS	:= -I. $(CPPFLAGS) -I $(top_srcdir)/include/Ice -I../include -I../util/hash -I../fds_client/include -I../fdsp -I..
 
 # create only  .o for now 
 $(FDS_CFG): $(OBJS) $(COBJS) $(ICE_OBJS)
