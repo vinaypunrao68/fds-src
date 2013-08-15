@@ -1,6 +1,6 @@
 #ifndef _OMGRCLIENT_H
 #define _OMGRCLIENT_H
-#include "fds_err.h"
+#include "include/fds_err.h"
 #include "fds_pubsub.h"
 #include <unordered_map>
 #include <Ice/Ice.h>
