@@ -76,6 +76,14 @@ namespace fds {
 
     ~ObjectID() { }
 
+    fds_uint64_t GetHigh() const {
+      return hash_high;
+    }
+
+    fds_uint64_t GetLow() const {
+      return hash_low;
+    }
+
     void SetId(fds_uint64_t _high, fds_uint64_t _low) {
       hash_high = _high;
       hash_low  = _low;
@@ -97,6 +105,24 @@ namespace fds {
       memcpy(str + sizeof(fds_uint64_t), &hash_low, sizeof(fds_uint64_t));
 
       return std::string(str, GetLen());
+    }
+
+    /*
+     * Operators
+     */
+    bool operator==(const ObjectID& rhs) {
+      return ((this->hash_high == rhs.hash_high) &&
+              (this->hash_low == rhs.hash_low));
+    }
+
+    bool operator!=(const ObjectID& rhs) {
+      return !(*this == rhs);
+    }
+
+    ObjectID& operator=(const ObjectID& rhs) {
+      hash_high = rhs.hash_high;
+      hash_low = rhs.hash_low;
+      return *this;
     }
 
     /*

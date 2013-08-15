@@ -9,8 +9,9 @@ OPTS ?= -g2               # (A) Debug mode
 #OPTS ?= -O2 -g2 -DNDEBUG # (B) Profiling mode
 #OPTS ?= -O2 -DNDEBUG     # (C) Production mode
 
-CPPC   = g++
-CFLAGS = -Wall -Werror $(IDIR) $(LDIR) $(OPTS)
+CPPC	= g++
+CPP11	= -std=c++0x
+CFLAGS	= -Wall -Werror $(CPP11) $(IDIR) $(LDIR) $(OPTS)
 #LDIR =-L/usr/lib/mysql -L/usr/lib64/mysql -L.
 #LIBS=$(LDIR) -lssl -lcrypto -lmysqlclient -lfds
 
@@ -23,7 +24,8 @@ LIBK_CFLAGS=$(LIBK_IDIR) -g -DVVC_DBG -DLIB_KERNEL -D__KERNEL__ -DMODULE
 #DEPS = tvc_private.h vvc_private.h$(TOPDIR)/include/tvclib.h
 DEPS = \
 	Catalog.h \
-	VolumeCatalog.h
+	VolumeCatalog.h \
+	VolumeCatalogCache.h
 
 #SRCS = vvc_private.c tvclib.c vvclib.c vvc_db.c
 SRCS = \
