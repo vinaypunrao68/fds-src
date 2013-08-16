@@ -28,6 +28,11 @@ namespace fds {
     int tennant_id;
     int domain_id;
     node_map_t node_map;
+    int dlt_version;
+    Node_Table_Type dlt;
+    int dmt_version;
+    Node_Table_Type dmt;
+    
 
     node_event_handler_t node_evt_hdlr;
 
@@ -47,6 +52,10 @@ namespace fds {
     int getNodeInfo(int node_id, unsigned int *node_ip_addr, int *node_state);
     int getDLTNodesForDoidKey(unsigned char doid_key, int *node_ids, int *n_nodes);
     int getDMTNodesForVolume(int vol_id, int *node_ids, int *n_nodes);
+
+    int recvNodeEvent(int node_id, unsigned int node_ip, int node_state);
+    int recvDLTUpdate(int dlt_version, const Node_Table_Type& dlt_table);
+    int recvDMTUpdate(int dmt_version, const Node_Table_Type& dmt_table);
 
   };
 

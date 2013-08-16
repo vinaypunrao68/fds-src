@@ -6,26 +6,41 @@ using namespace fds;
 class OMgr_SubscriberI : virtual public FDS_OMgr_Subscriber {
 public:
 
-  node_event_handler_t node_evt_hdlr;
+  OMgrClient *om_client;
+
+  OMgr_SubscriberI(OMgrClient *omc) {
+    this->om_client = omc;
+  }
 
   virtual void NotifyNodeAdd(const FDS_PubSub_MsgHdrTypePtr& msg_hdr,
 			     const FDS_PubSub_Node_Info_TypePtr& node_info,
 			     const Ice::Current&) {
 
     printf("Received Node Add Event for tenant %d domain %d : %d; %x\n", msg_hdr->tennant_id, msg_hdr->domain_id, node_info->node_id, (unsigned int) node_info->node_ip);
-    if (node_evt_hdlr) {
-      node_evt_hdlr(node_info->node_id, (unsigned int) node_info->node_ip, node_info->node_state); 
-    }
+    om_client->recvNodeEvent(node_info->node_id, (unsigned int) node_info->node_ip, node_info->node_state); 
 
   }
   virtual void NotifyNodeRmv(const FDS_PubSub_MsgHdrTypePtr& msg_hdr,
 			     const FDS_PubSub_Node_Info_TypePtr& node_info,
 			     const Ice::Current&) {
     printf("Received Node Rmv Event : %d\n", node_info->node_id);
-    if (node_evt_hdlr) {
-      node_evt_hdlr(node_info->node_id, (unsigned int) node_info->node_ip, node_info->node_state); 
-    }
+    om_client->recvNodeEvent(node_info->node_id, (unsigned int) node_info->node_ip, node_info->node_state); 
+
   }
+
+  virtual void NotifyDLTUpdate(const FDS_PubSub_MsgHdrTypePtr& msg_dr,
+			       const FDS_PubSub_DLT_TypePtr& dlt_info,
+			       const Ice::Current&) {
+    printf("Received dlt update: %d\n", dlt_info->DLT_version);
+    om_client->recvDLTUpdate(dlt_info->DLT_version, dlt_info->DLT);
+  }
+  virtual void NotifyDMTUpdate(const FDS_PubSub_MsgHdrTypePtr& msg_dr,
+			       const FDS_PubSub_DMT_TypePtr& dmt_info,
+			       const Ice::Current&) {
+    printf("Received dmt update: %d\n", dmt_info->DMT_version);
+    om_client->recvDMTUpdate(dmt_info->DMT_version, dmt_info->DMT);
+  }
+
 
 };
 
@@ -54,9 +69,7 @@ int OMgrClient::subscribeToOmEvents(unsigned int om_ip_addr, int tenn_id, int do
 
   adapter = comm->createObjectAdapterWithEndpoints("OMgrSubscriberAdapter", "tcp");
 
-  OMgr_SubscriberI *om_client = new OMgr_SubscriberI;
-  om_client->node_evt_hdlr = this->node_evt_hdlr;
-  om_client_i = om_client;
+  om_client_i = new OMgr_SubscriberI(this);
 
   proxy = adapter->addWithUUID(om_client_i)->ice_oneway();
 
@@ -76,29 +89,74 @@ int OMgrClient::subscribeToOmEvents(unsigned int om_ip_addr, int tenn_id, int do
   return 0;
 }    
 
+int OMgrClient::recvNodeEvent(int node_id, unsigned int node_ip, int node_state) {
+  
+  node_info_t& node = node_map[node_id];
+
+  node.node_id = node_id;
+  node.node_ip_address = node_ip;
+  node.node_state = (FDS_PubSub_NodeState) node_state;
+
+  if (this->node_evt_hdlr) {
+    this->node_evt_hdlr(node_id, node_ip, node_state);
+  }
+  return (0);
+  
+}
+
+int OMgrClient::recvDLTUpdate(int dlt_vrsn, const Node_Table_Type& dlt_table) {
+  printf("New DLT : num shards - %d\n", dlt_table.size());
+  this->dlt_version = dlt_vrsn;
+  this->dlt = dlt_table;
+  return (0);
+}
+
+int OMgrClient::recvDMTUpdate(int dmt_vrsn, const Node_Table_Type& dmt_table) {
+  printf("New DMT : num shards - %d\n", dmt_table.size());
+  this->dmt_version = dmt_vrsn;
+  this->dmt = dmt_table;
+  return (0);
+}
+
 int OMgrClient::getNodeInfo(int node_id, unsigned int *node_ip_addr, int *node_state) {
-  if (node_id == 1) {
-    *node_ip_addr = (unsigned int) 0x0a010ac9;
-    *node_state = FDS_Node_Up;
-  } else if (node_id == 2) {
-    *node_ip_addr = (unsigned int) 0x0a010aca;
-    *node_state = FDS_Node_Up;
-  } else {
+  
+  node_info_t& node = node_map[node_id];
+
+  if (node.node_id != node_id) {
     return (-1);
   }
+
+  *node_ip_addr = node.node_ip_address;
+  *node_state = node.node_state;
+  
   return 0;
 } 
 
 int OMgrClient::getDLTNodesForDoidKey(unsigned char doid_key, int *node_ids, int *n_nodes) {
-  node_ids[0] = 1;
-  node_ids[1] = 2;
-  *n_nodes = 2;
+  
+  int total_shards = this->dlt.size();
+  int lookup_key = doid_key % total_shards;
+  int total_nodes = this->dlt[lookup_key].size();
+  *n_nodes = (total_nodes < *n_nodes)? total_nodes:*n_nodes;
+  int i;
+  
+  for (i = 0; i < *n_nodes; i++) {
+    node_ids[i] = this->dlt[lookup_key][i];
+  } 
+
   return 0;
 }
 
 int OMgrClient::getDMTNodesForVolume(int vol_id, int *node_ids, int *n_nodes) {
-  node_ids[0] = 1;
-  node_ids[1] = 2;
-  *n_nodes = 2;
+
+  int total_shards = this->dmt.size();
+  int lookup_key = vol_id % total_shards;
+  int total_nodes = this->dmt[lookup_key].size();
+  *n_nodes = (total_nodes < *n_nodes)? total_nodes:*n_nodes;
+  int i;
+  
+  for (i = 0; i < *n_nodes; i++) {
+    node_ids[i] = this->dmt[lookup_key][i];
+  } 
   return 0;
 }

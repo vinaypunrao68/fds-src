@@ -15,6 +15,7 @@ int main(int argc, char *argv[]) {
 	size_t n_bytes;
 	char *line_ptr = 0;
 	char cmd_wd[32];
+	int input_field;
 
 	om_client = new OMgrClient();
 
@@ -36,8 +37,10 @@ int main(int argc, char *argv[]) {
 	    int n_nodes = 8;
 	    int i;
 
-	    om_client->getDLTNodesForDoidKey(73, node_ids, &n_nodes);
-	    printf("DLT Nodes for key 73 :\n");
+	    sscanf(line_ptr, "%s %d", cmd_wd, &input_field);
+
+	    om_client->getDLTNodesForDoidKey((unsigned char)input_field, node_ids, &n_nodes);
+	    printf("DLT Nodes for key %d :\n", input_field);
 	    for (i = 0; i < n_nodes; i++) {
 	      unsigned int node_ip = 0;
 	      int node_state = -1;
@@ -52,8 +55,10 @@ int main(int argc, char *argv[]) {
 	    int n_nodes = 8;
 	    int i;
 
-	    om_client->getDMTNodesForVolume(24, node_ids, &n_nodes);
-	    printf("DMT Nodes for volume 24 :\n");
+	    sscanf(line_ptr, "%s %d", cmd_wd, &input_field);
+
+	    om_client->getDMTNodesForVolume(input_field, node_ids, &n_nodes);
+	    printf("DMT Nodes for volume %d :\n", input_field);
 	    for (i = 0; i < n_nodes; i++) {
 	      unsigned int node_ip = 0;
 	      int node_state = -1;
