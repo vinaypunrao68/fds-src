@@ -7,7 +7,6 @@
 namespace fds {
 
 CatalogCache::CatalogCache() {
-  
 }
 
 CatalogCache::~CatalogCache() {
@@ -20,10 +19,9 @@ Error CatalogCache::Query(fds_uint64_t block_id,
   try {
     ObjectID& obj = offset_map.at(block_id);
     *oid = obj;
-  } catch (const std::out_of_range& oor) {
+  } catch(const std::out_of_range& oor) {
     err = ERR_CAT_QUERY_FAILED;
   }
-
   return err;
 }
 
@@ -49,16 +47,31 @@ Error CatalogCache::Update(fds_uint64_t block_id, const ObjectID& oid) {
   return err;
 }
 
+void CatalogCache::Clear() {
+  offset_map.clear();
+}
+
 /*
  * TODO: Change this interface once we get a generic network
  * API. This current interface can ONLY talk to ONE DM!
  */
 VolumeCatalogCache::VolumeCatalogCache(
     FDS_ProtocolInterface::FDSP_DataPathReqPrx& fdspDPAPI_arg)
-    : fdspDPAPI(fdspDPAPI_arg) {  
+    : fdspDPAPI(fdspDPAPI_arg) {
 }
 
 VolumeCatalogCache::~VolumeCatalogCache() {
+  /*
+   * Iterate the vol_cache_map to free the
+   * catalog pointers.
+   */
+  for (std::unordered_map<fds_uint32_t, CatalogCache*>::iterator it =
+           vol_cache_map.begin();
+       it != vol_cache_map.end();
+       it++) {
+    delete it->second;
+  }
+  vol_cache_map.clear();
 }
 
 /*
@@ -68,7 +81,67 @@ VolumeCatalogCache::~VolumeCatalogCache() {
 Error VolumeCatalogCache::RegVolume(fds_uint64_t vol_uuid) {
   Error err(ERR_OK);
 
-  vol_cache_map[vol_uuid] = CatalogCache();
+  vol_cache_map[vol_uuid] = new CatalogCache();
+
+  return err;
+}
+
+Error VolumeCatalogCache::Query(fds_uint64_t vol_uuid,
+                                fds_uint64_t block_id,
+                                ObjectID *oid) {
+  Error err(ERR_OK);
+
+  /*
+   * For now, add a new volume cache if we haven't
+   * seen this object before. This is hackey, but
+   * allows the caller to not need to call RegVolume
+   * beforehand.
+   */
+  if (vol_cache_map.count(vol_uuid) == 0) {
+    err = RegVolume(vol_uuid);
+    if (err != ERR_OK) {
+      return err;
+    }
+  }
+
+  CatalogCache *catcache = vol_cache_map[vol_uuid];
+
+  err = catcache->Query(block_id, oid);
+  if (!err.ok()) {
+    /*
+     * Not in the cache. Contact DM.
+     */
+    std::cout << "Not in cache! Contacting DM" << std::endl;
+
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr =
+        new FDS_ProtocolInterface::FDSP_MsgHdrType;
+    FDS_ProtocolInterface::FDSP_QueryCatalogTypePtr query_req =
+        new FDS_ProtocolInterface::FDSP_QueryCatalogType;
+
+    msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_QUERY_CAT_OBJ_REQ;
+
+    msg_hdr->src_id = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
+    msg_hdr->dst_id = FDS_ProtocolInterface::FDSP_DATA_MGR;
+
+    msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
+    msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+
+    query_req->volume_offset         = block_id;
+    query_req->dm_transaction_id     = 1;
+    query_req->dm_operation          =
+        FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_OPEN;
+    query_req->data_obj_id.hash_high = 0;
+    query_req->data_obj_id.hash_low  = 0;
+
+    fdspDPAPI->QueryCatalogObject(msg_hdr, query_req);
+
+    /*
+     * Rest the error to OK since we set the message.
+     * TODO: Make the RPC above synchronous so we get the
+     * response inline.
+     */
+    err = ERR_OK;
+  }
 
   return err;
 }
@@ -80,7 +153,7 @@ Error VolumeCatalogCache::Update(fds_uint64_t vol_uuid,
                                  fds_uint64_t block_id,
                                  const ObjectID &oid) {
   Error err(ERR_OK);
-  
+
   /*
    * For now, add a new volume cache if we haven't
    * seen this object before. This is hackey, but
@@ -95,9 +168,9 @@ Error VolumeCatalogCache::Update(fds_uint64_t vol_uuid,
     }
   }
 
-  CatalogCache& catcache = vol_cache_map[vol_uuid];
+  CatalogCache *catcache = vol_cache_map[vol_uuid];
 
-  err = catcache.Update(block_id, oid);
+  err = catcache->Update(block_id, oid);
   /*
    * If the exact entry already existed
    * we can return success.
@@ -117,22 +190,42 @@ Error VolumeCatalogCache::Update(fds_uint64_t vol_uuid,
    * of requests that go as thread specific pointers for each thread
    * in the thread pool.
    */
-  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr = new FDS_ProtocolInterface::FDSP_MsgHdrType;
-  FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr update_req = new FDS_ProtocolInterface::FDSP_UpdateCatalogType;
-  
+  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr =
+      new FDS_ProtocolInterface::FDSP_MsgHdrType;
+  FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr update_req =
+      new FDS_ProtocolInterface::FDSP_UpdateCatalogType;
+
+  msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_UPDATE_CAT_OBJ_REQ;
+
+  msg_hdr->src_id = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
+  msg_hdr->dst_id = FDS_ProtocolInterface::FDSP_DATA_MGR;
+
+  msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
+  msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+
   update_req->volume_offset         = block_id;
   update_req->dm_transaction_id     = 1;
-  update_req->dm_operation          = FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_OPEN;
+  update_req->dm_operation          =
+      FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_OPEN;
   update_req->data_obj_id.hash_high = oid.GetHigh();
   update_req->data_obj_id.hash_low  = oid.GetLow();
-  
+
   fdspDPAPI->UpdateCatalogObject(msg_hdr, update_req);
-  
+
   return err;
 }
 
 /*
  * Update interface for a generic blob.
  */
+
+/*
+ * Clears the local in-memory cache for a volume.
+ */
+void VolumeCatalogCache::Clear(fds_uint64_t vol_uuid) {
+  if (vol_cache_map.count(vol_uuid) > 0) {
+    vol_cache_map[vol_uuid]->Clear();
+  }
+}
 
 }  // namespace fds

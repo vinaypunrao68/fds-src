@@ -16,10 +16,10 @@ TARGETS		= $(FDS_CFG)
 ICE_OBJS	= ../fdsp/FDSP.o
 
 COBJS		= StorHvisorNet.o \
-		  VolumeCatalogCache.o \
 		  StorHvisorTx.o  \
 		  StorHvisorTbl.o \
 		  StorHvisorRx.o
+#		  VolumeCatalogCache.o \
 
 SRCS		= $(OBJS:.o=.cpp) \
 		  $(COBJS:.o=.cpp)
@@ -29,7 +29,10 @@ SRCS		= $(OBJS:.o=.cpp) \
 #
 # Use C++11 for additional STL support
 #
-CPP11		= yes
+#CPP11		= yes
+
+MY_FLAGS	= -std=c++0x -Wall -Werror -g2 -I../ -I../lib/Ice-3.5.0/cpp/include
+MY_LIBS		= -L../lib/Ice-3.5.0/cpp/lib -lpthread -lIce -lIceUtil ../fdsp/FDSP.o ./VolumeCatalogCache.o
 
 include $(top_srcdir)/config/Make.rules
 
@@ -38,6 +41,9 @@ CPPFLAGS	:= -I. $(CPPFLAGS) -I $(top_srcdir)/include/Ice -I../include -I../util/
 # create only  .o for now 
 $(FDS_CFG): $(OBJS) $(COBJS) $(ICE_OBJS)
 	ar rc  $@  $(OBJS) $(COBJS) $(ICE_OBJS)
+	$(CXX) $(LDFLAGS) -c -o VolumeCatalogCache.o VolumeCatalogCache.cpp $(MY_FLAGS)
+	$(CXX) $(LDFLAGS) -o vcc_unit_test vcc_unit_test.cpp $(MY_FLAGS) $(MY_LIBS)
+#$(CXX) $(LDFLAGS) -o sh_unit_test.cpp $@  $(OBJS) $(COBJS) $(ICE_OBJS) -L/usr/lib/mysql -L/usr/lib64/mysql -L/usr/lib -L../lib/  -L../lib/Ice-3.5.0/cpp/lib -lpthread -lIce -lIceUtil -lrt -lfds ../util/hash/MurmurHash3.o
 #	rm -f $@
 #	$(CXX)  $@ $(OBJS) $(COBJS) $(LIBS) $(HV_LIBS)
 #	$(CXX) $(LDFLAGS) -o $@ $(OBJS) $(COBJS) $(LIBS) $(HV_LIBS)

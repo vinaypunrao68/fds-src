@@ -88,6 +88,15 @@ namespace fds {
       hash_high = _high;
       hash_low  = _low;
     }
+
+    /*
+     * Assumes the length of the data is 2 * hash size.
+     * The caller needs to ensure this is the case.
+     */
+    void SetId(const char* data) {
+      memcpy(&hash_high, data, sizeof(fds_uint64_t));
+      memcpy(&hash_low, data + sizeof(fds_uint64_t), sizeof(fds_uint64_t));
+    }
     
     /*
      * Returns the size of the OID in bytes.

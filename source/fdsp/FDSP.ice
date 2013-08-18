@@ -25,6 +25,7 @@ enum FDSP_MsgCodeType {
    FDSP_MSG_GET_OBJ_REQ,
    FDSP_MSG_VERIFY_OBJ_REQ,
    FDSP_MSG_UPDATE_CAT_OBJ_REQ,
+   FDSP_MSG_QUERY_CAT_OBJ_REQ,
    FDSP_MSG_OFFSET_WRITE_OBJ_REQ,
    FDSP_MSG_REDIR_READ_OBJ_REQ,
 
@@ -32,6 +33,7 @@ enum FDSP_MsgCodeType {
    FDSP_MSG_GET_OBJ_RSP,
    FDSP_MSG_VERIFY_OBJ_RSP,
    FDSP_MSG_UPDATE_CAT_OBJ_RSP,
+   FDSP_MSG_QUERY_CAT_OBJ_RSP,
    FDSP_MSG_OFFSET_WRITE_OBJ_RSP,
    FDSP_MSG_REDIR_READ_OBJ_RSP
 };
@@ -98,7 +100,12 @@ class FDSP_UpdateCatalogType {
   int      dm_operation;       /* Transaction type = OPEN, COMMIT, CANCEL */
 };
 
-
+class FDSP_QueryCatalogType {
+  int      volume_offset;       /* Offset inside the volume where the object resides */
+  FDS_ObjectIdType   data_obj_id;         /* Object id of the object that this block is being mapped to */
+  int      dm_transaction_id;  /* Transaction id */
+  int      dm_operation;       /* Transaction type = OPEN, COMMIT, CANCEL */
+};
 
 class FDSP_MsgHdrType {
     FDSP_MsgCodeType     msg_code;
@@ -145,6 +152,8 @@ interface FDSP_DataPathReq {
 
     void UpdateCatalogObject(FDSP_MsgHdrType fdsp_msg, FDSP_UpdateCatalogType cat_obj_req);
 
+    void QueryCatalogObject(FDSP_MsgHdrType fdsp_msg, FDSP_QueryCatalogType cat_obj_req);
+
     void OffsetWriteObject(FDSP_MsgHdrType fdsp_msg, FDSP_OffsetWriteObjType offset_write_obj_req);
 
     void RedirReadObject(FDSP_MsgHdrType fdsp_msg, FDSP_RedirReadObjType redir_write_obj_req);
@@ -159,6 +168,8 @@ interface FDSP_DataPathResp {
     void PutObjectResp(FDSP_MsgHdrType fdsp_msg, FDSP_PutObjType put_obj_req);
 
     void UpdateCatalogObjectResp(FDSP_MsgHdrType fdsp_msg, FDSP_UpdateCatalogType cat_obj_req);
+
+    void QueryCatalogObjectResp(FDSP_MsgHdrType fdsp_msg, FDSP_QueryCatalogType cat_obj_req);
 
     void OffsetWriteObjectResp(FDSP_MsgHdrType fdsp_msg, FDSP_OffsetWriteObjType offset_write_obj_req);
 

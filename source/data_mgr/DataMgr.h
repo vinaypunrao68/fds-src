@@ -6,21 +6,19 @@
  * Umbrella classes for the data manager component.
  */
 
-#ifndef SOURCE_DATA_MGR_DATA_MGR_H_
-#define SOURCE_DATA_MGR_DATA_MGR_H_
+#ifndef SOURCE_DATA_MGR_DATAMGR_H_
+#define SOURCE_DATA_MGR_DATAMGR_H_
+
+#include <Ice/Ice.h>
 
 #include <unordered_map>
 
 #include "fdsp/FDSP.h"
-#include <Ice/Ice.h>
 #include "include/fds_types.h"
 #include "include/fds_err.h"
 
 #include "util/Log.h"
 #include "data_mgr/VolumeMeta.h"
-
-using namespace FDS_ProtocolInterface;
-using namespace Ice;
 
 namespace fds {
 
@@ -34,12 +32,19 @@ private:
 
   fds_log *dm_log;
 
-  std::unordered_map<fds_uint64_t, VolumeMeta> vol_meta_map;
+  /*
+   * TODO: Move to STD shared or unique pointers. That's
+   * safer.
+   */
+  std::unordered_map<fds_uint64_t, VolumeMeta*> vol_meta_map;
 
   Error _process_open(fds_uint32_t vol_offset,
                       fds_uint32_t trans_id,
                       const ObjectID& oid);
   Error _process_close();
+
+  Error _process_query(fds_uint32_t vol_offset,
+                       ObjectID *oid);
   
 public:
   DataMgr();
@@ -61,24 +66,28 @@ public:
     ReqHandler(const Ice::CommunicatorPtr& communicator);
     ~ReqHandler();
     
-    void PutObject(const FDSP_MsgHdrTypePtr &msg_hdr,
-                   const FDSP_PutObjTypePtr &put_obj,
+    void PutObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &msg_hdr,
+                   const FDS_ProtocolInterface::FDSP_PutObjTypePtr &put_obj,
                    const Ice::Current&);
 
-    void GetObject(const FDSP_MsgHdrTypePtr &msg_hdr,
-                   const FDSP_GetObjTypePtr& get_obj,
+    void GetObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &msg_hdr,
+                   const FDS_ProtocolInterface::FDSP_GetObjTypePtr& get_obj,
                    const Ice::Current&);
 
-    void UpdateCatalogObject(const FDSP_MsgHdrTypePtr &msg_hdr,
-                             const FDSP_UpdateCatalogTypePtr& update_catalog,
+    void UpdateCatalogObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &msg_hdr,
+                             const FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr& update_catalog,
                              const Ice::Current&);
 
-    void OffsetWriteObject(const FDSP_MsgHdrTypePtr& msg_hdr,
-                           const FDSP_OffsetWriteObjTypePtr& offset_write_obj,
+    void QueryCatalogObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &msg_hdr,
+                            const FDS_ProtocolInterface::FDSP_QueryCatalogTypePtr& query_catalog,
+                            const Ice::Current&);
+
+    void OffsetWriteObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                           const FDS_ProtocolInterface::FDSP_OffsetWriteObjTypePtr& offset_write_obj,
                            const Ice::Current&);
 
-    void RedirReadObject(const FDSP_MsgHdrTypePtr &msg_hdr,
-                         const FDSP_RedirReadObjTypePtr& redir_read_obj,
+    void RedirReadObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &msg_hdr,
+                         const FDS_ProtocolInterface::FDSP_RedirReadObjTypePtr& redir_read_obj,
                          const Ice::Current&);
 
     void AssociateRespCallback(const Ice::Identity& ident,
@@ -93,18 +102,32 @@ public:
     RespHandler();
     ~RespHandler();
     
-    virtual void PutObjectResp(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_PutObjTypePtr &put_obj, const Ice::Current&);
+    void PutObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &msg_hdr,
+                       const FDS_ProtocolInterface::FDSP_PutObjTypePtr &put_obj,
+                       const Ice::Current&);
     
-    virtual void GetObjectResp(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_GetObjTypePtr& get_obj, const Ice::Current&);
+    void GetObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &msg_hdr,
+                       const FDS_ProtocolInterface::FDSP_GetObjTypePtr& get_obj,
+                       const Ice::Current&);
     
-    virtual void UpdateCatalogObjectResp(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_UpdateCatalogTypePtr& update_catalog , const Ice::Current&);
+    void UpdateCatalogObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &msg_hdr,
+                                 const FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr& update_catalog,
+                                 const Ice::Current&);
+
+    void QueryCatalogObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &msg_hdr,
+                                const FDS_ProtocolInterface::FDSP_QueryCatalogTypePtr& query_catalog,
+                                const Ice::Current&);
     
-    virtual void OffsetWriteObjectResp(const FDSP_MsgHdrTypePtr& msg_hdr, const FDSP_OffsetWriteObjTypePtr& offset_write_obj, const Ice::Current&);
+    void OffsetWriteObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                               const FDS_ProtocolInterface::FDSP_OffsetWriteObjTypePtr& offset_write_obj,
+                               const Ice::Current&);
     
-    virtual void RedirReadObjectResp(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_RedirReadObjTypePtr& redir_read_obj, const Ice::Current&);
+    void RedirReadObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &msg_hdr,
+                             const FDS_ProtocolInterface::FDSP_RedirReadObjTypePtr& redir_read_obj,
+                             const Ice::Current&);
   };
 };
 
 }  // namespace fds
 
-#endif // SOURCE_DATA_MGR_DATA_MGR_H
+#endif // SOURCE_DATA_MGR_DATAMGR_H_

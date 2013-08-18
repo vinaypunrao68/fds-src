@@ -14,6 +14,7 @@
 
 #include "include/fds_types.h"
 #include "include/fds_err.h"
+#include "util/Log.h"
 #include "lib/VolumeCatalog.h"
 
 namespace fds {
@@ -38,6 +39,18 @@ namespace fds {
      */
     TimeCatalog *tcat;
 
+    /*
+     * A logger received during instantiation.
+     */
+    fds_log *dm_log;
+
+    /*
+     * This class is non-copyable.
+     * Disable copy constructor/assignment operator.
+     */
+    VolumeMeta(const VolumeMeta& _vm);
+    VolumeMeta& operator=(const VolumeMeta rhs);
+
  public:
     /*
      * Default constructor should NOT be called
@@ -47,10 +60,15 @@ namespace fds {
     VolumeMeta();
     VolumeMeta(const std::string& _name,
                fds_uint64_t _uuid);
+    VolumeMeta(const std::string& _name,
+               fds_uint64_t _uuid,
+               fds_log* _dm_log);
     ~VolumeMeta();
 
     Error OpenTransaction(fds_uint32_t vol_offset,
                           const ObjectID &oid);
+    Error QueryVcat(fds_uint32_t vol_offset,
+                    ObjectID *oid);
   };
 
 }  // namespace fds

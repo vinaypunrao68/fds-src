@@ -31,11 +31,14 @@ Catalog::Catalog(const std::string& _file)
 
 Catalog::~Catalog() {
   delete options.filter_policy;
+  delete db;
 }
 
 Error
 Catalog::Update(const Record& key, const Record& val) {
   Error err(ERR_OK);
+
+  std::string test = val.ToString();
 
   leveldb::Status status = db->Put(write_options, key, val);
   if (!status.ok()) {
@@ -53,9 +56,16 @@ Catalog::Query(const Record& key, Record* val) {
   leveldb::Status status = db->Get(read_options, key, &value);
   if (!status.ok()) {
     err = fds::Error(fds::ERR_DISK_READ_FAILED);
+    return err;
   }
 
-  val = new Record(value);
+  /*
+   * The record should not have had any data.
+   * Clearing it will leak any allocated buffer.
+   */
+  val->clear();
+  *val = Record(value.data(), value.size());
+
   return err;
 }
 

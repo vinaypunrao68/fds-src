@@ -10,7 +10,7 @@
 int main(int argc, char *argv[]) {
   std::string key("My key");
   std::string data("My data");
-  
+
   fds::Record *rec;
 
   for (fds_uint32_t i = 0; i < 10; i++) {

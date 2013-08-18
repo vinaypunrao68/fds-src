@@ -19,25 +19,11 @@
 
 namespace fds {
 
-  class Record : public leveldb::Slice {
- private:
- public:
-    Record(const char* record_data,
-           fds_uint32_t record_size)
-        : leveldb::Slice(record_data, record_size) {
-    }
-    Record(const std::string &_record)
-        : leveldb::Slice(_record) {
-    }
-
-    ~Record() {
-    }
-
-    using leveldb::Slice::data;
-    using leveldb::Slice::size;
-    using leveldb::Slice::empty;
-    using leveldb::Slice::clear;
-  };
+  /*
+   * TODO: Just use leveldb's slice. Consider our own class
+   * in the future.
+   */
+  typedef leveldb::Slice Record;
 
   class Catalog {
  private:

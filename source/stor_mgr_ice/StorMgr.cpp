@@ -43,6 +43,11 @@ ObjectStorMgrI::UpdateCatalogObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDS
 }
 
 void
+ObjectStorMgrI::QueryCatalogObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_QueryCatalogTypePtr& query_catalog , const Ice::Current&) {
+  std::cout << "Wrong Interface Call: In the interface updatecatalog()" << std::endl;
+}
+
+void
 ObjectStorMgrI::OffsetWriteObject(const FDSP_MsgHdrTypePtr& msg_hdr, const FDSP_OffsetWriteObjTypePtr& offset_write_obj, const Ice::Current&) {
   std::cout << "In the interface offsetwrite()" << std::endl;
 }

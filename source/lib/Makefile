@@ -3,7 +3,7 @@ LEVELDB_DIR = ./leveldb-1.12.0/
 
 LDIR = -L$(LEVELDB_DIR)
 #IDIR = -I$(TOPDIR)/include -I/usr/include/mysql -I$(TOPDIR)
-IDIR = -I$(TOPDIR) -I$(LEVELDB_DIR) -I$(LEVELDB_DIR)/include/
+IDIR = -I$(TOPDIR) -I$(TOPDIR)/include/ -I$(LEVELDB_DIR) -I$(LEVELDB_DIR)/include/ -I/usr/include/mysql/
 
 OPTS ?= -g2               # (A) Debug mode
 #OPTS ?= -O2 -g2 -DNDEBUG # (B) Profiling mode
@@ -24,8 +24,7 @@ LIBK_CFLAGS=$(LIBK_IDIR) -g -DVVC_DBG -DLIB_KERNEL -D__KERNEL__ -DMODULE
 #DEPS = tvc_private.h vvc_private.h$(TOPDIR)/include/tvclib.h
 DEPS = \
 	Catalog.h \
-	VolumeCatalog.h \
-	VolumeCatalogCache.h
+	VolumeCatalog.h
 
 #SRCS = vvc_private.c tvclib.c vvclib.c vvc_db.c
 SRCS = \
@@ -39,21 +38,39 @@ TESTS = \
 OBJS = $(SRCS:%.cpp=%.o)
 #UTEST_OBJS = $(UTEST_SRCS:%.cpp=%.o)
 
+COFLAGS = -Wall -Werror $(CPP11) $(IDIR) $(LDIR) $(OPTS)
+
 # TODO: Clean this up
 #all: libfds.a tvc_unit_test vvc_unit_test
-all: $(TESTS)
+all: $(TESTS) libfds.a
 
 %.o: %.cpp $(DEPS)
 	$(CPPC) -c -o $@ $< $(CFLAGS)
 
+vvc_unit_test.o: vvc_unit_test.c
+	$(CPPC) -c -o $@ $< $(COFLAGS)
+
+vvclib.o: vvclib.c
+	$(CPPC) -c -o $@ $< $(COFLAGS)
+
+vvc_private.o: vvc_private.c
+	$(CPPC) -c -o $@ $< $(COFLAGS)
+
+tvclib.o: tvclib.c
+	$(CPPC) -c -o $@ $< $(COFLAGS)
+
+vvc_db.o: vvc_db.c
+	$(CPPC) -c -o $@ $< $(COFLAGS)
+
 catalog_unit_test: catalog_unit_test.cpp $(OBJS)
 	$(CPPC) -o $@ catalog_unit_test.cpp $(OBJS) $(LIBS) $(CFLAGS)
 
-libfds.a: $(OBJS)
-	ar -rcs $@ $(OBJS)
+#libfds.a: vvc_private.o tvclib.o vvclib.o vvc_db.o
+libfds.a: vvc_private.o vvclib.o vvc_db.o
+	ar -rcs $@ $(OBJS) vvc_private.o vvclib.o vvc_db.o
 
-tvc_unit_test: tvc_unit_test.o libfds.a
-	$(CC) -o $@ -g tvc_unit_test.o $(LIBS)
+#tvc_unit_test: tvc_unit_test.o libfds.a
+#	$(CC) -o $@ -g tvc_unit_test.o $(LIBS)
 
 vvc_unit_test: vvc_unit_test.o libfds.a
 	$(CC) -o $@ -g vvc_unit_test.o $(LIBS)
@@ -61,4 +78,4 @@ vvc_unit_test: vvc_unit_test.o libfds.a
 .PHONY: clean
 
 clean:
-	rm -f $(OBJS) $(UTEST_OBJS) *~ core 
+	rm -f $(OBJS) $(UTEST_OBJS) *~ core  libfds.a

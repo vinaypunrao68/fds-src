@@ -2,6 +2,8 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 
+#include <string>
+
 #include "lib/VolumeCatalog.h"
 
 namespace fds {

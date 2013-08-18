@@ -81,7 +81,7 @@ namespace fds {
      */
     explicit fds_log(const std::string& logfile);
     /*
-     * 
+     * Constructs new log in specific location.
      */
     fds_log(const std::string& logfile,
             const std::string& logloc);

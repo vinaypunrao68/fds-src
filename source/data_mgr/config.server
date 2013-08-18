@@ -3,7 +3,11 @@
 # "Hello". The following line sets the endpoints for this
 # adapter.
 #
-DataMgr.Endpoints=tcp -h localhost -p 6900
+DataMgrSvr.Endpoints=tcp -h localhost -p 6900
+
+DataMgrSvr.ThreadPool.Size=3
+DataMgrSvr.ThreadPool.SizeMax=15
+DataMgrSvr.ThreadPool.SizeWarn=14
 
 #
 # Warn about connection exceptions
