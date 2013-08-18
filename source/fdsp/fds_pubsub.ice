@@ -27,12 +27,18 @@ class FDS_PubSub_Node_Info_Type {
   FDS_PubSub_NodeState	   node_state;
 };
 
+sequence<int> Node_List_Type;
+sequence<Node_List_Type> Node_Table_Type;
+
+
 class FDS_PubSub_DLT_Type {
       int DLT_version;
+      Node_Table_Type DLT;
 };
 
 class FDS_PubSub_DMT_Type {
       int DMT_version;
+      Node_Table_Type DMT;
 };
 
 
@@ -41,11 +47,15 @@ class FDS_PubSub_MsgHdrType {
     int        major_ver;  /* Major version number of this message */
     int        minor_ver;  /* Minor version number of this message */
     int        msg_id;     /* Message id to discard duplicate request & maintain causal order */
+    int	       tennant_id; 
+    int        domain_id;	
 };
 
 interface FDS_OMgr_Subscriber {
     void NotifyNodeAdd(FDS_PubSub_MsgHdrType fds_msg_hdr, FDS_PubSub_Node_Info_Type node_info);
     void NotifyNodeRmv(FDS_PubSub_MsgHdrType fds_msg_hdr, FDS_PubSub_Node_Info_Type node_info);
+    void NotifyDLTUpdate(FDS_PubSub_MsgHdrType fds_msg_hdr, FDS_PubSub_DLT_Type dlt_info);
+    void NotifyDMTUpdate(FDS_PubSub_MsgHdrType fds_msg_hdr, FDS_PubSub_DMT_Type dmt_info);
 };
 
 };

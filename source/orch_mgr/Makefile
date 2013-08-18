@@ -20,4 +20,4 @@ $(OMGR): $(OBJS) $(OMOBJS)
 	$(CXX) $(LDFLAGS) -o $@ $(OBJS) $(OMOBJS) $(LIBS)
 
 clean::
-	-rm -rf  cmdline_orch_mgr.o
+	rm -rf  cmdline_orch_mgr cmdline_orch_mgr.o
