@@ -167,7 +167,7 @@ int vvc_db_entry_update(vvc_vdb_t *vdb, vvce_t *prev_vvce, vvce_t *new_vvce) {
   int i;
   int max_segments;
   char *tmp_query_string;
-  int n_chars=0;
+  // int n_chars=0;
   doid_hex_string tmp_doid_str;
 
   if (!vdb->db_name) {

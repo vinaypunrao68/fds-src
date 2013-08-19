@@ -93,6 +93,9 @@ public:
 
     void UpdateCatalogObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_UpdateCatalogTypePtr& cat_obj_req, const Ice::Current &); 
 
+    void QueryCatalogObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_QueryCatalogTypePtr& cat_obj_req, const Ice::Current &) {
+    }
+
     void OffsetWriteObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_OffsetWriteObjTypePtr& offset_write_obj_req, const Ice::Current &) {
 
     }
@@ -235,7 +238,6 @@ public:
 	void InitDmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
 	void InitSmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
 
-        // Rx Path Processing functions
 	int fds_set_dmack_status( int ipAddr, int  trans_id);
 	int fds_set_dm_commit_status( int ipAddr, int  trans_id);
 	int fds_set_smack_status( int ipAddr, int  trans_id);

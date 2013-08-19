@@ -55,7 +55,7 @@ StorHvCtrl::~StorHvCtrl()
 BEGIN_C_DECLS
 void *hvisor_lib_init(void)
 {
-        int err = -ENOMEM;
+  // int err = -ENOMEM;
 //        int rc;
 
         fbd_dev = (fbd_device *)malloc(sizeof(*fbd_dev));
@@ -85,7 +85,7 @@ void *hvisor_lib_init(void)
 #endif
 
         return (fbd_dev);
-        return (void *)err;
+        // return (void *)err;
 }
 END_C_DECLS
 

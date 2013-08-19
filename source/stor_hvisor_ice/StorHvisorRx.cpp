@@ -10,7 +10,6 @@
 #include "StorHvisorCPP.h"
 #include <arpa/inet.h>
 
-
 using namespace std;
 using namespace FDS_ProtocolInterface;
 using namespace Ice;

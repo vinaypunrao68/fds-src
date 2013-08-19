@@ -6,6 +6,7 @@
 
 // #define MAX_BLK_NAME_SZ           255
 // #include "fds_commons.h"
+#include "include/fds_commons_rm.h"
 // #include "vvc_private.h"
 
 #include "include/vvclib.h"

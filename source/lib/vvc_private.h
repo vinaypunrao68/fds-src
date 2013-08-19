@@ -11,6 +11,7 @@
 #endif
 
 // #include "fds_commons.h"
+#include "include/fds_commons_rm.h"
 
 #ifdef LIB_KERNEL
 
@@ -32,7 +33,7 @@ typedef struct __vvc_entry {
   char       *blk_name;
   int        num_segments;
   int        doid_list_size;
-  // doid_t     *doid_list;
+  doid_t     *doid_list;
 
 } vvce_t;
 

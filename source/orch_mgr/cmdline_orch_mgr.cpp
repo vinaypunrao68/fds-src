@@ -106,7 +106,7 @@ int main(int argc, char* argv[])
 	  {
 	    dlt_info_ptr->DLT_version = dlt_version++;
 	    construct_node_table_from_file(tmp_file_name, dlt_info_ptr->DLT);
-	    printf("DLT: %d shards\n", dlt_info_ptr->DLT.size());
+	    printf("DLT: %lu shards\n", dlt_info_ptr->DLT.size());
 	    om_client->NotifyDLTUpdate(msg_hdr_ptr, dlt_info_ptr);
 	    break;
 	  }
@@ -115,7 +115,7 @@ int main(int argc, char* argv[])
 	  {
 	    dmt_info_ptr->DMT_version = dmt_version++;
 	    construct_node_table_from_file(tmp_file_name, dmt_info_ptr->DMT);
-	    printf("DMT: %d shards\n", dmt_info_ptr->DMT.size());
+	    printf("DMT: %lu shards\n", dmt_info_ptr->DMT.size());
 	    om_client->NotifyDMTUpdate(msg_hdr_ptr, dmt_info_ptr);
 	    break;
 	  }
@@ -140,7 +140,7 @@ void construct_node_table_from_file(char *file_name, Node_Table_Type& node_table
   size_t n_bytes = 0;
   char *line_ptr = 0; 
   
-  printf("Table size- %d\n", node_table.size());
+  printf("Table size- %lu\n", node_table.size());
 
   fp = fopen(file_name, "r");
   
@@ -168,7 +168,7 @@ void construct_node_table_from_file(char *file_name, Node_Table_Type& node_table
     
     node_table.push_back(node_vect);
 
-    printf("Table size- %d, line - %s\n", node_table.size(), line_ptr);
+    printf("Table size- %lu, line - %s\n", node_table.size(), line_ptr);
     line_ptr[0] = 0;
 
   }
