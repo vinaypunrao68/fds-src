@@ -16,6 +16,7 @@ TARGETS		= $(FDS_CFG)
 ICE_OBJS	= ../fdsp/FDSP.o
 
 COBJS		= StorHvisorNet.o \
+		  RPC_EndPoint.o \
 		  StorHvisorTx.o  \
 		  StorHvisorTbl.o \
 		  StorHvisorRx.o
@@ -29,9 +30,9 @@ SRCS		= $(OBJS:.o=.cpp) \
 #
 # Use C++11 for additional STL support
 #
-#CPP11		= yes
+CPP11		= yes
 
-MY_FLAGS	= -std=c++0x -std=c++11 -std=g++11 -Wall -Werror -g2 -I../ -I../lib/Ice-3.5.0/cpp/include
+MY_FLAGS	= -std=c++0x -Wall -Werror -g2 -I../ -I../lib/Ice-3.5.0/cpp/include
 MY_LIBS		= -L../lib/Ice-3.5.0/cpp/lib -lpthread -lIce -lIceUtil ../fdsp/FDSP.o ./VolumeCatalogCache.o
 
 include $(top_srcdir)/config/Make.rules
