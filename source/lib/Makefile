@@ -5,7 +5,7 @@ ICEDIR = $(TOPDIR)/lib/Ice-3.5.0
 LDIR = -L$(LEVELDB_DIR)
 #IDIR = -I$(TOPDIR)/include -I/usr/include/mysql -I$(TOPDIR)
 #IDIR = -I$(TOPDIR) -I$(TOPDIR)/include/ -I$(LEVELDB_DIR) -I$(LEVELDB_DIR)/include/ -I/usr/include/mysql/
-IDIR = -I$(TOPDIR) -I$(LEVELDB_DIR) -I$(LEVELDB_DIR)/include/ -I$(TOPDIR)/fdsp -I$(ICEDIR)/cpp/include
+IDIR = -I$(TOPDIR) -I$(LEVELDB_DIR) -I$(LEVELDB_DIR)/include/ -I$(TOPDIR)/fdsp -I$(ICEDIR)/cpp/include -I/usr/include/mysql
 
 OPTS ?= -g2              # (A) Debug mode
 #OPTS ?= -O2 -g2 -DNDEBUG # (B) Profiling mode

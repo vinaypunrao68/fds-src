@@ -31,12 +31,12 @@ SRCS		= $(OBJS:.o=.cpp) \
 #
 #CPP11		= yes
 
-MY_FLAGS	= -std=c++0x -Wall -Werror -g2 -I../ -I../lib/Ice-3.5.0/cpp/include
+MY_FLAGS	= -std=c++0x -std=c++11 -std=g++11 -Wall -Werror -g2 -I../ -I../lib/Ice-3.5.0/cpp/include
 MY_LIBS		= -L../lib/Ice-3.5.0/cpp/lib -lpthread -lIce -lIceUtil ../fdsp/FDSP.o ./VolumeCatalogCache.o
 
 include $(top_srcdir)/config/Make.rules
 
-CPPFLAGS	:= -I. $(CPPFLAGS) -I $(top_srcdir)/include/Ice -I../include -I../util/hash -I../fds_client/include -I../fdsp -I..
+CPPFLAGS	:= -I. $(CPPFLAGS) -I $(top_srcdir)/include/Ice -I../include -I../util/hash -I../fds_client/include -I../fdsp -I.. -I../lib
 
 # create only  .o for now 
 $(FDS_CFG): $(OBJS) $(COBJS) $(ICE_OBJS)

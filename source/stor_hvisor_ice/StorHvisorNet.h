@@ -1,5 +1,5 @@
-#ifndef __StorHvisorClient_h__
-#define __StorHvisorClient_h__
+#ifndef __StorHvisorNet_h__
+#define __StorHvisorNet_h__
 #include <Ice/ProxyF.h>
 #include <Ice/ObjectF.h>
 #include <Ice/Exception.h>
@@ -21,6 +21,9 @@
 #include <Ice/Ice.h>
 #include <FDSP.h>
 #include "list.h"
+#include <list>
+#include "RPC_EndPoint.h"
+#include "StorHvDataPlace.h"
 
 #ifndef ICE_IGNORE_VERSION
 #   if ICE_INT_VERSION / 100 != 305
@@ -79,19 +82,16 @@ typedef unsigned int volid_t;
 //typedef void (*complete_req_cb_t)(void *arg1, void *arg2, void *treq, int res);
 
 using namespace FDS_ProtocolInterface;
+using namespace std;;
 
-#if 0
 class FDSP_DataPathRespCbackI : public FDSP_DataPathResp
 {
 public:
-    void GetObjectResp(const FDSP_MsgHdrTypePtr&, const FDSP_GetObjTypePtr&, const Ice::Current&) {
-    }
+    void GetObjectResp(const FDSP_MsgHdrTypePtr&, const FDSP_GetObjTypePtr&, const Ice::Current&);
 
-    void PutObjectResp(const FDSP_MsgHdrTypePtr&, const FDSP_PutObjTypePtr&, const Ice::Current&) {
-    }
+    void PutObjectResp(const FDSP_MsgHdrTypePtr&, const FDSP_PutObjTypePtr&, const Ice::Current&);
 
-    void UpdateCatalogObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_UpdateCatalogTypePtr& cat_obj_req, const Ice::Current &) {
-    }
+    void UpdateCatalogObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_UpdateCatalogTypePtr& cat_obj_req, const Ice::Current &); 
 
     void OffsetWriteObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_OffsetWriteObjTypePtr& offset_write_obj_req, const Ice::Current &) {
 
@@ -100,7 +100,6 @@ public:
     { 
     }
 };
-#endif
 
 #if 0
 typedef double                     td_sector_t;
@@ -175,67 +174,6 @@ typedef void (*complete_req_cb_t)(void *arg1, void *arg2, fbd_request_t *treq, i
 typedef unsigned char doid_t[20];
 
 /*************************************************************************** */
-//class StorHvisorClient : public Ice::Application
-class StorHvisorClient
-{
-public:
-    StorHvisorClient();
-    int run(int, char*[]);
-
-private:
-    void exception(const Ice::Exception&);
-};
-
-
-class SHvisorClientCallback : public IceUtil::Shared
-{
-public:
-
-    void response()
-    {
-    }
-
-    void exception(const Ice::Exception& ex)
-    {
-        std::cerr << " AMI call to ObjStorMgr failed:\n" << ex << std::endl;
-    }
-};
-
-typedef IceUtil::Handle<SHvisorClientCallback> shClientCallbackPtr;
-class FDSP_NetworkRec {
-public:
-	int 	node_index;
-	short   proto_type;
-	long 	ip_addr;
-	long 	port_num;
-};
-
-class FDSP_DmNode {
-public:
-        int   node_ipaddr;   /* ip address of the node */
-        short  node_state;    /* state of the node online/offline */
-        short  num_nodes;     /* number of DM nodes in the cluster */
-        short  node_type;     /* primary, secondary .... */
-        short  node_id;       /* node identifier , this might be overloaded with IP address */
-        struct   list_head list;
-
-};
-
-/* storage manager  structure */
-
-class FDSP_SmNode {
-public:
-        int    node_ipaddr;   /* ip address of the node */
-        short  stor_type;     /* type  of the storage in the node */
-        short  node_state;    /* state of the node online/offline */
-        short  num_nodes;     /* number of DM nodes in the cluster */
-        short  node_type;     /* primary, secondary .... */
-        short  node_id;       /* node identifier , this might be overloaded with IP address */
-        struct   list_head list;
-};
-
-
-
 class FDSP_IpNode {
 public:
         long  ipAddr;
@@ -243,7 +181,7 @@ public:
         short  commit_status;
 };
 
-class   FDSP_fdsJourn {
+class   StorHvJournalEntry {
 public:
         short  replc_cnt;
         short  sm_ack_cnt;
@@ -253,9 +191,9 @@ public:
         void     *fbd_ptr;
         void     *read_ctx;
         void     *write_ctx;
-		complete_req_cb_t comp_req;
-		void 	*comp_arg1;
-		void 	*comp_arg2;
+	complete_req_cb_t comp_req;
+	void 	*comp_arg1;
+	void 	*comp_arg2;
         FDSP_MsgHdrTypePtr     sm_msg;
         FDSP_MsgHdrTypePtr     dm_msg;
         struct   timer_list *p_ti;
@@ -267,64 +205,45 @@ public:
         FDSP_IpNode    sm_ack[FDS_MAX_SM_NODES_PER_CLST];
 };
 
-class FDSP_procJourn {
+class StorHvJournal {
 public:
-	int fds_init_trans_log(void);
+ 	StorHvJournal();
+ 	~StorHvJournal();
+	StorHvJournalEntry  rwlog_tbl[FDS_READ_WRITE_LOG_ENTRIES];
+        int next_trans_id;
+
 	int get_trans_id(void);
-
-
+        StorHvJournalEntry *get_journal_entry(int trans_id) {
+             return &rwlog_tbl[trans_id];
+        }
 };
 
 
-class FDSP_procTbl {
+class StorHvCtrl {
 public:
-	int  fds_init_dmt();
-	int fds_init_dlt();
-	int  add_dlt_entry(FDSP_SmNode *newdlt, int doid_key);
-	int add_dmt_entry(FDSP_DmNode  *newdmt, volid_t  vol_id);
-	int del_dmt_entry(int ipaddr, volid_t  vol_id);
-	int del_dlt_entry(int ipaddr, int doid_key);
-	FDSP_SmNode *get_sm_nodes_for_doid_key(int doid_key);
-	FDSP_DmNode *get_dm_nodes_for_volume(volid_t vol_id);
-	int populate_dmt_dlt_tbl();
+        StorHvCtrl(int argc, char *argv[]);
+        ~StorHvCtrl();	
 
-};
+        // Data Members
+        Ice::CommunicatorPtr _communicator;
+	StorHvJournal   	*journalTbl; 
+	StorHvDataPlacement     *dataPlacementTbl;
+        FDS_RPC_EndPointTbl        *rpcSwitchTbl; // RPC calls Switch Table
+        //VolumeCatalogCache         *volCatalogCache;
 
-class FDSP_Proc_Io:public FDS_ProtocolInterface::FDSP_MsgHdrType {
-public:
-	
+	void  InitIceObjects();
 	void InitDmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
 	void InitSmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
-	FDSP_fdsJourn	rwlog_tbl[FDS_READ_WRITE_LOG_ENTRIES];
-	FDSP_DmNode     dmt_tbl[FDS_MAC_DM_ENTRIES];
-	FDSP_SmNode     dlt_tbl[FDS_MAC_SM_ENTRIES];
-	FDSP_procJourn  procJ; 
-	FDSP_procTbl    procT;
 
-};
-
-class FDSP_ProcRx:public FDS_ProtocolInterface::FDSP_MsgHdrType {
-public:
+        // Rx Path Processing functions
 	int fds_set_dmack_status( int ipAddr, int  trans_id);
 	int fds_set_dm_commit_status( int ipAddr, int  trans_id);
 	int fds_set_smack_status( int ipAddr, int  trans_id);
 	void fbd_process_req_timeout(unsigned long arg);
 	void fbd_complete_req(int trans_id, fbd_request_t *req, int status);
-	int fds_process_get_obj_resp(FDSP_MsgHdrType *rd_msg, FDSP_GetObjType *get_obj_rsp );
-	int fds_process_put_obj_resp(FDSP_MsgHdrTypePtr rx_msg, FDSP_PutObjTypePtr put_obj_rsp );
-	int fds_process_update_catalog_resp(FDSP_MsgHdrTypePtr rx_msg, FDSP_UpdateCatalogTypePtr cat_obj_rsp );
+
+	int fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const FDSP_GetObjTypePtr& get_obj_rsp );
+	int fds_process_put_obj_resp(const FDSP_MsgHdrTypePtr& rx_msg,const  FDSP_PutObjTypePtr& put_obj_rsp );
+	int fds_process_update_catalog_resp(const FDSP_MsgHdrTypePtr& rx_msg,const  FDSP_UpdateCatalogTypePtr& cat_obj_rsp );
 };
-
-
-class FDSP_NetworkCon {
-public:
-	Ice::InitializationData  initData;
-	FDSP_DataPathReqPrx  fdspDPAPI;
-        FDSP_DataPathRespPtr fdspDataPathResp;
-	FDSP_Proc_Io	     procIo;
-	void  CreateNetworkEndPoint( FDSP_NetworkRec *netRec );
-	void  InitIceObejcts();
-	
-};
-
 #endif

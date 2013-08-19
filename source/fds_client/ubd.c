@@ -263,7 +263,7 @@ int main(int argc, char *argv[]) {
   }
 
   hvisor_hdl = hvisor_lib_init();
-  init_DPAPI();
+  CreateStorHvisor(argc, argv);
 
   printf("All done. About to enter wait loop\n");
   __hvisor_run(vbd);
