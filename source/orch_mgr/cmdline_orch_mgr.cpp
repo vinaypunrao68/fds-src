@@ -9,6 +9,7 @@
 #define CMD_DLT_UPDATE 3
 #define CMD_DMT_UPDATE 4
 
+using namespace FDSP_Types;
 using namespace FDS_PubSub_Interface; 
 using namespace std;
 
@@ -76,9 +77,9 @@ int main(int argc, char* argv[])
       try {
 	
 	FDS_PubSub_Interface::FDS_PubSub_MsgHdrTypePtr msg_hdr_ptr = new FDS_PubSub_MsgHdrType;
-	FDS_PubSub_Interface::FDS_PubSub_Node_Info_TypePtr node_info_ptr = new FDS_PubSub_Node_Info_Type;
-	FDS_PubSub_Interface::FDS_PubSub_DLT_TypePtr dlt_info_ptr = new FDS_PubSub_DLT_Type;
-	FDS_PubSub_Interface::FDS_PubSub_DMT_TypePtr dmt_info_ptr = new FDS_PubSub_DMT_Type;
+	FDSP_Types::FDSP_Node_Info_TypePtr node_info_ptr = new FDSP_Node_Info_Type;
+	FDSP_Types::FDSP_DLT_TypePtr dlt_info_ptr = new FDSP_DLT_Type;
+	FDSP_Types::FDSP_DMT_TypePtr dmt_info_ptr = new FDSP_DMT_Type;
 	
 
 	msg_hdr_ptr->msg_code = FDS_Node_Add;
@@ -106,7 +107,7 @@ int main(int argc, char* argv[])
 	  {
 	    dlt_info_ptr->DLT_version = dlt_version++;
 	    construct_node_table_from_file(tmp_file_name, dlt_info_ptr->DLT);
-	    printf("DLT: %lu shards\n", dlt_info_ptr->DLT.size());
+	    printf("DLT: %u shards\n", dlt_info_ptr->DLT.size());
 	    om_client->NotifyDLTUpdate(msg_hdr_ptr, dlt_info_ptr);
 	    break;
 	  }
@@ -115,7 +116,7 @@ int main(int argc, char* argv[])
 	  {
 	    dmt_info_ptr->DMT_version = dmt_version++;
 	    construct_node_table_from_file(tmp_file_name, dmt_info_ptr->DMT);
-	    printf("DMT: %lu shards\n", dmt_info_ptr->DMT.size());
+	    printf("DMT: %u shards\n", dmt_info_ptr->DMT.size());
 	    om_client->NotifyDMTUpdate(msg_hdr_ptr, dmt_info_ptr);
 	    break;
 	  }
@@ -140,7 +141,7 @@ void construct_node_table_from_file(char *file_name, Node_Table_Type& node_table
   size_t n_bytes = 0;
   char *line_ptr = 0; 
   
-  printf("Table size- %lu\n", node_table.size());
+  printf("Table size- %u\n", node_table.size());
 
   fp = fopen(file_name, "r");
   
@@ -168,7 +169,7 @@ void construct_node_table_from_file(char *file_name, Node_Table_Type& node_table
     
     node_table.push_back(node_vect);
 
-    printf("Table size- %lu, line - %s\n", node_table.size(), line_ptr);
+    printf("Table size- %u, line - %s\n", node_table.size(), line_ptr);
     line_ptr[0] = 0;
 
   }

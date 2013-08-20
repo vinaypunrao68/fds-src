@@ -44,7 +44,7 @@ TESTS = \
 
 OBJS = $(SRCS:%.cpp=%.o)
 #UTEST_OBJS = $(UTEST_SRCS:%.cpp=%.o)
-UTEST_OBJS = ../fdsp/fds_pubsub.o
+UTEST_OBJS = ../fdsp/fdsp_types.o ../fdsp/fds_pubsub.o
 
 COFLAGS = -Wall -Werror $(CPP11) $(IDIR) $(LDIR) $(OPTS)
 
@@ -88,4 +88,4 @@ vvc_unit_test: vvc_unit_test.o libfds.a
 .PHONY: clean
 
 clean:
-	rm -f $(OBJS) $(UTEST_OBJS) $(TESTS) libfds.a *~ core 
+	rm -f $(OBJS) $(TESTS) libfds.a *~ core 

@@ -13,7 +13,7 @@ public:
   }
 
   virtual void NotifyNodeAdd(const FDS_PubSub_MsgHdrTypePtr& msg_hdr,
-			     const FDS_PubSub_Node_Info_TypePtr& node_info,
+			     const FDSP_Node_Info_TypePtr& node_info,
 			     const Ice::Current&) {
 
     printf("Received Node Add Event for tenant %d domain %d : %d; %x\n", msg_hdr->tennant_id, msg_hdr->domain_id, node_info->node_id, (unsigned int) node_info->node_ip);
@@ -21,7 +21,7 @@ public:
 
   }
   virtual void NotifyNodeRmv(const FDS_PubSub_MsgHdrTypePtr& msg_hdr,
-			     const FDS_PubSub_Node_Info_TypePtr& node_info,
+			     const FDSP_Node_Info_TypePtr& node_info,
 			     const Ice::Current&) {
     printf("Received Node Rmv Event : %d\n", node_info->node_id);
     om_client->recvNodeEvent(node_info->node_id, (unsigned int) node_info->node_ip, node_info->node_state); 
@@ -29,13 +29,13 @@ public:
   }
 
   virtual void NotifyDLTUpdate(const FDS_PubSub_MsgHdrTypePtr& msg_dr,
-			       const FDS_PubSub_DLT_TypePtr& dlt_info,
+			       const FDSP_DLT_TypePtr& dlt_info,
 			       const Ice::Current&) {
     printf("Received dlt update: %d\n", dlt_info->DLT_version);
     om_client->recvDLTUpdate(dlt_info->DLT_version, dlt_info->DLT);
   }
   virtual void NotifyDMTUpdate(const FDS_PubSub_MsgHdrTypePtr& msg_dr,
-			       const FDS_PubSub_DMT_TypePtr& dmt_info,
+			       const FDSP_DMT_TypePtr& dmt_info,
 			       const Ice::Current&) {
     printf("Received dmt update: %d\n", dmt_info->DMT_version);
     om_client->recvDMTUpdate(dmt_info->DMT_version, dmt_info->DMT);
@@ -95,7 +95,7 @@ int OMgrClient::recvNodeEvent(int node_id, unsigned int node_ip, int node_state)
 
   node.node_id = node_id;
   node.node_ip_address = node_ip;
-  node.node_state = (FDS_PubSub_NodeState) node_state;
+  node.node_state = (FDSP_NodeState) node_state;
 
   if (this->node_evt_hdlr) {
     this->node_evt_hdlr(node_id, node_ip, node_state);
@@ -105,14 +105,14 @@ int OMgrClient::recvNodeEvent(int node_id, unsigned int node_ip, int node_state)
 }
 
 int OMgrClient::recvDLTUpdate(int dlt_vrsn, const Node_Table_Type& dlt_table) {
-  printf("New DLT : num shards - %lu\n", dlt_table.size());
+  printf("New DLT : num shards - %u\n", dlt_table.size());
   this->dlt_version = dlt_vrsn;
   this->dlt = dlt_table;
   return (0);
 }
 
 int OMgrClient::recvDMTUpdate(int dmt_vrsn, const Node_Table_Type& dmt_table) {
-  printf("New DMT : num shards - %lu\n", dmt_table.size());
+  printf("New DMT : num shards - %u\n", dmt_table.size());
   this->dmt_version = dmt_vrsn;
   this->dmt = dmt_table;
   return (0);

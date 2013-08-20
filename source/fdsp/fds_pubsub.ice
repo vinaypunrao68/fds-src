@@ -2,6 +2,9 @@
 #define __FDSP_H__
 #include <Ice/Identity.ice>
 #include <Ice/BuiltinSequences.ice>
+
+#include <fdsp_types.ice>
+
 #pragma once
 
 module FDS_PubSub_Interface {
@@ -15,6 +18,7 @@ enum FDS_PubSub_MsgCodeType {
    FDS_Node_Update
 };
 
+/*
 enum FDS_PubSub_NodeState {
      FDS_Node_Up,
      FDS_Node_Down,
@@ -40,7 +44,7 @@ class FDS_PubSub_DMT_Type {
       int DMT_version;
       Node_Table_Type DMT;
 };
-
+*/
 
 class FDS_PubSub_MsgHdrType {
     FDS_PubSub_MsgCodeType     msg_code;		
@@ -52,10 +56,10 @@ class FDS_PubSub_MsgHdrType {
 };
 
 interface FDS_OMgr_Subscriber {
-    void NotifyNodeAdd(FDS_PubSub_MsgHdrType fds_msg_hdr, FDS_PubSub_Node_Info_Type node_info);
-    void NotifyNodeRmv(FDS_PubSub_MsgHdrType fds_msg_hdr, FDS_PubSub_Node_Info_Type node_info);
-    void NotifyDLTUpdate(FDS_PubSub_MsgHdrType fds_msg_hdr, FDS_PubSub_DLT_Type dlt_info);
-    void NotifyDMTUpdate(FDS_PubSub_MsgHdrType fds_msg_hdr, FDS_PubSub_DMT_Type dmt_info);
+    void NotifyNodeAdd(FDS_PubSub_MsgHdrType fds_msg_hdr, FDSP_Types::FDSP_Node_Info_Type node_info);
+    void NotifyNodeRmv(FDS_PubSub_MsgHdrType fds_msg_hdr, FDSP_Types::FDSP_Node_Info_Type node_info);
+    void NotifyDLTUpdate(FDS_PubSub_MsgHdrType fds_msg_hdr, FDSP_Types::FDSP_DLT_Type dlt_info);
+    void NotifyDMTUpdate(FDS_PubSub_MsgHdrType fds_msg_hdr, FDSP_Types::FDSP_DMT_Type dmt_info);
 };
 
 };
