@@ -61,9 +61,39 @@ std::ostringstream tcpProxyStr;
             fdspDPAPI->AssociateRespCallback(ident);
 }
 
-FDS_RPC_EndPoint::FDS_RPC_EndPoint(string ip_addr, int port, 
+FDS_RPC_EndPoint::FDS_RPC_EndPoint(string ip_addr_str, int port, 
                                    FDS_ProtocolInterface::FDSP_MgrIdType remote_mgr_id, 
                                    Ice::CommunicatorPtr& ic) {
+std::ostringstream tcpProxyStr;
+Ice::Identity ident;
+            this->port_num = port;
+	    ip_addr = ipString2Addr(ip_addr_str);
+    	    ip_addr_str = ip_addr_str;
+            mgrId = remote_mgr_id;
+
+            if (remote_mgr_id == FDSP_STOR_MGR) { 
+               tcpProxyStr << "ObjectStorMgrSvr: tcp -h " << ip_addr_str << " -p  " << port;
+	       fdspDPAPI = FDSP_DataPathReqPrx::checkedCast(ic->stringToProxy (tcpProxyStr.str()));
+            } else { 
+                tcpProxyStr << "DataMgrSvr: tcp -h " << ip_addr_str << " -p " << port;
+	        fdspDPAPI = FDSP_DataPathReqPrx::checkedCast(ic->stringToProxy (tcpProxyStr.str()));
+            }
+
+            adapter = ic->createObjectAdapter("");
+            if (!adapter)
+                throw "Invalid adapter";
+    
+            ident.name = IceUtil::generateUUID();
+            ident.category = "";
+            fdspDataPathResp  = new FDSP_DataPathRespCbackI;
+    
+            if (!fdspDataPathResp)
+                throw "Invalid fdspDataPathRespCback";
+            adapter->add(fdspDataPathResp, ident);
+      
+            adapter->activate();
+            fdspDPAPI->ice_getConnection()->setAdapter(adapter);
+            fdspDPAPI->AssociateRespCallback(ident);
 }
 
 FDS_RPC_EndPoint::~FDS_RPC_EndPoint()
