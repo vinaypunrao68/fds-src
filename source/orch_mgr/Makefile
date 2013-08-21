@@ -4,7 +4,7 @@ OMGR       = cmdline_orch_mgr
 
 TARGETS         = $(OMGR)
 
-OBJS            = ../fdsp/fds_pubsub.o
+OBJS            = ../fdsp/fdsp_types.o ../fdsp/fds_pubsub.o
 
 OMOBJS           = cmdline_orch_mgr.o
 

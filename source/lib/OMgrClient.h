@@ -6,6 +6,7 @@
 #include <Ice/Ice.h>
 #include <IceStorm/IceStorm.h>
 
+using namespace FDSP_Types;
 using namespace FDS_PubSub_Interface;
 
 typedef void (*node_event_handler_t)(int node_id, unsigned int node_ip_addr, int node_state);
@@ -14,7 +15,7 @@ typedef struct _node_info_t {
 
   int node_id;
   unsigned int node_ip_address;
-  FDS_PubSub_NodeState node_state;
+  FDSP_NodeState node_state;
 
 } node_info_t;
 
