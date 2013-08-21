@@ -197,15 +197,10 @@ Error VolumeCatalogCache::Query(fds_uint64_t vol_uuid,
                       << " and block id " << block_id;
 
     /*
-    fdspDPAPI->QueryCatalogObject(msg_hdr, query_req);
-    */
-
-    /*
-     * Rest the error to OK since we set the message.
-     * TODO: Make the RPC above synchronous so we get the
-     * response inline.
+     * Reset the error to PENDING since we set the message.
+     * This lets the caller know to wait for a response.
      */
-    err = ERR_OK;
+    err = ERR_PENDING_RESP;
   }
 
   return err;
@@ -241,6 +236,10 @@ Error VolumeCatalogCache::Update(fds_uint64_t vol_uuid,
    * we can return success.
    */
   if (err == ERR_DUPLICATE) {
+    /*
+     * Reset the error since it's OK
+     * that is already existed.
+     */
     err = ERR_OK;
     return err;
   } else if (err != ERR_OK) {

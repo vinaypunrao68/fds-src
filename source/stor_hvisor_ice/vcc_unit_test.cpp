@@ -168,7 +168,7 @@ class VccUnitTest {
       fds_uint64_t block_id = 1 + i;
       ObjectID oid;
       err = vcc.Query(vol_uuid, block_id, &oid);
-      if (!err.ok()) {
+      if (!err.ok() && err != ERR_PENDING_RESP) {
         std::cout << "Failed to query volume " << vol_uuid << std::endl;
         return -1;
       }
