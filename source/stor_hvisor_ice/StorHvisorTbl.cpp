@@ -55,7 +55,7 @@ int dataMgrPortNum = 6900;
 }
 
 StorHvDataPlacement::StorHvDataPlacement(dp_mode _mode)
-    : mode(_mode) {
+    : test_ip_addr(0), mode(_mode) {
   if (mode == DP_NORMAL_MODE) {
     omClient = new OMgrClient();
     omClient->initialize();
@@ -64,6 +64,11 @@ StorHvDataPlacement::StorHvDataPlacement(dp_mode _mode)
   }
 }
 
+StorHvDataPlacement::StorHvDataPlacement(dp_mode _mode,
+                                         fds_uint32_t test_ip)
+    : StorHvDataPlacement(_mode) {
+  test_ip_addr = test_ip;
+}
 
 StorHvDataPlacement::~StorHvDataPlacement() {
 }

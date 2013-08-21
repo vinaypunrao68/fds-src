@@ -144,7 +144,8 @@ int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
         int num_nodes;
         FDS_RPC_EndPoint *endPoint = NULL;
         int node_ids[256];
-        unsigned int node_ip = 0;
+        // unsigned int node_ip = 0;
+        fds_uint32_t node_ip = 0;
         int node_state = -1;
         char ip_address[64];
 
@@ -200,7 +201,8 @@ int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
         for (i = 0; i < num_nodes; i++) {
            node_ip = 0;
            node_state = -1;
-           storHvisor->dataPlacementTbl->omClient->getNodeInfo(node_ids[i], &node_ip, &node_state);
+           // storHvisor->dataPlacementTbl->omClient->getNodeInfo(node_ids[i], &node_ip, &node_state);
+           storHvisor->dataPlacementTbl->getNodeInfo(node_ids[i], &node_ip, &node_state);
            journEntry->sm_ack[num_nodes].ipAddr = node_ip;
  	   fdsp_msg_hdr->dst_ip_lo_addr = node_ip;
            journEntry->sm_ack[num_nodes].ack_status = FDS_CLS_ACK;

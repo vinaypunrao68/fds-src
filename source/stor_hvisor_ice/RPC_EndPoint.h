@@ -34,11 +34,11 @@ public:
 	FDS_RPC_EndPoint(const std::string& ip_addr_str_arg, int port, 
                          FDS_ProtocolInterface::FDSP_MgrIdType mgr_id,
                          Ice::CommunicatorPtr &ic);
-	FDS_RPC_EndPoint(int  ip_addr_int, int port, 
+	FDS_RPC_EndPoint(int  ip_addr_int, int port,
                          FDS_ProtocolInterface::FDSP_MgrIdType mgr_id, 
                          Ice::CommunicatorPtr &ic);
-        string 	ipAddr2String(int ipaddr);
-        int ipString2Addr(string ipaddr_str);
+        static string ipAddr2String(int ipaddr);
+        static int ipString2Addr(string ipaddr_str);
 
         ~FDS_RPC_EndPoint();
     	void     Shutdown_RPC_EndPoint();
@@ -102,6 +102,9 @@ public :
     int Get_RPC_EndPoint(string ip_addr_str,
                          FDSP_MgrIdType mgr_id,
                          FDS_RPC_EndPoint **endPoint);
+    int Get_RPC_EndPoint(int ip_addr,
+                         FDSP_MgrIdType mgrId,
+                         FDS_RPC_EndPoint** endpoint);
 };
 
 #endif

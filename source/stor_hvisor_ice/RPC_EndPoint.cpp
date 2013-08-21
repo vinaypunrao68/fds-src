@@ -37,11 +37,11 @@ FDS_RPC_EndPoint::FDS_RPC_EndPoint(int ip_addr, int port,
   this->ip_addr = ip_addr;
   this->port_num = port;
   ip_addr_str = ipAddr2String(ip_addr);
-  mgrId = remote_mgr_id;
-  
+  mgrId = remote_mgr_id;  
   /*
-   * TODO: Set Node_index to something. It's NOT being set.
+   * TODO: Set Node_index to something. Is 0 correct?
    */
+  node_index = 0;
   
   if (remote_mgr_id == FDSP_STOR_MGR) { 
     tcpProxyStr << "ObjectStorMgrSvr: tcp -h " << ip_addr_str << " -p  " << port;
@@ -83,10 +83,10 @@ FDS_RPC_EndPoint::FDS_RPC_EndPoint(const std::string& ip_addr_str_arg,
   ip_addr_str = ip_addr_str_arg;
   ip_addr = ipString2Addr(ip_addr_str_arg);
   mgrId = remote_mgr_id;
-
   /*
-   * TODO: Set Node_index to something. It's NOT being set.
+   * TODO: Set Node_index to something. Is 0 correct?
    */
+  node_index = 0;
   
   if (remote_mgr_id == FDSP_STOR_MGR) { 
     tcpProxyStr << "ObjectStorMgrSvr: tcp -h " << ip_addr_str << " -p  " << port;
@@ -118,6 +118,10 @@ FDS_RPC_EndPoint::~FDS_RPC_EndPoint()
     this->Shutdown_RPC_EndPoint();
 }
 
+/*
+ * TODO: These should be static members. They
+ * don't reference 'this'.
+ */
 string FDS_RPC_EndPoint::ipAddr2String(int ipaddr) {
 struct sockaddr_in sa;
 char buf[32];
@@ -127,8 +131,8 @@ string ipaddr_str(buf);
   return (ipaddr_str);
 }
 
-int FDS_RPC_EndPoint::ipString2Addr(string ipaddr_str) {
-struct sockaddr_in sa;
+fds_int32_t FDS_RPC_EndPoint::ipString2Addr(string ipaddr_str) {
+  struct sockaddr_in sa;
   sa.sin_addr.s_addr = 0;
   inet_pton(AF_INET, (char *)ipaddr_str.data(), (void *)&(sa.sin_addr));
   return (ntohl(sa.sin_addr.s_addr));
@@ -157,7 +161,22 @@ int FDS_RPC_EndPointTbl::Get_RPC_EndPoint(int  ip_addr, FDSP_MgrIdType mgr_id, F
   return -1;
 }
 
-int FDS_RPC_EndPointTbl::Get_RPC_EndPoint(std::string  ip_addr_str, FDSP_MgrIdType mgr_id, FDS_RPC_EndPoint **endPoint) 
+int FDS_RPC_EndPointTbl::Get_RPC_EndPoint(int ip_addr,
+                                          FDSP_MgrIdType mgr_id,
+                                          FDS_RPC_EndPoint **endPoint) 
+{
+  for (std::list<FDS_RPC_EndPoint *>::iterator it=rpcEndPointList.begin(); it != rpcEndPointList.end(); ++it) {
+    if ((*it)->ip_addr == ip_addr && (*it)->mgrId  == mgr_id) { 
+      *endPoint = (*it); 
+      return 0;
+    }
+  }
+  return -1;
+}
+
+int FDS_RPC_EndPointTbl::Get_RPC_EndPoint(std::string ip_addr_str,
+                                          FDSP_MgrIdType mgr_id,
+                                          FDS_RPC_EndPoint **endPoint) 
 {
   for (std::list<FDS_RPC_EndPoint *>::iterator it=rpcEndPointList.begin(); it != rpcEndPointList.end(); ++it) {
     if ((*it)->ip_addr_str == ip_addr_str && (*it)->mgrId  == mgr_id) { 

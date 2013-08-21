@@ -36,11 +36,6 @@ StorHvCtrl::StorHvCtrl(int argc,
 
   rpcSwitchTbl = new FDS_RPC_EndPointTbl(_communicator);
   journalTbl = new StorHvJournal();
-  if (_mode != NORMAL) {
-    dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NO_OM_MODE);
-  } else {
-    dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NORMAL_MODE);
-  }
   
   /*
    * Set basic thread properties.
@@ -56,19 +51,34 @@ StorHvCtrl::StorHvCtrl(int argc,
   /*
    * Setup RPC endpoints based on comm mode.
    */
+  std::string dataMgrIPAddress;
+  int dataMgrPortNum;
+  std::string storMgrIPAddress;
+  int storMgrPortNum;
   if ((mode == DATA_MGR_TEST) ||
       (mode == TEST_BOTH) ||
       (mode == NORMAL)) {
-    std::string dataMgrIPAddress  = props->getProperty("DataMgr.IPAddress");
-    int dataMgrPortNum  = props->getPropertyAsInt("DataMgr.PortNumber");
+    dataMgrIPAddress = props->getProperty("DataMgr.IPAddress");
+    dataMgrPortNum = props->getPropertyAsInt("DataMgr.PortNumber");
     rpcSwitchTbl->Add_RPC_EndPoint(dataMgrIPAddress, dataMgrPortNum, FDSP_DATA_MGR);
   }
   if ((mode == STOR_MGR_TEST) ||
       (mode == TEST_BOTH) ||
       (mode == NORMAL)) {
-    std::string storMgrIPAddress  = props->getProperty("ObjectStorMgrSvr.IPAddress");
-    int storMgrPortNum  = props->getPropertyAsInt("ObjectStorMgrSvr.PortNumber");
+    storMgrIPAddress  = props->getProperty("ObjectStorMgrSvr.IPAddress");
+    storMgrPortNum  = props->getPropertyAsInt("ObjectStorMgrSvr.PortNumber");
     rpcSwitchTbl->Add_RPC_EndPoint(storMgrIPAddress, storMgrPortNum, FDSP_STOR_MGR);
+  }
+  
+  if (mode != NORMAL) {
+    /*
+     * TODO: Currently we always add the DM IP in any test mode.
+     */
+    fds_uint32_t ip_num = FDS_RPC_EndPoint::ipString2Addr(dataMgrIPAddress);
+    dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NO_OM_MODE,
+                                                ip_num);
+  } else {
+    dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NORMAL_MODE);
   }
 }
 

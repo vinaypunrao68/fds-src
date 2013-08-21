@@ -158,28 +158,16 @@ Error VolumeCatalogCache::Query(fds_uint64_t vol_uuid,
                       << " failed. Contacting DM.";
 
     /*
-     * Determine the RPC endpoint to contact.
-     * TODO: Handle primary read failures.
+     * Construct the message to send to DM.
      */
-    std::string ip_addr("10.211.55.3");
-    FDS_RPC_EndPoint *endPoint;
-    ret_code = parent_sh->rpcSwitchTbl->Get_RPC_EndPoint(ip_addr,
-                                                         FDSP_DATA_MGR,
-                                                         &endPoint);
-    if (ret_code != 0) {
-      FDS_PLOG(vcc_log) << "Unable to get RPC endpoint for " << ip_addr;
-    }
-
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr =
         new FDS_ProtocolInterface::FDSP_MsgHdrType;
     FDS_ProtocolInterface::FDSP_QueryCatalogTypePtr query_req =
         new FDS_ProtocolInterface::FDSP_QueryCatalogType;
-
-    msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_QUERY_CAT_OBJ_REQ;
-
-    msg_hdr->src_id = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
-    msg_hdr->dst_id = FDS_ProtocolInterface::FDSP_DATA_MGR;
-
+    
+    msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_QUERY_CAT_OBJ_REQ;    
+    msg_hdr->src_id   = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
+    msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_DATA_MGR;
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
     msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
 
@@ -190,17 +178,66 @@ Error VolumeCatalogCache::Query(fds_uint64_t vol_uuid,
     query_req->data_obj_id.hash_high = 0;
     query_req->data_obj_id.hash_low  = 0;
 
-    endPoint->fdspDPAPI->QueryCatalogObject(msg_hdr, query_req);
-    
-    FDS_PLOG(vcc_log) << "Async query request sent to DM " << endPoint
-                      << " for volume "<< vol_uuid
-                      << " and block id " << block_id;
-
     /*
-     * Reset the error to PENDING since we set the message.
-     * This lets the caller know to wait for a response.
+     * Locate a DM endpoint to try.
      */
-    err = ERR_PENDING_RESP;
+    FDS_RPC_EndPoint *endPoint = NULL;
+    int node_ids[256]; /* Why 256? Arbitrary. Use better interface. */
+    int num_nodes = 0;
+    parent_sh->dataPlacementTbl->getDMTNodesForVolume(vol_uuid,
+                                                      node_ids,
+                                                      &num_nodes);
+    fds_uint32_t node_ip;
+    int node_state;
+    fds_bool_t located_ep = false;
+    for (int i = 0; i < num_nodes; i++) {
+      err = parent_sh->dataPlacementTbl->getNodeInfo(node_ids[i],
+                                                     &node_ip,
+                                                     &node_state);
+      if (!err.ok()) {
+        FDS_PLOG(vcc_log) << "Unable to get node info for node "
+                          << node_ids[i];
+        return err;
+      }
+
+      ret_code = parent_sh->rpcSwitchTbl->Get_RPC_EndPoint(node_ip,
+                                                           FDSP_DATA_MGR,
+                                                           &endPoint);
+      if (ret_code != 0) {
+        FDS_PLOG(vcc_log) << "Unable to get RPC endpoint for " << node_ip;
+        err = ERR_CAT_QUERY_FAILED;
+        return err;
+      }
+
+      if (endPoint != NULL) {
+        located_ep = true;
+        /*
+         * We found a valid endpoint. Let's try it
+         */
+        try {
+          endPoint->fdspDPAPI->QueryCatalogObject(msg_hdr, query_req);
+          FDS_PLOG(vcc_log) << "Async query request sent to DM " << endPoint
+                            << " for volume "<< vol_uuid
+                            << " and block id " << block_id;
+          
+          /*
+           * Reset the error to PENDING since we set the message.
+           * This lets the caller know to wait for a response.
+           */
+          err = ERR_PENDING_RESP;
+        } catch (...) {
+          FDS_PLOG(vcc_log) << "Failed to query DM endpoint " << endPoint
+                            << " for volume "<< vol_uuid
+                            << " and block id " << block_id;
+          err = ERR_CAT_QUERY_FAILED;                    
+        }
+        break;
+      }
+    }
+    if (located_ep == false) {
+      FDS_PLOG(vcc_log) << "Could not locate a valid endpoint to query";
+      err = ERR_CAT_QUERY_FAILED;
+    }
   }
 
   return err;
