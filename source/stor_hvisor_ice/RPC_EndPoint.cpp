@@ -22,9 +22,10 @@
 #include <list>
 #include <StorHvisorNet.h>
 #include <RPC_EndPoint.h>
+#include <arpa/inet.h>
 
 
-FDS_RPC_EndPoint::FDS_RPC_EndPoint(string ip_addr, int port, 
+FDS_RPC_EndPoint::FDS_RPC_EndPoint(int ip_addr, int port, 
                                    FDS_ProtocolInterface::FDSP_MgrIdType remote_mgr_id, 
                                    Ice::CommunicatorPtr& ic)
 {
@@ -32,17 +33,18 @@ Ice::Identity ident;
 std::ostringstream tcpProxyStr;
             this->ip_addr = ip_addr;
             this->port_num = port;
+    	    ip_addr_str = ipAddr2String(ip_addr);
             mgrId = remote_mgr_id;
 
             if (remote_mgr_id == FDSP_STOR_MGR) { 
-               tcpProxyStr << "ObjectStorMgrSvr: tcp -h " << ip_addr << " -p  " << port;
+               tcpProxyStr << "ObjectStorMgrSvr: tcp -h " << ip_addr_str << " -p  " << port;
 	       fdspDPAPI = FDSP_DataPathReqPrx::checkedCast(ic->stringToProxy (tcpProxyStr.str()));
             } else { 
-                tcpProxyStr << "DataMgrSvr: tcp -h " << ip_addr << " -p " << port;
+                tcpProxyStr << "DataMgrSvr: tcp -h " << ip_addr_str << " -p " << port;
 	        fdspDPAPI = FDSP_DataPathReqPrx::checkedCast(ic->stringToProxy (tcpProxyStr.str()));
             }
 
-            Ice::ObjectAdapterPtr adapter = ic->createObjectAdapter("");
+            adapter = ic->createObjectAdapter("");
             if (!adapter)
                 throw "Invalid adapter";
     
@@ -59,18 +61,45 @@ std::ostringstream tcpProxyStr;
             fdspDPAPI->AssociateRespCallback(ident);
 }
 
-FDS_RPC_EndPoint::~FDS_RPC_EndPoint()
-{
+FDS_RPC_EndPoint::FDS_RPC_EndPoint(string ip_addr, int port, 
+                                   FDS_ProtocolInterface::FDSP_MgrIdType remote_mgr_id, 
+                                   Ice::CommunicatorPtr& ic) {
 }
 
+FDS_RPC_EndPoint::~FDS_RPC_EndPoint()
+{
+    this->Shutdown_RPC_EndPoint();
+}
 
-void   FDS_RPC_EndPointTbl::Add_RPC_EndPoint(std::string  ipaddr, int& port, FDSP_MgrIdType remote_mgr_id) 
+string FDS_RPC_EndPoint::ipAddr2String(int ipaddr) {
+struct sockaddr_in sa;
+char buf[32];
+  sa.sin_addr.s_addr = htonl(ipaddr);
+  inet_ntop(AF_INET, (void *)&(sa.sin_addr), buf, INET_ADDRSTRLEN);
+string ipaddr_str(buf);
+  return (ipaddr_str);
+}
+
+int FDS_RPC_EndPoint::ipString2Addr(string ipaddr_str) {
+struct sockaddr_in sa;
+  sa.sin_addr.s_addr = 0;
+  inet_pton(AF_INET, (char *)ipaddr_str.data(), (void *)&(sa.sin_addr));
+  return (ntohl(sa.sin_addr.s_addr));
+}
+
+void   FDS_RPC_EndPointTbl::Add_RPC_EndPoint(int  ipaddr, int& port, FDSP_MgrIdType remote_mgr_id) 
 {
     FDS_RPC_EndPoint *endPoint = new FDS_RPC_EndPoint(ipaddr, port, remote_mgr_id, _communicator);
     rpcEndPointList.push_back(endPoint);
 }
 
-int FDS_RPC_EndPointTbl::Get_RPC_EndPoint(std::string ip_addr, FDSP_MgrIdType mgr_id, FDS_RPC_EndPoint* endPoint) 
+void   FDS_RPC_EndPointTbl::Add_RPC_EndPoint(string  ipaddr_str, int& port, FDSP_MgrIdType remote_mgr_id) 
+{
+    FDS_RPC_EndPoint *endPoint = new FDS_RPC_EndPoint(ipaddr_str, port, remote_mgr_id, _communicator);
+    rpcEndPointList.push_back(endPoint);
+}
+
+int FDS_RPC_EndPointTbl::Get_RPC_EndPoint(int  ip_addr, FDSP_MgrIdType mgr_id, FDS_RPC_EndPoint* endPoint) 
 {
     for (std::list<FDS_RPC_EndPoint *>::iterator it=rpcEndPointList.begin(); it != rpcEndPointList.end(); ++it) {
        if ((*it)->ip_addr == ip_addr && (*it)->mgrId  == mgr_id) { 
@@ -81,13 +110,34 @@ int FDS_RPC_EndPointTbl::Get_RPC_EndPoint(std::string ip_addr, FDSP_MgrIdType mg
    return -1;
 }
 
-void   FDS_RPC_EndPointTbl::Delete_RPC_EndPoint(std::string ip_addr, FDSP_MgrIdType mgr_id) 
+int FDS_RPC_EndPointTbl::Get_RPC_EndPoint(string  ip_addr_str, FDSP_MgrIdType mgr_id, FDS_RPC_EndPoint* endPoint) 
+{
+    for (std::list<FDS_RPC_EndPoint *>::iterator it=rpcEndPointList.begin(); it != rpcEndPointList.end(); ++it) {
+       if ((*it)->ip_addr_str == ip_addr_str && (*it)->mgrId  == mgr_id) { 
+           endPoint = *it; 
+           return 0;
+       }
+   }
+   return -1;
+}
+
+void   FDS_RPC_EndPoint::Shutdown_RPC_EndPoint() 
+{
+    adapter->deactivate();
+
+}
+
+void   FDS_RPC_EndPointTbl::Delete_RPC_EndPoint(int  ip_addr, FDSP_MgrIdType mgr_id) 
 {
     for (std::list<FDS_RPC_EndPoint *>::iterator it=rpcEndPointList.begin(); it != rpcEndPointList.end(); ++it) {
 
        if ((*it)->ip_addr == ip_addr && (*it)->mgrId  == mgr_id) { 
+          (*it)->Shutdown_RPC_EndPoint();
            rpcEndPointList.erase(it); 
            return;
        }
     }
+}
+
+void   FDS_RPC_EndPointTbl::Delete_RPC_EndPoint(string  ip_addr, FDSP_MgrIdType mgr_id)  {
 }

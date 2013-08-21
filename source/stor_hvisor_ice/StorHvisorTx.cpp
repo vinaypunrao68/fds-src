@@ -102,11 +102,7 @@ int StorHvisorProcIoRd(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
 
         // *****CAVEAT: Modification reqd
         // ******  Need to find out which is the primary SM and send this out to that SM. ********
-        char ip_address[64];
-        struct sockaddr_in sockaddr;
-        sockaddr.sin_addr.s_addr = node_ip;
-        inet_ntop(AF_INET, &(sockaddr.sin_addr), ip_address, INET_ADDRSTRLEN);
-        storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(ip_address, FDSP_STOR_MGR, endPoint);
+        storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip, FDSP_STOR_MGR, endPoint);
 
         // RPC Call GetObject to StorMgr
         if (endPoint) { 
@@ -151,7 +147,6 @@ int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
         unsigned int node_ip = 0;
         int node_state = -1;
         char ip_address[64];
-        struct sockaddr_in sockaddr;
 
 	FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr = new FDSP_MsgHdrType;
 	FDS_ProtocolInterface::FDSP_PutObjTypePtr put_obj_req = new FDSP_PutObjType;
@@ -211,10 +206,8 @@ int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
            journEntry->sm_ack[num_nodes].ack_status = FDS_CLS_ACK;
 
            // Call Put object RPC to SM
-            sockaddr.sin_addr.s_addr = node_ip;
-            inet_ntop(AF_INET, &(sockaddr.sin_addr), ip_address, INET_ADDRSTRLEN);
 	    printf(" PutObject req RPC  to SM @%s \n", ip_address);
-            storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(ip_address, FDSP_STOR_MGR, endPoint);
+            storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip, FDSP_STOR_MGR, endPoint);
             if (endPoint) { 
                 endPoint->fdspDPAPI->PutObject(fdsp_msg_hdr, put_obj_req);
             }
@@ -237,10 +230,8 @@ int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
            storHvisor->InitDmMsgHdr(fdsp_msg_hdr_dm);
    
            // Call Update Catalog RPC call to DM
-           sockaddr.sin_addr.s_addr = node_ip;
-           inet_ntop(AF_INET, &(sockaddr.sin_addr), ip_address, INET_ADDRSTRLEN);
 	   printf(" Catalog update to DM @ %s \n",ip_address);
-           storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(ip_address, FDSP_DATA_MGR, endPoint);
+           storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip, FDSP_DATA_MGR, endPoint);
            if (endPoint) {
                endPoint->fdspDPAPI->UpdateCatalogObject(fdsp_msg_hdr_dm, upd_obj_req);
            }

@@ -36,20 +36,20 @@ extern StorHvCtrl *storHvisor;
 
 void StorHvDataPlacement::nodeEventHandler(int node_id, unsigned int node_ip_addr, int node_state)
 {
-char ip_address[64];
-    struct sockaddr_in sockaddr;
-    sockaddr.sin_addr.s_addr = node_ip_addr;
-    inet_ntop(AF_INET, &(sockaddr.sin_addr), ip_address, INET_ADDRSTRLEN);
+int storMgrPortNum = 6901;
+int dataMgrPortNum = 6900;
     switch(node_state) { 
        case FDS_Node_Up : 
-          //storHvisor->rpcSwitchTbl->Add_RPC_EndPoint(ip_address, storMgrPortNum, FDSP_STOR_MGR);
-          //storHvisor->rpcSwitchTbl->Add_RPC_EndPoint(ip_address, dataMgrPortNum, FDSP_DATA_MGR); 
+          std::cout << "Node UP event NodeId " << node_id << " Node IP Address " <<  node_ip_addr << std::endl;
+          storHvisor->rpcSwitchTbl->Add_RPC_EndPoint(node_ip_addr, storMgrPortNum, FDSP_STOR_MGR);
+          storHvisor->rpcSwitchTbl->Add_RPC_EndPoint(node_ip_addr, dataMgrPortNum, FDSP_DATA_MGR); 
          break;
 
        case FDS_Node_Down:
        case FDS_Node_Rmvd:
-          storHvisor->rpcSwitchTbl->Delete_RPC_EndPoint(ip_address,  FDSP_STOR_MGR);
-          storHvisor->rpcSwitchTbl->Delete_RPC_EndPoint(ip_address,  FDSP_DATA_MGR);
+          std::cout << "Node Down event NodeId :" << node_id << " node IP addr" << node_ip_addr << std::endl;
+          storHvisor->rpcSwitchTbl->Delete_RPC_EndPoint(node_ip_addr,  FDSP_STOR_MGR);
+          storHvisor->rpcSwitchTbl->Delete_RPC_EndPoint(node_ip_addr,  FDSP_DATA_MGR);
 	break;
     }
 }

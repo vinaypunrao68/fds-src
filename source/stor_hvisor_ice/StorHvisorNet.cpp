@@ -42,6 +42,9 @@ StorHvCtrl::StorHvCtrl(int argc, char *argv[])
         props->setProperty("StorHvisorClient.ThreadPool.SizeWarn", "18");
       
        rpcSwitchTbl = new FDS_RPC_EndPointTbl(_communicator); 
+       journalTbl = new StorHvJournal();
+       dataPlacementTbl  = new StorHvDataPlacement();
+      
  
 
         rpcSwitchTbl->Add_RPC_EndPoint(storMgrIPAddress, storMgrPortNum, FDSP_STOR_MGR);
