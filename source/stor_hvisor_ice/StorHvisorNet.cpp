@@ -23,32 +23,60 @@ void CreateStorHvisor(int argc, char *argv[])
      storHvisor = new StorHvCtrl(argc, argv);
 }
 
+StorHvCtrl::StorHvCtrl(int argc,
+                       char *argv[],
+                       sh_comm_modes _mode)
+    : mode(_mode) {
+  
+  Ice::InitializationData initData;
+  initData.properties = Ice::createProperties();
+  initData.properties->load("fds.conf");
+  _communicator = Ice::initialize(argc, argv, initData);
+  Ice::PropertiesPtr props = _communicator->getProperties();
 
+  rpcSwitchTbl = new FDS_RPC_EndPointTbl(_communicator);
+  journalTbl = new StorHvJournal();
+  if (_mode != NORMAL) {
+    dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NO_OM_MODE);
+  } else {
+    dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NORMAL_MODE);
+  }
+  
+  /*
+   * Set basic thread properties.
+   */
+  props->setProperty("StorHvisorClient.ThreadPool.Size", "10");
+  props->setProperty("StorHvisorClient.ThreadPool.SizeMax", "20");
+  props->setProperty("StorHvisorClient.ThreadPool.SizeWarn", "18");
+  
+  /*
+   * Parse options out of config file
+   */
+
+  /*
+   * Setup RPC endpoints based on comm mode.
+   */
+  if ((mode == DATA_MGR_TEST) ||
+      (mode == TEST_BOTH) ||
+      (mode == NORMAL)) {
+    std::string dataMgrIPAddress  = props->getProperty("DataMgr.IPAddress");
+    int dataMgrPortNum  = props->getPropertyAsInt("DataMgr.PortNumber");
+    rpcSwitchTbl->Add_RPC_EndPoint(dataMgrIPAddress, dataMgrPortNum, FDSP_DATA_MGR);
+  }
+  if ((mode == STOR_MGR_TEST) ||
+      (mode == TEST_BOTH) ||
+      (mode == NORMAL)) {
+    std::string storMgrIPAddress  = props->getProperty("ObjectStorMgrSvr.IPAddress");
+    int storMgrPortNum  = props->getPropertyAsInt("ObjectStorMgrSvr.PortNumber");
+    rpcSwitchTbl->Add_RPC_EndPoint(storMgrIPAddress, storMgrPortNum, FDSP_STOR_MGR);
+  }
+}
+
+/*
+ * Constructor uses comm with DM and SM if no mode provided.
+ */
 StorHvCtrl::StorHvCtrl(int argc, char *argv[])
-{
-        Ice::InitializationData initData;
-        initData.properties = Ice::createProperties();
-	initData.properties->load("fds.conf");
-        _communicator = Ice::initialize(argc, argv, initData);
-	Ice::PropertiesPtr props = _communicator->getProperties();
-
-        std::string storMgrIPAddress  = props->getProperty("ObjectStorMgrSvr.IPAddress");
-        int storMgrPortNum  = props->getPropertyAsInt("ObjectStorMgrSvr.PortNumber");
-        std::string dataMgrIPAddress  = props->getProperty("DataMgr.IPAddress");
-        int dataMgrPortNum  = props->getPropertyAsInt("DataMgr.PortNumber");
-
-        props->setProperty("StorHvisorClient.ThreadPool.Size", "10");
-        props->setProperty("StorHvisorClient.ThreadPool.SizeMax", "20");
-        props->setProperty("StorHvisorClient.ThreadPool.SizeWarn", "18");
-      
-       rpcSwitchTbl = new FDS_RPC_EndPointTbl(_communicator); 
-       journalTbl = new StorHvJournal();
-       dataPlacementTbl  = new StorHvDataPlacement();
-      
- 
-
-        rpcSwitchTbl->Add_RPC_EndPoint(storMgrIPAddress, storMgrPortNum, FDSP_STOR_MGR);
-        rpcSwitchTbl->Add_RPC_EndPoint(dataMgrIPAddress, dataMgrPortNum, FDSP_DATA_MGR);
+    : StorHvCtrl(argc, argv, NORMAL) {
 }
 
 StorHvCtrl::~StorHvCtrl()

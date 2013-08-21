@@ -20,6 +20,12 @@
 #include "include/fds_err.h"
 #include "include/fds_types.h"
 #include "fdsp/FDSP.h"
+#include "util/Log.h"
+
+/*
+ * Forward declaration of SH control class
+ */
+class StorHvCtrl;
 
 namespace fds {
 
@@ -64,6 +70,16 @@ namespace fds {
      */
     FDS_ProtocolInterface::FDSP_DataPathReqPrx& fdspDPAPI;
 
+    /*
+     * Reference to parent SH instance.
+     */
+    StorHvCtrl *parent_sh;
+
+    /*
+     * Pointer to logger to use.
+     */
+    fds_log *vcc_log;
+
  public:
     /*
      * TODO: Change this interface once we get a generic network
@@ -72,6 +88,16 @@ namespace fds {
      */
     VolumeCatalogCache(FDS_ProtocolInterface::FDSP_DataPathReqPrx&
                        fdspDPAPI_arg); // NOLINT(*)
+    VolumeCatalogCache(FDS_ProtocolInterface::FDSP_DataPathReqPrx&
+                       fdspDPAPI_arg,
+                       StorHvCtrl *sh_ctrl); // NOLINT(*)
+    VolumeCatalogCache(FDS_ProtocolInterface::FDSP_DataPathReqPrx&
+                       fdspDPAPI_arg,
+                       fds_log *parent_log); // NOLINT(*)
+    VolumeCatalogCache(FDS_ProtocolInterface::FDSP_DataPathReqPrx&
+                       fdspDPAPI_arg,
+                       StorHvCtrl *sh_ctrl,
+                       fds_log *parent_log); // NOLINT(*)
     VolumeCatalogCache();
     ~VolumeCatalogCache();
 
@@ -84,6 +110,7 @@ namespace fds {
                  const ObjectID &oid);
 
     void Clear(fds_uint64_t vol_uuid);
+
   };
 }  // namespace fds
 

@@ -54,11 +54,14 @@ int dataMgrPortNum = 6900;
     }
 }
 
-StorHvDataPlacement::StorHvDataPlacement() {
-   omClient = new OMgrClient();
-   omClient->initialize();
-   omClient->registerEventHandlerForNodeEvents((node_event_handler_t )nodeEventHandler);
-   omClient->subscribeToOmEvents(omIPAddr, 1, 1);
+StorHvDataPlacement::StorHvDataPlacement(dp_mode _mode)
+    : mode(_mode) {
+  if (mode == DP_NORMAL_MODE) {
+    omClient = new OMgrClient();
+    omClient->initialize();
+    omClient->registerEventHandlerForNodeEvents((node_event_handler_t )nodeEventHandler);
+    omClient->subscribeToOmEvents(omIPAddr, 1, 1);
+  }
 }
 
 

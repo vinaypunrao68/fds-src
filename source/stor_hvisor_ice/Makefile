@@ -32,8 +32,8 @@ SRCS		= $(OBJS:.o=.cpp) \
 #
 CPP11		= yes
 
-MY_FLAGS	= -std=c++0x -Wall -Werror -g2 -I../ -I../lib/Ice-3.5.0/cpp/include
-MY_LIBS		= -L../lib/Ice-3.5.0/cpp/lib -lpthread -lIce -lIceUtil ../fdsp/FDSP.o ./VolumeCatalogCache.o
+MY_FLAGS	= -std=c++0x -Wall -Werror -g2 -I../ -I../lib/Ice-3.5.0/cpp/include -I../fdsp/
+MY_LIBS		= -L../lib/Ice-3.5.0/cpp/lib -lpthread -lIce -lIceUtil ../fdsp/FDSP.o ./VolumeCatalogCache.o ../fdsp/fds_pubsub.o -lIceStorm ../lib/OMgrClient.o -lboost_log -lboost_system -lboost_thread -lboost_date_time ../util/Log.o ../fdsp/fdsp_types.o ../util/hash/MurmurHash3.o
 
 include $(top_srcdir)/config/Make.rules
 
@@ -43,7 +43,7 @@ CPPFLAGS	:= -I. $(CPPFLAGS) -I $(top_srcdir)/include/Ice -I../include -I../util/
 $(FDS_CFG): $(OBJS) $(COBJS) $(ICE_OBJS)
 	ar rc  $@  $(OBJS) $(COBJS) $(ICE_OBJS)
 	$(CXX) $(LDFLAGS) -c -o VolumeCatalogCache.o VolumeCatalogCache.cpp $(MY_FLAGS)
-	$(CXX) $(LDFLAGS) -o vcc_unit_test vcc_unit_test.cpp $(MY_FLAGS) $(MY_LIBS)
+	$(CXX) $(LDFLAGS) -o vcc_unit_test vcc_unit_test.cpp $(MY_FLAGS) $(MY_LIBS) $(FDS_CFG)
 #$(CXX) $(LDFLAGS) -o sh_unit_test.cpp $@  $(OBJS) $(COBJS) $(ICE_OBJS) -L/usr/lib/mysql -L/usr/lib64/mysql -L/usr/lib -L../lib/  -L../lib/Ice-3.5.0/cpp/lib -lpthread -lIce -lIceUtil -lrt -lfds ../util/hash/MurmurHash3.o
 #	rm -f $@
 #	$(CXX)  $@ $(OBJS) $(COBJS) $(LIBS) $(HV_LIBS)

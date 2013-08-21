@@ -2,11 +2,20 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 #include <stor_hvisor_ice/VolumeCatalogCache.h>
+#include <stor_hvisor_ice/StorHvisorNet.h>
 
 #include <iostream>  // NOLINT(*)
 #include <vector>
 #include <string>
 #include <list>
+
+#include "util/Log.h"
+
+/*
+ * Piggyback on the global storHvisor that's been
+ * declared elsewhere.
+ */
+extern StorHvCtrl *storHvisor;
 
 namespace fds {
 
@@ -15,13 +24,15 @@ class VccUnitTest {
   std::list<std::string>  unit_tests;
   FDS_ProtocolInterface::FDSP_DataPathReqPrx& fdspDPAPI;
 
+  fds_log *vcc_log;
+
   /*
    * Unit test funtions
    */
   int basic_update() {
     Error err(ERR_OK);
 
-    VolumeCatalogCache vcc(fdspDPAPI);
+    VolumeCatalogCache vcc(fdspDPAPI, vcc_log);
     fds_uint64_t vol_uuid;
 
     vol_uuid = 987654321;
@@ -48,7 +59,7 @@ class VccUnitTest {
   int basic_query() {
     Error err(ERR_OK);
 
-    VolumeCatalogCache vcc(fdspDPAPI);
+    VolumeCatalogCache vcc(fdspDPAPI, vcc_log);
     fds_uint64_t vol_uuid;
 
     vol_uuid = 987654321;
@@ -78,7 +89,7 @@ class VccUnitTest {
   int basic_uq() {
     Error err(ERR_OK);
 
-    VolumeCatalogCache vcc(fdspDPAPI);
+    VolumeCatalogCache vcc(fdspDPAPI, vcc_log);
     fds_uint64_t vol_uuid;
 
     vol_uuid = 987654321;
@@ -131,6 +142,43 @@ class VccUnitTest {
     return 0;
   }
 
+  int basic_sh_integration() {
+    Error err(ERR_OK);
+
+
+    int argc = 0;
+    char* argv[argc];
+
+    storHvisor = new StorHvCtrl(argc, argv, StorHvCtrl::DATA_MGR_TEST);
+    
+    VolumeCatalogCache vcc(fdspDPAPI,
+                           storHvisor,
+                           vcc_log);
+    fds_uint64_t vol_uuid;
+
+    vol_uuid = 987654321;
+
+    err = vcc.RegVolume(vol_uuid);
+    if (!err.ok()) {
+      std::cout << "Failed to register volume " << vol_uuid << std::endl;
+      return -1;
+    }
+
+    for (fds_uint32_t i = 0; i < 1; i++) {
+      fds_uint64_t block_id = 1 + i;
+      ObjectID oid;
+      err = vcc.Query(vol_uuid, block_id, &oid);
+      if (!err.ok()) {
+        std::cout << "Failed to query volume " << vol_uuid << std::endl;
+        return -1;
+      }
+    }
+
+    delete storHvisor;
+    
+    return 0;
+  }
+
  public:
   /*
    * The non-const refernce is OK.
@@ -138,12 +186,17 @@ class VccUnitTest {
   explicit VccUnitTest(FDS_ProtocolInterface::FDSP_DataPathReqPrx&
                        fdspDPAPI_arg) // NOLINT(*)
       : fdspDPAPI(fdspDPAPI_arg) {
+
+    vcc_log = new fds_log("vcc", "logs");
+
     unit_tests.push_back("basic_update");
     unit_tests.push_back("basic_query");
     unit_tests.push_back("basic_uq");
+    unit_tests.push_back("basic_sh_integration");
   }
 
   ~VccUnitTest() {
+    delete vcc_log;
   }
 
   void Run(const std::string& testname) {
@@ -156,6 +209,8 @@ class VccUnitTest {
       result = basic_query();
     } else if (testname == "basic_uq") {
       result = basic_uq();
+    } else if (testname == "basic_sh_integration") {
+      result = basic_sh_integration();
     } else {
       std::cout << "Unknown unit test " << testname << std::endl;
     }
@@ -256,8 +311,12 @@ class ShClient : public Ice::Application {
     }
 
     /*
+     * TODO: Clean this up once the SH network stuff is finalized.
+     * 
      * Setup the network communication.
      */
+    FDS_ProtocolInterface::FDSP_DataPathReqPrx fdspDPAPI;
+    /*
     FDS_ProtocolInterface::FDSP_DataPathReqPrx fdspDPAPI =
         FDS_ProtocolInterface::FDSP_DataPathReqPrx::checkedCast(communicator()->propertyToProxy("StorHvisorClient.Proxy")); // NOLINT(*)
 
@@ -277,6 +336,7 @@ class ShClient : public Ice::Application {
 
     fdspDPAPI->ice_getConnection()->setAdapter(adapter);
     fdspDPAPI->AssociateRespCallback(ident);
+    */
 
     VccUnitTest unittest(fdspDPAPI);
 

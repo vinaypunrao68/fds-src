@@ -56,8 +56,8 @@ namespace fds {
        * using the mutex provided.
        */
       explicit scoped_lock(fds_mutex &m)  // NOLINT(*)
-          : _mut(&m),
-          _l(m.boost()) {
+          : _l(m.boost()),
+          _mut(&m) {
       }
 
       ~scoped_lock() {

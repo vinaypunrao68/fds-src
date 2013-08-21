@@ -19,11 +19,13 @@
 #include <Ice/UndefSysMacros.h>
 #include <IceUtil/IceUtil.h>
 #include <Ice/Ice.h>
-#include <FDSP.h>
+#include <fdsp/FDSP.h>
 #include "list.h"
 #include <list>
 #include "RPC_EndPoint.h"
 #include "StorHvDataPlace.h"
+
+#include "VolumeCatalogCache.h"
 
 #ifndef ICE_IGNORE_VERSION
 #   if ICE_INT_VERSION / 100 != 305
@@ -93,8 +95,7 @@ public:
 
     void UpdateCatalogObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_UpdateCatalogTypePtr& cat_obj_req, const Ice::Current &); 
 
-    void QueryCatalogObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_QueryCatalogTypePtr& cat_obj_req, const Ice::Current &) {
-    }
+    void QueryCatalogObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_QueryCatalogTypePtr& cat_obj_req, const Ice::Current &);
 
     void OffsetWriteObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_OffsetWriteObjTypePtr& offset_write_obj_req, const Ice::Current &) {
 
@@ -224,28 +225,44 @@ public:
 
 class StorHvCtrl {
 public:
-        StorHvCtrl(int argc, char *argv[]);
-        ~StorHvCtrl();	
+  /*
+   * Defines specific test modes used to
+   * construct the object.
+   */
+  typedef enum {
+    DATA_MGR_TEST, /* Only communicate with DMs */
+    STOR_MGR_TEST, /* Only communicate with SMs */
+    TEST_BOTH,     /* Communication with DMs and SMs */
+    NORMAL,        /* Normal, non-test mode */
+    MAX
+  } sh_comm_modes;
+  
+  StorHvCtrl(int argc, char *argv[]);
+  StorHvCtrl(int argc, char *argv[], sh_comm_modes _mode);
+  ~StorHvCtrl();	
+  
+  // Data Members
+  Ice::CommunicatorPtr _communicator;
+  StorHvJournal   	*journalTbl; 
+  StorHvDataPlacement     *dataPlacementTbl;
+  FDS_RPC_EndPointTbl        *rpcSwitchTbl; // RPC calls Switch Table
+  VolumeCatalogCache         *volCatalogCache;
+  
+  void  InitIceObjects();
+  void InitDmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
+  void InitSmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
+  
+  int fds_set_dmack_status( int ipAddr, int  trans_id);
+  int fds_set_dm_commit_status( int ipAddr, int  trans_id);
+  int fds_set_smack_status( int ipAddr, int  trans_id);
+  void fbd_process_req_timeout(unsigned long arg);
+  void fbd_complete_req(int trans_id, fbd_request_t *req, int status);
+  
+  int fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const FDSP_GetObjTypePtr& get_obj_rsp );
+  int fds_process_put_obj_resp(const FDSP_MsgHdrTypePtr& rx_msg,const  FDSP_PutObjTypePtr& put_obj_rsp );
+  int fds_process_update_catalog_resp(const FDSP_MsgHdrTypePtr& rx_msg,const  FDSP_UpdateCatalogTypePtr& cat_obj_rsp );
 
-        // Data Members
-        Ice::CommunicatorPtr _communicator;
-	StorHvJournal   	*journalTbl; 
-	StorHvDataPlacement     *dataPlacementTbl;
-        FDS_RPC_EndPointTbl        *rpcSwitchTbl; // RPC calls Switch Table
-        //VolumeCatalogCache         *volCatalogCache;
-
-	void  InitIceObjects();
-	void InitDmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
-	void InitSmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
-
-	int fds_set_dmack_status( int ipAddr, int  trans_id);
-	int fds_set_dm_commit_status( int ipAddr, int  trans_id);
-	int fds_set_smack_status( int ipAddr, int  trans_id);
-	void fbd_process_req_timeout(unsigned long arg);
-	void fbd_complete_req(int trans_id, fbd_request_t *req, int status);
-
-	int fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const FDSP_GetObjTypePtr& get_obj_rsp );
-	int fds_process_put_obj_resp(const FDSP_MsgHdrTypePtr& rx_msg,const  FDSP_PutObjTypePtr& put_obj_rsp );
-	int fds_process_update_catalog_resp(const FDSP_MsgHdrTypePtr& rx_msg,const  FDSP_UpdateCatalogTypePtr& cat_obj_rsp );
+private:
+  sh_comm_modes mode;
 };
 #endif

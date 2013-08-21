@@ -4,6 +4,8 @@
 
 #include "stor_hvisor_ice/VolumeCatalogCache.h"
 
+#include "stor_hvisor_ice/StorHvisorNet.h"
+
 namespace fds {
 
 CatalogCache::CatalogCache() {
@@ -60,6 +62,41 @@ VolumeCatalogCache::VolumeCatalogCache(
     : fdspDPAPI(fdspDPAPI_arg) {
 }
 
+/*
+ * TODO: Change this interface once we get a generic network
+ * API. This current interface can ONLY talk to ONE DM!
+ */
+VolumeCatalogCache::VolumeCatalogCache(
+    FDS_ProtocolInterface::FDSP_DataPathReqPrx& fdspDPAPI_arg,
+    StorHvCtrl *sh_ctrl)
+    : fdspDPAPI(fdspDPAPI_arg),
+      parent_sh(sh_ctrl) {
+}
+
+/*
+ * TODO: Change this interface once we get a generic network
+ * API. This current interface can ONLY talk to ONE DM!
+ */
+VolumeCatalogCache::VolumeCatalogCache(
+    FDS_ProtocolInterface::FDSP_DataPathReqPrx& fdspDPAPI_arg,
+    fds_log *parent_log)
+    : fdspDPAPI(fdspDPAPI_arg),
+      vcc_log(parent_log) {
+}
+
+/*
+ * TODO: Change this interface once we get a generic network
+ * API. This current interface can ONLY talk to ONE DM!
+ */
+VolumeCatalogCache::VolumeCatalogCache(
+    FDS_ProtocolInterface::FDSP_DataPathReqPrx& fdspDPAPI_arg,
+    StorHvCtrl *sh_ctrl,
+    fds_log *parent_log)
+    : fdspDPAPI(fdspDPAPI_arg),
+      parent_sh(sh_ctrl),
+      vcc_log(parent_log) {
+}
+
 VolumeCatalogCache::~VolumeCatalogCache() {
   /*
    * Iterate the vol_cache_map to free the
@@ -83,6 +120,8 @@ Error VolumeCatalogCache::RegVolume(fds_uint64_t vol_uuid) {
 
   vol_cache_map[vol_uuid] = new CatalogCache();
 
+  FDS_PLOG(vcc_log) << "Registered new volume " << vol_uuid;
+
   return err;
 }
 
@@ -90,6 +129,7 @@ Error VolumeCatalogCache::Query(fds_uint64_t vol_uuid,
                                 fds_uint64_t block_id,
                                 ObjectID *oid) {
   Error err(ERR_OK);
+  int   ret_code = 0;
 
   /*
    * For now, add a new volume cache if we haven't
@@ -98,6 +138,8 @@ Error VolumeCatalogCache::Query(fds_uint64_t vol_uuid,
    * beforehand.
    */
   if (vol_cache_map.count(vol_uuid) == 0) {
+    FDS_PLOG(vcc_log) << "Volume " << vol_uuid
+                      << " does not exist yet!";
     err = RegVolume(vol_uuid);
     if (err != ERR_OK) {
       return err;
@@ -111,7 +153,22 @@ Error VolumeCatalogCache::Query(fds_uint64_t vol_uuid,
     /*
      * Not in the cache. Contact DM.
      */
-    std::cout << "Not in cache! Contacting DM" << std::endl;
+    FDS_PLOG(vcc_log) << "Cache query for volume " << vol_uuid
+                      << " block id " << block_id
+                      << " failed. Contacting DM.";
+
+    /*
+     * Determine the RPC endpoint to contact.
+     * TODO: Handle primary read failures.
+     */
+    std::string ip_addr("10.211.55.3");
+    FDS_RPC_EndPoint *endPoint;
+    ret_code = parent_sh->rpcSwitchTbl->Get_RPC_EndPoint(ip_addr,
+                                                         FDSP_DATA_MGR,
+                                                         &endPoint);
+    if (ret_code != 0) {
+      FDS_PLOG(vcc_log) << "Unable to get RPC endpoint for " << ip_addr;
+    }
 
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr =
         new FDS_ProtocolInterface::FDSP_MsgHdrType;
@@ -133,7 +190,15 @@ Error VolumeCatalogCache::Query(fds_uint64_t vol_uuid,
     query_req->data_obj_id.hash_high = 0;
     query_req->data_obj_id.hash_low  = 0;
 
+    endPoint->fdspDPAPI->QueryCatalogObject(msg_hdr, query_req);
+    
+    FDS_PLOG(vcc_log) << "Async query request sent to DM " << endPoint
+                      << " for volume "<< vol_uuid
+                      << " and block id " << block_id;
+
+    /*
     fdspDPAPI->QueryCatalogObject(msg_hdr, query_req);
+    */
 
     /*
      * Rest the error to OK since we set the message.
@@ -190,6 +255,7 @@ Error VolumeCatalogCache::Update(fds_uint64_t vol_uuid,
    * of requests that go as thread specific pointers for each thread
    * in the thread pool.
    */
+  /*
   FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr =
       new FDS_ProtocolInterface::FDSP_MsgHdrType;
   FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr update_req =
@@ -211,6 +277,7 @@ Error VolumeCatalogCache::Update(fds_uint64_t vol_uuid,
   update_req->data_obj_id.hash_low  = oid.GetLow();
 
   fdspDPAPI->UpdateCatalogObject(msg_hdr, update_req);
+  */
 
   return err;
 }
