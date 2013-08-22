@@ -262,8 +262,13 @@ int main(int argc, char *argv[]) {
     return (0);
   }
 
+#ifndef BLKTAP_UNIT_TEST 
+
   hvisor_hdl = hvisor_lib_init();
   CreateStorHvisor(argc, argv);
+
+#endif
+
 
   printf("All done. About to enter wait loop\n");
   __hvisor_run(vbd);
@@ -476,19 +481,22 @@ void hvisor_queue_read(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq)
 
 	printf("Received read request at offset %llx for %d bytes, buf - %p \n", offset, size, p_new_req->buf);
 
-#if 0	
+#if BLKTAP_UNIT_TEST	
 	if (offset + size < sizeof(data_image)) {
 	  memcpy(p_new_req->buf, data_image + offset, size);
 	}
-	for (i = 0; i < size; i++) {
-	  printf("%2x", p_new_req->buf[i]);
-	}
-	printf("\n");
-#endif
+//	for (i = 0; i < size; i++) {
+//	  printf("%2x", p_new_req->buf[i]);
+//	}
+//	printf("\n");
+	hvisor_complete_td_request((void *)vbd, (void *)vreq, p_new_req, rc);
+#else
 	rc = StorHvisorProcIoRd(hvisor_hdl, p_new_req, hvisor_complete_td_request, (void *)vbd, (void *)vreq);
 	if (rc) {
 	  hvisor_complete_td_request((void *)vbd, (void *)vreq, p_new_req, rc);
 	}
+#endif
+
 }
 
 void hvisor_queue_write(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq)
@@ -507,22 +515,24 @@ void hvisor_queue_write(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq
 	p_new_req->op = treq.op;
 	p_new_req->req_data = (void *)vreq;
 
-#if 0
+#if BLKTAP_UNIT_TEST 
 	printf("Received write request at offset %llx for %d bytes, buf - %p : \n", offset, size, p_new_req->buf);
-	for (i = 0; i < size; i++) {
-	  printf("%2x", treq.buf[i]);
-	}
-	printf("\n");
+//	for (i = 0; i < size; i++) {
+//	  printf("%2x", treq.buf[i]);
+//	}
+//	printf("\n");
 
 	if (offset + size < sizeof(data_image)) {
 	  memcpy(data_image + offset, p_new_req->buf, size);
 	}
-#endif	
+	hvisor_complete_td_request((void *)vbd, (void *)vreq, p_new_req, rc);
+#else
 
 	rc = StorHvisorProcIoWr(hvisor_hdl, p_new_req, hvisor_complete_td_request, (void *)vbd, (void *)vreq);
 	if (rc) {
 	  hvisor_complete_td_request((void *)vbd, (void *)vreq, p_new_req, rc);
 	}
+#endif
 
 }
 

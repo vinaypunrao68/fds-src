@@ -302,6 +302,9 @@ blktap_control_init(void)
 static void
 blktap_control_exit(void)
 {
+
+	blktap_control_destroy_tap(fbd_dev);
+
 	if (default_pool) {
 		kobject_put(&default_pool->kobj);
 		default_pool = NULL;
