@@ -42,7 +42,9 @@ Error DataMgr::_process_open(fds_uint32_t vol_offset,
   return err;
 }
 
-Error DataMgr::_process_close() {
+Error DataMgr::_process_commit(fds_uint32_t vol_offset,
+                               fds_uint32_t trans_id,
+                               const ObjectID& oid) {
   Error err(ERR_OK);
 
   /*
@@ -51,6 +53,20 @@ Error DataMgr::_process_close() {
    * update.
    * For now, we don't need to do anything because it was put
    * into the VVC on open.
+   */
+  FDS_PLOG(dataMgr->GetLog()) << "Committed transaction for vol offset "
+                              << vol_offset << " and mapped to object "
+                              << oid;
+
+  return err;
+}
+
+Error DataMgr::_process_abort() {
+  Error err(ERR_OK);
+
+  /*
+   * TODO: Here we should be determining the state of the
+   * transaction and removing the entry from the TVC.
    */
 
   return err;
@@ -199,9 +215,19 @@ void DataMgr::ReqHandler::UpdateCatalogObject(const FDS_ProtocolInterface::FDSP_
   /*
    * For now, just treat this as an open
    */
-  err = dataMgr->_process_open(update_catalog->volume_offset,
-                               update_catalog->dm_transaction_id,
-                               oid);
+  if (update_catalog->dm_operation ==
+      FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_OPEN) {
+    err = dataMgr->_process_open(update_catalog->volume_offset,
+                                 update_catalog->dm_transaction_id,
+                                 oid);
+  } else if (update_catalog->dm_operation ==
+             FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_COMMITED) {
+    err = dataMgr->_process_commit(update_catalog->volume_offset,
+                                   update_catalog->dm_transaction_id,
+                                   oid);
+  } else {
+    err = ERR_CAT_QUERY_FAILED;
+  }
 
   if (err.ok()) {
     msg_hdr->result  = FDS_ProtocolInterface::FDSP_ERR_OK;

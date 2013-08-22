@@ -164,7 +164,7 @@ class VccUnitTest {
       return -1;
     }
 
-    for (fds_uint32_t i = 0; i < 1; i++) {
+    for (fds_uint32_t i = 0; i < 100; i++) {
       fds_uint64_t block_id = 1 + i;
       ObjectID oid;
       err = vcc.Query(vol_uuid, block_id, &oid);
