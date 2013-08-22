@@ -392,11 +392,15 @@ class TestClient : public Ice::Application {
      */
     std::string testname;
     fds_uint32_t num_updates = 100;
+    fds_uint32_t port_num = 0;
+    std::string ip_addr_str;
     for (int i = 1; i < argc; i++) {
       if (strncmp(argv[i], "--testname=", 11) == 0) {
         testname = argv[i] + 11;
       } else if (strncmp(argv[i], "--num_updates=", 14) == 0) {
         num_updates = atoi(argv[i] + 14);
+      } else if (strncmp(argv[i], "--port=", 7) == 0) {
+        port_num = strtoul(argv[i] + 7, NULL, 0);
       } else {
         std::cout << "Invalid argument " << argv[i] << std::endl;
         return -1;
@@ -407,8 +411,20 @@ class TestClient : public Ice::Application {
      * Setup the network communication. Create a direct connection to
      * a single DM.
      */
+    Ice::PropertiesPtr props = communicator()->getProperties();
+    Ice::ObjectPrx op;
+    if (port_num == 0) {
+      op = communicator()->propertyToProxy("StorHvisorClient.Proxy");
+    } else {
+      std::ostringstream tcpProxyStr;
+      ip_addr_str = props->getProperty("DataMgr.IPAddress");
+
+      tcpProxyStr << "DataMgr: tcp -h " << ip_addr_str << " -p " << port_num;
+      op = communicator()->stringToProxy(tcpProxyStr.str());
+    }
+
     FDS_ProtocolInterface::FDSP_DataPathReqPrx fdspDPAPI =
-        FDS_ProtocolInterface::FDSP_DataPathReqPrx::checkedCast(communicator()->propertyToProxy("StorHvisorClient.Proxy")); // NOLINT(*)
+        FDS_ProtocolInterface::FDSP_DataPathReqPrx::checkedCast(op); // NOLINT(*)
 
     Ice::ObjectAdapterPtr adapter = communicator()->createObjectAdapter("");
     Ice::Identity ident;
