@@ -1,3 +1,5 @@
+#include <iostream>
+
 #include <Ice/Ice.h>
 #include <IceStorm/IceStorm.h>
 #include <fds_pubsub.h>
@@ -49,7 +51,8 @@ int main(int argc, char* argv[])
 
     while(1) {
       cmd = CMD_NOOP;
-      printf(">");
+      // printf(">");
+      std::cout << ">";
       if (getline(&line_ptr, &n_bytes, stdin) <= 1) {
 	continue;
       }
@@ -70,7 +73,9 @@ int main(int argc, char* argv[])
 	cmd = CMD_DMT_UPDATE;
 	sscanf(line_ptr, "dmt %s", tmp_file_name);
       }else {
-	printf("Unknown command %s. Please try again\n", cmd_wd);
+        std::cout << "Unknown command " << cmd_wd
+                  << ". Please try again" << std::endl;
+	// printf("Unknown command %s. Please try again\n", cmd_wd);
 	continue;
       }
       
@@ -107,7 +112,9 @@ int main(int argc, char* argv[])
 	  {
 	    dlt_info_ptr->DLT_version = dlt_version++;
 	    construct_node_table_from_file(tmp_file_name, dlt_info_ptr->DLT);
-	    printf("DLT: %u shards\n", dlt_info_ptr->DLT.size());
+	    // printf("DLT: %u shards\n", dlt_info_ptr->DLT.size());
+            std::cout << "DLT: "<< dlt_info_ptr->DLT.size()
+                      << " shards" << std::endl;
 	    om_client->NotifyDLTUpdate(msg_hdr_ptr, dlt_info_ptr);
 	    break;
 	  }
@@ -116,7 +123,9 @@ int main(int argc, char* argv[])
 	  {
 	    dmt_info_ptr->DMT_version = dmt_version++;
 	    construct_node_table_from_file(tmp_file_name, dmt_info_ptr->DMT);
-	    printf("DMT: %u shards\n", dmt_info_ptr->DMT.size());
+	    // printf("DMT: %u shards\n", dmt_info_ptr->DMT.size());
+            std::cout << "DMT: "<< dmt_info_ptr->DMT.size()
+                      << " shards" << std::endl;
 	    om_client->NotifyDMTUpdate(msg_hdr_ptr, dmt_info_ptr);
 	    break;
 	  }
@@ -141,7 +150,8 @@ void construct_node_table_from_file(char *file_name, Node_Table_Type& node_table
   size_t n_bytes = 0;
   char *line_ptr = 0; 
   
-  printf("Table size- %u\n", node_table.size());
+  // printf("Table size- %u\n", node_table.size());
+  std::cout << "Table size- " << node_table.size() << std::endl;
 
   fp = fopen(file_name, "r");
   
@@ -169,7 +179,9 @@ void construct_node_table_from_file(char *file_name, Node_Table_Type& node_table
     
     node_table.push_back(node_vect);
 
-    printf("Table size- %u, line - %s\n", node_table.size(), line_ptr);
+    // printf("Table size- %u, line - %s\n", node_table.size(), line_ptr);
+    std::cout << "Table size- " << node_table.size()
+              << ", line - " << line_ptr << std::endl;
     line_ptr[0] = 0;
 
   }

@@ -119,16 +119,17 @@ int DataMgr::run(int argc, char* argv[]) {
   
   callbackOnInterrupt();
   std::string udpEndPoint = "udp -p 9600";
-  std::string tcpEndPoint = "tcp -p 6901";
+  std::string tcpEndPoint = "tcp -p 6900";
   
-  Ice::ObjectAdapterPtr adapter = communicator()->createObjectAdapterWithEndpoints("DataMgrSvr", tcpEndPoint);
+  Ice::ObjectAdapterPtr adapter = communicator()->createObjectAdapterWithEndpoints("DataMgr", tcpEndPoint);
 
   reqHandleSrv = new ReqHandler(communicator());
-  adapter->add(reqHandleSrv, communicator()->stringToIdentity("DataMgrSvr"));
+  adapter->add(reqHandleSrv, communicator()->stringToIdentity("DataMgr"));
 
   adapter->activate();
   
   communicator()->waitForShutdown();
+
   return EXIT_SUCCESS;
 }
 
@@ -325,4 +326,6 @@ int main(int argc, char *argv[]) {
   fds::dataMgr = new fds::DataMgr();
   
   fds::dataMgr->main(argc, argv, "config.server");
+
+  delete fds::dataMgr;
 }

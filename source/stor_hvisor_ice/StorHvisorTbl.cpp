@@ -36,31 +36,39 @@ extern StorHvCtrl *storHvisor;
 
 void StorHvDataPlacement::nodeEventHandler(int node_id, unsigned int node_ip_addr, int node_state)
 {
-char ip_address[64];
-    struct sockaddr_in sockaddr;
-    sockaddr.sin_addr.s_addr = node_ip_addr;
-    inet_ntop(AF_INET, &(sockaddr.sin_addr), ip_address, INET_ADDRSTRLEN);
+int storMgrPortNum = 6901;
+int dataMgrPortNum = 6900;
     switch(node_state) { 
-       case FDS_Node_Up : 
-          //storHvisor->rpcSwitchTbl->Add_RPC_EndPoint(ip_address, storMgrPortNum, FDSP_STOR_MGR);
-          //storHvisor->rpcSwitchTbl->Add_RPC_EndPoint(ip_address, dataMgrPortNum, FDSP_DATA_MGR); 
+       case FDSP_Types::FDS_Node_Up : 
+          std::cout << "Node UP event NodeId " << node_id << " Node IP Address " <<  node_ip_addr << std::endl;
+          storHvisor->rpcSwitchTbl->Add_RPC_EndPoint(node_ip_addr, storMgrPortNum, FDSP_STOR_MGR);
+          storHvisor->rpcSwitchTbl->Add_RPC_EndPoint(node_ip_addr, dataMgrPortNum, FDSP_DATA_MGR); 
          break;
 
-       case FDS_Node_Down:
-       case FDS_Node_Rmvd:
-          storHvisor->rpcSwitchTbl->Delete_RPC_EndPoint(ip_address,  FDSP_STOR_MGR);
-          storHvisor->rpcSwitchTbl->Delete_RPC_EndPoint(ip_address,  FDSP_DATA_MGR);
+       case FDSP_Types::FDS_Node_Down:
+       case FDSP_Types::FDS_Node_Rmvd:
+          std::cout << "Node Down event NodeId :" << node_id << " node IP addr" << node_ip_addr << std::endl;
+          storHvisor->rpcSwitchTbl->Delete_RPC_EndPoint(node_ip_addr,  FDSP_STOR_MGR);
+          storHvisor->rpcSwitchTbl->Delete_RPC_EndPoint(node_ip_addr,  FDSP_DATA_MGR);
 	break;
     }
 }
 
-StorHvDataPlacement::StorHvDataPlacement() {
-   omClient = new OMgrClient();
-   omClient->initialize();
-   omClient->registerEventHandlerForNodeEvents((node_event_handler_t )nodeEventHandler);
-   omClient->subscribeToOmEvents(omIPAddr, 1, 1);
+StorHvDataPlacement::StorHvDataPlacement(dp_mode _mode)
+    : test_ip_addr(0), mode(_mode) {
+  if (mode == DP_NORMAL_MODE) {
+    omClient = new OMgrClient();
+    omClient->initialize();
+    omClient->registerEventHandlerForNodeEvents((node_event_handler_t )nodeEventHandler);
+    omClient->subscribeToOmEvents(omIPAddr, 1, 1);
+  }
 }
 
+StorHvDataPlacement::StorHvDataPlacement(dp_mode _mode,
+                                         fds_uint32_t test_ip)
+    : StorHvDataPlacement(_mode) {
+  test_ip_addr = test_ip;
+}
 
 StorHvDataPlacement::~StorHvDataPlacement() {
 }

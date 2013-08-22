@@ -26,6 +26,7 @@ namespace fds {
     ERR_DISK_READ_FAILED  = 3,
     ERR_CAT_QUERY_FAILED  = 4,
     ERR_INVALID_ARG       = 5,
+    ERR_PENDING_RESP      = 6,
     ERR_MAX
   } fds_errno_t;
   

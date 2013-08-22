@@ -274,14 +274,22 @@ int StorHvCtrl::fds_process_update_catalog_resp(const FDSP_MsgHdrTypePtr& rx_msg
 }
 
 
-    void FDSP_DataPathRespCbackI::GetObjectResp(const FDSP_MsgHdrTypePtr& msghdr, const FDSP_GetObjTypePtr& get_obj, const Ice::Current&) {
-        storHvisor->fds_process_get_obj_resp(msghdr, get_obj);
-    }
+void FDSP_DataPathRespCbackI::GetObjectResp(const FDSP_MsgHdrTypePtr& msghdr, const FDSP_GetObjTypePtr& get_obj, const Ice::Current&) {
+  storHvisor->fds_process_get_obj_resp(msghdr, get_obj);
+}
 
-    void FDSP_DataPathRespCbackI::PutObjectResp(const FDSP_MsgHdrTypePtr& msghdr, const FDSP_PutObjTypePtr& put_obj, const Ice::Current&) {
-        storHvisor->fds_process_put_obj_resp(msghdr, put_obj);
-    }
+void FDSP_DataPathRespCbackI::PutObjectResp(const FDSP_MsgHdrTypePtr& msghdr, const FDSP_PutObjTypePtr& put_obj, const Ice::Current&) {
+  storHvisor->fds_process_put_obj_resp(msghdr, put_obj);
+}
 
-    void FDSP_DataPathRespCbackI::UpdateCatalogObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_UpdateCatalogTypePtr& update_cat, const Ice::Current &) {
+void FDSP_DataPathRespCbackI::UpdateCatalogObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_UpdateCatalogTypePtr& update_cat, const Ice::Current &) {
         storHvisor->fds_process_update_catalog_resp(fdsp_msg, update_cat);
-    }
+}
+
+void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
+    const FDSP_MsgHdrTypePtr& fdsp_msg,
+    const FDSP_QueryCatalogTypePtr& cat_obj_req,
+    const Ice::Current &) {
+  std::cout << "GOT A QUERY RESPONSE!" << std::endl;
+  // storHvisor->volCatalogCache->QueryResp(fdsp_msg, cat_obj_req);
+}

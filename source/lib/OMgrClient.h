@@ -1,7 +1,7 @@
 #ifndef _OMGRCLIENT_H
 #define _OMGRCLIENT_H
 #include "include/fds_err.h"
-#include "fds_pubsub.h"
+#include "fdsp/fds_pubsub.h"
 #include <unordered_map>
 #include <Ice/Ice.h>
 #include <IceStorm/IceStorm.h>
@@ -19,7 +19,7 @@ typedef struct _node_info_t {
 
 } node_info_t;
 
-typedef std::unordered_map<int,node_info_t> node_map_t; 
+typedef std::unordered_map<int,node_info_t> node_map_t;
 
 namespace fds {
 

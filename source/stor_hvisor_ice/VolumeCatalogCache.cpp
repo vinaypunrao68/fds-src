@@ -4,6 +4,8 @@
 
 #include "stor_hvisor_ice/VolumeCatalogCache.h"
 
+#include "stor_hvisor_ice/StorHvisorNet.h"
+
 namespace fds {
 
 CatalogCache::CatalogCache() {
@@ -60,6 +62,41 @@ VolumeCatalogCache::VolumeCatalogCache(
     : fdspDPAPI(fdspDPAPI_arg) {
 }
 
+/*
+ * TODO: Change this interface once we get a generic network
+ * API. This current interface can ONLY talk to ONE DM!
+ */
+VolumeCatalogCache::VolumeCatalogCache(
+    FDS_ProtocolInterface::FDSP_DataPathReqPrx& fdspDPAPI_arg,
+    StorHvCtrl *sh_ctrl)
+    : fdspDPAPI(fdspDPAPI_arg),
+      parent_sh(sh_ctrl) {
+}
+
+/*
+ * TODO: Change this interface once we get a generic network
+ * API. This current interface can ONLY talk to ONE DM!
+ */
+VolumeCatalogCache::VolumeCatalogCache(
+    FDS_ProtocolInterface::FDSP_DataPathReqPrx& fdspDPAPI_arg,
+    fds_log *parent_log)
+    : fdspDPAPI(fdspDPAPI_arg),
+      vcc_log(parent_log) {
+}
+
+/*
+ * TODO: Change this interface once we get a generic network
+ * API. This current interface can ONLY talk to ONE DM!
+ */
+VolumeCatalogCache::VolumeCatalogCache(
+    FDS_ProtocolInterface::FDSP_DataPathReqPrx& fdspDPAPI_arg,
+    StorHvCtrl *sh_ctrl,
+    fds_log *parent_log)
+    : fdspDPAPI(fdspDPAPI_arg),
+      parent_sh(sh_ctrl),
+      vcc_log(parent_log) {
+}
+
 VolumeCatalogCache::~VolumeCatalogCache() {
   /*
    * Iterate the vol_cache_map to free the
@@ -83,6 +120,8 @@ Error VolumeCatalogCache::RegVolume(fds_uint64_t vol_uuid) {
 
   vol_cache_map[vol_uuid] = new CatalogCache();
 
+  FDS_PLOG(vcc_log) << "Registered new volume " << vol_uuid;
+
   return err;
 }
 
@@ -90,6 +129,7 @@ Error VolumeCatalogCache::Query(fds_uint64_t vol_uuid,
                                 fds_uint64_t block_id,
                                 ObjectID *oid) {
   Error err(ERR_OK);
+  int   ret_code = 0;
 
   /*
    * For now, add a new volume cache if we haven't
@@ -98,6 +138,8 @@ Error VolumeCatalogCache::Query(fds_uint64_t vol_uuid,
    * beforehand.
    */
   if (vol_cache_map.count(vol_uuid) == 0) {
+    FDS_PLOG(vcc_log) << "Volume " << vol_uuid
+                      << " does not exist yet!";
     err = RegVolume(vol_uuid);
     if (err != ERR_OK) {
       return err;
@@ -111,18 +153,21 @@ Error VolumeCatalogCache::Query(fds_uint64_t vol_uuid,
     /*
      * Not in the cache. Contact DM.
      */
-    std::cout << "Not in cache! Contacting DM" << std::endl;
+    FDS_PLOG(vcc_log) << "Cache query for volume " << vol_uuid
+                      << " block id " << block_id
+                      << " failed. Contacting DM.";
 
+    /*
+     * Construct the message to send to DM.
+     */
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr =
         new FDS_ProtocolInterface::FDSP_MsgHdrType;
     FDS_ProtocolInterface::FDSP_QueryCatalogTypePtr query_req =
         new FDS_ProtocolInterface::FDSP_QueryCatalogType;
-
-    msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_QUERY_CAT_OBJ_REQ;
-
-    msg_hdr->src_id = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
-    msg_hdr->dst_id = FDS_ProtocolInterface::FDSP_DATA_MGR;
-
+    
+    msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_QUERY_CAT_OBJ_REQ;    
+    msg_hdr->src_id   = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
+    msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_DATA_MGR;
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
     msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
 
@@ -133,14 +178,66 @@ Error VolumeCatalogCache::Query(fds_uint64_t vol_uuid,
     query_req->data_obj_id.hash_high = 0;
     query_req->data_obj_id.hash_low  = 0;
 
-    fdspDPAPI->QueryCatalogObject(msg_hdr, query_req);
-
     /*
-     * Rest the error to OK since we set the message.
-     * TODO: Make the RPC above synchronous so we get the
-     * response inline.
+     * Locate a DM endpoint to try.
      */
-    err = ERR_OK;
+    FDS_RPC_EndPoint *endPoint = NULL;
+    int node_ids[256]; /* Why 256? Arbitrary. Use better interface. */
+    int num_nodes = 0;
+    parent_sh->dataPlacementTbl->getDMTNodesForVolume(vol_uuid,
+                                                      node_ids,
+                                                      &num_nodes);
+    fds_uint32_t node_ip;
+    int node_state;
+    fds_bool_t located_ep = false;
+    for (int i = 0; i < num_nodes; i++) {
+      err = parent_sh->dataPlacementTbl->getNodeInfo(node_ids[i],
+                                                     &node_ip,
+                                                     &node_state);
+      if (!err.ok()) {
+        FDS_PLOG(vcc_log) << "Unable to get node info for node "
+                          << node_ids[i];
+        return err;
+      }
+
+      ret_code = parent_sh->rpcSwitchTbl->Get_RPC_EndPoint(node_ip,
+                                                           FDSP_DATA_MGR,
+                                                           &endPoint);
+      if (ret_code != 0) {
+        FDS_PLOG(vcc_log) << "Unable to get RPC endpoint for " << node_ip;
+        err = ERR_CAT_QUERY_FAILED;
+        return err;
+      }
+
+      if (endPoint != NULL) {
+        located_ep = true;
+        /*
+         * We found a valid endpoint. Let's try it
+         */
+        try {
+          endPoint->fdspDPAPI->QueryCatalogObject(msg_hdr, query_req);
+          FDS_PLOG(vcc_log) << "Async query request sent to DM " << endPoint
+                            << " for volume "<< vol_uuid
+                            << " and block id " << block_id;
+          
+          /*
+           * Reset the error to PENDING since we set the message.
+           * This lets the caller know to wait for a response.
+           */
+          err = ERR_PENDING_RESP;
+        } catch (...) {
+          FDS_PLOG(vcc_log) << "Failed to query DM endpoint " << endPoint
+                            << " for volume "<< vol_uuid
+                            << " and block id " << block_id;
+          err = ERR_CAT_QUERY_FAILED;                    
+        }
+        break;
+      }
+    }
+    if (located_ep == false) {
+      FDS_PLOG(vcc_log) << "Could not locate a valid endpoint to query";
+      err = ERR_CAT_QUERY_FAILED;
+    }
   }
 
   return err;
@@ -176,6 +273,10 @@ Error VolumeCatalogCache::Update(fds_uint64_t vol_uuid,
    * we can return success.
    */
   if (err == ERR_DUPLICATE) {
+    /*
+     * Reset the error since it's OK
+     * that is already existed.
+     */
     err = ERR_OK;
     return err;
   } else if (err != ERR_OK) {
@@ -190,6 +291,7 @@ Error VolumeCatalogCache::Update(fds_uint64_t vol_uuid,
    * of requests that go as thread specific pointers for each thread
    * in the thread pool.
    */
+  /*
   FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr =
       new FDS_ProtocolInterface::FDSP_MsgHdrType;
   FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr update_req =
@@ -211,6 +313,7 @@ Error VolumeCatalogCache::Update(fds_uint64_t vol_uuid,
   update_req->data_obj_id.hash_low  = oid.GetLow();
 
   fdspDPAPI->UpdateCatalogObject(msg_hdr, update_req);
+  */
 
   return err;
 }

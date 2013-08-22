@@ -105,14 +105,20 @@ int OMgrClient::recvNodeEvent(int node_id, unsigned int node_ip, int node_state)
 }
 
 int OMgrClient::recvDLTUpdate(int dlt_vrsn, const Node_Table_Type& dlt_table) {
-  printf("New DLT : num shards - %u\n", dlt_table.size());
+  /*
+   * TODO: Move these prints to an OM logger.
+   */
+  // printf("New DLT : num shards - %u\n", dlt_table.size());
   this->dlt_version = dlt_vrsn;
   this->dlt = dlt_table;
   return (0);
 }
 
 int OMgrClient::recvDMTUpdate(int dmt_vrsn, const Node_Table_Type& dmt_table) {
-  printf("New DMT : num shards - %u\n", dmt_table.size());
+  /*
+   * TODO: Move these prints to an OM logger.
+   */
+  // printf("New DMT : num shards - %u\n", dmt_table.size());
   this->dmt_version = dmt_vrsn;
   this->dmt = dmt_table;
   return (0);
