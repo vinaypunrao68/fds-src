@@ -70,11 +70,16 @@ StorHvCtrl::StorHvCtrl(int argc,
     rpcSwitchTbl->Add_RPC_EndPoint(storMgrIPAddress, storMgrPortNum, FDSP_STOR_MGR);
   }
   
-  if (mode != NORMAL) {
+  if ((mode == DATA_MGR_TEST) ||
+      (mode == TEST_BOTH)) {
     /*
-     * TODO: Currently we always add the DM IP in any test mode.
+     * TODO: Currently we always add the DM IP in the DM and BOTH test modes.
      */
     fds_uint32_t ip_num = FDS_RPC_EndPoint::ipString2Addr(dataMgrIPAddress);
+    dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NO_OM_MODE,
+                                                ip_num);
+  } else if (mode == STOR_MGR_TEST) {
+    fds_uint32_t ip_num = FDS_RPC_EndPoint::ipString2Addr(storMgrIPAddress);
     dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NO_OM_MODE,
                                                 ip_num);
   } else {

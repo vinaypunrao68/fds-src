@@ -98,7 +98,8 @@ int StorHvisorProcIoRd(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
 
         // Lookup the Primary SM node-id/ip-address to send the GetObject to
         storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(doid_dlt_key, node_ids, &num_nodes);
-        storHvisor->dataPlacementTbl->omClient->getNodeInfo(node_ids[0], &node_ip, &node_state);
+        // storHvisor->dataPlacementTbl->omClient->getNodeInfo(node_ids[0], &node_ip, &node_state);
+        storHvisor->dataPlacementTbl->getNodeInfo(node_ids[0], &node_ip, &node_state);
 
         // *****CAVEAT: Modification reqd
         // ******  Need to find out which is the primary SM and send this out to that SM. ********
@@ -223,7 +224,8 @@ int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
         for (i = 0; i < num_nodes; i++) {
            node_ip = 0;
            node_state = -1;
-           storHvisor->dataPlacementTbl->omClient->getNodeInfo(node_ids[i], &node_ip, &node_state);
+           //storHvisor->dataPlacementTbl->omClient->getNodeInfo(node_ids[i], &node_ip, &node_state);
+           storHvisor->dataPlacementTbl->getNodeInfo(node_ids[i], &node_ip, &node_state);
 
            journEntry->dm_ack[num_nodes].ipAddr = node_ip;
  	   fdsp_msg_hdr->dst_ip_lo_addr = node_ip;
