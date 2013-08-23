@@ -64,7 +64,7 @@ int OMgrClient::subscribeToOmEvents(unsigned int om_ip_addr, int tenn_id, int do
 
   comm = Ice::initialize(argc, argv);
 
-  Ice::ObjectPrx obj = comm->stringToProxy("IceStorm/TopicManager:tcp -h 10.1.10.202 -p 11234");
+  Ice::ObjectPrx obj = comm->stringToProxy("IceStorm/TopicManager:tcp -h 10.1.10.201 -p 11234");
   topicManager = IceStorm::TopicManagerPrx::checkedCast(obj);
 
   adapter = comm->createObjectAdapterWithEndpoints("OMgrSubscriberAdapter", "tcp");

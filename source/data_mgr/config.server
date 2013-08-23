@@ -8,6 +8,7 @@ DataMgr.Endpoints=tcp -h localhost -p 6900
 DataMgr.ThreadPool.Size=3
 DataMgr.ThreadPool.SizeMax=15
 DataMgr.ThreadPool.SizeWarn=14
+Ice.Trace.ThreadPool=1
 
 DataMgr.IPAddress=127.0.0.1
 DataMgr.PortNumber=6900

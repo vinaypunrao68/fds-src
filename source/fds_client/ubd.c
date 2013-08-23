@@ -266,6 +266,24 @@ int main(int argc, char *argv[]) {
 
   hvisor_hdl = hvisor_lib_init();
   CreateStorHvisor(argc, argv);
+printf("Send the IO \n");
+  while(1)
+  {
+        int c = getchar();
+        switch(c)
+        {
+         case 'q':
+                break;
+         case 's':
+                send_test_io();
+                 printf(" send IO complete \n");
+//                return(0);
+         default:
+                break;
+        }
+
+  }
+
 
 #endif
 
@@ -692,3 +710,29 @@ __hvisor_run(td_vbd_t *vbd)
 
   }
 }
+
+
+int8_t  buf[4096];
+int send_test_io()
+{
+    int len = 4096;
+    int  i;
+  fbd_request_t *p_new_treq;
+  p_new_treq = (fbd_request_t *)malloc(sizeof(fbd_request_t));
+
+      for ( i = 1; i < len; i++)
+             buf[i] = i;
+
+//        memcpy((void *)(p_new_treq->buf), (void *)buf, len);
+
+
+        p_new_treq->op = 1;
+        p_new_treq->buf = buf;;
+        p_new_treq->sec = 0;
+        p_new_treq->secs = 8;
+#ifndef BLKTAP_UNIT_TEST 
+        StorHvisorProcIoWr(hvisor_hdl, p_new_treq, hvisor_complete_td_request,NULL,NULL);
+                  return 0;
+#endif
+}
+

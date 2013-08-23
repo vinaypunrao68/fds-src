@@ -24,6 +24,8 @@
 #include <list>
 #include "RPC_EndPoint.h"
 #include "StorHvDataPlace.h"
+#include "include/fds_err.h"
+#include "include/fds_types.h"
 
 #include "VolumeCatalogCache.h"
 
@@ -50,6 +52,8 @@
 #define  FDS_TRANS_COMMITTED            0x3
 #define  FDS_TRANS_SYNCED               0x4
 #define  FDS_TRANS_DONE                 0x5
+#define  FDS_TRANS_VCAT_QUERY_PENDING   0x6
+#define  FDS_TRANS_GET_OBJ	        0x7
 
 
 #define  FDS_NODE_OFFLINE               0
@@ -185,6 +189,13 @@ public:
         short  commit_status;
 };
 
+enum FDS_IO_Type {
+   FDS_IO_READ,
+   FDS_IO_WRITE,
+   FDS_IO_REDIR_READ,
+   FDS_IO_OFFSET_WRITE
+};
+
 class   StorHvJournalEntry {
 public:
         short  replc_cnt;
@@ -192,6 +203,9 @@ public:
         short  dm_ack_cnt;
         short  dm_commit_cnt;
         short  trans_state;
+        FDS_IO_Type   op;
+        FDS_ObjectIdType data_obj_id;
+        int      data_obj_len;
         void     *fbd_ptr;
         void     *read_ctx;
         void     *write_ctx;

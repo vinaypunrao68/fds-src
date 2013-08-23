@@ -52,8 +52,8 @@ FDS_RPC_EndPoint::FDS_RPC_EndPoint(int ip_addr, int port,
     fdspDPAPI = FDSP_DataPathReqPrx::checkedCast(ic->stringToProxy (tcpProxyStr.str()));
   }
   
-  adapter = ic->createObjectAdapter("");
-  if (!adapter)
+  _adapter = ic->createObjectAdapter("");
+  if (!_adapter)
     throw "Invalid adapter";
   
   ident.name = IceUtil::generateUUID();
@@ -62,10 +62,10 @@ FDS_RPC_EndPoint::FDS_RPC_EndPoint(int ip_addr, int port,
   
   if (!fdspDataPathResp)
     throw "Invalid fdspDataPathRespCback";
-  adapter->add(fdspDataPathResp, ident);
+  _adapter->add(fdspDataPathResp, ident);
   
-  adapter->activate();
-  fdspDPAPI->ice_getConnection()->setAdapter(adapter);
+  _adapter->activate();
+  fdspDPAPI->ice_getConnection()->setAdapter(_adapter);
   fdspDPAPI->AssociateRespCallback(ident);
 }
 
@@ -96,8 +96,8 @@ FDS_RPC_EndPoint::FDS_RPC_EndPoint(const std::string& ip_addr_str_arg,
     fdspDPAPI = FDSP_DataPathReqPrx::checkedCast(ic->stringToProxy (tcpProxyStr.str()));
   }
   
-  adapter = ic->createObjectAdapter("");
-  if (!adapter)
+  _adapter = ic->createObjectAdapter("");
+  if (!_adapter)
     throw "Invalid adapter";
   
   ident.name = IceUtil::generateUUID();
@@ -106,10 +106,10 @@ FDS_RPC_EndPoint::FDS_RPC_EndPoint(const std::string& ip_addr_str_arg,
   
   if (!fdspDataPathResp)
     throw "Invalid fdspDataPathRespCback";
-  adapter->add(fdspDataPathResp, ident);
+  _adapter->add(fdspDataPathResp, ident);
   
-  adapter->activate();
-  fdspDPAPI->ice_getConnection()->setAdapter(adapter);
+  _adapter->activate();
+  fdspDPAPI->ice_getConnection()->setAdapter(_adapter);
   fdspDPAPI->AssociateRespCallback(ident);
 }
 
@@ -200,7 +200,7 @@ int FDS_RPC_EndPointTbl::Get_RPC_EndPoint(string  ip_addr_str, FDSP_MgrIdType mg
 
 void   FDS_RPC_EndPoint::Shutdown_RPC_EndPoint() 
 {
-    adapter->deactivate();
+    _adapter->deactivate();
 
 }
 

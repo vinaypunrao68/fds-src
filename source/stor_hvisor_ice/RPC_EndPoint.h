@@ -47,7 +47,7 @@ public:
 	short   	proto_type;
 	std::string 	ip_addr_str;
         int 		ip_addr;
-        Ice::ObjectAdapterPtr adapter;
+        Ice::ObjectAdapterPtr _adapter;
 	int 		port_num;
         FDS_ProtocolInterface::FDSP_MgrIdType mgrId;
 	FDSP_DataPathReqPrx  fdspDPAPI;

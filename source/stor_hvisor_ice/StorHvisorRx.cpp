@@ -116,7 +116,8 @@ int StorHvCtrl::fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const
 
 	trans_id = rd_msg->req_cookie;
         StorHvJournalEntry *txn = journalTbl->get_journal_entry(trans_id);
-	if (txn->trans_state == FDS_TRANS_EMPTY) {
+	if (txn->trans_state != FDS_TRANS_GET_OBJ) {
+          cout << "Error: Journal Entry" << rd_msg->req_cookie <<  "  GetObjectResp for a transaction not in GetObjResp" << std::endl;
 	  return (0);
 	}
 
@@ -243,7 +244,7 @@ int StorHvCtrl::fds_process_update_catalog_resp(const FDSP_MsgHdrTypePtr& rx_msg
 	    }
           }
           break;
-	
+
           default : 
              break;
        }
@@ -287,9 +288,65 @@ void FDSP_DataPathRespCbackI::UpdateCatalogObjectResp(const FDSP_MsgHdrTypePtr& 
 }
 
 void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
-    const FDSP_MsgHdrTypePtr& fdsp_msg,
+    const FDSP_MsgHdrTypePtr& fdsp_msg_hdr,
     const FDSP_QueryCatalogTypePtr& cat_obj_req,
     const Ice::Current &) {
-  std::cout << "GOT A QUERY RESPONSE!" << std::endl;
-  // storHvisor->volCatalogCache->QueryResp(fdsp_msg, cat_obj_req);
+    int num_nodes;
+    int node_ids[64];
+    int node_state = -1;
+    uint32_t node_ip = 0;
+    ObjectID obj_id;
+    int doid_dlt_key;
+    FDS_RPC_EndPoint *endPoint = NULL;
+    uint64_t doid_high;
+
+   FDS_ProtocolInterface::FDSP_GetObjTypePtr get_obj_req = new FDSP_GetObjType;
+    
+    std::cout << "GOT A QUERY RESPONSE!" << std::endl;
+
+        StorHvJournalEntry *journEntry = storHvisor->journalTbl->get_journal_entry(fdsp_msg_hdr->req_cookie);
+
+        if (journEntry == NULL) {
+          cout << "Journal Entry" << fdsp_msg_hdr->req_cookie <<  "QueryCatalogObjResp not found" << std::endl;
+          return;
+        }
+
+        if (journEntry->op !=  FDS_IO_READ) { 
+          cout << "Journal Entry" << fdsp_msg_hdr->req_cookie <<  "  QueryCatalogObjResp for a non IO_READ transaction" << std::endl;
+          return;
+        }
+
+        if (journEntry->trans_state != FDS_TRANS_VCAT_QUERY_PENDING) {
+            cout << "Journal Entry" << fdsp_msg_hdr->req_cookie <<  "  QueryCatalogObjResp for a transaction node in Query Pending " << std::endl;
+            return;
+        }
+
+        doid_high = cat_obj_req->data_obj_id.hash_high;
+        doid_dlt_key = doid_high >> 56;
+
+         // Lookup the Primary SM node-id/ip-address to send the GetObject to
+         storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(doid_dlt_key, node_ids, &num_nodes);
+         if(num_nodes == 0) {
+            cout << "DataPlace Error : no nodes in DLT :Jrnl Entry" << fdsp_msg_hdr->req_cookie <<  "QueryCatalogObjResp " << std::endl;
+            return;
+         }
+         storHvisor->dataPlacementTbl->omClient->getNodeInfo(node_ids[0], &node_ip, &node_state);
+         //
+         // *****CAVEAT: Modification reqd
+         // ******  Need to find out which is the primary SM and send this out to that SM. ********
+         storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip, FDSP_STOR_MGR, endPoint);
+         
+        // RPC Call GetObject to StorMgr
+        fdsp_msg_hdr->msg_code = FDSP_MSG_GET_OBJ_REQ;
+        fdsp_msg_hdr->msg_id =  1;
+        get_obj_req->data_obj_id.hash_high = cat_obj_req->data_obj_id.hash_high;
+        get_obj_req->data_obj_id.hash_low = cat_obj_req->data_obj_id.hash_low;
+        get_obj_req->data_obj_len = journEntry->data_obj_len;
+        if (endPoint) {
+            endPoint->fdspDPAPI->GetObject(fdsp_msg_hdr, get_obj_req);
+            journEntry->trans_state = FDS_TRANS_GET_OBJ;
+        }
+   
+        obj_id.SetId( cat_obj_req->data_obj_id.hash_high,cat_obj_req->data_obj_id.hash_low);
+        storHvisor->volCatalogCache->Update((fds_uint64_t)fdsp_msg_hdr->glob_volume_id, (fds_uint64_t)cat_obj_req->volume_offset, obj_id);
 }
