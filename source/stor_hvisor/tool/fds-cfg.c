@@ -196,7 +196,7 @@ int    main(int argc, char *argv[])
 	if (fbd < 0)
 	  	printf( "Cannot open  the device: Please emake sure the  device is  created \n");
 
-	while((opt=getopt_long_only(argc, argv, "-d:-b:a:-t:-u:-p:-r:-m:-l:c:h:", long_options, NULL))>=0) 
+	while((opt=getopt_long_only(argc, argv, "-d:-b:a:-t:-u:-p:-r:-m:-l:ch:", long_options, NULL))>=0) 
 	{
 		switch(opt) {
 		case 'b':
