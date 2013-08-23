@@ -22,7 +22,6 @@ namespace fds {
 class VccUnitTest {
  private:
   std::list<std::string>  unit_tests;
-  FDS_ProtocolInterface::FDSP_DataPathReqPrx& fdspDPAPI;
 
   fds_log *vcc_log;
 
@@ -32,56 +31,11 @@ class VccUnitTest {
   int basic_update() {
     Error err(ERR_OK);
 
-    VolumeCatalogCache vcc(fdspDPAPI, vcc_log);
-    fds_uint64_t vol_uuid;
-
-    vol_uuid = 987654321;
-
-    err = vcc.RegVolume(vol_uuid);
-    if (!err.ok()) {
-      std::cout << "Failed to register volume " << vol_uuid << std::endl;
-      return -1;
-    }
-
-    for (fds_uint32_t i = 0; i < 100; i++) {
-      fds_uint64_t block_id = i;
-      ObjectID oid(1234, i);
-      err = vcc.Update(vol_uuid, block_id, oid);
-      if (!err.ok()) {
-        std::cout << "Failed to update volume " << vol_uuid << std::endl;
-        return -1;
-      }
-    }
-
     return 0;
   }
 
   int basic_query() {
     Error err(ERR_OK);
-
-    VolumeCatalogCache vcc(fdspDPAPI, vcc_log);
-    fds_uint64_t vol_uuid;
-
-    vol_uuid = 987654321;
-
-    err = vcc.RegVolume(vol_uuid);
-    if (!err.ok()) {
-      std::cout << "Failed to register volume " << vol_uuid << std::endl;
-      return -1;
-    }
-
-    for (fds_uint32_t i = 0; i < 100; i++) {
-      fds_uint64_t block_id = i;
-      ObjectID oid;
-      /*
-       * Don't check for error here because if the test
-       * is run without prior updates, we expect these
-       * queries will fail.
-       */
-      err = vcc.Query(vol_uuid, block_id, &oid);
-
-      std::cout << "Read cache object " << oid << std::endl;
-    }
 
     return 0;
   }
@@ -89,70 +43,13 @@ class VccUnitTest {
   int basic_uq() {
     Error err(ERR_OK);
 
-    VolumeCatalogCache vcc(fdspDPAPI, vcc_log);
-    fds_uint64_t vol_uuid;
-
-    vol_uuid = 987654321;
-
-    err = vcc.RegVolume(vol_uuid);
-    if (!err.ok()) {
-      std::cout << "Failed to register volume " << vol_uuid << std::endl;
-      return -1;
-    }
-
-    for (fds_uint32_t i = 1; i < 2; i++) {
-      fds_uint64_t block_id = i;
-      ObjectID oid(1234, i);
-
-      /*
-       * Put the catalog entry.
-       */
-      err = vcc.Update(vol_uuid, block_id, oid);
-      if (!err.ok()) {
-        std::cout << "Failed to update volume " << vol_uuid << std::endl;
-        return -1;
-      }
-
-      /*
-       * Read the catalog entry. We expect this
-       * to hit the local cache.
-       */
-      err = vcc.Query(vol_uuid, block_id, &oid);
-      if (!err.ok()) {
-        std::cout << "Failed to query volume cache " << vol_uuid << std::endl;
-        return -1;
-      }
-      std::cout << "Found " << oid << " in the local cache" << std::endl;
-
-      /*
-       * Clear the local cache and then re-issue the
-       * query. We expect this to fall through to DM.
-       */
-      vcc.Clear(vol_uuid);
-      err = vcc.Query(vol_uuid, block_id, &oid);
-      if (!err.ok()) {
-        std::cout << "Failed to query cleared volume cache "
-                  << vol_uuid << std::endl;
-        return -1;
-      }
-
-      std::cout << "Read cache object " << oid << std::endl;
-    }
-
     return 0;
   }
 
   int basic_sh_integration() {
     Error err(ERR_OK);
-
-
-    int argc = 0;
-    char* argv[argc];
-
-    storHvisor = new StorHvCtrl(argc, argv, StorHvCtrl::DATA_MGR_TEST);
     
-    VolumeCatalogCache vcc(fdspDPAPI,
-                           storHvisor,
+    VolumeCatalogCache vcc(storHvisor,
                            vcc_log);
     fds_uint64_t vol_uuid;
 
@@ -180,19 +77,20 @@ class VccUnitTest {
   }
 
  public:
-  /*
-   * The non-const refernce is OK.
-   */
-  explicit VccUnitTest(FDS_ProtocolInterface::FDSP_DataPathReqPrx&
-                       fdspDPAPI_arg) // NOLINT(*)
-      : fdspDPAPI(fdspDPAPI_arg) {
-
+  VccUnitTest() {
     vcc_log = new fds_log("vcc", "logs");
 
     unit_tests.push_back("basic_update");
     unit_tests.push_back("basic_query");
     unit_tests.push_back("basic_uq");
     unit_tests.push_back("basic_sh_integration");
+    
+    /*
+     * Create the SH control. Pass some empty cmdline args.
+     */
+    int argc = 0;
+    char* argv[argc];
+    storHvisor = new StorHvCtrl(argc, argv, StorHvCtrl::DATA_MGR_TEST);
   }
 
   ~VccUnitTest() {
@@ -311,34 +209,9 @@ class ShClient : public Ice::Application {
     }
 
     /*
-     * TODO: Clean this up once the SH network stuff is finalized.
-     * 
-     * Setup the network communication.
+     * Setup the basic unit test.
      */
-    FDS_ProtocolInterface::FDSP_DataPathReqPrx fdspDPAPI;
-    /*
-    FDS_ProtocolInterface::FDSP_DataPathReqPrx fdspDPAPI =
-        FDS_ProtocolInterface::FDSP_DataPathReqPrx::checkedCast(communicator()->propertyToProxy("StorHvisorClient.Proxy")); // NOLINT(*)
-
-    Ice::ObjectAdapterPtr adapter = communicator()->createObjectAdapter("");
-    Ice::Identity ident;
-    ident.name = IceUtil::generateUUID();
-    ident.category = "";
-
-    FDS_ProtocolInterface::FDSP_DataPathRespPtr fdspDataPathResp;
-    fdspDataPathResp = new ShClientCb();
-    if (!fdspDataPathResp) {
-      throw "Invalid fdspDataPathRespCback";
-    }
-
-    adapter->add(fdspDataPathResp, ident);
-    adapter->activate();
-
-    fdspDPAPI->ice_getConnection()->setAdapter(adapter);
-    fdspDPAPI->AssociateRespCallback(ident);
-    */
-
-    VccUnitTest unittest(fdspDPAPI);
+    VccUnitTest unittest;
 
     if (testname.empty()) {
       unittest.Run();
