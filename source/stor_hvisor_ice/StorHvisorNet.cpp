@@ -36,6 +36,7 @@ StorHvCtrl::StorHvCtrl(int argc,
 
   rpcSwitchTbl = new FDS_RPC_EndPointTbl(_communicator);
   journalTbl = new StorHvJournal();
+  volCatalogCache = new VolumeCatalogCache(this);
   
   /*
    * Set basic thread properties.

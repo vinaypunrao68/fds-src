@@ -19,8 +19,8 @@ COBJS		= StorHvisorNet.o \
 		  RPC_EndPoint.o \
 		  StorHvisorTx.o  \
 		  StorHvisorTbl.o \
-		  StorHvisorRx.o
-#		  VolumeCatalogCache.o \
+		  StorHvisorRx.o \
+		  VolumeCatalogCache.o
 
 SRCS		= $(OBJS:.o=.cpp) \
 		  $(COBJS:.o=.cpp)
