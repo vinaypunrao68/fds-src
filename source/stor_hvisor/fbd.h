@@ -99,6 +99,8 @@ struct fbd_device {
 	wait_queue_head_t       remove_wait;
 	struct work_struct      remove_work;
 	struct file 		*filp;
+	
+	int should_stop_accepting_requests;
 
 	struct blktap_statistics       stats;
 };

@@ -225,6 +225,8 @@ blktap_device_run_queue(struct request_queue *q)
     struct fbd_device *fbd;
 	int err;
 
+//	printk("Dequeueing requests from queue %p\n", q);
+
 	spin_lock_irq(q->queue_lock);
 	
 	while ((req = blk_fetch_request(q)) != NULL) {
@@ -284,21 +286,32 @@ printk(" device make request fbd: %p  flip:%p \n ", fbd,fbd->filp);
 
 }
 
+void blktap_device_fail_queue(struct fbd_device *tap);
+
 void
 blktap_device_do_request(struct request_queue *rq)
 {
 	struct fbd_device *tap = rq->queuedata;
 
+	if (tap->should_stop_accepting_requests) {
+		printk("FBD: Not accepting requests any more. Flushing the queue\n");
+		spin_unlock_irq(rq->queue_lock);
+		blktap_device_fail_queue(tap);
+		spin_lock_irq(rq->queue_lock);
+	} else {
 printk("send a message to  user \n");
 	blktap_ring_kick_user(tap);
+	}
 }
 
 
 
-static void
+void
 blktap_device_fail_queue(struct fbd_device *tap)
 {
 	struct request_queue *q = tap->disk->queue;
+
+	printk("Stopping queue %p\n", q);
 
 	spin_lock_irq(&tap->queue_lock);
 	queue_flag_clear(QUEUE_FLAG_STOPPED, q);

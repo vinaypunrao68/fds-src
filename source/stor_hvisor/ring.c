@@ -41,6 +41,8 @@ int blktap_ring_major;
 static struct cdev blktap_ring_cdev;
 extern struct fbd_device *fbd_dev;
 
+void blktap_device_fail_queue(struct fbd_device *tap);
+
  /* 
   * BLKTAP - immediately before the mmap area,
   * we have a bunch of pages reserved for shared memory rings.
@@ -143,6 +145,9 @@ blktap_ring_fail_pending(struct fbd_device *tap)
 	struct blktap_request *request;
 	int usr_idx;
 
+
+	blktap_device_fail_queue(tap);
+
 	for (usr_idx = 0; usr_idx < BLKTAP_RING_SIZE; usr_idx++) {
 		request = ring->pending[usr_idx];
 		if (!request)
@@ -150,6 +155,8 @@ blktap_ring_fail_pending(struct fbd_device *tap)
 
 		blktap_device_end_request(tap, request, -EIO);
 	}
+
+
 }
 
 static void
@@ -158,6 +165,8 @@ blktap_ring_vm_close_sring(struct fbd_device *tap,
 {
 	struct blktap_ring *ring = &tap->ring;
 	struct page *page = virt_to_page(ring->ring.sring);
+
+	tap->should_stop_accepting_requests = 1;
 
 	blktap_ring_fail_pending(tap);
 
@@ -227,7 +236,8 @@ blktap_ring_unmap_request(struct fbd_device *tap,
 	struct  mm_struct *mm;
 	struct blktap_ring *ring = &tap->ring;
 	unsigned long addr, len;
-	int read, err;
+	int read;
+	int err=0;
 
 	read  = request->operation == BLKTAP_OP_READ;
 	if (read)
@@ -236,8 +246,11 @@ blktap_ring_unmap_request(struct fbd_device *tap,
 	addr  = MMAP_VADDR(ring->user_vstart, request->usr_idx, 0);
 	len   = request->nr_pages << PAGE_SHIFT;
 printk(" vm_munmap addr:%p  len: %d current - %p ring_task - %p\n", addr, len, current, tap->ring.task);
-	mm = tap->ring.task->mm;
-	err = vm_munmap(addr, len);
+	mm = current->mm;
+	printk("**** FBD sanity check: current - %p, mm - %p, sem - %p\n", current, mm, &mm->mmap_sem);
+	if (mm) {
+		err = vm_munmap(addr, len);
+	}
 	//err = do_munmap(mm, addr, len);
 	if (err) {
 	  printk("*** ERROR: Unmap failed with error %d\n", err);

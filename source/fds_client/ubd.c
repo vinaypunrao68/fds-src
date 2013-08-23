@@ -524,6 +524,9 @@ void hvisor_queue_write(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq
 	int i;
 	int rc = 0;
 	fbd_request_t *p_new_req;
+#if BLKTAP_UNIT_TEST
+	static int num_write_reqs = 0;
+#endif
 
 	p_new_req = (fbd_request_t *)malloc(sizeof(td_request_t));
 	memset(p_new_req, 0 , sizeof(fbd_request_t *));
@@ -543,6 +546,13 @@ void hvisor_queue_write(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq
 	if (offset + size < sizeof(data_image)) {
 	  memcpy(data_image + offset, p_new_req->buf, size);
 	}
+  #if BLKTAP_UNIT_TEST_CRASH
+	if (num_write_reqs == 2) {
+		ASSERT(0);
+	}
+  #endif
+	num_write_reqs++;
+
 	hvisor_complete_td_request((void *)vbd, (void *)vreq, p_new_req, rc);
 #else
 

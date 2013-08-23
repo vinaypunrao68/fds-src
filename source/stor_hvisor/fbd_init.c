@@ -66,6 +66,8 @@ atomic_t fds_exit;
 DECLARE_WAIT_QUEUE_HEAD(thread_wait);
 
 
+void blktap_device_fail_queue(struct fbd_device *tap);
+
 /*
   Initialise the connection  management table 
 */
@@ -1322,7 +1324,9 @@ static int __fbd_dev_ioctl(struct block_device *bdev, struct fbd_device *fbd,
 		fbd_process_cluster_conn( bdev, fbd, data);
 		return 0;
 	case FBD_CLOSE_TARGET_CON:
-		fbd_process_cluster_dconn( bdev, fbd, data);
+		//fbd_process_cluster_dconn( bdev, fbd, data);
+		printk("*** FBD: received close target ioctl\n");
+		blktap_device_fail_queue(fbd);
 		break;
 	case FBD_SET_TGT_SIZE:
 		fbd_set_tgt_size(bdev, fbd, data);
@@ -1364,6 +1368,7 @@ static int fbd_dev_ioctl(struct block_device *bdev, fmode_t mode,
 	struct fbd_device *fbd = bdev->bd_disk->private_data;
 	int error;
 
+	printk("*** FBD received ioctl cmd %d\n", cmd);
 
 	mutex_lock(&fbd->tx_lock);
 	error = __fbd_dev_ioctl(bdev, fbd, cmd, arg);
@@ -1527,6 +1532,7 @@ static int __init fbd_init(void)
 	if (!disk)
 		goto out;
 	fbd_dev->disk = disk;
+	fbd_dev->should_stop_accepting_requests = 0;
 	disk->queue = blk_init_queue(blktap_device_do_request, &fbd_lock);
 //	disk->queue = blk_init_queue(blktap_device_run_queue, &fbd_lock);
 	if (!disk->queue) {
