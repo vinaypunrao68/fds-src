@@ -53,48 +53,19 @@ void CatalogCache::Clear() {
   offset_map.clear();
 }
 
-/*
- * TODO: Change this interface once we get a generic network
- * API. This current interface can ONLY talk to ONE DM!
- */
 VolumeCatalogCache::VolumeCatalogCache(
-    FDS_ProtocolInterface::FDSP_DataPathReqPrx& fdspDPAPI_arg)
-    : fdspDPAPI(fdspDPAPI_arg) {
-}
-
-/*
- * TODO: Change this interface once we get a generic network
- * API. This current interface can ONLY talk to ONE DM!
- */
-VolumeCatalogCache::VolumeCatalogCache(
-    FDS_ProtocolInterface::FDSP_DataPathReqPrx& fdspDPAPI_arg,
     StorHvCtrl *sh_ctrl)
-    : fdspDPAPI(fdspDPAPI_arg),
-      parent_sh(sh_ctrl) {
+    : parent_sh(sh_ctrl) {
+  vcc_log = new fds_log("vcc_test", "logs");
+  created_log = true;
 }
 
-/*
- * TODO: Change this interface once we get a generic network
- * API. This current interface can ONLY talk to ONE DM!
- */
 VolumeCatalogCache::VolumeCatalogCache(
-    FDS_ProtocolInterface::FDSP_DataPathReqPrx& fdspDPAPI_arg,
-    fds_log *parent_log)
-    : fdspDPAPI(fdspDPAPI_arg),
-      vcc_log(parent_log) {
-}
-
-/*
- * TODO: Change this interface once we get a generic network
- * API. This current interface can ONLY talk to ONE DM!
- */
-VolumeCatalogCache::VolumeCatalogCache(
-    FDS_ProtocolInterface::FDSP_DataPathReqPrx& fdspDPAPI_arg,
     StorHvCtrl *sh_ctrl,
     fds_log *parent_log)
-    : fdspDPAPI(fdspDPAPI_arg),
-      parent_sh(sh_ctrl),
-      vcc_log(parent_log) {
+    : parent_sh(sh_ctrl),
+      vcc_log(parent_log),
+      created_log(false) {
 }
 
 VolumeCatalogCache::~VolumeCatalogCache() {
@@ -109,6 +80,13 @@ VolumeCatalogCache::~VolumeCatalogCache() {
     delete it->second;
   }
   vol_cache_map.clear();
+  
+  /*
+   * Delete log if malloc'd one earlier.
+   */
+  if (created_log == true) {
+    delete vcc_log;
+  }
 }
 
 /*

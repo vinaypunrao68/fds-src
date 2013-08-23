@@ -36,8 +36,16 @@ public:
   double omIPAddr;
   
   void  getDLTNodesForDoidKey(unsigned char doid_key, int *node_ids, int *n_nodes) {
-    omClient->getDLTNodesForDoidKey(doid_key, node_ids, n_nodes);
-    return;
+    if (mode == DP_NO_OM_MODE) {
+      /*
+       * TODO: Set up some stock response here.
+       * Returns 1 nodes with ID 0.
+       */
+      (*n_nodes) = 1;
+      node_ids[(*n_nodes) - 1] = 0;
+    } else {
+      omClient->getDLTNodesForDoidKey(doid_key, node_ids, n_nodes);
+    }
   }
   void  getDMTNodesForVolume(int volid, int *node_ids, int *n_nodes ) {
     if (mode == DP_NO_OM_MODE) {

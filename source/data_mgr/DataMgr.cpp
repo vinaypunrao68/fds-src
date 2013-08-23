@@ -19,7 +19,8 @@ Error DataMgr::_process_open(fds_uint32_t vol_offset,
    * TODO: Just hack the name as the offset for now.
    */
   if (vol_meta_map.count(vol_offset) == 0) {
-    vol_meta_map[vol_offset] = new VolumeMeta(std::to_string(vol_offset),
+    vol_meta_map[vol_offset] = new VolumeMeta(stor_prefix +
+                                              std::to_string(vol_offset),
                                               vol_offset,
                                               dm_log);
     FDS_PLOG(dataMgr->GetLog()) << "Created vol meta for vol offset "
@@ -42,7 +43,9 @@ Error DataMgr::_process_open(fds_uint32_t vol_offset,
   return err;
 }
 
-Error DataMgr::_process_close() {
+Error DataMgr::_process_commit(fds_uint32_t vol_offset,
+                               fds_uint32_t trans_id,
+                               const ObjectID& oid) {
   Error err(ERR_OK);
 
   /*
@@ -51,6 +54,20 @@ Error DataMgr::_process_close() {
    * update.
    * For now, we don't need to do anything because it was put
    * into the VVC on open.
+   */
+  FDS_PLOG(dataMgr->GetLog()) << "Committed transaction for vol offset "
+                              << vol_offset << " and mapped to object "
+                              << oid;
+
+  return err;
+}
+
+Error DataMgr::_process_abort() {
+  Error err(ERR_OK);
+
+  /*
+   * TODO: Here we should be determining the state of the
+   * transaction and removing the entry from the TVC.
    */
 
   return err;
@@ -110,18 +127,49 @@ DataMgr::~DataMgr() {
 }
 
 int DataMgr::run(int argc, char* argv[]) {
-  std::string endPointStr;
-  if(argc > 1)
-  {
-    std::cerr << appName() << ": too many arguments" << std::endl;
-    return EXIT_FAILURE;
+  /*
+   * Process the cmdline args.
+   */
+  for (fds_int32_t i = 1; i < argc; i++) {
+    if (strncmp(argv[i], "--port=", 7) == 0) {
+      port_num = strtoul(argv[i] + 7, NULL, 0);
+    } else if (strncmp(argv[i], "--prefix=", 9) == 0) {
+      stor_prefix = argv[i] + 9;
+    } else {
+      std::cout << "Invalid argument " << argv[i] << std::endl;
+      return -1;
+    }
   }
+
+  Ice::PropertiesPtr props = communicator()->getProperties();
+
+  /*
+   * Set basic thread properties.
+   */
+  props->setProperty("DataMgr.ThreadPool.Size", "10");
+  props->setProperty("DataMgr.ThreadPool.SizeMax", "20");
+  props->setProperty("DataMgr.ThreadPool.SizeWarn", "18");
+
+  if (port_num == 0) {
+    /*
+     * Pull the port from the config file if it wasn't
+     * specified on the command line.
+     */
+    port_num = props->getPropertyAsInt("DataMgr.PortNumber");
+  }
+
+  FDS_PLOG(dm_log) << "Data Manager using port " << port_num;
+  FDS_PLOG(dm_log) << "Data Manager using storage prefix "
+                   << stor_prefix;
   
   callbackOnInterrupt();
-  std::string udpEndPoint = "udp -p 9600";
-  std::string tcpEndPoint = "tcp -p 6900";
-  
-  Ice::ObjectAdapterPtr adapter = communicator()->createObjectAdapterWithEndpoints("DataMgr", tcpEndPoint);
+
+  /*
+   * Setup TCP endpoint.
+   */
+  std::ostringstream tcpProxyStr;
+  tcpProxyStr << "tcp -p " << port_num;
+  Ice::ObjectAdapterPtr adapter = communicator()->createObjectAdapterWithEndpoints("DataMgr", tcpProxyStr.str());
 
   reqHandleSrv = new ReqHandler(communicator());
   adapter->add(reqHandleSrv, communicator()->stringToIdentity("DataMgr"));
@@ -199,9 +247,19 @@ void DataMgr::ReqHandler::UpdateCatalogObject(const FDS_ProtocolInterface::FDSP_
   /*
    * For now, just treat this as an open
    */
-  err = dataMgr->_process_open(update_catalog->volume_offset,
-                               update_catalog->dm_transaction_id,
-                               oid);
+  if (update_catalog->dm_operation ==
+      FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_OPEN) {
+    err = dataMgr->_process_open(update_catalog->volume_offset,
+                                 update_catalog->dm_transaction_id,
+                                 oid);
+  } else if (update_catalog->dm_operation ==
+             FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_COMMITED) {
+    err = dataMgr->_process_commit(update_catalog->volume_offset,
+                                   update_catalog->dm_transaction_id,
+                                   oid);
+  } else {
+    err = ERR_CAT_QUERY_FAILED;
+  }
 
   if (err.ok()) {
     msg_hdr->result  = FDS_ProtocolInterface::FDSP_ERR_OK;
@@ -325,7 +383,7 @@ int main(int argc, char *argv[]) {
 
   fds::dataMgr = new fds::DataMgr();
   
-  fds::dataMgr->main(argc, argv, "config.server");
+  fds::dataMgr->main(argc, argv, "dm_test.conf");
 
   delete fds::dataMgr;
 }

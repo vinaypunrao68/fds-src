@@ -40,6 +40,9 @@ SRCS		= $(OBJS:.o=.cpp) \
 #
 CPP11		= yes
 
+TEST_FLAGS	= -std=c++0x -Wall -Werror -g2 -I../ -I../lib/Ice-3.5.0/cpp/include -I../fdsp/
+TEST_LIBS	= -L../lib/Ice-3.5.0/cpp/lib -lpthread -lIce -lIceUtil ../fdsp/FDSP.o -lboost_log -lboost_system -lboost_thread -lboost_date_time ../util/Log.o
+
 include $(TOPICEDIR)/config/Make.rules
 
 CPPFLAGS	:= -I. $(CPPFLAGS) -I. -I $(top_srcdir)/include/Ice \
@@ -56,6 +59,7 @@ CPPFLAGS	:= -I. $(CPPFLAGS) -I. -I $(top_srcdir)/include/Ice \
 $(FDS_CFG): $(OBJS) $(COBJS)
 	rm -f $@
 	$(CXX) $(LDFLAGS) -o $@ $(MY_LIBS) $(OBJS) $(COBJS) $(LIBS) $(LDIR) $(FDS_OBJS) -I../ -I/usr/local/include -I$(top_srcdir)/include/Ice $(IDIR)
+	$(CXX) $(LDFLAGS) -o dm_unit_test dm_unit_test.cpp $(TEST_FLAGS) $(TEST_LIBS)
 
 %.o: %.cpp $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS) $(LIBS)

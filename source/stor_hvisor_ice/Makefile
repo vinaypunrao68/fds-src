@@ -44,7 +44,7 @@ $(FDS_CFG): $(OBJS) $(COBJS) $(ICE_OBJS)
 	ar rc  $@  $(OBJS) $(COBJS) $(ICE_OBJS)
 	$(CXX) $(LDFLAGS) -c -o VolumeCatalogCache.o VolumeCatalogCache.cpp $(MY_FLAGS)
 	$(CXX) $(LDFLAGS) -o vcc_unit_test vcc_unit_test.cpp $(MY_FLAGS) $(MY_LIBS) $(FDS_CFG)
-#$(CXX) $(LDFLAGS) -o sh_unit_test.cpp $@  $(OBJS) $(COBJS) $(ICE_OBJS) -L/usr/lib/mysql -L/usr/lib64/mysql -L/usr/lib -L../lib/  -L../lib/Ice-3.5.0/cpp/lib -lpthread -lIce -lIceUtil -lrt -lfds ../util/hash/MurmurHash3.o
+
 #	rm -f $@
 #	$(CXX)  $@ $(OBJS) $(COBJS) $(LIBS) $(HV_LIBS)
 #	$(CXX) $(LDFLAGS) -o $@ $(OBJS) $(COBJS) $(LIBS) $(HV_LIBS)

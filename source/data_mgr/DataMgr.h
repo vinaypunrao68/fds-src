@@ -33,6 +33,12 @@ private:
   fds_log *dm_log;
 
   /*
+   * Cmdline configurables
+   */
+  fds_uint32_t port_num;
+  std::string stor_prefix;
+
+  /*
    * TODO: Move to STD shared or unique pointers. That's
    * safer.
    */
@@ -41,7 +47,10 @@ private:
   Error _process_open(fds_uint32_t vol_offset,
                       fds_uint32_t trans_id,
                       const ObjectID& oid);
-  Error _process_close();
+  Error _process_commit(fds_uint32_t vol_offset,
+                        fds_uint32_t trans_id,
+                        const ObjectID& oid);
+  Error _process_abort();
 
   Error _process_query(fds_uint32_t vol_offset,
                        ObjectID *oid);

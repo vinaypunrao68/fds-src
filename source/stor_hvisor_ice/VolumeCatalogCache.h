@@ -66,11 +66,6 @@ namespace fds {
     std::unordered_map<fds_uint32_t, CatalogCache*> vol_cache_map;
 
     /*
-      TODO: Change variable name
-     */
-    FDS_ProtocolInterface::FDSP_DataPathReqPrx& fdspDPAPI;
-
-    /*
      * Reference to parent SH instance.
      */
     StorHvCtrl *parent_sh;
@@ -78,26 +73,18 @@ namespace fds {
     /*
      * Pointer to logger to use.
      */
-    fds_log *vcc_log;
+    fds_log    *vcc_log;
+    fds_bool_t  created_log;
 
  public:
+
     /*
-     * TODO: Change this interface once we get a generic network
-     * API. This current interface can ONLY talk to ONE DM!
-     * The non-const reference here is OK.
+     * A logger is created for you if not passed in.
      */
-    VolumeCatalogCache(FDS_ProtocolInterface::FDSP_DataPathReqPrx&
-                       fdspDPAPI_arg); // NOLINT(*)
-    VolumeCatalogCache(FDS_ProtocolInterface::FDSP_DataPathReqPrx&
-                       fdspDPAPI_arg,
-                       StorHvCtrl *sh_ctrl); // NOLINT(*)
-    VolumeCatalogCache(FDS_ProtocolInterface::FDSP_DataPathReqPrx&
-                       fdspDPAPI_arg,
-                       fds_log *parent_log); // NOLINT(*)
-    VolumeCatalogCache(FDS_ProtocolInterface::FDSP_DataPathReqPrx&
-                       fdspDPAPI_arg,
-                       StorHvCtrl *sh_ctrl,
-                       fds_log *parent_log); // NOLINT(*)
+    VolumeCatalogCache(StorHvCtrl *sh_ctrl);
+    VolumeCatalogCache(StorHvCtrl *sh_ctrl,
+                       fds_log *parent_log);
+    
     VolumeCatalogCache();
     ~VolumeCatalogCache();
 
