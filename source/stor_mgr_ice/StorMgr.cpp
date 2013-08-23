@@ -25,7 +25,7 @@ ObjectStorMgrI::PutObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_PutObjTy
   objStorMgr->PutObject(msg_hdr, put_obj);
   msg_hdr->msg_code = FDSP_MSG_PUT_OBJ_RSP;
   objStorMgr->swapMgrId(msg_hdr);
-  //objStorMgr->fdspDataPathClient->PutObjectResp(msg_hdr, put_obj);
+  objStorMgr->fdspDataPathClient->PutObjectResp(msg_hdr, put_obj);
 }
 
 void
@@ -176,7 +176,6 @@ ObjectStorMgr::putObjectInternal(FDSP_PutObjTypePtr put_obj_req,
                                  fds_uint32_t num_objs)
 {
 //fds_char_t *put_obj_buf = put_obj_req._ptr;
-//FDSDataLocEntryType object_location_offset;
 fds_uint32_t obj_num=0;
 fds_sm_err_t result = FDS_SM_OK;
 fds::Error err(fds::ERR_OK);
@@ -189,7 +188,7 @@ fds::Error err(fds::ERR_OK);
 
        if (result != FDS_SM_ERR_DUPLICATE) {
            // First write the object itself after hashing the objectId to Disknum/filename & obtain an offset entry
-           #if 0
+#if 0
            result = writeObject(&put_obj_req->data_obj_id, 
                                 (fds_uint32_t)put_obj_req->data_obj_len,
                                 (fds_char_t *)put_obj_req->data_obj.data(), 
@@ -199,7 +198,7 @@ fds::Error err(fds::ERR_OK);
            writeObjLocation(&put_obj_req->data_obj_id, 
                             put_obj_req->data_obj_len, volid, 
                             &object_location_offset);
-          #endif
+#endif
 
 	   /*
 	    * This is the levelDB insertion. It's a totally
@@ -281,9 +280,16 @@ ObjectStorMgr::GetObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
 
 inline void ObjectStorMgr::swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg) {
  FDSP_MgrIdType temp_id;
+ long tmp_addr;
+
  temp_id = fdsp_msg->dst_id;
  fdsp_msg->dst_id = fdsp_msg->src_id;
  fdsp_msg->src_id = temp_id;
+
+ tmp_addr = fdsp_msg->dst_ip_hi_addr;
+ fdsp_msg->dst_ip_hi_addr = fdsp_msg->src_ip_hi_addr;
+ fdsp_msg->src_ip_hi_addr = tmp_addr;
+
 }
 
 

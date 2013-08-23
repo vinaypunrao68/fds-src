@@ -6,6 +6,7 @@ struct fbd_request {
   fbd_sector_t                 sec;
   int                          secs;
   void                         *req_data;
+  int 				len;
 };
 
 typedef struct fbd_request            fbd_request_t;

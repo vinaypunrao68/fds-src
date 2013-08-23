@@ -20,7 +20,7 @@ extern vvc_vhdl_t vvc_vol_create(volid_t vol_id, const char *db_name, int max_bl
 
 void CreateStorHvisor(int argc, char *argv[])
 {
-     storHvisor = new StorHvCtrl(argc, argv, StorHvCtrl::TEST_BOTH);
+     storHvisor = new StorHvCtrl(argc, argv, StorHvCtrl::NORMAL);
 }
 
 StorHvCtrl::StorHvCtrl(int argc,
@@ -84,6 +84,7 @@ StorHvCtrl::StorHvCtrl(int argc,
     dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NO_OM_MODE,
                                                 ip_num);
   } else {
+cout <<" Entring Normal Data placement mode" << endl;
     dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NORMAL_MODE);
   }
 }

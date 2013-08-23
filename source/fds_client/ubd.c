@@ -273,11 +273,15 @@ printf("Send the IO \n");
         switch(c)
         {
          case 'q':
-                break;
+                return(0);
          case 's':
                 send_test_io();
-                 printf(" send IO complete \n");
-//                return(0);
+                printf(" send IO complete \n");
+				break;
+         case 'r':
+                read_test_io();
+                printf(" send IO complete \n");
+				break;
          default:
                 break;
         }
@@ -745,4 +749,26 @@ int send_test_io()
                   return 0;
 #endif
 }
+
+int8_t  read_buf[4096];
+int read_test_io()
+{
+  	fbd_request_t *p_new_treq;
+    int len = 4096;
+    p_new_treq = (fbd_request_t *)malloc(sizeof(fbd_request_t));
+
+	memset((void *)read_buf, 0, len);
+    p_new_treq->op = 1;
+    p_new_treq->buf = buf;;
+    p_new_treq->sec = 0;
+    p_new_treq->secs = 8;
+    p_new_treq->len = len;
+
+
+#ifndef BLKTAP_UNIT_TEST 
+	 StorHvisorProcIoRd(hvisor_hdl, p_new_treq, hvisor_complete_td_request, NULL, NULL );
+
+#endif
+}
+
 
