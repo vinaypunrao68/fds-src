@@ -4,12 +4,12 @@
 # adapter.
 #
 ObjectStorMgrSvr.Endpoints=tcp -h localhost -p 6900
-ObjectStorMgrSvr.ThreadPool.Size=10
-ObjectStorMgrSvr.ThreadPool.SizeMax=20
-ObjectStorMgrSvr.ThreadPool.SizeWarn=18
-Ice.ThreadPool.Size=10
-Ice.ThreadPool.SizeMax=20
-Ice.ThreadPool.SizeWarn=18
+ObjectStorMgrSvr.ThreadPool.Size=30
+ObjectStorMgrSvr.ThreadPool.SizeMax=50
+ObjectStorMgrSvr.ThreadPool.SizeWarn=48
+Ice.ThreadPool.Size=30
+Ice.ThreadPool.SizeMax=40
+Ice.ThreadPool.SizeWarn=48
 Ice.Trace.ThreadPool=1
 
 #

@@ -232,7 +232,10 @@ public:
 
 	int get_trans_id(void);
         StorHvJournalEntry *get_journal_entry(int trans_id) {
-             return &rwlog_tbl[trans_id];
+             if (trans_id < FDS_READ_WRITE_LOG_ENTRIES) {
+                 return &rwlog_tbl[trans_id];
+             }
+        return NULL;
         }
 };
 

@@ -99,12 +99,12 @@ public :
     void 	      Delete_RPC_EndPoint(string  ip_addr, FDSP_MgrIdType);
     int               Get_RPC_EndPoint(int ip_addr, FDSP_MgrIdType mgrId, FDS_RPC_EndPoint* endpoint);
     int               Get_RPC_EndPoint(string ip_addr, FDSP_MgrIdType mgrId, FDS_RPC_EndPoint* endpoint);
-    int Get_RPC_EndPoint(string ip_addr_str,
-                         FDSP_MgrIdType mgr_id,
-                         FDS_RPC_EndPoint **endPoint);
-    int Get_RPC_EndPoint(int ip_addr,
-                         FDSP_MgrIdType mgrId,
-                         FDS_RPC_EndPoint** endpoint);
+    int 	      Get_RPC_EndPoint(string ip_addr_str,
+                         	      FDSP_MgrIdType mgr_id,
+                         	      FDS_RPC_EndPoint **endPoint);
+    int 	      Get_RPC_EndPoint(int ip_addr,
+                         	      FDSP_MgrIdType mgrId,
+                         	      FDS_RPC_EndPoint** endpoint);
 };
 
 #endif

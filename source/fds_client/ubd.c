@@ -286,6 +286,8 @@ printf("Send the IO \n");
                 break;
         }
 
+      break;
+
   }
 
 
@@ -745,6 +747,7 @@ int send_test_io()
         p_new_treq->sec = 0;
         p_new_treq->secs = 8;
 #ifndef BLKTAP_UNIT_TEST 
+        StorHvisorProcIoRd(hvisor_hdl, p_new_treq, hvisor_complete_td_request,NULL,NULL);
         StorHvisorProcIoWr(hvisor_hdl, p_new_treq, hvisor_complete_td_request,NULL,NULL);
                   return 0;
 #endif

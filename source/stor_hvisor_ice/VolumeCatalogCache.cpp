@@ -105,6 +105,7 @@ Error VolumeCatalogCache::RegVolume(fds_uint64_t vol_uuid) {
 
 Error VolumeCatalogCache::Query(fds_uint64_t vol_uuid,
                                 fds_uint64_t block_id,
+                                fds_uint32_t trans_id,
                                 ObjectID *oid) {
   Error err(ERR_OK);
   int   ret_code = 0;
@@ -148,6 +149,7 @@ Error VolumeCatalogCache::Query(fds_uint64_t vol_uuid,
     msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_DATA_MGR;
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
     msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msg_hdr->req_cookie = trans_id;
 
     query_req->volume_offset         = block_id;
     query_req->dm_transaction_id     = 1;

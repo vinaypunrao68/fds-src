@@ -200,7 +200,8 @@ int FDS_RPC_EndPointTbl::Get_RPC_EndPoint(string  ip_addr_str, FDSP_MgrIdType mg
 
 void   FDS_RPC_EndPoint::Shutdown_RPC_EndPoint() 
 {
-    _adapter->deactivate();
+    if (_adapter) 
+        _adapter->deactivate();
 
 }
 

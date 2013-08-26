@@ -47,30 +47,39 @@ int StorHvisorProcIoRd(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
    	storHvisor->InitSmMsgHdr(fdsp_msg_hdr);
 	fdsp_msg_hdr->msg_code = FDSP_MSG_GET_OBJ_REQ;
 	fdsp_msg_hdr->msg_id =  1;
-/*
-	printf(" read buf addr: %p \n", data_buf);
-	printf("Read Req len: %d  offset: %d  flag:%d sm_msg:%p \
-				doid:%lx:%lx \n",
-	       data_size, data_offset, flag, sm_msg, doid_list[0].obj_id.hash_high, doid_list[0].obj_id.hash_low);
-*/
-			/* open transaction  */
-		trans_id = storHvisor->journalTbl->get_trans_id();
-    	StorHvJournalEntry *journEntry = storHvisor->journalTbl->get_journal_entry(trans_id);
+    /* open transaction  */
+	trans_id = storHvisor->journalTbl->get_trans_id();
+    StorHvJournalEntry *journEntry = storHvisor->journalTbl->get_journal_entry(trans_id);
 
+	journEntry->trans_state = FDS_TRANS_OPEN;
+	journEntry->fbd_ptr = (void *)fbd;
+	journEntry->write_ctx = (void *)req;
+	journEntry->comp_req = comp_req;
+	journEntry->comp_arg1 = arg1; // vbd
+	journEntry->comp_arg2 = arg2; //vreq
+	journEntry->sm_msg = fdsp_msg_hdr; 
+	journEntry->dm_msg = NULL;
+	journEntry->sm_ack_cnt = 0;
+	journEntry->dm_ack_cnt = 0;
+    journEntry->op = FDS_IO_READ;
+    journEntry->data_obj_id.hash_high = 0;
+    journEntry->data_obj_id.hash_low = 0;
+    journEntry->data_obj_len = 0x1000;
 
-        err  = storHvisor->volCatalogCache->Query((fds_uint64_t)fbd->vol_id, data_offset, &oid); 
-		if (err.GetErrno() == ERR_CAT_QUERY_FAILED)
-	  	{
-	    	printf("Error reading the Vol catalog  Error code : %d req:%p\n", err.GetErrno(),req);
-	    	return err.GetErrno();
-	  	}
+	fdsp_msg_hdr->req_cookie = trans_id;
 
-        if (err.GetErrno() == ERR_PENDING_RESP)
-		{
-	    printf("Vol catalog Cache Query pending : %d req:%p\n", err.GetErrno(),req);
+    err  = storHvisor->volCatalogCache->Query((fds_uint64_t)fbd->vol_id, data_offset, trans_id, &oid); 
+    if (err.GetErrno() == ERR_PENDING_RESP) {
+	printf("Vol catalog Cache Query pending : %d req:%p\n", err.GetErrno(),req);
             journEntry->trans_state = FDS_TRANS_VCAT_QUERY_PENDING;
             return 0;
-        }
+    }
+
+	if (err.GetErrno() == ERR_CAT_QUERY_FAILED)
+	{
+	    printf("Error reading the Vol catalog  Error code : %d req:%p\n", err.GetErrno(),req);
+	    return err.GetErrno();
+	}
 
 
         // We have a Cache HIT *$###

@@ -91,6 +91,7 @@ namespace fds {
     Error RegVolume(fds_uint64_t vol_uuid);
     Error Query(fds_uint64_t vol_uuid,
                  fds_uint64_t block_id,
+                 fds_uint32_t trans_id,
                  ObjectID *oid);
     Error Update(fds_uint64_t vol_uuid,
                  fds_uint64_t block_id,
