@@ -25,7 +25,8 @@ ObjectStorMgrI::PutObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_PutObjTy
   objStorMgr->PutObject(msg_hdr, put_obj);
   msg_hdr->msg_code = FDSP_MSG_PUT_OBJ_RSP;
   objStorMgr->swapMgrId(msg_hdr);
-  objStorMgr->fdspDataPathClient->PutObjectResp(msg_hdr, put_obj);
+  objStorMgr->fdspDataPathClient->begin_PutObjectResp(msg_hdr, put_obj);
+  cout << "Sent async PutObj response to Hypervisor" << endl;
 }
 
 void
@@ -34,7 +35,8 @@ ObjectStorMgrI::GetObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_GetObjTy
   objStorMgr->GetObject(msg_hdr, get_obj);
   msg_hdr->msg_code = FDSP_MSG_GET_OBJ_RSP;
   objStorMgr->swapMgrId(msg_hdr);
-  objStorMgr->fdspDataPathClient->GetObjectResp(msg_hdr, get_obj);
+  objStorMgr->fdspDataPathClient->begin_GetObjectResp(msg_hdr, get_obj);
+  cout << "Sent async GetObj response to Hypervisor" << endl;
 }
 
 void
@@ -289,6 +291,10 @@ inline void ObjectStorMgr::swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg) {
  tmp_addr = fdsp_msg->dst_ip_hi_addr;
  fdsp_msg->dst_ip_hi_addr = fdsp_msg->src_ip_hi_addr;
  fdsp_msg->src_ip_hi_addr = tmp_addr;
+
+ tmp_addr = fdsp_msg->dst_ip_lo_addr;
+ fdsp_msg->dst_ip_lo_addr = fdsp_msg->src_ip_lo_addr;
+ fdsp_msg->src_ip_lo_addr = tmp_addr;
 
 }
 

@@ -195,7 +195,7 @@ Error VolumeCatalogCache::Query(fds_uint64_t vol_uuid,
          * We found a valid endpoint. Let's try it
          */
         try {
-          endPoint->fdspDPAPI->QueryCatalogObject(msg_hdr, query_req);
+          endPoint->fdspDPAPI->begin_QueryCatalogObject(msg_hdr, query_req);
           FDS_PLOG(vcc_log) << "Async query request sent to DM " << endPoint
                             << " for volume "<< vol_uuid
                             << " and block id " << block_id;

@@ -110,7 +110,7 @@ int StorHvisorProcIoRd(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
         if(num_nodes == 0) {
           return -1;
         }
-        storHvisor->dataPlacementTbl->omClient->getNodeInfo(node_ids[0], &node_ip, &node_state);
+        storHvisor->dataPlacementTbl->getNodeInfo(node_ids[0], &node_ip, &node_state);
 
         // *****CAVEAT: Modification reqd
         // ******  Need to find out which is the primary SM and send this out to that SM. ********
@@ -120,7 +120,8 @@ int StorHvisorProcIoRd(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
          journEntry->trans_state = FDS_TRANS_GET_OBJ;
          if (endPoint)
 		 { 
-       	   endPoint->fdspDPAPI->GetObject(fdsp_msg_hdr, get_obj_req);
+       	   endPoint->fdspDPAPI->begin_GetObject(fdsp_msg_hdr, get_obj_req);
+	   printf("Hvisor: Sent async GetObj req to SM\n");
          }
 
 #if 0
@@ -213,7 +214,8 @@ int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
            // Call Put object RPC to SM
             storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip, FDSP_STOR_MGR, &endPoint);
             if (endPoint) { 
-                endPoint->fdspDPAPI->PutObject(fdsp_msg_hdr, put_obj_req);
+                endPoint->fdspDPAPI->begin_PutObject(fdsp_msg_hdr, put_obj_req);
+		printf("Hvisor: Sent async PutObj request to SM at %u\n", node_ip);
             }
 		}
 
@@ -243,7 +245,8 @@ int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
            // Call Update Catalog RPC call to DM
            storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip, FDSP_DATA_MGR, &endPoint);
            if (endPoint){
-               endPoint->fdspDPAPI->UpdateCatalogObject(fdsp_msg_hdr_dm, upd_obj_req);
+               endPoint->fdspDPAPI->begin_UpdateCatalogObject(fdsp_msg_hdr_dm, upd_obj_req);
+	       printf("Hvisor: Sent async UpdCatObj request to DM at %u\n", node_ip);
            }
         }
 

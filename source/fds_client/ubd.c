@@ -239,6 +239,8 @@ int main(int argc, char *argv[]) {
   char *io_devname = 0;
   int minor = 0;
 
+#ifndef HVISOR_USPACE_TEST
+
   memset(data_image, 'x', sizeof(data_image));
 
   vbd = hvisor_vbd_create(0);
@@ -262,40 +264,56 @@ int main(int argc, char *argv[]) {
     return (0);
   }
 
+#endif
+
 #ifndef BLKTAP_UNIT_TEST 
 
   hvisor_hdl = hvisor_lib_init();
   CreateStorHvisor(argc, argv);
+
+#endif
+
+#ifdef HVISOR_USPACE_TEST
 printf("Send the IO \n");
   while(1)
   {
-        int c = getchar();
-        switch(c)
-        {
-         case 'q':
-                return(0);
-         case 's':
-                send_test_io();
-                printf(" send IO complete \n");
-				break;
-         case 'r':
-                read_test_io();
-                printf(" send IO complete \n");
-				break;
-         default:
-                break;
-        }
+    char *line_ptr;
+    int n_bytes = 0;
+    char cmd_wd[32];
+    int offset = 0;
 
-      break;
+    printf(">");
+    if (getline(&line_ptr, &n_bytes, stdin) <= 1) {
+      continue;
+    }
+    sscanf(line_ptr, "%s", cmd_wd);
+    
+
+    if (strcmp(cmd_wd, "q") == 0) {
+      return(0);
+    } else if (strcmp(cmd_wd, "s") == 0) {
+      sscanf(line_ptr, "%s %d", cmd_wd, &offset);
+      send_test_io(offset);
+      printf("Send IO complete \n");
+    } else if (strcmp(cmd_wd, "r")== 0){
+      sscanf(line_ptr, "%s %d", cmd_wd, &offset);
+      read_test_io(offset);
+      printf("Read IO complete \n");
+    } else {
+      printf("Invalid input. Usage: [q/s/r]\n");
+    }
+    free(line_ptr);
 
   }
 
-
-#endif
+#else
 
 
   printf("All done. About to enter wait loop\n");
   __hvisor_run(vbd);
+
+#endif
+
 
   return (0);
 
@@ -464,6 +482,9 @@ hvisor_complete_td_request(void *arg1, void *arg2,
 	td_vbd_t *vbd = (td_vbd_t *)arg1;
 	td_vbd_request_t *vreq = (td_vbd_request_t *)arg2;
 
+	printf("UBD: Recv completion callback with vbd - %p, vreq - %p, fbd_req - %p, res - %d\n",
+	       vbd, vreq, freq, res);
+
         err = (res <= 0 ? res : -res);
         vbd->secs_pending  -= freq->secs;
         vreq->secs_pending -= freq->secs;
@@ -515,6 +536,10 @@ void hvisor_queue_read(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq)
 //	printf("\n");
 	hvisor_complete_td_request((void *)vbd, (void *)vreq, p_new_req, rc);
 #else
+
+	printf("UBD: Sending read req to hypervisor with vbd - %p, vreq - %p, fbd_req - %p\n",
+	       vbd, vreq, p_new_req);
+
 	rc = StorHvisorProcIoRd(hvisor_hdl, p_new_req, hvisor_complete_td_request, (void *)vbd, (void *)vreq);
 	if (rc) {
 	  hvisor_complete_td_request((void *)vbd, (void *)vreq, p_new_req, rc);
@@ -561,6 +586,9 @@ void hvisor_queue_write(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq
 
 	hvisor_complete_td_request((void *)vbd, (void *)vreq, p_new_req, rc);
 #else
+
+	printf("UBD: Sending write req to hypervisor with vbd - %p, vreq - %p, fbd_req - %p\n",
+	       vbd, vreq, p_new_req);
 
 	rc = StorHvisorProcIoWr(hvisor_hdl, p_new_req, hvisor_complete_td_request, (void *)vbd, (void *)vreq);
 	if (rc) {
@@ -728,8 +756,20 @@ __hvisor_run(td_vbd_t *vbd)
 }
 
 
+#ifdef HVISOR_USPACE_TEST
+
+static void
+hvisor_complete_td_request_noop(void *arg1, void *arg2,
+                           fbd_request_t *freq, int res) {
+
+  printf("HVISOR USPACE Test: Received response: %d\n", res);
+  free(freq);
+
+}
+
+
 int8_t  buf[4096];
-int send_test_io()
+int send_test_io(int offset)
 {
     int len = 4096;
     int  i;
@@ -744,34 +784,29 @@ int send_test_io()
 
         p_new_treq->op = 1;
         p_new_treq->buf = buf;;
-        p_new_treq->sec = 0;
+        p_new_treq->sec = offset/HVISOR_SECTOR_SIZE;
         p_new_treq->secs = 8;
-#ifndef BLKTAP_UNIT_TEST 
-        StorHvisorProcIoRd(hvisor_hdl, p_new_treq, hvisor_complete_td_request,NULL,NULL);
-        StorHvisorProcIoWr(hvisor_hdl, p_new_treq, hvisor_complete_td_request,NULL,NULL);
-                  return 0;
-#endif
+        StorHvisorProcIoWr(hvisor_hdl, p_new_treq, hvisor_complete_td_request_noop,NULL,NULL);
+    	return 0;
+
 }
 
 int8_t  read_buf[4096];
-int read_test_io()
+int read_test_io(int offset)
 {
-  	fbd_request_t *p_new_treq;
+    fbd_request_t *p_new_treq;
     int len = 4096;
     p_new_treq = (fbd_request_t *)malloc(sizeof(fbd_request_t));
 
-	memset((void *)read_buf, 0, len);
+    memset((void *)read_buf, 0, len);
     p_new_treq->op = 1;
     p_new_treq->buf = buf;;
-    p_new_treq->sec = 0;
+    p_new_treq->sec = offset/HVISOR_SECTOR_SIZE;
     p_new_treq->secs = 8;
     p_new_treq->len = len;
+    StorHvisorProcIoRd(hvisor_hdl, p_new_treq, hvisor_complete_td_request_noop, NULL, NULL );
+    return 0;
 
-
-#ifndef BLKTAP_UNIT_TEST 
-	 StorHvisorProcIoRd(hvisor_hdl, p_new_treq, hvisor_complete_td_request, NULL, NULL );
-
-#endif
 }
 
-
+#endif

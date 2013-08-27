@@ -241,6 +241,8 @@ public:
 
 
 class StorHvCtrl {
+
+
 public:
   /*
    * Defines specific test modes used to
@@ -274,7 +276,8 @@ public:
   int fds_set_smack_status( int ipAddr, int  trans_id);
   void fbd_process_req_timeout(unsigned long arg);
   void fbd_complete_req(int trans_id, fbd_request_t *req, int status);
-  
+
+  int fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rx_msg);  
   int fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const FDSP_GetObjTypePtr& get_obj_rsp );
   int fds_process_put_obj_resp(const FDSP_MsgHdrTypePtr& rx_msg,const  FDSP_PutObjTypePtr& put_obj_rsp );
   int fds_process_update_catalog_resp(const FDSP_MsgHdrTypePtr& rx_msg,const  FDSP_UpdateCatalogTypePtr& cat_obj_rsp );
