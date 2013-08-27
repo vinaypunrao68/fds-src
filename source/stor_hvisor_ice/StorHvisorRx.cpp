@@ -58,19 +58,18 @@ int StorHvCtrl::fds_set_dm_commit_status( int ipAddr, int  trans_id)
 
 int StorHvCtrl::fds_set_smack_status( int ipAddr, int  trans_id)
 {
-	int node =0;
+  int node =0;
 
-        StorHvJournalEntry *journEntry = journalTbl->get_journal_entry(trans_id);
-	for (node = 0; node < FDS_MAX_SM_NODES_PER_CLST; node++)
-	{
-	  if (memcmp((void *)&journEntry->sm_ack[node].ipAddr, (void *)&ipAddr, 4) == 0) {
+  StorHvJournalEntry *journEntry = journalTbl->get_journal_entry(trans_id);
+  for (node = 0; node < FDS_MAX_SM_NODES_PER_CLST; node++) {
+     if (memcmp((void *)&journEntry->sm_ack[node].ipAddr, (void *)&ipAddr, 4) == 0) {
 	    if (journEntry->sm_ack[node].ack_status != FDS_SET_ACK) {
 	      journEntry->sm_ack[node].ack_status = FDS_SET_ACK;
 	      journEntry->sm_ack_cnt++;
 	    }
 	    return (0);
-	  }
-	}
+     }
+  }
 
 	return 0;
 }
@@ -146,9 +145,18 @@ int StorHvCtrl::fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const
 
 int StorHvCtrl::fds_process_put_obj_resp(const FDSP_MsgHdrTypePtr& rx_msg, const FDSP_PutObjTypePtr& put_obj_rsp )
 {
+  int trans_id = rx_msg->req_cookie; 
+  StorHvJournalEntry *txn = journalTbl->get_journal_entry(trans_id);
 
 	if (rx_msg->msg_code == FDSP_MSG_PUT_OBJ_RSP) {
 	    fds_set_smack_status(rx_msg->src_ip_lo_addr, rx_msg->req_cookie);
+        }
+        if ((txn->sm_ack_cnt == FDS_MIN_ACK) && (txn->dm_ack_cnt == FDS_MIN_ACK))
+        {
+              if (txn->trans_state == FDS_TRANS_OPEN) { 
+                   printf(" Rx: State Transition to OPENED : Received min ack from  DM and SM. \n\n");
+                   txn->trans_state = FDS_TRANS_OPENED;
+              }
         }
 	return 0;
 }
@@ -190,19 +198,19 @@ int StorHvCtrl::fds_process_update_catalog_resp(const FDSP_MsgHdrTypePtr& rx_msg
        switch(txn->trans_state)  {
 	 case FDS_TRANS_OPEN :
          {
-	  		if ((txn->sm_ack_cnt < FDS_MIN_ACK) || (txn->dm_ack_cnt < FDS_MIN_ACK)) 
+	  	if ((txn->sm_ack_cnt < FDS_MIN_ACK) || (txn->dm_ack_cnt < FDS_MIN_ACK)) 
           	{
 	    		 break;
-	  		}
-	  		printf(" Rx: State Transition to OPENED : Received min ack from  DM and SM. \n\n");
-	  		txn->trans_state = FDS_TRANS_OPENED;
-	 	 }	 
+	  	}
+	  	printf(" Rx: State Transition to OPENED : Received min ack from  DM and SM. \n\n");
+	  	txn->trans_state = FDS_TRANS_OPENED;
+	 }	 
          break;
 
          case  FDS_TRANS_OPENED :
          {
 	    	if (txn->dm_commit_cnt >= FDS_MIN_ACK) 
-			{
+		{
 	        	printf(" Rx: State Transition to COMMITTED  : Received min commits from  DM \n\n ");
 	    		txn->trans_state = FDS_TRANS_COMMITTED;
 	    	}
@@ -211,10 +219,10 @@ int StorHvCtrl::fds_process_update_catalog_resp(const FDSP_MsgHdrTypePtr& rx_msg
 
 	 case FDS_TRANS_COMMITTED :
          {
-	   		 if((txn->sm_ack_cnt == txn->num_sm_nodes) && (txn->dm_commit_cnt == txn->num_dm_nodes))
-		 	 {
-	   			printf(" Rx: State Transition to SYCNED  : Received all acks and commits from  DM and SM. Ending req %p \n\n ", req);
-	    		txn->trans_state = FDS_TRANS_SYNCED;
+	    if((txn->sm_ack_cnt == txn->num_sm_nodes) && (txn->dm_commit_cnt == txn->num_dm_nodes))
+	    {
+	   	printf(" Rx: State Transition to SYCNED  : Received all acks and commits from  DM and SM. Ending req %p \n\n ", req);
+	    	txn->trans_state = FDS_TRANS_SYNCED;
 
 	    	/*
 	      	-  add the vvc entry
@@ -230,20 +238,18 @@ int StorHvCtrl::fds_process_update_catalog_resp(const FDSP_MsgHdrTypePtr& rx_msg
 	    	txn->trans_state = FDS_TRANS_EMPTY;
 	    	txn->write_ctx = 0;
 	    	// del_timer(txn->p_ti);
-	    	if (req) 
-			{
+	    	if (req) {
 	      		fbd_complete_req(trans_id, req, 0);
 	    	}
-             return(0);
-	    	}
+                return(0);
+	    }
           }
           break;
 
           default : 
              break;
        }
-       if (txn->trans_state > FDS_TRANS_OPEN) 
-	   {
+     if (txn->trans_state > FDS_TRANS_OPEN) {
 	/*
 	  -  browse through the list of the DM nodes that sent the open txn response .
           -  send  DM - commit request 
@@ -252,22 +258,22 @@ int StorHvCtrl::fds_process_update_catalog_resp(const FDSP_MsgHdrTypePtr& rx_msg
 	for (node = 0; node < txn->num_dm_nodes; node++)
 	{
 	   if (txn->dm_ack[node].ack_status) 
-		{
+	   {
 	     if ((txn->dm_ack[node].commit_status) == FDS_CLS_ACK)
 		 {
 		   upd_obj_req->dm_operation = FDS_DMGR_TXN_STATUS_COMMITED;
 		   upd_obj_req->dm_transaction_id = 1;
-           upd_obj_req->data_obj_id.hash_high = txn->data_obj_id.hash_high;
-           upd_obj_req->data_obj_id.hash_low =  txn->data_obj_id.hash_low;
+           	   upd_obj_req->data_obj_id.hash_high = txn->data_obj_id.hash_high;
+           	   upd_obj_req->data_obj_id.hash_low =  txn->data_obj_id.hash_low;
 
       
-           storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(txn->dm_ack[node].ipAddr, FDSP_DATA_MGR, &endPoint);
+           	   storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(txn->dm_ack[node].ipAddr, FDSP_DATA_MGR, &endPoint);
 		   txn->dm_ack[node].commit_status = FDS_COMMIT_MSG_SENT;
-		  if (endPoint)
+		   if (endPoint)
 		 	endPoint->fdspDPAPI->UpdateCatalogObject(wr_msg, upd_obj_req);
 	     }
-	   }
-	}
+	  }
+       }
     }
     return 0;
 }
@@ -316,7 +322,7 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
            journEntry->trans_state = FDS_TRANS_EMPTY;
            journEntry->write_ctx = 0;
            if(req) {
-             storHvisor->fbd_complete_req(trans_id, req, 0);
+             storHvisor->fbd_complete_req(trans_id, req, -1);
            }
           return;
         }
@@ -327,7 +333,7 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
            journEntry->trans_state = FDS_TRANS_EMPTY;
            journEntry->write_ctx = 0;
            if(req) {
-             storHvisor->fbd_complete_req(trans_id, req, 0);
+             storHvisor->fbd_complete_req(trans_id, req, -1);
            }
            return;
         }

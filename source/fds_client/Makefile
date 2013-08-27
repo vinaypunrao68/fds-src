@@ -9,13 +9,13 @@ UTEST_OBJS = ../fdsp/fdsp_types.o ../fdsp/fds_pubsub.o
 all: ubd 
 
 ubd: ubd.o
-	$(CC) -o ubd ubd.o ../fdsp/FDSP.o ../util/hash/MurmurHash3.o ../stor_hvisor_ice/RPC_EndPoint.o ../stor_hvisor_ice/StorHvisorRx.o ../stor_hvisor_ice/StorHvisorTx.o ../stor_hvisor_ice/StorHvisorTbl.o ../stor_hvisor_ice/StorHvisorNet.o ../stor_hvisor_ice/VolumeCatalogCache.o ../util/Log.o $(UTEST_OBJS)  $(LIBS)
+	$(CC) -o ubd ubd.o ../fdsp/FDSP.o ../util/hash/MurmurHash3.o ../stor_hvisor_ice/RPC_EndPoint.o ../stor_hvisor_ice/StorHvisorRx.o ../stor_hvisor_ice/StorHvisorTx.o ../stor_hvisor_ice/StorHvisorTbl.o ../stor_hvisor_ice/StorHvisorNet.o ../stor_hvisor_ice/VolumeCatalogCache.o ../util/Log.o ../util/concurrency/Mutex.o $(UTEST_OBJS)  $(LIBS)
 
 ubd_utest: ubd_utest.o
 	$(CC) -o ubd_utest ubd_utest.o 
 
 ubd_utest.o: ubd.c
-	$(CC) -c -o ubd_utest.o ubd.c $(CFLAGS) -DBLKTAP_UNIT_TEST -DBLKTAP_UNIT_TEST_CRASH
+	$(CC) -c -o ubd_utest.o ubd.c $(CFLAGS) 
 
 ubd.o: ubd.c
 	$(CC) $(CFLAGS) -c -o ubd.o ubd.c
