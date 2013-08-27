@@ -21,47 +21,47 @@ ObjectStorMgrI::~ObjectStorMgrI() {
 
 void
 ObjectStorMgrI::PutObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_PutObjTypePtr &put_obj, const Ice::Current&) {
-  std::cout << "Putobject()" << std::endl;
+  FDS_PLOG(objStorMgr->GetLog()) << "Putobject()";
   objStorMgr->PutObject(msg_hdr, put_obj);
   msg_hdr->msg_code = FDSP_MSG_PUT_OBJ_RSP;
   objStorMgr->swapMgrId(msg_hdr);
   objStorMgr->fdspDataPathClient->begin_PutObjectResp(msg_hdr, put_obj);
-  cout << "Sent async PutObj response to Hypervisor" << endl;
+   FDS_PLOG(objStorMgr->GetLog()) << "Sent async PutObj response to Hypervisor";
 }
 
 void
 ObjectStorMgrI::GetObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_GetObjTypePtr& get_obj, const Ice::Current&) {
-  std::cout << "Getobject()" << std::endl;
+  FDS_PLOG(objStorMgr->GetLog()) << "Getobject()";
   objStorMgr->GetObject(msg_hdr, get_obj);
   msg_hdr->msg_code = FDSP_MSG_GET_OBJ_RSP;
   objStorMgr->swapMgrId(msg_hdr);
   objStorMgr->fdspDataPathClient->begin_GetObjectResp(msg_hdr, get_obj);
-  cout << "Sent async GetObj response to Hypervisor" << endl;
+  FDS_PLOG(objStorMgr->GetLog()) << "Sent async GetObj response to Hypervisor";
 }
 
 void
 ObjectStorMgrI::UpdateCatalogObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_UpdateCatalogTypePtr& update_catalog , const Ice::Current&) {
-  std::cout << "Wrong Interface Call: In the interface updatecatalog()" << std::endl;
+  FDS_PLOG(objStorMgr->GetLog()) << "Wrong Interface Call: In the interface updatecatalog()";
 }
 
 void
 ObjectStorMgrI::QueryCatalogObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_QueryCatalogTypePtr& query_catalog , const Ice::Current&) {
-  std::cout << "Wrong Interface Call: In the interface updatecatalog()" << std::endl;
+  FDS_PLOG(objStorMgr->GetLog())<< "Wrong Interface Call: In the interface QueryCatalogObject()";
 }
 
 void
 ObjectStorMgrI::OffsetWriteObject(const FDSP_MsgHdrTypePtr& msg_hdr, const FDSP_OffsetWriteObjTypePtr& offset_write_obj, const Ice::Current&) {
-  std::cout << "In the interface offsetwrite()" << std::endl;
+  FDS_PLOG(objStorMgr->GetLog()) << "In the interface offsetwrite()";
 }
 
 void
 ObjectStorMgrI::RedirReadObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_RedirReadObjTypePtr& redir_read_obj, const Ice::Current&) {
-  std::cout << "In the interface redirread()" << std::endl;
+  FDS_PLOG(objStorMgr->GetLog()) << "In the interface redirread()";
 }
 
 void
 ObjectStorMgrI::AssociateRespCallback(const Ice::Identity& ident, const Ice::Current& current) {
-  cout << "Associating response Callback client to ObjStorMgr`" << _communicator->identityToString(ident) << "'"<< endl;
+  FDS_PLOG(objStorMgr->GetLog()) << "Associating response Callback client to ObjStorMgr" << _communicator->identityToString(ident);
 
   objStorMgr->fdspDataPathClient = FDSP_DataPathRespPrx::uncheckedCast(current.con->createProxy(ident));
 }
@@ -70,6 +70,11 @@ ObjectStorMgr::ObjectStorMgr(fds_uint32_t port,
                              std::string prefix)
     : port_num(port),
       stor_prefix(prefix) {
+
+  // Init  the log infra  
+  sm_log = new fds_log("sm", "logs");
+  FDS_PLOG(sm_log) << "Constructing the Data Manager";
+
   // Create all data structures 
   diskMgr = new DiskMgr();
   std::string filename= stor_prefix + "SNodeObjRepository";
@@ -83,8 +88,11 @@ ObjectStorMgr::ObjectStorMgr(fds_uint32_t port,
 
 ObjectStorMgr::~ObjectStorMgr()
 {
+  FDS_PLOG(objStorMgr->GetLog()) << " Destructing  the Storage  manager";
   delete objStorDB;
   delete objIndexDB;
+  delete diskMgr;
+  delete sm_log;
 }
 
 void ObjectStorMgr::unitTest()
@@ -93,7 +101,7 @@ void ObjectStorMgr::unitTest()
 
   err = FDS_SM_OK;
 
-  std::cout << "Running unit test" << std::endl;
+   FDS_PLOG(objStorMgr->GetLog()) << "Running unit test";
   
   /*
    * Create fake objects
@@ -119,7 +127,7 @@ void ObjectStorMgr::unitTest()
    */
   err = putObjectInternal(put_obj_req, vol_id, num_objs);
   if (err != FDS_SM_OK) {
-    std::cout << "Failed to put object " << std::endl;
+     FDS_PLOG(objStorMgr->GetLog()) << "Failed to put object ";
     // delete put_obj_req;
     return;
   }
@@ -182,6 +190,7 @@ ObjectStorMgr::putObjectInternal(FDSP_PutObjTypePtr put_obj_req,
 fds_uint32_t obj_num=0;
 fds_sm_err_t result = FDS_SM_OK;
 fds::Error err(fds::ERR_OK);
+FDSDataLocEntryType object_location_offset;
 
    for(obj_num = 0; obj_num < num_objs; obj_num++) {
        // Find if this object is a duplicate
@@ -191,7 +200,6 @@ fds::Error err(fds::ERR_OK);
 
        if (result != FDS_SM_ERR_DUPLICATE) {
            // First write the object itself after hashing the objectId to Disknum/filename & obtain an offset entry
-#if 0
            result = writeObject(&put_obj_req->data_obj_id, 
                                 (fds_uint32_t)put_obj_req->data_obj_len,
                                 (fds_char_t *)put_obj_req->data_obj.data(), 
@@ -201,8 +209,6 @@ fds::Error err(fds::ERR_OK);
            writeObjLocation(&put_obj_req->data_obj_id, 
                             put_obj_req->data_obj_len, volid, 
                             &object_location_offset);
-#endif
-
 	   /*
 	    * This is the levelDB insertion. It's a totally
 	    * separate DB from the one above.
@@ -214,10 +220,9 @@ fds::Error err(fds::ERR_OK);
 	   err = objStorDB->Put( obj_id, obj);
 
 	   if (err != fds::ERR_OK) {
-	     std::cout << "Failed to put object "
-		       << err << std::endl;
+	      FDS_PLOG(objStorMgr->GetLog()) << "Failed to put object " << err;
 	   } else {
-	     std::cout << "Successfully put key " << std::endl;
+	     FDS_PLOG(objStorMgr->GetLog()) << "Successfully put key ";
 	   }
 
        } else {
@@ -238,8 +243,11 @@ void ObjectStorMgr::PutObject(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_Put
     // stor_mgr_verify_msg(fdsp_msg);
     //put_obj_req->data_obj_id.hash_high = ntohl(put_obj_req->data_obj_id.hash_high);
     //put_obj_req->data_obj_id.hash_low = ntohl(put_obj_req->data_obj_id.hash_low);
+    //
+    ObjectID oid(put_obj_req->data_obj_id.hash_high,
+               put_obj_req->data_obj_id.hash_low);
 
-  printf("StorageHVisor --> StorMgr : FDSP_MSG_PUT_OBJ_REQ ObjectId %016llx:%016llx \n",(long long unsigned int) put_obj_req->data_obj_id.hash_high, (long long unsigned int)put_obj_req->data_obj_id.hash_low);
+    FDS_PLOG(objStorMgr->GetLog()) << "PutObject Obj ID:" << oid <<"glob_vol_id:" << fdsp_msg->glob_volume_id << "Num Objs:" << fdsp_msg->num_objects;
     putObjectInternal(put_obj_req, fdsp_msg->glob_volume_id, fdsp_msg->num_objects);
 
 }
@@ -258,10 +266,9 @@ ObjectStorMgr::getObjectInternal(FDSP_GetObjTypePtr get_obj_req,
   err = objStorDB->Get(obj_id, obj);
 
   if (err != fds::ERR_OK) {
-    std::cout << "Failed to get key " << obj_id << " with status "
-	      << err << std::endl;
+     FDS_PLOG(objStorMgr->GetLog()) << "Failed to get key " << obj_id << " with status " << err;
   } else {
-    std::cout << "Successfully got value " << obj.data.c_str() << std::endl;
+     FDS_PLOG(objStorMgr->GetLog()) << "Successfully got value " << obj.data.c_str();
     get_obj_req->data_obj = obj.data;
   }
 
@@ -276,8 +283,11 @@ ObjectStorMgr::GetObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
     // Verify the integrity of the FDSP msg using chksums
     // 
     // stor_mgr_verify_msg(fdsp_msg);
+    //
+    ObjectID oid(get_obj_req->data_obj_id.hash_high,
+               get_obj_req->data_obj_id.hash_low);
 
-    std::cout << "StorageHVisor --> StorMgr : FDSP_MSG_GET_OBJ_REQ ObjectId %016llx:%016llx \n" << get_obj_req->data_obj_id.hash_high <<  get_obj_req->data_obj_id.hash_low << std::endl;
+    FDS_PLOG(objStorMgr->GetLog()) << "GetObject  Obj ID :" << oid << "glob_vol_id:" << fdsp_msg->glob_volume_id << "Num Objs:" << fdsp_msg->num_objects;
     getObjectInternal(get_obj_req, fdsp_msg->glob_volume_id, fdsp_msg->num_objects);
 }
 
@@ -325,20 +335,23 @@ ObjectStorMgr::run(int argc, char* argv[])
     port_num = props->getPropertyAsInt("ObjectStorMgrSvr.PortNumber");
   }
   
-  callbackOnInterrupt();
   std::ostringstream tcpProxyStr;
   tcpProxyStr << "tcp -p " << port_num;
   
   Ice::ObjectAdapterPtr adapter = communicator()->createObjectAdapterWithEndpoints("ObjectStorMgrSvr", tcpProxyStr.str());
   fdspDataPathServer = new ObjectStorMgrI(communicator());
   adapter->add(fdspDataPathServer, communicator()->stringToIdentity("ObjectStorMgrSvr"));
+
+  callbackOnInterrupt();
   
-  //_workQueue->start();
   adapter->activate();
   
   communicator()->waitForShutdown();
-  //_workQueue->getThreadControl().join();
   return EXIT_SUCCESS;
+}
+
+fds_log* ObjectStorMgr::GetLog() {
+  return sm_log;
 }
 
 
@@ -367,7 +380,7 @@ int main(int argc, char *argv[])
     } else if (strncmp(argv[i], "--prefix=", 9) == 0) {
       prefix = argv[i] + 9;
     } else {
-      std::cout << "Invalid argument " << argv[i] << std::endl;
+       FDS_PLOG(objStorMgr->GetLog()) << "Invalid argument " << argv[i];
       return -1;
     }
   }    
@@ -379,9 +392,11 @@ int main(int argc, char *argv[])
     return 0;
   }
 
-  printf("Stor Mgr port_number : %d\n", port);
+  FDS_PLOG(objStorMgr->GetLog()) << "Stor Mgr port_number :" << port;
 
   objStorMgr->main(argc, argv, "stor_mgr.cfg");
+
+  delete objStorMgr;
 }
 
 
