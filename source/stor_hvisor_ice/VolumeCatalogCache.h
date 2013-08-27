@@ -21,6 +21,8 @@
 #include "include/fds_types.h"
 #include "fdsp/FDSP.h"
 #include "util/Log.h"
+#include "util/concurrency/Mutex.h"
+#include "util/concurrency/RwLock.h"
 
 /*
  * Forward declaration of SH control class
@@ -38,6 +40,11 @@ namespace fds {
      * Maps a volume offset to a object ID.
      */
     std::unordered_map<fds_uint32_t, ObjectID> offset_map;
+
+    /*
+     * Protects the offset_map.
+     */
+    fds_rwlock map_rwlock;
 
  public:
     CatalogCache();
@@ -66,6 +73,11 @@ namespace fds {
     std::unordered_map<fds_uint32_t, CatalogCache*> vol_cache_map;
 
     /*
+     * Protects the vol_cache_map.
+     */
+    fds_rwlock map_rwlock;
+
+    /*
      * Reference to parent SH instance.
      */
     StorHvCtrl *parent_sh;
@@ -91,6 +103,7 @@ namespace fds {
     Error RegVolume(fds_uint64_t vol_uuid);
     Error Query(fds_uint64_t vol_uuid,
                  fds_uint64_t block_id,
+                 fds_uint32_t trans_id,
                  ObjectID *oid);
     Error Update(fds_uint64_t vol_uuid,
                  fds_uint64_t block_id,

@@ -10,7 +10,7 @@
 #include <list>
 
 #include "util/Log.h"
-
+#include "util/concurrency/Thread.h"
 /*
  * Piggyback on the global storHvisor that's been
  * declared elsewhere.
@@ -30,60 +30,193 @@ class VccUnitTest {
    */
   int basic_update() {
     Error err(ERR_OK);
+    
+    VolumeCatalogCache vcc(storHvisor,
+                           vcc_log);
+    fds_uint64_t vol_uuid;
+    
+    vol_uuid = 987654321;
+    
+    err = vcc.RegVolume(vol_uuid);
+    if (!err.ok()) {
+      std::cout << "Failed to register volume cache "
+                << vol_uuid << std::endl;
+      return -1;
+    }
+    
+    for (fds_uint32_t i = 0; i < 2; i++) {
+      fds_uint64_t block_id = 1 + i;
+      ObjectID oid(block_id, (block_id * i));
+      err = vcc.Update(vol_uuid, block_id, oid);
+      if (!err.ok() && err != ERR_PENDING_RESP) {
+        std::cout << "Failed to update volume cache "
+                  << vol_uuid << std::endl;
+        return -1;
+      }
+    }
 
     return 0;
   }
 
   int basic_query() {
     Error err(ERR_OK);
-
-    return 0;
-  }
-
-  int basic_uq() {
-    Error err(ERR_OK);
-
-    return 0;
-  }
-
-  int basic_sh_integration() {
-    Error err(ERR_OK);
     
     VolumeCatalogCache vcc(storHvisor,
                            vcc_log);
     fds_uint64_t vol_uuid;
-
+    
     vol_uuid = 987654321;
-
+    
     err = vcc.RegVolume(vol_uuid);
     if (!err.ok()) {
-      std::cout << "Failed to register volume " << vol_uuid << std::endl;
+      std::cout << "Failed to register volume cache "
+                << vol_uuid << std::endl;
       return -1;
     }
-
-    for (fds_uint32_t i = 0; i < 100; i++) {
+    
+    for (fds_uint32_t i = 0; i < 2; i++) {
       fds_uint64_t block_id = 1 + i;
       ObjectID oid;
-      err = vcc.Query(vol_uuid, block_id, &oid);
+      err = vcc.Query(vol_uuid, block_id, 0, &oid);
       if (!err.ok() && err != ERR_PENDING_RESP) {
-        std::cout << "Failed to query volume " << vol_uuid << std::endl;
+        std::cout << "Failed to query volume cache "
+                  << vol_uuid << std::endl;
         return -1;
       }
     }
 
-    delete storHvisor;
+    return 0;
+  }
+  
+  /*
+   * Thread helper functions
+   */
+  int shared_update(VolumeCatalogCache *vcc,
+                    fds_uint64_t vol_uuid) {
+    Error err(ERR_OK);
+    fds_uint32_t num_updates = 2000;
+
+    for (fds_uint32_t i = 0; i < num_updates; i++) {
+      fds_uint64_t block_id = 1 + i;
+      ObjectID oid(block_id, (block_id * i));
+      err = vcc->Update(vol_uuid, block_id, oid);
+      if (!err.ok() && err != ERR_PENDING_RESP) {
+        FDS_PLOG(vcc_log) << "Failed to update volume cache "
+                          << vol_uuid << std::endl;
+        return -1;
+      }
+    }
+
+    return 0;
+  }
+
+  int shared_clear(VolumeCatalogCache *vcc,
+                   fds_uint64_t vol_uuid) {
+    vcc->Clear(vol_uuid);
+
+    return 0;
+  }
+
+  static void update_mt_wrapper(VccUnitTest *ut,
+                                fds_uint32_t id,
+                                VolumeCatalogCache *vcc,
+                                fds_uint64_t vol_uuid) {
+    int res = ut->shared_update(vcc, vol_uuid);
+    if (res == 0) {
+      FDS_PLOG(ut->GetLog()) << "A update thread " << id
+                             << " completed successfully.";
+    } else {
+      FDS_PLOG(ut->GetLog()) << "A update thread " << id
+                             << " completed with error.";
+    }
+  }
+
+  static void clear_mt_wrapper(VccUnitTest *ut,
+                               fds_uint32_t id,
+                               VolumeCatalogCache *vcc,
+                               fds_uint64_t vol_uuid) {
+    /*
+     * Wait for a sec to clear the cache so that some
+     * updates can be put into it.
+     */
+    boost::xtime xt;
+    boost::xtime_get(&xt, boost::TIME_UTC_);
+    xt.sec += 1;
+    boost::thread::sleep(xt);
+
+    int res = ut->shared_clear(vcc, vol_uuid);
+    if (res == 0) {
+      FDS_PLOG(ut->GetLog()) << "A clear thread " << id
+                             << " completed successfully.";
+    } else {
+      FDS_PLOG(ut->GetLog()) << "A clear thread " << id
+                             << " completed with error.";
+    }
+  }
+
+  boost::thread* start_update_thread(fds_uint32_t id,
+                                     VolumeCatalogCache *vcc,
+                                     fds_uint64_t vol_uuid) {
+    boost::thread *_t;
+    _t = new boost::thread(boost::bind(&update_mt_wrapper,
+                                       this,
+                                       id,
+                                       vcc,
+                                       vol_uuid));
     
+    return _t;
+  }
+
+  boost::thread* start_clear_thread(fds_uint32_t id,
+                                    VolumeCatalogCache *vcc,
+                                    fds_uint64_t vol_uuid) {
+    boost::thread *_t;
+    _t = new boost::thread(boost::bind(&clear_mt_wrapper,
+                                       this,
+                                       id,
+                                       vcc,
+                                       vol_uuid));
+    
+    return _t;
+  }
+
+  /*
+   * Basic multi-threaded test.
+   */
+  int basic_mt() {
+    Error err(ERR_OK);
+
+    std::vector<boost::thread*> threads;
+    fds_uint32_t num_threads = 20;
+
+    /*
+     * Make a shared cache that all access
+     * the same volume.
+     */
+    VolumeCatalogCache vcc(storHvisor,
+                           vcc_log);
+
+    fds_uint64_t vol_uuid = 987654321;
+
+    for (fds_uint32_t i = 0; i < num_threads; i++) {
+      threads.push_back(start_update_thread(i, &vcc, vol_uuid));
+      threads.push_back(start_clear_thread(i, &vcc, vol_uuid));
+    }
+
+    for (fds_uint32_t i = 0; i < num_threads; i++) {
+      threads[i]->join();
+    }
+
     return 0;
   }
 
  public:
   VccUnitTest() {
-    vcc_log = new fds_log("vcc", "logs");
+    vcc_log = new fds_log("vcc_test", "logs");
 
     unit_tests.push_back("basic_update");
     unit_tests.push_back("basic_query");
-    unit_tests.push_back("basic_uq");
-    unit_tests.push_back("basic_sh_integration");
+    unit_tests.push_back("basic_mt");
     
     /*
      * Create the SH control. Pass some empty cmdline args.
@@ -94,7 +227,8 @@ class VccUnitTest {
   }
 
   ~VccUnitTest() {
-    delete vcc_log;
+    delete vcc_log;    
+    delete storHvisor;
   }
 
   void Run(const std::string& testname) {
@@ -105,10 +239,8 @@ class VccUnitTest {
       result = basic_update();
     } else if (testname == "basic_query") {
       result = basic_query();
-    } else if (testname == "basic_uq") {
-      result = basic_uq();
-    } else if (testname == "basic_sh_integration") {
-      result = basic_sh_integration();
+    } else if (testname == "basic_mt") {
+      result = basic_mt();
     } else {
       std::cout << "Unknown unit test " << testname << std::endl;
     }
@@ -127,6 +259,10 @@ class VccUnitTest {
          ++it) {
       Run(*it);
     }
+  }
+
+  fds_log* GetLog() {
+    return vcc_log;
   }
 };
 

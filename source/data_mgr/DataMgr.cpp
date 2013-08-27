@@ -276,7 +276,15 @@ void DataMgr::ReqHandler::UpdateCatalogObject(const FDS_ProtocolInterface::FDSP_
    */
   msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_UPDATE_CAT_OBJ_RSP;
   dataMgr->swapMgrId(msg_hdr);
-  dataMgr->respHandleCli->UpdateCatalogObjectResp(msg_hdr, update_catalog);
+  dataMgr->respHandleCli->begin_UpdateCatalogObjectResp(msg_hdr, update_catalog);
+
+  FDS_PLOG(dataMgr->GetLog()) << "Sending async update catalog response with "
+                              << "volume offset: " << update_catalog->volume_offset
+                              << ", Obj ID " << oid
+                              << ", Trans ID " << update_catalog->dm_transaction_id
+                              << ", OP ID " << update_catalog->dm_operation;
+
+  
 }
 
 void DataMgr::ReqHandler::QueryCatalogObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &msg_hdr,

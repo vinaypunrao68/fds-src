@@ -136,13 +136,12 @@ class FDSP_MsgHdrType {
 
 /* FDSP Result valid for response messages */
     FDSP_ResultType       result;
-    string       err_msg;
+    string       	  err_msg;
     FDSP_ErrType          err_code;
 
 /* Checksum of the entire message including the payload/objects */
     int         req_cookie; 
     int         msg_chksum; 
-		
 };
 
 interface FDSP_DataPathReq {

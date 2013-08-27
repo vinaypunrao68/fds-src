@@ -232,12 +232,17 @@ public:
 
 	int get_trans_id(void);
         StorHvJournalEntry *get_journal_entry(int trans_id) {
-             return &rwlog_tbl[trans_id];
+             if (trans_id < FDS_READ_WRITE_LOG_ENTRIES) {
+                 return &rwlog_tbl[trans_id];
+             }
+        return NULL;
         }
 };
 
 
 class StorHvCtrl {
+
+
 public:
   /*
    * Defines specific test modes used to
@@ -257,8 +262,8 @@ public:
   
   // Data Members
   Ice::CommunicatorPtr _communicator;
-  StorHvJournal   	*journalTbl; 
-  StorHvDataPlacement     *dataPlacementTbl;
+  StorHvJournal   	     *journalTbl; 
+  StorHvDataPlacement        *dataPlacementTbl;
   FDS_RPC_EndPointTbl        *rpcSwitchTbl; // RPC calls Switch Table
   VolumeCatalogCache         *volCatalogCache;
   
@@ -271,7 +276,8 @@ public:
   int fds_set_smack_status( int ipAddr, int  trans_id);
   void fbd_process_req_timeout(unsigned long arg);
   void fbd_complete_req(int trans_id, fbd_request_t *req, int status);
-  
+
+  int fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rx_msg);  
   int fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const FDSP_GetObjTypePtr& get_obj_rsp );
   int fds_process_put_obj_resp(const FDSP_MsgHdrTypePtr& rx_msg,const  FDSP_PutObjTypePtr& put_obj_rsp );
   int fds_process_update_catalog_resp(const FDSP_MsgHdrTypePtr& rx_msg,const  FDSP_UpdateCatalogTypePtr& cat_obj_rsp );

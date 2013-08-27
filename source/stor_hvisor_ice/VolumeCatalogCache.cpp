@@ -18,12 +18,14 @@ Error CatalogCache::Query(fds_uint64_t block_id,
                           ObjectID* oid) {
   Error err(ERR_OK);
 
+  map_rwlock.read_lock();
   try {
     ObjectID& obj = offset_map.at(block_id);
     *oid = obj;
   } catch(const std::out_of_range& oor) {
     err = ERR_CAT_QUERY_FAILED;
   }
+  map_rwlock.read_unlock();
   return err;
 }
 
@@ -34,8 +36,10 @@ Error CatalogCache::Update(fds_uint64_t block_id, const ObjectID& oid) {
    * We already have this mapping. Return duplicate err
    * so that the caller knows not to call DM.
    */
+  map_rwlock.write_lock();
   if (offset_map[block_id] == oid) {
     err = ERR_DUPLICATE;
+    map_rwlock.write_unlock();
     return err;
   }
 
@@ -45,18 +49,21 @@ Error CatalogCache::Update(fds_uint64_t block_id, const ObjectID& oid) {
    * that always overwrite.
    */
   offset_map[block_id] = oid;
+  map_rwlock.write_unlock();
 
   return err;
 }
 
 void CatalogCache::Clear() {
+  map_rwlock.write_lock();
   offset_map.clear();
+  map_rwlock.write_unlock();
 }
 
 VolumeCatalogCache::VolumeCatalogCache(
     StorHvCtrl *sh_ctrl)
     : parent_sh(sh_ctrl) {
-  vcc_log = new fds_log("vcc_test", "logs");
+  vcc_log = new fds_log("vcc", "logs");
   created_log = true;
 }
 
@@ -73,6 +80,7 @@ VolumeCatalogCache::~VolumeCatalogCache() {
    * Iterate the vol_cache_map to free the
    * catalog pointers.
    */
+  map_rwlock.write_lock();
   for (std::unordered_map<fds_uint32_t, CatalogCache*>::iterator it =
            vol_cache_map.begin();
        it != vol_cache_map.end();
@@ -80,6 +88,7 @@ VolumeCatalogCache::~VolumeCatalogCache() {
     delete it->second;
   }
   vol_cache_map.clear();
+  map_rwlock.write_unlock();
   
   /*
    * Delete log if malloc'd one earlier.
@@ -96,7 +105,13 @@ VolumeCatalogCache::~VolumeCatalogCache() {
 Error VolumeCatalogCache::RegVolume(fds_uint64_t vol_uuid) {
   Error err(ERR_OK);
 
+  map_rwlock.write_lock();
+  /*
+   * TODO: Check if this volume is already
+   * registered.
+   */
   vol_cache_map[vol_uuid] = new CatalogCache();
+  map_rwlock.write_unlock();
 
   FDS_PLOG(vcc_log) << "Registered new volume " << vol_uuid;
 
@@ -105,6 +120,7 @@ Error VolumeCatalogCache::RegVolume(fds_uint64_t vol_uuid) {
 
 Error VolumeCatalogCache::Query(fds_uint64_t vol_uuid,
                                 fds_uint64_t block_id,
+                                fds_uint32_t trans_id,
                                 ObjectID *oid) {
   Error err(ERR_OK);
   int   ret_code = 0;
@@ -115,16 +131,42 @@ Error VolumeCatalogCache::Query(fds_uint64_t vol_uuid,
    * allows the caller to not need to call RegVolume
    * beforehand.
    */
+  map_rwlock.read_lock();
   if (vol_cache_map.count(vol_uuid) == 0) {
     FDS_PLOG(vcc_log) << "Volume " << vol_uuid
                       << " does not exist yet!";
+    /*
+     * TODO: Potential race here if we release
+     * the read lock another thread may register
+     * the volume before the write lock is acquired
+     * in RegVolume().
+     */
+    map_rwlock.read_unlock();
     err = RegVolume(vol_uuid);
     if (err != ERR_OK) {
       return err;
     }
-  }
 
+    /*
+     * Reacquire read lock since we need to access
+     * the cache next.
+     */
+    map_rwlock.read_lock();
+  }
+  
+  /*
+   * TODO: Potential race here as we're caching the
+   * cache reference. Another thread may delete this
+   * volume entry once we release the read lock. We
+   * should ensure that the other thread waits until
+   * all outstanding references are released before
+   * removing. However, we don't delete volumes yet
+   * so it's not an issue.
+   * We should implement a drain and block using the
+   * read-write lock backend.
+   */
   CatalogCache *catcache = vol_cache_map[vol_uuid];
+  map_rwlock.read_unlock();
 
   err = catcache->Query(block_id, oid);
   if (!err.ok()) {
@@ -148,6 +190,7 @@ Error VolumeCatalogCache::Query(fds_uint64_t vol_uuid,
     msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_DATA_MGR;
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
     msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msg_hdr->req_cookie = trans_id;
 
     query_req->volume_offset         = block_id;
     query_req->dm_transaction_id     = 1;
@@ -193,7 +236,7 @@ Error VolumeCatalogCache::Query(fds_uint64_t vol_uuid,
          * We found a valid endpoint. Let's try it
          */
         try {
-          endPoint->fdspDPAPI->QueryCatalogObject(msg_hdr, query_req);
+          endPoint->fdspDPAPI->begin_QueryCatalogObject(msg_hdr, query_req);
           FDS_PLOG(vcc_log) << "Async query request sent to DM " << endPoint
                             << " for volume "<< vol_uuid
                             << " and block id " << block_id;
@@ -235,15 +278,40 @@ Error VolumeCatalogCache::Update(fds_uint64_t vol_uuid,
    * allows the caller to not need to call RegVolume
    * beforehand.
    */
+  map_rwlock.read_lock();
   if (vol_cache_map.count(vol_uuid) == 0) {
+    /*
+     * TODO: Potential race here if we release
+     * the read lock another thread may register
+     * the volume before the write lock is acquired
+     * in RegVolume().
+     */
+    map_rwlock.read_unlock();
     err = RegVolume(vol_uuid);
-
     if (err != ERR_OK) {
       return err;
     }
+
+    /*
+     * Reacquire read lock since we need to access
+     * the cache next.
+     */
+    map_rwlock.read_lock();
   }
 
+  /*
+   * TODO: Potential race here as we're caching the
+   * cache reference. Another thread may delete this
+   * volume entry once we release the read lock. We
+   * should ensure that the other thread waits until
+   * all outstanding references are released before
+   * removing. However, we don't delete volumes yet
+   * so it's not an issue.
+   * We should implement a drain and block using the
+   * read-write lock backend.
+   */
   CatalogCache *catcache = vol_cache_map[vol_uuid];
+  map_rwlock.read_unlock();
 
   err = catcache->Update(block_id, oid);
   /*
@@ -255,43 +323,18 @@ Error VolumeCatalogCache::Update(fds_uint64_t vol_uuid,
      * Reset the error since it's OK
      * that is already existed.
      */
+    FDS_PLOG(vcc_log) << "Cache update successful for volume " << vol_uuid
+                      << " block id " << block_id
+                      << " was duplicate.";
     err = ERR_OK;
-    return err;
   } else if (err != ERR_OK) {
-    return err;
+    FDS_PLOG(vcc_log) << "Cache update for volume " << vol_uuid
+                      << " block id " << block_id
+                      << " was failed!";
+  } else {
+    FDS_PLOG(vcc_log) << "Cache update successful for volume " << vol_uuid
+                      << " block id " << block_id;
   }
-
-  /*
-   * We added a new entry to the catalog cache
-   * so we need to notify the DM.
-   *
-   * TODO: Create a single request for now. We should have a shared
-   * of requests that go as thread specific pointers for each thread
-   * in the thread pool.
-   */
-  /*
-  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr =
-      new FDS_ProtocolInterface::FDSP_MsgHdrType;
-  FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr update_req =
-      new FDS_ProtocolInterface::FDSP_UpdateCatalogType;
-
-  msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_UPDATE_CAT_OBJ_REQ;
-
-  msg_hdr->src_id = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
-  msg_hdr->dst_id = FDS_ProtocolInterface::FDSP_DATA_MGR;
-
-  msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
-  msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
-
-  update_req->volume_offset         = block_id;
-  update_req->dm_transaction_id     = 1;
-  update_req->dm_operation          =
-      FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_OPEN;
-  update_req->data_obj_id.hash_high = oid.GetHigh();
-  update_req->data_obj_id.hash_low  = oid.GetLow();
-
-  fdspDPAPI->UpdateCatalogObject(msg_hdr, update_req);
-  */
 
   return err;
 }
@@ -304,8 +347,27 @@ Error VolumeCatalogCache::Update(fds_uint64_t vol_uuid,
  * Clears the local in-memory cache for a volume.
  */
 void VolumeCatalogCache::Clear(fds_uint64_t vol_uuid) {
+  
+  map_rwlock.read_lock();
   if (vol_cache_map.count(vol_uuid) > 0) {
-    vol_cache_map[vol_uuid]->Clear();
+    /*
+     * TODO: Potential race here as we're caching the
+     * cache reference. Another thread may delete this
+     * volume entry once we release the read lock. We
+     * should ensure that the other thread waits until
+     * all outstanding references are released before
+     * removing. However, we don't delete volumes yet
+     * so it's not an issue.
+     * We should implement a drain and block using the
+     * read-write lock backend.
+     */
+    CatalogCache *catcache = vol_cache_map[vol_uuid];
+    map_rwlock.read_unlock();
+    catcache->Clear();
+    FDS_PLOG(vcc_log) << "Cleared cache for volume " << vol_uuid;
+  } else {
+    map_rwlock.read_unlock();
+    FDS_PLOG(vcc_log) << "No cache to clear for volume " << vol_uuid;
   }
 }
 

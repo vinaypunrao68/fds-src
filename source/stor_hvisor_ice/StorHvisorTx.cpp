@@ -33,7 +33,7 @@ int StorHvisorProcIoRd(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
     int num_nodes;
     int node_ids[256];
     int node_state = -1;
-	fds::Error err(ERR_OK);
+    fds::Error err(ERR_OK);
     ObjectID oid;
 
 	FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr = new FDSP_MsgHdrType;
@@ -47,30 +47,39 @@ int StorHvisorProcIoRd(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
    	storHvisor->InitSmMsgHdr(fdsp_msg_hdr);
 	fdsp_msg_hdr->msg_code = FDSP_MSG_GET_OBJ_REQ;
 	fdsp_msg_hdr->msg_id =  1;
-/*
-	printf(" read buf addr: %p \n", data_buf);
-	printf("Read Req len: %d  offset: %d  flag:%d sm_msg:%p \
-				doid:%lx:%lx \n",
-	       data_size, data_offset, flag, sm_msg, doid_list[0].obj_id.hash_high, doid_list[0].obj_id.hash_low);
-*/
-			/* open transaction  */
-		trans_id = storHvisor->journalTbl->get_trans_id();
-    	StorHvJournalEntry *journEntry = storHvisor->journalTbl->get_journal_entry(trans_id);
+    /* open transaction  */
+    trans_id = storHvisor->journalTbl->get_trans_id();
+    StorHvJournalEntry *journEntry = storHvisor->journalTbl->get_journal_entry(trans_id);
 
+	journEntry->trans_state = FDS_TRANS_OPEN;
+	journEntry->fbd_ptr = (void *)fbd;
+	journEntry->write_ctx = (void *)req;
+	journEntry->comp_req = comp_req;
+	journEntry->comp_arg1 = arg1; // vbd
+	journEntry->comp_arg2 = arg2; //vreq
+	journEntry->sm_msg = fdsp_msg_hdr; 
+	journEntry->dm_msg = NULL;
+	journEntry->sm_ack_cnt = 0;
+	journEntry->dm_ack_cnt = 0;
+    journEntry->op = FDS_IO_READ;
+    journEntry->data_obj_id.hash_high = 0;
+    journEntry->data_obj_id.hash_low = 0;
+    journEntry->data_obj_len = 0x1000;
 
-        err  = storHvisor->volCatalogCache->Query((fds_uint64_t)fbd->vol_id, data_offset, &oid); 
-		if (err.GetErrno() == ERR_CAT_QUERY_FAILED)
-	  	{
-	    	printf("Error reading the Vol catalog  Error code : %d req:%p\n", err.GetErrno(),req);
-	    	return err.GetErrno();
-	  	}
+	fdsp_msg_hdr->req_cookie = trans_id;
 
-        if (err.GetErrno() == ERR_PENDING_RESP)
-		{
-	    printf("Vol catalog Cache Query pending : %d req:%p\n", err.GetErrno(),req);
+    err  = storHvisor->volCatalogCache->Query((fds_uint64_t)fbd->vol_id, data_offset, trans_id, &oid); 
+    if (err.GetErrno() == ERR_PENDING_RESP) {
+	printf("Vol catalog Cache Query pending : %d req:%p\n", err.GetErrno(),req);
             journEntry->trans_state = FDS_TRANS_VCAT_QUERY_PENDING;
             return 0;
-        }
+    }
+
+	if (err.GetErrno() == ERR_CAT_QUERY_FAILED)
+	{
+	    printf("Error reading the Vol catalog  Error code : %d req:%p\n", err.GetErrno(),req);
+	    return err.GetErrno();
+	}
 
 
         // We have a Cache HIT *$###
@@ -79,18 +88,8 @@ int StorHvisorProcIoRd(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
         doid_dlt_key = (doid_dlt >> 56);
 
 
-		fdsp_msg_hdr->req_cookie = trans_id;
+        fdsp_msg_hdr->req_cookie = trans_id;
 
-		journEntry->trans_state = FDS_TRANS_OPEN;
-		journEntry->fbd_ptr = (void *)fbd;
-		journEntry->write_ctx = (void *)req;
-		journEntry->comp_req = comp_req;
-		journEntry->comp_arg1 = arg1; // vbd
-		journEntry->comp_arg2 = arg2; //vreq
-		journEntry->sm_msg = fdsp_msg_hdr; 
-		journEntry->dm_msg = NULL;
-		journEntry->sm_ack_cnt = 0;
-		journEntry->dm_ack_cnt = 0;
     	journEntry->op = FDS_IO_READ;
     	journEntry->data_obj_id.hash_high = oid.GetHigh();;
     	journEntry->data_obj_id.hash_low = oid.GetLow();;
@@ -101,7 +100,7 @@ int StorHvisorProcIoRd(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
         if(num_nodes == 0) {
           return -1;
         }
-        storHvisor->dataPlacementTbl->omClient->getNodeInfo(node_ids[0], &node_ip, &node_state);
+        storHvisor->dataPlacementTbl->getNodeInfo(node_ids[0], &node_ip, &node_state);
 
         // *****CAVEAT: Modification reqd
         // ******  Need to find out which is the primary SM and send this out to that SM. ********
@@ -111,7 +110,8 @@ int StorHvisorProcIoRd(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
          journEntry->trans_state = FDS_TRANS_GET_OBJ;
          if (endPoint)
 		 { 
-       	   endPoint->fdspDPAPI->GetObject(fdsp_msg_hdr, get_obj_req);
+       	   endPoint->fdspDPAPI->begin_GetObject(fdsp_msg_hdr, get_obj_req);
+	   printf("Hvisor: Sent async GetObj req to SM\n");
          }
 
 #if 0
@@ -147,28 +147,28 @@ int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
 	FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr_dm = new FDSP_MsgHdrType;
 	FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr upd_obj_req = new FDSP_UpdateCatalogType;
 
-		fbd = (struct fbd_device *)dev_hdl;
+        fbd = (struct fbd_device *)dev_hdl;
 
         // Obtain MurmurHash on the data object
-		MurmurHash3_x64_128(tmpbuf, data_size, 0, &objID );
+        MurmurHash3_x64_128(tmpbuf, data_size, 0, &objID );
 
-		put_obj_req->data_obj = std::string((const char *)tmpbuf, (size_t )data_size);
-		put_obj_req->data_obj_len = data_size;
+	put_obj_req->data_obj = std::string((const char *)tmpbuf, (size_t )data_size);
+	put_obj_req->data_obj_len = data_size;
 
         put_obj_req->data_obj_id.hash_high = upd_obj_req->data_obj_id.hash_high = objID.GetHigh();
         put_obj_req->data_obj_id.hash_low = upd_obj_req->data_obj_id.hash_low = objID.GetLow();
         fdsp_msg_hdr->glob_volume_id = fbd->vol_id;;
         fdsp_msg_hdr_dm->glob_volume_id = fbd->vol_id;;
 
-		doid_dlt_key = objID.GetHigh() >> 56;
+	doid_dlt_key = objID.GetHigh() >> 56;
 
         //  *** Get a new Journal Entry in xaction-log journalTbl
-		trans_id = storHvisor->journalTbl->get_trans_id();
+	trans_id = storHvisor->journalTbl->get_trans_id();
         StorHvJournalEntry *journEntry = storHvisor->journalTbl->get_journal_entry(trans_id);
 
         // *** Initialize the journEntry with a open txn
-		journEntry->fbd_ptr = (void *)fbd_dev;
-        journEntry->trans_state = FDS_DMGR_TXN_STATUS_OPEN;
+	journEntry->fbd_ptr = (void *)fbd_dev;
+        journEntry->trans_state = FDS_TRANS_OPEN;
         journEntry->write_ctx = (void *)req;
         journEntry->comp_req = comp_req;
         journEntry->comp_arg1 = arg1;
@@ -183,7 +183,7 @@ int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
         journEntry->data_obj_id.hash_low = objID.GetLow();
         journEntry->data_obj_len= data_size;;
 
- 		fdsp_msg_hdr->src_ip_lo_addr = SRC_IP;
+        fdsp_msg_hdr->src_ip_lo_addr = SRC_IP;
     	fdsp_msg_hdr->req_cookie = trans_id;
    		storHvisor->InitSmMsgHdr(fdsp_msg_hdr);
 
@@ -197,16 +197,17 @@ int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
            // storHvisor->dataPlacementTbl->omClient->getNodeInfo(node_ids[i], &node_ip, &node_state);
            storHvisor->dataPlacementTbl->getNodeInfo(node_ids[i], &node_ip, &node_state);
            journEntry->sm_ack[i].ipAddr = node_ip;
- 	   	   fdsp_msg_hdr->dst_ip_lo_addr = node_ip;
+ 	   fdsp_msg_hdr->dst_ip_lo_addr = node_ip;
            journEntry->sm_ack[i].ack_status = FDS_CLS_ACK;
            journEntry->num_sm_nodes = num_nodes;
 
            // Call Put object RPC to SM
             storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip, FDSP_STOR_MGR, &endPoint);
             if (endPoint) { 
-                endPoint->fdspDPAPI->PutObject(fdsp_msg_hdr, put_obj_req);
+                endPoint->fdspDPAPI->begin_PutObject(fdsp_msg_hdr, put_obj_req);
+		printf("Hvisor: Sent async PutObj request to SM at %u\n", node_ip);
             }
-		}
+	}
 
         // DMT lookup from the data placement object
         num_nodes = 256;
@@ -234,7 +235,8 @@ int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
            // Call Update Catalog RPC call to DM
            storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip, FDSP_DATA_MGR, &endPoint);
            if (endPoint){
-               endPoint->fdspDPAPI->UpdateCatalogObject(fdsp_msg_hdr_dm, upd_obj_req);
+               endPoint->fdspDPAPI->begin_UpdateCatalogObject(fdsp_msg_hdr_dm, upd_obj_req);
+	       printf("Hvisor: Sent async UpdCatObj request to DM at %u\n", node_ip);
            }
         }
 

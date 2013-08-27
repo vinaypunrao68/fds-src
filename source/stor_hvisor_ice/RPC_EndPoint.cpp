@@ -141,23 +141,30 @@ fds_int32_t FDS_RPC_EndPoint::ipString2Addr(string ipaddr_str) {
 void   FDS_RPC_EndPointTbl::Add_RPC_EndPoint(int  ipaddr, int& port, FDSP_MgrIdType remote_mgr_id) 
 {
     FDS_RPC_EndPoint *endPoint = new FDS_RPC_EndPoint(ipaddr, port, remote_mgr_id, _communicator);
+    rpcTblMutex->lock();
     rpcEndPointList.push_back(endPoint);
+    rpcTblMutex->unlock();
 }
 
 void   FDS_RPC_EndPointTbl::Add_RPC_EndPoint(std::string ipaddr_str, int& port, FDSP_MgrIdType remote_mgr_id) 
 {
     FDS_RPC_EndPoint *endPoint = new FDS_RPC_EndPoint(ipaddr_str, port, remote_mgr_id, _communicator);
+    rpcTblMutex->lock();
     rpcEndPointList.push_back(endPoint);
+    rpcTblMutex->unlock();
 }
 
 int FDS_RPC_EndPointTbl::Get_RPC_EndPoint(int  ip_addr, FDSP_MgrIdType mgr_id, FDS_RPC_EndPoint *endPoint) 
 {
+  rpcTblMutex->lock();
   for (std::list<FDS_RPC_EndPoint *>::iterator it=rpcEndPointList.begin(); it != rpcEndPointList.end(); ++it) {
     if ((*it)->ip_addr == ip_addr && (*it)->mgrId  == mgr_id) { 
       *endPoint = *(*it); 
+      rpcTblMutex->unlock();
       return 0;
     }
   }
+  rpcTblMutex->unlock();
   return -1;
 }
 
@@ -165,12 +172,15 @@ int FDS_RPC_EndPointTbl::Get_RPC_EndPoint(int ip_addr,
                                           FDSP_MgrIdType mgr_id,
                                           FDS_RPC_EndPoint **endPoint) 
 {
+  rpcTblMutex->lock();
   for (std::list<FDS_RPC_EndPoint *>::iterator it=rpcEndPointList.begin(); it != rpcEndPointList.end(); ++it) {
     if ((*it)->ip_addr == ip_addr && (*it)->mgrId  == mgr_id) { 
       *endPoint = (*it); 
+      rpcTblMutex->unlock();
       return 0;
     }
   }
+  rpcTblMutex->unlock();
   return -1;
 }
 
@@ -178,42 +188,53 @@ int FDS_RPC_EndPointTbl::Get_RPC_EndPoint(std::string ip_addr_str,
                                           FDSP_MgrIdType mgr_id,
                                           FDS_RPC_EndPoint **endPoint) 
 {
+  rpcTblMutex->lock();
   for (std::list<FDS_RPC_EndPoint *>::iterator it=rpcEndPointList.begin(); it != rpcEndPointList.end(); ++it) {
     if ((*it)->ip_addr_str == ip_addr_str && (*it)->mgrId  == mgr_id) { 
       *endPoint = (*it); 
+       rpcTblMutex->unlock();
       return 0;
     }
   }
+  rpcTblMutex->unlock();
   return -1;
 }
 
 int FDS_RPC_EndPointTbl::Get_RPC_EndPoint(string  ip_addr_str, FDSP_MgrIdType mgr_id, FDS_RPC_EndPoint* endPoint) 
 {
+    rpcTblMutex->lock();
+    int retval = 0;
     for (std::list<FDS_RPC_EndPoint *>::iterator it=rpcEndPointList.begin(); it != rpcEndPointList.end(); ++it) {
        if ((*it)->ip_addr_str == ip_addr_str && (*it)->mgrId  == mgr_id) { 
            endPoint = *it;
-           return 0;
+   	   rpcTblMutex->unlock();
+           return retval;;
        }
    }
-   return -1;
+   rpcTblMutex->unlock();
+   retval = -1;
+   return retval;
 }
 
 void   FDS_RPC_EndPoint::Shutdown_RPC_EndPoint() 
 {
-    _adapter->deactivate();
+    if (_adapter) 
+        _adapter->deactivate();
 
 }
 
 void   FDS_RPC_EndPointTbl::Delete_RPC_EndPoint(int  ip_addr, FDSP_MgrIdType mgr_id) 
 {
+    rpcTblMutex->lock();
     for (std::list<FDS_RPC_EndPoint *>::iterator it=rpcEndPointList.begin(); it != rpcEndPointList.end(); ++it) {
 
        if ((*it)->ip_addr == ip_addr && (*it)->mgrId  == mgr_id) { 
           (*it)->Shutdown_RPC_EndPoint();
            rpcEndPointList.erase(it); 
-           return;
+           break;
        }
     }
+    rpcTblMutex->unlock();
 }
 
 void   FDS_RPC_EndPointTbl::Delete_RPC_EndPoint(string  ip_addr, FDSP_MgrIdType mgr_id)  {
