@@ -57,6 +57,12 @@ public:
    void interruptCallback(int);
    void          unitTest();
 private :
+   /*
+    * Cmdline configurables
+    */
+   fds_uint32_t port_num;
+   std::string stor_prefix;
+
    fds_sm_err_t getObjectInternal(FDSP_GetObjTypePtr get_obj_req, 
                        		  fds_uint32_t volid, 
                        		  fds_uint32_t num_objs);

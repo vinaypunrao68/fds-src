@@ -3,14 +3,16 @@
 # "Hello". The following line sets the endpoints for this
 # adapter.
 #
-ObjectStorMgrSvr.Endpoints=tcp -h localhost -p 6900
+ObjectStorMgrSvr.Endpoints=tcp -h localhost -p 6901
 ObjectStorMgrSvr.ThreadPool.Size=30
 ObjectStorMgrSvr.ThreadPool.SizeMax=50
 ObjectStorMgrSvr.ThreadPool.SizeWarn=48
-Ice.ThreadPool.Size=30
-Ice.ThreadPool.SizeMax=40
-Ice.ThreadPool.SizeWarn=48
-Ice.Trace.ThreadPool=1
+ObjectStorMgrSvr.IPAddress=127.0.0.1
+ObjectStorMgrSvr.PortNumber=6901
+#Ice.ThreadPool.Size=30
+#Ice.ThreadPool.SizeMax=40
+#Ice.ThreadPool.SizeWarn=48
+#Ice.Trace.ThreadPool=1
 
 #
 # Warn about connection exceptions
