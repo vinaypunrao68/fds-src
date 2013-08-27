@@ -1,3 +1,5 @@
+#include <queue>
+
 #define  FDS_TRANS_EMPTY                0x00
 #define  FDS_TRANS_OPEN                 0x1
 #define  FDS_TRANS_OPENED               0x2
@@ -6,6 +8,26 @@
 #define  FDS_TRANS_DONE                 0x5
 #define  FDS_TRANS_VCAT_QUERY_PENDING   0x6
 #define  FDS_TRANS_GET_OBJ	        0x7
+
+class FDSP_IpNode {
+public:
+        long  ipAddr;
+        short  ack_status;
+        short  commit_status;
+};
+
+enum FDS_IO_Type {
+   FDS_IO_READ,
+   FDS_IO_WRITE,
+   FDS_IO_REDIR_READ,
+   FDS_IO_OFFSET_WRITE
+};
+
+#define  FDS_MAX_DM_NODES_PER_CLST      16
+#define  FDS_MAX_SM_NODES_PER_CLST      16
+#define  FDS_READ_WRITE_LOG_ENTRIES 	256
+
+typedef void (*complete_req_cb_t)(void *arg1, void *arg2, fbd_request_t *treq, int res);
 
 class   StorHvJournalEntry {
 public:
@@ -56,6 +78,7 @@ public:
 	std::queue<unsigned int> free_trans_ids;
 	unsigned int max_journal_entries;
 
+	StorHvJournalEntry *get_journal_entry(int trans_id);
 	int get_trans_id_for_block(unsigned int block_offset);
 
  

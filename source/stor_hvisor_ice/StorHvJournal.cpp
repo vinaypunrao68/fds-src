@@ -1,3 +1,11 @@
+#include <IceUtil/IceUtil.h>
+#include <Ice/Ice.h>
+#include <fdsp/FDSP.h>
+#include "include/fds_err.h"
+#include "include/fds_types.h"
+#include "fds_client/include/ubd.h"
+#include "StorHvJournal.h"
+
 StorHvJournalEntry::StorHvJournalEntry()
 {
    trans_state = FDS_TRANS_EMPTY;
