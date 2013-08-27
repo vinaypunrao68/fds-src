@@ -66,16 +66,18 @@ ObjectStorMgrI::AssociateRespCallback(const Ice::Identity& ident, const Ice::Cur
   objStorMgr->fdspDataPathClient = FDSP_DataPathRespPrx::uncheckedCast(current.con->createProxy(ident));
 }
 //--------------------------------------------------------------------------------------------------
-ObjectStorMgr::ObjectStorMgr() 
-{
+ObjectStorMgr::ObjectStorMgr(fds_uint32_t port,
+                             std::string prefix)
+    : port_num(port),
+      stor_prefix(prefix) {
   // Create all data structures 
   diskMgr = new DiskMgr();
-  std::string filename= "SNodeObjRepository";
+  std::string filename= stor_prefix + "SNodeObjRepository";
   
   // Create leveldb
   objStorDB  = new ObjectDB(filename);
-  filename= "SNodeObjIndex";
-  objIndexDB  = new ObjectDB(filename);
+  filename= stor_prefix + "SNodeObjIndex";
+  objIndexDB  = new ObjectDB(filename);  
 }
 
 
@@ -98,16 +100,13 @@ void ObjectStorMgr::unitTest()
    */
   std::string object_data("Hi, I'm object data.");
   FDSP_PutObjType *put_obj_req;
-  put_obj_req = (FDSP_PutObjType *)malloc(sizeof(FDSP_PutObjType) +
-					    object_data.length() + 1);
-  memset(&(put_obj_req->data_obj_id),
-	 0x00,
-	 sizeof(put_obj_req->data_obj_id));
+  put_obj_req = new FDSP_PutObjType();
+
+  put_obj_req->volume_offset = 0;
+  put_obj_req->data_obj_id.hash_high = 0x00;
   put_obj_req->data_obj_id.hash_low = 0x101;
   put_obj_req->data_obj_len = object_data.length() + 1;
-  memcpy((char *)put_obj_req->data_obj.data(),
-	 object_data.c_str(),
-	 put_obj_req->data_obj_len);
+  put_obj_req->data_obj = object_data;
 
   /*
    * Create fake volume ID
@@ -121,9 +120,10 @@ void ObjectStorMgr::unitTest()
   err = putObjectInternal(put_obj_req, vol_id, num_objs);
   if (err != FDS_SM_OK) {
     std::cout << "Failed to put object " << std::endl;
-    free(put_obj_req);
+    // delete put_obj_req;
     return;
   }
+  // delete put_obj_req;
 
   FDSP_GetObjType *get_obj_req = new FDSP_GetObjType();
   memset((char *)&(get_obj_req->data_obj_id),
@@ -131,6 +131,7 @@ void ObjectStorMgr::unitTest()
 	 sizeof(get_obj_req->data_obj_id));
   get_obj_req->data_obj_id.hash_low = 0x101;
   err = getObjectInternal(get_obj_req, vol_id, num_objs);
+  // delete get_obj_req;
 }
 
 fds_sm_err_t 
@@ -303,29 +304,41 @@ inline void ObjectStorMgr::swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg) {
  * Storage Mgr main  processor : Listen on the socket and spawn or assign thread from a pool
  -------------------------------------------------------------------------------------*/
 int
-ObjectStorMgr::run(int argc, char*[])
+ObjectStorMgr::run(int argc, char* argv[])
 {
-std::string endPointStr;
-    if(argc > 1)
-    {
-        cerr << appName() << ": too many arguments" << endl;
-        return EXIT_FAILURE;
-    }
-
-    callbackOnInterrupt();
-    string udpEndPoint = "udp -p 9601";
-    string tcpEndPoint = "tcp -p 6901";
-
-    Ice::ObjectAdapterPtr adapter = communicator()->createObjectAdapterWithEndpoints("ObjectStorMgrSvr", tcpEndPoint);
-    fdspDataPathServer = new ObjectStorMgrI(communicator());
-    adapter->add(fdspDataPathServer, communicator()->stringToIdentity("ObjectStorMgrSvr"));
-
-    //_workQueue->start();
-    adapter->activate();
-
-    communicator()->waitForShutdown();
-    //_workQueue->getThreadControl().join();
-    return EXIT_SUCCESS;
+  std::string endPointStr;
+  
+  Ice::PropertiesPtr props = communicator()->getProperties();
+  
+  /*
+   * Set basic thread properties.
+   */
+  props->setProperty("DataMgr.ThreadPool.Size", "10");
+  props->setProperty("DataMgr.ThreadPool.SizeMax", "20");
+  props->setProperty("DataMgr.ThreadPool.SizeWarn", "18");
+  
+  if (port_num == 0) {
+    /*
+     * Pull the port from the config file if it wasn't
+     * specified on the command line.
+     */
+    port_num = props->getPropertyAsInt("ObjectStorMgrSvr.PortNumber");
+  }
+  
+  callbackOnInterrupt();
+  std::ostringstream tcpProxyStr;
+  tcpProxyStr << "tcp -p " << port_num;
+  
+  Ice::ObjectAdapterPtr adapter = communicator()->createObjectAdapterWithEndpoints("ObjectStorMgrSvr", tcpProxyStr.str());
+  fdspDataPathServer = new ObjectStorMgrI(communicator());
+  adapter->add(fdspDataPathServer, communicator()->stringToIdentity("ObjectStorMgrSvr"));
+  
+  //_workQueue->start();
+  adapter->activate();
+  
+  communicator()->waitForShutdown();
+  //_workQueue->getThreadControl().join();
+  return EXIT_SUCCESS;
 }
 
 
@@ -338,37 +351,35 @@ ObjectStorMgr::interruptCallback(int)
 
 int main(int argc, char *argv[])
 {
-  bool unit_test;
-  int port_number = FDS_STOR_MGR_DGRAM_PORT;
+  bool         unit_test;
+  fds_uint32_t port;
+  std::string  prefix;
   
-
-  unit_test = 0;
-
-  if (argc > 1) {
-    for (int i = 1; i < argc; i++) {
-      std::string arg(argv[i]);
-      if (arg == "--unit_test") {
-	unit_test = true;
-      } else if (arg == "-p") {
-	port_number = atoi(argv[i+1]);
-	i++;
-      } else {
-	std::cerr << "Unknown option" << std::endl;
-	return 0;
-      }
+  port      = 0;
+  unit_test = false;
+  
+  for (int i = 1; i < argc; i++) {
+    std::string arg(argv[i]);
+    if (arg == "--unit_test") {
+      unit_test = true;
+    } else if (strncmp(argv[i], "--port=", 7) == 0) {
+      port = strtoul(argv[i] + 7, NULL, 0);
+    } else if (strncmp(argv[i], "--prefix=", 9) == 0) {
+      prefix = argv[i] + 9;
+    } else {
+      std::cout << "Invalid argument " << argv[i] << std::endl;
+      return -1;
     }
-    
-  }
-  objStorMgr = new ObjectStorMgr();
+  }    
+
+  objStorMgr = new ObjectStorMgr(port, prefix);
 
   if (unit_test) {
     objStorMgr->unitTest();
     return 0;
   }
 
-  printf("Stor Mgr port_number : %d\n", port_number);
-
-  objStorMgr->main(argc, argv, "config.server");
+  return objStorMgr->main(argc, argv, "config.server");
 }
 
 
