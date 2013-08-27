@@ -43,9 +43,10 @@ public:
   FDS_ProtocolInterface::FDSP_DataPathReqPtr fdspDataPathServer;
   FDS_ProtocolInterface::FDSP_DataPathRespPrx fdspDataPathClient; //For sending back the response to the SH/DM
 
-//methods
-   ObjectStorMgr();
-   ~ObjectStorMgr();
+  //methods
+  ObjectStorMgr(fds_uint32_t port,
+                std::string prefix);
+  ~ObjectStorMgr();
 
    fds_int32_t  getSocket() { return sockfd; }   
    void PutObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr, const FDS_ProtocolInterface::FDSP_PutObjTypePtr& put_obj);

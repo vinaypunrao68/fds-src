@@ -64,22 +64,18 @@ ObjectStorMgrI::AssociateRespCallback(const Ice::Identity& ident, const Ice::Cur
   objStorMgr->fdspDataPathClient = FDSP_DataPathRespPrx::uncheckedCast(current.con->createProxy(ident));
 }
 //--------------------------------------------------------------------------------------------------
-ObjectStorMgr::ObjectStorMgr() 
-{
+ObjectStorMgr::ObjectStorMgr(fds_uint32_t port,
+                             std::string prefix)
+    : port_num(port),
+      stor_prefix(prefix) {
   // Create all data structures 
   diskMgr = new DiskMgr();
-  std::string filename= "SNodeObjRepository";
+  std::string filename= stor_prefix + "SNodeObjRepository";
   
   // Create leveldb
   objStorDB  = new ObjectDB(filename);
-  filename= "SNodeObjIndex";
-  objIndexDB  = new ObjectDB(filename);
-
-  /*
-   * Set the default port and storage prefix
-   */
-  port_num = 0;
-  stor_prefix = "";
+  filename= stor_prefix + "SNodeObjIndex";
+  objIndexDB  = new ObjectDB(filename);  
 }
 
 
@@ -306,20 +302,6 @@ ObjectStorMgr::run(int argc, char* argv[])
 {
   std::string endPointStr;
   
-  /*
-   * Process the cmdline args.
-   */
-  for (fds_int32_t i = 1; i < argc; i++) {
-    if (strncmp(argv[i], "--port=", 7) == 0) {
-      port_num = strtoul(argv[i] + 7, NULL, 0);
-    } else if (strncmp(argv[i], "--prefix=", 9) == 0) {
-      stor_prefix = argv[i] + 9;
-    } else {
-      std::cout << "Invalid argument " << argv[i] << std::endl;
-      return -1;
-    }
-  }
-
   Ice::PropertiesPtr props = communicator()->getProperties();
   
   /*
@@ -338,8 +320,6 @@ ObjectStorMgr::run(int argc, char* argv[])
   }
   
   callbackOnInterrupt();
-  //string udpEndPoint = "udp -p 9601";
-  //string tcpEndPoint = "tcp -p 6901";
   std::ostringstream tcpProxyStr;
   tcpProxyStr << "tcp -p " << port_num;
   
@@ -365,35 +345,35 @@ ObjectStorMgr::interruptCallback(int)
 
 int main(int argc, char *argv[])
 {
-  bool unit_test;
-  int port_number = FDS_STOR_MGR_DGRAM_PORT;
+  bool         unit_test;
+  fds_uint32_t port;
+  std::string  prefix;
   
-
-  unit_test = 0;
-
-  if (argc > 1) {
-    for (int i = 1; i < argc; i++) {
-      std::string arg(argv[i]);
-      if (arg == "--unit_test") {
-	unit_test = true;
-      }
-      /*
-       * We pass the remaining cmdline
-       * args to main() below.
-       */
+  port      = 0;
+  unit_test = false;
+  
+  for (int i = 1; i < argc; i++) {
+    std::string arg(argv[i]);
+    if (arg == "--unit_test") {
+      unit_test = true;
+    } else if (strncmp(argv[i], "--port=", 7) == 0) {
+      port = strtoul(argv[i] + 7, NULL, 0);
+    } else if (strncmp(argv[i], "--prefix=", 9) == 0) {
+      prefix = argv[i] + 9;
+    } else {
+      std::cout << "Invalid argument " << argv[i] << std::endl;
+      return -1;
     }
-    
-  }
-  objStorMgr = new ObjectStorMgr();
+  }    
+
+  objStorMgr = new ObjectStorMgr(port, prefix);
 
   if (unit_test) {
     objStorMgr->unitTest();
     return 0;
   }
 
-  printf("Stor Mgr port_number : %d\n", port_number);
-
-  objStorMgr->main(argc, argv, "config.server");
+  return objStorMgr->main(argc, argv, "config.server");
 }
 
 
