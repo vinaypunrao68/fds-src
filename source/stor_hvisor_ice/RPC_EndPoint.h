@@ -23,10 +23,12 @@
 #include "list.h"
 #include <list>
 #include "fds_client/include/ubd.h"
+#include <Mutex.h>
 
 
 using namespace FDS_ProtocolInterface;
 using namespace std;
+using namespace fds;
 
 class FDS_RPC_EndPoint {
 public:
@@ -87,11 +89,14 @@ inline std::ostream& operator<<(std::ostream& out, const FDS_RPC_EndPoint& ep) {
 class FDS_RPC_EndPointTbl {
 public :
     FDS_RPC_EndPointTbl();
-    FDS_RPC_EndPointTbl(Ice::CommunicatorPtr& ic):_communicator(ic) { };
+    FDS_RPC_EndPointTbl(Ice::CommunicatorPtr& ic):_communicator(ic) {
+        rpcTblMutex = new fds_mutex("RPC Tbl mutex"); 
+     };
     ~FDS_RPC_EndPointTbl();
 
     Ice::CommunicatorPtr& _communicator;
     list<FDS_RPC_EndPoint *>    rpcEndPointList;
+    fds_mutex   *rpcTblMutex;
 
     void 	      Add_RPC_EndPoint(int  ipaddr, int& port, FDSP_MgrIdType mgr_id);
     void 	      Add_RPC_EndPoint(string  ipaddr, int& port, FDSP_MgrIdType mgr_id);

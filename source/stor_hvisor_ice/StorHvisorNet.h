@@ -262,8 +262,8 @@ public:
   
   // Data Members
   Ice::CommunicatorPtr _communicator;
-  StorHvJournal   	*journalTbl; 
-  StorHvDataPlacement     *dataPlacementTbl;
+  StorHvJournal   	     *journalTbl; 
+  StorHvDataPlacement        *dataPlacementTbl;
   FDS_RPC_EndPointTbl        *rpcSwitchTbl; // RPC calls Switch Table
   VolumeCatalogCache         *volCatalogCache;
   

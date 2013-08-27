@@ -379,7 +379,9 @@ int main(int argc, char *argv[])
     return 0;
   }
 
-  return objStorMgr->main(argc, argv, "config.server");
+  printf("Stor Mgr port_number : %d\n", port);
+
+  objStorMgr->main(argc, argv, "stor_mgr.cfg");
 }
 
 
