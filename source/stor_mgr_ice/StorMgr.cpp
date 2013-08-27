@@ -190,7 +190,7 @@ ObjectStorMgr::putObjectInternal(FDSP_PutObjTypePtr put_obj_req,
 fds_uint32_t obj_num=0;
 fds_sm_err_t result = FDS_SM_OK;
 fds::Error err(fds::ERR_OK);
-FDSDataLocEntryType object_location_offset;
+// FDSDataLocEntryType object_location_offset;
 
    for(obj_num = 0; obj_num < num_objs; obj_num++) {
        // Find if this object is a duplicate
@@ -200,6 +200,7 @@ FDSDataLocEntryType object_location_offset;
 
        if (result != FDS_SM_ERR_DUPLICATE) {
            // First write the object itself after hashing the objectId to Disknum/filename & obtain an offset entry
+         /*
            result = writeObject(&put_obj_req->data_obj_id, 
                                 (fds_uint32_t)put_obj_req->data_obj_len,
                                 (fds_char_t *)put_obj_req->data_obj.data(), 
@@ -209,6 +210,7 @@ FDSDataLocEntryType object_location_offset;
            writeObjLocation(&put_obj_req->data_obj_id, 
                             put_obj_req->data_obj_len, volid, 
                             &object_location_offset);
+         */
 	   /*
 	    * This is the levelDB insertion. It's a totally
 	    * separate DB from the one above.
