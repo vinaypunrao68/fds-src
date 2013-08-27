@@ -17,7 +17,7 @@ TARGETS		= $(FDS_CFG)
 OBJS		= StorMgr.o odb.o DiskMgr.o
 ICE_OBJS	= ../fdsp/FDSP.o
 
-MY_LIBS          = ../lib/leveldb-1.12.0/libleveldb.so
+MY_LIBS          = ../lib/leveldb-1.12.0/libleveldb.so -lboost_log -lboost_system -lboost_thread -lboost_date_time ../util/Log.o -lpthread -lssl -lcrypto
 
 COBJS		= #StorHvisorClient.o
 
@@ -31,7 +31,8 @@ include $(top_srcdir)/config/Make.rules
 CPPFLAGS	:= -I. $(CPPFLAGS) -I $(top_srcdir)include/Ice \
 	-I$(top_srcdir_ldb)lib/leveldb-1.12.0/include \
 	-I$(top_srcdir_ldb)lib/leveldb-1.12.0 \
-	-I$(top_srcdir_ldb)/ \
+	-I$(top_srcdir_ldb)\
+	-I/usr/local/include \
 	-I$(top_srcdir_ldb)include \
 	-I../fdsp
 

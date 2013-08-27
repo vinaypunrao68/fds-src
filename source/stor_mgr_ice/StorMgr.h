@@ -17,6 +17,7 @@
 #include "odb.h"
 #include <iostream>
 #include <Ice/Ice.h>
+#include "util/Log.h"
 #include <DiskMgr.h>
 
 #define FDS_STOR_MGR_LISTEN_PORT FDS_CLUSTER_TCP_PORT_SM
@@ -47,6 +48,7 @@ public:
   ObjectStorMgr(fds_uint32_t port,
                 std::string prefix);
   ~ObjectStorMgr();
+   fds_log* GetLog();
 
    fds_int32_t  getSocket() { return sockfd; }   
    void PutObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr, const FDS_ProtocolInterface::FDSP_PutObjTypePtr& put_obj);
@@ -58,6 +60,7 @@ public:
    void interruptCallback(int);
    void          unitTest();
 private :
+   fds_log *sm_log;
    /*
     * Cmdline configurables
     */

@@ -55,6 +55,7 @@ public:
   fds_disk_stats_t  disk_stats;
   FILE              *shard_file_desc;
   fds_uint32_t      shard_file_num; // Present shard file number being filled up
+  fds_char_t shard_file_name[64];
 };
 
 typedef struct {
