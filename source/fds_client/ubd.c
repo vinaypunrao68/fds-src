@@ -522,6 +522,7 @@ void hvisor_queue_read(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq)
 	p_new_req->buf = treq.buf;
 	p_new_req->op = treq.op;
 	p_new_req->req_data = (void *)vreq;
+	p_new_req->len = size;
 
 
 	printf("Received read request at offset %llx for %d bytes, buf - %p \n", offset, size, p_new_req->buf);
@@ -566,6 +567,7 @@ void hvisor_queue_write(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq
 	p_new_req->buf = treq.buf;
 	p_new_req->op = treq.op;
 	p_new_req->req_data = (void *)vreq;
+	p_new_req->len = size;
 
 #if BLKTAP_UNIT_TEST 
 	printf("Received write request at offset %llx for %d bytes, buf - %p : \n", offset, size, p_new_req->buf);

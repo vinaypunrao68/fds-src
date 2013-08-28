@@ -39,7 +39,7 @@ int StorHvisorProcIoRd(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
 	FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr = new FDSP_MsgHdrType;
 	FDS_ProtocolInterface::FDSP_GetObjTypePtr get_obj_req = new FDSP_GetObjType;
 	unsigned int      trans_id = 0;
-	fds_uint64_t data_offset  = req->sec * req->secs;
+	fds_uint64_t data_offset  = req->sec * HVISOR_SECTOR_SIZE;
 	fbd = fbd_dev;
 
 

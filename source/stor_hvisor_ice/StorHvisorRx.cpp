@@ -135,8 +135,12 @@ int StorHvCtrl::fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const
 	
 	printf(" responding to  the block : %p \n ",req);
 	if(req) {
-	  // __blk_end_request_all(req, 0); 
-	  fbd_complete_req(trans_id, req, 0);
+          if (rd_msg->result == FDSP_ERR_OK) { 
+              memcpy(req->buf, get_obj_rsp->data_obj.c_str(), req->len);
+	      fbd_complete_req(trans_id, req, 0);
+          } else {
+	      fbd_complete_req(trans_id, req, -1);
+          }
 	}
 
 	return 0;

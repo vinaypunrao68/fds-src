@@ -267,9 +267,10 @@ ObjectStorMgr::getObjectInternal(FDSP_GetObjTypePtr get_obj_req,
 
   if (err != fds::ERR_OK) {
      FDS_PLOG(objStorMgr->GetLog()) << "Failed to get key " << obj_id << " with status " << err;
+     return FDS_SM_ERR_OBJ_NOT_EXIST;
   } else {
      FDS_PLOG(objStorMgr->GetLog()) << "Successfully got value " << obj.data.c_str();
-    get_obj_req->data_obj = obj.data;
+    get_obj_req->data_obj.assign(obj.data);
   }
 
   return FDS_SM_OK;
@@ -284,11 +285,18 @@ ObjectStorMgr::GetObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
     // 
     // stor_mgr_verify_msg(fdsp_msg);
     //
+    int err;
     ObjectID oid(get_obj_req->data_obj_id.hash_high,
                get_obj_req->data_obj_id.hash_low);
 
     FDS_PLOG(objStorMgr->GetLog()) << "GetObject  Obj ID :" << oid << "glob_vol_id:" << fdsp_msg->glob_volume_id << "Num Objs:" << fdsp_msg->num_objects;
-    getObjectInternal(get_obj_req, fdsp_msg->glob_volume_id, fdsp_msg->num_objects);
+   
+    if ((err = getObjectInternal(get_obj_req, fdsp_msg->glob_volume_id, fdsp_msg->num_objects)) != FDS_SM_OK) {
+          fdsp_msg->result = FDSP_ERR_FAILED;
+          fdsp_msg->err_code = (FDSP_ErrType)err;
+    } else {
+          fdsp_msg->result = FDSP_ERR_OK;
+    }
 }
 
 inline void ObjectStorMgr::swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg) {
