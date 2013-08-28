@@ -9,7 +9,7 @@ OPTS ?= -g2               # (A) Debug mode
 #OPTS ?= -O2 -g2 -DNDEBUG # (B) Profiling mode
 #OPTS ?= -O2 -DNDEBUG     # (C) Production mode
 
-CFLAGS = $(IDIR) $(OPTS) -D_REENTRANT
+CFLAGS = $(IDIR) $(OPTS) -D_REENTRANT -std=c++0x
 
 BOOST_LIBS = -lboost_thread -lboost_system
 LIBS = $(BOOST_LIBS) -lpthread

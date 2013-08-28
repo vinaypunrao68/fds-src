@@ -17,6 +17,7 @@
 #include <cstring>
 #include <iomanip>
 #include <ios>
+#include <functional>
 
 /*
  * Consider encapsulating in the global
@@ -119,12 +120,12 @@ namespace fds {
     /*
      * Operators
      */
-    bool operator==(const ObjectID& rhs) {
+    bool operator==(const ObjectID& rhs) const {
       return ((this->hash_high == rhs.hash_high) &&
               (this->hash_low == rhs.hash_low));
     }
 
-    bool operator!=(const ObjectID& rhs) {
+    bool operator!=(const ObjectID& rhs) const {
       return !(*this == rhs);
     }
 
@@ -183,6 +184,13 @@ namespace fds {
   inline std::ostream& operator<<(std::ostream& out, const ObjectID& oid) {
     return out << "Object ID: " << ObjectID::ToHex(oid);
   }
+  
+  class ObjectHash {
+ public:
+    size_t operator()(const ObjectID& oid) const {
+      return std::hash<std::string>()(oid.ToString());
+    }
+  };
 
 struct DiskLoc {
   fds_uint16_t vol_id;

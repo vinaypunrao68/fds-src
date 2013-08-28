@@ -152,18 +152,18 @@ int StorHvCtrl::fds_process_put_obj_resp(const FDSP_MsgHdrTypePtr& rx_msg, const
   int trans_id = rx_msg->req_cookie; 
   StorHvJournalEntry *txn = journalTbl->get_journal_entry(trans_id);
 
-  // Check sanity here, if this transaction is valid and matches with the cookie we got from the message
-
-	if (txn->trans_state == FDS_TRANS_EMPTY) {
-	  return (0);
-	}
-
 	if (rx_msg->msg_code == FDSP_MSG_PUT_OBJ_RSP) {
 	    fds_set_smack_status(rx_msg->src_ip_lo_addr, rx_msg->req_cookie);
 	    printf(" Recvd SM PutObj RSP ;\n");
 	    fds_move_wr_req_state_machine(rx_msg);
         }
-
+        if ((txn->sm_ack_cnt == FDS_MIN_ACK) && (txn->dm_ack_cnt == FDS_MIN_ACK))
+        {
+              if (txn->trans_state == FDS_TRANS_OPEN) { 
+                   printf(" Rx: State Transition to OPENED : Received min ack from  DM and SM. \n\n");
+                   txn->trans_state = FDS_TRANS_OPENED;
+              }
+        }
 	return 0;
 }
 
@@ -229,7 +229,6 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rx_msg) 
 	  	printf(" Rx: State Transition to OPENED : Received min ack from  DM and SM. \n\n");
 	  	txn->trans_state = FDS_TRANS_OPENED;
 	 }	 
-
          break;
 
          case  FDS_TRANS_OPENED :
