@@ -77,8 +77,12 @@ int StorHvCtrl::fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const
 	
 	printf(" responding to  the block : %p \n ",req);
 	if(req) {
-	  // __blk_end_request_all(req, 0); 
-	  txn->fbd_complete_req(req, 0);
+          if (rd_msg->result == FDSP_ERR_OK) { 
+              memcpy(req->buf, get_obj_rsp->data_obj.c_str(), req->len);
+	      txn->fbd_complete_req(req, 0);
+          } else {
+	      txn->fbd_complete_req(req, -1);
+          }
 	}
 	txn->reset();
 	journalTbl->release_trans_id(trans_id);
@@ -175,7 +179,6 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rx_msg) 
 	  	printf(" Rx: State Transition to OPENED : Received min ack from  DM and SM. \n\n");
 	  	txn->trans_state = FDS_TRANS_OPENED;
 	 }	 
-
          break;
 
          case  FDS_TRANS_OPENED :

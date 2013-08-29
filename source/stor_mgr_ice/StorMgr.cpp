@@ -190,7 +190,7 @@ ObjectStorMgr::putObjectInternal(FDSP_PutObjTypePtr put_obj_req,
 fds_uint32_t obj_num=0;
 fds_sm_err_t result = FDS_SM_OK;
 fds::Error err(fds::ERR_OK);
-FDSDataLocEntryType object_location_offset;
+// FDSDataLocEntryType object_location_offset;
 
    for(obj_num = 0; obj_num < num_objs; obj_num++) {
        // Find if this object is a duplicate
@@ -200,6 +200,7 @@ FDSDataLocEntryType object_location_offset;
 
        if (result != FDS_SM_ERR_DUPLICATE) {
            // First write the object itself after hashing the objectId to Disknum/filename & obtain an offset entry
+         /*
            result = writeObject(&put_obj_req->data_obj_id, 
                                 (fds_uint32_t)put_obj_req->data_obj_len,
                                 (fds_char_t *)put_obj_req->data_obj.data(), 
@@ -209,6 +210,7 @@ FDSDataLocEntryType object_location_offset;
            writeObjLocation(&put_obj_req->data_obj_id, 
                             put_obj_req->data_obj_len, volid, 
                             &object_location_offset);
+         */
 	   /*
 	    * This is the levelDB insertion. It's a totally
 	    * separate DB from the one above.
@@ -267,9 +269,10 @@ ObjectStorMgr::getObjectInternal(FDSP_GetObjTypePtr get_obj_req,
 
   if (err != fds::ERR_OK) {
      FDS_PLOG(objStorMgr->GetLog()) << "Failed to get key " << obj_id << " with status " << err;
+     return FDS_SM_ERR_OBJ_NOT_EXIST;
   } else {
      FDS_PLOG(objStorMgr->GetLog()) << "Successfully got value " << obj.data.c_str();
-    get_obj_req->data_obj = obj.data;
+    get_obj_req->data_obj.assign(obj.data);
   }
 
   return FDS_SM_OK;
@@ -284,11 +287,18 @@ ObjectStorMgr::GetObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
     // 
     // stor_mgr_verify_msg(fdsp_msg);
     //
+    int err;
     ObjectID oid(get_obj_req->data_obj_id.hash_high,
                get_obj_req->data_obj_id.hash_low);
 
     FDS_PLOG(objStorMgr->GetLog()) << "GetObject  Obj ID :" << oid << "glob_vol_id:" << fdsp_msg->glob_volume_id << "Num Objs:" << fdsp_msg->num_objects;
-    getObjectInternal(get_obj_req, fdsp_msg->glob_volume_id, fdsp_msg->num_objects);
+   
+    if ((err = getObjectInternal(get_obj_req, fdsp_msg->glob_volume_id, fdsp_msg->num_objects)) != FDS_SM_OK) {
+          fdsp_msg->result = FDSP_ERR_FAILED;
+          fdsp_msg->err_code = (FDSP_ErrType)err;
+    } else {
+          fdsp_msg->result = FDSP_ERR_OK;
+    }
 }
 
 inline void ObjectStorMgr::swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg) {

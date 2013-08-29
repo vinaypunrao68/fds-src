@@ -24,6 +24,14 @@ COBJS		= #StorHvisorClient.o
 SRCS		= $(OBJS:.o=.cpp) \
 		  $(COBJS:.o=.cpp)
 
+#
+# Use C++11 for additional STL support
+#
+CPP11		= yes
+
+TEST_FLAGS	= -std=c++0x -Wall -Werror -g2 -I../ -I../lib/Ice-3.5.0/cpp/include -I../fdsp/
+TEST_LIBS	= -L../lib/Ice-3.5.0/cpp/lib -lpthread -lIce -lIceUtil ../fdsp/FDSP.o -lboost_log -lboost_system -lboost_thread -lboost_date_time ../util/Log.o
+
 # SLICE_SRCS	= FDSP.ice
 
 include $(top_srcdir)/config/Make.rules
@@ -39,3 +47,4 @@ CPPFLAGS	:= -I. $(CPPFLAGS) -I $(top_srcdir)include/Ice \
 $(FDS_CFG): $(OBJS) $(COBJS) $(ICE_OBJS)
 	rm -f $@
 	$(CXX) $(LDFLAGS) -o $@ $(OBJS) $(COBJS) $(ICE_OBJS) $(LIBS) $(MY_LIBS)
+	$(CXX) $(LDFLAGS) -o sm_unit_test sm_unit_test.cpp $(TEST_FLAGS) $(TEST_LIBS)
