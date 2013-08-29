@@ -21,6 +21,7 @@ extern vvc_vhdl_t vvc_vol_create(volid_t vol_id, const char *db_name, int max_bl
 void CreateStorHvisor(int argc, char *argv[])
 {
      storHvisor = new StorHvCtrl(argc, argv, StorHvCtrl::TEST_BOTH);
+     printf("Created storHvisor %p with journal table %p\n", storHvisor, storHvisor->journalTbl);
 }
 
 StorHvCtrl::StorHvCtrl(int argc,
@@ -35,7 +36,7 @@ StorHvCtrl::StorHvCtrl(int argc,
   Ice::PropertiesPtr props = _communicator->getProperties();
 
   rpcSwitchTbl = new FDS_RPC_EndPointTbl(_communicator);
-  journalTbl = new StorHvJournal();
+  journalTbl = new StorHvJournal(FDS_READ_WRITE_LOG_ENTRIES);
   volCatalogCache = new VolumeCatalogCache(this);
   
   /*

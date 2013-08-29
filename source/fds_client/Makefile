@@ -9,13 +9,13 @@ UTEST_OBJS = ../fdsp/fdsp_types.o ../fdsp/fds_pubsub.o
 all: ubd hvisor_uspace_test
 
 ubd: ubd.o
-	$(CC) -o ubd ubd.o ../fdsp/FDSP.o ../util/hash/MurmurHash3.o ../stor_hvisor_ice/RPC_EndPoint.o ../stor_hvisor_ice/StorHvisorRx.o ../stor_hvisor_ice/StorHvisorTx.o ../stor_hvisor_ice/StorHvisorTbl.o ../stor_hvisor_ice/StorHvisorNet.o ../stor_hvisor_ice/VolumeCatalogCache.o ../util/Log.o ../util/concurrency/Mutex.o $(UTEST_OBJS)  $(LIBS)
+	$(CC) -o ubd ubd.o ../fdsp/FDSP.o ../util/hash/MurmurHash3.o ../stor_hvisor_ice/RPC_EndPoint.o ../stor_hvisor_ice/StorHvisorRx.o ../stor_hvisor_ice/StorHvisorTx.o ../stor_hvisor_ice/StorHvisorTbl.o ../stor_hvisor_ice/StorHvisorNet.o ../stor_hvisor_ice/VolumeCatalogCache.o ../stor_hvisor_ice/StorHvJournal.o ../util/Log.o ../util/concurrency/Mutex.o $(UTEST_OBJS)  $(LIBS)
 
 ubd_utest: ubd_utest.o
 	$(CC) -o ubd_utest ubd_utest.o 
 
 hvisor_uspace_test: ubd_hvisor_test.o
-	$(CC) -o hvisor_uspace_test ubd_hvisor_test.o ../fdsp/FDSP.o ../util/hash/MurmurHash3.o ../stor_hvisor_ice/RPC_EndPoint.o ../stor_hvisor_ice/StorHvisorRx.o ../stor_hvisor_ice/StorHvisorTx.o ../stor_hvisor_ice/StorHvisorTbl.o ../stor_hvisor_ice/StorHvisorNet.o ../stor_hvisor_ice/VolumeCatalogCache.o ../util/Log.o ../util/concurrency/Mutex.o $(UTEST_OBJS)  $(LIBS)
+	$(CC) -o hvisor_uspace_test ubd_hvisor_test.o ../fdsp/FDSP.o ../util/hash/MurmurHash3.o ../stor_hvisor_ice/RPC_EndPoint.o ../stor_hvisor_ice/StorHvisorRx.o ../stor_hvisor_ice/StorHvisorTx.o ../stor_hvisor_ice/StorHvisorTbl.o ../stor_hvisor_ice/StorHvisorNet.o ../stor_hvisor_ice/VolumeCatalogCache.o ../stor_hvisor_ice/StorHvJournal.o ../util/Log.o ../util/concurrency/Mutex.o $(UTEST_OBJS)  $(LIBS)
 
 ubd_hvisor_test.o: ubd.c
 	$(CC) -c -o ubd_hvisor_test.o ubd.c $(CFLAGS) -DHVISOR_USPACE_TEST

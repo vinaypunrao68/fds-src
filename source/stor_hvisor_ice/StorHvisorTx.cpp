@@ -26,7 +26,7 @@ extern struct fbd_device *fbd_dev;
 BEGIN_C_DECLS
 int StorHvisorProcIoRd(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp_req, void *arg1, void *arg2)
 {
-	struct fbd_device *fbd;
+    struct fbd_device *fbd;
     FDS_RPC_EndPoint *endPoint = NULL; 
     unsigned int node_ip = 0;
 	unsigned int doid_dlt_key=0;
@@ -36,20 +36,34 @@ int StorHvisorProcIoRd(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
     fds::Error err(ERR_OK);
     ObjectID oid;
 
-	FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr = new FDSP_MsgHdrType;
-	FDS_ProtocolInterface::FDSP_GetObjTypePtr get_obj_req = new FDSP_GetObjType;
 	unsigned int      trans_id = 0;
-	fds_uint64_t data_offset  = req->sec * req->secs;
+	fds_uint64_t data_offset  = req->sec * HVISOR_SECTOR_SIZE;
 	fbd = fbd_dev;
 
 
+	/* Check if there is an outstanding transaction for this block offset  */
+	trans_id = storHvisor->journalTbl->get_trans_id_for_block(data_offset);
+	StorHvJournalEntry *journEntry = storHvisor->journalTbl->get_journal_entry(trans_id);
 
-   	storHvisor->InitSmMsgHdr(fdsp_msg_hdr);
+	StorHvJournalEntryLock je_lock(journEntry);
+
+	if (journEntry->isActive()) {
+	  // There is an ongoing transaciton for this offset.
+	  // We should queue this up for later processing once that completes.
+
+	  // For now, return an error.
+	  return (-1); // je_lock destructor will unlock the journal entry
+	}
+
+	journEntry->setActive();
+
+	FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr = new FDSP_MsgHdrType;
+	FDS_ProtocolInterface::FDSP_GetObjTypePtr get_obj_req = new FDSP_GetObjType;
+
+	storHvisor->InitSmMsgHdr(fdsp_msg_hdr);
 	fdsp_msg_hdr->msg_code = FDSP_MSG_GET_OBJ_REQ;
 	fdsp_msg_hdr->msg_id =  1;
-    /* open transaction  */
-    trans_id = storHvisor->journalTbl->get_trans_id();
-    StorHvJournalEntry *journEntry = storHvisor->journalTbl->get_journal_entry(trans_id);
+
 
 	journEntry->trans_state = FDS_TRANS_OPEN;
 	journEntry->fbd_ptr = (void *)fbd;
@@ -114,17 +128,9 @@ int StorHvisorProcIoRd(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
 	   printf("Hvisor: Sent async GetObj req to SM\n");
          }
 
-#if 0
-	p_ti = (struct timer_list *)kzalloc(sizeof(struct timer_list), GFP_KERNEL);
-	init_timer(p_ti);
-	p_ti->function = fbd_process_req_timeout;
-	p_ti->data = (unsigned long)trans_id;
-	p_ti->expires = jiffies + HZ*5;
-	add_timer(p_ti);
-	rwlog_tbl[trans_id].p_ti = p_ti;
-#endif
+	 // Schedule a timer here to track the responses and the original request
 
-	return 0;
+	 return 0; // je_lock destructor will unlock the journal entry
 }
 
 int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp_req, void *arg1, void *arg2)
@@ -142,12 +148,29 @@ int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
     fds_uint32_t node_ip = 0;
     int node_state = -1;
 
+       fbd = (struct fbd_device *)dev_hdl;
+
+        //  *** Get a new Journal Entry in xaction-log journalTbl
+	trans_id = storHvisor->journalTbl->get_trans_id_for_block(data_offset);
+        StorHvJournalEntry *journEntry = storHvisor->journalTbl->get_journal_entry(trans_id);
+
+	StorHvJournalEntryLock je_lock(journEntry);
+
+
+	if (journEntry->isActive()) {
+	  // There is an on-going transaction for this offset.
+	  // Queue this up for later processing.
+
+	  // For now, return an error.
+	  return (-1);
+	}
+
+	journEntry->setActive();
+
 	FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr = new FDSP_MsgHdrType;
 	FDS_ProtocolInterface::FDSP_PutObjTypePtr put_obj_req = new FDSP_PutObjType;
 	FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr_dm = new FDSP_MsgHdrType;
 	FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr upd_obj_req = new FDSP_UpdateCatalogType;
-
-        fbd = (struct fbd_device *)dev_hdl;
 
         // Obtain MurmurHash on the data object
         MurmurHash3_x64_128(tmpbuf, data_size, 0, &objID );
@@ -162,9 +185,6 @@ int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
 
 	doid_dlt_key = objID.GetHigh() >> 56;
 
-        //  *** Get a new Journal Entry in xaction-log journalTbl
-	trans_id = storHvisor->journalTbl->get_trans_id();
-        StorHvJournalEntry *journEntry = storHvisor->journalTbl->get_journal_entry(trans_id);
 
         // *** Initialize the journEntry with a open txn
 	journEntry->fbd_ptr = (void *)fbd_dev;
@@ -205,7 +225,7 @@ int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
             storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip, FDSP_STOR_MGR, &endPoint);
             if (endPoint) { 
                 endPoint->fdspDPAPI->begin_PutObject(fdsp_msg_hdr, put_obj_req);
-		printf("Hvisor: Sent async PutObj request to SM at %u\n", node_ip);
+		printf("Hvisor: Sent async PutObj request to SM at 0x%x\n", node_ip);
             }
 	}
 
@@ -236,7 +256,7 @@ int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
            storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip, FDSP_DATA_MGR, &endPoint);
            if (endPoint){
                endPoint->fdspDPAPI->begin_UpdateCatalogObject(fdsp_msg_hdr_dm, upd_obj_req);
-	       printf("Hvisor: Sent async UpdCatObj request to DM at %u\n", node_ip);
+	       printf("Hvisor: Sent async UpdCatObj request to DM at 0x%x\n", node_ip);
            }
         }
 
@@ -290,30 +310,5 @@ void StorHvCtrl::InitDmMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
 
    		msg_hdr->err_code=FDSP_ERR_SM_NO_SPACE;
         msg_hdr->result=FDSP_ERR_OK;
-
-}
-
-
-StorHvJournal::StorHvJournal(void)
-{
-	int i =0;
-
-        for(i=0; i<= FDS_READ_WRITE_LOG_ENTRIES; i++)
-        {
-                rwlog_tbl[i].trans_state = FDS_TRANS_EMPTY;
-                rwlog_tbl[i].replc_cnt = 0;
-                rwlog_tbl[i].sm_ack_cnt = 0;
-                rwlog_tbl[i].dm_ack_cnt = 0;
-                rwlog_tbl[i].st_flag = 0;
-                rwlog_tbl[i].lt_flag = 0;
-        }
-        next_trans_id = 1;
-
-	return;
-}
-
-int StorHvJournal::get_trans_id(void)
-{
-        return next_trans_id++;
 
 }

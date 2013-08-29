@@ -17,92 +17,27 @@ using namespace Ice;
 extern StorHvCtrl *storHvisor;
 int vvc_entry_update(vvc_vhdl_t vhdl, const char *blk_name, int num_segments, const doid_t **doid_list);
 
-int StorHvCtrl::fds_set_dmack_status( int ipAddr, int  trans_id)
-{
-	int node =0;
-        StorHvJournalEntry *journEntry = journalTbl->get_journal_entry(trans_id);
-	for (node = 0; node < FDS_MAX_DM_NODES_PER_CLST; node++)
-	{
-	  if (memcmp(&journEntry->dm_ack[node].ipAddr, &ipAddr,4) == 0) {
-	    if (journEntry->dm_ack[node].ack_status < FDS_SET_ACK) {
-	      journEntry->dm_ack_cnt++; 
-	      journEntry->dm_ack[node].ack_status = FDS_SET_ACK;
-	    }
-	    return (0);
-	  }
-	}
-
-	return 0;
-
-}
-
-int StorHvCtrl::fds_set_dm_commit_status( int ipAddr, int  trans_id)
-{
-	int node =0;
-
-        StorHvJournalEntry *journEntry = journalTbl->get_journal_entry(trans_id);
-	for (node = 0; node < FDS_MAX_DM_NODES_PER_CLST; node++)
-	{
-	  if (memcmp(&journEntry->dm_ack[node].ipAddr, &ipAddr,4) == 0) {
-	    if (journEntry->dm_ack[node].commit_status == FDS_COMMIT_MSG_SENT) {
-	      journEntry->dm_commit_cnt++; 
-	      journEntry->dm_ack[node].commit_status = FDS_COMMIT_MSG_ACKED;
-	    }
-	    return (0);
-	  }
-	}
-
-	return 0;
-
-}
-
-int StorHvCtrl::fds_set_smack_status( int ipAddr, int  trans_id)
-{
-  int node =0;
-
-  StorHvJournalEntry *journEntry = journalTbl->get_journal_entry(trans_id);
-  for (node = 0; node < FDS_MAX_SM_NODES_PER_CLST; node++) {
-     if (memcmp((void *)&journEntry->sm_ack[node].ipAddr, (void *)&ipAddr, 4) == 0) {
-	    if (journEntry->sm_ack[node].ack_status != FDS_SET_ACK) {
-	      journEntry->sm_ack[node].ack_status = FDS_SET_ACK;
-	      journEntry->sm_ack_cnt++;
-	    }
-	    return (0);
-     }
-  }
-
-	return 0;
-}
-
-
 void StorHvCtrl::fbd_process_req_timeout(unsigned long arg)
 {
   int trans_id;
   StorHvJournalEntry *txn;
-  struct request *req;
+  fbd_request_t *req;
 
   trans_id = (int)arg;
   txn = journalTbl->get_journal_entry(trans_id);
-  if (txn->trans_state != FDS_TRANS_EMPTY) {
-    txn->trans_state = FDS_TRANS_EMPTY;
-    req = (struct request *)txn->write_ctx;
+  StorHvJournalEntryLock je_lock(txn);
+  if (txn->isActive()) {
+    req = (fbd_request_t *)txn->write_ctx;
     if (req) { 
       txn->write_ctx = 0;
       printf(" Timing out, responding to  the block : %p \n ",req);
-      // __blk_end_request_all(req, 0); 
+      txn->fbd_complete_req(req, -1);
     }
+    txn->reset();
+    journalTbl->release_trans_id(trans_id);
   }
   
 }
-
-void StorHvCtrl::fbd_complete_req(int trans_id, fbd_request_t *req, int status)
-{
-
-  StorHvJournalEntry *txn = journalTbl->get_journal_entry(trans_id);
-  txn->comp_req(txn->comp_arg1, txn->comp_arg2, req, status);
-
-}
-
 
 int StorHvCtrl::fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const FDSP_GetObjTypePtr& get_obj_rsp )
 {
@@ -115,6 +50,15 @@ int StorHvCtrl::fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const
 
 	trans_id = rd_msg->req_cookie;
         StorHvJournalEntry *txn = journalTbl->get_journal_entry(trans_id);
+	StorHvJournalEntryLock je_lock(txn);
+
+	if (!txn->isActive()) {
+	  cout << "Error: Journal Entry" << rd_msg->req_cookie <<  "  GetObjectResp for an inactive transaction" << std::endl;
+	  return (0);
+	}
+
+	// TODO: check if incarnation number matches
+
 	if (txn->trans_state != FDS_TRANS_GET_OBJ) {
           cout << "Error: Journal Entry" << rd_msg->req_cookie <<  "  GetObjectResp for a transaction not in GetObjResp" << std::endl;
 	  return (0);
@@ -122,8 +66,6 @@ int StorHvCtrl::fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const
 
 	printf("Processing read response for trans %d\n", trans_id);
 	req = (fbd_request_t *)txn->write_ctx;
-   	txn->trans_state = FDS_TRANS_EMPTY;
-	txn->write_ctx = 0;
 	/*
 	  - how to handle the  length miss-match ( requested  length and  recived legth from SM
 	  - we will have to handle sending more data due to length difference
@@ -136,10 +78,13 @@ int StorHvCtrl::fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const
 	printf(" responding to  the block : %p \n ",req);
 	if(req) {
 	  // __blk_end_request_all(req, 0); 
-	  fbd_complete_req(trans_id, req, 0);
+	  txn->fbd_complete_req(req, 0);
 	}
-
+	txn->reset();
+	journalTbl->release_trans_id(trans_id);
+	
 	return 0;
+
 }
 
 
@@ -147,15 +92,17 @@ int StorHvCtrl::fds_process_put_obj_resp(const FDSP_MsgHdrTypePtr& rx_msg, const
 {
   int trans_id = rx_msg->req_cookie; 
   StorHvJournalEntry *txn = journalTbl->get_journal_entry(trans_id);
+  StorHvJournalEntryLock je_lock(txn);
 
   // Check sanity here, if this transaction is valid and matches with the cookie we got from the message
 
-	if (txn->trans_state == FDS_TRANS_EMPTY) {
-	  return (0);
-	}
+  if (!(txn->isActive())) {
+    cout << "Error: Journal Entry" << rx_msg->req_cookie <<  "  PutObjectResp for an inactive transaction" << std::endl;
+    return (0);
+  }
 
 	if (rx_msg->msg_code == FDSP_MSG_PUT_OBJ_RSP) {
-	    fds_set_smack_status(rx_msg->src_ip_lo_addr, rx_msg->req_cookie);
+	    txn->fds_set_smack_status(rx_msg->src_ip_lo_addr);
 	    printf(" Recvd SM PutObj RSP ;\n");
 	    fds_move_wr_req_state_machine(rx_msg);
         }
@@ -170,18 +117,20 @@ int StorHvCtrl::fds_process_update_catalog_resp(const FDSP_MsgHdrTypePtr& rx_msg
 
 	trans_id = rx_msg->req_cookie; 
         StorHvJournalEntry *txn = journalTbl->get_journal_entry(trans_id);
-// Check sanity here, if this transaction is valid and matches with the cookie we got from the message
+	StorHvJournalEntryLock je_lock(txn);
 
+	// Check sanity here, if this transaction is valid and matches with the cookie we got from the message
 
-	if (txn->trans_state == FDS_TRANS_EMPTY) {
+	if (!(txn->isActive())) {
+	  cout << "Error: Journal Entry" << rx_msg->req_cookie <<  "  UpdCatResp for an inactive transaction" << std::endl;
 	  return (0);
 	}
 
 	if (cat_obj_rsp->dm_operation == FDS_DMGR_TXN_STATUS_OPEN) {
-		fds_set_dmack_status(rx_msg->src_ip_lo_addr, rx_msg->req_cookie);
+		txn->fds_set_dmack_status(rx_msg->src_ip_lo_addr);
 		printf(" Recvd DM OpenTrans RSP ;\n");
 	} else {
-		fds_set_dm_commit_status(rx_msg->src_ip_lo_addr, rx_msg->req_cookie);
+		txn->fds_set_dm_commit_status(rx_msg->src_ip_lo_addr);
 		printf(" Recvd DM CommitTrans RSP ;\n");
 	}
 
@@ -191,6 +140,7 @@ int StorHvCtrl::fds_process_update_catalog_resp(const FDSP_MsgHdrTypePtr& rx_msg
 
 }
 
+// Warning: Assumes that caller holds the lock to the transaction
 int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rx_msg) {
 
 	FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr upd_obj_req = new FDSP_UpdateCatalogType;
@@ -262,8 +212,10 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rx_msg) 
 	    	txn->write_ctx = 0;
 	    	// del_timer(txn->p_ti);
 	    	if (req) {
-	      		fbd_complete_req(trans_id, req, 0);
+	      		txn->fbd_complete_req(req, 0);
 	    	}
+		txn->reset();
+		journalTbl->release_trans_id(trans_id);
                 return(0);
 	    }
           }
@@ -272,6 +224,7 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rx_msg) 
           default : 
              break;
        }
+
      if (txn->trans_state > FDS_TRANS_OPEN) {
 	/*
 	  -  browse through the list of the DM nodes that sent the open txn response .
@@ -295,9 +248,9 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rx_msg) 
 
 		   if (endPoint) {
 		 	endPoint->fdspDPAPI->begin_UpdateCatalogObject(wr_msg, upd_obj_req);
-			printf("Hvisor: Sent async UpdCatObjCommit req to DM at %u\n", (unsigned int) txn->dm_ack[node].ipAddr);
+			printf("Hvisor: Sent async UpdCatObjCommit req to DM at 0x%x\n", (unsigned int) txn->dm_ack[node].ipAddr);
 		   } else {
-		     printf("No end point found for DM at ip %u\n", (unsigned int) txn->dm_ack[node].ipAddr);
+		     printf("No end point found for DM at ip 0x%x\n", (unsigned int) txn->dm_ack[node].ipAddr);
 		   }
 
 	     }
@@ -309,15 +262,18 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rx_msg) 
 
 
 void FDSP_DataPathRespCbackI::GetObjectResp(const FDSP_MsgHdrTypePtr& msghdr, const FDSP_GetObjTypePtr& get_obj, const Ice::Current&) {
+  printf("Received get obj response for txn %d\n", msghdr->req_cookie); 
   storHvisor->fds_process_get_obj_resp(msghdr, get_obj);
 }
 
 void FDSP_DataPathRespCbackI::PutObjectResp(const FDSP_MsgHdrTypePtr& msghdr, const FDSP_PutObjTypePtr& put_obj, const Ice::Current&) {
+  printf("Received put obj response for txn %d\n", msghdr->req_cookie); 
   storHvisor->fds_process_put_obj_resp(msghdr, put_obj);
 }
 
 void FDSP_DataPathRespCbackI::UpdateCatalogObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_UpdateCatalogTypePtr& update_cat, const Ice::Current &) {
-        storHvisor->fds_process_update_catalog_resp(fdsp_msg, update_cat);
+  printf("Received upd cat obj response for txn %d\n", fdsp_msg->req_cookie); 
+	 storHvisor->fds_process_update_catalog_resp(fdsp_msg, update_cat);
 }
 
 void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
@@ -344,6 +300,11 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
           cout << "Journal Entry  " << trans_id <<  "QueryCatalogObjResp not found" << std::endl;
            return;
         }
+
+	StorHvJournalEntryLock je_lock(journEntry);
+	if (!journEntry->isActive()) {
+	  return;
+	}
    
         if (journEntry->op !=  FDS_IO_READ) { 
           cout << "Journal Entry  " << fdsp_msg_hdr->req_cookie <<  "  QueryCatalogObjResp for a non IO_READ transaction" << std::endl;
@@ -351,8 +312,10 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
            journEntry->trans_state = FDS_TRANS_EMPTY;
            journEntry->write_ctx = 0;
            if(req) {
-             storHvisor->fbd_complete_req(trans_id, req, -1);
+             journEntry->fbd_complete_req(req, -1);
            }
+	   journEntry->reset();
+	   storHvisor->journalTbl->release_trans_id(trans_id);
           return;
         }
 
@@ -362,8 +325,10 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
            journEntry->trans_state = FDS_TRANS_EMPTY;
            journEntry->write_ctx = 0;
            if(req) {
-             storHvisor->fbd_complete_req(trans_id, req, -1);
+             journEntry->fbd_complete_req(req, -1);
            }
+	   journEntry->reset();
+	   storHvisor->journalTbl->release_trans_id(trans_id);
            return;
         }
 
@@ -379,8 +344,10 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
            journEntry->trans_state = FDS_TRANS_EMPTY;
            journEntry->write_ctx = 0;
            if(req) {
-             storHvisor->fbd_complete_req(trans_id, req, 0);
+             journEntry->fbd_complete_req(req, 0);
            }
+	   journEntry->reset();
+	   storHvisor->journalTbl->release_trans_id(trans_id);
            return;
          }
          storHvisor->dataPlacementTbl->getNodeInfo(node_ids[0], &node_ip, &node_state);

@@ -28,6 +28,7 @@
 #include "include/fds_types.h"
 
 #include "VolumeCatalogCache.h"
+#include "StorHvJournal.h"
 
 #ifndef ICE_IGNORE_VERSION
 #   if ICE_INT_VERSION / 100 != 305
@@ -40,20 +41,6 @@
 #       error Ice patch level mismatch!
 #   endif
 #endif
-
-#define  FDS_MAX_DM_NODES_PER_CLST      16
-#define  FDS_MAX_SM_NODES_PER_CLST      16
-#define  FDS_MAC_DM_ENTRIES             256
-#define  FDS_MAC_SM_ENTRIES             256
-#define  FDS_READ_WRITE_LOG_ENTRIES 	256
-#define  FDS_TRANS_EMPTY                0x00
-#define  FDS_TRANS_OPEN                 0x1
-#define  FDS_TRANS_OPENED               0x2
-#define  FDS_TRANS_COMMITTED            0x3
-#define  FDS_TRANS_SYNCED               0x4
-#define  FDS_TRANS_DONE                 0x5
-#define  FDS_TRANS_VCAT_QUERY_PENDING   0x6
-#define  FDS_TRANS_GET_OBJ	        0x7
 
 
 #define  FDS_NODE_OFFLINE               0
@@ -75,20 +62,12 @@
 
 #define  FDS_TIMER_TIMEOUT              1
 
-#define  FDS_MIN_ACK                    1
-#define  FDS_CLS_ACK                    0
-#define  FDS_SET_ACK                    1
-
-#define  FDS_COMMIT_MSG_SENT            1
-#define  FDS_COMMIT_MSG_ACKED           2
-
 #define HVISOR_SECTOR_SIZE 		512
 
 typedef unsigned int volid_t;
-//typedef void (*complete_req_cb_t)(void *arg1, void *arg2, void *treq, int res);
 
 using namespace FDS_ProtocolInterface;
-using namespace std;;
+using namespace std;
 
 class FDSP_DataPathRespCbackI : public FDSP_DataPathResp
 {
@@ -109,36 +88,6 @@ public:
     }
 };
 
-#if 0
-typedef double                     td_sector_t;
-typedef struct fbd_request            fbd_request_t;
-typedef struct td_image_handle       td_image_t;
-
-
-/*  these need to be removed once andrew  cleans up the DM */
-
-struct fbd_request {
-        int                          op;
-        char                        *buf;
-        td_sector_t                  sec;
-        int                          secs;
-
-        short                      blocked; /* blocked on a dependency */
-
-        td_image_t                  *image;
-
-        void * /*td_callback_t*/     cb;
-        void                        *cb_data;
-
-        double                     id;
-        int                          sidx;
-        void                        *privateI;
-
-#ifdef MEMSHR
-        share_tuple_t                memshr_hnd;
-#endif
-};
-#endif
 
 typedef void *vvc_vhdl_t;
 struct fbd_device {
@@ -178,66 +127,9 @@ typedef union {
 
 } fds_doid_t;
 
-typedef void (*complete_req_cb_t)(void *arg1, void *arg2, fbd_request_t *treq, int res);
 typedef unsigned char doid_t[20];
 
 /*************************************************************************** */
-class FDSP_IpNode {
-public:
-        long  ipAddr;
-        short  ack_status;
-        short  commit_status;
-};
-
-enum FDS_IO_Type {
-   FDS_IO_READ,
-   FDS_IO_WRITE,
-   FDS_IO_REDIR_READ,
-   FDS_IO_OFFSET_WRITE
-};
-
-class   StorHvJournalEntry {
-public:
-        short  replc_cnt;
-        short  sm_ack_cnt;
-        short  dm_ack_cnt;
-        short  dm_commit_cnt;
-        short  trans_state;
-        FDS_IO_Type   op;
-        FDS_ObjectIdType data_obj_id;
-        int      data_obj_len;
-        void     *fbd_ptr;
-        void     *read_ctx;
-        void     *write_ctx;
-	complete_req_cb_t comp_req;
-	void 	*comp_arg1;
-	void 	*comp_arg2;
-        FDSP_MsgHdrTypePtr     sm_msg;
-        FDSP_MsgHdrTypePtr     dm_msg;
-        struct   timer_list *p_ti;
-        int      lt_flag;
-        int      st_flag;
-        short    num_dm_nodes;
-        FDSP_IpNode    dm_ack[FDS_MAX_DM_NODES_PER_CLST];
-        short    num_sm_nodes;
-        FDSP_IpNode    sm_ack[FDS_MAX_SM_NODES_PER_CLST];
-};
-
-class StorHvJournal {
-public:
- 	StorHvJournal();
- 	~StorHvJournal();
-	StorHvJournalEntry  rwlog_tbl[FDS_READ_WRITE_LOG_ENTRIES];
-        int next_trans_id;
-
-	int get_trans_id(void);
-        StorHvJournalEntry *get_journal_entry(int trans_id) {
-             if (trans_id < FDS_READ_WRITE_LOG_ENTRIES) {
-                 return &rwlog_tbl[trans_id];
-             }
-        return NULL;
-        }
-};
 
 
 class StorHvCtrl {
@@ -271,11 +163,7 @@ public:
   void InitDmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
   void InitSmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
   
-  int fds_set_dmack_status( int ipAddr, int  trans_id);
-  int fds_set_dm_commit_status( int ipAddr, int  trans_id);
-  int fds_set_smack_status( int ipAddr, int  trans_id);
   void fbd_process_req_timeout(unsigned long arg);
-  void fbd_complete_req(int trans_id, fbd_request_t *req, int status);
 
   int fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rx_msg);  
   int fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const FDSP_GetObjTypePtr& get_obj_rsp );
