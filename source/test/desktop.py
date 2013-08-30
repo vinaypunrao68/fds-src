@@ -23,15 +23,15 @@ STORHVI = 3
 VCC = 4
 components = [STORMGR, DATAMGR, VCC]
 bin_map = {STORMGR:"StorMgr", DATAMGR:"DataMgr", VCC:"DataMgr"}
-dir_map = {STORMGR:"stor_mgr_ice", DATAMGR:"data_mgr", VCC:"data_mgr"}
-udir_map = {STORMGR:"stor_mgr_ice", DATAMGR:"data_mgr", VCC:"stor_hvisor_ice"}
-ut_map = {STORMGR:"sm_unit_test", DATAMGR:"dm_unit_test", VCC:"vcc_unit_test"}
+dir_map = {STORMGR:"stor_mgr_ice", DATAMGR:"data_mgr", STORHVI:"stor_hvisor_ice", VCC:"data_mgr"}
+udir_map = {STORMGR:"stor_mgr_ice", DATAMGR:"data_mgr", STORHVI:"fds_client", VCC:"stor_hvisor_ice"}
+ut_map = {STORMGR:"sm_unit_test", DATAMGR:"dm_unit_test", STORHVI:"hvisor_uspace_test", VCC:"vcc_unit_test"}
+port_map = {STORMGR:10000, DATAMGR:11000, VCC:11000}
 
 #
 # Defaults
 #
 cwd = "./"
-port_base = 10000
 prefix_base = "desktop_ut_"
 
 #
@@ -110,6 +110,7 @@ class TestSequenceFunctions(unittest.TestCase):
         status = 0
         comp_bin = bin_map[server]
         comp_dir = dir_map[server]
+        comp_port = port_map[server]
 
         #
         # Descend in the component's directory.
@@ -121,7 +122,7 @@ class TestSequenceFunctions(unittest.TestCase):
         # Construct server command
         #
         comp_exe = cwd + comp_bin
-        port_arg = "--port=%d" % (port_base + ident)
+        port_arg = "--port=%d" % (comp_port + ident)
         prefix_arg = "--prefix=%s" % ("%s%d_" % (prefix_base, ident))
         comp_arg = port_arg + " " + prefix_arg
         cmd = comp_exe + " " + comp_arg
@@ -155,7 +156,7 @@ class TestSequenceFunctions(unittest.TestCase):
     def stop_server(self, proc):
         proc.terminate()
 
-    def start_ut(self, server, ident):
+    def start_ut(self, server, ident, args=None):
         status = 0
 
         #
@@ -170,8 +171,13 @@ class TestSequenceFunctions(unittest.TestCase):
         #
         comp_ut = ut_map[server]
         comp_exe = cwd + comp_ut
-        port_arg = "--port=%d" % (port_base + ident)
-        comp_arg = port_arg
+        # Use the caller defined args if given or make our own
+        if args == None:
+            comp_port = port_map[server]
+            port_arg = "--port=%d" % (comp_port + ident)
+            comp_arg = port_arg
+        else:
+            comp_arg = args
         comp_cmd = comp_exe + " " + comp_arg
         print "Starting unit test cmd %s" % (comp_cmd)
 
@@ -253,6 +259,40 @@ class TestSequenceFunctions(unittest.TestCase):
         print "********** Starting test: %s **********" % (test_name)
 
         status = self.run_comp_test(VCC, num_instances)
+        self.assertEqual(status, 0)
+
+        print "********** Stopping test: %s **********" % (test_name)
+
+    def test_sh(self):
+        test_name = "Storage Hypervisor"
+        status = 0
+        num_instances = 1
+        print "********** Starting test: %s **********" % (test_name)
+
+        #
+        # Start SM
+        #
+        sm_serv = self.start_server(STORMGR, num_instances)
+
+        #
+        # Start DM
+        #
+        dm_serv = self.start_server(DATAMGR, num_instances)
+
+        #
+        # Start SH unit test
+        #
+        sm_port = port_map[STORMGR] + num_instances
+        dm_port = port_map[DATAMGR] + num_instances
+        args = " --unit_test --sm_port=%d --dm_port=%d" % (sm_port, dm_port)
+        status = self.start_ut(STORHVI, num_instances, args)
+
+        #
+        # Kill the SM server
+        #
+        self.stop_server(sm_serv)
+        self.stop_server(dm_serv)
+
         self.assertEqual(status, 0)
 
         print "********** Stopping test: %s **********" % (test_name)

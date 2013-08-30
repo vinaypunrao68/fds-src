@@ -18,15 +18,23 @@ using namespace Ice;
 struct fbd_device *fbd_dev;
 extern vvc_vhdl_t vvc_vol_create(volid_t vol_id, const char *db_name, int max_blocks);
 
-void CreateStorHvisor(int argc, char *argv[])
-{
-  CreateSHMode(argc, argv, false);
+int unitTest() {
+  return 0;
 }
 
-void CreateSHMode(int argc, char *argv[], fds_bool_t test_mode)
+void CreateStorHvisor(int argc, char *argv[])
+{
+  CreateSHMode(argc, argv, false, 0, 0);
+}
+
+void CreateSHMode(int argc,
+                  char *argv[],
+                  fds_bool_t test_mode,
+                  fds_uint32_t sm_port,
+                  fds_uint32_t dm_port)
 {
   if (test_mode == true) {
-    storHvisor = new StorHvCtrl(argc, argv, StorHvCtrl::TEST_BOTH);
+    storHvisor = new StorHvCtrl(argc, argv, StorHvCtrl::TEST_BOTH, sm_port, dm_port);
   } else {
     storHvisor = new StorHvCtrl(argc, argv, StorHvCtrl::NORMAL);
   }
@@ -38,7 +46,8 @@ void CreateSHMode(int argc, char *argv[], fds_bool_t test_mode)
 StorHvCtrl::StorHvCtrl(int argc,
                        char *argv[],
                        sh_comm_modes _mode,
-                       fds_uint32_t port_num)
+                       fds_uint32_t sm_port_num,
+                       fds_uint32_t dm_port_num)
     : mode(_mode) {
   
   Ice::InitializationData initData;
@@ -76,8 +85,8 @@ StorHvCtrl::StorHvCtrl(int argc,
      * If a port_num to use is set use it,
      * otherwise pull from config file.
      */
-    if (port_num != 0) {
-      dataMgrPortNum = port_num;
+    if (dm_port_num != 0) {
+      dataMgrPortNum = dm_port_num;
     } else {
       dataMgrPortNum = props->getPropertyAsInt("DataMgr.PortNumber");
     }
@@ -87,8 +96,12 @@ StorHvCtrl::StorHvCtrl(int argc,
   if ((mode == STOR_MGR_TEST) ||
       (mode == TEST_BOTH) ||
       (mode == NORMAL)) {
+    if (sm_port_num != 0) {
+      storMgrPortNum = sm_port_num;
+    } else {
+      storMgrPortNum  = props->getPropertyAsInt("ObjectStorMgrSvr.PortNumber");
+    }
     storMgrIPAddress  = props->getProperty("ObjectStorMgrSvr.IPAddress");
-    storMgrPortNum  = props->getPropertyAsInt("ObjectStorMgrSvr.PortNumber");
     rpcSwitchTbl->Add_RPC_EndPoint(storMgrIPAddress, storMgrPortNum, FDSP_STOR_MGR);
   }
   
@@ -114,13 +127,13 @@ cout <<" Entring Normal Data placement mode" << endl;
  * Constructor uses comm with DM and SM if no mode provided.
  */
 StorHvCtrl::StorHvCtrl(int argc, char *argv[])
-    : StorHvCtrl(argc, argv, NORMAL, 0) {
+    : StorHvCtrl(argc, argv, NORMAL, 0, 0) {
 }
 
 StorHvCtrl::StorHvCtrl(int argc,
                        char *argv[],
                        sh_comm_modes _mode)
-    : StorHvCtrl(argc, argv, _mode, 0) {
+    : StorHvCtrl(argc, argv, _mode, 0, 0) {
 }
 
 StorHvCtrl::~StorHvCtrl()

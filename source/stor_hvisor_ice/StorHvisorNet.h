@@ -153,7 +153,8 @@ public:
   StorHvCtrl(int argc,
              char *argv[],
              sh_comm_modes _mode,
-             fds_uint32_t port_num);
+             fds_uint32_t sm_port_num,
+             fds_uint32_t dm_port_num);
   ~StorHvCtrl();	
   
   // Data Members

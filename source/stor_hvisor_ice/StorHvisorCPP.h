@@ -13,6 +13,11 @@ void integration_stub( void *buf,  int len);
 void *hvisor_lib_init(void);
 int StorHvisorProcIoRd(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp_req, void *arg1, void *arg2);
 int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp_req, void *arg1, void *arg2);
+int unitTest();
 void CreateStorHvisor(int argc, char *argv[]);
-void CreateSHMode(int argc, char *argv[], fds_bool_t test_mode);
+void CreateSHMode(int argc,
+                  char *argv[],
+                  fds_bool_t test_mode,
+                  fds_uint32_t sm_port,
+                  fds_uint32_t dm_port);
 END_C_DECLS
