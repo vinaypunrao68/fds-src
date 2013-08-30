@@ -136,7 +136,7 @@ class SmUnitTest {
   /*
    * Unit test funtions
    */
-  int basic_update() {
+  fds_int32_t basic_update() {
 
     FDS_PLOG(test_log) << "Starting test: basic_update()";
     
@@ -186,7 +186,7 @@ class SmUnitTest {
     return 0;
   }
 
-  int basic_uq() {
+  fds_int32_t basic_uq() {
 
     FDS_PLOG(test_log) << "Starting test: basic_uq()";
     
@@ -301,8 +301,8 @@ class SmUnitTest {
     return test_log;
   }
 
-  void Run(const std::string& testname) {
-    int result;
+  fds_int32_t Run(const std::string& testname) {
+    fds_int32_t result = 0;
     std::cout << "Running unit test \"" << testname << "\"" << std::endl;
 
     if (testname == "basic_update") {
@@ -319,13 +319,24 @@ class SmUnitTest {
       std::cout << "Unit test \"" << testname << "\" FAILED" << std::endl;
     }
     std::cout << std::endl;
+
+    return result;
   }
 
   void Run() {
+    fds_int32_t result = 0;
     for (std::list<std::string>::iterator it = unit_tests.begin();
          it != unit_tests.end();
          ++it) {
-      Run(*it);
+      result = Run(*it);
+      if (result != 0) {
+        std::cout << "Unit test FAILED" << std::endl;
+        break;
+      }
+    }
+
+    if (result == 0) {
+      std::cout << "Unit test PASSED" << std::endl;
     }
   }
 };
