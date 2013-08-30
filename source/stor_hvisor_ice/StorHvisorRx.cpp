@@ -334,6 +334,21 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
 	   storHvisor->journalTbl->release_trans_id(trans_id);
            return;
         }
+	
+	// If Data Mgr does not have an entry, simply return 0s.
+	if (fdsp_msg_hdr->result != FDS_ProtocolInterface::FDSP_ERR_OK) {
+	  cout << "Journal Entry  " << fdsp_msg_hdr->req_cookie <<  ":  QueryCatalogObjResp returned error " << std::endl;
+           req = (fbd_request_t *)journEntry->write_ctx;
+           journEntry->trans_state = FDS_TRANS_EMPTY;
+           journEntry->write_ctx = 0;
+           if(req) {
+	     memset(req->buf, 0, req->len);
+             journEntry->fbd_complete_req(req, 0);
+           }
+	   journEntry->reset();
+	   storHvisor->journalTbl->release_trans_id(trans_id);
+           return;
+	}
 
         doid_high = cat_obj_req->data_obj_id.hash_high;
         doid_dlt_key = doid_high >> 56;
@@ -362,6 +377,8 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
         // RPC Call GetObject to StorMgr
         fdsp_msg_hdr->msg_code = FDSP_MSG_GET_OBJ_REQ;
         fdsp_msg_hdr->msg_id =  1;
+	// fdsp_msg_hdr->src_ip_lo_addr = SRC_IP;
+	fdsp_msg_hdr->dst_ip_lo_addr = node_ip;
         get_obj_req->data_obj_id.hash_high = cat_obj_req->data_obj_id.hash_high;
         get_obj_req->data_obj_id.hash_low = cat_obj_req->data_obj_id.hash_low;
         get_obj_req->data_obj_len = journEntry->data_obj_len;

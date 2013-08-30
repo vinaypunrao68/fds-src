@@ -185,6 +185,7 @@ Error VolumeCatalogCache::Query(fds_uint64_t vol_uuid,
     FDS_ProtocolInterface::FDSP_QueryCatalogTypePtr query_req =
         new FDS_ProtocolInterface::FDSP_QueryCatalogType;
     
+    msg_hdr->glob_volume_id = vol_uuid;
     msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_QUERY_CAT_OBJ_REQ;    
     msg_hdr->src_id   = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
     msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_DATA_MGR;

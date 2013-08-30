@@ -1,3 +1,6 @@
+#ifndef __STOR_HV_JRNL_H_
+#define __STOR_HV_JRNL_H_
+
 #include <queue>
 #include <unordered_map>
 #include "util/concurrency/Mutex.h"
@@ -42,6 +45,8 @@ typedef void (*complete_req_cb_t)(void *arg1, void *arg2, fbd_request_t *treq, i
 using namespace FDS_ProtocolInterface;
 using namespace std;
 using namespace fds;
+
+namespace fds {
 
 class   StorHvJournalEntry {
 
@@ -128,3 +133,6 @@ public:
 
 };
 
+} // namespace fds
+
+#endif // __STOR_HV_JRNL_H_

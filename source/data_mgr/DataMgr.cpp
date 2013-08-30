@@ -319,7 +319,14 @@ void DataMgr::ReqHandler::QueryCatalogObject(const FDS_ProtocolInterface::FDSP_M
    */
   msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_QUERY_CAT_OBJ_RSP;
   dataMgr->swapMgrId(msg_hdr);
-  dataMgr->respHandleCli->QueryCatalogObjectResp(msg_hdr, query_catalog);
+  dataMgr->respHandleCli->begin_QueryCatalogObjectResp(msg_hdr, query_catalog);
+  FDS_PLOG(dataMgr->GetLog()) << "Sending async query catalog response with "
+                              << "volume offset: " << query_catalog->volume_offset
+                              << ", Obj ID " << oid
+                              << ", Trans ID " << query_catalog->dm_transaction_id
+                              << ", OP ID " << query_catalog->dm_operation;
+
+  
 }
 
 void DataMgr::ReqHandler::OffsetWriteObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,

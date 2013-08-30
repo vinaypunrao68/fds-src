@@ -76,7 +76,7 @@ struct blktap_segment {
 #define BLKTAP_OP_FLUSH         2
 #define BLKTAP_OP_TRIM          3
 
-#define BLKTAP_SEGMENT_MAX      16
+#define BLKTAP_SEGMENT_MAX      11
 
 struct blktap_ring_rw_request {
 	uint64_t                sector_number;

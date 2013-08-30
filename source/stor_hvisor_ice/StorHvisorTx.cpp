@@ -101,8 +101,14 @@ int StorHvisorProcIoRd(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
         uint64_t doid_dlt = oid.GetHigh();
         doid_dlt_key = (doid_dlt >> 56);
 
-
+	fdsp_msg_hdr->glob_volume_id = fbd->vol_id;;
         fdsp_msg_hdr->req_cookie = trans_id;
+	fdsp_msg_hdr->msg_code = FDSP_MSG_GET_OBJ_REQ;
+        fdsp_msg_hdr->msg_id =  1;
+	fdsp_msg_hdr->src_ip_lo_addr = SRC_IP;
+        get_obj_req->data_obj_id.hash_high = oid.GetHigh();
+        get_obj_req->data_obj_id.hash_low = oid.GetLow();
+        get_obj_req->data_obj_len = req->len;
 
     	journEntry->op = FDS_IO_READ;
     	journEntry->data_obj_id.hash_high = oid.GetHigh();;
@@ -115,6 +121,8 @@ int StorHvisorProcIoRd(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
           return -1;
         }
         storHvisor->dataPlacementTbl->getNodeInfo(node_ids[0], &node_ip, &node_state);
+
+	fdsp_msg_hdr->dst_ip_lo_addr = node_ip;
 
         // *****CAVEAT: Modification reqd
         // ******  Need to find out which is the primary SM and send this out to that SM. ********

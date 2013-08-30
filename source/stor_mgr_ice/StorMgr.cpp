@@ -269,6 +269,7 @@ ObjectStorMgr::getObjectInternal(FDSP_GetObjTypePtr get_obj_req,
 
   if (err != fds::ERR_OK) {
      FDS_PLOG(objStorMgr->GetLog()) << "Failed to get key " << obj_id << " with status " << err;
+     get_obj_req->data_obj.assign("");
      return FDS_SM_ERR_OBJ_NOT_EXIST;
   } else {
      FDS_PLOG(objStorMgr->GetLog()) << "Successfully got value " << obj.data.c_str();

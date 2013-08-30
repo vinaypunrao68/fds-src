@@ -10,6 +10,7 @@
 #include "StorHvJournal.h"
 
 
+namespace fds {
 
 StorHvJournalEntry::StorHvJournalEntry()
 {
@@ -75,16 +76,17 @@ bool StorHvJournalEntry::isActive()
 
 void StorHvJournalEntry::lock()
 {
-  cout << "Acquiring lock for transaction " << trans_id << endl;
+  // TODO: convert this and other lock/unlock prints to a debug level log
+  // cout << "Acquiring lock for transaction " << trans_id << endl;
   je_mutex->lock();
-  cout << "Acquired lock for transaction " << trans_id << endl;
+  // cout << "Acquired lock for transaction " << trans_id << endl;
   
 }
 
 void StorHvJournalEntry::unlock()
 {
   je_mutex->unlock();
-  cout << "Released lock for transaction " << trans_id << endl;
+  // cout << "Released lock for transaction " << trans_id << endl;
 
 }
 
@@ -194,15 +196,15 @@ StorHvJournal::~StorHvJournal()
 
 void StorHvJournal::lock()
 {
-  cout << "Acquiring journal table lock" << endl;
+  // cout << "Acquiring journal table lock" << endl;
   jrnl_tbl_mutex->lock();
-  cout << "Acquired journal table lock" << endl;
+  // cout << "Acquired journal table lock" << endl;
 }
 
 void StorHvJournal::unlock()
 {
   jrnl_tbl_mutex->unlock();
-  cout << "Released journal table lock"<< endl;
+  // cout << "Released journal table lock"<< endl;
 }
 
 // Caller must have acquired the Journal Table Write Lock before invoking this.
@@ -288,3 +290,5 @@ StorHvJournalEntry *StorHvJournal::get_journal_entry(int trans_id) {
   return jrnl_e;
 
 }
+
+} // namespace fds
