@@ -20,8 +20,19 @@ extern vvc_vhdl_t vvc_vol_create(volid_t vol_id, const char *db_name, int max_bl
 
 void CreateStorHvisor(int argc, char *argv[])
 {
-     storHvisor = new StorHvCtrl(argc, argv, StorHvCtrl::TEST_BOTH);
-     printf("Created storHvisor %p with journal table %p\n", storHvisor, storHvisor->journalTbl);
+  CreateSHMode(argc, argv, false);
+}
+
+void CreateSHMode(int argc, char *argv[], fds_bool_t test_mode)
+{
+  if (test_mode == true) {
+    storHvisor = new StorHvCtrl(argc, argv, StorHvCtrl::TEST_BOTH);
+  } else {
+    storHvisor = new StorHvCtrl(argc, argv, StorHvCtrl::NORMAL);
+  }
+  std::cout << "Created storHvisor " << (void *)storHvisor
+            << " with journal table " << (void *)storHvisor->journalTbl
+            << std::endl;
 }
 
 StorHvCtrl::StorHvCtrl(int argc,

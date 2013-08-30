@@ -266,18 +266,20 @@ int main(int argc, char *argv[]) {
 
 #endif
 
-#ifndef BLKTAP_UNIT_TEST 
-
+#ifndef BLKTAP_UNIT_TEST
   hvisor_hdl = hvisor_lib_init();
+#ifdef HVISOR_USPACE_TEST
+  CreateSHMode(argc, argv, 1);
+#else
   CreateStorHvisor(argc, argv);
-
+#endif
 #endif
 
 #ifdef HVISOR_USPACE_TEST
 printf("Send the IO \n");
   while(1)
   {
-    char *line_ptr;
+    char *line_ptr = NULL;
     int n_bytes = 0;
     char cmd_wd[32];
     int offset = 0;

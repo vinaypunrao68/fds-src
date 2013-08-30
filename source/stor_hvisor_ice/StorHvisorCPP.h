@@ -14,4 +14,5 @@ void *hvisor_lib_init(void);
 int StorHvisorProcIoRd(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp_req, void *arg1, void *arg2);
 int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp_req, void *arg1, void *arg2);
 void CreateStorHvisor(int argc, char *argv[]);
+void CreateSHMode(int argc, char *argv[], fds_bool_t test_mode);
 END_C_DECLS
