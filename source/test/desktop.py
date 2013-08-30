@@ -20,10 +20,12 @@ INVALID = 0
 STORMGR = 1
 DATAMGR = 2
 STORHVI = 3
-components = [STORMGR, DATAMGR]
-bin_map = {STORMGR:"StorMgr", DATAMGR:"DataMgr"}
-dir_map = {STORMGR:"stor_mgr_ice", DATAMGR:"data_mgr"}
-ut_map = {STORMGR:"sm_unit_test", DATAMGR:"dm_unit_test"}
+VCC = 4
+components = [STORMGR, DATAMGR, VCC]
+bin_map = {STORMGR:"StorMgr", DATAMGR:"DataMgr", VCC:"DataMgr"}
+dir_map = {STORMGR:"stor_mgr_ice", DATAMGR:"data_mgr", VCC:"data_mgr"}
+udir_map = {STORMGR:"stor_mgr_ice", DATAMGR:"data_mgr", VCC:"stor_hvisor_ice"}
+ut_map = {STORMGR:"sm_unit_test", DATAMGR:"dm_unit_test", VCC:"vcc_unit_test"}
 
 #
 # Defaults
@@ -37,9 +39,6 @@ prefix_base = "desktop_ut_"
 #
 ice_home = "../lib/Ice-3.5.0"
 ld_path = "../lib/:../lib/Ice-3.5.0/cpp/lib/:../lib/leveldb-1.12.0/:/usr/local/lib"
-
-def run_async_proc():
-    print "Running async proc"
 
 class TestSequenceFunctions(unittest.TestCase):
 
@@ -163,7 +162,7 @@ class TestSequenceFunctions(unittest.TestCase):
         # Descend in the component's directory
         #
         pwd = os.getcwd()
-        comp_dir = dir_map[server]
+        comp_dir = udir_map[server]
         os.chdir(comp_dir)
 
         #
@@ -246,6 +245,16 @@ class TestSequenceFunctions(unittest.TestCase):
         status = self.run_comp_test(DATAMGR, num_instances)
         self.assertEqual(status, 0)
             
+        print "********** Stopping test: %s **********" % (test_name)
+
+    def test_vcc(self):
+        test_name = "Volume catalog cache"
+        num_instances = 5
+        print "********** Starting test: %s **********" % (test_name)
+
+        status = self.run_comp_test(VCC, num_instances)
+        self.assertEqual(status, 0)
+
         print "********** Stopping test: %s **********" % (test_name)
 
 if __name__ == '__main__':

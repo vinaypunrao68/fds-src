@@ -25,6 +25,8 @@ class VccUnitTest {
 
   fds_log *vcc_log;
 
+  fds_uint32_t port_num;
+
   /*
    * Unit test funtions
    */
@@ -211,9 +213,10 @@ class VccUnitTest {
   }
 
  public:
-  VccUnitTest() {
+  VccUnitTest(fds_uint32_t port_arg) :
+      port_num(port_arg) {
     vcc_log = new fds_log("vcc_test", "logs");
-
+    
     unit_tests.push_back("basic_update");
     unit_tests.push_back("basic_query");
     unit_tests.push_back("basic_mt");
@@ -223,7 +226,7 @@ class VccUnitTest {
      */
     int argc = 0;
     char* argv[argc];
-    storHvisor = new StorHvCtrl(argc, argv, StorHvCtrl::DATA_MGR_TEST);
+    storHvisor = new StorHvCtrl(argc, argv, StorHvCtrl::DATA_MGR_TEST, port_num);
   }
 
   ~VccUnitTest() {
@@ -346,9 +349,12 @@ class ShClient : public Ice::Application {
      * Process the cmdline args.
      */
     std::string testname;
+    fds_uint32_t port_num = 0;
     for (int i = 1; i < argc; i++) {
       if (strncmp(argv[i], "--testname=", 11) == 0) {
         testname = argv[i] + 11;
+      } else if (strncmp(argv[i], "--port=", 7) == 0) {
+        port_num = strtoul(argv[i] + 7, NULL, 0);
       } else {
         std::cout << "Invalid argument " << argv[i] << std::endl;
         return -1;
@@ -358,7 +364,7 @@ class ShClient : public Ice::Application {
     /*
      * Setup the basic unit test.
      */
-    VccUnitTest unittest;
+    VccUnitTest unittest(port_num);
 
     if (testname.empty()) {
       unittest.Run();

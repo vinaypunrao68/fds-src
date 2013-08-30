@@ -150,6 +150,10 @@ public:
   
   StorHvCtrl(int argc, char *argv[]);
   StorHvCtrl(int argc, char *argv[], sh_comm_modes _mode);
+  StorHvCtrl(int argc,
+             char *argv[],
+             sh_comm_modes _mode,
+             fds_uint32_t port_num);
   ~StorHvCtrl();	
   
   // Data Members

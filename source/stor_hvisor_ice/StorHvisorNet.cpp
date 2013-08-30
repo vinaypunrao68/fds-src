@@ -26,7 +26,8 @@ void CreateStorHvisor(int argc, char *argv[])
 
 StorHvCtrl::StorHvCtrl(int argc,
                        char *argv[],
-                       sh_comm_modes _mode)
+                       sh_comm_modes _mode,
+                       fds_uint32_t port_num)
     : mode(_mode) {
   
   Ice::InitializationData initData;
@@ -60,8 +61,16 @@ StorHvCtrl::StorHvCtrl(int argc,
   if ((mode == DATA_MGR_TEST) ||
       (mode == TEST_BOTH) ||
       (mode == NORMAL)) {
+    /*
+     * If a port_num to use is set use it,
+     * otherwise pull from config file.
+     */
+    if (port_num != 0) {
+      dataMgrPortNum = port_num;
+    } else {
+      dataMgrPortNum = props->getPropertyAsInt("DataMgr.PortNumber");
+    }
     dataMgrIPAddress = props->getProperty("DataMgr.IPAddress");
-    dataMgrPortNum = props->getPropertyAsInt("DataMgr.PortNumber");
     rpcSwitchTbl->Add_RPC_EndPoint(dataMgrIPAddress, dataMgrPortNum, FDSP_DATA_MGR);
   }
   if ((mode == STOR_MGR_TEST) ||
@@ -94,7 +103,13 @@ cout <<" Entring Normal Data placement mode" << endl;
  * Constructor uses comm with DM and SM if no mode provided.
  */
 StorHvCtrl::StorHvCtrl(int argc, char *argv[])
-    : StorHvCtrl(argc, argv, NORMAL) {
+    : StorHvCtrl(argc, argv, NORMAL, 0) {
+}
+
+StorHvCtrl::StorHvCtrl(int argc,
+                       char *argv[],
+                       sh_comm_modes _mode)
+    : StorHvCtrl(argc, argv, _mode, 0) {
 }
 
 StorHvCtrl::~StorHvCtrl()
