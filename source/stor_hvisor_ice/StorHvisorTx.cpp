@@ -143,132 +143,152 @@ int StorHvisorProcIoRd(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
 
 int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp_req, void *arg1, void *arg2)
 {
-	int   trans_id, i=0;
-	int   data_size    = req->secs * HVISOR_SECTOR_SIZE;
-	double data_offset  = req->sec * (uint64_t)HVISOR_SECTOR_SIZE;
-	char *tmpbuf = (char*)req->buf;
- 	ObjectID  objID;
-	unsigned char doid_dlt_key;
-	struct fbd_device *fbd;
-    int num_nodes;
-    FDS_RPC_EndPoint *endPoint = NULL;
-    int node_ids[256];
-    fds_uint32_t node_ip = 0;
-    int node_state = -1;
+  int   trans_id, i=0;
+  int   data_size    = req->secs * HVISOR_SECTOR_SIZE;
+  double data_offset  = req->sec * (uint64_t)HVISOR_SECTOR_SIZE;
+  char *tmpbuf = (char*)req->buf;
+  ObjectID  objID;
+  unsigned char doid_dlt_key;
+  struct fbd_device *fbd;
+  int num_nodes;
+  FDS_RPC_EndPoint *endPoint = NULL;
+  int node_ids[256];
+  fds_uint32_t node_ip = 0;
+  int node_state = -1;
+  fds_uint32_t vol_id;
+  
+  fbd = (struct fbd_device *)dev_hdl;
+  /*
+   * TODO: Currently don't derive the vol ID from the block
+   * device. It's not safe since we may not always have
+   * a block device. Let's just hard code it for now
+   * and clean it up when we introduce multi-volume.
+   */
+  vol_id = 1;
+  
+  //  *** Get a new Journal Entry in xaction-log journalTbl
+  trans_id = storHvisor->journalTbl->get_trans_id_for_block(data_offset);
+  StorHvJournalEntry *journEntry = storHvisor->journalTbl->get_journal_entry(trans_id);
+  
+  StorHvJournalEntryLock je_lock(journEntry);
+  
+  
+  if (journEntry->isActive()) {
+    // There is an on-going transaction for this offset.
+    // Queue this up for later processing.
+    
+    // For now, return an error.
+    return (-1);
+  }
+  
+  journEntry->setActive();
+  
+  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr = new FDSP_MsgHdrType;
+  FDS_ProtocolInterface::FDSP_PutObjTypePtr put_obj_req = new FDSP_PutObjType;
+  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr_dm = new FDSP_MsgHdrType;
+  FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr upd_obj_req = new FDSP_UpdateCatalogType;
+  
+  // Obtain MurmurHash on the data object
+  MurmurHash3_x64_128(tmpbuf, data_size, 0, &objID );
+  
+  put_obj_req->data_obj = std::string((const char *)tmpbuf, (size_t )data_size);
+  put_obj_req->data_obj_len = data_size;
+  
+  put_obj_req->data_obj_id.hash_high = upd_obj_req->data_obj_id.hash_high = objID.GetHigh();
+  put_obj_req->data_obj_id.hash_low = upd_obj_req->data_obj_id.hash_low = objID.GetLow();
+  
+  fdsp_msg_hdr->glob_volume_id    = vol_id;
+  fdsp_msg_hdr_dm->glob_volume_id = vol_id;
+  // fdsp_msg_hdr->glob_volume_id = fbd->vol_id;;
+  // fdsp_msg_hdr_dm->glob_volume_id = fbd->vol_id;;
+  
+  doid_dlt_key = objID.GetHigh() >> 56;
+  
+  
+  // *** Initialize the journEntry with a open txn
+  /*
+   * If the fbd_dev is NULL, this will store NULL.
+   * TODO: Pull the fbd_ptr out of the journal entry
+   * since the journal should not care about the
+   * block device.
+   */
+  journEntry->fbd_ptr = fbd;
+  // journEntry->fbd_ptr = (void *)fbd_dev;
 
-       fbd = (struct fbd_device *)dev_hdl;
-
-        //  *** Get a new Journal Entry in xaction-log journalTbl
-	trans_id = storHvisor->journalTbl->get_trans_id_for_block(data_offset);
-        StorHvJournalEntry *journEntry = storHvisor->journalTbl->get_journal_entry(trans_id);
-
-	StorHvJournalEntryLock je_lock(journEntry);
-
-
-	if (journEntry->isActive()) {
-	  // There is an on-going transaction for this offset.
-	  // Queue this up for later processing.
-
-	  // For now, return an error.
-	  return (-1);
-	}
-
-	journEntry->setActive();
-
-	FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr = new FDSP_MsgHdrType;
-	FDS_ProtocolInterface::FDSP_PutObjTypePtr put_obj_req = new FDSP_PutObjType;
-	FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr_dm = new FDSP_MsgHdrType;
-	FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr upd_obj_req = new FDSP_UpdateCatalogType;
-
-        // Obtain MurmurHash on the data object
-        MurmurHash3_x64_128(tmpbuf, data_size, 0, &objID );
-
-	put_obj_req->data_obj = std::string((const char *)tmpbuf, (size_t )data_size);
-	put_obj_req->data_obj_len = data_size;
-
-        put_obj_req->data_obj_id.hash_high = upd_obj_req->data_obj_id.hash_high = objID.GetHigh();
-        put_obj_req->data_obj_id.hash_low = upd_obj_req->data_obj_id.hash_low = objID.GetLow();
-        fdsp_msg_hdr->glob_volume_id = fbd->vol_id;;
-        fdsp_msg_hdr_dm->glob_volume_id = fbd->vol_id;;
-
-	doid_dlt_key = objID.GetHigh() >> 56;
-
-
-        // *** Initialize the journEntry with a open txn
-	journEntry->fbd_ptr = (void *)fbd_dev;
-        journEntry->trans_state = FDS_TRANS_OPEN;
-        journEntry->write_ctx = (void *)req;
-        journEntry->comp_req = comp_req;
-        journEntry->comp_arg1 = arg1;
-        journEntry->comp_arg2 = arg2;
-        journEntry->sm_msg = fdsp_msg_hdr;
-        journEntry->dm_msg = fdsp_msg_hdr_dm;
-        journEntry->sm_ack_cnt = 0;
-        journEntry->dm_ack_cnt = 0;
-        journEntry->dm_commit_cnt = 0;
-        journEntry->op = FDS_IO_WRITE;
-        journEntry->data_obj_id.hash_high = objID.GetHigh();
-        journEntry->data_obj_id.hash_low = objID.GetLow();
-        journEntry->data_obj_len= data_size;;
-
-        fdsp_msg_hdr->src_ip_lo_addr = SRC_IP;
-    	fdsp_msg_hdr->req_cookie = trans_id;
-   		storHvisor->InitSmMsgHdr(fdsp_msg_hdr);
-
-
-        // DLT lookup from the dataplacement object
-        num_nodes = 256;
-        storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(doid_dlt_key, node_ids, &num_nodes);
-        for (i = 0; i < num_nodes; i++) {
-           node_ip = 0;
-           node_state = -1;
-           // storHvisor->dataPlacementTbl->omClient->getNodeInfo(node_ids[i], &node_ip, &node_state);
-           storHvisor->dataPlacementTbl->getNodeInfo(node_ids[i], &node_ip, &node_state);
-           journEntry->sm_ack[i].ipAddr = node_ip;
- 	   fdsp_msg_hdr->dst_ip_lo_addr = node_ip;
-           journEntry->sm_ack[i].ack_status = FDS_CLS_ACK;
-           journEntry->num_sm_nodes = num_nodes;
-
-           // Call Put object RPC to SM
-            storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip, FDSP_STOR_MGR, &endPoint);
-            if (endPoint) { 
-                endPoint->fdspDPAPI->begin_PutObject(fdsp_msg_hdr, put_obj_req);
-		printf("Hvisor: Sent async PutObj request to SM at 0x%x\n", node_ip);
-            }
-	}
-
-        // DMT lookup from the data placement object
-        num_nodes = 256;
-        storHvisor->InitDmMsgHdr(fdsp_msg_hdr_dm);
-     	upd_obj_req->volume_offset = data_offset;
-     	upd_obj_req->dm_transaction_id = 1;
-     	upd_obj_req->dm_operation = FDS_DMGR_TXN_STATUS_OPEN;
-     	fdsp_msg_hdr_dm->req_cookie = trans_id;
-     	fdsp_msg_hdr_dm->src_ip_lo_addr = SRC_IP;
-
-        storHvisor->dataPlacementTbl->getDMTNodesForVolume(fbd_dev->vol_id, node_ids, &num_nodes);
-
-        for (i = 0; i < num_nodes; i++) {
-           node_ip = 0;
-           node_state = -1;
-           //storHvisor->dataPlacementTbl->omClient->getNodeInfo(node_ids[i], &node_ip, &node_state);
-           storHvisor->dataPlacementTbl->getNodeInfo(node_ids[i], &node_ip, &node_state);
-
-           journEntry->dm_ack[i].ipAddr = node_ip;
- 	   	   fdsp_msg_hdr_dm->dst_ip_lo_addr = node_ip;
-           journEntry->dm_ack[i].ack_status = FDS_CLS_ACK;
-	   	   journEntry->dm_ack[i].commit_status = FDS_CLS_ACK;
-           journEntry->num_dm_nodes = num_nodes;
-   
-           // Call Update Catalog RPC call to DM
-           storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip, FDSP_DATA_MGR, &endPoint);
-           if (endPoint){
-               endPoint->fdspDPAPI->begin_UpdateCatalogObject(fdsp_msg_hdr_dm, upd_obj_req);
-	       printf("Hvisor: Sent async UpdCatObj request to DM at 0x%x\n", node_ip);
-           }
-        }
-
-	return 0;
+  journEntry->trans_state = FDS_TRANS_OPEN;
+  journEntry->write_ctx = (void *)req;
+  journEntry->comp_req = comp_req;
+  journEntry->comp_arg1 = arg1;
+  journEntry->comp_arg2 = arg2;
+  journEntry->sm_msg = fdsp_msg_hdr;
+  journEntry->dm_msg = fdsp_msg_hdr_dm;
+  journEntry->sm_ack_cnt = 0;
+  journEntry->dm_ack_cnt = 0;
+  journEntry->dm_commit_cnt = 0;
+  journEntry->op = FDS_IO_WRITE;
+  journEntry->data_obj_id.hash_high = objID.GetHigh();
+  journEntry->data_obj_id.hash_low = objID.GetLow();
+  journEntry->data_obj_len= data_size;;
+  
+  fdsp_msg_hdr->src_ip_lo_addr = SRC_IP;
+  fdsp_msg_hdr->req_cookie = trans_id;
+  storHvisor->InitSmMsgHdr(fdsp_msg_hdr);
+  
+  
+  // DLT lookup from the dataplacement object
+  num_nodes = 256;
+  storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(doid_dlt_key, node_ids, &num_nodes);
+  for (i = 0; i < num_nodes; i++) {
+    node_ip = 0;
+    node_state = -1;
+    // storHvisor->dataPlacementTbl->omClient->getNodeInfo(node_ids[i], &node_ip, &node_state);
+    storHvisor->dataPlacementTbl->getNodeInfo(node_ids[i], &node_ip, &node_state);
+    journEntry->sm_ack[i].ipAddr = node_ip;
+    fdsp_msg_hdr->dst_ip_lo_addr = node_ip;
+    journEntry->sm_ack[i].ack_status = FDS_CLS_ACK;
+    journEntry->num_sm_nodes = num_nodes;
+    
+    // Call Put object RPC to SM
+    storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip, FDSP_STOR_MGR, &endPoint);
+    if (endPoint) { 
+      endPoint->fdspDPAPI->begin_PutObject(fdsp_msg_hdr, put_obj_req);
+      printf("Hvisor: Sent async PutObj request to SM at 0x%x\n", node_ip);
+    }
+  }
+  
+  // DMT lookup from the data placement object
+  num_nodes = 256;
+  storHvisor->InitDmMsgHdr(fdsp_msg_hdr_dm);
+  upd_obj_req->volume_offset = data_offset;
+  upd_obj_req->dm_transaction_id = 1;
+  upd_obj_req->dm_operation = FDS_DMGR_TXN_STATUS_OPEN;
+  fdsp_msg_hdr_dm->req_cookie = trans_id;
+  fdsp_msg_hdr_dm->src_ip_lo_addr = SRC_IP;
+  
+  // storHvisor->dataPlacementTbl->getDMTNodesForVolume(fbd_dev->vol_id, node_ids, &num_nodes);
+  storHvisor->dataPlacementTbl->getDMTNodesForVolume(vol_id, node_ids, &num_nodes);
+  
+  for (i = 0; i < num_nodes; i++) {
+    node_ip = 0;
+    node_state = -1;
+    //storHvisor->dataPlacementTbl->omClient->getNodeInfo(node_ids[i], &node_ip, &node_state);
+    storHvisor->dataPlacementTbl->getNodeInfo(node_ids[i], &node_ip, &node_state);
+    
+    journEntry->dm_ack[i].ipAddr = node_ip;
+    fdsp_msg_hdr_dm->dst_ip_lo_addr = node_ip;
+    journEntry->dm_ack[i].ack_status = FDS_CLS_ACK;
+    journEntry->dm_ack[i].commit_status = FDS_CLS_ACK;
+    journEntry->num_dm_nodes = num_nodes;
+    
+    // Call Update Catalog RPC call to DM
+    storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip, FDSP_DATA_MGR, &endPoint);
+    if (endPoint){
+      endPoint->fdspDPAPI->begin_UpdateCatalogObject(fdsp_msg_hdr_dm, upd_obj_req);
+      printf("Hvisor: Sent async UpdCatObj request to DM at 0x%x\n", node_ip);
+    }
+  }
+  
+  return 0;
 }
 END_C_DECLS
 

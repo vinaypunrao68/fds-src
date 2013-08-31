@@ -30,6 +30,9 @@
 #include "VolumeCatalogCache.h"
 #include "StorHvJournal.h"
 
+#include <map>
+#include "util/concurrency/Synchronization.h"
+
 #ifndef ICE_IGNORE_VERSION
 #   if ICE_INT_VERSION / 100 != 305
 #       error Ice version mismatch!

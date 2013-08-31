@@ -14,13 +14,94 @@ using namespace std;
 using namespace FDS_ProtocolInterface;
 using namespace Ice;
 
-
 struct fbd_device *fbd_dev;
 extern vvc_vhdl_t vvc_vol_create(volid_t vol_id, const char *db_name, int max_blocks);
 
+fds_notification notifier;
+fds_mutex map_mtx("map mutex");
+std::map<fds_uint32_t, char*> written_data;
+
+static void sh_test_w_callback(void *arg1,
+                               void *arg2,
+                               fbd_request_t *w_req,
+                               int res) {
+  std::cerr << "SH test received write callback" << std::endl;
+
+  map_mtx.lock();
+  written_data[w_req->op] = w_req->buf;
+  map_mtx.unlock();
+
+  notifier.notify();
+  
+  /*
+   * We're not freeing the buffer here. We'll
+   * free it once a read verifies its contents.
+   */
+  // delete w_req->buf;
+  delete w_req;
+}
+
 int unitTest() {
+  fbd_request_t *w_req;
+  fds_uint32_t req_size;
+  char *w_buf;
+  fds_uint32_t w_count;
+
+  req_size = 4096;
+  w_count  = 100;
+
+  for (fds_uint32_t i = 0; i < w_count; i++) {
+    /*
+     * Note the buf and request are freed by
+     * the callback handler.
+     */
+    w_req = new fbd_request_t;
+    w_buf = new char[req_size]();
+    
+    memset(w_buf, 0xbeef, req_size);
+    
+    /*
+     * TODO: We're currently overloading the
+     * op field to denote which I/O request
+     * this is. The field isn't used, so we can
+     * later remove it and use a better way to
+     * identify the I/O.
+     */
+    w_req->op   = i;
+    w_req->buf  = w_buf;
+    /*
+     * Set the offset to be based
+     * on the iteration.
+     */
+    w_req->sec  = i;
+    w_req->secs = req_size / HVISOR_SECTOR_SIZE;
+    
+    StorHvisorProcIoWr(NULL,
+                       w_req,
+                       sh_test_w_callback,
+                       NULL,
+                       NULL);
+
+    /*
+     * Wait until we've finished this write
+     */
+    while (1) {
+      notifier.wait_for_notification();
+      map_mtx.lock();
+      if (written_data.size() == i + 1) {
+        map_mtx.unlock();
+        break;
+      }
+      map_mtx.unlock();
+    }
+    std::cout << "Finished write " << i << std::endl;
+  }
+
+  std::cout << "Finished all " << w_count << " writes" << std::endl;
+  
   return 0;
 }
+
 
 void CreateStorHvisor(int argc, char *argv[])
 {
