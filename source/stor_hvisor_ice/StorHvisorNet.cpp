@@ -17,9 +17,16 @@ using namespace Ice;
 struct fbd_device *fbd_dev;
 extern vvc_vhdl_t vvc_vol_create(volid_t vol_id, const char *db_name, int max_blocks);
 
+/*
+ * Globals being used for the unit test.
+ * TODO: This should be cleaned up into
+ * unit test specific class. Keeping them
+ * global is kinda hackey.
+ */
 fds_notification notifier;
 fds_mutex map_mtx("map mutex");
-std::map<fds_uint32_t, char*> written_data;
+std::map<fds_uint32_t, std::string> written_data;
+std::map<fds_uint32_t, fds_bool_t> verified_data;
 
 static void sh_test_w_callback(void *arg1,
                                void *arg2,
@@ -28,7 +35,39 @@ static void sh_test_w_callback(void *arg1,
   std::cerr << "SH test received write callback" << std::endl;
 
   map_mtx.lock();
-  written_data[w_req->op] = w_req->buf;
+  /*
+   * Copy the write buffer for verification later.
+   */
+  written_data[w_req->op] = std::string(w_req->buf,
+                                        w_req->sec *
+                                        HVISOR_SECTOR_SIZE);
+  verified_data[w_req->op] = false;
+  map_mtx.unlock();
+
+  notifier.notify();
+  
+  delete w_req->buf;
+  delete w_req;
+}
+
+static void sh_test_r_callback(void *arg1,
+                               void *arg2,
+                               fbd_request_t *r_req,
+                               int res) {
+  std::cerr << "SH test received read callback" << std::endl;
+
+  /*
+   * Verify the read's contents.
+   */
+  
+  map_mtx.lock();
+  if (written_data[r_req->op].compare(0,
+                                      r_req->len,
+                                      r_req->buf)) {
+    verified_data[r_req->op] = true;
+  } else {
+    verified_data[r_req->op] = false;
+  }
   map_mtx.unlock();
 
   notifier.notify();
@@ -37,15 +76,18 @@ static void sh_test_w_callback(void *arg1,
    * We're not freeing the buffer here. We'll
    * free it once a read verifies its contents.
    */
-  // delete w_req->buf;
-  delete w_req;
+  delete r_req->buf;
+  delete r_req;
 }
 
 int unitTest() {
   fbd_request_t *w_req;
+  fbd_request_t *r_req;
   fds_uint32_t req_size;
   char *w_buf;
+  char *r_buf;
   fds_uint32_t w_count;
+  fds_int32_t result = 0;
 
   req_size = 4096;
   w_count  = 100;
@@ -57,8 +99,20 @@ int unitTest() {
      */
     w_req = new fbd_request_t;
     w_buf = new char[req_size]();
-    
-    memset(w_buf, 0xbeef, req_size);
+
+    /*
+     * Select a byte string to fill the
+     * buffer with.
+     * TODO: Let's get more random data
+     * than this.
+     */
+    if (i % 3 == 0) {
+      memset(w_buf, 0xbeef, req_size);
+    } else if (i % 2 == 0) {
+      memset(w_buf, 0xdead, req_size);
+    } else {
+      memset(w_buf, 0xfeed, req_size);
+    }
     
     /*
      * TODO: We're currently overloading the
@@ -94,12 +148,71 @@ int unitTest() {
       }
       map_mtx.unlock();
     }
-    std::cout << "Finished write " << i << std::endl;
+    std::cerr << "Finished write " << i << std::endl;
   }
 
-  std::cout << "Finished all " << w_count << " writes" << std::endl;
+  std::cerr << "Finished all " << w_count << " writes" << std::endl;
+
+  for (fds_uint32_t i = 0; i < w_count; i++) {
+    /*
+     * Note the buf and request are freed by
+     * the callback handler.
+     */
+    r_req = new fbd_request_t;
+    r_buf = new char[req_size]();
+
+    /*
+     * TODO: We're currently overloading the
+     * op field to denote which I/O request
+     * this is. The field isn't used, so we can
+     * later remove it and use a better way to
+     * identify the I/O.
+     */
+    r_req->op   = i;
+    r_req->buf  = r_buf;
+    /*
+     * Set the offset to be based
+     * on the iteration.
+     */
+    r_req->sec  = i;
+    /*
+     * TODO: Do we need both secs and len? What's
+     * the difference?
+     */
+    r_req->secs = req_size / HVISOR_SECTOR_SIZE;
+    r_req->len  = req_size;
+    
+    StorHvisorProcIoRd(NULL,
+                       r_req,
+                       sh_test_r_callback,
+                       NULL,
+                       NULL);
+
+    /*
+     * Wait until we've finished this read
+     */
+    while (1) {
+      notifier.wait_for_notification();
+      map_mtx.lock();
+      if (verified_data[i] == true) {
+        std::cerr << "Read " << i << " verified" << std::endl;
+      } else {
+        std::cerr << "Read " << i << " FAILED verification" << std::endl;
+        result = -1;
+      }
+      map_mtx.unlock();
+      break;
+    }
+
+    if (result != 0) {
+      break;
+    }
+
+    std::cerr << "Finished read " << i << std::endl;
+  }
+  std::cerr << "Finished all " << w_count << " reads" << std::endl;  
   
-  return 0;
+  return result;
 }
 
 
