@@ -1546,6 +1546,15 @@ static int __init fbd_init(void)
 	disk->queue->limits.discard_zeroes_data = 0;
 	disk->queue->queuedata = fbd_dev;
 
+	/* Each segment in a request is up to an aligned page in size. */
+	blk_queue_segment_boundary(disk->queue, PAGE_SIZE - 1);
+	blk_queue_max_segment_size(disk->queue, PAGE_SIZE);
+
+	/* Ensure a merged request will fit in a single I/O ring slot. */
+	blk_queue_max_segments(disk->queue, BLKTAP_SEGMENT_MAX);
+	blk_queue_max_segment_size(disk->queue, PAGE_SIZE);
+
+
 	if (register_blkdev(FBD_DEV_MAJOR_NUM, "fbd")) {
 		err = -EIO;
 		goto out;

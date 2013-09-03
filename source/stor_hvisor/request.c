@@ -82,6 +82,12 @@ blktap_request_get_pages(struct fbd_device *tap,
 	mempool_t *mem = pool->bufs;
 	struct page *page;
 
+	printk("*** BLKTAP : nr_pages - %d, req_nr_pages - %d, max_req_pages - %d\n",
+		nr_pages, request->nr_pages, POOL_MAX_REQUEST_PAGES); 
+	if ((request->nr_pages != 0) || (nr_pages > POOL_MAX_REQUEST_PAGES)) {
+		return -EIO;
+	}
+
 	BUG_ON(request->nr_pages != 0);
 	BUG_ON(nr_pages > POOL_MAX_REQUEST_PAGES);
 
