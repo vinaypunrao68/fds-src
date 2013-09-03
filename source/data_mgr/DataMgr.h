@@ -19,8 +19,11 @@
 
 #include "util/Log.h"
 #include "data_mgr/VolumeMeta.h"
+#include "util/concurrency/ThreadPool.h"
 
 namespace fds {
+
+#define DM_TP_THREADS 3
 
 class DataMgr : virtual public Ice::Application {
 private:
@@ -39,10 +42,18 @@ private:
   std::string stor_prefix;
 
   /*
+   * Internal threadpool.
+   */
+  fds_uint32_t num_threads;
+  fds_threadpool *_tp;
+
+  /*
    * TODO: Move to STD shared or unique pointers. That's
    * safer.
    */
   std::unordered_map<fds_uint64_t, VolumeMeta*> vol_meta_map;
+
+  // static void _open_entry();
 
   Error _process_open(fds_uint32_t vol_offset,
                       fds_uint32_t trans_id,

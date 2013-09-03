@@ -239,6 +239,41 @@ int main(int argc, char *argv[]) {
   char *ring_devname = 0;
   char *io_devname = 0;
   int minor = 0;
+  int i;
+  int run_test = 0;
+  uint32_t dm_port = 0;
+  uint32_t sm_port = 0;
+
+  /*
+   * Parse command line
+   */
+  for (i = 1; i < argc; i++) {
+    if (strncmp(argv[i], "--unit_test", 11) == 0) {
+      run_test = 1;
+    } else if (strncmp(argv[i], "--sm_port=", 10) == 0) {
+      sm_port = atoi(argv[i] + 10);
+    } else if (strncmp(argv[i], "--dm_port=", 10) == 0) {
+      dm_port = atoi(argv[i] + 10);
+    }
+    /*
+     * We pass argc and argv to other functions later
+     * so there may be unprocessed cmdline args.
+     */
+  }
+
+  /*
+   * Check the cmdline args for the test
+   * are all there.
+   */
+  if (run_test == 1) {
+    if (sm_port != 0 && dm_port == 0) {
+      printf("Invalid cmdline arg. Both a sm and dm port must be specified");
+      return -1;
+    } else if (dm_port != 0 && sm_port == 0) {
+      printf("Invalid cmdline arg. Both a sm and dm port must be specified");
+      return -1;
+    }
+  }
 
 #ifndef HVISOR_USPACE_TEST
 
@@ -267,21 +302,34 @@ int main(int argc, char *argv[]) {
 
 #endif
 
-#ifndef BLKTAP_UNIT_TEST 
-
+#ifndef BLKTAP_UNIT_TEST
   hvisor_hdl = hvisor_lib_init();
+#ifdef HVISOR_USPACE_TEST
+  CreateSHMode(argc, argv, 1, sm_port, dm_port);
+#else
   CreateStorHvisor(argc, argv);
-
+#endif
 #endif
 
 #ifdef HVISOR_USPACE_TEST
 printf("Send the IO \n");
   while(1)
   {
-    char *line_ptr=0;
+    char *line_ptr = NULL;
     int n_bytes = 0;
     char cmd_wd[32];
     int offset = 0;
+    int result = 0;
+
+    if (run_test == 1) {
+      result = unitTest();
+      if (result == 0) {
+        printf("Unit test PASSED\n");
+      } else {
+        printf("Unit test FAILED\n");
+      }
+      return result;
+    }
 
     printf(">");
     if (getline(&line_ptr, &n_bytes, stdin) <= 1) {

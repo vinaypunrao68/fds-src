@@ -25,10 +25,12 @@ class VccUnitTest {
 
   fds_log *vcc_log;
 
+  fds_uint32_t dm_port_num;
+
   /*
    * Unit test funtions
    */
-  int basic_update() {
+  fds_int32_t basic_update() {
     Error err(ERR_OK);
     
     VolumeCatalogCache vcc(storHvisor,
@@ -58,7 +60,7 @@ class VccUnitTest {
     return 0;
   }
 
-  int basic_query() {
+  fds_int32_t basic_query() {
     Error err(ERR_OK);
     
     VolumeCatalogCache vcc(storHvisor,
@@ -183,7 +185,7 @@ class VccUnitTest {
   /*
    * Basic multi-threaded test.
    */
-  int basic_mt() {
+  fds_int32_t basic_mt() {
     Error err(ERR_OK);
 
     std::vector<boost::thread*> threads;
@@ -211,9 +213,10 @@ class VccUnitTest {
   }
 
  public:
-  VccUnitTest() {
+  VccUnitTest(fds_uint32_t port_arg) :
+      dm_port_num(port_arg) {
     vcc_log = new fds_log("vcc_test", "logs");
-
+    
     unit_tests.push_back("basic_update");
     unit_tests.push_back("basic_query");
     unit_tests.push_back("basic_mt");
@@ -223,7 +226,7 @@ class VccUnitTest {
      */
     int argc = 0;
     char* argv[argc];
-    storHvisor = new StorHvCtrl(argc, argv, StorHvCtrl::DATA_MGR_TEST);
+    storHvisor = new StorHvCtrl(argc, argv, StorHvCtrl::DATA_MGR_TEST, 0, dm_port_num);
   }
 
   ~VccUnitTest() {
@@ -231,8 +234,8 @@ class VccUnitTest {
     delete storHvisor;
   }
 
-  void Run(const std::string& testname) {
-    int result;
+  fds_int32_t Run(const std::string& testname) {
+    int result = 0;
     std::cout << "Running unit test \"" << testname << "\"" << std::endl;
 
     if (testname == "basic_update") {
@@ -251,13 +254,24 @@ class VccUnitTest {
       std::cout << "Unit test \"" << testname << "\" FAILED" << std::endl;
     }
     std::cout << std::endl;
+
+    return result;
   }
 
   void Run() {
+    fds_int32_t result = 0;
     for (std::list<std::string>::iterator it = unit_tests.begin();
          it != unit_tests.end();
          ++it) {
-      Run(*it);
+      result = Run(*it);
+      if (result != 0) {
+        std::cout << "Unit test FAILED" << std::endl;
+        break;
+      }
+    }
+
+    if (result == 0) {
+      std::cout << "Unit test PASSED" << std::endl;
     }
   }
 
@@ -335,9 +349,12 @@ class ShClient : public Ice::Application {
      * Process the cmdline args.
      */
     std::string testname;
+    fds_uint32_t dm_port_num = 0;
     for (int i = 1; i < argc; i++) {
       if (strncmp(argv[i], "--testname=", 11) == 0) {
         testname = argv[i] + 11;
+      } else if (strncmp(argv[i], "--port=", 7) == 0) {
+        dm_port_num = strtoul(argv[i] + 7, NULL, 0);
       } else {
         std::cout << "Invalid argument " << argv[i] << std::endl;
         return -1;
@@ -347,7 +364,7 @@ class ShClient : public Ice::Application {
     /*
      * Setup the basic unit test.
      */
-    VccUnitTest unittest;
+    VccUnitTest unittest(dm_port_num);
 
     if (testname.empty()) {
       unittest.Run();

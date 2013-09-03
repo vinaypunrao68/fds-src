@@ -5,6 +5,13 @@
 namespace fds {
 
 DataMgr *dataMgr;
+fds_threadpool *test_tp;
+
+static void _open_entry(int val) {
+  // std::cout << "Hello? " << val << std::endl;
+  //FDS_PLOG(dataMgr->GetLog()) << "Starting open process thread of "
+  //                          << dataMgr->num_threads;
+}
 
 Error DataMgr::_process_open(fds_uint32_t vol_offset,
                              fds_uint32_t trans_id,
@@ -106,8 +113,14 @@ Error DataMgr::_process_query(fds_uint32_t vol_offset,
   return err;
 }
 
-DataMgr::DataMgr() {
+DataMgr::DataMgr()
+    : port_num(0),
+      num_threads(DM_TP_THREADS) {
   dm_log = new fds_log("dm", "logs");
+
+  // _tp = new fds_threadpool(num_threads);
+  _tp = new fds_threadpool(3);
+  // test_tp = new fds_threadpool(3);
 
   FDS_PLOG(dm_log) << "Constructing the Data Manager";
 }
@@ -115,6 +128,14 @@ DataMgr::DataMgr() {
 DataMgr::~DataMgr() {
 
   FDS_PLOG(dm_log) << "Destructing the Data Manager";
+
+  // delete test_tp;
+
+  /*
+   * This will wait for all current threads to
+   * complete.
+   */
+  delete _tp;
 
   for (std::unordered_map<fds_uint64_t, VolumeMeta*>::iterator it = vol_meta_map.begin();
        it != vol_meta_map.end();
@@ -243,6 +264,9 @@ void DataMgr::ReqHandler::UpdateCatalogObject(const FDS_ProtocolInterface::FDSP_
                               << ", Obj ID " << oid
                               << ", Trans ID " << update_catalog->dm_transaction_id
                               << ", OP ID " << update_catalog->dm_operation;
+
+  // dataMgr->_tp->schedule(_open_entry, 6);
+  _open_entry(5);
   
   /*
    * For now, just treat this as an open
@@ -284,7 +308,13 @@ void DataMgr::ReqHandler::UpdateCatalogObject(const FDS_ProtocolInterface::FDSP_
                               << ", Trans ID " << update_catalog->dm_transaction_id
                               << ", OP ID " << update_catalog->dm_operation;
 
-  
+  if (update_catalog->dm_operation ==
+      FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_OPEN) {
+    FDS_PLOG(dataMgr->GetLog()) << "Sent update response for trans open request";
+  } else if (update_catalog->dm_operation ==
+             FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_COMMITED) {
+    FDS_PLOG(dataMgr->GetLog()) << "Sent update response for trans commit request";
+  }
 }
 
 void DataMgr::ReqHandler::QueryCatalogObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &msg_hdr,
@@ -399,6 +429,8 @@ int main(int argc, char *argv[]) {
   fds::dataMgr = new fds::DataMgr();
   
   fds::dataMgr->main(argc, argv, "dm_test.conf");
+
+  // fds::dataMgr->_tp->schedule(fds::_open_entry, 6);
 
   delete fds::dataMgr;
 }

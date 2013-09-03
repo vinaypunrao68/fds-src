@@ -40,14 +40,14 @@ int storMgrPortNum = 6901;
 int dataMgrPortNum = 6900;
     switch(node_state) { 
        case FDSP_Types::FDS_Node_Up : 
-          std::cout << "Node UP event NodeId " << node_id << " Node IP Address " <<  node_ip_addr << std::endl;
+           FDS_PLOG(storHvisor->GetLog()) << "StorHvisorTbl - Node UP event NodeId " << node_id << " Node IP Address " <<  node_ip_addr;
           storHvisor->rpcSwitchTbl->Add_RPC_EndPoint(node_ip_addr, storMgrPortNum, FDSP_STOR_MGR);
           storHvisor->rpcSwitchTbl->Add_RPC_EndPoint(node_ip_addr, dataMgrPortNum, FDSP_DATA_MGR); 
          break;
 
        case FDSP_Types::FDS_Node_Down:
        case FDSP_Types::FDS_Node_Rmvd:
-          std::cout << "Node Down event NodeId :" << node_id << " node IP addr" << node_ip_addr << std::endl;
+           FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTbl - Node Down event NodeId :" << node_id << " node IP addr" << node_ip_addr ;
           storHvisor->rpcSwitchTbl->Delete_RPC_EndPoint(node_ip_addr,  FDSP_STOR_MGR);
           storHvisor->rpcSwitchTbl->Delete_RPC_EndPoint(node_ip_addr,  FDSP_DATA_MGR);
 	break;
