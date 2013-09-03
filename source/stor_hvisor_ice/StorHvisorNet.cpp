@@ -5,15 +5,19 @@
 #include <Ice/BasicStream.h>
 #include <Ice/Object.h>
 #include <IceUtil/Iterator.h>
+#include <IceUtil/CtrlCHandler.h>
 #include "StorHvisorNet.h"
 //#include "hvisor_lib.h"
 #include "StorHvisorCPP.h"
 
 StorHvCtrl *storHvisor;
+
 using namespace std;
 using namespace FDS_ProtocolInterface;
 using namespace Ice;
+using namespace IceUtil;
 
+IceUtil::CtrlCHandler      ctrlHandler;
 struct fbd_device *fbd_dev;
 extern vvc_vhdl_t vvc_vol_create(volid_t vol_id, const char *db_name, int max_blocks);
 
@@ -232,9 +236,23 @@ void CreateSHMode(int argc,
   } else {
     storHvisor = new StorHvCtrl(argc, argv, StorHvCtrl::NORMAL);
   }
-  std::cout << "Created storHvisor " << (void *)storHvisor
-            << " with journal table " << (void *)storHvisor->journalTbl
-            << std::endl;
+
+  FDS_PLOG(storHvisor->GetLog()) << "StorHvisorNet - Created storHvisor " << storHvisor
+            << " with journal table " << storHvisor->journalTbl;
+
+}
+
+void DeleteStorHvisor()
+{
+      FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorNet -  Deleting the StorHvisor";
+        delete storHvisor;
+}
+
+void ctrlCCallbackHandler(int signal)
+{
+  FDS_PLOG(storHvisor->GetLog()) << "StorHvisorNet -  Received Ctrl C " << signal;
+  storHvisor->_communicator->shutdown();
+  DeleteStorHvisor();
 }
 
 StorHvCtrl::StorHvCtrl(int argc,
@@ -244,6 +262,10 @@ StorHvCtrl::StorHvCtrl(int argc,
                        fds_uint32_t dm_port_num)
     : mode(_mode) {
   
+
+  sh_log = new fds_log("sh", "logs");
+  FDS_PLOG(sh_log) << "StorHvisorNet - Constructing the Storage Hvisor";
+
   Ice::InitializationData initData;
   initData.properties = Ice::createProperties();
   initData.properties->load("fds.conf");
@@ -252,7 +274,7 @@ StorHvCtrl::StorHvCtrl(int argc,
 
   rpcSwitchTbl = new FDS_RPC_EndPointTbl(_communicator);
   journalTbl = new StorHvJournal(FDS_READ_WRITE_LOG_ENTRIES);
-  volCatalogCache = new VolumeCatalogCache(this);
+  volCatalogCache = new VolumeCatalogCache(this,sh_log);
   
   /*
    * Set basic thread properties.
@@ -260,6 +282,8 @@ StorHvCtrl::StorHvCtrl(int argc,
   props->setProperty("StorHvisorClient.ThreadPool.Size", "10");
   props->setProperty("StorHvisorClient.ThreadPool.SizeMax", "20");
   props->setProperty("StorHvisorClient.ThreadPool.SizeWarn", "18");
+
+  FDS_PLOG(sh_log) << "StorHvisorNet - StorHvCtrl basic infra init successfull ";
   
   /*
    * Parse options out of config file
@@ -312,9 +336,10 @@ StorHvCtrl::StorHvCtrl(int argc,
     dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NO_OM_MODE,
                                                 ip_num);
   } else {
-cout <<" Entring Normal Data placement mode" << endl;
+    FDS_PLOG(sh_log) <<"StorHvisorNet -  Entring Normal Data placement mode";
     dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NORMAL_MODE);
   }
+  ctrlHandler.setCallback(ctrlCCallbackHandler);
 }
 
 /*
@@ -322,16 +347,23 @@ cout <<" Entring Normal Data placement mode" << endl;
  */
 StorHvCtrl::StorHvCtrl(int argc, char *argv[])
     : StorHvCtrl(argc, argv, NORMAL, 0, 0) {
+
 }
 
 StorHvCtrl::StorHvCtrl(int argc,
                        char *argv[],
                        sh_comm_modes _mode)
     : StorHvCtrl(argc, argv, _mode, 0, 0) {
+
 }
 
 StorHvCtrl::~StorHvCtrl()
 {
+}
+
+
+fds_log* StorHvCtrl::GetLog() {
+  return sh_log;
 }
 
 BEGIN_C_DECLS

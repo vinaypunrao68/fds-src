@@ -6,10 +6,12 @@
 #include "FDSP.h"
 #include "include/fds_err.h"
 #include "include/fds_types.h"
-#include "fds_client/include/ubd.h"
+#include <StorHvisorNet.h>
+//#include "fds_client/include/ubd.h"
 #include "StorHvJournal.h"
 
 
+extern StorHvCtrl *storHvisor;
 namespace fds {
 
 StorHvJournalEntry::StorHvJournalEntry()
@@ -256,7 +258,7 @@ unsigned int StorHvJournal::get_trans_id_for_block(unsigned int block_offset)
     }
     rwlog_tbl[trans_id].block_offset = block_offset;
   }
-  cout << "Assigned transaction id " << trans_id << " for block " << block_offset << endl;
+   FDS_PLOG(storHvisor->GetLog()) << " StorHvJournal - Assigned transaction id " << trans_id << " for block " << block_offset;
   return trans_id;
 }
 
@@ -280,7 +282,7 @@ void StorHvJournal::release_trans_id(unsigned int trans_id)
 
   unlock();
 
-  cout << "Released transaction id " << trans_id << endl;
+   FDS_PLOG(storHvisor->GetLog()) << " StorHvJournal - Released transaction id " << trans_id ;
 
 }
 

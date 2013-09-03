@@ -84,14 +84,14 @@ int StorHvisorProcIoRd(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
 
     err  = storHvisor->volCatalogCache->Query((fds_uint64_t)fbd->vol_id, data_offset, trans_id, &oid); 
     if (err.GetErrno() == ERR_PENDING_RESP) {
-	printf("Vol catalog Cache Query pending : %d req:%p\n", err.GetErrno(),req);
+	 FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx - Vol catalog Cache Query pending :" << err.GetErrno() << req;
             journEntry->trans_state = FDS_TRANS_VCAT_QUERY_PENDING;
             return 0;
     }
 
 	if (err.GetErrno() == ERR_CAT_QUERY_FAILED)
 	{
-	    printf("Error reading the Vol catalog  Error code : %d req:%p\n", err.GetErrno(),req);
+	    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx - Error reading the Vol catalog  Error code : " <<  err.GetErrno() << req;
 	    return err.GetErrno();
 	}
 
@@ -133,7 +133,7 @@ int StorHvisorProcIoRd(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
          if (endPoint)
 		 { 
        	   endPoint->fdspDPAPI->begin_GetObject(fdsp_msg_hdr, get_obj_req);
-	   printf("Hvisor: Sent async GetObj req to SM\n");
+	   FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx - Sent async GetObj req to SM";
          }
 
 	 // Schedule a timer here to track the responses and the original request
@@ -197,6 +197,7 @@ int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
   put_obj_req->data_obj_id.hash_high = upd_obj_req->data_obj_id.hash_high = objID.GetHigh();
   put_obj_req->data_obj_id.hash_low = upd_obj_req->data_obj_id.hash_low = objID.GetLow();
   
+  FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx -  Object ID: " << objID.GetHigh() << ":"  << objID.GetLow();
   fdsp_msg_hdr->glob_volume_id    = vol_id;
   fdsp_msg_hdr_dm->glob_volume_id = vol_id;
   // fdsp_msg_hdr->glob_volume_id = fbd->vol_id;;
@@ -252,7 +253,7 @@ int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
     storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip, FDSP_STOR_MGR, &endPoint);
     if (endPoint) { 
       endPoint->fdspDPAPI->begin_PutObject(fdsp_msg_hdr, put_obj_req);
-      printf("Hvisor: Sent async PutObj request to SM at 0x%x\n", node_ip);
+      FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx -  Sent async PutObj request to SM at " <<  node_ip;
     }
   }
   
@@ -284,7 +285,7 @@ int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
     storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip, FDSP_DATA_MGR, &endPoint);
     if (endPoint){
       endPoint->fdspDPAPI->begin_UpdateCatalogObject(fdsp_msg_hdr_dm, upd_obj_req);
-      printf("Hvisor: Sent async UpdCatObj request to DM at 0x%x\n", node_ip);
+      FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx - Sent async UpdCatObj request to DM at " <<  node_ip;
     }
   }
   

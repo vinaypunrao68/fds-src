@@ -73,6 +73,7 @@ VolumeCatalogCache::VolumeCatalogCache(
     : parent_sh(sh_ctrl),
       vcc_log(parent_log),
       created_log(false) {
+
 }
 
 VolumeCatalogCache::~VolumeCatalogCache() {
@@ -113,7 +114,7 @@ Error VolumeCatalogCache::RegVolume(fds_uint64_t vol_uuid) {
   vol_cache_map[vol_uuid] = new CatalogCache();
   map_rwlock.write_unlock();
 
-  FDS_PLOG(vcc_log) << "Registered new volume " << vol_uuid;
+  FDS_PLOG(vcc_log) << "VolumeCatalogCache - Registered new volume " << vol_uuid;
 
   return err;
 }
@@ -133,7 +134,7 @@ Error VolumeCatalogCache::Query(fds_uint64_t vol_uuid,
    */
   map_rwlock.read_lock();
   if (vol_cache_map.count(vol_uuid) == 0) {
-    FDS_PLOG(vcc_log) << "Volume " << vol_uuid
+    FDS_PLOG(vcc_log) << "VolumeCatalogCache - Volume " << vol_uuid
                       << " does not exist yet!";
     /*
      * TODO: Potential race here if we release
@@ -173,7 +174,7 @@ Error VolumeCatalogCache::Query(fds_uint64_t vol_uuid,
     /*
      * Not in the cache. Contact DM.
      */
-    FDS_PLOG(vcc_log) << "Cache query for volume " << vol_uuid
+    FDS_PLOG(vcc_log) << "VolumeCatalogCache - Cache query for volume " << vol_uuid
                       << " block id " << block_id
                       << " failed. Contacting DM.";
 
@@ -217,7 +218,7 @@ Error VolumeCatalogCache::Query(fds_uint64_t vol_uuid,
                                                      &node_ip,
                                                      &node_state);
       if (!err.ok()) {
-        FDS_PLOG(vcc_log) << "Unable to get node info for node "
+        FDS_PLOG(vcc_log) << "VolumeCatalogCache - Unable to get node info for node "
                           << node_ids[i];
         return err;
       }
@@ -226,7 +227,7 @@ Error VolumeCatalogCache::Query(fds_uint64_t vol_uuid,
                                                            FDSP_DATA_MGR,
                                                            &endPoint);
       if (ret_code != 0) {
-        FDS_PLOG(vcc_log) << "Unable to get RPC endpoint for " << node_ip;
+        FDS_PLOG(vcc_log) << "VolumeCatalogCache - Unable to get RPC endpoint for " << node_ip;
         err = ERR_CAT_QUERY_FAILED;
         return err;
       }
@@ -238,7 +239,7 @@ Error VolumeCatalogCache::Query(fds_uint64_t vol_uuid,
          */
         try {
           endPoint->fdspDPAPI->begin_QueryCatalogObject(msg_hdr, query_req);
-          FDS_PLOG(vcc_log) << "Async query request sent to DM " << endPoint
+          FDS_PLOG(vcc_log) << " VolumeCatalogCache - Async query request sent to DM " << endPoint
                             << " for volume "<< vol_uuid
                             << " and block id " << block_id;
           
@@ -248,7 +249,7 @@ Error VolumeCatalogCache::Query(fds_uint64_t vol_uuid,
            */
           err = ERR_PENDING_RESP;
         } catch (...) {
-          FDS_PLOG(vcc_log) << "Failed to query DM endpoint " << endPoint
+          FDS_PLOG(vcc_log) << "VolumeCatalogCache - Failed to query DM endpoint " << endPoint
                             << " for volume "<< vol_uuid
                             << " and block id " << block_id;
           err = ERR_CAT_QUERY_FAILED;                    
@@ -257,7 +258,7 @@ Error VolumeCatalogCache::Query(fds_uint64_t vol_uuid,
       }
     }
     if (located_ep == false) {
-      FDS_PLOG(vcc_log) << "Could not locate a valid endpoint to query";
+      FDS_PLOG(vcc_log) << " VolumeCatalogCache - Could not locate a valid endpoint to query";
       err = ERR_CAT_QUERY_FAILED;
     }
   }
@@ -324,16 +325,16 @@ Error VolumeCatalogCache::Update(fds_uint64_t vol_uuid,
      * Reset the error since it's OK
      * that is already existed.
      */
-    FDS_PLOG(vcc_log) << "Cache update successful for volume " << vol_uuid
+    FDS_PLOG(vcc_log) << "VolumeCatalogCache - Cache update successful for volume " << vol_uuid
                       << " block id " << block_id
                       << " was duplicate.";
     err = ERR_OK;
   } else if (err != ERR_OK) {
-    FDS_PLOG(vcc_log) << "Cache update for volume " << vol_uuid
+    FDS_PLOG(vcc_log) << "VolumeCatalogCache - Cache update for volume " << vol_uuid
                       << " block id " << block_id
                       << " was failed!";
   } else {
-    FDS_PLOG(vcc_log) << "Cache update successful for volume " << vol_uuid
+    FDS_PLOG(vcc_log) << "VolumeCatalogCache - Cache update successful for volume " << vol_uuid
                       << " block id " << block_id;
   }
 
@@ -365,10 +366,10 @@ void VolumeCatalogCache::Clear(fds_uint64_t vol_uuid) {
     CatalogCache *catcache = vol_cache_map[vol_uuid];
     map_rwlock.read_unlock();
     catcache->Clear();
-    FDS_PLOG(vcc_log) << "Cleared cache for volume " << vol_uuid;
+    FDS_PLOG(vcc_log) << "VolumeCatalogCache - Cleared cache for volume " << vol_uuid;
   } else {
     map_rwlock.read_unlock();
-    FDS_PLOG(vcc_log) << "No cache to clear for volume " << vol_uuid;
+    FDS_PLOG(vcc_log) << "VolumeCatalogCache - No cache to clear for volume " << vol_uuid;
   }
 }
 
