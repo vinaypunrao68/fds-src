@@ -28,6 +28,7 @@
 #include "hvisor_lib.h"
 
 #define HVISOR_SECTOR_SIZE 512
+#define HVISOR_MAX_RESPONSES_TO_HOLD 8
 
 #define DBG(_level, _f, _a...) tlog_write(_level, _f, ##_a)
 #define ERR(_err, _f, _a...) tlog_error(_err, _f, ##_a)
@@ -277,7 +278,7 @@ int main(int argc, char *argv[]) {
 printf("Send the IO \n");
   while(1)
   {
-    char *line_ptr;
+    char *line_ptr=0;
     int n_bytes = 0;
     char cmd_wd[32];
     int offset = 0;
@@ -338,7 +339,10 @@ hvisor_vbd_create(uint16_t uuid)
 	/* default blktap ring completion */
 	//vbd->callback = tapdisk_vbd_callback;
 	//vbd->argument = vbd;
-    
+
+	pthread_mutex_init(&vbd->vbd_mutex, 0);
+	vbd->num_responses_in_ring = 0;
+
 	INIT_LIST_HEAD(&vbd->driver_stack);
 	INIT_LIST_HEAD(&vbd->images);
 	INIT_LIST_HEAD(&vbd->new_requests);
@@ -409,8 +413,8 @@ static int hvisor_wait_for_events(td_vbd_t *vbd) {
   struct timeval tv;
   fd_set read_fds;
 
-  tv.tv_sec  = 2;
-  tv.tv_usec = 0;
+  tv.tv_sec  = 0;
+  tv.tv_usec = 50000;
 
   FD_ZERO(&read_fds);
   FD_SET(vbd->ring.fd, &read_fds);
@@ -425,6 +429,7 @@ static int hvisor_wait_for_events(td_vbd_t *vbd) {
 
 }
 
+// Caller should have acquired the vbd mutex
 static inline void
 hvisor_vbd_write_response_to_ring(td_vbd_t *vbd, blkif_response_t *rsp)
 {
@@ -438,6 +443,7 @@ hvisor_vbd_write_response_to_ring(td_vbd_t *vbd, blkif_response_t *rsp)
 	ring->fe_ring.rsp_prod_pvt++;
 }
 
+// Caller should have acquired the vbd mutex
 static void
 hvisor_vbd_make_response(td_vbd_t *vbd, td_vbd_request_t *vreq)
 {
@@ -462,6 +468,7 @@ hvisor_vbd_make_response(td_vbd_t *vbd, td_vbd_request_t *vreq)
 }
 
 
+// Caller should have acquired the vbd mutex
 void
 hvisor_complete_vbd_request(td_vbd_t *vbd, td_vbd_request_t *vreq) {
   if (!vreq->submitting && !vreq->secs_pending) {
@@ -485,6 +492,8 @@ hvisor_complete_td_request(void *arg1, void *arg2,
 	printf("UBD: Recv completion callback with vbd - %p, vreq - %p, fbd_req - %p, res - %d\n",
 	       vbd, vreq, freq, res);
 
+	pthread_mutex_lock(&vbd->vbd_mutex);
+
         err = (res <= 0 ? res : -res);
         vbd->secs_pending  -= freq->secs;
         vreq->secs_pending -= freq->secs;
@@ -501,6 +510,14 @@ hvisor_complete_td_request(void *arg1, void *arg2,
         }
 	*/
 	hvisor_complete_vbd_request(vbd, vreq);
+	vbd->num_responses_in_ring++;
+
+	if (vbd->num_responses_in_ring >= HVISOR_MAX_RESPONSES_TO_HOLD) {
+	  hvisor_vbd_kick(vbd);
+	}
+
+	pthread_mutex_unlock(&vbd->vbd_mutex);
+	
 	free(freq);
 }
 
@@ -639,7 +656,7 @@ hvisor_handle_request(td_vbd_t *vbd, td_vbd_request_t *vreq)
 		treq.cb_data        = NULL;
 		treq.private        = vreq;
 
-		printf("%s: req %d seg %d sec 0x%08"PRIx64" secs 0x%04x "
+		printf("%s: Issuing req %d seg %d sec 0x%08"PRIx64" secs 0x%04x "
 		    "buf %p op %d\n", "Hvisor", id, i, treq.sec, treq.secs,
 		    treq.buf, (int)req->operation);
 
@@ -677,6 +694,26 @@ fail:
 	goto out;
 }
 
+static int
+hvisor_issue_new_requests(td_vbd_t *vbd)
+{
+        int err;
+        td_vbd_request_t *vreq, *tmp;
+
+        tapdisk_vbd_for_each_request(vreq, tmp, &vbd->new_requests) {
+                err = hvisor_handle_request(vbd, vreq);
+		list_del(&vreq->next);
+		INIT_LIST_HEAD(&vreq->next);
+                if (err)
+                        return err;
+        }
+
+	ASSERT(list_empty(&vbd->new_requests));
+
+        return 0;
+}
+
+// Caller should have acquired the vbd mutext lock
 static void
 hvisor_pull_ring_requests(td_vbd_t *vbd)
 {
@@ -708,12 +745,16 @@ hvisor_pull_ring_requests(td_vbd_t *vbd)
 		vbd->received++;
 		vreq->vbd = vbd;
 
-		hvisor_handle_request(vbd, vreq);
+		tapdisk_vbd_move_request(vreq, &vbd->new_requests);
 
-		printf("%s: request %d \n", "Hvisor" , idx); 
+		// hvisor_handle_request(vbd, vreq);
+
+		printf("%s: queueing request with idx %d \n", "Hvisor" , idx); 
 	}
 }
 
+
+// Caller should have acquired the vbd mutex lock
 int
 hvisor_vbd_kick(td_vbd_t *vbd)
 {
@@ -736,6 +777,8 @@ hvisor_vbd_kick(td_vbd_t *vbd)
 	printf("kicking %d: rec: 0x%08"PRIx64", ret: 0x%08"PRIx64", kicked: "
 	    "0x%08"PRIx64"\n", n, vbd->received, vbd->returned, vbd->kicked);
 
+	vbd->num_responses_in_ring = 0;
+
 	return n;
 }
 
@@ -750,9 +793,15 @@ __hvisor_run(td_vbd_t *vbd)
     if (ret < 0)
       printf("server wait returned %d\n", ret);
 
+    pthread_mutex_lock(&vbd->vbd_mutex);
     hvisor_pull_ring_requests(vbd);
+    pthread_mutex_unlock(&vbd->vbd_mutex);
 
+    hvisor_issue_new_requests(vbd);
+
+    pthread_mutex_lock(&vbd->vbd_mutex);
     hvisor_vbd_kick(vbd);
+    pthread_mutex_unlock(&vbd->vbd_mutex);
 
   }
 }

@@ -88,10 +88,11 @@ struct td_vbd_driver_info {
 };
 
 struct td_vbd_handle {
-	char                       *name;
-
-	td_uuid_t                   uuid;
-	int                         minor;
+  char                       *name;
+  td_uuid_t                   uuid;
+  int                         minor;
+  pthread_mutex_t             vbd_mutex;
+  int                         num_responses_in_ring;
 
 	struct list_head            driver_stack;
 
