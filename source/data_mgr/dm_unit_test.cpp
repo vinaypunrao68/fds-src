@@ -45,6 +45,7 @@ class DmUnitTest {
     msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_DATA_MGR;    
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
     msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msg_hdr->glob_volume_id = 1; /* TODO: Don't hard code to 1 */
     
     fds_uint32_t block_id;
     ObjectID oid;
@@ -118,6 +119,7 @@ class DmUnitTest {
     msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_DATA_MGR;    
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
     msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msg_hdr->glob_volume_id = 1; /* TODO: Don't hard code to 1 */
     
     fds_uint32_t block_id;
     ObjectID oid;

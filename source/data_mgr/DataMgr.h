@@ -55,15 +55,18 @@ private:
 
   // static void _open_entry();
 
-  Error _process_open(fds_uint32_t vol_offset,
+  Error _process_open(fds_uint32_t vol_uuid,
+                      fds_uint32_t vol_offset,
                       fds_uint32_t trans_id,
                       const ObjectID& oid);
-  Error _process_commit(fds_uint32_t vol_offset,
+  Error _process_commit(fds_uint32_t vol_uuid,
+                        fds_uint32_t vol_offset,
                         fds_uint32_t trans_id,
                         const ObjectID& oid);
   Error _process_abort();
 
-  Error _process_query(fds_uint32_t vol_offset,
+  Error _process_query(fds_uint32_t vol_uuid,
+                       fds_uint32_t vol_offset,
                        ObjectID *oid);
   
 public:

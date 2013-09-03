@@ -13,7 +13,8 @@ static void _open_entry(int val) {
   //                          << dataMgr->num_threads;
 }
 
-Error DataMgr::_process_open(fds_uint32_t vol_offset,
+Error DataMgr::_process_open(fds_uint32_t vol_uuid,
+                             fds_uint32_t vol_offset,
                              fds_uint32_t trans_id,
                              const ObjectID& oid) {
   Error err;
@@ -25,32 +26,34 @@ Error DataMgr::_process_open(fds_uint32_t vol_offset,
    * requests.
    * TODO: Just hack the name as the offset for now.
    */
-  if (vol_meta_map.count(vol_offset) == 0) {
-    vol_meta_map[vol_offset] = new VolumeMeta(stor_prefix +
-                                              std::to_string(vol_offset),
-                                              vol_offset,
-                                              dm_log);
-    FDS_PLOG(dataMgr->GetLog()) << "Created vol meta for vol offset "
-                                << vol_offset << " and transaction "
+  if (vol_meta_map.count(vol_uuid) == 0) {
+    vol_meta_map[vol_uuid] = new VolumeMeta(stor_prefix +
+                                            std::to_string(vol_uuid),
+                                            vol_uuid,
+                                            dm_log);
+    FDS_PLOG(dataMgr->GetLog()) << "Created vol meta for vol uuid "
+                                << vol_uuid << " and transaction "
                                 << trans_id;
   }
 
-  VolumeMeta *vol_meta = vol_meta_map[vol_offset];
+  VolumeMeta *vol_meta = vol_meta_map[vol_uuid];
   err = vol_meta->OpenTransaction(vol_offset, oid);
 
   if (err.ok()) {
-    FDS_PLOG(dataMgr->GetLog()) << "Opened transaction for vol offset "
+    FDS_PLOG(dataMgr->GetLog()) << "Opened transaction for volume "
+                                << vol_uuid << " at offset "
                                 << vol_offset << " and mapped to object "
                                 << oid;
   } else {
-    FDS_PLOG(dataMgr->GetLog()) << "Failed to open transaction for vol offset "
-                                << vol_offset;
+    FDS_PLOG(dataMgr->GetLog()) << "Failed to open transaction for volume "
+                                << vol_uuid;
   }
 
   return err;
 }
 
-Error DataMgr::_process_commit(fds_uint32_t vol_offset,
+Error DataMgr::_process_commit(fds_uint32_t vol_uuid,
+                               fds_uint32_t vol_offset,
                                fds_uint32_t trans_id,
                                const ObjectID& oid) {
   Error err(ERR_OK);
@@ -62,7 +65,8 @@ Error DataMgr::_process_commit(fds_uint32_t vol_offset,
    * For now, we don't need to do anything because it was put
    * into the VVC on open.
    */
-  FDS_PLOG(dataMgr->GetLog()) << "Committed transaction for vol offset "
+  FDS_PLOG(dataMgr->GetLog()) << "Committed transaction for volume "
+                              << vol_uuid << " to offset "
                               << vol_offset << " and mapped to object "
                               << oid;
 
@@ -80,7 +84,8 @@ Error DataMgr::_process_abort() {
   return err;
 }
 
-Error DataMgr::_process_query(fds_uint32_t vol_offset,
+Error DataMgr::_process_query(fds_uint32_t vol_uuid,
+                              fds_uint32_t vol_offset,
                               ObjectID *oid) {
   Error err(ERR_OK);
 
@@ -88,26 +93,27 @@ Error DataMgr::_process_query(fds_uint32_t vol_offset,
    * Check the map to see if we have know about the volume.
    * TODO: Just hack the name as the offset for now.
    */
-  if (vol_meta_map.count(vol_offset) == 0) {
+  if (vol_meta_map.count(vol_uuid) == 0) {
     /*
      * We don't know about this volume, so we don't
      * have anything to query.
      */
     FDS_PLOG(dataMgr->GetLog()) << "Vol meta query don't know about volume "
-                                << vol_offset;
+                                << vol_uuid;
     err = ERR_CAT_QUERY_FAILED;
     return err;
   }
 
-  VolumeMeta *vol_meta = vol_meta_map[vol_offset];
+  VolumeMeta *vol_meta = vol_meta_map[vol_uuid];
   err = vol_meta->QueryVcat(vol_offset, oid);
 
   if (err.ok()) {
-    FDS_PLOG(dataMgr->GetLog()) << "Vol meta query for vol offset "
+    FDS_PLOG(dataMgr->GetLog()) << "Vol meta query for volume "
+                                << vol_uuid << " at offset "
                                 << vol_offset << " found object " << *oid;
   } else {
-    FDS_PLOG(dataMgr->GetLog()) << "Vol meta query FAILED for vol offset "
-                                << vol_offset;
+    FDS_PLOG(dataMgr->GetLog()) << "Vol meta query FAILED for volume "
+                                << vol_uuid;
   }
   
   return err;
@@ -273,12 +279,14 @@ void DataMgr::ReqHandler::UpdateCatalogObject(const FDS_ProtocolInterface::FDSP_
    */
   if (update_catalog->dm_operation ==
       FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_OPEN) {
-    err = dataMgr->_process_open(update_catalog->volume_offset,
+    err = dataMgr->_process_open(msg_hdr->glob_volume_id,
+                                 update_catalog->volume_offset,
                                  update_catalog->dm_transaction_id,
                                  oid);
   } else if (update_catalog->dm_operation ==
              FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_COMMITED) {
-    err = dataMgr->_process_commit(update_catalog->volume_offset,
+    err = dataMgr->_process_commit(msg_hdr->glob_volume_id,
+                                   update_catalog->volume_offset,
                                    update_catalog->dm_transaction_id,
                                    oid);
   } else {
@@ -330,7 +338,8 @@ void DataMgr::ReqHandler::QueryCatalogObject(const FDS_ProtocolInterface::FDSP_M
                               << ", Trans ID " << query_catalog->dm_transaction_id
                               << ", OP ID " << query_catalog->dm_operation;
 
-  err = dataMgr->_process_query(query_catalog->volume_offset,
+  err = dataMgr->_process_query(msg_hdr->glob_volume_id,
+                                query_catalog->volume_offset,
                                 &oid);
   if (err.ok()) {
     msg_hdr->result  = FDS_ProtocolInterface::FDSP_ERR_OK;
