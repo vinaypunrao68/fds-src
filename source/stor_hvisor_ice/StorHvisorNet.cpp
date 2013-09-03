@@ -17,7 +17,6 @@ using namespace FDS_ProtocolInterface;
 using namespace Ice;
 using namespace IceUtil;
 
-IceUtil::CtrlCHandler      ctrlHandler;
 struct fbd_device *fbd_dev;
 extern vvc_vhdl_t vvc_vol_create(volid_t vol_id, const char *db_name, int max_blocks);
 
@@ -339,7 +338,21 @@ StorHvCtrl::StorHvCtrl(int argc,
     FDS_PLOG(sh_log) <<"StorHvisorNet -  Entring Normal Data placement mode";
     dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NORMAL_MODE);
   }
-  ctrlHandler.setCallback(ctrlCCallbackHandler);
+
+  /*
+   * Only create a ctrl-c handler in normal mode since
+   * a test mode may define its own handler (via ICE) or
+   * just finish to the end without needing ctrl-c.
+   */
+  if (mode == NORMAL) {
+    shCtrlHandler = new IceUtil::CtrlCHandler();
+    try {
+      shCtrlHandler->setCallback(ctrlCCallbackHandler);
+    } catch (const CtrlCHandlerException&) {
+      assert(0);
+    }
+  }
+
 }
 
 /*

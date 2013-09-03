@@ -182,5 +182,6 @@ public:
 private:
   fds_log *sh_log;
   sh_comm_modes mode;
+  IceUtil::CtrlCHandler *shCtrlHandler;
 };
 #endif
