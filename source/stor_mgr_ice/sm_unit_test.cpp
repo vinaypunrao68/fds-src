@@ -166,6 +166,7 @@ class SmUnitTest {
       put_req->data_obj_id.hash_low  = oid.GetLow();
       put_req->data_obj_len          = object_data.size();
       put_req->data_obj              = object_data;
+      msg_hdr->num_objects           = 1;
     
       try {
         fdspDPAPI->PutObject(msg_hdr, put_req);

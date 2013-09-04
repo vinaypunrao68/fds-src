@@ -51,6 +51,7 @@ int reqs_in_hold = 0;
 #define ASSERT(p) ((void)0)
 #endif 
 
+extern int  runningFlag;
 static int hvisor_create_io_ring(td_vbd_t *vbd, const char *devname);
 
 td_vbd_t*hvisor_vbd_create(uint16_t uuid);
@@ -278,7 +279,7 @@ int main(int argc, char *argv[]) {
    * Check the cmdline args for the test
    * are all there.
    */
-  if (run_test == 1) {
+  if (run_test != 0) {
     if (sm_port != 0 && dm_port == 0) {
       printf("Invalid cmdline arg. Both a sm and dm port must be specified.\n");
       return -1;
@@ -886,7 +887,7 @@ hvisor_vbd_kick(td_vbd_t *vbd)
 static void
 __hvisor_run(td_vbd_t *vbd)
 {
-  while (1) {
+  while (runningFlag) {
     int ret;
 
     ret = hvisor_wait_for_events(vbd);

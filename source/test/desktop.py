@@ -11,7 +11,7 @@ import shutil
 import os
 import re
 import pdb
-#import junitxml
+import sys
 
 #
 # Components
@@ -39,7 +39,6 @@ prefix_base = "desktop_ut_"
 # Relative to source/test dir
 #
 ice_home = "../lib/Ice-3.5.0"
-#ld_path = "../libs"
 ld_path = "../lib/:../lib/Ice-3.5.0/cpp/lib/:../lib/leveldb-1.12.0/:/usr/local/lib"
 
 class TestSequenceFunctions(unittest.TestCase):
@@ -233,7 +232,9 @@ class TestSequenceFunctions(unittest.TestCase):
             self.stop_server(serv)
 
         return status
-
+    
+    @unittest.skipIf(len(sys.argv) > 1 and sys.argv[1] == "--jenkins",
+                     "not supported when running on through jenkins")
     def test_stormgr(self):
         test_name = "Storage Manager"
         num_instances = 5
@@ -309,11 +310,15 @@ if __name__ == '__main__':
     #print "Using path %s" % (path)
 
     #unittest.main()
-
-    #fp = file('results.xml', 'wb')
-    #result = junitxml.JUnitXmlResult(fp)
-    #result.startTestRun()
-    suite = unittest.TestLoader().loadTestsFromTestCase(TestSequenceFunctions)
-    #unittest.TestSuite(suite).run(result)
-    #result.stopTestRun()
-    unittest.TextTestRunner(verbosity=2).run(suite)
+    if len(sys.argv) > 1 and sys.argv[1] == "--jenkins":
+        print "running in jenkins mode"
+        import junitxml
+        ld_path = "../libs"
+        fp = file('results.xml', 'wb')
+        result = junitxml.JUnitXmlResult(fp)
+        suite = unittest.TestLoader().loadTestsFromTestCase(TestSequenceFunctions)
+        unittest.TestSuite(suite).run(result)
+        result.stopTestRun()
+    else:
+        suite = unittest.TestLoader().loadTestsFromTestCase(TestSequenceFunctions)
+        unittest.TextTestRunner(verbosity=2).run(suite)
