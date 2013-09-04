@@ -19,6 +19,7 @@ using namespace IceUtil;
 
 struct fbd_device *fbd_dev;
 extern vvc_vhdl_t vvc_vol_create(volid_t vol_id, const char *db_name, int max_blocks);
+int  runningFlag = 1;
 
 /*
  * Globals being used for the unit test.
@@ -454,6 +455,7 @@ void DeleteStorHvisor()
 void ctrlCCallbackHandler(int signal)
 {
   FDS_PLOG(storHvisor->GetLog()) << "StorHvisorNet -  Received Ctrl C " << signal;
+  runningFlag = 0;
   storHvisor->_communicator->shutdown();
   DeleteStorHvisor();
 }
@@ -576,6 +578,10 @@ StorHvCtrl::StorHvCtrl(int argc,
 
 StorHvCtrl::~StorHvCtrl()
 {
+  delete sh_log;
+//  delete journalTbl;
+//  delete volCatalogCache;
+//  delete dataPlacementTbl;
 }
 
 

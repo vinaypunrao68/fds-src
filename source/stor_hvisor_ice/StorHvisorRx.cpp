@@ -22,15 +22,17 @@ void StorHvCtrl::fbd_process_req_timeout(unsigned long arg)
   int trans_id;
   StorHvJournalEntry *txn;
   fbd_request_t *req;
+  struct fbd_device *fbd;
 
   trans_id = (int)arg;
   txn = journalTbl->get_journal_entry(trans_id);
+  fbd = (fbd_device *)txn->fbd_ptr;
   StorHvJournalEntryLock je_lock(txn);
   if (txn->isActive()) {
     req = (fbd_request_t *)txn->write_ctx;
     if (req) { 
       txn->write_ctx = 0;
-      FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx - Timing out, responding to  the block : " << req;
+      FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << fbd->vol_id << " - Timing out, responding to  the block : " << req;
       txn->fbd_complete_req(req, -1);
     }
     txn->reset();
@@ -41,6 +43,7 @@ void StorHvCtrl::fbd_process_req_timeout(unsigned long arg)
 
 int StorHvCtrl::fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const FDSP_GetObjTypePtr& get_obj_rsp )
 {
+  	struct fbd_device *fbd;
 	fbd_request_t *req; 
 	int trans_id;
 //	int   data_size;
@@ -50,21 +53,22 @@ int StorHvCtrl::fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const
 
 	trans_id = rd_msg->req_cookie;
         StorHvJournalEntry *txn = journalTbl->get_journal_entry(trans_id);
+  	fbd = (fbd_device *)txn->fbd_ptr;
 	StorHvJournalEntryLock je_lock(txn);
 
 	if (!txn->isActive()) {
-	   FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx - Error: Journal Entry" << rd_msg->req_cookie <<  "  GetObjectResp for an inactive transaction" ;
+	   FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << fbd->vol_id << " - Error: Journal Entry" << rd_msg->req_cookie <<  "  GET_OBJ_RS for an inactive transaction" ;
 	  return (0);
 	}
 
 	// TODO: check if incarnation number matches
 
 	if (txn->trans_state != FDS_TRANS_GET_OBJ) {
-           FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx - Error: Journal Entry" << rd_msg->req_cookie <<  "  GetObjectResp for a transaction not in GetObjResp";
+           FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << fbd->vol_id << " - Error: Journal Entry" << rd_msg->req_cookie <<  "  GET_OBJ_RSP for a transaction not in GetObjResp";
 	  return (0);
 	}
 
-	FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx - Processing read response for trans  " <<  trans_id;
+	FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << fbd->vol_id << " - GET_OBJ_RSP Processing read response for trans  " <<  trans_id;
 	req = (fbd_request_t *)txn->write_ctx;
 	/*
 	  - how to handle the  length miss-match ( requested  length and  recived legth from SM
@@ -75,12 +79,13 @@ int StorHvCtrl::fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const
 	 - respond to the block device- data ready 
 	*/
 	
-	FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx -  responding to  the block :  " << req;
+	FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << fbd->vol_id << " - GET_OBJ_RSP  responding to  the block :  " << req;
 	if(req) {
           if (rd_msg->result == FDSP_ERR_OK) { 
               memcpy(req->buf, get_obj_rsp->data_obj.c_str(), req->len);
 	      txn->fbd_complete_req(req, 0);
           } else {
+	      FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << fbd->vol_id << " - Error Reading the Data,   responding to  the block :  " << req;
 	      txn->fbd_complete_req(req, -1);
           }
 	}
@@ -94,20 +99,22 @@ int StorHvCtrl::fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const
 
 int StorHvCtrl::fds_process_put_obj_resp(const FDSP_MsgHdrTypePtr& rx_msg, const FDSP_PutObjTypePtr& put_obj_rsp )
 {
+  struct fbd_device *fbd;
   int trans_id = rx_msg->req_cookie; 
   StorHvJournalEntry *txn = journalTbl->get_journal_entry(trans_id);
   StorHvJournalEntryLock je_lock(txn);
 
   // Check sanity here, if this transaction is valid and matches with the cookie we got from the message
 
+  fbd = (fbd_device *)txn->fbd_ptr;
   if (!(txn->isActive())) {
-     FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx - Error: Journal Entry" << rx_msg->req_cookie <<  "  PutObjectResp for an inactive transaction";
+     FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << fbd->vol_id << " - Error: Journal Entry" << rx_msg->req_cookie <<  "  PUT_OBJ_RSP for an inactive transaction";
     return (0);
   }
 
 	if (rx_msg->msg_code == FDSP_MSG_PUT_OBJ_RSP) {
 	    txn->fds_set_smack_status(rx_msg->src_ip_lo_addr);
-	    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx -  Recvd SM PutObj RSP ";
+	    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << fbd->vol_id << " - Recvd SM PUT_OBJ_RSP RSP ";
 	    fds_move_wr_req_state_machine(rx_msg);
         }
 
@@ -117,25 +124,28 @@ int StorHvCtrl::fds_process_put_obj_resp(const FDSP_MsgHdrTypePtr& rx_msg, const
 int StorHvCtrl::fds_process_update_catalog_resp(const FDSP_MsgHdrTypePtr& rx_msg, 
                                                 const FDSP_UpdateCatalogTypePtr& cat_obj_rsp )
 {
+  struct fbd_device *fbd;
   int trans_id;
 
 	trans_id = rx_msg->req_cookie; 
         StorHvJournalEntry *txn = journalTbl->get_journal_entry(trans_id);
+    fbd = (fbd_device *)txn->fbd_ptr;
 	StorHvJournalEntryLock je_lock(txn);
 
+	FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << fbd->vol_id << " - Recvd DM UPDATE_CAT_OBJ_RSP RSP ";
 	// Check sanity here, if this transaction is valid and matches with the cookie we got from the message
 
 	if (!(txn->isActive())) {
-	   FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx - Error: Journal Entry" << rx_msg->req_cookie <<  "  UpdCatResp for an inactive transaction";
+	   FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << fbd->vol_id << " - Error: Journal Entry" << rx_msg->req_cookie <<  "  UPDATE_CAT_OBJ_RSP for an inactive transaction";
 	  return (0);
 	}
 
 	if (cat_obj_rsp->dm_operation == FDS_DMGR_TXN_STATUS_OPEN) {
 		txn->fds_set_dmack_status(rx_msg->src_ip_lo_addr);
-		FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx -  Recvd DM OpenTrans RSP ";
+		FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << fbd->vol_id << " -  Recvd DM TXN_STATUS_OPEN RSP ";
 	} else {
 		txn->fds_set_dm_commit_status(rx_msg->src_ip_lo_addr);
-		FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx -  Recvd DM CommitTrans RSP ";
+		FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << fbd->vol_id << " -  Recvd DM TXN_STATUS_COMMITED RSP ";
 	}
 
 	fds_move_wr_req_state_machine(rx_msg);
@@ -155,49 +165,56 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rx_msg) 
 	int trans_id;
 	FDS_RPC_EndPoint *endPoint = NULL;
 	FDSP_MsgHdrTypePtr     wr_msg;
+    struct fbd_device *fbd;
 
 
 
 	trans_id = rx_msg->req_cookie; 
         StorHvJournalEntry *txn = journalTbl->get_journal_entry(trans_id);
 
+    fbd = (fbd_device *)txn->fbd_ptr;
 	req = (fbd_request_t *)txn->write_ctx;
 	wr_msg = txn->dm_msg;
 	sm_msg_ptr = txn->sm_msg;
 
-	FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx - State transition attempted for transaction " << trans_id  << "current state - "  << txn->trans_state  << "sm_ack" << txn->sm_ack_cnt << "dm_ack " << txn->dm_ack_cnt << "dm_commits" << txn->dm_commit_cnt ;
+	FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << fbd->vol_id << " - State transition attempted for transaction " << trans_id  << "current state - "  << txn->trans_state  << "sm_ack" << txn->sm_ack_cnt << "dm_ack " << txn->dm_ack_cnt << "dm_commits" << txn->dm_commit_cnt ;
 
 
        switch(txn->trans_state)  {
 	 case FDS_TRANS_OPEN :
          {
-	  	if ((txn->sm_ack_cnt < FDS_MIN_ACK) || (txn->dm_ack_cnt < FDS_MIN_ACK)) 
-          	{
-	    		 break;
-	  	}
-	  	 FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx -  State Transition to OPENED : Received min ack from  DM and SM. ";
-	  	txn->trans_state = FDS_TRANS_OPENED;
-	 }	 
-         break;
+	  		if ((txn->sm_ack_cnt < FDS_MIN_ACK) || (txn->dm_ack_cnt < FDS_MIN_ACK)) 
+          		{
+	    			 break;
+	  			}
+	  	 		FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id  \
+                                                    << " volID:" << fbd->vol_id << " -  State Transition to FDS_TRANS_OPENED : Received min ack from  DM and SM. ";
+	  			txn->trans_state = FDS_TRANS_OPENED;
+	 	}	 
+        break;
 
-         case  FDS_TRANS_OPENED :
+      case  FDS_TRANS_OPENED :
          {
 	    	if (txn->dm_commit_cnt >= FDS_MIN_ACK) 
-		{
-	        	 FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx -  State Transition to COMMITTED  : Received min commits from  DM ";
-	    		txn->trans_state = FDS_TRANS_COMMITTED;
-	    	}
+				{
+	        		 FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id 
+						<< " volID:" << fbd->vol_id << " -  State Transition to FDS_TRANS_COMMITTED  : Received min commits from  DM ";
+	    			 txn->trans_state = FDS_TRANS_COMMITTED;
+	    		}
          }
-	 if (txn->dm_commit_cnt < txn->num_dm_nodes)
-	   break;
+
+	 	if (txn->dm_commit_cnt < txn->num_dm_nodes)
+	   		break;
 	 // else fall through to next case.
 
 	 case FDS_TRANS_COMMITTED :
          {
-	    if((txn->sm_ack_cnt == txn->num_sm_nodes) && (txn->dm_commit_cnt == txn->num_dm_nodes))
-	    {
-	   	 FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx -  State Transition to SYCNED  : Received all acks and commits from  DM and SM. Ending req  " <<  req;
-	    	txn->trans_state = FDS_TRANS_SYNCED;
+	   		 if((txn->sm_ack_cnt == txn->num_sm_nodes) && (txn->dm_commit_cnt == txn->num_dm_nodes))
+	    		{
+	   	 			FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id
+					 << " volID:" << fbd->vol_id << " -  State Transition to FDS_TRANS_SYNCED  : Received all acks and commits from  DM and SM. Ending req  " 
+					 <<  req;
+	    			txn->trans_state = FDS_TRANS_SYNCED;
 
 	    	/*
 	      	-  add the vvc entry
@@ -205,21 +222,22 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rx_msg) 
 	    	*/
 	    
 
-        	obj_id.SetId(txn->data_obj_id.hash_high, txn->data_obj_id.hash_low);
-        	storHvisor->volCatalogCache->Update((fds_uint64_t)rx_msg->glob_volume_id, (fds_uint64_t)req->sec*HVISOR_SECTOR_SIZE, obj_id);
+        			obj_id.SetId(txn->data_obj_id.hash_high, txn->data_obj_id.hash_low);
+        			storHvisor->volCatalogCache->Update((fds_uint64_t)rx_msg->glob_volume_id, \
+											 (fds_uint64_t)req->sec*HVISOR_SECTOR_SIZE, obj_id);
 
 
 	    	// destroy the txn, reclaim the space and return from here	    
-	    	txn->trans_state = FDS_TRANS_EMPTY;
-	    	txn->write_ctx = 0;
+	    			txn->trans_state = FDS_TRANS_EMPTY;
+	    			txn->write_ctx = 0;
 	    	// del_timer(txn->p_ti);
-	    	if (req) {
-	      		txn->fbd_complete_req(req, 0);
-	    	}
-		txn->reset();
-		journalTbl->release_trans_id(trans_id);
-                return(0);
-	    }
+	    			if (req) {
+	      				txn->fbd_complete_req(req, 0);
+	    			}
+					txn->reset();
+					journalTbl->release_trans_id(trans_id);
+                	return(0);
+	    		}
           }
           break;
 
@@ -250,9 +268,9 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rx_msg) 
 
 		   if (endPoint) {
 		 	endPoint->fdspDPAPI->begin_UpdateCatalogObject(wr_msg, upd_obj_req);
-			 FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx -  Sent async UpdCatObjCommit req to DM at " <<  (unsigned int) txn->dm_ack[node].ipAddr;
+			 FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << fbd->vol_id << " -  Sent async UpdCatObjCommit req to DM at " <<  (unsigned int) txn->dm_ack[node].ipAddr;
 		   } else {
-		      FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx - No end point found for DM at ip " <<  (unsigned int) txn->dm_ack[node].ipAddr;
+		      FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << fbd->vol_id << " - No end point found for DM at ip " <<  (unsigned int) txn->dm_ack[node].ipAddr;
 		   }
 
 	     }
@@ -264,17 +282,17 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rx_msg) 
 
 
 void FDSP_DataPathRespCbackI::GetObjectResp(const FDSP_MsgHdrTypePtr& msghdr, const FDSP_GetObjTypePtr& get_obj, const Ice::Current&) {
-   FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx - Received get obj response for txn  " <<  msghdr->req_cookie; 
+   FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << msghdr->req_cookie << " - Received get obj response for txn  " <<  msghdr->req_cookie; 
   storHvisor->fds_process_get_obj_resp(msghdr, get_obj);
 }
 
 void FDSP_DataPathRespCbackI::PutObjectResp(const FDSP_MsgHdrTypePtr& msghdr, const FDSP_PutObjTypePtr& put_obj, const Ice::Current&) {
-   FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx - Received put obj response for txn  " << msghdr->req_cookie; 
+   FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << msghdr->req_cookie << " - Received put obj response for txn  " << msghdr->req_cookie; 
   storHvisor->fds_process_put_obj_resp(msghdr, put_obj);
 }
 
 void FDSP_DataPathRespCbackI::UpdateCatalogObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_UpdateCatalogTypePtr& update_cat, const Ice::Current &) {
-   FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx - Received upd cat obj response for txn " <<  fdsp_msg->req_cookie; 
+   FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << fdsp_msg->req_cookie <<" - Received upd cat obj response for txn " <<  fdsp_msg->req_cookie; 
 	 storHvisor->fds_process_update_catalog_resp(fdsp_msg, update_cat);
 }
 
@@ -292,41 +310,47 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
     uint64_t doid_high;
     int trans_id = fdsp_msg_hdr->req_cookie;
     fbd_request_t *req;
+    struct fbd_device *fbd;
 
     
-     FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx - GOT A QUERY RESPONSE!" ;
 
         StorHvJournalEntry *journEntry = storHvisor->journalTbl->get_journal_entry(trans_id);
 
         if (journEntry == NULL) {
-           FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx - Journal Entry  " << trans_id <<  "QueryCatalogObjResp not found";
+           FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " - Journal Entry  " << trans_id <<  "QueryCatalogObjResp not found";
            return;
         }
 
+        fbd = (fbd_device *)journEntry->fbd_ptr;
+        FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << fbd->vol_id << " - GOT A QUERY RESPONSE!" ;
+
 	StorHvJournalEntryLock je_lock(journEntry);
 	if (!journEntry->isActive()) {
+        FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << fbd->vol_id << " - Journal Entry is In-Active";
 	  return;
 	}
    
         if (journEntry->op !=  FDS_IO_READ) { 
-           FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx - Journal Entry  " << fdsp_msg_hdr->req_cookie <<  "  QueryCatalogObjResp for a non IO_READ transaction" ;
+           FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << fbd->vol_id << " - Journal Entry  " << fdsp_msg_hdr->req_cookie <<  "  QueryCatalogObjResp for a non IO_READ transaction" ;
            req = (fbd_request_t *)journEntry->write_ctx;
            journEntry->trans_state = FDS_TRANS_EMPTY;
            journEntry->write_ctx = 0;
            if(req) {
+             FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << fbd->vol_id << " - Responding to the block device with Error" ;
              journEntry->fbd_complete_req(req, -1);
            }
-	   journEntry->reset();
-	   storHvisor->journalTbl->release_trans_id(trans_id);
-          return;
+	       journEntry->reset();
+	       storHvisor->journalTbl->release_trans_id(trans_id);
+           return;
         }
 
         if (journEntry->trans_state != FDS_TRANS_VCAT_QUERY_PENDING) {
-             FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx - Journal Entry  " << fdsp_msg_hdr->req_cookie <<  " QueryCatalogObjResp for a transaction node in Query Pending " ;
+             FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << fbd->vol_id << " - Journal Entry  " << fdsp_msg_hdr->req_cookie <<  " QueryCatalogObjResp for a transaction node in Query Pending " ;
            req = (fbd_request_t *)journEntry->write_ctx;
            journEntry->trans_state = FDS_TRANS_EMPTY;
            journEntry->write_ctx = 0;
            if(req) {
+             FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << fbd->vol_id << " - Responding to the block device with Error" ;
              journEntry->fbd_complete_req(req, -1);
            }
 	   journEntry->reset();
@@ -336,12 +360,12 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
 	
 	// If Data Mgr does not have an entry, simply return 0s.
 	if (fdsp_msg_hdr->result != FDS_ProtocolInterface::FDSP_ERR_OK) {
-	   FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx - Journal Entry  " << fdsp_msg_hdr->req_cookie <<  ":  QueryCatalogObjResp returned error ";
+	   FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << fbd->vol_id << " - Journal Entry  " << fdsp_msg_hdr->req_cookie <<  ":  QueryCatalogObjResp returned error ";
            req = (fbd_request_t *)journEntry->write_ctx;
            journEntry->trans_state = FDS_TRANS_EMPTY;
            journEntry->write_ctx = 0;
            if(req) {
-	     memset(req->buf, 0, req->len);
+	         memset(req->buf, 0, req->len);
              journEntry->fbd_complete_req(req, 0);
            }
 	   journEntry->reset();
@@ -356,7 +380,7 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
          // Lookup the Primary SM node-id/ip-address to send the GetObject to
          storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(doid_dlt_key, node_ids, &num_nodes);
          if(num_nodes == 0) {
-             FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx - DataPlace Error : no nodes in DLT :Jrnl Entry" << fdsp_msg_hdr->req_cookie <<  "QueryCatalogObjResp ";
+             FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << fbd->vol_id << " - DataPlace Error : no nodes in DLT :Jrnl Entry" << fdsp_msg_hdr->req_cookie <<  "QueryCatalogObjResp ";
            req = (fbd_request_t *)journEntry->write_ctx;
            journEntry->trans_state = FDS_TRANS_EMPTY;
            journEntry->write_ctx = 0;
@@ -383,7 +407,7 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
         get_obj_req->data_obj_len = journEntry->data_obj_len;
         if (endPoint) {
             endPoint->fdspDPAPI->begin_GetObject(fdsp_msg_hdr, get_obj_req);
-	     FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx - Sent Async getObj req to SM at " << node_ip ;
+	     FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << fbd->vol_id << " - Sent Async getObj req to SM at " << node_ip ;
             journEntry->trans_state = FDS_TRANS_GET_OBJ;
         }
    

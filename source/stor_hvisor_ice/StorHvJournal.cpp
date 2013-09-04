@@ -258,7 +258,7 @@ unsigned int StorHvJournal::get_trans_id_for_block(unsigned int block_offset)
     }
     rwlog_tbl[trans_id].block_offset = block_offset;
   }
-   FDS_PLOG(storHvisor->GetLog()) << " StorHvJournal - Assigned transaction id " << trans_id << " for block " << block_offset;
+   FDS_PLOG(storHvisor->GetLog()) << " StorHvJournal:" << "IO-XID:" << trans_id <<" - Assigned transaction id " << trans_id << " for block " << block_offset;
   return trans_id;
 }
 
@@ -282,7 +282,7 @@ void StorHvJournal::release_trans_id(unsigned int trans_id)
 
   unlock();
 
-   FDS_PLOG(storHvisor->GetLog()) << " StorHvJournal - Released transaction id " << trans_id ;
+   FDS_PLOG(storHvisor->GetLog()) << " StorHvJournal:" << "IO-XID:" << trans_id <<  " - Released transaction id  " << trans_id ;
 
 }
 
