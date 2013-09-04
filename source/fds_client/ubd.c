@@ -307,7 +307,7 @@ int main(int argc, char *argv[]) {
 #ifdef HVISOR_USPACE_TEST
   CreateSHMode(argc, argv, 1, sm_port, dm_port);
 #else
-  CreateStorHvisor(argc, argv);
+  CreateSHMode(argc, argv, 1, 0, 0);
 #endif
 #endif
 

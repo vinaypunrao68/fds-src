@@ -26,6 +26,7 @@ Error DataMgr::_process_open(fds_uint32_t vol_uuid,
    * requests.
    * TODO: Just hack the name as the offset for now.
    */
+  vol_map_mtx->lock();
   if (vol_meta_map.count(vol_uuid) == 0) {
     vol_meta_map[vol_uuid] = new VolumeMeta(stor_prefix +
                                             std::to_string(vol_uuid),
@@ -37,6 +38,8 @@ Error DataMgr::_process_open(fds_uint32_t vol_uuid,
   }
 
   VolumeMeta *vol_meta = vol_meta_map[vol_uuid];
+  vol_map_mtx->unlock();
+
   err = vol_meta->OpenTransaction(vol_offset, oid);
 
   if (err.ok()) {
@@ -93,11 +96,13 @@ Error DataMgr::_process_query(fds_uint32_t vol_uuid,
    * Check the map to see if we have know about the volume.
    * TODO: Just hack the name as the offset for now.
    */
+  vol_map_mtx->lock();
   if (vol_meta_map.count(vol_uuid) == 0) {
     /*
      * We don't know about this volume, so we don't
      * have anything to query.
      */
+    vol_map_mtx->unlock();
     FDS_PLOG(dataMgr->GetLog()) << "Vol meta query don't know about volume "
                                 << vol_uuid;
     err = ERR_CAT_QUERY_FAILED;
@@ -105,6 +110,8 @@ Error DataMgr::_process_query(fds_uint32_t vol_uuid,
   }
 
   VolumeMeta *vol_meta = vol_meta_map[vol_uuid];
+  vol_map_mtx->unlock();
+
   err = vol_meta->QueryVcat(vol_offset, oid);
 
   if (err.ok()) {
@@ -123,6 +130,7 @@ DataMgr::DataMgr()
     : port_num(0),
       num_threads(DM_TP_THREADS) {
   dm_log = new fds_log("dm", "logs");
+  vol_map_mtx = new fds_mutex("Volume map mutex");
 
   // _tp = new fds_threadpool(num_threads);
   _tp = new fds_threadpool(3);
@@ -149,7 +157,8 @@ DataMgr::~DataMgr() {
     delete it->second;
   }
   vol_meta_map.clear();
-
+  
+  delete vol_map_mtx;
   delete dm_log;
 }
 

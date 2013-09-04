@@ -15,7 +15,10 @@ namespace fds {
  * one.
  */
 VolumeMeta::VolumeMeta()
-    : vol_uuid(0), vcat(NULL), tcat(NULL), dm_log(NULL) {
+  : vol_uuid(0), vcat(NULL), tcat(NULL), dm_log(NULL) {
+
+  vol_mtx = new fds_mutex("Volume Meta Mutex");
+
 }
 
 VolumeMeta::VolumeMeta(const std::string& _name,
@@ -24,6 +27,7 @@ VolumeMeta::VolumeMeta(const std::string& _name,
       vol_uuid(_uuid),
       dm_log(NULL) {
 
+  vol_mtx = new fds_mutex("Volume Meta Mutex");
   vcat = new VolumeCatalog(vol_name + "_vcat.ldb");
   tcat = new TimeCatalog(vol_name + "_tcat.ldb");
 }
@@ -35,6 +39,7 @@ VolumeMeta::VolumeMeta(const std::string& _name,
       vol_uuid(_uuid),
       dm_log(_dm_log) {
 
+  vol_mtx = new fds_mutex("Volume Meta Mutex");
   vcat = new VolumeCatalog(vol_name + "_vcat.ldb");
   tcat = new TimeCatalog(vol_name + "_tcat.ldb");
 }
@@ -42,6 +47,7 @@ VolumeMeta::VolumeMeta(const std::string& _name,
 VolumeMeta::~VolumeMeta() {
   delete vcat;
   delete tcat;
+  delete vol_mtx;
 }
 
 Error VolumeMeta::OpenTransaction(fds_uint32_t vol_offset,
@@ -59,7 +65,10 @@ Error VolumeMeta::OpenTransaction(fds_uint32_t vol_offset,
   Record key((const char *)&vol_offset,
              sizeof(vol_offset));
   Record val(oid.ToString());
+
+  vol_mtx->lock();
   err = vcat->Update(key, val);
+  vol_mtx->unlock();
 
   return err;
 }
@@ -78,7 +87,11 @@ Error VolumeMeta::QueryVcat(fds_uint32_t vol_offset,
    */
   std::string test("WTF");
   Record val(test);
+
+  vol_mtx->lock();
   err = vcat->Query(key, &val);
+  vol_mtx->unlock();
+
   if (! err.ok()) {
     FDS_PLOG(dm_log) << "Failed to query for vol offset "
                      << vol_offset << " with err " << err;

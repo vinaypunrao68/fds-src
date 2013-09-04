@@ -16,6 +16,7 @@
 #include "include/fds_err.h"
 #include "util/Log.h"
 #include "lib/VolumeCatalog.h"
+#include "util/concurrency/Mutex.h"
 
 namespace fds {
 
@@ -27,6 +28,7 @@ namespace fds {
      */
     std::string  vol_name;
     fds_uint64_t vol_uuid;
+    fds_mutex    *vol_mtx;
 
     /*
      * The volume catalog maintains mappings from

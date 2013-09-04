@@ -20,6 +20,8 @@
 #include "util/Log.h"
 #include "data_mgr/VolumeMeta.h"
 #include "util/concurrency/ThreadPool.h"
+#include "util/concurrency/Mutex.h"
+
 
 namespace fds {
 
@@ -52,6 +54,7 @@ private:
    * safer.
    */
   std::unordered_map<fds_uint64_t, VolumeMeta*> vol_meta_map;
+  fds_mutex *vol_map_mtx; // To protect access to vol_meta_map.
 
   // static void _open_entry();
 
