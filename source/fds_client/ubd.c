@@ -29,6 +29,11 @@
 
 #define HVISOR_SECTOR_SIZE 512
 #define HVISOR_MAX_RESPONSES_TO_HOLD 8
+#define HVISOR_MAX_REQ_RSP_HOLD_TIME 10000 //usecs
+#define HVISOR_MAX_PENDING_REQ_SEGS 240
+
+int reqs_in_hold = 0;
+
 
 #define DBG(_level, _f, _a...) tlog_write(_level, _f, ##_a)
 #define ERR(_err, _f, _a...) tlog_error(_err, _f, ##_a)
@@ -46,6 +51,7 @@
 #define ASSERT(p) ((void)0)
 #endif 
 
+extern int  runningFlag;
 static int hvisor_create_io_ring(td_vbd_t *vbd, const char *devname);
 
 td_vbd_t*hvisor_vbd_create(uint16_t uuid);
@@ -412,6 +418,7 @@ hvisor_vbd_create(uint16_t uuid)
 
 	pthread_mutex_init(&vbd->vbd_mutex, 0);
 	vbd->num_responses_in_ring = 0;
+	vbd->num_pending_req_segs = 0;
 
 	INIT_LIST_HEAD(&vbd->driver_stack);
 	INIT_LIST_HEAD(&vbd->images);
@@ -484,7 +491,7 @@ static int hvisor_wait_for_events(td_vbd_t *vbd) {
   fd_set read_fds;
 
   tv.tv_sec  = 0;
-  tv.tv_usec = 50000;
+  tv.tv_usec = HVISOR_MAX_REQ_RSP_HOLD_TIME;
 
   FD_ZERO(&read_fds);
   FD_SET(vbd->ring.fd, &read_fds);
@@ -528,7 +535,7 @@ hvisor_vbd_make_response(td_vbd_t *vbd, td_vbd_request_t *vreq)
 	rsp->status = vreq->status;
 
 	printf("writing req %d, sec 0x%08"PRIx64", res %d to ring\n",
-	    (int)tmp.id, tmp.sector_number, vreq->status);
+	       (int)tmp.id, tmp.sector_number, vreq->status);
 
 	if (rsp->status != BLKIF_RSP_OKAY)
 	  printf("returning BLKIF_RSP %d", rsp->status);
@@ -543,6 +550,12 @@ void
 hvisor_complete_vbd_request(td_vbd_t *vbd, td_vbd_request_t *vreq) {
   if (!vreq->submitting && !vreq->secs_pending) {
     hvisor_vbd_make_response(vbd, vreq);
+    vbd->num_responses_in_ring++;
+
+    if ((reqs_in_hold) && (vbd->num_pending_req_segs < HVISOR_MAX_PENDING_REQ_SEGS)) {
+      printf("HVISOR BLKTAP: Issuing new requests will resume (%d)\n", vbd->num_pending_req_segs);
+      reqs_in_hold = 0;
+    }
     list_del(&vreq->next);
     hvisor_vbd_initialize_vreq(vreq);
   }
@@ -559,10 +572,12 @@ hvisor_complete_td_request(void *arg1, void *arg2,
 	td_vbd_t *vbd = (td_vbd_t *)arg1;
 	td_vbd_request_t *vreq = (td_vbd_request_t *)arg2;
 
-	printf("UBD: Recv completion callback with vbd - %p, vreq - %p, fbd_req - %p, res - %d\n",
-	       vbd, vreq, freq, res);
-
 	pthread_mutex_lock(&vbd->vbd_mutex);
+
+	vbd->num_pending_req_segs --;
+
+	printf("UBD: Recv completion callback with vbd - %p, vreq - %p, fbd_req - %p, res - %d, pending_req_segs - %d\n",
+	       vbd, vreq, freq, res, vbd->num_pending_req_segs);
 
         err = (res <= 0 ? res : -res);
         vbd->secs_pending  -= freq->secs;
@@ -579,8 +594,10 @@ hvisor_complete_td_request(void *arg1, void *arg2,
                 }
         }
 	*/
+
+
+
 	hvisor_complete_vbd_request(vbd, vreq);
-	vbd->num_responses_in_ring++;
 
 	if (vbd->num_responses_in_ring >= HVISOR_MAX_RESPONSES_TO_HOLD) {
 	  hvisor_vbd_kick(vbd);
@@ -726,9 +743,13 @@ hvisor_handle_request(td_vbd_t *vbd, td_vbd_request_t *vreq)
 		treq.cb_data        = NULL;
 		treq.private        = vreq;
 
+		pthread_mutex_lock(&vbd->vbd_mutex);
+		vbd->num_pending_req_segs++;
 		printf("%s: Issuing req %d seg %d sec 0x%08"PRIx64" secs 0x%04x "
-		    "buf %p op %d\n", "Hvisor", id, i, treq.sec, treq.secs,
-		    treq.buf, (int)req->operation);
+		    "buf %p op %d num_pending_segs - %d\n", "Hvisor", id, i, treq.sec, treq.secs,
+		       treq.buf, (int)req->operation, vbd->num_pending_req_segs);
+		pthread_mutex_unlock(&vbd->vbd_mutex);
+
 
 		vreq->secs_pending += nsects;
 		vbd->secs_pending  += nsects;
@@ -746,6 +767,7 @@ hvisor_handle_request(td_vbd_t *vbd, td_vbd_request_t *vreq)
 		}
 
 		sector_nr += nsects;
+
 	}
 
 	err = 0;
@@ -771,14 +793,24 @@ hvisor_issue_new_requests(td_vbd_t *vbd)
         td_vbd_request_t *vreq, *tmp;
 
         tapdisk_vbd_for_each_request(vreq, tmp, &vbd->new_requests) {
-                err = hvisor_handle_request(vbd, vreq);
-		list_del(&vreq->next);
-		INIT_LIST_HEAD(&vreq->next);
-                if (err)
-                        return err;
+	  // If we have sent too many outstanding reqs to hvisor,
+	  // We need to throttle back.
+	  pthread_mutex_lock(&vbd->vbd_mutex);
+	  if (vbd->num_pending_req_segs >= HVISOR_MAX_PENDING_REQ_SEGS) {
+	    if (!(reqs_in_hold)) {
+		printf("HVISOR BLKTAP: Too many outstanding requests (%d). Holding from issuing new requests to HVISOR\n", vbd->num_pending_req_segs);
+		reqs_in_hold = 1;
+	      }
+	    pthread_mutex_unlock(&vbd->vbd_mutex);
+	    break;
+	  }
+	  pthread_mutex_unlock(&vbd->vbd_mutex);
+	  err = hvisor_handle_request(vbd, vreq);
+	  list_del(&vreq->next);
+	  INIT_LIST_HEAD(&vreq->next);
+	  if (err)
+	    return err;
         }
-
-	ASSERT(list_empty(&vbd->new_requests));
 
         return 0;
 }
@@ -855,7 +887,7 @@ hvisor_vbd_kick(td_vbd_t *vbd)
 static void
 __hvisor_run(td_vbd_t *vbd)
 {
-  while (1) {
+  while (runningFlag) {
     int ret;
 
     ret = hvisor_wait_for_events(vbd);
