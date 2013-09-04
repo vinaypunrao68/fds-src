@@ -46,6 +46,7 @@
 #define ASSERT(p) ((void)0)
 #endif 
 
+extern int  runningFlag;
 static int hvisor_create_io_ring(td_vbd_t *vbd, const char *devname);
 
 td_vbd_t*hvisor_vbd_create(uint16_t uuid);
@@ -855,7 +856,7 @@ hvisor_vbd_kick(td_vbd_t *vbd)
 static void
 __hvisor_run(td_vbd_t *vbd)
 {
-  while (1) {
+  while (runningFlag) {
     int ret;
 
     ret = hvisor_wait_for_events(vbd);
