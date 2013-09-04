@@ -93,6 +93,7 @@ struct td_vbd_handle {
   int                         minor;
   pthread_mutex_t             vbd_mutex;
   int                         num_responses_in_ring;
+  int                         num_pending_req_segs; // number of outstanding requests sent to hvisor for which we have not received a reply yet.
 
 	struct list_head            driver_stack;
 
