@@ -42,7 +42,7 @@ static void sh_test_w_callback(void *arg1,
    * Copy the write buffer for verification later.
    */
   written_data[w_req->op] = std::string(w_req->buf,
-                                        w_req->sec *
+                                        w_req->secs *
                                         HVISOR_SECTOR_SIZE);
   verified_data[w_req->op] = false;
   map_mtx.unlock();
@@ -76,11 +76,126 @@ static void sh_test_r_callback(void *arg1,
   notifier.notify();
   
   /*
-   * We're not freeing the buffer here. We'll
-   * free it once a read verifies its contents.
+   * We're not freeing the read buffer here. The read
+   * caller owns that buffer and must free it themselves.
    */
-  delete r_req->buf;
   delete r_req;
+}
+
+void sh_test_w(const char *data, fds_uint32_t len, fds_uint32_t offset) {
+  fbd_request_t *w_req;
+  char          *w_buf;
+  
+  /*
+   * Note the buf and request are freed by
+   * the callback handler.
+   */
+  w_req = new fbd_request_t;
+  w_buf = new char[len]();
+
+  /*
+   * TODO: We're currently overloading the
+   * op field to denote which I/O request
+   * this is. The field isn't used, so we can
+   * later remove it and use a better way to
+   * identify the I/O.
+   */
+  w_req->op  = offset;
+  w_req->buf = w_buf;
+
+  memcpy(w_buf, data, len);
+
+  w_req->sec  = offset;
+  w_req->secs = len / HVISOR_SECTOR_SIZE;
+  
+  StorHvisorProcIoWr(NULL,
+                     w_req,
+                     sh_test_w_callback,
+                     NULL,
+                     NULL);
+  
+  /*
+   * Wait until we've finished this write
+   */
+  while (1) {
+    notifier.wait_for_notification();
+    map_mtx.lock();
+    /*
+     * Here we're assuming that the offset
+     * is increasing by 1 each time.
+     */
+    if (written_data.size() == offset + 1) {
+      map_mtx.unlock();
+      break;
+    }
+    map_mtx.unlock();
+  }
+  
+  std::cerr << "Finished write " << offset << std::endl; 
+}
+
+int sh_test_r(char *r_buf, fds_uint32_t len, fds_uint32_t offset) {
+  fbd_request_t *r_req;
+  fds_int32_t    result = 0;
+
+  std::cerr << "Doing read of size " << len << std::endl;
+  
+  /*
+   * Note the buf and request are freed by
+   * the callback handler.
+   */
+  r_req = new fbd_request_t;
+  
+  /*
+   * TODO: We're currently overloading the
+   * op field to denote which I/O request
+   * this is. The field isn't used, so we can
+   * later remove it and use a better way to
+   * identify the I/O.
+   */
+  r_req->op   = offset;
+  r_req->buf  = r_buf;
+
+  /*
+   * Set the offset to be based
+   * on the iteration.
+   */
+  r_req->sec  = offset;
+
+  /*
+   * TODO: Do we need both secs and len? What's
+   * the difference?
+   */
+  r_req->secs = len / HVISOR_SECTOR_SIZE;
+  r_req->len  = len;
+  
+  StorHvisorProcIoRd(NULL,
+                     r_req,
+                     sh_test_r_callback,
+                     NULL,
+                     NULL);
+
+  /*
+   * Wait until we've finished this read
+   */
+  while (1) {
+    notifier.wait_for_notification();
+    map_mtx.lock();
+    /*
+     * Here we're assuming that the offset
+     * is increasing by 1 each time.
+     */
+    if (verified_data[offset] == true) {
+      std::cerr << "Read " << offset << " verified" << std::endl;
+    } else {
+      std::cerr << "Read " << offset << " FAILED verification" << std::endl;
+      result = -1;
+    }
+    map_mtx.unlock();
+    break;
+  }
+
+  return result;
 }
 
 int unitTest() {
@@ -93,7 +208,7 @@ int unitTest() {
   fds_int32_t result = 0;
 
   req_size = 4096;
-  w_count  = 100;
+  w_count  = 5000;
 
   for (fds_uint32_t i = 0; i < w_count; i++) {
     /*
@@ -156,13 +271,14 @@ int unitTest() {
 
   std::cerr << "Finished all " << w_count << " writes" << std::endl;
 
+  r_buf = new char[req_size]();
   for (fds_uint32_t i = 0; i < w_count; i++) {
     /*
      * Note the buf and request are freed by
      * the callback handler.
      */
     r_req = new fbd_request_t;
-    r_buf = new char[req_size]();
+    memset(r_buf, 0x00, req_size);
 
     /*
      * TODO: We're currently overloading the
@@ -213,8 +329,77 @@ int unitTest() {
 
     std::cerr << "Finished read " << i << std::endl;
   }
+  delete r_buf;
   std::cerr << "Finished all " << w_count << " reads" << std::endl;  
   
+  return result;
+}
+
+int unitTestFile(const char *inname, const char *outname) {
+
+  fds_int32_t  result;
+  fds_uint32_t req_count;
+
+  result    = 0;
+  req_count = 0;
+
+  /*
+   * Clear any previous test data.
+   */
+  map_mtx.lock();
+  written_data.clear();
+  verified_data.clear();
+  map_mtx.unlock();
+
+  /*
+   * Setup input file
+   */
+  std::ifstream infile;
+  std::string infilename(inname);
+  char *file_buf;
+  fds_uint32_t buf_len = 4096;
+  file_buf = new char[buf_len]();
+  std::string line;
+  infile.open(infilename, ios::in | ios::binary);
+
+  /*
+   * Read all data from input file
+   * and write to an object.
+   */
+  if (infile.is_open()) {
+    while (infile.read(file_buf, buf_len)) {
+      sh_test_w(file_buf, buf_len, req_count);
+      req_count++;
+    }
+    sh_test_w(file_buf, infile.gcount(), req_count);
+    req_count++;
+
+    infile.close();
+  }
+  
+  /*
+   * Setup output file
+   */
+  std::ofstream outfile;
+  std::string outfilename(outname);
+  outfile.open(outfilename, ios::out | ios::binary);
+
+  /*
+   * Issue read and write buffer out to file.
+   */
+  for (fds_uint32_t i = 0; i < req_count; i++) {
+    memset(file_buf, 0x00, buf_len);
+    result = sh_test_r(file_buf, buf_len, i);
+    if (result != 0) {
+      break;
+    }
+    outfile.write(file_buf, buf_len);
+  }
+
+  outfile.close();
+
+  delete file_buf;
+
   return result;
 }
 

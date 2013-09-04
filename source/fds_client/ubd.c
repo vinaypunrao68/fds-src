@@ -243,6 +243,8 @@ int main(int argc, char *argv[]) {
   int run_test = 0;
   uint32_t dm_port = 0;
   uint32_t sm_port = 0;
+  const char *infile_name = NULL;
+  const char *outfile_name = NULL;
 
   /*
    * Parse command line
@@ -250,10 +252,16 @@ int main(int argc, char *argv[]) {
   for (i = 1; i < argc; i++) {
     if (strncmp(argv[i], "--unit_test", 11) == 0) {
       run_test = 1;
+    } else if (strncmp(argv[i], "--ut_file", 9) == 0) {
+      run_test = 2;
     } else if (strncmp(argv[i], "--sm_port=", 10) == 0) {
       sm_port = atoi(argv[i] + 10);
     } else if (strncmp(argv[i], "--dm_port=", 10) == 0) {
       dm_port = atoi(argv[i] + 10);
+    } else if (strncmp(argv[i], "--infile=", 9) == 0) {
+      infile_name = argv[i] + 9;
+    } else if (strncmp(argv[i], "--outfile=", 10) == 0) {
+      outfile_name = argv[i] + 10;
     }
     /*
      * We pass argc and argv to other functions later
@@ -267,10 +275,17 @@ int main(int argc, char *argv[]) {
    */
   if (run_test == 1) {
     if (sm_port != 0 && dm_port == 0) {
-      printf("Invalid cmdline arg. Both a sm and dm port must be specified");
+      printf("Invalid cmdline arg. Both a sm and dm port must be specified.\n");
       return -1;
     } else if (dm_port != 0 && sm_port == 0) {
-      printf("Invalid cmdline arg. Both a sm and dm port must be specified");
+      printf("Invalid cmdline arg. Both a sm and dm port must be specified.\n");
+      return -1;
+    }
+  }
+  if (run_test == 2) {
+    if ((infile_name == NULL) ||
+        (outfile_name == NULL)) {
+      printf("Invalid cmdline arg. An input and output file must be specified.\n");
       return -1;
     }
   }
@@ -312,7 +327,6 @@ int main(int argc, char *argv[]) {
 #endif
 
 #ifdef HVISOR_USPACE_TEST
-printf("Send the IO \n");
   while(1)
   {
     char *line_ptr = NULL;
@@ -323,6 +337,14 @@ printf("Send the IO \n");
 
     if (run_test == 1) {
       result = unitTest();
+      if (result == 0) {
+        printf("Unit test PASSED\n");
+      } else {
+        printf("Unit test FAILED\n");
+      }
+      return result;
+    } else if (run_test == 2) {
+      result = unitTestFile(infile_name, outfile_name);
       if (result == 0) {
         printf("Unit test PASSED\n");
       } else {

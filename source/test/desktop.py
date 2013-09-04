@@ -11,7 +11,7 @@ import shutil
 import os
 import re
 import pdb
-import junitxml
+#import junitxml
 
 #
 # Components
@@ -39,7 +39,8 @@ prefix_base = "desktop_ut_"
 # Relative to source/test dir
 #
 ice_home = "../lib/Ice-3.5.0"
-ld_path = "../libs"
+#ld_path = "../libs"
+ld_path = "../lib/:../lib/Ice-3.5.0/cpp/lib/:../lib/leveldb-1.12.0/:/usr/local/lib"
 
 class TestSequenceFunctions(unittest.TestCase):
 
@@ -233,16 +234,16 @@ class TestSequenceFunctions(unittest.TestCase):
 
         return status
 
-#    def test_stormgr(self):
-#        test_name = "Storage Manager"
-#        num_instances = 5
-#        print "********** Starting test: %s **********" % (test_name)
-#
-#        status = 0
-#        status = self.run_comp_test(STORMGR, num_instances)
-#        self.assertEqual(status, 0)
-#
-#        print "********** Stopping test: %s **********" % (test_name)
+    def test_stormgr(self):
+        test_name = "Storage Manager"
+        num_instances = 5
+        print "********** Starting test: %s **********" % (test_name)
+
+        status = 0
+        status = self.run_comp_test(STORMGR, num_instances)
+        self.assertEqual(status, 0)
+
+        print "********** Stopping test: %s **********" % (test_name)
 
     def test_datamgr(self):
         test_name = "Data Manager"
@@ -303,16 +304,16 @@ if __name__ == '__main__':
     #parser.add_option("-P", "--path", dest="path",
     #                  default="./", type="string",
     #                  help="path to source tree")
-
     #(options, args) = parser.parse_args()
     #path = options.path
     #print "Using path %s" % (path)
 
     #unittest.main()
-    fp = file('results.xml', 'wb')
-    result = junitxml.JUnitXmlResult(fp)
-    result.startTestRun()
+
+    #fp = file('results.xml', 'wb')
+    #result = junitxml.JUnitXmlResult(fp)
+    #result.startTestRun()
     suite = unittest.TestLoader().loadTestsFromTestCase(TestSequenceFunctions)
-    unittest.TestSuite(suite).run(result)
-    result.stopTestRun()
-#    unittest.TextTestRunner(verbosity=2).run(suite)
+    #unittest.TestSuite(suite).run(result)
+    #result.stopTestRun()
+    unittest.TextTestRunner(verbosity=2).run(suite)
