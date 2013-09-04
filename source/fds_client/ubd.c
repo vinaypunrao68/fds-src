@@ -273,7 +273,7 @@ int main(int argc, char *argv[]) {
    * Check the cmdline args for the test
    * are all there.
    */
-  if (run_test == 1) {
+  if (run_test != 0) {
     if (sm_port != 0 && dm_port == 0) {
       printf("Invalid cmdline arg. Both a sm and dm port must be specified.\n");
       return -1;

@@ -339,6 +339,7 @@ int unitTestFile(const char *inname, const char *outname) {
 
   fds_int32_t  result;
   fds_uint32_t req_count;
+  fds_uint32_t last_write_len;
 
   result    = 0;
   req_count = 0;
@@ -363,6 +364,13 @@ int unitTestFile(const char *inname, const char *outname) {
   infile.open(infilename, ios::in | ios::binary);
 
   /*
+   * TODO: last_write_len is a hack because
+   * the read interface doesn't return how much
+   * data was actually read.
+   */
+  last_write_len = buf_len;
+
+  /*
    * Read all data from input file
    * and write to an object.
    */
@@ -372,9 +380,12 @@ int unitTestFile(const char *inname, const char *outname) {
       req_count++;
     }
     sh_test_w(file_buf, infile.gcount(), req_count);
+    last_write_len = infile.gcount();
     req_count++;
 
     infile.close();
+  } else {
+    return -1;
   }
   
   /*
@@ -389,6 +400,14 @@ int unitTestFile(const char *inname, const char *outname) {
    */
   for (fds_uint32_t i = 0; i < req_count; i++) {
     memset(file_buf, 0x00, buf_len);
+    /*
+     * TODO: Currently we alway read 4K, even if
+     * the buffer is less than that. Eventually,
+     * the read should tell us how much was read.
+     */
+    if (i == (req_count - 1)) {
+      buf_len = last_write_len;
+    }
     result = sh_test_r(file_buf, buf_len, i);
     if (result != 0) {
       break;
