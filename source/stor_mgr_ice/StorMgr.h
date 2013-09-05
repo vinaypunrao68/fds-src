@@ -69,6 +69,7 @@ private :
 
    fds_sm_err_t getObjectInternal(FDSP_GetObjTypePtr get_obj_req, 
                        		  fds_uint32_t volid, 
+                       		  fds_uint32_t transid, 
                        		  fds_uint32_t num_objs);
    fds_sm_err_t putObjectInternal(FDSP_PutObjTypePtr put_obj_req, 
                           	  fds_uint32_t volid, 
