@@ -1,3 +1,4 @@
+#include <cstdarg>
 #include <Ice/Ice.h>
 #include <FDSP.h>
 #include <ObjectFactory.h>
@@ -623,5 +624,21 @@ void *hvisor_lib_init(void)
         return (fbd_dev);
         // return (void *)err;
 }
+
 END_C_DECLS
 
+
+BEGIN_C_DECLS
+void cppOut( char *format, ... ) {
+  va_list argptr;             
+ 
+  va_start( argptr, format );          
+  if( *format != '\0' ) {
+   	if( *format == 's' ) {
+       		char* s = va_arg( argptr, char * );
+       		FDS_PLOG(storHvisor->GetLog()) << s;
+    	}
+  }
+  va_end( argptr);
+}
+END_C_DECLS
