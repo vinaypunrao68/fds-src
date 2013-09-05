@@ -205,7 +205,7 @@ class VccUnitTest {
       threads.push_back(start_clear_thread(i, &vcc, vol_uuid));
     }
 
-    for (fds_uint32_t i = 0; i < num_threads; i++) {
+    for (fds_uint32_t i = 0; i < threads.size(); i++) {
       threads[i]->join();
     }
 

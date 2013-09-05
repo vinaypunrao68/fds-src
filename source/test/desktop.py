@@ -268,7 +268,7 @@ class TestSequenceFunctions(unittest.TestCase):
         print "********** Starting test: %s **********" % (test_name)
 
         status = 0
-        #status = self.run_comp_test(VCC, num_instances)
+        status = self.run_comp_test(VCC, num_instances)
         self.assertEqual(status, 0)
 
         print "********** Stopping test: %s **********" % (test_name)
