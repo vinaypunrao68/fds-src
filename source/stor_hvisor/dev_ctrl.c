@@ -228,16 +228,18 @@ blktap_device_run_queue(struct request_queue *q)
 //	printk("Dequeueing requests from queue %p\n", q);
 
 	spin_lock_irq(q->queue_lock);
-	
-	while ((req = blk_fetch_request(q)) != NULL) {
+	queue_flag_clear(QUEUE_FLAG_STOPPED, q);
 
-//		printk( "%s: request %p: dequeued (flags=%x)\n",
-//				req->rq_disk->disk_name, req, req->cmd_type);
+	do {
+
+	        req = __blktap_next_queued_rq(q);
+		if (!req)
+		  break;
 
 		fbd = req->rq_disk->private_data;
 		if (req->cmd_type != REQ_TYPE_FS) {
 			printk (KERN_NOTICE " Non valid  command request is skipped \n");
-			if(req)
+			__blktap_dequeue_rq(req);
 			__blk_end_request_all(req, 0);
 			continue;
 		}
@@ -245,21 +247,21 @@ blktap_device_run_queue(struct request_queue *q)
 		if (fbd->filp == NULL)
 		{
 			printk (KERN_NOTICE "Error:  Ring is not open yet \n");
-			if(req)
+			__blktap_dequeue_rq(req);
 			__blk_end_request_all(req, 0);
 			continue;
 		}
 
 
 		if ((rq_data_dir(req) == WRITE) &&  (fbd->flags & FBD_READ_ONLY))
-		 {
-			printk("Error: writting read only disk \n");
-			if(req)
+		  {
+			printk("Error: writing to read only disk \n");
+			__blktap_dequeue_rq(req);
 			__blk_end_request_all(req, -EROFS);
 			continue;
-         }
+		  }
 
-		 spin_unlock_irq(q->queue_lock);
+		spin_unlock_irq(q->queue_lock);
 
 		/*
 		 * queue  the packets to the  waiting queue 		
@@ -269,18 +271,26 @@ blktap_device_run_queue(struct request_queue *q)
 		/* we can  maintain per dev queue  for high performance and consistency  */
 printk(" device make request fbd: %p  flip:%p \n ", fbd,fbd->filp);
 		err = blktap_device_make_request(fbd, req, fbd->filp);
+		spin_unlock_irq(&fbd->queue_lock);
+
+		spin_lock_irq(q->queue_lock);
+		  
+		if (err == -EBUSY) {
+		  blk_stop_queue(q);
+		  break;
+		}
+
+		__blktap_dequeue_rq(req);
+		
 		if (err)
 		{
 			 printk(" Ending the request \n");
 			__blk_end_request_all(req, 0);
 		}
-	//	__blk_end_request_all(req, 0); /* for testing only */ 
-        spin_unlock_irq(&fbd->queue_lock);
 
-        wake_up(&fbd->waiting_wq);
-		spin_lock_irq(q->queue_lock);
+		wake_up(&fbd->waiting_wq);
 
-	}
+	} while (1);
 
 	spin_unlock_irq(q->queue_lock);
 
