@@ -38,7 +38,7 @@ enum FDS_IO_Type {
 
 #define  FDS_MAX_DM_NODES_PER_CLST      16
 #define  FDS_MAX_SM_NODES_PER_CLST      16
-#define  FDS_READ_WRITE_LOG_ENTRIES 	256
+#define  FDS_READ_WRITE_LOG_ENTRIES 	10*1024
 
 typedef void (*complete_req_cb_t)(void *arg1, void *arg2, fbd_request_t *treq, int res);
 

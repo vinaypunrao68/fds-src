@@ -12,6 +12,13 @@ import os
 import re
 import pdb
 import sys
+import hashlib
+
+#
+# Defaults
+#
+cwd = "./"
+prefix_base = "desktop_ut_"
 
 #
 # Components
@@ -30,12 +37,6 @@ ut_map = {STORMGR:"sm_unit_test", DATAMGR:"dm_unit_test", STORHVI:"hvisor_uspace
 port_map = {STORMGR:10000, DATAMGR:11000, VCC:11000}
 
 #
-# Defaults
-#
-cwd = "./"
-prefix_base = "desktop_ut_"
-
-#
 # Relative to source/test dir
 #
 ice_home = "../lib/Ice-3.5.0"
@@ -43,13 +44,16 @@ ld_path = "../lib/:../lib/Ice-3.5.0/cpp/lib/:../lib/leveldb-1.12.0/:/usr/local/l
 
 class TestSequenceFunctions(unittest.TestCase):
 
-    def cleanupFiles(self, comp):
+    def cleanupFiles(self, comp=None):
         #
         # Descend in the component's directory
         #
         pwd = os.getcwd()
-        comp_dir = dir_map[comp]
-        os.chdir(comp_dir)
+        if comp == None:
+            comp_dir = cwd
+        else:
+            comp_dir = dir_map[comp]
+            os.chdir(comp_dir)
         
         #
         # Remove all local files with this prefix
@@ -88,6 +92,7 @@ class TestSequenceFunctions(unittest.TestCase):
         # All files should start with
         # the prefix base.
         #
+        self.cleanupFiles()
         for comp in components:
             self.cleanupFiles(comp)
                     
@@ -233,8 +238,6 @@ class TestSequenceFunctions(unittest.TestCase):
 
         return status
     
-    @unittest.skipIf(len(sys.argv) > 1 and sys.argv[1] == "--jenkins",
-                     "not supported when running on through jenkins")
     def test_stormgr(self):
         test_name = "Storage Manager"
         num_instances = 5
@@ -251,6 +254,7 @@ class TestSequenceFunctions(unittest.TestCase):
         num_instances = 5
         print "********** Starting test: %s **********" % (test_name)
             
+        status = 0
         status = self.run_comp_test(DATAMGR, num_instances)
         self.assertEqual(status, 0)
             
@@ -261,6 +265,7 @@ class TestSequenceFunctions(unittest.TestCase):
         num_instances = 5
         print "********** Starting test: %s **********" % (test_name)
 
+        status = 0
         status = self.run_comp_test(VCC, num_instances)
         self.assertEqual(status, 0)
 
@@ -295,6 +300,78 @@ class TestSequenceFunctions(unittest.TestCase):
         #
         self.stop_server(sm_serv)
         self.stop_server(dm_serv)
+
+        self.assertEqual(status, 0)
+
+        print "********** Stopping test: %s **********" % (test_name)
+
+    def test_file_cp(self):
+        test_name = "File Copy"
+        status = 0
+        num_instances = 1
+        org_file = dir_map[STORMGR] + "/" + bin_map[STORMGR]
+        tmp_file = prefix_base + "tmp_file.in"
+        out_file = prefix_base + "tmp_file.out"
+        print "********** Starting test: %s **********" % (test_name)
+
+        #
+        # Copy a local file to a temp file so that we don't
+        # screw up the original copy then read the temp file.
+        #
+        shutil.copy2(org_file, tmp_file)
+        fd = open(tmp_file, 'r')
+        file_data = fd.read()
+        fd.close()
+
+        #
+        # Calc tmp file's hash
+        #
+        sha = hashlib.sha1()
+        sha.update(file_data)
+        tmp_digest = sha.hexdigest()
+
+        #
+        # Start SM
+        #
+        sm_serv = self.start_server(STORMGR, num_instances)
+
+        #
+        # Start DM
+        #
+        dm_serv = self.start_server(DATAMGR, num_instances)
+
+        #
+        # Start SH unit test
+        #
+        sm_port = port_map[STORMGR] + num_instances
+        dm_port = port_map[DATAMGR] + num_instances
+        args = " --ut_file --infile=%s --outfile=%s --sm_port=%d --dm_port=%d" % ("../" + tmp_file, "../" + out_file, sm_port, dm_port)
+        status = self.start_ut(STORHVI, num_instances, args)        
+
+        #
+        # Kill the SM server
+        #
+        self.stop_server(sm_serv)
+        self.stop_server(dm_serv)
+
+        #
+        # Read output file's contents
+        #
+        fd = open(out_file, 'r')
+        out_data = fd.read()
+        fd.close()
+
+        #
+        # Calc output file's hash
+        #
+        sha = hashlib.sha1()
+        sha.update(out_data)
+        out_digest = sha.hexdigest()
+        print "Input file digest %s" % (tmp_digest)
+        print "Output file digest %s" % (out_digest)
+
+        if tmp_digest != out_digest:
+            status = -1;
 
         self.assertEqual(status, 0)
 

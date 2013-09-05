@@ -26,127 +26,130 @@ extern struct fbd_device *fbd_dev;
 BEGIN_C_DECLS
 int StorHvisorProcIoRd(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp_req, void *arg1, void *arg2)
 {
-    struct fbd_device *fbd;
-    FDS_RPC_EndPoint *endPoint = NULL; 
-    unsigned int node_ip = 0;
-	unsigned int doid_dlt_key=0;
-    int num_nodes=8;
-    int node_ids[8];
-    int node_state = -1;
-    fds::Error err(ERR_OK);
-    ObjectID oid;
 
-	unsigned int      trans_id = 0;
-	fds_uint64_t data_offset  = req->sec * HVISOR_SECTOR_SIZE;
-	fbd = fbd_dev;
+  struct fbd_device *fbd;
+  FDS_RPC_EndPoint *endPoint = NULL; 
+  unsigned int node_ip = 0;
+  unsigned int doid_dlt_key=0;
+  int num_nodes = 8;
+  int node_ids[8];
+  int node_state = -1;
+  fds::Error err(ERR_OK);
+  ObjectID oid;
+  fds_uint32_t vol_id;
 
+  unsigned int      trans_id = 0;
+  fds_uint64_t data_offset  = req->sec * HVISOR_SECTOR_SIZE;
+  fbd = fbd_dev;
+  vol_id = 1;  /* TODO: Derive vol_id from somewhere. NOT fbd! */
 
-	/* Check if there is an outstanding transaction for this block offset  */
-	trans_id = storHvisor->journalTbl->get_trans_id_for_block(data_offset);
-	StorHvJournalEntry *journEntry = storHvisor->journalTbl->get_journal_entry(trans_id);
-
-	StorHvJournalEntryLock je_lock(journEntry);
-
-	if (journEntry->isActive()) {
-	  FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << fbd->vol_id << " - Transaction  is already in ACTIVE state ";
-	  // There is an ongoing transaciton for this offset.
-	  // We should queue this up for later processing once that completes.
-
-	  // For now, return an error.
-	  return (-1); // je_lock destructor will unlock the journal entry
-	}
-
-	journEntry->setActive();
-
-	FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr = new FDSP_MsgHdrType;
-	FDS_ProtocolInterface::FDSP_GetObjTypePtr get_obj_req = new FDSP_GetObjType;
-
-	storHvisor->InitSmMsgHdr(fdsp_msg_hdr);
-	fdsp_msg_hdr->msg_code = FDSP_MSG_GET_OBJ_REQ;
-	fdsp_msg_hdr->msg_id =  1;
-
-
-	journEntry->trans_state = FDS_TRANS_OPEN;
-	journEntry->fbd_ptr = (void *)fbd;
-	journEntry->write_ctx = (void *)req;
-	journEntry->comp_req = comp_req;
-	journEntry->comp_arg1 = arg1; // vbd
-	journEntry->comp_arg2 = arg2; //vreq
-	journEntry->sm_msg = fdsp_msg_hdr; 
-	journEntry->dm_msg = NULL;
-	journEntry->sm_ack_cnt = 0;
-	journEntry->dm_ack_cnt = 0;
-    journEntry->op = FDS_IO_READ;
-    journEntry->data_obj_id.hash_high = 0;
-    journEntry->data_obj_id.hash_low = 0;
-    journEntry->data_obj_len = req->len;
-
-	fdsp_msg_hdr->req_cookie = trans_id;
-
-    err  = storHvisor->volCatalogCache->Query((fds_uint64_t)fbd->vol_id, data_offset, trans_id, &oid); 
-    if (err.GetErrno() == ERR_PENDING_RESP) {
-	 FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << fbd->vol_id << " - Vol catalog Cache Query pending :" << err.GetErrno() << req;
-            journEntry->trans_state = FDS_TRANS_VCAT_QUERY_PENDING;
-            return 0;
-    }
-
-	if (err.GetErrno() == ERR_CAT_QUERY_FAILED)
-	{
-	    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << fbd->vol_id << " - Error reading the Vol catalog  Error code : " <<  err.GetErrno() << req;
-	    return err.GetErrno();
-	}
-
-	FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << fbd->vol_id << " - object ID: " << oid.GetHigh() <<  ":" << oid.GetLow()									 << "  ObjLen:" << journEntry->data_obj_len;
-
-        // We have a Cache HIT *$###
-        //
-        uint64_t doid_dlt = oid.GetHigh();
-        doid_dlt_key = (doid_dlt >> 56);
-
-	    fdsp_msg_hdr->glob_volume_id = fbd->vol_id;;
-        fdsp_msg_hdr->req_cookie = trans_id;
-	    fdsp_msg_hdr->msg_code = FDSP_MSG_GET_OBJ_REQ;
-        fdsp_msg_hdr->msg_id =  1;
-	    fdsp_msg_hdr->src_ip_lo_addr = SRC_IP;
-        get_obj_req->data_obj_id.hash_high = oid.GetHigh();
-        get_obj_req->data_obj_id.hash_low = oid.GetLow();
-        get_obj_req->data_obj_len = req->len;
-
-    	journEntry->op = FDS_IO_READ;
-    	journEntry->data_obj_id.hash_high = oid.GetHigh();;
-    	journEntry->data_obj_id.hash_low = oid.GetLow();;
-
-        // Lookup the Primary SM node-id/ip-address to send the GetObject to
-        storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(doid_dlt_key, node_ids, &num_nodes);
-        if(num_nodes == 0) {
-  			FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << fbd->vol_id << " -  DLT Nodes  NOT  confiigured. Check on OM Manager";
-          return -1;
-        }
-        storHvisor->dataPlacementTbl->getNodeInfo(node_ids[0], &node_ip, &node_state);
-
-	    fdsp_msg_hdr->dst_ip_lo_addr = node_ip;
-
-        // *****CAVEAT: Modification reqd
-        // ******  Need to find out which is the primary SM and send this out to that SM. ********
-        storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip, FDSP_STOR_MGR, &endPoint);
-
-        // RPC Call GetObject to StorMgr
-         journEntry->trans_state = FDS_TRANS_GET_OBJ;
-         if (endPoint)
-		 { 
-       	   endPoint->fdspDPAPI->begin_GetObject(fdsp_msg_hdr, get_obj_req);
-	       FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << fbd->vol_id << " - Sent async GetObj req to SM";
-         }
-
-	 // Schedule a timer here to track the responses and the original request
-
-	 return 0; // je_lock destructor will unlock the journal entry
+  /* Check if there is an outstanding transaction for this block offset  */
+  trans_id = storHvisor->journalTbl->get_trans_id_for_block(data_offset);
+  StorHvJournalEntry *journEntry = storHvisor->journalTbl->get_journal_entry(trans_id);
+  
+  StorHvJournalEntryLock je_lock(journEntry);
+  
+  if (journEntry->isActive()) {
+    FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " - Transaction  is already in ACTIVE state ";
+    // There is an ongoing transaciton for this offset.
+    // We should queue this up for later processing once that completes.
+    
+    // For now, return an error.
+    return (-1); // je_lock destructor will unlock the journal entry
+  }
+  
+  journEntry->setActive();
+  
+  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr = new FDSP_MsgHdrType;
+  FDS_ProtocolInterface::FDSP_GetObjTypePtr get_obj_req = new FDSP_GetObjType;
+  
+  storHvisor->InitSmMsgHdr(fdsp_msg_hdr);
+  fdsp_msg_hdr->msg_code = FDSP_MSG_GET_OBJ_REQ;
+  fdsp_msg_hdr->msg_id =  1;
+  
+  
+  journEntry->trans_state = FDS_TRANS_OPEN;
+  journEntry->fbd_ptr = (void *)fbd;
+  journEntry->write_ctx = (void *)req;
+  journEntry->comp_req = comp_req;
+  journEntry->comp_arg1 = arg1; // vbd
+  journEntry->comp_arg2 = arg2; //vreq
+  journEntry->sm_msg = fdsp_msg_hdr; 
+  journEntry->dm_msg = NULL;
+  journEntry->sm_ack_cnt = 0;
+  journEntry->dm_ack_cnt = 0;
+  journEntry->op = FDS_IO_READ;
+  journEntry->data_obj_id.hash_high = 0;
+  journEntry->data_obj_id.hash_low = 0;
+  journEntry->data_obj_len = req->len;
+  
+  fdsp_msg_hdr->req_cookie = trans_id;
+  
+  err  = storHvisor->volCatalogCache->Query((fds_uint64_t)vol_id, data_offset, trans_id, &oid); 
+  if (err.GetErrno() == ERR_PENDING_RESP) {
+    FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Vol catalog Cache Query pending :" << err.GetErrno() << req;
+    journEntry->trans_state = FDS_TRANS_VCAT_QUERY_PENDING;
+    return 0;
+  }
+  
+  if (err.GetErrno() == ERR_CAT_QUERY_FAILED)
+  {
+    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Error reading the Vol catalog  Error code : " <<  err.GetErrno() << req;
+    return err.GetErrno();
+  }
+  
+  FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - object ID: " << oid.GetHigh() <<  ":" << oid.GetLow()									 << "  ObjLen:" << journEntry->data_obj_len;
+  
+  // We have a Cache HIT *$###
+  //
+  uint64_t doid_dlt = oid.GetHigh();
+  doid_dlt_key = (doid_dlt >> 56);
+  
+  fdsp_msg_hdr->glob_volume_id = vol_id;;
+  fdsp_msg_hdr->req_cookie = trans_id;
+  fdsp_msg_hdr->msg_code = FDSP_MSG_GET_OBJ_REQ;
+  fdsp_msg_hdr->msg_id =  1;
+  fdsp_msg_hdr->src_ip_lo_addr = SRC_IP;
+  get_obj_req->data_obj_id.hash_high = oid.GetHigh();
+  get_obj_req->data_obj_id.hash_low = oid.GetLow();
+  get_obj_req->data_obj_len = req->len;
+  
+  journEntry->op = FDS_IO_READ;
+  journEntry->data_obj_id.hash_high = oid.GetHigh();;
+  journEntry->data_obj_id.hash_low = oid.GetLow();;
+  
+  // Lookup the Primary SM node-id/ip-address to send the GetObject to
+  storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(doid_dlt_key, node_ids, &num_nodes);
+  if(num_nodes == 0) {
+    FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " -  DLT Nodes  NOT  confiigured. Check on OM Manager";
+    return -1;
+  }
+  storHvisor->dataPlacementTbl->getNodeInfo(node_ids[0], &node_ip, &node_state);
+  
+  fdsp_msg_hdr->dst_ip_lo_addr = node_ip;
+  
+  // *****CAVEAT: Modification reqd
+  // ******  Need to find out which is the primary SM and send this out to that SM. ********
+  storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip, FDSP_STOR_MGR, &endPoint);
+  
+  // RPC Call GetObject to StorMgr
+  journEntry->trans_state = FDS_TRANS_GET_OBJ;
+  if (endPoint)
+  { 
+    endPoint->fdspDPAPI->begin_GetObject(fdsp_msg_hdr, get_obj_req);
+    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Sent async GetObj req to SM";
+  }
+  
+  // Schedule a timer here to track the responses and the original request
+  
+  return 0; // je_lock destructor will unlock the journal entry
 }
 
 int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp_req, void *arg1, void *arg2)
 {
   int   trans_id, i=0;
-  int   data_size    = req->secs * HVISOR_SECTOR_SIZE;
+  // int   data_size    = req->secs * HVISOR_SECTOR_SIZE;
+  int   data_size    = req->len;
   double data_offset  = req->sec * (uint64_t)HVISOR_SECTOR_SIZE;
   char *tmpbuf = (char*)req->buf;
   ObjectID  objID;
@@ -171,13 +174,13 @@ int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
   //  *** Get a new Journal Entry in xaction-log journalTbl
   trans_id = storHvisor->journalTbl->get_trans_id_for_block(data_offset);
   StorHvJournalEntry *journEntry = storHvisor->journalTbl->get_journal_entry(trans_id);
-  FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << fbd->vol_id << " - TXN_STATUS_OPEN ";
+  FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - TXN_STATUS_OPEN ";
   
   StorHvJournalEntryLock je_lock(journEntry);
   
   
   if (journEntry->isActive()) {
-	  FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << fbd->vol_id << " - Transaction  is already in ACTIVE state ";
+	  FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Transaction  is already in ACTIVE state ";
     // There is an on-going transaction for this offset.
     // Queue this up for later processing.
     
@@ -208,7 +211,7 @@ int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
   
   doid_dlt_key = objID.GetHigh() >> 56;
   
-  FDS_PLOG(storHvisor->GetLog())<< " StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << fbd->vol_id << " - Object ID:"<< objID.GetHigh()<< ":" << objID.GetLow() \
+  FDS_PLOG(storHvisor->GetLog())<< " StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Object ID:"<< objID.GetHigh()<< ":" << objID.GetLow() \
                                  << "  ObjLen:" << put_obj_req->data_obj_len << "  volID:" << fdsp_msg_hdr->glob_volume_id;
   
   // *** Initialize the journEntry with a open txn
@@ -258,7 +261,7 @@ int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
     storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip, FDSP_STOR_MGR, &endPoint);
     if (endPoint) { 
       endPoint->fdspDPAPI->begin_PutObject(fdsp_msg_hdr, put_obj_req);
-      FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << fbd->vol_id << " -  Sent async PUT_OBJ_REQ request to SM at " <<  node_ip;
+      FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " -  Sent async PUT_OBJ_REQ request to SM at " <<  node_ip;
     }
   }
   
@@ -271,13 +274,11 @@ int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
   fdsp_msg_hdr_dm->req_cookie = trans_id;
   fdsp_msg_hdr_dm->src_ip_lo_addr = SRC_IP;
   
-  // storHvisor->dataPlacementTbl->getDMTNodesForVolume(fbd_dev->vol_id, node_ids, &num_nodes);
   storHvisor->dataPlacementTbl->getDMTNodesForVolume(vol_id, node_ids, &num_nodes);
   
   for (i = 0; i < num_nodes; i++) {
     node_ip = 0;
     node_state = -1;
-    //storHvisor->dataPlacementTbl->omClient->getNodeInfo(node_ids[i], &node_ip, &node_state);
     storHvisor->dataPlacementTbl->getNodeInfo(node_ids[i], &node_ip, &node_state);
     
     journEntry->dm_ack[i].ipAddr = node_ip;
@@ -290,7 +291,7 @@ int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
     storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip, FDSP_DATA_MGR, &endPoint);
     if (endPoint){
       endPoint->fdspDPAPI->begin_UpdateCatalogObject(fdsp_msg_hdr_dm, upd_obj_req);
-      FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << fbd->vol_id << " - Sent async UPDATE_CAT_OBJ_REQ request to DM at " <<  node_ip;
+      FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Sent async UPDATE_CAT_OBJ_REQ request to DM at " <<  node_ip;
     }
   }
   

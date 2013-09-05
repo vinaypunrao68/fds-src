@@ -249,6 +249,7 @@ int main(int argc, char *argv[]) {
   int run_test = 0;
   uint32_t dm_port = 0;
   uint32_t sm_port = 0;
+  uint32_t ut_mins = 0;
   const char *infile_name = NULL;
   const char *outfile_name = NULL;
 
@@ -268,6 +269,8 @@ int main(int argc, char *argv[]) {
       infile_name = argv[i] + 9;
     } else if (strncmp(argv[i], "--outfile=", 10) == 0) {
       outfile_name = argv[i] + 10;
+    } else if (strncmp(argv[i], "--minutes=", 10) == 0) {
+      ut_mins = atoi(argv[i] + 10);
     }
     /*
      * We pass argc and argv to other functions later
@@ -294,6 +297,11 @@ int main(int argc, char *argv[]) {
       printf("Invalid cmdline arg. An input and output file must be specified.\n");
       return -1;
     }
+  }
+  if ((ut_mins != 0) &&
+      (run_test == 0)) {
+    printf("Invalid cmdline arg. Minutes is only valid with unit test.\n");
+    return -1;
   }
 
 #ifndef HVISOR_USPACE_TEST
@@ -342,7 +350,7 @@ int main(int argc, char *argv[]) {
     int result = 0;
 
     if (run_test == 1) {
-      result = unitTest();
+      result = unitTest(ut_mins);
       if (result == 0) {
         printf("Unit test PASSED\n");
       } else {
@@ -939,6 +947,7 @@ int send_test_io(int offset)
         p_new_treq->buf = buf;;
         p_new_treq->sec = offset/HVISOR_SECTOR_SIZE;
         p_new_treq->secs = 8;
+        p_new_treq->len = len;
         StorHvisorProcIoWr(hvisor_hdl, p_new_treq, hvisor_complete_td_request_noop,NULL,NULL);
     	return 0;
 
