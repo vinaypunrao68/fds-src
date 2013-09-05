@@ -36,15 +36,12 @@ static void sh_test_w_callback(void *arg1,
                                void *arg2,
                                fbd_request_t *w_req,
                                int res) {
-  std::cerr << "SH test received write callback" << std::endl;
-
   map_mtx.lock();
   /*
    * Copy the write buffer for verification later.
    */
   written_data[w_req->op] = std::string(w_req->buf,
-                                        w_req->secs *
-                                        HVISOR_SECTOR_SIZE);
+                                        w_req->len);
   verified_data[w_req->op] = false;
   map_mtx.unlock();
 
@@ -58,19 +55,19 @@ static void sh_test_r_callback(void *arg1,
                                void *arg2,
                                fbd_request_t *r_req,
                                int res) {
-  std::cerr << "SH test received read callback" << std::endl;
-
   /*
    * Verify the read's contents.
-   */
-  
+   */  
   map_mtx.lock();
   if (written_data[r_req->op].compare(0,
-                                      r_req->len,
-                                      r_req->buf)) {
+                                      string::npos,
+                                      r_req->buf,
+                                      r_req->len) == 0) {
     verified_data[r_req->op] = true;
   } else {
     verified_data[r_req->op] = false;
+    FDS_PLOG(storHvisor->GetLog()) << "FAILED verification of SH test read "
+                                   << r_req->op;
   }
   map_mtx.unlock();
 
@@ -108,6 +105,7 @@ void sh_test_w(const char *data, fds_uint32_t len, fds_uint32_t offset) {
 
   w_req->sec  = offset;
   w_req->secs = len / HVISOR_SECTOR_SIZE;
+  w_req->len  = len;
   
   StorHvisorProcIoWr(NULL,
                      w_req,
@@ -131,16 +129,14 @@ void sh_test_w(const char *data, fds_uint32_t len, fds_uint32_t offset) {
     }
     map_mtx.unlock();
   }
-  
-  std::cerr << "Finished write " << offset << std::endl; 
+
+  FDS_PLOG(storHvisor->GetLog()) << "Finished SH test write " << offset;
 }
 
 int sh_test_r(char *r_buf, fds_uint32_t len, fds_uint32_t offset) {
   fbd_request_t *r_req;
   fds_int32_t    result = 0;
 
-  std::cerr << "Doing read of size " << len << std::endl;
-  
   /*
    * Note the buf and request are freed by
    * the callback handler.
@@ -187,9 +183,11 @@ int sh_test_r(char *r_buf, fds_uint32_t len, fds_uint32_t offset) {
      * is increasing by 1 each time.
      */
     if (verified_data[offset] == true) {
-      std::cerr << "Read " << offset << " verified" << std::endl;
+      FDS_PLOG(storHvisor->GetLog()) << "Verified SH test read "
+                                     << offset;
     } else {
-      std::cerr << "Read " << offset << " FAILED verification" << std::endl;
+      FDS_PLOG(storHvisor->GetLog()) << "FAILED verification of SH test read "
+                                     << offset;
       result = -1;
     }
     map_mtx.unlock();
@@ -248,6 +246,7 @@ int unitTest() {
      */
     w_req->sec  = i;
     w_req->secs = req_size / HVISOR_SECTOR_SIZE;
+    w_req->len  = req_size;
     
     StorHvisorProcIoWr(NULL,
                        w_req,
@@ -267,10 +266,10 @@ int unitTest() {
       }
       map_mtx.unlock();
     }
-    std::cerr << "Finished write " << i << std::endl;
+    FDS_PLOG(storHvisor->GetLog()) << "Finished SH test write " << i;
   }
-
-  std::cerr << "Finished all " << w_count << " writes" << std::endl;
+  FDS_PLOG(storHvisor->GetLog()) << "Finished all " << w_count
+                                 << " test writes";
 
   r_buf = new char[req_size]();
   for (fds_uint32_t i = 0; i < w_count; i++) {
@@ -315,9 +314,11 @@ int unitTest() {
       notifier.wait_for_notification();
       map_mtx.lock();
       if (verified_data[i] == true) {
-        std::cerr << "Read " << i << " verified" << std::endl;
+        FDS_PLOG(storHvisor->GetLog()) << "Verified SH test read "
+                                       << i;
       } else {
-        std::cerr << "Read " << i << " FAILED verification" << std::endl;
+        FDS_PLOG(storHvisor->GetLog()) << "FAILED verification of SH test read "
+                                       << i;
         result = -1;
       }
       map_mtx.unlock();
@@ -327,12 +328,10 @@ int unitTest() {
     if (result != 0) {
       break;
     }
-
-    std::cerr << "Finished read " << i << std::endl;
   }
+  FDS_PLOG(storHvisor->GetLog()) << "Finished all " << w_count
+                                 << " reads";  
   delete r_buf;
-  std::cerr << "Finished all " << w_count << " reads" << std::endl;  
-  
   return result;
 }
 

@@ -939,6 +939,7 @@ int send_test_io(int offset)
         p_new_treq->buf = buf;;
         p_new_treq->sec = offset/HVISOR_SECTOR_SIZE;
         p_new_treq->secs = 8;
+        p_new_treq->len = len;
         StorHvisorProcIoWr(hvisor_hdl, p_new_treq, hvisor_complete_td_request_noop,NULL,NULL);
     	return 0;
 
