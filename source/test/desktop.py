@@ -238,8 +238,6 @@ class TestSequenceFunctions(unittest.TestCase):
 
         return status
     
-    @unittest.skipIf(len(sys.argv) > 1 and sys.argv[1] == "--jenkins",
-                     "not supported when running on through jenkins")
     def test_stormgr(self):
         test_name = "Storage Manager"
         num_instances = 5
