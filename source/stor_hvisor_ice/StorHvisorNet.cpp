@@ -51,6 +51,20 @@ static void sh_test_w_callback(void *arg1,
   delete w_req;
 }
 
+static void sh_test_nv_callback(void *arg1,
+                                void *arg2,
+                                fbd_request_t *w_req,
+                                int res) {
+  /*
+   * Don't cache the write contents. Just
+   * notify that the write is complete.
+   */
+  notifier.notify();
+  
+  delete w_req->buf;
+  delete w_req;
+}
+
 static void sh_test_r_callback(void *arg1,
                                void *arg2,
                                fbd_request_t *r_req,
@@ -80,7 +94,10 @@ static void sh_test_r_callback(void *arg1,
   delete r_req;
 }
 
-void sh_test_w(const char *data, fds_uint32_t len, fds_uint32_t offset) {
+void sh_test_w(const char *data,
+               fds_uint32_t len,
+               fds_uint32_t offset,
+               fds_bool_t w_verify) {
   fbd_request_t *w_req;
   char          *w_buf;
   
@@ -107,27 +124,39 @@ void sh_test_w(const char *data, fds_uint32_t len, fds_uint32_t offset) {
   w_req->secs = len / HVISOR_SECTOR_SIZE;
   w_req->len  = len;
   
-  StorHvisorProcIoWr(NULL,
-                     w_req,
-                     sh_test_w_callback,
-                     NULL,
-                     NULL);
+  if (w_verify == true) {
+    StorHvisorProcIoWr(NULL,
+                       w_req,
+                       sh_test_w_callback,
+                       NULL,
+                       NULL);
+  } else {
+    StorHvisorProcIoWr(NULL,
+                       w_req,
+                       sh_test_nv_callback,
+                       NULL,
+                       NULL);
+  }
   
   /*
    * Wait until we've finished this write
    */
   while (1) {
     notifier.wait_for_notification();
-    map_mtx.lock();
-    /*
-     * Here we're assuming that the offset
-     * is increasing by 1 each time.
-     */
-    if (written_data.size() == offset + 1) {
+    if (w_verify == true) {
+      map_mtx.lock();
+      /*
+       * Here we're assuming that the offset
+       * is increasing by 1 each time.
+       */
+      if (written_data.size() == offset + 1) {
+        map_mtx.unlock();
+        break;
+      }
       map_mtx.unlock();
+    } else {
       break;
     }
-    map_mtx.unlock();
   }
 
   FDS_PLOG(storHvisor->GetLog()) << "Finished SH test write " << offset;
@@ -245,7 +274,11 @@ int unitTest(fds_uint32_t time_mins) {
         memset(w_buf, 0xfeed, req_size);
       }
 
-      sh_test_w(w_buf, req_size, w_count);
+      /*
+       * Write the data without caching the contents
+       * for later verification.
+       */
+      sh_test_w(w_buf, req_size, w_count, false);
       w_count++;
     }
     
@@ -271,7 +304,7 @@ int unitTest(fds_uint32_t time_mins) {
         memset(w_buf, 0xfeed, req_size);
       }
 
-      sh_test_w(w_buf, req_size, i);      
+      sh_test_w(w_buf, req_size, i, true);
     }
     FDS_PLOG(storHvisor->GetLog()) << "Finished all " << w_count
                                    << " test writes";
@@ -333,10 +366,10 @@ int unitTestFile(const char *inname, const char *outname) {
    */
   if (infile.is_open()) {
     while (infile.read(file_buf, buf_len)) {
-      sh_test_w(file_buf, buf_len, req_count);
+      sh_test_w(file_buf, buf_len, req_count, true);
       req_count++;
     }
-    sh_test_w(file_buf, infile.gcount(), req_count);
+    sh_test_w(file_buf, infile.gcount(), req_count, true);
     last_write_len = infile.gcount();
     req_count++;
 
