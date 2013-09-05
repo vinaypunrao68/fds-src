@@ -262,13 +262,15 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rx_msg) 
           upd_obj_req->dm_transaction_id = 1;
           upd_obj_req->data_obj_id.hash_high = txn->data_obj_id.hash_high;
           upd_obj_req->data_obj_id.hash_low =  txn->data_obj_id.hash_low;
-          
+          upd_obj_req->volume_offset = txn->block_offset;
+	  wr_msg->dst_ip_lo_addr = txn->dm_ack[node].ipAddr;
           
           storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(txn->dm_ack[node].ipAddr, FDSP_DATA_MGR, &endPoint);
-          txn->dm_ack[node].commit_status = FDS_COMMIT_MSG_SENT;
+          
           
           if (endPoint) {
             endPoint->fdspDPAPI->begin_UpdateCatalogObject(wr_msg, upd_obj_req);
+	    txn->dm_ack[node].commit_status = FDS_COMMIT_MSG_SENT;
             FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " -  Sent async UpdCatObjCommit req to DM at " <<  (unsigned int) txn->dm_ack[node].ipAddr;
           } else {
             FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - No end point found for DM at ip " <<  (unsigned int) txn->dm_ack[node].ipAddr;
@@ -322,7 +324,8 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
       return;
     }
     
-    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - GOT A QUERY RESPONSE!" ;
+    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - GOT A QUERY RESPONSE! Object ID :- " 
+				   << cat_obj_req->data_obj_id.hash_high << ":" << cat_obj_req->data_obj_id.hash_low ;
     
     StorHvJournalEntryLock je_lock(journEntry);
     if (!journEntry->isActive()) {

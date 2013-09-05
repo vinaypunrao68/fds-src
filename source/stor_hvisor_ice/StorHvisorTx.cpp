@@ -26,12 +26,13 @@ extern struct fbd_device *fbd_dev;
 BEGIN_C_DECLS
 int StorHvisorProcIoRd(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp_req, void *arg1, void *arg2)
 {
+
   struct fbd_device *fbd;
   FDS_RPC_EndPoint *endPoint = NULL; 
   unsigned int node_ip = 0;
   unsigned int doid_dlt_key=0;
-  int num_nodes;
-  int node_ids[256];
+  int num_nodes = 8;
+  int node_ids[8];
   int node_state = -1;
   fds::Error err(ERR_OK);
   ObjectID oid;
@@ -154,9 +155,9 @@ int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
   ObjectID  objID;
   unsigned char doid_dlt_key;
   struct fbd_device *fbd;
-  int num_nodes;
+  int num_nodes=8;
   FDS_RPC_EndPoint *endPoint = NULL;
-  int node_ids[256];
+  int node_ids[8];
   fds_uint32_t node_ip = 0;
   int node_state = -1;
   fds_uint32_t vol_id;
@@ -244,7 +245,7 @@ int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
   
   
   // DLT lookup from the dataplacement object
-  num_nodes = 256;
+  num_nodes = 8;
   storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(doid_dlt_key, node_ids, &num_nodes);
   for (i = 0; i < num_nodes; i++) {
     node_ip = 0;
@@ -265,7 +266,7 @@ int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
   }
   
   // DMT lookup from the data placement object
-  num_nodes = 256;
+  num_nodes = 8;
   storHvisor->InitDmMsgHdr(fdsp_msg_hdr_dm);
   upd_obj_req->volume_offset = data_offset;
   upd_obj_req->dm_transaction_id = 1;

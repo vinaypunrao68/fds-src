@@ -78,6 +78,8 @@ ObjectStorMgr::ObjectStorMgr(fds_uint32_t port,
   // Create all data structures 
   diskMgr = new DiskMgr();
   std::string filename= stor_prefix + "SNodeObjRepository";
+
+  objStorMutex = new fds_mutex("Object Store Mutex");
   
   // Create leveldb
   objStorDB  = new ObjectDB(filename);
@@ -93,6 +95,7 @@ ObjectStorMgr::~ObjectStorMgr()
   delete objIndexDB;
   delete diskMgr;
   delete sm_log;
+  delete objStorMutex;
 }
 
 void ObjectStorMgr::unitTest()
@@ -138,7 +141,7 @@ void ObjectStorMgr::unitTest()
 	 0x00,
 	 sizeof(get_obj_req->data_obj_id));
   get_obj_req->data_obj_id.hash_low = 0x101;
-  err = getObjectInternal(get_obj_req, vol_id, num_objs);
+  err = getObjectInternal(get_obj_req, vol_id, 1, num_objs);
   // delete get_obj_req;
 }
 
@@ -219,7 +222,10 @@ fds::Error err(fds::ERR_OK);
            ObjectBuf obj;
            obj.size = put_obj_req->data_obj_len;
 	   obj.data  = put_obj_req->data_obj;
+
+	   objStorMutex->lock();
 	   err = objStorDB->Put( obj_id, obj);
+	   objStorMutex->unlock();
 
 	   if (err != fds::ERR_OK) {
 	      FDS_PLOG(objStorMgr->GetLog()) << "Failed to put object " << err;
@@ -257,6 +263,7 @@ void ObjectStorMgr::PutObject(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_Put
 fds_sm_err_t 
 ObjectStorMgr::getObjectInternal(FDSP_GetObjTypePtr get_obj_req, 
                                 fds_uint32_t volid, 
+                                fds_uint32_t trans_id, 
                                 fds_uint32_t num_objs) 
 {
     ObjectID obj_id(get_obj_req->data_obj_id.hash_high, get_obj_req->data_obj_id.hash_low);
@@ -265,14 +272,16 @@ ObjectStorMgr::getObjectInternal(FDSP_GetObjTypePtr get_obj_req,
     obj.data = get_obj_req->data_obj;
     fds::Error err(fds::ERR_OK);
 
+  objStorMutex->lock();
   err = objStorDB->Get(obj_id, obj);
+  objStorMutex->unlock();
 
   if (err != fds::ERR_OK) {
-     FDS_PLOG(objStorMgr->GetLog()) << "Failed to get key " << obj_id << " with status " << err;
+     FDS_PLOG(objStorMgr->GetLog()) << "XID:" << trans_id << "  Failed to get key " << obj_id << " with status " << err;
      get_obj_req->data_obj.assign("");
      return FDS_SM_ERR_OBJ_NOT_EXIST;
   } else {
-     FDS_PLOG(objStorMgr->GetLog()) << "Successfully got value " << obj.data.c_str();
+     FDS_PLOG(objStorMgr->GetLog()) << "XID:" << trans_id << "Successfully got value ";
     get_obj_req->data_obj.assign(obj.data);
   }
 
@@ -292,9 +301,9 @@ ObjectStorMgr::GetObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
     ObjectID oid(get_obj_req->data_obj_id.hash_high,
                get_obj_req->data_obj_id.hash_low);
 
-    FDS_PLOG(objStorMgr->GetLog()) << "GetObject  Obj ID :" << oid << "glob_vol_id:" << fdsp_msg->glob_volume_id << "Num Objs:" << fdsp_msg->num_objects;
+    FDS_PLOG(objStorMgr->GetLog()) << "GetObject  XID:" << fdsp_msg->req_cookie << " Obj ID :" << oid << "glob_vol_id:" << fdsp_msg->glob_volume_id << "Num Objs:" << fdsp_msg->num_objects;
    
-    if ((err = getObjectInternal(get_obj_req, fdsp_msg->glob_volume_id, fdsp_msg->num_objects)) != FDS_SM_OK) {
+    if ((err = getObjectInternal(get_obj_req, fdsp_msg->glob_volume_id, fdsp_msg->req_cookie, fdsp_msg->num_objects)) != FDS_SM_OK) {
           fdsp_msg->result = FDSP_ERR_FAILED;
           fdsp_msg->err_code = (FDSP_ErrType)err;
     } else {

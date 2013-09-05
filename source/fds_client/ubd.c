@@ -254,6 +254,7 @@ int main(int argc, char *argv[]) {
   int run_test = 0;
   uint32_t dm_port = 0;
   uint32_t sm_port = 0;
+  uint32_t ut_mins = 0;
   const char *infile_name = NULL;
   const char *outfile_name = NULL;
   char *cppstr;
@@ -285,6 +286,8 @@ int main(int argc, char *argv[]) {
       infile_name = argv[i] + 9;
     } else if (strncmp(argv[i], "--outfile=", 10) == 0) {
       outfile_name = argv[i] + 10;
+    } else if (strncmp(argv[i], "--minutes=", 10) == 0) {
+      ut_mins = atoi(argv[i] + 10);
     }
     /*
      * We pass argc and argv to other functions later
@@ -311,6 +314,11 @@ int main(int argc, char *argv[]) {
       cppout("Invalid cmdline arg. An input and output file must be specified");
       return -1;
     }
+  }
+  if ((ut_mins != 0) &&
+      (run_test == 0)) {
+    printf("Invalid cmdline arg. Minutes is only valid with unit test.\n");
+    return -1;
   }
 
 #ifndef HVISOR_USPACE_TEST
@@ -351,7 +359,7 @@ int main(int argc, char *argv[]) {
     int result = 0;
 
     if (run_test == 1) {
-      result = unitTest();
+      result = unitTest(ut_mins);
       if (result == 0) {
         cppout("Unit test PASSED\n");
       } else {

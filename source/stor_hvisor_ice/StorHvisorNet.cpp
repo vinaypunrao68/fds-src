@@ -52,6 +52,20 @@ static void sh_test_w_callback(void *arg1,
   delete w_req;
 }
 
+static void sh_test_nv_callback(void *arg1,
+                                void *arg2,
+                                fbd_request_t *w_req,
+                                int res) {
+  /*
+   * Don't cache the write contents. Just
+   * notify that the write is complete.
+   */
+  notifier.notify();
+  
+  delete w_req->buf;
+  delete w_req;
+}
+
 static void sh_test_r_callback(void *arg1,
                                void *arg2,
                                fbd_request_t *r_req,
@@ -81,7 +95,10 @@ static void sh_test_r_callback(void *arg1,
   delete r_req;
 }
 
-void sh_test_w(const char *data, fds_uint32_t len, fds_uint32_t offset) {
+void sh_test_w(const char *data,
+               fds_uint32_t len,
+               fds_uint32_t offset,
+               fds_bool_t w_verify) {
   fbd_request_t *w_req;
   char          *w_buf;
   
@@ -108,27 +125,39 @@ void sh_test_w(const char *data, fds_uint32_t len, fds_uint32_t offset) {
   w_req->secs = len / HVISOR_SECTOR_SIZE;
   w_req->len  = len;
   
-  StorHvisorProcIoWr(NULL,
-                     w_req,
-                     sh_test_w_callback,
-                     NULL,
-                     NULL);
+  if (w_verify == true) {
+    StorHvisorProcIoWr(NULL,
+                       w_req,
+                       sh_test_w_callback,
+                       NULL,
+                       NULL);
+  } else {
+    StorHvisorProcIoWr(NULL,
+                       w_req,
+                       sh_test_nv_callback,
+                       NULL,
+                       NULL);
+  }
   
   /*
    * Wait until we've finished this write
    */
   while (1) {
     notifier.wait_for_notification();
-    map_mtx.lock();
-    /*
-     * Here we're assuming that the offset
-     * is increasing by 1 each time.
-     */
-    if (written_data.size() == offset + 1) {
+    if (w_verify == true) {
+      map_mtx.lock();
+      /*
+       * Here we're assuming that the offset
+       * is increasing by 1 each time.
+       */
+      if (written_data.size() == offset + 1) {
+        map_mtx.unlock();
+        break;
+      }
       map_mtx.unlock();
+    } else {
       break;
     }
-    map_mtx.unlock();
   }
 
   FDS_PLOG(storHvisor->GetLog()) << "Finished SH test write " << offset;
@@ -198,141 +227,102 @@ int sh_test_r(char *r_buf, fds_uint32_t len, fds_uint32_t offset) {
   return result;
 }
 
-int unitTest() {
-  fbd_request_t *w_req;
-  fbd_request_t *r_req;
+int unitTest(fds_uint32_t time_mins) {
   fds_uint32_t req_size;
   char *w_buf;
   char *r_buf;
   fds_uint32_t w_count;
-  fds_int32_t result = 0;
+  fds_int32_t result;
+    
 
   req_size = 4096;
   w_count  = 5000;
+  result   = 0;
 
-  for (fds_uint32_t i = 0; i < w_count; i++) {
-    /*
-     * Note the buf and request are freed by
-     * the callback handler.
-     */
-    w_req = new fbd_request_t;
-    w_buf = new char[req_size]();
+  /*
+   * Note these buffers are reused at every loop
+   * iteration and are freed at the end of the test.
+   */
+  w_buf    = new char[req_size]();
+  r_buf    = new char[req_size]();
 
+  if (time_mins > 0) {
     /*
-     * Select a byte string to fill the
-     * buffer with.
-     * TODO: Let's get more random data
-     * than this.
+     * Do a time based unit test.
      */
-    if (i % 3 == 0) {
-      memset(w_buf, 0xbeef, req_size);
-    } else if (i % 2 == 0) {
-      memset(w_buf, 0xdead, req_size);
-    } else {
-      memset(w_buf, 0xfeed, req_size);
+    boost::xtime stoptime;
+    boost::xtime curtime;
+    boost::xtime_get(&stoptime, boost::TIME_UTC_);
+    stoptime.sec += (60 * time_mins);
+
+    w_count = 0;
+
+    boost::xtime_get(&curtime, boost::TIME_UTC_);
+    while (curtime.sec < stoptime.sec) {
+      boost::xtime_get(&curtime, boost::TIME_UTC_);
+
+      /*
+       * Select a byte string to fill the
+       * buffer with.
+       * TODO: Let's get more random data
+       * than this.
+       */
+      if (w_count % 3 == 0) {
+        memset(w_buf, 0xbeef, req_size);
+      } else if (w_count % 2 == 0) {
+        memset(w_buf, 0xdead, req_size);
+      } else {
+        memset(w_buf, 0xfeed, req_size);
+      }
+
+      /*
+       * Write the data without caching the contents
+       * for later verification.
+       */
+      sh_test_w(w_buf, req_size, w_count, false);
+      w_count++;
     }
     
+    FDS_PLOG(storHvisor->GetLog()) << "Finished " << w_count
+                                   << " writes after " << time_mins
+                                   << " minutes";
+  } else {
     /*
-     * TODO: We're currently overloading the
-     * op field to denote which I/O request
-     * this is. The field isn't used, so we can
-     * later remove it and use a better way to
-     * identify the I/O.
+     * Do a request based unit test
      */
-    w_req->op   = i;
-    w_req->buf  = w_buf;
-    /*
-     * Set the offset to be based
-     * on the iteration.
-     */
-    w_req->sec  = i;
-    w_req->secs = req_size / HVISOR_SECTOR_SIZE;
-    w_req->len  = req_size;
-    
-    StorHvisorProcIoWr(NULL,
-                       w_req,
-                       sh_test_w_callback,
-                       NULL,
-                       NULL);
+    for (fds_uint32_t i = 0; i < w_count; i++) {
+      /*
+       * Select a byte string to fill the
+       * buffer with.
+       * TODO: Let's get more random data
+       * than this.
+       */
+      if (i % 3 == 0) {
+        memset(w_buf, 0xbeef, req_size);
+      } else if (i % 2 == 0) {
+        memset(w_buf, 0xdead, req_size);
+      } else {
+        memset(w_buf, 0xfeed, req_size);
+      }
 
-    /*
-     * Wait until we've finished this write
-     */
-    while (1) {
-      notifier.wait_for_notification();
-      map_mtx.lock();
-      if (written_data.size() == i + 1) {
-        map_mtx.unlock();
+      sh_test_w(w_buf, req_size, i, true);
+    }
+    FDS_PLOG(storHvisor->GetLog()) << "Finished all " << w_count
+                                   << " test writes";
+    
+    for (fds_uint32_t i = 0; i < w_count; i++) {
+      memset(r_buf, 0x00, req_size);      
+      result = sh_test_r(r_buf, req_size, i);            
+      if (result != 0) {
         break;
       }
-      map_mtx.unlock();
     }
-    FDS_PLOG(storHvisor->GetLog()) << "Finished SH test write " << i;
+    FDS_PLOG(storHvisor->GetLog()) << "Finished all " << w_count
+                                   << " reads";  
   }
-  FDS_PLOG(storHvisor->GetLog()) << "Finished all " << w_count
-                                 << " test writes";
-
-  r_buf = new char[req_size]();
-  for (fds_uint32_t i = 0; i < w_count; i++) {
-    /*
-     * Note the buf and request are freed by
-     * the callback handler.
-     */
-    r_req = new fbd_request_t;
-    memset(r_buf, 0x00, req_size);
-
-    /*
-     * TODO: We're currently overloading the
-     * op field to denote which I/O request
-     * this is. The field isn't used, so we can
-     * later remove it and use a better way to
-     * identify the I/O.
-     */
-    r_req->op   = i;
-    r_req->buf  = r_buf;
-    /*
-     * Set the offset to be based
-     * on the iteration.
-     */
-    r_req->sec  = i;
-    /*
-     * TODO: Do we need both secs and len? What's
-     * the difference?
-     */
-    r_req->secs = req_size / HVISOR_SECTOR_SIZE;
-    r_req->len  = req_size;
-    
-    StorHvisorProcIoRd(NULL,
-                       r_req,
-                       sh_test_r_callback,
-                       NULL,
-                       NULL);
-
-    /*
-     * Wait until we've finished this read
-     */
-    while (1) {
-      notifier.wait_for_notification();
-      map_mtx.lock();
-      if (verified_data[i] == true) {
-        FDS_PLOG(storHvisor->GetLog()) << "Verified SH test read "
-                                       << i;
-      } else {
-        FDS_PLOG(storHvisor->GetLog()) << "FAILED verification of SH test read "
-                                       << i;
-        result = -1;
-      }
-      map_mtx.unlock();
-      break;
-    }
-
-    if (result != 0) {
-      break;
-    }
-  }
-  FDS_PLOG(storHvisor->GetLog()) << "Finished all " << w_count
-                                 << " reads";  
+  delete w_buf;
   delete r_buf;
+
   return result;
 }
 
@@ -377,10 +367,10 @@ int unitTestFile(const char *inname, const char *outname) {
    */
   if (infile.is_open()) {
     while (infile.read(file_buf, buf_len)) {
-      sh_test_w(file_buf, buf_len, req_count);
+      sh_test_w(file_buf, buf_len, req_count, true);
       req_count++;
     }
-    sh_test_w(file_buf, infile.gcount(), req_count);
+    sh_test_w(file_buf, infile.gcount(), req_count, true);
     last_write_len = infile.gcount();
     req_count++;
 
