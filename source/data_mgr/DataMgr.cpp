@@ -97,16 +97,15 @@ Error DataMgr::_process_query(fds_uint32_t vol_uuid,
    * TODO: Just hack the name as the offset for now.
    */
   vol_map_mtx->lock();
+
   if (vol_meta_map.count(vol_uuid) == 0) {
-    /*
-     * We don't know about this volume, so we don't
-     * have anything to query.
-     */
-    vol_map_mtx->unlock();
-    FDS_PLOG(dataMgr->GetLog()) << "Vol meta query don't know about volume "
+    // Ideally we should create this only if the underlying db exists in the File System
+    vol_meta_map[vol_uuid] = new VolumeMeta(stor_prefix +
+                                            std::to_string(vol_uuid),
+                                            vol_uuid,
+                                            dm_log);
+    FDS_PLOG(dataMgr->GetLog()) << "Created vol meta for vol uuid "
                                 << vol_uuid;
-    err = ERR_CAT_QUERY_FAILED;
-    return err;
   }
 
   VolumeMeta *vol_meta = vol_meta_map[vol_uuid];
@@ -275,7 +274,8 @@ void DataMgr::ReqHandler::UpdateCatalogObject(const FDS_ProtocolInterface::FDSP_
                update_catalog->data_obj_id.hash_low);
 
   FDS_PLOG(dataMgr->GetLog()) << "Processing update catalog request with "
-                              << "volume offset: " << update_catalog->volume_offset
+                              << "volume id: " << msg_hdr->glob_volume_id
+                              << ", volume offset: " << update_catalog->volume_offset
                               << ", Obj ID " << oid
                               << ", Trans ID " << update_catalog->dm_transaction_id
                               << ", OP ID " << update_catalog->dm_operation;
@@ -320,7 +320,8 @@ void DataMgr::ReqHandler::UpdateCatalogObject(const FDS_ProtocolInterface::FDSP_
   dataMgr->respHandleCli->begin_UpdateCatalogObjectResp(msg_hdr, update_catalog);
 
   FDS_PLOG(dataMgr->GetLog()) << "Sending async update catalog response with "
-                              << "volume offset: " << update_catalog->volume_offset
+                              << "volume id: " << msg_hdr->glob_volume_id
+                              << ", volume offset: " << update_catalog->volume_offset
                               << ", Obj ID " << oid
                               << ", Trans ID " << update_catalog->dm_transaction_id
                               << ", OP ID " << update_catalog->dm_operation;
@@ -342,7 +343,8 @@ void DataMgr::ReqHandler::QueryCatalogObject(const FDS_ProtocolInterface::FDSP_M
                query_catalog->data_obj_id.hash_low);
 
   FDS_PLOG(dataMgr->GetLog()) << "Processing query catalog request with "
-                              << "volume offset: " << query_catalog->volume_offset
+                              << "volume id: " << msg_hdr->glob_volume_id
+                              << ", volume offset: " << query_catalog->volume_offset
                               << ", Obj ID " << oid
                               << ", Trans ID " << query_catalog->dm_transaction_id
                               << ", OP ID " << query_catalog->dm_operation;
@@ -369,7 +371,8 @@ void DataMgr::ReqHandler::QueryCatalogObject(const FDS_ProtocolInterface::FDSP_M
   dataMgr->swapMgrId(msg_hdr);
   dataMgr->respHandleCli->begin_QueryCatalogObjectResp(msg_hdr, query_catalog);
   FDS_PLOG(dataMgr->GetLog()) << "Sending async query catalog response with "
-                              << "volume offset: " << query_catalog->volume_offset
+                              << "volume id: " << msg_hdr->glob_volume_id
+                              << ", volume offset: " << query_catalog->volume_offset
                               << ", Obj ID " << oid
                               << ", Trans ID " << query_catalog->dm_transaction_id
                               << ", OP ID " << query_catalog->dm_operation;

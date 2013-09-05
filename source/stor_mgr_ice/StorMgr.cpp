@@ -78,6 +78,8 @@ ObjectStorMgr::ObjectStorMgr(fds_uint32_t port,
   // Create all data structures 
   diskMgr = new DiskMgr();
   std::string filename= stor_prefix + "SNodeObjRepository";
+
+  objStorMutex = new fds_mutex("Object Store Mutex");
   
   // Create leveldb
   objStorDB  = new ObjectDB(filename);
@@ -93,6 +95,7 @@ ObjectStorMgr::~ObjectStorMgr()
   delete objIndexDB;
   delete diskMgr;
   delete sm_log;
+  delete objStorMutex;
 }
 
 void ObjectStorMgr::unitTest()
@@ -219,7 +222,10 @@ fds::Error err(fds::ERR_OK);
            ObjectBuf obj;
            obj.size = put_obj_req->data_obj_len;
 	   obj.data  = put_obj_req->data_obj;
+
+	   objStorMutex->lock();
 	   err = objStorDB->Put( obj_id, obj);
+	   objStorMutex->unlock();
 
 	   if (err != fds::ERR_OK) {
 	      FDS_PLOG(objStorMgr->GetLog()) << "Failed to put object " << err;
@@ -265,7 +271,9 @@ ObjectStorMgr::getObjectInternal(FDSP_GetObjTypePtr get_obj_req,
     obj.data = get_obj_req->data_obj;
     fds::Error err(fds::ERR_OK);
 
+  objStorMutex->lock();
   err = objStorDB->Get(obj_id, obj);
+  objStorMutex->unlock();
 
   if (err != fds::ERR_OK) {
      FDS_PLOG(objStorMgr->GetLog()) << "Failed to get key " << obj_id << " with status " << err;

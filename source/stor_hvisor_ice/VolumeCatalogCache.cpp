@@ -205,8 +205,8 @@ Error VolumeCatalogCache::Query(fds_uint64_t vol_uuid,
      * Locate a DM endpoint to try.
      */
     FDS_RPC_EndPoint *endPoint = NULL;
-    int node_ids[256]; /* Why 256? Arbitrary. Use better interface. */
-    int num_nodes = 0;
+    int node_ids[8];
+    int num_nodes = 8;
     parent_sh->dataPlacementTbl->getDMTNodesForVolume(vol_uuid,
                                                       node_ids,
                                                       &num_nodes);

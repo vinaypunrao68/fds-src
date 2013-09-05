@@ -19,6 +19,7 @@
 #include <Ice/Ice.h>
 #include "util/Log.h"
 #include <DiskMgr.h>
+#include "util/concurrency/Mutex.h"
 
 #define FDS_STOR_MGR_LISTEN_PORT FDS_CLUSTER_TCP_PORT_SM
 #define FDS_STOR_MGR_DGRAM_PORT FDS_CLUSTER_UDP_PORT_SM
@@ -35,6 +36,8 @@ class ObjectStorMgr : virtual public Ice::Application {
 public:
    fds_int32_t   sockfd;
    fds_uint32_t  num_threads;
+
+   fds_mutex     *objStorMutex;
 
    DiskMgr       *diskMgr;
    ObjectDB      *objStorDB;
