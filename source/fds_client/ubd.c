@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <regex.h>
 #include <unistd.h>
+#include <signal.h>
 #include <string.h>
 #include <stdlib.h>
 #include <libgen.h>
@@ -51,7 +52,8 @@ int reqs_in_hold = 0;
 #define ASSERT(p) ((void)0)
 #endif 
 
-extern int  runningFlag;
+int  runningFlag = 1;
+void ctrlcHandler(int signal);
 static int hvisor_create_io_ring(td_vbd_t *vbd, const char *devname);
 
 char  cppstr[2048];
@@ -59,6 +61,7 @@ char  cppstr[2048];
 					cppOut("s",cppstr);
 
 
+td_vbd_t *vbd;
 td_vbd_t*hvisor_vbd_create(uint16_t uuid);
 
 static void
@@ -242,10 +245,25 @@ fail:
 	return err;
 }
 
+void ctrlcHandler(int signal)
+{
+    td_ring_t *ring;
+
+#ifndef HVISOR_USPACE_TEST
+    runningFlag = 0;
+    ring  = &vbd->ring;
+    if (ring->fd != -1)
+        close(ring->fd);
+#endif
+
+   ctrlCCallbackHandler(signal);
+   exit(1);
+}
+
+
 
 int main(int argc, char *argv[]) {
 
-  td_vbd_t *vbd;
   int err;
   char *ring_devname = 0;
   char *io_devname = 0;
@@ -257,9 +275,8 @@ int main(int argc, char *argv[]) {
   uint32_t ut_mins = 0;
   const char *infile_name = NULL;
   const char *outfile_name = NULL;
-  char *cppstr;
 
-
+    signal(SIGINT, ctrlcHandler);
 #ifndef BLKTAP_UNIT_TEST
   hvisor_hdl = hvisor_lib_init();
 #ifdef HVISOR_USPACE_TEST
@@ -402,7 +419,7 @@ int main(int argc, char *argv[]) {
 
 #else
 
-  cppout("All done. About to enter wait loop");
+  cppout("All done. About to enter wait loop \n");
 
   __hvisor_run(vbd);
 
