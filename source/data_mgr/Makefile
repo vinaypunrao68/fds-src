@@ -1,8 +1,8 @@
 CC=g++
 TOPDIR=..
 TOPICEDIR = ../lib/Ice-3.5.0/cpp
-IDIR =-I$(TOPDIR)/include -I$(TOPDIR) -I/usr/include/mysql/ -I$(TOPICEDIR)/include/Ice -I. -I$(TOPICEDIR)/include/ -I$(TOPDIR)/fdsp -I$(TOPDIR)/lib/leveldb-1.12.0/ -I$(TOPDIR)/lib/leveldb-1.12.0/include/
-LDIR =-L$(TOPDIR)/lib -L. -L/usr/lib/mysql -L/usr/lib64/mysql -L$(TOPDIR)/util/ -L$(TOPDIR)/lib/leveldb-1.12.0/
+IDIR =-I$(TOPDIR)/include -I$(TOPDIR) -I$(TOPICEDIR)/include/Ice -I. -I$(TOPICEDIR)/include/ -I$(TOPDIR)/fdsp -I$(TOPDIR)/lib/leveldb-1.12.0/ -I$(TOPDIR)/lib/leveldb-1.12.0/include/
+LDIR =-L$(TOPDIR)/lib -L. -L$(TOPDIR)/util/ -L$(TOPDIR)/lib/leveldb-1.12.0/
 CFLAGS=$(IDIR) -g -DDMGR_LIVE_DEBUG
 
 #OBJS		= dm.o data_mgr_transactions.o data_mgr_pvt.o DataMgr.o
@@ -16,7 +16,7 @@ UTIL_DIR   = ../util/
 UTIL_OBJS  = $(UTIL_DIR)/Log.o
 BOOST_LIBS = -lboost_log -lboost_system -lboost_thread -lboost_date_time
 SYS_LIBS   = -lpthread -lssl -lcrypto
-MYSQL_LIBS = -lmysqlclient
+#MYSQL_LIBS = -lmysqlclient
 LEVELDB_LIBS = -lleveldb
 
 #LIB_OBJS   = $(LIB_DIR)/vvclib.o $(LIB_DIR)/tvclib.o $(LIB_DIR)/vvc_db.o $(LIB_DIR)/vvc_private.o
@@ -24,7 +24,7 @@ LIB_DIR    = ../lib/
 LIB_OBJS   = $(LIB_DIR)/VolumeCatalog.o $(LIB_DIR)/Catalog.o
 FDS_OBJS   = $(LIB_OBJS) $(UTIL_OBJS) ../fdsp/FDSP.o ../util/concurrency/ThreadPool.o ../util/concurrency/Mutex.o ../util/concurrency/Synchronization.o
 
-MY_LIBS = $(BOOST_LIBS) $(MYSQL_LIBS) $(SYS_LIBS) $(LEVELDB_LIBS)
+MY_LIBS = $(BOOST_LIBS) $(SYS_LIBS) $(LEVELDB_LIBS)
 
 top_srcdir	= ../lib/Ice-3.5.0/cpp
 top_srcdir_ldb	= ../

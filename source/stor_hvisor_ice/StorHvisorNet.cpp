@@ -1,3 +1,4 @@
+#include <cstdarg>
 #include <Ice/Ice.h>
 #include <FDSP.h>
 #include <ObjectFactory.h>
@@ -19,7 +20,6 @@ using namespace IceUtil;
 
 struct fbd_device *fbd_dev;
 extern vvc_vhdl_t vvc_vol_create(volid_t vol_id, const char *db_name, int max_blocks);
-int  runningFlag = 1;
 
 /*
  * Globals being used for the unit test.
@@ -444,7 +444,6 @@ void DeleteStorHvisor()
 void ctrlCCallbackHandler(int signal)
 {
   FDS_PLOG(storHvisor->GetLog()) << "StorHvisorNet -  Received Ctrl C " << signal;
-  runningFlag = 0;
   storHvisor->_communicator->shutdown();
   DeleteStorHvisor();
 }
@@ -539,6 +538,7 @@ StorHvCtrl::StorHvCtrl(int argc,
    * a test mode may define its own handler (via ICE) or
    * just finish to the end without needing ctrl-c.
    */
+#if 0
   if (mode == NORMAL) {
     shCtrlHandler = new IceUtil::CtrlCHandler();
     try {
@@ -547,6 +547,7 @@ StorHvCtrl::StorHvCtrl(int argc,
       assert(0);
     }
   }
+#endif
 
 }
 
@@ -568,9 +569,9 @@ StorHvCtrl::StorHvCtrl(int argc,
 StorHvCtrl::~StorHvCtrl()
 {
   delete sh_log;
-//  delete journalTbl;
-//  delete volCatalogCache;
-//  delete dataPlacementTbl;
+  delete journalTbl;
+  delete volCatalogCache;
+  delete dataPlacementTbl;
 }
 
 
@@ -613,5 +614,21 @@ void *hvisor_lib_init(void)
         return (fbd_dev);
         // return (void *)err;
 }
+
 END_C_DECLS
 
+
+BEGIN_C_DECLS
+void cppOut( char *format, ... ) {
+  va_list argptr;             
+ 
+  va_start( argptr, format );          
+  if( *format != '\0' ) {
+   	if( *format == 's' ) {
+       		char* s = va_arg( argptr, char * );
+       		FDS_PLOG(storHvisor->GetLog()) << s;
+    	}
+  }
+  va_end( argptr);
+}
+END_C_DECLS

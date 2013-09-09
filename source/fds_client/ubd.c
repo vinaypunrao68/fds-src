@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <regex.h>
 #include <unistd.h>
+#include <signal.h>
 #include <string.h>
 #include <stdlib.h>
 #include <libgen.h>
@@ -51,9 +52,16 @@ int reqs_in_hold = 0;
 #define ASSERT(p) ((void)0)
 #endif 
 
-extern int  runningFlag;
+int  runningFlag = 1;
+void ctrlcHandler(int signal);
 static int hvisor_create_io_ring(td_vbd_t *vbd, const char *devname);
 
+char  cppstr[2048];
+#define cppout(...) sprintf(cppstr,__VA_ARGS__); \
+					cppOut("s",cppstr);
+
+
+td_vbd_t *vbd;
 td_vbd_t*hvisor_vbd_create(uint16_t uuid);
 
 static void
@@ -176,14 +184,14 @@ tap_ctl_allocate_device(int *minor, char **devname)
 	//fd = open(BLKTAP2_CONTROL_DEVICE, O_RDONLY);
 	fd = open("/dev/blktap-control", O_RDONLY);
 	if (fd == -1) {
-	  printf("Failed to open control device %s: %d\n", BLKTAP2_CONTROL_DEVICE, errno);
+	  cppout("Failed to open control device %s: %d\n", BLKTAP2_CONTROL_DEVICE, errno);
 		return errno;
 	}
 
 	err = ioctl(fd, BLKTAP2_IOCTL_ALLOC_TAP, &handle);
 	close(fd);
 	if (err == -1) {
-		printf("Failed to allocate new device: %d\n", errno);
+		cppout("Failed to allocate new device: %d\n", errno);
 		return errno;
 	}
 
@@ -200,7 +208,7 @@ tap_ctl_allocate_device(int *minor, char **devname)
 			handle.minor, err);
 		goto fail;
 	} else {
-	  printf("Created ring device at %s\n", name);
+	  cppout("Created ring device at %s\n", name);
 	}
 	free(name);
 
@@ -223,10 +231,10 @@ tap_ctl_allocate_device(int *minor, char **devname)
 			handle.minor, err);
 		goto fail;
 	} else {
-	  printf("Created IO device at %s\n", name);
+	  cppout("Created IO device at %s\n", name);
 	}
 
-	printf("New interface: ring: %u, device: %u, minor: %u\n",
+	cppout("New interface: ring: %u, device: %u, minor: %u\n",
 	    handle.ring, handle.device, handle.minor);
 
 	*minor = handle.minor;
@@ -237,10 +245,25 @@ fail:
 	return err;
 }
 
+void ctrlcHandler(int signal)
+{
+    td_ring_t *ring;
+
+#ifndef HVISOR_USPACE_TEST
+    runningFlag = 0;
+    ring  = &vbd->ring;
+    if (ring->fd != -1)
+        close(ring->fd);
+#endif
+
+   ctrlCCallbackHandler(signal);
+   exit(1);
+}
+
+
 
 int main(int argc, char *argv[]) {
-
-  td_vbd_t *vbd;
+  
   int err;
   char *ring_devname = 0;
   char *io_devname = 0;
@@ -252,7 +275,9 @@ int main(int argc, char *argv[]) {
   uint32_t ut_mins = 0;
   const char *infile_name = NULL;
   const char *outfile_name = NULL;
-
+  
+  signal(SIGINT, ctrlcHandler);
+  
   /*
    * Parse command line
    */
@@ -277,92 +302,91 @@ int main(int argc, char *argv[]) {
      * so there may be unprocessed cmdline args.
      */
   }
-
+  
   /*
    * Check the cmdline args for the test
    * are all there.
    */
   if (run_test != 0) {
     if (sm_port != 0 && dm_port == 0) {
-      printf("Invalid cmdline arg. Both a sm and dm port must be specified.\n");
+      fprintf(stderr, "Invalid cmdline arg. Both a sm and dm port must be specified");
       return -1;
     } else if (dm_port != 0 && sm_port == 0) {
-      printf("Invalid cmdline arg. Both a sm and dm port must be specified.\n");
+      fprintf(stderr, "Invalid cmdline arg. Both a sm and dm port must be specified");
       return -1;
     }
   }
   if (run_test == 2) {
     if ((infile_name == NULL) ||
         (outfile_name == NULL)) {
-      printf("Invalid cmdline arg. An input and output file must be specified.\n");
+      fprintf(stderr, "Invalid cmdline arg. An input and output file must be specified");
       return -1;
     }
   }
   if ((ut_mins != 0) &&
       (run_test == 0)) {
-    printf("Invalid cmdline arg. Minutes is only valid with unit test.\n");
+    fprintf(stderr, "Invalid cmdline arg. Minutes is only valid with unit test.\n");
     return -1;
   }
-
-#ifndef HVISOR_USPACE_TEST
-
-  memset(data_image, 'x', sizeof(data_image));
-
-  vbd = hvisor_vbd_create(0);
-
-  err = tap_ctl_allocate_device(&minor, &io_devname);
-  if (err) {
-    printf("Failed to create ring and io devices\n");
-    return (0);
- }
-
-  err = asprintf(&ring_devname, BLKTAP2_RING_DEVICE"%d", minor);
-  if (err == -1) {
-    err = -ENOMEM;
-    printf("Failed constructing ring device name\n");
-    return (0);
- }
-
-  err = hvisor_create_io_ring(vbd, ring_devname);
-  if (err) {
-    printf("Failed to create ring\n");
-    return (0);
-  }
-
-#endif
 
 #ifndef BLKTAP_UNIT_TEST
   hvisor_hdl = hvisor_lib_init();
 #ifdef HVISOR_USPACE_TEST
   CreateSHMode(argc, argv, 1, sm_port, dm_port);
 #else
-  CreateSHMode(argc, argv, 1, 0, 0);
+  CreateSHMode(argc, argv, 0, 0, 0);
 #endif
 #endif
-
+  
+#ifndef HVISOR_USPACE_TEST
+  
+  memset(data_image, 'x', sizeof(data_image));
+  
+  vbd = hvisor_vbd_create(0);
+  
+  err = tap_ctl_allocate_device(&minor, &io_devname);
+  if (err) {
+    cppout("Failed to create ring and io devices");
+    return (0);
+  }
+  
+  err = asprintf(&ring_devname, BLKTAP2_RING_DEVICE"%d", minor);
+  if (err == -1) {
+    err = -ENOMEM;
+    cppout("Failed constructing ring device name");
+    return (0);
+  }
+  
+  err = hvisor_create_io_ring(vbd, ring_devname);
+  if (err) {
+    cppout("Failed to create ring");
+    return (0);
+  }
+  
+#endif
+  
 #ifdef HVISOR_USPACE_TEST
-  while(1)
-  {
-    char *line_ptr = NULL;
-    int n_bytes = 0;
-    char cmd_wd[32];
-    int offset = 0;
-    int result = 0;
-
-    if (run_test == 1) {
+  while(1) {
+  char *line_ptr = NULL;
+  int n_bytes = 0;
+  char cmd_wd[32];
+  int offset = 0;
+  int result = 0;
+  
+  if (run_test == 1) {
       result = unitTest(ut_mins);
       if (result == 0) {
-        printf("Unit test PASSED\n");
+        fprintf(stdout, "Unit test PASSED\n");
       } else {
-        printf("Unit test FAILED\n");
+        fprintf(stdout, "Unit test FAILED\n");
       }
       return result;
     } else if (run_test == 2) {
       result = unitTestFile(infile_name, outfile_name);
       if (result == 0) {
-        printf("Unit test PASSED\n");
+        fprintf(stdout, "Unit test PASSED\n");
       } else {
-        printf("Unit test FAILED\n");
+        fprintf(stdout, "Unit test FAILED\n");
       }
       return result;
     }
@@ -393,8 +417,8 @@ int main(int argc, char *argv[]) {
 
 #else
 
+  cppout("All done. About to enter wait loop \n");
 
-  printf("All done. About to enter wait loop\n");
   __hvisor_run(vbd);
 
 #endif
@@ -412,7 +436,7 @@ hvisor_vbd_create(uint16_t uuid)
 
 	vbd = calloc(1, sizeof(td_vbd_t));
 	if (!vbd) {
-		printf("Failed to allocate tapdisk state\n");
+		cppout("Failed to allocate tapdisk state\n");
 		return NULL;
 	}
 
@@ -456,7 +480,7 @@ hvisor_create_io_ring(td_vbd_t *vbd, const char *devname)
 	ring->fd = open(devname, O_RDWR);
 	if (ring->fd == -1) {
 		err = -errno;
-		printf("Failed to open %s: %d\n", devname, err);
+		cppout("Failed to open %s: %d\n", devname, err);
 		goto fail;
 	}
 
@@ -464,21 +488,21 @@ hvisor_create_io_ring(td_vbd_t *vbd, const char *devname)
 			 PROT_READ | PROT_WRITE, MAP_SHARED, ring->fd, 0);
 	if (ring->mem == MAP_FAILED) {
 		err = -errno;
-		printf("Failed to mmap %s: %d\n", devname, err);
+		cppout("Failed to mmap %s: %d\n", devname, err);
 		goto fail;
 	} else {
-		printf("MMapped ring region successfully\n");
+		cppout("MMapped ring region successfully\n");
 	}
 
 	ring->sring = (blkif_sring_t *)((unsigned long)ring->mem);
 	BACK_RING_INIT(&ring->fe_ring, ring->sring, psize);
-	printf("Initialized ring\n");
+	cppout("Initialized ring");
 
 	ring->vstart =
 		(unsigned long)ring->mem + (BLKTAP_RING_PAGES * psize);
 
 	ioctl(ring->fd, BLKTAP_IOCTL_SETMODE, BLKTAP_MODE_INTERPOSE);
-	printf("Invoked set mode ioctl successfully on ring fd\n");
+	cppout("Invoked set mode ioctl successfully on ring fd");
 
 	return 0;
 
@@ -524,7 +548,7 @@ hvisor_vbd_write_response_to_ring(td_vbd_t *vbd, blkif_response_t *rsp)
 	ring = &vbd->ring;
 	rspp = RING_GET_RESPONSE(&ring->fe_ring, ring->fe_ring.rsp_prod_pvt);
 	memcpy(rspp, rsp, sizeof(blkif_response_t));
-	printf("Writing response for request %d at position %d\n", (int) rsp->id, ring->fe_ring.rsp_prod_pvt);
+	cppout("Writing response for request %d at position %d\n", (int) rsp->id, ring->fe_ring.rsp_prod_pvt);
 	ring->fe_ring.rsp_prod_pvt++;
 }
 
@@ -542,11 +566,12 @@ hvisor_vbd_make_response(td_vbd_t *vbd, td_vbd_request_t *vreq)
 	rsp->operation = tmp.operation;
 	rsp->status = vreq->status;
 
-	printf("writing req %d, sec 0x%08"PRIx64", res %d to ring\n",
+	cppout("writing req %d, sec 0x%08"PRIx64", res %d to ring\n",
 	       (int)tmp.id, tmp.sector_number, vreq->status);
 
-	if (rsp->status != BLKIF_RSP_OKAY)
-	  printf("returning BLKIF_RSP %d", rsp->status);
+	if (rsp->status != BLKIF_RSP_OKAY){
+	  cppout("returning BLKIF_RSP %d", rsp->status);
+        }
 
 	vbd->returned++;
 	hvisor_vbd_write_response_to_ring(vbd, rsp);
@@ -561,7 +586,7 @@ hvisor_complete_vbd_request(td_vbd_t *vbd, td_vbd_request_t *vreq) {
     vbd->num_responses_in_ring++;
 
     if ((reqs_in_hold) && (vbd->num_pending_req_segs < HVISOR_MAX_PENDING_REQ_SEGS)) {
-      printf("HVISOR BLKTAP: Issuing new requests will resume (%d)\n", vbd->num_pending_req_segs);
+      cppout("HVISOR BLKTAP: Issuing new requests will resume (%d)\n", vbd->num_pending_req_segs);
       reqs_in_hold = 0;
     }
     list_del(&vreq->next);
@@ -584,8 +609,9 @@ hvisor_complete_td_request(void *arg1, void *arg2,
 
 	vbd->num_pending_req_segs --;
 
-	printf("UBD: Recv completion callback with vbd - %p, vreq - %p, fbd_req - %p, res - %d, pending_req_segs - %d\n",
+	cppout("UBD: Recv completion callback with vbd - %p, vreq - %p, fbd_req - %p, res - %d, pending_req_segs - %d\n",
 	       vbd, vreq, freq, res, vbd->num_pending_req_segs);
+
 
         err = (res <= 0 ? res : -res);
         vbd->secs_pending  -= freq->secs;
@@ -637,7 +663,7 @@ void hvisor_queue_read(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq)
 	p_new_req->len = size;
 
 
-	printf("Received read request at offset %llx for %d bytes, buf - %p \n", offset, size, p_new_req->buf);
+	cppout("Received read request at offset %llx for %d bytes, buf - %p \n", offset, size, p_new_req->buf);
 
 #if BLKTAP_UNIT_TEST	
 	if (offset + size < sizeof(data_image)) {
@@ -650,7 +676,7 @@ void hvisor_queue_read(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq)
 	hvisor_complete_td_request((void *)vbd, (void *)vreq, p_new_req, rc);
 #else
 
-	printf("UBD: Sending read req to hypervisor with vbd - %p, vreq - %p, fbd_req - %p\n",
+	cppout("UBD: Sending read req to hypervisor with vbd - %p, vreq - %p, fbd_req - %p\n",
 	       vbd, vreq, p_new_req);
 
 	rc = StorHvisorProcIoRd(hvisor_hdl, p_new_req, hvisor_complete_td_request, (void *)vbd, (void *)vreq);
@@ -682,7 +708,7 @@ void hvisor_queue_write(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq
 	p_new_req->len = size;
 
 #if BLKTAP_UNIT_TEST 
-	printf("Received write request at offset %llx for %d bytes, buf - %p : \n", offset, size, p_new_req->buf);
+	cppout("Received write request at offset %llx for %d bytes, buf - %p : \n", offset, size, p_new_req->buf);
 //	for (i = 0; i < size; i++) {
 //	  printf("%2x", treq.buf[i]);
 //	}
@@ -701,7 +727,7 @@ void hvisor_queue_write(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq
 	hvisor_complete_td_request((void *)vbd, (void *)vreq, p_new_req, rc);
 #else
 
-	printf("UBD: Sending write req to hypervisor with vbd - %p, vreq - %p, fbd_req - %p\n",
+	cppout("UBD: Sending write req to hypervisor with vbd - %p, vreq - %p, fbd_req - %p\n",
 	       vbd, vreq, p_new_req);
 
 	rc = StorHvisorProcIoWr(hvisor_hdl, p_new_req, hvisor_complete_td_request, (void *)vbd, (void *)vreq);
@@ -753,7 +779,7 @@ hvisor_handle_request(td_vbd_t *vbd, td_vbd_request_t *vreq)
 
 		pthread_mutex_lock(&vbd->vbd_mutex);
 		vbd->num_pending_req_segs++;
-		printf("%s: Issuing req %d seg %d sec 0x%08"PRIx64" secs 0x%04x "
+		cppout( "%s: Issuing req %d seg %d sec 0x%08"PRIx64" secs 0x%04x "
 		    "buf %p op %d num_pending_segs - %d\n", "Hvisor", id, i, treq.sec, treq.secs,
 		       treq.buf, (int)req->operation, vbd->num_pending_req_segs);
 		pthread_mutex_unlock(&vbd->vbd_mutex);
@@ -806,7 +832,7 @@ hvisor_issue_new_requests(td_vbd_t *vbd)
 	  pthread_mutex_lock(&vbd->vbd_mutex);
 	  if (vbd->num_pending_req_segs >= HVISOR_MAX_PENDING_REQ_SEGS) {
 	    if (!(reqs_in_hold)) {
-		printf("HVISOR BLKTAP: Too many outstanding requests (%d). Holding from issuing new requests to HVISOR\n", vbd->num_pending_req_segs);
+		cppout("HVISOR BLKTAP: Too many outstanding requests (%d). Holding from issuing new requests to HVISOR\n", vbd->num_pending_req_segs);
 		reqs_in_hold = 1;
 	      }
 	    pthread_mutex_unlock(&vbd->vbd_mutex);
@@ -843,7 +869,7 @@ hvisor_pull_ring_requests(td_vbd_t *vbd)
 	for (rc = ring->fe_ring.req_cons; rc != rp; rc++) {
 		req = RING_GET_REQUEST(&ring->fe_ring, rc);
 		++ring->fe_ring.req_cons;
-		printf("Pulled request %d at position %d\n", (int) req->id, rc);
+		cppout("Pulled request %d at position %d\n", (int) req->id, rc);
 
 		idx  = req->id;
 		vreq = &vbd->request_list[idx];
@@ -859,7 +885,7 @@ hvisor_pull_ring_requests(td_vbd_t *vbd)
 
 		// hvisor_handle_request(vbd, vreq);
 
-		printf("%s: queueing request with idx %d \n", "Hvisor" , idx); 
+		cppout("%s: queueing request with idx %d \n", "Hvisor" , idx); 
 	}
 }
 
@@ -880,11 +906,11 @@ hvisor_vbd_kick(td_vbd_t *vbd)
 		return 0;
 
 	vbd->kicked += n;
-	printf("Pushing %d responses, rsp prod idx moving  from position %d to position %d\n", n, ring->fe_ring.sring->rsp_prod, ring->fe_ring.rsp_prod_pvt);
+	cppout("Pushing %d responses, rsp prod idx moving  from position %d to position %d\n", n, ring->fe_ring.sring->rsp_prod, ring->fe_ring.rsp_prod_pvt);
 	RING_PUSH_RESPONSES(&ring->fe_ring);
 	ioctl(ring->fd, BLKTAP_IOCTL_KICK_FE, 0);
 
-	printf("kicking %d: rec: 0x%08"PRIx64", ret: 0x%08"PRIx64", kicked: "
+	cppout("kicking %d: rec: 0x%08"PRIx64", ret: 0x%08"PRIx64", kicked: "
 	    "0x%08"PRIx64"\n", n, vbd->received, vbd->returned, vbd->kicked);
 
 	vbd->num_responses_in_ring = 0;
@@ -900,8 +926,9 @@ __hvisor_run(td_vbd_t *vbd)
 
     ret = hvisor_wait_for_events(vbd);
 
-    if (ret < 0)
-      printf("server wait returned %d\n", ret);
+    if (ret < 0){
+      cppout("server wait returned %d\n", ret);
+    }
 
     pthread_mutex_lock(&vbd->vbd_mutex);
     hvisor_pull_ring_requests(vbd);
@@ -923,7 +950,7 @@ static void
 hvisor_complete_td_request_noop(void *arg1, void *arg2,
                            fbd_request_t *freq, int res) {
 
-  printf("HVISOR USPACE Test: Received response: %d\n", res);
+  cppout("HVISOR USPACE Test: Received response: %d\n", res);
   free(freq);
 
 }
