@@ -14,6 +14,8 @@
 #include "util/Log.h"
 #include "include/fds_types.h"
 
+#define NUM_CONC_REQS 3
+
 namespace fds {
 
 class DmUnitTest {
@@ -49,6 +51,8 @@ class DmUnitTest {
     
     fds_uint32_t block_id;
     ObjectID oid;
+    Ice::AsyncResultPtr rp[NUM_CONC_REQS];
+
     for (fds_uint32_t i = 0; i < num_updates; i++) {
       block_id = i;
       oid = ObjectID(i, i * i);
@@ -61,7 +65,7 @@ class DmUnitTest {
       update_req->data_obj_id.hash_low  = oid.GetLow();
     
       try {
-        fdspDPAPI->UpdateCatalogObject(msg_hdr, update_req);
+        rp[i%NUM_CONC_REQS] = fdspDPAPI->begin_UpdateCatalogObject(msg_hdr, update_req);
         FDS_PLOG(test_log) << "Sent trans open message to DM"
                           << " for volume offset" << update_req->volume_offset
                           << " and object " << oid;
@@ -70,6 +74,14 @@ class DmUnitTest {
                            << " for volume offsete " << update_req->volume_offset
                            << " an object " << oid;
       }
+
+      if (i % NUM_CONC_REQS == NUM_CONC_REQS-1) {
+	int j;
+	for (j = 0; j < NUM_CONC_REQS; j++) {
+	  rp[j]->waitForCompleted();
+	}
+      }
+      
     }
 
     /*
@@ -87,10 +99,11 @@ class DmUnitTest {
       update_req->data_obj_id.hash_low  = oid.GetLow();
 
       try {
-        fdspDPAPI->UpdateCatalogObject(msg_hdr, update_req);
+        Ice::AsyncResultPtr rp = fdspDPAPI->begin_UpdateCatalogObject(msg_hdr, update_req);
         FDS_PLOG(test_log) << "Sent trans commit message to DM"
                            << " for volume offset" << update_req->volume_offset
                            << " and object " << oid;
+	rp->waitForCompleted();
       } catch(...) {
         FDS_PLOG(test_log) << "Failed to send trans commit message to DM"
                            << " for volume offsete " << update_req->volume_offset
@@ -98,6 +111,8 @@ class DmUnitTest {
       }
     }
     
+    sleep(10);
+
     FDS_PLOG(test_log) << "Ending test: basic_update()";
     return 0;
   }
@@ -209,6 +224,65 @@ class DmUnitTest {
     return 0;
   }
 
+fds_int32_t basic_query() {
+
+    FDS_PLOG(test_log) << "Starting test: basic_query()";
+
+    /*
+     * Send lots of transaction open requests.
+     */
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr =
+        new FDS_ProtocolInterface::FDSP_MsgHdrType;
+   
+    msg_hdr->src_id   = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
+    msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_DATA_MGR;    
+    msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
+    msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msg_hdr->glob_volume_id = 1; /* TODO: Don't hard code to 1 */
+    
+    fds_uint32_t block_id;
+    ObjectID oid;
+ 
+    /*
+     * Send queries for the newly put DM entires.
+     */
+    FDS_ProtocolInterface::FDSP_QueryCatalogTypePtr query_req =
+        new FDS_ProtocolInterface::FDSP_QueryCatalogType;
+    msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_QUERY_CAT_OBJ_REQ;
+    
+    for (fds_uint32_t i = 0; i < num_updates; i++) {
+      block_id = i;
+      
+      query_req->volume_offset = block_id;
+      
+      /*
+       * Just set defaults for the other fields
+       * They will be set on the response.
+       */
+      query_req->dm_transaction_id     = 1;
+      query_req->dm_operation          =
+          FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_OPEN;
+      query_req->data_obj_id.hash_high = 0;
+      query_req->data_obj_id.hash_low  = 0;
+
+      try {
+        fdspDPAPI->begin_QueryCatalogObject(msg_hdr, query_req);
+        FDS_PLOG(test_log) << "Sent query message to DM"
+                           << " for volume offset" << query_req->volume_offset;
+      } catch(...) {
+        FDS_PLOG(test_log) << "Failed to send query message to DM"
+                           << " for volume offsete " << query_req->volume_offset;
+      }
+    }
+
+    sleep(5);
+
+    FDS_PLOG(test_log) << "Ending test: basic_uq()";
+
+    return 0;
+  }
+
+
  public:
   /*
    * The non-const refernce is OK.
@@ -254,6 +328,8 @@ class DmUnitTest {
       result = basic_update();
     } else if (testname == "basic_uq") {
       result = basic_uq();
+    } else if (testname == "basic_query") {
+      result = basic_query();
     } else {
       std::cout << "Unknown unit test " << testname << std::endl;
     }
@@ -356,9 +432,13 @@ class TestResp : public FDS_ProtocolInterface::FDSP_DataPathResp {
                               const Ice::Current &) {
     if (fdsp_msg->result == FDS_ProtocolInterface::FDSP_ERR_OK) {
       ObjectID oid(cat_obj_req->data_obj_id.hash_high,
-                   cat_obj_req->data_obj_id.hash_high);
+                   cat_obj_req->data_obj_id.hash_low);
       FDS_PLOG(test_log) << "Received query response success with object "
-                         << oid;
+                         << oid << " for volume offset " << cat_obj_req->volume_offset;
+      if ((cat_obj_req->data_obj_id.hash_high * cat_obj_req->data_obj_id.hash_high != cat_obj_req->data_obj_id.hash_low)
+	  || (cat_obj_req->volume_offset != cat_obj_req->data_obj_id.hash_high)) {
+	FDS_PLOG(test_log) << "****** Received object ID seems to be incorrect";
+      }
     } else {
       FDS_PLOG(test_log) << "Received query response failure for offset "
                          << cat_obj_req->volume_offset;

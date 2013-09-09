@@ -49,22 +49,14 @@ Catalog::Update(const Record& key, const Record& val) {
 }
 
 Error
-Catalog::Query(const Record& key, Record* val) {
+Catalog::Query(const Record& key, std::string* value) {
   Error err(ERR_OK);
 
-  std::string value;
-  leveldb::Status status = db->Get(read_options, key, &value);
+  leveldb::Status status = db->Get(read_options, key, value);
   if (!status.ok()) {
     err = fds::Error(fds::ERR_DISK_READ_FAILED);
     return err;
-  }
-
-  /*
-   * The record should not have had any data.
-   * Clearing it will leak any allocated buffer.
-   */
-  val->clear();
-  *val = Record(value.data(), value.size());
+  } 
 
   return err;
 }
