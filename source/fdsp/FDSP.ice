@@ -107,6 +107,38 @@ class FDSP_QueryCatalogType {
   int      dm_operation;       /* Transaction type = OPEN, COMMIT, CANCEL */
 };
 
+class FDSP_CreateVolType {
+  string vol_name;  /* Name of the volume */
+};
+
+class FDSP_DeleteVolType {
+  string vol_name;  /* Name of the volume */
+};
+
+class FDSP_ModifyVolType {
+  string vol_name;  /* Name of the volume */
+};
+
+class FDSP_NotifyVolType {
+  string vol_name;  /* Name of the volume */
+};
+
+class FDSP_AttachVolType {
+  string vol_name;  /* Name of the volume */
+};
+
+class FDSP_CreatePolicyType {
+  string vol_name;  /* Name of the volume */
+};
+
+class FDSP_DeletePolicyType {
+  string vol_name;  /* Name of the volume */
+};
+
+class FDSP_ModifyPolicyType {
+  string vol_name;  /* Name of the volume */
+};
+
 class FDSP_MsgHdrType {
     FDSP_MsgCodeType     msg_code;
 		
@@ -160,7 +192,6 @@ interface FDSP_DataPathReq {
     void AssociateRespCallback(Ice::Identity ident); // Associate Response callback ICE-object with DM/SM 
 };
 
-
 interface FDSP_DataPathResp {
     void GetObjectResp(FDSP_MsgHdrType fdsp_msg, FDSP_GetObjType get_obj_req);
 
@@ -176,6 +207,33 @@ interface FDSP_DataPathResp {
 
 };
 
+interface FDSP_ConfigPathReq {
+  void CreateVol(FDSP_MsgHdrType fdsp_msg, FDSP_CreateVolType crt_vol_req);
+  void DeleteVol(FDSP_MsgHdrType fdsp_msg, FDSP_DeleteVolType del_vol_req);
+  void ModifyVol(FDSP_MsgHdrType fdsp_msg, FDSP_ModifyVolType mod_vol_req);
+  void CreatePolicy(FDSP_MsgHdrType fdsp_msg, FDSP_CreatePolicyType crt_pol_req);
+  void DeletePolicy(FDSP_MsgHdrType fdsp_msg, FDSP_DeletePolicyType del_pol_req);
+  void ModifyPolicy(FDSP_MsgHdrType fdsp_msg, FDSP_ModifyPolicyType mod_pol_req);
+};
+
+interface FDSP_ConfigPathReesp {
+  void CreateVol(FDSP_MsgHdrType fdsp_msg, FDSP_CreateVolType crt_vol_resp);
+  void DeleteVol(FDSP_MsgHdrType fdsp_msg, FDSP_DeleteVolType del_vol_resp);
+  void ModifyVol(FDSP_MsgHdrType fdsp_msg, FDSP_ModifyVolType mod_vol_resp);
+  void CreatePolicy(FDSP_MsgHdrType fdsp_msg, FDSP_CreatePolicyType crt_pol_resp);
+  void DeletePolicy(FDSP_MsgHdrType fdsp_msg, FDSP_DeletePolicyType del_pol_resp);
+  void ModifyPolicy(FDSP_MsgHdrType fdsp_msg, FDSP_ModifyPolicyType mod_pol_resp);
+};
+
+interface FDSP_ControlPathReq {
+  void NotifyVol(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyVolType not_vol_req);
+  void AttachVol(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolType atc_vol_req);
+};
+
+interface FDSP_ControlPathResp {
+  void NotifyVol(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyVolType not_vol_req);
+  void AttachVol(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolType atc_vol_req);
+};
 
 };
 #endif
