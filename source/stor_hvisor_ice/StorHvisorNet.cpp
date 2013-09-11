@@ -467,7 +467,10 @@ StorHvCtrl::StorHvCtrl(int argc,
 
   rpcSwitchTbl = new FDS_RPC_EndPointTbl(_communicator);
   journalTbl = new StorHvJournal(FDS_READ_WRITE_LOG_ENTRIES);
-  volCatalogCache = new VolumeCatalogCache(this,sh_log);
+  /*
+   * TODO: Don't hard code the volume ID to be 1.
+   */
+  volCatalogCache = new VolumeCatalogCache(1, this,sh_log);
   
   /*
    * Set basic thread properties.

@@ -61,36 +61,25 @@ void CatalogCache::Clear() {
 }
 
 VolumeCatalogCache::VolumeCatalogCache(
+    fds_volid_t _vol_id,
     StorHvCtrl *sh_ctrl)
-    : parent_sh(sh_ctrl) {
+    : vol_id(_vol_id),
+      parent_sh(sh_ctrl) {
   vcc_log = new fds_log("vcc", "logs");
   created_log = true;
 }
 
 VolumeCatalogCache::VolumeCatalogCache(
+    fds_volid_t _vol_id,
     StorHvCtrl *sh_ctrl,
     fds_log *parent_log)
-    : parent_sh(sh_ctrl),
+    : vol_id(_vol_id),
+      parent_sh(sh_ctrl),
       vcc_log(parent_log),
       created_log(false) {
-
 }
 
 VolumeCatalogCache::~VolumeCatalogCache() {
-  /*
-   * Iterate the vol_cache_map to free the
-   * catalog pointers.
-   */
-  map_rwlock.write_lock();
-  for (std::unordered_map<fds_uint32_t, CatalogCache*>::iterator it =
-           vol_cache_map.begin();
-       it != vol_cache_map.end();
-       it++) {
-    delete it->second;
-  }
-  vol_cache_map.clear();
-  map_rwlock.write_unlock();
-  
   /*
    * Delete log if malloc'd one earlier.
    */
@@ -99,83 +88,19 @@ VolumeCatalogCache::~VolumeCatalogCache() {
   }
 }
 
-/*
- * TODO: This will eventually be called when a client is
- * notified of a volume creation by the OM.
- */
-Error VolumeCatalogCache::RegVolume(fds_uint64_t vol_uuid) {
-  Error err(ERR_OK);
-
-  map_rwlock.write_lock();
-  /*
-   * TODO: Check if this volume is already
-   * registered.
-   */
-  vol_cache_map[vol_uuid] = new CatalogCache();
-  map_rwlock.write_unlock();
-
-  FDS_PLOG(vcc_log) << "VolumeCatalogCache - Registered new volume " << vol_uuid;
-
-  return err;
-}
-
-Error VolumeCatalogCache::Query(fds_uint64_t vol_uuid,
-                                fds_uint64_t block_id,
+Error VolumeCatalogCache::Query(fds_uint64_t block_id,
                                 fds_uint32_t trans_id,
                                 ObjectID *oid) {
   Error err(ERR_OK);
   int   ret_code = 0;
 
-  /*
-   * For now, add a new volume cache if we haven't
-   * seen this object before. This is hackey, but
-   * allows the caller to not need to call RegVolume
-   * beforehand.
-   */
-  map_rwlock.read_lock();
-  if (vol_cache_map.count(vol_uuid) == 0) {
-    FDS_PLOG(vcc_log) << "VolumeCatalogCache - Volume " << vol_uuid
-                      << " does not exist yet!";
-    /*
-     * TODO: Potential race here if we release
-     * the read lock another thread may register
-     * the volume before the write lock is acquired
-     * in RegVolume().
-     */
-    map_rwlock.read_unlock();
-    err = RegVolume(vol_uuid);
-    if (err != ERR_OK) {
-      return err;
-    }
-
-    /*
-     * Reacquire read lock since we need to access
-     * the cache next.
-     */
-    map_rwlock.read_lock();
-  }
-  
-  /*
-   * TODO: Potential race here as we're caching the
-   * cache reference. Another thread may delete this
-   * volume entry once we release the read lock. We
-   * should ensure that the other thread waits until
-   * all outstanding references are released before
-   * removing. However, we don't delete volumes yet
-   * so it's not an issue.
-   * We should implement a drain and block using the
-   * read-write lock backend.
-   */
-  CatalogCache *catcache = vol_cache_map[vol_uuid];
-  map_rwlock.read_unlock();
-
-  err = catcache->Query(block_id, oid);
+  err = cat_cache.Query(block_id, oid);
   if (!err.ok()) {
     /*
      * Not in the cache. Contact DM.
      */
-    FDS_PLOG(vcc_log) << "VolumeCatalogCache - Cache query for volume " << vol_uuid
-                      << " block id " << block_id
+    FDS_PLOG(vcc_log) << "VolumeCatalogCache - Cache query for volume "
+                      << vol_id << " block id " << block_id
                       << " failed. Contacting DM.";
 
     /*
@@ -185,9 +110,9 @@ Error VolumeCatalogCache::Query(fds_uint64_t vol_uuid,
         new FDS_ProtocolInterface::FDSP_MsgHdrType;
     FDS_ProtocolInterface::FDSP_QueryCatalogTypePtr query_req =
         new FDS_ProtocolInterface::FDSP_QueryCatalogType;
-    
-    msg_hdr->glob_volume_id = vol_uuid;
-    msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_QUERY_CAT_OBJ_REQ;    
+
+    msg_hdr->glob_volume_id = vol_id;
+    msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_QUERY_CAT_OBJ_REQ;
     msg_hdr->src_id   = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
     msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_DATA_MGR;
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
@@ -207,7 +132,7 @@ Error VolumeCatalogCache::Query(fds_uint64_t vol_uuid,
     FDS_RPC_EndPoint *endPoint = NULL;
     int node_ids[8];
     int num_nodes = 8;
-    parent_sh->dataPlacementTbl->getDMTNodesForVolume(vol_uuid,
+    parent_sh->dataPlacementTbl->getDMTNodesForVolume(vol_id,
                                                       node_ids,
                                                       &num_nodes);
     fds_uint32_t node_ip;
@@ -218,7 +143,8 @@ Error VolumeCatalogCache::Query(fds_uint64_t vol_uuid,
                                                      &node_ip,
                                                      &node_state);
       if (!err.ok()) {
-        FDS_PLOG(vcc_log) << "VolumeCatalogCache - Unable to get node info for node "
+        FDS_PLOG(vcc_log) << "VolumeCatalogCache - "
+                          << "Unable to get node info for node "
                           << node_ids[i];
         return err;
       }
@@ -227,7 +153,9 @@ Error VolumeCatalogCache::Query(fds_uint64_t vol_uuid,
                                                            FDSP_DATA_MGR,
                                                            &endPoint);
       if (ret_code != 0) {
-        FDS_PLOG(vcc_log) << "VolumeCatalogCache - Unable to get RPC endpoint for " << node_ip;
+        FDS_PLOG(vcc_log) << "VolumeCatalogCache - "
+                          << "Unable to get RPC endpoint for "
+                          << node_ip;
         err = ERR_CAT_QUERY_FAILED;
         return err;
       }
@@ -239,26 +167,28 @@ Error VolumeCatalogCache::Query(fds_uint64_t vol_uuid,
          */
         try {
           endPoint->fdspDPAPI->begin_QueryCatalogObject(msg_hdr, query_req);
-          FDS_PLOG(vcc_log) << " VolumeCatalogCache - Async query request sent to DM " << endPoint
-                            << " for volume "<< vol_uuid
+          FDS_PLOG(vcc_log) << " VolumeCatalogCache - "
+                            << "Async query request sent to DM "
+                            << endPoint << " for volume " << vol_id
                             << " and block id " << block_id;
-          
           /*
            * Reset the error to PENDING since we set the message.
            * This lets the caller know to wait for a response.
            */
           err = ERR_PENDING_RESP;
-        } catch (...) {
-          FDS_PLOG(vcc_log) << "VolumeCatalogCache - Failed to query DM endpoint " << endPoint
-                            << " for volume "<< vol_uuid
+        } catch(...) {
+          FDS_PLOG(vcc_log) << "VolumeCatalogCache - "
+                            << "Failed to query DM endpoint "
+                            << endPoint << " for volume "<< vol_id
                             << " and block id " << block_id;
-          err = ERR_CAT_QUERY_FAILED;                    
+          err = ERR_CAT_QUERY_FAILED;
         }
         break;
       }
     }
     if (located_ep == false) {
-      FDS_PLOG(vcc_log) << " VolumeCatalogCache - Could not locate a valid endpoint to query";
+      FDS_PLOG(vcc_log) << " VolumeCatalogCache - "
+                        << "Could not locate a valid endpoint to query";
       err = ERR_CAT_QUERY_FAILED;
     }
   }
@@ -269,53 +199,11 @@ Error VolumeCatalogCache::Query(fds_uint64_t vol_uuid,
 /*
  * Update interface for a blob representing a block device.
  */
-Error VolumeCatalogCache::Update(fds_uint64_t vol_uuid,
-                                 fds_uint64_t block_id,
+Error VolumeCatalogCache::Update(fds_uint64_t block_id,
                                  const ObjectID &oid) {
   Error err(ERR_OK);
 
-  /*
-   * For now, add a new volume cache if we haven't
-   * seen this object before. This is hackey, but
-   * allows the caller to not need to call RegVolume
-   * beforehand.
-   */
-  map_rwlock.read_lock();
-  if (vol_cache_map.count(vol_uuid) == 0) {
-    /*
-     * TODO: Potential race here if we release
-     * the read lock another thread may register
-     * the volume before the write lock is acquired
-     * in RegVolume().
-     */
-    map_rwlock.read_unlock();
-    err = RegVolume(vol_uuid);
-    if (err != ERR_OK) {
-      return err;
-    }
-
-    /*
-     * Reacquire read lock since we need to access
-     * the cache next.
-     */
-    map_rwlock.read_lock();
-  }
-
-  /*
-   * TODO: Potential race here as we're caching the
-   * cache reference. Another thread may delete this
-   * volume entry once we release the read lock. We
-   * should ensure that the other thread waits until
-   * all outstanding references are released before
-   * removing. However, we don't delete volumes yet
-   * so it's not an issue.
-   * We should implement a drain and block using the
-   * read-write lock backend.
-   */
-  CatalogCache *catcache = vol_cache_map[vol_uuid];
-  map_rwlock.read_unlock();
-
-  err = catcache->Update(block_id, oid);
+  err = cat_cache.Update(block_id, oid);
   /*
    * If the exact entry already existed
    * we can return success.
@@ -325,17 +213,19 @@ Error VolumeCatalogCache::Update(fds_uint64_t vol_uuid,
      * Reset the error since it's OK
      * that is already existed.
      */
-    FDS_PLOG(vcc_log) << "VolumeCatalogCache - Cache update successful for volume " << vol_uuid
-                      << " block id " << block_id
+    FDS_PLOG(vcc_log) << "VolumeCatalogCache - "
+                      << "Cache update successful for volume "
+                      << vol_id << " block id " << block_id
                       << " was duplicate.";
     err = ERR_OK;
   } else if (err != ERR_OK) {
-    FDS_PLOG(vcc_log) << "VolumeCatalogCache - Cache update for volume " << vol_uuid
-                      << " block id " << block_id
-                      << " was failed!";
+    FDS_PLOG(vcc_log) << "VolumeCatalogCache - "
+                      << "Cache update for volume " << vol_id
+                      << " block id " << block_id << " was failed!";
   } else {
-    FDS_PLOG(vcc_log) << "VolumeCatalogCache - Cache update successful for volume " << vol_uuid
-                      << " block id " << block_id;
+    FDS_PLOG(vcc_log) << "VolumeCatalogCache - "
+                      << "Cache update successful for volume "
+                      << vol_id << " block id " << block_id;
   }
 
   return err;
@@ -348,29 +238,10 @@ Error VolumeCatalogCache::Update(fds_uint64_t vol_uuid,
 /*
  * Clears the local in-memory cache for a volume.
  */
-void VolumeCatalogCache::Clear(fds_uint64_t vol_uuid) {
-  
-  map_rwlock.read_lock();
-  if (vol_cache_map.count(vol_uuid) > 0) {
-    /*
-     * TODO: Potential race here as we're caching the
-     * cache reference. Another thread may delete this
-     * volume entry once we release the read lock. We
-     * should ensure that the other thread waits until
-     * all outstanding references are released before
-     * removing. However, we don't delete volumes yet
-     * so it's not an issue.
-     * We should implement a drain and block using the
-     * read-write lock backend.
-     */
-    CatalogCache *catcache = vol_cache_map[vol_uuid];
-    map_rwlock.read_unlock();
-    catcache->Clear();
-    FDS_PLOG(vcc_log) << "VolumeCatalogCache - Cleared cache for volume " << vol_uuid;
-  } else {
-    map_rwlock.read_unlock();
-    FDS_PLOG(vcc_log) << "VolumeCatalogCache - No cache to clear for volume " << vol_uuid;
-  }
+void VolumeCatalogCache::Clear() {
+    cat_cache.Clear();
+    FDS_PLOG(vcc_log) << "VolumeCatalogCache - Cleared cache for volume "
+                      << vol_id;
 }
 
 }  // namespace fds

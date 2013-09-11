@@ -9,6 +9,7 @@
 #include <string>
 #include <list>
 
+#include "include/fds_volume.h"
 #include "util/Log.h"
 #include "util/concurrency/Thread.h"
 /*
@@ -32,24 +33,18 @@ class VccUnitTest {
    */
   fds_int32_t basic_update() {
     Error err(ERR_OK);
-    
-    VolumeCatalogCache vcc(storHvisor,
-                           vcc_log);
-    fds_uint64_t vol_uuid;
-    
+
+    fds_volid_t vol_uuid;
     vol_uuid = 987654321;
-    
-    err = vcc.RegVolume(vol_uuid);
-    if (!err.ok()) {
-      std::cout << "Failed to register volume cache "
-                << vol_uuid << std::endl;
-      return -1;
-    }
-    
+
+    VolumeCatalogCache vcc(vol_uuid,
+                           storHvisor,
+                           vcc_log);
+
     for (fds_uint32_t i = 0; i < 2; i++) {
       fds_uint64_t block_id = 1 + i;
       ObjectID oid(block_id, (block_id * i));
-      err = vcc.Update(vol_uuid, block_id, oid);
+      err = vcc.Update(block_id, oid);
       if (!err.ok() && err != ERR_PENDING_RESP) {
         std::cout << "Failed to update volume cache "
                   << vol_uuid << std::endl;
@@ -62,24 +57,18 @@ class VccUnitTest {
 
   fds_int32_t basic_query() {
     Error err(ERR_OK);
-    
-    VolumeCatalogCache vcc(storHvisor,
-                           vcc_log);
+
     fds_uint64_t vol_uuid;
-    
     vol_uuid = 987654321;
-    
-    err = vcc.RegVolume(vol_uuid);
-    if (!err.ok()) {
-      std::cout << "Failed to register volume cache "
-                << vol_uuid << std::endl;
-      return -1;
-    }
-    
+
+    VolumeCatalogCache vcc(vol_uuid,
+                           storHvisor,
+                           vcc_log);
+
     for (fds_uint32_t i = 0; i < 2; i++) {
       fds_uint64_t block_id = 1 + i;
       ObjectID oid;
-      err = vcc.Query(vol_uuid, block_id, 0, &oid);
+      err = vcc.Query(block_id, 0, &oid);
       if (!err.ok() && err != ERR_PENDING_RESP) {
         std::cout << "Failed to query volume cache "
                   << vol_uuid << std::endl;
@@ -89,7 +78,7 @@ class VccUnitTest {
 
     return 0;
   }
-  
+
   /*
    * Thread helper functions
    */
@@ -101,7 +90,7 @@ class VccUnitTest {
     for (fds_uint32_t i = 0; i < num_updates; i++) {
       fds_uint64_t block_id = 1 + i;
       ObjectID oid(block_id, (block_id * i));
-      err = vcc->Update(vol_uuid, block_id, oid);
+      err = vcc->Update(block_id, oid);
       if (!err.ok() && err != ERR_PENDING_RESP) {
         FDS_PLOG(vcc_log) << "Failed to update volume cache "
                           << vol_uuid << std::endl;
@@ -114,7 +103,7 @@ class VccUnitTest {
 
   int shared_clear(VolumeCatalogCache *vcc,
                    fds_uint64_t vol_uuid) {
-    vcc->Clear(vol_uuid);
+    vcc->Clear();
 
     return 0;
   }
@@ -165,7 +154,6 @@ class VccUnitTest {
                                        id,
                                        vcc,
                                        vol_uuid));
-    
     return _t;
   }
 
@@ -178,7 +166,6 @@ class VccUnitTest {
                                        id,
                                        vcc,
                                        vol_uuid));
-    
     return _t;
   }
 
@@ -190,15 +177,15 @@ class VccUnitTest {
 
     std::vector<boost::thread*> threads;
     fds_uint32_t num_threads = 20;
+    fds_volid_t vol_uuid = 987654321;
 
     /*
      * Make a shared cache that all access
      * the same volume.
      */
-    VolumeCatalogCache vcc(storHvisor,
+    VolumeCatalogCache vcc(vol_uuid,
+                           storHvisor,
                            vcc_log);
-
-    fds_uint64_t vol_uuid = 987654321;
 
     for (fds_uint32_t i = 0; i < num_threads; i++) {
       threads.push_back(start_update_thread(i, &vcc, vol_uuid));
@@ -213,24 +200,28 @@ class VccUnitTest {
   }
 
  public:
-  VccUnitTest(fds_uint32_t port_arg) :
+  explicit VccUnitTest(fds_uint32_t port_arg) :
       dm_port_num(port_arg) {
     vcc_log = new fds_log("vcc_test", "logs");
-    
+
     unit_tests.push_back("basic_update");
     unit_tests.push_back("basic_query");
     unit_tests.push_back("basic_mt");
-    
+
     /*
      * Create the SH control. Pass some empty cmdline args.
      */
     int argc = 0;
     char* argv[argc];
-    storHvisor = new StorHvCtrl(argc, argv, StorHvCtrl::DATA_MGR_TEST, 0, dm_port_num);
+    storHvisor = new StorHvCtrl(argc,
+                                argv,
+                                StorHvCtrl::DATA_MGR_TEST,
+                                0,
+                                dm_port_num);
   }
 
   ~VccUnitTest() {
-    delete vcc_log;    
+    delete vcc_log;
     delete storHvisor;
   }
 

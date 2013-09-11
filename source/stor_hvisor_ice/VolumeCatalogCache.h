@@ -19,6 +19,7 @@
 
 #include "include/fds_err.h"
 #include "include/fds_types.h"
+#include "include/fds_volume.h"
 #include "fdsp/FDSP.h"
 #include "util/Log.h"
 #include "util/concurrency/Mutex.h"
@@ -67,15 +68,14 @@ namespace fds {
   class VolumeCatalogCache {
  private:
     /*
-     * TODO: Use shared or unique pointers instead of
-     * raw pointers. It's safer.
+     * ID of vol associate with the cache.
      */
-    std::unordered_map<fds_uint32_t, CatalogCache*> vol_cache_map;
+    fds_volid_t vol_id;
 
     /*
-     * Protects the vol_cache_map.
+     * Local cache class for this volume's catalog.
      */
-    fds_rwlock map_rwlock;
+    CatalogCache cat_cache;
 
     /*
      * Reference to parent SH instance.
@@ -89,28 +89,28 @@ namespace fds {
     fds_bool_t  created_log;
 
  public:
-
     /*
      * A logger is created for you if not passed in.
      */
-    VolumeCatalogCache(StorHvCtrl *sh_ctrl);
-    VolumeCatalogCache(StorHvCtrl *sh_ctrl,
+    VolumeCatalogCache(fds_volid_t _vol_id,
+                       StorHvCtrl *sh_ctrl);
+    VolumeCatalogCache(fds_volid_t _vol_id,
+                       StorHvCtrl *sh_ctrl,
                        fds_log *parent_log);
-    
+
     VolumeCatalogCache();
     ~VolumeCatalogCache();
 
-    Error RegVolume(fds_uint64_t vol_uuid);
-    Error Query(fds_uint64_t vol_uuid,
-                 fds_uint64_t block_id,
-                 fds_uint32_t trans_id,
-                 ObjectID *oid);
-    Error Update(fds_uint64_t vol_uuid,
-                 fds_uint64_t block_id,
+    Error Query(fds_uint64_t block_id,
+                fds_uint32_t trans_id,
+                ObjectID *oid);
+    Error Update(fds_uint64_t block_id,
                  const ObjectID &oid);
+    void Clear();
 
-    void Clear(fds_uint64_t vol_uuid);
-
+    fds_volid_t GetID() const {
+      return vol_id;
+    }
   };
 }  // namespace fds
 
