@@ -216,23 +216,27 @@ interface FDSP_ConfigPathReq {
   void ModifyPolicy(FDSP_MsgHdrType fdsp_msg, FDSP_ModifyPolicyType mod_pol_req);
 };
 
-interface FDSP_ConfigPathReesp {
-  void CreateVol(FDSP_MsgHdrType fdsp_msg, FDSP_CreateVolType crt_vol_resp);
-  void DeleteVol(FDSP_MsgHdrType fdsp_msg, FDSP_DeleteVolType del_vol_resp);
-  void ModifyVol(FDSP_MsgHdrType fdsp_msg, FDSP_ModifyVolType mod_vol_resp);
-  void CreatePolicy(FDSP_MsgHdrType fdsp_msg, FDSP_CreatePolicyType crt_pol_resp);
-  void DeletePolicy(FDSP_MsgHdrType fdsp_msg, FDSP_DeletePolicyType del_pol_resp);
-  void ModifyPolicy(FDSP_MsgHdrType fdsp_msg, FDSP_ModifyPolicyType mod_pol_resp);
+interface FDSP_ConfigPathResp {
+  void CreateVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_CreateVolType crt_vol_resp);
+  void DeleteVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_DeleteVolType del_vol_resp);
+  void ModifyVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_ModifyVolType mod_vol_resp);
+  void CreatePolicyResp(FDSP_MsgHdrType fdsp_msg, FDSP_CreatePolicyType crt_pol_resp);
+  void DeletePolicyResp(FDSP_MsgHdrType fdsp_msg, FDSP_DeletePolicyType del_pol_resp);
+  void ModifyPolicyResp(FDSP_MsgHdrType fdsp_msg, FDSP_ModifyPolicyType mod_pol_resp);
 };
 
 interface FDSP_ControlPathReq {
-  void NotifyVol(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyVolType not_vol_req);
+  void NotifyAddVol(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyVolType not_add_vol_req);
+  void NotifyRmVol(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyVolType not_rm_vol_req);
   void AttachVol(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolType atc_vol_req);
+  void DetachVol(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolType dtc_vol_req);
 };
 
 interface FDSP_ControlPathResp {
-  void NotifyVol(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyVolType not_vol_req);
-  void AttachVol(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolType atc_vol_req);
+  void NotifyAddVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyVolType not_add_vol_resp);
+  void NotifyRmVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyVolType not_rm_vol_resp);
+  void AttachVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolType atc_vol_resp);
+  void DetachVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolType dtc_vol_resp);
 };
 
 };
