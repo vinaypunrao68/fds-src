@@ -17,18 +17,14 @@
 #include "util/Log.h"
 #include "lib/VolumeCatalog.h"
 #include "util/concurrency/Mutex.h"
+#include "include/fds_volume.h"
 
 namespace fds {
 
   class VolumeMeta {
  private:
-    /*
-     * TODO: This will eventually be replaced with the
-     * actual volume metadata we get from OM.
-     */
-    std::string  vol_name;
-    fds_uint64_t vol_uuid;
-    fds_mutex    *vol_mtx;
+    fds_mutex  *vol_mtx;
+    VolumeDesc *vol_desc;
 
     /*
      * The volume catalog maintains mappings from
@@ -43,6 +39,8 @@ namespace fds {
 
     /*
      * A logger received during instantiation.
+     * It is allocated and destroyed by the
+     * caller.
      */
     fds_log *dm_log;
 
@@ -61,9 +59,9 @@ namespace fds {
      */
     VolumeMeta();
     VolumeMeta(const std::string& _name,
-               fds_uint64_t _uuid);
+               fds_volid_t _uuid);
     VolumeMeta(const std::string& _name,
-               fds_uint64_t _uuid,
+               fds_volid_t _uuid,
                fds_log* _dm_log);
     ~VolumeMeta();
 
