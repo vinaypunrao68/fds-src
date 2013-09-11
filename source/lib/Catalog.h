@@ -53,7 +53,7 @@ namespace fds {
     ~Catalog();
 
     fds::Error Update(const Record& key, const Record& val);
-    fds::Error Query(const Record& key, Record* val);
+    fds::Error Query(const Record& key, std::string* val);
     std::string GetFile() const;
   };
 

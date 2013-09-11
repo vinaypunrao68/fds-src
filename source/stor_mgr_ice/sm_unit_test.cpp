@@ -264,6 +264,47 @@ class SmUnitTest {
     return 0;
   }
 
+
+  fds_int32_t basic_query() {
+
+    FDS_PLOG(test_log) << "Starting test: basic_query()";
+    
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr =
+        new FDS_ProtocolInterface::FDSP_MsgHdrType;
+
+    ObjectID oid;
+
+    FDS_ProtocolInterface::FDSP_GetObjTypePtr get_req =
+        new FDS_ProtocolInterface::FDSP_GetObjType;
+    
+    msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_GET_OBJ_REQ;
+    msg_hdr->src_id   = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
+    msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_STOR_MGR;
+    msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
+    msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    
+    for (fds_uint32_t i = 0; i < num_updates; i++) {
+      oid = ObjectID(i, i * i);
+      get_req->data_obj_id.hash_high = oid.GetHigh();
+      get_req->data_obj_id.hash_low  = oid.GetLow();
+      get_req->data_obj_len          = 0;
+    
+      try {
+        fdspDPAPI->begin_GetObject(msg_hdr, get_req);
+        FDS_PLOG(test_log) << "Sent get obj message to SM"
+                           << " with object ID " << oid;
+      } catch(...) {
+        FDS_PLOG(test_log) << "Failed get obj message to SM"
+                           << " with object ID " << oid;
+        return -1;
+      }
+    }    
+
+    FDS_PLOG(test_log) << "Ending test: basic_query()";
+
+    return 0;
+  }
+
  public:
   /*
    * The non-const refernce is OK.
@@ -310,6 +351,8 @@ class SmUnitTest {
       result = basic_update();
     } else if (testname == "basic_uq") {
       result = basic_uq();
+    } else if (testname == "basic_query") {
+      result = basic_query();
     } else {
       std::cout << "Unknown unit test " << testname << std::endl;
     }

@@ -303,8 +303,8 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
     const FDSP_MsgHdrTypePtr& fdsp_msg_hdr,
     const FDSP_QueryCatalogTypePtr& cat_obj_req,
     const Ice::Current &) {
-    int num_nodes;
-    int node_ids[64];
+    int num_nodes=8;
+    int node_ids[8];
     int node_state = -1;
     uint32_t node_ip = 0;
     ObjectID obj_id;

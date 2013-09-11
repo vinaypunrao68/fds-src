@@ -64,7 +64,8 @@ Error VolumeMeta::OpenTransaction(fds_uint32_t vol_offset,
 
   Record key((const char *)&vol_offset,
              sizeof(vol_offset));
-  Record val(oid.ToString());
+  std::string oid_string = oid.ToString();
+  Record val(oid_string);
 
   vol_mtx->lock();
   err = vcat->Update(key, val);
@@ -85,8 +86,7 @@ Error VolumeMeta::QueryVcat(fds_uint32_t vol_offset,
    * TODO: Don't have the query allocate
    * anything. That's not safe.
    */
-  std::string test("WTF");
-  Record val(test);
+  std::string val;
 
   vol_mtx->lock();
   err = vcat->Query(key, &val);
@@ -107,7 +107,7 @@ Error VolumeMeta::QueryVcat(fds_uint32_t vol_offset,
     return err;
   }
 
-  oid->SetId(val.data());
+  oid->SetId(val.c_str());
 
   return err;
 }

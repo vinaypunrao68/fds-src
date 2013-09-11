@@ -263,7 +263,7 @@ void ctrlcHandler(int signal)
 
 
 int main(int argc, char *argv[]) {
-
+  
   int err;
   char *ring_devname = 0;
   char *io_devname = 0;
@@ -275,18 +275,9 @@ int main(int argc, char *argv[]) {
   uint32_t ut_mins = 0;
   const char *infile_name = NULL;
   const char *outfile_name = NULL;
-
-    signal(SIGINT, ctrlcHandler);
-#ifndef BLKTAP_UNIT_TEST
-  hvisor_hdl = hvisor_lib_init();
-#ifdef HVISOR_USPACE_TEST
-  CreateSHMode(argc, argv, 1, sm_port, dm_port);
-#else
-  CreateSHMode(argc, argv, 1, 0, 0);
-#endif
-#endif
-
-
+  
+  signal(SIGINT, ctrlcHandler);
+  
   /*
    * Parse command line
    */
@@ -311,84 +302,91 @@ int main(int argc, char *argv[]) {
      * so there may be unprocessed cmdline args.
      */
   }
-
+  
   /*
    * Check the cmdline args for the test
    * are all there.
    */
   if (run_test != 0) {
     if (sm_port != 0 && dm_port == 0) {
-      cppout("Invalid cmdline arg. Both a sm and dm port must be specified");
+      fprintf(stderr, "Invalid cmdline arg. Both a sm and dm port must be specified");
       return -1;
     } else if (dm_port != 0 && sm_port == 0) {
-      cppout("Invalid cmdline arg. Both a sm and dm port must be specified");
+      fprintf(stderr, "Invalid cmdline arg. Both a sm and dm port must be specified");
       return -1;
     }
   }
   if (run_test == 2) {
     if ((infile_name == NULL) ||
         (outfile_name == NULL)) {
-      cppout("Invalid cmdline arg. An input and output file must be specified");
+      fprintf(stderr, "Invalid cmdline arg. An input and output file must be specified");
       return -1;
     }
   }
   if ((ut_mins != 0) &&
       (run_test == 0)) {
-    printf("Invalid cmdline arg. Minutes is only valid with unit test.\n");
+    fprintf(stderr, "Invalid cmdline arg. Minutes is only valid with unit test.\n");
     return -1;
   }
 
+#ifndef BLKTAP_UNIT_TEST
+  hvisor_hdl = hvisor_lib_init();
+#ifdef HVISOR_USPACE_TEST
+  CreateSHMode(argc, argv, 1, sm_port, dm_port);
+#else
+  CreateSHMode(argc, argv, 1, 0, 0);
+#endif
+#endif
+  
 #ifndef HVISOR_USPACE_TEST
-
+  
   memset(data_image, 'x', sizeof(data_image));
-
+  
   vbd = hvisor_vbd_create(0);
-
+  
   err = tap_ctl_allocate_device(&minor, &io_devname);
   if (err) {
     cppout("Failed to create ring and io devices");
     return (0);
- }
-
+  }
+  
   err = asprintf(&ring_devname, BLKTAP2_RING_DEVICE"%d", minor);
   if (err == -1) {
     err = -ENOMEM;
     cppout("Failed constructing ring device name");
     return (0);
- }
-
+  }
+  
   err = hvisor_create_io_ring(vbd, ring_devname);
   if (err) {
     cppout("Failed to create ring");
     return (0);
   }
-
+  
 #endif
-
-
+  
 #ifdef HVISOR_USPACE_TEST
-  while(1)
-  {
-    char *line_ptr = NULL;
-    int n_bytes = 0;
-    char cmd_wd[32];
-    int offset = 0;
-    int result = 0;
-
-    if (run_test == 1) {
+  while(1) {
+  char *line_ptr = NULL;
+  int n_bytes = 0;
+  char cmd_wd[32];
+  int offset = 0;
+  int result = 0;
+  
+  if (run_test == 1) {
       result = unitTest(ut_mins);
       if (result == 0) {
-        cppout("Unit test PASSED\n");
+        fprintf(stdout, "Unit test PASSED\n");
       } else {
-        cppout("Unit test FAILED\n");
+        fprintf(stdout, "Unit test FAILED\n");
       }
       return result;
     } else if (run_test == 2) {
       result = unitTestFile(infile_name, outfile_name);
       if (result == 0) {
-        cppout("Unit test PASSED\n");
+        fprintf(stdout, "Unit test PASSED\n");
       } else {
-        cppout("Unit test FAILED\n");
+        fprintf(stdout, "Unit test FAILED\n");
       }
       return result;
     }
