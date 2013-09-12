@@ -11,6 +11,7 @@
 
 using namespace FDSP_Types;
 using namespace FDS_PubSub_Interface;
+using namespace FDS_ProtocolInterface;
 
 #define FDS_VOL_ACTION_NONE   0
 #define FDS_VOL_ACTION_CREATE 1
@@ -40,6 +41,7 @@ namespace fds {
   private:
     int tennant_id;
     int domain_id;
+    FDSP_MgrIdType my_node_type;
     node_map_t node_map;
     int dlt_version;
     Node_Table_Type dlt;
@@ -61,12 +63,14 @@ namespace fds {
     Ice::CommunicatorPtr rpc_comm;
     Ice::ObjectAdapterPtr rpc_adapter;
     FDS_ProtocolInterface::FDSP_ControlPathReqPtr om_client_rpc_i;
+    void initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
+    int registerNodeWithOM(Ice::CommunicatorPtr& comm);
 
 
   public:
 
     OMgrClient();
-    OMgrClient(fds_log *parent_log);
+    OMgrClient(FDSP_MgrIdType node_type, fds_log *parent_log);
     int initialize();
     int registerEventHandlerForNodeEvents(node_event_handler_t node_event_hdlr);
     int registerEventHandlerForVolEvents(volume_event_handler_t vol_event_hdlr);
