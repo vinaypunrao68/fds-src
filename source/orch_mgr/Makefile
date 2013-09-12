@@ -1,24 +1,70 @@
-top_srcdir      = ../lib/Ice-3.5.0/cpp
+CC=g++
+TOPDIR=..
+TOPICEDIR = ../lib/Ice-3.5.0/cpp
+IDIR =-I$(TOPDIR)/include -I$(TOPDIR) -I$(TOPICEDIR)/include/Ice -I. -I$(TOPICEDIR)/include/ -I$(TOPDIR)/fdsp
+LDIR =-L$(TOPDIR)/lib -L. -L$(TOPDIR)/util/
+CFLAGS=$(IDIR) -g 
+
+OBJS		= orchMgr.o
+
+
+DEPS = $(TOPDIR)/util/Log.h
+
+UTIL_DIR   = ../util/
+UTIL_OBJS  = $(UTIL_DIR)/Log.o
+BOOST_LIBS = -lboost_log -lboost_system -lboost_thread -lboost_date_time
+SYS_LIBS   = -lpthread -lssl -lcrypto
+
+LIB_DIR    = ../lib/
+FDS_OBJS   = $(UTIL_OBJS) ../fdsp/FDSP.o
+OM_OBJS            = ../fdsp/fdsp_types.o ../fdsp/fds_pubsub.o ../fdsp/FDSP.o
+
+MY_LIBS = $(BOOST_LIBS) $(SYS_LIBS)
+
+top_srcdir	= ../lib/Ice-3.5.0/cpp
+top_srcdir_ldb	= ../
+
+FDS_CFG		= orchMgr
+OMGR		= cmdline_orch_mgr
+OMOBJS           = cmdline_orch_mgr.o
+TARGETS		= $(FDS_CFG) $(OMGR)
+
+SRCS		= $(OBJS:.o=.cpp) \
+		  $(COBJS:.o=.cpp)
+
+#
+# Use C++11 for additional STL support
+#
 CPP11	= -std=c++0x
 
-OMGR       = cmdline_orch_mgr 
+TEST_FLAGS	= -std=c++0x -Wall -Werror -g2 -I../ -I../lib/Ice-3.5.0/cpp/include -I../fdsp/
+TEST_LIBS	= -L../lib/Ice-3.5.0/cpp/lib -lpthread -lIce -lIceUtil ../fdsp/FDSP.o -lboost_log -lboost_system -lboost_thread -lboost_date_time ../util/Log.o
 
-TARGETS         = $(OMGR)
-
-OBJS            = ../fdsp/fdsp_types.o ../fdsp/fds_pubsub.o ../fdsp/FDSP.o
-
-OMOBJS           = cmdline_orch_mgr.o
-
-SRCS            = $(OMOBJS:.o=.cpp)
-
-include $(top_srcdir)/config/Make.rules
-
-CPPFLAGS        := -I. -I../fdsp $(CPP11) $(CPPFLAGS)
+include $(TOPICEDIR)/config/Make.rules
 LIBS            := -lIceStorm $(LIBS)
 
-$(OMGR): $(OBJS) $(OMOBJS)
-	rm -f $@
-	$(CXX) $(LDFLAGS) -o $@ $(OBJS) $(OMOBJS) $(LIBS)
+CPPFLAGS	:= -I. $(CPPFLAGS) -I. -I $(top_srcdir)/include/Ice \
+	-I$(top_srcdir_ldb)/ \
+	-I./ \
+	-I$(top_srcdir_ldb)/include \
+	-I$(TOPDIR)/fdsp \
+	-I$(top_srcdir_ldb)/util \
+	-I/usr/local/include \
+	$(CPP11)
 
-clean::
-	rm -rf  cmdline_orch_mgr cmdline_orch_mgr.o
+$(OMGR): $(OM_OBJS) $(OMOBJS)
+	rm -f $@
+	$(CXX) $(LDFLAGS) -o $@ $(OM_OBJS) $(OMOBJS) $(LIBS) $(MYLIBS)
+#	$(CXX) $(CPPFLAGS) $(LDFLAGS) -o $@ $(OM_OBJS) $(OMOBJS) $(MY_LIBS) 
+
+$(FDS_CFG): $(OBJS) $(COBJS)
+	rm -f $@
+	$(CXX) $(LDFLAGS) -o $@ $(MY_LIBS) $(OBJS) $(COBJS) $(LIBS) $(LDIR) $(FDS_OBJS) -I../ -I/usr/local/include -I$(top_srcdir)/include/Ice $(IDIR)
+#	$(CXX) $(LDFLAGS) -o dm_unit_test dm_unit_test.cpp $(TEST_FLAGS) $(TEST_LIBS)
+
+%.o: %.cpp $(DEPS)
+	$(CXX) $(CPPFLAGS) -c -o $@ $< $(CFLAGS) $(LIBS)
+
+unit_test: unit_test.o
+	$(CC) -o $@ -g $<
+
