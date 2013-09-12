@@ -24,13 +24,20 @@ int StorHvCtrl::fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const
 	fbd_request_t *req; 
 	int trans_id;
         fds_uint32_t vol_id;
+        StorHvVolume* vol;
 //	int   data_size;
 //	int64_t data_offset;
 //	char  *data_buf;
 	
         vol_id = rd_msg->glob_volume_id;
 	trans_id = rd_msg->req_cookie;
-        StorHvJournalEntry *txn = journalTbl->get_journal_entry(trans_id);
+        vol = vol_table->getVolume(vol_id);
+        if (!vol) {
+	   FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Error: GET_OBJ_RSP for an un-registered volume" ;
+           return (0);
+        }
+
+        StorHvJournalEntry *txn = vol->journal_tbl->get_journal_entry(trans_id);
   	// fbd = (fbd_device *)txn->fbd_ptr;
 	StorHvJournalEntryLock je_lock(txn);
 
@@ -68,7 +75,7 @@ int StorHvCtrl::fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const
           }
 	}
 	txn->reset();
-	journalTbl->release_trans_id(trans_id);
+	vol->journal_tbl->release_trans_id(trans_id);
 	
 	return 0;
 
@@ -78,13 +85,19 @@ int StorHvCtrl::fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const
 int StorHvCtrl::fds_process_put_obj_resp(const FDSP_MsgHdrTypePtr& rx_msg, const FDSP_PutObjTypePtr& put_obj_rsp )
 {
   int trans_id = rx_msg->req_cookie; 
-  StorHvJournalEntry *txn = journalTbl->get_journal_entry(trans_id);
+  fds_uint32_t vol_id = rx_msg->glob_volume_id;
+  StorHvVolume *vol =  vol_table->getVolume(vol_id);
+  if (!vol) {
+     FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Error: PUT_OBJ_RSP for an un-registered volume";
+    return (0);
+  }
+
+  StorHvJournalEntry *txn = vol->journal_tbl->get_journal_entry(trans_id);   
   StorHvJournalEntryLock je_lock(txn);
-  fds_uint32_t vol_id;
+ 
 
   // Check sanity here, if this transaction is valid and matches with the cookie we got from the message
 
-  vol_id = rx_msg->glob_volume_id;
   if (!(txn->isActive())) {
      FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Error: Journal Entry" << rx_msg->req_cookie <<  "  PUT_OBJ_RSP for an inactive transaction";
     return (0);
@@ -109,7 +122,13 @@ int StorHvCtrl::fds_process_update_catalog_resp(const FDSP_MsgHdrTypePtr& rx_msg
   vol_id = rx_msg->glob_volume_id;
   
   trans_id = rx_msg->req_cookie; 
-  StorHvJournalEntry *txn = journalTbl->get_journal_entry(trans_id);
+  StorHvVolume *vol = vol_table->getVolume(vol_id);
+  if (!vol) {
+    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Error: UPDATE_CAT_OBJ_RSP for an un-registered volume";
+    return (0);
+  }
+
+  StorHvJournalEntry *txn = vol->journal_tbl->get_journal_entry(trans_id);
   StorHvJournalEntryLock je_lock(txn);
   
   FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Recvd DM UPDATE_CAT_OBJ_RSP RSP ";
@@ -149,7 +168,13 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rx_msg) 
   vol_id = rx_msg->glob_volume_id;
   
   trans_id = rx_msg->req_cookie; 
-  StorHvJournalEntry *txn = journalTbl->get_journal_entry(trans_id);
+  StorHvVolume* vol = vol_table->getVolume(vol_id);
+  if (!vol) {
+      FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Error: State transition attempted for an un-registered volume";
+      return (0); // TODO: return error?
+  }
+
+  StorHvJournalEntry *txn = vol->journal_tbl->get_journal_entry(trans_id);
   
   req = (fbd_request_t *)txn->write_ctx;
   wr_msg = txn->dm_msg;
@@ -201,7 +226,7 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rx_msg) 
 	  
           
           obj_id.SetId(txn->data_obj_id.hash_high, txn->data_obj_id.hash_low);
-          storHvisor->volCatalogCache->Update(
+          vol->vol_catalog_cache->Update(
               (fds_uint64_t)req->sec*HVISOR_SECTOR_SIZE,
               obj_id);          
           
@@ -213,7 +238,7 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rx_msg) 
             txn->fbd_complete_req(req, 0);
           }
           txn->reset();
-          journalTbl->release_trans_id(trans_id);
+          vol->journal_tbl->release_trans_id(trans_id);
           return(0);
         }
       }
@@ -290,11 +315,14 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
     uint64_t doid_high;
     int trans_id = fdsp_msg_hdr->req_cookie;
     fbd_request_t *req;
-    fds_uint32_t vol_id;
+    fds_uint32_t vol_id = fdsp_msg_hdr->glob_volume_id;
+    StorHvVolume *shvol = storHvisor->vol_table->getVolume(vol_id);    
+    if (!shvol) {
+      FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " - Volume " << vol_id <<  " not registered";
+      return;
+    }
 
-    vol_id = fdsp_msg_hdr->glob_volume_id;
-    
-    StorHvJournalEntry *journEntry = storHvisor->journalTbl->get_journal_entry(trans_id);
+    StorHvJournalEntry *journEntry = shvol->journal_tbl->get_journal_entry(trans_id);
     
     if (journEntry == NULL) {
       FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " - Journal Entry  " << trans_id <<  "QueryCatalogObjResp not found";
@@ -320,7 +348,7 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
         journEntry->fbd_complete_req(req, -1);
       }
       journEntry->reset();
-      storHvisor->journalTbl->release_trans_id(trans_id);
+      shvol->journal_tbl->release_trans_id(trans_id);
       return;
     }
     
@@ -334,7 +362,7 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
         journEntry->fbd_complete_req(req, -1);
       }
       journEntry->reset();
-      storHvisor->journalTbl->release_trans_id(trans_id);
+      shvol->journal_tbl->release_trans_id(trans_id);
       return;
     }
     
@@ -349,7 +377,7 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
         journEntry->fbd_complete_req(req, 0);
       }
       journEntry->reset();
-      storHvisor->journalTbl->release_trans_id(trans_id);
+      shvol->journal_tbl->release_trans_id(trans_id);
       return;
     }
     
@@ -368,7 +396,7 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
         journEntry->fbd_complete_req(req, 0);
       }
       journEntry->reset();
-      storHvisor->journalTbl->release_trans_id(trans_id);
+      shvol->journal_tbl->release_trans_id(trans_id);
       return;
     }
     storHvisor->dataPlacementTbl->getNodeInfo(node_ids[0], &node_ip, &node_state);
@@ -392,7 +420,7 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
     }
     
     obj_id.SetId( cat_obj_req->data_obj_id.hash_high,cat_obj_req->data_obj_id.hash_low);
-    storHvisor->volCatalogCache->Update(
+    shvol->vol_catalog_cache->Update(
         (fds_uint64_t)cat_obj_req->volume_offset,
         obj_id);
 }

@@ -430,9 +430,7 @@ void CreateSHMode(int argc,
     storHvisor = new StorHvCtrl(argc, argv, StorHvCtrl::NORMAL);
   }
 
-  FDS_PLOG(storHvisor->GetLog()) << "StorHvisorNet - Created storHvisor " << storHvisor
-            << " with journal table " << storHvisor->journalTbl;
-
+  FDS_PLOG(storHvisor->GetLog()) << "StorHvisorNet - Created storHvisor " << storHvisor;
 }
 
 void DeleteStorHvisor()
@@ -466,12 +464,12 @@ StorHvCtrl::StorHvCtrl(int argc,
   Ice::PropertiesPtr props = _communicator->getProperties();
 
   rpcSwitchTbl = new FDS_RPC_EndPointTbl(_communicator);
-  journalTbl = new StorHvJournal(FDS_READ_WRITE_LOG_ENTRIES);
-  /*
-   * TODO: Don't hard code the volume ID to be 1.
-   */
-  volCatalogCache = new VolumeCatalogCache(1, this,sh_log);
-  
+
+  /* TODO: for now StorHvVolumeTable constructor will create 
+   * volume 1, revisit this soon when we add multi-volume support
+   * in other parts of the system */
+  vol_table = new StorHvVolumeTable(this, sh_log);  
+
   /*
    * Set basic thread properties.
    */
@@ -572,8 +570,7 @@ StorHvCtrl::StorHvCtrl(int argc,
 StorHvCtrl::~StorHvCtrl()
 {
   delete sh_log;
-  delete journalTbl;
-  delete volCatalogCache;
+  delete vol_table;
   delete dataPlacementTbl;
 }
 
