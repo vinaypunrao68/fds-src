@@ -16,12 +16,15 @@
 using namespace std;
 using namespace FDS_ProtocolInterface;
 using namespace Ice;
+using namespace IceUtil;
+using namespace fds;
 
 extern StorHvCtrl *storHvisor;
 extern struct fbd_device *fbd_dev;
 
 
 #define SRC_IP  0x0a010a65
+#define FDS_IO_LONG_TIME  60 // seconds
 
 BEGIN_C_DECLS
 int StorHvisorProcIoRd(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp_req, void *arg1, void *arg2)
@@ -141,7 +144,8 @@ int StorHvisorProcIoRd(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
   }
   
   // Schedule a timer here to track the responses and the original request
-  
+  IceUtil::Time interval = IceUtil::Time::seconds(FDS_IO_LONG_TIME);
+  storHvisor->journalTbl->schedule(journEntry->ioTimerTask, interval);
   return 0; // je_lock destructor will unlock the journal entry
 }
 

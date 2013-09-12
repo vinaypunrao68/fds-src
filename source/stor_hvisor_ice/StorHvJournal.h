@@ -45,8 +45,24 @@ typedef void (*complete_req_cb_t)(void *arg1, void *arg2, fbd_request_t *treq, i
 using namespace FDS_ProtocolInterface;
 using namespace std;
 using namespace fds;
+using namespace Ice;
 
 namespace fds {
+
+class StorHvJournal;
+class StorHvJournalEntry;
+
+using namespace IceUtil;
+class StorHvIoTimerTask : public IceUtil::TimerTask {
+public:
+ StorHvJournalEntry *jrnlEntry;
+ StorHvJournal      *jrnlTbl;
+
+  void runTimerTask();
+  StorHvIoTimerTask(StorHvJournalEntry *jrnl_entry) {
+     jrnlEntry = jrnl_entry;
+  }
+};
 
 class   StorHvJournalEntry {
 
@@ -66,33 +82,35 @@ public:
   int fds_set_dm_commit_status( int ipAddr);
   int fds_set_smack_status( int ipAddr);
   void fbd_complete_req(fbd_request_t *req, int status);
+  void fbd_process_req_timeout();
 
+  StorHvIoTimerTask *ioTimerTask;
   bool   is_in_use;
   unsigned int trans_id;
-         short  replc_cnt;
-        short  sm_ack_cnt;
-        short  dm_ack_cnt;
-        short  dm_commit_cnt;
-        short  trans_state;
-	unsigned short incarnation_number;
-        FDS_IO_Type   op;
-        FDS_ObjectIdType data_obj_id;
-        int      data_obj_len;
-	unsigned int block_offset;
-        void     *fbd_ptr;
-        void     *read_ctx;
-        void     *write_ctx;
-	complete_req_cb_t comp_req;
-	void 	*comp_arg1;
-	void 	*comp_arg2;
-        FDSP_MsgHdrTypePtr     sm_msg;
-        FDSP_MsgHdrTypePtr     dm_msg;
-	int      lt_flag;
-        int      st_flag;
-        short    num_dm_nodes;
-        FDSP_IpNode    dm_ack[FDS_MAX_DM_NODES_PER_CLST];
-        short    num_sm_nodes;
-        FDSP_IpNode    sm_ack[FDS_MAX_SM_NODES_PER_CLST];
+  short  replc_cnt;
+  short  sm_ack_cnt;
+  short  dm_ack_cnt;
+  short  dm_commit_cnt;
+  short  trans_state;
+  unsigned short incarnation_number;
+  FDS_IO_Type   op;
+  FDS_ObjectIdType data_obj_id;
+  int      data_obj_len;
+  unsigned int block_offset;
+  void     *fbd_ptr;
+  void     *read_ctx;
+  void     *write_ctx;
+  complete_req_cb_t comp_req;
+  void 	*comp_arg1;
+  void 	*comp_arg2;
+  FDSP_MsgHdrTypePtr     sm_msg;
+  FDSP_MsgHdrTypePtr     dm_msg;
+  int      lt_flag;
+  int      st_flag;
+  short    num_dm_nodes;
+  FDSP_IpNode    dm_ack[FDS_MAX_DM_NODES_PER_CLST];
+  short    num_sm_nodes;
+  FDSP_IpNode    sm_ack[FDS_MAX_SM_NODES_PER_CLST];
 };
 
 class  StorHvJournalEntryLock {
@@ -118,6 +136,7 @@ private:
 
   unsigned int get_free_trans_id();
   void return_free_trans_id(unsigned int trans_id);
+  IceUtil::Timer *ioTimer;
 
 public:
  	StorHvJournal();
@@ -130,8 +149,12 @@ public:
 	StorHvJournalEntry *get_journal_entry(int trans_id);
 	unsigned int get_trans_id_for_block(unsigned int block_offset);
 	void release_trans_id(unsigned int trans_id);
+        void schedule(const TimerTaskPtr& task, const IceUtil::Time& interval) {
+             ioTimer->schedule(task, interval);
+        }
 
 };
+
 
 } // namespace fds
 

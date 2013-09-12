@@ -10,7 +10,7 @@
 //#include "fds_client/include/ubd.h"
 #include "StorHvJournal.h"
 
-
+using namespace IceUtil;
 extern StorHvCtrl *storHvisor;
 namespace fds {
 
@@ -33,6 +33,7 @@ StorHvJournalEntry::StorHvJournalEntry()
    incarnation_number = 0;
    // Initialize lock to unlocked state here
    je_mutex = new fds_mutex("Journal Entry Mutex");
+   ioTimerTask = new StorHvIoTimerTask(this);
 }
 
 StorHvJournalEntry::~StorHvJournalEntry()
@@ -176,10 +177,13 @@ StorHvJournal::StorHvJournal(unsigned int max_jrnl_entries)
   
 	for (i = 0; i < max_journal_entries; i++) {
 	  rwlog_tbl[i].trans_id = i;
+	  rwlog_tbl[i].ioTimerTask->jrnlTbl = this;
 	  free_trans_ids.push(i);
 	}
 
 	jrnl_tbl_mutex = new fds_mutex("Journal Table Mutex");
+
+        ioTimer = new IceUtil::Timer();
 
 	// printf("Created journal table lock %p for Journal Table %p \n", jrnl_tbl_mutex, this);
 
@@ -278,6 +282,7 @@ void StorHvJournal::release_trans_id(unsigned int trans_id)
   block_to_jrnl_idx.erase(block_offset);
   rwlog_tbl[trans_id].reset();
   rwlog_tbl[trans_id].block_offset = 0;
+  ioTimer->cancel(rwlog_tbl[trans_id].ioTimerTask);
   return_free_trans_id(trans_id);
 
   unlock();
@@ -293,4 +298,26 @@ StorHvJournalEntry *StorHvJournal::get_journal_entry(int trans_id) {
 
 }
 
+
+void StorHvJournalEntry::fbd_process_req_timeout()
+{
+fbd_request *req;
+  lock();
+  if (isActive()) {
+      req = (fbd_request_t *)write_ctx;
+      if (req) {
+         write_ctx = 0;
+         FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " - Timing out, responding to  the block : " << req;
+         fbd_complete_req(req, -1);
+      }
+      reset();
+  }
+  unlock();
+}
+
+void StorHvIoTimerTask::runTimerTask()
+{
+   jrnlEntry->fbd_process_req_timeout();
+   jrnlTbl->release_trans_id(jrnlEntry->trans_id);
+}
 } // namespace fds
