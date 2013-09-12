@@ -89,7 +89,7 @@ Error DataMgr::_process_rm_vol(fds_volid_t vol_uuid) {
   FDS_PLOG(dataMgr->GetLog()) << "Removed vol meta for vol uuid "
                               << vol_uuid;
   vol_map_mtx->unlock();
-  
+
   return err;
 }
 
