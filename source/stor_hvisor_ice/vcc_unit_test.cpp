@@ -37,14 +37,28 @@ class VccUnitTest {
     fds_volid_t vol_uuid;
     vol_uuid = 987654321;
 
-    VolumeCatalogCache vcc(vol_uuid,
-                           storHvisor,
-                           vcc_log);
+    StorHvVolumeTable voltab(storHvisor,
+                             vcc_log);
+    err = voltab.registerVolume(vol_uuid);
+    if (!err.ok()) {
+      std::cout << "Failed to register volume " 
+                << vol_uuid << std::endl;
+      return -1;
+    }
+
+    StorHvVolume *vol = voltab.getVolume(vol_uuid);
+    if (!vol) {
+      std::cout << "Volume " << vol_uuid 
+                << " does not exist, even though registration was successful"
+                << std::endl;
+      return -1;
+    }
+    VolumeCatalogCache *vcc = vol->vol_catalog_cache;
 
     for (fds_uint32_t i = 0; i < 2; i++) {
       fds_uint64_t block_id = 1 + i;
       ObjectID oid(block_id, (block_id * i));
-      err = vcc.Update(block_id, oid);
+      err = vcc->Update(block_id, oid);
       if (!err.ok() && err != ERR_PENDING_RESP) {
         std::cout << "Failed to update volume cache "
                   << vol_uuid << std::endl;
@@ -61,14 +75,28 @@ class VccUnitTest {
     fds_uint64_t vol_uuid;
     vol_uuid = 987654321;
 
-    VolumeCatalogCache vcc(vol_uuid,
-                           storHvisor,
-                           vcc_log);
+    StorHvVolumeTable voltab(storHvisor,
+                             vcc_log);
+    err = voltab.registerVolume(vol_uuid);
+    if (!err.ok()) {
+      std::cout << "Failed to register volume " 
+                << vol_uuid << std::endl;
+      return -1;
+    }
+
+    StorHvVolume *vol = voltab.getVolume(vol_uuid);
+    if (!vol) {
+      std::cout << "Volume " << vol_uuid 
+                << " does not exist, even though registration was successful"
+                << std::endl;
+      return -1;
+    }
+    VolumeCatalogCache *vcc = vol->vol_catalog_cache;
 
     for (fds_uint32_t i = 0; i < 2; i++) {
       fds_uint64_t block_id = 1 + i;
       ObjectID oid;
-      err = vcc.Query(block_id, 0, &oid);
+      err = vcc->Query(block_id, 0, &oid);
       if (!err.ok() && err != ERR_PENDING_RESP) {
         std::cout << "Failed to query volume cache "
                   << vol_uuid << std::endl;
@@ -183,13 +211,27 @@ class VccUnitTest {
      * Make a shared cache that all access
      * the same volume.
      */
-    VolumeCatalogCache vcc(vol_uuid,
-                           storHvisor,
-                           vcc_log);
+    StorHvVolumeTable voltab(storHvisor,
+                             vcc_log);
+    err = voltab.registerVolume(vol_uuid);
+    if (!err.ok()) {
+      std::cout << "Failed to register volume " 
+                << vol_uuid << std::endl;
+      return -1;
+    }
+
+    StorHvVolume *vol = voltab.getVolume(vol_uuid);
+    if (!vol) {
+      std::cout << "Volume " << vol_uuid 
+                << " does not exist, even though registration was successful"
+                << std::endl;
+      return -1;
+    }
+    VolumeCatalogCache *vcc = vol->vol_catalog_cache;
 
     for (fds_uint32_t i = 0; i < num_threads; i++) {
-      threads.push_back(start_update_thread(i, &vcc, vol_uuid));
-      threads.push_back(start_clear_thread(i, &vcc, vol_uuid));
+      threads.push_back(start_update_thread(i, vcc, vol_uuid));
+      threads.push_back(start_clear_thread(i, vcc, vol_uuid));
     }
 
     for (fds_uint32_t i = 0; i < threads.size(); i++) {
