@@ -139,6 +139,15 @@ class FDSP_ModifyPolicyType {
   string vol_name;  /* Name of the volume */
 };
 
+class FDSP_RegisterNodeType {
+  FDSP_MgrIdType node_type; /* Type of node - SM/DM/HV */
+  long		 ip_hi_addr; /* IP V6 high address */
+  long		 ip_lo_addr; /* IP V4 address of V6 low address of the node */
+  int		 control_port; /* Port number to contact for control messages */
+  int		 data_port; /* Port number to send datapath requests */
+  /* Add node capacity and other relevant fields here */
+};
+
 class FDSP_MsgHdrType {
     FDSP_MsgCodeType     msg_code;
 		
@@ -214,6 +223,7 @@ interface FDSP_ConfigPathReq {
   void CreatePolicy(FDSP_MsgHdrType fdsp_msg, FDSP_CreatePolicyType crt_pol_req);
   void DeletePolicy(FDSP_MsgHdrType fdsp_msg, FDSP_DeletePolicyType del_pol_req);
   void ModifyPolicy(FDSP_MsgHdrType fdsp_msg, FDSP_ModifyPolicyType mod_pol_req);
+  void RegisterNode(FDSP_MsgHdrType fdsp_msg, FDSP_RegisterNodeType reg_node_req);
 };
 
 interface FDSP_ConfigPathResp {
@@ -223,6 +233,7 @@ interface FDSP_ConfigPathResp {
   void CreatePolicyResp(FDSP_MsgHdrType fdsp_msg, FDSP_CreatePolicyType crt_pol_resp);
   void DeletePolicyResp(FDSP_MsgHdrType fdsp_msg, FDSP_DeletePolicyType del_pol_resp);
   void ModifyPolicyResp(FDSP_MsgHdrType fdsp_msg, FDSP_ModifyPolicyType mod_pol_resp);
+  void RegisterNodeResp(FDSP_MsgHdrType fdsp_msg, FDSP_RegisterNodeType reg_node_resp);
 };
 
 interface FDSP_ControlPathReq {
