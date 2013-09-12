@@ -1,42 +1,70 @@
-#include "DataMgr.h"
+/*
+ * Copyright 2013 Formation Data Systems, Inc.
+ */
 
-#include <iostream>
+#include <string>
+
+#include "data_mgr/DataMgr.h"
 
 namespace fds {
 
 DataMgr *dataMgr;
-fds_threadpool *test_tp;
 
-static void _open_entry(int val) {
-  // std::cout << "Hello? " << val << std::endl;
-  //FDS_PLOG(dataMgr->GetLog()) << "Starting open process thread of "
-  //                          << dataMgr->num_threads;
+Error DataMgr::_process_add_vol(const std::string& vol_name,
+                                fds_volid_t vol_uuid) {
+  Error err(ERR_OK);
+
+  /*
+   * Verify that we don't already know about this volume
+   */
+  vol_map_mtx->lock();
+  if (volExistsLocked(vol_uuid) == true) {
+    FDS_PLOG(dataMgr->GetLog()) << "Received add request for existing vol uuid "
+                                << vol_uuid;
+    err = ERR_DUPLICATE;
+    vol_map_mtx->unlock();
+    return err;
+  }
+
+  vol_meta_map[vol_uuid] = new VolumeMeta(vol_name,
+                                          vol_uuid,
+                                          dm_log);
+  FDS_PLOG(dataMgr->GetLog()) << "Created vol meta for vol uuid "
+                              << vol_uuid;
+  vol_map_mtx->unlock();
+
+  return err;
 }
 
-Error DataMgr::_process_open(fds_uint32_t vol_uuid,
+Error DataMgr::_process_open(fds_volid_t vol_uuid,
                              fds_uint32_t vol_offset,
                              fds_uint32_t trans_id,
                              const ObjectID& oid) {
-  Error err;
+  Error err(ERR_OK);
 
   /*
-   * Check the map to see if we have know about the volume.
+   * Check the map to see if we know about the volume
+   * and just add it if we don't.
    * TODO: We should not implicitly create the volume here!
    * We should only be creating the volume on OM volume create
    * requests.
    * TODO: Just hack the name as the offset for now.
    */
-  vol_map_mtx->lock();
-  if (vol_meta_map.count(vol_uuid) == 0) {
-    vol_meta_map[vol_uuid] = new VolumeMeta(stor_prefix +
-                                            std::to_string(vol_uuid),
-                                            vol_uuid,
-                                            dm_log);
-    FDS_PLOG(dataMgr->GetLog()) << "Created vol meta for vol uuid "
-                                << vol_uuid << " and transaction "
-                                << trans_id;
+  if (volExists(vol_uuid) == false) {
+    err = _process_add_vol(stor_prefix +
+                           std::to_string(vol_uuid),
+                           vol_uuid);
+    if (!err.ok()) {
+      FDS_PLOG(dataMgr->GetLog()) << "Failed to add vol during open "
+                                  << "transaction for volume " << vol_uuid;
+      return err;
+    }
   }
 
+  /*
+   * Get a local reference to the vol meta.
+   */
+  vol_map_mtx->lock();
   VolumeMeta *vol_meta = vol_meta_map[vol_uuid];
   vol_map_mtx->unlock();
 
@@ -55,7 +83,7 @@ Error DataMgr::_process_open(fds_uint32_t vol_uuid,
   return err;
 }
 
-Error DataMgr::_process_commit(fds_uint32_t vol_uuid,
+Error DataMgr::_process_commit(fds_volid_t vol_uuid,
                                fds_uint32_t vol_offset,
                                fds_uint32_t trans_id,
                                const ObjectID& oid) {
@@ -87,27 +115,34 @@ Error DataMgr::_process_abort() {
   return err;
 }
 
-Error DataMgr::_process_query(fds_uint32_t vol_uuid,
+Error DataMgr::_process_query(fds_volid_t vol_uuid,
                               fds_uint32_t vol_offset,
                               ObjectID *oid) {
   Error err(ERR_OK);
 
   /*
-   * Check the map to see if we have know about the volume.
+   * Check the map to see if we know about the volume
+   * and just add it if we don't.
+   * TODO: We should not implicitly create the volume here!
+   * We should only be creating the volume on OM volume create
+   * requests.
    * TODO: Just hack the name as the offset for now.
    */
-  vol_map_mtx->lock();
-
-  if (vol_meta_map.count(vol_uuid) == 0) {
-    // Ideally we should create this only if the underlying db exists in the File System
-    vol_meta_map[vol_uuid] = new VolumeMeta(stor_prefix +
-                                            std::to_string(vol_uuid),
-                                            vol_uuid,
-                                            dm_log);
-    FDS_PLOG(dataMgr->GetLog()) << "Created vol meta for vol uuid "
-                                << vol_uuid;
+  if (volExists(vol_uuid) == false) {
+    err = _process_add_vol(stor_prefix +
+                           std::to_string(vol_uuid),
+                           vol_uuid);
+    if (!err.ok()) {
+      FDS_PLOG(dataMgr->GetLog()) << "Failed to add vol during query "
+                                  << "transaction for volume " << vol_uuid;
+      return err;
+    }
   }
 
+  /*
+   * Get a local reference to the vol meta.
+   */
+  vol_map_mtx->lock();
   VolumeMeta *vol_meta = vol_meta_map[vol_uuid];
   vol_map_mtx->unlock();
 
@@ -121,7 +156,7 @@ Error DataMgr::_process_query(fds_uint32_t vol_uuid,
     FDS_PLOG(dataMgr->GetLog()) << "Vol meta query FAILED for volume "
                                 << vol_uuid;
   }
-  
+
   return err;
 }
 
@@ -131,18 +166,13 @@ DataMgr::DataMgr()
   dm_log = new fds_log("dm", "logs");
   vol_map_mtx = new fds_mutex("Volume map mutex");
 
-  // _tp = new fds_threadpool(num_threads);
-  _tp = new fds_threadpool(3);
-  // test_tp = new fds_threadpool(3);
+  _tp = new fds_threadpool(num_threads);
 
   FDS_PLOG(dm_log) << "Constructing the Data Manager";
 }
 
 DataMgr::~DataMgr() {
-
   FDS_PLOG(dm_log) << "Destructing the Data Manager";
-
-  // delete test_tp;
 
   /*
    * This will wait for all current threads to
@@ -150,13 +180,14 @@ DataMgr::~DataMgr() {
    */
   delete _tp;
 
-  for (std::unordered_map<fds_uint64_t, VolumeMeta*>::iterator it = vol_meta_map.begin();
+  for (std::unordered_map<fds_uint64_t, VolumeMeta*>::iterator
+           it = vol_meta_map.begin();
        it != vol_meta_map.end();
        it++) {
     delete it->second;
   }
   vol_meta_map.clear();
-  
+
   delete vol_map_mtx;
   delete dm_log;
 }
@@ -196,7 +227,7 @@ int DataMgr::run(int argc, char* argv[]) {
   FDS_PLOG(dm_log) << "Data Manager using port " << port_num;
   FDS_PLOG(dm_log) << "Data Manager using storage prefix "
                    << stor_prefix;
-  
+
   callbackOnInterrupt();
 
   /*
@@ -204,29 +235,32 @@ int DataMgr::run(int argc, char* argv[]) {
    */
   std::ostringstream tcpProxyStr;
   tcpProxyStr << "tcp -p " << port_num;
-  Ice::ObjectAdapterPtr adapter = communicator()->createObjectAdapterWithEndpoints("DataMgr", tcpProxyStr.str());
+  Ice::ObjectAdapterPtr adapter =
+      communicator()->createObjectAdapterWithEndpoints(
+          "DataMgr", tcpProxyStr.str());
 
   reqHandleSrv = new ReqHandler(communicator());
   adapter->add(reqHandleSrv, communicator()->stringToIdentity("DataMgr"));
 
   adapter->activate();
-  
+
   communicator()->waitForShutdown();
 
   return EXIT_SUCCESS;
 }
 
-void DataMgr::swapMgrId(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg) {
+void DataMgr::swapMgrId(const FDS_ProtocolInterface::
+                        FDSP_MsgHdrTypePtr& fdsp_msg) {
   FDS_ProtocolInterface::FDSP_MgrIdType temp_id;
   temp_id = fdsp_msg->dst_id;
   fdsp_msg->dst_id = fdsp_msg->src_id;
   fdsp_msg->src_id = temp_id;
-  
-  long tmp_addr;
+
+  fds_uint64_t tmp_addr;
   tmp_addr = fdsp_msg->dst_ip_hi_addr;
   fdsp_msg->dst_ip_hi_addr = fdsp_msg->src_ip_hi_addr;
   fdsp_msg->src_ip_hi_addr = tmp_addr;
-  
+
   tmp_addr = fdsp_msg->dst_ip_lo_addr;
   fdsp_msg->dst_ip_lo_addr = fdsp_msg->src_ip_lo_addr;
   fdsp_msg->src_ip_lo_addr = tmp_addr;
@@ -236,9 +270,26 @@ fds_log* DataMgr::GetLog() {
   return dm_log;
 }
 
-void
-DataMgr::interruptCallback(int)
-{
+/*
+ * Intended to be called while holding the vol_map_mtx.
+ */
+fds_bool_t DataMgr::volExistsLocked(fds_volid_t vol_uuid) const {
+  if (vol_meta_map.count(vol_uuid) != 0) {
+    return true;
+  }
+  return false;
+}
+
+fds_bool_t DataMgr::volExists(fds_volid_t vol_uuid) const {
+  fds_bool_t result;
+  vol_map_mtx->lock();
+  result = volExistsLocked(vol_uuid);
+  vol_map_mtx->unlock();
+
+  return result;
+}
+
+void DataMgr::interruptCallback(int arg) {
   FDS_PLOG(dataMgr->GetLog()) << "Shutting down communicator";
   communicator()->shutdown();
 }
@@ -255,18 +306,25 @@ DataMgr::RespHandler::RespHandler() {
 DataMgr::RespHandler::~RespHandler() {
 }
 
-void DataMgr::ReqHandler::PutObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &msg_hdr,
-                                    const FDS_ProtocolInterface::FDSP_PutObjTypePtr &put_obj,
+void DataMgr::ReqHandler::PutObject(const FDS_ProtocolInterface::
+                                    FDSP_MsgHdrTypePtr &msg_hdr,
+                                    const FDS_ProtocolInterface::
+                                    FDSP_PutObjTypePtr &put_obj,
                                     const Ice::Current&) {
 }
 
-void DataMgr::ReqHandler::GetObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &msg_hdr,
-                                    const FDS_ProtocolInterface::FDSP_GetObjTypePtr& get_obj,
+void DataMgr::ReqHandler::GetObject(const FDS_ProtocolInterface::
+                                    FDSP_MsgHdrTypePtr &msg_hdr,
+                                    const FDS_ProtocolInterface::
+                                    FDSP_GetObjTypePtr& get_obj,
                                     const Ice::Current&) {
 }
 
-void DataMgr::ReqHandler::UpdateCatalogObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &msg_hdr,
-                                              const FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr& update_catalog,
+void DataMgr::ReqHandler::UpdateCatalogObject(const FDS_ProtocolInterface::
+                                              FDSP_MsgHdrTypePtr &msg_hdr,
+                                              const FDS_ProtocolInterface::
+                                              FDSP_UpdateCatalogTypePtr
+                                              &update_catalog,
                                               const Ice::Current&) {
   Error err(ERR_OK);
 
@@ -275,20 +333,19 @@ void DataMgr::ReqHandler::UpdateCatalogObject(const FDS_ProtocolInterface::FDSP_
 
   FDS_PLOG(dataMgr->GetLog()) << "Processing update catalog request with "
                               << "volume id: " << msg_hdr->glob_volume_id
-                              << ", volume offset: " << update_catalog->volume_offset
+                              << ", volume offset: "
+                              << update_catalog->volume_offset
                               << ", Obj ID " << oid
-                              << ", Trans ID " << update_catalog->dm_transaction_id
+                              << ", Trans ID "
+                              << update_catalog->dm_transaction_id
                               << ", OP ID " << update_catalog->dm_operation;
 
-  // dataMgr->_tp->schedule(_open_entry, 6);
-  _open_entry(5);
-  
   /*
    * For now, just treat this as an open
    */
   if (update_catalog->dm_operation ==
       FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_OPEN) {
-    err = dataMgr->_process_open(msg_hdr->glob_volume_id,
+    err = dataMgr->_process_open((fds_volid_t)msg_hdr->glob_volume_id,
                                  update_catalog->volume_offset,
                                  update_catalog->dm_transaction_id,
                                  oid);
@@ -310,33 +367,42 @@ void DataMgr::ReqHandler::UpdateCatalogObject(const FDS_ProtocolInterface::FDSP_
     msg_hdr->err_msg  = "Something hit the fan...";
     msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
   }
-  
+
   /*
    * Reverse the msg direction and send the response.
    * TODO: Are we wasting space sending the original update_catalog?
    */
   msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_UPDATE_CAT_OBJ_RSP;
   dataMgr->swapMgrId(msg_hdr);
-  dataMgr->respHandleCli->begin_UpdateCatalogObjectResp(msg_hdr, update_catalog);
+  dataMgr->respHandleCli->begin_UpdateCatalogObjectResp(
+      msg_hdr,
+      update_catalog);
 
   FDS_PLOG(dataMgr->GetLog()) << "Sending async update catalog response with "
                               << "volume id: " << msg_hdr->glob_volume_id
-                              << ", volume offset: " << update_catalog->volume_offset
+                              << ", volume offset: "
+                              << update_catalog->volume_offset
                               << ", Obj ID " << oid
-                              << ", Trans ID " << update_catalog->dm_transaction_id
+                              << ", Trans ID "
+                              << update_catalog->dm_transaction_id
                               << ", OP ID " << update_catalog->dm_operation;
 
   if (update_catalog->dm_operation ==
       FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_OPEN) {
-    FDS_PLOG(dataMgr->GetLog()) << "Sent update response for trans open request";
+    FDS_PLOG(dataMgr->GetLog())
+        << "Sent update response for trans open request";
   } else if (update_catalog->dm_operation ==
              FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_COMMITED) {
-    FDS_PLOG(dataMgr->GetLog()) << "Sent update response for trans commit request";
+    FDS_PLOG(dataMgr->GetLog())
+        << "Sent update response for trans commit request";
   }
 }
 
-void DataMgr::ReqHandler::QueryCatalogObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &msg_hdr,
-                                             const FDS_ProtocolInterface::FDSP_QueryCatalogTypePtr& query_catalog,
+void DataMgr::ReqHandler::QueryCatalogObject(const FDS_ProtocolInterface::
+                                             FDSP_MsgHdrTypePtr &msg_hdr,
+                                             const FDS_ProtocolInterface::
+                                             FDSP_QueryCatalogTypePtr
+                                             &query_catalog,
                                              const Ice::Current&) {
   Error err(ERR_OK);
   ObjectID oid(query_catalog->data_obj_id.hash_high,
@@ -344,9 +410,11 @@ void DataMgr::ReqHandler::QueryCatalogObject(const FDS_ProtocolInterface::FDSP_M
 
   FDS_PLOG(dataMgr->GetLog()) << "Processing query catalog request with "
                               << "volume id: " << msg_hdr->glob_volume_id
-                              << ", volume offset: " << query_catalog->volume_offset
+                              << ", volume offset: "
+                              << query_catalog->volume_offset
                               << ", Obj ID " << oid
-                              << ", Trans ID " << query_catalog->dm_transaction_id
+                              << ", Trans ID "
+                              << query_catalog->dm_transaction_id
                               << ", OP ID " << query_catalog->dm_operation;
 
   err = dataMgr->_process_query(msg_hdr->glob_volume_id,
@@ -372,21 +440,27 @@ void DataMgr::ReqHandler::QueryCatalogObject(const FDS_ProtocolInterface::FDSP_M
   dataMgr->respHandleCli->begin_QueryCatalogObjectResp(msg_hdr, query_catalog);
   FDS_PLOG(dataMgr->GetLog()) << "Sending async query catalog response with "
                               << "volume id: " << msg_hdr->glob_volume_id
-                              << ", volume offset: " << query_catalog->volume_offset
+                              << ", volume offset: "
+                              << query_catalog->volume_offset
                               << ", Obj ID " << oid
-                              << ", Trans ID " << query_catalog->dm_transaction_id
+                              << ", Trans ID "
+                              << query_catalog->dm_transaction_id
                               << ", OP ID " << query_catalog->dm_operation;
-
-  
 }
 
-void DataMgr::ReqHandler::OffsetWriteObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-                                            const FDS_ProtocolInterface::FDSP_OffsetWriteObjTypePtr& offset_write_obj,
+void DataMgr::ReqHandler::OffsetWriteObject(const FDS_ProtocolInterface::
+                                            FDSP_MsgHdrTypePtr &msg_hdr,
+                                            const FDS_ProtocolInterface::
+                                            FDSP_OffsetWriteObjTypePtr
+                                            &offset_write_obj,
                                             const Ice::Current&) {
 }
 
-void DataMgr::ReqHandler::RedirReadObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &msg_hdr,
-                                          const FDS_ProtocolInterface::FDSP_RedirReadObjTypePtr& redir_read_obj,
+void DataMgr::ReqHandler::RedirReadObject(const FDS_ProtocolInterface::
+                                          FDSP_MsgHdrTypePtr &msg_hdr,
+                                          const FDS_ProtocolInterface::
+                                          FDSP_RedirReadObjTypePtr
+                                          &redir_read_obj,
                                           const Ice::Current&) {
 }
 
@@ -396,62 +470,71 @@ void DataMgr::ReqHandler::AssociateRespCallback(const Ice::Identity& ident,
     std::cout << "Associating response Callback client to DataMgr`"
               << _communicator->identityToString(ident) << "'"<< std::endl;
   } catch(IceUtil::NullHandleException) {
-    FDS_PLOG(dataMgr->GetLog()) << "Caught a NULL exception accessing _communicator";
-    std::cout << "Caught some exception?!?!?!" << std::endl;
+    FDS_PLOG(dataMgr->GetLog())
+        << "Caught a NULL exception accessing _communicator";
   }
 
-  dataMgr->respHandleCli = FDS_ProtocolInterface::FDSP_DataPathRespPrx::uncheckedCast(current.con->createProxy(ident));
+  dataMgr->respHandleCli = FDS_ProtocolInterface::FDSP_DataPathRespPrx::
+      uncheckedCast(current.con->createProxy(ident));
 }
 
 void
-DataMgr::RespHandler::PutObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &msg_hdr,
-                                    const FDS_ProtocolInterface::FDSP_PutObjTypePtr &put_obj,
-                                    const Ice::Current&) 
-{
-}
-
-void
-DataMgr::RespHandler::GetObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &msg_hdr,
-                                    const FDS_ProtocolInterface::FDSP_GetObjTypePtr& get_obj,
+DataMgr::RespHandler::PutObjectResp(const FDS_ProtocolInterface::
+                                    FDSP_MsgHdrTypePtr &msg_hdr,
+                                    const FDS_ProtocolInterface::
+                                    FDSP_PutObjTypePtr &put_obj,
                                     const Ice::Current&) {
 }
 
 void
-DataMgr::RespHandler::UpdateCatalogObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &msg_hdr, 
-                                              const FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr& update_catalog ,
-                                              const Ice::Current&)
-{
+DataMgr::RespHandler::GetObjectResp(const FDS_ProtocolInterface::
+                                    FDSP_MsgHdrTypePtr &msg_hdr,
+                                    const FDS_ProtocolInterface::
+                                    FDSP_GetObjTypePtr& get_obj,
+                                    const Ice::Current&) {
 }
 
 void
-DataMgr::RespHandler::QueryCatalogObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &msg_hdr, 
-                                             const FDS_ProtocolInterface::FDSP_QueryCatalogTypePtr& query_catalog ,
-                                             const Ice::Current&)
-{
+DataMgr::RespHandler::UpdateCatalogObjectResp(const FDS_ProtocolInterface::
+                                              FDSP_MsgHdrTypePtr &msg_hdr,
+                                              const FDS_ProtocolInterface::
+                                              FDSP_UpdateCatalogTypePtr
+                                              &update_catalog,
+                                              const Ice::Current&) {
 }
 
 void
-DataMgr::RespHandler::OffsetWriteObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-                                            const FDS_ProtocolInterface::FDSP_OffsetWriteObjTypePtr& offset_write_obj,
-                                            const Ice::Current&)
-{
+DataMgr::RespHandler::QueryCatalogObjectResp(const FDS_ProtocolInterface::
+                                             FDSP_MsgHdrTypePtr &msg_hdr,
+                                             const FDS_ProtocolInterface::
+                                             FDSP_QueryCatalogTypePtr
+                                             &query_catalog,
+                                             const Ice::Current&) {
 }
 
 void
-DataMgr::RespHandler::RedirReadObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &msg_hdr,
-                                          const FDS_ProtocolInterface::FDSP_RedirReadObjTypePtr& redir_read_obj,
+DataMgr::RespHandler::OffsetWriteObjectResp(const FDS_ProtocolInterface::
+                                            FDSP_MsgHdrTypePtr& msg_hdr,
+                                            const FDS_ProtocolInterface::
+                                            FDSP_OffsetWriteObjTypePtr
+                                            &offset_write_obj,
+                                            const Ice::Current&) {
+}
+
+void
+DataMgr::RespHandler::RedirReadObjectResp(const FDS_ProtocolInterface::
+                                          FDSP_MsgHdrTypePtr &msg_hdr,
+                                          const FDS_ProtocolInterface::
+                                          FDSP_RedirReadObjTypePtr &redir_obj,
                                           const Ice::Current&) {
 }
 
 }  // namespace fds
 
 int main(int argc, char *argv[]) {
-
   fds::dataMgr = new fds::DataMgr();
-  
-  fds::dataMgr->main(argc, argv, "dm_test.conf");
 
-  // fds::dataMgr->_tp->schedule(fds::_open_entry, 6);
+  fds::dataMgr->main(argc, argv, "dm_test.conf");
 
   delete fds::dataMgr;
 }
