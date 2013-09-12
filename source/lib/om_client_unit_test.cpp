@@ -30,6 +30,7 @@ int main(int argc, char *argv[]) {
 	om_client->registerEventHandlerForNodeEvents(my_node_event_handler);
 	om_client->registerEventHandlerForVolEvents(my_vol_event_handler);
 	om_client->subscribeToOmEvents(0x0a010aca, 1, 1);
+	om_client->startAcceptingControlMessages();
 
 	while(1) {
 	  printf(">");

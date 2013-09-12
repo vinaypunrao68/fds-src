@@ -64,7 +64,7 @@ namespace fds {
     Ice::ObjectAdapterPtr rpc_adapter;
     FDS_ProtocolInterface::FDSP_ControlPathReqPtr om_client_rpc_i;
     void initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
-    int registerNodeWithOM(Ice::CommunicatorPtr& comm);
+    int initRPCComm();
 
 
   public:
@@ -75,6 +75,8 @@ namespace fds {
     int registerEventHandlerForNodeEvents(node_event_handler_t node_event_hdlr);
     int registerEventHandlerForVolEvents(volume_event_handler_t vol_event_hdlr);
     int subscribeToOmEvents(unsigned int om_ip_addr, int tennant_id, int domain_id, int omc_port_num=0);
+    int startAcceptingControlMessages();
+    int registerNodeWithOM();
     int getNodeInfo(int node_id, unsigned int *node_ip_addr, int *node_state);
     int getDLTNodesForDoidKey(unsigned char doid_key, int *node_ids, int *n_nodes);
     int getDMTNodesForVolume(int vol_id, int *node_ids, int *n_nodes);
