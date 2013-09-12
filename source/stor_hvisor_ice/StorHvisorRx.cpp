@@ -17,29 +17,6 @@ using namespace Ice;
 extern StorHvCtrl *storHvisor;
 int vvc_entry_update(vvc_vhdl_t vhdl, const char *blk_name, int num_segments, const doid_t **doid_list);
 
-void StorHvCtrl::fbd_process_req_timeout(unsigned long arg)
-{
-  int trans_id;
-  StorHvJournalEntry *txn;
-  fbd_request_t *req;
-  // struct fbd_device *fbd;
-
-  trans_id = (int)arg;
-  txn = journalTbl->get_journal_entry(trans_id);
-  // fbd = (fbd_device *)txn->fbd_ptr;
-  StorHvJournalEntryLock je_lock(txn);
-  if (txn->isActive()) {
-    req = (fbd_request_t *)txn->write_ctx;
-    if (req) { 
-      txn->write_ctx = 0;
-      FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " - Timing out, responding to  the block : " << req;
-      txn->fbd_complete_req(req, -1);
-    }
-    txn->reset();
-    journalTbl->release_trans_id(trans_id);
-  }
-  
-}
 
 int StorHvCtrl::fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const FDSP_GetObjTypePtr& get_obj_rsp )
 {
