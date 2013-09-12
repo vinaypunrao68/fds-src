@@ -40,15 +40,22 @@ int StorHvisorProcIoRd(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
   fds::Error err(ERR_OK);
   ObjectID oid;
   fds_uint32_t vol_id;
+  StorHvVolume *shvol;
 
   unsigned int      trans_id = 0;
   fds_uint64_t data_offset  = req->sec * HVISOR_SECTOR_SIZE;
   fbd = fbd_dev;
   vol_id = 1;  /* TODO: Derive vol_id from somewhere. NOT fbd! */
 
+  shvol = storHvisor->vol_table->getVolume(vol_id);
+  if (!shvol) {
+    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << " volID:" << vol_id << "- volume not registered";
+    return 0; // TODO: error?
+  }
+
   /* Check if there is an outstanding transaction for this block offset  */
-  trans_id = storHvisor->journalTbl->get_trans_id_for_block(data_offset);
-  StorHvJournalEntry *journEntry = storHvisor->journalTbl->get_journal_entry(trans_id);
+  trans_id = shvol->journal_tbl->get_trans_id_for_block(data_offset);
+  StorHvJournalEntry *journEntry = shvol->journal_tbl->get_journal_entry(trans_id);
   
   StorHvJournalEntryLock je_lock(journEntry);
   
@@ -88,7 +95,7 @@ int StorHvisorProcIoRd(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
   
   fdsp_msg_hdr->req_cookie = trans_id;
   
-  err  = storHvisor->volCatalogCache->Query(data_offset, trans_id, &oid);
+  err  = shvol->vol_catalog_cache->Query(data_offset, trans_id, &oid);
   if (err.GetErrno() == ERR_PENDING_RESP) {
     FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Vol catalog Cache Query pending :" << err.GetErrno() << req;
     journEntry->trans_state = FDS_TRANS_VCAT_QUERY_PENDING;
@@ -145,7 +152,7 @@ int StorHvisorProcIoRd(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
   
   // Schedule a timer here to track the responses and the original request
   IceUtil::Time interval = IceUtil::Time::seconds(FDS_IO_LONG_TIME);
-  storHvisor->journalTbl->schedule(journEntry->ioTimerTask, interval);
+  shvol->journal_tbl->schedule(journEntry->ioTimerTask, interval);
   return 0; // je_lock destructor will unlock the journal entry
 }
 
@@ -165,6 +172,7 @@ int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
   fds_uint32_t node_ip = 0;
   int node_state = -1;
   fds_uint32_t vol_id;
+  StorHvVolume *shvol;
   
   fbd = (struct fbd_device *)dev_hdl;
   /*
@@ -174,10 +182,15 @@ int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
    * and clean it up when we introduce multi-volume.
    */
   vol_id = 1;
+  shvol = storHvisor->vol_table->getVolume(vol_id);
+  if (!shvol) {
+    FDS_PLOG(storHvisor->GetLog()) << "StorHvisorTx:" << " volID:" << vol_id << " - volume not registered";
+    return 0; // TODO: error?
+  }
   
   //  *** Get a new Journal Entry in xaction-log journalTbl
-  trans_id = storHvisor->journalTbl->get_trans_id_for_block(data_offset);
-  StorHvJournalEntry *journEntry = storHvisor->journalTbl->get_journal_entry(trans_id);
+  trans_id = shvol->journal_tbl->get_trans_id_for_block(data_offset);
+  StorHvJournalEntry *journEntry = shvol->journal_tbl->get_journal_entry(trans_id);
   FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - TXN_STATUS_OPEN ";
   
   StorHvJournalEntryLock je_lock(journEntry);

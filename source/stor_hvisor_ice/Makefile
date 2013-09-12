@@ -21,7 +21,8 @@ COBJS		= StorHvisorNet.o \
 		  StorHvisorTbl.o \
 		  StorHvisorRx.o \
 		  VolumeCatalogCache.o \
-		  StorHvJournal.o
+		  StorHvJournal.o \
+                  StorHvVolumes.o
 
 SRCS		= $(OBJS:.o=.cpp) \
 		  $(COBJS:.o=.cpp)

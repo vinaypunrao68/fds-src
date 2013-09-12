@@ -27,8 +27,9 @@
 #include "include/fds_err.h"
 #include "include/fds_types.h"
 
-#include "VolumeCatalogCache.h"
-#include "StorHvJournal.h"
+//#include "VolumeCatalogCache.h"
+//#include "StorHvJournal.h"
+#include "StorHvVolumes.h" 
 
 #include <map>
 // #include "util/concurrency/Thread.h"
@@ -163,11 +164,10 @@ public:
   
   // Data Members
   Ice::CommunicatorPtr _communicator;
-  StorHvJournal   	     *journalTbl; 
   StorHvDataPlacement        *dataPlacementTbl;
   FDS_RPC_EndPointTbl        *rpcSwitchTbl; // RPC calls Switch Table
-  VolumeCatalogCache         *volCatalogCache;
-  
+  StorHvVolumeTable          *vol_table;  
+
   void  InitIceObjects();
   void InitDmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
   void InitSmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
