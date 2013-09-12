@@ -147,7 +147,7 @@ int main(int argc, char *argv[]) {
 
   fds::orchMgr = new fds::OrchMgr();
   
-  fds::orchMgr->main(argc, argv, "orchMgr.conf");
+  fds::orchMgr->main(argc, argv, "orch_mgr.conf");
 
   delete fds::orchMgr;
 }

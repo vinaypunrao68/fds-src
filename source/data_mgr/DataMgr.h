@@ -18,6 +18,7 @@
 #include "include/fds_types.h"
 #include "include/fds_err.h"
 #include "include/fds_volume.h"
+#include "lib/OMgrClient.h"
 
 #include "util/Log.h"
 #include "data_mgr/VolumeMeta.h"
@@ -33,8 +34,12 @@ namespace fds {
     typedef FDS_ProtocolInterface::FDSP_DataPathReqPtr  ReqHandlerPtr;
     typedef FDS_ProtocolInterface::FDSP_DataPathRespPrx RespHandlerPrx;
 
+    /*
+     * Ice handlers and comm endpoints.
+     */
     ReqHandlerPtr  reqHandleSrv;
     RespHandlerPrx respHandleCli;
+    OMgrClient     *omClient;
 
     fds_log *dm_log;
 
@@ -62,6 +67,7 @@ namespace fds {
 
     Error _process_add_vol(const std::string& vol_name,
                            fds_volid_t vol_uuid);
+    Error _process_rm_vol(fds_volid_t vol_uuid);
 
     Error _process_open(fds_volid_t vol_uuid,
                         fds_uint32_t vol_offset,
@@ -79,6 +85,14 @@ namespace fds {
 
     fds_bool_t volExistsLocked(fds_volid_t vol_uuid) const;
 
+    static void vol_handler(fds_volid_t vol_uuid,
+                            VolumeDesc* desc,
+                            fds_int32_t vol_action);
+
+    static void node_handler(fds_int32_t  node_id,
+                             fds_uint32_t node_ip,
+                             fds_int32_t  node_st);
+
  public:
     DataMgr();
     ~DataMgr();
@@ -87,6 +101,7 @@ namespace fds {
     void interruptCallback(int arg);
     void swapMgrId(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg);
     fds_log* GetLog();
+    std::string getPrefix() const;
     fds_bool_t volExists(fds_volid_t vol_uuid) const;
 
     /*

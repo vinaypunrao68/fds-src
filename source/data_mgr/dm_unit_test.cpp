@@ -223,17 +223,17 @@ class DmUnitTest {
 
     return 0;
   }
-
-fds_int32_t basic_query() {
-
+  
+  fds_int32_t basic_query() {
+    
     FDS_PLOG(test_log) << "Starting test: basic_query()";
-
+    
     /*
      * Send lots of transaction open requests.
      */
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr =
         new FDS_ProtocolInterface::FDSP_MsgHdrType;
-   
+    
     msg_hdr->src_id   = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
     msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_DATA_MGR;    
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
@@ -264,7 +264,7 @@ fds_int32_t basic_query() {
           FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_OPEN;
       query_req->data_obj_id.hash_high = 0;
       query_req->data_obj_id.hash_low  = 0;
-
+      
       try {
         fdspDPAPI->begin_QueryCatalogObject(msg_hdr, query_req);
         FDS_PLOG(test_log) << "Sent query message to DM"
@@ -281,7 +281,15 @@ fds_int32_t basic_query() {
 
     return 0;
   }
+  
+  int basic_multivol() {
 
+    FDS_PLOG(test_log) << "Starting test: basic_multivol()";
+
+    FDS_PLOG(test_log) << "Ending test: basic_multivol()";
+
+    return 0;
+  }
 
  public:
   /*
@@ -295,6 +303,8 @@ fds_int32_t basic_query() {
 
     unit_tests.push_back("basic_update");
     unit_tests.push_back("basic_uq");
+    unit_tests.push_back("basic_query");
+    unit_tests.push_back("basic_multivol");
 
     num_updates = 100;
   }
@@ -308,6 +318,8 @@ fds_int32_t basic_query() {
 
     unit_tests.push_back("basic_update");
     unit_tests.push_back("basic_uq");
+    unit_tests.push_back("basic_query");
+    unit_tests.push_back("basic_multivol");
 
     num_updates = num_up_arg;
   }
