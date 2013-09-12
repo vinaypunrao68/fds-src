@@ -22,9 +22,9 @@ LEVELDB_LIBS = -lleveldb
 #LIB_OBJS   = $(LIB_DIR)/vvclib.o $(LIB_DIR)/tvclib.o $(LIB_DIR)/vvc_db.o $(LIB_DIR)/vvc_private.o
 LIB_DIR    = ../lib/
 LIB_OBJS   = $(LIB_DIR)/VolumeCatalog.o $(LIB_DIR)/Catalog.o
-FDS_OBJS   = $(LIB_OBJS) $(UTIL_OBJS) ../fdsp/FDSP.o ../util/concurrency/ThreadPool.o ../util/concurrency/Mutex.o ../util/concurrency/Synchronization.o
+FDS_OBJS   = $(LIB_OBJS) $(UTIL_OBJS) ../fdsp/FDSP.o ../fdsp/fdsp_types.o ../fdsp/fds_pubsub.o ../util/concurrency/ThreadPool.o ../util/concurrency/Mutex.o ../util/concurrency/Synchronization.o $(TOPDIR)/lib/OMgrClient.o
 
-MY_LIBS = $(BOOST_LIBS) $(SYS_LIBS) $(LEVELDB_LIBS)
+MY_LIBS = $(BOOST_LIBS) $(SYS_LIBS) $(LEVELDB_LIBS) -lIceStorm
 
 top_srcdir	= ../lib/Ice-3.5.0/cpp
 top_srcdir_ldb	= ../

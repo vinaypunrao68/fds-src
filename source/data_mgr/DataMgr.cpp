@@ -10,6 +10,37 @@ namespace fds {
 
 DataMgr *dataMgr;
 
+void DataMgr::vol_handler(fds_volid_t vol_uuid,
+                          VolumeDesc* desc,
+                          fds_int32_t vol_action) {
+  Error err(ERR_OK);
+  FDS_PLOG(dataMgr->GetLog()) << "Received vol notif from OM for "
+                              << vol_uuid;
+
+  /*
+   * TODO: Check the vol action to see whether to add
+   * or rm the vol
+   */
+
+  /*
+   * TODO: Actually take a volume string name, not
+   * just the volume number.
+   */
+  err = dataMgr->_process_add_vol(dataMgr->getPrefix() +
+                                  std::to_string(vol_uuid),
+                                  vol_uuid);
+
+  /*
+   * TODO: We're dropping the error at the moment.
+   * We should respond with the error code to OM.
+   */
+}
+
+void DataMgr::node_handler(fds_int32_t  node_id,
+                           fds_uint32_t node_ip,
+                           fds_int32_t  node_st) {
+}
+
 Error DataMgr::_process_add_vol(const std::string& vol_name,
                                 fds_volid_t vol_uuid) {
   Error err(ERR_OK);
@@ -29,7 +60,33 @@ Error DataMgr::_process_add_vol(const std::string& vol_name,
   vol_meta_map[vol_uuid] = new VolumeMeta(vol_name,
                                           vol_uuid,
                                           dm_log);
-  FDS_PLOG(dataMgr->GetLog()) << "Created vol meta for vol uuid "
+  FDS_PLOG(dataMgr->GetLog()) << "Added vol meta for vol uuid "
+                              << vol_uuid;
+  vol_map_mtx->unlock();
+
+  return err;
+}
+
+Error DataMgr::_process_rm_vol(fds_volid_t vol_uuid) {
+  Error err(ERR_OK);
+
+  /*
+   * Make sure we already know about this volume
+   */
+  vol_map_mtx->lock();
+  if (volExistsLocked(vol_uuid) == false) {
+    FDS_PLOG(dataMgr->GetLog()) << "Received add request for "
+                                << "non-existant vol uuid " << vol_uuid;
+    err = ERR_INVALID_ARG;
+    vol_map_mtx->unlock();
+    return err;
+  }
+
+  VolumeMeta *vm = vol_meta_map[vol_uuid];
+  vol_meta_map.erase(vol_uuid);
+  delete vm;
+
+  FDS_PLOG(dataMgr->GetLog()) << "Removed vol meta for vol uuid "
                               << vol_uuid;
   vol_map_mtx->unlock();
 
@@ -168,6 +225,19 @@ DataMgr::DataMgr()
 
   _tp = new fds_threadpool(num_threads);
 
+  /*
+   * Create connection with OM.
+   */
+  omClient = new OMgrClient();
+  omClient->initialize();
+  omClient->registerEventHandlerForNodeEvents(node_handler);
+  omClient->registerEventHandlerForVolEvents(vol_handler);
+  /*
+   * TODO: Remove hard coded IP addr. Why does caller even
+   * pass this?
+   */
+  // omClient->subscribeToOmEvents(0x0a010aca, 1, 1);
+
   FDS_PLOG(dm_log) << "Constructing the Data Manager";
 }
 
@@ -188,6 +258,7 @@ DataMgr::~DataMgr() {
   }
   vol_meta_map.clear();
 
+  delete omClient;
   delete vol_map_mtx;
   delete dm_log;
 }
@@ -268,6 +339,10 @@ void DataMgr::swapMgrId(const FDS_ProtocolInterface::
 
 fds_log* DataMgr::GetLog() {
   return dm_log;
+}
+
+std::string DataMgr::getPrefix() const {
+  return stor_prefix;
 }
 
 /*
