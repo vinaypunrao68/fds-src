@@ -5,9 +5,16 @@ using namespace fds;
 
 void my_node_event_handler(int node_id, unsigned int node_ip_addr, int node_state) {
 
-  printf("Node id - %d Node ip - %x Node state - %d\n", node_id, node_ip_addr, node_state);
+  printf("Recvd node event: Node id - %d Node ip - %x Node state - %d\n", node_id, node_ip_addr, node_state);
 
 }
+
+void my_vol_event_handler(fds::fds_volid_t volume_id, fds::VolumeDesc *vdb, int vol_action) {
+  
+  printf("Recvd vol event: Vol id - %llu, action -%d\n", (unsigned long long) volume_id, vol_action);
+
+}
+
 
 int main(int argc, char *argv[]) {
 
@@ -21,6 +28,7 @@ int main(int argc, char *argv[]) {
 
 	om_client->initialize();
 	om_client->registerEventHandlerForNodeEvents(my_node_event_handler);
+	om_client->registerEventHandlerForVolEvents(my_vol_event_handler);
 	om_client->subscribeToOmEvents(0x0a010aca, 1, 1);
 
 	while(1) {

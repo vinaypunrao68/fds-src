@@ -16,14 +16,14 @@ public:
 			     const FDSP_Node_Info_TypePtr& node_info,
 			     const Ice::Current&) {
 
-    printf("Received Node Add Event for tenant %d domain %d : %d; %x\n", msg_hdr->tennant_id, msg_hdr->domain_id, node_info->node_id, (unsigned int) node_info->node_ip);
+    //printf("Received Node Add Event for tenant %d domain %d : %d; %x\n", msg_hdr->tennant_id, msg_hdr->domain_id, node_info->node_id, (unsigned int) node_info->node_ip);
     om_client->recvNodeEvent(node_info->node_id, (unsigned int) node_info->node_ip, node_info->node_state); 
 
   }
   virtual void NotifyNodeRmv(const FDS_PubSub_MsgHdrTypePtr& msg_hdr,
 			     const FDSP_Node_Info_TypePtr& node_info,
 			     const Ice::Current&) {
-    printf("Received Node Rmv Event : %d\n", node_info->node_id);
+    //printf("Received Node Rmv Event : %d\n", node_info->node_id);
     om_client->recvNodeEvent(node_info->node_id, (unsigned int) node_info->node_ip, node_info->node_state); 
 
   }
@@ -31,19 +31,68 @@ public:
   virtual void NotifyDLTUpdate(const FDS_PubSub_MsgHdrTypePtr& msg_dr,
 			       const FDSP_DLT_TypePtr& dlt_info,
 			       const Ice::Current&) {
-    printf("Received dlt update: %d\n", dlt_info->DLT_version);
+    //printf("Received dlt update: %d\n", dlt_info->DLT_version);
     om_client->recvDLTUpdate(dlt_info->DLT_version, dlt_info->DLT);
   }
   virtual void NotifyDMTUpdate(const FDS_PubSub_MsgHdrTypePtr& msg_dr,
 			       const FDSP_DMT_TypePtr& dmt_info,
 			       const Ice::Current&) {
-    printf("Received dmt update: %d\n", dmt_info->DMT_version);
+    //printf("Received dmt update: %d\n", dmt_info->DMT_version);
     om_client->recvDMTUpdate(dmt_info->DMT_version, dmt_info->DMT);
   }
 
 
 };
 
+OMgrClientRPCI::OMgrClientRPCI(OMgrClient *omc) {
+    this->om_client = omc;
+}
+
+void OMgrClientRPCI::NotifyAddVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                     const FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg,
+			       const Ice::Current&) {
+
+
+  om_client->recvNotifyVol(msg_hdr->glob_volume_id, NULL, FDS_VOL_ACTION_CREATE);
+
+}
+
+void OMgrClientRPCI::NotifyRmVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                     const FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg,
+			       const Ice::Current&) {
+
+
+  om_client->recvNotifyVol(msg_hdr->glob_volume_id, NULL, FDS_VOL_ACTION_DELETE);
+
+}
+
+      
+void OMgrClientRPCI::AttachVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+			       const FDS_ProtocolInterface::FDSP_AttachVolTypePtr& vol_msg,
+			       const Ice::Current&) {
+  om_client->recvVolAttachState(msg_hdr->glob_volume_id, NULL, FDS_VOL_ACTION_ATTACH);
+}
+
+
+void OMgrClientRPCI::DetachVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+			       const FDS_ProtocolInterface::FDSP_AttachVolTypePtr& vol_msg,
+			       const Ice::Current&) {
+  om_client->recvVolAttachState(msg_hdr->glob_volume_id, NULL, FDS_VOL_ACTION_DETACH);
+}
+
+
+OMgrClient::OMgrClient(fds_log *parent_log) {
+  if (parent_log) {
+    omc_log = parent_log;
+  }
+  else {
+    omc_log = new fds_log("omc", "logs");
+  }
+}
+
+OMgrClient::OMgrClient() {
+  omc_log = new fds_log("omc", "logs");
+}
 
 int OMgrClient::initialize() {
   return fds::ERR_OK;
@@ -53,8 +102,14 @@ int OMgrClient::registerEventHandlerForNodeEvents(node_event_handler_t node_even
   this->node_evt_hdlr = node_event_hdlr;
   return 0;
 }
-         
-int OMgrClient::subscribeToOmEvents(unsigned int om_ip_addr, int tenn_id, int dom_id) {
+ 
+
+int OMgrClient::registerEventHandlerForVolEvents(volume_event_handler_t vol_event_hdlr) {
+  this->vol_evt_hdlr = vol_event_hdlr;
+  return 0;
+}
+        
+int OMgrClient::subscribeToOmEvents(unsigned int om_ip_addr, int tenn_id, int dom_id, int omc_port_num) {
 
   int argc = 0;
   char **argv = 0;
@@ -62,21 +117,29 @@ int OMgrClient::subscribeToOmEvents(unsigned int om_ip_addr, int tenn_id, int do
   this->tennant_id = tenn_id;
   this->domain_id = dom_id;
 
-  comm = Ice::initialize(argc, argv);
+  Ice::InitializationData initData;
+  initData.properties = Ice::createProperties();
+  initData.properties->load("om_client.conf");
 
-  Ice::ObjectPrx obj = comm->stringToProxy("IceStorm/TopicManager:tcp -h 10.1.10.201 -p 11234");
-  topicManager = IceStorm::TopicManagerPrx::checkedCast(obj);
+  pubsub_comm = Ice::initialize(argc, argv, initData);
+  Ice::PropertiesPtr pubsub_props = pubsub_comm->getProperties();
+  std::string omgr_ip_addr = pubsub_props->getProperty("OMgr.IP");
+ 
 
-  adapter = comm->createObjectAdapterWithEndpoints("OMgrSubscriberAdapter", "tcp");
+  std::string tcpProxyStr;
+  tcpProxyStr = std::string("IceStorm/TopicManager:tcp -h ") + omgr_ip_addr + std::string(" -p 11234");
 
-  om_client_i = new OMgr_SubscriberI(this);
-
-  proxy = adapter->addWithUUID(om_client_i)->ice_oneway();
+  // Ice::ObjectPrx obj = pubsub_comm->stringToProxy("IceStorm/TopicManager:tcp -h 10.1.10.201 -p 11234");
+  Ice::ObjectPrx obj = pubsub_comm->stringToProxy(tcpProxyStr);
+  pubsub_topicManager = IceStorm::TopicManagerPrx::checkedCast(obj);
+  pubsub_adapter = pubsub_comm->createObjectAdapterWithEndpoints("OMgrSubscriberAdapter", "tcp");
+  om_pubsub_client_i = new OMgr_SubscriberI(this);
+  pubsub_proxy = pubsub_adapter->addWithUUID(om_pubsub_client_i)->ice_oneway();
 
   try {
-    topic = topicManager->retrieve("OMgrEvents");
+    pubsub_topic = pubsub_topicManager->retrieve("OMgrEvents");
     IceStorm::QoS qos;
-    topic->subscribeAndGetPublisher(qos, proxy);
+    pubsub_topic->subscribeAndGetPublisher(qos, pubsub_proxy);
   }
   catch (const IceStorm::NoSuchTopic&) {
     // Error! No topic found!
@@ -84,7 +147,39 @@ int OMgrClient::subscribeToOmEvents(unsigned int om_ip_addr, int tenn_id, int do
     return 0;
   }
 
-  adapter->activate();
+  pubsub_adapter->activate();
+
+  rpc_comm = Ice::initialize(argc, argv, initData);
+
+  Ice::PropertiesPtr rpc_props = rpc_comm->getProperties();
+
+  /*
+   * Set basic thread properties.
+   */
+  rpc_props->setProperty("OMgrClient.ThreadPool.Size", "1");
+  rpc_props->setProperty("OMgrClient.ThreadPool.SizeMax", "1");
+  rpc_props->setProperty("OMgrClient.ThreadPool.SizeWarn", "1");
+
+  if (omc_port_num == 0) {
+    /*
+     * Pull the port from the config file if it wasn't
+     * specified on the command line.
+     */
+    omc_port_num = rpc_props->getPropertyAsInt("OMgrClient.PortNumber");
+  }
+
+  FDS_PLOG(omc_log) << "Orch mgr client using port - " << omc_port_num;
+ 
+  /*
+   * Setup TCP endpoint.
+   */
+  tcpProxyStr = std::string("tcp -p ") + std::to_string(omc_port_num);
+  Ice::ObjectAdapterPtr rpc_adapter =rpc_comm->createObjectAdapterWithEndpoints("OrchMgrClient", tcpProxyStr);
+
+  om_client_rpc_i = new OMgrClientRPCI(this);
+  rpc_adapter->add(om_client_rpc_i, rpc_comm->stringToIdentity("OrchMgrClient"));
+
+  rpc_adapter->activate();
 
   return 0;
 }    
@@ -103,6 +198,25 @@ int OMgrClient::recvNodeEvent(int node_id, unsigned int node_ip, int node_state)
   return (0);
   
 }
+
+int OMgrClient::recvNotifyVol(fds_volid_t vol_id, VolumeDesc *vdb, int vol_action) {
+
+  if (this->vol_evt_hdlr) {
+    this->vol_evt_hdlr(vol_id, vdb, vol_action);
+  }
+  return (0);
+  
+}
+
+int OMgrClient::recvVolAttachState(fds_volid_t vol_id, VolumeDesc *vdb, int vol_action) {
+
+  if (this->vol_evt_hdlr) {
+    this->vol_evt_hdlr(vol_id, vdb, vol_action);
+  }
+  return (0);
+  
+}
+
 
 int OMgrClient::recvDLTUpdate(int dlt_vrsn, const Node_Table_Type& dlt_table) {
   /*

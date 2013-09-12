@@ -7,6 +7,9 @@ LDIR = -L$(LEVELDB_DIR)
 #IDIR = -I$(TOPDIR) -I$(TOPDIR)/include/ -I$(LEVELDB_DIR) -I$(LEVELDB_DIR)/include/
 IDIR = -I$(TOPDIR) -I$(LEVELDB_DIR) -I$(LEVELDB_DIR)/include/ -I$(TOPDIR)/fdsp -I$(ICEDIR)/cpp/include
 
+UTIL_DIR   = ../util/
+UTIL_OBJS  = $(UTIL_DIR)/Log.o
+
 OPTS ?= -g2              # (A) Debug mode
 #OPTS ?= -O2 -g2 -DNDEBUG # (B) Profiling mode
 #OPTS ?= -O2 -DNDEBUG     # (C) Production mode
@@ -19,7 +22,7 @@ CFLAGS	= -Wall -Werror $(CPP11) $(IDIR) $(LDIR) $(OPTS)
 
 
 LEVELDB_LIBS = -lleveldb
-LIBS = $(LEVELDB_LIBS) -L$(ICEDIR)/cpp/lib -lIceStorm -lIce -lIceUtil -lpthread
+LIBS = $(LEVELDB_LIBS) -L$(ICEDIR)/cpp/lib -lIceStorm -lIce -lIceUtil -lpthread -lboost_log -lboost_system -lboost_thread -lboost_date_time
 
 LIBK_IDIR=-I$(TOPDIR)/include -I/usr/src/kernels/3.3.4-5.fc17.i686/include/ -I/usr/src/kernels/3.3.4-5.fc17.i686/arch/x86/include/
 LIBK_CFLAGS=$(LIBK_IDIR) -g -DVVC_DBG -DLIB_KERNEL -D__KERNEL__ -DMODULE
@@ -39,7 +42,7 @@ TESTS = \
 	om_client_unit_test
 
 OBJS = $(SRCS:%.cpp=%.o)
-UTEST_OBJS = ../fdsp/fdsp_types.o ../fdsp/fds_pubsub.o
+UTEST_OBJS = ../fdsp/fdsp_types.o ../fdsp/fds_pubsub.o ../fdsp/FDSP.o $(UTIL_OBJS)
 
 COFLAGS = -Wall -Werror $(CPP11) $(IDIR) $(LDIR) $(OPTS)
 
