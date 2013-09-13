@@ -1,9 +1,9 @@
 #ifndef __STOR_HV_DATA_PLACEMENT_H__
 #define  __STOR_HV_DATA_PLACEMENT_H__
 
-#include "lib/OMgrClient.h"
 #include "include/fds_types.h"
 #include "include/fds_err.h"
+#include "lib/OMgrClient.h"
 
 using namespace fds;
 
@@ -26,14 +26,16 @@ private:
    */
   dp_mode mode;
 
+  /* OMgrClient passed down from SH */
+  OMgrClient *parent_omc;
+
 public:  
-  explicit StorHvDataPlacement(dp_mode _mode);
   StorHvDataPlacement(dp_mode _mode,
-                      fds_uint32_t test_ip);
+                      OMgrClient *omc);
+  StorHvDataPlacement(dp_mode _mode,
+                      fds_uint32_t test_ip,
+                      OMgrClient *omc);
   ~StorHvDataPlacement();
-  
-  OMgrClient *omClient;
-  double omIPAddr;
   
   void  getDLTNodesForDoidKey(unsigned char doid_key, int *node_ids, int *n_nodes) {
     if (mode == DP_NO_OM_MODE) {
@@ -44,7 +46,7 @@ public:
       (*n_nodes) = 1;
       node_ids[(*n_nodes) - 1] = 0;
     } else {
-      omClient->getDLTNodesForDoidKey(doid_key, node_ids, n_nodes);
+      parent_omc->getDLTNodesForDoidKey(doid_key, node_ids, n_nodes);
     }
   }
   void  getDMTNodesForVolume(int volid, int *node_ids, int *n_nodes ) {
@@ -57,7 +59,7 @@ public:
       node_ids[(*n_nodes) - 1] = 0;      
     } else {
       assert(mode == DP_NORMAL_MODE);
-      omClient->getDMTNodesForVolume(volid, node_ids, n_nodes);
+      parent_omc->getDMTNodesForVolume(volid, node_ids, n_nodes);
     }
   }
 
@@ -73,7 +75,7 @@ public:
       *node_state   = 0;
     } else {
       assert(mode == DP_NORMAL_MODE);
-      ret_code = omClient->getNodeInfo(node_id, node_ip_addr, node_state);
+      ret_code = parent_omc->getNodeInfo(node_id, node_ip_addr, node_state);
       if (ret_code != 0) {
         err = ERR_DISK_READ_FAILED;
       }
