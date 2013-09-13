@@ -46,6 +46,48 @@ void DataMgr::node_handler(fds_int32_t  node_id,
                            fds_int32_t  node_st) {
 }
 
+/*
+ * Adds the volume if it doesn't exist already.
+ * Note this does NOT return error if the volume exists.
+ */
+Error DataMgr::_add_if_no_vol(const std::string& vol_name,
+                              fds_volid_t vol_uuid) {
+  Error err(ERR_OK);
+
+  /*
+   * Check if we already know about this volume
+   */
+  vol_map_mtx->lock();
+  if (volExistsLocked(vol_uuid) == true) {
+    FDS_PLOG(dataMgr->GetLog()) << "Received add request for existing vol uuid "
+                                << vol_uuid << ", so ignoring.";
+    vol_map_mtx->unlock();
+    return err;
+  }
+
+  err = _add_vol_locked(vol_name, vol_uuid);
+
+  vol_map_mtx->unlock();
+
+  return err;
+}
+
+/*
+ * Meant to be called holding the vol_map_mtx.
+ */
+Error DataMgr::_add_vol_locked(const std::string& vol_name,
+                               fds_volid_t vol_uuid) {
+  Error err(ERR_OK);
+
+  vol_meta_map[vol_uuid] = new VolumeMeta(vol_name,
+                                          vol_uuid,
+                                          dm_log);
+  FDS_PLOG(dataMgr->GetLog()) << "Added vol meta for vol uuid "
+                              << vol_uuid;
+
+  return err;
+}
+
 Error DataMgr::_process_add_vol(const std::string& vol_name,
                                 fds_volid_t vol_uuid) {
   Error err(ERR_OK);
@@ -61,12 +103,8 @@ Error DataMgr::_process_add_vol(const std::string& vol_name,
     vol_map_mtx->unlock();
     return err;
   }
+  err = _add_vol_locked(vol_name, vol_uuid);
 
-  vol_meta_map[vol_uuid] = new VolumeMeta(vol_name,
-                                          vol_uuid,
-                                          dm_log);
-  FDS_PLOG(dataMgr->GetLog()) << "Added vol meta for vol uuid "
-                              << vol_uuid;
   vol_map_mtx->unlock();
 
   return err;
@@ -112,15 +150,13 @@ Error DataMgr::_process_open(fds_volid_t vol_uuid,
    * requests.
    * TODO: Just hack the name as the offset for now.
    */
-  if (volExists(vol_uuid) == false) {
-    err = _process_add_vol(stor_prefix +
-                           std::to_string(vol_uuid),
-                           vol_uuid);
-    if (!err.ok()) {
-      FDS_PLOG(dataMgr->GetLog()) << "Failed to add vol during open "
-                                  << "transaction for volume " << vol_uuid;
-      return err;
-    }
+  err = _add_if_no_vol(stor_prefix +
+                       std::to_string(vol_uuid),
+                       vol_uuid);
+  if (!err.ok()) {
+    FDS_PLOG(dataMgr->GetLog()) << "Failed to add vol during open "
+                                << "transaction for volume " << vol_uuid;
+    return err;
   }
 
   /*
@@ -190,15 +226,13 @@ Error DataMgr::_process_query(fds_volid_t vol_uuid,
    * requests.
    * TODO: Just hack the name as the offset for now.
    */
-  if (volExists(vol_uuid) == false) {
-    err = _process_add_vol(stor_prefix +
-                           std::to_string(vol_uuid),
-                           vol_uuid);
-    if (!err.ok()) {
-      FDS_PLOG(dataMgr->GetLog()) << "Failed to add vol during query "
-                                  << "transaction for volume " << vol_uuid;
-      return err;
-    }
+  err = _add_if_no_vol(stor_prefix +
+                       std::to_string(vol_uuid),
+                       vol_uuid);
+  if (!err.ok()) {
+    FDS_PLOG(dataMgr->GetLog()) << "Failed to add vol during query "
+                                << "transaction for volume " << vol_uuid;
+    return err;
   }
 
   /*

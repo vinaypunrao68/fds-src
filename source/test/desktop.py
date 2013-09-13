@@ -263,7 +263,7 @@ class TestSequenceFunctions(unittest.TestCase):
 
     def test_datamgr(self):
         test_name = "Data Manager"
-        num_instances = 1
+        num_instances = 5
         print "********** Starting test: %s **********" % (test_name)
             
         status = 0
