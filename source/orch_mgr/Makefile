@@ -16,8 +16,8 @@ BOOST_LIBS = -lboost_log -lboost_system -lboost_thread -lboost_date_time
 SYS_LIBS   = -lpthread -lssl -lcrypto
 
 LIB_DIR    = ../lib/
-FDS_OBJS   = $(UTIL_OBJS) ../fdsp/FDSP.o
-OM_OBJS            = ../fdsp/fdsp_types.o ../fdsp/fds_pubsub.o ../fdsp/FDSP.o
+FDS_OBJS   = $(UTIL_OBJS) ../fdsp/FDSP.o ../fdsp/fdsp_types.o ../fdsp/fds_pubsub.o
+OM_OBJS    = ../fdsp/fdsp_types.o ../fdsp/fds_pubsub.o ../fdsp/FDSP.o
 
 MY_LIBS = $(BOOST_LIBS) $(SYS_LIBS)
 

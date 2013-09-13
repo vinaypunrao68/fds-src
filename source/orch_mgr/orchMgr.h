@@ -10,6 +10,7 @@
 #define ORCH_MGR_H
 
 #include <Ice/Ice.h>
+#include "fdsp/fdsp_types.h"
 #include "fdsp/FDSP.h"
 #include "include/fds_err.h"
 #include "util/Log.h"

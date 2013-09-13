@@ -151,6 +151,7 @@ class FDSP_ModifyPolicyType {
 
 class FDSP_RegisterNodeType {
   FDSP_MgrIdType node_type; /* Type of node - SM/DM/HV */
+  long 		 node_id;    /* node indetifier */
   long		 ip_hi_addr; /* IP V6 high address */
   long		 ip_lo_addr; /* IP V4 address of V6 low address of the node */
   int		 control_port; /* Port number to contact for control messages */
