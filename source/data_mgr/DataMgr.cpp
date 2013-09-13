@@ -259,6 +259,7 @@ Error DataMgr::_process_query(fds_volid_t vol_uuid,
 DataMgr::DataMgr()
     : port_num(0),
       cp_port_num(0),
+      use_om(true),
       num_threads(DM_TP_THREADS) {
   dm_log = new fds_log("dm", "logs");
   vol_map_mtx = new fds_mutex("Volume map mutex");
@@ -306,6 +307,8 @@ int DataMgr::run(int argc, char* argv[]) {
       cp_port_num = strtoul(argv[i] + 10, NULL, 0);
     } else if (strncmp(argv[i], "--prefix=", 9) == 0) {
       stor_prefix = argv[i] + 9;
+    } else if (strncmp(argv[i], "--no_om", 7) == 0) {
+      use_om = false;
     } else {
       std::cout << "Invalid argument " << argv[i] << std::endl;
       return -1;
@@ -366,12 +369,26 @@ int DataMgr::run(int argc, char* argv[]) {
   omClient->initialize();
   omClient->registerEventHandlerForNodeEvents(node_handler);
   omClient->registerEventHandlerForVolEvents(vol_handler);
+  
+  /*
+   * Brings up the control path interface.
+   * This does not require OM to be running and can
+   * be used for testing DM by itself.
+   */
+  omClient->startAcceptingControlMessages(cp_port_num);
+
   /*
    * TODO: Remove hard coded IP addr. Why does caller even
    * pass this?
    */
-  omClient->startAcceptingControlMessages(cp_port_num);
-  // omClient->subscribeToOmEvents(0x0a010aca, 1, 1);
+  if (use_om) {
+    /*
+     * Registers the DM with the OM. Uses OM for bootstrapping
+     * on start. Requires the OM to be up and running prior.
+     */
+    // omClient->subscribeToOmEvents(0x0a010aca, 1, 1);
+    // omClient->registerNodeWithOM();
+  }
 
   communicator()->waitForShutdown();
 
