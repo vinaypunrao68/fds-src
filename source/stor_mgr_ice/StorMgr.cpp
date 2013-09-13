@@ -150,7 +150,25 @@ ObjectStorMgr::checkDuplicate(FDS_ObjectIdType *object_id,
                               fds_uint32_t obj_len, 
                               fds_char_t *data_object)
 {
-  return FDS_SM_OK;
+ObjectID obj_id(object_id->hash_high, object_id->hash_low);
+  ObjectBuf obj;
+  obj.size = obj_len;
+  fds::Error err(fds::ERR_OK);
+  fds_sm_err_t retval = FDS_SM_OK;
+
+  objStorMutex->lock();
+  err = objStorDB->Get(obj_id, obj);
+  objStorMutex->unlock();
+  if (err == fds::ERR_OK) {
+     if (memcmp(data_object, obj.data.c_str(), obj_len) == 0 ) { 
+         retval =   FDS_SM_ERR_DUPLICATE;
+     } else {
+      // Handle hash-collision - insert the next collision-id+obj-id 
+       retval = FDS_SM_ERR_HASH_COLLISION;
+     }
+  } 
+  
+  return retval;
 }
 
 fds_sm_err_t 
@@ -234,6 +252,7 @@ fds::Error err(fds::ERR_OK);
 	   }
 
        } else {
+	   FDS_PLOG(objStorMgr->GetLog()) << "Duplicate object - returning success to put object " << err;
            writeObjLocation(&put_obj_req->data_obj_id, put_obj_req->data_obj_len, volid, NULL);
        }
        // Move the buffer pointer to the next object

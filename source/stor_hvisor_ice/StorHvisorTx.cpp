@@ -50,7 +50,7 @@ int StorHvisorProcIoRd(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
   shvol = storHvisor->vol_table->getVolume(vol_id);
   if (!shvol) {
     FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << " volID:" << vol_id << "- volume not registered";
-    return 0; // TODO: error?
+    return -1;
   }
 
   /* Check if there is an outstanding transaction for this block offset  */
@@ -185,7 +185,7 @@ int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
   shvol = storHvisor->vol_table->getVolume(vol_id);
   if (!shvol) {
     FDS_PLOG(storHvisor->GetLog()) << "StorHvisorTx:" << " volID:" << vol_id << " - volume not registered";
-    return 0; // TODO: error?
+    return -1;
   }
   
   //  *** Get a new Journal Entry in xaction-log journalTbl
@@ -312,6 +312,9 @@ int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
     }
   }
   
+  // Schedule a timer here to track the responses and the original request
+  IceUtil::Time interval = IceUtil::Time::seconds(FDS_IO_LONG_TIME);
+  shvol->journal_tbl->schedule(journEntry->ioTimerTask, interval);
   return 0;
 }
 END_C_DECLS
