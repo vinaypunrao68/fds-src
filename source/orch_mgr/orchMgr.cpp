@@ -54,11 +54,11 @@ int OrchMgr::run(int argc, char* argv[]) {
   if (port_num != 0) {
       orchMgrPortNum = port_num;
     } else {
-      orchMgrPortNum = props->getPropertyAsInt("OrchMgr.PortNumber");
+      orchMgrPortNum = props->getPropertyAsInt("OrchMgr.ConfigPort");
     }
     orchMgrIPAddress = props->getProperty("OrchMgr.IPAddress");
 
-  FDS_PLOG(om_log) << "Orchestration Manager using port " << port_num;
+  FDS_PLOG(om_log) << "Orchestration Manager using port " << orchMgrPortNum;
 
   callbackOnInterrupt();
 
@@ -67,7 +67,7 @@ int OrchMgr::run(int argc, char* argv[]) {
    * messages from DM, SH and SM 
    */
   std::ostringstream tcpProxyStr;
-  tcpProxyStr << "tcp -p " << port_num;
+  tcpProxyStr << "tcp -p " << orchMgrPortNum;
   Ice::ObjectAdapterPtr adapter =
       communicator()->createObjectAdapterWithEndpoints(
           "OrchMgr", tcpProxyStr.str());

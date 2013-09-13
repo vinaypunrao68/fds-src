@@ -61,7 +61,6 @@ void OMgrClientRPCI::NotifyRmVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr
                      const FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg,
 			       const Ice::Current&) {
 
-
   om_client->recvNotifyVol(msg_hdr->glob_volume_id, NULL, FDS_VOL_ACTION_DELETE);
 
 }
@@ -185,6 +184,8 @@ int OMgrClient::subscribeToOmEvents(unsigned int om_ip_addr, int tenn_id, int do
 
   pubsub_adapter->activate();
 
+  FDS_PLOG(omc_log) << "OMgrClient subscribed to OMgrEvents with Pub Sub server at " << omgr_ip_addr << " : 11234";
+ 
   return 0;
 }    
 
@@ -194,8 +195,6 @@ int OMgrClient::startAcceptingControlMessages() {
 
   Ice::PropertiesPtr rpc_props = rpc_comm->getProperties();  
   int omc_port_num = rpc_props->getPropertyAsInt("OMgrClient.PortNumber");
-
-  FDS_PLOG(omc_log) << "Orch mgr client using port - " << omc_port_num;
  
   std::string tcpProxyStr = std::string("tcp -p ") + std::to_string(omc_port_num);
   Ice::ObjectAdapterPtr rpc_adapter =rpc_comm->createObjectAdapterWithEndpoints("OrchMgrClient", tcpProxyStr);
@@ -204,6 +203,8 @@ int OMgrClient::startAcceptingControlMessages() {
   rpc_adapter->add(om_client_rpc_i, rpc_comm->stringToIdentity("OrchMgrClient"));
 
   rpc_adapter->activate();
+
+  FDS_PLOG(omc_log) << "OMClient accepting control requests at port " << omc_port_num;
 
   return (0);
 
@@ -248,10 +249,18 @@ int OMgrClient::registerNodeWithOM() {
   FDSP_RegisterNodeTypePtr reg_node_msg = new FDSP_RegisterNodeType;
   reg_node_msg->node_type = my_node_type;
   reg_node_msg->ip_hi_addr = 0;
-  reg_node_msg->ip_lo_addr = props->getPropertyAsInt("OmgrClient.MyIPAddr"); //my_address!
-  reg_node_msg->control_port = props->getPropertyAsInt("OmgrClient.PortNumber");
+  reg_node_msg->ip_lo_addr = fds::str_to_ipv4_addr(props->getProperty("OMgrClient.MyIPAddr")); //my_address!
+  reg_node_msg->control_port = props->getPropertyAsInt("OMgrClient.PortNumber");
   reg_node_msg->data_port = 0; // for now
+
+  FDS_PLOG(omc_log) << "OMClient registering local node " << fds::ipv4_addr_to_str(reg_node_msg->ip_lo_addr) << " control port:" << reg_node_msg->control_port 
+		    << " data port:" << reg_node_msg->data_port
+		    << " with Orchaestration Manager at " << tcpProxyStr;
+
   fdspConfigPathAPI->RegisterNode(msg_hdr, reg_node_msg);
+
+  FDS_PLOG(omc_log) << "OMClient completed node registration with OM";
+
   return (0);
 }
 
@@ -263,6 +272,8 @@ int OMgrClient::recvNodeEvent(int node_id, unsigned int node_ip, int node_state)
   node.node_ip_address = node_ip;
   node.node_state = (FDSP_NodeState) node_state;
 
+  FDS_PLOG(omc_log) << "OMClient received node event for node " << node_id << " with ip address " << node_ip << " state - " << node_state;
+
   if (this->node_evt_hdlr) {
     this->node_evt_hdlr(node_id, node_ip, node_state);
   }
@@ -271,6 +282,8 @@ int OMgrClient::recvNodeEvent(int node_id, unsigned int node_ip, int node_state)
 }
 
 int OMgrClient::recvNotifyVol(fds_volid_t vol_id, VolumeDesc *vdb, int vol_action) {
+
+  FDS_PLOG(omc_log) << "OMClient received volume event for volume " << vol_id << " action - " << vol_action;
 
   if (this->vol_evt_hdlr) {
     this->vol_evt_hdlr(vol_id, vdb, vol_action);
@@ -281,6 +294,8 @@ int OMgrClient::recvNotifyVol(fds_volid_t vol_id, VolumeDesc *vdb, int vol_actio
 
 int OMgrClient::recvVolAttachState(fds_volid_t vol_id, VolumeDesc *vdb, int vol_action) {
 
+  FDS_PLOG(omc_log) << "OMClient received volume attach request for volume " << vol_id << " action - " << vol_action;
+
   if (this->vol_evt_hdlr) {
     this->vol_evt_hdlr(vol_id, vdb, vol_action);
   }
@@ -290,20 +305,18 @@ int OMgrClient::recvVolAttachState(fds_volid_t vol_id, VolumeDesc *vdb, int vol_
 
 
 int OMgrClient::recvDLTUpdate(int dlt_vrsn, const Node_Table_Type& dlt_table) {
-  /*
-   * TODO: Move these prints to an OM logger.
-   */
-  // printf("New DLT : num shards - %u\n", dlt_table.size());
+
+  FDS_PLOG(omc_log) << "OMClient received new DLT version  " << dlt_vrsn;
+
   this->dlt_version = dlt_vrsn;
   this->dlt = dlt_table;
   return (0);
 }
 
 int OMgrClient::recvDMTUpdate(int dmt_vrsn, const Node_Table_Type& dmt_table) {
-  /*
-   * TODO: Move these prints to an OM logger.
-   */
-  // printf("New DMT : num shards - %u\n", dmt_table.size());
+
+  FDS_PLOG(omc_log) << "OMClient received new DMT version  " << dmt_vrsn;
+
   this->dmt_version = dmt_vrsn;
   this->dmt = dmt_table;
   return (0);
