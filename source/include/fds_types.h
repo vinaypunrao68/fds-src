@@ -192,16 +192,33 @@ namespace fds {
     }
   };
 
-struct DiskLoc {
-  fds_uint16_t vol_id;
-  fds_uint16_t file_id;
-  fds_uint32_t offset;
-};
+  struct DiskLoc {
+    fds_uint16_t vol_id;
+    fds_uint16_t file_id;
+    fds_uint32_t offset;
+  };
 
-struct ObjectBuf {
-  fds_uint32_t size;
-  std::string data;
-};
+  struct ObjectBuf {
+    fds_uint32_t size;
+    std::string data;
+  };
+
+  inline fds_uint32_t str_to_ipv4_addr(std::string ip_str) {
+    
+    unsigned int n1, n2, n3, n4;
+    fds_uint32_t ip;
+    sscanf(ip_str.c_str(), "%d.%d.%d.%d", &n1, &n2, &n3, &n4);
+    ip = n1 << 24 | n2 << 16 | n3 << 8 | n4;
+    return (ip);
+  }
+
+  inline std::string ipv4_addr_to_str(fds_uint32_t ip) {
+    
+    char tmp_ip[32];
+    sprintf(tmp_ip, "%u.%u.%u.%u", (ip >> 24), (ip >> 16) & 0xff, (ip >> 8) & 0xff, ip & 0xff);
+    return (std::string(tmp_ip));
+
+  }
 
 }  // namespace fds
 
