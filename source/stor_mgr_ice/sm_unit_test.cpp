@@ -264,6 +264,85 @@ class SmUnitTest {
     return 0;
   }
 
+  fds_int32_t basic_dedupe() {
+
+    FDS_PLOG(test_log) << "Starting test: basic_dedupe()";
+    
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr =
+        new FDS_ProtocolInterface::FDSP_MsgHdrType;
+    FDS_ProtocolInterface::FDSP_PutObjTypePtr put_req =
+        new FDS_ProtocolInterface::FDSP_PutObjType;
+    
+    msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_PUT_OBJ_REQ;    
+    msg_hdr->src_id   = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
+    msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_STOR_MGR;    
+    msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
+    msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    
+    fds_uint32_t volume_offset;
+    ObjectID oid;
+    for (fds_uint32_t i = 0; i < num_updates; i++) {
+      volume_offset = i;
+      oid = ObjectID(i, i * i);
+      std::ostringstream convert;
+      convert << i;
+      std::string object_data = "I am object number " + convert.str();
+
+      put_req->volume_offset         = volume_offset;
+      put_req->data_obj_id.hash_high = oid.GetHigh();
+      put_req->data_obj_id.hash_low  = oid.GetLow();
+      put_req->data_obj_len          = object_data.size();
+      put_req->data_obj              = object_data;
+      msg_hdr->num_objects           = 1;
+    
+      try {
+        fdspDPAPI->PutObject(msg_hdr, put_req);
+        FDS_PLOG(test_log) << "Sent put obj message to SM"
+                           << " for volume offset " << put_req->volume_offset
+                           << " with object ID " << oid << " and data "
+                           << object_data;
+        //Put the object again and expect no errors just logs of a dupe
+        fdspDPAPI->PutObject(msg_hdr, put_req);
+      } catch(...) {
+        FDS_PLOG(test_log) << "Failed to put obj message to SM"
+                           << " for volume offset" << put_req->volume_offset
+                           << " with object ID " << oid << " and data "
+                           << object_data;
+        return -1;
+      }
+    }
+
+    FDS_ProtocolInterface::FDSP_GetObjTypePtr get_req =
+        new FDS_ProtocolInterface::FDSP_GetObjType;
+    
+    msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_GET_OBJ_REQ;
+    msg_hdr->src_id   = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
+    msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_STOR_MGR;
+    msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
+    msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    
+    for (fds_uint32_t i = 0; i < num_updates; i++) {
+      oid = ObjectID(i, i * i);
+      get_req->data_obj_id.hash_high = oid.GetHigh();
+      get_req->data_obj_id.hash_low  = oid.GetLow();
+      get_req->data_obj_len          = 0;
+    
+      try {
+        fdspDPAPI->GetObject(msg_hdr, get_req);
+        FDS_PLOG(test_log) << "Sent get obj message to SM"
+                           << " with object ID " << oid;
+      } catch(...) {
+        FDS_PLOG(test_log) << "Failed get obj message to SM"
+                           << " with object ID " << oid;
+        return -1;
+      }
+    }    
+
+    FDS_PLOG(test_log) << "Ending test: basic_dedupe()";
+
+    return 0;
+  }
+
 
   fds_int32_t basic_query() {
 
@@ -331,6 +410,7 @@ class SmUnitTest {
 
     unit_tests.push_back("basic_update");
     unit_tests.push_back("basic_uq");
+    unit_tests.push_back("basic_dedupe");
 
     num_updates = num_up_arg;
   }
@@ -353,6 +433,8 @@ class SmUnitTest {
       result = basic_uq();
     } else if (testname == "basic_query") {
       result = basic_query();
+    } else if (testname == "basic_dedupe") {
+      result = basic_dedupe();
     } else {
       std::cout << "Unknown unit test " << testname << std::endl;
     }
