@@ -46,7 +46,8 @@ namespace fds {
     /*
      * Cmdline configurables
      */
-    fds_uint32_t port_num;
+    fds_uint32_t port_num; /* Data path port num */
+    fds_uint32_t cp_port_num; /* Control path port num */
     std::string stor_prefix;
 
     /*
@@ -87,7 +88,7 @@ namespace fds {
 
     static void vol_handler(fds_volid_t vol_uuid,
                             VolumeDesc* desc,
-                            fds_int32_t vol_action);
+                            fds_vol_notify_t vol_action);
 
     static void node_handler(fds_int32_t  node_id,
                              fds_uint32_t node_ip,

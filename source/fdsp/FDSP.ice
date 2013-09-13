@@ -35,7 +35,9 @@ enum FDSP_MsgCodeType {
    FDSP_MSG_UPDATE_CAT_OBJ_RSP,
    FDSP_MSG_QUERY_CAT_OBJ_RSP,
    FDSP_MSG_OFFSET_WRITE_OBJ_RSP,
-   FDSP_MSG_REDIR_READ_OBJ_RSP
+   FDSP_MSG_REDIR_READ_OBJ_RSP,
+
+   FDSP_MSG_NOTIFY_VOL,
 };
 
 enum FDSP_MgrIdType {
@@ -52,6 +54,13 @@ enum FDSP_ResultType {
 
 enum FDSP_ErrType {
   FDSP_ERR_SM_NO_SPACE
+};
+
+enum FDSP_VolNotifyType {
+  FDSP_NOTIFY_DEFAULT,
+  FDSP_NOTIFY_ADD_VOL,
+  FDSP_NOTIFY_RM_VOL,
+  FDSP_NOTIFY_MOD_VOL
 };
 
 
@@ -120,7 +129,8 @@ class FDSP_ModifyVolType {
 };
 
 class FDSP_NotifyVolType {
-  string vol_name;  /* Name of the volume */
+  FDSP_VolNotifyType type;     /* Type of notify */
+  string             vol_name; /* Name of the volume */
 };
 
 class FDSP_AttachVolType {

@@ -22,6 +22,7 @@ class DmUnitTest {
  private:
   std::list<std::string>  unit_tests;
   FDS_ProtocolInterface::FDSP_DataPathReqPrx& fdspDPAPI;
+  FDS_ProtocolInterface::FDSP_ControlPathReqPrx& fdspCPAPI;
 
   fds_log *test_log;
 
@@ -294,6 +295,56 @@ class DmUnitTest {
   int basic_multivol() {
     FDS_PLOG(test_log) << "Starting test: basic_multivol()";
 
+    fds_uint32_t num_vols = 100;
+
+    /*
+     * Send lots of create vol requests.
+     */
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr =
+        new FDS_ProtocolInterface::FDSP_MsgHdrType;
+    FDS_ProtocolInterface::FDSP_NotifyVolTypePtr vol_msg =
+        new FDS_ProtocolInterface::FDSP_NotifyVolType;
+
+    msg_hdr->minor_ver = 0;
+    msg_hdr->msg_code =
+        FDS_ProtocolInterface::FDSP_MSG_NOTIFY_VOL;
+    msg_hdr->msg_id =  1;
+
+    msg_hdr->major_ver = 0xa5;
+    msg_hdr->minor_ver = 0x5a;
+
+    msg_hdr->num_objects = 1;
+    msg_hdr->frag_len = 0;
+    msg_hdr->frag_num = 0;
+
+    msg_hdr->tennant_id = 0;
+    msg_hdr->local_domain_id = 0;
+
+    msg_hdr->src_id   = FDS_ProtocolInterface::FDSP_ORCH_MGR;
+    msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_DATA_MGR;
+    msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
+    msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+
+    vol_msg->type = FDS_ProtocolInterface::FDSP_NOTIFY_ADD_VOL;
+
+    for (fds_uint32_t i = 0; i < num_vols; i++) {
+      msg_hdr->glob_volume_id = i + 1;
+
+      vol_msg->vol_name = "Vol_" + std::to_string(msg_hdr->glob_volume_id);
+      fdspCPAPI->NotifyAddVol(msg_hdr, vol_msg);
+    }
+
+    /*
+     * Send lots of create vol requests.
+     */
+    vol_msg->type = FDS_ProtocolInterface::FDSP_NOTIFY_RM_VOL;
+    for (fds_uint32_t i = 0; i < num_vols; i++) {
+      msg_hdr->glob_volume_id = i + 1;
+
+      vol_msg->vol_name = "Vol_" + std::to_string(msg_hdr->glob_volume_id);
+      fdspCPAPI->NotifyRmVol(msg_hdr, vol_msg);
+    }
+
     FDS_PLOG(test_log) << "Ending test: basic_multivol()";
 
     return 0;
@@ -304,8 +355,11 @@ class DmUnitTest {
    * The non-const refernce is OK.
    */
   explicit DmUnitTest(FDS_ProtocolInterface::FDSP_DataPathReqPrx&
-                       fdspDPAPI_arg) // NOLINT(*)
-      : fdspDPAPI(fdspDPAPI_arg) {
+                      fdspDPAPI_arg,
+                      FDS_ProtocolInterface::FDSP_ControlPathReqPrx&
+                      fdspCPAPI_arg) // NOLINT(*)
+      : fdspDPAPI(fdspDPAPI_arg),
+        fdspCPAPI(fdspCPAPI_arg) {
     test_log = new fds_log("dm_test", "logs");
 
     unit_tests.push_back("basic_update");
@@ -318,8 +372,11 @@ class DmUnitTest {
 
   explicit DmUnitTest(FDS_ProtocolInterface::FDSP_DataPathReqPrx&
                       fdspDPAPI_arg,
+                      FDS_ProtocolInterface::FDSP_ControlPathReqPrx&
+                      fdspCPAPI_arg,
                       fds_uint32_t num_up_arg) // NOLINT(*)
-      : fdspDPAPI(fdspDPAPI_arg) {
+      : fdspDPAPI(fdspDPAPI_arg),
+        fdspCPAPI(fdspCPAPI_arg) {
     test_log = new fds_log("dm_test", "logs");
 
     unit_tests.push_back("basic_update");
@@ -348,6 +405,8 @@ class DmUnitTest {
       result = basic_uq();
     } else if (testname == "basic_query") {
       result = basic_query();
+    } else if (testname == "basic_multivol") {
+      result = basic_multivol();
     } else {
       std::cout << "Unknown unit test " << testname << std::endl;
     }
@@ -507,7 +566,8 @@ class TestClient : public Ice::Application {
      */
     std::string testname;
     fds_uint32_t num_updates = 100;
-    fds_uint32_t port_num = 0;
+    fds_uint32_t port_num    = 0;
+    fds_uint32_t cp_port_num = 0;
     std::string ip_addr_str;
     for (int i = 1; i < argc; i++) {
       if (strncmp(argv[i], "--testname=", 11) == 0) {
@@ -516,6 +576,8 @@ class TestClient : public Ice::Application {
         num_updates = atoi(argv[i] + 14);
       } else if (strncmp(argv[i], "--port=", 7) == 0) {
         port_num = strtoul(argv[i] + 7, NULL, 0);
+      } else if (strncmp(argv[i], "--cp_port=", 10) == 0) {
+        cp_port_num = strtoul(argv[i] + 10, NULL, 0);
       } else {
         std::cout << "Invalid argument " << argv[i] << std::endl;
         return -1;
@@ -523,8 +585,8 @@ class TestClient : public Ice::Application {
     }
 
     /*
-     * Setup the network communication. Create a direct connection to
-     * a single DM.
+     * Setup the network communication. Create a direct data path
+     * connection to a single DM.
      */
     Ice::PropertiesPtr props = communicator()->getProperties();
     Ice::ObjectPrx op;
@@ -558,7 +620,23 @@ class TestClient : public Ice::Application {
     fdspDPAPI->ice_getConnection()->setAdapter(adapter);
     fdspDPAPI->AssociateRespCallback(ident);
 
-    DmUnitTest unittest(fdspDPAPI, num_updates);
+    /*
+     * Determine control path port number.
+     */
+    std::string cp_port_str;
+    if (cp_port_num == 0) {
+      cp_port_str = props->getProperty("DataMgr.ControlPort");
+      cp_port_num = strtoul(cp_port_str.c_str(), NULL, 0);
+    }
+    std::ostringstream omProxyStr;
+    ip_addr_str = props->getProperty("DataMgr.IPAddress");
+    omProxyStr << "OrchMgrClient: tcp -h " << ip_addr_str
+               << " -p  " << cp_port_num;
+    op = communicator()->stringToProxy(omProxyStr.str());
+    FDS_ProtocolInterface::FDSP_ControlPathReqPrx fdspCPAPI =
+        FDS_ProtocolInterface::FDSP_ControlPathReqPrx::checkedCast(op);
+
+    DmUnitTest unittest(fdspDPAPI, fdspCPAPI, num_updates);
 
     /*
      * This is kinda hackey. Want to

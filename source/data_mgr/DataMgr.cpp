@@ -12,7 +12,7 @@ DataMgr *dataMgr;
 
 void DataMgr::vol_handler(fds_volid_t vol_uuid,
                           VolumeDesc* desc,
-                          fds_int32_t vol_action) {
+                          fds_vol_notify_t vol_action) {
   Error err(ERR_OK);
   FDS_PLOG(dataMgr->GetLog()) << "Received vol notif from OM for "
                               << vol_uuid;
@@ -21,14 +21,19 @@ void DataMgr::vol_handler(fds_volid_t vol_uuid,
    * TODO: Check the vol action to see whether to add
    * or rm the vol
    */
-
-  /*
-   * TODO: Actually take a volume string name, not
-   * just the volume number.
-   */
-  err = dataMgr->_process_add_vol(dataMgr->getPrefix() +
-                                  std::to_string(vol_uuid),
-                                  vol_uuid);
+  if (vol_action == fds_notify_vol_add) {
+    /*
+     * TODO: Actually take a volume string name, not
+     * just the volume number.
+     */
+    err = dataMgr->_process_add_vol(dataMgr->getPrefix() +
+                                    std::to_string(vol_uuid),
+                                    vol_uuid);
+  } else if (vol_action == fds_notify_vol_rm) {
+    err = dataMgr->_process_rm_vol(vol_uuid);
+  } else {
+    assert(0);
+  }
 
   /*
    * TODO: We're dropping the error at the moment.
@@ -219,6 +224,7 @@ Error DataMgr::_process_query(fds_volid_t vol_uuid,
 
 DataMgr::DataMgr()
     : port_num(0),
+      cp_port_num(0),
       num_threads(DM_TP_THREADS) {
   dm_log = new fds_log("dm", "logs");
   vol_map_mtx = new fds_mutex("Volume map mutex");
@@ -229,14 +235,6 @@ DataMgr::DataMgr()
    * Create connection with OM.
    */
   omClient = new OMgrClient();
-  omClient->initialize();
-  omClient->registerEventHandlerForNodeEvents(node_handler);
-  omClient->registerEventHandlerForVolEvents(vol_handler);
-  /*
-   * TODO: Remove hard coded IP addr. Why does caller even
-   * pass this?
-   */
-  // omClient->subscribeToOmEvents(0x0a010aca, 1, 1);
 
   FDS_PLOG(dm_log) << "Constructing the Data Manager";
 }
@@ -270,6 +268,8 @@ int DataMgr::run(int argc, char* argv[]) {
   for (fds_int32_t i = 1; i < argc; i++) {
     if (strncmp(argv[i], "--port=", 7) == 0) {
       port_num = strtoul(argv[i] + 7, NULL, 0);
+    } else if (strncmp(argv[i], "--cp_port=", 10) == 0) {
+      cp_port_num = strtoul(argv[i] + 10, NULL, 0);
     } else if (strncmp(argv[i], "--prefix=", 9) == 0) {
       stor_prefix = argv[i] + 9;
     } else {
@@ -299,6 +299,17 @@ int DataMgr::run(int argc, char* argv[]) {
   FDS_PLOG(dm_log) << "Data Manager using storage prefix "
                    << stor_prefix;
 
+  if (cp_port_num == 0) {
+    /*
+     * Pull the control port from the config file if it
+     * wasn't specified on the command line.
+     */
+    cp_port_num = props->getPropertyAsInt("DataMgr.ControlPort");
+  }
+
+  FDS_PLOG(dm_log) << "Data Manager using control port "
+                   << cp_port_num;
+
   callbackOnInterrupt();
 
   /*
@@ -314,6 +325,19 @@ int DataMgr::run(int argc, char* argv[]) {
   adapter->add(reqHandleSrv, communicator()->stringToIdentity("DataMgr"));
 
   adapter->activate();
+
+  /*
+   * Setup communication with OM.
+   */
+  omClient->initialize();
+  omClient->registerEventHandlerForNodeEvents(node_handler);
+  omClient->registerEventHandlerForVolEvents(vol_handler);
+  /*
+   * TODO: Remove hard coded IP addr. Why does caller even
+   * pass this?
+   */
+  omClient->startAcceptingControlMessages(cp_port_num);
+  // omClient->subscribeToOmEvents(0x0a010aca, 1, 1);
 
   communicator()->waitForShutdown();
 

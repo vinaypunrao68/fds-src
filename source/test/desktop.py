@@ -35,6 +35,7 @@ dir_map = {STORMGR:"stor_mgr_ice", DATAMGR:"data_mgr", STORHVI:"stor_hvisor_ice"
 udir_map = {STORMGR:"stor_mgr_ice", DATAMGR:"data_mgr", STORHVI:"fds_client", VCC:"stor_hvisor_ice"}
 ut_map = {STORMGR:"sm_unit_test", DATAMGR:"dm_unit_test", STORHVI:"hvisor_uspace_test", VCC:"vcc_unit_test"}
 port_map = {STORMGR:10000, DATAMGR:11000, VCC:11000}
+cp_port_map = {DATAMGR:12000, VCC:12000}
 
 #
 # Relative to source/test dir
@@ -118,6 +119,10 @@ class TestSequenceFunctions(unittest.TestCase):
         comp_dir = dir_map[server]
         comp_port = port_map[server]
 
+        cp_port = None
+        if server in cp_port_map:
+            cp_port = cp_port_map[server]
+
         #
         # Descend in the component's directory.
         #
@@ -130,6 +135,9 @@ class TestSequenceFunctions(unittest.TestCase):
         comp_exe = cwd + comp_bin
         port_arg = "--port=%d" % (comp_port + ident)
         prefix_arg = "--prefix=%s" % ("%s%d_" % (prefix_base, ident))
+        if cp_port != None:
+            cp_port_arg = " --cp_port=%d" % (cp_port + ident)
+            prefix_arg += cp_port_arg
         comp_arg = port_arg + " " + prefix_arg
         cmd = comp_exe + " " + comp_arg
         print "Starting server cmd %s" % (cmd)
@@ -181,6 +189,10 @@ class TestSequenceFunctions(unittest.TestCase):
         if args == None:
             comp_port = port_map[server]
             port_arg = "--port=%d" % (comp_port + ident)
+            if server in cp_port_map:
+                cp_port = cp_port_map[server]
+                cp_port_arg = " --cp_port=%d" % (cp_port + ident)
+                port_arg += cp_port_arg
             comp_arg = port_arg
         else:
             comp_arg = args
@@ -251,7 +263,7 @@ class TestSequenceFunctions(unittest.TestCase):
 
     def test_datamgr(self):
         test_name = "Data Manager"
-        num_instances = 5
+        num_instances = 1
         print "********** Starting test: %s **********" % (test_name)
             
         status = 0

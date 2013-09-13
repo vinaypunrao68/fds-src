@@ -27,6 +27,11 @@ class VccUnitTest {
   fds_log *vcc_log;
 
   fds_uint32_t dm_port_num;
+  /*
+   * TODO: Currently not used since this unit
+   * test does not communicate over the control path.
+   */
+  fds_uint32_t cp_port_num;
 
   /*
    * Unit test funtions
@@ -41,14 +46,14 @@ class VccUnitTest {
                              vcc_log);
     err = voltab.registerVolume(vol_uuid);
     if (!err.ok()) {
-      std::cout << "Failed to register volume " 
+      std::cout << "Failed to register volume "
                 << vol_uuid << std::endl;
       return -1;
     }
 
     StorHvVolume *vol = voltab.getVolume(vol_uuid);
     if (!vol) {
-      std::cout << "Volume " << vol_uuid 
+      std::cout << "Volume " << vol_uuid
                 << " does not exist, even though registration was successful"
                 << std::endl;
       return -1;
@@ -79,14 +84,14 @@ class VccUnitTest {
                              vcc_log);
     err = voltab.registerVolume(vol_uuid);
     if (!err.ok()) {
-      std::cout << "Failed to register volume " 
+      std::cout << "Failed to register volume "
                 << vol_uuid << std::endl;
       return -1;
     }
 
     StorHvVolume *vol = voltab.getVolume(vol_uuid);
     if (!vol) {
-      std::cout << "Volume " << vol_uuid 
+      std::cout << "Volume " << vol_uuid
                 << " does not exist, even though registration was successful"
                 << std::endl;
       return -1;
@@ -215,14 +220,14 @@ class VccUnitTest {
                              vcc_log);
     err = voltab.registerVolume(vol_uuid);
     if (!err.ok()) {
-      std::cout << "Failed to register volume " 
+      std::cout << "Failed to register volume "
                 << vol_uuid << std::endl;
       return -1;
     }
 
     StorHvVolume *vol = voltab.getVolume(vol_uuid);
     if (!vol) {
-      std::cout << "Volume " << vol_uuid 
+      std::cout << "Volume " << vol_uuid
                 << " does not exist, even though registration was successful"
                 << std::endl;
       return -1;
@@ -242,8 +247,10 @@ class VccUnitTest {
   }
 
  public:
-  explicit VccUnitTest(fds_uint32_t port_arg) :
-      dm_port_num(port_arg) {
+  explicit VccUnitTest(fds_uint32_t port_arg,
+                       fds_uint32_t cp_port_arg) :
+      dm_port_num(port_arg),
+      cp_port_num(cp_port_arg) {
     vcc_log = new fds_log("vcc_test", "logs");
 
     unit_tests.push_back("basic_update");
@@ -383,11 +390,14 @@ class ShClient : public Ice::Application {
      */
     std::string testname;
     fds_uint32_t dm_port_num = 0;
+    fds_uint32_t cp_port_num = 0;
     for (int i = 1; i < argc; i++) {
       if (strncmp(argv[i], "--testname=", 11) == 0) {
         testname = argv[i] + 11;
       } else if (strncmp(argv[i], "--port=", 7) == 0) {
         dm_port_num = strtoul(argv[i] + 7, NULL, 0);
+      } else if (strncmp(argv[i], "--cp_port=", 10) == 0) {
+        cp_port_num = strtoul(argv[i] + 10, NULL, 0);
       } else {
         std::cout << "Invalid argument " << argv[i] << std::endl;
         return -1;
@@ -397,7 +407,7 @@ class ShClient : public Ice::Application {
     /*
      * Setup the basic unit test.
      */
-    VccUnitTest unittest(dm_port_num);
+    VccUnitTest unittest(dm_port_num, cp_port_num);
 
     if (testname.empty()) {
       unittest.Run();

@@ -49,11 +49,11 @@ OMgrClientRPCI::OMgrClientRPCI(OMgrClient *omc) {
 }
 
 void OMgrClientRPCI::NotifyAddVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-                     const FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg,
-			       const Ice::Current&) {
-
-
-  om_client->recvNotifyVol(msg_hdr->glob_volume_id, NULL, FDS_VOL_ACTION_CREATE);
+                                  const FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg,
+                                  const Ice::Current&) {
+  assert(vol_msg->type == FDS_ProtocolInterface::FDSP_NOTIFY_ADD_VOL);
+  fds_vol_notify_t type = fds_notify_vol_add;
+  om_client->recvNotifyVol(msg_hdr->glob_volume_id, NULL, type);
 
 }
 
@@ -61,10 +61,11 @@ void OMgrClientRPCI::NotifyRmVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr
                      const FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg,
 			       const Ice::Current&) {
 
-  om_client->recvNotifyVol(msg_hdr->glob_volume_id, NULL, FDS_VOL_ACTION_DELETE);
+  assert(vol_msg->type == FDS_ProtocolInterface::FDSP_NOTIFY_RM_VOL);
+  fds_vol_notify_t type = fds_notify_vol_rm;
+  om_client->recvNotifyVol(msg_hdr->glob_volume_id, NULL, type);
 
 }
-
       
 void OMgrClientRPCI::AttachVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
 			       const FDS_ProtocolInterface::FDSP_AttachVolTypePtr& vol_msg,
@@ -192,9 +193,16 @@ int OMgrClient::subscribeToOmEvents(unsigned int om_ip_addr, int tenn_id, int do
 
 // Call this to setup the (receiving side) endpoint to lister for control path requests from OM.
 int OMgrClient::startAcceptingControlMessages() {
+  return startAcceptingControlMessages(0);
+}
+int OMgrClient::startAcceptingControlMessages(fds_uint32_t port_num) {
 
-  Ice::PropertiesPtr rpc_props = rpc_comm->getProperties();  
-  int omc_port_num = rpc_props->getPropertyAsInt("OMgrClient.PortNumber");
+  Ice::PropertiesPtr rpc_props = rpc_comm->getProperties();
+  
+  int omc_port_num = port_num;
+  if (omc_port_num == 0) {
+    omc_port_num = rpc_props->getPropertyAsInt("OMgrClient.PortNumber");
+  }
  
   std::string tcpProxyStr = std::string("tcp -p ") + std::to_string(omc_port_num);
   Ice::ObjectAdapterPtr rpc_adapter =rpc_comm->createObjectAdapterWithEndpoints("OrchMgrClient", tcpProxyStr);
@@ -281,7 +289,9 @@ int OMgrClient::recvNodeEvent(int node_id, unsigned int node_ip, int node_state)
   
 }
 
-int OMgrClient::recvNotifyVol(fds_volid_t vol_id, VolumeDesc *vdb, int vol_action) {
+int OMgrClient::recvNotifyVol(fds_volid_t vol_id,
+                              VolumeDesc *vdb,
+                              fds_vol_notify_t vol_action) {
 
   FDS_PLOG(omc_log) << "OMClient received volume event for volume " << vol_id << " action - " << vol_action;
 
@@ -292,12 +302,15 @@ int OMgrClient::recvNotifyVol(fds_volid_t vol_id, VolumeDesc *vdb, int vol_actio
   
 }
 
-int OMgrClient::recvVolAttachState(fds_volid_t vol_id, VolumeDesc *vdb, int vol_action) {
+int OMgrClient::recvVolAttachState(fds_volid_t vol_id,
+                                   VolumeDesc *vdb,
+                                   int vol_action) {
 
-  FDS_PLOG(omc_log) << "OMClient received volume attach request for volume " << vol_id << " action - " << vol_action;
+  fds_vol_notify_t type = fds_notify_vol_attatch;
+  FDS_PLOG(omc_log) << "OMClient received volume attach request for volume " << vol_id << " action - " << type;
 
   if (this->vol_evt_hdlr) {
-    this->vol_evt_hdlr(vol_id, vdb, vol_action);
+    this->vol_evt_hdlr(vol_id, vdb, type);
   }
   return (0);
   

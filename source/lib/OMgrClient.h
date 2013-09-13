@@ -20,10 +20,6 @@ using namespace FDS_ProtocolInterface;
 #define FDS_VOL_ACTION_DETACH 4
 #define FDS_VOL_ACTION_DELETE 5
 
-
-typedef void (*node_event_handler_t)(int node_id, unsigned int node_ip_addr, int node_state);
-typedef void (*volume_event_handler_t)(fds::fds_volid_t volume_id, fds::VolumeDesc *vdb, int vol_action);
-
 typedef struct _node_info_t {
 
   int node_id;
@@ -35,6 +31,19 @@ typedef struct _node_info_t {
 typedef std::unordered_map<int,node_info_t> node_map_t;
 
 namespace fds {
+
+  typedef enum {
+    fds_notify_vol_default = 0,
+    fds_notify_vol_add     = 1,
+    fds_notify_vol_rm      = 2,
+    fds_notify_vol_mod     = 3,
+    fds_notify_vol_attatch = 4,
+    MAX
+  } fds_vol_notify_t;
+  
+  typedef void (*node_event_handler_t)(int node_id, unsigned int node_ip_addr, int node_state);
+  typedef void (*volume_event_handler_t)(fds::fds_volid_t volume_id, fds::VolumeDesc *vdb, fds_vol_notify_t vol_action);
+
 
   class OMgrClient {
 
@@ -76,6 +85,7 @@ namespace fds {
     int registerEventHandlerForVolEvents(volume_event_handler_t vol_event_hdlr);
     int subscribeToOmEvents(unsigned int om_ip_addr, int tennant_id, int domain_id, int omc_port_num=0);
     int startAcceptingControlMessages();
+    int startAcceptingControlMessages(fds_uint32_t port_num);
     int registerNodeWithOM();
     int getNodeInfo(int node_id, unsigned int *node_ip_addr, int *node_state);
     int getDLTNodesForDoidKey(unsigned char doid_key, int *node_ids, int *n_nodes);
@@ -85,7 +95,9 @@ namespace fds {
     int recvDLTUpdate(int dlt_version, const Node_Table_Type& dlt_table);
     int recvDMTUpdate(int dmt_version, const Node_Table_Type& dmt_table);
 
-    int recvNotifyVol(fds_volid_t vol_id, VolumeDesc *vdb, int vol_action);
+    int recvNotifyVol(fds_volid_t vol_id,
+                      VolumeDesc *vdb,
+                      fds_vol_notify_t vol_action);
     int recvVolAttachState(fds_volid_t vol_id, VolumeDesc *vdb, int vol_action);
 
   };
