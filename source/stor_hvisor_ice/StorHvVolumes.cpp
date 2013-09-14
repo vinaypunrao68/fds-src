@@ -6,6 +6,8 @@
 
 #include "StorHvVolumes.h"
 
+extern StorHvCtrl *storHvisor;
+
 namespace fds {
 
 
@@ -60,11 +62,22 @@ StorHvVolume::~StorHvVolume()
 /***** StorHvVolumeTable methods ******/
 
 /* creates its own logger */
-StorHvVolumeTable::StorHvVolumeTable(StorHvCtrl *sh_ctrl)
+StorHvVolumeTable::StorHvVolumeTable(StorHvCtrl *sh_ctrl, fds_log *parent_log)
   : parent_sh(sh_ctrl)
 {
-  vt_log = new fds_log("shvt", "logs");
-  created_log = true;
+  if (parent_log) {
+    vt_log = parent_log;
+    created_log = false;
+  }
+  else {
+    vt_log = new fds_log("voltab", "logs");
+    created_log = true;
+  }
+
+  /* register for volume-related control events from OM*/
+  if (parent_sh->om_client) {
+    parent_sh->om_client->registerEventHandlerForVolEvents(volumeEventHandler);
+  }
 
   /* 
    * Hardcoding creation of volume 1
@@ -75,18 +88,8 @@ StorHvVolumeTable::StorHvVolumeTable(StorHvCtrl *sh_ctrl)
   FDS_PLOG(vt_log) << "StorHvVolumeTable - constructor registered volume 1";  
 }
 
-StorHvVolumeTable::StorHvVolumeTable(StorHvCtrl *sh_ctrl, fds_log *parent_log)
-  : parent_sh(sh_ctrl),
-    vt_log(parent_log),
-    created_log(false)
-{
-  /* 
-   * Hardcoding creation of volume 1
-   * TODO: do not hardcode creation of volume 1, should
-   * explicitly call register volume for all volumes 
-   */
-  volume_map[FDS_DEFAULT_VOL_UUID] = new StorHvVolume(FDS_DEFAULT_VOL_UUID, parent_sh, vt_log);
-  FDS_PLOG(vt_log) << "StorHvVolumeTable - constructor registered volume 1";  
+StorHvVolumeTable::StorHvVolumeTable(StorHvCtrl *sh_ctrl)
+  : StorHvVolumeTable(sh_ctrl, NULL) {
 }
 
 StorHvVolumeTable::~StorHvVolumeTable()
@@ -160,5 +163,25 @@ StorHvVolume* StorHvVolumeTable::getVolume(fds_volid_t vol_uuid)
 
   return ret_vol;
 }
+
+/*
+ * Handler for volume-related control message from OM
+ */
+void StorHvVolumeTable::volumeEventHandler(fds_volid_t vol_uuid,
+                                           VolumeDesc *vdb,
+                                           fds_vol_notify_t vol_action)
+{
+  switch (vol_action) {
+  case fds_notify_vol_attatch:
+    FDS_PLOG(storHvisor->GetLog()) << "StorHvVolumeTable - Received volume attach event from OM"
+                                   << " for volume " << vol_uuid;
+    break;
+    /* TODO: add handling of event of detaching volume when it's added to the enum */
+  default:
+    FDS_PLOG(storHvisor->GetLog()) << "StorHvVolumeTable - Received unexpected volume event from OM"
+                                   << " for volume " << vol_uuid;
+  } 
+}
+
 
 } // namespace fds

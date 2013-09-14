@@ -564,5 +564,5 @@ class TestClient : public Ice::Application {
 int main(int argc, char* argv[]) {
   fds::TestClient sm_client;
 
-  return sm_client.main(argc, argv, "stor_mgr.cfg");
+  return sm_client.main(argc, argv, "stor_mgr.conf");
 }

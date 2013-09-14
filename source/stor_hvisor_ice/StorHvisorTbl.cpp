@@ -54,19 +54,18 @@ int dataMgrPortNum = 6900;
     }
 }
 
-StorHvDataPlacement::StorHvDataPlacement(dp_mode _mode)
-    : test_ip_addr(0), mode(_mode) {
-  if (mode == DP_NORMAL_MODE) {
-    omClient = new OMgrClient();
-    omClient->initialize();
-    omClient->registerEventHandlerForNodeEvents((node_event_handler_t )nodeEventHandler);
-    omClient->subscribeToOmEvents(omIPAddr, 1, 1);
+StorHvDataPlacement::StorHvDataPlacement(dp_mode _mode, 
+                                         OMgrClient *omc)
+  : test_ip_addr(0), mode(_mode), parent_omc(omc) {
+  if (parent_omc) {
+    parent_omc->registerEventHandlerForNodeEvents(nodeEventHandler);
   }
 }
 
 StorHvDataPlacement::StorHvDataPlacement(dp_mode _mode,
-                                         fds_uint32_t test_ip)
-    : StorHvDataPlacement(_mode) {
+                                         fds_uint32_t test_ip,
+                                         OMgrClient *omc)
+  : StorHvDataPlacement(_mode, omc) {
   test_ip_addr = test_ip;
 }
 

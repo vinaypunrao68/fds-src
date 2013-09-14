@@ -196,8 +196,8 @@ void OrchMgr::RegisterNode(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &fdsp
 		tcpProxyStr << "OrchMgrClient: tcp -h " << ip_addr_str << " -p  " << reg_node_req->control_port;
    		n_info.cpPrx =  FDSP_ControlPathReqPrx::checkedCast(communicator()->stringToProxy (tcpProxyStr.str())); 
 
-		switch (reg_node_req->node_type)
-		{
+		switch (reg_node_req->node_type) {
+
 		case FDSP_STOR_MGR:
 		  currentSmMap[reg_node_req->node_id] = n_info;
 		  break;

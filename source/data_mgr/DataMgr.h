@@ -49,6 +49,7 @@ namespace fds {
     fds_uint32_t port_num; /* Data path port num */
     fds_uint32_t cp_port_num; /* Control path port num */
     std::string stor_prefix;
+    fds_bool_t  use_om;  /* Whether to bootstrap from OM */
 
     /*
      * Internal threadpool.
@@ -66,6 +67,10 @@ namespace fds {
      */
     fds_mutex *vol_map_mtx;
 
+    Error _add_if_no_vol(const std::string& vol_name,
+                         fds_volid_t vol_uuid);
+    Error _add_vol_locked(const std::string& vol_name,
+                          fds_volid_t vol_uuid);
     Error _process_add_vol(const std::string& vol_name,
                            fds_volid_t vol_uuid);
     Error _process_rm_vol(fds_volid_t vol_uuid);

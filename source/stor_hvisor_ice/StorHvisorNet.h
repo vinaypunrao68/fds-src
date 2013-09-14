@@ -27,8 +27,7 @@
 #include "include/fds_err.h"
 #include "include/fds_types.h"
 
-//#include "VolumeCatalogCache.h"
-//#include "StorHvJournal.h"
+#include "lib/OMgrClient.h"
 #include "StorHvVolumes.h" 
 
 #include <map>
@@ -167,6 +166,7 @@ public:
   StorHvDataPlacement        *dataPlacementTbl;
   FDS_RPC_EndPointTbl        *rpcSwitchTbl; // RPC calls Switch Table
   StorHvVolumeTable          *vol_table;  
+  OMgrClient                 *om_client;
 
   void  InitIceObjects();
   void InitDmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);

@@ -46,6 +46,48 @@ void DataMgr::node_handler(fds_int32_t  node_id,
                            fds_int32_t  node_st) {
 }
 
+/*
+ * Adds the volume if it doesn't exist already.
+ * Note this does NOT return error if the volume exists.
+ */
+Error DataMgr::_add_if_no_vol(const std::string& vol_name,
+                              fds_volid_t vol_uuid) {
+  Error err(ERR_OK);
+
+  /*
+   * Check if we already know about this volume
+   */
+  vol_map_mtx->lock();
+  if (volExistsLocked(vol_uuid) == true) {
+    FDS_PLOG(dataMgr->GetLog()) << "Received add request for existing vol uuid "
+                                << vol_uuid << ", so ignoring.";
+    vol_map_mtx->unlock();
+    return err;
+  }
+
+  err = _add_vol_locked(vol_name, vol_uuid);
+
+  vol_map_mtx->unlock();
+
+  return err;
+}
+
+/*
+ * Meant to be called holding the vol_map_mtx.
+ */
+Error DataMgr::_add_vol_locked(const std::string& vol_name,
+                               fds_volid_t vol_uuid) {
+  Error err(ERR_OK);
+
+  vol_meta_map[vol_uuid] = new VolumeMeta(vol_name,
+                                          vol_uuid,
+                                          dm_log);
+  FDS_PLOG(dataMgr->GetLog()) << "Added vol meta for vol uuid "
+                              << vol_uuid;
+
+  return err;
+}
+
 Error DataMgr::_process_add_vol(const std::string& vol_name,
                                 fds_volid_t vol_uuid) {
   Error err(ERR_OK);
@@ -61,12 +103,8 @@ Error DataMgr::_process_add_vol(const std::string& vol_name,
     vol_map_mtx->unlock();
     return err;
   }
+  err = _add_vol_locked(vol_name, vol_uuid);
 
-  vol_meta_map[vol_uuid] = new VolumeMeta(vol_name,
-                                          vol_uuid,
-                                          dm_log);
-  FDS_PLOG(dataMgr->GetLog()) << "Added vol meta for vol uuid "
-                              << vol_uuid;
   vol_map_mtx->unlock();
 
   return err;
@@ -112,15 +150,13 @@ Error DataMgr::_process_open(fds_volid_t vol_uuid,
    * requests.
    * TODO: Just hack the name as the offset for now.
    */
-  if (volExists(vol_uuid) == false) {
-    err = _process_add_vol(stor_prefix +
-                           std::to_string(vol_uuid),
-                           vol_uuid);
-    if (!err.ok()) {
-      FDS_PLOG(dataMgr->GetLog()) << "Failed to add vol during open "
-                                  << "transaction for volume " << vol_uuid;
-      return err;
-    }
+  err = _add_if_no_vol(stor_prefix +
+                       std::to_string(vol_uuid),
+                       vol_uuid);
+  if (!err.ok()) {
+    FDS_PLOG(dataMgr->GetLog()) << "Failed to add vol during open "
+                                << "transaction for volume " << vol_uuid;
+    return err;
   }
 
   /*
@@ -190,15 +226,13 @@ Error DataMgr::_process_query(fds_volid_t vol_uuid,
    * requests.
    * TODO: Just hack the name as the offset for now.
    */
-  if (volExists(vol_uuid) == false) {
-    err = _process_add_vol(stor_prefix +
-                           std::to_string(vol_uuid),
-                           vol_uuid);
-    if (!err.ok()) {
-      FDS_PLOG(dataMgr->GetLog()) << "Failed to add vol during query "
-                                  << "transaction for volume " << vol_uuid;
-      return err;
-    }
+  err = _add_if_no_vol(stor_prefix +
+                       std::to_string(vol_uuid),
+                       vol_uuid);
+  if (!err.ok()) {
+    FDS_PLOG(dataMgr->GetLog()) << "Failed to add vol during query "
+                                << "transaction for volume " << vol_uuid;
+    return err;
   }
 
   /*
@@ -225,6 +259,7 @@ Error DataMgr::_process_query(fds_volid_t vol_uuid,
 DataMgr::DataMgr()
     : port_num(0),
       cp_port_num(0),
+      use_om(true),
       num_threads(DM_TP_THREADS) {
   dm_log = new fds_log("dm", "logs");
   vol_map_mtx = new fds_mutex("Volume map mutex");
@@ -272,6 +307,8 @@ int DataMgr::run(int argc, char* argv[]) {
       cp_port_num = strtoul(argv[i] + 10, NULL, 0);
     } else if (strncmp(argv[i], "--prefix=", 9) == 0) {
       stor_prefix = argv[i] + 9;
+    } else if (strncmp(argv[i], "--no_om", 7) == 0) {
+      use_om = false;
     } else {
       std::cout << "Invalid argument " << argv[i] << std::endl;
       return -1;
@@ -332,12 +369,26 @@ int DataMgr::run(int argc, char* argv[]) {
   omClient->initialize();
   omClient->registerEventHandlerForNodeEvents(node_handler);
   omClient->registerEventHandlerForVolEvents(vol_handler);
+  
+  /*
+   * Brings up the control path interface.
+   * This does not require OM to be running and can
+   * be used for testing DM by itself.
+   */
+  omClient->startAcceptingControlMessages(cp_port_num);
+
   /*
    * TODO: Remove hard coded IP addr. Why does caller even
    * pass this?
    */
-  omClient->startAcceptingControlMessages(cp_port_num);
-  // omClient->subscribeToOmEvents(0x0a010aca, 1, 1);
+  if (use_om) {
+    /*
+     * Registers the DM with the OM. Uses OM for bootstrapping
+     * on start. Requires the OM to be up and running prior.
+     */
+    // omClient->subscribeToOmEvents(0x0a010aca, 1, 1);
+    // omClient->registerNodeWithOM();
+  }
 
   communicator()->waitForShutdown();
 

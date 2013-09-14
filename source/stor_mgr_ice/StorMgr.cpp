@@ -61,7 +61,7 @@ ObjectStorMgrI::RedirReadObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_Re
 
 void
 ObjectStorMgrI::AssociateRespCallback(const Ice::Identity& ident, const Ice::Current& current) {
-  FDS_PLOG(objStorMgr->GetLog()) << "Associating response Callback client to ObjStorMgr" << _communicator->identityToString(ident);
+  FDS_PLOG(objStorMgr->GetLog()) << "Associating response Callback client to ObjStorMgr  :" << _communicator->identityToString(ident);
 
   objStorMgr->fdspDataPathClient = FDSP_DataPathRespPrx::uncheckedCast(current.con->createProxy(ident));
 }
@@ -85,6 +85,12 @@ ObjectStorMgr::ObjectStorMgr(fds_uint32_t port,
   objStorDB  = new ObjectDB(filename);
   filename= stor_prefix + "SNodeObjIndex";
   objIndexDB  = new ObjectDB(filename);  
+  omClient = new OMgrClient();
+  omClient->initialize();
+  omClient->registerEventHandlerForNodeEvents((node_event_handler_t)nodeEventOmHandler);
+  omClient->registerEventHandlerForVolEvents((volume_event_handler_t)volEventOmHandler);
+  //omClient->startAcceptingControlMessages();
+  //omClient->registerNodeWithOM();
 }
 
 
@@ -96,6 +102,35 @@ ObjectStorMgr::~ObjectStorMgr()
   delete diskMgr;
   delete sm_log;
   delete objStorMutex;
+}
+
+void ObjectStorMgr::nodeEventOmHandler(int node_id, unsigned int node_ip_addr, int node_state)
+{
+    switch(node_state) {
+       case FDSP_Types::FDS_Node_Up :
+           FDS_PLOG(objStorMgr->GetLog()) << "ObjectStorMgr - Node UP event NodeId " << node_id << " Node IP Address " <<  node_ip_addr;
+         break;
+
+       case FDSP_Types::FDS_Node_Down:
+       case FDSP_Types::FDS_Node_Rmvd:
+           FDS_PLOG(objStorMgr->GetLog()) << " ObjectStorMgr - Node Down event NodeId :" << node_id << " node IP addr" << node_ip_addr ;
+        break;
+    }
+}
+
+
+void ObjectStorMgr::volEventOmHandler(fds::fds_volid_t volume_id, fds::VolumeDesc *vdb, int vol_action)
+{
+    switch(vol_action) {
+       case FDS_VOL_ACTION_CREATE :
+           FDS_PLOG(objStorMgr->GetLog()) << "ObjectStorMgr - Volume Create " << volume_id << " Volume Name " <<  vdb;
+         break;
+
+       case FDS_VOL_ACTION_DELETE:
+           FDS_PLOG(objStorMgr->GetLog()) << " ObjectStorMgr - Volume Delete :" << volume_id << " Volume Name " << vdb;
+        break;
+    }
+
 }
 
 void ObjectStorMgr::unitTest()
@@ -175,7 +210,7 @@ fds_sm_err_t
 ObjectStorMgr::writeObject(FDS_ObjectIdType *object_id, 
                            fds_uint32_t obj_len, 
                            fds_char_t *data_object, 
-                           FDSDataLocEntryType *data_loc)
+                           FDS_DataLocEntry  *data_loc)
 {
    //Hash the object_id to DiskNumber, FileName
 fds_uint32_t disk_num = 1;
@@ -190,7 +225,7 @@ fds_sm_err_t
 ObjectStorMgr::writeObjLocation(FDS_ObjectIdType *object_id, 
                                 fds_uint32_t obj_len, 
                                 fds_uint32_t volid, 
-                                FDSDataLocEntryType *data_loc)
+                                FDS_DataLocEntry *data_loc)
 {
   // fds_uint32_t disk_num = 1;
    // Enqueue the object location entry into the thread that maintains global index file
@@ -211,7 +246,6 @@ ObjectStorMgr::putObjectInternal(FDSP_PutObjTypePtr put_obj_req,
 fds_uint32_t obj_num=0;
 fds_sm_err_t result = FDS_SM_OK;
 fds::Error err(fds::ERR_OK);
-// FDSDataLocEntryType object_location_offset;
 
    for(obj_num = 0; obj_num < num_objs; obj_num++) {
        // Find if this object is a duplicate
@@ -433,7 +467,7 @@ int main(int argc, char *argv[])
 
   FDS_PLOG(objStorMgr->GetLog()) << "Stor Mgr port_number :" << port;
 
-  objStorMgr->main(argc, argv, "stor_mgr.cfg");
+  objStorMgr->main(argc, argv, "stor_mgr.conf");
 
   delete objStorMgr;
 }

@@ -14,10 +14,11 @@ FDS_CFG		= StorMgr
 
 TARGETS		= $(FDS_CFG)
 
-OBJS		= StorMgr.o odb.o DiskMgr.o
-ICE_OBJS	= ../fdsp/FDSP.o
+OBJS		= StorMgr.o odb.o DiskMgr.o 
+ICE_OBJS	= ../fdsp/FDSP.o ../fdsp/fds_pubsub.o ../fdsp/fdsp_types.o ../lib/OMgrClient.o
 
-MY_LIBS          = ../lib/leveldb-1.12.0/libleveldb.so -lboost_log -lboost_system -lboost_thread -lboost_date_time ../util/Log.o -lpthread -lssl -lcrypto  ../util/concurrency/Mutex.o
+MY_LIBS          = ../lib/leveldb-1.12.0/libleveldb.so -lboost_log -lboost_system -lboost_thread -lboost_date_time \
+                   ../util/Log.o -lIce -lIceUtil -lIceStorm -lpthread -lssl -lcrypto  ../util/concurrency/Mutex.o 
 
 COBJS		= #StorHvisorClient.o
 
@@ -30,7 +31,7 @@ SRCS		= $(OBJS:.o=.cpp) \
 CPP11		= yes
 
 TEST_FLAGS	= -std=c++0x -Wall -Werror -g2 -I../ -I../lib/Ice-3.5.0/cpp/include -I../fdsp/
-TEST_LIBS	= -L../lib/Ice-3.5.0/cpp/lib -lpthread -lIce -lIceUtil ../fdsp/FDSP.o -lboost_log -lboost_system -lboost_thread -lboost_date_time ../util/Log.o ../util/concurrency/Mutex.o
+TEST_LIBS	= -L../lib/Ice-3.5.0/cpp/lib -lpthread -lIceStorm -lIce -lIceUtil ../fdsp/FDSP.o -lboost_log -lboost_system -lboost_thread -lboost_date_time ../util/Log.o ../util/concurrency/Mutex.o
 
 # SLICE_SRCS	= FDSP.ice
 
