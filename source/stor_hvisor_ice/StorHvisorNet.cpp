@@ -451,11 +451,24 @@ StorHvCtrl::StorHvCtrl(int argc,
                        sh_comm_modes _mode,
                        fds_uint32_t sm_port_num,
                        fds_uint32_t dm_port_num)
-    : mode(_mode) {
+  : mode(_mode) {
   
 
   sh_log = new fds_log("sh", "logs");
   FDS_PLOG(sh_log) << "StorHvisorNet - Constructing the Storage Hvisor";
+
+  /* create OMgr client if in normal mode */
+  om_client = NULL;
+  if (mode == NORMAL) {
+    FDS_PLOG(sh_log) << "StorHvisorNet - Will create and initialize OMgrClient";
+    om_client = new OMgrClient();
+    if (om_client) {
+      om_client->initialize();
+    }
+    else {
+      FDS_PLOG(sh_log) << "StorHvisorNet - Failed to create OMgrClient, will not receive any OM events";
+    }
+  }
 
   Ice::InitializationData initData;
   initData.properties = Ice::createProperties();
@@ -524,14 +537,26 @@ StorHvCtrl::StorHvCtrl(int argc,
      */
     fds_uint32_t ip_num = FDS_RPC_EndPoint::ipString2Addr(dataMgrIPAddress);
     dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NO_OM_MODE,
-                                                ip_num);
+                                                ip_num,
+                                                om_client);
   } else if (mode == STOR_MGR_TEST) {
     fds_uint32_t ip_num = FDS_RPC_EndPoint::ipString2Addr(storMgrIPAddress);
     dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NO_OM_MODE,
-                                                ip_num);
+                                                ip_num,
+                                                om_client);
   } else {
     FDS_PLOG(sh_log) <<"StorHvisorNet -  Entring Normal Data placement mode";
-    dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NORMAL_MODE);
+    dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NORMAL_MODE,
+                                                om_client);
+  }
+
+  /* 
+   * Start listening for OM control messages 
+   * Appropriate callbacks were setup by data placement and volume table objects  
+   */
+  if (om_client) {
+    om_client->startAcceptingControlMessages();
+    FDS_PLOG(sh_log) << "StorHvisorNet - Started accepting control messages from OM";
   }
 
   /*
@@ -572,6 +597,8 @@ StorHvCtrl::~StorHvCtrl()
   delete sh_log;
   delete vol_table;
   delete dataPlacementTbl;
+  if (om_client)
+    delete om_client;
 }
 
 

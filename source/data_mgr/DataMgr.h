@@ -49,6 +49,7 @@ namespace fds {
     fds_uint32_t port_num; /* Data path port num */
     fds_uint32_t cp_port_num; /* Control path port num */
     std::string stor_prefix;
+    fds_bool_t  use_om;  /* Whether to bootstrap from OM */
 
     /*
      * Internal threadpool.

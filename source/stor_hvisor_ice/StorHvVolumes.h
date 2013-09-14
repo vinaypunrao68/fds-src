@@ -57,6 +57,13 @@ class StorHvVolumeTable
 
   Error registerVolume(fds_volid_t vol_uuid);
   StorHvVolume* getVolume(fds_volid_t vol_uuid);
+
+ private: /* methods */ 
+
+  /* handler for volume-related control message from OM */
+  static void volumeEventHandler(fds_volid_t vol_uuid, 
+                                 VolumeDesc *vdb,
+                                 fds_vol_notify_t vol_action);
   
  private: /* data */
 
