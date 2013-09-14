@@ -106,6 +106,7 @@ namespace fds {
 
   class FDS_Volume {
  public:
+    std::string         vol_name;
     fds_uint32_t        tennantId;  // Tennant id that owns the volume
     fds_uint32_t        localDomainId;  // Local domain id that owns vol
     fds_uint32_t        globDomainId;

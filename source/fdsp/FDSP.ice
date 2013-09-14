@@ -56,6 +56,12 @@ enum FDSP_ErrType {
   FDSP_ERR_SM_NO_SPACE
 };
 
+enum FDSP_VolType {
+  FDSP_VOL_S3_TYPE,
+  FDSP_VOL_BLKDEV_TYPE,
+  FDSP_VOL_BLKDEV_SSD_TYPE
+};
+
 enum FDSP_VolNotifyType {
   FDSP_NOTIFY_DEFAULT,
   FDSP_NOTIFY_ADD_VOL,
@@ -63,6 +69,22 @@ enum FDSP_VolNotifyType {
   FDSP_NOTIFY_MOD_VOL
 };
 
+enum FDSP_ConsisProtoType {
+  FDSP_CONS_PROTO_STRONG,
+  FDSP_CONS_PROTO_WEAK,
+  FDSP_CONS_PROTO_EVENTUAL
+};
+
+enum FDSP_AppWorkload {
+    FDSP_APP_WKLD_TRANSACTION,
+    FDSP_APP_WKLD_NOSQL,
+    FDSP_APP_WKLD_HDFS,
+    FDSP_APP_WKLD_JOURNAL_FILESYS,  // Ext3/ext4
+    FDSP_APP_WKLD_FILESYS,  // XFS, other
+    FDSP_APP_NATIVE_OBJS,  // Native object aka not going over http/rest apis
+    FDSP_APP_S3_OBJS,  // Amazon S3 style objects workload
+    FDSP_APP_AZURE_OBJS,  // Azure style objects workload
+};
 
 class FDSP_PutObjType {
   FDS_ObjectIdType   data_obj_id;
@@ -116,25 +138,64 @@ class FDSP_QueryCatalogType {
   int      dm_operation;       /* Transaction type = OPEN, COMMIT, CANCEL */
 };
 
+class FDSP_VolumeInfoType {
+
+  string 		 vol_name;  /* Name of the volume */
+  int 	 		 tennantId;  // Tennant id that owns the volume
+  int    		 localDomainId;  // Local domain id that owns vol
+  int	 		 globDomainId;
+  int	 		 volUUID;
+
+// Basic operational properties
+
+  FDSP_VolType		 volType;		 		 
+  double        	 capacity;
+  double        	 maxQuota;  // Quota % of capacity tho should alert
+
+// Consistency related properties
+
+  int        		 replicaCnt;  // Number of replicas reqd for this volume
+  int        		 writeQuorum;  // Quorum number of writes for success
+  int        		 readQuorum;  // This will be 1 for now
+  FDSP_ConsisProtoType 	 consisProtocol;  // Read-Write consistency protocol
+
+// Other policies
+
+  int        		 volPolicyId;
+  int         		 archivePolicyId;
+  int        		 placementPolicy;  // Can change placement policy
+  FDSP_AppWorkload     	 appWorkload;
+
+  int         		 backupVolume;  // UUID of backup volume
+};
+
 class FDSP_CreateVolType {
-  string vol_name;  /* Name of the volume */
+
+  string 		 vol_name;
+  FDSP_VolumeInfoType 	 vol_info; /* Volume properties and attributes */
+
 };
 
 class FDSP_DeleteVolType {
-  string vol_name;  /* Name of the volume */
+  string 		 vol_name;  /* Name of the volume */
+  int    		 vol_uuid;
 };
 
 class FDSP_ModifyVolType {
-  string vol_name;  /* Name of the volume */
+  string 		 vol_name;  /* Name of the volume */
+  int 			 vol_uuid;
+  FDSP_VolumeInfoType	 vol_info;  /* New updated volume properties */
 };
 
 class FDSP_NotifyVolType {
-  FDSP_VolNotifyType type;     /* Type of notify */
-  string             vol_name; /* Name of the volume */
+  FDSP_VolNotifyType 	 type;     /* Type of notify */
+  string             	 vol_name; /* Name of the volume */
+  FDSP_VolumeInfoType	 vol_info; /* Volume properties and attributes */
 };
 
 class FDSP_AttachVolType {
-  string vol_name;  /* Name of the volume */
+  string 		 vol_name; /* Name of the volume */
+  FDSP_VolumeInfoType	 vol_info; /* Volume properties and attributes */
 };
 
 class FDSP_CreatePolicyType {

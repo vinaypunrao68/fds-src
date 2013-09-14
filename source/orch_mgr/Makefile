@@ -16,7 +16,7 @@ BOOST_LIBS = -lboost_log -lboost_system -lboost_thread -lboost_date_time
 SYS_LIBS   = -lpthread -lssl -lcrypto
 
 LIB_DIR    = ../lib/
-FDS_OBJS   = $(UTIL_OBJS) ../fdsp/FDSP.o ../fdsp/fdsp_types.o ../fdsp/fds_pubsub.o
+FDS_OBJS   = $(UTIL_OBJS) ../fdsp/FDSP.o ../fdsp/fdsp_types.o ../fdsp/fds_pubsub.o ../util/concurrency/Mutex.o
 OM_OBJS    = ../fdsp/fdsp_types.o ../fdsp/fds_pubsub.o ../fdsp/FDSP.o
 
 MY_LIBS = $(BOOST_LIBS) $(SYS_LIBS)
@@ -26,8 +26,9 @@ top_srcdir_ldb	= ../
 
 FDS_CFG		= orchMgr
 OMGR		= cmdline_orch_mgr
+OM_UTEST	= om_unit_test
 OMOBJS           = cmdline_orch_mgr.o
-TARGETS		= $(FDS_CFG) $(OMGR)
+TARGETS		= $(FDS_CFG) $(OMGR) $(OM_UTEST)
 
 SRCS		= $(OBJS:.o=.cpp) \
 		  $(COBJS:.o=.cpp)
@@ -53,9 +54,11 @@ CPPFLAGS	:= -I. $(CPPFLAGS) -I. -I $(top_srcdir)/include/Ice \
 	$(CPP11)
 
 $(OMGR): $(OM_OBJS) $(OMOBJS)
-	rm -f $@
 	$(CXX) $(LDFLAGS) -o $@ $(OM_OBJS) $(OMOBJS) $(LIBS) $(MYLIBS)
-#	$(CXX) $(CPPFLAGS) $(LDFLAGS) -o $@ $(OM_OBJS) $(OMOBJS) $(MY_LIBS) 
+
+
+$(OM_UTEST): om_unit_test.o
+	$(CXX) $(LDFLAGS) -o $@ om_unit_test.o $(FDS_OBJS) $(LIBS) $(MY_LIBS)
 
 $(FDS_CFG): $(OBJS) $(COBJS)
 	rm -f $@
