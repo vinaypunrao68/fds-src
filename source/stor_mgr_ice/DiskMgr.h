@@ -10,6 +10,7 @@
 #include <pthread.h>
 #include "FDSP.h"
 #include "stor_mgr_err.h"
+#include "fds_volume.h"
 #include "ObjLoc.h"
 #include "odb.h"
 #include <unistd.h>
@@ -73,7 +74,7 @@ public :
    fds_sm_err_t writeObject(FDS_ObjectIdType     *object_id, 
 		            fds_uint32_t         obj_len, 
 		            fds_char_t          *object,
-		            FDSDataLocEntryType *data_loc,
+		            FDS_DataLocEntry    *data_loc,
 		            fds_uint32_t         disk_num);
 };
 

@@ -186,26 +186,26 @@ void OrchMgr::reqCfgHandler::RegisterNode(const FDS_ProtocolInterface::FDSP_MsgH
 		switch (reg_node_req->node_type)
 		{
 			case FDSP_STOR_MGR:
-				// build the SM node map
-				n_info.node_id = reg_node_req->node_id;
+			// build the SM node map
+			n_info.node_id = reg_node_req->node_id;
          	 	n_info.node_state = FDS_Node_Up;
           		n_info.node_ip_address = reg_node_req->ip_lo_addr;
           		currentSmMap[reg_node_req->node_id] = n_info;
 
     		case FDSP_DATA_MGR:
-				// build the SM node map
-				n_info.node_id = reg_node_req->node_id;
+			// build the SM node map
+			n_info.node_id = reg_node_req->node_id;
          	 	n_info.node_state = FDS_Node_Up;
           		n_info.node_ip_address = reg_node_req->ip_lo_addr;
           		currentDmMap[reg_node_req->node_id] = n_info;
     		case FDSP_STOR_HVISOR:
-				// build the SM node map
-				n_info.node_id = reg_node_req->node_id;
+			// build the SM node map
+			n_info.node_id = reg_node_req->node_id;
          	 	n_info.node_state = FDS_Node_Up;
           		n_info.node_ip_address = reg_node_req->ip_lo_addr;
           		currentShMap[reg_node_req->node_id] = n_info;
-			default:
-  				FDS_PLOG(orchMgr->GetLog()) << "Unknown node type received";
+		default:
+  			FDS_PLOG(orchMgr->GetLog()) << "Unknown node type received";
 
 		}
 

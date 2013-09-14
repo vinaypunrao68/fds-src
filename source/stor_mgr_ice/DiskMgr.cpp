@@ -39,7 +39,7 @@ DiskMgr::~DiskMgr() {
 fds_sm_err_t DiskMgr::writeObject(FDS_ObjectIdType *object_id, 
                                    fds_uint32_t obj_len, 
                                    fds_char_t *object,
-                                   FDSDataLocEntryType *data_loc,
+                                   FDS_DataLocEntry *data_loc,
 				   fds_uint32_t disk_num)
 {
 fds_shard_obj_hdr_t shard_hdr;

@@ -10,6 +10,8 @@
 #include <pthread.h>
 #include "FDSP.h"
 #include "stor_mgr_err.h"
+#include "include/fds_types.h"
+#include "fds_volume.h"
 #include "ObjLoc.h"
 #include "odb.h"
 #include <unistd.h>
@@ -19,6 +21,7 @@
 #include <Ice/Ice.h>
 #include "util/Log.h"
 #include <DiskMgr.h>
+#include "lib/OMgrClient.h"
 #include "util/concurrency/Mutex.h"
 
 #define FDS_STOR_MGR_LISTEN_PORT FDS_CLUSTER_TCP_PORT_SM
@@ -27,6 +30,7 @@
 
 
 using namespace FDS_ProtocolInterface;
+using namespace FDSP_Types;
 using namespace fds;
 using namespace osm;
 using namespace std;
@@ -42,7 +46,9 @@ public:
    DiskMgr       *diskMgr;
    ObjectDB      *objStorDB;
    ObjectDB      *objIndexDB;
-// IndexDb       volIndexDb;
+   ObjectDB      *volIndexDb;
+
+   OMgrClient    *omClient;
 
   FDS_ProtocolInterface::FDSP_DataPathReqPtr fdspDataPathServer;
   FDS_ProtocolInterface::FDSP_DataPathRespPrx fdspDataPathClient; //For sending back the response to the SH/DM
@@ -58,10 +64,13 @@ public:
    void GetObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr, const FDS_ProtocolInterface::FDSP_GetObjTypePtr& get_obj);
 
    inline void swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg);
+   static void nodeEventOmHandler(int node_id, unsigned int node_ip_addr, int node_state);
+   static void volEventOmHandler(fds::fds_volid_t volume_id, fds::VolumeDesc *vdb, int vol_action);
 
    virtual int run(int, char*[]);
    void interruptCallback(int);
    void          unitTest();
+
 private :
    fds_log *sm_log;
    /*
@@ -84,12 +93,12 @@ private :
    fds_sm_err_t writeObject(FDS_ObjectIdType *object_id, 
                             fds_uint32_t obj_len, 
                             fds_char_t *data_object, 
-                            FDSDataLocEntryType *data_loc);
+                            FDS_DataLocEntry *data_loc);
 
    fds_sm_err_t writeObjLocation(FDS_ObjectIdType *object_id, 
                                  fds_uint32_t obj_len, 
                                  fds_uint32_t volid, 
-                                 FDSDataLocEntryType *data_loc);
+                                 FDS_DataLocEntry  *data_loc);
 };
 
 
