@@ -44,7 +44,8 @@ class VccUnitTest {
 
     StorHvVolumeTable voltab(storHvisor,
                              vcc_log);
-    err = voltab.registerVolume(vol_uuid);
+    VolumeDesc vdesc("vcc_ut_volume", vol_uuid);
+    err = voltab.registerVolume(vdesc);
     if (!err.ok()) {
       std::cout << "Failed to register volume "
                 << vol_uuid << std::endl;
@@ -82,7 +83,8 @@ class VccUnitTest {
 
     StorHvVolumeTable voltab(storHvisor,
                              vcc_log);
-    err = voltab.registerVolume(vol_uuid);
+    VolumeDesc vdesc("vcc_ut_volume", vol_uuid);
+    err = voltab.registerVolume(vdesc);
     if (!err.ok()) {
       std::cout << "Failed to register volume "
                 << vol_uuid << std::endl;
@@ -218,7 +220,8 @@ class VccUnitTest {
      */
     StorHvVolumeTable voltab(storHvisor,
                              vcc_log);
-    err = voltab.registerVolume(vol_uuid);
+    VolumeDesc vdesc("vcc_ut_volume", vol_uuid);
+    err = voltab.registerVolume(vdesc);
     if (!err.ok()) {
       std::cout << "Failed to register volume "
                 << vol_uuid << std::endl;

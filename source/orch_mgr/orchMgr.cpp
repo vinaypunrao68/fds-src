@@ -520,35 +520,6 @@ void OrchMgr::ReqCfgHandler::RegisterNode(const FDS_ProtocolInterface::FDSP_MsgH
   orchMgr->RegisterNode(fdsp_msg, reg_node_req);
 }
 
-
-FDS_Volume::FDS_Volume()
-{
-  tennantId = 1;
-  localDomainId = 1;
-  globDomainId = 1;
-  volUUID = 1;
-  volType = FDS_VOL_BLKDEV_TYPE;
-
-  capacity = 0;
-  maxQuota = 0;
-
-  replicaCnt = 1;
-  writeQuorum = 1;
-  readQuorum = 1;
-  consisProtocol = FDS_CONS_PROTO_STRONG;
-
-  volPolicyId = 1;
-  archivePolicyId = 1;
-  placementPolicy = 1;
-  appWorkload = FDS_APP_WKLD_JOURNAL_FILESYS;
-
-  backupVolume = 1;
-}
-
-FDS_Volume::~FDS_Volume()
-{
-}
-
 }  // namespace fds
 
 
