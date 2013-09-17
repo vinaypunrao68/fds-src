@@ -60,7 +60,7 @@ $(OMGR): $(OM_OBJS) $(OMOBJS)
 
 $(FDS_CLI): $(OM_OBJS) $(CLI_OBJ)
 	rm -f $@
-	$(CXX) $(LDFLAGS) -o $@ $(OM_OBJS) $(CLI_OBJ) $(LIBS) $(MYLIBS) $(MY_LIBS)
+	$(CXX) $(LDFLAGS) -o $@ $(OM_OBJS) $(CLI_OBJ) $(LIBS) $(MYLIBS) $(MY_LIBS) $(UTIL_OBJS)
 
 $(OM_UTEST): om_unit_test.o
 	$(CXX) $(LDFLAGS) -o $@ om_unit_test.o $(FDS_OBJS) $(LIBS) $(MY_LIBS)
