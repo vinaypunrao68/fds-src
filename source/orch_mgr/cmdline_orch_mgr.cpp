@@ -14,6 +14,7 @@
 #define CMD_DMT_UPDATE 4
 #define CMD_VOL_CREATE 5
 #define CMD_VOL_ATTACH 6
+#define CMD_VOL_DETACH 7
 
 using namespace FDSP_Types;
 using namespace FDS_PubSub_Interface;
@@ -33,7 +34,7 @@ typedef std::unordered_map<int,node_info_t> node_map_t;
 
 void construct_node_table_from_file(char *file_name, Node_Table_Type& node_table);
 void handle_create_volume(Ice::CommunicatorPtr& comm, int vol_id, const node_map_t& node_map);
-void handle_attach_volume(Ice::CommunicatorPtr& comm, int vol_id, std::string node_ip_str);
+void handle_attach_volume(int cmd, Ice::CommunicatorPtr& comm, int vol_id, std::string node_ip_str);
 
 int main(int argc, char* argv[])
 {
@@ -105,6 +106,9 @@ int main(int argc, char* argv[])
       } else  if (strcmp(cmd_wd, "attvol") == 0) {
 	cmd = CMD_VOL_ATTACH;
 	sscanf(line_ptr, "attvol %d %s", &vol_id, node_ip_str);
+      } else  if (strcmp(cmd_wd, "detvol") == 0) {
+	cmd = CMD_VOL_DETACH;
+	sscanf(line_ptr, "detvol %d %s", &vol_id, node_ip_str);
       }
 
 else {
@@ -179,8 +183,9 @@ else {
 	    break;
 	  }
 	case CMD_VOL_ATTACH:
+        case CMD_VOL_DETACH:
 	  {
-	    handle_attach_volume(comm, vol_id, std::string(node_ip_str));
+	    handle_attach_volume(cmd, comm, vol_id, std::string(node_ip_str));
 	    break;
 	  }
 	default:
@@ -258,7 +263,9 @@ void handle_create_volume(Ice::CommunicatorPtr& comm, int vol_id, const node_map
   }
 }
 
-void handle_attach_volume(Ice::CommunicatorPtr& comm, int vol_id, std::string node_ip_str) {
+void handle_attach_volume(int cmd, Ice::CommunicatorPtr& comm, int vol_id, std::string node_ip_str) {
+
+  assert((cmd == CMD_VOL_ATTACH) || (cmd == CMD_VOL_DETACH));
 
   Ice::PropertiesPtr props = comm->getProperties();
 
@@ -270,16 +277,23 @@ void handle_attach_volume(Ice::CommunicatorPtr& comm, int vol_id, std::string no
   InitOMMsgHdr(msg_hdr);
   msg_hdr->glob_volume_id = vol_id;
 
-  std::cout << "Making attach volume rpc call with hvisor at " << node_ip_str << " at port " << hvisor_port;
-
   std::ostringstream tcpProxyStr;
   
   tcpProxyStr << "OrchMgrClient: tcp -h " << node_ip_str << " -p  " << hvisor_port;
   FDSP_ControlPathReqPrx omClientAPI = FDSP_ControlPathReqPrx::checkedCast(comm->stringToProxy (tcpProxyStr.str()));
 
   vol_msg->vol_name = std::string("Test Volume");
-  omClientAPI->AttachVol(msg_hdr, vol_msg);
 
+  if (cmd == CMD_VOL_ATTACH) {
+     std::cout << "Making attach volume rpc call with hvisor at " << node_ip_str 
+               << " at port " << hvisor_port;
+    omClientAPI->AttachVol(msg_hdr, vol_msg);
+  }
+  else {
+     std::cout << "Making detach volume rpc call with hvisor at " << node_ip_str 
+               << " at port " << hvisor_port;
+     omClientAPI->DetachVol(msg_hdr, vol_msg);
+  }
 }
 
 void construct_node_table_from_file(char *file_name, Node_Table_Type& node_table) {

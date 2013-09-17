@@ -34,6 +34,8 @@ namespace fds {
   public:
     node_id_t node_id;
     unsigned int node_ip_address;
+    unsigned int control_port;
+    unsigned int data_port;
     FDSP_NodeState node_state;
     FDSP_ControlPathReqPrx  cpPrx;
   
