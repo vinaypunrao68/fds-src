@@ -27,19 +27,29 @@ using namespace FDS_ProtocolInterface;
 
 namespace fds {
 
+  typedef std::string node_id_t; 
+
   class NodeInfo {
 
   public:
-    int node_id;
+    node_id_t node_id;
     unsigned int node_ip_address;
     FDSP_NodeState node_state;
     FDSP_ControlPathReqPrx  cpPrx;
   
   };
 
+  class VolumeInfo {
 
-  typedef std::unordered_map<int,NodeInfo> node_map_t;
-  typedef std::unordered_map<int, FDS_Volume*> volume_map_t;
+  public:
+    std::string vol_name;
+    fds_volid_t volUUID;
+    FDS_Volume  properties;
+    std::vector<node_id_t> hv_nodes;
+  };
+
+  typedef std::unordered_map<node_id_t, NodeInfo> node_map_t;
+  typedef std::unordered_map<int, VolumeInfo *> volume_map_t;
 
   class OrchMgr : virtual public Ice::Application {
   private:
@@ -58,7 +68,13 @@ namespace fds {
      */
     int port_num;
 
-    void copyVolumeInfo(FDS_Volume *pVol, FDSP_VolumeInfoTypePtr v_info);
+    void copyVolumeInfoToProperties(FDS_Volume *pVol, FDSP_VolumeInfoTypePtr v_info);
+    void copyPropertiesToVolumeInfo(FDSP_VolumeInfoTypePtr v_info, FDS_Volume *pVol);
+    void initOMMsgHdr(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg);
+    void sendCreateVolToFdsNodes(VolumeInfo *pVol);
+    void sendDeleteVolToFdsNodes(VolumeInfo *pVol);
+    void sendAttachVolToHVNode(node_id_t node_id, VolumeInfo *pVol);
+    void sendDetachVolToHVNode(node_id_t node_id, VolumeInfo *pVol);
 
   public:
     OrchMgr();
@@ -80,6 +96,10 @@ namespace fds {
 		      const FDS_ProtocolInterface::FDSP_DeletePolicyTypePtr &del_pol_req);
     void ModifyPolicy(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &fdsp_msg,
 		      const FDS_ProtocolInterface::FDSP_ModifyPolicyTypePtr &mod_pol_req);
+    void AttachVol(const FDSP_MsgHdrTypePtr& fdsp_msg, 
+		       const FDSP_AttachVolCmdTypePtr& atc_vol_req);
+    void DetachVol(const FDSP_MsgHdrTypePtr& fdsp_msg, 
+		       const FDSP_AttachVolCmdTypePtr& dtc_vol_req);
     void RegisterNode(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &fdsp_msg,
 		      const FDS_ProtocolInterface::FDSP_RegisterNodeTypePtr &reg_node_req);
 
@@ -110,6 +130,12 @@ namespace fds {
   	void ModifyPolicy(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &fdsp_msg,
 			 const FDS_ProtocolInterface::FDSP_ModifyPolicyTypePtr &mod_pol_req,
 			 const Ice::Current&);
+	void AttachVol(const FDSP_MsgHdrTypePtr& fdsp_msg, 
+		       const FDSP_AttachVolCmdTypePtr& atc_vol_req,
+		       const Ice::Current&);
+	void DetachVol(const FDSP_MsgHdrTypePtr& fdsp_msg, 
+		       const FDSP_AttachVolCmdTypePtr& dtc_vol_req,
+		       const Ice::Current&);
 	void RegisterNode(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &fdsp_msg,
 				const FDS_ProtocolInterface::FDSP_RegisterNodeTypePtr &reg_node_req,
 			 const Ice::Current&);

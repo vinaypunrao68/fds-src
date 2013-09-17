@@ -72,6 +72,7 @@ int main(int argc, char* argv[])
 
   for (i = 0; i < 3; i++) {
 
+    reg_node_msg->node_id = std::string("Node ") + std::to_string(i);
     reg_node_msg->node_type = (i == 0)? FDSP_DATA_MGR:((i==1)?FDSP_STOR_MGR:FDSP_STOR_HVISOR);
     reg_node_msg->control_port = 7900 + i;
 

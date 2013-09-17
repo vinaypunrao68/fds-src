@@ -61,7 +61,7 @@ $(OM_UTEST): om_unit_test.o
 	$(CXX) $(LDFLAGS) -o $@ om_unit_test.o $(FDS_OBJS) $(LIBS) $(MY_LIBS)
 
 $(FDS_CFG): $(OBJS) $(COBJS)
-	rm -f $@
+#	rm -f $@
 	$(CXX) $(LDFLAGS) -o $@ $(MY_LIBS) $(OBJS) $(COBJS) $(LIBS) $(LDIR) $(FDS_OBJS) -I../ -I/usr/local/include -I$(top_srcdir)/include/Ice $(IDIR)
 #	$(CXX) $(LDFLAGS) -o dm_unit_test dm_unit_test.cpp $(TEST_FLAGS) $(TEST_LIBS)
 

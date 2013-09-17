@@ -102,12 +102,156 @@ OrchMgr::ReqCfgHandler::~ReqCfgHandler() {
 
 }
 
-void OrchMgr::copyVolumeInfo(FDS_Volume *pVol, FDSP_VolumeInfoTypePtr v_info) {
+void OrchMgr::copyVolumeInfoToProperties(FDS_Volume *pVol, FDSP_VolumeInfoTypePtr v_info) {
   pVol->vol_name = v_info->vol_name;
   pVol->volUUID = v_info->volUUID;
   pVol->capacity = v_info->capacity;
+  pVol->volType = fds::FDS_VolType(v_info->volType);
+  pVol->consisProtocol = fds::FDS_ConsisProtoType(v_info->consisProtocol);
+  pVol->appWorkload = fds::FDS_AppWorkload(v_info->appWorkload);
 }
 
+void OrchMgr::copyPropertiesToVolumeInfo(FDSP_VolumeInfoTypePtr v_info, FDS_Volume *pVol) {
+  v_info->vol_name = pVol->vol_name;
+  v_info->volUUID = pVol->volUUID;
+  v_info->capacity = pVol->capacity;
+  v_info->volType = FDS_ProtocolInterface::FDSP_VolType(pVol->volType);
+  v_info->consisProtocol = FDS_ProtocolInterface::FDSP_ConsisProtoType(pVol->consisProtocol);
+  v_info->appWorkload = FDS_ProtocolInterface::FDSP_AppWorkload(pVol->appWorkload);
+}
+
+void OrchMgr::initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
+{
+  msg_hdr->minor_ver = 0;
+  msg_hdr->msg_code = FDSP_MSG_NOTIFY_VOL;
+  msg_hdr->msg_id =  1;
+  
+  msg_hdr->major_ver = 0xa5;
+  msg_hdr->minor_ver = 0x5a;
+
+  msg_hdr->num_objects = 1;
+  msg_hdr->frag_len = 0;
+  msg_hdr->frag_num = 0;
+
+  msg_hdr->tennant_id = 0;
+  msg_hdr->local_domain_id = 0;
+
+  msg_hdr->src_id = FDSP_ORCH_MGR;
+  msg_hdr->dst_id = FDSP_DATA_MGR;
+
+  msg_hdr->err_code=FDSP_ERR_SM_NO_SPACE;
+  msg_hdr->result=FDSP_ERR_OK;
+
+}
+
+void OrchMgr::sendCreateVolToFdsNodes(VolumeInfo  *pVolInfo) {
+
+  FDS_Volume* pVol = &(pVolInfo->properties);
+
+  FDSP_MsgHdrTypePtr msg_hdr = new FDSP_MsgHdrType;
+  FDSP_NotifyVolTypePtr vol_msg = new FDSP_NotifyVolType;
+  vol_msg->vol_info = new FDSP_VolumeInfoType();
+
+  initOMMsgHdr(msg_hdr);
+  msg_hdr->glob_volume_id = pVol->volUUID;
+  vol_msg->type = FDSP_NOTIFY_ADD_VOL;
+  vol_msg->vol_name = std::string(pVol->vol_name);
+  copyPropertiesToVolumeInfo(vol_msg->vol_info, pVol);
+
+  for (int i = 0; i < 2; i++) {
+
+    node_map_t& node_map = (i == 0)?currentDmMap:currentSmMap;
+    msg_hdr->dst_id = (i == 0)?FDSP_DATA_MGR:FDSP_STOR_MGR;
+
+    for (auto it = node_map.begin(); it != node_map.end(); ++it) {
+
+      node_id_t node_id = it->first;
+      NodeInfo& node_info = it->second;
+
+      FDSP_ControlPathReqPrx OMClientAPI = node_info.cpPrx;
+      OMClientAPI->NotifyAddVol(msg_hdr, vol_msg);
+
+    }
+  }
+}
+
+
+void OrchMgr::sendDeleteVolToFdsNodes(VolumeInfo *pVolInfo) {
+
+  FDS_Volume *pVol = &(pVolInfo->properties);
+
+  FDSP_MsgHdrTypePtr msg_hdr = new FDSP_MsgHdrType;
+  FDSP_NotifyVolTypePtr vol_msg = new FDSP_NotifyVolType;
+  vol_msg->vol_info = new FDSP_VolumeInfoType();
+
+  initOMMsgHdr(msg_hdr);
+  msg_hdr->glob_volume_id = pVol->volUUID;
+  vol_msg->type = FDSP_NOTIFY_RM_VOL;
+  vol_msg->vol_name = std::string(pVol->vol_name);
+  copyPropertiesToVolumeInfo(vol_msg->vol_info, pVol);
+
+  for (int i = 0; i < 2; i++) {
+
+    node_map_t& node_map = (i == 0)?currentDmMap:currentSmMap;
+    msg_hdr->dst_id = (i == 0)?FDSP_DATA_MGR:FDSP_STOR_MGR;
+
+    for (auto it = node_map.begin(); it != node_map.end(); ++it) {
+
+      node_id_t node_id = it->first;
+      NodeInfo& node_info = it->second;
+
+      FDSP_ControlPathReqPrx OMClientAPI = node_info.cpPrx;
+      OMClientAPI->NotifyRmVol(msg_hdr, vol_msg);
+
+    }
+  }
+}
+
+void OrchMgr::sendAttachVolToHVNode(node_id_t node_id, VolumeInfo *pVolInfo) {
+
+  FDS_Volume *pVol = &(pVolInfo->properties);
+
+  FDSP_MsgHdrTypePtr msg_hdr = new FDSP_MsgHdrType;
+  FDSP_AttachVolTypePtr vol_msg = new FDSP_AttachVolType;
+  vol_msg->vol_info = new FDSP_VolumeInfoType();
+
+  initOMMsgHdr(msg_hdr);
+  msg_hdr->msg_code = FDSP_MSG_ATTACH_VOL_CTRL;
+  msg_hdr->dst_id = FDSP_STOR_HVISOR;
+  msg_hdr->glob_volume_id = pVol->volUUID;
+
+  vol_msg->vol_name = std::string(pVol->vol_name);
+  copyPropertiesToVolumeInfo(vol_msg->vol_info, pVol);
+  
+  NodeInfo& node_info = currentShMap[node_id];
+
+  FDSP_ControlPathReqPrx OMClientAPI = node_info.cpPrx;
+  OMClientAPI->AttachVol(msg_hdr, vol_msg);
+
+}
+
+void OrchMgr::sendDetachVolToHVNode(node_id_t node_id, VolumeInfo *pVolInfo) {
+
+  FDS_Volume *pVol = &(pVolInfo->properties);
+
+  FDSP_MsgHdrTypePtr msg_hdr = new FDSP_MsgHdrType;
+  FDSP_AttachVolTypePtr vol_msg = new FDSP_AttachVolType;
+  vol_msg->vol_info = new FDSP_VolumeInfoType();
+
+  initOMMsgHdr(msg_hdr);
+  msg_hdr->msg_code = FDSP_MSG_DETACH_VOL_CTRL;
+  msg_hdr->dst_id = FDSP_STOR_HVISOR;
+  msg_hdr->glob_volume_id = pVol->volUUID;
+
+  vol_msg->vol_name = std::string(pVol->vol_name);
+  copyPropertiesToVolumeInfo(vol_msg->vol_info, pVol);
+  
+  NodeInfo& node_info = currentShMap[node_id];
+
+  FDSP_ControlPathReqPrx OMClientAPI = node_info.cpPrx;
+  OMClientAPI->DetachVol(msg_hdr, vol_msg);
+
+}
 
 void OrchMgr::CreateVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &fdsp_msg,
 			const FDS_ProtocolInterface::FDSP_CreateVolTypePtr &crt_vol_req) {
@@ -120,11 +264,15 @@ void OrchMgr::CreateVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &fdsp_ms
   if (volumeMap.count(vol_id) != 0) {
     FDS_PLOG(om_log) << "Received CreateVol for existing volume " << vol_id;
     om_mutex->unlock();
+    return;
   }
-  FDS_Volume *new_vol = new FDS_Volume();
-  copyVolumeInfo(new_vol, crt_vol_req->vol_info);
+  VolumeInfo *new_vol = new VolumeInfo();
+  new_vol->vol_name = vol_name;
+  new_vol->volUUID = vol_id;
+  copyVolumeInfoToProperties(&(new_vol->properties), crt_vol_req->vol_info);
   volumeMap[vol_id] = new_vol;
   om_mutex->unlock();
+  sendCreateVolToFdsNodes(new_vol);
 
 }
 
@@ -139,8 +287,22 @@ void OrchMgr::DeleteVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &fdsp_ms
   if (volumeMap.count(vol_id) == 0) {
     FDS_PLOG(om_log) << "Received DeleteVol for non-existent volume " << vol_id;
     om_mutex->unlock();
+    return;
   }
-  FDS_Volume *del_vol = volumeMap[vol_id];
+  VolumeInfo *del_vol = volumeMap[vol_id];
+  om_mutex->unlock();
+
+  for (int i = 0; i < del_vol->hv_nodes.size(); i++) {
+    if (currentShMap.count(del_vol->hv_nodes[i]) == 0) {
+      FDS_PLOG(om_log) << "Inconsistent State Detected. HV node in volume's hvnode list but not in SH map";
+      assert(0);
+    }
+    sendDetachVolToHVNode(del_vol->hv_nodes[i], del_vol);
+  }
+
+  sendDeleteVolToFdsNodes(del_vol);
+
+  om_mutex->lock();
   volumeMap.erase(vol_id);
   om_mutex->unlock();
 
@@ -151,25 +313,105 @@ void OrchMgr::DeleteVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &fdsp_ms
 void OrchMgr::ModifyVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &fdsp_msg,
 			const FDS_ProtocolInterface::FDSP_ModifyVolTypePtr &mod_vol_req) {
 
-  		FDS_PLOG(GetLog()) << "Received ModifyVol  Msg";
+  FDS_PLOG(GetLog()) << "Received ModifyVol  Msg";
 
 }
 
 void OrchMgr::CreatePolicy(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &fdsp_msg,
 			   const FDS_ProtocolInterface::FDSP_CreatePolicyTypePtr &crt_pol_req) {
 
-  		FDS_PLOG(GetLog()) << "Received CreatePolicy  Msg";
+  FDS_PLOG(GetLog()) << "Received CreatePolicy  Msg";
 }
 
 void OrchMgr::DeletePolicy(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &fdsp_msg,
 			   const FDS_ProtocolInterface::FDSP_DeletePolicyTypePtr &del_pol_req) {
-  		FDS_PLOG(GetLog()) << "Received CreatePolicy  Msg";
+  FDS_PLOG(GetLog()) << "Received CreatePolicy  Msg";
 }
 
 void OrchMgr::ModifyPolicy(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &fdsp_msg,
 			   const FDS_ProtocolInterface::FDSP_ModifyPolicyTypePtr &mod_pol_req) {
 
-  		FDS_PLOG(GetLog()) << "Received ModifyPolicy  Msg";
+  FDS_PLOG(GetLog()) << "Received ModifyPolicy  Msg";
+}
+
+void OrchMgr::AttachVol(const FDSP_MsgHdrTypePtr& fdsp_msg, 
+	       const FDSP_AttachVolCmdTypePtr& atc_vol_req) {
+
+  int  vol_id = atc_vol_req->vol_uuid;
+  string vol_name = atc_vol_req->vol_name;
+  node_id_t node_id = atc_vol_req->node_id;
+  
+  FDS_PLOG(GetLog()) << "Received Attach Vol Req for volume " << vol_name << " ; id - " << vol_id;
+  om_mutex->lock();
+  if (volumeMap.count(vol_id) == 0) {
+    FDS_PLOG(om_log) << "Received Attach Vol for non-existent volume " << vol_id;
+    om_mutex->unlock();
+    return;
+  }
+  VolumeInfo *this_vol = volumeMap[vol_id];
+
+  if (currentShMap.count(node_id) == 0) {
+    FDS_PLOG(om_log) << "Received Attach Vol for non-existent node " << node_id;
+    om_mutex->unlock();
+    return;
+  }
+ 
+  for (int i = 0; i < this_vol->hv_nodes.size(); i++) {
+    if (this_vol->hv_nodes[i] == node_id) {
+      FDS_PLOG(om_log) << "Attach Vol req for volume " << vol_id
+		       << " rejected because this volume is already attached at node " << node_id;
+      om_mutex->unlock();
+      return;
+    }
+  }
+  this_vol->hv_nodes.push_back(node_id);
+  om_mutex->unlock();
+  
+  sendAttachVolToHVNode(node_id, this_vol);
+
+}
+
+
+
+void OrchMgr::DetachVol(const FDSP_MsgHdrTypePtr& fdsp_msg, 
+	       const FDSP_AttachVolCmdTypePtr& dtc_vol_req) {
+ 
+  int  vol_id = dtc_vol_req->vol_uuid;
+  string vol_name = dtc_vol_req->vol_name;
+  node_id_t node_id = dtc_vol_req->node_id;
+  fds_bool_t node_not_attached = true;
+  
+  FDS_PLOG(GetLog()) << "Received Detach Vol Req for volume " << vol_name << " ; id - " << vol_id;
+  om_mutex->lock();
+  if (volumeMap.count(vol_id) == 0) {
+    FDS_PLOG(om_log) << "Received Detach Vol for non-existent volume " << vol_id;
+    om_mutex->unlock();
+    return;
+  }
+  VolumeInfo *this_vol = volumeMap[vol_id];
+
+  if (currentShMap.count(node_id) == 0) {
+    FDS_PLOG(om_log) << "Received Detach Vol for non-existent node " << node_id;
+    om_mutex->unlock();
+    return;
+  }
+
+  for (int i = 0; i < this_vol->hv_nodes.size(); i++) {
+    if (this_vol->hv_nodes[i] == node_id) {
+      node_not_attached = false;
+      this_vol->hv_nodes.erase(this_vol->hv_nodes.begin()+i);
+      break;
+    }
+  }
+  om_mutex->unlock();
+  if (node_not_attached) {
+    FDS_PLOG(om_log) << "Detach Vol req for volume " << vol_id
+		       << " rejected because this volume is not attached at node " << node_id;
+  }
+
+  sendDetachVolToHVNode(node_id, this_vol);
+
+
 }
 
 void OrchMgr::RegisterNode(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &fdsp_msg,
@@ -219,7 +461,12 @@ void OrchMgr::ReqCfgHandler::CreateVol(const FDS_ProtocolInterface::FDSP_MsgHdrT
 				       const FDS_ProtocolInterface::FDSP_CreateVolTypePtr &crt_vol_req,
 				       const Ice::Current&) {
 
-  orchMgr->CreateVol(fdsp_msg, crt_vol_req);
+  try {
+    orchMgr->CreateVol(fdsp_msg, crt_vol_req);
+  }
+  catch (...) {
+    FDS_PLOG(orchMgr->GetLog()) << "Orch Mgr encountered exception while processing create volume"; 
+  }
 
 }
 
@@ -247,6 +494,20 @@ void OrchMgr::ReqCfgHandler::ModifyPolicy(const FDS_ProtocolInterface::FDSP_MsgH
 			 const FDS_ProtocolInterface::FDSP_ModifyPolicyTypePtr &mod_pol_req,
 			 const Ice::Current&) {
   orchMgr->ModifyPolicy(fdsp_msg, mod_pol_req);
+}
+
+void OrchMgr::ReqCfgHandler::AttachVol(const FDSP_MsgHdrTypePtr& fdsp_msg, 
+		       const FDSP_AttachVolCmdTypePtr& atc_vol_req,
+	       const Ice::Current&) {
+  orchMgr->AttachVol(fdsp_msg, atc_vol_req);
+}
+
+void OrchMgr::ReqCfgHandler::DetachVol(const FDSP_MsgHdrTypePtr& fdsp_msg, 
+	       const FDSP_AttachVolCmdTypePtr& dtc_vol_req,
+	       const Ice::Current&) {
+
+  orchMgr->DetachVol(fdsp_msg, dtc_vol_req);
+
 }
 
 void OrchMgr::ReqCfgHandler::RegisterNode(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &fdsp_msg,

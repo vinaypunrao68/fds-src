@@ -37,7 +37,20 @@ enum FDSP_MsgCodeType {
    FDSP_MSG_OFFSET_WRITE_OBJ_RSP,
    FDSP_MSG_REDIR_READ_OBJ_RSP,
 
+   FDSP_MSG_CREATE_VOL,
+   FDSP_MSG_MODIFY_VOL,
+   FDSP_MSG_DELETE_VOL,
+   FDSP_MSG_CREATE_POLICY,
+   FDSP_MSG_MODIFY_POLICY,
+   FDSP_MSG_DELETE_POLICY,
+   FDSP_MSG_ATTACH_VOL_CMD,
+   FDSP_MSG_DETACH_VOL_CMD,
+   FDSP_MSG_REG_NODE,
+
    FDSP_MSG_NOTIFY_VOL,
+   FDSP_MSG_ATTACH_VOL_CTRL,
+   FDSP_MSG_DETACH_VOL_CTRL
+
 };
 
 enum FDSP_MgrIdType {
@@ -187,6 +200,12 @@ class FDSP_ModifyVolType {
   FDSP_VolumeInfoType	 vol_info;  /* New updated volume properties */
 };
 
+class FDSP_AttachVolCmdType {
+  string		 vol_name; // Name of the volume to attach
+  int			 vol_uuid; // UUID of the volume being attached
+  string		 node_id;  // Id of the hypervisor node where the volume should be attached
+};
+
 class FDSP_NotifyVolType {
   FDSP_VolNotifyType 	 type;     /* Type of notify */
   string             	 vol_name; /* Name of the volume */
@@ -212,7 +231,7 @@ class FDSP_ModifyPolicyType {
 
 class FDSP_RegisterNodeType {
   FDSP_MgrIdType node_type; /* Type of node - SM/DM/HV */
-  long 		 node_id;    /* node indetifier */
+  string 	 node_id;    /* node indetifier */
   long		 ip_hi_addr; /* IP V6 high address */
   long		 ip_lo_addr; /* IP V4 address of V6 low address of the node */
   int		 control_port; /* Port number to contact for control messages */
@@ -295,6 +314,8 @@ interface FDSP_ConfigPathReq {
   void CreatePolicy(FDSP_MsgHdrType fdsp_msg, FDSP_CreatePolicyType crt_pol_req);
   void DeletePolicy(FDSP_MsgHdrType fdsp_msg, FDSP_DeletePolicyType del_pol_req);
   void ModifyPolicy(FDSP_MsgHdrType fdsp_msg, FDSP_ModifyPolicyType mod_pol_req);
+  void AttachVol(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolCmdType atc_vol_req);
+  void DetachVol(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolCmdType dtc_vol_req);
   void RegisterNode(FDSP_MsgHdrType fdsp_msg, FDSP_RegisterNodeType reg_node_req);
 };
 
@@ -305,6 +326,8 @@ interface FDSP_ConfigPathResp {
   void CreatePolicyResp(FDSP_MsgHdrType fdsp_msg, FDSP_CreatePolicyType crt_pol_resp);
   void DeletePolicyResp(FDSP_MsgHdrType fdsp_msg, FDSP_DeletePolicyType del_pol_resp);
   void ModifyPolicyResp(FDSP_MsgHdrType fdsp_msg, FDSP_ModifyPolicyType mod_pol_resp);
+  void AttachVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolCmdType atc_vol_req);
+  void DetachVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolCmdType dtc_vol_req);
   void RegisterNodeResp(FDSP_MsgHdrType fdsp_msg, FDSP_RegisterNodeType reg_node_resp);
 };
 
