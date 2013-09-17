@@ -67,6 +67,10 @@ namespace fds {
       return uuid;
     }
 
+    std::string ToString() {
+      return (std::string("Vol<") + GetName() + std::string(":") + std::to_string(GetID()) + std::string(">"));  
+    }
+
     bool operator==(const VolumeDesc &rhs) const {
       return (this->uuid == rhs.uuid);
     }

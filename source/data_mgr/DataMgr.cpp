@@ -269,7 +269,7 @@ DataMgr::DataMgr()
   /*
    * Create connection with OM.
    */
-  omClient = new OMgrClient();
+  omClient = new OMgrClient(FDSP_DATA_MGR, "localhost-dm", dm_log);
 
   FDS_PLOG(dm_log) << "Constructing the Data Manager";
 }

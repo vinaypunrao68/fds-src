@@ -85,12 +85,13 @@ ObjectStorMgr::ObjectStorMgr(fds_uint32_t port,
   objStorDB  = new ObjectDB(filename);
   filename= stor_prefix + "SNodeObjIndex";
   objIndexDB  = new ObjectDB(filename);  
-  omClient = new OMgrClient();
+  omClient = new OMgrClient(FDSP_STOR_MGR, "localhost-sm", sm_log);
   omClient->initialize();
   omClient->registerEventHandlerForNodeEvents((node_event_handler_t)nodeEventOmHandler);
   omClient->registerEventHandlerForVolEvents((volume_event_handler_t)volEventOmHandler);
-  //omClient->startAcceptingControlMessages();
-  //omClient->registerNodeWithOM();
+  // omClient->subscribeToOmEvents(0x0a010aca, 1, 1);
+  omClient->startAcceptingControlMessages();
+  // omClient->registerNodeWithOM();
 }
 
 
@@ -123,12 +124,12 @@ void ObjectStorMgr::volEventOmHandler(fds::fds_volid_t volume_id, fds::VolumeDes
 {
     switch(vol_action) {
        case FDS_VOL_ACTION_CREATE :
-           FDS_PLOG(objStorMgr->GetLog()) << "ObjectStorMgr - Volume Create " << volume_id << " Volume Name " <<  vdb;
+	 FDS_PLOG(objStorMgr->GetLog()) << "ObjectStorMgr - Volume Create " << volume_id << " Volume Name " <<  (*vdb);
          break;
 
        case FDS_VOL_ACTION_DELETE:
-           FDS_PLOG(objStorMgr->GetLog()) << " ObjectStorMgr - Volume Delete :" << volume_id << " Volume Name " << vdb;
-        break;
+	 FDS_PLOG(objStorMgr->GetLog()) << " ObjectStorMgr - Volume Delete :" << volume_id << " Volume Name " << (*vdb);
+	 break;
     }
 
 }
