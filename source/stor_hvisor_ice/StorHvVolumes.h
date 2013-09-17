@@ -34,8 +34,19 @@ namespace fds {
 class StorHvVolume : public FDS_Volume
 {
 public:
-  StorHvVolume(fds_volid_t vol_uuid, StorHvCtrl *sh_ctrl, fds_log *parent_log);
+  StorHvVolume(const VolumeDesc& vdesc, StorHvCtrl *sh_ctrl, fds_log *parent_log);
   ~StorHvVolume();
+
+  /* safe destruction, after this, volume object is not valid */
+  void destroy();
+  
+  bool isValidLocked() const;
+
+  /* read locks. Journal table and volume catalog cache have their own locks, 
+   * so exposing read lock to protect against volume being destroyed 
+   */
+  void readLock();
+  void readUnlock();
 
 public: /* data*/
 
@@ -44,6 +55,23 @@ public: /* data*/
 
   /* Reference to parent SH instance */
   StorHvCtrl *parent_sh;
+
+private: /* data */
+
+  /* lock to prevent volume destruction while accessing volume data */
+  fds_rwlock rwlock; 
+  bool is_valid;
+};
+
+class StorHvVolumeLock 
+{
+ public:
+  /* Ok if vol == NULL, will not do anything */
+  StorHvVolumeLock(StorHvVolume *vol);
+  ~StorHvVolumeLock();
+    
+ private:
+  StorHvVolume *shvol;
 };
 
 class StorHvVolumeTable
@@ -55,7 +83,25 @@ class StorHvVolumeTable
   StorHvVolumeTable(StorHvCtrl *sh_ctrl, fds_log *parent_log);
   ~StorHvVolumeTable();
 
-  Error registerVolume(fds_volid_t vol_uuid);
+  Error registerVolume(const VolumeDesc& vdesc); 
+  Error removeVolume(fds_volid_t vol_uuid);
+
+  /* 
+   * Returns the locked volume object. Guarantees that the
+   * returned volume object is valid (i.e., can safely access
+   * journal table and volume catalog cache) 
+   * Must call StorHvVolume::readUnlock on returned volume object 
+   * Returns NULL if volume does not exist
+   */
+  StorHvVolume* getLockedVolume(fds_volid_t vol_uuid);
+
+  /* 
+   * Returns volume but not thread-safe 
+   * Use StorHvVolumeLock to lock the volume and check if volume
+   * object is still valid via StorHvVolume::isValidLocked() 
+   * before using the volume object 
+   * Returns NULL is volume does not exist
+   */
   StorHvVolume* getVolume(fds_volid_t vol_uuid);
 
  private: /* methods */ 
@@ -64,7 +110,10 @@ class StorHvVolumeTable
   static void volumeEventHandler(fds_volid_t vol_uuid, 
                                  VolumeDesc *vdb,
                                  fds_vol_notify_t vol_action);
-  
+ 
+  /* print volume map, other detailed state to log */
+  void dump();
+    
  private: /* data */
 
   /* volume uuid -> StorHvVolume map */

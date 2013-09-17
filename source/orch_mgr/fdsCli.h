@@ -35,6 +35,7 @@ namespace fds {
 
   class FdsCli : virtual public Ice::Application {
   private:
+    fds_log *cli_log;
 
   public:
     FdsCli();
@@ -42,7 +43,7 @@ namespace fds {
 
    virtual int run(int argc, char* argv[]);
 //   void interruptCallback(int);
-//   fds_log* GetLog();
+   fds_log* GetLog();
    int fdsCliPraser(int argc, char* argv[]);
    void InitCfgMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
    };

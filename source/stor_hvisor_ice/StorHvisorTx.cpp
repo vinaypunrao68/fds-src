@@ -48,7 +48,8 @@ int StorHvisorProcIoRd(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
   vol_id = 1;  /* TODO: Derive vol_id from somewhere. NOT fbd! */
 
   shvol = storHvisor->vol_table->getVolume(vol_id);
-  if (!shvol) {
+  StorHvVolumeLock vol_lock(shvol);
+  if (!shvol || !shvol->isValidLocked()) {
     FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << " volID:" << vol_id << "- volume not registered";
     return -1;
   }
@@ -183,7 +184,8 @@ int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
    */
   vol_id = 1;
   shvol = storHvisor->vol_table->getVolume(vol_id);
-  if (!shvol) {
+  StorHvVolumeLock vol_lock(shvol);
+  if (!shvol || !shvol->isValidLocked()) {
     FDS_PLOG(storHvisor->GetLog()) << "StorHvisorTx:" << " volID:" << vol_id << " - volume not registered";
     return -1;
   }

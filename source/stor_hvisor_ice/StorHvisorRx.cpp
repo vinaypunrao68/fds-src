@@ -32,7 +32,8 @@ int StorHvCtrl::fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const
         vol_id = rd_msg->glob_volume_id;
 	trans_id = rd_msg->req_cookie;
         vol = vol_table->getVolume(vol_id);
-        if (!vol) {
+        StorHvVolumeLock vol_lock(vol);    
+        if (!vol || !vol->isValidLocked()) {  
 	   FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Error: GET_OBJ_RSP for an un-registered volume" ;
            return (0);
         }
@@ -43,14 +44,14 @@ int StorHvCtrl::fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const
 
 	if (!txn->isActive()) {
 	   FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Error: Journal Entry" << rd_msg->req_cookie <<  "  GET_OBJ_RS for an inactive transaction" ;
-	  return (0);
+	   return (0);
 	}
 
 	// TODO: check if incarnation number matches
 
 	if (txn->trans_state != FDS_TRANS_GET_OBJ) {
            FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Error: Journal Entry" << rd_msg->req_cookie <<  "  GET_OBJ_RSP for a transaction not in GetObjResp";
-	  return (0);
+	   return (0);
 	}
 
 	FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - GET_OBJ_RSP Processing read response for trans  " <<  trans_id;
@@ -76,7 +77,6 @@ int StorHvCtrl::fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const
 	}
 	txn->reset();
 	vol->journal_tbl->release_trans_id(trans_id);
-	
 	return 0;
 
 }
@@ -87,7 +87,8 @@ int StorHvCtrl::fds_process_put_obj_resp(const FDSP_MsgHdrTypePtr& rx_msg, const
   int trans_id = rx_msg->req_cookie; 
   fds_uint32_t vol_id = rx_msg->glob_volume_id;
   StorHvVolume *vol =  vol_table->getVolume(vol_id);
-  if (!vol) {
+  StorHvVolumeLock vol_lock(vol);
+  if (!vol || !vol->isValidLocked()) {
      FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Error: PUT_OBJ_RSP for an un-registered volume";
     return (0);
   }
@@ -100,7 +101,7 @@ int StorHvCtrl::fds_process_put_obj_resp(const FDSP_MsgHdrTypePtr& rx_msg, const
 
   if (!(txn->isActive())) {
      FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Error: Journal Entry" << rx_msg->req_cookie <<  "  PUT_OBJ_RSP for an inactive transaction";
-    return (0);
+     return (0);
   }
 
 	if (rx_msg->msg_code == FDSP_MSG_PUT_OBJ_RSP) {
@@ -123,7 +124,8 @@ int StorHvCtrl::fds_process_update_catalog_resp(const FDSP_MsgHdrTypePtr& rx_msg
   
   trans_id = rx_msg->req_cookie; 
   StorHvVolume *vol = vol_table->getVolume(vol_id);
-  if (!vol) {
+  StorHvVolumeLock vol_lock(vol);
+  if (!vol || !vol->isValidLocked()) {
     FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Error: UPDATE_CAT_OBJ_RSP for an un-registered volume";
     return (0);
   }
@@ -148,7 +150,6 @@ int StorHvCtrl::fds_process_update_catalog_resp(const FDSP_MsgHdrTypePtr& rx_msg
   }
   
   fds_move_wr_req_state_machine(rx_msg);
-  
   return (0); 
 }
 
@@ -169,7 +170,8 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rx_msg) 
   
   trans_id = rx_msg->req_cookie; 
   StorHvVolume* vol = vol_table->getVolume(vol_id);
-  if (!vol) {
+  StorHvVolumeLock vol_lock(vol);
+  if (!vol || !vol->isValidLocked()) {
       FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Error: State transition attempted for an un-registered volume";
       return (0); // TODO: return error?
   }
@@ -316,8 +318,9 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
     int trans_id = fdsp_msg_hdr->req_cookie;
     fbd_request_t *req;
     fds_uint32_t vol_id = fdsp_msg_hdr->glob_volume_id;
-    StorHvVolume *shvol = storHvisor->vol_table->getVolume(vol_id);    
-    if (!shvol) {
+    StorHvVolume *shvol = storHvisor->vol_table->getVolume(vol_id);
+    StorHvVolumeLock vol_lock(shvol);    
+    if (!shvol || !shvol->isValidLocked()) {
       FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " - Volume " << vol_id <<  " not registered";
       return;
     }
