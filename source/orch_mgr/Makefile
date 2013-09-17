@@ -12,7 +12,7 @@ DEPS = $(TOPDIR)/util/Log.h
 
 UTIL_DIR   = ../util/
 UTIL_OBJS  = $(UTIL_DIR)/Log.o
-BOOST_LIBS = -lboost_log -lboost_system -lboost_thread -lboost_date_time
+BOOST_LIBS = -lboost_log -lboost_system -lboost_thread -lboost_date_time -lboost_program_options
 SYS_LIBS   = -lpthread -lssl -lcrypto
 
 LIB_DIR    = ../lib/
@@ -24,11 +24,13 @@ MY_LIBS = $(BOOST_LIBS) $(SYS_LIBS)
 top_srcdir	= ../lib/Ice-3.5.0/cpp
 top_srcdir_ldb	= ../
 
+FDS_CLI		= fdscli
 FDS_CFG		= orchMgr
 OMGR		= cmdline_orch_mgr
 OM_UTEST	= om_unit_test
 OMOBJS           = cmdline_orch_mgr.o
-TARGETS		= $(FDS_CFG) $(OMGR) $(OM_UTEST)
+CLI_OBJ		= fdscli.o
+TARGETS		= $(FDS_CFG) $(OMGR) $(OM_UTEST) $(FDS_CLI)
 
 SRCS		= $(OBJS:.o=.cpp) \
 		  $(COBJS:.o=.cpp)
@@ -56,6 +58,9 @@ CPPFLAGS	:= -I. $(CPPFLAGS) -I. -I $(top_srcdir)/include/Ice \
 $(OMGR): $(OM_OBJS) $(OMOBJS)
 	$(CXX) $(LDFLAGS) -o $@ $(OM_OBJS) $(OMOBJS) $(LIBS) $(MYLIBS)
 
+$(FDS_CLI): $(OM_OBJS) $(CLI_OBJ)
+	rm -f $@
+	$(CXX) $(LDFLAGS) -o $@ $(OM_OBJS) $(CLI_OBJ) $(LIBS) $(MYLIBS) $(MY_LIBS)
 
 $(OM_UTEST): om_unit_test.o
 	$(CXX) $(LDFLAGS) -o $@ om_unit_test.o $(FDS_OBJS) $(LIBS) $(MY_LIBS)
