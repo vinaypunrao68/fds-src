@@ -81,8 +81,9 @@ void OMgrClientRPCI::DetachVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& 
 }
 
 
-OMgrClient::OMgrClient(FDSP_MgrIdType node_type, fds_log *parent_log) {
+OMgrClient::OMgrClient(FDSP_MgrIdType node_type, std::string node_id, fds_log *parent_log) {
   my_node_type = node_type;
+  my_node_id = node_id;
   if (parent_log) {
     omc_log = parent_log;
   }
@@ -94,6 +95,7 @@ OMgrClient::OMgrClient(FDSP_MgrIdType node_type, fds_log *parent_log) {
 
 OMgrClient::OMgrClient() {
   my_node_type = FDSP_STOR_HVISOR;
+  my_node_id = "localhost-sh";
   omc_log = new fds_log("omc", "logs");
   initRPCComm();
 }
@@ -199,12 +201,12 @@ int OMgrClient::startAcceptingControlMessages(fds_uint32_t port_num) {
 
   Ice::PropertiesPtr rpc_props = rpc_comm->getProperties();
   
-  int omc_port_num = port_num;
-  if (omc_port_num == 0) {
-    omc_port_num = rpc_props->getPropertyAsInt("OMgrClient.PortNumber");
+  my_control_port = port_num;
+  if (my_control_port == 0) {
+    my_control_port = rpc_props->getPropertyAsInt("OMgrClient.PortNumber");
   }
  
-  std::string tcpProxyStr = std::string("tcp -p ") + std::to_string(omc_port_num);
+  std::string tcpProxyStr = std::string("tcp -p ") + std::to_string(my_control_port);
   Ice::ObjectAdapterPtr rpc_adapter =rpc_comm->createObjectAdapterWithEndpoints("OrchMgrClient", tcpProxyStr);
 
   om_client_rpc_i = new OMgrClientRPCI(this);
@@ -212,7 +214,7 @@ int OMgrClient::startAcceptingControlMessages(fds_uint32_t port_num) {
 
   rpc_adapter->activate();
 
-  FDS_PLOG(omc_log) << "OMClient accepting control requests at port " << omc_port_num;
+  FDS_PLOG(omc_log) << "OMClient accepting control requests at port " << my_control_port;
 
   return (0);
 
@@ -256,9 +258,10 @@ int OMgrClient::registerNodeWithOM() {
   initOMMsgHdr(msg_hdr);
   FDSP_RegisterNodeTypePtr reg_node_msg = new FDSP_RegisterNodeType;
   reg_node_msg->node_type = my_node_type;
+  reg_node_msg->node_id = my_node_id;
   reg_node_msg->ip_hi_addr = 0;
   reg_node_msg->ip_lo_addr = fds::str_to_ipv4_addr(props->getProperty("OMgrClient.MyIPAddr")); //my_address!
-  reg_node_msg->control_port = props->getPropertyAsInt("OMgrClient.PortNumber");
+  reg_node_msg->control_port = my_control_port;
   reg_node_msg->data_port = 0; // for now
 
   FDS_PLOG(omc_log) << "OMClient registering local node " << fds::ipv4_addr_to_str(reg_node_msg->ip_lo_addr) << " control port:" << reg_node_msg->control_port 

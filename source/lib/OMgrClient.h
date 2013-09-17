@@ -51,6 +51,8 @@ namespace fds {
     int tennant_id;
     int domain_id;
     FDSP_MgrIdType my_node_type;
+    std::string my_node_id;
+    fds_uint32_t my_control_port;
     node_map_t node_map;
     int dlt_version;
     Node_Table_Type dlt;
@@ -79,7 +81,7 @@ namespace fds {
   public:
 
     OMgrClient();
-    OMgrClient(FDSP_MgrIdType node_type, fds_log *parent_log);
+    OMgrClient(FDSP_MgrIdType node_type, std::string node_id, fds_log *parent_log);
     int initialize();
     int registerEventHandlerForNodeEvents(node_event_handler_t node_event_hdlr);
     int registerEventHandlerForVolEvents(volume_event_handler_t vol_event_hdlr);

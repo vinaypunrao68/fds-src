@@ -23,14 +23,33 @@ int main(int argc, char *argv[]) {
 	char *line_ptr = 0;
 	char cmd_wd[32];
 	int input_field;
+	FDSP_MgrIdType node_type = FDSP_STOR_HVISOR;
+	int control_port = 0;
+	std::string node_id = "localhost-sh";
 
-	om_client = new OMgrClient();
+	if (argc > 1) {
+	  if (strcmp(argv[1], "-h") == 0) {
+	    node_type = FDSP_STOR_HVISOR;
+	    node_id = "localhost-sh";
+	    control_port = 7902;
+	  } else if (strcmp(argv[1], "-d") == 0) {
+	    node_type = FDSP_DATA_MGR;
+	    node_id = "localhost-dm";
+	    control_port = 7900;
+	  } if (strcmp(argv[1], "-s") == 0) {
+	    node_type = FDSP_STOR_MGR;
+	    node_id = "localhost-sm";
+	    control_port = 7901;
+	  }
+	}
+
+	om_client = new OMgrClient(node_type, node_id, NULL);
 
 	om_client->initialize();
 	om_client->registerEventHandlerForNodeEvents(my_node_event_handler);
 	om_client->registerEventHandlerForVolEvents(my_vol_event_handler);
 	// om_client->subscribeToOmEvents(0x0a010aca, 1, 1);
-	om_client->startAcceptingControlMessages();
+	om_client->startAcceptingControlMessages(control_port);
 	om_client->registerNodeWithOM();
 
 	while(1) {

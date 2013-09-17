@@ -424,8 +424,10 @@ void OrchMgr::RegisterNode(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &fdsp
 
   		FDS_PLOG(GetLog()) << "Received RegisterNode Msg"
 				   << "  Node Id:" << reg_node_req->node_id
-				   << "  Node IP:" << reg_node_req->ip_lo_addr
-				   << "  Node Type:" << reg_node_req->node_type;
+				   << "  Node IP:" << std::hex << reg_node_req->ip_lo_addr
+				   << "  Node Type:" << std::dec << reg_node_req->node_type
+				   << "  Control Port: " << reg_node_req->control_port
+				   << "  Data Port: " << reg_node_req->data_port;
 
   		ip_addr_str = ipv4_addr_to_str(reg_node_req->ip_lo_addr);
 
@@ -433,6 +435,8 @@ void OrchMgr::RegisterNode(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &fdsp
 		n_info.node_id = reg_node_req->node_id;
 		n_info.node_state = FDS_Node_Up;
 		n_info.node_ip_address = reg_node_req->ip_lo_addr;
+		n_info.control_port = reg_node_req->control_port;
+		n_info.data_port = reg_node_req->data_port;
 				
 		// create a new  control  communication adaptor
 		tcpProxyStr << "OrchMgrClient: tcp -h " << ip_addr_str << " -p  " << reg_node_req->control_port;
