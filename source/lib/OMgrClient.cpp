@@ -309,8 +309,14 @@ int OMgrClient::recvVolAttachState(fds_volid_t vol_id,
                                    VolumeDesc *vdb,
                                    int vol_action) {
 
+  assert((vol_action == FDS_VOL_ACTION_ATTACH) || (vol_action == FDS_VOL_ACTION_DETACH));
+
   fds_vol_notify_t type = fds_notify_vol_attatch;
-  FDS_PLOG(omc_log) << "OMClient received volume attach request for volume " << vol_id << " action - " << type;
+  if (vol_action == FDS_VOL_ACTION_DETACH) {
+    type = fds_notify_vol_detach;
+  }
+
+  FDS_PLOG(omc_log) << "OMClient received volume attach/detach request for volume " << vol_id << " action - " << type;
 
   if (this->vol_evt_hdlr) {
     this->vol_evt_hdlr(vol_id, vdb, type);
