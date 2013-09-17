@@ -38,6 +38,7 @@ namespace fds {
     fds_notify_vol_rm      = 2,
     fds_notify_vol_mod     = 3,
     fds_notify_vol_attatch = 4,
+    fds_notify_vol_detach  = 5, 
     MAX
   } fds_vol_notify_t;
   
