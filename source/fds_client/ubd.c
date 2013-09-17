@@ -371,6 +371,7 @@ int main(int argc, char *argv[]) {
   int n_bytes = 0;
   char cmd_wd[32];
   int offset = 0;
+  int vol_id = 0;
   int result = 0;
   
   if (run_test == 1) {
@@ -401,12 +402,12 @@ int main(int argc, char *argv[]) {
     if (strcmp(cmd_wd, "q") == 0) {
       return(0);
     } else if (strcmp(cmd_wd, "s") == 0) {
-      sscanf(line_ptr, "%s %d", cmd_wd, &offset);
-      send_test_io(offset);
+      sscanf(line_ptr, "%s %d %d", cmd_wd, &offset, &vol_id);
+      send_test_io(offset,vol_id);
       printf("Send IO complete \n");
     } else if (strcmp(cmd_wd, "r")== 0){
-      sscanf(line_ptr, "%s %d", cmd_wd, &offset);
-      read_test_io(offset);
+      sscanf(line_ptr, "%s %d %d", cmd_wd, &offset, &vol_id);
+      read_test_io(offset,vol_id);
       printf("Read IO complete \n");
     } else {
       printf("Invalid input. Usage: [q/s/r]\n");
@@ -957,7 +958,7 @@ hvisor_complete_td_request_noop(void *arg1, void *arg2,
 
 
 int8_t  buf[4096];
-int send_test_io(int offset)
+int send_test_io(int offset, int vol_id)
 {
     int len = 4096;
     int  i;
@@ -975,13 +976,14 @@ int send_test_io(int offset)
         p_new_treq->sec = offset/HVISOR_SECTOR_SIZE;
         p_new_treq->secs = 8;
         p_new_treq->len = len;
+        p_new_treq->volUUID = vol_id;
         StorHvisorProcIoWr(hvisor_hdl, p_new_treq, hvisor_complete_td_request_noop,NULL,NULL);
     	return 0;
 
 }
 
 int8_t  read_buf[4096];
-int read_test_io(int offset)
+int read_test_io(int offset, int vol_id)
 {
     fbd_request_t *p_new_treq;
     int len = 4096;
@@ -993,6 +995,7 @@ int read_test_io(int offset)
     p_new_treq->sec = offset/HVISOR_SECTOR_SIZE;
     p_new_treq->secs = 8;
     p_new_treq->len = len;
+    p_new_treq->volUUID = vol_id;
     StorHvisorProcIoRd(hvisor_hdl, p_new_treq, hvisor_complete_td_request_noop, NULL, NULL );
     return 0;
 
