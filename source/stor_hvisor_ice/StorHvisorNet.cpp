@@ -368,10 +368,10 @@ int unitTestFile(const char *inname, const char *outname, unsigned int base_vol_
    */
   if (infile.is_open()) {
     while (infile.read(file_buf, buf_len)) {
-      sh_test_w(file_buf, buf_len, req_count, base_vol_id, true);
+      sh_test_w(file_buf, buf_len, req_count, base_vol_id + (req_count % num_volumes), true);
       req_count++;
     }
-    sh_test_w(file_buf, infile.gcount(), req_count, base_vol_id, true);
+    sh_test_w(file_buf, infile.gcount(), req_count, base_vol_id + (req_count % num_volumes), true);
     last_write_len = infile.gcount();
     req_count++;
 
@@ -400,7 +400,7 @@ int unitTestFile(const char *inname, const char *outname, unsigned int base_vol_
     if (i == (req_count - 1)) {
       buf_len = last_write_len;
     }
-    result = sh_test_r(file_buf, buf_len, i, base_vol_id);
+    result = sh_test_r(file_buf, buf_len, i, base_vol_id + (i % num_volumes));
     if (result != 0) {
       break;
     }
