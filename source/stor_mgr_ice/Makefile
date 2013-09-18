@@ -14,7 +14,7 @@ FDS_CFG		= StorMgr
 
 TARGETS		= $(FDS_CFG)
 
-OBJS		= StorMgr.o odb.o DiskMgr.o 
+OBJS		= StorMgr.o odb.o DiskMgr.o  StorMgrVolumes.o
 ICE_OBJS	= ../fdsp/FDSP.o ../fdsp/fds_pubsub.o ../fdsp/fdsp_types.o ../lib/OMgrClient.o
 
 MY_LIBS          = ../lib/leveldb-1.12.0/libleveldb.so -lboost_log -lboost_system -lboost_thread -lboost_date_time \

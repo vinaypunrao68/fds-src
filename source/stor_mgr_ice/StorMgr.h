@@ -21,6 +21,7 @@
 #include <Ice/Ice.h>
 #include "util/Log.h"
 #include <DiskMgr.h>
+#include <StorMgrVolumes.h>
 #include "lib/OMgrClient.h"
 #include "util/concurrency/Mutex.h"
 
@@ -46,8 +47,9 @@ public:
    DiskMgr       *diskMgr;
    ObjectDB      *objStorDB;
    ObjectDB      *objIndexDB;
-   ObjectDB      *volIndexDb;
+   std::string stor_prefix;
 
+   StorMgrVolumeTable *volTbl;
    OMgrClient    *omClient;
 
   FDS_ProtocolInterface::FDSP_DataPathReqPtr fdspDataPathServer;
@@ -58,6 +60,7 @@ public:
                 std::string prefix);
   ~ObjectStorMgr();
    fds_log* GetLog();
+   fds_log *sm_log;
 
    fds_int32_t  getSocket() { return sockfd; }   
    void PutObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr, const FDS_ProtocolInterface::FDSP_PutObjTypePtr& put_obj);
@@ -72,12 +75,10 @@ public:
    void          unitTest();
 
 private :
-   fds_log *sm_log;
    /*
     * Cmdline configurables
     */
    fds_uint32_t port_num;
-   std::string stor_prefix;
 
    fds_sm_err_t getObjectInternal(FDSP_GetObjTypePtr get_obj_req, 
                        		  fds_uint32_t volid, 

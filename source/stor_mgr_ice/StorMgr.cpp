@@ -68,8 +68,7 @@ ObjectStorMgrI::AssociateRespCallback(const Ice::Identity& ident, const Ice::Cur
 //--------------------------------------------------------------------------------------------------
 ObjectStorMgr::ObjectStorMgr(fds_uint32_t port,
                              std::string prefix)
-    : port_num(port),
-      stor_prefix(prefix) {
+    : stor_prefix(prefix) , port_num(port) {
 
   // Init  the log infra  
   sm_log = new fds_log("sm", "logs");
@@ -88,10 +87,9 @@ ObjectStorMgr::ObjectStorMgr(fds_uint32_t port,
   omClient = new OMgrClient(FDSP_STOR_MGR, "localhost-sm", sm_log);
   omClient->initialize();
   omClient->registerEventHandlerForNodeEvents((node_event_handler_t)nodeEventOmHandler);
-  omClient->registerEventHandlerForVolEvents((volume_event_handler_t)volEventOmHandler);
-  // omClient->subscribeToOmEvents(0x0a010aca, 1, 1);
   omClient->startAcceptingControlMessages();
-  // omClient->registerNodeWithOM();
+  omClient->registerNodeWithOM();
+  volTbl = new StorMgrVolumeTable(this);
 }
 
 
@@ -102,6 +100,7 @@ ObjectStorMgr::~ObjectStorMgr()
   delete objIndexDB;
   delete diskMgr;
   delete sm_log;
+  delete volTbl;
   delete objStorMutex;
 }
 
