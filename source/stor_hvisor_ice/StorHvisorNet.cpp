@@ -459,15 +459,13 @@ StorHvCtrl::StorHvCtrl(int argc,
 
   /* create OMgr client if in normal mode */
   om_client = NULL;
-  if (mode == NORMAL) {
-    FDS_PLOG(sh_log) << "StorHvisorNet - Will create and initialize OMgrClient";
-    om_client = new OMgrClient();
-    if (om_client) {
-      om_client->initialize();
-    }
-    else {
-      FDS_PLOG(sh_log) << "StorHvisorNet - Failed to create OMgrClient, will not receive any OM events";
-    }
+  FDS_PLOG(sh_log) << "StorHvisorNet - Will create and initialize OMgrClient";
+  om_client = new OMgrClient(FDSP_STOR_HVISOR, "localhost-sh", sh_log);
+  if (om_client) {
+    om_client->initialize();
+  }
+  else {
+    FDS_PLOG(sh_log) << "StorHvisorNet - Failed to create OMgrClient, will not receive any OM events";
   }
 
   Ice::InitializationData initData;
@@ -557,6 +555,9 @@ StorHvCtrl::StorHvCtrl(int argc,
   if (om_client) {
     om_client->startAcceptingControlMessages();
     FDS_PLOG(sh_log) << "StorHvisorNet - Started accepting control messages from OM";
+    if (mode == NORMAL) {
+      om_client->registerNodeWithOM();
+    }
   }
 
   /*
