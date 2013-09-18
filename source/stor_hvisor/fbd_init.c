@@ -1505,6 +1505,7 @@ static int __init fbd_init(void)
 	struct gendisk *disk;
 	int rc;
 
+printk("FDS:%s:%d: Initialising the  formation volume \n",__FILE__,__LINE__);
 	rc = fbd_sysfs_init();
 	if (rc)
 	{	

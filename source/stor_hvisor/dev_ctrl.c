@@ -129,7 +129,7 @@ blktap_device_end_request(struct fbd_device *tap,
 
 	blktap_ring_free_request(tap, request);
 
-	printk(	"end_request: op=%d error=%d bytes=%d\n",
+	printk(	"FDS:%s:%d:end_request: op=%d error=%d bytes=%d\n",__FILE__,__LINE__,
 		rq_data_dir(rq), error, blk_rq_bytes(rq));
 
 	blktap_end_rq(rq, error);
@@ -144,10 +144,10 @@ blktap_device_make_request(struct fbd_device *tap, struct request *rq,
 	int nsegs;
 	int err;
 
-printk(" inside the device  make request  %p\n",tap);
+	printk("FDS:%s:%d: Inside the device  make request  %p\n",__FILE__,__LINE__,tap);
 	request = blktap_ring_make_request(tap);
 	if (IS_ERR(request)) {
-printk(" make ring request failed \n");
+	printk("FDS:%s:%d: make ring request failed \n",__FILE__,__LINE__);
 		err = PTR_ERR(request);
 		request = NULL;
 
@@ -173,7 +173,7 @@ printk(" make ring request failed \n");
 		request->nr_pages  = 0;
 		goto submit;
 	}
-printk(" map the sg request \n");
+	printk("FDS:%s:%d: map the sg request \n",__FILE__,__LINE__);
 
 	nsegs = blk_rq_map_sg(rq->q, rq, request->sg_table);
 
@@ -182,12 +182,12 @@ printk(" map the sg request \n");
 	else
 		request->operation = BLKTAP_OP_READ;
 
-printk(" get the  page allocated  \n");
+	printk("FDS:%s:%d: get the  page allocated  \n",__FILE__,__LINE__);
 	err = blktap_request_get_pages(tap, request, nsegs);
 	if (err)
 		goto stop;
 
-printk(" map the request to  ring \n");
+	printk("FDS:%s:%d: map the request to  ring \n",__FILE__,__LINE__);
 	err = blktap_ring_map_request(tap, ring, request);
 	if (err)
 		goto fail;
@@ -211,7 +211,7 @@ fail:
 	// if (printk_ratelimit())
 	//	dev_warn(disk_to_dev(disk),
 	//		 "make request: %d, failing\n", err);
-	printk("Make request failed with error %d\n", err);
+	printk("FDS:%s:%d:Make request failed with error %d\n",__FILE__,__LINE__, err);
 	goto _out;
 }
 
@@ -225,7 +225,7 @@ blktap_device_run_queue(struct request_queue *q)
     struct fbd_device *fbd;
 	int err;
 
-//	printk("Dequeueing requests from queue %p\n", q);
+	printk("FDS:%s:%d:Dequeueing requests from queue %p\n",__FILE__,__LINE__, q);
 
 	spin_lock_irq(q->queue_lock);
 	queue_flag_clear(QUEUE_FLAG_STOPPED, q);
@@ -238,7 +238,7 @@ blktap_device_run_queue(struct request_queue *q)
 
 		fbd = req->rq_disk->private_data;
 		if (req->cmd_type != REQ_TYPE_FS) {
-			printk (KERN_NOTICE " Non valid  command request is skipped \n");
+			printk ("FDS:%s:%d: Non valid  command request is skipped \n",__FILE__,__LINE__);
 			__blktap_dequeue_rq(req);
 			__blk_end_request_all(req, 0);
 			continue;
@@ -246,7 +246,7 @@ blktap_device_run_queue(struct request_queue *q)
 
 		if (fbd->filp == NULL)
 		{
-			printk (KERN_NOTICE "Error:  Ring is not open yet \n");
+			printk ("FDS:%s:%d:Error:  Ring is not open yet \n",__FILE__,__LINE__);
 			__blktap_dequeue_rq(req);
 			__blk_end_request_all(req, 0);
 			continue;
@@ -255,7 +255,7 @@ blktap_device_run_queue(struct request_queue *q)
 
 		if ((rq_data_dir(req) == WRITE) &&  (fbd->flags & FBD_READ_ONLY))
 		  {
-			printk("Error: writing to read only disk \n");
+			printk("FDS:%s:%d:Error: writing to read only disk \n",__FILE__,__LINE__);
 			__blktap_dequeue_rq(req);
 			__blk_end_request_all(req, -EROFS);
 			continue;
@@ -269,7 +269,7 @@ blktap_device_run_queue(struct request_queue *q)
 
 		spin_lock_irq(&fbd->queue_lock);
 		/* we can  maintain per dev queue  for high performance and consistency  */
-printk(" device make request fbd: %p  flip:%p \n ", fbd,fbd->filp);
+		printk("FDS:%s:%d: device make request fbd: %p  flip:%p \n ",__FILE__,__LINE__, fbd,fbd->filp);
 		err = blktap_device_make_request(fbd, req, fbd->filp);
 		spin_unlock_irq(&fbd->queue_lock);
 
@@ -284,7 +284,7 @@ printk(" device make request fbd: %p  flip:%p \n ", fbd,fbd->filp);
 		
 		if (err)
 		{
-			 printk(" Ending the request \n");
+			 printk("FDS:%s:%d: Ending the request \n",__FILE__,__LINE__);
 			__blk_end_request_all(req, 0);
 		}
 
@@ -304,12 +304,12 @@ blktap_device_do_request(struct request_queue *rq)
 	struct fbd_device *tap = rq->queuedata;
 
 	if (tap->should_stop_accepting_requests) {
-		printk("FBD: Not accepting requests any more. Flushing the queue\n");
+		printk("FDS:%s:%d: Not accepting requests any more. Flushing the queue\n",__FILE__,__LINE__);
 		spin_unlock_irq(rq->queue_lock);
 		blktap_device_fail_queue(tap);
 		spin_lock_irq(rq->queue_lock);
 	} else {
-printk("send a message to  user \n");
+	printk("FDS:%s:%d:send a message to  user \n",__FILE__,__LINE__);
 	blktap_ring_kick_user(tap);
 	}
 }
@@ -321,7 +321,7 @@ blktap_device_fail_queue(struct fbd_device *tap)
 {
 	struct request_queue *q = tap->disk->queue;
 
-	printk("Stopping queue %p\n", q);
+	printk("FDS:%s:%d:Stopping queue %p\n",__FILE__,__LINE__,q);
 
 	spin_lock_irq(&tap->queue_lock);
 	queue_flag_clear(QUEUE_FLAG_STOPPED, q);
@@ -380,13 +380,12 @@ blktap_device_init()
 	/* Dynamically allocate a major for this device */
 	major = register_blkdev(0, "tapdev");
 	if (major < 0) {
-		BTERR("Couldn't register blktap device\n");
+		printk("FDS:%s:%d: Error:Couldn't register blktap device\n",__FILE__,__LINE__);
 		return -ENOMEM;
 	}
 
 	blktap_device_major = major;
-	printk("blktap device major %d\n", major);
-printk(" registered tap device successfully \n");
+	printk("FDS:%s:%d: Registered tap device successfully, blktap device major %d\n",__FILE__,__LINE__, major);
 
 	return 0;
 }
