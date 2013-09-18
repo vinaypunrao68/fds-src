@@ -7,6 +7,7 @@ struct fbd_request {
   int                          secs;
   void                         *req_data;
   int 				len;
+  int 				volUUID;
 };
 
 typedef struct fbd_request            fbd_request_t;

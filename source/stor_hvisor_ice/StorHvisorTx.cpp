@@ -45,7 +45,7 @@ int StorHvisorProcIoRd(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
   unsigned int      trans_id = 0;
   fds_uint64_t data_offset  = req->sec * HVISOR_SECTOR_SIZE;
   fbd = fbd_dev;
-  vol_id = 1;  /* TODO: Derive vol_id from somewhere. NOT fbd! */
+  vol_id = req->volUUID;  /* TODO: Derive vol_id from somewhere better. NOT fbd! */
 
   shvol = storHvisor->vol_table->getVolume(vol_id);
   StorHvVolumeLock vol_lock(shvol);
@@ -179,10 +179,10 @@ int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
   /*
    * TODO: Currently don't derive the vol ID from the block
    * device. It's not safe since we may not always have
-   * a block device. Let's just hard code it for now
+   * a block device. Let's take it from the request 
    * and clean it up when we introduce multi-volume.
    */
-  vol_id = 1;
+  vol_id = req->volUUID;
   shvol = storHvisor->vol_table->getVolume(vol_id);
   StorHvVolumeLock vol_lock(shvol);
   if (!shvol || !shvol->isValidLocked()) {

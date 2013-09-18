@@ -53,7 +53,8 @@ void OMgrClientRPCI::NotifyAddVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePt
                                   const Ice::Current&) {
   assert(vol_msg->type == FDS_ProtocolInterface::FDSP_NOTIFY_ADD_VOL);
   fds_vol_notify_t type = fds_notify_vol_add;
-  om_client->recvNotifyVol(msg_hdr->glob_volume_id, NULL, type);
+  fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_name, vol_msg->vol_info->volUUID);
+  om_client->recvNotifyVol(vol_msg->vol_info->volUUID, vdb, type);
 
 }
 
@@ -63,21 +64,24 @@ void OMgrClientRPCI::NotifyRmVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr
 
   assert(vol_msg->type == FDS_ProtocolInterface::FDSP_NOTIFY_RM_VOL);
   fds_vol_notify_t type = fds_notify_vol_rm;
-  om_client->recvNotifyVol(msg_hdr->glob_volume_id, NULL, type);
+  fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_name, vol_msg->vol_info->volUUID);
+  om_client->recvNotifyVol(vol_msg->vol_info->volUUID, vdb, type);
 
 }
       
 void OMgrClientRPCI::AttachVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
 			       const FDS_ProtocolInterface::FDSP_AttachVolTypePtr& vol_msg,
 			       const Ice::Current&) {
-  om_client->recvVolAttachState(msg_hdr->glob_volume_id, NULL, FDS_VOL_ACTION_ATTACH);
+  fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_name, vol_msg->vol_info->volUUID);
+  om_client->recvVolAttachState(vol_msg->vol_info->volUUID, vdb, FDS_VOL_ACTION_ATTACH);
 }
 
 
 void OMgrClientRPCI::DetachVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
 			       const FDS_ProtocolInterface::FDSP_AttachVolTypePtr& vol_msg,
 			       const Ice::Current&) {
-  om_client->recvVolAttachState(msg_hdr->glob_volume_id, NULL, FDS_VOL_ACTION_DETACH);
+  fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_name, vol_msg->vol_info->volUUID);
+  om_client->recvVolAttachState(vol_msg->vol_info->volUUID, vdb, FDS_VOL_ACTION_DETACH);
 }
 
 
