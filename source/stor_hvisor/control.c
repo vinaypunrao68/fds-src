@@ -271,28 +271,28 @@ blktap_control_init(void)
 	blktap_max_minor = min(64, MAX_BLKTAP_DEVICE);
 	fbd_devices = kzalloc(blktap_max_minor * sizeof(fbd_devices[0]), GFP_KERNEL);
 	if (!fbd_devices) {
-		printk("failed to allocate blktap minor map");
+		printk("FDS:%s:%:failed to allocate blktap minor map",__FILE__,__LINE__);
 		return -ENOMEM;
 	}
 
 	err = blktap_page_pool_init(&control_device->kobj);
 	if (err)
 	{
-		printk(" Error allocating  blktap page pool \n");
+		printk("FDS:%s:%d: Error allocating  blktap page pool \n",__FILE__,__LINE__);
 		return err;
 	}
 
 	default_pool = blktap_page_pool_get("default");
 	if (!default_pool)
 	{
-		printk(" Error: default  pool is NULL\n");
+		printk(" FDS:%s:%d:Error: default  pool is NULL\n",__FILE__,__LINE__);
 		return -ENOMEM;
 	}
 
 	err = device_create_file(control_device, &dev_attr_default_pool);
 	if (err)
 	{
-		printk(" device create failed \n");
+		printk("FDS:%s:%d: device create failed \n",__FILE__,__LINE__);
 		return err;
 	}
 
@@ -346,7 +346,7 @@ blktap_init(void)
 	err = blktap_ring_init();
 	if (err)
 		goto fail;
-printk( "ring init successful \n ");
+	printk( "FDS:%s:%d:Ring init successful \n ",__FILE__,__LINE__);
 
 #if 0
 	err = blktap_sysfs_init();
@@ -357,12 +357,12 @@ printk( "ring init successful \n ");
 	err = blktap_control_init();
 	if (err)
 		goto fail;
-printk(" blktap control  init successful \n");
+	printk("FDS:%s:%d: blktap control  init successful \n",__FILE__,__LINE__);
 
 	return 0;
 
 fail:
-	printk(" blktap init failed \n");
+	printk("FDS:%s:%d: blktap init failed \n",__FILE__,__LINE__);
 	blktap_exit();
 	return err;
 }
