@@ -275,7 +275,9 @@ int main(int argc, char *argv[]) {
   uint32_t ut_mins = 0;
   const char *infile_name = NULL;
   const char *outfile_name = NULL;
-  
+  uint32_t base_vol = 1;
+  uint32_t num_vols = 1;
+
   signal(SIGINT, ctrlcHandler);
   
   /*
@@ -296,6 +298,10 @@ int main(int argc, char *argv[]) {
       outfile_name = argv[i] + 10;
     } else if (strncmp(argv[i], "--minutes=", 10) == 0) {
       ut_mins = atoi(argv[i] + 10);
+    } else if (strncmp(argv[i], "--base_vol=", 11) == 0) {
+      base_vol = atoi(argv[i] + 11);
+    } else if (strncmp(argv[i], "--num_vols=", 11) == 0) {
+      num_vols = atoi(argv[i] + 11);
     }
     /*
      * We pass argc and argv to other functions later
@@ -382,15 +388,15 @@ int main(int argc, char *argv[]) {
         fprintf(stdout, "Unit test FAILED\n");
       }
       return result;
-    } else if (run_test == 2) {
-      result = unitTestFile(infile_name, outfile_name);
+  } else if (run_test == 2) {
+    result = unitTestFile(infile_name, outfile_name, base_vol, num_vols);
       if (result == 0) {
         fprintf(stdout, "Unit test PASSED\n");
       } else {
         fprintf(stdout, "Unit test FAILED\n");
       }
       return result;
-    }
+  }
 
     printf(">");
     if (getline(&line_ptr, &n_bytes, stdin) <= 1) {
@@ -409,6 +415,22 @@ int main(int argc, char *argv[]) {
       sscanf(line_ptr, "%s %d %d", cmd_wd, &offset, &vol_id);
       read_test_io(offset,vol_id);
       printf("Read IO complete \n");
+    } else if (strcmp(cmd_wd, "filetest")== 0){
+
+      int base_vol;
+      int num_vols;
+      char in_file[32];
+      char out_file[32];
+      int result;
+
+      sscanf(line_ptr, "%s %s %s %d %d", cmd_wd, in_file, out_file, &base_vol, &num_vols);
+      result = unitTestFile(in_file, out_file, base_vol, num_vols);
+      if (result == 0) {
+        fprintf(stdout, "Unit test PASSED\n");
+      } else {
+        fprintf(stdout, "Unit test FAILED\n");
+      }
+
     } else {
       printf("Invalid input. Usage: [q/s/r]\n");
     }

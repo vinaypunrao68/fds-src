@@ -97,6 +97,7 @@ static void sh_test_r_callback(void *arg1,
 void sh_test_w(const char *data,
                fds_uint32_t len,
                fds_uint32_t offset,
+	       fds_volid_t vol_id,
                fds_bool_t w_verify) {
   fbd_request_t *w_req;
   char          *w_buf;
@@ -106,7 +107,7 @@ void sh_test_w(const char *data,
    * the callback handler.
    */
   w_req = new fbd_request_t;
-  w_req->volUUID = 1;
+  w_req->volUUID = vol_id;
   w_buf = new char[len]();
 
   /*
@@ -163,7 +164,7 @@ void sh_test_w(const char *data,
   FDS_PLOG(storHvisor->GetLog()) << "Finished SH test write " << offset;
 }
 
-int sh_test_r(char *r_buf, fds_uint32_t len, fds_uint32_t offset) {
+int sh_test_r(char *r_buf, fds_uint32_t len, fds_uint32_t offset, fds_volid_t vol_id) {
   fbd_request_t *r_req;
   fds_int32_t    result = 0;
 
@@ -172,7 +173,7 @@ int sh_test_r(char *r_buf, fds_uint32_t len, fds_uint32_t offset) {
    * the callback handler.
    */
   r_req = new fbd_request_t;
-  r_req->volUUID = 1;
+  r_req->volUUID = vol_id;
   /*
    * TODO: We're currently overloading the
    * op field to denote which I/O request
@@ -279,7 +280,7 @@ int unitTest(fds_uint32_t time_mins) {
        * Write the data without caching the contents
        * for later verification.
        */
-      sh_test_w(w_buf, req_size, w_count, false);
+      sh_test_w(w_buf, req_size, w_count, 1, false);
       w_count++;
     }
     
@@ -305,14 +306,14 @@ int unitTest(fds_uint32_t time_mins) {
         memset(w_buf, 0xfeed, req_size);
       }
 
-      sh_test_w(w_buf, req_size, i, true);
+      sh_test_w(w_buf, req_size, i, 1, true);
     }
     FDS_PLOG(storHvisor->GetLog()) << "Finished all " << w_count
                                    << " test writes";
     
     for (fds_uint32_t i = 0; i < w_count; i++) {
       memset(r_buf, 0x00, req_size);      
-      result = sh_test_r(r_buf, req_size, i);            
+      result = sh_test_r(r_buf, req_size, i, 1);            
       if (result != 0) {
         break;
       }
@@ -326,7 +327,7 @@ int unitTest(fds_uint32_t time_mins) {
   return result;
 }
 
-int unitTestFile(const char *inname, const char *outname) {
+int unitTestFile(const char *inname, const char *outname, unsigned int base_vol_id, int num_volumes) {
 
   fds_int32_t  result;
   fds_uint32_t req_count;
@@ -367,10 +368,10 @@ int unitTestFile(const char *inname, const char *outname) {
    */
   if (infile.is_open()) {
     while (infile.read(file_buf, buf_len)) {
-      sh_test_w(file_buf, buf_len, req_count, true);
+      sh_test_w(file_buf, buf_len, req_count, base_vol_id, true);
       req_count++;
     }
-    sh_test_w(file_buf, infile.gcount(), req_count, true);
+    sh_test_w(file_buf, infile.gcount(), req_count, base_vol_id, true);
     last_write_len = infile.gcount();
     req_count++;
 
@@ -399,7 +400,7 @@ int unitTestFile(const char *inname, const char *outname) {
     if (i == (req_count - 1)) {
       buf_len = last_write_len;
     }
-    result = sh_test_r(file_buf, buf_len, i);
+    result = sh_test_r(file_buf, buf_len, i, base_vol_id);
     if (result != 0) {
       break;
     }
