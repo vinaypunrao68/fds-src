@@ -106,6 +106,7 @@ void sh_test_w(const char *data,
    * the callback handler.
    */
   w_req = new fbd_request_t;
+  w_req->volUUID = 1;
   w_buf = new char[len]();
 
   /*
@@ -171,7 +172,7 @@ int sh_test_r(char *r_buf, fds_uint32_t len, fds_uint32_t offset) {
    * the callback handler.
    */
   r_req = new fbd_request_t;
-  
+  r_req->volUUID = 1;
   /*
    * TODO: We're currently overloading the
    * op field to denote which I/O request
