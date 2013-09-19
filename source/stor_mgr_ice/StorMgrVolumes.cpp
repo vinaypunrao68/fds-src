@@ -16,7 +16,7 @@ StorMgrVolume::StorMgrVolume(VolumeDesc &vdb, ObjectStorMgr *sm, fds_log *parent
 std::string filename;
   volUUID = vdb.GetID();
   /* all other values are default for now */
-  filename= sm->stor_prefix + "SNodeVolIndex";
+  filename= sm->stor_prefix + "SNodeVolIndex" + std::to_string(volUUID);
   volumeIndexDB  = new ObjectDB(filename);
 }
 
