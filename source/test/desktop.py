@@ -252,7 +252,7 @@ class TestSequenceFunctions(unittest.TestCase):
     
     def test_stormgr(self):
         test_name = "Storage Manager"
-        num_instances = 5
+        num_instances = 1
         print "********** Starting test: %s **********" % (test_name)
 
         status = 0
