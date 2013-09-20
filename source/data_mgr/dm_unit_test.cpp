@@ -304,6 +304,7 @@ class DmUnitTest {
         new FDS_ProtocolInterface::FDSP_MsgHdrType;
     FDS_ProtocolInterface::FDSP_NotifyVolTypePtr vol_msg =
         new FDS_ProtocolInterface::FDSP_NotifyVolType;
+    vol_msg->vol_info = new FDS_ProtocolInterface::FDSP_VolumeInfoType();
 
     msg_hdr->minor_ver = 0;
     msg_hdr->msg_code =
@@ -327,10 +328,19 @@ class DmUnitTest {
 
     vol_msg->type = FDS_ProtocolInterface::FDSP_NOTIFY_ADD_VOL;
 
+    vol_msg->vol_info->capacity = 0x1 << 30; // 1 Gig
+    vol_msg->vol_info->volType = FDS_ProtocolInterface::FDSP_VOL_BLKDEV_TYPE;
+    vol_msg->vol_info->consisProtocol = FDS_ProtocolInterface::FDSP_CONS_PROTO_STRONG;
+    vol_msg->vol_info->appWorkload = FDS_ProtocolInterface::FDSP_APP_WKLD_FILESYS;
+
     for (fds_uint32_t i = 0; i < num_vols; i++) {
+
       msg_hdr->glob_volume_id = i + 1;
+      vol_msg->vol_info->volUUID = i + 1;
 
       vol_msg->vol_name = "Vol_" + std::to_string(msg_hdr->glob_volume_id);
+      vol_msg->vol_info->vol_name = vol_msg->vol_name;
+
       fdspCPAPI->NotifyAddVol(msg_hdr, vol_msg);
     }
 
@@ -340,8 +350,10 @@ class DmUnitTest {
     vol_msg->type = FDS_ProtocolInterface::FDSP_NOTIFY_RM_VOL;
     for (fds_uint32_t i = 0; i < num_vols; i++) {
       msg_hdr->glob_volume_id = i + 1;
-
+      vol_msg->vol_info->volUUID = i + 1;
       vol_msg->vol_name = "Vol_" + std::to_string(msg_hdr->glob_volume_id);
+      vol_msg->vol_info->vol_name = vol_msg->vol_name;
+
       fdspCPAPI->NotifyRmVol(msg_hdr, vol_msg);
     }
 
