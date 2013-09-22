@@ -151,6 +151,8 @@ int OMgrClient::subscribeToOmEvents(unsigned int om_ip_addr, int tenn_id, int do
   this->tennant_id = tenn_id;
   this->domain_id = dom_id;
 
+  try {
+
   // Load properties from config file om_client.conf
 
   Ice::InitializationData initData;
@@ -192,6 +194,12 @@ int OMgrClient::subscribeToOmEvents(unsigned int om_ip_addr, int tenn_id, int do
   pubsub_adapter->activate();
 
   FDS_PLOG(omc_log) << "OMgrClient subscribed to OMgrEvents with Pub Sub server at " << omgr_ip_addr << " : 11234";
+
+  }
+  catch (...) {
+    FDS_PLOG(omc_log) << "OMgrClient could not subscribe to OMgrEvents. Please check if pubsub server is up and restart";
+  }
+
  
   return 0;
 }    
@@ -253,6 +261,8 @@ void OMgrClient::initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
 
 int OMgrClient::registerNodeWithOM() {
 
+  try {
+
   Ice::PropertiesPtr props = rpc_comm->getProperties();
   std::string omgr_ip_addr = props->getProperty("OMgr.IP");
   std::string omgr_config_port = props->getProperty("OMgr.ConfigPort");
@@ -275,6 +285,11 @@ int OMgrClient::registerNodeWithOM() {
   fdspConfigPathAPI->RegisterNode(msg_hdr, reg_node_msg);
 
   FDS_PLOG(omc_log) << "OMClient completed node registration with OM";
+
+  }
+  catch(...) {
+    FDS_PLOG(omc_log) << "OMClient unable to register node with OrchMgr. Please check if OrchMgr is up and restart.";
+  }
 
   return (0);
 }

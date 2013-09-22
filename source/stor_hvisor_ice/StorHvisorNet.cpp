@@ -557,9 +557,7 @@ StorHvCtrl::StorHvCtrl(int argc,
   if (om_client) {
     om_client->startAcceptingControlMessages();
     FDS_PLOG(sh_log) << "StorHvisorNet - Started accepting control messages from OM";
-    if (mode == NORMAL) {
-      om_client->registerNodeWithOM();
-    }
+    om_client->registerNodeWithOM();
   }
 
   /*
