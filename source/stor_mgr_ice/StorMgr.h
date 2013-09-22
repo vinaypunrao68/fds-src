@@ -57,6 +57,7 @@ public:
 
   //methods
   ObjectStorMgr(fds_uint32_t port,
+                fds_uint32_t control_port,
                 std::string prefix);
   ~ObjectStorMgr();
    fds_log* GetLog();
@@ -79,6 +80,7 @@ private :
     * Cmdline configurables
     */
    fds_uint32_t port_num;
+   fds_uint32_t cp_port_num;
 
    fds_sm_err_t getObjectInternal(FDSP_GetObjTypePtr get_obj_req, 
                        		  fds_uint32_t volid, 

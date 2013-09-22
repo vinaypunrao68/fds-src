@@ -35,7 +35,7 @@ dir_map = {STORMGR:"stor_mgr_ice", DATAMGR:"data_mgr", STORHVI:"stor_hvisor_ice"
 udir_map = {STORMGR:"stor_mgr_ice", DATAMGR:"data_mgr", STORHVI:"fds_client", VCC:"stor_hvisor_ice"}
 ut_map = {STORMGR:"sm_unit_test", DATAMGR:"dm_unit_test", STORHVI:"hvisor_uspace_test", VCC:"vcc_unit_test"}
 port_map = {STORMGR:10000, DATAMGR:11000, VCC:11000}
-cp_port_map = {DATAMGR:12000, VCC:12000}
+cp_port_map = {STORMGR:13000, DATAMGR:12000, VCC:12000}
 
 #
 # Relative to source/test dir
@@ -252,7 +252,7 @@ class TestSequenceFunctions(unittest.TestCase):
     
     def test_stormgr(self):
         test_name = "Storage Manager"
-        num_instances = 1
+        num_instances = 5
         print "********** Starting test: %s **********" % (test_name)
 
         status = 0

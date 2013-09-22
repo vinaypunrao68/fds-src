@@ -486,7 +486,7 @@ class TestClient : public Ice::Application {
      */
     std::string testname;
     fds_uint32_t num_updates = 100;
-    fds_uint32_t port_num = 0;
+    fds_uint32_t port_num = 0, cp_port_num=0;
     std::string ip_addr_str;
     for (int i = 1; i < argc; i++) {
       if (strncmp(argv[i], "--testname=", 11) == 0) {
@@ -495,6 +495,8 @@ class TestClient : public Ice::Application {
         num_updates = atoi(argv[i] + 14);
       } else if (strncmp(argv[i], "--port=", 7) == 0) {
         port_num = strtoul(argv[i] + 7, NULL, 0);
+      } else if (strncmp(argv[i], "--cp_port=", 10) == 0) {
+        cp_port_num = strtoul(argv[i] + 10, NULL, 0);
       } else {
         std::cout << "Invalid argument " << argv[i] << std::endl;
         return -1;
@@ -503,12 +505,13 @@ class TestClient : public Ice::Application {
 
     /*
      * Setup the network communication. Create a direct connection to
-     * a single DM.
      */
     Ice::PropertiesPtr props = communicator()->getProperties();
     Ice::ObjectPrx op;
     if (port_num == 0) {
       op = communicator()->propertyToProxy("ObjectStorMgrSvr.Proxy");
+    } else if (cp_port_num == 0) { 
+      cp_port_num = communicator()->propertyToProxy("ObjectStorMgrSvr.ControlPort");
     } else {
       std::ostringstream tcpProxyStr;
       ip_addr_str = props->getProperty("ObjectStorMgrSvr.IPAddress");

@@ -67,8 +67,9 @@ ObjectStorMgrI::AssociateRespCallback(const Ice::Identity& ident, const Ice::Cur
 }
 //--------------------------------------------------------------------------------------------------
 ObjectStorMgr::ObjectStorMgr(fds_uint32_t port,
+                             fds_uint32_t control_port,
                              std::string prefix)
-    : stor_prefix(prefix) , port_num(port) {
+    : stor_prefix(prefix) , port_num(port), cp_port_num(control_port) {
 
   // Init  the log infra  
   sm_log = new fds_log("sm", "logs");
@@ -87,8 +88,8 @@ ObjectStorMgr::ObjectStorMgr(fds_uint32_t port,
   omClient = new OMgrClient(FDSP_STOR_MGR, "localhost-sm", sm_log);
   omClient->initialize();
   omClient->registerEventHandlerForNodeEvents((node_event_handler_t)nodeEventOmHandler);
-  omClient->startAcceptingControlMessages();
-  omClient->registerNodeWithOM();
+  omClient->startAcceptingControlMessages(cp_port_num);
+  //omClient->registerNodeWithOM();
   volTbl = new StorMgrVolumeTable(this);
 }
 
@@ -407,6 +408,9 @@ ObjectStorMgr::run(int argc, char* argv[])
      */
     port_num = props->getPropertyAsInt("ObjectStorMgrSvr.PortNumber");
   }
+  if (cp_port_num == 0) {
+    cp_port_num = props->getPropertyAsInt("ObjStorMgrSvr.ControlPort");
+  }
   
   std::ostringstream tcpProxyStr;
   tcpProxyStr << "tcp -p " << port_num;
@@ -438,7 +442,7 @@ ObjectStorMgr::interruptCallback(int)
 int main(int argc, char *argv[])
 {
   bool         unit_test;
-  fds_uint32_t port;
+  fds_uint32_t port, control_port;
   std::string  prefix;
   
   port      = 0;
@@ -448,6 +452,8 @@ int main(int argc, char *argv[])
     std::string arg(argv[i]);
     if (arg == "--unit_test") {
       unit_test = true;
+    } else if (strncmp(argv[i], "--cp_port=", 10) == 0) {
+      control_port = strtoul(argv[i] + 10, NULL, 0);
     } else if (strncmp(argv[i], "--port=", 7) == 0) {
       port = strtoul(argv[i] + 7, NULL, 0);
     } else if (strncmp(argv[i], "--prefix=", 9) == 0) {
@@ -457,8 +463,10 @@ int main(int argc, char *argv[])
       return -1;
     }
   }    
+ 
 
-  objStorMgr = new ObjectStorMgr(port, prefix);
+
+  objStorMgr = new ObjectStorMgr(port, control_port, prefix);
 
   if (unit_test) {
     objStorMgr->unitTest();
