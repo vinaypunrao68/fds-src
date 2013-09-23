@@ -30,6 +30,8 @@ int OrchMgr::run(int argc, char* argv[]) {
   for (int i = 1; i < argc; i++) {
     if (strncmp(argv[i], "--port=", 7) == 0) {
       port_num = strtoul(argv[i] + 7, NULL, 0);
+    } else if (strncmp(argv[i], "--prefix=", 9) == 0) {
+      stor_prefix = argv[i] + 9;
     } else {
       std::cout << "Invalid argument " << argv[i] << std::endl;
       return -1;

@@ -69,6 +69,7 @@ namespace fds {
      * Cmdline configurables
      */
     int port_num;
+    std::string stor_prefix;
 
     void copyVolumeInfoToProperties(FDS_Volume *pVol, FDSP_VolumeInfoTypePtr v_info);
     void copyPropertiesToVolumeInfo(FDSP_VolumeInfoTypePtr v_info, FDS_Volume *pVol);

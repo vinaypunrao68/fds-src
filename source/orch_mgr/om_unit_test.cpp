@@ -45,6 +45,13 @@ void initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
 int main(int argc, char* argv[])
 {
 
+  fds_uint32_t port_num = 0;
+  for (int i = 1; i < argc; i++) {
+    if (strncmp(argv[i], "--port=", 7) == 0) {
+      port_num = strtoul(argv[i] + 7, NULL, 0);
+    }
+  }
+
   fds_log *om_utest_log = new fds_log("om_test", "logs");
 
   Ice::InitializationData initData;
@@ -54,8 +61,18 @@ int main(int argc, char* argv[])
   Ice::CommunicatorPtr comm;
   comm = Ice::initialize(argc, argv, initData);
 
-  std::string tcpProxyStr = "OrchMgr:tcp -h localhost -p 8903";
-  Ice::ObjectPrx obj = comm->stringToProxy(tcpProxyStr);
+  std::ostringstream tcpProxyStr;
+  if (port_num == 0) {
+    /*
+     * TODO: Don't hard code this. Get it from the
+     * config file.
+     */
+    tcpProxyStr << "OrchMgr:tcp -h localhost -p 8903";
+  } else {
+    tcpProxyStr <<"OrchMgr:tcp -h localhost -p " << port_num;
+  }
+
+  Ice::ObjectPrx obj = comm->stringToProxy(tcpProxyStr.str());
   FDSP_ConfigPathReqPrx fdspConfigPathAPI = FDSP_ConfigPathReqPrx::checkedCast(obj);
 
   FDSP_MsgHdrTypePtr msg_hdr = new FDSP_MsgHdrType;
@@ -77,8 +94,8 @@ int main(int argc, char* argv[])
     reg_node_msg->control_port = 7900 + i;
 
     FDS_PLOG(om_utest_log) << "OM unit test client registering node " << fds::ipv4_addr_to_str(reg_node_msg->ip_lo_addr) << " control port:" << reg_node_msg->control_port 
-		    << " data port:" << reg_node_msg->data_port
-		    << " with Orchaestration Manager at " << tcpProxyStr;
+                           << " data port:" << reg_node_msg->data_port
+                           << " with Orchaestration Manager at " << tcpProxyStr.str();
 
     // fdspConfigPathAPI->RegisterNode(msg_hdr, reg_node_msg);
 
@@ -108,5 +125,7 @@ int main(int argc, char* argv[])
     FDS_PLOG(om_utest_log) << "OM unit test client completed creating volume.";
 
   }
+
+  std::cout << "Unit test PASSED" << std::endl;
   
 }
