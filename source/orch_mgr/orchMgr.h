@@ -6,43 +6,61 @@
  * Umbrella classes for the orchestration  manager component.
  */
 
-#ifndef ORCH_MGR_H
-#define ORCH_MGR_H
-
-#include <unordered_map>
+#ifndef SOURCE_ORCH_MGR_ORCHMGR_H_
+#define SOURCE_ORCH_MGR_ORCHMGR_H_
 
 #include <Ice/Ice.h>
+
+#include <unordered_map>
+#include <string>
+#include <vector>
 
 #include "include/fds_types.h"
 #include "include/fds_err.h"
 #include "include/fds_volume.h"
 #include "fdsp/fdsp_types.h"
 #include "fdsp/FDSP.h"
-#include "include/fds_err.h"
 #include "util/Log.h"
 #include "util/concurrency/Mutex.h"
 
-using namespace FDSP_Types;
-using namespace FDS_ProtocolInterface;
-
 namespace fds {
 
-  typedef std::string node_id_t; 
+  typedef std::string node_id_t;
+  typedef FDSP_Types::FDSP_NodeState FdspNodeState;
+  typedef FDS_ProtocolInterface::FDSP_ConfigPathReqPtr  ReqCfgHandlerPtr;
+  typedef FDS_ProtocolInterface::FDSP_ControlPathReqPrx ReqCtrlPrx;
+
+  typedef FDS_ProtocolInterface::FDSP_MsgHdrTypePtr     FdspMsgHdrPtr;
+  typedef FDS_ProtocolInterface::FDSP_CreateVolTypePtr  FdspCrtVolPtr;
+  typedef FDS_ProtocolInterface::FDSP_DeleteVolTypePtr  FdspDelVolPtr;
+  typedef FDS_ProtocolInterface::FDSP_ModifyVolTypePtr  FdspModVolPtr;
+
+  typedef FDS_ProtocolInterface::FDSP_CreatePolicyTypePtr FdspCrtPolPtr;
+  typedef FDS_ProtocolInterface::FDSP_DeletePolicyTypePtr FdspDelPolPtr;
+  typedef FDS_ProtocolInterface::FDSP_ModifyPolicyTypePtr FdspModPolPtr;
+
+  /*
+   * TODO: What's the difference between AttachVol and AttachVolCmd?
+   * Can we get rid of one?
+   */
+  typedef FDS_ProtocolInterface::FDSP_AttachVolTypePtr    FdspAttVolPtr;
+  typedef FDS_ProtocolInterface::FDSP_AttachVolCmdTypePtr FdspAttVolCmdPtr;
+  typedef FDS_ProtocolInterface::FDSP_RegisterNodeTypePtr FdspRegNodePtr;
+  typedef FDS_ProtocolInterface::FDSP_NotifyVolTypePtr    FdspNotVolPtr;
+
+  typedef FDS_ProtocolInterface::FDSP_VolumeInfoTypePtr FdspVolInfoPtr;
 
   class NodeInfo {
-
   public:
-    node_id_t node_id;
-    unsigned int node_ip_address;
-    unsigned int control_port;
-    unsigned int data_port;
-    FDSP_NodeState node_state;
-    FDSP_ControlPathReqPrx  cpPrx;
-  
+    node_id_t     node_id;
+    unsigned int  node_ip_address;
+    unsigned int  control_port;
+    unsigned int  data_port;
+    FdspNodeState node_state;
+    ReqCtrlPrx    cpPrx;
   };
 
   class VolumeInfo {
-
   public:
     std::string vol_name;
     fds_volid_t volUUID;
@@ -55,9 +73,7 @@ namespace fds {
 
   class OrchMgr : virtual public Ice::Application {
   private:
-
     fds_log *om_log;
-    typedef FDS_ProtocolInterface::FDSP_ConfigPathReqPtr  ReqCfgHandlerPtr;
     ReqCfgHandlerPtr   reqCfgHandlersrv;
     node_map_t currentSmMap;
     node_map_t currentDmMap;
@@ -69,10 +85,13 @@ namespace fds {
      * Cmdline configurables
      */
     int port_num;
+    std::string stor_prefix;
 
-    void copyVolumeInfoToProperties(FDS_Volume *pVol, FDSP_VolumeInfoTypePtr v_info);
-    void copyPropertiesToVolumeInfo(FDSP_VolumeInfoTypePtr v_info, FDS_Volume *pVol);
-    void initOMMsgHdr(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg);
+    void copyVolumeInfoToProperties(FDS_Volume *pVol,
+                                    FdspVolInfoPtr v_info);
+    void copyPropertiesToVolumeInfo(FdspVolInfoPtr v_info,
+                                    FDS_Volume *pVol);
+    void initOMMsgHdr(const FdspMsgHdrPtr& fdsp_msg);
     void sendCreateVolToFdsNodes(VolumeInfo *pVol);
     void sendDeleteVolToFdsNodes(VolumeInfo *pVol);
     void sendAttachVolToHVNode(node_id_t node_id, VolumeInfo *pVol);
@@ -83,69 +102,72 @@ namespace fds {
     ~OrchMgr();
 
     virtual int run(int argc, char* argv[]);
-    void interruptCallback(int);
+    void interruptCallback(int cb);
     fds_log* GetLog();
 
-    void CreateVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &fdsp_msg,
-		   const FDS_ProtocolInterface::FDSP_CreateVolTypePtr &crt_vol_req);
-    void DeleteVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &fdsp_msg,
-		   const FDS_ProtocolInterface::FDSP_DeleteVolTypePtr &del_vol_req);
-    void ModifyVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &fdsp_msg,
-		   const FDS_ProtocolInterface::FDSP_ModifyVolTypePtr &mod_vol_req);
-    void CreatePolicy(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &fdsp_msg,
-		      const FDS_ProtocolInterface::FDSP_CreatePolicyTypePtr &crt_pol_req);
-    void DeletePolicy(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &fdsp_msg,
-		      const FDS_ProtocolInterface::FDSP_DeletePolicyTypePtr &del_pol_req);
-    void ModifyPolicy(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &fdsp_msg,
-		      const FDS_ProtocolInterface::FDSP_ModifyPolicyTypePtr &mod_pol_req);
-    void AttachVol(const FDSP_MsgHdrTypePtr& fdsp_msg, 
-		       const FDSP_AttachVolCmdTypePtr& atc_vol_req);
-    void DetachVol(const FDSP_MsgHdrTypePtr& fdsp_msg, 
-		       const FDSP_AttachVolCmdTypePtr& dtc_vol_req);
-    void RegisterNode(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &fdsp_msg,
-		      const FDS_ProtocolInterface::FDSP_RegisterNodeTypePtr &reg_node_req);
+    void CreateVol(const FdspMsgHdrPtr& fdsp_msg,
+                   const FdspCrtVolPtr& crt_vol_req);
+    void DeleteVol(const FdspMsgHdrPtr& fdsp_msg,
+                   const FdspDelVolPtr& del_vol_req);
+    void ModifyVol(const FdspMsgHdrPtr& fdsp_msg,
+                   const FdspModVolPtr& mod_vol_req);
+
+    void CreatePolicy(const FdspMsgHdrPtr& fdsp_msg,
+                      const FdspCrtPolPtr& crt_pol_req);
+    void DeletePolicy(const FdspMsgHdrPtr& fdsp_msg,
+                      const FdspDelPolPtr& del_pol_req);
+    void ModifyPolicy(const FdspMsgHdrPtr& fdsp_msg,
+                      const FdspModPolPtr& mod_pol_req);
+
+    void AttachVol(const FdspMsgHdrPtr& fdsp_msg,
+                   const FdspAttVolCmdPtr& atc_vol_req);
+    void DetachVol(const FdspMsgHdrPtr& fdsp_msg,
+                   const FdspAttVolCmdPtr& dtc_vol_req);
+
+    void RegisterNode(const FdspMsgHdrPtr& fdsp_msg,
+                      const FdspRegNodePtr& reg_node_req);
 
     class ReqCfgHandler : public FDS_ProtocolInterface::FDSP_ConfigPathReq {
+   private:
+      OrchMgr *orchMgr;
 
-     private:
-    	OrchMgr *orchMgr;
-	
-     public:	
-	explicit ReqCfgHandler(OrchMgr *oMgr);
-	~ReqCfgHandler();
+   public:
+      explicit ReqCfgHandler(OrchMgr *oMgr);
+      ~ReqCfgHandler();
 
-     	void CreateVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &fdsp_msg,
-			 const FDS_ProtocolInterface::FDSP_CreateVolTypePtr &crt_vol_req,
-			 const Ice::Current&);
-  	void DeleteVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &fdsp_msg,
-			 const FDS_ProtocolInterface::FDSP_DeleteVolTypePtr &del_vol_req,
-			 const Ice::Current&);
-  	void ModifyVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &fdsp_msg,
-			 const FDS_ProtocolInterface::FDSP_ModifyVolTypePtr &mod_vol_req,
-			 const Ice::Current&);
- 	void CreatePolicy(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &fdsp_msg,
-			 const FDS_ProtocolInterface::FDSP_CreatePolicyTypePtr &crt_pol_req,
-			 const Ice::Current&);
-  	void DeletePolicy(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &fdsp_msg,
-			 const FDS_ProtocolInterface::FDSP_DeletePolicyTypePtr &del_pol_req,
-			 const Ice::Current&);
-  	void ModifyPolicy(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &fdsp_msg,
-			 const FDS_ProtocolInterface::FDSP_ModifyPolicyTypePtr &mod_pol_req,
-			 const Ice::Current&);
-	void AttachVol(const FDSP_MsgHdrTypePtr& fdsp_msg, 
-		       const FDSP_AttachVolCmdTypePtr& atc_vol_req,
-		       const Ice::Current&);
-	void DetachVol(const FDSP_MsgHdrTypePtr& fdsp_msg, 
-		       const FDSP_AttachVolCmdTypePtr& dtc_vol_req,
-		       const Ice::Current&);
-	void RegisterNode(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &fdsp_msg,
-				const FDS_ProtocolInterface::FDSP_RegisterNodeTypePtr &reg_node_req,
-			 const Ice::Current&);
+      void CreateVol(const FdspMsgHdrPtr& fdsp_msg,
+                     const FdspCrtVolPtr& crt_vol_req,
+                     const Ice::Current&);
+      void DeleteVol(const FdspMsgHdrPtr& fdsp_msg,
+                     const FdspDelVolPtr& del_vol_req,
+                     const Ice::Current&);
+      void ModifyVol(const FdspMsgHdrPtr& fdsp_msg,
+                     const FdspModVolPtr& mod_vol_req,
+                     const Ice::Current&);
 
-    }; 
+      void CreatePolicy(const FdspMsgHdrPtr& fdsp_msg,
+                        const FdspCrtPolPtr& crt_pol_req,
+                        const Ice::Current&);
+      void DeletePolicy(const FdspMsgHdrPtr& fdsp_msg,
+                        const FdspDelPolPtr& del_pol_req,
+                        const Ice::Current&);
+      void ModifyPolicy(const FdspMsgHdrPtr& fdsp_msg,
+                        const FdspModPolPtr& mod_pol_req,
+                        const Ice::Current&);
 
+      void AttachVol(const FdspMsgHdrPtr& fdsp_msg,
+                     const FdspAttVolCmdPtr& atc_vol_req,
+                     const Ice::Current&);
+      void DetachVol(const FdspMsgHdrPtr& fdsp_msg,
+                     const FdspAttVolCmdPtr& dtc_vol_req,
+                     const Ice::Current&);
+
+      void RegisterNode(const FdspMsgHdrPtr&  fdsp_msg,
+                        const FdspRegNodePtr& reg_node_req,
+                        const Ice::Current&);
     };
-  
+  };
+
 }  // namespace fds
 
-#endif  // ORCH_MGR_H
+#endif  // SOURCE_ORCH_MGR_ORCHMGR_H_

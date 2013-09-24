@@ -29,12 +29,13 @@ STORMGR = 1
 DATAMGR = 2
 STORHVI = 3
 VCC = 4
-components = [STORMGR, DATAMGR, VCC]
-bin_map = {STORMGR:"StorMgr", DATAMGR:"DataMgr", VCC:"DataMgr"}
-dir_map = {STORMGR:"stor_mgr_ice", DATAMGR:"data_mgr", STORHVI:"stor_hvisor_ice", VCC:"data_mgr"}
-udir_map = {STORMGR:"stor_mgr_ice", DATAMGR:"data_mgr", STORHVI:"fds_client", VCC:"stor_hvisor_ice"}
-ut_map = {STORMGR:"sm_unit_test", DATAMGR:"dm_unit_test", STORHVI:"hvisor_uspace_test", VCC:"vcc_unit_test"}
-port_map = {STORMGR:10000, DATAMGR:11000, VCC:11000}
+OM = 5
+components = [STORMGR, DATAMGR, VCC, OM]
+bin_map = {STORMGR:"StorMgr", DATAMGR:"DataMgr", VCC:"DataMgr", OM:"orchMgr"}
+dir_map = {STORMGR:"stor_mgr_ice", DATAMGR:"data_mgr", STORHVI:"stor_hvisor_ice", VCC:"data_mgr", OM:"orch_mgr"}
+udir_map = {STORMGR:"stor_mgr_ice", DATAMGR:"data_mgr", STORHVI:"fds_client", VCC:"stor_hvisor_ice", OM:"orch_mgr"}
+ut_map = {STORMGR:"sm_unit_test", DATAMGR:"dm_unit_test", STORHVI:"hvisor_uspace_test", VCC:"vcc_unit_test", OM:"om_unit_test"}
+port_map = {STORMGR:10000, DATAMGR:11000, VCC:11000, OM:14000}
 cp_port_map = {STORMGR:13000, DATAMGR:12000, VCC:12000}
 
 #
@@ -279,6 +280,17 @@ class TestSequenceFunctions(unittest.TestCase):
 
         status = 0
         status = self.run_comp_test(VCC, num_instances)
+        self.assertEqual(status, 0)
+
+        print "********** Stopping test: %s **********" % (test_name)
+
+    def test_om(self):
+        test_name = "Orchestration manager cache"
+        num_instances = 1
+        print "********** Starting test: %s **********" % (test_name)
+
+        status = 0
+        status = self.run_comp_test(OM, num_instances)
         self.assertEqual(status, 0)
 
         print "********** Stopping test: %s **********" % (test_name)
