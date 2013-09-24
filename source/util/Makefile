@@ -15,12 +15,12 @@ BOOST_LIBS = -lboost_log -lboost_system -lboost_thread -lboost_date_time
 LIBS = $(BOOST_LIBS) -lpthread
 
 SRCS = \
-	Log.cpp
+	Log.cpp PerfStat.cpp
 
 OBJS = $(SRCS:%.cpp=%.o)
 
 TESTS = \
-	log_unit_test
+	log_unit_test perfstat_unit_test
 
 all: $(TESTS)
 
@@ -29,6 +29,9 @@ all: $(TESTS)
 
 log_unit_test: log_unit_test.cpp $(OBJS)
 	$(CPPC) -o $@ log_unit_test.cpp $(OBJS) $(LIBS) $(CFLAGS)
+
+perfstat_unit_test: perfstat_unit_test.cpp $(OBJS)
+	$(CPPC) -o $@ perfstat_unit_test.cpp $(OBJS) $(LIBS) $(CFLAGS)
 
 .PHONY: clean
 
