@@ -39,19 +39,6 @@
 
 /* cluster transport structure */
 
-struct fbd_contbl {
-
-	struct  socket *sock;
-	struct sockaddr_storage dest_addr;
-	struct sockaddr_storage loc_addr;
-
-	/*   queue for send/recv packts */
-	struct list_head out_queue;
-	struct list_head out_sent;
-	u64 out_seq;		 
-
-};
-
 
 struct fbd_device {
 	int flags;

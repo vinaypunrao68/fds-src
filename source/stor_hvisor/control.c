@@ -168,10 +168,21 @@ blktap_control_ioctl(struct file *filp,
 	case BLKTAP_IOCTL_ALLOC_TAP: {
 		struct blktap_info info;
 		void __user *ptr = (void __user*)arg;
+		int err = 0;
+
+		err = fbd_device_create();
+		if (err) {
+		  printk(" FDS:%s:%d:Error creating fbd device: %d\n",__FILE__,__LINE__, err);
+		  return err;
+		}
+
+		printk(" FDS:%s:%d:Created fbd device.\n",__FILE__,__LINE__);
 
 		tap = blktap_control_create_tap();
 		if (!tap)
 			return -ENOMEM;
+
+		printk(" FDS:%s:%d:Created blktap ring device.\n",__FILE__,__LINE__);
 
 		info.ring_major = blktap_ring_major;
 		info.bdev_major = blktap_device_major;

@@ -225,7 +225,7 @@ blktap_device_run_queue(struct request_queue *q)
     struct fbd_device *fbd;
 	int err;
 
-	printk("FDS:%s:%d:Dequeueing requests from queue %p\n",__FILE__,__LINE__, q);
+	// printk("FDS:%s:%d:Dequeueing requests from queue %p\n",__FILE__,__LINE__, q);
 
 	spin_lock_irq(q->queue_lock);
 	queue_flag_clear(QUEUE_FLAG_STOPPED, q);
