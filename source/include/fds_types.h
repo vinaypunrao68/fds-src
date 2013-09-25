@@ -193,9 +193,9 @@ namespace fds {
   };
 
   struct DiskLoc {
-    fds_uint16_t vol_id;
+    fds_uint64_t vol_id;
     fds_uint16_t file_id;
-    fds_uint32_t offset;
+    fds_uint64_t offset;
   };
 
   struct ObjectBuf {

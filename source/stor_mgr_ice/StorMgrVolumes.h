@@ -18,6 +18,7 @@
 #include "util/concurrency/RwLock.h"
 #include "odb.h"
 #include "lib/OMgrClient.h"
+#include "StorMgrVolumes.h"
 
 
 /* defaults */
@@ -35,8 +36,17 @@ namespace fds {
 class StorMgrVolume : public FDS_Volume
 {
 public:
+  fds_volid_t vol_uuid;
+  VolumeDesc *vol_desc;
   StorMgrVolume(VolumeDesc&  vdb, ObjectStorMgr *sm, fds_log *parent_log);
   ~StorMgrVolume();
+  Error createVolIndexEntry(fds_volid_t& vol_uuid, 
+                      fds_uint64_t vol_offset, 
+                      FDS_ObjectIdType& objId, 
+                     fds_uint32_t data_obj_len);
+  Error deleteVolIndexEntry(fds_volid_t& vol_uuid, 
+                      fds_uint64_t vol_offset,
+                      FDS_ObjectIdType& objId);
 
 
   ObjectDB  *volumeIndexDB;
@@ -58,6 +68,14 @@ class StorMgrVolumeTable
   Error registerVolume(VolumeDesc vdb);
   Error deregisterVolume(fds_volid_t vol_uuid);
   StorMgrVolume* getVolume(fds_volid_t vol_uuid);
+  
+   Error createVolIndexEntry(fds_volid_t      vol_uuid,
+                             fds_uint64_t      vol_offset,
+                             FDS_ObjectIdType objId,
+                             fds_uint32_t      data_obj_len);
+   Error deleteVolIndexEntry(fds_volid_t vol_uuid, 
+                             fds_uint64_t vol_offset,
+                             FDS_ObjectIdType objId);
 
  private: /* methods */ 
   ObjectStorMgr *parent_sm;
