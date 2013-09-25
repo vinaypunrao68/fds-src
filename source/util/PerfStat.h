@@ -58,8 +58,7 @@ class IoStat
 class StatHistory
 {
  public:
-  StatHistory();
-  StatHistory(int slots, int slot_len_sec);
+  StatHistory(int slots=FDS_STAT_DEFAULT_HIST_SLOTS, int slot_len_sec=FDS_STAT_DEFAULT_SLOT_LENGTH);
   ~StatHistory();
 
   void addIo(boost::posix_time::ptime timestamp, long microlat);

@@ -15,6 +15,7 @@ StorHvVolume::StorHvVolume(const VolumeDesc& vdesc, StorHvCtrl *sh_ctrl, fds_log
 {
   journal_tbl = new StorHvJournal(FDS_READ_WRITE_LOG_ENTRIES);
   vol_catalog_cache = new VolumeCatalogCache(volUUID, sh_ctrl, parent_log);  
+  stat_history = new StatHistory();
 
   is_valid = true;
 }
@@ -25,6 +26,8 @@ StorHvVolume::~StorHvVolume()
     delete journal_tbl;
   if (vol_catalog_cache)
     delete vol_catalog_cache;
+  if (stat_history)
+    delete stat_history;
 }
 
 /* safely destroys journal table and volume catalog cache
@@ -42,6 +45,8 @@ void StorHvVolume::destroy()
   journal_tbl = NULL;
   delete vol_catalog_cache;
   vol_catalog_cache = NULL;
+  delete stat_history;
+  stat_history = NULL;
 
   is_valid = false;
   rwlock.write_unlock();
