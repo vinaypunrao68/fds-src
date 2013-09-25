@@ -56,9 +56,18 @@ int  runningFlag = 1;
 void ctrlcHandler(int signal);
 static int hvisor_create_io_ring(td_vbd_t *vbd, const char *devname);
 
+#ifndef BLKTAP_UNIT_TEST
+
 char  cppstr[2048];
 #define cppout(...) sprintf(cppstr,__VA_ARGS__); \
 					cppOut("s",cppstr);
+
+#else
+
+#define cppout printf
+
+#endif
+
 
 
 td_vbd_t *vbd;
@@ -256,7 +265,10 @@ void ctrlcHandler(int signal)
         close(ring->fd);
 #endif
 
+#ifndef BLKTAP_UNIT_TEST
    ctrlCCallbackHandler(signal);
+#endif
+
    exit(1);
 }
 

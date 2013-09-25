@@ -158,7 +158,7 @@ class FDSP_VolumeInfoType {
   int 	 		 tennantId;  // Tennant id that owns the volume
   int    		 localDomainId;  // Local domain id that owns vol
   int	 		 globDomainId;
-  int	 		 volUUID;
+  double	 	 volUUID;
 
 // Basic operational properties
 
@@ -256,7 +256,7 @@ class FDSP_MsgHdrType {
 /* Volume entity idenfiers */
     int        tennant_id;      /* Tennant owning the Local-domain and Storage hypervisor */
     int        local_domain_id; /* Local domain the volume in question belongs */
-    int        glob_volume_id;  /* Tennant owning the Local-domain and Storage hypervisor */
+    double        glob_volume_id;  /* Tennant owning the Local-domain and Storage hypervisor */
 		
     		/* Source and Destination Distributed s/w entities */
     FDSP_MgrIdType       src_id;

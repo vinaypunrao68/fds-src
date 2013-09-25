@@ -42,78 +42,25 @@ struct fbd_device **fbd_devices;
 int blktap_max_minor;
 static struct blktap_page_pool *default_pool;
 
-extern struct fbd_device *fbd_dev;
-
-static struct fbd_devices *
-blktap_control_get_minor(void)
+static struct fbd_device *
+blktap_control_get_minor(int minor)
 {
-	int minor;
-	struct fbd_device *tap;
-
-#if 0
-	tap = kzalloc(sizeof(*tap), GFP_KERNEL);
-	if (unlikely(!tap))
-		return NULL;
-
-	mutex_lock(&blktap_lock);
-
-	for (minor = 0; minor < blktap_max_minor; minor++)
-		if (!fbd_devices[minor])
-			break;
-
-	if (minor == MAX_BLKTAP_DEVICE)
-		goto fail;
-
-	if (minor == blktap_max_minor) {
-		void *p;
-		int n;
-
-		n = min(2 * blktap_max_minor, MAX_BLKTAP_DEVICE);
-		p = krealloc(fbd_devices, n * sizeof(fbd_devices[0]), GFP_KERNEL);
-		if (!p)
-			goto fail;
-
-		fbd_devices          = p;
-		minor            = blktap_max_minor;
-		blktap_max_minor = n;
-
-		memset(&fbd_devices[minor], 0, (n - minor) * sizeof(fbd_devices[0]));
-	}
-
-	tap->dev_id = minor;
-	fbd_devices[minor] = tap;
-
-	__module_get(THIS_MODULE);
-out:
-	mutex_unlock(&blktap_lock);
-#endif
-	return fbd_dev;
-
-#if 0
-fail:
-	mutex_unlock(&blktap_lock);
-	kfree(tap);
-	tap = NULL;
-	goto out;
-#endif
+	return fbd_devices[minor];
 }
 
 static void
 blktap_control_put_minor(struct fbd_device* tap)
 {
-	fbd_devices[tap->dev_id] = NULL;
-//	kfree(tap);
-
-	module_put(THIS_MODULE);
+  // fbd_devices[tap->dev_id] = NULL;
 }
 
 static struct fbd_device*
-blktap_control_create_tap(void)
+blktap_control_create_tap(int minor)
 {
 	struct fbd_device *tap;
 	int err;
 
-	tap = blktap_control_get_minor();
+	tap = blktap_control_get_minor(minor);
 	if (!tap)
 		return NULL;
 
@@ -132,7 +79,7 @@ blktap_control_create_tap(void)
 
 	return tap;
 
-fail_ring:
+	// fail_ring:
 	blktap_ring_destroy(tap);
 fail_tap:
 	blktap_control_put_minor(tap);
@@ -168,10 +115,36 @@ blktap_control_ioctl(struct file *filp,
 	case BLKTAP_IOCTL_ALLOC_TAP: {
 		struct blktap_info info;
 		void __user *ptr = (void __user*)arg;
+		int err = 0;
+		int minor = -1;
+		int i;
 
-		tap = blktap_control_create_tap();
+		for (i = 0; i < blktap_max_minor; i++) {
+		  if (fbd_devices[i] == NULL) {
+		    minor = i;
+		    break;
+		  }
+		}
+		if (minor < 0) {
+		  return -ENOMEM;
+		}
+		printk(" FDS:%s:%d:Creating new fbd device with minor %d\n",__FILE__,__LINE__, minor);
+
+		err = fbd_device_create(minor);
+		if (err) {
+		  printk(" FDS:%s:%d:Error creating fbd device %d: %d\n",__FILE__,__LINE__, minor, err);
+		  return err;
+		}
+
+		printk(" FDS:%s:%d:Created fbd device %d.\n",__FILE__,__LINE__, minor);
+
+		tap = blktap_control_create_tap(minor);
 		if (!tap)
 			return -ENOMEM;
+
+		tap->ring_is_initialized = 1;
+
+		printk(" FDS:%s:%d:Created blktap ring device with minor %d.\n",__FILE__,__LINE__, minor);
 
 		info.ring_major = blktap_ring_major;
 		info.bdev_major = blktap_device_major;
@@ -187,15 +160,20 @@ blktap_control_ioctl(struct file *filp,
 
 	case BLKTAP_IOCTL_FREE_TAP: {
 		int minor = arg;
+		int err;
 
 		if (minor > MAX_BLKTAP_DEVICE)
 			return -EINVAL;
 
-		tap = fbd_dev;
+		tap = fbd_devices[minor];
 		if (!tap)
 			return -ENODEV;
 
-		return blktap_control_destroy_tap(tap);
+		err = blktap_control_destroy_tap(tap);
+		if (err) {
+		  return err;
+		}
+		return fbd_device_destroy(tap);
 	}
 	}
 
@@ -271,7 +249,7 @@ blktap_control_init(void)
 	blktap_max_minor = min(64, MAX_BLKTAP_DEVICE);
 	fbd_devices = kzalloc(blktap_max_minor * sizeof(fbd_devices[0]), GFP_KERNEL);
 	if (!fbd_devices) {
-		printk("FDS:%s:%:failed to allocate blktap minor map",__FILE__,__LINE__);
+		printk("FDS:%s:%d:failed to allocate blktap minor map",__FILE__,__LINE__);
 		return -ENOMEM;
 	}
 
@@ -302,9 +280,7 @@ blktap_control_init(void)
 static void
 blktap_control_exit(void)
 {
-
-	blktap_control_destroy_tap(fbd_dev);
-
+ 
 	if (default_pool) {
 		kobject_put(&default_pool->kobj);
 		default_pool = NULL;

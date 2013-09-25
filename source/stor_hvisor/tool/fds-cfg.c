@@ -175,8 +175,11 @@ int    main(int argc, char *argv[])
 	long int  ipaddr=0;
 	int  port_number;
 	int  opt;
+	int device_id = 0;
+	char dev_path[32];
 
 	struct option long_options[] = {
+	  {"dev-id", required_argument, NULL, 'i'},
 		{ "size", required_argument, NULL, 'd' },
 		{ "block-size", required_argument, NULL, 'b' },
 		{ "add-dev", no_argument, NULL, 'a' },
@@ -192,13 +195,23 @@ int    main(int argc, char *argv[])
 	};
 
 	fbd = open("/dev/fbd0", O_RDWR);
-//	fbd = open("/dev/fbd0", O_WRONLY);
-	if (fbd < 0)
-	  	printf( "Cannot open  the device: Please emake sure the  device is  created \n");
 
-	while((opt=getopt_long_only(argc, argv, "-d:-b:a:-t:-u:-p:-r:-m:-l:ch:", long_options, NULL))>=0) 
+	if (fbd < 0)
+	  	printf( "Cannot open  the device: Please make sure the  device is  created \n");
+
+	while((opt=getopt_long_only(argc, argv, "-i:-d:-b:a:-t:-u:-p:-r:-m:-l:ch:", long_options, NULL))>=0) 
 	{
 		switch(opt) {
+		case 'i':
+		  close(fbd);
+		  device_id = (int)strtol(optarg, NULL, 0);
+		  sprintf(dev_path, "/dev/fbd%d", device_id);
+		  fbd = open(dev_path, O_RDWR);
+		  if (fbd < 0) {
+		    printf( "Cannot open  the device %s: Please make sure the  device is  created \n", dev_path);
+		    return 0;
+		  }
+		  break;
 		case 'b':
 			blk_size=(int)strtol(optarg, NULL, 0);
 			set_blocksize( blk_size,FBD_SET_TGT_BLK_SIZE, fbd);

@@ -148,7 +148,7 @@ blktap_request_alloc(struct fbd_device *tap)
 
 	request = mempool_alloc(request_pool, GFP_NOWAIT);
 	if (request)
-		request->tap = tap;
+	  request->tap = tap;
 
 	return request;
 }

@@ -150,6 +150,9 @@ int fds_process_rx_message(uint8_t  *rx_buf, uint32_t src_ip);
 int get_trans_id(void);
 void fbd_process_req_timeout(unsigned long arg);
 
+int fbd_device_create(int minor);
+int fbd_device_destroy(struct fbd_device *fb_dev);
+
 
 /* blk tap  changes */
 int blktap_control_destroy_tap(struct fbd_device *);

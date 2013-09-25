@@ -15,6 +15,7 @@
 #include "include/fds_types.h"
 #include "include/fds_volume.h"
 #include "util/Log.h"
+#include "util/PerfStat.h"
 #include "util/concurrency/RwLock.h"
 #include "VolumeCatalogCache.h"
 #include "StorHvJournal.h"
@@ -55,6 +56,9 @@ public: /* data*/
 
   /* Reference to parent SH instance */
   StorHvCtrl *parent_sh;
+
+  /* Volume's perf stat history */
+  StatHistory *stat_history;
 
 private: /* data */
 

@@ -10,6 +10,7 @@
 #include <pthread.h>
 #include "FDSP.h"
 #include "stor_mgr_err.h"
+#include "include/fds_volume.h"
 #include "include/fds_types.h"
 #include "fds_volume.h"
 #include "ObjLoc.h"
@@ -24,6 +25,7 @@
 #include <StorMgrVolumes.h>
 #include "lib/OMgrClient.h"
 #include "util/concurrency/Mutex.h"
+#include "StorMgrVolumes.h"
 
 #define FDS_STOR_MGR_LISTEN_PORT FDS_CLUSTER_TCP_PORT_SM
 #define FDS_STOR_MGR_DGRAM_PORT FDS_CLUSTER_UDP_PORT_SM
@@ -87,7 +89,7 @@ private :
                        		  fds_uint32_t transid, 
                        		  fds_uint32_t num_objs);
    fds_sm_err_t putObjectInternal(FDSP_PutObjTypePtr put_obj_req, 
-                          	  fds_uint32_t volid, 
+                          	  fds_uint64_t volid, 
                                   fds_uint32_t num_objs);
    fds_sm_err_t checkDuplicate(FDS_ObjectIdType *object_id,
                                fds_uint32_t obj_len,
