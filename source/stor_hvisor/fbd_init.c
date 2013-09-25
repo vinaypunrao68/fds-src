@@ -470,7 +470,7 @@ int fbd_device_destroy(struct fbd_device *fb_dev)
     return 0;
   }
 
-  printk("FDS: Cleaning up queue and disk associated with fbd device\n");
+  printk("FDS: Cleaning up queue and disk associated with fbd device %d\n", fb_dev->dev_id);
 
   dev = &fb_dev->dev;
 

@@ -33,6 +33,7 @@
 #include <getopt.h>
 #include <stdarg.h>
 #include "fbd.h"
+#include "../../fds_client/include/blktap2.h"
 
 
 static int  add_device()
@@ -104,6 +105,7 @@ static int disconnect_cluster(int ipaddr, int cmd, int dev_id)
 	return ret;
 }
 
+#if 0
 
 static int read_vvc_catalog(int count, int cmd, int dev_id)
 {
@@ -117,6 +119,7 @@ static int read_vvc_catalog(int count, int cmd, int dev_id)
 	return ret;
 }
 
+#endif
 
 static int read_dmt_table(int vol_id, int cmd, int dev_id)
 {
@@ -144,6 +147,28 @@ static int read_dlt_table(int doid_key, int cmd, int dev_id)
 	return ret;
 }
 
+static int rmv_fbd_device(int dev_id)
+{
+
+  int fd, err;
+
+  fd = open("/dev/blktap-control", O_RDONLY);
+  if (fd == -1) {
+    printf("failed to open blktap control device: %d\n", errno);
+    return errno;
+  }
+
+  err = ioctl(fd, BLKTAP2_IOCTL_FREE_TAP, dev_id);
+
+  if (err) {
+    printf("Error trying to free device : %d\n", err);
+  }
+
+  close(fd);
+  
+  return err;
+
+}
 
 void usage(char* errmsg, ...) 
 {
@@ -169,7 +194,7 @@ int    main(int argc, char *argv[])
 {
 	int  blk_size;
 	int  tgt_size;
-	int  blk_cnt;
+	// int  blk_cnt;
 	int  vol_id,doid_key; 
 	int  fbd= 0;
 	long int  ipaddr=0;
@@ -183,10 +208,10 @@ int    main(int argc, char *argv[])
 		{ "size", required_argument, NULL, 'd' },
 		{ "block-size", required_argument, NULL, 'b' },
 		{ "add-dev", no_argument, NULL, 'a' },
+	  { "rm-dev", required_argument, NULL, 'r'},
 		{ "tgt-ipaddr", required_argument, NULL, 't' },
 		{ "tgt-ipaddr", required_argument, NULL, 'u' },
 		{ "port", required_argument, NULL, 'p'},
-		{ "vvc-count", required_argument, NULL, 'r' },
 		{ "vold-id", required_argument, NULL, 'm' },
 		{ "doid-key", required_argument, NULL, 'l' },
 		{ "tgt-disconnect", no_argument, NULL, 'c' },
@@ -234,9 +259,10 @@ int    main(int argc, char *argv[])
 		case 'p':
 		        port_number = (int)strtol(optarg, NULL, 0);
 			set_base_port_number(port_number, FBD_SET_BASE_PORT, fbd);
+			break;
 		case 'r':
-			blk_cnt=(int)strtol(optarg, NULL, 0);
-			read_vvc_catalog(blk_cnt,FBD_READ_VVC_CATALOG,fbd);
+			device_id=(int)strtol(optarg, NULL, 0);
+			rmv_fbd_device(device_id);
 			break;
 		case 'm':
 			vol_id=(int)strtol(optarg, NULL, 0);

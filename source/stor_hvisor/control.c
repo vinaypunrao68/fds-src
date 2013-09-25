@@ -92,9 +92,13 @@ blktap_control_destroy_tap(struct fbd_device *tap)
 {
 	int err;
 
+	printk(" FDS:%s:%d:Deleting blktap device with minor %d\n",__FILE__,__LINE__, tap->dev_id);
+
 	err = blktap_ring_destroy(tap);
-	if (err)
-		return err;
+	if (err) {
+	  printk(" FDS:%s:%d:Error destroying ring for fbd device with minor %d:%d\n",__FILE__,__LINE__, tap->dev_id, err);
+	  return err;
+	}
 
 	kobject_put(&tap->pool->kobj);
 
@@ -162,17 +166,26 @@ blktap_control_ioctl(struct file *filp,
 		int minor = arg;
 		int err;
 
-		if (minor > MAX_BLKTAP_DEVICE)
-			return -EINVAL;
+		printk(" FDS:%s:%d: Deleting fbd device with minor %d\n",__FILE__,__LINE__, minor);
+
+		if (minor > MAX_BLKTAP_DEVICE) {
+		  printk(" FDS:%s:%d: Invalid minor number %d\n",__FILE__,__LINE__, minor);
+		  return -EINVAL;
+		}
 
 		tap = fbd_devices[minor];
-		if (!tap)
-			return -ENODEV;
+		if (!tap) {
+		  printk(" FDS:%s:%d:No fbd device with minor %d\n",__FILE__,__LINE__, minor);
+		  return -ENODEV;
+		}
 
 		err = blktap_control_destroy_tap(tap);
 		if (err) {
+		  printk(" FDS:%s:%d:Error deleting blktap device with minor %d: %d\n",__FILE__,__LINE__, minor, err);
 		  return err;
 		}
+		printk(" FDS:%s:%d:Deleted blktap device with minor %d\n",__FILE__,__LINE__, minor);
+
 		return fbd_device_destroy(tap);
 	}
 	}
