@@ -165,7 +165,7 @@ void OrchMgr::sendCreateVolToFdsNodes(VolumeInfo  *pVolInfo) {
         FDS_ProtocolInterface::FDSP_STOR_MGR;
 
     for (auto it = node_map.begin(); it != node_map.end(); ++it) {
-      node_id_t node_id = it->first;
+      fds_node_id_t node_id = it->first;
       NodeInfo& node_info = it->second;
 
       ReqCtrlPrx OMClientAPI = node_info.cpPrx;
@@ -194,7 +194,7 @@ void OrchMgr::sendDeleteVolToFdsNodes(VolumeInfo *pVolInfo) {
         FDS_ProtocolInterface::FDSP_STOR_MGR;
 
     for (auto it = node_map.begin(); it != node_map.end(); ++it) {
-      node_id_t node_id = it->first;
+      fds_node_id_t node_id = it->first;
       NodeInfo& node_info = it->second;
 
       ReqCtrlPrx OMClientAPI = node_info.cpPrx;
@@ -203,7 +203,7 @@ void OrchMgr::sendDeleteVolToFdsNodes(VolumeInfo *pVolInfo) {
   }
 }
 
-void OrchMgr::sendAttachVolToHVNode(node_id_t node_id, VolumeInfo *pVolInfo) {
+void OrchMgr::sendAttachVolToHVNode(fds_node_id_t node_id, VolumeInfo *pVolInfo) {
   FDS_Volume *pVol = &(pVolInfo->properties);
 
   FdspMsgHdrPtr msg_hdr = new FDS_ProtocolInterface::FDSP_MsgHdrType;
@@ -224,7 +224,7 @@ void OrchMgr::sendAttachVolToHVNode(node_id_t node_id, VolumeInfo *pVolInfo) {
   OMClientAPI->AttachVol(msg_hdr, vol_msg);
 }
 
-void OrchMgr::sendDetachVolToHVNode(node_id_t node_id,
+void OrchMgr::sendDetachVolToHVNode(fds_node_id_t node_id,
                                     VolumeInfo *pVolInfo) {
   FDS_Volume *pVol = &(pVolInfo->properties);
 
@@ -326,7 +326,7 @@ void OrchMgr::AttachVol(const FdspMsgHdrPtr &fdsp_msg,
                         const FdspAttVolCmdPtr &atc_vol_req) {
   int  vol_id = atc_vol_req->vol_uuid;
   std::string vol_name = atc_vol_req->vol_name;
-  node_id_t node_id = atc_vol_req->node_id;
+  fds_node_id_t node_id = atc_vol_req->node_id;
 
   FDS_PLOG(GetLog()) << "Received Attach Vol Req for volume "
                      << vol_name << " ; id - " << vol_id;
@@ -366,7 +366,7 @@ void OrchMgr::DetachVol(const FdspMsgHdrPtr    &fdsp_msg,
                         const FdspAttVolCmdPtr &dtc_vol_req) {
   int  vol_id = dtc_vol_req->vol_uuid;
   std::string vol_name = dtc_vol_req->vol_name;
-  node_id_t node_id = dtc_vol_req->node_id;
+  fds_node_id_t node_id = dtc_vol_req->node_id;
   fds_bool_t node_not_attached = true;
 
   FDS_PLOG(GetLog()) << "Received Detach Vol Req for volume "
@@ -406,7 +406,6 @@ void OrchMgr::DetachVol(const FdspMsgHdrPtr    &fdsp_msg,
 void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
                            const FdspRegNodePtr &reg_node_req) {
   std::string ip_addr_str;
-  NodeInfo n_info;
   Ice::Identity ident;
   std::ostringstream tcpProxyStr;
 
@@ -418,20 +417,20 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
                      << "  Data Port: " << reg_node_req->data_port;
 
   ip_addr_str = ipv4_addr_to_str(reg_node_req->ip_lo_addr);
-
-  // build the SM node map
-  n_info.node_id = reg_node_req->node_id;
-  n_info.node_state = FDSP_Types::FDS_Node_Up;
-  n_info.node_ip_address = reg_node_req->ip_lo_addr;
-  n_info.control_port = reg_node_req->control_port;
-  n_info.data_port = reg_node_req->data_port;
-
+  
   // create a new  control  communication adaptor
   tcpProxyStr << "OrchMgrClient: tcp -h " << ip_addr_str
               << " -p  " << reg_node_req->control_port;
-  n_info.cpPrx = FDS_ProtocolInterface::
-      FDSP_ControlPathReqPrx::
-      checkedCast(communicator()->stringToProxy(tcpProxyStr.str()));
+
+  // build the SM node map
+  NodeInfo n_info(reg_node_req->node_id,
+                  reg_node_req->ip_lo_addr,
+                  reg_node_req->control_port,
+                  n_info.data_port = reg_node_req->data_port,
+                  n_info.node_state = FDSP_Types::FDS_Node_Up,
+                  FDS_ProtocolInterface::
+                  FDSP_ControlPathReqPrx::
+                  checkedCast(communicator()->stringToProxy(tcpProxyStr.str())));
 
   switch (reg_node_req->node_type) {
     case FDS_ProtocolInterface::FDSP_STOR_MGR:
@@ -502,6 +501,10 @@ void OrchMgr::ReqCfgHandler::RegisterNode(const FdspMsgHdrPtr &fdsp_msg,
                                           const FdspRegNodePtr &reg_node_req,
                                           const Ice::Current&) {
   orchMgr->RegisterNode(fdsp_msg, reg_node_req);
+}
+
+void OrchMgr::ReqCfgHandler::AssociateRespCallback(const Ice::Identity& ident,
+                                                   const Ice::Current& current) {
 }
 
 }  // namespace fds

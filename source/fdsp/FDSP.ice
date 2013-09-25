@@ -318,6 +318,7 @@ interface FDSP_ConfigPathReq {
   void AttachVol(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolCmdType atc_vol_req);
   void DetachVol(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolCmdType dtc_vol_req);
   void RegisterNode(FDSP_MsgHdrType fdsp_msg, FDSP_RegisterNodeType reg_node_req);
+  void AssociateRespCallback(Ice::Identity ident); // Associate Response callback ICE-object with DM/SM 
 };
 
 interface FDSP_ConfigPathResp {
