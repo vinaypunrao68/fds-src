@@ -44,7 +44,7 @@ int runUnitTest(int slots, int sec_in_slot)
   }  
 
   /* test 1 -- fill 1 I/O per slot */
-  boost::posix_time::ptime ts = boost::posix_time::microsec_clock::local_time();
+  boost::posix_time::ptime ts = boost::posix_time::microsec_clock::universal_time();
   boost::posix_time::time_duration delta = boost::posix_time::seconds(sec_in_slot);
 
   for (int i = 0; i < slots; ++i)
