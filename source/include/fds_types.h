@@ -215,8 +215,9 @@ namespace fds {
   inline std::string ipv4_addr_to_str(fds_uint32_t ip) {
     
     char tmp_ip[32];
+    memset(tmp_ip, 0x00, sizeof(char) * 32);
     sprintf(tmp_ip, "%u.%u.%u.%u", (ip >> 24), (ip >> 16) & 0xff, (ip >> 8) & 0xff, ip & 0xff);
-    return (std::string(tmp_ip));
+    return (std::string(tmp_ip, strlen(tmp_ip)));
 
   }
 

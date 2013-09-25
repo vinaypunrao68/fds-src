@@ -25,7 +25,7 @@
 
 namespace fds {
 
-  typedef std::string node_id_t;
+  typedef std::string fds_node_id_t;
   typedef FDSP_Types::FDSP_NodeState FdspNodeState;
   typedef FDS_ProtocolInterface::FDSP_ConfigPathReqPtr  ReqCfgHandlerPtr;
   typedef FDS_ProtocolInterface::FDSP_ControlPathReqPrx ReqCtrlPrx;
@@ -49,15 +49,35 @@ namespace fds {
   typedef FDS_ProtocolInterface::FDSP_NotifyVolTypePtr    FdspNotVolPtr;
 
   typedef FDS_ProtocolInterface::FDSP_VolumeInfoTypePtr FdspVolInfoPtr;
-
+  
   class NodeInfo {
-  public:
-    node_id_t     node_id;
-    unsigned int  node_ip_address;
-    unsigned int  control_port;
-    unsigned int  data_port;
+ private:
+ public:
+    fds_node_id_t node_id;
+    fds_uint32_t  node_ip_address;
+    fds_uint32_t  control_port;
+    fds_uint32_t  data_port;
     FdspNodeState node_state;
     ReqCtrlPrx    cpPrx;
+
+ public:
+    NodeInfo() { }
+    NodeInfo(const fds_node_id_t& _id,
+             fds_uint32_t _ip,
+             fds_uint32_t _cp_port,
+             fds_uint32_t _d_port,
+             const FdspNodeState& _state,
+             const ReqCtrlPrx& _prx) :
+    node_id(_id),
+        node_ip_address(_ip),
+        control_port(_cp_port),
+        data_port(_d_port),
+        node_state(_state),
+        cpPrx(_prx) {
+    }
+
+    ~NodeInfo() {
+    }
   };
 
   class VolumeInfo {
@@ -65,10 +85,10 @@ namespace fds {
     std::string vol_name;
     fds_volid_t volUUID;
     FDS_Volume  properties;
-    std::vector<node_id_t> hv_nodes;
+    std::vector<fds_node_id_t> hv_nodes;
   };
 
-  typedef std::unordered_map<node_id_t, NodeInfo> node_map_t;
+  typedef std::unordered_map<fds_node_id_t, NodeInfo> node_map_t;
   typedef std::unordered_map<int, VolumeInfo *> volume_map_t;
 
   class OrchMgr : virtual public Ice::Application {
@@ -94,8 +114,8 @@ namespace fds {
     void initOMMsgHdr(const FdspMsgHdrPtr& fdsp_msg);
     void sendCreateVolToFdsNodes(VolumeInfo *pVol);
     void sendDeleteVolToFdsNodes(VolumeInfo *pVol);
-    void sendAttachVolToHVNode(node_id_t node_id, VolumeInfo *pVol);
-    void sendDetachVolToHVNode(node_id_t node_id, VolumeInfo *pVol);
+    void sendAttachVolToHVNode(fds_node_id_t node_id, VolumeInfo *pVol);
+    void sendDetachVolToHVNode(fds_node_id_t node_id, VolumeInfo *pVol);
 
   public:
     OrchMgr();
@@ -165,6 +185,9 @@ namespace fds {
       void RegisterNode(const FdspMsgHdrPtr&  fdsp_msg,
                         const FdspRegNodePtr& reg_node_req,
                         const Ice::Current&);
+
+      void AssociateRespCallback(const Ice::Identity& ident,
+                                 const Ice::Current& current);
     };
   };
 
