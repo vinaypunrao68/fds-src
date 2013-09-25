@@ -54,7 +54,8 @@
 
 
 static DEFINE_SPINLOCK(fbd_lock);
-struct fbd_device *fbd_dev;
+// static struct fbd_device *fbd_dev;
+extern struct fbd_device **fbd_devices;
 struct task_struct *fbd_thread_id;
 struct task_struct *fbd_thread_id_rx;
 static DEFINE_MUTEX(ctl_mutex);
@@ -67,207 +68,6 @@ DECLARE_WAIT_QUEUE_HEAD(thread_wait);
 
 void blktap_device_fail_queue(struct fbd_device *tap);
 
-/*
-  Initialise the connection  management table 
-*/
-
-#if 0
-
-uint8_t  rx_buf[5120]; /* 4k block size +  some more mesage header, needs to be refined */
-static  int  fds_rx_io_proc(void *data)
-{
-	struct socket *sock = fbd_con->sock;
-	struct msghdr msg;
-	struct kvec iov;
-	struct sockaddr_in cAddr;
-	int  length;
-
-	if (!sock)
-	{
-		printk("Trying to send  on closed  DM socket \n");
-	}
-
-	if ( fbd_dev->proto_type != FBD_PROTO_TCP)
-	{
-		cAddr.sin_family = AF_INET;
-		cAddr.sin_addr.s_addr = htonl(fbd_dev->udp_destAddr);
-		cAddr.sin_port = htons(FBD_CLUSTER_UDP_PORT_DM);
-
-		msg.msg_name = &cAddr;
-		msg.msg_namelen = sizeof(cAddr);
-	}
-	else
-	{
-		msg.msg_name = NULL;
-		msg.msg_namelen = 0;
-	}
-
-
-
-	msg.msg_control = NULL; 
-	msg.msg_controllen = 0;
-	msg.msg_iov    = (void *)&iov; 
-	msg.msg_iovlen = 1;
-
-    	set_user_nice(current, 19);
-	while (!kthread_should_stop() && !atomic_read(&fds_exit)) 
-	{
-
-		wait_event_interruptible(thread_wait, atomic_read(&fds_data_ready) || atomic_read(&fds_exit));
-
-		if (kthread_should_stop() || atomic_read(&fds_exit))
-			break;
-
-		iov.iov_base = rx_buf;
-		iov.iov_len  = sizeof(rx_buf);
-		sock = fbd_con->sock;
-
-		while ((length = kernel_recvmsg(sock,&msg, &iov, 1, sizeof(rx_buf),  \
-							MSG_NOSIGNAL | MSG_DONTWAIT)) > 0)
-		  fds_process_rx_message(rx_buf, ntohl(cAddr.sin_addr.s_addr));
-
-		  atomic_set(&fds_data_ready, 0);
-			
-	}
-	return 0;
-}
-
-static  void  fds_sock_write_ready(struct sock *sk)
-{
-
-
-}
-
-static  void  fds_sock_process_state(struct sock *sk)
-{
-	struct fbd_contbl *con =
-		(struct fbd_contbl *)sk->sk_user_data;
-
-	printk("fds_state_change %p  sk_state = %u\n",
-	     con, sk->sk_state);
-
-
-	switch (sk->sk_state) {
-	case TCP_CLOSE:
-		printk("fds_state_changed TCP_CLOSE\n");
-	case TCP_CLOSE_WAIT:
-		printk("fds_state_changed TCP_CLOSE_WAIT\n");
-		break;
-	case TCP_ESTABLISHED:
-		printk("fds_state_changed TCP_ESTABLISHED\n");
-		break;
-	}
-
-}
-
-
-static  void  fds_rx_data_ready(struct sock *sk)
-{
-
-	atomic_set(&fds_data_ready, 1);
-	wake_up_interruptible(&thread_wait);
-
-}
-
-static void set_sock_callbacks(struct socket *sock, struct fbd_contbl *con)
-{
-	struct sock *sk = sock->sk;
-	sk->sk_user_data = (void *)con;
-	sk->sk_data_ready = fds_rx_data_ready;
-	sk->sk_write_space = fds_sock_write_ready;
-	sk->sk_state_change = fds_sock_process_state;
-}
-
-
-/*
- open the connection with  SM and DM  
-*/
-
-static struct socket *fds_cluster_conn(struct fbd_contbl *pCon)
-{
-        struct socket *sock;
-	struct sockaddr_in dAddr;
-        int ret = 0;
-
-
-	if ( fbd_dev->proto_type == FBD_PROTO_TCP)
-	{
-printk(" TCP - socket create  \n");
-        	ret = sock_create_kern(AF_INET, SOCK_STREAM, IPPROTO_TCP, &sock);
-        	if (ret)
-		{
-			printk(" Error: creating the TCP socket  \n");
-                	return ERR_PTR(ret);
-		}
-
-
-		dAddr.sin_family = AF_INET;
-		dAddr.sin_addr.s_addr = htonl(fbd_dev->tcp_destAddr);
-		dAddr.sin_port = htons(FBD_CLUSTER_TCP_PORT_DM);
-
-
-        	ret = sock->ops->connect(sock, (struct sockaddr *)&dAddr, sizeof(dAddr),
-                                 O_NONBLOCK);
-	
-		if (ret == -EINPROGRESS) 
-		{
-			printk(" connection  in progress  sk_state = %u\n", sock->sk->sk_state);
-			return NULL;
-		}
-
-        	if (ret < 0)
-		{
-                	printk("Error  : TCP connect  error %d\n", ret);
-			sock_release(sock);
-			pCon->sock = NULL;
-			fbd_dev->sock = NULL;
-			return NULL;
-		}
-		set_sock_callbacks(sock,pCon);
-	}
-	else if (fbd_dev->proto_type == FBD_PROTO_UDP)
-	{
-       		ret = sock_create_kern(AF_INET, SOCK_DGRAM, IPPROTO_UDP, &sock);
-       		if (ret < 0)
-		{
-			printk("Error : creating the UDP socket  \n");
-                	return ERR_PTR(ret);
-		}
-
-		/* setup the call back for the socket  */
-		set_sock_callbacks(sock,pCon);
-		printk(" Successfully created UDP  socket \n");
-	}
-
-       	pCon->sock = sock;
-		fbd_dev->sock = sock;
-
-
-        if (ret < 0)
-	{
-		printk(" Error DM : creating the cluster connection : %d \n", ret);
-                return ERR_PTR(ret);
-	}
-        return sock;
-}
-
-
-
-
-/* socket dis connect */
-static int close_cluster_con(struct fbd_contbl *con)
-{
-	int rc;
-
-//	if (!con->sock)
-//		return 0;
-	rc = con->sock->ops->shutdown(con->sock, SHUT_RDWR);
-	sock_release(con->sock);
-	con->sock = NULL;
-	return rc;
-}
-
-#endif
 
 
 /*
@@ -357,192 +157,6 @@ static int fbd_set_tgt_size(struct block_device *bdev, struct fbd_device *fbd, i
 
 }
 
-static int fbd_set_base_port(struct block_device *bdev, struct fbd_device *fbd, int data) {
-  fbd->stor_mgr_port = data;
-  fbd->data_mgr_port = data+1;
-  return (0);
-}
-
-static int fbd_process_cluster_conn(struct block_device *bdev, struct fbd_device *fbd, int data)
-{
-
-printk("fbd_process_cluster_conn:  received:%x fbd:%pfbd_dev:%p proto:%d\n ",data,fbd,fbd_dev,fbd->proto_type);
-	if(fbd->proto_type  == FBD_PROTO_TCP)
-		fbd_dev->tcp_destAddr =  data;
-	else if (fbd->proto_type == FBD_PROTO_UDP)
-		fbd_dev->udp_destAddr =  data;
-	else
-	{	
-		printk(" Error: Wrong proto type received \n");
-		return -1;
-	}
-
-	/* init the sockets */
-
-	// fbd_dev->sock = fds_cluster_conn(fbd_con); 
-	if (fbd_dev->sock == NULL){
-		printk(" Error DM: socket is not created  yet .. \n");
-		return -1;
-	}
-
-	return 0;
-
-}
-
-#if 0
-
-static int fbd_process_cluster_dconn(struct block_device *bdev, struct fbd_device *fbd, int data)
-{
-	printk("fbd_process_cluster_dconn:  received \n ");
-
-	/* close  the sockets */
-	// close_cluster_con(fbd_con);
-
-	return 0;
-
-}
-
-#endif
-
-static void fbd_end_request(struct request *req)
-{
-	int error = req->errors ? -EIO : 0;
-	struct request_queue *q = req->q;
-	unsigned long flags;
-
-
-	spin_lock_irqsave(q->queue_lock, flags);
-	if(req)
-	__blk_end_request_all(req, error);
-	spin_unlock_irqrestore(q->queue_lock, flags);
-}
-
-#if 0
-
-static void sock_shutdown(struct fbd_device *fbd, int lock)
-{
-printk(" inside sock_shutdown \n");
-	/* Forcibly shutdown the socket causing all listeners
-	 * to error
-	 *
-	 * FIXME: This code is duplicated from sys_shutdown, but
-	 * there should be a more generic interface rather than
-	 * calling socket ops directly here */
-	if (lock)
-		mutex_lock(&fbd->tx_lock);
-
-	if (fbd->sock){
-		dev_warn(disk_to_dev(fbd->disk), "DM shutting down socket\n");
-		kernel_sock_shutdown(fbd->sock, SHUT_RDWR);
-		fbd->sock = NULL;
-	}
-	if (lock)
-		mutex_unlock(&fbd->tx_lock);
-}
-
-#endif
-
-static  int fbd_process_io_cmds (struct fbd_device *fbd, struct request *req)
-{
-	int result = 0;
-	int loc_cmd = 0;
-
-	if (req->cmd_flags &  REQ_FLUSH)
-	{
-		printk(" FLUHS flag is  set, execute the flush command \n");
-		(req)->cmd[0] = FBD_CMD_FLUSH;
-
-	}
-
-	if (rq_data_dir(req) == WRITE) {
-		if ((req->cmd_flags & REQ_DISCARD)) {
-       		(req)->cmd[0] = FBD_CMD_DISCARD;
-			loc_cmd = FBD_CMD_DISCARD;
-         }
-		else {
-       		(req)->cmd[0] = FBD_CMD_WRITE;
-			loc_cmd = FBD_CMD_WRITE;
-		}
-
-    }
-	else {
-		if(rq_data_dir(req) == READ)
-		loc_cmd = FBD_CMD_READ; 
-	}
-
-	fbd->active_req = req;
-	printk(" active  incomming request :%p \n",req);
-
-	switch(loc_cmd)
-	{
-	case FBD_CMD_FLUSH:
-		printk(" flush  command from block \n");
-		blk_queue_flush(fbd->disk->queue, REQ_FLUSH);
-		if(req)
-		__blk_end_request_all(req, 0);
-		break;
-
-	case FBD_CMD_WRITE:
-	  // result = fbd_process_queue_buffers(req);
-		// __blk_end_request_all(req, 0); /* response will get out in rx thread */ 
-		break;
-
-	case FBD_CMD_READ:
-	  // fbd_process_read_request(req);
-		break;
-
-	default:
-		printk("Error %d: unknown Command  Drop  the IO\n",req->errors);
-		req->errors++;
-        fbd_end_request(req);
-		result = -EIO;
-		break;
-
-	}
-
-	fbd->active_req = NULL;
-	wake_up_all(&fbd->active_wq);
-	return  result;
-
-}
-
-#if 0
-
-/*
- * Basic thread for processing the IO request 
- */
-static int fbd_io_thread(void *data)
-{
-    struct fbd_device *fbd = data;
-    struct request *req;
-
-    set_user_nice(current, -20);
-    while (!kthread_should_stop() || !list_empty(&fbd->waiting_queue)) {
-        /* wait for something to do */
-        wait_event_interruptible(fbd->waiting_wq,
-                     kthread_should_stop() ||
-                     !list_empty(&fbd->waiting_queue));
-
-        /* extract request */
-        if (list_empty(&fbd->waiting_queue))
-            continue;
-
-        spin_lock_irq(&fbd->queue_lock);
-        req = list_entry(fbd->waiting_queue.next, struct request,
-                 queuelist);
-        list_del_init(&req->queuelist);
-        spin_unlock_irq(&fbd->queue_lock);
-
-        /* handle request */
-        fbd_process_io_cmds(fbd, req);
-    }
-    return 0;
-}
-
-#endif
-
-
-
 static int __fbd_dev_ioctl(struct block_device *bdev, struct fbd_device *fbd,
 		       unsigned int cmd, unsigned long data)
 {
@@ -552,11 +166,11 @@ static int __fbd_dev_ioctl(struct block_device *bdev, struct fbd_device *fbd,
 	{
 	case FBD_OPEN_TARGET_CON_TCP:
 		fbd->proto_type = FBD_PROTO_TCP;
-		fbd_process_cluster_conn( bdev, fbd, data);
+		//fbd_process_cluster_conn( bdev, fbd, data);
 		return 0;
 	case FBD_OPEN_TARGET_CON_UDP:
 		fbd->proto_type = FBD_PROTO_UDP;
-		fbd_process_cluster_conn( bdev, fbd, data);
+		//fbd_process_cluster_conn( bdev, fbd, data);
 		return 0;
 	case FBD_CLOSE_TARGET_CON:
 		//fbd_process_cluster_dconn( bdev, fbd, data);
@@ -570,7 +184,7 @@ static int __fbd_dev_ioctl(struct block_device *bdev, struct fbd_device *fbd,
 		fbd_set_tgt_blksize(bdev, fbd, data);
 		break;
 	case FBD_SET_BASE_PORT:
-         	fbd_set_base_port(bdev, fbd, data);
+	  //fbd_set_base_port(bdev, fbd, data);
 		break;
 	case FBD_READ_VVC_CATALOG:
 	  // fbd_read_vvc_catalog(bdev, fbd, data);
@@ -734,19 +348,23 @@ done_free:
 	return ret;
 }
 
-int fbd_device_create(void)
+int fbd_device_create(int minor)
 {
 	int err = -ENOMEM;
 	struct gendisk *disk;
 	int rc;
+	struct fbd_device *fbd_dev;
 
 printk("FDS:%s:%d: Initialising the  formation volume \n",__FILE__,__LINE__);
+
+#if 0
 	rc = fbd_sysfs_init();
 	if (rc)
 	{	
 		printk(" Error: Creating the sysfs interface  for fbd  block dev code: %x \n",rc);
 		return rc;
 	}
+#endif
 
 	fbd_dev = kzalloc(sizeof(*fbd_dev), GFP_KERNEL);
 	if (!fbd_dev)
@@ -798,11 +416,11 @@ printk("FDS:%s:%d: Initialising the  formation volume \n",__FILE__,__LINE__);
 	fbd_dev->blocksize = 4096; /* default value  */
 	fbd_dev->bytesize = 0;
 	/* we will have to  generate the dev id for multiple device support */
-	fbd_dev->dev_id = 0;
+	fbd_dev->dev_id = minor;
 	fbd_dev->dev_major = FBD_DEV_MAJOR_NUM;
 
 	disk->major = FBD_DEV_MAJOR_NUM;
-	disk->first_minor = 0;
+	disk->first_minor = minor;
 	disk->fops = &fbd_dev_ops;
 	disk->private_data = fbd_dev;
 	sprintf(disk->disk_name, "fbd%d",disk->first_minor);
@@ -811,15 +429,8 @@ printk("FDS:%s:%d: Initialising the  formation volume \n",__FILE__,__LINE__);
 
 	/* init the blk ring  */
 	blktap_ring_create(fbd_dev);
-#if 0		
-	fbd_thread_id = kthread_create(fbd_io_thread, fbd_dev, fbd_dev->disk->disk_name);
-	if (IS_ERR(fbd_thread_id)) {
-		printk(" Error: creating the  IO thread \n");
-		goto out;	
-	}
-	wake_up_process(fbd_thread_id);
-#endif
 
+	fbd_devices[fbd_dev->dev_id] = fbd_dev; 
 	return 0;
 out:
 	blk_cleanup_queue(fbd_dev->disk->queue);
@@ -830,65 +441,79 @@ out:
 
 static int __init fbd_init(void)
 {
-  fbd_dev = NULL;
+  int rc;
 
   if (register_blkdev(FBD_DEV_MAJOR_NUM, "fbd")) {
     return -EIO;
   }
   printk("fbd: Registered  Formation  Data System  device at major %d\n", FBD_DEV_MAJOR_NUM);
 
+  rc = fbd_sysfs_init();
+  if (rc)
+    {	
+      printk(" Error: Creating the sysfs interface  for fbd  block dev code: %x \n",rc);
+      return rc;
+    }
+
   return blktap_init();
 
 }
 
+int fbd_device_destroy(struct fbd_device *fb_dev)
+{
+
+  struct device *dev;
+  struct gendisk *disk;
+
+  if (!fb_dev) {
+    return 0;
+  }
+
+  printk("FDS: Cleaning up queue and disk associated with fbd device\n");
+
+  dev = &fb_dev->dev;
+
+  disk = fb_dev->disk;
+  if (disk) 
+    {
+      del_gendisk(disk);
+      blk_cleanup_queue(disk->queue);
+      put_disk(disk);
+    }
+
+  device_unregister(dev);
+
+  fbd_devices[fb_dev->dev_id] = NULL;
+  kfree(fb_dev);
+  /* release module ref */
+  // module_put(THIS_MODULE);
+  return (0);
+
+}
+
+
 static void __exit fbd_cleanup(void)
 {
-  struct gendisk *disk;
+  int i;
 
   printk("*** FDS: Uninstall Begin\n");
 
-  if (fbd_dev) {
-
-    printk("FDS: Cleaning up queue and disk associated with fbd device\n");
-
-    disk = fbd_dev->disk;
-    if (disk != NULL) 
-      {
-	del_gendisk(disk);
-	blk_cleanup_queue(disk->queue);
-	put_disk(disk);
-      }
-
-#if 0
-
-    kthread_stop(fbd_thread_id);
-    if(fbd_thread_id_rx)
-      {
-	atomic_set(&fds_exit, 1);
-	wake_up_interruptible(&thread_wait);
-	kthread_stop(fbd_thread_id_rx);
-	
-      }
-#endif
-
-    device_unregister(&fbd_dev->dev);
-
-  } else {
-    printk("FDS: No fbd_dev instantiated\n");
+  for (i = 0; i < blktap_max_minor; i++) {
+    if (fbd_devices[i]) {
+      blktap_control_destroy_tap(fbd_devices[i]);
+      fbd_device_destroy(fbd_devices[i]);
+    }
   }
+
+  blktap_exit();
+  printk("FDS blktap exit complete\n");
 
   fbd_sysfs_cleanup();
   printk("FDS: sysfs cleanup complete\n");
 
   unregister_blkdev(FBD_DEV_MAJOR_NUM, "fbd");
   printk(" unresgister blkdev \n");
-  blktap_exit();
-  printk(" blktap exit \n");
-  if (fbd_dev) {
-    kfree(fbd_dev);
-    printk("Freed fbd_dev\n");
-  } 
-
+ 
   printk("fbd: Removing the  device  Major Number %d\n", FBD_DEV_MAJOR_NUM);
 }
 

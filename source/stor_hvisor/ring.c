@@ -39,7 +39,7 @@
 
 int blktap_ring_major;
 static struct cdev blktap_ring_cdev;
-extern struct fbd_device *fbd_dev;
+// extern struct fbd_device *fbd_dev;
 
 void blktap_device_fail_queue(struct fbd_device *tap);
 
@@ -243,9 +243,9 @@ blktap_ring_unmap_request(struct fbd_device *tap,
 
 	addr  = MMAP_VADDR(ring->user_vstart, request->usr_idx, 0);
 	len   = request->nr_pages << PAGE_SHIFT;
-	printk("FDS:%s:d: vm_munmap addr:%p  len: %d current - %p ring_task - %p\n", __FILE__,__LINE__,addr, len, current, tap->ring.task);
+	printk("FDS:%s:%d: vm_munmap addr:%p  len: %d current - %p ring_task - %p\n", __FILE__,__LINE__,addr, len, current, tap->ring.task);
 	mm = current->mm;
-	printk("FBS:%s:d:  sanity check: current - %p, mm - %p, sem - %p\n",__FILE__,__LINE__, current, mm, &mm->mmap_sem);
+	printk("FBS:%s:%d:  sanity check: current - %p, mm - %p, sem - %p\n",__FILE__,__LINE__, current, mm, &mm->mmap_sem);
 	if (mm) {
 		err = vm_munmap(addr, len);
 	}
@@ -282,11 +282,11 @@ blktap_ring_make_request(struct fbd_device *tap)
 		return ERR_PTR(-ENOSPC);
 	}
 
-	printk("FDS:%s:%d:Invoking the  request alloc \n"__FILE__,__LINE__);
+	printk("FDS:%s:%d:Invoking the  request alloc \n", __FILE__,__LINE__);
 	request = blktap_request_alloc(tap);
 	if (!request)
 	{
-		printk("FDS:%s:%d: blktap alloc failed \n"__FILE__,__LINE__);
+		printk("FDS:%s:%d: blktap alloc failed \n", __FILE__,__LINE__);
 		return ERR_PTR(-ENOMEM);
 	}
 
@@ -352,7 +352,7 @@ blktap_ring_submit_request(struct fbd_device *tap,
 	struct blktap_ring_request *breq;
 	int nsecs;
 
-	printk("FDS:%s:%d:Ring submit request \n"__FILE__,__LINE__);
+	printk("FDS:%s:%d:Ring submit request \n", __FILE__,__LINE__);
 	dev_dbg(ring->dev,
 		"request %d [%p] submit\n", request->usr_idx, request);
 
@@ -365,7 +365,7 @@ blktap_ring_submit_request(struct fbd_device *tap,
 
 	switch (breq->operation) {
 	case BLKTAP_OP_READ:
-		printk("FDS:%s:%d: BLKTAP_OP_READ: \n"__FILE__,__LINE__);
+		printk("FDS:%s:%d: BLKTAP_OP_READ: \n", __FILE__,__LINE__);
 		nsecs = blktap_ring_make_rw_request(tap, request, breq);
 		printk("FDS:%s:%d: BLKTAP_OP_READ: %d\n",__FILE__,__LINE__,nsecs);
 		tap->stats.st_rd_sect += nsecs;
@@ -373,7 +373,7 @@ blktap_ring_submit_request(struct fbd_device *tap,
 		break;
 
 	case BLKTAP_OP_WRITE:
-		printk("FDS:%s:%d: BLKTAP_OP_WRITE: \n"__FILE__,__LINE__);
+		printk("FDS:%s:%d: BLKTAP_OP_WRITE: \n", __FILE__,__LINE__);
 		nsecs = blktap_ring_make_rw_request(tap, request, breq);
 		printk("FDS:%s:%d: BLKTAP_OP_WRITE:%d \n",__FILE__,__LINE__,nsecs);
 		tap->stats.st_wr_sect += nsecs;
@@ -408,7 +408,7 @@ blktap_ring_open(struct inode *inode, struct file *filp)
 	minor = iminor(inode);
 
 	if (minor < blktap_max_minor)
-		tap = fbd_dev;
+		tap = fbd_devices[minor];
 
 	if (!tap)
 		return -ENXIO;
@@ -419,8 +419,8 @@ blktap_ring_open(struct inode *inode, struct file *filp)
 	if (tap->ring.task)
 		return -EBUSY;
 
-	filp->private_data = fbd_dev;
-	fbd_dev->filp = filp;
+	filp->private_data = tap;
+	tap->filp = filp;
 	printk("FDS:%s:%d: Ring open : %p \n",__FILE__,__LINE__,filp);
 	tap->ring.task = current;
 
@@ -516,13 +516,13 @@ blktap_ring_mmap_sring(struct fbd_device *tap, struct vm_area_struct *vma)
 	err = vm_insert_page(vma, vma->vm_start, page);
 	if (err)
 	{
-		printk("FDS:%s:%d: Error:  vm inseting the pages \n"__FILE__,__LINE__);
+	  printk("FDS:%s:%d: Error:  vm inseting the pages \n", __FILE__,__LINE__);
 		goto fail;
 	}
 
 	sring = page_address(page);
 	SHARED_RING_INIT(sring);
-	printk("FDS:%s:%s: init shared  ring \n"__FILE__,__LINE__);
+	printk("FDS:%s:%d: init shared ring \n", __FILE__,__LINE__);
 	FRONT_RING_INIT(&ring->ring, sring, PAGE_SIZE);
 	printk("FDS:%s:%d: Init  front ring  size:%d ",__FILE__,__LINE__, RING_SIZE(&ring->ring));
 	printk("FDS:%s:%d: prod_pvt: %d  rsp_con: %d \n",__FILE__,__LINE__, ring->ring.req_prod_pvt, ring->ring.rsp_cons);
@@ -546,7 +546,7 @@ fail:
 		ClearPageReserved(page);
 		__free_page(page);
 	}
-	printk("FDS:%s:%d: Error:  return \n"__FILE__,__LINE__);
+	printk("FDS:%s:%d: Error:  return \n", __FILE__,__LINE__);
 
 	return err;
 }
@@ -560,10 +560,10 @@ blktap_ring_mmap(struct file *filp, struct vm_area_struct *vma)
 		vma->vm_start, vma->vm_end, vma_pages(vma),
 		vma->vm_pgoff);
 
-	printk("FDS:%s:%d: use space invoking  ring  mmap \n"__FILE__,__LINE__);
+	printk("FDS:%s:%d: use space invoking  ring  mmap \n", __FILE__,__LINE__);
 	if (!vma->vm_pgoff)
 	{
-		printk("FDS:%s:%d: invoke mmap_sring \n"__FILE__,__LINE__);
+		printk("FDS:%s:%d: invoke mmap_sring \n", __FILE__,__LINE__);
 		return blktap_ring_mmap_sring(tap, vma);
 	}
 
@@ -576,8 +576,8 @@ blktap_ring_ioctl(struct file *filp,
 {
 	struct fbd_device *tap = filp->private_data;
 	struct blktap_ring *ring = &tap->ring;
-	void __user *ptr = (void *)arg;
-	int err;
+	// void __user *ptr = (void *)arg;
+	// int err;
 
 	BTDBG("%d: cmd: %u, arg: %lu\n", tap->dev_id, cmd, arg);
 
@@ -783,7 +783,7 @@ blktap_ring_init(void)
 	}
 
 	blktap_ring_major = MAJOR(dev);
-	printk("FDS:%s:%d:blktap ring major: %d\n"__FILE__,__LINE__, blktap_ring_major);
+	printk("FDS:%s:%d:blktap ring major: %d\n", __FILE__,__LINE__, blktap_ring_major);
 
 	return 0;
 }
