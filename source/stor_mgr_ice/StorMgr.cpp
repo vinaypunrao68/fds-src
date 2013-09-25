@@ -158,7 +158,7 @@ void ObjectStorMgr::unitTest()
   /*
    * Create fake volume ID
    */
-  fds_uint32_t vol_id   = 0xbeef;
+  fds_uint64_t vol_id   = 0xbeef;
   fds_uint32_t num_objs = 1;
 
   /*
@@ -240,7 +240,7 @@ ObjectStorMgr::writeObjLocation(FDS_ObjectIdType *object_id,
  -------------------------------------------------------------------------------------*/
 fds_sm_err_t 
 ObjectStorMgr::putObjectInternal(FDSP_PutObjTypePtr put_obj_req, 
-                                 fds_uint32_t volid, 
+                                 fds_uint64_t  volid, 
                                  fds_uint32_t num_objs)
 {
 //fds_char_t *put_obj_buf = put_obj_req._ptr;
@@ -282,6 +282,7 @@ fds::Error err(fds::ERR_OK);
 
 	   if (err != fds::ERR_OK) {
 	      FDS_PLOG(objStorMgr->GetLog()) << "Failed to put object " << err;
+              return FDS_SM_ERR_DISK_WRITE_FAILED;
 	   } else {
 	     FDS_PLOG(objStorMgr->GetLog()) << "Successfully put key ";
 	   }
@@ -290,6 +291,10 @@ fds::Error err(fds::ERR_OK);
 	   FDS_PLOG(objStorMgr->GetLog()) << "Duplicate object - returning success to put object " << err;
            writeObjLocation(&put_obj_req->data_obj_id, put_obj_req->data_obj_len, volid, NULL);
        }
+       volTbl->createVolIndexEntry(volid, 
+                                  put_obj_req->volume_offset, 
+                                  put_obj_req->data_obj_id,
+                                  put_obj_req->data_obj_len);
        // Move the buffer pointer to the next object
        //put_obj_buf += (sizeof(FDSP_PutObjType) + put_obj_req->data_obj_len); 
        //put_obj_req = (FDSP_PutObjType *)put_obj_buf;
@@ -311,7 +316,6 @@ void ObjectStorMgr::PutObject(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_Put
 
     FDS_PLOG(objStorMgr->GetLog()) << "PutObject Obj ID:" << oid <<"glob_vol_id:" << fdsp_msg->glob_volume_id << "Num Objs:" << fdsp_msg->num_objects;
     putObjectInternal(put_obj_req, fdsp_msg->glob_volume_id, fdsp_msg->num_objects);
-
 }
 
 fds_sm_err_t 

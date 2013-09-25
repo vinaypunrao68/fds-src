@@ -75,6 +75,58 @@ fds::Error ObjectDB::Put(const DiskLoc& disk_location,
   return err;
 }
 
+/** Puts an object at a disk location.
+ *
+ * @param disk_location (i) Location to put obj.
+ * @param obj_id       (i) Object Id.
+ *
+ * @return ERR_OK if successful, err otherwise.
+ */
+fds::Error ObjectDB::Put(const DiskLoc& disk_location,
+                         const ObjectID& obj_id) {
+  fds::Error err(fds::ERR_OK);
+
+  leveldb::Slice key((const char *)&disk_location, sizeof(disk_location));
+  leveldb::Slice value((char *)&obj_id, sizeof(obj_id));
+
+
+  timer_start();
+  leveldb::Status status = db->Put(write_options, key, value);
+  timer_stop();
+  timer_update_put_histo();
+  if (!status.ok()) {
+    err = fds::Error(fds::ERR_DISK_WRITE_FAILED);
+  }
+
+  return err;
+}
+
+
+/** Delete an object from a disk location.
+ *
+ * @param disk_location (i) Location to get obj.
+ * @param obj_buf       (o) Object data.
+ *
+ * @return ERR_OK if successful, err otherwise.
+ */
+fds::Error ObjectDB::Delete(const ObjectID& object_id)
+{
+  fds::Error err(fds::ERR_OK);
+
+  leveldb::Slice key((const char *)&object_id, sizeof(object_id));
+  std::string value;
+
+  timer_start();
+  leveldb::Status status = db->Delete(write_options, key);
+  timer_stop();
+  timer_update_get_histo();
+  if (!status.ok()) {
+    err = fds::Error(fds::ERR_DISK_READ_FAILED);
+  }
+
+  return err;
+}
+
 
 /** Puts an object at a disk location.
  *
@@ -124,6 +176,31 @@ fds::Error ObjectDB::Get(const DiskLoc& disk_location,
   }
 
   obj_buf.data = value;
+
+  return err;
+}
+
+
+/** Delete an object from a disk location.
+ *
+ * @param disk_location (i) Location to get obj.
+ * @param obj_buf       (o) Object data.
+ *
+ * @return ERR_OK if successful, err otherwise.
+ */
+fds::Error ObjectDB::Delete(const DiskLoc& disk_location) {
+  fds::Error err(fds::ERR_OK);
+
+  leveldb::Slice key((const char *)&disk_location, sizeof(disk_location));
+  std::string value;
+
+  timer_start();
+  leveldb::Status status = db->Delete(write_options, key);
+  timer_stop();
+  timer_update_get_histo();
+  if (!status.ok()) {
+    err = fds::Error(fds::ERR_DISK_READ_FAILED);
+  }
 
   return err;
 }

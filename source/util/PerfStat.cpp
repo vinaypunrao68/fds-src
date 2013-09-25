@@ -82,13 +82,8 @@ namespace fds {
       return;
     }
 
-    start_time = boost::posix_time::second_clock::local_time();
+    start_time = boost::posix_time::second_clock::universal_time();
     last_slot_num = 0;
-  }
-
-  StatHistory::StatHistory()
-  {
-    StatHistory(FDS_STAT_DEFAULT_HIST_SLOTS, FDS_STAT_DEFAULT_SLOT_LENGTH); 
   }
 
   StatHistory::~StatHistory()
