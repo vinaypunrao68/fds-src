@@ -88,6 +88,7 @@ struct fbd_device {
 	struct file 		*filp;
 	
 	int should_stop_accepting_requests;
+        int ring_is_initialized;
 
 	struct blktap_statistics       stats;
 };

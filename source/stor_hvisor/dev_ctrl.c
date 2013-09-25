@@ -309,8 +309,12 @@ blktap_device_do_request(struct request_queue *rq)
 		blktap_device_fail_queue(tap);
 		spin_lock_irq(rq->queue_lock);
 	} else {
-	printk("FDS:%s:%d:send a message to  user \n",__FILE__,__LINE__);
-	blktap_ring_kick_user(tap);
+	  if (tap->ring_is_initialized) {
+	    printk("FDS:%s:%d:send a message to ubd \n",__FILE__,__LINE__);
+	    blktap_ring_kick_user(tap);
+	  } else {
+	    printk("FDS:%s:%d:Ring not initialized yet. Request will be on hold\n",__FILE__,__LINE__);
+	  }
 	}
 }
 

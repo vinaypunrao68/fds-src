@@ -128,19 +128,23 @@ blktap_control_ioctl(struct file *filp,
 		if (minor < 0) {
 		  return -ENOMEM;
 		}
+		printk(" FDS:%s:%d:Creating new fbd device with minor %d\n",__FILE__,__LINE__, minor);
+
 		err = fbd_device_create(minor);
 		if (err) {
-		  printk(" FDS:%s:%d:Error creating fbd device: %d\n",__FILE__,__LINE__, err);
+		  printk(" FDS:%s:%d:Error creating fbd device %d: %d\n",__FILE__,__LINE__, minor, err);
 		  return err;
 		}
 
-		printk(" FDS:%s:%d:Created fbd device.\n",__FILE__,__LINE__);
+		printk(" FDS:%s:%d:Created fbd device %d.\n",__FILE__,__LINE__, minor);
 
 		tap = blktap_control_create_tap(minor);
 		if (!tap)
 			return -ENOMEM;
 
-		printk(" FDS:%s:%d:Created blktap ring device.\n",__FILE__,__LINE__);
+		tap->ring_is_initialized = 1;
+
+		printk(" FDS:%s:%d:Created blktap ring device with minor %d.\n",__FILE__,__LINE__, minor);
 
 		info.ring_major = blktap_ring_major;
 		info.bdev_major = blktap_device_major;

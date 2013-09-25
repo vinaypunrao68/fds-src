@@ -178,6 +178,7 @@ static int __fbd_dev_ioctl(struct block_device *bdev, struct fbd_device *fbd,
 		blktap_device_fail_queue(fbd);
 		break;
 	case FBD_SET_TGT_SIZE:
+	  printk("*** FBD: received set capacity ioctl for device %d with value %lu\n", fbd->dev_id, data);
 		fbd_set_tgt_size(bdev, fbd, data);
 		return 0;
 	case FBD_SET_TGT_BLK_SIZE:
@@ -204,6 +205,7 @@ static int __fbd_dev_ioctl(struct block_device *bdev, struct fbd_device *fbd,
 	case  FBD_DEL_DEV:
 		break;
 	default :
+	  printk("*** FDS: Unknown ioctl cmd %d for device %d\n", cmd, fbd->dev_id);
 		return -ENOTTY;
 	}
 
@@ -217,7 +219,7 @@ static int fbd_dev_ioctl(struct block_device *bdev, fmode_t mode,
 	struct fbd_device *fbd = bdev->bd_disk->private_data;
 	int error;
 
-	printk("*** FBD received ioctl cmd %d\n", cmd);
+	printk("*** FBD received ioctl cmd %d for device %d\n", cmd, fbd->dev_id);
 
 	mutex_lock(&fbd->tx_lock);
 	error = __fbd_dev_ioctl(bdev, fbd, cmd, arg);
@@ -355,7 +357,7 @@ int fbd_device_create(int minor)
 	int rc;
 	struct fbd_device *fbd_dev;
 
-printk("FDS:%s:%d: Initialising the  formation volume \n",__FILE__,__LINE__);
+	printk("FDS:%s:%d: Allocating fbd device with minor %d \n",__FILE__,__LINE__, minor);
 
 #if 0
 	rc = fbd_sysfs_init();
@@ -370,11 +372,16 @@ printk("FDS:%s:%d: Initialising the  formation volume \n",__FILE__,__LINE__);
 	if (!fbd_dev)
 		return -ENOMEM;
 
+	fbd_dev->blocksize = 4096; /* default value  */
+	fbd_dev->bytesize = 0;
+	/* we will have to  generate the dev id for multiple device support */
+	fbd_dev->dev_id = minor;
+	fbd_dev->dev_major = FBD_DEV_MAJOR_NUM;
 	
 	rc = fbd_bus_add_device(fbd_dev);
 	if (rc)
 	{
-		printk(" Error: Adding bus to the  block device failed %x \n",rc);
+	  printk(" Error: Adding block device %d to the bus failed %x \n", minor, rc);
 		kfree(fbd_dev);
 		return rc;
 	}
@@ -413,18 +420,12 @@ printk("FDS:%s:%d: Initialising the  formation volume \n",__FILE__,__LINE__);
 	init_waitqueue_head(&fbd_dev->active_wq);
 	init_waitqueue_head(&fbd_dev->waiting_wq);
 
-	fbd_dev->blocksize = 4096; /* default value  */
-	fbd_dev->bytesize = 0;
-	/* we will have to  generate the dev id for multiple device support */
-	fbd_dev->dev_id = minor;
-	fbd_dev->dev_major = FBD_DEV_MAJOR_NUM;
-
 	disk->major = FBD_DEV_MAJOR_NUM;
 	disk->first_minor = minor;
 	disk->fops = &fbd_dev_ops;
 	disk->private_data = fbd_dev;
 	sprintf(disk->disk_name, "fbd%d",disk->first_minor);
-	set_capacity(disk, 0);
+	set_capacity(disk, 0x0);
 	add_disk(disk);
 
 	/* init the blk ring  */

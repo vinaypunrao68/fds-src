@@ -21,7 +21,7 @@ ubd_hvisor_test.o: ubd.c
 	$(CC) -c -o ubd_hvisor_test.o ubd.c $(CFLAGS) -DHVISOR_USPACE_TEST
 
 ubd_utest.o: ubd.c
-	$(CC) -c -o ubd_utest.o ubd.c $(CFLAGS)  -DBLKTAP_UNIT_TEST -DBLKTAP_UNIT_TEST_CRASH 
+	$(CC) -c -o ubd_utest.o ubd.c $(CFLAGS)  -DBLKTAP_UNIT_TEST
 
 ubd.o: ubd.c
 	$(CC) $(CFLAGS) -c -o ubd.o ubd.c
