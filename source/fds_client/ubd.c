@@ -32,6 +32,7 @@
 #define HVISOR_MAX_RESPONSES_TO_HOLD 8
 #define HVISOR_MAX_REQ_RSP_HOLD_TIME 10000 //usecs
 #define HVISOR_MAX_PENDING_REQ_SEGS 240
+#define HVISOR_MAX_VBDS 1024
 
 int reqs_in_hold = 0;
 
@@ -52,9 +53,10 @@ int reqs_in_hold = 0;
 #define ASSERT(p) ((void)0)
 #endif 
 
-int  runningFlag = 1;
 void ctrlcHandler(int signal);
 static int hvisor_create_io_ring(td_vbd_t *vbd, const char *devname);
+int  hvisor_create_blkdev(uint64_t vol_uuid);
+int hvisor_delete_blkdev(int minor);
 
 #ifndef BLKTAP_UNIT_TEST
 
@@ -70,8 +72,7 @@ char  cppstr[2048];
 
 
 
-td_vbd_t *vbd;
-td_vbd_t*hvisor_vbd_create(uint16_t uuid);
+td_vbd_t*hvisor_vbd_create(uint64_t uuid);
 
 static void
 __hvisor_run(td_vbd_t *vbd);
@@ -79,6 +80,7 @@ __hvisor_run(td_vbd_t *vbd);
 char data_image[16536];
 
 void *hvisor_hdl;
+td_vbd_t *hvisor_vbds[HVISOR_MAX_VBDS];
 
 static inline void
 hvisor_vbd_initialize_vreq(td_vbd_request_t *vreq)
@@ -257,9 +259,10 @@ fail:
 void ctrlcHandler(int signal)
 {
     td_ring_t *ring;
+    td_vbd_t *vbd = hvisor_vbds[0];
 
 #ifndef HVISOR_USPACE_TEST
-    runningFlag = 0;
+    vbd->runningFlag = 0;
     ring  = &vbd->ring;
     if (ring->fd != -1)
         close(ring->fd);
@@ -279,8 +282,7 @@ int main(int argc, char *argv[]) {
   int err;
   char *ring_devname = 0;
   char *io_devname = 0;
-  int minor = 0;
-  int i;
+  int i,minor=0;
   int run_test = 0;
   uint32_t dm_port = 0;
   uint32_t sm_port = 0;
@@ -347,39 +349,17 @@ int main(int argc, char *argv[]) {
     return -1;
   }
 
-#ifndef BLKTAP_UNIT_TEST
-  hvisor_hdl = hvisor_lib_init();
 #ifdef HVISOR_USPACE_TEST
-  CreateSHMode(argc, argv, 1, sm_port, dm_port);
+  CreateSHMode(argc, argv, hvisor_create_blkdev, hvisor_delete_blkdev, 1, sm_port, dm_port);
 #else
-  CreateSHMode(argc, argv, 1, 0, 0);
-#endif
+  CreateSHMode(argc, argv, hvisor_create_blkdev, hvisor_delete_blkdev, 1, 0, 0);
 #endif
   
 #ifndef HVISOR_USPACE_TEST
   
   memset(data_image, 'x', sizeof(data_image));
   
-  vbd = hvisor_vbd_create(0);
-  
-  err = tap_ctl_allocate_device(&minor, &io_devname);
-  if (err) {
-    cppout("Failed to create ring and io devices");
-    return (0);
-  }
-  
-  err = asprintf(&ring_devname, BLKTAP2_RING_DEVICE"%d", minor);
-  if (err == -1) {
-    err = -ENOMEM;
-    cppout("Failed constructing ring device name");
-    return (0);
-  }
-  
-  err = hvisor_create_io_ring(vbd, ring_devname);
-  if (err) {
-    cppout("Failed to create ring");
-    return (0);
-  }
+  hvisor_create_blkdev(0);
   
 #endif
   
@@ -451,10 +431,8 @@ int main(int argc, char *argv[]) {
   }
 
 #else
-
+  while(1); 
   cppout("All done. About to enter wait loop \n");
-
-  __hvisor_run(vbd);
 
 #endif
 
@@ -464,7 +442,7 @@ int main(int argc, char *argv[]) {
 }
 
 td_vbd_t*
-hvisor_vbd_create(uint16_t uuid)
+hvisor_vbd_create(uint64_t uuid)
 {
 	td_vbd_t *vbd;
 	int i;
@@ -549,6 +527,54 @@ fail:
 	ring->fd  = -1;
 	ring->mem = NULL;
 	return err;
+}
+
+int  hvisor_create_blkdev(uint64_t vol_uuid)
+{
+  int minor = 0;
+  char *io_devname = 0;
+  char *ring_devname = 0;
+  td_vbd_t *vbd;
+  int err=0;
+  vbd = hvisor_vbd_create(vol_uuid);
+  
+  err = tap_ctl_allocate_device(&minor, &io_devname);
+  if (err) {
+    cppout("Failed to create ring and io devices for volume : %llx", vol_uuid);
+    return (-1);
+  }
+  
+  err = asprintf(&ring_devname, BLKTAP2_RING_DEVICE"%d", minor);
+  if (err == -1) {
+    err = -ENOMEM;
+    cppout("Failed constructing ring device name for volume %llx ", vol_uuid);
+    return (-1);
+  }
+  
+  err = hvisor_create_io_ring(vbd, ring_devname);
+  if (err) {
+    cppout("Failed to create ring for volume %llx", vol_uuid);
+    return (-1);
+  }
+
+  hvisor_vbds[minor] = vbd;
+  vbd->minor = minor;
+  pthread_create(&vbd->tx_thread, NULL, __hvisor_run, vbd);
+  return minor;
+}
+
+
+int hvisor_delete_blkdev(int minor) 
+{
+td_vbd_t *vbd;
+   if (minor < HVISOR_MAX_VBDS && hvisor_vbds[minor] != NULL) { 
+       vbd = hvisor_vbds[minor]; 
+       vbd->runningFlag = 0;
+       sleep(4);
+       close(vbd->ring.fd);
+       tap_ctl_free(minor);
+   }
+  return 0;
 }
 
 static int hvisor_wait_for_events(td_vbd_t *vbd) {
@@ -714,7 +740,7 @@ void hvisor_queue_read(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq)
 	cppout("UBD: Sending read req to hypervisor with vbd - %p, vreq - %p, fbd_req - %p\n",
 	       vbd, vreq, p_new_req);
 
-	rc = StorHvisorProcIoRd(hvisor_hdl, p_new_req, hvisor_complete_td_request, (void *)vbd, (void *)vreq);
+	rc = StorHvisorProcIoRd( p_new_req, hvisor_complete_td_request, (void *)vbd, (void *)vreq);
 	if (rc) {
 	  hvisor_complete_td_request((void *)vbd, (void *)vreq, p_new_req, rc);
 	}
@@ -765,7 +791,7 @@ void hvisor_queue_write(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq
 	cppout("UBD: Sending write req to hypervisor with vbd - %p, vreq - %p, fbd_req - %p\n",
 	       vbd, vreq, p_new_req);
 
-	rc = StorHvisorProcIoWr(hvisor_hdl, p_new_req, hvisor_complete_td_request, (void *)vbd, (void *)vreq);
+	rc = StorHvisorProcIoWr( p_new_req, hvisor_complete_td_request, (void *)vbd, (void *)vreq);
 	if (rc) {
 	  hvisor_complete_td_request((void *)vbd, (void *)vreq, p_new_req, rc);
 	}
@@ -956,7 +982,7 @@ hvisor_vbd_kick(td_vbd_t *vbd)
 static void
 __hvisor_run(td_vbd_t *vbd)
 {
-  while (runningFlag) {
+  while (vbd->runningFlag) {
     int ret;
 
     ret = hvisor_wait_for_events(vbd);
@@ -1011,7 +1037,7 @@ int send_test_io(int offset, int vol_id)
         p_new_treq->secs = 8;
         p_new_treq->len = len;
         p_new_treq->volUUID = vol_id;
-        StorHvisorProcIoWr(hvisor_hdl, p_new_treq, hvisor_complete_td_request_noop,NULL,NULL);
+        StorHvisorProcIoWr( p_new_treq, hvisor_complete_td_request_noop,NULL,NULL);
     	return 0;
 
 }
@@ -1030,7 +1056,7 @@ int read_test_io(int offset, int vol_id)
     p_new_treq->secs = 8;
     p_new_treq->len = len;
     p_new_treq->volUUID = vol_id;
-    StorHvisorProcIoRd(hvisor_hdl, p_new_treq, hvisor_complete_td_request_noop, NULL, NULL );
+    StorHvisorProcIoRd(p_new_treq, hvisor_complete_td_request_noop, NULL, NULL );
     return 0;
 
 }

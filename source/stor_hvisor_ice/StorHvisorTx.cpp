@@ -20,17 +20,15 @@ using namespace IceUtil;
 using namespace fds;
 
 extern StorHvCtrl *storHvisor;
-extern struct fbd_device *fbd_dev;
 
 
 #define SRC_IP  0x0a010a65
 #define FDS_IO_LONG_TIME  60 // seconds
 
 BEGIN_C_DECLS
-int StorHvisorProcIoRd(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp_req, void *arg1, void *arg2)
+int StorHvisorProcIoRd(fbd_request_t *req, complete_req_cb_t comp_req, void *arg1, void *arg2)
 {
 
-  struct fbd_device *fbd;
   FDS_RPC_EndPoint *endPoint = NULL; 
   unsigned int node_ip = 0;
   unsigned int doid_dlt_key=0;
@@ -44,7 +42,6 @@ int StorHvisorProcIoRd(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
 
   unsigned int      trans_id = 0;
   fds_uint64_t data_offset  = req->sec * HVISOR_SECTOR_SIZE;
-  fbd = fbd_dev;
   vol_id = req->volUUID;  /* TODO: Derive vol_id from somewhere better. NOT fbd! */
 
   shvol = storHvisor->vol_table->getVolume(vol_id);
@@ -80,7 +77,6 @@ int StorHvisorProcIoRd(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
   
   
   journEntry->trans_state = FDS_TRANS_OPEN;
-  journEntry->fbd_ptr = (void *)fbd;
   journEntry->write_ctx = (void *)req;
   journEntry->comp_req = comp_req;
   journEntry->comp_arg1 = arg1; // vbd
@@ -157,7 +153,7 @@ int StorHvisorProcIoRd(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
   return 0; // je_lock destructor will unlock the journal entry
 }
 
-int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp_req, void *arg1, void *arg2)
+int StorHvisorProcIoWr(fbd_request_t *req, complete_req_cb_t comp_req, void *arg1, void *arg2)
 {
   int   trans_id, i=0;
   // int   data_size    = req->secs * HVISOR_SECTOR_SIZE;
@@ -166,7 +162,6 @@ int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
   char *tmpbuf = (char*)req->buf;
   ObjectID  objID;
   unsigned char doid_dlt_key;
-  struct fbd_device *fbd;
   int num_nodes=8;
   FDS_RPC_EndPoint *endPoint = NULL;
   int node_ids[8];
@@ -175,7 +170,6 @@ int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
   fds_uint32_t vol_id;
   StorHvVolume *shvol;
   
-  fbd = (struct fbd_device *)dev_hdl;
   /*
    * TODO: Currently don't derive the vol ID from the block
    * device. It's not safe since we may not always have
@@ -225,8 +219,6 @@ int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
   
   fdsp_msg_hdr->glob_volume_id    = vol_id;
   fdsp_msg_hdr_dm->glob_volume_id = vol_id;
-  // fdsp_msg_hdr->glob_volume_id = fbd->vol_id;;
-  // fdsp_msg_hdr_dm->glob_volume_id = fbd->vol_id;;
   
   doid_dlt_key = objID.GetHigh() >> 56;
   
@@ -234,14 +226,6 @@ int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
                                  << "  ObjLen:" << put_obj_req->data_obj_len << "  volID:" << fdsp_msg_hdr->glob_volume_id;
   
   // *** Initialize the journEntry with a open txn
-  /*
-   * If the fbd_dev is NULL, this will store NULL.
-   * TODO: Pull the fbd_ptr out of the journal entry
-   * since the journal should not care about the
-   * block device.
-   */
-  journEntry->fbd_ptr = fbd;
-  // journEntry->fbd_ptr = (void *)fbd_dev;
 
   journEntry->trans_state = FDS_TRANS_OPEN;
   journEntry->write_ctx = (void *)req;
