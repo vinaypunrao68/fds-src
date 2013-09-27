@@ -575,6 +575,7 @@ td_vbd_t *vbd;
        sleep(4);
        close(vbd->ring.fd);
        tap_ctl_free(minor);
+       hvisor_vbds[minor] = NULL;
    }
   return 0;
 }
