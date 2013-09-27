@@ -185,6 +185,7 @@ StorHvJournal::StorHvJournal(unsigned int max_jrnl_entries)
 
         ioTimer = new IceUtil::Timer();
 
+	ctime = boost::posix_time::microsec_clock::universal_time();
 	// printf("Created journal table lock %p for Journal Table %p \n", jrnl_tbl_mutex, this);
 
 	return;

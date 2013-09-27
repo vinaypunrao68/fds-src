@@ -8,6 +8,7 @@ struct fbd_request {
   void                         *req_data;
   int 				len;
   int 				volUUID;
+  long                          sh_queued_usec;
 };
 
 typedef struct fbd_request            fbd_request_t;

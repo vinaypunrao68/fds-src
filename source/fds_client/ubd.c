@@ -399,6 +399,7 @@ int main(int argc, char *argv[]) {
       } else {
         fprintf(stdout, "Unit test FAILED\n");
       }
+      DeleteStorHvisor();
       return result;
   } else if (run_test == 2) {
     result = unitTestFile(infile_name, outfile_name, base_vol, num_vols);
@@ -407,6 +408,7 @@ int main(int argc, char *argv[]) {
       } else {
         fprintf(stdout, "Unit test FAILED\n");
       }
+      DeleteStorHvisor();
       return result;
   }
 

@@ -138,6 +138,8 @@ private:
   void return_free_trans_id(unsigned int trans_id);
   IceUtil::Timer *ioTimer;
 
+  boost::posix_time::ptime ctime; /* time the journal was created */
+
 public:
  	StorHvJournal();
 	StorHvJournal(unsigned int max_jrnl_entries);
@@ -152,6 +154,10 @@ public:
         void schedule(const TimerTaskPtr& task, const IceUtil::Time& interval) {
              ioTimer->schedule(task, interval);
         }
+	long microsecSinceCtime(boost::posix_time::ptime timestamp) {
+	  boost::posix_time::time_duration elapsed = timestamp - ctime;
+	  return elapsed.total_microseconds();
+	}
 
 };
 

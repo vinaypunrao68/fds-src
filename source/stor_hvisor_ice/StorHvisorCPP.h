@@ -21,6 +21,7 @@ void CreateSHMode(int argc,
                   fds_bool_t test_mode,
                   fds_uint32_t sm_port,
                   fds_uint32_t dm_port);
+void DeleteStorHvisor(void);
 void cppOut( char *format, ... );
 void ctrlCCallbackHandler(int signal);
 END_C_DECLS

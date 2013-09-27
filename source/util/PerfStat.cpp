@@ -3,7 +3,7 @@
 namespace fds {
 
   Stat::Stat()
-    : nsamples(0), ave_lat(0) 
+    : nsamples(0), min_lat(98765432), max_lat(0), ave_lat(0) 
   {
   }
 
@@ -15,6 +15,8 @@ namespace fds {
   {
     nsamples = 0;
     ave_lat = 0;
+    min_lat = 98765432; /* real latency should be smaller */
+    max_lat = 0; 
   }
 
   void Stat::add(long lat) 
@@ -24,6 +26,12 @@ namespace fds {
 
     /* accumulate average latency */
     ave_lat = (n*ave_lat + (double)lat)/(double)nsamples;
+
+    if (lat < min_lat)
+      min_lat = lat;
+
+    if (lat > max_lat)
+      max_lat = lat;
   }
 
   void Stat::add(const Stat& stat)
@@ -33,10 +41,16 @@ namespace fds {
     nsamples += stat.nsamples;
 
     ave_lat = (n1*ave_lat + n2*stat.ave_lat)/(double)nsamples;
+
+    if (min_lat > stat.min_lat)
+      min_lat = stat.min_lat;
+
+    if (max_lat < stat.max_lat)
+      max_lat = stat.max_lat;
   }
 
   IoStat::IoStat()
-    :stat()
+    :stat(), rel_ts_sec(0), interval_sec(FDS_STAT_DEFAULT_SLOT_LENGTH)
   {
   }
 
@@ -49,10 +63,12 @@ namespace fds {
     stat.add(microlat);
   }
 
-  void IoStat::reset(long ts_sec)
+  void IoStat::reset(long ts_sec, int stat_size_sec)
   {
     stat.reset();
     rel_ts_sec = ts_sec;
+    if (stat_size_sec > 0)
+      interval_sec = stat_size_sec;
   }
 
   long IoStat::getTimestamp() const
@@ -60,20 +76,35 @@ namespace fds {
     return rel_ts_sec;
   }
 
-  int IoStat::getIos() const 
+  int IoStat::getIops() const 
   {
-    return stat.nsamples;
+    return (int)((double)stat.nsamples / (double) interval_sec);
   }
 
-  double IoStat::getAveLatency() const
+  long IoStat::getAveLatency() const
   {
-    return stat.ave_lat;
+    return (long)stat.ave_lat;
   }
 
-  StatHistory::StatHistory(int slots, int slot_len_sec)
+  long IoStat::getMinLatency() const
   {
-    nslots = slots;
-    sec_in_slot = slot_len_sec;
+  if (stat.nsamples == 0)
+    return 0;
+  else
+    return stat.min_lat;
+  }
+
+  long IoStat::getMaxLatency() const
+  {
+    return stat.max_lat;
+  }
+
+  StatHistory::StatHistory(fds_volid_t volume_id, int slots, int slot_len_sec)
+    : volid(volume_id), nslots(slots), sec_in_slot(slot_len_sec), last_printed_ts(-1)
+  {
+    /* cap nslots to max */
+    if (nslots > FDS_STAT_MAX_HIST_SLOTS)
+      nslots = FDS_STAT_MAX_HIST_SLOTS;
     
     /* create array that will hold stats history */
     stat_slots = new IoStat[nslots];
@@ -81,6 +112,10 @@ namespace fds {
       nslots = 0;
       return;
     }
+    for (int i = 0; i < nslots; ++i)
+      {
+	stat_slots[i].reset(0, sec_in_slot);
+      }
 
     start_time = boost::posix_time::second_clock::universal_time();
     last_slot_num = 0;
@@ -170,6 +205,40 @@ namespace fds {
     *len = length;
 
     return 0;
+  }
+
+  void StatHistory::print(std::ofstream& dumpFile, boost::posix_time::ptime curts)
+  {
+    int endix = last_slot_num % nslots;
+    int startix = (endix + 1) % nslots; /* index of oldest stat */
+    int ix = startix;
+    long latest_ts = 0;
+
+    if (nslots == 0) return;
+
+    /* we will skip the last timeslot, because it is most likely not filled in */
+    while (ix != endix)
+      {
+	long ts = stat_slots[ix].getTimestamp();
+	if (ts > last_printed_ts)
+	  {
+	    dumpFile << "[" << to_simple_string(curts) << "]," 
+		     << volid << ","
+		     << stat_slots[ix].getTimestamp() << ","
+		     << stat_slots[ix].getIops() << ","
+		     << stat_slots[ix].getAveLatency() << ","
+		     << stat_slots[ix].getMinLatency() << ","
+		     << stat_slots[ix].getMaxLatency() << std::endl;
+
+	    if (latest_ts < ts)
+	      latest_ts = ts;
+
+	  }
+	ix = (ix + 1) % nslots;
+      }
+
+    if (latest_ts != 0)
+      last_printed_ts = latest_ts;
   }
 
 } /* namespace fds*/

@@ -68,6 +68,9 @@ int StorHvisorProcIoRd(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
     // For now, return an error.
     return (-1); // je_lock destructor will unlock the journal entry
   }
+
+  /* record time request is queued -- temp before we add actual queues */
+  req->sh_queued_usec = shvol->journal_tbl->microsecSinceCtime(boost::posix_time::microsec_clock::universal_time());
   
   journEntry->setActive();
   
@@ -206,6 +209,8 @@ int StorHvisorProcIoWr(void *dev_hdl, fbd_request_t *req, complete_req_cb_t comp
     // For now, return an error.
     return (-1);
   }
+
+  req->sh_queued_usec = shvol->journal_tbl->microsecSinceCtime(boost::posix_time::microsec_clock::universal_time());
   
   journEntry->setActive();
   

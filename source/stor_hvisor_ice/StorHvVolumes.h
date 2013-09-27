@@ -108,6 +108,11 @@ class StorHvVolumeTable
    */
   StorHvVolume* getVolume(fds_volid_t vol_uuid);
 
+  /* Dumping per-volume performance stats */
+  void startPerfStats();
+  void stopPerfStats();
+  void printPerfStats(std::ofstream& dumpFile);
+
  private: /* methods */ 
 
   /* handler for volume-related control message from OM */
@@ -134,7 +139,27 @@ class StorHvVolumeTable
    */
   fds_log *vt_log;
   fds_bool_t created_log;
+
+  /* timer to dump perf stats  */
+  IceUtil::TimerPtr statTimer;
+  IceUtil::TimerTaskPtr statTimerTask;  
 };
+
+ using namespace IceUtil;
+ class StorHvStatTimerTask : public IceUtil::TimerTask {
+ public:
+   StorHvVolumeTable* volTable;
+   std::ofstream statfile;
+
+   StorHvStatTimerTask(StorHvVolumeTable* voltab);
+   ~StorHvStatTimerTask() {
+     if (statfile.is_open()) {
+       statfile.close();
+     }
+   }
+
+   void runTimerTask();
+ };
 
 } // namespace fds
 

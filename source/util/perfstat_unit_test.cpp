@@ -1,4 +1,3 @@
-#include <iostream>
 #include <string>
 #include <cstring>
 #include <stdio.h>
@@ -8,40 +7,22 @@
 
 namespace fds {
 
-void dump(const IoStat& stat)
-{
-  std::cout << "STAT " << stat.getTimestamp() << "," 
-	    << stat.getIos() << "," << stat.getAveLatency() << std::endl;
-}
-
-int dump_history(StatHistory* hist)
-{
-  IoStat *stats = NULL;
-  int len = 0;
-
-  int ret = hist->getStatsCopy(&stats, &len);
-  if (ret != 0) {
-    std::cout << "Failed to get copy of stat history" << std::endl;
-    return ret;
-  }
-
-  for (int i = 0; i < len; ++i)
-    {
-      dump(stats[i]);
-    }
-
-  delete [] stats;
-
-  return 0;
-}
-
 int runUnitTest(int slots, int sec_in_slot)
 {
-  StatHistory *hist = new StatHistory(slots, sec_in_slot);
+  std::ofstream statfile;
+  statfile.open("perf_test.log", std::ios::out | std::ios::app );
+  if (!statfile.is_open()) {
+    std::cout << "Failed to open perf_test file" << std::endl;
+    return -1;
+  }
+
+  StatHistory *hist = new StatHistory(0, slots, sec_in_slot);
   if (!hist) {
     std::cout << "Failed to create StatHistory" << std::endl;
     return -1;
   }  
+
+  statfile << "Using history with " << slots << " slots, each slot is " << sec_in_slot << " second(s)";
 
   /* test 1 -- fill 1 I/O per slot */
   boost::posix_time::ptime ts = boost::posix_time::microsec_clock::universal_time();
@@ -53,8 +34,8 @@ int runUnitTest(int slots, int sec_in_slot)
       ts += delta;
     }
 
-  std::cout << "Expecting " << slots-1 << " stats, each 1 IOPS and 200microsec latency" << std::endl;
-  dump_history(hist);
+  statfile <<"Expecting " << slots-1 << " stats, each 1 IOPS and 200microsec latency" << std::endl;
+  hist->print(statfile, boost::posix_time::microsec_clock::local_time());
 
   /* test 2 -- fill every other slot, 2 IOs per slot */
   ts += boost::posix_time::seconds(sec_in_slot); // offset 
@@ -67,10 +48,8 @@ int runUnitTest(int slots, int sec_in_slot)
       ts += delta;
     }
 
-  std::cout << "Expecting " << slots-1 << " stats, every other slot is filled with 2 IOs and 300 microsec lat"
-	    << std::endl;
-  dump_history(hist);
-
+  statfile << "Expecting " << slots-1 << " stats, every other slot is filled with 2 IOs and 300 microsec lat" << std::endl;
+  hist->print(statfile, boost::posix_time::microsec_clock::local_time());
 
   /* test 3 -- fill slots with time intervals longer than history */
   ts += boost::posix_time::seconds(sec_in_slot); // start this test with new slot 
@@ -83,15 +62,14 @@ int runUnitTest(int slots, int sec_in_slot)
   ts+= boost::posix_time::seconds(sec_in_slot);
   hist->addIo(ts, 888); // this io will be discarded, since last slot is discarded
 
-  std::cout << "Expecting " << slots-1 << " stats, one slot is filled with 1 IO, lat = 999 microsec" << std::endl;
-  dump_history(hist);
+  statfile << "Expecting " << slots-1 << " stats, one slot is filled with 1 IO, lat = 999 microsec" << std::endl;
+  hist->print(statfile, boost::posix_time::microsec_clock::local_time());
 
   /* test 4 -- add IOs out of order */
   ts += boost::posix_time::seconds(sec_in_slot); // start this test with new slot
   delta = boost::posix_time::seconds(sec_in_slot);
   boost::posix_time::time_duration delta2 = boost::posix_time::seconds(slots*sec_in_slot);
 
-  ts += delta;
   ts += delta;
   ts += delta;
   hist->addIo(ts, 500);
@@ -120,10 +98,10 @@ int runUnitTest(int slots, int sec_in_slot)
   hist->addIo(ts, 5);
   ts+= delta;
   hist->addIo(ts, 6); //this will be discarded
-  std::cout << "Expecting " << slots-1 << " stats. A portion of stats should include:" << std::endl
-	    << "2 IOs, lat=150.5;  3 IOs, lat=333.33; 1 IO, lat=999" 
-	    <<" then 0; 0; 1 IO, lat=5" << std::endl;
-  dump_history(hist);
+  statfile << "Expecting 8 stats. A portion of stats should include:" << std::endl ;
+  statfile << "2 IOs, lat=150.5;  3 IOs, lat=333.33; 1 IO, lat=999" 
+	   << " then 0; 0; 1 IO, lat=5" << std::endl;
+  hist->print(statfile, boost::posix_time::microsec_clock::local_time());
 
   /* test 5 -- fill in 4 IOs per second  */
   ts += boost::posix_time::seconds(sec_in_slot); // start with next slot after last test
@@ -137,16 +115,19 @@ int runUnitTest(int slots, int sec_in_slot)
       ts += delta;
     }
 
-  std::cout << "Expecting " << slots-1 << " stats, every other slot is filled with "
-	    << 4*sec_in_slot << " IOs, lat=100" 
-	    << std::endl;
-  dump_history(hist);
+  statfile << "Expecting " << slots-1 << " stats, every slot is filled with "
+	   << 4*sec_in_slot << " IOs, " << "IOPS=4 lat=100" << std::endl;
+  hist->print(statfile, boost::posix_time::microsec_clock::local_time());
 
   return 0;
 }
 
 } /* namespace fds*/
 
+void usage()
+{
+  std::cout << "perfstat_unit_test --slots=N --sec_in_slot=" << std::endl;
+}
 
 int main(int argc, char* argv[])
 {
@@ -164,12 +145,10 @@ int main(int argc, char* argv[])
       }
       else {
 	std::cout << "Invalid argument " << argv[i] << std::endl;
+	usage();
 	return -1;
       }
     }
-
-  std::cout << "Will use " << slots << " slots" 
-	    << " of length " << sec_in_slot << " second(s)" << std::endl; 
 
   rc = fds::runUnitTest(slots, sec_in_slot);
   if (rc == 0) {
