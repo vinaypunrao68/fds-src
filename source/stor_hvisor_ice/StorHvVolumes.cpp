@@ -19,6 +19,10 @@ StorHvVolume::StorHvVolume(const VolumeDesc& vdesc, StorHvCtrl *sh_ctrl, fds_log
   vol_catalog_cache = new VolumeCatalogCache(volUUID, sh_ctrl, parent_log);  
   stat_history = new StatHistory(volUUID);
 
+  if ( volType == FDS_VOL_BLKDEV_TYPE && parent_sh->GetRunTimeMode() == StorHvCtrl::NORMAL) { 
+      blkdev_minor = (*parent_sh->cr_blkdev)(volUUID);
+  }
+
   is_valid = true;
 }
 
@@ -42,6 +46,9 @@ void StorHvVolume::destroy()
     return;
   }
 
+  if ( volType == FDS_VOL_BLKDEV_TYPE && parent_sh->GetRunTimeMode() == StorHvCtrl::NORMAL) { 
+     (*parent_sh->del_blkdev)(blkdev_minor);
+  }
   /* destroy data */
   delete journal_tbl;
   journal_tbl = NULL;
@@ -102,14 +109,12 @@ StorHvVolumeTable::StorHvVolumeTable(StorHvCtrl *sh_ctrl, fds_log *parent_log)
     parent_sh->om_client->registerEventHandlerForVolEvents(volumeEventHandler);
   }
 
-  /* 
-   * Hardcoding creation of volume 1
-   * TODO: do not hardcode creation of volume 1, should
-   * explicitly call register volume for all volumes 
-   */
-  VolumeDesc vdesc("default_vol", FDS_DEFAULT_VOL_UUID);
-  volume_map[FDS_DEFAULT_VOL_UUID] = new StorHvVolume(vdesc, parent_sh, vt_log);
-  FDS_PLOG(vt_log) << "StorHvVolumeTable - constructor registered volume 1";  
+  if (sh_ctrl->GetRunTimeMode() == StorHvCtrl::TEST_BOTH) { 
+    VolumeDesc vdesc("default_vol", FDS_DEFAULT_VOL_UUID);
+    volume_map[FDS_DEFAULT_VOL_UUID] = new StorHvVolume(vdesc, parent_sh, vt_log);
+    FDS_PLOG(vt_log) << "StorHvVolumeTable - constructor registered volume 1";  
+  }
+
 }
 
 StorHvVolumeTable::StorHvVolumeTable(StorHvCtrl *sh_ctrl)

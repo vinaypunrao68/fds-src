@@ -7,7 +7,7 @@ struct fbd_request {
   int                          secs;
   void                         *req_data;
   int 				len;
-  int 				volUUID;
+  double 	       		volUUID;
   long                          sh_queued_usec;
 };
 

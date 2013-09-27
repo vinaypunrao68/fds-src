@@ -15,8 +15,6 @@ using namespace FDS_ProtocolInterface;
 using namespace Ice;
 
 extern StorHvCtrl *storHvisor;
-int vvc_entry_update(vvc_vhdl_t vhdl, const char *blk_name, int num_segments, const doid_t **doid_list);
-
 
 int StorHvCtrl::fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const FDSP_GetObjTypePtr& get_obj_rsp )
 {

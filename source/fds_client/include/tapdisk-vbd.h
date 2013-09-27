@@ -95,6 +95,7 @@ struct td_vbd_handle {
   int                         num_responses_in_ring;
   int                         num_pending_req_segs; // number of outstanding requests sent to hvisor for which we have not received a reply yet.
 
+        int                         runningFlag;
 	struct list_head            driver_stack;
 
 	int                         storage;
@@ -129,6 +130,7 @@ struct td_vbd_handle {
 	uint64_t                    secs_pending;
 	uint64_t                    retries;
 	uint64_t                    errors;
+        pthread_t                   tx_thread;
 };
 
 #define tapdisk_vbd_for_each_request(vreq, tmp, list)	                \

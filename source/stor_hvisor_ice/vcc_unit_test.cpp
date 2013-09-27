@@ -42,17 +42,15 @@ class VccUnitTest {
     fds_volid_t vol_uuid;
     vol_uuid = 987654321;
 
-    StorHvVolumeTable voltab(storHvisor,
-                             vcc_log);
     VolumeDesc vdesc("vcc_ut_volume", vol_uuid);
-    err = voltab.registerVolume(vdesc);
+    err = storHvisor->vol_table->registerVolume(vdesc);
     if (!err.ok()) {
       std::cout << "Failed to register volume "
                 << vol_uuid << std::endl;
       return -1;
     }
 
-    StorHvVolume *vol = voltab.getVolume(vol_uuid);
+    StorHvVolume *vol = storHvisor->vol_table->getVolume(vol_uuid);
     if (!vol) {
       std::cout << "Volume " << vol_uuid
                 << " does not exist, even though registration was successful"
@@ -81,17 +79,15 @@ class VccUnitTest {
     fds_uint64_t vol_uuid;
     vol_uuid = 987654321;
 
-    StorHvVolumeTable voltab(storHvisor,
-                             vcc_log);
     VolumeDesc vdesc("vcc_ut_volume", vol_uuid);
-    err = voltab.registerVolume(vdesc);
+    err = storHvisor->vol_table->registerVolume(vdesc);
     if (!err.ok()) {
       std::cout << "Failed to register volume "
                 << vol_uuid << std::endl;
       return -1;
     }
 
-    StorHvVolume *vol = voltab.getVolume(vol_uuid);
+    StorHvVolume *vol = storHvisor->vol_table->getVolume(vol_uuid);
     if (!vol) {
       std::cout << "Volume " << vol_uuid
                 << " does not exist, even though registration was successful"
@@ -218,17 +214,15 @@ class VccUnitTest {
      * Make a shared cache that all access
      * the same volume.
      */
-    StorHvVolumeTable voltab(storHvisor,
-                             vcc_log);
     VolumeDesc vdesc("vcc_ut_volume", vol_uuid);
-    err = voltab.registerVolume(vdesc);
+    err = storHvisor->vol_table->registerVolume(vdesc);
     if (!err.ok()) {
       std::cout << "Failed to register volume "
                 << vol_uuid << std::endl;
       return -1;
     }
 
-    StorHvVolume *vol = voltab.getVolume(vol_uuid);
+    StorHvVolume *vol = storHvisor->vol_table->getVolume(vol_uuid);
     if (!vol) {
       std::cout << "Volume " << vol_uuid
                 << " does not exist, even though registration was successful"

@@ -29,6 +29,7 @@
 
 #include "lib/OMgrClient.h"
 #include "StorHvVolumes.h" 
+#include "StorHvisorCPP.h" 
 
 #include <map>
 // #include "util/concurrency/Thread.h"
@@ -93,30 +94,6 @@ public:
 };
 
 
-typedef void *vvc_vhdl_t;
-struct fbd_device {
-
-  	int dev_id;
-    pthread_mutex_t tx_lock;
-    int blocksize;
-    double bytesize;
-    int xmit_timeout;
-    int sock;
-    long int   src_ip_addr;
-    long int   tcp_destAddr;
-    long int   udp_destAddr;
-        int stor_mgr_port;
-        int data_mgr_port;
-    int        proto_type;
-    /*  vvc  defs */
-    volid_t     vol_id;
-    vvc_vhdl_t  vhdl;
-  pthread_t rx_thread;
-
-};
-
-
-
 typedef struct {
   double   hash_high;
   double   hash_low;
@@ -160,6 +137,8 @@ public:
              fds_uint32_t sm_port_num,
              fds_uint32_t dm_port_num);
   ~StorHvCtrl();	
+  hv_create_blkdev cr_blkdev;
+  hv_delete_blkdev del_blkdev;
   
   // Data Members
   Ice::CommunicatorPtr _communicator;
@@ -179,6 +158,7 @@ public:
   int fds_process_put_obj_resp(const FDSP_MsgHdrTypePtr& rx_msg,const  FDSP_PutObjTypePtr& put_obj_rsp );
   int fds_process_update_catalog_resp(const FDSP_MsgHdrTypePtr& rx_msg,const  FDSP_UpdateCatalogTypePtr& cat_obj_rsp );
   fds_log* GetLog();
+  sh_comm_modes GetRunTimeMode() { return mode; }
 
 private:
   fds_log *sh_log;

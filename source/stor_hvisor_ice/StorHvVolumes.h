@@ -53,7 +53,7 @@ public: /* data*/
 
   StorHvJournal *journal_tbl;
   VolumeCatalogCache *vol_catalog_cache;
-
+  int blkdev_minor;
   /* Reference to parent SH instance */
   StorHvCtrl *parent_sh;
 
