@@ -218,16 +218,28 @@ class FDSP_AttachVolType {
   FDSP_VolumeInfoType	 vol_info; /* Volume properties and attributes */
 };
 
+class FDSP_PolicyInfoType {
+  string 		 policy_name;  /* Name of the policy */
+  int 	 		 policy_id;    /* uuid  */
+  double    		 iops_min;     /* minimum iops */
+  double	 	 iops_max;     /* maximum iops */
+  int	 	         rel_prio;     /* relative priority */
+};
+
 class FDSP_CreatePolicyType {
-  string vol_name;  /* Name of the volume */
+  string                 policy_name;  /* Name of the policy */
+  FDSP_PolicyInfoType 	 policy_info;  /* Policy description */
 };
 
 class FDSP_DeletePolicyType {
-  string vol_name;  /* Name of the volume */
+  string                 policy_name;  /* Name of the policy */
+  int                    policy_id;    /* policy id */
 };
 
 class FDSP_ModifyPolicyType {
-  string vol_name;  /* Name of the volume */
+  string                 policy_name;  /* Name of the policy */
+  int                    policy_id;    /* policy id */
+  FDSP_PolicyInfoType 	 policy_info;  /* Policy description */
 };
 
 class FDSP_RegisterNodeType {

@@ -314,7 +314,7 @@ void OrchMgr::CreatePolicy(const FdspMsgHdrPtr& fdsp_msg,
 
 void OrchMgr::DeletePolicy(const FdspMsgHdrPtr& fdsp_msg,
                            const FdspDelPolPtr& del_pol_req) {
-  FDS_PLOG(GetLog()) << "Received CreatePolicy  Msg";
+  FDS_PLOG(GetLog()) << "Received DeletePolicy  Msg";
 }
 
 void OrchMgr::ModifyPolicy(const FdspMsgHdrPtr& fdsp_msg,

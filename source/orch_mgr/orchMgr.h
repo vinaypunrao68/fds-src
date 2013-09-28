@@ -49,7 +49,8 @@ namespace fds {
   typedef FDS_ProtocolInterface::FDSP_NotifyVolTypePtr    FdspNotVolPtr;
 
   typedef FDS_ProtocolInterface::FDSP_VolumeInfoTypePtr FdspVolInfoPtr;
-  
+  typedef FDS_ProtocolInterface::FDSP_PolicyInfoTypePtr FdspPolInfoPtr;  
+
   class NodeInfo {
  private:
  public:
