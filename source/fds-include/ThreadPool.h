@@ -17,7 +17,7 @@ namespace fds {
 class thpool_req;
 class thpool_worker;
 class fds_threadpool;
-enum thp_state_e { IDLE, RUNNING, SPAWNING, EXITING };
+enum thp_state_e { INIT, IDLE, WAKING_UP, RUNNING, SPAWNING, EXITING };
 
 /*
  * A nullary function or functor to represent a task.
@@ -71,15 +71,25 @@ class thpool_req : public Task
 class fds_threadpool : boost::noncopyable
 {
   private:
+    friend class        thpool_worker;
     fds_mutex           _thp_mutex;
-    boost::condition    _thp_condition;
-    dlist_t             _thp_idle;       /* FIFO list of idle workers. */
-    dlist_t             _thp_busy;       /* keep track of active workers. */
-    dlist_t             _thp_tasks;      /* FIFO list of tasks. */
+    boost::condition    _thp_cond;
+    thp_state_e         _thp_state;         /* state of the pool. */
+    thpool_worker     **_thp_workers;
+    dlist_t             _thp_wk_idle;       /* FIFO list of idle workers. */
+    dlist_t             _thp_tasks;         /* FIFO list of tasks. */
+    fds_uint32_t        _thp_max_tasks;     /* max pending tasks. */
     fds_uint32_t        _thp_tasks_pend;
     fds_uint32_t        _thp_num_threads;
 
-    friend class thpool_worker;
+    /* Thread pool stats. */
+    fds_uint32_t        _thp_total_tasks;
+    fds_uint32_t        _thp_exec_direct;
+    fds_uint32_t        _thp_exec_dequeue;
+
+    /* Called by the worker thread to dequeue or put itself to idle state. */
+    thpool_req *
+    thp_dequeue_task_or_idle(thpool_worker *worker);
 
   public:
     explicit fds_threadpool(fds_uint32_t num_threads = 10);

@@ -201,7 +201,7 @@ dlist_iter_init(dlist_t *list, dlist_t **iter)
 }
 
 /*
- * dlist_iter_init
+ * dlist_iter_term
  * ---------------
  */
 static inline bool
@@ -211,7 +211,7 @@ dlist_iter_term(dlist_t *list, dlist_t *iter)
 }
 
 /*
- * dlist_iter_init
+ * dlist_iter_next
  * ---------------
  */
 static inline void
@@ -235,6 +235,13 @@ dlist_iter_rm_curr(dlist_t **iter)
 
     return (curr);
 }
+
+/* Get the offset of a field y inside struct X. */
+#define fds_offset_of(X, y)   ((unsigned long)((void *)&(((X *)0)->y)))
+
+/* Get the address of the obj from addr of a field in it. */
+#define fds_object_of(obj, field, ptr)                                        \
+    ((obj *)(((char *)(ptr)) - (char *)fds_offset_of(obj, field)))
 
 /*
  * Macros to traverse the whole dlist.

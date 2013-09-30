@@ -1,25 +1,31 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
-#include <boost/random/mersenne_twister.hpp>
-#include <boost/random/uniform_int_distribution.hpp>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include <sched.h>
-#include <iostream>  // NOLINT(*)
+#include <iostream>
+#include <boost/random/mersenne_twister.hpp>
+#include <boost/random/uniform_int_distribution.hpp>
 #include <ThreadPool.h>
+
+using namespace std;
 
 namespace fds {
 class TestUnitBase;
+class TestSuiteBase;
+boost::random::mt19937       gl_seed_gen;
 
 class TestArgBase
 {
   public:
-    explicit TestArgBase(int loop)
-        : _targ_loop(loop), _targ_num_cpus(16) {}
+    explicit TestArgBase(int loop) : _targ_loop(loop), _targ_num_cpus(16) {}
     ~TestArgBase() {}
 
   private:
-    friend class TestUnitBase;
+    friend class             TestUnitBase;
     int                      _targ_num_cpus;
     int                      _targ_loop;
 };
@@ -27,24 +33,29 @@ class TestArgBase
 class TestUnitBase
 {
   public:
-    explicit TestUnitBase(TestArgBase &args);
+    TestUnitBase(TestArgBase &args, const char *name);
     ~TestUnitBase();
 
     void tu_rec_loop(void);
     virtual void tu_exec(void) = 0;
     virtual void tu_report(void);
+    virtual int  tu_rand_loop(void);
 
   private:
+    friend class             TestSuiteBase;
     TestArgBase             &_tu_args;
+    TestSuiteBase           *_tu_suite;
+    const char              *_tu_name;
     int                     *_tu_cpu_loop;
     int                      _tu_sum_loop;
 };
 
 /** \TestUnitBase
+ * --------------
  *
  */
-TestUnitBase::TestUnitBase(TestArgBase &args)
-    : _tu_args(args)
+TestUnitBase::TestUnitBase(TestArgBase &args, const char *name)
+    : _tu_args(args), _tu_suite(0), _tu_name(name)
 {
     int num_cpus = _tu_args._targ_num_cpus;
 
@@ -53,6 +64,7 @@ TestUnitBase::TestUnitBase(TestArgBase &args)
 }
 
 /** \~TestUnitBase
+ * ---------------
  *
  */
 TestUnitBase::~TestUnitBase()
@@ -61,6 +73,7 @@ TestUnitBase::~TestUnitBase()
 }
 
 /** \tu_rec_loop
+ * -------------
  *
  */
 void
@@ -73,15 +86,34 @@ TestUnitBase::tu_rec_loop(void)
     _tu_cpu_loop[cpu]++;
 }
 
+/** \tu_rand_loop
+ * --------------
+ * Return random number [0, loop] specified by the test argument.
+ */
+int
+TestUnitBase::tu_rand_loop(void)
+{
+    boost::random::uniform_int_distribution<> dist(0, _tu_args._targ_loop);
+    return dist(gl_seed_gen);
+}
+
 /** \tu_report
+ * -----------
  *
  */
 void
 TestUnitBase::tu_report(void)
 {
+    cout << _tu_name << ": all loops: " << _tu_sum_loop << endl;
+    for (int i = 0; i < _tu_args._targ_num_cpus; i++) {
+        if (_tu_cpu_loop[i] != 0) {
+            cout << "\tCPU " << i << " loops: " << _tu_cpu_loop[i] << endl;
+        }
+    }
 }
 
 /** \testunit_threadpool_fn
+ * ------------------------
  *
  */
 static void
@@ -106,10 +138,10 @@ class TestSuiteBase
     int                      _ts_test_cnt;
     TestUnitBase           **_ts_tests;
     fds::fds_threadpool     *_ts_pool;
-    boost::random::mt19937   _ts_gen;
 };
 
 /** \TestSuiteBase
+ * ---------------
  *
  */
 TestSuiteBase::TestSuiteBase(int thpool_cnt, int test_cnt)
@@ -125,6 +157,7 @@ TestSuiteBase::TestSuiteBase(int thpool_cnt, int test_cnt)
 }
 
 /** \~TestSuiteBase
+ * ----------------
  *
  */
 TestSuiteBase::~TestSuiteBase()
@@ -140,6 +173,7 @@ TestSuiteBase::~TestSuiteBase()
 }
 
 /** \tsuit_add_test
+ * ----------------
  *
  */
 void
@@ -147,13 +181,15 @@ TestSuiteBase::tsuit_add_test(TestUnitBase *test)
 {
     for (int i = 0; i < _ts_test_cnt; i++) {
         if (_ts_tests[i] == 0) {
-            _ts_tests[i] = test;
+            _ts_tests[i]    = test;
+            test->_tu_suite = this;
             break;
         }
     }
 }
 
 /** \tsuit_run_tests
+ * -----------------
  *
  */
 void
@@ -161,10 +197,10 @@ TestSuiteBase::tsuit_run_tests(int loop)
 {
     int           i, idx;
     TestUnitBase *test;
-
     boost::random::uniform_int_distribution<> dist(0, 100);
+
     for (i = 0; i < loop; i++) {
-        idx  = dist(_ts_gen) % _ts_test_cnt;
+        idx  = dist(gl_seed_gen) % _ts_test_cnt;
         test = _ts_tests[idx];
 
         _ts_pool->schedule(testunit_threadpool_fn, test);
@@ -173,6 +209,7 @@ TestSuiteBase::tsuit_run_tests(int loop)
 }
 
 /** \tsuit_report
+ * --------------
  *
  */
 void
@@ -202,38 +239,93 @@ class TPoolTestData : public TestArgBase
 class TPoolCpu : public TestUnitBase
 {
   public:
-    TPoolCpu(TPoolTestData &data) : TestUnitBase(data) {}
+    TPoolCpu(TPoolTestData &data) : TestUnitBase(data, "CPU Test") {}
     ~TPoolCpu() {}
+    void tu_exec();
 
-    void tu_exec() {}
+  private:
+    boost::random::mt19937   _rand_gen;
 };
+
+/** \TPoolCpu::tu_exec
+ * -------------------
+ */
+void
+TPoolCpu::tu_exec(void)
+{
+    int i, n, loop;
+    boost::random::uniform_int_distribution<> dist(1, 1 << 30);
+
+    loop = tu_rand_loop();
+    for (i = 0; i < loop; i++) {
+        TestUnitBase::tu_rec_loop();
+
+        /* Just burn CPU cycle to generate random number. */
+        n = dist(gl_seed_gen);
+
+        /* TODO: We should excercise boost API here. */
+    }
+}
 
 class TPoolSysCall : public TestUnitBase
 {
   public:
-    TPoolSysCall(TPoolTestData &data) : TestUnitBase(data) {}
+    TPoolSysCall(TPoolTestData &data) : TestUnitBase(data, "SysCall Test") {}
     ~TPoolSysCall() {}
 
-    void tu_exec() {}
+    void tu_exec();
 };
+
+/** \TPoolSysCall::tu_exec
+ * -----------------------
+ */
+void
+TPoolSysCall::tu_exec(void)
+{
+    int i, fd, loop;
+
+    loop = tu_rand_loop();
+    for (int i = 0; i < loop; i++) {
+        TestUnitBase::tu_rec_loop();
+
+        fd = open("/dev/null", O_DIRECT);
+        close(fd);
+    }
+}
 
 class TPoolEnqueue : public TestUnitBase
 {
   public:
-    TPoolEnqueue(TPoolTestData &data) : TestUnitBase(data) {}
+    TPoolEnqueue(TPoolTestData &data) : TestUnitBase(data, "Queue Test") {}
     ~TPoolEnqueue() {}
 
-    void tu_exec() {}
+    void tu_exec();
 };
+
+/** \TPoolEnqueue::tu_exec
+ * -----------------------
+ */
+void
+TPoolEnqueue::tu_exec(void)
+{
+}
 
 class TPoolConcurency : public TestUnitBase
 {
   public:
-    TPoolConcurency(TPoolTestData &data) : TestUnitBase(data) {}
+    TPoolConcurency(TPoolTestData &data) : TestUnitBase(data, "Concurency") {}
     ~TPoolConcurency() {}
 
-    void tu_exec() {}
+    void tu_exec();
 };
+
+/** \TPoolConcurency::tu_exec
+ * --------------------------
+ */
+void
+TPoolConcurency::tu_exec(void)
+{
+}
 
 }  // namespace fds
 
