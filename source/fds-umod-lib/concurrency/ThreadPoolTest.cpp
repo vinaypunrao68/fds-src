@@ -330,6 +330,12 @@ TPoolConcurency::tu_exec(void)
 {
 }
 
+void
+TPoolConcurency::tu_report(void)
+{
+    TestUnitBase::tu_report();
+}
+
 }  // namespace fds
 
 int

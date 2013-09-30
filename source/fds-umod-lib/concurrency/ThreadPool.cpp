@@ -167,11 +167,11 @@ thpool_worker::wk_loop(void)
             assert(!dlist_empty(&wk_link));
             wk_condition.wait(wk_owner->thp_mutex);
         }
-        wk_owner->thp_mutex.unlock();
-
         if (wk_owner->thp_state == EXITING) {
             dlist_rm_init(&wk_link);
         }
+        wk_owner->thp_mutex.unlock();
+
         assert(dlist_empty(&wk_link));
         task = wk_act_task;
         if (task != nullptr) {
