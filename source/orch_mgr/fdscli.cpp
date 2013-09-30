@@ -3,7 +3,6 @@
  */
 #include "fdsCli.h"
 
-using namespace FDSP_Types;
 using namespace std;
 using namespace FDS_ProtocolInterface;
 

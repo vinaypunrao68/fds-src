@@ -3,46 +3,6 @@
 using namespace std;
 using namespace fds;
 
-class OMgr_SubscriberI : virtual public FDS_OMgr_Subscriber {
-public:
-
-  OMgrClient *om_client;
-
-  OMgr_SubscriberI(OMgrClient *omc) {
-    this->om_client = omc;
-  }
-
-  virtual void NotifyNodeAdd(const FDS_PubSub_MsgHdrTypePtr& msg_hdr,
-			     const FDSP_Node_Info_TypePtr& node_info,
-			     const Ice::Current&) {
-
-    //printf("Received Node Add Event for tenant %d domain %d : %d; %x\n", msg_hdr->tennant_id, msg_hdr->domain_id, node_info->node_id, (unsigned int) node_info->node_ip);
-    om_client->recvNodeEvent(node_info->node_id, (unsigned int) node_info->node_ip, node_info->node_state); 
-
-  }
-  virtual void NotifyNodeRmv(const FDS_PubSub_MsgHdrTypePtr& msg_hdr,
-			     const FDSP_Node_Info_TypePtr& node_info,
-			     const Ice::Current&) {
-    //printf("Received Node Rmv Event : %d\n", node_info->node_id);
-    om_client->recvNodeEvent(node_info->node_id, (unsigned int) node_info->node_ip, node_info->node_state); 
-
-  }
-
-  virtual void NotifyDLTUpdate(const FDS_PubSub_MsgHdrTypePtr& msg_dr,
-			       const FDSP_DLT_TypePtr& dlt_info,
-			       const Ice::Current&) {
-    //printf("Received dlt update: %d\n", dlt_info->DLT_version);
-    om_client->recvDLTUpdate(dlt_info->DLT_version, dlt_info->DLT);
-  }
-  virtual void NotifyDMTUpdate(const FDS_PubSub_MsgHdrTypePtr& msg_dr,
-			       const FDSP_DMT_TypePtr& dmt_info,
-			       const Ice::Current&) {
-    //printf("Received dmt update: %d\n", dmt_info->DMT_version);
-    om_client->recvDMTUpdate(dmt_info->DMT_version, dmt_info->DMT);
-  }
-
-
-};
 
 OMgrClientRPCI::OMgrClientRPCI(OMgrClient *omc) {
     this->om_client = omc;
@@ -84,10 +44,34 @@ void OMgrClientRPCI::DetachVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& 
   om_client->recvVolAttachState(vol_msg->vol_info->volUUID, vdb, FDS_VOL_ACTION_DETACH);
 }
 
+void OMgrClientRPCI::NotifyNodeAdd(const FDSP_MsgHdrTypePtr& msg_hdr, 
+				   const FDSP_Node_Info_TypePtr& node_info,
+				   const Ice::Current&){
+  om_client->recvNodeEvent(node_info->node_id, node_info->node_type, (unsigned int) node_info->ip_lo_addr, node_info->node_state, node_info);
+}
 
-OMgrClient::OMgrClient(FDSP_MgrIdType node_type, std::string node_id, fds_log *parent_log) {
+void OMgrClientRPCI::NotifyNodeRmv(const FDSP_MsgHdrTypePtr& msg_hdr, 
+				   const FDSP_Node_Info_TypePtr& node_info,
+				   const Ice::Current&){
+  om_client->recvNodeEvent(node_info->node_id, node_info->node_type, (unsigned int) node_info->ip_lo_addr, node_info->node_state, node_info); 
+}
+
+void OMgrClientRPCI::NotifyDLTUpdate(const FDSP_MsgHdrTypePtr& msg_hdr,
+				     const FDSP_DLT_TypePtr& dlt_info,
+				     const Ice::Current&){
+  om_client->recvDLTUpdate(dlt_info->DLT_version, dlt_info->DLT);
+}
+
+void OMgrClientRPCI::NotifyDMTUpdate(const FDSP_MsgHdrTypePtr& msg_hdr,
+				     const FDSP_DMT_TypePtr& dmt_info,
+				     const Ice::Current&){
+  om_client->recvDMTUpdate(dmt_info->DMT_version, dmt_info->DMT);
+}
+
+
+OMgrClient::OMgrClient(FDSP_MgrIdType node_type, std::string node_name, fds_log *parent_log) {
   my_node_type = node_type;
-  my_node_id = node_id;
+  my_node_name = node_name;
   if (parent_log) {
     omc_log = parent_log;
   }
@@ -99,7 +83,7 @@ OMgrClient::OMgrClient(FDSP_MgrIdType node_type, std::string node_id, fds_log *p
 
 OMgrClient::OMgrClient() {
   my_node_type = FDSP_STOR_HVISOR;
-  my_node_id = "localhost-sh";
+  my_node_name = "localhost-sh";
   omc_log = new fds_log("omc", "logs");
   initRPCComm();
 }
@@ -142,6 +126,7 @@ int OMgrClient::initRPCComm() {
 
 }  
 
+#if 0
 
 int OMgrClient::subscribeToOmEvents(unsigned int om_ip_addr, int tenn_id, int dom_id, int omc_port_num) {
 
@@ -204,11 +189,13 @@ int OMgrClient::subscribeToOmEvents(unsigned int om_ip_addr, int tenn_id, int do
   return 0;
 }    
 
+#endif
 
 // Call this to setup the (receiving side) endpoint to lister for control path requests from OM.
 int OMgrClient::startAcceptingControlMessages() {
   return startAcceptingControlMessages(0);
 }
+
 int OMgrClient::startAcceptingControlMessages(fds_uint32_t port_num) {
 
   Ice::PropertiesPtr rpc_props = rpc_comm->getProperties();
@@ -272,7 +259,7 @@ int OMgrClient::registerNodeWithOM() {
   initOMMsgHdr(msg_hdr);
   FDSP_RegisterNodeTypePtr reg_node_msg = new FDSP_RegisterNodeType;
   reg_node_msg->node_type = my_node_type;
-  reg_node_msg->node_id = my_node_id;
+  reg_node_msg->node_name = my_node_name;
   reg_node_msg->ip_hi_addr = 0;
   reg_node_msg->ip_lo_addr = fds::str_to_ipv4_addr(props->getProperty("OMgrClient.MyIPAddr")); //my_address!
   reg_node_msg->control_port = my_control_port;
@@ -294,7 +281,7 @@ int OMgrClient::registerNodeWithOM() {
   return (0);
 }
 
-int OMgrClient::recvNodeEvent(int node_id, unsigned int node_ip, int node_state) {
+int OMgrClient::recvNodeEvent(int node_id, FDSP_MgrIdType node_type, unsigned int node_ip, int node_state, const FDSP_Node_Info_TypePtr& node_info) {
   
   node_info_t& node = node_map[node_id];
 
@@ -302,7 +289,7 @@ int OMgrClient::recvNodeEvent(int node_id, unsigned int node_ip, int node_state)
   node.node_ip_address = node_ip;
   node.node_state = (FDSP_NodeState) node_state;
 
-  FDS_PLOG(omc_log) << "OMClient received node event for node " << node_id << " with ip address " << node_ip << " state - " << node_state;
+  FDS_PLOG(omc_log) << "OMClient received node event for node " << node_id << ", type - " << node_info->node_type << " with ip address " << node_ip << " and state - " << node_state;
 
   if (this->node_evt_hdlr) {
     this->node_evt_hdlr(node_id, node_ip, node_state);

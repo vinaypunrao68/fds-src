@@ -42,7 +42,7 @@ TESTS = \
 	om_client_unit_test
 
 OBJS = $(SRCS:%.cpp=%.o)
-UTEST_OBJS = ../fdsp/fdsp_types.o ../fdsp/fds_pubsub.o ../fdsp/FDSP.o $(UTIL_OBJS)
+UTEST_OBJS = ../fdsp/FDSP.o $(UTIL_OBJS)
 
 COFLAGS = -Wall -Werror $(CPP11) $(IDIR) $(LDIR) $(OPTS)
 

@@ -108,12 +108,12 @@ ObjectStorMgr::~ObjectStorMgr()
 void ObjectStorMgr::nodeEventOmHandler(int node_id, unsigned int node_ip_addr, int node_state)
 {
     switch(node_state) {
-       case FDSP_Types::FDS_Node_Up :
+       case FDS_Node_Up :
            FDS_PLOG(objStorMgr->GetLog()) << "ObjectStorMgr - Node UP event NodeId " << node_id << " Node IP Address " <<  node_ip_addr;
          break;
 
-       case FDSP_Types::FDS_Node_Down:
-       case FDSP_Types::FDS_Node_Rmvd:
+       case FDS_Node_Down:
+       case FDS_Node_Rmvd:
            FDS_PLOG(objStorMgr->GetLog()) << " ObjectStorMgr - Node Down event NodeId :" << node_id << " node IP addr" << node_ip_addr ;
         break;
     }

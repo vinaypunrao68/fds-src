@@ -7,6 +7,8 @@
 #include <iostream>  // NOLINT(*)
 #include <string>
 
+using namespace FDS_ProtocolInterface;
+
 namespace fds {
 
 OrchMgr *orchMgr;
@@ -15,6 +17,9 @@ OrchMgr::OrchMgr()
     : port_num(0) {
   om_log = new fds_log("om", "logs");
   om_mutex = new fds_mutex("OrchMgrMutex");
+  for (int i = 0; i < MAX_OM_NODES; i++) {
+	node_id_to_name[i] = "";
+  }
   FDS_PLOG(om_log) << "Constructing the Orchestration  Manager";
 }
 
@@ -145,6 +150,103 @@ void OrchMgr::initOMMsgHdr(const FdspMsgHdrPtr& msg_hdr) {
   msg_hdr->result = FDS_ProtocolInterface::FDSP_ERR_OK;
 }
 
+int OrchMgr::getFreeNodeId(std::string& node_name) {
+	int i; 
+  	for (i = 0; i < MAX_OM_NODES; i++) {
+		if (node_id_to_name[i] == "") {
+			node_id_to_name[i] = node_name;
+			return i;
+		}
+  	}
+	FDS_PLOG(om_log) << "No id available to allocate to node " << node_name;
+ 	return -1;
+}
+
+
+// Dump all existing SM/DM nodes info as a sequence of NotifyNodeAdd ctrl messages to a newly registering node
+void OrchMgr::sendMgrNodeListToFdsNode(NodeInfo& n_info) {
+	return;
+} 
+
+
+// Broadcast a node event to all existing DM/SM/HV nodes
+void OrchMgr::sendNodeEventToFdsNodes(NodeInfo& nodeInfo, FDS_ProtocolInterface::FDSP_NodeState node_state) {
+
+
+  FdspMsgHdrPtr msg_hdr_ptr = new FDS_ProtocolInterface::FDSP_MsgHdrType;
+  FDSP_Node_Info_TypePtr node_info_ptr = new FDSP_Node_Info_Type;
+
+  initOMMsgHdr(msg_hdr_ptr);
+
+  msg_hdr_ptr->msg_code = FDSP_MSG_NOTIFY_NODE_ADD;
+  msg_hdr_ptr->msg_id = 0;
+  msg_hdr_ptr->tennant_id = 1;
+  msg_hdr_ptr->local_domain_id = 1;
+
+  node_info_ptr->node_id = nodeInfo.node_id;
+  node_info_ptr->node_type = nodeInfo.node_type;
+  node_info_ptr->node_name = nodeInfo.node_name;
+  node_info_ptr->node_state = node_state;
+  node_info_ptr->ip_lo_addr = nodeInfo.node_ip_address;
+  node_info_ptr->control_port = nodeInfo.control_port;
+  node_info_ptr->data_port = nodeInfo.data_port;
+
+  for (int i = 0; i < 3; i++) {
+    node_map_t& node_map = (i == 0) ? currentDmMap:((i == 1)?currentSmMap:currentShMap);
+
+    msg_hdr_ptr->dst_id = (i == 0) ?
+      FDS_ProtocolInterface::FDSP_DATA_MGR :
+      ((i == 1)?FDS_ProtocolInterface::FDSP_STOR_MGR:FDSP_STOR_HVISOR);
+
+    for (auto it = node_map.begin(); it != node_map.end(); ++it) {
+
+      fds_node_name_t node_name = it->first;
+      NodeInfo& next_node_info = it->second;
+      if (node_name == nodeInfo.node_name) {
+	continue;
+      }
+      
+      FDS_PLOG(om_log) << "Sending node notification to node " << node_name << " for node " << nodeInfo.node_name << " state - " << node_state;
+
+      ReqCtrlPrx OMClientAPI = next_node_info.cpPrx;
+      if (node_state == FDS_Node_Up) {
+	  OMClientAPI->NotifyNodeAdd(msg_hdr_ptr, node_info_ptr);
+      } else {
+	  OMClientAPI->NotifyNodeRmv(msg_hdr_ptr, node_info_ptr);
+      }
+    }
+  }
+}
+
+// Dump all existing volumes (as a sequence of create vol ctrl messages) to a newly registering SM/DM Node
+void OrchMgr::sendAllVolumesToFdsMgrNode(NodeInfo node_info) {
+
+  ReqCtrlPrx OMClientAPI = node_info.cpPrx;
+   
+  FdspMsgHdrPtr msg_hdr = new FDS_ProtocolInterface::FDSP_MsgHdrType;
+  FdspNotVolPtr vol_msg = new FDS_ProtocolInterface::FDSP_NotifyVolType;
+  vol_msg->vol_info = new FDS_ProtocolInterface::FDSP_VolumeInfoType();
+
+  initOMMsgHdr(msg_hdr);
+  vol_msg->type = FDS_ProtocolInterface::FDSP_NOTIFY_ADD_VOL;
+  msg_hdr->dst_id = FDS_ProtocolInterface::FDSP_DATA_MGR;
+  
+  for (auto it = volumeMap.begin(); it != volumeMap.end(); ++it) {
+
+    VolumeInfo *pVolInfo = it->second;
+    FDS_Volume* pVol = &(pVolInfo->properties);
+    msg_hdr->glob_volume_id = pVol->volUUID;
+    vol_msg->vol_name = std::string(pVol->vol_name);
+    copyPropertiesToVolumeInfo(vol_msg->vol_info, pVol);
+    
+    FDS_PLOG(om_log) << "Sending create vol to node " << node_info.node_name << " for volume " << pVolInfo->volUUID;
+    OMClientAPI->NotifyAddVol(msg_hdr, vol_msg);
+    
+  }
+
+}
+
+// Broadcast create vol ctrl message to all DM/SM Nodes
 void OrchMgr::sendCreateVolToFdsNodes(VolumeInfo  *pVolInfo) {
   FDS_Volume* pVol = &(pVolInfo->properties);
 
@@ -165,8 +267,10 @@ void OrchMgr::sendCreateVolToFdsNodes(VolumeInfo  *pVolInfo) {
         FDS_ProtocolInterface::FDSP_STOR_MGR;
 
     for (auto it = node_map.begin(); it != node_map.end(); ++it) {
-      fds_node_id_t node_id = it->first;
+      fds_node_name_t node_name = it->first;
       NodeInfo& node_info = it->second;
+
+      FDS_PLOG(om_log) << "Sending create vol to node " << node_name << " for volume " << pVolInfo->volUUID;
 
       ReqCtrlPrx OMClientAPI = node_info.cpPrx;
       OMClientAPI->NotifyAddVol(msg_hdr, vol_msg);
@@ -174,6 +278,7 @@ void OrchMgr::sendCreateVolToFdsNodes(VolumeInfo  *pVolInfo) {
   }
 }
 
+// Broadcast delete vol ctrl message to all DM/SM Nodes
 void OrchMgr::sendDeleteVolToFdsNodes(VolumeInfo *pVolInfo) {
   FDS_Volume *pVol = &(pVolInfo->properties);
 
@@ -194,8 +299,10 @@ void OrchMgr::sendDeleteVolToFdsNodes(VolumeInfo *pVolInfo) {
         FDS_ProtocolInterface::FDSP_STOR_MGR;
 
     for (auto it = node_map.begin(); it != node_map.end(); ++it) {
-      fds_node_id_t node_id = it->first;
+      fds_node_name_t node_name = it->first;
       NodeInfo& node_info = it->second;
+
+      FDS_PLOG(om_log) << "Sending delete vol to node " << node_name << " for volume " << pVolInfo->volUUID;
 
       ReqCtrlPrx OMClientAPI = node_info.cpPrx;
       OMClientAPI->NotifyRmVol(msg_hdr, vol_msg);
@@ -203,7 +310,10 @@ void OrchMgr::sendDeleteVolToFdsNodes(VolumeInfo *pVolInfo) {
   }
 }
 
-void OrchMgr::sendAttachVolToHVNode(fds_node_id_t node_id, VolumeInfo *pVolInfo) {
+// Send attach vol ctrl message to a HV node
+void OrchMgr::sendAttachVolToHvNode(fds_node_name_t node_name,
+				    VolumeInfo *pVolInfo) {
+
   FDS_Volume *pVol = &(pVolInfo->properties);
 
   FdspMsgHdrPtr msg_hdr = new FDS_ProtocolInterface::FDSP_MsgHdrType;
@@ -218,14 +328,18 @@ void OrchMgr::sendAttachVolToHVNode(fds_node_id_t node_id, VolumeInfo *pVolInfo)
   vol_msg->vol_name = std::string(pVol->vol_name);
   copyPropertiesToVolumeInfo(vol_msg->vol_info, pVol);
 
-  NodeInfo& node_info = currentShMap[node_id];
+  NodeInfo& node_info = currentShMap[node_name];
+
+  FDS_PLOG(om_log) << "Sending attach vol to node " << node_name << " for volume " << pVolInfo->volUUID;
 
   ReqCtrlPrx OMClientAPI = node_info.cpPrx;
   OMClientAPI->AttachVol(msg_hdr, vol_msg);
 }
 
-void OrchMgr::sendDetachVolToHVNode(fds_node_id_t node_id,
+// Send attach vol ctrl message to a HV node
+void OrchMgr::sendDetachVolToHvNode(fds_node_name_t node_name,
                                     VolumeInfo *pVolInfo) {
+
   FDS_Volume *pVol = &(pVolInfo->properties);
 
   FdspMsgHdrPtr msg_hdr = new FDS_ProtocolInterface::FDSP_MsgHdrType;
@@ -240,14 +354,33 @@ void OrchMgr::sendDetachVolToHVNode(fds_node_id_t node_id,
   vol_msg->vol_name = std::string(pVol->vol_name);
   copyPropertiesToVolumeInfo(vol_msg->vol_info, pVol);
 
-  NodeInfo& node_info = currentShMap[node_id];
+  NodeInfo& node_info = currentShMap[node_name];
+
+  FDS_PLOG(om_log) << "Sending detach vol to node " << node_name << " for volume " << pVolInfo->volUUID;
 
   ReqCtrlPrx OMClientAPI = node_info.cpPrx;
   OMClientAPI->DetachVol(msg_hdr, vol_msg);
 }
 
+// Dump all concerned volumes as a sequence of attach vol ctrl messages to a HV node
+void OrchMgr::sendAllVolumesToHvNode(fds_node_name_t node_name) {
+
+  for (auto it = volumeMap.begin(); it != volumeMap.end(); ++it) {
+
+    VolumeInfo *pVolInfo = it->second;
+    for (int i = 0; i < pVolInfo->hv_nodes.size(); i++) {
+      if (pVolInfo->hv_nodes[i] == node_name) {
+	sendAttachVolToHvNode(node_name, pVolInfo);
+	break;
+      }
+    }
+  }
+    
+}
+
 void OrchMgr::CreateVol(const FdspMsgHdrPtr& fdsp_msg,
                         const FdspCrtVolPtr& crt_vol_req) {
+
   int  vol_id = crt_vol_req->vol_info->volUUID;
   std::string vol_name = crt_vol_req->vol_info->vol_name;
 
@@ -264,8 +397,9 @@ void OrchMgr::CreateVol(const FdspMsgHdrPtr& fdsp_msg,
   new_vol->volUUID = vol_id;
   copyVolumeInfoToProperties(&(new_vol->properties), crt_vol_req->vol_info);
   volumeMap[vol_id] = new_vol;
-  om_mutex->unlock();
   sendCreateVolToFdsNodes(new_vol);
+  om_mutex->unlock();
+ 
 }
 
 void OrchMgr::DeleteVol(const FdspMsgHdrPtr& fdsp_msg,
@@ -282,20 +416,18 @@ void OrchMgr::DeleteVol(const FdspMsgHdrPtr& fdsp_msg,
     return;
   }
   VolumeInfo *del_vol = volumeMap[vol_id];
-  om_mutex->unlock();
-
+ 
   for (int i = 0; i < del_vol->hv_nodes.size(); i++) {
     if (currentShMap.count(del_vol->hv_nodes[i]) == 0) {
       FDS_PLOG(om_log) << "Inconsistent State Detected. "
                        << "HV node in volume's hvnode list but not in SH map";
       assert(0);
     }
-    sendDetachVolToHVNode(del_vol->hv_nodes[i], del_vol);
+    sendDetachVolToHvNode(del_vol->hv_nodes[i], del_vol);
   }
 
   sendDeleteVolToFdsNodes(del_vol);
 
-  om_mutex->lock();
   volumeMap.erase(vol_id);
   om_mutex->unlock();
 
@@ -326,10 +458,10 @@ void OrchMgr::AttachVol(const FdspMsgHdrPtr &fdsp_msg,
                         const FdspAttVolCmdPtr &atc_vol_req) {
   int  vol_id = atc_vol_req->vol_uuid;
   std::string vol_name = atc_vol_req->vol_name;
-  fds_node_id_t node_id = atc_vol_req->node_id;
+  fds_node_name_t node_name = atc_vol_req->node_id;
 
   FDS_PLOG(GetLog()) << "Received Attach Vol Req for volume "
-                     << vol_name << " ; id - " << vol_id;
+                     << vol_name << " ; id - " << vol_id << " at node " << node_name;
   om_mutex->lock();
   if (volumeMap.count(vol_id) == 0) {
     FDS_PLOG(om_log) << "Received Attach Vol for non-existent volume "
@@ -338,26 +470,29 @@ void OrchMgr::AttachVol(const FdspMsgHdrPtr &fdsp_msg,
     return;
   }
   VolumeInfo *this_vol = volumeMap[vol_id];
-
+#if 0
+  // Let's actually allow this, as a means of provisioning before HV is online
   if (currentShMap.count(node_id) == 0) {
     FDS_PLOG(om_log) << "Received Attach Vol for non-existent node " << node_id;
     om_mutex->unlock();
     return;
   }
+#endif
 
   for (int i = 0; i < this_vol->hv_nodes.size(); i++) {
-    if (this_vol->hv_nodes[i] == node_id) {
+    if (this_vol->hv_nodes[i] == node_name) {
       FDS_PLOG(om_log) << "Attach Vol req for volume " << vol_id
                        << " rejected because this volume is "
-                       << "already attached at node " << node_id;
+                       << "already attached at node " << node_name;
       om_mutex->unlock();
       return;
     }
   }
-  this_vol->hv_nodes.push_back(node_id);
+  this_vol->hv_nodes.push_back(node_name);
+  if (currentShMap.count(node_name) > 0) {
+    sendAttachVolToHvNode(node_name, this_vol);
+  }
   om_mutex->unlock();
-
-  sendAttachVolToHVNode(node_id, this_vol);
 }
 
 
@@ -366,11 +501,11 @@ void OrchMgr::DetachVol(const FdspMsgHdrPtr    &fdsp_msg,
                         const FdspAttVolCmdPtr &dtc_vol_req) {
   int  vol_id = dtc_vol_req->vol_uuid;
   std::string vol_name = dtc_vol_req->vol_name;
-  fds_node_id_t node_id = dtc_vol_req->node_id;
+  fds_node_name_t node_name = dtc_vol_req->node_id;
   fds_bool_t node_not_attached = true;
 
   FDS_PLOG(GetLog()) << "Received Detach Vol Req for volume "
-                     << vol_name << " ; id - " << vol_id;
+                     << vol_name << " ; id - " << vol_id << " at node " << node_name;
   om_mutex->lock();
   if (volumeMap.count(vol_id) == 0) {
     FDS_PLOG(om_log) << "Received Detach Vol for non-existent volume "
@@ -379,28 +514,32 @@ void OrchMgr::DetachVol(const FdspMsgHdrPtr    &fdsp_msg,
     return;
   }
   VolumeInfo *this_vol = volumeMap[vol_id];
-
+#if 0
   if (currentShMap.count(node_id) == 0) {
     FDS_PLOG(om_log) << "Received Detach Vol for non-existent node " << node_id;
     om_mutex->unlock();
     return;
   }
+#endif
 
   for (int i = 0; i < this_vol->hv_nodes.size(); i++) {
-    if (this_vol->hv_nodes[i] == node_id) {
+    if (this_vol->hv_nodes[i] == node_name) {
       node_not_attached = false;
       this_vol->hv_nodes.erase(this_vol->hv_nodes.begin()+i);
       break;
     }
   }
-  om_mutex->unlock();
   if (node_not_attached) {
     FDS_PLOG(om_log) << "Detach Vol req for volume " << vol_id
                      << " rejected because this volume is "
-                     << "not attached at node " << node_id;
+                     << "not attached at node " << node_name;
+  } else {
+    if (currentShMap.count(node_name) > 0) {
+      sendDetachVolToHvNode(node_name, this_vol);
+    }
   }
+  om_mutex->unlock();
 
-  sendDetachVolToHVNode(node_id, this_vol);
 }
 
 void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
@@ -410,11 +549,14 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
   std::ostringstream tcpProxyStr;
 
   FDS_PLOG(GetLog()) << "Received RegisterNode Msg"
-                     << "  Node Id:" << reg_node_req->node_id
+                     << "  Node name:" << reg_node_req->node_name
                      << "  Node IP:" << std::hex << reg_node_req->ip_lo_addr
                      << "  Node Type:" << std::dec << reg_node_req->node_type
                      << "  Control Port: " << reg_node_req->control_port
                      << "  Data Port: " << reg_node_req->data_port;
+
+  node_map_t& node_map = (reg_node_req->node_type == FDSP_STOR_MGR)? currentSmMap:(
+										   (reg_node_req->node_type == FDSP_DATA_MGR)? currentDmMap: currentShMap);
 
   ip_addr_str = ipv4_addr_to_str(reg_node_req->ip_lo_addr);
   
@@ -422,29 +564,50 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
   tcpProxyStr << "OrchMgrClient: tcp -h " << ip_addr_str
               << " -p  " << reg_node_req->control_port;
 
+
+
+  om_mutex->lock();
+
+  if (node_map.count(reg_node_req->node_name) > 0) {
+    FDS_PLOG(GetLog()) << "Duplicate Node Registration for " << reg_node_req->node_name;
+    return;
+  }
+
+  int new_node_id = getFreeNodeId(reg_node_req->node_name);
+
   // build the SM node map
-  NodeInfo n_info(reg_node_req->node_id,
+  NodeInfo n_info(new_node_id, 
+		  reg_node_req->node_name,
+		  reg_node_req->node_type,
                   reg_node_req->ip_lo_addr,
                   reg_node_req->control_port,
                   n_info.data_port = reg_node_req->data_port,
-                  n_info.node_state = FDSP_Types::FDS_Node_Up,
+                  n_info.node_state = FDS_ProtocolInterface::FDS_Node_Up,
                   FDS_ProtocolInterface::
                   FDSP_ControlPathReqPrx::
                   checkedCast(communicator()->stringToProxy(tcpProxyStr.str())));
+  
+  node_map[reg_node_req->node_name] = n_info;
 
-  switch (reg_node_req->node_type) {
-    case FDS_ProtocolInterface::FDSP_STOR_MGR:
-      currentSmMap[reg_node_req->node_id] = n_info;
-      break;
-    case FDS_ProtocolInterface::FDSP_DATA_MGR:
-      currentDmMap[reg_node_req->node_id] = n_info;
-      break;
-    case FDS_ProtocolInterface::FDSP_STOR_HVISOR:
-      currentShMap[reg_node_req->node_id] = n_info;
-      break;
-    default:
-      FDS_PLOG(GetLog()) << "Unknown node type received";
+  // If this is a SM or a DM, let existing nodes know about this node
+  if (reg_node_req->node_type != FDSP_STOR_HVISOR)
+    sendNodeEventToFdsNodes(n_info, n_info.node_state);
+
+  // Let this new node know about the existing node list
+  sendMgrNodeListToFdsNode(n_info);
+
+  // Let this new node know about the existing volumes.
+  // If it's a HV node, send only the volumes it need to attach
+  if (reg_node_req->node_type == FDSP_STOR_HVISOR) {
+    sendAllVolumesToHvNode(reg_node_req->node_name);
+  } else {
+    sendAllVolumesToFdsMgrNode(n_info);
   }
+
+  // TODO: Update DLT, DMT and republish those here. 
+
+  om_mutex->unlock();
+
 }
 
 void OrchMgr::ReqCfgHandler::CreateVol(const FdspMsgHdrPtr& fdsp_msg,

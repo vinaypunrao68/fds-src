@@ -18,15 +18,18 @@
 #include "include/fds_types.h"
 #include "include/fds_err.h"
 #include "include/fds_volume.h"
-#include "fdsp/fdsp_types.h"
 #include "fdsp/FDSP.h"
 #include "util/Log.h"
 #include "util/concurrency/Mutex.h"
 
+#define MAX_OM_NODES 512
+
 namespace fds {
 
-  typedef std::string fds_node_id_t;
-  typedef FDSP_Types::FDSP_NodeState FdspNodeState;
+  typedef std::string fds_node_name_t;
+  typedef int fds_node_id_t;
+  typedef FDS_ProtocolInterface::FDSP_MgrIdType fds_node_type_t;
+  typedef FDS_ProtocolInterface::FDSP_NodeState FdspNodeState;
   typedef FDS_ProtocolInterface::FDSP_ConfigPathReqPtr  ReqCfgHandlerPtr;
   typedef FDS_ProtocolInterface::FDSP_ControlPathReqPrx ReqCtrlPrx;
 
@@ -40,8 +43,8 @@ namespace fds {
   typedef FDS_ProtocolInterface::FDSP_ModifyPolicyTypePtr FdspModPolPtr;
 
   /*
-   * TODO: What's the difference between AttachVol and AttachVolCmd?
-   * Can we get rid of one?
+   * NOTE: AttVolCmd is the command in the config plane, received at OMfrom CLI/GUI.
+   * AttVol is the attach vol message sent from the OM to the HVs in the control plane.
    */
   typedef FDS_ProtocolInterface::FDSP_AttachVolTypePtr    FdspAttVolPtr;
   typedef FDS_ProtocolInterface::FDSP_AttachVolCmdTypePtr FdspAttVolCmdPtr;
@@ -53,7 +56,9 @@ namespace fds {
   class NodeInfo {
  private:
  public:
+    fds_node_name_t node_name;
     fds_node_id_t node_id;
+    fds_node_type_t node_type;
     fds_uint32_t  node_ip_address;
     fds_uint32_t  control_port;
     fds_uint32_t  data_port;
@@ -63,17 +68,21 @@ namespace fds {
  public:
     NodeInfo() { }
     NodeInfo(const fds_node_id_t& _id,
+	     const fds_node_name_t& _name,
+	     const fds_node_type_t& _type,
              fds_uint32_t _ip,
              fds_uint32_t _cp_port,
              fds_uint32_t _d_port,
              const FdspNodeState& _state,
              const ReqCtrlPrx& _prx) :
     node_id(_id),
-        node_ip_address(_ip),
-        control_port(_cp_port),
-        data_port(_d_port),
-        node_state(_state),
-        cpPrx(_prx) {
+      node_name(_name),
+      node_type(_type),
+      node_ip_address(_ip),
+      control_port(_cp_port),
+      data_port(_d_port),
+      node_state(_state),
+      cpPrx(_prx) {
     }
 
     ~NodeInfo() {
@@ -85,10 +94,10 @@ namespace fds {
     std::string vol_name;
     fds_volid_t volUUID;
     FDS_Volume  properties;
-    std::vector<fds_node_id_t> hv_nodes;
+    std::vector<fds_node_name_t> hv_nodes;
   };
 
-  typedef std::unordered_map<fds_node_id_t, NodeInfo> node_map_t;
+  typedef std::unordered_map<fds_node_name_t, NodeInfo> node_map_t;
   typedef std::unordered_map<int, VolumeInfo *> volume_map_t;
 
   class OrchMgr : virtual public Ice::Application {
@@ -100,6 +109,7 @@ namespace fds {
     node_map_t currentShMap;
     volume_map_t volumeMap;
     fds_mutex *om_mutex;
+    std::string node_id_to_name[MAX_OM_NODES];
 
     /*
      * Cmdline configurables
@@ -112,10 +122,17 @@ namespace fds {
     void copyPropertiesToVolumeInfo(FdspVolInfoPtr v_info,
                                     FDS_Volume *pVol);
     void initOMMsgHdr(const FdspMsgHdrPtr& fdsp_msg);
-    void sendCreateVolToFdsNodes(VolumeInfo *pVol);
-    void sendDeleteVolToFdsNodes(VolumeInfo *pVol);
-    void sendAttachVolToHVNode(fds_node_id_t node_id, VolumeInfo *pVol);
-    void sendDetachVolToHVNode(fds_node_id_t node_id, VolumeInfo *pVol);
+
+    int  getFreeNodeId(std::string& node_name); // Get a new node_id to be allocated for a new node 
+
+    void sendNodeEventToFdsNodes(NodeInfo& nodeInfo, FDS_ProtocolInterface::FDSP_NodeState node_state); // Broadcast a node event to all DM/SM/HV nodes
+    void sendCreateVolToFdsNodes(VolumeInfo *pVol); // Broadcast create vol ctrl message to all DM/SM Nodes
+    void sendDeleteVolToFdsNodes(VolumeInfo *pVol); // Broadcast delete vol ctrl message to all DM/SM Nodes
+    void sendAllVolumesToFdsMgrNode(NodeInfo node_info); // Dump all existing volumes (as a sequence of create vol ctrl messages) to a newly registering SM/DM Node
+    void sendAttachVolToHvNode(fds_node_name_t node_name, VolumeInfo *pVol); // Send attach vol ctrl message to a HV node
+    void sendDetachVolToHvNode(fds_node_name_t node_name, VolumeInfo *pVol); // Send detach vol ctrl message to a HV node
+    void sendAllVolumesToHvNode(fds_node_name_t node_name); // Dump all concerned volumes as a sequence of attach vol ctrl messages to a HV node
+    void sendMgrNodeListToFdsNode(NodeInfo& n_info); // Dump all existing SM/DM nodes info as a sequence of NotifyNodeAdd ctrl messages to a newly registering node
 
   public:
     OrchMgr();

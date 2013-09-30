@@ -17,15 +17,12 @@
 #include <string>
 #include <Ice/Ice.h>
 #include "include/fds_types.h"
-#include "fdsp/fdsp_types.h"
 #include "fdsp/FDSP.h"
 #include "include/fds_err.h"
 #include "util/Log.h"
 
 
 
-
-using namespace FDSP_Types;
 using namespace FDS_ProtocolInterface;
 
 namespace fds {

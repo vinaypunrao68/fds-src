@@ -12,7 +12,6 @@ struct FDS_ObjectIdType {
   byte    conflict_id;
 };
 
-
 enum fds_dmgr_txn_state {
   FDS_DMGR_TXN_STATUS_INVALID,
   FDS_DMGR_TXN_STATUS_OPEN,
@@ -49,7 +48,12 @@ enum FDSP_MsgCodeType {
 
    FDSP_MSG_NOTIFY_VOL,
    FDSP_MSG_ATTACH_VOL_CTRL,
-   FDSP_MSG_DETACH_VOL_CTRL
+   FDSP_MSG_DETACH_VOL_CTRL,
+   FDSP_MSG_NOTIFY_NODE_ADD,
+   FDSP_MSG_NOTIFY_NODE_RMV,
+   FDSP_MSG_DLT_UPDATE,
+   FDSP_MSG_DMT_UPDATE,
+   FDSP_MSG_NODE_UPDATE
 
 };
 
@@ -152,6 +156,42 @@ class FDSP_QueryCatalogType {
   int      dm_operation;       /* Transaction type = OPEN, COMMIT, CANCEL */
 };
 
+enum FDSP_NodeState {
+     FDS_Node_Up,
+     FDS_Node_Down,
+     FDS_Node_Rmvd
+};
+
+class FDSP_Node_Info_Type {
+
+  int      node_id;
+  FDSP_NodeState     node_state;
+  FDSP_MgrIdType node_type; /* Type of node - SM/DM/HV */
+  string 	 node_name;    /* node indetifier - string */
+  long		 ip_hi_addr; /* IP V6 high address */
+  long		 ip_lo_addr; /* IP V4 address of V6 low address of the node */
+  int		 control_port; /* Port number to contact for control messages */
+  int		 data_port; /* Port number to send datapath requests */
+
+};
+
+sequence<FDSP_Node_Info_Type> Node_Info_List_Type;
+
+sequence<int> Node_List_Type;
+sequence<Node_List_Type> Node_Table_Type;
+
+
+class FDSP_DLT_Type {
+      int DLT_version;
+      Node_Table_Type DLT;
+};
+
+class FDSP_DMT_Type {
+      int DMT_version;
+      Node_Table_Type DMT;
+};
+
+
 class FDSP_VolumeInfoType {
 
   string 		 vol_name;  /* Name of the volume */
@@ -232,7 +272,7 @@ class FDSP_ModifyPolicyType {
 
 class FDSP_RegisterNodeType {
   FDSP_MgrIdType node_type; /* Type of node - SM/DM/HV */
-  string 	 node_id;    /* node indetifier */
+  string 	 node_name;    /* node indetifier - string */
   long		 ip_hi_addr; /* IP V6 high address */
   long		 ip_lo_addr; /* IP V4 address of V6 low address of the node */
   int		 control_port; /* Port number to contact for control messages */
@@ -338,6 +378,10 @@ interface FDSP_ControlPathReq {
   void NotifyRmVol(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyVolType not_rm_vol_req);
   void AttachVol(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolType atc_vol_req);
   void DetachVol(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolType dtc_vol_req);
+  void NotifyNodeAdd(FDSP_MsgHdrType fdsp_msg, FDSP_Node_Info_Type node_info);
+  void NotifyNodeRmv(FDSP_MsgHdrType fdsp_msg, FDSP_Node_Info_Type node_info);
+  void NotifyDLTUpdate(FDSP_MsgHdrType fdsp_msg, FDSP_DLT_Type dlt_info);
+  void NotifyDMTUpdate(FDSP_MsgHdrType fdsp_msg, FDSP_DMT_Type dmt_info);
 };
 
 interface FDSP_ControlPathResp {
@@ -345,6 +389,10 @@ interface FDSP_ControlPathResp {
   void NotifyRmVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyVolType not_rm_vol_resp);
   void AttachVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolType atc_vol_resp);
   void DetachVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolType dtc_vol_resp);
+  void NotifyNodeAddResp(FDSP_MsgHdrType fdsp_msg, FDSP_Node_Info_Type node_info_resp);
+  void NotifyNodeRmvResp(FDSP_MsgHdrType fdsp_msg, FDSP_Node_Info_Type node_info_resp);
+  void NotifyDLTUpdateResp(FDSP_MsgHdrType fdsp_msg, FDSP_DLT_Type dlt_info_resp);
+  void NotifyDMTUpdateResp(FDSP_MsgHdrType fdsp_msg, FDSP_DMT_Type dmt_info_resp);
 };
 
 };
