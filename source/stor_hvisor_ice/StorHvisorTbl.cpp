@@ -39,14 +39,14 @@ void StorHvDataPlacement::nodeEventHandler(int node_id, unsigned int node_ip_add
 int storMgrPortNum = 6901;
 int dataMgrPortNum = 6900;
     switch(node_state) { 
-       case FDSP_Types::FDS_Node_Up : 
+       case FDS_ProtocolInterface::FDS_Node_Up : 
            FDS_PLOG(storHvisor->GetLog()) << "StorHvisorTbl - Node UP event NodeId " << node_id << " Node IP Address " <<  node_ip_addr;
           storHvisor->rpcSwitchTbl->Add_RPC_EndPoint(node_ip_addr, storMgrPortNum, FDSP_STOR_MGR);
           storHvisor->rpcSwitchTbl->Add_RPC_EndPoint(node_ip_addr, dataMgrPortNum, FDSP_DATA_MGR); 
          break;
 
-       case FDSP_Types::FDS_Node_Down:
-       case FDSP_Types::FDS_Node_Rmvd:
+       case FDS_ProtocolInterface::FDS_Node_Down:
+       case FDS_ProtocolInterface::FDS_Node_Rmvd:
            FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTbl - Node Down event NodeId :" << node_id << " node IP addr" << node_ip_addr ;
           storHvisor->rpcSwitchTbl->Delete_RPC_EndPoint(node_ip_addr,  FDSP_STOR_MGR);
           storHvisor->rpcSwitchTbl->Delete_RPC_EndPoint(node_ip_addr,  FDSP_DATA_MGR);

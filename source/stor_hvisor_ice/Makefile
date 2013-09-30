@@ -36,7 +36,7 @@ CPP11		= yes
 
 MY_FLAGS	= -std=c++0x -Wall -Werror -g2 -I../ -I../lib/Ice-3.5.0/cpp/include -I../fdsp/ -I/usr/local/include/boost \
                   -I../util/concurrency
-MY_LIBS		= -L../lib/Ice-3.5.0/cpp/lib -lpthread -lIce -lIceUtil ../fdsp/FDSP.o ./VolumeCatalogCache.o ../fdsp/fds_pubsub.o -lIceStorm ../lib/OMgrClient.o -lboost_log -lboost_system -lboost_thread -lboost_date_time -lboost_filesystem ../util/Log.o ../util/PerfStat.o ../fdsp/fdsp_types.o ../util/hash/MurmurHash3.o ../util/concurrency/Mutex.o ../util/concurrency/Synchronization.o
+MY_LIBS		= -L../lib/Ice-3.5.0/cpp/lib -lpthread -lIce -lIceUtil ../fdsp/FDSP.o ./VolumeCatalogCache.o -lIceStorm ../lib/OMgrClient.o -lboost_log -lboost_system -lboost_thread -lboost_date_time -lboost_filesystem ../util/Log.o ../util/PerfStat.o ../util/hash/MurmurHash3.o ../util/concurrency/Mutex.o ../util/concurrency/Synchronization.o
 
 include $(top_srcdir)/config/Make.rules
 

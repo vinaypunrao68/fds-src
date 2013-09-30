@@ -7,7 +7,6 @@
 #include "include/fds_types.h"
 #include "include/fds_err.h"
 #include "include/fds_volume.h"
-#include "fdsp/fdsp_types.h"
 #include "fdsp/FDSP.h"
 #include "include/fds_err.h"
 #include "util/Log.h"
@@ -15,7 +14,7 @@
 
 using namespace std;
 using namespace fds;
-using namespace FDSP_Types;
+//using namespace FDSP_Types;
 using namespace FDS_ProtocolInterface;
 
 void initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
@@ -66,6 +65,23 @@ class ControlPathReq : public FDS_ProtocolInterface::FDSP_ControlPathReq {
   void DetachVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
                  const FDS_ProtocolInterface::FDSP_AttachVolTypePtr& vol_msg,
                  const Ice::Current&) { }
+
+  void NotifyNodeAdd(const FDSP_MsgHdrTypePtr& msg_hdr, 
+		     const FDSP_Node_Info_TypePtr& node_info,
+		     const Ice::Current&) { }
+
+  void NotifyNodeRmv(const FDSP_MsgHdrTypePtr& msg_hdr, 
+		     const FDSP_Node_Info_TypePtr& node_info,
+		     const Ice::Current&) { }
+
+  void NotifyDLTUpdate(const FDSP_MsgHdrTypePtr& msg_hdr,
+		       const FDSP_DLT_TypePtr& dlt_info,
+		       const Ice::Current&) { }
+
+  void NotifyDMTUpdate(const FDSP_MsgHdrTypePtr& msg_hdr,
+		       const FDSP_DMT_TypePtr& dmt_info,
+		       const Ice::Current&) { }
+  
 };
 
 class TestResp : public FDS_ProtocolInterface::FDSP_ConfigPathResp {
@@ -222,7 +238,7 @@ int main(int argc, char* argv[])
      * TODO: Change to an external entity, since HVISOR is not
      * going to be issuing config requests to OM.
      */
-    reg_node_msg->node_id = std::string("Node ") + std::to_string(i);
+    reg_node_msg->node_name = std::string("Node ") + std::to_string(i);
     reg_node_msg->node_type = (i == 0)? FDSP_DATA_MGR:((i==1)?FDSP_STOR_MGR:FDSP_STOR_HVISOR);
     // reg_node_msg->control_port = 7900 + i;
 

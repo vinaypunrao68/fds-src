@@ -33,7 +33,6 @@
 
 
 using namespace FDS_ProtocolInterface;
-using namespace FDSP_Types;
 using namespace fds;
 using namespace osm;
 using namespace std;

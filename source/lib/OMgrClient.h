@@ -2,15 +2,12 @@
 #define _OMGRCLIENT_H
 #include "include/fds_err.h"
 #include "include/fds_volume.h"
-#include "fdsp/fds_pubsub.h"
 #include "fdsp/FDSP.h"
 #include "util/Log.h"
 #include <unordered_map>
 #include <Ice/Ice.h>
 #include <IceStorm/IceStorm.h>
 
-using namespace FDSP_Types;
-using namespace FDS_PubSub_Interface;
 using namespace FDS_ProtocolInterface;
 
 #define FDS_VOL_ACTION_NONE   0
@@ -52,7 +49,7 @@ namespace fds {
     int tennant_id;
     int domain_id;
     FDSP_MgrIdType my_node_type;
-    std::string my_node_id;
+    std::string my_node_name;
     fds_uint32_t my_control_port;
     node_map_t node_map;
     int dlt_version;
@@ -65,12 +62,14 @@ namespace fds {
     node_event_handler_t node_evt_hdlr;
     volume_event_handler_t vol_evt_hdlr;
 
+#if 0
     Ice::CommunicatorPtr pubsub_comm;
     IceStorm::TopicManagerPrx pubsub_topicManager;
     Ice::ObjectAdapterPtr pubsub_adapter;
     FDS_OMgr_SubscriberPtr om_pubsub_client_i;
     Ice::ObjectPrx pubsub_proxy;
     IceStorm::TopicPrx pubsub_topic;
+#endif
 
     Ice::CommunicatorPtr rpc_comm;
     Ice::ObjectAdapterPtr rpc_adapter;
@@ -82,11 +81,11 @@ namespace fds {
   public:
 
     OMgrClient();
-    OMgrClient(FDSP_MgrIdType node_type, std::string node_id, fds_log *parent_log);
+    OMgrClient(FDSP_MgrIdType node_type, std::string node_name, fds_log *parent_log);
     int initialize();
     int registerEventHandlerForNodeEvents(node_event_handler_t node_event_hdlr);
     int registerEventHandlerForVolEvents(volume_event_handler_t vol_event_hdlr);
-    int subscribeToOmEvents(unsigned int om_ip_addr, int tennant_id, int domain_id, int omc_port_num=0);
+    //    int subscribeToOmEvents(unsigned int om_ip_addr, int tennant_id, int domain_id, int omc_port_num=0);
     int startAcceptingControlMessages();
     int startAcceptingControlMessages(fds_uint32_t port_num);
     int registerNodeWithOM();
@@ -94,7 +93,7 @@ namespace fds {
     int getDLTNodesForDoidKey(unsigned char doid_key, int *node_ids, int *n_nodes);
     int getDMTNodesForVolume(int vol_id, int *node_ids, int *n_nodes);
 
-    int recvNodeEvent(int node_id, unsigned int node_ip, int node_state);
+    int recvNodeEvent(int node_id, FDSP_MgrIdType node_type, unsigned int node_ip, int node_state, const FDSP_Node_Info_TypePtr& node_info);
     int recvDLTUpdate(int dlt_version, const Node_Table_Type& dlt_table);
     int recvDMTUpdate(int dmt_version, const Node_Table_Type& dmt_table);
 
@@ -112,6 +111,7 @@ namespace fds {
   
 
   public:
+
     OMgrClientRPCI(OMgrClient *om_c);
       
     void NotifyAddVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
@@ -131,6 +131,21 @@ namespace fds {
 		   const FDS_ProtocolInterface::FDSP_AttachVolTypePtr& vol_msg,
 		   const Ice::Current&);
 
+    void NotifyNodeAdd(const FDSP_MsgHdrTypePtr& msg_hdr, 
+		       const FDSP_Node_Info_TypePtr& node_info,
+		       const Ice::Current&);
+
+    void NotifyNodeRmv(const FDSP_MsgHdrTypePtr& msg_hdr, 
+		       const FDSP_Node_Info_TypePtr& node_info,
+		       const Ice::Current&);
+
+    void NotifyDLTUpdate(const FDSP_MsgHdrTypePtr& msg_hdr,
+			 const FDSP_DLT_TypePtr& dlt_info,
+			 const Ice::Current&);
+
+    void NotifyDMTUpdate(const FDSP_MsgHdrTypePtr& msg_hdr,
+			 const FDSP_DMT_TypePtr& dmt_info,
+			 const Ice::Current&);
 
   };
 

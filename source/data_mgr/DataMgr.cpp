@@ -377,16 +377,12 @@ int DataMgr::run(int argc, char* argv[]) {
    */
   omClient->startAcceptingControlMessages(cp_port_num);
 
-  /*
-   * TODO: Remove hard coded IP addr. Why does caller even
-   * pass this?
-   */
   if (use_om) {
     /*
      * Registers the DM with the OM. Uses OM for bootstrapping
      * on start. Requires the OM to be up and running prior.
      */
-    omClient->subscribeToOmEvents(0x0a010aca, 1, 1);
+    
     omClient->registerNodeWithOM();
   }
 
