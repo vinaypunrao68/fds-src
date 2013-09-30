@@ -162,14 +162,17 @@ TestSuiteBase::TestSuiteBase(int thpool_cnt, int test_cnt)
  */
 TestSuiteBase::~TestSuiteBase()
 {
-    _ts_pool->thp_join();
+    /* TODO: implement barrier */
+    _ts_pool->thp_barrier();
+    sleep(1);
+    delete _ts_pool;
+
     for (int i = 0; i < _ts_test_cnt; i++) {
         if (_ts_tests[i] != 0) {
             delete _ts_tests[i];
         }
     }
     delete [] _ts_tests;
-    delete _ts_pool;
 }
 
 /** \tsuit_add_test
@@ -205,7 +208,6 @@ TestSuiteBase::tsuit_run_tests(int loop)
 
         _ts_pool->schedule(testunit_threadpool_fn, test);
     }
-    _ts_pool->thp_join();
 }
 
 /** \tsuit_report
@@ -261,7 +263,8 @@ TPoolCpu::tu_exec(void)
         TestUnitBase::tu_rec_loop();
 
         /* Just burn CPU cycle to generate random number. */
-        n = dist(gl_seed_gen);
+        // n = dist(gl_seed_gen);
+        n = random();
 
         /* TODO: We should excercise boost API here. */
     }

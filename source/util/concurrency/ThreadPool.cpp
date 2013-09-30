@@ -1,225 +1,338 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
+#include <assert.h>
+#include <iostream>
+#include <ThreadPool.h>
+#include "util/concurrency/Thread.h"
 
-#include "util/concurrency/ThreadPool.h"
-
+using namespace std;
 namespace fds {
 
-/**
- * Worker constructor
+class thpool_worker
+{
+  private:
+    friend class fds_threadpool;
+    bool wk_spawn_thread(void);
+
+    int                   wk_pool_idx;
+    dlist_t               wk_link;        // protected by owner's lock.
+    thp_state_e           wk_curr_state;  // the thread's private state.
+    thp_state_e           wk_prev_state;  // the thread's private state.
+    boost::condition      wk_condition;   // synchronize this thread alone.
+    fds_threadpool       *wk_owner;
+    boost::thread        *wk_thread;      // private to the worker thread.
+    thpool_req           *wk_act_task;    // owner set, pick up by this thread.
+
+    /** \wk_verify_obj
+     * ---------------
+     * Do consistency check on the thread worker obj.
+     */
+    inline void wk_verify_obj(void)
+    {
+        assert(wk_pool_idx < wk_owner->thp_num_threads);
+        assert(this == wk_owner->thp_workers[wk_pool_idx]);
+    }
+    /** \wk_exec_task
+     * --------------
+     * Execute the task and destroy it.
+     */
+    inline void wk_exec_task(thpool_req *task)
+    {
+        assert(task->thp_empty_chain_link() == true);
+        wk_prev_state = wk_curr_state;
+        wk_curr_state = RUNNING;
+        (*task)();
+        delete task;
+    }
+    /** \wk_make_idle
+     * --------------
+     * Make the worker thread idle.
+     */
+    inline void wk_make_idle(void)
+    {
+        /* TODO: assert that the lock is owned. */
+        assert(wk_curr_state == RUNNING);
+        assert(dlist_empty(&wk_link));
+
+        wk_prev_state = wk_curr_state;
+        wk_curr_state = IDLE;
+        dlist_add_front(&wk_owner->thp_wk_idle, &wk_link);
+    }
+    /** \wk_wakeup_with_task
+     * ---------------------
+     * Wake up the worker thread on direct job submitted to it.
+     */
+    inline void wk_wakeup_with_task(thpool_req *task)
+    {
+        /* TODO: assert that the lock is owned. */
+        assert(wk_curr_state == IDLE);
+
+        wk_act_task   = task;
+        wk_prev_state = wk_curr_state;
+        wk_curr_state = WAKING_UP;
+        dlist_init(&wk_link);
+        wk_condition.notify_one();
+    }
+    /** \wk_wakeup
+     * -----------
+     * Wake up the worker thread when the threadpool wants to exit.  The
+     * worker thread still drains all pending tasks until it's done.  Don't
+     * care if the signal gets lost because the worker is running.
+     */
+    inline void wk_wakeup(void)
+    {
+        /* TODO: assert that the lock is owned. */
+        assert(wk_owner->thp_state == EXITING);
+        wk_condition.notify_one();
+    }
+  public:
+    thpool_worker(fds_threadpool *owner, int idx);
+    ~thpool_worker();
+
+    void wk_loop(void);
+};
+
+/** \thpool_worker constructor
+ * ---------------------------
+ * Create a default object without any thread
  *
  * @param owner (i) Reference to owning threadpool
- *
- * Creating a new worker creates a thread with
- * no initial job to do;
+ * @param index (i) Index of the worker in owner's pool.
  */
-Worker::Worker(fds_threadpool* owner)
-    : _owner(owner),
-      _is_done(true),
-      _thread(boost::bind(&Worker::loop, this)),
-      _list_mutex("worker set mutex") {
+thpool_worker::thpool_worker(fds_threadpool *owner, int index)
+    : wk_curr_state(INIT),
+      wk_prev_state(INIT),
+      wk_owner(owner),
+      wk_pool_idx(index),
+      wk_thread(nullptr),
+      wk_act_task(nullptr),
+      wk_condition()
+{
+    dlist_init(&wk_link);
 }
 
-/**
- * Worker destructor
- *
- * Acts as a join waiting for the
- * current operation is complete.
+/** \thpool_worker destructor
+ * --------------------------
  */
-Worker::~Worker() {
-  _list_mutex.lock();
-  if (!_task.empty()) {
-    _task.push_back(Task());
-    _thread.join();
-  }
-  _list_mutex.unlock();
+thpool_worker::~thpool_worker()
+{
+    /* TODO: not sure what to do with wk_thread */
+    wk_verify_obj();
+    assert(wk_act_task == nullptr);
+    assert(dlist_empty(&wk_link));
 }
 
-/**
- * Sets task for worker to do.
- *
- * @param func (i) Nullary task function pointer 
- *
- * Makes sure there is not a task already running
- * and adds this task.
+/** \thpool_worker::wk_spawn_thread
+ * --------------------------------
  */
-void Worker::set_task(const Task& func) {
-  assert(!func.empty());
-  assert(_is_done);
-  _is_done = false;
+bool
+thpool_worker::wk_spawn_thread(void)
+{
+    wk_verify_obj();
+    assert(wk_curr_state == INIT);
+    assert(dlist_empty(&wk_link));
 
-  _list_mutex.lock();
-  _task.push_back(func);
-  _list_mutex.unlock();
+    wk_curr_state = SPAWNING;
+    wk_thread = new boost::thread(boost::bind(&thpool_worker::wk_loop, this));
+    return true;
 }
 
-/*
- * The worker's work loop. A task is pulled
- * from the _last list and performed.
+/** \thpool_worker::wk_loop
+ * -------------------------
  */
-void Worker::loop() {
-  while (true) {
-    /*
-     * No job.
-     */
-    _list_mutex.lock();
-    if (_task.empty()) {
-      _list_mutex.unlock();
-      break;
-    }
+void
+thpool_worker::wk_loop(void)
+{
+    bool         run;
+    thpool_req  *task;;
 
-    Task task = _task.front();
-    _task.pop_front();
-    _list_mutex.unlock();
+    wk_verify_obj();
+    assert(dlist_empty(&wk_link));
+    assert(wk_curr_state == SPAWNING);
 
-    /*
-     * Run the task and try to handle and
-     * exceptions thrown.
-     */
-    try {
-      task();
-    }
-    catch(const std::exception& e) {
-      std::cout << "Unhandled std::exception in worker "
-                << e.what() << std::endl;
-    }
-    catch(...) {
-      std::cout << "Unhandled non-exception in worker"
-                << std::endl;
-    }
+    task = nullptr;
+    wk_curr_state = RUNNING;
+    for (run = true; run == true; ) {
+        if (task != nullptr) {
+            wk_exec_task(task);
+        }
+        /* We are done with our direct task, exec any pending ones. */
+        while ((task = wk_owner->thp_dequeue_task_or_idle(this)) != 0) {
+            wk_exec_task(task);
+        }
+        wk_owner->thp_mutex.lock();
+        while ((wk_act_task == nullptr) && (wk_owner->thp_state != EXITING)) {
+            assert(wk_curr_state == IDLE);
+            assert(!dlist_empty(&wk_link));
+            wk_condition.wait(wk_owner->thp_mutex);
+        }
+        wk_owner->thp_mutex.unlock();
 
-    /*
-     * When the job is done, notify the owning
-     * thread pool so it can assign new work.
-     */
-    _is_done = true;
-    _owner->task_done(this);
-  }
+        if (wk_owner->thp_state == EXITING) {
+            dlist_rm_init(&wk_link);
+        }
+        assert(dlist_empty(&wk_link));
+        task = wk_act_task;
+        if (task != nullptr) {
+            wk_act_task = nullptr;
+            assert((wk_curr_state == WAKING_UP) || (wk_curr_state == EXITING));
+        } else {
+            run = false;
+        }
+    }
+    wk_owner->thp_worker_exits(this);
 }
 
+/** \fds_threadpool constructor
+ * ----------------------------
+ */
 fds_threadpool::fds_threadpool(fds_uint32_t num_threads)
-    : _num_threads(num_threads),
-      _tasks_remaining(0),
-      _mutex("thread pool mutex") {
+    : thp_mutex("thpool mtx"),
+      thp_state(RUNNING),
+      thp_tasks_pend(0),
+      thp_total_tasks(0),
+      thp_exec_direct(0),
+      thp_act_threads(0),
+      thp_num_threads(num_threads)
+{
+    int            i;
+    dlist_t       *iter;
+    thpool_worker *worker;
 
-  /*
-   * Start the empty worker threads.
-   */
-  _mutex.lock();
-  while (num_threads-- > 0) {
-    Worker* worker = new Worker(this);
-    _free_workers.push_front(worker);
-  }
-  _mutex.unlock();
+    dlist_init(&thp_wk_idle);
+    dlist_init(&thp_tasks);
+
+    /* First version, spawn all threads, no dynamic scale up/down. */
+    thp_workers = new thpool_worker * [num_threads];
+    for (i = 0; i < num_threads; i++) {
+        thp_workers[i] = new thpool_worker(this, i);
+    }
+    /* Spawn threads when all objects have been constructed. */
+    for (i = 0; i < num_threads; i++) {
+        worker = thp_workers[i];
+        if (worker->wk_spawn_thread()) {
+            /* TODO: use atomic type. */
+            thp_act_threads++;
+        }
+    }
 }
 
-/*
- * Thread pool destructor. This waits
- * for any existing tasks to be completed.
- * Though new jobs can still be scheduled
- * this should be avoided as it will block
- * the destruction of the pool indefinitely.
+/** \fds_threadpool destructor
+ * ---------------------------
  */
-fds_threadpool::~fds_threadpool() {
-  /*
-   * Wait for the outstanding tasks to
-   * complete.
-   */
-  join();
+fds_threadpool::~fds_threadpool()
+{
+    int i;
 
-  /*
-   * Make sure there are no more tasks remaining.
-   */
-  _mutex.lock();
-  assert(_tasks.empty());
-  assert(_free_workers.size() == _num_threads);
+    thp_mutex.lock();
+    thp_state = EXITING;
 
-  /*
-   * Destroy the worker threads.
-   */
-  while (!_free_workers.empty()) {
-    Worker *worker = _free_workers.front();
-    _free_workers.pop_front();
-    delete worker;
-  }
-  _mutex.unlock();
+    /* Wake up all worker threads. */
+    for (i = 0; i < thp_num_threads; i++) {
+        thp_workers[i]->wk_wakeup();
+    }
+    while (thp_act_threads > 0) {
+        thp_condition.wait(thp_mutex);
+    }
+    /* all threads exited now. */
+    assert(dlist_empty(&thp_tasks));
+    assert(dlist_empty(&thp_wk_idle));
+
+    thp_state = TERM;
+    for (i = 0; i < thp_num_threads; i++) {
+        assert(thp_workers[i] != nullptr);
+        delete thp_workers[i];
+    }
+    thp_mutex.unlock();
+
+    delete [] thp_workers;
 }
 
-/*
- * Waits for all tasks to complete. Can
- * be thought of as a joinall(). However,
- * new jobs can still be scheduled while
- * join() is wating and it will then wait
- * for these new jobs as well.
+/** \fds_threadpool::thp_barrier
+ * -----------------------------
  */
-void fds_threadpool::join() {
-  fds_scoped_lock _slock(_mutex);
-  while (_tasks_remaining > 0) {
-    /*
-     * Wait until a job finishes
-     * then check again.
-     */
-    _condition.wait(_slock.boost());
-  }
+void
+fds_threadpool::thp_barrier()
+{
 }
 
-/*
+/** \fds_threadpool::thp_worker_exits
+ * ----------------------------------
+ * Worker thread notifies the owner when it exits the main loop, terminate
+ * the thread.
+ */
+void
+fds_threadpool::thp_worker_exits(thpool_worker *worker)
+{
+    assert(worker->wk_act_task == nullptr);
+    assert(dlist_empty(&worker->wk_link));
+
+    thp_mutex.lock();
+    thp_act_threads--;
+    if (thp_act_threads == 0) {
+        thp_condition.notify_one();
+    }
+    thp_mutex.unlock();
+}
+
+/** \fds_threadpool::schedule
+ * --------------------------
  * Schedules a task to be run.
  *
  * @param task (i) Nullary pointer to task function
- * 
- * The base way to schedule jobs in the thread pool.
- * Jobs that exceed the current size of the pool are
- * queued for work.
  */
-void fds_threadpool::schedule(Task task) {
-  fds_scoped_lock _slock(_mutex);
+void
+fds_threadpool::schedule(thpool_req *task)
+{
+    dlist_t       *ptr;
+    thpool_worker *worker;
 
-  _tasks_remaining++;
+    assert(thp_state != TERM);
+    thp_mutex.lock();
+    thp_total_tasks++;
+    if (!dlist_empty(&thp_wk_idle)) {
+        ptr    = dlist_rm_front(&thp_wk_idle);
+        worker = fds_object_of(thpool_worker, wk_link, ptr);
 
-  /*
-   * If there's a free worker assign the
-   * task. Otherwise, queue it.
-   */
-  if (!_free_workers.empty()) {
-    (_free_workers.front())->set_task(task);
-    _free_workers.pop_front();
-  } else {
-    _tasks.push_back(task);
-  }
+        worker->wk_verify_obj();
+        assert(worker->wk_curr_state == IDLE);
+        assert(task->thp_empty_chain_link() == true);
+
+        thp_exec_direct++;
+        worker->wk_wakeup_with_task(task);
+    } else {
+        /* TODO: QoS or enforce quota, don't let pending grows > max. */
+        thp_tasks_pend++;
+        task->thp_chain_task(&thp_tasks);
+    }
+    thp_mutex.unlock();
 }
 
-/*
- * Notify the threadpool a task has completed.
- *
- * @param worker (i) The worker whose task completed
- * 
- * Should only be called from a worker thread
- * upon task completion.
+/** \fds_threadpool::thp_dequeue_task_or_idle
+ * ------------------------------------------
+ * Dequeue the first eligible task out of the common queue and submit it to the
+ * worker's request.  If the queue is empty, queue the worker to the idle list.
  */
-void fds_threadpool::task_done(Worker* worker) {
-  fds_scoped_lock _slock(_mutex);
+thpool_req *
+fds_threadpool::thp_dequeue_task_or_idle(thpool_worker *worker)
+{
+    dlist_t    *ptr;
+    thpool_req *task;
 
-  /*
-   * Assign another task to this worker if
-   * there's more. Otherwise, put the worker
-   * on the free_workers queue.
-   */
-  if (!_tasks.empty()) {
-    worker->set_task(_tasks.front());
-    _tasks.pop_front();
-  } else {
-    _free_workers.push_front(worker);
-  }
-
-  /*
-   * Wake up any thread waiting for join()
-   */
-  _tasks_remaining--;
-  if (_tasks_remaining == 0) {
-    _condition.notify_all();
-  }
+    assert(dlist_empty(&worker->wk_link));
+    thp_mutex.lock();
+    if (!dlist_empty(&thp_tasks)) {
+        thp_tasks_pend--;
+        ptr  = dlist_rm_front(&thp_tasks);
+        task = thpool_req::thp_task_from_dlist(ptr);
+        task->thp_init_chain_link();
+    } else {
+        worker->wk_make_idle();
+        task = nullptr;
+    }
+    thp_mutex.unlock();
+    return task;
 }
 
 }  // namespace fds

@@ -286,6 +286,50 @@ dlist_find(dlist_t   *dlist,
     return (NULL);
 }
 
+/*
+ * Used with C++ on non POD types.
+ */
+typedef struct dlist_obj dlist_obj_t;
+struct dlist_obj
+{
+    dlist_t  dl_link;
+    void    *dl_obj;
+};
+
+/*
+ * dlist_obj_init
+ * --------------
+ * Init the link chain with a generic type so that we don't have to use the
+ * marco fds_object_of.  Use with C++ non POD types.
+ */
+static inline void
+dlist_obj_init(dlist_obj_t *dobj, void *obj)
+{
+    dlist_init(&dobj->dl_link);
+    dobj->dl_obj = obj;
+}
+
+/*
+ * dlist_obj_chain_back
+ * --------------------
+ */
+static inline void
+dlist_obj_chain_back(dlist_t *list, dlist_obj_t *dobj)
+{
+    dlist_add_back(list, &dobj->dl_link);
+}
+
+/*
+ * dlist_obj_from_link
+ * -------------------
+ * The caller needs to cast the void * to the correct type to access the object.
+ */
+static inline void *
+dlist_obj_from_link(dlist_t *link)
+{
+    return fds_object_of(dlist_obj_t, dl_link, link)->dl_obj;
+}
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

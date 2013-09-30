@@ -2,7 +2,7 @@ TOPDIR  = ..
 ROOTDIR = ../..
 BOOSTIDIR = /usr/local/include/
 BOOSTLDIR = /usr/local/lib/
-IDIR = -I. -I$(ROOTDIR) -I$(BOOSTIDIR)
+IDIR = -I. -I$(ROOTDIR) -I$(ROOTDIR)/fds-include -I$(BOOSTIDIR)
 
 CPPC = g++
 OPTS ?= -g2               # (A) Debug mode
@@ -11,7 +11,7 @@ OPTS ?= -g2               # (A) Debug mode
 
 CFLAGS = $(IDIR) $(OPTS) -D_REENTRANT -std=c++0x
 
-BOOST_LIBS = -lboost_thread -lboost_system
+BOOST_LIBS = -L$(BOOSTLDIR) -lboost_thread -lboost_system
 LIBS = $(BOOST_LIBS) -lpthread
 
 SRCS = \
