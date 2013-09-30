@@ -109,8 +109,14 @@ namespace fds {
     node_map_t currentDmMap;
     node_map_t currentShMap;
     volume_map_t volumeMap;
+    int current_dlt_version;
+    int current_dmt_version;
+    FDS_ProtocolInterface::Node_Table_Type current_dlt_table;
+    FDS_ProtocolInterface::Node_Table_Type current_dmt_table;
     fds_mutex *om_mutex;
     std::string node_id_to_name[MAX_OM_NODES];
+    const int table_type_dlt = 0;
+    const int table_type_dmt = 1;
 
     /*
      * Cmdline configurables
@@ -134,6 +140,7 @@ namespace fds {
     void sendDetachVolToHvNode(fds_node_name_t node_name, VolumeInfo *pVol); // Send detach vol ctrl message to a HV node
     void sendAllVolumesToHvNode(fds_node_name_t node_name); // Dump all concerned volumes as a sequence of attach vol ctrl messages to a HV node
     void sendMgrNodeListToFdsNode(NodeInfo& n_info); // Dump all existing SM/DM nodes info as a sequence of NotifyNodeAdd ctrl messages to a newly registering node
+    void sendNodeTableToFdsNodes(int table_type); // Broadcast current DLT or DMT to all SM/DM/HV nodes known to OM
 
   public:
     OrchMgr();

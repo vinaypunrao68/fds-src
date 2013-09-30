@@ -165,7 +165,52 @@ int OrchMgr::getFreeNodeId(std::string& node_name) {
 
 // Dump all existing SM/DM nodes info as a sequence of NotifyNodeAdd ctrl messages to a newly registering node
 void OrchMgr::sendMgrNodeListToFdsNode(NodeInfo& n_info) {
-	return;
+
+  FdspMsgHdrPtr msg_hdr_ptr = new FDS_ProtocolInterface::FDSP_MsgHdrType;
+  FDSP_Node_Info_TypePtr node_info_ptr = new FDSP_Node_Info_Type;
+
+  initOMMsgHdr(msg_hdr_ptr);
+
+  msg_hdr_ptr->msg_code = FDSP_MSG_NOTIFY_NODE_ADD;
+  msg_hdr_ptr->msg_id = 0;
+  msg_hdr_ptr->tennant_id = 1;
+  msg_hdr_ptr->local_domain_id = 1;
+
+  ReqCtrlPrx OMClientAPI = n_info.cpPrx;
+
+  for (int i = 0; i < 2; i++) {
+    node_map_t& node_map = (i == 0) ? currentDmMap:currentSmMap;
+
+    msg_hdr_ptr->dst_id = n_info.node_type;
+
+    for (auto it = node_map.begin(); it != node_map.end(); ++it) {
+
+      fds_node_name_t node_name = it->first;
+      NodeInfo& next_node_info = it->second;
+      if (node_name == n_info.node_name) {
+	continue;
+      }
+      
+      node_info_ptr->node_id = next_node_info.node_id;
+      node_info_ptr->node_type = next_node_info.node_type;
+      node_info_ptr->node_name = next_node_info.node_name;
+      node_info_ptr->node_state = next_node_info.node_state;
+      node_info_ptr->ip_lo_addr = next_node_info.node_ip_address;
+      node_info_ptr->control_port = next_node_info.control_port;
+      node_info_ptr->data_port = next_node_info.data_port;
+
+      FDS_PLOG(om_log) << "Sending node notification to node " << n_info.node_name << " for node " << node_name << " state - " << next_node_info.node_state;
+
+      
+      if (next_node_info.node_state == FDS_Node_Up) {
+	OMClientAPI->NotifyNodeAdd(msg_hdr_ptr, node_info_ptr);
+      } else {
+	// Nothing to send about this node really. The new node does not even know about this node.
+	// OMClientAPI->NotifyNodeRmv(msg_hdr_ptr, node_info_ptr);
+      }
+    }
+  }
+
 } 
 
 
@@ -217,6 +262,61 @@ void OrchMgr::sendNodeEventToFdsNodes(NodeInfo& nodeInfo, FDS_ProtocolInterface:
     }
   }
 }
+
+
+// Broadcast DLT or DMT to all existing DM/SM/HV nodes
+void OrchMgr::sendNodeTableToFdsNodes(int table_type) {
+
+
+  FdspMsgHdrPtr msg_hdr_ptr = new FDS_ProtocolInterface::FDSP_MsgHdrType;
+ 
+  initOMMsgHdr(msg_hdr_ptr);
+
+  msg_hdr_ptr->msg_code = (table_type == table_type_dlt)? FDSP_MSG_DLT_UPDATE: FDSP_MSG_DMT_UPDATE;
+  msg_hdr_ptr->msg_id = 0;
+  msg_hdr_ptr->tennant_id = 1;
+  msg_hdr_ptr->local_domain_id = 1;
+
+  FDS_ProtocolInterface::FDSP_DLT_TypePtr dlt_info_ptr;
+  FDS_ProtocolInterface::FDSP_DMT_TypePtr dmt_info_ptr = new FDSP_DMT_Type;
+  if (table_type == table_type_dlt) {
+    dlt_info_ptr = new FDSP_DLT_Type;
+    dlt_info_ptr->DLT_version = current_dlt_version;
+    dlt_info_ptr->DLT = current_dlt_table;
+  } else {
+    dmt_info_ptr = new FDSP_DMT_Type;
+    dmt_info_ptr->DMT_version = current_dmt_version;
+    dmt_info_ptr->DMT = current_dmt_table;
+  }
+
+  for (int i = 0; i < 3; i++) {
+    node_map_t& node_map = (i == 0) ? currentDmMap:((i == 1)?currentSmMap:currentShMap);
+
+    msg_hdr_ptr->dst_id = (i == 0) ?
+      FDS_ProtocolInterface::FDSP_DATA_MGR :
+      ((i == 1)?FDS_ProtocolInterface::FDSP_STOR_MGR:FDSP_STOR_HVISOR);
+
+    for (auto it = node_map.begin(); it != node_map.end(); ++it) {
+
+      fds_node_name_t node_name = it->first;
+      NodeInfo& next_node_info = it->second;
+
+      FDS_PLOG(om_log) << "Sending " << ((table_type == table_type_dlt)?"DLT ":"DMT ")
+		       <<  "version " << ((table_type == table_type_dlt)? current_dlt_version:current_dmt_version)
+		       << " to node " << node_name;
+
+      ReqCtrlPrx OMClientAPI = next_node_info.cpPrx;
+      if (table_type == table_type_dlt) {
+	OMClientAPI->NotifyDLTUpdate(msg_hdr_ptr, dlt_info_ptr);
+      } else {
+	OMClientAPI->NotifyDMTUpdate(msg_hdr_ptr, dmt_info_ptr);
+      }
+ 
+    }
+  }
+}
+
+
 
 // Dump all existing volumes (as a sequence of create vol ctrl messages) to a newly registering SM/DM Node
 void OrchMgr::sendAllVolumesToFdsMgrNode(NodeInfo node_info) {
