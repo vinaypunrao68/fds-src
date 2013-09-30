@@ -3,8 +3,8 @@ TOPDIR = ..
 CFLAGS = -Iinclude -g -I../stor_hvisor_ice  -I$(TOPDIR)/include
 #LDIR = -L. -L$(TOPDIR)/fds_client/lib -L$(TOPDIR)/lib -L/usr/lib/mysql -L/usr/lib64/mysql -L/usr/lib  -L../lib/Ice-3.5.0/cpp/lib -L../stor_hvisor_ice
 LDIR = -L. -L$(TOPDIR)/lib -L/usr/lib  -L../lib/Ice-3.5.0/cpp/lib -L../stor_hvisor_ice
-LIBS=$(LDIR) -lfds -lssl -lcrypto -lpthread  -lstdc++ -lIce -lIceUtil -lrt -lm -lIceStorm -lboost_log -lboost_system -lboost_thread -lboost_date_time
-UTEST_OBJS = 
+LIBS=$(LDIR) -lfds -lssl -lcrypto -lpthread  -lstdc++ -lIce -lIceUtil -lrt -lm -lIceStorm -lboost_log -lboost_system -lboost_thread -lboost_date_time -lboost_filesystem
+UTEST_OBJS =
 
 all: ubd hvisor_uspace_test
 

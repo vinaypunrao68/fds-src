@@ -413,7 +413,7 @@ ObjectStorMgr::run(int argc, char* argv[])
     port_num = props->getPropertyAsInt("ObjectStorMgrSvr.PortNumber");
   }
   if (cp_port_num == 0) {
-    cp_port_num = props->getPropertyAsInt("ObjStorMgrSvr.ControlPort");
+    cp_port_num = props->getPropertyAsInt("ObjectStorMgrSvr.ControlPort");
   }
   
   std::ostringstream tcpProxyStr;
@@ -446,7 +446,7 @@ ObjectStorMgr::interruptCallback(int)
 int main(int argc, char *argv[])
 {
   bool         unit_test;
-  fds_uint32_t port, control_port;
+  fds_uint32_t port=0, control_port=0;
   std::string  prefix;
   
   port      = 0;

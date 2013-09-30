@@ -1,9 +1,11 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
+#include <boost/filesystem/operations.hpp>
+#include <boost/filesystem/path.hpp>
+
 #include "StorHvisorNet.h"
 #include "StorHvJournal.h"
-
 #include "StorHvVolumes.h"
 
 extern StorHvCtrl *storHvisor;
@@ -15,7 +17,11 @@ StorHvVolume::StorHvVolume(const VolumeDesc& vdesc, StorHvCtrl *sh_ctrl, fds_log
 {
   journal_tbl = new StorHvJournal(FDS_READ_WRITE_LOG_ENTRIES);
   vol_catalog_cache = new VolumeCatalogCache(volUUID, sh_ctrl, parent_log);  
-  stat_history = new StatHistory();
+  stat_history = new StatHistory(volUUID);
+
+  if ( volType == FDS_VOL_BLKDEV_TYPE && parent_sh->GetRunTimeMode() == StorHvCtrl::NORMAL) { 
+      blkdev_minor = (*parent_sh->cr_blkdev)(volUUID);
+  }
 
   is_valid = true;
 }
@@ -40,6 +46,9 @@ void StorHvVolume::destroy()
     return;
   }
 
+  if ( volType == FDS_VOL_BLKDEV_TYPE && parent_sh->GetRunTimeMode() == StorHvCtrl::NORMAL) { 
+     (*parent_sh->del_blkdev)(blkdev_minor);
+  }
   /* destroy data */
   delete journal_tbl;
   journal_tbl = NULL;
@@ -82,7 +91,9 @@ StorHvVolumeLock::~StorHvVolumeLock()
 
 /* creates its own logger */
 StorHvVolumeTable::StorHvVolumeTable(StorHvCtrl *sh_ctrl, fds_log *parent_log)
-  : parent_sh(sh_ctrl)
+  : parent_sh(sh_ctrl), 
+    statTimer(new IceUtil::Timer),
+    statTimerTask(new StorHvStatTimerTask(this))
 {
   if (parent_log) {
     vt_log = parent_log;
@@ -98,14 +109,12 @@ StorHvVolumeTable::StorHvVolumeTable(StorHvCtrl *sh_ctrl, fds_log *parent_log)
     parent_sh->om_client->registerEventHandlerForVolEvents(volumeEventHandler);
   }
 
-  /* 
-   * Hardcoding creation of volume 1
-   * TODO: do not hardcode creation of volume 1, should
-   * explicitly call register volume for all volumes 
-   */
-  VolumeDesc vdesc("default_vol", FDS_DEFAULT_VOL_UUID);
-  volume_map[FDS_DEFAULT_VOL_UUID] = new StorHvVolume(vdesc, parent_sh, vt_log);
-  FDS_PLOG(vt_log) << "StorHvVolumeTable - constructor registered volume 1";  
+  if (sh_ctrl->GetRunTimeMode() == StorHvCtrl::TEST_BOTH) { 
+    VolumeDesc vdesc("default_vol", FDS_DEFAULT_VOL_UUID);
+    volume_map[FDS_DEFAULT_VOL_UUID] = new StorHvVolume(vdesc, parent_sh, vt_log);
+    FDS_PLOG(vt_log) << "StorHvVolumeTable - constructor registered volume 1";  
+  }
+
 }
 
 StorHvVolumeTable::StorHvVolumeTable(StorHvCtrl *sh_ctrl)
@@ -135,6 +144,8 @@ StorHvVolumeTable::~StorHvVolumeTable()
   if (created_log) {
     delete vt_log;
   }
+
+  statTimer->destroy();
 }
 
 
@@ -282,6 +293,85 @@ void StorHvVolumeTable::dump()
                        << ", type " << it->second->volType;
     }
   map_rwlock.read_unlock();
+}
+
+
+/* Start dumping performance stats to log file*/
+void StorHvVolumeTable::startPerfStats()
+{
+  if (statTimer)
+    {
+      IceUtil::Time interval = IceUtil::Time::seconds(FDS_STAT_DEFAULT_SLOT_LENGTH * (FDS_STAT_DEFAULT_HIST_SLOTS-2));
+      try {
+	statTimer->scheduleRepeated(statTimerTask, interval);
+	FDS_PLOG(vt_log) << "StorHvVolumeTable: started logging perf stats";
+      } catch (const IceUtil::IllegalArgumentException&) {
+	/* ok */
+	FDS_PLOG(vt_log) << "StorHvVolumeTable::startPerfStats: already dumping stats";
+      } catch (...) {
+	FDS_PLOG(vt_log) << "StorHvVolumeTable::startPerfStats: failed to start dumpting stats";
+      }
+    }
+}
+
+/* Stop dumping performace stats to log file */
+void StorHvVolumeTable::stopPerfStats()
+{
+  if (statTimer)
+    {
+      statTimer->cancel(statTimerTask);
+      FDS_PLOG(vt_log) << "StorHvVolumeTable: stopped logging perf stats";
+    }
+}
+
+void StorHvVolumeTable::printPerfStats(std::ofstream& dumpFile)
+{
+  boost::posix_time::ptime tnow = boost::posix_time::microsec_clock::local_time();
+  FDS_PLOG(vt_log) << "StorHvVolumeTable: printing perf stats";
+
+  map_rwlock.read_lock();
+  for (std::unordered_map<fds_volid_t, StorHvVolume*>::iterator it = volume_map.begin();
+       it != volume_map.end();
+       ++it)
+    {
+      it->second->stat_history->print(dumpFile, tnow);
+    }
+  map_rwlock.read_unlock();
+}
+
+StorHvStatTimerTask::StorHvStatTimerTask(StorHvVolumeTable* voltab) 
+  :volTable(voltab)
+{
+  boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
+
+  std::string dirname("stats");
+  std::string nowstr = to_simple_string(now);
+  std::size_t i = nowstr.find_first_of(" ");
+  std::size_t k = nowstr.find_first_of(".");
+  std::string ts_str("");
+  if (i != std::string::npos) {
+    ts_str = nowstr.substr(0, i);
+    if (k == std::string::npos) {
+      ts_str.append("-");
+      ts_str.append(nowstr.substr(i+1));
+    }	     	     
+  }
+
+  /*make sure stats directory exists */
+  if ( !boost::filesystem::exists(dirname.c_str()) )
+    {
+      boost::filesystem::create_directory(dirname.c_str());
+    }
+
+  /* use timestamp in the filename */
+  std::string fname =dirname + std::string("//perf_") + ts_str + std::string(".stat"); 
+  statfile.open(fname.c_str(), ios::out | ios::app );
+}
+
+/* timer task to print performance stats */
+void StorHvStatTimerTask::runTimerTask()
+{
+  volTable->printPerfStats(statfile);
 }
 
 } // namespace fds

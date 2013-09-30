@@ -18,9 +18,6 @@ using namespace FDS_ProtocolInterface;
 using namespace Ice;
 using namespace IceUtil;
 
-struct fbd_device *fbd_dev;
-extern vvc_vhdl_t vvc_vol_create(volid_t vol_id, const char *db_name, int max_blocks);
-
 /*
  * Globals being used for the unit test.
  * TODO: This should be cleaned up into
@@ -127,14 +124,12 @@ void sh_test_w(const char *data,
   w_req->len  = len;
   
   if (w_verify == true) {
-    StorHvisorProcIoWr(NULL,
-                       w_req,
+    StorHvisorProcIoWr( w_req,
                        sh_test_w_callback,
                        NULL,
                        NULL);
   } else {
-    StorHvisorProcIoWr(NULL,
-                       w_req,
+    StorHvisorProcIoWr( w_req,
                        sh_test_nv_callback,
                        NULL,
                        NULL);
@@ -197,8 +192,7 @@ int sh_test_r(char *r_buf, fds_uint32_t len, fds_uint32_t offset, fds_volid_t vo
   r_req->secs = len / HVISOR_SECTOR_SIZE;
   r_req->len  = len;
   
-  StorHvisorProcIoRd(NULL,
-                     r_req,
+  StorHvisorProcIoRd( r_req,
                      sh_test_r_callback,
                      NULL,
                      NULL);
@@ -246,6 +240,9 @@ int unitTest(fds_uint32_t time_mins) {
    */
   w_buf    = new char[req_size]();
   r_buf    = new char[req_size]();
+
+  /* start dumping perf stats */
+  storHvisor->vol_table->startPerfStats();
 
   if (time_mins > 0) {
     /*
@@ -323,6 +320,9 @@ int unitTest(fds_uint32_t time_mins) {
   }
   delete w_buf;
   delete r_buf;
+
+  /* stop perf stats */
+  storHvisor->vol_table->stopPerfStats();
 
   return result;
 }
@@ -415,13 +415,15 @@ int unitTestFile(const char *inname, const char *outname, unsigned int base_vol_
 }
 
 
-void CreateStorHvisor(int argc, char *argv[])
+void CreateStorHvisor(int argc, char *argv[], hv_create_blkdev cr_blkdev, hv_delete_blkdev del_blkdev)
 {
-  CreateSHMode(argc, argv, false, 0, 0);
+  CreateSHMode(argc, argv, cr_blkdev, del_blkdev,false, 0, 0);
 }
 
 void CreateSHMode(int argc,
                   char *argv[],
+                  hv_create_blkdev cr_blkdev, 
+                  hv_delete_blkdev del_blkdev,
                   fds_bool_t test_mode,
                   fds_uint32_t sm_port,
                   fds_uint32_t dm_port)
@@ -432,6 +434,8 @@ void CreateSHMode(int argc,
     storHvisor = new StorHvCtrl(argc, argv, StorHvCtrl::NORMAL);
   }
 
+  storHvisor->cr_blkdev = cr_blkdev;
+  storHvisor->del_blkdev = del_blkdev;
   FDS_PLOG(storHvisor->GetLog()) << "StorHvisorNet - Created storHvisor " << storHvisor;
 }
 
@@ -595,56 +599,17 @@ StorHvCtrl::StorHvCtrl(int argc,
 
 StorHvCtrl::~StorHvCtrl()
 {
-  delete sh_log;
-  delete vol_table;
+  delete vol_table; 
   delete dataPlacementTbl;
   if (om_client)
     delete om_client;
+  delete sh_log;
 }
 
 
 fds_log* StorHvCtrl::GetLog() {
   return sh_log;
 }
-
-BEGIN_C_DECLS
-void *hvisor_lib_init(void)
-{
-  // int err = -ENOMEM;
-//        int rc;
-
-        fbd_dev = (fbd_device *)malloc(sizeof(*fbd_dev));
-        if (!fbd_dev)
-          return (void *)-ENOMEM;
-        memset(fbd_dev, 0, sizeof(*fbd_dev));
-
-        fbd_dev->blocksize = 4096; /* default value  */
-        fbd_dev->bytesize = 0;
-        /* we will have to  generate the dev id for multiple device support */
-        fbd_dev->dev_id = 0;
-
-        fbd_dev->vol_id = 1; /*  this should be comming from OM */
-#if 0
-        if((fbd_dev->vhdl = vvc_vol_create(fbd_dev->vol_id, NULL,8192)) == 0 )
-        {
-                printf(" Error: creating the  vvc  volume \n");
-                goto out;
-        }
-
-
-        rc = pthread_create(&fbd_dev->rx_thread, NULL, fds_rx_io_proc, fbd_dev);
-        if (rc) {
-          printf(" Error: creating the   RX IO thread : %d \n", rc);
-                goto out;
-        }
-#endif
-
-        return (fbd_dev);
-        // return (void *)err;
-}
-
-END_C_DECLS
-
 
 BEGIN_C_DECLS
 void cppOut( char *format, ... ) {

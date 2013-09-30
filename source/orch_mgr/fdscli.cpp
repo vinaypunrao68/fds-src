@@ -54,20 +54,23 @@ int FdsCli::fdsCliPraser(int argc, char* argv[])
         po::options_description desc("Formation Data Systems Configuration  Commands");
 	desc.add_options()
 	("help", "Show FDS  Configuration Options")
-	("volume-create",po::value<std::string>(),"Create volume: volume-create <vol name> -s <size> -p <policy> -i <volume-id> ")
+	("volume-create",po::value<std::string>(),"Create volume: volume-create <vol name> -s <size> -p <policy-id> -i <volume-id> ")
 	("volume-delete",po::value<std::string>(), "Delete volume : volume-delete <vol name> -i <volume-id>")
-	("volume-modify",po::value<std::string>(), "Modify volume: volume-modify <vol name> -s <size> -p <policy> -i <volume-id>")
+	("volume-modify",po::value<std::string>(), "Modify volume: volume-modify <vol name> -s <size> -p <policy-id> -i <volume-id>")
 	("volume-attach",po::value<std::string>(), "Attach volume: volume-attach <vol name> -i <volume-id> -n <node-id>")
 	("volume-detach",po::value<std::string>(), "Detach volume: volume-detach <vol name> -i <volume-id> -n <node-id>")
 	("volume-show",po::value<std::string>(), "Show volume")
-	("ploicy-create",po::value<std::string>(), "Create Policy")
-	("policy-delete",po::value<std::string>(), "Delete policy")
-	("policy-modify",po::value<std::string>(), "Modify policy")
+	("policy-create",po::value<std::string>(), "Create Policy: policy-create <policy name> -p <policy-id> -g <iops-min> -m <iops-max> -r <rel-prio> ")
+	("policy-delete",po::value<std::string>(), "Delete policy: policy-delete <policy name> -p <policy-id>")
+	("policy-modify",po::value<std::string>(), "Modify policy: policy-modify <policy name> -p <policy-id> -g <iops-min> -m <iops-max> -r <rel-prio> ")
 	("policy-show",po::value<std::string>(), "Show policy")
 	("volume-size,s",po::value<double>(),"volume capacity")
 	("volume-policy,p",po::value<int>(),"volume policy")
 	("node-id,n",po::value<std::string>(),"node id")
-	("volume-id,i",po::value<int>(),"volume id");
+	("volume-id,i",po::value<int>(),"volume id")
+	("iops-min,g",po::value<double>(),"minimum IOPS")
+	("iops-max,m",po::value<double>(),"maximum IOPS")
+	("rel-prio,r",po::value<int>(),"relative priority");
 
 	po::variables_map vm;
 
@@ -177,6 +180,61 @@ int FdsCli::fdsCliPraser(int argc, char* argv[])
     		volData->node_id = vm["node-id"].as<std::string>();
    		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(communicator()->stringToProxy (tcpProxyStr.str())); 
     		cfgPrx->DetachVol(msg_hdr, volData);
+
+	} else 	if (vm.count("policy-create") && vm.count("volume-policy") && \
+		    vm.count("iops-max") && vm.count("iops-max") && vm.count("rel-prio")) {
+
+		FDS_PLOG(cli_log) << " Create Policy ";
+		FDS_PLOG(cli_log) << vm["policy-create"].as<std::string>() << " -policy name";
+		FDS_PLOG(cli_log) << vm["volume-policy"].as<int>() << " -policy id";
+		FDS_PLOG(cli_log) << vm["iops-min"].as<double>() << " -minimum iops";
+		FDS_PLOG(cli_log) << vm["iops-max"].as<double>() << " -maximum iops";
+		FDS_PLOG(cli_log) << vm["rel-prio"].as<int>() << " -relative priority";
+
+		FDSP_CreatePolicyTypePtr policyData = new FDSP_CreatePolicyType();
+		policyData->policy_info = new FDSP_PolicyInfoType();
+
+    		policyData->policy_info->policy_name = vm["policy-create"].as<std::string>();
+  		policyData->policy_info->policy_id = vm["volume-policy"].as<int>();
+  		policyData->policy_info->iops_min = vm["iops-min"].as<double>();
+  		policyData->policy_info->iops_max = vm["iops-max"].as<double>();
+    		policyData->policy_info->rel_prio = vm["rel-prio"].as<int>();
+   		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(communicator()->stringToProxy (tcpProxyStr.str())); 
+    		cfgPrx->CreatePolicy(msg_hdr, policyData);
+
+	} else if(vm.count("policy-delete") && vm.count("volume-policy")) {
+
+		FDS_PLOG(cli_log) << " Delete Policy ";
+		FDS_PLOG(cli_log) << vm["policy-delete"].as<std::string>() << " -policy name";
+		FDS_PLOG(cli_log) << vm["volume-policy"].as<int>() << " -policy id";
+
+		FDSP_DeletePolicyTypePtr policyData = new FDSP_DeletePolicyType();
+
+    		policyData->policy_name = vm["policy-delete"].as<std::string>();
+    		policyData->policy_id = vm["volume-policy"].as<int>();
+   		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(communicator()->stringToProxy (tcpProxyStr.str())); 
+    		cfgPrx->DeletePolicy(msg_hdr, policyData);
+
+	} else 	if (vm.count("policy-modify") && vm.count("volume-policy") && \
+		    vm.count("iops-max") && vm.count("iops-max") && vm.count("rel-prio")) {
+
+		FDS_PLOG(cli_log) << " Modify Policy ";
+		FDS_PLOG(cli_log) << vm["policy-modify"].as<std::string>() << " -policy name";
+		FDS_PLOG(cli_log) << vm["volume-policy"].as<int>() << " -policy id";
+		FDS_PLOG(cli_log) << vm["iops-min"].as<double>() << " -minimum iops";
+		FDS_PLOG(cli_log) << vm["iops-max"].as<double>() << " -maximum iops";
+		FDS_PLOG(cli_log) << vm["rel-prio"].as<int>() << " -relative priority";
+
+		FDSP_ModifyPolicyTypePtr policyData = new FDSP_ModifyPolicyType();
+		policyData->policy_info = new FDSP_PolicyInfoType();
+
+    		policyData->policy_info->policy_name = vm["policy-modify"].as<std::string>();
+  		policyData->policy_info->policy_id = vm["volume-policy"].as<int>();
+  		policyData->policy_info->iops_min = vm["iops-min"].as<double>();
+  		policyData->policy_info->iops_max = vm["iops-max"].as<double>();
+    		policyData->policy_info->rel_prio = vm["rel-prio"].as<int>();
+   		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(communicator()->stringToProxy (tcpProxyStr.str())); 
+    		cfgPrx->ModifyPolicy(msg_hdr, policyData);
 	}
 
    return 0;
