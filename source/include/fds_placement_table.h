@@ -102,6 +102,26 @@ namespace fds {
     }
 
     /*
+     * Returns an Ice version of this table
+     */
+    FDS_ProtocolInterface::Node_Table_Type toIce() const {
+      FDS_ProtocolInterface::Node_Table_Type iceTable;
+      
+      for (std::unordered_map<fds_uint32_t,
+               std::vector<fds_nodeid_t>>::const_iterator it = table.cbegin();
+           it != table.cend();
+           it++) {
+        FDS_ProtocolInterface::Node_List_Type node_vect;
+        for (fds_uint32_t i = 0; i < (it->second).size(); i++) {
+          node_vect.push_back((it->second)[i]);
+        }
+        iceTable.push_back(node_vect);
+      }
+
+      return iceTable;
+    }
+
+    /*
      * Operators
      */
     fds_bool_t operator==(const fds_placement_table& rhs) {
@@ -152,9 +172,6 @@ namespace fds {
       if (key > max_key) {
         err = ERR_INVALID_ARG;
         return err;
-      } else if (table.count(key) != 0) {
-        err = ERR_DUPLICATE;
-        return err;
       } else if (nodes.size() > max_depth) {
         err = ERR_INVALID_ARG;
         return err;
@@ -163,6 +180,7 @@ namespace fds {
       /*
        * This does a full copy of the enture list
        * into the table.
+       * Currently, we'll overwrite any previous entry.
        */
       table[key] = nodes;
 
@@ -197,6 +215,18 @@ namespace fds {
 
     using fds_placement_table::insert;
     using fds_placement_table::clear;
+
+    /*
+     * A new Ice DLT pointer is allocated in this function.
+     * Though it is up to caller to free it.
+     */
+    FDS_ProtocolInterface::FDSP_DLT_TypePtr toIce() const {
+      FDS_ProtocolInterface::FDSP_DLT_TypePtr iceDlt =
+          new FDS_ProtocolInterface::FDSP_DLT_Type;
+      iceDlt->DLT_version = fds_placement_table::getVersion();
+      iceDlt->DLT = fds_placement_table::toIce();
+      return iceDlt;
+    }
   };
 
   inline std::ostream& operator<<(std::ostream& out,
@@ -219,6 +249,18 @@ namespace fds {
 
     using fds_placement_table::insert;
     using fds_placement_table::clear;
+    
+    /*
+     * A new Ice DLT pointer is allocated in this function.
+     * Though it is up to caller to free it.
+     */
+    FDS_ProtocolInterface::FDSP_DMT_TypePtr toIce() const {
+      FDS_ProtocolInterface::FDSP_DMT_TypePtr iceDlt =
+          new FDS_ProtocolInterface::FDSP_DMT_Type;
+      iceDlt->DMT_version = fds_placement_table::getVersion();
+      iceDlt->DMT = fds_placement_table::toIce();
+      return iceDlt;
+    }
   };
 
   inline std::ostream& operator<<(std::ostream& out,
