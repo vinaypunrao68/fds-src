@@ -269,7 +269,7 @@ int OMgrClient::registerNodeWithOM() {
 		    << " data port:" << reg_node_msg->data_port
 		    << " with Orchaestration Manager at " << tcpProxyStr;
 
-  fdspConfigPathAPI->RegisterNode(msg_hdr, reg_node_msg);
+  fdspConfigPathAPI->begin_RegisterNode(msg_hdr, reg_node_msg);
 
   FDS_PLOG(omc_log) << "OMClient completed node registration with OM";
 

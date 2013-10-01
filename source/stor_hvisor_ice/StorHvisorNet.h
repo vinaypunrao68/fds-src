@@ -158,6 +158,7 @@ public:
   int fds_process_put_obj_resp(const FDSP_MsgHdrTypePtr& rx_msg,const  FDSP_PutObjTypePtr& put_obj_rsp );
   int fds_process_update_catalog_resp(const FDSP_MsgHdrTypePtr& rx_msg,const  FDSP_UpdateCatalogTypePtr& cat_obj_rsp );
   fds_log* GetLog();
+  void StartOmClient();
   sh_comm_modes GetRunTimeMode() { return mode; }
 
 private:

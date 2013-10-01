@@ -436,6 +436,7 @@ void CreateSHMode(int argc,
 
   storHvisor->cr_blkdev = cr_blkdev;
   storHvisor->del_blkdev = del_blkdev;
+  storHvisor->StartOmClient();
   FDS_PLOG(storHvisor->GetLog()) << "StorHvisorNet - Created storHvisor " << storHvisor;
 }
 
@@ -554,15 +555,6 @@ StorHvCtrl::StorHvCtrl(int argc,
                                                 om_client);
   }
 
-  /* 
-   * Start listening for OM control messages 
-   * Appropriate callbacks were setup by data placement and volume table objects  
-   */
-  if (om_client) {
-    om_client->startAcceptingControlMessages();
-    FDS_PLOG(sh_log) << "StorHvisorNet - Started accepting control messages from OM";
-    om_client->registerNodeWithOM();
-  }
 
   /*
    * Only create a ctrl-c handler in normal mode since
@@ -609,6 +601,20 @@ StorHvCtrl::~StorHvCtrl()
 
 fds_log* StorHvCtrl::GetLog() {
   return sh_log;
+}
+
+void StorHvCtrl::StartOmClient() {
+
+  /* 
+   * Start listening for OM control messages 
+   * Appropriate callbacks were setup by data placement and volume table objects  
+   */
+  if (om_client) {
+    om_client->startAcceptingControlMessages();
+    FDS_PLOG(sh_log) << "StorHvisorNet - Started accepting control messages from OM";
+    om_client->registerNodeWithOM();
+  }
+
 }
 
 BEGIN_C_DECLS

@@ -61,6 +61,7 @@ public:
                 fds_uint32_t control_port,
                 std::string prefix);
   ~ObjectStorMgr();
+  void OMgrClientInit();
    fds_log* GetLog();
    fds_log *sm_log;
 

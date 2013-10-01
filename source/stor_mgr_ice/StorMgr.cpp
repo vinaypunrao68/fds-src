@@ -73,7 +73,7 @@ ObjectStorMgr::ObjectStorMgr(fds_uint32_t port,
 
   // Init  the log infra  
   sm_log = new fds_log("sm", "logs");
-  FDS_PLOG(sm_log) << "Constructing the Data Manager";
+  FDS_PLOG(sm_log) << "Constructing the Object Storage Manager";
 
   // Create all data structures 
   diskMgr = new DiskMgr();
@@ -85,11 +85,14 @@ ObjectStorMgr::ObjectStorMgr(fds_uint32_t port,
   objStorDB  = new ObjectDB(filename);
   filename= stor_prefix + "SNodeObjIndex";
   objIndexDB  = new ObjectDB(filename);  
+}
+
+void ObjectStorMgr::OMgrClientInit() {
   omClient = new OMgrClient(FDSP_STOR_MGR, "localhost-sm", sm_log);
   omClient->initialize();
   omClient->registerEventHandlerForNodeEvents((node_event_handler_t)nodeEventOmHandler);
   omClient->startAcceptingControlMessages(cp_port_num);
-  //omClient->registerNodeWithOM();
+  omClient->registerNodeWithOM();
   volTbl = new StorMgrVolumeTable(this);
 }
 
@@ -471,6 +474,8 @@ int main(int argc, char *argv[])
 
 
   objStorMgr = new ObjectStorMgr(port, control_port, prefix);
+
+  objStorMgr->OMgrClientInit();
 
   if (unit_test) {
     objStorMgr->unitTest();
