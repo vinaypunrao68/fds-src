@@ -18,7 +18,7 @@ typedef FDS_ProtocolInterface::FDSP_PolicyInfoTypePtr FdspPolInfoPtr;
 class VolPolicyMgr
 {
  public:
-  VolPolicyMgr(fds_log* om_log);
+  VolPolicyMgr(const std::string& om_prefix, fds_log* om_log);
   ~VolPolicyMgr();
 
   /* create new policy

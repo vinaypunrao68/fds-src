@@ -7,10 +7,10 @@
 namespace fds {
 
 
-VolPolicyMgr::VolPolicyMgr(fds_log* om_log)
+VolPolicyMgr::VolPolicyMgr(const std::string& om_prefix, fds_log* om_log)
   :parent_log(om_log)
 {
-  const std::string catname("volpolicy_cat.ldb");
+  const std::string catname = om_prefix + std::string("_volpolicy_cat.ldb");
   policy_catalog = new Catalog(catname);
 }
 

@@ -26,8 +26,6 @@ OrchMgr::OrchMgr()
     node_id_to_name[i] = "";
   }
 
-  policy_mgr = new VolPolicyMgr(om_log);
-
   /*
    * Always hard code the DMT/DLT values.
    * TODO: We should read the info from disk
@@ -61,7 +59,8 @@ OrchMgr::~OrchMgr() {
   delete curDmt;
 
   delete om_log;
-  delete policy_mgr;
+  if (policy_mgr)
+    delete policy_mgr;
 }
 
 int OrchMgr::run(int argc, char* argv[]) {
@@ -80,6 +79,8 @@ int OrchMgr::run(int argc, char* argv[]) {
       return -1;
     }
   }
+
+  policy_mgr = new VolPolicyMgr(stor_prefix, om_log);
 
   Ice::PropertiesPtr props = communicator()->getProperties();
 
