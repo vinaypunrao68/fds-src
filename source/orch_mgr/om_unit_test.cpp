@@ -325,12 +325,102 @@ class OmUnitTest {
     return 0;
   }
 
+  fds_int32_t policy_test() {
+    fds_int32_t result = 0;
+    FDS_PLOG(test_log) << "Starting test: volume policy";
+
+    FDS_ProtocolInterface::FDSP_ConfigPathReqPrx fdspConfigPathAPI = 
+      createOmComm(om_port_num);
+
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr = 
+      new FDS_ProtocolInterface::FDSP_MsgHdrType;
+    initOMMsgHdr(msg_hdr);
+
+    FDS_ProtocolInterface::FDSP_CreatePolicyTypePtr crt_pol = 
+      new FDS_ProtocolInterface::FDSP_CreatePolicyType();
+     crt_pol->policy_info = 
+       new FDS_ProtocolInterface::FDSP_PolicyInfoType(); 
+
+     for (fds_uint32_t i = 0; i < num_updates; ++i)
+       {
+	 crt_pol->policy_name = std::string("Policy") + std::to_string(i+1);
+	 crt_pol->policy_info->policy_name = crt_pol->policy_name;
+	 crt_pol->policy_info->policy_id = i+1;
+	 crt_pol->policy_info->iops_min = 100;
+	 crt_pol->policy_info->iops_max = 200;
+	 crt_pol->policy_info->rel_prio = (i+2)%9;
+
+	 FDS_PLOG(test_log) << "OM unit test client creating policy "
+			    << crt_pol->policy_name
+			    << "; id " << crt_pol->policy_info->policy_id
+			    << "; iops_min " << crt_pol->policy_info->iops_min
+			    << "; iops_max " << crt_pol->policy_info->iops_max
+			    << "; rel_prio " << crt_pol->policy_info->rel_prio;
+
+	 fdspConfigPathAPI->CreatePolicy(msg_hdr, crt_pol);
+
+	 FDS_PLOG(test_log) << "OM unit test client completed creating policy";
+
+       }
+
+     /* modify policy with id 0 */
+
+     if (num_updates > 0)
+       {
+
+         FDS_ProtocolInterface::FDSP_ModifyPolicyTypePtr mod_pol = 
+            new FDS_ProtocolInterface::FDSP_ModifyPolicyType();
+         mod_pol->policy_info = 
+            new FDS_ProtocolInterface::FDSP_PolicyInfoType();
+
+	 mod_pol->policy_name = std::string("Policy") + std::to_string(1);
+	 mod_pol->policy_id = 1;
+	 mod_pol->policy_info->policy_name = mod_pol->policy_name;
+	 mod_pol->policy_info->policy_id = mod_pol->policy_id;
+	 /* new values */
+	 mod_pol->policy_info->iops_min = 333;
+	 mod_pol->policy_info->iops_max = 1000;
+	 mod_pol->policy_info->rel_prio = 3;
+
+	 FDS_PLOG(test_log) << "OM unit test modifying policy "
+			    << mod_pol->policy_name
+			    << "; id " << mod_pol->policy_info->policy_id;
+
+	 fdspConfigPathAPI->ModifyPolicy(msg_hdr, mod_pol);
+
+	 FDS_PLOG(test_log) << "OM unit test client completed modifying policy";
+       }
+
+     /* delete all policies */
+     FDS_ProtocolInterface::FDSP_DeletePolicyTypePtr del_pol = 
+       new FDS_ProtocolInterface::FDSP_DeletePolicyType();
+
+     for (fds_uint32_t i = 0; i < num_updates; ++i)
+       {
+	 del_pol->policy_name = std::string("Policy") + std::to_string(i+1);
+	 del_pol->policy_id = i+1; 
+
+	 FDS_PLOG(test_log) << "OM unit test client deleting policy "
+			    << del_pol->policy_name
+			    << "; id" << del_pol->policy_id;
+
+	 fdspConfigPathAPI->DeletePolicy(msg_hdr, del_pol);
+
+	 FDS_PLOG(test_log) << "OM unit test client completed deleting policy"; 
+
+       }
+     FDS_PLOG(test_log) << " Finished test: policy";
+
+ return result;
+  }
+
  public:
   OmUnitTest() {
     test_log = new fds_log("om_test", "logs");
 
     unit_tests.push_back("node_reg");
     unit_tests.push_back("vol_reg");
+    unit_tests.push_back("policy");
 
     num_updates = 10;
   }
@@ -362,6 +452,8 @@ class OmUnitTest {
       result = node_reg();
     } else if (testname == "vol_reg") {
       result = vol_reg();
+    } else if (testname == "policy") {
+      result = policy_test();
     } else {
       std::cout << "Unknown unit test " << testname << std::endl;
     }

@@ -54,6 +54,11 @@ namespace fds {
 
     fds::Error Update(const Record& key, const Record& val);
     fds::Error Query(const Record& key, std::string* val);
+
+    /* delete catalog entry for 'key', 
+     * not an error if 'key' is not in the database */
+    fds::Error Delete(const Record& key);
+
     std::string GetFile() const;
   };
 
