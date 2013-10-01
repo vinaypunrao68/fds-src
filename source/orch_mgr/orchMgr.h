@@ -25,6 +25,7 @@
 #include "util/Log.h"
 #include "util/concurrency/Mutex.h"
 #include "lib/Catalog.h"
+#include "OmVolPolicy.h"
 
 #define MAX_OM_NODES 512
 
@@ -162,6 +163,9 @@ namespace fds {
     int port_num;
     std::string stor_prefix;
     fds_bool_t test_mode;
+
+    /* policy manager */
+    VolPolicyMgr* policy_mgr;
 
     /*
      * Persistent DLT and DMT histories.

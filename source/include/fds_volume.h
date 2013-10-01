@@ -176,8 +176,90 @@ namespace fds {
     fds_uint64_t   thruput;       // in MByte/sec
     fds_uint32_t   relativePrio;  // Relative priority
 
-    FDS_VolumePolicy();
-    ~FDS_VolumePolicy();
+    FDS_VolumePolicy() {
+    }
+    ~FDS_VolumePolicy() {
+    }
+
+    Error setPolicy(const char* data, fds_uint32_t len)
+    {
+      Error err(ERR_OK);
+      int offset = 0;
+      fds_uint32_t namelen = 0;
+      fds_uint32_t minlen = getPolicyStringMinLength();
+      if (len < minlen) {
+	err = ERR_INVALID_ARG;
+	return err;
+      }
+
+      memcpy(&volPolicyId, data + offset, sizeof(fds_uint32_t));
+      offset += sizeof(fds_uint32_t);
+      memcpy(&iops_max, data + offset, sizeof(fds_uint64_t));
+      offset += sizeof(fds_uint64_t);
+      memcpy(&iops_min, data + offset, sizeof(fds_uint64_t));
+      offset += sizeof(fds_uint64_t);
+      memcpy(&thruput, data + offset, sizeof(fds_uint64_t));
+      offset += sizeof(fds_uint64_t);
+      memcpy(&relativePrio, data + offset, sizeof(fds_uint32_t));
+      offset += sizeof(fds_uint32_t);
+
+      /* next is policy name length + policy name */
+      memcpy(&namelen, data + offset, sizeof(fds_uint32_t));
+      offset += sizeof(fds_uint32_t);
+      if ((len-minlen) < namelen) {
+	err = ERR_INVALID_ARG;
+      } 
+      else if (namelen > 0) {
+	volPolicyName.assign(data + offset, namelen);
+      }
+
+      return err;
+    }
+
+    /* policy string length without policy name length but including policy string size */
+    fds_uint32_t getPolicyStringMinLength() const 
+    {
+      int len = sizeof(volPolicyId) + 
+	        sizeof(iops_max) + 
+    	        sizeof(iops_min) + 
+	        sizeof(thruput) + 
+	        sizeof(relativePrio) + 
+	        sizeof(fds_uint32_t);
+					
+      return len;
+    }
+
+    /* length of string representation of policy */
+    fds_uint32_t getPolicyStringLength() const 
+    {
+      return (getPolicyStringMinLength() + volPolicyName.length());
+    }
+
+    std::string toString() const 
+      {
+	int offset = 0;
+	fds_uint32_t length = getPolicyStringLength();
+	fds_uint32_t namelen = volPolicyName.length();
+	char str[length];
+
+	memcpy(str, &volPolicyId, sizeof(fds_uint32_t));
+	offset += sizeof(fds_uint32_t);
+	memcpy(str + offset, &iops_max, sizeof(fds_uint64_t));
+	offset += sizeof(fds_uint64_t);
+	memcpy(str + offset, &iops_min, sizeof(fds_uint64_t));
+	offset += sizeof(fds_uint64_t);
+	memcpy(str + offset, &thruput, sizeof(fds_uint64_t));
+	offset += sizeof(fds_uint64_t);
+	memcpy(str + offset, &relativePrio, sizeof(fds_uint32_t));
+	offset += sizeof(fds_uint32_t);
+	memcpy(str + offset, &namelen, sizeof(fds_uint32_t));
+	offset += sizeof(fds_uint32_t);
+	if (namelen > 0) {
+	  memcpy(str + offset, volPolicyName.data(), volPolicyName.length());
+	}
+
+	return std::string(str, length);
+      }
   };
 
   class FDS_ArchivePolicy {

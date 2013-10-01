@@ -110,6 +110,9 @@ int FdsCli::fdsCliPraser(int argc, char* argv[])
  		volData->vol_info->readQuorum = 0;
     		volData->vol_info->consisProtocol = FDSP_CONS_PROTO_STRONG;
 
+		volData->vol_info->volPolicyId = vm["volume-policy"].as<int>();
+		volData->vol_info->archivePolicyId = 0;
+		volData->vol_info->placementPolicy = 0;
     		volData->vol_info->appWorkload = FDSP_APP_WKLD_TRANSACTION;
 
    		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(communicator()->stringToProxy (tcpProxyStr.str())); 
@@ -134,6 +137,10 @@ int FdsCli::fdsCliPraser(int argc, char* argv[])
     		volData->vol_info->capacity = vm["volume-size"].as<double>();
     		volData->vol_info->volType = FDSP_VOL_BLKDEV_TYPE;
     		volData->vol_info->consisProtocol = FDSP_CONS_PROTO_STRONG;
+
+		volData->vol_info->volPolicyId = vm["volume-policy"].as<int>();
+		volData->vol_info->archivePolicyId = 0;
+		volData->vol_info->placementPolicy = 0;
     		volData->vol_info->appWorkload = FDSP_APP_WKLD_TRANSACTION;
 
    		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(communicator()->stringToProxy (tcpProxyStr.str())); 

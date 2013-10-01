@@ -59,6 +59,8 @@ OrchMgr::~OrchMgr() {
   delete curDmt;
 
   delete om_log;
+  if (policy_mgr)
+    delete policy_mgr;
 }
 
 int OrchMgr::run(int argc, char* argv[]) {
@@ -77,6 +79,8 @@ int OrchMgr::run(int argc, char* argv[]) {
       return -1;
     }
   }
+
+  policy_mgr = new VolPolicyMgr(stor_prefix, om_log);
 
   Ice::PropertiesPtr props = communicator()->getProperties();
 
@@ -318,6 +322,7 @@ void OrchMgr::copyVolumeInfoToProperties(FDS_Volume *pVol,
   pVol->capacity = v_info->capacity;
   pVol->volType = fds::FDS_VolType(v_info->volType);
   pVol->consisProtocol = fds::FDS_ConsisProtoType(v_info->consisProtocol);
+  pVol->volPolicyId = v_info->volPolicyId;
   pVol->appWorkload = fds::FDS_AppWorkload(v_info->appWorkload);
 }
 
@@ -329,6 +334,7 @@ void OrchMgr::copyPropertiesToVolumeInfo(FdspVolInfoPtr v_info,
   v_info->volType = FDS_ProtocolInterface::FDSP_VolType(pVol->volType);
   v_info->consisProtocol = FDS_ProtocolInterface::
       FDSP_ConsisProtoType(pVol->consisProtocol);
+  v_info->volPolicyId = pVol->volPolicyId;
   v_info->appWorkload = FDS_ProtocolInterface::
       FDSP_AppWorkload(pVol->appWorkload);
 }
@@ -763,17 +769,50 @@ void OrchMgr::ModifyVol(const FdspMsgHdrPtr& fdsp_msg,
 
 void OrchMgr::CreatePolicy(const FdspMsgHdrPtr& fdsp_msg,
                            const FdspCrtPolPtr& crt_pol_req) {
-  FDS_PLOG(GetLog()) << "Received CreatePolicy  Msg";
+  Error err(ERR_OK);
+  int policy_id = crt_pol_req->policy_info->policy_id;
+
+  FDS_PLOG(GetLog()) << "Received CreatePolicy  Msg for policy "
+		     << crt_pol_req->policy_info->policy_name
+		     << ", id" << policy_id;
+
+  om_mutex->lock();
+  err = policy_mgr->createPolicy(crt_pol_req->policy_info);
+  om_mutex->unlock();
 }
 
 void OrchMgr::DeletePolicy(const FdspMsgHdrPtr& fdsp_msg,
                            const FdspDelPolPtr& del_pol_req) {
-  FDS_PLOG(GetLog()) << "Received DeletePolicy  Msg";
+  Error err(ERR_OK);
+  int policy_id = del_pol_req->policy_id;
+  std::string policy_name = del_pol_req->policy_name;
+  FDS_PLOG(GetLog()) << "Received DeletePolicy  Msg for policy "
+		     << policy_name << ", id " << policy_id;
+
+  om_mutex->lock();
+  err = policy_mgr->deletePolicy(policy_id, policy_name);
+  if (err.ok()) {
+    /* removed policy from policy catalog or policy didn't exist 
+     * TODO: what do we do with volumes that use policy we deleted ? */
+  }
+  om_mutex->unlock();
 }
 
 void OrchMgr::ModifyPolicy(const FdspMsgHdrPtr& fdsp_msg,
                            const FdspModPolPtr& mod_pol_req) {
-  FDS_PLOG(GetLog()) << "Received ModifyPolicy  Msg";
+  Error err(ERR_OK);
+  int policy_id = mod_pol_req->policy_info->policy_id;
+  FDS_PLOG(GetLog()) << "Received ModifyPolicy  Msg for policy "
+		     << mod_pol_req->policy_info->policy_name
+		     << ", id " << policy_id;
+
+  om_mutex->lock();
+  err = policy_mgr->modifyPolicy(mod_pol_req->policy_info);
+  if (err.ok()) {
+    /* modified policy in the policy catalog 
+     * TODO: we probably should send modify volume messages to SH/DM, etc.  O */
+  }
+  om_mutex->unlock();
 }
 
 void OrchMgr::AttachVol(const FdspMsgHdrPtr &fdsp_msg,
@@ -902,6 +941,7 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
   if (node_map.count(reg_node_req->node_name) > 0) {
     FDS_PLOG(GetLog()) << "Duplicate Node Registration for "
                        << reg_node_req->node_name;
+    om_mutex->unlock();
     return;
   }
 

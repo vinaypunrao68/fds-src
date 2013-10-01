@@ -5,7 +5,7 @@ IDIR =-I$(TOPDIR)/include -I$(TOPDIR) -I$(TOPICEDIR)/include/Ice -I. -I$(TOPICED
 LDIR =-L$(TOPDIR)/lib -L. -L$(TOPDIR)/util/ -L$(TOPDIR)/lib/leveldb-1.12.0/
 CFLAGS=$(IDIR) -g 
 
-OBJS		= orchMgr.o
+OBJS		= orchMgr.o OmVolPolicy.o
 
 
 DEPS = $(TOPDIR)/util/Log.h
@@ -17,7 +17,7 @@ SYS_LIBS   = -lpthread -lssl -lcrypto
 LEVELDB_LIBS = -lleveldb
 
 LIB_DIR    = ../lib/
-FDS_OBJS   = $(UTIL_OBJS) ../fdsp/FDSP.o ../util/concurrency/Mutex.o
+FDS_OBJS   = $(UTIL_OBJS) ../fdsp/FDSP.o ../util/concurrency/Mutex.o ../lib/Catalog.o
 OM_OBJS    = ../fdsp/FDSP.o
 
 MY_LIBS = $(BOOST_LIBS) $(SYS_LIBS) $(LEVELDB_LIBS)
