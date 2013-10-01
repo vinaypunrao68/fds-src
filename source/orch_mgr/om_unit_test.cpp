@@ -1,91 +1,72 @@
-#include <iostream>
+/*
+ * Copyright 2013 Formation Data Systems, Inc.
+ */
+
+/*
+ * Unit tests for orchestration manager. These
+ * test should only require the orchestration
+ * manager to be up and running.
+ */
 
 #include <Ice/Ice.h>
 #include <IceStorm/IceStorm.h>
 #include <IceUtil/IceUtil.h>
 
+#include <iostream>  // NOLINT(*)
+#include <string>
+#include <list>
+
 #include "include/fds_types.h"
 #include "include/fds_err.h"
 #include "include/fds_volume.h"
 #include "fdsp/FDSP.h"
-#include "include/fds_err.h"
 #include "util/Log.h"
 #include "util/concurrency/Mutex.h"
 
-using namespace std;
-using namespace fds;
-//using namespace FDSP_Types;
-using namespace FDS_ProtocolInterface;
-
-void initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
-{
-	msg_hdr->minor_ver = 0;
-	msg_hdr->msg_code = FDSP_MSG_PUT_OBJ_REQ;
-        msg_hdr->msg_id =  1;
-
-        msg_hdr->major_ver = 0xa5;
-        msg_hdr->minor_ver = 0x5a;
-
-        msg_hdr->num_objects = 1;
-        msg_hdr->frag_len = 0;
-        msg_hdr->frag_num = 0;
-
-        msg_hdr->tennant_id = 0;
-        msg_hdr->local_domain_id = 0;
-
-        msg_hdr->src_id = FDSP_STOR_HVISOR;
-        msg_hdr->dst_id = FDSP_ORCH_MGR;
-
-        msg_hdr->err_code=FDSP_ERR_SM_NO_SPACE;
-        msg_hdr->result=FDSP_ERR_OK;
-}
+namespace fds {
 
 class ControlPathReq : public FDS_ProtocolInterface::FDSP_ControlPathReq {
-  
- private:
-  
-  
- public:
+   public:
   ControlPathReq() { }
   ~ControlPathReq() { }
-  
+
   void NotifyAddVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
                     const FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg,
                     const Ice::Current&) { }
-  
+
   void NotifyRmVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-		   const FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg,
-		   const Ice::Current&) { }
-  
-  
+                   const FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg,
+                   const Ice::Current&) { }
+
   void AttachVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
                  const FDS_ProtocolInterface::FDSP_AttachVolTypePtr& vol_msg,
                  const Ice::Current&) { }
-  
+
   void DetachVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
                  const FDS_ProtocolInterface::FDSP_AttachVolTypePtr& vol_msg,
                  const Ice::Current&) { }
 
-  void NotifyNodeAdd(const FDSP_MsgHdrTypePtr& msg_hdr, 
-		     const FDSP_Node_Info_TypePtr& node_info,
-		     const Ice::Current&) { }
+  void NotifyNodeAdd(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                     const FDS_ProtocolInterface::FDSP_Node_Info_TypePtr&
+                     node_info,
+                     const Ice::Current&) { }
 
-  void NotifyNodeRmv(const FDSP_MsgHdrTypePtr& msg_hdr, 
-		     const FDSP_Node_Info_TypePtr& node_info,
-		     const Ice::Current&) { }
+  void NotifyNodeRmv(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                     const FDS_ProtocolInterface::FDSP_Node_Info_TypePtr&
+                     node_info,
+                     const Ice::Current&) { }
 
-  void NotifyDLTUpdate(const FDSP_MsgHdrTypePtr& msg_hdr,
-		       const FDSP_DLT_TypePtr& dlt_info,
-		       const Ice::Current&) { }
+  void NotifyDLTUpdate(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                       const FDS_ProtocolInterface::FDSP_DLT_TypePtr& dlt_info,
+                       const Ice::Current&) { }
 
-  void NotifyDMTUpdate(const FDSP_MsgHdrTypePtr& msg_hdr,
-		       const FDSP_DMT_TypePtr& dmt_info,
-		       const Ice::Current&) { }
-  
+  void NotifyDMTUpdate(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                       const FDS_ProtocolInterface::FDSP_DMT_TypePtr& dmt_info,
+                       const Ice::Current&) { }
 };
 
 class TestResp : public FDS_ProtocolInterface::FDSP_ConfigPathResp {
-  private:
+ private:
   fds_log *test_log;
 
  public:
@@ -103,59 +84,340 @@ class TestResp : public FDS_ProtocolInterface::FDSP_ConfigPathResp {
     assert(test_log == NULL);
     test_log = log;
   }
-  
-  void CreateVolResp(const FDSP_MsgHdrTypePtr& fdsp_msg,
-                     const FDSP_CreateVolTypePtr& crt_vol_resp,
+
+  void CreateVolResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
+                     fdsp_msg,
+                     const FDS_ProtocolInterface::FDSP_CreateVolTypePtr&
+                     crt_vol_resp,
                      const Ice::Current&) {}
-  void DeleteVolResp(const FDSP_MsgHdrTypePtr& fdsp_msg,
-                     const FDSP_DeleteVolTypePtr& del_vol_resp,
+  void DeleteVolResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
+                     fdsp_msg,
+                     const FDS_ProtocolInterface::FDSP_DeleteVolTypePtr&
+                     del_vol_resp,
                      const Ice::Current&) {}
-  void ModifyVolResp(const FDSP_MsgHdrTypePtr& fdsp_msg,
-                     const FDSP_ModifyVolTypePtr& mod_vol_resp,
+  void ModifyVolResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
+                     fdsp_msg,
+                     const FDS_ProtocolInterface::FDSP_ModifyVolTypePtr&
+                     mod_vol_resp,
                      const Ice::Current&) {}
-  void CreatePolicyResp(const FDSP_MsgHdrTypePtr& fdsp_msg,
-                        const FDSP_CreatePolicyTypePtr& crt_pol_resp,
+  void CreatePolicyResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
+                        fdsp_msg,
+                        const FDS_ProtocolInterface::FDSP_CreatePolicyTypePtr&
+                        crt_pol_resp,
                         const Ice::Current&) {}
-  void DeletePolicyResp(const FDSP_MsgHdrTypePtr& fdsp_msg,
-                        const FDSP_DeletePolicyTypePtr& del_pol_resp,
+  void DeletePolicyResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
+                        fdsp_msg,
+                        const FDS_ProtocolInterface::FDSP_DeletePolicyTypePtr&
+                        del_pol_resp,
                         const Ice::Current&) {}
-  void ModifyPolicyResp(const FDSP_MsgHdrTypePtr& fdsp_msg,
-                        const FDSP_ModifyPolicyTypePtr& mod_pol_resp,
+  void ModifyPolicyResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
+                        fdsp_msg,
+                        const FDS_ProtocolInterface::FDSP_ModifyPolicyTypePtr&
+                        mod_pol_resp,
                         const Ice::Current&) {}
-  void AttachVolResp(const FDSP_MsgHdrTypePtr& fdsp_msg,
-                     const FDSP_AttachVolCmdTypePtr& atc_vol_req,
+  void AttachVolResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
+                     fdsp_msg,
+                     const FDS_ProtocolInterface::FDSP_AttachVolCmdTypePtr&
+                     atc_vol_req,
                      const Ice::Current&) {}
-  void DetachVolResp(const FDSP_MsgHdrTypePtr& fdsp_msg,
-                     const FDSP_AttachVolCmdTypePtr& dtc_vol_req,
+  void DetachVolResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
+                     fdsp_msg,
+                     const FDS_ProtocolInterface::FDSP_AttachVolCmdTypePtr&
+                     dtc_vol_req,
                      const Ice::Current&) {}
-  void RegisterNodeResp(const FDSP_MsgHdrTypePtr& fdsp_msg,
-                        const FDSP_RegisterNodeTypePtr& reg_node_resp,
-                        const Ice::Current&) {
-    std::cout << "Got register node response" << std::endl;
-  }
+  void RegisterNodeResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
+                        fdsp_msg,
+                        const FDS_ProtocolInterface::FDSP_RegisterNodeTypePtr&
+                        reg_node_resp,
+                        const Ice::Current&) {}
 };
 
-int main(int argc, char* argv[])
-{
+class OmUnitTest {
+ private:
+  std::list<std::string>  unit_tests;
 
+  fds_log *test_log;
+
+  fds_uint32_t om_port_num;
+  fds_uint32_t cp_port_num;
+  fds_uint32_t num_updates;
+
+  /*
+   * Ice communication ptr. Should be
+   * provided during class construction.
+   */
+  Ice::CommunicatorPtr ice_comm;
+
+  std::list<Ice::ObjectAdapterPtr> adapterList;
+
+  /*
+   * Helper function to construct msg hdr
+   */
+  void initOMMsgHdr(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr) {
+    msg_hdr->minor_ver = 0;
+    msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_PUT_OBJ_REQ;
+    msg_hdr->msg_id =  1;
+
+    msg_hdr->major_ver = 0xa5;
+    msg_hdr->minor_ver = 0x5a;
+
+    msg_hdr->num_objects = 1;
+    msg_hdr->frag_len = 0;
+    msg_hdr->frag_num = 0;
+
+    msg_hdr->tennant_id = 0;
+    msg_hdr->local_domain_id = 0;
+
+    msg_hdr->src_id = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
+    msg_hdr->dst_id = FDS_ProtocolInterface::FDSP_ORCH_MGR;
+
+    msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
+  }
+
+  /*
+   * Helper function to create and remember endpoints.
+   */
+  void createCpEndpoint(fds_uint32_t port) {
+    std::string contPathStr = std::string("tcp -p ") + std::to_string(port);
+    /*
+     * Add our port to the endpoint name to make it unique.
+     * The OM will need to be aware we're using this nameing
+     * convention.
+     */
+    Ice::ObjectAdapterPtr rpc_adapter =
+        ice_comm->createObjectAdapterWithEndpoints(
+            "OrchMgrClient" + std::to_string(port), contPathStr);
+    ControlPathReq *cpr = new ControlPathReq();
+    rpc_adapter->add(cpr,
+                     ice_comm->stringToIdentity(
+                         "OrchMgrClient" + std::to_string(port)));
+    rpc_adapter->activate();
+
+    adapterList.push_back(rpc_adapter);
+    FDS_PLOG(test_log) << "Create endpoint at " << contPathStr;
+  }
+
+  void clearCpEndpoints() {
+    adapterList.clear();
+    FDS_PLOG(test_log) << "Cleared control point endpoints list";
+  }
+
+  FDS_ProtocolInterface::FDSP_ConfigPathReqPrx createOmComm(fds_uint32_t port) {
+    std::string ConfigPathStr;
+    /*
+     * We expect the test to communicate over localhost
+     */
+    ConfigPathStr = "OrchMgr:tcp -h localhost -p " +
+        std::to_string(om_port_num);
+    Ice::ObjectPrx obj = ice_comm->stringToProxy(ConfigPathStr);
+    return FDS_ProtocolInterface::FDSP_ConfigPathReqPrx::checkedCast(obj);
+  }
+
+  /*
+   * Unit test funtions
+   */
+  fds_int32_t node_reg() {
+    FDS_PLOG(test_log) << "Starting test: node_reg()";
+
+    FDS_ProtocolInterface::FDSP_ConfigPathReqPrx fdspConfigPathAPI =
+        createOmComm(om_port_num);
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr =
+        new FDS_ProtocolInterface::FDSP_MsgHdrType;
+    initOMMsgHdr(msg_hdr);
+
+    FDS_ProtocolInterface::FDSP_RegisterNodeTypePtr reg_node_msg =
+        new FDS_ProtocolInterface::FDSP_RegisterNodeType;
+
+    reg_node_msg->ip_hi_addr = 0;
+    /*
+     * We're expecting to contact OM on localhost.
+     * Set hex 127.0.0.1 value.
+     * TODO: Make this cmdline configurable.
+     */
+    reg_node_msg->ip_lo_addr = 0x7f000001;
+    /*
+     * This unit test isn't using data path requests
+     * so we leave the port as 0.
+     */
+    reg_node_msg->data_port = 0;
+
+    for (fds_uint32_t i = 0; i < num_updates; i++) {
+      /*
+       * Create and endpoint to reflect the "node" that
+       * we're registering, so that "node" can recieve
+       * updates from the OM.
+       */
+      reg_node_msg->control_port = cp_port_num + i;
+      createCpEndpoint(reg_node_msg->control_port);
+
+      /*
+       * TODO: Make the name just an int since the OM turns this into
+       * a UUID to address the node. Fix this by adding a UUID int to
+       * the FDSP.
+       */
+      reg_node_msg->node_name = std::to_string(i);
+
+      /*
+       * TODO: Change this to a service type since nodes registering
+       * and services registering should be two different things
+       * eventually.
+       */
+      if ((i % 3) == 0) {
+        reg_node_msg->node_type = FDS_ProtocolInterface::FDSP_STOR_MGR;
+      } else if ((i % 2) == 0) {
+        reg_node_msg->node_type = FDS_ProtocolInterface::FDSP_DATA_MGR;
+      } else {
+        reg_node_msg->node_type = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
+      }
+
+      fdspConfigPathAPI->RegisterNode(msg_hdr, reg_node_msg);
+
+      FDS_PLOG(test_log) << "Completed node registration " << i << " at IP "
+                         << fds::ipv4_addr_to_str(reg_node_msg->ip_lo_addr)
+                         << " control port " << reg_node_msg->control_port;
+    }
+
+    clearCpEndpoints();
+
+    FDS_PLOG(test_log) << "Ending test: node_reg()";
+    return 0;
+  }
+
+  fds_int32_t vol_reg() {
+    FDS_PLOG(test_log) << "Starting test: vol_reg()";
+
+    FDS_ProtocolInterface::FDSP_ConfigPathReqPrx fdspConfigPathAPI =
+        createOmComm(om_port_num);
+
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr =
+        new FDS_ProtocolInterface::FDSP_MsgHdrType;
+    initOMMsgHdr(msg_hdr);
+
+    FDS_ProtocolInterface::FDSP_CreateVolTypePtr crt_vol =
+        new FDS_ProtocolInterface::FDSP_CreateVolType();
+    crt_vol->vol_info =
+        new FDS_ProtocolInterface::FDSP_VolumeInfoType();
+
+    initOMMsgHdr(msg_hdr);
+    for (fds_uint32_t i = 0; i < num_updates; i++) {
+      crt_vol->vol_name = std::string("Volume ") + std::to_string(i);
+      crt_vol->vol_info->vol_name = crt_vol->vol_name;
+      crt_vol->vol_info->volUUID = i;
+      crt_vol->vol_info->capacity = 1024 * 1024 * 1024;  // 1 Gig
+      crt_vol->vol_info->volType = FDS_ProtocolInterface::FDSP_VOL_BLKDEV_TYPE;
+      crt_vol->vol_info->consisProtocol =
+          FDS_ProtocolInterface::FDSP_CONS_PROTO_STRONG;
+      crt_vol->vol_info->appWorkload =
+          FDS_ProtocolInterface::FDSP_APP_WKLD_TRANSACTION;
+
+      FDS_PLOG(test_log) << "OM unit test client creating volume "
+                         << crt_vol->vol_info->vol_name
+                         << " with UUID " << crt_vol->vol_info->volUUID
+                         << " and capacity " << crt_vol->vol_info->capacity;
+
+      fdspConfigPathAPI->CreateVol(msg_hdr, crt_vol);
+
+      FDS_PLOG(test_log) << "OM unit test client completed creating volume.";
+    }
+
+    FDS_PLOG(test_log) << "Ending test: vol_reg()";
+    return 0;
+  }
+
+ public:
+  OmUnitTest() {
+    test_log = new fds_log("om_test", "logs");
+
+    unit_tests.push_back("node_reg");
+    unit_tests.push_back("vol_reg");
+
+    num_updates = 10;
+  }
+
+  explicit OmUnitTest(fds_uint32_t om_port_arg,
+                      fds_uint32_t cp_port_arg,
+                      fds_uint32_t num_up_arg,
+                      Ice::CommunicatorPtr ice_comm_arg)
+      : OmUnitTest() {
+    om_port_num = om_port_arg;
+    cp_port_num = cp_port_arg;
+    num_updates = num_up_arg;
+    ice_comm = ice_comm_arg;
+  }
+
+  ~OmUnitTest() {
+    delete test_log;
+  }
+
+  fds_log* GetLogPtr() {
+    return test_log;
+  }
+
+  fds_int32_t Run(const std::string& testname) {
+    int result = 0;
+    std::cout << "Running unit test \"" << testname << "\"" << std::endl;
+
+    if (testname == "node_reg") {
+      result = node_reg();
+    } else if (testname == "vol_reg") {
+      result = vol_reg();
+    } else {
+      std::cout << "Unknown unit test " << testname << std::endl;
+    }
+
+    if (result == 0) {
+      std::cout << "Unit test \"" << testname << "\" PASSED"  << std::endl;
+    } else {
+      std::cout << "Unit test \"" << testname << "\" FAILED" << std::endl;
+    }
+    std::cout << std::endl;
+
+    return result;
+  }
+
+  void Run() {
+    fds_int32_t result = 0;
+    for (std::list<std::string>::iterator it = unit_tests.begin();
+         it != unit_tests.end();
+         ++it) {
+      result = Run(*it);
+      if (result != 0) {
+        std::cout << "Unit test FAILED" << std::endl;
+        break;
+      }
+    }
+
+    if (result == 0) {
+      std::cout << "Unit test PASSED" << std::endl;
+    }
+  }
+};
+}  // namespace fds
+
+int main(int argc, char* argv[]) {
   /*
    * Grab cmdline params
    */
   fds_uint32_t om_port_num = 0;
   fds_uint32_t cp_port_num = 0;
+  fds_uint32_t num_updates = 10;
+  std::string testname;
   for (int i = 1; i < argc; i++) {
-    if (strncmp(argv[i], "--port=", 7) == 0) {
+    if (strncmp(argv[i], "--testname=", 11) == 0) {
+      testname = argv[i] + 11;
+    } else if (strncmp(argv[i], "--port=", 7) == 0) {
       om_port_num = strtoul(argv[i] + 7, NULL, 0);
     } else if (strncmp(argv[i], "--cp_port=", 10) == 0) {
       cp_port_num = strtoul(argv[i] + 10, NULL, 0);
-    } else {
-      std::cerr << "Invalid command line: Unknown argument" << std::endl;
-      std::cout << "Unit test PASSED" << std::endl;
+    } else if (strncmp(argv[i], "--num_updates=", 14) == 0) {
+        num_updates = atoi(argv[i] + 14);
+      } else {
+      std::cerr << "Invalid command line: Unknown argument "
+                << argv[i] << std::endl;
       return -1;
     }
   }
-
-  fds_log *om_utest_log = new fds_log("om_test", "logs");
 
   Ice::InitializationData initData;
   initData.properties = Ice::createProperties();
@@ -163,19 +425,15 @@ int main(int argc, char* argv[])
 
   Ice::CommunicatorPtr comm;
   comm = Ice::initialize(argc, argv, initData);
-  
+
   Ice::PropertiesPtr om_props = comm->getProperties();
-  std::string ConfigPathStr;
+
   if (om_port_num == 0) {
     /*
      * Read from config where to contact OM
      */
     om_port_num = om_props->getPropertyAsInt("OMgr.ConfigPort");
   }
-  ConfigPathStr = "OrchMgr:tcp -h localhost -p " + std::to_string(om_port_num);
-
-  Ice::ObjectPrx obj = comm->stringToProxy(ConfigPathStr);
-  FDSP_ConfigPathReqPrx fdspConfigPathAPI = FDSP_ConfigPathReqPrx::checkedCast(obj);
 
   /*
    * Create control path server to listen for messages from OM.
@@ -191,102 +449,16 @@ int main(int argc, char* argv[])
      */
     cp_port_num = om_props->getPropertyAsInt("OMgrClient.PortNumber");
   }
-  std::string ContPathStr = std::string("tcp -p ") + std::to_string(cp_port_num);
-  Ice::ObjectAdapterPtr rpc_adapter = comm->createObjectAdapterWithEndpoints("OrchMgrClient", ContPathStr);
-  ControlPathReq *cpr = new ControlPathReq();
-  rpc_adapter->add(cpr, comm->stringToIdentity("OrchMgrClient"));
-  rpc_adapter->activate();
 
-  Ice::ObjectAdapterPtr adapter = comm->createObjectAdapter("");
-  Ice::Identity ident;
-  ident.name = IceUtil::generateUUID();
-  ident.category = "";
-  TestResp* fdspDataPathResp;
-  fdspDataPathResp = new TestResp();
-  if (!fdspDataPathResp) {
-    throw "Invalid fdspDataPathRespCback";
+  fds::OmUnitTest unittest(om_port_num,
+                           cp_port_num,
+                           num_updates,
+                           comm);
+  if (testname.empty()) {
+    unittest.Run();
+  } else {
+    unittest.Run(testname);
   }
 
-  adapter->add(fdspDataPathResp, ident);
-  adapter->activate();
-  
-  fdspConfigPathAPI->ice_getConnection()->setAdapter(adapter);
-  fdspConfigPathAPI->AssociateRespCallback(ident);
-  
-  FDSP_MsgHdrTypePtr msg_hdr = new FDSP_MsgHdrType;
-  initOMMsgHdr(msg_hdr);
-
-  FDSP_RegisterNodeTypePtr reg_node_msg = new FDSP_RegisterNodeType;
-  reg_node_msg->ip_hi_addr = 0;
-  /*
-   * We're expecting to contact OM on localhost.
-   * Set hex 127.0.0.1 value.
-   * TODO: Make this cmdline configurable.
-   */
-  reg_node_msg->ip_lo_addr = 0x7f000001;
-  reg_node_msg->control_port = cp_port_num;
-  /*
-   * This unit test isn't using data path requests
-   * so we leave the port as 0.
-   */
-  reg_node_msg->data_port = 0;
-
-  int i = 0;
-
-  for (i = 0; i < 3; i++) {
-    /*
-     * TODO: Change to an external entity, since HVISOR is not
-     * going to be issuing config requests to OM.
-     */
-    reg_node_msg->node_name = std::string("Node ") + std::to_string(i);
-    reg_node_msg->node_type = (i == 0)? FDSP_DATA_MGR:((i==1)?FDSP_STOR_MGR:FDSP_STOR_HVISOR);
-    // reg_node_msg->control_port = 7900 + i;
-
-    FDS_PLOG(om_utest_log) << "OM unit test client registering node " << fds::ipv4_addr_to_str(reg_node_msg->ip_lo_addr) << " control port:" << reg_node_msg->control_port 
-                           << " data port:" << reg_node_msg->data_port
-                           << " with Orchaestration Manager at " << ConfigPathStr;
-
-    try {
-      fdspConfigPathAPI->RegisterNode(msg_hdr, reg_node_msg);
-    } catch(const ::Ice::OperationNotExistException& e) {
-      std::cout << "Caught op not exist exception " << std::endl;
-    } catch(const ::Ice::ConnectionLostException& e) {
-      std::cout << "Caught conn lost exception " << std::endl;
-    } catch(const ::Ice::ConnectionRefusedException& e) {
-      std::cout << "Caught conn refused exception " << std::endl;
-    }catch(const ::Ice::UnknownLocalException& e) {
-      std::cout << "Caught unknown local exception " << std::endl;
-    } catch(...) {
-      std::cout << "Caught some strange exception " << std::endl;
-    }
-
-    FDS_PLOG(om_utest_log) << "OM unit test client completed node registration.";
-
-  }
-
-  FDSP_CreateVolTypePtr crt_vol = new FDSP_CreateVolType();
-  crt_vol->vol_info = new FDSP_VolumeInfoType();
-
-  for (i = 0; i < 3; i++) {
-
-    crt_vol->vol_name = std::string("Volume ") + std::to_string(i);
-    crt_vol->vol_info->vol_name = crt_vol->vol_name;
-    crt_vol->vol_info->volUUID = i;
-    crt_vol->vol_info->capacity = 1024 * 1024 * 1024; // 1 Gig
-    crt_vol->vol_info->volType = FDSP_VOL_BLKDEV_TYPE;
-    crt_vol->vol_info->consisProtocol = FDSP_CONS_PROTO_STRONG;
-    crt_vol->vol_info->appWorkload = FDSP_APP_WKLD_TRANSACTION;
-
-    FDS_PLOG(om_utest_log) << "OM unit test client creating volume " << crt_vol->vol_info->vol_name
-			   << " with UUID " << crt_vol->vol_info->volUUID 
-			   << " and capacity " << crt_vol->vol_info->capacity;
-
-    fdspConfigPathAPI->CreateVol(msg_hdr, crt_vol);
-
-    FDS_PLOG(om_utest_log) << "OM unit test client completed creating volume.";
-
-  }
-
-  std::cout << "Unit test PASSED" << std::endl;
-  
+  return 0;
 }

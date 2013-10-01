@@ -12,22 +12,25 @@
 #include <Ice/Ice.h>
 
 #include <unordered_map>
+#include <cstdio>
+
 #include <string>
 #include <vector>
 
 #include "include/fds_types.h"
 #include "include/fds_err.h"
 #include "include/fds_volume.h"
+#include "include/fds_placement_table.h"
 #include "fdsp/FDSP.h"
 #include "util/Log.h"
 #include "util/concurrency/Mutex.h"
+#include "lib/Catalog.h"
 
 #define MAX_OM_NODES 512
 
 namespace fds {
 
   typedef std::string fds_node_name_t;
-  typedef int fds_node_id_t;
   typedef FDS_ProtocolInterface::FDSP_MgrIdType fds_node_type_t;
   typedef FDS_ProtocolInterface::FDSP_NodeState FdspNodeState;
   typedef FDS_ProtocolInterface::FDSP_ConfigPathReqPtr  ReqCfgHandlerPtr;
@@ -52,13 +55,16 @@ namespace fds {
   typedef FDS_ProtocolInterface::FDSP_NotifyVolTypePtr    FdspNotVolPtr;
 
   typedef FDS_ProtocolInterface::FDSP_VolumeInfoTypePtr FdspVolInfoPtr;
-  typedef FDS_ProtocolInterface::FDSP_PolicyInfoTypePtr FdspPolInfoPtr;  
+  typedef FDS_ProtocolInterface::FDSP_PolicyInfoTypePtr FdspPolInfoPtr;
 
   class NodeInfo {
- private:
+    /*
+     * TODO: Make these private and add accessor/mutator
+     * functions. That's better c++ style.
+     */
  public:
     fds_node_name_t node_name;
-    fds_node_id_t node_id;
+    fds_nodeid_t node_id;
     fds_node_type_t node_type;
     fds_uint32_t  node_ip_address;
     fds_uint32_t  control_port;
@@ -68,30 +74,55 @@ namespace fds {
 
  public:
     NodeInfo() { }
-    NodeInfo(const fds_node_id_t& _id,
-	     const fds_node_name_t& _name,
-	     const fds_node_type_t& _type,
-             fds_uint32_t _ip,
-             fds_uint32_t _cp_port,
-             fds_uint32_t _d_port,
-             const FdspNodeState& _state,
-             const ReqCtrlPrx& _prx) :
+
+    NodeInfo(const fds_nodeid_t& _id,
+          const fds_node_name_t& _name,
+          const fds_node_type_t& _type,
+          fds_uint32_t _ip,
+          fds_uint32_t _cp_port,
+          fds_uint32_t _d_port,
+          const FdspNodeState& _state,
+          const ReqCtrlPrx& _prx) :
     node_id(_id),
-      node_name(_name),
-      node_type(_type),
-      node_ip_address(_ip),
-      control_port(_cp_port),
-      data_port(_d_port),
-      node_state(_state),
-      cpPrx(_prx) {
-    }
+        node_name(_name),
+        node_type(_type),
+        node_ip_address(_ip),
+        control_port(_cp_port),
+        data_port(_d_port),
+        node_state(_state),
+        cpPrx(_prx) {
+        }
+
+    /*
+     * This constructor below is only used for
+     * testing. It does not communicate with any
+     * node via Ice, so does not take a Prx.
+     */
+    NodeInfo(const fds_node_name_t& _name,
+          fds_uint32_t _ip,
+          fds_uint32_t _cp_port,
+          fds_uint32_t _d_port,
+          const FdspNodeState& _state) :
+    node_id(0),
+        node_name(_name),
+        node_ip_address(_ip),
+        control_port(_cp_port),
+        data_port(_d_port),
+        node_state(_state) {
+        }
 
     ~NodeInfo() {
     }
+
+    /*
+     * TODO: This should have a copy constructor and an
+     * assignment operator since they're being used by
+     * the maps. The default ones are dangerous.
+     */
   };
 
   class VolumeInfo {
-  public:
+ public:
     std::string vol_name;
     fds_volid_t volUUID;
     FDS_Volume  properties;
@@ -105,6 +136,13 @@ namespace fds {
   private:
     fds_log *om_log;
     ReqCfgHandlerPtr   reqCfgHandlersrv;
+    /*
+     * TODO: These maps should eventually be pulled out into
+     * a separate class that defines a cluster map. In other
+     * words, a class that defines the state of the cluster
+     * at a certain point of time, which these maps being part
+     * of that class.
+     */
     node_map_t currentSmMap;
     node_map_t currentDmMap;
     node_map_t currentShMap;
@@ -123,6 +161,23 @@ namespace fds {
      */
     int port_num;
     std::string stor_prefix;
+    fds_bool_t test_mode;
+
+    /*
+     * Persistent DLT and DMT histories.
+     * TODO: Persistently store cluster map info
+     * info that was used to generate the DLT and DMT.
+     */
+    fds_uint64_t curDltVer;
+    fds_uint32_t dltWidth;
+    fds_uint32_t dltDepth;
+    fds_uint64_t curDmtVer;
+    fds_uint32_t dmtWidth;
+    fds_uint32_t dmtDepth;
+    FdsDlt *curDlt;
+    FdsDmt *curDmt;
+    Catalog *dltCatalog;
+    Catalog *dmtCatalog;
 
     void copyVolumeInfoToProperties(FDS_Volume *pVol,
                                     FdspVolInfoPtr v_info);
@@ -130,17 +185,67 @@ namespace fds {
                                     FDS_Volume *pVol);
     void initOMMsgHdr(const FdspMsgHdrPtr& fdsp_msg);
 
-    int  getFreeNodeId(std::string& node_name); // Get a new node_id to be allocated for a new node 
+    /*
+     * Get a new node_id to be allocated for a new node
+     */
+    fds_int32_t getFreeNodeId(const std::string& node_name);
+    /*
+     * Broadcast a node event to all DM/SM/HV nodes
+     */
+    void sendNodeEventToFdsNodes(const NodeInfo& nodeInfo,
+                                 FDS_ProtocolInterface::FDSP_NodeState
+                                 node_state);
+    /*
+     * Broadcast create vol ctrl message to all DM/SM Nodes
+     */
+    void sendCreateVolToFdsNodes(VolumeInfo *pVol);
+    /*
+     * Broadcast delete vol ctrl message to all DM/SM Nodes
+     */
+    void sendDeleteVolToFdsNodes(VolumeInfo *pVol);
+    /*
+     * Dump all existing volumes (as a sequence of create vol
+     * ctrl messages) to a newly registering SM/DM Node
+     */
+    void sendAllVolumesToFdsMgrNode(NodeInfo node_info);
+    /*
+     * Send attach vol ctrl message to a HV node
+     */
+    void sendAttachVolToHvNode(fds_node_name_t node_name, VolumeInfo *pVol);
+    /*
+     * Send detach vol ctrl message to a HV node
+     */
+    void sendDetachVolToHvNode(fds_node_name_t node_name, VolumeInfo *pVol);
+    /*
+     * Dump all concerned volumes as a sequence of
+     * attach vol ctrl messages to a HV node
+     */
+    void sendAllVolumesToHvNode(fds_node_name_t node_name);
+    /*
+     * Dump all existing SM/DM nodes info as a sequence
+     * of NotifyNodeAdd ctrl messages to a newly registering
+     * node
+     */
+    void sendMgrNodeListToFdsNode(const NodeInfo& n_info);
+    /*
+     * Broadcast current DLT or DMT to all SM/DM/HV
+     * nodes known to OM
+     */
+    void sendNodeTableToFdsNodes(int table_type);
 
-    void sendNodeEventToFdsNodes(NodeInfo& nodeInfo, FDS_ProtocolInterface::FDSP_NodeState node_state); // Broadcast a node event to all DM/SM/HV nodes
-    void sendCreateVolToFdsNodes(VolumeInfo *pVol); // Broadcast create vol ctrl message to all DM/SM Nodes
-    void sendDeleteVolToFdsNodes(VolumeInfo *pVol); // Broadcast delete vol ctrl message to all DM/SM Nodes
-    void sendAllVolumesToFdsMgrNode(NodeInfo node_info); // Dump all existing volumes (as a sequence of create vol ctrl messages) to a newly registering SM/DM Node
-    void sendAttachVolToHvNode(fds_node_name_t node_name, VolumeInfo *pVol); // Send attach vol ctrl message to a HV node
-    void sendDetachVolToHvNode(fds_node_name_t node_name, VolumeInfo *pVol); // Send detach vol ctrl message to a HV node
-    void sendAllVolumesToHvNode(fds_node_name_t node_name); // Dump all concerned volumes as a sequence of attach vol ctrl messages to a HV node
-    void sendMgrNodeListToFdsNode(NodeInfo& n_info); // Dump all existing SM/DM nodes info as a sequence of NotifyNodeAdd ctrl messages to a newly registering node
-    void sendNodeTableToFdsNodes(int table_type); // Broadcast current DLT or DMT to all SM/DM/HV nodes known to OM
+    /*
+     * Testing related member functions
+     */
+    void loadNodesFromFile(const std::string& dltFileName,
+                          const std::string& dmtFileName);
+    /*
+     * Updates both DMT and DLT under a single lock.
+     */
+    static void roundRobinDlt(fds_placement_table* table,
+                              const node_map_t& nodeMap);
+    void updateTables();
+    void updateDltLocked();
+    void updateDmtLocked();
 
   public:
     OrchMgr();

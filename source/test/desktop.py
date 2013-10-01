@@ -32,6 +32,7 @@ VCC = 4
 OM = 5
 components = [STORMGR, DATAMGR, VCC, OM]
 bin_map = {STORMGR:"StorMgr", DATAMGR:"DataMgr", VCC:"DataMgr", OM:"orchMgr"}
+bin_args = {OM:"--test"}
 dir_map = {STORMGR:"stor_mgr_ice", DATAMGR:"data_mgr", STORHVI:"stor_hvisor_ice", VCC:"data_mgr", OM:"orch_mgr"}
 udir_map = {STORMGR:"stor_mgr_ice", DATAMGR:"data_mgr", STORHVI:"fds_client", VCC:"stor_hvisor_ice", OM:"orch_mgr"}
 ut_map = {STORMGR:"sm_unit_test", DATAMGR:"dm_unit_test", STORHVI:"hvisor_uspace_test", VCC:"vcc_unit_test", OM:"om_unit_test"}
@@ -124,6 +125,10 @@ class TestSequenceFunctions(unittest.TestCase):
         if server in cp_port_map:
             cp_port = cp_port_map[server]
 
+        extra_args = None
+        if server in bin_args:
+            extra_args = bin_args[server]
+
         #
         # Descend in the component's directory.
         #
@@ -139,6 +144,8 @@ class TestSequenceFunctions(unittest.TestCase):
         if cp_port != None:
             cp_port_arg = " --cp_port=%d" % (cp_port + ident)
             prefix_arg += cp_port_arg
+        if extra_args != None:
+            prefix_arg += " " + extra_args
         comp_arg = port_arg + " " + prefix_arg
         cmd = comp_exe + " " + comp_arg
         print "Starting server cmd %s" % (cmd)
@@ -285,8 +292,8 @@ class TestSequenceFunctions(unittest.TestCase):
         print "********** Stopping test: %s **********" % (test_name)
 
     def test_om(self):
-        test_name = "Orchestration manager cache"
-        num_instances = 1
+        test_name = "Orchestration manager"
+        num_instances = 5
         print "********** Starting test: %s **********" % (test_name)
 
         status = 0
