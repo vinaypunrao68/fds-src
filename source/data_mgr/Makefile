@@ -55,6 +55,7 @@ CPPFLAGS	:= -I. $(CPPFLAGS) -I. -I $(top_srcdir)/include/Ice \
 	-I/usr/local/include \
 	-I$(TOPDIR)/lib/leveldb-1.12.0/ \
 	-I$(TOPDIR)/lib/leveldb-1.12.0/include/ \
+	-I$(TOPDIR)/fds-include/
 
 $(FDS_CFG): $(OBJS) $(COBJS)
 	rm -f $@
