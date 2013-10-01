@@ -27,4 +27,5 @@ void CreateSHMode(int argc,
 void DeleteStorHvisor(void);
 void cppOut( char *format, ... );
 void ctrlCCallbackHandler(int signal);
+int  pushVolQueue(fbd_request_t *req);
 END_C_DECLS

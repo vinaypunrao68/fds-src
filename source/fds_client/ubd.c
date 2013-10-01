@@ -379,6 +379,7 @@ int main(int argc, char *argv[]) {
       } else {
         fprintf(stdout, "Unit test FAILED\n");
       }
+//     sleep(5);
       DeleteStorHvisor();
       return result;
   } else if (run_test == 2) {
@@ -723,8 +724,13 @@ void hvisor_queue_read(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq)
 	p_new_req->secs = treq.secs;
 	p_new_req->buf = treq.buf;
 	p_new_req->op = treq.op;
+	p_new_req->io_type = 0;
 	p_new_req->req_data = (void *)vreq;
 	p_new_req->len = size;
+  	p_new_req->vbd = vbd;
+  	p_new_req->vReq = vreq;
+  	p_new_req->hvisorHdl = hvisor_hdl;
+  	p_new_req->cb_request = hvisor_complete_td_request;
 
 
 	cppout("Received read request at offset %llx for %d bytes, buf - %p \n", offset, size, p_new_req->buf);
@@ -743,7 +749,9 @@ void hvisor_queue_read(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq)
 	cppout("UBD: Sending read req to hypervisor with vbd - %p, vreq - %p, fbd_req - %p\n",
 	       vbd, vreq, p_new_req);
 
-	rc = StorHvisorProcIoRd( p_new_req, hvisor_complete_td_request, (void *)vbd, (void *)vreq);
+//	rc = StorHvisorProcIoRd( p_new_req, hvisor_complete_td_request, (void *)vbd, (void *)vreq);
+	/* queue the  request  to the per volume queue */
+	rc = pushVolQueue(p_new_req);
 	if (rc) {
 	  hvisor_complete_td_request((void *)vbd, (void *)vreq, p_new_req, rc);
 	}
@@ -768,8 +776,13 @@ void hvisor_queue_write(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq
 	p_new_req->secs = treq.secs;
 	p_new_req->buf = treq.buf;
 	p_new_req->op = treq.op;
+	p_new_req->io_type = 1;
 	p_new_req->req_data = (void *)vreq;
 	p_new_req->len = size;
+  	p_new_req->vbd = vbd;
+  	p_new_req->vReq = vreq;
+  	p_new_req->hvisorHdl = hvisor_hdl;
+  	p_new_req->cb_request = hvisor_complete_td_request;
 
 #if BLKTAP_UNIT_TEST 
 	cppout("Received write request at offset %llx for %d bytes, buf - %p : \n", offset, size, p_new_req->buf);
@@ -794,7 +807,9 @@ void hvisor_queue_write(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq
 	cppout("UBD: Sending write req to hypervisor with vbd - %p, vreq - %p, fbd_req - %p\n",
 	       vbd, vreq, p_new_req);
 
-	rc = StorHvisorProcIoWr( p_new_req, hvisor_complete_td_request, (void *)vbd, (void *)vreq);
+//	rc = StorHvisorProcIoWr( p_new_req, hvisor_complete_td_request, (void *)vbd, (void *)vreq);
+	/* queue the  request  to the per volume queue */
+	rc = pushVolQueue(p_new_req);
 	if (rc) {
 	  hvisor_complete_td_request((void *)vbd, (void *)vreq, p_new_req, rc);
 	}
@@ -1035,12 +1050,18 @@ int send_test_io(int offset, int vol_id)
 
 
         p_new_treq->op = 1;
+        p_new_treq->io_type = 1;
         p_new_treq->buf = buf;;
         p_new_treq->sec = offset/HVISOR_SECTOR_SIZE;
         p_new_treq->secs = 8;
         p_new_treq->len = len;
         p_new_treq->volUUID = vol_id;
-        StorHvisorProcIoWr( p_new_treq, hvisor_complete_td_request_noop,NULL,NULL);
+  		p_new_treq->vbd = NULL;
+  		p_new_treq->vReq = NULL;
+  		p_new_treq->hvisorHdl = hvisor_hdl;
+  		p_new_treq->cb_request = hvisor_complete_td_request_noop;
+//        StorHvisorProcIoWr( p_new_treq, hvisor_complete_td_request_noop,NULL,NULL);
+		pushVolQueue(p_new_treq);
     	return 0;
 
 }
@@ -1053,13 +1074,19 @@ int read_test_io(int offset, int vol_id)
     p_new_treq = (fbd_request_t *)malloc(sizeof(fbd_request_t));
 
     memset((void *)read_buf, 0, len);
-    p_new_treq->op = 1;
+    p_new_treq->op = 0;
+    p_new_treq->io_type = 0;
     p_new_treq->buf = buf;;
     p_new_treq->sec = offset/HVISOR_SECTOR_SIZE;
     p_new_treq->secs = 8;
     p_new_treq->len = len;
     p_new_treq->volUUID = vol_id;
-    StorHvisorProcIoRd(p_new_treq, hvisor_complete_td_request_noop, NULL, NULL );
+    p_new_treq->vbd = NULL;
+    p_new_treq->vReq = NULL;
+    p_new_treq->hvisorHdl = hvisor_hdl;
+    p_new_treq->cb_request = hvisor_complete_td_request_noop;
+//    StorHvisorProcIoRd(p_new_treq, hvisor_complete_td_request_noop, NULL, NULL );
+    pushVolQueue(p_new_treq);
     return 0;
 
 }

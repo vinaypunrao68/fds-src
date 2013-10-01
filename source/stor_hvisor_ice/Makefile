@@ -35,13 +35,13 @@ SRCS		= $(OBJS:.o=.cpp) \
 CPP11		= yes
 
 MY_FLAGS	= -std=c++0x -Wall -Werror -g2 -I../ -I../lib/Ice-3.5.0/cpp/include -I../fdsp/ -I/usr/local/include/boost \
-                  -I../util/concurrency
-MY_LIBS		= -L../lib/Ice-3.5.0/cpp/lib -lpthread -lIce -lIceUtil ../fdsp/FDSP.o ./VolumeCatalogCache.o -lIceStorm ../lib/OMgrClient.o -lboost_log -lboost_system -lboost_thread -lboost_date_time -lboost_filesystem ../util/Log.o ../util/PerfStat.o ../util/hash/MurmurHash3.o ../util/concurrency/Mutex.o ../util/concurrency/Synchronization.o
+                  -I../util/concurrency -I../fds-include
+MY_LIBS		= -L../lib/Ice-3.5.0/cpp/lib -lpthread -lIce -lIceUtil ../fdsp/FDSP.o ./VolumeCatalogCache.o ../fdsp/fds_pubsub.o -lIceStorm ../lib/OMgrClient.o -lboost_log -lboost_system -lboost_thread -lboost_date_time -lboost_filesystem ../util/Log.o ../util/PerfStat.o ../fdsp/fdsp_types.o ../util/hash/MurmurHash3.o ../util/concurrency/Mutex.o ../util/concurrency/ThreadPool.o ../util/concurrency/Synchronization.o
 
 include $(top_srcdir)/config/Make.rules
 
 CPPFLAGS	:= -I. $(CPPFLAGS) -I $(top_srcdir)/include/Ice -I../include -I../util/hash -I../fds_client/include \
-                   -I../fdsp -I.. -I../lib -I../util/concurrency
+                   -I../fdsp -I.. -I../lib -I../fds-include/ -I../util/concurrency
 
 # create only  .o for now 
 $(FDS_CFG): $(OBJS) $(COBJS) $(ICE_OBJS)
