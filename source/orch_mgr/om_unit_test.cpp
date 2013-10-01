@@ -58,11 +58,27 @@ class ControlPathReq : public FDS_ProtocolInterface::FDSP_ControlPathReq {
 
   void NotifyDLTUpdate(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
                        const FDS_ProtocolInterface::FDSP_DLT_TypePtr& dlt_info,
-                       const Ice::Current&) { }
+                       const Ice::Current&) {
+    std::cout << "Received a DLT update" << std::endl;
+    for (fds_uint32_t i = 0; i < dlt_info->DLT.size(); i++) {
+      for (fds_uint32_t j = 0; j < dlt_info->DLT[i].size(); j++) {
+        std::cout << "Bucket " << i << " entry " << j
+                  << " value " << dlt_info->DLT[i][j] << std::endl;
+      }
+    }
+  }
 
   void NotifyDMTUpdate(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
                        const FDS_ProtocolInterface::FDSP_DMT_TypePtr& dmt_info,
-                       const Ice::Current&) { }
+                       const Ice::Current&) {
+    std::cout << "Received a DMT update" << std::endl;
+    for (fds_uint32_t i = 0; i < dmt_info->DMT.size(); i++) {
+      for (fds_uint32_t j = 0; j < dmt_info->DMT[i].size(); j++) {
+        std::cout << "Bucket " << i << " entry " << j
+                  << " value " << dmt_info->DMT[i][j] << std::endl;
+      }
+    }
+  }
 };
 
 class TestResp : public FDS_ProtocolInterface::FDSP_ConfigPathResp {

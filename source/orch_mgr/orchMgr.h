@@ -242,7 +242,8 @@ namespace fds {
      * Updates both DMT and DLT under a single lock.
      */
     static void roundRobinDlt(fds_placement_table* table,
-                              const node_map_t& nodeMap);
+                              const node_map_t& nodeMap,
+                              fds_log* callerLog);
     void updateTables();
     void updateDltLocked();
     void updateDmtLocked();

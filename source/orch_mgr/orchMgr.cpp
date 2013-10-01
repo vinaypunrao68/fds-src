@@ -134,13 +134,16 @@ OrchMgr::interruptCallback(int cb) {
 }
 
 void OrchMgr::roundRobinDlt(fds_placement_table* table,
-                            const node_map_t& nodeMap) {
+                            const node_map_t& nodeMap,
+                            fds_log* callerLog) {
   /*
    * Iterate over each bucket/column and add
    * a vector of size depth().
    */
+  Error err(ERR_OK);
   std::vector<fds_nodeid_t> node_list;
   node_map_t::const_iterator rr_it = nodeMap.cbegin();
+
   for (fds_uint32_t i = 0; i < table->getNumBuckets(); i++) {
     node_list.clear();
     node_map_t::const_iterator nl_it = rr_it;
@@ -149,12 +152,17 @@ void OrchMgr::roundRobinDlt(fds_placement_table* table,
     }
 
     for (fds_uint32_t j = 0; j < table->getMaxDepth(); j++) {
-      node_list.push_back(std::stoi(nl_it->first));
+      node_list.push_back((nl_it->second).node_id);
+      FDS_PLOG(callerLog) << "Pushing into bucket " << i
+                          << " entry " << i << " node "
+                          << (nl_it->second).node_id;
       nl_it++;
       if (nl_it == nodeMap.cend()) {
         nl_it = nodeMap.cbegin();
       }
     }
+    err = table->insert(i, node_list);
+    assert(err == ERR_OK);
 
     /*
      * Move the starting point for the list
@@ -179,7 +187,8 @@ void OrchMgr::updateDltLocked() {
    */
   FDS_PLOG(om_log) << "Updating DLT";
   roundRobinDlt(static_cast<fds_placement_table *>(curDlt),
-                currentSmMap);
+                currentSmMap,
+                om_log);
 }
 
 /*
@@ -193,7 +202,8 @@ void OrchMgr::updateDmtLocked() {
    */
   FDS_PLOG(om_log) << "Updating DMT";
   roundRobinDlt(static_cast<fds_placement_table *>(curDmt),
-                currentDmMap);
+                currentDmMap,
+                om_log);
 }
 
 /*
@@ -482,16 +492,18 @@ void OrchMgr::sendNodeTableToFdsNodes(int table_type) {
   msg_hdr_ptr->local_domain_id = 1;
 
   FDS_ProtocolInterface::FDSP_DLT_TypePtr dlt_info_ptr;
-  FDS_ProtocolInterface::FDSP_DMT_TypePtr dmt_info_ptr =
-      new FDS_ProtocolInterface::FDSP_DMT_Type;
+  FDS_ProtocolInterface::FDSP_DMT_TypePtr dmt_info_ptr;
+      //  = new FDS_ProtocolInterface::FDSP_DMT_Type;
   if (table_type == table_type_dlt) {
-    dlt_info_ptr = new FDS_ProtocolInterface::FDSP_DLT_Type;
-    dlt_info_ptr->DLT_version = current_dlt_version;
-    dlt_info_ptr->DLT = current_dlt_table;
+    // dlt_info_ptr = new FDS_ProtocolInterface::FDSP_DLT_Type;
+    // dlt_info_ptr->DLT_version = current_dlt_version;
+    // dlt_info_ptr->DLT = current_dlt_table;
+    dlt_info_ptr = curDlt->toIce();
   } else {
-    dmt_info_ptr = new FDS_ProtocolInterface::FDSP_DMT_Type;
-    dmt_info_ptr->DMT_version = current_dmt_version;
-    dmt_info_ptr->DMT = current_dmt_table;
+    //dmt_info_ptr = new FDS_ProtocolInterface::FDSP_DMT_Type;
+    // dmt_info_ptr->DMT_version = current_dmt_version;
+    // dmt_info_ptr->DMT = current_dmt_table;
+    dmt_info_ptr = curDmt->toIce();
   }
 
   for (int i = 0; i < 3; i++) {
@@ -940,6 +952,8 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
   /*
    * Send the DLT/DMT to the other nodes
    */
+  sendNodeTableToFdsNodes(table_type_dlt);
+  sendNodeTableToFdsNodes(table_type_dmt);
 }
 
 void OrchMgr::ReqCfgHandler::CreateVol(const FdspMsgHdrPtr& fdsp_msg,
