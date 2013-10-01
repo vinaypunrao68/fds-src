@@ -66,10 +66,7 @@ ObjectStorMgrI::AssociateRespCallback(const Ice::Identity& ident, const Ice::Cur
   objStorMgr->fdspDataPathClient = FDSP_DataPathRespPrx::uncheckedCast(current.con->createProxy(ident));
 }
 //--------------------------------------------------------------------------------------------------
-ObjectStorMgr::ObjectStorMgr(fds_uint32_t port,
-                             fds_uint32_t control_port,
-                             std::string prefix)
-    : stor_prefix(prefix) , port_num(port), cp_port_num(control_port) {
+ObjectStorMgr::ObjectStorMgr() {
 
   // Init  the log infra  
   sm_log = new fds_log("sm", "logs");
@@ -77,20 +74,9 @@ ObjectStorMgr::ObjectStorMgr(fds_uint32_t port,
 
   // Create all data structures 
   diskMgr = new DiskMgr();
-  std::string filename= stor_prefix + "SNodeObjRepository";
 
   objStorMutex = new fds_mutex("Object Store Mutex");
   
-  // Create leveldb
-  objStorDB  = new ObjectDB(filename);
-  filename= stor_prefix + "SNodeObjIndex";
-  objIndexDB  = new ObjectDB(filename);  
-  omClient = new OMgrClient(FDSP_STOR_MGR, "localhost-sm", sm_log);
-  omClient->initialize();
-  omClient->registerEventHandlerForNodeEvents((node_event_handler_t)nodeEventOmHandler);
-  omClient->startAcceptingControlMessages(cp_port_num);
-  //omClient->registerNodeWithOM();
-  volTbl = new StorMgrVolumeTable(this);
 }
 
 
@@ -394,9 +380,52 @@ inline void ObjectStorMgr::swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg) {
 int
 ObjectStorMgr::run(int argc, char* argv[])
 {
+
+  bool         unit_test;
   std::string endPointStr;
   
+  unit_test = false;
+
+  for (int i = 1; i < argc; i++) {
+    std::string arg(argv[i]);
+    if (arg == "--unit_test") {
+      unit_test = true;
+    } else if (strncmp(argv[i], "--cp_port=", 10) == 0) {
+      cp_port_num = strtoul(argv[i] + 10, NULL, 0);
+    } else if (strncmp(argv[i], "--port=", 7) == 0) {
+      port_num = strtoul(argv[i] + 7, NULL, 0);
+    } else if (strncmp(argv[i], "--prefix=", 9) == 0) {
+      stor_prefix = argv[i] + 9;
+    } else {
+       FDS_PLOG(objStorMgr->GetLog()) << "Invalid argument " << argv[i];
+      return -1;
+    }
+  }    
+
+
+
   Ice::PropertiesPtr props = communicator()->getProperties();
+
+  if (cp_port_num == 0) {
+    cp_port_num = props->getPropertyAsInt("ObjectStorMgrSvr.ControlPort");
+  }
+
+  if (port_num == 0) {
+    /*
+     * Pull the port from the config file if it wasn't
+     * specified on the command line.
+     */
+    port_num = props->getPropertyAsInt("ObjectStorMgrSvr.PortNumber");
+  }
+ 
+
+  if (unit_test) {
+    objStorMgr->unitTest();
+    return 0;
+  }
+
+  FDS_PLOG(objStorMgr->GetLog()) << "Stor Mgr port_number :" << port_num;
+  
   
   /*
    * Set basic thread properties.
@@ -405,16 +434,6 @@ ObjectStorMgr::run(int argc, char* argv[])
   props->setProperty("ObjectStorMgrSvr.ThreadPool.SizeMax", "100");
   props->setProperty("ObjectStorMgrSvr.ThreadPool.SizeWarn", "75");
   
-  if (port_num == 0) {
-    /*
-     * Pull the port from the config file if it wasn't
-     * specified on the command line.
-     */
-    port_num = props->getPropertyAsInt("ObjectStorMgrSvr.PortNumber");
-  }
-  if (cp_port_num == 0) {
-    cp_port_num = props->getPropertyAsInt("ObjectStorMgrSvr.ControlPort");
-  }
   
   std::ostringstream tcpProxyStr;
   tcpProxyStr << "tcp -p " << port_num;
@@ -426,6 +445,19 @@ ObjectStorMgr::run(int argc, char* argv[])
   callbackOnInterrupt();
   
   adapter->activate();
+
+  // Create leveldb
+  std::string filename= stor_prefix + "SNodeObjRepository";
+  objStorDB  = new ObjectDB(filename);
+  filename= stor_prefix + "SNodeObjIndex";
+  objIndexDB  = new ObjectDB(filename);  
+  omClient = new OMgrClient(FDSP_STOR_MGR, "localhost-sm", sm_log);
+  volTbl = new StorMgrVolumeTable(this);
+
+  omClient->initialize();
+  omClient->registerEventHandlerForNodeEvents((node_event_handler_t)nodeEventOmHandler);
+  omClient->startAcceptingControlMessages(cp_port_num);
+  omClient->registerNodeWithOM();
   
   communicator()->waitForShutdown();
   return EXIT_SUCCESS;
@@ -445,43 +477,11 @@ ObjectStorMgr::interruptCallback(int)
 
 int main(int argc, char *argv[])
 {
-  bool         unit_test;
-  fds_uint32_t port=0, control_port=0;
-  std::string  prefix;
-  
-  port      = 0;
-  unit_test = false;
-  
-  for (int i = 1; i < argc; i++) {
-    std::string arg(argv[i]);
-    if (arg == "--unit_test") {
-      unit_test = true;
-    } else if (strncmp(argv[i], "--cp_port=", 10) == 0) {
-      control_port = strtoul(argv[i] + 10, NULL, 0);
-    } else if (strncmp(argv[i], "--port=", 7) == 0) {
-      port = strtoul(argv[i] + 7, NULL, 0);
-    } else if (strncmp(argv[i], "--prefix=", 9) == 0) {
-      prefix = argv[i] + 9;
-    } else {
-       FDS_PLOG(objStorMgr->GetLog()) << "Invalid argument " << argv[i];
-      return -1;
-    }
-  }    
- 
 
-
-  objStorMgr = new ObjectStorMgr(port, control_port, prefix);
-
-  if (unit_test) {
-    objStorMgr->unitTest();
-    return 0;
-  }
-
-  FDS_PLOG(objStorMgr->GetLog()) << "Stor Mgr port_number :" << port;
+  objStorMgr = new ObjectStorMgr();
 
   objStorMgr->main(argc, argv, "stor_mgr.conf");
 
   delete objStorMgr;
 }
-
 

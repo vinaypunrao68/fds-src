@@ -50,6 +50,9 @@ public:
    ObjectDB      *objIndexDB;
    std::string stor_prefix;
 
+   fds_uint32_t port_num; /* Data path port num */
+   fds_uint32_t cp_port_num; /* Control path port num */
+
    StorMgrVolumeTable *volTbl;
    OMgrClient    *omClient;
 
@@ -57,9 +60,7 @@ public:
   FDS_ProtocolInterface::FDSP_DataPathRespPrx fdspDataPathClient; //For sending back the response to the SH/DM
 
   //methods
-  ObjectStorMgr(fds_uint32_t port,
-                fds_uint32_t control_port,
-                std::string prefix);
+  ObjectStorMgr();
   ~ObjectStorMgr();
    fds_log* GetLog();
    fds_log *sm_log;
@@ -80,8 +81,6 @@ private :
    /*
     * Cmdline configurables
     */
-   fds_uint32_t port_num;
-   fds_uint32_t cp_port_num;
 
    fds_sm_err_t getObjectInternal(FDSP_GetObjTypePtr get_obj_req, 
                        		  fds_uint32_t volid, 

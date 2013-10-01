@@ -7,6 +7,7 @@
 #include "StorHvisorNet.h"
 #include "StorHvJournal.h"
 #include "StorHvVolumes.h"
+#include "StorHvisorCPP.h"
 
 extern StorHvCtrl *storHvisor;
 
@@ -23,6 +24,8 @@ StorHvVolume::StorHvVolume(const VolumeDesc& vdesc, StorHvCtrl *sh_ctrl, fds_log
       blkdev_minor = (*parent_sh->cr_blkdev)(volUUID);
   }
 
+  volQueue = new boost::lockfree::queue<fbd_request_t*> (128);
+
   is_valid = true;
 }
 
@@ -34,6 +37,10 @@ StorHvVolume::~StorHvVolume()
     delete vol_catalog_cache;
   if (stat_history)
     delete stat_history;
+  if(volQueue) {
+    delete volQueue;
+  }
+ 
 }
 
 /* safely destroys journal table and volume catalog cache
@@ -58,6 +65,10 @@ void StorHvVolume::destroy()
   stat_history = NULL;
 
   is_valid = false;
+  if ( volQueue) {
+     delete volQueue;
+     volQueue = NULL;
+  }
   rwlock.write_unlock();
 }
 
@@ -113,8 +124,51 @@ StorHvVolumeTable::StorHvVolumeTable(StorHvCtrl *sh_ctrl, fds_log *parent_log)
     VolumeDesc vdesc("default_vol", FDS_DEFAULT_VOL_UUID);
     volume_map[FDS_DEFAULT_VOL_UUID] = new StorHvVolume(vdesc, parent_sh, vt_log);
     FDS_PLOG(vt_log) << "StorHvVolumeTable - constructor registered volume 1";  
+
+#if 0 // Test  volumes
+    VolumeDesc vdesc2("default_vol2", 2);
+    volume_map[2] = new StorHvVolume(vdesc2, parent_sh, vt_log);
+    FDS_PLOG(vt_log) << "StorHvVolumeTable - constructor registered volume 2";  
+
+    VolumeDesc vdesc3("default_vol3", 3);
+    volume_map[3] = new StorHvVolume(vdesc3, parent_sh, vt_log);
+    FDS_PLOG(vt_log) << "StorHvVolumeTable - constructor registered volume 3";  
+
+    VolumeDesc vdesc4("default_vol4", 4);
+    volume_map[4] = new StorHvVolume(vdesc4, parent_sh, vt_log);
+    FDS_PLOG(vt_log) << "StorHvVolumeTable - constructor registered volume 4";  
+
+    VolumeDesc vdesc5("default_vol5", 5);
+    volume_map[5] = new StorHvVolume(vdesc5, parent_sh, vt_log);
+    FDS_PLOG(vt_log) << "StorHvVolumeTable - constructor registered volume 5";  
+
+    VolumeDesc vdesc6("default_vol6", 6);
+    volume_map[6] = new StorHvVolume(vdesc6, parent_sh, vt_log);
+    FDS_PLOG(vt_log) << "StorHvVolumeTable - constructor registered volume 6";  
+
+    VolumeDesc vdesc7("default_vol7", 7);
+    volume_map[7] = new StorHvVolume(vdesc7, parent_sh, vt_log);
+    FDS_PLOG(vt_log) << "StorHvVolumeTable - constructor registered volume 7";  
+
+    VolumeDesc vdesc8("default_vol8", 8);
+    volume_map[8] = new StorHvVolume(vdesc8, parent_sh, vt_log);
+    FDS_PLOG(vt_log) << "StorHvVolumeTable - constructor registered volume 8";  
+
+    VolumeDesc vdesc9("default_vol9", 9);
+    volume_map[9] = new StorHvVolume(vdesc9, parent_sh, vt_log);
+    FDS_PLOG(vt_log) << "StorHvVolumeTable - constructor registered volume 9";  
+
+    VolumeDesc vdesc10("default_vol10", 10);
+    volume_map[10] = new StorHvVolume(vdesc10, parent_sh, vt_log);
+    FDS_PLOG(vt_log) << "StorHvVolumeTable - constructor registered volume 10";  
+#endif
   }
 
+  /* create thread  pool */
+  tp = new fds_threadpool(50);
+  /* create a thread  for per volume queue dispatcher */
+  if (tp)
+     tp->schedule(scheduleIO, this);
 }
 
 StorHvVolumeTable::StorHvVolumeTable(StorHvCtrl *sh_ctrl)
@@ -126,6 +180,7 @@ StorHvVolumeTable::~StorHvVolumeTable()
   /*
    * Iterate volume_map and free the volume pointers
    */
+
   map_rwlock.write_lock();
   for (std::unordered_map<fds_volid_t, StorHvVolume*>::iterator it = volume_map.begin();
        it != volume_map.end();
@@ -145,7 +200,15 @@ StorHvVolumeTable::~StorHvVolumeTable()
     delete vt_log;
   }
 
+  if(tp){
+    killMainThread();
+    delete tp;
+  }
+
+
+
   statTimer->destroy();
+
 }
 
 
@@ -199,6 +262,12 @@ Error StorHvVolumeTable::removeVolume(fds_volid_t vol_uuid)
 
   /* call destroy first to ensure that no readers accessing volume
    * when destroying its data */
+  
+  if(tp){
+    killMainThread();
+    delete tp;
+  }
+
   vol->destroy();
   delete vol;
   
@@ -373,5 +442,75 @@ void StorHvStatTimerTask::runTimerTask()
 {
   volTable->printPerfStats(statfile);
 }
+
+void scheduleIO(StorHvVolumeTable *tPtr)
+{
+	tPtr->schedulePerVolIO();
+}
+
+boost::atomic <bool> done (false);
+void StorHvVolumeTable::schedulePerVolIO()
+{
+   fbd_request_t *req;
+ 
+ // pull out IO from per volume queue 
+ while (!done) 
+ {
+
+  map_rwlock.write_lock();
+  for (std::unordered_map<fds_volid_t, StorHvVolume*>::iterator it = volume_map.begin();
+       it != volume_map.end();
+       ++it)
+    {
+      StorHvVolume *vol = it->second;
+      if (vol->volQueue->pop(req))
+      {
+
+      	if(req->io_type == IO_READ) {
+		FDS_PLOG(vt_log)  << " scheduling  Read  io volId:" << req->volUUID;
+		tp->schedule(StorHvisorProcIoRd, req, req->cb_request,req->vbd, req->vReq);
+      	} else if(req->io_type == IO_WRITE) {
+		FDS_PLOG(vt_log)  << " scheduling  write io volId:" << req->volUUID;
+		tp->schedule(StorHvisorProcIoWr,req, req->cb_request,req->vbd, req->vReq);
+      	} else 
+		FDS_PLOG(vt_log)  << " Invalid op volId:" << req->volUUID;
+      }
+    }
+     map_rwlock.write_unlock();
+ }
+
+}
+
+void StorHvVolumeTable:: killMainThread()
+{
+   done = true;
+}
+
+BEGIN_C_DECLS
+int  pushVolQueue(fbd_request_t *req)
+{
+  fds_uint32_t vol_id;
+  StorHvVolume *shvol;
+
+  vol_id = req->volUUID;
+  shvol = storHvisor->vol_table->getLockedVolume(vol_id);
+  if (( shvol == NULL) || (shvol->volQueue == NULL)) {
+	  FDS_PLOG(storHvisor->GetLog()) <<  " Volume and  Queueus are NOT setup :" << vol_id;
+	  return -1;
+  }
+
+  FDS_PLOG(storHvisor->GetLog()) << " Queueing the  IO.  vol_id:  " << vol_id;
+  // push request to the  per volume queue 
+  
+  while(!shvol->volQueue->push(req));
+  shvol->readUnlock();
+  FDS_PLOG(storHvisor->GetLog()) << " Queueing the  IO done.  vol_id:  " << vol_id;
+
+ return 0;
+}
+
+
+END_C_DECLS
+
 
 } // namespace fds
