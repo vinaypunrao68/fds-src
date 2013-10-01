@@ -99,14 +99,12 @@ int StorHvisorProcIoRd(fbd_request_t *req, complete_req_cb_t comp_req, void *arg
   if (err.GetErrno() == ERR_PENDING_RESP) {
     FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Vol catalog Cache Query pending :" << err.GetErrno() << req;
     journEntry->trans_state = FDS_TRANS_VCAT_QUERY_PENDING;
-    journEntry->unlock();
     return 0;
   }
   
   if (err.GetErrno() == ERR_CAT_QUERY_FAILED)
   {
     FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Error reading the Vol catalog  Error code : " <<  err.GetErrno() << req;
-    journEntry->unlock(); 
     return err.GetErrno();
   }
   
@@ -134,7 +132,6 @@ int StorHvisorProcIoRd(fbd_request_t *req, complete_req_cb_t comp_req, void *arg
   storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(doid_dlt_key, node_ids, &num_nodes);
   if(num_nodes == 0) {
     FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " -  DLT Nodes  NOT  confiigured. Check on OM Manager";
-    journEntry->unlock();
     return -1;
   }
   storHvisor->dataPlacementTbl->getNodeInfo(node_ids[0], &node_ip, &node_state);
