@@ -11,6 +11,7 @@
 //#include "hvisor_lib.h"
 #include "StorHvisorCPP.h"
 
+void *hvisor_hdl;
 StorHvCtrl *storHvisor;
 
 using namespace std;
@@ -122,17 +123,19 @@ void sh_test_w(const char *data,
   w_req->sec  = offset;
   w_req->secs = len / HVISOR_SECTOR_SIZE;
   w_req->len  = len;
+  w_req->vbd = NULL;
+  w_req->vReq = NULL;
+  w_req->io_type = 1;
+  w_req->hvisorHdl = hvisor_hdl;
+  w_req->cb_request = sh_test_w_callback;
   
   if (w_verify == true) {
-    StorHvisorProcIoWr( w_req,
-                       sh_test_w_callback,
-                       NULL,
-                       NULL);
+    pushVolQueue(w_req);
+//    StorHvisorProcIoWr( w_req, sh_test_w_callback, NULL, NULL);
   } else {
-    StorHvisorProcIoWr( w_req,
-                       sh_test_nv_callback,
-                       NULL,
-                       NULL);
+  w_req->cb_request = sh_test_nv_callback;
+    pushVolQueue(w_req);
+//    StorHvisorProcIoWr( w_req, sh_test_nv_callback, NULL, NULL);
   }
   
   /*
@@ -191,11 +194,14 @@ int sh_test_r(char *r_buf, fds_uint32_t len, fds_uint32_t offset, fds_volid_t vo
    */
   r_req->secs = len / HVISOR_SECTOR_SIZE;
   r_req->len  = len;
+  r_req->vbd = NULL;
+  r_req->vReq = NULL;
+  r_req->io_type = 0;
+  r_req->hvisorHdl = hvisor_hdl;
+  r_req->cb_request = sh_test_r_callback;
+  pushVolQueue(r_req);
   
-  StorHvisorProcIoRd( r_req,
-                     sh_test_r_callback,
-                     NULL,
-                     NULL);
+//  StorHvisorProcIoRd( r_req, sh_test_r_callback, NULL, NULL);
 
   /*
    * Wait until we've finished this read

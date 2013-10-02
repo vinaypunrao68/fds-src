@@ -7,6 +7,12 @@
 
 #include <lib/Ice-3.5.0/cpp/include/Ice/Ice.h>
 #include <lib/Ice-3.5.0/cpp/include/IceUtil/IceUtil.h>
+#include <boost/thread/thread.hpp>
+#include <boost/lockfree/queue.hpp>
+#include <iostream>
+#include <boost/atomic.hpp>
+#include "util/concurrency/Thread.h"
+#include "util/concurrency/ThreadPool.h"
 
 #include <unordered_map>
 
@@ -59,6 +65,10 @@ public: /* data*/
 
   /* Volume's perf stat history */
   StatHistory *stat_history;
+ /*
+   * per volume queue
+   */
+  boost::lockfree::queue<fbd_request_t*>  *volQueue;
 
 private: /* data */
 
@@ -107,6 +117,11 @@ class StorHvVolumeTable
    * Returns NULL is volume does not exist
    */
   StorHvVolume* getVolume(fds_volid_t vol_uuid);
+
+  fds_threadpool  *tp;
+  /* per volume queue scheduler */
+  void schedulePerVolIO();
+  void killMainThread();
 
   /* Dumping per-volume performance stats */
   void startPerfStats();
@@ -161,6 +176,7 @@ class StorHvVolumeTable
    void runTimerTask();
  };
 
+void scheduleIO(StorHvVolumeTable *tPtr);
 } // namespace fds
 
 #endif // __STOR_HV_VOLS_H_

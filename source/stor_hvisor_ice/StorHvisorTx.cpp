@@ -45,7 +45,6 @@ int StorHvisorProcIoRd(fbd_request_t *req, complete_req_cb_t comp_req, void *arg
   vol_id = req->volUUID;  /* TODO: Derive vol_id from somewhere better. NOT fbd! */
 
   shvol = storHvisor->vol_table->getVolume(vol_id);
-  StorHvVolumeLock vol_lock(shvol);
   if (!shvol || !shvol->isValidLocked()) {
     FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << " volID:" << vol_id << "- volume not registered";
     return -1;
@@ -62,6 +61,7 @@ int StorHvisorProcIoRd(fbd_request_t *req, complete_req_cb_t comp_req, void *arg
     // There is an ongoing transaciton for this offset.
     // We should queue this up for later processing once that completes.
     
+    shvol->readUnlock();
     // For now, return an error.
     return (-1); // je_lock destructor will unlock the journal entry
   }
@@ -99,12 +99,14 @@ int StorHvisorProcIoRd(fbd_request_t *req, complete_req_cb_t comp_req, void *arg
   if (err.GetErrno() == ERR_PENDING_RESP) {
     FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Vol catalog Cache Query pending :" << err.GetErrno() << req;
     journEntry->trans_state = FDS_TRANS_VCAT_QUERY_PENDING;
+    journEntry->unlock();
     return 0;
   }
   
   if (err.GetErrno() == ERR_CAT_QUERY_FAILED)
   {
     FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Error reading the Vol catalog  Error code : " <<  err.GetErrno() << req;
+    journEntry->unlock(); 
     return err.GetErrno();
   }
   
@@ -132,6 +134,7 @@ int StorHvisorProcIoRd(fbd_request_t *req, complete_req_cb_t comp_req, void *arg
   storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(doid_dlt_key, node_ids, &num_nodes);
   if(num_nodes == 0) {
     FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " -  DLT Nodes  NOT  confiigured. Check on OM Manager";
+    journEntry->unlock();
     return -1;
   }
   storHvisor->dataPlacementTbl->getNodeInfo(node_ids[0], &node_ip, &node_state);
@@ -180,8 +183,7 @@ int StorHvisorProcIoWr(fbd_request_t *req, complete_req_cb_t comp_req, void *arg
    * and clean it up when we introduce multi-volume.
    */
   vol_id = req->volUUID;
-  shvol = storHvisor->vol_table->getVolume(vol_id);
-  StorHvVolumeLock vol_lock(shvol);
+  shvol = storHvisor->vol_table->getLockedVolume(vol_id);
   if (!shvol || !shvol->isValidLocked()) {
     FDS_PLOG(storHvisor->GetLog()) << "StorHvisorTx:" << " volID:" << vol_id << " - volume not registered";
     return -1;
@@ -201,6 +203,7 @@ int StorHvisorProcIoWr(fbd_request_t *req, complete_req_cb_t comp_req, void *arg
     // Queue this up for later processing.
     
     // For now, return an error.
+    shvol->readUnlock(); 
     return (-1);
   }
 
@@ -306,6 +309,7 @@ int StorHvisorProcIoWr(fbd_request_t *req, complete_req_cb_t comp_req, void *arg
   // Schedule a timer here to track the responses and the original request
   IceUtil::Time interval = IceUtil::Time::seconds(FDS_IO_LONG_TIME);
   shvol->journal_tbl->schedule(journEntry->ioTimerTask, interval);
+    shvol->readUnlock(); 
   return 0;
 }
 END_C_DECLS
