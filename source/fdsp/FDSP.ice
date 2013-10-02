@@ -232,18 +232,18 @@ class FDSP_CreateVolType {
 
 class FDSP_DeleteVolType {
   string 		 vol_name;  /* Name of the volume */
-  int    		 vol_uuid;
+  double    		 vol_uuid;
 };
 
 class FDSP_ModifyVolType {
   string 		 vol_name;  /* Name of the volume */
-  int 			 vol_uuid;
+  double		 vol_uuid;
   FDSP_VolumeInfoType	 vol_info;  /* New updated volume properties */
 };
 
 class FDSP_AttachVolCmdType {
   string		 vol_name; // Name of the volume to attach
-  int			 vol_uuid; // UUID of the volume being attached
+  double		 vol_uuid; // UUID of the volume being attached
   string		 node_id;  // Id of the hypervisor node where the volume should be attached
 };
 
@@ -295,7 +295,7 @@ class FDSP_RegisterNodeType {
 class FDSP_MsgHdrType {
     FDSP_MsgCodeType     msg_code;
 		
-    		/* Message versioning for compatibility check, functionality changes*/
+   /* Message versioning for compatibility check, functionality changes*/
     int        major_ver;  /* Major version number of this message */
     int        minor_ver;  /* Minor version number of this message */
     int        msg_id;     /* Message id to discard duplicate request & maintain causal order */

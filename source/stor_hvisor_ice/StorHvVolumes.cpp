@@ -17,11 +17,11 @@ StorHvVolume::StorHvVolume(const VolumeDesc& vdesc, StorHvCtrl *sh_ctrl, fds_log
   : FDS_Volume(vdesc), parent_sh(sh_ctrl)
 {
   journal_tbl = new StorHvJournal(FDS_READ_WRITE_LOG_ENTRIES);
-  vol_catalog_cache = new VolumeCatalogCache(volUUID, sh_ctrl, parent_log);  
-  stat_history = new StatHistory(volUUID);
+  vol_catalog_cache = new VolumeCatalogCache(voldesc->volUUID, sh_ctrl, parent_log);  
+  stat_history = new StatHistory(voldesc->volUUID);
 
-  if ( volType == FDS_VOL_BLKDEV_TYPE && parent_sh->GetRunTimeMode() == StorHvCtrl::NORMAL) { 
-      blkdev_minor = (*parent_sh->cr_blkdev)(volUUID);
+  if ( voldesc->volType == FDSP_VOL_BLKDEV_TYPE && parent_sh->GetRunTimeMode() == StorHvCtrl::NORMAL) { 
+      blkdev_minor = (*parent_sh->cr_blkdev)(voldesc->volUUID, voldesc->capacity);
   }
 
   volQueue = new boost::lockfree::queue<fbd_request_t*> (128);
@@ -53,7 +53,7 @@ void StorHvVolume::destroy()
     return;
   }
 
-  if ( volType == FDS_VOL_BLKDEV_TYPE && parent_sh->GetRunTimeMode() == StorHvCtrl::NORMAL) { 
+  if ( voldesc->volType == FDSP_VOL_BLKDEV_TYPE && parent_sh->GetRunTimeMode() == StorHvCtrl::NORMAL) { 
      (*parent_sh->del_blkdev)(blkdev_minor);
   }
   /* destroy data */
@@ -357,9 +357,9 @@ void StorHvVolumeTable::dump()
        ++it)
     {
       FDS_PLOG(vt_log) << "StorHvVolumeTable - existing volume" 
-                       << "UUID " << it->second->volUUID
-                       << ", name " << it->second->vol_name
-                       << ", type " << it->second->volType;
+                       << "UUID " << it->second->voldesc->volUUID
+                       << ", name " << it->second->voldesc->name
+                       << ", type " << it->second->voldesc->volType;
     }
   map_rwlock.read_unlock();
 }

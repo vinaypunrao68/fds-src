@@ -126,7 +126,7 @@ namespace fds {
  public:
     std::string vol_name;
     fds_volid_t volUUID;
-    FDS_Volume  properties;
+    VolumeDesc  *properties;
     std::vector<fds_node_name_t> hv_nodes;
   };
 
@@ -183,10 +183,10 @@ namespace fds {
     Catalog *dltCatalog;
     Catalog *dmtCatalog;
 
-    void copyVolumeInfoToProperties(FDS_Volume *pVol,
+    void copyVolumeInfoToProperties(VolumeDesc *pVol,
                                     FdspVolInfoPtr v_info);
     void copyPropertiesToVolumeInfo(FdspVolInfoPtr v_info,
-                                    FDS_Volume *pVol);
+                                    VolumeDesc *pVol);
     void initOMMsgHdr(const FdspMsgHdrPtr& fdsp_msg);
 
     /*

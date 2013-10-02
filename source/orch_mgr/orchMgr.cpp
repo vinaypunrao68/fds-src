@@ -315,28 +315,25 @@ OrchMgr::ReqCfgHandler::ReqCfgHandler(OrchMgr *oMgr) {
 OrchMgr::ReqCfgHandler::~ReqCfgHandler() {
 }
 
-void OrchMgr::copyVolumeInfoToProperties(FDS_Volume *pVol,
+void OrchMgr::copyVolumeInfoToProperties(VolumeDesc *pVol,
                                          FdspVolInfoPtr v_info) {
-  pVol->vol_name = v_info->vol_name;
+  pVol->name = v_info->vol_name;
   pVol->volUUID = v_info->volUUID;
   pVol->capacity = v_info->capacity;
-  pVol->volType = fds::FDS_VolType(v_info->volType);
-  pVol->consisProtocol = fds::FDS_ConsisProtoType(v_info->consisProtocol);
-  pVol->volPolicyId = v_info->volPolicyId;
-  pVol->appWorkload = fds::FDS_AppWorkload(v_info->appWorkload);
+  pVol->volType = v_info->volType;
+  pVol->consisProtocol = v_info->consisProtocol;
+  pVol->appWorkload = v_info->appWorkload;
 }
 
 void OrchMgr::copyPropertiesToVolumeInfo(FdspVolInfoPtr v_info,
-                                         FDS_Volume *pVol) {
-  v_info->vol_name = pVol->vol_name;
+                                         VolumeDesc *pVol) {
+  v_info->vol_name = pVol->name;
   v_info->volUUID = pVol->volUUID;
   v_info->capacity = pVol->capacity;
-  v_info->volType = FDS_ProtocolInterface::FDSP_VolType(pVol->volType);
+  v_info->volType = pVol->volType;
   v_info->consisProtocol = FDS_ProtocolInterface::
       FDSP_ConsisProtoType(pVol->consisProtocol);
-  v_info->volPolicyId = pVol->volPolicyId;
-  v_info->appWorkload = FDS_ProtocolInterface::
-      FDSP_AppWorkload(pVol->appWorkload);
+  v_info->appWorkload = pVol->appWorkload;
 }
 
 void OrchMgr::initOMMsgHdr(const FdspMsgHdrPtr& msg_hdr) {
@@ -418,7 +415,7 @@ void OrchMgr::sendMgrNodeListToFdsNode(const NodeInfo& n_info) {
 
 
       if (next_node_info.node_state == FDS_ProtocolInterface::FDS_Node_Up) {
-        OMClientAPI->NotifyNodeAdd(msg_hdr_ptr, node_info_ptr);
+        OMClientAPI->begin_NotifyNodeAdd(msg_hdr_ptr, node_info_ptr);
       } else {
 	/*
          * Nothing to send about this node really. The new node does
@@ -476,9 +473,9 @@ void OrchMgr::sendNodeEventToFdsNodes(const NodeInfo& nodeInfo,
 
       ReqCtrlPrx OMClientAPI = next_node_info.cpPrx;
       if (node_state == FDS_ProtocolInterface::FDS_Node_Up) {
-        OMClientAPI->NotifyNodeAdd(msg_hdr_ptr, node_info_ptr);
+        OMClientAPI->begin_NotifyNodeAdd(msg_hdr_ptr, node_info_ptr);
       } else {
-        OMClientAPI->NotifyNodeRmv(msg_hdr_ptr, node_info_ptr);
+        OMClientAPI->begin_NotifyNodeRmv(msg_hdr_ptr, node_info_ptr);
       }
     }
   }
@@ -534,9 +531,9 @@ void OrchMgr::sendNodeTableToFdsNodes(int table_type) {
 
       ReqCtrlPrx OMClientAPI = next_node_info.cpPrx;
       if (table_type == table_type_dlt) {
-        OMClientAPI->NotifyDLTUpdate(msg_hdr_ptr, dlt_info_ptr);
+        OMClientAPI->begin_NotifyDLTUpdate(msg_hdr_ptr, dlt_info_ptr);
       } else {
-        OMClientAPI->NotifyDMTUpdate(msg_hdr_ptr, dmt_info_ptr);
+        OMClientAPI->begin_NotifyDMTUpdate(msg_hdr_ptr, dmt_info_ptr);
       }
     }
   }
@@ -559,32 +556,29 @@ void OrchMgr::sendAllVolumesToFdsMgrNode(NodeInfo node_info) {
 
   for (auto it = volumeMap.begin(); it != volumeMap.end(); ++it) {
     VolumeInfo *pVolInfo = it->second;
-    FDS_Volume* pVol = &(pVolInfo->properties);
-    msg_hdr->glob_volume_id = pVol->volUUID;
-    vol_msg->vol_name = std::string(pVol->vol_name);
-    copyPropertiesToVolumeInfo(vol_msg->vol_info, pVol);
-
-    FDS_PLOG(om_log) << "Sending create vol to node "
-                     << node_info.node_name << " for volume "
-                     << pVolInfo->volUUID;
-
-    OMClientAPI->NotifyAddVol(msg_hdr, vol_msg);
+    VolumeDesc* pVolDesc = pVolInfo->properties;
+    msg_hdr->glob_volume_id = pVolDesc->volUUID;
+    vol_msg->vol_name = std::string(pVolDesc->name);
+    copyPropertiesToVolumeInfo(vol_msg->vol_info, pVolDesc);
+    
+    FDS_PLOG(om_log) << "Sending create vol to node " << node_info.node_name << " for volume " << pVolInfo->volUUID;
+    OMClientAPI->begin_NotifyAddVol(msg_hdr, vol_msg);
   }
 }
 
 // Broadcast create vol ctrl message to all DM/SM Nodes
 void OrchMgr::sendCreateVolToFdsNodes(VolumeInfo  *pVolInfo) {
-  FDS_Volume* pVol = &(pVolInfo->properties);
+  VolumeDesc* pVolDesc = (pVolInfo->properties);
 
   FdspMsgHdrPtr msg_hdr = new FDS_ProtocolInterface::FDSP_MsgHdrType;
   FdspNotVolPtr vol_msg = new FDS_ProtocolInterface::FDSP_NotifyVolType;
   vol_msg->vol_info = new FDS_ProtocolInterface::FDSP_VolumeInfoType();
 
   initOMMsgHdr(msg_hdr);
-  msg_hdr->glob_volume_id = pVol->volUUID;
+  msg_hdr->glob_volume_id = pVolDesc->volUUID;
   vol_msg->type = FDS_ProtocolInterface::FDSP_NOTIFY_ADD_VOL;
-  vol_msg->vol_name = std::string(pVol->vol_name);
-  copyPropertiesToVolumeInfo(vol_msg->vol_info, pVol);
+  vol_msg->vol_name = std::string(pVolDesc->name);
+  copyPropertiesToVolumeInfo(vol_msg->vol_info, pVolDesc);
 
   for (int i = 0; i < 2; i++) {
     node_map_t& node_map = (i == 0) ? currentDmMap:currentSmMap;
@@ -601,24 +595,24 @@ void OrchMgr::sendCreateVolToFdsNodes(VolumeInfo  *pVolInfo) {
                        << pVolInfo->volUUID;
 
       ReqCtrlPrx OMClientAPI = node_info.cpPrx;
-      OMClientAPI->NotifyAddVol(msg_hdr, vol_msg);
+      OMClientAPI->begin_NotifyAddVol(msg_hdr, vol_msg);
     }
   }
 }
 
 // Broadcast delete vol ctrl message to all DM/SM Nodes
 void OrchMgr::sendDeleteVolToFdsNodes(VolumeInfo *pVolInfo) {
-  FDS_Volume *pVol = &(pVolInfo->properties);
+  VolumeDesc *pVolDesc = (pVolInfo->properties);
 
   FdspMsgHdrPtr msg_hdr = new FDS_ProtocolInterface::FDSP_MsgHdrType;
   FdspNotVolPtr vol_msg = new FDS_ProtocolInterface::FDSP_NotifyVolType;
   vol_msg->vol_info = new FDS_ProtocolInterface::FDSP_VolumeInfoType();
 
   initOMMsgHdr(msg_hdr);
-  msg_hdr->glob_volume_id = pVol->volUUID;
+  msg_hdr->glob_volume_id = pVolDesc->volUUID;
   vol_msg->type = FDS_ProtocolInterface::FDSP_NOTIFY_RM_VOL;
-  vol_msg->vol_name = std::string(pVol->vol_name);
-  copyPropertiesToVolumeInfo(vol_msg->vol_info, pVol);
+  vol_msg->vol_name = std::string(pVolDesc->name);
+  copyPropertiesToVolumeInfo(vol_msg->vol_info, pVolDesc);
 
   for (int i = 0; i < 2; i++) {
     node_map_t& node_map = (i == 0) ? currentDmMap : currentSmMap;
@@ -635,7 +629,7 @@ void OrchMgr::sendDeleteVolToFdsNodes(VolumeInfo *pVolInfo) {
                        << pVolInfo->volUUID;
 
       ReqCtrlPrx OMClientAPI = node_info.cpPrx;
-      OMClientAPI->NotifyRmVol(msg_hdr, vol_msg);
+      OMClientAPI->begin_NotifyRmVol(msg_hdr, vol_msg);
     }
   }
 }
@@ -643,7 +637,8 @@ void OrchMgr::sendDeleteVolToFdsNodes(VolumeInfo *pVolInfo) {
 // Send attach vol ctrl message to a HV node
 void OrchMgr::sendAttachVolToHvNode(fds_node_name_t node_name,
                                     VolumeInfo *pVolInfo) {
-  FDS_Volume *pVol = &(pVolInfo->properties);
+
+  VolumeDesc *pVolDesc = (pVolInfo->properties);
 
   FdspMsgHdrPtr msg_hdr = new FDS_ProtocolInterface::FDSP_MsgHdrType;
   FdspAttVolPtr vol_msg = new FDS_ProtocolInterface::FDSP_AttachVolType;
@@ -652,10 +647,10 @@ void OrchMgr::sendAttachVolToHvNode(fds_node_name_t node_name,
   initOMMsgHdr(msg_hdr);
   msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_ATTACH_VOL_CTRL;
   msg_hdr->dst_id = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
-  msg_hdr->glob_volume_id = pVol->volUUID;
+  msg_hdr->glob_volume_id = pVolDesc->volUUID;
 
-  vol_msg->vol_name = std::string(pVol->vol_name);
-  copyPropertiesToVolumeInfo(vol_msg->vol_info, pVol);
+  vol_msg->vol_name = std::string(pVolDesc->name);
+  copyPropertiesToVolumeInfo(vol_msg->vol_info, pVolDesc);
 
   NodeInfo& node_info = currentShMap[node_name];
 
@@ -663,13 +658,14 @@ void OrchMgr::sendAttachVolToHvNode(fds_node_name_t node_name,
                    << " for volume " << pVolInfo->volUUID;
 
   ReqCtrlPrx OMClientAPI = node_info.cpPrx;
-  OMClientAPI->AttachVol(msg_hdr, vol_msg);
+  OMClientAPI->begin_AttachVol(msg_hdr, vol_msg);
 }
 
 // Send attach vol ctrl message to a HV node
 void OrchMgr::sendDetachVolToHvNode(fds_node_name_t node_name,
                                     VolumeInfo *pVolInfo) {
-  FDS_Volume *pVol = &(pVolInfo->properties);
+
+  VolumeDesc *pVolDesc = (pVolInfo->properties);
 
   FdspMsgHdrPtr msg_hdr = new FDS_ProtocolInterface::FDSP_MsgHdrType;
   FdspAttVolPtr vol_msg = new FDS_ProtocolInterface::FDSP_AttachVolType;
@@ -678,10 +674,10 @@ void OrchMgr::sendDetachVolToHvNode(fds_node_name_t node_name,
   initOMMsgHdr(msg_hdr);
   msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_DETACH_VOL_CTRL;
   msg_hdr->dst_id = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
-  msg_hdr->glob_volume_id = pVol->volUUID;
+  msg_hdr->glob_volume_id = pVolDesc->volUUID;
 
-  vol_msg->vol_name = std::string(pVol->vol_name);
-  copyPropertiesToVolumeInfo(vol_msg->vol_info, pVol);
+  vol_msg->vol_name = std::string(pVolDesc->name);
+  copyPropertiesToVolumeInfo(vol_msg->vol_info, pVolDesc);
 
   NodeInfo& node_info = currentShMap[node_name];
 
@@ -689,7 +685,7 @@ void OrchMgr::sendDetachVolToHvNode(fds_node_name_t node_name,
                    << " for volume " << pVolInfo->volUUID;
 
   ReqCtrlPrx OMClientAPI = node_info.cpPrx;
-  OMClientAPI->DetachVol(msg_hdr, vol_msg);
+  OMClientAPI->begin_DetachVol(msg_hdr, vol_msg);
 }
 
 /*
@@ -724,7 +720,7 @@ void OrchMgr::CreateVol(const FdspMsgHdrPtr& fdsp_msg,
   VolumeInfo *new_vol = new VolumeInfo();
   new_vol->vol_name = vol_name;
   new_vol->volUUID = vol_id;
-  copyVolumeInfoToProperties(&(new_vol->properties), crt_vol_req->vol_info);
+  new_vol->properties = new VolumeDesc(crt_vol_req->vol_info);
   volumeMap[vol_id] = new_vol;
   sendCreateVolToFdsNodes(new_vol);
   om_mutex->unlock();
@@ -941,8 +937,6 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
   if (node_map.count(reg_node_req->node_name) > 0) {
     FDS_PLOG(GetLog()) << "Duplicate Node Registration for "
                        << reg_node_req->node_name;
-    om_mutex->unlock();
-    return;
   }
 
   fds_int32_t new_node_id = getFreeNodeId(reg_node_req->node_name);

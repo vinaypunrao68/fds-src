@@ -11,8 +11,7 @@
 #include <boost/lockfree/queue.hpp>
 #include <iostream>
 #include <boost/atomic.hpp>
-#include "util/concurrency/Thread.h"
-#include "util/concurrency/ThreadPool.h"
+#include "fds-include/ThreadPool.h"
 
 #include <unordered_map>
 

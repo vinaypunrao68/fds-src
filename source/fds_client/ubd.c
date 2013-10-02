@@ -55,7 +55,7 @@ int reqs_in_hold = 0;
 
 void ctrlcHandler(int signal);
 static int hvisor_create_io_ring(td_vbd_t *vbd, const char *devname);
-int  hvisor_create_blkdev(uint64_t vol_uuid);
+int  hvisor_create_blkdev(uint64_t vol_uuid, uint64_t capacity);
 int hvisor_delete_blkdev(int minor);
 
 #ifndef BLKTAP_UNIT_TEST
@@ -72,7 +72,7 @@ char  cppstr[2048];
 
 
 
-td_vbd_t*hvisor_vbd_create(uint64_t uuid);
+td_vbd_t*hvisor_vbd_create(uint64_t uuid, uint64_t capacity);
 
 static void
 __hvisor_run(td_vbd_t *vbd);
@@ -351,15 +351,15 @@ int main(int argc, char *argv[]) {
 
 #ifdef HVISOR_USPACE_TEST
   CreateSHMode(argc, argv, hvisor_create_blkdev, hvisor_delete_blkdev, 1, sm_port, dm_port);
+  hvisor_create_blkdev(0, 10000000);
 #else
-  CreateSHMode(argc, argv, hvisor_create_blkdev, hvisor_delete_blkdev, 1, 0, 0);
+  CreateSHMode(argc, argv, hvisor_create_blkdev, hvisor_delete_blkdev, 0, 0, 0);
 #endif
   
 #ifndef HVISOR_USPACE_TEST
   
   memset(data_image, 'x', sizeof(data_image));
   
-  hvisor_create_blkdev(0);
   
 #endif
   
@@ -445,7 +445,7 @@ int main(int argc, char *argv[]) {
 }
 
 td_vbd_t*
-hvisor_vbd_create(uint64_t uuid)
+hvisor_vbd_create(uint64_t uuid, uint64_t capacity)
 {
 	td_vbd_t *vbd;
 	int i;
@@ -459,6 +459,7 @@ hvisor_vbd_create(uint64_t uuid)
 	vbd->uuid     = uuid;
 	vbd->minor    = -1;
 	vbd->ring.fd  = -1;
+        vbd->capacity = capacity;
 
 	/* default blktap ring completion */
 	//vbd->callback = tapdisk_vbd_callback;
@@ -532,15 +533,16 @@ fail:
 	return err;
 }
 
-int  hvisor_create_blkdev(uint64_t vol_uuid)
+int  hvisor_create_blkdev(uint64_t vol_uuid, uint64_t capacity)
 {
   int minor = 0;
   char *io_devname = 0;
   char *ring_devname = 0;
   td_vbd_t *vbd;
   int err=0;
-  vbd = hvisor_vbd_create(vol_uuid);
+  vbd = hvisor_vbd_create(vol_uuid, capacity);
   
+  cppout("create blkdev for volume : %llx  capacity : %lld \n", vol_uuid, capacity);
   err = tap_ctl_allocate_device(&minor, &io_devname);
   if (err) {
     cppout("Failed to create ring and io devices for volume : %llx", vol_uuid);
@@ -560,8 +562,10 @@ int  hvisor_create_blkdev(uint64_t vol_uuid)
     return (-1);
   }
 
+  
   hvisor_vbds[minor] = vbd;
   vbd->minor = minor;
+  hvisor_set_capacity(minor, capacity);
   pthread_create(&vbd->tx_thread, NULL, __hvisor_run, vbd);
   return minor;
 }
@@ -579,6 +583,26 @@ td_vbd_t *vbd;
        hvisor_vbds[minor] = NULL;
    }
   return 0;
+}
+
+
+int hvisor_set_capacity(int minor, uint64_t capacity) {
+char devname[64];
+int fbd = -1, ret=0;
+     memset(devname, 0x00, 64);
+     sprintf(devname, "/dev/fbd%d",minor);
+     fbd = open(devname, O_RDWR);
+
+        if (fbd < 0)
+                cppout( "Cannot open  the device: device was not  created \n"); 
+     
+     if((ret = ioctl(fbd, FBD_SET_TGT_SIZE, capacity)) < 0) 
+     {
+         cppout("Error %d: setting the  target disk  size \n",ret);
+         return ret;
+     }
+
+     return ret;
 }
 
 static int hvisor_wait_for_events(td_vbd_t *vbd) {

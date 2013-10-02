@@ -15,8 +15,10 @@
 
 #include "include/fds_types.h"
 #include "include/fds_err.h"
+#include "fdsp/FDSP.h"
 #define FDS_MAX_VOLUME_POLICY  128
 #define FDS_MAX_ARCHIVE_POLICY  128
+using namespace FDS_ProtocolInterface;
 
 namespace fds {
 
@@ -31,31 +33,84 @@ namespace fds {
    * The authoritative volume information is stored on the OM.
    */
   class VolumeDesc {
- private:
+ public:
     /*
      * Basic ID information.
      */
-    std::string name;
-    fds_volid_t uuid;
+    std::string            name;
+    int                    tennantId;  // Tennant id that owns the volume
+    int                    localDomainId;  // Local domain id that owns vol
+    int                    globDomainId;
+    double                 volUUID;
 
-    fds_uint64_t parent_ld; /* TODO: Fill with parent local domain ID */
-
-    /* TODO: Put permission info here. */
-    /* TODO: Put some SLA info here. */
-    /* TODO: Volume type */
+    FDSP_VolType           volType;
+    double                 capacity;
+    double                 maxQuota;  // Quota % of capacity tho should alert
+    int                    replicaCnt;  // Number of replicas reqd for this volume
+    int                    writeQuorum;  // Quorum number of writes for success
+    int                    readQuorum;  // This will be 1 for now
+    FDSP_ConsisProtoType   consisProtocol;  // Read-Write consistency protocol
+    // Other policies
+    int                    volPolicyId;
+    int                    archivePolicyId;
+    int                    placementPolicy;  // Can change placement policy
+    FDSP_AppWorkload       appWorkload;
+    int                    backupVolume;  // UUID of backup volume
 
     ptime ctime; /* Create time */
 
- public:
     /*
      * Constructors/destructors
      */
-    VolumeDesc(const std::string& _name, fds_volid_t _uuid)
-        : name(_name),
-        uuid(_uuid),
-        parent_ld(0) {
-      assert(_uuid != invalid_vol_id);
+    VolumeDesc(FDSP_VolumeInfoTypePtr&  volinfo)
+     {
+      name = volinfo->vol_name;
+      tennantId = volinfo->tennantId;  
+      localDomainId = volinfo->localDomainId;  
+      globDomainId = volinfo->globDomainId;
+      volUUID = volinfo->volUUID;
+      volType = volinfo->volType;
+      capacity = volinfo->capacity;
+      maxQuota = volinfo->maxQuota; 
+      replicaCnt = volinfo->replicaCnt; 
+      writeQuorum = volinfo->writeQuorum; 
+      readQuorum = volinfo->readQuorum;  
+      consisProtocol = volinfo->consisProtocol; 
+      volPolicyId = volinfo->volPolicyId;
+      archivePolicyId = volinfo->archivePolicyId;
+      placementPolicy = volinfo->placementPolicy;  
+      appWorkload = volinfo->appWorkload;
+      backupVolume = volinfo->backupVolume;
+      assert(volUUID != invalid_vol_id);
     }
+
+    VolumeDesc(const VolumeDesc& vdesc) { 
+      name = vdesc.name;
+      tennantId = vdesc.tennantId;  
+      localDomainId = vdesc.localDomainId;  
+      globDomainId = vdesc.globDomainId;
+      volUUID = vdesc.volUUID;
+      volType = vdesc.volType;
+      capacity = vdesc.capacity;
+      maxQuota = vdesc.maxQuota; 
+      replicaCnt = vdesc.replicaCnt; 
+      writeQuorum = vdesc.writeQuorum; 
+      readQuorum = vdesc.readQuorum;  
+      consisProtocol = vdesc.consisProtocol; 
+      volPolicyId = vdesc.volPolicyId;
+      archivePolicyId = vdesc.archivePolicyId;
+      placementPolicy = vdesc.placementPolicy;  
+      appWorkload = vdesc.appWorkload;
+      backupVolume = vdesc.backupVolume;
+      assert(volUUID != invalid_vol_id);
+    }
+
+    VolumeDesc(const std::string& _name, fds_volid_t _uuid)
+             : name(_name),
+              volUUID(_uuid) {
+        assert(_uuid != invalid_vol_id);
+    }
+
     ~VolumeDesc() {
     }
 
@@ -64,7 +119,7 @@ namespace fds {
     }
 
     fds_volid_t GetID() const {
-      return uuid;
+      return volUUID;
     }
 
     std::string ToString() {
@@ -72,11 +127,32 @@ namespace fds {
     }
 
     bool operator==(const VolumeDesc &rhs) const {
-      return (this->uuid == rhs.uuid);
+      return (this->volUUID == rhs.volUUID );
     }
 
     bool operator!=(const VolumeDesc &rhs) const {
       return !(*this == rhs);
+    }
+
+    bool operator=(VolumeDesc &volinfo) {
+      this->name = volinfo.name;
+      this->tennantId = volinfo.tennantId;  
+      this->localDomainId = volinfo.localDomainId;  
+      this->globDomainId = volinfo.globDomainId;
+      this->volUUID = volinfo.volUUID;
+      this->volType = volinfo.volType;
+      this->capacity = volinfo.capacity;
+      this->maxQuota = volinfo.maxQuota; 
+      this->replicaCnt = volinfo.replicaCnt; 
+      this->writeQuorum = volinfo.writeQuorum; 
+      this->readQuorum = volinfo.readQuorum;  
+      this->consisProtocol = volinfo.consisProtocol; 
+      this->volPolicyId = volinfo.volPolicyId;
+      this->archivePolicyId = volinfo.archivePolicyId;
+      this->placementPolicy = volinfo.placementPolicy;  
+      this->appWorkload = volinfo.appWorkload;
+      this->backupVolume = volinfo.backupVolume;
+      return true;
     }
   };
 
@@ -110,61 +186,24 @@ namespace fds {
   };
 
   class FDS_Volume {
- public:
-    std::string         vol_name;
-    fds_uint32_t        tennantId;  // Tennant id that owns the volume
-    fds_uint32_t        localDomainId;  // Local domain id that owns vol
-    fds_uint32_t        globDomainId;
-    fds_volid_t         volUUID;
-    FDS_VolType         volType;
-
-    fds_uint64_t        capacity;
-    fds_uint64_t        maxQuota;  // Quota % of capacity tho should alert
-
-    fds_uint32_t        replicaCnt;  // Number of replicas reqd for this volume
-    fds_uint32_t        writeQuorum;  // Quorum number of writes for success
-    fds_uint32_t        readQuorum;  // This will be 1 for now
-    FDS_ConsisProtoType consisProtocol;  // Read-Write consistency protocol
-
-    fds_uint32_t        volPolicyId;
-    fds_uint32_t        archivePolicyId;
-    fds_uint32_t        placementPolicy;  // Can change placement policy
-    FDS_AppWorkload     appWorkload;
-
-    fds_volid_t         backupVolume;  // UUID of backup volume
-
+  public:
+    VolumeDesc *voldesc;
+    fds_uint64_t   real_iops_max;
+    fds_uint64_t   real_iops_min;
+    
     FDS_Volume()
       {
-	tennantId = 1;
-	localDomainId = 1;
-	globDomainId = 1;
-	volUUID = 1;
-	volType = FDS_VOL_BLKDEV_TYPE;
-
-	capacity = 0;
-	maxQuota = 0;
-
-	replicaCnt = 1;
-	writeQuorum = 1;
-	readQuorum = 1;
-	consisProtocol = FDS_CONS_PROTO_STRONG;
-
-	volPolicyId = 1;
-	archivePolicyId = 1;
-	placementPolicy = 1;
-	appWorkload = FDS_APP_WKLD_JOURNAL_FILESYS;
-
-	backupVolume = 1;
       }
  
-    FDS_Volume(const VolumeDesc& voldesc)
+    FDS_Volume(const VolumeDesc& vol_desc)
       : FDS_Volume()
       {
-	volUUID = voldesc.GetID();
-        vol_name = voldesc.GetName();
+	voldesc = new VolumeDesc(vol_desc);
       }
       
-    ~FDS_Volume() {}
+    ~FDS_Volume() {
+       delete voldesc;
+     }
   };
 
   class FDS_VolumePolicy {

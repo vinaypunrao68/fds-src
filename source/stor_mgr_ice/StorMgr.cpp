@@ -77,6 +77,20 @@ ObjectStorMgr::ObjectStorMgr() {
 
   objStorMutex = new fds_mutex("Object Store Mutex");
   
+  // Create leveldb
+  std::string filename= stor_prefix + "SNodeObjRepository";
+  objStorDB  = new ObjectDB(filename);
+  filename= stor_prefix + "SNodeObjIndex";
+  objIndexDB  = new ObjectDB(filename);  
+}
+
+void ObjectStorMgr::OMgrClientInit() {
+  omClient = new OMgrClient(FDSP_STOR_MGR, "localhost-sm", sm_log);
+  omClient->initialize();
+  omClient->registerEventHandlerForNodeEvents((node_event_handler_t)nodeEventOmHandler);
+  omClient->startAcceptingControlMessages(cp_port_num);
+  omClient->registerNodeWithOM();
+  volTbl = new StorMgrVolumeTable(this);
 }
 
 
@@ -446,19 +460,6 @@ ObjectStorMgr::run(int argc, char* argv[])
   
   adapter->activate();
 
-  // Create leveldb
-  std::string filename= stor_prefix + "SNodeObjRepository";
-  objStorDB  = new ObjectDB(filename);
-  filename= stor_prefix + "SNodeObjIndex";
-  objIndexDB  = new ObjectDB(filename);  
-  omClient = new OMgrClient(FDSP_STOR_MGR, "localhost-sm", sm_log);
-  volTbl = new StorMgrVolumeTable(this);
-
-  omClient->initialize();
-  omClient->registerEventHandlerForNodeEvents((node_event_handler_t)nodeEventOmHandler);
-  omClient->startAcceptingControlMessages(cp_port_num);
-  omClient->registerNodeWithOM();
-  
   communicator()->waitForShutdown();
   return EXIT_SUCCESS;
 }
@@ -479,6 +480,7 @@ int main(int argc, char *argv[])
 {
 
   objStorMgr = new ObjectStorMgr();
+  objStorMgr->OMgrClientInit();
 
   objStorMgr->main(argc, argv, "stor_mgr.conf");
 

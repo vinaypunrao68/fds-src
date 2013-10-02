@@ -9,7 +9,7 @@
 #include <boost/function.hpp>
 #include <boost/thread/condition.hpp>
 
-#include <shared/dlist.h>
+#include <fds-include/shared/dlist.h>
 #include "include/fds_types.h"
 #include "util/concurrency/Mutex.h"
 

@@ -1,6 +1,8 @@
+#include "../../stor_hvisor/tool/fbd.h"
 
 #define 	IO_READ		0
 #define 	IO_WRITE	1
+
 typedef double                     fbd_sector_t;
 
 struct fbd_request {
