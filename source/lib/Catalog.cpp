@@ -53,12 +53,28 @@ Catalog::Query(const Record& key, std::string* value) {
   Error err(ERR_OK);
 
   leveldb::Status status = db->Get(read_options, key, value);
-  if (!status.ok()) {
+  if (status.IsNotFound()) {
+    err = fds::Error(fds::ERR_CAT_ENTRY_NOT_FOUND);
+    return err;
+  }
+  else if (!status.ok()) {
     err = fds::Error(fds::ERR_DISK_READ_FAILED);
     return err;
   } 
 
   return err;
+}
+
+Error
+Catalog::Delete(const Record& key) {
+  Error err(ERR_OK);
+
+  leveldb::Status status = db->Delete(write_options, key);
+  if (!status.ok()) {
+    err = Error(ERR_DISK_WRITE_FAILED);
+  }
+
+  return err; 
 }
 
 std::string

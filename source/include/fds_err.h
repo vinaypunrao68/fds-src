@@ -16,6 +16,7 @@ namespace fds {
     "Unable to write data to disk",
     "Unable to read data from disk",
     "Unable to query into catalog",
+    "Catalog entry not found",
     "Invalid argument or parameter",
   };
   
@@ -25,8 +26,9 @@ namespace fds {
     ERR_DISK_WRITE_FAILED = 2,
     ERR_DISK_READ_FAILED  = 3,
     ERR_CAT_QUERY_FAILED  = 4,
-    ERR_INVALID_ARG       = 5,
-    ERR_PENDING_RESP      = 6,
+    ERR_CAT_ENTRY_NOT_FOUND  = 5,
+    ERR_INVALID_ARG       = 6,
+    ERR_PENDING_RESP      = 7,
     ERR_MAX
   } fds_errno_t;
   
