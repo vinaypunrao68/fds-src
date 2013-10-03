@@ -1,10 +1,10 @@
 // API declarations 
 #define MAX_BLK_NAME_SZ           255
 // #include "fds_commons.h"
-#include "include/fds_commons_rm.h"
-#include "fds_types.h"
+#include <fds_commons_rm.h>
+#include <fds_types.h>
 
-#include "lib/vvc_db.h"
+#include <vvc_db.h>
 
 typedef void *vvc_vhdl_t;
 

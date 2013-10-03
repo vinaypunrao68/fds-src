@@ -12,10 +12,10 @@
 
 #include <string>
 
-#include "include/fds_types.h"
-#include "include/fds_err.h"
-#include "lib/leveldb-1.12.0/include/leveldb/db.h"
-#include "lib/leveldb-1.12.0/include/leveldb/env.h"
+#include <fds_types.h>
+#include <fds_err.h>
+#include <leveldb/db.h>
+#include <leveldb/env.h>
 
 namespace fds {
 

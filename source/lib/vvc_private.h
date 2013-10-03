@@ -11,7 +11,7 @@
 #endif
 
 // #include "fds_commons.h"
-#include "include/fds_commons_rm.h"
+#include <fds_commons_rm.h>
 
 #ifdef LIB_KERNEL
 

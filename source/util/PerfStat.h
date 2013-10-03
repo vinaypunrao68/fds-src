@@ -7,7 +7,7 @@
 #include <fstream>
 #include <boost/date_time/posix_time/posix_time.hpp>
 
-#include "include/fds_volume.h"
+#include "fds_volume.h"
 
 #define FDS_STAT_DEFAULT_HIST_SLOTS    10
 #define FDS_STAT_DEFAULT_SLOT_LENGTH   1    /* in sec */

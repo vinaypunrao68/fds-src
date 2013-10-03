@@ -4,7 +4,7 @@
 
 #include <string>
 
-#include "lib/VolumeCatalog.h"
+#include "VolumeCatalog.h"
 
 namespace fds {
 

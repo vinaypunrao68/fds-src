@@ -1,29 +1,37 @@
-# **********************************************************************
+topdir           := ..
+user_target      := lib
+user_rtime_env   := user
+
+local_ice_src    := FDSP.ice
+local_ice_outdir := $(topdir)/include/fdsp
+local_ice_target := $(patsubst %.ice,$(local_ice_outdir)/%.h, $(local_ice_src))
+
+# Customize Makefile rules only unique to this directory.
 #
-# Copyright (c) 2003-2013 ZeroC, Inc. All rights reserved.
-#
-# This copy of Ice is licensed to you under the terms described in the
-# ICE_LICENSE file included in this distribution.
-#
-# **********************************************************************
+user_predep      := $(local_ice_target)
+user_clean       := ice_clean
+user_rm_text     := "\t[ICE-Clean .h, .cpp]\t" $(local_ice_outdir)
+user_rm_list     := $(local_ice_target)
 
-top_srcdir	= ../lib/Ice-3.5.0/cpp
-top_srcdir_ldb	= ../
+include $(topdir)/Makefile.incl
 
-TARGETS		= FDSP.o
+local_ice_make   := $(toolchain_ice_bin)/slice2cpp
+local_ice_flags  := --underscore -I. -I$(toolchain_ice)/slice
 
-OBJS		= FDSP.o
+define local_mk_ice_cpp
+$(patsubst %.ice,$(local_ice_outdir)/%.h, $(1)): $(1)
+ifdef VERBOSE
+	@echo $(local_ice_make) $(local_ice_flags) $$< --output-dir $(local_ice_outdir)
+	@export LD_LIBRARY_PATH=$(toolchain_ice_lib);                             \
+	$(local_ice_make) $(local_ice_flags) $$< --output-dir $(local_ice_outdir)
+else
+	@echo "\t[ICE-GEN .ice]\t$$<"
+	@export LD_LIBRARY_PATH=$(toolchain_ice_lib);                             \
+	$(local_ice_make) $(local_ice_flags) $$< --output-dir $(local_ice_outdir)
+endif
+endef
 
-SRCS		= $(OBJS:.o=.cpp) 
+$(foreach ice,$(local_ice_src),$(eval $(call local_mk_ice_cpp,$(ice))))
 
-SLICE_SRCS	= FDSP.ice
-
-include $(top_srcdir)/config/Make.rules
-
-CPPFLAGS	:= -I. $(CPPFLAGS) -I $(top_srcdir)include/Ice \
-	-I$(top_srcdir_ldb)/ \
-	-I$(top_srcdir_ldb)include
-SLICE2CPPFLAGS	:= --underscore -I. $(SLICE2CPPFLAGS)
-
-.PHONY: clean
-
+ice_clean:
+	@$(scpt_rm_file_list)

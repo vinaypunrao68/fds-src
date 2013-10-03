@@ -1,10 +1,10 @@
-#include "Platform.h"
-#include "Hashes.h"
-#include "KeysetTest.h"
-#include "SpeedTest.h"
-#include "AvalancheTest.h"
-#include "DifferentialTest.h"
-#include "PMurHash.h"
+#include <Platform.h>
+#include <Hashes.h>
+#include <KeysetTest.h>
+#include <SpeedTest.h>
+#include <AvalancheTest.h>
+#include <DifferentialTest.h>
+#include <PMurHash.h>
 
 #include <stdio.h>
 #include <time.h>

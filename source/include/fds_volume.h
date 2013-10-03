@@ -13,9 +13,9 @@
 
 #include <string>
 
-#include "include/fds_types.h"
-#include "include/fds_err.h"
-#include "fdsp/FDSP.h"
+#include <fds_types.h>
+#include <fds_err.h>
+#include <fdsp/FDSP.h>
 #define FDS_MAX_VOLUME_POLICY  128
 #define FDS_MAX_ARCHIVE_POLICY  128
 using namespace FDS_ProtocolInterface;

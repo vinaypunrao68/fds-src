@@ -12,5 +12,20 @@
 *.la
 *.a
 
+# Other tmp files and files we generated.
+*~
+*.swp
+cscope.*
+tags
+
 # Built directories
 build.*
+linux-*
+
+# All ICE stuffs.
+*Ice-3.5.0/cpp/bin/*
+*Ice-3.5.0/cpp/lib/*
+*Ice-3.5.0/cpp/demo/*
+*Ice-3.5.0/cpp/include/*
+*Ice-3.5.0/cpp/src/*
+*Ice-3.5.0/cpp/test/*

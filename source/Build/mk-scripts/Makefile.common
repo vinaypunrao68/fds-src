@@ -12,9 +12,10 @@ comm_cpp_flags  :=
 comm_ar_flags   :=
 comm_so_flags   :=
 comm_ld_flags   := -L$(comm_dir_lib)
+comm_dep_libs   :=
 
 ifdef user_fds_ar_libs
-comm_dep_libs   := $(user_fds_ar_libs)
+comm_dep_libs   += $(user_fds_ar_libs)
 endif
 
 ifdef user_fds_so_libs
@@ -46,7 +47,7 @@ ifeq ($(user_rtime_env), user)
 
     # Build a binary exe target.
     #
-    ifeq ($(user_target), exe)
+    ifneq ($(user_target), lib)
         comm_dep_libs += $(main_exec_dep_libs)
     endif
 
@@ -68,6 +69,7 @@ endif
 # Add user include paths and dependent libs.
 #
 main_cc_flags   += $(patsubst %,-I%,$(user_incl_dir))
+main_cpp_flags  += $(patsubst %,-I%,$(user_incl_dir))
 main_ld_flags   += $(patsubst %,-l%,$(comm_dep_libs))
 main_ld_flags   += $(patsubst %,-l%,$(user_non_fds_libs))
 
@@ -96,12 +98,12 @@ comm_so_tgt      = $(patsubst %,$(comm_dir_lib)/lib%.$(local_ver).so,$(1))
 comm_mod_tgt     = $(patsubst %,$(comm_dir_bin)/%,$(1))
 
 ifdef comm_dep_libs
-ifdef user_dep_ar_libs
-comm_lib_dep    := $(patsubst %,$(comm_dir_lib)/lib%.a,$(user_dep_ar_libs))
+ifdef user_fds_ar_libs
+comm_lib_dep    := $(patsubst %,$(comm_dir_lib)/lib%.a,$(user_fds_ar_libs))
 endif
 
-ifdef user_dep_so_libs
-comm_lib_dep    += $(patsubst %,$(comm_dir_lib)/lib%.$(main_so_version).so,$(user_dep_so_libs))
+ifdef user_fds_so_libs
+comm_lib_dep    += $(patsubst %,$(comm_dir_lib)/lib%.$(main_so_version).so,$(user_fds_so_libs))
 endif
 endif
 

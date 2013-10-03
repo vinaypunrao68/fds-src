@@ -3,7 +3,7 @@
 #include <stdlib.h>
 
 // #include "fds_commons.h"
-#include "vvclib.h"
+#include <vvclib.h>
 
 vvc_vhdl_t vhdl = 0;
 

@@ -4,8 +4,8 @@
 
 #include <string>
 
-#include "lib/Catalog.h"
-#include "lib/leveldb-1.12.0/include/leveldb/filter_policy.h"
+#include "Catalog.h"
+#include <leveldb/filter_policy.h>
 
 namespace fds {
 

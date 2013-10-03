@@ -83,7 +83,7 @@ main_so_version := $(main_major).$(main_minor).$(main_release).$(main_bugfix)
 #
 main_incl_dir   := $(topdir)/include
 main_rpcgen_dir := $(topdir)/rpcgen
-main_incl_flags := -I$(main_incl_dir) -I$(topdir)
+main_incl_flags := -I. -I$(main_incl_dir)
 
 local_cc_common := -g -fPIC $(main_incl_flags)
 main_cc_defs    := -D_REENTRANT

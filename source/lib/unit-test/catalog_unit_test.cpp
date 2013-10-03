@@ -5,7 +5,7 @@
 #include <iostream> // NOLINT(*)
 #include <string>
 
-#include "lib/Catalog.h"
+#include <Catalog.h>
 
 int main(int argc, char *argv[]) {
   std::string key("My key");

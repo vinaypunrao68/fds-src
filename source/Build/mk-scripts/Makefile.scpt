@@ -147,7 +147,17 @@ else
 	@$(rpcgen) -M -m $$+ -o $$@
 endif
 endef
-   
+
+# ----------------------------------------------------------------------------
+# Script to remove a file list
+# TODO: should find a better way to pass variables to the shell.
+#
+scpt_rm_file_list :=                                                         \
+    echo $(user_rm_text);                                                    \
+    for f in $(user_rm_list); do                                             \
+        [ -f $$f ] && rm $$f;                                                \
+    done
+
 # ----------------------------------------------------------------------------
 # Script to do cscope.
 #

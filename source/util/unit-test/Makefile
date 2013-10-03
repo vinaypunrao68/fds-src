@@ -8,9 +8,7 @@ user_non_fds_libs :=                                                          \
     boost_log boost_system boost_thread boost_date_time Ice IceUtil IceStorm  \
     ssl crypto
 
-# TODO: change the location of fdsp dir
-#
-user_incl_dir     := ../hash $(topdir)
+user_incl_dir     := ../ ../hash
 user_cpp          :=                                                          \
     hash_test.cpp log_unit_test.cpp perfstat_unit_test.cpp
 

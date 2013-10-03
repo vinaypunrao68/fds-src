@@ -12,7 +12,7 @@
 
 #include <string>
 
-#include "lib/Catalog.h"
+#include "Catalog.h"
 
 namespace fds {
 

@@ -5,11 +5,11 @@
 #include <iostream>  // NOLINT(*)
 #include <vector>
 
-#include "util/concurrency/Mutex.h"
-#include "util/concurrency/RwLock.h"
-#include "util/concurrency/Thread.h"
-#include "util/concurrency/Synchronization.h"
-#include <ThreadPool.h>
+#include <concurrency/Mutex.h>
+#include <concurrency/RwLock.h>
+#include <concurrency/Thread.h>
+#include <concurrency/Synchronization.h>
+#include <concurrency/ThreadPool.h>
 
 // #include "util/Log.h"
 

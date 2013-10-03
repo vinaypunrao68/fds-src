@@ -1,9 +1,9 @@
 #ifndef _OMGRCLIENT_H
 #define _OMGRCLIENT_H
-#include "include/fds_err.h"
-#include "include/fds_volume.h"
+#include <fds_err.h>
+#include <fds_volume.h>
 #include "fdsp/FDSP.h"
-#include "util/Log.h"
+#include <util/Log.h>
 #include <unordered_map>
 #include <Ice/Ice.h>
 #include <IceStorm/IceStorm.h>

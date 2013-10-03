@@ -2,15 +2,36 @@
 # Makefile.toolchain settings
 #
 # Setup Makefile to link with external libraries.
-# All variables in this file must have local scope.
 #
-local_boost_lib_dir  := /usr/local/lib
+
+# ICE settings.
+#
+toolchain_ice        := $(topdir)/../Ice-3.5.0
+toolchain_ice_top    := $(toolchain_ice)/cpp
+toolchain_ice_lib    := $(toolchain_ice_top)/lib
+toolchain_ice_bin    := $(toolchain_ice_top)/bin
+
+# Boost settings.
+#
+toolchain_boost_lib  := /usr/local/lib
+toolchain_boost_incl := /usr/local/include
+
+# Level DB settings.
+#
+toolchain_ldb        := $(topdir)/../leveldb-1.12.0
+toolchain_ldb_incl   := $(toolchain_ldb)/include
+toolchain_ldb_lib    := $(toolchain_ldb)
 
 # Global scope variables tool chain to use with the final compiling/linking.
 #
-toolchain_incl_flags := -I/usr/local/include
+toolchain_incl_flags := -I$(toolchain_boost_incl) -I$(toolchain_ice_top)/include
+toolchain_incl_flags += -I$(toolchain_ldb_incl)
+
 toolchain_cc_flags   := $(toolchain_incl_flags)
 toolchain_cpp_flags  := $(toolchain_incl_flags)
-toolchain_ld_flags   := -L$(local_boost_lib_dir)
+
+toolchain_ld_flags   := -L$(toolchain_boost_lib) -L$(toolchain_ice_lib)
+toolchain_ld_flags   += -L$(toolchain_ldb_lib)
+
 toolchain_so_flags   :=
 toolchain_ar_flags   :=
