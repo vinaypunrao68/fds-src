@@ -43,7 +43,9 @@ void DataMgr::vol_handler(fds_volid_t vol_uuid,
 
 void DataMgr::node_handler(fds_int32_t  node_id,
                            fds_uint32_t node_ip,
-                           fds_int32_t  node_st) {
+                           fds_int32_t  node_st,
+                           fds_uint32_t node_port,
+                           FDS_ProtocolInterface::FDSP_MgrIdType node_type) {
 }
 
 /*
@@ -267,9 +269,9 @@ DataMgr::DataMgr()
   _tp = new fds_threadpool(num_threads);
 
   /*
-   * Create connection with OM.
+   * Comm with OM will be setup during run()
    */
-  omClient = new OMgrClient(FDSP_DATA_MGR, "localhost-dm", dm_log);
+  omClient = NULL;
 
   FDS_PLOG(dm_log) << "Constructing the Data Manager";
 }
@@ -366,10 +368,14 @@ int DataMgr::run(int argc, char* argv[]) {
   /*
    * Setup communication with OM.
    */
+  omClient = new OMgrClient(FDSP_DATA_MGR,
+                            port_num,
+                            stor_prefix + "localhost-dm",
+                            dm_log);
   omClient->initialize();
   omClient->registerEventHandlerForNodeEvents(node_handler);
   omClient->registerEventHandlerForVolEvents(vol_handler);
-  
+
   /*
    * Brings up the control path interface.
    * This does not require OM to be running and can
@@ -382,7 +388,6 @@ int DataMgr::run(int argc, char* argv[]) {
      * Registers the DM with the OM. Uses OM for bootstrapping
      * on start. Requires the OM to be up and running prior.
      */
-    
     omClient->registerNodeWithOM();
   }
 
@@ -406,6 +411,11 @@ void DataMgr::swapMgrId(const FDS_ProtocolInterface::
   tmp_addr = fdsp_msg->dst_ip_lo_addr;
   fdsp_msg->dst_ip_lo_addr = fdsp_msg->src_ip_lo_addr;
   fdsp_msg->src_ip_lo_addr = tmp_addr;
+
+  fds_uint32_t tmp_port;
+  tmp_port = fdsp_msg->dst_port;
+  fdsp_msg->dst_port = fdsp_msg->src_port;
+  fdsp_msg->src_port = tmp_port;
 }
 
 fds_log* DataMgr::GetLog() {

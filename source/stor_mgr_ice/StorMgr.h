@@ -71,8 +71,14 @@ public:
    void GetObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr, const FDS_ProtocolInterface::FDSP_GetObjTypePtr& get_obj);
 
    inline void swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg);
-   static void nodeEventOmHandler(int node_id, unsigned int node_ip_addr, int node_state);
-   static void volEventOmHandler(fds::fds_volid_t volume_id, fds::VolumeDesc *vdb, int vol_action);
+   static void nodeEventOmHandler(int node_id,
+                                  unsigned int node_ip_addr,
+                                  int node_state,
+                                  fds_uint32_t node_port,
+                                  FDS_ProtocolInterface::FDSP_MgrIdType node_type);
+   static void volEventOmHandler(fds::fds_volid_t volume_id,
+                                 fds::VolumeDesc *vdb,
+                                 int vol_action);
 
    virtual int run(int, char*[]);
    void interruptCallback(int);

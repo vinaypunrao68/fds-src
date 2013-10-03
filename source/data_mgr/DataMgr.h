@@ -97,7 +97,9 @@ namespace fds {
 
     static void node_handler(fds_int32_t  node_id,
                              fds_uint32_t node_ip,
-                             fds_int32_t  node_st);
+                             fds_int32_t  node_st,
+                             fds_uint32_t node_port,
+                             FDS_ProtocolInterface::FDSP_MgrIdType node_type);
 
  public:
     DataMgr();

@@ -76,6 +76,11 @@ ObjectStorMgr::ObjectStorMgr() {
   diskMgr = new DiskMgr();
 
   objStorMutex = new fds_mutex("Object Store Mutex");
+
+  /*
+   * Will setup OM comm during run()
+   */
+  omClient = NULL;
 }
 
 ObjectStorMgr::~ObjectStorMgr()
@@ -92,7 +97,11 @@ ObjectStorMgr::~ObjectStorMgr()
   delete objStorMutex;
 }
 
-void ObjectStorMgr::nodeEventOmHandler(int node_id, unsigned int node_ip_addr, int node_state)
+void ObjectStorMgr::nodeEventOmHandler(int node_id,
+                                       unsigned int node_ip_addr,
+                                       int node_state,
+                                       fds_uint32_t node_port,
+                                       FDS_ProtocolInterface::FDSP_MgrIdType node_type)
 {
     switch(node_state) {
        case FDS_Node_Up :
@@ -359,6 +368,7 @@ ObjectStorMgr::GetObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
 inline void ObjectStorMgr::swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg) {
  FDSP_MgrIdType temp_id;
  long tmp_addr;
+ fds_uint32_t tmp_port;
 
  temp_id = fdsp_msg->dst_id;
  fdsp_msg->dst_id = fdsp_msg->src_id;
@@ -372,6 +382,9 @@ inline void ObjectStorMgr::swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg) {
  fdsp_msg->dst_ip_lo_addr = fdsp_msg->src_ip_lo_addr;
  fdsp_msg->src_ip_lo_addr = tmp_addr;
 
+ tmp_port = fdsp_msg->dst_port;
+ fdsp_msg->dst_port = fdsp_msg->src_port;
+ fdsp_msg->src_port = tmp_port;
 }
 
 
@@ -451,13 +464,20 @@ ObjectStorMgr::run(int argc, char* argv[])
   
   adapter->activate();
 
-  omClient = new OMgrClient(FDSP_STOR_MGR, "localhost-sm", sm_log);
   volTbl = new StorMgrVolumeTable(this);
+
+  /*
+   * Register this node with OM.
+   */
+  omClient = new OMgrClient(FDSP_STOR_MGR,
+                            port_num,
+                            stor_prefix + "localhost-sm",
+                            sm_log);
   omClient->initialize();
   omClient->registerEventHandlerForNodeEvents((node_event_handler_t)nodeEventOmHandler);
+  omClient->registerEventHandlerForVolEvents((volume_event_handler_t)volEventOmHandler);
   omClient->startAcceptingControlMessages(cp_port_num);
   omClient->registerNodeWithOM();
-
 
   communicator()->waitForShutdown();
   return EXIT_SUCCESS;
@@ -477,7 +497,6 @@ ObjectStorMgr::interruptCallback(int)
 
 int main(int argc, char *argv[])
 {
-
   objStorMgr = new ObjectStorMgr();
 
   objStorMgr->main(argc, argv, "stor_mgr.conf");

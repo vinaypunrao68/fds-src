@@ -20,6 +20,8 @@ private:
    * A stock IP addr to use in test modes.
    */
   fds_uint32_t test_ip_addr;
+  fds_uint32_t test_sm_port;
+  fds_uint32_t test_dm_port;
 
   /*
    * Current mode of this instance.
@@ -34,6 +36,8 @@ public:
                       OMgrClient *omc);
   StorHvDataPlacement(dp_mode _mode,
                       fds_uint32_t test_ip,
+                      fds_uint32_t test_sm,
+                      fds_uint32_t test_dm,
                       OMgrClient *omc);
   ~StorHvDataPlacement();
   
@@ -41,7 +45,8 @@ public:
     if (mode == DP_NO_OM_MODE) {
       /*
        * TODO: Set up some stock response here.
-       * Returns 1 nodes with ID 0.
+       * Returns 1 nodes with ID 0. The SM has
+       * stock node id 0.
        */
       (*n_nodes) = 1;
       node_ids[(*n_nodes) - 1] = 0;
@@ -53,17 +58,21 @@ public:
     if (mode == DP_NO_OM_MODE) {
       /*
        * TODO: Set up some stock response here.
-       * Returns 1 nodes with ID 0.
+       * Returns 1 nodes with ID 1. The DM has
+       * stock node id 1.
        */
       (*n_nodes) = 1;
-      node_ids[(*n_nodes) - 1] = 0;      
+      node_ids[(*n_nodes) - 1] = 1;
     } else {
       assert(mode == DP_NORMAL_MODE);
       parent_omc->getDMTNodesForVolume(volid, node_ids, n_nodes);
     }
   }
 
-  Error getNodeInfo(int node_id, fds_uint32_t *node_ip_addr, int *node_state) {
+  Error getNodeInfo(int node_id,
+                    fds_uint32_t *node_ip_addr,
+                    fds_uint32_t *node_port,
+                    int *node_state) {
     Error err(ERR_OK);
     int ret_code = 0;
     
@@ -73,9 +82,19 @@ public:
        */
       *node_ip_addr = test_ip_addr;
       *node_state   = 0;
+      if (node_id == 0) {
+        *node_port = test_sm_port;
+      } else if (node_id == 1) {
+        *node_port = test_dm_port;
+      } else {
+        assert(0);
+      }
     } else {
       assert(mode == DP_NORMAL_MODE);
-      ret_code = parent_omc->getNodeInfo(node_id, node_ip_addr, node_state);
+      ret_code = parent_omc->getNodeInfo(node_id,
+                                         node_ip_addr,
+                                         node_port,
+                                         node_state);
       if (ret_code != 0) {
         err = ERR_DISK_READ_FAILED;
       }
@@ -84,7 +103,11 @@ public:
     return err;
   }
   
-  static void nodeEventHandler(int node_id, unsigned int node_ip_addr, int node_state);
+  static void nodeEventHandler(int node_id,
+                               unsigned int node_ip_addr,
+                               int node_state,
+                               fds_uint32_t node_port,
+                               FDS_ProtocolInterface::FDSP_MgrIdType node_type);
 };
 
 #endif

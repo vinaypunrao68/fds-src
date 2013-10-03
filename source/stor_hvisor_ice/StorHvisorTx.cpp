@@ -31,6 +31,7 @@ int StorHvisorProcIoRd(fbd_request_t *req, complete_req_cb_t comp_req, void *arg
 
   FDS_RPC_EndPoint *endPoint = NULL; 
   unsigned int node_ip = 0;
+  fds_uint32_t node_port = 0;
   unsigned int doid_dlt_key=0;
   int num_nodes = 8;
   int node_ids[8];
@@ -120,6 +121,7 @@ int StorHvisorProcIoRd(fbd_request_t *req, complete_req_cb_t comp_req, void *arg
   fdsp_msg_hdr->msg_code = FDSP_MSG_GET_OBJ_REQ;
   fdsp_msg_hdr->msg_id =  1;
   fdsp_msg_hdr->src_ip_lo_addr = SRC_IP;
+  fdsp_msg_hdr->src_port = 0;
   get_obj_req->data_obj_id.hash_high = oid.GetHigh();
   get_obj_req->data_obj_id.hash_low = oid.GetLow();
   get_obj_req->data_obj_len = req->len;
@@ -134,13 +136,20 @@ int StorHvisorProcIoRd(fbd_request_t *req, complete_req_cb_t comp_req, void *arg
     FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " -  DLT Nodes  NOT  confiigured. Check on OM Manager";
     return -1;
   }
-  storHvisor->dataPlacementTbl->getNodeInfo(node_ids[0], &node_ip, &node_state);
+  storHvisor->dataPlacementTbl->getNodeInfo(node_ids[0],
+                                            &node_ip,
+                                            &node_port,
+                                            &node_state);
   
   fdsp_msg_hdr->dst_ip_lo_addr = node_ip;
+  fdsp_msg_hdr->dst_port       = node_port;
   
   // *****CAVEAT: Modification reqd
   // ******  Need to find out which is the primary SM and send this out to that SM. ********
-  storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip, FDSP_STOR_MGR, &endPoint);
+  storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip,
+                                             node_port,
+                                             FDSP_STOR_MGR,
+                                             &endPoint);
   
   // RPC Call GetObject to StorMgr
   journEntry->trans_state = FDS_TRANS_GET_OBJ;
@@ -169,6 +178,7 @@ int StorHvisorProcIoWr(fbd_request_t *req, complete_req_cb_t comp_req, void *arg
   FDS_RPC_EndPoint *endPoint = NULL;
   int node_ids[8];
   fds_uint32_t node_ip = 0;
+  fds_uint32_t node_port = 0;
   int node_state = -1;
   fds_uint32_t vol_id;
   StorHvVolume *shvol;
@@ -257,19 +267,31 @@ int StorHvisorProcIoWr(fbd_request_t *req, complete_req_cb_t comp_req, void *arg
   storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(doid_dlt_key, node_ids, &num_nodes);
   for (i = 0; i < num_nodes; i++) {
     node_ip = 0;
+    node_port = 0;
     node_state = -1;
     // storHvisor->dataPlacementTbl->omClient->getNodeInfo(node_ids[i], &node_ip, &node_state);
-    storHvisor->dataPlacementTbl->getNodeInfo(node_ids[i], &node_ip, &node_state);
+    storHvisor->dataPlacementTbl->getNodeInfo(node_ids[i],
+                                              &node_ip,
+                                              &node_port,
+                                              &node_state);
     journEntry->sm_ack[i].ipAddr = node_ip;
+    journEntry->sm_ack[i].port = node_port;
     fdsp_msg_hdr->dst_ip_lo_addr = node_ip;
+    fdsp_msg_hdr->dst_port = node_port;
     journEntry->sm_ack[i].ack_status = FDS_CLS_ACK;
     journEntry->num_sm_nodes = num_nodes;
 
     // Call Put object RPC to SM
-    storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip, FDSP_STOR_MGR, &endPoint);
+    storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip,
+                                               node_port,
+                                               FDSP_STOR_MGR,
+                                               &endPoint);
     if (endPoint) { 
       endPoint->fdspDPAPI->begin_PutObject(fdsp_msg_hdr, put_obj_req);
-      FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " -  Sent async PUT_OBJ_REQ request to SM at " <<  node_ip;
+      FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:"
+                                     << trans_id << " volID:" << vol_id
+                                     << " -  Sent async PUT_OBJ_REQ request to SM at "
+                                     << node_ip << " port " << node_port;
     }
   }
   
@@ -281,25 +303,39 @@ int StorHvisorProcIoWr(fbd_request_t *req, complete_req_cb_t comp_req, void *arg
   upd_obj_req->dm_operation = FDS_DMGR_TXN_STATUS_OPEN;
   fdsp_msg_hdr_dm->req_cookie = trans_id;
   fdsp_msg_hdr_dm->src_ip_lo_addr = SRC_IP;
+  fdsp_msg_hdr_dm->src_port = 0;
+  fdsp_msg_hdr_dm->dst_port = node_port;
   
   storHvisor->dataPlacementTbl->getDMTNodesForVolume(vol_id, node_ids, &num_nodes);
   
   for (i = 0; i < num_nodes; i++) {
     node_ip = 0;
+    node_port = 0;
     node_state = -1;
-    storHvisor->dataPlacementTbl->getNodeInfo(node_ids[i], &node_ip, &node_state);
+    storHvisor->dataPlacementTbl->getNodeInfo(node_ids[i],
+                                              &node_ip,
+                                              &node_port,
+                                              &node_state);
     
     journEntry->dm_ack[i].ipAddr = node_ip;
+    journEntry->dm_ack[i].port = node_port;
     fdsp_msg_hdr_dm->dst_ip_lo_addr = node_ip;
+    fdsp_msg_hdr_dm->dst_port = node_port;
     journEntry->dm_ack[i].ack_status = FDS_CLS_ACK;
     journEntry->dm_ack[i].commit_status = FDS_CLS_ACK;
     journEntry->num_dm_nodes = num_nodes;
     
     // Call Update Catalog RPC call to DM
-    storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip, FDSP_DATA_MGR, &endPoint);
+    storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip,
+                                               node_port,
+                                               FDSP_DATA_MGR,
+                                               &endPoint);
     if (endPoint){
       endPoint->fdspDPAPI->begin_UpdateCatalogObject(fdsp_msg_hdr_dm, upd_obj_req);
-      FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Sent async UPDATE_CAT_OBJ_REQ request to DM at " <<  node_ip;
+      FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:"
+                                     << trans_id << " volID:" << vol_id
+                                     << " - Sent async UPDATE_CAT_OBJ_REQ request to DM at "
+                                     <<  node_ip << " port " << node_port;
     }
   }
   

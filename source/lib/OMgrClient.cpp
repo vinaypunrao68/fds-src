@@ -69,8 +69,12 @@ void OMgrClientRPCI::NotifyDMTUpdate(const FDSP_MsgHdrTypePtr& msg_hdr,
 }
 
 
-OMgrClient::OMgrClient(FDSP_MgrIdType node_type, std::string node_name, fds_log *parent_log) {
+OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
+                       fds_uint32_t data_port,
+                       const std::string& node_name,
+                       fds_log *parent_log) {
   my_node_type = node_type;
+  my_data_port = data_port;
   my_node_name = node_name;
   if (parent_log) {
     omc_log = parent_log;
@@ -245,7 +249,6 @@ void OMgrClient::initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
 }
 
 // Use this to register the local node with OM as a client. Should be called after calling starting subscription endpoint and control path endpoint.
-
 int OMgrClient::registerNodeWithOM() {
 
   try {
@@ -263,7 +266,7 @@ int OMgrClient::registerNodeWithOM() {
   reg_node_msg->ip_hi_addr = 0;
   reg_node_msg->ip_lo_addr = fds::str_to_ipv4_addr(props->getProperty("OMgrClient.MyIPAddr")); //my_address!
   reg_node_msg->control_port = my_control_port;
-  reg_node_msg->data_port = 0; // for now
+  reg_node_msg->data_port = my_data_port; // for now
 
   FDS_PLOG(omc_log) << "OMClient registering local node " << fds::ipv4_addr_to_str(reg_node_msg->ip_lo_addr) << " control port:" << reg_node_msg->control_port 
 		    << " data port:" << reg_node_msg->data_port
@@ -287,12 +290,17 @@ int OMgrClient::recvNodeEvent(int node_id, FDSP_MgrIdType node_type, unsigned in
 
   node.node_id = node_id;
   node.node_ip_address = node_ip;
+  node.port = node_info->data_port;
   node.node_state = (FDSP_NodeState) node_state;
 
   FDS_PLOG(omc_log) << "OMClient received node event for node " << node_id << ", type - " << node_info->node_type << " with ip address " << node_ip << " and state - " << node_state;
 
   if (this->node_evt_hdlr) {
-    this->node_evt_hdlr(node_id, node_ip, node_state);
+    this->node_evt_hdlr(node_id,
+                        node_ip,
+                        node_state,
+                        node_info->data_port,
+                        node_info->node_type);
   }
   return (0);
   
@@ -350,7 +358,10 @@ int OMgrClient::recvDMTUpdate(int dmt_vrsn, const Node_Table_Type& dmt_table) {
   return (0);
 }
 
-int OMgrClient::getNodeInfo(int node_id, unsigned int *node_ip_addr, int *node_state) {
+int OMgrClient::getNodeInfo(int node_id,
+                            unsigned int *node_ip_addr,
+                            fds_uint32_t *node_port,
+                            int *node_state) {
   
   node_info_t& node = node_map[node_id];
 
@@ -359,6 +370,7 @@ int OMgrClient::getNodeInfo(int node_id, unsigned int *node_ip_addr, int *node_s
   }
 
   *node_ip_addr = node.node_ip_address;
+  *node_port = node.port;
   *node_state = node.node_state;
   
   return 0;
