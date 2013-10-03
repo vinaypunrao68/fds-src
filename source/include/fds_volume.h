@@ -135,10 +135,33 @@ namespace fds {
 	assert(volUUID != invalid_vol_id);
       }
 
+    /*
+     * Used for testing where we don't have all of these fields.
+     */
     VolumeDesc(const std::string& _name, fds_volid_t _uuid)
              : name(_name),
               volUUID(_uuid) {
         assert(_uuid != invalid_vol_id);
+
+	tennantId = 0;
+	localDomainId = 0;
+	globDomainId = 0;
+	volType = FDS_ProtocolInterface::FDSP_VOL_S3_TYPE;
+	capacity = 0;
+	maxQuota = 0;
+	replicaCnt = 0;
+	writeQuorum = 0;
+	readQuorum = 0;
+	consisProtocol = FDS_ProtocolInterface::FDSP_CONS_PROTO_STRONG;
+	volPolicyId = 0;
+	archivePolicyId = 0;
+	placementPolicy = 0;
+	appWorkload = FDS_ProtocolInterface::FDSP_APP_WKLD_TRANSACTION;
+	backupVolume = 0;
+	iops_min = 0;
+	iops_max = 0;
+	relativePrio = 0;
+	assert(volUUID != invalid_vol_id);
     }
 
     ~VolumeDesc() {

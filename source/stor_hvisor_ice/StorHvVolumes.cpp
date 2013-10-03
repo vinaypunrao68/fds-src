@@ -120,7 +120,7 @@ StorHvVolumeTable::StorHvVolumeTable(StorHvCtrl *sh_ctrl, fds_log *parent_log)
     parent_sh->om_client->registerEventHandlerForVolEvents(volumeEventHandler);
   }
 
-  if (sh_ctrl->GetRunTimeMode() == StorHvCtrl::TEST_BOTH) { 
+  if (sh_ctrl->GetRunTimeMode() == StorHvCtrl::TEST_BOTH) {
     VolumeDesc vdesc("default_vol", FDS_DEFAULT_VOL_UUID);
     volume_map[FDS_DEFAULT_VOL_UUID] = new StorHvVolume(vdesc, parent_sh, vt_log);
     FDS_PLOG(vt_log) << "StorHvVolumeTable - constructor registered volume 1";  

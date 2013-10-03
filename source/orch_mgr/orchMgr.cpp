@@ -80,8 +80,25 @@ int OrchMgr::run(int argc, char* argv[]) {
     }
   }
 
+
   policy_mgr = new VolPolicyMgr(stor_prefix, om_log);
 
+  /*
+   * TODO: Remove this or move it to a test mode eventually.
+   * This creates a stock volume that the OM knows about so
+   * that an OM volume create request isn't needed. Since
+   * other nodes (SH/SM/DM) don't generally communicate
+   * over the Ice config path, which is what contains the
+   * CreateVol() rpc, this is easier.
+   */
+  VolumeInfo *new_vol = new VolumeInfo();
+  new_vol->vol_name = "Test volume";
+  new_vol->volUUID = 1;
+  new_vol->properties = new VolumeDesc(new_vol->vol_name,
+                                       new_vol->volUUID);
+  new_vol->hv_nodes.push_back("localhost-sh");
+  volumeMap[new_vol->volUUID] = new_vol;
+  
   Ice::PropertiesPtr props = communicator()->getProperties();
 
   /*
@@ -412,7 +429,8 @@ void OrchMgr::sendMgrNodeListToFdsNode(const NodeInfo& n_info) {
 
       FDS_PLOG(om_log) << "Sending node notification to node "
                        << n_info.node_name << " for node "
-                       << node_name << " state - "
+                       << node_name << " IP " << node_info_ptr->ip_lo_addr
+                       << " port " << node_info_ptr->data_port << " state - "
                        << next_node_info.node_state;
 
 

@@ -108,8 +108,13 @@ int StorHvCtrl::fds_process_put_obj_resp(const FDSP_MsgHdrTypePtr& rx_msg, const
 
 	if (rx_msg->msg_code == FDSP_MSG_PUT_OBJ_RSP) {
 	    fbd_request_t *req = (fbd_request_t*)txn->write_ctx;
-	    txn->fds_set_smack_status(rx_msg->src_ip_lo_addr);
-	    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Recvd SM PUT_OBJ_RSP RSP ";
+	    txn->fds_set_smack_status(rx_msg->src_ip_lo_addr,
+                                      rx_msg->src_port);
+	    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:"
+                                           << trans_id << " volID:" << vol_id
+                                           << " - Recvd SM PUT_OBJ_RSP RSP "
+                                           << " ip " << rx_msg->src_ip_lo_addr
+                                           << " port " << rx_msg->src_port;
 
 	    boost::posix_time::ptime ts = boost::posix_time::microsec_clock::universal_time();
 	    long lat = vol->journal_tbl->microsecSinceCtime(ts) - req->sh_queued_usec;
@@ -141,7 +146,9 @@ int StorHvCtrl::fds_process_update_catalog_resp(const FDSP_MsgHdrTypePtr& rx_msg
   StorHvJournalEntry *txn = vol->journal_tbl->get_journal_entry(trans_id);
   StorHvJournalEntryLock je_lock(txn);
   
-  FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Recvd DM UPDATE_CAT_OBJ_RSP RSP ";
+  FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id
+                                 << " volID:" << vol_id
+                                 << " - Recvd DM UPDATE_CAT_OBJ_RSP RSP ";
   // Check sanity here, if this transaction is valid and matches with the cookie we got from the message
   
   if (!(txn->isActive())) {
@@ -150,11 +157,21 @@ int StorHvCtrl::fds_process_update_catalog_resp(const FDSP_MsgHdrTypePtr& rx_msg
   }
   
   if (cat_obj_rsp->dm_operation == FDS_DMGR_TXN_STATUS_OPEN) {
-    txn->fds_set_dmack_status(rx_msg->src_ip_lo_addr);
-    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " -  Recvd DM TXN_STATUS_OPEN RSP ";
+    txn->fds_set_dmack_status(rx_msg->src_ip_lo_addr,
+                              rx_msg->src_port);
+    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id
+                                   << " volID:" << vol_id
+                                   << " -  Recvd DM TXN_STATUS_OPEN RSP "
+                                   << " ip " << rx_msg->src_ip_lo_addr
+                                   << " port " << rx_msg->src_port;
   } else {
-    txn->fds_set_dm_commit_status(rx_msg->src_ip_lo_addr);
-    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " -  Recvd DM TXN_STATUS_COMMITED RSP ";
+    txn->fds_set_dm_commit_status(rx_msg->src_ip_lo_addr,
+                                  rx_msg->src_port);
+    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id
+                                   << " volID:" << vol_id
+                                   << " -  Recvd DM TXN_STATUS_COMMITED RSP "
+                                   << " ip " << rx_msg->src_ip_lo_addr
+                                   << " port " << rx_msg->src_port;
   }
   
   fds_move_wr_req_state_machine(rx_msg);
@@ -276,14 +293,22 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rx_msg) 
           upd_obj_req->data_obj_id.hash_low =  txn->data_obj_id.hash_low;
           upd_obj_req->volume_offset = txn->block_offset;
 	  wr_msg->dst_ip_lo_addr = txn->dm_ack[node].ipAddr;
+          wr_msg->dst_port = txn->dm_ack[node].port;
           
-          storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(txn->dm_ack[node].ipAddr, FDSP_DATA_MGR, &endPoint);
+          storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(txn->dm_ack[node].ipAddr,
+                                                     txn->dm_ack[node].port,
+                                                     FDSP_DATA_MGR,
+                                                     &endPoint);
           
           
           if (endPoint) {
             endPoint->fdspDPAPI->begin_UpdateCatalogObject(wr_msg, upd_obj_req);
 	    txn->dm_ack[node].commit_status = FDS_COMMIT_MSG_SENT;
-            FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " -  Sent async UpdCatObjCommit req to DM at " <<  (unsigned int) txn->dm_ack[node].ipAddr;
+            FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:"
+                                           << trans_id << " volID:" << vol_id
+                                           << " -  Sent async UpdCatObjCommit req to DM at "
+                                           <<  (unsigned int) txn->dm_ack[node].ipAddr
+                                           << " port " << txn->dm_ack[node].port;
           } else {
             FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - No end point found for DM at ip " <<  (unsigned int) txn->dm_ack[node].ipAddr;
           }
@@ -319,6 +344,7 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
     int node_ids[8];
     int node_state = -1;
     uint32_t node_ip = 0;
+    fds_uint32_t node_port = 0;
     ObjectID obj_id;
     int doid_dlt_key;
     FDS_RPC_EndPoint *endPoint = NULL;
@@ -410,17 +436,24 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
       shvol->journal_tbl->release_trans_id(trans_id);
       return;
     }
-    storHvisor->dataPlacementTbl->getNodeInfo(node_ids[0], &node_ip, &node_state);
+    storHvisor->dataPlacementTbl->getNodeInfo(node_ids[0],
+                                              &node_ip,
+                                              &node_port,
+                                              &node_state);
     //
     // *****CAVEAT: Modification reqd
     // ******  Need to find out which is the primary SM and send this out to that SM. ********
-    storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip, FDSP_STOR_MGR, &endPoint);
+    storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip,
+                                               node_port,
+                                               FDSP_STOR_MGR,
+                                               &endPoint);
     
     // RPC Call GetObject to StorMgr
     fdsp_msg_hdr->msg_code = FDSP_MSG_GET_OBJ_REQ;
     fdsp_msg_hdr->msg_id =  1;
     // fdsp_msg_hdr->src_ip_lo_addr = SRC_IP;
     fdsp_msg_hdr->dst_ip_lo_addr = node_ip;
+    fdsp_msg_hdr->dst_port = node_port;
     get_obj_req->data_obj_id.hash_high = cat_obj_req->data_obj_id.hash_high;
     get_obj_req->data_obj_id.hash_low = cat_obj_req->data_obj_id.hash_low;
     get_obj_req->data_obj_len = journEntry->data_obj_len;

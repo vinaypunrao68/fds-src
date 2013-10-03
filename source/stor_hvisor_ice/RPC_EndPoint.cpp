@@ -82,6 +82,14 @@ FDS_RPC_EndPoint::FDS_RPC_EndPoint(const std::string& ip_addr_str_arg,
   this->port_num = port;
   ip_addr_str = ip_addr_str_arg;
   ip_addr = ipString2Addr(ip_addr_str_arg);
+  /*
+   * TODO: This is a hack since we can't
+   * convert the string 'localhost' to
+   * an IP int in the function above.
+   */
+  if (ip_addr_str == "localhost") {
+    ip_addr = 0x7f000001;
+  }
   mgrId = remote_mgr_id;
   /*
    * TODO: Set Node_index to something. Is 0 correct?
@@ -138,7 +146,7 @@ fds_int32_t FDS_RPC_EndPoint::ipString2Addr(string ipaddr_str) {
   return (ntohl(sa.sin_addr.s_addr));
 }
 
-void   FDS_RPC_EndPointTbl::Add_RPC_EndPoint(int  ipaddr, int& port, FDSP_MgrIdType remote_mgr_id) 
+void   FDS_RPC_EndPointTbl::Add_RPC_EndPoint(int  ipaddr, int port, FDSP_MgrIdType remote_mgr_id) 
 {
     FDS_RPC_EndPoint *endPoint = new FDS_RPC_EndPoint(ipaddr, port, remote_mgr_id, _communicator);
     rpcTblMutex->lock();
@@ -146,7 +154,7 @@ void   FDS_RPC_EndPointTbl::Add_RPC_EndPoint(int  ipaddr, int& port, FDSP_MgrIdT
     rpcTblMutex->unlock();
 }
 
-void   FDS_RPC_EndPointTbl::Add_RPC_EndPoint(std::string ipaddr_str, int& port, FDSP_MgrIdType remote_mgr_id) 
+void   FDS_RPC_EndPointTbl::Add_RPC_EndPoint(std::string ipaddr_str, int port, FDSP_MgrIdType remote_mgr_id) 
 {
     FDS_RPC_EndPoint *endPoint = new FDS_RPC_EndPoint(ipaddr_str, port, remote_mgr_id, _communicator);
     rpcTblMutex->lock();
@@ -175,6 +183,25 @@ int FDS_RPC_EndPointTbl::Get_RPC_EndPoint(int ip_addr,
   rpcTblMutex->lock();
   for (std::list<FDS_RPC_EndPoint *>::iterator it=rpcEndPointList.begin(); it != rpcEndPointList.end(); ++it) {
     if ((*it)->ip_addr == ip_addr && (*it)->mgrId  == mgr_id) { 
+      *endPoint = (*it); 
+      rpcTblMutex->unlock();
+      return 0;
+    }
+  }
+  rpcTblMutex->unlock();
+  return -1;
+}
+
+int FDS_RPC_EndPointTbl::Get_RPC_EndPoint(int ip_addr,
+                                          fds_uint32_t port_num,
+                                          FDSP_MgrIdType mgr_id,
+                                          FDS_RPC_EndPoint **endPoint) 
+{
+  rpcTblMutex->lock();
+  for (std::list<FDS_RPC_EndPoint *>::iterator it=rpcEndPointList.begin(); it != rpcEndPointList.end(); ++it) {
+    if (((*it)->ip_addr == ip_addr) &&
+        ((*it)->mgrId  == mgr_id) &&
+        ((*it)->port_num == port_num)) { 
       *endPoint = (*it); 
       rpcTblMutex->unlock();
       return 0;

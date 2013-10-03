@@ -355,6 +355,9 @@ class FDSP_MsgHdrType {
     long       		dst_ip_hi_addr; /* IPv4 or IPv6 address */
     long       		dst_ip_lo_addr; /* IPv4 or IPv6 address */
 
+    int	src_port;
+    int dst_port;    
+
 /* FDSP Result valid for response messages */
     FDSP_ResultType       result;
     string       	  err_msg;
