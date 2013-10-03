@@ -223,11 +223,55 @@ class FDSP_VolumeInfoType {
   int         		 backupVolume;  // UUID of backup volume
 };
 
+class FDSP_VolumeDescType {
+
+  string 		 vol_name;  /* Name of the volume */
+  int 	 		 tennantId;  // Tennant id that owns the volume
+  int    		 localDomainId;  // Local domain id that owns vol
+  int	 		 globDomainId;
+  double	 	 volUUID;
+
+// Basic operational properties
+
+  FDSP_VolType		 volType;		 		 
+  double        	 capacity;
+  double        	 maxQuota;  // Quota % of capacity tho should alert
+
+// Consistency related properties
+
+  int        		 replicaCnt;  // Number of replicas reqd for this volume
+  int        		 writeQuorum;  // Quorum number of writes for success
+  int        		 readQuorum;  // This will be 1 for now
+  FDSP_ConsisProtoType 	 consisProtocol;  // Read-Write consistency protocol
+
+// Other policies
+
+  int        		 volPolicyId;
+  int         		 archivePolicyId;
+  int        		 placementPolicy;  // Can change placement policy
+  FDSP_AppWorkload     	 appWorkload;
+
+  int         		 backupVolume;  // UUID of backup volume
+
+// volume policy details 
+  double                 iops_min; /* minimum (guaranteed) iops */
+  double                 iops_max; /* maximum iops */
+  int                    rel_prio; /* relative priority */
+};
+
 class FDSP_CreateVolType {
 
   string 		 vol_name;
   FDSP_VolumeInfoType 	 vol_info; /* Volume properties and attributes */
 
+};
+
+class FDSP_PolicyInfoType {
+  string                 policy_name; /* Name of the policy */
+  int                    policy_id;   /* policy id */
+  double                 iops_min;    /* minimum (guaranteed) iops */
+  double                 iops_max;    /* maximum iops */
+  int                    rel_prio;    /* relative priority */
 };
 
 class FDSP_DeleteVolType {
@@ -248,22 +292,14 @@ class FDSP_AttachVolCmdType {
 };
 
 class FDSP_NotifyVolType {
-  FDSP_VolNotifyType 	 type;     /* Type of notify */
-  string             	 vol_name; /* Name of the volume */
-  FDSP_VolumeInfoType	 vol_info; /* Volume properties and attributes */
+  FDSP_VolNotifyType 	 type;       /* Type of notify */
+  string             	 vol_name;   /* Name of the volume */
+  FDSP_VolumeDescType	 vol_desc;   /* Volume properties and attributes */
 };
 
 class FDSP_AttachVolType {
   string 		 vol_name; /* Name of the volume */
-  FDSP_VolumeInfoType	 vol_info; /* Volume properties and attributes */
-};
-
-class FDSP_PolicyInfoType {
-  string 		 policy_name;  /* Name of the policy */
-  int 	 		 policy_id;    /* uuid  */
-  double    		 iops_min;     /* minimum iops */
-  double	 	 iops_max;     /* maximum iops */
-  int	 	         rel_prio;     /* relative priority */
+  FDSP_VolumeDescType	 vol_desc; /* Volume properties and attributes */
 };
 
 class FDSP_CreatePolicyType {

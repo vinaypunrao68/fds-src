@@ -57,6 +57,11 @@ namespace fds {
     FDSP_AppWorkload       appWorkload;
     int                    backupVolume;  // UUID of backup volume
 
+    /* policy info */
+    double                 iops_min;
+    double                 iops_max;
+    int                    relativePrio;
+
     ptime ctime; /* Create time */
 
     /*
@@ -104,6 +109,31 @@ namespace fds {
       backupVolume = vdesc.backupVolume;
       assert(volUUID != invalid_vol_id);
     }
+
+    VolumeDesc(FDSP_VolumeDescTypePtr& voldesc)
+      {
+	name = voldesc->vol_name;
+	tennantId = voldesc->tennantId;  
+	localDomainId = voldesc->localDomainId;  
+	globDomainId = voldesc->globDomainId;
+	volUUID = voldesc->volUUID;
+	volType = voldesc->volType;
+	capacity = voldesc->capacity;
+	maxQuota = voldesc->maxQuota;
+	replicaCnt = voldesc->replicaCnt; 
+	writeQuorum = voldesc->writeQuorum; 
+	readQuorum = voldesc->readQuorum;  
+	consisProtocol = voldesc->consisProtocol; 
+	volPolicyId = voldesc->volPolicyId;
+	archivePolicyId = voldesc->archivePolicyId;
+	placementPolicy = voldesc->placementPolicy;  
+	appWorkload = voldesc->appWorkload;
+	backupVolume = voldesc->backupVolume;
+	iops_min = voldesc->iops_min;
+	iops_max = voldesc->iops_max;
+	relativePrio = voldesc->rel_prio;
+	assert(volUUID != invalid_vol_id);
+      }
 
     VolumeDesc(const std::string& _name, fds_volid_t _uuid)
              : name(_name),

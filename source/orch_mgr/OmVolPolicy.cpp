@@ -71,37 +71,56 @@ Error VolPolicyMgr::createPolicy(const FdspPolInfoPtr& pol_info)
       FDS_PLOG(parent_log) << "VolPolicyMgt::createPolicy -- failed to access policy catalog to add policy " << polid;
     }
 
-  /* test */
-  queryPolicy(polid);
-
   return err;
 }
 
-Error VolPolicyMgr::queryPolicy(int policy_id)
+Error VolPolicyMgr::queryPolicy(int policy_id, FDS_VolumePolicy *ret_policy)
 {
   Error err(ERR_OK);
   std::string val;
   Record key((const char *)&policy_id, sizeof(policy_id));
 
+  assert(ret_policy);
+
+  /* query policy from the catalog */
   err = policy_catalog->Query(key, &val);
   if ( err.ok())
     {
-      FDS_VolumePolicy policy;
-      err = policy.setPolicy(val.c_str(), val.length());
+      err = ret_policy->setPolicy(val.c_str(), val.length());
       if (err.ok()) {
 	FDS_PLOG(parent_log) << "VolPolicyMgr::queryPolicy -- policy id " << policy_id
-			     << "; name " << policy.volPolicyName
-			     << "; iops_min " << policy.iops_min
-			     << "; iops_max " << policy.iops_max
-			     << "; rel_prio " << policy.relativePrio;
+			     << "; name " << ret_policy->volPolicyName
+			     << "; iops_min " << ret_policy->iops_min
+			     << "; iops_max " << ret_policy->iops_max
+			     << "; rel_prio " << ret_policy->relativePrio;
       }
+
     }
 
-  FDS_PLOG(parent_log) << "VolPolicyMgr::queryPolicy -- " << err.GetErrstr();
+  FDS_PLOG(parent_log) << "VolPolicyMgr::queryPolicy -- policy " << policy_id << "; result: " << err.GetErrstr();
 
   return err;
 }
 
+Error VolPolicyMgr::fillVolumeDescPolicy(VolumeDesc* voldesc)
+{
+  Error err(ERR_OK);
+  FDS_VolumePolicy policy;
+
+  FDS_PLOG(parent_log) << "VolPolicyMgr::fillVolimeDescPolicy: start";
+
+  assert(voldesc);
+
+  err = queryPolicy(voldesc->volPolicyId, &policy);
+  if (err.ok()) {
+    voldesc->iops_min = policy.iops_min;
+    voldesc->iops_max = policy.iops_max;
+    voldesc->relativePrio = policy.relativePrio;
+  }
+
+  return err;
+}
+ 
 
 Error VolPolicyMgr::modifyPolicy(const FdspPolInfoPtr& pol_info)
 {
@@ -110,8 +129,6 @@ Error VolPolicyMgr::modifyPolicy(const FdspPolInfoPtr& pol_info)
   Record key((const char *)&polid, sizeof(polid));
   std::string val;
 
-  /* test*/
-  queryPolicy(polid);
 
   /* first get policy record to see if it exists */
   err = policy_catalog->Query(key, &val);
@@ -130,9 +147,6 @@ Error VolPolicyMgr::modifyPolicy(const FdspPolInfoPtr& pol_info)
       FDS_PLOG(parent_log) << "VolPolicyMgr::modifyPolicy -- did not modify policy " 
 			   << polid << "; error: " << err.GetErrstr();
     }
-    
-  /* test */
-  queryPolicy(polid);
 
   return err;
 }
@@ -143,9 +157,6 @@ Error VolPolicyMgr::deletePolicy(int policy_id, const std::string& policy_name)
 {
   Error err(ERR_OK);
   Record key((const char *)&policy_id, sizeof(policy_id));
-
-  /* test */
-  queryPolicy(policy_id);
 
   err = policy_catalog->Delete(key); 
 
