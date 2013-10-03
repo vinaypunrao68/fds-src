@@ -565,6 +565,7 @@ int  hvisor_create_blkdev(uint64_t vol_uuid, uint64_t capacity)
   
   hvisor_vbds[minor] = vbd;
   vbd->minor = minor;
+  vbd->runningFlag = 1;
   hvisor_set_capacity(minor, capacity);
   pthread_create(&vbd->tx_thread, NULL, __hvisor_run, vbd);
   return minor;
@@ -742,8 +743,8 @@ void hvisor_queue_read(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq)
 	int rc = 0;
 	fbd_request_t *p_new_req;
 
-	p_new_req = (fbd_request_t *)malloc(sizeof(td_request_t));
-	memset(p_new_req, 0 , sizeof(fbd_request_t *));
+	p_new_req = (fbd_request_t *)malloc(sizeof(fbd_request_t));
+	memset(p_new_req, 0 , sizeof(fbd_request_t ));
 	p_new_req->sec = treq.sec;
 	p_new_req->secs = treq.secs;
 	p_new_req->buf = treq.buf;
@@ -753,6 +754,7 @@ void hvisor_queue_read(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq)
 	p_new_req->len = size;
   	p_new_req->vbd = vbd;
   	p_new_req->vReq = vreq;
+  	p_new_req->volUUID = vbd->uuid;
   	p_new_req->hvisorHdl = hvisor_hdl;
   	p_new_req->cb_request = hvisor_complete_td_request;
 
@@ -794,8 +796,8 @@ void hvisor_queue_write(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq
 	static int num_write_reqs = 0;
 #endif
 
-	p_new_req = (fbd_request_t *)malloc(sizeof(td_request_t));
-	memset(p_new_req, 0 , sizeof(fbd_request_t *));
+	p_new_req = (fbd_request_t *)malloc(sizeof(fbd_request_t));
+	memset(p_new_req, 0 , sizeof(fbd_request_t ));
 	p_new_req->sec = treq.sec;
 	p_new_req->secs = treq.secs;
 	p_new_req->buf = treq.buf;
@@ -805,6 +807,7 @@ void hvisor_queue_write(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq
 	p_new_req->len = size;
   	p_new_req->vbd = vbd;
   	p_new_req->vReq = vreq;
+  	p_new_req->volUUID = vbd->uuid;
   	p_new_req->hvisorHdl = hvisor_hdl;
   	p_new_req->cb_request = hvisor_complete_td_request;
 
@@ -1024,8 +1027,8 @@ hvisor_vbd_kick(td_vbd_t *vbd)
 static void
 __hvisor_run(td_vbd_t *vbd)
 {
+  int ret;
   while (vbd->runningFlag) {
-    int ret;
 
     ret = hvisor_wait_for_events(vbd);
 
@@ -1043,6 +1046,7 @@ __hvisor_run(td_vbd_t *vbd)
     hvisor_vbd_kick(vbd);
     pthread_mutex_unlock(&vbd->vbd_mutex);
 
+   ret=0;
   }
 }
 

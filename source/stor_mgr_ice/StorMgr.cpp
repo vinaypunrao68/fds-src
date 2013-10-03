@@ -76,29 +76,16 @@ ObjectStorMgr::ObjectStorMgr() {
   diskMgr = new DiskMgr();
 
   objStorMutex = new fds_mutex("Object Store Mutex");
-  
-  // Create leveldb
-  std::string filename= stor_prefix + "SNodeObjRepository";
-  objStorDB  = new ObjectDB(filename);
-  filename= stor_prefix + "SNodeObjIndex";
-  objIndexDB  = new ObjectDB(filename);  
 }
-
-void ObjectStorMgr::OMgrClientInit() {
-  omClient = new OMgrClient(FDSP_STOR_MGR, "localhost-sm", sm_log);
-  omClient->initialize();
-  omClient->registerEventHandlerForNodeEvents((node_event_handler_t)nodeEventOmHandler);
-  omClient->startAcceptingControlMessages(cp_port_num);
-  omClient->registerNodeWithOM();
-  volTbl = new StorMgrVolumeTable(this);
-}
-
 
 ObjectStorMgr::~ObjectStorMgr()
 {
   FDS_PLOG(objStorMgr->GetLog()) << " Destructing  the Storage  manager";
-  delete objStorDB;
-  delete objIndexDB;
+  if (objStorDB)
+    delete objStorDB;
+  if (objIndexDB)
+    delete objIndexDB;
+
   delete diskMgr;
   delete sm_log;
   delete volTbl;
@@ -416,7 +403,11 @@ ObjectStorMgr::run(int argc, char* argv[])
     }
   }    
 
-
+ // Create leveldb
+  std::string filename= stor_prefix + "SNodeObjRepository";
+  objStorDB  = new ObjectDB(filename);
+  filename= stor_prefix + "SNodeObjIndex";
+  objIndexDB  = new ObjectDB(filename); 
 
   Ice::PropertiesPtr props = communicator()->getProperties();
 
@@ -460,6 +451,14 @@ ObjectStorMgr::run(int argc, char* argv[])
   
   adapter->activate();
 
+  omClient = new OMgrClient(FDSP_STOR_MGR, "localhost-sm", sm_log);
+  volTbl = new StorMgrVolumeTable(this);
+  omClient->initialize();
+  omClient->registerEventHandlerForNodeEvents((node_event_handler_t)nodeEventOmHandler);
+  omClient->startAcceptingControlMessages(cp_port_num);
+  omClient->registerNodeWithOM();
+
+
   communicator()->waitForShutdown();
   return EXIT_SUCCESS;
 }
@@ -480,7 +479,6 @@ int main(int argc, char *argv[])
 {
 
   objStorMgr = new ObjectStorMgr();
-  objStorMgr->OMgrClientInit();
 
   objStorMgr->main(argc, argv, "stor_mgr.conf");
 

@@ -62,7 +62,7 @@ public:
   //methods
   ObjectStorMgr();
   ~ObjectStorMgr();
-  void OMgrClientInit();
+
    fds_log* GetLog();
    fds_log *sm_log;
 
