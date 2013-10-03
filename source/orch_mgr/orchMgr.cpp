@@ -941,6 +941,10 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
 
   fds_int32_t new_node_id = getFreeNodeId(reg_node_req->node_name);
 
+  FDS_PLOG(GetLog()) << "Assigning node id " << new_node_id << " to node " << reg_node_req->node_name 
+		     << ". Trying to connect at " << tcpProxyStr.str();
+
+
   /*
    * Build the node info structure and add it
    * to its map, based on type.
