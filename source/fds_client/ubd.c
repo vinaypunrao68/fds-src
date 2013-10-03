@@ -743,8 +743,8 @@ void hvisor_queue_read(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq)
 	int rc = 0;
 	fbd_request_t *p_new_req;
 
-	p_new_req = (fbd_request_t *)malloc(sizeof(td_request_t));
-	memset(p_new_req, 0 , sizeof(fbd_request_t *));
+	p_new_req = (fbd_request_t *)malloc(sizeof(fbd_request_t));
+	memset(p_new_req, 0 , sizeof(fbd_request_t ));
 	p_new_req->sec = treq.sec;
 	p_new_req->secs = treq.secs;
 	p_new_req->buf = treq.buf;
@@ -796,8 +796,8 @@ void hvisor_queue_write(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq
 	static int num_write_reqs = 0;
 #endif
 
-	p_new_req = (fbd_request_t *)malloc(sizeof(td_request_t));
-	memset(p_new_req, 0 , sizeof(fbd_request_t *));
+	p_new_req = (fbd_request_t *)malloc(sizeof(fbd_request_t));
+	memset(p_new_req, 0 , sizeof(fbd_request_t ));
 	p_new_req->sec = treq.sec;
 	p_new_req->secs = treq.secs;
 	p_new_req->buf = treq.buf;
