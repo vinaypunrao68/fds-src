@@ -2,7 +2,7 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 
-#include "util/concurrency/Mutex.h"
+#include <concurrency/Mutex.h>
 
 #include <string>
 

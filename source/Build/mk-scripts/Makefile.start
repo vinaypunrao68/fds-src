@@ -1,0 +1,141 @@
+#
+# Makefile.start
+# --------------
+# Main Makefile to start the Makefile system.
+#
+# Prefix conventions.  Eventually all Makefiles are assembled together and
+# variables have global scope.  It's important to set variables to follow this
+# convention to make the code easier to maintain.
+#
+#   user_   : user setting variables.
+#   incl_   : variables set in Makefile.incl file.
+#   main_   : variables set in this file.
+#   comm_   : variables set in Makefile.common file.
+#   scpt_   : variables set in Makefile.scpt file.
+#   rule_   : variables set in Makefile.rule file.
+#   arch_   : variables set in Makefile.osdep file.
+#   osdep_  : variables set in Makefile.osdep and other platform settings.
+#   local_  : don't have any global usage.
+#   toolchain_ : toolchain setup variables, from Makefile.toolchain file.
+#
+# Control variable exported to user
+#   user_build       : list of subdirectories to build.
+#   user_cc          : list of C files to compile.
+#   user_cpp         : list of C++ files to compile.
+#   user_rpc         : list of rpc files to do RPC gen.
+#   user_cc_flags    : C compile flags not set by the Makefile system.
+#   user_ld_flags    : linker flags not set by the Makefile system.
+#   user_ar_flags    : ar linker flags not set by the Makefile system.
+#   user_cpp_flags   : C++ compile flags.
+#   user_fds_ar_libs : list of dependent static libs to link with.
+#   user_fds_so_libs : list of dependent dynamic libs to link with.
+#   user_non_fds_libs: list of external non FDS libraries to link with.
+#   user_incl_dir    : user's include directory not set by the Makefile system.
+#   user_rpc_hdr_dir : specify directory to put RPC gen header files.
+#
+#   user_rtime_env   : [kernel | user]
+#   user_target      : [module | lib | exe | tool | test]
+#   user_modules     : list of kernel modules to build.
+#   user_bin_exe     : list of user executable targets to build.
+#   user_ar_libs     : list of static FDS libs to build.
+#   user_so_libs     : list of FDS so libs to build.
+#   user_clean       : any extra clean targets.
+#
+# Flags used to control 3rd party Makefiles.
+#   user_ext_incl_dir :
+#   user_ext_cc_flags :
+#   user_ext_ar_flags :
+#   user_ext_ld_flags :
+#   user_ext_cpp_flags:
+#
+# Makefile maintainers:
+#
+
+# Error checkings.
+#
+ifeq ($(user_rtime_env), kernel)
+    ifneq ($(user_target), module)
+        ifneq ($(user_target), lib)
+            $(error "Kernel build requires user_target to be module or lib")
+        endif
+    endif
+endif
+
+ifeq ($(user_rtime_env), user)
+    ifeq ($(user_target), module)
+        $(error "Can not build kernel module in user-land build")
+    endif
+endif
+
+ifndef topdir
+    $(error "Makefile must define topdir variable")
+endif
+
+# Version variables
+#
+main_major      := 0
+main_minor      := 0
+main_release    := 0
+main_bugfix     := 0
+main_so_version := $(main_major).$(main_minor).$(main_release).$(main_bugfix)
+
+# Global compilation flags
+#
+main_incl_dir   := $(topdir)/include
+main_rpcgen_dir := $(topdir)/rpcgen
+main_incl_flags := -I$(main_incl_dir) -I$(topdir)
+
+local_cc_common := -g -fPIC $(main_incl_flags)
+main_cc_defs    := -D_REENTRANT
+
+main_cc_flags   := -Wstrict-prototypes -Wall -Werror
+main_cc_flags   += $(local_cc_common) $(main_cc_defs)
+
+main_cpp_flags  := -g2 -std=c++0x
+main_cpp_flags  += $(local_cc_common) $(main_cc_defs)
+
+main_so_flags   := -shared
+main_ar_flags   := -r
+main_ld_flags   :=
+main_lint_flags :=
+
+# Tool chain variables
+#
+main_tool_dir   := /usr/bin
+cc              := $(main_tool_dir)/gcc
+cpp             := $(main_tool_dir)/g++
+ld              := $(main_tool_dir)/ld
+ar              := $(main_tool_dir)/ar
+yacc            := $(main_tool_dir)/bison
+lex             := $(main_tool_dir)/flex
+lint            := $(main_tool_dir)/lint
+rpcgen          := $(main_tool_dir)/rpcgen
+
+# Tool chain and external lib include
+include $(incl_scripts)/Makefile.toolchain
+
+# Common library that most modules need to link.
+#
+main_kern_dep_libs     :=
+main_exec_dep_libs     := pthread
+main_tool_dep_libs     :=
+main_test_dep_libs     :=
+
+# ARCH and OSDep settings.
+#
+include $(incl_scripts)/Makefile.osdep
+
+# Common location variables.
+#
+main_dir_build_base    := $(topdir)/Build
+main_dir_build         := $(main_dir_build_base)/$(osdep_target)
+main_dir_lib           := $(main_dir_build)/lib
+main_dir_bin           := $(main_dir_build)/bin
+main_dir_kmod          := $(main_dir_build)/modules
+main_dir_tools         := $(main_dir_build)/tools
+main_dir_tests         := $(main_dir_build)/tests
+main_dir_package       := $(main_dir_build)/package
+main_dir_scripts       := $(main_dir_build)/scripts
+
+include $(incl_scripts)/Makefile.common
+include $(incl_scripts)/Makefile.rule

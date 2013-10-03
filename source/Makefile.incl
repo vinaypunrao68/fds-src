@@ -1,0 +1,2 @@
+incl_scripts := $(topdir)/Build/mk-scripts
+include $(incl_scripts)/Makefile.start

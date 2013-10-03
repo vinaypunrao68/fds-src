@@ -1,0 +1,16 @@
+#
+# Makefile.toolchain settings
+#
+# Setup Makefile to link with external libraries.
+# All variables in this file must have local scope.
+#
+local_boost_lib_dir  := /usr/local/lib
+
+# Global scope variables tool chain to use with the final compiling/linking.
+#
+toolchain_incl_flags := -I/usr/local/include
+toolchain_cc_flags   := $(toolchain_incl_flags)
+toolchain_cpp_flags  := $(toolchain_incl_flags)
+toolchain_ld_flags   := -L$(local_boost_lib_dir)
+toolchain_so_flags   :=
+toolchain_ar_flags   :=

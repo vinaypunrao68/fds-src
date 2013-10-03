@@ -2,8 +2,8 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_UTIL_CONCURRENCY_MUTEX_H_
-#define SOURCE_UTIL_CONCURRENCY_MUTEX_H_
+#ifndef INCLUDE_CONCURRENCY_MUTEX_H_
+#define INCLUDE_CONCURRENCY_MUTEX_H_
 
 #include <boost/noncopyable.hpp>
 #include <boost/thread/mutex.hpp>

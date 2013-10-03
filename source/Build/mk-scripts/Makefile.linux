@@ -1,0 +1,15 @@
+#
+# Makefile.linux
+# --------------
+# Modify global variables for Linux build.
+#
+osdep_kern_cc_flags  := -D__LINUX__ -D__KERNEL__ -nostdinc 
+osdep_kern_ld_flags  :=
+osdep_kern_ar_flags  :=
+osdep_kern_mod_flags :=
+
+osdep_user_cc_flags  :=
+osdep_user_cpp_flags :=
+osdep_user_ld_flags  :=
+osdep_user_ar_flags  :=
+osdep_user_so_flags  :=

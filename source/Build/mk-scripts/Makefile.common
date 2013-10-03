@@ -1,0 +1,137 @@
+#
+# Makefile.comm
+# --------------
+#
+
+# Setup build target directories
+#
+comm_dir_bin    := $(main_dir_bin)
+comm_dir_lib    := $(main_dir_lib)
+comm_cc_flags   :=
+comm_cpp_flags  :=
+comm_ar_flags   :=
+comm_so_flags   :=
+comm_ld_flags   := -L$(comm_dir_lib)
+
+ifdef user_fds_ar_libs
+comm_dep_libs   := $(user_fds_ar_libs)
+endif
+
+ifdef user_fds_so_libs
+comm_dep_libs   += $(user_fds_so_libs)
+endif
+
+# Set common flags used for for each build targets
+#
+ifeq ($(user_rtime_env), kernel)
+    comm_dir_objs  := $(osdep_kern_build)
+    comm_dir_bin   := $(main_dir_kmod)
+    comm_dir_lib   := $(main_dir_kmod)
+
+    # Build a kernel module.
+    #
+    ifeq ($(user_target), module)
+        comm_dep_libs += $(main_kern_dep_libs)
+    endif
+endif
+
+ifeq ($(user_rtime_env), user)
+    comm_dir_objs  := $(osdep_user_build)
+    comm_dir_bin   := $(main_dir_bin)
+    comm_dir_lib   := $(main_dir_lib)
+    comm_cc_flags  += $(toolchain_cc_flags)
+    comm_cpp_flags += $(toolchain_cpp_flags)
+    comm_so_flags  += $(toolchain_so_flags)
+    comm_ld_flags  += $(toolchain_ld_flags)
+
+    # Build a binary exe target.
+    #
+    ifeq ($(user_target), exe)
+        comm_dep_libs += $(main_exec_dep_libs)
+    endif
+
+    # Build a user tool
+    #
+    ifeq ($(user_target), tool)
+        comm_dir_bin  := $(main_dir_tools)
+        comm_dep_libs += $(main_tool_dep_libs)
+    endif
+
+    # Build a user test
+    #
+    ifeq ($(user_target), test)
+        comm_dir_bin  := $(main_dir_tests)
+        comm_dep_libs += $(main_test_dep_libs)
+    endif
+endif
+
+# Add user include paths and dependent libs.
+#
+main_cc_flags   += $(patsubst %,-I%,$(user_incl_dir))
+main_ld_flags   += $(patsubst %,-l%,$(comm_dep_libs))
+main_ld_flags   += $(patsubst %,-l%,$(user_non_fds_libs))
+
+comm_list2obj    = $(patsubst %$(1),$(comm_dir_objs)/%.o,$(filter %$(1), $(2)))
+comm_src2obj     = $(call comm_list2obj,.s,$(1))
+comm_src2obj    += $(call comm_list2obj,.S,$(1))
+comm_src2obj    += $(call comm_list2obj,.c,$(1))
+comm_src2obj    += $(call comm_list2obj,.cpp,$(1))
+
+comm_cc_objs    := $(call comm_list2obj,.c,$(user_cc))
+
+comm_cc_flints  := $(call comm_list2obj,.lob,$(user_cc))
+comm_cpp_objs   := $(call comm_list2obj,.cpp,$(user_cpp))
+comm_cpp_flints := $(call comm_list2obj,.lob,$(user_cpp))
+
+comm_clobber    := $(wildcard cscope.* tags TAGS)
+comm_exe_list   := $(user_bin_exe)
+comm_lib_list   += $(user_ar_libs)
+comm_so_list    += $(user_so_libs)
+comm_mod_list   := $(user_modules)
+
+local_ver       := $(main_so_version)
+comm_exe_tgt     = $(patsubst %,$(comm_dir_bin)/%,$(1))
+comm_lib_tgt     = $(patsubst %,$(comm_dir_lib)/lib%.a,$(1))
+comm_so_tgt      = $(patsubst %,$(comm_dir_lib)/lib%.$(local_ver).so,$(1))
+comm_mod_tgt     = $(patsubst %,$(comm_dir_bin)/%,$(1))
+
+ifdef comm_dep_libs
+ifdef user_dep_ar_libs
+comm_lib_dep    := $(patsubst %,$(comm_dir_lib)/lib%.a,$(user_dep_ar_libs))
+endif
+
+ifdef user_dep_so_libs
+comm_lib_dep    += $(patsubst %,$(comm_dir_lib)/lib%.$(main_so_version).so,$(user_dep_so_libs))
+endif
+endif
+
+ifdef comm_exe_list
+comm_exes       := $(call comm_exe_tgt,$(comm_exe_list))
+endif
+
+ifdef comm_lib_list
+comm_libs       := $(call comm_lib_tgt,$(comm_lib_list))
+endif
+
+ifdef comm_so_list
+comm_libsos     := $(call comm_so_tgt,$(comm_so_list))
+endif
+
+ifdef comm_mod_list
+comm_libmods    := $(call comm_mod_tgt,$(comm_mod_list))
+endif
+
+ifndef user_rpc_hdir
+user_rpc_hdir   := $(main_rpcgen_dir)
+endif
+
+ifdef user_rpc
+# Work around the unused variable warning from rpcgen.
+#
+user_cc_flags   += -Wno-unused-variable
+comm_rpc_hdr    := $(patsubst %.x,$(user_rpc_hdr_dir)/%.h,$(user_rpc))
+comm_rpc_files  := $(comm_rpc_hdr)
+comm_rpc_files  += $(patsubst %.x,%_clnt.c,$(user_rpc))
+comm_rpc_files  += $(patsubst %.x,%_xdr.c,$(user_rpc))
+comm_rpc_files  += $(patsubst %.x,%_serv.c,$(user_rpc))
+endif

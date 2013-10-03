@@ -1,0 +1,50 @@
+#
+# Makefile.osdep
+# --------------
+
+# OS dependent variables
+#
+osdep_os         := $(shell uname -s | /usr/bin/tr "[:upper:]" "[:lower:]")
+osdep_arch       := $(shell uname -m)
+
+osdep_arch       := $(shell uname -m)
+osdep_target     := $(osdep_os)-$(osdep_arch)
+osdep_user_build := build.$(osdep_target)
+osdep_kern_build := $(osdep_user_build).kern
+
+# Setup OS dependent compilation flags
+#
+ifeq ($(osdep_os), linux)
+    include $(incl_scripts)/Makefile.linux
+endif
+
+ifeq ($(user_target), module)
+    include $(incl_scripts)/Makefile.$(osdep_os).kmod
+endif
+
+# Modify some variables if want to do a debug or optimize build.
+#
+ifeq ($(BUILD_MODE), debug)
+    include $(incl_scripts)/Makefile.debug
+endif
+
+ifeq ($(BUILD_MODE), release)
+    include $(incl_scripts)/Makefile.release
+endif
+
+ifeq ($(user_rtime_env), kernel)
+    osdep_cc_flags   += $(osdep_kern_cc_flags)
+    osdep_cpp_flags  :=
+    osdep_mod_flags  := $(osdep_kern_mod_flags)
+    osdep_ld_flags   += $(osdep_kern_ld_flags)
+    osdep_ar_flags   += $(osdep_kern_ar_flags)
+    osdep_so_flags   :=
+endif
+
+ifeq ($(usr_rtime_env), user)
+    osdep_cc_flags   += $(osdep_user_cc_flags)
+    osdep_cpp_flags  += $(osdep_user_cpp_flags)
+    osdep_ld_flags   += $(osdep_user_ld_flags)
+    osdep_ar_flags   += $(osdep_user_ar_flags)
+    osdep_so_flags   += $(osdep_user_so_flags)
+endif

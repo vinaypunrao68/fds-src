@@ -3,8 +3,7 @@
  */
 #include <assert.h>
 #include <iostream>
-#include <ThreadPool.h>
-#include "util/concurrency/Thread.h"
+#include <concurrency/ThreadPool.h>
 
 using namespace std;
 namespace fds {

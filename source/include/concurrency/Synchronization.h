@@ -2,15 +2,15 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_UTIL_CONCURRENCY_SYNCHRONIZATION_H_
-#define SOURCE_UTIL_CONCURRENCY_SYNCHRONIZATION_H_
+#ifndef INCLUDE_CONCURRENCY_SYNCHRONIZATION_H_
+#define INCLUDE_CONCURRENCY_SYNCHRONIZATION_H_
 
 #include <boost/noncopyable.hpp>
 #include <boost/thread/condition.hpp>
 #include <boost/thread/locks.hpp>
 
-#include "include/fds_types.h"
-#include "util/concurrency/Mutex.h"
+#include <fds_types.h>
+#include <concurrency/Mutex.h>
 
 namespace fds {
 

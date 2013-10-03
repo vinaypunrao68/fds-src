@@ -1,0 +1,4 @@
+#
+# Kernel specific setting to build modules.
+#
+osdep_kern_mod_flags  :=

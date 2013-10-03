@@ -4,7 +4,7 @@
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 
-#include "util/concurrency/Synchronization.h"
+#include <concurrency/Synchronization.h>
 
 namespace fds {
 

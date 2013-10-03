@@ -2,16 +2,17 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 
-#ifndef FDS_INCLUDE_THREADPOOL_H_
-#define FDS_INCLUDE_THREADPOOL_H_
+#ifndef INCLUDE_CONCURRENCY_THREADPOOL_H_
+#define INCLUDE_CONCURRENCY_THREADPOOL_H_
 
 #include <boost/bind.hpp>
 #include <boost/function.hpp>
 #include <boost/thread/condition.hpp>
 
 #include <shared/dlist.h>
-#include "include/fds_types.h"
-#include "util/concurrency/Mutex.h"
+#include <fds_types.h>
+#include <concurrency/Mutex.h>
+#include <concurrency/Thread.h>
 
 namespace fds {
 class thpool_req;

@@ -1,0 +1,221 @@
+#
+# Makefile.rule
+# -------------
+#
+
+# Final compilation flags.
+#
+local_cc_flags  := $(osdep_cc_flags) $(main_cc_flags)
+local_cc_flags  += $(comm_cc_flags) $(user_cc_flags)
+
+local_cpp_flags := $(osdep_cpp_flags) $(main_cpp_flags)
+local_cpp_flags += $(comm_cpp_flags) $(user_cpp_flags)
+
+rule_ar_flags   := $(osdep_ar_flags) $(user_ar_flags)
+rule_ar_flags   += $(main_ar_flags) $(comm_ar_flags)
+
+rule_so_flags   := $(osdep_so_flags) $(user_so_flags)
+rule_so_flags   += $(main_so_flags) $(comm_so_flags)
+
+rule_ld_flags   := $(comm_ld_flags) $(osdep_ld_flags)
+rule_ld_flags   += $(user_ld_flags) $(main_ld_flags)
+
+rule_exe_flags  := $(rule_ld_flags)
+rule_mod_flags  := $(osdep_ld_flags) $(osdep_mod_flags)
+rule_mod_flags  += $(user_ld_flags) $(main_ld_flags) $(comm_mod_flags)
+
+# Final list of files to be compiled.
+#
+local_c_files       := $(user_cc)
+local_c_dep_files   := $(patsubst %.c,%,$(local_c_files))
+
+local_cpp_files     := $(user_cpp)
+local_cpp_dep_files := $(patsubst %.cpp,%,$(local_cpp_files))
+
+local_mk_files      := $(wildcard Makefile*)
+local_src_files     := $(local_c_files) $(local_cpp_files)
+local_obj_files     := $(comm_cc_objs) $(comm_cpp_objs)
+
+# Dependency file
+#
+ifdef comm_dir_objs
+	local_dep_file := $(comm_dir_objs)/Makedep
+endif
+
+# Common scripts for rules.
+#
+include $(incl_scripts)/Makefile.scpt
+
+# -----------------------------------------------------------------------------
+# Main make rule.
+#
+.PHONY: all
+all: $(user_predep) base_predepend $(user_postdep)                    \
+     $(user_predepend) base_depend $(user_postdepend)                 \
+	 $(user_preall) base_objs base_all $(user_postall)                \
+	 $(user_tool) $(user_scripts) base_postmake                       \
+     $(user_preinstall) base_install $(user_postinstall)
+
+# -----------------------------------------------------------------------------
+# Tasks to do before the depend rule.
+#
+.PHONY: base_predepend
+base_predepend: base_rpc
+	@$(scpt_setup_build_dir)
+
+# -----------------------------------------------------------------------------
+# The main auto depend rule.
+#
+.PHONY: base_depend
+base_depend: $(local_dep_file)
+
+# -----------------------------------------------------------------------------
+# The main rule to compile rpcgen.
+#
+.PHONY: base_rpc
+base_rpc: $(comm_rpc_files)
+
+ifdef user_rpc
+$(foreach hdr,$(user_rpc),$(eval $(call scpt_mk_rpc_hdr,$(hdr))))
+$(foreach clnt,$(user_rpc),$(eval $(call scpt_mk_rpc_clnt,$(clnt))))
+$(foreach clnt,$(user_rpc),$(eval $(call scpt_mk_rpc_xdr,$(clnt))))
+$(foreach serv,$(user_rpc),$(eval $(call scpt_mk_rpc_serv,$(serv))))
+endif
+
+# -----------------------------------------------------------------------------
+# The main rule to compile and link other targets.
+#
+.PHONY: base_objs
+base_objs: $(local_obj_files)
+
+.PHONY: base_all
+base_all: $(comm_libs) $(comm_libsos) $(comm_exes) $(comm_mods) $(comm_imgs)
+ifdef user_build
+	@$(scpt_build_subdir)
+endif
+
+ifdef comm_lib_list
+$(foreach lib,$(comm_lib_list),$(eval $(call scpt_mk_static_lib,$(lib))))
+endif
+
+ifdef comm_so_list
+$(foreach lib,$(comm_so_list),$(eval $(call scpt_mk_dynamic_lib,$(lib))))
+endif
+
+ifdef comm_exe_list
+$(foreach exe,$(comm_exe_list),$(eval $(call scrpt_mk_exe,$(exe))))
+endif
+
+ifdef comm_mod_list
+$(foreach mod,$(comm_mod_list),$(eval $(call scpt_mk_kmod,$(mod))))
+endif
+
+ifdef comm_img_list
+$(foreach img,$(comm_img_list),$(eval $(call scpt_mk_fwimg,$(img))))
+endif
+
+# -----------------------------------------------------------------------------
+# What to do after making all targets.
+#
+.PHONY: base_postmake
+base_postmake:
+
+# -----------------------------------------------------------------------------
+# Install all targets to the final Build directory.
+#
+.PHONY: base_install
+base_install:
+
+# -----------------------------------------------------------------------------
+# Clean target
+#
+.PHONY: clean
+clean: $(user_clean)
+	@$(scpt_make_clean)
+ifdef user_build
+	@$(scpt_build_subdir)
+endif
+
+.PHONY: clobber
+clobber: clean $(user_clobber)
+ifdef comm_clobber
+	@rm $(comm_clobber)
+endif
+
+# -----------------------------------------------------------------------------
+# Rule to compile .c file.
+#
+$(comm_dir_objs)/%.o : %.c
+ifdef VERBOSE
+	$(cc) $(local_cc_flags) -c $< -o $@
+else
+	@echo "\t[CC] \t\t$<"
+	@$(cc) $(local_cc_flags) -c $< -o $@
+endif
+
+# -----------------------------------------------------------------------------
+# Rule to compile .cpp file.
+#
+$(comm_dir_objs)/%.o : %.cpp
+ifdef VERBOSE
+	$(cpp) $(local_cpp_flags) -c $< -o $@
+else
+	@echo "\t[CPP] \t\t$<"
+	@$(cpp) $(local_cpp_flags) -c $< -o $@
+endif
+
+# -----------------------------------------------------------------------------
+# Generate auto dependency file.
+#
+ifdef local_dep_file
+$(local_dep_file): $(local_src_files) $(local_mk_files)
+	@for f in $(local_c_dep_files); do                                         \
+		echo "\t[DEP] \t\t$$f";                                                \
+		$(cc) -MM -MT $(comm_dir_objs)/$$f.o $(local_cc_flags) $$f.c >> $@;    \
+	done;                                                                      \
+	for f in $(local_cpp_dep_files); do                                        \
+		echo "\t[DEP] \t\t$$f";                                                \
+		$(cpp) -MM -MT $(comm_dir_objs)/$$f.o $(local_cpp_flags) $$f.cpp >> $@;\
+	done;
+endif
+
+# -----------------------------------------------------------------------------
+# Include the Dependencies file if it has been generated.
+#
+ifneq ($(wildcard $(comm_dir_objs)/Makedep),)
+   include $(comm_dir_objs)/Makedep
+endif
+
+# -----------------------------------------------------------------------------
+# Make all runtime targets
+#
+.PHONY: rule_all_os
+rule_all_os:
+	@$(scpt_make_all_oses)
+
+# -----------------------------------------------------------------------------
+# Make cscope database
+#
+.PHONY: cscope
+cscope:
+	@$(scpt_make_cscope)
+
+# -----------------------------------------------------------------------------
+# Update ctags database
+#
+.PHONY: ctags
+ctags:
+	@$(scpt_make_ctags)
+
+# -----------------------------------------------------------------------------
+# Debug target to dump out Makefile variables
+#
+.PHONY: mk_debug
+mk_debug:
+	@echo user_rtime = $(user_rtime_env), user_target = $(user_target)
+	@echo osdep_target = $(osdep_target) flags = $(local_cc_flags)
+	@echo ld = $(rule_ld_flags)
+	@echo comm_dir_bin= $(comm_dir_bin)
+	@echo comm_dir_objs= $(comm_dir_objs)
+	@echo comm_lib_dep=$(comm_lib_dep)
+
