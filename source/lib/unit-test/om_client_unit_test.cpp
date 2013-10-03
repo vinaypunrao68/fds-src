@@ -3,7 +3,11 @@
 
 using namespace fds;
 
-void my_node_event_handler(int node_id, unsigned int node_ip_addr, int node_state) {
+void my_node_event_handler(int node_id,
+                           unsigned int node_ip_addr,
+                           int node_state,
+                           fds_uint32_t port_num,
+                           FDS_ProtocolInterface::FDSP_MgrIdType node_type) {
 
   printf("Recvd node event: Node id - %d Node ip - %x Node state - %d\n", node_id, node_ip_addr, node_state);
 
@@ -43,7 +47,10 @@ int main(int argc, char *argv[]) {
 	  }
 	}
 
-	om_client = new OMgrClient(node_type, node_id, NULL);
+        /*
+         * Pass 0 as the data port for now
+         */
+	om_client = new OMgrClient(node_type, 0, node_id, NULL);
 
 	om_client->initialize();
 	om_client->registerEventHandlerForNodeEvents(my_node_event_handler);
@@ -72,9 +79,17 @@ int main(int argc, char *argv[]) {
 	    printf("DLT Nodes for key %d :\n", input_field);
 	    for (i = 0; i < n_nodes; i++) {
 	      unsigned int node_ip = 0;
+              fds_uint32_t node_port = 0;
 	      int node_state = -1;
-	      om_client->getNodeInfo(node_ids[i], &node_ip, &node_state);
-	      printf("Node id - %d Node ip - %x Node state - %d\n", node_ids[i], node_ip, node_state);
+	      om_client->getNodeInfo(node_ids[i],
+                                     &node_ip,
+                                     &node_port,
+                                     &node_state);
+	      printf("Node id - %d Node ip - %x Node port - %x Node state - %d\n",
+                     node_ids[i],
+                     node_ip,
+                     node_port,
+                     node_state);
 	    }
 	    printf("\n");
 
@@ -90,9 +105,17 @@ int main(int argc, char *argv[]) {
 	    printf("DMT Nodes for volume %d :\n", input_field);
 	    for (i = 0; i < n_nodes; i++) {
 	      unsigned int node_ip = 0;
+              fds_uint32_t node_port = 0;
 	      int node_state = -1;
-	      om_client->getNodeInfo(node_ids[i], &node_ip, &node_state);
-	      printf("Node id - %d Node ip - %x Node state - %d\n", node_ids[i], node_ip, node_state);
+	      om_client->getNodeInfo(node_ids[i],
+                                     &node_ip,
+                                     &node_port,
+                                     &node_state);
+	      printf("Node id - %d Node ip - %x Node port - %x Node state - %d\n",
+                     node_ids[i],
+                     node_ip,
+                     node_port,
+                     node_state);
 	    }
 	    printf("\n");
 

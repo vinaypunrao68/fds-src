@@ -136,11 +136,13 @@ Error VolumeCatalogCache::Query(fds_uint64_t block_id,
                                                       node_ids,
                                                       &num_nodes);
     fds_uint32_t node_ip;
+    fds_uint32_t node_port;
     int node_state;
     fds_bool_t located_ep = false;
     for (int i = 0; i < num_nodes; i++) {
       err = parent_sh->dataPlacementTbl->getNodeInfo(node_ids[i],
                                                      &node_ip,
+                                                     &node_port,
                                                      &node_state);
       if (!err.ok()) {
         FDS_PLOG(vcc_log) << "VolumeCatalogCache - "

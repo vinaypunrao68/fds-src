@@ -96,60 +96,64 @@ void StorHvJournalEntry::unlock()
 
 
 // Caller should hold the lock on the transaction
-int StorHvJournalEntry::fds_set_dmack_status( int ipAddr)
-{
-	int node =0;
-	for (node = 0; node < FDS_MAX_DM_NODES_PER_CLST; node++)
-	{
-	  if (memcmp(&dm_ack[node].ipAddr, &ipAddr,4) == 0) {
-	    if (dm_ack[node].ack_status < FDS_SET_ACK) {
-	      dm_ack_cnt++; 
-	      dm_ack[node].ack_status = FDS_SET_ACK;
-	    }
-	    return (0);
-	  }
-	}
-
-	return 0;
-
-}
-
-// Caller should hold the lock on the transaction
-int StorHvJournalEntry::fds_set_dm_commit_status( int ipAddr)
-{
-	int node =0;
-
-	for (node = 0; node < FDS_MAX_DM_NODES_PER_CLST; node++)
-	{
-	  if (memcmp(&dm_ack[node].ipAddr, &ipAddr,4) == 0) {
-	    if (dm_ack[node].commit_status == FDS_COMMIT_MSG_SENT) {
-	      dm_commit_cnt++; 
-	      dm_ack[node].commit_status = FDS_COMMIT_MSG_ACKED;
-	    }
-	    return (0);
-	  }
-	}
-
-	return 0;
-
-}
-
-// Caller should hold the lock on the transaction
-int StorHvJournalEntry::fds_set_smack_status( int ipAddr)
-{
-  int node =0;
-
-  for (node = 0; node < FDS_MAX_SM_NODES_PER_CLST; node++) {
-     if (memcmp((void *)&sm_ack[node].ipAddr, (void *)&ipAddr, 4) == 0) {
-	    if (sm_ack[node].ack_status != FDS_SET_ACK) {
-	      sm_ack[node].ack_status = FDS_SET_ACK;
-	      sm_ack_cnt++;
-	    }
-	    return (0);
-     }
+int StorHvJournalEntry::fds_set_dmack_status(int ipAddr,
+                                             fds_uint32_t port) {
+  for (fds_uint32_t node = 0;
+       node < FDS_MAX_DM_NODES_PER_CLST;
+       node++) {
+    if ((memcmp(&dm_ack[node].ipAddr, &ipAddr,4) == 0) &&
+        (dm_ack[node].port == port)) {
+      if (dm_ack[node].ack_status < FDS_SET_ACK) {
+        dm_ack_cnt++; 
+        dm_ack[node].ack_status = FDS_SET_ACK;
+        return 0;
+      }
+    }
   }
 
-  return 0;
+  return 0;  
+}
+
+// Caller should hold the lock on the transaction
+int StorHvJournalEntry::fds_set_dm_commit_status(int ipAddr,
+                                                 fds_uint32_t port) {
+  for (fds_uint32_t node = 0;
+       node < FDS_MAX_DM_NODES_PER_CLST;
+       node++) {
+    if ((memcmp(&dm_ack[node].ipAddr, &ipAddr,4) == 0) &&
+        (dm_ack[node].port == port)) {
+      if (dm_ack[node].commit_status == FDS_COMMIT_MSG_SENT) {
+        dm_commit_cnt++;
+        dm_ack[node].commit_status = FDS_COMMIT_MSG_ACKED;
+        return 0;
+      }
+    }
+  }
+  
+  return 0;  
+}
+
+// Caller should hold the lock on the transaction
+int StorHvJournalEntry::fds_set_smack_status(int ipAddr,
+                                             fds_uint32_t port) {
+  for (fds_uint32_t node = 0;
+       node < FDS_MAX_SM_NODES_PER_CLST;
+       node++) {
+    /*
+     * TODO: Check the port here also
+     */
+    if ((memcmp((void *)&sm_ack[node].ipAddr, (void *)&ipAddr, 4) == 0) &&
+        (sm_ack[node].port == port)) {
+      if (sm_ack[node].ack_status != FDS_SET_ACK) {
+        sm_ack[node].ack_status = FDS_SET_ACK;
+        sm_ack_cnt++;
+        return 0;
+      }
+      // return 0;
+    }
+  }
+
+  return -1;
 }
 
 // Caller should hold the lock on the transaction

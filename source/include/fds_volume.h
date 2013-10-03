@@ -57,6 +57,11 @@ namespace fds {
     FDSP_AppWorkload       appWorkload;
     int                    backupVolume;  // UUID of backup volume
 
+    /* policy info */
+    double                 iops_min;
+    double                 iops_max;
+    int                    relativePrio;
+
     ptime ctime; /* Create time */
 
     /*
@@ -105,10 +110,58 @@ namespace fds {
       assert(volUUID != invalid_vol_id);
     }
 
+    VolumeDesc(FDSP_VolumeDescTypePtr& voldesc)
+      {
+	name = voldesc->vol_name;
+	tennantId = voldesc->tennantId;  
+	localDomainId = voldesc->localDomainId;  
+	globDomainId = voldesc->globDomainId;
+	volUUID = voldesc->volUUID;
+	volType = voldesc->volType;
+	capacity = voldesc->capacity;
+	maxQuota = voldesc->maxQuota;
+	replicaCnt = voldesc->replicaCnt; 
+	writeQuorum = voldesc->writeQuorum; 
+	readQuorum = voldesc->readQuorum;  
+	consisProtocol = voldesc->consisProtocol; 
+	volPolicyId = voldesc->volPolicyId;
+	archivePolicyId = voldesc->archivePolicyId;
+	placementPolicy = voldesc->placementPolicy;  
+	appWorkload = voldesc->appWorkload;
+	backupVolume = voldesc->backupVolume;
+	iops_min = voldesc->iops_min;
+	iops_max = voldesc->iops_max;
+	relativePrio = voldesc->rel_prio;
+	assert(volUUID != invalid_vol_id);
+      }
+
+    /*
+     * Used for testing where we don't have all of these fields.
+     */
     VolumeDesc(const std::string& _name, fds_volid_t _uuid)
              : name(_name),
               volUUID(_uuid) {
         assert(_uuid != invalid_vol_id);
+
+	tennantId = 0;
+	localDomainId = 0;
+	globDomainId = 0;
+	volType = FDS_ProtocolInterface::FDSP_VOL_S3_TYPE;
+	capacity = 0;
+	maxQuota = 0;
+	replicaCnt = 0;
+	writeQuorum = 0;
+	readQuorum = 0;
+	consisProtocol = FDS_ProtocolInterface::FDSP_CONS_PROTO_STRONG;
+	volPolicyId = 0;
+	archivePolicyId = 0;
+	placementPolicy = 0;
+	appWorkload = FDS_ProtocolInterface::FDSP_APP_WKLD_TRANSACTION;
+	backupVolume = 0;
+	iops_min = 0;
+	iops_max = 0;
+	relativePrio = 0;
+	assert(volUUID != invalid_vol_id);
     }
 
     ~VolumeDesc() {

@@ -21,6 +21,7 @@ typedef struct _node_info_t {
 
   int node_id;
   unsigned int node_ip_address;
+  fds_uint32_t port;
   FDSP_NodeState node_state;
 
 } node_info_t;
@@ -39,7 +40,11 @@ namespace fds {
     MAX
   } fds_vol_notify_t;
   
-  typedef void (*node_event_handler_t)(int node_id, unsigned int node_ip_addr, int node_state);
+  typedef void (*node_event_handler_t)(int node_id,
+                                       unsigned int node_ip_addr,
+                                       int node_state,
+                                       fds_uint32_t node_port,
+                                       FDSP_MgrIdType node_type);
   typedef void (*volume_event_handler_t)(fds::fds_volid_t volume_id, fds::VolumeDesc *vdb, fds_vol_notify_t vol_action);
 
 
@@ -51,6 +56,7 @@ namespace fds {
     FDSP_MgrIdType my_node_type;
     std::string my_node_name;
     fds_uint32_t my_control_port;
+    fds_uint32_t my_data_port;
     node_map_t node_map;
     int dlt_version;
     Node_Table_Type dlt;
@@ -81,7 +87,10 @@ namespace fds {
   public:
 
     OMgrClient();
-    OMgrClient(FDSP_MgrIdType node_type, std::string node_name, fds_log *parent_log);
+    OMgrClient(FDSP_MgrIdType node_type,
+               fds_uint32_t data_port,
+               const std::string& node_name,
+               fds_log *parent_log);
     int initialize();
     int registerEventHandlerForNodeEvents(node_event_handler_t node_event_hdlr);
     int registerEventHandlerForVolEvents(volume_event_handler_t vol_event_hdlr);
@@ -89,7 +98,10 @@ namespace fds {
     int startAcceptingControlMessages();
     int startAcceptingControlMessages(fds_uint32_t port_num);
     int registerNodeWithOM();
-    int getNodeInfo(int node_id, unsigned int *node_ip_addr, int *node_state);
+    int getNodeInfo(int node_id,
+                    unsigned int *node_ip_addr,
+                    fds_uint32_t *node_port,
+                    int *node_state);
     int getDLTNodesForDoidKey(unsigned char doid_key, int *node_ids, int *n_nodes);
     int getDMTNodesForVolume(int vol_id, int *node_ids, int *n_nodes);
 

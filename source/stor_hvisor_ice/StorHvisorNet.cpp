@@ -423,7 +423,7 @@ int unitTestFile(const char *inname, const char *outname, unsigned int base_vol_
 
 void CreateStorHvisor(int argc, char *argv[], hv_create_blkdev cr_blkdev, hv_delete_blkdev del_blkdev)
 {
-  CreateSHMode(argc, argv, cr_blkdev, del_blkdev,false, 0, 0);
+  CreateSHMode(argc, argv, cr_blkdev, del_blkdev, false, 0, 0);
 }
 
 void CreateSHMode(int argc,
@@ -442,7 +442,14 @@ void CreateSHMode(int argc,
 
   storHvisor->cr_blkdev = cr_blkdev;
   storHvisor->del_blkdev = del_blkdev;
+
+  /* 
+   * Start listening for OM control messages 
+   * Appropriate callbacks were setup by data placement and volume table objects  
+   */
   storHvisor->StartOmClient();
+  // storHvisor->om_client->registerNodeWithOM();
+
   FDS_PLOG(storHvisor->GetLog()) << "StorHvisorNet - Created storHvisor " << storHvisor;
 }
 
@@ -473,7 +480,11 @@ StorHvCtrl::StorHvCtrl(int argc,
   /* create OMgr client if in normal mode */
   om_client = NULL;
   FDS_PLOG(sh_log) << "StorHvisorNet - Will create and initialize OMgrClient";
-  om_client = new OMgrClient(FDSP_STOR_HVISOR, "localhost-sh", sh_log);
+  /*
+   * Pass 0 as the data path port since the SH is not
+   * listening on that port.
+   */
+  om_client = new OMgrClient(FDSP_STOR_HVISOR, 0, "localhost-sh", sh_log);
   if (om_client) {
     om_client->initialize();
   }
@@ -515,8 +526,7 @@ StorHvCtrl::StorHvCtrl(int argc,
   std::string storMgrIPAddress;
   int storMgrPortNum;
   if ((mode == DATA_MGR_TEST) ||
-      (mode == TEST_BOTH) ||
-      (mode == NORMAL)) {
+      (mode == TEST_BOTH)) {
     /*
      * If a port_num to use is set use it,
      * otherwise pull from config file.
@@ -530,8 +540,7 @@ StorHvCtrl::StorHvCtrl(int argc,
     rpcSwitchTbl->Add_RPC_EndPoint(dataMgrIPAddress, dataMgrPortNum, FDSP_DATA_MGR);
   }
   if ((mode == STOR_MGR_TEST) ||
-      (mode == TEST_BOTH) ||
-      (mode == NORMAL)) {
+      (mode == TEST_BOTH)) {
     if (sm_port_num != 0) {
       storMgrPortNum = sm_port_num;
     } else {
@@ -549,18 +558,21 @@ StorHvCtrl::StorHvCtrl(int argc,
     fds_uint32_t ip_num = FDS_RPC_EndPoint::ipString2Addr(dataMgrIPAddress);
     dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NO_OM_MODE,
                                                 ip_num,
+                                                storMgrPortNum,
+                                                dataMgrPortNum,
                                                 om_client);
   } else if (mode == STOR_MGR_TEST) {
     fds_uint32_t ip_num = FDS_RPC_EndPoint::ipString2Addr(storMgrIPAddress);
     dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NO_OM_MODE,
                                                 ip_num,
+                                                storMgrPortNum,
+                                                dataMgrPortNum,
                                                 om_client);
   } else {
     FDS_PLOG(sh_log) <<"StorHvisorNet -  Entring Normal Data placement mode";
     dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NORMAL_MODE,
                                                 om_client);
   }
-
 
   /*
    * Only create a ctrl-c handler in normal mode since

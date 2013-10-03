@@ -57,6 +57,7 @@ namespace fds {
 
   typedef FDS_ProtocolInterface::FDSP_VolumeInfoTypePtr FdspVolInfoPtr;
   typedef FDS_ProtocolInterface::FDSP_PolicyInfoTypePtr FdspPolInfoPtr;
+  typedef FDS_ProtocolInterface::FDSP_VolumeDescTypePtr FdspVolDescPtr; 
 
   class NodeInfo {
     /*
@@ -183,9 +184,7 @@ namespace fds {
     Catalog *dltCatalog;
     Catalog *dmtCatalog;
 
-    void copyVolumeInfoToProperties(VolumeDesc *pVol,
-                                    FdspVolInfoPtr v_info);
-    void copyPropertiesToVolumeInfo(FdspVolInfoPtr v_info,
+    void copyPropertiesToVolumeDesc(FdspVolDescPtr v_desc,
                                     VolumeDesc *pVol);
     void initOMMsgHdr(const FdspMsgHdrPtr& fdsp_msg);
 

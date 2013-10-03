@@ -24,9 +24,10 @@
 
 class FDSP_IpNode {
 public:
-        long  ipAddr;
-        short  ack_status;
-        short  commit_status;
+  long         ipAddr;
+  fds_uint32_t port;
+  short        ack_status;
+  short        commit_status;
 };
 
 enum FDS_IO_Type {
@@ -78,9 +79,12 @@ public:
   bool isActive();
   void lock();
   void unlock();
-  int fds_set_dmack_status( int ipAddr);
-  int fds_set_dm_commit_status( int ipAddr);
-  int fds_set_smack_status( int ipAddr);
+  int fds_set_dmack_status(int ipAddr,
+                           fds_uint32_t port);
+  int fds_set_dm_commit_status(int ipAddr,
+                               fds_uint32_t port);
+  int fds_set_smack_status(int ipAddr,
+                           fds_uint32_t port);
   void fbd_complete_req(fbd_request_t *req, int status);
   void fbd_process_req_timeout();
 

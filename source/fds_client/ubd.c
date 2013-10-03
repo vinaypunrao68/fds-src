@@ -291,6 +291,7 @@ int main(int argc, char *argv[]) {
   const char *outfile_name = NULL;
   uint32_t base_vol = 1;
   uint32_t num_vols = 1;
+  uint32_t no_om = 1;
 
   signal(SIGINT, ctrlcHandler);
   
@@ -316,6 +317,8 @@ int main(int argc, char *argv[]) {
       base_vol = atoi(argv[i] + 11);
     } else if (strncmp(argv[i], "--num_vols=", 11) == 0) {
       num_vols = atoi(argv[i] + 11);
+    } else if (strncmp(argv[i], "--use_om", 7) == 0) {
+      no_om = 0;
     }
     /*
      * We pass argc and argv to other functions later
@@ -350,7 +353,7 @@ int main(int argc, char *argv[]) {
   }
 
 #ifdef HVISOR_USPACE_TEST
-  CreateSHMode(argc, argv, hvisor_create_blkdev, hvisor_delete_blkdev, 1, sm_port, dm_port);
+  CreateSHMode(argc, argv, hvisor_create_blkdev, hvisor_delete_blkdev, no_om, sm_port, dm_port);
   hvisor_create_blkdev(0, 10000000);
 #else
   CreateSHMode(argc, argv, hvisor_create_blkdev, hvisor_delete_blkdev, 0, 0, 0);
@@ -743,8 +746,8 @@ void hvisor_queue_read(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq)
 	int rc = 0;
 	fbd_request_t *p_new_req;
 
-	p_new_req = (fbd_request_t *)malloc(sizeof(td_request_t));
-	memset(p_new_req, 0 , sizeof(fbd_request_t *));
+	p_new_req = (fbd_request_t *)malloc(sizeof(fbd_request_t));
+	memset(p_new_req, 0 , sizeof(fbd_request_t ));
 	p_new_req->sec = treq.sec;
 	p_new_req->secs = treq.secs;
 	p_new_req->buf = treq.buf;
@@ -796,8 +799,8 @@ void hvisor_queue_write(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq
 	static int num_write_reqs = 0;
 #endif
 
-	p_new_req = (fbd_request_t *)malloc(sizeof(td_request_t));
-	memset(p_new_req, 0 , sizeof(fbd_request_t *));
+	p_new_req = (fbd_request_t *)malloc(sizeof(fbd_request_t));
+	memset(p_new_req, 0 , sizeof(fbd_request_t ));
 	p_new_req->sec = treq.sec;
 	p_new_req->secs = treq.secs;
 	p_new_req->buf = treq.buf;

@@ -80,8 +80,25 @@ int OrchMgr::run(int argc, char* argv[]) {
     }
   }
 
+
   policy_mgr = new VolPolicyMgr(stor_prefix, om_log);
 
+  /*
+   * TODO: Remove this or move it to a test mode eventually.
+   * This creates a stock volume that the OM knows about so
+   * that an OM volume create request isn't needed. Since
+   * other nodes (SH/SM/DM) don't generally communicate
+   * over the Ice config path, which is what contains the
+   * CreateVol() rpc, this is easier.
+   */
+  VolumeInfo *new_vol = new VolumeInfo();
+  new_vol->vol_name = "Test volume";
+  new_vol->volUUID = 1;
+  new_vol->properties = new VolumeDesc(new_vol->vol_name,
+                                       new_vol->volUUID);
+  new_vol->hv_nodes.push_back("localhost-sh");
+  volumeMap[new_vol->volUUID] = new_vol;
+  
   Ice::PropertiesPtr props = communicator()->getProperties();
 
   /*
@@ -315,25 +332,27 @@ OrchMgr::ReqCfgHandler::ReqCfgHandler(OrchMgr *oMgr) {
 OrchMgr::ReqCfgHandler::~ReqCfgHandler() {
 }
 
-void OrchMgr::copyVolumeInfoToProperties(VolumeDesc *pVol,
-                                         FdspVolInfoPtr v_info) {
-  pVol->name = v_info->vol_name;
-  pVol->volUUID = v_info->volUUID;
-  pVol->capacity = v_info->capacity;
-  pVol->volType = v_info->volType;
-  pVol->consisProtocol = v_info->consisProtocol;
-  pVol->appWorkload = v_info->appWorkload;
-}
-
-void OrchMgr::copyPropertiesToVolumeInfo(FdspVolInfoPtr v_info,
+void OrchMgr::copyPropertiesToVolumeDesc(FdspVolDescPtr v_desc,
                                          VolumeDesc *pVol) {
-  v_info->vol_name = pVol->name;
-  v_info->volUUID = pVol->volUUID;
-  v_info->capacity = pVol->capacity;
-  v_info->volType = pVol->volType;
-  v_info->consisProtocol = FDS_ProtocolInterface::
+  v_desc->vol_name = pVol->name;
+  v_desc->volUUID = pVol->volUUID;
+  v_desc->tennantId = pVol->tennantId;
+  v_desc->localDomainId = pVol->localDomainId;
+  v_desc->globDomainId = pVol->globDomainId;
+
+  v_desc->capacity = pVol->capacity;
+  v_desc->volType = pVol->volType;
+  v_desc->maxQuota = pVol->maxQuota;
+  v_desc->replicaCnt = pVol->replicaCnt;
+
+  v_desc->consisProtocol = FDS_ProtocolInterface::
       FDSP_ConsisProtoType(pVol->consisProtocol);
-  v_info->appWorkload = pVol->appWorkload;
+  v_desc->appWorkload = pVol->appWorkload;
+
+  v_desc->volPolicyId = pVol->volPolicyId;
+  v_desc->iops_max = pVol->iops_max;
+  v_desc->iops_min = pVol->iops_min;
+  v_desc->rel_prio = pVol->relativePrio;
 }
 
 void OrchMgr::initOMMsgHdr(const FdspMsgHdrPtr& msg_hdr) {
@@ -410,7 +429,8 @@ void OrchMgr::sendMgrNodeListToFdsNode(const NodeInfo& n_info) {
 
       FDS_PLOG(om_log) << "Sending node notification to node "
                        << n_info.node_name << " for node "
-                       << node_name << " state - "
+                       << node_name << " IP " << node_info_ptr->ip_lo_addr
+                       << " port " << node_info_ptr->data_port << " state - "
                        << next_node_info.node_state;
 
 
@@ -548,7 +568,7 @@ void OrchMgr::sendAllVolumesToFdsMgrNode(NodeInfo node_info) {
 
   FdspMsgHdrPtr msg_hdr = new FDS_ProtocolInterface::FDSP_MsgHdrType;
   FdspNotVolPtr vol_msg = new FDS_ProtocolInterface::FDSP_NotifyVolType;
-  vol_msg->vol_info = new FDS_ProtocolInterface::FDSP_VolumeInfoType();
+  vol_msg->vol_desc = new FDS_ProtocolInterface::FDSP_VolumeDescType();
 
   initOMMsgHdr(msg_hdr);
   vol_msg->type = FDS_ProtocolInterface::FDSP_NOTIFY_ADD_VOL;
@@ -559,7 +579,7 @@ void OrchMgr::sendAllVolumesToFdsMgrNode(NodeInfo node_info) {
     VolumeDesc* pVolDesc = pVolInfo->properties;
     msg_hdr->glob_volume_id = pVolDesc->volUUID;
     vol_msg->vol_name = std::string(pVolDesc->name);
-    copyPropertiesToVolumeInfo(vol_msg->vol_info, pVolDesc);
+    copyPropertiesToVolumeDesc(vol_msg->vol_desc, pVolDesc);
     
     FDS_PLOG(om_log) << "Sending create vol to node " << node_info.node_name << " for volume " << pVolInfo->volUUID;
     OMClientAPI->begin_NotifyAddVol(msg_hdr, vol_msg);
@@ -572,13 +592,13 @@ void OrchMgr::sendCreateVolToFdsNodes(VolumeInfo  *pVolInfo) {
 
   FdspMsgHdrPtr msg_hdr = new FDS_ProtocolInterface::FDSP_MsgHdrType;
   FdspNotVolPtr vol_msg = new FDS_ProtocolInterface::FDSP_NotifyVolType;
-  vol_msg->vol_info = new FDS_ProtocolInterface::FDSP_VolumeInfoType();
+  vol_msg->vol_desc = new FDS_ProtocolInterface::FDSP_VolumeDescType();
 
   initOMMsgHdr(msg_hdr);
   msg_hdr->glob_volume_id = pVolDesc->volUUID;
   vol_msg->type = FDS_ProtocolInterface::FDSP_NOTIFY_ADD_VOL;
   vol_msg->vol_name = std::string(pVolDesc->name);
-  copyPropertiesToVolumeInfo(vol_msg->vol_info, pVolDesc);
+  copyPropertiesToVolumeDesc(vol_msg->vol_desc, pVolDesc);
 
   for (int i = 0; i < 2; i++) {
     node_map_t& node_map = (i == 0) ? currentDmMap:currentSmMap;
@@ -606,13 +626,13 @@ void OrchMgr::sendDeleteVolToFdsNodes(VolumeInfo *pVolInfo) {
 
   FdspMsgHdrPtr msg_hdr = new FDS_ProtocolInterface::FDSP_MsgHdrType;
   FdspNotVolPtr vol_msg = new FDS_ProtocolInterface::FDSP_NotifyVolType;
-  vol_msg->vol_info = new FDS_ProtocolInterface::FDSP_VolumeInfoType();
+  vol_msg->vol_desc = new FDS_ProtocolInterface::FDSP_VolumeDescType();
 
   initOMMsgHdr(msg_hdr);
   msg_hdr->glob_volume_id = pVolDesc->volUUID;
   vol_msg->type = FDS_ProtocolInterface::FDSP_NOTIFY_RM_VOL;
   vol_msg->vol_name = std::string(pVolDesc->name);
-  copyPropertiesToVolumeInfo(vol_msg->vol_info, pVolDesc);
+  copyPropertiesToVolumeDesc(vol_msg->vol_desc, pVolDesc);
 
   for (int i = 0; i < 2; i++) {
     node_map_t& node_map = (i == 0) ? currentDmMap : currentSmMap;
@@ -642,7 +662,7 @@ void OrchMgr::sendAttachVolToHvNode(fds_node_name_t node_name,
 
   FdspMsgHdrPtr msg_hdr = new FDS_ProtocolInterface::FDSP_MsgHdrType;
   FdspAttVolPtr vol_msg = new FDS_ProtocolInterface::FDSP_AttachVolType;
-  vol_msg->vol_info = new FDS_ProtocolInterface::FDSP_VolumeInfoType();
+  vol_msg->vol_desc = new FDS_ProtocolInterface::FDSP_VolumeDescType();
 
   initOMMsgHdr(msg_hdr);
   msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_ATTACH_VOL_CTRL;
@@ -650,7 +670,7 @@ void OrchMgr::sendAttachVolToHvNode(fds_node_name_t node_name,
   msg_hdr->glob_volume_id = pVolDesc->volUUID;
 
   vol_msg->vol_name = std::string(pVolDesc->name);
-  copyPropertiesToVolumeInfo(vol_msg->vol_info, pVolDesc);
+  copyPropertiesToVolumeDesc(vol_msg->vol_desc, pVolDesc);
 
   NodeInfo& node_info = currentShMap[node_name];
 
@@ -669,7 +689,7 @@ void OrchMgr::sendDetachVolToHvNode(fds_node_name_t node_name,
 
   FdspMsgHdrPtr msg_hdr = new FDS_ProtocolInterface::FDSP_MsgHdrType;
   FdspAttVolPtr vol_msg = new FDS_ProtocolInterface::FDSP_AttachVolType;
-  vol_msg->vol_info = new FDS_ProtocolInterface::FDSP_VolumeInfoType();
+  vol_msg->vol_desc = new FDS_ProtocolInterface::FDSP_VolumeDescType();
 
   initOMMsgHdr(msg_hdr);
   msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_DETACH_VOL_CTRL;
@@ -677,7 +697,7 @@ void OrchMgr::sendDetachVolToHvNode(fds_node_name_t node_name,
   msg_hdr->glob_volume_id = pVolDesc->volUUID;
 
   vol_msg->vol_name = std::string(pVolDesc->name);
-  copyPropertiesToVolumeInfo(vol_msg->vol_info, pVolDesc);
+  copyPropertiesToVolumeDesc(vol_msg->vol_desc, pVolDesc);
 
   NodeInfo& node_info = currentShMap[node_name];
 
@@ -706,6 +726,7 @@ void OrchMgr::sendAllVolumesToHvNode(fds_node_name_t node_name) {
 
 void OrchMgr::CreateVol(const FdspMsgHdrPtr& fdsp_msg,
                         const FdspCrtVolPtr& crt_vol_req) {
+  Error err(ERR_OK);
   int  vol_id = crt_vol_req->vol_info->volUUID;
   std::string vol_name = crt_vol_req->vol_info->vol_name;
 
@@ -721,6 +742,16 @@ void OrchMgr::CreateVol(const FdspMsgHdrPtr& fdsp_msg,
   new_vol->vol_name = vol_name;
   new_vol->volUUID = vol_id;
   new_vol->properties = new VolumeDesc(crt_vol_req->vol_info);
+  err = policy_mgr->fillVolumeDescPolicy(new_vol->properties);
+  if ( err == ERR_CAT_ENTRY_NOT_FOUND ) {
+      /* TODO: policy not in the catalog , should we return error or use default policu */
+      FDS_PLOG(GetLog()) << "Create volume " << vol_name 
+                         << " Req requested unknown policy " << (crt_vol_req->vol_info)->volPolicyId;    
+  }
+  else if (!err.ok()) {
+      FDS_PLOG(GetLog()) << "CreateVol: Failed to get policy info for volume " << vol_name;
+      /* TODO: for now ignoring error */
+  }
   volumeMap[vol_id] = new_vol;
   sendCreateVolToFdsNodes(new_vol);
   om_mutex->unlock();

@@ -24,6 +24,7 @@
 #include <list>
 #include "fds_client/include/ubd.h"
 #include <Mutex.h>
+#include "include/fds_types.h"
 
 
 using namespace FDS_ProtocolInterface;
@@ -50,7 +51,7 @@ public:
 	std::string 	ip_addr_str;
         int 		ip_addr;
         Ice::ObjectAdapterPtr _adapter;
-	int 		port_num;
+	fds_uint32_t port_num;
         FDS_ProtocolInterface::FDSP_MgrIdType mgrId;
 	FDSP_DataPathReqPrx  fdspDPAPI;
         FDSP_DataPathRespPtr fdspDataPathResp;
@@ -98,8 +99,8 @@ public :
     list<FDS_RPC_EndPoint *>    rpcEndPointList;
     fds_mutex   *rpcTblMutex;
 
-    void 	      Add_RPC_EndPoint(int  ipaddr, int& port, FDSP_MgrIdType mgr_id);
-    void 	      Add_RPC_EndPoint(string  ipaddr, int& port, FDSP_MgrIdType mgr_id);
+    void 	      Add_RPC_EndPoint(int  ipaddr, int port, FDSP_MgrIdType mgr_id);
+    void 	      Add_RPC_EndPoint(string  ipaddr, int port, FDSP_MgrIdType mgr_id);
     void 	      Delete_RPC_EndPoint(int  ip_addr, FDSP_MgrIdType);
     void 	      Delete_RPC_EndPoint(string  ip_addr, FDSP_MgrIdType);
     int               Get_RPC_EndPoint(int ip_addr, FDSP_MgrIdType mgrId, FDS_RPC_EndPoint* endpoint);
@@ -109,7 +110,11 @@ public :
                          	      FDS_RPC_EndPoint **endPoint);
     int 	      Get_RPC_EndPoint(int ip_addr,
                          	      FDSP_MgrIdType mgrId,
-                         	      FDS_RPC_EndPoint** endpoint);
+                                       FDS_RPC_EndPoint** endpoint);
+    int Get_RPC_EndPoint(int ip_addr,
+                         fds_uint32_t port_num,
+                         FDSP_MgrIdType mgr_id,
+                         FDS_RPC_EndPoint **endPoint) ;
 };
 
 #endif

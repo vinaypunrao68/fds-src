@@ -33,9 +33,12 @@ class VolPolicyMgr
    * no error if policy does not exist  */
   Error deletePolicy(int policy_id, const std::string& policy_name);
 
-  /* for now just prints policy to log 
-   * TODO: probably should query by name? return FDS_VolumePolicy object */
-  Error queryPolicy(int policy_id);
+  /* queries volume policy from the catalog and returns in 'ret_policy' */
+  Error queryPolicy(int policy_id, FDS_VolumePolicy *ret_policy);
+
+  /* queries volume policy specified in 'voldesc' from the catalog and 
+   * fills in policy fields in 'voldesc' */
+  Error fillVolumeDescPolicy(VolumeDesc* voldesc);
 
  private: /* methods */
   void copyPolInfoToFdsPolicy(FDS_VolumePolicy& fdsPolicy, const FdspPolInfoPtr& pol_info);
