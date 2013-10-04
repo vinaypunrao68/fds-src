@@ -24,7 +24,7 @@ StorHvVolume::StorHvVolume(const VolumeDesc& vdesc, StorHvCtrl *sh_ctrl, fds_log
       blkdev_minor = (*parent_sh->cr_blkdev)(voldesc->volUUID, voldesc->capacity);
   }
 
-  volQueue = new boost::lockfree::queue<fbd_request_t*> (128);
+  volQueue = new boost::lockfree::queue<fbd_request_t*> (4096);
 
   is_valid = true;
 }
@@ -165,7 +165,7 @@ StorHvVolumeTable::StorHvVolumeTable(StorHvCtrl *sh_ctrl, fds_log *parent_log)
   }
 
   /* create thread  pool */
-  tp = new fds_threadpool(50);
+  tp = new fds_threadpool(250);
   /* create a thread  for per volume queue dispatcher */
   if (tp)
      tp->schedule(scheduleIO, this);

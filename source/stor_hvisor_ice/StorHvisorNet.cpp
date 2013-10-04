@@ -508,9 +508,9 @@ StorHvCtrl::StorHvCtrl(int argc,
   /*
    * Set basic thread properties.
    */
-  props->setProperty("StorHvisorClient.ThreadPool.Size", "10");
-  props->setProperty("StorHvisorClient.ThreadPool.SizeMax", "20");
-  props->setProperty("StorHvisorClient.ThreadPool.SizeWarn", "18");
+  props->setProperty("StorHvisorClient.ThreadPool.Size", "100");
+  props->setProperty("StorHvisorClient.ThreadPool.SizeMax", "300");
+  props->setProperty("StorHvisorClient.ThreadPool.SizeWarn", "100");
 
   FDS_PLOG(sh_log) << "StorHvisorNet - StorHvCtrl basic infra init successfull ";
   

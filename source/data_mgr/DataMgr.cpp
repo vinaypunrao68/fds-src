@@ -322,9 +322,13 @@ int DataMgr::run(int argc, char* argv[]) {
   /*
    * Set basic thread properties.
    */
-  props->setProperty("DataMgr.ThreadPool.Size", "50");
-  props->setProperty("DataMgr.ThreadPool.SizeMax", "100");
-  props->setProperty("DataMgr.ThreadPool.SizeWarn", "75");
+  props->setProperty("DataMgr.ThreadPool.Client.Size", "200");
+  props->setProperty("DataMgr.ThreadPool.Client.SizeMax", "400");
+  props->setProperty("DataMgr.ThreadPool.Client.SizeWarn", "300");
+
+  props->setProperty("DataMgr.ThreadPool.Server.Size", "200");
+  props->setProperty("DataMgr.ThreadPool.Server.SizeMax", "400");
+  props->setProperty("DataMgr.ThreadPool.Server.SizeWarn", "300");
 
   if (port_num == 0) {
     /*
