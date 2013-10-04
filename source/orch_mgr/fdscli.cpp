@@ -37,6 +37,9 @@ void FdsCli::InitCfgMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
 
         msg_hdr->src_id = FDSP_CLI_MGR;
         msg_hdr->dst_id = FDSP_ORCH_MGR;
+	
+	msg_hdr->src_port = 0;
+	msg_hdr->dst_port = 0;
 
         msg_hdr->err_code=FDSP_ERR_SM_NO_SPACE;
         msg_hdr->result=FDSP_ERR_OK;

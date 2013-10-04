@@ -174,9 +174,9 @@ void OrchMgr::roundRobinDlt(fds_placement_table* table,
 
     for (fds_uint32_t j = 0; j < table->getMaxDepth(); j++) {
       node_list.push_back((nl_it->second).node_id);
-      FDS_PLOG(callerLog) << "Pushing into bucket " << i
-                          << " entry " << i << " node "
-                          << (nl_it->second).node_id;
+      // FDS_PLOG(callerLog) << "Pushing into bucket " << i
+      //                    << " entry " << i << " node "
+      //                    << (nl_it->second).node_id;
       nl_it++;
       if (nl_it == nodeMap.cend()) {
         nl_it = nodeMap.cbegin();
