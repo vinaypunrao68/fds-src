@@ -1,6 +1,7 @@
 topdir           := ../../
 user_target      := lib
 user_rtime_env   := user
+user_incl_dir    := $(topdir)/include/hash
 
 user_cpp         :=      \
     AvalancheTest.cpp    \
@@ -26,7 +27,7 @@ user_cpp         :=      \
     Stats.cpp            \
     SuperFastHash.cpp    \
     Types.cpp
-   
+
 user_cc          := PMurHash.c 
 user_ar_libs     := fds-hash
 fds-hash         := $(user_cpp) $(user_cc)

@@ -8,17 +8,16 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <pthread.h>
-#include "FDSP.h"
+#include <fdsp/FDSP.h>
 #include "stor_mgr_err.h"
-#include "fds_volume.h"
+#include <fds_volume.h>
 #include "ObjLoc.h"
 #include "odb.h"
 #include <unistd.h>
 #include <assert.h>
-#include "odb.h"
 #include <iostream>
 #include <Ice/Ice.h>
-#include <DiskMgr.h>
+#include "DiskMgr.h"
 
 
 using namespace FDS_ProtocolInterface;

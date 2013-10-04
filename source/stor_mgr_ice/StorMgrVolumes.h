@@ -5,19 +5,21 @@
 #ifndef __STOR_HV_VOLS_H_
 #define __STOR_HV_VOLS_H_
 
-#include <lib/Ice-3.5.0/cpp/include/Ice/Ice.h>
-#include <lib/Ice-3.5.0/cpp/include/IceUtil/IceUtil.h>
+#include <Ice/Ice.h>
+#include <IceUtil/IceUtil.h>
 
 #include <unordered_map>
 
-#include "fdsp/FDSP.h"
-#include "include/fds_err.h"
-#include "include/fds_types.h"
-#include "include/fds_volume.h"
-#include "util/Log.h"
-#include "util/concurrency/RwLock.h"
+#include <fdsp/FDSP.h>
+#include <fds_err.h>
+#include <fds_types.h>
+#include <fds_volume.h>
+#include <util/Log.h>
+#include <concurrency/RwLock.h>
 #include "odb.h"
-#include "lib/OMgrClient.h"
+
+/* TODO: move this to interface file in include dir */
+#include <lib/OMgrClient.h>
 #include "StorMgrVolumes.h"
 
 

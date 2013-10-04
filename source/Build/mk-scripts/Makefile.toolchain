@@ -25,7 +25,7 @@ toolchain_ldb_lib    := $(toolchain_ldb)
 # Global scope variables tool chain to use with the final compiling/linking.
 #
 toolchain_incl_flags := -I$(toolchain_boost_incl) -I$(toolchain_ice_top)/include
-toolchain_incl_flags += -I$(toolchain_ldb_incl)
+toolchain_incl_flags += -I$(toolchain_ldb_incl) -I$(toolchain_ldb)
 
 toolchain_cc_flags   := $(toolchain_incl_flags)
 toolchain_cpp_flags  := $(toolchain_incl_flags)

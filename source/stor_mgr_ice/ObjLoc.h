@@ -1,6 +1,6 @@
 #ifndef __OBJ_LOC_H__
 #define __OBJ_LOC_H__
-#include "include/fds_types.h"
+#include <fds_types.h>
 
 using namespace fds;
 

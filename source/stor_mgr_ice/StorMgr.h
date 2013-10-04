@@ -8,24 +8,23 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <pthread.h>
-#include "FDSP.h"
+#include <fdsp/FDSP.h>
 #include "stor_mgr_err.h"
-#include "include/fds_volume.h"
-#include "include/fds_types.h"
-#include "fds_volume.h"
+#include <fds_volume.h>
+#include <fds_types.h>
 #include "ObjLoc.h"
 #include "odb.h"
 #include <unistd.h>
 #include <assert.h>
-#include "odb.h"
 #include <iostream>
 #include <Ice/Ice.h>
-#include "util/Log.h"
-#include <DiskMgr.h>
-#include <StorMgrVolumes.h>
-#include "lib/OMgrClient.h"
-#include "util/concurrency/Mutex.h"
+#include <util/Log.h>
+#include "DiskMgr.h"
 #include "StorMgrVolumes.h"
+
+/* TODO: avoid include across module, put API header file to include dir */
+#include <lib/OMgrClient.h>
+#include <concurrency/Mutex.h>
 
 #define FDS_STOR_MGR_LISTEN_PORT FDS_CLUSTER_TCP_PORT_SM
 #define FDS_STOR_MGR_DGRAM_PORT FDS_CLUSTER_UDP_PORT_SM
