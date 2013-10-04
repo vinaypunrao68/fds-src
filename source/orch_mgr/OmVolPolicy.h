@@ -5,10 +5,12 @@
 #include <unordered_map>
 #include <string>
 
-#include "include/fds_volume.h"
-#include "fdsp/FDSP.h"
-#include "util/Log.h"
-#include "lib/Catalog.h"
+#include <fds_volume.h>
+#include <fdsp/FDSP.h>
+#include <util/Log.h>
+
+/* TODO: move to include dir if this is the top level API header file. */
+#include <lib/Catalog.h>
 
 namespace fds {
 

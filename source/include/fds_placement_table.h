@@ -14,15 +14,15 @@
 #include <cmath>
 #include <vector>
 
-#include "include/fds_types.h"
-#include "include/fds_err.h"
+#include <fds_types.h>
+#include <fds_err.h>
 /*
  * TODO: Needed to create the copy
  * constructor from ICE network
  * table type.
  */
 // #include "fdsp/fds_pubsub.h"
-#include "fdsp/FDSP.h"
+#include <fdsp/FDSP.h>
 
 namespace fds {
 

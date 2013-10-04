@@ -16,10 +16,10 @@
 #include "boost/program_options.hpp"
 #include <string>
 #include <Ice/Ice.h>
-#include "include/fds_types.h"
-#include "fdsp/FDSP.h"
-#include "include/fds_err.h"
-#include "util/Log.h"
+#include <fds_types.h>
+#include <fdsp/FDSP.h>
+#include <fds_err.h>
+#include <util/Log.h>
 
 
 

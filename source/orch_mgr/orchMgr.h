@@ -17,14 +17,13 @@
 #include <string>
 #include <vector>
 
-#include "include/fds_types.h"
-#include "include/fds_err.h"
-#include "include/fds_volume.h"
-#include "include/fds_placement_table.h"
-#include "fdsp/FDSP.h"
-#include "util/Log.h"
-#include "util/concurrency/Mutex.h"
-#include "lib/Catalog.h"
+#include <fds_types.h>
+#include <fds_err.h>
+#include <fds_placement_table.h>
+#include <fdsp/FDSP.h>
+#include <util/Log.h>
+#include <concurrency/Mutex.h>
+#include <lib/Catalog.h>
 #include "OmVolPolicy.h"
 
 #define MAX_OM_NODES 512

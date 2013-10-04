@@ -7,14 +7,14 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include "fds_commons.h"
+#include <fds_commons_rm.h>
 #include <pthread.h>
-#include "fdsp.h"
-#include "stor_mgr_err.h"
+#include <fdsp/fdsp.h>
+#include <stor_mgr_err.h>
 #include "obj_loc.h"
 #include <unistd.h>
 #include <assert.h>
-#include "leveldb/db.h"
+#include <leveldb/db.h>
 #include <iostream>
 
 #define FDS_STOR_MGR_LISTEN_PORT FDS_CLUSTER_TCP_PORT_SM

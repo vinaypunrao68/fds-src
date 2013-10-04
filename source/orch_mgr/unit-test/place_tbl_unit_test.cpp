@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-#include "include/fds_placement_table.h"
+#include <fds_placement_table.h>
 
 int main(int argc, char *argv[]) {
   std::string key("My key");
