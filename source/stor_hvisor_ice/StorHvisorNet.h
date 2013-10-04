@@ -20,20 +20,20 @@
 #include <IceUtil/IceUtil.h>
 #include <Ice/Ice.h>
 #include <fdsp/FDSP.h>
-#include "list.h"
 #include <list>
 #include "RPC_EndPoint.h"
 #include "StorHvDataPlace.h"
-#include "include/fds_err.h"
-#include "include/fds_types.h"
+#include <fds_err.h>
+#include <fds_types.h>
 
-#include "lib/OMgrClient.h"
-#include "StorHvVolumes.h" 
+/* TODO: Use API header in include directory. */
+#include <lib/OMgrClient.h>
+#include "StorHvVolumes.h"
 #include "StorHvisorCPP.h" 
 
 #include <map>
 // #include "util/concurrency/Thread.h"
-#include "util/concurrency/Synchronization.h"
+#include <concurrency/Synchronization.h>
 
 #ifndef ICE_IGNORE_VERSION
 #   if ICE_INT_VERSION / 100 != 305

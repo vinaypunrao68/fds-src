@@ -1,54 +1,32 @@
-# **********************************************************************
+topdir            := ..
+user_target       := exe
+user_rtime_env    := user
+user_build        := unit-test
+
+# TODO: remove the topdir path in the include search
 #
-# Copyright (c) 2003-2013 ZeroC, Inc. All rights reserved.
-#
-# This copy of Ice is licensed to you under the terms described in the
-# ICE_LICENSE file included in this distribution.
-#
-# **********************************************************************
-top_srcdir	= ../lib/Ice-3.5.0/cpp
-HV_LIBS		= ../util/hash/MurmurHash3.o
+user_incl_dir     := $(topdir) $(topdir)/fds_client/include
+user_cpp_flags    :=
+user_fds_so_libs  :=
+user_fds_ar_libs  := fds-thread fds-util fds-fdsp fds-lib
+user_non_fds_libs :=                                                          \
+    boost_log boost_system boost_thread boost_date_time boost_program_options \
+    Ice IceUtil IceStorm leveldb ssl crypto leveldb
 
-FDS_CFG		= StorHvisor.a
+StorHvisor_cpp    :=                   \
+    StorHvisorNet.cpp                  \
+    RPC_EndPoint.cpp                   \
+    StorHvisorTx.cpp                   \
+    StorHvisorTbl.cpp                  \
+    StorHvisorRx.cpp                   \
+    VolumeCatalogCache.cpp             \
+    StorHvJournal.cpp                  \
+    StorHvVolumes.cpp
 
-TARGETS		= $(FDS_CFG)
+user_cpp          :=                   \
+    $(StorHvisor_cpp)
 
-ICE_OBJS	= ../fdsp/FDSP.o
+user_ar_libs      := StorHvisor
+StorHvisor        := $(StorHvisor_cpp)
 
-COBJS		= StorHvisorNet.o \
-		  RPC_EndPoint.o \
-		  StorHvisorTx.o  \
-		  StorHvisorTbl.o \
-		  StorHvisorRx.o \
-		  VolumeCatalogCache.o \
-		  StorHvJournal.o \
-                  StorHvVolumes.o
-
-SRCS		= $(OBJS:.o=.cpp) \
-		  $(COBJS:.o=.cpp)
-
-#SLICE_SRCS	= FDSP.ice
-
-#
-# Use C++11 for additional STL support
-#
-CPP11		= yes
-
-MY_FLAGS	= -std=c++0x -Wall -Werror -g2 -I../ -I../lib/Ice-3.5.0/cpp/include -I../fdsp/ -I/usr/local/include/boost \
-                  -I../util/concurrency -I../fds-include
-MY_LIBS		= -L../lib/Ice-3.5.0/cpp/lib -lpthread -lIce -lIceUtil ../fdsp/FDSP.o ./VolumeCatalogCache.o -lIceStorm ../lib/OMgrClient.o -lboost_log -lboost_system -lboost_thread -lboost_date_time -lboost_filesystem ../util/Log.o ../util/PerfStat.o  ../util/hash/MurmurHash3.o ../util/concurrency/Mutex.o ../util/concurrency/ThreadPool.o ../util/concurrency/Synchronization.o
-
-include $(top_srcdir)/config/Make.rules
-
-CPPFLAGS	:= -I. $(CPPFLAGS) -I $(top_srcdir)/include/Ice -I../include -I../util/hash -I../fds_client/include \
-                   -I../fdsp -I.. -I../lib -I../fds-include/ -I../util/concurrency
-
-# create only  .o for now 
-$(FDS_CFG): $(OBJS) $(COBJS) $(ICE_OBJS)
-	ar rc  $@  $(OBJS) $(COBJS) $(ICE_OBJS)
-	$(CXX) $(LDFLAGS) -c -o VolumeCatalogCache.o VolumeCatalogCache.cpp $(MY_FLAGS)
-	$(CXX) $(LDFLAGS) -o vcc_unit_test vcc_unit_test.cpp $(MY_FLAGS) $(MY_LIBS) $(FDS_CFG)
-
-#	rm -f $@
-#	$(CXX)  $@ $(OBJS) $(COBJS) $(LIBS) $(HV_LIBS)
-#	$(CXX) $(LDFLAGS) -o $@ $(OBJS) $(COBJS) $(LIBS) $(HV_LIBS)
+include $(topdir)/Makefile.incl

@@ -15,13 +15,12 @@
  */
 
 #include <Ice/Ice.h>
-#include <FDSP.h>
-#include <ObjectFactory.h>
+#include <fdsp/FDSP.h>
 #include <Ice/ObjectFactory.h>
 #include <Ice/BasicStream.h>
 #include <Ice/Object.h>
 #include <IceUtil/Iterator.h>
-#include <StorHvisorNet.h>
+#include "StorHvisorNet.h"
 
 #include <stdio.h>
 #include <sys/types.h>

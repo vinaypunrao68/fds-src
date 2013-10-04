@@ -1,6 +1,5 @@
 #include <Ice/Ice.h>
-#include "FDSP.h"
-#include <ObjectFactory.h>
+#include <fdsp/FDSP.h>
 #include <Ice/ObjectFactory.h>
 #include <Ice/BasicStream.h>
 #include <Ice/Object.h>
@@ -9,7 +8,7 @@
 #include "StorHvisorNet.h"
 #include "StorHvisorCPP.h"
 #include "hvisor_lib.h"
-#include "MurmurHash3.h"
+#include <hash/MurmurHash3.h>
 #include <arpa/inet.h>
 //#include "tapdisk.h"
 

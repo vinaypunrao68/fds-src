@@ -5,23 +5,23 @@
 #ifndef __STOR_HV_VOLS_H_
 #define __STOR_HV_VOLS_H_
 
-#include <lib/Ice-3.5.0/cpp/include/Ice/Ice.h>
-#include <lib/Ice-3.5.0/cpp/include/IceUtil/IceUtil.h>
+#include <Ice/Ice.h>
+#include <IceUtil/IceUtil.h>
 #include <boost/thread/thread.hpp>
 #include <boost/lockfree/queue.hpp>
 #include <iostream>
 #include <boost/atomic.hpp>
-#include "fds-include/ThreadPool.h"
+#include <concurrency/ThreadPool.h>
 
 #include <unordered_map>
 
-#include "fdsp/FDSP.h"
-#include "include/fds_err.h"
-#include "include/fds_types.h"
-#include "include/fds_volume.h"
-#include "util/Log.h"
-#include "util/PerfStat.h"
-#include "util/concurrency/RwLock.h"
+#include <fdsp/FDSP.h>
+#include <fds_err.h>
+#include <fds_types.h>
+#include <fds_volume.h>
+#include <util/Log.h>
+#include <util/PerfStat.h>
+#include <concurrency/RwLock.h>
 #include "VolumeCatalogCache.h"
 #include "StorHvJournal.h"
 

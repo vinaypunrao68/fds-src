@@ -3,9 +3,9 @@
 #include <IceUtil/IceUtil.h>
 #include <Ice/Ice.h>
 
-#include "FDSP.h"
-#include "include/fds_err.h"
-#include "include/fds_types.h"
+#include <fdsp/FDSP.h>
+#include <fds_err.h>
+#include <fds_types.h>
 #include <StorHvisorNet.h>
 //#include "fds_client/include/ubd.h"
 #include "StorHvJournal.h"

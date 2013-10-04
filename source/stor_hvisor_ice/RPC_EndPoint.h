@@ -20,11 +20,10 @@
 #include <IceUtil/IceUtil.h>
 #include <Ice/Ice.h>
 #include <fdsp/FDSP.h>
-#include "list.h"
 #include <list>
-#include "fds_client/include/ubd.h"
-#include <Mutex.h>
-#include "include/fds_types.h"
+#include <ubd.h>
+#include <concurrency/Mutex.h>
+#include <fds_types.h>
 
 
 using namespace FDS_ProtocolInterface;

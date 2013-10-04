@@ -1,7 +1,6 @@
 #include <cstdarg>
 #include <Ice/Ice.h>
-#include <FDSP.h>
-#include <ObjectFactory.h>
+#include <fdsp/FDSP.h>
 #include <Ice/ObjectFactory.h>
 #include <Ice/BasicStream.h>
 #include <Ice/Object.h>

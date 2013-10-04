@@ -11,19 +11,19 @@
 #ifndef SOURCE_STOR_HVISOR_ICE_VOLUMECATALOGCACHE_H_
 #define SOURCE_STOR_HVISOR_ICE_VOLUMECATALOGCACHE_H_
 
-#include <lib/Ice-3.5.0/cpp/include/Ice/Ice.h>
-#include <lib/Ice-3.5.0/cpp/include/IceUtil/IceUtil.h>
+#include <Ice/Ice.h>
+#include <IceUtil/IceUtil.h>
 
 #include <unordered_map>
 #include <stdexcept>
 
-#include "include/fds_err.h"
-#include "include/fds_types.h"
-#include "include/fds_volume.h"
-#include "fdsp/FDSP.h"
-#include "util/Log.h"
-#include "util/concurrency/Mutex.h"
-#include "util/concurrency/RwLock.h"
+#include <fds_err.h>
+#include <fds_types.h>
+#include <fds_volume.h>
+#include <fdsp/FDSP.h>
+#include <util/Log.h>
+#include <concurrency/Mutex.h>
+#include <concurrency/RwLock.h>
 
 /*
  * Forward declaration of SH control class

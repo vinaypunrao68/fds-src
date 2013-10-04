@@ -1,17 +1,17 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
-#include <stor_hvisor_ice/VolumeCatalogCache.h>
-#include <stor_hvisor_ice/StorHvisorNet.h>
+#include <VolumeCatalogCache.h>
+#include <StorHvisorNet.h>
 
 #include <iostream>  // NOLINT(*)
 #include <vector>
 #include <string>
 #include <list>
 
-#include "include/fds_volume.h"
-#include "util/Log.h"
-#include "util/concurrency/Thread.h"
+#include <fds_volume.h>
+#include <util/Log.h>
+#include <concurrency/Thread.h>
 /*
  * Piggyback on the global storHvisor that's been
  * declared elsewhere.

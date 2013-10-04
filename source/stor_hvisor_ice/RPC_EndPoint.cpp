@@ -17,8 +17,7 @@
 #include <Ice/UndefSysMacros.h>
 #include <IceUtil/IceUtil.h>
 #include <Ice/Ice.h>
-#include <FDSP.h>
-#include "list.h"
+#include <fdsp/FDSP.h>
 #include <list>
 #include <StorHvisorNet.h>
 #include <RPC_EndPoint.h>

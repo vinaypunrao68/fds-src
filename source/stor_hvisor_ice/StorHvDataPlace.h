@@ -1,9 +1,11 @@
 #ifndef __STOR_HV_DATA_PLACEMENT_H__
 #define  __STOR_HV_DATA_PLACEMENT_H__
 
-#include "include/fds_types.h"
-#include "include/fds_err.h"
-#include "lib/OMgrClient.h"
+#include <fds_types.h>
+#include <fds_err.h>
+
+/* TODO: use API interface header file in include directory */
+#include <lib/OMgrClient.h>
 
 using namespace fds;
 
