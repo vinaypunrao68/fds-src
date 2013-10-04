@@ -1,6 +1,6 @@
 #ifndef LIB_KERNEL
-#include <my_global.h>
-#include <mysql.h>
+//#include <my_global.h>
+//#include <mysql.h>
 #include <openssl/lhash.h>
 #else
 #include <linux/init.h>

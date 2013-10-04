@@ -7,10 +7,10 @@
 
 #include <pthread.h>
 
-#include "include/vvclib.h"
-#include "include/tvclib.h"
+#include <vvclib.h>
+#include <tvclib.h>
 
-#include "openssl/lhash.h"
+#include <openssl/lhash.h>
 
 #include "data_mgr_pvt.h"
 

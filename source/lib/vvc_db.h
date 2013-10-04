@@ -1,6 +1,6 @@
 #include "vvc_private.h"
 
-#include <my_global.h>
+//#include <my_global.h>
 #include <mysql.h>
 #include <openssl/lhash.h>
 

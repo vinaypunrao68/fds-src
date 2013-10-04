@@ -4,7 +4,8 @@
 #include <fds_commons_rm.h>
 #include <fds_types.h>
 
-#include <vvc_db.h>
+// TODO: can't include header file outside this directory.
+#include <lib/vvc_db.h>
 
 typedef void *vvc_vhdl_t;
 

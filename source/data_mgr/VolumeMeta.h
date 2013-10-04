@@ -12,12 +12,14 @@
 
 #include <string>
 
-#include "include/fds_types.h"
-#include "include/fds_err.h"
-#include "util/Log.h"
-#include "lib/VolumeCatalog.h"
-#include "util/concurrency/Mutex.h"
-#include "include/fds_volume.h"
+#include <fds_types.h>
+#include <fds_err.h>
+#include <util/Log.h>
+
+/* TODO: avoid cross compont include, move to include directory. */
+#include <lib/VolumeCatalog.h>
+#include <concurrency/Mutex.h>
+#include <fds_volume.h>
 
 namespace fds {
 

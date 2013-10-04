@@ -4,7 +4,7 @@
 
 #include <string>
 
-#include "data_mgr/DataMgr.h"
+#include "DataMgr.h"
 
 namespace fds {
 

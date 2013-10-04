@@ -10,9 +10,9 @@
 #include <string>
 #include <list>
 
-#include "util/Log.h"
-#include "include/fds_types.h"
-#include "fdsp/FDSP.h"
+#include <util/Log.h>
+#include <fds_types.h>
+#include <fdsp/FDSP.h>
 
 #define NUM_CONC_REQS 3
 

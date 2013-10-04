@@ -14,16 +14,18 @@
 #include <unordered_map>
 #include <string>
 
-#include "fdsp/FDSP.h"
-#include "include/fds_types.h"
-#include "include/fds_err.h"
-#include "include/fds_volume.h"
-#include "lib/OMgrClient.h"
+#include <fdsp/FDSP.h>
+#include <fds_types.h>
+#include <fds_err.h>
+#include <fds_volume.h>
 
-#include "util/Log.h"
-#include "data_mgr/VolumeMeta.h"
-#include "util/concurrency/ThreadPool.h"
-#include "util/concurrency/Mutex.h"
+/* TODO: avoid cross module include, move API header file to include dir. */
+#include <lib/OMgrClient.h>
+
+#include <util/Log.h>
+#include <VolumeMeta.h>
+#include <concurrency/ThreadPool.h>
+#include <concurrency/Mutex.h>
 
 namespace fds {
 
