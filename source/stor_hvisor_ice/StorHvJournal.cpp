@@ -33,12 +33,17 @@ StorHvJournalEntry::StorHvJournalEntry()
    incarnation_number = 0;
    // Initialize lock to unlocked state here
    je_mutex = new fds_mutex("Journal Entry Mutex");
-   ioTimerTask = new StorHvIoTimerTask(this);
 }
 
 StorHvJournalEntry::~StorHvJournalEntry()
 {
   delete je_mutex;
+}
+
+void StorHvJournalEntry::init(unsigned int transid, StorHvJournal *jrnl_tbl)
+{
+  trans_id = transid;
+  ioTimerTask = new StorHvIoTimerTask(this, jrnl_tbl);
 }
 
 void StorHvJournalEntry::reset()
@@ -172,6 +177,7 @@ StorHvJournalEntryLock::~ StorHvJournalEntryLock() {
 }
 
 StorHvJournal::StorHvJournal(unsigned int max_jrnl_entries)
+  : ioTimer(new IceUtil::Timer())
 {
 	unsigned int i =0;
 
@@ -180,14 +186,11 @@ StorHvJournal::StorHvJournal(unsigned int max_jrnl_entries)
 	rwlog_tbl = new StorHvJournalEntry[max_journal_entries];
   
 	for (i = 0; i < max_journal_entries; i++) {
-	  rwlog_tbl[i].trans_id = i;
-	  rwlog_tbl[i].ioTimerTask->jrnlTbl = this;
+          rwlog_tbl[i].init(i, this);    
 	  free_trans_ids.push(i);
 	}
 
 	jrnl_tbl_mutex = new fds_mutex("Journal Table Mutex");
-
-        ioTimer = new IceUtil::Timer();
 
 	ctime = boost::posix_time::microsec_clock::universal_time();
 	// printf("Created journal table lock %p for Journal Table %p \n", jrnl_tbl_mutex, this);
@@ -203,6 +206,7 @@ StorHvJournal::StorHvJournal()
 StorHvJournal::~StorHvJournal()
 {
   delete jrnl_tbl_mutex;
+  ioTimer->destroy();
 }
 
 void StorHvJournal::lock()
