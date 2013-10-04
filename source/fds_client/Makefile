@@ -1,31 +1,23 @@
-CC = gcc
-TOPDIR = ..
-CFLAGS = -Iinclude -g -I../stor_hvisor_ice  -I$(TOPDIR)/include
-#LDIR = -L. -L$(TOPDIR)/fds_client/lib -L$(TOPDIR)/lib -L/usr/lib/mysql -L/usr/lib64/mysql -L/usr/lib  -L../lib/Ice-3.5.0/cpp/lib -L../stor_hvisor_ice
-LDIR = -L. -L$(TOPDIR)/lib -L/usr/lib  -L../lib/Ice-3.5.0/cpp/lib -L../stor_hvisor_ice
-LIBS=$(LDIR) -lfds -lssl -lcrypto -lpthread  -lstdc++ -lIce -lIceUtil -lrt -lm -lIceStorm -lboost_log -lboost_system -lboost_thread -lboost_date_time -lboost_filesystem
-UTEST_OBJS =
+topdir            := ..
+user_target       := exe
+user_rtime_env    := user
+user_build        :=
 
-all: ubd hvisor_uspace_test
+user_incl_dir     := include $(topdir)/stor_hvisor_ice
+user_cpp_flags    :=
+user_fds_so_libs  :=
+user_fds_ar_libs  :=                                                          \
+    fds-StorHvisor fds-thread fds-util fds-fdsp fds-lib fds-hash
 
-ubd: ubd.o
-	$(CC) -o ubd ubd.o ../fdsp/FDSP.o ../util/hash/MurmurHash3.o ../stor_hvisor_ice/RPC_EndPoint.o ../stor_hvisor_ice/StorHvisorRx.o ../stor_hvisor_ice/StorHvisorTx.o ../stor_hvisor_ice/StorHvisorTbl.o ../stor_hvisor_ice/StorHvisorNet.o ../stor_hvisor_ice/StorHvVolumes.o ../stor_hvisor_ice/VolumeCatalogCache.o ../stor_hvisor_ice/StorHvJournal.o ../util/Log.o ../util/PerfStat.o ../util/concurrency/ThreadPool.o ../util/concurrency/Mutex.o ../util/concurrency/Synchronization.o $(UTEST_OBJS)  $(LIBS)
+user_non_fds_libs :=                                                          \
+    boost_log boost_system boost_thread boost_date_time boost_program_options \
+    boost_filesystem Ice IceUtil IceStorm
 
-ubd_utest: ubd_utest.o
-	$(CC) -o ubd_utest ubd_utest.o 
+user_cpp          :=
+ubd_cc            :=                   \
+    ubd.c
 
-hvisor_uspace_test: ubd_hvisor_test.o
-	$(CC) -o hvisor_uspace_test ubd_hvisor_test.o ../fdsp/FDSP.o ../util/hash/MurmurHash3.o ../stor_hvisor_ice/RPC_EndPoint.o ../stor_hvisor_ice/StorHvisorRx.o ../stor_hvisor_ice/StorHvisorTx.o ../stor_hvisor_ice/StorHvisorTbl.o ../stor_hvisor_ice/StorHvisorNet.o ../stor_hvisor_ice/StorHvVolumes.o ../stor_hvisor_ice/VolumeCatalogCache.o ../stor_hvisor_ice/StorHvJournal.o ../util/Log.o ../util/PerfStat.o ../util/concurrency/ThreadPool.o ../util/concurrency/Mutex.o ../util/concurrency/Synchronization.o $(UTEST_OBJS)  $(LIBS)
+user_bin_exe      := ubd
+ubd               := $(ubd_cc)
 
-ubd_hvisor_test.o: ubd.c
-	$(CC) -c -o ubd_hvisor_test.o ubd.c $(CFLAGS) -DHVISOR_USPACE_TEST
-
-ubd_utest.o: ubd.c
-	$(CC) -c -o ubd_utest.o ubd.c $(CFLAGS)  -DBLKTAP_UNIT_TEST
-
-ubd.o: ubd.c
-	$(CC) $(CFLAGS) -c -o ubd.o ubd.c
-
-clean:
-	rm *.o ubd ubd_utest hvisor_uspace_test
-
+include $(topdir)/Makefile.incl

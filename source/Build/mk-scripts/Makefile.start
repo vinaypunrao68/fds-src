@@ -88,7 +88,9 @@ main_incl_flags := -I. -I$(main_incl_dir)
 local_cc_common := -g -fPIC $(main_incl_flags)
 main_cc_defs    := -D_REENTRANT
 
-main_cc_flags   := -Wstrict-prototypes -Wall -Werror
+# TODO: need to enable these flags.
+# main_cc_flags   := -Wstrict-prototypes -Wall -Werror
+main_cc_flags   :=
 main_cc_flags   += $(local_cc_common) $(main_cc_defs)
 
 main_cpp_flags  := -g2 -std=c++0x

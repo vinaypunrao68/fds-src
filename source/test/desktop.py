@@ -42,8 +42,8 @@ cp_port_map = {STORMGR:13000, DATAMGR:12000, VCC:12000}
 #
 # Relative to source/test dir
 #
-ice_home = "../lib/Ice-3.5.0"
-ld_path = "../lib/:../lib/Ice-3.5.0/cpp/lib/:../lib/leveldb-1.12.0/:/usr/local/lib"
+ice_home = "../../Ice-3.5.0"
+ld_path = "../../Ice-3.5.0/cpp/lib/:../../leveldb-1.12.0/:/usr/local/lib"
 
 class TestSequenceFunctions(unittest.TestCase):
 
