@@ -174,9 +174,9 @@ void OrchMgr::roundRobinDlt(fds_placement_table* table,
 
     for (fds_uint32_t j = 0; j < table->getMaxDepth(); j++) {
       node_list.push_back((nl_it->second).node_id);
-      FDS_PLOG(callerLog) << "Pushing into bucket " << i
-                          << " entry " << i << " node "
-                          << (nl_it->second).node_id;
+      // FDS_PLOG(callerLog) << "Pushing into bucket " << i
+      //                    << " entry " << i << " node "
+      //                    << (nl_it->second).node_id;
       nl_it++;
       if (nl_it == nodeMap.cend()) {
         nl_it = nodeMap.cbegin();
@@ -971,6 +971,10 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
   }
 
   fds_int32_t new_node_id = getFreeNodeId(reg_node_req->node_name);
+
+  FDS_PLOG(GetLog()) << "Assigning node id " << new_node_id << " to node " << reg_node_req->node_name 
+		     << ". Trying to connect at " << tcpProxyStr.str();
+
 
   /*
    * Build the node info structure and add it

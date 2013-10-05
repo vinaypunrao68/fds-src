@@ -60,8 +60,9 @@ public:
  StorHvJournal      *jrnlTbl;
 
   void runTimerTask();
-  StorHvIoTimerTask(StorHvJournalEntry *jrnl_entry) {
+  StorHvIoTimerTask(StorHvJournalEntry *jrnl_entry, StorHvJournal *jrnl_tbl) {
      jrnlEntry = jrnl_entry;
+     jrnlTbl = jrnl_tbl;
   }
 };
 
@@ -73,6 +74,8 @@ class   StorHvJournalEntry {
 public:
   StorHvJournalEntry();
   ~StorHvJournalEntry();
+
+  void init(unsigned int transid, StorHvJournal* jrnl_tbl);
   void reset();
   void setActive();
   void setInactive();
@@ -88,7 +91,7 @@ public:
   void fbd_complete_req(fbd_request_t *req, int status);
   void fbd_process_req_timeout();
 
-  StorHvIoTimerTask *ioTimerTask;
+  IceUtil::TimerTaskPtr ioTimerTask;
   bool   is_in_use;
   unsigned int trans_id;
   short  replc_cnt;
@@ -140,7 +143,7 @@ private:
 
   unsigned int get_free_trans_id();
   void return_free_trans_id(unsigned int trans_id);
-  IceUtil::Timer *ioTimer;
+  IceUtil::TimerPtr ioTimer;
 
   boost::posix_time::ptime ctime; /* time the journal was created */
 

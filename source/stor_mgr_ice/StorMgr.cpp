@@ -448,11 +448,14 @@ ObjectStorMgr::run(int argc, char* argv[])
   /*
    * Set basic thread properties.
    */
-  props->setProperty("ObjectStorMgrSvr.ThreadPool.Size", "50");
-  props->setProperty("ObjectStorMgrSvr.ThreadPool.SizeMax", "100");
-  props->setProperty("ObjectStorMgrSvr.ThreadPool.SizeWarn", "75");
-  
-  
+  props->setProperty("ObjectStorMgrSvr.ThreadPool.Client.Size", "200");
+  props->setProperty("ObjectStorMgrSvr.ThreadPool.Client.SizeMax", "400");
+  props->setProperty("ObjectStorMgrSvr.ThreadPool.Client.SizeWarn", "300");
+
+  props->setProperty("ObjectStorMgrSvr.ThreadPool.Server.Size", "200");
+  props->setProperty("ObjectStorMgrSvr.ThreadPool.Server.SizeMax", "400");
+  props->setProperty("ObjectStorMgrSvr.ThreadPool.Server.SizeWarn", "300");
+
   std::ostringstream tcpProxyStr;
   tcpProxyStr << "tcp -p " << port_num;
   
