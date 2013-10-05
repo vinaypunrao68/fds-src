@@ -41,6 +41,17 @@
 #   user_so_libs     : list of FDS so libs to build.
 #   user_clean       : any extra clean targets.
 #
+#   user_install     : list of files to be install.
+#   user_install_loc : [exe | tool | test | cfg | man | inst_script | script]
+#       Location to copy any installed files not done by the build.
+#       exe  - copy files to <build>/bin directory.
+#       tool - copy files to <build>/tools directory.
+#       test - copy files to <build>/tests directory.
+#       cfg  - copy files to <build>/config directory.
+#       man  - copy files to <build>/man directory.
+#       inst_script - go to <build>/install_scripts.
+#       script - goto <build>/scripts.
+#
 # Flags used to control 3rd party Makefiles.
 #   user_ext_incl_dir :
 #   user_ext_cc_flags :
@@ -69,6 +80,12 @@ endif
 
 ifndef topdir
     $(error "Makefile must define topdir variable")
+endif
+
+ifdef user_install
+    ifndef user_install_loc
+        $(error "You must define user_install_loc variable to put your files")
+    endif
 endif
 
 # Version variables
@@ -135,7 +152,9 @@ main_dir_lib           := $(main_dir_build)/lib
 main_dir_bin           := $(main_dir_build)/bin
 main_dir_kmod          := $(main_dir_build)/modules
 main_dir_tools         := $(main_dir_build)/tools
+main_dir_tool_lib      := $(main_dir_build)/tool-lib
 main_dir_tests         := $(main_dir_build)/tests
+main_dir_test_lib      := $(main_dir_build)/test-lib
 main_dir_package       := $(main_dir_build)/package
 main_dir_scripts       := $(main_dir_build)/scripts
 

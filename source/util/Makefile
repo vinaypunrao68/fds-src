@@ -1,7 +1,7 @@
 topdir           := ..
 user_target      := lib
 user_rtime_env   := user
-user_build       := hash unit-test
+user_build_dir   := hash unit-test
 user_cpp         := \
     PerfStat.cpp Log.cpp
 

@@ -1,7 +1,9 @@
 topdir            := ..
 user_target       := exe
 user_rtime_env    := user
-user_build        := unit-test
+user_install      := dm_test.conf om_client.conf
+user_install_loc  := exe
+user_build_dir    := unit-test
 
 # TODO: remove this once we have correct placement of header API.
 #

@@ -90,7 +90,7 @@ base_objs: $(local_obj_files)
 
 .PHONY: base_all
 base_all: $(comm_libs) $(comm_libsos) $(comm_exes) $(comm_mods) $(comm_imgs)
-ifdef user_build
+ifdef user_build_dir
 	@$(scpt_build_subdir)
 endif
 
@@ -124,7 +124,14 @@ base_postmake:
 # Install all targets to the final Build directory.
 #
 .PHONY: base_install
+ifdef user_install
+local_install_files := $(patsubst %,$(comm_install_dir)/%,$(user_install))
+$(foreach inst,$(user_install),$(eval $(call scpt_install,$(inst))))
+
+base_install: $(local_install_files)
+else
 base_install:
+endif
 
 # -----------------------------------------------------------------------------
 # Clean target
@@ -132,7 +139,12 @@ base_install:
 .PHONY: clean
 clean: $(user_clean)
 	@$(scpt_make_clean)
-ifdef user_build
+ifdef user_clean
+	for f in $(user_clean); do                                               \
+		[ -f $$f ] && rm $$f;                                                 \
+	done
+endif
+ifdef user_build_dir
 	@$(scpt_build_subdir)
 endif
 

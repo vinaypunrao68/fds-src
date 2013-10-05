@@ -30,14 +30,51 @@ DATAMGR = 2
 STORHVI = 3
 VCC = 4
 OM = 5
+
+fds_bin_dir  = '../Build/linux-x86_64/bin'
+fds_test_dir = '../Build/linux-x86_64/test'
+
 components = [STORMGR, DATAMGR, VCC, OM]
-bin_map = {STORMGR:"StorMgr", DATAMGR:"DataMgr", VCC:"DataMgr", OM:"orchMgr"}
-bin_args = {OM:"--test"}
-dir_map = {STORMGR:"stor_mgr_ice", DATAMGR:"data_mgr", STORHVI:"stor_hvisor_ice", VCC:"data_mgr", OM:"orch_mgr"}
-udir_map = {STORMGR:"stor_mgr_ice", DATAMGR:"data_mgr", STORHVI:"fds_client", VCC:"stor_hvisor_ice", OM:"orch_mgr"}
-ut_map = {STORMGR:"sm_unit_test", DATAMGR:"dm_unit_test", STORHVI:"hvisor_uspace_test", VCC:"vcc_unit_test", OM:"om_unit_test"}
-port_map = {STORMGR:10000, DATAMGR:11000, VCC:11000, OM:14000}
-cp_port_map = {STORMGR:13000, DATAMGR:12000, VCC:12000}
+bin_map = {
+    STORMGR : "StorMgr",
+    DATAMGR : "DataMgr",
+    VCC     : "DataMgr",
+    OM      : "orchMgr"
+}
+bin_args = {
+    OM      : "--test"
+}
+dir_map = {
+    STORMGR : fds_bin_dir,
+    DATAMGR : fds_bin_dir,
+    STORHVI : fds_bin_dir,
+    VCC     : fds_bin_dir,
+    OM      : fds_bin_dir
+}
+udir_map = {
+    STORMGR : fds_test_dir,
+    DATAMGR : fds_test_dir,
+    STORHVI : fds_test_dir,
+    VCC     : fds_test_dir,
+    OM      : fds_test_dir
+}
+#ut_map = {STORMGR:"sm_unit_test", DATAMGR:"dm_unit_test", STORHVI:"hvisor_uspace_test", VCC:"vcc_unit_test", OM:"om_unit_test"}
+ut_map = {
+    STORMGR  : "sm_unit_test",
+    DATAMGR  : "dm_unit_test",
+    OM       : "om_unit_test"
+}
+port_map = {
+    STORMGR  : 10000,
+    DATAMGR  : 11000,
+    VCC      : 11000,
+    OM       : 14000
+}
+cp_port_map = {
+    STORMGR  : 13000,
+    DATAMGR  : 12000,
+    VCC      : 12000
+}
 
 #
 # Relative to source/test dir

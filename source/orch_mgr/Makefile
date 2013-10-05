@@ -1,7 +1,7 @@
 topdir            := ..
 user_target       := exe
 user_rtime_env    := user
-user_build        := unit-test
+user_build_dir    := unit-test
 
 user_fds_so_libs  :=
 user_fds_ar_libs  := fds-thread fds-util fds-fdsp fds-lib

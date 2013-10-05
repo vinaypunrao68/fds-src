@@ -9,7 +9,7 @@ local_ice_target := $(patsubst %.ice,$(local_ice_outdir)/%.h, $(local_ice_src))
 # Customize Makefile rules only unique to this directory.
 #
 user_predep      := $(local_ice_target)
-user_clean       := ice_clean
+user_clean       := $(local_ice_target)
 user_rm_text     := "\t[ICE-Clean .h, .cpp]\t" $(local_ice_outdir)
 user_rm_list     := $(local_ice_target)
 
@@ -32,6 +32,3 @@ endif
 endef
 
 $(foreach ice,$(local_ice_src),$(eval $(call local_mk_ice_cpp,$(ice))))
-
-ice_clean:
-	@$(scpt_rm_file_list)

@@ -1,7 +1,7 @@
 topdir            := ..
 user_target       := exe
 user_rtime_env    := user
-user_build        :=
+user_build_dir    :=
 
 user_incl_dir     := include $(topdir)/stor_hvisor_ice
 user_cpp_flags    :=

@@ -29,3 +29,7 @@ linux-*
 *Ice-3.5.0/cpp/include/*
 *Ice-3.5.0/cpp/src/*
 *Ice-3.5.0/cpp/test/*
+
+# Kernel built files.
+*.cmd
+*.ko

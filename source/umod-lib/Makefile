@@ -1,4 +1,4 @@
-topdir     := ../
-user_build := concurrency test-unit
+topdir         := ../
+user_build_dir := concurrency test-unit
 
 include $(topdir)/Makefile.incl

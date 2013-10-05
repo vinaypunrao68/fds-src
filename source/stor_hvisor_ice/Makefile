@@ -1,7 +1,7 @@
 topdir            := ..
 user_target       := exe
 user_rtime_env    := user
-user_build        := unit-test
+user_build_dir    := unit-test
 
 # TODO: remove the topdir path in the include search
 #

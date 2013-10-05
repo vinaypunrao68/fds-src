@@ -22,7 +22,7 @@ ifdef user_fds_so_libs
 comm_dep_libs   += $(user_fds_so_libs)
 endif
 
-# Set common flags used for for each build targets
+# Set common flags used for each build targets
 #
 ifeq ($(user_rtime_env), kernel)
     comm_dir_objs  := $(osdep_kern_build)
@@ -55,6 +55,7 @@ ifeq ($(user_rtime_env), user)
     #
     ifeq ($(user_target), tool)
         comm_dir_bin  := $(main_dir_tools)
+        comm_ld_flags += -L$(main_dir_tool_lib)
         comm_dep_libs += $(main_tool_dep_libs)
     endif
 
@@ -62,8 +63,37 @@ ifeq ($(user_rtime_env), user)
     #
     ifeq ($(user_target), test)
         comm_dir_bin  := $(main_dir_tests)
+        comm_ld_flags += -L$(main_dir_test_lib)
         comm_dep_libs += $(main_test_dep_libs)
     endif
+endif
+
+comm_install_dir :=
+ifdef user_install
+    ifeq ($(user_install_loc), exe)
+        comm_install_dir := $(main_dir_bin)
+    endif
+    ifeq ($(user_install_loc), test)
+        comm_install_dir := $(main_dir_tests)
+    endif
+    ifeq ($(user_install_loc), tool)
+        comm_install_dir := $(main_dir_tools)
+    endif
+    ifeq ($(user_install_loc), cfg)
+        comm_install_dir := $(main_dir_build)/config
+    endif
+    ifeq ($(user_install_loc), man)
+        comm_install_dir := $(main_dir_build)/man
+    endif
+    ifeq ($(user_install_loc), script)
+        comm_install_dir := $(main_dir_build)/scripts
+    endif
+    ifeq ($(user_install_loc), inst_script)
+        comm_install_dir := $(main_dir_build)/install-scripts
+    endif
+endif
+ifeq ($comm_install_dir),)
+    $(error "You need to set user_install_loc: [exe|test|tool|cfg|main...]")
 endif
 
 # Add user include paths and dependent libs.

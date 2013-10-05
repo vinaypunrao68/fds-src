@@ -8,7 +8,7 @@
 # Script do subdir build
 #
 scpt_build_subdir =                                                          \
-    for f in $(user_build); do                                               \
+    for f in $(user_build_dir); do                                           \
         echo Making $(MAKECMDGOALS) in `pwd`/$$f;                            \
         (cd $$f && $(MAKE) $(MAKECMDGOALS) --no-print-directory) || exit 1;  \
     done
@@ -61,6 +61,19 @@ ifdef VERBOSE
 else
 	@echo "\t[LINK .exe]\t$$@"
 	@$(cpp) $(call comm_src2obj,$($(1))) $(rule_exe_flags) -o $$@
+endif
+endef
+
+# ----------------------------------------------------------------------------
+# Script to do installation.
+#
+define scpt_install
+$(comm_install_dir)/$(1): $(1)
+ifdef VERBOSE
+	cp $(1) $(comm_install_dir)
+else
+	@echo "\t[INSTALL]\t$(comm_install_dir)/$(1)"
+	@cp $(1) $(comm_install_dir)
 endif
 endef
 

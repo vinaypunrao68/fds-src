@@ -1,7 +1,7 @@
 topdir           := ..
 user_target      := lib
 user_rtime_env   := user
-user_build       := unit-test
+user_build_dir   := unit-test
 user_cpp         :=               \
     Catalog.cpp                   \
     VolumeCatalog.cpp             \

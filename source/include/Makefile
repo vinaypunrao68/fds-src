@@ -1,4 +1,4 @@
-topdir     := ..
-user_build := fdsp
+topdir         := ..
+user_build_dir := fdsp
 
 include $(topdir)/Makefile.incl
