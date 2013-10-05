@@ -10,8 +10,6 @@ local_ice_target := $(patsubst %.ice,$(local_ice_outdir)/%.h, $(local_ice_src))
 #
 user_predep      := $(local_ice_target)
 user_clean       := $(local_ice_target)
-user_rm_text     := "\t[ICE-Clean .h, .cpp]\t" $(local_ice_outdir)
-user_rm_list     := $(local_ice_target)
 
 include $(topdir)/Makefile.incl
 

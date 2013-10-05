@@ -1,0 +1,195 @@
+# ------------------------------
+# Formation Data Makefile System
+# ------------------------------
+#
+# The Makefile system provides engineers with a very simple model to tell it
+# how to make your project.
+# 1) Most of the time, you can use an existing example and make it works for
+#    you quickly.  The framework takes care of complexity in source code
+#    dependencies and minimizes the guess work of library ordering.
+# 2) If what you need doesn't convered by the Makefile system, you can write
+#    your own private rules, plugin the Makefile system in your private
+#    directory with the confident that you won't break anyone's build.
+# 3) If you want to bring in a new library to link with FDS source, you must
+#    modify the toolchain settings.  If you want to chage global setting
+#    flags, you only need to change variables in respective Makefiles designed
+#    to safe guard your changes from messing up the Makefile's core.
+# 4) Only change the Makefile's core scripts and rules if you know what you're
+#    doing!
+#
+# Makefile overview
+# - Your final build won't be in your directory.  The Makefile system places
+#   all final builds at the top Build directory with this layout:
+#   Build/
+#      /bin    - all production exec binaries.
+#      /lib    - all static and dynamic libraries from FDS code.
+#      /tests  - all unit test and test binaries that we won't ship.
+#      /tools  - your favorite backdoor tools that you don't want any SE to use.
+#      /config - any config that you want to copy in the installation phase.
+#      /man    - any man pages, documents...
+#      /scripts - production scripts.
+#      /install-scripts - non production scripts.
+#
+# - Your object files are built at a child directory of your source.
+#   You can do new builds with different configuration flags, platforms...
+#   using the same source w/out affecting older builds.
+#
+# Basic settings
+
+# [Required]
+# First line in any Makefile, specify the FDS level source where the final
+# Build directory would be located, not the top of the repository tree.
+#
+topdir            :=
+
+# [Required]
+# Tell the Makefile where your runtime environment would be.
+#
+user_rtime_env    := [kernel | user]
+
+# [Required]
+# exe  : final build targets are in Build.<os_target>/bin
+# lib  : final build targets are in Build.<od_target>/lib
+# test : final build targets are in Build.<os_target>/tests
+# tool : final build targets are in Build.<os_target>/tools
+#
+user_target       := [exe | lib | test | tool]
+
+# [Optional]
+# Tell Makefile if you have other sub directories to make.  If you only have
+# directories, user_rtime_env and user_target are optional.
+#
+user_build_dir    :=
+
+# [Optional]
+# Any -I paths that are not in the standard search path?  If you need to add
+# the search path in sibling directories, you need interface API header files
+# in the top level include directory.
+#
+user_incl_dir     :=
+
+# [Optional]
+# Any C++, C compile flags that you need but not set at the global level?
+# The good place to put global flags would be in Makefile.release or
+# Makefile.debug in make's scripts in the mk-scripts directory.
+#
+user_cc_flags     :=
+user_cpp_flags    :=
+user_ld_flags     := [flags to make executable files]
+user_ar_flags     := [flags to make .a lib]
+user_so_flags     := [flags to make .so lib]
+
+# [Optional]
+# Any FDS's static or dynamic lib to link with your final target when the
+# user_target = exe | test | tool
+#
+# Note that the order of libraries in this list *does* matter.  In this
+# example, if fds-foo has symbols defined in fds-thread, it should be
+# listed first.  If you have a circular dependencies in libraries, it's
+# better to break them into smaller libraries than trying to ask the
+# linker to solve it with --start-group ... --end-group flags.
+#
+user_fds_so_libs  :=
+user_fds_ar_libs  := fds-foo fds-thread
+
+# [Optional]
+# Any 3rd party library in the toolchain that you want to link with.  Try to
+# link with library only in the toolchain so that you won't break the build
+# in other people's environment.
+#
+user_non_fds_libs := boost_log boost_system Ice IceUtil IceStorm
+
+# [Optional]
+# Use this variable to list .x files if you want to compile with RPCgen.
+#
+user_rpc          := a.x b.x
+user_rpc_hdr_dir  := [where generated .h files will go]
+
+# List all .c, .cpp files to be compiled.  You can use Make's variables to
+# group related files together so that you don't have to type again when
+# making exec binaries.
+#
+foo_cc            := f1.c f2.c
+bar_cpp           := b1.cpp b2.cpp
+far_cpp           := f1.cpp f2.cpp
+user_cc           := $(foo_cc)
+user_cpp          := $(bar_cpp) $(far_cpp)
+
+# List final targets and tell Make how to build them.  Note that these options
+# are exclusive.  You can't build library and exec binary in the same directory.
+# The same rule applies for tests, tools, and production exec binaries.
+#
+# Note that you must check for matching variables.  If Makefile couldn't find
+# the matching variable from the user_bin_exe list, it won't complain and your
+# build will be incomplete.
+#
+user_bin_exe      := foo bar far
+foo               := $(foo_cc)
+bar               := $(bar_cpp)
+far               := $(far_cpp)
+
+# Same rule as above, tell Make to make list of static libraries.  Note that
+# the Makefile system will add lib prefix and .a suffix automatically.
+#
+user_ar_libs      := foo bar far
+user_so_libs      := foo bar far [will make both .a and .so]
+foo               := $(foo_cc)
+bar               := $(bar_cpp)
+far               := $(far_cpp)
+
+# If you have any files not under build directory that you want to clean,
+# list them here.
+#
+user_clean        := a b c
+
+# If you have any files that you want to copy to various places in the final
+# Build directory, use these variables.
+# user_install_loc :=
+#    exe  - copy files to <build>/bin directory.
+#    tool - copy files to <build>/tools directory.
+#    test - copy files to <build>/tests directory.
+#    cfg  - copy files to <build>/config directory.
+#    man  - copy files to <build>/man directory.
+#    script - goto <build>/scripts.
+#    inst_script - go to <build>/install_scripts.
+#
+user_install      := [list of files to be copied]
+user_install_loc  := [exe | tool | test | cfg | man | inst_script | script]
+
+# --------------------------
+# Advanced Makefile Settings
+# --------------------------
+#
+# You can write your own rule and plugin the Makefile system in your private
+# directory.  Take a look at the example in fdsp directory.
+#
+# The Make process flow is as below.  Assign your own variable to intercept
+# it and add your private rule to it:
+#
+# all: $(user_predep) base_predepend $(user_postdep)                    \
+#      $(user_predepend) base_depend $(user_postdepend)                 \
+#      $(user_preall) base_objs base_all $(user_postall)                \
+#      $(user_tool) $(user_scripts) base_postmake                       \
+#      $(user_preinstall) base_install $(user_postinstall)
+#
+# The Makefile system issolates core logic from settings in different files.
+# Don't touch the core logic if you only need to set global variables.
+# The core logic are in:
+#    Makefile.common : not too bad with Make's syntax and logic.
+#    Makefile.rule   : don't change any existing rule if you don't understand
+#        the rule well.  It's best to leave them alone.  When adding new rule,
+#        you must follow the style and convention to make the code maintainable.
+#        Remember that Makefile variables have global scope!
+#    Makefile.scpt   : scripts used by Makefile's rules.
+#
+# Setting Makefile's variables can be done in the following files:
+#    Makefile.osdep - extend the Makefile system to support more platforms,
+#        cross-platform build...
+#    Makefile.linux - Linux's specific settings.
+#    Makefile.linux.kmod - Linux's kernel build settings.
+#    Makefile.debug - any debug build settings.
+#    Makefile.release - any release build settings.
+#    Makefile.toolchain - any 3rd party libraries setting here.
+#
+# Finally, if you're curious about the Makefile system, you can start from
+# here, Makefile.start.
