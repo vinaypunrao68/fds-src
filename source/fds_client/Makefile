@@ -2,6 +2,8 @@ topdir            := ..
 user_target       := exe
 user_rtime_env    := user
 user_build_dir    :=
+user_install      := fds.conf
+user_install_loc  := exe
 
 user_incl_dir     := include $(topdir)/stor_hvisor_ice
 user_cpp_flags    :=
