@@ -32,7 +32,7 @@ VCC = 4
 OM = 5
 
 fds_bin_dir  = '../Build/linux-x86_64/bin'
-fds_test_dir = '../Build/linux-x86_64/test'
+fds_test_dir = '../Build/linux-x86_64/tests'
 
 components = [STORMGR, DATAMGR, VCC, OM]
 bin_map = {
@@ -458,7 +458,7 @@ if __name__ == '__main__':
     if len(sys.argv) > 1 and sys.argv[1] == "--jenkins":
         print "running in jenkins mode"
         import junitxml
-        ld_path = "../libs"
+        ld_path = "../../../libs"
         fp = file('results.xml', 'wb')
         result = junitxml.JUnitXmlResult(fp)
         suite = unittest.TestLoader().loadTestsFromTestCase(TestSequenceFunctions)
