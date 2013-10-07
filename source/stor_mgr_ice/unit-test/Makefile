@@ -1,6 +1,8 @@
 topdir            := ../..
 user_target       := test
 user_rtime_env    := user
+user_install      := ../stor_mgr.conf
+user_install_loc  := test
 
 user_incl_dir     := ..
 user_cpp_flags    :=

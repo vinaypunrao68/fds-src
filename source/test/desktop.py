@@ -31,8 +31,22 @@ STORHVI = 3
 VCC = 4
 OM = 5
 
-fds_bin_dir  = '../Build/linux-x86_64/bin'
-fds_test_dir = '../Build/linux-x86_64/tests'
+# The desktop test must run from FDS src root dir
+#
+fds_root_dir = os.path.abspath('.')
+fds_bin_dir  = os.path.join(fds_root_dir, 'Build/linux-x86_64/bin')
+fds_test_dir = os.path.join(fds_root_dir, 'Build/linux-x86_64/tests')
+
+#
+# Get absolute path for lib because we'll execute inside bin/test dir, not
+# from the FDS source root dir.
+#
+ice_home = os.path.abspath(os.path.join(fds_root_dir, "../Ice-3.5.0"))
+ld_path  = (
+    os.path.abspath(os.path.join(fds_root_dir, '../Ice-3.5.0/cpp/lib/')) + ':' +
+    os.path.abspath(os.path.join(fds_root_dir, '../leveldb-1.12.0/')) + ':' +
+    '/usr/local/lib'
+)
 
 components = [STORMGR, DATAMGR, VCC, OM]
 bin_map = {
@@ -58,11 +72,13 @@ udir_map = {
     VCC     : fds_test_dir,
     OM      : fds_test_dir
 }
-#ut_map = {STORMGR:"sm_unit_test", DATAMGR:"dm_unit_test", STORHVI:"hvisor_uspace_test", VCC:"vcc_unit_test", OM:"om_unit_test"}
 ut_map = {
     STORMGR  : "sm_unit_test",
     DATAMGR  : "dm_unit_test",
+    STORHVI  : "hvisor_uspace_test",
+    VCC      : "vcc_unit_test",
     OM       : "om_unit_test"
+
 }
 port_map = {
     STORMGR  : 10000,
@@ -75,12 +91,6 @@ cp_port_map = {
     DATAMGR  : 12000,
     VCC      : 12000
 }
-
-#
-# Relative to source/test dir
-#
-ice_home = "../../Ice-3.5.0"
-ld_path = "../../Ice-3.5.0/cpp/lib/:../../leveldb-1.12.0/:/usr/local/lib"
 
 class TestSequenceFunctions(unittest.TestCase):
 
@@ -124,7 +134,7 @@ class TestSequenceFunctions(unittest.TestCase):
         for comp in components:
             comp_bin = bin_map[comp]
             for proc in psutil.process_iter():
-                if proc.name == comp:
+                if proc.name == comp_bin:
                     proc.kill()
 
         #
@@ -242,6 +252,7 @@ class TestSequenceFunctions(unittest.TestCase):
         else:
             comp_arg = args
         comp_cmd = comp_exe + " " + comp_arg
+
         print "Starting unit test cmd %s" % (comp_cmd)
 
         #
@@ -251,7 +262,7 @@ class TestSequenceFunctions(unittest.TestCase):
             ut = subprocess.Popen(comp_cmd, shell=True, stdin=None, stdout=subprocess.PIPE)
             (stdoutdata, stderrdata) = ut.communicate(input=None)
             if ut.returncode != 0:
-                print "Unit test failed to exit cleanly"
+                print "Unit test failed to exit cleanly, err code %d" % ut.returncode
                 status = 1
             if re.search("Unit test PASSED", stdoutdata):
                 print "Unit test passed"
@@ -377,9 +388,9 @@ class TestSequenceFunctions(unittest.TestCase):
         test_name = "File Copy"
         status = 0
         num_instances = 1
-        org_file = dir_map[STORMGR] + "/" + bin_map[STORMGR]
-        tmp_file = prefix_base + "tmp_file.in"
-        out_file = prefix_base + "tmp_file.out"
+        org_file = os.path.join(dir_map[STORMGR], bin_map[STORMGR])
+        tmp_file = os.path.join(fds_test_dir, prefix_base + "tmp_file.in")
+        out_file = os.path.join(fds_test_dir, prefix_base + "tmp_file.out")
         print "********** Starting test: %s **********" % (test_name)
 
         #
@@ -413,7 +424,7 @@ class TestSequenceFunctions(unittest.TestCase):
         #
         sm_port = port_map[STORMGR] + num_instances
         dm_port = port_map[DATAMGR] + num_instances
-        args = " --ut_file --infile=%s --outfile=%s --sm_port=%d --dm_port=%d" % ("../" + tmp_file, "../" + out_file, sm_port, dm_port)
+        args = " --ut_file --infile=%s --outfile=%s --sm_port=%d --dm_port=%d" % (tmp_file, out_file, sm_port, dm_port)
         status = self.start_ut(STORHVI, num_instances, args)        
 
         #
