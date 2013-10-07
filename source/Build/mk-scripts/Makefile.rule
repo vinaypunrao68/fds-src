@@ -140,7 +140,7 @@ endif
 clean: $(user_clean)
 	@$(scpt_make_clean)
 ifdef user_clean
-	for f in $(user_clean); do                                               \
+	@for f in $(user_clean); do                                               \
 		[ -f $$f ] && rm $$f;                                                 \
 	done
 endif

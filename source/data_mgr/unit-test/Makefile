@@ -2,7 +2,7 @@ topdir            := ../..
 user_target       := test
 user_rtime_env    := user
 user_build        :=
-user_install      := dm_test.conf
+user_install      := ../dm_test.conf
 user_install_loc  := test
 
 user_incl_dir     := ..
