@@ -28,7 +28,7 @@ class DmDiskQuery : public QueryIn
     ~DmDiskQuery();
 
     fds_blk_t                dmq_blk_size;
-    fds_disk_enum_t          dmq_dsk_type;
+    fds_disk_type_t          dmq_dsk_type;
 
   private:
 };
@@ -39,7 +39,7 @@ class DmDiskInfo
     RsChain<DmDiskInfo>      di_chain;
     fds_blk_t                di_max_blks_cap;
     fds_blk_t                di_used_blks;
-    fds_disk_enum_t          di_disk_type;
+    fds_disk_type_t          di_disk_type;
 
     DmDiskID                 di_disk_id;
     DmNodeID                 di_owner_node;
@@ -100,6 +100,12 @@ class DmQuery : protected QueryMgr
 {
   public:
     ~DmQuery();
+
+    /*
+     * Usage:
+     * const DmQuery &dm = DmQuery::dm_query();
+     * dm.dm_iops(&min, &max);
+     */
     static const DmQuery &dm_query();
 
     static const int dm_blk_shift = 9;
