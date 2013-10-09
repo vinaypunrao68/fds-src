@@ -471,7 +471,29 @@ StorHvCtrl::StorHvCtrl(int argc,
                        fds_uint32_t sm_port_num,
                        fds_uint32_t dm_port_num)
   : mode(_mode) {
-  
+  std::string omIpStr;
+
+  /*
+   * Parse out cmdline options here.
+   * TODO: We're parsing some options here and
+   * some in ubd. We need to unify this.
+   */
+  for (fds_uint32_t i = 1; i < argc; i++) {
+    if (strncmp(argv[i], "--om_ip=", 8) == 0) {
+      if (mode == NORMAL) {
+        /*
+         * Only use the OM's IP in the normal
+         * mode. We don't need it in test modes.
+         */
+        omIpStr = argv[i] + 8;
+      }
+    }
+    /*
+     * We don't complain here about other args because
+     * they may have been processed already but not
+     * removed from argc/argv
+     */
+  }
 
   sh_log = new fds_log("sh", "logs");
   FDS_PLOG(sh_log) << "StorHvisorNet - Constructing the Storage Hvisor";
@@ -483,7 +505,7 @@ StorHvCtrl::StorHvCtrl(int argc,
    * Pass 0 as the data path port since the SH is not
    * listening on that port.
    */
-  om_client = new OMgrClient(FDSP_STOR_HVISOR, 0, "localhost-sh", sh_log);
+  om_client = new OMgrClient(FDSP_STOR_HVISOR, omIpStr, 0, "localhost-sh", sh_log);
   if (om_client) {
     om_client->initialize();
   }

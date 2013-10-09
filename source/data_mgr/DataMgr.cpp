@@ -311,6 +311,8 @@ int DataMgr::run(int argc, char* argv[]) {
       stor_prefix = argv[i] + 9;
     } else if (strncmp(argv[i], "--no_om", 7) == 0) {
       use_om = false;
+    } else if (strncmp(argv[i], "--om_ip=", 8) == 0) {
+      omIpStr = argv[i] + 8;
     } else {
       std::cout << "Invalid argument " << argv[i] << std::endl;
       return -1;
@@ -373,6 +375,7 @@ int DataMgr::run(int argc, char* argv[]) {
    * Setup communication with OM.
    */
   omClient = new OMgrClient(FDSP_DATA_MGR,
+                            omIpStr,
                             port_num,
                             stor_prefix + "localhost-dm",
                             dm_log);

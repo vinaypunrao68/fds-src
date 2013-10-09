@@ -395,9 +395,9 @@ int
 ObjectStorMgr::run(int argc, char* argv[])
 {
 
-  bool         unit_test;
+  bool        unit_test;
   std::string endPointStr;
-  
+  std::string omIpStr;
   unit_test = false;
 
   for (int i = 1; i < argc; i++) {
@@ -408,6 +408,8 @@ ObjectStorMgr::run(int argc, char* argv[])
       cp_port_num = strtoul(argv[i] + 10, NULL, 0);
     } else if (strncmp(argv[i], "--port=", 7) == 0) {
       port_num = strtoul(argv[i] + 7, NULL, 0);
+    } else if (strncmp(argv[i], "--om_ip=", 8) == 0) {
+      omIpStr = argv[i] + 8;
     } else if (strncmp(argv[i], "--prefix=", 9) == 0) {
       stor_prefix = argv[i] + 9;
     } else {
@@ -473,6 +475,7 @@ ObjectStorMgr::run(int argc, char* argv[])
    * Register this node with OM.
    */
   omClient = new OMgrClient(FDSP_STOR_MGR,
+                            omIpStr,
                             port_num,
                             stor_prefix + "localhost-sm",
                             sm_log);

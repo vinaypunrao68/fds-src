@@ -28,6 +28,7 @@ int main(int argc, char *argv[]) {
 	char cmd_wd[32];
 	int input_field;
 	FDSP_MgrIdType node_type = FDSP_STOR_HVISOR;
+        std::string omIpStr;
 	int control_port = 0;
 	std::string node_id = "localhost-sh";
 
@@ -50,7 +51,7 @@ int main(int argc, char *argv[]) {
         /*
          * Pass 0 as the data port for now
          */
-	om_client = new OMgrClient(node_type, 0, node_id, NULL);
+	om_client = new OMgrClient(node_type, omIpStr, 0, node_id, NULL);
 
 	om_client->initialize();
 	om_client->registerEventHandlerForNodeEvents(my_node_event_handler);
