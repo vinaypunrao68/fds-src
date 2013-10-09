@@ -1,0 +1,30 @@
+The experiments infrastructure currently allows to run a set of workloads, one on each 
+volume on one (local) SH
+
+(0) [once] 
+ > cd pharos; 
+ > cd libposix-aio-0.8.1; ./configure; make; make install
+ > cd ..; make
+
+(1) Bring up the OM, SM(s), DM(s)
+(2) './run-experiments options' will start ubd and do insmod fbd.ko
+See ./run-experiments -h for options
+
+Example of running 3 workloads:
+
+./run-experiment -p "demo" -w "sample_workloads/read_N_outstand.sh:100,200,1" -w "sample_workloads/read_N_outstand.sh:200,500,2" -2 "sample_workloads/read_N_outstand.sh:100,300,5"
+
+Each -w option specifies a workload (read_N_outstand.sh calls a workload generator with read workload that keeps fixed number of 
+outstanding IO/s). Then, after ":", specify policy "min_iops,max_iops,priority". 
+
+The run-experiments.sh script will create one policy for each -w option (even if we repeat the same min_iops/max_iops/prio  numbers
+with -w option, it will be a different policy with its unique id). Then, it will create one volume for each -w option, and
+then attach all volumes to localhost-sh node.
+
+Then, it will start all workload .sh files and wait for them to finish. Then, it will make graphs and clean up (remove all volumes 
+and all policies, and stop ubd and rmmod fbd.ko).
+
+The script also tries to make graph from SH stats output, but Note that currently SH stats are broken. If workload sh calls 
+Pharos workload generator, it makes graphs from Pharos output. 
+
+The graphs will be in ./results/pdfs directory prefixed with string passed with -p option ("demo" in my example).
