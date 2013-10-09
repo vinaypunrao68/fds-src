@@ -7,43 +7,57 @@
 #include <iostream>
 #include <boost/atomic.hpp>
 #include <concurrency/ThreadPool.h>
+#include "fds_err.h"
+#include <fds_types.h>
+#include <fds_err.h>
+#include <fdsp/FDSP.h>
 
+namespace fds { 
 
+class FDS_IOType {
+public:
+ FDS_IOType() { };
+~FDS_IOType() { };
 
-/* **********************************************
- *  FDS_QosController: Qos Controller Class with a shared threadpool
- *
- **********************************************************/
-class FDS_QosController { 
-public :
+ typedef enum {
+  STOR_HV_IO,
+  STOR_MGR_IO,
+  DATA_MGR_IO
+ } ioModule;
 
-enum {
-  FDS_DISPATCH_TOKEN_BUCKET,
-  FDS_DISPATCH_HIER_TOKEN_BUCKET,
-  FDS_DISPATCH_WFQ,
-  FDS_DISPATCH_DEADLINE,
-  FDS_DISPATCH_ROUND_ROBIN
-} dispatchAlgoType;
+ ioModule io_module; // IO belongs to which module for Qos proc 
+ FDSP_MsgHdrTypePtr msgHdr;
+ FDSP_PutObjTypePtr putObj;
+ FDSP_GetObjTypePtr getObj;
 
-dispatchAlgoType dispatchAlgo;
-FDS_QosDispatcher* dispatcher; // Dispatcher Class 
-fds_threadpool *threadPool; // This is the global threadpool
-
-
-FDS_QosController();
-~FDS_QosController();
-FDS_QosController(QosDispatcher *dispatcher);
-
-Error RegisterVolume(FDS_Volume &volume);
-Error deregisterVolume(FDS_Volume& Volume);
-
-void   setQosDispatcher(dispatchAlgoType algo_type, QosDispatcher *qosDispatcher);
-void   runScheduler(); // Calls in the QosDispatcher's main dispatch routine
-Error   processIO(IOType *io); // Schedule an IO on a thread
-int    waitForWorkers(); // Blocks until there is a threshold num of workers in threadpool
-Error enqueueIO();
+ fbd_request_t *fbd_req;
 };
 
+
+typedef enum {
+FDS_VOL_Q_INVALID,
+FDS_VOL_Q_SUSPENDED,
+FDS_VOL_Q_QUIESCING,
+FDS_VOL_Q_ACTIVE
+} VolumeQState;
+
+/* **********************************************
+ *  FDS_VolumeQueue: VolumeQueue
+ *
+ **********************************************************/
+class FDS_VolumeQueue {
+public:
+ FDS_VolumeQueue();
+~FDS_VolumeQueue();
+ boost::lockfree::queue<fbd_request_t*>  *volQueue;
+ VolumeQState volumeState;
+
+ void  quiesceIos(); // Quiesce queued IOs on this queue & block any new IOs
+ void   suspendIO();
+ void   resumeIO(); 
+ void   enqueueIO();
+ void   dequeueIO();
+};
 
 /* **********************************************
  *  FDS_QosDispatcher: Pluggable Dispatcher with dispatchIOs - main routine
@@ -68,29 +82,40 @@ public :
 };
 
 
-typedef enum VolumeQState {
-FDS_VOL_Q_INVALID,
-FDS_VOL_Q_SUSPENDED,
-FDS_VOL_Q_QUIESCING,
-FDS_VOL_Q_ACTIVE
-};
-
 /* **********************************************
- *  FDS_VolumeQueue: VolumeQueue
+ *  FDS_QosControl: Qos Control Class with a shared threadpool
  *
  **********************************************************/
-class FDS_VolumeQueue {
-public:
- FDS_VolumeQueue();
-~FDS_VolumeQueue();
- boost::lockfree::queue<fbd_request_t*>  *volQueue;
- VolumeQState volumeState;
+class FDS_QosControl { 
+   public :
 
- void  quiesceIos(); // Quiesce queued IOs on this queue & block any new IOs
- void   suspendIO();
- void   resumeIO(); 
- void   enqueueIO();
- void   dequeueIO();
+   typedef enum {
+     FDS_DISPATCH_TOKEN_BUCKET,
+     FDS_DISPATCH_HIER_TOKEN_BUCKET,
+     FDS_DISPATCH_WFQ,
+     FDS_DISPATCH_DEADLINE,
+     FDS_DISPATCH_ROUND_ROBIN
+   } dispatchAlgoType;
+
+   dispatchAlgoType dispatchAlgo;
+   FDS_QosDispatcher* dispatcher; // Dispatcher Class 
+   fds_threadpool *threadPool; // This is the global threadpool
+   
+   
+   FDS_QosControl();
+   ~FDS_QosControl();
+   FDS_QosControl(FDS_QosDispatcher *dispatcher);
+   
+   Error RegisterVolume(FDS_Volume &volume);
+   Error deregisterVolume(FDS_Volume& Volume);
+   
+   void   setQosDispatcher(dispatchAlgoType algo_type, FDS_QosDispatcher *qosDispatcher);
+   void   runScheduler(); // Calls in the QosDispatcher's main dispatch routine
+   Error   processIO(FDS_IOType& io); // Schedule an IO on a thread from thrd pool
+   int     waitForWorkers(); // Blocks until there is a threshold num of workers in threadpool
+   Error enqueueIO();
 };
 
+
+}
 #endif
