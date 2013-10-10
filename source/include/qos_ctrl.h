@@ -73,7 +73,7 @@ public:
  *  FDS_QosControl: Qos Control Class with a shared threadpool
  *
  **********************************************************/
-class FDS_QosControl { 
+class FDS_QoSControl { 
    public :
 
    typedef enum {
@@ -89,9 +89,9 @@ class FDS_QosControl {
    fds_threadpool *threadPool; // This is the global threadpool
    
    
-   FDS_QosControl();
-   ~FDS_QosControl();
-   FDS_QosControl(FDS_QosDispatcher *dispatcher);
+   FDS_QoSControl();
+   ~FDS_QoSControl();
+   FDS_QoSControl(FDS_QosDispatcher *dispatcher);
    
    Error RegisterVolume(FDS_Volume &volume);
    Error deregisterVolume(FDS_Volume& Volume);
