@@ -22,6 +22,8 @@ class DmDiskID : public ResourceUUID
 
 class DmDiskQuery : public QueryIn
 {
+    const fds_uint32_t       dmq_disk_info = 0x00000001;
+
   public:
     DmDiskQuery();
     DmDiskQuery(const DmDomainID &domain, const DmNodeID &node);

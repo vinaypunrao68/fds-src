@@ -13,6 +13,7 @@ import re
 import pdb
 import sys
 import hashlib
+import shlex
 
 #
 # Defaults
@@ -33,9 +34,17 @@ OM = 5
 
 # The desktop test must run from FDS src root dir
 #
+osdep_cmd  = 'uname -s'
+osarch_cmd = 'uname -m'
+proc1  = subprocess.Popen(shlex.split(osdep_cmd), stdout=subprocess.PIPE)
+proc2  = subprocess.Popen(shlex.split(osarch_cmd), stdout=subprocess.PIPE)
+osdep  = proc1.communicate()[0].lower().rstrip()
+osarch = proc2.communicate()[0].rstrip()
+os_dir = '%s-%s' % (osdep, osarch)
+
 fds_root_dir = os.path.abspath('.')
-fds_bin_dir  = os.path.join(fds_root_dir, 'Build/linux-x86_64/bin')
-fds_test_dir = os.path.join(fds_root_dir, 'Build/linux-x86_64/tests')
+fds_bin_dir  = os.path.join(fds_root_dir, 'Build', os_dir, 'bin')
+fds_test_dir = os.path.join(fds_root_dir, 'Build', os_dir, 'tests')
 
 #
 # Get absolute path for lib because we'll execute inside bin/test dir, not
