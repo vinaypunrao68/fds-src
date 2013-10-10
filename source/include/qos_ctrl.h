@@ -10,6 +10,7 @@
 #include "fds_err.h"
 #include <fds_types.h>
 #include <fds_err.h>
+#include <fds_volume.h>
 #include <fdsp/FDSP.h>
 
 namespace fds { 
@@ -25,12 +26,15 @@ public:
   DATA_MGR_IO
  } ioModule;
 
+ fds_uint32_t io_req_id;
+ fds_int32_t io_status;
+ fds_uint32_t io_service_time; //usecs
  ioModule io_module; // IO belongs to which module for Qos proc 
- FDSP_MsgHdrTypePtr msgHdr;
- FDSP_PutObjTypePtr putObj;
- FDSP_GetObjTypePtr getObj;
+ //FDSP_MsgHdrTypePtr msgHdr;
+ //FDSP_PutObjTypePtr putObj;
+ //FDSP_GetObjTypePtr getObj;
 
- fbd_request_t *fbd_req;
+ //fbd_request_t *fbd_req;
 };
 
 
@@ -49,38 +53,21 @@ class FDS_VolumeQueue {
 public:
  FDS_VolumeQueue();
 ~FDS_VolumeQueue();
- boost::lockfree::queue<fbd_request_t*>  *volQueue;
+ boost::lockfree::queue<FDS_IOType*>  *volQueue;
  VolumeQState volumeState;
 
  void  quiesceIos(); // Quiesce queued IOs on this queue & block any new IOs
  void   suspendIO();
  void   resumeIO(); 
- void   enqueueIO();
- void   dequeueIO();
+ void   enqueueIO(FDS_IOType *io);
+ FDS_IOType   *dequeueIO();
 };
 
 /* **********************************************
  *  FDS_QosDispatcher: Pluggable Dispatcher with dispatchIOs - main routine
  *
  **********************************************************/
-class FDS_QosDispatcher {
-public :
- FDS_QosDispatcher();
-~FDS_QosDispatcher();
- void  dispatchIOs(); // Run in a dispatch thread and runs forever.
-
- 
- void  quiesceIos(FDS_VolumeQueue* ); // Quiesce queued IOs on this queue & block any new IOs
-
- void   registerVolumeQueue(FDS_VolumeQueue *queue);
- void   deregisterVolumeQueue(FDS_VolumeQueue *queue);
-
- void   suspendVolumeQueue(FDS_VolumeQueue *queue);
- void   resumeVolumeQueue(FDS_VolumeQueue *queue); 
-
- void   enqueueIO(FDS_VolumeQueue *queue);
-};
-
+ class FDS_QosDispatcher;
 
 /* **********************************************
  *  FDS_QosControl: Qos Control Class with a shared threadpool
@@ -111,7 +98,7 @@ class FDS_QosControl {
    
    void   setQosDispatcher(dispatchAlgoType algo_type, FDS_QosDispatcher *qosDispatcher);
    void   runScheduler(); // Calls in the QosDispatcher's main dispatch routine
-   Error   processIO(FDS_IOType& io); // Schedule an IO on a thread from thrd pool
+   Error   processIO(FDS_IOType* io); // Schedule an IO on a thread from thrd pool
    int     waitForWorkers(); // Blocks until there is a threshold num of workers in threadpool
    Error enqueueIO();
 };
