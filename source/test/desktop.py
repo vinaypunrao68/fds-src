@@ -34,13 +34,8 @@ OM = 5
 
 # The desktop test must run from FDS src root dir
 #
-osdep_cmd  = 'uname -s'
-osarch_cmd = 'uname -m'
-proc1  = subprocess.Popen(shlex.split(osdep_cmd), stdout=subprocess.PIPE)
-proc2  = subprocess.Popen(shlex.split(osarch_cmd), stdout=subprocess.PIPE)
-osdep  = proc1.communicate()[0].lower().rstrip()
-osarch = proc2.communicate()[0].rstrip()
-os_dir = '%s-%s' % (osdep, osarch)
+proc   = subprocess.Popen(shlex.split('uname -s -m'), stdout=subprocess.PIPE)
+os_dir = proc.communicate()[0].lower().rstrip('\n').replace(' ', '-')
 
 fds_root_dir = os.path.abspath('.')
 fds_bin_dir  = os.path.join(fds_root_dir, 'Build', os_dir, 'bin')

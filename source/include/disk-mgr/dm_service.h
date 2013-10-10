@@ -29,10 +29,9 @@ class DmDiskQuery : public QueryIn
     DmDiskQuery(const DmDomainID &domain, const DmNodeID &node);
     ~DmDiskQuery();
 
+    fds_uint32_t             dmq_mask;
     fds_blk_t                dmq_blk_size;
     fds_disk_type_t          dmq_dsk_type;
-
-  private:
 };
 
 class DmDiskInfo
