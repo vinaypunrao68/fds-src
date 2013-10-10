@@ -45,6 +45,7 @@ ice_home = os.path.abspath(os.path.join(fds_root_dir, "../Ice-3.5.0"))
 ld_path  = (
     os.path.abspath(os.path.join(fds_root_dir, '../Ice-3.5.0/cpp/lib/')) + ':' +
     os.path.abspath(os.path.join(fds_root_dir, '../leveldb-1.12.0/')) + ':' +
+    os.path.abspath(os.path.join(fds_root_dir, 'libs/')) + ':' +
     '/usr/local/lib'
 )
 
