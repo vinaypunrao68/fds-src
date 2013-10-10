@@ -152,6 +152,23 @@ class TestSequenceFunctions(unittest.TestCase):
             self.cleanupFiles(comp)
                     
         print "Teardown complete."
+        
+    def setUlimit(self, size = 4096):
+        cmd = "ulimit -s %s" % (size)
+        try:
+            proc = subprocess.Popen(cmd,
+                                    shell=True,
+                                    stdin=None,
+                                    stderr = None,
+                                    stdout=subprocess.PIPE)
+            (stdoutdata) = proc.communicate(input=None)
+            if proc.returncode != 0:
+                print "Command %s did not exit properly" % (cmd)
+                return -1
+        except OSError as err:
+            print "Failed to execute %s" % (cmd)
+            return -1
+        return 0
 
     def setUp(self):
         print "Doing Setup in %s" % (cwd)
@@ -164,6 +181,10 @@ class TestSequenceFunctions(unittest.TestCase):
         #
         os.environ['ICE_HOME'] = ice_home
         os.environ['LD_LIBRARY_PATH'] = ld_path
+
+        result = self.setUlimit(4096)
+        if (result != 0):
+            print "Setup failed; Could not set ulimit"
 
         print "Setup complete"
 
