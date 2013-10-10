@@ -1,5 +1,6 @@
 #include "fds_qos.h"
 #include <map>
+#include <atomic>
 
 namespace fds {
 
@@ -8,27 +9,29 @@ namespace fds {
   public:
 
     fds_uint32_t queue_id;
-    fds_uint32_t queue_rate;
+    fds_uint64_t queue_rate;
     fds_uint32_t queue_priority;
     fds_uint32_t rate_based_weight;
     fds_uint32_t priority_based_weight;
 
-    std::vector<fds_uint32_t> rate_based_rr_spots;
+    std::vector<fds_uint64_t> rate_based_rr_spots;
     int num_priority_based_ios_dispatched; // number of ios dispatched in the current round of priority based WFQ;
 
     FDS_VolumeQueue *queue;
-    fds_uint32_t num_pending_ios;
-    fds_uint32_t num_outstanding_ios;
+    std::atomic<unsigned int> num_pending_ios;
+    std::atomic<unsigned int> num_outstanding_ios;
 
     WFQQueueDesc(fds_uint32_t q_id,
 		 FDS_VolumeQueue *que,
-		 fds_uint32_t q_rate,
+		 fds_uint64_t q_rate,
 		 fds_uint32_t q_pri)
       : queue_id(q_id),
 	queue(que),
 	queue_rate(q_rate),
 	queue_priority(q_pri) {
       rate_based_rr_spots.clear();
+      num_pending_ios = ATOMIC_VAR_INIT(0);
+      num_outstanding_ios = ATOMIC_VAR_INIT(0);
     }
 
   };
@@ -37,11 +40,11 @@ namespace fds {
 
   private:
 
-    fds_uint32_t total_capacity;
+    fds_uint64_t total_capacity;
     int num_queues;
     std::map<fds_uint32_t, WFQQueueDesc *> queue_desc_map;
     std::vector<fds_uint32_t> rate_based_qlist;
-    fds_uint32_t next_rate_based_spot;
+    fds_uint64_t next_rate_based_spot;
     fds_uint32_t next_priority_based_queue;
 
     fds_uint32_t priority_to_wfq_weight(fds_uint32_t priority) {
@@ -64,20 +67,24 @@ namespace fds {
 	return next_queue;
     }
 
+    // Caller needs to hold the qda read lock
     void ioProcessForEnqueue(fds_uint32_t queue_id, FDS_IOType *io)
     {
       FDS_QoSDispatcher::ioProcessForEnqueue(queue_id, io);
       WFQQueueDesc *qd = queue_desc_map[queue_id];
+      fds_uint32_t n_pios;
+      n_pios = atomic_fetch_add(&(qd->num_pending_ios), (unsigned int)1);
       assert(qd->num_pending_ios >= 0);
-      qd->num_pending_ios ++;
     }
 
+    // Caller needs to hold the qda read lock
     void ioProcessForDispatch(fds_uint32_t queue_id, FDS_IOType *io)
     {
       FDS_QoSDispatcher::ioProcessForDispatch(queue_id, io);
       WFQQueueDesc *qd = queue_desc_map[queue_id];
-      qd->num_pending_ios --;
-      assert(qd->num_pending_ios >= 0);
+      fds_uint32_t n_pios;
+      n_pios = atomic_fetch_sub(&(qd->num_pending_ios), (unsigned int)1);
+      assert(qd->num_pending_ios >= 1);
     }
 
     fds_uint32_t getNextQueueForDispatch() {
@@ -87,26 +94,34 @@ namespace fds {
       next_rate_based_spot = (next_rate_based_spot + 1) % total_capacity;
       if (next_queue != 0) {
 	WFQQueueDesc *next_qd = queue_desc_map[next_queue];
-	if (next_qd->num_pending_ios > 0)
+	fds_uint32_t n_pios = atomic_load(&(next_qd->num_pending_ios));
+	if (n_pios > 0)
 	  return next_queue;
       }
 
       // Step 2: Rate based spot was empty. Let's now pick the next q in the priority based WFQ list
       next_queue = next_priority_based_queue;
       WFQQueueDesc *next_qd = (queue_desc_map.count(next_queue) == 0)? NULL:queue_desc_map[next_queue];
-      while ((!next_qd) || (next_qd->num_pending_ios <= 0)) {
+      fds_uint32_t n_pios = 0;
+      if (next_qd) {
+	n_pios = atomic_load(&(next_qd->num_pending_ios));
+      }
+
+      while ((!next_qd) || (n_pios == 0)){
 	if (next_qd)
 	  next_qd->num_priority_based_ios_dispatched = 0;
+	
 	next_queue = next_priority_based_queue = getNextQueueInPriorityWFQList(next_queue);
 	next_qd = (queue_desc_map.count(next_queue) == 0)? NULL:queue_desc_map[next_queue];
-	if (next_qd)
+	if (next_qd) {
 	  next_qd->num_priority_based_ios_dispatched = 0;
+	  n_pios = atomic_load(& next_qd->num_pending_ios);
+	}
       }
 
       assert(queue_desc_map.count(next_queue) != 0);
       assert(next_qd != NULL);
-      assert(next_qd->num_pending_ios > 0);
-
+      assert(n_pios > 0);
       // Step2 end: next_queue is the queue we are going to dispatch from. next_qd is it's descriptor
 
       // Step 3: Now we will update the priority based WFQ state for the next iteration
@@ -128,10 +143,9 @@ namespace fds {
 
   public:
 
-    QoSWFQDispatcher(FDS_QoSControl *ctrlr, fds_uint32_t total_server_rate) {
+    QoSWFQDispatcher(FDS_QoSControl *ctrlr, fds_uint64_t total_server_rate) {
       parent_ctrlr = ctrlr;
       qda_log = new fds_log("qda", "logs");
-      qda_mutex = new fds_mutex("QoSWFQDispatchAlgorithm");
       num_pending_ios = 0;
 
       total_capacity = total_server_rate;
@@ -145,7 +159,7 @@ namespace fds {
       next_priority_based_queue = 0;
     }
 
-    virtual Error registerQueue(fds_uint32_t queue_id, FDS_VolumeQueue *queue, fds_uint32_t queue_rate, fds_uint32_t queue_priority) {
+    virtual Error registerQueue(fds_uint32_t queue_id, FDS_VolumeQueue *queue, fds_uint64_t queue_rate, fds_uint32_t queue_priority) {
 
       Error err(ERR_OK);
 
@@ -158,9 +172,15 @@ namespace fds {
       qd->num_outstanding_ios = 0;
       qd->num_priority_based_ios_dispatched = 0;
 
-      qda_mutex->lock();
+      qda_lock.write_lock();
+      err = FDS_QoSDispatcher::registerQueueWithLockHeld(queue_id, queue, queue_rate, queue_priority);
+      if (err != ERR_OK) {
+	qda_lock.write_unlock();
+	return err;
+      }
+
       if (queue_desc_map.count(queue_id) != 0) {
-	qda_mutex->unlock();
+	qda_lock.write_unlock();
 	delete qd;
 	err = ERR_DUPLICATE;
 	return err;
@@ -169,9 +189,9 @@ namespace fds {
 
       // Now fill the vacant spots in the rate based qlist based on the queue_rate
       // Start at the first vacant spot and fill at intervals of capacity/queue_rate.
-      fds_uint32_t current_spot = 0;
-      for (int i = 0; i < queue_rate; i++) {
-	fds_uint32_t num_spots_searched = 0;
+      fds_uint64_t current_spot = 0;
+      for (fds_uint64_t i = 0; i < queue_rate; i++) {
+	fds_uint64_t num_spots_searched = 0;
 	while ((rate_based_qlist[current_spot] != 0) && (num_spots_searched < total_capacity)) {
 	  current_spot = (current_spot+1) % total_capacity;
 	  num_spots_searched ++;
@@ -183,7 +203,7 @@ namespace fds {
       }
       queue_desc_map[queue_id] = qd;
       queue_map[queue_id] = queue;
-      qda_mutex->unlock();
+      qda_lock.write_unlock();
 
       return err;
 
@@ -193,14 +213,14 @@ namespace fds {
 
       Error err(ERR_OK);
 
-      qda_mutex->lock();
+      qda_lock.write_lock();
       if  (queue_desc_map.count(queue_id) == 0) {
-	qda_mutex->unlock();
+	qda_lock.write_unlock();
 	err = ERR_INVALID_ARG;
 	return err;
       }
       WFQQueueDesc *qd = queue_desc_map[queue_id];
-      for (int i = 0; i < qd->queue_rate; i++) {
+      for (fds_uint64_t i = 0; i < qd->queue_rate; i++) {
 	fds_uint32_t next_rate_based_spot = qd->rate_based_rr_spots[i];
 	rate_based_qlist[next_rate_based_spot] = 0; // This is now a free spot, that could be used for priority-based WFQ assignment
       }
@@ -212,7 +232,8 @@ namespace fds {
 
       queue_desc_map.erase(queue_id);
       queue_map.erase(queue_id);
-      qda_mutex->unlock();
+      err = FDS_QoSDispatcher::deregisterQueueWithLockHeld(queue_id);
+      qda_lock.write_unlock();
       delete qd;
 
       return err;
