@@ -15,13 +15,15 @@ namespace fds {
 
   class FDS_QoSDispatcher {
 
+  public:
+
     fds_log *qda_log;
     queue_map_t queue_map;
-    FDS_QosControl *parent_ctrlr;
+    FDS_QoSControl *parent_ctrlr;
     fds_mutex *qda_mutex;
     fds_uint32_t num_pending_ios;
 
-  private:
+ 
     virtual fds_uint32_t getNextQueueForDispatch() = 0;
 
     void wakeUpDispatcher() {
@@ -31,10 +33,10 @@ namespace fds {
       // Sleep until woken up, using a condition variable, releasing qda_mutex atomically while going to sleep.
     }
 
-  public:
+  
     FDS_QoSDispatcher();
     ~FDS_QoSDispatcher();
-
+ 
     FDS_QoSDispatcher(FDS_QoSControl *ctrlr) {
       parent_ctrlr = ctrlr;
       qda_log = new fds_log("qda", "logs");
