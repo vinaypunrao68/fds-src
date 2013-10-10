@@ -284,7 +284,7 @@ int OMgrClient::registerNodeWithOM() {
   reg_node_msg->node_type = my_node_type;
   reg_node_msg->node_name = my_node_name;
   reg_node_msg->ip_hi_addr = 0;
-  reg_node_msg->ip_lo_addr = fds::str_to_ipv4_addr(props->getProperty("OMgrClient.MyIPAddr")); //my_address!
+  reg_node_msg->ip_lo_addr = fds::str_to_ipv4_addr(omIpStr); //my_address!
   reg_node_msg->control_port = my_control_port;
   reg_node_msg->data_port = my_data_port; // for now
 
