@@ -506,6 +506,34 @@ StorHvCtrl::StorHvCtrl(int argc,
   /* create OMgr client if in normal mode */
   om_client = NULL;
   FDS_PLOG(sh_log) << "StorHvisorNet - Will create and initialize OMgrClient";
+
+  struct ifaddrs *ifAddrStruct = NULL;
+  struct ifaddrs *ifa          = NULL;
+  void   *tmpAddrPtr           = NULL;
+
+  /*
+   * Get the local IP of the host.
+   * This is needed by the OM.
+   */
+  getifaddrs(&ifAddrStruct);
+  for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
+    if (ifa->ifa_addr->sa_family == AF_INET) { // IPv4
+      if (strncmp(ifa->ifa_name, "lo", 2) != 0) {
+          tmpAddrPtr = &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
+          char addrBuf[INET_ADDRSTRLEN];
+          inet_ntop(AF_INET, tmpAddrPtr, addrBuf, INET_ADDRSTRLEN);
+          myIp = std::string(addrBuf);
+
+      }
+    }
+  }
+  assert(myIp.empty() == false);
+  FDS_PLOG(sh_log) << "StorHvisorNet - My IP: " << myIp;
+  
+  if (ifAddrStruct != NULL) {
+    freeifaddrs(ifAddrStruct);
+  }
+
   /*
    * Pass 0 as the data path port since the SH is not
    * listening on that port.
@@ -513,6 +541,7 @@ StorHvCtrl::StorHvCtrl(int argc,
   om_client = new OMgrClient(FDSP_STOR_HVISOR,
                              omIpStr,
                              omConfigPort,
+                             myIp,
                              0,
                              "localhost-sh",
                              sh_log);

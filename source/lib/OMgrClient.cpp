@@ -72,12 +72,14 @@ void OMgrClientRPCI::NotifyDMTUpdate(const FDSP_MsgHdrTypePtr& msg_hdr,
 OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
                        const std::string& _omIpStr,
                        fds_uint32_t _omPort,
+                       const std::string& _hostIp,
                        fds_uint32_t data_port,
                        const std::string& node_name,
                        fds_log *parent_log) {
   my_node_type = node_type;
   omIpStr      = _omIpStr;
   omConfigPort = _omPort;
+  hostIp       = _hostIp;
   my_data_port = data_port;
   my_node_name = node_name;
   if (parent_log) {
@@ -284,7 +286,7 @@ int OMgrClient::registerNodeWithOM() {
   reg_node_msg->node_type = my_node_type;
   reg_node_msg->node_name = my_node_name;
   reg_node_msg->ip_hi_addr = 0;
-  reg_node_msg->ip_lo_addr = fds::str_to_ipv4_addr(omIpStr); //my_address!
+  reg_node_msg->ip_lo_addr = fds::str_to_ipv4_addr(hostIp); //my_address!
   reg_node_msg->control_port = my_control_port;
   reg_node_msg->data_port = my_data_port; // for now
 

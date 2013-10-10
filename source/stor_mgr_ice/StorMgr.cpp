@@ -475,12 +475,36 @@ ObjectStorMgr::run(int argc, char* argv[])
 
   volTbl = new StorMgrVolumeTable(this);
 
+  struct ifaddrs *ifAddrStruct = NULL;
+  struct ifaddrs *ifa          = NULL;
+  void   *tmpAddrPtr           = NULL;
+
+  /*
+   * Get the local IP of the host.
+   * This is needed by the OM.
+   */
+  getifaddrs(&ifAddrStruct);
+  for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
+    if (ifa->ifa_addr->sa_family == AF_INET) { // IPv4
+      if (strncmp(ifa->ifa_name, "lo", 2) != 0) {
+          tmpAddrPtr = &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
+          char addrBuf[INET_ADDRSTRLEN];
+          inet_ntop(AF_INET, tmpAddrPtr, addrBuf, INET_ADDRSTRLEN);
+          myIp = std::string(addrBuf);
+
+      }
+    }
+  }
+  assert(myIp.empty() == false);
+  FDS_PLOG(objStorMgr->GetLog()) << "Stor Mgr IP:" << myIp;
+
   /*
    * Register this node with OM.
    */
   omClient = new OMgrClient(FDSP_STOR_MGR,
                             omIpStr,
                             omConfigPort,
+                            myIp,
                             port_num,
                             stor_prefix + "localhost-sm",
                             sm_log);
@@ -491,6 +515,11 @@ ObjectStorMgr::run(int argc, char* argv[])
   omClient->registerNodeWithOM();
 
   communicator()->waitForShutdown();
+
+  if (ifAddrStruct != NULL) {
+    freeifaddrs(ifAddrStruct);
+  }
+
   return EXIT_SUCCESS;
 }
 
