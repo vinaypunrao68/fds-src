@@ -3,6 +3,8 @@
 #include <util/Log.h>
 #include <concurrency/RwLock.h>
 #include <unordered_map>
+#include <mutex> // std::mutex, std::unique_lock
+#include <condition_variable> 
 
 #include "qos_ctrl.h"
 
@@ -21,20 +23,15 @@ namespace fds {
     queue_map_t queue_map;
     FDS_QoSControl *parent_ctrlr;
     fds_rwlock qda_lock; // Protects queue_map (and any high level structures in derived class) 
-                         // from events like volumes being inserted or removed during enqueue IO or dispatchIO. 
-    fds_uint32_t num_pending_ios;
+                         // from events like volumes being inserted or removed during enqueue IO or dispatchIO.
+
+    std::mutex ios_pending_mtx; // to protect the counter num_pending_ios
+    std::condition_variable ios_pending_cv; // Condn variable to signal dispatcher when there is an IO available, from enqueueIO thread.
+    fds_uint32_t num_pending_ios; // ios pending, aggregated across all queues, protected by ios_pending_mtx;
 
  
     virtual fds_uint32_t getNextQueueForDispatch() = 0;
 
-    void wakeUpDispatcher() {
-      // Signal dispatcher thread and unblock him
-    }
-    void waitForIo() {
-      // Sleep until woken up, using a condition variable, releasing qda_mutex atomically while going to sleep.
-    }
-
-  
     FDS_QoSDispatcher();
     ~FDS_QoSDispatcher();
  
@@ -123,12 +120,15 @@ namespace fds {
       
       ioProcessForEnqueue(queue_id, io);  
       
-      num_pending_ios++;
-
-      if (num_pending_ios == 1) {
-	// wakeup scheduler here.
-	wakeUpDispatcher();
-      }
+      // do while loop is just to limit the scope of the unique_lock, limiting the time we hold ios_pending_mtx
+      do {
+	std::unique_lock<std::mutex> lck(ios_pending_mtx);
+	num_pending_ios++;
+	if (num_pending_ios == 1) {
+	  // wakeup scheduler here.
+	  ios_pending_cv.notify_all();
+	}
+      } while (0);
       qda_lock.read_unlock();
       return err;
 
@@ -143,9 +143,14 @@ namespace fds {
 	parent_ctrlr->waitForWorkers();
 
 	qda_lock.read_lock();
-	if (num_pending_ios == 0) {
-	  waitForIo();
-	} 
+
+	do {
+	  std::unique_lock<std::mutex> lck(ios_pending_mtx);
+	  while (num_pending_ios == 0) {
+	    ios_pending_cv.wait(lck);
+	  }
+	} while (0);
+
 	fds_uint32_t queue_id = getNextQueueForDispatch();
 	FDS_VolumeQueue *que = queue_map[queue_id];
 
@@ -153,7 +158,10 @@ namespace fds {
 	assert(io != NULL);
 
 	ioProcessForDispatch(queue_id, io);
-	num_pending_ios --;
+	do {
+	  std::unique_lock<std::mutex> lck(ios_pending_mtx);
+	  num_pending_ios --;
+	} while (0);
 	qda_lock.read_unlock();
 
 	parent_ctrlr->processIO(io);
