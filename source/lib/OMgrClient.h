@@ -56,6 +56,7 @@ namespace fds {
     FDSP_MgrIdType my_node_type;
     std::string my_node_name;
     std::string omIpStr;
+    fds_uint32_t omConfigPort;
     fds_uint32_t my_control_port;
     fds_uint32_t my_data_port;
     node_map_t node_map;
@@ -90,6 +91,7 @@ namespace fds {
     OMgrClient();
     OMgrClient(FDSP_MgrIdType node_type,
                const std::string& _omIpStr,
+               fds_uint32_t _omPort,
                fds_uint32_t data_port,
                const std::string& node_name,
                fds_log *parent_log);

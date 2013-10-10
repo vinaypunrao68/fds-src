@@ -71,11 +71,13 @@ void OMgrClientRPCI::NotifyDMTUpdate(const FDSP_MsgHdrTypePtr& msg_hdr,
 
 OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
                        const std::string& _omIpStr,
+                       fds_uint32_t _omPort,
                        fds_uint32_t data_port,
                        const std::string& node_name,
                        fds_log *parent_log) {
   my_node_type = node_type;
   omIpStr      = _omIpStr;
+  omConfigPort = _omPort;
   my_data_port = data_port;
   my_node_name = node_name;
   if (parent_log) {
@@ -134,6 +136,15 @@ int OMgrClient::initRPCComm() {
    */
   if (omIpStr.empty() == true) {
     omIpStr = rpc_props->getProperty("OMgr.IP");
+  }
+  /*
+   * If the OM's config port wasn't given via cmdline
+   * pull it from the config file
+   */
+  if (omConfigPort == 0) {
+    omConfigPort = strtoul(rpc_props->getProperty("OMgr.ConfigPort").c_str(),
+                           NULL,
+                           0);
   }
   
   return (0);
@@ -264,8 +275,8 @@ int OMgrClient::registerNodeWithOM() {
   try {
 
   Ice::PropertiesPtr props = rpc_comm->getProperties();
-  std::string omgr_config_port = props->getProperty("OMgr.ConfigPort");
-  std::string tcpProxyStr = std::string("OrchMgr: tcp -h ") +  omIpStr + std::string(" -p ") + omgr_config_port;
+  std::string tcpProxyStr = std::string("OrchMgr: tcp -h ") + 
+      omIpStr + std::string(" -p ") + std::to_string(omConfigPort);
   FDSP_ConfigPathReqPrx fdspConfigPathAPI = FDSP_ConfigPathReqPrx::checkedCast(rpc_comm->stringToProxy(tcpProxyStr));
   FDSP_MsgHdrTypePtr msg_hdr = new FDSP_MsgHdrType;
   initOMMsgHdr(msg_hdr);

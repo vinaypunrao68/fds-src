@@ -471,7 +471,10 @@ StorHvCtrl::StorHvCtrl(int argc,
                        fds_uint32_t sm_port_num,
                        fds_uint32_t dm_port_num)
   : mode(_mode) {
-  std::string omIpStr;
+  std::string  omIpStr;
+  fds_uint32_t omConfigPort;
+
+  omConfigPort = 0;
 
   /*
    * Parse out cmdline options here.
@@ -487,6 +490,8 @@ StorHvCtrl::StorHvCtrl(int argc,
          */
         omIpStr = argv[i] + 8;
       }
+    } else if (strncmp(argv[i], "--om_port=", 10) == 0) {
+      omConfigPort = strtoul(argv[i] + 10, NULL, 0);
     }
     /*
      * We don't complain here about other args because
@@ -505,7 +510,12 @@ StorHvCtrl::StorHvCtrl(int argc,
    * Pass 0 as the data path port since the SH is not
    * listening on that port.
    */
-  om_client = new OMgrClient(FDSP_STOR_HVISOR, omIpStr, 0, "localhost-sh", sh_log);
+  om_client = new OMgrClient(FDSP_STOR_HVISOR,
+                             omIpStr,
+                             omConfigPort,
+                             0,
+                             "localhost-sh",
+                             sh_log);
   if (om_client) {
     om_client->initialize();
   }

@@ -395,10 +395,13 @@ int
 ObjectStorMgr::run(int argc, char* argv[])
 {
 
-  bool        unit_test;
-  std::string endPointStr;
-  std::string omIpStr;
-  unit_test = false;
+  bool         unit_test;
+  std::string  endPointStr;
+  std::string  omIpStr;
+  fds_uint32_t omConfigPort;
+
+  omConfigPort = 0;
+  unit_test    = false;
 
   for (int i = 1; i < argc; i++) {
     std::string arg(argv[i]);
@@ -410,6 +413,8 @@ ObjectStorMgr::run(int argc, char* argv[])
       port_num = strtoul(argv[i] + 7, NULL, 0);
     } else if (strncmp(argv[i], "--om_ip=", 8) == 0) {
       omIpStr = argv[i] + 8;
+    } else if (strncmp(argv[i], "--om_port=", 10) == 0) {
+      omConfigPort = strtoul(argv[i] + 10, NULL, 0);
     } else if (strncmp(argv[i], "--prefix=", 9) == 0) {
       stor_prefix = argv[i] + 9;
     } else {
@@ -437,7 +442,6 @@ ObjectStorMgr::run(int argc, char* argv[])
      */
     port_num = props->getPropertyAsInt("ObjectStorMgrSvr.PortNumber");
   }
- 
 
   if (unit_test) {
     objStorMgr->unitTest();
@@ -476,6 +480,7 @@ ObjectStorMgr::run(int argc, char* argv[])
    */
   omClient = new OMgrClient(FDSP_STOR_MGR,
                             omIpStr,
+                            omConfigPort,
                             port_num,
                             stor_prefix + "localhost-sm",
                             sm_log);

@@ -261,6 +261,7 @@ Error DataMgr::_process_query(fds_volid_t vol_uuid,
 DataMgr::DataMgr()
     : port_num(0),
       cp_port_num(0),
+      omConfigPort(0),
       use_om(true),
       num_threads(DM_TP_THREADS) {
   dm_log = new fds_log("dm", "logs");
@@ -313,6 +314,8 @@ int DataMgr::run(int argc, char* argv[]) {
       use_om = false;
     } else if (strncmp(argv[i], "--om_ip=", 8) == 0) {
       omIpStr = argv[i] + 8;
+    } else if (strncmp(argv[i], "--om_port=", 10) == 0) {
+      omConfigPort = strtoul(argv[i] + 10, NULL, 0);
     } else {
       std::cout << "Invalid argument " << argv[i] << std::endl;
       return -1;
@@ -376,6 +379,7 @@ int DataMgr::run(int argc, char* argv[]) {
    */
   omClient = new OMgrClient(FDSP_DATA_MGR,
                             omIpStr,
+                            omConfigPort,
                             port_num,
                             stor_prefix + "localhost-dm",
                             dm_log);
