@@ -36,7 +36,7 @@ class DmDiskQuery : public QueryIn
 class DmDiskInfo
 {
   public:
-    RsChain<DmDiskInfo>      di_chain;
+    ChainLink<DmDiskInfo>    di_chain;
     fds_blk_t                di_max_blks_cap;
     fds_blk_t                di_used_blks;
     fds_disk_type_t          di_disk_type;
@@ -106,7 +106,7 @@ class DmQuery : protected QueryMgr
      * const DmQuery &dm = DmQuery::dm_query();
      * dm.dm_iops(&min, &max);
      */
-    static const DmQuery &dm_query();
+    static DmQuery &dm_query();
 
     static const int dm_blk_shift = 9;
     static const int dm_blk_size  = (1 << DmQuery::dm_blk_shift);

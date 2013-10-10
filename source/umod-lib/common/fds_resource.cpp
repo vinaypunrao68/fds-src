@@ -2,10 +2,6 @@
 
 namespace fds {
 
-RsList::~RsList()
-{
-}
-
 QueryOut::QueryOut()
 {
 }

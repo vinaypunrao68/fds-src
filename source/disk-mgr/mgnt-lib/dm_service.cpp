@@ -1,4 +1,4 @@
-#include <dm/dm_service.h>
+#include <disk-mgr/dm_service.h>
 
 namespace fds {
 
@@ -42,9 +42,9 @@ DmQuery::~DmQuery()
 {
 }
 
-const DmQuery  sgl_dm_query;
+DmQuery  sgl_dm_query;
 
-const DmQuery &
+DmQuery &
 DmQuery::dm_query()
 {
     return sgl_dm_query;
