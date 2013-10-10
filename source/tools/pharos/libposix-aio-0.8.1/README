@@ -1,0 +1,85 @@
+			       POSIX AIO library for linux
+			Laurent Vivier <Laurent.Vivier@bull.net>
+			Sébastien Dugué <Sebastien.Dugue@bull.net>
+			   http://www.bullopensource.org/posix
+				     June 2006
+
+	This library uses the native AIO API of linux kernel to implement POSIX AIO.
+
+	To use this library, you need at least a 2.6 vanilla kernel, but if you want
+	a full implementation of POSIX AIO you'll need to patch this kernel.
+	
+Features needing kernel patches are:
+
+	FEATURE1: request completion event (enable sigevent field of struct aiocb)
+
+	FEATURE2: list of requests completion event (enable sigevent parameter of
+		  lio_listio()) and kernel space LIO_WAIT mechanism.
+
+	FEATURE3: aio_cancel() on a file descriptor (aiocb = NULL)
+
+Optional features needing kernel patches are:
+
+	FEATURE5: system wide default value for max events (maxevents parameter of
+		  io_setup() ). By default, uses a developer defined value.
+
+Not implemented features, needing kernel patch (not available):
+
+	- aio_reqprio, request priority management
+
+
+Patches repository:
+
+	All patches can be found at //www.bullopensource.org/posix
+
+	Patches for the 2.6.10 kernel upward are distributed as quilt patches.
+
+
+WARNING:
+	Right now, kernel AIO relies on the Direct-IO layer to perform
+	asynchronously. This means that the file must be opened with
+	O_DIRECT and that the AIO request buffer, offset and size must
+	be block aligned (512-bytes aligned). The O_DIRECT and buffer
+	alignement are handled by the library (which incurs a buffer copy
+	penalty) whereas the offset and size alignment must be handled
+	by the application.
+
+	Another solution is to use buffered AIO. There are some kernel patches
+	around by Suparna Bhattacharya from IBM for allowing direct-io to handle
+	unaligned requests. This feature may be enabled in libposix-aio by
+	giving configure an --enable-buffered-aio.
+
+NOTE:
+	When building the library from a filesystem which does not support
+	O_DIRECT (typically network filesystems), the detection of kernel
+	features will fail.
+
+   	Users facing this may use the --with-testdir=<directory> option to
+	configure to specify where to put the testfiles.
+
+
+Build:
+
+	Features supported by current kernel are autodetected by the configure
+	script. But, you can enable/disable them with following script parameters:
+
+	FEATURE1: --enable-aio-signal or --disable-aio-signal
+	FEATURE2: --enable-lio-signal or --disable-lio-signal
+	FEATURE3: --enable-cancel-fd or --disable-cancel-fd
+	FEATURE4: --enable-lio-wait or --disable-lio-wait
+	FEATURE5: --enable-default-maxevents or --disable-default-maxevents
+
+To build the library, you need to follow following steps:
+
+	1- patch your kernel with needed patches and install it
+	2- tar xf libposix-aio-*.tar.gz
+	3- cd libposix-aio-*
+	4- ./configure
+	5- make
+	6- make install (you must be root)
+
+If you want to use the library, you must link edit your application with libposix-aio.
+You can't use LD_PRELOAD to replace librt, because aiocb data structure is different.
+
+
+Send any comment to sebastien.dugue@bull.net

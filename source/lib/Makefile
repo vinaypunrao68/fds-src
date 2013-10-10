@@ -6,6 +6,7 @@ user_cpp         :=               \
     Catalog.cpp                   \
     VolumeCatalog.cpp             \
     OMgrClient.cpp                \
+	QoSWFQDispatcher.cpp	\
 
 #user_cc          :=               \
 #    tvclib.c                      \

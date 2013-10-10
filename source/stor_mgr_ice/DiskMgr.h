@@ -30,12 +30,6 @@ FDS_DISK_EXPUNGED,
 FDS_DISK_DOWN
 } fds_disk_status_t;
 
-
-typedef enum {
-  FDS_DISK_SSD,
-  FDS_DISK_SATA
-} fds_disk_type_t;
-
 typedef struct {
  fds_uint32_t   disk_io_errors;
  fds_uint32_t   disk_rd_timeout;

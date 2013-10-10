@@ -165,7 +165,7 @@ StorHvVolumeTable::StorHvVolumeTable(StorHvCtrl *sh_ctrl, fds_log *parent_log)
   }
 
   /* create thread  pool */
-  tp = new fds_threadpool(250);
+  tp = new fds_threadpool(150);
   /* create a thread  for per volume queue dispatcher */
   if (tp)
      tp->schedule(scheduleIO, this);

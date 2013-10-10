@@ -18,23 +18,12 @@
 #include <iomanip>
 #include <ios>
 #include <functional>
+#include <shared/fds_types.h>
 
 /*
  * Consider encapsulating in the global
  * fds namespace.
  */
-
-// FDS definitions of variable types
-typedef uint32_t  fds_uint32_t;
-typedef int32_t   fds_int32_t;
-typedef uint16_t  fds_uint16_t;
-typedef int16_t   fds_int16_t;
-typedef uint8_t   fds_uint8_t;
-typedef int8_t    fds_int8_t;
-typedef char      fds_char_t;
-typedef bool      fds_bool_t;
-typedef uint64_t  fds_uint64_t;
-typedef long      fds_long_t;
 
 /*
  * UDP & TCP port numbers reserver for
