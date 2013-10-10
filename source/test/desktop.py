@@ -45,6 +45,7 @@ ice_home = os.path.abspath(os.path.join(fds_root_dir, "../Ice-3.5.0"))
 ld_path  = (
     os.path.abspath(os.path.join(fds_root_dir, '../Ice-3.5.0/cpp/lib/')) + ':' +
     os.path.abspath(os.path.join(fds_root_dir, '../leveldb-1.12.0/')) + ':' +
+    os.path.abspath(os.path.join(fds_root_dir, 'libs/')) + ':' +
     '/usr/local/lib'
 )
 
@@ -469,7 +470,6 @@ if __name__ == '__main__':
     if len(sys.argv) > 1 and sys.argv[1] == "--jenkins":
         print "running in jenkins mode"
         import junitxml
-        ld_path = "../../../libs"
         fp = file('results.xml', 'wb')
         result = junitxml.JUnitXmlResult(fp)
         suite = unittest.TestLoader().loadTestsFromTestCase(TestSequenceFunctions)
