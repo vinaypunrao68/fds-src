@@ -6,17 +6,14 @@
  */
 #include "qos_htb.h"
 
-#define INFINITE_BURST                        987654321
-#define DEFAULT_ASSURED_WAIT_TIME_MICROSEC    100000   
-
 namespace fds {
 
 /***** QoSHTBDispatcher implementation ******/
 QoSHTBDispatcher::QoSHTBDispatcher(FDS_QoSControl *ctrl, fds_log *log, fds_uint64_t _total_rate)
     : FDS_QoSDispatcher(ctrl, log),
     total_rate(_total_rate),
-    wait_time_microsec(DEFAULT_ASSURED_WAIT_TIME_MICROSEC),
-    pool(0, _total_rate, DEFAULT_ASSURED_WAIT_TIME_MICROSEC)
+    wait_time_microsec(DEFAULT_ASSURED_WAIT_MICROSEC),
+    pool(0, _total_rate, DEFAULT_ASSURED_WAIT_MICROSEC)
 {
   /* TODO: we need a good per-volume burst size value, sholdn't this be a max queue size at SM/DM? */
   default_burst_size = 100; 
@@ -187,120 +184,6 @@ fds_uint32_t QoSHTBDispatcher::getNextQueueForDispatch()
   
   /* we did not find any queue -- this should not happen, the base class method will assert  */
   return qid;
-}
-
-
-/******  TokenBucket implementation  ****/
-TokenBucket::TokenBucket(fds_uint64_t _rate, fds_uint64_t _burst)
-  :rate(_rate), burst(_burst)
-{
-  /* we start with 0 tokens */
-  t_last_update = boost::posix_time::microsec_clock::universal_time();
-  token_count = 0.0;
-}
-
-TokenBucket::~TokenBucket() 
-{
-}
-
-/* generate tokens since t_last_update and add to token counter
- * but do not cap the tokens to burst size  */
-inline void TokenBucket::updateTokensOnly(void)
-{
-  boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
-  boost::posix_time::time_duration elapsed = now - t_last_update;
-  fds_uint64_t elapsed_microsec = elapsed.total_microseconds();
-
-  if (elapsed_microsec > 0) {
-    token_count += ((double)elapsed_microsec / 1000000.0) * (double) rate;  
-    t_last_update = now; 
-  }
-}
-
-/* 
- * Starting from now, token bucket will accumulate tokens with new rate
- * and cap them to new burst size 
- */
-inline void TokenBucket::modifyParams(fds_uint64_t _rate, fds_uint64_t _burst)
-{
-  /* first update tokens using old rate, but do not cap to burst size now,
-   * updateTokens() call will do it since it returns number of spilled tokens */
-  updateTokensOnly();
-
-  rate = _rate;
-  burst = _burst;  
-}
-
-inline void TokenBucket::modifyRate(fds_uint64_t _rate)
-{
-  modifyParams(_rate, burst);
-}
-
-/* update tokens and cap to burst size, return number of tokens that are spilled over burst size */
-inline fds_uint64_t TokenBucket::updateTBState(void)
-{
-  fds_uint64_t expired_tokens= 0;
-
-  updateTokensOnly();
-
-  /* cap token counter to burst size */
-  if ( (fds_uint64_t)token_count > burst) {
-     expired_tokens = burst - (fds_uint64_t)token_count;
-     token_count = (double)burst;
-  }
-  return expired_tokens;
-}
-
-/* Assumes token bucket state is up to date */
-inline fds_bool_t TokenBucket::tryToConsumeTokens(fds_uint64_t num_tokens)
-{
-   if ((double)num_tokens <= token_count) {
-       token_count -= (double)num_tokens;
-       return true;
-   }
-   return false;
-}
-
-/* Assumes token bucket state is up to date */
-inline fds_uint64_t TokenBucket::tryToConsumeTokensOrGetDelay(fds_uint64_t num_tokens)
-{
-   if (!tryToConsumeTokens(num_tokens)) {
-      double tokens_needed = token_count - (double)num_tokens;
-      assert(tokens_needed > 0.0); /* otherwise tryToConsumeTokens would return false */
-
-      double tdelta_microsec = (tokens_needed / (double) rate ) * 1000000.0;     
-      return (fds_uint64_t)tdelta_microsec;
-   }
-   
-   return 0;
-}
-
-/**** ControlledTokenBucket implementation *******/
-ControlledTokenBucket::ControlledTokenBucket(fds_uint64_t _rate)
-  :TokenBucket(_rate, INFINITE_BURST)
-{
-}
-
-ControlledTokenBucket::~ControlledTokenBucket()
-{
-}
-
-inline void ControlledTokenBucket::addTokens(fds_uint64_t num_tokens)
-{
-  token_count += (double)num_tokens;
-  /* we still cap to 'infinite' burst size to not overflow the uint64 token_count */
-  if (token_count > (double)burst) 
-      token_count = (double)burst;
-}
-
-inline fds_uint64_t ControlledTokenBucket::removeTokens(fds_uint64_t num_tokens)
-{
-  if ((double)num_tokens < token_count) {
-     token_count -= (double)num_tokens;
-  } 
-  else {
-     token_count = 0.0;
-  }
 }
 
 /******* TBQueueState implementation ***********/
