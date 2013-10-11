@@ -21,6 +21,7 @@
 #include <util/Log.h>
 #include "DiskMgr.h"
 #include "StorMgrVolumes.h"
+#include <dm/dm_service.h>
 
 /* TODO: avoid include across module, put API header file to include dir */
 #include <lib/OMgrClient.h>
@@ -54,6 +55,8 @@ public:
 
    StorMgrVolumeTable *volTbl;
    OMgrClient    *omClient;
+   FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr dInfo;
+   
 
   FDS_ProtocolInterface::FDSP_DataPathReqPtr fdspDataPathServer;
   FDS_ProtocolInterface::FDSP_DataPathRespPrx fdspDataPathClient; //For sending back the response to the SH/DM

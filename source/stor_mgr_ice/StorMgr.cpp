@@ -397,6 +397,7 @@ ObjectStorMgr::run(int argc, char* argv[])
 
   bool         unit_test;
   std::string endPointStr;
+  int ioMin, ioMax;
   
   unit_test = false;
 
@@ -470,6 +471,13 @@ ObjectStorMgr::run(int argc, char* argv[])
   volTbl = new StorMgrVolumeTable(this);
 
   /*
+   * Query  SM for disk parameter details 
+   */
+    DmQuery &dm = DmQuery::dm_query();
+    dm.dm_iops(&ioMin, &ioMax);
+    cout <<  "disk parameter rx from disk \n"  << ioMin  << ioMax;
+
+  /*
    * Register this node with OM.
    */
   omClient = new OMgrClient(FDSP_STOR_MGR,
@@ -480,7 +488,15 @@ ObjectStorMgr::run(int argc, char* argv[])
   omClient->registerEventHandlerForNodeEvents((node_event_handler_t)nodeEventOmHandler);
   omClient->registerEventHandlerForVolEvents((volume_event_handler_t)volEventOmHandler);
   omClient->startAcceptingControlMessages(cp_port_num);
-  omClient->registerNodeWithOM();
+  dInfo = new  FDSP_AnnounceDiskCapability();
+  dInfo->disk_iops =  100; /* avarage IOPS */
+  dInfo->disk_capacity = 100;  /* size in GB */
+  dInfo->disk_latency = 3; /* in milli second */
+  dInfo->ssd_iops =  100; /* avarage IOPS */
+  dInfo->ssd_capacity = 100;  /* size in GB */
+  dInfo->ssd_latency = 3; /* in milli second */
+  dInfo->disk_type =  FDSP_DISK_HDD;
+  omClient->registerNodeWithOM(dInfo);
 
   communicator()->waitForShutdown();
   return EXIT_SUCCESS;

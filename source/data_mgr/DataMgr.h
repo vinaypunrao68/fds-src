@@ -113,6 +113,7 @@ namespace fds {
     fds_log* GetLog();
     std::string getPrefix() const;
     fds_bool_t volExists(fds_volid_t vol_uuid) const;
+    FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr dInfo;
 
     /*
      * Nested class that manages the server interface.

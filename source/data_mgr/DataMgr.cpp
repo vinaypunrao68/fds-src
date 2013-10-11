@@ -392,7 +392,15 @@ int DataMgr::run(int argc, char* argv[]) {
      * Registers the DM with the OM. Uses OM for bootstrapping
      * on start. Requires the OM to be up and running prior.
      */
-    omClient->registerNodeWithOM();
+  	dInfo = new  FDSP_AnnounceDiskCapability();
+  	dInfo->disk_iops =  100; /* avarage IOPS */
+  	dInfo->disk_capacity = 100;  /* size in GB */
+  	dInfo->disk_latency = 3; /* in milli second */
+  	dInfo->ssd_iops =  100; /* avarage IOPS */
+  	dInfo->ssd_capacity = 100;  /* size in GB */
+  	dInfo->ssd_latency = 3; /* in milli second */
+  	dInfo->disk_type =  FDSP_DISK_HDD;
+  	omClient->registerNodeWithOM(dInfo);
   }
 
   communicator()->waitForShutdown();

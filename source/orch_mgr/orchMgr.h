@@ -25,8 +25,11 @@
 #include <concurrency/Mutex.h>
 #include <lib/Catalog.h>
 #include "OmVolPolicy.h"
+#include "OmLocDomain.h"
 
 #define MAX_OM_NODES 512
+#define DEFAULT_LOC_DOMAIN_ID  1
+#define DEFAULT_GLB_DOMAIN_ID  1
 
 namespace fds {
 
@@ -58,80 +61,7 @@ namespace fds {
   typedef FDS_ProtocolInterface::FDSP_PolicyInfoTypePtr FdspPolInfoPtr;
   typedef FDS_ProtocolInterface::FDSP_VolumeDescTypePtr FdspVolDescPtr; 
 
-  class NodeInfo {
-    /*
-     * TODO: Make these private and add accessor/mutator
-     * functions. That's better c++ style.
-     */
- public:
-    fds_node_name_t node_name;
-    fds_nodeid_t node_id;
-    fds_node_type_t node_type;
-    fds_uint32_t  node_ip_address;
-    fds_uint32_t  control_port;
-    fds_uint32_t  data_port;
-    FdspNodeState node_state;
-    ReqCtrlPrx    cpPrx;
-
- public:
-    NodeInfo() { }
-
-    NodeInfo(const fds_nodeid_t& _id,
-          const fds_node_name_t& _name,
-          const fds_node_type_t& _type,
-          fds_uint32_t _ip,
-          fds_uint32_t _cp_port,
-          fds_uint32_t _d_port,
-          const FdspNodeState& _state,
-          const ReqCtrlPrx& _prx) :
-    node_id(_id),
-        node_name(_name),
-        node_type(_type),
-        node_ip_address(_ip),
-        control_port(_cp_port),
-        data_port(_d_port),
-        node_state(_state),
-        cpPrx(_prx) {
-        }
-
-    /*
-     * This constructor below is only used for
-     * testing. It does not communicate with any
-     * node via Ice, so does not take a Prx.
-     */
-    NodeInfo(const fds_node_name_t& _name,
-          fds_uint32_t _ip,
-          fds_uint32_t _cp_port,
-          fds_uint32_t _d_port,
-          const FdspNodeState& _state) :
-    node_id(0),
-        node_name(_name),
-        node_ip_address(_ip),
-        control_port(_cp_port),
-        data_port(_d_port),
-        node_state(_state) {
-        }
-
-    ~NodeInfo() {
-    }
-
-    /*
-     * TODO: This should have a copy constructor and an
-     * assignment operator since they're being used by
-     * the maps. The default ones are dangerous.
-     */
-  };
-
-  class VolumeInfo {
- public:
-    std::string vol_name;
-    fds_volid_t volUUID;
-    VolumeDesc  *properties;
-    std::vector<fds_node_name_t> hv_nodes;
-  };
-
-  typedef std::unordered_map<fds_node_name_t, NodeInfo> node_map_t;
-  typedef std::unordered_map<int, VolumeInfo *> volume_map_t;
+    typedef std::unordered_map<int, localDomainInfo *> loc_domain_map_t;
 
   class OrchMgr : virtual public Ice::Application {
   private:
@@ -144,10 +74,7 @@ namespace fds {
      * at a certain point of time, which these maps being part
      * of that class.
      */
-    node_map_t currentSmMap;
-    node_map_t currentDmMap;
-    node_map_t currentShMap;
-    volume_map_t volumeMap;
+    loc_domain_map_t locDomMap;
     int current_dlt_version;
     int current_dmt_version;
     FDS_ProtocolInterface::Node_Table_Type current_dlt_table;
@@ -156,7 +83,13 @@ namespace fds {
     std::string node_id_to_name[MAX_OM_NODES];
     const int table_type_dlt = 0;
     const int table_type_dmt = 1;
-
+ 
+    /*
+     * local domain 
+     */
+     FdsLocalDomain  *local_domain;
+     FdsLocalDomain  *current_domain;
+ 
     /*
      * Cmdline configurables
      */
@@ -166,89 +99,6 @@ namespace fds {
 
     /* policy manager */
     VolPolicyMgr* policy_mgr;
-
-    /*
-     * Persistent DLT and DMT histories.
-     * TODO: Persistently store cluster map info
-     * info that was used to generate the DLT and DMT.
-     */
-    fds_uint64_t curDltVer;
-    fds_uint32_t dltWidth;
-    fds_uint32_t dltDepth;
-    fds_uint64_t curDmtVer;
-    fds_uint32_t dmtWidth;
-    fds_uint32_t dmtDepth;
-    FdsDlt *curDlt;
-    FdsDmt *curDmt;
-    Catalog *dltCatalog;
-    Catalog *dmtCatalog;
-
-    void copyPropertiesToVolumeDesc(FdspVolDescPtr v_desc,
-                                    VolumeDesc *pVol);
-    void initOMMsgHdr(const FdspMsgHdrPtr& fdsp_msg);
-
-    /*
-     * Get a new node_id to be allocated for a new node
-     */
-    fds_int32_t getFreeNodeId(const std::string& node_name);
-    /*
-     * Broadcast a node event to all DM/SM/HV nodes
-     */
-    void sendNodeEventToFdsNodes(const NodeInfo& nodeInfo,
-                                 FDS_ProtocolInterface::FDSP_NodeState
-                                 node_state);
-    /*
-     * Broadcast create vol ctrl message to all DM/SM Nodes
-     */
-    void sendCreateVolToFdsNodes(VolumeInfo *pVol);
-    /*
-     * Broadcast delete vol ctrl message to all DM/SM Nodes
-     */
-    void sendDeleteVolToFdsNodes(VolumeInfo *pVol);
-    /*
-     * Dump all existing volumes (as a sequence of create vol
-     * ctrl messages) to a newly registering SM/DM Node
-     */
-    void sendAllVolumesToFdsMgrNode(NodeInfo node_info);
-    /*
-     * Send attach vol ctrl message to a HV node
-     */
-    void sendAttachVolToHvNode(fds_node_name_t node_name, VolumeInfo *pVol);
-    /*
-     * Send detach vol ctrl message to a HV node
-     */
-    void sendDetachVolToHvNode(fds_node_name_t node_name, VolumeInfo *pVol);
-    /*
-     * Dump all concerned volumes as a sequence of
-     * attach vol ctrl messages to a HV node
-     */
-    void sendAllVolumesToHvNode(fds_node_name_t node_name);
-    /*
-     * Dump all existing SM/DM nodes info as a sequence
-     * of NotifyNodeAdd ctrl messages to a newly registering
-     * node
-     */
-    void sendMgrNodeListToFdsNode(const NodeInfo& n_info);
-    /*
-     * Broadcast current DLT or DMT to all SM/DM/HV
-     * nodes known to OM
-     */
-    void sendNodeTableToFdsNodes(int table_type);
-
-    /*
-     * Testing related member functions
-     */
-    void loadNodesFromFile(const std::string& dltFileName,
-                          const std::string& dmtFileName);
-    /*
-     * Updates both DMT and DLT under a single lock.
-     */
-    static void roundRobinDlt(fds_placement_table* table,
-                              const node_map_t& nodeMap,
-                              fds_log* callerLog);
-    void updateTables();
-    void updateDltLocked();
-    void updateDmtLocked();
 
   public:
     OrchMgr();

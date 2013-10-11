@@ -249,7 +249,7 @@ void OMgrClient::initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
 }
 
 // Use this to register the local node with OM as a client. Should be called after calling starting subscription endpoint and control path endpoint.
-int OMgrClient::registerNodeWithOM() {
+int OMgrClient::registerNodeWithOM( const FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr& dInfo) {
 
   try {
 
@@ -267,6 +267,16 @@ int OMgrClient::registerNodeWithOM() {
   reg_node_msg->ip_lo_addr = fds::str_to_ipv4_addr(props->getProperty("OMgrClient.MyIPAddr")); //my_address!
   reg_node_msg->control_port = my_control_port;
   reg_node_msg->data_port = my_data_port; // for now
+  /* init the disk info */
+   
+   reg_node_msg->disk_info =  new FDSP_AnnounceDiskCapability;
+   reg_node_msg->disk_info->disk_iops =  dInfo->disk_iops;
+   reg_node_msg->disk_info->disk_capacity = dInfo->disk_capacity;
+   reg_node_msg->disk_info->disk_latency = dInfo->disk_latency;
+   reg_node_msg->disk_info->ssd_iops =  dInfo->ssd_iops;
+   reg_node_msg->disk_info->ssd_capacity = dInfo->ssd_capacity;
+   reg_node_msg->disk_info->ssd_latency = dInfo->ssd_latency;
+   reg_node_msg->disk_info->disk_type = dInfo->disk_type;
 
   FDS_PLOG(omc_log) << "OMClient registering local node " << fds::ipv4_addr_to_str(reg_node_msg->ip_lo_addr) << " control port:" << reg_node_msg->control_port 
 		    << " data port:" << reg_node_msg->data_port

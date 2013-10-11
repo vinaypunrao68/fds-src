@@ -146,6 +146,7 @@ public:
   FDS_RPC_EndPointTbl        *rpcSwitchTbl; // RPC calls Switch Table
   StorHvVolumeTable          *vol_table;  
   OMgrClient                 *om_client;
+  FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr dInfo;
 
   void  InitIceObjects();
   void InitDmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
