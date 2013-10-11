@@ -39,6 +39,8 @@
  */
 namespace fds {
 
+  typedef fds_uint64_t fds_volid_t;
+
   class ObjectID {
  private:
     fds_uint64_t hash_high;
@@ -209,6 +211,44 @@ namespace fds {
     return (std::string(tmp_ip, strlen(tmp_ip)));
 
   }
+
+  typedef void (*blkdev_complete_req_cb_t)(void *arg1, void *arg2, void *treq, int res);
+  typedef enum {
+   FDS_IO_READ,
+   FDS_IO_WRITE,
+   FDS_IO_REDIR_READ,
+   FDS_IO_OFFSET_WRITE
+  } fds_io_op_t;
+
+  class FDS_IOType {
+public:
+   FDS_IOType() { };
+  ~FDS_IOType() { };
+
+   typedef enum {
+    STOR_HV_IO,
+    STOR_MGR_IO,
+    DATA_MGR_IO
+   } ioModule;
+
+   fds_io_op_t io_type;
+   fds_uint32_t io_req_id;
+   fds_volid_t io_vol_id;
+   fds_int32_t io_status;
+   fds_uint32_t io_service_time; //usecs
+   ioModule io_module; // IO belongs to which module for Qos proc 
+  
+   // SM & DM objects for IO processing
+   //  //FDSP_MsgHdrTypePtr msgHdr;
+   //   //FDSP_PutObjTypePtr putObj;
+   //    //FDSP_GetObjTypePtr getObj;
+   //
+   //     // SH & UBD objects for IO processing -  blockdevice mode
+   void *fbd_req;
+   void *vbd;
+   void *vbd_req;
+   blkdev_complete_req_cb_t comp_req;
+  };
 
 }  // namespace fds
 

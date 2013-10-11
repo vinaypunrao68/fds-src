@@ -16,13 +16,17 @@
 #include <fds_types.h>
 #include <fds_err.h>
 #include <fdsp/FDSP.h>
+#include <boost/thread/thread.hpp>
+#include <boost/lockfree/queue.hpp>
+#include <boost/atomic.hpp>
 #define FDS_MAX_VOLUME_POLICY  128
 #define FDS_MAX_ARCHIVE_POLICY  128
 using namespace FDS_ProtocolInterface;
+using namespace boost;
 
 namespace fds {
 
-  typedef fds_uint64_t fds_volid_t;
+  // typedef fds_uint64_t fds_volid_t;
   typedef boost::posix_time::ptime ptime;
 
   const fds_volid_t invalid_vol_id = 0;
@@ -388,5 +392,84 @@ namespace fds {
     void DeleteVolumePolicy(const FDS_VolumePolicy& vol_policy);
     FDS_VolumePolicy& GetVolumePolicy(fds_uint32_t vol_policy_id);
   };
+
+
+typedef enum {
+FDS_VOL_Q_INACTIVE,
+FDS_VOL_Q_SUSPENDED,
+FDS_VOL_Q_QUIESCING,
+FDS_VOL_Q_ACTIVE
+} VolumeQState;
+
+/* **********************************************
+ *  FDS_VolumeQueue: VolumeQueue
+ *
+ **********************************************************/
+class FDS_VolumeQueue {
+public:
+
+ boost::lockfree::queue<FDS_IOType*>  *volQueue;
+ VolumeQState volQState;
+
+ // Qos Parameters set for this volume/VolumeQueue
+ fds_uint64_t  iops_max;
+ fds_uint64_t iops_min;
+ fds_uint32_t priority; // Relative priority
+
+ // Ctor/dtor
+ FDS_VolumeQueue(fds_uint32_t q_capacity, 
+                 fds_uint64_t _iops_max, 
+                 fds_uint64_t _iops_min, 
+                 fds_uint32_t prio) : 
+                 iops_max(_iops_max), 
+                 iops_min(_iops_min), 
+                 priority(prio) {
+    volQueue = new boost::lockfree::queue<FDS_IOType *> (q_capacity);
+    volQState = FDS_VOL_Q_INACTIVE;
+ }
+
+~FDS_VolumeQueue() {
+   delete volQueue;
+ }
+
+ void activate() {
+   volQState = FDS_VOL_Q_ACTIVE;
+ }
+
+
+ // Quiesce queued IOs on this queue & block any new IOs
+ void  quiesceIOs() {
+   volQState = FDS_VOL_Q_QUIESCING;
+ }
+
+ void   suspendIO() { 
+   volQState = FDS_VOL_Q_SUSPENDED;
+ } 
+
+ void   resumeIO() {
+   volQState = FDS_VOL_Q_ACTIVE;
+ }
+
+ void   enqueueIO(FDS_IOType *io) { 
+   if ( volQState == FDS_VOL_Q_ACTIVE) { 
+      while(!volQueue->push(io));
+   }
+ }
+
+
+ FDS_IOType   *dequeueIO() {
+
+   FDS_IOType *io;
+   if ( volQState == FDS_VOL_Q_ACTIVE || volQState == FDS_VOL_Q_QUIESCING ) { 
+     volQueue->pop(io); 
+     if (volQState == FDS_VOL_Q_QUIESCING && volQueue->empty())  {
+       volQState = FDS_VOL_Q_SUSPENDED;
+     }
+     return io;
+   }
+  return NULL;
+ }
+
+};
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_FDS_VOLUME_H_

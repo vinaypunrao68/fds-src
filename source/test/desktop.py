@@ -13,6 +13,7 @@ import re
 import pdb
 import sys
 import hashlib
+import shlex
 
 #
 # Defaults
@@ -33,9 +34,12 @@ OM = 5
 
 # The desktop test must run from FDS src root dir
 #
+proc   = subprocess.Popen(shlex.split('uname -s -m'), stdout=subprocess.PIPE)
+os_dir = proc.communicate()[0].lower().rstrip('\n').replace(' ', '-')
+
 fds_root_dir = os.path.abspath('.')
-fds_bin_dir  = os.path.join(fds_root_dir, 'Build/linux-x86_64/bin')
-fds_test_dir = os.path.join(fds_root_dir, 'Build/linux-x86_64/tests')
+fds_bin_dir  = os.path.join(fds_root_dir, 'Build', os_dir, 'bin')
+fds_test_dir = os.path.join(fds_root_dir, 'Build', os_dir, 'tests')
 
 #
 # Get absolute path for lib because we'll execute inside bin/test dir, not
@@ -45,6 +49,7 @@ ice_home = os.path.abspath(os.path.join(fds_root_dir, "../Ice-3.5.0"))
 ld_path  = (
     os.path.abspath(os.path.join(fds_root_dir, '../Ice-3.5.0/cpp/lib/')) + ':' +
     os.path.abspath(os.path.join(fds_root_dir, '../leveldb-1.12.0/')) + ':' +
+    os.path.abspath(os.path.join(fds_root_dir, 'libs/')) + ':' +
     '/usr/local/lib'
 )
 
@@ -147,7 +152,7 @@ class TestSequenceFunctions(unittest.TestCase):
             self.cleanupFiles(comp)
                     
         print "Teardown complete."
-
+        
     def setUp(self):
         print "Doing Setup in %s" % (cwd)
         #
@@ -195,13 +200,16 @@ class TestSequenceFunctions(unittest.TestCase):
             prefix_arg += " " + extra_args
         comp_arg = port_arg + " " + prefix_arg
         cmd = comp_exe + " " + comp_arg
+        cmd = "ulimit -s 4096; %s" % (cmd)
         print "Starting server cmd %s" % (cmd)
 
         #
         # Run server command in background
         #
         try :
-            proc = subprocess.Popen(cmd, shell=True, stderr=subprocess.PIPE)
+            proc = subprocess.Popen(cmd,
+                                    shell=True,
+                                    stderr=subprocess.PIPE)
         except OSError as err:
             print "Failed to execute server command %s" (cmd)
             return None
@@ -252,14 +260,17 @@ class TestSequenceFunctions(unittest.TestCase):
         else:
             comp_arg = args
         comp_cmd = comp_exe + " " + comp_arg
-
+        comp_cmd = "ulimit -s 4096; %s" % (comp_cmd)
         print "Starting unit test cmd %s" % (comp_cmd)
 
         #
         # Run unit test command synchrnously
         #
         try:     
-            ut = subprocess.Popen(comp_cmd, shell=True, stdin=None, stdout=subprocess.PIPE)
+            ut = subprocess.Popen(comp_cmd,
+                                  shell=True,
+                                  stdin=None,
+                                  stdout=subprocess.PIPE)
             (stdoutdata, stderrdata) = ut.communicate(input=None)
             if ut.returncode != 0:
                 print "Unit test failed to exit cleanly, err code %d" % ut.returncode
@@ -469,7 +480,6 @@ if __name__ == '__main__':
     if len(sys.argv) > 1 and sys.argv[1] == "--jenkins":
         print "running in jenkins mode"
         import junitxml
-        #ld_path = "../../../libs"
         fp = file('results.xml', 'wb')
         result = junitxml.JUnitXmlResult(fp)
         suite = unittest.TestLoader().loadTestsFromTestCase(TestSequenceFunctions)

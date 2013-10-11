@@ -9,14 +9,17 @@
 #ifndef SOURCE_DATA_MGR_DATAMGR_H_
 #define SOURCE_DATA_MGR_DATAMGR_H_
 
-#include <Ice/Ice.h>
-
-#include <unordered_map>
-#include <string>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <ifaddrs.h>
+#include <arpa/inet.h>
 
 #include <fdsp/FDSP.h>
-#include <fds_types.h>
+#include <Ice/Ice.h>
+
 #include <fds_err.h>
+#include <fds_types.h>
 #include <fds_volume.h>
 
 /* TODO: avoid cross module include, move API header file to include dir. */
@@ -26,6 +29,9 @@
 #include <VolumeMeta.h>
 #include <concurrency/ThreadPool.h>
 #include <concurrency/Mutex.h>
+
+#include <unordered_map>
+#include <string>
 
 namespace fds {
 
@@ -48,10 +54,14 @@ namespace fds {
     /*
      * Cmdline configurables
      */
-    fds_uint32_t port_num; /* Data path port num */
-    fds_uint32_t cp_port_num; /* Control path port num */
-    std::string stor_prefix;
-    fds_bool_t  use_om;  /* Whether to bootstrap from OM */
+    fds_uint32_t port_num;      /* Data path port num */
+    fds_uint32_t cp_port_num;   /* Control path port num */
+    std::string  stor_prefix;   /* String prefix to make file unique */
+    fds_bool_t   use_om;        /* Whether to bootstrap from OM */
+    std::string  omIpStr;       /* IP addr of the OM used to bootstrap */
+    fds_uint32_t omConfigPort;  /* Port of OM used to bootstrap */
+
+    std::string myIp;
 
     /*
      * Internal threadpool.

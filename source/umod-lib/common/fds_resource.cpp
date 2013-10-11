@@ -2,18 +2,6 @@
 
 namespace fds {
 
-RsList::~RsList()
-{
-}
-
-QueryOut::QueryOut()
-{
-}
-
-QueryOut::~QueryOut()
-{
-}
-
 QueryMgr::QueryMgr()
 {
 }

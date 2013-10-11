@@ -261,6 +261,7 @@ Error DataMgr::_process_query(fds_volid_t vol_uuid,
 DataMgr::DataMgr()
     : port_num(0),
       cp_port_num(0),
+      omConfigPort(0),
       use_om(true),
       num_threads(DM_TP_THREADS) {
   dm_log = new fds_log("dm", "logs");
@@ -311,6 +312,10 @@ int DataMgr::run(int argc, char* argv[]) {
       stor_prefix = argv[i] + 9;
     } else if (strncmp(argv[i], "--no_om", 7) == 0) {
       use_om = false;
+    } else if (strncmp(argv[i], "--om_ip=", 8) == 0) {
+      omIpStr = argv[i] + 8;
+    } else if (strncmp(argv[i], "--om_port=", 10) == 0) {
+      omConfigPort = strtoul(argv[i] + 10, NULL, 0);
     } else {
       std::cout << "Invalid argument " << argv[i] << std::endl;
       return -1;
@@ -368,11 +373,37 @@ int DataMgr::run(int argc, char* argv[]) {
   adapter->add(reqHandleSrv, communicator()->stringToIdentity("DataMgr"));
 
   adapter->activate();
-
+  
+  struct ifaddrs *ifAddrStruct = NULL;
+  struct ifaddrs *ifa          = NULL;
+  void   *tmpAddrPtr           = NULL;
+  
+  /*
+   * Get the local IP of the host.
+   * This is needed by the OM.
+   */
+  getifaddrs(&ifAddrStruct);
+  for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
+    if (ifa->ifa_addr->sa_family == AF_INET) { // IPv4
+      if (strncmp(ifa->ifa_name, "lo", 2) != 0) {
+        tmpAddrPtr = &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
+        char addrBuf[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, tmpAddrPtr, addrBuf, INET_ADDRSTRLEN);
+        myIp = std::string(addrBuf);
+      }
+    }
+  }
+  assert(myIp.empty() == false);
+  FDS_PLOG(dm_log) << "Data Manager using IP:"
+                   << myIp;
+  
   /*
    * Setup communication with OM.
    */
   omClient = new OMgrClient(FDSP_DATA_MGR,
+                            omIpStr,
+                            omConfigPort,
+                            myIp,
                             port_num,
                             stor_prefix + "localhost-dm",
                             dm_log);
@@ -404,6 +435,10 @@ int DataMgr::run(int argc, char* argv[]) {
   }
 
   communicator()->waitForShutdown();
+  
+  if (ifAddrStruct != NULL) {
+    freeifaddrs(ifAddrStruct);
+  }
 
   return EXIT_SUCCESS;
 }

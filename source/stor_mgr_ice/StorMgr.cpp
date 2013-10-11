@@ -396,10 +396,19 @@ ObjectStorMgr::run(int argc, char* argv[])
 {
 
   bool         unit_test;
+<<<<<<< HEAD
   std::string endPointStr;
   int ioMin, ioMax;
   
   unit_test = false;
+=======
+  std::string  endPointStr;
+  std::string  omIpStr;
+  fds_uint32_t omConfigPort;
+
+  omConfigPort = 0;
+  unit_test    = false;
+>>>>>>> 4950279beab3fe0b3dbeadb2aa24f7f78dd2f003
 
   for (int i = 1; i < argc; i++) {
     std::string arg(argv[i]);
@@ -409,6 +418,10 @@ ObjectStorMgr::run(int argc, char* argv[])
       cp_port_num = strtoul(argv[i] + 10, NULL, 0);
     } else if (strncmp(argv[i], "--port=", 7) == 0) {
       port_num = strtoul(argv[i] + 7, NULL, 0);
+    } else if (strncmp(argv[i], "--om_ip=", 8) == 0) {
+      omIpStr = argv[i] + 8;
+    } else if (strncmp(argv[i], "--om_port=", 10) == 0) {
+      omConfigPort = strtoul(argv[i] + 10, NULL, 0);
     } else if (strncmp(argv[i], "--prefix=", 9) == 0) {
       stor_prefix = argv[i] + 9;
     } else {
@@ -436,7 +449,6 @@ ObjectStorMgr::run(int argc, char* argv[])
      */
     port_num = props->getPropertyAsInt("ObjectStorMgrSvr.PortNumber");
   }
- 
 
   if (unit_test) {
     objStorMgr->unitTest();
@@ -470,6 +482,29 @@ ObjectStorMgr::run(int argc, char* argv[])
 
   volTbl = new StorMgrVolumeTable(this);
 
+  struct ifaddrs *ifAddrStruct = NULL;
+  struct ifaddrs *ifa          = NULL;
+  void   *tmpAddrPtr           = NULL;
+
+  /*
+   * Get the local IP of the host.
+   * This is needed by the OM.
+   */
+  getifaddrs(&ifAddrStruct);
+  for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
+    if (ifa->ifa_addr->sa_family == AF_INET) { // IPv4
+      if (strncmp(ifa->ifa_name, "lo", 2) != 0) {
+          tmpAddrPtr = &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
+          char addrBuf[INET_ADDRSTRLEN];
+          inet_ntop(AF_INET, tmpAddrPtr, addrBuf, INET_ADDRSTRLEN);
+          myIp = std::string(addrBuf);
+
+      }
+    }
+  }
+  assert(myIp.empty() == false);
+  FDS_PLOG(objStorMgr->GetLog()) << "Stor Mgr IP:" << myIp;
+
   /*
    * Query  SM for disk parameter details 
    */
@@ -481,6 +516,9 @@ ObjectStorMgr::run(int argc, char* argv[])
    * Register this node with OM.
    */
   omClient = new OMgrClient(FDSP_STOR_MGR,
+                            omIpStr,
+                            omConfigPort,
+                            myIp,
                             port_num,
                             stor_prefix + "localhost-sm",
                             sm_log);
@@ -499,6 +537,11 @@ ObjectStorMgr::run(int argc, char* argv[])
   omClient->registerNodeWithOM(dInfo);
 
   communicator()->waitForShutdown();
+
+  if (ifAddrStruct != NULL) {
+    freeifaddrs(ifAddrStruct);
+  }
+
   return EXIT_SUCCESS;
 }
 

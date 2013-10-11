@@ -1,0 +1,113 @@
+5 Jun 2006 - Sébastien Dugué <Sebastien.Dugue@bull.net>
+	* Release 0.8.1
+	* Fixed building from a network filesystem.
+	  added --with-testdir=<directory> option to configure for specifying
+	  where to put testfiles for detecting the kernel level of support.
+	* Removed __USE_XOPEN2K and _USE_GNU defines from aio_event.c,
+	  aio_read.c and aio_write.c. Replaced with -D_GNU_SOURCE in Makefile.am
+
+
+13 Mar 2006 -  Sébastien Dugué <Sebastien.Dugue@bull.net>
+	* Release 0.8
+	* Fixed x86_64 port
+	* Fixed testcases volatile variables
+
+29 Dec 2005 -  Sébastien Dugué <Sebastien.Dugue@bull.net>
+
+	* Added a warning in the README concerning the requests alignement
+	  issues.
+
+04 Nov 2005 -  Sébastien Dugué <Sebastien.Dugue@bull.net>
+
+	* Release V 0.7
+
+	* Merged IO_CMD_EVENT and IO_CMD_CHECKPOINT into IO_CMD_GROUP for
+	  listio support.
+
+	* Fixed buf type from unsigned char * to char * for gcc4 in
+	  check/aio_fsync.c.
+
+	* Do not use the aiocb->data to store a pointer to the aiocb. This field
+	  was used in update_events() in src/aio_event.c to retrieve the aiocb from
+	  the io_event. We can instead use event->obj.
+
+	* Added missing comma in aio_syscall4 in src/syscall_x86.h.
+
+	* Added --enable-debug option to configure for compiling the library with
+	  debug symbols. Changed configure.ac and src/Makefile.am
+
+	* Changed __aio_thread_init() to take a sigevent as arg instead of an aiocb.
+
+	* Added new listio testcases in check.
+
+22 Jul 2005 -  Sébastien Dugué <Sebastien.Dugue@bull.net>
+
+	* Release V 0.6
+
+	* Fixed compilation errors when none of the kernel patches are applied i.e.
+   	  no support for AIO and LIO completion signal and no support for io_setup (0, ...).
+   	  Problem found by Michael Feiman from Platform Computing Corporation.
+
+	* Removed automatic checking of kernel support for buffered AIO in configure.ac.
+	  The feature must be manually enabled or disabled. Default right now is disabled.
+
+	* Bug fixes concerning buffered AIO support in aio_read and aio_write.
+
+	* Fixed the type of the buffer (from unsigned char * to char *) used for the AIO
+	  request in a few places in testbed for consistency. These were causing error
+	  when compiled with gcc 4.0. Thanks for Pradeep Padala for spotting this one.
+
+	* Added mini testsuite so that doing a `make check` after building the library
+	  makes sure everything is in order before installing. Currently the aio_fsync
+	  and aio_cancel checks fail due to lack of support from the kernel.
+
+21 Jun 2005 -  Sébastien Dugué <Sebastien.Dugue@bull.net>
+
+	* Release V 0.5
+
+	* Fixed CFLAGS in configure.ac for detecting kernel AIO support.
+
+	* Added gcc optimization flag (-O3) in src/Makefile.am so that the library
+	  is compiled with optimizations by default.
+
+	* Optimized completion events fetching.
+	  In __aio_get_res, update_events is called to retrieve completion events from the
+	  kernel via the io_getevents syscall. As io_getevents may return more than one
+	  event from the completion queue, it makes sense to check whether the event we're
+	  interested in has not already been retrieved and thus avoid systematically doing
+	  a syscall.
+
+03 May 2005 -  Sébastien Dugué <Sebastien.Dugue@bull.net>
+
+	* Release V 0.4
+
+	* The aiocb data structure changed in order to match more closely
+	  the kernel iocb.  The first 64 bytes of the aiocb correspond to the iocb.
+
+	* Licence changed to LGPL
+
+	* Copyright changed to BULL
+
+18 Mar 2005 - Sébastien Dugué <Sebastien.Dugue@bull.net>
+	* Release V 0.3
+
+	* libposix-aio does not rely on libaio anymore as we were only using the
+	  syscall wrappers it provides for kernel AIO.
+	
+	  Syscalls are now directly implemented in libposix-aio.
+
+	* kernel patches updated against 2.6.10 are now distributed as a quilt patchset
+	
+	* some bug fixes
+
+22 Dec 2004 - Laurent Vivier <Laurent.Vivier@bull.net>
+
+	* change on-the-fly the file descriptor property to O_DIRECT
+	* if I/O buffer is not aligned to a 512 byte frontier,
+	  use temporary aligned buffer (can have performance and 
+	  compatiblity issues)
+	* check if O_SYNC is equal to O_DSYNC, if true disable O_DSYNC
+
+26 Nov 2004 - Laurent Vivier <Laurent.Vivier@bull.net>
+
+	* First Release

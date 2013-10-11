@@ -20,6 +20,8 @@ class DmDiskID : public ResourceUUID
 
 /* /////////////////////    DM Disk Query Data Sets    ////////////////////// */
 
+const fds_uint32_t       dmq_disk_info = 0x00000001;
+
 class DmDiskQuery : public QueryIn
 {
   public:
@@ -27,31 +29,51 @@ class DmDiskQuery : public QueryIn
     DmDiskQuery(const DmDomainID &domain, const DmNodeID &node);
     ~DmDiskQuery();
 
+    fds_uint32_t             dmq_mask;
     fds_blk_t                dmq_blk_size;
     fds_disk_type_t          dmq_dsk_type;
+};
 
+class DmDiskInfo;
+
+class DmDiskQueryOut : public QueryOut<DmDiskInfo>
+{
+  public:
+    DmDiskQueryOut() : QueryOut<DmDiskInfo>() {};
+    ~DmDiskQueryOut() {}
+
+    /*
+     * Standard QueryOut iterations to process query results.
+     *
+     * DmDiskInfo     *info;
+     * DmDiskQueryOut  q_out;
+     *
+     * while ((info = q_out.query_pop()) != nullptr) {
+     *     ... work with info
+     *     delete info;
+     * }
+     * for (q_out.query_iter_reset();
+     *      q_out.query_iter_term() != false; q_out.query_iter_next()) {
+     *     info = q_out.query_iter_current();
+     *     ...
+     * }
+     */
   private:
 };
 
 class DmDiskInfo
 {
   public:
-    RsChain<DmDiskInfo>      di_chain;
+    DmDiskInfo() : di_chain(this) {}
+
     fds_blk_t                di_max_blks_cap;
     fds_blk_t                di_used_blks;
     fds_disk_type_t          di_disk_type;
-
-    DmDiskID                 di_disk_id;
-    DmNodeID                 di_owner_node;
-    DmDomainID               di_dm_domain;
-};
-
-class DmDiskQueryOut : public QueryOut
-{
-  public:
-    DmDiskQueryOut();
-
-  private:
+    fds_uint32_t             di_min_iops;     // based on given dmq_blk_size.
+    fds_uint32_t             di_max_iops;
+    fds_uint32_t             di_min_latency;  // 1/iops number in micro-sec.
+    fds_uint32_t             di_max_latency;
+    ChainLink                di_chain;
 };
 
 class DmDiskParams
@@ -66,7 +88,7 @@ class DmSysQuery : public QueryIn
     DmSysQuery();
 };
 
-class DmSysQueryOut : public QueryOut
+class DmSysQueryOut
 {
   public:
     DmSysQueryOut();
@@ -84,7 +106,7 @@ class DmModQuery : public QueryIn
     DmModQuery();
 };
 
-class DmModQueryOut : QueryOut
+class DmModQueryOut
 {
   public:
     DmModQueryOut();
@@ -102,9 +124,21 @@ class DmQuery : protected QueryMgr
     ~DmQuery();
 
     /*
-     * Usage:
+     * Sample usage:
      * const DmQuery &dm = DmQuery::dm_query();
      * dm.dm_iops(&min, &max);
+     *
+     * DmDiskQuery    q_in;
+     * DmDiskQueryOut q_out;
+     *
+     * ... specify the query in q_in
+     * dm.dm_disk_query(q_in, &q_out);
+     *
+     * DmDiskInfo *info;
+     * while ((info = q_out.query_pop()) != NULL) {
+     *    ... use the info
+     *    delete info;
+     * }
      */
     static DmQuery &dm_query();
 
@@ -129,6 +163,10 @@ class DmQuery : protected QueryMgr
 
   // private: not yet
     DmQuery();
+
+  private:
+    DmDiskInfo *dmq_hdd_info();
+    DmDiskInfo *dmq_ssd_info();
 };
 
 } // namespace fds

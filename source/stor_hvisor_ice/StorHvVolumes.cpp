@@ -24,13 +24,14 @@ StorHvVolume::StorHvVolume(const VolumeDesc& vdesc, StorHvCtrl *sh_ctrl, fds_log
       blkdev_minor = (*parent_sh->cr_blkdev)(voldesc->volUUID, voldesc->capacity);
   }
 
-  volQueue = new boost::lockfree::queue<fbd_request_t*> (4096);
+  volQueue = new FDS_VolumeQueue(4096, vdesc.iops_max, vdesc.iops_min, vdesc.relativePrio);
 
   is_valid = true;
 }
 
 StorHvVolume::~StorHvVolume()
 {
+  parent_sh->qos_ctrl->deregisterVolume(voldesc->volUUID);
   if (journal_tbl)
     delete journal_tbl;
   if (vol_catalog_cache)
@@ -164,11 +165,6 @@ StorHvVolumeTable::StorHvVolumeTable(StorHvCtrl *sh_ctrl, fds_log *parent_log)
 #endif
   }
 
-  /* create thread  pool */
-  tp = new fds_threadpool(250);
-  /* create a thread  for per volume queue dispatcher */
-  if (tp)
-     tp->schedule(scheduleIO, this);
 }
 
 StorHvVolumeTable::StorHvVolumeTable(StorHvCtrl *sh_ctrl)
@@ -200,13 +196,6 @@ StorHvVolumeTable::~StorHvVolumeTable()
     delete vt_log;
   }
 
-  if(tp){
-    killMainThread();
-    delete tp;
-  }
-
-
-
   statTimer->destroy();
 
 }
@@ -223,15 +212,18 @@ Error StorHvVolumeTable::registerVolume(const VolumeDesc& vdesc)
 
   map_rwlock.write_lock();
   if (volume_map.count(vol_uuid) == 0) {
-    StorHvVolume* new_vol = new StorHvVolume(vdesc, parent_sh, vt_log);
+    StorHvVolume *new_vol = new StorHvVolume(vdesc, parent_sh, vt_log);
     if (new_vol) {
       volume_map[vol_uuid] = new_vol;
+      // Register this volume queue with the QOS ctrl
+      parent_sh->qos_ctrl->registerVolume(vdesc.volUUID, new_vol->volQueue);
     }
     else {
       err = ERR_INVALID_ARG; // TODO: need more error types
     }
   }
   map_rwlock.write_unlock();
+
 
   FDS_PLOG(vt_log) << "StorHvVolumeTable - Register new volume " << vol_uuid
                    << " result: " << err.GetErrstr();  
@@ -259,14 +251,6 @@ Error StorHvVolumeTable::removeVolume(fds_volid_t vol_uuid)
   vol = volume_map[vol_uuid];
   volume_map.erase(vol_uuid);
   map_rwlock.write_unlock();
-
-  /* call destroy first to ensure that no readers accessing volume
-   * when destroying its data */
-  
-  if(tp){
-    killMainThread();
-    delete tp;
-  }
 
   vol->destroy();
   delete vol;
@@ -443,54 +427,13 @@ void StorHvStatTimerTask::runTimerTask()
   volTable->printPerfStats(statfile);
 }
 
-void scheduleIO(StorHvVolumeTable *tPtr)
-{
-	tPtr->schedulePerVolIO();
-}
-
-boost::atomic <bool> done (false);
-void StorHvVolumeTable::schedulePerVolIO()
-{
-   fbd_request_t *req;
- 
- // pull out IO from per volume queue 
- while (!done) 
- {
-
-  map_rwlock.write_lock();
-  for (std::unordered_map<fds_volid_t, StorHvVolume*>::iterator it = volume_map.begin();
-       it != volume_map.end();
-       ++it)
-    {
-      StorHvVolume *vol = it->second;
-      if (vol->volQueue->pop(req))
-      {
-
-      	if(req->io_type == IO_READ) {
-		FDS_PLOG(vt_log)  << " scheduling  Read  io volId:" << req->volUUID;
-		tp->schedule(StorHvisorProcIoRd, req, req->cb_request,req->vbd, req->vReq);
-      	} else if(req->io_type == IO_WRITE) {
-		FDS_PLOG(vt_log)  << " scheduling  write io volId:" << req->volUUID;
-		tp->schedule(StorHvisorProcIoWr,req, req->cb_request,req->vbd, req->vReq);
-      	} else 
-		FDS_PLOG(vt_log)  << " Invalid op volId:" << req->volUUID;
-      }
-    }
-     map_rwlock.write_unlock();
- }
-
-}
-
-void StorHvVolumeTable:: killMainThread()
-{
-   done = true;
-}
-
 BEGIN_C_DECLS
-int  pushVolQueue(fbd_request_t *req)
+int  pushVolQueue(void *req1)
 {
   fds_uint32_t vol_id;
   StorHvVolume *shvol;
+  fbd_request_t *req = (fbd_request_t *)req1;
+  FDS_IOType *io = new FDS_IOType();
 
   vol_id = req->volUUID;
   shvol = storHvisor->vol_table->getLockedVolume(vol_id);
@@ -502,7 +445,8 @@ int  pushVolQueue(fbd_request_t *req)
   FDS_PLOG(storHvisor->GetLog()) << " Queueing the  IO.  vol_id:  " << vol_id;
   // push request to the  per volume queue 
   
-  while(!shvol->volQueue->push(req));
+  io->fbd_req = req;
+  shvol->volQueue->enqueueIO(io);
   shvol->readUnlock();
   FDS_PLOG(storHvisor->GetLog()) << " Queueing the  IO done.  vol_id:  " << vol_id;
 

@@ -1,5 +1,12 @@
 #ifndef __StorHvisorNet_h__
 #define __StorHvisorNet_h__
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <ifaddrs.h>
+#include <arpa/inet.h>
+
 #include <Ice/ProxyF.h>
 #include <Ice/ObjectF.h>
 #include <Ice/Exception.h>
@@ -30,6 +37,8 @@
 #include <lib/OMgrClient.h>
 #include "StorHvVolumes.h"
 #include "StorHvisorCPP.h" 
+#include "fds_qos.h" 
+#include "qos_ctrl.h" 
 
 #include <map>
 // #include "util/concurrency/Thread.h"
@@ -145,8 +154,11 @@ public:
   StorHvDataPlacement        *dataPlacementTbl;
   FDS_RPC_EndPointTbl        *rpcSwitchTbl; // RPC calls Switch Table
   StorHvVolumeTable          *vol_table;  
+  FDS_QoSControl             *qos_ctrl; // Qos Controller object
   OMgrClient                 *om_client;
   FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr dInfo;
+
+  std::string                 myIp;
 
   void  InitIceObjects();
   void InitDmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
