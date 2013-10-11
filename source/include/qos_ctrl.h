@@ -43,6 +43,7 @@ class FDS_QoSControl {
 
    fds_uint32_t  qos_max_threads; // Max number of threads in the pool
    fds_threadpool *threadPool; // This is the global threadpool
+   fds_uint64_t   total_rate;
    
 
    fds_log *qos_log;
@@ -52,15 +53,14 @@ class FDS_QoSControl {
 
    FDS_QoSControl(uint32_t _max_thrds, dispatchAlgoType algo, fds_log *log);
    
-   Error   registerVolume(FDS_Volume &volume);
-   Error   deregisterVolume(FDS_Volume& Volume);
+   Error   registerVolume(fds_uint64_t voluuid, FDS_VolumeQueue *q);
+   Error   deregisterVolume(fds_uint64_t voluuid);
    
    void    setQosDispatcher(dispatchAlgoType algo_type, FDS_QoSDispatcher *qosDispatcher);
    void    runScheduler(); // Calls in the QosDispatcher's main dispatch routine
    Error   processIO(FDS_IOType* io); // Schedule an IO on a thread from thrd pool
-   int     waitForWorkers(); // Blocks until there is a threshold num of workers in threadpool
+   fds_uint32_t     waitForWorkers(); // Blocks until there is a threshold num of workers in threadpool
    Error   enqueueIO(fds_volid_t volUUID, FDS_IOType *io);
-
 };
 
 }

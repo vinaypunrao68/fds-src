@@ -37,6 +37,8 @@
 #include <lib/OMgrClient.h>
 #include "StorHvVolumes.h"
 #include "StorHvisorCPP.h" 
+#include "fds_qos.h" 
+#include "qos_ctrl.h" 
 
 #include <map>
 // #include "util/concurrency/Thread.h"

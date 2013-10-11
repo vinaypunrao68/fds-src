@@ -34,8 +34,9 @@ void start_queue_ios(fds_uint32_t queue_id, fds_uint64_t queue_rate, int queue_p
   fds_vol.voldesc->relativePrio = queue_priority;
 
   cout << "Registering volume " << queue_id << endl;
+  FDS_VolumeQueue *volQ = new FDS_VolumeQueue(256, fds_vol.voldesc->iops_max, fds_vol.voldesc->iops_min, fds_vol.voldesc->relativePrio);
 
-  qctrl->registerVolume(fds_vol);
+  qctrl->registerVolume(queue_id, volQ );
 
   cout << "Volume " << queue_id << " Registered"  << endl;
 
@@ -142,17 +143,16 @@ namespace fds {
 
   }
 
-  Error FDS_QoSControl::registerVolume(FDS_Volume& volume) {
+  Error FDS_QoSControl::registerVolume(fds_uint64_t voluuid, FDS_VolumeQueue *volQ ) {
     Error err(ERR_OK);
-    FDS_VolumeQueue *volQ = new FDS_VolumeQueue(256, volume.voldesc->iops_max, volume.voldesc->iops_min, volume.voldesc->relativePrio);
-    dispatcher->registerQueue(volume.voldesc->volUUID, volQ);
+    dispatcher->registerQueue(voluuid, volQ);
     volQ->activate();
     return err;
   }
 
-  Error FDS_QoSControl::deregisterVolume(FDS_Volume& volume) {
+  Error FDS_QoSControl::deregisterVolume(fds_uint64_t voluuid) {
     Error err(ERR_OK);
-    dispatcher->deregisterQueue(volume.voldesc->volUUID);
+    dispatcher->deregisterQueue(voluuid);
     return err;
   }
    
@@ -186,7 +186,7 @@ namespace fds {
     return err;
   }
 
-  int FDS_QoSControl::waitForWorkers() {
+  fds_uint32_t FDS_QoSControl::waitForWorkers() {
     usleep(1000000/TOTAL_RATE);
     return (0);
   }
@@ -199,3 +199,5 @@ namespace fds {
   }
 
 }
+
+

@@ -1,7 +1,7 @@
 #include "qos_ctrl.h"
 #include "fds_qos.h"
 #include "fds_err.h"
-#include "StorHvisorCPP.h"
+#include "qos_htb.h"
 
 namespace fds {
 
@@ -10,19 +10,20 @@ FDS_QoSControl::FDS_QoSControl(uint32_t _max_threads,
                                fds_log *log): qos_max_threads(_max_threads)  {
    threadPool = new fds_threadpool(qos_max_threads);
    dispatchAlgo = algo;
+   qos_log = log;
+   total_rate = 20000; //IOPS
    switch(algo) { 
     case FDS_DISPATCH_HIER_TOKEN_BUCKET :
-        //dispatcher = new htb_dispatcher();
+        dispatcher = (FDS_QoSDispatcher *)new QoSHTBDispatcher(this, qos_log, total_rate);
         break;
 
     case FDS_DISPATCH_WFQ : 
-        //dispatcher = new wfqDispatcher();
+        //dispatcher =(FDS_QoSDispatcher *) new QoSWFQDispatcher(this, total_rate);
         break;
 
      default :
        break;
    }
-   qos_log = log;
 }
 
 
@@ -31,27 +32,30 @@ FDS_QoSControl::~FDS_QoSControl()  {
   delete threadPool;
 }
 
+fds_uint32_t FDS_QoSControl::waitForWorkers() {
+
+  return 10;
+}
+
 
 void FDS_QoSControl::runScheduler() { 
   
-#if 0
   if (dispatcher) {
-     dispatcher->dispatchIOs();
+     //threadPool->schedule(dispatcher->dispatchIOs, this);
   }
-#endif
-
 }
 
 
-Error   FDS_QoSControl::registerVolume(FDS_Volume &volume) {
+Error   FDS_QoSControl::registerVolume(fds_volid_t vol_uuid, FDS_VolumeQueue *volq) {
 Error err(ERR_OK);
-   //dispatcher->registerQueue(volume.voldesc->volUUID, volume.volQueue);
+   err = dispatcher->registerQueue(vol_uuid, volq);
    return err;
 }
 
-Error   FDS_QoSControl::deregisterVolume(FDS_Volume& Volume) {
+
+Error   FDS_QoSControl::deregisterVolume(fds_volid_t vol_uuid) {
 Error err(ERR_OK);
-    //dispatcher->deregisterQueue(volume.volUUID);
+    err = dispatcher->deregisterQueue(vol_uuid);
    return err;
 }
 

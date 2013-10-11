@@ -7,7 +7,6 @@
 #define END_C_DECLS
 #endif
 BEGIN_C_DECLS
-typedef void (*complete_req_cb_t)(void *arg1, void *arg2, fbd_request_t *treq, int res);
 typedef int (*hv_create_blkdev)(uint64_t voluuid, uint64_t capacity);
 typedef void  (*hv_delete_blkdev)(int minor);
 void init_DPAPI();
