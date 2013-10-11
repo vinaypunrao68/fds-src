@@ -12,8 +12,8 @@
 namespace fds {
 
 /***** QoSHTBDispatcher implementation ******/
-QoSHTBDispatcher::QoSHTBDispatcher(FDS_QoSControl *ctrl, fds_uint64_t _total_rate)
-  : FDS_QoSDispatcher(ctrl),
+QoSHTBDispatcher::QoSHTBDispatcher(FDS_QoSControl *ctrl, fds_log *log, fds_uint64_t _total_rate)
+    : FDS_QoSDispatcher(ctrl, log),
     total_rate(_total_rate),
     wait_time_microsec(DEFAULT_ASSURED_WAIT_TIME_MICROSEC),
     pool(0, _total_rate, DEFAULT_ASSURED_WAIT_TIME_MICROSEC)
@@ -61,14 +61,15 @@ Error QoSHTBDispatcher::modifyTotalRate(fds_uint64_t _total_rate)
 }
 
 Error QoSHTBDispatcher::registerQueue(fds_uint32_t queue_id,
-				      FDS_VolumeQueue *queue,
-				      fds_uint64_t q_min_rate,
-				      fds_uint32_t q_priority)
+				      FDS_VolumeQueue *queue)
 {
   Error err(ERR_OK);
+  fds_uint64_t q_min_rate = queue->iops_min;
+  fds_uint64_t q_max_rate = queue->iops_max;
+  fds_uint32_t q_priority = queue->priority;
    
   /* we need a new state to control new queue */
-  TBQueueState *qstate = new TBQueueState(q_min_rate, q_min_rate, default_burst_size);
+  TBQueueState *qstate = new TBQueueState(q_min_rate, q_max_rate, default_burst_size);
   if (!qstate) {
     FDS_PLOG(qda_log) << "QoSHTBDispatcher: failed to allocate memory for queue state for queue: " << queue_id;
     err = ERR_MAX;
@@ -87,7 +88,7 @@ Error QoSHTBDispatcher::registerQueue(fds_uint32_t queue_id,
   }
 
   /* call base class to actually add queue */
-  err = FDS_QoSDispatcher::registerQueueWithLockHeld(queue_id, queue, q_min_rate, q_priority);
+  err = FDS_QoSDispatcher::registerQueueWithLockHeld(queue_id, queue);
   if (!err.ok()) {
     qda_lock.write_unlock();
     delete qstate;

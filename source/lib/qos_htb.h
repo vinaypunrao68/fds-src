@@ -15,6 +15,8 @@
 #include "fds_types.h"
 #include "fds_qos.h"
 
+#define NANOSEC_IN_SEC  1000000000
+
 namespace fds {
 
   class TBQueueState;
@@ -240,7 +242,7 @@ namespace fds {
    */
   class QoSHTBDispatcher: public FDS_QoSDispatcher {
   public:
-    QoSHTBDispatcher(FDS_QoSControl* ctrl, fds_uint64_t _total_rate);
+    QoSHTBDispatcher(FDS_QoSControl* ctrl, fds_log *log, fds_uint64_t _total_rate);
     ~QoSHTBDispatcher();
 
     /***** implementation of base class functions *****/
@@ -258,10 +260,7 @@ namespace fds {
 
     /* this implementation calls based class registerQueue first */
     virtual Error registerQueue(fds_uint32_t queue_id,
-				FDS_VolumeQueue *queue,
-				fds_uint64_t q_min_rate,
-				/*	fds_uint64_t q_max_rate, */
-				fds_uint32_t q_priority);
+				FDS_VolumeQueue *queue);
 
     /* this implementation calls base class deregisterQueue first */
     virtual Error deregisterQueue(fds_uint32_t queue_id);
