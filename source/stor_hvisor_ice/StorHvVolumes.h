@@ -25,6 +25,7 @@
 #include <util/PerfStat.h>
 #include <concurrency/RwLock.h>
 #include "VolumeCatalogCache.h"
+#include "qos_ctrl.h"
 #include "StorHvJournal.h"
 
 
@@ -119,11 +120,6 @@ class StorHvVolumeTable
    */
   StorHvVolume* getVolume(fds_volid_t vol_uuid);
 
-  fds_threadpool  *tp;
-  /* per volume queue scheduler */
-  void schedulePerVolIO();
-  void killMainThread();
-
   /* Dumping per-volume performance stats */
   void startPerfStats();
   void stopPerfStats();
@@ -177,7 +173,6 @@ class StorHvVolumeTable
    void runTimerTask();
  };
 
-void scheduleIO(StorHvVolumeTable *tPtr);
 } // namespace fds
 
 #endif // __STOR_HV_VOLS_H_

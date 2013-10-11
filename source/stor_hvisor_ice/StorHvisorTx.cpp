@@ -29,10 +29,10 @@ BEGIN_C_DECLS
 int StorHvisorProcIoRd(void *_io)
 {
  FDS_IOType *io = (FDS_IOType *)_io;
- fbd_request_t *req = io->fbd_req;
- complete_req_cb_t comp_req = io->com_req; 
+ fbd_request_t *req = (fbd_request_t *)io->fbd_req;
+ blkdev_complete_req_cb_t comp_req = io->comp_req; 
  void *arg1 = io->vbd; 
- void *arg2 = io->vreq;
+ void *arg2 = io->vbd_req;
   FDS_RPC_EndPoint *endPoint = NULL; 
   unsigned int node_ip = 0;
   fds_uint32_t node_port = 0;
@@ -172,10 +172,10 @@ int StorHvisorProcIoRd(void *_io)
 int StorHvisorProcIoWr(void *_io)
 {
   FDS_IOType *io = (FDS_IOType *)_io;
-  fbd_request_t *req = io->fbd_req;
-  complete_req_cb_t comp_req = io->com_req; 
+  fbd_request_t *req = (fbd_request_t *)io->fbd_req;
+  blkdev_complete_req_cb_t comp_req = io->comp_req; 
   void *arg1 = io->vbd; 
-  void *arg2 = io->vreq;
+  void *arg2 = io->vbd_req;
   int   trans_id, i=0;
   // int   data_size    = req->secs * HVISOR_SECTOR_SIZE;
   int   data_size    = req->len;
