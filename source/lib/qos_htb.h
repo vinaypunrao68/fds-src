@@ -12,85 +12,16 @@
 #include <atomic>
 #include <boost/date_time/posix_time/posix_time.hpp>
 
-#include "fds_types.h"
+#include "qos_tokbucket.h"
 #include "fds_qos.h"
 
-#define NANOSEC_IN_SEC  1000000000
+#define DEFAULT_ASSURED_WAIT_MICROSEC     100000
 
 namespace fds {
 
   class TBQueueState;
   typedef std::unordered_map<fds_uint32_t, TBQueueState* > qstate_map_t;
   typedef std::unordered_map<fds_uint32_t, TBQueueState*>::iterator qstate_map_it_t;
-
- /*  Demand-driven token bucket 
-  *  For use by dispatchers that will drive the token bucket state, or 
-  *  as a building block for a more complex token buckets. 
-  * 
-  *  Tokens are accumulated with rate 'rate', but never can exceed 
-  *  burst size 'burst'. Thus, token bucket control rate 'rate' and 
-  *  if tokens are not consumed and accumulate above burst size, 
-  *  the tokens above burst size will be thrown away. 
-  */
-  class TokenBucket {
-  public:
-    TokenBucket(fds_uint64_t _rate, fds_uint64_t _burst);
-    ~TokenBucket();
-
-    /* Change rate and burst parameters 
-     * Means that tokens will start accumulating with new rate, and capped 
-     * to a new burst. This does not change the number of tokens that we 
-     * accumulated with the old rate. */
-    inline void modifyParams(fds_uint64_t _rate, fds_uint64_t _burst);
-    inline void modifyRate(fds_uint64_t _rate);
-
-    /* If token bucket has 'num_tokens', consume them and return true
-     * otherwise return false. Assumes that token bucket state is current --
-     * !! Must call updateTBState() first to update the state. */
-    inline fds_bool_t tryToConsumeTokens(fds_uint64_t num_tokens);
-
-    /* If token bucket has 'num_tokens', consumes them and returns 0,
-     * if tokens are not available, returns time delay in microseconds 
-     * when tokens will become available.
-     * !! Must call updateTBState() first to update the state */
-    inline fds_uint64_t tryToConsumeTokensOrGetDelay(fds_uint64_t num_tokens);
-
-    /* Update number of tokens in the token bucket
-     * returns the number of tokens that spilled over the burst size */
-    inline fds_uint64_t updateTBState(void); 
-
-  protected: /* methods */
-    inline void updateTokensOnly(void);
-
-  protected:
-    /* configurable parameters */
-    fds_uint64_t rate; /* rate controlled by this token bucket */
-    fds_uint64_t burst; /* maximum number of tokens that bucket can accumulate */
-
-    /* dynamic state */
-    boost::posix_time::ptime t_last_update; /* last time token bucket state was updated */
-    double token_count; /* number of tokens in the token bucket since t_last_update */
-  };
-
-  /*
-   * Demand-driven token bucket that allows to control its number of tokens
-   * from outside (add and remove tokens explicitly). Does not have burst size.
-   */
-  class ControlledTokenBucket: public TokenBucket {
-  public: 
-    ControlledTokenBucket(fds_uint64_t _rate);
-    ~ControlledTokenBucket();
-
-    /* add/remove tokens to/from token buucket  */
-    inline void addTokens(fds_uint64_t num_tokens);
-    /* returns actual number of tokens that was removed (since we cannot 
-     * decrease the number of tokens below zero */
-    inline fds_uint64_t removeTokens(fds_uint64_t num_tokens);    
-    
-    /* base class' update tokens will update tokens based on rate,
-    *  and consume tokens are also the same */
-  };
-
 
   /* Queue state that is controlled by a demand-driven token bucket that 
    * ensures minimum rate, but also ensures that tokens are never consumed 
@@ -309,7 +240,6 @@ namespace fds {
 
     fds_uint32_t last_dispatch_qid; /* queue id from which we dispatch last IO */
   };
-
 
 
 } //namespace fds

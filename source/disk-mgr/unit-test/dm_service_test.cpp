@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fds_assert.h>
 #include <disk-mgr/dm_service.h>
 
 using namespace std;
