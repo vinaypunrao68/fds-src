@@ -73,7 +73,9 @@ int FdsCli::fdsCliPraser(int argc, char* argv[])
 	("volume-id,i",po::value<int>(),"volume id")
 	("iops-min,g",po::value<double>(),"minimum IOPS")
 	("iops-max,m",po::value<double>(),"maximum IOPS")
-	("rel-prio,r",po::value<int>(),"relative priority");
+	("rel-prio,r",po::value<int>(),"relative priority")
+            ("om_ip", po::value<std::string>(), "OM IP addr") /* Consumed already */
+            ("om_port", po::value<fds_uint32_t>(), "OM config port"); /* Consumed already */
 
 	po::variables_map vm;
 
@@ -255,23 +257,39 @@ int FdsCli::fdsCliPraser(int argc, char* argv[])
    * Ice will execute the application via run()
    */
 int FdsCli::run(int argc, char* argv[]) {
-
-    /*
-     * Setup the network communication connection with orch Manager. 
-     */
-
-    std::string orchMgrIPAddress;
-    int orchMgrPortNum;
-
-    Ice::PropertiesPtr props = communicator()->getProperties();
-
-    orchMgrPortNum = props->getPropertyAsInt("OrchMgr.ConfigPort");
-    orchMgrIPAddress = props->getProperty("OrchMgr.IPAddress");
-
-    tcpProxyStr << "OrchMgr: tcp -h " << orchMgrIPAddress << " -p  " << orchMgrPortNum;
-
-    fdsCli->fdsCliPraser(argc, argv);
+  /*
+   * Process the cmdline args.
+   */
+  fds_uint32_t omConfigPort = 0;
+  std::string  omIpStr;
+  for (fds_int32_t i = 1; i < argc; i++) {
+    if (strncmp(argv[i], "--om_ip=", 8) == 0) {
+      omIpStr = argv[i] + 8;
+    } else if (strncmp(argv[i], "--om_port=", 10) == 0) {
+      omConfigPort = strtoul(argv[i] + 10, NULL, 0);
+    }
   }
+
+  /*
+   * Setup the network communication connection with orch Manager. 
+   */
+  
+  // std::string orchMgrIPAddress;
+  // int orchMgrPortNum;
+  
+  Ice::PropertiesPtr props = communicator()->getProperties();
+  
+  if (omConfigPort == 0) {
+    omConfigPort = props->getPropertyAsInt("OrchMgr.ConfigPort");
+  }
+  if (omIpStr.empty() == true) {
+    omIpStr = props->getProperty("OrchMgr.IPAddress");
+  }
+  
+  tcpProxyStr << "OrchMgr: tcp -h " << omIpStr << " -p  " << omConfigPort;
+  
+  fdsCli->fdsCliPraser(argc, argv);
+}
 
 }  // namespace fds
 

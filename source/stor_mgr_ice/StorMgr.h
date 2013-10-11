@@ -7,6 +7,8 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <ifaddrs.h>
+#include <arpa/inet.h>
 #include <pthread.h>
 #include <fdsp/FDSP.h>
 #include "stor_mgr_err.h"
@@ -49,8 +51,9 @@ public:
    ObjectDB      *objIndexDB;
    std::string stor_prefix;
 
-   fds_uint32_t port_num; /* Data path port num */
-   fds_uint32_t cp_port_num; /* Control path port num */
+   fds_uint32_t port_num;     /* Data path port num */
+   fds_uint32_t cp_port_num;  /* Control path port num */
+   std::string myIp;          /* This nodes local IP */
 
    StorMgrVolumeTable *volTbl;
    OMgrClient    *omClient;
