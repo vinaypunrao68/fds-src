@@ -12,8 +12,8 @@ typedef int (*hv_create_blkdev)(uint64_t voluuid, uint64_t capacity);
 typedef void  (*hv_delete_blkdev)(int minor);
 void init_DPAPI();
 void integration_stub( void *buf,  int len);
-int StorHvisorProcIoRd(fbd_request_t *req, complete_req_cb_t comp_req, void *arg1, void *arg2);
-int StorHvisorProcIoWr(fbd_request_t *req, complete_req_cb_t comp_req, void *arg1, void *arg2);
+int StorHvisorProcIoRd(void *io);
+int StorHvisorProcIoWr(void *io);
 int unitTest(fds_uint32_t time_secs);
 int unitTestFile(const char *inname, const char *outname, unsigned int base_vol, int num_vols);
 void CreateStorHvisor(int argc, char *argv[], hv_create_blkdev cr_blkdev, hv_delete_blkdev del_blkdev);
@@ -27,5 +27,5 @@ void CreateSHMode(int argc,
 void DeleteStorHvisor(void);
 void cppOut( char *format, ... );
 void ctrlCCallbackHandler(int signal);
-int  pushVolQueue(fbd_request_t *req);
+int  pushVolQueue(void *req);
 END_C_DECLS

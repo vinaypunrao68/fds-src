@@ -159,21 +159,21 @@ namespace fds {
       next_priority_based_queue = 0;
     }
 
-    virtual Error registerQueue(fds_uint32_t queue_id, FDS_VolumeQueue *queue, fds_uint64_t queue_rate, fds_uint32_t queue_priority) {
+    virtual Error registerQueue(fds_uint32_t queue_id, FDS_VolumeQueue *queue) {
 
       Error err(ERR_OK);
 
       assert(queue_id > 0);
 
-      WFQQueueDesc *qd = new WFQQueueDesc(queue_id, queue, queue_rate, queue_priority);
-      qd->rate_based_weight = queue_rate;
-      qd->priority_based_weight = priority_to_wfq_weight(queue_priority);
+      WFQQueueDesc *qd = new WFQQueueDesc(queue_id, queue, queue->iops_min, queue->priority);
+      qd->rate_based_weight = queue->iops_min;
+      qd->priority_based_weight = priority_to_wfq_weight(queue->priority);
       qd->num_pending_ios = 0;
       qd->num_outstanding_ios = 0;
       qd->num_priority_based_ios_dispatched = 0;
 
       qda_lock.write_lock();
-      err = FDS_QoSDispatcher::registerQueueWithLockHeld(queue_id, queue, queue_rate, queue_priority);
+      err = FDS_QoSDispatcher::registerQueueWithLockHeld(queue_id, queue);
       if (err != ERR_OK) {
 	qda_lock.write_unlock();
 	return err;
@@ -190,7 +190,7 @@ namespace fds {
       // Now fill the vacant spots in the rate based qlist based on the queue_rate
       // Start at the first vacant spot and fill at intervals of capacity/queue_rate.
       fds_uint64_t current_spot = 0;
-      for (fds_uint64_t i = 0; i < queue_rate; i++) {
+      for (fds_uint64_t i = 0; i < queue->iops_min; i++) {
 	fds_uint64_t num_spots_searched = 0;
 	while ((rate_based_qlist[current_spot] != 0) && (num_spots_searched < total_capacity)) {
 	  current_spot = (current_spot+1) % total_capacity;
@@ -199,7 +199,7 @@ namespace fds {
 	assert(rate_based_qlist[current_spot] == 0);
 	rate_based_qlist[current_spot] = queue_id;
 	qd->rate_based_rr_spots.push_back(current_spot);
-	current_spot = (current_spot + (int) total_capacity/queue_rate) % total_capacity;
+	current_spot = (current_spot + (int) total_capacity/queue->iops_min) % total_capacity;
       }
       queue_desc_map[queue_id] = qd;
       queue_map[queue_id] = queue;

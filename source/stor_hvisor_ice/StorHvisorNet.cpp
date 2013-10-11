@@ -565,6 +565,8 @@ StorHvCtrl::StorHvCtrl(int argc,
    * in other parts of the system */
   vol_table = new StorHvVolumeTable(this, sh_log);  
 
+  /*  Create the QOS Controller object */ 
+  qos_ctrl = new FDS_QoSControl(150, FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET, sh_log);
   /*
    * Set basic thread properties.
    */

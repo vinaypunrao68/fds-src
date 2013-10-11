@@ -152,6 +152,7 @@ public:
   StorHvDataPlacement        *dataPlacementTbl;
   FDS_RPC_EndPointTbl        *rpcSwitchTbl; // RPC calls Switch Table
   StorHvVolumeTable          *vol_table;  
+  FDS_QoSControl             *qos_ctrl; // Qos Controller object
   OMgrClient                 *om_client;
 
   std::string                 myIp;

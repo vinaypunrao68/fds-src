@@ -1,3 +1,5 @@
+#ifndef __FDS_FDS_QOS_H__
+#define __FDS_FDS_QOS_H__
 #include <fds_types.h>
 #include <fds_err.h>
 #include <util/Log.h>
@@ -5,15 +7,13 @@
 #include <unordered_map>
 #include <mutex> // std::mutex, std::unique_lock
 #include <condition_variable> 
-
 #include "qos_ctrl.h"
 
-#ifndef __FDS_FDS_QOS_H__
-#define __FDS_FDS_QOS_H__
 
 namespace fds {
 
   typedef std::unordered_map<fds_uint32_t,FDS_VolumeQueue *> queue_map_t;
+  class FDS_QoSControl;
 
   class FDS_QoSDispatcher {
 
@@ -28,6 +28,7 @@ namespace fds {
     std::mutex ios_pending_mtx; // to protect the counter num_pending_ios
     std::condition_variable ios_pending_cv; // Condn variable to signal dispatcher when there is an IO available, from enqueueIO thread.
     fds_uint32_t num_pending_ios; // ios pending, aggregated across all queues, protected by ios_pending_mtx;
+    fds_mutex * qda_mutex;
 
  
     virtual fds_uint32_t getNextQueueForDispatch() = 0;
@@ -35,13 +36,14 @@ namespace fds {
     FDS_QoSDispatcher();
     ~FDS_QoSDispatcher();
  
-    FDS_QoSDispatcher(FDS_QoSControl *ctrlr) {
+    FDS_QoSDispatcher(FDS_QoSControl *ctrlr, fds_log *log) {
       parent_ctrlr = ctrlr;
-      qda_log = new fds_log("qda", "logs");
+      qda_log = log;
+      qda_mutex = new fds_mutex("QoSDispatchAlgorithm");
       num_pending_ios = 0;
     }
 
-    Error registerQueueWithLockHeld(fds_uint32_t queue_id, FDS_VolumeQueue *queue, fds_uint64_t queue_rate, fds_uint32_t queue_priority) {
+    Error registerQueueWithLockHeld(fds_uint32_t queue_id, FDS_VolumeQueue *queue) {
 
       Error err(ERR_OK);
       
@@ -54,10 +56,10 @@ namespace fds {
       return err;
     }
 
-    virtual Error registerQueue(fds_uint32_t queue_id, FDS_VolumeQueue *queue, fds_uint64_t queue_rate, fds_uint32_t queue_priority) {
+    virtual Error registerQueue(fds_uint32_t queue_id, FDS_VolumeQueue *queue ) {
       Error err(ERR_OK);
       qda_lock.write_lock();
-      err = registerQueueWithLockHeld(queue_id, queue, queue_rate, queue_priority);
+      err = registerQueueWithLockHeld(queue_id, queue);
       qda_lock.write_unlock();
       return err;
     }
@@ -98,14 +100,30 @@ namespace fds {
 
     // Quiesce queued IOs on this queue & block any new IOs
     virtual void quiesceIOs(fds_uint32_t queue_id)  {
+    Error err(ERR_OK);
+      if (queue_map.count(queue_id) != 0) {	
+	return;
+      }
+      FDS_VolumeQueue *que = queue_map[queue_id];
+      que->quiesceIOs();
 
     }
 
     virtual void suspendQueue(fds_uint32_t queue_id) {
+      if (queue_map.count(queue_id) != 0) {	
+	return;
+      }
+      FDS_VolumeQueue *que = queue_map[queue_id];
+      que->suspendIO();
 
     }
 
     virtual void resumeQueue(fds_uint32_t queue_id) {
+      if (queue_map.count(queue_id) != 0) {	
+        return;
+      }
+      FDS_VolumeQueue *que = queue_map[queue_id];
+      que->resumeIO();
 
     } 
 

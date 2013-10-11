@@ -19,6 +19,8 @@
 #include <fds_err.h>
 #include <fds_types.h>
 #include <fds_volume.h>
+#include <qos_ctrl.h>
+#include <fds_qos.h>
 #include <util/Log.h>
 #include <util/PerfStat.h>
 #include <concurrency/RwLock.h>
@@ -67,7 +69,7 @@ public: /* data*/
  /*
    * per volume queue
    */
-  boost::lockfree::queue<fbd_request_t*>  *volQueue;
+  FDS_VolumeQueue*  volQueue;
 
 private: /* data */
 

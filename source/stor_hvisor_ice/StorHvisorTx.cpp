@@ -8,6 +8,8 @@
 #include "StorHvisorNet.h"
 #include "StorHvisorCPP.h"
 #include "hvisor_lib.h"
+#include "fds_qos.h"
+#include "qos_ctrl.h"
 #include <hash/MurmurHash3.h>
 #include <arpa/inet.h>
 //#include "tapdisk.h"
@@ -20,14 +22,17 @@ using namespace fds;
 
 extern StorHvCtrl *storHvisor;
 
-
 #define SRC_IP  0x0a010a65
 #define FDS_IO_LONG_TIME  60 // seconds
 
 BEGIN_C_DECLS
-int StorHvisorProcIoRd(fbd_request_t *req, complete_req_cb_t comp_req, void *arg1, void *arg2)
+int StorHvisorProcIoRd(void *_io)
 {
-
+ FDS_IOType *io = (FDS_IOType *)_io;
+ fbd_request_t *req = io->fbd_req;
+ complete_req_cb_t comp_req = io->com_req; 
+ void *arg1 = io->vbd; 
+ void *arg2 = io->vreq;
   FDS_RPC_EndPoint *endPoint = NULL; 
   unsigned int node_ip = 0;
   fds_uint32_t node_port = 0;
@@ -164,8 +169,13 @@ int StorHvisorProcIoRd(fbd_request_t *req, complete_req_cb_t comp_req, void *arg
   return 0; // je_lock destructor will unlock the journal entry
 }
 
-int StorHvisorProcIoWr(fbd_request_t *req, complete_req_cb_t comp_req, void *arg1, void *arg2)
+int StorHvisorProcIoWr(void *_io)
 {
+  FDS_IOType *io = (FDS_IOType *)_io;
+  fbd_request_t *req = io->fbd_req;
+  complete_req_cb_t comp_req = io->com_req; 
+  void *arg1 = io->vbd; 
+  void *arg2 = io->vreq;
   int   trans_id, i=0;
   // int   data_size    = req->secs * HVISOR_SECTOR_SIZE;
   int   data_size    = req->len;
