@@ -70,18 +70,24 @@ void OMgrClientRPCI::NotifyDMTUpdate(const FDSP_MsgHdrTypePtr& msg_hdr,
 
 
 OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
+                       const std::string& _omIpStr,
+                       fds_uint32_t _omPort,
+                       const std::string& _hostIp,
                        fds_uint32_t data_port,
                        const std::string& node_name,
                        fds_log *parent_log) {
   my_node_type = node_type;
+  omIpStr      = _omIpStr;
+  omConfigPort = _omPort;
+  hostIp       = _hostIp;
   my_data_port = data_port;
   my_node_name = node_name;
   if (parent_log) {
     omc_log = parent_log;
-  }
-  else {
+  } else {
     omc_log = new fds_log("omc", "logs");
   }
+
   initRPCComm();
 }
 
@@ -125,6 +131,23 @@ int OMgrClient::initRPCComm() {
   rpc_props->setProperty("OMgrClient.ThreadPool.Size", "1");
   rpc_props->setProperty("OMgrClient.ThreadPool.SizeMax", "1");
   rpc_props->setProperty("OMgrClient.ThreadPool.SizeWarn", "1");
+
+  /*
+   * If the OM's IP wasn't given via cmdline
+   * pull it from the config file.
+   */
+  if (omIpStr.empty() == true) {
+    omIpStr = rpc_props->getProperty("OMgr.IP");
+  }
+  /*
+   * If the OM's config port wasn't given via cmdline
+   * pull it from the config file
+   */
+  if (omConfigPort == 0) {
+    omConfigPort = strtoul(rpc_props->getProperty("OMgr.ConfigPort").c_str(),
+                           NULL,
+                           0);
+  }
   
   return (0);
 
@@ -152,10 +175,9 @@ int OMgrClient::subscribeToOmEvents(unsigned int om_ip_addr, int tenn_id, int do
 
   pubsub_comm = Ice::initialize(argc, argv, initData);
   Ice::PropertiesPtr pubsub_props = pubsub_comm->getProperties();
-  std::string omgr_ip_addr = pubsub_props->getProperty("OMgr.IP");
  
   std::string tcpProxyStr;
-  tcpProxyStr = std::string("IceStorm/TopicManager:tcp -h ") + omgr_ip_addr + std::string(" -p 11234");
+  tcpProxyStr = std::string("IceStorm/TopicManager:tcp -h ") + omIpStr + std::string(" -p 11234");
   Ice::ObjectPrx obj = pubsub_comm->stringToProxy(tcpProxyStr);
   pubsub_topicManager = IceStorm::TopicManagerPrx::checkedCast(obj);
 
@@ -182,7 +204,8 @@ int OMgrClient::subscribeToOmEvents(unsigned int om_ip_addr, int tenn_id, int do
 
   pubsub_adapter->activate();
 
-  FDS_PLOG(omc_log) << "OMgrClient subscribed to OMgrEvents with Pub Sub server at " << omgr_ip_addr << " : 11234";
+  FDS_PLOG(omc_log) << "OMgrClient subscribed to OMgrEvents with Pub Sub server at "
+                    << omIpStr << " : 11234";
 
   }
   catch (...) {
@@ -254,9 +277,8 @@ int OMgrClient::registerNodeWithOM() {
   try {
 
   Ice::PropertiesPtr props = rpc_comm->getProperties();
-  std::string omgr_ip_addr = props->getProperty("OMgr.IP");
-  std::string omgr_config_port = props->getProperty("OMgr.ConfigPort");
-  std::string tcpProxyStr = std::string("OrchMgr: tcp -h ") +  omgr_ip_addr + std::string(" -p ") + omgr_config_port;
+  std::string tcpProxyStr = std::string("OrchMgr: tcp -h ") + 
+      omIpStr + std::string(" -p ") + std::to_string(omConfigPort);
   FDSP_ConfigPathReqPrx fdspConfigPathAPI = FDSP_ConfigPathReqPrx::checkedCast(rpc_comm->stringToProxy(tcpProxyStr));
   FDSP_MsgHdrTypePtr msg_hdr = new FDSP_MsgHdrType;
   initOMMsgHdr(msg_hdr);
@@ -264,7 +286,7 @@ int OMgrClient::registerNodeWithOM() {
   reg_node_msg->node_type = my_node_type;
   reg_node_msg->node_name = my_node_name;
   reg_node_msg->ip_hi_addr = 0;
-  reg_node_msg->ip_lo_addr = fds::str_to_ipv4_addr(props->getProperty("OMgrClient.MyIPAddr")); //my_address!
+  reg_node_msg->ip_lo_addr = fds::str_to_ipv4_addr(hostIp); //my_address!
   reg_node_msg->control_port = my_control_port;
   reg_node_msg->data_port = my_data_port; // for now
 

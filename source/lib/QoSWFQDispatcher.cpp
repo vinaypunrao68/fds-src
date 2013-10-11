@@ -2,7 +2,7 @@
 
 namespace fds {
 
-    // Caller needs to hold the qda read lock
+  // Caller needs to hold the qda read lock
   void QoSWFQDispatcher::ioProcessForEnqueue(fds_uint32_t queue_id, FDS_IOType *io)
   {
     FDS_QoSDispatcher::ioProcessForEnqueue(queue_id, io);
@@ -12,7 +12,7 @@ namespace fds {
     assert(n_pios >= 0);
   }
 
-    // Caller needs to hold the qda read lock
+  // Caller needs to hold the qda read lock
   void QoSWFQDispatcher::ioProcessForDispatch(fds_uint32_t queue_id, FDS_IOType *io)
   {
     FDS_QoSDispatcher::ioProcessForDispatch(queue_id, io);
@@ -77,9 +77,13 @@ namespace fds {
   }
 
 
-  QoSWFQDispatcher::QoSWFQDispatcher(FDS_QoSControl *ctrlr, fds_uint64_t total_server_rate) {
+  QoSWFQDispatcher::QoSWFQDispatcher(FDS_QoSControl *ctrlr, fds_uint64_t total_server_rate, fds_log *parent_log) {
       parent_ctrlr = ctrlr;
-      qda_log = new fds_log("qda", "logs");
+      if (parent_log == NULL) {
+	qda_log = new fds_log("qda", "logs");
+      } else {
+	qda_log = parent_log;
+      }
       num_pending_ios = 0;
 
       total_capacity = total_server_rate;
@@ -93,21 +97,22 @@ namespace fds {
       next_priority_based_queue = 0;
   }
 
-  Error QoSWFQDispatcher::registerQueue(fds_uint32_t queue_id, FDS_VolumeQueue *queue, fds_uint64_t queue_rate, fds_uint32_t queue_priority) {
+
+  Error QoSWFQDispatcher::registerQueue(fds_uint32_t queue_id, FDS_VolumeQueue *queue) {
 
       Error err(ERR_OK);
 
       assert(queue_id > 0);
 
-      WFQQueueDesc *qd = new WFQQueueDesc(queue_id, queue, queue_rate, queue_priority);
-      qd->rate_based_weight = queue_rate;
-      qd->priority_based_weight = priority_to_wfq_weight(queue_priority);
-      qd->num_pending_ios = 0;
-      qd->num_outstanding_ios = 0;
+      WFQQueueDesc *qd = new WFQQueueDesc(queue_id, queue, queue->iops_min, queue->priority);
+      qd->rate_based_weight = queue->iops_min;
+      qd->priority_based_weight = priority_to_wfq_weight(queue->priority);
+      qd->num_pending_ios = ATOMIC_VAR_INIT(0);
+      qd->num_outstanding_ios = ATOMIC_VAR_INIT(0);
       qd->num_priority_based_ios_dispatched = 0;
 
       qda_lock.write_lock();
-      err = FDS_QoSDispatcher::registerQueueWithLockHeld(queue_id, queue, queue_rate, queue_priority);
+      err = FDS_QoSDispatcher::registerQueueWithLockHeld(queue_id, queue);
       if (err != ERR_OK) {
 	qda_lock.write_unlock();
 	return err;
@@ -124,7 +129,7 @@ namespace fds {
       // Now fill the vacant spots in the rate based qlist based on the queue_rate
       // Start at the first vacant spot and fill at intervals of capacity/queue_rate.
       fds_uint64_t current_spot = 0;
-      for (fds_uint64_t i = 0; i < queue_rate; i++) {
+      for (fds_uint64_t i = 0; i < queue->iops_min; i++) {
 	fds_uint64_t num_spots_searched = 0;
 	while ((rate_based_qlist[current_spot] != 0) && (num_spots_searched < total_capacity)) {
 	  current_spot = (current_spot+1) % total_capacity;
@@ -133,7 +138,7 @@ namespace fds {
 	assert(rate_based_qlist[current_spot] == 0);
 	rate_based_qlist[current_spot] = queue_id;
 	qd->rate_based_rr_spots.push_back(current_spot);
-	current_spot = (current_spot + (int) total_capacity/queue_rate) % total_capacity;
+	current_spot = (current_spot + (int) total_capacity/queue->iops_min) % total_capacity;
       }
       queue_desc_map[queue_id] = qd;
       queue_map[queue_id] = queue;

@@ -471,7 +471,34 @@ StorHvCtrl::StorHvCtrl(int argc,
                        fds_uint32_t sm_port_num,
                        fds_uint32_t dm_port_num)
   : mode(_mode) {
-  
+  std::string  omIpStr;
+  fds_uint32_t omConfigPort;
+
+  omConfigPort = 0;
+
+  /*
+   * Parse out cmdline options here.
+   * TODO: We're parsing some options here and
+   * some in ubd. We need to unify this.
+   */
+  for (fds_uint32_t i = 1; i < argc; i++) {
+    if (strncmp(argv[i], "--om_ip=", 8) == 0) {
+      if (mode == NORMAL) {
+        /*
+         * Only use the OM's IP in the normal
+         * mode. We don't need it in test modes.
+         */
+        omIpStr = argv[i] + 8;
+      }
+    } else if (strncmp(argv[i], "--om_port=", 10) == 0) {
+      omConfigPort = strtoul(argv[i] + 10, NULL, 0);
+    }
+    /*
+     * We don't complain here about other args because
+     * they may have been processed already but not
+     * removed from argc/argv
+     */
+  }
 
   sh_log = new fds_log("sh", "logs");
   FDS_PLOG(sh_log) << "StorHvisorNet - Constructing the Storage Hvisor";
@@ -479,11 +506,45 @@ StorHvCtrl::StorHvCtrl(int argc,
   /* create OMgr client if in normal mode */
   om_client = NULL;
   FDS_PLOG(sh_log) << "StorHvisorNet - Will create and initialize OMgrClient";
+
+  struct ifaddrs *ifAddrStruct = NULL;
+  struct ifaddrs *ifa          = NULL;
+  void   *tmpAddrPtr           = NULL;
+
+  /*
+   * Get the local IP of the host.
+   * This is needed by the OM.
+   */
+  getifaddrs(&ifAddrStruct);
+  for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
+    if (ifa->ifa_addr->sa_family == AF_INET) { // IPv4
+      if (strncmp(ifa->ifa_name, "lo", 2) != 0) {
+          tmpAddrPtr = &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
+          char addrBuf[INET_ADDRSTRLEN];
+          inet_ntop(AF_INET, tmpAddrPtr, addrBuf, INET_ADDRSTRLEN);
+          myIp = std::string(addrBuf);
+
+      }
+    }
+  }
+  assert(myIp.empty() == false);
+  FDS_PLOG(sh_log) << "StorHvisorNet - My IP: " << myIp;
+  
+  if (ifAddrStruct != NULL) {
+    freeifaddrs(ifAddrStruct);
+  }
+
   /*
    * Pass 0 as the data path port since the SH is not
    * listening on that port.
    */
-  om_client = new OMgrClient(FDSP_STOR_HVISOR, 0, "localhost-sh", sh_log);
+  om_client = new OMgrClient(FDSP_STOR_HVISOR,
+                             omIpStr,
+                             omConfigPort,
+                             myIp,
+                             0,
+                             "localhost-sh",
+                             sh_log);
   if (om_client) {
     om_client->initialize();
   }
@@ -504,6 +565,8 @@ StorHvCtrl::StorHvCtrl(int argc,
    * in other parts of the system */
   vol_table = new StorHvVolumeTable(this, sh_log);  
 
+  /*  Create the QOS Controller object */ 
+  qos_ctrl = new FDS_QoSControl(150, FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET, sh_log);
   /*
    * Set basic thread properties.
    */

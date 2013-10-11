@@ -73,8 +73,8 @@ namespace fds {
 
   public:
 
-    QoSWFQDispatcher(FDS_QoSControl *ctrlr, fds_uint64_t total_server_rate);
-    Error registerQueue(fds_uint32_t queue_id, FDS_VolumeQueue *queue, fds_uint64_t queue_rate, fds_uint32_t queue_priority);
+    QoSWFQDispatcher(FDS_QoSControl *ctrlr, fds_uint64_t total_server_rate, fds_log *parent_log);
+    Error registerQueue(fds_uint32_t queue_id, FDS_VolumeQueue *queue);
     Error deregisterQueue(fds_uint32_t queue_id);
 
   };

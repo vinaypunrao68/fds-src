@@ -152,7 +152,7 @@ class TestSequenceFunctions(unittest.TestCase):
             self.cleanupFiles(comp)
                     
         print "Teardown complete."
-
+        
     def setUp(self):
         print "Doing Setup in %s" % (cwd)
         #
@@ -200,13 +200,16 @@ class TestSequenceFunctions(unittest.TestCase):
             prefix_arg += " " + extra_args
         comp_arg = port_arg + " " + prefix_arg
         cmd = comp_exe + " " + comp_arg
+        cmd = "ulimit -s 4096; %s" % (cmd)
         print "Starting server cmd %s" % (cmd)
 
         #
         # Run server command in background
         #
         try :
-            proc = subprocess.Popen(cmd, shell=True, stderr=subprocess.PIPE)
+            proc = subprocess.Popen(cmd,
+                                    shell=True,
+                                    stderr=subprocess.PIPE)
         except OSError as err:
             print "Failed to execute server command %s" (cmd)
             return None
@@ -257,14 +260,17 @@ class TestSequenceFunctions(unittest.TestCase):
         else:
             comp_arg = args
         comp_cmd = comp_exe + " " + comp_arg
-
+        comp_cmd = "ulimit -s 4096; %s" % (comp_cmd)
         print "Starting unit test cmd %s" % (comp_cmd)
 
         #
         # Run unit test command synchrnously
         #
         try:     
-            ut = subprocess.Popen(comp_cmd, shell=True, stdin=None, stdout=subprocess.PIPE)
+            ut = subprocess.Popen(comp_cmd,
+                                  shell=True,
+                                  stdin=None,
+                                  stdout=subprocess.PIPE)
             (stdoutdata, stderrdata) = ut.communicate(input=None)
             if ut.returncode != 0:
                 print "Unit test failed to exit cleanly, err code %d" % ut.returncode

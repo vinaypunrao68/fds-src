@@ -24,7 +24,7 @@ StorHvVolume::StorHvVolume(const VolumeDesc& vdesc, StorHvCtrl *sh_ctrl, fds_log
       blkdev_minor = (*parent_sh->cr_blkdev)(voldesc->volUUID, voldesc->capacity);
   }
 
-  volQueue = new boost::lockfree::queue<fbd_request_t*> (4096);
+  volQueue = new FDS_VolumeQueue(4096, vdesc->iops_max, vdesc->iops_min, vdesc->relativePrio);
 
   is_valid = true;
 }
@@ -451,7 +451,7 @@ void scheduleIO(StorHvVolumeTable *tPtr)
 boost::atomic <bool> done (false);
 void StorHvVolumeTable::schedulePerVolIO()
 {
-   fbd_request_t *req;
+   FDS_IOType *req;
  
  // pull out IO from per volume queue 
  while (!done) 
@@ -463,7 +463,7 @@ void StorHvVolumeTable::schedulePerVolIO()
        ++it)
     {
       StorHvVolume *vol = it->second;
-      if (vol->volQueue->pop(req))
+      if (req = vol->dequeueIO())
       {
 
       	if(req->io_type == IO_READ) {
@@ -487,10 +487,12 @@ void StorHvVolumeTable:: killMainThread()
 }
 
 BEGIN_C_DECLS
-int  pushVolQueue(fbd_request_t *req)
+int  pushVolQueue(void *req1)
 {
   fds_uint32_t vol_id;
   StorHvVolume *shvol;
+  fbd_request_t *req = (fbd_request_t *)req1;
+  FDS_IOType *io = new FDS_IOType();
 
   vol_id = req->volUUID;
   shvol = storHvisor->vol_table->getLockedVolume(vol_id);
@@ -502,7 +504,8 @@ int  pushVolQueue(fbd_request_t *req)
   FDS_PLOG(storHvisor->GetLog()) << " Queueing the  IO.  vol_id:  " << vol_id;
   // push request to the  per volume queue 
   
-  while(!shvol->volQueue->push(req));
+  io->fbd_req = req;
+  shvol->volQueue->enqueueIO(io);
   shvol->readUnlock();
   FDS_PLOG(storHvisor->GetLog()) << " Queueing the  IO done.  vol_id:  " << vol_id;
 
