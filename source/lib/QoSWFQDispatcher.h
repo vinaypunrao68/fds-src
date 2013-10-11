@@ -1,0 +1,81 @@
+#include "fds_qos.h"
+#include <map>
+#include <atomic>
+
+namespace fds {
+
+  class WFQQueueDesc {
+
+  public:
+
+    fds_uint32_t queue_id;
+    fds_uint64_t queue_rate;
+    fds_uint32_t queue_priority;
+    fds_uint32_t rate_based_weight;
+    fds_uint32_t priority_based_weight;
+
+    std::vector<fds_uint64_t> rate_based_rr_spots;
+    int num_priority_based_ios_dispatched; // number of ios dispatched in the current round of priority based WFQ;
+
+    FDS_VolumeQueue *queue;
+    std::atomic<unsigned int> num_pending_ios;
+    std::atomic<unsigned int> num_outstanding_ios;
+
+    WFQQueueDesc(fds_uint32_t q_id,
+		 FDS_VolumeQueue *que,
+		 fds_uint64_t q_rate,
+		 fds_uint32_t q_pri)
+      : queue_id(q_id),
+	queue(que),
+	queue_rate(q_rate),
+	queue_priority(q_pri) {
+      rate_based_rr_spots.clear();
+      num_pending_ios = ATOMIC_VAR_INIT(0);
+      num_outstanding_ios = ATOMIC_VAR_INIT(0);
+    }
+
+  };
+
+  class QoSWFQDispatcher : public FDS_QoSDispatcher {
+
+  private:
+
+    fds_uint64_t total_capacity;
+    int num_queues;
+    std::map<fds_uint32_t, WFQQueueDesc *> queue_desc_map;
+    std::vector<fds_uint32_t> rate_based_qlist;
+    fds_uint64_t next_rate_based_spot;
+    fds_uint32_t next_priority_based_queue;
+
+    fds_uint32_t priority_to_wfq_weight(fds_uint32_t priority) {
+      assert((priority >= 0) && (priority <= 10));
+      fds_uint32_t weight = 0;
+
+      weight = (11-priority);
+      return weight;
+      
+    }
+
+    fds_uint32_t getNextQueueInPriorityWFQList(fds_uint32_t queue_id) {
+	auto it = queue_desc_map.find(queue_id);
+	if (it != queue_desc_map.end())
+	  it++;
+	if (it == queue_desc_map.end()) {
+	  it = queue_desc_map.begin();
+	}
+	fds_uint32_t next_queue = it->first;
+	return next_queue;
+    }
+
+    void ioProcessForEnqueue(fds_uint32_t queue_id, FDS_IOType *io);
+    void ioProcessForDispatch(fds_uint32_t queue_id, FDS_IOType *io);
+    fds_uint32_t getNextQueueForDispatch();
+
+  public:
+
+    QoSWFQDispatcher(FDS_QoSControl *ctrlr, fds_uint64_t total_server_rate);
+    Error registerQueue(fds_uint32_t queue_id, FDS_VolumeQueue *queue, fds_uint64_t queue_rate, fds_uint32_t queue_priority);
+    Error deregisterQueue(fds_uint32_t queue_id);
+
+  };
+}

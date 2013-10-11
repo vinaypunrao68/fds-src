@@ -11,12 +11,14 @@ user_non_fds_libs :=                                                          \
 user_incl_dir     := ../
 user_cpp          :=                       \
     catalog_unit_test.cpp                  \
-    om_client_unit_test.cpp
+    om_client_unit_test.cpp		\
+	qos_dispatcher_unit_test.cpp
 
 user_cc           :=
 
-user_bin_exe      := catalog_test om_client_test
+user_bin_exe      := catalog_test om_client_test qos_dispatcher_unit_test
 catalog_test      := catalog_unit_test.cpp
 om_client_test    := om_client_unit_test.cpp
+qos_dispatcher_unit_test	:= qos_dispatcher_unit_test.cpp
 
 include $(topdir)/Makefile.incl

@@ -1,95 +1,30 @@
-#include "fds_qos.h"
-#include <map>
-#include <atomic>
+#include "QoSWFQDispatcher.h"
 
 namespace fds {
 
-  class WFQQueueDesc {
-
-  public:
-
-    fds_uint32_t queue_id;
-    fds_uint64_t queue_rate;
-    fds_uint32_t queue_priority;
-    fds_uint32_t rate_based_weight;
-    fds_uint32_t priority_based_weight;
-
-    std::vector<fds_uint64_t> rate_based_rr_spots;
-    int num_priority_based_ios_dispatched; // number of ios dispatched in the current round of priority based WFQ;
-
-    FDS_VolumeQueue *queue;
-    std::atomic<unsigned int> num_pending_ios;
-    std::atomic<unsigned int> num_outstanding_ios;
-
-    WFQQueueDesc(fds_uint32_t q_id,
-		 FDS_VolumeQueue *que,
-		 fds_uint64_t q_rate,
-		 fds_uint32_t q_pri)
-      : queue_id(q_id),
-	queue(que),
-	queue_rate(q_rate),
-	queue_priority(q_pri) {
-      rate_based_rr_spots.clear();
-      num_pending_ios = ATOMIC_VAR_INIT(0);
-      num_outstanding_ios = ATOMIC_VAR_INIT(0);
-    }
-
-  };
-
-  class QoSWFQDispatcher : public FDS_QoSDispatcher {
-
-  private:
-
-    fds_uint64_t total_capacity;
-    int num_queues;
-    std::map<fds_uint32_t, WFQQueueDesc *> queue_desc_map;
-    std::vector<fds_uint32_t> rate_based_qlist;
-    fds_uint64_t next_rate_based_spot;
-    fds_uint32_t next_priority_based_queue;
-
-    fds_uint32_t priority_to_wfq_weight(fds_uint32_t priority) {
-      assert((priority >= 0) && (priority <= 10));
-      fds_uint32_t weight = 0;
-
-      weight = (11-priority);
-      return weight;
-      
-    }
-
-    fds_uint32_t getNextQueueInPriorityWFQList(fds_uint32_t queue_id) {
-	auto it = queue_desc_map.find(queue_id);
-	if (it != queue_desc_map.end())
-	  it++;
-	if (it == queue_desc_map.end()) {
-	  it = queue_desc_map.begin();
-	}
-	fds_uint32_t next_queue = it->first;
-	return next_queue;
-    }
+    // Caller needs to hold the qda read lock
+  void QoSWFQDispatcher::ioProcessForEnqueue(fds_uint32_t queue_id, FDS_IOType *io)
+  {
+    FDS_QoSDispatcher::ioProcessForEnqueue(queue_id, io);
+    WFQQueueDesc *qd = queue_desc_map[queue_id];
+    fds_uint32_t n_pios;
+    n_pios = atomic_fetch_add(&(qd->num_pending_ios), (unsigned int)1);
+    assert(n_pios >= 0);
+  }
 
     // Caller needs to hold the qda read lock
-    void ioProcessForEnqueue(fds_uint32_t queue_id, FDS_IOType *io)
-    {
-      FDS_QoSDispatcher::ioProcessForEnqueue(queue_id, io);
-      WFQQueueDesc *qd = queue_desc_map[queue_id];
-      fds_uint32_t n_pios;
-      n_pios = atomic_fetch_add(&(qd->num_pending_ios), (unsigned int)1);
-      assert(qd->num_pending_ios >= 0);
-    }
+  void QoSWFQDispatcher::ioProcessForDispatch(fds_uint32_t queue_id, FDS_IOType *io)
+  {
+    FDS_QoSDispatcher::ioProcessForDispatch(queue_id, io);
+    WFQQueueDesc *qd = queue_desc_map[queue_id];
+    fds_uint32_t n_pios;
+    n_pios = atomic_fetch_sub(&(qd->num_pending_ios), (unsigned int)1);
+    assert(n_pios >= 1);
+  }
 
-    // Caller needs to hold the qda read lock
-    void ioProcessForDispatch(fds_uint32_t queue_id, FDS_IOType *io)
-    {
-      FDS_QoSDispatcher::ioProcessForDispatch(queue_id, io);
-      WFQQueueDesc *qd = queue_desc_map[queue_id];
-      fds_uint32_t n_pios;
-      n_pios = atomic_fetch_sub(&(qd->num_pending_ios), (unsigned int)1);
-      assert(qd->num_pending_ios >= 1);
-    }
-
-    fds_uint32_t getNextQueueForDispatch() {
+  fds_uint32_t QoSWFQDispatcher::getNextQueueForDispatch() {
       
-      // Step 1: Let's first look at the current rate_based slot to if there is a valid non-empty queue there
+      // Step 1: Let's first look at the current rate_based slot to see if there is a valid non-empty queue there
       fds_uint32_t next_queue = rate_based_qlist[next_rate_based_spot];
       next_rate_based_spot = (next_rate_based_spot + 1) % total_capacity;
       if (next_queue != 0) {
@@ -139,11 +74,10 @@ namespace fds {
 
       return next_queue;
 
-    }
+  }
 
-  public:
 
-    QoSWFQDispatcher(FDS_QoSControl *ctrlr, fds_uint64_t total_server_rate) {
+  QoSWFQDispatcher::QoSWFQDispatcher(FDS_QoSControl *ctrlr, fds_uint64_t total_server_rate) {
       parent_ctrlr = ctrlr;
       qda_log = new fds_log("qda", "logs");
       num_pending_ios = 0;
@@ -157,9 +91,9 @@ namespace fds {
       num_queues = 0;
       queue_desc_map.clear();
       next_priority_based_queue = 0;
-    }
+  }
 
-    virtual Error registerQueue(fds_uint32_t queue_id, FDS_VolumeQueue *queue, fds_uint64_t queue_rate, fds_uint32_t queue_priority) {
+  Error QoSWFQDispatcher::registerQueue(fds_uint32_t queue_id, FDS_VolumeQueue *queue, fds_uint64_t queue_rate, fds_uint32_t queue_priority) {
 
       Error err(ERR_OK);
 
@@ -207,9 +141,9 @@ namespace fds {
 
       return err;
 
-    }
+  }
 
-    virtual Error deregisterQueue(fds_uint32_t queue_id) {
+  Error QoSWFQDispatcher::deregisterQueue(fds_uint32_t queue_id) {
 
       Error err(ERR_OK);
 
@@ -238,7 +172,5 @@ namespace fds {
 
       return err;
 
-    }
-    
-  };
+  }
 }

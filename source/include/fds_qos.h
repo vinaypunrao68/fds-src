@@ -32,8 +32,11 @@ namespace fds {
  
     virtual fds_uint32_t getNextQueueForDispatch() = 0;
 
-    FDS_QoSDispatcher();
-    ~FDS_QoSDispatcher();
+    FDS_QoSDispatcher() {
+    }
+
+    ~FDS_QoSDispatcher() {
+    }
  
     FDS_QoSDispatcher(FDS_QoSControl *ctrlr) {
       parent_ctrlr = ctrlr;
@@ -142,14 +145,14 @@ namespace fds {
 
 	parent_ctrlr->waitForWorkers();
 
-	qda_lock.read_lock();
-
 	do {
 	  std::unique_lock<std::mutex> lck(ios_pending_mtx);
 	  while (num_pending_ios == 0) {
 	    ios_pending_cv.wait(lck);
 	  }
 	} while (0);
+
+	qda_lock.read_lock();
 
 	fds_uint32_t queue_id = getNextQueueForDispatch();
 	FDS_VolumeQueue *que = queue_map[queue_id];

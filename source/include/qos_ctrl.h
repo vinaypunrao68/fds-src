@@ -27,6 +27,7 @@ public:
  } ioModule;
 
  fds_uint32_t io_req_id;
+ fds_volid_t io_vol_id;
  fds_int32_t io_status;
  fds_uint32_t io_service_time; //usecs
  ioModule io_module; // IO belongs to which module for Qos proc 
@@ -64,10 +65,10 @@ public:
 };
 
 /* **********************************************
- *  FDS_QosDispatcher: Pluggable Dispatcher with dispatchIOs - main routine
+ *  FDS_QoSDispatcher: Pluggable Dispatcher with dispatchIOs - main routine
  *
  **********************************************************/
- class FDS_QosDispatcher;
+ class FDS_QoSDispatcher;
 
 /* **********************************************
  *  FDS_QosControl: Qos Control Class with a shared threadpool
@@ -85,22 +86,22 @@ class FDS_QoSControl {
    } dispatchAlgoType;
 
    dispatchAlgoType dispatchAlgo;
-   FDS_QosDispatcher* dispatcher; // Dispatcher Class 
+   FDS_QoSDispatcher* dispatcher; // Dispatcher Class 
    fds_threadpool *threadPool; // This is the global threadpool
    
    
    FDS_QoSControl();
    ~FDS_QoSControl();
-   FDS_QoSControl(FDS_QosDispatcher *dispatcher);
+   FDS_QoSControl(FDS_QoSDispatcher *dispatcher);
    
    Error RegisterVolume(FDS_Volume &volume);
    Error deregisterVolume(FDS_Volume& Volume);
    
-   void   setQosDispatcher(dispatchAlgoType algo_type, FDS_QosDispatcher *qosDispatcher);
+   void   setQosDispatcher(dispatchAlgoType algo_type, FDS_QoSDispatcher *qosDispatcher);
    void   runScheduler(); // Calls in the QosDispatcher's main dispatch routine
    Error   processIO(FDS_IOType* io); // Schedule an IO on a thread from thrd pool
    int     waitForWorkers(); // Blocks until there is a threshold num of workers in threadpool
-   Error enqueueIO();
+   Error enqueueIO(fds_volid_t volUUID, FDS_IOType *io);
 };
 
 
