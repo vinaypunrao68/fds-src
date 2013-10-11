@@ -8,6 +8,7 @@
 #include "fds_err.h"
 #include "fds_types.h"
 #include "fds_qos.h"
+#include "test_stat.h"
 #include "QoSWFQDispatcher.h"
 
 #define NUM_VOLUMES 100
@@ -20,6 +21,8 @@ using namespace fds;
 std::atomic<unsigned int> next_io_req_id;
 std::atomic<unsigned int> num_ios_dispatched;
 fds_log *ut_log;
+StatIOPS *iops_stats;
+
 
 class VolQueueDesc {
 
@@ -85,8 +88,9 @@ void start_scheduler(FDS_QoSControl *qctrl) {
 int main(int argc, char *argv[]) {
 
   ut_log = new fds_log("qosd_unit_test", "logs");
-
   cout << "Created logger" << endl;
+
+  iops_stats = NULL;
 
   FDS_QoSControl *qctrl = new FDS_QoSControl();
   qctrl->setQosDispatcher(FDS_QoSControl::FDS_DISPATCH_WFQ, NULL);
@@ -98,13 +102,17 @@ int main(int argc, char *argv[]) {
   num_ios_dispatched = ATOMIC_VAR_INIT(0);
 
   std::vector<std::thread *> vol_threads;
+  std::vector<fds_uint32_t> qids; /* array of queue ids (for perf stats) */
 
   for (int i = 0; i < NUM_VOLUMES; i++) {
     VolQueueDesc *volQDesc = new VolQueueDesc(i+1, (fds_uint64_t)30+i, TOTAL_RATE, i%10, (fds_uint64_t)(30+i)*2, 50 - 5 * (10-i%10)); 
     std::thread *next_thread = new std::thread(start_queue_ios,volQDesc, qctrl);
     cout << "Started volume thread for " <<  i+1 << endl;
     vol_threads.push_back(next_thread);
+    qids.push_back(i+1);
   }
+
+  iops_stats = new StatIOPS("qosd_unit_test", qids);
 
   for (int i = 0; i < NUM_VOLUMES; i++) {
     vol_threads[i]->join();
@@ -118,6 +126,8 @@ int main(int argc, char *argv[]) {
     n_ios_dispatched = atomic_load(&num_ios_dispatched);
   } while (n_ios_enqueued != n_ios_dispatched);
 
+
+  delete iops_stats;
   exit(0);
 
 }
@@ -200,6 +210,9 @@ namespace fds {
     fds_uint32_t n_ios_dispatched;
     n_ios_dispatched = atomic_fetch_add(&num_ios_dispatched, (unsigned int)1);
     FDS_PLOG(ut_log) << "Dispatching IO " << io->io_vol_id << ":" << io->io_req_id << ". " << n_ios_dispatched+1 << " ios dispatched so far.";
+
+    boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
+    if (iops_stats) iops_stats->handleIOCompletion(io->io_vol_id, now);
     return err;
   }
 

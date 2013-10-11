@@ -100,7 +100,11 @@ echo "Will output stats for volumes:"
 for vol in $vols
 do
   echo "volume $vol"
-  awk -F"," '$2=='$vol'  {print}' $STATF >> $DIR/$PREFIX"-v"$vol".tmp" 
+  # remove .tmp file first in case it's there 
+  TMP_VOL_FILE=$DIR/$PREFIX"-v"$vol".tmp"
+  rm -f $TMP_VOL_FILE
+  # create new .tmp file that filters stats from this particular volume
+  awk -F"," '$2=='$vol'  {print}' $STATF >> $TMP_VOL_FILE 
   vol_array="$vol_array $vol"
 done
 
@@ -173,6 +177,7 @@ rm -f $EPSNAME
 rm -f $PLTFILE
 fi
 
+exit
 for vol in $vols
 do
   tmpfile=$DIR/$PREFIX"-v"$vol".tmp"
