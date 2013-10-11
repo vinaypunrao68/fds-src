@@ -33,14 +33,15 @@ namespace fds {
  
     virtual fds_uint32_t getNextQueueForDispatch() = 0;
 
-    FDS_QoSDispatcher();
-    ~FDS_QoSDispatcher();
- 
+    FDS_QoSDispatcher() {}
     FDS_QoSDispatcher(FDS_QoSControl *ctrlr, fds_log *log) {
       parent_ctrlr = ctrlr;
       qda_log = log;
       qda_mutex = new fds_mutex("QoSDispatchAlgorithm");
       num_pending_ios = 0;
+    }
+    ~FDS_QoSDispatcher() {
+      delete qda_mutex;
     }
 
     Error registerQueueWithLockHeld(fds_uint32_t queue_id, FDS_VolumeQueue *queue) {
