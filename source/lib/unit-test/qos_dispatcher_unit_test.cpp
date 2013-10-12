@@ -43,18 +43,30 @@ public:
     
   }
 
+  std::string ToString() {
+    char tmp_string[128];
+    sprintf(tmp_string, "(%d : (%u, %u, %d, %u, %u))", 
+	    (int)queue_id, (unsigned int)iops_min, (unsigned int)iops_max, (int)queue_priority, (unsigned int)in_rate, (unsigned int)max_burst_size); 
+    return std::string(tmp_string);
+  }
+
 };
 
 void start_queue_ios(VolQueueDesc *volQDesc, FDS_QoSControl *qctrl) {
 
   FDS_Volume fds_vol;
+  fds_uint32_t n_ios_issues = 0;
 
-  fds_uint32_t avg_inter_arr_time = (fds_uint32_t)1000000/volQDesc->in_rate; // in usecs
+  fds_uint32_t avg_burst_size = volQDesc->max_burst_size/2;
+  fds_uint32_t avg_inter_arr_time = (fds_uint32_t)1000000 * avg_burst_size/volQDesc->in_rate; // in usecs
 
-  std::default_random_engine generator;
+  std::default_random_engine rgen1(2*volQDesc->queue_id);
+  std::default_random_engine rgen2(2*volQDesc->queue_id+1);
   std::poisson_distribution<unsigned int> int_arr_distribution(avg_inter_arr_time);
+  std::uniform_int_distribution<unsigned int> burst_size_distribution(1, volQDesc->max_burst_size);
+  
 
-  cout << "Starting thread for volume " << volQDesc->queue_id << endl; 
+  cout << "Starting thread for volume " << volQDesc->ToString() << endl; 
 
   fds_vol.voldesc = new VolumeDesc(std::string("FdsVol") + std::to_string(volQDesc->queue_id), volQDesc->queue_id);
   fds_vol.voldesc->iops_min = volQDesc->iops_min;
@@ -68,14 +80,23 @@ void start_queue_ios(VolQueueDesc *volQDesc, FDS_QoSControl *qctrl) {
 
   cout << "Volume " << volQDesc->queue_id << " Registered"  << endl;
 
-  for (int i = 0; i < NUM_TESTIOS_PER_VOL; i++) {
-    unsigned int inter_arrival_time = int_arr_distribution(generator);
+  for (int i = 0; i < NUM_TESTIOS_PER_VOL; ) {
+    unsigned int inter_arrival_time = int_arr_distribution(rgen1);
     usleep(inter_arrival_time); 
-    FDS_IOType *io = new FDS_IOType;
-    io->io_vol_id = volQDesc->queue_id;
-    io ->io_req_id = atomic_fetch_add(&next_io_req_id, (unsigned int)1);
-    FDS_PLOG(ut_log)  << "Enqueueing IO " << io->io_vol_id << ":" << io->io_req_id;
-    qctrl->enqueueIO(volQDesc->queue_id, io);
+    unsigned int burst_size = 1;
+    burst_size = burst_size_distribution(rgen2);
+    if (burst_size > volQDesc->max_burst_size) {
+      burst_size = 1 + burst_size % volQDesc->max_burst_size;
+    }
+    FDS_PLOG(ut_log)  << "After " << inter_arrival_time << " usecs, bursting " << burst_size << " IOs for volume " << volQDesc->queue_id;
+    for (int n_ios = 0; n_ios < burst_size; n_ios++) {
+      FDS_IOType *io = new FDS_IOType;
+      io->io_vol_id = volQDesc->queue_id;
+      io ->io_req_id = atomic_fetch_add(&next_io_req_id, (unsigned int)1);
+      FDS_PLOG(ut_log)  << "Enqueueing IO " << io->io_vol_id << ":" << io->io_req_id;
+      qctrl->enqueueIO(volQDesc->queue_id, io);
+    }
+    i = i + burst_size;
   }
 
 }  
@@ -105,7 +126,12 @@ int main(int argc, char *argv[]) {
   std::vector<fds_uint32_t> qids; /* array of queue ids (for perf stats) */
 
   for (int i = 0; i < NUM_VOLUMES; i++) {
-    VolQueueDesc *volQDesc = new VolQueueDesc(i+1, (fds_uint64_t)30+i, TOTAL_RATE, i%10, (fds_uint64_t)(30+i)*2, 50 - 5 * (10-i%10)); 
+    VolQueueDesc *volQDesc = new VolQueueDesc(i+1, // queue_id
+					      (fds_uint64_t)30+i, //min_iops
+					      TOTAL_RATE, //max_iops
+					      i%10, //priority
+					      (fds_uint64_t)(30+i)*2, //ingress_rate
+					      55 - 5 * (10-i%10)); // max_burst_size 
     std::thread *next_thread = new std::thread(start_queue_ios,volQDesc, qctrl);
     cout << "Started volume thread for " <<  i+1 << endl;
     vol_threads.push_back(next_thread);
