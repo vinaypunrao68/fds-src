@@ -170,7 +170,7 @@ fds_uint32_t QoSHTBDispatcher::getNextQueueForDispatch()
     TBQueueState *qstate = it->second;
       /* before quering any state, update tokens */
     fds_uint64_t toks = qstate->updateTokens();
-    TBQueueState::tbStateType state = qstate->tryToConsumeAssuredTokens();
+    TBQueueState::tbStateType state = qstate->tryToConsumeAssuredTokens(1);
 
     if (state != TBQueueState::TBQUEUE_STATE_QUEUE_EMPTY) {
       return it->first; /* basically find next non-empty qeueue -- TEMP */
@@ -190,63 +190,106 @@ fds_uint32_t QoSHTBDispatcher::getNextQueueForDispatch()
 TBQueueState::TBQueueState(fds_uint64_t _min_rate, 
 			   fds_uint64_t _max_rate,
 			   fds_uint64_t _burst_size)
-  : min_rate(_min_rate), max_rate(_max_rate), burst_size(_burst_size),
-  recent_ma_rate(0.0), tb_min(_min_rate, _burst_size), tb_max(_max_rate, _burst_size)
+  : burst_size(_burst_size),
+    tb_min(_min_rate, _burst_size), 
+    tb_max(_max_rate, _burst_size)
 {
   queued_io_counter = ATOMIC_VAR_INIT(0);
+  memset(recent_iops, 0, sizeof(fds_uint32_t) * HTB_WMA_LENGTH);
+  next_hist_ts = boost::posix_time::microsec_clock::universal_time() + 
+    boost::posix_time::microseconds(HTB_WMA_SLOT_SIZE_MICROSEC);
+  hist_slotix = 0;
 }
 
 TBQueueState::~TBQueueState() 
 {
 }
 
-void TBQueueState::modifyParameters(fds_uint64_t _min_rate,
-				    fds_uint64_t _max_rate,
-				    fds_uint64_t _burst_size)
-{
-  tb_min.modifyParams(_min_rate, _burst_size);
-  tb_max.modifyParams(_max_rate, _burst_size);
-}
-
-void TBQueueState::modifyMinRate(fds_uint64_t _min_rate)
-{
-  tb_min.modifyRate(_min_rate);
-}
-
-void TBQueueState::modifyMaxRate(fds_uint64_t _max_rate)
-{
-  tb_max.modifyRate(_max_rate);
-}
-
 /* for now assuming constant IO cost, so simple implementation  */
-inline fds_uint32_t TBQueueState::handleIoEnqueue(FDS_IOType* /*io*/)
+fds_uint32_t TBQueueState::handleIoEnqueue(FDS_IOType* /*io*/)
 {
   return (std::atomic_fetch_add(&queued_io_counter, (unsigned int)1) + 1);
 }
 
 /* for now assuming constant IO cost */
-inline fds_uint32_t TBQueueState::handleIoDispatch(FDS_IOType* /*io*/)
+fds_uint32_t TBQueueState::handleIoDispatch(FDS_IOType* /*io*/)
 {
+  /* update recent iops performance */
+  /* since this implementation assumes single dispatcher thread, each IO
+   * dispatch happens one after another, if that assumption does not hold anymore
+   * will need to change wma calculation  */  
+  boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
+  if (now < next_hist_ts) {
+    /* we are still filling the same slot */
+    recent_iops[hist_slotix]++;
+  }
+  else {
+    /* will start the next slot, possibly skipping idle */
+    next_hist_ts += boost::posix_time::microseconds(HTB_WMA_SLOT_SIZE_MICROSEC);
+    do {
+      hist_slotix = (hist_slotix + 1) % HTB_WMA_LENGTH;
+      recent_iops[hist_slotix] = 0;
+    } while (now > next_hist_ts);
+    recent_iops[hist_slotix]++;    
+  }
+  
   return (std::atomic_fetch_sub(&queued_io_counter, (unsigned int)1) - 1);
 }
 
-fds_uint64_t TBQueueState::updateTokens(void)
+/* This is an array of powers of 0.9 */
+const double TBQueueState::kweights[HTB_WMA_LENGTH] = 
+  {1.0000, 0.9000, 0.8100, 0.7290, 0.6561, 0.5905, 0.5314, 0.4783, 0.4305, 0.3874, 
+   0.3487, 0.3138, 0.2824, 0.2541, 0.2288, 0.2059, 0.1853, 0.1668, 0.1501, 0.1351};
+double TBQueueState::getIOPerfWMA()
 {
-  return 0; //TBD
+  /* calculating weighted average over recent history using 
+   * formula from Zygaria paper [RTAS 2006] */
+  double wma = 0.0;
+  int ix = hist_slotix;
+  for (int i = 0; i < HTB_WMA_LENGTH; ++i)
+    {
+      wma += (recent_iops[ix] * kweights[i]);
+      ix = (ix + 1) % HTB_WMA_LENGTH;
+    }
+  return wma;
 }
 
-TBQueueState::tbStateType TBQueueState::tryToConsumeAssuredTokens()
+/* Updates both token buckets and returns number of spilled tokens from tb_max */
+fds_uint64_t TBQueueState::updateTokens(void)
+{
+  /* TODO: we can make it more efficient by getting the current time here
+   * and adding token bucket methods that take current time (since 
+   * get time seems quite expensive), will do later, we may anyway try 
+   * to use chrono nanosec timers (cannot compile for some reason). */
+  tb_min.updateTBState();
+  return tb_max.updateTBState();
+}
+
+/* will consume 'io_cost' tokens from tb_min if they are available, there is at 
+ * least one queued IO, and we are not over the max rate limit, otherwise 
+ * return one of the states */
+TBQueueState::tbStateType TBQueueState::tryToConsumeAssuredTokens(fds_uint32_t io_cost)
 {
   unsigned int queued_ios = std::atomic_load(&queued_io_counter);
   if (queued_ios == 0) {
     return TBQUEUE_STATE_QUEUE_EMPTY;
   }
 
-  return TBQUEUE_STATE_OK;
-}
+  /* check if we reached max_rate */
+  if ( !tb_max.hasTokens(io_cost) ) {
+    return TBQUEUE_STATE_NO_TOKENS;
+  }
+  
+  /* finally, try to consume tokens from tb_min */
+  if ( !tb_min.tryToConsumeTokens(io_cost) ) {
+    return TBQUEUE_STATE_NO_ASSURED_TOKENS;
+  }
 
-inline void TBQueueState::consumeTokens(void)
-{
+  /* we consumed to assured tokens */
+  tb_max.tryToConsumeTokens(io_cost);
+  /* it's expected that we should always have tokens in tb_max
+  * when there are tokens in tb_min -- not asserting for now */
+  return TBQUEUE_STATE_OK;
 }
 
 /***** HTBPoolState implementation *****/

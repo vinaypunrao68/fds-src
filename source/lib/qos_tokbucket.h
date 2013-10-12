@@ -40,6 +40,9 @@ namespace fds {
     }
     ~TokenBucket() {}
 
+    inline fds_uint64_t getRate() const { return rate; }
+    inline fds_bool_t hasTokens(fds_uint32_t num_tokens) const { return ((double)num_tokens <= token_count); }
+
     /* Change rate and burst parameters 
      * Means that tokens will start accumulating with new rate, and capped 
      * to a new burst. This does not change the number of tokens that we 

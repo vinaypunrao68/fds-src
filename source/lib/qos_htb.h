@@ -16,6 +16,9 @@
 #include "fds_qos.h"
 
 #define DEFAULT_ASSURED_WAIT_MICROSEC     100000
+#define HTB_WMA_SLOT_SIZE_MICROSEC        250000   /* the length of stat slot for gathering recent iops performance */   
+/* If you modify HTB_WMA_LENTH, yoy must update TBQueueState::kweights constant array  */
+#define HTB_WMA_LENGTH                    20       /* the length of recent iops performance window in HTB_WMA_SLOT_SIZE_MICROSEC slots */
 
 namespace fds {
 
@@ -58,40 +61,52 @@ namespace fds {
     ~TBQueueState();    
 
     /* Modify configurable parameters */
-    void modifyParameters(fds_uint64_t _min_rate, fds_uint64_t _max_rate, fds_uint64_t _burst_size);
-    void modifyMinRate(fds_uint64_t _min_rate);
-    void modifyMaxRate(fds_uint64_t _max_rate);
-    void modifyBurstSize(fds_uint64_t _burst_size);
+    inline void modifyParameters(fds_uint64_t _min_rate, fds_uint64_t _max_rate, fds_uint64_t _burst_size) {
+      tb_min.modifyParams(_min_rate, _burst_size);
+      tb_max.modifyParams(_max_rate, _burst_size);
+      burst_size = _burst_size;
+    }
+    inline void modifyMinRate(fds_uint64_t _min_rate) { tb_min.modifyRate(_min_rate); }
+    inline void modifyMaxRate(fds_uint64_t _max_rate) { tb_max.modifyRate(_max_rate); }
+    inline void modifyBurstSize(fds_uint64_t _burst_size) { modifyParameters(getMinRate(), getMaxRate(), _burst_size); }
 
-    inline fds_uint64_t getMinRate() const { return min_rate;}
+    inline fds_uint64_t getMinRate() const { return tb_min.getRate();}
+    inline fds_uint64_t getMaxRate() const { return tb_max.getRate();}
 
     /* Notification that IO 'io' is queued or dispatched from the queue (dequeued)
      * uses atomic operations to update state of the queue 
      * both functions return resulting number of queued IOs */
-    inline fds_uint32_t handleIoEnqueue(FDS_IOType *io);
-    inline fds_uint32_t handleIoDispatch(FDS_IOType *io);
+    fds_uint32_t handleIoEnqueue(FDS_IOType */*io*/);
+    fds_uint32_t handleIoDispatch(FDS_IOType */*io*/);
+
+    /* returns moving average of IOPS performance */
+    double getIOPerfWMA();
 
     /* Update number of tokens and returns the number of tokens that spilled over burst_size */
-    /* TODO: do we need to distinguish between type of tokens that are spilled ? */
+    /* from tb_max token bucket  */
     fds_uint64_t updateTokens(void);
     
-    /* For the IO at the head of the queue, try to consume tokens that were created with minRate 
-    *  Otherwise, returns:
-    *        TBQUEUE_STATE_QUEUE_EMPTY: queue is empty so no IOs to consume a token 
-    *        TBQUEUE_STATE_NO_TOKENS: queue is not empty but reached max rate 
-    *        TBQUEUE_STATE_NO_ASSURED_TOKENS: queue not empty, there are tokens, but no 'assured tokens' */
-    tbStateType tryToConsumeAssuredTokens();
+    /* Uses the state from the last call to updateTokens().
+     * For the IO at the head of the queue, try to consume tokens that were created with minRate 
+     * Otherwise, returns:
+     *        TBQUEUE_STATE_QUEUE_EMPTY: queue is empty so no IOs to consume a token 
+     *        TBQUEUE_STATE_NO_TOKENS: queue is not empty but reached max rate 
+     *        TBQUEUE_STATE_NO_ASSURED_TOKENS: queue not empty, there are tokens, but no 'assured tokens' */
+    tbStateType tryToConsumeAssuredTokens(fds_uint32_t io_cost);
 
     /* For the IO at the head of the queue, consume tokens 
      * Call this method only when it is known that there are queued IOs and available tokens;
      * this function will assert if this is not true 
      */
-    inline void consumeTokens(void);
+    inline void consumeTokens(fds_uint32_t io_cost) {
+      fds_bool_t bret = tb_max.tryToConsumeTokens(io_cost);
+      assert(bret);
+    }
 
   private:
     /***** configurable parameters *****/
-    fds_uint64_t min_rate;
-    fds_uint64_t max_rate;
+    /* min_rate is tb_min.rate */
+    /* max_rate is tb_max.rate */
     fds_uint64_t burst_size;
 
     /***** dynamic state *****/
@@ -99,7 +114,10 @@ namespace fds {
    /*  Moving average of recent dispatched IO rate. 
     *  This is used (by the parent dispatcher) to fairly share available tokens among 
     *  among queues with the same priority */
-    double recent_ma_rate;
+    fds_uint32_t recent_iops[HTB_WMA_LENGTH];  /* a window of the recent iops performance */
+    boost::posix_time::ptime next_hist_ts;
+    fds_uint32_t hist_slotix;
+    static const double kweights[HTB_WMA_LENGTH];
   
     TokenBucket tb_min;  /* token bucket to ensure min_rate */
     TokenBucket tb_max; /* token bucket to control we do not exceed max_rate */
