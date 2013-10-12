@@ -23,7 +23,7 @@
 #include <util/Log.h>
 #include "DiskMgr.h"
 #include "StorMgrVolumes.h"
-#include <dm/dm_service.h>
+#include <disk-mgr/dm_service.h>
 
 /* TODO: avoid include across module, put API header file to include dir */
 #include <lib/OMgrClient.h>

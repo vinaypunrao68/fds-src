@@ -396,19 +396,14 @@ ObjectStorMgr::run(int argc, char* argv[])
 {
 
   bool         unit_test;
-<<<<<<< HEAD
   std::string endPointStr;
   int ioMin, ioMax;
   
   unit_test = false;
-=======
-  std::string  endPointStr;
   std::string  omIpStr;
   fds_uint32_t omConfigPort;
 
   omConfigPort = 0;
-  unit_test    = false;
->>>>>>> 4950279beab3fe0b3dbeadb2aa24f7f78dd2f003
 
   for (int i = 1; i < argc; i++) {
     std::string arg(argv[i]);
