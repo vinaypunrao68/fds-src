@@ -5,18 +5,20 @@
 #include "odb.h"
 #include "StorMgrVolumes.h"
 
-extern ObjectStorMgr *objStorMgr;
-
 namespace fds {
 
+extern ObjectStorMgr *objStorMgr;
 
-StorMgrVolume::StorMgrVolume(VolumeDesc &vdb, ObjectStorMgr *sm, fds_log *parent_log)
-  : FDS_Volume(),  parent_sm(sm)
-{
-std::string filename;
-  vol_desc = new VolumeDesc(vdb);
+StorMgrVolume::StorMgrVolume(const VolumeDesc &vdb,
+                             ObjectStorMgr *sm,
+                             fds_log *parent_log)
+  : FDS_Volume(),
+    parent_sm(sm) {
+  std::string filename;
   /* all other values are default for now */
   filename= sm->stor_prefix + "SNodeVolIndex" + std::to_string(vdb.volUUID);
+  
+  vol_desc = new VolumeDesc(vdb);
   volumeIndexDB  = new ObjectDB(filename);
 }
 
@@ -25,9 +27,9 @@ StorMgrVolume::~StorMgrVolume()
   delete volumeIndexDB;
 }
 
-Error StorMgrVolume::createVolIndexEntry(fds_volid_t& vol_uuid, 
+Error StorMgrVolume::createVolIndexEntry(fds_volid_t vol_uuid, 
                                          fds_uint64_t vol_offset, 
-                                         FDS_ObjectIdType& objId, 
+                                         FDS_ObjectIdType objId, 
                                          fds_uint32_t data_obj_len)
 {
 Error err(ERR_OK);
@@ -45,10 +47,9 @@ Error err(ERR_OK);
 
   
 
-Error StorMgrVolume::deleteVolIndexEntry(fds_volid_t& vol_uuid, 
-                                         fds_uint64_t vol_offset,
-                                         FDS_ObjectIdType& objId)
-{
+Error StorMgrVolume::deleteVolIndexEntry(fds_volid_t      vol_uuid, 
+                                         fds_uint64_t     vol_offset,
+                                         FDS_ObjectIdType objId) {
 Error err(ERR_OK);
   DiskLoc diskloc;
   diskloc.vol_id = vol_uuid;
@@ -213,48 +214,47 @@ Error err(ERR_OK);
 
 
 Error StorMgrVolumeTable::createVolIndexEntry(fds_volid_t vol_uuid, 
-                                            fds_uint64_t vol_offset, 
-                                            FDS_ObjectIdType objId, 
-                                            fds_uint32_t data_obj_len) 
-{
-Error err(ERR_OK);
-StorMgrVolume *vol;
-   map_rwlock.write_lock();
-   if (volume_map.count(vol_uuid) == 0) {
-       FDS_PLOG(vt_log) << "StorMgrVolumeTable - createVolIndexEntry volume called for non-existing volume "
-                        << vol_uuid;
-       err = ERR_INVALID_ARG;
-       map_rwlock.write_unlock();
-      return err;
-   }
-         
-   vol = volume_map[vol_uuid];
-   vol->createVolIndexEntry(vol_uuid, vol_offset, objId, data_obj_len);
-   map_rwlock.write_unlock();
-   return err;
-     
+                                              fds_uint64_t vol_offset, 
+                                              FDS_ObjectIdType objId, 
+                                              fds_uint32_t data_obj_len) {
+  Error err(ERR_OK);
+  StorMgrVolume *vol;
+  map_rwlock.write_lock();
+  if (volume_map.count(vol_uuid) == 0) {
+    FDS_PLOG(vt_log) << "StorMgrVolumeTable - createVolIndexEntry volume "
+                     << "called for non-existing volume " << vol_uuid;
+    err = ERR_INVALID_ARG;
+    map_rwlock.write_unlock();
+
+    return err;
+  }
+
+  vol = volume_map[vol_uuid];
+  vol->createVolIndexEntry(vol_uuid, vol_offset, objId, data_obj_len);
+  map_rwlock.write_unlock();
+
+  return err;     
 }
 
 
-Error StorMgrVolumeTable::deleteVolIndexEntry(fds_volid_t vol_uuid, fds_uint64_t vol_offset, 
-                                            FDS_ObjectIdType objId) {
-Error err(ERR_OK);
-StorMgrVolume *vol;
-   map_rwlock.write_lock();
-   if (volume_map.count(vol_uuid) == 0) {
-       FDS_PLOG(vt_log) << "StorMgrVolumeTable - deleteVolIndexEntry volume called for non-existing volume "
-                        << vol_uuid;
-       err = ERR_INVALID_ARG;
-       map_rwlock.write_unlock();
-      return err;
-   }
-         
-   vol = volume_map[vol_uuid];
-   vol->deleteVolIndexEntry(vol_uuid, vol_offset, objId);
-   map_rwlock.write_unlock();
-   return err;
+Error StorMgrVolumeTable::deleteVolIndexEntry(fds_volid_t vol_uuid,
+                                              fds_uint64_t vol_offset, 
+                                              FDS_ObjectIdType objId) {
+  Error err(ERR_OK);
+  StorMgrVolume *vol;
+  map_rwlock.write_lock();
+  if (volume_map.count(vol_uuid) == 0) {
+    FDS_PLOG(vt_log) << "StorMgrVolumeTable - deleteVolIndexEntry volume "
+                     << "called for non-existing volume " << vol_uuid;
+    err = ERR_INVALID_ARG;
+    map_rwlock.write_unlock();
+    return err;
+  }
+
+  vol = volume_map[vol_uuid];
+  vol->deleteVolIndexEntry(vol_uuid, vol_offset, objId);
+  map_rwlock.write_unlock();
+
+  return err;
 }
-
-
-
-} // namespace fds
+}  // namespace fds

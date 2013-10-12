@@ -1,7 +1,13 @@
+/*
+ * Copyright 2013 Formation Data Systems, Inc.
+ */
+
 #include <iostream>
 
 #include "StorMgr.h"
 #include "DiskMgr.h"
+
+namespace fds {
 
 fds_bool_t  stor_mgr_stopping = false;
 
@@ -10,8 +16,6 @@ fds_bool_t  stor_mgr_stopping = false;
 #define FDSP_MAX_MSG_LEN (4*(4*1024 + 128))
 
 ObjectStorMgr *objStorMgr;
-
-// Use a single global levelDB for now
 
 ObjectStorMgrI::ObjectStorMgrI(const Ice::CommunicatorPtr& communicator): _communicator(communicator) {
 }
@@ -132,11 +136,9 @@ void ObjectStorMgr::volEventOmHandler(fds::fds_volid_t volume_id, fds::VolumeDes
 
 void ObjectStorMgr::unitTest()
 {
-  fds_sm_err_t err;
+  Error err(ERR_OK);
 
-  err = FDS_SM_OK;
-
-   FDS_PLOG(objStorMgr->GetLog()) << "Running unit test";
+  FDS_PLOG(objStorMgr->GetLog()) << "Running unit test";
   
   /*
    * Create fake objects
@@ -161,8 +163,8 @@ void ObjectStorMgr::unitTest()
    * Write fake object.
    */
   err = putObjectInternal(put_obj_req, vol_id, num_objs);
-  if (err != FDS_SM_OK) {
-     FDS_PLOG(objStorMgr->GetLog()) << "Failed to put object ";
+  if (err != ERR_OK) {
+    FDS_PLOG(objStorMgr->GetLog()) << "Failed to put object ";
     // delete put_obj_req;
     return;
   }
@@ -177,30 +179,42 @@ void ObjectStorMgr::unitTest()
   // delete get_obj_req;
 }
 
-fds_sm_err_t 
+Error
 ObjectStorMgr::checkDuplicate(FDS_ObjectIdType *object_id, 
                               fds_uint32_t obj_len, 
-                              fds_char_t *data_object)
-{
-ObjectID obj_id(object_id->hash_high, object_id->hash_low);
+                              fds_char_t *data_object) {
+  ObjectID obj_id(object_id->hash_high, object_id->hash_low);
   ObjectBuf obj;
+  Error err(ERR_OK);
+
   obj.size = obj_len;
-  fds::Error err(fds::ERR_OK);
-  fds_sm_err_t retval = FDS_SM_OK;
 
   objStorMutex->lock();
   err = objStorDB->Get(obj_id, obj);
   objStorMutex->unlock();
-  if (err == fds::ERR_OK) {
-     if (memcmp(data_object, obj.data.c_str(), obj_len) == 0 ) { 
-         retval =   FDS_SM_ERR_DUPLICATE;
-     } else {
-      // Handle hash-collision - insert the next collision-id+obj-id 
-       retval = FDS_SM_ERR_HASH_COLLISION;
-     }
-  } 
-  
-  return retval;
+  if (err == ERR_OK) {
+    /*
+     * Perform an inline check that the data is the same.
+     * TODO: We need a better solution. This is going to
+     * be crazy slow.
+     */
+    if (memcmp(data_object, obj.data.c_str(), obj_len) == 0 ) { 
+      err = ERR_DUPLICATE;
+    } else {
+      /*
+       * Handle hash-collision - insert the next collision-id+obj-id 
+       */
+      err = ERR_HASH_COLLISION;
+    }
+  } else if (err == ERR_DISK_READ_FAILED) {
+    /*
+     * This error indicates the DB entry was empty
+     * so we can reset the error to OK.
+     */
+    err = ERR_OK;
+  }
+
+  return err;
 }
 
 fds_sm_err_t 
@@ -234,59 +248,52 @@ ObjectStorMgr::writeObjLocation(FDS_ObjectIdType *object_id,
 /*------------------------------------------------------------------------- ------------
  * FDSP Protocol internal processing 
  -------------------------------------------------------------------------------------*/
-fds_sm_err_t 
+Error
 ObjectStorMgr::putObjectInternal(FDSP_PutObjTypePtr put_obj_req, 
                                  fds_uint64_t  volid, 
-                                 fds_uint32_t num_objs)
-{
-//fds_char_t *put_obj_buf = put_obj_req._ptr;
-fds_uint32_t obj_num=0;
-fds_sm_err_t result = FDS_SM_OK;
-fds::Error err(fds::ERR_OK);
+                                 fds_uint32_t num_objs) {
+  fds_sm_err_t result = FDS_SM_OK;
+  fds::Error err(fds::ERR_OK);
 
-   for(obj_num = 0; obj_num < num_objs; obj_num++) {
+  for(fds_uint32_t obj_num = 0; obj_num < num_objs; obj_num++) {
        // Find if this object is a duplicate
-       result = checkDuplicate(&put_obj_req->data_obj_id, 
-                               put_obj_req->data_obj_len, 
-                               (fds_char_t *)put_obj_req->data_obj.data());
+       err = checkDuplicate(&put_obj_req->data_obj_id, 
+                            put_obj_req->data_obj_len, 
+                            (fds_char_t *)put_obj_req->data_obj.data());
 
-       if (result != FDS_SM_ERR_DUPLICATE) {
-           // First write the object itself after hashing the objectId to Disknum/filename & obtain an offset entry
-         /*
-           result = writeObject(&put_obj_req->data_obj_id, 
-                                (fds_uint32_t)put_obj_req->data_obj_len,
-                                (fds_char_t *)put_obj_req->data_obj.data(), 
-                                &object_location_offset);
-
-           // Now write the object location entry in the global index file
-           writeObjLocation(&put_obj_req->data_obj_id, 
-                            put_obj_req->data_obj_len, volid, 
-                            &object_location_offset);
-         */
-	   /*
-	    * This is the levelDB insertion. It's a totally
-	    * separate DB from the one above.
-	    */
-           ObjectID obj_id(put_obj_req->data_obj_id.hash_high, put_obj_req->data_obj_id.hash_low);
-           ObjectBuf obj;
-           obj.size = put_obj_req->data_obj_len;
-	   obj.data  = put_obj_req->data_obj;
-
-	   objStorMutex->lock();
-	   err = objStorDB->Put( obj_id, obj);
-	   objStorMutex->unlock();
-
-	   if (err != fds::ERR_OK) {
-	      FDS_PLOG(objStorMgr->GetLog()) << "Failed to put object " << err;
-              return FDS_SM_ERR_DISK_WRITE_FAILED;
-	   } else {
-	     FDS_PLOG(objStorMgr->GetLog()) << "Successfully put key ";
-	   }
-
-       } else {
-	   FDS_PLOG(objStorMgr->GetLog()) << "Duplicate object - returning success to put object " << err;
-           writeObjLocation(&put_obj_req->data_obj_id, put_obj_req->data_obj_len, volid, NULL);
+       if (err == ERR_DUPLICATE) {
+         FDS_PLOG(objStorMgr->GetLog()) << "Put dup:  " << err
+                                        << ", returning success";
+         writeObjLocation(&put_obj_req->data_obj_id,
+                          put_obj_req->data_obj_len,
+                          volid,
+                          NULL);
+         return err;
+       } else if (err != ERR_OK) {
+         FDS_PLOG(objStorMgr->GetLog()) << "Failed to put object: " << err;
+         return err;
        }
+
+       /*
+        * This is the levelDB insertion. It's a totally
+        * separate DB from the one above.
+        */
+       ObjectID obj_id(put_obj_req->data_obj_id.hash_high, put_obj_req->data_obj_id.hash_low);
+       ObjectBuf obj;
+       obj.size = put_obj_req->data_obj_len;
+       obj.data  = put_obj_req->data_obj;
+
+       objStorMutex->lock();
+       err = objStorDB->Put( obj_id, obj);
+       objStorMutex->unlock();
+ 
+       if (err != fds::ERR_OK) {
+         FDS_PLOG(objStorMgr->GetLog()) << "Failed to put object " << err;
+         return err;
+       } else {
+         FDS_PLOG(objStorMgr->GetLog()) << "Successfully put key ";
+       }
+
        volTbl->createVolIndexEntry(volid, 
                                   put_obj_req->volume_offset, 
                                   put_obj_req->data_obj_id,
@@ -296,7 +303,7 @@ fds::Error err(fds::ERR_OK);
        //put_obj_req = (FDSP_PutObjType *)put_obj_buf;
    }
 
-   return FDS_SM_OK;
+   return err;
 }
 
 void ObjectStorMgr::PutObject(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_PutObjTypePtr& put_obj_req) {
@@ -314,32 +321,31 @@ void ObjectStorMgr::PutObject(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_Put
     putObjectInternal(put_obj_req, fdsp_msg->glob_volume_id, fdsp_msg->num_objects);
 }
 
-fds_sm_err_t 
+Error
 ObjectStorMgr::getObjectInternal(FDSP_GetObjTypePtr get_obj_req, 
-                                fds_uint32_t volid, 
-                                fds_uint32_t trans_id, 
-                                fds_uint32_t num_objs) 
-{
-    ObjectID obj_id(get_obj_req->data_obj_id.hash_high, get_obj_req->data_obj_id.hash_low);
-    ObjectBuf obj;
-    obj.size = get_obj_req->data_obj_len;
-    obj.data = get_obj_req->data_obj;
-    fds::Error err(fds::ERR_OK);
+                                 fds_uint32_t volid, 
+                                 fds_uint32_t trans_id, 
+                                 fds_uint32_t num_objs) {
+  ObjectID obj_id(get_obj_req->data_obj_id.hash_high, get_obj_req->data_obj_id.hash_low);
+  ObjectBuf obj;
+  obj.size = get_obj_req->data_obj_len;
+  obj.data = get_obj_req->data_obj;
+  fds::Error err(fds::ERR_OK);
 
   objStorMutex->lock();
   err = objStorDB->Get(obj_id, obj);
   objStorMutex->unlock();
 
   if (err != fds::ERR_OK) {
-     FDS_PLOG(objStorMgr->GetLog()) << "XID:" << trans_id << "  Failed to get key " << obj_id << " with status " << err;
-     get_obj_req->data_obj.assign("");
-     return FDS_SM_ERR_OBJ_NOT_EXIST;
+    FDS_PLOG(objStorMgr->GetLog()) << "XID:" << trans_id << "  Failed to get key " << obj_id << " with status " << err;
+    get_obj_req->data_obj.assign("");
+    return err;
   } else {
-     FDS_PLOG(objStorMgr->GetLog()) << "XID:" << trans_id << "Successfully got value ";
+    FDS_PLOG(objStorMgr->GetLog()) << "XID:" << trans_id << "Successfully got value ";
     get_obj_req->data_obj.assign(obj.data);
   }
 
-  return FDS_SM_OK;
+  return err;
 }
 
 void 
@@ -351,18 +357,22 @@ ObjectStorMgr::GetObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
     // 
     // stor_mgr_verify_msg(fdsp_msg);
     //
-    int err;
-    ObjectID oid(get_obj_req->data_obj_id.hash_high,
+  Error err(ERR_OK);
+  ObjectID oid(get_obj_req->data_obj_id.hash_high,
                get_obj_req->data_obj_id.hash_low);
 
-    FDS_PLOG(objStorMgr->GetLog()) << "GetObject  XID:" << fdsp_msg->req_cookie << " Obj ID :" << oid << "glob_vol_id:" << fdsp_msg->glob_volume_id << "Num Objs:" << fdsp_msg->num_objects;
+  FDS_PLOG(objStorMgr->GetLog()) << "GetObject  XID:" << fdsp_msg->req_cookie << " Obj ID :" << oid << "glob_vol_id:" << fdsp_msg->glob_volume_id << "Num Objs:" << fdsp_msg->num_objects;
    
-    if ((err = getObjectInternal(get_obj_req, fdsp_msg->glob_volume_id, fdsp_msg->req_cookie, fdsp_msg->num_objects)) != FDS_SM_OK) {
-          fdsp_msg->result = FDSP_ERR_FAILED;
-          fdsp_msg->err_code = (FDSP_ErrType)err;
-    } else {
-          fdsp_msg->result = FDSP_ERR_OK;
-    }
+  err = getObjectInternal(get_obj_req,
+                          fdsp_msg->glob_volume_id,
+                          fdsp_msg->req_cookie,
+                          fdsp_msg->num_objects);
+  if (err != ERR_OK) {
+    fdsp_msg->result = FDSP_ERR_FAILED;
+    fdsp_msg->err_code = err.getIceErr();
+  } else {
+    fdsp_msg->result = FDSP_ERR_OK;
+  }
 }
 
 inline void ObjectStorMgr::swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg) {
@@ -533,7 +543,7 @@ ObjectStorMgr::interruptCallback(int)
 {
     communicator()->shutdown();
 }
-
+}  // namespace fds
 
 int main(int argc, char *argv[])
 {

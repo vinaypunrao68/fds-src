@@ -299,7 +299,7 @@ void OrchMgr::loadNodesFromFile(const std::string& dltFileName,
 
     for (i = 0; i < n_nodes; i++) {
       fds_nodeid_t  node_id = 0;
-      sscanf(curr_ptr, "%d%n", &node_id, &bytes_read);  // NOLINT(*)
+      sscanf(curr_ptr, "%llu%n", &node_id, &bytes_read);  // NOLINT(*)
       curr_ptr += bytes_read;
       currentSmMap[std::to_string(node_id)] = genericNode;
       currentDmMap[std::to_string(node_id)] = genericNode;
