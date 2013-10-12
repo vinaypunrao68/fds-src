@@ -5,6 +5,12 @@
 #ifndef SOURCE_LIB_FDS_ERR_H_
 #define SOURCE_LIB_FDS_ERR_H_
 
+/*
+ * TODO: This is only needed to support
+ * compatability with Ice error codes.
+ */
+#include <fdsp/FDSP.h>
+
 #include <sstream>
 #include <string>
 
@@ -13,6 +19,7 @@ namespace fds {
   static const char* fds_errstrs[] = {
     "ALL OK",
     "Data is a duplicate",
+    "Hash digest collision",
     "Unable to write data to disk",
     "Unable to read data from disk",
     "Unable to query into catalog",
@@ -21,14 +28,15 @@ namespace fds {
   };
   
   typedef enum {
-    ERR_OK                = 0,
-    ERR_DUPLICATE         = 1,
-    ERR_DISK_WRITE_FAILED = 2,
-    ERR_DISK_READ_FAILED  = 3,
-    ERR_CAT_QUERY_FAILED  = 4,
-    ERR_CAT_ENTRY_NOT_FOUND  = 5,
-    ERR_INVALID_ARG       = 6,
-    ERR_PENDING_RESP      = 7,
+    ERR_OK                   = 0,
+    ERR_DUPLICATE            = 1,
+    ERR_HASH_COLLISION       = 2,
+    ERR_DISK_WRITE_FAILED    = 3,
+    ERR_DISK_READ_FAILED     = 4,
+    ERR_CAT_QUERY_FAILED     = 5,
+    ERR_CAT_ENTRY_NOT_FOUND  = 6,
+    ERR_INVALID_ARG          = 7,
+    ERR_PENDING_RESP         = 8,
     ERR_MAX
   } fds_errno_t;
   
@@ -67,6 +75,14 @@ namespace fds {
 
     fds_errno_t GetErrno() const {
       return _errno;
+    }
+
+    FDS_ProtocolInterface::FDSP_ErrType getIceErr() const {
+      /*
+       * TODO: We only return code since it's the only code
+       * available to return.
+       */
+      return FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
     }
 
     std::string GetErrstr() const {

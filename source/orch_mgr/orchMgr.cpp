@@ -131,7 +131,6 @@ OrchMgr::interruptCallback(int cb) {
   communicator()->shutdown();
 }
 
-
 // config path request  handler
 OrchMgr::ReqCfgHandler::ReqCfgHandler(OrchMgr *oMgr) {
   this->orchMgr = oMgr;

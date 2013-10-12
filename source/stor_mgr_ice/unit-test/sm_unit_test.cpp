@@ -5,6 +5,7 @@
 #include <Ice/Ice.h>
 #include <IceUtil/IceUtil.h>
 #include "fdsp/FDSP.h"
+#include <hash/MurmurHash3.h>
 
 #include <iostream>  // NOLINT(*)
 #include <unordered_map>
@@ -14,6 +15,7 @@
 
 #include <util/Log.h>
 #include <fds_types.h>
+#include <concurrency/Mutex.h>
 
 namespace fds {
 
@@ -24,17 +26,20 @@ class TestResp : public FDS_ProtocolInterface::FDSP_DataPathResp {
  private:
   fds_log *test_log;
   std::unordered_map<ObjectID, std::string, ObjectHash> added_objs;
+  fds_mutex *objMapLock;
 
  public:
   TestResp()
       : test_log(NULL) {
+    objMapLock = new fds_mutex("Added object map lock");
   }
 
   explicit TestResp(fds_log *log)
-      : test_log(log) {
+      : TestResp() {
+    test_log = log;
   }
   ~TestResp() {
-    
+    delete objMapLock;
   }
 
   void SetLog(fds_log *log) {
@@ -49,13 +54,15 @@ class TestResp : public FDS_ProtocolInterface::FDSP_DataPathResp {
                  get_req->data_obj_id.hash_low);
     if (msg_hdr->result == FDS_ProtocolInterface::FDSP_ERR_OK) {
       std::string object_data = get_req->data_obj;
-      
+   
+      objMapLock->lock();
       if (object_data != added_objs[oid]) {
-        FDS_PLOG(test_log) << "Failed get correct object! Got"
-                           << object_data << " but expected "
-                           << added_objs[oid];
+        FDS_PLOG(test_log) << "Failed get correct object! Got ["
+                           << object_data << "] but expected ["
+                           << added_objs[oid] << "]";
         assert(0);
       }
+      objMapLock->unlock();
       FDS_PLOG(test_log) << "Get object " << oid
                          << " response: SUCCESS; " << object_data;
     } else {
@@ -77,7 +84,9 @@ class TestResp : public FDS_ProtocolInterface::FDSP_DataPathResp {
     if (msg_hdr->result == FDS_ProtocolInterface::FDSP_ERR_OK) {
       FDS_PLOG(test_log) << "Put object response: SUCCESS";
 
+      objMapLock->lock();
       added_objs[oid] = put_req->data_obj;
+      objMapLock->unlock();
     } else {
       FDS_PLOG(test_log) << "Put object response: FAILURE";
       /*
@@ -159,7 +168,9 @@ class SmUnitTest {
     for (fds_uint32_t i = 0; i < num_updates; i++) {
       volume_offset = i;
       oid = ObjectID(i, i * i);
-      std::string object_data = "I'm object number " + i;
+      std::ostringstream convert;
+      convert << i;
+      std::string object_data = "I am object number " + convert.str();
 
       put_req->volume_offset         = volume_offset;
       put_req->data_obj_id.hash_high = oid.GetHigh();
@@ -203,13 +214,17 @@ class SmUnitTest {
     msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
     
     fds_uint32_t volume_offset;
-    ObjectID oid;
+    std::list<ObjectID> objIdsPut;
     for (fds_uint32_t i = 0; i < num_updates; i++) {
       volume_offset = i;
-      oid = ObjectID(i, i * i);
       std::ostringstream convert;
       convert << i;
       std::string object_data = "I am object number " + convert.str();
+      ObjectID oid;
+      MurmurHash3_x64_128(object_data.c_str(),
+                          object_data.size() + 1,
+                          0,
+                          &oid);
 
       put_req->volume_offset         = volume_offset;
       put_req->data_obj_id.hash_high = oid.GetHigh();
@@ -231,6 +246,7 @@ class SmUnitTest {
                            << object_data;
         return -1;
       }
+      objIdsPut.push_back(oid);
     }
 
     FDS_ProtocolInterface::FDSP_GetObjTypePtr get_req =
@@ -242,8 +258,9 @@ class SmUnitTest {
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
     msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
     
-    for (fds_uint32_t i = 0; i < num_updates; i++) {
-      oid = ObjectID(i, i * i);
+    ObjectID oid;
+    for (fds_uint32_t i = 0; i < objIdsPut.size(); i++) {
+      oid = objIdsPut.front();
       get_req->data_obj_id.hash_high = oid.GetHigh();
       get_req->data_obj_id.hash_low  = oid.GetLow();
       get_req->data_obj_len          = 0;
@@ -257,7 +274,9 @@ class SmUnitTest {
                            << " with object ID " << oid;
         return -1;
       }
-    }    
+
+      objIdsPut.pop_front();
+    }
 
     FDS_PLOG(test_log) << "Ending test: basic_uq()";
 

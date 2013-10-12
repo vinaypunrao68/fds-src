@@ -1,5 +1,10 @@
-#ifndef __STOR_MGR_H__
-#define __STOR_MGR_H__
+/*
+ * Copyright 2013 Formation Data Systems, Inc.
+ */
+
+#ifndef SOURCE_STOR_MGR_ICE_STORMGR_H_
+#define SOURCE_STOR_MGR_ICE_STORMGR_H_
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,6 +30,9 @@
 #include "StorMgrVolumes.h"
 #include <disk-mgr/dm_service.h>
 
+#include "include/fds_qos.h"
+#include "include/qos_ctrl.h"
+
 /* TODO: avoid include across module, put API header file to include dir */
 #include <lib/OMgrClient.h>
 #include <concurrency/Mutex.h>
@@ -40,106 +48,101 @@ using namespace osm;
 using namespace std;
 using namespace Ice;
 
-class ObjectStorMgr : virtual public Ice::Application {
-public:
-   fds_int32_t   sockfd;
-   fds_uint32_t  num_threads;
+namespace fds {
 
-   fds_mutex     *objStorMutex;
+  class ObjectStorMgr : virtual public Ice::Application {
+ public:
+    fds_int32_t   sockfd;
+    fds_uint32_t  num_threads;
 
-   DiskMgr       *diskMgr;
-   ObjectDB      *objStorDB;
-   ObjectDB      *objIndexDB;
-   std::string stor_prefix;
-
-   fds_uint32_t port_num;     /* Data path port num */
-   fds_uint32_t cp_port_num;  /* Control path port num */
-   std::string myIp;          /* This nodes local IP */
-
-   StorMgrVolumeTable *volTbl;
-   OMgrClient    *omClient;
    FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr dInfo;
    
+    fds_mutex     *objStorMutex;
 
-  FDS_ProtocolInterface::FDSP_DataPathReqPtr fdspDataPathServer;
-  FDS_ProtocolInterface::FDSP_DataPathRespPrx fdspDataPathClient; //For sending back the response to the SH/DM
+    DiskMgr       *diskMgr;
+    ObjectDB      *objStorDB;
+    ObjectDB      *objIndexDB;
+    std::string stor_prefix;
 
-  //methods
-  ObjectStorMgr();
-  ~ObjectStorMgr();
+    fds_uint32_t port_num;     /* Data path port num */
+    fds_uint32_t cp_port_num;  /* Control path port num */
+    std::string myIp;          /* This nodes local IP */
 
-   fds_log* GetLog();
-   fds_log *sm_log;
+    StorMgrVolumeTable *volTbl;
+    OMgrClient    *omClient;
 
-   fds_int32_t  getSocket() { return sockfd; }   
-   void PutObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr, const FDS_ProtocolInterface::FDSP_PutObjTypePtr& put_obj);
-   void GetObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr, const FDS_ProtocolInterface::FDSP_GetObjTypePtr& get_obj);
+    FDS_ProtocolInterface::FDSP_DataPathReqPtr fdspDataPathServer;
+    FDS_ProtocolInterface::FDSP_DataPathRespPrx fdspDataPathClient; //For sending back the response to the SH/DM
 
-   inline void swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg);
-   static void nodeEventOmHandler(int node_id,
-                                  unsigned int node_ip_addr,
-                                  int node_state,
-                                  fds_uint32_t node_port,
-                                  FDS_ProtocolInterface::FDSP_MgrIdType node_type);
-   static void volEventOmHandler(fds::fds_volid_t volume_id,
-                                 fds::VolumeDesc *vdb,
-                                 int vol_action);
+    ObjectStorMgr();
+    ~ObjectStorMgr();
 
-   virtual int run(int, char*[]);
-   void interruptCallback(int);
-   void          unitTest();
+    fds_log* GetLog();
+    fds_log *sm_log;
 
-private :
-   /*
-    * Cmdline configurables
-    */
+    fds_int32_t  getSocket() { return sockfd; }   
+    void PutObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr, const FDS_ProtocolInterface::FDSP_PutObjTypePtr& put_obj);
+    void GetObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr, const FDS_ProtocolInterface::FDSP_GetObjTypePtr& get_obj);
 
-   fds_sm_err_t getObjectInternal(FDSP_GetObjTypePtr get_obj_req, 
-                       		  fds_uint32_t volid, 
-                       		  fds_uint32_t transid, 
-                       		  fds_uint32_t num_objs);
-   fds_sm_err_t putObjectInternal(FDSP_PutObjTypePtr put_obj_req, 
-                          	  fds_uint64_t volid, 
-                                  fds_uint32_t num_objs);
-   fds_sm_err_t checkDuplicate(FDS_ObjectIdType *object_id,
-                               fds_uint32_t obj_len,
-                               fds_char_t *data_object);
+    inline void swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg);
+    static void nodeEventOmHandler(int node_id,
+                                   unsigned int node_ip_addr,
+                                   int node_state,
+                                   fds_uint32_t node_port,
+                                   FDS_ProtocolInterface::FDSP_MgrIdType node_type);
+    static void volEventOmHandler(fds::fds_volid_t volume_id,
+                                  fds::VolumeDesc *vdb,
+                                  int vol_action);
 
-   fds_sm_err_t writeObject(FDS_ObjectIdType *object_id, 
-                            fds_uint32_t obj_len, 
-                            fds_char_t *data_object, 
-                            FDS_DataLocEntry *data_loc);
+    virtual int run(int, char*[]);
+    void interruptCallback(int);
+    void          unitTest();
 
-   fds_sm_err_t writeObjLocation(FDS_ObjectIdType *object_id, 
-                                 fds_uint32_t obj_len, 
-                                 fds_uint32_t volid, 
-                                 FDS_DataLocEntry  *data_loc);
-};
+ private:
+    Error getObjectInternal(FDSP_GetObjTypePtr get_obj_req, 
+                            fds_uint32_t volid, 
+                            fds_uint32_t transid, 
+                            fds_uint32_t num_objs);
+    Error putObjectInternal(FDSP_PutObjTypePtr put_obj_req, 
+                            fds_uint64_t volid, 
+                            fds_uint32_t num_objs);
+    Error checkDuplicate(FDS_ObjectIdType *object_id,
+                         fds_uint32_t obj_len,
+                         fds_char_t *data_object);
 
+    fds_sm_err_t writeObject(FDS_ObjectIdType *object_id, 
+                             fds_uint32_t obj_len, 
+                             fds_char_t *data_object, 
+                             FDS_DataLocEntry *data_loc);
 
-class ObjectStorMgrI : public FDS_ProtocolInterface::FDSP_DataPathReq  
-{
-public:
-
-  ObjectStorMgrI(const Ice::CommunicatorPtr& communicator);
-  ~ObjectStorMgrI();
-  Ice::CommunicatorPtr _communicator;
-
-  // virtual void shutdown(const Ice::Current&);
-  void PutObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_PutObjTypePtr &put_obj, const Ice::Current&);
-
-  void GetObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_GetObjTypePtr& get_obj, const Ice::Current&);
-
-  void UpdateCatalogObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_UpdateCatalogTypePtr& update_catalog , const Ice::Current&);
-
-  void QueryCatalogObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_QueryCatalogTypePtr& query_catalog , const Ice::Current&);
-
-  void OffsetWriteObject(const FDSP_MsgHdrTypePtr& msg_hdr, const FDSP_OffsetWriteObjTypePtr& offset_write_obj, const Ice::Current&);
-
-  void RedirReadObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_RedirReadObjTypePtr& redir_read_obj, const Ice::Current&);
-
-  void AssociateRespCallback(const Ice::Identity&, const Ice::Current&);
-};
+    fds_sm_err_t writeObjLocation(FDS_ObjectIdType *object_id, 
+                                  fds_uint32_t obj_len, 
+                                  fds_uint32_t volid, 
+                                  FDS_DataLocEntry  *data_loc);
+  };
 
 
-#endif
+  class ObjectStorMgrI : public FDS_ProtocolInterface::FDSP_DataPathReq {
+ public:
+    ObjectStorMgrI(const Ice::CommunicatorPtr& communicator);
+    ~ObjectStorMgrI();
+    Ice::CommunicatorPtr _communicator;
+
+    // virtual void shutdown(const Ice::Current&);
+    void PutObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_PutObjTypePtr &put_obj, const Ice::Current&);
+
+    void GetObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_GetObjTypePtr& get_obj, const Ice::Current&);
+
+    void UpdateCatalogObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_UpdateCatalogTypePtr& update_catalog , const Ice::Current&);
+
+    void QueryCatalogObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_QueryCatalogTypePtr& query_catalog , const Ice::Current&);
+
+    void OffsetWriteObject(const FDSP_MsgHdrTypePtr& msg_hdr, const FDSP_OffsetWriteObjTypePtr& offset_write_obj, const Ice::Current&);
+
+    void RedirReadObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_RedirReadObjTypePtr& redir_read_obj, const Ice::Current&);
+
+    void AssociateRespCallback(const Ice::Identity&, const Ice::Current&);
+  };
+}  // namespace fds
+
+#endif  // SOURCE_STOR_MGR_ICE_STORMGR_H_
