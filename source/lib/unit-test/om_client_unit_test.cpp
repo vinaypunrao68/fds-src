@@ -62,10 +62,12 @@ int main(int argc, char *argv[]) {
 	om_client->startAcceptingControlMessages(control_port);
 
   	dInfo = new  FDSP_AnnounceDiskCapability();
-  	dInfo->disk_iops =  100; /* avarage IOPS */
+  	dInfo->disk_iops_max =  10000; /* avarage IOPS */
+  	dInfo->disk_iops_min =  1000; /* avarage IOPS */
   	dInfo->disk_capacity = 100;  /* size in GB */
-  	dInfo->disk_latency = 3; /* in milli second */
-  	dInfo->disk_type =  FDSP_DISK_HDD;
+  	dInfo->disk_latency_max = 100; /* in milli second */
+  	dInfo->disk_latency_min = 10; /* in milli second */
+  	dInfo->disk_type =  FDS_DISK_SATA;
   	om_client->registerNodeWithOM(dInfo);
 
 	while(1) {

@@ -13,7 +13,6 @@
 #include <fdsp/FDSP.h>
 #include <util/Log.h>
 #include "orchMgr.h"
-//#include "OmLocDomain.h"
 
 namespace fds {
 
@@ -23,22 +22,29 @@ public:
   FdsAdminCtrl(const std::string& om_prefix, fds_log* om_log);
   ~FdsAdminCtrl();
   /* Per local domain  dynamic disk resource  counters */
-   fds_uint32_t  total_disk_iops;
-   fds_uint32_t  total_disk_capacity;
-   fds_uint32_t  disk_latency;
-   fds_uint32_t  total_ssd_iops;
-   fds_uint32_t  total_ssd_capacity;
-   fds_uint32_t  ssd_latency;
+   fds_uint32_t  total_disk_iops_max;
+   fds_uint32_t  total_disk_iops_min;
+   double  total_disk_capacity;
+   fds_uint32_t  disk_latency_max;
+   fds_uint32_t  disk_latency_min;
+   fds_uint32_t  total_ssd_iops_max;
+   fds_uint32_t  total_ssd_iops_min;
+   double  total_ssd_capacity;
+   fds_uint32_t  ssd_latency_max;
+   fds_uint32_t  ssd_latency_min;
 
    /* Available  capacity */
-   fds_uint32_t  avail_disk_iops;
-   fds_uint32_t  avail_disk_capacity;
-   fds_uint32_t  avail_ssd_iops;
-   fds_uint32_t  avail_ssd_capacity;
+   fds_uint32_t  avail_disk_iops_max;
+   fds_uint32_t  avail_disk_iops_min;
+   double        avail_disk_capacity;
+   fds_uint32_t  avail_ssd_iops_max;
+   fds_uint32_t  avail_ssd_iops_min;
+   double        avail_ssd_capacity;
 
    void addDiskCapacity( class NodeInfo& n_info);
    void getAvailableDiskCapacity(class VolumeInfo  *pVolInfo);  
    void updatetAvailableDiskCapacity(class VolumeInfo  *pVolInfo);
+   void volAdminControl(class VolumeInfo  *pVolInfo);
    void initDiskCapabilities();
 
   /* parent log */

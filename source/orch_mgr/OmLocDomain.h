@@ -45,12 +45,16 @@ namespace fds {
     fds_uint32_t  node_ip_address;
     fds_uint32_t  control_port;
     fds_uint32_t  data_port;
-    fds_uint32_t  disk_iops;
-    fds_uint32_t  disk_capacity;
-    fds_uint32_t  disk_latency;
-    fds_uint32_t  ssd_iops;
-    fds_uint32_t  ssd_capacity;
-    fds_uint32_t  ssd_latency;
+    fds_uint32_t  disk_iops_max;
+    fds_uint32_t  disk_iops_min;
+    double  	  disk_capacity;
+    fds_uint32_t  disk_latency_max;
+    fds_uint32_t  disk_latency_min;
+    fds_uint32_t  ssd_iops_max;
+    fds_uint32_t  ssd_iops_min;
+    double        ssd_capacity;
+    fds_uint32_t  ssd_latency_max;
+    fds_uint32_t  ssd_latency_min;
     fds_uint32_t  disk_type;
     FdspNodeState node_state;
     ReqCtrlPrx    cpPrx;
@@ -64,13 +68,17 @@ namespace fds {
           fds_uint32_t _ip,
           fds_uint32_t _cp_port,
           fds_uint32_t _d_port,
-    	  fds_int32_t _disk_iops,
-   	  fds_int32_t _disk_capacity,
-    	  fds_int32_t _d_latency,
-    	  fds_int32_t _ssd_iops,
-    	  fds_int32_t _ssd_capacity,
-    	  fds_int32_t _s_latency,
-    	  fds_uint32_t  disk_typer,
+    	  fds_int32_t _disk_iops_max,
+    	  fds_int32_t _disk_iops_min,
+   	  double      _disk_capacity,
+    	  fds_int32_t _d_latency_max,
+    	  fds_int32_t _d_latency_min,
+    	  fds_int32_t _ssd_iops_max,
+    	  fds_int32_t _ssd_iops_min,
+    	  double      _ssd_capacity,
+    	  fds_int32_t _s_latency_max,
+    	  fds_int32_t _s_latency_min,
+    	  fds_uint32_t  disk_type,
           const FdspNodeState& _state,
           const ReqCtrlPrx& _prx) :
     node_id(_id),
@@ -79,13 +87,17 @@ namespace fds {
         node_ip_address(_ip),
         control_port(_cp_port),
         data_port(_d_port),
-    	disk_iops(_disk_iops),
+    	disk_iops_max(_disk_iops_max),
+    	disk_iops_min(_disk_iops_min),
    	disk_capacity(_disk_capacity),
-    	disk_latency(_d_latency),
-    	ssd_iops(_ssd_iops),
+    	disk_latency_max(_d_latency_max),
+    	disk_latency_min(_d_latency_min),
+    	ssd_iops_max(_ssd_iops_max),
+    	ssd_iops_min(_ssd_iops_min),
     	ssd_capacity(_ssd_capacity),
+    	ssd_latency_max(_s_latency_max),
+    	ssd_latency_min(_s_latency_min),
         disk_type(_type),
-    	ssd_latency(_s_latency),
         node_state(_state),
         cpPrx(_prx) {
         }
@@ -99,12 +111,16 @@ namespace fds {
           fds_uint32_t _ip,
           fds_uint32_t _cp_port,
           fds_uint32_t _d_port,
-    	  fds_int32_t _disk_iops,
-   	  fds_int32_t _disk_capacity,
-    	  fds_int32_t _d_latency,
-    	  fds_int32_t _ssd_iops,
-    	  fds_int32_t _ssd_capacity,
-    	  fds_int32_t _s_latency,
+    	  fds_int32_t _disk_iops_max,
+    	  fds_int32_t _disk_iops_min,
+   	  double      _disk_capacity,
+    	  fds_int32_t _d_latency_max,
+    	  fds_int32_t _d_latency_min,
+    	  fds_int32_t _ssd_iops_max,
+    	  fds_int32_t _ssd_iops_min,
+    	  double      _ssd_capacity,
+    	  fds_int32_t _s_latency_max,
+    	  fds_int32_t _s_latency_min,
     	  fds_int32_t _d_type,
           const FdspNodeState& _state) :
     node_id(0),
@@ -112,12 +128,16 @@ namespace fds {
         node_ip_address(_ip),
         control_port(_cp_port),
         data_port(_d_port),
-    	disk_iops(1000),
+    	disk_iops_max(100000),
+    	disk_iops_min(1000),
    	disk_capacity(1000),
-    	disk_latency(100),
-    	ssd_iops(10000),
+    	disk_latency_max(1000),
+    	disk_latency_min(100),
+    	ssd_iops_max(1000000),
+    	ssd_iops_min(10000),
     	ssd_capacity(10000),
-    	ssd_latency(10),
+    	ssd_latency_max(100),
+    	ssd_latency_min(10),
     	disk_type(1),
         node_state(_state) {
         }

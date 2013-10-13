@@ -184,16 +184,9 @@ void FdsLocalDomain::loadNodesFromFile(const std::string& dltFileName,
    * info available.
    */
   NodeInfo genericNode("Generic node 0",
-                       0,
-                       0,
-                       0,
-                       0,
-                       0,
-                       0,
-                       0,
-                       0,
-                       0,
-                       0,
+                       0, 0, 0, 0, 0, 0, 0,
+                       0, 0, 0,0,
+                       0, 0, 0,
                        FDS_ProtocolInterface::FDS_Node_Up);
 
   dom_mutex->lock();
