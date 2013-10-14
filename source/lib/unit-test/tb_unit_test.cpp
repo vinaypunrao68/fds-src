@@ -84,7 +84,7 @@ public: /* methods */
     int result = 0;
     boost::posix_time::ptime start_ts = boost::posix_time::microsec_clock::universal_time();
     int cur_duration = 0;
-    TBQueueState* qstate = new TBQueueState(min_rate, max_rate, burst);
+    TBQueueState* qstate = new TBQueueState(volume_id, min_rate, max_rate, 1, 100000, burst);
     if (!qstate) {
       std::cout << "Failed to allocate queue state " << std::endl;
       return -1;

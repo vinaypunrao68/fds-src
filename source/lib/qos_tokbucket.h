@@ -16,8 +16,6 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include "fds_types.h"
 
-#define INFINITE_BURST                    987654321
-
 
 namespace fds {
 
@@ -32,9 +30,16 @@ namespace fds {
   */
   class TokenBucket {
   public:
-    TokenBucket(fds_uint64_t _rate, fds_uint64_t _burst)
-      : rate(_rate), burst(_burst)
+    /* if _burst_length_microsec > 0, calculates burst based on time interval that we 
+     * wait before we start throwing away tokens, and assigns burst as min of this value and _burst */
+    TokenBucket(fds_uint64_t _rate, fds_uint64_t _burst, fds_uint64_t _burst_length_microsec=0)
+      : rate(_rate)
     {
+       burst = _burst;
+       if (_burst_length_microsec > 0) {
+          fds_uint64_t wburst = (fds_uint64_t)( (double)_burst_length_microsec/1000000.0 * (double)rate);
+          if (wburst < burst) burst = wburst;
+       }
        t_last_update = boost::posix_time::microsec_clock::universal_time();
        token_count = 0.0; /* start with 0 tokens */
     }
@@ -53,6 +58,9 @@ namespace fds {
          * the number of spilled tokens */
         rate = _rate;
         burst = _burst;
+    }
+    inline void modifyRate(fds_uint64_t _rate, fds_uint64_t _burst_length_microsec) {
+        modifyParams(_rate, (fds_uint64_t)( (double)_burst_length_microsec/1000000.0 * (double)_rate));
     }
     inline void modifyRate(fds_uint64_t _rate) {
         modifyParams(_rate, burst);
@@ -79,7 +87,7 @@ namespace fds {
        }
        return 0; /* otherwise enough tokens */
     }
-
+ 
     /* Update number of tokens in the token bucket
      * returns the number of tokens that spilled over the burst size */
     inline fds_uint64_t updateTBState(void) {
@@ -88,8 +96,10 @@ namespace fds {
     
        /* cap token counter to burst size */
        if ((fds_uint64_t)token_count > burst) {
-          expired_tokens = burst - (fds_uint64_t)token_count;
-          token_count = (double)burst;
+          expired_tokens = (fds_uint64_t)token_count - burst;
+          /* important not to assign burst size, because if token_count is over burst by 
+           * fraction of a token we will lose a fraction of a token. */
+          token_count -= (double)expired_tokens;
        }
        return expired_tokens;
     } 
@@ -117,36 +127,25 @@ namespace fds {
   };
 
   /*
-   * Demand-driven token bucket that allows to control its number of tokens
-   * from outside (add and remove tokens explicitly). 
-   * By default has an infinite burst size 
+   * Demand-driven token bucket that can get tokens
+   * from outside (in addition to tokens generated with configured rate)
    */
-  class ControlledTokenBucket: public TokenBucket {
+  class RecvTokenBucket: public TokenBucket {
   public: 
-    ControlledTokenBucket(fds_uint64_t _rate, fds_uint64_t _burst=INFINITE_BURST)
+    RecvTokenBucket(fds_uint64_t _rate, fds_uint64_t _burst)
       : TokenBucket(_rate, _burst) {
     }
-    ~ControlledTokenBucket() {
+    ~RecvTokenBucket() {
     }
 
-    /* add/remove tokens to/from token buucket  */
-    inline void addTokens(fds_uint64_t num_tokens) {
-        token_count += (double)num_tokens;
-        if (token_count > (double)burst) {
-           token_count = (double)burst; 
-        }
-    }
-
-    /* returns actual number of tokens that was removed (since we cannot 
-     * decrease the number of tokens below zero */
-    inline fds_uint64_t removeTokens(fds_uint64_t num_tokens) {
-        if ((double)num_tokens < token_count) {
-            token_count -= (double)num_tokens;
-        }
-        else {
-            token_count = 0.0;
-        }
-    }
+    /* add tokens to the token bucket, burst size still applies */
+    inline void addTokens(fds_uint64_t add_tokens) {
+        token_count += (double)add_tokens;
+        if ((fds_uint64_t)token_count > burst) {
+           fds_uint64_t expired_toks = (fds_uint64_t)token_count - burst;
+           token_count -= (double)expired_toks;
+        }  
+    } 
     
     /* base class' update tokens will update tokens based on rate,
     *  and consume tokens are also the same */
