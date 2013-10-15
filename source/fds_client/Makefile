@@ -5,7 +5,7 @@ user_build_dir    := unit-test
 user_install      := fds.conf om_client.conf
 user_install_loc  := exe
 
-user_incl_dir     := include $(topdir)/stor_hvisor_ice
+user_incl_dir     := include $(topdir)/stor_hvisor_ice lib
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  :=                                                          \

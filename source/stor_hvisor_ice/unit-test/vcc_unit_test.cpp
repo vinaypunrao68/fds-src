@@ -3,12 +3,14 @@
  */
 #include <VolumeCatalogCache.h>
 #include <StorHvisorNet.h>
+#include <StorHvQosCtrl.h>
 
 #include <iostream>  // NOLINT(*)
 #include <vector>
 #include <string>
 #include <list>
 
+#include "fds_err.h"
 #include <fds_volume.h>
 #include <util/Log.h>
 #include <concurrency/Thread.h>
