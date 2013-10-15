@@ -139,13 +139,45 @@ OrchMgr::ReqCfgHandler::ReqCfgHandler(OrchMgr *oMgr) {
 OrchMgr::ReqCfgHandler::~ReqCfgHandler() {
 }
 
-void OrchMgr::CreateVol(const FdspMsgHdrPtr& fdsp_msg,
+int OrchMgr::CreateDomain(const FdspMsgHdrPtr& fdsp_msg,
+                        const FdspCrtDomPtr& crt_dom_req) {
+
+  FDS_PLOG(GetLog()) << "Received CreateDomain Req : "
+                     << crt_dom_req->domain_name  << " :domain_id - " << crt_dom_req->domain_id;
+
+   /* check  for duplicate domain id */
+  om_mutex->lock();
+  if ( locDomMap.count(crt_dom_req->domain_id) == 0) {
+    FDS_PLOG(om_log) << "Duplicate domain: " << crt_dom_req->domain_id;
+    om_mutex->unlock();
+    return -1;
+  }
+
+   FdsLocalDomain *new_domain = new FdsLocalDomain(stor_prefix, om_log);
+   localDomainInfo  *domain_info = new localDomainInfo();
+   domain_info->loc_domain_name = crt_dom_req->domain_name;
+   domain_info->loc_dom_id = crt_dom_req->domain_id;
+   domain_info->glb_dom_id = 1;
+   domain_info->domain_ptr = new_domain;
+   locDomMap[domain_info->loc_dom_id] = domain_info;
+
+   om_mutex->unlock();
+  return 0;
+}
+
+int OrchMgr::DeleteDomain(const FdspMsgHdrPtr& fdsp_msg,
+                        const FdspCrtDomPtr& del_dom_req) {
+ /* TBD*/
+return 0;
+}
+int OrchMgr::CreateVol(const FdspMsgHdrPtr& fdsp_msg,
                         const FdspCrtVolPtr& crt_vol_req) {
   Error err(ERR_OK);
   int  vol_id = crt_vol_req->vol_info->volUUID;
   int  domain_id = crt_vol_req->vol_info->localDomainId;
   std::string vol_name = crt_vol_req->vol_info->vol_name;
   localDomainInfo  *currentDom;
+  int returnCode;
 
   FDS_PLOG(GetLog()) << "Received CreateVol Req for volume "
                      << vol_name << " ; id - " << vol_id;
@@ -156,11 +188,13 @@ void OrchMgr::CreateVol(const FdspMsgHdrPtr& fdsp_msg,
    */
    currentDom  = locDomMap[DEFAULT_LOC_DOMAIN_ID];
 
+   
   om_mutex->lock();
+
   if ( currentDom->domain_ptr->volumeMap.count(vol_id) != 0) {
     FDS_PLOG(om_log) << "Received CreateVol for existing volume " << vol_id;
     om_mutex->unlock();
-    return;
+    return -1;
   }
   VolumeInfo *new_vol = new VolumeInfo();
   new_vol->vol_name = vol_name;
@@ -176,16 +210,28 @@ void OrchMgr::CreateVol(const FdspMsgHdrPtr& fdsp_msg,
       FDS_PLOG(GetLog()) << "CreateVol: Failed to get policy info for volume " << vol_name;
       /* TODO: for now ignoring error */
   }
-   currentDom->domain_ptr->volumeMap[vol_id] = new_vol;
+   /*
+    * check the resource  availability 
+    */
+
+   if ((returnCode = currentDom->domain_ptr->admin_ctrl->volAdminControl(new_vol)) != 0) {
+  	FDS_PLOG(GetLog()) << "Unable to create Volume \n";
+	 delete new_vol;
+	 return -1; 
+    }
+
+  currentDom->domain_ptr->volumeMap[vol_id] = new_vol;
   currentDom->domain_ptr->sendCreateVolToFdsNodes(new_vol);
  /* update the per domain disk resource  */
   om_mutex->unlock();
+ return 0;
 }
 
 void OrchMgr::DeleteVol(const FdspMsgHdrPtr& fdsp_msg,
                         const FdspDelVolPtr& del_vol_req) {
   int  vol_id = del_vol_req->vol_uuid;
   std::string vol_name = del_vol_req->vol_name;
+  VolumeInfo *cur_vol;
   localDomainInfo  *currentDom;
 
   FDS_PLOG(GetLog()) << "Received DeleteVol Req for volume "
@@ -215,6 +261,12 @@ void OrchMgr::DeleteVol(const FdspMsgHdrPtr& fdsp_msg,
   }
 
   currentDom->domain_ptr->sendDeleteVolToFdsNodes(del_vol);
+ 
+   /*
+    * update  admission control  class  to reflect the  delete Volume 
+    */
+   cur_vol= currentDom->domain_ptr->volumeMap[vol_id];
+   currentDom->domain_ptr->admin_ctrl->updateAdminControlParams(cur_vol);
 
    currentDom->domain_ptr->volumeMap.erase(vol_id);
   om_mutex->unlock();
@@ -502,7 +554,32 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
   currentDom->domain_ptr->sendNodeTableToFdsNodes(table_type_dmt);
 }
 
-void OrchMgr::ReqCfgHandler::CreateVol(const FdspMsgHdrPtr& fdsp_msg,
+
+int OrchMgr::ReqCfgHandler::DeleteDomain(const FdspMsgHdrPtr& fdsp_msg,
+                                       const FdspCrtDomPtr& del_dom_req,
+                                       const Ice::Current&) {
+  try {
+    orchMgr->DeleteDomain(fdsp_msg, del_dom_req);
+  }
+  catch(...) {
+    FDS_PLOG(orchMgr->GetLog()) << "Orch Mgr encountered exception while "
+                                << "processing delete domain";
+  }
+}
+
+int OrchMgr::ReqCfgHandler::CreateDomain(const FdspMsgHdrPtr& fdsp_msg,
+                                       const FdspCrtDomPtr& crt_dom_req,
+                                       const Ice::Current&) {
+  try {
+    orchMgr->CreateDomain(fdsp_msg, crt_dom_req);
+  }
+  catch(...) {
+    FDS_PLOG(orchMgr->GetLog()) << "Orch Mgr encountered exception while "
+                                << "processing create domain";
+  }
+}
+
+int OrchMgr::ReqCfgHandler::CreateVol(const FdspMsgHdrPtr& fdsp_msg,
                                        const FdspCrtVolPtr& crt_vol_req,
                                        const Ice::Current&) {
   try {

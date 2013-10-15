@@ -26,6 +26,7 @@
 #include <lib/Catalog.h>
 #include "OmVolPolicy.h"
 #include "OmLocDomain.h"
+#include "OmAdminCtrl.h"
 
 #define MAX_OM_NODES 512
 #define DEFAULT_LOC_DOMAIN_ID  1
@@ -60,6 +61,7 @@ namespace fds {
   typedef FDS_ProtocolInterface::FDSP_VolumeInfoTypePtr FdspVolInfoPtr;
   typedef FDS_ProtocolInterface::FDSP_PolicyInfoTypePtr FdspPolInfoPtr;
   typedef FDS_ProtocolInterface::FDSP_VolumeDescTypePtr FdspVolDescPtr; 
+  typedef FDS_ProtocolInterface::FDSP_CreateDomainTypePtr  FdspCrtDomPtr;
 
     typedef std::unordered_map<int, localDomainInfo *> loc_domain_map_t;
 
@@ -108,7 +110,7 @@ namespace fds {
     void interruptCallback(int cb);
     fds_log* GetLog();
 
-    void CreateVol(const FdspMsgHdrPtr& fdsp_msg,
+    int CreateVol(const FdspMsgHdrPtr& fdsp_msg,
                    const FdspCrtVolPtr& crt_vol_req);
     void DeleteVol(const FdspMsgHdrPtr& fdsp_msg,
                    const FdspDelVolPtr& del_vol_req);
@@ -129,6 +131,10 @@ namespace fds {
 
     void RegisterNode(const FdspMsgHdrPtr& fdsp_msg,
                       const FdspRegNodePtr& reg_node_req);
+    int CreateDomain(const FdspMsgHdrPtr& fdsp_msg,
+                     const FdspCrtDomPtr& crt_dom_req);
+    int DeleteDomain(const FdspMsgHdrPtr& fdsp_msg,
+                     const FdspCrtDomPtr& del_dom_req);
 
     class ReqCfgHandler : public FDS_ProtocolInterface::FDSP_ConfigPathReq {
    private:
@@ -138,7 +144,7 @@ namespace fds {
       explicit ReqCfgHandler(OrchMgr *oMgr);
       ~ReqCfgHandler();
 
-      void CreateVol(const FdspMsgHdrPtr& fdsp_msg,
+      int CreateVol(const FdspMsgHdrPtr& fdsp_msg,
                      const FdspCrtVolPtr& crt_vol_req,
                      const Ice::Current&);
       void DeleteVol(const FdspMsgHdrPtr& fdsp_msg,
@@ -171,6 +177,12 @@ namespace fds {
 
       void AssociateRespCallback(const Ice::Identity& ident,
                                  const Ice::Current& current);
+      int CreateDomain(const FdspMsgHdrPtr& fdsp_msg,
+                     const FdspCrtDomPtr& crt_dom_req,
+                     const Ice::Current&);
+      int DeleteDomain(const FdspMsgHdrPtr& fdsp_msg,
+                     const FdspCrtDomPtr& del_dom_req,
+                     const Ice::Current&);
     };
   };
 
