@@ -17,7 +17,8 @@
 
 #define DEFAULT_ASSURED_WAIT_MICROSEC     250000
 #define HTB_WMA_SLOT_SIZE_MICROSEC        250000   /* the length of stat slot for gathering recent iops performance */   
-/* If you modify HTB_WMA_LENTH, yoy must update TBQueueState::kweights constant array  */
+/* If you modify HTB_MAX_WMA_LENGTH, yoy must update TBQueueState::kweights constant array  */
+#define HTB_MAX_WMA_LENGTH                20
 #define HTB_WMA_LENGTH                    20       /* the length of recent iops performance window in HTB_WMA_SLOT_SIZE_MICROSEC slots */
 
 namespace fds {
@@ -115,6 +116,17 @@ namespace fds {
       fds_bool_t bret = tb_max.tryToConsumeTokens(io_cost);
       assert(bret);
     }
+ 
+  private:
+    inline void moveToNextHistTs(const boost::posix_time::ptime& now) {
+      if (now > next_hist_ts) {
+	do {
+	  next_hist_ts += boost::posix_time::microseconds(HTB_WMA_SLOT_SIZE_MICROSEC);
+          hist_slotix = (hist_slotix + 1) % HTB_WMA_LENGTH;
+	  recent_iops[hist_slotix] = 0;
+	} while (now> next_hist_ts);
+      }
+    }
 
   public: /* data */
     fds_uint32_t queue_id;
@@ -130,7 +142,7 @@ namespace fds {
     fds_uint32_t recent_iops[HTB_WMA_LENGTH];  /* a window of the recent iops performance */
     boost::posix_time::ptime next_hist_ts;
     fds_uint32_t hist_slotix;
-    static const double kweights[HTB_WMA_LENGTH];
+    static const double kweights[HTB_MAX_WMA_LENGTH];
   
     TokenBucket tb_min;  /* token bucket to ensure min_rate */
     TokenBucket tb_max; /* token bucket to control we do not exceed max_rate */
@@ -229,7 +241,6 @@ namespace fds {
 
     /* total burst size from dispatcher */
     fds_uint64_t max_burst_size; /* in number of IOs */
-    fds_uint64_t cur_burst_size;
 
     /***** dynamic state ******/
     RecvTokenBucket avail_pool; /* pool of available tokens (non-guaranteed tokens + expired guaranteed tokens) */
