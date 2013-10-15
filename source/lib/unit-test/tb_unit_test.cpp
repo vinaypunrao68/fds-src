@@ -13,6 +13,8 @@
 
 namespace fds {
 
+class FDS_QoSControl;
+
 class TBUnitTest {
 public:
   
@@ -84,7 +86,7 @@ public: /* methods */
     int result = 0;
     boost::posix_time::ptime start_ts = boost::posix_time::microsec_clock::universal_time();
     int cur_duration = 0;
-    TBQueueState* qstate = new TBQueueState(min_rate, max_rate, burst);
+    TBQueueState* qstate = new TBQueueState(volume_id, min_rate, max_rate, 1, 100000, burst);
     if (!qstate) {
       std::cout << "Failed to allocate queue state " << std::endl;
       return -1;
@@ -260,3 +262,48 @@ int main(int argc, char *argv[])
 
   return 0;
 }
+
+
+namespace fds {
+
+  /* Empty implementation of FDS_QoSControl so that this unit test compiles */
+
+  FDS_QoSControl::FDS_QoSControl() {
+    dispatcher = NULL;
+  }
+  FDS_QoSControl::~FDS_QoSControl() {
+
+  }
+
+  Error FDS_QoSControl::registerVolume(fds_uint64_t voluuid, FDS_VolumeQueue *volQ ) {
+    Error err(ERR_OK);
+    return err;
+  }
+
+  Error FDS_QoSControl::deregisterVolume(fds_uint64_t voluuid) {
+    Error err(ERR_OK);
+    return err;
+  }
+   
+  void   FDS_QoSControl::setQosDispatcher(dispatchAlgoType algo_type, FDS_QoSDispatcher *qosDispatcher) {
+  }
+
+  void  FDS_QoSControl::runScheduler() {
+  }
+
+  Error FDS_QoSControl::processIO(FDS_IOType* io) {
+    Error err(ERR_OK);
+    return err;
+  }
+
+  fds_uint32_t FDS_QoSControl::waitForWorkers() {
+    return (0);
+  }
+
+
+  Error FDS_QoSControl::enqueueIO(fds_volid_t volUUID, FDS_IOType *io) {
+    Error err(ERR_OK);
+    return err;
+  }
+
+} //namespace fds

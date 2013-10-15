@@ -389,12 +389,16 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
                      << "  Node Type:" << std::dec << reg_node_req->node_type
                      << "  Control Port: " << reg_node_req->control_port
                      << "  Data Port: " << reg_node_req->data_port
-                     << "  Disk iops : " << reg_node_req->disk_info->disk_iops
+                     << "  Disk iops Max : " << reg_node_req->disk_info->disk_iops_max
+                     << "  Disk iops Min: " << reg_node_req->disk_info->disk_iops_min
                      << "  Disk capacity : " << reg_node_req->disk_info->disk_capacity
-                     << "  Disk latency : " << reg_node_req->disk_info->disk_latency
-                     << "  Ssd iops : " << reg_node_req->disk_info->ssd_iops
+                     << "  Disk latency Max: " << reg_node_req->disk_info->disk_latency_max
+                     << "  Disk latency Min: " << reg_node_req->disk_info->disk_latency_min
+                     << "  Ssd iops Max: " << reg_node_req->disk_info->ssd_iops_max
+                     << "  Ssd iops Min: " << reg_node_req->disk_info->ssd_iops_min
                      << "  Ssd capacity : " << reg_node_req->disk_info->ssd_capacity
-                     << "  Ssd latency : " << reg_node_req->disk_info->ssd_latency
+                     << "  Ssd latency Max : " << reg_node_req->disk_info->ssd_latency_max
+                     << "  Ssd latency Min: " << reg_node_req->disk_info->ssd_latency_min
                      << "  Disk Type : " << reg_node_req->disk_info->disk_type;
   /*
    * get the domain Id. If  Domain is not created  use  default domain 
@@ -444,12 +448,16 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
                   reg_node_req->ip_lo_addr,
                   reg_node_req->control_port,
                   n_info.data_port = reg_node_req->data_port,
-		  reg_node_req->disk_info->disk_iops,
+		  reg_node_req->disk_info->disk_iops_max,
+		  reg_node_req->disk_info->disk_iops_min,
 		  reg_node_req->disk_info->disk_capacity,
-		  reg_node_req->disk_info->disk_latency,
-		  reg_node_req->disk_info->ssd_iops,
+		  reg_node_req->disk_info->disk_latency_max,
+		  reg_node_req->disk_info->disk_latency_min,
+		  reg_node_req->disk_info->ssd_iops_max,
+		  reg_node_req->disk_info->ssd_iops_min,
 		  reg_node_req->disk_info->ssd_capacity,
-		  reg_node_req->disk_info->ssd_latency,
+		  reg_node_req->disk_info->ssd_latency_max,
+		  reg_node_req->disk_info->ssd_latency_min,
 		  reg_node_req->disk_info->disk_type,
                   n_info.node_state = FDS_ProtocolInterface::FDS_Node_Up,
                   FDS_ProtocolInterface::

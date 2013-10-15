@@ -292,12 +292,16 @@ int OMgrClient::registerNodeWithOM( const FDS_ProtocolInterface::FDSP_AnnounceDi
   /* init the disk info */
    
    reg_node_msg->disk_info =  new FDSP_AnnounceDiskCapability;
-   reg_node_msg->disk_info->disk_iops =  dInfo->disk_iops;
+   reg_node_msg->disk_info->disk_iops_max =  dInfo->disk_iops_max;
+   reg_node_msg->disk_info->disk_iops_min =  dInfo->disk_iops_min;
    reg_node_msg->disk_info->disk_capacity = dInfo->disk_capacity;
-   reg_node_msg->disk_info->disk_latency = dInfo->disk_latency;
-   reg_node_msg->disk_info->ssd_iops =  dInfo->ssd_iops;
+   reg_node_msg->disk_info->disk_latency_max = dInfo->disk_latency_max;
+   reg_node_msg->disk_info->disk_latency_min = dInfo->disk_latency_min;
+   reg_node_msg->disk_info->ssd_iops_max =  dInfo->ssd_iops_max;
+   reg_node_msg->disk_info->ssd_iops_min =  dInfo->ssd_iops_min;
    reg_node_msg->disk_info->ssd_capacity = dInfo->ssd_capacity;
-   reg_node_msg->disk_info->ssd_latency = dInfo->ssd_latency;
+   reg_node_msg->disk_info->ssd_latency_max = dInfo->ssd_latency_min;
+   reg_node_msg->disk_info->ssd_latency_min = dInfo->ssd_latency_min;
    reg_node_msg->disk_info->disk_type = dInfo->disk_type;
 
   FDS_PLOG(omc_log) << "OMClient registering local node " << fds::ipv4_addr_to_str(reg_node_msg->ip_lo_addr) << " control port:" << reg_node_msg->control_port 

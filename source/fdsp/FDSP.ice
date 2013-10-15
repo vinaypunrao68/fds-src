@@ -80,10 +80,6 @@ enum FDSP_VolType {
   FDSP_VOL_BLKDEV_SSD_TYPE
 };
 
-enum FDSP_DiskType {
-  FDSP_DISK_HDD,
-  FDSP_DISK_SSD
-};
 enum FDSP_VolNotifyType {
   FDSP_NOTIFY_DEFAULT,
   FDSP_NOTIFY_ADD_VOL,
@@ -325,13 +321,17 @@ class FDSP_ModifyPolicyType {
 };
 
 class FDSP_AnnounceDiskCapability {
-  int 		disk_iops;  /* iops suppported by */
-  int		disk_capacity; /* size of the disk  */
-  int		disk_latency;  /* latency  */
-  int 		ssd_iops;  /* iops suppported by */
-  int		ssd_capacity; /* size of the disk  */
-  int		ssd_latency;  /* latency  */
-  int		disk_type;  /* disk type  */
+  int	disk_iops_max;  /* iops suppported by */
+  int	disk_iops_min;  /* iops suppported by */
+  double	disk_capacity; /* size of the disk  */
+  int	disk_latency_max;  /* latency  */
+  int	disk_latency_min;  /* latency  */
+  int 	ssd_iops_max;  /* iops suppported by */
+  int 	ssd_iops_min;  /* iops suppported by */
+  double	ssd_capacity; /* size of the disk  */
+  int	ssd_latency_max;  /* latency  */
+  int	ssd_latency_min;  /* latency  */
+  int	disk_type;  /* disk type  */
 };
 
 class FDSP_RegisterNodeType {

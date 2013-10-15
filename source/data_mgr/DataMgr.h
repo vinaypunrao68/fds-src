@@ -32,6 +32,7 @@
 
 #include <unordered_map>
 #include <string>
+#include <disk-mgr/dm_service.h>
 
 namespace fds {
 

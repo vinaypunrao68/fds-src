@@ -693,13 +693,17 @@ void StorHvCtrl::StartOmClient() {
     om_client->startAcceptingControlMessages();
     FDS_PLOG(sh_log) << "StorHvisorNet - Started accepting control messages from OM";
     dInfo = new  FDSP_AnnounceDiskCapability();
-    dInfo->disk_iops =  100; /* avarage IOPS */
+    dInfo->disk_iops_max =  10000; /* avarage IOPS */
+    dInfo->disk_iops_min =  100; /* avarage IOPS */
     dInfo->disk_capacity = 100;  /* size in GB */
-    dInfo->disk_latency = 3; /* in milli second */
-    dInfo->ssd_iops =  100; /* avarage IOPS */
+    dInfo->disk_latency_max = 100; /* in milli second */
+    dInfo->disk_latency_min = 10; /* in milli second */
+    dInfo->ssd_iops_max =  100000; /* avarage IOPS */
+    dInfo->ssd_iops_min =  1000; /* avarage IOPS */
     dInfo->ssd_capacity = 100;  /* size in GB */
-    dInfo->ssd_latency = 3; /* in milli second */
-    dInfo->disk_type =  FDSP_DISK_HDD;
+    dInfo->ssd_latency_max = 100; /* in milli second */
+    dInfo->ssd_latency_min = 3; /* in milli second */
+    dInfo->disk_type =  FDS_DISK_SATA;
     om_client->registerNodeWithOM(dInfo);
   }
 

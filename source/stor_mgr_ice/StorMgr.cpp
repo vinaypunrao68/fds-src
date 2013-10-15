@@ -407,7 +407,9 @@ ObjectStorMgr::run(int argc, char* argv[])
 
   bool         unit_test;
   std::string endPointStr;
-  int ioMin, ioMax;
+  fds::DmDiskInfo     *info;
+  fds::DmDiskQuery     in;
+  fds::DmDiskQueryOut  out;
   
   unit_test = false;
   std::string  omIpStr;
@@ -511,11 +513,43 @@ ObjectStorMgr::run(int argc, char* argv[])
   FDS_PLOG(objStorMgr->GetLog()) << "Stor Mgr IP:" << myIp;
 
   /*
-   * Query  SM for disk parameter details 
+   * Query  Disk Manager  for disk parameter details 
    */
-    DmQuery &dm = DmQuery::dm_query();
-    dm.dm_iops(&ioMin, &ioMax);
-    cout <<  "disk parameter rx from disk \n"  << ioMin  << ioMax;
+    fds::DmQuery        &query = fds::DmQuery::dm_query();
+    in.dmq_mask = fds::dmq_disk_info;
+    query.dm_disk_query(in, &out);
+    /* we should be bundling multiple disk  parameters  into one message to OM TBD */ 
+    dInfo = new  FDSP_AnnounceDiskCapability(); 
+    while (1) {
+        info = out.query_pop();
+        if (info != nullptr) {
+  	    FDS_PLOG(objStorMgr->GetLog()) << "Max blks capacity: " << info->di_max_blks_cap
+            << "Disk type........: " << info->di_disk_type
+            << "Max iops.........: " << info->di_max_iops
+            << "Min iops.........: " << info->di_min_iops
+            << "Max latency (us).: " << info->di_max_latency
+            << "Min latency (us).: " << info->di_min_latency;
+
+            if ( info->di_disk_type == FDS_DISK_SATA) {
+            	dInfo->disk_iops_max =  info->di_max_iops; /*  max avarage IOPS */
+            	dInfo->disk_iops_min =  info->di_min_iops; /* min avarage IOPS */
+            	dInfo->disk_capacity = info->di_max_blks_cap;  /* size in blocks */
+            	dInfo->disk_latency_max = info->di_max_latency; /* in us second */
+            	dInfo->disk_latency_min = info->di_min_latency; /* in us second */
+  	    } else if (info->di_disk_type == FDS_DISK_SSD) {
+            	dInfo->ssd_iops_max =  info->di_max_iops; /*  max avarage IOPS */
+            	dInfo->ssd_iops_min =  info->di_min_iops; /* min avarage IOPS */
+            	dInfo->ssd_capacity = info->di_max_blks_cap;  /* size in blocks */
+            	dInfo->ssd_latency_max = info->di_max_latency; /* in us second */
+            	dInfo->ssd_latency_min = info->di_min_latency; /* in us second */
+	    } else 
+  	       FDS_PLOG(objStorMgr->GetLog()) << "Unknown Disk Type " << info->di_disk_type;
+			
+            delete info;
+            continue;
+        }
+        break;
+    }
 
   /*
    * Register this node with OM.
@@ -531,14 +565,6 @@ ObjectStorMgr::run(int argc, char* argv[])
   omClient->registerEventHandlerForNodeEvents((node_event_handler_t)nodeEventOmHandler);
   omClient->registerEventHandlerForVolEvents((volume_event_handler_t)volEventOmHandler);
   omClient->startAcceptingControlMessages(cp_port_num);
-  dInfo = new  FDSP_AnnounceDiskCapability();
-  dInfo->disk_iops =  100; /* avarage IOPS */
-  dInfo->disk_capacity = 100;  /* size in GB */
-  dInfo->disk_latency = 3; /* in milli second */
-  dInfo->ssd_iops =  100; /* avarage IOPS */
-  dInfo->ssd_capacity = 100;  /* size in GB */
-  dInfo->ssd_latency = 3; /* in milli second */
-  dInfo->disk_type =  FDSP_DISK_HDD;
   omClient->registerNodeWithOM(dInfo);
 
   communicator()->waitForShutdown();
