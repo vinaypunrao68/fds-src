@@ -7,8 +7,7 @@ user_cpp         :=               \
     VolumeCatalog.cpp             \
     OMgrClient.cpp                \
 	QoSWFQDispatcher.cpp	\
-	qos_htb.cpp \
-	qos_ctrl.cpp
+	qos_htb.cpp  \
 
 #user_cc          :=               \
 #    tvclib.c                      \
@@ -19,7 +18,7 @@ user_cpp         :=               \
 # TODO: should change this directory and this lib to something more
 # specific.
 #
-user_ar_libs     := fds-lib
+user_ar_libs     := fds-lib fds-thread 
 fds-lib          := $(user_cpp)
 
 include $(topdir)/Makefile.incl
