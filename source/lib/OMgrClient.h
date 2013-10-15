@@ -103,7 +103,7 @@ namespace fds {
     //    int subscribeToOmEvents(unsigned int om_ip_addr, int tennant_id, int domain_id, int omc_port_num=0);
     int startAcceptingControlMessages();
     int startAcceptingControlMessages(fds_uint32_t port_num);
-    int registerNodeWithOM();
+    int registerNodeWithOM(const FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr& diskInfo);
     int getNodeInfo(int node_id,
                     unsigned int *node_ip_addr,
                     fds_uint32_t *node_port,

@@ -32,6 +32,7 @@ int main(int argc, char *argv[]) {
         std::string hostIpStr;
 	int control_port = 0;
 	std::string node_id = "localhost-sh";
+        FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr dInfo;
 
 	if (argc > 1) {
 	  if (strcmp(argv[1], "-h") == 0) {
@@ -59,7 +60,15 @@ int main(int argc, char *argv[]) {
 	om_client->registerEventHandlerForVolEvents(my_vol_event_handler);
 	// om_client->subscribeToOmEvents(0x0a010aca, 1, 1);
 	om_client->startAcceptingControlMessages(control_port);
-	om_client->registerNodeWithOM();
+
+  	dInfo = new  FDSP_AnnounceDiskCapability();
+  	dInfo->disk_iops_max =  10000; /* avarage IOPS */
+  	dInfo->disk_iops_min =  1000; /* avarage IOPS */
+  	dInfo->disk_capacity = 100;  /* size in GB */
+  	dInfo->disk_latency_max = 100; /* in milli second */
+  	dInfo->disk_latency_min = 10; /* in milli second */
+  	dInfo->disk_type =  FDS_DISK_SATA;
+  	om_client->registerNodeWithOM(dInfo);
 
 	while(1) {
 	  printf(">");

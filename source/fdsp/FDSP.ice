@@ -277,6 +277,7 @@ class FDSP_PolicyInfoType {
 class FDSP_DeleteVolType {
   string 		 vol_name;  /* Name of the volume */
   double    		 vol_uuid;
+  int			 domain_id;
 };
 
 class FDSP_ModifyVolType {
@@ -289,6 +290,7 @@ class FDSP_AttachVolCmdType {
   string		 vol_name; // Name of the volume to attach
   double		 vol_uuid; // UUID of the volume being attached
   string		 node_id;  // Id of the hypervisor node where the volume should be attached
+  int			 domain_id;
 };
 
 class FDSP_NotifyVolType {
@@ -318,14 +320,29 @@ class FDSP_ModifyPolicyType {
   FDSP_PolicyInfoType 	 policy_info;  /* Policy description */
 };
 
+class FDSP_AnnounceDiskCapability {
+  int	disk_iops_max;  /* iops suppported by */
+  int	disk_iops_min;  /* iops suppported by */
+  double	disk_capacity; /* size of the disk  */
+  int	disk_latency_max;  /* latency  */
+  int	disk_latency_min;  /* latency  */
+  int 	ssd_iops_max;  /* iops suppported by */
+  int 	ssd_iops_min;  /* iops suppported by */
+  double	ssd_capacity; /* size of the disk  */
+  int	ssd_latency_max;  /* latency  */
+  int	ssd_latency_min;  /* latency  */
+  int	disk_type;  /* disk type  */
+};
+
 class FDSP_RegisterNodeType {
   FDSP_MgrIdType node_type; /* Type of node - SM/DM/HV */
   string 	 node_name;    /* node indetifier - string */
+  int 	     domain_id;    /* domain indetifier */
   long		 ip_hi_addr; /* IP V6 high address */
   long		 ip_lo_addr; /* IP V4 address of V6 low address of the node */
   int		 control_port; /* Port number to contact for control messages */
   int		 data_port; /* Port number to send datapath requests */
-  /* Add node capacity and other relevant fields here */
+  FDSP_AnnounceDiskCapability  disk_info; /* Add node capacity and other relevant fields here */
 };
 
 class FDSP_MsgHdrType {

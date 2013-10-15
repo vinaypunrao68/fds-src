@@ -62,5 +62,11 @@ Error err(ERR_OK);
     return err;
   }
 
+ Error FDS_QoSControl::processIO(FDS_IOType *) {
+  Error err(ERR_OK);
+  return err;
+ }
+ 
+
 }
 

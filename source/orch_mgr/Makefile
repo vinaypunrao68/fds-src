@@ -18,7 +18,9 @@ user_incl_dir     := $(topdir)
 fds_cli_cpp       := fdscli.cpp
 orch_mgr_cpp      :=                   \
     orchMgr.cpp                        \
-    OmVolPolicy.cpp
+    OmVolPolicy.cpp		       \
+    OmLocDomain.cpp		       \
+    OmAdminCtrl.cpp
 
 user_cpp          :=                   \
     $(fds_cli_cpp)                     \

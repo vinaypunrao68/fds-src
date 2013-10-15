@@ -448,6 +448,7 @@ void CreateSHMode(int argc,
    */
   storHvisor->StartOmClient();
   // storHvisor->om_client->registerNodeWithOM();
+  storHvisor->qos_ctrl->runScheduler();
 
   FDS_PLOG(storHvisor->GetLog()) << "StorHvisorNet - Created storHvisor " << storHvisor;
 }
@@ -566,12 +567,12 @@ StorHvCtrl::StorHvCtrl(int argc,
   vol_table = new StorHvVolumeTable(this, sh_log);  
 
   /*  Create the QOS Controller object */ 
-  qos_ctrl = new FDS_QoSControl(150, FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET, sh_log);
+  qos_ctrl = new StorHvQosCtrl(50, fds::FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET, sh_log);
   /*
    * Set basic thread properties.
    */
   props->setProperty("StorHvisorClient.ThreadPool.Size", "100");
-  props->setProperty("StorHvisorClient.ThreadPool.SizeMax", "300");
+  props->setProperty("StorHvisorClient.ThreadPool.SizeMax", "200");
   props->setProperty("StorHvisorClient.ThreadPool.SizeWarn", "100");
 
   FDS_PLOG(sh_log) << "StorHvisorNet - StorHvCtrl basic infra init successfull ";
@@ -675,6 +676,7 @@ StorHvCtrl::~StorHvCtrl()
   delete dataPlacementTbl;
   if (om_client)
     delete om_client;
+  delete qos_ctrl;
   delete sh_log;
 }
 
@@ -692,7 +694,19 @@ void StorHvCtrl::StartOmClient() {
   if (om_client) {
     om_client->startAcceptingControlMessages();
     FDS_PLOG(sh_log) << "StorHvisorNet - Started accepting control messages from OM";
-    om_client->registerNodeWithOM();
+    dInfo = new  FDSP_AnnounceDiskCapability();
+    dInfo->disk_iops_max =  10000; /* avarage IOPS */
+    dInfo->disk_iops_min =  100; /* avarage IOPS */
+    dInfo->disk_capacity = 100;  /* size in GB */
+    dInfo->disk_latency_max = 100; /* in milli second */
+    dInfo->disk_latency_min = 10; /* in milli second */
+    dInfo->ssd_iops_max =  100000; /* avarage IOPS */
+    dInfo->ssd_iops_min =  1000; /* avarage IOPS */
+    dInfo->ssd_capacity = 100;  /* size in GB */
+    dInfo->ssd_latency_max = 100; /* in milli second */
+    dInfo->ssd_latency_min = 3; /* in milli second */
+    dInfo->disk_type =  FDS_DISK_SATA;
+    om_client->registerNodeWithOM(dInfo);
   }
 
 }

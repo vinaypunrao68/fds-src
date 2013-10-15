@@ -3,7 +3,7 @@
 
 /*
  * Define all basic fds types portable in all platforms and run time
- * environment.  Don't include any header files not in this directory.
+ * environments.  Don't include any header files not under this directory.
  */
 #ifdef __cplusplus
 #define c_decls_begin        extern "C" {
@@ -25,6 +25,13 @@ typedef unsigned char        fds_uint8_t;
 typedef char                 fds_int8_t;
 typedef char                 fds_char_t;
 typedef bool                 fds_bool_t;
+
+/* Get the offset of a field y inside struct X. */
+#define fds_offset_of(X, y)   ((unsigned long)((void *)&(((X *)0)->y)))
+
+/* Get the address of the obj from addr of a field in it. */
+#define fds_object_of(obj, field, ptr)                                        \
+    ((obj *)(((char *)(ptr)) - (char *)fds_offset_of(obj, field)))
 
 /* Do not change enum assignment in this type. */
 typedef enum {

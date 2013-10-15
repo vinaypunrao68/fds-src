@@ -3,6 +3,8 @@
 #ifndef FDS_INCLUDE_DLIST_H_
 #define FDS_INCLUDE_DLIST_H_
 
+#include <shared/fds_types.h>
+
 #ifdef __cplusplus
 extern  "C" {
 #endif /* __cplusplus */
@@ -235,13 +237,6 @@ dlist_iter_rm_curr(dlist_t **iter)
 
     return (curr);
 }
-
-/* Get the offset of a field y inside struct X. */
-#define fds_offset_of(X, y)   ((unsigned long)((void *)&(((X *)0)->y)))
-
-/* Get the address of the obj from addr of a field in it. */
-#define fds_object_of(obj, field, ptr)                                        \
-    ((obj *)(((char *)(ptr)) - (char *)fds_offset_of(obj, field)))
 
 /*
  * Macros to traverse the whole dlist.

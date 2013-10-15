@@ -8,6 +8,7 @@
 #include "StorHvJournal.h"
 #include "StorHvVolumes.h"
 #include "StorHvisorCPP.h"
+#include "StorHvQosCtrl.h"
 
 extern StorHvCtrl *storHvisor;
 
@@ -25,6 +26,7 @@ StorHvVolume::StorHvVolume(const VolumeDesc& vdesc, StorHvCtrl *sh_ctrl, fds_log
   }
 
   volQueue = new FDS_VolumeQueue(4096, vdesc.iops_max, vdesc.iops_min, vdesc.relativePrio);
+  volQueue->activate();
 
   is_valid = true;
 }
@@ -41,7 +43,7 @@ StorHvVolume::~StorHvVolume()
   if(volQueue) {
     delete volQueue;
   }
- 
+  
 }
 
 /* safely destroys journal table and volume catalog cache
@@ -123,7 +125,9 @@ StorHvVolumeTable::StorHvVolumeTable(StorHvCtrl *sh_ctrl, fds_log *parent_log)
 
   if (sh_ctrl->GetRunTimeMode() == StorHvCtrl::TEST_BOTH) {
     VolumeDesc vdesc("default_vol", FDS_DEFAULT_VOL_UUID);
+    StorHvVolume *vol = 
     volume_map[FDS_DEFAULT_VOL_UUID] = new StorHvVolume(vdesc, parent_sh, vt_log);
+    sh_ctrl->qos_ctrl->registerVolume(vdesc.volUUID,vol->volQueue);
     FDS_PLOG(vt_log) << "StorHvVolumeTable - constructor registered volume 1";  
 
 #if 0 // Test  volumes
@@ -446,7 +450,9 @@ int  pushVolQueue(void *req1)
   // push request to the  per volume queue 
   
   io->fbd_req = req;
-  shvol->volQueue->enqueueIO(io);
+  io->io_type = (fds::fds_io_op_t)req->io_type;
+  io->io_vol_id = req->volUUID;
+  storHvisor->qos_ctrl->enqueueIO(vol_id, io);
   shvol->readUnlock();
   FDS_PLOG(storHvisor->GetLog()) << " Queueing the  IO done.  vol_id:  " << vol_id;
 
