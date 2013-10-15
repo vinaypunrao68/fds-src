@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <mutex> // std::mutex, std::unique_lock
 #include <condition_variable> 
+#include <atomic>
 #include "qos_ctrl.h"
 
 
@@ -22,21 +23,23 @@ namespace fds {
     fds_log *qda_log;
     queue_map_t queue_map;
     FDS_QoSControl *parent_ctrlr;
+    fds_uint64_t total_svc_rate;
     fds_rwlock qda_lock; // Protects queue_map (and any high level structures in derived class) 
                          // from events like volumes being inserted or removed during enqueue IO or dispatchIO.
 
-    std::mutex ios_pending_mtx; // to protect the counter num_pending_ios
-    std::condition_variable ios_pending_cv; // Condn variable to signal dispatcher when there is an IO available, from enqueueIO thread.
-    fds_uint32_t num_pending_ios; // ios pending, aggregated across all queues, protected by ios_pending_mtx;
-  
+    // std::mutex ios_pending_mtx; // to protect the counter num_pending_ios
+    // std::condition_variable ios_pending_cv; // Condn variable to signal dispatcher when there is an IO available, from enqueueIO thread.
+    // fds_uint32_t num_pending_ios; // ios pending, aggregated across all queues, protected by ios_pending_mtx;
+    std::atomic<unsigned int> num_pending_ios;
  
     virtual fds_uint32_t getNextQueueForDispatch() = 0;
 
     FDS_QoSDispatcher() {}
-    FDS_QoSDispatcher(FDS_QoSControl *ctrlr, fds_log *log) {
+    FDS_QoSDispatcher(FDS_QoSControl *ctrlr, fds_log *log, fds_uint64_t total_server_rate) {
       parent_ctrlr = ctrlr;
       qda_log = log;
-      num_pending_ios = 0;
+      total_svc_rate = total_server_rate;
+      num_pending_ios = ATOMIC_VAR_INIT(0);
     }
     ~FDS_QoSDispatcher() {
     }
@@ -137,6 +140,7 @@ namespace fds {
       ioProcessForEnqueue(queue_id, io);  
       
       // do while loop is just to limit the scope of the unique_lock, limiting the time we hold ios_pending_mtx
+#if 0
       do {
 	std::unique_lock<std::mutex> lck(ios_pending_mtx);
 	num_pending_ios++;
@@ -145,6 +149,11 @@ namespace fds {
 	  ios_pending_cv.notify_all();
 	}
       } while (0);
+#endif
+      fds_uint32_t n_pios;
+      n_pios = atomic_fetch_add(&(num_pending_ios), (unsigned int)1);
+      assert(n_pios >= 0);
+
       qda_lock.read_unlock();
       return err;
 
@@ -158,13 +167,23 @@ namespace fds {
 
 	parent_ctrlr->waitForWorkers();
 
+#if 0
 	do {
 	  std::unique_lock<std::mutex> lck(ios_pending_mtx);
 	  while (num_pending_ios == 0) {
 	    ios_pending_cv.wait(lck);
 	  }
 	} while (0);
-
+#endif
+	fds_uint32_t n_pios = 0;
+	while (1) {
+	  n_pios = atomic_load(&num_pending_ios);
+	  if (n_pios > 0) {
+	    break;
+	  }
+	  boost::this_thread::sleep(boost::posix_time::microseconds(1000000/total_svc_rate));
+	} 
+	
 	qda_lock.read_lock();
 
 	fds_uint32_t queue_id = getNextQueueForDispatch();
@@ -174,15 +193,23 @@ namespace fds {
 	assert(io != NULL);
 
 	ioProcessForDispatch(queue_id, io);
+#if 0
 	do {
 	  std::unique_lock<std::mutex> lck(ios_pending_mtx);
 	  num_pending_ios --;
 	} while (0);
+#endif
+
 	qda_lock.read_unlock();
 
 	parent_ctrlr->processIO(io);
+
+	n_pios = 0;
+	n_pios = atomic_fetch_sub(&(num_pending_ios), (unsigned int)1);
+	assert(n_pios >= 1);
 	
       }
+
       return err;
     }
 
