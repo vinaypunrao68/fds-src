@@ -10,7 +10,7 @@ namespace fds {
 
 /***** QoSHTBDispatcher implementation ******/
 QoSHTBDispatcher::QoSHTBDispatcher(FDS_QoSControl *ctrl, fds_log *log, fds_uint64_t _total_rate)
-    : FDS_QoSDispatcher(ctrl, log),
+  : FDS_QoSDispatcher(ctrl, log, _total_rate),
     total_rate(_total_rate),
     wait_time_microsec(DEFAULT_ASSURED_WAIT_MICROSEC),
     pool(0, _total_rate, DEFAULT_ASSURED_WAIT_MICROSEC)
