@@ -459,7 +459,7 @@ public:
 
  FDS_IOType   *dequeueIO() {
 
-   FDS_IOType *io;
+   FDS_IOType *io = NULL;
    if ( volQState == FDS_VOL_Q_ACTIVE || volQState == FDS_VOL_Q_QUIESCING ) { 
      volQueue->pop(io); 
      if (volQState == FDS_VOL_Q_QUIESCING && volQueue->empty())  {
