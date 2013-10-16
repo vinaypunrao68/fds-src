@@ -217,6 +217,7 @@ int OrchMgr::CreateVol(const FdspMsgHdrPtr& fdsp_msg,
    if ((returnCode = currentDom->domain_ptr->admin_ctrl->volAdminControl(new_vol)) != 0) {
   	FDS_PLOG(GetLog()) << "Unable to create Volume \n";
 	 delete new_vol;
+         om_mutex->unlock();
 	 return -1; 
     }
 
