@@ -448,6 +448,7 @@ void CreateSHMode(int argc,
    */
   storHvisor->StartOmClient();
   // storHvisor->om_client->registerNodeWithOM();
+  storHvisor->qos_ctrl->runScheduler();
 
   FDS_PLOG(storHvisor->GetLog()) << "StorHvisorNet - Created storHvisor " << storHvisor;
 }

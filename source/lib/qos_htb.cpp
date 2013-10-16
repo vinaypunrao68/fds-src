@@ -10,7 +10,7 @@ namespace fds {
 
 /***** QoSHTBDispatcher implementation ******/
 QoSHTBDispatcher::QoSHTBDispatcher(FDS_QoSControl *ctrl, fds_log *log, fds_uint64_t _total_rate)
-    : FDS_QoSDispatcher(ctrl, log),
+  : FDS_QoSDispatcher(ctrl, log, _total_rate),
     total_rate(_total_rate),
     total_min_rate(0),
     max_burst_size(300),
@@ -67,13 +67,16 @@ Error QoSHTBDispatcher::registerQueue(fds_uint32_t queue_id,
   fds_uint64_t new_total_avail_rate = 0;
   fds_uint64_t q_min_rate = queue->iops_min;
   fds_uint64_t q_max_rate = queue->iops_max;
-  fds_uint32_t q_priority = queue->priority;
+
+  /* If iops_max == 0, means no max, set max_rate to a very high value */
+  if (q_max_rate == 0) 
+     q_max_rate = 100000;
    
   /* we need a new state to control new queue */
   TBQueueState *qstate = new TBQueueState(queue_id, 
                                           q_min_rate, 
                                           q_max_rate,
-                                          q_priority,
+                                          queue->priority,
                                           wait_time_microsec, 
                                           default_que_burst_size);
   if (!qstate) {
@@ -122,6 +125,9 @@ Error QoSHTBDispatcher::registerQueue(fds_uint32_t queue_id,
   qda_lock.write_unlock();
 
   FDS_PLOG(qda_log) << "QosHTBDispatcher: registered queue " << queue_id
+		    << "with min_iops=" << queue->iops_min
+		    << "; max_iops=" << queue->iops_max
+		    << "; prio=" << queue->priority
                     << "; total_min_rate " << new_total_min_rate 
                     << ", total_avail_rate " << new_total_avail_rate;
 
@@ -198,10 +204,8 @@ fds_uint32_t QoSHTBDispatcher::getNextQueueForDispatch()
  
   while (1) {
 
-    /* init for each run of the loop, since we start searching from beginning */
+    /* reset qstate with min wma, since we start searching from beginning */
     min_wma_qstate = NULL;
-    min_wma = 987654321.0;
-    min_wma_hiprio = 999; /* we assume highest priority is the lowest number */
 
     /* all tokens are demand-driven, so make sure to update state first */
     avail_pool.updateTBState();
@@ -243,13 +247,18 @@ fds_uint32_t QoSHTBDispatcher::getNextQueueForDispatch()
       else if (state == TBQueueState::TBQUEUE_STATE_NO_ASSURED_TOKENS) {
         /* queue has at least one io and available tokens (but no assured tokens) */
         double q_wma = qstate->getIOPerfWMA();
-        //FDS_PLOG(qda_log) << "QoSHTBDispatcher: queue " << it->first << " wma = " << q_wma;
-        if (qstate->priority < min_wma_hiprio) {
-           /* assuming higher priority -> lower the number (highest = 1) */
+        if (!min_wma_qstate) {
+           min_wma = q_wma;
+           min_wma_qstate = qstate;
            min_wma_hiprio = qstate->priority;
-           min_wma = 987654321.0;
         }
-        if ((qstate->priority == min_wma_hiprio) && (q_wma < min_wma)) {
+        else if (qstate->priority < min_wma_hiprio) {
+           /* assuming higher priority is a lower the number (highest = 1) */
+           min_wma_hiprio = qstate->priority;
+           min_wma = q_wma;
+           min_wma_qstate = qstate;
+        }
+        else if ((qstate->priority == min_wma_hiprio) && (q_wma < min_wma)) {
            min_wma = q_wma;
            min_wma_qstate = qstate;
         }
@@ -278,10 +287,12 @@ fds_uint32_t QoSHTBDispatcher::getNextQueueForDispatch()
     /* we did not find any IOs to dispatch */
     { /* wait for next guaranteed token or few non-guaranteed tokens to be created */
      const double num_toks = 1.0;
-     fds_uint64_t assured_delay_microsec = (num_toks/(double)total_min_rate)*1000000.0;
-     fds_uint64_t delay_microsec = ((num_toks+1.0)/(double)avail_pool.getRate())*1000000.0;
-     if (delay_microsec > assured_delay_microsec)
+     fds_uint64_t assured_delay_microsec = (total_min_rate > 0) ? (num_toks/(double)total_min_rate)*1000000.0 : 0;
+     fds_uint64_t delay_microsec = (avail_pool.getRate() > 0) ? ((num_toks+1.0)/(double)avail_pool.getRate())*1000000.0 : 0;
+     if ((assured_delay_microsec > 0) && (delay_microsec > assured_delay_microsec))
         delay_microsec = assured_delay_microsec;
+
+     FDS_PLOG(qda_log) << "QoSHTBDispatcher: no tokens available, will sleep for " << delay_microsec;
      if (delay_microsec > 0) {
         qda_lock.read_unlock();
         boost::this_thread::sleep(boost::posix_time::microseconds(delay_microsec));

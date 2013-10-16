@@ -51,6 +51,7 @@ int FdsCli::fdsCliPraser(int argc, char* argv[])
 {
 	FDSP_MsgHdrTypePtr msg_hdr = new FDSP_MsgHdrType;
 	InitCfgMsgHdr(msg_hdr);
+	int return_code=0;
 
 	namespace po = boost::program_options;
 	// Declare the supported options.
@@ -66,11 +67,14 @@ int FdsCli::fdsCliPraser(int argc, char* argv[])
 	("policy-create",po::value<std::string>(), "Create Policy: policy-create <policy name> -p <policy-id> -g <iops-min> -m <iops-max> -r <rel-prio> ")
 	("policy-delete",po::value<std::string>(), "Delete policy: policy-delete <policy name> -p <policy-id>")
 	("policy-modify",po::value<std::string>(), "Modify policy: policy-modify <policy name> -p <policy-id> -g <iops-min> -m <iops-max> -r <rel-prio> ")
+	("domain-create",po::value<std::string>(), "Create domain: domain-create <domain name> -k <domain-id>")
+	("domain-delete",po::value<std::string>(), "Create domain: domain-delete <domain name> -k <domain-id>")
 	("policy-show",po::value<std::string>(), "Show policy")
 	("volume-size,s",po::value<double>(),"volume capacity")
 	("volume-policy,p",po::value<int>(),"volume policy")
 	("node-id,n",po::value<std::string>(),"node id")
 	("volume-id,i",po::value<int>(),"volume id")
+	("domain-id,k",po::value<int>(),"domain id")
 	("iops-min,g",po::value<double>(),"minimum IOPS")
 	("iops-max,m",po::value<double>(),"maximum IOPS")
 	("rel-prio,r",po::value<int>(),"relative priority")
@@ -121,7 +125,10 @@ int FdsCli::fdsCliPraser(int argc, char* argv[])
     		volData->vol_info->appWorkload = FDSP_APP_WKLD_TRANSACTION;
 
    		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(communicator()->stringToProxy (tcpProxyStr.str())); 
-    		cfgPrx->CreateVol(msg_hdr, volData);
+    		if((return_code = cfgPrx->CreateVol(msg_hdr, volData)) !=0 ) {
+		  std::system("clear");
+		  cout << "Error: Creating the Volume, Running out of Disk  resources \n";
+		}
 
 
 	} else if (vm.count("volume-modify") && vm.count("volume-size") &&  \
@@ -247,7 +254,29 @@ int FdsCli::fdsCliPraser(int argc, char* argv[])
     		policyData->policy_info->rel_prio = vm["rel-prio"].as<int>();
    		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(communicator()->stringToProxy (tcpProxyStr.str())); 
     		cfgPrx->ModifyPolicy(msg_hdr, policyData);
-	}
+
+	} else 	if (vm.count("domain-create") && vm.count("domain-id")) {
+		FDS_PLOG(cli_log) << " Domain Create ";
+		FDS_PLOG(cli_log) << vm["domain-create"].as<std::string>() << "-domain name";
+		FDS_PLOG(cli_log) << vm["domain-id"].as<int>() <<  " -domain id ";
+		
+		FDSP_CreateDomainTypePtr domainData = new FDSP_CreateDomainType();
+		domainData->domain_name = vm["domain-create"].as<std::string>();
+		domainData->domain_id = vm["domain-id"].as<int>();
+   		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(communicator()->stringToProxy (tcpProxyStr.str())); 
+    		cfgPrx->CreateDomain(msg_hdr, domainData);
+
+	} else 	if (vm.count("domain-delete") && vm.count("domain-id")) {
+		FDS_PLOG(cli_log) << " Domain Delete ";
+		FDS_PLOG(cli_log) << vm["domain-delete"].as<std::string>() << "-domain name";
+		FDS_PLOG(cli_log) << vm["domain-id"].as<int>() <<  " -domain id ";
+		
+		FDSP_CreateDomainTypePtr domainData = new FDSP_CreateDomainType();
+		domainData->domain_name = vm["domain-delete"].as<std::string>();
+		domainData->domain_id = vm["domain-id"].as<int>();
+   		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(communicator()->stringToProxy (tcpProxyStr.str())); 
+    		cfgPrx->DeleteDomain(msg_hdr, domainData);
+        }
 
    return 0;
 }

@@ -25,19 +25,18 @@ PGMSRC = $(patsubst %,%.C,$(PGM))
 # All objects that can be made.  The order shows the inheritance.  The
 # objects for programs are omitted.
 OBJ = $(TSTOBJ) $(PGMOBJ) \
-	Actuator.o ActuatorAsync.o \
-	IO.o IOStat.o \
+	Actuator.o ActuatorAsync .o \
+	IO.o IOStat.o PerfStat.o \
 	Timer.o \
 	Store.o \
 	Generator.o GeneratorStackable.o \
           GeneratorAFAP.o GeneratorUniform.o GeneratorPoisson.o GeneratorPeriodic.o GeneratorReplayTrace.o\
           GeneratorConstSize.o  GeneratorRandomSize.o\
 	  GeneratorLocation.o GeneratorSeq.o GeneratorSeqRun.o GeneratorRandom.o \
-        Stream.o StreamSingleSync.o \
+        Stream.o StreamSingleSync.o StreamMultiSync.o \
 	Experiment.o \
 	Random.o RandomBool.o RandomUniform.o RandomExponential.o \
 	BaseRandom.o BaseRandom48.o \
-	Stats.o \
 	printe.o
 OBJSRC = $(patsubst %.o,%.C,$(OBJ))
 
@@ -51,11 +50,12 @@ HDR = \
           GeneratorAFAP.H GeneratorUniform.H GeneratorPoisson.H GeneratorPeriodic.H GeneratorReplayTrace.H \
           GeneratorConstSize.H GeneratorRandomSize.H\
 	  GeneratorLocation.H GeneratorSeq.H GeneratorSeqRun.H GeneratorRandom.H \
-        Stream.H StreamSingleSync.H \
+        Stream.H StreamSingleSync.H StreamMultiSync.H\
 	Experiment.H \
 	Random.H RandomBool.H RandomUniform.H RandomExponential.H \
 	Reportable.H Stats.H \
 	Types.H \
+	PerfStat.H \
 	print.H
 
 pgm: $(PGM)
@@ -93,8 +93,8 @@ LD = g++
 # On Fedora, only _LARGEFILE_SOURCE is needed.
 # On RH7, all three defines are needed.
 # I hate computers
-CXXFLAGS = -Wall -D_LARGEFILE_SOURCE=1 -D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64 -D_XOPEN_SOURCE=500 -D_GNU_SOURCE=1
-LDFLAGS =
+CXXFLAGS = -std=c++11 -Wall -D_LARGEFILE_SOURCE=1 -D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64 -D_XOPEN_SOURCE=500 -D_GNU_SOURCE=1
+LDFLAGS = -lpthread 
 
 %.o: %.C
 	$(CXX) $(CXXFLAGS) -g $(AIO_H_LOC) -c $<
@@ -170,11 +170,11 @@ Pharos: \
 	GeneratorAFAP.o GeneratorUniform.o GeneratorPoisson.o GeneratorPeriodic.o GeneratorReplayTrace.o\
 	GeneratorConstSize.o GeneratorRandomSize.o\
 	GeneratorLocation.o GeneratorRandom.o GeneratorSeqRun.o GeneratorSeq.o \
-        Stream.o StreamSingleSync.o \
+        Stream.o StreamSingleSync.o StreamMultiSync.o \
 	Experiment.o \
         RandomUniform.o RandomExponential.o \
 	Random.o BaseRandom.o BaseRandom48.o \
-	printe.o \
+	PerfStat.o printe.o \
 	$(AIO_LIB_DEP)
 	$(LD) $(LDFLAGS) -g $^ $(AIO_LIB_LOC) -o $@
 
@@ -206,6 +206,7 @@ GeneratorStackable.o: Generator.H
 GeneratorUniform.o: GeneratorUniform.H Generator.H
 IOStat.o: IOStat.H IO.H Timer.H printe.H
 Pharos.o: IO.H IOStat.H Store.H Actuator.H ActuatorAsync.H Timer.H GeneratorStackable.H Generator.H GeneratorConstSize.H GeneratorRandomSize.H GeneratorAFAP.H GeneratorUniform.H GeneratorPoisson.H GeneratorPeriodic.H GeneratorRandom.H GeneratorSeqRun.H GeneratorSeq.H Random.H RandomUniform.H RandomExponential.H Types.H BaseRandom.H Experiment.H printe.H
+PerfStat.o: PerfStat.H
 Random.o: Random.H Types.H
 RandomBool.o: RandomBool.H BaseRandom.H Types.H
 RandomExponential.o: RandomExponential.H Random.H BaseRandom.H Types.H
@@ -213,6 +214,7 @@ RandomUniform.o: RandomUniform.H Random.H BaseRandom.H Types.H
 Store.o: Store.H IO.H printe.H
 Stream.o: Stream.H Actuator.H IOStat.H IO.H Store.H Timer.H Generator.H printe.H
 StreamSingleSync.H: StreamSingleSync.H Stream.H Actuator.H IOStat.H IO.H Store.H Timer.H Generator.H Experiment.H printe.H
+StreamMultiSync.o: StreamMultiSync.H Stream.H Actuator.H IOStat.H IO.H Store.H Timer.H Generator.H Experiment.H printe.H PerfStat.H
 TestActuator.o: Actuator.H IOStat.H IO.H Store.H Timer.H Experiment.H Generator.H printe.H
 TestActuatorAsync.o: Actuator.H ActuatorAsync.H IOStat.H IO.H Store.H Timer.H Experiment.H Generator.H printe.H
 TestGenerator.o: IO.H Store.H GeneratorStackable.H Generator.H GeneratorConstSize.H GeneratorRandomSize.H GeneratorAFAP.H GeneratorRandom.H GeneratorSeqRun.H GeneratorSeq.H Random.H RandomUniform.H Types.H BaseRandom.H printe.H

@@ -230,6 +230,8 @@ Error StorHvVolumeTable::registerVolume(const VolumeDesc& vdesc)
 
 
   FDS_PLOG(vt_log) << "StorHvVolumeTable - Register new volume " << vol_uuid
+		   << ", policy " << vdesc.volPolicyId
+		   << " (iops_min=" << vdesc.iops_min << ",iops_max=" << vdesc.iops_max <<",prio=" << vdesc.relativePrio << ")"
                    << " result: " << err.GetErrstr();  
   
   return err;
@@ -452,6 +454,7 @@ int  pushVolQueue(void *req1)
   io->fbd_req = req;
   io->io_type = (fds::fds_io_op_t)req->io_type;
   io->io_vol_id = req->volUUID;
+  io->io_module = FDS_IOType::STOR_HV_IO;
   storHvisor->qos_ctrl->enqueueIO(vol_id, io);
   shvol->readUnlock();
   FDS_PLOG(storHvisor->GetLog()) << " Queueing the  IO done.  vol_id:  " << vol_id;

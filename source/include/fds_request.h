@@ -1,8 +1,10 @@
 #ifndef INCLUDE_FDS_REQUEST_H_
 #define INCLUDE_FDS_REQUEST_H_
 
+#include <boost/thread/condition.hpp>
 #include <cpplist.h>
 #include <fds_err.h>
+#include <concurrency/Mutex.h>
 
 namespace fdsio {
 
@@ -69,6 +71,13 @@ class RequestQueue
     // @return: nullptr if the queue is empty.
     //
     virtual Request *rq_dequeue(int queue_idx, int new_idx);
+
+  private:
+    int                      rq_nr_queue;
+    int                      rq_max_depth;
+    int                      rq_pending;
+    fds::ChainList           *rq_lists;
+    fds::fds_mutex           rq_mutex;
 };
 
 class RequestStatus
@@ -102,7 +111,7 @@ class RequestStatus
 class Request
 {
   public:
-    Request(const RequestQueue &queue, bool block);
+    Request(bool block);
     ~Request();
 
     const fds_uint32_t req_state_wait = 0x20000000;
@@ -161,7 +170,8 @@ class Request
   private:
     friend class RequestQueue;
     fds::ChainLink           req_link;
-    const RequestQueue      &req_queue;
+    RequestQueue             *req_queue;
+    boost::condition         *req_waitq;
 
   protected:
     fds_uint32_t             req_state;

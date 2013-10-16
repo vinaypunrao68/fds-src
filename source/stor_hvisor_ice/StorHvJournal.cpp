@@ -164,7 +164,7 @@ int StorHvJournalEntry::fds_set_smack_status(int ipAddr,
 // Caller should hold the lock on the transaction
 void StorHvJournalEntry::fbd_complete_req(fbd_request_t *req, int status)
 {
-   comp_req(comp_arg1, comp_arg2, req, status);
+   (*req->cb_request)(comp_arg1, comp_arg2, req, status);
 }
 
 StorHvJournalEntryLock::StorHvJournalEntryLock(StorHvJournalEntry *jrnl_entry) {

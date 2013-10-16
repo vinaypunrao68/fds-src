@@ -15,9 +15,14 @@ Actuator::Actuator(Store& store_in, int sid_in):
   fd(-1), session_id(sid_in),
   tracefilename(NULL), tracefile(NULL), 
   largest_io_size(0), page_align(4096), actual_buffer_size(0),
-  raw_buffer(NULL), buffer(NULL), // Initialized in initialize()
-  c_io(0), c_timed_io(0), c_delayed_io(0), total_delay(0.0), max_delay(0.0)
+  raw_buffer(NULL), buffer(NULL) // Initialized in initialize()
 {
+  c_io = ATOMIC_VAR_INIT(0);
+  c_timed_io = ATOMIC_VAR_INIT(0);
+  c_delayed_io = ATOMIC_VAR_INIT(0);
+  total_delay_microsec = ATOMIC_VAR_INIT(0);
+  max_delay_microsec = ATOMIC_VAR_INIT(0);
+
   prev_io_loc = 0;
   last_io_released = 0.0;
   start_time = -1.0;
@@ -37,9 +42,14 @@ Actuator::Actuator(Store& store_in, char const* tracefilename_in, int sid_in):
   fd(-1), session_id(sid_in), 
   tracefilename(tracefilename_in), tracefile(NULL),
   largest_io_size(0), page_align(4096), actual_buffer_size(0),
-  raw_buffer(NULL), buffer(NULL), // Initialized in initialize()
-  c_io(0), c_timed_io(0), c_delayed_io(0), total_delay(0.0), max_delay(0.0)  
+  raw_buffer(NULL), buffer(NULL) // Initialized in initialize()  
 {
+  c_io = ATOMIC_VAR_INIT(0);
+  c_timed_io = ATOMIC_VAR_INIT(0);
+  c_delayed_io = ATOMIC_VAR_INIT(0);
+  total_delay_microsec = ATOMIC_VAR_INIT(0);
+  max_delay_microsec = ATOMIC_VAR_INIT(0);
+
   prev_io_loc = 0;
   last_io_released = 0.0;
   start_time = -1.0;
@@ -101,6 +111,8 @@ void Actuator::initializeInternal(unsigned n_buffers)
     if (!tracefile)
       printx("Actuator: Unable to create tracefile %s: %s\n",
 	      tracefilename, strerror(errno));
+
+    printf("Actuator: will write to tracefile %s\n", tracefilename);
     /*if (experiment()->isNamePresent())
       fprintf(tracefile, "Trace offset %.6f for %s\n",
 	      clk()->originOffset(), experiment()->getName());
@@ -113,39 +125,49 @@ void Actuator::initializeInternal(unsigned n_buffers)
 
 void Actuator::close()
 {
+  unsigned long long totdelay_microsec = atomic_load(&total_delay_microsec);
+  unsigned long long maxdelay_microsec = atomic_load(&max_delay_microsec);
+  double total_delay = (double)totdelay_microsec / 1000000.0;
+  double max_delay = (double)maxdelay_microsec / 1000000.0;
+  unsigned long iocount = atomic_load(&c_io);
+  unsigned long timed_ios = atomic_load(&c_timed_io);
+  unsigned long delayed_ios = atomic_load(&c_delayed_io);
+
   if (tracefile) {
     (void) fclose(tracefile);
  }
   tracefile = 0;
   
-  printf("Executed %u IOs", c_io);
-  if (c_timed_io >0) 
-    printf(" of which %u were timed (rest ASAP)\n", c_timed_io);
+  printf("Executed %lu IOs", iocount);
+  if (timed_ios >0) 
+    printf(" of which %lu were timed (rest ASAP)\n", timed_ios);
   else
     printf(" (all ASAP).\n");
-  if (c_delayed_io >0) {
-    printf("Warning: %u IOs = %.1f%% were delayed, average delay %.6fs (average\n"
+  if (delayed_ios >0) {
+    printf("Warning: %lu IOs = %.1f%% were delayed, average delay %.6fs (average\n"
 	   "         amortized over all timed IOs %.6fs), maximum delay %.6fs.\n"
 	   "         Probably disk too slow, or not enough parallel IOs allowed.\n",
-	   c_delayed_io,
-	   100. * (double) c_delayed_io / (double) c_io,
-	   total_delay / (double) c_delayed_io,
-	   total_delay / (double) c_timed_io,
+	   delayed_ios,
+	   100. * (double) delayed_ios / (double) iocount,
+	   total_delay / (double) delayed_ios,
+	   total_delay / (double) timed_ios,
 	   max_delay);
   }	   
 }
 
 void Actuator::waitBeforeIO(IOStat& ios)
 {
-  ++c_io;
+  long cur_numio = atomic_fetch_add(&c_io, (unsigned long)1);
   if (! ios.isNow()) {
-    ++c_timed_io;
+    atomic_fetch_add(&c_timed_io, (unsigned long)1);
     double waittime = clk()->waitUntil(ios.getTime());
     if (waittime > 0.0) {
-      ++c_delayed_io;
-      total_delay += waittime;
-      if (waittime > max_delay)
-	max_delay = waittime;
+      unsigned long long waittime_microsec = (unsigned long long)(waittime*1000000.0);
+      unsigned long long cur_max_delay = atomic_load(&max_delay_microsec);
+      atomic_fetch_add(&c_timed_io, (unsigned long)1);
+      atomic_fetch_add(&total_delay_microsec, waittime_microsec);
+      if (waittime_microsec > cur_max_delay)
+	atomic_store(&max_delay_microsec, waittime_microsec);
     }
   }
 }
@@ -216,6 +238,7 @@ void Actuator::doIO(IOStat& ios)
 
   ios.setStopped();
 
+/*
   if (tracefile)
     (void) fprintf(tracefile, "Q %d %s @%Lu %.6f %.6f \n",
 		   ios.getSize(),
@@ -223,5 +246,6 @@ void Actuator::doIO(IOStat& ios)
 		   ios.getLocation(),
 		   ios.get_U_Start(),
 		   ios.get_U_Stop());
+*/
 
 }

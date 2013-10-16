@@ -216,6 +216,7 @@ namespace fds {
 			    fds_uint64_t q_max_rate,
 			    fds_uint32_t q_priority);*/
 
+   using FDS_QoSDispatcher::dispatchIOs;
 
   private:
     /****** configurable parameters *****/
