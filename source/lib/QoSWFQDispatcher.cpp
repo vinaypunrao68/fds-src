@@ -8,6 +8,14 @@ namespace fds {
     FDS_QoSDispatcher::ioProcessForEnqueue(queue_id, io);
     WFQQueueDesc *qd = queue_desc_map[queue_id];
     fds_uint32_t n_pios;
+    n_pios = atomic_load(&qd->num_pending_ios);
+    while (n_pios >= MAX_PENDING_IOS_PER_VOLUME) {
+      qda_lock.read_unlock();
+      boost::this_thread::sleep(boost::posix_time::microseconds(1000000/qd->queue_rate));
+      qda_lock.read_lock();
+      n_pios = atomic_load(&qd->num_pending_ios);
+    }
+
     n_pios = atomic_fetch_add(&(qd->num_pending_ios), (unsigned int)1);
     assert(n_pios >= 0);
   }
@@ -84,9 +92,9 @@ namespace fds {
       } else {
 	qda_log = parent_log;
       }
-      num_pending_ios = 0;
+      num_pending_ios = ATOMIC_VAR_INIT(0);
 
-      total_capacity = total_server_rate;
+      total_capacity = total_svc_rate = total_server_rate;
       rate_based_qlist.clear();
       next_rate_based_spot = 0;
       for (int i = 0; i < total_capacity; i++) {

@@ -51,14 +51,14 @@ class FDS_QoSControl {
    FDS_QoSControl();
    ~FDS_QoSControl();
 
-   FDS_QoSControl(uint32_t _max_thrds, dispatchAlgoType algo, fds_log *log);
+   FDS_QoSControl(fds_uint32_t _max_thrds, dispatchAlgoType algo, fds_log *log);
    
    Error   registerVolume(fds_uint64_t voluuid, FDS_VolumeQueue *q);
    Error   deregisterVolume(fds_uint64_t voluuid);
    
    void    setQosDispatcher(dispatchAlgoType algo_type, FDS_QoSDispatcher *qosDispatcher);
    void    runScheduler(); // Calls in the QosDispatcher's main dispatch routine
-   Error   processIO(FDS_IOType* io); // Schedule an IO on a thread from thrd pool
+   virtual Error   processIO(FDS_IOType* io); // Schedule an IO on a thread from thrd pool
    fds_uint32_t     waitForWorkers(); // Blocks until there is a threshold num of workers in threadpool
    Error   enqueueIO(fds_volid_t volUUID, FDS_IOType *io);
 };

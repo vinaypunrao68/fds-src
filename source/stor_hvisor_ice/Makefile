@@ -5,7 +5,7 @@ user_build_dir    := unit-test
 
 # TODO: remove the topdir path in the include search
 #
-user_incl_dir     := $(topdir) $(topdir)/fds_client/include
+user_incl_dir     := $(topdir) $(topdir)/fds_client/include $(topdir)/lib
 StorHvisor_cpp    :=                   \
     StorHvisorNet.cpp                  \
     RPC_EndPoint.cpp                   \
@@ -14,6 +14,8 @@ StorHvisor_cpp    :=                   \
     StorHvisorRx.cpp                   \
     VolumeCatalogCache.cpp             \
     StorHvJournal.cpp                  \
+    qos_ctrl.cpp                  \
+    StorHvQosCtrl.cpp                  \
     StorHvVolumes.cpp
 
 user_cpp          :=                   \

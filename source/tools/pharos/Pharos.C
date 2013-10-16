@@ -25,6 +25,7 @@
 #include "IOStat.H"
 #include "Store.H"
 #include "StreamSingleSync.H"
+#include "StreamMultiSync.H"
 
 void output_trace_statistics(const char* devname, const char* intrace_name, int start_sec, int n_run_sec, const char* outtrace_name);
 
@@ -41,6 +42,7 @@ void usage_exit(char const* progname)
 "The process is associated with session <sid>\n"
 " -- NOTE FDS: pass volume id for session id, only used to output in the stats file  \n"
 "Option -q: Do up to n IOs in parallel using async IO (default n=1 sync).\n"
+"Option -o: Do up to n IOs in parallel using sync IO (default n=1 sync) \n"
 "Option -r: Do IOs at a fixed rate of x IOps (default is AFAP).\n"
 "Option -p: Do IOs at a rate of x IOps, with poisson arrival times.\n"
 "Optiom -e: Do IOs periodically with period p, rate r (disk-usec/sec) and n_ios per period or expected I/O time e (usec).\n"
@@ -74,6 +76,7 @@ int main(int argc, char* argv[])
 
   // Results of command line decoding
   unsigned async_q = 0; // >0 means use async IO.
+  unsigned sync_out = 0; // >0 means use parallel sync IO
   double rate_uniform = -1.0; // If >0: IO rate shall be these many IOps,
   double rate_poisson = -1.0; // uniform or poisson distributed
   int seq_run_length = 1; // sequential runlength
@@ -132,6 +135,16 @@ int main(int argc, char* argv[])
 	usage_error(progname, "Argument %s to -q makes no sense, has to be >1", argv[iarg]);
       async_q = (unsigned) atoi(argv[iarg]);
       ++iarg;
+    }
+
+    if (strcmp(argv[iarg], "-o") == 0) {
+       ++iarg;
+       if (argc <= iarg+1)
+          usage_error(progname, "Not enough arguments after -o");
+       if (atoi(argv[iarg]) < 1)
+          usage_error(progname, "Argument %s to -o makes no sense, has to be >0", argv[iarg]);
+       sync_out = (unsigned) atoi(argv[iarg]);
+       ++iarg;
     }
 
     if (strcmp(argv[iarg], "-r") == 0) {
@@ -336,6 +349,9 @@ int main(int argc, char* argv[])
   if (async_q > 0)
     printf("Execute up to %u asynchronous IOs (AIO) in parallel.\n", async_q);
 
+  if (sync_out > 0)
+    printf("Execute up to %u syncronous IOs in parallel. \n", sync_out);
+
   if (rate_uniform > 0.0)
     printf("IOs at a uniform rate of %lf IOps.\n", rate_uniform);
   else if (rate_poisson > 0.0)
@@ -393,11 +409,18 @@ int main(int argc, char* argv[])
   	
   	// Execute the IOs:
   	Stream* stream = NULL; // Will be set in the following if statement.
-  	if (n_secs > 0) 
-  	  stream = new StreamSingleSync(*a, *gen_all, (double) n_secs);
-  	else
-  	  stream = new StreamSingleSync(*a, *gen_all, (unsigned) -n_secs, true);
-	
+        if (sync_out > 0) {
+    	  if (n_secs > 0) 
+  	    stream = new StreamMultiSync(sync_out, *a, *gen_all, (double) n_secs);
+  	  else
+  	    stream = new StreamMultiSync(sync_out, *a, *gen_all, (unsigned) -n_secs, true);
+        }
+        else {
+    	  if (n_secs > 0) 
+  	    stream = new StreamSingleSync(*a, *gen_all, (double) n_secs);
+  	  else
+  	    stream = new StreamSingleSync(*a, *gen_all, (unsigned) -n_secs, true);
+	}
 	stream->run();  
 	
 	a->close();
@@ -472,10 +495,19 @@ int main(int argc, char* argv[])
   // ======================================================================
   // Execute the IOs:
   Stream* stream = NULL; // Will be set in the following if statement.
-  if (n_secs > 0) 
-    stream = new StreamSingleSync(*a, *gen_loc, (double) n_secs);
-  else
-    stream = new StreamSingleSync(*a, *gen_loc, (unsigned) -n_secs, true);
+  if (sync_out > 0)
+  {
+     if (n_secs > 0)
+       stream = new StreamMultiSync(sync_out, *a, *gen_loc, (double) n_secs);
+     else
+       stream = new StreamMultiSync(sync_out, *a, *gen_loc, (unsigned) -n_secs, true);
+  }
+  else {
+     if (n_secs > 0) 
+       stream = new StreamSingleSync(*a, *gen_loc, (double) n_secs);
+     else
+       stream = new StreamSingleSync(*a, *gen_loc, (unsigned) -n_secs, true);
+  }
 
   stream->run();
 

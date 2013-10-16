@@ -37,8 +37,9 @@
 #include <lib/OMgrClient.h>
 #include "StorHvVolumes.h"
 #include "StorHvisorCPP.h" 
-#include "fds_qos.h" 
 #include "qos_ctrl.h" 
+#include "fds_qos.h" 
+#include "StorHvQosCtrl.h" 
 
 #include <map>
 // #include "util/concurrency/Thread.h"
@@ -82,6 +83,7 @@ typedef unsigned int volid_t;
 
 using namespace FDS_ProtocolInterface;
 using namespace std;
+using namespace fds;
 
 class FDSP_DataPathRespCbackI : public FDSP_DataPathResp
 {
@@ -154,7 +156,7 @@ public:
   StorHvDataPlacement        *dataPlacementTbl;
   FDS_RPC_EndPointTbl        *rpcSwitchTbl; // RPC calls Switch Table
   StorHvVolumeTable          *vol_table;  
-  FDS_QoSControl             *qos_ctrl; // Qos Controller object
+  fds::StorHvQosCtrl             *qos_ctrl; // Qos Controller object
   OMgrClient                 *om_client;
   FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr dInfo;
 

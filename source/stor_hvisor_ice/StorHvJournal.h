@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <concurrency/Mutex.h>
 #include "fds_types.h"
+#include "StorHvisorCPP.h"
 
 #define  FDS_TRANS_EMPTY                0x00
 #define  FDS_TRANS_OPEN                 0x1
@@ -35,7 +36,6 @@ public:
 #define  FDS_MAX_SM_NODES_PER_CLST      16
 #define  FDS_READ_WRITE_LOG_ENTRIES 	10*1024
 
-typedef void (*blkdev_complete_req_cb_t)(void *arg1, void *arg2, void *treq, int res);
 
 using namespace FDS_ProtocolInterface;
 using namespace std;

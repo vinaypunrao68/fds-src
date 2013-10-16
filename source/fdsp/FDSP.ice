@@ -221,6 +221,7 @@ class FDSP_VolumeInfoType {
   FDSP_AppWorkload     	 appWorkload;
 
   int         		 backupVolume;  // UUID of backup volume
+
 };
 
 class FDSP_VolumeDescType {
@@ -257,6 +258,13 @@ class FDSP_VolumeDescType {
   double                 iops_min; /* minimum (guaranteed) iops */
   double                 iops_max; /* maximum iops */
   int                    rel_prio; /* relative priority */
+};
+
+class FDSP_CreateDomainType {
+
+  string 		 domain_name;
+  int			 domain_id;
+
 };
 
 class FDSP_CreateVolType {
@@ -417,7 +425,7 @@ interface FDSP_DataPathResp {
 };
 
 interface FDSP_ConfigPathReq {
-  void CreateVol(FDSP_MsgHdrType fdsp_msg, FDSP_CreateVolType crt_vol_req);
+  int CreateVol(FDSP_MsgHdrType fdsp_msg, FDSP_CreateVolType crt_vol_req);
   void DeleteVol(FDSP_MsgHdrType fdsp_msg, FDSP_DeleteVolType del_vol_req);
   void ModifyVol(FDSP_MsgHdrType fdsp_msg, FDSP_ModifyVolType mod_vol_req);
   void CreatePolicy(FDSP_MsgHdrType fdsp_msg, FDSP_CreatePolicyType crt_pol_req);
@@ -427,6 +435,8 @@ interface FDSP_ConfigPathReq {
   void DetachVol(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolCmdType dtc_vol_req);
   void RegisterNode(FDSP_MsgHdrType fdsp_msg, FDSP_RegisterNodeType reg_node_req);
   void AssociateRespCallback(Ice::Identity ident); // Associate Response callback ICE-object with DM/SM 
+  int CreateDomain(FDSP_MsgHdrType fdsp_msg, FDSP_CreateDomainType crt_dom_req);
+  int DeleteDomain(FDSP_MsgHdrType fdsp_msg, FDSP_CreateDomainType del_dom_req);
 };
 
 interface FDSP_ConfigPathResp {
@@ -439,6 +449,8 @@ interface FDSP_ConfigPathResp {
   void AttachVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolCmdType atc_vol_req);
   void DetachVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolCmdType dtc_vol_req);
   void RegisterNodeResp(FDSP_MsgHdrType fdsp_msg, FDSP_RegisterNodeType reg_node_resp);
+  int CreateDomainResp(FDSP_MsgHdrType fdsp_msg, FDSP_CreateDomainType crt_dom_resp);
+  int DeleteDomainResp(FDSP_MsgHdrType fdsp_msg, FDSP_CreateDomainType del_dom_resp);
 };
 
 interface FDSP_ControlPathReq {

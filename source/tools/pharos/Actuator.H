@@ -2,14 +2,13 @@
 #define _PHAROS_Actuator_H_INCLUDED_ 1
 
 #include <stdio.h>
+#include <atomic>
 
 #include "IOStat.H"
 #include "Store.H"
 #include "Generator.H"
 
 #define DEFAULT_KIOS_COUNT 40
-
-#define MAX_PERIOD_COUNT 5200
 
 class Actuator
 {
@@ -24,6 +23,10 @@ public:
 
   virtual ~Actuator();
 
+  inline void setStartTime(double _start_time) { start_time = _start_time; }
+  inline int getSessionId() const { return session_id; }
+  FILE *getTracefile() { return tracefile; }
+ 
   // Copy constructor and assignment operator are forbidden:
 private:
   // Actuator(Actuator const& old);
@@ -34,6 +37,7 @@ public:
   virtual void initialize(size_t largest_io_in); // Use this if you know the largest IO
   virtual void close();
 
+  /* base class implementation is thread-safe */
   virtual void doIO(IOStat& ios);
 
 protected:
@@ -57,8 +61,11 @@ protected:
   location_t prev_io_loc;
   
   // Statistics needed to report whether/how many IOs were delayed.
-  unsigned c_io, c_timed_io, c_delayed_io;
-  double total_delay, max_delay;
+  std::atomic<unsigned long> c_io;
+  std::atomic<unsigned long> c_timed_io;
+  std::atomic<unsigned long> c_delayed_io;
+  std::atomic<unsigned long long> total_delay_microsec;
+  std::atomic<unsigned long long> max_delay_microsec; 
   
     //statistics
   double last_io_released;   
@@ -71,6 +78,7 @@ protected:
   int cur_sec_since_start;
   long slot_ios;
   double slot_ave_lat;
+
 };
 
 #endif // _PHAROS_Actuator_H_INCLUDED_
