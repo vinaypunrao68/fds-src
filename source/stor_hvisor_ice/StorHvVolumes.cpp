@@ -230,6 +230,8 @@ Error StorHvVolumeTable::registerVolume(const VolumeDesc& vdesc)
 
 
   FDS_PLOG(vt_log) << "StorHvVolumeTable - Register new volume " << vol_uuid
+		   << ", policy " << vdesc.volPolicyId
+		   << " (iops_min=" << vdesc.iops_min << ",iops_max=" << vdesc.iops_max <<",prio=" << vdesc.relativePrio << ")"
                    << " result: " << err.GetErrstr();  
   
   return err;
