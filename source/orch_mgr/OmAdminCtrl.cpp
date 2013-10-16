@@ -93,9 +93,9 @@ namespace fds {
 	FDS_PLOG(parent_log) << " inside   admin control iopc sub cluster: " << iopc_subcluster  << "\n";
 
      	/* check the resource availability, if not return Error  */
-	if (((total_vol_iops_min + pVolDesc->iops_min) <= (iopc_subcluster * LOAD_FACTOR)) ||
-	    (((total_vol_iops_min) + (total_vol_iops_max - (pVolDesc->iops_min * BURST_FACTOR)) + \
-             (pVolDesc->iops_min) + (pVolDesc->iops_max - pVolDesc->iops_min * BURST_FACTOR)) <= \
+	if (((total_vol_iops_min + pVolDesc->iops_min) <= (iopc_subcluster * LOAD_FACTOR)) &&
+	    ((((total_vol_iops_min) + ((total_vol_iops_max - total_vol_iops_min) * BURST_FACTOR))) + \
+             (pVolDesc->iops_min + ((pVolDesc->iops_max - pVolDesc->iops_min) * BURST_FACTOR)) <= \
                iopc_subcluster))
 	{
  		total_vol_iops_min += pVolDesc->iops_min;
@@ -106,7 +106,6 @@ namespace fds {
 			<<  total_vol_iops_min << ":: max:" << total_vol_iops_max << "\n";
 		FDS_PLOG(parent_log) << " admin control successful \n";
 		return 0;
-
 	}
 	else 
 	{
