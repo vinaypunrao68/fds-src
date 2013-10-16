@@ -1,120 +1,51 @@
+#include <iostream>
+#include <fds_assert.h>
+#include <fds_module.h>
 #include <disk-mgr/dm_io.h>
+#include <persistentdata.h>
+
+using namespace std;
 
 namespace diskio {
 
-// \IndexRequest
-// -------------
+DataIndexModule   dataIndexMod("dataIndex mod");
+
+// \DataIndexModule
+// ----------------
 //
-IndexRequest::IndexRequest(const fdsio::RequestQueue &queue,
-                           meta_obj_id_t             &oid,
-                           bool                      block)
-    : Request(queue, block)
+DataIndexModule::DataIndexModule(char const *const name)
+    : Module(name)
 {
 }
 
-IndexRequest::IndexRequest(const fdsio::RequestQueue &queue,
-                           meta_vol_adr_t            &vio,
-                           bool                      block)
-    : Request(queue, block)
+DataIndexModule::~DataIndexModule()
 {
 }
 
-IndexRequest::IndexRequest(const fdsio::RequestQueue &queue,
-                           meta_obj_id_t             &oid,
-                           meta_vol_adr_t            &vio,
-                           bool                      block)
-    : Request(queue, block)
-{
-}
-
-// \req_abort
-// ----------
-//
 void
-IndexRequest::req_abort()
+DataIndexModule::mod_init(fds::SysParams const *const param)
 {
+    Module::mod_init(param);
+    cout << "DataIndex init..." << endl;
 }
 
-// \req_submit
-// -----------
-//
 void
-IndexRequest::req_submit()
+DataIndexModule::mod_startup()
 {
+    Module::mod_startup();
+    cout << "DataIndex startup..." << endl;
 }
 
-// \req_wait_cond
-// --------------
-//
-bool
-IndexRequest::req_wait_cond()
-{
-}
-
-// \req_set_wakeup_cond
-// --------------------
-//
 void
-IndexRequest::req_set_wakeup_cond()
+DataIndexModule::mod_shutdown()
 {
-}
-
-// \DiskRequest
-// ------------
-//
-DiskRequest::DiskRequest(const fdsio::RequestQueue &queue,
-                         meta_vol_io_t             &vio,
-                         meta_obj_id_t             &oid,
-                         fds::ObjectBuf            &buf,
-                         bool                      block)
-    : IndexRequest(queue, oid, block), dat_buf(buf)
-{
-}
-
-DiskRequest::DiskRequest(const fdsio::RequestQueue &queue,
-                         meta_vol_io_t             &vio,
-                         meta_obj_id_t             &oid,
-                         meta_obj_id_t             *old_oid,
-                         meta_vol_io_t             *new_vol,
-                         fds::ObjectBuf            &buf,
-                         bool                      block)
-    : IndexRequest(queue, oid, block), dat_buf(buf)
-{
-}
-
-// \req_has_remap_oid
-// ------------------
-//
-bool
-DiskRequest::req_has_remap_oid(meta_obj_id_t *old_oid, meta_vol_adr_t *new_vol)
-{
-    return false;
-}
-
-// \DataIOFuncParams
-// -----------------
-//
-DataIOFuncParams::DataIOFuncParams()
-{
-}
-
-DataIOFuncParams::~DataIOFuncParams()
-{
-}
-
-// \data_io_func
-// -------------
-//
-int
-DataIOFuncParams::data_io_func(fds_uint32_t time_delta, int *tier)
-{
-    return io_all_write;
 }
 
 // \DataIndexProxy
 // ---------------
 //
 DataIndexProxy::DataIndexProxy(int nr_queue, int max_depth)
+    : idx_queue(nr_queue, max_depth)
 {
 }
 

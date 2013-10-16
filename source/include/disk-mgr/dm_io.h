@@ -3,6 +3,7 @@
 
 #include <cpplist.h>
 #include <fds_types.h>
+#include <fds_module.h>
 #include <fds_request.h>
 #include <disk-mgr/dm_metadata.h>
 
@@ -14,16 +15,13 @@ namespace diskio {
 class IndexRequest : public fdsio::Request
 {
   public:
-    IndexRequest(const fdsio::RequestQueue &queue,
-                  meta_obj_id_t            &oid,
-                  bool                     block);
-    IndexRequest(const fdsio::RequestQueue &queue,
-                 meta_vol_adr_t            &vio,
-                 bool                      block);
-    IndexRequest(const fdsio::RequestQueue &queue,
-                 meta_obj_id_t             &oid,
-                 meta_vol_adr_t            &vio,
-                 bool                      block);
+    IndexRequest(meta_obj_id_t       &oid,
+                 bool                block);
+    IndexRequest(meta_vol_io_t       &vio,
+                 bool                block);
+    IndexRequest(meta_obj_id_t       &oid,
+                 meta_vol_io_t       &vio,
+                 bool                block);
 
     virtual void req_abort();
     virtual void req_submit();
@@ -31,7 +29,7 @@ class IndexRequest : public fdsio::Request
     virtual void req_set_wakeup_cond();
 
     meta_obj_id_t          idx_oid;
-    meta_vol_adr_t         idx_vio;
+    meta_vol_io_t          idx_vio;
     meta_obj_map_t         idx_vmap;
 };
 
@@ -47,16 +45,14 @@ class DiskRequest : public IndexRequest
     // to DiskIO's read/write methods.  The request follows Request's object
     // life cycle.
     //
-    // @param queue (i) : the queue controller to host this request.
     // @param vio (i) : valid value if the key is { vol_uuid, vol_offset }.
     // @param oid (i) : valid value if the key is { object id hash }.
     // @param buf (i/o) : input for read, output for write.
     //
-    DiskRequest(const fdsio::RequestQueue &queue,
-                meta_vol_io_t             &vio,
-                meta_obj_id_t             &oid,
-                fds::ObjectBuf            &buf,
-                bool                      block);
+    DiskRequest(meta_vol_io_t       &vio,
+                meta_obj_id_t       &oid,
+                fds::ObjectBuf      &buf,
+                bool                block);
 
     // \DiskRequest
     // ------------
@@ -69,13 +65,12 @@ class DiskRequest : public IndexRequest
     //    the old data, old data will be marked for deletion.  Otherwise, must
     //    have valid { vol_uuid, vol_offset } values.
     //
-    DiskRequest(const fdsio::RequestQueue &queue,
-                meta_vol_io_t             &vio,
-                meta_obj_id_t             &oid,
-                meta_obj_id_t             *old_oid,
-                meta_vol_io_t             *new_vol,
-                fds::ObjectBuf            &buf,
-                bool                      block);
+    DiskRequest(meta_vol_io_t       &vio,
+                meta_obj_id_t       &oid,
+                meta_obj_id_t       *old_oid,
+                meta_vol_io_t       *new_vol,
+                fds::ObjectBuf      &buf,
+                bool                block);
 
     ~DiskRequest();
 
@@ -89,7 +84,7 @@ class DiskRequest : public IndexRequest
     // @param new_vol (o) : nullptr if want to delete the old_oid.
     // @return true if the request has old_oid to remap or delete.
     //
-    bool req_has_remap_oid(meta_obj_id_t *old_oid, meta_vol_adr_t *new_vol);
+    bool req_has_remap_oid(meta_obj_id_t *old_oid, meta_vol_io_t *new_vol);
 
     virtual void req_submit() = 0;
     virtual void req_complete() = 0;
@@ -151,7 +146,7 @@ class DataIOFunc
     // --------------------
     // Return the singleton obj to use with DataIO.
     //
-    static const DataIOFunc &data_iofn_singleton();
+    static DataIOFunc &data_iofn_singleton();
 
     // \disk_io_func
     // -------------
@@ -236,6 +231,7 @@ class DataIndexProxy
     void disk_index_dec_ref(IndexRequest &req);
 
   private:
+    fdsio::RequestQueue      idx_queue;
 };
 
 // ---------------------------------------------------------------------------
@@ -245,11 +241,12 @@ class DataIndexProxy
 // The request's life cycle follows the same model defined by generic Request
 // object.
 // ---------------------------------------------------------------------------
+extern "C" void disk_mgr_init(void);
+
 class DataIO
 {
   public:
-    static const DataIO &disk_singleton();
-    static const fdsio::RequestQueue &disk_queue();
+    static DataIO &disk_singleton();
 
     // \disk_read
     // ----------
@@ -291,14 +288,33 @@ class DataIO
     void disk_loc_path_info(fds_uint16_t loc_id, std::string *path);
 
   private:
-    DataIO(const DataIndexProxy &idx,
-           const DataIOFunc     &iofn,
-           int                   nr_queue,
-           int                   max_depth);
+    friend void disk_mgr_init(void);
+    DataIO(DataIndexProxy &idx,
+           DataIOFunc     &iofn,
+           int            nr_tier,
+           int            max_depth);
     ~DataIO();
 
-    fdsio::RequestQueue       io_queue;
+    DataIOFunc               &io_func;
+    DataIndexProxy           &io_index;
 };
+
+// ---------------------------------------------------------------------------
+// Persistent Data Module Initialization
+//
+// ---------------------------------------------------------------------------
+class DataIOModule : public fds::Module
+{
+  public:
+    DataIOModule(char const *const name);
+    ~DataIOModule();
+
+    virtual void mod_init(fds::SysParams const *const param);
+    virtual void mod_startup();
+    virtual void mod_shutdown();
+};
+
+extern DataIOModule          dataIOMod;
 
 } // namespace diskio
 
