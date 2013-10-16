@@ -24,6 +24,11 @@ Error StorHvQosCtrl::processIO(FDS_IOType *io) {
         } else
                 FDS_PLOG(qos_log)  << " Invalid op ";
     }
+    else {
+      FDS_PLOG(qos_log) << "StorHvQosCtrl: unexpected FDS_IOType: " << io->io_module
+			<< "; expecting STOR_HV_IO";
+      err = ERR_MAX;    
+    }
     return err;
 }
 
