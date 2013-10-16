@@ -57,18 +57,37 @@ DataIndexProxy::~DataIndexProxy()
 // ---------------
 //
 void
-DataIndexProxy::disk_index_put(IndexRequest &req, meta_obj_map_t &value)
+DataIndexProxy::disk_index_put(IndexRequest &req, meta_obj_map_t *value)
 {
+    fds_verify(obj_map_has_init_val(value) == false);
+
+    if (obj_id_is_valid(&req.idx_oid) == true) {
+        // save <oid, obj_map> pair.
+    } else {
+        fds_verify(vadr_is_valid(req.idx_vio.vol_adr) == true);
+        // save <vio, obj_map> pair.
+    }
+    req.req_complete();
 }
 
 void
-DataIndexProxy::disk_index_put(IndexRequest &req, meta_vol_adr_t &value)
+DataIndexProxy::disk_index_put(IndexRequest &req, meta_vol_adr_t *value)
 {
+    fds_verify(vadr_is_valid(value) == true);
+    fds_verify(obj_id_is_valid(&req.idx_oid) == true);
+
+    // save <oid, vio> pair.
+    req.req_complete();
 }
 
 void
-DataIndexProxy::disk_index_put(IndexRequest &req, meta_obj_id_t &value)
+DataIndexProxy::disk_index_put(IndexRequest &req, meta_obj_id_t *value)
 {
+    fds_verify(obj_id_is_valid(value) == true);
+    fds_verify(vadr_is_valid(req.idx_vio.vol_adr) == true);
+
+    // save <vio, oid> pair.
+    req.req_complete();
 }
 
 // \disk_index_get
@@ -77,24 +96,40 @@ DataIndexProxy::disk_index_put(IndexRequest &req, meta_obj_id_t &value)
 void
 DataIndexProxy::disk_index_get(IndexRequest &req, meta_obj_map_t *value)
 {
+    fds_verify(value != nullptr);
+
+    if (obj_id_is_valid(&req.idx_oid) == true) {
+        // put <oid, obj_map> to value.
+    } else {
+    }
+    req.req_complete();
 }
 
 void
 DataIndexProxy::disk_index_get(IndexRequest &req, meta_vol_adr_t *value)
 {
+    fds_verify(value != nullptr);
+    fds_verify(obj_id_is_valid(&req.idx_oid) == true);
+
+    req.req_complete();
 }
 
 void
 DataIndexProxy::disk_index_get(IndexRequest &req, meta_obj_id_t *value)
 {
+    fds_verify(value != nullptr);
+    fds_verify(vadr_is_valid(req.idx_vio.vol_adr) == true);
+
+    req.req_complete();
 }
 
 // \disk_index_update
 // ------------------
 //
 void
-DataIndexProxy::disk_index_update(IndexRequest &req, meta_obj_map_t &map)
+DataIndexProxy::disk_index_update(IndexRequest &req, meta_obj_map_t *map)
 {
+    disk_index_put(req, map);
 }
 
 // \disk_index_commit
@@ -103,6 +138,7 @@ DataIndexProxy::disk_index_update(IndexRequest &req, meta_obj_map_t &map)
 void
 DataIndexProxy::disk_index_commit(IndexRequest &req)
 {
+    req.req_complete();
 }
 
 // \disk_index_remove
@@ -126,6 +162,18 @@ DataIndexProxy::disk_index_inc_ref(IndexRequest &req)
 //
 void
 DataIndexProxy::disk_index_dec_ref(IndexRequest &req)
+{
+}
+
+// \DataIndexLDb
+// -------------
+//
+DataIndexLDb::DataIndexLDb(const char *base)
+    : idx_queue(2, 1000)
+{
+}
+
+DataIndexLDb::~DataIndexLDb()
 {
 }
 

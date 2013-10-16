@@ -6,6 +6,7 @@ using namespace std;
 
 namespace diskio {
 
+// ----------------------------------------------------------------------------
 DataIOModule        dataIOMod("Disk IO Module");
 static DataIO       *dataIO;
 static fds::Module  *dataIOIntern[] =
@@ -43,7 +44,7 @@ DataIOModule::mod_shutdown()
 
 // ----------------------------------------------------------------------------
 // Hard coded value to map objects to file layout.
-// ----------------------------------------------------------------------------
+//
 
 typedef struct pdata_flayout pdata_flayout_t;
 struct pdata_flayout
@@ -57,17 +58,74 @@ static const int ssd_count = 2;
 static const int hdd_count = 12;
 static const char *fs_root = "/fds/mnt/";
 
-static pdata_flayout_t gl_pdata[hdd_count];
+// ----------------------------------------------------------------------------
+// \PersisDataIO::PersisDataIO
+// ---------------------------
+//
+PersisDataIO::PersisDataIO()
+    : pd_queue(2, 1000)
+{
+}
 
+// \PersisDataIO::~PersisDataIO
+// ----------------------------
+//
+PersisDataIO::~PersisDataIO()
+{
+}
 
+// \PersisDataIO::disk_read
+// ------------------------
+// Handle all the queueing for persistent read IO.
+//
+void
+PersisDataIO::disk_read(DiskRequest *req)
+{
+    pd_queue.rq_enqueue(req, pd_ioq_rd_pending);
+    disk_do_read(req);
+
+    // If the request was created with non-blocking option, this is no-op.
+    req->req_wait();
+}
+
+// \PersisDataIO::disk_read_done
+// -----------------------------
+//
+void
+PersisDataIO::disk_read_done(DiskRequest *req)
+{
+    // If the request was created with blocking option, this will wake it up.
+    req->req_complete();
+}
+
+// \PersisDataIO::disk_write
+// -------------------------
+//
+void
+PersisDataIO::disk_write(DiskRequest *req)
+{
+    pd_queue.rq_enqueue(req, pd_ioq_rd_pending);
+    disk_do_write(req);
+
+    // If the request was created with non-blocking option, this is no-op.
+    req->req_wait();
+}
+
+// \PersisDataIO::disk_write_done
+// ------------------------------
+//
+void
+PersisDataIO::disk_write_done(DiskRequest *req)
+{
+    // If the request was created with blocking option, this will wake it up.
+    req->req_complete();
+}
+
+// ----------------------------------------------------------------------------
 // \DataIO
 // -------
 //
-DataIO::DataIO(DataIndexProxy &idx,
-               DataIOFunc     &iofn,
-               int            nr_tier,
-               int            max_depth)
-    : io_func(iofn), io_index(idx)
+DataIO::DataIO()
 {
 }
 
@@ -83,24 +141,37 @@ DataIO::disk_singleton()
 {
 }
 
-// \disk_read
-// ----------
+// \DataIO::disk_route_request
+// ---------------------------
 //
-void
-DataIO::disk_read(DiskRequest &req)
+PersisDataIO *
+DataIO::disk_route_request(DiskRequest *req)
 {
+    return nullptr;
 }
 
-// \disk_write
-// -----------
+// \DataIO::disk_read
+// ------------------
 //
 void
-DataIO::disk_write(DiskRequest &req)
+DataIO::disk_read(DiskRequest *req)
 {
+    PersisDataIO *iop = disk_route_request(req);
+    iop->disk_read(req);
 }
 
-// \disk_remap_obj
-// ---------------
+// \DataIO::disk_write
+// -------------------
+//
+void
+DataIO::disk_write(DiskRequest *req)
+{
+    PersisDataIO *iop = disk_route_request(req);
+    iop->disk_read(req);
+}
+
+// \DataIO::disk_remap_obj
+// -----------------------
 //
 void
 DataIO::disk_remap_obj(meta_obj_id_t &obj_id,
@@ -109,16 +180,16 @@ DataIO::disk_remap_obj(meta_obj_id_t &obj_id,
 {
 }
 
-// \disk_destroy_vol
-// -----------------
+// \DataIO::disk_destroy_vol
+// -------------------------
 //
 void
 DataIO::disk_destroy_vol(meta_vol_adr_t &vol)
 {
 }
 
-// \disk_loc_path_info
-// -------------------
+// \DataIO::disk_loc_path_info
+// ---------------------------
 //
 void
 DataIO::disk_loc_path_info(fds_uint16_t loc_id, std::string *path)

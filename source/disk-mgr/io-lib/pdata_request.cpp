@@ -3,8 +3,8 @@
 
 namespace diskio {
 
-// \IndexRequest
-// -------------
+// \IndexRequest::IndexRequest
+// ---------------------------
 //
 IndexRequest::IndexRequest(meta_obj_id_t       &oid,
                            bool                block)
@@ -34,24 +34,24 @@ IndexRequest::IndexRequest(meta_obj_id_t       &oid,
     obj_map_init(&idx_vmap);
 }
 
-// \req_abort
-// ----------
+// \IndexRequest::req_abort
+// ------------------------
 //
 void
 IndexRequest::req_abort()
 {
 }
 
-// \req_submit
-// -----------
+// \IndexRequest::req_submit
+// -------------------------
 //
 void
 IndexRequest::req_submit()
 {
 }
 
-// \req_wait_cond
-// --------------
+// \IndexRequest::req_wait_cond
+// ----------------------------
 //
 bool
 IndexRequest::req_wait_cond()
@@ -59,8 +59,8 @@ IndexRequest::req_wait_cond()
     fdsio::Request::req_wait_cond();
 }
 
-// \req_set_wakeup_cond
-// --------------------
+// \IndexRequest::req_set_wakeup_cond
+// ----------------------------------
 //
 void
 IndexRequest::req_set_wakeup_cond()
@@ -68,8 +68,8 @@ IndexRequest::req_set_wakeup_cond()
     fdsio::Request::req_set_wakeup_cond();
 }
 
-// \DiskRequest
-// ------------
+// \DiskRequest::DiskRequest
+// -------------------------
 //
 DiskRequest::DiskRequest(meta_vol_io_t       &vio,
                          meta_obj_id_t       &oid,
@@ -101,8 +101,8 @@ DiskRequest::DiskRequest(meta_vol_io_t       &vio,
     }
 }
 
-// \req_has_remap_oid
-// ------------------
+// \DiskRequest::req_has_remap_oid
+// -------------------------------
 //
 bool
 DiskRequest::req_has_remap_oid(meta_obj_id_t *old_oid, meta_vol_io_t *new_vol)
@@ -130,8 +130,8 @@ DataIOFuncParams::~DataIOFuncParams()
 {
 }
 
-// \data_io_func
-// -------------
+// \DataIOFuncParams::data_io_func
+// -------------------------------
 //
 int
 DataIOFuncParams::data_io_func(fds_uint32_t time_delta, int *tier)

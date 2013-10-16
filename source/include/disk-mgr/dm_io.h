@@ -9,6 +9,12 @@
 
 namespace diskio {
 
+class DataIO;
+class DataIOFunc;
+class PersisDataIO;
+class DataIOModule;
+class DataIndexProxy;
+
 // ---------------------------------------------------------------------------
 // IO Request to meta-data index.
 // ---------------------------------------------------------------------------
@@ -27,6 +33,9 @@ class IndexRequest : public fdsio::Request
     virtual void req_submit();
     virtual bool req_wait_cond();
     virtual void req_set_wakeup_cond();
+
+  protected:
+    friend class DataIndexProxy;
 
     meta_obj_id_t          idx_oid;
     meta_vol_io_t          idx_vio;
@@ -90,6 +99,8 @@ class DiskRequest : public IndexRequest
     virtual void req_complete() = 0;
 
   protected:
+    friend class DataIndexProxy;
+
     fds::ObjectBuf           &dat_buf;
     meta_vol_io_t            dat_new_vol;
     meta_obj_id_t            dat_old_oid;
@@ -112,8 +123,6 @@ class DiskRequest : public IndexRequest
 // application working set, content characteristics, and offset properties to
 // derrive IO workload for a given time of data's lifecycle.
 // ---------------------------------------------------------------------------
-class DataIO;
-class DataIOFunc;
 
 enum { io_all_write = 0, io_all_read = 100 };
 enum { io_tier_fast = 0, io_tier_slow = 10 };
@@ -193,9 +202,9 @@ class DataIndexProxy
     // Given the key in request structure, put different types of values to
     // the index database.
     //
-    void disk_index_put(IndexRequest &req, meta_obj_map_t &value);
-    void disk_index_put(IndexRequest &req, meta_vol_adr_t &value);
-    void disk_index_put(IndexRequest &req, meta_obj_id_t &value);
+    void disk_index_put(IndexRequest &req, meta_obj_map_t *value);
+    void disk_index_put(IndexRequest &req, meta_vol_adr_t *value);
+    void disk_index_put(IndexRequest &req, meta_obj_id_t *value);
 
     // \disk_index_get
     // ---------------
@@ -212,7 +221,7 @@ class DataIndexProxy
     // mapping.  The caller needs to call the commit method to save
     // the key to persistent storage.
     //
-    void disk_index_update(IndexRequest &req, meta_obj_map_t &map);
+    void disk_index_update(IndexRequest &req, meta_obj_map_t *map);
     void disk_index_commit(IndexRequest &req);
 
     // \disk_index_remove
@@ -241,8 +250,6 @@ class DataIndexProxy
 // The request's life cycle follows the same model defined by generic Request
 // object.
 // ---------------------------------------------------------------------------
-extern "C" void disk_mgr_init(void);
-
 class DataIO
 {
   public:
@@ -256,14 +263,14 @@ class DataIO
     //   be called in this order: req_submit(), req_complete().
     // - Blocking: call req_wait() to block util the request is done.
     //
-    void disk_read(DiskRequest &req);
+    void disk_read(DiskRequest *req);
 
     // \disk_write
     // -----------
     // Write data to the buffer specified by oid or vio from the request.
     // Similar to the read method, the call can be blocking or non-blocking.
     //
-    void disk_write(DiskRequest &req);
+    void disk_write(DiskRequest *req);
 
     // \disk_remap_obj
     // ---------------
@@ -288,15 +295,11 @@ class DataIO
     void disk_loc_path_info(fds_uint16_t loc_id, std::string *path);
 
   private:
-    friend void disk_mgr_init(void);
-    DataIO(DataIndexProxy &idx,
-           DataIOFunc     &iofn,
-           int            nr_tier,
-           int            max_depth);
-    ~DataIO();
+    friend class DataIOModule;
 
-    DataIOFunc               &io_func;
-    DataIndexProxy           &io_index;
+    DataIO();
+    ~DataIO();
+    PersisDataIO *disk_route_request(DiskRequest *req);
 };
 
 // ---------------------------------------------------------------------------
