@@ -559,6 +559,10 @@ StorHvCtrl::StorHvCtrl(int argc,
   _communicator = Ice::initialize(argc, argv, initData);
   Ice::PropertiesPtr props = _communicator->getProperties();
 
+  /*  Create the QOS Controller object */ 
+  qos_ctrl = new StorHvQosCtrl(50, fds::FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET, sh_log);
+  om_client->registerThrottleCmdHandler(StorHvQosCtrl::throttleCmdHandler);
+
   rpcSwitchTbl = new FDS_RPC_EndPointTbl(_communicator);
 
   /* TODO: for now StorHvVolumeTable constructor will create 
@@ -566,9 +570,7 @@ StorHvCtrl::StorHvCtrl(int argc,
    * in other parts of the system */
   vol_table = new StorHvVolumeTable(this, sh_log);  
 
-  /*  Create the QOS Controller object */ 
-  qos_ctrl = new StorHvQosCtrl(50, fds::FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET, sh_log);
-  om_client->registerThrottleCmdHandler(StorHvQosCtrl::throttleCmdHandler);
+
   /*
    * Set basic thread properties.
    */

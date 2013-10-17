@@ -68,6 +68,7 @@ int StorHvCtrl::fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const
 	
 	FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - GET_OBJ_RSP  responding to  the block :  " << req;
 	if(req) {
+          qos_ctrl->markIODone(txn->io);
           if (rd_msg->result == FDSP_ERR_OK) { 
               memcpy(req->buf, get_obj_rsp->data_obj.c_str(), req->len);
 	      txn->fbd_complete_req(req, 0);
@@ -407,6 +408,7 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
     if (fdsp_msg_hdr->result != FDS_ProtocolInterface::FDSP_ERR_OK) {
       FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Journal Entry  " << fdsp_msg_hdr->req_cookie <<  ":  QueryCatalogObjResp returned error ";
       req = (fbd_request_t *)journEntry->write_ctx;
+      storHvisor->qos_ctrl->markIODone(journEntry->io);
       journEntry->trans_state = FDS_TRANS_EMPTY;
       journEntry->write_ctx = 0;
       if(req) {
@@ -427,6 +429,7 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
     if(num_nodes == 0) {
       FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - DataPlace Error : no nodes in DLT :Jrnl Entry" << fdsp_msg_hdr->req_cookie <<  "QueryCatalogObjResp ";
       req = (fbd_request_t *)journEntry->write_ctx;
+      storHvisor->qos_ctrl->markIODone(journEntry->io);
       journEntry->trans_state = FDS_TRANS_EMPTY;
       journEntry->write_ctx = 0;
       if(req) {
