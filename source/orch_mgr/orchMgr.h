@@ -50,7 +50,7 @@ namespace fds {
   typedef FDS_ProtocolInterface::FDSP_ModifyPolicyTypePtr FdspModPolPtr;
 
   /*
-   * NOTE: AttVolCmd is the command in the config plane, received at OMfrom CLI/GUI.
+   * NOTE: AttVolCmd is the command in the config plane, received at OM from CLI/GUI.
    * AttVol is the attach vol message sent from the OM to the HVs in the control plane.
    */
   typedef FDS_ProtocolInterface::FDSP_AttachVolTypePtr    FdspAttVolPtr;
@@ -63,7 +63,7 @@ namespace fds {
   typedef FDS_ProtocolInterface::FDSP_VolumeDescTypePtr FdspVolDescPtr; 
   typedef FDS_ProtocolInterface::FDSP_CreateDomainTypePtr  FdspCrtDomPtr;
 
-    typedef std::unordered_map<int, localDomainInfo *> loc_domain_map_t;
+  typedef std::unordered_map<int, localDomainInfo *> loc_domain_map_t;
 
   class OrchMgr : virtual public Ice::Application {
   private:
@@ -102,6 +102,8 @@ namespace fds {
     /* policy manager */
     VolPolicyMgr* policy_mgr;
 
+    void SetThrottleLevelForDomain(int domain_id, float throttle_level);
+
   public:
     OrchMgr();
     ~OrchMgr();
@@ -135,6 +137,11 @@ namespace fds {
                      const FdspCrtDomPtr& crt_dom_req);
     int DeleteDomain(const FdspMsgHdrPtr& fdsp_msg,
                      const FdspCrtDomPtr& del_dom_req);
+    void SetThrottleLevel(const FDSP_MsgHdrTypePtr& fdsp_msg, 
+			  const FDSP_ThrottleMsgTypePtr& throttle_req);
+    void NotifyQueueFull(const FDSP_MsgHdrTypePtr& fdsp_msg,
+			 const FDSP_NotifyQueueStateTypePtr& queue_state_req);
+
 
     class ReqCfgHandler : public FDS_ProtocolInterface::FDSP_ConfigPathReq {
    private:
@@ -183,6 +190,15 @@ namespace fds {
       int DeleteDomain(const FdspMsgHdrPtr& fdsp_msg,
                      const FdspCrtDomPtr& del_dom_req,
                      const Ice::Current&);
+
+      void SetThrottleLevel(const FDSP_MsgHdrTypePtr& fdsp_msg, 
+			    const FDSP_ThrottleMsgTypePtr& throttle_req, 
+			    const Ice::Current&);
+
+      void NotifyQueueFull(const FDSP_MsgHdrTypePtr& fdsp_msg,
+			   const FDSP_NotifyQueueStateTypePtr& queue_state_req, 
+			   const Ice::Current&);
+
     };
   };
 

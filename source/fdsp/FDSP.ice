@@ -353,6 +353,38 @@ class FDSP_RegisterNodeType {
   FDSP_AnnounceDiskCapability  disk_info; /* Add node capacity and other relevant fields here */
 };
 
+class FDSP_ThrottleMsgType {
+  int 	         domain_id; /* Domain this throttle message is meant for */
+  float	         throttle_level; /* a real number between -10 and 10 */
+  /* 
+     A throttle level of X.Y (e.g, 5.6) means we should
+     1. throttle all traffic for priorities greater than X (priorities 6,7,8,9 for a 5.6 throttle level) to their guaranteed min rate,
+     2. allow all traffic for priorities less than X (priorities 0,1,2,3,4 for a 5.6 throttle level) to go up till their max rate limit,
+     3. throttle traffic for priority X to a rate = min_rate + Y/10 * (max_rate - min_rate). 
+        (A volume that has a min rate of 300 IOPS and max rate of 600 IOPS will be allowed to pump at 480 IOPS when throttle level is 5.6).
+     
+     A throttle level of 0 indicates all volumes should be limited at their min_iops rating.
+     A negative throttle level of -X means all volumes should be throttled at (10-X)/10 of their min iops. 
+  */
+};
+
+class FDSP_QueueStateType {
+
+  int domain_id;
+  double vol_uuid;
+  int priority;
+  float queue_depth; //current queue depth as a fraction of the total queue size. 0.5 means 50% full.
+  
+};
+
+sequence<FDSP_QueueStateType> FDSP_QueueStateListType;
+
+class FDSP_NotifyQueueStateType {
+
+  FDSP_QueueStateListType queue_state_list; 
+
+};
+
 class FDSP_MsgHdrType {
     FDSP_MsgCodeType     msg_code;
 		
@@ -433,10 +465,19 @@ interface FDSP_ConfigPathReq {
   void ModifyPolicy(FDSP_MsgHdrType fdsp_msg, FDSP_ModifyPolicyType mod_pol_req);
   void AttachVol(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolCmdType atc_vol_req);
   void DetachVol(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolCmdType dtc_vol_req);
-  void RegisterNode(FDSP_MsgHdrType fdsp_msg, FDSP_RegisterNodeType reg_node_req);
   void AssociateRespCallback(Ice::Identity ident); // Associate Response callback ICE-object with DM/SM 
   int CreateDomain(FDSP_MsgHdrType fdsp_msg, FDSP_CreateDomainType crt_dom_req);
   int DeleteDomain(FDSP_MsgHdrType fdsp_msg, FDSP_CreateDomainType del_dom_req);
+  void SetThrottleLevel(FDSP_MsgHdrType fdsp_msg, FDSP_ThrottleMsgType throttle_msg);	
+
+  /* 
+  These are actually control messages from SM/DM/SH to OM. Need to move these to that control interface some time.
+  For now, keeping it in config path interface since OM does not implement the control interface.
+  */ 
+  void RegisterNode(FDSP_MsgHdrType fdsp_msg, FDSP_RegisterNodeType reg_node_req);
+  void NotifyQueueFull(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyQueueStateType queue_state_info);
+ 
+
 };
 
 interface FDSP_ConfigPathResp {
@@ -454,6 +495,9 @@ interface FDSP_ConfigPathResp {
 };
 
 interface FDSP_ControlPathReq {
+
+  /* OM to SM/DM/SH control messages */
+
   void NotifyAddVol(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyVolType not_add_vol_req);
   void NotifyRmVol(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyVolType not_rm_vol_req);
   void AttachVol(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolType atc_vol_req);
@@ -462,6 +506,8 @@ interface FDSP_ControlPathReq {
   void NotifyNodeRmv(FDSP_MsgHdrType fdsp_msg, FDSP_Node_Info_Type node_info);
   void NotifyDLTUpdate(FDSP_MsgHdrType fdsp_msg, FDSP_DLT_Type dlt_info);
   void NotifyDMTUpdate(FDSP_MsgHdrType fdsp_msg, FDSP_DMT_Type dmt_info);
+  void SetThrottleLevel(FDSP_MsgHdrType fdsp_msg, FDSP_ThrottleMsgType throttle_msg);
+
 };
 
 interface FDSP_ControlPathResp {
@@ -473,6 +519,7 @@ interface FDSP_ControlPathResp {
   void NotifyNodeRmvResp(FDSP_MsgHdrType fdsp_msg, FDSP_Node_Info_Type node_info_resp);
   void NotifyDLTUpdateResp(FDSP_MsgHdrType fdsp_msg, FDSP_DLT_Type dlt_info_resp);
   void NotifyDMTUpdateResp(FDSP_MsgHdrType fdsp_msg, FDSP_DMT_Type dmt_info_resp);
+
 };
 
 };

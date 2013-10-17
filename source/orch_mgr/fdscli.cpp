@@ -69,12 +69,14 @@ int FdsCli::fdsCliPraser(int argc, char* argv[])
 	("policy-modify",po::value<std::string>(), "Modify policy: policy-modify <policy name> -p <policy-id> -g <iops-min> -m <iops-max> -r <rel-prio> ")
 	("domain-create",po::value<std::string>(), "Create domain: domain-create <domain name> -k <domain-id>")
 	("domain-delete",po::value<std::string>(), "Create domain: domain-delete <domain name> -k <domain-id>")
+	("throttle", "Throttle traffic: throttle -t <throttle_level> ")
 	("policy-show",po::value<std::string>(), "Show policy")
 	("volume-size,s",po::value<double>(),"volume capacity")
 	("volume-policy,p",po::value<int>(),"volume policy")
 	("node-id,n",po::value<std::string>(),"node id")
 	("volume-id,i",po::value<int>(),"volume id")
 	("domain-id,k",po::value<int>(),"domain id")
+	("throttle-level,t", po::value<float>(), "throttle level")
 	("iops-min,g",po::value<double>(),"minimum IOPS")
 	("iops-max,m",po::value<double>(),"maximum IOPS")
 	("rel-prio,r",po::value<int>(),"relative priority")
@@ -276,7 +278,16 @@ int FdsCli::fdsCliPraser(int argc, char* argv[])
 		domainData->domain_id = vm["domain-id"].as<int>();
    		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(communicator()->stringToProxy (tcpProxyStr.str())); 
     		cfgPrx->DeleteDomain(msg_hdr, domainData);
-        }
+        } else if (vm.count("throttle") && vm.count("throttle-level")) {
+	  	FDS_PLOG(cli_log) << " Throttle ";
+		FDS_PLOG(cli_log) << vm["throttle-level"].as<float>() << "-throttle_level";
+
+		FDSP_ThrottleMsgTypePtr throttle_msg = new FDS_ProtocolInterface::FDSP_ThrottleMsgType;
+		throttle_msg->domain_id = 0;
+		throttle_msg->throttle_level = vm["throttle-level"].as<float>();
+		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(communicator()->stringToProxy (tcpProxyStr.str())); 
+		cfgPrx->SetThrottleLevel(msg_hdr, throttle_msg);
+	}
 
    return 0;
 }

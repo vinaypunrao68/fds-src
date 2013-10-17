@@ -68,6 +68,12 @@ void OMgrClientRPCI::NotifyDMTUpdate(const FDSP_MsgHdrTypePtr& msg_hdr,
   om_client->recvDMTUpdate(dmt_info->DMT_version, dmt_info->DMT);
 }
 
+void OMgrClientRPCI::SetThrottleLevel(const FDSP_MsgHdrTypePtr& msg_hdr, 
+					const FDSP_ThrottleMsgTypePtr& throttle_msg, 
+					const Ice::Current&) {
+  om_client->recvSetThrottleLevel((const float) throttle_msg->throttle_level);
+}
+
 
 OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
                        const std::string& _omIpStr,
@@ -110,6 +116,11 @@ int OMgrClient::registerEventHandlerForNodeEvents(node_event_handler_t node_even
 
 int OMgrClient::registerEventHandlerForVolEvents(volume_event_handler_t vol_event_hdlr) {
   this->vol_evt_hdlr = vol_event_hdlr;
+  return 0;
+}
+
+int OMgrClient::registerThrottleCmdHandler(throttle_cmd_handler_t throttle_cmd_hdlr) {
+  this->throttle_cmd_hdlr = throttle_cmd_hdlr;
   return 0;
 }
 
@@ -392,6 +403,19 @@ int OMgrClient::recvDMTUpdate(int dmt_vrsn, const Node_Table_Type& dmt_table) {
   this->dmt_version = dmt_vrsn;
   this->dmt = dmt_table;
   return (0);
+}
+
+int OMgrClient::recvSetThrottleLevel(const float throttle_level) {
+
+  FDS_PLOG(omc_log) << "OMClient received new throttle level  " << throttle_level;
+
+  this->current_throttle_level = throttle_level;
+
+  if (this->throttle_cmd_hdlr) {
+    this->throttle_cmd_hdlr(throttle_level);
+  }
+  return (0);
+
 }
 
 int OMgrClient::getNodeInfo(int node_id,

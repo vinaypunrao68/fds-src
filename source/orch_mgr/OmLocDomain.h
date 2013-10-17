@@ -216,6 +216,8 @@ class FdsLocalDomain {
     int current_dlt_version;
     int current_dmt_version;
 
+    float current_throttle_level;
+
     void copyPropertiesToVolumeDesc(FdspVolDescPtr v_desc,
                                     VolumeDesc *pVol);
     void initOMMsgHdr(const FdspMsgHdrPtr& fdsp_msg);
@@ -268,6 +270,11 @@ class FdsLocalDomain {
      */
     void sendNodeTableToFdsNodes(int table_type);
 
+    /*
+      Broadcast SetThrottleLevel message to all SH Nodes
+    */
+    void sendThrottleLevelToHvNodes(float throttle_level);
+    
     /*
      * Testing related member functions
      */

@@ -642,5 +642,29 @@ void FdsLocalDomain::sendAllVolumesToHvNode(fds_node_name_t node_name) {
   }
 }
 
+// Broadcast SetThrottleLevel message to all SH Nodes
+void FdsLocalDomain::sendThrottleLevelToHvNodes(float throttle_level) {
+ 
+  FdspMsgHdrPtr msg_hdr = new FDS_ProtocolInterface::FDSP_MsgHdrType;
+  FDSP_ThrottleMsgTypePtr throttle_msg = new FDS_ProtocolInterface::FDSP_ThrottleMsgType;
+
+  initOMMsgHdr(msg_hdr);
+  throttle_msg->domain_id = DEFAULT_LOC_DOMAIN_ID;
+  throttle_msg->throttle_level = throttle_level;
+
+  for (auto it = currentShMap.begin(); it != currentShMap.end(); ++it) {
+
+      fds_node_name_t node_name = it->first;
+      NodeInfo& node_info = it->second;
+
+      FDS_PLOG(parent_log) << "Sending throttle msg to node "
+                       << node_name << " for throttle level "
+                       << throttle_level;
+
+      ReqCtrlPrx OMClientAPI = node_info.cpPrx;
+      OMClientAPI->begin_SetThrottleLevel(msg_hdr, throttle_msg);
+
+  }
+}
 
 } /* fds  namespace */
