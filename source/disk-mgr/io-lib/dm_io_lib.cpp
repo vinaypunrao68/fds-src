@@ -14,7 +14,7 @@ using namespace std;
 namespace diskio {
 
 static const int  sgt_ssd_count = 2;
-static const int  sgt_hdd_count = 12;
+static const int  sgt_hdd_count = 11;
 static const char *sgt_dt_file = "/data-";
 static const char *sgt_fs_root = "/fds/mnt/";
 
@@ -175,7 +175,7 @@ DataDiscoveryModule::disk_make_label(std::string &base, int diskno)
         std::string(sgt_dt_file) + std::to_string(diskno);
 
     fd = open(pd_hdd_labeled[diskno].c_str(),
-              O_DIRECT | O_APPEND | O_CREAT, S_IRUSR | S_IWUSR);
+              O_APPEND | O_CREAT, S_IRUSR | S_IWUSR);
 
     fds_verify(fd > 0);
     base.clear();
