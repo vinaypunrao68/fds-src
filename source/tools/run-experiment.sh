@@ -156,7 +156,7 @@ popd
 sleep 10
 
 #####  create policies, and volume for each policy  ######
-devix=0
+devix=1
 for policy in $POLICIES
 do
   # create policy #
@@ -205,7 +205,7 @@ done
 sleep 10
 
 #### start workloads #####
-devix=0
+devix=1
 wpids=
 for workload in $WORKLOADS
 do

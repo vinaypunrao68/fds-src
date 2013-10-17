@@ -128,7 +128,7 @@ void StreamMultiSync::dispatch_io_thread_howlong()
 
      /* io finished */
      end_time = now();
-     double latency = 0.1; //ios.get_U_Stop() - ios.get_U_Start();
+     double latency = ios.get_U_Stop() - ios.get_U_Start();
      long sec_slot = (end_time - start_time);
      if (sec_slot != cur_sec_since_start)
      {
