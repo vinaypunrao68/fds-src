@@ -97,6 +97,7 @@ int StorHvisorProcIoRd(void *_io)
   journEntry->data_obj_id.hash_high = 0;
   journEntry->data_obj_id.hash_low = 0;
   journEntry->data_obj_len = req->len;
+  journEntry->io = io;
   
   fdsp_msg_hdr->req_cookie = trans_id;
   
@@ -256,6 +257,7 @@ int StorHvisorProcIoWr(void *_io)
   journEntry->comp_req = comp_req;
   journEntry->comp_arg1 = arg1;
   journEntry->comp_arg2 = arg2;
+  journEntry->io= io;
   journEntry->sm_msg = fdsp_msg_hdr;
   journEntry->dm_msg = fdsp_msg_hdr_dm;
   journEntry->sm_ack_cnt = 0;

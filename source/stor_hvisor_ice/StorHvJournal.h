@@ -104,6 +104,7 @@ public:
   blkdev_complete_req_cb_t comp_req;
   void 	*comp_arg1;
   void 	*comp_arg2;
+  FDS_IOType             *io;
   FDSP_MsgHdrTypePtr     sm_msg;
   FDSP_MsgHdrTypePtr     dm_msg;
   int      lt_flag;

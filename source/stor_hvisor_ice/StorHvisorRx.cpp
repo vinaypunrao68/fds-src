@@ -256,6 +256,7 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rx_msg) 
               (fds_uint64_t)req->sec*HVISOR_SECTOR_SIZE,
               obj_id);          
           
+          qos_ctrl->markIODone(txn->io);
           // destroy the txn, reclaim the space and return from here	    
           txn->trans_state = FDS_TRANS_EMPTY;
           txn->write_ctx = 0;
