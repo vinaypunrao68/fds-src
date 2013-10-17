@@ -45,7 +45,10 @@ void StorHvQosCtrl::runScheduler() {
 
 
 Error StorHvQosCtrl::markIODone(FDS_IOType *io) {
+Error err(ERR_OK);
     htb_dispatcher->markIODone(io);
+    delete io;
+    return err;
 }
 
   void   StorHvQosCtrl::setQosDispatcher(dispatchAlgoType algo_type, FDS_QoSDispatcher *qosDispatcher) {

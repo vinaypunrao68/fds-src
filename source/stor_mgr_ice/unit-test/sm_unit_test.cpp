@@ -57,7 +57,8 @@ class TestResp : public FDS_ProtocolInterface::FDSP_DataPathResp {
    
       objMapLock->lock();
       if (object_data != added_objs[oid]) {
-        FDS_PLOG(test_log) << "Failed get correct object! Got ["
+        FDS_PLOG(test_log) << "Failed get correct object! For object "
+                           << oid << " Got ["
                            << object_data << "] but expected ["
                            << added_objs[oid] << "]";
         assert(0);
@@ -162,6 +163,10 @@ class SmUnitTest {
     msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_STOR_MGR;    
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
     msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    /*
+     * TODO: Change this! We should reg a volume.
+     */
+    msg_hdr->glob_volume_id = 5;
     
     fds_uint32_t volume_offset;
     ObjectID oid;
@@ -212,6 +217,10 @@ class SmUnitTest {
     msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_STOR_MGR;    
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
     msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    /*
+     * TODO: Change this! We should reg a volume.
+     */
+    msg_hdr->glob_volume_id = 5;
     
     fds_uint32_t volume_offset;
     std::list<ObjectID> objIdsPut;
@@ -257,7 +266,11 @@ class SmUnitTest {
     msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_STOR_MGR;
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
     msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
-    
+    /*
+     * TODO: Change this! We should reg a volume.
+     */
+    msg_hdr->glob_volume_id = 5;
+
     ObjectID oid;
     for (fds_uint32_t i = 0; i < objIdsPut.size(); i++) {
       oid = objIdsPut.front();
