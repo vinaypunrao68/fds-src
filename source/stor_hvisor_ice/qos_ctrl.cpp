@@ -1,3 +1,7 @@
+/*
+ * Copyright 2013 Formation Data Systems, Inc.
+ */
+
 #include "qos_ctrl.h"
 #include "fds_qos.h"
 #include "fds_err.h"
@@ -29,12 +33,12 @@ fds_uint32_t FDS_QoSControl::waitForWorkers() {
 }
 
 
-void startDispatcher(FDS_QoSControl *qosctl) { 
+static void startDispatcher(FDS_QoSControl *qosctl) {
   if (qosctl && qosctl->dispatcher) {
-     qosctl->dispatcher->dispatchIOs();
+    qosctl->dispatcher->dispatchIOs();
   }
-  
 }
+
 void FDS_QoSControl::runScheduler() { 
   
   threadPool->schedule(startDispatcher, this);
@@ -57,16 +61,16 @@ Error err(ERR_OK);
 }
 
 
-  Error FDS_QoSControl::enqueueIO(fds_volid_t volUUID, FDS_IOType *io) {
-    Error err(ERR_OK);
-    return err;
-  }
+Error FDS_QoSControl::enqueueIO(fds_volid_t volUUID, FDS_IOType *io) {
+  Error err(ERR_OK);
+  err = dispatcher->enqueueIO(volUUID, io);
+  return err;
+}
 
- Error FDS_QoSControl::processIO(FDS_IOType *) {
+Error FDS_QoSControl::processIO(FDS_IOType *) {
   Error err(ERR_OK);
   return err;
- }
- 
+} 
 
-}
+}  // namespace fds
 

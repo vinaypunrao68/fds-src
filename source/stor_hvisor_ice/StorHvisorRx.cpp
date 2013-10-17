@@ -150,7 +150,7 @@ int StorHvCtrl::fds_process_update_catalog_resp(const FDSP_MsgHdrTypePtr& rx_msg
                                  << " - Recvd DM UPDATE_CAT_OBJ_RSP RSP ";
   // Check sanity here, if this transaction is valid and matches with the cookie we got from the message
   
-  if (!(txn->isActive())) {
+  if (!(txn->isActive()) || txn->trans_state == FDS_TRANS_EMPTY ) {
     FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Error: Journal Entry" << rx_msg->req_cookie <<  "  UPDATE_CAT_OBJ_RSP for an inactive transaction";
     return (0);
   }
@@ -256,6 +256,7 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rx_msg) 
               (fds_uint64_t)req->sec*HVISOR_SECTOR_SIZE,
               obj_id);          
           
+          qos_ctrl->markIODone(txn->io);
           // destroy the txn, reclaim the space and return from here	    
           txn->trans_state = FDS_TRANS_EMPTY;
           txn->write_ctx = 0;

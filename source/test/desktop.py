@@ -488,3 +488,8 @@ if __name__ == '__main__':
     else:
         suite = unittest.TestLoader().loadTestsFromTestCase(TestSequenceFunctions)
         unittest.TextTestRunner(verbosity=2).run(suite)
+
+        # These just run the SM test
+        #suite = unittest.TestSuite()
+        #suite.addTest(TestSequenceFunctions('test_stormgr'))
+        #unittest.TextTestRunner(verbosity=2).run(suite)

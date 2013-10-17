@@ -27,12 +27,15 @@ StorMgrVolume::~StorMgrVolume()
   delete volumeIndexDB;
 }
 
-Error StorMgrVolume::createVolIndexEntry(fds_volid_t vol_uuid, 
-                                         fds_uint64_t vol_offset, 
+/**
+ * Stores a mapping from a volume's storage location to the
+ * object at that location.
+ */
+Error StorMgrVolume::createVolIndexEntry(fds_volid_t      vol_uuid, 
+                                         fds_uint64_t     vol_offset, 
                                          FDS_ObjectIdType objId, 
-                                         fds_uint32_t data_obj_len)
-{
-Error err(ERR_OK);
+                                         fds_uint32_t     data_obj_len) {
+  Error err(ERR_OK);
   DiskLoc diskloc;
   diskloc.vol_id = vol_uuid;
   diskloc.file_id = 0;
@@ -40,7 +43,10 @@ Error err(ERR_OK);
   ObjectID oid(objId.hash_high,
                objId.hash_low);
 
-  FDS_PLOG(objStorMgr->GetLog()) << "createVolIndexEntry Obj ID:" << objId.hash_high << ":"<< objId.hash_low  << "glob_vol_id:" << vol_uuid << "offset" << vol_offset;
+  FDS_PLOG(objStorMgr->GetLog()) << "createVolIndexEntry Obj ID:" << objId.hash_high
+                                 << ":"<< objId.hash_low  << "glob_vol_id:"
+                                 << vol_uuid << "offset" << vol_offset;
+
    err = volumeIndexDB->Put(diskloc, oid);
    return err;
 }

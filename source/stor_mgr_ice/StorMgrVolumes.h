@@ -20,6 +20,7 @@
 #include <util/Log.h>
 #include <concurrency/RwLock.h>
 #include "stor_mgr_ice/odb.h"
+#include <include/qos_ctrl.h>
 
 /* defaults */
 #define FDS_DEFAULT_VOL_UUID 1
@@ -94,6 +95,102 @@ namespace fds {
      */
     fds_log *vt_log;
     fds_bool_t created_log;
+  };
+
+  class SmVolQueue : public FDS_VolumeQueue {
+ private:
+    fds_volid_t  volUuid;
+    fds_uint32_t qDepth;
+
+ public:
+ SmVolQueue(fds_volid_t  _volUuid,
+            fds_uint32_t _q_cap,
+            fds_uint32_t _iops_max,
+            fds_uint32_t _iops_min,
+            fds_uint32_t _priority) :
+    FDS_VolumeQueue(_q_cap,
+                    _iops_max,
+                    _iops_min,
+                    _priority) {
+      volUuid = _volUuid;
+      /*
+       * TODO: The queue depth should be computed
+       * from the volume's parameters. Just make
+       * something up for now for testing.
+       */
+      qDepth  = 10;
+
+      FDS_VolumeQueue::activate();
+    }
+
+    fds_volid_t getVolUuid() const {
+      return volUuid;
+    }
+    fds_uint32_t getQDepth() const {
+      return qDepth;
+    }
+  };
+  
+  class SmIoReq : public FDS_IOType {
+ private:
+    ObjectID     objId;
+    ObjectBuf    objData;
+    fds_volid_t  volUuid;
+    fds_uint64_t volOffset;
+
+ public:
+    /*
+     * This constructor is generally used for
+     * write since it accepts an objBuf.
+     * TODO: Wrap this up in a clear interface.
+     */
+    SmIoReq(fds_uint64_t       _objIdHigh,
+            fds_uint64_t       _objIdLow,
+            const std::string& _dataStr,
+            fds_volid_t        _volUuid,
+            fds_io_op_t        _ioType) {
+      objId = ObjectID(_objIdHigh, _objIdLow);
+      objData.size        = _dataStr.size();
+      objData.data        = _dataStr;
+      volUuid             = _volUuid;
+      io_vol_id           = volUuid;
+      FDS_IOType::io_type = _ioType;
+    }
+
+    /*
+     * This constructor is generally used for
+     * read since it takes a request tracking
+     * ID.
+     * TODO: Wrap this up in a clear interface.
+     */
+    SmIoReq(fds_uint64_t       _objIdHigh,
+            fds_uint64_t       _objIdLow,
+            const std::string& _dataStr,
+            fds_volid_t        _volUuid,
+            fds_io_op_t        _ioType,
+            fds_uint32_t       _ioReqId) {
+      objId = ObjectID(_objIdHigh, _objIdLow);
+      objData.size        = _dataStr.size();
+      objData.data        = _dataStr;
+      volUuid             = _volUuid;
+      io_vol_id           = volUuid;
+      FDS_IOType::io_type = _ioType;
+      io_req_id           = _ioReqId;
+    }
+    ~SmIoReq() {
+    }
+
+    const ObjectID& getObjId() const {
+      return objId;
+    }
+
+    const ObjectBuf& getObjData() const {
+      return objData;
+    }
+
+    fds_volid_t getVolId() const {
+      return volUuid;
+    }
   };
 }  // namespace fds
 

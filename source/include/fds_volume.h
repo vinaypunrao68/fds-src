@@ -90,6 +90,13 @@ namespace fds {
       placementPolicy = volinfo->placementPolicy;  
       appWorkload = volinfo->appWorkload;
       backupVolume = volinfo->backupVolume;
+      /// FDSP_VolumeInfoTypePtr does not contain policy details 
+      // but it is so far only called in orchMgr where policy
+      // details are explicitly set after the construction, so 
+      // just fill in zeros here
+      iops_min = 0;
+      iops_max = 0;
+      relativePrio = 0;
       assert(volUUID != invalid_vol_id);
     }
 
@@ -111,6 +118,9 @@ namespace fds {
       placementPolicy = vdesc.placementPolicy;  
       appWorkload = vdesc.appWorkload;
       backupVolume = vdesc.backupVolume;
+      iops_min = vdesc.iops_min;
+      iops_max = vdesc.iops_max;
+      relativePrio = vdesc.relativePrio;
       assert(volUUID != invalid_vol_id);
     }
 
@@ -459,7 +469,7 @@ public:
 
  FDS_IOType   *dequeueIO() {
 
-   FDS_IOType *io;
+   FDS_IOType *io = NULL;
    if ( volQState == FDS_VOL_Q_ACTIVE || volQState == FDS_VOL_Q_QUIESCING ) { 
      volQueue->pop(io); 
      if (volQState == FDS_VOL_Q_QUIESCING && volQueue->empty())  {
