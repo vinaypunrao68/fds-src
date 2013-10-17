@@ -3,10 +3,17 @@
 
 namespace fds {
 
+StorHvQosCtrl *storHvQosCtrl; // global pointer to track the singleton instance
+
+void StorHvQosCtrl::throttleCmdHandler(const float throttle_level) {
+  storHvQosCtrl->htb_dispatcher->setThrottleLevel(throttle_level);
+}
+
 StorHvQosCtrl::StorHvQosCtrl(uint32_t max_thrds, dispatchAlgoType algo, fds_log *log) : FDS_QoSControl::FDS_QoSControl(max_thrds, algo, log) {
      if ( dispatchAlgo == FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET) {
         htb_dispatcher = new QoSHTBDispatcher(this, qos_log, total_rate);
      }
+     storHvQosCtrl = this;
 }
 
 StorHvQosCtrl::~StorHvQosCtrl() {

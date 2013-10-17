@@ -17,16 +17,19 @@ class StorHvQosCtrl : public FDS_QoSControl {
   public:
   QoSHTBDispatcher *htb_dispatcher;
 
-  StorHvQosCtrl(uint32_t max_thrds, dispatchAlgoType algo, fds_log *log) ;
- ~StorHvQosCtrl();
+  StorHvQosCtrl(uint32_t max_thrds, dispatchAlgoType algo, fds_log *log);
+  ~StorHvQosCtrl();
   Error processIO(FDS_IOType *io) ;
- void runScheduler();
+  void runScheduler();
   Error markIODone(FDS_IOType *io);
   fds_uint32_t waitForWorkers();
   void   setQosDispatcher(dispatchAlgoType algo_type, FDS_QoSDispatcher *qosDispatcher);
-Error   registerVolume(fds_volid_t vol_uuid, FDS_VolumeQueue *volq);
-Error   deregisterVolume(fds_volid_t vol_uuid);
-Error enqueueIO(fds_volid_t volUUID, FDS_IOType *io);
+  Error   registerVolume(fds_volid_t vol_uuid, FDS_VolumeQueue *volq);
+  Error   deregisterVolume(fds_volid_t vol_uuid);
+  Error enqueueIO(fds_volid_t volUUID, FDS_IOType *io);
+
+  static void throttleCmdHandler(const float throttle_level);
+
 };
 }
 

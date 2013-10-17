@@ -568,6 +568,7 @@ StorHvCtrl::StorHvCtrl(int argc,
 
   /*  Create the QOS Controller object */ 
   qos_ctrl = new StorHvQosCtrl(50, fds::FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET, sh_log);
+  om_client->registerThrottleCmdHandler(StorHvQosCtrl::throttleCmdHandler);
   /*
    * Set basic thread properties.
    */
