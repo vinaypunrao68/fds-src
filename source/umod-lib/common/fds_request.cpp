@@ -148,7 +148,7 @@ RequestStatus::~RequestStatus()
 // --------
 //
 Request::Request(bool block)
-    : req_link(this), req_queue(nullptr), req_state(0), req_res()
+    : req_link(this), req_queue(nullptr), req_waitq(nullptr), req_state(0), req_res()
 {
     if (block) {
         req_state |= Request::req_block;
@@ -185,7 +185,7 @@ void
 Request::req_wait()
 {
     // Only block if the request was created with blocking mode.
-    if ((req_queue != nullptr) && (req_state & Request::req_block)) {
+    if (req_blocking_mode()) {
         req_queue->rq_request_wait(this);
     }
 }

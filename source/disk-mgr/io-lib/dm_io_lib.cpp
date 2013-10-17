@@ -270,11 +270,16 @@ PersisDataIO::~PersisDataIO()
 void
 PersisDataIO::disk_read(DiskRequest *req)
 {
+    bool block = req->req_blocking_mode();
+
     pd_queue.rq_enqueue(req, pd_ioq_rd_pending);
     disk_do_read(req);
 
-    // If the request was created with non-blocking option, this is no-op.
-    req->req_wait();
+    // In non-blocking mode, the request may already be freed when we're here.
+    if (block == true) {
+        // If the request was created with non-blocking option, this is no-op.
+        req->req_wait();
+    }
 }
 
 // \PersisDataIO::disk_read_done
@@ -294,11 +299,16 @@ PersisDataIO::disk_read_done(DiskRequest *req)
 void
 PersisDataIO::disk_write(DiskRequest *req)
 {
+    bool block = req->req_blocking_mode();
+
     pd_queue.rq_enqueue(req, pd_ioq_rd_pending);
     disk_do_write(req);
 
-    // If the request was created with non-blocking option, this is no-op.
-    req->req_wait();
+    // In non-blocking mode, the request may already be freed when we're here.
+    if (block == true) {
+        // If the request was created with non-blocking option, this is no-op.
+        req->req_wait();
+    }
 }
 
 // \PersisDataIO::disk_write_done

@@ -167,6 +167,14 @@ class Request
     //
     virtual void req_status(RequestStatus *status);
 
+    // \req_blocking_mode
+    // ------------------
+    // Return true if the request is in the blocking mode.
+    //
+    inline bool req_blocking_mode()
+    {
+        return ((req_queue != nullptr) && (req_state & Request::req_block));
+    }
   private:
     friend class RequestQueue;
     fds::ChainLink           req_link;
