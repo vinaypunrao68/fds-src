@@ -40,7 +40,7 @@ ObjectStorMgrI::PutObject(const FDSP_MsgHdrTypePtr& msg_hdr,
   msg_hdr->msg_code = FDSP_MSG_PUT_OBJ_RSP;
   objStorMgr->swapMgrId(msg_hdr);
   objStorMgr->fdspDataPathClient->begin_PutObjectResp(msg_hdr, put_obj);
-   FDS_PLOG(objStorMgr->GetLog()) << "Sent async PutObj response to Hypervisor";
+  FDS_PLOG(objStorMgr->GetLog()) << "Sent async PutObj response to Hypervisor";
 }
 
 void

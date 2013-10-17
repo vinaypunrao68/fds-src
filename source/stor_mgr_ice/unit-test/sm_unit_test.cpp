@@ -58,7 +58,7 @@ class TestResp : public FDS_ProtocolInterface::FDSP_DataPathResp {
       objMapLock->lock();
       if (object_data != added_objs[oid]) {
         FDS_PLOG(test_log) << "Failed get correct object! For object "
-                           << oid <<" Got ["
+                           << oid << " Got ["
                            << object_data << "] but expected ["
                            << added_objs[oid] << "]";
         assert(0);
