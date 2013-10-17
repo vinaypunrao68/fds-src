@@ -88,6 +88,9 @@ OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
   hostIp       = _hostIp;
   my_data_port = data_port;
   my_node_name = node_name;
+  node_evt_hdlr = NULL;
+  vol_evt_hdlr = NULL;
+  throttle_cmd_hdlr = NULL;
   if (parent_log) {
     omc_log = parent_log;
   } else {
@@ -100,6 +103,9 @@ OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
 OMgrClient::OMgrClient() {
   my_node_type = FDSP_STOR_HVISOR;
   my_node_name = "localhost-sh";
+  node_evt_hdlr = NULL;
+  vol_evt_hdlr = NULL;
+  throttle_cmd_hdlr = NULL;
   omc_log = new fds_log("omc", "logs");
   initRPCComm();
 }
