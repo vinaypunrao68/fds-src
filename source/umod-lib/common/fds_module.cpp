@@ -1,3 +1,6 @@
+/*
+ * Copyright 2013 Formation Data Systems, Inc.
+ */
 #include <fds_assert.h>
 #include <fds_module.h>
 
@@ -9,6 +12,9 @@ Module::Module(char const *const name)
 
 Module::~Module() {}
 
+// \Module::mod_init
+// -----------------
+//
 void
 Module::mod_init(SysParams const *const param)
 {
@@ -22,6 +28,9 @@ Module::mod_init(SysParams const *const param)
     }
 }
 
+// \Module::mod_startup
+// --------------------
+//
 void
 Module::mod_startup()
 {
@@ -35,26 +44,74 @@ Module::mod_startup()
     }
 }
 
+// \Module::mod_lockstep_startup
+// -----------------------------
+//
 void
 Module::mod_lockstep_startup()
 {
 }
 
+// \Module::mod_enable_service
+// ---------------------------
+void
+Module::mod_enable_service()
+{
+    int     i;
+    Module *intern;
+
+    if (mod_intern != nullptr) {
+        for (i = 0; mod_intern[i] != nullptr; i++) {
+            mod_intern[i]->mod_enable_service();
+        }
+    }
+}
+
+// \Module::mod_disable_service
+// ----------------------------
+//
+void
+Module::mod_disable_service()
+{
+}
+
+// \Module::mod_lockstep_shutdown
+// ------------------------------
+//
 void
 Module::mod_lockstep_shutdown()
 {
 }
 
+// \Module::mod_shutdown
+// ---------------------
+//
+void
+Module::mod_shutdown()
+{
+}
+
+// \Module::mod_lockstep_sync
+// --------------------------
+//
 void
 Module::mod_lockstep_sync()
 {
 }
 
+// ----------------------------------------------------------------------------
+
 // \ModuleVector
 // -------------
 //
-ModuleVector::ModuleVector(int argc, char **argv)
-    : sys_mod_cnt(0), sys_argc(argc), sys_argv(argv), sys_mods(nullptr) {}
+ModuleVector::ModuleVector(int argc, char **argv, Module **mods)
+    : sys_mod_cnt(0), sys_argc(argc), sys_argv(argv), sys_mods(nullptr)
+{
+    sys_mods = mods;
+    for (sys_mod_cnt = 0; mods[sys_mod_cnt] != nullptr; sys_mod_cnt++) {
+        ;
+    }
+}
 
 ModuleVector::~ModuleVector() {}
 
@@ -66,20 +123,17 @@ ModuleVector::mod_timer_fn()
 {
 }
 
-void
-ModuleVector::mod_register(Module **mods)
-{
-    sys_mods = mods;
-    for (sys_mod_cnt = 0; mods[sys_mod_cnt] != nullptr; sys_mod_cnt++) {
-        ; // no code
-    }
-}
-
+// \ModuleVector::mod_mk_sysparams
+// -------------------------------
+//
 void
 ModuleVector::mod_mk_sysparams()
 {
 }
 
+// \ModuleVector::mod_execute
+// --------------------------
+//
 void
 ModuleVector::mod_execute()
 {
@@ -101,6 +155,9 @@ ModuleVector::mod_execute()
     }
 }
 
+// \ModuleVector::mod_shutdown
+// ---------------------------
+//
 void
 ModuleVector::mod_shutdown()
 {

@@ -17,12 +17,17 @@ class Module
     Module(char const *const name);
     ~Module();
 
+    // Define standard sequence of bring up and shutdown a module and
+    // its services.
+    //
     virtual void mod_init(SysParams const *const param);
     virtual void mod_startup() = 0;
-    virtual void mod_shutdown() = 0;
-
     virtual void mod_lockstep_startup();
+    virtual void mod_enable_service();
+
+    virtual void mod_disable_service();
     virtual void mod_lockstep_shutdown();
+    virtual void mod_shutdown() = 0;
 
   protected:
     friend class ModuleVector;
@@ -46,11 +51,10 @@ class Module
 class ModuleVector
 {
   public:
-    ModuleVector(int argc, char **argv);
+    ModuleVector(int argc, char **argv, Module **mods);
     ~ModuleVector();
 
     virtual void mod_timer_fn();
-    virtual void mod_register(Module **mods);
 
     void mod_execute();
     void mod_shutdown();

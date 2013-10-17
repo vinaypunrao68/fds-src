@@ -59,12 +59,15 @@ DataIndexProxy::~DataIndexProxy()
 void
 DataIndexProxy::disk_index_put(IndexRequest &req, meta_obj_map_t *value)
 {
-    fds_verify(obj_map_has_init_val(value) == false);
+    meta_obj_id_t const *const oid = req.req_get_oid();
 
-    if (obj_id_is_valid(&req.idx_oid) == true) {
+    fds_verify(obj_map_has_init_val(value) == false);
+    if (obj_id_is_valid(oid) == true) {
         // save <oid, obj_map> pair.
     } else {
-        fds_verify(vadr_is_valid(req.idx_vio.vol_adr) == true);
+        meta_vol_io_t const *const vio = req.req_get_vio();
+
+        fds_verify(vadr_is_valid(vio->vol_adr) == true);
         // save <vio, obj_map> pair.
     }
     req.req_complete();
@@ -73,8 +76,10 @@ DataIndexProxy::disk_index_put(IndexRequest &req, meta_obj_map_t *value)
 void
 DataIndexProxy::disk_index_put(IndexRequest &req, meta_vol_adr_t *value)
 {
+    meta_obj_id_t const *const oid = req.req_get_oid();
+
     fds_verify(vadr_is_valid(value) == true);
-    fds_verify(obj_id_is_valid(&req.idx_oid) == true);
+    fds_verify(obj_id_is_valid(oid) == true);
 
     // save <oid, vio> pair.
     req.req_complete();
@@ -83,8 +88,10 @@ DataIndexProxy::disk_index_put(IndexRequest &req, meta_vol_adr_t *value)
 void
 DataIndexProxy::disk_index_put(IndexRequest &req, meta_obj_id_t *value)
 {
+    meta_vol_io_t const *const vio = req.req_get_vio();
+
     fds_verify(obj_id_is_valid(value) == true);
-    fds_verify(vadr_is_valid(req.idx_vio.vol_adr) == true);
+    fds_verify(vadr_is_valid(vio->vol_adr) == true);
 
     // save <vio, oid> pair.
     req.req_complete();
@@ -96,9 +103,10 @@ DataIndexProxy::disk_index_put(IndexRequest &req, meta_obj_id_t *value)
 void
 DataIndexProxy::disk_index_get(IndexRequest &req, meta_obj_map_t *value)
 {
-    fds_verify(value != nullptr);
+    meta_obj_id_t const *const oid = req.req_get_oid();
 
-    if (obj_id_is_valid(&req.idx_oid) == true) {
+    fds_verify(value != nullptr);
+    if (obj_id_is_valid(oid) == true) {
         // put <oid, obj_map> to value.
     } else {
     }
@@ -108,8 +116,10 @@ DataIndexProxy::disk_index_get(IndexRequest &req, meta_obj_map_t *value)
 void
 DataIndexProxy::disk_index_get(IndexRequest &req, meta_vol_adr_t *value)
 {
+    meta_obj_id_t const *const oid = req.req_get_oid();
+
     fds_verify(value != nullptr);
-    fds_verify(obj_id_is_valid(&req.idx_oid) == true);
+    fds_verify(obj_id_is_valid(oid) == true);
 
     req.req_complete();
 }
@@ -117,8 +127,10 @@ DataIndexProxy::disk_index_get(IndexRequest &req, meta_vol_adr_t *value)
 void
 DataIndexProxy::disk_index_get(IndexRequest &req, meta_obj_id_t *value)
 {
+    meta_vol_io_t const *const vio = req.req_get_vio();
+
     fds_verify(value != nullptr);
-    fds_verify(vadr_is_valid(req.idx_vio.vol_adr) == true);
+    fds_verify(vadr_is_valid(vio->vol_adr) == true);
 
     req.req_complete();
 }

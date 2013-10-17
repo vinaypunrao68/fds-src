@@ -5,6 +5,7 @@
 #include <fds_types.h>
 #include <fds_module.h>
 #include <fds_request.h>
+#include <disk-mgr/dm_service.h>
 #include <disk-mgr/dm_metadata.h>
 
 namespace diskio {
@@ -34,9 +35,11 @@ class IndexRequest : public fdsio::Request
     virtual bool req_wait_cond();
     virtual void req_set_wakeup_cond();
 
-  protected:
-    friend class DataIndexProxy;
+    inline meta_obj_id_t const *const req_get_oid() const { return &idx_oid; }
+    inline meta_vol_io_t const *const req_get_vio() const { return &idx_vio; }
+    inline meta_obj_map_t *req_get_vmap() { return &idx_vmap; }
 
+  protected:
     meta_obj_id_t          idx_oid;
     meta_vol_io_t          idx_vio;
     meta_obj_map_t         idx_vmap;
@@ -60,7 +63,7 @@ class DiskRequest : public IndexRequest
     //
     DiskRequest(meta_vol_io_t       &vio,
                 meta_obj_id_t       &oid,
-                fds::ObjectBuf      &buf,
+                fds::ObjectBuf      *buf,
                 bool                block);
 
     // \DiskRequest
@@ -78,7 +81,7 @@ class DiskRequest : public IndexRequest
                 meta_obj_id_t       &oid,
                 meta_obj_id_t       *old_oid,
                 meta_vol_io_t       *new_vol,
-                fds::ObjectBuf      &buf,
+                fds::ObjectBuf      *buf,
                 bool                block);
 
     ~DiskRequest();
@@ -98,10 +101,11 @@ class DiskRequest : public IndexRequest
     virtual void req_submit() = 0;
     virtual void req_complete() = 0;
 
-  protected:
-    friend class DataIndexProxy;
+    inline fds::ObjectBuf const *const req_obj_buf() { return dat_buf; }
+    inline fds::ObjectBuf *const req_obj_rd_buf() { return dat_buf; }
 
-    fds::ObjectBuf           &dat_buf;
+  protected:
+    fds::ObjectBuf           *dat_buf;
     meta_vol_io_t            dat_new_vol;
     meta_obj_id_t            dat_old_oid;
 };
@@ -255,6 +259,18 @@ class DataIO
   public:
     static DataIO &disk_singleton();
 
+    // Units for block IO to persistent data store.
+    //
+    static inline fds_uint32_t disk_io_blk_shift() {
+        return fds::DmQuery::dm_blk_shift;
+    }
+    static inline fds_uint32_t disk_io_blk_size() {
+        return fds::DmQuery::dm_blk_size;
+    }
+    static inline fds_uint32_t disk_io_blk_mask() {
+        return fds::DmQuery::dm_blk_mask;
+    }
+
     // \disk_read
     // ----------
     // Read data to the buffer specified by oid or vio from the request.
@@ -277,9 +293,9 @@ class DataIO
     // Remap the object ID with current vio address to the new vio address.
     // Used to snapshot data about to be overwritten to a snapshot volume.
     //
-    void disk_remap_obj(meta_obj_id_t &obj_id,
-                        meta_vol_io_t &cur_vio,
-                        meta_vol_io_t &new_vio);
+    void disk_remap_obj(meta_obj_id_t const *const obj_id,
+                        meta_vol_io_t const *const cur_vio,
+                        meta_vol_io_t const *const new_vio);
 
     // \disk_destroy_vol
     // -----------------
@@ -317,7 +333,7 @@ class DataIOModule : public fds::Module
     virtual void mod_shutdown();
 };
 
-extern DataIOModule          dataIOMod;
+extern DataIOModule          gl_dataIOMod;
 
 } // namespace diskio
 

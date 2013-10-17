@@ -114,9 +114,9 @@ class Request
     Request(bool block);
     ~Request();
 
-    const fds_uint32_t req_state_wait = 0x20000000;
-    const fds_uint32_t req_state_done = 0x40000000;
-    const fds_uint32_t req_block      = 0x80000000;
+    static const fds_uint32_t req_state_wait = 0x20000000;
+    static const fds_uint32_t req_state_done = 0x40000000;
+    static const fds_uint32_t req_block      = 0x80000000;
 
     // \req_abort
     // ----------
