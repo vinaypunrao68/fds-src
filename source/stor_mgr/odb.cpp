@@ -5,7 +5,7 @@
 #include <assert.h>
 #include <string>
 
-#include "stor_mgr/odb.h"
+#include <odb.h>
 #include "leveldb/db.h"
 #include "leveldb/filter_policy.h"
 

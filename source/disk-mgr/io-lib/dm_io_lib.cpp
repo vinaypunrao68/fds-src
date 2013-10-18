@@ -89,37 +89,10 @@ DataIOModule::mod_shutdown()
 DataDiscoveryModule::DataDiscoveryModule(char const *const name)
     : Module(name), pd_hdd_found(0), pd_ssd_found(0)
 {
-    DIR           *dfd;
-    struct dirent *dp;
-
     pd_hdd_raw     = new std::string [sgt_hdd_count];
     pd_ssd_raw     = new std::string [sgt_ssd_count];
     pd_hdd_labeled = new std::string [sgt_hdd_count];
     pd_ssd_labeled = new std::string [sgt_ssd_count];
-
-    dfd = opendir(sgt_fs_root);
-    fds_verify(dfd != nullptr);
-    while ((dp = readdir(dfd)) != nullptr) {
-        struct stat  stbuf;
-        std::string  path;
-
-        path = std::string(sgt_fs_root) + std::string(dp->d_name);
-        if (stat(path.c_str(), &stbuf) < 0) {
-            cout << "Can't open " << path << endl;
-            continue;
-        }
-        if ((stbuf.st_mode & S_IFMT) == S_IFDIR) {
-            if (dp->d_name[0] == '.') {
-                continue;
-            }
-            if (pd_hdd_found < sgt_hdd_count) {
-                pd_hdd_raw[pd_hdd_found] = path;
-                disk_detect_label(pd_hdd_raw[pd_hdd_found], true);
-                pd_hdd_found++;
-            }
-        }
-    }
-    closedir(dfd);
 }
 
 DataDiscoveryModule::~DataDiscoveryModule()
@@ -189,7 +162,35 @@ DataDiscoveryModule::disk_make_label(std::string &base, int diskno)
 void
 DataDiscoveryModule::mod_init(fds::SysParams const *const param)
 {
+    DIR           *dfd;
+    struct dirent *dp;
+
     Module::mod_init(param);
+
+    dfd = opendir(sgt_fs_root);
+    fds_verify(dfd != nullptr);
+    while ((dp = readdir(dfd)) != nullptr) {
+        struct stat  stbuf;
+        std::string  path;
+
+        path = std::string(sgt_fs_root) + std::string(dp->d_name);
+        if (stat(path.c_str(), &stbuf) < 0) {
+            cout << "Can't open " << path << endl;
+            continue;
+        }
+        if ((stbuf.st_mode & S_IFMT) == S_IFDIR) {
+            if (dp->d_name[0] == '.') {
+                continue;
+            }
+            if (pd_hdd_found < sgt_hdd_count) {
+                pd_hdd_raw[pd_hdd_found] = path;
+                disk_detect_label(pd_hdd_raw[pd_hdd_found], true);
+                pd_hdd_found++;
+            }
+        }
+    }
+    closedir(dfd);
+
     for (int i = 0; i < pd_hdd_found; i++) {
         if (!pd_hdd_raw[i].empty()) {
             fds_verify(pd_hdd_labeled[i].empty());

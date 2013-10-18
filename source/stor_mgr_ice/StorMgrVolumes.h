@@ -19,7 +19,7 @@
 #include <include/fds_volume.h>
 #include <util/Log.h>
 #include <concurrency/RwLock.h>
-#include "stor_mgr_ice/odb.h"
+#include <odb.h>
 #include <include/qos_ctrl.h>
 
 /* defaults */

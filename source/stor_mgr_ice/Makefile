@@ -19,7 +19,6 @@ user_non_fds_libs :=                                                          \
 
 stor_mgr_cpp      :=                   \
     StorMgr.cpp                        \
-    odb.cpp                            \
     DiskMgr.cpp                        \
     StorMgrVolumes.cpp
 

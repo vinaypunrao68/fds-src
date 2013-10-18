@@ -87,7 +87,7 @@ class UnitTest {
        * Get random 4K data.
        */
       obj.data.clear();
-      leveldb::test::RandomString(&rnd, object_size, &obj.data);
+      // leveldb::test::RandomString(&rnd, object_size, &obj.data);
       obj.size = object_size;
 
       /*

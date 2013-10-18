@@ -156,8 +156,7 @@ Module::mod_lockstep_sync()
 // -------------
 //
 ModuleVector::ModuleVector(int argc, char **argv, Module **mods)
-    : sys_mod_cnt(0), sys_argc(argc), sys_argv(argv), sys_mods(nullptr),
-      sys_params(nullptr)
+    : sys_mod_cnt(0), sys_argc(argc), sys_argv(argv), sys_mods(nullptr)
 {
     sys_mods = mods;
     for (sys_mod_cnt = 0; mods[sys_mod_cnt] != nullptr; sys_mod_cnt++) {
@@ -185,17 +184,25 @@ ModuleVector::mod_mk_sysparams()
     using namespace std;
     namespace po = boost::program_options;
 
+    int                     thr_cnt, hdd_cnt, ssd_cnt, hdd_cap, ssd_cap;
     po::variables_map       vm;
     po::options_description desc("Formation Data Systems Command Line Options");
     desc.add_options()
-        ("help", "Show this help text")
-        ("fds-root", po::value<std::string>()->default_value("/fds"),
+        ("help,h", "Show this help text")
+        ("fds-root,r", po::value<std::string>()->default_value("/fds"),
             "Set the storage root directory")
-        ("fds-sim", po::value<std::string>(),
-            "Set FDS simulation/unit test params:\n"
-            "\t-t <thread-count> -n <disk-prefix>\n"
-            "\t-d <hdd-count> -c <hdd_capacity MB>\n"
-            "\t-D <ssd-count> -C <ssd_capacity MB>\n");
+        ("threads,t", po::value<int>(&thr_cnt)->default_value(10),
+            "Number of threads in system thread pool")
+        ("sim-prefix,s", po::value<std::string>()->default_value("sd"),
+            "Prefix names for disk devices simulation")
+        ("hdd-count,d", po::value<int>(&hdd_cnt)->default_value(12),
+            "Number of HDD disks")
+        ("hdd-capacity,c", po::value<int>(&hdd_cap)->default_value(100),
+            "HDD capacity in MB")
+        ("ssd-count,D", po::value<int>(&ssd_cnt)->default_value(2),
+            "Number of SSD disks")
+        ("ssd-capacity,C", po::value<int>(&ssd_cap)->default_value(10),
+            "SSD capacity in MB");
 
     po::store(po::parse_command_line(sys_argc, sys_argv, desc), vm);
     po::notify(vm);
@@ -203,8 +210,16 @@ ModuleVector::mod_mk_sysparams()
         cout << endl << desc << endl;
         exit(1);
     }
-    sys_params = new SysParams(vm["fds-root"].as<std::string>().c_str());
-    if (vm.count("fds-sim")) {
+    if (vm.count("fds-root")) {
+        sys_params.fds_root = vm["fds-root"].as<std::string>();
+    }
+    if (vm.count("sim-prefix")) {
+        SimEnvParams *sim  = new SimEnvParams(vm["sim-prefix"].as<std::string>());
+        sys_params.fds_sim = sim;
+        sim->sim_hdd_cnt   = hdd_cnt;
+        sim->sim_hdd_mb    = hdd_cap;
+        sim->sim_ssd_cnt   = ssd_cnt;
+        sim->sim_ssd_mb    = ssd_cap;
     }
 }
 
@@ -223,7 +238,7 @@ ModuleVector::mod_execute()
     for (i = 0; i < sys_mod_cnt; i++) {
         mod = sys_mods[i];
         fds_verify(mod != nullptr);
-        mod->mod_init(sys_params);
+        mod->mod_init(&sys_params);
     }
     for (i = 0; i < sys_mod_cnt; i++) {
         mod = sys_mods[i];

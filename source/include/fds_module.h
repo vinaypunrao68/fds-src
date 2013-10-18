@@ -1,6 +1,7 @@
 #ifndef INCLUDE_FDS_MOUDLE_H_
 #define INCLUDE_FDS_MOUDLE_H_
 
+#include <string>
 #include <boost/function.hpp>
 
 namespace fds {
@@ -13,22 +14,24 @@ class UnitTestParams
 class SimEnvParams
 {
   public:
-    char const *const        sim_disk_prefix;
+    SimEnvParams(const std::string &prefix) : sim_disk_prefix(prefix) {}
+    ~SimEnvParams() {}
+
+    std::string              sim_disk_prefix;
     int                      sim_hdd_cnt;
     int                      sim_ssd_cnt;
-    int                      sim_hdd_mb_size;
-    int                      sim_ssd_mb_size;
+    int                      sim_hdd_mb;
+    int                      sim_ssd_mb;
 };
 
 class SysParams
 {
   public:
-    SysParams(char const *const root)
-        : fds_root(root), fds_sim(nullptr), fds_utp(nullptr) {}
+    SysParams() : fds_sim(nullptr), fds_utp(nullptr) {}
     ~SysParams() {}
 
     int                      sys_num_thr;
-    char const *const        fds_root;
+    std::string              fds_root;
     SimEnvParams             *fds_sim;
     UnitTestParams           *fds_utp;
 };
@@ -91,7 +94,7 @@ class ModuleVector
     int                      sys_argc;
     char                     **sys_argv;
     Module                   **sys_mods;
-    SysParams                *sys_params;
+    SysParams                sys_params;
 };
 
 } // namespace fds
