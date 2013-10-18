@@ -12,7 +12,8 @@ using namespace std;
 class DiskReqTest : public diskio::DiskRequest
 {
   public:
-    DiskReqTest(fds::fds_threadpool *const pool,
+    DiskReqTest(fds::fds_threadpool *const wr,
+                fds::fds_threadpool *const rd,
                 meta_vol_io_t       &vio,
                 meta_obj_id_t       &oid,
                 fds::ObjectBuf      *buf,
@@ -29,18 +30,20 @@ class DiskReqTest : public diskio::DiskRequest
   private:
     int                        tst_iter;
     fds::ObjectBuf             tst_verf;
-    fds::fds_threadpool *const tst_pool;
+    fds::fds_threadpool *const tst_wr;
+    fds::fds_threadpool *const tst_rd;
 };
 
 // \DiskReqTest
 // ------------
 //
-DiskReqTest::DiskReqTest(fds::fds_threadpool *const pool,
+DiskReqTest::DiskReqTest(fds::fds_threadpool *const wr,
+                         fds::fds_threadpool *const rd,
                          meta_vol_io_t       &vio,
                          meta_obj_id_t       &oid,
                          fds::ObjectBuf      *buf,
                          bool                block)
-    : tst_pool(pool), tst_iter(0), diskio::DiskRequest(vio, oid, buf, block)
+    : tst_wr(wr), tst_rd(rd), tst_iter(0), diskio::DiskRequest(vio, oid, buf, block)
 {
     tst_verf.size = buf->size;
     tst_verf.data.reserve(buf->size);
@@ -71,7 +74,7 @@ pdio_read(DiskReqTest *req)
 // -----------
 //
 static void
-pdio_write(fds::fds_threadpool *pool, DiskReqTest *cur)
+pdio_write(fds::fds_threadpool *wr, fds::fds_threadpool *rd, DiskReqTest *cur)
 {
     static int      wr_count;
     DiskReqTest     *req;
@@ -91,7 +94,7 @@ pdio_write(fds::fds_threadpool *pool, DiskReqTest *cur)
         buf->size = 8 << diskio::DataIO::disk_io_blk_shift();
         buf->data.reserve(buf->size);
 
-        req = new DiskReqTest(pool, vio, oid, buf, oid.oid_hash_hi % 2);
+        req = new DiskReqTest(wr, rd, vio, oid, buf, oid.oid_hash_hi % 2);
         req->req_gen_pattern();
     } else {
         req = cur;
@@ -113,15 +116,15 @@ DiskReqTest::req_complete()
 
     tst_iter++;
     if (tst_iter == 1) {
-        tst_pool->schedule(pdio_read, this);
+        tst_rd->schedule(pdio_read, this);
     } else {
         req_verify();
         if (tst_iter < 30000) {
             if (tst_iter % 2) {
-                tst_pool->schedule(pdio_write, tst_pool, this);
+                tst_wr->schedule(pdio_write, tst_wr, tst_rd, this);
             } else {
                 dat_buf->data.clear();
-                tst_pool->schedule(pdio_read, this);
+                tst_rd->schedule(pdio_read, this);
             }
         } else {
             delete this;
@@ -186,10 +189,11 @@ main(int argc, char **argv)
         nullptr
     };
     fds::ModuleVector    io_test(argc, argv, io_test_vec);
-    fds::fds_threadpool  pool(100);
+    fds::fds_threadpool  wr(50), rd(100);
 
     io_test.mod_execute();
     for (int i = 0; i < 100000; i++) {
-        pool.schedule(pdio_write, &pool, nullptr);
+        wr.schedule(pdio_write, &wr, &rd, nullptr);
     }
+    sleep(10);
 }
