@@ -161,7 +161,7 @@ $(comm_dir_objs)/%.o : %.c
 ifdef VERBOSE
 	$(cc) $(local_cc_flags) -c $< -o $@
 else
-	@echo "\t[CC] \t\t$<"
+	@echo "    [CC]          $<"
 	@$(cc) $(local_cc_flags) -c $< -o $@
 endif
 
@@ -172,7 +172,7 @@ $(comm_dir_objs)/%.o : %.cpp
 ifdef VERBOSE
 	$(cpp) $(local_cpp_flags) -c $< -o $@
 else
-	@echo "\t[CPP] \t\t$<"
+	@echo "    [CPP]         $<"
 	@$(cpp) $(local_cpp_flags) -c $< -o $@
 endif
 
@@ -182,11 +182,11 @@ endif
 ifdef local_dep_file
 $(local_dep_file): $(local_src_files) $(local_mk_files)
 	@for f in $(local_c_dep_files); do                                         \
-		echo "\t[DEP] \t\t$$f";                                                \
+		echo "    [DEP]         $$f";                                          \
 		$(cc) -MM -MT $(comm_dir_objs)/$$f.o $(local_cc_flags) $$f.c >> $@;    \
 	done;                                                                      \
 	for f in $(local_cpp_dep_files); do                                        \
-		echo "\t[DEP] \t\t$$f";                                                \
+		echo "    [DEP]         $$f";                                          \
 		$(cpp) -MM -MT $(comm_dir_objs)/$$f.o $(local_cpp_flags) $$f.cpp >> $@;\
 	done;
 endif
