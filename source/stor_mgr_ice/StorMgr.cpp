@@ -117,9 +117,17 @@ ObjectStorMgrI::AssociateRespCallback(const Ice::Identity& ident, const Ice::Cur
 
 /**
  * Storage manager member functions
+ * 
+ * TODO: The number of test vols, the
+ * totalRate, and number of qos threads
+ * are being hard coded in the initializer
+ * list below.
  */
 ObjectStorMgr::ObjectStorMgr() :
-    totalRate(10000) {
+    runMode(NORMAL_MODE),
+    numTestVols(10),
+    totalRate(10000),
+    qosThrds(10) {
   /*
    * TODO: Fix the totalRate above to not
    * be hard coded.
@@ -147,24 +155,12 @@ ObjectStorMgr::ObjectStorMgr() :
 
   /*
    * Setup QoS related members.
-   * TODO: Totally just making variables
-   * fill the in correctly at some point.
-   * Note the 5 is hard coded since this
-   * is the volId the unit test generates
-   * for I/O.
    */
-  testVolQueue = new SmVolQueue(5,
-                                5,
-                                5,
-                                5,
-                                5);
-  qosCtrl = new SmQosCtrl(this,
-                          5,
-                          FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET,
-                          sm_log);
-  qosCtrl->registerVolume(testVolQueue->getVolUuid(),
-                          dynamic_cast<FDS_VolumeQueue*>(testVolQueue));
 
+  qosCtrl = new SmQosCtrl(this,
+                          qosThrds,
+                          FDS_QoSControl::FDS_DISPATCH_WFQ,
+                          sm_log);
   qosCtrl->runScheduler();
 }
 
@@ -177,15 +173,22 @@ ObjectStorMgr::~ObjectStorMgr()
     delete objIndexDB;
 
   /*
-   * TODO: Should not need to do. Not sure that qosctrl
-   * cleans itself up properly.
+   * Clean up the QoS system. Need to wait for I/Os to
+   * complete and deregister each volume. The volume info
+   * is freed when the table is deleted.
+   * TODO: We should prevent further volume registration and
+   * accepting network I/Os while shutting down.
    */
-  qosCtrl->deregisterVolume(testVolQueue->getVolUuid());
+  std::list<fds_volid_t> volIds = volTbl->getVolList();
+  for (std::list<fds_volid_t>::iterator vit = volIds.begin();
+       vit != volIds.end();
+       vit++) {
+    qosCtrl->quieseceIOs((*vit));
+    qosCtrl->deregisterVolume((*vit));
+  }
 
   delete getsMutex;
-
   delete qosCtrl;
-  delete testVolQueue;
 
   delete diskMgr;
   delete sm_log;
@@ -211,19 +214,42 @@ void ObjectStorMgr::nodeEventOmHandler(int node_id,
     }
 }
 
+/*
+ * Note this function is generally run in the context
+ * of an Ice thread.
+ */
+void
+ObjectStorMgr::volEventOmHandler(fds_volid_t  volumeId,
+                                 VolumeDesc  *vdb,
+                                 int          action) {
+  StorMgrVolume* vol = NULL;
 
-void ObjectStorMgr::volEventOmHandler(fds::fds_volid_t volume_id, fds::VolumeDesc *vdb, int vol_action)
-{
-    switch(vol_action) {
-       case FDS_VOL_ACTION_CREATE :
-	 FDS_PLOG(objStorMgr->GetLog()) << "ObjectStorMgr - Volume Create " << volume_id << " Volume Name " <<  (*vdb);
-         break;
+  switch(action) {
+    case FDS_VOL_ACTION_CREATE :
+      FDS_PLOG(objStorMgr->GetLog()) << "Received create for vol "
+                                     << "[" << volumeId << ", "
+                                     << vdb->getName() << "]";
+      fds_assert(vdb != NULL);
 
-       case FDS_VOL_ACTION_DELETE:
-	 FDS_PLOG(objStorMgr->GetLog()) << " ObjectStorMgr - Volume Delete :" << volume_id << " Volume Name " << (*vdb);
-	 break;
-    }
+      /*
+       * Needs to reference the global SM object
+       * since this is a static function.
+       */
+      objStorMgr->volTbl->registerVolume(*vdb);
+      vol = objStorMgr->volTbl->getVolume(volumeId);
+      fds_assert(vol != NULL);
+      objStorMgr->qosCtrl->registerVolume(vol->getVolId(),
+                                          dynamic_cast<FDS_VolumeQueue*>(vol->getQueue()));
+      break;
 
+    case FDS_VOL_ACTION_DELETE:
+      FDS_PLOG(objStorMgr->GetLog()) << "Received delete for vol "
+                                     << "[" << volumeId << ", "
+                                     << vdb->getName() << "]";
+      break;
+    default:
+      fds_panic("Unknown (corrupt?) volume event recieved!");
+  }
 }
 
 void ObjectStorMgr::unitTest()
@@ -405,6 +431,18 @@ ObjectStorMgr::putObjectInternal(const SmIoReq& putReq) {
     put_obj_req->data_obj_len);
   */
 
+  /*
+   * TODO: We should be processing the putobject network
+   * response here.
+   */
+
+  /*
+   * Free the IO request structure that
+   * was allocated when the request was
+   * enqueued.
+   */
+  delete &putReq;
+
   return err;
 }
 
@@ -512,6 +550,13 @@ ObjectStorMgr::getObjectInternal(const SmIoReq& getReq) {
   swapMgrId(msgHdr);
   fdspDataPathClient->begin_GetObjectResp(msgHdr, getObj);
   FDS_PLOG(objStorMgr->GetLog()) << "Sent async GetObj response after processing";
+  
+  /*
+   * Free the IO request structure that
+   * was allocated when the request was
+   * enqueued.
+   */
+  delete &getReq;
 
   return err;
 }
@@ -613,16 +658,17 @@ int
 ObjectStorMgr::run(int argc, char* argv[])
 {
 
-  bool         unit_test;
-  std::string endPointStr;
-  fds::DmDiskInfo     *info;
-  fds::DmDiskQuery     in;
-  fds::DmDiskQueryOut  out;
+  fds_bool_t      unit_test;
+  fds_bool_t      useTestMode;
+  std::string     endPointStr;
+  DmDiskInfo     *info;
+  DmDiskQuery     in;
+  DmDiskQueryOut  out;
+  std::string     omIpStr;
+  fds_uint32_t    omConfigPort;
   
-  unit_test = false;
-  std::string  omIpStr;
-  fds_uint32_t omConfigPort;
-
+  unit_test    = false;
+  useTestMode  = false;
   omConfigPort = 0;
 
   for (int i = 1; i < argc; i++) {
@@ -639,11 +685,18 @@ ObjectStorMgr::run(int argc, char* argv[])
       omConfigPort = strtoul(argv[i] + 10, NULL, 0);
     } else if (strncmp(argv[i], "--prefix=", 9) == 0) {
       stor_prefix = argv[i] + 9;
+    } else if (strncmp(argv[i], "--test_mode", 9) == 0) {
+      useTestMode = true;
     } else {
        FDS_PLOG(objStorMgr->GetLog()) << "Invalid argument " << argv[i];
+       std::cerr << "Invalid argument " << argv[i];
       return -1;
     }
-  }    
+  }
+
+  if (useTestMode == true) {
+    runMode = TEST_MODE;
+  }
 
  // Create leveldb
   std::string filename= stor_prefix + "SNodeObjRepository";
@@ -773,6 +826,35 @@ ObjectStorMgr::run(int argc, char* argv[])
   omClient->registerEventHandlerForVolEvents((volume_event_handler_t)volEventOmHandler);
   omClient->startAcceptingControlMessages(cp_port_num);
   omClient->registerNodeWithOM(dInfo);
+
+  /*
+   * Create local variables for test mode
+   */
+  if (runMode == TEST_MODE) {
+    /*
+     * Create test volumes.
+     */
+    VolumeDesc*  testVdb;
+    std::string testVolName;
+    for (fds_uint32_t testVolId = 1; testVolId < numTestVols + 1; testVolId++) {
+      testVolName = "testVol" + std::to_string(testVolId);
+      /*
+       * We're using the ID as the min/max/priority
+       * for the volume QoS.
+       */
+      testVdb = new VolumeDesc(testVolName,
+                               testVolId,
+                               testVolId,
+                               testVolId * 2,
+                               testVolId);
+      fds_assert(testVdb != NULL);
+      volEventOmHandler(testVolId,
+                        testVdb,
+                        FDS_VOL_ACTION_CREATE);
+
+      delete testVdb;
+    }
+  }
 
   communicator()->waitForShutdown();
 

@@ -9,21 +9,39 @@ namespace fds {
 
 extern ObjectStorMgr *objStorMgr;
 
-StorMgrVolume::StorMgrVolume(const VolumeDesc &vdb,
-                             ObjectStorMgr *sm,
-                             fds_log *parent_log)
-  : FDS_Volume(),
+StorMgrVolume::StorMgrVolume(const VolumeDesc&  vdb,
+                             ObjectStorMgr     *sm,
+                             fds_log           *parent_log)
+  : FDS_Volume(vdb),
     parent_sm(sm) {
+  /*
+   * Setup storage prefix.
+   * All other values are default for now
+   */
   std::string filename;
-  /* all other values are default for now */
-  filename= sm->stor_prefix + "SNodeVolIndex" + std::to_string(vdb.volUUID);
-  
-  vol_desc = new VolumeDesc(vdb);
+  filename= sm->getStorPrefix() + "SNodeVolIndex" + std::to_string(vdb.volUUID);
+
+  /*
+   * Create volume queue with parameters based on
+   * the volume descriptor.
+   * TODO: The queue capacity is still hard coded. We
+   * should calculate this somehow.
+   */
+  volQueue = new SmVolQueue(voldesc->GetID(),
+                            50,
+                            voldesc->getIopsMax(),
+                            voldesc->getIopsMax(),
+                            voldesc->getPriority());
+
   volumeIndexDB  = new ObjectDB(filename);
 }
 
-StorMgrVolume::~StorMgrVolume()
-{
+StorMgrVolume::~StorMgrVolume() {
+  /*
+   * TODO: Should do some sort of checking/cleanup
+   * if the volume queue isn't empty.
+   */
+  delete volQueue;
   delete volumeIndexDB;
 }
 
@@ -74,8 +92,7 @@ Error err(ERR_OK);
 
 /* creates its own logger */
 StorMgrVolumeTable::StorMgrVolumeTable(ObjectStorMgr *sm, fds_log *parent_log)
-  : parent_sm(sm)
-{
+  : parent_sm(sm) {
   if (parent_log) {
     vt_log = parent_log;
     created_log = false;
@@ -96,8 +113,7 @@ StorMgrVolumeTable::StorMgrVolumeTable(ObjectStorMgr *sm)
   : StorMgrVolumeTable(sm, NULL) {
 }
 
-StorMgrVolumeTable::~StorMgrVolumeTable()
-{
+StorMgrVolumeTable::~StorMgrVolumeTable() {
   /*
    * Iterate volume_map and free the volume pointers
    */
@@ -119,29 +135,31 @@ StorMgrVolumeTable::~StorMgrVolumeTable()
   }
 }
 
-
 /*
  * Creates volume if it has not been created yet
  * Does nothing if volume is already registered
  */
-Error StorMgrVolumeTable::registerVolume(VolumeDesc vdb)
-{
-  Error err(ERR_OK);
-  fds_volid_t vol_uuid = vdb.GetID();
+Error
+StorMgrVolumeTable::registerVolume(const VolumeDesc& vdb) {
+  Error       err(ERR_OK);
+  fds_volid_t volUuid = vdb.GetID();
+
   map_rwlock.write_lock();
-  if (volume_map.count(vol_uuid) < 1) {
-    StorMgrVolume* new_vol = new StorMgrVolume( vdb, parent_sm, vt_log);
-    if (new_vol) {
-      volume_map[vol_uuid] = new_vol;
-    }
-    else {
-      err = ERR_INVALID_ARG; // TODO: need more error types
-    }
+  if (volume_map.count(volUuid) == 0) {
+    FDS_PLOG(vt_log) << "Registering new volume " << volUuid;
+    StorMgrVolume* vol = new StorMgrVolume(vdb,
+                                           parent_sm,
+                                           vt_log);
+    fds_assert(vol != NULL);
+    volume_map[volUuid] = vol;
+  } else {
+    /*
+     * TODO: Should probably compare the known volume's details with
+     * the one we're being told about.
+     */
+    FDS_PLOG(vt_log) << "Register already known volume " << volUuid;
   }
   map_rwlock.write_unlock();
-
-  FDS_PLOG(vt_log) << "StorMgrVolumeTable - Register new volume " << vol_uuid
-		   << " result: " << err.GetErrstr();  
 
   return err;
 }
@@ -152,19 +170,18 @@ Error StorMgrVolumeTable::registerVolume(VolumeDesc vdb)
  */
 StorMgrVolume* StorMgrVolumeTable::getVolume(fds_volid_t vol_uuid)
 {
-   StorMgrVolume *ret_vol = NULL;
+  StorMgrVolume *ret_vol = NULL;
 
-   map_rwlock.read_lock();
-   if (volume_map.count(vol_uuid) > 0) {
-     ret_vol = volume_map[vol_uuid];
-   }
-   else {
-     FDS_PLOG(vt_log) << "StorMgrVolumeTable::getVolume - Volume " << vol_uuid
-		      << " does not exist";    
-   }
-   map_rwlock.read_unlock();
- 
-   return ret_vol;
+  map_rwlock.read_lock();
+  if (volume_map.count(vol_uuid) > 0) {
+    ret_vol = volume_map[vol_uuid];
+  }  else {
+    FDS_PLOG(vt_log) << "StorMgrVolumeTable::getVolume - Volume " << vol_uuid
+                     << " does not exist";    
+  }
+  map_rwlock.read_unlock();
+
+  return ret_vol;
 }
 
 Error  StorMgrVolumeTable::deregisterVolume(fds_volid_t vol_uuid) {

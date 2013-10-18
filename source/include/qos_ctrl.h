@@ -61,6 +61,7 @@ class FDS_QoSControl {
    virtual Error   processIO(FDS_IOType* io); // Schedule an IO on a thread from thrd pool
    fds_uint32_t     waitForWorkers(); // Blocks until there is a threshold num of workers in threadpool
    Error   enqueueIO(fds_volid_t volUUID, FDS_IOType *io);
+   void quieseceIOs(fds_volid_t volUUID);
 };
 
 }

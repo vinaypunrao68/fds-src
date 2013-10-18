@@ -63,9 +63,9 @@ class TestResp : public FDS_ProtocolInterface::FDSP_DataPathResp {
                            << added_objs[oid] << "]";
         assert(0);
       }
-      objMapLock->unlock();
       FDS_PLOG(test_log) << "Get object " << oid
                          << " response: SUCCESS; " << object_data;
+      objMapLock->unlock();
     } else {
       FDS_PLOG(test_log) << "Get object " << oid << " response: FAILURE";
       /*
@@ -448,7 +448,15 @@ class SmUnitTest {
   }
 
   ~SmUnitTest() {
-    delete test_log;
+    /*
+     * TODO: The test_log can be deleted while
+     * Ice messages are still incoming and using
+     * the log, which is a problem.
+     * Leak the log for now and fix this soon using
+     * coordination so that outstanding I/Os are
+     * accounted for prior to destruction.
+     */
+    // delete test_log;
   }
 
   fds_log* GetLogPtr() {
