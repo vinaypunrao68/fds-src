@@ -486,6 +486,10 @@ if __name__ == '__main__':
         suite = unittest.TestLoader().loadTestsFromTestCase(TestSequenceFunctions)
         unittest.TestSuite(suite).run(result)
         result.stopTestRun()
+    if len(sys.argv) > 1 and sys.argv[1] != "--jenkins":
+        suite = unittest.TestSuite()
+        suite.addTest(TestSequenceFunctions(sys.argv[1]))
+        unittest.TextTestRunner(verbosity=2).run(suite)
     else:
         suite = unittest.TestLoader().loadTestsFromTestCase(TestSequenceFunctions)
         unittest.TextTestRunner(verbosity=2).run(suite)
