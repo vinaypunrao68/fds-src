@@ -487,6 +487,7 @@ if __name__ == '__main__':
         unittest.TestSuite(suite).run(result)
         result.stopTestRun()
     if len(sys.argv) > 1 and sys.argv[1] != "--jenkins":
+        #We're creating a suite from the test provided at the command line
         suite = unittest.TestSuite()
         suite.addTest(TestSequenceFunctions(sys.argv[1]))
         unittest.TextTestRunner(verbosity=2).run(suite)
