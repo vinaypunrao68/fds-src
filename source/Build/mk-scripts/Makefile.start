@@ -103,7 +103,7 @@ main_rpcgen_dir := $(topdir)/rpcgen
 main_incl_flags := -I. -I$(main_incl_dir)
 
 local_cc_common := -g -fPIC $(main_incl_flags)
-main_cc_defs    := -D_REENTRANT
+main_cc_defs    := -D_REENTRANT -D_FILE_OFFSET_BITS=64
 
 # TODO: need to enable these flags.
 # main_cc_flags   := -Wstrict-prototypes -Wall -Werror
