@@ -33,7 +33,7 @@ $(call comm_lib_tgt,$(1)): $(call comm_src2obj,$($(1)))
 ifdef VERBOSE
 	$(ar) $(rule_ar_flags) $$@ $$+
 else
-	@echo "\t[LINK .a]\t$$@"
+	@echo "    [LINK .a]     $$@"
 	@$(ar) $(rule_ar_flags) $$@ $$+
 endif
 endef
@@ -46,7 +46,7 @@ $(call comm_so_tgt,$(1)): $(call comm_src2obj,$($(1)))
 ifdef VERBOSE
 	$(ld) $(rule_so_flags) $$+ -o $$@
 else
-	@echo "\t[LINK .so]\t$$@"
+	@echo "    [LINK .so]    $$@"
 	@$(ld) $(rule_so_flags) $$+ -o $$@
 endif
 endef
@@ -59,7 +59,7 @@ $(comm_dir_bin)/$(1): $(call comm_src2obj,$($(1))) $(comm_lib_dep)
 ifdef VERBOSE
 	$(cpp) $(call comm_src2obj,$($(1))) $(rule_exe_flags) -o $$@
 else
-	@echo "\t[LINK .exe]\t$$@"
+	@echo "    [LINK .exe]   $$@"
 	@$(cpp) $(call comm_src2obj,$($(1))) $(rule_exe_flags) -o $$@
 endif
 endef
@@ -72,7 +72,7 @@ $(comm_install_dir)/$(1): $(1)
 ifdef VERBOSE
 	cp $(1) $(comm_install_dir)
 else
-	@echo "\t[INSTALL]\t$(comm_install_dir)/$(1)"
+	@echo "    [INSTALL]     $(comm_install_dir)/$(1)"
 	@cp $(1) $(comm_install_dir)
 endif
 endef
@@ -85,7 +85,7 @@ $(comm_dir_bin)/$(1): $(call comm_src2obj,$($(1)))
 ifdef VERBOSE
 	$(ld) $(rule_mod_flags) $$+ -o $$@
 else
-	@echo "\t[LINK kmod]\t$$@"
+	@echo "    [LINK kmod]   $$@"
 	@export LDFLAGS_MODULE="$(rule_mod_flags)"; echo $$LDFLAGS_MODULE
 endif
 endef
@@ -123,7 +123,7 @@ $(patsubst %.x,$(user_rpc_hdr_dir)/%.h, $(1)): $(1)
 ifdef VERBOSE
 	$(rpcgen) -M -h $$+ -o $$@
 else
-	@echo "\t[RPCGEN .x]\t$$@"
+	@echo "    [RPCGEN .x]   $$@"
 	@$(rpcgen) -M -h $$+ -o $$@
 endif
 endef
@@ -134,7 +134,7 @@ $(patsubst %.x,%_clnt.c, $(1)): $(1)
 ifdef VERBOSE
 	$(rpcgen) -M -l $$+ -o $$@
 else
-	@echo "\t[RPCGEN .x]\t$$@"
+	@echo "    [RPCGEN .x]   $$@"
 	@$(rpcgen) -M -l $$+ -o $$@
 endif
 endef
@@ -145,7 +145,7 @@ $(patsubst %.x,%_xdr.c, $(1)): $(1)
 ifdef VERBOSE
 	$(rpcgen) -M -c $$+ -o $$@
 else
-	@echo "\t[RPCGEN .x]\t$$@"
+	@echo "    [RPCGEN .x]   $$@"
 	@$(rpcgen) -M -c $$+ -o $$@
 endif
 endef
@@ -156,7 +156,7 @@ $(patsubst %.x,%_serv.c, $(1)): $(1)
 ifdef VERBOSE
 	$(rpcgen) -M -m $$+ -o $$@
 else
-	@echo "\t[RPCGEN .x]\t$$@"
+	@echo "    [RPCGEN .x]   $$@"
 	@$(rpcgen) -M -m $$+ -o $$@
 endif
 endef

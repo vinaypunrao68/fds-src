@@ -14,7 +14,7 @@ user_fds_ar_libs  :=                   \
     fds-StorHvisor fds-lib fds-dsk-mgnt fds-dsk-io fds-umod fds-thread fds-util fds-fdsp
 
 user_non_fds_libs :=                                                          \
-    boost_log boost_system boost_thread boost_date_time boost_program_options \
+    boost_log boost_system boost_filesystem boost_thread boost_date_time boost_program_options \
     Ice IceUtil IceStorm leveldb ssl crypto leveldb
 
 stor_mgr_cpp      :=                   \

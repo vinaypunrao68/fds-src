@@ -33,6 +33,7 @@
 
 #include <include/fds_qos.h>
 #include <include/qos_ctrl.h>
+#include <include/fds_assert.h>
 #include <utility>
 #include <atomic>
 #include <unordered_map>
@@ -86,6 +87,20 @@ namespace fds {
 
 
   class ObjectStorMgr : virtual public Ice::Application {
+ private:
+    typedef enum {
+      NORMAL_MODE = 0,
+      TEST_MODE   = 1,
+      MAX
+    } SmRunModes;
+
+    fds_uint32_t port_num;     /* Data path port num */
+    fds_uint32_t cp_port_num;  /* Control path port num */
+    std::string  myIp;         /* This nodes local IP */
+    std::string  stor_prefix;  /* Local storage prefix */
+    SmRunModes   runMode;      /* Whether we're in a test mode or not */
+    fds_uint32_t numTestVols;  /* Number of vols to use in test mode */
+
  public:
     fds_int32_t   sockfd;
     fds_uint32_t  num_threads;
@@ -94,14 +109,9 @@ namespace fds {
    
     fds_mutex     *objStorMutex;
 
-    DiskMgr       *diskMgr;
-    ObjectDB      *objStorDB;
-    ObjectDB      *objIndexDB;
-    std::string stor_prefix;
-
-    fds_uint32_t port_num;     /* Data path port num */
-    fds_uint32_t cp_port_num;  /* Control path port num */
-    std::string myIp;          /* This nodes local IP */
+    DiskMgr     *diskMgr;
+    ObjectDB    *objStorDB;
+    ObjectDB    *objIndexDB;
 
     StorMgrVolumeTable *volTbl;
     OMgrClient         *omClient;
@@ -136,6 +146,10 @@ namespace fds {
     void interruptCallback(int);
     void          unitTest();
 
+    const std::string& getStorPrefix() const {
+      return stor_prefix;
+    }
+
     /*
      * Declare the Ice interface class as a friend so it can access
      * the internal request tracking members.
@@ -146,6 +160,7 @@ namespace fds {
 
  private:
     fds_uint32_t totalRate;
+    fds_uint32_t qosThrds;
 
     /*
      * Outstanding request tracking members.
@@ -196,11 +211,15 @@ namespace fds {
                 uint32_t _max_thrds,
                 dispatchAlgoType algo,
                 fds_log *log) :
-      FDS_QoSControl(_max_thrds, algo, log) {
+      FDS_QoSControl(_max_thrds, algo, log, "SM") {
         parentSm = _parent;
         dispatcher = new QoSWFQDispatcher(this, parentSm->totalRate, log);
+        /* base class created stats, but they are disable by default */
+        stats->enable();
       }
       ~SmQosCtrl() {
+	if (stats)
+	  stats->disable();
       }
 
       Error processIO(FDS_IOType* _io) {
@@ -220,13 +239,18 @@ namespace fds {
         return err;
       }
 
+      Error markIODone(const FDS_IOType& _io) {
+	Error err(ERR_OK);
+	stats->recordIO(_io.io_vol_id, 0);
+	return err;
+      }
+
     };
 
  private:
     /*
      * TODO: Just make a single queue for now for testing purposes.
      */
-    SmVolQueue *testVolQueue;
     SmQosCtrl  *qosCtrl;
   };
 

@@ -61,7 +61,8 @@ bin_map = {
     OM      : "orchMgr"
 }
 bin_args = {
-    OM      : "--test"
+    OM      : "--test",
+    STORMGR : "--test_mode"
 }
 dir_map = {
     STORMGR : fds_bin_dir,

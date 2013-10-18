@@ -62,7 +62,7 @@ pdio_read(DiskReqTest *req)
 
     pio.disk_read(req);
     rd_count++;
-    if ((rd_count % 1000) == 0) {
+    if ((rd_count % 10000) == 0) {
         cout << "Issued " << rd_count << " read requests..." << endl;
     }
 }
@@ -71,7 +71,7 @@ pdio_read(DiskReqTest *req)
 // -----------
 //
 static void
-pdio_write(fds::fds_threadpool *pool)
+pdio_write(fds::fds_threadpool *pool, DiskReqTest *cur)
 {
     static int      wr_count;
     DiskReqTest     *req;
@@ -80,20 +80,25 @@ pdio_write(fds::fds_threadpool *pool)
     fds::ObjectBuf  *buf;
     diskio::DataIO  &pio = diskio::DataIO::disk_singleton();
 
-    vadr_set_inval(vio.vol_adr);
-    oid.oid_hash_hi = random();
-    oid.oid_hash_lo = random();
+    if (cur == nullptr) {
+        vadr_set_inval(vio.vol_adr);
+        vio.vol_rsvd    = 0;
+        vio.vol_blk_len = 0;
+        oid.oid_hash_hi = random();
+        oid.oid_hash_lo = random();
 
-    buf = new fds::ObjectBuf;
-    buf->size = 8 << diskio::DataIO::disk_io_blk_shift();
-    buf->data.reserve(buf->size);
+        buf = new fds::ObjectBuf;
+        buf->size = 8 << diskio::DataIO::disk_io_blk_shift();
+        buf->data.reserve(buf->size);
 
-    req = new DiskReqTest(pool, vio, oid, buf, oid.oid_hash_hi % 2);
-    req->req_gen_pattern();
-
+        req = new DiskReqTest(pool, vio, oid, buf, oid.oid_hash_hi % 2);
+        req->req_gen_pattern();
+    } else {
+        req = cur;
+    }
     pio.disk_write(req);
     wr_count++;
-    if ((wr_count % 1000) == 0) {
+    if ((wr_count % 10000) == 0) {
         cout << "Issued " << wr_count << " write requests..." << endl;
     }
 }
@@ -111,9 +116,13 @@ DiskReqTest::req_complete()
         tst_pool->schedule(pdio_read, this);
     } else {
         req_verify();
-        if (tst_iter < 3) {
-            dat_buf->data.clear();
-            tst_pool->schedule(pdio_read, this);
+        if (tst_iter < 30000) {
+            if (tst_iter % 2) {
+                tst_pool->schedule(pdio_write, tst_pool, this);
+            } else {
+                dat_buf->data.clear();
+                tst_pool->schedule(pdio_read, this);
+            }
         } else {
             delete this;
             return;
@@ -129,7 +138,6 @@ DiskReqTest::req_verify()
 {
     std::string::iterator s1, s2;
 
-    return;
     s1 = dat_buf->data.begin();
     s2 = tst_verf.data.begin();
     for (int i = 0; i < dat_buf->size; i++) {
@@ -145,17 +153,26 @@ DiskReqTest::req_verify()
 void
 DiskReqTest::req_gen_pattern()
 {
-    char start;
+    char *p, start, save[200];
     std::string::iterator s1, s2;
 
     fds_verify(dat_buf->size == tst_verf.size);
+    snprintf(save, sizeof(save), "[0x%p] - 0x%llx 0x%llx", this,
+             idx_oid.oid_hash_hi, idx_oid.oid_hash_lo);
+    p  = save;
     s1 = dat_buf->data.begin();
     s2 = tst_verf.data.begin();
 
     start = (idx_oid.oid_hash_hi % 2) ? 'A' : 'a';
     for (int i = 0; i < dat_buf->size; i++) {
-        *s1 = start + (i % 26);
-        *s2 = *s1;
+        if (*p != '\0') {
+            *s1 = *p;
+            *s2 = *p;
+            p++;
+        } else {
+            *s1 = start + (i % 26);
+            *s2 = *s1;
+        }
         s1++;
         s2++;
     }
@@ -172,7 +189,7 @@ main(int argc, char **argv)
     fds::fds_threadpool  pool(100);
 
     io_test.mod_execute();
-    for (int i = 0; i < 1000; i++) {
-        pool.schedule(pdio_write, &pool);
+    for (int i = 0; i < 100000; i++) {
+        pool.schedule(pdio_write, &pool, nullptr);
     }
 }

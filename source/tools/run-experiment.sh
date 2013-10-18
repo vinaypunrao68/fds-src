@@ -156,7 +156,7 @@ popd
 sleep 10
 
 #####  create policies, and volume for each policy  ######
-devix=0
+devix=1
 for policy in $POLICIES
 do
   # create policy #
@@ -205,7 +205,7 @@ done
 sleep 10
 
 #### start workloads #####
-devix=0
+devix=1
 wpids=
 for workload in $WORKLOADS
 do
@@ -241,15 +241,15 @@ cat $RESULT_DIR/*$PREFIX*.stat > $RESULT_DIR/$PREFIX"_allvolumess.stat"
 # output fine-granularity stats) like dd, etc. Assumes that we cleaned up that
 # directory in the beginning of the experiment, so all files in there are 
 # the files from this experiment
-# NOTE: need to turn on stats dump by calling SH->vol_table->startPerfStats() that
-# are currently called only from StorHvisorNet.cpp::unitTest() 
+# UNCOMMENT BELOW if you want -- but better to clean stats dir once in a while
+# otherwise will take foreever to remake graphs for all (old) .stat files
 #
-for file in $BIN_DIR/stats/* 
-do
-  fname=$(basename $file)
-  cp $file $RESULT_DIR/$PREFIX"_SH_"$fname
-done
-./plot-all-stats.sh -d $RESULT_DIR -f $PREFIX"_SH_"
+#for file in $BIN_DIR/stats/* 
+#do
+#  fname=$(basename $file)
+#  cp $file $RESULT_DIR/$PREFIX"_"$fname
+#done
+#./plot-all-stats.sh -d $RESULT_DIR -f $PREFIX"_SH_"
 
 #### cleanup ##########
 cleanup

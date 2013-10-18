@@ -18,8 +18,8 @@ class FDS_QoSControl;
 class TBUnitTest {
 public:
   
-  StatIOPS* iops_stats;
-  StatIOPS* giops_stats;
+  PerfStats* iops_stats;
+  PerfStats* giops_stats;
   fds_uint32_t volume_id;
 
   fds_uint64_t interarrival_usec;  /* time in microsec between IO arrival, 0 means as fast as possible */
@@ -36,8 +36,12 @@ public: /* methods */
      volids.push_back(volume_id);
      std::string gtestname = testname + std::string("_guarnt");
 
-     iops_stats = new StatIOPS(testname, volids);
-     giops_stats = new StatIOPS(gtestname, volids);
+     iops_stats = new PerfStats(std::string("iops"));
+     if (iops_stats) iops_stats->enable();
+
+     giops_stats = new PerfStats(std::string("guaranteed"));
+     if (giops_stats) giops_stats->enable();
+
      next_idle = boost::posix_time::second_clock::universal_time() + boost::posix_time::seconds(on_seconds);
      next_io = boost::posix_time::microsec_clock::universal_time() + boost::posix_time::microseconds(interarrival_usec);
   }
@@ -53,7 +57,7 @@ public: /* methods */
     boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
 
     /* record io completion */
-    iops_stats->handleIOCompletion(volume_id, now);
+    iops_stats->recordIO(volume_id, 0);
     boost::posix_time::time_duration elapsed = now - start_ts;
     int cur_duration = elapsed.seconds();
   
@@ -86,12 +90,20 @@ public: /* methods */
     int result = 0;
     boost::posix_time::ptime start_ts = boost::posix_time::microsec_clock::universal_time();
     int cur_duration = 0;
+
+    std::cout << "Start running min_max token bucket unit test" << std::endl;
+    if (!iops_stats || !giops_stats){
+      std::cout << "Failed to start stats collection" << std::endl;
+      return -1;
+    }
+
     TBQueueState* qstate = new TBQueueState(volume_id, min_rate, max_rate, 1, 100000, burst);
     if (!qstate) {
       std::cout << "Failed to allocate queue state " << std::endl;
       return -1;
     }
 
+ 
     qstate->handleIoEnqueue(NULL); /* parameter is ignored for now */
     while (cur_duration < run_seconds)
       {
@@ -101,7 +113,7 @@ public: /* methods */
 	  TBQueueState::tbStateType state = qstate->tryToConsumeAssuredTokens(1);
 	  if (state == TBQueueState::TBQUEUE_STATE_OK) {
 	    /* we just consumed guaranteed token */
-	    giops_stats->handleIOCompletion(volume_id, boost::posix_time::microsec_clock::universal_time());
+	    giops_stats->recordIO(volume_id, 0);
 	    b_go = true;
 	  }
 	  /* else try to consume up to max */
@@ -148,6 +160,11 @@ public: /* methods */
 
     std::cout << "Start running TBUnitTest" << std::endl;
 
+    if (!iops_stats) {
+      std::cout << "Failed to start stats collection" << std::endl;
+      return -1;
+    }
+    
     /* just in main thread */
     while (cur_duration < run_seconds)
     {
@@ -155,11 +172,11 @@ public: /* methods */
        while ( !tb.tryToConsumeTokens(1) ) {
           fds_uint64_t delay = tb.getDelayMicrosec(1);
           if (delay > 0) {
-             boost::this_thread::sleep(boost::posix_time::microseconds(delay));
+	      boost::this_thread::sleep(boost::posix_time::microseconds(delay));
           }
           tb.updateTBState();
        }
-
+      
        /* execute io -- nothing to do, store is infinite capacity */
 
        cur_duration = handle_io_completion_and_wait_io_arrival(start_ts);

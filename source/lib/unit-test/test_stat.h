@@ -9,7 +9,7 @@
 #include <IceUtil/IceUtil.h>
 
 #include "fds_types.h"
-#include "PerfStat.h"
+#include <util/PerfStat.h>
 
 namespace fds {
 
@@ -48,7 +48,8 @@ public:
         StatHistory* hist = new StatHistory(*it, 12, 1);
         vol_hist[*it] = hist;
     }
- 
+
+    start_time = boost::posix_time::second_clock::universal_time();
     last_print_time = boost::posix_time::microsec_clock::universal_time();    
 
     IceUtil::Time interval = IceUtil::Time::seconds(10);
@@ -74,7 +75,8 @@ public:
   inline void handleIOCompletion(fds_uint32_t volid, boost::posix_time::ptime ts) 
   {
     StatHistory* hist = vol_hist[volid];
-    hist->addIo(ts,0);
+    boost::posix_time::time_duration elapsed = ts - start_time;
+    hist->addIo(elapsed.total_seconds(),0);
    }
 
   void printPerfStats()
@@ -91,6 +93,8 @@ public:
 private:
   std::ofstream statfile;
   std::unordered_map<fds_uint32_t, StatHistory*> vol_hist;
+
+  boost::posix_time::ptime start_time;
 
   boost::posix_time::ptime last_print_time;
   int print_interval_sec;

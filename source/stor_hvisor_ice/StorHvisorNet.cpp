@@ -246,9 +246,6 @@ int unitTest(fds_uint32_t time_mins) {
   w_buf    = new char[req_size]();
   r_buf    = new char[req_size]();
 
-  /* start dumping perf stats */
-  storHvisor->vol_table->startPerfStats();
-
   if (time_mins > 0) {
     /*
      * Do a time based unit test.
@@ -325,9 +322,6 @@ int unitTest(fds_uint32_t time_mins) {
   }
   delete w_buf;
   delete r_buf;
-
-  /* stop perf stats */
-  storHvisor->vol_table->stopPerfStats();
 
   return result;
 }
