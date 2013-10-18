@@ -23,6 +23,7 @@ namespace fds {
     fds_log *qda_log;
     queue_map_t queue_map;
     FDS_QoSControl *parent_ctrlr;
+    float current_throttle_level;
     fds_uint64_t total_svc_rate;
     fds_rwlock qda_lock; // Protects queue_map (and any high level structures in derived class) 
                          // from events like volumes being inserted or removed during enqueue IO or dispatchIO.
@@ -127,6 +128,12 @@ namespace fds {
       que->resumeIO();
 
     } 
+
+    virtual void setThrottleLevel(float throttle_level) {
+      assert((throttle_level >= -10) && (throttle_level <= 10));
+      current_throttle_level = throttle_level;
+      FDS_PLOG(qda_log) << "Dispatcher adjusting current throttle level to " << throttle_level;
+    }
 
     virtual Error enqueueIO(fds_uint32_t queue_id, FDS_IOType *io) {
 
