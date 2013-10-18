@@ -398,9 +398,11 @@ ObjectStorMgr::putObjectInternal(const SmIoReq& putReq) {
      * Reset the err to OK to ack the metadata update.
      */
     err = ERR_OK;
+    qosCtrl->markIODone(putReq);
     return err;
   } else if (err != ERR_OK) {
     FDS_PLOG(objStorMgr->GetLog()) << "Failed to put object: " << err;
+    qosCtrl->markIODone(putReq);
     return err;
   }
 
@@ -414,6 +416,7 @@ ObjectStorMgr::putObjectInternal(const SmIoReq& putReq) {
 
   if (err != fds::ERR_OK) {
     FDS_PLOG(objStorMgr->GetLog()) << "Failed to put object " << err;
+    qosCtrl->markIODone(putReq);
     return err;
   } else {
     FDS_PLOG(objStorMgr->GetLog()) << "Successfully put key " << objId;
@@ -430,6 +433,8 @@ ObjectStorMgr::putObjectInternal(const SmIoReq& putReq) {
     put_obj_req->data_obj_id,
     put_obj_req->data_obj_len);
   */
+
+  qosCtrl->markIODone(putReq);
 
   /*
    * TODO: We should be processing the putobject network
@@ -550,6 +555,8 @@ ObjectStorMgr::getObjectInternal(const SmIoReq& getReq) {
   swapMgrId(msgHdr);
   fdspDataPathClient->begin_GetObjectResp(msgHdr, getObj);
   FDS_PLOG(objStorMgr->GetLog()) << "Sent async GetObj response after processing";
+
+  qosCtrl->markIODone(getReq);
   
   /*
    * Free the IO request structure that

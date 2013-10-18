@@ -3,14 +3,28 @@
 
 namespace fds {
 
-StorHvQosCtrl::StorHvQosCtrl(uint32_t max_thrds, dispatchAlgoType algo, fds_log *log) : FDS_QoSControl::FDS_QoSControl(max_thrds, algo, log) {
+StorHvQosCtrl *storHvQosCtrl; // global pointer to track the singleton instance
+
+void StorHvQosCtrl::throttleCmdHandler(const float throttle_level) {
+  storHvQosCtrl->htb_dispatcher->setThrottleLevel(throttle_level);
+}
+
+StorHvQosCtrl::StorHvQosCtrl(uint32_t max_thrds, dispatchAlgoType algo, fds_log *log) 
+  : FDS_QoSControl::FDS_QoSControl(max_thrds, algo, log, "SH") 
+{
      if ( dispatchAlgo == FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET) {
         htb_dispatcher = new QoSHTBDispatcher(this, qos_log, total_rate);
      }
+     storHvQosCtrl = this;
+
+     /* base class created stats, but it is disabled by default */
+     stats->enable();
 }
 
 StorHvQosCtrl::~StorHvQosCtrl() {
   delete htb_dispatcher;
+  if (stats)
+    stats->disable();
 }
 
 
@@ -45,10 +59,12 @@ void StorHvQosCtrl::runScheduler() {
 
 
 Error StorHvQosCtrl::markIODone(FDS_IOType *io) {
-Error err(ERR_OK);
-    htb_dispatcher->markIODone(io);
-    delete io;
-    return err;
+  Error err(ERR_OK);
+  /* TODO: also record latency (now passign 0) */
+  stats->recordIO(io->io_vol_id, 0);
+  htb_dispatcher->markIODone(io);
+  delete io;
+  return err;
 }
 
   void   StorHvQosCtrl::setQosDispatcher(dispatchAlgoType algo_type, FDS_QoSDispatcher *qosDispatcher) {

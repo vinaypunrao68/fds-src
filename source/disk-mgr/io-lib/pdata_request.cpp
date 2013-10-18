@@ -73,7 +73,7 @@ IndexRequest::req_set_wakeup_cond()
 //
 DiskRequest::DiskRequest(meta_vol_io_t       &vio,
                          meta_obj_id_t       &oid,
-                         fds::ObjectBuf      &buf,
+                         fds::ObjectBuf      *buf,
                          bool                block)
     : IndexRequest(oid, vio, block), dat_buf(buf)
 {
@@ -85,7 +85,7 @@ DiskRequest::DiskRequest(meta_vol_io_t       &vio,
                          meta_obj_id_t       &oid,
                          meta_obj_id_t       *old_oid,
                          meta_vol_io_t       *new_vol,
-                         fds::ObjectBuf      &buf,
+                         fds::ObjectBuf      *buf,
                          bool                block)
     : IndexRequest(oid, block), dat_buf(buf)
 {
@@ -99,6 +99,10 @@ DiskRequest::DiskRequest(meta_vol_io_t       &vio,
     } else {
         vadr_set_inval(dat_new_vol.vol_adr);
     }
+}
+
+DiskRequest::~DiskRequest()
+{
 }
 
 // \DiskRequest::req_has_remap_oid

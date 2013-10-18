@@ -112,6 +112,13 @@ class ControlPathReq : public FDS_ProtocolInterface::FDSP_ControlPathReq {
     }
   }
 
+  void SetThrottleLevel(const FDSP_MsgHdrTypePtr& msg_hdr, 
+			const FDSP_ThrottleMsgTypePtr& throttle_req, 
+			const Ice::Current&) {
+    std::cout << "Received SetThrottleLevel with level = "
+	      << throttle_req->throttle_level;
+  }
+
 
 private:
   fds_log* test_log;

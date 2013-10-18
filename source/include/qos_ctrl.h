@@ -7,6 +7,7 @@
 #include <iostream>
 #include <boost/atomic.hpp>
 #include <util/Log.h>
+#include <util/PerfStat.h>
 #include <concurrency/ThreadPool.h>
 #include "fds_err.h"
 #include <fdsp/FDSP.h>
@@ -51,7 +52,7 @@ class FDS_QoSControl {
    FDS_QoSControl();
    ~FDS_QoSControl();
 
-   FDS_QoSControl(fds_uint32_t _max_thrds, dispatchAlgoType algo, fds_log *log);
+   FDS_QoSControl(fds_uint32_t _max_thrds, dispatchAlgoType algo, fds_log *log, const std::string& prefix);
    
    Error   registerVolume(fds_uint64_t voluuid, FDS_VolumeQueue *q);
    Error   deregisterVolume(fds_uint64_t voluuid);
@@ -62,6 +63,9 @@ class FDS_QoSControl {
    fds_uint32_t     waitForWorkers(); // Blocks until there is a threshold num of workers in threadpool
    Error   enqueueIO(fds_volid_t volUUID, FDS_IOType *io);
    void quieseceIOs(fds_volid_t volUUID);
+
+ protected:
+   PerfStats *stats;
 };
 
 }

@@ -45,7 +45,10 @@ namespace fds {
                                        int node_state,
                                        fds_uint32_t node_port,
                                        FDSP_MgrIdType node_type);
-  typedef void (*volume_event_handler_t)(fds::fds_volid_t volume_id, fds::VolumeDesc *vdb, fds_vol_notify_t vol_action);
+  typedef void (*volume_event_handler_t)(fds::fds_volid_t volume_id, 
+					 fds::VolumeDesc *vdb, 
+					 fds_vol_notify_t vol_action);
+  typedef void (*throttle_cmd_handler_t)(const float throttle_level);
 
 
   class OMgrClient {
@@ -65,11 +68,13 @@ namespace fds {
     Node_Table_Type dlt;
     int dmt_version;
     Node_Table_Type dmt;
+    float current_throttle_level;
     
     fds_log *omc_log;
 
     node_event_handler_t node_evt_hdlr;
     volume_event_handler_t vol_evt_hdlr;
+    throttle_cmd_handler_t throttle_cmd_hdlr;
 
 #if 0
     Ice::CommunicatorPtr pubsub_comm;
@@ -100,6 +105,7 @@ namespace fds {
     int initialize();
     int registerEventHandlerForNodeEvents(node_event_handler_t node_event_hdlr);
     int registerEventHandlerForVolEvents(volume_event_handler_t vol_event_hdlr);
+    int registerThrottleCmdHandler(throttle_cmd_handler_t throttle_cmd_hdlr);
     //    int subscribeToOmEvents(unsigned int om_ip_addr, int tennant_id, int domain_id, int omc_port_num=0);
     int startAcceptingControlMessages();
     int startAcceptingControlMessages(fds_uint32_t port_num);
@@ -119,6 +125,7 @@ namespace fds {
                       VolumeDesc *vdb,
                       fds_vol_notify_t vol_action);
     int recvVolAttachState(fds_volid_t vol_id, VolumeDesc *vdb, int vol_action);
+    int recvSetThrottleLevel(const float throttle_level);
 
   };
 
@@ -164,6 +171,10 @@ namespace fds {
     void NotifyDMTUpdate(const FDSP_MsgHdrTypePtr& msg_hdr,
 			 const FDSP_DMT_TypePtr& dmt_info,
 			 const Ice::Current&);
+
+    void SetThrottleLevel(const FDSP_MsgHdrTypePtr& msg_hdr, 
+					const FDSP_ThrottleMsgTypePtr& throttle_msg, 
+					    const Ice::Current&);
 
   };
 

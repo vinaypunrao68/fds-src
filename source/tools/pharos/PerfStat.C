@@ -221,7 +221,7 @@ namespace fds {
 	long ts = stat_slots[ix].getTimestamp();
 	if (ts > last_printed_ts)
 	  {
-            fprintf(dumpFile, "-- %.2f,%d,%ld,%d,%ld,%ld,%ld\n",
+            fprintf(dumpFile, "%.2f,%d,%ld,%d,%ld,%ld,%ld\n",
 		    curts, 
 		    stream_id,
 		    (long)start_time + stat_slots[ix].getTimestamp(),

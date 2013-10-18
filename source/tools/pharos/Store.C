@@ -17,8 +17,8 @@ void Store::initialize()
   assert(fd<0);
 
   fd = readonly 
-    ? ::open(name.c_str(), O_RDONLY /*| O_DIRECT*/)
-       : ::open(name.c_str(), O_RDWR /*  | O_DIRECT*/);
+    ? ::open(name.c_str(), O_RDONLY | O_DIRECT)
+       : ::open(name.c_str(), O_RDWR | O_DIRECT);
   if (fd < 0)
     printx("Error opening %s: %s\n", name.c_str(), strerror(errno));
   

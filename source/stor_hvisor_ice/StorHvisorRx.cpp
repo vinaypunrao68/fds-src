@@ -58,9 +58,8 @@ int StorHvCtrl::fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const
 	  - we will have to handle sending more data due to length difference
 	*/
 
-	boost::posix_time::ptime ts = boost::posix_time::microsec_clock::universal_time();
-	long lat = vol->journal_tbl->microsecSinceCtime(ts) - req->sh_queued_usec;
-	vol->stat_history->addIo(ts, lat);
+	//boost::posix_time::ptime ts = boost::posix_time::microsec_clock::universal_time();
+	//long lat = vol->journal_tbl->microsecSinceCtime(ts) - req->sh_queued_usec;
 
 	/*
 	 - respond to the block device- data ready 
@@ -68,6 +67,7 @@ int StorHvCtrl::fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const
 	
 	FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - GET_OBJ_RSP  responding to  the block :  " << req;
 	if(req) {
+          qos_ctrl->markIODone(txn->io);
           if (rd_msg->result == FDSP_ERR_OK) { 
               memcpy(req->buf, get_obj_rsp->data_obj.c_str(), req->len);
 	      txn->fbd_complete_req(req, 0);
@@ -114,10 +114,6 @@ int StorHvCtrl::fds_process_put_obj_resp(const FDSP_MsgHdrTypePtr& rx_msg, const
                                            << " - Recvd SM PUT_OBJ_RSP RSP "
                                            << " ip " << rx_msg->src_ip_lo_addr
                                            << " port " << rx_msg->src_port;
-
-	    boost::posix_time::ptime ts = boost::posix_time::microsec_clock::universal_time();
-	    long lat = vol->journal_tbl->microsecSinceCtime(ts) - req->sh_queued_usec;
-	    vol->stat_history->addIo(ts, lat);
 
 	    fds_move_wr_req_state_machine(rx_msg);
         }
@@ -407,6 +403,7 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
     if (fdsp_msg_hdr->result != FDS_ProtocolInterface::FDSP_ERR_OK) {
       FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Journal Entry  " << fdsp_msg_hdr->req_cookie <<  ":  QueryCatalogObjResp returned error ";
       req = (fbd_request_t *)journEntry->write_ctx;
+      storHvisor->qos_ctrl->markIODone(journEntry->io);
       journEntry->trans_state = FDS_TRANS_EMPTY;
       journEntry->write_ctx = 0;
       if(req) {
@@ -427,6 +424,7 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
     if(num_nodes == 0) {
       FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - DataPlace Error : no nodes in DLT :Jrnl Entry" << fdsp_msg_hdr->req_cookie <<  "QueryCatalogObjResp ";
       req = (fbd_request_t *)journEntry->write_ctx;
+      storHvisor->qos_ctrl->markIODone(journEntry->io);
       journEntry->trans_state = FDS_TRANS_EMPTY;
       journEntry->write_ctx = 0;
       if(req) {

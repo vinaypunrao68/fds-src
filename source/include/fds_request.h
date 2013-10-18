@@ -114,9 +114,9 @@ class Request
     Request(bool block);
     ~Request();
 
-    const fds_uint32_t req_state_wait = 0x20000000;
-    const fds_uint32_t req_state_done = 0x40000000;
-    const fds_uint32_t req_block      = 0x80000000;
+    static const fds_uint32_t req_state_wait = 0x20000000;
+    static const fds_uint32_t req_state_done = 0x40000000;
+    static const fds_uint32_t req_block      = 0x80000000;
 
     // \req_abort
     // ----------
@@ -167,6 +167,14 @@ class Request
     //
     virtual void req_status(RequestStatus *status);
 
+    // \req_blocking_mode
+    // ------------------
+    // Return true if the request is in the blocking mode.
+    //
+    inline bool req_blocking_mode()
+    {
+        return ((req_queue != nullptr) && (req_state & Request::req_block));
+    }
   private:
     friend class RequestQueue;
     fds::ChainLink           req_link;

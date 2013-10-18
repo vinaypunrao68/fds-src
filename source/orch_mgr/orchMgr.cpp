@@ -555,6 +555,81 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
   currentDom->domain_ptr->sendNodeTableToFdsNodes(table_type_dmt);
 }
 
+void OrchMgr::SetThrottleLevelForDomain(int domain_id, float throttle_level) {
+
+  localDomainInfo  *currentDom;
+
+  FDS_PLOG(GetLog()) << "Setting throttle level for domain "
+                     << domain_id << " at " << throttle_level;
+
+  /*
+   * get the domain Id. If  Domain is not created  use  default domain 
+   * for now use the default domain
+   */
+
+  currentDom  = locDomMap[DEFAULT_LOC_DOMAIN_ID];
+  currentDom->domain_ptr->current_throttle_level = throttle_level;
+  currentDom->domain_ptr->sendThrottleLevelToHvNodes(throttle_level);
+
+}
+
+void OrchMgr::SetThrottleLevel(const FDSP_MsgHdrTypePtr& fdsp_msg, 
+			       const FDSP_ThrottleMsgTypePtr& throttle_req) {
+
+  om_mutex->lock();
+  assert((throttle_req->throttle_level >= -10) && (throttle_req->throttle_level <= 10));
+  SetThrottleLevelForDomain(throttle_req->domain_id, throttle_req->throttle_level);
+  om_mutex->unlock();
+  
+}
+
+void OrchMgr::NotifyQueueFull(const FDSP_MsgHdrTypePtr& fdsp_msg,
+			      const FDSP_NotifyQueueStateTypePtr& queue_state_req) {
+
+  // Use some simple logic for now to come up with the throttle level
+  // based on the queue_depth for queues of various pririty
+
+  om_mutex->lock();
+  FDSP_QueueStateListType& que_st_list = queue_state_req->queue_state_list;
+  int min_priority = que_st_list[0]->priority;
+  int min_p_q_depth = que_st_list[0]->queue_depth;
+
+  for (int i = 0; i < que_st_list.size(); i++) {
+    FDSP_QueueStateTypePtr& que_st = que_st_list[i];
+    FDS_PLOG(GetLog()) << "Received queue full for volume "
+		       << que_st->vol_uuid << ", priority - " << que_st->priority
+		       << " queue_depth - " << que_st->queue_depth;
+
+    assert((que_st->priority >= 0) && (que_st->priority <= 10));
+    assert((que_st->queue_depth >= 0.5) && (que_st->queue_depth <= 1));
+    if (que_st->priority < min_priority) {
+      min_priority = que_st->priority;
+      min_p_q_depth = que_st->queue_depth;
+    }
+  }
+
+  float throttle_level = (float) min_priority + (float) (1-min_p_q_depth)/0.5;
+
+  localDomainInfo  *currentDom = locDomMap[DEFAULT_LOC_DOMAIN_ID];
+
+  // For now we will ignore if the calculated throttle level is greater than
+  // the current throttle level. But it will have to be more complicated than this.
+  // Every time we set a throttle level, we need to fire off a timer and
+  // bring back to the normal throttle level (may be gradually) unless
+  // we get more of these QueueFull messages, in which case, we will have to 
+  // extend the throttle period.
+
+  if (throttle_level < currentDom->domain_ptr->current_throttle_level) {
+    SetThrottleLevelForDomain(DEFAULT_LOC_DOMAIN_ID, throttle_level);
+  } else {
+    FDS_PLOG(GetLog()) << "Calculated throttle level " << throttle_level
+		       << " less than current throttle level of "
+		       << currentDom->domain_ptr->current_throttle_level
+		       << ". Ignoring.";
+  }
+  om_mutex->unlock();
+}
+
 
 int OrchMgr::ReqCfgHandler::DeleteDomain(const FdspMsgHdrPtr& fdsp_msg,
                                        const FdspCrtDomPtr& del_dom_req,
@@ -634,6 +709,18 @@ void OrchMgr::ReqCfgHandler::RegisterNode(const FdspMsgHdrPtr &fdsp_msg,
                                           const FdspRegNodePtr &reg_node_req,
                                           const Ice::Current&) {
   orchMgr->RegisterNode(fdsp_msg, reg_node_req);
+}
+
+void OrchMgr::ReqCfgHandler::SetThrottleLevel(const FDSP_MsgHdrTypePtr& fdsp_msg, 
+		      const FDSP_ThrottleMsgTypePtr& throttle_req, 
+		      const Ice::Current&) {
+  orchMgr->SetThrottleLevel(fdsp_msg, throttle_req);
+}
+
+void OrchMgr::ReqCfgHandler::NotifyQueueFull(const FDSP_MsgHdrTypePtr& fdsp_msg,
+		     const FDSP_NotifyQueueStateTypePtr& queue_state_req, 
+		     const Ice::Current&) {
+  orchMgr->NotifyQueueFull(fdsp_msg, queue_state_req);
 }
 
 void OrchMgr::ReqCfgHandler::AssociateRespCallback(

@@ -4,12 +4,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
+#include <unordered_map>
 #include <fstream>
+#include <atomic>
+#include <IceUtil/IceUtil.h>
 #include <boost/date_time/posix_time/posix_time.hpp>
 
 #include "fds_volume.h"
+#include "concurrency/RwLock.h"
 
-#define FDS_STAT_DEFAULT_HIST_SLOTS    10
+#define FDS_STAT_DEFAULT_HIST_SLOTS    7
 #define FDS_STAT_DEFAULT_SLOT_LENGTH   1    /* in sec */
 #define FDS_STAT_MAX_HIST_SLOTS        50
 
@@ -49,7 +53,7 @@ class IoStat
 
   /* stats accessors */
   long getTimestamp() const;
-  int getIops() const;
+  long getIops() const;
   long getAveLatency() const;
   long getMinLatency() const;
   long getMaxLatency() const;
@@ -69,13 +73,13 @@ class IoStat
 class StatHistory
 {
  public:
-  StatHistory(fds_volid_t volume_id, 
+  StatHistory(fds_uint32_t _id, 
 	      int slots=FDS_STAT_DEFAULT_HIST_SLOTS,
 	      int slot_len_sec=FDS_STAT_DEFAULT_SLOT_LENGTH);
 
   ~StatHistory();
 
-  void addIo(boost::posix_time::ptime timestamp, long microlat);
+  void addIo(long rel_seconds, long microlat);
    
   int getStatsCopy(IoStat** stat_ary, int* len);
 
@@ -84,11 +88,8 @@ class StatHistory
   void print(std::ofstream& dumpFile, boost::posix_time::ptime curts);
 
  private:
-  long ts2slotnum(boost::posix_time::ptime timestamp); 
-
- private:
-  /* volume id for which we are collecting this history */
-  fds_volid_t volid;
+  /* identifyer of a IO stream/volume/qos class/etc for which we are collecting this history */
+  fds_uint32_t id;
 
   /* array of time slots with stats, once we fill in 
   * the last slot in the array, we will circulate and re-use the 
@@ -97,14 +98,80 @@ class StatHistory
   int nslots;
   int sec_in_slot;
 
-  boost::posix_time::ptime start_time;
   long last_slot_num;
+
+  /* lock protecting this history */
+  fds_rwlock lock;
 
   /* keep track of timestamps we print, so that we
    * don't output same stat more than once */
   long last_printed_ts; 
 };
 
+
+/* Handles all recording and printing of stats.
+ * Keeps separate histories of stats perclass_id
+ * we will normally use volume id as a statclass_id 
+ * but it could be anything else. The stats will be 
+ * printed into one file, with second column = statclass_id
+ * Configurable params:
+ *    stat slot length in seconds 
+ * */
+class PerfStats
+{
+ public: 
+  PerfStats(const std::string prefix, int slot_len_sec = FDS_STAT_DEFAULT_SLOT_LENGTH);
+  ~PerfStats();
+
+  /* explicitly enable or desable stats; disabled stats mean that recordIO
+   * and printing functions are noop. Once stats are enabled again, we will
+   * continue to print stats to the same output file (so file will have a gap
+   * in stats when they were disabled  */
+  Error enable();
+  void disable(); 
+  inline bool isEnabled() const {
+    return std::atomic_load(&b_enabled); 
+  }
+
+  /* Record IO in appropriate stats history. If we see statclass_id for the first time
+   * will start a stat history for this statclass_id  */
+  void recordIO(fds_uint32_t class_id, long microlat);
+
+  /* print stats to file */
+  void print();
+
+ private:
+  std::atomic<bool> b_enabled;
+
+  /* number of seconds in one stat slot, configurable */
+  int sec_in_slot;
+  int num_slots;
+
+  /* class_id to stat history map */
+  std::unordered_map<fds_uint32_t, StatHistory*> histmap;
+  /* read/write lock protecting histmap */
+  fds_rwlock map_rwlock;
+
+  boost::posix_time::ptime start_time;
+  std::ofstream statfile;
+
+  IceUtil::TimerPtr statTimer;
+  IceUtil::TimerTaskPtr statTimerTask;
+};
+
+
+ using namespace IceUtil;
+ class StatTimerTask:public IceUtil::TimerTask {
+ public:
+   PerfStats* stats;
+
+   StatTimerTask(PerfStats* _stats) {
+     stats = _stats;
+   };
+   ~StatTimerTask() {}
+
+   void runTimerTask();
+ };
 
 
 } /* namespace fds */

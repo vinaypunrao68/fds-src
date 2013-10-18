@@ -193,11 +193,15 @@ namespace fds {
                 uint32_t _max_thrds,
                 dispatchAlgoType algo,
                 fds_log *log) :
-      FDS_QoSControl(_max_thrds, algo, log) {
+      FDS_QoSControl(_max_thrds, algo, log, "SM") {
         parentSm = _parent;
         dispatcher = new QoSWFQDispatcher(this, parentSm->totalRate, log);
+        /* base class created stats, but they are disable by default */
+        stats->enable();
       }
       ~SmQosCtrl() {
+	if (stats)
+	  stats->disable();
       }
 
       Error processIO(FDS_IOType* _io) {
@@ -215,6 +219,12 @@ namespace fds {
         }
 
         return err;
+      }
+
+      Error markIODone(const FDS_IOType& _io) {
+	Error err(ERR_OK);
+	stats->recordIO(_io.io_vol_id, 0);
+	return err;
       }
 
     };

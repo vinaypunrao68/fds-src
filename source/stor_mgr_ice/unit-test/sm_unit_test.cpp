@@ -4,7 +4,7 @@
 #include <cstdlib>
 #include <Ice/Ice.h>
 #include <IceUtil/IceUtil.h>
-#include "fdsp/FDSP.h"
+#include <fdsp/FDSP.h>
 #include <hash/MurmurHash3.h>
 
 #include <iostream>  // NOLINT(*)

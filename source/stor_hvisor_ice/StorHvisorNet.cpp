@@ -246,9 +246,6 @@ int unitTest(fds_uint32_t time_mins) {
   w_buf    = new char[req_size]();
   r_buf    = new char[req_size]();
 
-  /* start dumping perf stats */
-  storHvisor->vol_table->startPerfStats();
-
   if (time_mins > 0) {
     /*
      * Do a time based unit test.
@@ -325,9 +322,6 @@ int unitTest(fds_uint32_t time_mins) {
   }
   delete w_buf;
   delete r_buf;
-
-  /* stop perf stats */
-  storHvisor->vol_table->stopPerfStats();
 
   return result;
 }
@@ -559,6 +553,10 @@ StorHvCtrl::StorHvCtrl(int argc,
   _communicator = Ice::initialize(argc, argv, initData);
   Ice::PropertiesPtr props = _communicator->getProperties();
 
+  /*  Create the QOS Controller object */ 
+  qos_ctrl = new StorHvQosCtrl(50, fds::FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET, sh_log);
+  om_client->registerThrottleCmdHandler(StorHvQosCtrl::throttleCmdHandler);
+
   rpcSwitchTbl = new FDS_RPC_EndPointTbl(_communicator);
 
   /* TODO: for now StorHvVolumeTable constructor will create 
@@ -566,8 +564,7 @@ StorHvCtrl::StorHvCtrl(int argc,
    * in other parts of the system */
   vol_table = new StorHvVolumeTable(this, sh_log);  
 
-  /*  Create the QOS Controller object */ 
-  qos_ctrl = new StorHvQosCtrl(50, fds::FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET, sh_log);
+
   /*
    * Set basic thread properties.
    */

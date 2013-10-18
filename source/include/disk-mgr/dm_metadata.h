@@ -35,7 +35,7 @@ obj_id_set_inval(meta_obj_id_t *oid)
  * Return true if the given oid has valid value.
  */
 static inline bool
-obj_id_is_valid(meta_obj_id_t *oid)
+obj_id_is_valid(meta_obj_id_t const *const oid)
 {
     return (oid->oid_hash_hi != 0) && (oid->oid_hash_lo != 0);
 }
@@ -72,7 +72,7 @@ vadr_set_inval(meta_vol_adr_t *vadr)
  * Return true if the given vol addr has valid value.
  */
 static inline bool
-vadr_is_valid(meta_vol_adr_t *vadr)
+vadr_is_valid(meta_vol_adr_t const *const vadr)
 {
     return (vadr->vol_uuid != 0) && (vadr->vol_blk_off != VOL_INVAL_BLK_OFF);
 }
@@ -149,7 +149,7 @@ obj_map_init(meta_obj_map_t *map)
  * --------------------
  */
 static inline bool
-obj_map_has_init_val(meta_obj_map_t *map)
+obj_map_has_init_val(meta_obj_map_t const *const map)
 {
     return obj_id_is_valid(&map->obj_id);
 }
