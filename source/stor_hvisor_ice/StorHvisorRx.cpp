@@ -58,9 +58,8 @@ int StorHvCtrl::fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const
 	  - we will have to handle sending more data due to length difference
 	*/
 
-	boost::posix_time::ptime ts = boost::posix_time::microsec_clock::universal_time();
-	long lat = vol->journal_tbl->microsecSinceCtime(ts) - req->sh_queued_usec;
-	vol->stat_history->addIo(ts, lat);
+	//boost::posix_time::ptime ts = boost::posix_time::microsec_clock::universal_time();
+	//long lat = vol->journal_tbl->microsecSinceCtime(ts) - req->sh_queued_usec;
 
 	/*
 	 - respond to the block device- data ready 
@@ -115,10 +114,6 @@ int StorHvCtrl::fds_process_put_obj_resp(const FDSP_MsgHdrTypePtr& rx_msg, const
                                            << " - Recvd SM PUT_OBJ_RSP RSP "
                                            << " ip " << rx_msg->src_ip_lo_addr
                                            << " port " << rx_msg->src_port;
-
-	    boost::posix_time::ptime ts = boost::posix_time::microsec_clock::universal_time();
-	    long lat = vol->journal_tbl->microsecSinceCtime(ts) - req->sh_queued_usec;
-	    vol->stat_history->addIo(ts, lat);
 
 	    fds_move_wr_req_state_machine(rx_msg);
         }

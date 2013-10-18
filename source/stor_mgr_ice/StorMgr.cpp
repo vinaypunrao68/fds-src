@@ -405,6 +405,7 @@ ObjectStorMgr::putObjectInternal(const SmIoReq& putReq) {
     put_obj_req->data_obj_len);
   */
 
+  qosCtrl->markIODone(putReq);
   return err;
 }
 
@@ -512,6 +513,8 @@ ObjectStorMgr::getObjectInternal(const SmIoReq& getReq) {
   swapMgrId(msgHdr);
   fdspDataPathClient->begin_GetObjectResp(msgHdr, getObj);
   FDS_PLOG(objStorMgr->GetLog()) << "Sent async GetObj response after processing";
+
+  qosCtrl->markIODone(getReq);
 
   return err;
 }
