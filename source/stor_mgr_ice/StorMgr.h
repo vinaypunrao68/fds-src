@@ -29,6 +29,7 @@
 #include "DiskMgr.h"
 #include "StorMgrVolumes.h"
 #include <disk-mgr/dm_service.h>
+#include <disk-mgr/dm_io.h>
 
 #include <include/fds_qos.h>
 #include <include/qos_ctrl.h>
@@ -63,6 +64,26 @@ namespace fds {
    * used for friend declaration
    */
   class ObjectStorMgrI;
+
+  class SMDiskReq : public diskio::DiskRequest
+    {
+    public:
+      SMDiskReq(meta_vol_io_t       &vio,
+                meta_obj_id_t       &oid,
+                fds::ObjectBuf      *buf,
+                bool                block)
+	: diskio::DiskRequest(vio, oid, buf, block) {
+      }
+      ~SMDiskReq() { }
+
+    void req_submit() {
+        fdsio::Request::req_submit();
+    }
+    void req_complete() {
+    }
+ 
+};
+
 
   class ObjectStorMgr : virtual public Ice::Application {
  public:
@@ -154,15 +175,12 @@ namespace fds {
     Error checkDuplicate(const ObjectID& objId,
                          const ObjectBuf& objCompData);
 
-    fds_sm_err_t writeObject(FDS_ObjectIdType *object_id, 
-                             fds_uint32_t obj_len, 
-                             fds_char_t *data_object, 
-                             FDS_DataLocEntry *data_loc);
+    Error writeObject(const ObjectID& objId,
+		      const ObjectBuf& objCompData);
 
-    Error writeObjLocation(const ObjectID& objId,
-                           fds_uint32_t obj_len, 
-                           fds_uint32_t volid, 
-                           FDS_DataLocEntry  *data_loc);
+    Error readObject(const ObjectID& objId,
+		     ObjectBuf& objCompData);
+
 
     /*
      * This inheritance is private because no one
