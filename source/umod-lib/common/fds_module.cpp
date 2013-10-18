@@ -211,16 +211,17 @@ ModuleVector::mod_mk_sysparams()
         exit(1);
     }
     if (vm.count("fds-root")) {
-        sys_params.fds_root = vm["fds-root"].as<std::string>();
+        sys_params.fds_root  = vm["fds-root"].as<std::string>();
+        sys_params.fds_root += '/';
     }
     if (vm.count("sim-prefix")) {
         SimEnvParams *sim  = new SimEnvParams(vm["sim-prefix"].as<std::string>());
         sys_params.fds_sim = sim;
-        sim->sim_hdd_cnt   = hdd_cnt;
         sim->sim_hdd_mb    = hdd_cap;
-        sim->sim_ssd_cnt   = ssd_cnt;
         sim->sim_ssd_mb    = ssd_cap;
     }
+    sys_params.sys_hdd_cnt = hdd_cnt;
+    sys_params.sys_ssd_cnt = ssd_cnt;
 }
 
 // \ModuleVector::mod_execute

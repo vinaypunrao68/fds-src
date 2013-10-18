@@ -18,8 +18,6 @@ class SimEnvParams
     ~SimEnvParams() {}
 
     std::string              sim_disk_prefix;
-    int                      sim_hdd_cnt;
-    int                      sim_ssd_cnt;
     int                      sim_hdd_mb;
     int                      sim_ssd_mb;
 };
@@ -31,6 +29,8 @@ class SysParams
     ~SysParams() {}
 
     int                      sys_num_thr;
+    int                      sys_hdd_cnt;
+    int                      sys_ssd_cnt;
     std::string              fds_root;
     SimEnvParams             *fds_sim;
     UnitTestParams           *fds_utp;
