@@ -28,19 +28,44 @@ ObjectStorMgrI::~ObjectStorMgrI() {
 }
 
 void
-ObjectStorMgrI::PutObject(const FDSP_MsgHdrTypePtr& msg_hdr,
-                          const FDSP_PutObjTypePtr& put_obj,
+ObjectStorMgrI::PutObject(const FDSP_MsgHdrTypePtr& msgHdr,
+                          const FDSP_PutObjTypePtr& putObj,
                           const Ice::Current&) {
-  FDS_PLOG(objStorMgr->GetLog()) << "Putobject()";
-  objStorMgr->PutObject(msg_hdr, put_obj);
+  FDS_PLOG(objStorMgr->GetLog()) << "Received a Putobject() network request";
+
   /*
-   * TODO: At the moment, this only acknowledges the I/O was put
-   * on the queue properly, NOT that it was successfully processed!
+   * Track the outstanding get request.
+   * TODO: This is a total hack. We're overloading the msg_hdr's
+   * req_cookie field to track the outstanding request Id that
+   * we pass into the SM.
+   *
+   * TODO: We should check if this value has rolled at some point.
+   * Though it's big enough for us to not care right now.
    */
-  msg_hdr->msg_code = FDSP_MSG_PUT_OBJ_RSP;
-  objStorMgr->swapMgrId(msg_hdr);
-  objStorMgr->fdspDataPathClient->begin_PutObjectResp(msg_hdr, put_obj);
-  FDS_PLOG(objStorMgr->GetLog()) << "Sent async PutObj response to Hypervisor";
+  fds_uint64_t reqId;
+  reqId = std::atomic_fetch_add(&(objStorMgr->nextReqId), (fds_uint64_t)1);
+  msgHdr->req_cookie = reqId;
+  objStorMgr->waitingReqMutex->lock();
+  objStorMgr->waitingReqs[reqId] = msgHdr;
+  objStorMgr->waitingReqMutex->unlock();
+
+  objStorMgr->PutObject(msgHdr, putObj);
+
+  /*
+   * If we failed to enqueue the I/O return the error response
+   * now as there is no more processing to do.
+   */
+  if (msgHdr->result != FDSP_ERR_OK) {
+    objStorMgr->waitingReqMutex->lock();
+    objStorMgr->waitingReqs.erase(reqId);
+    objStorMgr->waitingReqMutex->unlock();
+
+    msgHdr->msg_code = FDSP_MSG_PUT_OBJ_RSP;
+    objStorMgr->swapMgrId(msgHdr);
+    objStorMgr->fdspDataPathClient->begin_PutObjectResp(msgHdr, putObj);
+
+    FDS_PLOG(objStorMgr->GetLog()) << "Sent async PutObj response after receiving";
+  }
 }
 
 void
@@ -61,9 +86,9 @@ ObjectStorMgrI::GetObject(const FDSP_MsgHdrTypePtr& msgHdr,
   fds_uint64_t reqId;
   reqId = std::atomic_fetch_add(&(objStorMgr->nextReqId), (fds_uint64_t)1);
   msgHdr->req_cookie = reqId;
-  objStorMgr->getsMutex->lock();
-  objStorMgr->waitingGets[reqId] = ObjectStorMgr::OutStandingGet(msgHdr, getObj);
-  objStorMgr->getsMutex->unlock();
+  objStorMgr->waitingReqMutex->lock();
+  objStorMgr->waitingReqs[reqId] = msgHdr;
+  objStorMgr->waitingReqMutex->unlock();
 
   /*
    * Submit the request to be enqueued
@@ -75,10 +100,9 @@ ObjectStorMgrI::GetObject(const FDSP_MsgHdrTypePtr& msgHdr,
    * now as there is no more processing to do.
    */
   if (msgHdr->result != FDSP_ERR_OK) {
-    objStorMgr->getsMutex->lock();
-    objStorMgr->waitingGets.erase(reqId);
-    objStorMgr->getsMutex->unlock();
-    
+    objStorMgr->waitingReqMutex->lock();
+    objStorMgr->waitingReqs.erase(reqId);
+    objStorMgr->waitingReqMutex->unlock();
 
     msgHdr->msg_code = FDSP_MSG_GET_OBJ_RSP;
     objStorMgr->swapMgrId(msgHdr);
@@ -141,7 +165,7 @@ ObjectStorMgr::ObjectStorMgr() :
   diskMgr = new DiskMgr();
 
   objStorMutex = new fds_mutex("Object Store Mutex");
-  getsMutex = new fds_mutex("Object Store Mutex");
+  waitingReqMutex = new fds_mutex("Object Store Mutex");
 
   /*
    * Init the outstanding request count to 0.
@@ -187,7 +211,11 @@ ObjectStorMgr::~ObjectStorMgr()
     qosCtrl->deregisterVolume((*vit));
   }
 
-  delete getsMutex;
+  /*
+   * TODO: Assert that the waiting req map is empty.
+   */
+
+  delete waitingReqMutex;
   delete qosCtrl;
 
   delete diskMgr;
@@ -279,8 +307,10 @@ void ObjectStorMgr::unitTest()
 
   /*
    * Write fake object.
+   * Note: we're just adding a hard coded 0 for
+   * the request ID.
    */
-  err = putObjectInternal(put_obj_req, vol_id, num_objs);
+  err = putObjectInternal(put_obj_req, vol_id, 0, num_objs);
   if (err != ERR_OK) {
     FDS_PLOG(objStorMgr->GetLog()) << "Failed to put object ";
     // delete put_obj_req;
@@ -398,48 +428,63 @@ ObjectStorMgr::putObjectInternal(const SmIoReq& putReq) {
      * Reset the err to OK to ack the metadata update.
      */
     err = ERR_OK;
-    qosCtrl->markIODone(putReq);
-    return err;
   } else if (err != ERR_OK) {
-    FDS_PLOG(objStorMgr->GetLog()) << "Failed to put object: " << err;
-    qosCtrl->markIODone(putReq);
-    return err;
-  }
-
-  /*
-   * This is the levelDB insertion. It's a totally
-   * separate DB from the one above.
-   */
-  objStorMutex->lock();
-  err = objStorDB->Put(objId, objData);
-  objStorMutex->unlock();
-
-  if (err != fds::ERR_OK) {
-    FDS_PLOG(objStorMgr->GetLog()) << "Failed to put object " << err;
-    qosCtrl->markIODone(putReq);
-    return err;
+    FDS_PLOG(objStorMgr->GetLog()) << "Failed to check object duplicate status on put: "
+                                   << err;
   } else {
-    FDS_PLOG(objStorMgr->GetLog()) << "Successfully put key " << objId;
-  }
+    /*
+     * This is the levelDB insertion. It's a totally
+     * separate DB from the one above.
+     */
+    objStorMutex->lock();
+    err = objStorDB->Put(objId, objData);
+    objStorMutex->unlock();
 
-  /*
-   * Stores a reverse mapping from the volume's disk location
-   * to the oid at that location.
-   */
-  /*
-    TODO: Comment this back in!
-    volTbl->createVolIndexEntry(putReq.io_vol_id,
-    put_obj_req->volume_offset,
-    put_obj_req->data_obj_id,
-    put_obj_req->data_obj_len);
-  */
+    if (err != fds::ERR_OK) {
+      FDS_PLOG(objStorMgr->GetLog()) << "Failed to put object " << err;
+    } else {
+      FDS_PLOG(objStorMgr->GetLog()) << "Successfully put key " << objId;
+    }
+    /*
+     * Stores a reverse mapping from the volume's disk location
+     * to the oid at that location.
+     */
+    /*
+      TODO: Comment this back in!
+      volTbl->createVolIndexEntry(putReq.io_vol_id,
+      put_obj_req->volume_offset,
+      put_obj_req->data_obj_id,
+      put_obj_req->data_obj_len);
+    */
+  }
 
   qosCtrl->markIODone(putReq);
 
   /*
-   * TODO: We should be processing the putobject network
-   * response here.
+   * Prepare a response to send back.
    */
+  waitingReqMutex->lock();
+  fds_verify(waitingReqs.count(putReq.io_req_id) > 0);
+  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr = waitingReqs[putReq.io_req_id];
+  waitingReqs.erase(putReq.io_req_id);
+  waitingReqMutex->unlock();
+
+  FDS_ProtocolInterface::FDSP_PutObjTypePtr putObj =
+      new FDS_ProtocolInterface::FDSP_PutObjType();
+  putObj->data_obj_id.hash_high = objId.GetHigh();
+  putObj->data_obj_id.hash_low  = objId.GetLow();
+  putObj->data_obj_len          = objData.size;
+
+  if (err == ERR_OK) {
+    msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_OK;
+  } else {
+    msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_FAILED;
+  }
+
+  msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_PUT_OBJ_RSP;
+  swapMgrId(msgHdr);
+  fdspDataPathClient->begin_PutObjectResp(msgHdr, putObj);
+  FDS_PLOG(objStorMgr->GetLog()) << "Sent async PutObj response after processing";
 
   /*
    * Free the IO request structure that
@@ -454,6 +499,7 @@ ObjectStorMgr::putObjectInternal(const SmIoReq& putReq) {
 Error
 ObjectStorMgr::putObjectInternal(FDSP_PutObjTypePtr putObjReq, 
                                  fds_volid_t        volId, 
+                                 fds_uint32_t       transId,
                                  fds_uint32_t       numObjs) {
   fds::Error err(fds::ERR_OK);
 
@@ -467,7 +513,8 @@ ObjectStorMgr::putObjectInternal(FDSP_PutObjTypePtr putObjReq,
                                  putObjReq->data_obj_id.hash_low,
                                  putObjReq->data_obj,
                                  volId,
-                                 FDS_IO_WRITE);
+                                 FDS_IO_WRITE,
+                                 transId);
 
     err = qosCtrl->enqueueIO(ioReq->getVolId(), static_cast<FDS_IOType*>(ioReq));
     if (err != ERR_OK) {
@@ -477,11 +524,13 @@ ObjectStorMgr::putObjectInternal(FDSP_PutObjTypePtr putObjReq,
        * we'll just stop at the first error we see to make sure it
        * doesn't get lost.
        */
-      FDS_PLOG(objStorMgr->GetLog()) << "Unable to enqueue putObject request";
+      FDS_PLOG(objStorMgr->GetLog()) << "Unable to enqueue putObject request "
+                                     << transId;
       return err;
     }
-    FDS_PLOG(objStorMgr->GetLog()) << "Successfully enqueued putObject request";
-   }
+    FDS_PLOG(objStorMgr->GetLog()) << "Successfully enqueued putObject request "
+                                   << transId;
+  }
 
    return err;
 }
@@ -489,6 +538,8 @@ ObjectStorMgr::putObjectInternal(FDSP_PutObjTypePtr putObjReq,
 void
 ObjectStorMgr::PutObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
                          const FDSP_PutObjTypePtr& put_obj_req) {
+  Error err(ERR_OK);
+
   // Verify the integrity of the FDSP msg using chksums
   // 
   // stor_mgr_verify_msg(fdsp_msg);
@@ -499,7 +550,16 @@ ObjectStorMgr::PutObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
   FDS_PLOG(objStorMgr->GetLog()) << "PutObject Obj ID: " << oid
                                  << ", glob_vol_id: " << fdsp_msg->glob_volume_id
                                  << ", Num Objs: " << fdsp_msg->num_objects;
-  putObjectInternal(put_obj_req, fdsp_msg->glob_volume_id, fdsp_msg->num_objects);
+  err = putObjectInternal(put_obj_req,
+                          fdsp_msg->glob_volume_id,
+                          fdsp_msg->req_cookie,
+                          fdsp_msg->num_objects);
+  if (err != ERR_OK) {
+    fdsp_msg->result = FDSP_ERR_FAILED;
+    fdsp_msg->err_code = err.getIceErr();
+  } else {
+    fdsp_msg->result = FDSP_ERR_OK;
+  }
 }
 
 Error
@@ -534,30 +594,39 @@ ObjectStorMgr::getObjectInternal(const SmIoReq& getReq) {
                                    << " for request ID " << getReq.io_req_id;
   }
 
+  qosCtrl->markIODone(getReq);
+
   /*
    * Prepare a response to send back.
    */
-  getsMutex->lock();
-  assert(waitingGets.count(getReq.io_req_id) > 0);
-  OutStandingGet waitingGet = waitingGets[getReq.io_req_id];
-  waitingGets.erase(getReq.io_req_id);
-  getsMutex->unlock();
-
-  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr = waitingGet.first;
-  FDS_ProtocolInterface::FDSP_GetObjTypePtr getObj = waitingGet.second;
-
+  waitingReqMutex->lock();
+  fds_assert(waitingReqs.count(getReq.io_req_id) > 0);
+  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr = waitingReqs[getReq.io_req_id];
+  waitingReqs.erase(getReq.io_req_id);
+  waitingReqMutex->unlock();
+  
   /*
-   * This does an additional copy in to the network buffer.
+   * This does an additional object copy into the network buffer.
    */
-  getObj->data_obj     = objData.data;
-  getObj->data_obj_len = objData.size;
-  msgHdr->msg_code     = FDSP_MSG_GET_OBJ_RSP;
+  FDS_ProtocolInterface::FDSP_GetObjTypePtr getObj =
+      new FDS_ProtocolInterface::FDSP_GetObjType();
+  fds_uint64_t oidHigh = objId.GetHigh();
+  fds_uint64_t oidLow = objId.GetLow();
+  getObj->data_obj_id.hash_high    = objId.GetHigh();
+  getObj->data_obj_id.hash_low     = objId.GetLow();
+  getObj->data_obj                 = objData.data;
+  getObj->data_obj_len             = objData.size;
+
+  if (err == ERR_OK) {
+    msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_OK;
+  } else {
+    msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_FAILED;
+  }
+  msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_GET_OBJ_RSP;
   swapMgrId(msgHdr);
   fdspDataPathClient->begin_GetObjectResp(msgHdr, getObj);
   FDS_PLOG(objStorMgr->GetLog()) << "Sent async GetObj response after processing";
 
-  qosCtrl->markIODone(getReq);
-  
   /*
    * Free the IO request structure that
    * was allocated when the request was

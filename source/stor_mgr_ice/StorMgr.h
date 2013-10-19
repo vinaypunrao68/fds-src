@@ -147,12 +147,11 @@ namespace fds {
      * this. This is pretty slow and hackey. For example,
      * a map is only used for convienence.
      */
-    typedef std::pair<FDS_ProtocolInterface::FDSP_MsgHdrTypePtr,
-        FDS_ProtocolInterface::FDSP_GetObjTypePtr> OutStandingGet;
-    typedef std::unordered_map<fds_uint64_t, OutStandingGet> OsGetMap;
-    OsGetMap                   waitingGets;
+    typedef std::unordered_map<fds_uint64_t,
+        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr > WaitingReqMap;
+    WaitingReqMap              waitingReqs;
     std::atomic<fds_uint64_t>  nextReqId;
-    fds_mutex                 *getsMutex;
+    fds_mutex                 *waitingReqMutex;
 
     /*
      * Private request processing members.
@@ -163,7 +162,8 @@ namespace fds {
                             fds_uint32_t       numObjs);
     Error getObjectInternal(const SmIoReq& getReq);
     Error putObjectInternal(FDSP_PutObjTypePtr putObjReq, 
-                            fds_volid_t        volId, 
+                            fds_volid_t        volId,
+                            fds_uint32_t       transId,
                             fds_uint32_t       numObjs);
     Error putObjectInternal(const SmIoReq& putReq);
     Error checkDuplicate(const ObjectID& objId,
