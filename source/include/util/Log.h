@@ -58,7 +58,7 @@ namespace fds {
     typedef boost::log::sinks::synchronous_sink< boost::log::sinks::text_file_backend > file_sink;
     
     boost::shared_ptr< file_sink > sink;
-    boost::log::sources::severity_logger< severity_level > slg;
+    boost::log::sources::severity_logger_mt< severity_level > slg;
     
     void init(const std::string& logfile,
               const std::string& logloc,
@@ -88,7 +88,7 @@ namespace fds {
     
     ~fds_log();
     
-    boost::log::sources::severity_logger<severity_level>& get_slog() { return slg; }
+    boost::log::sources::severity_logger_mt<severity_level>& get_slog() { return slg; }
   };
 
 }  // namespace fds

@@ -1,4 +1,7 @@
-#include "PerfStat.h"
+#include <boost/filesystem/operations.hpp>
+#include <boost/filesystem/path.hpp>
+
+#include <util/PerfStat.h>
 
 namespace fds {
 
@@ -76,9 +79,9 @@ namespace fds {
     return rel_ts_sec;
   }
 
-  int IoStat::getIops() const 
+  long IoStat::getIops() const 
   {
-    return (int)((double)stat.nsamples / (double) interval_sec);
+    return (long)((double)stat.nsamples / (double) interval_sec);
   }
 
   long IoStat::getAveLatency() const
@@ -99,8 +102,8 @@ namespace fds {
     return stat.max_lat;
   }
 
-  StatHistory::StatHistory(fds_volid_t volume_id, int slots, int slot_len_sec)
-    : volid(volume_id), nslots(slots), sec_in_slot(slot_len_sec), last_printed_ts(-1)
+  StatHistory::StatHistory(fds_uint32_t _id, int slots, int slot_len_sec)
+    : id(_id), nslots(slots), sec_in_slot(slot_len_sec), last_printed_ts(-1)
   {
     /* cap nslots to max */
     if (nslots > FDS_STAT_MAX_HIST_SLOTS)
@@ -117,7 +120,6 @@ namespace fds {
 	stat_slots[i].reset(0, sec_in_slot);
       }
 
-    start_time = boost::posix_time::second_clock::universal_time();
     last_slot_num = 0;
   }
 
@@ -126,27 +128,32 @@ namespace fds {
     delete [] stat_slots;
   }
 
-  void StatHistory::addIo(boost::posix_time::ptime timestamp, long microlat)
+  void StatHistory::addIo(long rel_seconds, long microlat)
   {
-    long slot_num = ts2slotnum(timestamp);
-    long slot_start_sec = slot_num * sec_in_slot;
+    long slot_num = rel_seconds / sec_in_slot;
+    long slot_start_sec = rel_seconds;
     int index = slot_num % nslots;
+
+    /* common case -- we will add IO to already existing slot */
+    lock.write_lock();
 
     /* check if we already started to fill in this slot */
     if (stat_slots[index].getTimestamp() == slot_start_sec)
       {
 	/* the slot indexed with this timestamp already has I/Os of the same time interval */
 	stat_slots[index].add(microlat);
+        lock.write_unlock();
 	return;
       }
-
-    /* we need to start a new time slot */
-
+     
     if (slot_num <= last_slot_num) {
       /* we need a new slot, but it's it the past, so we got timestamp that is too old */
       /* maybe we should return error, since we should configure long enough history so that does not happen */
+      lock.write_unlock();
       return;
     }
+
+    /* we need to start a new time slot */
 
     /* start filling a new timeslot */
     stat_slots[index].reset(slot_start_sec);
@@ -168,12 +175,8 @@ namespace fds {
 
     /* update last slot num */
     last_slot_num = slot_num;
-  }
 
-  long StatHistory::ts2slotnum(boost::posix_time::ptime timestamp)
-  {
-    boost::posix_time::time_duration elapsed = timestamp - start_time;
-    return (elapsed.total_seconds() / sec_in_slot);
+    lock.write_unlock();
   }
 
   int StatHistory::getStatsCopy(IoStat** stat_ary, int* len)
@@ -209,6 +212,7 @@ namespace fds {
 
   void StatHistory::print(std::ofstream& dumpFile, boost::posix_time::ptime curts)
   {
+    lock.read_lock();
     int endix = last_slot_num % nslots;
     int startix = (endix + 1) % nslots; /* index of oldest stat */
     int ix = startix;
@@ -223,7 +227,7 @@ namespace fds {
 	if (ts > last_printed_ts)
 	  {
 	    dumpFile << "[" << to_simple_string(curts) << "]," 
-		     << volid << ","
+		     << id << ","
 		     << stat_slots[ix].getTimestamp() << ","
 		     << stat_slots[ix].getIops() << ","
 		     << stat_slots[ix].getAveLatency() << ","
@@ -239,6 +243,146 @@ namespace fds {
 
     if (latest_ts != 0)
       last_printed_ts = latest_ts;
+
+    lock.read_unlock();
+  }
+
+  /******** PerfStats class implementation *******/
+
+  PerfStats::PerfStats(const std::string prefix, int slot_len_sec)
+    : sec_in_slot(slot_len_sec),
+      num_slots(FDS_STAT_DEFAULT_HIST_SLOTS),
+      statTimer(new IceUtil::Timer),
+      statTimerTask(new StatTimerTask(this))
+  {
+    start_time = boost::posix_time::second_clock::universal_time();
+
+    /* name of file where we dump stats should contain current local time */
+    boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
+
+    std::string dirname("stats");
+    std::string nowstr = to_simple_string(now);
+    std::size_t i = nowstr.find_first_of(" ");
+    std::size_t k = nowstr.find_first_of(".");
+    std::string ts_str("");
+    if (i != std::string::npos) {
+      ts_str = nowstr.substr(0, i);
+      if (k == std::string::npos) {
+	ts_str.append("-");
+	ts_str.append(nowstr.substr(i+1));
+      }	     	    
+    }
+
+    /*make sure stats directory exists */
+    if ( !boost::filesystem::exists(dirname.c_str()) )
+      {
+	boost::filesystem::create_directory(dirname.c_str());
+      }
+
+    /* use timestamp in the filename */
+    std::string fname =dirname + std::string("//") + prefix + std::string("_") + ts_str + std::string(".stat");
+    statfile.open(fname.c_str(), std::ios::out | std::ios::app );
+
+    /* we will init histories when we see new class_ids (in recordIo() method) */
+
+    /* for now, stats are disbled by default */
+    b_enabled = ATOMIC_VAR_INIT(false);
+  }
+
+  PerfStats::~PerfStats()
+  {
+    statTimer->destroy();
+    for (std::unordered_map<fds_uint32_t, StatHistory*>::iterator it = histmap.begin();
+	 it != histmap.end();
+	 ++it)
+      {
+	StatHistory* hist = it->second;
+	delete hist;
+      }
+    histmap.clear();
+
+    if (statfile.is_open()){
+      statfile.close();
+    }
+  }
+
+  Error PerfStats::enable()
+  {
+    Error err(ERR_OK);
+    bool was_enabled = atomic_exchange(&b_enabled, true);
+    if (!was_enabled) {
+      IceUtil::Time interval = IceUtil::Time::seconds(sec_in_slot * (num_slots - 2));
+      try {
+	statTimer->scheduleRepeated(statTimerTask, interval);
+      } catch (IceUtil::IllegalArgumentException&) {
+	/* ok, already dumping stats, ignore this exception */
+      } catch (...) {
+	err = ERR_MAX; 
+      }
+    }
+    return err;
+  }
+
+  void PerfStats::disable()
+  {
+    bool was_enabled = atomic_exchange(&b_enabled, false);
+    if (was_enabled) {
+       statTimer->cancel(statTimerTask);
+       /* print stats we gathered but have not yet printed */
+       print();
+    }
+  }
+
+  void PerfStats::recordIO(fds_uint32_t class_id, long microlat)
+  {
+    if ( !isEnabled()) return;
+
+    StatHistory* hist = NULL;
+    boost::posix_time::time_duration elapsed = boost::posix_time::microsec_clock::universal_time() - start_time;
+
+    map_rwlock.read_lock();
+    if (histmap.count(class_id) > 0) {
+      hist = histmap[class_id];
+      assert(hist);
+    }
+    else{
+      /* we see this class_id for the first time, create a history for it */
+      map_rwlock.read_unlock();
+      hist = new StatHistory(class_id, num_slots, sec_in_slot);
+      if (!hist) return;
+
+      map_rwlock.write_lock();
+      histmap[class_id] = hist;
+      map_rwlock.write_unlock();
+ 
+      map_rwlock.read_lock();
+    }
+
+    /* stat history should handle its own lock */
+    hist->addIo(elapsed.total_seconds(), microlat);
+
+    map_rwlock.read_unlock();
+  }
+
+  void PerfStats::print()
+  {
+    if ( !isEnabled()) return;
+
+    map_rwlock.read_lock();
+    boost::posix_time::ptime now_local = boost::posix_time::microsec_clock::local_time();
+    for (std::unordered_map<fds_uint32_t, StatHistory*>::iterator it = histmap.begin();
+	 it != histmap.end();
+	 ++it)
+      {
+	it->second->print(statfile, now_local);
+      }
+    map_rwlock.read_unlock();
+  }
+
+  /* timer taks to print all perf stats */
+  void StatTimerTask::runTimerTask()
+  {
+     stats->print();
   }
 
 } /* namespace fds*/

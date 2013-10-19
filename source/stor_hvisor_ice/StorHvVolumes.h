@@ -22,7 +22,6 @@
 #include <qos_ctrl.h>
 #include <fds_qos.h>
 #include <util/Log.h>
-#include <util/PerfStat.h>
 #include <concurrency/RwLock.h>
 #include "VolumeCatalogCache.h"
 #include "qos_ctrl.h"
@@ -65,8 +64,6 @@ public: /* data*/
   /* Reference to parent SH instance */
   StorHvCtrl *parent_sh;
 
-  /* Volume's perf stat history */
-  StatHistory *stat_history;
  /*
    * per volume queue
    */
@@ -120,11 +117,6 @@ class StorHvVolumeTable
    */
   StorHvVolume* getVolume(fds_volid_t vol_uuid);
 
-  /* Dumping per-volume performance stats */
-  void startPerfStats();
-  void stopPerfStats();
-  void printPerfStats(std::ofstream& dumpFile);
-
  private: /* methods */ 
 
   /* handler for volume-related control message from OM */
@@ -151,27 +143,7 @@ class StorHvVolumeTable
    */
   fds_log *vt_log;
   fds_bool_t created_log;
-
-  /* timer to dump perf stats  */
-  IceUtil::TimerPtr statTimer;
-  IceUtil::TimerTaskPtr statTimerTask;  
 };
-
- using namespace IceUtil;
- class StorHvStatTimerTask : public IceUtil::TimerTask {
- public:
-   StorHvVolumeTable* volTable;
-   std::ofstream statfile;
-
-   StorHvStatTimerTask(StorHvVolumeTable* voltab);
-   ~StorHvStatTimerTask() {
-     if (statfile.is_open()) {
-       statfile.close();
-     }
-   }
-
-   void runTimerTask();
- };
 
 } // namespace fds
 

@@ -15,6 +15,7 @@
 
 #include <fds_types.h>
 #include <fds_err.h>
+#include <fds_assert.h>
 #include <fdsp/FDSP.h>
 #include <boost/thread/thread.hpp>
 #include <boost/lockfree/queue.hpp>
@@ -45,7 +46,7 @@ namespace fds {
     int                    tennantId;  // Tennant id that owns the volume
     int                    localDomainId;  // Local domain id that owns vol
     int                    globDomainId;
-    double                 volUUID;
+    fds_volid_t            volUUID;
 
     FDSP_VolType           volType;
     double                 capacity;
@@ -71,8 +72,7 @@ namespace fds {
     /*
      * Constructors/destructors
      */
-    VolumeDesc(FDSP_VolumeInfoTypePtr&  volinfo)
-     {
+    VolumeDesc(FDSP_VolumeInfoTypePtr&  volinfo) {
       name = volinfo->vol_name;
       tennantId = volinfo->tennantId;  
       localDomainId = volinfo->localDomainId;  
@@ -124,8 +124,7 @@ namespace fds {
       assert(volUUID != invalid_vol_id);
     }
 
-    VolumeDesc(FDSP_VolumeDescTypePtr& voldesc)
-      {
+    VolumeDesc(FDSP_VolumeDescTypePtr& voldesc) {
 	name = voldesc->vol_name;
 	tennantId = voldesc->tennantId;  
 	localDomainId = voldesc->localDomainId;  
@@ -176,12 +175,40 @@ namespace fds {
 	iops_max = 0;
 	relativePrio = 0;
 	assert(volUUID != invalid_vol_id);
-    }
+              }
+ VolumeDesc(const std::string& _name,
+            fds_volid_t _uuid,
+            fds_uint32_t _iops_min,
+            fds_uint32_t _iops_max,
+            fds_uint32_t _priority)
+     : name(_name),
+        volUUID(_uuid),
+        iops_min(_iops_min),
+        iops_max(_iops_max),
+        relativePrio(_priority) {
+          fds_assert(volUUID != invalid_vol_id);
+          
+          tennantId = 0;
+          localDomainId = 0;
+          globDomainId = 0;
+          volType = FDS_ProtocolInterface::FDSP_VOL_S3_TYPE;
+          capacity = 0;
+          maxQuota = 0;
+          replicaCnt = 0;
+          writeQuorum = 0;
+          readQuorum = 0;
+          consisProtocol = FDS_ProtocolInterface::FDSP_CONS_PROTO_STRONG;
+          volPolicyId = 0;
+          archivePolicyId = 0;
+          placementPolicy = 0;
+          appWorkload = FDS_ProtocolInterface::FDSP_APP_WKLD_TRANSACTION;
+          backupVolume = 0;
+        }
 
     ~VolumeDesc() {
     }
 
-    std::string GetName() const {
+    std::string getName() const {
       return name;
     }
 
@@ -189,8 +216,20 @@ namespace fds {
       return volUUID;
     }
 
+    double getIopsMin() const {
+      return iops_min;
+    }
+
+    double getIopsMax() const {
+      return iops_max;
+    }
+
+    int getPriority() const {
+      return relativePrio;
+    }
+
     std::string ToString() {
-      return (std::string("Vol<") + GetName() + std::string(":") + std::to_string(GetID()) + std::string(">"));  
+      return (std::string("Vol<") + getName() + std::string(":") + std::to_string(GetID()) + std::string(">"));  
     }
 
     bool operator==(const VolumeDesc &rhs) const {
@@ -225,7 +264,7 @@ namespace fds {
 
   inline std::ostream& operator<<(std::ostream& out,
                                   const VolumeDesc& vol_desc) {
-    return out << "Vol<" << vol_desc.GetName() << ":"
+    return out << "Vol<" << vol_desc.getName() << ":"
                << vol_desc.GetID() << ">";
   }
 
@@ -254,9 +293,9 @@ namespace fds {
 
   class FDS_Volume {
   public:
-    VolumeDesc *voldesc;
-    fds_uint64_t   real_iops_max;
-    fds_uint64_t   real_iops_min;
+    VolumeDesc   *voldesc;
+    fds_uint64_t  real_iops_max;
+    fds_uint64_t  real_iops_min;
     
     FDS_Volume()
       {

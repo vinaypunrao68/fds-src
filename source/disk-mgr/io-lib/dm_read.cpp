@@ -35,7 +35,8 @@ FilePersisDataIO::disk_do_read(DiskRequest *req)
     fds_verify(map->obj_stor_loc_id == fi_loc);
     fds_verify(obj_map_has_init_val(map) == false);
 
-    off = map->obj_stor_offset << DataIO::disk_io_blk_shift();
+    // off = map->obj_stor_offset << DataIO::disk_io_blk_shift();
+    off = map->obj_stor_offset;
     len = pread64(fi_fd, (void *)buf->data.c_str(), buf->size, off);
     disk_read_done(req);
 }

@@ -4,7 +4,7 @@
 #include <cstdlib>
 #include <Ice/Ice.h>
 #include <IceUtil/IceUtil.h>
-#include "fdsp/FDSP.h"
+#include <fdsp/FDSP.h>
 #include <hash/MurmurHash3.h>
 
 #include <iostream>  // NOLINT(*)
@@ -12,136 +12,135 @@
 #include <vector>
 #include <string>
 #include <list>
+#include <atomic>
 
 #include <util/Log.h>
+#include <fds_assert.h>
 #include <fds_types.h>
 #include <concurrency/Mutex.h>
 
 namespace fds {
 
-/*
- * Ice response communuication class.
- */
-class TestResp : public FDS_ProtocolInterface::FDSP_DataPathResp {
+class SmUnitTest {
  private:
-  fds_log *test_log;
-  std::unordered_map<ObjectID, std::string, ObjectHash> added_objs;
-  fds_mutex *objMapLock;
+  /*
+   * Ice response communuication class.
+   */
+  class TestResp : public FDS_ProtocolInterface::FDSP_DataPathResp {
+   private:
+    SmUnitTest *parentUt;
 
- public:
-  TestResp()
-      : test_log(NULL) {
-    objMapLock = new fds_mutex("Added object map lock");
-  }
-
-  explicit TestResp(fds_log *log)
-      : TestResp() {
-    test_log = log;
-  }
-  ~TestResp() {
-    delete objMapLock;
-  }
-
-  void SetLog(fds_log *log) {
-    assert(test_log == NULL);
-    test_log = log;
-  }
-
-  void GetObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-                     const FDS_ProtocolInterface::FDSP_GetObjTypePtr& get_req,
-                     const Ice::Current&) {
-    ObjectID oid(get_req->data_obj_id.hash_high,
-                 get_req->data_obj_id.hash_low);
-    if (msg_hdr->result == FDS_ProtocolInterface::FDSP_ERR_OK) {
-      std::string object_data = get_req->data_obj;
-   
-      objMapLock->lock();
-      if (object_data != added_objs[oid]) {
-        FDS_PLOG(test_log) << "Failed get correct object! For object "
-                           << oid << " Got ["
-                           << object_data << "] but expected ["
-                           << added_objs[oid] << "]";
-        assert(0);
-      }
-      objMapLock->unlock();
-      FDS_PLOG(test_log) << "Get object " << oid
-                         << " response: SUCCESS; " << object_data;
-    } else {
-      FDS_PLOG(test_log) << "Get object " << oid << " response: FAILURE";
-      /*
-       * TODO: Just panic for now. Eventually we want to tie
-       * the response back to the request in the unit test
-       * function and have the unit test return error.
-       */
-      assert(0);
+   public:
+    explicit TestResp(SmUnitTest* parentUt_arg) :
+        parentUt(parentUt_arg) {
     }
-  }
-
-  void PutObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-                     const FDS_ProtocolInterface::FDSP_PutObjTypePtr& put_req,
-                     const Ice::Current&) {
-    ObjectID oid(put_req->data_obj_id.hash_high,
-                 put_req->data_obj_id.hash_low);
-    if (msg_hdr->result == FDS_ProtocolInterface::FDSP_ERR_OK) {
-      FDS_PLOG(test_log) << "Put object response: SUCCESS";
-
-      objMapLock->lock();
-      added_objs[oid] = put_req->data_obj;
-      objMapLock->unlock();
-    } else {
-      FDS_PLOG(test_log) << "Put object response: FAILURE";
-      /*
-       * TODO: Just panic for now. Eventually we want to tie
-       * the response back to the request in the unit test
-       * function and have the unit test return error.
-       */
-      assert(0);
+    ~TestResp() {
     }
-  }
 
-  void UpdateCatalogObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
-                               fdsp_msg,
+    void GetObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                       const FDS_ProtocolInterface::FDSP_GetObjTypePtr& get_req,
+                       const Ice::Current&) {
+      /*
+       * TODO: May want to sanity check the other response fields.
+       */
+      fds_verify(msg_hdr->result == FDS_ProtocolInterface::FDSP_ERR_OK);
+
+      ObjectID oid(get_req->data_obj_id.hash_high,
+                   get_req->data_obj_id.hash_low);
+      std::string objData = get_req->data_obj;
+      fds_verify(parentUt->checkGetObj(oid, objData) == true);
+    }
+
+    void PutObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                       const FDS_ProtocolInterface::FDSP_PutObjTypePtr& put_req,
+                       const Ice::Current&) {
+      /*
+       * TODO: May want to sanity check the other response fields.
+       */
+      fds_verify(msg_hdr->result == FDS_ProtocolInterface::FDSP_ERR_OK);
+    }
+
+    void UpdateCatalogObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
+                                 fdsp_msg,
+                                 const
+                                 FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr&
+                                 update_req,
+                                 const Ice::Current &) {
+    }
+
+    void QueryCatalogObjectResp(const
+                                FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
+                                fdsp_msg,
+                                const
+                                FDS_ProtocolInterface::FDSP_QueryCatalogTypePtr&
+                                cat_obj_req,
+                                const Ice::Current &) {
+    }
+
+    void OffsetWriteObjectResp(const
+                               FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
+                             fdsp_msg,
                                const
-                               FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr&
-                               update_req,
+                               FDS_ProtocolInterface::FDSP_OffsetWriteObjTypePtr&
+                               offset_write_obj_req,
                                const Ice::Current &) {
-  }
-
-  void QueryCatalogObjectResp(const
-                              FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
-                              fdsp_msg,
-                               const
-                              FDS_ProtocolInterface::FDSP_QueryCatalogTypePtr&
-                              cat_obj_req,
-                              const Ice::Current &) {
-  }
-
-  void OffsetWriteObjectResp(const
+    }
+    void RedirReadObjectResp(const
                              FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
                              fdsp_msg,
                              const
-                             FDS_ProtocolInterface::FDSP_OffsetWriteObjTypePtr&
-                             offset_write_obj_req,
+                             FDS_ProtocolInterface::FDSP_RedirReadObjTypePtr&
+                             redir_write_obj_req,
                              const Ice::Current &) {
-  }
-  void RedirReadObjectResp(const
-                           FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
-                           fdsp_msg,
-                           const
-                           FDS_ProtocolInterface::FDSP_RedirReadObjTypePtr&
-                           redir_write_obj_req,
-                           const Ice::Current &) {
-  }
-};
+    }
+  };
 
-class SmUnitTest {
- private:
   std::list<std::string>  unit_tests;
   FDS_ProtocolInterface::FDSP_DataPathReqPrx& fdspDPAPI;
+  TestResp* fdspDataPathResp;
+  Ice::ObjectAdapterPtr adapter;
 
   fds_log *test_log;
 
   fds_uint32_t num_updates;
+
+  std::unordered_map<ObjectID, std::string, ObjectHash> added_objs;
+  fds_mutex *objMapLock;
+  std::atomic<fds_uint64_t>  ackedGets;
+
+  /*
+   * Helper functions.
+   */
+  fds_bool_t checkGetObj(const ObjectID& oid,
+                         const std::string& objData) {
+    ackedGets++;
+    objMapLock->lock();
+    if (objData != added_objs[oid]) {
+      FDS_PLOG(test_log) << "Failed get correct object! For object "
+                         << oid << " Got ["
+                         << objData << "] but expected ["
+                         << added_objs[oid] << "]";
+      objMapLock->unlock();
+      return false;
+    }
+    FDS_PLOG(test_log) << "Get object " << oid
+                       << " check: SUCCESS; " << objData;
+    objMapLock->unlock();
+    return true;
+  }
+
+  void updatePutObj(const ObjectID& oid,
+                    const std::string& objData) {
+    objMapLock->lock();
+    /*
+     * Note that this overwrites whatever was previously
+     * cached at that oid.
+     */
+    added_objs[oid] = objData;
+    FDS_PLOG(test_log) << "Put object " << oid << " with data "
+                       << objData << " into map ";
+    objMapLock->unlock();
+  }
 
   /*
    * Unit test funtions
@@ -185,6 +184,7 @@ class SmUnitTest {
       msg_hdr->num_objects           = 1;
     
       try {
+        updatePutObj(oid, object_data);
         fdspDPAPI->PutObject(msg_hdr, put_req);
         FDS_PLOG(test_log) << "Sent put obj message to SM"
                            << " for volume offset " << put_req->volume_offset
@@ -241,8 +241,9 @@ class SmUnitTest {
       put_req->data_obj_len          = object_data.size();
       put_req->data_obj              = object_data;
       msg_hdr->num_objects           = 1;
-    
+
       try {
+        updatePutObj(oid, object_data);
         fdspDPAPI->PutObject(msg_hdr, put_req);
         FDS_PLOG(test_log) << "Sent put obj message to SM"
                            << " for volume offset " << put_req->volume_offset
@@ -258,6 +259,7 @@ class SmUnitTest {
       objIdsPut.push_back(oid);
     }
 
+    ackedGets = 0;
     FDS_ProtocolInterface::FDSP_GetObjTypePtr get_req =
         new FDS_ProtocolInterface::FDSP_GetObjType;
     
@@ -291,6 +293,20 @@ class SmUnitTest {
       objIdsPut.pop_front();
     }
 
+    /*
+     * Spin and wait for the gets to complete.
+     */
+    fds_uint64_t acks = ackedGets.load();
+    while (acks != objIdsPut.size()) {
+      FDS_PLOG(test_log) << "Received " << acks
+                         << " of " << objIdsPut.size()
+                         << " get response";
+      sleep(1);
+      acks = ackedGets.load();
+    }
+    FDS_PLOG(test_log) << "Received all " << acks << " of "
+                       << objIdsPut.size() << " get responses";
+
     FDS_PLOG(test_log) << "Ending test: basic_uq()";
 
     return 0;
@@ -310,6 +326,10 @@ class SmUnitTest {
     msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_STOR_MGR;    
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
     msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    /*
+     * TODO: Change this! We should reg a volume.
+     */
+    msg_hdr->glob_volume_id = 5;
     
     fds_uint32_t volume_offset;
     ObjectID oid;
@@ -328,6 +348,7 @@ class SmUnitTest {
       msg_hdr->num_objects           = 1;
     
       try {
+        updatePutObj(oid, object_data);
         fdspDPAPI->PutObject(msg_hdr, put_req);
         FDS_PLOG(test_log) << "Sent put obj message to SM"
                            << " for volume offset " << put_req->volume_offset
@@ -344,6 +365,7 @@ class SmUnitTest {
       }
     }
 
+    ackedGets = 0;
     FDS_ProtocolInterface::FDSP_GetObjTypePtr get_req =
         new FDS_ProtocolInterface::FDSP_GetObjType;
     
@@ -352,6 +374,10 @@ class SmUnitTest {
     msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_STOR_MGR;
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
     msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    /*
+     * TODO: Change this! We should reg a volume.
+     */
+    msg_hdr->glob_volume_id = 5;
     
     for (fds_uint32_t i = 0; i < num_updates; i++) {
       oid = ObjectID(i, i * i);
@@ -368,7 +394,21 @@ class SmUnitTest {
                            << " with object ID " << oid;
         return -1;
       }
-    }    
+    }
+
+    /*
+     * Spin and wait for the gets to complete.
+     */
+    fds_uint64_t acks = ackedGets.load();
+    while (acks != num_updates) {
+      FDS_PLOG(test_log) << "Received " << acks
+                         << " of " << num_updates
+                         << " get response";
+      sleep(1);
+      acks = ackedGets.load();
+    }
+    FDS_PLOG(test_log) << "Received all " << acks << " of "
+                       << num_updates << " get responses";
 
     FDS_PLOG(test_log) << "Ending test: basic_dedupe()";
 
@@ -421,33 +461,53 @@ class SmUnitTest {
    * The non-const refernce is OK.
    */
   explicit SmUnitTest(FDS_ProtocolInterface::FDSP_DataPathReqPrx&
-                      fdspDPAPI_arg) // NOLINT(*)
-      : fdspDPAPI(fdspDPAPI_arg) {
+                      fdspDPAPI_arg,
+                      Ice::ObjectAdapterPtr adapter_arg)  // NOLINT(*)
+      : fdspDPAPI(fdspDPAPI_arg),
+        adapter(adapter_arg) {
 
-    test_log = new fds_log("sm_test", "logs");
+    test_log   = new fds_log("sm_test", "logs");
+    objMapLock = new fds_mutex("Added object map lock");
+
+    fdspDataPathResp = new TestResp(this);
+    fds_assert(fdspDataPathResp != NULL);
+
+    Ice::Identity ident;
+    ident.name = IceUtil::generateUUID();
+    ident.category = "";
+
+    adapter->add(fdspDataPathResp, ident);
+    adapter->activate();
+
+    fdspDPAPI->ice_getConnection()->setAdapter(adapter);
+    fdspDPAPI->AssociateRespCallback(ident);
 
     unit_tests.push_back("basic_update");
     unit_tests.push_back("basic_uq");
+    unit_tests.push_back("basic_dedupe");
 
     num_updates = 100;
   }
 
   explicit SmUnitTest(FDS_ProtocolInterface::FDSP_DataPathReqPrx&
                       fdspDPAPI_arg,
-                      fds_uint32_t num_up_arg) // NOLINT(*)
-      : fdspDPAPI(fdspDPAPI_arg),
-        num_updates(num_up_arg) {
-
-    test_log = new fds_log("sm_test", "logs");
-
-    unit_tests.push_back("basic_update");
-    unit_tests.push_back("basic_uq");
-    unit_tests.push_back("basic_dedupe");
-
+                      Ice::ObjectAdapterPtr adapter_arg,
+                      fds_uint32_t num_up_arg)  // NOLINT(*)
+      : SmUnitTest(fdspDPAPI_arg, adapter_arg) {
     num_updates = num_up_arg;
   }
 
   ~SmUnitTest() {
+    /*
+     * TODO: The test_log can be deleted while
+     * Ice messages are still incoming and using
+     * the log, which is a problem.
+     * Leak the log for now and fix this soon using
+     * coordination so that outstanding I/Os are
+     * accounted for prior to destruction.
+     */
+    // delete fdspDataPathResp;
+    delete objMapLock;
     delete test_log;
   }
 
@@ -556,31 +616,7 @@ class TestClient : public Ice::Application {
         FDS_ProtocolInterface::FDSP_DataPathReqPrx::checkedCast(op); // NOLINT(*)
 
     Ice::ObjectAdapterPtr adapter = communicator()->createObjectAdapter("");
-    Ice::Identity ident;
-    ident.name = IceUtil::generateUUID();
-    ident.category = "";
-
-    TestResp* fdspDataPathResp;
-    fdspDataPathResp = new TestResp();
-    if (!fdspDataPathResp) {
-      throw "Invalid fdspDataPathRespCback";
-    }
-
-    adapter->add(fdspDataPathResp, ident);
-    adapter->activate();
-
-    fdspDPAPI->ice_getConnection()->setAdapter(adapter);
-    fdspDPAPI->AssociateRespCallback(ident);
-
-    SmUnitTest unittest(fdspDPAPI, num_updates);
-
-    /*
-     * This is kinda hackey. Want to
-     * pass the logger to the ICE class
-     * but it need to be constructed prior
-     * to creating the unit test object.
-     */
-    fdspDataPathResp->SetLog(unittest.GetLogPtr());
+    SmUnitTest unittest(fdspDPAPI, adapter, num_updates);
 
     if (testname.empty()) {
       unittest.Run();

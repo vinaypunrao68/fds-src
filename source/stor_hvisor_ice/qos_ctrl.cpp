@@ -14,17 +14,25 @@ FDS_QoSControl::FDS_QoSControl() {
 
 FDS_QoSControl::FDS_QoSControl(fds_uint32_t _max_threads, 
                                dispatchAlgoType algo, 
-                               fds_log *log): qos_max_threads(_max_threads)  {
+                               fds_log *log,
+			       const std::string& prefix)
+  : qos_max_threads(_max_threads)  
+{
    threadPool = new fds_threadpool(qos_max_threads);
    dispatchAlgo = algo;
    qos_log = log;
    total_rate = 20000; //IOPS
+
+   stats = new PerfStats(prefix);
+   /* by default stats are disabled, each derived class can call
+   *  stats->enable() to enable the stats */
 }
 
 
 FDS_QoSControl::~FDS_QoSControl()  {
   //delete dispatcher;
   delete threadPool;
+  delete stats;
 }
 
 fds_uint32_t FDS_QoSControl::waitForWorkers() {
@@ -65,6 +73,10 @@ Error FDS_QoSControl::enqueueIO(fds_volid_t volUUID, FDS_IOType *io) {
   Error err(ERR_OK);
   err = dispatcher->enqueueIO(volUUID, io);
   return err;
+}
+
+void FDS_QoSControl::quieseceIOs(fds_volid_t volUUID) {
+  dispatcher->quiesceIOs(volUUID);
 }
 
 Error FDS_QoSControl::processIO(FDS_IOType *) {

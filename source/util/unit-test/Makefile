@@ -5,7 +5,7 @@ user_rtime_env    := user
 user_fds_so_libs  :=
 user_fds_ar_libs  := fds-hash fds-util fds-fdsp
 user_non_fds_libs :=                                                          \
-    boost_log boost_system boost_thread boost_date_time Ice IceUtil IceStorm  \
+    boost_log boost_system boost_filesystem boost_thread boost_date_time Ice IceUtil IceStorm  \
     ssl crypto
 
 user_incl_dir     := ../ ../hash $(topdir)/include/hash
