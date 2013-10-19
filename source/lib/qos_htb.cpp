@@ -70,7 +70,7 @@ Error QoSHTBDispatcher::registerQueue(fds_uint32_t queue_id,
 
   /* If iops_max == 0, means no max, set max_rate to a very high value */
   if (q_max_rate == 0) 
-     q_max_rate = 100000;
+     q_max_rate = HTB_QUEUE_RATE_INFINITE_MAX;
    
   /* we need a new state to control new queue */
   TBQueueState *qstate = new TBQueueState(queue_id, 
@@ -156,8 +156,8 @@ Error QoSHTBDispatcher::deregisterQueue(fds_uint32_t queue_id)
   qstate_map.erase(queue_id);
 
   /* update total min and avail rates */
-  assert(qstate->getMinRate() <= total_min_rate);
-  total_min_rate -= qstate->getMinRate();
+  assert(qstate->min_rate <= total_min_rate);
+  total_min_rate -= qstate->min_rate;
 
   new_total_min_rate = total_min_rate;
   if (total_rate > total_min_rate)
@@ -176,11 +176,64 @@ Error QoSHTBDispatcher::deregisterQueue(fds_uint32_t queue_id)
   return err;
 }
 
+void QoSHTBDispatcher::setThrottleLevel(float throttle_level)
+{
+  assert((throttle_level >= -10) && (throttle_level <= 10));
+  fds_int32_t tlevel_x = (fds_int32_t) throttle_level;
+  double tlevel_frac = fabs((double)throttle_level - (double)tlevel_x);
+
+  FDS_PLOG(qda_log) << "QosHTBDispatcher: set throttle level to " << throttle_level
+		    << "; X=" << tlevel_x << ", Y/10=" << tlevel_frac;
+
+  qda_lock.write_lock();
+  for (qstate_map_it_t it = qstate_map.begin();
+       it != qstate_map.end();
+       ++it)
+    {
+      TBQueueState* qstate = it->second;
+      assert(qstate);
+
+      if (tlevel_x >= 0) {
+	if (qstate->priority > tlevel_x) {
+	  /* throttle to min rate */
+	  qstate->setEffectiveMinMaxRates(qstate->min_rate, qstate->min_rate, wait_time_microsec);
+	}
+	else if (qstate->priority < tlevel_x) {
+	  /* ok to go up to max rate limit */
+	  qstate->setEffectiveMinMaxRates(qstate->min_rate, qstate->max_rate, wait_time_microsec);
+	}
+	else {
+	  /* ok to go up to min_rate + Y/10*(max_rate - min_rate) */
+	  double new_max_rate = qstate->min_rate + tlevel_frac * (qstate->max_rate - qstate->min_rate);
+	  qstate->setEffectiveMinMaxRates(qstate->min_rate, (fds_uint64_t)new_max_rate, wait_time_microsec);
+	}
+      }
+      else { /* tlevel_x < 0 */
+	double share = (10.0 - (double)abs(tlevel_x))/10.0;
+	fds_uint64_t new_min_rate = (fds_uint64_t)(share * (double)qstate->min_rate);
+	/* we don't want to go to absolute 0 rate, so set some very small rate as min */
+	if (new_min_rate < HTB_QUEUE_RATE_MIN) 
+	  new_min_rate = HTB_QUEUE_RATE_MIN;
+        qstate->setEffectiveMinMaxRates(new_min_rate, new_min_rate, wait_time_microsec);
+	/* note that we are not going to change total_min_rate when changing queue's effective
+	 * min rate (meaning we are not increasing total available rate), because in this case
+	 * all volumes are throttled down, and no sharing is happening */
+      }
+
+      FDS_PLOG(qda_log) << "QosHTBDispatcher: setThrottleLevel(" << throttle_level <<") queue " << qstate->queue_id 
+			<< " Policy (" << qstate->min_rate << "," << qstate->max_rate << "," << qstate->priority
+			<< "), effective min_rate=" << qstate->getEffectiveMinRate() 
+			<< ", effective max_rate=" << qstate->getEffectiveMaxRate();
+    }
+  qda_lock.write_unlock();
+}
+
 void QoSHTBDispatcher::ioProcessForEnqueue(fds_uint32_t queue_id,
 					   FDS_IOType *io)
 {
   TBQueueState* qstate = qstate_map[queue_id];
   assert(qstate);
+  FDS_PLOG(qda_log) << "QoSHTBDispatcher: handling enqueue IO to queue " << queue_id;
   qstate->handleIoEnqueue(io);
 }
 
@@ -314,6 +367,8 @@ TBQueueState::TBQueueState(fds_uint32_t _queue_id,
 			   fds_uint64_t _assured_wait_microsec,
 			   fds_uint64_t _burst_size)
   : queue_id(_queue_id),
+    min_rate(_min_rate),
+    max_rate(_max_rate),
     priority(_priority),
     tb_min(_min_rate, _burst_size, _assured_wait_microsec), 
     tb_max(_max_rate, _burst_size)
