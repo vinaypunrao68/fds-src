@@ -21,8 +21,10 @@ FilePersisDataIO::disk_do_write(DiskRequest *req)
     shft = DataIO::disk_io_blk_shift();
 
     map->obj_blk_len     = buf->size >> shft;
-    map->obj_stor_offset = off >> shft;
+    // map->obj_stor_offset = off >> shft;
+    map->obj_stor_offset = off;
     map->obj_stor_loc_id = disk_loc_id();
+    map->obj_size = buf->size;
 
     // TODO: Update both index and data in parallel.
 

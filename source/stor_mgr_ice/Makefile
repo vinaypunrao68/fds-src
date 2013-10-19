@@ -11,7 +11,7 @@ user_incl_dir     := $(topdir)
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  :=                   \
-    fds-StorHvisor fds-lib fds-dsk-mgnt fds-umod fds-thread fds-util fds-fdsp
+    fds-StorHvisor fds-lib fds-dsk-mgnt fds-dsk-io fds-umod fds-thread fds-util fds-fdsp
 
 user_non_fds_libs :=                                                          \
     boost_log boost_system boost_filesystem boost_thread boost_date_time boost_program_options \

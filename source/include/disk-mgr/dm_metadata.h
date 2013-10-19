@@ -111,6 +111,7 @@ struct __attribute__((__packed__)) meta_obj_map_v0
     fds_uint8_t          obj_map_ver;         /* current version.            */
     fds_uint8_t          obj_rsvd;
     fds_uint16_t         obj_blk_len;         /* var blk: 512 to 32M.        */
+    fds_uint32_t         obj_size;            /* var, size in bytes */
     fds_uint16_t         obj_io_func;         /* f(t) = io characteristic.   */
     fds_uint16_t         obj_rd_cnt;          /* read stat.                  */
     fds_uint16_t         obj_refcnt;          /* de-dupe refcnt.             */
@@ -121,6 +122,28 @@ struct __attribute__((__packed__)) meta_obj_map_v0
 
 typedef struct meta_obj_map_v0     meta_obj_map_v0_t;
 typedef struct meta_obj_map_v0     meta_obj_map_t;
+
+static __inline__ std::string obj_map_to_string(meta_obj_map_t *obj_map) {
+
+  std::string obj_map_str = 
+    std::to_string(obj_map->obj_stor_loc_id) + ":" + std::to_string(obj_map->obj_stor_offset) 
+    + ":"  + std::to_string(obj_map->obj_blk_len) + ":"  + std::to_string(obj_map->obj_size);
+
+  return obj_map_str;
+
+}
+
+static __inline__ void string_to_obj_map(std::string& obj_map_str, meta_obj_map_t *obj_map) {
+
+  unsigned int loc_id, offset, len, size; 
+
+  sscanf(obj_map_str.c_str(), "%u:%u:%u:%u", &loc_id, &offset, &len, &size);
+  obj_map->obj_stor_loc_id = loc_id;
+  obj_map->obj_stor_offset = offset;
+  obj_map->obj_blk_len = len;
+  obj_map->obj_size = size;
+
+}
 
 #define OID_MAP_CURR_VER           (0)
 

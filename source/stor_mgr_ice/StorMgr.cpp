@@ -151,7 +151,9 @@ ObjectStorMgr::ObjectStorMgr() :
     runMode(NORMAL_MODE),
     numTestVols(10),
     totalRate(10000),
-    qosThrds(10) {
+    qosThrds(10),
+    port_num(0),
+    cp_port_num(0) {
   /*
    * TODO: Fix the totalRate above to not
    * be hard coded.
@@ -327,6 +329,67 @@ void ObjectStorMgr::unitTest()
   // delete get_obj_req;
 }
 
+Error
+ObjectStorMgr::writeObjectLocation(const ObjectID& objId,
+				   meta_obj_map_t *obj_map) {
+
+  Error err(ERR_OK);
+
+  ObjectBuf objData;
+
+  string obj_map_string = obj_map_to_string(obj_map);
+  objData.size = obj_map_string.size();
+  objData.data = obj_map_string;
+  err = objStorDB->Put(objId, objData);
+  FDS_PLOG(GetLog()) << "Updating object location for object " << objId << " to " << objData.data;
+  return err;
+
+}
+
+Error
+ObjectStorMgr::readObjectLocation(const ObjectID& objId,
+				  meta_obj_map_t *obj_map) {
+
+  Error err(ERR_OK);
+  ObjectBuf objData;
+
+  objData.size = 0;
+  objData.data = "";
+  err = objStorDB->Get(objId, objData);
+  if (err == ERR_OK) {
+    string_to_obj_map(objData.data, obj_map);
+    FDS_PLOG(GetLog()) << "Retrieving object location for object " << objId << " as " << objData.data;
+  } else {
+    FDS_PLOG(GetLog()) << "No object location found for object " << objId << " in index DB";
+  }
+  return err;
+}
+
+
+Error 
+ObjectStorMgr::readObject(const ObjectID& objId, 
+			  ObjectBuf& objData)
+{
+  Error err(ERR_OK);
+  
+  diskio::DataIO& dio_mgr = diskio::DataIO::disk_singleton();
+  SMDiskReq     *disk_req;
+  meta_vol_io_t   vio;
+  meta_obj_id_t   oid;
+  vadr_set_inval(vio.vol_adr);
+  oid.oid_hash_hi = objId.GetHigh();
+  oid.oid_hash_lo = objId.GetLow();
+  disk_req = new SMDiskReq(vio, oid, (ObjectBuf *)&objData, true); // blocking call
+  err = readObjectLocation(objId, disk_req->req_get_vmap());
+  if (err == ERR_OK) {
+    objData.size = disk_req->req_get_vmap()->obj_size;
+    objData.data.resize(objData.size, 0);
+    dio_mgr.disk_read(disk_req);
+  }
+  delete disk_req;
+  return err;
+}
+
 /**
  * Checks if an object ID already exists. An object
  * data buffer is passed so that inline buffer
@@ -343,9 +406,18 @@ ObjectStorMgr::checkDuplicate(const ObjectID&  objId,
 
   ObjectBuf objGetData;
 
-  objStorMutex->lock();
-  err = objStorDB->Get(objId, objGetData);
-  objStorMutex->unlock();
+  /*
+   * We need to fix this once diskmanager keeps track of object size
+   * and allocates buffer automatically.
+   * For now, we will pass the fixed block size for size and preallocate
+   * memory for that size.
+   */
+
+  objGetData.size = 0;
+  objGetData.data = "";
+ 
+  err = readObject(objId, objGetData);
+  
   if (err == ERR_OK) {
     /*
      * Perform an inline check that the data is the same.
@@ -372,30 +444,24 @@ ObjectStorMgr::checkDuplicate(const ObjectID&  objId,
   return err;
 }
 
-fds_sm_err_t 
-ObjectStorMgr::writeObject(FDS_ObjectIdType *object_id, 
-                           fds_uint32_t obj_len, 
-                           fds_char_t *data_object, 
-                           FDS_DataLocEntry  *data_loc)
+
+Error 
+ObjectStorMgr::writeObject(const ObjectID& objId, 
+                           const ObjectBuf& objData)
 {
-   //Hash the object_id to DiskNumber, FileName
-fds_uint32_t disk_num = 1;
-
-   // Now append the object to the end of this filename
-   diskMgr->writeObject(object_id, obj_len, data_object, data_loc, disk_num);
-
-   return FDS_SM_OK;
-}
-
-Error
-ObjectStorMgr::writeObjLocation(const ObjectID& objId,
-                                fds_uint32_t obj_len, 
-                                fds_uint32_t volid, 
-                                FDS_DataLocEntry *data_loc) {
   Error err(ERR_OK);
-  // fds_uint32_t disk_num = 1;
-  // Enqueue the object location entry into the thread that maintains global index file
-  //disk_mgr_write_obj_loc(object_id, obj_len, volid, data_loc);
+  
+  diskio::DataIO& dio_mgr = diskio::DataIO::disk_singleton();
+  SMDiskReq     *disk_req;
+  meta_vol_io_t   vio;
+  meta_obj_id_t   oid;
+  vadr_set_inval(vio.vol_adr);
+  oid.oid_hash_hi = objId.GetHigh();
+  oid.oid_hash_lo = objId.GetLow();
+  disk_req = new SMDiskReq(vio, oid, (ObjectBuf *)&objData, true); // blocking call
+  dio_mgr.disk_write(disk_req);
+  err = writeObjectLocation(objId, disk_req->req_get_vmap());
+  delete disk_req;
   return err;
 }
 
@@ -413,22 +479,23 @@ ObjectStorMgr::putObjectInternal(const SmIoReq& putReq) {
   const ObjectID&  objId   = putReq.getObjId();
   const ObjectBuf& objData = putReq.getObjData();
 
+
+  objStorMutex->lock();
+
   // Find if this object is a duplicate
   err = checkDuplicate(objId,
-                       objData);
+		       objData);
   
   if (err == ERR_DUPLICATE) {
+    objStorMutex->unlock();
     FDS_PLOG(objStorMgr->GetLog()) << "Put dup:  " << err
                                    << ", returning success";
-    writeObjLocation(objId,
-                     objData.size,
-                     putReq.getVolId(),
-                     NULL);
     /*
      * Reset the err to OK to ack the metadata update.
      */
     err = ERR_OK;
   } else if (err != ERR_OK) {
+    objStorMutex->unlock();
     FDS_PLOG(objStorMgr->GetLog()) << "Failed to check object duplicate status on put: "
                                    << err;
   } else {
@@ -436,8 +503,8 @@ ObjectStorMgr::putObjectInternal(const SmIoReq& putReq) {
      * This is the levelDB insertion. It's a totally
      * separate DB from the one above.
      */
-    objStorMutex->lock();
-    err = objStorDB->Put(objId, objData);
+    // err = objStorDB->Put(objId, objData);
+    err = writeObject(objId, objData);
     objStorMutex->unlock();
 
     if (err != fds::ERR_OK) {
@@ -478,6 +545,7 @@ ObjectStorMgr::putObjectInternal(const SmIoReq& putReq) {
   if (err == ERR_OK) {
     msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_OK;
   } else {
+
     msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_FAILED;
   }
 
@@ -569,14 +637,16 @@ ObjectStorMgr::getObjectInternal(const SmIoReq& getReq) {
   const ObjectID& objId  = getReq.getObjId();
   ObjectBuf       objData;
   /*
-   * We can set the size to zero here becaue
-   * we're always getting the entire object from
-   * leveldb.
+   * We need to fix this once diskmanager keeps track of object size
+   * and allocates buffer automatically.
+   * For now, we will pass the fixed block size for size and preallocate
+   * memory for that size.
    */
   objData.size = 0;
+  objData.data = "";
 
   objStorMutex->lock();
-  err = objStorDB->Get(objId, objData);
+  err = readObject(objId, objData);
   objStorMutex->unlock();
   objData.size = objData.data.size();
 
@@ -747,6 +817,7 @@ ObjectStorMgr::run(int argc, char* argv[])
   unit_test    = false;
   useTestMode  = false;
   omConfigPort = 0;
+  runMode = NORMAL_MODE;
 
   for (int i = 1; i < argc; i++) {
     std::string arg(argv[i]);
@@ -887,6 +958,16 @@ ObjectStorMgr::run(int argc, char* argv[])
         }
         break;
     }
+
+    /* Instantiate a DiskManager Module instance */
+
+    fds::Module *io_dm_vec[] = {
+        &diskio::gl_dataIOMod,
+        nullptr
+    };
+    fds::ModuleVector    io_dm(0, NULL, io_dm_vec);
+    io_dm.mod_execute();
+
 
   /*
    * Register this node with OM.
