@@ -52,6 +52,44 @@ class StorVol():
                                                                 self.name,
                                                                 self.volId)
 
+#
+# Defines a policy in the cluster
+#
+class StorPol():
+    name     = None
+    polId    = None
+    iopsmin  = None
+    iopsmax  = None
+    priority = None
+    cliBin = "fdscli"
+
+    def __init__(self, _name):
+        self.name = _name
+
+    def setId(self, _id):
+        self.polId = _id
+
+    def setIopsMin(self, _min):
+        self.iopsmin = _min
+
+    def setIopsMax(self, _max):
+        self.iopsmax = _max
+
+    def setPriority(self, _prio):
+        self.priority = _prio
+
+    def getCrtCmd(self):
+        return "%s --policy-create %s -p %d -g %d -m %d -r %d" % (self.cliBin,
+                                                                  self.name,
+                                                                  self.polId,
+                                                                  self.iopsmin,
+                                                                  self.iopsmax,
+                                                                  self.priority)
+
+    def getDelCmd(self):
+        return "%s --policy-delete %s -p %d" % (self.cliBin,
+                                                self.name,
+                                                self.polId)
 
 #
 # Defines a client in the cluster
@@ -153,6 +191,7 @@ class TestBringUp():
     nodes   = []
     clients = []
     volumes = []
+    policies = []
 
     #
     # Prefixes for parsing the cfg file
@@ -163,6 +202,7 @@ class TestBringUp():
     src_sec_prefix  = "source"
     sh_sec_prefix   = "sh"
     vol_sec_prefix  = "volume"
+    pol_sec_prefix  = "policy"
 
     #
     # The default IP of the OM that each
@@ -209,6 +249,29 @@ class TestBringUp():
         self.fdsBinDir = self.srcPath + "/" + self.fdsBinDir
         self.ldLibPath = self.ldLibPath + ":" + self.fdsLdbLibDir + ":" + self.fdsIceLibDir + ":" + self.fdsBstLibDir
         self.iceHome = self.iceHome + self.srcPath + "/" + self.fdsIceDir
+
+
+    #
+    # Loads a volume from items
+    # in the cfg file
+    #
+    def loadPolicy(self, name, items):
+        policy = StorPol(name)
+        for item in items:
+            key   = item[0]
+            value = item[1]
+            if key == "id":
+                policy.setId(int(value))
+            elif key == "iops_min":
+                policy.setIopsMin(int(value))
+            elif key == "iops_max":
+                policy.setIopsMax(int(value))
+            elif key == "priority":
+                policy.setPriority(int(value))
+            else:
+                print "Unknown item %s, %s in %s" % (key, value, name)
+
+        self.policies.append(policy)
 
     #
     # Loads a volume from items
@@ -309,6 +372,8 @@ class TestBringUp():
                 self.loadClient(section, self.config.items(section))
             elif re.match(self.vol_sec_prefix, section) != None:
                 self.loadVol(section, self.config.items(section))
+            elif re.match(self.pol_sec_prefix, section) != None:
+                self.loadPolicy(section, self.config.items(section))
             else:
                 print "Unknown section %s" % (section)
 
@@ -348,6 +413,21 @@ class TestBringUp():
     #
     def buildUbdCmd(self, client):
         cmd = self.ldLibPath + "; " + self.iceHome + "; " + " cd " + self.fdsBinDir + "; " + "ulimit -s 4096; " + "./" + client.getUbdCmd() + " --om_ip=" + self.omIpStr + " --om_port=" + str(self.omConfPort)
+        return cmd
+
+
+    #
+    # Builds the command to create a policy
+    #
+    def buildPolCrtCmd(self, policy):
+        cmd = self.ldLibPath + "; " + self.iceHome + "; " + " cd " + self.fdsBinDir + "; " + "./" + policy.getCrtCmd() + " --om_ip=" + self.omIpStr + " --om_port=" + str(self.omConfPort)
+        return cmd
+
+    #
+    # Builds the command to delete a policy
+    #
+    def buildPolDelCmd(self, policy):
+        cmd = self.ldLibPath + "; " + self.iceHome + "; " + " cd " + self.fdsBinDir + "; " + "./" + policy.getDelCmd() + " --om_ip=" + self.omIpStr + " --om_port=" + str(self.omConfPort)
         return cmd
 
     #
@@ -422,6 +502,43 @@ class TestBringUp():
         if checkStr != None:
             return outputChecked
         return True
+
+
+    #
+    # Create policy in the cluster
+    #
+    def polBringUp(self, policy):
+        #
+        # Runs this command on the OM IP
+        #
+        crtCmd = self.buildPolCrtCmd(policy)
+        result = self.runNodeCmd(policy, crtCmd, ipOver=self.omIpStr)
+        if result == True:
+            print "Created policy with OM on %s..." % (self.omIpStr)
+        else:
+            print "Failed to create policy"
+            return -1
+
+        return 0
+
+
+    #
+    # Delete policy from the cluster
+    #
+    def polBringDown(self, policy):
+        #
+        # Runs this command on the OM IP
+        #
+        delCmd = self.buildPolDelCmd(policy)
+        result = self.runNodeCmd(policy, delCmd, ipOver=self.omIpStr)
+        if result == True:
+            print "Deleted policy with OM on %s..." % (self.omIpStr)
+        else:
+            print "Failed to delete policy"
+            return -1
+
+        return 0
+
 
     #
     # Create and attach volume to cluster
@@ -640,6 +757,29 @@ class TestBringUp():
 
         return 0
 
+
+    #
+    # Bring up policies across a cluster
+    #
+    def bringUpPols(self):
+        for policy in self.policies:
+           result = self.polBringUp(policy)
+           if result != 0:
+               return result
+        
+        return 0
+
+    #
+    # Bring down policies across a cluster
+    #
+    def bringDownPols(self):
+        for policy in self.policies:
+           result = self.polBringDown(policy)
+           if result != 0:
+               return result
+
+        return 0
+
     #
     # Bring up volumes across a cluster
     #
@@ -748,6 +888,11 @@ if __name__ == '__main__':
             print "Failed to bring up all clients"
         else :
             print "Brought up all clients"
+        result = bu.bringUpPols()
+        if result != 0:
+            print "Failed to bring up all policies"
+        else :
+            print "Brought up all policies"
         result = bu.bringUpVols()
         if result != 0:
             print "Failed to bring up all volumes"
@@ -760,6 +905,11 @@ if __name__ == '__main__':
             print "Failed to bring down all clients"
         else :
             print "Brought down all clients"
+        result = bu.bringDownPols()
+        if result != 0:
+            print "Failed to delete all policies"
+        else:
+            print "Deleted all policies"
         result = bu.bringDownNodes()
         if result != 0:
             print "Failed to bring down all nodes"

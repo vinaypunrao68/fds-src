@@ -36,7 +36,7 @@ ObjectStorMgrI::PutObject(const FDSP_MsgHdrTypePtr& msgHdr,
   /*
    * Track the outstanding get request.
    * TODO: This is a total hack. We're overloading the msg_hdr's
-   * req_cookie field to track the outstanding request Id that
+   * msg_chksum field to track the outstanding request Id that
    * we pass into the SM.
    *
    * TODO: We should check if this value has rolled at some point.
@@ -44,7 +44,7 @@ ObjectStorMgrI::PutObject(const FDSP_MsgHdrTypePtr& msgHdr,
    */
   fds_uint64_t reqId;
   reqId = std::atomic_fetch_add(&(objStorMgr->nextReqId), (fds_uint64_t)1);
-  msgHdr->req_cookie = reqId;
+  msgHdr->msg_chksum = reqId;
   objStorMgr->waitingReqMutex->lock();
   objStorMgr->waitingReqs[reqId] = msgHdr;
   objStorMgr->waitingReqMutex->unlock();
@@ -77,7 +77,7 @@ ObjectStorMgrI::GetObject(const FDSP_MsgHdrTypePtr& msgHdr,
   /*
    * Track the outstanding get request.
    * TODO: This is a total hack. We're overloading the msg_hdr's
-   * req_cookie field to track the outstanding request Id that
+   * msg_chksum field to track the outstanding request Id that
    * we pass into the SM.
    *
    * TODO: We should check if this value has rolled at some point.
@@ -85,7 +85,7 @@ ObjectStorMgrI::GetObject(const FDSP_MsgHdrTypePtr& msgHdr,
    */
   fds_uint64_t reqId;
   reqId = std::atomic_fetch_add(&(objStorMgr->nextReqId), (fds_uint64_t)1);
-  msgHdr->req_cookie = reqId;
+  msgHdr->msg_chksum = reqId;
   objStorMgr->waitingReqMutex->lock();
   objStorMgr->waitingReqs[reqId] = msgHdr;
   objStorMgr->waitingReqMutex->unlock();
@@ -617,10 +617,11 @@ ObjectStorMgr::PutObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
 
   FDS_PLOG(objStorMgr->GetLog()) << "PutObject Obj ID: " << oid
                                  << ", glob_vol_id: " << fdsp_msg->glob_volume_id
+                                 << ", for request ID: " << fdsp_msg->msg_chksum
                                  << ", Num Objs: " << fdsp_msg->num_objects;
   err = putObjectInternal(put_obj_req,
                           fdsp_msg->glob_volume_id,
-                          fdsp_msg->req_cookie,
+                          fdsp_msg->msg_chksum,
                           fdsp_msg->num_objects);
   if (err != ERR_OK) {
     fdsp_msg->result = FDSP_ERR_FAILED;
@@ -757,14 +758,14 @@ ObjectStorMgr::GetObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
   ObjectID oid(get_obj_req->data_obj_id.hash_high,
                get_obj_req->data_obj_id.hash_low);
 
-  FDS_PLOG(objStorMgr->GetLog()) << "GetObject XID: " << fdsp_msg->req_cookie
+  FDS_PLOG(objStorMgr->GetLog()) << "GetObject XID: " << fdsp_msg->msg_chksum
                                  << ", Obj ID: " << oid
                                  << ", glob_vol_id: " << fdsp_msg->glob_volume_id
                                  << ", Num Objs: " << fdsp_msg->num_objects;
    
   err = getObjectInternal(get_obj_req,
                           fdsp_msg->glob_volume_id,
-                          fdsp_msg->req_cookie,
+                          fdsp_msg->msg_chksum,
                           fdsp_msg->num_objects);
   if (err != ERR_OK) {
     fdsp_msg->result = FDSP_ERR_FAILED;

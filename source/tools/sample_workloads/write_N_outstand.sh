@@ -41,7 +41,7 @@ fi
 mkdir -p $RESULT_DIR
 
 pushd .; cd $PHAROS_DIR
-./Pharos -k $blocksize -q $outstand_count -d w -t $tracename $DEVICE r $runtime $VOLID $PREFIX
+./Pharos -k $blocksize -o $outstand_count -d w -t $tracename $DEVICE r $runtime $VOLID $PREFIX
 popd
 
 
