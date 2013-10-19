@@ -7,8 +7,8 @@ module FDS_ProtocolInterface {
 
 
 struct FDS_ObjectIdType {
-  double   hash_high;
-  double   hash_low;
+  long   hash_high;
+  long   hash_low;
   byte    conflict_id;
 };
 

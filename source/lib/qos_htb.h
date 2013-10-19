@@ -15,6 +15,10 @@
 #include "qos_tokbucket.h"
 #include "fds_qos.h"
 
+#define HTB_QUEUE_RATE_MIN                5         /* protection from queues not going to absolute 0 rate, eg. when 
+						     * setting throttle levels, etc. */
+#define HTB_QUEUE_RATE_INFINITE_MAX       100000    /* a token bucket max rate when iops_max policy is set to 0 */
+
 #define DEFAULT_ASSURED_WAIT_MICROSEC     250000
 #define HTB_WMA_SLOT_SIZE_MICROSEC        250000   /* the length of stat slot for gathering recent iops performance */   
 /* If you modify HTB_MAX_WMA_LENGTH, yoy must update TBQueueState::kweights constant array  */
@@ -69,24 +73,17 @@ namespace fds {
                  fds_uint64_t _burst_size);
     ~TBQueueState();    
 
-    /* Modify configurable parameters */
-    inline void modifyParameters(fds_uint64_t _min_rate, 
-                                 fds_uint64_t _max_rate, 
-                                 fds_uint32_t _priority,
-                                 fds_uint64_t _assured_wait_microsec,
-                                 fds_uint64_t _burst_size) {
-      priority = _priority;
+    /* Modify effective min and max rates  */
+    inline void setEffectiveMinMaxRates(fds_uint64_t _min_rate, 
+					fds_uint64_t _max_rate, 
+					fds_uint64_t _assured_wait_microsec) {
+      assert(_min_rate <= _max_rate);
       tb_min.modifyRate(_min_rate, _assured_wait_microsec);
-      tb_max.modifyParams(_max_rate, _burst_size);
+      tb_max.modifyRate(_max_rate);
     }
-    inline void modifyMinRate(fds_uint64_t _min_rate, fds_uint64_t _assured_wait_microsec) { 
-      tb_min.modifyRate(_min_rate, _assured_wait_microsec); 
-    }
-    inline void modifyMaxRate(fds_uint64_t _max_rate) { tb_max.modifyRate(_max_rate); }
-    inline void modifyBurstSize(fds_uint64_t _burst_size) { tb_max.modifyParams(getMaxRate(), _burst_size); }
 
-    inline fds_uint64_t getMinRate() const { return tb_min.getRate();}
-    inline fds_uint64_t getMaxRate() const { return tb_max.getRate();}
+    inline fds_uint64_t getEffectiveMinRate() const { return tb_min.getRate();}
+    inline fds_uint64_t getEffectiveMaxRate() const { return tb_max.getRate();}
 
     /* Notification that IO 'io' is queued or dispatched from the queue (dequeued)
      * uses atomic operations to update state of the queue 
@@ -130,6 +127,11 @@ namespace fds {
 
   public: /* data */
     fds_uint32_t queue_id;
+    /* Queue policy settings. 
+     * The queue may operate at different max and min rates depending on throttle 
+     * level (the effective min and max are setting of tb_min and tb_max token buckets */
+    fds_uint64_t min_rate; 
+    fds_uint64_t max_rate;
     fds_uint32_t priority;
 
   private: /* data */
@@ -201,6 +203,7 @@ namespace fds {
     /* this implementation calls base class deregisterQueue first */
     virtual Error deregisterQueue(fds_uint32_t queue_id);
 
+    virtual void setThrottleLevel(float throttle_level);
 
     /**** extra methods that we could also add to base class ***/
 

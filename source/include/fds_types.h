@@ -126,6 +126,10 @@ namespace fds {
       return *this;
     }
 
+    std::string ToHex() const {
+      return ToHex(*this);
+    }
+
     /*
      * Static members for transforming ObjectIDs.
      * Just utility functions.
@@ -179,7 +183,7 @@ namespace fds {
   class ObjectHash {
  public:
     size_t operator()(const ObjectID& oid) const {
-      return std::hash<std::string>()(oid.ToString());
+      return std::hash<std::string>()(oid.ToHex());
     }
   };
 
