@@ -127,7 +127,9 @@ ObjectStorMgr::ObjectStorMgr() :
     runMode(NORMAL_MODE),
     numTestVols(10),
     totalRate(10000),
-    qosThrds(10) {
+    qosThrds(10),
+    port_num(0),
+    cp_port_num(0) {
   /*
    * TODO: Fix the totalRate above to not
    * be hard coded.
@@ -297,6 +299,43 @@ void ObjectStorMgr::unitTest()
   // delete get_obj_req;
 }
 
+Error
+ObjectStorMgr::writeObjectLocation(const ObjectID& objId,
+				   meta_obj_map_t *obj_map) {
+
+  Error err(ERR_OK);
+
+  ObjectBuf objData;
+
+  string obj_map_string = obj_map_to_string(obj_map);
+  objData.size = obj_map_string.size();
+  objData.data = obj_map_string;
+  err = objStorDB->Put(objId, objData);
+  FDS_PLOG(GetLog()) << "Updating object location for object " << objId << " to " << objData.data;
+  return err;
+
+}
+
+Error
+ObjectStorMgr::readObjectLocation(const ObjectID& objId,
+				  meta_obj_map_t *obj_map) {
+
+  Error err(ERR_OK);
+  ObjectBuf objData;
+
+  objData.size = 0;
+  objData.data = "";
+  err = objStorDB->Get(objId, objData);
+  if (err == ERR_OK) {
+    string_to_obj_map(objData.data, obj_map);
+    FDS_PLOG(GetLog()) << "Retrieving object location for object " << objId << " as " << objData.data;
+  } else {
+    FDS_PLOG(GetLog()) << "No object location found for object " << objId << " in index DB";
+  }
+  return err;
+}
+
+
 Error 
 ObjectStorMgr::readObject(const ObjectID& objId, 
 			  ObjectBuf& objData)
@@ -311,7 +350,12 @@ ObjectStorMgr::readObject(const ObjectID& objId,
   oid.oid_hash_hi = objId.GetHigh();
   oid.oid_hash_lo = objId.GetLow();
   disk_req = new SMDiskReq(vio, oid, (ObjectBuf *)&objData, true); // blocking call
-  dio_mgr.disk_read(disk_req);
+  err = readObjectLocation(objId, disk_req->req_get_vmap());
+  if (err == ERR_OK) {
+    objData.size = disk_req->req_get_vmap()->obj_size;
+    objData.data.resize(objData.size, 0);
+    dio_mgr.disk_read(disk_req);
+  }
   delete disk_req;
   return err;
 }
@@ -339,13 +383,11 @@ ObjectStorMgr::checkDuplicate(const ObjectID&  objId,
    * memory for that size.
    */
 
-  objGetData.size = 4096;
+  objGetData.size = 0;
   objGetData.data = "";
-  objGetData.data.reserve(4096);
-
-  objStorMutex->lock();
+ 
   err = readObject(objId, objGetData);
-  objStorMutex->unlock();
+  
   if (err == ERR_OK) {
     /*
      * Perform an inline check that the data is the same.
@@ -372,6 +414,7 @@ ObjectStorMgr::checkDuplicate(const ObjectID&  objId,
   return err;
 }
 
+
 Error 
 ObjectStorMgr::writeObject(const ObjectID& objId, 
                            const ObjectBuf& objData)
@@ -387,6 +430,7 @@ ObjectStorMgr::writeObject(const ObjectID& objId,
   oid.oid_hash_lo = objId.GetLow();
   disk_req = new SMDiskReq(vio, oid, (ObjectBuf *)&objData, true); // blocking call
   dio_mgr.disk_write(disk_req);
+  err = writeObjectLocation(objId, disk_req->req_get_vmap());
   delete disk_req;
   return err;
 }
@@ -410,7 +454,7 @@ ObjectStorMgr::putObjectInternal(const SmIoReq& putReq) {
 
   // Find if this object is a duplicate
   err = checkDuplicate(objId,
-                       objData);
+		       objData);
   
   if (err == ERR_DUPLICATE) {
     objStorMutex->unlock();
@@ -437,7 +481,8 @@ ObjectStorMgr::putObjectInternal(const SmIoReq& putReq) {
     qosCtrl->markIODone(putReq);
     return err;
   } else {
-    FDS_PLOG(objStorMgr->GetLog()) << "Successfully put key " << objId;
+    FDS_PLOG(objStorMgr->GetLog()) << "Successfully put key " << objId 
+				   << " with data " << objData.data;
   }
 
   /*
@@ -531,9 +576,8 @@ ObjectStorMgr::getObjectInternal(const SmIoReq& getReq) {
    * For now, we will pass the fixed block size for size and preallocate
    * memory for that size.
    */
-  objData.size = 4096;
+  objData.size = 0;
   objData.data = "";
-  objData.data.reserve(4096);
 
   objStorMutex->lock();
   err = readObject(objId, objData);
@@ -698,6 +742,7 @@ ObjectStorMgr::run(int argc, char* argv[])
   unit_test    = false;
   useTestMode  = false;
   omConfigPort = 0;
+  runMode = NORMAL_MODE;
 
   for (int i = 1; i < argc; i++) {
     std::string arg(argv[i]);
@@ -838,6 +883,16 @@ ObjectStorMgr::run(int argc, char* argv[])
         }
         break;
     }
+
+    /* Instantiate a DiskManager Module instance */
+
+    fds::Module *io_dm_vec[] = {
+        &diskio::gl_dataIOMod,
+        nullptr
+    };
+    fds::ModuleVector    io_dm(0, NULL, io_dm_vec);
+    io_dm.mod_execute();
+
 
   /*
    * Register this node with OM.

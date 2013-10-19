@@ -165,7 +165,7 @@ fds::Error ObjectDB::Get(const DiskLoc& disk_location,
   fds::Error err(fds::ERR_OK);
 
   leveldb::Slice key((const char *)&disk_location, sizeof(disk_location));
-  std::string value;
+  std::string value = "";
 
   timer_start();
   leveldb::Status status = db->Get(read_options, key, &value);
@@ -176,6 +176,7 @@ fds::Error ObjectDB::Get(const DiskLoc& disk_location,
   }
 
   obj_buf.data = value;
+  obj_buf.size = value.size();
 
   return err;
 }

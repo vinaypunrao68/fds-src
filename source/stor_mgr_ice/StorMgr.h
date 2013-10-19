@@ -78,9 +78,10 @@ namespace fds {
       ~SMDiskReq() { }
 
     void req_submit() {
-        fdsio::Request::req_submit();
+      fdsio::Request::req_submit();
     }
     void req_complete() {
+      fdsio::Request::req_complete();
     }
  
 };
@@ -189,6 +190,13 @@ namespace fds {
     Error putObjectInternal(const SmIoReq& putReq);
     Error checkDuplicate(const ObjectID& objId,
                          const ObjectBuf& objCompData);
+
+    Error writeObjectLocation(const fds::ObjectID& objId, 
+			      meta_obj_map_t* obj_map);
+
+    Error readObjectLocation(const fds::ObjectID& objId, 
+			      meta_obj_map_t* obj_map);
+
 
     Error writeObject(const ObjectID& objId,
 		      const ObjectBuf& objCompData);
