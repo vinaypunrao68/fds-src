@@ -136,7 +136,7 @@ include $(incl_scripts)/Makefile.toolchain
 # Common library that most modules need to link.
 #
 main_kern_dep_libs     :=
-main_exec_dep_libs     := fds-thread fds-osdep fds-odb fds-umod pthread
+main_exec_dep_libs     := fds-osdep
 main_tool_dep_libs     :=
 main_test_dep_libs     :=
 
