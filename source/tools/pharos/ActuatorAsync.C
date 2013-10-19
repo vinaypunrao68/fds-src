@@ -156,7 +156,7 @@ void ActuatorAsync::close()
     printd(("ActuatorAsync close, %u IOs were running, "
 	    "had to suspend %u times.\n",
 	    c_running, c_suspend));
-  }
+	    }
   printf("ActuatorAsync::close() - 2\n");
 
   TraceSessionStats();
@@ -249,7 +249,7 @@ void ActuatorAsync::checkTermination(unsigned i_cb)
        assert(sec_slot > cur_sec_since_start);
        /* print stats we accumulated for the previous slot */
       if (tracefile)
-          (void) fprintf(tracefile, "%.2f,%ld,%d,%ld,%.6f,%d,%d\n",
+          (void) fprintf(tracefile, "%.2f,%d,%ld,%ld,%.6f,%d,%d\n",
                          end_time,session_id, (long)start_time + (long)cur_sec_since_start,slot_ios,
                          slot_ave_lat*1000000.0,0,0);    
       /* reset stats */
@@ -260,8 +260,8 @@ void ActuatorAsync::checkTermination(unsigned i_cb)
       for (int i = (cur_sec_since_start+1); i < sec_slot; ++i)
       {
           if (tracefile)
-              (void) fprintf(tracefile, "%.2f,%d,%d,%d,%d,%d,%d\n",
-                             end_time,session_id,i,0,0,0,0);    
+              (void) fprintf(tracefile, "%.2f,%d,%ld,%d,%d,%d,%d\n",
+                             end_time,session_id,(long)start_time + (long)i,0,0,0,0);    
       }
  
       /* start next slot */

@@ -94,7 +94,7 @@ LD = g++
 # On RH7, all three defines are needed.
 # I hate computers
 CXXFLAGS = -std=c++11 -Wall -D_LARGEFILE_SOURCE=1 -D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64 -D_XOPEN_SOURCE=500 -D_GNU_SOURCE=1
-LDFLAGS = -lpthread 
+LDFLAGS = -lpthread -lboost_random
 
 %.o: %.C
 	$(CXX) $(CXXFLAGS) -g $(AIO_H_LOC) -c $<

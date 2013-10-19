@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>
+#include <boost/random/random_device.hpp>
 
 #include "Actuator.H"
 #include "Timer.H"
@@ -215,13 +216,19 @@ void Actuator::TraceSessionStats()
 
 void Actuator::doIO(IOStat& ios)
 {
+  boost::random::random_device rd;
   waitBeforeIO(ios);
 
   assert(fd>=0);
 
-  ios.setStarted();
   size_t size = ios.getSize();
   assert(size <= largest_io_size);
+  /* fill in buffer with some junk data */
+  for (int i = 0; i < size; ++i) {
+    buffer[i] = rd();
+  }
+
+  ios.setStarted();
   ssize_t got = 
     ios.getDir() == IO::Read
     ? pread(fd, buffer, size, ios.getLocation())
