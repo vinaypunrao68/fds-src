@@ -474,10 +474,10 @@ ObjectStorMgr::writeObject(const ObjectID& objId,
  * Process a single object put.
  */
 Error
-ObjectStorMgr::putObjectInternal(const SmIoReq& putReq) {
+ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
   Error err(ERR_OK);
-  const ObjectID&  objId   = putReq.getObjId();
-  const ObjectBuf& objData = putReq.getObjData();
+  const ObjectID&  objId   = putReq->getObjId();
+  const ObjectBuf& objData = putReq->getObjData();
 
 
   objStorMutex->lock();
@@ -525,15 +525,15 @@ ObjectStorMgr::putObjectInternal(const SmIoReq& putReq) {
     */
   }
 
-  qosCtrl->markIODone(putReq);
+  qosCtrl->markIODone(*putReq);
 
   /*
    * Prepare a response to send back.
    */
   waitingReqMutex->lock();
-  fds_verify(waitingReqs.count(putReq.io_req_id) > 0);
-  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr = waitingReqs[putReq.io_req_id];
-  waitingReqs.erase(putReq.io_req_id);
+  fds_verify(waitingReqs.count(putReq->io_req_id) > 0);
+  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr = waitingReqs[putReq->io_req_id];
+  waitingReqs.erase(putReq->io_req_id);
   waitingReqMutex->unlock();
 
   FDS_ProtocolInterface::FDSP_PutObjTypePtr putObj =
@@ -559,7 +559,7 @@ ObjectStorMgr::putObjectInternal(const SmIoReq& putReq) {
    * was allocated when the request was
    * enqueued.
    */
-  delete &putReq;
+  delete putReq;
 
   return err;
 }
@@ -632,9 +632,9 @@ ObjectStorMgr::PutObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
 }
 
 Error
-ObjectStorMgr::getObjectInternal(const SmIoReq& getReq) {
+ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
   Error           err(ERR_OK);
-  const ObjectID& objId  = getReq.getObjId();
+  const ObjectID& objId  = getReq->getObjId();
   ObjectBuf       objData;
   /*
    * We need to fix this once diskmanager keeps track of object size
@@ -662,18 +662,18 @@ ObjectStorMgr::getObjectInternal(const SmIoReq& getReq) {
   } else {
     FDS_PLOG(objStorMgr->GetLog()) << "Successfully got object " << objId
                                    << " and data " << objData.data
-                                   << " for request ID " << getReq.io_req_id;
+                                   << " for request ID " << getReq->io_req_id;
   }
 
-  qosCtrl->markIODone(getReq);
+  qosCtrl->markIODone(*getReq);
 
   /*
    * Prepare a response to send back.
    */
   waitingReqMutex->lock();
-  fds_assert(waitingReqs.count(getReq.io_req_id) > 0);
-  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr = waitingReqs[getReq.io_req_id];
-  waitingReqs.erase(getReq.io_req_id);
+  fds_assert(waitingReqs.count(getReq->io_req_id) > 0);
+  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr = waitingReqs[getReq->io_req_id];
+  waitingReqs.erase(getReq->io_req_id);
   waitingReqMutex->unlock();
   
   /*
@@ -703,7 +703,7 @@ ObjectStorMgr::getObjectInternal(const SmIoReq& getReq) {
    * was allocated when the request was
    * enqueued.
    */
-  delete &getReq;
+  delete getReq;
 
   return err;
 }
@@ -1027,12 +1027,40 @@ fds_log* ObjectStorMgr::GetLog() {
   return sm_log;
 }
 
+void getObjectExt(SmIoReq* getReq) {
+     objStorMgr->getObjectInternal(getReq);
+}
+
+void putObjectExt(SmIoReq* putReq) {
+     objStorMgr->putObjectInternal(putReq);
+}
+
+
+Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
+   Error err(ERR_OK);
+   SmIoReq *io = static_cast<SmIoReq*>(_io);
+
+   if (io->io_type == FDS_IO_READ) {
+          FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a get request";
+          threadPool->schedule(getObjectExt,io);
+   } else if (io->io_type == FDS_IO_WRITE) {
+          FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a put request";
+          threadPool->schedule(putObjectExt,io);
+   } else {
+          assert(0);
+   }
+
+   return err;
+}
+
+
 
 void
 ObjectStorMgr::interruptCallback(int)
 {
     communicator()->shutdown();
 }
+
 
 }  // namespace fds
 
