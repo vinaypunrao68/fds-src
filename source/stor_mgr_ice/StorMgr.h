@@ -158,6 +158,8 @@ namespace fds {
      * a separate class.
      */
     friend ObjectStorMgrI;
+    Error getObjectInternal(SmIoReq* getReq);
+    Error putObjectInternal(SmIoReq* putReq);
 
  private:
     fds_uint32_t totalRate;
@@ -182,12 +184,10 @@ namespace fds {
                             fds_volid_t        volId, 
                             fds_uint32_t       transId, 
                             fds_uint32_t       numObjs);
-    Error getObjectInternal(const SmIoReq& getReq);
     Error putObjectInternal(FDSP_PutObjTypePtr putObjReq, 
                             fds_volid_t        volId,
                             fds_uint32_t       transId,
                             fds_uint32_t       numObjs);
-    Error putObjectInternal(const SmIoReq& putReq);
     Error checkDuplicate(const ObjectID& objId,
                          const ObjectBuf& objCompData);
 
@@ -230,22 +230,7 @@ namespace fds {
 	  stats->disable();
       }
 
-      Error processIO(FDS_IOType* _io) {
-        Error err(ERR_OK);
-        SmIoReq *io = static_cast<SmIoReq*>(_io);
-
-        if (io->io_type == FDS_IO_READ) {
-          FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a get request";
-          err = parentSm->getObjectInternal(*io);
-        } else if (io->io_type == FDS_IO_WRITE) {
-          FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a put request";
-          err = parentSm->putObjectInternal(*io);
-        } else {
-          assert(0);
-        }
-
-        return err;
-      }
+      Error processIO(FDS_IOType* _io);
 
       Error markIODone(const FDS_IOType& _io) {
 	Error err(ERR_OK);
