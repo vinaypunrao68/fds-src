@@ -159,6 +159,7 @@ namespace fds {
 #endif
       fds_uint32_t n_pios;
       n_pios = atomic_fetch_add(&(num_pending_ios), (unsigned int)1);
+      FDS_PLOG(qda_log) << "Dispatcher: enqueueIO: # of pending ios = " << n_pios+1;
       assert(n_pios >= 0);
 
       qda_lock.read_unlock();
@@ -169,6 +170,36 @@ namespace fds {
     virtual Error dispatchIOs() {
 
       Error err(ERR_OK);
+      pthread_t this_thread = pthread_self();
+      struct sched_param params;
+      int ret = 0;
+
+      params.sched_priority = sched_get_priority_max(SCHED_FIFO);
+      FDS_PLOG(qda_log) << "Dispatcher: trying to set dispatcher thread realtime prio = " << params.sched_priority;
+ 
+      /* Attempt to set thread real-time priority to the SCHED_FIFO policy */
+      ret = pthread_setschedparam(this_thread, SCHED_FIFO, &params);
+      if (ret != 0) {
+   	FDS_PLOG(qda_log) << "Dispatcher: Unsuccessful in setting scheduler thread realtime prio";
+      }
+      else {
+      /* success - Now verify the change in thread priority */
+	int policy = 0;
+	ret = pthread_getschedparam(this_thread, &policy, &params);
+	if (ret != 0) {
+	  FDS_PLOG(qda_log) << "Dispatcher: Couldn't retrieve real-time scheduling parameters for dispatcher thread";
+	}
+ 
+	/* Check the correct policy was applied */
+	if(policy != SCHED_FIFO) {
+	  FDS_PLOG(qda_log) << "Dispatcher:Scheduling is NOT SCHED_FIFO!";
+	} else {
+	  FDS_PLOG(qda_log) << "Dispatcher: thread SCHED_FIFO OK";
+	}
+ 
+	/* Print thread scheduling priority */
+	FDS_PLOG(qda_log) << "Dispatcher: Scheduler thread priority is " << params.sched_priority;
+      }
       
       while(1) {
 

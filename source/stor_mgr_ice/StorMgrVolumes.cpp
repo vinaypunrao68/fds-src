@@ -30,7 +30,7 @@ StorMgrVolume::StorMgrVolume(const VolumeDesc&  vdb,
   volQueue = new SmVolQueue(voldesc->GetID(),
                             50,
                             voldesc->getIopsMax(),
-                            voldesc->getIopsMax(),
+                            voldesc->getIopsMin(),
                             voldesc->getPriority());
 
   volumeIndexDB  = new ObjectDB(filename);

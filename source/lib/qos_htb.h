@@ -19,7 +19,7 @@
 						     * setting throttle levels, etc. */
 #define HTB_QUEUE_RATE_INFINITE_MAX       100000    /* a token bucket max rate when iops_max policy is set to 0 */
 
-#define DEFAULT_ASSURED_WAIT_MICROSEC     250000
+#define DEFAULT_ASSURED_WAIT_MICROSEC     1000000
 #define HTB_WMA_SLOT_SIZE_MICROSEC        250000   /* the length of stat slot for gathering recent iops performance */   
 /* If you modify HTB_MAX_WMA_LENGTH, yoy must update TBQueueState::kweights constant array  */
 #define HTB_MAX_WMA_LENGTH                20
