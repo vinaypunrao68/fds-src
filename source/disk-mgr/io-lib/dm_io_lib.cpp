@@ -22,8 +22,6 @@ DataIOModule            gl_dataIOMod("Disk IO Module");
 DataDiscoveryModule     dataDiscoveryMod("Data Discovery Module");
 
 static DataIO           *sgt_dataIO;
-static DataIndexLDb     *sgt_oidIndex;
-static DataIndexLDb     *sgt_vioIndex;
 static PersisDataIO     *sgt_hddIO[sgt_hdd_count];
 static PersisDataIO     *sgt_ssdIO[sgt_ssd_count];
 

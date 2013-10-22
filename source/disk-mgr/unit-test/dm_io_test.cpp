@@ -43,7 +43,8 @@ DiskReqTest::DiskReqTest(fds::fds_threadpool *const wr,
                          meta_obj_id_t       &oid,
                          fds::ObjectBuf      *buf,
                          bool                block)
-    : tst_wr(wr), tst_rd(rd), tst_iter(0), diskio::DiskRequest(vio, oid, buf, block)
+    : tst_wr(wr), tst_rd(rd), tst_iter(0),
+      diskio::DiskRequest(vio, oid, buf, block)
 {
     tst_verf.size = buf->size;
     tst_verf.data.reserve(buf->size);
