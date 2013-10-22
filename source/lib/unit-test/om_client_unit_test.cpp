@@ -28,8 +28,8 @@ int main(int argc, char *argv[]) {
 	char cmd_wd[32];
 	int input_field;
 	FDSP_MgrIdType node_type = FDSP_STOR_HVISOR;
-        std::string omIpStr;
-        std::string hostIpStr;
+        std::string omIpStr = "";
+        std::string hostIpStr = "";
 	int control_port = 0;
 	std::string node_id = "localhost-sh";
         FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr dInfo;

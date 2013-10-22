@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <Ice/Ice.h>
 #include <IceStorm/IceStorm.h>
+#include <concurrency/RwLock.h>
 
 using namespace FDS_ProtocolInterface;
 
@@ -71,6 +72,7 @@ namespace fds {
     float current_throttle_level;
     
     fds_log *omc_log;
+    fds_rwlock omc_lock; // to protect node_map
 
     node_event_handler_t node_evt_hdlr;
     volume_event_handler_t vol_evt_hdlr;

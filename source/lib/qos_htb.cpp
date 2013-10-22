@@ -13,7 +13,7 @@ QoSHTBDispatcher::QoSHTBDispatcher(FDS_QoSControl *ctrl, fds_log *log, fds_uint6
   : FDS_QoSDispatcher(ctrl, log, _total_rate),
     total_rate(_total_rate),
     total_min_rate(0),
-    max_burst_size(300),
+    max_burst_size(20),
     wait_time_microsec(DEFAULT_ASSURED_WAIT_MICROSEC),
     avail_pool(_total_rate, max_burst_size)
 {
