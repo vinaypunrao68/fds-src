@@ -292,9 +292,15 @@ class OmUnitTest {
     initOMMsgHdr(msg_hdr);
 
     FDS_ProtocolInterface::FDSP_RegisterNodeTypePtr reg_node_msg =
-        new FDS_ProtocolInterface::FDSP_RegisterNodeType;
+        new FDS_ProtocolInterface::FDSP_RegisterNodeType();
 
+    reg_node_msg->domain_id  = 0;
     reg_node_msg->ip_hi_addr = 0;
+    /*
+     * Add some zeroed out disk info
+     */
+    reg_node_msg->disk_info = new FDS_ProtocolInterface::FDSP_AnnounceDiskCapability();
+
     /*
      * We're expecting to contact OM on localhost.
      * Set hex 127.0.0.1 value.
@@ -369,7 +375,10 @@ class OmUnitTest {
       crt_vol->vol_name = std::string("Volume ") + std::to_string(i+1);
       crt_vol->vol_info->vol_name = crt_vol->vol_name;
       crt_vol->vol_info->volUUID = i+1;
-      crt_vol->vol_info->capacity = 1024 * 1024 * 1024;  // 1 Gig
+      // crt_vol->vol_info->capacity = 1024 * 1024 * 1024;  // 1 Gig
+      // Currently set capacity to 0 size no one has register a storage
+      // node with OM to increase/create initial capacity.
+      crt_vol->vol_info->capacity = 0;
       crt_vol->vol_info->volType = FDS_ProtocolInterface::FDSP_VOL_BLKDEV_TYPE;
       crt_vol->vol_info->consisProtocol =
           FDS_ProtocolInterface::FDSP_CONS_PROTO_STRONG;
@@ -450,9 +459,14 @@ class OmUnitTest {
      FDS_ProtocolInterface::FDSP_RegisterNodeTypePtr reg_node_msg =
         new FDS_ProtocolInterface::FDSP_RegisterNodeType;
 
+     reg_node_msg->domain_id  = 0;
      reg_node_msg->ip_hi_addr = 0;
      reg_node_msg->ip_lo_addr = 0x7f000001; /* 127.0.0.1 */
-     reg_node_msg->data_port = 0;
+     reg_node_msg->data_port  = 0;
+     /*
+      * Add some zeroed out disk info
+      */
+     reg_node_msg->disk_info = new FDS_ProtocolInterface::FDSP_AnnounceDiskCapability();
 
      for (fds_uint32_t i = 0; i < 3; i++) {
       /*
@@ -506,7 +520,10 @@ class OmUnitTest {
 	 crt_vol->vol_name = std::string("Volume ") + std::to_string(vol_start_uuid + i);
 	 crt_vol->vol_info->vol_name = crt_vol->vol_name;
 	 crt_vol->vol_info->volUUID = vol_start_uuid + i;
-	 crt_vol->vol_info->capacity = 1024 * 1024 * 1024;  // 1 Gig
+	 // crt_vol->vol_info->capacity = 1024 * 1024 * 1024;  // 1 Gig
+         // Currently set capacity to 0 size no one has register a storage
+         // node with OM to increase/create initial capacity.
+         crt_vol->vol_info->capacity = 0;
 	 crt_vol->vol_info->volType = FDS_ProtocolInterface::FDSP_VOL_BLKDEV_TYPE;
          crt_vol->vol_info->consisProtocol =
 	   FDS_ProtocolInterface::FDSP_CONS_PROTO_STRONG;

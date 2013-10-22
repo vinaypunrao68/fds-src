@@ -214,12 +214,13 @@ int OrchMgr::CreateVol(const FdspMsgHdrPtr& fdsp_msg,
     * check the resource  availability 
     */
 
-   if ((returnCode = currentDom->domain_ptr->admin_ctrl->volAdminControl(new_vol)) != 0) {
-  	FDS_PLOG(GetLog()) << "Unable to create Volume \n";
-	 delete new_vol;
-         om_mutex->unlock();
-	 return -1; 
-    }
+  returnCode = currentDom->domain_ptr->admin_ctrl->volAdminControl(new_vol);
+  if (returnCode != 0) {
+    FDS_PLOG(GetLog()) << "Unable to create Volume \n";
+    delete new_vol;
+    om_mutex->unlock();
+    return -1; 
+  }
 
   currentDom->domain_ptr->volumeMap[vol_id] = new_vol;
   currentDom->domain_ptr->sendCreateVolToFdsNodes(new_vol);

@@ -156,6 +156,10 @@ int OMgrClient::initRPCComm() {
   if (omIpStr.empty() == true) {
     omIpStr = rpc_props->getProperty("OMgr.IP");
   }
+
+  if (hostIp.empty() == true) {
+    hostIp = rpc_props->getProperty("OMgrClient.MyIPAddr");
+  }
   /*
    * If the OM's config port wasn't given via cmdline
    * pull it from the config file
@@ -339,12 +343,16 @@ int OMgrClient::registerNodeWithOM( const FDS_ProtocolInterface::FDSP_AnnounceDi
 
 int OMgrClient::recvNodeEvent(int node_id, FDSP_MgrIdType node_type, unsigned int node_ip, int node_state, const FDSP_Node_Info_TypePtr& node_info) {
   
+  omc_lock.write_lock();
+
   node_info_t& node = node_map[node_id];
 
   node.node_id = node_id;
   node.node_ip_address = node_ip;
   node.port = node_info->data_port;
   node.node_state = (FDSP_NodeState) node_state;
+
+  omc_lock.write_unlock();
 
   FDS_PLOG(omc_log) << "OMClient received node event for node " << node_id << ", type - " << node_info->node_type << " with ip address " << node_ip << " and state - " << node_state;
 
@@ -397,8 +405,13 @@ int OMgrClient::recvDLTUpdate(int dlt_vrsn, const Node_Table_Type& dlt_table) {
 
   FDS_PLOG(omc_log) << "OMClient received new DLT version  " << dlt_vrsn;
 
+  omc_lock.write_lock();
+
   this->dlt_version = dlt_vrsn;
   this->dlt = dlt_table;
+
+  omc_lock.write_unlock();
+
   return (0);
 }
 
@@ -406,8 +419,13 @@ int OMgrClient::recvDMTUpdate(int dmt_vrsn, const Node_Table_Type& dmt_table) {
 
   FDS_PLOG(omc_log) << "OMClient received new DMT version  " << dmt_vrsn;
 
+  omc_lock.write_lock();
+
   this->dmt_version = dmt_vrsn;
   this->dmt = dmt_table;
+
+  omc_lock.write_unlock();
+
   return (0);
 }
 
@@ -429,21 +447,30 @@ int OMgrClient::getNodeInfo(int node_id,
                             fds_uint32_t *node_port,
                             int *node_state) {
   
-  node_info_t& node = node_map[node_id];
+  omc_lock.read_lock();
 
-  if (node.node_id != node_id) {
+  if (node_map.count(node_id) <= 0) {
+    omc_lock.read_unlock();
     return (-1);
   }
+
+  node_info_t& node = node_map[node_id];
+
+  assert(node.node_id == node_id);
 
   *node_ip_addr = node.node_ip_address;
   *node_port = node.port;
   *node_state = node.node_state;
+
+  omc_lock.read_unlock();
   
   return 0;
 } 
 
 int OMgrClient::getDLTNodesForDoidKey(unsigned char doid_key, int *node_ids, int *n_nodes) {
   
+  omc_lock.read_lock();
+
   int total_shards = this->dlt.size();
   int lookup_key = doid_key % total_shards;
   int total_nodes = this->dlt[lookup_key].size();
@@ -454,10 +481,14 @@ int OMgrClient::getDLTNodesForDoidKey(unsigned char doid_key, int *node_ids, int
     node_ids[i] = this->dlt[lookup_key][i];
   } 
 
+  omc_lock.read_unlock();
+
   return 0;
 }
 
 int OMgrClient::getDMTNodesForVolume(int vol_id, int *node_ids, int *n_nodes) {
+
+  omc_lock.read_lock();
 
   int total_shards = this->dmt.size();
   int lookup_key = vol_id % total_shards;
@@ -468,5 +499,8 @@ int OMgrClient::getDMTNodesForVolume(int vol_id, int *node_ids, int *n_nodes) {
   for (i = 0; i < *n_nodes; i++) {
     node_ids[i] = this->dmt[lookup_key][i];
   } 
+
+  omc_lock.read_unlock();
+
   return 0;
 }
