@@ -82,6 +82,12 @@ void FdsLocalDomain::roundRobinDlt(fds_placement_table* table,
   std::vector<fds_nodeid_t> node_list;
   node_map_t::const_iterator rr_it = nodeMap.cbegin();
 
+  int total_num_nodes = nodeMap.size();
+  int bucket_depth = table->getMaxDepth();
+  if (bucket_depth > total_num_nodes) {
+    bucket_depth = total_num_nodes;
+  }
+
   for (fds_uint32_t i = 0; i < table->getNumBuckets(); i++) {
     node_list.clear();
     node_map_t::const_iterator nl_it = rr_it;
@@ -89,7 +95,7 @@ void FdsLocalDomain::roundRobinDlt(fds_placement_table* table,
       continue;
     }
 
-    for (fds_uint32_t j = 0; j < table->getMaxDepth(); j++) {
+    for (fds_uint32_t j = 0; j < bucket_depth; j++) {
       node_list.push_back((nl_it->second).node_id);
       // FDS_PLOG(callerLog) << "Pushing into bucket " << i
       //                    << " entry " << i << " node "
@@ -380,7 +386,7 @@ void FdsLocalDomain::sendNodeEventToFdsNodes(const NodeInfo& nodeInfo,
   msg_hdr_ptr->tennant_id = 1;
   msg_hdr_ptr->local_domain_id = 1;
 
-  // node_info_ptr->node_id = nodeInfo.node_id;
+  node_info_ptr->node_id = nodeInfo.node_id;
   node_info_ptr->node_type = nodeInfo.node_type;
   node_info_ptr->node_name = nodeInfo.node_name;
   node_info_ptr->node_state = node_state;
