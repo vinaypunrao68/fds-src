@@ -76,48 +76,47 @@ namespace fds {
    }
    
 
-   int FdsAdminCtrl::volAdminControl(VolumeInfo  *pVolInfo) {
-        double iopc_subcluster = 0;
-        double iopc_subcluster_result = 0;
-    	VolumeDesc  *pVolDesc = pVolInfo->properties;
-        
-        iopc_subcluster = (avail_disk_iops_max/REPLICATION_FACTOR);
+int FdsAdminCtrl::volAdminControl(VolumeInfo  *pVolInfo) {
+  double iopc_subcluster = 0;
+  double iopc_subcluster_result = 0;
+  VolumeDesc  *pVolDesc = pVolInfo->properties;
 
-	if ((total_vol_disk_cap + pVolDesc->capacity) > avail_disk_capacity) {
-          FDS_PLOG(parent_log) << " Cluster is running out of disk capacity \n"
-							   << "total volume disk  capacity:"
-							   << total_vol_disk_cap;
-	      return -1;
-	}
+  iopc_subcluster = (avail_disk_iops_max/REPLICATION_FACTOR);
 
-	FDS_PLOG(parent_log) << " inside   admin control iopc sub cluster: " << iopc_subcluster  << "\n";
+  if ((total_vol_disk_cap + pVolDesc->capacity) > avail_disk_capacity) {
+    FDS_PLOG(parent_log) << " Cluster is running out of disk capacity \n"
+                         << "total volume disk  capacity:"
+                         << total_vol_disk_cap;
+    return -1;
+  }
 
-     	/* check the resource availability, if not return Error  */
-	if (((total_vol_iops_min + pVolDesc->iops_min) <= (iopc_subcluster * LOAD_FACTOR)) &&
-	    ((((total_vol_iops_min) + ((total_vol_iops_max - total_vol_iops_min) * BURST_FACTOR))) + \
-             (pVolDesc->iops_min + ((pVolDesc->iops_max - pVolDesc->iops_min) * BURST_FACTOR)) <= \
-               iopc_subcluster))
-	{
- 		total_vol_iops_min += pVolDesc->iops_min;
- 		total_vol_iops_max += pVolDesc->iops_max;
-		total_vol_disk_cap += pVolDesc->capacity;
+  FDS_PLOG(parent_log) << " inside   admin control iopc sub cluster: "
+                       << iopc_subcluster  << "\n";
 
-		FDS_PLOG(parent_log) << "updated disk params disk-cap:" << avail_disk_capacity << ":: min:"  
-			<<  total_vol_iops_min << ":: max:" << total_vol_iops_max << "\n";
-		FDS_PLOG(parent_log) << " admin control successful \n";
-		return 0;
-	}
-	else 
-	{
-     	FDS_PLOG(parent_log) << " Unable to create Volume,Running out of IOPS \n ";
-		FDS_PLOG(parent_log) << "Available disk Capacity:" 
-							 << avail_disk_capacity << "::Total min IOPS:"  
-						     <<  total_vol_iops_min << ":: Total max IOPS:" 
-							 << total_vol_iops_max << "\n";
-		return -1;
-	}
-      
-   }
+  /* check the resource availability, if not return Error  */
+  if (((total_vol_iops_min + pVolDesc->iops_min) <= (iopc_subcluster * LOAD_FACTOR)) &&
+      ((((total_vol_iops_min) + ((total_vol_iops_max - total_vol_iops_min) * BURST_FACTOR))) + \
+       (pVolDesc->iops_min + ((pVolDesc->iops_max - pVolDesc->iops_min) * BURST_FACTOR)) <= \
+       iopc_subcluster)) {
+    total_vol_iops_min += pVolDesc->iops_min;
+    total_vol_iops_max += pVolDesc->iops_max;
+    total_vol_disk_cap += pVolDesc->capacity;
+
+    FDS_PLOG(parent_log) << "updated disk params disk-cap:" << avail_disk_capacity << ":: min:"  
+                         <<  total_vol_iops_min << ":: max:" << total_vol_iops_max << "\n";
+    FDS_PLOG(parent_log) << " admin control successful \n";
+    return 0;
+  } else  {
+    FDS_PLOG(parent_log) << " Unable to create Volume,Running out of IOPS \n ";
+    FDS_PLOG(parent_log) << "Available disk Capacity:" 
+                         << avail_disk_capacity << "::Total min IOPS:"  
+                         <<  total_vol_iops_min << ":: Total max IOPS:" 
+                         << total_vol_iops_max << "\n";
+    return -1;
+  }
+
+  return -1;
+}
    
 
    void FdsAdminCtrl::initDiskCapabilities() {
