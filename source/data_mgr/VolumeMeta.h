@@ -26,7 +26,6 @@ namespace fds {
   class VolumeMeta {
  private:
     fds_mutex  *vol_mtx;
-    VolumeDesc *vol_desc;
 
     /*
      * The volume catalog maintains mappings from
@@ -54,6 +53,7 @@ namespace fds {
     VolumeMeta& operator=(const VolumeMeta rhs);
 
  public:
+    VolumeDesc *vol_desc;
     /*
      * Default constructor should NOT be called
      * directly. It is needed for STL data struct
@@ -61,14 +61,20 @@ namespace fds {
      */
     VolumeMeta();
     VolumeMeta(const std::string& _name,
-               fds_volid_t _uuid);
+               fds_volid_t _uuid,VolumeDesc *v_desc);
     VolumeMeta(const std::string& _name,
                fds_volid_t _uuid,
-               fds_log* _dm_log);
+               fds_log* _dm_log,VolumeDesc *v_desc);
     ~VolumeMeta();
+    void dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol);
+  /*
+   * per volume queue
+   */
+    FDS_VolumeQueue*  dmVolQueue;
+
 
     Error OpenTransaction(fds_uint32_t vol_offset,
-                          const ObjectID &oid);
+                          const ObjectID &oid, VolumeDesc *pVol);
     Error QueryVcat(fds_uint32_t vol_offset,
                     ObjectID *oid);
   };

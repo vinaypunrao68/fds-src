@@ -24,19 +24,20 @@ VolumeMeta::VolumeMeta()
 */
 
 VolumeMeta::VolumeMeta(const std::string& _name,
-                       fds_uint64_t _uuid)
+                       fds_uint64_t _uuid,VolumeDesc* desc)
     : dm_log(NULL) {
 
   vol_mtx = new fds_mutex("Volume Meta Mutex");
   vol_desc = new VolumeDesc(_name, _uuid);
+  dmCopyVolumeDesc(vol_desc, desc);
   vcat = new VolumeCatalog(_name + "_vcat.ldb");
   tcat = new TimeCatalog(_name + "_tcat.ldb");
 }
 
 VolumeMeta::VolumeMeta(const std::string& _name,
                        fds_uint64_t _uuid,
-                       fds_log* _dm_log)
-    : VolumeMeta(_name, _uuid) {
+                       fds_log* _dm_log,VolumeDesc* _desc)
+    : VolumeMeta(_name, _uuid, _desc) {
 
   dm_log = _dm_log;
 }
@@ -49,7 +50,7 @@ VolumeMeta::~VolumeMeta() {
 }
 
 Error VolumeMeta::OpenTransaction(fds_uint32_t vol_offset,
-                                  const ObjectID& oid) {
+                                  const ObjectID& oid,VolumeDesc* desc) {
   Error err(ERR_OK);
 
   /*
@@ -109,5 +110,28 @@ Error VolumeMeta::QueryVcat(fds_uint32_t vol_offset,
 
   return err;
 }
+
+void VolumeMeta::dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol) {
+  v_desc->name = pVol->name;
+  v_desc->volUUID = pVol->volUUID;
+  v_desc->tennantId = pVol->tennantId;
+  v_desc->localDomainId = pVol->localDomainId;
+  v_desc->globDomainId = pVol->globDomainId;
+
+  v_desc->capacity = pVol->capacity;
+  v_desc->volType = pVol->volType;
+  v_desc->maxQuota = pVol->maxQuota;
+  v_desc->replicaCnt = pVol->replicaCnt;
+
+  v_desc->consisProtocol = FDS_ProtocolInterface::
+      FDSP_ConsisProtoType(pVol->consisProtocol);
+  v_desc->appWorkload = pVol->appWorkload;
+
+  v_desc->volPolicyId = pVol->volPolicyId;
+  v_desc->iops_max = pVol->iops_max;
+  v_desc->iops_min = pVol->iops_min;
+  v_desc->relativePrio = pVol->relativePrio;
+}
+
 
 }  // namespace fds
