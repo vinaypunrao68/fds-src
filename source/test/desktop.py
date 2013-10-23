@@ -130,6 +130,13 @@ class TestSequenceFunctions(unittest.TestCase):
                         print "Unable to remove stray file: %s" % err
 
         #
+        # Remove all files under FDS specific storage
+        # using new presistent layer storage
+        #
+        absPath = "/" + prefix_base
+        shutil.rmtree(absPath, ignore_errors=True)
+
+        #
         # Move back to previous directory
         #
         os.chdir(pwd)
