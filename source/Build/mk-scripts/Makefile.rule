@@ -67,7 +67,7 @@ base_predepend: base_rpc
 # The main auto depend rule.
 #
 .PHONY: base_depend
-base_depend:
+base_depend: $(local_dep_file)
 
 # -----------------------------------------------------------------------------
 # The main rule to compile rpcgen.
