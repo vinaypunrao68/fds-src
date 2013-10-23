@@ -1,5 +1,11 @@
 topdir         := .
-user_build_dir := fdsp include/fdsp osdep umod-lib util lib orch_mgr disk-mgr data_mgr \
-    stor_hvisor_ice stor_mgr_ice stor_hvisor fds_client
+
+# List all directories that builds library first before making exe and unit test.
+#
+user_build_dir := \
+    fdsp include/fdsp osdep umod-lib util lib disk-mgr stor_hvisor_ice \
+    umod-lib/test-unit util/unit-test lib/unit-test disk-mgr/unit-test \
+    stor_hvisor_ice/unit-test \
+    orch_mgr data_mgr stor_mgr_ice stor_hvisor fds_client
 
 include $(topdir)/Makefile.incl
