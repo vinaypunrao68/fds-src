@@ -2,7 +2,7 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 #include "StorMgr.h"
-#include "odb.h"
+#include <odb.h>
 #include "StorMgrVolumes.h"
 
 namespace fds {

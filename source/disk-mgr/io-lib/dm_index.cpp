@@ -8,7 +8,11 @@ using namespace std;
 
 namespace diskio {
 
-DataIndexModule   dataIndexMod("dataIndex mod");
+DataIndexModule          dataIndexMod("dataIndex mod");
+
+static DataIndexLDb      *sgt_oidIndex;
+static DataIndexLDb      *sgt_vioIndex;
+static DataIndexProxy    *sgt_oidProxy;
 
 // \DataIndexModule
 // ----------------
@@ -27,6 +31,8 @@ DataIndexModule::mod_init(fds::SysParams const *const param)
 {
     Module::mod_init(param);
     cout << "DataIndex init..." << endl;
+
+    sgt_oidProxy = new DataIndexProxy(1000);
 }
 
 void
@@ -44,13 +50,19 @@ DataIndexModule::mod_shutdown()
 // \DataIndexProxy
 // ---------------
 //
-DataIndexProxy::DataIndexProxy(int nr_queue, int max_depth)
-    : idx_queue(nr_queue, max_depth)
+DataIndexProxy::DataIndexProxy(int max_depth)
+    : idx_queue(1, max_depth)
 {
 }
 
 DataIndexProxy::~DataIndexProxy()
 {
+}
+
+DataIndexProxy &
+DataIndexProxy::disk_index_singleton()
+{
+    return *sgt_oidProxy;
 }
 
 // \disk_index_put

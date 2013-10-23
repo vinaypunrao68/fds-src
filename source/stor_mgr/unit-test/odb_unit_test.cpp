@@ -13,7 +13,7 @@
 #include <list>
 #include <vector>
 
-#include "stor_mgr/odb.h"
+#include <odb.h>
 #include "util/random.h"
 #include "util/testutil.h"
 #include "util/hash/MurmurHash3.h"

@@ -38,6 +38,10 @@ class DataDiscoveryModule : public fds::Module
     bool disk_detect_label(std::string &path, bool hdd);
     void disk_make_label(std::string &path, int diskno);
 
+    int                      pd_hdd_count;
+    int                      pd_ssd_count;
+    int                      pd_hdd_cap_mb;
+    int                      pd_ssd_cap_mb;
     int                      pd_hdd_found;
     int                      pd_ssd_found;
     std::string              *pd_hdd_raw;

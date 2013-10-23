@@ -16,15 +16,12 @@ namespace diskio {
 static const int  sgt_ssd_count = 2;
 static const int  sgt_hdd_count = 11;
 static const char *sgt_dt_file = "/data-";
-static const char *sgt_fs_root = "/fds/mnt/";
 
 // ----------------------------------------------------------------------------
 DataIOModule            gl_dataIOMod("Disk IO Module");
 DataDiscoveryModule     dataDiscoveryMod("Data Discovery Module");
 
 static DataIO           *sgt_dataIO;
-static DataIndexLDb     *sgt_oidIndex;
-static DataIndexLDb     *sgt_vioIndex;
 static PersisDataIO     *sgt_hddIO[sgt_hdd_count];
 static PersisDataIO     *sgt_ssdIO[sgt_ssd_count];
 
@@ -89,37 +86,10 @@ DataIOModule::mod_shutdown()
 DataDiscoveryModule::DataDiscoveryModule(char const *const name)
     : Module(name), pd_hdd_found(0), pd_ssd_found(0)
 {
-    DIR           *dfd;
-    struct dirent *dp;
-
     pd_hdd_raw     = new std::string [sgt_hdd_count];
     pd_ssd_raw     = new std::string [sgt_ssd_count];
     pd_hdd_labeled = new std::string [sgt_hdd_count];
     pd_ssd_labeled = new std::string [sgt_ssd_count];
-
-    dfd = opendir(sgt_fs_root);
-    fds_verify(dfd != nullptr);
-    while ((dp = readdir(dfd)) != nullptr) {
-        struct stat  stbuf;
-        std::string  path;
-
-        path = std::string(sgt_fs_root) + std::string(dp->d_name);
-        if (stat(path.c_str(), &stbuf) < 0) {
-            cout << "Can't open " << path << endl;
-            continue;
-        }
-        if ((stbuf.st_mode & S_IFMT) == S_IFDIR) {
-            if (dp->d_name[0] == '.') {
-                continue;
-            }
-            if (pd_hdd_found < sgt_hdd_count) {
-                pd_hdd_raw[pd_hdd_found] = path;
-                disk_detect_label(pd_hdd_raw[pd_hdd_found], true);
-                pd_hdd_found++;
-            }
-        }
-    }
-    closedir(dfd);
 }
 
 DataDiscoveryModule::~DataDiscoveryModule()
@@ -189,7 +159,65 @@ DataDiscoveryModule::disk_make_label(std::string &base, int diskno)
 void
 DataDiscoveryModule::mod_init(fds::SysParams const *const param)
 {
+    DIR               *dfd;
+    struct dirent     *dp;
+    fds::SimEnvParams *sim;
+
     Module::mod_init(param);
+    sim = param->fds_sim;
+    dfd = opendir(param->fds_root.c_str());
+    if (dfd == nullptr) {
+        cout << "Need to setup root storage directory "
+             << param->fds_root << endl;
+        exit(1);
+    }
+    pd_hdd_count = sgt_hdd_count;
+    pd_ssd_count = sgt_ssd_count;
+    if (sim != nullptr) {
+        pd_hdd_cap_mb = sim->sim_hdd_mb;
+        pd_ssd_cap_mb = sim->sim_ssd_mb;
+    } else {
+        pd_hdd_cap_mb = 0;
+        pd_ssd_cap_mb = 0;
+    }
+    while ((dp = readdir(dfd)) != nullptr) {
+        struct stat  stbuf;
+        std::string  path(param->fds_root + std::string(dp->d_name));
+
+        if (stat(path.c_str(), &stbuf) < 0) {
+            continue;
+        }
+        if ((stbuf.st_mode & S_IFMT) == S_IFDIR) {
+            if (dp->d_name[0] == '.') {
+                continue;
+            }
+            if (pd_hdd_found < pd_hdd_count) {
+                pd_hdd_raw[pd_hdd_found] = path;
+                disk_detect_label(pd_hdd_raw[pd_hdd_found], true);
+                pd_hdd_found++;
+            }
+        }
+    }
+    closedir(dfd);
+
+    if (sim != nullptr) {
+        std::string base(param->fds_root + sim->sim_disk_prefix);
+
+        for (char sd = 'a'; pd_hdd_found < pd_hdd_count; sd++) {
+            std::string hdd = base + sd;
+
+            umask(0);
+            if (mkdir(hdd.c_str(), 0755) == 0) {
+                pd_hdd_raw[pd_hdd_found++] = hdd;
+                continue;
+            }
+            if ((errno == EACCES) || (sd == 'z')) {
+                cout << "Don't have permission to fds root: "
+                     << param->fds_root << endl;
+                exit(1);
+            }
+        }
+    }
     for (int i = 0; i < pd_hdd_found; i++) {
         if (!pd_hdd_raw[i].empty()) {
             fds_verify(pd_hdd_labeled[i].empty());

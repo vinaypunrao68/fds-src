@@ -14,6 +14,7 @@ class DataIO;
 class DataIOFunc;
 class PersisDataIO;
 class DataIOModule;
+class DataIndexModule;
 class DataIndexProxy;
 
 // ---------------------------------------------------------------------------
@@ -22,12 +23,12 @@ class DataIndexProxy;
 class IndexRequest : public fdsio::Request
 {
   public:
-    IndexRequest(meta_obj_id_t       &oid,
+    IndexRequest(meta_obj_id_t const &oid,
                  bool                block);
-    IndexRequest(meta_vol_io_t       &vio,
+    IndexRequest(meta_vol_io_t const &vio,
                  bool                block);
-    IndexRequest(meta_obj_id_t       &oid,
-                 meta_vol_io_t       &vio,
+    IndexRequest(meta_obj_id_t const &oid,
+                 meta_vol_io_t const &vio,
                  bool                block);
 
     virtual void req_abort();
@@ -39,10 +40,12 @@ class IndexRequest : public fdsio::Request
     inline meta_vol_io_t const *const req_get_vio() const { return &idx_vio; }
     inline meta_obj_map_t *req_get_vmap() { return &idx_vmap; }
 
+    inline void req_set_peer(IndexRequest *peer) { idx_peer = peer; }
   protected:
     meta_obj_id_t          idx_oid;
     meta_vol_io_t          idx_vio;
     meta_obj_map_t         idx_vmap;
+    IndexRequest           *idx_peer;
 };
 
 // ---------------------------------------------------------------------------
@@ -198,8 +201,7 @@ class DataIOFunc
 class DataIndexProxy
 {
   public:
-    DataIndexProxy(int nr_queue, int max_depth);
-    ~DataIndexProxy();
+    static DataIndexProxy &disk_index_singleton();
 
     // \disk_index_put
     // ---------------
@@ -244,6 +246,10 @@ class DataIndexProxy
     void disk_index_dec_ref(IndexRequest &req);
 
   private:
+    friend class DataIndexModule;
+    DataIndexProxy(int max_depth);
+    ~DataIndexProxy();
+
     fdsio::RequestQueue      idx_queue;
 };
 
@@ -261,14 +267,25 @@ class DataIO
 
     // Units for block IO to persistent data store.
     //
-    static inline fds_uint32_t disk_io_blk_shift() {
+    static inline fds_uint32_t disk_io_blk_shift()
+    {
         return fds::DmQuery::dm_blk_shift;
     }
-    static inline fds_uint32_t disk_io_blk_size() {
+    static inline fds_uint32_t disk_io_blk_size()
+    {
         return fds::DmQuery::dm_blk_size;
     }
-    static inline fds_uint32_t disk_io_blk_mask() {
+    static inline fds_uint32_t disk_io_blk_mask()
+    {
         return fds::DmQuery::dm_blk_mask;
+    }
+    // Round up the given byte to the next block size.
+    //
+    static inline fds_blk_t disk_io_round_up_blk(fds_uint64_t byte)
+    {
+        fds_uint32_t shft = fds::DmQuery::dm_blk_shift;
+        fds_uint32_t mask = fds::DmQuery::dm_blk_mask;
+        return (byte >> shft) + ((byte & mask) == 0 ? 0 : 1);
     }
 
     // \disk_read
