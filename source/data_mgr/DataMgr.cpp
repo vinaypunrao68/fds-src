@@ -278,6 +278,8 @@ DataMgr::DataMgr()
       cp_port_num(0),
       omConfigPort(0),
       use_om(true),
+      numTestVols(10),
+      runMode(NORMAL_MODE),
       scheduleRate(10000),
       num_threads(DM_TP_THREADS) {
   dm_log = new fds_log("dm", "logs");
@@ -329,10 +331,13 @@ int DataMgr::run(int argc, char* argv[]) {
   fds::DmDiskInfo     *info;
   fds::DmDiskQuery     in;
   fds::DmDiskQueryOut  out;
+  fds_bool_t      useTestMode;
 
   /*
    * Process the cmdline args.
    */
+
+  runMode = NORMAL_MODE;
 
   for (fds_int32_t i = 1; i < argc; i++) {
     if (strncmp(argv[i], "--port=", 7) == 0) {
@@ -347,10 +352,16 @@ int DataMgr::run(int argc, char* argv[]) {
       omIpStr = argv[i] + 8;
     } else if (strncmp(argv[i], "--om_port=", 10) == 0) {
       omConfigPort = strtoul(argv[i] + 10, NULL, 0);
+    } else if (strncmp(argv[i], "--test_mode", 9) == 0) {
+      useTestMode = true;
     } else {
       std::cout << "Invalid argument " << argv[i] << std::endl;
       return -1;
     }
+  }
+
+  if (useTestMode == true) {
+    runMode = TEST_MODE;
   }
 
   Ice::PropertiesPtr props = communicator()->getProperties();
@@ -498,7 +509,29 @@ int DataMgr::run(int argc, char* argv[]) {
      omClient->registerNodeWithOM(dInfo);
  }
 
+  if (runMode == TEST_MODE) {
+    /*
+     * Create test volumes.
+     */
+    std::string testVolName;
+    VolumeDesc*  testVdb;
+    for (fds_uint32_t testVolId = 1; testVolId < numTestVols + 1; testVolId++) {
+      testVolName = "testVol" + std::to_string(testVolId);
+      /*
+       * We're using the ID as the min/max/priority
+       * for the volume QoS.
+       */
+      testVdb = new VolumeDesc(testVolName,
+                               testVolId,
+                               testVolId,
+                               testVolId * 2,
+                               testVolId);
+      fds_assert(testVdb != NULL);
+      vol_handler(testVolId, testVdb, fds_notify_vol_add); 
 
+      delete testVdb;
+    }
+  }
 
   communicator()->waitForShutdown();
   
