@@ -62,7 +62,8 @@ bin_map = {
 }
 bin_args = {
     OM      : "--test",
-    STORMGR : "--test_mode"
+    STORMGR : "--test_mode",
+    DATAMGR : "--test_mode"
 }
 dir_map = {
     STORMGR : fds_bin_dir,

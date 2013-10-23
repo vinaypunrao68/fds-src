@@ -101,6 +101,14 @@ public:
     };
 
  private:
+    typedef enum {
+      NORMAL_MODE = 0,
+      TEST_MODE   = 1,
+      MAX
+    } dmRunModes;
+ 
+    dmRunModes    runMode;
+    fds_uint32_t numTestVols;  /* Number of vols to use in test mode */
 
     class dmQosCtrl : public FDS_QoSControl {
    public:
