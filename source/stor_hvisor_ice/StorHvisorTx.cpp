@@ -62,12 +62,12 @@ int StorHvisorProcIoRd(void *_io)
   StorHvJournalEntryLock je_lock(journEntry);
   
   if (journEntry->isActive()) {
-    FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " - Transaction  is already in ACTIVE state ";
+    FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " - Transaction  is already in ACTIVE state, completing request with ERROR(-2) ";
     // There is an ongoing transaciton for this offset.
     // We should queue this up for later processing once that completes.
     
-    shvol->readUnlock();
     // For now, return an error.
+    (*req->cb_request)(arg1, arg2, req, -2);
     return (-1); // je_lock destructor will unlock the journal entry
   }
 
@@ -215,11 +215,12 @@ int StorHvisorProcIoWr(void *_io)
   
   
   if (journEntry->isActive()) {
-	  FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Transaction  is already in ACTIVE state ";
+    FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Transaction  is already in ACTIVE state, completing request with ERROR(-2) ";
     // There is an on-going transaction for this offset.
     // Queue this up for later processing.
     
     // For now, return an error.
+    (*req->cb_request)(arg1, arg2, req, -2);
     shvol->readUnlock(); 
     return (-1);
   }
