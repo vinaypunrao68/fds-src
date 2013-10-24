@@ -308,6 +308,10 @@ class TestSequenceFunctions(unittest.TestCase):
         status = 0
         instances = []
 
+        print "Cleaning up data directory: ", fds_dump_dir
+        os.system('rm -rf ' + fds_dump_dir)
+        os.system('mkdir -p ' + fds_dump_dir)
+
         #
         # Start server background instance
         #
@@ -490,9 +494,6 @@ if __name__ == '__main__':
     #print "Using path %s" % (path)
 
     #unittest.main()
-    print "Cleaning up data directory: ", fds_dump_dir
-    os.system('rm -rf ' + fds_dump_dir)
-    os.system('mkdir -p ' + fds_dump_dir)
     if len(sys.argv) > 1 and sys.argv[1] == "--jenkins":
         print "running in jenkins mode"
         import junitxml
