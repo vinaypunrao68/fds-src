@@ -5,7 +5,7 @@ topdir         := .
 user_build_dir := \
     fdsp include/fdsp osdep umod-lib util lib disk-mgr stor_hvisor_ice \
     umod-lib/test-unit util/unit-test lib/unit-test disk-mgr/unit-test \
-    stor_hvisor_ice/unit-test \
+    stor_hvisor_ice/unit-test umod-lib/odb/unit-test \
     orch_mgr data_mgr stor_mgr_ice stor_hvisor fds_client
 
 include $(topdir)/Makefile.incl
