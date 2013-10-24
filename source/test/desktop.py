@@ -135,6 +135,9 @@ class TestSequenceFunctions(unittest.TestCase):
         #
         absPath = "/" + prefix_base
         shutil.rmtree(absPath, ignore_errors=True)
+        # TODO: Remove this line once presistance layer
+        # uses relative paths
+        shutil.rmtree("/fds", ignore_errors=True)
 
         #
         # Move back to previous directory
