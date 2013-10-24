@@ -40,6 +40,7 @@ os_dir = proc.communicate()[0].lower().rstrip('\n').replace(' ', '-')
 fds_root_dir = os.path.abspath('.')
 fds_bin_dir  = os.path.join(fds_root_dir, 'Build', os_dir, 'bin')
 fds_test_dir = os.path.join(fds_root_dir, 'Build', os_dir, 'tests')
+fds_dump_dir = os.path.join(fds_root_dir, 'Build/TestData')
 
 #
 # Get absolute path for lib because we'll execute inside bin/test dir, not
@@ -62,7 +63,7 @@ bin_map = {
 }
 bin_args = {
     OM      : "--test",
-    STORMGR : "--test_mode",
+    STORMGR : "--test_mode --fds-root=" + fds_dump_dir,
     DATAMGR : "--test_mode"
 }
 dir_map = {
@@ -479,6 +480,7 @@ if __name__ == '__main__':
     #print "Using path %s" % (path)
 
     #unittest.main()
+    os.system('mkdir -p ' + fds_dump_dir)
     if len(sys.argv) > 1 and sys.argv[1] == "--jenkins":
         print "running in jenkins mode"
         import junitxml

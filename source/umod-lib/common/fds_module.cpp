@@ -5,6 +5,7 @@
 #include <string>
 #include <iostream>
 #include <boost/program_options.hpp>
+#include <boost/program_options/parsers.hpp>
 #include <fds_assert.h>
 #include <fds_module.h>
 
@@ -204,7 +205,8 @@ ModuleVector::mod_mk_sysparams()
         ("ssd-capacity,C", po::value<int>(&ssd_cap)->default_value(10),
             "SSD capacity in MB");
 
-    po::store(po::parse_command_line(sys_argc, sys_argv, desc), vm);
+    po::store(po::command_line_parser(sys_argc, sys_argv).
+              options(desc).allow_unregistered().run(), vm);
     po::notify(vm);
     if (vm.count("help")) {
         cout << endl << desc << endl;

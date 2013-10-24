@@ -835,10 +835,6 @@ ObjectStorMgr::run(int argc, char* argv[])
       stor_prefix = argv[i] + 9;
     } else if (strncmp(argv[i], "--test_mode", 9) == 0) {
       useTestMode = true;
-    } else {
-       FDS_PLOG(objStorMgr->GetLog()) << "Invalid argument " << argv[i];
-       std::cerr << "Invalid argument " << argv[i];
-      return -1;
     }
   }
 
@@ -959,15 +955,6 @@ ObjectStorMgr::run(int argc, char* argv[])
         break;
     }
 
-    /* Instantiate a DiskManager Module instance */
-
-    fds::Module *io_dm_vec[] = {
-        &diskio::gl_dataIOMod,
-        nullptr
-    };
-    fds::ModuleVector    io_dm(0, NULL, io_dm_vec);
-    io_dm.mod_execute();
-
 
   /*
    * Register this node with OM.
@@ -1067,6 +1054,14 @@ ObjectStorMgr::interruptCallback(int)
 int main(int argc, char *argv[])
 {
   objStorMgr = new ObjectStorMgr();
+
+    /* Instantiate a DiskManager Module instance */
+    fds::Module *io_dm_vec[] = {
+        &diskio::gl_dataIOMod,
+        nullptr
+    };
+    fds::ModuleVector  io_dm(argc, argv, io_dm_vec);
+    io_dm.mod_execute();
 
   objStorMgr->main(argc, argv, "stor_mgr.conf");
 
