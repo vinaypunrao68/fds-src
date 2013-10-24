@@ -32,17 +32,28 @@ namespace fds {
     // std::condition_variable ios_pending_cv; // Condn variable to signal dispatcher when there is an IO available, from enqueueIO thread.
     // fds_uint32_t num_pending_ios; // ios pending, aggregated across all queues, protected by ios_pending_mtx;
     std::atomic<unsigned int> num_pending_ios;
+    std::atomic_bool shuttingDown;
  
     virtual fds_uint32_t getNextQueueForDispatch() = 0;
 
-    FDS_QoSDispatcher() {}
-    FDS_QoSDispatcher(FDS_QoSControl *ctrlr, fds_log *log, fds_uint64_t total_server_rate) {
+ FDS_QoSDispatcher() :
+    shuttingDown(false) {
+    }
+    FDS_QoSDispatcher(FDS_QoSControl *ctrlr,
+                      fds_log *log,
+                      fds_uint64_t total_server_rate) :
+    FDS_QoSDispatcher() {
       parent_ctrlr = ctrlr;
       qda_log = log;
       total_svc_rate = total_server_rate;
       num_pending_ios = ATOMIC_VAR_INIT(0);
     }
     ~FDS_QoSDispatcher() {
+      shuttingDown = true;
+    }
+
+    void stop() {
+      shuttingDown = true;
     }
 
     Error registerQueueWithLockHeld(fds_uint32_t queue_id, FDS_VolumeQueue *queue) {
@@ -203,6 +214,10 @@ namespace fds {
       
       while(1) {
 
+        if (shuttingDown == true) {
+          break;
+        }
+
 	parent_ctrlr->waitForWorkers();
 
 #if 0
@@ -216,7 +231,9 @@ namespace fds {
 	fds_uint32_t n_pios = 0;
 	while (1) {
 	  n_pios = atomic_load(&num_pending_ios);
-	  if (n_pios > 0) {
+          if (shuttingDown == true) {
+            return err;
+          } else if (n_pios > 0) {
 	    break;
 	  }
 	  boost::this_thread::sleep(boost::posix_time::microseconds(1000000/total_svc_rate));

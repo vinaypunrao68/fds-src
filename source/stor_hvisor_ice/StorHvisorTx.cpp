@@ -51,7 +51,8 @@ int StorHvisorProcIoRd(void *_io)
 
   shvol = storHvisor->vol_table->getVolume(vol_id);
   if (!shvol || !shvol->isValidLocked()) {
-    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << " volID:" << vol_id << "- volume not registered";
+    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << " volID:" << vol_id << "- volume not registered, completing request with ERROR(-1)";
+    (*req->cb_request)(arg1, arg2, req, -1);  
     return -1;
   }
 
@@ -62,12 +63,12 @@ int StorHvisorProcIoRd(void *_io)
   StorHvJournalEntryLock je_lock(journEntry);
   
   if (journEntry->isActive()) {
-    FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " - Transaction  is already in ACTIVE state ";
+    FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " - Transaction  is already in ACTIVE state, completing request with ERROR(-2) ";
     // There is an ongoing transaciton for this offset.
     // We should queue this up for later processing once that completes.
     
-    shvol->readUnlock();
     // For now, return an error.
+    (*req->cb_request)(arg1, arg2, req, -2);
     return (-1); // je_lock destructor will unlock the journal entry
   }
 
@@ -111,6 +112,7 @@ int StorHvisorProcIoRd(void *_io)
   if (err.GetErrno() == ERR_CAT_QUERY_FAILED)
   {
     FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Error reading the Vol catalog  Error code : " <<  err.GetErrno() << req;
+    (*req->cb_request)(arg1, arg2, req, err.GetErrno());
     return err.GetErrno();
   }
   
@@ -138,7 +140,8 @@ int StorHvisorProcIoRd(void *_io)
   // Lookup the Primary SM node-id/ip-address to send the GetObject to
   storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(doid_dlt_key, node_ids, &num_nodes);
   if(num_nodes == 0) {
-    FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " -  DLT Nodes  NOT  confiigured. Check on OM Manager";
+    FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " -  DLT Nodes  NOT  confiigured. Check on OM Manager. Completing request with ERROR(-1)";
+    (*req->cb_request)(arg1, arg2, req, -1);
     return -1;
   }
   storHvisor->dataPlacementTbl->getNodeInfo(node_ids[0],
@@ -202,7 +205,10 @@ int StorHvisorProcIoWr(void *_io)
   vol_id = req->volUUID;
   shvol = storHvisor->vol_table->getLockedVolume(vol_id);
   if (!shvol || !shvol->isValidLocked()) {
-    FDS_PLOG(storHvisor->GetLog()) << "StorHvisorTx:" << " volID:" << vol_id << " - volume not registered";
+    shvol->readUnlock();
+
+    FDS_PLOG(storHvisor->GetLog()) << "StorHvisorTx:" << " volID:" << vol_id << " - volume not registered; completing request with ERROR(-1)";
+    (*req->cb_request)(arg1, arg2, req, -1);
     return -1;
   }
   
@@ -215,12 +221,13 @@ int StorHvisorProcIoWr(void *_io)
   
   
   if (journEntry->isActive()) {
-	  FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Transaction  is already in ACTIVE state ";
-    // There is an on-going transaction for this offset.
+    // There is an on-going transaction for this offset
     // Queue this up for later processing.
-    
-    // For now, return an error.
-    shvol->readUnlock(); 
+
+    // For now, return an error
+    shvol->readUnlock();
+    FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Transaction  is already in ACTIVE state, completing request with ERROR(-2) ";
+    (*req->cb_request)(arg1, arg2, req, -2); 
     return (-1);
   }
 
