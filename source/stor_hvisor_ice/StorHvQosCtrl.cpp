@@ -23,6 +23,7 @@ StorHvQosCtrl::StorHvQosCtrl(uint32_t max_thrds, dispatchAlgoType algo, fds_log 
 }
 
 StorHvQosCtrl::~StorHvQosCtrl() {
+  htb_dispatcher->stop();
   delete htb_dispatcher;
   if (stats)
     stats->disable();

@@ -169,7 +169,7 @@ class SmUnitTest {
     
     fds_uint32_t volume_offset;
     ObjectID oid;
-    for (fds_uint32_t i = 0; i < num_updates; i++) {
+    for (fds_uint32_t i = 1; i < num_updates + 1; i++) {
       volume_offset = i;
       oid = ObjectID(i, i * i);
       std::ostringstream convert;
@@ -333,7 +333,7 @@ class SmUnitTest {
     
     fds_uint32_t volume_offset;
     ObjectID oid;
-    for (fds_uint32_t i = 0; i < num_updates; i++) {
+    for (fds_uint32_t i = 1; i < num_updates + 1; i++) {
       volume_offset = i;
       oid = ObjectID(i, i * i);
       std::ostringstream convert;
@@ -379,7 +379,7 @@ class SmUnitTest {
      */
     msg_hdr->glob_volume_id = 5;
     
-    for (fds_uint32_t i = 0; i < num_updates; i++) {
+    for (fds_uint32_t i = 1; i < num_updates + 1; i++) {
       oid = ObjectID(i, i * i);
       get_req->data_obj_id.hash_high = oid.GetHigh();
       get_req->data_obj_id.hash_low  = oid.GetLow();

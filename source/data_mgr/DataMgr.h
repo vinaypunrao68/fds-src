@@ -30,16 +30,126 @@
 #include <concurrency/ThreadPool.h>
 #include <concurrency/Mutex.h>
 
+#include <include/fds_qos.h>
+#include <include/qos_ctrl.h>
 #include <unordered_map>
 #include <string>
 #include <disk-mgr/dm_service.h>
 
+#include <lib/QoSWFQDispatcher.h>
+
+
 namespace fds {
 
-#define DM_TP_THREADS 3
+#define DM_TP_THREADS 5
+int scheduleUpdateCatalog(void * _io);
+int scheduleQueryCatalog(void * _io);
 
   class DataMgr : virtual public Ice::Application {
+public:
+  void InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
+  class dmCatReq : public FDS_IOType {
+ public:
+    ObjectID     objId;
+    fds_volid_t  volId;
+    fds_uint64_t volOffset;
+    fds_uint32_t transId;
+    fds_uint32_t transOp;
+    long 	 srcIp;
+    long 	 dstIp;
+    fds_uint32_t srcPort;
+    fds_uint32_t dstPort;
+    std::string src_node_name;
+    fds_uint32_t reqCookie;
+
+
+    dmCatReq(fds_uint64_t       _objIdHigh,
+            fds_uint64_t       _objIdLow,
+            fds_volid_t        _volId,
+	    fds_uint64_t       _volOffset,
+            fds_uint32_t 	_transId,
+            fds_uint32_t 	_transOp,
+            long 	 	_srcIp,
+            long 	 	_dstIp,
+            fds_uint32_t 	_srcPort,
+            fds_uint32_t 	_dstPort,
+	     std::string        _src_node_name,
+            fds_uint32_t 	_reqCookie,
+            fds_io_op_t        _ioType) {
+         objId = ObjectID(_objIdHigh, _objIdLow);
+         volId             = _volId;
+         volOffset         = _volOffset;
+         transId           = _transId;
+         transOp           = _transOp;
+         srcIp 	           = _srcIp;
+         dstIp 	           = _dstIp;
+         srcPort           = _srcPort;
+         dstPort           = _dstPort;
+	 src_node_name     = _src_node_name;
+         reqCookie         = _reqCookie;
+         FDS_IOType::io_type = _ioType;
+      }
+
+      const ObjectID& getObjId() const {
+        return objId;
+      }
+
+      fds_volid_t getVolId() const {
+        return volId;
+      }
+
+     private:
+      ~dmCatReq() {
+      }
+    };
+
  private:
+    typedef enum {
+      NORMAL_MODE = 0,
+      TEST_MODE   = 1,
+      MAX
+    } dmRunModes;
+ 
+    dmRunModes    runMode;
+    fds_uint32_t numTestVols;  /* Number of vols to use in test mode */
+
+    class dmQosCtrl : public FDS_QoSControl {
+   public:
+      DataMgr *parentDm;
+
+      dmQosCtrl(DataMgr *_parent,
+                uint32_t _max_thrds,
+                dispatchAlgoType algo,
+                fds_log *log) :
+      FDS_QoSControl(_max_thrds, algo, log, "DM") {
+        parentDm = _parent;
+        dispatcher = new QoSWFQDispatcher(this, parentDm->scheduleRate, _max_thrds, log);
+      }
+
+
+      Error processIO(FDS_IOType* _io) {
+        Error err(ERR_OK);
+        dmCatReq *io = static_cast<dmCatReq*>(_io);
+
+        if (io->io_type == FDS_CAT_UPD) {
+          FDS_PLOG(FDS_QoSControl::qos_log) << "Processing  the Catalog update  request";
+	  threadPool->schedule(scheduleUpdateCatalog, io);
+        } else if (io->io_type == FDS_CAT_QRY) {
+          FDS_PLOG(FDS_QoSControl::qos_log) << "Processing  the Catalog Query  request";
+	  threadPool->schedule(scheduleQueryCatalog, io);
+        } else {
+          assert(0);
+        }
+
+        return err;
+      }
+
+      ~dmQosCtrl() {
+      }
+
+    };
+
+
     typedef FDS_ProtocolInterface::FDSP_DataPathReqPtr  ReqHandlerPtr;
     typedef FDS_ProtocolInterface::FDSP_DataPathRespPrx RespHandlerPrx;
 
@@ -51,6 +161,7 @@ namespace fds {
     OMgrClient     *omClient;
 
     fds_log *dm_log;
+    dmQosCtrl   *qosCtrl;
 
     /*
      * Cmdline configurables
@@ -58,6 +169,7 @@ namespace fds {
     fds_uint32_t port_num;      /* Data path port num */
     fds_uint32_t cp_port_num;   /* Control path port num */
     std::string  stor_prefix;   /* String prefix to make file unique */
+    fds_uint32_t  scheduleRate;
     fds_bool_t   use_om;        /* Whether to bootstrap from OM */
     std::string  omIpStr;       /* IP addr of the OM used to bootstrap */
     fds_uint32_t omConfigPort;  /* Port of OM used to bootstrap */
@@ -81,11 +193,11 @@ namespace fds {
     fds_mutex *vol_map_mtx;
 
     Error _add_if_no_vol(const std::string& vol_name,
-                         fds_volid_t vol_uuid);
+                         fds_volid_t vol_uuid,VolumeDesc* desc);
     Error _add_vol_locked(const std::string& vol_name,
-                          fds_volid_t vol_uuid);
+                          fds_volid_t vol_uuid,VolumeDesc* desc);
     Error _process_add_vol(const std::string& vol_name,
-                           fds_volid_t vol_uuid);
+                           fds_volid_t vol_uuid,VolumeDesc* desc);
     Error _process_rm_vol(fds_volid_t vol_uuid);
 
     Error _process_open(fds_volid_t vol_uuid,
@@ -118,6 +230,7 @@ namespace fds {
     DataMgr();
     ~DataMgr();
 
+
     virtual int run(int argc, char* argv[]);
     void interruptCallback(int arg);
     void swapMgrId(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg);
@@ -125,6 +238,20 @@ namespace fds {
     std::string getPrefix() const;
     fds_bool_t volExists(fds_volid_t vol_uuid) const;
     FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr dInfo;
+
+    void updateCatalogBackend(dmCatReq  *updCatReq);
+    void queryCatalogBackend(dmCatReq  *qryCatReq);
+
+    /* 
+     * FDS protocol processing proto types 
+     */
+	Error updateCatalogInternal(FDSP_UpdateCatalogTypePtr updCatReq, 
+                                 fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
+				    fds_uint32_t dstPort, std::string src_node_name, fds_uint32_t reqCookie);
+	Error queryCatalogInternal(FDSP_QueryCatalogTypePtr qryCatReq, 
+                                 fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
+				   fds_uint32_t dstPort, std::string src_node_name, fds_uint32_t reqCookie);
+
 
     /*
      * Nested class that manages the server interface.

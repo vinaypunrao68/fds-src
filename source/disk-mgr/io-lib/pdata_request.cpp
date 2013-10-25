@@ -6,28 +6,28 @@ namespace diskio {
 // \IndexRequest::IndexRequest
 // ---------------------------
 //
-IndexRequest::IndexRequest(meta_obj_id_t       &oid,
+IndexRequest::IndexRequest(meta_obj_id_t const &oid,
                            bool                block)
-    : Request(block)
+    : Request(block), idx_peer(nullptr)
 {
     idx_oid = oid;
     obj_map_init(&idx_vmap);
     vadr_set_inval(idx_vio.vol_adr);
 }
 
-IndexRequest::IndexRequest(meta_vol_io_t       &vio,
+IndexRequest::IndexRequest(meta_vol_io_t const &vio,
                            bool                block)
-    : Request(block)
+    : Request(block), idx_peer(nullptr)
 {
     idx_vio = vio;
     obj_id_set_inval(&idx_oid);
     obj_map_init(&idx_vmap);
 }
 
-IndexRequest::IndexRequest(meta_obj_id_t       &oid,
-                           meta_vol_io_t       &vio,
+IndexRequest::IndexRequest(meta_obj_id_t const &oid,
+                           meta_vol_io_t const &vio,
                            bool                block)
-    : Request(block)
+    : Request(block), idx_peer(nullptr)
 {
     idx_oid = oid;
     idx_vio = vio;

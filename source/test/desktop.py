@@ -40,6 +40,7 @@ os_dir = proc.communicate()[0].lower().rstrip('\n').replace(' ', '-')
 fds_root_dir = os.path.abspath('.')
 fds_bin_dir  = os.path.join(fds_root_dir, 'Build', os_dir, 'bin')
 fds_test_dir = os.path.join(fds_root_dir, 'Build', os_dir, 'tests')
+fds_dump_dir = os.path.join(fds_root_dir, 'Build/TestData')
 
 #
 # Get absolute path for lib because we'll execute inside bin/test dir, not
@@ -62,7 +63,8 @@ bin_map = {
 }
 bin_args = {
     OM      : "--test",
-    STORMGR : "--test_mode"
+    STORMGR : "--test_mode --fds-root=" + fds_dump_dir,
+    DATAMGR : "--test_mode"
 }
 dir_map = {
     STORMGR : fds_bin_dir,
@@ -127,6 +129,16 @@ class TestSequenceFunctions(unittest.TestCase):
                         os.remove("%s" % (dentry))
                     except OSError as err:
                         print "Unable to remove stray file: %s" % err
+
+        #
+        # Remove all files under FDS specific storage
+        # using new presistent layer storage
+        #
+        absPath = "/" + prefix_base
+        shutil.rmtree(absPath, ignore_errors=True)
+        # TODO: Remove this line once presistance layer
+        # uses relative paths
+        shutil.rmtree("/fds", ignore_errors=True)
 
         #
         # Move back to previous directory
@@ -295,6 +307,10 @@ class TestSequenceFunctions(unittest.TestCase):
     def run_comp_test(self, comp, num_instances):
         status = 0
         instances = []
+
+        print "Cleaning up data directory: ", fds_dump_dir
+        os.system('rm -rf ' + fds_dump_dir)
+        os.system('mkdir -p ' + fds_dump_dir)
 
         #
         # Start server background instance
