@@ -285,6 +285,7 @@ void OMgrClient::initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
 
         msg_hdr->src_id = my_node_type;
         msg_hdr->dst_id = FDSP_ORCH_MGR;
+	msg_hdr->src_node_name = "";
 
         msg_hdr->err_code=FDSP_ERR_SM_NO_SPACE;
         msg_hdr->result=FDSP_ERR_OK;

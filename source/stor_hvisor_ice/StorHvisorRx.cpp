@@ -452,6 +452,7 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
     // fdsp_msg_hdr->src_ip_lo_addr = SRC_IP;
     fdsp_msg_hdr->dst_ip_lo_addr = node_ip;
     fdsp_msg_hdr->dst_port = node_port;
+    fdsp_msg_hdr->src_node_name = storHvisor->my_node_name;
     get_obj_req->data_obj_id.hash_high = cat_obj_req->data_obj_id.hash_high;
     get_obj_req->data_obj_id.hash_low = cat_obj_req->data_obj_id.hash_low;
     get_obj_req->data_obj_len = journEntry->data_obj_len;

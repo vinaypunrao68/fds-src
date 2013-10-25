@@ -6,6 +6,8 @@
 
 #include "stor_hvisor_ice/StorHvisorNet.h"
 
+extern StorHvCtrl *storHvisor;
+
 namespace fds {
 
 CatalogCache::CatalogCache() {
@@ -114,6 +116,7 @@ Error VolumeCatalogCache::Query(fds_uint64_t block_id,
     msg_hdr->glob_volume_id = vol_id;
     msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_QUERY_CAT_OBJ_REQ;
     msg_hdr->src_id   = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
+    msg_hdr->src_node_name = storHvisor->my_node_name;
     msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_DATA_MGR;
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
     msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;

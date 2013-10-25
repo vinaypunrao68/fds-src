@@ -48,9 +48,10 @@ class StorVol():
         # The client name is hard coded for now because
         # it is hard coded in the SH. As a result, the
         # local client variable is ignored.
-        return "%s --volume-attach %s -i %d -n localhost-sh" % (self.cliBin,
+        return "%s --volume-attach %s -i %d -n localhost-%s" % (self.cliBin,
                                                                 self.name,
-                                                                self.volId)
+                                                                self.volId,
+                                                                self.client)
 
 #
 # Defines a policy in the cluster
@@ -385,7 +386,7 @@ class TestBringUp():
     # Builds the command to bring up a node service
     #
     def buildNodeCmd(self, node, nodeType = None):
-        cmd = self.ldLibPath + "; " + self.iceHome + "; " + "cd " + self.fdsBinDir + "; " + "./"
+        cmd = self.ldLibPath + "; " + self.iceHome + "; " + "cd " + self.fdsBinDir + "; " + "ulimit -c unlimited;" + "./"
         if nodeType == "SM":
             cmd += node.getSmCmd()
             cmd += " --om_ip=%s --om_port=%d" % (self.omIpStr,
@@ -412,7 +413,7 @@ class TestBringUp():
     # Builds the command to start SH UBD service
     #
     def buildUbdCmd(self, client):
-        cmd = self.ldLibPath + "; " + self.iceHome + "; " + " cd " + self.fdsBinDir + "; " + "ulimit -s 4096; " + "./" + client.getUbdCmd() + " --om_ip=" + self.omIpStr + " --om_port=" + str(self.omConfPort)
+        cmd = self.ldLibPath + "; " + self.iceHome + "; " + " cd " + self.fdsBinDir + "; " + "ulimit -s 4096; " + "./" + client.getUbdCmd() + " --om_ip=" + self.omIpStr + " --om_port=" + str(self.omConfPort) + " --node_name=localhost-" + client.name
         return cmd
 
 

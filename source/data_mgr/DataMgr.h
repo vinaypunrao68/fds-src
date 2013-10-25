@@ -47,7 +47,7 @@ namespace fds {
      * Ice handlers and comm endpoints.
      */
     ReqHandlerPtr  reqHandleSrv;
-    RespHandlerPrx respHandleCli;
+    std::unordered_map<std::string, RespHandlerPrx> respHandleCli;
     OMgrClient     *omClient;
 
     fds_log *dm_log;
@@ -170,6 +170,7 @@ namespace fds {
                            const Ice::Current&);
 
       void AssociateRespCallback(const Ice::Identity& ident,
+				 const std::string& src_node_name,
                                  const Ice::Current& current);
     };
 

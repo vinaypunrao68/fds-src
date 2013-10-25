@@ -127,6 +127,7 @@ int StorHvisorProcIoRd(void *_io)
   fdsp_msg_hdr->msg_id =  1;
   fdsp_msg_hdr->src_ip_lo_addr = SRC_IP;
   fdsp_msg_hdr->src_port = 0;
+  fdsp_msg_hdr->src_node_name = storHvisor->my_node_name;
   get_obj_req->data_obj_id.hash_high = oid.GetHigh();
   get_obj_req->data_obj_id.hash_low = oid.GetLow();
   get_obj_req->data_obj_len = req->len;
@@ -269,6 +270,7 @@ int StorHvisorProcIoWr(void *_io)
   journEntry->data_obj_len= data_size;;
   
   fdsp_msg_hdr->src_ip_lo_addr = SRC_IP;
+  fdsp_msg_hdr->src_node_name = storHvisor->my_node_name;
   fdsp_msg_hdr->req_cookie = trans_id;
   storHvisor->InitSmMsgHdr(fdsp_msg_hdr);
   
@@ -314,6 +316,7 @@ int StorHvisorProcIoWr(void *_io)
   upd_obj_req->dm_operation = FDS_DMGR_TXN_STATUS_OPEN;
   fdsp_msg_hdr_dm->req_cookie = trans_id;
   fdsp_msg_hdr_dm->src_ip_lo_addr = SRC_IP;
+  fdsp_msg_hdr_dm->src_node_name = storHvisor->my_node_name;
   fdsp_msg_hdr_dm->src_port = 0;
   fdsp_msg_hdr_dm->dst_port = node_port;
   
@@ -378,6 +381,8 @@ void StorHvCtrl::InitSmMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
         msg_hdr->src_id = FDSP_STOR_HVISOR;
         msg_hdr->dst_id = FDSP_STOR_MGR;
 
+	msg_hdr->src_node_name = this->my_node_name;
+
         msg_hdr->err_code=FDSP_ERR_SM_NO_SPACE;
         msg_hdr->result=FDSP_ERR_OK;
 
@@ -402,7 +407,9 @@ void StorHvCtrl::InitDmMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
         msg_hdr->src_id = FDSP_STOR_HVISOR;
         msg_hdr->dst_id = FDSP_DATA_MGR;
 
-   		msg_hdr->err_code=FDSP_ERR_SM_NO_SPACE;
+	msg_hdr->src_node_name = this->my_node_name;
+
+	msg_hdr->err_code=FDSP_ERR_SM_NO_SPACE;
         msg_hdr->result=FDSP_ERR_OK;
 
 }

@@ -480,7 +480,7 @@ class SmUnitTest {
     adapter->activate();
 
     fdspDPAPI->ice_getConnection()->setAdapter(adapter);
-    fdspDPAPI->AssociateRespCallback(ident);
+    fdspDPAPI->AssociateRespCallback(ident, "sm_test_client");
 
     unit_tests.push_back("basic_update");
     unit_tests.push_back("basic_uq");

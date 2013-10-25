@@ -283,7 +283,7 @@ namespace fds {
     } else {
       switch (algo_type) {
       case FDS_QoSControl::FDS_DISPATCH_WFQ:
-	dispatcher = new QoSWFQDispatcher(this, TOTAL_RATE, ut_log);
+	dispatcher = new QoSWFQDispatcher(this, TOTAL_RATE, 10, ut_log);
 	break;
       default:
 	dispatcher = NULL;

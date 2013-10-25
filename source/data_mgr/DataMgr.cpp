@@ -613,7 +613,7 @@ void DataMgr::ReqHandler::UpdateCatalogObject(const FDS_ProtocolInterface::
    */
   msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_UPDATE_CAT_OBJ_RSP;
   dataMgr->swapMgrId(msg_hdr);
-  dataMgr->respHandleCli->begin_UpdateCatalogObjectResp(
+  dataMgr->respHandleCli[msg_hdr->src_node_name]->begin_UpdateCatalogObjectResp(
       msg_hdr,
       update_catalog);
 
@@ -676,7 +676,7 @@ void DataMgr::ReqHandler::QueryCatalogObject(const FDS_ProtocolInterface::
    */
   msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_QUERY_CAT_OBJ_RSP;
   dataMgr->swapMgrId(msg_hdr);
-  dataMgr->respHandleCli->begin_QueryCatalogObjectResp(msg_hdr, query_catalog);
+  dataMgr->respHandleCli[msg_hdr->src_node_name]->begin_QueryCatalogObjectResp(msg_hdr, query_catalog);
   FDS_PLOG(dataMgr->GetLog()) << "Sending async query catalog response with "
                               << "volume id: " << msg_hdr->glob_volume_id
                               << ", volume offset: "
@@ -704,6 +704,7 @@ void DataMgr::ReqHandler::RedirReadObject(const FDS_ProtocolInterface::
 }
 
 void DataMgr::ReqHandler::AssociateRespCallback(const Ice::Identity& ident,
+						const std::string& src_node_name,
                                                 const Ice::Current& current) {
   try {
     std::cout << "Associating response Callback client to DataMgr`"
@@ -713,7 +714,7 @@ void DataMgr::ReqHandler::AssociateRespCallback(const Ice::Identity& ident,
         << "Caught a NULL exception accessing _communicator";
   }
 
-  dataMgr->respHandleCli = FDS_ProtocolInterface::FDSP_DataPathRespPrx::
+  dataMgr->respHandleCli[src_node_name] = FDS_ProtocolInterface::FDSP_DataPathRespPrx::
       uncheckedCast(current.con->createProxy(ident));
 }
 

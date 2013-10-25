@@ -630,7 +630,7 @@ class TestClient : public Ice::Application {
     adapter->activate();
 
     fdspDPAPI->ice_getConnection()->setAdapter(adapter);
-    fdspDPAPI->AssociateRespCallback(ident);
+    fdspDPAPI->AssociateRespCallback(ident, "dm_unit_test_client");
 
     /*
      * Determine control path port number.
