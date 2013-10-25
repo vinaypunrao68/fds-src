@@ -48,6 +48,8 @@
 #include <lib/OMgrClient.h>
 #include <concurrency/Mutex.h>
 
+#include <include/TierEngine.h>
+
 #define FDS_STOR_MGR_LISTEN_PORT FDS_CLUSTER_TCP_PORT_SM
 #define FDS_STOR_MGR_DGRAM_PORT FDS_CLUSTER_UDP_PORT_SM
 #define FDS_MAX_WAITING_CONNS  10

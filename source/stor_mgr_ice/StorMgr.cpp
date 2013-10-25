@@ -833,7 +833,7 @@ ObjectStorMgr::run(int argc, char* argv[])
       omConfigPort = strtoul(argv[i] + 10, NULL, 0);
     } else if (strncmp(argv[i], "--prefix=", 9) == 0) {
       stor_prefix = argv[i] + 9;
-    } else if (strncmp(argv[i], "--test_mode", 9) == 0) {
+    } else if (strncmp(argv[i], "--test_mode", 11) == 0) {
       useTestMode = true;
     }
   }

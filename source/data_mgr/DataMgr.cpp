@@ -352,7 +352,7 @@ int DataMgr::run(int argc, char* argv[]) {
       omIpStr = argv[i] + 8;
     } else if (strncmp(argv[i], "--om_port=", 10) == 0) {
       omConfigPort = strtoul(argv[i] + 10, NULL, 0);
-    } else if (strncmp(argv[i], "--test_mode", 9) == 0) {
+    } else if (strncmp(argv[i], "--test_mode", 11) == 0) {
       useTestMode = true;
     } else {
       std::cout << "Invalid argument " << argv[i] << std::endl;
