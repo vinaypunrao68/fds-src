@@ -413,7 +413,8 @@ class FDSP_MsgHdrType {
     long       		dst_ip_lo_addr; /* IPv4 or IPv6 address */
 
     int	src_port;
-    int dst_port;    
+    int dst_port;
+    string	src_node_name; /* string identifying the source node that sent this request */   
 
 /* FDSP Result valid for response messages */
     FDSP_ResultType       result;
@@ -438,7 +439,7 @@ interface FDSP_DataPathReq {
 
     void RedirReadObject(FDSP_MsgHdrType fdsp_msg, FDSP_RedirReadObjType redir_write_obj_req);
 
-    void AssociateRespCallback(Ice::Identity ident); // Associate Response callback ICE-object with DM/SM 
+    void AssociateRespCallback(Ice::Identity ident, string src_node_name); // Associate Response callback ICE-object with DM/SM for this source node.
 };
 
 interface FDSP_DataPathResp {

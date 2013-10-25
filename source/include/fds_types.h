@@ -20,6 +20,8 @@
 #include <functional>
 #include <shared/fds_types.h>
 
+#include <boost/date_time/posix_time/posix_time.hpp>
+
 /*
  * Consider encapsulating in the global
  * fds namespace.
@@ -242,8 +244,13 @@ public:
    fds_volid_t io_vol_id;
    fds_int32_t io_status;
    fds_uint32_t io_service_time; //usecs
+   fds_uint32_t io_wait_time; //usecs
    ioModule io_module; // IO belongs to which module for Qos proc 
-  
+   boost::posix_time::ptime enqueue_time;
+   boost::posix_time::ptime dispatch_time;
+   boost::posix_time::ptime io_done_time;	 
+
+ 
    // SM & DM objects for IO processing
    //  //FDSP_MsgHdrTypePtr msgHdr;
    //   //FDSP_PutObjTypePtr putObj;

@@ -1,7 +1,6 @@
 topdir            := ../..
 user_target       := lib
 user_rtime_env    := user
-user_build_dir    := unit-test
 user_install_loc  :=
 user_install      :=
 
