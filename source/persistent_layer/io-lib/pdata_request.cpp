@@ -1,5 +1,5 @@
 #include <fds_assert.h>
-#include <disk-mgr/dm_io.h>
+#include <persistent_layer/dm_io.h>
 
 namespace diskio {
 

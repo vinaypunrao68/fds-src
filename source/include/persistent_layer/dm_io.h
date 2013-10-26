@@ -5,8 +5,8 @@
 #include <fds_types.h>
 #include <fds_module.h>
 #include <fds_request.h>
-#include <disk-mgr/dm_service.h>
-#include <disk-mgr/dm_metadata.h>
+#include <persistent_layer/dm_service.h>
+#include <persistent_layer/dm_metadata.h>
 
 namespace diskio {
 

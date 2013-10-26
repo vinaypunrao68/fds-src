@@ -60,7 +60,7 @@ namespace fds {
         errstr(fds_errstrs[errno_arg]) {
     }
 
-    Error(Error& err)
+    Error(const Error& err)
         : _errno(err._errno),
         errstr(err.errstr) {
     }

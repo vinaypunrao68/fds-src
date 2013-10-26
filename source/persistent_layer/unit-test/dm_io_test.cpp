@@ -3,7 +3,7 @@
  */
 #include <unistd.h>
 #include <fds_module.h>
-#include <disk-mgr/dm_io.h>
+#include <persistent_layer/dm_io.h>
 #include <concurrency/ThreadPool.h>
 #include <iostream>
 

@@ -1,7 +1,7 @@
 #include <iostream>
 #include <fds_assert.h>
 #include <fds_module.h>
-#include <disk-mgr/dm_io.h>
+#include <persistent_layer/dm_io.h>
 #include <persistentdata.h>
 
 using namespace std;

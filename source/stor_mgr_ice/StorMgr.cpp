@@ -164,9 +164,6 @@ ObjectStorMgr::ObjectStorMgr() :
   sm_log = new fds_log("sm", "logs");
   FDS_PLOG(sm_log) << "Constructing the Object Storage Manager";
 
-  // Create all data structures 
-  diskMgr = new DiskMgr();
-
   objStorMutex = new fds_mutex("Object Store Mutex");
   waitingReqMutex = new fds_mutex("Object Store Mutex");
 
@@ -221,7 +218,6 @@ ObjectStorMgr::~ObjectStorMgr()
   delete waitingReqMutex;
   delete qosCtrl;
 
-  delete diskMgr;
   delete sm_log;
   delete volTbl;
   delete objStorMutex;
@@ -374,13 +370,13 @@ ObjectStorMgr::readObject(const ObjectID& objId,
   Error err(ERR_OK);
   
   diskio::DataIO& dio_mgr = diskio::DataIO::disk_singleton();
-  SMDiskReq     *disk_req;
+  SmPlReq     *disk_req;
   meta_vol_io_t   vio;
   meta_obj_id_t   oid;
   vadr_set_inval(vio.vol_adr);
   oid.oid_hash_hi = objId.GetHigh();
   oid.oid_hash_lo = objId.GetLow();
-  disk_req = new SMDiskReq(vio, oid, (ObjectBuf *)&objData, true); // blocking call
+  disk_req = new SmPlReq(vio, oid, (ObjectBuf *)&objData, true); // blocking call
   err = readObjectLocation(objId, disk_req->req_get_vmap());
   if (err == ERR_OK) {
     objData.size = disk_req->req_get_vmap()->obj_size;
@@ -453,13 +449,13 @@ ObjectStorMgr::writeObject(const ObjectID& objId,
   Error err(ERR_OK);
   
   diskio::DataIO& dio_mgr = diskio::DataIO::disk_singleton();
-  SMDiskReq     *disk_req;
+  SmPlReq     *disk_req;
   meta_vol_io_t   vio;
   meta_obj_id_t   oid;
   vadr_set_inval(vio.vol_adr);
   oid.oid_hash_hi = objId.GetHigh();
   oid.oid_hash_lo = objId.GetLow();
-  disk_req = new SMDiskReq(vio, oid, (ObjectBuf *)&objData, true); // blocking call
+  disk_req = new SmPlReq(vio, oid, (ObjectBuf *)&objData, true); // blocking call
   dio_mgr.disk_write(disk_req);
   err = writeObjectLocation(objId, disk_req->req_get_vmap());
   delete disk_req;
@@ -803,8 +799,7 @@ inline void ObjectStorMgr::swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg) {
  * Storage Mgr main  processor : Listen on the socket and spawn or assign thread from a pool
  -------------------------------------------------------------------------------------*/
 int
-ObjectStorMgr::run(int argc, char* argv[])
-{
+ObjectStorMgr::run(int argc, char* argv[]) {
 
   fds_bool_t      unit_test;
   fds_bool_t      useTestMode;
@@ -843,7 +838,7 @@ ObjectStorMgr::run(int argc, char* argv[])
     runMode = TEST_MODE;
   }
 
- // Create leveldb
+  // Create leveldb
   std::string filename= stor_prefix + "SNodeObjRepository";
   objStorDB  = new ObjectDB(filename);
   filename= stor_prefix + "SNodeObjIndex";
@@ -892,8 +887,6 @@ ObjectStorMgr::run(int argc, char* argv[])
   
   adapter->activate();
 
-  volTbl = new StorMgrVolumeTable(this);
-
   struct ifaddrs *ifAddrStruct = NULL;
   struct ifaddrs *ifa          = NULL;
   void   *tmpAddrPtr           = NULL;
@@ -918,44 +911,44 @@ ObjectStorMgr::run(int argc, char* argv[])
   FDS_PLOG(objStorMgr->GetLog()) << "Stor Mgr IP:" << myIp;
 
   /*
-   * Query  Disk Manager  for disk parameter details 
+   * Query persistent layer for disk parameter details 
    */
-    fds::DmQuery        &query = fds::DmQuery::dm_query();
-    in.dmq_mask = fds::dmq_disk_info;
-    query.dm_disk_query(in, &out);
-    /* we should be bundling multiple disk  parameters  into one message to OM TBD */ 
-    dInfo = new  FDSP_AnnounceDiskCapability(); 
-    while (1) {
-        info = out.query_pop();
-        if (info != nullptr) {
-  	    FDS_PLOG(objStorMgr->GetLog()) << "Max blks capacity: " << info->di_max_blks_cap
-            << ", Disk type........: " << info->di_disk_type
-            << ", Max iops.........: " << info->di_max_iops
-            << ", Min iops.........: " << info->di_min_iops
-            << ", Max latency (us).: " << info->di_max_latency
-            << ", Min latency (us).: " << info->di_min_latency;
+  fds::DmQuery &query = fds::DmQuery::dm_query();
+  in.dmq_mask = fds::dmq_disk_info;
+  query.dm_disk_query(in, &out);
+  /* we should be bundling multiple disk parameters into one message to OM TBD */ 
+  FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr dInfo =
+      new FDS_ProtocolInterface::FDSP_AnnounceDiskCapability(); 
+  while (1) {
+    info = out.query_pop();
+    if (info != nullptr) {
+      FDS_PLOG(objStorMgr->GetLog()) << "Max blks capacity: " << info->di_max_blks_cap
+                                     << ", Disk type........: " << info->di_disk_type
+                                     << ", Max iops.........: " << info->di_max_iops
+                                     << ", Min iops.........: " << info->di_min_iops
+                                     << ", Max latency (us).: " << info->di_max_latency
+                                     << ", Min latency (us).: " << info->di_min_latency;
 
-            if ( info->di_disk_type == FDS_DISK_SATA) {
-            	dInfo->disk_iops_max =  info->di_max_iops; /*  max avarage IOPS */
-            	dInfo->disk_iops_min =  info->di_min_iops; /* min avarage IOPS */
-            	dInfo->disk_capacity = info->di_max_blks_cap;  /* size in blocks */
-            	dInfo->disk_latency_max = info->di_max_latency; /* in us second */
-            	dInfo->disk_latency_min = info->di_min_latency; /* in us second */
-  	    } else if (info->di_disk_type == FDS_DISK_SSD) {
-            	dInfo->ssd_iops_max =  info->di_max_iops; /*  max avarage IOPS */
-            	dInfo->ssd_iops_min =  info->di_min_iops; /* min avarage IOPS */
-            	dInfo->ssd_capacity = info->di_max_blks_cap;  /* size in blocks */
-            	dInfo->ssd_latency_max = info->di_max_latency; /* in us second */
-            	dInfo->ssd_latency_min = info->di_min_latency; /* in us second */
-	    } else 
-  	       FDS_PLOG(objStorMgr->GetLog()) << "Unknown Disk Type " << info->di_disk_type;
-			
-            delete info;
-            continue;
-        }
-        break;
+      if ( info->di_disk_type == FDS_DISK_SATA) {
+        dInfo->disk_iops_max =  info->di_max_iops; /*  max avarage IOPS */
+        dInfo->disk_iops_min =  info->di_min_iops; /* min avarage IOPS */
+        dInfo->disk_capacity = info->di_max_blks_cap;  /* size in blocks */
+        dInfo->disk_latency_max = info->di_max_latency; /* in us second */
+        dInfo->disk_latency_min = info->di_min_latency; /* in us second */
+      } else if (info->di_disk_type == FDS_DISK_SSD) {
+        dInfo->ssd_iops_max =  info->di_max_iops; /*  max avarage IOPS */
+        dInfo->ssd_iops_min =  info->di_min_iops; /* min avarage IOPS */
+        dInfo->ssd_capacity = info->di_max_blks_cap;  /* size in blocks */
+        dInfo->ssd_latency_max = info->di_max_latency; /* in us second */
+        dInfo->ssd_latency_min = info->di_min_latency; /* in us second */
+      } else 
+        FDS_PLOG(objStorMgr->GetLog()) << "Unknown Disk Type " << info->di_disk_type;
+
+      delete info;
+      continue;
     }
-
+    break;
+  }
 
   /*
    * Register this node with OM.
@@ -967,6 +960,18 @@ ObjectStorMgr::run(int argc, char* argv[])
                             port_num,
                             stor_prefix + "localhost-sm",
                             sm_log);
+  
+  /*
+   * Create local volume table. Create after omClient
+   * is initialized, because it needs to register with the
+   * omClient. Create before register with OM because
+   * the OM vol event receivers depend on this table.
+   */
+  volTbl = new StorMgrVolumeTable(this);
+
+  /*
+   * Register/boostrap from OM
+   */
   omClient->initialize();
   omClient->registerEventHandlerForNodeEvents((node_event_handler_t)nodeEventOmHandler);
   omClient->registerEventHandlerForVolEvents((volume_event_handler_t)volEventOmHandler);

@@ -5,7 +5,7 @@
 #define INCLUDE_PERISTENT_DATA_H_
 
 #include <string>
-#include <disk-mgr/dm_io.h>
+#include <persistent_layer/dm_io.h>
 #include <concurrency/Mutex.h>
 
 namespace diskio {

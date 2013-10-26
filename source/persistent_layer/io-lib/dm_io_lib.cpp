@@ -7,7 +7,7 @@
 #include <fcntl.h>
 
 #include <iostream>
-#include <disk-mgr/dm_io.h>
+#include <persistent_layer/dm_io.h>
 
 using namespace std;
 
