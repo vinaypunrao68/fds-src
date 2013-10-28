@@ -26,13 +26,14 @@ DataIndexModule::~DataIndexModule()
 {
 }
 
-void
+int
 DataIndexModule::mod_init(fds::SysParams const *const param)
 {
     Module::mod_init(param);
     cout << "DataIndex init..." << endl;
 
     sgt_oidProxy = new DataIndexProxy(1000);
+    return 0;
 }
 
 void

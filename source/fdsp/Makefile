@@ -2,7 +2,7 @@ topdir           := ..
 user_target      := lib
 user_rtime_env   := user
 
-local_ice_src    := FDSP.ice
+local_ice_src    := FDSP.ice orch_proto.ice
 local_ice_outdir := $(topdir)/include/fdsp
 local_ice_target := $(patsubst %.ice,$(local_ice_outdir)/%.h, $(local_ice_src))
 
@@ -14,7 +14,8 @@ user_clean       := $(local_ice_target)
 include $(topdir)/Makefile.incl
 
 local_ice_make   := $(toolchain_ice_bin)/slice2cpp
-local_ice_flags  := --underscore -I. -I$(toolchain_ice)/slice
+local_ice_flags  := --underscore -I. -I$(topdir)/include
+local_ice_flags  += -I$(toolchain_ice)/slice
 
 define local_mk_ice_cpp
 $(patsubst %.ice,$(local_ice_outdir)/%.h, $(1)): $(1)
@@ -23,7 +24,7 @@ ifdef VERBOSE
 	@export LD_LIBRARY_PATH=$(toolchain_ice_lib);                             \
 	$(local_ice_make) $(local_ice_flags) $$< --output-dir $(local_ice_outdir)
 else
-	@echo "\t[ICE-GEN .ice]\t$$<"
+	@echo "    [ICE-GEN .ice]  $$<"
 	@export LD_LIBRARY_PATH=$(toolchain_ice_lib);                             \
 	$(local_ice_make) $(local_ice_flags) $$< --output-dir $(local_ice_outdir)
 endif

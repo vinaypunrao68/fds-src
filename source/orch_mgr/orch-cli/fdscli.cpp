@@ -2,12 +2,15 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 #include "fdsCli.h"
+#include "cli-policy.h"
 
 using namespace std;
 using namespace FDS_ProtocolInterface;
 
 namespace fds {
 FdsCli  *fdsCli;
+std::ostringstream tcpProxyStr;
+FDSP_ConfigPathReqPrx  cfgPrx;
 
 FdsCli::FdsCli() {
   cli_log = new fds_log("cli", "logs");
@@ -80,17 +83,18 @@ int FdsCli::fdsCliPraser(int argc, char* argv[])
 	("iops-min,g",po::value<double>(),"minimum IOPS")
 	("iops-max,m",po::value<double>(),"maximum IOPS")
 	("rel-prio,r",po::value<int>(),"relative priority")
-            ("om_ip", po::value<std::string>(), "OM IP addr") /* Consumed already */
-            ("om_port", po::value<fds_uint32_t>(), "OM config port"); /* Consumed already */
+    ("om_ip", po::value<std::string>(), "OM IP addr") /* Consumed already */
+    ("om_port", po::value<fds_uint32_t>(), "OM config port"); /* Consumed already */
 
 	po::variables_map vm;
+    Ice::ObjectPrx proxy = communicator()->stringToProxy(tcpProxyStr.str());
 
 	po::store(po::parse_command_line(argc, argv, desc), vm) ;
 	po::notify(vm);
 	if (vm.count("help")) {
-		std::system("clear");
 		cout << "\n\n";
 		cout << desc << "\n";
+        gl_OMCli.mod_run();
 		return 1;
 	}
 	if (vm.count("volume-create") && vm.count("volume-size") && \
@@ -126,7 +130,7 @@ int FdsCli::fdsCliPraser(int argc, char* argv[])
 		volData->vol_info->placementPolicy = 0;
     		volData->vol_info->appWorkload = FDSP_APP_WKLD_TRANSACTION;
 
-   		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(communicator()->stringToProxy (tcpProxyStr.str())); 
+   		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(proxy);
     		if((return_code = cfgPrx->CreateVol(msg_hdr, volData)) !=0 ) {
 		  std::system("clear");
 		  cout << "Error: Creating the Volume, Running out of Disk  resources \n";
@@ -157,7 +161,7 @@ int FdsCli::fdsCliPraser(int argc, char* argv[])
 		volData->vol_info->placementPolicy = 0;
     		volData->vol_info->appWorkload = FDSP_APP_WKLD_TRANSACTION;
 
-   		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(communicator()->stringToProxy (tcpProxyStr.str())); 
+   		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(proxy);
     		cfgPrx->ModifyVol(msg_hdr, volData);
 
 	} else if(vm.count("volume-delete") && vm.count("volume-id")) {
@@ -170,7 +174,7 @@ int FdsCli::fdsCliPraser(int argc, char* argv[])
 
     		volData->vol_name = vm["volume-delete"].as<std::string>();
     		volData->vol_uuid = vm["volume-id"].as<int>();
-   		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(communicator()->stringToProxy (tcpProxyStr.str())); 
+   		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(proxy);
     		cfgPrx->DeleteVol(msg_hdr, volData);
 	} else if(vm.count("volume-attach") && vm.count("volume-id") && vm.count("node-id")) {
 
@@ -184,7 +188,7 @@ int FdsCli::fdsCliPraser(int argc, char* argv[])
     		volData->vol_name = vm["volume-attach"].as<std::string>();
     		volData->vol_uuid = vm["volume-id"].as<int>();
     		volData->node_id = vm["node-id"].as<std::string>();
-   		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(communicator()->stringToProxy (tcpProxyStr.str())); 
+   		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(proxy);
     		cfgPrx->AttachVol(msg_hdr, volData);
 
 	} else if(vm.count("volume-detach") && vm.count("volume-id") && vm.count("node-id")) {
@@ -199,7 +203,7 @@ int FdsCli::fdsCliPraser(int argc, char* argv[])
     		volData->vol_name = vm["volume-detach"].as<std::string>();
     		volData->vol_uuid = vm["volume-id"].as<int>();
     		volData->node_id = vm["node-id"].as<std::string>();
-   		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(communicator()->stringToProxy (tcpProxyStr.str())); 
+   		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(proxy);
     		cfgPrx->DetachVol(msg_hdr, volData);
 
 	} else 	if (vm.count("policy-create") && vm.count("volume-policy") && \
@@ -220,7 +224,7 @@ int FdsCli::fdsCliPraser(int argc, char* argv[])
   		policyData->policy_info->iops_min = vm["iops-min"].as<double>();
   		policyData->policy_info->iops_max = vm["iops-max"].as<double>();
     		policyData->policy_info->rel_prio = vm["rel-prio"].as<int>();
-   		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(communicator()->stringToProxy (tcpProxyStr.str())); 
+   		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(proxy);
     		cfgPrx->CreatePolicy(msg_hdr, policyData);
 
 	} else if(vm.count("policy-delete") && vm.count("volume-policy")) {
@@ -233,7 +237,7 @@ int FdsCli::fdsCliPraser(int argc, char* argv[])
 
     		policyData->policy_name = vm["policy-delete"].as<std::string>();
     		policyData->policy_id = vm["volume-policy"].as<int>();
-   		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(communicator()->stringToProxy (tcpProxyStr.str())); 
+   		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(proxy);
     		cfgPrx->DeletePolicy(msg_hdr, policyData);
 
 	} else 	if (vm.count("policy-modify") && vm.count("volume-policy") && \
@@ -254,7 +258,7 @@ int FdsCli::fdsCliPraser(int argc, char* argv[])
   		policyData->policy_info->iops_min = vm["iops-min"].as<double>();
   		policyData->policy_info->iops_max = vm["iops-max"].as<double>();
     		policyData->policy_info->rel_prio = vm["rel-prio"].as<int>();
-   		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(communicator()->stringToProxy (tcpProxyStr.str())); 
+   		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(proxy);
     		cfgPrx->ModifyPolicy(msg_hdr, policyData);
 
 	} else 	if (vm.count("domain-create") && vm.count("domain-id")) {
@@ -265,7 +269,7 @@ int FdsCli::fdsCliPraser(int argc, char* argv[])
 		FDSP_CreateDomainTypePtr domainData = new FDSP_CreateDomainType();
 		domainData->domain_name = vm["domain-create"].as<std::string>();
 		domainData->domain_id = vm["domain-id"].as<int>();
-   		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(communicator()->stringToProxy (tcpProxyStr.str())); 
+   		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(proxy);
     		cfgPrx->CreateDomain(msg_hdr, domainData);
 
 	} else 	if (vm.count("domain-delete") && vm.count("domain-id")) {
@@ -276,7 +280,7 @@ int FdsCli::fdsCliPraser(int argc, char* argv[])
 		FDSP_CreateDomainTypePtr domainData = new FDSP_CreateDomainType();
 		domainData->domain_name = vm["domain-delete"].as<std::string>();
 		domainData->domain_id = vm["domain-id"].as<int>();
-   		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(communicator()->stringToProxy (tcpProxyStr.str())); 
+   		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(proxy);
     		cfgPrx->DeleteDomain(msg_hdr, domainData);
         } else if (vm.count("throttle") && vm.count("throttle-level")) {
 	  	FDS_PLOG(cli_log) << " Throttle ";
@@ -285,9 +289,11 @@ int FdsCli::fdsCliPraser(int argc, char* argv[])
 		FDSP_ThrottleMsgTypePtr throttle_msg = new FDS_ProtocolInterface::FDSP_ThrottleMsgType;
 		throttle_msg->domain_id = 0;
 		throttle_msg->throttle_level = vm["throttle-level"].as<float>();
-		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(communicator()->stringToProxy (tcpProxyStr.str())); 
+		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(proxy);
 		cfgPrx->SetThrottleLevel(msg_hdr, throttle_msg);
-	}
+	} else {
+        gl_OMCli.mod_run();
+    }
 
    return 0;
 }
@@ -333,11 +339,19 @@ int FdsCli::run(int argc, char* argv[]) {
 
 }  // namespace fds
 
-int main(int argc, char* argv[]) {
+int main(int argc, char* argv[])
+{
+    fds::Module *cli_vec[] = {
+        &fds::gl_OMCli,
+        nullptr
+    };
+    fds::ModuleVector  fds_cli_vec(argc, argv, cli_vec);
+    fds::fdsCli = new fds::FdsCli();
 
-  fds::fdsCli = new fds::FdsCli();
+    fds_cli_vec.mod_execute();
+    fds::fdsCli->main(argc, argv, "orch_mgr.conf");
 
-  fds::fdsCli->main(argc, argv, "orch_mgr.conf");
-
-  delete fds::fdsCli;
+    delete fds::fdsCli;
+    return 0;
 }
+

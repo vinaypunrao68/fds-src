@@ -16,7 +16,7 @@ class DataIndexModule : public fds::Module
     DataIndexModule(char const *const name);
     ~DataIndexModule();
 
-    virtual void mod_init(fds::SysParams const *const param);
+    virtual int  mod_init(fds::SysParams const *const param);
     virtual void mod_startup();
     virtual void mod_shutdown();
 };
@@ -27,7 +27,7 @@ class DataDiscoveryModule : public fds::Module
     DataDiscoveryModule(char const *const name);
     ~DataDiscoveryModule();
 
-    virtual void mod_init(fds::SysParams const *const param);
+    virtual int  mod_init(fds::SysParams const *const param);
     virtual void mod_startup();
     virtual void mod_shutdown();
 

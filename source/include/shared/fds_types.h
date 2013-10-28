@@ -33,12 +33,24 @@ typedef bool                 fds_bool_t;
 #define fds_object_of(obj, field, ptr)                                        \
     ((obj *)(((char *)(ptr)) - (char *)fds_offset_of(obj, field)))
 
-/* Do not change enum assignment in this type. */
+/*
+ * Do not change enum assignment in these types because they may be persistant
+ * accross software releases.
+ */
 typedef enum {
     FDS_DISK_DEFAULT         = 0,
     FDS_DISK_SSD             = 1,
     FDS_DISK_SAS             = 2,
     FDS_DISK_SATA            = 3
 } fds_disk_type_t;
+
+typedef enum {
+    FDS_TIER_DRAM            = 0,
+    FDS_TIER_NVRAM           = 1,
+    FDS_TIER_SSD             = 2,
+    FDS_TIER_SAS             = 3,
+    FDS_TIER_SATA            = 4,
+    FDS_TIER_MAX
+} fds_tier_type_e;
 
 #endif /* INCLUDE_SHARED_FDS_TYPES_H_ */

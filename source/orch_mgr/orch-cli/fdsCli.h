@@ -27,8 +27,8 @@ using namespace FDS_ProtocolInterface;
 
 namespace fds {
 
-   std::ostringstream tcpProxyStr;
-   FDSP_ConfigPathReqPrx  cfgPrx;
+   extern std::ostringstream tcpProxyStr;
+   extern FDSP_ConfigPathReqPrx  cfgPrx;
 
   class FdsCli : virtual public Ice::Application {
   private:

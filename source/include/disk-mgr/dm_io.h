@@ -345,7 +345,7 @@ class DataIOModule : public fds::Module
     DataIOModule(char const *const name);
     ~DataIOModule();
 
-    virtual void mod_init(fds::SysParams const *const param);
+    virtual int  mod_init(fds::SysParams const *const param);
     virtual void mod_startup();
     virtual void mod_shutdown();
 };

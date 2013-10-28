@@ -20,18 +20,20 @@ Module::~Module() {}
 // \Module::mod_init
 // -----------------
 //
-void
+int
 Module::mod_init(SysParams const *const param)
 {
     int    i;
     Module *intern;
 
+    mod_params = param;
     if (mod_intern != nullptr) {
         for (i = 0; mod_intern[i] != nullptr; i++) {
             mod_intern_cnt++;
             mod_intern[i]->mod_init(param);
         }
     }
+    return 0;
 }
 
 // \Module::mod_startup
@@ -205,25 +207,28 @@ ModuleVector::mod_mk_sysparams()
         ("ssd-capacity,C", po::value<int>(&ssd_cap)->default_value(10),
             "SSD capacity in MB");
 
+    // Save a copy (or clone?) in case individual module needs it.
+    sys_params.p_argc = sys_argc;
+    sys_params.p_argv = sys_argv;
     po::store(po::command_line_parser(sys_argc, sys_argv).
               options(desc).allow_unregistered().run(), vm);
     po::notify(vm);
     if (vm.count("help")) {
-        cout << endl << desc << endl;
-        exit(1);
+        cout << desc << endl;
+    } else {
+        if (vm.count("fds-root")) {
+            sys_params.fds_root  = vm["fds-root"].as<std::string>();
+            sys_params.fds_root += '/';
+        }
+        if (vm.count("sim-prefix")) {
+            SimEnvParams *sim  = new SimEnvParams(vm["sim-prefix"].as<std::string>());
+            sys_params.fds_sim = sim;
+            sim->sim_hdd_mb    = hdd_cap;
+            sim->sim_ssd_mb    = ssd_cap;
+        }
+        sys_params.sys_hdd_cnt = hdd_cnt;
+        sys_params.sys_ssd_cnt = ssd_cnt;
     }
-    if (vm.count("fds-root")) {
-        sys_params.fds_root  = vm["fds-root"].as<std::string>();
-        sys_params.fds_root += '/';
-    }
-    if (vm.count("sim-prefix")) {
-        SimEnvParams *sim  = new SimEnvParams(vm["sim-prefix"].as<std::string>());
-        sys_params.fds_sim = sim;
-        sim->sim_hdd_mb    = hdd_cap;
-        sim->sim_ssd_mb    = ssd_cap;
-    }
-    sys_params.sys_hdd_cnt = hdd_cnt;
-    sys_params.sys_ssd_cnt = ssd_cnt;
 }
 
 // \ModuleVector::mod_execute
@@ -232,16 +237,20 @@ ModuleVector::mod_mk_sysparams()
 void
 ModuleVector::mod_execute()
 {
-    int     i;
+    int     i, bailout;
     Module *mod;
 
     fds_verify(sys_mod_cnt > 0);
     fds_verify(sys_mods != nullptr);
 
+    bailout = 0;
     for (i = 0; i < sys_mod_cnt; i++) {
         mod = sys_mods[i];
         fds_verify(mod != nullptr);
-        mod->mod_init(&sys_params);
+        bailout += mod->mod_init(&sys_params);
+    }
+    if (bailout != 0) {
+        exit(1);
     }
     for (i = 0; i < sys_mod_cnt; i++) {
         mod = sys_mods[i];

@@ -24,6 +24,7 @@
 #include <util/Log.h>
 #include <concurrency/Mutex.h>
 #include <lib/Catalog.h>
+#include <net-proxies/vol_policy.h>
 #include "OmVolPolicy.h"
 #include "OmLocDomain.h"
 #include "OmAdminCtrl.h"
@@ -100,7 +101,8 @@ namespace fds {
     fds_bool_t test_mode;
 
     /* policy manager */
-    VolPolicyMgr* policy_mgr;
+    VolPolicyMgr    *policy_mgr;
+    VolPolicyServ   *om_policy_srv;
 
     void SetThrottleLevelForDomain(int domain_id, float throttle_level);
 

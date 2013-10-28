@@ -34,6 +34,9 @@ class SysParams
     std::string              fds_root;
     SimEnvParams             *fds_sim;
     UnitTestParams           *fds_utp;
+
+    int                      p_argc;
+    char                     **p_argv;
 };
 
 class ModuleVector;
@@ -47,7 +50,7 @@ class Module
     // Define standard sequence of bring up and shutdown a module and
     // its services.
     //
-    virtual void mod_init(SysParams const *const param);
+    virtual int  mod_init(SysParams const *const param);
     virtual void mod_startup() = 0;
     virtual void mod_lockstep_startup();
     virtual void mod_enable_service();
@@ -73,7 +76,7 @@ class Module
     Module                   **mod_lockstep;
     Module                   **mod_intern;
     char const *const        mod_name;
-    SysParams const *const   mod_params;
+    SysParams const *        mod_params;
 };
 
 class ModuleVector

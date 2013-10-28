@@ -46,7 +46,7 @@ DataIOModule::~DataIOModule() {}
 // \mod_init
 // ---------
 //
-void
+int
 DataIOModule::mod_init(fds::SysParams const *const param)
 {
     Module::mod_init(param);
@@ -57,6 +57,7 @@ DataIOModule::mod_init(fds::SysParams const *const param)
         sgt_hddIO[i] =
             new FilePersisDataIO(dataDiscoveryMod.disk_hdd_path(i), i);
     }
+    return 0;
 }
 
 // \mod_startup
@@ -156,7 +157,7 @@ DataDiscoveryModule::disk_make_label(std::string &base, int diskno)
 // \mod_init
 // ---------
 //
-void
+int
 DataDiscoveryModule::mod_init(fds::SysParams const *const param)
 {
     DIR               *dfd;
@@ -169,7 +170,7 @@ DataDiscoveryModule::mod_init(fds::SysParams const *const param)
     if (dfd == nullptr) {
         cout << "Need to setup root storage directory "
              << param->fds_root << endl;
-        exit(1);
+        return 1;
     }
     pd_hdd_count = sgt_hdd_count;
     pd_ssd_count = sgt_ssd_count;
@@ -214,7 +215,7 @@ DataDiscoveryModule::mod_init(fds::SysParams const *const param)
             if ((errno == EACCES) || (sd == 'z')) {
                 cout << "Don't have permission to fds root: "
                      << param->fds_root << endl;
-                exit(1);
+                return 1;
             }
         }
     }
@@ -228,6 +229,7 @@ DataDiscoveryModule::mod_init(fds::SysParams const *const param)
             fds_verify(!pd_hdd_labeled[i].empty());
         }
     }
+    return 0;
 }
 
 // \disk_hdd_path
