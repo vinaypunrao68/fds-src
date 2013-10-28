@@ -6,6 +6,10 @@ namespace fds {
 
   const unsigned int MAX_PENDING_IOS_PER_VOLUME = 1024;
 
+  const unsigned int io_dispatch_type_rate = 0;
+  const unsigned int io_dispatch_type_credit = 1;
+  const unsigned int io_dispatch_type_priority = 2;
+
   class WFQQueueDesc {
 
   public:
@@ -18,6 +22,8 @@ namespace fds {
 
     std::vector<fds_uint64_t> rate_based_rr_spots;
     int num_priority_based_ios_dispatched; // number of ios dispatched in the current round of priority based WFQ;
+    fds_uint32_t num_rate_based_credits;
+    fds_uint32_t max_rate_based_credits;
 
     FDS_VolumeQueue *queue;
     std::atomic<unsigned int> num_pending_ios;
@@ -34,6 +40,8 @@ namespace fds {
       rate_based_rr_spots.clear();
       num_pending_ios = ATOMIC_VAR_INIT(0);
       num_outstanding_ios = ATOMIC_VAR_INIT(0);
+      num_rate_based_credits = 0;
+      max_rate_based_credits = 0;
     }
 
   };
@@ -47,7 +55,12 @@ namespace fds {
     std::map<fds_uint32_t, WFQQueueDesc *> queue_desc_map;
     std::vector<fds_uint32_t> rate_based_qlist;
     fds_uint64_t next_rate_based_spot;
+    fds_uint64_t total_rate_based_spots; 
     fds_uint32_t next_priority_based_queue;
+
+    fds_uint64_t num_ios_dispatched;
+    fds_uint64_t num_rate_based_slots_serviced;
+    boost::posix_time::ptime last_reset_time;
 
     fds_uint32_t priority_to_wfq_weight(fds_uint32_t priority) {
       assert((priority >= 0) && (priority <= 10));
@@ -69,13 +82,16 @@ namespace fds {
 	return next_queue;
     }
 
+    fds_uint32_t get_non_empty_queue_with_highest_credits();
     void ioProcessForEnqueue(fds_uint32_t queue_id, FDS_IOType *io);
     void ioProcessForDispatch(fds_uint32_t queue_id, FDS_IOType *io);
     fds_uint32_t getNextQueueForDispatch();
+    void inc_num_ios_dispatched(unsigned int io_dispatch_type);
 
   public:
 
-    QoSWFQDispatcher(FDS_QoSControl *ctrlr, fds_uint64_t total_server_rate, fds_log *parent_log);
+    QoSWFQDispatcher(FDS_QoSControl *ctrlr, fds_uint64_t total_server_rate,
+		     fds_uint32_t maximum_outstanding_ios, fds_log *parent_log);
     Error registerQueue(fds_uint32_t queue_id, FDS_VolumeQueue *queue);
     Error deregisterQueue(fds_uint32_t queue_id);
 

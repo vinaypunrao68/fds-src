@@ -161,6 +161,7 @@ public:
   FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr dInfo;
 
   std::string                 myIp;
+  std::string                 my_node_name;
 
   void  InitIceObjects();
   void InitDmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);

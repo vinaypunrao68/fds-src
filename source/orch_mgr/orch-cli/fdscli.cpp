@@ -40,6 +40,7 @@ void FdsCli::InitCfgMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
 
         msg_hdr->src_id = FDSP_CLI_MGR;
         msg_hdr->dst_id = FDSP_ORCH_MGR;
+	msg_hdr->src_node_name = "";
 	
 	msg_hdr->src_port = 0;
 	msg_hdr->dst_port = 0;

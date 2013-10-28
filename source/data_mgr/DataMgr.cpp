@@ -352,7 +352,7 @@ int DataMgr::run(int argc, char* argv[]) {
       omIpStr = argv[i] + 8;
     } else if (strncmp(argv[i], "--om_port=", 10) == 0) {
       omConfigPort = strtoul(argv[i] + 10, NULL, 0);
-    } else if (strncmp(argv[i], "--test_mode", 9) == 0) {
+    } else if (strncmp(argv[i], "--test_mode", 11) == 0) {
       useTestMode = true;
     } else {
       std::cout << "Invalid argument " << argv[i] << std::endl;
@@ -687,7 +687,8 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
    * Reverse the msg direction and send the response.
    */
   msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_UPDATE_CAT_OBJ_RSP;
-  dataMgr->respHandleCli->begin_UpdateCatalogObjectResp( msg_hdr, update_catalog);
+
+  dataMgr->respHandleCli[updCatReq->src_node_name]->begin_UpdateCatalogObjectResp( msg_hdr, update_catalog);
 
   FDS_PLOG(dataMgr->GetLog()) << "Sending async update catalog response with "
                               << "volume id: " << msg_hdr->glob_volume_id
@@ -714,7 +715,7 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
 Error
 DataMgr::updateCatalogInternal(FDSP_UpdateCatalogTypePtr updCatReq, 
                                  fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
-            			 fds_uint32_t dstPort, fds_uint32_t reqCookie) {
+			       fds_uint32_t dstPort, std::string src_node_name, fds_uint32_t reqCookie) {
   fds::Error err(fds::ERR_OK);
 
     
@@ -724,7 +725,7 @@ DataMgr::updateCatalogInternal(FDSP_UpdateCatalogTypePtr updCatReq,
     dmCatReq *dmUpdReq = new DataMgr::dmCatReq(updCatReq->data_obj_id.hash_high,
                                  updCatReq->data_obj_id.hash_low, volId, updCatReq->volume_offset,
 				 updCatReq->dm_transaction_id, updCatReq->dm_operation,srcIp,
-				 dstIp,srcPort,dstPort,reqCookie, FDS_CAT_UPD); 
+					       dstIp,srcPort,dstPort, src_node_name, reqCookie, FDS_CAT_UPD); 
 
     err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(dmUpdReq));
     if (err != ERR_OK) {
@@ -762,7 +763,7 @@ void DataMgr::ReqHandler::UpdateCatalogObject(const FDS_ProtocolInterface::
 
    err = dataMgr->updateCatalogInternal(update_catalog,msg_hdr->glob_volume_id,
 			 msg_hdr->src_ip_lo_addr,msg_hdr->dst_ip_lo_addr,msg_hdr->src_port,
-			 msg_hdr->dst_port,msg_hdr->req_cookie);
+					msg_hdr->dst_port,msg_hdr->src_node_name, msg_hdr->req_cookie);
 
   	if (!err.ok()) {
   	   FDS_PLOG(dataMgr->GetLog()) << "Error Queueing the update Catalog request to Per volume Queue";
@@ -775,7 +776,7 @@ void DataMgr::ReqHandler::UpdateCatalogObject(const FDS_ProtocolInterface::
    		*/
   		msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_UPDATE_CAT_OBJ_RSP;
   		dataMgr->swapMgrId(msg_hdr);
-  		dataMgr->respHandleCli->begin_UpdateCatalogObjectResp(
+  		dataMgr->respHandleCli[msg_hdr->src_node_name]->begin_UpdateCatalogObjectResp(
       						msg_hdr,
       						update_catalog);
 
@@ -833,12 +834,13 @@ DataMgr::queryCatalogBackend(dmCatReq  *qryCatReq) {
   msg_hdr->req_cookie =  qryCatReq->reqCookie;
   msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_QUERY_CAT_OBJ_RSP;
 
+
   query_catalog->volume_offset = qryCatReq->volOffset;
   query_catalog->dm_transaction_id = qryCatReq->transId;
   query_catalog->dm_operation = qryCatReq->transOp;
 
 
-  dataMgr->respHandleCli->begin_QueryCatalogObjectResp(msg_hdr, query_catalog);
+  dataMgr->respHandleCli[qryCatReq->src_node_name]->begin_QueryCatalogObjectResp(msg_hdr, query_catalog);
   FDS_PLOG(dataMgr->GetLog()) << "Sending async query catalog response with "
                               << "volume id: " << msg_hdr->glob_volume_id
                               << ", volume offset: "
@@ -854,7 +856,7 @@ DataMgr::queryCatalogBackend(dmCatReq  *qryCatReq) {
 Error
 DataMgr::queryCatalogInternal(FDSP_QueryCatalogTypePtr qryCatReq, 
                                  fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
-            			 fds_uint32_t dstPort, fds_uint32_t reqCookie) {
+			      fds_uint32_t dstPort, std::string src_node_name, fds_uint32_t reqCookie) {
   fds::Error err(fds::ERR_OK);
 
     
@@ -864,7 +866,7 @@ DataMgr::queryCatalogInternal(FDSP_QueryCatalogTypePtr qryCatReq,
     dmCatReq *dmQryReq = new DataMgr::dmCatReq(qryCatReq->data_obj_id.hash_high,
                                  qryCatReq->data_obj_id.hash_low, volId, qryCatReq->volume_offset,
 				 qryCatReq->dm_transaction_id, qryCatReq->dm_operation,srcIp,
-                                 dstIp, srcPort,dstPort,reqCookie, FDS_CAT_QRY); 
+					       dstIp, srcPort,dstPort,src_node_name, reqCookie, FDS_CAT_QRY); 
 
     err = qosCtrl->enqueueIO(dmQryReq->getVolId(), static_cast<FDS_IOType*>(dmQryReq));
     if (err != ERR_OK) {
@@ -902,7 +904,7 @@ void DataMgr::ReqHandler::QueryCatalogObject(const FDS_ProtocolInterface::
 
    err = dataMgr->queryCatalogInternal(query_catalog,msg_hdr->glob_volume_id,
 			 msg_hdr->src_ip_lo_addr,msg_hdr->dst_ip_lo_addr,msg_hdr->src_port,
-			 msg_hdr->dst_port,msg_hdr->req_cookie);
+				       msg_hdr->dst_port, msg_hdr->src_node_name, msg_hdr->req_cookie);
   	if (!err.ok()) {
     		msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_FAILED;
     		msg_hdr->err_msg  = "Something hit the fan...";
@@ -913,7 +915,7 @@ void DataMgr::ReqHandler::QueryCatalogObject(const FDS_ProtocolInterface::
    		*/
   		msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_QUERY_CAT_OBJ_RSP;
   		dataMgr->swapMgrId(msg_hdr);
-  		dataMgr->respHandleCli->begin_QueryCatalogObjectResp(msg_hdr, query_catalog);
+  		dataMgr->respHandleCli[msg_hdr->src_node_name]->begin_QueryCatalogObjectResp(msg_hdr, query_catalog);
   		FDS_PLOG(dataMgr->GetLog()) << "Sending async query catalog response with "
                               << "volume id: " << msg_hdr->glob_volume_id
                               << ", volume offset: "
@@ -945,6 +947,7 @@ void DataMgr::ReqHandler::RedirReadObject(const FDS_ProtocolInterface::
 }
 
 void DataMgr::ReqHandler::AssociateRespCallback(const Ice::Identity& ident,
+						const std::string& src_node_name,
                                                 const Ice::Current& current) {
   try {
     std::cout << "Associating response Callback client to DataMgr`"
@@ -954,7 +957,7 @@ void DataMgr::ReqHandler::AssociateRespCallback(const Ice::Identity& ident,
         << "Caught a NULL exception accessing _communicator";
   }
 
-  dataMgr->respHandleCli = FDS_ProtocolInterface::FDSP_DataPathRespPrx::
+  dataMgr->respHandleCli[src_node_name] = FDS_ProtocolInterface::FDSP_DataPathRespPrx::
       uncheckedCast(current.con->createProxy(ident));
 }
 
@@ -1040,6 +1043,8 @@ void DataMgr::InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
 
         msg_hdr->src_id = FDSP_STOR_HVISOR;
         msg_hdr->dst_id = FDSP_STOR_MGR;
+
+	msg_hdr->src_node_name = "";
 
         msg_hdr->err_code=FDSP_ERR_SM_NO_SPACE;
         msg_hdr->result=FDSP_ERR_OK;

@@ -62,7 +62,7 @@ ObjectStorMgrI::PutObject(const FDSP_MsgHdrTypePtr& msgHdr,
 
     msgHdr->msg_code = FDSP_MSG_PUT_OBJ_RSP;
     objStorMgr->swapMgrId(msgHdr);
-    objStorMgr->fdspDataPathClient->begin_PutObjectResp(msgHdr, putObj);
+    objStorMgr->fdspDataPathClient[msgHdr->src_node_name]->begin_PutObjectResp(msgHdr, putObj);
 
     FDS_PLOG(objStorMgr->GetLog()) << "Sent async PutObj response after receiving";
   }
@@ -106,7 +106,7 @@ ObjectStorMgrI::GetObject(const FDSP_MsgHdrTypePtr& msgHdr,
 
     msgHdr->msg_code = FDSP_MSG_GET_OBJ_RSP;
     objStorMgr->swapMgrId(msgHdr);
-    objStorMgr->fdspDataPathClient->begin_GetObjectResp(msgHdr, getObj);
+    objStorMgr->fdspDataPathClient[msgHdr->src_node_name]->begin_GetObjectResp(msgHdr, getObj);
 
     FDS_PLOG(objStorMgr->GetLog()) << "Sent async GetObj response after receiving";
   }
@@ -133,10 +133,11 @@ ObjectStorMgrI::RedirReadObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_Re
 }
 
 void
-ObjectStorMgrI::AssociateRespCallback(const Ice::Identity& ident, const Ice::Current& current) {
-  FDS_PLOG(objStorMgr->GetLog()) << "Associating response Callback client to ObjStorMgr  :" << _communicator->identityToString(ident);
+ObjectStorMgrI::AssociateRespCallback(const Ice::Identity& ident, const std::string& src_node_name, const Ice::Current& current) {
+  FDS_PLOG(objStorMgr->GetLog()) << "Associating response Callback client to ObjStorMgr for node " 
+				 << src_node_name << " : " << _communicator->identityToString(ident);
 
-  objStorMgr->fdspDataPathClient = FDSP_DataPathRespPrx::uncheckedCast(current.con->createProxy(ident));
+  objStorMgr->fdspDataPathClient[src_node_name] = FDSP_DataPathRespPrx::uncheckedCast(current.con->createProxy(ident));
 }
 
 /**
@@ -150,7 +151,7 @@ ObjectStorMgrI::AssociateRespCallback(const Ice::Identity& ident, const Ice::Cur
 ObjectStorMgr::ObjectStorMgr() :
     runMode(NORMAL_MODE),
     numTestVols(10),
-    totalRate(10000),
+    totalRate(200),
     qosThrds(10),
     port_num(0),
     cp_port_num(0) {
@@ -551,7 +552,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
 
   msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_PUT_OBJ_RSP;
   swapMgrId(msgHdr);
-  fdspDataPathClient->begin_PutObjectResp(msgHdr, putObj);
+  fdspDataPathClient[msgHdr->src_node_name]->begin_PutObjectResp(msgHdr, putObj);
   FDS_PLOG(objStorMgr->GetLog()) << "Sent async PutObj response after processing";
 
   /*
@@ -661,7 +662,7 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
     objData.data = "";
   } else {
     FDS_PLOG(objStorMgr->GetLog()) << "Successfully got object " << objId
-                                   << " and data " << objData.data
+      // << " and data " << objData.data
                                    << " for request ID " << getReq->io_req_id;
   }
 
@@ -695,7 +696,7 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
   }
   msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_GET_OBJ_RSP;
   swapMgrId(msgHdr);
-  fdspDataPathClient->begin_GetObjectResp(msgHdr, getObj);
+  fdspDataPathClient[msgHdr->src_node_name]->begin_GetObjectResp(msgHdr, getObj);
   FDS_PLOG(objStorMgr->GetLog()) << "Sent async GetObj response after processing";
 
   /*
@@ -833,7 +834,7 @@ ObjectStorMgr::run(int argc, char* argv[])
       omConfigPort = strtoul(argv[i] + 10, NULL, 0);
     } else if (strncmp(argv[i], "--prefix=", 9) == 0) {
       stor_prefix = argv[i] + 9;
-    } else if (strncmp(argv[i], "--test_mode", 9) == 0) {
+    } else if (strncmp(argv[i], "--test_mode", 11) == 0) {
       useTestMode = true;
     }
   }

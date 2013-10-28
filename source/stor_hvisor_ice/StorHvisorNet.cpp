@@ -468,6 +468,7 @@ StorHvCtrl::StorHvCtrl(int argc,
   : mode(_mode) {
   std::string  omIpStr;
   fds_uint32_t omConfigPort;
+  std::string node_name = "localhost-sh";
 
   omConfigPort = 0;
 
@@ -487,13 +488,16 @@ StorHvCtrl::StorHvCtrl(int argc,
       }
     } else if (strncmp(argv[i], "--om_port=", 10) == 0) {
       omConfigPort = strtoul(argv[i] + 10, NULL, 0);
-    }
+    }  else if (strncmp(argv[i], "--node_name=", 12) == 0) {
+      node_name = argv[i] + 12;
+    } 
     /*
      * We don't complain here about other args because
      * they may have been processed already but not
      * removed from argc/argv
      */
   }
+  my_node_name = node_name;
 
   sh_log = new fds_log("sh", "logs");
   FDS_PLOG(sh_log) << "StorHvisorNet - Constructing the Storage Hvisor";
@@ -538,7 +542,7 @@ StorHvCtrl::StorHvCtrl(int argc,
                              omConfigPort,
                              myIp,
                              0,
-                             "localhost-sh",
+                             node_name,
                              sh_log);
   if (om_client) {
     om_client->initialize();

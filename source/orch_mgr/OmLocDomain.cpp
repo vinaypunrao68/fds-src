@@ -297,6 +297,7 @@ void FdsLocalDomain::initOMMsgHdr(const FdspMsgHdrPtr& msg_hdr) {
 
   msg_hdr->src_id = FDS_ProtocolInterface::FDSP_ORCH_MGR;
   msg_hdr->dst_id = FDS_ProtocolInterface::FDSP_DATA_MGR;
+  msg_hdr->src_node_name = "";
 
   msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
   msg_hdr->result = FDS_ProtocolInterface::FDSP_ERR_OK;

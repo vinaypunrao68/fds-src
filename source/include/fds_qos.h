@@ -4,6 +4,7 @@
 #include <fds_err.h>
 #include <util/Log.h>
 #include <concurrency/RwLock.h>
+#include <concurrency/Mutex.h>
 #include <unordered_map>
 #include <mutex> // std::mutex, std::unique_lock
 #include <condition_variable> 
@@ -25,28 +26,44 @@ namespace fds {
     FDS_QoSControl *parent_ctrlr;
     float current_throttle_level;
     fds_uint64_t total_svc_rate;
+    fds_uint32_t max_outstanding_ios;
     fds_rwlock qda_lock; // Protects queue_map (and any high level structures in derived class) 
                          // from events like volumes being inserted or removed during enqueue IO or dispatchIO.
 
-    // std::mutex ios_pending_mtx; // to protect the counter num_pending_ios
-    // std::condition_variable ios_pending_cv; // Condn variable to signal dispatcher when there is an IO available, from enqueueIO thread.
-    // fds_uint32_t num_pending_ios; // ios pending, aggregated across all queues, protected by ios_pending_mtx;
     std::atomic<unsigned int> num_pending_ios;
-    std::atomic_bool shuttingDown;
- 
-    virtual fds_uint32_t getNextQueueForDispatch() = 0;
+    std::atomic<unsigned int> num_outstanding_ios;
 
- FDS_QoSDispatcher() :
+    fds_uint32_t max_svc_time = 0;
+    fds_uint32_t min_svc_time = 0;
+    fds_uint64_t total_svc_time = 0;
+
+    fds_uint32_t max_wait_time = 0;
+    fds_uint32_t min_wait_time = 0;
+    fds_uint64_t total_wait_time = 0;
+
+    fds_mutex *stats_mutex;
+    fds_uint64_t num_ios_completed = 0;
+    fds_uint64_t num_ios_dispatched = 0;
+
+    std::atomic_bool shuttingDown;
+
+    virtual fds_uint32_t getNextQueueForDispatch() = 0;
+    
+
+  FDS_QoSDispatcher() :
     shuttingDown(false) {
     }
-    FDS_QoSDispatcher(FDS_QoSControl *ctrlr,
+  FDS_QoSDispatcher(FDS_QoSControl *ctrlr,
                       fds_log *log,
                       fds_uint64_t total_server_rate) :
     FDS_QoSDispatcher() {
       parent_ctrlr = ctrlr;
       qda_log = log;
       total_svc_rate = total_server_rate;
+      max_outstanding_ios = 0;
       num_pending_ios = ATOMIC_VAR_INIT(0);
+      num_outstanding_ios = ATOMIC_VAR_INIT(0);
+      stats_mutex = new fds_mutex("QoSDispatcherMutex");
     }
     ~FDS_QoSDispatcher() {
       shuttingDown = true;
@@ -65,6 +82,11 @@ namespace fds {
 	return err;
       }
       queue_map[queue_id] = queue;
+
+	FDS_PLOG(qda_log) << "Dispatcher: registering queue with min - "
+			<< queue->iops_min << ", max - " << queue->iops_max
+			<< ", priority - " << queue->priority
+			<< ", total server rate = " << total_svc_rate; 
 
       return err;
     }
@@ -150,6 +172,8 @@ namespace fds {
 
       Error err(ERR_OK);
 
+      io->enqueue_time = boost::posix_time::microsec_clock::universal_time();
+
       qda_lock.read_lock();
       FDS_VolumeQueue *que = queue_map[queue_id];
       
@@ -170,7 +194,8 @@ namespace fds {
 #endif
       fds_uint32_t n_pios;
       n_pios = atomic_fetch_add(&(num_pending_ios), (unsigned int)1);
-      FDS_PLOG(qda_log) << "Dispatcher: enqueueIO: # of pending ios = " << n_pios+1;
+      FDS_PLOG(qda_log) << "Dispatcher: enqueueIO at queue - " << queue_id
+			<<  " : # of pending ios = " << n_pios+1;
       assert(n_pios >= 0);
 
       qda_lock.read_unlock();
@@ -178,9 +203,8 @@ namespace fds {
 
     }
 
-    virtual Error dispatchIOs() {
+    void setSchedThreadPriority() {
 
-      Error err(ERR_OK);
       pthread_t this_thread = pthread_self();
       struct sched_param params;
       int ret = 0;
@@ -211,7 +235,15 @@ namespace fds {
 	/* Print thread scheduling priority */
 	FDS_PLOG(qda_log) << "Dispatcher: Scheduler thread priority is " << params.sched_priority;
       }
-      
+
+    }
+
+    virtual Error dispatchIOs() {
+
+      Error err(ERR_OK);
+       
+      setSchedThreadPriority();
+
       while(1) {
 
         if (shuttingDown == true) {
@@ -236,8 +268,20 @@ namespace fds {
           } else if (n_pios > 0) {
 	    break;
 	  }
-	  boost::this_thread::sleep(boost::posix_time::microseconds(1000000/total_svc_rate));
-	} 
+	  boost::this_thread::sleep(boost::posix_time::microseconds(1000000/(3 * total_svc_rate)));
+	}
+
+	fds_uint32_t n_oios = 0;
+	if (max_outstanding_ios > 0) {
+	  while (1) {
+	    n_oios = atomic_load(&num_outstanding_ios);
+	    if (n_oios < max_outstanding_ios) {
+	      break;
+	    }
+	    boost::this_thread::sleep(boost::posix_time::microseconds(1000000/(3 * total_svc_rate)));
+	  }
+	}
+	
 	
 	qda_lock.read_lock();
 
@@ -257,20 +301,91 @@ namespace fds {
 
 	qda_lock.read_unlock();
 
+	io->dispatch_time = boost::posix_time::microsec_clock::universal_time();
+
 	parent_ctrlr->processIO(io);
 
 	n_pios = 0;
 	n_pios = atomic_fetch_sub(&(num_pending_ios), (unsigned int)1);
 	assert(n_pios >= 1);
+
+	n_oios = 0;
+	n_oios = atomic_fetch_add(&(num_outstanding_ios), (unsigned int)1);
+	FDS_PLOG(qda_log) << "Dispatcher: dispatchIO from queue " << queue_id
+			<< " : # of outstanding ios = " << n_oios+1
+			<< " : # of pending ios = " << n_pios-1;
+	// assert(n_oios >= 0);
 	
       }
 
       return err;
     }
 
+    void updateIoStats(FDS_IOType *io) {
+
+	stats_mutex->lock();
+	num_ios_completed ++;
+	if (io->io_service_time > max_svc_time) {
+		max_svc_time = io->io_service_time;
+	}
+
+	if ((io->io_service_time < min_svc_time) || (min_svc_time == 0)){
+		min_svc_time = io->io_service_time;
+	}
+
+	total_svc_time += io->io_service_time;
+
+	if (io->io_wait_time > max_wait_time) {
+		max_wait_time = io->io_wait_time;
+	}
+
+	if ((io->io_wait_time < min_wait_time) || (min_wait_time == 0)){
+		min_wait_time = io->io_wait_time;
+	}
+
+	total_wait_time += io->io_wait_time;
+
+	if (num_ios_completed % 50 == 0) {
+	  FDS_PLOG(qda_log) << "Dispatcher: IO svc time stats: (min-"
+			    << min_svc_time << ", max-" << max_svc_time
+			    << ", avg-" << (total_svc_time/50)
+			    << "): IO wait time stats: (min-"
+			    << min_wait_time << ", max-" << max_wait_time
+			    << ", avg-" << (total_wait_time/50) << ")";
+	  min_svc_time = max_svc_time = 0;
+	  total_svc_time = 0;
+	  min_wait_time = max_wait_time = 0;
+	  total_wait_time = 0;
+
+	}
+
+	stats_mutex->unlock();
+
+    }
+
+
     virtual Error markIODone(FDS_IOType *io) {
       Error err(ERR_OK);
-      FDS_PLOG(qda_log) << "IO Request " << io->io_req_id << " completed in " << io->io_service_time << " usecs.";
+
+      fds_uint32_t n_oios = 0;
+      n_oios = atomic_fetch_sub(&(num_outstanding_ios), (unsigned int)1);
+
+      io->io_done_time = boost::posix_time::microsec_clock::universal_time();
+
+      boost::posix_time::time_duration wait_duration = io->dispatch_time - io->enqueue_time;
+      boost::posix_time::time_duration service_duration = io->io_done_time - io->dispatch_time;
+
+      io->io_wait_time = wait_duration.total_microseconds();
+      io->io_service_time = service_duration.total_microseconds();
+
+      FDS_PLOG(qda_log) << "Dispatcher: IO Request " << io->io_req_id 
+			<< " for vol id " << io->io_vol_id
+			<< " completed in " << io->io_service_time
+			<< " usecs with a wait time of " << io->io_wait_time
+			<< " usecs. # of outstanding ios = " << n_oios-1;
+
+      updateIoStats(io);
+
       return err;
     }
     

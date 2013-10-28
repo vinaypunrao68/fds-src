@@ -23,6 +23,8 @@
 #include <RPC_EndPoint.h>
 #include <arpa/inet.h>
 
+extern StorHvCtrl *storHvisor;
+
 FDS_RPC_EndPoint::FDS_RPC_EndPoint()
     : node_index(0), proto_type(0), port_num(0) {
 }
@@ -65,7 +67,7 @@ FDS_RPC_EndPoint::FDS_RPC_EndPoint(int ip_addr, int port,
   
   _adapter->activate();
   fdspDPAPI->ice_getConnection()->setAdapter(_adapter);
-  fdspDPAPI->AssociateRespCallback(ident);
+  fdspDPAPI->AssociateRespCallback(ident, storHvisor->my_node_name);
 }
 
 /*
@@ -117,7 +119,7 @@ FDS_RPC_EndPoint::FDS_RPC_EndPoint(const std::string& ip_addr_str_arg,
   
   _adapter->activate();
   fdspDPAPI->ice_getConnection()->setAdapter(_adapter);
-  fdspDPAPI->AssociateRespCallback(ident);
+  fdspDPAPI->AssociateRespCallback(ident, storHvisor->my_node_name);
 }
 
 FDS_RPC_EndPoint::~FDS_RPC_EndPoint()

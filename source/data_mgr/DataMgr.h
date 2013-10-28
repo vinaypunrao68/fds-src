@@ -59,6 +59,7 @@ public:
     long 	 dstIp;
     fds_uint32_t srcPort;
     fds_uint32_t dstPort;
+    std::string src_node_name;
     fds_uint32_t reqCookie;
 
 
@@ -72,6 +73,7 @@ public:
             long 	 	_dstIp,
             fds_uint32_t 	_srcPort,
             fds_uint32_t 	_dstPort,
+	     std::string        _src_node_name,
             fds_uint32_t 	_reqCookie,
             fds_io_op_t        _ioType) {
          objId = ObjectID(_objIdHigh, _objIdLow);
@@ -83,6 +85,7 @@ public:
          dstIp 	           = _dstIp;
          srcPort           = _srcPort;
          dstPort           = _dstPort;
+	 src_node_name     = _src_node_name;
          reqCookie         = _reqCookie;
          FDS_IOType::io_type = _ioType;
       }
@@ -120,7 +123,7 @@ public:
                 fds_log *log) :
       FDS_QoSControl(_max_thrds, algo, log, "DM") {
         parentDm = _parent;
-        dispatcher = new QoSWFQDispatcher(this, parentDm->scheduleRate, log);
+        dispatcher = new QoSWFQDispatcher(this, parentDm->scheduleRate, _max_thrds, log);
       }
 
 
@@ -154,7 +157,7 @@ public:
      * Ice handlers and comm endpoints.
      */
     ReqHandlerPtr  reqHandleSrv;
-    RespHandlerPrx respHandleCli;
+    std::unordered_map<std::string, RespHandlerPrx> respHandleCli;
     OMgrClient     *omClient;
 
     fds_log *dm_log;
@@ -244,10 +247,10 @@ public:
      */
 	Error updateCatalogInternal(FDSP_UpdateCatalogTypePtr updCatReq, 
                                  fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
-            			 fds_uint32_t dstPort, fds_uint32_t reqCookie);
+				    fds_uint32_t dstPort, std::string src_node_name, fds_uint32_t reqCookie);
 	Error queryCatalogInternal(FDSP_QueryCatalogTypePtr qryCatReq, 
                                  fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
-            			 fds_uint32_t dstPort, fds_uint32_t reqCookie);
+				   fds_uint32_t dstPort, std::string src_node_name, fds_uint32_t reqCookie);
 
 
     /*
@@ -294,6 +297,7 @@ public:
                            const Ice::Current&);
 
       void AssociateRespCallback(const Ice::Identity& ident,
+				 const std::string& src_node_name,
                                  const Ice::Current& current);
     };
 

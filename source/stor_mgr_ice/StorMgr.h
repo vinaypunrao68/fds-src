@@ -48,6 +48,8 @@
 #include <lib/OMgrClient.h>
 #include <concurrency/Mutex.h>
 
+#include <include/TierEngine.h>
+
 #define FDS_STOR_MGR_LISTEN_PORT FDS_CLUSTER_TCP_PORT_SM
 #define FDS_STOR_MGR_DGRAM_PORT FDS_CLUSTER_UDP_PORT_SM
 #define FDS_MAX_WAITING_CONNS  10
@@ -118,7 +120,7 @@ namespace fds {
     OMgrClient         *omClient;
 
     FDS_ProtocolInterface::FDSP_DataPathReqPtr fdspDataPathServer;
-    FDS_ProtocolInterface::FDSP_DataPathRespPrx fdspDataPathClient; //For sending back the response to the SH/DM
+    unordered_map<std::string, FDS_ProtocolInterface::FDSP_DataPathRespPrx> fdspDataPathClient; //For sending back the response to the SH/DM
 
     ObjectStorMgr();
     ~ObjectStorMgr();
@@ -221,7 +223,7 @@ namespace fds {
                 fds_log *log) :
       FDS_QoSControl(_max_thrds, algo, log, "SM") {
         parentSm = _parent;
-        dispatcher = new QoSWFQDispatcher(this, parentSm->totalRate, log);
+        dispatcher = new QoSWFQDispatcher(this, parentSm->totalRate, _max_thrds, log);
         /* base class created stats, but they are disable by default */
         stats->enable();
       }
@@ -234,6 +236,7 @@ namespace fds {
 
       Error markIODone(const FDS_IOType& _io) {
 	Error err(ERR_OK);
+	dispatcher->markIODone((FDS_IOType *)&_io);
 	stats->recordIO(_io.io_vol_id, 0);
 	return err;
       }
@@ -248,6 +251,9 @@ namespace fds {
   };
 
   class ObjectStorMgrI : public FDS_ProtocolInterface::FDSP_DataPathReq {
+  private:
+    
+
  public:
     ObjectStorMgrI(const Ice::CommunicatorPtr& communicator);
     ~ObjectStorMgrI();
@@ -276,7 +282,9 @@ namespace fds {
                          const FDSP_RedirReadObjTypePtr& redir_read_obj,
                          const Ice::Current&);
 
-    void AssociateRespCallback(const Ice::Identity&, const Ice::Current&);
+    void AssociateRespCallback(const Ice::Identity&,
+			       const std::string& src_node_name,
+			       const Ice::Current&);
   };
 
 }  // namespace fds
