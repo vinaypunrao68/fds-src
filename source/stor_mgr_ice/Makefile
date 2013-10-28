@@ -12,7 +12,7 @@ user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  :=                   \
     fds-StorHvisor fds-lib fds-odb fds-dsk-mgnt fds-umod fds-dsk-io fds-thread \
-    fds-util fds-odb fds-fdsp
+    fds-util fds-odb fds-vpolicy fds-fdsp
 
 user_non_fds_libs :=                                                          \
     boost_log boost_system boost_filesystem boost_thread boost_date_time      \

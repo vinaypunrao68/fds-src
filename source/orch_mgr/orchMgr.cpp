@@ -114,8 +114,9 @@ int OrchMgr::run(int argc, char* argv[]) {
   reqCfgHandlersrv = new ReqCfgHandler(this);
   adapter->add(reqCfgHandlersrv, communicator()->stringToIdentity("OrchMgr"));
 
-  om_policy_srv = new VolPolicyServ(ORCH_MGR_POLICY_ID);
-  om_policy_srv->serv_registerIceAdapter(communicator(), adapter);
+  om_policy_srv = new Orch_VolPolicyServ();
+  om_ice_proxy  = new Ice_VolPolicyServ(ORCH_MGR_POLICY_ID, *om_policy_srv);
+  om_ice_proxy->serv_registerIceAdapter(communicator(), adapter);
 
   adapter->activate();
 

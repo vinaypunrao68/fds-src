@@ -7,6 +7,7 @@
 #include <fdsp/orch_proto.h>
 #include <Ice/Ice.h>
 #include <string>
+#include <fds_module.h>
 
 // End points to receive get/set for volume policies.
 //
@@ -47,12 +48,29 @@ class Ice_VolPolicyClnt : public virtual VolPolicyClnt
     opi::orch_PolicyReqPrx   net_orch_mgr;
 };
 
+// Transport neutral interface for server code to provide services for volume
+// policies.
+//
+class VolPolicyServ
+{
+  public:
+    VolPolicyServ(char const *const name) : pol_serv(name) {}
+    ~VolPolicyServ() {}
+
+    virtual void serv_recvTierPolicyReq(const opi::tier_pol_time_unit &req) = 0;
+    virtual void serv_recvAuditTierPolicy(const opi::tier_pol_audit &audit) = 0;
+
+  protected:
+    char const *const        pol_serv;
+};
+
 // Ice-specific server side handler.
 //
 class Ice_VolPolicyServ : public virtual opi::orch_PolicyReq
 {
   public:
-    Ice_VolPolicyServ(std::string serv_id) : net_serv_id(serv_id) {}
+    Ice_VolPolicyServ(std::string serv_id, VolPolicyServ &server)
+        : net_serv_id(serv_id), net_server(server) {}
     ~Ice_VolPolicyServ() {}
 
     bool serv_registerIceAdapter(Ice::CommunicatorPtr  comm,
@@ -61,38 +79,24 @@ class Ice_VolPolicyServ : public virtual opi::orch_PolicyReq
     // serv_recvTierPolicyReq
     // ----------------------
     //
-    virtual void serv_recvTierPolicyReq(const opi::tier_pol_time_unit &req) = 0;
     void applyTierPolicy(const opi::tier_pol_time_unit &req,
                          const Ice::Current &)
     {
-        serv_recvTierPolicyReq(req);
+        net_server.serv_recvTierPolicyReq(req);
     }
 
     // serv_recvAuditTierPolicy
     // ------------------------
     //
-    virtual void serv_recvAuditTierPolicy(const opi::tier_pol_audit &audit) = 0;
     void auditTierPolicy(const opi::tier_pol_audit &audit,
                          const Ice::Current &)
     {
-        serv_recvAuditTierPolicy(audit);
+        net_server.serv_recvAuditTierPolicy(audit);
     }
 
   protected:
     std::string              net_serv_id;
-};
-
-// Transport neutral interface for server code to provide services for volume
-// policies.
-//
-class VolPolicyServ : public virtual Ice_VolPolicyServ
-{
-  public:
-    VolPolicyServ(std::string serv_id) : Ice_VolPolicyServ(serv_id) {}
-    ~VolPolicyServ() {}
-
-    virtual void serv_recvTierPolicyReq(const opi::tier_pol_time_unit &req);
-    virtual void serv_recvAuditTierPolicy(const opi::tier_pol_audit &audit);
+    VolPolicyServ            &net_server;
 };
 
 } // namespace fds
