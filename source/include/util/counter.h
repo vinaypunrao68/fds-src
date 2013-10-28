@@ -1,7 +1,10 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  *
- *  Hierarchical token bucket algorithm
+ * A 'decaying' counter class that is implemented
+ * as a circular array of counters. Useful for 
+ * getting weighted average or sum based on how
+ * the recency of the counter
  * 
  */
 #ifndef SOURCE_UTIL_COUNTER_HISTORY_H_
@@ -15,12 +18,36 @@ namespace fds {
 
  /* A circular array of counters (e.g. to track access times or IOPS) 
   * where each array entry represents a time slot (configurable length,
-  * the precision if 1 second). */
+  * the precision if 1 second). 
+  * 
+  * Usage:
+  * Every function expects 'first_ts' timestamp which the 
+  * caller can get by first calling (one time):
+  * CounterHist8bit::getFirstSlotTimestamp() and then pass it
+  * to every function that is called later 
+  * Every function also expected 'slot_len_seconds' which must
+  * be the same all the time (otherwise the behavior is undefined),
+  * this is the time length in second of a slot. First 'slot_len_seconds'
+  * the first entry of the array gets updates, then the next entry and so
+  * on. When we fill the whole array, we start erasing oldest slot (set it to 0)
+  * and start incrementing it, and so on.
+  *
+  * This class cares about the space usage, so only keeps timestamp of the last 
+  * access and array of 8 (could change the nslots constant) of 8-bit entries. So
+  * with current configuration, the class takes 2*64 bit space. 
+  *
+  * */
 class CounterHist8bit {
  public:
+  /* last time we updated the counter by calling increment() function */
   boost::posix_time::ptime last_access_ts;
+
+  /* use this array directly ONLY if need to save it to leveldb or other persistent
+  * store. If need to get the current counter, call getWeighedCounter that returns
+  * the weigted sum of counters */
   fds_uint8_t counters[nslots];
 
+  /* call this function first, but once is enough for all objects we need to keep counters for */
   static boost::posix_time::ptime getFirstSlotTimestamp() {
     return boost::posix_time::second_clock::universal_time();
   }
@@ -28,7 +55,10 @@ class CounterHist8bit {
  static const nslots = 8;
  static const max_value = 127;
 
- /* Increment counter. Will increment counter at timeslot representing current time */
+ /* Increment counter. Will increment counter at timeslot representing current time
+  * It will also update last_access_ts with the current time
+  * So if you are re-using last_access_ts for 'last read timestamp', this function will 
+  * automatically update it  */
  inline void increment(const boost::posix_time::ptime& first_ts, fds_uint32_t slot_len_seconds)
  {
   assert(cur_ts > last_access_ts);
@@ -66,7 +96,8 @@ class CounterHist8bit {
   {1.0000, 0.9000, 0.8100, 0.7290, 0.6561, 0.5905, 0.5314, 0.4783, 0.4305, 0.3874, 
    0.3487, 0.3138, 0.2824, 0.2541, 0.2288, 0.2059, 0.1853, 0.1668, 0.1501, 0.1351};
 
- /* Returns weighted counter (the counters of most recent slots get higher weight) */
+ /* Returns weighted counter (the counters of most recent slots get higher weight) 
+ * Call this method to get one value representing the count, the most common usage of this class */
  inline fds_uint32_t getWeightedCount(const boost::posix_time::ptime& first_ts, fds_uint32_t slot_len_seconds)
  {
    /* calculating weighted average over recent history using 
