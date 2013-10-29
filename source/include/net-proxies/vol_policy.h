@@ -10,6 +10,11 @@
 #include <string>
 #include <fds_module.h>
 
+// XXX: temp. encoding for now to use simple tier schedule.
+//
+#define TIER_SCHED_ACTIVATE            0
+#define TIER_SCHED_DEACTIVATE          1
+
 // End points to receive get/set for volume policies.
 //
 #define ORCH_MGR_POLICY_ID                "OrchMgr-Policy"

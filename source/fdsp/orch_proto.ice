@@ -15,6 +15,7 @@ enum tier_prefetch_type_e
 
 enum tier_media_type_e
 {
+    TIER_MEIDA_NO_VAL = 0,
     TIER_MEDIA_DRAM,
     TIER_MEDIA_NVRAM,
     TIER_MEDIA_SSD,

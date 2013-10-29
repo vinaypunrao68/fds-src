@@ -162,13 +162,18 @@ VolPolicyCLI::cli_exec_cmdline(SysParams const *const param)
     if (vm.count("tier-schedule")) {
         struct opi::tier_pol_time_unit req;
 
+        memset(&req, 0, sizeof(req));
         if ((pol_vol_id == 0) && (pol_domain_id == 0)) {
             cout << desc << endl;
             cout << "Need volume id or domain id to apply tier schedule" << endl;
             return true;
         }
-        if ((pol_tier_sched != "now") && (pol_tier_sched != "end")) {
-            cout << "Only 'now' or 'end' option supported" << endl;
+        if (pol_tier_sched == "now") {
+            req.tier_period.ts_sec = TIER_SCHED_ACTIVATE;
+        } else if (pol_tier_sched == "end") {
+            req.tier_period.ts_sec = TIER_SCHED_DEACTIVATE;
+        } else {
+            cout << "Valid option is 'now' or 'end' after --tier-schedule" << endl;
             return true;
         }
         if ((pol_tier_pct < 0) || (pol_tier_pct > 100)) {
@@ -177,7 +182,7 @@ VolPolicyCLI::cli_exec_cmdline(SysParams const *const param)
         }
         if ((pol_tier_media != opi::TIER_MEDIA_SSD) &&
             (pol_tier_media != opi::TIER_MEDIA_HDD)) {
-            cout << "Valid tier is 'flash' or 'disk'" << endl;
+            cout << "Valid tier is 'flash' or 'disk' after --tier" << endl;
             return true;
         }
         cout << "Vol id " << pol_vol_id << ", pct " << pol_tier_pct << endl;
@@ -189,7 +194,6 @@ VolPolicyCLI::cli_exec_cmdline(SysParams const *const param)
         req.tier_media         = pol_tier_media;
         req.tier_media_pct     = pol_tier_pct;
         req.tier_prefetch      = pol_tier_prefetch;
-        req.tier_period.ts_sec = 0;
 
         cli_client->clnt_setTierPolicy(req);
     }
