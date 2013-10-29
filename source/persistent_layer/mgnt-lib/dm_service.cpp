@@ -1,4 +1,4 @@
-#include <disk-mgr/dm_service.h>
+#include <persistent_layer/dm_service.h>
 
 namespace fds {
 
