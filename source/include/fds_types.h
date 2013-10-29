@@ -195,7 +195,8 @@ namespace fds {
     fds_uint64_t offset;
   };
 
-  struct ObjectBuf {
+  class ObjectBuf {
+  public:
     fds_uint32_t size;
     std::string data;
   };
