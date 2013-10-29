@@ -11,6 +11,7 @@
 #define SOURCE_UTIL_COUNTER_HISTORY_H_
 
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <assert.h>
 #include "fds_types.h"
 
 #define COUNTER_HIST_MAX_LENGTH 20
@@ -40,6 +41,12 @@ namespace fds {
   * */
 class CounterHist8bit {
  public:
+  CounterHist8bit() {
+    last_access_ts = boost::posix_time::second_clock::universal_time();
+    memset(counters, 0, nslots * sizeof(fds_uint8_t));
+  }
+  ~CounterHist8bit() {}
+
   /* last time we updated the counter by calling increment() function */
   boost::posix_time::ptime last_access_ts;
 
@@ -62,8 +69,8 @@ class CounterHist8bit {
   * automatically update it  */
  inline void increment(const boost::posix_time::ptime& first_ts, fds_uint32_t slot_len_seconds)
  {
-   //assert(cur_ts > last_access_ts);
-  boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
+  assert(first_ts <= last_access_ts);
+  boost::posix_time::ptime now = boost::posix_time::second_clock::universal_time();
 
   int last_slot_num = getSlotNum(first_ts, last_access_ts, slot_len_seconds);
   int next_slot_num = getSlotNum(first_ts, now, slot_len_seconds);
