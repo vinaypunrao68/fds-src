@@ -66,10 +66,12 @@ class CounterHist8bit {
  /* Increment counter. Will increment counter at timeslot representing current time
   * It will also update last_access_ts with the current time
   * So if you are re-using last_access_ts for 'last read timestamp', this function will 
-  * automatically update it  */
- inline void increment(const boost::posix_time::ptime& first_ts, fds_uint32_t slot_len_seconds)
+  * automatically update it  
+  * \return true if we move on to the next time slot, otherwise false */
+ inline fds_bool_t increment(const boost::posix_time::ptime& first_ts, fds_uint32_t slot_len_seconds)
  {
   assert(first_ts <= last_access_ts);
+  fds_bool_t bnext_slot = false;
   boost::posix_time::ptime now = boost::posix_time::second_clock::universal_time();
 
   int last_slot_num = getSlotNum(first_ts, last_access_ts, slot_len_seconds);
@@ -83,6 +85,7 @@ class CounterHist8bit {
       slot_ix = (slot_ix + 1) % nslots;
       counters[slot_ix] = 0;
     } while (next_slot_num < last_slot_num);
+    bnext_slot = true;
   }
 
   /* increment value in current slot */
@@ -91,6 +94,8 @@ class CounterHist8bit {
 
   /* update last_access_ts */
   last_access_ts = now;
+
+  return bnext_slot;
 }
 
  /* Add another counter history to this one */
