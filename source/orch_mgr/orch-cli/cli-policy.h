@@ -42,10 +42,15 @@ class VolPolicyCLI : public virtual CliComponent
     double                      pol_min_iops;
     double                      pol_max_iops;
     float                       pol_throttle_level;
+    int                         pol_vol_id;
+    int                         pol_domain_id;
     int                         pol_id;
     int                         pol_rel_priority;
     int                         pol_tier_pct;
     std::string                 pol_name;
+    std::string                 pol_tier_media_arg;
+    std::string                 pol_tier_sched;
+    std::string                 pol_tier_algo;
     opi::tier_media_type_e      pol_tier_media;
     opi::tier_prefetch_type_e   pol_tier_prefetch;
 };

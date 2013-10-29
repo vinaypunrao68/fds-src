@@ -271,6 +271,12 @@ class FdsLocalDomain {
     void sendNodeTableToFdsNodes(int table_type);
 
     /*
+     * Broadcast tier policy to all SM nodes.
+     */
+    void sendTierPolicyToSMNodes(const FDSP_TierPolicyPtr &tier);
+    void sendTierAuditPolicyToSMNodes(const FDSP_TierPolicyAuditPtr &tier);
+
+    /*
       Broadcast SetThrottleLevel message to all SH Nodes
     */
     void sendThrottleLevelToHvNodes(float throttle_level);

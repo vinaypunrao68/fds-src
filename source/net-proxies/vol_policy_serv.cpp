@@ -8,11 +8,12 @@ namespace fds {
 // serv_registerIceAdapter
 // -----------------------
 //
-bool
+int
 Ice_VolPolicyServ::serv_registerIceAdapter(Ice::CommunicatorPtr comm,
                                            Ice::ObjectAdapterPtr adapter)
 {
     adapter->add(this, comm->stringToIdentity(net_serv_id));
+    return 0;
 }
 
 } // namespace fds

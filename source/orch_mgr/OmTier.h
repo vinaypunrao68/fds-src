@@ -16,6 +16,13 @@ class Orch_VolPolicyServ : public virtual VolPolicyServ
 
     virtual void serv_recvTierPolicyReq(const opi::tier_pol_time_unit &req);
     virtual void serv_recvAuditTierPolicy(const opi::tier_pol_audit &audit);
+
+    // Plugin in with current OMClient code.
+    virtual void
+    serv_recvTierPolicyReq(const fdp::FDSP_TierPolicyPtr &tier);
+
+    virtual void
+    serv_recvTierPolicyAuditReq(const fdp::FDSP_TierPolicyAuditPtr &tier);
 };
 
 } // namespace fds

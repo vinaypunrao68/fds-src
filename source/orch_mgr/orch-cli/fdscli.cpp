@@ -3,6 +3,8 @@
  */
 #include "fdsCli.h"
 #include "cli-policy.h"
+#include <boost/program_options.hpp>
+#include <boost/program_options/parsers.hpp>
 
 using namespace std;
 using namespace FDS_ProtocolInterface;
@@ -90,7 +92,8 @@ int FdsCli::fdsCliPraser(int argc, char* argv[])
 	po::variables_map vm;
     Ice::ObjectPrx proxy = communicator()->stringToProxy(tcpProxyStr.str());
 
-	po::store(po::parse_command_line(argc, argv, desc), vm) ;
+    po::store(po::command_line_parser(argc, argv).
+            options(desc).allow_unregistered().run(), vm);
 	po::notify(vm);
 	if (vm.count("help")) {
 		cout << "\n\n";

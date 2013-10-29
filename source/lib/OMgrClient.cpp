@@ -1,4 +1,5 @@
 #include "OMgrClient.h"
+#include <fds_assert.h>
 
 using namespace std;
 using namespace fds;
@@ -74,6 +75,28 @@ void OMgrClientRPCI::SetThrottleLevel(const FDSP_MsgHdrTypePtr& msg_hdr,
   om_client->recvSetThrottleLevel((const float) throttle_msg->throttle_level);
 }
 
+void
+OMgrClientRPCI::TierPolicy(const FDSP_TierPolicyPtr &tier, const Ice::Current &ice)
+{
+    FDS_PLOG(om_client->omc_log)
+        << "OMClient received tier policy for vol "
+        << tier->tier_vol_uuid;
+
+    fds_verify(om_client->omc_srv_pol != nullptr);
+    om_client->omc_srv_pol->serv_recvTierPolicyReq(tier);
+}
+
+void
+OMgrClientRPCI::TierPolicyAudit(const FDSP_TierPolicyAuditPtr &audit,
+                                const Ice::Current            &ice)
+{
+    FDS_PLOG(om_client->omc_log)
+        << "OMClient received tier audit policy for vol "
+        << audit->tier_vol_uuid;
+
+    fds_verify(om_client->omc_srv_pol != nullptr);
+    om_client->omc_srv_pol->serv_recvTierPolicyAuditReq(audit);
+}
 
 OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
                        const std::string& _omIpStr,
@@ -253,8 +276,8 @@ int OMgrClient::startAcceptingControlMessages(fds_uint32_t port_num) {
     my_control_port = rpc_props->getPropertyAsInt("OMgrClient.PortNumber");
   }
  
-  std::string tcpProxyStr = std::string("tcp -p ") + std::to_string(my_control_port);
-  Ice::ObjectAdapterPtr rpc_adapter =rpc_comm->createObjectAdapterWithEndpoints("OrchMgrClient", tcpProxyStr);
+  rpc_srv_id = std::string("tcp -p ") + std::to_string(my_control_port);
+  Ice::ObjectAdapterPtr rpc_adapter =rpc_comm->createObjectAdapterWithEndpoints("OrchMgrClient", rpc_srv_id);
 
   om_client_rpc_i = new OMgrClientRPCI(this);
   rpc_adapter->add(om_client_rpc_i, rpc_comm->stringToIdentity("OrchMgrClient"));

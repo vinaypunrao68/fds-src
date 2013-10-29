@@ -7,12 +7,12 @@ user_install      := config.server om_client.conf stor_mgr.conf stor_mgr.cfg
 
 # TODO: avoid include across components, put in include dir instead.
 #
-user_incl_dir     := $(topdir)
+user_incl_dir     := $(topdir) include
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  :=                   \
     fds-StorHvisor fds-lib fds-odb fds-dsk-mgnt fds-umod fds-dsk-io fds-thread \
-    fds-util fds-odb fds-vpolicy fds-fdsp
+    fds-util fds-odb fds-vpolicy fds-netproxy fds-fdsp
 
 user_non_fds_libs :=                                                          \
     boost_log boost_system boost_filesystem boost_thread boost_date_time      \

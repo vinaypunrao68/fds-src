@@ -4,6 +4,7 @@
 
 #include <iostream>
 
+#include <policy_rpc.h>
 #include "StorMgr.h"
 #include "DiskMgr.h"
 
@@ -970,6 +971,7 @@ ObjectStorMgr::run(int argc, char* argv[])
   omClient->initialize();
   omClient->registerEventHandlerForNodeEvents((node_event_handler_t)nodeEventOmHandler);
   omClient->registerEventHandlerForVolEvents((volume_event_handler_t)volEventOmHandler);
+  omClient->omc_srv_pol = &sg_SMVolPolicyServ;
   omClient->startAcceptingControlMessages(cp_port_num);
   omClient->registerNodeWithOM(dInfo);
 

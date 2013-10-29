@@ -733,13 +733,17 @@ void OrchMgr::ReqCfgHandler::AssociateRespCallback(
     const Ice::Current& current) {
 }
 
+OrchMgr *gl_orch_mgr;
+
 }  // namespace fds
 
 int main(int argc, char *argv[]) {
   fds::orchMgr = new fds::OrchMgr();
 
+  fds::gl_orch_mgr = fds::orchMgr;
   fds::orchMgr->main(argc, argv, "orch_mgr.conf");
 
   delete fds::orchMgr;
+  return 0;
 }
 

@@ -115,6 +115,22 @@ namespace fds {
     void interruptCallback(int cb);
     fds_log* GetLog();
 
+    // With one big class, it's the same as using global variables for OM
+    // with single big lock.
+    //
+    // We need to break it into functional components.  This call will return
+    // the pointer to localDomainInfo and the caller will interact with it
+    // until it's done.  The obj will take care of concurency inside its
+    // data when we call its methods.  We shouldn't hold any OM lock
+    // before and after this call.
+    //
+    localDomainInfo *om_GetDomainInfo(int domain_id)
+    {
+        return locDomMap[DEFAULT_LOC_DOMAIN_ID];
+    }
+    void om_BigLock() { om_mutex->lock(); }
+    void om_BigUnlock() { om_mutex->unlock(); }
+
     int CreateVol(const FdspMsgHdrPtr& fdsp_msg,
                    const FdspCrtVolPtr& crt_vol_req);
     void DeleteVol(const FdspMsgHdrPtr& fdsp_msg,
@@ -204,6 +220,8 @@ namespace fds {
 
     };
   };
+
+extern OrchMgr *gl_orch_mgr;
 
 }  // namespace fds
 

@@ -545,6 +545,38 @@ void FdsLocalDomain::sendCreateVolToFdsNodes(VolumeInfo  *pVolInfo) {
   }
 }
 
+void
+FdsLocalDomain::sendTierPolicyToSMNodes(const FDSP_TierPolicyPtr &tier)
+{
+    node_map_t &node_map = currentSmMap;
+
+    for (auto it = node_map.begin(); it != node_map.end(); it++) {
+        fds_node_name_t node_name = it->first;
+        NodeInfo &node_info = it->second;
+
+        FDS_PLOG(parent_log) << "Sending tier policy to node "
+            << node_name << " for volume " << tier->tier_vol_uuid;
+        ReqCtrlPrx OMClientAPI = node_info.cpPrx;
+        OMClientAPI->begin_TierPolicy(tier);
+    }
+}
+
+void
+FdsLocalDomain::sendTierAuditPolicyToSMNodes(const FDSP_TierPolicyAuditPtr &audit)
+{
+    node_map_t &node_map = currentSmMap;
+
+    for (auto it = node_map.begin(); it != node_map.end(); it++) {
+        fds_node_name_t node_name = it->first;
+        NodeInfo &node_info = it->second;
+
+        FDS_PLOG(parent_log) << "Sending tier audit policy to node "
+            << node_name << " for volume " << audit->tier_vol_uuid;
+        ReqCtrlPrx OMClientAPI = node_info.cpPrx;
+        OMClientAPI->begin_TierPolicyAudit(audit);
+    }
+}
+
 // Broadcast delete vol ctrl message to all DM/SM Nodes
 void FdsLocalDomain::sendDeleteVolToFdsNodes(VolumeInfo *pVolInfo) {
   VolumeDesc *pVolDesc = (pVolInfo->properties);
@@ -578,6 +610,7 @@ void FdsLocalDomain::sendDeleteVolToFdsNodes(VolumeInfo *pVolInfo) {
     }
   }
 }
+
 
 // Send attach vol ctrl message to a HV node
 void FdsLocalDomain::sendAttachVolToHvNode(fds_node_name_t node_name,

@@ -114,15 +114,21 @@ VolPolicyCLI::cli_exec_cmdline(SysParams const *const param)
             "policy-argument: max volume iops")
         ("throttle-level,t", po::value<float>(&pol_throttle_level),
             "policy-argument: throttle traffic level 0-100")
+        ("volume-id,i", po::value<int>(&pol_vol_id)->default_value(0),
+            "policy-argument: volume id to apply the policy")
+        ("domain-id,k", po::value<int>(&pol_domain_id)->default_value(0),
+            "policy-argument: domain id to apply the policy")
         ("rel-prio,r", po::value<int>(&pol_rel_priority),
             "policy-arugment: relative priority")
-        ("tier-schedule", po::value<std::string>()->default_value("now"),
-            "policy-argument: set tier schedule")
-        ("tier", po::value<std::string>()->default_value("flash"),
-            "policy-argument: set volume tier")
+        ("tier-schedule", po::value<std::string>(&pol_tier_sched),
+            "policy-argument: set tier schedule [now|end]")
+        ("tier",
+            po::value<std::string>(&pol_tier_media_arg)->default_value("flash"),
+            "policy-argument: set volume tier [flash|disk]")
         ("tier-pct", po::value<int>(&pol_tier_pct)->default_value(100),
             "policy-argument: set storage percentage using the tier")
-        ("tier-prefetch,A", po::value<std::string>()->default_value("MRU"),
+        ("tier-prefetch,A",
+            po::value<std::string>(&pol_tier_algo)->default_value("MRU"),
             "policy-argument: set tier prefetch algorithm [mru|random|arc]");
 
     po::store(po::command_line_parser(param->p_argc, param->p_argv).
@@ -134,9 +140,9 @@ VolPolicyCLI::cli_exec_cmdline(SysParams const *const param)
         return true;
     }
     int tier_opt = 0;
+    pol_tier_media = opi::TIER_MEDIA_DRAM;
     if (vm.count("tier")) {
-        std::string tier = vm["tier"].as<std::string>();
-        if (tier == std::string("flash")) {
+        if (pol_tier_media_arg == "flash") {
             pol_tier_media = opi::TIER_MEDIA_SSD;
         } else {
             pol_tier_media = opi::TIER_MEDIA_HDD;
@@ -144,10 +150,9 @@ VolPolicyCLI::cli_exec_cmdline(SysParams const *const param)
         tier_opt++;
     }
     if (vm.count("tier-prefetch")) {
-        std::string prefetch = vm["tier-prefetch"].as<std::string>();
-        if (prefetch == std::string("mru")) {
+        if (pol_tier_algo == "mru") {
             pol_tier_prefetch = opi::PREFETCH_MRU;
-        } else if (prefetch == std::string("random")) {
+        } else if (pol_tier_algo == "random") {
             pol_tier_prefetch = opi::PREFETCH_RAND;
         } else {
             pol_tier_prefetch = opi::PREFETCH_ARC;
@@ -157,12 +162,36 @@ VolPolicyCLI::cli_exec_cmdline(SysParams const *const param)
     if (vm.count("tier-schedule")) {
         struct opi::tier_pol_time_unit req;
 
-        std::cout << "Send to OM tier schedule" << endl;
+        if ((pol_vol_id == 0) && (pol_domain_id == 0)) {
+            cout << desc << endl;
+            cout << "Need volume id or domain id to apply tier schedule" << endl;
+            return true;
+        }
+        if ((pol_tier_sched != "now") && (pol_tier_sched != "end")) {
+            cout << "Only 'now' or 'end' option supported" << endl;
+            return true;
+        }
+        if ((pol_tier_pct < 0) || (pol_tier_pct > 100)) {
+            cout << "Media tier percentage must be between 0-100%" << endl;
+            return true;
+        }
+        if ((pol_tier_media != opi::TIER_MEDIA_SSD) &&
+            (pol_tier_media != opi::TIER_MEDIA_HDD)) {
+            cout << "Valid tier is 'flash' or 'disk'" << endl;
+            return true;
+        }
+        cout << "Vol id " << pol_vol_id << ", pct " << pol_tier_pct << endl;
+        cout << "Schedule " << pol_tier_sched << endl;
+        cout << "Media " << pol_tier_media_arg << endl;
+        cout << "Send to OM tier schedule" << endl;
+
+        req.tier_vol_uuid      = pol_vol_id;
+        req.tier_media         = pol_tier_media;
+        req.tier_media_pct     = pol_tier_pct;
+        req.tier_prefetch      = pol_tier_prefetch;
+        req.tier_period.ts_sec = 0;
+
         cli_client->clnt_setTierPolicy(req);
-        /*
-        cli_proxy = opi::orch_PolicyReqPrx::checkedCast(proxy);
-        cli_proxy->applyTierPolicy(req);
-        */
     }
     return true;
 }
