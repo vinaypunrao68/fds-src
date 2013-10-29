@@ -123,8 +123,8 @@ class DiskRequest : public IndexRequest
 
     virtual void req_submit() = 0;
     virtual void req_complete() = 0;
-    virtual DataTier getTier() = 0;
 
+    inline DataTier getTier() const { return datTier; }
     inline fds::ObjectBuf const *const req_obj_buf() { return dat_buf; }
     inline fds::ObjectBuf *const req_obj_rd_buf() { return dat_buf; }
 
