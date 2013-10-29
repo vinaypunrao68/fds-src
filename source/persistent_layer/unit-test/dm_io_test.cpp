@@ -9,29 +9,32 @@
 
 using namespace std;
 
-class DiskReqTest : public diskio::DiskRequest
-{
-  public:
-    DiskReqTest(fds::fds_threadpool *const wr,
-                fds::fds_threadpool *const rd,
-                meta_vol_io_t       &vio,
-                meta_obj_id_t       &oid,
-                fds::ObjectBuf      *buf,
-                bool                block);
-    ~DiskReqTest();
+class DiskReqTest : public diskio::DiskRequest {
+ public:
+  DiskReqTest(fds::fds_threadpool *const wr,
+              fds::fds_threadpool *const rd,
+              meta_vol_io_t       &vio,
+              meta_obj_id_t       &oid,
+              fds::ObjectBuf      *buf,
+              bool                block,
+              diskio::DataTier    tier);
+  ~DiskReqTest();
 
-    void req_submit() {
-        fdsio::Request::req_submit();
-    }
-    void req_complete();
-    void req_verify();
-    void req_gen_pattern();
+  void req_submit() {
+    fdsio::Request::req_submit();
+  }  
+  diskio::DataTier getTier() {
+    return datTier;
+  }
+  void req_complete();
+  void req_verify();
+  void req_gen_pattern();
 
-  private:
-    int                        tst_iter;
-    fds::ObjectBuf             tst_verf;
-    fds::fds_threadpool *const tst_wr;
-    fds::fds_threadpool *const tst_rd;
+ private:
+  int                        tst_iter;
+  fds::ObjectBuf             tst_verf;
+  fds::fds_threadpool *const tst_wr;
+  fds::fds_threadpool *const tst_rd;
 };
 
 // \DiskReqTest
@@ -42,9 +45,10 @@ DiskReqTest::DiskReqTest(fds::fds_threadpool *const wr,
                          meta_vol_io_t       &vio,
                          meta_obj_id_t       &oid,
                          fds::ObjectBuf      *buf,
-                         bool                block)
+                         bool                block,
+                         diskio::DataTier    tier)
     : tst_wr(wr), tst_rd(rd), tst_iter(0),
-      diskio::DiskRequest(vio, oid, buf, block)
+      diskio::DiskRequest(vio, oid, buf, block, tier)
 {
     tst_verf.size = buf->size;
     tst_verf.data.reserve(buf->size);
@@ -83,6 +87,7 @@ pdio_write(fds::fds_threadpool *wr, fds::fds_threadpool *rd, DiskReqTest *cur)
     meta_obj_id_t   oid;
     fds::ObjectBuf  *buf;
     diskio::DataIO  &pio = diskio::DataIO::disk_singleton();
+    diskio::DataTier tier;
 
     if (cur == nullptr) {
         vadr_set_inval(vio.vol_adr);
@@ -95,7 +100,15 @@ pdio_write(fds::fds_threadpool *wr, fds::fds_threadpool *rd, DiskReqTest *cur)
         buf->size = 8 << diskio::DataIO::disk_io_blk_shift();
         buf->data.reserve(buf->size);
 
-        req = new DiskReqTest(wr, rd, vio, oid, buf, oid.oid_hash_hi % 2);
+        /*
+         * Randomly pick a tier
+         */
+        tier = diskio::diskTier;
+        if ((oid.oid_hash_hi % 2) == 0) {
+          tier = diskio::flashTier;
+        }
+
+        req = new DiskReqTest(wr, rd, vio, oid, buf, oid.oid_hash_hi % 2, tier);
         req->req_gen_pattern();
     } else {
         req = cur;
@@ -120,7 +133,7 @@ DiskReqTest::req_complete()
         tst_rd->schedule(pdio_read, this);
     } else {
         req_verify();
-        if (tst_iter < 30000) {
+        if (tst_iter < 30) {
             if (tst_iter % 2) {
                 tst_wr->schedule(pdio_write, tst_wr, tst_rd, this);
             } else {
@@ -128,7 +141,7 @@ DiskReqTest::req_complete()
                 tst_rd->schedule(pdio_read, this);
             }
         } else {
-            delete this;
+          delete this;
             return;
         }
     }
@@ -193,7 +206,7 @@ main(int argc, char **argv)
     fds::fds_threadpool  wr(50), rd(100);
 
     io_test.mod_execute();
-    for (int i = 0; i < 100000; i++) {
+    for (int i = 0; i < 500; i++) {
         wr.schedule(pdio_write, &wr, &rd, nullptr);
     }
     sleep(10);

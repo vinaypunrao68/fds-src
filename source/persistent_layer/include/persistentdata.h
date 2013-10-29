@@ -35,8 +35,9 @@ class DataDiscoveryModule : public fds::Module
     char const *const disk_ssd_path(int route_idx);
 
   private:
-    bool disk_detect_label(std::string &path, bool hdd);
-    void disk_make_label(std::string &path, int diskno);
+    void parse_device_dir(const std::string &path, DataTier tier);
+    bool disk_detect_label(std::string &path, DataTier tier);
+    void disk_make_label(std::string &path, DataTier tier, int diskno);
 
     int                      pd_hdd_count;
     int                      pd_ssd_count;
