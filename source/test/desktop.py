@@ -63,7 +63,7 @@ bin_map = {
 }
 bin_args = {
     OM      : "--test",
-    STORMGR : "--test_mode --fds-root=" + fds_dump_dir,
+    STORMGR : "--test_mode",
     DATAMGR : "--test_mode"
 }
 dir_map = {
@@ -163,6 +163,11 @@ class TestSequenceFunctions(unittest.TestCase):
         self.cleanupFiles()
         for comp in components:
             self.cleanupFiles(comp)
+
+        #
+        # Clean up fds root
+        #
+        os.system('rm -rf ' + fds_dump_dir)
                     
         print "Teardown complete."
         
@@ -185,6 +190,12 @@ class TestSequenceFunctions(unittest.TestCase):
         comp_bin = bin_map[server]
         comp_dir = dir_map[server]
         comp_port = port_map[server]
+
+        #
+        # Make the server's directory
+        #
+        os.system('mkdir -p ' + fds_dump_dir + "/" + prefix_base + str(ident) + "/hdd")
+        os.system('mkdir -p ' + fds_dump_dir + "/" + prefix_base + str(ident) + "/ssd")
 
         cp_port = None
         if server in cp_port_map:
@@ -209,9 +220,10 @@ class TestSequenceFunctions(unittest.TestCase):
         if cp_port != None:
             cp_port_arg = " --cp_port=%d" % (cp_port + ident)
             prefix_arg += cp_port_arg
+        root_arg = "--fds-root=%s/%s%d" % (fds_dump_dir, prefix_base, ident)
         if extra_args != None:
             prefix_arg += " " + extra_args
-        comp_arg = port_arg + " " + prefix_arg
+        comp_arg = port_arg + " " + prefix_arg + " " + root_arg
         cmd = comp_exe + " " + comp_arg
         cmd = "ulimit -s 4096; %s" % (cmd)
         print "Starting server cmd %s" % (cmd)
@@ -307,10 +319,6 @@ class TestSequenceFunctions(unittest.TestCase):
     def run_comp_test(self, comp, num_instances):
         status = 0
         instances = []
-
-        print "Cleaning up data directory: ", fds_dump_dir
-        os.system('rm -rf ' + fds_dump_dir)
-        os.system('mkdir -p ' + fds_dump_dir)
 
         #
         # Start server background instance
