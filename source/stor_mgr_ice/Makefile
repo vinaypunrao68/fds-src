@@ -21,7 +21,8 @@ user_non_fds_libs :=                                                          \
 stor_mgr_cpp      :=                   \
     StorMgr.cpp                        \
     DiskMgr.cpp                        \
-    StorMgrVolumes.cpp
+    StorMgrVolumes.cpp                 \
+    ObjRank.cpp                        \
 
 user_cpp          :=                   \
     $(stor_mgr_cpp)

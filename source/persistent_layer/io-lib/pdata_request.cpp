@@ -1,5 +1,5 @@
 #include <fds_assert.h>
-#include <disk-mgr/dm_io.h>
+#include <persistent_layer/dm_io.h>
 
 namespace diskio {
 
@@ -75,10 +75,19 @@ DiskRequest::DiskRequest(meta_vol_io_t       &vio,
                          meta_obj_id_t       &oid,
                          fds::ObjectBuf      *buf,
                          bool                block)
-    : IndexRequest(oid, vio, block), dat_buf(buf)
-{
-    obj_id_set_inval(&dat_old_oid);
-    vadr_set_inval(dat_new_vol.vol_adr);
+    : IndexRequest(oid, vio, block), dat_buf(buf),
+      datTier(diskTier) {
+  obj_id_set_inval(&dat_old_oid);
+  vadr_set_inval(dat_new_vol.vol_adr);
+}
+
+DiskRequest::DiskRequest(meta_vol_io_t       &vio,
+                         meta_obj_id_t       &oid,
+                         fds::ObjectBuf      *buf,
+                         bool                block,
+                         DataTier            tier)
+    : DiskRequest(vio, oid, buf, block) {
+  datTier = tier;
 }
 
 DiskRequest::DiskRequest(meta_vol_io_t       &vio,
@@ -87,18 +96,29 @@ DiskRequest::DiskRequest(meta_vol_io_t       &vio,
                          meta_vol_io_t       *new_vol,
                          fds::ObjectBuf      *buf,
                          bool                block)
-    : IndexRequest(oid, block), dat_buf(buf)
-{
-    if (old_oid != nullptr) {
-        dat_old_oid = *old_oid;
-    } else {
-        obj_id_set_inval(&dat_old_oid);
-    }
-    if (new_vol != nullptr) {
-        dat_new_vol = *new_vol;
-    } else {
-        vadr_set_inval(dat_new_vol.vol_adr);
-    }
+    : IndexRequest(oid, block), dat_buf(buf),
+      datTier(diskTier) {
+  if (old_oid != nullptr) {
+    dat_old_oid = *old_oid;
+  } else {
+    obj_id_set_inval(&dat_old_oid);
+  }
+  if (new_vol != nullptr) {
+    dat_new_vol = *new_vol;
+  } else {
+    vadr_set_inval(dat_new_vol.vol_adr);
+  }
+}
+
+DiskRequest::DiskRequest(meta_vol_io_t       &vio,
+                         meta_obj_id_t       &oid,
+                         meta_obj_id_t       *old_oid,
+                         meta_vol_io_t       *new_vol,
+                         fds::ObjectBuf      *buf,
+                         bool                block,
+                         DataTier            tier)
+    : DiskRequest(vio, oid, old_oid, new_vol, buf, block) {
+  datTier = tier;
 }
 
 DiskRequest::~DiskRequest()

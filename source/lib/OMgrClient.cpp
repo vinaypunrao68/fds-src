@@ -317,7 +317,7 @@ void OMgrClient::initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
 }
 
 // Use this to register the local node with OM as a client. Should be called after calling starting subscription endpoint and control path endpoint.
-int OMgrClient::registerNodeWithOM( const FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr& dInfo) {
+int OMgrClient::registerNodeWithOM(const FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr& dInfo) {
 
   try {
 

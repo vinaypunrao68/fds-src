@@ -103,10 +103,7 @@ StorMgrVolumeTable::StorMgrVolumeTable(ObjectStorMgr *sm, fds_log *parent_log)
   }
 
   /* register for volume-related control events from OM*/
-  if (parent_sm->omClient) {
-    parent_sm->omClient->registerEventHandlerForVolEvents((volume_event_handler_t)volumeEventHandler);
-  }
-
+  parent_sm->regVolHandler((volume_event_handler_t)volumeEventHandler);
 }
 
 StorMgrVolumeTable::StorMgrVolumeTable(ObjectStorMgr *sm)
@@ -212,20 +209,23 @@ StorMgrVolume *vol = NULL;
 /*
  * Handler for volume-related control message from OM
  */
-void StorMgrVolumeTable::volumeEventHandler( fds_volid_t vol_uuid, VolumeDesc *vdb, fds_vol_notify_t vol_action)
-{
-Error err(ERR_OK);
+void StorMgrVolumeTable::volumeEventHandler(fds_volid_t vol_uuid,
+                                            VolumeDesc *vdb,
+                                            fds_vol_notify_t vol_action) {
+  Error err(ERR_OK);
   switch (vol_action) {
       case fds_notify_vol_add:
         FDS_PLOG(objStorMgr->GetLog()) << "StorMgrVolumeTable - Received volume attach event from OM"
 					       << " for volume " << vol_uuid;
-        err = objStorMgr->volTbl->registerVolume(vdb ? *vdb : VolumeDesc("", vol_uuid));
+        err = objStorMgr->regVol(vdb ? *vdb : VolumeDesc("", vol_uuid));
+        fds_verify(err == ERR_OK);
         break;
 
      case fds_notify_vol_rm:
         FDS_PLOG(objStorMgr->GetLog()) << "StorMgrVolumeTable - Received volume detach event from OM"
 				       << " for volume " << vol_uuid;
-        err = objStorMgr->volTbl->deregisterVolume( vdb->GetID());
+        err = objStorMgr->deregVol(vdb->GetID());
+        fds_verify(err == ERR_OK);
         break;
 
     default:

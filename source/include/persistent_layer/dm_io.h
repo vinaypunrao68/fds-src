@@ -5,8 +5,8 @@
 #include <fds_types.h>
 #include <fds_module.h>
 #include <fds_request.h>
-#include <disk-mgr/dm_service.h>
-#include <disk-mgr/dm_metadata.h>
+#include <persistent_layer/dm_service.h>
+#include <persistent_layer/dm_metadata.h>
 
 namespace diskio {
 
@@ -16,6 +16,12 @@ class PersisDataIO;
 class DataIOModule;
 class DataIndexModule;
 class DataIndexProxy;
+
+enum DataTier {
+  diskTier  = 0,
+  flashTier = 1,
+  maxTier
+};
 
 // ---------------------------------------------------------------------------
 // IO Request to meta-data index.
@@ -68,6 +74,12 @@ class DiskRequest : public IndexRequest
                 meta_obj_id_t       &oid,
                 fds::ObjectBuf      *buf,
                 bool                block);
+    // Same as above constructor w/ tier
+    DiskRequest(meta_vol_io_t       &vio,
+                meta_obj_id_t       &oid,
+                fds::ObjectBuf      *buf,
+                bool                block,
+                DataTier            tier);
 
     // \DiskRequest
     // ------------
@@ -86,6 +98,14 @@ class DiskRequest : public IndexRequest
                 meta_vol_io_t       *new_vol,
                 fds::ObjectBuf      *buf,
                 bool                block);
+    // Same as above constructor w/ tier
+    DiskRequest(meta_vol_io_t       &vio,
+                meta_obj_id_t       &oid,
+                meta_obj_id_t       *old_oid,
+                meta_vol_io_t       *new_vol,
+                fds::ObjectBuf      *buf,
+                bool                block,
+                DataTier            tier);
 
     ~DiskRequest();
 
@@ -104,6 +124,7 @@ class DiskRequest : public IndexRequest
     virtual void req_submit() = 0;
     virtual void req_complete() = 0;
 
+    inline DataTier getTier() const { return datTier; }
     inline fds::ObjectBuf const *const req_obj_buf() { return dat_buf; }
     inline fds::ObjectBuf *const req_obj_rd_buf() { return dat_buf; }
 
@@ -111,6 +132,7 @@ class DiskRequest : public IndexRequest
     fds::ObjectBuf           *dat_buf;
     meta_vol_io_t            dat_new_vol;
     meta_obj_id_t            dat_old_oid;
+    DataTier                 datTier;
 };
 
 // ---------------------------------------------------------------------------

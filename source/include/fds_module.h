@@ -32,6 +32,8 @@ class SysParams
     int                      sys_hdd_cnt;
     int                      sys_ssd_cnt;
     std::string              fds_root;
+    std::string              hdd_root;
+    std::string              ssd_root;
     SimEnvParams             *fds_sim;
     UnitTestParams           *fds_utp;
 

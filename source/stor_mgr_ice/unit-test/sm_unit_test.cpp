@@ -162,6 +162,7 @@ class SmUnitTest {
     msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_STOR_MGR;    
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
     msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msg_hdr->src_node_name = "sm_test_client";
     /*
      * TODO: Change this! We should reg a volume.
      */
@@ -217,6 +218,7 @@ class SmUnitTest {
     msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_STOR_MGR;    
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
     msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msg_hdr->src_node_name = "sm_test_client";
     /*
      * TODO: Change this! We should reg a volume.
      */
@@ -326,6 +328,7 @@ class SmUnitTest {
     msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_STOR_MGR;    
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
     msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msg_hdr->src_node_name = "sm_test_client";
     /*
      * TODO: Change this! We should reg a volume.
      */
@@ -433,6 +436,7 @@ class SmUnitTest {
     msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_STOR_MGR;
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
     msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msg_hdr->src_node_name = "sm_test_client";
     
     for (fds_uint32_t i = 0; i < num_updates; i++) {
       oid = ObjectID(i, i * i);
@@ -519,6 +523,13 @@ class SmUnitTest {
     fds_int32_t result = 0;
     std::cout << "Running unit test \"" << testname << "\"" << std::endl;
 
+    /*
+     * Wait before running test for server to be ready.
+     * TODO: Remove this and make sure the test isn't
+     * kicked off until the server is ready and have server
+     * properly wait until it's up.
+     */
+    sleep(5);
     if (testname == "basic_update") {
       result = basic_update();
     } else if (testname == "basic_uq") {

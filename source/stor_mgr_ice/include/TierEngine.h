@@ -53,7 +53,7 @@ namespace fds {
    * Abstract base class for inline placement
    * algorithms
    */
-  class PlacementAlgo {
+  class TierPutAlgo {
  private:
     /*
      * Member references to needed external objects

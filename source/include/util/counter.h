@@ -11,6 +11,8 @@
 #define SOURCE_UTIL_COUNTER_HISTORY_H_
 
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <assert.h>
+#include "fds_types.h"
 
 #define COUNTER_HIST_MAX_LENGTH 20
 
@@ -39,8 +41,17 @@ namespace fds {
   * */
 class CounterHist8bit {
  public:
+  CounterHist8bit() {
+    last_access_ts = boost::posix_time::second_clock::universal_time();
+    memset(counters, 0, nslots * sizeof(fds_uint8_t));
+  }
+  ~CounterHist8bit() {}
+
   /* last time we updated the counter by calling increment() function */
   boost::posix_time::ptime last_access_ts;
+
+  static const int nslots = 8;
+  static const int max_value = 127;
 
   /* use this array directly ONLY if need to save it to leveldb or other persistent
   * store. If need to get the current counter, call getWeighedCounter that returns
@@ -52,17 +63,16 @@ class CounterHist8bit {
     return boost::posix_time::second_clock::universal_time();
   }
 
- static const nslots = 8;
- static const max_value = 127;
-
  /* Increment counter. Will increment counter at timeslot representing current time
   * It will also update last_access_ts with the current time
   * So if you are re-using last_access_ts for 'last read timestamp', this function will 
-  * automatically update it  */
- inline void increment(const boost::posix_time::ptime& first_ts, fds_uint32_t slot_len_seconds)
+  * automatically update it  
+  * \return true if we move on to the next time slot, otherwise false */
+ inline fds_bool_t increment(const boost::posix_time::ptime& first_ts, fds_uint32_t slot_len_seconds)
  {
-  assert(cur_ts > last_access_ts);
-  boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
+  assert(first_ts <= last_access_ts);
+  fds_bool_t bnext_slot = false;
+  boost::posix_time::ptime now = boost::posix_time::second_clock::universal_time();
 
   int last_slot_num = getSlotNum(first_ts, last_access_ts, slot_len_seconds);
   int next_slot_num = getSlotNum(first_ts, now, slot_len_seconds);
@@ -75,14 +85,17 @@ class CounterHist8bit {
       slot_ix = (slot_ix + 1) % nslots;
       counters[slot_ix] = 0;
     } while (next_slot_num < last_slot_num);
+    bnext_slot = true;
   }
 
   /* increment value in current slot */
-  if (counters[slots_ix] < (max_value-1))
+  if (counters[slot_ix] < (max_value-1))
     counters[slot_ix]++;
 
   /* update last_access_ts */
   last_access_ts = now;
+
+  return bnext_slot;
 }
 
  /* Add another counter history to this one */
@@ -91,15 +104,16 @@ class CounterHist8bit {
    //TBD
  }
 
- /* This is an array of powers of 0.9 */
- static const double kweights[COUNTER_HIST_MAX_LENGTH] =
-  {1.0000, 0.9000, 0.8100, 0.7290, 0.6561, 0.5905, 0.5314, 0.4783, 0.4305, 0.3874, 
-   0.3487, 0.3138, 0.2824, 0.2541, 0.2288, 0.2059, 0.1853, 0.1668, 0.1501, 0.1351};
-
  /* Returns weighted counter (the counters of most recent slots get higher weight) 
  * Call this method to get one value representing the count, the most common usage of this class */
  inline fds_uint32_t getWeightedCount(const boost::posix_time::ptime& first_ts, fds_uint32_t slot_len_seconds)
  {
+
+   /* This is an array of powers of 0.9 */
+   const double kweights[COUNTER_HIST_MAX_LENGTH] =
+     {1.0000, 0.9000, 0.8100, 0.7290, 0.6561, 0.5905, 0.5314, 0.4783, 0.4305, 0.3874, 
+     0.3487, 0.3138, 0.2824, 0.2541, 0.2288, 0.2059, 0.1853, 0.1668, 0.1501, 0.1351};
+
    /* calculating weighted average over recent history using 
     * formula from Zygaria paper [RTAS 2006] */
    double wma = 0.0;
@@ -120,7 +134,7 @@ class CounterHist8bit {
 		       const boost::posix_time::ptime& ts,
 		       fds_uint32_t slot_len_seconds)
  {
-   boost::posix_time::duration delta = ts - first_ts;
+   boost::posix_time::time_duration delta = ts - first_ts;
    return delta.seconds() / slot_len_seconds;
  }
 
