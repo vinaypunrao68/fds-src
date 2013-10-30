@@ -284,8 +284,16 @@ DataDiscoveryModule::mod_init(fds::SysParams const *const param)
     closedir(dfd);
 
     if (sim != nullptr) {
-        std::string base(param->fds_root + param->hdd_root + sim->sim_disk_prefix);
+        std::string base(param->fds_root + param->hdd_root);
+        umask(0);
+        if (mkdir(base.c_str(), 0755) != 0) {
+          fds_verify(errno == EACCES);
+          cout << "Don't have permission to fds root: "
+               << param->fds_root << endl;
+          exit(1);
+        }
 
+        base += sim->sim_disk_prefix;
         for (char sd = 'a'; pd_hdd_found < pd_hdd_count; sd++) {
             std::string hdd = base + sd;
 
@@ -301,8 +309,16 @@ DataDiscoveryModule::mod_init(fds::SysParams const *const param)
             }
         }
 
-        base = param->fds_root + param->ssd_root + sim->sim_disk_prefix;
+        base = param->fds_root + param->ssd_root;
+        umask(0);
+        if (mkdir(base.c_str(), 0755) != 0) {
+          fds_verify(errno == EACCES);
+          cout << "Don't have permission to fds root: "
+               << param->fds_root << endl;
+          exit(1);
+        }
 
+        base += sim->sim_disk_prefix;
         for (char sd = 'a'; pd_ssd_found < pd_ssd_count; sd++) {
             std::string ssd = base + sd;
 

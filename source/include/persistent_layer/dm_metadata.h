@@ -115,7 +115,8 @@ struct __attribute__((__packed__)) meta_obj_map_v0
     fds_uint16_t         obj_io_func;         /* f(t) = io characteristic.   */
     fds_uint16_t         obj_rd_cnt;          /* read stat.                  */
     fds_uint16_t         obj_refcnt;          /* de-dupe refcnt.             */
-    fds_uint16_t         obj_stor_loc_id;     /* map to physical location    */
+    fds_uint8_t          obj_tier;            /* tier location               */
+    fds_uint16_t         obj_stor_loc_id;     /* physical location in tier   */
     fds_uint32_t         obj_stor_offset;     /* offset to the physical loc. */
     meta_obj_id_t        obj_id;              /* check sum for data.         */
 };
@@ -124,21 +125,23 @@ typedef struct meta_obj_map_v0     meta_obj_map_v0_t;
 typedef struct meta_obj_map_v0     meta_obj_map_t;
 
 static __inline__ std::string obj_map_to_string(meta_obj_map_t *obj_map) {
-
   std::string obj_map_str = 
-    std::to_string(obj_map->obj_stor_loc_id) + ":" + std::to_string(obj_map->obj_stor_offset) 
-    + ":"  + std::to_string(obj_map->obj_blk_len) + ":"  + std::to_string(obj_map->obj_size);
+      std::to_string(obj_map->obj_tier) + ":" +
+      std::to_string(obj_map->obj_stor_loc_id) + ":" + std::to_string(obj_map->obj_stor_offset) 
+      + ":"  + std::to_string(obj_map->obj_blk_len) + ":"  + std::to_string(obj_map->obj_size);
 
   return obj_map_str;
-
 }
 
 static __inline__ void string_to_obj_map(std::string& obj_map_str, meta_obj_map_t *obj_map) {
 
+  fds_uint32_t tier;
   unsigned int loc_id, offset, len, size; 
 
-  sscanf(obj_map_str.c_str(), "%u:%u:%u:%u", &loc_id, &offset, &len, &size);
+  sscanf(obj_map_str.c_str(), "%u:%u:%u:%u:%u", &tier, &loc_id, &offset, &len, &size);
   obj_map->obj_stor_loc_id = loc_id;
+  // Note we're losing precision assigning to 8 bit uint
+  obj_map->obj_tier = tier;
   obj_map->obj_stor_offset = offset;
   obj_map->obj_blk_len = len;
   obj_map->obj_size = size;
