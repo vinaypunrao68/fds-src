@@ -1,3 +1,7 @@
+#ifndef __FDS_OBJ_CACHE_H_
+
+#define __FDS_OBJ_CACHE_H_
+
 #include <unordered_map>
 #include <boost/shared_ptr.hpp>
 #include <atomic>
@@ -21,6 +25,12 @@ namespace fds{
     // If we use calendar queues for example, 
     // we may store here the ptr to the calendar
     // item to which this object belongs.
+    ObjectCacheBuf()
+      : io_in_progress(false), copy_is_dirty(false)
+      {
+	size = 0;
+	data = "";
+      }
   };
 
   typedef boost::shared_ptr<ObjectBuf> ObjBufPtrType; // Smart pointer type using boost shared_ptr template
@@ -32,15 +42,28 @@ namespace fds{
     slab_allocator_type_fds
   };
 
-
   const int slab_allocator_type_default = slab_allocator_type_fds;
+
+  class slab_object_allocator_base {
+
+  public:
+    virtual ObjCacheBufPtrType allocate_object_buf(fds_uint32_t obj_size) = 0;
+    virtual void return_object_buf_to_pool(ObjCacheBufPtrType obj_buf) = 0;
+  };
 
   enum eviction_policy_type {
     eviction_policy_type_lru
   };
 
-  
   const int eviction_policy_type_default = eviction_policy_type_lru;
+
+  class eviction_policy_manager_base {
+  public:
+    virtual void handle_object_access(fds_volid_t vol_id, ObjectID oid, ObjCacheBufPtrType objBuf) = 0;
+    virtual void handle_object_delete(fds_volid_t vol_id, ObjectID oid, ObjCacheBufPtrType objBuf) = 0;
+    virtual void evictObjectsFromVolumeCache(fds_volid_t vol_id, fds_uint64_t bytes_required) = 0;
+    virtual void evictObjectsFromAnyCache(fds_uint64_t bytes_required) = 0;
+  };
 
   class VolObjectCache {
   public:
@@ -57,10 +80,8 @@ namespace fds{
 
   };
 
-  class slab_allocator_class;
-
   class FdsObjectCache {
-
+    
   public:
 
     FdsObjectCache(fds_uint64_t cache_size, // Max size of the cache, across all volumes
@@ -91,12 +112,20 @@ namespace fds{
     // Add it to the cache map so it is available for future lookups.
     int object_add(fds_volid_t vol_id, ObjectID objId, ObjBufPtrType obj_data, bool is_dirty);
 
+    // Was the object previously added as dirty? Call this after 
+    // the object is synced to persistent storage.
     int mark_object_clean(fds_volid_t vol_id,
 			  ObjectID objId,
 			  ObjBufPtrType obj_data);
+
     // Delete this object from the cache map and use the buffer for reallocation for future alloc requests
-    // Primarily to be used to by garbage collection thread
+    // Primarily to be used to by an external garbage collection thread
     int object_delete(fds_volid_t vol_id, ObjectID objId);
+    
+    // A version of delete for the plcy manager to call when it wants to evict an object.
+    // Main difference between this and delete is this assumes plcy manager already knows
+    // about this object going away.
+    int object_evict(fds_volid_t vol_id, ObjectID objID);
 
    private:
 
@@ -106,21 +135,20 @@ namespace fds{
     fds_log *oc_log;
 
     unordered_map <fds_volid_t, VolObjectCache *> vol_cache_map;
-    slab_allocator_class *slab_allocator;
+    slab_object_allocator_base *slab_allocator;
+    eviction_policy_manager_base *plcy_mgr;
     std::atomic<fds_uint64_t> total_mem_used;
     fds_rwlock volmap_rwlock; // protects the volume map
                               // against volume create/delete events.
     
     void *lru_data; // TBD, a calendar queue probably. Priority queues are very space-intensive for large number of objects.
-
-    void handle_object_access(ObjCacheBufPtrType objBuf);
-    void handle_obj_delete(ObjCacheBufPtrType objBuf);
-    void evictObjectsFromVolumeCache(fds_volid_t vol_id, fds_uint64_t obj_size);
-    void evictObjectsFromAnyCache(fds_uint64_t obj_size);
+    ObjCacheBufPtrType object_remove(fds_volid_t vol_id, ObjectID objId);
 
   };
 
 }
+
+#endif
 
 /***********************************************************************************************************
  Sample code illustrating example usage

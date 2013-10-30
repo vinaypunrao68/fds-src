@@ -183,7 +183,7 @@ namespace fds {
   }
   
   class ObjectHash {
- public:
+  public:
     size_t operator()(const ObjectID& oid) const {
       return std::hash<std::string>()(oid.ToHex());
     }
@@ -195,10 +195,14 @@ namespace fds {
     fds_uint64_t offset;
   };
 
-  class ObjectBuf {
+  class ObjectBuf { 
   public:
     fds_uint32_t size;
     std::string data;
+    ObjectBuf()
+      : size(0), data("")
+      {
+      }
   };
 
   inline fds_uint32_t str_to_ipv4_addr(std::string ip_str) {

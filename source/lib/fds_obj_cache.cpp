@@ -1,4 +1,6 @@
 #include <fds_obj_cache.h>
+#include <simple_object_allocator.h>
+#include <lru_policy_mgr.h>
 
 namespace fds{
 
@@ -24,6 +26,8 @@ namespace fds{
       volmap_rwlock()
   {
     total_mem_used = ATOMIC_VAR_INIT(0);
+    slab_allocator = new simple_object_allocator();
+    plcy_mgr = new lru_policy_mgr(this);
     FDS_PLOG(oc_log) << "Cache initialized with a maximum size of " << max_cache_size
 		     << ", slab allocator - " << slab_allocator_type
 		     << ", and eviction policy - " << cache_eviction_policy;
@@ -77,7 +81,7 @@ namespace fds{
     if (objCacheBuf->io_in_progress) {
       return NULL;
     }
-    handle_object_access(objCacheBuf);
+    plcy_mgr->handle_object_access(vol_id, objId, objCacheBuf);
     ObjBufPtrType objBuf =  boost::static_pointer_cast<ObjectBuf>(objCacheBuf);
     return objBuf;
   }
@@ -111,20 +115,21 @@ namespace fds{
       // pick a candidate for eviction from the same volume.
       FDS_PLOG(oc_log) << "Evicting objects from volume " << vol_id
 		       << " for " << obj_size << " bytes.";
-      evictObjectsFromVolumeCache(vol_id, obj_size);
+      plcy_mgr->evictObjectsFromVolumeCache(vol_id, obj_size);
     } else if (current_cache_sz + obj_size >= max_cache_size) {
       // pick a candidate for eviction from any volume.
       FDS_PLOG(oc_log) << "Evicting objects from cache " << vol_id
 		       << " for " << obj_size << " bytes.";
-      evictObjectsFromAnyCache(obj_size);
+      plcy_mgr->evictObjectsFromAnyCache(obj_size);
     }
 
     current_vol_cache_sz = atomic_load(&vol_cache->total_mem_used);
     current_cache_sz = atomic_load(&total_mem_used);
     assert(current_cache_sz + obj_size < max_cache_size);
     assert(current_vol_cache_sz + obj_size < vol_cache->max_cache_size);
-    // objCacheBufPtr = slab_allocator->alloc(obj_size);
-    ObjCacheBufPtrType newObjCacheBufPtr(new ObjectCacheBuf());
+    
+    ObjCacheBufPtrType newObjCacheBufPtr = slab_allocator->allocate_object_buf(obj_size);
+    
     std::atomic_fetch_add(&vol_cache->total_mem_used, (fds_uint64_t) obj_size);
     std::atomic_fetch_add(&total_mem_used, (fds_uint64_t) obj_size);
     newObjCacheBufPtr->io_in_progress = true;
@@ -143,7 +148,7 @@ namespace fds{
 				 ObjBufPtrType obj_data,
 				 bool is_dirty) {
     ObjCacheBufPtrType obj_cache_buf = boost::static_pointer_cast<ObjectCacheBuf>(obj_data);
-    handle_object_access(obj_cache_buf);
+    plcy_mgr->handle_object_access(vol_id, objId, obj_cache_buf);
     obj_cache_buf->io_in_progress = false;
     obj_cache_buf->copy_is_dirty = is_dirty;
   }
@@ -155,46 +160,72 @@ namespace fds{
     obj_cache_buf->copy_is_dirty = false;
   }
 
-  // Delete this object from the cache map and use the buffer for reallocation for future alloc requests
-  // Primarily to be used by garbage collection thread
- int FdsObjectCache::object_delete(fds_volid_t vol_id, ObjectID objId) {
+  // Internal helper function doign the job of removing the object from the volume index,
+  // after doing all sanity checks.
+  ObjCacheBufPtrType FdsObjectCache::object_remove(fds_volid_t vol_id, ObjectID objId) {
+
     volmap_rwlock.read_lock();
     VolObjectCache *vol_cache = NULL;
     if (vol_cache_map.count(vol_id) == 0) {
       volmap_rwlock.write_unlock();
-      return -1;
+      return NULL;
     }
     vol_cache = vol_cache_map[vol_id];
     volmap_rwlock.read_unlock();
     vol_cache->vol_cache_lock->lock();
+
     ObjCacheBufPtrType objBuf = NULL;
+
     if (vol_cache->object_map.count(objId) == 0) {
       vol_cache->vol_cache_lock->unlock();
-      return -1;
+      return NULL;
     }
+
     objBuf = vol_cache->object_map[objId];
+
     assert((objBuf->copy_is_dirty == false) && (objBuf->io_in_progress == false));
     vol_cache->object_map.erase(objId);
+
+    if (objBuf.use_count() >= 2) {
+      vol_cache->object_map[objId] = objBuf;
+      vol_cache->vol_cache_lock->unlock();
+      return NULL;
+    }
+
     vol_cache->vol_cache_lock->unlock();
     std::atomic_fetch_sub(&vol_cache->total_mem_used, (fds_uint64_t) objBuf->size);
     std::atomic_fetch_sub(&total_mem_used, (fds_uint64_t) objBuf->size);
+    return objBuf; // upto the caller to delete the object
+
+  }
+
+  // Notify plcy manager about removal, remove the object from the indices,
+  // and return buff to object pool.
+  // Primarily for an external garbage collector to call.
+  int FdsObjectCache::object_delete(fds_volid_t vol_id, ObjectID objId) {
+    int rc;
+    
+    ObjCacheBufPtrType objBuf = object_remove(vol_id, objId);
+    if (objBuf == NULL) {
+      return -1;
+    }
+
     // Update eviction policy manager here about the object going away
-    handle_obj_delete(objBuf);
-    // objBuf will go out of scope and the object will be destructed and memory freed.
-    return 0; // upto the caller to delete the object
+    plcy_mgr->handle_object_delete(vol_id, objId, objBuf);
+
+    slab_allocator->return_object_buf_to_pool(objBuf);
+    return rc;
   }
 
-  void FdsObjectCache::handle_object_access(ObjCacheBufPtrType objBuf) {
-
-  }
-  void FdsObjectCache::handle_obj_delete(ObjCacheBufPtrType objBuf) {
-
-  }
-  void FdsObjectCache::evictObjectsFromVolumeCache(fds_volid_t vol_id, fds_uint64_t obj_size) {
-
-  }
-  void FdsObjectCache::evictObjectsFromAnyCache(fds_uint64_t obj_size) {
-
+  // This is similar to object_delete but does not call plcy_manager to notify about object deletion.
+  // This is for plcy_manager to call when it decides to evict an object.
+  int FdsObjectCache::object_evict(fds_volid_t vol_id, ObjectID objId) {
+    ObjCacheBufPtrType objBuf = object_remove(vol_id, objId);
+    if (objBuf == NULL) {
+      return -1;
+    }
+    slab_allocator->return_object_buf_to_pool(objBuf);
+    return 0;
   }
 
 }
