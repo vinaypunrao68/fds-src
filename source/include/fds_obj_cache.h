@@ -16,6 +16,7 @@ namespace fds{
   public:
     boost::posix_time::ptime last_access_time;
     bool io_in_progress;
+    bool copy_is_dirty;
     // Some additional fields here to track it's eviction candidacy status
     // If we use calendar queues for example, 
     // we may store here the ptr to the calendar
@@ -23,8 +24,9 @@ namespace fds{
   };
 
   typedef boost::shared_ptr<ObjectBuf> ObjBufPtrType; // Smart pointer type using boost shared_ptr template
+  typedef boost::shared_ptr<ObjectCacheBuf> ObjCacheBufPtrType; // Smart pointer type using boost shared_ptr template
 
-  typedef unordered_map<ObjectID, ObjBufPtrType, ObjectHash> vol_obj_map_t; // Per-volume map mapping an obj Id to obj buf
+  typedef unordered_map<ObjectID, ObjCacheBufPtrType, ObjectHash> vol_obj_map_t; // Per-volume map mapping an obj Id to obj buf
 
   enum slab_allocator_type {
     slab_allocator_type_fds
@@ -87,11 +89,14 @@ namespace fds{
 			       fds_uint64_t obj_size); 
     
     // Add it to the cache map so it is available for future lookups.
-    int object_add(fds_volid_t vol_id, ObjectID objId, ObjBufPtrType *obj_data);
+    int object_add(fds_volid_t vol_id, ObjectID objId, ObjBufPtrType obj_data, bool is_dirty);
 
+    int mark_object_clean(fds_volid_t vol_id,
+			  ObjectID objId,
+			  ObjBufPtrType obj_data);
     // Delete this object from the cache map and use the buffer for reallocation for future alloc requests
     // Primarily to be used to by garbage collection thread
-    ObjBufPtrType object_delete(fds_volid_t vol_id, ObjectID objId);
+    int object_delete(fds_volid_t vol_id, ObjectID objId);
 
    private:
 
@@ -107,6 +112,11 @@ namespace fds{
                               // against volume create/delete events.
     
     void *lru_data; // TBD, a calendar queue probably. Priority queues are very space-intensive for large number of objects.
+
+    void handle_object_access(ObjCacheBufPtrType objBuf);
+    void handle_obj_delete(ObjCacheBufPtrType objBuf);
+    void evictObjectsFromVolumeCache(fds_volid_t vol_id, fds_uint64_t obj_size);
+    void evictObjectsFromAnyCache(fds_uint64_t obj_size);
 
   };
 
