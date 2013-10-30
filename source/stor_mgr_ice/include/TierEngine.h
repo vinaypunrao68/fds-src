@@ -5,18 +5,10 @@
 #ifndef SOURCE_STOR_MGR_ICE_INCLUDE_TIERENGINE_H_
 #define SOURCE_STOR_MGR_ICE_INCLUDE_TIERENGINE_H_
 
-namespace fds {
+#include <stor_mgr_ice/StorMgrVolumes.h>
+#include <include/persistent_layer/dm_io.h>
 
-  /*
-   * Defines the available tiers.
-   * TODO: This should probably be exported by
-   * the persistence layer.
-   */
-  enum Tier {
-    diskTier  = 0,
-    flashTier = 1,
-    maxTier
-  };
+namespace fds {
 
   /*
    * Abstract base that defines what a migration algorithm
@@ -68,8 +60,8 @@ namespace fds {
      *
      * @return the tier to place the object
      */
-    virtual Tier selectTier(const ObjectID&      oid,
-                            const StorMgrVolume& vol) = 0;
+    virtual diskio::DataTier selectTier(const ObjectID &oid,
+                                        fds_volid_t     vol) = 0;
   };
 
   /*
@@ -103,7 +95,12 @@ namespace fds {
   class TierEngine {
  private:
     fds_uint32_t  numMigThrds;
-    TierMigration migrator;
+    TierMigration *migrator;
+
+    /*
+     * Member algorithms.
+     */
+    TierPutAlgo *tpa;
 
     /*
      * Member references to external objects.
@@ -118,7 +115,7 @@ namespace fds {
      * references to required external classes and
      * start the tier migration threads.
      */
-    TierEngine();
+    TierEngine(TierPutAlgo *algo);
     ~TierEngine();
 
     /*
@@ -131,8 +128,8 @@ namespace fds {
      *
      * @return the tier to place object
      */
-    Tier selectTier(const ObjectID&      oid,
-                    const StorMgrVolume& vol);
+    diskio::DataTier selectTier(const ObjectID &oid,
+                                fds_volid_t     vol);
   };
 }  // namespace fds
 

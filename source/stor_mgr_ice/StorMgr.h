@@ -49,6 +49,7 @@
 #include <concurrency/Mutex.h>
 
 #include <include/TierEngine.h>
+#include <include/TierPutAlgorithms.h>
 
 #define FDS_STOR_MGR_LISTEN_PORT FDS_CLUSTER_TCP_PORT_SM
 #define FDS_STOR_MGR_DGRAM_PORT FDS_CLUSTER_UDP_PORT_SM
@@ -70,11 +71,23 @@ namespace fds {
 
   class SmPlReq : public diskio::DiskRequest {
  public:
- SmPlReq(meta_vol_io_t       &vio,
-         meta_obj_id_t       &oid,
-         ObjectBuf      *buf,
-         fds_bool_t                block)
+    /*
+     * TODO: This defaults to disk at the moment...
+     * need to specify any tier, specifically for
+     * read
+     */
+ SmPlReq(meta_vol_io_t   &vio,
+         meta_obj_id_t   &oid,
+         ObjectBuf        *buf,
+         fds_bool_t        block)
      : diskio::DiskRequest(vio, oid, buf, block) {
+    }
+ SmPlReq(meta_vol_io_t   &vio,
+         meta_obj_id_t   &oid,
+         ObjectBuf        *buf,
+         fds_bool_t        block,
+         diskio::DataTier  tier)
+     : diskio::DiskRequest(vio, oid, buf, block, tier) {
     }
     ~SmPlReq() { }
 
@@ -83,7 +96,10 @@ namespace fds {
     }
     void req_complete() {
       fdsio::Request::req_complete();
-    } 
+    }
+    void setTierFromMap() {
+      datTier = static_cast<diskio::DataTier>(idx_vmap.obj_tier);
+    }
   };
 
 
@@ -170,6 +186,15 @@ namespace fds {
     SmQosCtrl  *qosCtrl;
 
     /*
+     * Tiering related members
+     * TODO: Reorganize this to place the algorithm
+     * within the engine layer. It's weird having the
+     * SM create the algorithm object,
+     */
+    RandomTestAlgo  tierPutAlgo;
+    TierEngine     *tierEngine;
+
+    /*
      * Outstanding request tracking members.
      * TODO: We should have a better overall mechanism than
      * this. This is pretty slow and hackey. The networking
@@ -192,16 +217,17 @@ namespace fds {
                             fds_volid_t        volId,
                             fds_uint32_t       transId,
                             fds_uint32_t       numObjs);
-    Error checkDuplicate(const ObjectID&  objId,
-                         const ObjectBuf& objCompData);
-    Error writeObjectLocation(const ObjectID& objId, 
-                              meta_obj_map_t* obj_map);
-    Error readObjectLocation(const ObjectID&  objId, 
-                              meta_obj_map_t* obj_map);
-    Error writeObject(const ObjectID&  objId,
-                      const ObjectBuf& objCompData);
-    Error readObject(const ObjectID& objId,
-                     ObjectBuf&      objCompData);
+    Error checkDuplicate(const ObjectID  &objId,
+                         const ObjectBuf &objCompData);
+    Error writeObjectLocation(const ObjectID &objId, 
+                              meta_obj_map_t *obj_map);
+    Error readObjectLocation(const ObjectID  &objId, 
+                              meta_obj_map_t *obj_map);
+    Error writeObject(const ObjectID  &objId,
+                      const ObjectBuf &objCompData,
+                      fds_volid_t      volId);
+    Error readObject(const ObjectID &objId,
+                     ObjectBuf      &objCompData);
 
  public:
 

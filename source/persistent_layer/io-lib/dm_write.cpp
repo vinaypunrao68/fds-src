@@ -26,7 +26,8 @@ FilePersisDataIO::disk_do_write(DiskRequest *req)
     map->obj_blk_len     = blk;
     map->obj_stor_offset = off_blk;
     map->obj_stor_loc_id = disk_loc_id();
-    map->obj_size = buf->size;
+    map->obj_tier        = static_cast<fds_uint8_t>(req->getTier());
+    map->obj_size        = buf->size;
 
     idx = new IndexRequest(*req->req_get_oid(), true);
     idx->req_set_peer(req);
