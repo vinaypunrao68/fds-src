@@ -218,8 +218,8 @@ ModuleVector::mod_mk_sysparams()
             options(desc).allow_unregistered().run(), vm);
   po::notify(vm);
   if (vm.count("help")) {
-    cout << endl << desc << endl;
-    exit(1);
+    cout << desc << endl;
+    return;
   }
   if (vm.count("fds-root")) {
     sys_params.fds_root  = vm["fds-root"].as<std::string>();

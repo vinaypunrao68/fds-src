@@ -179,9 +179,13 @@ ObjectStorMgr::ObjectStorMgr() :
   omClient = NULL;
 
   /*
+   * Setup the tier related members
+   */
+  tierEngine = new TierEngine(static_cast<TierPutAlgo *>(&tierPutAlgo));
+
+  /*
    * Setup QoS related members.
    */
-
   qosCtrl = new SmQosCtrl(this,
                           qosThrds,
                           FDS_QoSControl::FDS_DISPATCH_WFQ,
@@ -218,6 +222,8 @@ ObjectStorMgr::~ObjectStorMgr()
 
   delete waitingReqMutex;
   delete qosCtrl;
+
+  delete tierEngine;
 
   delete sm_log;
   delete volTbl;
@@ -356,13 +362,13 @@ ObjectStorMgr::readObjectLocation(const ObjectID& objId,
   err = objStorDB->Get(objId, objData);
   if (err == ERR_OK) {
     string_to_obj_map(objData.data, obj_map);
-    FDS_PLOG(GetLog()) << "Retrieving object location for object " << objId << " as " << objData.data;
+    FDS_PLOG(GetLog()) << "Retrieving object location for object "
+                       << objId << " as " << objData.data;
   } else {
     FDS_PLOG(GetLog()) << "No object location found for object " << objId << " in index DB";
   }
   return err;
 }
-
 
 Error 
 ObjectStorMgr::readObject(const ObjectID& objId, 
@@ -375,11 +381,19 @@ ObjectStorMgr::readObject(const ObjectID& objId,
   meta_vol_io_t   vio;
   meta_obj_id_t   oid;
   vadr_set_inval(vio.vol_adr);
+
+  /*
+   * TODO: Why to we create another oid structure here?
+   * Just pass a ref to objId?
+   */
   oid.oid_hash_hi = objId.GetHigh();
   oid.oid_hash_lo = objId.GetLow();
+
   disk_req = new SmPlReq(vio, oid, (ObjectBuf *)&objData, true); // blocking call
   err = readObjectLocation(objId, disk_req->req_get_vmap());
   if (err == ERR_OK) {
+    // Update the request with the tier info from disk
+    disk_req->setTierFromMap();
     objData.size = disk_req->req_get_vmap()->obj_size;
     objData.data.resize(objData.size, 0);
     dio_mgr.disk_read(disk_req);
@@ -442,23 +456,34 @@ ObjectStorMgr::checkDuplicate(const ObjectID&  objId,
   return err;
 }
 
-
 Error 
-ObjectStorMgr::writeObject(const ObjectID& objId, 
-                           const ObjectBuf& objData)
-{
+ObjectStorMgr::writeObject(const ObjectID  &objId, 
+                           const ObjectBuf &objData,
+                           fds_volid_t      volId) {
   Error err(ERR_OK);
   
   diskio::DataIO& dio_mgr = diskio::DataIO::disk_singleton();
   SmPlReq     *disk_req;
   meta_vol_io_t   vio;
   meta_obj_id_t   oid;
+  diskio::DataTier tier;
   vadr_set_inval(vio.vol_adr);
+
+  /*
+   * TODO: Why to we create another oid structure here?
+   * Just pass a ref to objId?
+   */
   oid.oid_hash_hi = objId.GetHigh();
   oid.oid_hash_lo = objId.GetLow();
-  disk_req = new SmPlReq(vio, oid, (ObjectBuf *)&objData, true); // blocking call
+
+  tier = tierEngine->selectTier(objId, volId);
+  disk_req = new SmPlReq(vio, oid, (ObjectBuf *)&objData, true, tier); // blocking call
   dio_mgr.disk_write(disk_req);
   err = writeObjectLocation(objId, disk_req->req_get_vmap());
+
+  FDS_PLOG(objStorMgr->GetLog()) << "Writing object " << objId << " into the "
+                                 << ((tier == diskio::diskTier) ? "disk" : "flash")
+                                 << " tier";
   delete disk_req;
   return err;
 }
@@ -476,7 +501,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
   Error err(ERR_OK);
   const ObjectID&  objId   = putReq->getObjId();
   const ObjectBuf& objData = putReq->getObjData();
-
+  fds_volid_t volId        = putReq->getVolId();
 
   objStorMutex->lock();
 
@@ -501,14 +526,13 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
      * This is the levelDB insertion. It's a totally
      * separate DB from the one above.
      */
-    // err = objStorDB->Put(objId, objData);
-    err = writeObject(objId, objData);
+    err = writeObject(objId, objData, volId);
     objStorMutex->unlock();
 
     if (err != fds::ERR_OK) {
       FDS_PLOG(objStorMgr->GetLog()) << "Failed to put object " << err;
     } else {
-      FDS_PLOG(objStorMgr->GetLog()) << "Successfully put key " << objId;
+      FDS_PLOG(objStorMgr->GetLog()) << "Successfully put object " << objId;
     }
     /*
      * Stores a reverse mapping from the volume's disk location
