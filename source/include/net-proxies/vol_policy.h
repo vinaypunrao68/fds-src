@@ -12,8 +12,12 @@
 
 // XXX: temp. encoding for now to use simple tier schedule.
 //
-#define TIER_SCHED_ACTIVATE            0
-#define TIER_SCHED_DEACTIVATE          1
+#define TIER_SCHED_ACTIVATE            (0xffff)
+#define TIER_SCHED_DEACTIVATE          0
+
+// XXX: until we have a good RPC gen header.
+//
+#define TIER_MAX_MEDIA_TYPES           (4)
 
 // End points to receive get/set for volume policies.
 //

@@ -143,6 +143,8 @@ namespace fds {
         FDS_ProtocolInterface::FDSP_DataPathRespPrx> fdspDataPathClient;
 
     /*
+     * TODO: this one should be the singleton by itself.  Need to make it
+     * a stand-alone module like resource manager for volume.
      * Volume specific members
      */
     StorMgrVolumeTable *volTbl;
@@ -250,6 +252,13 @@ namespace fds {
 
     Error deregVol(fds_volid_t volId) {
       return volTbl->deregisterVolume(volId);
+    }
+    // We need to get this info out of this big class to avoid making this
+    // class even bigger than it should.  Not much point for making it
+    // private and need a get method to get it out.
+    //
+    StorMgrVolumeTable *sm_getVolTables() {
+        return volTbl;
     }
 
     void PutObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,

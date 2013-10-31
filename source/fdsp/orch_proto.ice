@@ -19,7 +19,8 @@ enum tier_media_type_e
     TIER_MEDIA_DRAM,
     TIER_MEDIA_NVRAM,
     TIER_MEDIA_SSD,
-    TIER_MEDIA_HDD
+    TIER_MEDIA_HDD,
+    TIER_MEDIA_HYBRID
 };
 
 struct tier_time_spec
@@ -69,6 +70,8 @@ struct tier_time_spec
 struct tier_pol_time_unit
 {
     double                   tier_vol_uuid;
+    bool                     tier_domain_policy;
+    double                   tier_domain_uuid;
     tier_media_type_e        tier_media;
     tier_prefetch_type_e     tier_prefetch;
     long                     tier_media_pct;

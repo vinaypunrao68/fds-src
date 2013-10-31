@@ -120,15 +120,17 @@ VolPolicyCLI::cli_exec_cmdline(SysParams const *const param)
             "policy-argument: domain id to apply the policy")
         ("rel-prio,r", po::value<int>(&pol_rel_priority),
             "policy-arugment: relative priority")
-        ("tier-schedule", po::value<std::string>(&pol_tier_sched),
-            "policy-argument: set tier schedule [now|end]")
-        ("tier",
-            po::value<std::string>(&pol_tier_media_arg)->default_value("flash"),
-            "policy-argument: set volume tier [flash|disk]")
+        ("auto-tier", po::value<std::string>(&pol_tier_sched),
+            "policy-argument: set auto-tier option [on|off]")
+        ("auto-tier-migration", po::value<std::string>(&pol_tier_domain),
+            "policy-argument: set auto-tier to whole domain [on|off]")
+        ("vol-type",
+            po::value<std::string>(&pol_tier_media_arg)->default_value("ssd"),
+            "policy-argument: set volume tier type [ssd|disk|hybrid]")
         ("tier-pct", po::value<int>(&pol_tier_pct)->default_value(100),
             "policy-argument: set storage percentage using the tier")
         ("tier-prefetch,A",
-            po::value<std::string>(&pol_tier_algo)->default_value("MRU"),
+            po::value<std::string>(&pol_tier_algo)->default_value("mru"),
             "policy-argument: set tier prefetch algorithm [mru|random|arc]");
 
     po::store(po::command_line_parser(param->p_argc, param->p_argv).
@@ -140,12 +142,14 @@ VolPolicyCLI::cli_exec_cmdline(SysParams const *const param)
         return true;
     }
     int tier_opt = 0;
-    pol_tier_media = opi::TIER_MEDIA_DRAM;
-    if (vm.count("tier")) {
-        if (pol_tier_media_arg == "flash") {
+    pol_tier_media = opi::TIER_MEIDA_NO_VAL;
+    if (vm.count("vol-type")) {
+        if (pol_tier_media_arg == "ssd") {
             pol_tier_media = opi::TIER_MEDIA_SSD;
-        } else {
+        } else if (pol_tier_media_arg == "disk") {
             pol_tier_media = opi::TIER_MEDIA_HDD;
+        } else {
+            pol_tier_media = opi::TIER_MEDIA_HYBRID;
         }
         tier_opt++;
     }
@@ -159,30 +163,25 @@ VolPolicyCLI::cli_exec_cmdline(SysParams const *const param)
         }
         tier_opt++;
     }
-    if (vm.count("tier-schedule")) {
+    if (vm.count("auto-tier")) {
         struct opi::tier_pol_time_unit req;
 
-        memset(&req, 0, sizeof(req));
-        if ((pol_vol_id == 0) && (pol_domain_id == 0)) {
-            cout << desc << endl;
-            cout << "Need volume id or domain id to apply tier schedule" << endl;
+        if (pol_vol_id == 0) {
+            cout << "Need volume id with --auto-tier" << endl;
             return true;
         }
-        if (pol_tier_sched == "now") {
+        memset(&req, 0, sizeof(req));
+        if (pol_tier_sched == "on") {
             req.tier_period.ts_sec = TIER_SCHED_ACTIVATE;
-        } else if (pol_tier_sched == "end") {
+        } else if (pol_tier_sched == "off") {
             req.tier_period.ts_sec = TIER_SCHED_DEACTIVATE;
         } else {
-            cout << "Valid option is 'now' or 'end' after --tier-schedule" << endl;
+            cout << "Valid option is 'on' or 'off' after --auto-tier" << endl;
             return true;
         }
+        pol_tier_pct = 100;
         if ((pol_tier_pct < 0) || (pol_tier_pct > 100)) {
             cout << "Media tier percentage must be between 0-100%" << endl;
-            return true;
-        }
-        if ((pol_tier_media != opi::TIER_MEDIA_SSD) &&
-            (pol_tier_media != opi::TIER_MEDIA_HDD)) {
-            cout << "Valid tier is 'flash' or 'disk' after --tier" << endl;
             return true;
         }
         cout << "Vol id " << pol_vol_id << ", pct " << pol_tier_pct << endl;
@@ -194,8 +193,29 @@ VolPolicyCLI::cli_exec_cmdline(SysParams const *const param)
         req.tier_media         = pol_tier_media;
         req.tier_media_pct     = pol_tier_pct;
         req.tier_prefetch      = pol_tier_prefetch;
+        req.tier_domain_policy = false;
 
         cli_client->clnt_setTierPolicy(req);
+    }
+    if (vm.count("auto-tier-migration")) {
+        struct opi::tier_pol_time_unit dom_req;
+
+        memset(&dom_req, 0, sizeof(dom_req));
+        if (pol_domain_id == 0) {
+            cout << "Need domain id with --auto-tier" << endl;
+            return true;
+        }
+        if (pol_tier_domain == "on") {
+            dom_req.tier_period.ts_sec = TIER_SCHED_ACTIVATE;
+        } else if (pol_tier_domain == "off") {
+            dom_req.tier_period.ts_sec = TIER_SCHED_DEACTIVATE;
+        } else {
+            cout << "Valid option is 'on' or 'off' after --auto-tier-migration\n";
+        }
+        dom_req.tier_domain_policy = true;
+        dom_req.tier_domain_uuid   = pol_domain_id;
+
+        cli_client->clnt_setTierPolicy(dom_req);
     }
     return true;
 }
