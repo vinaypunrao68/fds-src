@@ -53,22 +53,116 @@ class ObjRankUnitTest {
 	(vols[i-1].voldesc)->relativePrio = i;
       }
 
-    /* lets insert # objects > rank_table_size by 20 */
+    /* lets insert # objects > rank_table_size by 30 */
     ObjectID oid;
     int vol_ix = 0;
     fds_uint32_t rank = 0;
-    for (fds_uint32_t i = 1; i < (rank_table_size + 20); ++i)
+    for (fds_uint32_t i = 1; i <= (rank_table_size + 30); ++i)
       {
 	oid = ObjectID(i, i*i);
 
 	/* will round-robin volumes */
 	rank = rank_eng->rankAndInsertObject(oid, *(vols[vol_ix].voldesc));
-	FDS_PLOG(test_log) << "object " << i << " volume (prio=" << (vols[vol_ix].voldesc)->relativePrio << ") rank=" << rank;
+	FDS_PLOG(test_log) << "object " << oid.ToHex() << " volume (prio=" << (vols[vol_ix].voldesc)->relativePrio << ") rank=" << rank;
 
-	vol_ix = (vol_ix + 1) % vols_count;
+	if ( (i % 15) == 0)
+	  vol_ix = (vol_ix + 1) % vols_count;
+
       }
 
-    
+    if (!rank_eng->rankingInProgress()) 
+      rank_eng->startObjRanking();
+
+    /* wait for ranking to finish */
+    while (rank_eng->rankingInProgress()) {
+      sleep(1);
+    }
+
+    /* we should see 30 objects that need demotion */
+    fds_uint32_t len = 7;
+    fds_uint32_t count = 0;
+    std::pair<ObjectID, ObjectRankEngine::rankOperType> chg_tbl[len];
+    do {
+      count = rank_eng->getDeltaChangeTblSegment(len, chg_tbl);
+      if (count == 0) break;
+
+      for (int i = 0; i < count; ++i)
+	{
+	  oid = chg_tbl[i].first;
+	  if (chg_tbl[i].second == ObjectRankEngine::OBJ_RANK_PROMOTION)
+	    FDS_PLOG(test_log) << "UNIT_TEST: chg table obj " << oid.ToHex() << " will be promoted";
+	  else { 
+	    FDS_PLOG(test_log) << "UNIT_TEST: chg table obj " << oid.ToHex() << " will be demoted"; 
+            rank_eng->deleteObject(oid);
+          }
+	}      
+
+    } while(count > 0);
+
+    /* we should get lowest ranked objects in rank table in order of rank  */
+    ObjectID objArray[len];
+    int removed = 0;
+    do {
+      count = rank_eng->getNextTblSegment(len, objArray);
+      if (count == 0) break;
+
+      for (int i = 0; i < count; ++i) {
+	oid = objArray[i];
+	FDS_PLOG(test_log) << "UNIT_TEST: lowest rank obj: " << oid.ToHex() << "; will also delete";
+	rank_eng->deleteObject(oid);
+	++removed;
+      }
+
+    } while (count > 0);    
+
+    /* add higher priority objects that will push out lower rank objects in the table   */
+
+    for (fds_uint32_t i = 1; i <= (removed + 10); ++i)
+      {
+	oid = ObjectID(1000+i, i*i);
+
+	rank = rank_eng->rankAndInsertObject(oid, *(vols[0].voldesc));
+	FDS_PLOG(test_log) << "object " << oid.ToHex() << " volume (prio=" << (vols[0].voldesc)->relativePrio << ") rank=" << rank;
+
+      }
+
+    if (!rank_eng->rankingInProgress()) 
+      rank_eng->startObjRanking();
+
+    /* wait for ranking to finish */
+    while (rank_eng->rankingInProgress()) {
+      sleep(1);
+    }
+
+    FDS_PLOG(test_log) << "UNIT_TEST: after next round of ranking:";
+
+    do {
+      count = rank_eng->getDeltaChangeTblSegment(len, chg_tbl);
+      if (count == 0) break;
+
+      for (int i = 0; i < count; ++i)
+	{
+	  oid = chg_tbl[i].first;
+	  if (chg_tbl[i].second == ObjectRankEngine::OBJ_RANK_PROMOTION)
+	    FDS_PLOG(test_log) << "UNIT_TEST: chg table obj " << oid.ToHex() << " will be promoted";
+	  else { 
+	    FDS_PLOG(test_log) << "UNIT_TEST: chg table obj " << oid.ToHex() << " will be demoted"; 
+          }
+	}      
+    } while (count > 0);
+
+    do {
+      count = rank_eng->getNextTblSegment(len, objArray);
+      if (count == 0) break;
+
+      for (int i = 0; i < count; ++i) {
+	oid = objArray[i];
+	FDS_PLOG(test_log) << "UNIT_TEST: lowest rank obj: " << oid.ToHex() << "; will also delete";
+      }
+
+    } while (count > 0);
+
+
     FDS_PLOG(test_log) << "Ending test: basic_ranking()";
     return 0;
   }
@@ -139,7 +233,7 @@ class ObjRankUnitTest {
 }  // namespace fds
 
 int main(int argc, char* argv[]) {
-  fds::ObjRankUnitTest unit_test(100, 10);
+  fds::ObjRankUnitTest unit_test(2000, 10);
 
   return unit_test.Run();
 }

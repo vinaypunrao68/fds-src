@@ -194,9 +194,9 @@ ModuleVector::mod_mk_sysparams()
       ("help,h", "Show this help text")
       ("fds-root,r", po::value<std::string>()->default_value("/fds"),
        "Set the storage root directory")
-      ("hdd-root,r", po::value<std::string>()->default_value("hdd"),
+      ("hdd-root,H", po::value<std::string>()->default_value("hdd"),
        "Set the hdd storage root directory relative to root")
-      ("ssd-root,r", po::value<std::string>()->default_value("ssd"),
+      ("ssd-root,F", po::value<std::string>()->default_value("ssd"),
        "Set the ssd storage root directory relative to root")
       ("threads,t", po::value<int>(&thr_cnt)->default_value(10),
        "Number of threads in system thread pool")

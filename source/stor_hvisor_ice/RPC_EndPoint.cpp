@@ -30,6 +30,7 @@ FDS_RPC_EndPoint::FDS_RPC_EndPoint()
 }
 
 FDS_RPC_EndPoint::FDS_RPC_EndPoint(int ip_addr, int port, 
+                                   std::string _node_name,
                                    FDS_ProtocolInterface::FDSP_MgrIdType remote_mgr_id, 
                                    Ice::CommunicatorPtr& ic)
 {
@@ -67,7 +68,7 @@ FDS_RPC_EndPoint::FDS_RPC_EndPoint(int ip_addr, int port,
   
   _adapter->activate();
   fdspDPAPI->ice_getConnection()->setAdapter(_adapter);
-  fdspDPAPI->AssociateRespCallback(ident, storHvisor->my_node_name);
+  fdspDPAPI->AssociateRespCallback(ident, _node_name);
 }
 
 /*
@@ -76,6 +77,7 @@ FDS_RPC_EndPoint::FDS_RPC_EndPoint(int ip_addr, int port,
  */
 FDS_RPC_EndPoint::FDS_RPC_EndPoint(const std::string& ip_addr_str_arg,
                                    int port, 
+                                   std::string _node_name,
                                    FDS_ProtocolInterface::FDSP_MgrIdType remote_mgr_id, 
                                    Ice::CommunicatorPtr& ic) {
   std::ostringstream tcpProxyStr;
@@ -119,7 +121,7 @@ FDS_RPC_EndPoint::FDS_RPC_EndPoint(const std::string& ip_addr_str_arg,
   
   _adapter->activate();
   fdspDPAPI->ice_getConnection()->setAdapter(_adapter);
-  fdspDPAPI->AssociateRespCallback(ident, storHvisor->my_node_name);
+  fdspDPAPI->AssociateRespCallback(ident, _node_name);
 }
 
 FDS_RPC_EndPoint::~FDS_RPC_EndPoint()
@@ -147,17 +149,17 @@ fds_int32_t FDS_RPC_EndPoint::ipString2Addr(string ipaddr_str) {
   return (ntohl(sa.sin_addr.s_addr));
 }
 
-void   FDS_RPC_EndPointTbl::Add_RPC_EndPoint(int  ipaddr, int port, FDSP_MgrIdType remote_mgr_id) 
+void   FDS_RPC_EndPointTbl::Add_RPC_EndPoint(int  ipaddr, int port, std::string node_name, FDSP_MgrIdType remote_mgr_id) 
 {
-    FDS_RPC_EndPoint *endPoint = new FDS_RPC_EndPoint(ipaddr, port, remote_mgr_id, _communicator);
+    FDS_RPC_EndPoint *endPoint = new FDS_RPC_EndPoint(ipaddr, port, node_name, remote_mgr_id, _communicator);
     rpcTblMutex->lock();
     rpcEndPointList.push_back(endPoint);
     rpcTblMutex->unlock();
 }
 
-void   FDS_RPC_EndPointTbl::Add_RPC_EndPoint(std::string ipaddr_str, int port, FDSP_MgrIdType remote_mgr_id) 
+void   FDS_RPC_EndPointTbl::Add_RPC_EndPoint(std::string ipaddr_str, int port, std::string node_name,FDSP_MgrIdType remote_mgr_id) 
 {
-    FDS_RPC_EndPoint *endPoint = new FDS_RPC_EndPoint(ipaddr_str, port, remote_mgr_id, _communicator);
+    FDS_RPC_EndPoint *endPoint = new FDS_RPC_EndPoint(ipaddr_str, port, node_name, remote_mgr_id, _communicator);
     rpcTblMutex->lock();
     rpcEndPointList.push_back(endPoint);
     rpcTblMutex->unlock();
