@@ -77,7 +77,9 @@ enum FDSP_ErrType {
 enum FDSP_VolType {
   FDSP_VOL_S3_TYPE,
   FDSP_VOL_BLKDEV_TYPE,
-  FDSP_VOL_BLKDEV_SSD_TYPE
+  FDSP_VOL_BLKDEV_SSD_TYPE,
+  FDSP_VOL_BLKDEV_DISK_TYPE,
+  FDSP_VOL_BLKDEV_HYBRID_TYPE
 };
 
 enum FDSP_VolNotifyType {
@@ -379,6 +381,8 @@ class FDSP_QueueStateType {
 
 class FDSP_TierPolicy {
     double          tier_vol_uuid;
+    double          tier_domain_uuid;
+    bool            tier_domain_policy;
     int             tier_media;
     int             tier_prefetch_algo;
     long            tier_media_pct;

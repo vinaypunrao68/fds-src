@@ -3,6 +3,7 @@
  */
 #include <OmTier.h>
 #include <string>
+#include <boost/lockfree/queue.hpp>
 #include <iostream>
 #include <orchMgr.h>
 
@@ -19,11 +20,36 @@ Orch_VolPolicyServ::serv_recvTierPolicyReq(const opi::tier_pol_time_unit &tier)
     sm_data = new FDSP_TierPolicy();
 
     sm_data->tier_vol_uuid      = tier.tier_vol_uuid;
+    sm_data->tier_domain_uuid   = tier.tier_domain_uuid;
+    sm_data->tier_domain_policy = tier.tier_domain_policy;
     sm_data->tier_media         = tier.tier_media;
     sm_data->tier_prefetch_algo = tier.tier_prefetch;
     sm_data->tier_media_pct     = tier.tier_media_pct;
     sm_data->tier_interval_sec  = tier.tier_period.ts_sec;
-    dom->domain_ptr->sendTierPolicyToSMNodes(sm_data);
+
+    if (tier.tier_domain_policy == false) {
+        dom->domain_ptr->sendTierPolicyToSMNodes(sm_data);
+    } else {
+        // Get all volumes in the domain and send out the command.
+        // Using this queue is overkill...
+        boost::lockfree::queue<fds_uint64_t> vol_ids;
+        FdsLocalDomain *loc = dom->domain_ptr;
+
+        sm_data->tier_domain_uuid   = 0;
+        sm_data->tier_domain_policy = false;
+        loc->dom_mutex->lock();
+        for (auto it = loc->volumeMap.begin(); it != loc->volumeMap.end(); it++) {
+            VolumeInfo *vol = it->second;
+            vol_ids.push(vol->volUUID);
+        }
+        loc->dom_mutex->unlock();
+
+        fds_uint64_t vol_id;
+        while (vol_ids.pop(vol_id) == true) {
+            sm_data->tier_vol_uuid = vol_id;
+            dom->domain_ptr->sendTierPolicyToSMNodes(sm_data);
+        }
+    }
 }
 
 void

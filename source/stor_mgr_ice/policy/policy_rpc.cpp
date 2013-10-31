@@ -3,12 +3,16 @@
  */
 #include <policy_rpc.h>
 #include <iostream>
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include <fds_assert.h>
+#include <StorMgr.h>
 
 namespace fds {
 
 VolPolicyRPC        gl_SMVolPolicy("SM Vol Policy Module");
 SM_VolPolicyServ    sg_SMVolPolicyServ;
+
+extern ObjectStorMgr  *objStorMgr;
 
 int
 VolPolicyRPC::mod_init(SysParams const *const param)
@@ -57,8 +61,37 @@ SM_VolPolicyServ::serv_recvAuditTierPolicy(const opi::tier_pol_audit &audit)
 void
 SM_VolPolicyServ::serv_recvTierPolicyReq(const fdp::FDSP_TierPolicyPtr &tier)
 {
-    using namespace std;
+    StorMgrVolume      *vol;
+    StorMgrVolumeTable *vol_tab = objStorMgr->sm_getVolTables();
 
+    // TODO: the interface here should be lock vol obj with refcnt so that it
+    // won't be deleted while we're using it.
+    //
+    vol = vol_tab->getVolume(tier->tier_vol_uuid);
+    if (vol == nullptr) {
+        // TODO: No way to return the result back to caller.
+        //
+        FDS_PLOG(objStorMgr->sm_log) << "Could not find volume uuid "
+            << tier->tier_vol_uuid;
+        return;
+    }
+    VolumeDesc *desc = vol->voldesc;
+    if (tier->tier_interval_sec != TIER_SCHED_DEACTIVATE) {
+        if (tier->tier_media == opi::TIER_MEDIA_SSD) {
+            desc->volType = fdp::FDSP_VOL_BLKDEV_SSD_TYPE;
+        } else if (tier->tier_media == opi::TIER_MEDIA_HDD) {
+            desc->volType = fdp::FDSP_VOL_BLKDEV_DISK_TYPE;
+        } else {
+            desc->volType = fdp::FDSP_VOL_BLKDEV_HYBRID_TYPE;
+        }
+        desc->tier_duration_sec = tier->tier_interval_sec;
+        desc->tier_start_time =
+            boost::posix_time::second_clock::universal_time();
+    } else {
+        desc->tier_duration_sec = 0;
+        desc->volType = fdp::FDSP_VOL_BLKDEV_DISK_TYPE;
+    }
+    using namespace std;
     cout << "Recv tier Policy Request" << endl;
     cout << "Vol uuid " << tier->tier_vol_uuid << endl;
     cout << "tier media " << tier->tier_media << endl;
