@@ -23,6 +23,7 @@ stor_mgr_cpp      :=                   \
     DiskMgr.cpp                        \
     StorMgrVolumes.cpp                 \
     ObjRank.cpp                        \
+    ObjStats.cpp                        \
     TierEngine.cpp                     \
     TierPutAlgorithms.cpp
 

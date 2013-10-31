@@ -37,6 +37,7 @@
 #include <utility>
 #include <atomic>
 #include <unordered_map>
+#include <include/ObjStats.h>
 
 /*
  * TODO: Move this header out of lib/
@@ -238,6 +239,10 @@ namespace fds {
 
     fds_log* GetLog();
     fds_log *sm_log;
+    /*
+     * stats  class 
+     */
+      ObjStatsTracker   *objStats;
 
     /*
      * Public volume reg handlers

@@ -12,58 +12,66 @@
 #include <string.h>
 #include <strings.h>
 #include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <ifaddrs.h>
-#include <arpa/inet.h>
 #include <pthread.h>
-#include <fdsp/FDSP.h>
 #include "stor_mgr_err.h"
 #include <fds_volume.h>
 #include <fds_types.h>
-#include "ObjLoc.h"
-#include <odb.h>
 #include <unistd.h>
 #include <assert.h>
 #include <iostream>
 #include <Ice/Ice.h>
 #include <util/Log.h>
-#include "DiskMgr.h"
-#include "StorMgrVolumes.h"
-#include <disk-mgr/dm_service.h>
-#include <disk-mgr/dm_io.h>
+#include <concurrency/Mutex.h>
 
-#include <include/fds_qos.h>
-#include <include/qos_ctrl.h>
 #include <include/fds_assert.h>
 #include <utility>
 #include <atomic>
 #include <unordered_map>
+#include <util/counter.h>
+#include <leveldb/db.h>
+
+using namespace std;
 
 namespace fds {
 
-class StorMgrStatsTracker : public StorMgrStatsTracker { 
-  public:
-  StorMgrStatsTracker(fds_log *parent_log);
-  ~StorMgrStatsTracker();
+class ObjStatsTracker { 
 
+public:
+  /*
+   * get the start time 
+   */
+  CounterHist8bit *objStats; 
+  /*  per volume lock */
+  fds_mutex *objStatsMapLock;
+
+  /*
+   * log  derived from parent
+   */
+   fds_log *stats_log;
+ 
+   /*
+    * level db for storing the stats 
+    */
+   leveldb::DB* db;
+
+  ObjStatsTracker(fds_log *parent_log);
+  ~ObjStatsTracker();
+
+   boost::posix_time::ptime startTime; 
    /*
     * io Path class
     */ 
    class ioPathStats {
-	fds_uint64_t   numObjectsRead;  
+    public:
+   	CounterHist8bit  objStats;
 	fds_uint64_t   averageObjectsRead; 
-	fds_uint64_t   lastAccessTimeR;
-	fds_uint64_t   lastAccessTimeW;
+        boost::posix_time::ptime lastAccessTimeR; 
    };
-
-  /* lock, may not required */
-  fds_mutex *objStatsMapLock;
+ 	
    /*
-    * map  defination for in memory  stats structure 
-    */
-  typedef std::unordered_map<ObjectID, ioPathStats* > ioPathStatsObj_map_t;
-  typedef std::unordered_map<fds_volid_t, ioPathStats* > ioPathStatsVol_map_t;
+    *  this for testing only 
+   */
+   fds_uint64_t   ObjectsReadPerSlot; 
 
    /*
     * IO path Interface functions 
@@ -73,22 +81,50 @@ class StorMgrStatsTracker : public StorMgrStatsTracker {
    /*
     * Ranking Engine  Interface functions   define proto type  for bulk objects  
     */
-   setAccessSlotTime(fds_uint64_t slotTime);
-   lastObjectReadAccessTime(fds_volid_t vol_uuid,ObjectID& objId, fds_uint64_t accessTime);
-   lastObjectWriteAccessTime(fds_volid_t vol_uuid,ObjectID& objId, fds_uint64_t accessTime);
-   getObjectAccess(fds_volid_t vol_uuid,ObjectID& objId,fds_uint64_t                                                           numAccess);
+   void setAccessSlotTime(fds_uint64_t slotTime);
+   void lastObjectReadAccessTime(fds_volid_t vol_uuid,ObjectID& objId, fds_uint64_t accessTime);
+   void lastObjectWriteAccessTime(fds_volid_t vol_uuid,ObjectID& objId, fds_uint64_t accessTime);
+   fds_uint32_t getObjectAccessVol(fds_volid_t vol_uuid);
+   fds_uint32_t getObjectAccess(const ObjectID& objId);
    /*
     * bulk object interface 
     */
-   lastObjectReadAccessTimeBlk(fds_volid_t vol_uuid,ObjectID& objId, fds_uint64_t accessTime);
-   lastObjectWriteAccessTimeBlk(fds_volid_t vol_uuid,ObjectID& objId, fds_uint64_t accessTime);
-   getObjectAccessBlk(fds_volid_t vol_uuid,ObjectID& objId,fds_uint64_t numAccess);
+   void lastObjectReadAccessTimeBlk(fds_volid_t vol_uuid,ObjectID& objId, fds_uint64_t accessTime);
+   void lastObjectWriteAccessTimeBlk(fds_volid_t vol_uuid,ObjectID& objId, fds_uint64_t accessTime);
+   fds_uint32_t getObjectAccessBlk(fds_volid_t vol_uuid,ObjectID& objId);
 
    
   private:
-    Error queryDbStats(const ObjectID &oid,StorMgrStatsTracker *qryStats);
-    Error updateDbStats(const ObjectID &oid,StorMgrStatsTracker *updStats); 
-    Error deleteDbStats(const ObjectID &oid,StorMgrStatsTracker *delStats); 
+
+  fds_bool_t objStatsExists(const ObjectID& objId);
+  fds_bool_t objExists(const ObjectID& objId);
+  /*
+   * level db class for   storing the  stats 
+   */
+   class  levelDbStats {
+    public:
+      fds_uint64_t      numObjsRead;
+      fds_uint64_t      numObjsReadDay;
+      fds_uint64_t      numObjsReadWeek;
+      fds_uint64_t      numObjsReadMonth;
+      boost::posix_time::ptime lastAccessTimeR; 
+   };
+
+
+  Error queryDbStats(const ObjectID &oid,ioPathStats *qryStats);
+  Error updateDbStats(const ObjectID &oid,ioPathStats *updStats); 
+  Error deleteDbStats(const ObjectID &oid,ioPathStats *delStats); 
+   /*
+    * map  defination for in memory  stats structure 
+    */
+  typedef unordered_map<ObjectID, ioPathStats*,ObjectHash> ioPathStatsObj_map_t;
+  typedef std::unordered_map<fds_volid_t, ioPathStats* > ioPathStatsVol_map_t;
+
+  ioPathStatsObj_map_t  ioPathStatsObj_map;
+
+
 };
+
+} /* fds namespace */
 
 #endif  // OBJ_STATS_H

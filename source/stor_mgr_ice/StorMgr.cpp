@@ -191,6 +191,10 @@ ObjectStorMgr::ObjectStorMgr() :
                           FDS_QoSControl::FDS_DISPATCH_WFQ,
                           sm_log);
   qosCtrl->runScheduler();
+  /*
+   * stats class init 
+   */
+    objStats =  new ObjStatsTracker(sm_log);
 }
 
 ObjectStorMgr::~ObjectStorMgr()
@@ -1062,6 +1066,7 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
    if (io->io_type == FDS_IO_READ) {
           FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a get request";
           threadPool->schedule(getObjectExt,io);
+          objStorMgr->objStats->updateIOpathStats(io->getVolId(),io->getObjId());
    } else if (io->io_type == FDS_IO_WRITE) {
           FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a put request";
           threadPool->schedule(putObjectExt,io);

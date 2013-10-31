@@ -22,6 +22,7 @@
 #include <concurrency/RwLock.h>
 #include <odb.h>
 #include <include/qos_ctrl.h>
+#include <util/counter.h>
 
 /* defaults */
 #define FDS_DEFAULT_VOL_UUID 1
@@ -85,6 +86,14 @@ namespace fds {
      */
     ObjectStorMgr *parent_sm;
  public:
+
+     /*
+      *  per volume stats 
+      */
+    CounterHist8bit  objStats;
+    fds_uint64_t   averageObjectsRead; 
+    boost::posix_time::ptime lastAccessTimeR; 
+
     fds_volid_t getVolId() const {
       return voldesc->volUUID;
     }
