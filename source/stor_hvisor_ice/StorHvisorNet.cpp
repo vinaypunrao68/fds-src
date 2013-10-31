@@ -601,7 +601,7 @@ StorHvCtrl::StorHvCtrl(int argc,
       dataMgrPortNum = props->getPropertyAsInt("DataMgr.PortNumber");
     }
     dataMgrIPAddress = props->getProperty("DataMgr.IPAddress");
-    rpcSwitchTbl->Add_RPC_EndPoint(dataMgrIPAddress, dataMgrPortNum, FDSP_DATA_MGR);
+    rpcSwitchTbl->Add_RPC_EndPoint(dataMgrIPAddress, dataMgrPortNum, my_node_name, FDSP_DATA_MGR);
   }
   if ((mode == STOR_MGR_TEST) ||
       (mode == TEST_BOTH)) {
@@ -611,7 +611,7 @@ StorHvCtrl::StorHvCtrl(int argc,
       storMgrPortNum  = props->getPropertyAsInt("ObjectStorMgrSvr.PortNumber");
     }
     storMgrIPAddress  = props->getProperty("ObjectStorMgrSvr.IPAddress");
-    rpcSwitchTbl->Add_RPC_EndPoint(storMgrIPAddress, storMgrPortNum, FDSP_STOR_MGR);
+    rpcSwitchTbl->Add_RPC_EndPoint(storMgrIPAddress, storMgrPortNum, my_node_name, FDSP_STOR_MGR);
   }
   
   if ((mode == DATA_MGR_TEST) ||
