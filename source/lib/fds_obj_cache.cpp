@@ -134,6 +134,8 @@ namespace fds{
     std::atomic_fetch_add(&total_mem_used, (fds_uint64_t) obj_size);
     newObjCacheBufPtr->io_in_progress = true;
     newObjCacheBufPtr->copy_is_dirty = false;
+    newObjCacheBufPtr->vol_id = vol_id;
+    newObjCacheBufPtr->obj_id = objId;
     vol_cache->vol_cache_lock->lock();
     vol_cache->object_map[objId] = newObjCacheBufPtr;
     vol_cache->vol_cache_lock->unlock();
@@ -186,7 +188,8 @@ namespace fds{
     assert((objBuf->copy_is_dirty == false) && (objBuf->io_in_progress == false));
     vol_cache->object_map.erase(objId);
 
-    if (objBuf.use_count() >= 2) {
+    if (objBuf.use_count() > 2) { 
+      // Volume index tbl and the eviction_plcy_mgr are the only ones that should have a reference.
       vol_cache->object_map[objId] = objBuf;
       vol_cache->vol_cache_lock->unlock();
       return NULL;
@@ -228,4 +231,25 @@ namespace fds{
     return 0;
   }
 
+  bool FdsObjectCache::volume_evictable(fds_volid_t vol_id) {
+
+    volmap_rwlock.read_lock();
+    VolObjectCache *vol_cache = NULL;
+    if (vol_cache_map.count(vol_id) == 0) {
+      volmap_rwlock.write_unlock();
+      return false;
+    }
+    vol_cache = vol_cache_map[vol_id];
+    volmap_rwlock.read_unlock();
+    
+    fds_uint64_t current_vol_cache_sz = atomic_load(&vol_cache->total_mem_used);
+    
+    if (current_vol_cache_sz <= vol_cache->min_cache_size) {
+      return false;
+    }
+
+    return true;
+  }
+
 }
+

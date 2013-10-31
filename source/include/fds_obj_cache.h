@@ -16,11 +16,14 @@ using namespace std;
 
 namespace fds{
 
+
   class ObjectCacheBuf : public ObjectBuf {
   public:
-    boost::posix_time::ptime last_access_time;
+    fds_volid_t vol_id;
+    ObjectID obj_id;
     bool io_in_progress;
     bool copy_is_dirty;
+    void *plcy_data;
     // Some additional fields here to track it's eviction candidacy status
     // If we use calendar queues for example, 
     // we may store here the ptr to the calendar
@@ -30,6 +33,8 @@ namespace fds{
       {
 	size = 0;
 	data = "";
+	vol_id = 0;
+	plcy_data = NULL;
       }
   };
 
@@ -125,7 +130,9 @@ namespace fds{
     // A version of delete for the plcy manager to call when it wants to evict an object.
     // Main difference between this and delete is this assumes plcy manager already knows
     // about this object going away.
-    int object_evict(fds_volid_t vol_id, ObjectID objID);
+    int object_evict(fds_volid_t vol_id, ObjectID objId);
+
+    bool volume_evictable(fds_volid_t vol_id);
 
    private:
 
