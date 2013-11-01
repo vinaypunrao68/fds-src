@@ -8,10 +8,12 @@
 
 namespace fds {
 
-ObjectRankEngine::ObjectRankEngine(const std::string& _sm_prefix, fds_uint32_t _tbl_size, fds_log* log)
+ObjectRankEngine::ObjectRankEngine(const std::string& _sm_prefix, fds_uint32_t _tbl_size, ObjStatsTracker *_obj_stats, fds_log* log)
   : rank_tbl_size(_tbl_size), 
     cur_rank_tbl_size(0),
     max_cached_objects(MAX_RANK_CACHE_SIZE),
+    tail_rank(OBJECT_RANK_INVALID),
+    obj_stats(_obj_stats),
     ranklog(log)
 {
   std::string filename(_sm_prefix + "ObjRankDB");
@@ -102,7 +104,11 @@ void ObjectRankEngine::deleteObject(const ObjectID& objId)
 fds_uint32_t ObjectRankEngine::getRank(const ObjectID& objId, const VolumeDesc& voldesc)
 {
   fds_uint32_t rank = 0;
-  /* TODO: first check if volume is 'all disk' or 'all ssd' -- we don't have this policy yet */
+  if (voldesc.volType == FDSP_VOL_BLKDEV_DISK_TYPE)
+    return OBJECT_RANK_ALL_DISK;
+  if (voldesc.volType == FDSP_VOL_BLKDEV_SSD_TYPE)
+    return OBJECT_RANK_ALL_SSD;
+
   rank = ( ( getObjectSubrank(objId) << 16 ) & 0xFFFF0000 ) + getVolumeRank(voldesc);
   return rank;
 }
@@ -400,6 +406,15 @@ Error ObjectRankEngine::doRanking()
   ordered_objects->clear();
   delete ordered_objects;
   ordered_objects = NULL;
+
+  /* update the tail rank with the last object in the rank table (if its full) */
+  if (cur_rank_tbl_size < rank_tbl_size)
+    tail_rank = OBJECT_RANK_INVALID;
+  else {
+    /* safe to update without lock because lowrank_objs never accessed if ranking is in progress */
+    rank_order_objects_rit_t rit = lowrank_objs.rbegin();
+    tail_rank = rit->first;
+  }
 
   /* persist the change table */
   err = persistChgTableAndSwap();

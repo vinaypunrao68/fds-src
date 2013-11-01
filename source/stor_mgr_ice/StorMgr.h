@@ -50,7 +50,7 @@
 #include <concurrency/Mutex.h>
 
 #include <include/TierEngine.h>
-#include <include/TierPutAlgorithms.h>
+#include <include/ObjRank.h>
 
 #define FDS_STOR_MGR_LISTEN_PORT FDS_CLUSTER_TCP_PORT_SM
 #define FDS_STOR_MGR_DGRAM_PORT FDS_CLUSTER_UDP_PORT_SM
@@ -190,11 +190,8 @@ namespace fds {
 
     /*
      * Tiering related members
-     * TODO: Reorganize this to place the algorithm
-     * within the engine layer. It's weird having the
-     * SM create the algorithm object,
      */
-    RandomTestAlgo  tierPutAlgo;
+    ObjectRankEngine *rankEngine;
     TierEngine     *tierEngine;
 
     /*

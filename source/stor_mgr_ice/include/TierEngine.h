@@ -6,7 +6,9 @@
 #define SOURCE_STOR_MGR_ICE_INCLUDE_TIERENGINE_H_
 
 #include <stor_mgr_ice/StorMgrVolumes.h>
+#include <stor_mgr_ice/include/ObjRank.h>
 #include <include/persistent_layer/dm_io.h>
+#include <util/Log.h>
 
 namespace fds {
 
@@ -108,14 +110,25 @@ namespace fds {
      * Ranker: provides in flash obj ranks
      * Volume meta: provides vol placement metadata
      */
+    ObjectRankEngine* rank_eng;
+    StorMgrVolumeTable* sm_volTbl;
+    fds_log* te_log;
 
  public:
+    typedef enum {
+      FDS_TIER_PUT_ALGO_RANDOM,
+      FDS_TIER_PUT_ALGO_BASIC_RANK,
+    } tierPutAlgoType;
+
     /*
      * Constructor for tier engine. This will take
      * references to required external classes and
      * start the tier migration threads.
      */
-    TierEngine(TierPutAlgo *algo);
+    TierEngine(tierPutAlgoType _algo_type, 
+	       StorMgrVolumeTable* _sm_volTbl,
+	       ObjectRankEngine* _rank_eng,
+	       fds_log* _log);
     ~TierEngine();
 
     /*

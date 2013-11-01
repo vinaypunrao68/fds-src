@@ -32,6 +32,7 @@
 #include <atomic>
 #include <unordered_map>
 
+#include "ObjStats.h"
 
 #define MAX_RANK_CACHE_SIZE    10485760      /* x 20bytes = 200MB */ 
 #define OBJECT_RANK_ALL_SSD    0x00000000    /* highest rank */
@@ -49,7 +50,7 @@ namespace fds {
  */ 
 class ObjectRankEngine {
  public: 
-  ObjectRankEngine(const std::string& _sm_prefix, fds_uint32_t tbl_size, fds_log *log);
+  ObjectRankEngine(const std::string& _sm_prefix, fds_uint32_t tbl_size, ObjStatsTracker *_obj_stats, fds_log *log);
    ~ObjectRankEngine();
 
    typedef enum {
@@ -90,11 +91,6 @@ class ObjectRankEngine {
    // returns number of actualy objects we put into 'objRankArray'
    fds_uint32_t getDeltaChangeTblSegment(fds_uint32_t num_objs, std::pair<ObjectID, rankOperType>* objRankArray);
 
-   /* for now will return demotion only if this is 'all disk' volume */
-   inline fds_bool_t isRankDemotion(fds_uint32_t rank) const { 
-     return (( rank & RANK_DEMOTION_MASK ) != 0x00000000);
-   }
-
    // Migrator/Tiering Engine must call this method when done with RankDeltaChangeTable
    // For now we 'forget' about objects once we return them with getDeltaChangeTblSegment
    //void doneWithRankDeltaChangeTable(void);
@@ -105,6 +101,12 @@ class ObjectRankEngine {
    // Currently, it will stop providing objects if they are not cached; 
    // also, assumes they get used, so will remove those from cache as soon as they are returned.
    fds_uint32_t getNextTblSegment(fds_uint32_t num_objs, ObjectID *objIdArray);
+
+   // Returns the rank of the last object in the rank table (the lowest-rank)
+   // If the rank table has free space, returns OBJECT_RANK_INVALID which is the
+   // lowest possible rank;
+   // This is the lowest rank as of the last ranking process 
+   inline fds_uint32_t getTblTailRank() const { return tail_rank; }
 
    static void runRankingThread(ObjectRankEngine* self);
 
@@ -134,7 +136,7 @@ class ObjectRankEngine {
       * was accessed 30 or 31 times recently it should yield the same 
       * rank, so we will reset few least significant bits */ 
      const fds_uint16_t frequency_mask = 0xFFFC; /* last two bits */
-     fds_uint16_t frequency = 8; // TODO:get frequency from stats tracker
+     fds_uint16_t frequency = obj_stats->getObjectAccess(objId);
 
      /* mask and invert so that the higher ranks have lower values */
      return ( ~(frequency & frequency_mask) );
@@ -150,6 +152,11 @@ class ObjectRankEngine {
      }
      new_rank += ( (getObjectSubrank(objId) << 16) & 0xFFFF0000 );
      return new_rank;
+   }
+
+   /* for now will return demotion only if this is 'all disk' volume */
+   inline fds_bool_t isRankDemotion(fds_uint32_t rank) const { 
+     return (( rank & RANK_DEMOTION_MASK ) != 0x00000000);
    }
 
    /* methods that actually implement ranking process */
@@ -185,6 +192,10 @@ class ObjectRankEngine {
    rank_order_objects_t lowrank_objs; /* cache of N lowert rank objects in the rank table */
    fds_mutex* tbl_mutex; /* for both rankDeltaChgTbl and lowrank_objs */
 
+   /* cache lowest rank in the ranking table for queries from the tiering engine 
+    * this value is updated only at the end of each ranking process */
+   fds_uint32_t tail_rank; /* updated only by the ranking thread */ 
+
    /* True is ranking proces is enabled */
    std::atomic<fds_bool_t> rankingEnabled;
    /* only used by destructor to make sure we stop ranking thread first */
@@ -192,6 +203,9 @@ class ObjectRankEngine {
    /* for now one thread doing ranking process */
    boost::thread *rank_thread;
    fds_notification* rank_notify;
+
+   /* does not own, passed to the constructor */
+   ObjStatsTracker *obj_stats;
 
    /* does not own, passed to the constructor */
    fds_log* ranklog;

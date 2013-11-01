@@ -39,16 +39,16 @@ namespace fds {
    *       of this object (we know that this object can 
    *       kick the lowest-rank object out of the table)
    */
-  class PolicyTierPutAlgo: public TierPutAlgo {
+  class RankTierPutAlgo: public TierPutAlgo {
   public:
-    PolicyTierPutAlgo(StorMgrVolumeTable* _sm_volTbl, 
+    RankTierPutAlgo(StorMgrVolumeTable* _sm_volTbl, 
 		      ObjectRankEngine* _rank_eng, 
 		      fds_log *_log)
       : rank_eng(_rank_eng),
       sm_volTbl(_sm_volTbl),
       tpa_log(_log) {
       }
-    ~PolicyTierPutAlgo() {
+    ~RankTierPutAlgo() {
     }
 
     diskio::DataTier selectTier(const ObjectID &oid,

@@ -179,11 +179,6 @@ ObjectStorMgr::ObjectStorMgr() :
   omClient = NULL;
 
   /*
-   * Setup the tier related members
-   */
-  tierEngine = new TierEngine(static_cast<TierPutAlgo *>(&tierPutAlgo));
-
-  /*
    * Setup QoS related members.
    */
   qosCtrl = new SmQosCtrl(this,
@@ -228,6 +223,7 @@ ObjectStorMgr::~ObjectStorMgr()
   delete qosCtrl;
 
   delete tierEngine;
+  delete rankEngine;
 
   delete sm_log;
   delete volTbl;
@@ -998,6 +994,10 @@ ObjectStorMgr::run(int argc, char* argv[]) {
    */
   volTbl = new StorMgrVolumeTable(this);
 
+  /* Create tier related classes -- has to be after volTbl is created */
+  rankEngine = new ObjectRankEngine(stor_prefix, 1000000, objStats, objStorMgr->GetLog());
+  tierEngine = new TierEngine(TierEngine::FDS_TIER_PUT_ALGO_BASIC_RANK, volTbl, rankEngine, objStorMgr->GetLog());
+
   /*
    * Register/boostrap from OM
    */
@@ -1029,6 +1029,13 @@ ObjectStorMgr::run(int argc, char* argv[]) {
                                testVolId * 2,
                                testVolId);
       fds_assert(testVdb != NULL);
+      if ( (testVolId % 3) == 0)
+	testVdb->volType = FDSP_VOL_BLKDEV_DISK_TYPE;
+      else if ( (testVolId % 3) == 1)
+	testVdb->volType = FDSP_VOL_BLKDEV_SSD_TYPE;
+      else 
+	testVdb->volType = FDSP_VOL_BLKDEV_HYBRID_TYPE;
+
       volEventOmHandler(testVolId,
                         testVdb,
                         FDS_VOL_ACTION_CREATE);

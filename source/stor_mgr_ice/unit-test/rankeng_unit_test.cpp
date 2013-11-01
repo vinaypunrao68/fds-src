@@ -15,6 +15,7 @@
 #include <fds_assert.h>
 #include <fds_types.h>
 #include "ObjRank.h"
+#include "ObjStats.h"
 
 namespace fds {
 
@@ -38,7 +39,8 @@ class ObjRankUnitTest {
   fds_int32_t basic_ranking() {
 
     FDS_PLOG(test_log) << "Starting test: basic_ranking()";
-    ObjectRankEngine* rank_eng = new ObjectRankEngine("sm", rank_table_size, test_log);
+    ObjStatsTracker *obj_stats = new ObjStatsTracker(test_log);
+    ObjectRankEngine* rank_eng = new ObjectRankEngine("sm", rank_table_size, obj_stats, test_log);
     if (!rank_eng) {
       FDS_PLOG(test_log) << "basic_ranking: failed to create ObjectRankEngine";
       return 1;
@@ -114,6 +116,9 @@ class ObjRankUnitTest {
       }
 
     } while (count > 0);    
+
+    FDS_PLOG(test_log) << "UNIT_TEST: tail_rank = " << rank_eng->getTblTailRank();
+
 
     /* add higher priority objects that will push out lower rank objects in the table   */
 
@@ -233,7 +238,7 @@ class ObjRankUnitTest {
 }  // namespace fds
 
 int main(int argc, char* argv[]) {
-  fds::ObjRankUnitTest unit_test(2000, 10);
+  fds::ObjRankUnitTest unit_test(100, 10);
 
   return unit_test.Run();
 }
