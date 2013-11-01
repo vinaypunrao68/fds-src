@@ -5,18 +5,12 @@
 #ifndef SOURCE_STOR_MGR_ICE_INCLUDE_TIERENGINE_H_
 #define SOURCE_STOR_MGR_ICE_INCLUDE_TIERENGINE_H_
 
-namespace fds {
+#include <stor_mgr_ice/StorMgrVolumes.h>
+#include <stor_mgr_ice/include/ObjRank.h>
+#include <include/persistent_layer/dm_io.h>
+#include <util/Log.h>
 
-  /*
-   * Defines the available tiers.
-   * TODO: This should probably be exported by
-   * the persistence layer.
-   */
-  enum Tier {
-    diskTier  = 0,
-    flashTier = 1,
-    maxTier
-  };
+namespace fds {
 
   /*
    * Abstract base that defines what a migration algorithm
@@ -53,7 +47,7 @@ namespace fds {
    * Abstract base class for inline placement
    * algorithms
    */
-  class PlacementAlgo {
+  class TierPutAlgo {
  private:
     /*
      * Member references to needed external objects
@@ -68,8 +62,8 @@ namespace fds {
      *
      * @return the tier to place the object
      */
-    virtual Tier selectTier(const ObjectID&      oid,
-                            const StorMgrVolume& vol) = 0;
+    virtual diskio::DataTier selectTier(const ObjectID &oid,
+                                        fds_volid_t     vol) = 0;
   };
 
   /*
@@ -103,7 +97,12 @@ namespace fds {
   class TierEngine {
  private:
     fds_uint32_t  numMigThrds;
-    TierMigration migrator;
+    TierMigration *migrator;
+
+    /*
+     * Member algorithms.
+     */
+    TierPutAlgo *tpa;
 
     /*
      * Member references to external objects.
@@ -111,14 +110,25 @@ namespace fds {
      * Ranker: provides in flash obj ranks
      * Volume meta: provides vol placement metadata
      */
+    ObjectRankEngine* rank_eng;
+    StorMgrVolumeTable* sm_volTbl;
+    fds_log* te_log;
 
  public:
+    typedef enum {
+      FDS_TIER_PUT_ALGO_RANDOM,
+      FDS_TIER_PUT_ALGO_BASIC_RANK,
+    } tierPutAlgoType;
+
     /*
      * Constructor for tier engine. This will take
      * references to required external classes and
      * start the tier migration threads.
      */
-    TierEngine();
+    TierEngine(tierPutAlgoType _algo_type, 
+	       StorMgrVolumeTable* _sm_volTbl,
+	       ObjectRankEngine* _rank_eng,
+	       fds_log* _log);
     ~TierEngine();
 
     /*
@@ -131,8 +141,8 @@ namespace fds {
      *
      * @return the tier to place object
      */
-    Tier selectTier(const ObjectID&      oid,
-                    const StorMgrVolume& vol);
+    diskio::DataTier selectTier(const ObjectID &oid,
+                                fds_volid_t     vol);
   };
 }  // namespace fds
 

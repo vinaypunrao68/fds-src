@@ -77,7 +77,9 @@ enum FDSP_ErrType {
 enum FDSP_VolType {
   FDSP_VOL_S3_TYPE,
   FDSP_VOL_BLKDEV_TYPE,
-  FDSP_VOL_BLKDEV_SSD_TYPE
+  FDSP_VOL_BLKDEV_SSD_TYPE,
+  FDSP_VOL_BLKDEV_DISK_TYPE,
+  FDSP_VOL_BLKDEV_HYBRID_TYPE
 };
 
 enum FDSP_VolNotifyType {
@@ -377,6 +379,25 @@ class FDSP_QueueStateType {
   
 };
 
+class FDSP_TierPolicy {
+    double          tier_vol_uuid;
+    double          tier_domain_uuid;
+    bool            tier_domain_policy;
+    int             tier_media;
+    int             tier_prefetch_algo;
+    long            tier_media_pct;
+    long            tier_interval_sec;
+};
+
+class FDSP_TierPolicyAudit {
+    double          tier_vol_uuid;
+    long            tier_stat_min_iops;
+    long            tier_stat_max_iops;
+    long            tier_pct_ssd_iop;
+    long            tier_pct_hdd_iop;
+    long            tier_pct_ssd_capacity;
+};
+
 sequence<FDSP_QueueStateType> FDSP_QueueStateListType;
 
 class FDSP_NotifyQueueStateType {
@@ -508,6 +529,8 @@ interface FDSP_ControlPathReq {
   void NotifyDLTUpdate(FDSP_MsgHdrType fdsp_msg, FDSP_DLT_Type dlt_info);
   void NotifyDMTUpdate(FDSP_MsgHdrType fdsp_msg, FDSP_DMT_Type dmt_info);
   void SetThrottleLevel(FDSP_MsgHdrType fdsp_msg, FDSP_ThrottleMsgType throttle_msg);
+  void TierPolicy(FDSP_TierPolicy tier);
+  void TierPolicyAudit(FDSP_TierPolicyAudit audit);
 
 };
 

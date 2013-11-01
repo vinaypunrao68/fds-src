@@ -28,8 +28,8 @@
 #include <util/Log.h>
 #include "DiskMgr.h"
 #include "StorMgrVolumes.h"
-#include <disk-mgr/dm_service.h>
-#include <disk-mgr/dm_io.h>
+#include <persistent_layer/dm_service.h>
+#include <persistent_layer/dm_io.h>
 
 #include <include/fds_qos.h>
 #include <include/qos_ctrl.h>
@@ -37,6 +37,7 @@
 #include <utility>
 #include <atomic>
 #include <unordered_map>
+#include <include/ObjStats.h>
 
 /*
  * TODO: Move this header out of lib/
@@ -49,6 +50,7 @@
 #include <concurrency/Mutex.h>
 
 #include <include/TierEngine.h>
+#include <include/ObjRank.h>
 
 #define FDS_STOR_MGR_LISTEN_PORT FDS_CLUSTER_TCP_PORT_SM
 #define FDS_STOR_MGR_DGRAM_PORT FDS_CLUSTER_UDP_PORT_SM
@@ -68,16 +70,27 @@ namespace fds {
    */
   class ObjectStorMgrI;
 
-  class SMDiskReq : public diskio::DiskRequest
-    {
-    public:
-      SMDiskReq(meta_vol_io_t       &vio,
-                meta_obj_id_t       &oid,
-                fds::ObjectBuf      *buf,
-                bool                block)
-	: diskio::DiskRequest(vio, oid, buf, block) {
-      }
-      ~SMDiskReq() { }
+  class SmPlReq : public diskio::DiskRequest {
+ public:
+    /*
+     * TODO: This defaults to disk at the moment...
+     * need to specify any tier, specifically for
+     * read
+     */
+ SmPlReq(meta_vol_io_t   &vio,
+         meta_obj_id_t   &oid,
+         ObjectBuf        *buf,
+         fds_bool_t        block)
+     : diskio::DiskRequest(vio, oid, buf, block) {
+    }
+ SmPlReq(meta_vol_io_t   &vio,
+         meta_obj_id_t   &oid,
+         ObjectBuf        *buf,
+         fds_bool_t        block,
+         diskio::DataTier  tier)
+     : diskio::DiskRequest(vio, oid, buf, block, tier) {
+    }
+    ~SmPlReq() { }
 
     void req_submit() {
       fdsio::Request::req_submit();
@@ -85,8 +98,10 @@ namespace fds {
     void req_complete() {
       fdsio::Request::req_complete();
     }
- 
-};
+    void setTierFromMap() {
+      datTier = static_cast<diskio::DataTier>(idx_vmap.obj_tier);
+    }
+  };
 
 
   class ObjectStorMgr : virtual public Ice::Application {
@@ -97,6 +112,9 @@ namespace fds {
       MAX
     } SmRunModes;
 
+    /*
+     * Command line settable members
+     */
     fds_uint32_t port_num;     /* Data path port num */
     fds_uint32_t cp_port_num;  /* Control path port num */
     std::string  myIp;         /* This nodes local IP */
@@ -104,114 +122,40 @@ namespace fds {
     SmRunModes   runMode;      /* Whether we're in a test mode or not */
     fds_uint32_t numTestVols;  /* Number of vols to use in test mode */
 
- public:
-    fds_int32_t   sockfd;
-    fds_uint32_t  num_threads;
-
-   FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr dInfo;
-   
-    fds_mutex     *objStorMutex;
-
-    DiskMgr     *diskMgr;
-    ObjectDB    *objStorDB;
-    ObjectDB    *objIndexDB;
-
-    StorMgrVolumeTable *volTbl;
+    /*
+     * OM/boostrap related members
+     */
     OMgrClient         *omClient;
 
-    FDS_ProtocolInterface::FDSP_DataPathReqPtr fdspDataPathServer;
-    unordered_map<std::string, FDS_ProtocolInterface::FDSP_DataPathRespPrx> fdspDataPathClient; //For sending back the response to the SH/DM
-
-    ObjectStorMgr();
-    ~ObjectStorMgr();
-
-    fds_log* GetLog();
-    fds_log *sm_log;
-
-    fds_int32_t  getSocket() { return sockfd; }   
-
-    void PutObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-                   const FDS_ProtocolInterface::FDSP_PutObjTypePtr& put_obj);
-    void GetObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-                   const FDS_ProtocolInterface::FDSP_GetObjTypePtr& get_obj);
-
-    inline void swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg);
-    static void nodeEventOmHandler(int node_id,
-                                   unsigned int node_ip_addr,
-                                   int node_state,
-                                   fds_uint32_t node_port,
-                                   FDS_ProtocolInterface::FDSP_MgrIdType node_type);
-    static void volEventOmHandler(fds::fds_volid_t volume_id,
-                                  fds::VolumeDesc *vdb,
-                                  int vol_action);
-
-    virtual int run(int, char*[]);
-    void interruptCallback(int);
-    void          unitTest();
-
-    const std::string& getStorPrefix() const {
-      return stor_prefix;
-    }
+    /*
+     * Local storage members
+     */
+    fds_mutex *objStorMutex;
+    ObjectDB  *objStorDB;
+    ObjectDB  *objIndexDB;
 
     /*
-     * Declare the Ice interface class as a friend so it can access
-     * the internal request tracking members.
-     * TODO: Make this a nested class instead. No reason to make it
-     * a separate class.
+     * Ice/network members
+     * The map is used for sending back the response to the
+     * appropriate SH/DM
      */
-    friend ObjectStorMgrI;
-    Error getObjectInternal(SmIoReq* getReq);
-    Error putObjectInternal(SmIoReq* putReq);
+    FDS_ProtocolInterface::FDSP_DataPathReqPtr fdspDataPathServer;
+    unordered_map<std::string,
+        FDS_ProtocolInterface::FDSP_DataPathRespPrx> fdspDataPathClient;
 
- private:
+    /*
+     * TODO: this one should be the singleton by itself.  Need to make it
+     * a stand-alone module like resource manager for volume.
+     * Volume specific members
+     */
+    StorMgrVolumeTable *volTbl;
+
+    /*
+     * Qos related members and classes
+     */
     fds_uint32_t totalRate;
     fds_uint32_t qosThrds;
 
-    /*
-     * Outstanding request tracking members.
-     * TODO: We should have a better overall mechanism than
-     * this. This is pretty slow and hackey. For example,
-     * a map is only used for convienence.
-     */
-    typedef std::unordered_map<fds_uint64_t,
-        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr > WaitingReqMap;
-    WaitingReqMap              waitingReqs;
-    std::atomic<fds_uint64_t>  nextReqId;
-    fds_mutex                 *waitingReqMutex;
-
-    /*
-     * Private request processing members.
-     */
-    Error getObjectInternal(FDSP_GetObjTypePtr getObjReq, 
-                            fds_volid_t        volId, 
-                            fds_uint32_t       transId, 
-                            fds_uint32_t       numObjs);
-    Error putObjectInternal(FDSP_PutObjTypePtr putObjReq, 
-                            fds_volid_t        volId,
-                            fds_uint32_t       transId,
-                            fds_uint32_t       numObjs);
-    Error checkDuplicate(const ObjectID& objId,
-                         const ObjectBuf& objCompData);
-
-    Error writeObjectLocation(const fds::ObjectID& objId, 
-			      meta_obj_map_t* obj_map);
-
-    Error readObjectLocation(const fds::ObjectID& objId, 
-			      meta_obj_map_t* obj_map);
-
-
-    Error writeObject(const ObjectID& objId,
-		      const ObjectBuf& objCompData);
-
-    Error readObject(const ObjectID& objId,
-		     ObjectBuf& objCompData);
-
-
-    /*
-     * This inheritance is private because no one
-     * else should need to care about the inheritance
-     * knowledge.
-     */
     class SmQosCtrl : public FDS_QoSControl {
    private:
       ObjectStorMgr *parentSm;
@@ -240,14 +184,117 @@ namespace fds {
 	stats->recordIO(_io.io_vol_id, 0);
 	return err;
       }
-
     };
 
- private:
-    /*
-     * TODO: Just make a single queue for now for testing purposes.
-     */
     SmQosCtrl  *qosCtrl;
+
+    /*
+     * Tiering related members
+     */
+    ObjectRankEngine *rankEngine;
+    TierEngine     *tierEngine;
+
+    /*
+     * Outstanding request tracking members.
+     * TODO: We should have a better overall mechanism than
+     * this. This is pretty slow and hackey. The networking
+     * layer should eventually handle this, not SM.
+     */
+    typedef std::unordered_map<fds_uint64_t,
+        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr > WaitingReqMap;
+    WaitingReqMap              waitingReqs;
+    std::atomic<fds_uint64_t>  nextReqId;
+    fds_mutex                 *waitingReqMutex;
+
+    /*
+     * Private request processing members.
+     */
+    Error getObjectInternal(FDSP_GetObjTypePtr getObjReq, 
+                            fds_volid_t        volId, 
+                            fds_uint32_t       transId, 
+                            fds_uint32_t       numObjs);
+    Error putObjectInternal(FDSP_PutObjTypePtr putObjReq, 
+                            fds_volid_t        volId,
+                            fds_uint32_t       transId,
+                            fds_uint32_t       numObjs);
+    Error checkDuplicate(const ObjectID  &objId,
+                         const ObjectBuf &objCompData);
+    Error writeObjectLocation(const ObjectID &objId, 
+                              meta_obj_map_t *obj_map);
+    Error readObjectLocation(const ObjectID  &objId, 
+                              meta_obj_map_t *obj_map);
+    Error writeObject(const ObjectID  &objId,
+                      const ObjectBuf &objCompData,
+                      fds_volid_t      volId);
+    Error readObject(const ObjectID &objId,
+                     ObjectBuf      &objCompData);
+
+ public:
+
+    ObjectStorMgr();
+    ~ObjectStorMgr();
+
+    fds_log* GetLog();
+    fds_log *sm_log;
+    /*
+     * stats  class 
+     */
+      ObjStatsTracker   *objStats;
+
+    /*
+     * Public volume reg handlers
+     */
+    void regVolHandler(volume_event_handler_t volHndlr) {
+      omClient->registerEventHandlerForVolEvents(volHndlr);
+    }
+
+    Error regVol(const VolumeDesc& vdb) {
+      return volTbl->registerVolume(vdb);
+    }
+
+    Error deregVol(fds_volid_t volId) {
+      return volTbl->deregisterVolume(volId);
+    }
+    // We need to get this info out of this big class to avoid making this
+    // class even bigger than it should.  Not much point for making it
+    // private and need a get method to get it out.
+    //
+    StorMgrVolumeTable *sm_getVolTables() {
+        return volTbl;
+    }
+
+    void PutObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                   const FDS_ProtocolInterface::FDSP_PutObjTypePtr& put_obj);
+    void GetObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                   const FDS_ProtocolInterface::FDSP_GetObjTypePtr& get_obj);
+    Error getObjectInternal(SmIoReq* getReq);
+    Error putObjectInternal(SmIoReq* putReq);
+
+    inline void swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg);
+    static void nodeEventOmHandler(int node_id,
+                                   unsigned int node_ip_addr,
+                                   int node_state,
+                                   fds_uint32_t node_port,
+                                   FDS_ProtocolInterface::FDSP_MgrIdType node_type);
+    static void volEventOmHandler(fds::fds_volid_t volume_id,
+                                  fds::VolumeDesc *vdb,
+                                  int vol_action);
+
+    int run(int, char*[]);
+    void interruptCallback(int);
+    void unitTest();
+
+    const std::string& getStorPrefix() const {
+      return stor_prefix;
+    }
+
+    /*
+     * Declare the Ice interface class as a friend so it can access
+     * the internal request tracking members.
+     * TODO: Make this a nested class instead. No reason to make it
+     * a separate class.
+     */
+    friend ObjectStorMgrI;
   };
 
   class ObjectStorMgrI : public FDS_ProtocolInterface::FDSP_DataPathReq {

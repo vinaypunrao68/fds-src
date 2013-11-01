@@ -114,6 +114,10 @@ int OrchMgr::run(int argc, char* argv[]) {
   reqCfgHandlersrv = new ReqCfgHandler(this);
   adapter->add(reqCfgHandlersrv, communicator()->stringToIdentity("OrchMgr"));
 
+  om_policy_srv = new Orch_VolPolicyServ();
+  om_ice_proxy  = new Ice_VolPolicyServ(ORCH_MGR_POLICY_ID, *om_policy_srv);
+  om_ice_proxy->serv_registerIceAdapter(communicator(), adapter);
+
   adapter->activate();
 
   communicator()->waitForShutdown();
@@ -729,13 +733,17 @@ void OrchMgr::ReqCfgHandler::AssociateRespCallback(
     const Ice::Current& current) {
 }
 
+OrchMgr *gl_orch_mgr;
+
 }  // namespace fds
 
 int main(int argc, char *argv[]) {
   fds::orchMgr = new fds::OrchMgr();
 
+  fds::gl_orch_mgr = fds::orchMgr;
   fds::orchMgr->main(argc, argv, "orch_mgr.conf");
 
   delete fds::orchMgr;
+  return 0;
 }
 

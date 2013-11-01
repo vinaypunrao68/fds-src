@@ -66,6 +66,7 @@ void StorHvDataPlacement::nodeEventHandler(int node_id,
            storHvisor->rpcSwitchTbl->
                Add_RPC_EndPoint(node_ip_addr,
                                 (fds_int32_t)node_port,
+                                storHvisor->my_node_name,
                                 FDS_ProtocolInterface::FDSP_STOR_MGR);
          } else {
            assert(node_type == FDS_ProtocolInterface::FDSP_DATA_MGR);
@@ -73,6 +74,7 @@ void StorHvDataPlacement::nodeEventHandler(int node_id,
            storHvisor->rpcSwitchTbl->
              Add_RPC_EndPoint(node_ip_addr,
                               (fds_int32_t)node_port,
+                              storHvisor->my_node_name,
                               FDS_ProtocolInterface::FDSP_DATA_MGR); 
          }
          FDS_PLOG(storHvisor->GetLog()) << "Added an endpoint";

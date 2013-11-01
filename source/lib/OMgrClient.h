@@ -8,6 +8,7 @@
 #include <Ice/Ice.h>
 #include <IceStorm/IceStorm.h>
 #include <concurrency/RwLock.h>
+#include <net-proxies/vol_policy.h>
 
 using namespace FDS_ProtocolInterface;
 
@@ -50,7 +51,8 @@ namespace fds {
 					 fds::VolumeDesc *vdb, 
 					 fds_vol_notify_t vol_action);
   typedef void (*throttle_cmd_handler_t)(const float throttle_level);
-
+  typedef void (*tier_cmd_handler_t)(const FDSP_TierPolicyPtr &tier);
+  typedef void (*tier_audit_cmd_handler_t)(const FDSP_TierPolicyAuditPtr &tier);
 
   class OMgrClient {
 
@@ -71,12 +73,13 @@ namespace fds {
     Node_Table_Type dmt;
     float current_throttle_level;
     
-    fds_log *omc_log;
     fds_rwlock omc_lock; // to protect node_map
 
     node_event_handler_t node_evt_hdlr;
     volume_event_handler_t vol_evt_hdlr;
     throttle_cmd_handler_t throttle_cmd_hdlr;
+    tier_cmd_handler_t       tier_cmd_hdlr;
+    tier_audit_cmd_handler_t tier_audit_cmd_hdlr;
 
 #if 0
     Ice::CommunicatorPtr pubsub_comm;
@@ -87,12 +90,12 @@ namespace fds {
     IceStorm::TopicPrx pubsub_topic;
 #endif
 
+    std::string          rpc_srv_id;
     Ice::CommunicatorPtr rpc_comm;
     Ice::ObjectAdapterPtr rpc_adapter;
     FDS_ProtocolInterface::FDSP_ControlPathReqPtr om_client_rpc_i;
     void initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
     int initRPCComm();
-
 
   public:
 
@@ -108,6 +111,15 @@ namespace fds {
     int registerEventHandlerForNodeEvents(node_event_handler_t node_event_hdlr);
     int registerEventHandlerForVolEvents(volume_event_handler_t vol_event_hdlr);
     int registerThrottleCmdHandler(throttle_cmd_handler_t throttle_cmd_hdlr);
+
+    // This logging is public for external plugins.  Avoid making this object
+    // too big and all methods uses its data as global variables with big lock.
+    //
+    fds_log        *omc_log;
+
+    // Extneral plugin object to handle policy requests.
+    VolPolicyServ  *omc_srv_pol;
+
     //    int subscribeToOmEvents(unsigned int om_ip_addr, int tennant_id, int domain_id, int omc_port_num=0);
     int startAcceptingControlMessages();
     int startAcceptingControlMessages(fds_uint32_t port_num);
@@ -128,7 +140,8 @@ namespace fds {
                       fds_vol_notify_t vol_action);
     int recvVolAttachState(fds_volid_t vol_id, VolumeDesc *vdb, int vol_action);
     int recvSetThrottleLevel(const float throttle_level);
-
+    int recvTierPolicy(const FDSP_TierPolicyPtr &tier);
+    int recvTierPolicyAudit(const FDSP_TierPolicyAuditPtr &audit);
   };
 
   class OMgrClientRPCI : public FDS_ProtocolInterface::FDSP_ControlPathReq {
@@ -178,6 +191,9 @@ namespace fds {
 					const FDSP_ThrottleMsgTypePtr& throttle_msg, 
 					    const Ice::Current&);
 
+    void TierPolicy(const FDSP_TierPolicyPtr &tier, const Ice::Current &);
+    void TierPolicyAudit(const FDSP_TierPolicyAuditPtr &audit,
+                         const Ice::Current &);
   };
 
 }

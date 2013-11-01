@@ -66,6 +66,8 @@ namespace fds {
     double                 iops_min;
     double                 iops_max;
     int                    relativePrio;
+    ptime                  tier_start_time;
+    fds_uint32_t           tier_duration_sec;
 
     ptime ctime; /* Create time */
 
@@ -271,7 +273,9 @@ namespace fds {
   enum FDS_VolType {
     FDS_VOL_S3_TYPE,
     FDS_VOL_BLKDEV_TYPE,
-    FDS_VOL_BLKDEV_SSD_TYPE
+    FDS_VOL_BLKDEV_SSD_TYPE,
+    FDS_VOL_BLKDEV_DISK_TYPE,
+    FDS_VOL_BLKDEV_HYBRID_TYPE
   };
 
   enum FDS_AppWorkload {

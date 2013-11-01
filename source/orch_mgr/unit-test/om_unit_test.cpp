@@ -119,6 +119,13 @@ class ControlPathReq : public FDS_ProtocolInterface::FDSP_ControlPathReq {
 	      << throttle_req->throttle_level;
   }
 
+  void TierPolicy(const FDSP_TierPolicyPtr &, const Ice::Current &)
+  {
+  }
+
+  void TierPolicyAudit(const FDSP_TierPolicyAuditPtr &, const Ice::Current &)
+  {
+  }
 
 private:
   fds_log* test_log;

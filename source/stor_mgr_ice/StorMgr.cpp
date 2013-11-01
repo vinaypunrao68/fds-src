@@ -4,6 +4,7 @@
 
 #include <iostream>
 
+#include <policy_rpc.h>
 #include "StorMgr.h"
 #include "DiskMgr.h"
 
@@ -164,9 +165,6 @@ ObjectStorMgr::ObjectStorMgr() :
   sm_log = new fds_log("sm", "logs");
   FDS_PLOG(sm_log) << "Constructing the Object Storage Manager";
 
-  // Create all data structures 
-  diskMgr = new DiskMgr();
-
   objStorMutex = new fds_mutex("Object Store Mutex");
   waitingReqMutex = new fds_mutex("Object Store Mutex");
 
@@ -183,12 +181,15 @@ ObjectStorMgr::ObjectStorMgr() :
   /*
    * Setup QoS related members.
    */
-
   qosCtrl = new SmQosCtrl(this,
                           qosThrds,
                           FDS_QoSControl::FDS_DISPATCH_WFQ,
                           sm_log);
   qosCtrl->runScheduler();
+  /*
+   * stats class init 
+   */
+    objStats =  new ObjStatsTracker(sm_log);
 }
 
 ObjectStorMgr::~ObjectStorMgr()
@@ -221,7 +222,9 @@ ObjectStorMgr::~ObjectStorMgr()
   delete waitingReqMutex;
   delete qosCtrl;
 
-  delete diskMgr;
+  delete tierEngine;
+  delete rankEngine;
+
   delete sm_log;
   delete volTbl;
   delete objStorMutex;
@@ -359,13 +362,13 @@ ObjectStorMgr::readObjectLocation(const ObjectID& objId,
   err = objStorDB->Get(objId, objData);
   if (err == ERR_OK) {
     string_to_obj_map(objData.data, obj_map);
-    FDS_PLOG(GetLog()) << "Retrieving object location for object " << objId << " as " << objData.data;
+    FDS_PLOG(GetLog()) << "Retrieving object location for object "
+                       << objId << " as " << objData.data;
   } else {
     FDS_PLOG(GetLog()) << "No object location found for object " << objId << " in index DB";
   }
   return err;
 }
-
 
 Error 
 ObjectStorMgr::readObject(const ObjectID& objId, 
@@ -374,15 +377,23 @@ ObjectStorMgr::readObject(const ObjectID& objId,
   Error err(ERR_OK);
   
   diskio::DataIO& dio_mgr = diskio::DataIO::disk_singleton();
-  SMDiskReq     *disk_req;
+  SmPlReq     *disk_req;
   meta_vol_io_t   vio;
   meta_obj_id_t   oid;
   vadr_set_inval(vio.vol_adr);
+
+  /*
+   * TODO: Why to we create another oid structure here?
+   * Just pass a ref to objId?
+   */
   oid.oid_hash_hi = objId.GetHigh();
   oid.oid_hash_lo = objId.GetLow();
-  disk_req = new SMDiskReq(vio, oid, (ObjectBuf *)&objData, true); // blocking call
+
+  disk_req = new SmPlReq(vio, oid, (ObjectBuf *)&objData, true); // blocking call
   err = readObjectLocation(objId, disk_req->req_get_vmap());
   if (err == ERR_OK) {
+    // Update the request with the tier info from disk
+    disk_req->setTierFromMap();
     objData.size = disk_req->req_get_vmap()->obj_size;
     objData.data.resize(objData.size, 0);
     dio_mgr.disk_read(disk_req);
@@ -445,23 +456,34 @@ ObjectStorMgr::checkDuplicate(const ObjectID&  objId,
   return err;
 }
 
-
 Error 
-ObjectStorMgr::writeObject(const ObjectID& objId, 
-                           const ObjectBuf& objData)
-{
+ObjectStorMgr::writeObject(const ObjectID  &objId, 
+                           const ObjectBuf &objData,
+                           fds_volid_t      volId) {
   Error err(ERR_OK);
   
   diskio::DataIO& dio_mgr = diskio::DataIO::disk_singleton();
-  SMDiskReq     *disk_req;
+  SmPlReq     *disk_req;
   meta_vol_io_t   vio;
   meta_obj_id_t   oid;
+  diskio::DataTier tier;
   vadr_set_inval(vio.vol_adr);
+
+  /*
+   * TODO: Why to we create another oid structure here?
+   * Just pass a ref to objId?
+   */
   oid.oid_hash_hi = objId.GetHigh();
   oid.oid_hash_lo = objId.GetLow();
-  disk_req = new SMDiskReq(vio, oid, (ObjectBuf *)&objData, true); // blocking call
+
+  tier = tierEngine->selectTier(objId, volId);
+  disk_req = new SmPlReq(vio, oid, (ObjectBuf *)&objData, true, tier); // blocking call
   dio_mgr.disk_write(disk_req);
   err = writeObjectLocation(objId, disk_req->req_get_vmap());
+
+  FDS_PLOG(objStorMgr->GetLog()) << "Writing object " << objId << " into the "
+                                 << ((tier == diskio::diskTier) ? "disk" : "flash")
+                                 << " tier";
   delete disk_req;
   return err;
 }
@@ -479,7 +501,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
   Error err(ERR_OK);
   const ObjectID&  objId   = putReq->getObjId();
   const ObjectBuf& objData = putReq->getObjData();
-
+  fds_volid_t volId        = putReq->getVolId();
 
   objStorMutex->lock();
 
@@ -504,14 +526,13 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
      * This is the levelDB insertion. It's a totally
      * separate DB from the one above.
      */
-    // err = objStorDB->Put(objId, objData);
-    err = writeObject(objId, objData);
+    err = writeObject(objId, objData, volId);
     objStorMutex->unlock();
 
     if (err != fds::ERR_OK) {
       FDS_PLOG(objStorMgr->GetLog()) << "Failed to put object " << err;
     } else {
-      FDS_PLOG(objStorMgr->GetLog()) << "Successfully put key " << objId;
+      FDS_PLOG(objStorMgr->GetLog()) << "Successfully put object " << objId;
     }
     /*
      * Stores a reverse mapping from the volume's disk location
@@ -803,8 +824,7 @@ inline void ObjectStorMgr::swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg) {
  * Storage Mgr main  processor : Listen on the socket and spawn or assign thread from a pool
  -------------------------------------------------------------------------------------*/
 int
-ObjectStorMgr::run(int argc, char* argv[])
-{
+ObjectStorMgr::run(int argc, char* argv[]) {
 
   fds_bool_t      unit_test;
   fds_bool_t      useTestMode;
@@ -843,7 +863,7 @@ ObjectStorMgr::run(int argc, char* argv[])
     runMode = TEST_MODE;
   }
 
- // Create leveldb
+  // Create leveldb
   std::string filename= stor_prefix + "SNodeObjRepository";
   objStorDB  = new ObjectDB(filename);
   filename= stor_prefix + "SNodeObjIndex";
@@ -892,8 +912,6 @@ ObjectStorMgr::run(int argc, char* argv[])
   
   adapter->activate();
 
-  volTbl = new StorMgrVolumeTable(this);
-
   struct ifaddrs *ifAddrStruct = NULL;
   struct ifaddrs *ifa          = NULL;
   void   *tmpAddrPtr           = NULL;
@@ -918,44 +936,44 @@ ObjectStorMgr::run(int argc, char* argv[])
   FDS_PLOG(objStorMgr->GetLog()) << "Stor Mgr IP:" << myIp;
 
   /*
-   * Query  Disk Manager  for disk parameter details 
+   * Query persistent layer for disk parameter details 
    */
-    fds::DmQuery        &query = fds::DmQuery::dm_query();
-    in.dmq_mask = fds::dmq_disk_info;
-    query.dm_disk_query(in, &out);
-    /* we should be bundling multiple disk  parameters  into one message to OM TBD */ 
-    dInfo = new  FDSP_AnnounceDiskCapability(); 
-    while (1) {
-        info = out.query_pop();
-        if (info != nullptr) {
-  	    FDS_PLOG(objStorMgr->GetLog()) << "Max blks capacity: " << info->di_max_blks_cap
-            << ", Disk type........: " << info->di_disk_type
-            << ", Max iops.........: " << info->di_max_iops
-            << ", Min iops.........: " << info->di_min_iops
-            << ", Max latency (us).: " << info->di_max_latency
-            << ", Min latency (us).: " << info->di_min_latency;
+  fds::DmQuery &query = fds::DmQuery::dm_query();
+  in.dmq_mask = fds::dmq_disk_info;
+  query.dm_disk_query(in, &out);
+  /* we should be bundling multiple disk parameters into one message to OM TBD */ 
+  FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr dInfo =
+      new FDS_ProtocolInterface::FDSP_AnnounceDiskCapability(); 
+  while (1) {
+    info = out.query_pop();
+    if (info != nullptr) {
+      FDS_PLOG(objStorMgr->GetLog()) << "Max blks capacity: " << info->di_max_blks_cap
+                                     << ", Disk type........: " << info->di_disk_type
+                                     << ", Max iops.........: " << info->di_max_iops
+                                     << ", Min iops.........: " << info->di_min_iops
+                                     << ", Max latency (us).: " << info->di_max_latency
+                                     << ", Min latency (us).: " << info->di_min_latency;
 
-            if ( info->di_disk_type == FDS_DISK_SATA) {
-            	dInfo->disk_iops_max =  info->di_max_iops; /*  max avarage IOPS */
-            	dInfo->disk_iops_min =  info->di_min_iops; /* min avarage IOPS */
-            	dInfo->disk_capacity = info->di_max_blks_cap;  /* size in blocks */
-            	dInfo->disk_latency_max = info->di_max_latency; /* in us second */
-            	dInfo->disk_latency_min = info->di_min_latency; /* in us second */
-  	    } else if (info->di_disk_type == FDS_DISK_SSD) {
-            	dInfo->ssd_iops_max =  info->di_max_iops; /*  max avarage IOPS */
-            	dInfo->ssd_iops_min =  info->di_min_iops; /* min avarage IOPS */
-            	dInfo->ssd_capacity = info->di_max_blks_cap;  /* size in blocks */
-            	dInfo->ssd_latency_max = info->di_max_latency; /* in us second */
-            	dInfo->ssd_latency_min = info->di_min_latency; /* in us second */
-	    } else 
-  	       FDS_PLOG(objStorMgr->GetLog()) << "Unknown Disk Type " << info->di_disk_type;
-			
-            delete info;
-            continue;
-        }
-        break;
+      if ( info->di_disk_type == FDS_DISK_SATA) {
+        dInfo->disk_iops_max =  info->di_max_iops; /*  max avarage IOPS */
+        dInfo->disk_iops_min =  info->di_min_iops; /* min avarage IOPS */
+        dInfo->disk_capacity = info->di_max_blks_cap;  /* size in blocks */
+        dInfo->disk_latency_max = info->di_max_latency; /* in us second */
+        dInfo->disk_latency_min = info->di_min_latency; /* in us second */
+      } else if (info->di_disk_type == FDS_DISK_SSD) {
+        dInfo->ssd_iops_max =  info->di_max_iops; /*  max avarage IOPS */
+        dInfo->ssd_iops_min =  info->di_min_iops; /* min avarage IOPS */
+        dInfo->ssd_capacity = info->di_max_blks_cap;  /* size in blocks */
+        dInfo->ssd_latency_max = info->di_max_latency; /* in us second */
+        dInfo->ssd_latency_min = info->di_min_latency; /* in us second */
+      } else 
+        FDS_PLOG(objStorMgr->GetLog()) << "Unknown Disk Type " << info->di_disk_type;
+
+      delete info;
+      continue;
     }
-
+    break;
+  }
 
   /*
    * Register this node with OM.
@@ -967,9 +985,26 @@ ObjectStorMgr::run(int argc, char* argv[])
                             port_num,
                             stor_prefix + "localhost-sm",
                             sm_log);
+  
+  /*
+   * Create local volume table. Create after omClient
+   * is initialized, because it needs to register with the
+   * omClient. Create before register with OM because
+   * the OM vol event receivers depend on this table.
+   */
+  volTbl = new StorMgrVolumeTable(this);
+
+  /* Create tier related classes -- has to be after volTbl is created */
+  rankEngine = new ObjectRankEngine(stor_prefix, 1000000, objStats, objStorMgr->GetLog());
+  tierEngine = new TierEngine(TierEngine::FDS_TIER_PUT_ALGO_BASIC_RANK, volTbl, rankEngine, objStorMgr->GetLog());
+
+  /*
+   * Register/boostrap from OM
+   */
   omClient->initialize();
   omClient->registerEventHandlerForNodeEvents((node_event_handler_t)nodeEventOmHandler);
   omClient->registerEventHandlerForVolEvents((volume_event_handler_t)volEventOmHandler);
+  omClient->omc_srv_pol = &sg_SMVolPolicyServ;
   omClient->startAcceptingControlMessages(cp_port_num);
   omClient->registerNodeWithOM(dInfo);
 
@@ -994,6 +1029,13 @@ ObjectStorMgr::run(int argc, char* argv[])
                                testVolId * 2,
                                testVolId);
       fds_assert(testVdb != NULL);
+      if ( (testVolId % 3) == 0)
+	testVdb->volType = FDSP_VOL_BLKDEV_DISK_TYPE;
+      else if ( (testVolId % 3) == 1)
+	testVdb->volType = FDSP_VOL_BLKDEV_SSD_TYPE;
+      else 
+	testVdb->volType = FDSP_VOL_BLKDEV_HYBRID_TYPE;
+
       volEventOmHandler(testVolId,
                         testVdb,
                         FDS_VOL_ACTION_CREATE);
@@ -1031,6 +1073,7 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
    if (io->io_type == FDS_IO_READ) {
           FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a get request";
           threadPool->schedule(getObjectExt,io);
+          objStorMgr->objStats->updateIOpathStats(io->getVolId(),io->getObjId());
    } else if (io->io_type == FDS_IO_WRITE) {
           FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a put request";
           threadPool->schedule(putObjectExt,io);
