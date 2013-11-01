@@ -184,6 +184,14 @@ namespace fds {
 	stats->recordIO(_io.io_vol_id, 0);
 	return err;
       }
+
+      Error markIODone(const FDS_IOType &_io,
+                       diskio::DataTier  tier) {
+	Error err(ERR_OK);
+	dispatcher->markIODone((FDS_IOType *)&_io);
+	stats->recordIO(_io.io_vol_id, 0, tier, _io.io_type);
+	return err;
+      }
     };
 
     SmQosCtrl  *qosCtrl;
@@ -238,9 +246,10 @@ namespace fds {
                               meta_obj_map_t *objMaps);
     Error readObjectLocations(const ObjectID     &objId,
                               diskio::MetaObjMap &objMaps);
-    Error writeObject(const ObjectID  &objId,
-                      const ObjectBuf &objCompData,
-                      fds_volid_t      volId);
+    Error writeObject(const ObjectID   &objId,
+                      const ObjectBuf  &objCompData,
+                      fds_volid_t       volId,
+                      diskio::DataTier &tier);
     Error writeObject(const ObjectID  &objId, 
                       const ObjectBuf &objData,
                       diskio::DataTier tier);

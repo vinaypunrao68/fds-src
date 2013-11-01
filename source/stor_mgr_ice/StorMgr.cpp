@@ -628,14 +628,20 @@ ObjectStorMgr::checkDuplicate(const ObjectID&  objId,
   return err;
 }
 
+/*
+ * Note the tier parameter is an output param.
+ * It gets set in the function and the prior
+ * value is unused.
+ */
 Error
-ObjectStorMgr::writeObject(const ObjectID  &objId, 
-                           const ObjectBuf &objData,
-                           fds_volid_t      volId) {
+ObjectStorMgr::writeObject(const ObjectID   &objId, 
+                           const ObjectBuf  &objData,
+                           fds_volid_t       volId,
+                           diskio::DataTier &tier) {
   /*
    * Ask the tiering engine which tier to place this object
    */
-  diskio::DataTier tier = tierEngine->selectTier(objId, volId);
+  tier = tierEngine->selectTier(objId, volId);
   return writeObject(objId, objData, tier);
 }
 
@@ -692,9 +698,10 @@ ObjectStorMgr::writeObject(const ObjectID  &objId,
 Error
 ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
   Error err(ERR_OK);
-  const ObjectID&  objId   = putReq->getObjId();
-  const ObjectBuf& objData = putReq->getObjData();
-  fds_volid_t volId        = putReq->getVolId();
+  const ObjectID&  objId    = putReq->getObjId();
+  const ObjectBuf& objData  = putReq->getObjData();
+  fds_volid_t volId         = putReq->getVolId();
+  diskio::DataTier tierUsed = diskio::maxTier;
 
   objStorMutex->lock();
 
@@ -715,13 +722,12 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
     FDS_PLOG(objStorMgr->GetLog()) << "Failed to check object duplicate status on put: "
                                    << err;
   } else {
-    /*
-     * This is the levelDB insertion. It's a totally
-     * separate DB from the one above.
-     */
-    err = writeObject(objId, objData, volId);
-    objStorMutex->unlock();
 
+    /*
+     * Write the object and record which tier it when to
+     */
+    err = writeObject(objId, objData, volId, tierUsed);
+    objStorMutex->unlock();
     if (err != fds::ERR_OK) {
       FDS_PLOG(objStorMgr->GetLog()) << "Failed to put object " << err;
     } else {
@@ -740,7 +746,8 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
     */
   }
 
-  qosCtrl->markIODone(*putReq);
+  qosCtrl->markIODone(*putReq,
+                      tierUsed);
 
   /*
    * Prepare a response to send back.

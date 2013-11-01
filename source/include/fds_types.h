@@ -230,7 +230,8 @@ namespace fds {
    FDS_IO_REDIR_READ,
    FDS_IO_OFFSET_WRITE,
    FDS_CAT_UPD,
-   FDS_CAT_QRY
+   FDS_CAT_QRY,
+   FDS_OP_INVALID
   } fds_io_op_t;
 
   class FDS_IOType {
