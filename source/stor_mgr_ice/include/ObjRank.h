@@ -36,7 +36,7 @@
 
 #define MAX_RANK_CACHE_SIZE    10485760      /* x 20bytes = 200MB */ 
 #define OBJECT_RANK_ALL_SSD    0x00000000    /* highest rank */
-#define OBJECT_RANK_ALL_DISK   0xFFFFFFF1    /* lowest rank */
+#define OBJECT_RANK_ALL_DISK   0xFFFFFFF2    /* lowest rank */
 #define OBJECT_RANK_INVALID    0xFFFFFFFF    /* invalid id, internally used for deleted objects */
 #define RANK_DEMOTION_MASK     0x00000001    /* use this mask to check if rank specifies demotion operation */
 
@@ -89,6 +89,8 @@ class ObjectRankEngine {
    // Currently: will return 0 if ranking process is in progress
    // The array must be allocated by the caller
    // returns number of actualy objects we put into 'objRankArray'
+   // Once objects are returned, the rank table 'forgets' about them (does not keep track of those objects anymore)
+   typedef std::pair<ObjectID, rankOperType> chg_table_entry_t;
    fds_uint32_t getDeltaChangeTblSegment(fds_uint32_t num_objs, std::pair<ObjectID, rankOperType>* objRankArray);
 
    // Migrator/Tiering Engine must call this method when done with RankDeltaChangeTable
