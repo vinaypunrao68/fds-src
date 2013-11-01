@@ -4,6 +4,7 @@
 
 #include <list>
 #include <fds_obj_cache.h> 
+#include <iostream>
 
 namespace fds {
 
@@ -91,14 +92,28 @@ namespace fds {
     void evictObjectsFromAnyCache(fds_uint64_t bytes_required) {
 
       fds_uint64_t bytes_reclaimed = 0;
-
+      
       lru_lock->lock();
 
-      for (auto it = lru_queue->begin(); it != lru_queue->end(); ++it) {
-	ObjCacheBufPtrType objBuf = *it;
+      std::cout << "LRU mgr attempting eviction. Current list size " 
+		<< lru_queue->size() << endl;
+
+      for (auto it = lru_queue->begin(); it != lru_queue->end();) {
+	ObjCacheBufPtrType& objBuf = *it;
+	fds_uint64_t obj_size = objBuf->size;
+	std::cout << "Looking at object " << objBuf->obj_id 
+		  << " in volume " << objBuf->vol_id << endl;
 	if (parent_cache->volume_evictable(objBuf->vol_id)) {	  
-	  bytes_reclaimed += objBuf->size;
-	  parent_cache->object_evict(objBuf->vol_id, objBuf->obj_id);
+	  if (parent_cache->object_evict(objBuf->vol_id, objBuf->obj_id) != 0) {
+	    ++it;
+	    std::cout << "Object " << objBuf->obj_id << " not evictable << endl";
+	  } else {
+	    it = lru_queue->erase(it);
+	    bytes_reclaimed += obj_size;
+	  }
+	} else {
+	  ++it;
+	  cout << "Volume " << objBuf->vol_id << " not evictable" << endl;
 	}
 	if (bytes_reclaimed >= bytes_required) {
 	  break;

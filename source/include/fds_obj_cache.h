@@ -71,10 +71,16 @@ namespace fds{
   };
 
   class VolObjectCache {
+
   public:
     fds_volid_t vol_id;
     vol_obj_map_t object_map;
     std::atomic<fds_uint64_t> total_mem_used;
+    fds_uint64_t num_cache_hits;
+    fds_uint64_t num_cache_queries;
+    fds_uint64_t num_objects_added;
+    fds_uint64_t num_objects_evicted;
+
     fds_uint64_t min_cache_size;
     fds_uint64_t max_cache_size;
 
@@ -102,10 +108,10 @@ namespace fds{
     int vol_cache_delete(fds_volid_t vol_id);
 
     // Lookup an object
-    ObjBufPtrType object_get(fds_volid_t vol_id, ObjectID objId);
+    ObjBufPtrType object_retrieve(fds_volid_t vol_id, ObjectID objId);
 
     // Release ref cnt..do we need this if we use smart ptr?
-    int object_put(fds_volid_t vol_id, ObjectID objId, ObjBufPtrType obj_data);
+    int object_release(fds_volid_t vol_id, ObjectID objId, ObjBufPtrType obj_data);
 
     // Simply allocate buffer, object will not be in any cache lookup until object add is done.
     // If the cache can grow, new buf space will be allocated.
@@ -132,7 +138,11 @@ namespace fds{
     // about this object going away.
     int object_evict(fds_volid_t vol_id, ObjectID objId);
 
+    // Check if objects can be evicted from a volume cache
+    // without violating min_cache_sz requirement
     bool volume_evictable(fds_volid_t vol_id);
+
+    void log_stats_to_file(std::string file_name);
 
    private:
 
