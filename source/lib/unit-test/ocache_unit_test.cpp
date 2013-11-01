@@ -26,8 +26,12 @@ void simulate_read_io(fds_volid_t vol_id, ObjectID obj_id) {
   pstore_lock->unlock();
   if (obj_pers_copy)
     objBufPtr = ocache->object_retrieve(vol_id, obj_id);
-  else
+  else {
+    FDS_PLOG(oct_log) << "Read request for non-existent object " << obj_id;
     return;
+  }
+
+  FDS_PLOG(oct_log) << "Read request for object " << obj_id;
 
   if (objBufPtr) {
     assert(obj_pers_copy != NULL);
@@ -207,15 +211,16 @@ void simulate_async_write_io(fds_volid_t vol_id, ObjectID obj_id, std::string ob
 
 void write_objects(int thread_id) {
 
+  fds_volid_t my_vol_id = thread_id % 5;
+
   for (int i = 0; i < 1000; i++) {
 
     ObjectID obj_id(thread_id, i);
-    fds_volid_t vol_id = (thread_id + i)%5;
     std::string obj_data = std::string("This is object ") + obj_id.ToString();
     if (i%2 == 0) {
-      simulate_sync_write_io(vol_id, obj_id, obj_data);
+      simulate_sync_write_io(my_vol_id, obj_id, obj_data);
     } else {
-      simulate_async_write_io(vol_id, obj_id, obj_data);
+      simulate_async_write_io(my_vol_id, obj_id, obj_data);
     }
 
   }
@@ -225,14 +230,21 @@ void write_objects(int thread_id) {
 void read_objects(int thread_id) {
 
   std::default_random_engine rgen2(thread_id);
-  std::uniform_int_distribution<fds_uint64_t> obj_id_distribution(0, 999);
+  std::uniform_int_distribution<fds_uint64_t> obj_id_distribution(0, 40);
+  fds_volid_t my_vol_id = thread_id % 5;
 
-  for (int i = 0; i < 1000; i++) {
+  for (int i = 0; i < 4; i++) {
 
-    fds_uint64_t obj_id_low = obj_id_distribution(rgen2);
-    ObjectID obj_id(thread_id, obj_id_low);
-    fds_volid_t vol_id = (thread_id + vol_id)%5;
-    simulate_read_io(vol_id, obj_id);
+    fds_uint64_t working_set_start = i * 250 + (thread_id/5) * 50;
+
+    for (int j = 0; j < 320; j++) {
+
+      //      fds_uint64_t obj_id_low = working_set_start + obj_id_distribution(rgen2);
+      fds_uint64_t obj_id_low = working_set_start + j%40; 
+      ObjectID obj_id(thread_id, obj_id_low);
+      simulate_read_io(my_vol_id, obj_id);
+
+    }
 
   }
   
@@ -280,12 +292,12 @@ int main(int argc, char *argv[]) {
 
   std::vector<std::thread *> read_threads;
 
-  for (int i = 0; i < 30; i++) {
+  for (int i = 0; i < 10; i++) {
     std::thread *next_thread = new std::thread(read_objects, i);
     read_threads.push_back(next_thread);
   }
 
-  for (int i = 0; i < 30; i++) {
+  for (int i = 0; i < 10; i++) {
     read_threads[i]->join();
   }
 

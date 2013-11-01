@@ -26,6 +26,7 @@ namespace fds {
     FdsObjectCache *parent_cache;
     EvictionList *lru_queue;
     fds_mutex *lru_lock;
+    fds_log *lru_log;
 
   public:
     
@@ -34,6 +35,7 @@ namespace fds {
       {
 	lru_queue = new EvictionList();
 	lru_lock = new fds_mutex("LRU Plcy Mgr Lock");
+	lru_log = prnt_cache->GetLog();
       } 
 
     void handle_object_access(fds_volid_t vol_id, ObjectID oid, ObjCacheBufPtrType objBuf) {
@@ -49,6 +51,7 @@ namespace fds {
 	lru_queue->erase(itr);
       } else {
 	object_lru_data = new LRUData();
+	objBuf->plcy_data = static_cast<void *>(object_lru_data);
       }
 
       itr = lru_queue->insert(lru_queue->end(), objBuf);
@@ -95,25 +98,25 @@ namespace fds {
       
       lru_lock->lock();
 
-      std::cout << "LRU mgr attempting eviction. Current list size " 
-		<< lru_queue->size() << endl;
+      //std::cout << "LRU mgr attempting eviction. Current list size " 
+      //	<< lru_queue->size() << endl;
 
       for (auto it = lru_queue->begin(); it != lru_queue->end();) {
 	ObjCacheBufPtrType& objBuf = *it;
 	fds_uint64_t obj_size = objBuf->size;
-	std::cout << "Looking at object " << objBuf->obj_id 
-		  << " in volume " << objBuf->vol_id << endl;
+	//std::cout << "Looking at object " << objBuf->obj_id 
+	//	  << " in volume " << objBuf->vol_id << endl;
 	if (parent_cache->volume_evictable(objBuf->vol_id)) {	  
 	  if (parent_cache->object_evict(objBuf->vol_id, objBuf->obj_id) != 0) {
 	    ++it;
-	    std::cout << "Object " << objBuf->obj_id << " not evictable << endl";
+	    FDS_PLOG(lru_log) << "Object " << objBuf->obj_id << " not evictable << endl";
 	  } else {
 	    it = lru_queue->erase(it);
 	    bytes_reclaimed += obj_size;
 	  }
 	} else {
 	  ++it;
-	  cout << "Volume " << objBuf->vol_id << " not evictable" << endl;
+	  // cout << "Volume " << objBuf->vol_id << " not evictable" << endl;
 	}
 	if (bytes_reclaimed >= bytes_required) {
 	  break;

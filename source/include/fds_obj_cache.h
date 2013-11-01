@@ -143,6 +143,7 @@ namespace fds{
     bool volume_evictable(fds_volid_t vol_id);
 
     void log_stats_to_file(std::string file_name);
+    fds_log *GetLog() { return oc_log; }
 
    private:
 
