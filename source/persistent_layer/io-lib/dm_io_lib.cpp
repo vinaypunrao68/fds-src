@@ -274,7 +274,7 @@ DataDiscoveryModule::mod_init(fds::SysParams const *const param)
                                     string::npos,
                                     param->ssd_root,
                                     0,
-                                    param->hdd_root.size() - 1) == 0) {
+                                    param->ssd_root.size() - 1) == 0) {
               /*
                * Parse the ssd directory
                */
