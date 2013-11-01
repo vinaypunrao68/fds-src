@@ -34,6 +34,8 @@ using namespace std;
 
 namespace fds {
 
+#define  COUNTER_UPDATE_SLOT_TIME    1    /*  second */
+
 class ObjStatsTracker { 
 
 public:

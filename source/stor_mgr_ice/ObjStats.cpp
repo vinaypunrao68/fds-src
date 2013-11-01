@@ -5,10 +5,11 @@
  */
 
 #include <include/ObjStats.h>
+#include <StorMgr.h>
 
 namespace fds {
 
-#define  COUNTER_UPDATE_SLOT_TIME    1    /*  second */
+extern ObjectStorMgr  *objStorMgr;
 
 ObjStatsTracker::ObjStatsTracker(fds_log *parent_log) {
 
@@ -65,6 +66,7 @@ Error ObjStatsTracker::updateIOpathStats(fds_volid_t vol_uuid,const ObjectID& ob
    Error err(ERR_OK);
    fds_bool_t  slotChange;
    ioPathStats   *oStats;
+//   StorMgrVolumeTable *vol_tab = objStorMgr->sm_getVolTables();
  
   FDS_PLOG(stats_log) << "STATS: inside update IOPathStats:"  << objId;
    /*
@@ -93,6 +95,9 @@ Error ObjStatsTracker::updateIOpathStats(fds_volid_t vol_uuid,const ObjectID& ob
   }
 
   objStatsMapLock->unlock(); 
+
+   /* update per volume stats */
+//    volTbl->updateVolStats(vol_uuid);
 
    if (slotChange == true) {
  	/* update the stats to level DB */
