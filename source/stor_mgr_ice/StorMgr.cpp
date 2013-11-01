@@ -512,9 +512,24 @@ ObjectStorMgr::readObjectLocations(const ObjectID &objId,
   return err;
 }
 
-Error 
+Error
 ObjectStorMgr::readObject(const ObjectID& objId,
 			  ObjectBuf& objData) {
+  diskio::DataTier tier;
+  return readObject(objId, objData, tier);
+}
+
+/*
+ * Note the tierUsed parameter is an output param.
+ * It gets set in the function and the prior
+ * value is unused.
+ * It is only guaranteed to be set if success
+ * is returned
+ */
+Error 
+ObjectStorMgr::readObject(const ObjectID   &objId,
+			  ObjectBuf        &objData,
+                          diskio::DataTier &tierUsed) {
   Error err(ERR_OK);
   
   diskio::DataIO& dio_mgr = diskio::DataIO::disk_singleton();
@@ -532,7 +547,6 @@ ObjectStorMgr::readObject(const ObjectID& objId,
 
   // create a blocking request object
   disk_req = new SmPlReq(vio, oid, (ObjectBuf *)&objData, true);
-
 
   /*
    * Read all of the object's locations
@@ -562,6 +576,7 @@ ObjectStorMgr::readObject(const ObjectID& objId,
     }
     // Update the request with the tier info from disk
     disk_req->setTierFromMap();
+    tierUsed = disk_req->getTier();
 
     FDS_PLOG(objStorMgr->GetLog()) << "Reading object " << objId << " from "
                                    << ((disk_req->getTier() == diskio::diskTier) ? "disk" : "flash")
@@ -632,6 +647,8 @@ ObjectStorMgr::checkDuplicate(const ObjectID&  objId,
  * Note the tier parameter is an output param.
  * It gets set in the function and the prior
  * value is unused.
+ * It is only guaranteed to be set if success
+ * is returned.
  */
 Error
 ObjectStorMgr::writeObject(const ObjectID   &objId, 
@@ -855,9 +872,11 @@ ObjectStorMgr::PutObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
 
 Error
 ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
-  Error           err(ERR_OK);
-  const ObjectID& objId  = getReq->getObjId();
-  ObjectBuf       objData;
+  Error            err(ERR_OK);
+  const ObjectID  &objId = getReq->getObjId();
+  ObjectBuf        objData;
+  diskio::DataTier tierUsed = diskio::maxTier;
+
   /*
    * We need to fix this once diskmanager keeps track of object size
    * and allocates buffer automatically.
@@ -868,7 +887,7 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
   objData.data = "";
 
   objStorMutex->lock();
-  err = readObject(objId, objData);
+  err = readObject(objId, objData, tierUsed);
   objStorMutex->unlock();
   objData.size = objData.data.size();
 
@@ -887,7 +906,7 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
                                    << " for request ID " << getReq->io_req_id;
   }
 
-  qosCtrl->markIODone(*getReq);
+  qosCtrl->markIODone(*getReq, tierUsed);
 
   /*
    * Prepare a response to send back.

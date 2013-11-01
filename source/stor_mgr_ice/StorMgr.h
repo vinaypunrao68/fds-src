@@ -255,6 +255,9 @@ namespace fds {
                       diskio::DataTier tier);
     Error readObject(const ObjectID &objId,
                      ObjectBuf      &objCompData);
+    Error readObject(const ObjectID   &objId,
+                     ObjectBuf        &objCompData,
+                     diskio::DataTier &tier);
 
  public:
 
