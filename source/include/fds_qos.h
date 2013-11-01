@@ -307,7 +307,7 @@ namespace fds {
 
 	n_pios = 0;
 	n_pios = atomic_fetch_sub(&(num_pending_ios), (unsigned int)1);
-	assert(n_pios >= 1);
+	// assert(n_pios >= 1);
 
 	n_oios = 0;
 	n_oios = atomic_fetch_add(&(num_outstanding_ios), (unsigned int)1);
