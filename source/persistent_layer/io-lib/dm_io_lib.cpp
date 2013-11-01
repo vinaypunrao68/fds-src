@@ -272,9 +272,9 @@ DataDiscoveryModule::mod_init(fds::SysParams const *const param)
               parse_device_dir(path, diskTier);
             } else if (param->fds_root.size(),
                        string::npos,
-                       param->hdd_root,
+                       param->ssd_root,
                        0,
-                       param->hdd_root.size() - 1) {
+                       param->ssd_root.size() - 1) {
               /*
                * Parse the ssd directory
                */
