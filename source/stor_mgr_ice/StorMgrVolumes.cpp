@@ -34,6 +34,7 @@ StorMgrVolume::StorMgrVolume(const VolumeDesc&  vdb,
                             voldesc->getPriority());
 
   volumeIndexDB  = new ObjectDB(filename);
+  averageObjectsRead = 0; 
 }
 
 StorMgrVolume::~StorMgrVolume() {
