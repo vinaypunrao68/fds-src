@@ -154,9 +154,6 @@ ObjectStorMgr::ObjectStorMgr() :
     numTestVols(10),
     totalRate(200),
     qosThrds(10),
-    numWBThreads(1),
-    maxDirtyObjs(10000),
-    shuttingDown(false),
     port_num(0),
     cp_port_num(0) {
   /*
@@ -184,7 +181,6 @@ ObjectStorMgr::ObjectStorMgr() :
   /*
    * Setup the tier related members
    */
-  tierEngine = new TierEngine(static_cast<TierPutAlgo *>(&tierPutAlgo));
   dirtyFlashObjs = new ObjQueue(maxDirtyObjs);
   fds_verify(dirtyFlashObjs->is_lock_free() == true);
   writeBackThreads = new fds_threadpool(numWBThreads);
@@ -197,6 +193,11 @@ ObjectStorMgr::ObjectStorMgr() :
                           FDS_QoSControl::FDS_DISPATCH_WFQ,
                           sm_log);
   qosCtrl->runScheduler();
+
+  /*
+   * stats class init 
+   */
+  objStats =  new ObjStatsTracker(sm_log);
 
   /*
    * Kick off the writeback thread(s)
@@ -238,6 +239,7 @@ ObjectStorMgr::~ObjectStorMgr() {
   delete writeBackThreads;
   delete dirtyFlashObjs;
   delete tierEngine;
+  delete rankEngine;
 
   delete sm_log;
   delete volTbl;
@@ -1185,6 +1187,10 @@ ObjectStorMgr::run(int argc, char* argv[]) {
    */
   volTbl = new StorMgrVolumeTable(this);
 
+  /* Create tier related classes -- has to be after volTbl is created */
+  rankEngine = new ObjectRankEngine(stor_prefix, 1000000, objStats, objStorMgr->GetLog());
+  tierEngine = new TierEngine(TierEngine::FDS_TIER_PUT_ALGO_BASIC_RANK, volTbl, rankEngine, objStorMgr->GetLog());
+
   /*
    * Register/boostrap from OM
    */
@@ -1216,6 +1222,13 @@ ObjectStorMgr::run(int argc, char* argv[]) {
                                testVolId * 2,
                                testVolId);
       fds_assert(testVdb != NULL);
+      if ( (testVolId % 3) == 0)
+	testVdb->volType = FDSP_VOL_BLKDEV_DISK_TYPE;
+      else if ( (testVolId % 3) == 1)
+	testVdb->volType = FDSP_VOL_BLKDEV_SSD_TYPE;
+      else 
+	testVdb->volType = FDSP_VOL_BLKDEV_HYBRID_TYPE;
+
       volEventOmHandler(testVolId,
                         testVdb,
                         FDS_VOL_ACTION_CREATE);
@@ -1253,6 +1266,7 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
    if (io->io_type == FDS_IO_READ) {
           FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a get request";
           threadPool->schedule(getObjectExt,io);
+          objStorMgr->objStats->updateIOpathStats(io->getVolId(),io->getObjId());
    } else if (io->io_type == FDS_IO_WRITE) {
           FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a put request";
           threadPool->schedule(putObjectExt,io);

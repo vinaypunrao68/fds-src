@@ -34,9 +34,11 @@ class FDS_RPC_EndPoint {
 public:
         FDS_RPC_EndPoint();
 	FDS_RPC_EndPoint(const std::string& ip_addr_str_arg, int port, 
+                         std::string node_name,
                          FDS_ProtocolInterface::FDSP_MgrIdType mgr_id,
                          Ice::CommunicatorPtr &ic);
 	FDS_RPC_EndPoint(int  ip_addr_int, int port,
+                         std::string node_name,
                          FDS_ProtocolInterface::FDSP_MgrIdType mgr_id, 
                          Ice::CommunicatorPtr &ic);
         static string ipAddr2String(int ipaddr);
@@ -98,8 +100,8 @@ public :
     list<FDS_RPC_EndPoint *>    rpcEndPointList;
     fds_mutex   *rpcTblMutex;
 
-    void 	      Add_RPC_EndPoint(int  ipaddr, int port, FDSP_MgrIdType mgr_id);
-    void 	      Add_RPC_EndPoint(string  ipaddr, int port, FDSP_MgrIdType mgr_id);
+    void 	      Add_RPC_EndPoint(int  ipaddr, int port, std::string node_name,FDSP_MgrIdType mgr_id);
+    void 	      Add_RPC_EndPoint(string  ipaddr, int port, std::string node_name, FDSP_MgrIdType mgr_id);
     void 	      Delete_RPC_EndPoint(int  ip_addr, FDSP_MgrIdType);
     void 	      Delete_RPC_EndPoint(string  ip_addr, FDSP_MgrIdType);
     int               Get_RPC_EndPoint(int ip_addr, FDSP_MgrIdType mgrId, FDS_RPC_EndPoint* endpoint);

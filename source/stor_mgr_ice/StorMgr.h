@@ -37,6 +37,7 @@
 #include <utility>
 #include <atomic>
 #include <unordered_map>
+#include <include/ObjStats.h>
 
 /*
  * TODO: Move this header out of lib/
@@ -49,7 +50,7 @@
 #include <concurrency/Mutex.h>
 
 #include <include/TierEngine.h>
-#include <include/TierPutAlgorithms.h>
+#include <include/ObjRank.h>
 
 #define FDS_STOR_MGR_LISTEN_PORT FDS_CLUSTER_TCP_PORT_SM
 #define FDS_STOR_MGR_DGRAM_PORT FDS_CLUSTER_UDP_PORT_SM
@@ -143,6 +144,8 @@ namespace fds {
         FDS_ProtocolInterface::FDSP_DataPathRespPrx> fdspDataPathClient;
 
     /*
+     * TODO: this one should be the singleton by itself.  Need to make it
+     * a stand-alone module like resource manager for volume.
      * Volume specific members
      */
     StorMgrVolumeTable *volTbl;
@@ -187,11 +190,8 @@ namespace fds {
 
     /*
      * Tiering related members
-     * TODO: Reorganize this to place the algorithm
-     * within the engine layer. It's weird having the
-     * SM create the algorithm object,
      */
-    RandomTestAlgo  tierPutAlgo;
+    ObjectRankEngine *rankEngine;
     TierEngine     *tierEngine;
 
     /*
@@ -254,6 +254,10 @@ namespace fds {
 
     fds_log* GetLog();
     fds_log *sm_log;
+    /*
+     * stats  class 
+     */
+      ObjStatsTracker   *objStats;
 
     fds_bool_t isShuttingDown() const {
       return shuttingDown;
@@ -276,6 +280,13 @@ namespace fds {
 
     Error deregVol(fds_volid_t volId) {
       return volTbl->deregisterVolume(volId);
+    }
+    // We need to get this info out of this big class to avoid making this
+    // class even bigger than it should.  Not much point for making it
+    // private and need a get method to get it out.
+    //
+    StorMgrVolumeTable *sm_getVolTables() {
+        return volTbl;
     }
 
     void PutObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,

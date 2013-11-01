@@ -52,6 +52,9 @@ namespace fds {
     explicit Catalog(const std::string& _file);
     ~Catalog();
 
+    typedef leveldb::Iterator catalog_iterator_t;
+    catalog_iterator_t *NewIterator() { return db->NewIterator(read_options); }
+
     fds::Error Update(const Record& key, const Record& val);
     fds::Error Query(const Record& key, std::string* val);
 
