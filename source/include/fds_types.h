@@ -59,6 +59,11 @@ namespace fds {
         hash_low(low) {
     }
 
+    ObjectID(const ObjectID& rhs)
+        : hash_high(rhs.hash_high),
+        hash_low(rhs.hash_low) {
+    }
+
     explicit ObjectID(const std::string& oid) {
       memcpy(&hash_high,
              oid.c_str(),

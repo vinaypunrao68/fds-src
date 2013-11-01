@@ -4,8 +4,6 @@
 #include <fds_assert.h>
 #include <shared/fds_types.h>
 
-c_decls_begin
-
 /*
  * ----------------------------------------------------------------------------
  * On disk format for object ID.  DO NOT alter the structure layout.
@@ -124,6 +122,38 @@ struct __attribute__((__packed__)) meta_obj_map_v0
 typedef struct meta_obj_map_v0     meta_obj_map_v0_t;
 typedef struct meta_obj_map_v0     meta_obj_map_t;
 
+/*
+ * The below is an attempt to make the persistent layer
+ * organization a bit more c++-y/object-oriented.
+ * We can evaluate if it's good/stupid/whatever...
+ */
+
+/*
+ * Abstract base class that defines what a class needs to
+ * implement in order to be suitable for persistent storage.
+ */
+class PersistentClass {
+private:
+public:
+  /*
+   * TODO: Should have a constructor that takes
+   * a marshalled buffer. This prevents the need
+   * to allocate the structure and recopy the fields.
+   */
+
+  /*
+   * Returns a marshalled buffer to the class
+   */
+  virtual const char* marshalling() const = 0;
+  /*
+   * Takes a marshalled buffer to the class and
+   * populates the current object based on this
+   * buffer.
+   */
+  virtual void unmarshalling(const char   *persistBuf,
+                             fds_uint32_t  bufSize) = 0;
+};
+
 static __inline__ std::string obj_map_to_string(meta_obj_map_t *obj_map) {
   std::string obj_map_str = 
       std::to_string(obj_map->obj_tier) + ":" +
@@ -133,10 +163,11 @@ static __inline__ std::string obj_map_to_string(meta_obj_map_t *obj_map) {
   return obj_map_str;
 }
 
-static __inline__ void string_to_obj_map(std::string& obj_map_str, meta_obj_map_t *obj_map) {
+static __inline__ void string_to_obj_map(std::string    &obj_map_str,
+                                         meta_obj_map_t *obj_map) {
 
   fds_uint32_t tier;
-  unsigned int loc_id, offset, len, size; 
+  unsigned int loc_id, offset, len, size;
 
   sscanf(obj_map_str.c_str(), "%u:%u:%u:%u:%u", &tier, &loc_id, &offset, &len, &size);
   obj_map->obj_stor_loc_id = loc_id;
@@ -179,7 +210,5 @@ obj_map_has_init_val(meta_obj_map_t const *const map)
 {
     return obj_id_is_valid(&map->obj_id);
 }
-
-c_decls_end
 
 #endif /* INCLUDE_DISK_MGR_DM_METADATA_H_ */

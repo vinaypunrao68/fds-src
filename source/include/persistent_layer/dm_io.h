@@ -374,6 +374,125 @@ class DataIOModule : public fds::Module
 
 extern DataIOModule          gl_dataIOMod;
 
+/*
+ * Persistent class for storing MetaObjMap, which
+ * maps an object ID to its locations in the persistent
+ * layer.
+ */
+class MetaObjMap : public PersistentClass {
+private:
+  /*
+   * Defines the Plain-Old-Data version of the class
+   */
+  typedef meta_obj_map_t MetaObjPod;
+
+  /*
+   * Currently we use a vector of PODs. The vector
+   * ensures the PODs are contiguous, so we can still
+   * return a ptr without copying.
+   */
+  std::vector<MetaObjPod> pods;
+
+  fds_bool_t hasTier(DataTier tier) const {
+    for (fds_uint32_t i = 0; i < pods.size(); i++) {
+      if (pods[i].obj_tier == tier) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  fds::Error getTierMap(MetaObjPod &pod,
+                        DataTier    tier) const {
+    fds::Error err(fds::ERR_CAT_ENTRY_NOT_FOUND);
+    for (fds_uint32_t i = 0; i < pods.size(); i++) {
+      if (pods[i].obj_tier == tier) {
+        pod = pods[i];
+        err = fds::ERR_OK;
+        break;
+      }
+    }
+    return err;
+  }
+
+public:
+  MetaObjMap() {
+  }
+  ~MetaObjMap() {
+  }
+  MetaObjMap(const MetaObjPod& pod) {
+    pods.push_back(pod);
+  }
+
+  fds_uint32_t marshalledSize() const {
+    return pods.size() * sizeof(MetaObjPod);
+  }
+
+  const char* marshalling() const {
+    return reinterpret_cast<const char*>(pods.data());
+  }
+
+  void unmarshalling(const char   *persistBuf,
+                     fds_uint32_t  bufSize) {
+    fds_verify(pods.size() == 0);
+    fds_verify((bufSize % sizeof(MetaObjPod)) == 0);
+    for (fds_uint32_t i = 0; i < bufSize; i += sizeof(MetaObjPod)) {
+      pods.push_back(*(reinterpret_cast<const MetaObjPod*>(persistBuf + i)));
+    }
+  }
+  void unmarshalling(const std::string &persistBuf,
+                     fds_uint32_t       bufSize) {
+    fds_verify(persistBuf.size() == bufSize);
+    unmarshalling(persistBuf.c_str(), bufSize);
+  }
+
+  fds_bool_t hasFlashMap() const {
+    return hasTier(flashTier);
+  }
+
+  fds_bool_t hasDiskMap() const {
+    return hasTier(diskTier);
+  }
+
+  fds::Error getFlashMap(MetaObjPod &pod) const {
+    return getTierMap(pod, flashTier);
+  }
+
+  fds::Error getDiskMap(MetaObjPod &pod) const {
+    return getTierMap(pod, diskTier);
+  }
+
+  void updateMap(const MetaObjPod &pod) {
+    /*
+     * Find if this tier exists and overwrite it.
+     * Otherwise, add the new tier.
+     */
+    for (fds_uint32_t i = 0; i < pods.size(); i++) {
+      if (pods[i].obj_tier == pod.obj_tier) {
+        pods[i] = pod;
+        return;
+      }
+    }
+    pods.push_back(pod);
+  }
+
+  friend std::ostream& operator<<(std::ostream& out, const MetaObjMap& objMap);
+};
+
+inline std::ostream& operator<<(std::ostream& out, const MetaObjMap& objMap) {
+  if (objMap.pods.empty() == true) {
+    out << "Object map empty";
+  } else {
+    for (fds_uint32_t i = 0; i < objMap.pods.size(); i++) {
+      out << "Object map: tier (" << ((objMap.pods[i].obj_tier == diskTier) ? "disk" : "flash")
+          << ") loc id (" << objMap.pods[i].obj_stor_loc_id
+          << ") offset (" << objMap.pods[i].obj_stor_offset
+          << "), ";
+    }
+  }
+  return out;
+}
+
 } // namespace diskio
 
 #endif /* INCLUDE_DISK_MGR_DM_IO_H_ */
