@@ -107,12 +107,13 @@ public:
 //   std::list<ObjectID> hotObjList;
 //   std::list<ObjectID> coldObjList;
 
-   std::list<ObjectID> hotObjList;
-   std::list<ObjectID> coldObjList;
+   std::set<ObjectID, ObjectLess> hotObjList;
+   std::set<ObjectID, ObjectLess> coldObjList;
 
    void setHotObjectThreshold(fds_uint32_t hotObjLevel);
    void setColdObjectThreshold(fds_uint32_t coldObjLevel);
 
+   void getHotObjectList(std::set<ObjectID,ObjectLess>& ret_list);
    
   private:
 

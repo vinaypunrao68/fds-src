@@ -55,11 +55,11 @@ class ObjRankUnitTest {
 	(vols[i-1].voldesc)->relativePrio = i;
       }
 
-    /* lets insert # objects > rank_table_size by 30 */
+    /* lets insert # objects > rank_table_size by 10 */
     ObjectID oid;
-    int vol_ix = 0;
+    int vol_ix = 1;
     fds_uint32_t rank = 0;
-    for (fds_uint32_t i = 1; i <= (rank_table_size + 30); ++i)
+    for (fds_uint32_t i = 1; i <= (rank_table_size + 10); ++i)
       {
 	oid = ObjectID(i, i*i);
 
@@ -69,8 +69,26 @@ class ObjRankUnitTest {
 
 	if ( (i % 15) == 0)
 	  vol_ix = (vol_ix + 1) % vols_count;
-
       }
+
+    /* simulate some accesses to different objects (on disk, that rank table does not know about) */
+    vol_ix = 1;
+    for (fds_uint32_t k = 0; k < 100; ++k)
+      {
+	for (fds_uint32_t i = 1; i <= 20; ++i)
+	  {
+	    oid = ObjectID(2000+i, i);
+
+	    /* access this object 100 times */
+      	    obj_stats->updateIOpathStats(vol_ix, oid);
+	  }
+	/* each object gets accessed once per 100 ms = 10iops */
+	usleep(100000);
+      }
+
+
+    /* first wait to see how ranking engine builds a change list based on what it gets from stats */
+    rank_eng->analyzeStats();
 
     if (!rank_eng->rankingInProgress()) 
       rank_eng->startObjRanking();
@@ -83,7 +101,7 @@ class ObjRankUnitTest {
     /* we should see 30 objects that need demotion */
     fds_uint32_t len = 7;
     fds_uint32_t count = 0;
-    std::pair<ObjectID, ObjectRankEngine::rankOperType> chg_tbl[len];
+    ObjectRankEngine::chg_table_entry_t chg_tbl[len];
     do {
       count = rank_eng->getDeltaChangeTblSegment(len, chg_tbl);
       if (count == 0) break;
@@ -94,7 +112,12 @@ class ObjRankUnitTest {
 	  if (chg_tbl[i].second == ObjectRankEngine::OBJ_RANK_PROMOTION)
 	    FDS_PLOG(test_log) << "UNIT_TEST: chg table obj " << oid.ToHex() << " will be promoted";
 	  else { 
-	    FDS_PLOG(test_log) << "UNIT_TEST: chg table obj " << oid.ToHex() << " will be demoted"; 
+	    FDS_PLOG(test_log) << "UNIT_TEST: chg table obj " << oid.ToHex() << " will be demoted";
+
+	    /* note since stats are not integrated into this unit test, we will only see demotions */
+
+	    /* lets call delete on demoted objects -- since rank engine forgets about them as soon
+	     * as it returns them with getDeltaChangeTblSegment(), this call should not do anything.*/
             rank_eng->deleteObject(oid);
           }
 	}      
@@ -111,17 +134,20 @@ class ObjRankUnitTest {
       for (int i = 0; i < count; ++i) {
 	oid = objArray[i];
 	FDS_PLOG(test_log) << "UNIT_TEST: lowest rank obj: " << oid.ToHex() << "; will also delete";
+
+	/* for unit test -- lest delete those low-rank objects (as if migrator took them and actually removed from ssd */
 	rank_eng->deleteObject(oid);
 	++removed;
       }
 
     } while (count > 0);    
 
+    FDS_PLOG(test_log) << "UNIT_TEST: removed " << removed << " lowest ranked objs from the rank table";
     FDS_PLOG(test_log) << "UNIT_TEST: tail_rank = " << rank_eng->getTblTailRank();
 
 
     /* add higher priority objects that will push out lower rank objects in the table   */
-
+    FDS_PLOG(test_log) << "UNIT_TEST: will add " << (removed + 10) << " high prio vol objects too rank engine";
     for (fds_uint32_t i = 1; i <= (removed + 10); ++i)
       {
 	oid = ObjectID(1000+i, i*i);

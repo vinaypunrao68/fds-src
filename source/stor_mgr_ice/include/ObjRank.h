@@ -13,6 +13,8 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <IceUtil/IceUtil.h>
+
 #include "stor_mgr_err.h"
 
 #include <fdsp/FDSP.h>
@@ -111,6 +113,7 @@ class ObjectRankEngine {
    inline fds_uint32_t getTblTailRank() const { return tail_rank; }
 
    static void runRankingThread(ObjectRankEngine* self);
+   void analyzeStats(void); /* called by timer */
 
  private: /* methods */
 
@@ -168,6 +171,7 @@ class ObjectRankEngine {
    /* persist change table stored in tmp_chgTbl  and swap to rankDeltaChgTbl*/
    Error persistChgTableAndSwap();
 
+
  private: /* data */
 
    /* persistent rank table */
@@ -211,6 +215,26 @@ class ObjectRankEngine {
 
    /* does not own, passed to the constructor */
    fds_log* ranklog;
+
+   /* timer to periodically get stats from stat tracker and 
+    * and make 'demote/promote' decisions based on out cached lowrank list */
+   IceUtil::TimerPtr rankTimer;
+   IceUtil::TimerTaskPtr rankTimerTask;
+
+};
+
+using namespace IceUtil;
+class RankTimerTask: public IceUtil::TimerTask {
+ public:
+  ObjectRankEngine* rank_eng;
+
+  RankTimerTask(ObjectRankEngine* _rank_eng) {
+    rank_eng = _rank_eng;
+  }
+  ~RankTimerTask() {}
+
+  void runTimerTask();
+
 
 };
 
