@@ -13,6 +13,8 @@
 #include "fds_volume.h"
 #include "concurrency/RwLock.h"
 
+#include <persistent_layer/dm_io.h>
+
 #define FDS_STAT_DEFAULT_HIST_SLOTS    7
 #define FDS_STAT_DEFAULT_SLOT_LENGTH   1    /* in sec */
 #define FDS_STAT_MAX_HIST_SLOTS        50
@@ -135,7 +137,10 @@ class PerfStats
 
   /* Record IO in appropriate stats history. If we see statclass_id for the first time
    * will start a stat history for this statclass_id  */
-  void recordIO(fds_uint32_t class_id, long microlat);
+  void recordIO(fds_uint32_t class_id,
+                long microlat,
+                diskio::DataTier tier = diskio::maxTier,  /* Defaults to invalid tier */
+                fds_io_op_t opType = FDS_OP_INVALID);     /* Defaults to invalid op */
 
   /* print stats to file */
   void print();

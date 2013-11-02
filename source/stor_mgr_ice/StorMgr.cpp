@@ -180,6 +180,13 @@ ObjectStorMgr::ObjectStorMgr() :
   omClient = NULL;
 
   /*
+   * Setup the tier related members
+   */
+  dirtyFlashObjs = new ObjQueue(maxDirtyObjs);
+  fds_verify(dirtyFlashObjs->is_lock_free() == true);
+  writeBackThreads = new fds_threadpool(numWBThreads);
+
+  /*
    * Setup QoS related members.
    */
   qosCtrl = new SmQosCtrl(this,
@@ -187,15 +194,22 @@ ObjectStorMgr::ObjectStorMgr() :
                           FDS_QoSControl::FDS_DISPATCH_WFQ,
                           sm_log);
   qosCtrl->runScheduler();
+
   /*
    * stats class init 
    */
-    objStats =  new ObjStatsTracker(sm_log);
+  objStats =  new ObjStatsTracker(sm_log);
+
+  /*
+   * Kick off the writeback thread(s)
+   */
+  writeBackThreads->schedule(writeBackFunc, this);
 }
 
-ObjectStorMgr::~ObjectStorMgr()
-{
+ObjectStorMgr::~ObjectStorMgr() {
   FDS_PLOG(objStorMgr->GetLog()) << " Destructing  the Storage  manager";
+  shuttingDown = true;
+
   if (objStorDB)
     delete objStorDB;
   if (objIndexDB)
@@ -223,6 +237,8 @@ ObjectStorMgr::~ObjectStorMgr()
   delete waitingReqMutex;
   delete qosCtrl;
 
+  delete writeBackThreads;
+  delete dirtyFlashObjs;
   delete tierEngine;
   delete rankEngine;
 
@@ -287,8 +303,83 @@ ObjectStorMgr::volEventOmHandler(fds_volid_t  volumeId,
   }
 }
 
-void ObjectStorMgr::unitTest()
-{
+void ObjectStorMgr::writeBackFunc(ObjectStorMgr *parent) {
+  ObjectID   *objId;
+  fds_bool_t  nonEmpty;
+  Error       err;
+
+  while (1) {
+
+    if (parent->isShuttingDown()) {
+      break;
+    }
+
+    /*
+     * Find an object to write back.
+     * TODO: Should add a bulk-object interface.
+     */
+    objId = NULL;
+    nonEmpty = parent->popDirtyFlash(&objId);
+    if (nonEmpty == false) {
+      /*
+       * If the queue is empty sleep for some
+       * period of time.
+       * Note I have no idea if this is the
+       * correct amount of time or not.
+       */
+      FDS_PLOG(objStorMgr->GetLog()) << "Nothing dirty in flash, going to sleep...";
+      sleep(5);
+      continue;
+    }
+    fds_verify(objId != NULL);
+
+    /*
+     * Blocking call to write back (mirror) this object
+     * to disk.
+     * TODO: Mark the object as being accessed to ensure
+     * it's not evicted by another thread in the meantime.
+     */
+    err = parent->writeBackObj(*objId);
+    fds_verify(err == ERR_OK);
+
+    delete objId;
+  }
+}
+
+Error ObjectStorMgr::writeBackObj(const ObjectID &objId) {
+  Error err(ERR_OK);
+
+  FDS_PLOG(objStorMgr->GetLog()) << "Writing back object " << objId
+                                 << " from flash to disk";
+
+  /*
+   * Read back the object from flash.
+   * TODO: We should pin the object in cache when writing
+   * to flash so that we can read it back from memory rather
+   * than flash.
+   */
+  ObjectBuf objData;
+  err = readObject(objId, objData);
+  if (err != ERR_OK) {
+    return err;
+  }
+
+  /*
+   * Write object back to disk tier.
+   */
+  err = writeObject(objId, objData, diskio::diskTier);
+  if (err != ERR_OK) {
+    return err;
+  }
+
+  /*
+   * Mark the object as 'clean' somewhere.
+   */
+
+  return err;
+}
+
+void ObjectStorMgr::unitTest() {
   Error err(ERR_OK);
 
   FDS_PLOG(objStorMgr->GetLog()) << "Running unit test";
@@ -340,21 +431,72 @@ ObjectStorMgr::writeObjectLocation(const ObjectID& objId,
 
   Error err(ERR_OK);
 
+  diskio::MetaObjMap objMap;
+  ObjectBuf          objData;
+
+  /*
+   * Get existing object locations
+   * TODO: We need a better way to update this
+   * location DB with a new location. This requires
+   * reading the existing locations, updating the entry,
+   * and re-writing it. We often just want to append.
+   */
+  err = readObjectLocations(objId, objMap);
+  if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
+    FDS_PLOG(objStorMgr->GetLog()) << "Failed to read existing object locations"
+                                   << " during location write";
+    return err;
+  } else if (err == ERR_DISK_READ_FAILED) {
+    /*
+     * Assume this error means the key just did not exist.
+     * TODO: Add an err to differention "no key" from "failed read".
+     */
+    FDS_PLOG(objStorMgr->GetLog()) << "Not able to read existing object locations"
+                                   << ", assuming no prior entry existed";
+    err = ERR_OK;
+  }
+  /*
+   * Add new location to existing locations
+   */
+  objMap.updateMap(*obj_map);
+
+  objData.size = objMap.marshalledSize();
+  objData.data = std::string(objMap.marshalling(), objMap.marshalledSize());
+  err = objStorDB->Put(objId, objData);
+  if (err == ERR_OK) {
+    FDS_PLOG(GetLog()) << "Updating object location for object "
+                       << objId << " to " << objMap;
+  } else {
+    FDS_PLOG(GetLog()) << "Failed to put object " << objId
+                       << " into odb with error " << err;
+  }
+
+  return err;
+}
+
+/*
+ * Reads all object locations
+ */
+Error
+ObjectStorMgr::readObjectLocations(const ObjectID     &objId,
+                                   diskio::MetaObjMap &objMaps) {
+  Error     err(ERR_OK);
   ObjectBuf objData;
 
-  string obj_map_string = obj_map_to_string(obj_map);
-  objData.size = obj_map_string.size();
-  objData.data = obj_map_string;
-  err = objStorDB->Put(objId, objData);
-  FDS_PLOG(GetLog()) << "Updating object location for object " << objId << " to " << objData.data;
-  return err;
+  objData.size = 0;
+  objData.data = "";
+  err = objStorDB->Get(objId, objData);
+  if (err == ERR_OK) {
+    objData.size = objData.data.size();
+    objMaps.unmarshalling(objData.data, objData.size);
+  }
 
+  return err;
 }
 
 Error
-ObjectStorMgr::readObjectLocation(const ObjectID& objId,
-				  meta_obj_map_t *obj_map) {
-
+ObjectStorMgr::readObjectLocations(const ObjectID &objId,
+                                   meta_obj_map_t *objMap) {
   Error err(ERR_OK);
   ObjectBuf objData;
 
@@ -362,7 +504,7 @@ ObjectStorMgr::readObjectLocation(const ObjectID& objId,
   objData.data = "";
   err = objStorDB->Get(objId, objData);
   if (err == ERR_OK) {
-    string_to_obj_map(objData.data, obj_map);
+    string_to_obj_map(objData.data, objMap);
     FDS_PLOG(GetLog()) << "Retrieving object location for object "
                        << objId << " as " << objData.data;
   } else {
@@ -371,10 +513,24 @@ ObjectStorMgr::readObjectLocation(const ObjectID& objId,
   return err;
 }
 
+Error
+ObjectStorMgr::readObject(const ObjectID& objId,
+			  ObjectBuf& objData) {
+  diskio::DataTier tier;
+  return readObject(objId, objData, tier);
+}
+
+/*
+ * Note the tierUsed parameter is an output param.
+ * It gets set in the function and the prior
+ * value is unused.
+ * It is only guaranteed to be set if success
+ * is returned
+ */
 Error 
-ObjectStorMgr::readObject(const ObjectID& objId, 
-			  ObjectBuf& objData)
-{
+ObjectStorMgr::readObject(const ObjectID   &objId,
+			  ObjectBuf        &objData,
+                          diskio::DataTier &tierUsed) {
   Error err(ERR_OK);
   
   diskio::DataIO& dio_mgr = diskio::DataIO::disk_singleton();
@@ -390,11 +546,42 @@ ObjectStorMgr::readObject(const ObjectID& objId,
   oid.oid_hash_hi = objId.GetHigh();
   oid.oid_hash_lo = objId.GetLow();
 
-  disk_req = new SmPlReq(vio, oid, (ObjectBuf *)&objData, true); // blocking call
-  err = readObjectLocation(objId, disk_req->req_get_vmap());
+  // create a blocking request object
+  disk_req = new SmPlReq(vio, oid, (ObjectBuf *)&objData, true);
+
+  /*
+   * Read all of the object's locations
+   */
+  diskio::MetaObjMap objMap;
+  err = readObjectLocations(objId, objMap);
   if (err == ERR_OK) {
+    /*
+     * Read obj from flash if we can
+     */
+    if (objMap.hasFlashMap() == true) {
+      err = objMap.getFlashMap(*(disk_req->req_get_vmap()));
+      if(err != ERR_OK) {
+        delete disk_req;
+        return err;
+      }
+    } else {
+      /*
+       * Read obj from disk
+       */
+      fds_verify(objMap.hasDiskMap() == true);
+      err = objMap.getDiskMap(*(disk_req->req_get_vmap()));
+      if(err != ERR_OK) {
+        delete disk_req;
+        return err;
+      }
+    }
     // Update the request with the tier info from disk
     disk_req->setTierFromMap();
+    tierUsed = disk_req->getTier();
+
+    FDS_PLOG(objStorMgr->GetLog()) << "Reading object " << objId << " from "
+                                   << ((disk_req->getTier() == diskio::diskTier) ? "disk" : "flash")
+                                   << " tier";
     objData.size = disk_req->req_get_vmap()->obj_size;
     objData.data.resize(objData.size, 0);
     dio_mgr.disk_read(disk_req);
@@ -457,17 +644,39 @@ ObjectStorMgr::checkDuplicate(const ObjectID&  objId,
   return err;
 }
 
+/*
+ * Note the tier parameter is an output param.
+ * It gets set in the function and the prior
+ * value is unused.
+ * It is only guaranteed to be set if success
+ * is returned.
+ */
+Error
+ObjectStorMgr::writeObject(const ObjectID   &objId, 
+                           const ObjectBuf  &objData,
+                           fds_volid_t       volId,
+                           diskio::DataTier &tier) {
+  /*
+   * Ask the tiering engine which tier to place this object
+   */
+  tier = tierEngine->selectTier(objId, volId);
+  return writeObject(objId, objData, tier);
+}
+
 Error 
 ObjectStorMgr::writeObject(const ObjectID  &objId, 
                            const ObjectBuf &objData,
-                           fds_volid_t      volId) {
+                           diskio::DataTier tier) {
   Error err(ERR_OK);
+
+  fds_verify((tier == diskio::diskTier) ||
+             (tier == diskio::flashTier));
   
   diskio::DataIO& dio_mgr = diskio::DataIO::disk_singleton();
   SmPlReq     *disk_req;
   meta_vol_io_t   vio;
   meta_obj_id_t   oid;
-  diskio::DataTier tier;
+  fds_bool_t      pushOk;
   vadr_set_inval(vio.vol_adr);
 
   /*
@@ -477,14 +686,21 @@ ObjectStorMgr::writeObject(const ObjectID  &objId,
   oid.oid_hash_hi = objId.GetHigh();
   oid.oid_hash_lo = objId.GetLow();
 
-  tier = tierEngine->selectTier(objId, volId);
-  disk_req = new SmPlReq(vio, oid, (ObjectBuf *)&objData, true, tier); // blocking call
-  dio_mgr.disk_write(disk_req);
-  err = writeObjectLocation(objId, disk_req->req_get_vmap());
-
   FDS_PLOG(objStorMgr->GetLog()) << "Writing object " << objId << " into the "
                                  << ((tier == diskio::diskTier) ? "disk" : "flash")
                                  << " tier";
+  disk_req = new SmPlReq(vio, oid, (ObjectBuf *)&objData, true, tier); // blocking call
+  dio_mgr.disk_write(disk_req);
+  err = writeObjectLocation(objId, disk_req->req_get_vmap());
+  if ((err == ERR_OK) &&
+      (tier == diskio::flashTier)) {
+    /*
+     * If written to flash, add to dirty flash list
+     */
+    pushOk = dirtyFlashObjs->push(new ObjectID(objId));
+    fds_verify(pushOk == true);
+  }
+
   delete disk_req;
   return err;
 }
@@ -500,9 +716,10 @@ ObjectStorMgr::writeObject(const ObjectID  &objId,
 Error
 ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
   Error err(ERR_OK);
-  const ObjectID&  objId   = putReq->getObjId();
-  const ObjectBuf& objData = putReq->getObjData();
-  fds_volid_t volId        = putReq->getVolId();
+  const ObjectID&  objId    = putReq->getObjId();
+  const ObjectBuf& objData  = putReq->getObjData();
+  fds_volid_t volId         = putReq->getVolId();
+  diskio::DataTier tierUsed = diskio::maxTier;
 
   objStorMutex->lock();
 
@@ -523,13 +740,12 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
     FDS_PLOG(objStorMgr->GetLog()) << "Failed to check object duplicate status on put: "
                                    << err;
   } else {
-    /*
-     * This is the levelDB insertion. It's a totally
-     * separate DB from the one above.
-     */
-    err = writeObject(objId, objData, volId);
-    objStorMutex->unlock();
 
+    /*
+     * Write the object and record which tier it when to
+     */
+    err = writeObject(objId, objData, volId, tierUsed);
+    objStorMutex->unlock();
     if (err != fds::ERR_OK) {
       FDS_PLOG(objStorMgr->GetLog()) << "Failed to put object " << err;
     } else {
@@ -548,7 +764,8 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
     */
   }
 
-  qosCtrl->markIODone(*putReq);
+  qosCtrl->markIODone(*putReq,
+                      tierUsed);
 
   /*
    * Prepare a response to send back.
@@ -656,9 +873,11 @@ ObjectStorMgr::PutObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
 
 Error
 ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
-  Error           err(ERR_OK);
-  const ObjectID& objId  = getReq->getObjId();
-  ObjectBuf       objData;
+  Error            err(ERR_OK);
+  const ObjectID  &objId = getReq->getObjId();
+  ObjectBuf        objData;
+  diskio::DataTier tierUsed = diskio::maxTier;
+
   /*
    * We need to fix this once diskmanager keeps track of object size
    * and allocates buffer automatically.
@@ -669,7 +888,7 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
   objData.data = "";
 
   objStorMutex->lock();
-  err = readObject(objId, objData);
+  err = readObject(objId, objData, tierUsed);
   objStorMutex->unlock();
   objData.size = objData.data.size();
 
@@ -688,7 +907,7 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
                                    << " for request ID " << getReq->io_req_id;
   }
 
-  qosCtrl->markIODone(*getReq);
+  qosCtrl->markIODone(*getReq, tierUsed);
 
   /*
    * Prepare a response to send back.
@@ -1075,6 +1294,7 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
           FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a get request";
           threadPool->schedule(getObjectExt,io);
           objStorMgr->objStats->updateIOpathStats(io->getVolId(),io->getObjId());
+    	  objStorMgr->volTbl->updateVolStats(io->getVolId());
    } else if (io->io_type == FDS_IO_WRITE) {
           FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a put request";
           threadPool->schedule(putObjectExt,io);

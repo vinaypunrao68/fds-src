@@ -184,6 +184,14 @@ namespace fds {
 	stats->recordIO(_io.io_vol_id, 0);
 	return err;
       }
+
+      Error markIODone(const FDS_IOType &_io,
+                       diskio::DataTier  tier) {
+	Error err(ERR_OK);
+	dispatcher->markIODone((FDS_IOType *)&_io);
+	stats->recordIO(_io.io_vol_id, 0, tier, _io.io_type);
+	return err;
+      }
     };
 
     SmQosCtrl  *qosCtrl;
@@ -195,13 +203,26 @@ namespace fds {
     TierEngine     *tierEngine;
 
     /*
+     * Flash write-back members.
+     * TODO: These should probably be in the persistent layer
+     * but is easier here for now since needs the index.
+     */
+    typedef boost::lockfree::queue<ObjectID*> ObjQueue;  /* Dirty list type */
+    static void writeBackFunc(ObjectStorMgr *parent);    /* Function for write-back */
+    std::atomic_bool  shuttingDown;      /* SM shut down flag for write-back thread */
+    fds_uint32_t      numWBThreads;      /* Number of write-back threads */
+    fds_threadpool   *writeBackThreads;  /* Threads performing write-back */
+    fds_uint32_t      maxDirtyObjs;      /* Max dirty list size */
+    ObjQueue         *dirtyFlashObjs;    /* Flash's dirty list */
+
+    /*
      * Outstanding request tracking members.
      * TODO: We should have a better overall mechanism than
      * this. This is pretty slow and hackey. The networking
      * layer should eventually handle this, not SM.
      */
     typedef std::unordered_map<fds_uint64_t,
-        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr > WaitingReqMap;
+        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr> WaitingReqMap;
     WaitingReqMap              waitingReqs;
     std::atomic<fds_uint64_t>  nextReqId;
     fds_mutex                 *waitingReqMutex;
@@ -221,13 +242,22 @@ namespace fds {
                          const ObjectBuf &objCompData);
     Error writeObjectLocation(const ObjectID &objId, 
                               meta_obj_map_t *obj_map);
-    Error readObjectLocation(const ObjectID  &objId, 
-                              meta_obj_map_t *obj_map);
-    Error writeObject(const ObjectID  &objId,
-                      const ObjectBuf &objCompData,
-                      fds_volid_t      volId);
+    Error readObjectLocations(const ObjectID &objId, 
+                              meta_obj_map_t *objMaps);
+    Error readObjectLocations(const ObjectID     &objId,
+                              diskio::MetaObjMap &objMaps);
+    Error writeObject(const ObjectID   &objId,
+                      const ObjectBuf  &objCompData,
+                      fds_volid_t       volId,
+                      diskio::DataTier &tier);
+    Error writeObject(const ObjectID  &objId, 
+                      const ObjectBuf &objData,
+                      diskio::DataTier tier);
     Error readObject(const ObjectID &objId,
                      ObjectBuf      &objCompData);
+    Error readObject(const ObjectID   &objId,
+                     ObjectBuf        &objCompData,
+                     diskio::DataTier &tier);
 
  public:
 
@@ -240,6 +270,14 @@ namespace fds {
      * stats  class 
      */
       ObjStatsTracker   *objStats;
+
+    fds_bool_t isShuttingDown() const {
+      return shuttingDown;
+    }
+    fds_bool_t popDirtyFlash(ObjectID **objId) {
+      return dirtyFlashObjs->pop(*objId);
+    }
+    Error writeBackObj(const ObjectID &objId);
 
     /*
      * Public volume reg handlers

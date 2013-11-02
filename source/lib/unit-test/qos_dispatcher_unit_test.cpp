@@ -331,6 +331,7 @@ namespace fds {
       }
     }
     last_work_time = enter_time;
+    dispatcher->markIODone(io);
     
     return err;
   }

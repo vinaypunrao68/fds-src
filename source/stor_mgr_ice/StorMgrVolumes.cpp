@@ -34,6 +34,7 @@ StorMgrVolume::StorMgrVolume(const VolumeDesc&  vdb,
                             voldesc->getPriority());
 
   volumeIndexDB  = new ObjectDB(filename);
+  averageObjectsRead = 0; 
 }
 
 StorMgrVolume::~StorMgrVolume() {
@@ -205,6 +206,60 @@ StorMgrVolume *vol = NULL;
  
   return err;
 }
+
+fds_uint32_t StorMgrVolumeTable::getVolAccessStats(fds_volid_t vol_uuid) {
+ StorMgrVolume *vol = NULL;
+ fds_uint32_t  AveNumVolObj = -1;
+
+  map_rwlock.read_lock();
+  if (volume_map.count(vol_uuid) > 0) {
+    vol = volume_map[vol_uuid];
+  }  else {
+    FDS_PLOG(vt_log) << "STATS-VOL stats  requested on - Volume " << vol_uuid
+                     << " does not exist";    
+    map_rwlock.read_unlock();
+    return AveNumVolObj;
+  }
+ 
+  map_rwlock.read_unlock();
+  AveNumVolObj = vol->averageObjectsRead;
+  return AveNumVolObj;
+}
+
+
+Error StorMgrVolumeTable::updateVolStats(fds_volid_t vol_uuid) {
+
+ Error err(ERR_OK);
+ StorMgrVolume *vol = NULL;
+ fds_bool_t  slotChange;
+
+   map_rwlock.write_lock();
+   if (volume_map.count(vol_uuid) > 0) {
+     vol = volume_map[vol_uuid];
+   }  else {
+       FDS_PLOG(vt_log) << "STATS-VOL - update stats request for non-existing volume " 
+																		<< vol_uuid;
+       err = ERR_INVALID_ARG;
+       map_rwlock.write_unlock();
+      return err;
+   }
+
+   /*
+    * update the stats 
+    */
+    vol->lastAccessTimeR =  vol->objStats.last_access_ts;
+    slotChange = vol->objStats.increment(objStorMgr->objStats->startTime, COUNTER_UPDATE_SLOT_TIME);
+    if (slotChange == true) {
+	vol->averageObjectsRead += vol->objStats.getWeightedCount(objStorMgr->objStats->startTime, \
+							COUNTER_UPDATE_SLOT_TIME);
+    	FDS_PLOG(vt_log) << "STATS-VOL: Average Objects  per Vol slot :"  << vol->averageObjectsRead;
+    }
+    volume_map[vol_uuid] = vol;
+
+    map_rwlock.write_unlock();
+    return err;
+}
+
 
 /*
  * Handler for volume-related control message from OM

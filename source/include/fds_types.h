@@ -59,6 +59,11 @@ namespace fds {
         hash_low(low) {
     }
 
+    ObjectID(const ObjectID& rhs)
+        : hash_high(rhs.hash_high),
+        hash_low(rhs.hash_low) {
+    }
+
     explicit ObjectID(const std::string& oid) {
       memcpy(&hash_high,
              oid.c_str(),
@@ -183,7 +188,7 @@ namespace fds {
   }
   
   class ObjectHash {
- public:
+  public:
     size_t operator()(const ObjectID& oid) const {
       return std::hash<std::string>()(oid.ToHex());
     }
@@ -195,9 +200,14 @@ namespace fds {
     fds_uint64_t offset;
   };
 
-  struct ObjectBuf {
+  class ObjectBuf { 
+  public:
     fds_uint32_t size;
     std::string data;
+    ObjectBuf()
+      : size(0), data("")
+      {
+      }
   };
 
   inline fds_uint32_t str_to_ipv4_addr(std::string ip_str) {
@@ -225,7 +235,8 @@ namespace fds {
    FDS_IO_REDIR_READ,
    FDS_IO_OFFSET_WRITE,
    FDS_CAT_UPD,
-   FDS_CAT_QRY
+   FDS_CAT_QRY,
+   FDS_OP_INVALID
   } fds_io_op_t;
 
   class FDS_IOType {

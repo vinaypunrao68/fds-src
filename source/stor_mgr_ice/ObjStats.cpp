@@ -8,8 +8,6 @@
 
 namespace fds {
 
-#define  COUNTER_UPDATE_SLOT_TIME    1    /*  second */
-
 ObjStatsTracker::ObjStatsTracker(fds_log *parent_log) {
 
    std::string  filename = "/fds/objStats";
@@ -28,6 +26,8 @@ ObjStatsTracker::ObjStatsTracker(fds_log *parent_log) {
   startTime  = CounterHist8bit::getFirstSlotTimestamp();
   FDS_PLOG(stats_log) << "STATS:Start TIME: " << startTime;
 
+   hotObjThreshold = 100;
+   coldObjThreshold = 20;
 
   // Create leveldb
   leveldb::Options options;
@@ -81,8 +81,32 @@ Error ObjStatsTracker::updateIOpathStats(fds_volid_t vol_uuid,const ObjectID& ob
     if (slotChange == true) {
 	oStats->averageObjectsRead += oStats->objStats.getWeightedCount(startTime,COUNTER_UPDATE_SLOT_TIME);
     	FDS_PLOG(stats_log) << "STATS-DB: Average Objects  per slot :"  << oStats->averageObjectsRead;
+
+    /* classify the  objects  for tiering */
+     if (oStats->averageObjectsRead > hotObjThreshold) {
+			/* check  if this object is in cold list  and delete  before adding to  Hot list */
+            coldObjList.remove (objId);
+    	    FDS_PLOG(stats_log) << "STATS-DB: Object classified  as HOT :" <<objId;
+			hotObjList.push_back (objId);
+	  }
+
+      if (oStats->averageObjectsRead  < coldObjThreshold) {
+
+    	    FDS_PLOG(stats_log) << "STATS-DB: Object classified  as COLD :" <<objId;
+			coldObjList.push_back(objId);
+	  }
+       
+      if ((oStats->averageObjectsRead  > coldObjThreshold) && 
+		  (oStats->averageObjectsRead < hotObjThreshold)) {
+
+    	    FDS_PLOG(stats_log) << "STATS-DB: Object classification list CLEAN :" <<objId;
+            coldObjList.remove (objId);
+            hotObjList.remove (objId);
+	  }
+
     }
     ioPathStatsObj_map[objId] = oStats;
+
   }else {
 
   FDS_PLOG(stats_log) << "STATS: obj stats   Does not map Exists:"  << objId << "startTime: " << startTime;
@@ -94,6 +118,7 @@ Error ObjStatsTracker::updateIOpathStats(fds_volid_t vol_uuid,const ObjectID& ob
 
   objStatsMapLock->unlock(); 
 
+
    if (slotChange == true) {
  	/* update the stats to level DB */
      FDS_PLOG(stats_log) << "STATS-DB: Invoking the level DB  update function:"  << objId;
@@ -101,6 +126,18 @@ Error ObjStatsTracker::updateIOpathStats(fds_volid_t vol_uuid,const ObjectID& ob
    }
 
   return err;
+}
+
+
+void ObjStatsTracker::setHotObjectThreshold(fds_uint32_t hotObjLevel) {
+
+   hotObjThreshold = hotObjLevel;
+}
+
+
+void ObjStatsTracker::setColdObjectThreshold(fds_uint32_t coldObjLevel) {
+
+   coldObjThreshold = coldObjLevel;
 }
 
 

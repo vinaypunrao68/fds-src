@@ -333,8 +333,10 @@ namespace fds {
     }
   }
 
-  void PerfStats::recordIO(fds_uint32_t class_id, long microlat)
-  {
+  void PerfStats::recordIO(fds_uint32_t     class_id,
+                           long             microlat,
+                           diskio::DataTier tier,
+                           fds_io_op_t      opType) {
     if ( !isEnabled()) return;
 
     StatHistory* hist = NULL;

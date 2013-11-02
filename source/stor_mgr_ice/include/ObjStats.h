@@ -19,6 +19,8 @@
 #include <unistd.h>
 #include <assert.h>
 #include <iostream>
+#include <list>
+#include <vector>
 #include <Ice/Ice.h>
 #include <util/Log.h>
 #include <concurrency/Mutex.h>
@@ -33,6 +35,8 @@
 using namespace std;
 
 namespace fds {
+
+#define  COUNTER_UPDATE_SLOT_TIME    1    /*  second */
 
 class ObjStatsTracker { 
 
@@ -92,6 +96,22 @@ public:
    void lastObjectReadAccessTimeBlk(fds_volid_t vol_uuid,ObjectID& objId, fds_uint64_t accessTime);
    void lastObjectWriteAccessTimeBlk(fds_volid_t vol_uuid,ObjectID& objId, fds_uint64_t accessTime);
    fds_uint32_t getObjectAccessBlk(fds_volid_t vol_uuid,ObjectID& objId);
+
+  /*
+   * tier   object classification  API's 
+   */
+   fds_uint32_t hotObjThreshold;
+   fds_uint32_t coldObjThreshold;
+
+
+//   std::list<ObjectID> hotObjList;
+//   std::list<ObjectID> coldObjList;
+
+   std::list<ObjectID> hotObjList;
+   std::list<ObjectID> coldObjList;
+
+   void setHotObjectThreshold(fds_uint32_t hotObjLevel);
+   void setColdObjectThreshold(fds_uint32_t coldObjLevel);
 
    
   private:

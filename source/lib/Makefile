@@ -7,6 +7,7 @@ user_cpp         :=               \
     OMgrClient.cpp                \
 	QoSWFQDispatcher.cpp	\
 	qos_htb.cpp  \
+	fds_obj_cache.cpp	\
 
 #user_cc          :=               \
 #    tvclib.c                      \

@@ -14,14 +14,16 @@ user_cpp          :=                       \
     catalog_unit_test.cpp                  \
     om_client_unit_test.cpp \
     tb_unit_test.cpp \
-	qos_dispatcher_unit_test.cpp
+	qos_dispatcher_unit_test.cpp \
+	ocache_unit_test.cpp
 
 user_cc           :=
 
-user_bin_exe      := catalog_test om_client_test tb_unit_test qos_dispatcher_unit_test
+user_bin_exe      := catalog_test om_client_test tb_unit_test qos_dispatcher_unit_test ocache_unit_test
 catalog_test      := catalog_unit_test.cpp
 om_client_test    := om_client_unit_test.cpp
 tb_unit_test      := tb_unit_test.cpp
 qos_dispatcher_unit_test	:= qos_dispatcher_unit_test.cpp
+ocache_unit_test	:= ocache_unit_test.cpp
 
 include $(topdir)/Makefile.incl

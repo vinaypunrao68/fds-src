@@ -82,17 +82,35 @@ fds_uint32_t ObjectRankEngine::rankAndInsertObject(const ObjectID& objId, const 
 void ObjectRankEngine::deleteObject(const ObjectID& objId)
 {
   fds_bool_t start_ranking_process = false;
+  fds_bool_t do_cache_obj = true;
 
-  map_mutex->lock();
-
-  cached_obj_map[objId] = OBJECT_RANK_INVALID;
-  if (cached_obj_map.size() >= max_cached_objects) {
-    start_ranking_process = true;
+  tbl_mutex->lock();
+  {
+    /* First see if the obj is in delta change table and delete from there -- 
+     * so we don't require migrator again check obj for validity */
+    obj_rank_cache_it_t it = rankDeltaChgTbl.find(objId);
+    if (it != rankDeltaChgTbl.end()) {
+      fds_uint32_t rank = it->second;
+      rankDeltaChgTbl.erase(it);
+      if (isRankDemotion(rank)) {
+	/* this obj not in rank table, so nothing else to do */
+	do_cache_obj = false;
+      }
+    }
   }
+  tbl_mutex->unlock();
 
-  /* if objects is in rank table in persistent storage, we will
-   * delete the object from there during ranking process */
+  if (!do_cache_obj) return;
 
+  /* we need to cache this deletion to erase it (if it's there) from 
+   * the ranking table during the next ranking process */
+  map_mutex->lock();
+  {
+    cached_obj_map[objId] = OBJECT_RANK_INVALID;
+    if (cached_obj_map.size() >= max_cached_objects) {
+      start_ranking_process = true;
+    }
+  }
   map_mutex->unlock();
 
   if (start_ranking_process) {
@@ -134,7 +152,7 @@ Error ObjectRankEngine::doRanking()
    *    process, so will return error.  TODO: better way to handle this (?)
    */
 
-  const fds_uint32_t max_lowrank_objs = 250;
+  const fds_uint32_t max_lowrank_objs = 25;
 
   rank_order_objects_t *ordered_objects = NULL; /* temp helper ordered list of objects */
   rank_order_objects_it_t mm_it, tmp_it;
@@ -212,7 +230,7 @@ Error ObjectRankEngine::doRanking()
 
       /* we want to query first on any case, so we can do correct accounting of # objs in db */
       err = rankDB->Query(key, &val);
-      if (isRankDemotion(mm_it->first)) {
+      if (o_rank == OBJECT_RANK_INVALID) {
 	/* delete from database if it's there */
 	if ( err.ok() ) {
 	  Record del_key((const char*)&oid, sizeof(oid));
@@ -221,15 +239,13 @@ Error ObjectRankEngine::doRanking()
 	  --cur_rank_tbl_size;
 	  FDS_PLOG(ranklog) << "ObjectRankEngine: Ranking: removing obj " << oid.ToHex() << " from db";
 	}
-	/* add to delta chg table */
-	tmp_chgTbl[oid] = o_rank;
 	/* remove from ordered_objects */
 	tmp_it = mm_it;
 	++mm_it;
 	ordered_objects->erase(tmp_it);
       }
       else {
-	/* rank < demotion -- update/possibly add to database */
+	/* object not marked for deletion  -- update/possibly add to database */
 	if ( err.ok() || ((err == ERR_CAT_ENTRY_NOT_FOUND) && (diff_count > 0)) ) {
 	  /* we are ok either update rank or add new entry */
 	  Record put_key((const char*)&oid, sizeof(oid));
@@ -239,10 +255,6 @@ Error ObjectRankEngine::doRanking()
 	    /* we are adding new entry */
 	    ++cur_rank_tbl_size;
 	    //FDS_PLOG(ranklog) << "ObjectRankEngine: Ranking: adding obj " << oid.ToHex() << " rank " << o_rank << " to db";
-
-	    /* This entry is for sure promoted (since it fit into the db nad its rank > rank of outside
-	     * of db objects; remember we are walking the map starting from highest to lowest rank */
-	    tmp_chgTbl[oid] = o_rank;
 	  }
 	  err = rankDB->Update(put_key, put_val);
 
