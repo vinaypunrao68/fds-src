@@ -93,7 +93,7 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	fd = open(TESTFILE, O_CREAT | O_RDWR);
+	fd = open(TESTFILE, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
 
 	if (fd == -1) {
 		perror("aio_write_one_thread_id: Cannot open testfile");

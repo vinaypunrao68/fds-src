@@ -14,7 +14,9 @@ ObjectRankEngine::ObjectRankEngine(const std::string& _sm_prefix, fds_uint32_t _
     max_cached_objects(MAX_RANK_CACHE_SIZE),
     tail_rank(OBJECT_RANK_INVALID),
     obj_stats(_obj_stats),
-    ranklog(log)
+    ranklog(log),
+    rankTimer(new IceUtil::Timer()),
+    rankTimerTask(new RankTimerTask(this))
 {
   std::string filename(_sm_prefix + "ObjRankDB");
   rankDB = new Catalog(filename);
@@ -28,12 +30,25 @@ ObjectRankEngine::ObjectRankEngine(const std::string& _sm_prefix, fds_uint32_t _
   rank_thread = new boost::thread(boost::bind(&runRankingThread, this));
   rank_notify = new fds_notification();
 
+  /* for now setting small intervals so we can have short demo */
+  IceUtil::Time interval = IceUtil::Time::seconds(30);
+  try {
+    rankTimer->scheduleRepeated(rankTimerTask, interval);
+  } catch (...) {
+    FDS_PLOG(ranklog) << "ObjectRankEngine: ERROR: failed to schedule timer to analyze stats from stat tracker";
+  }
+  /* for now set low threshold for hot objects -- does not impact correctness, just
+  * the amount of memory stat tracker will need to keep the list of hot objects */
+  obj_stats->setHotObjectThreshold(3);
+  obj_stats->setColdObjectThreshold(0); // for now we don't care about cold list 
+
   FDS_PLOG(ranklog) << "ObjectRankEngine: construction done, rank table size = " << rank_tbl_size;
 }
 
 ObjectRankEngine::~ObjectRankEngine()
 {
   exiting = true;
+  rankTimer->destroy();
 
   /* make sure ranking thread is not waiting  */
   rank_notify->notify();
@@ -132,6 +147,43 @@ fds_uint32_t ObjectRankEngine::getRank(const ObjectID& objId, const VolumeDesc& 
 }
 
 
+/* 
+ * Called periodically (on timer) to get list of 'hot' objects from stat tracker
+ * If an object in that list is not in the rank table and its rank is higher than
+ * the lowest-ranked object in the rank table, we will insert this hot object to 
+ * the rank table and kick out the lowest ranked object from the rank table (if
+ * the rank table is full). 
+ * 
+ * We do the analysis based on the cached list of lowest ranked objects. It will
+ * be slightly outdated -- e.g. higher ranked objects in the rank table may 
+ * become cold and should be moved down, but we don't want to run the whole 
+ * rankin process here. We will do the best guess based on the cached list, and
+ * ranking process running less often than stat analyzis will make sure that 
+ * out cached list is not too much out-of-date.
+ *
+ */
+void ObjectRankEngine::analyzeStats()
+{
+  std::set<ObjectID,ObjectLess> hotList;
+  std::set<ObjectID,ObjectLess>::iterator it;
+  /* we need volume desc from stats, but seem too much data to keep
+   * so we will assume lowest prio volume -- anyway we care about really hot
+   * objects to promote, and frequency/recency has higher weight than volume policy for now  */
+  VolumeDesc voldesc(std::string("novol"), 1, 0, 0, 10); 
+
+  obj_stats->getHotObjectList(hotList);
+  FDS_PLOG(ranklog) << "ObjectRankEngine: got hot object list from stat tracker of size " << hotList.size();
+  for (it = hotList.begin();
+       it != hotList.end();
+       ++it)
+    {
+      fds_uint32_t rank = getRank(*it, voldesc);
+    }
+
+
+  hotList.clear();
+}
+
 Error ObjectRankEngine::doRanking()
 {
   Error err(ERR_OK);
@@ -218,8 +270,7 @@ Error ObjectRankEngine::doRanking()
   mm_it = ordered_objects->begin();
   iters = 0; /* guarding that this loop actually finishes, we should see at most 2 full iterations of ordered_objects */
   int dbg_count = 0;
-  while ((cur_rank_tbl_size < rank_tbl_size) &&
-	 (ordered_objects->size() > 0))
+  while (ordered_objects->size() > 0)
     {
       fds_uint32_t diff_count = rank_tbl_size - cur_rank_tbl_size;
       ObjectID oid = mm_it->second;
@@ -244,7 +295,7 @@ Error ObjectRankEngine::doRanking()
 	++mm_it;
 	ordered_objects->erase(tmp_it);
       }
-      else {
+      else if (cur_rank_tbl_size < rank_tbl_size) {
 	/* object not marked for deletion  -- update/possibly add to database */
 	if ( err.ok() || ((err == ERR_CAT_ENTRY_NOT_FOUND) && (diff_count > 0)) ) {
 	  /* we are ok either update rank or add new entry */
@@ -267,6 +318,9 @@ Error ObjectRankEngine::doRanking()
 	  ++mm_it;
 	}
       }
+      else {
+	++mm_it;
+      }
 
       if (mm_it == ordered_objects->end()) {
 	mm_it = ordered_objects->begin();
@@ -274,11 +328,13 @@ Error ObjectRankEngine::doRanking()
 	fds_verify(iters < 3);
       }
 
+      if ((iters > 1) || ( (iters == 1) && (cur_rank_tbl_size >= rank_tbl_size) )) break;
+
       ++dbg_count;
       if ( (dbg_count % 1000) == 0) FDS_PLOG(ranklog) << "ObjectRankEngine: Ranking: processed batch of 1000 objs in part 1";
     }
 
-  FDS_PLOG(ranklog) << "ObjectRankEngine: finished part 1 of ranking process, starting part 2";
+  FDS_PLOG(ranklog) << "ObjectRankEngine: finished part 1 of ranking process, starting part 2; cur_rank_tbl_size = " << cur_rank_tbl_size;
 
   /* if ordered_objects map is empty, it means that we could fit everything in rank table
    * except of course objects mapped for demotion. If so, we have change table in cached_chg_table.
@@ -561,6 +617,13 @@ void ObjectRankEngine::runRankingThread(ObjectRankEngine* self)
 {
   fds_verify(self != NULL);
   self->runRankingThreadInternal();
+}
+
+/* timer task to get stats from stat tracker and see if we can promote 'hot' objects
+ * (also demoting if we need to kick objs out of rank table) */
+void RankTimerTask::runTimerTask()
+{
+  rank_eng->analyzeStats();
 }
 
 } // namespace fds

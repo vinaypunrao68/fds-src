@@ -2,6 +2,7 @@
 #define _PHAROS_Actuator_H_INCLUDED_ 1
 
 #include <stdio.h>
+#include <random>
 #include <atomic>
 
 #include "IOStat.H"
@@ -78,6 +79,8 @@ protected:
   int cur_sec_since_start;
   long slot_ios;
   double slot_ave_lat;
+
+  std::default_random_engine rgen;
 
 };
 

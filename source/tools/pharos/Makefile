@@ -93,8 +93,8 @@ LD = g++
 # On Fedora, only _LARGEFILE_SOURCE is needed.
 # On RH7, all three defines are needed.
 # I hate computers
-CXXFLAGS = -std=c++11 -Wall -D_LARGEFILE_SOURCE=1 -D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64 -D_XOPEN_SOURCE=500 -D_GNU_SOURCE=1
-LDFLAGS = -lpthread -lboost_random
+CXXFLAGS = -std=c++0x -Wall -D_LARGEFILE_SOURCE=1 -D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64 -D_XOPEN_SOURCE=500 -D_GNU_SOURCE=1
+LDFLAGS = -pthread
 
 %.o: %.C
 	$(CXX) $(CXXFLAGS) -g $(AIO_H_LOC) -c $<
@@ -132,7 +132,7 @@ TestActuatorAsync: \
 	IOStat.o IO.o Store.o Timer.o Experiment.o Generator.o \
 	printe.o \
 	$(AIO_LIB_DEP)
-	$(LD) $(LDFLAGS) -g --print-map $^ $(AIO_LIB_LOC) -o $@
+	$(LD) $(LDFLAGS) -g --print-map $^ $(AIO_LIB_LOC) -o $@ 
 
 TestGenerator: \
 	IO.o Store.o \

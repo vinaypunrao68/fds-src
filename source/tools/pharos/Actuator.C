@@ -4,7 +4,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>
-#include <boost/random/random_device.hpp>
+#include <boost/nondet_random.hpp>
 
 #include "Actuator.H"
 #include "Timer.H"
@@ -16,7 +16,8 @@ Actuator::Actuator(Store& store_in, int sid_in):
   fd(-1), session_id(sid_in),
   tracefilename(NULL), tracefile(NULL), 
   largest_io_size(0), page_align(4096), actual_buffer_size(0),
-  raw_buffer(NULL), buffer(NULL) // Initialized in initialize()
+  raw_buffer(NULL), buffer(NULL), // Initialized in initialize()
+  rgen(8374)
 {
   c_io = ATOMIC_VAR_INIT(0);
   c_timed_io = ATOMIC_VAR_INIT(0);
@@ -43,7 +44,8 @@ Actuator::Actuator(Store& store_in, char const* tracefilename_in, int sid_in):
   fd(-1), session_id(sid_in), 
   tracefilename(tracefilename_in), tracefile(NULL),
   largest_io_size(0), page_align(4096), actual_buffer_size(0),
-  raw_buffer(NULL), buffer(NULL) // Initialized in initialize()  
+  raw_buffer(NULL), buffer(NULL), // Initialized in initialize()  
+  rgen(8374)
 {
   c_io = ATOMIC_VAR_INIT(0);
   c_timed_io = ATOMIC_VAR_INIT(0);
@@ -216,7 +218,7 @@ void Actuator::TraceSessionStats()
 
 void Actuator::doIO(IOStat& ios)
 {
-  boost::random::random_device rd;
+  std::uniform_int_distribution<char> dist(1,127);
   waitBeforeIO(ios);
 
   assert(fd>=0);
@@ -225,7 +227,7 @@ void Actuator::doIO(IOStat& ios)
   assert(size <= largest_io_size);
   /* fill in buffer with some junk data */
   for (int i = 0; i < size; ++i) {
-    buffer[i] = rd();
+    buffer[i] = dist(rgen);
   }
 
   ios.setStarted();

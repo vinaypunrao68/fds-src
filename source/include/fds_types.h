@@ -194,6 +194,14 @@ namespace fds {
     }
   };
 
+  class ObjectLess {
+  public:
+    bool operator() (const ObjectID& oid1, const ObjectID& oid2) {
+      return ( (oid1.GetHigh() < oid2.GetHigh()) ||
+	       ((oid1.GetHigh() == oid2.GetHigh()) && (oid1.GetLow() < oid2.GetLow())) );
+    }
+  };
+
   struct DiskLoc {
     fds_uint64_t vol_id;
     fds_uint16_t file_id;

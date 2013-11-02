@@ -79,29 +79,29 @@ Error ObjStatsTracker::updateIOpathStats(fds_volid_t vol_uuid,const ObjectID& ob
     oStats->lastAccessTimeR =  oStats->objStats.last_access_ts;
     slotChange = oStats->objStats.increment(startTime, COUNTER_UPDATE_SLOT_TIME);
     if (slotChange == true) {
-	oStats->averageObjectsRead += oStats->objStats.getWeightedCount(startTime,COUNTER_UPDATE_SLOT_TIME);
+	oStats->averageObjectsRead = oStats->objStats.getWeightedCount(startTime,COUNTER_UPDATE_SLOT_TIME);
     	FDS_PLOG(stats_log) << "STATS-DB: Average Objects  per slot :"  << oStats->averageObjectsRead;
 
     /* classify the  objects  for tiering */
      if (oStats->averageObjectsRead > hotObjThreshold) {
 			/* check  if this object is in cold list  and delete  before adding to  Hot list */
-            coldObjList.remove (objId);
+            coldObjList.erase(objId);
     	    FDS_PLOG(stats_log) << "STATS-DB: Object classified  as HOT :" <<objId;
-			hotObjList.push_back (objId);
+	    hotObjList.insert(objId);
 	  }
 
       if (oStats->averageObjectsRead  < coldObjThreshold) {
 
     	    FDS_PLOG(stats_log) << "STATS-DB: Object classified  as COLD :" <<objId;
-			coldObjList.push_back(objId);
+	    coldObjList.insert(objId);
 	  }
        
       if ((oStats->averageObjectsRead  > coldObjThreshold) && 
 		  (oStats->averageObjectsRead < hotObjThreshold)) {
 
     	    FDS_PLOG(stats_log) << "STATS-DB: Object classification list CLEAN :" <<objId;
-            coldObjList.remove (objId);
-            hotObjList.remove (objId);
+	    coldObjList.erase(objId);
+	    hotObjList.erase(objId);
 	  }
 
     }
@@ -185,6 +185,14 @@ fds_uint32_t ObjStatsTracker::getObjectAccess( const ObjectID& objId) {
   objStatsMapLock->unlock();
 
   return AveNumObjAccess;
+}
+
+void ObjStatsTracker::getHotObjectList(std::set<ObjectID, ObjectLess>& ret_list)
+{
+  objStatsMapLock->lock();
+  ret_list.swap(hotObjList); /* fast op, constant time */
+  hotObjList.clear();
+  objStatsMapLock->unlock();
 }
 
 
