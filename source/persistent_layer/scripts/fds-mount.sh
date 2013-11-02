@@ -1,12 +1,27 @@
-#!/bin/sh
+#!/bin/bash
 
-fdsroot=/fds/mnt
+fdsroot=/fds
 xfspart=3
 
 mkdir -p ${fdsroot}
-for dev in /dev/sd[b-l]; do
-	echo "Mount XFS to dev $dev"
-	mntdir=${fdsroot}/`basename ${dev}`
+hddroot=${fdsroot}/hdd
+ssdroot=${fdsroot}/ssd
+
+for d in {a..k}; do
+	dev=/dev/sd$(echo "$d" | tr "0-9a-z" "1-9a-z_")
+	mntdir=${hddroot}/sd${d}
+	echo "Mount XFS ${mntdir} to dev ${dev}"
 	mkdir -p ${mntdir}
 	mount ${dev}${xfspart} ${mntdir}
 done
+
+xfspart=1
+mntdir=${ssdroot}/sda
+echo "Mount XFS ${mntdir} to dev /dev/sdm"
+mkdir -p ${mntdir}
+mount /dev/sdm1 ${mntdir}
+
+mntdir=${ssdroot}/sdb
+echo "Mount XFS ${mntdir} to dev /dev/sdn"
+mkdir -p ${mntdir}
+mount /dev/sdn1 ${mntdir}

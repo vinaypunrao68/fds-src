@@ -33,6 +33,10 @@ class ChainLink
     {
         return &lnk_chain.dl_link;
     }
+    inline bool chain_empty()
+    {
+        return dlist_empty(&lnk_chain.dl_link);
+    }
     /* ---------------------------------------------------------------------- */
     template <typename T>
     static inline T *chain_obj_frm_link(dlist_t *ptr)
@@ -77,7 +81,7 @@ class ChainList
         }
         return nullptr;
     }
-    ChainLink *chain_front_elem()
+    inline ChainLink *chain_front_elem()
     {
         dlist_t *ptr = dlist_peek_front(&chain_head);
         if (ptr != nullptr) {
@@ -93,6 +97,10 @@ class ChainList
             return ChainLink::chain_obj_frm_link<T>(ptr);
         }
         return nullptr;
+    }
+    inline void chain_transfer(ChainList *src)
+    {
+        dlist_merge(&chain_head, &src->chain_head);
     }
     /* ---------------------------------------------------------------------- */
     inline void chain_iter_init(ChainIter *iter)

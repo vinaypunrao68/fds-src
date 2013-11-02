@@ -136,7 +136,7 @@ dlist_rm_front(dlist_t *dlist)
 
     if ((dlist != NULL) && !dlist_empty(dlist)) {
         curr = dlist->dl_next;
-        dlist_rm(curr);
+        dlist_rm_init(curr);
     }
     return (curr);
 }
@@ -153,7 +153,7 @@ dlist_rm_back(dlist_t *dlist)
 
     if ((dlist != NULL) && !dlist_empty(dlist)) {
         curr = dlist->dl_prev;
-        dlist_rm(curr);
+        dlist_rm_init(curr);
     }
     return (curr);
 }

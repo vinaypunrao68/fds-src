@@ -5,6 +5,7 @@
 #include <iostream>
 
 #include <policy_rpc.h>
+#include <policy_tier.h>
 #include "StorMgr.h"
 #include "DiskMgr.h"
 
@@ -1102,6 +1103,7 @@ int main(int argc, char *argv[])
     /* Instantiate a DiskManager Module instance */
     fds::Module *io_dm_vec[] = {
         &diskio::gl_dataIOMod,
+        &fds::gl_tierPolicy,
         nullptr
     };
     fds::ModuleVector  io_dm(argc, argv, io_dm_vec);
