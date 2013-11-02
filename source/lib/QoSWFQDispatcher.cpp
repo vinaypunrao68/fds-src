@@ -91,9 +91,19 @@ namespace fds {
 	next_queue = rate_based_qlist[next_rate_based_spot];
 	next_rate_based_spot = (next_rate_based_spot + 1) % total_capacity;
 	if (next_queue != 0) {
+
 	  num_rate_based_slots_serviced++;
+	  current_guaranteed_ios_rate = ((float)num_rate_based_slots_serviced * 1000000)/elapsed_usecs;
+
 	  next_qd = queue_desc_map[next_queue];
 	  n_pios = atomic_load(&(next_qd->num_pending_ios));
+	  if ((n_pios == 0) && (next_qd->num_rate_based_credits < next_qd->max_rate_based_credits)) { 
+	    next_qd->num_rate_based_credits++;
+	    FDS_PLOG(qda_log) << "Dispatcher: Incrementing credit for queue " << next_queue
+			      << " to " << next_qd->num_rate_based_credits;
+	  }
+
+	  running_late = (current_guaranteed_ios_rate < 0.9 * expected_guaranteed_ios_rate);
 	}	
       } while ((running_late) && ((next_queue == 0) || (n_pios == 0)));
 
@@ -110,11 +120,6 @@ namespace fds {
       // and we are moving over to priority based dispatch.
       // This can only happen if we are not running late.
       assert (running_late == false);
-      if ((next_queue != 0) && (next_qd->num_rate_based_credits < next_qd->max_rate_based_credits)) { 
-	next_qd->num_rate_based_credits++;
-	FDS_PLOG(qda_log) << "Dispatcher: Incrementing credit for queue " << next_queue
-			  << " to " << next_qd->num_rate_based_credits;
-      }
     }
 
     
