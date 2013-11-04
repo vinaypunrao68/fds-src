@@ -38,9 +38,11 @@
 
 #define MAX_RANK_CACHE_SIZE    10485760      /* x 20bytes = 200MB */ 
 #define OBJECT_RANK_ALL_SSD    0x00000000    /* highest rank */
-#define OBJECT_RANK_ALL_DISK   0xFFFFFFF2    /* lowest rank */
-#define OBJECT_RANK_INVALID    0xFFFFFFFF    /* invalid id, internally used for deleted objects */
-#define RANK_DEMOTION_MASK     0x00000001    /* use this mask to check if rank specifies demotion operation */
+#define OBJECT_RANK_ALL_DISK   0xFFFFFF00    /* lowest rank that we can calculate */ 
+#define OBJECT_RANK_LOWEST     0xFFFFFFE0    /* lowest rank (any calculated rank will be higher than this) */ 
+#define RANK_PROMOTION_MASK    0x00000004    /* mask for promotion operation */
+#define RANK_DEMOTION_MASK     0x00000002    /* use this mask to check if rank specifies demotion operation */
+#define RANK_INVALID_MASK      0x00000001    /* use this mask to check if rank is invalid (used to mark deletion) */
 
 namespace fds {
 
@@ -121,11 +123,13 @@ class ObjectRankEngine {
     *  bits 32-17 : object subrank that captures recency and frequency of object accesses
     *  bits 16-1  : volume rank that captures volume policy, consists of 
     *               bits 16-9: policies related to performance 
-    *               bits 8-2 : not used yet
-    *               bit 1 : promotion/demotion
+    *               bits 8-4 : not used yet
+    *               bit 3 : promotion (1)
+    *               bit 2 : demotion (1)
+    *               bit 1 : valid (0) /invalid (1)
     *  Special values:
     *  0x00000000  'all ssd' volume
-    *  0xFFFFFFF1  'all disk' volume
+    *  0xFFFFFF00  'all disk' volume
     *  0xFFFFFFFF   invalid rank id, used internally for deleted objects
     */
 
@@ -150,7 +154,7 @@ class ObjectRankEngine {
    inline fds_uint32_t updateRank(const ObjectID& objId, fds_uint32_t rank)
    {
      fds_uint32_t new_rank = rank & 0x0000FFFF; /* remove object subrank part */
-     if ((rank == OBJECT_RANK_INVALID) || 
+     if ((isRankInvalid(rank)) || 
 	 (rank == OBJECT_RANK_ALL_SSD) ||
 	 (rank == OBJECT_RANK_ALL_DISK)) {
        return rank;
@@ -159,10 +163,26 @@ class ObjectRankEngine {
      return new_rank;
    }
 
-   /* for now will return demotion only if this is 'all disk' volume */
    inline fds_bool_t isRankDemotion(fds_uint32_t rank) const { 
      return (( rank & RANK_DEMOTION_MASK ) != 0x00000000);
+   }   
+
+   inline fds_bool_t isRankPromotion(fds_uint32_t rank) const { 
+     return (( rank & RANK_PROMOTION_MASK ) != 0x00000000);
    }
+
+   inline fds_bool_t isRankInvalid(fds_uint32_t rank) const {
+     return ( ( rank & RANK_INVALID_MASK ) != 0x00000000);
+   }
+
+
+   /* gets lowest rank from lowrank list,  */ 
+   fds_uint32_t getLowestRank(void);
+   fds_bool_t inRankDB(const ObjectID& oid);
+   fds_bool_t inInsertDeleteCache(const ObjectID& oid);
+   Error deleteFromRankDB(const ObjectID& oid);
+   Error putToRankDB(const ObjectID& oid, fds_uint32_t o_rank, fds_bool_t b_addition, fds_bool_t b_tmp_chgtbl);
+   Error applyCachedOps(obj_rank_cache_t* cached_objects);
 
    /* methods that actually implement ranking process */
    void runRankingThreadInternal(void);
@@ -170,7 +190,6 @@ class ObjectRankEngine {
 
    /* persist change table stored in tmp_chgTbl  and swap to rankDeltaChgTbl*/
    Error persistChgTableAndSwap();
-
 
  private: /* data */
 
