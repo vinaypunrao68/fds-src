@@ -43,7 +43,7 @@
  * TODO: Move this header out of lib/
  * to include/ since it's linked by many.
  */
-#include <lib/QoSWFQDispatcher.h>
+#include <lib/qos_htb.h>
 
 /* TODO: avoid include across module, put API header file to include dir */
 #include <lib/OMgrClient.h>
@@ -169,7 +169,7 @@ namespace fds {
                 fds_log *log) :
       FDS_QoSControl(_max_thrds, algo, log, "SM") {
         parentSm = _parent;
-        dispatcher = new QoSWFQDispatcher(this, parentSm->totalRate, _max_thrds, log);
+        dispatcher = new QoSHTBDispatcher(this, log, 150);
         /* base class created stats, but they are disable by default */
         stats->enable();
       }
@@ -202,7 +202,6 @@ namespace fds {
      * Tiering related members
      */
     ObjectRankEngine *rankEngine;
-    TierEngine     *tierEngine;
 
     /*
      * Flash write-back members.
@@ -268,6 +267,7 @@ namespace fds {
 
     fds_log* GetLog();
     fds_log *sm_log;
+    TierEngine     *tierEngine;
     /*
      * stats  class 
      */
