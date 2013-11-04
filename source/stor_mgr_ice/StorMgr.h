@@ -140,7 +140,7 @@ namespace fds {
      * appropriate SH/DM
      */
     FDS_ProtocolInterface::FDSP_DataPathReqPtr fdspDataPathServer;
-    unordered_map<std::string,
+    std::unordered_map<std::string,
         FDS_ProtocolInterface::FDSP_DataPathRespPrx> fdspDataPathClient;
 
     /*
