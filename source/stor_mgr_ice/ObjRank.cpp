@@ -12,7 +12,7 @@ ObjectRankEngine::ObjectRankEngine(const std::string& _sm_prefix, fds_uint32_t _
   : rank_tbl_size(_tbl_size), 
     cur_rank_tbl_size(0),
     max_cached_objects(MAX_RANK_CACHE_SIZE),
-    tail_rank(OBJECT_RANK_INVALID),
+    tail_rank(OBJECT_RANK_LOWEST),
     obj_stats(_obj_stats),
     ranklog(log),
     rankTimer(new IceUtil::Timer()),
@@ -121,7 +121,7 @@ void ObjectRankEngine::deleteObject(const ObjectID& objId)
    * the ranking table during the next ranking process */
   map_mutex->lock();
   {
-    cached_obj_map[objId] = OBJECT_RANK_INVALID;
+    cached_obj_map[objId] = OBJECT_RANK_LOWEST | RANK_INVALID_MASK; 
     if (cached_obj_map.size() >= max_cached_objects) {
       start_ranking_process = true;
     }
@@ -164,52 +164,284 @@ fds_uint32_t ObjectRankEngine::getRank(const ObjectID& objId, const VolumeDesc& 
  */
 void ObjectRankEngine::analyzeStats()
 {
-  std::set<ObjectID,ObjectLess> hotList;
-  std::set<ObjectID,ObjectLess>::iterator it;
+  fds_uint32_t rank, lowest_rank;
+  fds_bool_t stop = false;
+  std::set<ObjectID,ObjectLess> hot_list;
+  std::set<ObjectID,ObjectLess>::iterator list_it;
   /* we need volume desc from stats, but seem too much data to keep
    * so we will assume lowest prio volume -- anyway we care about really hot
    * objects to promote, and frequency/recency has higher weight than volume policy for now  */
   VolumeDesc voldesc(std::string("novol"), 1, 0, 0, 10); 
 
-  obj_stats->getHotObjectList(hotList);
-  FDS_PLOG(ranklog) << "ObjectRankEngine: got hot object list from stat tracker of size " << hotList.size();
-  for (it = hotList.begin();
-       it != hotList.end();
-       ++it)
+  /* ignore the hot objects if we are already in the ranking process, for now... 
+   * need some extra care since lowrank objs and change table are temporarily unavail that time */
+  if (rankingInProgress())
+    return;
+
+  obj_stats->getHotObjectList(hot_list);
+  FDS_PLOG(ranklog) << "ObjectRankEngine: got hot object list from stat tracker of size " << hot_list.size();
+
+  /* update ranks of objects in the cached list of lowest ranked objects in the table */
+  tbl_mutex->lock();
+  {
+    rank_order_objects_t new_lowrank_objs;
+    rank_order_objects_it_t it = lowrank_objs.begin();
+    while ( it != lowrank_objs.end())
+      {
+	/* if this object in hot list, just remove from hot list, since it's already in the table */
+	list_it = hot_list.find(it->second);
+	if (list_it != hot_list.end()) {
+	  hot_list.erase(list_it);
+	}
+
+	rank = updateRank(it->second, it->first);
+	std::pair<fds_uint32_t,ObjectID> entry(rank, it->second);
+	new_lowrank_objs.insert(entry);
+	lowrank_objs.erase(it);
+	it = lowrank_objs.begin();
+      }
+    lowrank_objs.swap(new_lowrank_objs);
+    /* if there are no obj cached in lowrank cache, we don't dig lowest ranks in db, but
+     * don't promote anymore hot objects until next ranking process  */
+    if (lowrank_objs.size() == 0) 
+      stop = true;
+   
+  }
+  tbl_mutex->unlock();
+
+  /* iterate through list of hot objects, and promote if possible */
+  lowest_rank = getLowestRank();
+  for (list_it = hot_list.begin();
+       list_it != hot_list.end();
+       ++list_it)
     {
-      fds_uint32_t rank = getRank(*it, voldesc);
+      if (stop) break;
+
+      /* not checking delta change table if promoted, must be in rankdb (will check below)
+       * and if demoted, we will handle this when putting obj to rankdb (will not be demoted anymore */
+
+      /* check cached insertions/deletions -- if it was recently inserted
+       * then no need to promote; if deleted not sure yet what we should do,
+       * so for now not considering those objects */
+      if (inInsertDeleteCache(*list_it))
+	continue;
+
+      /* see if we can promote this object */
+      rank = getRank(*list_it, voldesc);
+      if ((rank < lowest_rank) && 
+	  !inRankDB(*list_it) ) 
+	{
+	  /* since this obj is ranked higher than at least on object 
+	   * in our cached rank table tail (plus we just re-computed
+	   * those ranks, so they are up-to-date), this obj definitely
+	   * can be promoted 
+	   * Note that we may have false negatives -- once we kick out all
+	   * objects from cached tail of rank table, we cannot kick out anymore
+	   * since we need to recompute rank table in db. Maybe that would
+	   * be a good time to start the ranking process... TODO */
+
+	  /* insert to lowrank_objs. If database not full, remove highest ranked from
+	   * from lowrank_objs; otherwise, demote lowest ranked in lowrank_objs */
+	  std::pair<fds_uint32_t,ObjectID> entry(rank, *list_it);
+	  FDS_PLOG(ranklog) << "ObjectRankEngine: will promote hot object " << (*list_it).ToHex()
+			    << " rank " << rank;
+
+	  tbl_mutex->lock();
+	  lowrank_objs.insert(entry);
+	  rank_order_objects_it_t it = lowrank_objs.begin(); /* highest ranked */ 
+	  fds_verify(it != lowrank_objs.end()); 
+	  /* if space in rank table -- remove highest ranked from cached tail */
+	  if ((cur_rank_tbl_size < rank_tbl_size) || (it->second == *list_it)) {
+	    /* also if this obj is highest ranked of all objs in cached tail, remove it
+	     * from cached tail because we don't want migrator to migrate it  */
+	    lowrank_objs.erase(it);
+	  }
+
+	  /* if table is full, we need to demote a lowest ranked object */
+	  if (cur_rank_tbl_size >= rank_tbl_size) {
+	    rank_order_objects_rit_t rit = lowrank_objs.rbegin(); /* lowest ranked */
+	    fds_verify(rit != lowrank_objs.rend()); /* otherwise lowest rank will be highest possible rank */
+	    fds_verify(rit->second != *list_it); /* otherwise something wrong with lowest rank */
+	    ObjectID del_oid(rit->second);
+	    rankDeltaChgTbl[del_oid] = rit->first | RANK_DEMOTION_MASK;
+	    lowrank_objs.erase(--rit.base());
+	    rit = lowrank_objs.rbegin();
+	    if (rit != lowrank_objs.rend()) {
+	      lowest_rank = rit->first;
+	      tail_rank = lowest_rank;
+	    }
+	    else {
+	      stop = true;
+	    }
+	    tbl_mutex->unlock();
+	    deleteFromRankDB(del_oid);
+	    FDS_PLOG(ranklog) << "ObjectRankEngine: obj " << (*list_it).ToHex() << " caused demotion of obj " << del_oid.ToHex(); 
+	  }
+	  else {
+	    tbl_mutex->unlock();
+	  }
+
+	  /* we will add directly to rankDB without putting it to the cached rankDB tail.
+	   * if we put to the cached rankDB tail, it is likely that migrator will get those
+	   * objects and remove from flash -- while those objects are most likely relatively 
+	   * high ranked */
+	  putToRankDB(*list_it, rank, true, false);
+	  tbl_mutex->lock();
+	  rankDeltaChgTbl[*list_it] = rank | RANK_PROMOTION_MASK;
+	  tbl_mutex->unlock();
+      }
     }
 
-
-  hotList.clear();
+  hot_list.clear();
 }
 
+/*
+ * This method is called either during ranking process or on timer when
+ * we get list of hot objects from the stat tracker. Since we only 
+ * process hot list when ranking process not in progress, updating
+ * cur_rank_tbl_size or updating db is safe
+ */
+Error ObjectRankEngine::deleteFromRankDB(const ObjectID& oid)
+{
+  Error err(ERR_OK);
+  Record del_key((const char*)&oid, sizeof(oid));
+  err = rankDB->Delete(del_key);
+  fds_verify(cur_rank_tbl_size > 0);
+  --cur_rank_tbl_size;
+  FDS_PLOG(ranklog) << "ObjectRankEngine: removed obj " << oid.ToHex() << " from rankDB";
+  return err;
+}
+
+/*
+ * Assumes that the caller already checked whether the object in rankDB
+ * and pass b_addition true if does not exist and need to add object, or 
+ * false if this is an update 
+ * This method is called either during ranking process or on timer when
+ * we get list of hot objects from the stat tracker. Since we only 
+ * process hot list when ranking process not in progress, updating
+ * cur_rank_tbl_size or updating db is safe
+ */
+Error ObjectRankEngine::putToRankDB(const ObjectID& oid, fds_uint32_t rank, 
+				    fds_bool_t b_addition, fds_bool_t b_tmp_chgtbl)
+{
+  Error err(ERR_OK);
+  fds_uint32_t o_rank = rank & 0xFFFFFF00; /* ignore helper bits specifying promotion/demotion/etc. */
+  Record put_key((const char*)&oid, sizeof(oid));
+  std::string valstr = std::to_string(o_rank);
+  Record put_val(valstr);
+  if (b_addition) {
+    /* we are adding new entry */
+    ++cur_rank_tbl_size;
+    FDS_PLOG(ranklog) << "ObjectRankEngine: adding obj " << oid.ToHex() << " rank " << o_rank << " to db";
+  }
+  err = rankDB->Update(put_key, put_val);
+
+  /* if we add to rankdb something we demoted (e.g. deletions happend after hot objs 
+   * demoted objs in rank db), this obj is not demoted anymore */
+  if (isRankDemotion(rank)) {
+    fds_verify(b_addition); // we delete from db when demoting  
+    if (b_tmp_chgtbl) { 
+      tmp_chgTbl.erase(oid);
+    }
+    else {
+      tbl_mutex->lock();
+      rankDeltaChgTbl.erase(oid);
+      tbl_mutex->unlock();
+    }
+  }
+
+  return err;
+}
+
+fds_bool_t ObjectRankEngine::inRankDB(const ObjectID& oid)
+{
+  Error err(ERR_OK);
+  Record key((const char*)&oid, sizeof(oid));
+  std::string val("");
+
+  err = rankDB->Query(key, &val);
+
+  return (err.ok());
+}
+
+/* remove all objects in 'cached_objects' that are marked for deletion from rankDB 
+ * and if we see insertions for objs we wanted to promote, remove those promote ops 
+ * rank delta change table (those objs already in flash, no need to promote) 
+ * Caller must swap rankDeltaChgTbl to tmp_chgTbl before calling this method */
+Error ObjectRankEngine::applyCachedOps(obj_rank_cache_t* cached_objects)
+{
+  Error err(ERR_OK);
+  obj_rank_cache_it_t it, chgtbl_it;
+  fds_uint32_t o_rank;
+  fds_verify(cached_objects != NULL);
+  for (it = cached_objects->begin();
+       it != cached_objects->end(); )
+    {
+      o_rank = it->second;
+      if (isRankInvalid(o_rank)) 
+	{
+	  /* deletion */
+	  if (!inRankDB(it->first)) {
+	    err = deleteFromRankDB(it->first);
+	  }
+	  /* remove from delta change table if there */
+	  tmp_chgTbl.erase(it->first);
+	  /* remove from cached_objects */
+	  it = cached_objects->erase(it);
+	}
+      else {
+	/* insertion - remove dup 'promotion' from delta chg tbl */
+	chgtbl_it = tmp_chgTbl.find(it->first);
+	if (chgtbl_it != tmp_chgTbl.end()) {
+	  if (isRankPromotion(chgtbl_it->second)) {
+	    tmp_chgTbl.erase(chgtbl_it);
+	    ++it;
+	  }
+	  else {
+	    it = cached_objects->erase(it);
+	  } 
+	}
+	else {
+	  ++it;
+	}
+      }
+    }
+  return err;
+}
+
+
+/*
+ * Does complete re-ranking of all the objects in caches + rank database and 
+ * re-builds the rank table + delta change table + cached tail of rank table
+ *
+ * State when the ranking process starts:
+ *  - delta change table may contain:
+ *       1) promotions of hot objects we got from stats tracker since last
+ *          ranking process;
+ *       2) demotions of objects that were kicked out by the hot objects we got 
+ *          from the stats tracker since last ranking process
+ *       3) (possibly) delta change table from a previous ranking process(es)
+ *  - cached insertions/deletions (not applied to rankDB or any other caches)
+ *  - cached tail of the rank table in database that we cached during the last
+ *    ranking process; those objects are in db so we just clear the list and build new
+ *
+ * While ranking is in progress, delta change table and cached tail of the rank table
+ * is unavailable (temporarily empty), so all functions that need access to them 
+ * check if ranking is in progress and don't return anything if ranking is in progress.
+ * The insertion/deletion cache 'cached_obj_map' is always available and this is the 
+ * only cache that is accessed on datapath (via rankAndIsertObject and deleteObject)
+ *
+ * State after ranking process completes:
+ *  - delta change table contains updated list of promotions/demotions
+ *  - cached tail of the rank table in the database will contain most recent info
+ */
 Error ObjectRankEngine::doRanking()
 {
   Error err(ERR_OK);
-  /* case #1: migrator took and applied delta change table since last ranking process
-   *    rank delta chg table will be empty and we will re-rank objects
-   *    in the rank table and see which objects from the cached map will be inserted 
-   *    to the ranking table (thus demoting lower-rank objects from the ranking table)
-   *    and which cached objects will be 'demoted' right away;
-   * case #2: migrator did not take delta change table since last ranking process
-   *    so rankDeltaChgTbl contains delta change table from last ranking process; those
-   *    objects could have become 'hotter' or 'colder', so we need to include objects 
-   *    from that table as well when deciding who stays in the rank table
-   * 
-   * case #3: migrator took delta change table, but ranking process started before 
-   *    migrator told us that it's done with it. TODO: handle this case. 
-   * case #4: migrator tries to take delta change table while ranking process is in
-   *    progress. The delta change table will be temporarily empty during the ranking
-   *    process, so will return error.  TODO: better way to handle this (?)
-   */
-
   const fds_uint32_t max_lowrank_objs = 25;
-
   rank_order_objects_t *ordered_objects = NULL; /* temp helper ordered list of objects */
   rank_order_objects_it_t mm_it, tmp_it;
   obj_rank_cache_it_t it;
-  fds_uint32_t iters = 0;
   obj_rank_cache_t *cached_objects = new obj_rank_cache_t;
   if (!cached_objects) {
     FDS_PLOG(ranklog) << "ObjectRankEngine: failed to allocate memory for cached obj map";
@@ -234,19 +466,25 @@ Error ObjectRankEngine::doRanking()
   cached_objects->swap(cached_obj_map);
   map_mutex->unlock();
 
-  /* insert the whole delta change table (if left from previous ranking process) to cached_objects */
   tbl_mutex->lock();
-  /* insert is ok because if an object is in both maps (e.g. it was deleted)
-   * then objects from cached_obj_map which are more recent take precedence  */
-  cached_objects->insert(rankDeltaChgTbl.begin(), rankDeltaChgTbl.end());
-  rankDeltaChgTbl.clear(); /* we still have this version of delta chg tbl persistent */
-  lowrank_objs.clear(); /* this one in rank table, so just throw away */
+  fds_verify(tmp_chgTbl.size() == 0);
+  tmp_chgTbl.swap(rankDeltaChgTbl);
+  lowrank_objs.clear(); /* this one is in rank table, so throw away */
   tbl_mutex->unlock();
 
-  /* cached_objects:
-   * for sure promote  +
-   * for sure demote   -
-   * candidates -- will compare with objects in rank table
+  /* Step 1 -- apply all deletions to the rankDB, and make sure no collisions with delta chg tbl  */
+  FDS_PLOG(ranklog) << "ObjectRankEngine: Ranking: initial db size " << cur_rank_tbl_size;
+  err = applyCachedOps(cached_objects);
+  if ( !err.ok()) {
+    FDS_PLOG(ranklog) << "ObjectRankEngine: ERROR while applying cached deletion to the rankDB, error " << err.GetErrstr();
+    /*TODO: how do we handle this? for now ignore */
+  }
+
+  /* only insert 'demotions' from delta chg table to cached_objs (promotions are already in db) */
+  for (it = tmp_chgTbl.begin(); it != tmp_chgTbl.end(); ++it) {
+    if (isRankDemotion(it->second))
+      cached_objects->insert(it, it);
+  }
 
    /* rank all objects in cached_objects and insert in ordered_objects map in rank,object order  */
   it = cached_objects->begin();
@@ -262,116 +500,44 @@ Error ObjectRankEngine::doRanking()
   delete cached_objects;
   cached_objects = NULL;
 
-  /* Step 1 -- go through ordered_objects and update/delete entries in the database, 
-   * add to the database only if the database would not grow over its max size */
-  fds_verify(tmp_chgTbl.size() == 0);
-  FDS_PLOG(ranklog) << "ObjectRankEngine: Ranking: initial db size " << cur_rank_tbl_size;
+  /* if nothing in rank table and nothing in ordered objects, we are done  */
+  if ((cur_rank_tbl_size == 0) && (ordered_objects->size() == 0)) {
+    /* persist the change table */
+    err = persistChgTableAndSwap();
+    delete ordered_objects;
+    FDS_PLOG(ranklog) << "ObjectRankEngine: Ranking finished, rank table size " << cur_rank_tbl_size;
+    return err;
+  }
 
-  mm_it = ordered_objects->begin();
-  iters = 0; /* guarding that this loop actually finishes, we should see at most 2 full iterations of ordered_objects */
-  int dbg_count = 0;
-  while (ordered_objects->size() > 0)
+  /* Step 2 -- go through ordered_objects and either 1) update rank if object already in rank table
+   * or 2) add highest ranked objects to database if the rank table is not full
+   */
+  FDS_PLOG(ranklog) << "ObjectRankEngine: Ranking: part 2: rank db size " << cur_rank_tbl_size;
+  for (mm_it = ordered_objects->begin();
+       mm_it != ordered_objects->end(); )
     {
       fds_uint32_t diff_count = rank_tbl_size - cur_rank_tbl_size;
       ObjectID oid = mm_it->second;
       fds_uint32_t o_rank = mm_it->first;
-
-      Record key((const char*)&oid, sizeof(oid));
-      std::string val = "";
-
-      /* we want to query first on any case, so we can do correct accounting of # objs in db */
-      err = rankDB->Query(key, &val);
-      if (o_rank == OBJECT_RANK_INVALID) {
-	/* delete from database if it's there */
-	if ( err.ok() ) {
-	  Record del_key((const char*)&oid, sizeof(oid));
-	  err = rankDB->Delete(del_key);
-	  fds_verify(cur_rank_tbl_size > 0);
-	  --cur_rank_tbl_size;
-	  FDS_PLOG(ranklog) << "ObjectRankEngine: Ranking: removing obj " << oid.ToHex() << " from db";
+      fds_bool_t in_rankdb = inRankDB(oid);
+      if ( in_rankdb || (diff_count > 0))  
+	{
+	  err = putToRankDB(oid, o_rank, !in_rankdb, true);
+	  mm_it = ordered_objects->erase(mm_it);
 	}
-	/* remove from ordered_objects */
-	tmp_it = mm_it;
-	++mm_it;
-	ordered_objects->erase(tmp_it);
-      }
-      else if (cur_rank_tbl_size < rank_tbl_size) {
-	/* object not marked for deletion  -- update/possibly add to database */
-	if ( err.ok() || ((err == ERR_CAT_ENTRY_NOT_FOUND) && (diff_count > 0)) ) {
-	  /* we are ok either update rank or add new entry */
-	  Record put_key((const char*)&oid, sizeof(oid));
-	  std::string valstr = std::to_string(o_rank);
-	  Record put_val(valstr);
-	  if (err == ERR_CAT_ENTRY_NOT_FOUND) {
-	    /* we are adding new entry */
-	    ++cur_rank_tbl_size;
-	    //FDS_PLOG(ranklog) << "ObjectRankEngine: Ranking: adding obj " << oid.ToHex() << " rank " << o_rank << " to db";
-	  }
-	  err = rankDB->Update(put_key, put_val);
-
-	  /* remove from ordered_objects */
-	  tmp_it = mm_it;
-	  ++mm_it;
-	  ordered_objects->erase(tmp_it);
-	}
-	else {
-	  ++mm_it;
-	}
-      }
       else {
 	++mm_it;
       }
-
-      if (mm_it == ordered_objects->end()) {
-	mm_it = ordered_objects->begin();
-	++iters;
-	fds_verify(iters < 3);
-      }
-
-      if ((iters > 1) || ( (iters == 1) && (cur_rank_tbl_size >= rank_tbl_size) )) break;
-
-      ++dbg_count;
-      if ( (dbg_count % 1000) == 0) FDS_PLOG(ranklog) << "ObjectRankEngine: Ranking: processed batch of 1000 objs in part 1";
     }
+  fds_verify((cur_rank_tbl_size > 0) ||  (ordered_objects->size() == 0)); 
+  FDS_PLOG(ranklog) << "ObjectRankEngine: finished part 2 of ranking process, starting part 3; cur_rank_tbl_size = " << cur_rank_tbl_size;
 
-  FDS_PLOG(ranklog) << "ObjectRankEngine: finished part 1 of ranking process, starting part 2; cur_rank_tbl_size = " << cur_rank_tbl_size;
 
-  /* if ordered_objects map is empty, it means that we could fit everything in rank table
-   * except of course objects mapped for demotion. If so, we have change table in cached_chg_table.
-   * so we are done
-   * -- the ranking table in db may still have some outdated ranks, but ok for now (not 
-   *    sure if it's even useful to update them). 
-   * 
-   * Also, if we got signal that we are exiting or ranking was disabled while we were ranking,
-   * we can declare that current change table we build + what we currently have in ordered_objects
-   * is what we are going to demote (which is not completely accurate, because objects in rank
-   * table may have lower rank) -- this is our approach for now, TODO: something better
-   */
-  if (exiting || (atomic_load(&rankingEnabled)==false)) {
-    // our current ordered_object are those we are going to demote (not complete accurate, see above comment)
-    for (mm_it = ordered_objects->begin();
-	 mm_it != ordered_objects->end();
-	 ++mm_it) {
-      tmp_chgTbl[mm_it->second] = mm_it->first | RANK_DEMOTION_MASK;
-      FDS_PLOG(ranklog) << "ObjectRankEngine: Ranking (early stop): (to demote) obj " << (mm_it->second).ToHex();
-    }
-    ordered_objects->clear();
-  }
-
-  if (ordered_objects->size() == 0) {
-    /* now we need to persist change table and swap to rankDeltaChgTbl */
-    err = persistChgTableAndSwap();
-
-    FDS_PLOG(ranklog) << "ObjectRankEngine: Ranking finished; result  " << err.GetErrstr();
-
-    /* cleanup and exit */
-    delete ordered_objects;
-    return err;
-  }
-
-  /* Step 2 -- if we are here, ordered_objects contain candidate objects that may or may not replace 
+  /* Step 3 -- if we are here, ordered_objects contain candidate objects that may or may not replace 
    * objects currently in the ranking table. So we walk rank table and compare which objects
    * will actually 'fall out' from it. We will do it in chunks:
+   * If ordered_objects are empty (we could fit everything to the rank table), we still need to
+   * cache the rank table tail.  
    *
    * Read N objects from rank table, update rank, insert to ordered_objects map. Take N
    * highest ranked objects from ordered_objects map and put to db. Continue until we walked
@@ -394,15 +560,22 @@ Error ObjectRankEngine::doRanking()
   fds_bool_t stopped = false;
   for (db_it->SeekToFirst(); db_it->Valid(); db_it->Next()) 
     {
+      /* if we need to exit or we are asked to disable ranking process, exit this loop 
+       * TODO: not sure yet if exit will leave us in good state, need to revisit */
+      if (exiting || (atomic_load(&rankingEnabled) == false)) {
+	stopped = true;
+	break;
+      }
+
       Record key = db_it->key();
       Record value = db_it->value();
       ObjectID oid(key.ToString());
       fds_uint32_t rank = (fds_uint32_t)std::stoul(value.ToString());
-      /* we will temporary set demotion flag, but reset if we move those objs back to rank table */
       rank = updateRank(oid, rank);
       //FDS_PLOG(ranklog) << "ObjectRankEngine: Ranking: read from db obj " << key.ToString() << " rank " << rank;
-      fds_verify(isRankDemotion(rank) == false);
-      rank |= RANK_DEMOTION_MASK;
+      /* temp overload set promotion flags to mark that this obj is in rank db - hack?*/ 
+      fds_verify(!isRankDemotion(rank) && !isRankPromotion(rank));
+      rank |= RANK_PROMOTION_MASK;
       std::pair<fds_uint32_t,ObjectID> entry(rank, oid);
       ordered_objects->insert(entry);
 
@@ -420,29 +593,26 @@ Error ObjectRankEngine::doRanking()
 	}
       }
 
-      /* If we finished with 'count' objects, write 'count' highest rank objects back to rank table */
+      /* we finished with 'count' objects, write 'count' highest rank objects back to rank table */
       mm_it = ordered_objects->begin();
       if (objs_count == cur_rank_tbl_size) {
 	/* we will need to write additional 'lowrank_count' objects to db since we initially 
 	 * added that many objects to ordered_objects */
 	it_count += addt_count;
 	max_count += addt_count; 
+	objs_count = 0; // our exit value
       }  
       for (fds_uint32_t i = 0; i < max_count; ++i)
 	{
 	  fds_verify(mm_it != ordered_objects->end());
-	  ObjectID oid = mm_it->second;
+	  fds_bool_t in_rankdb = isRankPromotion(mm_it->first);
+	  fds_uint32_t o_rank = mm_it->first & (~RANK_PROMOTION_MASK);
+	  err = putToRankDB(mm_it->second, o_rank, !in_rankdb, true); 
 
-	  rank = mm_it->first & (~RANK_DEMOTION_MASK); /* make sure demotion flag not set when moving back to rank db */
-	  Record put_key((const char*)&oid, sizeof(oid));
-	  std::string valstr = std::to_string(rank);
-	  Record put_val(valstr);
-	  err = rankDB->Update(put_key, put_val);
-	  //FDS_PLOG(ranklog) << "ObjectRankEngine: Ranking: putting back to db obj " 
-	  //		    << (mm_it->second).ToHex() << " rank " << rank;
-
-	  if ((objs_count == cur_rank_tbl_size) && (it_count < max_lowrank_objs)) {
-	    std::pair<fds_uint32_t,ObjectID> entry(mm_it->first, mm_it->second);
+	  if ((objs_count == 0) && (it_count < max_lowrank_objs)) {
+	    FDS_PLOG(ranklog) << "ObjectRankEngine: put to lowrank obj " << (mm_it->second).ToHex()
+			      << " rank " << (mm_it->first & 0xFFFFFF00);
+	    std::pair<fds_uint32_t,ObjectID> entry(mm_it->first & 0xFFFFFF00, mm_it->second);
 	    tbl_mutex->lock();
 	    lowrank_objs.insert(entry);
 	    tbl_mutex->unlock();
@@ -455,11 +625,13 @@ Error ObjectRankEngine::doRanking()
 	  if (it_count == 0) break;
 	}
 
-      /* if we need to exit or we are asked to disable ranking process, exit this loop */
-      if (exiting || (atomic_load(&rankingEnabled) == false)) {
-	stopped = true;
-	break;
-      }
+      /* since we can add obj and then iterate over them again, we may continue loop even
+       * when we iterated over cur_rank_tbl_size number of objects; we should version our objects
+       * but for now, finish the loop once we iterated cur_rank_tbk_size # obj -- the consequence
+       * is that the rank table may contain few lower ranked objs than we got in ordered_objs, but 
+       * should be small amount -- so ok for now, adding versioning will make it a bit more accurate  */
+      if (objs_count == 0) break;
+
     }
 
   /* ordered_objects now contains objects that we demote */
@@ -467,22 +639,30 @@ Error ObjectRankEngine::doRanking()
        mm_it != ordered_objects->end();
        ++mm_it)
     {
-      FDS_PLOG(ranklog) << "ObjectRankEngine: Ranking: (to demote) obj " << (mm_it->second).ToHex() 
-			<< " rank " << (mm_it->first | RANK_DEMOTION_MASK);
-      tmp_chgTbl[mm_it->second] = mm_it->first | RANK_DEMOTION_MASK;
+      fds_uint32_t o_rank = mm_it->first & (~RANK_PROMOTION_MASK);
+
+      /* if obj in rankdb (remember we overload promotion bit to specify this), then remove from there */
+      if (isRankPromotion(mm_it->first)) {
+	deleteFromRankDB(mm_it->second);
+      }
+      /* if tmp_chgTbl has this obj for promotion, we just delete from chg tbl because this obj never 
+       * really made it to flash  */
+      it = tmp_chgTbl.find(mm_it->second);
+      if ( (it != tmp_chgTbl.end()) && (isRankPromotion(it->second)) ) {
+	tmp_chgTbl.erase(it);
+      } 
+      else {
+	tmp_chgTbl[mm_it->second] = o_rank | RANK_DEMOTION_MASK;
+	//FDS_PLOG(ranklog) << "ObjectRankEngine: Ranking: (to demote) obj " << (mm_it->second).ToHex() 
+	//		  << " rank " << o_rank;
+      }
     }
   ordered_objects->clear();
   delete ordered_objects;
   ordered_objects = NULL;
 
   /* update the tail rank with the last object in the rank table (if its full) */
-  if (cur_rank_tbl_size < rank_tbl_size)
-    tail_rank = OBJECT_RANK_INVALID;
-  else {
-    /* safe to update without lock because lowrank_objs never accessed if ranking is in progress */
-    rank_order_objects_rit_t rit = lowrank_objs.rbegin();
-    tail_rank = rit->first;
-  }
+  tail_rank = getLowestRank();
 
   /* persist the change table */
   err = persistChgTableAndSwap();
@@ -492,6 +672,36 @@ Error ObjectRankEngine::doRanking()
   return err;
 }
 
+/* returns lowest rank in lowrank_obj cache of lowest-ranked objects */
+fds_uint32_t ObjectRankEngine::getLowestRank()
+{
+  fds_uint32_t ret_rank = OBJECT_RANK_ALL_DISK; /* lowest rank in case rank table is not full */
+
+  if (cur_rank_tbl_size >= rank_tbl_size)
+    {
+      tbl_mutex->lock();
+      rank_order_objects_rit_t rit = lowrank_objs.rbegin();
+      if (rit != lowrank_objs.rend()) {
+	ret_rank = rit->first;
+      }
+      else {
+	/* if lowrank table is empty, better to have false negative */
+	ret_rank = OBJECT_RANK_ALL_SSD;
+      }
+      tbl_mutex->unlock();
+    }
+
+  return ret_rank;
+}
+
+fds_bool_t ObjectRankEngine::inInsertDeleteCache(const ObjectID& oid)
+{
+  fds_bool_t ret = false;
+  map_mutex->lock();
+  ret = (cached_obj_map.count(oid) > 0);
+  map_mutex->unlock();
+  return ret;
+}
 
 /* performing ranking process when notified */
 void ObjectRankEngine::runRankingThreadInternal()
