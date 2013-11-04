@@ -43,6 +43,7 @@ namespace fds {
    * to differentiate stats for reads/writes, possibly different 
    * I/O sizes, etc.
    * For now, not differentiating IOs */
+#define PERF_STAT_TYPES 6
 class IoStat 
 {
  public:
@@ -51,17 +52,36 @@ class IoStat
 
   /* is stat_size_sec==0, do not change time interval */
   void reset(long ts_sec, int stat_size_sec=0);
-  void add(long microlat);
+  void add(long microlat,
+	   diskio::DataTier tier = diskio::maxTier,  /* Defaults to invalid tier */
+	   fds_io_op_t opType = FDS_OP_INVALID);     /* Defaults to invalid op */
 
   /* stats accessors */
   long getTimestamp() const;
+  long getIops(diskio::DataTier tier, fds_io_op_t opType) const;
+  long getAveLatency(diskio::DataTier tier, fds_io_op_t opType) const;
+
+  /* these are total for all op types */
   long getIops() const;
   long getAveLatency() const;
   long getMinLatency() const;
   long getMaxLatency() const;
 
+ private: /* methods */
+  inline int statIndex(diskio::DataTier tier, fds_io_op_t opType) const {
+    if ((tier == diskio::diskTier) && (opType == FDS_IO_READ))
+      return 0;
+    if ((tier == diskio::diskTier) && (opType == FDS_IO_WRITE))
+      return 1;
+    if ((tier == diskio::flashTier) && (opType == FDS_IO_READ))
+      return 2;
+    if ((tier == diskio::flashTier) && (opType == FDS_IO_WRITE))
+      return 3;
+    return 4;
+  }
+
  private:
-  Stat stat;
+  Stat stat[PERF_STAT_TYPES]; /* read/disk, write/disk, read/flash, write/flash, other, total */
   long rel_ts_sec; /* timestamp in seconds since the start of stats gathering */
   int interval_sec; /* time interval of this stat */
 };
@@ -81,7 +101,10 @@ class StatHistory
 
   ~StatHistory();
 
-  void addIo(long rel_seconds, long microlat);
+  void addIo(long rel_seconds, 
+	     long microlat,
+	     diskio::DataTier tier = diskio::maxTier,  /* Defaults to invalid tier */
+	     fds_io_op_t opType = FDS_OP_INVALID);     /* Defaults to invalid op */
    
   int getStatsCopy(IoStat** stat_ary, int* len);
 
