@@ -53,7 +53,7 @@ namespace fds {
   }
 
   IoStat::IoStat()
-    :stat(), rel_ts_sec(0), interval_sec(FDS_STAT_DEFAULT_SLOT_LENGTH)
+    :rel_ts_sec(0), interval_sec(FDS_STAT_DEFAULT_SLOT_LENGTH)
   {
   }
 
@@ -61,14 +61,19 @@ namespace fds {
   {
   }
 
-  void IoStat::add(long microlat)
+  void IoStat::add(long microlat, diskio::DataTier tier, fds_io_op_t opType)
   {
-    stat.add(microlat);
+    int index = statIndex(tier, opType);
+    fds_verify(index < PERF_STAT_TYPES);
+    stat[index].add(microlat);
+    stat[PERF_STAT_TYPES-1].add(microlat);
   }
 
   void IoStat::reset(long ts_sec, int stat_size_sec)
   {
-    stat.reset();
+    for (int i = 0; i < PERF_STAT_TYPES; ++i) {
+      stat[i].reset();
+    }
     rel_ts_sec = ts_sec;
     if (stat_size_sec > 0)
       interval_sec = stat_size_sec;
@@ -79,27 +84,45 @@ namespace fds {
     return rel_ts_sec;
   }
 
+  /* returns total iops */
   long IoStat::getIops() const 
   {
-    return (long)((double)stat.nsamples / (double) interval_sec);
+    return (long)((double)stat[PERF_STAT_TYPES-1].nsamples / (double) interval_sec);
   }
 
+  /* returns iops of specific type */
+  long IoStat::getIops(diskio::DataTier tier, fds_io_op_t opType) const 
+  {
+    int index = statIndex(tier, opType);
+    fds_verify(index < PERF_STAT_TYPES)
+    return (long)((double)stat[index].nsamples / (double) interval_sec);
+  }
+
+  /* ave latency over all ops */
   long IoStat::getAveLatency() const
   {
-    return (long)stat.ave_lat;
+    return (long)stat[PERF_STAT_TYPES-1].ave_lat;
+  }
+
+  /* ave latency over ops of specific type */
+  long IoStat::getAveLatency(diskio::DataTier tier, fds_io_op_t opType) const
+  {
+    int index = statIndex(tier, opType);
+    fds_verify(index < PERF_STAT_TYPES);
+    return (long)stat[PERF_STAT_TYPES-1].ave_lat;
   }
 
   long IoStat::getMinLatency() const
   {
-  if (stat.nsamples == 0)
+  if (stat[PERF_STAT_TYPES-1].nsamples == 0)
     return 0;
   else
-    return stat.min_lat;
+    return stat[PERF_STAT_TYPES-1].min_lat;
   }
 
   long IoStat::getMaxLatency() const
   {
-    return stat.max_lat;
+    return stat[PERF_STAT_TYPES-1].max_lat;
   }
 
   StatHistory::StatHistory(fds_uint32_t _id, int slots, int slot_len_sec)
@@ -128,7 +151,7 @@ namespace fds {
     delete [] stat_slots;
   }
 
-  void StatHistory::addIo(long rel_seconds, long microlat)
+  void StatHistory::addIo(long rel_seconds, long microlat, diskio::DataTier tier, fds_io_op_t opType)
   {
     long slot_num = rel_seconds / sec_in_slot;
     long slot_start_sec = rel_seconds;
@@ -141,7 +164,7 @@ namespace fds {
     if (stat_slots[index].getTimestamp() == slot_start_sec)
       {
 	/* the slot indexed with this timestamp already has I/Os of the same time interval */
-	stat_slots[index].add(microlat);
+	stat_slots[index].add(microlat, tier, opType);
         lock.write_unlock();
 	return;
       }
@@ -171,7 +194,7 @@ namespace fds {
     }
 
     /* actually add IO stat  */
-    stat_slots[index].add(microlat);
+    stat_slots[index].add(microlat, tier, opType);
 
     /* update last slot num */
     last_slot_num = slot_num;
@@ -232,7 +255,11 @@ namespace fds {
 		     << stat_slots[ix].getIops() << ","
 		     << stat_slots[ix].getAveLatency() << ","
 		     << stat_slots[ix].getMinLatency() << ","
-		     << stat_slots[ix].getMaxLatency() << std::endl;
+		     << stat_slots[ix].getMaxLatency() << ","
+		     << stat_slots[ix].getIops(diskio::diskTier, FDS_IO_READ) << ","
+		     << stat_slots[ix].getIops(diskio::diskTier, FDS_IO_WRITE) << ","
+		     << stat_slots[ix].getIops(diskio::flashTier, FDS_IO_READ) << ","
+		     << stat_slots[ix].getIops(diskio::flashTier, FDS_IO_WRITE) << std::endl;
 
 	    if (latest_ts < ts)
 	      latest_ts = ts;
@@ -361,7 +388,7 @@ namespace fds {
     }
 
     /* stat history should handle its own lock */
-    hist->addIo(elapsed.total_seconds(), microlat);
+    hist->addIo(elapsed.total_seconds(), microlat, tier, opType);
 
     map_rwlock.read_unlock();
   }
