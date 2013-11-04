@@ -61,6 +61,7 @@ using namespace fds;
 using namespace osm;
 using namespace std;
 using namespace Ice;
+using namespace diskio;
 
 namespace fds {
 
@@ -69,6 +70,7 @@ namespace fds {
    * used for friend declaration
    */
   class ObjectStorMgrI;
+  class TierEngine;
 
   class SmPlReq : public diskio::DiskRequest {
  public:
@@ -307,6 +309,9 @@ namespace fds {
                    const FDS_ProtocolInterface::FDSP_GetObjTypePtr& get_obj);
     Error getObjectInternal(SmIoReq* getReq);
     Error putObjectInternal(SmIoReq* putReq);
+    Error relocateObject(const ObjectID &objId,
+                              diskio::DataTier from_tier,
+                              diskio::DataTier to_tier);
 
     inline void swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg);
     static void nodeEventOmHandler(int node_id,

@@ -706,6 +706,40 @@ ObjectStorMgr::writeObject(const ObjectID  &objId,
 }
 
 
+Error 
+ObjectStorMgr::relocateObject(const ObjectID &objId,
+                              diskio::DataTier from_tier,
+                              diskio::DataTier to_tier) {
+  
+  Error err(ERR_OK);
+  ObjectBuf objGetData;
+
+  objGetData.size = 0;
+  objGetData.data = "";
+ 
+  err = readObject(objId, objGetData);
+  
+  diskio::DataIO& dio_mgr = diskio::DataIO::disk_singleton();
+  SmPlReq     *disk_req;
+  meta_vol_io_t   vio;
+  meta_obj_id_t   oid;
+  vadr_set_inval(vio.vol_adr);
+
+  oid.oid_hash_hi = objId.GetHigh();
+  oid.oid_hash_lo = objId.GetLow();
+
+  disk_req = new SmPlReq(vio, oid, (ObjectBuf *)&objGetData, true, to_tier); 
+  dio_mgr.disk_write(disk_req);
+  err = writeObjectLocation(objId, disk_req->req_get_vmap());
+
+  FDS_PLOG(objStorMgr->GetLog()) << "relocateObject " << objId << " into the "
+                                 << ((to_tier == diskio::diskTier) ? "disk" : "flash")
+                                 << " tier";
+  delete disk_req;
+  // Delete the object
+  return err;
+}
+
 /*------------------------------------------------------------------------- ------------
  * FDSP Protocol internal processing 
  -------------------------------------------------------------------------------------*/
