@@ -66,6 +66,9 @@ bin_args = {
     STORMGR : "--test_mode",
     DATAMGR : "--test_mode"
 }
+use_fds_root_set = {
+    STORMGR
+}
 dir_map = {
     STORMGR : fds_bin_dir,
     DATAMGR : fds_bin_dir,
@@ -86,7 +89,6 @@ ut_map = {
     STORHVI  : "hvisor_uspace_test",
     VCC      : "vcc_unit_test",
     OM       : "om_unit_test"
-
 }
 port_map = {
     STORMGR  : 10000,
@@ -194,8 +196,10 @@ class TestSequenceFunctions(unittest.TestCase):
         #
         # Make the server's directory
         #
-        os.system('mkdir -p ' + fds_dump_dir + "/" + prefix_base + str(ident) + "/hdd")
-        os.system('mkdir -p ' + fds_dump_dir + "/" + prefix_base + str(ident) + "/ssd")
+        use_root = server in use_fds_root_set
+        if use_root:
+            os.system('mkdir -p ' + fds_dump_dir + "/" + prefix_base + str(ident) + "/hdd")
+            os.system('mkdir -p ' + fds_dump_dir + "/" + prefix_base + str(ident) + "/ssd")
 
         cp_port = None
         if server in cp_port_map:
@@ -220,7 +224,9 @@ class TestSequenceFunctions(unittest.TestCase):
         if cp_port != None:
             cp_port_arg = " --cp_port=%d" % (cp_port + ident)
             prefix_arg += cp_port_arg
-        root_arg = "--fds-root=%s/%s%d" % (fds_dump_dir, prefix_base, ident)
+        root_arg = ""
+        if use_root:
+            root_arg = "--fds-root=%s/%s%d" % (fds_dump_dir, prefix_base, ident)
         if extra_args != None:
             prefix_arg += " " + extra_args
         comp_arg = port_arg + " " + prefix_arg + " " + root_arg

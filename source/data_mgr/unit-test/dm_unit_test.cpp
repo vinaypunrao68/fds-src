@@ -47,6 +47,7 @@ class DmUnitTest {
     msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_DATA_MGR;
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
     msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msg_hdr->src_node_name = "dm_test_client";
     msg_hdr->glob_volume_id = 1; /* TODO: Don't hard code to 1 */
 
     fds_uint32_t block_id;
@@ -137,6 +138,7 @@ class DmUnitTest {
     msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_DATA_MGR;
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
     msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msg_hdr->src_node_name = "dm_test_client";
     msg_hdr->glob_volume_id = 1; /* TODO: Don't hard code to 1 */
 
     fds_uint32_t block_id;
@@ -246,6 +248,7 @@ class DmUnitTest {
     msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_DATA_MGR;
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
     msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msg_hdr->src_node_name = "dm_test_client";
     msg_hdr->glob_volume_id = 1; /* TODO: Don't hard code to 1 */
 
     fds_uint32_t block_id;
@@ -325,6 +328,7 @@ class DmUnitTest {
     msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_DATA_MGR;
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
     msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msg_hdr->src_node_name = "dm_test_client";
 
     vol_msg->type = FDS_ProtocolInterface::FDSP_NOTIFY_ADD_VOL;
 
@@ -631,7 +635,7 @@ class TestClient : public Ice::Application {
     adapter->activate();
 
     fdspDPAPI->ice_getConnection()->setAdapter(adapter);
-    fdspDPAPI->AssociateRespCallback(ident, "dm_unit_test_client");
+    fdspDPAPI->AssociateRespCallback(ident, "dm_test_client");
 
     /*
      * Determine control path port number.
