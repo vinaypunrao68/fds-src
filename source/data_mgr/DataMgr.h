@@ -98,7 +98,6 @@ public:
         return volId;
       }
 
-     private:
       ~dmCatReq() {
       }
     };
@@ -142,6 +141,12 @@ public:
         }
 
         return err;
+      }
+
+      Error markIODone(const FDS_IOType& _io) {
+	Error err(ERR_OK);
+	dispatcher->markIODone((FDS_IOType *)&_io);
+	return err;
       }
 
       ~dmQosCtrl() {
