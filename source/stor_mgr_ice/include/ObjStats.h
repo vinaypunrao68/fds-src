@@ -138,7 +138,7 @@ public:
    /*
     * map  defination for in memory  stats structure 
     */
-  typedef unordered_map<ObjectID, ioPathStats*,ObjectHash> ioPathStatsObj_map_t;
+  typedef std::unordered_map<ObjectID, ioPathStats*,ObjectHash> ioPathStatsObj_map_t;
   typedef std::unordered_map<fds_volid_t, ioPathStats* > ioPathStatsVol_map_t;
 
   ioPathStatsObj_map_t  ioPathStatsObj_map;
