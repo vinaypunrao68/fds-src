@@ -460,6 +460,138 @@ class SmUnitTest {
     return 0;
   }
 
+  fds_uint32_t basic_migration() {
+    FDS_PLOG(test_log) << "Starting test: basic_migration()";
+
+    /*
+     * Send lots of put requests.
+     */
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr =
+        new FDS_ProtocolInterface::FDSP_MsgHdrType;
+    FDS_ProtocolInterface::FDSP_PutObjTypePtr put_req =
+        new FDS_ProtocolInterface::FDSP_PutObjType;
+    
+    msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_PUT_OBJ_REQ;    
+    msg_hdr->src_id   = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
+    msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_STOR_MGR;    
+    msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
+    msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msg_hdr->src_node_name = "sm_test_client";
+
+    /* storMgr creates 10 volumes, and volume ids = 2, 5, 8 are hybrid 
+     * so lets use those for this test; lower volume ids have higher prio  */
+    int num_vols = 3;
+    int vols[num_vols];
+    int volid = 2;
+    for (int v = 0; v < num_vols; ++v) {
+      vols[v] = volid;
+      volid += 3;
+    } 
+
+    /* step 1 --  populate all volumes with 'num_updates' objects */
+    fds_uint32_t volume_offset;
+    ObjectID oid;
+    int id = 0;
+    for (int v = 0; v < num_vols; ++v) {
+      msg_hdr->glob_volume_id = vols[v];
+      
+      for (fds_uint32_t i = 1; i < num_updates + 1; i++) {
+	volume_offset = i;
+	id = i+v*(num_updates+1);
+	oid = ObjectID(id, id * id);
+	std::ostringstream convert;
+	convert << i;
+	std::string object_data = "I am object number " + convert.str();
+
+	put_req->volume_offset         = volume_offset;
+	put_req->data_obj_id.hash_high = oid.GetHigh();
+	put_req->data_obj_id.hash_low  = oid.GetLow();
+	put_req->data_obj_len          = object_data.size();
+	put_req->data_obj              = object_data;
+	msg_hdr->num_objects           = 1;
+    
+	try {
+	  updatePutObj(oid, object_data);
+	  fdspDPAPI->PutObject(msg_hdr, put_req);
+	  FDS_PLOG(test_log) << "Sent put obj message to SM"
+			     << " for volume offset " << put_req->volume_offset
+			     << " with object ID " << oid << " and data "
+			     << object_data;
+	} catch(...) {
+	  FDS_PLOG(test_log) << "Failed to put obj message to SM"
+			     << " for volume offset" << put_req->volume_offset
+			     << " with object ID " << oid << " and data "
+			     << object_data;
+	  return -1;
+	}
+      }
+    }
+
+    /* step 2 -- do lots of reads for volume 2 so we should see volume 2
+     * gets to use the flash and kick out other vols objects -- should first
+     * kick out objects of vol 8 (lowest prio) and then objects of vol 5 */
+    FDS_ProtocolInterface::FDSP_GetObjTypePtr get_req =
+        new FDS_ProtocolInterface::FDSP_GetObjType;
+    
+    msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_GET_OBJ_REQ;
+    msg_hdr->src_id   = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
+    msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_STOR_MGR;
+    msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
+    msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msg_hdr->src_node_name = "sm_test_client";
+
+    int v = 0;
+    msg_hdr->glob_volume_id = vols[v];
+    int num_reads = 20;
+    for (int k = 0; k < num_reads; ++k)
+      {
+	for (fds_uint32_t i = 0; i < num_updates; i++) {
+	  id = i+v*(num_updates+1);
+
+	  oid = ObjectID(id, id * id);
+	  get_req->data_obj_id.hash_high = oid.GetHigh();
+	  get_req->data_obj_id.hash_low  = oid.GetLow();
+	  get_req->data_obj_len          = 0;
+    
+	  try {
+	    fdspDPAPI->begin_GetObject(msg_hdr, get_req);
+	    FDS_PLOG(test_log) << "Sent get obj message to SM"
+			       << " with object ID " << oid;
+	  } catch(...) {
+	    FDS_PLOG(test_log) << "Failed get obj message to SM"
+			       << " with object ID " << oid;
+	    return -1;
+	  }
+	}
+      }
+
+    /*
+     * Spin and wait for the gets to complete.
+     */
+    fds_uint64_t acks = ackedGets.load();
+    while (acks != num_updates) {
+      FDS_PLOG(test_log) << "Received " << acks
+                         << " of " << num_updates
+                         << " get response";
+      sleep(1);
+      acks = ackedGets.load();
+    }
+    FDS_PLOG(test_log) << "Received all " << acks << " of "
+                       << num_updates << " get responses";
+
+
+    /* step 3 -- we need to wait for a bit to let migrator migrate
+     * the objects. Currently this will happen approx in 60-120 sec */
+    //sleep(120);
+
+    /* we should look at perf stat output to actually see if migrations happened */
+
+    FDS_PLOG(test_log) << "Ending test: basic_migration()";
+
+    return 0;
+
+  }
+
  public:
   /*
    * The non-const refernce is OK.
@@ -538,6 +670,8 @@ class SmUnitTest {
       result = basic_query();
     } else if (testname == "basic_dedupe") {
       result = basic_dedupe();
+    } else if (testname == "basic_migration") {
+      result = basic_migration();
     } else {
       std::cout << "Unknown unit test " << testname << std::endl;
     }
