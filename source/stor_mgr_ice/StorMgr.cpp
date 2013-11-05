@@ -784,6 +784,13 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
       FDS_PLOG(objStorMgr->GetLog()) << "Failed to put object " << err;
     } else {
       FDS_PLOG(objStorMgr->GetLog()) << "Successfully put object " << objId;
+
+      /* if we successfully put to flash -- notify ranking engine */
+      if (tierUsed == diskio::flashTier) {
+	StorMgrVolume *vol = volTbl->getVolume(volId);
+	fds_verify(vol);
+	rankEngine->rankAndInsertObject(objId, *(vol->voldesc)); 
+      }
     }
     /*
      * Stores a reverse mapping from the volume's disk location
@@ -1252,7 +1259,7 @@ ObjectStorMgr::run(int argc, char* argv[]) {
   volTbl = new StorMgrVolumeTable(this);
 
   /* Create tier related classes -- has to be after volTbl is created */
-  rankEngine = new ObjectRankEngine(stor_prefix, 1000000, objStats, objStorMgr->GetLog());
+  rankEngine = new ObjectRankEngine(stor_prefix, 200, volTbl, objStats, objStorMgr->GetLog());
   tierEngine = new TierEngine(TierEngine::FDS_TIER_PUT_ALGO_BASIC_RANK, volTbl, rankEngine, objStorMgr->GetLog());
 
   /*

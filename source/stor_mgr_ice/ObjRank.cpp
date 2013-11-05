@@ -8,13 +8,18 @@
 
 namespace fds {
 
-ObjectRankEngine::ObjectRankEngine(const std::string& _sm_prefix, fds_uint32_t _tbl_size, ObjStatsTracker *_obj_stats, fds_log* log)
+ObjectRankEngine::ObjectRankEngine(const std::string& _sm_prefix, 
+				   fds_uint32_t _tbl_size,
+				   StorMgrVolumeTable* _sm_volTbl,
+				   ObjStatsTracker *_obj_stats, 
+				   fds_log* log)
   : rank_tbl_size(_tbl_size), 
     cur_rank_tbl_size(0),
     max_cached_objects(MAX_RANK_CACHE_SIZE),
     tail_rank(OBJECT_RANK_LOWEST),
     obj_stats(_obj_stats),
     ranklog(log),
+    sm_volTbl(_sm_volTbl),
     rankTimer(new IceUtil::Timer()),
     rankTimerTask(new RankTimerTask(this))
 {
@@ -41,6 +46,10 @@ ObjectRankEngine::ObjectRankEngine(const std::string& _sm_prefix, fds_uint32_t _
   * the amount of memory stat tracker will need to keep the list of hot objects */
   obj_stats->setHotObjectThreshold(3);
   obj_stats->setColdObjectThreshold(0); // for now we don't care about cold list 
+
+  /* TMP -- for testing/demo, if we have small rank table size, lets use
+   * small cache of insertions/deletions so it will trigger ranking process more often */
+  max_cached_objects = 250;
 
   FDS_PLOG(ranklog) << "ObjectRankEngine: construction done, rank table size = " << rank_tbl_size;
 }
@@ -75,6 +84,7 @@ fds_uint32_t ObjectRankEngine::rankAndInsertObject(const ObjectID& objId, const 
   /* current implementation works as if insert of existing object is an update, eg. of 
    * existing object has 'all disk' policy but we insert same object with 'all ssd' policy,
    * the object rank will reflect 'all ssd' policy */
+  //  FDS_PLOG(ranklog) << "ObjectRankEngine: rankAndInsertObject: vol " << voldesc.volUUID;
 
   map_mutex->lock();
 
@@ -168,9 +178,9 @@ void ObjectRankEngine::analyzeStats()
   fds_bool_t stop = false;
   std::set<ObjectID,ObjectLess> hot_list;
   std::set<ObjectID,ObjectLess>::iterator list_it;
-  /* we need volume desc from stats, but seem too much data to keep
-   * so we will assume lowest prio volume -- anyway we care about really hot
-   * objects to promote, and frequency/recency has higher weight than volume policy for now  */
+  StorMgrVolume* vol = NULL;
+  fds_volid_t volid; 
+  /* default volume desc we will use if we don't get voldesc, e.g. if using unit test */
   VolumeDesc voldesc(std::string("novol"), 1, 0, 0, 10); 
 
   /* ignore the hot objects if we are already in the ranking process, for now... 
@@ -227,7 +237,9 @@ void ObjectRankEngine::analyzeStats()
 	continue;
 
       /* see if we can promote this object */
-      rank = getRank(*list_it, voldesc);
+      volid = obj_stats->getVolId(*list_it);
+      vol = sm_volTbl->getVolume(volid);
+      rank = getRank(*list_it, (vol != NULL) ? *(vol->voldesc) : voldesc);
       if ((rank < lowest_rank) && 
 	  !inRankDB(*list_it) ) 
 	{
@@ -244,7 +256,7 @@ void ObjectRankEngine::analyzeStats()
 	   * from lowrank_objs; otherwise, demote lowest ranked in lowrank_objs */
 	  std::pair<fds_uint32_t,ObjectID> entry(rank, *list_it);
 	  FDS_PLOG(ranklog) << "ObjectRankEngine: will promote hot object " << (*list_it).ToHex()
-			    << " rank " << rank;
+			    << " vol " << volid << " rank " << rank;
 
 	  tbl_mutex->lock();
 	  lowrank_objs.insert(entry);
@@ -438,7 +450,7 @@ Error ObjectRankEngine::applyCachedOps(obj_rank_cache_t* cached_objects)
 Error ObjectRankEngine::doRanking()
 {
   Error err(ERR_OK);
-  const fds_uint32_t max_lowrank_objs = 25;
+  const fds_uint32_t max_lowrank_objs = LOWRANK_OBJ_CACHE_SIZE;
   rank_order_objects_t *ordered_objects = NULL; /* temp helper ordered list of objects */
   rank_order_objects_it_t mm_it, tmp_it;
   obj_rank_cache_it_t it;

@@ -25,6 +25,7 @@
 #include <assert.h>
 #include <util/Log.h>
 #include "DiskMgr.h"
+#include "StorMgrVolumes.h"
 
 #include <include/fds_assert.h>
 #include <concurrency/Mutex.h>
@@ -37,6 +38,7 @@
 #include "ObjStats.h"
 
 #define MAX_RANK_CACHE_SIZE    10485760      /* x 20bytes = 200MB */ 
+#define LOWRANK_OBJ_CACHE_SIZE 100000        /* x 20bytes ~ 2MB  */
 #define OBJECT_RANK_ALL_SSD    0x00000000    /* highest rank */
 #define OBJECT_RANK_ALL_DISK   0xFFFFFF00    /* lowest rank that we can calculate */ 
 #define OBJECT_RANK_LOWEST     0xFFFFFFE0    /* lowest rank (any calculated rank will be higher than this) */ 
@@ -54,7 +56,11 @@ namespace fds {
  */ 
 class ObjectRankEngine {
  public: 
-  ObjectRankEngine(const std::string& _sm_prefix, fds_uint32_t tbl_size, ObjStatsTracker *_obj_stats, fds_log *log);
+  ObjectRankEngine(const std::string& _sm_prefix, 
+		   fds_uint32_t tbl_size,
+		   StorMgrVolumeTable *_sm_volTbl, 
+		   ObjStatsTracker *_obj_stats, 
+		   fds_log *log);
    ~ObjectRankEngine();
 
    typedef enum {
@@ -234,6 +240,7 @@ class ObjectRankEngine {
 
    /* does not own, passed to the constructor */
    fds_log* ranklog;
+   StorMgrVolumeTable* sm_volTbl;
 
    /* timer to periodically get stats from stat tracker and 
     * and make 'demote/promote' decisions based on out cached lowrank list */

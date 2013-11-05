@@ -37,6 +37,7 @@ TierEngine::TierEngine(tierPutAlgoType _algo_type,
  */
 TierEngine::~TierEngine() {
   delete tpa;
+  delete migrator;
 }
 
 /*
@@ -61,9 +62,8 @@ TierMigration::~TierMigration() {
 }
 
 
-void migrationJob(TierMigration *migrator, void *arg) { 
+void migrationJob(TierMigration *migrator, void *arg, fds_uint32_t count) { 
  fds_uint32_t len = 100;
- fds_uint32_t count = 0;
  std::pair<ObjectID, ObjectRankEngine::rankOperType> * chg_tbl = (std::pair<ObjectID, ObjectRankEngine::rankOperType> *) arg;
  ObjectID oid;
       for (int i = 0; i < count; ++i)
@@ -92,7 +92,7 @@ void TierMigration::startRankTierMigration(void) {
          delete [] chg_tbl;
          break;
       }
-      threadPool->schedule(migrationJob, this, (void *)chg_tbl);
+      threadPool->schedule(migrationJob, this, (void *)chg_tbl, count);
    } while (count > 0 && !stopMigrationFlag);
 }
 

@@ -8,6 +8,7 @@ user_cpp         :=               \
 	QoSWFQDispatcher.cpp	\
 	qos_htb.cpp  \
 	fds_obj_cache.cpp	\
+	qos_min_prio.cpp        \
 
 #user_cc          :=               \
 #    tvclib.c                      \
