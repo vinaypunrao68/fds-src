@@ -545,7 +545,7 @@ class SmUnitTest {
     msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
     msg_hdr->src_node_name = "sm_test_client";
 
-    int v = 0;
+    int v = 2;
     msg_hdr->glob_volume_id = vols[v];
     int num_reads = 20;
     for (int k = 0; k < num_reads; ++k)

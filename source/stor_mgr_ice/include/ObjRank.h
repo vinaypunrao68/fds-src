@@ -37,6 +37,7 @@
 #include "ObjStats.h"
 
 #define MAX_RANK_CACHE_SIZE    10485760      /* x 20bytes = 200MB */ 
+#define LOWRANK_OBJ_CACHE_SIZE 100000        /* x 20bytes ~ 2MB  */
 #define OBJECT_RANK_ALL_SSD    0x00000000    /* highest rank */
 #define OBJECT_RANK_ALL_DISK   0xFFFFFF00    /* lowest rank that we can calculate */ 
 #define OBJECT_RANK_LOWEST     0xFFFFFFE0    /* lowest rank (any calculated rank will be higher than this) */ 

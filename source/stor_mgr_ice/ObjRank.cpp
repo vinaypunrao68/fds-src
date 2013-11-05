@@ -42,6 +42,10 @@ ObjectRankEngine::ObjectRankEngine(const std::string& _sm_prefix, fds_uint32_t _
   obj_stats->setHotObjectThreshold(3);
   obj_stats->setColdObjectThreshold(0); // for now we don't care about cold list 
 
+  /* TMP -- for testing/demo, if we have small rank table size, lets use
+   * small cache of insertions/deletions so it will trigger ranking process more often */
+  max_cached_objects = 250;
+
   FDS_PLOG(ranklog) << "ObjectRankEngine: construction done, rank table size = " << rank_tbl_size;
 }
 
@@ -75,6 +79,7 @@ fds_uint32_t ObjectRankEngine::rankAndInsertObject(const ObjectID& objId, const 
   /* current implementation works as if insert of existing object is an update, eg. of 
    * existing object has 'all disk' policy but we insert same object with 'all ssd' policy,
    * the object rank will reflect 'all ssd' policy */
+  //  FDS_PLOG(ranklog) << "ObjectRankEngine: rankAndInsertObject: vol " << voldesc.volUUID;
 
   map_mutex->lock();
 
@@ -438,7 +443,7 @@ Error ObjectRankEngine::applyCachedOps(obj_rank_cache_t* cached_objects)
 Error ObjectRankEngine::doRanking()
 {
   Error err(ERR_OK);
-  const fds_uint32_t max_lowrank_objs = 25;
+  const fds_uint32_t max_lowrank_objs = LOWRANK_OBJ_CACHE_SIZE;
   rank_order_objects_t *ordered_objects = NULL; /* temp helper ordered list of objects */
   rank_order_objects_it_t mm_it, tmp_it;
   obj_rank_cache_it_t it;
