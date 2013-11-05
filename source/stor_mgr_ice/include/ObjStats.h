@@ -37,6 +37,7 @@ using namespace std;
 namespace fds {
 
 #define  COUNTER_UPDATE_SLOT_TIME    1    /*  second */
+#define  VOL_DOES_NOT_EXISTS	     -1
 
 class ObjStatsTracker { 
 
@@ -68,6 +69,7 @@ public:
    class ioPathStats {
     public:
    	CounterHist8bit  objStats;
+	fds_volid_t vol_uuid;
 	fds_uint64_t   averageObjectsRead; 
         boost::posix_time::ptime lastAccessTimeR; 
    };
@@ -90,6 +92,7 @@ public:
    void lastObjectWriteAccessTime(fds_volid_t vol_uuid,ObjectID& objId, fds_uint64_t accessTime);
    fds_uint32_t getObjectAccessVol(fds_volid_t vol_uuid);
    fds_uint32_t getObjectAccess(const ObjectID& objId);
+   fds_volid_t getVolId(ObjectID& objId);
    /*
     * bulk object interface 
     */

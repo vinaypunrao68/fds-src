@@ -113,6 +113,7 @@ Error ObjStatsTracker::updateIOpathStats(fds_volid_t vol_uuid,const ObjectID& ob
    oStats = new ioPathStats();
    slotChange = oStats->objStats.increment(startTime, COUNTER_UPDATE_SLOT_TIME);
    oStats->lastAccessTimeR =  boost::posix_time::second_clock::universal_time();
+   oStats->vol_uuid = vol_uuid;
    ioPathStatsObj_map[objId] = oStats;
   }
 
@@ -163,6 +164,20 @@ void ObjStatsTracker::lastObjectWriteAccessTime(fds_volid_t vol_uuid,ObjectID& o
 
 }
 
+fds_volid_t ObjStatsTracker::getVolId(ObjectID& objId) {
+
+   ioPathStats   *oStats;
+
+   objStatsMapLock->lock();
+   if(objStatsExists(objId) == true) {
+     oStats = ioPathStatsObj_map[objId];
+     objStatsMapLock->unlock();
+     return (oStats->vol_uuid);  
+   }
+
+   objStatsMapLock->unlock();
+   return -1;
+}
 
 
 fds_uint32_t ObjStatsTracker::getObjectAccess( const ObjectID& objId) {
