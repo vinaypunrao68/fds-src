@@ -168,7 +168,7 @@ void ObjStatsTracker::lastObjectWriteAccessTime(fds_volid_t vol_uuid,ObjectID& o
 fds_uint32_t ObjStatsTracker::getObjectAccess( const ObjectID& objId) {
 
    ioPathStats   *oStats;
-   fds_uint32_t  AveNumObjAccess = -1;
+   fds_uint32_t  AveNumObjAccess = 0; /* if we don't have the stats, this is likely a cold obj */
 
    objStatsMapLock->lock();
 
