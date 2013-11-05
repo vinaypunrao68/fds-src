@@ -171,11 +171,11 @@ fds_volid_t ObjStatsTracker::getVolId(ObjectID& objId) {
    objStatsMapLock->lock();
    if(objStatsExists(objId) == true) {
      oStats = ioPathStatsObj_map[objId];
-     objStatsMapLock->lock();
+     objStatsMapLock->unlock();
      return (oStats->vol_uuid);  
    }
 
-   objStatsMapLock->lock();
+   objStatsMapLock->unlock();
    return -1;
 }
 
