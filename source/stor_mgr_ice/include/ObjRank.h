@@ -25,6 +25,7 @@
 #include <assert.h>
 #include <util/Log.h>
 #include "DiskMgr.h"
+#include "StorMgrVolumes.h"
 
 #include <include/fds_assert.h>
 #include <concurrency/Mutex.h>
@@ -55,7 +56,11 @@ namespace fds {
  */ 
 class ObjectRankEngine {
  public: 
-  ObjectRankEngine(const std::string& _sm_prefix, fds_uint32_t tbl_size, ObjStatsTracker *_obj_stats, fds_log *log);
+  ObjectRankEngine(const std::string& _sm_prefix, 
+		   fds_uint32_t tbl_size,
+		   StorMgrVolumeTable *_sm_volTbl, 
+		   ObjStatsTracker *_obj_stats, 
+		   fds_log *log);
    ~ObjectRankEngine();
 
    typedef enum {
@@ -235,6 +240,7 @@ class ObjectRankEngine {
 
    /* does not own, passed to the constructor */
    fds_log* ranklog;
+   StorMgrVolumeTable* sm_volTbl;
 
    /* timer to periodically get stats from stat tracker and 
     * and make 'demote/promote' decisions based on out cached lowrank list */

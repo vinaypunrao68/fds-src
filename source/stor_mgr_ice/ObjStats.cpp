@@ -164,7 +164,7 @@ void ObjStatsTracker::lastObjectWriteAccessTime(fds_volid_t vol_uuid,ObjectID& o
 
 }
 
-fds_volid_t ObjStatsTracker::getVolId(ObjectID& objId) {
+fds_volid_t ObjStatsTracker::getVolId(const ObjectID& objId) {
 
    ioPathStats   *oStats;
 

@@ -92,7 +92,7 @@ public:
    void lastObjectWriteAccessTime(fds_volid_t vol_uuid,ObjectID& objId, fds_uint64_t accessTime);
    fds_uint32_t getObjectAccessVol(fds_volid_t vol_uuid);
    fds_uint32_t getObjectAccess(const ObjectID& objId);
-   fds_volid_t getVolId(ObjectID& objId);
+   fds_volid_t getVolId(const ObjectID& objId);
    /*
     * bulk object interface 
     */
