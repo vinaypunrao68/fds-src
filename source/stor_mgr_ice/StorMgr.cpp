@@ -784,6 +784,13 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
       FDS_PLOG(objStorMgr->GetLog()) << "Failed to put object " << err;
     } else {
       FDS_PLOG(objStorMgr->GetLog()) << "Successfully put object " << objId;
+
+      /* if we successfully put to flash -- notify ranking engine */
+      if (tierUsed == diskio::flashTier) {
+	StorMgrVolume *vol = volTbl->getVolume(volId);
+	fds_verify(vol);
+	rankEngine->rankAndInsertObject(objId, *(vol->voldesc)); 
+      }
     }
     /*
      * Stores a reverse mapping from the volume's disk location
@@ -973,6 +980,9 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
   swapMgrId(msgHdr);
   fdspDataPathClient[msgHdr->src_node_name]->begin_GetObjectResp(msgHdr, getObj);
   FDS_PLOG(objStorMgr->GetLog()) << "Sent async GetObj response after processing";
+  
+  objStats->updateIOpathStats(getReq->getVolId(), getReq->getObjId());
+  volTbl->updateVolStats(getReq->getVolId());
 
   /*
    * Free the IO request structure that
@@ -1249,7 +1259,7 @@ ObjectStorMgr::run(int argc, char* argv[]) {
   volTbl = new StorMgrVolumeTable(this);
 
   /* Create tier related classes -- has to be after volTbl is created */
-  rankEngine = new ObjectRankEngine(stor_prefix, 1000000, objStats, objStorMgr->GetLog());
+  rankEngine = new ObjectRankEngine(stor_prefix, 200, volTbl, objStats, objStorMgr->GetLog());
   tierEngine = new TierEngine(TierEngine::FDS_TIER_PUT_ALGO_BASIC_RANK, volTbl, rankEngine, objStorMgr->GetLog());
 
   /*
@@ -1327,8 +1337,6 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
    if (io->io_type == FDS_IO_READ) {
           FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a get request";
           threadPool->schedule(getObjectExt,io);
-          objStorMgr->objStats->updateIOpathStats(io->getVolId(),io->getObjId());
-    	  objStorMgr->volTbl->updateVolStats(io->getVolId());
    } else if (io->io_type == FDS_IO_WRITE) {
           FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a put request";
           threadPool->schedule(putObjectExt,io);

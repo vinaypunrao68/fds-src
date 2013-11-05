@@ -40,7 +40,7 @@ class ObjRankUnitTest {
 
     FDS_PLOG(test_log) << "Starting test: basic_ranking()";
     ObjStatsTracker *obj_stats = new ObjStatsTracker(test_log);
-    ObjectRankEngine* rank_eng = new ObjectRankEngine("sm", rank_table_size, obj_stats, test_log);
+    ObjectRankEngine* rank_eng = new ObjectRankEngine("sm", rank_table_size, NULL, obj_stats, test_log);
     if (!rank_eng) {
       FDS_PLOG(test_log) << "basic_ranking: failed to create ObjectRankEngine";
       return 1;
