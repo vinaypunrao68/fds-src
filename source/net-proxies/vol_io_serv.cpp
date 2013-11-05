@@ -17,14 +17,14 @@ namespace fds {
 // ----------------------------------------------------------------------------
 // Singleton volume server module.
 //
-VolIOServerModule     gl_volIOServMod("Vol Server IO RPC");
+ProbeIOServerModule     gl_probeIOServMod("Probe Server IO RPC");
 
-VolIOServerModule::VolIOServerModule(char const *const name)
+ProbeIOServerModule::ProbeIOServerModule(char const *const name)
     : Module(name), net_server(nullptr)
 {
 }
 
-VolIOServerModule::~VolIOServerModule()
+ProbeIOServerModule::~ProbeIOServerModule()
 {
 }
 
@@ -32,7 +32,7 @@ VolIOServerModule::~VolIOServerModule()
 // --------
 //
 int
-VolIOServerModule::mod_init(SysParams const *const param)
+ProbeIOServerModule::mod_init(SysParams const *const param)
 {
     return 0;
 }
@@ -41,7 +41,7 @@ VolIOServerModule::mod_init(SysParams const *const param)
 // -----------
 //
 void
-VolIOServerModule::mod_startup()
+ProbeIOServerModule::mod_startup()
 {
 }
 
@@ -49,13 +49,14 @@ VolIOServerModule::mod_startup()
 // ------------
 //
 void
-VolIOServerModule::mod_shutdown()
+ProbeIOServerModule::mod_shutdown()
 {
 }
 
 // ----------------------------------------------------------------------------
 //
-RPC_VolIOServer::RPC_VolIOServer(std::string svc_name, VolIOServer &server)
+RPC_ProbeIOServer::RPC_ProbeIOServer(std::string svc_name,
+                                     ProbeIOServer &server)
     : net_svc_name(svc_name), net_server(server), net_transp(nullptr)
 {
     pmap_unset(OBJECT_SERVER, OBJ_SRV_VERS);
@@ -69,10 +70,10 @@ RPC_VolIOServer::RPC_VolIOServer(std::string svc_name, VolIOServer &server)
         perror("Failed to register volume IO service: ");
         exit(1);
     }
-    gl_volIOServMod.net_server = &server;
+    gl_probeIOServMod.net_server = &server;
 }
 
-RPC_VolIOServer::~RPC_VolIOServer()
+RPC_ProbeIOServer::~RPC_ProbeIOServer()
 {
 }
 
@@ -80,7 +81,7 @@ RPC_VolIOServer::~RPC_VolIOServer()
 // ----------
 //
 void
-RPC_VolIOServer::vol_io_run(RPC_VolIOServer *server)
+RPC_ProbeIOServer::vol_io_run(RPC_ProbeIOServer *server)
 {
     server->vol_io_server();
 }
@@ -89,7 +90,7 @@ RPC_VolIOServer::vol_io_run(RPC_VolIOServer *server)
 // -------------
 //
 void
-RPC_VolIOServer::vol_io_server()
+RPC_ProbeIOServer::vol_io_server()
 {
     svc_run();
 }
@@ -100,7 +101,7 @@ RPC_VolIOServer::vol_io_server()
 bool
 obj_get_1_svc(obj_io_req_t *argp, obj_io_resp_t *result, struct svc_req *rqstp)
 {
-    bool ret = gl_volIOServMod.net_server->vsvc_obj_get(0, argp, result);
+    bool ret = gl_probeIOServMod.net_server->vsvc_obj_get(0, argp, result);
     return ret;
 }
 
@@ -110,7 +111,7 @@ obj_get_1_svc(obj_io_req_t *argp, obj_io_resp_t *result, struct svc_req *rqstp)
 bool
 obj_put_1_svc(obj_io_req_t *argp, obj_io_resp_t *result, struct svc_req *rqstp)
 {
-    bool ret = gl_volIOServMod.net_server->vsvc_obj_put(0, argp, result);
+    bool ret = gl_probeIOServMod.net_server->vsvc_obj_put(0, argp, result);
     return ret;
 }
 

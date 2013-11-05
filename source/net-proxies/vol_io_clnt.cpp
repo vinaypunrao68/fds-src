@@ -8,14 +8,14 @@ namespace fds {
 
 // ----------------------------------------------------------------------------
 //
-VolIOClientModule     gl_volIOClntMod("Vol IO RPC Client Module");
+ProbeIOClientModule            gl_probeIOClntMod("Probe IO RPC Client Module");
 
-VolIOClientModule::VolIOClientModule(char const *const name)
+ProbeIOClientModule::ProbeIOClientModule(char const *const name)
     : Module(name)
 {
 }
 
-VolIOClientModule::~VolIOClientModule()
+ProbeIOClientModule::~ProbeIOClientModule()
 {
 }
 
@@ -23,7 +23,7 @@ VolIOClientModule::~VolIOClientModule()
 // --------
 //
 int
-VolIOClientModule::mod_init(SysParams const *const param)
+ProbeIOClientModule::mod_init(SysParams const *const param)
 {
     return 0;
 }
@@ -32,7 +32,7 @@ VolIOClientModule::mod_init(SysParams const *const param)
 // -----------
 //
 void
-VolIOClientModule::mod_startup()
+ProbeIOClientModule::mod_startup()
 {
 }
 
@@ -40,24 +40,49 @@ VolIOClientModule::mod_startup()
 // ------------
 //
 void
-VolIOClientModule::mod_shutdown()
+ProbeIOClientModule::mod_shutdown()
 {
 }
 
 // ----------------------------------------------------------------------------
 //
-VolAdminClientModule         gl_volAdminClntMod("Vol Admin RPC Client");
+ProbeAdminClientModule         gl_probeAdminClntMod("Probe Admin RPC Client");
+
+ProbeAdminClientModule::ProbeAdminClientModule(char const *const name)
+    : Module(name)
+{
+}
+
+ProbeAdminClientModule::~ProbeAdminClientModule()
+{
+}
+
+int
+ProbeAdminClientModule::mod_init(SysParams const *const param)
+{
+    return 0;
+}
+
+void
+ProbeAdminClientModule::mod_startup()
+{
+}
+
+void
+ProbeAdminClientModule::mod_shutdown()
+{
+}
 
 // ----------------------------------------------------------------------------
 //
-RPC_VolIOClient::RPC_VolIOClient(std::string serv_id)
-    : VolIOClient(serv_id)
+RPC_ProbeIOClient::RPC_ProbeIOClient(std::string serv_id)
+    : ProbeIOClient(serv_id)
 {
     net_clnt = clnt_create(serv_id.c_str(), OBJECT_SERVER, OBJ_SRV_VERS, "udp");
     fds_verify(net_clnt != nullptr);
 }
 
-RPC_VolIOClient::~RPC_VolIOClient()
+RPC_ProbeIOClient::~RPC_ProbeIOClient()
 {
     clnt_destroy(net_clnt);
 }
@@ -66,7 +91,7 @@ RPC_VolIOClient::~RPC_VolIOClient()
 // ------------
 //
 bool
-RPC_VolIOClient::vrpc_obj_get(obj_io_req_t *req, obj_io_resp_t *resp)
+RPC_ProbeIOClient::vrpc_obj_get(obj_io_req_t *req, obj_io_resp_t *resp)
 {
     if (obj_get_1(req, resp, net_clnt) == RPC_SUCCESS) {
         return true;
@@ -78,7 +103,7 @@ RPC_VolIOClient::vrpc_obj_get(obj_io_req_t *req, obj_io_resp_t *resp)
 // ------------
 //
 bool
-RPC_VolIOClient::vrpc_obj_put(obj_io_req_t *req, obj_io_resp_t *resp)
+RPC_ProbeIOClient::vrpc_obj_put(obj_io_req_t *req, obj_io_resp_t *resp)
 {
     if (obj_put_1(req, resp, net_clnt) == RPC_SUCCESS) {
         return true;
