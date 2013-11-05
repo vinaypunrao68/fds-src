@@ -7,6 +7,7 @@
 #include <boost/program_options.hpp>
 #include <boost/program_options/parsers.hpp>
 #include <fdsCli.h>
+#include <fds_assert.h>
 
 namespace fds {
 
@@ -62,23 +63,24 @@ OrchCliModule::mod_run()
 int
 CliComponent::cli_init_connection()
 {
-    return cli_init_ice_connection();
+    return 0;
 }
 
 // \cli_init_ice_connection
 // ------------------------
 //
 int
-CliComponent::cli_init_ice_connection()
+CliComponent::cli_init_ice_connection(int om_port)
 {
-    int                   om_port;
     std::string           om_ip;
     std::ostringstream    serv;
     Ice::CommunicatorPtr  comm = FdsCli::communicator();
     Ice::PropertiesPtr    props = comm->getProperties();
 
-    om_port = props->getPropertyAsInt("OrchMgr.ConfigPort");
-    om_ip   = props->getProperty("OrchMgr.IPAddress");
+    if (om_port == 0) {
+        om_port = props->getPropertyAsInt("OrchMgr.ConfigPort");
+    }
+    om_ip = props->getProperty("OrchMgr.IPAddress");
     serv << ORCH_MGR_POLICY_ID << ": tcp -h " << om_ip << " -p " << om_port;
 
     cli_client = new Ice_VolPolicyClnt(comm, serv.str());
@@ -98,6 +100,8 @@ VolPolicyCLI::cli_exec_cmdline(SysParams const *const param)
     po::options_description desc("Volume Policy Command Line Options");
     desc.add_options()
         ("help,h", "Show volume policy options")
+        ("om_port", po::value<int>(&pol_orch_port)->default_value(0),
+            "OM config port")
         ("policy-create", po::value<std::string>(&pol_name),
             "Create policy <policy-name> <policy-arguments>")
         ("policy-delete", po::value<std::string>(&pol_name),
@@ -140,6 +144,10 @@ VolPolicyCLI::cli_exec_cmdline(SysParams const *const param)
     if (vm.count("help")) {
         cout << desc << endl;
         return true;
+    }
+    if (cli_client == nullptr) {
+        cli_init_ice_connection(pol_orch_port);
+        fds_verify(cli_client != nullptr);
     }
     int tier_opt = 0;
     pol_tier_media = opi::TIER_MEIDA_NO_VAL;

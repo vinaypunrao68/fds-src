@@ -77,6 +77,8 @@ SM_VolPolicyServ::serv_recvTierPolicyReq(const fdp::FDSP_TierPolicyPtr &tier)
     }
     VolumeDesc *desc = vol->voldesc;
     if (tier->tier_interval_sec != TIER_SCHED_DEACTIVATE) {
+        //
+        objStorMgr->tierEngine->migrator->startRankTierMigration();
         if (tier->tier_media == opi::TIER_MEDIA_SSD) {
             desc->volType = fdp::FDSP_VOL_BLKDEV_SSD_TYPE;
         } else if (tier->tier_media == opi::TIER_MEDIA_HDD) {
@@ -88,6 +90,8 @@ SM_VolPolicyServ::serv_recvTierPolicyReq(const fdp::FDSP_TierPolicyPtr &tier)
         desc->tier_start_time =
             boost::posix_time::second_clock::universal_time();
     } else {
+        // Stop the migration
+        objStorMgr->tierEngine->migrator->stopRankTierMigration();
         desc->tier_duration_sec = 0;
         desc->volType = fdp::FDSP_VOL_BLKDEV_DISK_TYPE;
     }

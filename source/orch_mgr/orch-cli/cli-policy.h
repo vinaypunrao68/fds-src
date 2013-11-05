@@ -24,8 +24,7 @@ class CliComponent
     char const *const           cli_comp;
     VolPolicyClnt               *cli_client;
 
-  private:
-    int cli_init_ice_connection();
+    int cli_init_ice_connection(int port);
 };
 
 class VolPolicyCLI : public virtual CliComponent
@@ -42,6 +41,7 @@ class VolPolicyCLI : public virtual CliComponent
     double                      pol_min_iops;
     double                      pol_max_iops;
     float                       pol_throttle_level;
+    int                         pol_orch_port;
     int                         pol_vol_id;
     int                         pol_domain_id;
     int                         pol_id;
@@ -69,6 +69,7 @@ class OrchCliModule : public Module
     void mod_run();
 
   private:
+    int                         orch_port;
     std::string                 orch_serv;
     VolPolicyCLI                vol_policy;
 };

@@ -43,7 +43,7 @@
  * TODO: Move this header out of lib/
  * to include/ since it's linked by many.
  */
-#include <lib/QoSWFQDispatcher.h>
+#include <lib/qos_htb.h>
 
 /* TODO: avoid include across module, put API header file to include dir */
 #include <lib/OMgrClient.h>
@@ -61,6 +61,7 @@ using namespace fds;
 using namespace osm;
 using namespace std;
 using namespace Ice;
+using namespace diskio;
 
 namespace fds {
 
@@ -69,6 +70,7 @@ namespace fds {
    * used for friend declaration
    */
   class ObjectStorMgrI;
+  class TierEngine;
 
   class SmPlReq : public diskio::DiskRequest {
  public:
@@ -167,7 +169,7 @@ namespace fds {
                 fds_log *log) :
       FDS_QoSControl(_max_thrds, algo, log, "SM") {
         parentSm = _parent;
-        dispatcher = new QoSWFQDispatcher(this, parentSm->totalRate, _max_thrds, log);
+        dispatcher = new QoSHTBDispatcher(this, log, 150);
         /* base class created stats, but they are disable by default */
         stats->enable();
       }
@@ -200,7 +202,6 @@ namespace fds {
      * Tiering related members
      */
     ObjectRankEngine *rankEngine;
-    TierEngine     *tierEngine;
 
     /*
      * Flash write-back members.
@@ -266,6 +267,7 @@ namespace fds {
 
     fds_log* GetLog();
     fds_log *sm_log;
+    TierEngine     *tierEngine;
     /*
      * stats  class 
      */
@@ -307,6 +309,9 @@ namespace fds {
                    const FDS_ProtocolInterface::FDSP_GetObjTypePtr& get_obj);
     Error getObjectInternal(SmIoReq* getReq);
     Error putObjectInternal(SmIoReq* putReq);
+    Error relocateObject(const ObjectID &objId,
+                              diskio::DataTier from_tier,
+                              diskio::DataTier to_tier);
 
     inline void swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg);
     static void nodeEventOmHandler(int node_id,
