@@ -527,6 +527,11 @@ class SmUnitTest {
       }
     }
 
+    /* wait a bit so that we finish most of the writes, and fill in the flash
+     * so that when we do lots of reads, it will be something to kick out from
+     * flash */
+    sleep(10);
+
     /* step 2 -- do lots of reads for volume 2 so we should see volume 2
      * gets to use the flash and kick out other vols objects -- should first
      * kick out objects of vol 8 (lowest prio) and then objects of vol 5 */
@@ -545,7 +550,7 @@ class SmUnitTest {
     int num_reads = 20;
     for (int k = 0; k < num_reads; ++k)
       {
-	for (fds_uint32_t i = 0; i < num_updates; i++) {
+	for (fds_uint32_t i = 1; i < (num_updates+1); i++) {
 	  id = i+v*(num_updates+1);
 
 	  oid = ObjectID(id, id * id);
@@ -568,7 +573,7 @@ class SmUnitTest {
     /*
      * Spin and wait for the gets to complete.
      */
-    fds_uint64_t acks = ackedGets.load();
+    /*    fds_uint64_t acks = ackedGets.load();
     while (acks != num_updates) {
       FDS_PLOG(test_log) << "Received " << acks
                          << " of " << num_updates
@@ -578,11 +583,19 @@ class SmUnitTest {
     }
     FDS_PLOG(test_log) << "Received all " << acks << " of "
                        << num_updates << " get responses";
+    */
 
+    /* step 3 -- we need to wait for at least 30 seconds to let
+     * ranking engine to get the hot objects from the stat tracker.
+     * Ranking engine processes hot objects from the stat tracker on 
+     * repeating timer every 30 seconds (can change in ObjectRankEngine 
+     * constructor.  */
+    sleep(40);
 
-    /* step 3 -- we need to wait for a bit to let migrator migrate
-     * the objects. Currently this will happen approx in 60-120 sec */
-    //sleep(120);
+    /* step 4 -- can either start migrator or can hack ranking engine 
+     * to call migrate as soon it promoted hot objs/ demotes existing objs
+     * in the rank table. */
+    //TODO
 
     /* we should look at perf stat output to actually see if migrations happened */
 
