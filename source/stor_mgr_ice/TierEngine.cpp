@@ -89,7 +89,7 @@ void TierMigration::startRankTierMigration(void) {
       std::pair<ObjectID, ObjectRankEngine::rankOperType> *chg_tbl = new std::pair<ObjectID, ObjectRankEngine::rankOperType> [len];
       count = tier_eng->rank_eng->getDeltaChangeTblSegment(len, chg_tbl);
       if (count == 0)  { 
-         delete chg_tbl;
+         delete [] chg_tbl;
          break;
       }
       threadPool->schedule(migrationJob, this, (void *)chg_tbl);
