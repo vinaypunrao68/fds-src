@@ -2,8 +2,8 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 #include <OmTier.h>
+#include <queue>
 #include <string>
-#include <boost/lockfree/queue.hpp>
 #include <iostream>
 #include <orchMgr.h>
 
@@ -32,23 +32,29 @@ Orch_VolPolicyServ::serv_recvTierPolicyReq(const opi::tier_pol_time_unit &tier)
     } else {
         // Get all volumes in the domain and send out the command.
         // Using this queue is overkill...
-        boost::lockfree::queue<fds_uint64_t> vol_ids;
+        int vol_cnt;
+        std::queue<fds_uint64_t> vol_ids;
         FdsLocalDomain *loc = dom->domain_ptr;
 
         sm_data->tier_domain_uuid   = 0;
         sm_data->tier_domain_policy = false;
         loc->dom_mutex->lock();
-        for (auto it = loc->volumeMap.begin(); it != loc->volumeMap.end(); it++) {
+        for (auto it = loc->volumeMap.begin();
+             it != loc->volumeMap.end(); it++) {
             VolumeInfo *vol = it->second;
             vol_ids.push(vol->volUUID);
         }
         loc->dom_mutex->unlock();
 
-        fds_uint64_t vol_id;
-        while (vol_ids.pop(vol_id) == true) {
-            sm_data->tier_vol_uuid = vol_id;
+        for (vol_cnt = 0; !vol_ids.empty(); vol_cnt++) {
+            sm_data->tier_vol_uuid = vol_ids.front();
+            vol_ids.pop();
+
+            cout << "Appling tier polity to vol "
+                << sm_data->tier_vol_uuid << endl;
             dom->domain_ptr->sendTierPolicyToSMNodes(sm_data);
         }
+        cout << "Applied tier policy to " << vol_cnt << " volumes." << endl;
     }
 }
 

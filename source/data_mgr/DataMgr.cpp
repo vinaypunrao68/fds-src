@@ -709,6 +709,9 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
         << "End:Sent update response for trans commit request";
   }
 
+  qosCtrl->markIODone(*updCatReq);
+  delete updCatReq;
+
 }
 
 
@@ -849,6 +852,10 @@ DataMgr::queryCatalogBackend(dmCatReq  *qryCatReq) {
                               << ", Trans ID "
                               << query_catalog->dm_transaction_id
                               << ", OP ID " << query_catalog->dm_operation;
+
+  qosCtrl->markIODone(*qryCatReq);
+  delete qryCatReq;
+
 }
 
 
@@ -1016,13 +1023,13 @@ int scheduleUpdateCatalog(void * _io) {
         fds::DataMgr::dmCatReq *io = (fds::DataMgr::dmCatReq*)_io;
 
     dataMgr->updateCatalogBackend(io);
-     return 0;
+    return 0;
 }
 int scheduleQueryCatalog(void * _io) {
         fds::DataMgr::dmCatReq *io = (fds::DataMgr::dmCatReq*)_io;
 
     dataMgr->queryCatalogBackend(io);
-     return 0;
+    return 0;
 }
 
 void DataMgr::InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)

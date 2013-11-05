@@ -53,6 +53,7 @@ class StorVol():
                                                                 self.volId,
                                                                 self.client)
 
+
 #
 # Defines a policy in the cluster
 #
@@ -62,6 +63,7 @@ class StorPol():
     iopsmin  = None
     iopsmax  = None
     priority = None
+    volType  = "disk"
     cliBin = "fdscli"
 
     def __init__(self, _name):
@@ -91,6 +93,18 @@ class StorPol():
         return "%s --policy-delete %s -p %d" % (self.cliBin,
                                                 self.name,
                                                 self.polId)
+
+    def setVolType(self, _type):
+        if _type == "ssd" or _type == "disk" or _type == "hybrid":
+            self.volType = _type
+        else:
+            print "Unknown volume type:", _type, ", set default to disk"
+            self.volType = "disk"
+
+    def getTierCmd(self, opt, vol_id):
+        return "%s --auto-tier=%s --vol-type=%s --volume-id=%d" % (
+            self.cliBin, opt, self.volType, vol_id
+        )
 
 #
 # Defines a client in the cluster
@@ -269,10 +283,22 @@ class TestBringUp():
                 policy.setIopsMax(int(value))
             elif key == "priority":
                 policy.setPriority(int(value))
+            elif key == "vol_type":
+                policy.setVolType(value)
             else:
                 print "Unknown item %s, %s in %s" % (key, value, name)
 
         self.policies.append(policy)
+
+    # Get the policy config obj matching the policy id.
+    #
+    def getPolicy(self, pol_id):
+        for pol in self.policies:
+            if pol.polId == pol_id:
+                return pol
+
+        print "Can't find policy id ", pol_id
+        return None
 
     #
     # Loads a volume from items
@@ -446,6 +472,19 @@ class TestBringUp():
         return cmd
 
     #
+    # Builds the command to setup volume tier type.
+    #
+    def buildVolTierCmd(self, volume):
+        policy = self.getPolicy(volume.policy)
+        if policy is None:
+            return None
+        cmd = (self.ldLibPath + "; " + self.iceHome + "; " + "cd " +
+               self.fdsBinDir + "; ./" + policy.getTierCmd("on", volume.volId) +
+               " --om_ip=" + self.omIpStr + " --om_port=" +
+               str(self.omConfPort))
+        return cmd
+
+    #
     # Builds the command to run a remote command
     #
     def runNodeCmd(self, node, cmd, checkStr = None, ipOver = None):
@@ -567,6 +606,19 @@ class TestBringUp():
             print "Failed to attach volume"
             return -1
 
+        #
+        # Run this tier policy command on the OM IP
+        #
+        tierCmd = self.buildVolTierCmd(volume)
+        if tierCmd is None:
+            return 0
+
+        result = self.runNodeCmd(None, tierCmd, ipOver=self.omIpStr)
+        if result == True:
+            print "Setup volume tier command with OM on %s..." % self.omIpStr
+        else:
+            print "Failed to setup volume tier command"
+            return -1
         return 0
 
     #
