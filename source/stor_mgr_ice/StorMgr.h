@@ -71,6 +71,7 @@ namespace fds {
    */
   class ObjectStorMgrI;
   class TierEngine;
+  class ObjectRankEngine;
 
   class SmPlReq : public diskio::DiskRequest {
  public:
