@@ -939,6 +939,9 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
   swapMgrId(msgHdr);
   fdspDataPathClient[msgHdr->src_node_name]->begin_GetObjectResp(msgHdr, getObj);
   FDS_PLOG(objStorMgr->GetLog()) << "Sent async GetObj response after processing";
+  
+  objStats->updateIOpathStats(getReq->getVolId(), getReq->getObjId());
+  volTbl->updateVolStats(getReq->getVolId());
 
   /*
    * Free the IO request structure that
@@ -1293,8 +1296,6 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
    if (io->io_type == FDS_IO_READ) {
           FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a get request";
           threadPool->schedule(getObjectExt,io);
-          objStorMgr->objStats->updateIOpathStats(io->getVolId(),io->getObjId());
-    	  objStorMgr->volTbl->updateVolStats(io->getVolId());
    } else if (io->io_type == FDS_IO_WRITE) {
           FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a put request";
           threadPool->schedule(putObjectExt,io);
