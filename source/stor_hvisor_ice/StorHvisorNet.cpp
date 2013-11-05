@@ -233,7 +233,14 @@ int unitTest(fds_uint32_t time_mins) {
   char *r_buf;
   fds_uint32_t w_count;
   fds_int32_t result;
-    
+
+  /*
+   * Wait before running test for server to be ready.
+   * TODO: Remove this and make sure the test isn't
+   * kicked off until the server is ready and have server
+   * properly wait until it's up.
+   */
+  sleep(10);
 
   req_size = 4096;
   w_count  = 5000;
@@ -334,6 +341,14 @@ int unitTestFile(const char *inname, const char *outname, unsigned int base_vol_
 
   result    = 0;
   req_count = 0;
+
+  /*
+   * Wait before running test for server to be ready.
+   * TODO: Remove this and make sure the test isn't
+   * kicked off until the server is ready and have server
+   * properly wait until it's up.
+   */
+  sleep(10);
 
   /*
    * Clear any previous test data.
