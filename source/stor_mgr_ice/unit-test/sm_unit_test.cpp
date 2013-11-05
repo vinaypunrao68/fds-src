@@ -530,7 +530,7 @@ class SmUnitTest {
     /* wait a bit so that we finish most of the writes, and fill in the flash
      * so that when we do lots of reads, it will be something to kick out from
      * flash */
-    sleep(10);
+    sleep(30);
 
     /* step 2 -- do lots of reads for volume 2 so we should see volume 2
      * gets to use the flash and kick out other vols objects -- should first
@@ -570,6 +570,7 @@ class SmUnitTest {
 	}
       }
 
+    system("../bin/fdscli --auto-tier-migration on --domain-id 1");
     /*
      * Spin and wait for the gets to complete.
      */
@@ -591,12 +592,37 @@ class SmUnitTest {
      * repeating timer every 30 seconds (can change in ObjectRankEngine 
      * constructor.  */
     sleep(40);
+    system("../bin/fdscli --auto-tier-migration off --domain-id 1");
 
     /* step 4 -- can either start migrator or can hack ranking engine 
      * to call migrate as soon it promoted hot objs/ demotes existing objs
      * in the rank table. */
     //TODO
 
+    v = 0;
+    msg_hdr->glob_volume_id = vols[v];
+    num_reads = 1;
+    for (int k = 0; k < num_reads; ++k)
+      {
+	for (fds_uint32_t i = 1; i < (num_updates+1); i++) {
+	  id = i+v*(num_updates+1);
+
+	  oid = ObjectID(id, id * id);
+	  get_req->data_obj_id.hash_high = oid.GetHigh();
+	  get_req->data_obj_id.hash_low  = oid.GetLow();
+	  get_req->data_obj_len          = 0;
+    
+	  try {
+	    fdspDPAPI->begin_GetObject(msg_hdr, get_req);
+	    FDS_PLOG(test_log) << "Sent get obj message to SM"
+			       << " with object ID " << oid;
+	  } catch(...) {
+	    FDS_PLOG(test_log) << "Failed get obj message to SM"
+			       << " with object ID " << oid;
+	    return -1;
+	  }
+	}
+      }
     /* we should look at perf stat output to actually see if migrations happened */
 
     FDS_PLOG(test_log) << "Ending test: basic_migration()";

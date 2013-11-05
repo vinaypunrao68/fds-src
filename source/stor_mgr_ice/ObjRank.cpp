@@ -846,6 +846,7 @@ void ObjectRankEngine::runRankingThread(ObjectRankEngine* self)
 void RankTimerTask::runTimerTask()
 {
   rank_eng->analyzeStats();
+  objStorMgr->tierEngine->migrator->startRankTierMigration();
 }
 
 } // namespace fds

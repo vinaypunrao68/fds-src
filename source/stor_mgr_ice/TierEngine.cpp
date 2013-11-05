@@ -78,7 +78,7 @@ void migrationJob(TierMigration *migrator, void *arg, fds_uint32_t count) {
             objStorMgr->relocateObject(oid, diskio::flashTier, diskio::diskTier);
           }
        }
-       delete chg_tbl;
+       delete []  chg_tbl;
 }
 
 void TierMigration::startRankTierMigration(void) {

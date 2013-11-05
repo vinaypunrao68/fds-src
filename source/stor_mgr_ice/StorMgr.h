@@ -44,6 +44,8 @@
  * to include/ since it's linked by many.
  */
 #include <lib/qos_htb.h>
+#include <lib/qos_min_prio.h>
+#include <lib/QoSWFQDispatcher.h>
 
 /* TODO: avoid include across module, put API header file to include dir */
 #include <lib/OMgrClient.h>
@@ -71,6 +73,7 @@ namespace fds {
    */
   class ObjectStorMgrI;
   class TierEngine;
+  class ObjectRankEngine;
 
   class SmPlReq : public diskio::DiskRequest {
  public:
@@ -169,7 +172,11 @@ namespace fds {
                 fds_log *log) :
       FDS_QoSControl(_max_thrds, algo, log, "SM") {
         parentSm = _parent;
-        dispatcher = new QoSHTBDispatcher(this, log, 150);
+
+        //dispatcher = new QoSMinPrioDispatcher(this, log, 500);
+       dispatcher = new QoSWFQDispatcher(this, 500, 20, log);
+       //dispatcher = new QoSHTBDispatcher(this, log, 150);
+
         /* base class created stats, but they are disable by default */
         stats->enable();
       }
