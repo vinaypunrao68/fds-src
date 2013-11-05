@@ -10,7 +10,7 @@
 
 SCRIPT_DIR="`pwd`"
 RESULT_DIR=$SCRIPT_DIR/results
-BIN_DIR=../Build/linux-i686/bin
+BIN_DIR=../Build/linux-x86_64/bin
 
 usage() {
 cat <<EOF
@@ -88,9 +88,6 @@ if [[ -z $WORKLOADS ]]; then
   exit 1
 fi
 
-# remove all .stat files from fds_client/stats dir, so that we know that
-# after the end of experiment, all .stat files belong to this experiment
-#rm -f $BIN_DIR/stats/*
 
 # make sure results dir exists
 mkdir -p $RESULT_DIR
@@ -129,24 +126,27 @@ echo "All workloads finished running, will cleanup"
 # enable stat output in SH, and pass a created stat file into plot-all-stats to 
 # plot the result 
 cat $RESULT_DIR/*$PREFIX*.stat > $RESULT_DIR/$PREFIX"_allvolumess.stat"
-./plot-all-stats.sh -d $RESULT_DIR -f $PREFIX
+./plot-all-stats.sh -d $RESULT_DIR -f $PREFIX"_all"
 
-# also go to fds_client/stats and make graphs for all .stat files created
-# this is useful if we run workload generator other than pharos (that does not 
-# output fine-granularity stats) like dd, etc. Assumes that we cleaned up that
-# directory in the beginning of the experiment, so all files in there are 
-# the files from this experiment
-# UNCOMMENT BELOW if you want -- but better to clean stats dir once in a while
-# otherwise will take foreever to remake graphs for all (old) .stat files
+# also go to bin/stats and make graphs for all SM_.stat files created
+# If we did not clean old stat files, we will have pdfs for all of them,
+# I guess we can just pick the most recent one
+# Make 'tier' graph -- break down of iops for read/write disk/flash
 #
-#for file in $BIN_DIR/stats/* 
-#do
-#  fname=$(basename $file)
-#  cp $file $RESULT_DIR/$PREFIX"_"$fname
-#done
-#./plot-all-stats.sh -d $RESULT_DIR -f $PREFIX"_SH_"
+for file in $BIN_DIR/stats/SM_* 
+do
+  echo "found $file"
+  fname=$(basename $file)
+  cp $file $RESULT_DIR/$PREFIX"_"$fname
+  ./plot-stats.sh -s $RESULT_DIR/$PREFIX"_"$fname -p tier
+  # clear file (do not delete, otherwise would need to restart sm)
+  > $file
+done
 
-
+# remove all .stat files from bin/stats dir, so that next experiment 
+# stats will belong to that experiment -- have to bring down everything
+# first 
+#rm -f $BIN_DIR/stats/SM_*
 
 
 
