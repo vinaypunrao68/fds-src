@@ -33,6 +33,7 @@
 
 #include <include/fds_qos.h>
 #include <include/qos_ctrl.h>
+#include <include/fds_obj_cache.h>
 #include <include/fds_assert.h>
 #include <utility>
 #include <atomic>
@@ -201,6 +202,8 @@ namespace fds {
      */
     ObjectRankEngine *rankEngine;
     TierEngine     *tierEngine;
+
+    FdsObjectCache *objCache;
 
     /*
      * Flash write-back members.
