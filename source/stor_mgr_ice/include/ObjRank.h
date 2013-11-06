@@ -26,6 +26,7 @@
 #include <util/Log.h>
 #include "DiskMgr.h"
 #include "StorMgrVolumes.h"
+#include "TierEngine.h"
 
 #include <include/fds_assert.h>
 #include <concurrency/Mutex.h>
@@ -48,7 +49,7 @@
 
 namespace fds {
 
-
+extern ObjectStorMgr *objStorMgr;
 /* ObjectRankEngine : A class that keeps track of a rank table of all objects that 
  * "Needs" to be in the SSD tier. It is the job of the migrator/placement-tiering engine 
  * to make sure the rank table is reflected in the persistent-Layer
