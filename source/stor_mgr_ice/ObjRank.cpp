@@ -213,8 +213,11 @@ void ObjectRankEngine::analyzeStats()
     lowrank_objs.swap(new_lowrank_objs);
     /* if there are no obj cached in lowrank cache, we don't dig lowest ranks in db, but
      * don't promote anymore hot objects until next ranking process  */
-    if (lowrank_objs.size() == 0) 
+    if (lowrank_objs.size() == 0) {
       stop = true;
+      FDS_PLOG(ranklog) << "ObjectRankEngine: will stop, lowrank empty";
+
+    }
    
   }
   tbl_mutex->unlock();
@@ -233,8 +236,10 @@ void ObjectRankEngine::analyzeStats()
       /* check cached insertions/deletions -- if it was recently inserted
        * then no need to promote; if deleted not sure yet what we should do,
        * so for now not considering those objects */
-      if (inInsertDeleteCache(*list_it))
+      if (inInsertDeleteCache(*list_it)) {
+	FDS_PLOG(ranklog) << "ObjectRankEngine: obj " << (*list_it).ToHex() << " in insert/delete cache";
 	continue;
+      }
 
       /* see if we can promote this object */
       volid = obj_stats->getVolId(*list_it);
@@ -301,6 +306,11 @@ void ObjectRankEngine::analyzeStats()
 	  tbl_mutex->lock();
 	  rankDeltaChgTbl[*list_it] = rank | RANK_PROMOTION_MASK;
 	  tbl_mutex->unlock();
+	  FDS_PLOG(ranklog) << "ObjectRankEngine: obj " << (*list_it).ToHex() << " rank " << rank << " will be promoted";
+
+      }
+      else {
+	FDS_PLOG(ranklog) << "ObjectRankEngine: obj " << (*list_it).ToHex() << " rank " << rank << " lower than ranks of all objs in rank table";
       }
     }
 
@@ -736,6 +746,8 @@ void ObjectRankEngine::runRankingThreadInternal()
 
       /* set flag that we finished ranking process (even if we stopped due to stopObjRanking */
       atomic_store(&rankingEnabled, false);
+
+      objStorMgr->tierEngine->migrator->startRankTierMigration();
     }
 }
 
