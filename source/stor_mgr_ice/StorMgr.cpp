@@ -741,7 +741,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
     }
     objCache->object_release(volId, objId, objBufPtr);
   } else {
-    objBufPtr == objCache->object_alloc(volId, objId, putObjReq->data_obj.size());
+    objBufPtr = objCache->object_alloc(volId, objId, putObjReq->data_obj.size());
     memcpy((void *)objBufPtr->data.c_str(), (void *)putObjReq->data_obj.c_str(), putObjReq->data_obj.size()); 
   }
 
