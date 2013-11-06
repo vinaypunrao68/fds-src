@@ -156,6 +156,9 @@ ObjectStorMgr::ObjectStorMgr() :
     totalRate(500),
     qosThrds(10),
     port_num(0),
+    shuttingDown(false),
+    numWBThreads(1),
+    maxDirtyObjs(10000),
     cp_port_num(0) {
   /*
    * TODO: Fix the totalRate above to not
@@ -201,6 +204,18 @@ ObjectStorMgr::ObjectStorMgr() :
   objStats =  new ObjStatsTracker(sm_log);
 
   /*
+   * Performance stats recording
+   * TODO: This is *not* a unique name, so
+   * multiple SMs will clobber each other.
+   * The prefix isn't parsed until later.
+   * We should fix that.
+   */
+  Error err;
+  perfStats = new PerfStats("migratorSmStats");
+  err = perfStats->enable();
+  fds_verify(err == ERR_OK);
+
+  /*
    * Kick off the writeback thread(s)
    */
   writeBackThreads->schedule(writeBackFunc, this);
@@ -229,6 +244,8 @@ ObjectStorMgr::~ObjectStorMgr() {
     qosCtrl->quieseceIOs((*vit));
     qosCtrl->deregisterVolume((*vit));
   }
+
+  delete perfStats;
 
   /*
    * TODO: Assert that the waiting req map is empty.
@@ -427,34 +444,40 @@ void ObjectStorMgr::unitTest() {
 
 Error
 ObjectStorMgr::writeObjectLocation(const ObjectID& objId,
-				   meta_obj_map_t *obj_map) {
+				   meta_obj_map_t *obj_map,
+                                   fds_bool_t      append) {
 
   Error err(ERR_OK);
 
   diskio::MetaObjMap objMap;
   ObjectBuf          objData;
 
-  /*
-   * Get existing object locations
-   * TODO: We need a better way to update this
-   * location DB with a new location. This requires
-   * reading the existing locations, updating the entry,
-   * and re-writing it. We often just want to append.
-   */
-  err = readObjectLocations(objId, objMap);
-  if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
-    FDS_PLOG(objStorMgr->GetLog()) << "Failed to read existing object locations"
-                                   << " during location write";
-    return err;
-  } else if (err == ERR_DISK_READ_FAILED) {
+  if (append == true) {
+    FDS_PLOG(objStorMgr->GetLog()) << "Appending new location for object " << objId;
+
     /*
-     * Assume this error means the key just did not exist.
-     * TODO: Add an err to differention "no key" from "failed read".
+     * Get existing object locations
+     * TODO: We need a better way to update this
+     * location DB with a new location. This requires
+     * reading the existing locations, updating the entry,
+     * and re-writing it. We often just want to append.
      */
-    FDS_PLOG(objStorMgr->GetLog()) << "Not able to read existing object locations"
-                                   << ", assuming no prior entry existed";
-    err = ERR_OK;
+    err = readObjectLocations(objId, objMap);
+    if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
+      FDS_PLOG(objStorMgr->GetLog()) << "Failed to read existing object locations"
+                                     << " during location write";
+      return err;
+    } else if (err == ERR_DISK_READ_FAILED) {
+      /*
+       * Assume this error means the key just did not exist.
+       * TODO: Add an err to differention "no key" from "failed read".
+       */
+      FDS_PLOG(objStorMgr->GetLog()) << "Not able to read existing object locations"
+                                     << ", assuming no prior entry existed";
+      err = ERR_OK;
+    }
   }
+
   /*
    * Add new location to existing locations
    */
@@ -691,7 +714,7 @@ ObjectStorMgr::writeObject(const ObjectID  &objId,
                                  << " tier";
   disk_req = new SmPlReq(vio, oid, (ObjectBuf *)&objData, true, tier); // blocking call
   dio_mgr.disk_write(disk_req);
-  err = writeObjectLocation(objId, disk_req->req_get_vmap());
+  err = writeObjectLocation(objId, disk_req->req_get_vmap(), true);
   if ((err == ERR_OK) &&
       (tier == diskio::flashTier)) {
     /*
@@ -730,8 +753,14 @@ ObjectStorMgr::relocateObject(const ObjectID &objId,
 
   disk_req = new SmPlReq(vio, oid, (ObjectBuf *)&objGetData, true, to_tier); 
   dio_mgr.disk_write(disk_req);
-  err = writeObjectLocation(objId, disk_req->req_get_vmap());
+  err = writeObjectLocation(objId, disk_req->req_get_vmap(), false);
 
+  if (to_tier == diskio::diskTier) {
+    perfStats->recordIO(flashToDisk, 0, diskio::diskTier, FDS_IO_WRITE);
+  } else {
+    fds_verify(to_tier == diskio::flashTier);
+    perfStats->recordIO(diskToFlash, 0, diskio::flashTier, FDS_IO_WRITE);
+  }
   FDS_PLOG(objStorMgr->GetLog()) << "relocateObject " << objId << " into the "
                                  << ((to_tier == diskio::diskTier) ? "disk" : "flash")
                                  << " tier";

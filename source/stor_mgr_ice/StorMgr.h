@@ -236,6 +236,16 @@ namespace fds {
     fds_mutex                 *waitingReqMutex;
 
     /*
+     * Local perf stat collection
+     */
+    enum perfMigOp {
+      flashToDisk,
+      diskToFlash,
+      invalidMig
+    };
+    PerfStats *perfStats;
+
+    /*
      * Private request processing members.
      */
     Error getObjectInternal(FDSP_GetObjTypePtr getObjReq, 
@@ -249,7 +259,8 @@ namespace fds {
     Error checkDuplicate(const ObjectID  &objId,
                          const ObjectBuf &objCompData);
     Error writeObjectLocation(const ObjectID &objId, 
-                              meta_obj_map_t *obj_map);
+                              meta_obj_map_t *obj_map,
+                              fds_bool_t      append);
     Error readObjectLocations(const ObjectID &objId, 
                               meta_obj_map_t *objMaps);
     Error readObjectLocations(const ObjectID     &objId,
