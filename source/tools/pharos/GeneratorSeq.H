@@ -14,6 +14,7 @@ public:
   GeneratorSeq(Generator& base_in, Store const& store_in):
     GeneratorStackable(base_in),
     store_capacity(store_in.getCapacity()),
+    restricted_capacity(0),
     last(0)
   {}
 
@@ -22,7 +23,9 @@ public:
   GeneratorSeq(Generator& base_in, Store const& store_in, location_t start):
     GeneratorStackable(base_in),
     store_capacity(store_in.getCapacity()),
-    last(start)
+    restricted_capacity(start),
+    last(0)
+    //last(start)
   {}
 
   virtual ~GeneratorSeq()
@@ -48,6 +51,7 @@ public:
 
 private:
   location_t store_capacity;
+  location_t restricted_capacity;
   location_t last;
 };
 
