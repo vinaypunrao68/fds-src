@@ -32,8 +32,8 @@ ObjectRankEngine::ObjectRankEngine(const std::string& _sm_prefix,
   rankingEnabled = ATOMIC_VAR_INIT(false);
   exiting = false;
 
-  rank_thread = new boost::thread(boost::bind(&runRankingThread, this));
   rank_notify = new fds_notification();
+  rank_thread = new boost::thread(boost::bind(&runRankingThread, this));
 
   /* for now setting small intervals so we can have short demo */
   IceUtil::Time interval = IceUtil::Time::seconds(30);
