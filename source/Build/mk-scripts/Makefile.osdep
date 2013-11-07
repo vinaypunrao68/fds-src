@@ -24,11 +24,11 @@ endif
 
 # Modify some variables if want to do a debug or optimize build.
 #
-ifeq ($(BUILD_MODE), debug)
+ifeq ($(BUILD), debug)
     include $(incl_scripts)/Makefile.debug
 endif
 
-ifeq ($(BUILD_MODE), release)
+ifeq ($(BUILD), release)
     include $(incl_scripts)/Makefile.release
 endif
 
@@ -41,7 +41,7 @@ ifeq ($(user_rtime_env), kernel)
     osdep_so_flags   :=
 endif
 
-ifeq ($(usr_rtime_env), user)
+ifeq ($(user_rtime_env), user)
     osdep_cc_flags   += $(osdep_user_cc_flags)
     osdep_cpp_flags  += $(osdep_user_cpp_flags)
     osdep_ld_flags   += $(osdep_user_ld_flags)
