@@ -3,6 +3,7 @@
  */
 
 #include <iostream>
+#include <thread>
 
 #include <policy_rpc.h>
 #include <policy_tier.h>
@@ -154,7 +155,7 @@ ObjectStorMgrI::AssociateRespCallback(const Ice::Identity& ident, const std::str
 ObjectStorMgr::ObjectStorMgr() :
     runMode(NORMAL_MODE),
     numTestVols(10),
-    totalRate(200),
+    totalRate(500),
     qosThrds(10),
     port_num(0),
     cp_port_num(0) {
@@ -1264,6 +1265,8 @@ ObjectStorMgr::run(int argc, char* argv[]) {
 				eviction_policy_type_default,
 				objStorMgr->GetLog());
 
+  std::thread *stats_thread = new std::thread(log_ocache_stats);
+
   /*
    * Register/boostrap from OM
    */
@@ -1357,6 +1360,14 @@ ObjectStorMgr::interruptCallback(int)
     communicator()->shutdown();
 }
 
+void log_ocache_stats() {
+
+  while(1) {
+    usleep(500000);
+    objStorMgr->getObjCache()->log_stats_to_file("ocache_stats.dat");    
+  }
+
+}
 
 }  // namespace fds
 

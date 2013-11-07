@@ -65,6 +65,8 @@ using namespace Ice;
 
 namespace fds {
 
+  void log_ocache_stats();
+
   /*
    * Forward declaration of Ice interface class
    * used for friend declaration
@@ -327,6 +329,10 @@ namespace fds {
 
     const std::string& getStorPrefix() const {
       return stor_prefix;
+    }
+
+    FdsObjectCache *getObjCache() {
+      return objCache;
     }
 
     /*
