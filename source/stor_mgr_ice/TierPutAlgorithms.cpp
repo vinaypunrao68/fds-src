@@ -38,8 +38,10 @@ diskio::DataTier RankTierPutAlgo::selectTier(const ObjectID& oid,
     /* if 'all ssd', put to ssd */
     ret_tier = diskio::flashTier;
   }
-  else if (vol_type == FDSP_VOL_BLKDEV_DISK_TYPE) {
-    /* if 'all disk', put to disk */
+  else if ((vol_type == FDSP_VOL_BLKDEV_DISK_TYPE) ||
+	   (vol_type == FDSP_VOL_BLKDEV_HYBRID_PREFCAP_TYPE)) {
+    /* if 'all disk', put to disk 
+     * or if hybrid but first preference to capacity tier, put to disk  */
     ret_tier = diskio::diskTier;
   }
   else if (vol_type == FDSP_VOL_BLKDEV_HYBRID_TYPE) {

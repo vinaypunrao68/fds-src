@@ -130,7 +130,7 @@ VolPolicyCLI::cli_exec_cmdline(SysParams const *const param)
             "policy-argument: set auto-tier to whole domain [on|off]")
         ("vol-type",
             po::value<std::string>(&pol_tier_media_arg)->default_value("ssd"),
-            "policy-argument: set volume tier type [ssd|disk|hybrid]")
+            "policy-argument: set volume tier type [ssd|disk|hybrid|hybrid_prefcap]")
         ("tier-pct", po::value<int>(&pol_tier_pct)->default_value(100),
             "policy-argument: set storage percentage using the tier")
         ("tier-prefetch,A",
@@ -156,8 +156,10 @@ VolPolicyCLI::cli_exec_cmdline(SysParams const *const param)
             pol_tier_media = opi::TIER_MEDIA_SSD;
         } else if (pol_tier_media_arg == "disk") {
             pol_tier_media = opi::TIER_MEDIA_HDD;
-        } else {
+        } else if (pol_tier_media_arg == "hybrid") {
             pol_tier_media = opi::TIER_MEDIA_HYBRID;
+        } else {
+            pol_tier_media = opi::TIER_MEDIA_HYBRID_PREFCAP;
         }
         tier_opt++;
     }
