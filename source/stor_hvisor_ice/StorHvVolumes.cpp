@@ -355,6 +355,15 @@ int  pushVolQueue(void *req1)
   fds_uint32_t vol_id;
   StorHvVolume *shvol;
   fbd_request_t *req = (fbd_request_t *)req1;
+
+#ifdef FDS_TEST_SH_NOOP
+  FDS_PLOG(storHvisor->GetLog()) << "pushVolQueue: FDS_TEST_SH_NOOP defined, returning before pushing IO to SH queue";
+  if ((fds::fds_io_op_t)req->io_type == FDS_IO_READ) {
+    memset(req->buf, 0, req->len);
+  }
+  return 8;
+#endif
+
   FDS_IOType *io = new FDS_IOType();
 
   vol_id = req->volUUID;
