@@ -35,6 +35,15 @@ ObjectStorMgrI::PutObject(const FDSP_MsgHdrTypePtr& msgHdr,
                           const Ice::Current&) {
   FDS_PLOG(objStorMgr->GetLog()) << "Received a Putobject() network request";
 
+#ifdef FDS_TEST_SM_NOOP
+  msgHdr->msg_code = FDSP_MSG_PUT_OBJ_RSP;
+  msgHdr->result = FDSP_ERR_OK;
+  objStorMgr->swapMgrId(msgHdr);
+  objStorMgr->fdspDataPathClient[msgHdr->src_node_name]->begin_PutObjectResp(msgHdr, putObj);
+  FDS_PLOG(objStorMgr->GetLog()) << "FDS_TEST_SM_NOOP defined. Sent async PutObj response right after receiving req.";
+  return;
+#endif /* FDS_TEST_SM_NOOP */
+
   /*
    * Track the outstanding get request.
    * TODO: This is a total hack. We're overloading the msg_hdr's
@@ -75,6 +84,15 @@ ObjectStorMgrI::GetObject(const FDSP_MsgHdrTypePtr& msgHdr,
                           const FDSP_GetObjTypePtr& getObj,
                           const Ice::Current&) {
   FDS_PLOG(objStorMgr->GetLog()) << "Received a Getobject() network request";
+
+#ifdef FDS_TEST_SM_NOOP
+  msgHdr->msg_code = FDSP_MSG_GET_OBJ_RSP;
+  msgHdr->result = FDSP_ERR_OK;
+  objStorMgr->swapMgrId(msgHdr);
+  objStorMgr->fdspDataPathClient[msgHdr->src_node_name]->begin_GetObjectResp(msgHdr, getObj);
+  FDS_PLOG(objStorMgr->GetLog()) << "FDS_TEST_SM_NOOP defined. Sent async GetObj response right after receiving req.";
+  return;
+#endif /* FDS_TEST_SM_NOOP */
 
   /*
    * Track the outstanding get request.
