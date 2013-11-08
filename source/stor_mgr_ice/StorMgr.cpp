@@ -214,11 +214,6 @@ ObjectStorMgr::ObjectStorMgr() :
   perfStats = new PerfStats("migratorSmStats");
   err = perfStats->enable();
   fds_verify(err == ERR_OK);
-
-  /*
-   * Kick off the writeback thread(s)
-   */
-  writeBackThreads->schedule(writeBackFunc, this);
 }
 
 ObjectStorMgr::~ObjectStorMgr() {
@@ -1202,7 +1197,7 @@ ObjectStorMgr::run(int argc, char* argv[]) {
   adapter->add(fdspDataPathServer, communicator()->stringToIdentity("ObjectStorMgrSvr"));
 
   callbackOnInterrupt();
-  
+
   adapter->activate();
 
   struct ifaddrs *ifAddrStruct = NULL;
@@ -1337,6 +1332,11 @@ ObjectStorMgr::run(int argc, char* argv[]) {
     }
   }
 
+  /*
+   * Kick off the writeback thread(s)
+   */
+  writeBackThreads->schedule(writeBackFunc, this);
+  
   communicator()->waitForShutdown();
 
   if (ifAddrStruct != NULL) {
@@ -1379,29 +1379,29 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
 
 
 void
-ObjectStorMgr::interruptCallback(int)
-{
-    communicator()->shutdown();
+ObjectStorMgr::interruptCallback(int) {
+  communicator()->shutdown();
 }
 
 
 }  // namespace fds
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
   objStorMgr = new ObjectStorMgr();
 
-    /* Instantiate a DiskManager Module instance */
-    fds::Module *io_dm_vec[] = {
-        &diskio::gl_dataIOMod,
-        &fds::gl_tierPolicy,
-        nullptr
-    };
-    fds::ModuleVector  io_dm(argc, argv, io_dm_vec);
-    io_dm.mod_execute();
+  /* Instantiate a DiskManager Module instance */
+  fds::Module *io_dm_vec[] = {
+    &diskio::gl_dataIOMod,
+    &fds::gl_tierPolicy,
+    nullptr
+  };
+  fds::ModuleVector  io_dm(argc, argv, io_dm_vec);
+  io_dm.mod_execute();
 
   objStorMgr->main(argc, argv, "stor_mgr.conf");
 
   delete objStorMgr;
+
+  return 0;
 }
 

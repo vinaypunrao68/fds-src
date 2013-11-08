@@ -32,7 +32,9 @@ STORHVI = 3
 VCC = 4
 OM = 5
 
+#
 # The desktop test must run from FDS src root dir
+# and must be run on the default build directory (usually 'release')
 #
 proc   = subprocess.Popen(shlex.split('uname -s -m'), stdout=subprocess.PIPE)
 os_dir = proc.communicate()[0].lower().rstrip('\n').replace(' ', '-')
