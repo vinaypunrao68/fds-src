@@ -1283,7 +1283,7 @@ ObjectStorMgr::run(int argc, char* argv[]) {
   volTbl = new StorMgrVolumeTable(this);
 
   /* Create tier related classes -- has to be after volTbl is created */
-  rankEngine = new ObjectRankEngine(stor_prefix, 200, volTbl, objStats, objStorMgr->GetLog());
+  rankEngine = new ObjectRankEngine(stor_prefix, 100000, volTbl, objStats, objStorMgr->GetLog());
   tierEngine = new TierEngine(TierEngine::FDS_TIER_PUT_ALGO_BASIC_RANK, volTbl, rankEngine, objStorMgr->GetLog());
 
   /*
