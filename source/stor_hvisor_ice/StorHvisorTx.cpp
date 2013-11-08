@@ -196,6 +196,13 @@ int StorHvisorProcIoWr(void *_io)
   int node_state = -1;
   fds_uint32_t vol_id;
   StorHvVolume *shvol;
+
+#ifdef FDS_TEST_SH_NOOP_DISPATCH 
+  FDS_PLOG(storHvisor->GetLog()) << "StorHvisorTx: FDS_TEST_SH_NOOP_DISPATCH defined, returning IO as soon as its dequeued";
+  storHvisor->qos_ctrl->markIODone(io);
+  (*req->cb_request)(arg1, arg2, req, 0);
+  return 0;
+#endif /* FDS_TEST_SH_NOOP */
   
   /*
    * TODO: Currently don't derive the vol ID from the block
