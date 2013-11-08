@@ -1393,6 +1393,7 @@ int main(int argc, char *argv[]) {
   fds::Module *io_dm_vec[] = {
     &diskio::gl_dataIOMod,
     &fds::gl_tierPolicy,
+    fds::objStorMgr->objStats,
     nullptr
   };
   fds::ModuleVector  io_dm(argc, argv, io_dm_vec);
