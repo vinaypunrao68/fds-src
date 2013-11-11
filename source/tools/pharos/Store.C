@@ -51,6 +51,7 @@ location_t Store::getCapacity() const
 location_t Store::obtainDeviceCapacity() {
   assert(fd>=0);
 
+  long n_blocks;
   struct stat st;
   int status = fstat(fd, &st);
   // TODO: Better error message than just assert;
@@ -59,15 +60,17 @@ location_t Store::obtainDeviceCapacity() {
   if (S_ISREG(st.st_mode))
     return st.st_size;
 
-  if (1 || S_ISBLK(st.st_mode)) {
-    long n_blocks;
+  if (S_ISBLK(st.st_mode)) {
     int status = ioctl(fd, BLKGETSIZE, &n_blocks);
-    n_blocks = 10000;
-    // assert(status==0);
+    assert(status==0);
     // Linux has a hard-coded 512 byte block size.
     return 512 * (location_t) n_blocks;
   }
-
+  if (S_ISCHR(st.st_mode)) {
+    // FIXME: Just make up something right now
+    n_blocks = 10000;
+    return 512 * (location_t) n_blocks;
+  }
   assert(0); // TODO: Better error message, was neither file nor device.
   // NOT REACHED
   return 0;
