@@ -54,6 +54,8 @@
 #include <include/TierEngine.h>
 #include <include/ObjRank.h>
 
+#undef FDS_TEST_SM_NOOP      /* if defined, IO completes as soon as it arrives to SM */
+
 #define FDS_STOR_MGR_LISTEN_PORT FDS_CLUSTER_TCP_PORT_SM
 #define FDS_STOR_MGR_DGRAM_PORT FDS_CLUSTER_UDP_PORT_SM
 #define FDS_MAX_WAITING_CONNS  10

@@ -4,6 +4,76 @@
 
 /*
  * Umbrella classes for the orchestration  manager component.
+ *
+ * Orchestration Manager's Lock Domain documentation.
+ *
+ * I. Overview
+ * ~~~~~~~~~~~
+ * The OM is in the control/admin path that manages, configures, monitors, and
+ * coordinates all FDS's components, as well as logical and physical resources.
+ * It's critical that OM must not be blocked due to any single buggy code or
+ * faulty resource, which could choke off its ability to response in timely
+ * manner.
+ *
+ * II. OM Design Philosophy
+ * ------------------------
+ * The current design can't scale OM to its future roles.  It's monolithic
+ * design with single lock with add on components.  The good model for OM
+ * would be a distributed design with independent peer components working
+ * through contract bindings instead of master-slave relationship.
+ *
+ * When all OM compoents working together through contract bindings, there's
+ * no need to do locking accross components.  Each component is responsible
+ * to protect its own data set to carry out the contract, very much the same
+ * way OS syscall or thread-safe lib provide their services.
+ *
+ * Another side benefits of distributed, contract binding components design
+ * is that one component can't change states or internal data structures of its
+ * peer in unexpected way.  If all contract bindings can be expressed in state
+ * machine design, the correctness of inter-component interaction can be
+ * proven by:
+ *   1) Verification of state machine design.
+ *   2) Faithful state machine implementation.
+ *   3) Random inputs to the state machine driven by "chaostic monkey" unit
+ *      test code.
+ *
+ * III. OM Locking Philosophy
+ * --------------------------
+ * At the macro level, OM must handle the following input souces:
+ * 1) User inputs classified in sub categories as:
+ *   - Configuration requests that alter the system's working states, resource
+ *     allocation...  OM needs to encode locking policies for these requests
+ *     tabulation form instead of coding logic.  The locking table shows the
+ *     proof of correctness in operational sense.
+ *   - Management requests that alter policies on existing resources.  This
+ *     code path can only block other conflicting requests from the same
+ *     categoriy.  It can't lock any resources that could block requests from
+ *     config for a well-define amount of time.  OM also needs to encode locking
+ *     policies in this code path in tabulation format.  If this code path
+ *     is blocked out by config path, it must return the status back to user
+ *     instead of blocking for a long time.
+ *   - Monitoring request to monitor resources or audit policies.  This code
+ *     path should not need any exclusive lock.  Don't apply read lock in
+ *     this code path either because it may starve requests in the config path.
+ * 2) Notification from FDS SW components such as SM, SH, or peer OM, which
+ *  could be classifed further as:
+ *   - Notification of HW, system related about the availability of physical
+ *     resources.
+ *   - Notification about the availability of logical resources.
+ *   - Notification about results of previous operations done by these
+ *     components.
+ * 3) Synchronization of peer OMs to keep the system image view at eventual
+ *  consistent state.
+ *
+ * At resource view, OM must support the following resource domains:
+ * 1) Physical inventory of all nodes that it manages.
+ * 2) Logical resources and their dependencies tree.
+ * 3) Logical resources that it knows and monitors.
+ * 4) Configuration profiles of all logical resources that it managed.
+ * 5) Policy profiles of all logical resources and services that they provide.
+ *
+ * To avoid dead lock, OM needs to document locking order properly once it has
+ * a blue print for the architecture.
  */
 
 #ifndef SOURCE_ORCH_MGR_ORCHMGR_H_

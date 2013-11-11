@@ -49,6 +49,15 @@ int StorHvisorProcIoRd(void *_io)
   fds_uint64_t data_offset  = req->sec * HVISOR_SECTOR_SIZE;
   vol_id = req->volUUID;  /* TODO: Derive vol_id from somewhere better. NOT fbd! */
 
+#ifdef FDS_TEST_SH_NOOP_DISPATCH 
+  FDS_PLOG(storHvisor->GetLog()) << "StorHvisorTx: FDS_TEST_SH_NOOP_DISPATCH defined, returning IO as soon as its dequeued";
+  storHvisor->qos_ctrl->markIODone(io);
+  memset(req->buf, 0, req->len);
+  (*req->cb_request)(arg1, arg2, req, 0);
+  return 0;
+#endif /* FDS_TEST_SH_NOOP_DISPATCH */
+
+
   shvol = storHvisor->vol_table->getVolume(vol_id);
   if (!shvol || !shvol->isValidLocked()) {
     FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << " volID:" << vol_id << "- volume not registered, completing request "
@@ -206,7 +215,7 @@ int StorHvisorProcIoWr(void *_io)
   storHvisor->qos_ctrl->markIODone(io);
   (*req->cb_request)(arg1, arg2, req, 0);
   return 0;
-#endif /* FDS_TEST_SH_NOOP */
+#endif /* FDS_TEST_SH_NOOP_DISPATCH */
   
   /*
    * TODO: Currently don't derive the vol ID from the block

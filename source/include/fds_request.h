@@ -37,7 +37,7 @@ class RequestQueue
 {
   public:
     RequestQueue(int nr_queue, int max_depth);
-    ~RequestQueue();
+    virtual ~RequestQueue();
 
     virtual void rq_enqueue(Request *rqt, int queue_idx);
     virtual void rq_move_queue(Request *rqt, int new_idx);
@@ -112,7 +112,7 @@ class Request
 {
   public:
     Request(bool block);
-    ~Request();
+    virtual ~Request();
 
     static const fds_uint32_t req_state_wait = 0x20000000;
     static const fds_uint32_t req_state_done = 0x40000000;
