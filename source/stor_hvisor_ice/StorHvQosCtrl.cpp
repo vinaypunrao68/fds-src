@@ -63,6 +63,8 @@ void StorHvQosCtrl::runScheduler() {
 Error StorHvQosCtrl::markIODone(FDS_IOType *io) {
   Error err(ERR_OK);
   /* TODO: also record latency (now passign 0) */
+  assert(io->io_magic == FDS_SH_IO_MAGIC_IN_USE);
+  io->io_magic = FDS_SH_IO_MAGIC_NOT_IN_USE;
   stats->recordIO(io->io_vol_id, 0);
   htb_dispatcher->markIODone(io);
   delete io;

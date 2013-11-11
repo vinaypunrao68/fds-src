@@ -1,3 +1,5 @@
+#include <atomic>
+
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
@@ -98,6 +100,8 @@ StorHvVolumeLock::~StorHvVolumeLock()
 
 /***** StorHvVolumeTable methods ******/
 
+std::atomic<unsigned int> next_io_req_id;
+
 /* creates its own logger */
 StorHvVolumeTable::StorHvVolumeTable(StorHvCtrl *sh_ctrl, fds_log *parent_log)
   : parent_sh(sh_ctrl)
@@ -115,6 +119,8 @@ StorHvVolumeTable::StorHvVolumeTable(StorHvCtrl *sh_ctrl, fds_log *parent_log)
   if (parent_sh->om_client) {
     parent_sh->om_client->registerEventHandlerForVolEvents(volumeEventHandler);
   }
+
+  next_io_req_id = ATOMIC_VAR_INIT(0);
 
   if (sh_ctrl->GetRunTimeMode() == StorHvCtrl::TEST_BOTH) {
     VolumeDesc vdesc("default_vol", FDS_DEFAULT_VOL_UUID);
@@ -373,15 +379,20 @@ int  pushVolQueue(void *req1)
 	  return -1;
   }
 
-  FDS_PLOG(storHvisor->GetLog()) << " Queueing the  IO.  vol_id:  " << vol_id;
   // push request to the  per volume queue 
   
   io->fbd_req = req;
   io->io_type = (fds::fds_io_op_t)req->io_type;
   io->io_vol_id = req->volUUID;
   io->io_module = FDS_IOType::STOR_HV_IO;
+  io->io_req_id = atomic_fetch_add(&next_io_req_id, (unsigned int)1);
+  io->io_magic = FDS_SH_IO_MAGIC_IN_USE;
+
+  FDS_PLOG(storHvisor->GetLog()) << " Queueing IO " << io->io_req_id << " for  vol_id:  " << vol_id;
+
   storHvisor->qos_ctrl->enqueueIO(vol_id, io);
   shvol->readUnlock();
+
   FDS_PLOG(storHvisor->GetLog()) << " Queueing the  IO done.  vol_id:  " << vol_id;
 
  return 0;

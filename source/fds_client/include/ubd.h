@@ -5,7 +5,12 @@
 
 typedef double                     fbd_sector_t;
 
+#define FDS_UBD_IO_MAGIC_IN_USE  0xCF17C349
+#define FDS_UBD_IO_MAGIC_NOT_IN_USE 0xBE28B25A
+
+
 struct fbd_request {
+  int                          req_magic;
   int                          op;
   int			       io_type;
   char                         *buf;

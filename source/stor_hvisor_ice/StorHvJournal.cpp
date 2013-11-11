@@ -310,13 +310,13 @@ StorHvJournalEntry *StorHvJournal::get_journal_entry(int trans_id) {
 
 void StorHvJournalEntry::fbd_process_req_timeout()
 {
-fbd_request *req;
+  fbd_request *req;
   lock();
   if (isActive()) {
       req = (fbd_request_t *)write_ctx;
+      FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " - Timing out, responding to  the block : " << req;
       if (req) {
          write_ctx = 0;
-         FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " - Timing out, responding to  the block : " << req;
          fbd_complete_req(req, -1);
       }
       reset();
