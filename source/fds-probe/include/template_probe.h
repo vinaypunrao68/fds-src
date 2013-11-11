@@ -1,19 +1,22 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
-#ifndef FDS_PROBE_INCLUDE_PM_PROBE_H_
-#define FDS_PROBE_INCLUDE_PM_PROBE_H_
+#ifndef FDS_PROBE_INCLUDE_XX_PROBE_H_
+#define FDS_PROBE_INCLUDE_XX_PROBE_H_
 
+/*
+ * Header file Template for probe adapter.  Replace XX with your name space.
+ */
 #include <fds-probe/fds_probe.h>
 
 namespace fds {
 
-class PM_ProbeMod : public ProbeMod
+class XX_ProbeMod : public ProbeMod
 {
   public:
-    PM_ProbeMod(char const *const name, probe_mod_param_t &param, Module *owner)
+    XX_ProbeMod(char const *const name, probe_mod_param_t &param, Module *owner)
         : ProbeMod(name, param, owner) {}
-    virtual ~PM_ProbeMod() {}
+    virtual ~XX_ProbeMod() {}
 
     void pr_intercept_request(ProbeRequest &req);
     void pr_put(ProbeRequest &req);
@@ -29,10 +32,10 @@ class PM_ProbeMod : public ProbeMod
   private:
 };
 
-// PM Probe Adapter.
+// XX Probe Adapter.
 //
-extern PM_ProbeMod           gl_PM_ProbeMod;
+extern XX_ProbeMod           gl_XX_ProbeMod;
 
 } // namespace fds
 
-#endif /* FDS_PROBE_INCLUDE_PM_PROBE_H_ */
+#endif /* FDS_PROBE_INCLUDE_XX_PROBE_H_ */

@@ -4,6 +4,7 @@
 #ifndef INCLUDE_FDS_PROBE_H_
 #define INCLUDE_FDS_PROBE_H_
 
+#include <string>
 #include <fds_module.h>
 #include <fds_request.h>
 #include <fds-probe/fds_err_inj.h>
@@ -125,8 +126,8 @@ class ProbeMod;
 class ProbeRequest : public virtual fdsio::Request
 {
   public:
-    ProbeRequest(int stat_cnt, ObjectBuf &buf, ProbeMod &mod);
-    ~ProbeRequest();
+    ProbeRequest(int stat_cnt, size_t bufsize, ProbeMod &mod);
+    virtual ~ProbeRequest();
 
     // pr_request_done
     // ---------------
@@ -169,16 +170,20 @@ class ProbeRequest : public virtual fdsio::Request
     //
     virtual bool pr_report_stat(probe_stat_rec_t *out, int rec_cnt);
 
+    // pr_rd_buf
+    // ---------
+    // Return the pointer to the internal buffer used for read and its size.
+    //
+    const char *pr_rd_buf(size_t *size)
+    {
+        *size = pr_buf.size;
+        return pr_buf.data.data();
+    }
+
   protected:
     friend class ProbeMod;
-
-    // pr_gen_usr_obj
-    // --------------
-    // Generate user-defined data type to the buffer stream to save for later
-    // use.
-    //
-    virtual void
-    pr_gen_usr_obj(ProbeMod &m, Module *owner, ObjectBuf &buf) {}
+    ObjectBuf                pr_buf;
+    int                      pr_stat_cnt;
 
     // pr_obj_from_data
     // ----------------
@@ -190,9 +195,14 @@ class ProbeRequest : public virtual fdsio::Request
     {
         return nullptr;
     }
+    // pr_gen_usr_obj
+    // --------------
+    // Generate user-defined data type to the buffer stream to save for later
+    // use.
+    //
+    virtual void
+    pr_gen_usr_obj(ProbeMod &m, Module *owner, ObjectBuf &buf) {}
 
-    ObjectBuf                pr_buf;
-    int                      pr_stat_cnt;
 
   private:
     ProbeMod                 &pr_mod;
@@ -206,19 +216,25 @@ class ProbeIORequest : public virtual ProbeRequest
 {
   public:
     ProbeIORequest(int           stat_cnt,
-                   ObjectBuf     &buf,
+                   size_t        bufsize,
+                   const char    *wr_buf,
                    ProbeMod      &mod,
                    ObjectID      &oid,
                    fds_uint64_t  off,
                    fds_uint64_t  vid,
                    fds_uint64_t  voff);
-    ~ProbeIORequest() {}
+
+    virtual ~ProbeIORequest() {}
 
   protected:
     ObjectID                 pr_oid;
     fds_uint64_t             pr_vid;
     fds_uint64_t             pr_offset;
     fds_uint64_t             pr_voff;
+
+    // Used for write/put because we don't want to have extra mem copy.
+    size_t                   pr_wr_size;
+    const char               *pr_wr_buf;
 };
 
 // ----------------------------------------------------------------------------
@@ -240,11 +256,11 @@ struct probe_mod_param
 // Module owner must implement this Probe Adapter to hook it up to receive
 // loads from standard unit test suites.
 //
-class ProbeMod : public virtual Module
+class ProbeMod : public Module
 {
   public:
     ProbeMod(char const *const name, probe_mod_param_t &param, Module *owner);
-    ~ProbeMod();
+    virtual ~ProbeMod();
 
     // Common factory methods.
     //
@@ -253,7 +269,8 @@ class ProbeMod : public virtual Module
                  fds_uint64_t  off,
                  fds_uint64_t  vid,
                  fds_uint64_t  voff,
-                 ObjectBuf     &buf);
+                 size_t        buf_siz,
+                 const char    *buf);
 
     // Module owner must provide the following functions to connect the module
     // to FDS Probe to receive workloads and hook up with standard front-end
@@ -300,6 +317,11 @@ class ProbeMod : public virtual Module
 
   protected:
     friend class ProbeRequest;
+    probe_mod_param_t        &pr_param;
+    Module                   *pr_mod_owner;
+    probe_stat_info_t        *pr_stats_info;
+    probe_inj_point_t        *pr_inj_points;
+    probe_inj_action_t       *pr_inj_actions;
 
     // Common code to evalue an injection point.
     //
@@ -318,12 +340,6 @@ class ProbeMod : public virtual Module
     virtual void pr_inj_act_panic(ProbeRequest &req);
     virtual void pr_inj_act_delay(ProbeRequest &req);
     virtual void pr_inj_act_corrupt(ProbeRequest &req);
-
-    probe_mod_param_t        &pr_param;
-    Module                   *pr_mod_owner;
-    probe_stat_info_t        *pr_stats_info;
-    probe_inj_point_t        *pr_inj_points;
-    probe_inj_action_t       *pr_inj_actions;
 };
 
 // ----------------------------------------------------------------------------
@@ -337,6 +353,32 @@ class ProbeCtrlLoad : public virtual ProbeMod
 
   protected:
 };
+
+// ----------------------------------------------------------------------------
+// Probe Library Module
+// ----------------------------------------------------------------------------
+class ProbeMainLib : public Module
+{
+  public:
+    ProbeMainLib(char const *const name);
+    ~ProbeMainLib();
+
+    virtual int  mod_init(SysParams const *const param);
+    virtual void mod_startup();
+    virtual void mod_shutdown();
+
+    void probe_run_main(ProbeMod *adapter);
+  private:
+    unsigned int             dev_major;
+    unsigned int             dev_minor;
+    char                     dev_name[128];
+    const char               *dev_argv[2];
+
+    int                      fuse_argc;
+    char                     *fuse_argv[4];
+};
+
+extern ProbeMainLib          gl_probeMainLib;
 
 } // namespace fds
 

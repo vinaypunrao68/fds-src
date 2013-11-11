@@ -4,7 +4,7 @@ user_rtime_env   := user
 user_build_dir   :=
 user_incl_dir    := ../include
 user_cpp         :=               \
-    pm_probe.cpp
+    pm_probe.cpp sm_probe.cpp
 
 user_ar_libs       := fds-probe-adapters
 fds-probe-adapters := $(user_cpp)

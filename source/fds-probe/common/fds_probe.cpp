@@ -5,14 +5,16 @@
 
 namespace fds {
 
-ProbeRequest::ProbeRequest(int stat_cnt, ObjectBuf &buf, ProbeMod &mod)
-    : fdsio::Request(true), pr_buf(buf), pr_stat_cnt(stat_cnt), pr_mod(mod)
+ProbeRequest::ProbeRequest(int stat_cnt, size_t buf_siz, ProbeMod &mod)
+    : fdsio::Request(true), pr_stat_cnt(stat_cnt), pr_mod(mod)
 {
     if (stat_cnt > 0) {
         pr_stats = new fds_uint64_t [stat_cnt];
     } else {
         pr_stats = nullptr;
     }
+    pr_buf.size = buf_siz;
+    pr_buf.data.reserve(buf_siz);
 }
 
 ProbeRequest::~ProbeRequest()
@@ -152,16 +154,22 @@ ProbeMod::pr_inj_act_corrupt(ProbeRequest &req)
 // ----------------------------------------------------------------------------
 
 ProbeIORequest::ProbeIORequest(int          stat_cnt,
-                               ObjectBuf    &buf,
+                               size_t       buf_siz,
+                               const char   *wr_buf,
                                ProbeMod     &mod,
                                ObjectID     &oid,
                                fds_uint64_t off,
                                fds_uint64_t vid,
                                fds_uint64_t voff)
     : fdsio::Request(false),
-      ProbeRequest(stat_cnt, buf, mod),
-      pr_oid(oid), pr_vid(vid), pr_offset(off), pr_voff(voff)
+      ProbeRequest(stat_cnt, 0, mod),
+      pr_oid(oid), pr_vid(vid), pr_offset(off), pr_voff(voff),
+      pr_wr_size(buf_siz), pr_wr_buf(wr_buf)
 {
+    if (wr_buf == nullptr) {
+        pr_buf.size = buf_siz;
+        pr_buf.data.reserve(buf_siz);
+    }
 }
 
 // pr_alloc_req
@@ -172,9 +180,10 @@ ProbeMod::pr_alloc_req(ObjectID      &oid,
                        fds_uint64_t  off,
                        fds_uint64_t  vid,
                        fds_uint64_t  voff,
-                       ObjectBuf     &buf)
+                       size_t        buf_siz,
+                       const char    *buf)
 {
-    return new ProbeIORequest(0, buf, *this, oid, off, vid, voff);
+    return new ProbeIORequest(0, buf_siz, buf, *this, oid, off, vid, voff);
 }
 
 } // namespace fds

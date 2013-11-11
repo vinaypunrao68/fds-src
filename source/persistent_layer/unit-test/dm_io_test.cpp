@@ -4,60 +4,13 @@
 #include <unistd.h>
 #include <fds_module.h>
 #include <persistent_layer/dm_io.h>
+#include <persistent_layer/pm_unit_test.h>
 #include <concurrency/ThreadPool.h>
 #include <iostream>
 
 using namespace std;
 
-class DiskReqTest : public diskio::DiskRequest {
- public:
-  DiskReqTest(fds::fds_threadpool *const wr,
-              fds::fds_threadpool *const rd,
-              meta_vol_io_t       &vio,
-              meta_obj_id_t       &oid,
-              fds::ObjectBuf      *buf,
-              bool                block,
-              diskio::DataTier    tier);
-  ~DiskReqTest();
-
-  void req_submit() {
-    fdsio::Request::req_submit();
-  }  
-  diskio::DataTier getTier() {
-    return datTier;
-  }
-  void req_complete();
-  void req_verify();
-  void req_gen_pattern();
-
- private:
-  int                        tst_iter;
-  fds::ObjectBuf             tst_verf;
-  fds::fds_threadpool *const tst_wr;
-  fds::fds_threadpool *const tst_rd;
-};
-
-// \DiskReqTest
-// ------------
-//
-DiskReqTest::DiskReqTest(fds::fds_threadpool *const wr,
-                         fds::fds_threadpool *const rd,
-                         meta_vol_io_t       &vio,
-                         meta_obj_id_t       &oid,
-                         fds::ObjectBuf      *buf,
-                         bool                block,
-                         diskio::DataTier    tier)
-    : tst_wr(wr), tst_rd(rd), tst_iter(0),
-      diskio::DiskRequest(vio, oid, buf, block, tier)
-{
-    tst_verf.size = buf->size;
-    tst_verf.data.reserve(buf->size);
-}
-
-DiskReqTest::~DiskReqTest()
-{
-    delete dat_buf;
-}
+namespace fds {
 
 // \pdio_read
 // ----------
@@ -79,13 +32,13 @@ pdio_read(DiskReqTest *req)
 // -----------
 //
 static void
-pdio_write(fds::fds_threadpool *wr, fds::fds_threadpool *rd, DiskReqTest *cur)
+pdio_write(fds_threadpool *wr, fds_threadpool *rd, DiskReqTest *cur)
 {
     static int      wr_count;
     DiskReqTest     *req;
     meta_vol_io_t   vio;
     meta_obj_id_t   oid;
-    fds::ObjectBuf  *buf;
+    ObjectBuf       *buf;
     diskio::DataIO  &pio = diskio::DataIO::disk_singleton();
     diskio::DataTier tier;
 
@@ -96,7 +49,7 @@ pdio_write(fds::fds_threadpool *wr, fds::fds_threadpool *rd, DiskReqTest *cur)
         oid.oid_hash_hi = random();
         oid.oid_hash_lo = random();
 
-        buf = new fds::ObjectBuf;
+        buf = new ObjectBuf;
         buf->size = 8 << diskio::DataIO::disk_io_blk_shift();
         buf->data.reserve(buf->size);
 
@@ -195,6 +148,8 @@ DiskReqTest::req_gen_pattern()
     }
 }
 
+} // namespace fds
+
 int
 main(int argc, char **argv)
 {
@@ -207,7 +162,7 @@ main(int argc, char **argv)
 
     io_test.mod_execute();
     for (int i = 0; i < 500; i++) {
-        wr.schedule(pdio_write, &wr, &rd, nullptr);
+        wr.schedule(fds::pdio_write, &wr, &rd, nullptr);
     }
     sleep(10);
 }

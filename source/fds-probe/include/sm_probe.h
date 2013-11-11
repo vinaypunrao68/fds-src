@@ -1,19 +1,19 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
-#ifndef FDS_PROBE_INCLUDE_PM_PROBE_H_
-#define FDS_PROBE_INCLUDE_PM_PROBE_H_
+#ifndef FDS_PROBE_INCLUDE_SM_PROBE_H_
+#define FDS_PROBE_INCLUDE_SM_PROBE_H_
 
 #include <fds-probe/fds_probe.h>
 
 namespace fds {
 
-class PM_ProbeMod : public ProbeMod
+class SM_ProbeMod : public ProbeMod
 {
   public:
-    PM_ProbeMod(char const *const name, probe_mod_param_t &param, Module *owner)
+    SM_ProbeMod(char const *const name, probe_mod_param_t &param, Module *owner)
         : ProbeMod(name, param, owner) {}
-    virtual ~PM_ProbeMod() {}
+    virtual ~SM_ProbeMod() {}
 
     void pr_intercept_request(ProbeRequest &req);
     void pr_put(ProbeRequest &req);
@@ -29,10 +29,10 @@ class PM_ProbeMod : public ProbeMod
   private:
 };
 
-// PM Probe Adapter.
+// SM Probe Adapter.
 //
-extern PM_ProbeMod           gl_PM_ProbeMod;
+extern SM_ProbeMod           gl_SM_ProbeMod;
 
 } // namespace fds
 
-#endif /* FDS_PROBE_INCLUDE_PM_PROBE_H_ */
+#endif /* FDS_PROBE_INCLUDE_SM_PROBE_H_ */
