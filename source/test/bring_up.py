@@ -95,7 +95,7 @@ class StorPol():
                                                 self.polId)
 
     def setVolType(self, _type):
-        if _type == "ssd" or _type == "disk" or _type == "hybrid":
+        if _type == "ssd" or _type == "disk" or _type == "hybrid" or _type == "hybrid_prefcap":
             self.volType = _type
         else:
             print "Unknown volume type:", _type, ", set default to disk"

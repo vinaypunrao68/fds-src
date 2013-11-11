@@ -83,8 +83,10 @@ SM_VolPolicyServ::serv_recvTierPolicyReq(const fdp::FDSP_TierPolicyPtr &tier)
             desc->volType = fdp::FDSP_VOL_BLKDEV_SSD_TYPE;
         } else if (tier->tier_media == opi::TIER_MEDIA_HDD) {
             desc->volType = fdp::FDSP_VOL_BLKDEV_DISK_TYPE;
-        } else {
+        } else if (tier->tier_media == opi::TIER_MEDIA_HYBRID) {
             desc->volType = fdp::FDSP_VOL_BLKDEV_HYBRID_TYPE;
+        } else {
+            desc->volType = fdp::FDSP_VOL_BLKDEV_HYBRID_PREFCAP_TYPE;
         }
         desc->tier_duration_sec = tier->tier_interval_sec;
         desc->tier_start_time =

@@ -20,7 +20,8 @@ enum tier_media_type_e
     TIER_MEDIA_NVRAM,
     TIER_MEDIA_SSD,
     TIER_MEDIA_HDD,
-    TIER_MEDIA_HYBRID
+    TIER_MEDIA_HYBRID,
+    TIER_MEDIA_HYBRID_PREFCAP
 };
 
 struct tier_time_spec

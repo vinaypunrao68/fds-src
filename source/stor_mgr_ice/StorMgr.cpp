@@ -35,6 +35,15 @@ ObjectStorMgrI::PutObject(const FDSP_MsgHdrTypePtr& msgHdr,
                           const Ice::Current&) {
   FDS_PLOG(objStorMgr->GetLog()) << "Received a Putobject() network request";
 
+#ifdef FDS_TEST_SM_NOOP
+  msgHdr->msg_code = FDSP_MSG_PUT_OBJ_RSP;
+  msgHdr->result = FDSP_ERR_OK;
+  objStorMgr->swapMgrId(msgHdr);
+  objStorMgr->fdspDataPathClient[msgHdr->src_node_name]->begin_PutObjectResp(msgHdr, putObj);
+  FDS_PLOG(objStorMgr->GetLog()) << "FDS_TEST_SM_NOOP defined. Sent async PutObj response right after receiving req.";
+  return;
+#endif /* FDS_TEST_SM_NOOP */
+
   /*
    * Track the outstanding get request.
    * TODO: This is a total hack. We're overloading the msg_hdr's
@@ -75,6 +84,15 @@ ObjectStorMgrI::GetObject(const FDSP_MsgHdrTypePtr& msgHdr,
                           const FDSP_GetObjTypePtr& getObj,
                           const Ice::Current&) {
   FDS_PLOG(objStorMgr->GetLog()) << "Received a Getobject() network request";
+
+#ifdef FDS_TEST_SM_NOOP
+  msgHdr->msg_code = FDSP_MSG_GET_OBJ_RSP;
+  msgHdr->result = FDSP_ERR_OK;
+  objStorMgr->swapMgrId(msgHdr);
+  objStorMgr->fdspDataPathClient[msgHdr->src_node_name]->begin_GetObjectResp(msgHdr, getObj);
+  FDS_PLOG(objStorMgr->GetLog()) << "FDS_TEST_SM_NOOP defined. Sent async GetObj response right after receiving req.";
+  return;
+#endif /* FDS_TEST_SM_NOOP */
 
   /*
    * Track the outstanding get request.
@@ -214,11 +232,6 @@ ObjectStorMgr::ObjectStorMgr() :
   perfStats = new PerfStats("migratorSmStats");
   err = perfStats->enable();
   fds_verify(err == ERR_OK);
-
-  /*
-   * Kick off the writeback thread(s)
-   */
-  writeBackThreads->schedule(writeBackFunc, this);
 }
 
 ObjectStorMgr::~ObjectStorMgr() {
@@ -1202,7 +1215,7 @@ ObjectStorMgr::run(int argc, char* argv[]) {
   adapter->add(fdspDataPathServer, communicator()->stringToIdentity("ObjectStorMgrSvr"));
 
   callbackOnInterrupt();
-  
+
   adapter->activate();
 
   struct ifaddrs *ifAddrStruct = NULL;
@@ -1288,7 +1301,7 @@ ObjectStorMgr::run(int argc, char* argv[]) {
   volTbl = new StorMgrVolumeTable(this);
 
   /* Create tier related classes -- has to be after volTbl is created */
-  rankEngine = new ObjectRankEngine(stor_prefix, 200, volTbl, objStats, objStorMgr->GetLog());
+  rankEngine = new ObjectRankEngine(stor_prefix, 100000, volTbl, objStats, objStorMgr->GetLog());
   tierEngine = new TierEngine(TierEngine::FDS_TIER_PUT_ALGO_BASIC_RANK, volTbl, rankEngine, objStorMgr->GetLog());
 
   /*
@@ -1337,6 +1350,11 @@ ObjectStorMgr::run(int argc, char* argv[]) {
     }
   }
 
+  /*
+   * Kick off the writeback thread(s)
+   */
+  writeBackThreads->schedule(writeBackFunc, this);
+  
   communicator()->waitForShutdown();
 
   if (ifAddrStruct != NULL) {
@@ -1379,29 +1397,30 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
 
 
 void
-ObjectStorMgr::interruptCallback(int)
-{
-    communicator()->shutdown();
+ObjectStorMgr::interruptCallback(int) {
+  communicator()->shutdown();
 }
 
 
 }  // namespace fds
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
   objStorMgr = new ObjectStorMgr();
 
-    /* Instantiate a DiskManager Module instance */
-    fds::Module *io_dm_vec[] = {
-        &diskio::gl_dataIOMod,
-        &fds::gl_tierPolicy,
-        nullptr
-    };
-    fds::ModuleVector  io_dm(argc, argv, io_dm_vec);
-    io_dm.mod_execute();
+  /* Instantiate a DiskManager Module instance */
+  fds::Module *io_dm_vec[] = {
+    &diskio::gl_dataIOMod,
+    &fds::gl_tierPolicy,
+    fds::objStorMgr->objStats,
+    nullptr
+  };
+  fds::ModuleVector  io_dm(argc, argv, io_dm_vec);
+  io_dm.mod_execute();
 
   objStorMgr->main(argc, argv, "stor_mgr.conf");
 
   delete objStorMgr;
+
+  return 0;
 }
 
