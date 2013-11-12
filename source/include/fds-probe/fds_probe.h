@@ -226,9 +226,8 @@ class ProbeIORequest : public virtual ProbeRequest
 
     virtual ~ProbeIORequest() {}
 
-  protected:
     ObjectID                 pr_oid;
-    fds_uint64_t             pr_vid;
+    fds_volid_t              pr_vid;
     fds_uint64_t             pr_offset;
     fds_uint64_t             pr_voff;
 

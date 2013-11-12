@@ -12,6 +12,7 @@ user_build_dir :=                       \
     umod-lib                            \
     util                                \
     lib                                 \
+    fds-probe                           \
     persistent_layer                    \
     stor_hvisor_ice                     \
     orch_mgr                            \
