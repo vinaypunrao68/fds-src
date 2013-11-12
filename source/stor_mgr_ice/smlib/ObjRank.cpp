@@ -4,7 +4,7 @@
  * Rank engine implementation
  */
 
-#include <include/ObjRank.h>
+#include <ObjRank.h>
 
 namespace fds {
 
