@@ -14,10 +14,6 @@ user_build_dir :=                       \
     lib                                 \
     persistent_layer                    \
     stor_hvisor_ice                     \
-    util/unit-test                      \
-    lib/unit-test                       \
-    stor_hvisor_ice/unit-test           \
-    umod-lib/odb/unit-test              \
     orch_mgr                            \
     data_mgr                            \
     stor_mgr_ice                        \

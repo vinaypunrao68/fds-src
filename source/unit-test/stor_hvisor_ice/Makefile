@@ -1,10 +1,15 @@
 topdir            := ../..
+hvisor_dir        := $(topdir)/stor_hvisor_ice
 user_target       := test
 user_rtime_env    := user
 
 # TODO: remove the topdir from include search path.
 #
-user_incl_dir     := .. $(topdir)/fds_client/include $(topdir)
+user_incl_dir     :=                          \
+    $(hvisor_dir)                             \
+    $(topdir)/fds_client/include              \
+    $(topdir)
+
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  :=                                                          \

@@ -8,7 +8,7 @@ user_non_fds_libs :=                                                          \
     boost_log boost_filesystem boost_system boost_thread boost_date_time Ice IceUtil IceStorm  \
     ssl crypto
 
-user_incl_dir     := ../ $(topdir)/include $(topdir)/util
+user_incl_dir     := $(topdir)/lib $(topdir)/include $(topdir)/util
 user_cpp_flags    := 
 user_cpp          :=                       \
     catalog_unit_test.cpp                  \
