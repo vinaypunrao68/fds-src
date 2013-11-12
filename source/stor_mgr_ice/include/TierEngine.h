@@ -5,11 +5,11 @@
 #ifndef SOURCE_STOR_MGR_ICE_INCLUDE_TIERENGINE_H_
 #define SOURCE_STOR_MGR_ICE_INCLUDE_TIERENGINE_H_
 
-#include <stor_mgr_ice/StorMgr.h>
-#include <stor_mgr_ice/StorMgrVolumes.h>
-#include <stor_mgr_ice/include/ObjRank.h>
-#include <include/persistent_layer/dm_io.h>
-#include <include/persistent_layer/dm_service.h>
+#include <StorMgr.h>
+#include <StorMgrVolumes.h>
+#include <ObjRank.h>
+#include <persistent_layer/dm_io.h>
+#include <persistent_layer/dm_service.h>
 #include <util/Log.h>
 
 namespace fds {

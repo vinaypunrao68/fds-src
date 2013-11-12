@@ -24,7 +24,6 @@
 #include <unistd.h>
 #include <assert.h>
 #include <util/Log.h>
-#include "DiskMgr.h"
 #include "StorMgrVolumes.h"
 #include "TierEngine.h"
 
