@@ -5,7 +5,7 @@ topdir         := .
 #
 user_build_dir :=                                                  \
     fdsp include/fdsp osdep net-proxies umod-lib util lib persistent_layer \
-    stor_hvisor_ice \
+    stor_hvisor_ice fds-probe \
     umod-lib/test-unit util/unit-test lib/unit-test \
     persistent_layer/unit-test stor_hvisor_ice/unit-test \
     umod-lib/odb/unit-test \
