@@ -668,6 +668,8 @@ ObjectStorMgr::checkDuplicate(const ObjectID&  objId,
        * Handle hash-collision - insert the next collision-id+obj-id 
        */
       err = ERR_HASH_COLLISION;
+      fds_panic("Encountered a hash collision checking object %s. Bailing out now!",
+                objId.ToHex().c_str());
     }
   } else if (err == ERR_DISK_READ_FAILED) {
     /*
