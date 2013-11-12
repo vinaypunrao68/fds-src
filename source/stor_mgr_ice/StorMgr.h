@@ -38,6 +38,7 @@
 #include <atomic>
 #include <unordered_map>
 #include <include/ObjStats.h>
+#include <include/StorHvJournalEx.h>
 
 /*
  * TODO: Move this header out of lib/
@@ -132,7 +133,7 @@ namespace fds {
     /*
      * Local storage members
      */
-    fds_mutex *objStorMutex;
+    StorHvJournalEx<ObjectID, ObjectIdJrnlEntry> *omJrnl;
     ObjectDB  *objStorDB;
     ObjectDB  *objIndexDB;
 

@@ -166,7 +166,6 @@ ObjectStorMgr::ObjectStorMgr() :
   sm_log = new fds_log("sm", "logs");
   FDS_PLOG(sm_log) << "Constructing the Object Storage Manager";
 
-  objStorMutex = new fds_mutex("Object Store Mutex");
   waitingReqMutex = new fds_mutex("Object Store Mutex");
 
   /*
@@ -185,6 +184,9 @@ ObjectStorMgr::ObjectStorMgr() :
   dirtyFlashObjs = new ObjQueue(maxDirtyObjs);
   fds_verify(dirtyFlashObjs->is_lock_free() == true);
   writeBackThreads = new fds_threadpool(numWBThreads);
+
+  /* Set up the journal */
+  omJrnl = new StorHvJournalEx<ObjectID, ObjectIdJrnlEntry>();
 
   /*
    * Setup QoS related members.
@@ -215,6 +217,7 @@ ObjectStorMgr::~ObjectStorMgr() {
   if (objIndexDB)
     delete objIndexDB;
 
+  delete omJrnl;
   /*
    * Clean up the QoS system. Need to wait for I/Os to
    * complete and deregister each volume. The volume info
@@ -244,7 +247,6 @@ ObjectStorMgr::~ObjectStorMgr() {
 
   delete sm_log;
   delete volTbl;
-  delete objStorMutex;
 }
 
 void ObjectStorMgr::nodeEventOmHandler(int node_id,
@@ -274,6 +276,7 @@ ObjectStorMgr::volEventOmHandler(fds_volid_t  volumeId,
                                  VolumeDesc  *vdb,
                                  int          action) {
   StorMgrVolume* vol = NULL;
+  Error err = ERR_OK;
 
   switch(action) {
     case FDS_VOL_ACTION_CREATE :
@@ -289,8 +292,12 @@ ObjectStorMgr::volEventOmHandler(fds_volid_t  volumeId,
       objStorMgr->volTbl->registerVolume(*vdb);
       vol = objStorMgr->volTbl->getVolume(volumeId);
       fds_assert(vol != NULL);
-      objStorMgr->qosCtrl->registerVolume(vol->getVolId(),
+      err = objStorMgr->qosCtrl->registerVolume(vol->getVolId(),
                                           dynamic_cast<FDS_VolumeQueue*>(vol->getQueue()));
+      if (err != ERR_OK) {
+    	  FDS_PLOG(objStorMgr->GetLog()) << "registration failed for vol id " << volumeId << " error: "
+    			  << err;
+      }
       break;
 
     case FDS_VOL_ACTION_DELETE:
@@ -755,14 +762,13 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
   fds_volid_t volId         = putReq->getVolId();
   diskio::DataTier tierUsed = diskio::maxTier;
 
-  objStorMutex->lock();
 
+  ObjectIdJrnlEntry* jrnlEntry =  omJrnl->set_journal_entry_in_use(objId);
   // Find if this object is a duplicate
   err = checkDuplicate(objId,
 		       objData);
   
   if (err == ERR_DUPLICATE) {
-    objStorMutex->unlock();
     FDS_PLOG(objStorMgr->GetLog()) << "Put dup:  " << err
                                    << ", returning success";
     /*
@@ -770,7 +776,6 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
      */
     err = ERR_OK;
   } else if (err != ERR_OK) {
-    objStorMutex->unlock();
     FDS_PLOG(objStorMgr->GetLog()) << "Failed to check object duplicate status on put: "
                                    << err;
   } else {
@@ -779,7 +784,6 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
      * Write the object and record which tier it when to
      */
     err = writeObject(objId, objData, volId, tierUsed);
-    objStorMutex->unlock();
     if (err != fds::ERR_OK) {
       FDS_PLOG(objStorMgr->GetLog()) << "Failed to put object " << err;
     } else {
@@ -805,6 +809,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
     */
   }
 
+  omJrnl->release_journal_entry_with_notify(jrnlEntry);
   qosCtrl->markIODone(*putReq,
                       tierUsed);
 
@@ -928,9 +933,8 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
   objData.size = 0;
   objData.data = "";
 
-  objStorMutex->lock();
+  ObjectIdJrnlEntry* jrnlEntry =  omJrnl->set_journal_entry_in_use(objId);
   err = readObject(objId, objData, tierUsed);
-  objStorMutex->unlock();
   objData.size = objData.data.size();
 
   if (err != fds::ERR_OK) {
@@ -948,6 +952,7 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
                                    << " for request ID " << getReq->io_req_id;
   }
 
+  omJrnl->release_journal_entry_with_notify(jrnlEntry);
   qosCtrl->markIODone(*getReq, tierUsed);
 
   /*

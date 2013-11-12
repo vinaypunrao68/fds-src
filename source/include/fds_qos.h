@@ -77,13 +77,14 @@ namespace fds {
 
       Error err(ERR_OK);
       
-      if (queue_map.count(queue_id) != 0) {	
+      if (queue_map.count(queue_id) != 0) {
 	err = ERR_DUPLICATE;
 	return err;
       }
       queue_map[queue_id] = queue;
 
-	FDS_PLOG(qda_log) << "Dispatcher: registering queue with min - "
+	FDS_PLOG(qda_log) << "Dispatcher: registering queue - "
+			<< queue_id << " with min - "
 			<< queue->iops_min << ", max - " << queue->iops_max
 			<< ", priority - " << queue->priority
 			<< ", total server rate = " << total_svc_rate; 
