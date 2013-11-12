@@ -12,6 +12,7 @@ QoSMinPrioDispatcher::QoSMinPrioDispatcher(FDS_QoSControl *ctrl, fds_log* log, f
     wait_time_microsec(DEFAULT_MP_ASSURED_WAIT_MICROSEC)
 {
   last_dispatch_qid = 0; /* this should be an invalid id */ 
+  max_outstanding_ios = 20;
 }
 
 QoSMinPrioDispatcher::~QoSMinPrioDispatcher()
@@ -147,7 +148,6 @@ fds_uint32_t QoSMinPrioDispatcher::getNextQueueForDispatch()
   }
 
   last_dispatch_qid = it->second->queue_id;
-  return last_dispatch_qid;
 
   for (int i = 0; i < qstate_map.size(); ++i) {
     TBQueueState *qstate = it->second;

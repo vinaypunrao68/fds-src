@@ -15,15 +15,15 @@
 #include <unordered_map>
 
 #include <fdsp/FDSP.h>
-#include <include/fds_err.h>
-#include <include/fds_types.h>
-#include <include/fds_volume.h>
+#include <fds_err.h>
+#include <fds_types.h>
+#include <fds_volume.h>
 #include <util/Log.h>
 #include <concurrency/RwLock.h>
 #include <odb.h>
-#include <include/qos_ctrl.h>
+#include <qos_ctrl.h>
 #include <util/counter.h>
-#include <include/ObjStats.h>
+#include <ObjStats.h>
 
 /* defaults */
 #define FDS_DEFAULT_VOL_UUID 1

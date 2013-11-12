@@ -49,9 +49,19 @@ int StorHvisorProcIoRd(void *_io)
   fds_uint64_t data_offset  = req->sec * HVISOR_SECTOR_SIZE;
   vol_id = req->volUUID;  /* TODO: Derive vol_id from somewhere better. NOT fbd! */
 
+#ifdef FDS_TEST_SH_NOOP_DISPATCH 
+  FDS_PLOG(storHvisor->GetLog()) << "StorHvisorTx: FDS_TEST_SH_NOOP_DISPATCH defined, returning IO as soon as its dequeued";
+  storHvisor->qos_ctrl->markIODone(io);
+  memset(req->buf, 0, req->len);
+  (*req->cb_request)(arg1, arg2, req, 0);
+  return 0;
+#endif /* FDS_TEST_SH_NOOP_DISPATCH */
+
+
   shvol = storHvisor->vol_table->getVolume(vol_id);
   if (!shvol || !shvol->isValidLocked()) {
-    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << " volID:" << vol_id << "- volume not registered, completing request with ERROR(-1)";
+    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << " volID:" << vol_id << "- volume not registered, completing request "
+				   << io->io_req_id  << " with ERROR(-1)";
     (*req->cb_request)(arg1, arg2, req, -1);  
     return -1;
   }
@@ -63,7 +73,8 @@ int StorHvisorProcIoRd(void *_io)
   StorHvJournalEntryLock je_lock(journEntry);
   
   if (journEntry->isActive()) {
-    FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " - Transaction  is already in ACTIVE state, completing request with ERROR(-2) ";
+    FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " - Transaction  is already in ACTIVE state, completing request "
+				   << io->io_req_id << " with ERROR(-2) ";
     // There is an ongoing transaciton for this offset.
     // We should queue this up for later processing once that completes.
     
@@ -76,6 +87,8 @@ int StorHvisorProcIoRd(void *_io)
   req->sh_queued_usec = shvol->journal_tbl->microsecSinceCtime(boost::posix_time::microsec_clock::universal_time());
   
   journEntry->setActive();
+
+  FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Activated txn for req :" << io->io_req_id;
   
   FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr = new FDSP_MsgHdrType;
   FDS_ProtocolInterface::FDSP_GetObjTypePtr get_obj_req = new FDSP_GetObjType;
@@ -196,6 +209,13 @@ int StorHvisorProcIoWr(void *_io)
   int node_state = -1;
   fds_uint32_t vol_id;
   StorHvVolume *shvol;
+
+#ifdef FDS_TEST_SH_NOOP_DISPATCH 
+  FDS_PLOG(storHvisor->GetLog()) << "StorHvisorTx: FDS_TEST_SH_NOOP_DISPATCH defined, returning IO as soon as its dequeued";
+  storHvisor->qos_ctrl->markIODone(io);
+  (*req->cb_request)(arg1, arg2, req, 0);
+  return 0;
+#endif /* FDS_TEST_SH_NOOP_DISPATCH */
   
   /*
    * TODO: Currently don't derive the vol ID from the block

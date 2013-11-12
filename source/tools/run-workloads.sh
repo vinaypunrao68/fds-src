@@ -10,7 +10,7 @@
 
 SCRIPT_DIR="`pwd`"
 RESULT_DIR=$SCRIPT_DIR/results
-BIN_DIR=../Build/linux-i686/bin
+BIN_DIR=../Build/linux-x86_64/bin
 
 usage() {
 cat <<EOF
@@ -129,7 +129,7 @@ echo "All workloads finished running, will cleanup"
 # enable stat output in SH, and pass a created stat file into plot-all-stats to 
 # plot the result 
 cat $RESULT_DIR/*$PREFIX*.stat > $RESULT_DIR/$PREFIX"_allvolumess.stat"
-./plot-all-stats.sh -d $RESULT_DIR -f $PREFIX
+./plot-all-stats.sh -d $RESULT_DIR -f $PREFIX"_all"
 
 # also go to fds_client/stats and make graphs for all .stat files created
 # this is useful if we run workload generator other than pharos (that does not 

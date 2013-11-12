@@ -247,6 +247,9 @@ namespace fds {
    FDS_OP_INVALID
   } fds_io_op_t;
 
+#define  FDS_SH_IO_MAGIC_IN_USE 0x1B0A2C3D
+#define  FDS_SH_IO_MAGIC_NOT_IN_USE 0xE1D0A2B3
+
   class FDS_IOType {
 public:
    FDS_IOType() { };
@@ -258,6 +261,7 @@ public:
     DATA_MGR_IO
    } ioModule;
 
+   int         io_magic;
    fds_io_op_t io_type;
    fds_uint32_t io_req_id;
    fds_volid_t io_vol_id;

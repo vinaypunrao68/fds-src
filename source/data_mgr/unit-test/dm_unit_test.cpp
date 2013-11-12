@@ -416,6 +416,13 @@ class DmUnitTest {
     int result = 0;
     std::cout << "Running unit test \"" << testname << "\"" << std::endl;
 
+    /*
+     * Wait before running test for server to be ready.
+     * TODO: Remove this and make sure the test isn't
+     * kicked off until the server is ready and have server
+     * properly wait until it's up.
+     */
+    sleep(5);
     if (testname == "basic_update") {
       result = basic_update();
     } else if (testname == "basic_uq") {

@@ -1,8 +1,9 @@
 topdir            := ../..
+orch_dir          := $(topdir)/orch_mgr
 user_target       := test
 user_rtime_env    := user
 
-user_incl_dir     := ..
+user_incl_dir     := $(orch_dir)
 user_fds_so_libs  :=
 user_fds_ar_libs  := fds-thread fds-util fds-fdsp fds-lib
 user_non_fds_libs :=                                                          \

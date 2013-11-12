@@ -4,17 +4,22 @@
  * Rank engine implementation
  */
 
-#include <include/ObjRank.h>
+#include <ObjRank.h>
 
 namespace fds {
 
-ObjectRankEngine::ObjectRankEngine(const std::string& _sm_prefix, fds_uint32_t _tbl_size, ObjStatsTracker *_obj_stats, fds_log* log)
+ObjectRankEngine::ObjectRankEngine(const std::string& _sm_prefix, 
+				   fds_uint32_t _tbl_size,
+				   StorMgrVolumeTable* _sm_volTbl,
+				   ObjStatsTracker *_obj_stats, 
+				   fds_log* log)
   : rank_tbl_size(_tbl_size), 
     cur_rank_tbl_size(0),
     max_cached_objects(MAX_RANK_CACHE_SIZE),
     tail_rank(OBJECT_RANK_LOWEST),
     obj_stats(_obj_stats),
     ranklog(log),
+    sm_volTbl(_sm_volTbl),
     rankTimer(new IceUtil::Timer()),
     rankTimerTask(new RankTimerTask(this))
 {
@@ -25,29 +30,26 @@ ObjectRankEngine::ObjectRankEngine(const std::string& _sm_prefix, fds_uint32_t _
   tbl_mutex = new fds_mutex("RankEngineChgTblMutex");
 
   rankingEnabled = ATOMIC_VAR_INIT(false);
-  exiting = false;
+  rankeng_state = RANK_ENG_INITIALIZING;
 
-  rank_thread = new boost::thread(boost::bind(&runRankingThread, this));
   rank_notify = new fds_notification();
+  rank_thread = new boost::thread(boost::bind(&runRankingThread, this));
 
-  /* for now setting small intervals so we can have short demo */
-  IceUtil::Time interval = IceUtil::Time::seconds(30);
-  try {
-    rankTimer->scheduleRepeated(rankTimerTask, interval);
-  } catch (...) {
-    FDS_PLOG(ranklog) << "ObjectRankEngine: ERROR: failed to schedule timer to analyze stats from stat tracker";
-  }
   /* for now set low threshold for hot objects -- does not impact correctness, just
   * the amount of memory stat tracker will need to keep the list of hot objects */
   obj_stats->setHotObjectThreshold(3);
   obj_stats->setColdObjectThreshold(0); // for now we don't care about cold list 
 
-  FDS_PLOG(ranklog) << "ObjectRankEngine: construction done, rank table size = " << rank_tbl_size;
+  /* TMP -- for testing/demo, if we have small rank table size, lets use
+   * small cache of insertions/deletions so it will trigger ranking process more often */
+  max_cached_objects = 250;
+
+  FDS_PLOG(ranklog) << "ObjectRankEngine: construction done, will continue remaining initialization in background";
 }
 
 ObjectRankEngine::~ObjectRankEngine()
 {
-  exiting = true;
+  rankeng_state = RANK_ENG_EXITING;
   rankTimer->destroy();
 
   /* make sure ranking thread is not waiting  */
@@ -66,6 +68,55 @@ ObjectRankEngine::~ObjectRankEngine()
   }
 }
 
+/* called by background thread to finish initialization process -- find number of entries in rankdb
+ * and build a cache of the rank table tail (lowest ranked objects) */
+Error ObjectRankEngine::initialize()
+{
+  Error err(ERR_OK);
+  rank_order_objects_it_t mm_it;
+  /* we don't lock lowrank table here because none of the methods accessing lowrank
+   * table or chg table will access these (they check if we are still in init state 
+   * and return right away), except for inser/delete cache which we don't access here */
+
+  Catalog::catalog_iterator_t *db_it = rankDB->NewIterator();
+  for (db_it->SeekToFirst(); db_it->Valid(); db_it->Next())
+    {
+      Record key = db_it->key();
+      Record value = db_it->value();
+      ObjectID oid(key.ToString());
+      fds_uint32_t rank = (fds_uint32_t)std::stoul(value.ToString());
+      rank = updateRank(oid, rank);
+      std::pair<fds_uint32_t,ObjectID> entry(rank,oid);
+      lowrank_objs.insert(entry);
+
+      if (lowrank_objs.size() > LOWRANK_OBJ_CACHE_SIZE) {
+	/* kick out highest ranked obj from lowrank cache */
+	mm_it = lowrank_objs.begin(); /* highest ranked */
+	fds_verify(mm_it != lowrank_objs.end());
+	lowrank_objs.erase(mm_it);
+      }
+      err = putToRankDB(oid, rank, false, false);
+      if (!err.ok()) {
+	FDS_PLOG(ranklog) << "ObjectRankEngine: initialize() couldn't update rank db";
+      }
+      ++cur_rank_tbl_size; /* we are counting number of entries in db here as well */
+    }
+
+  /* start timer for getting hot objects from the stats tracker.
+   * for now setting small intervals so we can have short demo */
+  IceUtil::Time interval = IceUtil::Time::seconds(30);
+  try {
+    rankTimer->scheduleRepeated(rankTimerTask, interval);
+  } catch (...) {
+    FDS_PLOG(ranklog) << "ObjectRankEngine: ERROR: failed to schedule timer to analyze stats from stat tracker";
+    err = ERR_MAX;
+  }
+
+  FDS_PLOG(ranklog) << "ObjectRankEngine: finished initialization process, rank table size " << cur_rank_tbl_size;
+  rankeng_state = RANK_ENG_ACTIVE;
+  return err;
+}
+
 fds_uint32_t ObjectRankEngine::rankAndInsertObject(const ObjectID& objId, const VolumeDesc& voldesc)
 {
   fds_uint32_t rank = getRank(objId, voldesc);
@@ -75,6 +126,7 @@ fds_uint32_t ObjectRankEngine::rankAndInsertObject(const ObjectID& objId, const 
   /* current implementation works as if insert of existing object is an update, eg. of 
    * existing object has 'all disk' policy but we insert same object with 'all ssd' policy,
    * the object rank will reflect 'all ssd' policy */
+  //  FDS_PLOG(ranklog) << "ObjectRankEngine: rankAndInsertObject: vol " << voldesc.volUUID;
 
   map_mutex->lock();
 
@@ -168,9 +220,9 @@ void ObjectRankEngine::analyzeStats()
   fds_bool_t stop = false;
   std::set<ObjectID,ObjectLess> hot_list;
   std::set<ObjectID,ObjectLess>::iterator list_it;
-  /* we need volume desc from stats, but seem too much data to keep
-   * so we will assume lowest prio volume -- anyway we care about really hot
-   * objects to promote, and frequency/recency has higher weight than volume policy for now  */
+  StorMgrVolume* vol = NULL;
+  fds_volid_t volid; 
+  /* default volume desc we will use if we don't get voldesc, e.g. if using unit test */
   VolumeDesc voldesc(std::string("novol"), 1, 0, 0, 10); 
 
   /* ignore the hot objects if we are already in the ranking process, for now... 
@@ -203,8 +255,11 @@ void ObjectRankEngine::analyzeStats()
     lowrank_objs.swap(new_lowrank_objs);
     /* if there are no obj cached in lowrank cache, we don't dig lowest ranks in db, but
      * don't promote anymore hot objects until next ranking process  */
-    if (lowrank_objs.size() == 0) 
+    if (lowrank_objs.size() == 0) {
       stop = true;
+      FDS_PLOG(ranklog) << "ObjectRankEngine: will stop, lowrank empty";
+
+    }
    
   }
   tbl_mutex->unlock();
@@ -223,11 +278,15 @@ void ObjectRankEngine::analyzeStats()
       /* check cached insertions/deletions -- if it was recently inserted
        * then no need to promote; if deleted not sure yet what we should do,
        * so for now not considering those objects */
-      if (inInsertDeleteCache(*list_it))
+      if (inInsertDeleteCache(*list_it)) {
+	FDS_PLOG(ranklog) << "ObjectRankEngine: obj " << (*list_it).ToHex() << " in insert/delete cache";
 	continue;
+      }
 
       /* see if we can promote this object */
-      rank = getRank(*list_it, voldesc);
+      volid = obj_stats->getVolId(*list_it);
+      vol = sm_volTbl->getVolume(volid);
+      rank = getRank(*list_it, (vol != NULL) ? *(vol->voldesc) : voldesc);
       if ((rank < lowest_rank) && 
 	  !inRankDB(*list_it) ) 
 	{
@@ -244,7 +303,7 @@ void ObjectRankEngine::analyzeStats()
 	   * from lowrank_objs; otherwise, demote lowest ranked in lowrank_objs */
 	  std::pair<fds_uint32_t,ObjectID> entry(rank, *list_it);
 	  FDS_PLOG(ranklog) << "ObjectRankEngine: will promote hot object " << (*list_it).ToHex()
-			    << " rank " << rank;
+			    << " vol " << volid << " rank " << rank;
 
 	  tbl_mutex->lock();
 	  lowrank_objs.insert(entry);
@@ -289,6 +348,11 @@ void ObjectRankEngine::analyzeStats()
 	  tbl_mutex->lock();
 	  rankDeltaChgTbl[*list_it] = rank | RANK_PROMOTION_MASK;
 	  tbl_mutex->unlock();
+	  FDS_PLOG(ranklog) << "ObjectRankEngine: obj " << (*list_it).ToHex() << " rank " << rank << " will be promoted";
+
+      }
+      else {
+	FDS_PLOG(ranklog) << "ObjectRankEngine: obj " << (*list_it).ToHex() << " rank " << rank << " lower than ranks of all objs in rank table";
       }
     }
 
@@ -438,7 +502,7 @@ Error ObjectRankEngine::applyCachedOps(obj_rank_cache_t* cached_objects)
 Error ObjectRankEngine::doRanking()
 {
   Error err(ERR_OK);
-  const fds_uint32_t max_lowrank_objs = 25;
+  const fds_uint32_t max_lowrank_objs = LOWRANK_OBJ_CACHE_SIZE;
   rank_order_objects_t *ordered_objects = NULL; /* temp helper ordered list of objects */
   rank_order_objects_it_t mm_it, tmp_it;
   obj_rank_cache_it_t it;
@@ -562,7 +626,7 @@ Error ObjectRankEngine::doRanking()
     {
       /* if we need to exit or we are asked to disable ranking process, exit this loop 
        * TODO: not sure yet if exit will leave us in good state, need to revisit */
-      if (exiting || (atomic_load(&rankingEnabled) == false)) {
+      if ((rankeng_state == RANK_ENG_EXITING) || (atomic_load(&rankingEnabled) == false)) {
 	stopped = true;
 	break;
       }
@@ -675,8 +739,10 @@ Error ObjectRankEngine::doRanking()
 /* returns lowest rank in lowrank_obj cache of lowest-ranked objects */
 fds_uint32_t ObjectRankEngine::getLowestRank()
 {
-  fds_uint32_t ret_rank = OBJECT_RANK_ALL_DISK; /* lowest rank in case rank table is not full */
+  fds_uint32_t ret_rank = OBJECT_RANK_LOWEST; /* lowest rank in case rank table is not full */
 
+  /* we don't lock cur_rank_tbl_size because currently it can only be updated by one thread
+   * either ranking thread or on timer but only when ranking process is not running */
   if (cur_rank_tbl_size >= rank_tbl_size)
     {
       tbl_mutex->lock();
@@ -708,9 +774,20 @@ void ObjectRankEngine::runRankingThreadInternal()
 {
   Error err(ERR_OK);
 
+  /* when we start this thread, we must be in initialization state  */
+  fds_verify(rankeng_state == RANK_ENG_INITIALIZING);
+  err = initialize();
+  if ( !err.ok() ) {
+    FDS_PLOG(ranklog) << "ObjectRankEngine: ERROR failed to initialize";
+    // TODO: should we set state that ranking engine is invalid or something like that?
+    // for now just not doing ranking..
+    return;
+  }
+
   while (1)
     {
-      if (exiting == true) {
+
+      if (rankeng_state == RANK_ENG_EXITING) {
 	break;
       }
 
@@ -724,6 +801,8 @@ void ObjectRankEngine::runRankingThreadInternal()
 
       /* set flag that we finished ranking process (even if we stopped due to stopObjRanking */
       atomic_store(&rankingEnabled, false);
+
+      objStorMgr->tierEngine->migrator->startRankTierMigration();
     }
 }
 
@@ -834,6 +913,7 @@ void ObjectRankEngine::runRankingThread(ObjectRankEngine* self)
 void RankTimerTask::runTimerTask()
 {
   rank_eng->analyzeStats();
+  objStorMgr->tierEngine->migrator->startRankTierMigration();
 }
 
 } // namespace fds

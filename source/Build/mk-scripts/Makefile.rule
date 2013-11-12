@@ -52,7 +52,7 @@ include $(incl_scripts)/Makefile.scpt
 .PHONY: all
 all: $(user_predep) base_predepend $(user_postdep)                    \
      $(user_predepend) base_depend $(user_postdepend)                 \
-	 $(user_preall) base_objs base_all $(user_postall)                \
+	 $(user_preall) base_dirs base_objs base_all $(user_postall)      \
 	 $(user_tool) $(user_scripts) base_postmake                       \
      $(user_preinstall) base_install $(user_postinstall)
 
@@ -88,11 +88,14 @@ endif
 .PHONY: base_objs
 base_objs: $(local_obj_files)
 
-.PHONY: base_all
-base_all: $(comm_libs) $(comm_libsos) $(comm_exes) $(comm_mods) $(comm_imgs)
+.PHONY: base_dirs
+base_dirs:
 ifdef user_build_dir
 	@$(scpt_build_subdir)
 endif
+
+.PHONY: base_all
+base_all: $(comm_libs) $(comm_libsos) $(comm_exes) $(comm_mods) $(comm_imgs)
 
 ifdef comm_lib_list
 $(foreach lib,$(comm_lib_list),$(eval $(call scpt_mk_static_lib,$(lib))))

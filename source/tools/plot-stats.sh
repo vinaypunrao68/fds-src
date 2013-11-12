@@ -17,8 +17,11 @@ Usage: $0 options
 OPTIONS:
   -h  This message
   -s  Path to *stat file
-  -p  iops|lat [default: iops]
+  -p  iops|lat|tier [default: iops]
       (will plot iops or latency over time)
+      tier means iops divided by which op type/tier,
+      but ignores which volume (so better use with stat
+      file already filtered by volume).  
 
 Requires Gnuplot >= 4.4
 EOF
@@ -70,6 +73,7 @@ if [ -z "$PLOTWHAT" ]; then
 fi
 
 if [ "$PLOTWHAT" != "iops" ] &&
+   [ "$PLOTWHAT" != "tier" ] && 
    [ "$PLOTWHAT" != "lat" ]; then
   echo "graph-stats: you must specify either iops or lat for graph type"
   usage
@@ -162,6 +166,60 @@ plot for [vol in "$vol_array"] file(vol) using ((\$3 - $timestamp)/60):(\$5/1000
 
 MARKER
 fi #latency
+################ IOPS broken down into read/write disk/flash /graph ###########################
+if [ "$PLOTWHAT" == "tier" ]; then
+
+for vol in $vols
+do
+TMP_VOLFILE=$DIR/$PREFIX"-v"$vol".tmp"
+VOL_PLTFILE=$DIR/$OUTNAME"-v"$vol".plt"
+VOL_EPSNAME=$DIR/$OUTNAME"-v"$vol".eps"
+VOL_PDFNAME=$DIR/$OUTNAME"-v"$vol".pdf"
+
+rm -f $VOL_PLTFILE
+
+cat <<MARKER >> "$VOL_PLTFILE"
+set terminal postscript color "Arial" 24
+set style line 1 linetype 1 lw 3
+set style line 2 linetype 2 lw 3
+set style line 3 linetype 3 lw 3
+set style line 4 linetype 4 lw 3
+set style line 5 linetype 5 lw 3
+set style line 6 linetype 6 lw 3
+set title "IOPS"
+set xlabel "Time [min]" font "Arial,24"
+set key right top
+
+set datafile separator ","
+
+set out "$VOL_EPSNAME"
+set yrange [0:*]
+set ylabel "IOPS" font "Arial,24"
+plot "$TMP_VOLFILE" using ((\$3 - $timestamp)/60):8 w lp title "disk read",\
+     "$TMP_VOLFILE" using ((\$3 - $timestamp)/60):9 w lp title "disk write",\
+     "$TMP_VOLFILE" using ((\$3 - $timestamp)/60):10 w lp title "flash read",\
+     "$TMP_VOLFILE" using ((\$3 - $timestamp)/60):11 w lp title "flash write"
+
+MARKER
+if [[ -e $VOL_PLTFILE ]]; then
+gnuplot $VOL_PLTFILE
+sleep 2
+ps2pdf $VOL_EPSNAME $VOL_PDFNAME
+sleep 1
+fi
+#cleanup
+if [[ -e $VOL_PLTFILE ]]; then
+rm -f $VOL_EPSNAME
+rm -f $VOL_PLTFILE
+fi
+rm -f $TMP_VOLFILE
+done # vol loop
+
+# this one must exit here, 
+exit
+
+fi #tier
+
 
 #### make graph #####
 if [[ -e $PLTFILE ]]; then
@@ -177,7 +235,6 @@ rm -f $EPSNAME
 rm -f $PLTFILE
 fi
 
-exit
 for vol in $vols
 do
   tmpfile=$DIR/$PREFIX"-v"$vol".tmp"

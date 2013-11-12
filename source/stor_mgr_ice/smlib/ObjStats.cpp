@@ -4,43 +4,59 @@
  * Object tracker statistics 
  */
 
-#include <include/ObjStats.h>
+#include <ObjStats.h>
 
 namespace fds {
 
-ObjStatsTracker::ObjStatsTracker(fds_log *parent_log) {
+ObjStatsTracker::ObjStatsTracker(fds_log *parent_log) :
+    Module("SM Obj Stats Track") {
 
-   std::string  filename = "/fds/objStats";
+  /*
+   * init the  log 
+   */
+  if (parent_log) {
+    stats_log = parent_log;
+  }
 
-    /*
-     * init the  log 
-     */
-    if (parent_log)
-	stats_log = parent_log;
+  objStatsMapLock = new fds_mutex("Added object Stats lock");
+  fds_verify(objStatsMapLock != NULL);
 
-    objStatsMapLock = new fds_mutex("Added object Stats lock");
-
-    /*
-     * get set the  start time 
-     */
+  /*
+   * get set the  start time 
+   */
   startTime  = CounterHist8bit::getFirstSlotTimestamp();
   FDS_PLOG(stats_log) << "STATS:Start TIME: " << startTime;
 
-   hotObjThreshold = 100;
-   coldObjThreshold = 20;
-
-  // Create leveldb
-  leveldb::Options options;
-  options.create_if_missing = true;
-  leveldb::Status status = leveldb::DB::Open(options, filename, &db);
-//  assert(status.ok());
-  FDS_PLOG(stats_log) << "STATS:LevelDB status is " << status.ToString();
+  hotObjThreshold  = 100;
+  coldObjThreshold = 20;
 }
 
 ObjStatsTracker::~ObjStatsTracker() {
     delete objStatsMapLock;
     delete  objStats;
+}
 
+int
+ObjStatsTracker::mod_init(fds::SysParams const *const param) {
+  Module::mod_init(param);
+  root = param->fds_root;
+  root += "/objStats";
+
+  // Create leveldb
+  leveldb::Options options;
+  options.create_if_missing = true;
+  leveldb::Status status = leveldb::DB::Open(options, root, &db);
+  fds_verify(status.ok() == true);
+  return 0;
+}
+
+void
+ObjStatsTracker::mod_startup() {
+    Module::mod_startup();
+}
+
+void
+ObjStatsTracker::mod_shutdown() {
 }
 
 fds_bool_t ObjStatsTracker::objStatsExists(const ObjectID& objId) {
@@ -113,6 +129,7 @@ Error ObjStatsTracker::updateIOpathStats(fds_volid_t vol_uuid,const ObjectID& ob
    oStats = new ioPathStats();
    slotChange = oStats->objStats.increment(startTime, COUNTER_UPDATE_SLOT_TIME);
    oStats->lastAccessTimeR =  boost::posix_time::second_clock::universal_time();
+   oStats->vol_uuid = vol_uuid;
    ioPathStatsObj_map[objId] = oStats;
   }
 
@@ -163,12 +180,26 @@ void ObjStatsTracker::lastObjectWriteAccessTime(fds_volid_t vol_uuid,ObjectID& o
 
 }
 
+fds_volid_t ObjStatsTracker::getVolId(const ObjectID& objId) {
+
+   ioPathStats   *oStats;
+
+   objStatsMapLock->lock();
+   if(objStatsExists(objId) == true) {
+     oStats = ioPathStatsObj_map[objId];
+     objStatsMapLock->unlock();
+     return (oStats->vol_uuid);  
+   }
+
+   objStatsMapLock->unlock();
+   return -1;
+}
 
 
 fds_uint32_t ObjStatsTracker::getObjectAccess( const ObjectID& objId) {
 
    ioPathStats   *oStats;
-   fds_uint32_t  AveNumObjAccess = -1;
+   fds_uint32_t  AveNumObjAccess = 0; /* if we don't have the stats, this is likely a cold obj */
 
    objStatsMapLock->lock();
 

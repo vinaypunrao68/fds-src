@@ -47,7 +47,7 @@ class Module
 {
   public:
     Module(char const *const name);
-    ~Module();
+    virtual ~Module();
 
     // Define standard sequence of bring up and shutdown a module and
     // its services.

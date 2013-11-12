@@ -45,6 +45,11 @@
 // #include "util/concurrency/Thread.h"
 #include <concurrency/Synchronization.h>
 
+
+#undef  FDS_TEST_SH_NOOP              /* IO returns (filled with 0s for read) as soon as SH receives it from ubd */
+#undef FDS_TEST_SH_NOOP_DISPATCH     /* IO returns (filled with 0s for read) as soon as dispatcher takes it from the queue */
+
+
 #ifndef ICE_IGNORE_VERSION
 #   if ICE_INT_VERSION / 100 != 305
 #       error Ice version mismatch!

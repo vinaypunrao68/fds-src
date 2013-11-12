@@ -190,6 +190,7 @@ ModuleVector::mod_mk_sysparams()
   int                     thr_cnt, hdd_cnt, ssd_cnt, hdd_cap, ssd_cap;
   po::variables_map       vm;
   po::options_description desc("Formation Data Systems Command Line Options");
+
   desc.add_options()
       ("help,h", "Show this help text")
       ("fds-root,r", po::value<std::string>()->default_value("/fds"),

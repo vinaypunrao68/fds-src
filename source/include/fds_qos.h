@@ -284,6 +284,9 @@ namespace fds {
 
 	n_oios = 0;
 	n_oios = atomic_fetch_add(&(num_outstanding_ios), (unsigned int)1);
+
+	parent_ctrlr->processIO(io);
+
 	FDS_PLOG(qda_log) << "Dispatcher: dispatchIO from queue " << queue_id
 			<< " : # of outstanding ios = " << n_oios+1
 			<< " : # of pending ios = " << n_pios-1;
@@ -342,8 +345,16 @@ namespace fds {
     virtual Error markIODone(FDS_IOType *io) {
       Error err(ERR_OK);
 
-      fds_uint32_t n_oios = 0;
+      fds_uint32_t n_oios;
       n_oios = atomic_fetch_sub(&(num_outstanding_ios), (unsigned int)1);
+      if (max_outstanding_ios > 0) {
+        /*
+         * We shouldn't be going over max_outstanding_ios,
+         * but we might (oops...). We check that we're not
+         * too far over it though (a looser check).
+         */
+        fds_verify(n_oios < 2 * max_outstanding_ios);
+      }
 
       io->io_done_time = boost::posix_time::microsec_clock::universal_time();
 

@@ -5,13 +5,16 @@
 #ifndef SOURCE_STOR_MGR_ICE_INCLUDE_TIERENGINE_H_
 #define SOURCE_STOR_MGR_ICE_INCLUDE_TIERENGINE_H_
 
-#include <stor_mgr_ice/StorMgrVolumes.h>
-#include <stor_mgr_ice/include/ObjRank.h>
-#include <include/persistent_layer/dm_io.h>
+#include <StorMgr.h>
+#include <StorMgrVolumes.h>
+#include <ObjRank.h>
+#include <persistent_layer/dm_io.h>
+#include <persistent_layer/dm_service.h>
 #include <util/Log.h>
 
 namespace fds {
 
+class TierEngine;
   /*
    * Abstract base that defines what a migration algorithm
    * class should provide.
@@ -66,6 +69,8 @@ namespace fds {
                                         fds_volid_t     vol) = 0;
   };
 
+const fds_uint32_t max_migration_threads =30;
+
   /*
    * Class responsible for background migration
    * of data between tiers
@@ -83,10 +88,15 @@ namespace fds {
     /*
      * Function to be run in a tier migration thread.
      */
-    static void migrationJob();
 
  public:
-    explicit TierMigration(fds_uint32_t _nThreads);
+   void startRankTierMigration(void);
+   void stopRankTierMigration(void);
+    TierEngine *tier_eng;
+    fds_bool_t   stopMigrationFlag;
+    fds_log *tm_log;
+
+    TierMigration(fds_uint32_t _nThreads, TierEngine *te, fds_log *log);
     ~TierMigration();
   };
 
@@ -97,7 +107,6 @@ namespace fds {
   class TierEngine {
  private:
     fds_uint32_t  numMigThrds;
-    TierMigration *migrator;
 
     /*
      * Member algorithms.
@@ -110,15 +119,18 @@ namespace fds {
      * Ranker: provides in flash obj ranks
      * Volume meta: provides vol placement metadata
      */
-    ObjectRankEngine* rank_eng;
     StorMgrVolumeTable* sm_volTbl;
-    fds_log* te_log;
 
  public:
     typedef enum {
       FDS_TIER_PUT_ALGO_RANDOM,
       FDS_TIER_PUT_ALGO_BASIC_RANK,
     } tierPutAlgoType;
+
+    TierMigration *migrator;
+    ObjectRankEngine* rank_eng;
+    fds_log* te_log;
+    TierEngine *tier_eng;
 
     /*
      * Constructor for tier engine. This will take
