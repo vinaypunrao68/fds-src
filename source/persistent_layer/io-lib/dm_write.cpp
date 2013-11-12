@@ -1,8 +1,33 @@
 #include <persistentdata.h>
 #include <stdio.h>
+#include <sys/types.h>
+#include <fcntl.h>
 #include <unistd.h>
 
 namespace diskio {
+
+FilePersisDataIO::FilePersisDataIO(char const *const file, int loc)
+    : fi_path(file), fi_loc(loc), fi_mutex("file mutex")
+{
+    fi_fd = open(file, O_RDWR);
+    if (fi_fd < 0) {
+        printf("Can't open file %s\n", file);
+        perror("Reason: ");
+        exit(1);
+    }
+    fi_cur_off = lseek64(fi_fd, 0, SEEK_END);
+    if (fi_cur_off < 0) {
+        perror("lseek64 fails: ");
+        exit(1);
+    }
+    // Convert to block-size unit.
+    fi_cur_off = fi_cur_off >> DataIO::disk_io_blk_shift();
+}
+
+FilePersisDataIO::~FilePersisDataIO()
+{
+    close(fi_fd);
+}
 
 void
 FilePersisDataIO::disk_do_write(DiskRequest *req)
