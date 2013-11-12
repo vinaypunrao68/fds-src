@@ -2,6 +2,7 @@ topdir         := ..
 user_build_dir :=      \
     lib                \
     odb                \
+    fds-probe          \
     stor_mgr           \
     orch_mgr           \
     persistent_layer   \
