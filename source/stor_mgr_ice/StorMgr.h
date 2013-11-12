@@ -38,7 +38,7 @@
 #include <atomic>
 #include <unordered_map>
 #include <include/ObjStats.h>
-#include <include/StorHvJournalEx.h>
+#include <include/TransJournal.h>
 
 /*
  * TODO: Move this header out of lib/
@@ -138,7 +138,7 @@ namespace fds {
     /*
      * Local storage members
      */
-    StorHvJournalEx<ObjectID, ObjectIdJrnlEntry> *omJrnl;
+    TransJournal<ObjectID, ObjectIdJrnlEntry> *omJrnl;
     ObjectDB  *objStorDB;
     ObjectDB  *objIndexDB;
 

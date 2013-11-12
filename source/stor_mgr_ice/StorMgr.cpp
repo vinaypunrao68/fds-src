@@ -207,7 +207,7 @@ ObjectStorMgr::ObjectStorMgr() :
   writeBackThreads = new fds_threadpool(numWBThreads);
 
   /* Set up the journal */
-  omJrnl = new StorHvJournalEx<ObjectID, ObjectIdJrnlEntry>();
+  omJrnl = new TransJournal<ObjectID, ObjectIdJrnlEntry>();
 
   /*
    * Setup QoS related members.
