@@ -1,4 +1,5 @@
 topdir            := ../..
+util_dir          := $(topdir)/util
 user_target       := test
 user_rtime_env    := user
 
@@ -8,7 +9,7 @@ user_non_fds_libs :=                                                          \
     boost_log boost_system boost_filesystem boost_thread boost_date_time Ice IceUtil IceStorm  \
     ssl crypto
 
-user_incl_dir     := ../ ../hash $(topdir)/include/hash
+user_incl_dir     := $(util_dir) $(util_dir)/hash $(topdir)/include/hash
 user_cpp          :=                                                          \
     hash_test.cpp log_unit_test.cpp perfstat_unit_test.cpp
 

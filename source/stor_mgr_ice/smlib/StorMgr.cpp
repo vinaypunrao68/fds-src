@@ -7,7 +7,6 @@
 #include <policy_rpc.h>
 #include <policy_tier.h>
 #include "StorMgr.h"
-#include "DiskMgr.h"
 
 namespace fds {
 
@@ -675,6 +674,8 @@ ObjectStorMgr::checkDuplicate(const ObjectID&  objId,
        * Handle hash-collision - insert the next collision-id+obj-id 
        */
       err = ERR_HASH_COLLISION;
+      fds_panic("Encountered a hash collision checking object %s. Bailing out now!",
+                objId.ToHex().c_str());
     }
   } else if (err == ERR_DISK_READ_FAILED) {
     /*
@@ -1408,24 +1409,4 @@ ObjectStorMgr::interruptCallback(int) {
 
 
 }  // namespace fds
-
-int main(int argc, char *argv[]) {
-  objStorMgr = new ObjectStorMgr();
-
-  /* Instantiate a DiskManager Module instance */
-  fds::Module *io_dm_vec[] = {
-    &diskio::gl_dataIOMod,
-    &fds::gl_tierPolicy,
-    fds::objStorMgr->objStats,
-    nullptr
-  };
-  fds::ModuleVector  io_dm(argc, argv, io_dm_vec);
-  io_dm.mod_execute();
-
-  objStorMgr->main(argc, argv, "stor_mgr.conf");
-
-  delete objStorMgr;
-
-  return 0;
-}
 

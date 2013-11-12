@@ -2,8 +2,8 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 
-#include <include/TierEngine.h>
-#include <include/TierPutAlgorithms.h>
+#include <TierEngine.h>
+#include <TierPutAlgorithms.h>
 
 using namespace diskio;
 

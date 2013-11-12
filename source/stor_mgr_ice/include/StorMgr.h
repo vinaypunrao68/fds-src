@@ -26,19 +26,18 @@
 #include <iostream>
 #include <Ice/Ice.h>
 #include <util/Log.h>
-#include "DiskMgr.h"
 #include "StorMgrVolumes.h"
 #include <persistent_layer/dm_service.h>
 #include <persistent_layer/dm_io.h>
 
-#include <include/fds_qos.h>
-#include <include/qos_ctrl.h>
-#include <include/fds_assert.h>
+#include <fds_qos.h>
+#include <qos_ctrl.h>
+#include <fds_assert.h>
 #include <utility>
 #include <atomic>
 #include <unordered_map>
-#include <include/ObjStats.h>
 #include <include/TransJournal.h>
+#include <ObjStats.h>
 
 /*
  * TODO: Move this header out of lib/
@@ -52,8 +51,8 @@
 #include <lib/OMgrClient.h>
 #include <concurrency/Mutex.h>
 
-#include <include/TierEngine.h>
-#include <include/ObjRank.h>
+#include <TierEngine.h>
+#include <ObjRank.h>
 
 #undef FDS_TEST_SM_NOOP      /* if defined, IO completes as soon as it arrives to SM */
 
