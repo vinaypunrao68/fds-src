@@ -26,6 +26,7 @@
 #include <util/Log.h>
 #include "DiskMgr.h"
 #include "StorMgrVolumes.h"
+#include "TierEngine.h"
 
 #include <include/fds_assert.h>
 #include <concurrency/Mutex.h>
@@ -48,7 +49,7 @@
 
 namespace fds {
 
-
+extern ObjectStorMgr *objStorMgr;
 /* ObjectRankEngine : A class that keeps track of a rank table of all objects that 
  * "Needs" to be in the SSD tier. It is the job of the migrator/placement-tiering engine 
  * to make sure the rank table is reflected in the persistent-Layer
@@ -62,6 +63,15 @@ class ObjectRankEngine {
 		   ObjStatsTracker *_obj_stats, 
 		   fds_log *log);
    ~ObjectRankEngine();
+
+   /* 'initialization' state means we accept insert and delete ops (on data path)
+    * but do not do any ranking/creating chg table /etc.
+    * */
+   typedef enum {
+     RANK_ENG_INITIALIZING,
+     RANK_ENG_ACTIVE,
+     RANK_ENG_EXITING
+   } rankEngineState;
 
    typedef enum {
      OBJ_RANK_PROMOTION, // To Flash/SSD
@@ -124,6 +134,11 @@ class ObjectRankEngine {
    void analyzeStats(void); /* called by timer */
 
  private: /* methods */
+
+   /* completes initialization of the ranking engine
+    * This is first thing that ranking background thread does,
+    * so it's done in the background because it walks through rankdb */
+   Error initialize();
 
    /* Object rank (a 32-bit value) is constructed as follows: 
     *  bits 32-17 : object subrank that captures recency and frequency of object accesses
@@ -199,12 +214,17 @@ class ObjectRankEngine {
 
  private: /* data */
 
+   rankEngineState rankeng_state;
+
    /* persistent rank table */
    Catalog* rankDB;
 
    /* size of the rank table */
    fds_uint32_t rank_tbl_size; 
    /* current number of objects in the rank table, normally will be same as table size */
+   /* currently, we only access this in ranking thread or on timer when analyzing stats from 
+   * stats tracker -- the latter runs only when ranking process is not running, so we don't lock
+   * access to cur_rank_tbl_size */
    fds_uint32_t cur_rank_tbl_size;
 
 
@@ -227,10 +247,8 @@ class ObjectRankEngine {
     * this value is updated only at the end of each ranking process */
    fds_uint32_t tail_rank; /* updated only by the ranking thread */ 
 
-   /* True is ranking proces is enabled */
+   /* True if ranking process is enabled */
    std::atomic<fds_bool_t> rankingEnabled;
-   /* only used by destructor to make sure we stop ranking thread first */
-   fds_bool_t exiting;  
    /* for now one thread doing ranking process */
    boost::thread *rank_thread;
    fds_notification* rank_notify;

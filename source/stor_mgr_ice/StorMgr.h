@@ -45,6 +45,8 @@
  * to include/ since it's linked by many.
  */
 #include <lib/qos_htb.h>
+#include <lib/qos_min_prio.h>
+#include <lib/QoSWFQDispatcher.h>
 
 /* TODO: avoid include across module, put API header file to include dir */
 #include <lib/OMgrClient.h>
@@ -52,6 +54,8 @@
 
 #include <include/TierEngine.h>
 #include <include/ObjRank.h>
+
+#undef FDS_TEST_SM_NOOP      /* if defined, IO completes as soon as it arrives to SM */
 
 #define FDS_STOR_MGR_LISTEN_PORT FDS_CLUSTER_TCP_PORT_SM
 #define FDS_STOR_MGR_DGRAM_PORT FDS_CLUSTER_UDP_PORT_SM
@@ -72,6 +76,7 @@ namespace fds {
    */
   class ObjectStorMgrI;
   class TierEngine;
+  class ObjectRankEngine;
 
   class SmPlReq : public diskio::DiskRequest {
  public:
@@ -170,7 +175,11 @@ namespace fds {
                 fds_log *log) :
       FDS_QoSControl(_max_thrds, algo, log, "SM") {
         parentSm = _parent;
-        dispatcher = new QoSHTBDispatcher(this, log, 150);
+
+        //dispatcher = new QoSMinPrioDispatcher(this, log, 500);
+       dispatcher = new QoSWFQDispatcher(this, 500, 20, log);
+       //dispatcher = new QoSHTBDispatcher(this, log, 150);
+
         /* base class created stats, but they are disable by default */
         stats->enable();
       }
@@ -230,6 +239,16 @@ namespace fds {
     fds_mutex                 *waitingReqMutex;
 
     /*
+     * Local perf stat collection
+     */
+    enum perfMigOp {
+      flashToDisk,
+      diskToFlash,
+      invalidMig
+    };
+    PerfStats *perfStats;
+
+    /*
      * Private request processing members.
      */
     Error getObjectInternal(FDSP_GetObjTypePtr getObjReq, 
@@ -243,7 +262,8 @@ namespace fds {
     Error checkDuplicate(const ObjectID  &objId,
                          const ObjectBuf &objCompData);
     Error writeObjectLocation(const ObjectID &objId, 
-                              meta_obj_map_t *obj_map);
+                              meta_obj_map_t *obj_map,
+                              fds_bool_t      append);
     Error readObjectLocations(const ObjectID &objId, 
                               meta_obj_map_t *objMaps);
     Error readObjectLocations(const ObjectID     &objId,

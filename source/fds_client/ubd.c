@@ -641,7 +641,7 @@ hvisor_vbd_write_response_to_ring(td_vbd_t *vbd, blkif_response_t *rsp)
 	ring = &vbd->ring;
 	rspp = RING_GET_RESPONSE(&ring->fe_ring, ring->fe_ring.rsp_prod_pvt);
 	memcpy(rspp, rsp, sizeof(blkif_response_t));
-	cppout("Writing response for request %d at position %d\n", (int) rsp->id, ring->fe_ring.rsp_prod_pvt);
+	cppout("Vol %d - Writing response for request %d at position %d\n", (int) vbd->uuid, (int) rsp->id, ring->fe_ring.rsp_prod_pvt);
 	ring->fe_ring.rsp_prod_pvt++;
 }
 
@@ -659,8 +659,8 @@ hvisor_vbd_make_response(td_vbd_t *vbd, td_vbd_request_t *vreq)
 	rsp->operation = tmp.operation;
 	rsp->status = vreq->status;
 
-	cppout("writing req %d, sec 0x%08"PRIx64", res %d to ring\n",
-	       (int)tmp.id, tmp.sector_number, vreq->status);
+	cppout("Vold %d - writing req %d, sec 0x%08"PRIx64", res %d to ring\n",
+	       (int) vbd->uuid, (int)tmp.id, tmp.sector_number, vreq->status);
 
 	if (rsp->status != BLKIF_RSP_OKAY){
 	  cppout("returning BLKIF_RSP %d", rsp->status);
@@ -698,12 +698,15 @@ hvisor_complete_td_request(void *arg1, void *arg2,
 	td_vbd_t *vbd = (td_vbd_t *)arg1;
 	td_vbd_request_t *vreq = (td_vbd_request_t *)arg2;
 
+	ASSERT(freq->req_magic == FDS_UBD_IO_MAGIC_IN_USE);
+	freq->req_magic = FDS_UBD_IO_MAGIC_NOT_IN_USE;
+
 	pthread_mutex_lock(&vbd->vbd_mutex);
 
 	vbd->num_pending_req_segs --;
 
-	cppout("UBD: Recv completion callback with vbd - %p, vreq - %p, fbd_req - %p, res - %d, pending_req_segs - %d\n",
-	       vbd, vreq, freq, res, vbd->num_pending_req_segs);
+	cppout("UBD: Recv completion callback with vbd - %p, vol- %llx, vreq - %p, fbd_req - %p, res - %d, pending_req_segs - %d\n",
+	       vbd, vbd->uuid, vreq, freq, res, vbd->num_pending_req_segs);
 
 
         err = (res <= 0 ? res : -res);
@@ -760,7 +763,8 @@ void hvisor_queue_read(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq)
   	p_new_req->volUUID = vbd->uuid;
   	p_new_req->hvisorHdl = hvisor_hdl;
   	p_new_req->cb_request = hvisor_complete_td_request;
-
+	p_new_req->req_magic = FDS_UBD_IO_MAGIC_IN_USE;
+	
 
 	cppout("Received read request at offset %llx for %d bytes, buf - %p \n", offset, size, p_new_req->buf);
 
@@ -775,8 +779,8 @@ void hvisor_queue_read(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq)
 	hvisor_complete_td_request((void *)vbd, (void *)vreq, p_new_req, rc);
 #else
 
-	cppout("UBD: Sending read req to hypervisor with vbd - %p, vreq - %p, fbd_req - %p\n",
-	       vbd, vreq, p_new_req);
+	cppout("UBD: Sending read req to hypervisor with vbd - %p, vol - %llx, vreq - %p, fbd_req - %p\n",
+	       vbd, vbd->uuid, vreq, p_new_req);
 
 //	rc = StorHvisorProcIoRd( p_new_req, hvisor_complete_td_request, (void *)vbd, (void *)vreq);
 	/* queue the  request  to the per volume queue */
@@ -813,6 +817,7 @@ void hvisor_queue_write(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq
   	p_new_req->volUUID = vbd->uuid;
   	p_new_req->hvisorHdl = hvisor_hdl;
   	p_new_req->cb_request = hvisor_complete_td_request;
+	p_new_req->req_magic = FDS_UBD_IO_MAGIC_IN_USE;
 
 #if BLKTAP_UNIT_TEST 
 	cppout("Received write request at offset %llx for %d bytes, buf - %p : \n", offset, size, p_new_req->buf);
@@ -834,8 +839,8 @@ void hvisor_queue_write(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq
 	hvisor_complete_td_request((void *)vbd, (void *)vreq, p_new_req, rc);
 #else
 
-	cppout("UBD: Sending write req to hypervisor with vbd - %p, vreq - %p, fbd_req - %p\n",
-	       vbd, vreq, p_new_req);
+	cppout("UBD: Sending write req to hypervisor with vbd - %p, vol - %llx, vreq - %p, fbd_req - %p\n",
+	       vbd, vbd->uuid, vreq, p_new_req);
 
 //	rc = StorHvisorProcIoWr( p_new_req, hvisor_complete_td_request, (void *)vbd, (void *)vreq);
 	/* queue the  request  to the per volume queue */
@@ -891,11 +896,12 @@ hvisor_handle_request(td_vbd_t *vbd, td_vbd_request_t *vreq)
 		cppout( "%s: Issuing req %d seg %d sec 0x%08"PRIx64" secs 0x%04x "
 		    "buf %p op %d num_pending_segs - %d\n", "Hvisor", id, i, treq.sec, treq.secs,
 		       treq.buf, (int)req->operation, vbd->num_pending_req_segs);
-		pthread_mutex_unlock(&vbd->vbd_mutex);
 
 
 		vreq->secs_pending += nsects;
 		vbd->secs_pending  += nsects;
+
+		pthread_mutex_unlock(&vbd->vbd_mutex);
 
 		switch (req->operation)	{
 		case BLKIF_OP_WRITE:
@@ -916,11 +922,17 @@ hvisor_handle_request(td_vbd_t *vbd, td_vbd_request_t *vreq)
 	err = 0;
 
 out:
+
+	pthread_mutex_lock(&vbd->vbd_mutex);
+
 	vreq->submitting--;
+	
 	if (!vreq->secs_pending) {
 		err = (err ? : vreq->error);
 		hvisor_complete_vbd_request(vbd, vreq);
 	}
+
+	pthread_mutex_unlock(&vbd->vbd_mutex);
 
 	return err;
 
@@ -948,9 +960,10 @@ hvisor_issue_new_requests(td_vbd_t *vbd)
 	    break;
 	  }
 	  pthread_mutex_unlock(&vbd->vbd_mutex);
-	  err = hvisor_handle_request(vbd, vreq);
 	  list_del(&vreq->next);
 	  INIT_LIST_HEAD(&vreq->next);
+	  err = hvisor_handle_request(vbd, vreq);
+
 	  if (err)
 	    return err;
         }
@@ -1015,12 +1028,13 @@ hvisor_vbd_kick(td_vbd_t *vbd)
 		return 0;
 
 	vbd->kicked += n;
-	cppout("Pushing %d responses, rsp prod idx moving  from position %d to position %d\n", n, ring->fe_ring.sring->rsp_prod, ring->fe_ring.rsp_prod_pvt);
+	cppout("Vol %d - Pushing %d responses, rsp prod idx moving  from position %d to position %d\n", 
+	       (int) vbd->uuid, n, ring->fe_ring.sring->rsp_prod, ring->fe_ring.rsp_prod_pvt);
 	RING_PUSH_RESPONSES(&ring->fe_ring);
 	ioctl(ring->fd, BLKTAP_IOCTL_KICK_FE, 0);
 
-	cppout("kicking %d: rec: 0x%08"PRIx64", ret: 0x%08"PRIx64", kicked: "
-	    "0x%08"PRIx64"\n", n, vbd->received, vbd->returned, vbd->kicked);
+	cppout("vol %llx minor %d - kicking %d: rec: 0x%08"PRIx64", ret: 0x%08"PRIx64", kicked: "
+	       "0x%08"PRIx64"\n", vbd->uuid, vbd->minor, n, vbd->received, vbd->returned, vbd->kicked);
 
 	vbd->num_responses_in_ring = 0;
 

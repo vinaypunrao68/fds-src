@@ -12,7 +12,7 @@ void StorHvQosCtrl::throttleCmdHandler(const float throttle_level) {
 StorHvQosCtrl::StorHvQosCtrl(uint32_t max_thrds, dispatchAlgoType algo, fds_log *log) 
   : FDS_QoSControl::FDS_QoSControl(max_thrds, algo, log, "SH") 
 {
-     total_rate = 1000;
+     total_rate = 400;
      if ( dispatchAlgo == FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET) {
         htb_dispatcher = new QoSHTBDispatcher(this, qos_log, total_rate);
      }
@@ -63,6 +63,8 @@ void StorHvQosCtrl::runScheduler() {
 Error StorHvQosCtrl::markIODone(FDS_IOType *io) {
   Error err(ERR_OK);
   /* TODO: also record latency (now passign 0) */
+  assert(io->io_magic == FDS_SH_IO_MAGIC_IN_USE);
+  io->io_magic = FDS_SH_IO_MAGIC_NOT_IN_USE;
   stats->recordIO(io->io_vol_id, 0);
   htb_dispatcher->markIODone(io);
   delete io;

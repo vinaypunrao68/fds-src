@@ -17,8 +17,8 @@ void Store::initialize()
   assert(fd<0);
 
   fd = readonly 
-    ? ::open(name.c_str(), O_RDONLY | O_DIRECT)
-       : ::open(name.c_str(), O_RDWR | O_DIRECT);
+    ? ::open(name.c_str(), O_RDONLY )
+       : ::open(name.c_str(), O_RDWR );
   if (fd < 0)
     printx("Error opening %s: %s\n", name.c_str(), strerror(errno));
   
@@ -51,6 +51,7 @@ location_t Store::getCapacity() const
 location_t Store::obtainDeviceCapacity() {
   assert(fd>=0);
 
+  long n_blocks;
   struct stat st;
   int status = fstat(fd, &st);
   // TODO: Better error message than just assert;
@@ -60,13 +61,16 @@ location_t Store::obtainDeviceCapacity() {
     return st.st_size;
 
   if (S_ISBLK(st.st_mode)) {
-    long n_blocks;
     int status = ioctl(fd, BLKGETSIZE, &n_blocks);
     assert(status==0);
     // Linux has a hard-coded 512 byte block size.
     return 512 * (location_t) n_blocks;
   }
-
+  if (S_ISCHR(st.st_mode)) {
+    // FIXME: Just make up something right now
+    n_blocks = 10000;
+    return 512 * (location_t) n_blocks;
+  }
   assert(0); // TODO: Better error message, was neither file nor device.
   // NOT REACHED
   return 0;

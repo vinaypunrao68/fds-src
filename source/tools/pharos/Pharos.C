@@ -474,6 +474,10 @@ int main(int argc, char* argv[])
   }
   else { // sequential
     if (seq_start > 0) {
+      /* HACK -- for our current tests, we overloading seq_start
+      * to mean restrict sequential over first NNN MB rather than
+      * start sequential from NNN MB -- if we want to change behavior
+      * back, need to modify GeneratorSeq code */
       location_t seq_start_location = seq_start *1024*1024;
       assert(seq_start_location < s.getCapacity());
       gen_loc = new GeneratorSeq(*gen_size_dir, s, seq_start_location);

@@ -35,6 +35,15 @@ ObjectStorMgrI::PutObject(const FDSP_MsgHdrTypePtr& msgHdr,
                           const Ice::Current&) {
   FDS_PLOG(objStorMgr->GetLog()) << "Received a Putobject() network request";
 
+#ifdef FDS_TEST_SM_NOOP
+  msgHdr->msg_code = FDSP_MSG_PUT_OBJ_RSP;
+  msgHdr->result = FDSP_ERR_OK;
+  objStorMgr->swapMgrId(msgHdr);
+  objStorMgr->fdspDataPathClient[msgHdr->src_node_name]->begin_PutObjectResp(msgHdr, putObj);
+  FDS_PLOG(objStorMgr->GetLog()) << "FDS_TEST_SM_NOOP defined. Sent async PutObj response right after receiving req.";
+  return;
+#endif /* FDS_TEST_SM_NOOP */
+
   /*
    * Track the outstanding get request.
    * TODO: This is a total hack. We're overloading the msg_hdr's
@@ -75,6 +84,15 @@ ObjectStorMgrI::GetObject(const FDSP_MsgHdrTypePtr& msgHdr,
                           const FDSP_GetObjTypePtr& getObj,
                           const Ice::Current&) {
   FDS_PLOG(objStorMgr->GetLog()) << "Received a Getobject() network request";
+
+#ifdef FDS_TEST_SM_NOOP
+  msgHdr->msg_code = FDSP_MSG_GET_OBJ_RSP;
+  msgHdr->result = FDSP_ERR_OK;
+  objStorMgr->swapMgrId(msgHdr);
+  objStorMgr->fdspDataPathClient[msgHdr->src_node_name]->begin_GetObjectResp(msgHdr, getObj);
+  FDS_PLOG(objStorMgr->GetLog()) << "FDS_TEST_SM_NOOP defined. Sent async GetObj response right after receiving req.";
+  return;
+#endif /* FDS_TEST_SM_NOOP */
 
   /*
    * Track the outstanding get request.
@@ -153,9 +171,12 @@ ObjectStorMgrI::AssociateRespCallback(const Ice::Identity& ident, const std::str
 ObjectStorMgr::ObjectStorMgr() :
     runMode(NORMAL_MODE),
     numTestVols(10),
-    totalRate(200),
+    totalRate(500),
     qosThrds(10),
     port_num(0),
+    shuttingDown(false),
+    numWBThreads(1),
+    maxDirtyObjs(10000),
     cp_port_num(0) {
   /*
    * TODO: Fix the totalRate above to not
@@ -203,9 +224,16 @@ ObjectStorMgr::ObjectStorMgr() :
   objStats =  new ObjStatsTracker(sm_log);
 
   /*
-   * Kick off the writeback thread(s)
+   * Performance stats recording
+   * TODO: This is *not* a unique name, so
+   * multiple SMs will clobber each other.
+   * The prefix isn't parsed until later.
+   * We should fix that.
    */
-  writeBackThreads->schedule(writeBackFunc, this);
+  Error err;
+  perfStats = new PerfStats("migratorSmStats");
+  err = perfStats->enable();
+  fds_verify(err == ERR_OK);
 }
 
 ObjectStorMgr::~ObjectStorMgr() {
@@ -232,6 +260,8 @@ ObjectStorMgr::~ObjectStorMgr() {
     qosCtrl->quieseceIOs((*vit));
     qosCtrl->deregisterVolume((*vit));
   }
+
+  delete perfStats;
 
   /*
    * TODO: Assert that the waiting req map is empty.
@@ -434,34 +464,40 @@ void ObjectStorMgr::unitTest() {
 
 Error
 ObjectStorMgr::writeObjectLocation(const ObjectID& objId,
-				   meta_obj_map_t *obj_map) {
+				   meta_obj_map_t *obj_map,
+                                   fds_bool_t      append) {
 
   Error err(ERR_OK);
 
   diskio::MetaObjMap objMap;
   ObjectBuf          objData;
 
-  /*
-   * Get existing object locations
-   * TODO: We need a better way to update this
-   * location DB with a new location. This requires
-   * reading the existing locations, updating the entry,
-   * and re-writing it. We often just want to append.
-   */
-  err = readObjectLocations(objId, objMap);
-  if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
-    FDS_PLOG(objStorMgr->GetLog()) << "Failed to read existing object locations"
-                                   << " during location write";
-    return err;
-  } else if (err == ERR_DISK_READ_FAILED) {
+  if (append == true) {
+    FDS_PLOG(objStorMgr->GetLog()) << "Appending new location for object " << objId;
+
     /*
-     * Assume this error means the key just did not exist.
-     * TODO: Add an err to differention "no key" from "failed read".
+     * Get existing object locations
+     * TODO: We need a better way to update this
+     * location DB with a new location. This requires
+     * reading the existing locations, updating the entry,
+     * and re-writing it. We often just want to append.
      */
-    FDS_PLOG(objStorMgr->GetLog()) << "Not able to read existing object locations"
-                                   << ", assuming no prior entry existed";
-    err = ERR_OK;
+    err = readObjectLocations(objId, objMap);
+    if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
+      FDS_PLOG(objStorMgr->GetLog()) << "Failed to read existing object locations"
+                                     << " during location write";
+      return err;
+    } else if (err == ERR_DISK_READ_FAILED) {
+      /*
+       * Assume this error means the key just did not exist.
+       * TODO: Add an err to differention "no key" from "failed read".
+       */
+      FDS_PLOG(objStorMgr->GetLog()) << "Not able to read existing object locations"
+                                     << ", assuming no prior entry existed";
+      err = ERR_OK;
+    }
   }
+
   /*
    * Add new location to existing locations
    */
@@ -698,7 +734,7 @@ ObjectStorMgr::writeObject(const ObjectID  &objId,
                                  << " tier";
   disk_req = new SmPlReq(vio, oid, (ObjectBuf *)&objData, true, tier); // blocking call
   dio_mgr.disk_write(disk_req);
-  err = writeObjectLocation(objId, disk_req->req_get_vmap());
+  err = writeObjectLocation(objId, disk_req->req_get_vmap(), true);
   if ((err == ERR_OK) &&
       (tier == diskio::flashTier)) {
     /*
@@ -737,8 +773,14 @@ ObjectStorMgr::relocateObject(const ObjectID &objId,
 
   disk_req = new SmPlReq(vio, oid, (ObjectBuf *)&objGetData, true, to_tier); 
   dio_mgr.disk_write(disk_req);
-  err = writeObjectLocation(objId, disk_req->req_get_vmap());
+  err = writeObjectLocation(objId, disk_req->req_get_vmap(), false);
 
+  if (to_tier == diskio::diskTier) {
+    perfStats->recordIO(flashToDisk, 0, diskio::diskTier, FDS_IO_WRITE);
+  } else {
+    fds_verify(to_tier == diskio::flashTier);
+    perfStats->recordIO(diskToFlash, 0, diskio::flashTier, FDS_IO_WRITE);
+  }
   FDS_PLOG(objStorMgr->GetLog()) << "relocateObject " << objId << " into the "
                                  << ((to_tier == diskio::diskTier) ? "disk" : "flash")
                                  << " tier";
@@ -1178,7 +1220,7 @@ ObjectStorMgr::run(int argc, char* argv[]) {
   adapter->add(fdspDataPathServer, communicator()->stringToIdentity("ObjectStorMgrSvr"));
 
   callbackOnInterrupt();
-  
+
   adapter->activate();
 
   struct ifaddrs *ifAddrStruct = NULL;
@@ -1264,7 +1306,7 @@ ObjectStorMgr::run(int argc, char* argv[]) {
   volTbl = new StorMgrVolumeTable(this);
 
   /* Create tier related classes -- has to be after volTbl is created */
-  rankEngine = new ObjectRankEngine(stor_prefix, 200, volTbl, objStats, objStorMgr->GetLog());
+  rankEngine = new ObjectRankEngine(stor_prefix, 100000, volTbl, objStats, objStorMgr->GetLog());
   tierEngine = new TierEngine(TierEngine::FDS_TIER_PUT_ALGO_BASIC_RANK, volTbl, rankEngine, objStorMgr->GetLog());
 
   /*
@@ -1313,6 +1355,11 @@ ObjectStorMgr::run(int argc, char* argv[]) {
     }
   }
 
+  /*
+   * Kick off the writeback thread(s)
+   */
+  writeBackThreads->schedule(writeBackFunc, this);
+  
   communicator()->waitForShutdown();
 
   if (ifAddrStruct != NULL) {
@@ -1355,29 +1402,30 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
 
 
 void
-ObjectStorMgr::interruptCallback(int)
-{
-    communicator()->shutdown();
+ObjectStorMgr::interruptCallback(int) {
+  communicator()->shutdown();
 }
 
 
 }  // namespace fds
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
   objStorMgr = new ObjectStorMgr();
 
-    /* Instantiate a DiskManager Module instance */
-    fds::Module *io_dm_vec[] = {
-        &diskio::gl_dataIOMod,
-        &fds::gl_tierPolicy,
-        nullptr
-    };
-    fds::ModuleVector  io_dm(argc, argv, io_dm_vec);
-    io_dm.mod_execute();
+  /* Instantiate a DiskManager Module instance */
+  fds::Module *io_dm_vec[] = {
+    &diskio::gl_dataIOMod,
+    &fds::gl_tierPolicy,
+    fds::objStorMgr->objStats,
+    nullptr
+  };
+  fds::ModuleVector  io_dm(argc, argv, io_dm_vec);
+  io_dm.mod_execute();
 
   objStorMgr->main(argc, argv, "stor_mgr.conf");
 
   delete objStorMgr;
+
+  return 0;
 }
 

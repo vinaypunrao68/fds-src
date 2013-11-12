@@ -259,7 +259,10 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rx_msg) 
           // del_timer(txn->p_ti);
           if (req) {
             txn->fbd_complete_req(req, 0);
-          }
+          } else {
+	    fds_verify(req);
+	    assert(0);	
+	  }
           txn->reset();
           vol->journal_tbl->release_trans_id(trans_id);
           return(0);
