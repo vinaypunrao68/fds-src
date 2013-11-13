@@ -244,7 +244,6 @@ ObjectStorMgr::~ObjectStorMgr() {
   if (objIndexDB)
     delete objIndexDB;
 
-  delete omJrnl;
   /*
    * Clean up the QoS system. Need to wait for I/Os to
    * complete and deregister each volume. The volume info
@@ -276,6 +275,7 @@ ObjectStorMgr::~ObjectStorMgr() {
 
   delete sm_log;
   delete volTbl;
+  delete omJrnl;
 }
 
 void ObjectStorMgr::nodeEventOmHandler(int node_id,
@@ -323,6 +323,7 @@ ObjectStorMgr::volEventOmHandler(fds_volid_t  volumeId,
       fds_assert(vol != NULL);
       err = objStorMgr->qosCtrl->registerVolume(vol->getVolId(),
                                           dynamic_cast<FDS_VolumeQueue*>(vol->getQueue()));
+      fds_assert(err == ERR_OK);
       if (err != ERR_OK) {
     	  FDS_PLOG(objStorMgr->GetLog()) << "registration failed for vol id " << volumeId << " error: "
     			  << err;
@@ -806,7 +807,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
   diskio::DataTier tierUsed = diskio::maxTier;
 
 
-  ObjectIdJrnlEntry* jrnlEntry =  omJrnl->set_journal_entry_in_use(objId);
+  ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_journal_entry_for_key(objId);
   // Find if this object is a duplicate
   err = checkDuplicate(objId,
 		       objData);
@@ -976,7 +977,7 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
   objData.size = 0;
   objData.data = "";
 
-  ObjectIdJrnlEntry* jrnlEntry =  omJrnl->set_journal_entry_in_use(objId);
+  ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_journal_entry_for_key(objId);
   err = readObject(objId, objData, tierUsed);
   objData.size = objData.data.size();
 

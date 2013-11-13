@@ -49,6 +49,8 @@ private:
 
   boost::posix_time::ptime ctime; /* time the journal was created */
 
+  unsigned int get_trans_id_for_key(const KeyT &key);
+
 public:
  	TransJournal();
 	TransJournal(unsigned int max_jrnl_entries);
@@ -58,14 +60,13 @@ public:
 	void unlock();
 
 	JEntryT *get_journal_entry(int trans_id);
-	unsigned int get_trans_id_for_key(const KeyT &key);
 	void release_trans_id(unsigned int trans_id);
 	long microsecSinceCtime(boost::posix_time::ptime timestamp) {
 	  boost::posix_time::time_duration elapsed = timestamp - ctime;
 	  return elapsed.total_microseconds();
 	}
 
-	JEntryT* set_journal_entry_in_use(const KeyT& key);
+	JEntryT* get_journal_entry_for_key(const KeyT& key);
 	void release_journal_entry_with_notify(JEntryT *entry);
 };
 

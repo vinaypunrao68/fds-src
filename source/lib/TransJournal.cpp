@@ -225,10 +225,11 @@ JEntryT *TransJournal<KeyT, JEntryT>::get_journal_entry(int trans_id) {
 }
 
 
-// Marks the journal entry identified by key to be in use.  If the journal entry
-// is already is use the calling thread will wait until journal entry is released.
+// Marks the journal entry identified by key to be in use and returns it.
+// If the journal entry is already is use the calling thread will wait until
+// journal entry is released.
 template<typename KeyT, typename JEntryT>
-JEntryT* TransJournal<KeyT, JEntryT>::set_journal_entry_in_use(const KeyT& key)
+JEntryT* TransJournal<KeyT, JEntryT>::get_journal_entry_for_key(const KeyT& key)
 {
 	/* Get transaction */
 	unsigned int trans_id = get_trans_id_for_key(key);
@@ -250,8 +251,8 @@ void TransJournal<KeyT, JEntryT>::release_journal_entry_with_notify(JEntryT *jrn
 	jrnl_e->lock();
 	assert(jrnl_e->isActive());
 	jrnl_e->reset();
-	jrnl_e->unlock();
 	jrnl_e->getCond()->notify_one();
+	jrnl_e->unlock();
 }
 
 template class TransJournal<ObjectID, ObjectIdJrnlEntry>;
