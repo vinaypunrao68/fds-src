@@ -80,6 +80,7 @@ PM_ProbeMod::pr_put(ProbeRequest &probe)
     req = new DiskReqTest(vio, oid, buf, true, diskio::diskTier);
     pio.disk_write(req);
     delete req;
+    probe.pr_request_done();
 }
 
 // pr_get
@@ -88,6 +89,7 @@ PM_ProbeMod::pr_put(ProbeRequest &probe)
 void
 PM_ProbeMod::pr_get(ProbeRequest &req)
 {
+    req.req_complete();
 }
 
 // pr_delete
@@ -96,6 +98,7 @@ PM_ProbeMod::pr_get(ProbeRequest &req)
 void
 PM_ProbeMod::pr_delete(ProbeRequest &req)
 {
+    req.req_complete();
 }
 
 // pr_verify_request
@@ -142,38 +145,3 @@ PM_ProbeMod::mod_shutdown()
 
 } // namespace fds
 
-#if 0
-extern "C" {
-
-void
-init_fds_mod(int argc, char **argv)
-{
-    fds::Module *pm_probe_vec[] =
-    {
-        &diskio::gl_dataIOMod,
-        &fds::gl_PM_ProbeMod,
-        nullptr
-    };
-    fds::ModuleVector pm_probe(argc, argv, pm_probe_vec);
-    pm_probe.mod_execute();
-}
-
-extern void
-fds_do_read(size_t off, size_t size)
-{
-    cout << "RD " << off << ", size " << size << endl;
-}
-
-extern void
-fds_do_write(size_t off, size_t size)
-{
-    fds::ObjectBuf  buf;
-    fds::ProbeRequest probe(0, buf, fds::gl_PM_ProbeMod);
-
-    fds::gl_PM_ProbeMod.pr_put(probe);
-//    cout << "WR " << off << ", size " << size << endl;
-}
-
-} // extern "C"
-
-#endif

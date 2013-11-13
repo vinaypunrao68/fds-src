@@ -39,9 +39,11 @@ cuse_read(fuse_req_t req, size_t size, off_t off, struct fuse_file_info *fi)
     probe = mod->pr_alloc_req(oid, 0, vid, off, size, nullptr);
     fds_verify(probe != nullptr);
 
+    mod->pr_enqueue(*probe);
     mod->pr_intercept_request(*probe);
     mod->pr_get(*probe);
     mod->pr_verify_request(*probe);
+    probe->req_wait();
 
     fuse_reply_buf(req, probe->pr_rd_buf(&rd_size), size);
     delete probe;
@@ -68,9 +70,11 @@ cuse_write(fuse_req_t            req,
     probe = mod->pr_alloc_req(oid, 0, vid, off, size, buf);
     fds_verify(probe != nullptr);
 
+    mod->pr_enqueue(*probe);
     mod->pr_intercept_request(*probe);
     mod->pr_put(*probe);
     mod->pr_verify_request(*probe);
+    probe->req_wait();
 
     fuse_reply_write(req, size);
     delete probe;
@@ -197,7 +201,7 @@ ProbeMainLib::mod_shutdown()
 // --------------
 //
 void
-ProbeMainLib::probe_run_main(ProbeMod *adapter)
+ProbeMainLib::probe_run_main(ProbeMod *adapter, bool thr)
 {
     struct cuse_info ci;
     struct fuse_args fargs =
