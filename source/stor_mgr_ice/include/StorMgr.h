@@ -36,6 +36,7 @@
 #include <utility>
 #include <atomic>
 #include <unordered_map>
+#include <include/TransJournal.h>
 #include <ObjStats.h>
 
 /*
@@ -136,7 +137,7 @@ namespace fds {
     /*
      * Local storage members
      */
-    fds_mutex *objStorMutex;
+    TransJournal<ObjectID, ObjectIdJrnlEntry> *omJrnl;
     ObjectDB  *objStorDB;
     ObjectDB  *objIndexDB;
 

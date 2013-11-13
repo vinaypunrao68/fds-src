@@ -289,4 +289,15 @@ public:
 
 }  // namespace fds
 
+namespace std {
+template <>
+struct hash<fds::ObjectID>
+  {
+    std::size_t operator()(const fds::ObjectID oid) const
+    {
+    	return std::hash<std::string>()(oid.ToHex());
+    }
+  };
+}
+
 #endif  // SOURCE_LIB_FDS_TYPES_H_
