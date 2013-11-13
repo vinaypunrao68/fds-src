@@ -10,6 +10,7 @@ user_cpp         :=               \
 	qos_htb.cpp  \
 	fds_obj_cache.cpp	\
 	qos_min_prio.cpp        \
+	TransJournal.cpp        \
 
 #user_cc          :=               \
 #    tvclib.c                      \
