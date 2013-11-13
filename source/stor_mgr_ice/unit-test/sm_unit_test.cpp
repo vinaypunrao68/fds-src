@@ -79,6 +79,7 @@ class SmUnitTest {
                                    << " with object ID " << ioReq.pr_oid << " and data size "
                                    << putReq->data_obj_len;
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
       req.req_complete();
     }
     void pr_get(ProbeRequest &req) {
@@ -87,6 +88,13 @@ class SmUnitTest {
     }
     void pr_delete(ProbeRequest &req) {
       req.req_complete();
+=======
+    }
+    void pr_get(ProbeRequest &req) {
+      std::cout << "Got a get print" << std::endl;
+    }
+    void pr_delete(ProbeRequest &req) {
+>>>>>>> Stashed changes
 =======
     }
     void pr_get(ProbeRequest &req) {

@@ -275,8 +275,11 @@ class ProbeMod : public Module
     // to FDS Probe to receive workloads and hook up with standard front-end
     // unit test code.
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     // On every put/get/delete, the adapter must call pr_request_done() to
     // complete the request.
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
     //
@@ -287,6 +290,7 @@ class ProbeMod : public Module
     virtual void pr_verify_request(ProbeRequest &req) = 0;
     virtual void pr_gen_report(std::string &out) = 0;
 
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
     // pr_enqueue
     // ----------
@@ -299,6 +303,8 @@ class ProbeMod : public Module
     {
         pr_queue.rq_enqueue(&req, 0);
     }
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
     // pr_get_inj_points
@@ -336,7 +342,10 @@ class ProbeMod : public Module
   protected:
     friend class ProbeRequest;
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     fdsio::RequestQueue      pr_queue;
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
     probe_mod_param_t        &pr_param;
@@ -390,7 +399,11 @@ class ProbeMainLib : public Module
     virtual void mod_shutdown();
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     void probe_run_main(ProbeMod *adapter, bool thr = false);
+=======
+    void probe_run_main(ProbeMod *adapter);
+>>>>>>> Stashed changes
 =======
     void probe_run_main(ProbeMod *adapter);
 >>>>>>> Stashed changes
