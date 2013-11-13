@@ -29,7 +29,9 @@ class SmUnitTest {
    */
   class SmUtProbe : public ProbeMod {
    private:
-    SmUnitTest  *parentUt;
+    SmUnitTest *parentUt;
+    fds_mutex  *offMapMtx;
+    std::unordered_map<fds_uint64_t, ObjectID> offsetMap;
 
    public:
     explicit SmUtProbe(const std::string &name,
@@ -38,8 +40,10 @@ class SmUnitTest {
                        SmUnitTest        *parentUt_arg) :
         ProbeMod(name.c_str(), param, owner),
         parentUt(parentUt_arg) {
+      offMapMtx = new fds_mutex("offset map mutex");
     }
     ~SmUtProbe() {
+      delete offMapMtx;
     }
 
     void pr_intercept_request(ProbeRequest &req) {
@@ -71,36 +75,62 @@ class SmUnitTest {
       putReq->data_obj_id.hash_low  = ioReq.pr_oid.GetLow();
 
       putHdr->req_cookie = parentUt->addPending(ioReq);
-
+      
       parentUt->fdspDPAPI->begin_PutObject(putHdr, putReq);
       FDS_PLOG(parentUt->test_log) << "Sent put obj message to SM"
                                    << " for volume offset " << putReq->volume_offset
                                    << " with object ID " << ioReq.pr_oid << " and data size "
                                    << putReq->data_obj_len;
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-      req.req_complete();
+      
+      /*
+       * Cache the object ID and data so we can read and verify later.
+       */
+      offMapMtx->lock();
+      offsetMap[ioReq.pr_voff] = ioReq.pr_oid;
+      offMapMtx->unlock();
+      parentUt->updatePutObj(ioReq.pr_oid, putReq->data_obj);
     }
     void pr_get(ProbeRequest &req) {
-      std::cout << "Got a get print" << std::endl;
-      req.req_complete();
+      ProbeIORequest &ioReq = dynamic_cast<ProbeIORequest&>(req);
+      
+      FDS_ProtocolInterface::FDSP_MsgHdrTypePtr getHdr =
+          new FDS_ProtocolInterface::FDSP_MsgHdrType;
+      getHdr->msg_code       = FDS_ProtocolInterface::FDSP_MSG_GET_OBJ_REQ;
+      getHdr->src_id         = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
+      getHdr->dst_id         = FDS_ProtocolInterface::FDSP_STOR_MGR;
+      getHdr->result         = FDS_ProtocolInterface::FDSP_ERR_OK;
+      getHdr->err_code       = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+      getHdr->src_node_name  = "sm_test_client";
+      getHdr->glob_volume_id = 5;
+      getHdr->num_objects    = 1;
+
+      FDS_ProtocolInterface::FDSP_GetObjTypePtr getReq =
+          new FDS_ProtocolInterface::FDSP_GetObjType;
+      if (offsetMap.count(ioReq.pr_voff) == 0) {
+        std::cout << "Recieved read for unknown offset " << ioReq.pr_voff
+                  << " so just ending the read here!"<< std::endl;
+        ioReq.req_complete();
+        return;
+      }
+      offMapMtx->lock();
+      ioReq.pr_oid = offsetMap[ioReq.pr_voff];
+      offMapMtx->unlock();
+      getReq->data_obj_id.hash_high = ioReq.pr_oid.GetHigh();
+      getReq->data_obj_id.hash_low = ioReq.pr_oid.GetLow();
+
+      size_t reqSize;
+      const char* buf_ptr = ioReq.pr_rd_buf(&reqSize);
+      getReq->data_obj_len = reqSize;
+
+      getHdr->req_cookie = parentUt->addPending(ioReq);
+
+      parentUt->fdspDPAPI->begin_GetObject(getHdr, getReq);
+      FDS_PLOG(parentUt->test_log) << "Sent get obj message to SM"
+                                   << " for object ID " << ioReq.pr_oid << " and data size "
+                                   << getReq->data_obj_len;
     }
     void pr_delete(ProbeRequest &req) {
       req.req_complete();
-=======
-    }
-    void pr_get(ProbeRequest &req) {
-      std::cout << "Got a get print" << std::endl;
-    }
-    void pr_delete(ProbeRequest &req) {
->>>>>>> Stashed changes
-=======
-    }
-    void pr_get(ProbeRequest &req) {
-      std::cout << "Got a get print" << std::endl;
-    }
-    void pr_delete(ProbeRequest &req) {
->>>>>>> Stashed changes
     }
     void pr_verify_request(ProbeRequest &req) {
     }
@@ -138,6 +168,11 @@ class SmUnitTest {
                    get_req->data_obj_id.hash_low);
       std::string objData = get_req->data_obj;
       fds_verify(parentUt->checkGetObj(oid, objData) == true);
+
+      ProbeIORequest *ioReq = parentUt->getAndRmPending(msg_hdr->req_cookie);
+      if (ioReq != NULL) {
+        ioReq->req_complete();
+      }
     }
 
     void PutObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
@@ -148,8 +183,11 @@ class SmUnitTest {
        */
       fds_verify(msg_hdr->result == FDS_ProtocolInterface::FDSP_ERR_OK);
       ProbeIORequest *ioReq = parentUt->getAndRmPending(msg_hdr->req_cookie);
-      std::cout << "Got a put response for request " << msg_hdr->req_cookie
-                << " and object ID " << ioReq->pr_oid << std::endl;
+      if (ioReq != NULL) {
+        ioReq->req_complete();
+      } else {
+        std::cout << "The ioreq on the resp is NULL!" << std::endl;
+      }
     }
 
     void UpdateCatalogObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
@@ -205,17 +243,16 @@ class SmUnitTest {
     fds_uint64_t reqId = nextReqId;
     nextReqId++;
     pendingIoMap[reqId] = &ioReq;
-    std::cout << "Placed oid " << pendingIoMap[reqId]->pr_oid << std::endl;
     reqMutex->unlock();
     return reqId;
   }
   ProbeIORequest* getAndRmPending(fds_uint64_t reqId) {
+    ProbeIORequest *ioReq = NULL;
     reqMutex->lock();
-    fds_verify(pendingIoMap.count(reqId) > 0);
-    std::cout << "Before pullin out ioReq oid " << pendingIoMap[reqId]->pr_oid << std::endl;
-    ProbeIORequest *ioReq = pendingIoMap[reqId];
-    std::cout << "Pulled out ioReq oid " << ioReq->pr_oid << std::endl;
-    pendingIoMap.erase(reqId);
+    if (pendingIoMap.count(reqId) > 0) {
+      ioReq = pendingIoMap[reqId];
+      pendingIoMap.erase(reqId);
+    }
     reqMutex->unlock();
     return ioReq;
   }
@@ -241,8 +278,8 @@ class SmUnitTest {
       objMapLock->unlock();
       return false;
     }
-    FDS_PLOG(test_log) << "Get object " << oid
-                       << " check: SUCCESS; " << objData;
+    FDS_PLOG(test_log) << "Get check for object " << oid
+                       << ": SUCCESS";
     objMapLock->unlock();
     return true;
   }
@@ -255,8 +292,7 @@ class SmUnitTest {
      * cached at that oid.
      */
     added_objs[oid] = objData;
-    FDS_PLOG(test_log) << "Put object " << oid << " with data "
-                       << objData << " into map ";
+    FDS_PLOG(test_log) << "Put object " << oid << " into map ";
     objMapLock->unlock();
   }
 
