@@ -274,6 +274,8 @@ class ProbeMod : public Module
     // Module owner must provide the following functions to connect the module
     // to FDS Probe to receive workloads and hook up with standard front-end
     // unit test code.
+    // On every put/get/delete, the adapter must call pr_request_done() to
+    // complete the request.
     //
     virtual void pr_intercept_request(ProbeRequest &req) = 0;
     virtual void pr_put(ProbeRequest &req) = 0;
@@ -282,6 +284,17 @@ class ProbeMod : public Module
     virtual void pr_verify_request(ProbeRequest &req) = 0;
     virtual void pr_gen_report(std::string &out) = 0;
 
+    // pr_enqueue
+    // ----------
+    // Enqueue the request to pending queue so that it can be called with
+    // pr_request_done() for async code path.  The calling thread can block
+    // waiting for the completion in req->req_wait().
+    //
+    virtual void
+    pr_enqueue(ProbeRequest &req)
+    {
+        pr_queue.rq_enqueue(&req, 0);
+    }
     // pr_get_inj_points
     // -----------------
     // Return the list of injection points that this probe module provides.
@@ -316,6 +329,7 @@ class ProbeMod : public Module
 
   protected:
     friend class ProbeRequest;
+    fdsio::RequestQueue      pr_queue;
     probe_mod_param_t        &pr_param;
     Module                   *pr_mod_owner;
     probe_stat_info_t        *pr_stats_info;
@@ -366,7 +380,7 @@ class ProbeMainLib : public Module
     virtual void mod_startup();
     virtual void mod_shutdown();
 
-    void probe_run_main(ProbeMod *adapter);
+    void probe_run_main(ProbeMod *adapter, bool thr = false);
   private:
     unsigned int             dev_major;
     unsigned int             dev_minor;

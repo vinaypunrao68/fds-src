@@ -80,6 +80,7 @@ PM_ProbeMod::pr_put(ProbeRequest &probe)
     req = new DiskReqTest(vio, oid, buf, true, diskio::diskTier);
     pio.disk_write(req);
     delete req;
+    probe.pr_request_done();
 }
 
 // pr_get
@@ -88,6 +89,7 @@ PM_ProbeMod::pr_put(ProbeRequest &probe)
 void
 PM_ProbeMod::pr_get(ProbeRequest &req)
 {
+    req.req_complete();
 }
 
 // pr_delete
@@ -96,6 +98,7 @@ PM_ProbeMod::pr_get(ProbeRequest &req)
 void
 PM_ProbeMod::pr_delete(ProbeRequest &req)
 {
+    req.req_complete();
 }
 
 // pr_verify_request

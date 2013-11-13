@@ -383,9 +383,11 @@ namespace fds {
 
       boost::posix_time::time_duration wait_duration = io->dispatch_time - io->enqueue_time;
       boost::posix_time::time_duration service_duration = io->io_done_time - io->dispatch_time;
+      boost::posix_time::time_duration total_duration = io->io_done_time - io->enqueue_time;
 
       io->io_wait_time = wait_duration.total_microseconds();
       io->io_service_time = service_duration.total_microseconds();
+      io->io_total_time = total_duration.total_microseconds();
 
       FDS_PLOG(qda_log) << "Dispatcher: IO Request " << io->io_req_id 
 			<< " for vol id " << io->io_vol_id

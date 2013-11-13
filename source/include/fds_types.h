@@ -268,6 +268,7 @@ public:
    fds_int32_t io_status;
    fds_uint32_t io_service_time; //usecs
    fds_uint32_t io_wait_time; //usecs
+   fds_uint32_t io_total_time; //usecs
    ioModule io_module; // IO belongs to which module for Qos proc 
    boost::posix_time::ptime enqueue_time;
    boost::posix_time::ptime dispatch_time;

@@ -105,7 +105,7 @@ class FilePersisDataIO : public PersisDataIO
     fds::fds_mutex           fi_mutex;
     int                      fi_loc;
     int                      fi_fd;
-    fds_int64_t              fi_cur_off;
+    fds_int64_t             fi_cur_off;
     char const *const        fi_path;
 };
 

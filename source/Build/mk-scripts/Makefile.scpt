@@ -94,7 +94,11 @@ endef
 # Script to do a clean
 #
 scpt_make_clean :=                                                            \
-    [ "$(topdir)" != "." ] && rm -rf $(osdep_user_build) $(osdep_kern_build); \
+    if [ "$(topdir)" != "." ]; then                                           \
+        rm -rf $(osdep_user_build) $(osdep_kern_build);                       \
+    else                                                                      \
+        cd Build/$(osdep_target) && rm -rf bin lib tests;                     \
+    fi;                                                                       \
     if [ ! -z "$(comm_rpc_files)" ]; then                                     \
         rm $(comm_rpc_files) > /dev/null 2>&1;                                \
     fi;                                                                       \

@@ -1,8 +1,9 @@
 topdir            := ../..
+probe_dir         := $(topdir)/fds-probe
 user_target       := test
 user_rtime_env    := user
 
-user_incl_dir     := ../include /usr/include/fuse
+user_incl_dir     := $(probe_dir)/include /usr/include/fuse
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  :=                                                          \

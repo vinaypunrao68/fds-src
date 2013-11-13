@@ -2,6 +2,7 @@ topdir           := ..
 user_target      := lib
 user_rtime_env   := user
 user_cpp         :=               \
+    PerfTrace.cpp        \
     Catalog.cpp                   \
     VolumeCatalog.cpp             \
     OMgrClient.cpp                \

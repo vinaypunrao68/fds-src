@@ -25,6 +25,7 @@ ProbeRequest::~ProbeRequest()
 void
 ProbeRequest::pr_request_done()
 {
+    fdsio::Request::req_complete();
 }
 
 void
@@ -54,7 +55,7 @@ ProbeRequest::pr_report_stat(probe_stat_rec_t *out, int rec_cnt)
 ProbeMod::ProbeMod(char const *const name,
                    probe_mod_param_t &param,
                    Module            *owner)
-    : Module(name), pr_param(param), pr_mod_owner(owner),
+    : Module(name), pr_queue(1, 0xffff), pr_param(param), pr_mod_owner(owner),
       pr_stats_info(nullptr), pr_inj_points(nullptr), pr_inj_actions(nullptr)
 {
 }
