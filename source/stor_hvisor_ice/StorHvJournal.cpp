@@ -296,7 +296,7 @@ void StorHvJournal::release_trans_id(unsigned int trans_id)
 
   unlock();
 
-   FDS_PLOG(storHvisor->GetLog()) << " StorHvJournal:" << "IO-XID:" << trans_id <<  " - Released transaction id  " << trans_id ;
+  FDS_PLOG(storHvisor->GetLog()) << " StorHvJournal:" << "IO-XID:" << trans_id <<  " - Released transaction id  " << trans_id ;
 
 }
 
@@ -308,25 +308,28 @@ StorHvJournalEntry *StorHvJournal::get_journal_entry(int trans_id) {
 }
 
 
+  // Note: Caller holds the lock to the entry
+  // And takes care of releasing the transaction id to the free pool
 void StorHvJournalEntry::fbd_process_req_timeout()
 {
-fbd_request *req;
-  lock();
+  fbd_request *req;
   if (isActive()) {
-      req = (fbd_request_t *)write_ctx;
-      if (req) {
-         write_ctx = 0;
-         FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " - Timing out, responding to  the block : " << req;
-         fbd_complete_req(req, -1);
-      }
-      reset();
+    storHvisor->qos_ctrl->markIODone(io);
+    req = (fbd_request_t *)write_ctx;
+    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " - Timing out, responding to  the block : " << req;
+    if (req) {
+      write_ctx = 0;
+      fbd_complete_req(req, -1);
+    }
+    reset();
   }
-  unlock();
 }
 
 void StorHvIoTimerTask::runTimerTask()
 {
-   jrnlEntry->fbd_process_req_timeout();
-   jrnlTbl->release_trans_id(jrnlEntry->trans_id);
+  jrnlEntry->lock();
+  jrnlEntry->fbd_process_req_timeout();
+  jrnlTbl->release_trans_id(jrnlEntry->trans_id);
+  jrnlEntry->unlock();
 }
 } // namespace fds

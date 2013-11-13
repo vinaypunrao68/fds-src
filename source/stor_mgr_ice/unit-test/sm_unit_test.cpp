@@ -18,11 +18,85 @@
 #include <fds_assert.h>
 #include <fds_types.h>
 #include <concurrency/Mutex.h>
+#include <fds-probe/fds_probe.h>
 
 namespace fds {
 
 class SmUnitTest {
  private:
+  /*
+   * FDS Probe workload gen class.
+   */
+  class SmUtProbe : public ProbeMod {
+   private:
+    SmUnitTest *parentUt;
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr putHdr;
+
+   public:
+    explicit SmUtProbe(const std::string &name,
+                       probe_mod_param_t &param,
+                       Module            *owner,
+                       SmUnitTest        *parentUt_arg) :
+        ProbeMod(name.c_str(), param, owner),
+        parentUt(parentUt_arg) {
+
+      putHdr = new FDS_ProtocolInterface::FDSP_MsgHdrType;
+      putHdr->msg_code      = FDS_ProtocolInterface::FDSP_MSG_PUT_OBJ_REQ;    
+      putHdr->src_id        = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
+      putHdr->dst_id        = FDS_ProtocolInterface::FDSP_STOR_MGR;    
+      putHdr->result        = FDS_ProtocolInterface::FDSP_ERR_OK;
+      putHdr->err_code      = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+      putHdr->src_node_name = "sm_test_client";
+      /*
+       * TODO: Change this! We should reg a volume.
+       */
+      putHdr->glob_volume_id = 5;
+      putHdr->num_objects    = 1;
+    }
+    ~SmUtProbe() {
+    }
+
+    void pr_intercept_request(ProbeRequest &req) {
+    }
+    void pr_put(ProbeRequest &req) {
+      ProbeIORequest &ioReq = dynamic_cast<ProbeIORequest&>(req);
+
+      FDS_ProtocolInterface::FDSP_PutObjTypePtr putReq =
+          new FDS_ProtocolInterface::FDSP_PutObjType;
+
+      putReq->volume_offset         = ioReq.pr_voff;
+      putReq->data_obj_len          = ioReq.pr_wr_size;
+      putReq->data_obj              = std::string(ioReq.pr_wr_buf, ioReq.pr_wr_size);
+      MurmurHash3_x64_128(putReq->data_obj.c_str(),
+                          putReq->data_obj_len,
+                          0,
+                          &ioReq.pr_oid);
+      putReq->data_obj_id.hash_high = ioReq.pr_oid.GetHigh();
+      putReq->data_obj_id.hash_low  = ioReq.pr_oid.GetLow();
+      parentUt->fdspDPAPI->begin_PutObject(putHdr, putReq);
+      FDS_PLOG(parentUt->test_log) << "Sent put obj message to SM"
+                                   << " for volume offset " << putReq->volume_offset
+                                   << " with object ID " << ioReq.pr_oid << " and data size "
+                                   << putReq->data_obj_len;
+      req.req_complete();
+    }
+    void pr_get(ProbeRequest &req) {
+      std::cout << "Got a get print" << std::endl;
+      req.req_complete();
+    }
+    void pr_delete(ProbeRequest &req) {
+      req.req_complete();
+    }
+    void pr_verify_request(ProbeRequest &req) {
+    }
+    void pr_gen_report(std::string &out) {
+    }
+    void mod_startup() {
+    }
+    void mod_shutdown() {
+    }
+  };
+
   /*
    * Ice response communuication class.
    */
@@ -628,7 +702,38 @@ class SmUnitTest {
     FDS_PLOG(test_log) << "Ending test: basic_migration()";
 
     return 0;
+  }
 
+  fds_uint32_t basic_probe() {
+    FDS_PLOG(test_log) << "Starting test: basic_probe()";
+
+    probe_mod_param_t probe_param;
+    SmUtProbe probe("SM unit test probe", probe_param, NULL, this);
+
+    Module *sm_probe_vec[] = {
+      &probe,
+      &gl_probeMainLib,
+      NULL
+    };
+
+    /*
+     * Create some default cmdline args to pass in.
+     * TODO: Actually connect with fds module to use
+     * the command line stuff from there.
+     */
+    int argc = 2;
+    char *binName = new char[13];
+    strcpy(binName, "sm_unit_test\0");
+    char *argName = new char[3];
+    strcpy(argName, "-f\0");
+    char *argv[2] = {binName, argName};
+    ModuleVector probeVec(argc, argv, sm_probe_vec);
+
+    probeVec.mod_execute();
+
+    gl_probeMainLib.probe_run_main(&probe);
+
+    return 0;
   }
 
  public:
@@ -660,6 +765,7 @@ class SmUnitTest {
     unit_tests.push_back("basic_update");
     unit_tests.push_back("basic_uq");
     unit_tests.push_back("basic_dedupe");
+    unit_tests.push_back("basic_migration");
 
     num_updates = 100;
   }
@@ -690,6 +796,8 @@ class SmUnitTest {
     return test_log;
   }
 
+  friend SmUtProbe;
+
   fds_int32_t Run(const std::string& testname) {
     fds_int32_t result = 0;
     std::cout << "Running unit test \"" << testname << "\"" << std::endl;
@@ -711,6 +819,8 @@ class SmUnitTest {
       result = basic_dedupe();
     } else if (testname == "basic_migration") {
       result = basic_migration();
+    } else if (testname == "basic_probe") {
+      result = basic_probe();
     } else {
       std::cout << "Unknown unit test " << testname << std::endl;
     }

@@ -1,7 +1,7 @@
 topdir            := ..
 user_target       := exe
 user_rtime_env    := user
-user_build_dir    := orch-cli unit-test
+user_build_dir    := orch-cli
 user_install      := om_client.conf orch_mgr.conf
 user_install_loc  := exe
 
