@@ -105,11 +105,7 @@ class FilePersisDataIO : public PersisDataIO
     fds::fds_mutex           fi_mutex;
     int                      fi_loc;
     int                      fi_fd;
-<<<<<<< Updated upstream
-    fds_int64_t              fi_cur_off;
-=======
     fds_int64_t             fi_cur_off;
->>>>>>> Stashed changes
     char const *const        fi_path;
 };
 
