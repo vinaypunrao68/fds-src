@@ -185,7 +185,7 @@ ObjectStorMgr::ObjectStorMgr() :
   // Init  the log infra  
   sm_log = new fds_log("sm", "logs");
   FDS_PLOG(sm_log) << "Constructing the Object Storage Manager";
-
+  objStorMutex = new fds_mutex("Object Store Mutex");
   waitingReqMutex = new fds_mutex("Object Store Mutex");
 
   /*
