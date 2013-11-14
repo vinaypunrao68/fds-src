@@ -83,6 +83,7 @@ public:
 	bool isActive();
 	void setJournalKey(const ObjectID &key);
 	ObjectID getJournalKey();
+	unsigned int getTransId();
 private:
 	ObjectID _key;
 	fds_mutex _mutex;
