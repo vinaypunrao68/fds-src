@@ -21,7 +21,7 @@ user_non_fds_libs :=                                                          \
 stor_mgr_cpp      := stormgr_main.cpp
 
 user_cpp          :=                   \
-    $(stor_mgr_cpp)                    \
+    $(stor_mgr_cpp)
 
 user_bin_exe      := StorMgr
 StorMgr           := $(stor_mgr_cpp)

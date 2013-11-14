@@ -10,7 +10,12 @@
 scpt_build_subdir =                                                          \
     for f in $(user_build_dir); do                                           \
         echo Making $(MAKECMDGOALS) in `pwd`/$$f;                            \
-        (cd $$f && $(MAKE) $(MAKECMDGOALS) --no-print-directory) || exit 1;  \
+        makearg="$(MAKECMDGOALS) --no-print-directory";                      \
+        if [ -e $$f/Makefile.fds ]; then                                     \
+            (cd $$f && $(MAKE) -f Makefile.fds $$makearg) || exit 1;         \
+        else                                                                 \
+            (cd $$f && $(MAKE) $$makearg) || exit 1;                         \
+      fi                                                                     \
     done
 
 # ----------------------------------------------------------------------------

@@ -135,10 +135,12 @@ include $(incl_scripts)/Makefile.toolchain
 
 # Common library that most modules need to link.
 #
-main_kern_dep_libs     :=
-main_exec_dep_libs     := fds-osdep pthread
-main_tool_dep_libs     :=
-main_test_dep_libs     :=
+ifneq ($(user_ext_build), true)
+    main_kern_dep_libs :=
+    main_exec_dep_libs := fds-osdep pthread
+    main_tool_dep_libs :=
+    main_test_dep_libs :=
+endif
 
 # ARCH and OSDep settings.
 #
