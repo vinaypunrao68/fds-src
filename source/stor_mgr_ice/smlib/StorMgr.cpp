@@ -186,7 +186,6 @@ ObjectStorMgr::ObjectStorMgr() :
   sm_log = new fds_log("sm", "logs");
   FDS_PLOG(sm_log) << "Constructing the Object Storage Manager";
 
-  objStorMutex = new fds_mutex("Object Store Mutex");
   waitingReqMutex = new fds_mutex("Object Store Mutex");
 
   /*
@@ -205,6 +204,9 @@ ObjectStorMgr::ObjectStorMgr() :
   dirtyFlashObjs = new ObjQueue(maxDirtyObjs);
   fds_verify(dirtyFlashObjs->is_lock_free() == true);
   writeBackThreads = new fds_threadpool(numWBThreads);
+
+  /* Set up the journal */
+  omJrnl = new TransJournal<ObjectID, ObjectIdJrnlEntry>();
 
   /*
    * Setup QoS related members.
@@ -273,7 +275,7 @@ ObjectStorMgr::~ObjectStorMgr() {
 
   delete sm_log;
   delete volTbl;
-  delete objStorMutex;
+  delete omJrnl;
 }
 
 void ObjectStorMgr::nodeEventOmHandler(int node_id,
@@ -303,6 +305,7 @@ ObjectStorMgr::volEventOmHandler(fds_volid_t  volumeId,
                                  VolumeDesc  *vdb,
                                  int          action) {
   StorMgrVolume* vol = NULL;
+  Error err = ERR_OK;
 
   switch(action) {
     case FDS_VOL_ACTION_CREATE :
@@ -318,8 +321,13 @@ ObjectStorMgr::volEventOmHandler(fds_volid_t  volumeId,
       objStorMgr->volTbl->registerVolume(*vdb);
       vol = objStorMgr->volTbl->getVolume(volumeId);
       fds_assert(vol != NULL);
-      objStorMgr->qosCtrl->registerVolume(vol->getVolId(),
+      err = objStorMgr->qosCtrl->registerVolume(vol->getVolId(),
                                           dynamic_cast<FDS_VolumeQueue*>(vol->getQueue()));
+      fds_assert(err == ERR_OK);
+      if (err != ERR_OK) {
+    	  FDS_PLOG(objStorMgr->GetLog()) << "registration failed for vol id " << volumeId << " error: "
+    			  << err;
+      }
       break;
 
     case FDS_VOL_ACTION_DELETE:
@@ -798,14 +806,13 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
   fds_volid_t volId         = putReq->getVolId();
   diskio::DataTier tierUsed = diskio::maxTier;
 
-  objStorMutex->lock();
 
+  ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_journal_entry_for_key(objId);
   // Find if this object is a duplicate
   err = checkDuplicate(objId,
 		       objData);
   
   if (err == ERR_DUPLICATE) {
-    objStorMutex->unlock();
     FDS_PLOG(objStorMgr->GetLog()) << "Put dup:  " << err
                                    << ", returning success";
     /*
@@ -813,7 +820,6 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
      */
     err = ERR_OK;
   } else if (err != ERR_OK) {
-    objStorMutex->unlock();
     FDS_PLOG(objStorMgr->GetLog()) << "Failed to check object duplicate status on put: "
                                    << err;
   } else {
@@ -822,7 +828,6 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
      * Write the object and record which tier it when to
      */
     err = writeObject(objId, objData, volId, tierUsed);
-    objStorMutex->unlock();
     if (err != fds::ERR_OK) {
       FDS_PLOG(objStorMgr->GetLog()) << "Failed to put object " << err;
     } else {
@@ -848,6 +853,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
     */
   }
 
+  omJrnl->release_journal_entry_with_notify(jrnlEntry);
   qosCtrl->markIODone(*putReq,
                       tierUsed);
 
@@ -971,9 +977,8 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
   objData.size = 0;
   objData.data = "";
 
-  objStorMutex->lock();
+  ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_journal_entry_for_key(objId);
   err = readObject(objId, objData, tierUsed);
-  objStorMutex->unlock();
   objData.size = objData.data.size();
 
   if (err != fds::ERR_OK) {
@@ -991,6 +996,7 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
                                    << " for request ID " << getReq->io_req_id;
   }
 
+  omJrnl->release_journal_entry_with_notify(jrnlEntry);
   qosCtrl->markIODone(*getReq, tierUsed);
 
   /*
@@ -1333,7 +1339,7 @@ ObjectStorMgr::run(int argc, char* argv[]) {
       testVdb = new VolumeDesc(testVolName,
                                testVolId,
                                8+ testVolId,
-                               1000,       /* high max iops so that unit tests does not take forever to finish */
+                               10000,       /* high max iops so that unit tests does not take forever to finish */
                                testVolId);
       fds_assert(testVdb != NULL);
       if ( (testVolId % 3) == 0)

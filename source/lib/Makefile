@@ -2,6 +2,7 @@ topdir           := ..
 user_target      := lib
 user_rtime_env   := user
 user_cpp         :=               \
+    PerfTrace.cpp        \
     Catalog.cpp                   \
     VolumeCatalog.cpp             \
     OMgrClient.cpp                \
@@ -9,6 +10,7 @@ user_cpp         :=               \
 	qos_htb.cpp  \
 	fds_obj_cache.cpp	\
 	qos_min_prio.cpp        \
+	TransJournal.cpp        \
 
 #user_cc          :=               \
 #    tvclib.c                      \

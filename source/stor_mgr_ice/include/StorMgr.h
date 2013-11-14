@@ -36,6 +36,7 @@
 #include <utility>
 #include <atomic>
 #include <unordered_map>
+#include <include/TransJournal.h>
 #include <ObjStats.h>
 
 /*
@@ -136,7 +137,7 @@ namespace fds {
     /*
      * Local storage members
      */
-    fds_mutex *objStorMutex;
+    TransJournal<ObjectID, ObjectIdJrnlEntry> *omJrnl;
     ObjectDB  *objStorDB;
     ObjectDB  *objIndexDB;
 
@@ -191,7 +192,7 @@ namespace fds {
       Error markIODone(const FDS_IOType& _io) {
 	Error err(ERR_OK);
 	dispatcher->markIODone((FDS_IOType *)&_io);
-	stats->recordIO(_io.io_vol_id, 0);
+	stats->recordIO(_io.io_vol_id, _io.io_total_time);
 	return err;
       }
 

@@ -1,0 +1,17 @@
+topdir         := $(nginx_dir)/..
+user_ext_build := true
+
+user_incl_dir  += \
+    $(nginx_src_dir)/core \
+    $(nginx_src_dir)/event \
+    $(nginx_src_dir)/event/modules \
+    $(nginx_src_dir)/os/unix \
+    $(nginx_src_dir)/http \
+    $(nginx_src_dir)/http/modules \
+    $(nginx_src_dir)/mail \
+    $(nginx_dir)/objs
+
+user_cc_flags  += \
+    -pipe -O -W -Wall -Wpointer-arith -Wno-unused-parameter -Werror -g
+
+include $(topdir)/Makefile.incl
