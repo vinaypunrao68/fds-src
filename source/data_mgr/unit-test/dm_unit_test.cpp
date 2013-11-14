@@ -9,12 +9,19 @@
 #include <vector>
 #include <string>
 #include <list>
+#include <atomic>
 
 #include <util/Log.h>
 #include <fds_types.h>
 #include <fdsp/FDSP.h>
+#include "../../unit-test/lib/test_stat.h"
 
-#define NUM_CONC_REQS 3
+#define DEF_NUM_CONC_REQS 3
+int num_conc_reqs = DEF_NUM_CONC_REQS;
+
+std::atomic<unsigned int> num_ios_outstanding;
+fds::StatIOPS *iops_stats;
+
 
 namespace fds {
 
@@ -27,6 +34,8 @@ class DmUnitTest {
   fds_log *test_log;
 
   fds_uint32_t num_updates;
+  bool test_mode_perf;
+  int max_outstanding_ios;
 
   /*
    * Unit test funtions
@@ -52,11 +61,22 @@ class DmUnitTest {
 
     fds_uint32_t block_id;
     ObjectID oid;
-    Ice::AsyncResultPtr rp[NUM_CONC_REQS];
+    Ice::AsyncResultPtr *rp;
+	
+    rp = new Ice::AsyncResultPtr[num_conc_reqs];
 
     for (fds_uint32_t i = 0; i < num_updates; i++) {
       block_id = i;
       oid = ObjectID(i, i * i);
+
+      if ((test_mode_perf) && (max_outstanding_ios > 0)){
+	fds_uint32_t n_ios_outstanding = atomic_load(&num_ios_outstanding);
+	while (n_ios_outstanding >= max_outstanding_ios)
+	  {
+	    usleep(1000);
+	    n_ios_outstanding = atomic_load(&num_ios_outstanding);
+	  }
+      }
 
       update_req->volume_offset         = block_id;
       update_req->dm_transaction_id     = 1;
@@ -66,11 +86,13 @@ class DmUnitTest {
       update_req->data_obj_id.hash_low  = oid.GetLow();
 
       try {
-        rp[i%NUM_CONC_REQS] = fdspDPAPI->begin_UpdateCatalogObject(
+        rp[i%num_conc_reqs] = fdspDPAPI->begin_UpdateCatalogObject(
             msg_hdr, update_req);
         FDS_PLOG(test_log) << "Sent trans open message to DM"
                           << " for volume offset" << update_req->volume_offset
                           << " and object " << oid;
+	fds_uint32_t n_ios_outstanding = atomic_fetch_add(&num_ios_outstanding, (unsigned int)1);
+
       } catch(...) {
         FDS_PLOG(test_log) << "Failed to send trans open message to DM"
                            << " for volume offsete "
@@ -78,14 +100,19 @@ class DmUnitTest {
                            << " an object " << oid;
       }
 
-      if (i % NUM_CONC_REQS == NUM_CONC_REQS-1) {
-        int j;
-        for (j = 0; j < NUM_CONC_REQS; j++) {
-          rp[j]->waitForCompleted();
-        }
+      if (!test_mode_perf) {
+
+	if (i % num_conc_reqs == num_conc_reqs-1) {
+	  int j;
+	  for (j = 0; j < num_conc_reqs; j++) {
+	    rp[j]->waitForCompleted();
+	  }
+	}
       }
+
     }
 
+    if (!test_mode_perf) {
     /*
      * Send commits for each open.
      */
@@ -107,7 +134,9 @@ class DmUnitTest {
                            << " for volume offset"
                            << update_req->volume_offset
                            << " and object " << oid;
-        rp->waitForCompleted();
+	if (!test_mode_perf) {
+	  rp->waitForCompleted();
+	}
       } catch(...) {
         FDS_PLOG(test_log) << "Failed to send trans commit message to DM"
                            << " for volume offsete "
@@ -115,6 +144,14 @@ class DmUnitTest {
                            << " an object " << oid;
       }
     }
+    }
+
+    fds_uint32_t n_ios_outstanding = 0;
+
+    do {
+      sleep(10);
+      n_ios_outstanding = atomic_load(&num_ios_outstanding);
+    } while (n_ios_outstanding > 0);
 
     sleep(10);
 
@@ -385,13 +422,18 @@ class DmUnitTest {
     unit_tests.push_back("basic_multivol");
 
     num_updates = 100;
+    max_outstanding_ios = 100;
+    test_mode_perf = false;
+
   }
 
   explicit DmUnitTest(FDS_ProtocolInterface::FDSP_DataPathReqPrx&
                       fdspDPAPI_arg,
                       FDS_ProtocolInterface::FDSP_ControlPathReqPrx&
                       fdspCPAPI_arg,
-                      fds_uint32_t num_up_arg) // NOLINT(*)
+                      fds_uint32_t num_up_arg,
+		      bool testperf,
+		      fds_uint32_t max_oios) // NOLINT(*)
       : fdspDPAPI(fdspDPAPI_arg),
         fdspCPAPI(fdspCPAPI_arg) {
     test_log = new fds_log("dm_test", "logs");
@@ -402,6 +444,8 @@ class DmUnitTest {
     unit_tests.push_back("basic_multivol");
 
     num_updates = num_up_arg;
+    max_outstanding_ios = max_oios;;
+    test_mode_perf = testperf;
   }
 
   ~DmUnitTest() {
@@ -504,7 +548,16 @@ class TestResp : public FDS_ProtocolInterface::FDSP_DataPathResp {
                                const Ice::Current &) {
     if (update_req->dm_operation ==
         FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_OPEN) {
-      FDS_PLOG(test_log) << "Received DM catalog trans open response: ";
+      fds_uint32_t n_ios_outstanding;
+      n_ios_outstanding = atomic_fetch_sub(&num_ios_outstanding, (unsigned int)1);
+      FDS_PLOG(test_log) << "Received DM catalog trans open response ("
+			 << n_ios_outstanding << "): ";
+
+      if (iops_stats) {
+	boost::posix_time::ptime comp_time = boost::posix_time::microsec_clock::universal_time();
+	iops_stats->handleIOCompletion(1, comp_time);
+      }
+
     } else if (update_req->dm_operation ==
                FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_COMMITED) {
       FDS_PLOG(test_log) << "Received DM catalog trans commit response: ";
@@ -593,6 +646,9 @@ class TestClient : public Ice::Application {
     fds_uint32_t port_num    = 0;
     fds_uint32_t cp_port_num = 0;
     std::string ip_addr_str;
+    bool testperf = false;
+    fds_uint32_t max_oios = 0;
+
     for (int i = 1; i < argc; i++) {
       if (strncmp(argv[i], "--testname=", 11) == 0) {
         testname = argv[i] + 11;
@@ -602,6 +658,12 @@ class TestClient : public Ice::Application {
         port_num = strtoul(argv[i] + 7, NULL, 0);
       } else if (strncmp(argv[i], "--cp_port=", 10) == 0) {
         cp_port_num = strtoul(argv[i] + 10, NULL, 0);
+      } else if (strncmp(argv[i], "--conc=", 7) == 0) {
+	num_conc_reqs = strtoul(argv[i] + 7, NULL, 0);
+      } else if (strncmp(argv[i], "--testperf", 10) == 0) {
+	testperf = true;
+      } else if (strncmp(argv[i], "--max_out=", 10) == 0) {
+	max_oios = strtoul(argv[i] + 10, NULL, 0);
       } else {
         std::cout << "Invalid argument " << argv[i] << std::endl;
         return -1;
@@ -660,7 +722,16 @@ class TestClient : public Ice::Application {
     FDS_ProtocolInterface::FDSP_ControlPathReqPrx fdspCPAPI =
         FDS_ProtocolInterface::FDSP_ControlPathReqPrx::checkedCast(op);
 
-    DmUnitTest unittest(fdspDPAPI, fdspCPAPI, num_updates);
+    num_ios_outstanding = ATOMIC_VAR_INIT(0);
+    if (testperf) {
+      std::vector<fds_uint32_t> qids; 
+      qids.push_back(1);
+      iops_stats = new StatIOPS("dm_unit_test", qids);
+    } else {
+      iops_stats = NULL;
+    }
+
+    DmUnitTest unittest(fdspDPAPI, fdspCPAPI, num_updates, testperf, max_oios);
 
     /*
      * This is kinda hackey. Want to
