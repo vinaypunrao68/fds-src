@@ -72,6 +72,11 @@ ObjectID ObjectIdJrnlEntry::getJournalKey()
 	return _key;
 }
 
+unsigned int ObjectIdJrnlEntry::getTransId()
+{
+	return _transid;
+}
+
 template <typename JEntryT>
 TransJournalEntryLock<JEntryT>::TransJournalEntryLock(JEntryT *jrnl_entry)
 {
@@ -250,7 +255,9 @@ void TransJournal<KeyT, JEntryT>::release_journal_entry_with_notify(JEntryT *jrn
 {
 	jrnl_e->lock();
 	assert(jrnl_e->isActive());
+	key_to_jrnl_idx.erase(jrnl_e->getJournalKey());
 	jrnl_e->reset();
+	return_free_trans_id(jrnl_e->getTransId());
 	jrnl_e->getCond()->notify_one();
 	jrnl_e->unlock();
 }

@@ -162,7 +162,7 @@ ProbeIORequest::ProbeIORequest(int          stat_cnt,
                                fds_uint64_t off,
                                fds_uint64_t vid,
                                fds_uint64_t voff)
-    : fdsio::Request(false),
+    : fdsio::Request(true),
       ProbeRequest(stat_cnt, 0, mod),
       pr_oid(oid), pr_vid(vid), pr_offset(off), pr_voff(voff),
       pr_wr_size(buf_siz), pr_wr_buf(wr_buf)

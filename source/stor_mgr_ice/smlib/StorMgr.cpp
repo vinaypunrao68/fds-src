@@ -1339,7 +1339,7 @@ ObjectStorMgr::run(int argc, char* argv[]) {
       testVdb = new VolumeDesc(testVolName,
                                testVolId,
                                8+ testVolId,
-                               1000,       /* high max iops so that unit tests does not take forever to finish */
+                               10000,       /* high max iops so that unit tests does not take forever to finish */
                                testVolId);
       fds_assert(testVdb != NULL);
       if ( (testVolId % 3) == 0)
