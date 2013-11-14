@@ -137,7 +137,8 @@ namespace fds {
     /*
      * Local storage members
      */
-    TransJournal<ObjectID, ObjectIdJrnlEntry> *omJrnl;
+//    TransJournal<ObjectID, ObjectIdJrnlEntry> *omJrnl;
+    fds_mutex *objStorMutex;
     ObjectDB  *objStorDB;
     ObjectDB  *objIndexDB;
 
