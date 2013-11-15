@@ -92,6 +92,8 @@ class ModuleVector
     void mod_execute();
     void mod_shutdown();
 
+    static void mod_mkdir(char const *const path);
+
   private:
     virtual void mod_mk_sysparams();
 

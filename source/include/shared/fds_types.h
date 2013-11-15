@@ -33,6 +33,8 @@ typedef bool                 fds_bool_t;
 #define fds_object_of(obj, field, ptr)                                        \
     ((obj *)(((char *)(ptr)) - (char *)fds_offset_of(obj, field)))
 
+#define FDS_ARRAY_ELEM(array)         (sizeof(array)/sizeof(array[0]))
+
 /*
  * Do not change enum assignment in these types because they may be persistant
  * accross software releases.
