@@ -242,8 +242,11 @@ namespace fds {
     virtual Error dispatchIOs() {
 
       Error err(ERR_OK);
-       
-      setSchedThreadPriority();
+
+      /* setting sched thread high prio breaks write perf on high iops
+       * not setting it works ok for both reads and writes; may need to revisit if 
+       * if want to set both scheduler and ice threads (that repond to incoming packets) high prio */       
+      //setSchedThreadPriority();
 
       while(1) {
 

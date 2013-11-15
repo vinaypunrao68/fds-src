@@ -37,11 +37,13 @@
 #include <persistent_layer/dm_service.h>
 
 #include <lib/QoSWFQDispatcher.h>
+#include <lib/qos_min_prio.h>
 
+#undef FDS_TEST_DM_NOOP     /* if defined, puts complete as soon as they arrive to DM (not for gets right now) */
 
 namespace fds {
 
-#define DM_TP_THREADS 5
+#define DM_TP_THREADS 20
 int scheduleUpdateCatalog(void * _io);
 int scheduleQueryCatalog(void * _io);
 
@@ -122,7 +124,8 @@ public:
                 fds_log *log) :
       FDS_QoSControl(_max_thrds, algo, log, "DM") {
         parentDm = _parent;
-        dispatcher = new QoSWFQDispatcher(this, parentDm->scheduleRate, _max_thrds, log);
+	dispatcher = new QoSWFQDispatcher(this, parentDm->scheduleRate, _max_thrds, log);
+	//dispatcher = new QoSMinPrioDispatcher(this, log, parentDm->scheduleRate);
       }
 
 
