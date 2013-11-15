@@ -37,7 +37,7 @@ Error QoSMinPrioDispatcher::registerQueue(fds_uint32_t queue_id,
   /* we need a new queue state to control new queue */
   TBQueueState *qstate = new TBQueueState(queue_id,
 					  queue->iops_min,
-					  500,
+					  10000,
 					  queue->priority,
 					  wait_time_microsec,
 					  20);

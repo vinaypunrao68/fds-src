@@ -130,9 +130,6 @@ lex             := $(main_tool_dir)/flex
 lint            := $(main_tool_dir)/lint
 rpcgen          := $(main_tool_dir)/rpcgen
 
-# Tool chain and external lib include
-include $(incl_scripts)/Makefile.toolchain
-
 # Common library that most modules need to link.
 #
 ifneq ($(user_ext_build), true)
@@ -145,6 +142,9 @@ endif
 # ARCH and OSDep settings.
 #
 include $(incl_scripts)/Makefile.osdep
+
+# Tool chain and external lib include
+include $(incl_scripts)/Makefile.toolchain
 
 # Common location variables.
 #

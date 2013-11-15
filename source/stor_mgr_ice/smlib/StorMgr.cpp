@@ -185,7 +185,7 @@ ObjectStorMgr::ObjectStorMgr() :
   // Init  the log infra  
   sm_log = new fds_log("sm", "logs");
   FDS_PLOG(sm_log) << "Constructing the Object Storage Manager";
-
+  objStorMutex = new fds_mutex("Object Store Mutex");
   waitingReqMutex = new fds_mutex("Object Store Mutex");
 
   /*
@@ -206,7 +206,7 @@ ObjectStorMgr::ObjectStorMgr() :
   writeBackThreads = new fds_threadpool(numWBThreads);
 
   /* Set up the journal */
-  omJrnl = new TransJournal<ObjectID, ObjectIdJrnlEntry>();
+  //omJrnl = new TransJournal<ObjectID, ObjectIdJrnlEntry>();
 
   /*
    * Setup QoS related members.
@@ -275,7 +275,8 @@ ObjectStorMgr::~ObjectStorMgr() {
 
   delete sm_log;
   delete volTbl;
-  delete omJrnl;
+  delete objStorMutex;
+  //delete omJrnl;
 }
 
 void ObjectStorMgr::nodeEventOmHandler(int node_id,
@@ -807,12 +808,14 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
   diskio::DataTier tierUsed = diskio::maxTier;
 
 
-  ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_journal_entry_for_key(objId);
+  //ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_journal_entry_for_key(objId);
+  objStorMutex->lock();
   // Find if this object is a duplicate
   err = checkDuplicate(objId,
 		       objData);
   
   if (err == ERR_DUPLICATE) {
+	objStorMutex->unlock();
     FDS_PLOG(objStorMgr->GetLog()) << "Put dup:  " << err
                                    << ", returning success";
     /*
@@ -820,6 +823,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
      */
     err = ERR_OK;
   } else if (err != ERR_OK) {
+	objStorMutex->unlock();
     FDS_PLOG(objStorMgr->GetLog()) << "Failed to check object duplicate status on put: "
                                    << err;
   } else {
@@ -828,6 +832,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
      * Write the object and record which tier it when to
      */
     err = writeObject(objId, objData, volId, tierUsed);
+    objStorMutex->unlock();
     if (err != fds::ERR_OK) {
       FDS_PLOG(objStorMgr->GetLog()) << "Failed to put object " << err;
     } else {
@@ -853,7 +858,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
     */
   }
 
-  omJrnl->release_journal_entry_with_notify(jrnlEntry);
+  //omJrnl->release_journal_entry_with_notify(jrnlEntry);
   qosCtrl->markIODone(*putReq,
                       tierUsed);
 
@@ -977,8 +982,10 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
   objData.size = 0;
   objData.data = "";
 
-  ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_journal_entry_for_key(objId);
+  //ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_journal_entry_for_key(objId);
+  objStorMutex->lock();
   err = readObject(objId, objData, tierUsed);
+  objStorMutex->unlock();
   objData.size = objData.data.size();
 
   if (err != fds::ERR_OK) {
@@ -996,7 +1003,7 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
                                    << " for request ID " << getReq->io_req_id;
   }
 
-  omJrnl->release_journal_entry_with_notify(jrnlEntry);
+  //omJrnl->release_journal_entry_with_notify(jrnlEntry);
   qosCtrl->markIODone(*getReq, tierUsed);
 
   /*
@@ -1241,7 +1248,8 @@ ObjectStorMgr::run(int argc, char* argv[]) {
           char addrBuf[INET_ADDRSTRLEN];
           inet_ntop(AF_INET, tmpAddrPtr, addrBuf, INET_ADDRSTRLEN);
           myIp = std::string(addrBuf);
-
+	  if (myIp.find("10.1") != std::string::npos)
+	    break; /* TODO: more dynamic */
       }
     }
   }
