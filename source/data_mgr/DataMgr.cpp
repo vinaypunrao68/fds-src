@@ -354,12 +354,10 @@ int DataMgr::run(int argc, char* argv[]) {
       omConfigPort = strtoul(argv[i] + 10, NULL, 0);
     } else if (strncmp(argv[i], "--test_mode", 11) == 0) {
       useTestMode = true;
-    } else {
-      std::cout << "Invalid argument " << argv[i] << std::endl;
-      return -1;
     }
   }
 
+  GetLog()->setSeverityFilter((fds_log::severity_level) (getSysParams()->log_severity));
   if (useTestMode == true) {
     runMode = TEST_MODE;
   }
@@ -566,6 +564,14 @@ void DataMgr::swapMgrId(const FDS_ProtocolInterface::
 
 fds_log* DataMgr::GetLog() {
   return dm_log;
+}
+
+void DataMgr::setSysParams(SysParams *params) {
+	sysParams = params;
+}
+
+SysParams* DataMgr::getSysParams() {
+	return sysParams;
 }
 
 std::string DataMgr::getPrefix() const {
@@ -1065,6 +1071,12 @@ void DataMgr::InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
 int main(int argc, char *argv[]) {
   fds::dataMgr = new fds::DataMgr();
 
+  fds::Module *io_dm_vec[] = {
+    nullptr
+  };
+  fds::ModuleVector  io_dm(argc, argv, io_dm_vec);
+
+  fds::dataMgr->setSysParams(io_dm.get_sys_params());
   fds::dataMgr->main(argc, argv, "dm_test.conf");
 
   delete fds::dataMgr;

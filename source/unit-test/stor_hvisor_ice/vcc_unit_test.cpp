@@ -4,6 +4,7 @@
 #include <VolumeCatalogCache.h>
 #include <StorHvisorNet.h>
 #include <StorHvQosCtrl.h>
+#include <fds_module.h>
 
 #include <iostream>  // NOLINT(*)
 #include <vector>
@@ -261,8 +262,13 @@ class VccUnitTest {
      */
     int argc = 0;
     char* argv[argc];
+    fds::Module *io_dm_vec[] = {
+      nullptr
+    };
+    fds::ModuleVector  io_dm(argc, argv, io_dm_vec);
     storHvisor = new StorHvCtrl(argc,
                                 argv,
+                                io_dm.get_sys_params(),
                                 StorHvCtrl::DATA_MGR_TEST,
                                 0,
                                 dm_port_num);

@@ -18,6 +18,7 @@ int main(int argc, char *argv[]) {
   fds::ModuleVector  io_dm(argc, argv, io_dm_vec);
   io_dm.mod_execute();
 
+  objStorMgr->setSysParams(io_dm.get_sys_params());
   objStorMgr->main(argc, argv, "stor_mgr.conf");
 
   delete objStorMgr;

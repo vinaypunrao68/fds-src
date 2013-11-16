@@ -233,6 +233,8 @@ ObjectStorMgr::ObjectStorMgr() :
   perfStats = new PerfStats("migratorSmStats");
   err = perfStats->enable();
   fds_verify(err == ERR_OK);
+
+  sysParams = NULL;
 }
 
 ObjectStorMgr::~ObjectStorMgr() {
@@ -1160,6 +1162,7 @@ ObjectStorMgr::run(int argc, char* argv[]) {
   omConfigPort = 0;
   runMode = NORMAL_MODE;
 
+
   for (int i = 1; i < argc; i++) {
     std::string arg(argv[i]);
     if (arg == "--unit_test") {
@@ -1178,6 +1181,8 @@ ObjectStorMgr::run(int argc, char* argv[]) {
       useTestMode = true;
     }
   }
+
+  GetLog()->setSeverityFilter((fds_log::severity_level) (getSysParams()->log_severity));
 
   if (useTestMode == true) {
     runMode = TEST_MODE;

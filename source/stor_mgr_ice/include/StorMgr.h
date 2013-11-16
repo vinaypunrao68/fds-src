@@ -248,6 +248,8 @@ namespace fds {
     };
     PerfStats *perfStats;
 
+    SysParams *sysParams;
+
     /*
      * Private request processing members.
      */
@@ -350,6 +352,13 @@ namespace fds {
 
     const std::string& getStorPrefix() const {
       return stor_prefix;
+    }
+
+    void setSysParams(SysParams *params) {
+    	sysParams = params;
+    }
+    SysParams* getSysParams() {
+    	return sysParams;
     }
 
     /*

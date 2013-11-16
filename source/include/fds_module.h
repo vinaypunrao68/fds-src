@@ -31,6 +31,7 @@ class SysParams
     int                      sys_num_thr;
     int                      sys_hdd_cnt;
     int                      sys_ssd_cnt;
+    int                      log_severity;
     std::string              fds_root;
     std::string              hdd_root;
     std::string              ssd_root;
@@ -91,6 +92,8 @@ class ModuleVector
 
     void mod_execute();
     void mod_shutdown();
+
+    SysParams* get_sys_params() {return &sys_params;}
 
   private:
     virtual void mod_mk_sysparams();

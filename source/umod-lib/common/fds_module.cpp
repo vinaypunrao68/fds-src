@@ -187,7 +187,7 @@ ModuleVector::mod_mk_sysparams()
   using namespace std;
   namespace po = boost::program_options;
 
-  int                     thr_cnt, hdd_cnt, ssd_cnt, hdd_cap, ssd_cap;
+  int                     thr_cnt, hdd_cnt, ssd_cnt, hdd_cap, ssd_cap, log_severity;
   po::variables_map       vm;
   po::options_description desc("Formation Data Systems Command Line Options");
 
@@ -210,6 +210,8 @@ ModuleVector::mod_mk_sysparams()
       ("ssd-count,D", po::value<int>(&ssd_cnt)->default_value(2),
        "Number of SSD disks")
       ("ssd-capacity,C", po::value<int>(&ssd_cap)->default_value(10),
+       "SSD capacity in MB")
+      ("log-severity,l", po::value<int>(&log_severity)->default_value(2),
        "SSD capacity in MB");
 
     // Save a copy (or clone?) in case individual module needs it.
@@ -242,6 +244,7 @@ ModuleVector::mod_mk_sysparams()
   }
   sys_params.sys_hdd_cnt = hdd_cnt;
   sys_params.sys_ssd_cnt = ssd_cnt;
+  sys_params.log_severity = log_severity;
 }
 
 // \ModuleVector::mod_execute

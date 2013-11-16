@@ -6,6 +6,7 @@
 #include <Ice/Object.h>
 #include <IceUtil/Iterator.h>
 #include <IceUtil/CtrlCHandler.h>
+#include <fds_module.h>
 #include "StorHvisorNet.h"
 //#include "hvisor_lib.h"
 #include "StorHvisorCPP.h"
@@ -442,10 +443,18 @@ void CreateSHMode(int argc,
                   fds_uint32_t sm_port,
                   fds_uint32_t dm_port)
 {
+
+  fds::Module *io_dm_vec[] = {
+    nullptr
+  };
+  fds::ModuleVector  io_dm(argc, argv, io_dm_vec);
+
   if (test_mode == true) {
-    storHvisor = new StorHvCtrl(argc, argv, StorHvCtrl::TEST_BOTH, sm_port, dm_port);
+    storHvisor = new StorHvCtrl(argc, argv, io_dm.get_sys_params(),
+        StorHvCtrl::TEST_BOTH, sm_port, dm_port);
   } else {
-    storHvisor = new StorHvCtrl(argc, argv, StorHvCtrl::NORMAL);
+    storHvisor = new StorHvCtrl(argc, argv, io_dm.get_sys_params(),
+        StorHvCtrl::NORMAL);
   }
 
   storHvisor->cr_blkdev = cr_blkdev;
@@ -477,6 +486,7 @@ void ctrlCCallbackHandler(int signal)
 
 StorHvCtrl::StorHvCtrl(int argc,
                        char *argv[],
+                       SysParams *params,
                        sh_comm_modes _mode,
                        fds_uint32_t sm_port_num,
                        fds_uint32_t dm_port_num)
@@ -514,7 +524,9 @@ StorHvCtrl::StorHvCtrl(int argc,
   }
   my_node_name = node_name;
 
-  sh_log = new fds_log("sh", "logs");
+  sysParams = params;
+
+  sh_log = new fds_log("sh", "logs", (fds_log::severity_level) sysParams->log_severity);
   FDS_PLOG(sh_log) << "StorHvisorNet - Constructing the Storage Hvisor";
 
   /* create OMgr client if in normal mode */
@@ -674,16 +686,16 @@ StorHvCtrl::StorHvCtrl(int argc,
 /*
  * Constructor uses comm with DM and SM if no mode provided.
  */
-StorHvCtrl::StorHvCtrl(int argc, char *argv[])
-    : StorHvCtrl(argc, argv, NORMAL, 0, 0) {
+StorHvCtrl::StorHvCtrl(int argc, char *argv[], SysParams *params)
+    : StorHvCtrl(argc, argv, params, NORMAL, 0, 0) {
 
 }
 
 StorHvCtrl::StorHvCtrl(int argc,
                        char *argv[],
+                       SysParams *params,
                        sh_comm_modes _mode)
-    : StorHvCtrl(argc, argv, _mode, 0, 0) {
-
+    : StorHvCtrl(argc, argv, params, _mode, 0, 0) {
 }
 
 StorHvCtrl::~StorHvCtrl()
@@ -699,6 +711,10 @@ StorHvCtrl::~StorHvCtrl()
 
 fds_log* StorHvCtrl::GetLog() {
   return sh_log;
+}
+
+SysParams* StorHvCtrl::getSysParams() {
+  return sysParams;
 }
 
 void StorHvCtrl::StartOmClient() {
