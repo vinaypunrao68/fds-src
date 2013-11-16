@@ -1253,7 +1253,8 @@ ObjectStorMgr::run(int argc, char* argv[]) {
           char addrBuf[INET_ADDRSTRLEN];
           inet_ntop(AF_INET, tmpAddrPtr, addrBuf, INET_ADDRSTRLEN);
           myIp = std::string(addrBuf);
-
+	  if (myIp.find("10.1") != std::string::npos)
+	    break; /* TODO: more dynamic */
       }
     }
   }

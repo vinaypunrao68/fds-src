@@ -280,7 +280,7 @@ DataMgr::DataMgr()
       use_om(true),
       numTestVols(10),
       runMode(NORMAL_MODE),
-      scheduleRate(10000),
+      scheduleRate(2000),
       num_threads(DM_TP_THREADS) {
   dm_log = new fds_log("dm", "logs");
   vol_map_mtx = new fds_mutex("Volume map mutex");
@@ -296,7 +296,7 @@ DataMgr::DataMgr()
    *  init Data Manager  QOS class.
    */
 
-  qosCtrl = new dmQosCtrl(this, 100, FDS_QoSControl::FDS_DISPATCH_WFQ, dm_log);
+  qosCtrl = new dmQosCtrl(this, 20, FDS_QoSControl::FDS_DISPATCH_WFQ, dm_log);
   qosCtrl->runScheduler();
 
   FDS_PLOG(dm_log) << "Constructing the Data Manager";
@@ -431,6 +431,8 @@ int DataMgr::run(int argc, char* argv[]) {
         char addrBuf[INET_ADDRSTRLEN];
         inet_ntop(AF_INET, tmpAddrPtr, addrBuf, INET_ADDRSTRLEN);
         myIp = std::string(addrBuf);
+        if (myIp.find("10.1") != std::string::npos)
+	  break; /* TODO: more dynamic */
       }
     }
   }
@@ -757,6 +759,18 @@ void DataMgr::ReqHandler::UpdateCatalogObject(const FDS_ProtocolInterface::
                                               &update_catalog,
                                               const Ice::Current&) {
   Error err(ERR_OK);
+
+#ifdef FDS_TEST_DM_NOOP
+  msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_UPDATE_CAT_OBJ_RSP;
+  msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
+  dataMgr->swapMgrId(msg_hdr);
+  dataMgr->respHandleCli[msg_hdr->src_node_name]->begin_UpdateCatalogObjectResp(
+										msg_hdr,
+										update_catalog);
+  FDS_PLOG(dataMgr->GetLog()) << "FDS_TEST_DM_NOOP defined. Set update catalog response right after receiving req.";
+
+  return;
+#endif /* FDS_TEST_DM_NOOP */
 
   ObjectID oid(update_catalog->data_obj_id.hash_high,
                update_catalog->data_obj_id.hash_low);

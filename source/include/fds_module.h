@@ -94,6 +94,7 @@ class ModuleVector
     void mod_shutdown();
 
     SysParams* get_sys_params() {return &sys_params;}
+    static void mod_mkdir(char const *const path);
 
   private:
     virtual void mod_mk_sysparams();
