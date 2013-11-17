@@ -7,13 +7,14 @@
 #include <iostream>
 #include <boost/atomic.hpp>
 #include <util/Log.h>
-#include <util/PerfStat.h>
+#include <lib/PerfStats.h>
 #include <concurrency/ThreadPool.h>
 #include "fds_err.h"
 #include <fdsp/FDSP.h>
 #include <fds_types.h>
 #include <fds_err.h>
 #include <fds_volume.h>
+#include <lib/OMgrClient.h>
 
 namespace fds { 
 
@@ -63,6 +64,10 @@ class FDS_QoSControl {
    fds_uint32_t     waitForWorkers(); // Blocks until there is a threshold num of workers in threadpool
    Error   enqueueIO(fds_volid_t volUUID, FDS_IOType *io);
    void quieseceIOs(fds_volid_t volUUID);
+
+   /* will register OM client with perfstats that will enable pushing
+    * perfstats to OM periodically, note that perfstats have to be enabled for that  */
+   void registerOmClient(OMgrClient* om_client);
 
  protected:
    PerfStats *stats;

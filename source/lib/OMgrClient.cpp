@@ -78,9 +78,9 @@ void OMgrClientRPCI::SetThrottleLevel(const FDSP_MsgHdrTypePtr& msg_hdr,
 void
 OMgrClientRPCI::TierPolicy(const FDSP_TierPolicyPtr &tier, const Ice::Current &ice)
 {
-    FDS_PLOG(om_client->omc_log)
-        << "OMClient received tier policy for vol "
-        << tier->tier_vol_uuid;
+  FDS_PLOG_SEV(om_client->omc_log, fds::fds_log::notification)
+    << "OMClient received tier policy for vol "
+    << tier->tier_vol_uuid;
 
     fds_verify(om_client->omc_srv_pol != nullptr);
     om_client->omc_srv_pol->serv_recvTierPolicyReq(tier);
@@ -90,9 +90,9 @@ void
 OMgrClientRPCI::TierPolicyAudit(const FDSP_TierPolicyAuditPtr &audit,
                                 const Ice::Current            &ice)
 {
-    FDS_PLOG(om_client->omc_log)
-        << "OMClient received tier audit policy for vol "
-        << audit->tier_vol_uuid;
+  FDS_PLOG_SEV(om_client->omc_log, fds::fds_log::notification)
+    << "OMClient received tier audit policy for vol "
+    << audit->tier_vol_uuid;
 
     fds_verify(om_client->omc_srv_pol != nullptr);
     om_client->omc_srv_pol->serv_recvTierPolicyAuditReq(audit);
@@ -248,12 +248,12 @@ int OMgrClient::subscribeToOmEvents(unsigned int om_ip_addr, int tenn_id, int do
 
   pubsub_adapter->activate();
 
-  FDS_PLOG(omc_log) << "OMgrClient subscribed to OMgrEvents with Pub Sub server at "
-                    << omIpStr << " : 11234";
+  FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMgrClient subscribed to OMgrEvents with Pub Sub server at "
+						    << omIpStr << " : 11234";
 
   }
   catch (...) {
-    FDS_PLOG(omc_log) << "OMgrClient could not subscribe to OMgrEvents. Please check if pubsub server is up and restart";
+    FDS_PLOG_SEV(omc_log, fds::fds_log::error) << "OMgrClient could not subscribe to OMgrEvents. Please check if pubsub server is up and restart";
   }
 
  
@@ -284,7 +284,7 @@ int OMgrClient::startAcceptingControlMessages(fds_uint32_t port_num) {
 
   rpc_adapter->activate();
 
-  FDS_PLOG(omc_log) << "OMClient accepting control requests at port " << my_control_port;
+  FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient accepting control requests at port " << my_control_port;
 
   return (0);
 
@@ -349,24 +349,52 @@ int OMgrClient::registerNodeWithOM(const FDS_ProtocolInterface::FDSP_AnnounceDis
    reg_node_msg->disk_info->ssd_latency_min = dInfo->ssd_latency_min;
    reg_node_msg->disk_info->disk_type = dInfo->disk_type;
 
-  FDS_PLOG(omc_log) << "OMClient registering local node " << fds::ipv4_addr_to_str(reg_node_msg->ip_lo_addr) << " control port:" << reg_node_msg->control_port 
-		    << " data port:" << reg_node_msg->data_port
-		    << " with Orchaestration Manager at " << tcpProxyStr;
+   FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient registering local node " 
+						     << fds::ipv4_addr_to_str(reg_node_msg->ip_lo_addr) 
+						     << " control port:" << reg_node_msg->control_port 
+						     << " data port:" << reg_node_msg->data_port
+						     << " with Orchaestration Manager at " << tcpProxyStr;
 
   fdspConfigPathAPI->begin_RegisterNode(msg_hdr, reg_node_msg);
 
-  FDS_PLOG(omc_log) << "OMClient completed node registration with OM";
+  FDS_PLOG_SEV(omc_log, fds::fds_log::debug) << "OMClient completed node registration with OM";
 
   }
   catch(...) {
-    FDS_PLOG(omc_log) << "OMClient unable to register node with OrchMgr. Please check if OrchMgr is up and restart.";
+    FDS_PLOG_SEV(omc_log, fds::fds_log::critical) << "OMClient unable to register node with OrchMgr. Please check if OrchMgr is up and restart.";
   }
 
   return (0);
 }
 
-int OMgrClient::recvNodeEvent(int node_id, FDSP_MgrIdType node_type, unsigned int node_ip, int node_state, const FDSP_Node_Info_TypePtr& node_info) {
-  
+int OMgrClient::pushPerfstatsToOM()
+{
+  try {
+    std::string tcpProxyStr = std::string("OrchMgr: tcp -h ") + 
+      omIpStr + std::string(" -p ") + std::to_string(omConfigPort);
+    FDSP_ConfigPathReqPrx fdspConfigPathAPI = FDSP_ConfigPathReqPrx::checkedCast(rpc_comm->stringToProxy(tcpProxyStr));
+    FDSP_MsgHdrTypePtr msg_hdr = new FDSP_MsgHdrType;
+    initOMMsgHdr(msg_hdr);
+    FDSP_PerfstatsTypePtr perf_stats_msg = new FDSP_PerfstatsType;
+    perf_stats_msg->node_type = my_node_type;
+
+    FDS_PLOG_SEV(omc_log, fds::fds_log::normal) << "OMClient pushing perfstats to OM at " << tcpProxyStr;
+
+    fdspConfigPathAPI->begin_NotifyPerfstats(msg_hdr, perf_stats_msg);
+
+  } catch (...) {
+    FDS_PLOG_SEV(omc_log, fds::fds_log::error) << "OMClient unable to push perf stats to OM. Check if OM is up and restart.";
+  }
+
+  return 0;
+}
+
+int OMgrClient::recvNodeEvent(int node_id, 
+			      FDSP_MgrIdType node_type, 
+			      unsigned int node_ip, 
+			      int node_state,
+			      const FDSP_Node_Info_TypePtr& node_info) 
+{ 
   omc_lock.write_lock();
 
   node_info_t& node = node_map[node_id];
@@ -378,7 +406,10 @@ int OMgrClient::recvNodeEvent(int node_id, FDSP_MgrIdType node_type, unsigned in
 
   omc_lock.write_unlock();
 
-  FDS_PLOG(omc_log) << "OMClient received node event for node " << node_id << ", type - " << node_info->node_type << " with ip address " << node_ip << " and state - " << node_state;
+  FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received node event for node " << node_id 
+						    << ", type - " << node_info->node_type 
+						    << " with ip address " << node_ip 
+						    << " and state - " << node_state;
 
   if (this->node_evt_hdlr) {
     this->node_evt_hdlr(node_id,
@@ -395,7 +426,8 @@ int OMgrClient::recvNotifyVol(fds_volid_t vol_id,
                               VolumeDesc *vdb,
                               fds_vol_notify_t vol_action) {
 
-  FDS_PLOG(omc_log) << "OMClient received volume event for volume " << vol_id << " action - " << vol_action;
+  FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received volume event for volume " << vol_id 
+						    << " action - " << vol_action;
 
   if (this->vol_evt_hdlr) {
     this->vol_evt_hdlr(vol_id, vdb, vol_action);
@@ -415,7 +447,8 @@ int OMgrClient::recvVolAttachState(fds_volid_t vol_id,
     type = fds_notify_vol_detach;
   }
 
-  FDS_PLOG(omc_log) << "OMClient received volume attach/detach request for volume " << vol_id << " action - " << type;
+  FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received volume attach/detach request for volume " << vol_id 
+						    << " action - " << type;
 
   if (this->vol_evt_hdlr) {
     this->vol_evt_hdlr(vol_id, vdb, type);
@@ -427,7 +460,7 @@ int OMgrClient::recvVolAttachState(fds_volid_t vol_id,
 
 int OMgrClient::recvDLTUpdate(int dlt_vrsn, const Node_Table_Type& dlt_table) {
 
-  FDS_PLOG(omc_log) << "OMClient received new DLT version  " << dlt_vrsn;
+  FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received new DLT version  " << dlt_vrsn;
 
   omc_lock.write_lock();
 
@@ -441,7 +474,7 @@ int OMgrClient::recvDLTUpdate(int dlt_vrsn, const Node_Table_Type& dlt_table) {
 
 int OMgrClient::recvDMTUpdate(int dmt_vrsn, const Node_Table_Type& dmt_table) {
 
-  FDS_PLOG(omc_log) << "OMClient received new DMT version  " << dmt_vrsn;
+  FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received new DMT version  " << dmt_vrsn;
 
   omc_lock.write_lock();
 
@@ -455,7 +488,7 @@ int OMgrClient::recvDMTUpdate(int dmt_vrsn, const Node_Table_Type& dmt_table) {
 
 int OMgrClient::recvSetThrottleLevel(const float throttle_level) {
 
-  FDS_PLOG(omc_log) << "OMClient received new throttle level  " << throttle_level;
+  FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received new throttle level  " << throttle_level;
 
   this->current_throttle_level = throttle_level;
 

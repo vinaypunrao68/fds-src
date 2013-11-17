@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <util/PerfStat.h>
+#include <PerfStats.h>
 
 namespace fds {
 

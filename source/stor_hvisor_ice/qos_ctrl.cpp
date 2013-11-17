@@ -84,5 +84,13 @@ Error FDS_QoSControl::processIO(FDS_IOType *) {
   return err;
 } 
 
+
+void FDS_QoSControl::registerOmClient(OMgrClient* om_client)
+{
+  if (stats) {
+    stats->registerOmClient(om_client);
+  }
+}
+
 }  // namespace fds
 
