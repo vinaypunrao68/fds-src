@@ -2,6 +2,7 @@ topdir           := ..
 user_target      := lib
 user_rtime_env   := user
 user_cpp         :=               \
+    PerfTrace.cpp        \
     Catalog.cpp                   \
     VolumeCatalog.cpp             \
     OMgrClient.cpp                \
@@ -9,12 +10,16 @@ user_cpp         :=               \
 	qos_htb.cpp  \
 	fds_obj_cache.cpp	\
 	qos_min_prio.cpp        \
+	TransJournal.cpp        \
+        PerfStats.cpp        \
 
 #user_cc          :=               \
 #    tvclib.c                      \
 #    vvc_db.c                      \
 #    vvclib.c                      \
 #    vvc_private.c
+
+user_incl_dir    := $(topdir)
 
 # TODO: should change this directory and this lib to something more
 # specific.

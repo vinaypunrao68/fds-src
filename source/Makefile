@@ -12,17 +12,16 @@ user_build_dir :=                       \
     umod-lib                            \
     util                                \
     lib                                 \
+    am-engine                           \
+    fds-probe                           \
     persistent_layer                    \
     stor_hvisor_ice                     \
-    util/unit-test                      \
-    lib/unit-test                       \
-    stor_hvisor_ice/unit-test           \
-    umod-lib/odb/unit-test              \
     orch_mgr                            \
     data_mgr                            \
     stor_mgr_ice                        \
     stor_hvisor                         \
     fds_client                          \
+    am-app                              \
     unit-test
 
 include $(topdir)/Makefile.incl

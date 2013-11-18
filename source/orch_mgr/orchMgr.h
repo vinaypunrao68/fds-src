@@ -230,6 +230,8 @@ namespace fds {
 			  const FDSP_ThrottleMsgTypePtr& throttle_req);
     void NotifyQueueFull(const FDSP_MsgHdrTypePtr& fdsp_msg,
 			 const FDSP_NotifyQueueStateTypePtr& queue_state_req);
+    void NotifyPerfstats(const FDSP_MsgHdrTypePtr& fdsp_msg,
+			 const FDSP_PerfstatsTypePtr& perf_stats_msg);
 
 
     class ReqCfgHandler : public FDS_ProtocolInterface::FDSP_ConfigPathReq {
@@ -288,6 +290,9 @@ namespace fds {
 			   const FDSP_NotifyQueueStateTypePtr& queue_state_req, 
 			   const Ice::Current&);
 
+      void NotifyPerfstats(const FDSP_MsgHdrTypePtr& fdsp_msg,
+			   const FDSP_PerfstatsTypePtr& perf_stats_msg,
+			   const Ice::Current&);
     };
   };
 

@@ -130,6 +130,7 @@ namespace fds {
                     int *node_state);
     int getDLTNodesForDoidKey(unsigned char doid_key, int *node_ids, int *n_nodes);
     int getDMTNodesForVolume(int vol_id, int *node_ids, int *n_nodes);
+    int pushPerfstatsToOM(void);
 
     int recvNodeEvent(int node_id, FDSP_MgrIdType node_type, unsigned int node_ip, int node_state, const FDSP_Node_Info_TypePtr& node_info);
     int recvDLTUpdate(int dlt_version, const Node_Table_Type& dlt_table);

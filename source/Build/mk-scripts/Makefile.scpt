@@ -10,7 +10,12 @@
 scpt_build_subdir =                                                          \
     for f in $(user_build_dir); do                                           \
         echo Making $(MAKECMDGOALS) in `pwd`/$$f;                            \
-        (cd $$f && $(MAKE) $(MAKECMDGOALS) --no-print-directory) || exit 1;  \
+        makearg="$(MAKECMDGOALS) --no-print-directory";                      \
+        if [ -e $$f/Makefile.fds ]; then                                     \
+            (cd $$f && $(MAKE) -f Makefile.fds $$makearg) || exit 1;         \
+        else                                                                 \
+            (cd $$f && $(MAKE) $$makearg) || exit 1;                         \
+      fi                                                                     \
     done
 
 # ----------------------------------------------------------------------------
@@ -94,7 +99,11 @@ endef
 # Script to do a clean
 #
 scpt_make_clean :=                                                            \
-    [ "$(topdir)" != "." ] && rm -rf $(osdep_user_build) $(osdep_kern_build); \
+    if [ "$(topdir)" != "." ]; then                                           \
+        rm -rf $(osdep_user_build) $(osdep_kern_build);                       \
+    else                                                                      \
+        cd Build/$(osdep_target) && rm -rf bin lib tests;                     \
+    fi;                                                                       \
     if [ ! -z "$(comm_rpc_files)" ]; then                                     \
         rm $(comm_rpc_files) > /dev/null 2>&1;                                \
     fi;                                                                       \

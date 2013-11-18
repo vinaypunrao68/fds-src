@@ -77,8 +77,8 @@ static void sh_test_r_callback(void *arg1,
     verified_data[r_req->op] = true;
   } else {
     verified_data[r_req->op] = false;
-    FDS_PLOG(storHvisor->GetLog()) << "FAILED verification of SH test read "
-                                   << r_req->op;
+    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::critical) << "FAILED verification of SH test read "
+							       << r_req->op;
   }
   map_mtx.unlock();
 
@@ -216,8 +216,8 @@ int sh_test_r(char *r_buf, fds_uint32_t len, fds_uint32_t offset, fds_volid_t vo
       FDS_PLOG(storHvisor->GetLog()) << "Verified SH test read "
                                      << offset;
     } else {
-      FDS_PLOG(storHvisor->GetLog()) << "FAILED verification of SH test read "
-                                     << offset;
+      FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::critical) << "FAILED verification of SH test read "
+								 << offset;
       result = -1;
     }
     map_mtx.unlock();
@@ -459,18 +459,18 @@ void CreateSHMode(int argc,
   // storHvisor->om_client->registerNodeWithOM();
   storHvisor->qos_ctrl->runScheduler();
 
-  FDS_PLOG(storHvisor->GetLog()) << "StorHvisorNet - Created storHvisor " << storHvisor;
+  FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification) << "StorHvisorNet - Created storHvisor " << storHvisor;
 }
 
 void DeleteStorHvisor()
 {
-      FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorNet -  Deleting the StorHvisor";
-        delete storHvisor;
+  FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification) << " StorHvisorNet -  Deleting the StorHvisor";
+  delete storHvisor;
 }
 
 void ctrlCCallbackHandler(int signal)
 {
-  FDS_PLOG(storHvisor->GetLog()) << "StorHvisorNet -  Received Ctrl C " << signal;
+  FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification) << "StorHvisorNet -  Received Ctrl C " << signal;
   storHvisor->_communicator->shutdown();
   DeleteStorHvisor();
 }
@@ -537,12 +537,13 @@ StorHvCtrl::StorHvCtrl(int argc,
           char addrBuf[INET_ADDRSTRLEN];
           inet_ntop(AF_INET, tmpAddrPtr, addrBuf, INET_ADDRSTRLEN);
           myIp = std::string(addrBuf);
-
+	  if (myIp.find("10.1") != std::string::npos)
+	    break; /* TODO: more dynamic */
       }
     }
   }
   assert(myIp.empty() == false);
-  FDS_PLOG(sh_log) << "StorHvisorNet - My IP: " << myIp;
+  FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "StorHvisorNet - My IP: " << myIp;
   
   if (ifAddrStruct != NULL) {
     freeifaddrs(ifAddrStruct);
@@ -563,7 +564,7 @@ StorHvCtrl::StorHvCtrl(int argc,
     om_client->initialize();
   }
   else {
-    FDS_PLOG(sh_log) << "StorHvisorNet - Failed to create OMgrClient, will not receive any OM events";
+    FDS_PLOG_SEV(sh_log, fds::fds_log::error) << "StorHvisorNet - Failed to create OMgrClient, will not receive any OM events";
   }
 
   Ice::InitializationData initData;
@@ -575,6 +576,7 @@ StorHvCtrl::StorHvCtrl(int argc,
   /*  Create the QOS Controller object */ 
   qos_ctrl = new StorHvQosCtrl(50, fds::FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET, sh_log);
   om_client->registerThrottleCmdHandler(StorHvQosCtrl::throttleCmdHandler);
+  qos_ctrl->registerOmClient(om_client); /* so it will start periodically pushing perfstats to OM */
 
   rpcSwitchTbl = new FDS_RPC_EndPointTbl(_communicator);
 
@@ -709,7 +711,7 @@ void StorHvCtrl::StartOmClient() {
    */
   if (om_client) {
     om_client->startAcceptingControlMessages();
-    FDS_PLOG(sh_log) << "StorHvisorNet - Started accepting control messages from OM";
+    FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "StorHvisorNet - Started accepting control messages from OM";
     dInfo = new  FDSP_AnnounceDiskCapability();
     dInfo->disk_iops_max =  10000; /* avarage IOPS */
     dInfo->disk_iops_min =  100; /* avarage IOPS */

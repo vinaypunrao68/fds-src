@@ -518,7 +518,8 @@ if __name__ == '__main__':
         suite = unittest.TestLoader().loadTestsFromTestCase(TestSequenceFunctions)
         unittest.TestSuite(suite).run(result)
         result.stopTestRun()
-    if len(sys.argv) > 1 and sys.argv[1] != "--jenkins":
+    elif len(sys.argv) > 1 and sys.argv[1] != "--jenkins":
+        print "running in single test mode"
         #We're creating a suite from the test provided at the command line
         suite = unittest.TestSuite()
         suite.addTest(TestSequenceFunctions(sys.argv[1]))
