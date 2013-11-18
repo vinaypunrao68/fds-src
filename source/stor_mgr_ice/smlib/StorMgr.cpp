@@ -326,15 +326,12 @@ ObjectStorMgr::volEventOmHandler(fds_volid_t  volumeId,
       fds_assert(vol != NULL);
       err = objStorMgr->qosCtrl->registerVolume(vol->getVolId(),
                                           dynamic_cast<FDS_VolumeQueue*>(vol->getQueue()));
-<<<<<<< HEAD
       objStorMgr->objCache->vol_cache_create(volumeId, 1024 * 1024 * 8, 1024 * 1024 * 256);
-=======
       fds_assert(err == ERR_OK);
       if (err != ERR_OK) {
     	  FDS_PLOG(objStorMgr->GetLog()) << "registration failed for vol id " << volumeId << " error: "
     			  << err;
       }
->>>>>>> b96ad1efedcfd7dc616244b47d33ec1a5df4f329
       break;
 
     case FDS_VOL_ACTION_DELETE:
@@ -814,7 +811,6 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
   ObjBufPtrType objBufPtr = NULL;
   const FDSP_PutObjTypePtr& putObjReq = putReq->getPutObjReq();
 
-<<<<<<< HEAD
   objStorMutex->lock();
   objBufPtr = objCache->object_retrieve(volId, objId);
   if (objBufPtr != NULL) {
@@ -842,7 +838,6 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
 			 *objBufPtr);
   }  
 
-=======
 
   //ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_journal_entry_for_key(objId);
   objStorMutex->lock();
@@ -850,7 +845,6 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
   err = checkDuplicate(objId,
 		       objData);
   
->>>>>>> b96ad1efedcfd7dc616244b47d33ec1a5df4f329
   if (err == ERR_DUPLICATE) {
 	objStorMutex->unlock();
     FDS_PLOG(objStorMgr->GetLog()) << "Put dup:  " << err
