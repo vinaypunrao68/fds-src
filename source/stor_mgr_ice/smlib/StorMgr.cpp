@@ -832,18 +832,14 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
     memcpy((void *)objBufPtr->data.c_str(), (void *)putObjReq->data_obj.c_str(), putObjReq->data_obj.size()); 
   }
 
-  if (err == ERR_OK) {
-    // Find if this object is a duplicate
-    err = checkDuplicate(objId,
-			 *objBufPtr);
-  }  
-
 
   //ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_journal_entry_for_key(objId);
   objStorMutex->lock();
   // Find if this object is a duplicate
-  err = checkDuplicate(objId,
-		       objData);
+  if (err == ERR_OK) {
+    err = checkDuplicate(objId,
+			 *objBufPtr);
+  }
   
   if (err == ERR_DUPLICATE) {
 	objStorMutex->unlock();
