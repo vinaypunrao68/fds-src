@@ -65,6 +65,12 @@ struct blktap_device_info {
 
 #include <xen/interface/io/ring.h>
 
+/*
+ *  changing this macro to  higher  number will have impact on how we allocate the ring  pages  and explose  them 
+ * we will have to revisit the code blktap_ring_mmap_sring(). this function has the page allocation and logic to 
+ * expose the  pages to the user space.
+ */
+#define BLKTAP_PAGE_NUM		2   // kernel  blktap ring size 
 struct blktap_segment {
 	uint32_t                __pad;
 	uint8_t                 first_sect;
@@ -114,7 +120,7 @@ DEFINE_RING_TYPES(blktap,
 		  struct blktap_ring_response);
 
 #define BLKTAP_RING_SIZE						\
-	((int)__RD32((BLKTAP_PAGE_SIZE -				\
+	((int)__RD32(((BLKTAP_PAGE_SIZE * BLKTAP_PAGE_NUM) -				\
 		      (size_t)&((struct blktap_sring*)0)->ring) /	\
 		     sizeof(((struct blktap_sring *)0)->ring[0])))
 

@@ -148,7 +148,8 @@ RequestStatus::~RequestStatus()
 // --------
 //
 Request::Request(bool block)
-    : req_link(this), req_queue(nullptr), req_waitq(nullptr), req_state(0), req_res()
+    : req_link(this), req_queue(nullptr),
+      req_waitq(nullptr), req_state(0), req_res()
 {
     if (block) {
         req_state |= Request::req_block;

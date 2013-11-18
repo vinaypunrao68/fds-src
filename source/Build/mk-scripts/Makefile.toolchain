@@ -4,6 +4,22 @@
 # Setup Makefile to link with external libraries.
 #
 
+# Toolchain under FDS's Makefile system.
+#
+toolchain_lib        := $(topdir)/../Build/$(osdep_target)/lib
+
+# NGINX settings.
+#
+toolchain_nginx      := $(topdir)/../nginx
+toolchain_nginx_incl := -I$(toolchain_nginx)/src/core
+toolchain_nginx_incl += -I$(toolchain_nginx)/src/event
+toolchain_nginx_incl += -I$(toolchain_nginx)/src/event/modules
+toolchain_nginx_incl += -I$(toolchain_nginx)/src/os/unix
+toolchain_nginx_incl += -I$(toolchain_nginx)/src/http
+toolchain_nginx_incl += -I$(toolchain_nginx)/src/http/modules
+toolchain_nginx_incl += -I$(toolchain_nginx)/src/mail
+toolchain_nginx_incl += -I$(toolchain_nginx)/objs
+
 # ICE settings.
 #
 toolchain_ice        := $(topdir)/../Ice-3.5.0
@@ -24,14 +40,16 @@ toolchain_ldb_lib    := $(toolchain_ldb)
 
 # Global scope variables tool chain to use with the final compiling/linking.
 #
-toolchain_incl_flags := -I$(toolchain_boost_incl) -I$(toolchain_ice_top)/include
+toolchain_incl_flags := -I$(toolchain_boost_incl)
+toolchain_incl_flags += -I$(toolchain_ice_top)/include
 toolchain_incl_flags += -I$(toolchain_ldb_incl) -I$(toolchain_ldb)
+toolchain_incl_flags += $(toolchain_nginx_incl)
 
 toolchain_cc_flags   := $(toolchain_incl_flags)
 toolchain_cpp_flags  := $(toolchain_incl_flags)
 
 toolchain_ld_flags   := -L$(toolchain_boost_lib) -L$(toolchain_ice_lib)
-toolchain_ld_flags   += -L$(toolchain_ldb_lib)
+toolchain_ld_flags   += -L$(toolchain_ldb_lib) -L$(toolchain_lib)
 
 toolchain_so_flags   :=
 toolchain_ar_flags   :=

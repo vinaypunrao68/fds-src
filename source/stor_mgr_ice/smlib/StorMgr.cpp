@@ -187,7 +187,6 @@ ObjectStorMgr::ObjectStorMgr() :
   // Init  the log infra  
   sm_log = new fds_log("sm", "logs");
   FDS_PLOG(sm_log) << "Constructing the Object Storage Manager";
-
   objStorMutex = new fds_mutex("Object Store Mutex");
   waitingReqMutex = new fds_mutex("Object Store Mutex");
 
@@ -207,6 +206,9 @@ ObjectStorMgr::ObjectStorMgr() :
   dirtyFlashObjs = new ObjQueue(maxDirtyObjs);
   fds_verify(dirtyFlashObjs->is_lock_free() == true);
   writeBackThreads = new fds_threadpool(numWBThreads);
+
+  /* Set up the journal */
+  //omJrnl = new TransJournal<ObjectID, ObjectIdJrnlEntry>();
 
   /*
    * Setup QoS related members.
@@ -276,6 +278,7 @@ ObjectStorMgr::~ObjectStorMgr() {
   delete sm_log;
   delete volTbl;
   delete objStorMutex;
+  //delete omJrnl;
 }
 
 void ObjectStorMgr::nodeEventOmHandler(int node_id,
@@ -305,6 +308,7 @@ ObjectStorMgr::volEventOmHandler(fds_volid_t  volumeId,
                                  VolumeDesc  *vdb,
                                  int          action) {
   StorMgrVolume* vol = NULL;
+  Error err = ERR_OK;
 
   switch(action) {
     case FDS_VOL_ACTION_CREATE :
@@ -320,9 +324,14 @@ ObjectStorMgr::volEventOmHandler(fds_volid_t  volumeId,
       objStorMgr->volTbl->registerVolume(*vdb);
       vol = objStorMgr->volTbl->getVolume(volumeId);
       fds_assert(vol != NULL);
-      objStorMgr->qosCtrl->registerVolume(vol->getVolId(),
+      err = objStorMgr->qosCtrl->registerVolume(vol->getVolId(),
                                           dynamic_cast<FDS_VolumeQueue*>(vol->getQueue()));
       objStorMgr->objCache->vol_cache_create(volumeId, 1024 * 1024 * 8, 1024 * 1024 * 256);
+      fds_assert(err == ERR_OK);
+      if (err != ERR_OK) {
+    	  FDS_PLOG(objStorMgr->GetLog()) << "registration failed for vol id " << volumeId << " error: "
+    			  << err;
+      }
       break;
 
     case FDS_VOL_ACTION_DELETE:
@@ -670,6 +679,8 @@ ObjectStorMgr::checkDuplicate(const ObjectID&  objId,
        * Handle hash-collision - insert the next collision-id+obj-id 
        */
       err = ERR_HASH_COLLISION;
+      fds_panic("Encountered a hash collision checking object %s. Bailing out now!",
+                objId.ToHex().c_str());
     }
   } else if (err == ERR_DISK_READ_FAILED) {
     /*
@@ -827,8 +838,9 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
 			 *objBufPtr);
   }  
 
+
   if (err == ERR_DUPLICATE) {
-    objStorMutex->unlock();
+	objStorMutex->unlock();
     FDS_PLOG(objStorMgr->GetLog()) << "Put dup:  " << err
                                    << ", returning success";
     /*
@@ -836,7 +848,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
      */
     err = ERR_OK;
   } else if (err != ERR_OK) {
-    objStorMutex->unlock();
+	objStorMutex->unlock();
     FDS_PLOG(objStorMgr->GetLog()) << "Failed to check object duplicate status on put: "
                                    << err;
   } else {
@@ -874,6 +886,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
     */
   }
 
+  //omJrnl->release_journal_entry_with_notify(jrnlEntry);
   qosCtrl->markIODone(*putReq,
                       tierUsed);
 
@@ -998,6 +1011,7 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
    * memory for that size.
    */
 
+  //ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_journal_entry_for_key(objId);
   objStorMutex->lock();
   objBufPtr = objCache->object_retrieve(volId, objId);
 
@@ -1026,6 +1040,7 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
                                    << " for request ID " << getReq->io_req_id;
   }
 
+  //omJrnl->release_journal_entry_with_notify(jrnlEntry);
   qosCtrl->markIODone(*getReq, tierUsed);
 
   /*
@@ -1276,7 +1291,8 @@ ObjectStorMgr::run(int argc, char* argv[]) {
           char addrBuf[INET_ADDRSTRLEN];
           inet_ntop(AF_INET, tmpAddrPtr, addrBuf, INET_ADDRSTRLEN);
           myIp = std::string(addrBuf);
-
+	  if (myIp.find("10.1") != std::string::npos)
+	    break; /* TODO: more dynamic */
       }
     }
   }
@@ -1380,7 +1396,7 @@ ObjectStorMgr::run(int argc, char* argv[]) {
       testVdb = new VolumeDesc(testVolName,
                                testVolId,
                                8+ testVolId,
-                               1000,       /* high max iops so that unit tests does not take forever to finish */
+                               10000,       /* high max iops so that unit tests does not take forever to finish */
                                testVolId);
       fds_assert(testVdb != NULL);
       if ( (testVolId % 3) == 0)

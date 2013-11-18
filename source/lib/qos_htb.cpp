@@ -92,6 +92,9 @@ Error QoSHTBDispatcher::registerQueue(fds_uint32_t queue_id,
   if ((q_min_rate + total_min_rate) > total_rate) {
     qda_lock.write_unlock();
     delete qstate;
+    FDS_PLOG(qda_log) << "QoSHTBDispatcher: invalid qos rates.  q_min_rate: "
+    		<< q_min_rate << " total_min_rate: " << total_min_rate << " total_rate: "
+    		<< total_rate;
     err = ERR_INVALID_ARG;
     return err;
   }

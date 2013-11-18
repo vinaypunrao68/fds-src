@@ -18,11 +18,130 @@
 #include <fds_assert.h>
 #include <fds_types.h>
 #include <concurrency/Mutex.h>
+#include <fds-probe/fds_probe.h>
 
 namespace fds {
 
 class SmUnitTest {
  private:
+  /*
+   * FDS Probe workload gen class.
+   */
+  class SmUtProbe : public ProbeMod {
+   private:
+    SmUnitTest *parentUt;
+    fds_mutex  *offMapMtx;
+    std::unordered_map<fds_uint64_t, ObjectID> offsetMap;
+
+   public:
+    explicit SmUtProbe(const std::string &name,
+                       probe_mod_param_t &param,
+                       Module            *owner,
+                       SmUnitTest        *parentUt_arg) :
+        ProbeMod(name.c_str(), param, owner),
+        parentUt(parentUt_arg) {
+      offMapMtx = new fds_mutex("offset map mutex");
+    }
+    ~SmUtProbe() {
+      delete offMapMtx;
+    }
+
+    void pr_intercept_request(ProbeRequest &req) {
+    }
+    void pr_put(ProbeRequest &req) {
+      ProbeIORequest &ioReq = dynamic_cast<ProbeIORequest&>(req);
+
+      FDS_ProtocolInterface::FDSP_MsgHdrTypePtr putHdr =
+          new FDS_ProtocolInterface::FDSP_MsgHdrType;
+      putHdr->msg_code       = FDS_ProtocolInterface::FDSP_MSG_PUT_OBJ_REQ;
+      putHdr->src_id         = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
+      putHdr->dst_id         = FDS_ProtocolInterface::FDSP_STOR_MGR;
+      putHdr->result         = FDS_ProtocolInterface::FDSP_ERR_OK;
+      putHdr->err_code       = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+      putHdr->src_node_name  = "sm_test_client";
+      putHdr->glob_volume_id = 5;
+      putHdr->num_objects    = 1;
+
+      FDS_ProtocolInterface::FDSP_PutObjTypePtr putReq =
+          new FDS_ProtocolInterface::FDSP_PutObjType;
+      putReq->volume_offset         = ioReq.pr_voff;
+      putReq->data_obj_len          = ioReq.pr_wr_size;
+      putReq->data_obj              = std::string(ioReq.pr_wr_buf, ioReq.pr_wr_size);
+      MurmurHash3_x64_128(putReq->data_obj.c_str(),
+                          putReq->data_obj_len,
+                          0,
+                          &ioReq.pr_oid);
+      putReq->data_obj_id.hash_high = ioReq.pr_oid.GetHigh();
+      putReq->data_obj_id.hash_low  = ioReq.pr_oid.GetLow();
+
+      putHdr->req_cookie = parentUt->addPending(ioReq);
+      
+      parentUt->fdspDPAPI->begin_PutObject(putHdr, putReq);
+      FDS_PLOG(parentUt->test_log) << "Sent put obj message to SM"
+                                   << " for volume offset " << putReq->volume_offset
+                                   << " with object ID " << ioReq.pr_oid << " and data size "
+                                   << putReq->data_obj_len;
+      
+      /*
+       * Cache the object ID and data so we can read and verify later.
+       */
+      offMapMtx->lock();
+      offsetMap[ioReq.pr_voff] = ioReq.pr_oid;
+      offMapMtx->unlock();
+      parentUt->updatePutObj(ioReq.pr_oid, putReq->data_obj);
+    }
+    void pr_get(ProbeRequest &req) {
+      ProbeIORequest &ioReq = dynamic_cast<ProbeIORequest&>(req);
+      
+      FDS_ProtocolInterface::FDSP_MsgHdrTypePtr getHdr =
+          new FDS_ProtocolInterface::FDSP_MsgHdrType;
+      getHdr->msg_code       = FDS_ProtocolInterface::FDSP_MSG_GET_OBJ_REQ;
+      getHdr->src_id         = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
+      getHdr->dst_id         = FDS_ProtocolInterface::FDSP_STOR_MGR;
+      getHdr->result         = FDS_ProtocolInterface::FDSP_ERR_OK;
+      getHdr->err_code       = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+      getHdr->src_node_name  = "sm_test_client";
+      getHdr->glob_volume_id = 5;
+      getHdr->num_objects    = 1;
+
+      FDS_ProtocolInterface::FDSP_GetObjTypePtr getReq =
+          new FDS_ProtocolInterface::FDSP_GetObjType;
+      if (offsetMap.count(ioReq.pr_voff) == 0) {
+        std::cout << "Recieved read for unknown offset " << ioReq.pr_voff
+                  << " so just ending the read here!"<< std::endl;
+        ioReq.req_complete();
+        return;
+      }
+      offMapMtx->lock();
+      ioReq.pr_oid = offsetMap[ioReq.pr_voff];
+      offMapMtx->unlock();
+      getReq->data_obj_id.hash_high = ioReq.pr_oid.GetHigh();
+      getReq->data_obj_id.hash_low = ioReq.pr_oid.GetLow();
+
+      size_t reqSize;
+      const char* buf_ptr = ioReq.pr_rd_buf(&reqSize);
+      getReq->data_obj_len = reqSize;
+
+      getHdr->req_cookie = parentUt->addPending(ioReq);
+
+      parentUt->fdspDPAPI->begin_GetObject(getHdr, getReq);
+      FDS_PLOG(parentUt->test_log) << "Sent get obj message to SM"
+                                   << " for object ID " << ioReq.pr_oid << " and data size "
+                                   << getReq->data_obj_len;
+    }
+    void pr_delete(ProbeRequest &req) {
+      req.req_complete();
+    }
+    void pr_verify_request(ProbeRequest &req) {
+    }
+    void pr_gen_report(std::string &out) {
+    }
+    void mod_startup() {
+    }
+    void mod_shutdown() {
+    }
+  };
+
   /*
    * Ice response communuication class.
    */
@@ -49,6 +168,11 @@ class SmUnitTest {
                    get_req->data_obj_id.hash_low);
       std::string objData = get_req->data_obj;
       fds_verify(parentUt->checkGetObj(oid, objData) == true);
+
+      ProbeIORequest *ioReq = parentUt->getAndRmPending(msg_hdr->req_cookie);
+      if (ioReq != NULL) {
+        ioReq->req_complete();
+      }
     }
 
     void PutObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
@@ -58,6 +182,12 @@ class SmUnitTest {
        * TODO: May want to sanity check the other response fields.
        */
       fds_verify(msg_hdr->result == FDS_ProtocolInterface::FDSP_ERR_OK);
+      ProbeIORequest *ioReq = parentUt->getAndRmPending(msg_hdr->req_cookie);
+      if (ioReq != NULL) {
+        ioReq->req_complete();
+      } else {
+        std::cout << "The ioreq on the resp is NULL!" << std::endl;
+      }
     }
 
     void UpdateCatalogObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
@@ -102,6 +232,31 @@ class SmUnitTest {
 
   fds_log *test_log;
 
+  /*
+   * Members used for probe request tracking
+   */
+  fds_mutex   *reqMutex;
+  fds_uint64_t nextReqId;
+  std::map<fds_uint64_t, ProbeIORequest*> pendingIoMap;
+  fds_uint64_t addPending(ProbeIORequest &ioReq) {
+    reqMutex->lock();
+    fds_uint64_t reqId = nextReqId;
+    nextReqId++;
+    pendingIoMap[reqId] = &ioReq;
+    reqMutex->unlock();
+    return reqId;
+  }
+  ProbeIORequest* getAndRmPending(fds_uint64_t reqId) {
+    ProbeIORequest *ioReq = NULL;
+    reqMutex->lock();
+    if (pendingIoMap.count(reqId) > 0) {
+      ioReq = pendingIoMap[reqId];
+      pendingIoMap.erase(reqId);
+    }
+    reqMutex->unlock();
+    return ioReq;
+  }
+
   fds_uint32_t num_updates;
 
   std::unordered_map<ObjectID, std::string, ObjectHash> added_objs;
@@ -123,8 +278,8 @@ class SmUnitTest {
       objMapLock->unlock();
       return false;
     }
-    FDS_PLOG(test_log) << "Get object " << oid
-                       << " check: SUCCESS; " << objData;
+    FDS_PLOG(test_log) << "Get check for object " << oid
+                       << ": SUCCESS";
     objMapLock->unlock();
     return true;
   }
@@ -137,8 +292,7 @@ class SmUnitTest {
      * cached at that oid.
      */
     added_objs[oid] = objData;
-    FDS_PLOG(test_log) << "Put object " << oid << " with data "
-                       << objData << " into map ";
+    FDS_PLOG(test_log) << "Put object " << oid << " into map ";
     objMapLock->unlock();
   }
 
@@ -628,7 +782,41 @@ class SmUnitTest {
     FDS_PLOG(test_log) << "Ending test: basic_migration()";
 
     return 0;
+  }
 
+  fds_uint32_t basic_probe() {
+    FDS_PLOG(test_log) << "Starting test: basic_probe()";
+
+    probe_mod_param_t probe_param;
+    SmUtProbe probe("SM unit test probe", probe_param, NULL, this);
+
+    Module *sm_probe_vec[] = {
+      &probe,
+      &gl_probeMainLib,
+      NULL
+    };
+
+    /*
+     * Create some default cmdline args to pass in.
+     * TODO: Actually connect with fds module to use
+     * the command line stuff from there.
+     */
+    int argc = 2;
+    char *binName = new char[13];
+    strcpy(binName, "sm_unit_test\0");
+    char *argName = new char[3];
+    strcpy(argName, "-f\0");
+    char *argv[2] = {binName, argName};
+    ModuleVector probeVec(argc, argv, sm_probe_vec);
+
+    probeVec.mod_execute();
+
+    /*
+     * This will listen forever...
+     */
+    gl_probeMainLib.probe_run_main(&probe);
+
+    return 0;
   }
 
  public:
@@ -660,8 +848,12 @@ class SmUnitTest {
     unit_tests.push_back("basic_update");
     unit_tests.push_back("basic_uq");
     unit_tests.push_back("basic_dedupe");
+    unit_tests.push_back("basic_migration");
 
     num_updates = 100;
+
+    nextReqId = 0;
+    reqMutex = new fds_mutex("pending io mutex");
   }
 
   explicit SmUnitTest(FDS_ProtocolInterface::FDSP_DataPathReqPrx&
@@ -682,6 +874,7 @@ class SmUnitTest {
      * accounted for prior to destruction.
      */
     // delete fdspDataPathResp;
+    delete reqMutex;
     delete objMapLock;
     delete test_log;
   }
@@ -689,6 +882,8 @@ class SmUnitTest {
   fds_log* GetLogPtr() {
     return test_log;
   }
+
+  friend SmUtProbe;
 
   fds_int32_t Run(const std::string& testname) {
     fds_int32_t result = 0;
@@ -711,6 +906,8 @@ class SmUnitTest {
       result = basic_dedupe();
     } else if (testname == "basic_migration") {
       result = basic_migration();
+    } else if (testname == "basic_probe") {
+      result = basic_probe();
     } else {
       std::cout << "Unknown unit test " << testname << std::endl;
     }

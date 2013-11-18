@@ -38,6 +38,7 @@
 #include <utility>
 #include <atomic>
 #include <unordered_map>
+#include <include/TransJournal.h>
 #include <ObjStats.h>
 
 /*
@@ -140,6 +141,7 @@ namespace fds {
     /*
      * Local storage members
      */
+//    TransJournal<ObjectID, ObjectIdJrnlEntry> *omJrnl;
     fds_mutex *objStorMutex;
     ObjectDB  *objStorDB;
     ObjectDB  *objIndexDB;
@@ -178,8 +180,8 @@ namespace fds {
       FDS_QoSControl(_max_thrds, algo, log, "SM") {
         parentSm = _parent;
 
-        //dispatcher = new QoSMinPrioDispatcher(this, log, 500);
-       dispatcher = new QoSWFQDispatcher(this, 500, 20, log);
+        //dispatcher = new QoSMinPrioDispatcher(this, log, 3000);
+       dispatcher = new QoSWFQDispatcher(this, 3000, 20, log);
        //dispatcher = new QoSHTBDispatcher(this, log, 150);
 
         /* base class created stats, but they are disable by default */
@@ -195,7 +197,7 @@ namespace fds {
       Error markIODone(const FDS_IOType& _io) {
 	Error err(ERR_OK);
 	dispatcher->markIODone((FDS_IOType *)&_io);
-	stats->recordIO(_io.io_vol_id, 0);
+	stats->recordIO(_io.io_vol_id, _io.io_total_time);
 	return err;
       }
 
