@@ -7,7 +7,7 @@ user_build_dir    :=
 
 # TODO: avoid include across components, put in include dir instead.
 #
-user_incl_dir     := $(topdir) $(smdir)/include $(probedir)/include
+user_incl_dir     := $(topdir) $(topdir)/lib $(smdir)/include $(probedir)/include
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  :=                   \

@@ -96,7 +96,7 @@ int OrchMgr::run(int argc, char* argv[]) {
   }
   orchMgrIPAddress = props->getProperty("OrchMgr.IPAddress");
 
-  FDS_PLOG(om_log) << "Orchestration Manager using port " << orchMgrPortNum;
+  FDS_PLOG_SEV(om_log, fds::fds_log::notification) << "Orchestration Manager using port " << orchMgrPortNum;
 
   callbackOnInterrupt();
 
@@ -146,13 +146,14 @@ OrchMgr::ReqCfgHandler::~ReqCfgHandler() {
 int OrchMgr::CreateDomain(const FdspMsgHdrPtr& fdsp_msg,
                         const FdspCrtDomPtr& crt_dom_req) {
 
-  FDS_PLOG(GetLog()) << "Received CreateDomain Req : "
-                     << crt_dom_req->domain_name  << " :domain_id - " << crt_dom_req->domain_id;
+  FDS_PLOG_SEV(GetLog(), fds::fds_log::notification) << "Received CreateDomain Req : "
+						     << crt_dom_req->domain_name  
+						     << " :domain_id - " << crt_dom_req->domain_id;
 
    /* check  for duplicate domain id */
   om_mutex->lock();
   if ( locDomMap.count(crt_dom_req->domain_id) == 0) {
-    FDS_PLOG(om_log) << "Duplicate domain: " << crt_dom_req->domain_id;
+    FDS_PLOG_SEV(om_log, fds::fds_log::warning) << "Duplicate domain: " << crt_dom_req->domain_id;
     om_mutex->unlock();
     return -1;
   }
@@ -183,8 +184,8 @@ int OrchMgr::CreateVol(const FdspMsgHdrPtr& fdsp_msg,
   localDomainInfo  *currentDom;
   int returnCode;
 
-  FDS_PLOG(GetLog()) << "Received CreateVol Req for volume "
-                     << vol_name << " ; id - " << vol_id;
+  FDS_PLOG_SEV(GetLog(), fds::fds_log::notification) << "Received CreateVol Req for volume "
+						     << vol_name << " ; id - " << vol_id;
 
   /*
    * get the domain Id. If  Domain is not created  use  default domain 
@@ -196,7 +197,7 @@ int OrchMgr::CreateVol(const FdspMsgHdrPtr& fdsp_msg,
   om_mutex->lock();
 
   if ( currentDom->domain_ptr->volumeMap.count(vol_id) != 0) {
-    FDS_PLOG(om_log) << "Received CreateVol for existing volume " << vol_id;
+    FDS_PLOG_SEV(om_log, fds::fds_log::warning) << "Received CreateVol for existing volume " << vol_id;
     om_mutex->unlock();
     return -1;
   }
@@ -207,11 +208,11 @@ int OrchMgr::CreateVol(const FdspMsgHdrPtr& fdsp_msg,
   err = policy_mgr->fillVolumeDescPolicy(new_vol->properties);
   if ( err == ERR_CAT_ENTRY_NOT_FOUND ) {
       /* TODO: policy not in the catalog , should we return error or use default policu */
-      FDS_PLOG(GetLog()) << "Create volume " << vol_name 
-                         << " Req requested unknown policy " << (crt_vol_req->vol_info)->volPolicyId;    
+    FDS_PLOG_SEV(GetLog(), fds::fds_log::warning) << "Create volume " << vol_name 
+						  << " Req requested unknown policy " << (crt_vol_req->vol_info)->volPolicyId;    
   }
   else if (!err.ok()) {
-      FDS_PLOG(GetLog()) << "CreateVol: Failed to get policy info for volume " << vol_name;
+    FDS_PLOG_SEV(GetLog(), fds::fds_log::error) << "CreateVol: Failed to get policy info for volume " << vol_name;
       /* TODO: for now ignoring error */
   }
    /*
@@ -220,7 +221,7 @@ int OrchMgr::CreateVol(const FdspMsgHdrPtr& fdsp_msg,
 
   returnCode = currentDom->domain_ptr->admin_ctrl->volAdminControl(new_vol);
   if (returnCode != 0) {
-    FDS_PLOG(GetLog()) << "Unable to create Volume \n";
+    FDS_PLOG_SEV(GetLog(), fds::fds_log::error) << "Unable to create Volume " << vol_name ;
     delete new_vol;
     om_mutex->unlock();
     return -1; 
@@ -240,8 +241,8 @@ void OrchMgr::DeleteVol(const FdspMsgHdrPtr& fdsp_msg,
   VolumeInfo *cur_vol;
   localDomainInfo  *currentDom;
 
-  FDS_PLOG(GetLog()) << "Received DeleteVol Req for volume "
-                     << vol_name << " ; id - " << vol_id;
+  FDS_PLOG_SEV(GetLog(), fds::fds_log::notification) << "Received DeleteVol Req for volume "
+						     << vol_name << " ; id - " << vol_id;
 
   /*
    * get the domain Id. If  Domain is not created  use  default domain 
@@ -251,7 +252,7 @@ void OrchMgr::DeleteVol(const FdspMsgHdrPtr& fdsp_msg,
 
   om_mutex->lock();
   if ( currentDom->domain_ptr->volumeMap.count(vol_id) == 0) {
-    FDS_PLOG(om_log) << "Received DeleteVol for non-existent volume " << vol_id;
+    FDS_PLOG_SEV(om_log, fds::fds_log::warning) << "Received DeleteVol for non-existent volume " << vol_id;
     om_mutex->unlock();
     return;
   }
@@ -259,8 +260,8 @@ void OrchMgr::DeleteVol(const FdspMsgHdrPtr& fdsp_msg,
 
   for (int i = 0; i < del_vol->hv_nodes.size(); i++) {
     if (currentDom->domain_ptr->currentShMap.count(del_vol->hv_nodes[i]) == 0) {
-      FDS_PLOG(om_log) << "Inconsistent State Detected. "
-                       << "HV node in volume's hvnode list but not in SH map";
+      FDS_PLOG_SEV(om_log, fds::fds_log::error) << "Inconsistent State Detected. "
+						<< "HV node in volume's hvnode list but not in SH map";
       assert(0);
     }
     currentDom->domain_ptr->sendDetachVolToHvNode(del_vol->hv_nodes[i], del_vol);
@@ -290,9 +291,9 @@ void OrchMgr::CreatePolicy(const FdspMsgHdrPtr& fdsp_msg,
   Error err(ERR_OK);
   int policy_id = crt_pol_req->policy_info->policy_id;
 
-  FDS_PLOG(GetLog()) << "Received CreatePolicy  Msg for policy "
-		     << crt_pol_req->policy_info->policy_name
-		     << ", id" << policy_id;
+  FDS_PLOG_SEV(GetLog(), fds::fds_log::notification) << "Received CreatePolicy  Msg for policy "
+						     << crt_pol_req->policy_info->policy_name
+						     << ", id" << policy_id;
 
   om_mutex->lock();
   err = policy_mgr->createPolicy(crt_pol_req->policy_info);
@@ -304,8 +305,8 @@ void OrchMgr::DeletePolicy(const FdspMsgHdrPtr& fdsp_msg,
   Error err(ERR_OK);
   int policy_id = del_pol_req->policy_id;
   std::string policy_name = del_pol_req->policy_name;
-  FDS_PLOG(GetLog()) << "Received DeletePolicy  Msg for policy "
-		     << policy_name << ", id " << policy_id;
+  FDS_PLOG_SEV(GetLog(), fds::fds_log::notification) << "Received DeletePolicy  Msg for policy "
+						     << policy_name << ", id " << policy_id;
 
   om_mutex->lock();
   err = policy_mgr->deletePolicy(policy_id, policy_name);
@@ -320,9 +321,9 @@ void OrchMgr::ModifyPolicy(const FdspMsgHdrPtr& fdsp_msg,
                            const FdspModPolPtr& mod_pol_req) {
   Error err(ERR_OK);
   int policy_id = mod_pol_req->policy_info->policy_id;
-  FDS_PLOG(GetLog()) << "Received ModifyPolicy  Msg for policy "
-		     << mod_pol_req->policy_info->policy_name
-		     << ", id " << policy_id;
+  FDS_PLOG_SEV(GetLog(), fds::fds_log::notification) << "Received ModifyPolicy  Msg for policy "
+						     << mod_pol_req->policy_info->policy_name
+						     << ", id " << policy_id;
 
   om_mutex->lock();
   err = policy_mgr->modifyPolicy(mod_pol_req->policy_info);
@@ -340,9 +341,9 @@ void OrchMgr::AttachVol(const FdspMsgHdrPtr &fdsp_msg,
   fds_node_name_t node_name = atc_vol_req->node_id;
   localDomainInfo  *currentDom;
 
-  FDS_PLOG(GetLog()) << "Received Attach Vol Req for volume "
-                     << vol_name << " ; id - " << vol_id
-                     << " at node " << node_name;
+  FDS_PLOG_SEV(GetLog(), fds::fds_log::notification) << "Received Attach Vol Req for volume "
+						     << vol_name << " ; id - " << vol_id
+						     << " at node " << node_name;
 
   /*
    * get the domain Id. If  Domain is not created  use  default domain 
@@ -352,8 +353,8 @@ void OrchMgr::AttachVol(const FdspMsgHdrPtr &fdsp_msg,
 
   om_mutex->lock();
   if ( currentDom->domain_ptr->volumeMap.count(vol_id) == 0) {
-    FDS_PLOG(om_log) << "Received Attach Vol for non-existent volume "
-                     << vol_id;
+    FDS_PLOG_SEV(om_log, fds::fds_log::warning) << "Received Attach Vol for non-existent volume "
+						<< vol_id;
     om_mutex->unlock();
     return;
   }
@@ -369,9 +370,9 @@ void OrchMgr::AttachVol(const FdspMsgHdrPtr &fdsp_msg,
 
   for (int i = 0; i < this_vol->hv_nodes.size(); i++) {
     if (this_vol->hv_nodes[i] == node_name) {
-      FDS_PLOG(om_log) << "Attach Vol req for volume " << vol_id
-                       << " rejected because this volume is "
-                       << "already attached at node " << node_name;
+      FDS_PLOG_SEV(om_log, fds::fds_log::notification) << "Attach Vol req for volume " << vol_id
+						       << " rejected because this volume is "
+						       << "already attached at node " << node_name;
       om_mutex->unlock();
       return;
     }
@@ -393,16 +394,16 @@ void OrchMgr::DetachVol(const FdspMsgHdrPtr    &fdsp_msg,
   fds_bool_t node_not_attached = true;
   localDomainInfo  *currentDom;
 
-  FDS_PLOG(GetLog()) << "Received Detach Vol Req for volume "
-                     << vol_name << " ; id - " << vol_id
-                     << " at node " << node_name;
+  FDS_PLOG_SEV(GetLog(), fds::fds_log::notification) << "Received Detach Vol Req for volume "
+						     << vol_name << " ; id - " << vol_id
+						     << " at node " << node_name;
 
   currentDom  = locDomMap[DEFAULT_LOC_DOMAIN_ID];
 
   om_mutex->lock();
   if ( currentDom->domain_ptr->volumeMap.count(vol_id) == 0) {
-    FDS_PLOG(om_log) << "Received Detach Vol for non-existent volume "
-                     << vol_id;
+    FDS_PLOG_SEV(om_log, fds::fds_log::warning) << "Received Detach Vol for non-existent volume "
+						<< vol_id;
     om_mutex->unlock();
     return;
   }
@@ -423,9 +424,9 @@ void OrchMgr::DetachVol(const FdspMsgHdrPtr    &fdsp_msg,
     }
   }
   if (node_not_attached) {
-    FDS_PLOG(om_log) << "Detach Vol req for volume " << vol_id
-                     << " rejected because this volume is "
-                     << "not attached at node " << node_name;
+    FDS_PLOG_SEV(om_log, fds::fds_log::notification) << "Detach Vol req for volume " << vol_id
+						     << " rejected because this volume is "
+						     << "not attached at node " << node_name;
   } else {
     if (currentDom->domain_ptr->currentShMap.count(node_name) > 0) {
       currentDom->domain_ptr->sendDetachVolToHvNode(node_name, this_vol);
@@ -441,7 +442,7 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
   std::ostringstream tcpProxyStr;
   localDomainInfo  *currentDom;
 
-  FDS_PLOG(GetLog()) << "Received RegisterNode Msg"
+  FDS_PLOG_SEV(GetLog(), fds::fds_log::notification) << "Received RegisterNode Msg"
                      << "  Node name:" << reg_node_req->node_name
                      << "  Node IP:" << std::hex << reg_node_req->ip_lo_addr
                      << "  Node Type:" << std::dec << reg_node_req->node_type
@@ -486,14 +487,14 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
   om_mutex->lock();
 
   if (node_map.count(reg_node_req->node_name) > 0) {
-    FDS_PLOG(GetLog()) << "Duplicate Node Registration for "
-                       << reg_node_req->node_name;
+    FDS_PLOG_SEV(GetLog(),fds:: fds_log::notification) << "Duplicate Node Registration for "
+						       << reg_node_req->node_name;
   }
 
   fds_int32_t new_node_id = currentDom->domain_ptr->getFreeNodeId(reg_node_req->node_name);
 
-  FDS_PLOG(GetLog()) << "Assigning node id " << new_node_id << " to node " << reg_node_req->node_name 
-		     << ". Trying to connect at " << tcpProxyStr.str();
+  FDS_PLOG_SEV(GetLog(), fds::fds_log::notification) << "Assigning node id " << new_node_id << " to node " << reg_node_req->node_name 
+						     << ". Trying to connect at " << tcpProxyStr.str();
 
 
   /*
@@ -564,8 +565,8 @@ void OrchMgr::SetThrottleLevelForDomain(int domain_id, float throttle_level) {
 
   localDomainInfo  *currentDom;
 
-  FDS_PLOG(GetLog()) << "Setting throttle level for domain "
-                     << domain_id << " at " << throttle_level;
+  FDS_PLOG_SEV(GetLog(), fds::fds_log::notification) << "Setting throttle level for domain "
+						     << domain_id << " at " << throttle_level;
 
   /*
    * get the domain Id. If  Domain is not created  use  default domain 
@@ -601,9 +602,9 @@ void OrchMgr::NotifyQueueFull(const FDSP_MsgHdrTypePtr& fdsp_msg,
 
   for (int i = 0; i < que_st_list.size(); i++) {
     FDSP_QueueStateTypePtr& que_st = que_st_list[i];
-    FDS_PLOG(GetLog()) << "Received queue full for volume "
-		       << que_st->vol_uuid << ", priority - " << que_st->priority
-		       << " queue_depth - " << que_st->queue_depth;
+    FDS_PLOG_SEV(GetLog(), fds::fds_log::notification) << "Received queue full for volume "
+						       << que_st->vol_uuid << ", priority - " << que_st->priority
+						       << " queue_depth - " << que_st->queue_depth;
 
     assert((que_st->priority >= 0) && (que_st->priority <= 10));
     assert((que_st->queue_depth >= 0.5) && (que_st->queue_depth <= 1));
@@ -635,6 +636,12 @@ void OrchMgr::NotifyQueueFull(const FDSP_MsgHdrTypePtr& fdsp_msg,
   om_mutex->unlock();
 }
 
+void OrchMgr::NotifyPerfstats(const FDSP_MsgHdrTypePtr& fdsp_msg,
+			      const FDSP_PerfstatsTypePtr& perf_stats_msg)
+{
+  FDS_PLOG(GetLog()) << "OM received perfstats from node of type: " << perf_stats_msg->node_type;
+}
+
 
 int OrchMgr::ReqCfgHandler::DeleteDomain(const FdspMsgHdrPtr& fdsp_msg,
                                        const FdspCrtDomPtr& del_dom_req,
@@ -643,8 +650,8 @@ int OrchMgr::ReqCfgHandler::DeleteDomain(const FdspMsgHdrPtr& fdsp_msg,
     orchMgr->DeleteDomain(fdsp_msg, del_dom_req);
   }
   catch(...) {
-    FDS_PLOG(orchMgr->GetLog()) << "Orch Mgr encountered exception while "
-                                << "processing delete domain";
+    FDS_PLOG_SEV(orchMgr->GetLog(), fds::fds_log::error) << "Orch Mgr encountered exception while "
+							 << "processing delete domain";
   }
 }
 
@@ -655,8 +662,8 @@ int OrchMgr::ReqCfgHandler::CreateDomain(const FdspMsgHdrPtr& fdsp_msg,
     orchMgr->CreateDomain(fdsp_msg, crt_dom_req);
   }
   catch(...) {
-    FDS_PLOG(orchMgr->GetLog()) << "Orch Mgr encountered exception while "
-                                << "processing create domain";
+    FDS_PLOG_SEV(orchMgr->GetLog(), fds::fds_log::error) << "Orch Mgr encountered exception while "
+							 << "processing create domain";
   }
 }
 
@@ -667,8 +674,8 @@ int OrchMgr::ReqCfgHandler::CreateVol(const FdspMsgHdrPtr& fdsp_msg,
     orchMgr->CreateVol(fdsp_msg, crt_vol_req);
   }
   catch(...) {
-    FDS_PLOG(orchMgr->GetLog()) << "Orch Mgr encountered exception while "
-                                << "processing create volume";
+    FDS_PLOG_SEV(orchMgr->GetLog(), fds::fds_log::error) << "Orch Mgr encountered exception while "
+							 << "processing create volume";
   }
 }
 
@@ -726,6 +733,12 @@ void OrchMgr::ReqCfgHandler::NotifyQueueFull(const FDSP_MsgHdrTypePtr& fdsp_msg,
 		     const FDSP_NotifyQueueStateTypePtr& queue_state_req, 
 		     const Ice::Current&) {
   orchMgr->NotifyQueueFull(fdsp_msg, queue_state_req);
+}
+
+void OrchMgr::ReqCfgHandler::NotifyPerfstats(const FDSP_MsgHdrTypePtr& fdsp_msg,
+					     const FDSP_PerfstatsTypePtr& perf_stats_msg,
+					     const Ice::Current&) {
+  orchMgr->NotifyPerfstats(fdsp_msg, perf_stats_msg);
 }
 
 void OrchMgr::ReqCfgHandler::AssociateRespCallback(

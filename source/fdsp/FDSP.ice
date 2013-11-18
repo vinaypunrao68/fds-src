@@ -371,6 +371,10 @@ class FDSP_ThrottleMsgType {
   */
 };
 
+class FDSP_PerfstatsType {
+  FDSP_MgrIdType node_type; /* type of node - SM/SH */
+};
+
 class FDSP_QueueStateType {
 
   int domain_id;
@@ -499,7 +503,7 @@ interface FDSP_ConfigPathReq {
   */ 
   void RegisterNode(FDSP_MsgHdrType fdsp_msg, FDSP_RegisterNodeType reg_node_req);
   void NotifyQueueFull(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyQueueStateType queue_state_info);
- 
+  void NotifyPerfstats(FDSP_MsgHdrType fdsp_msg, FDSP_PerfstatsType push_stats_msg);
 
 };
 

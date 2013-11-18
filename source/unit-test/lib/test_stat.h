@@ -9,7 +9,7 @@
 #include <IceUtil/IceUtil.h>
 
 #include "fds_types.h"
-#include <util/PerfStat.h>
+#include <util/PerfStatHist.h>
 
 namespace fds {
 
