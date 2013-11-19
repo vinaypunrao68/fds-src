@@ -38,6 +38,8 @@ class S3Tester():
                  _objs  = None):
         if _host != None:
             self.host = _host
+        if _port != None:
+            self.port = _port
         if _conns != None:
             self.numConnections = int(_conns)
         if _bucks != None:
