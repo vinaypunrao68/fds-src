@@ -62,12 +62,24 @@ FdsLocalDomain::FdsLocalDomain(const std::string& om_prefix, fds_log* om_log)
    */
 
    admin_ctrl = new FdsAdminCtrl(om_prefix, om_log);
+
+   /* cached stats that we receve from AM - we will keep a bit longer history
+    * than AM does to account for async receive of stats from multiple AM
+    * and then CLI query for them */
+   am_stats = new PerfStats(om_prefix+"OM_from_AM", 3*FDS_STAT_DEFAULT_HIST_SLOTS);
+   if (am_stats) {
+     am_stats->enable(); /* stats are not enabled by default */
+   }
 }
 
 FdsLocalDomain::~FdsLocalDomain()
 {
   delete curDlt;
   delete curDmt;
+  if (am_stats) {
+    am_stats->disable();
+    delete am_stats;
+  }
 }
 
 
@@ -129,7 +141,7 @@ void FdsLocalDomain::updateDltLocked() {
    * the DLT.
    * TODO: For now just call a round robin.
    */
-  FDS_PLOG(parent_log) << "Updating DLT";
+  FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Updating DLT";
   roundRobinDlt(static_cast<fds_placement_table *>(curDlt),
                 currentSmMap,
                 parent_log);
@@ -144,7 +156,7 @@ void FdsLocalDomain::updateDmtLocked() {
    * the DLT.
    * TODO: For now just call a round robin.
    */
-  FDS_PLOG(parent_log) << "Updating DMT";
+  FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Updating DMT";
   roundRobinDlt(static_cast<fds_placement_table *>(curDmt),
                 currentDmMap,
                 parent_log);
@@ -175,7 +187,7 @@ void FdsLocalDomain::loadNodesFromFile(const std::string& dltFileName,
   size_t n_bytes = 0;
   char *line_ptr = 0;
 
-  FDS_PLOG(parent_log) << "Loading cluster map from local files "
+  FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Loading cluster map from local files "
                    << dltFileName << " and " << dmtFileName
                    << std::endl;
 
@@ -310,7 +322,7 @@ fds_int32_t FdsLocalDomain::getFreeNodeId(const std::string& node_name) {
       return i;
     }
   }
-  FDS_PLOG(parent_log) << "No id available to allocate to node " << node_name;
+  FDS_PLOG_SEV(parent_log, fds::fds_log::error) << "No id available to allocate to node " << node_name;
   return -1;
 }
 
@@ -352,7 +364,7 @@ void FdsLocalDomain::sendMgrNodeListToFdsNode(const NodeInfo& n_info) {
       node_info_ptr->control_port = next_node_info.control_port;
       node_info_ptr->data_port = next_node_info.data_port;
 
-      FDS_PLOG(parent_log) << "Sending node notification to node "
+      FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Sending node notification to node "
                        << n_info.node_name << " for node "
                        << node_name << " IP " << node_info_ptr->ip_lo_addr
                        << " port " << node_info_ptr->data_port << " state - "
@@ -411,7 +423,7 @@ void FdsLocalDomain::sendNodeEventToFdsNodes(const NodeInfo& nodeInfo,
         continue;
       }
 
-      FDS_PLOG(parent_log) << "Sending node notification to node "
+      FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Sending node notification to node "
                        << node_name << " for node "
                        << nodeInfo.node_name << " state - "
                        << node_state;
@@ -467,7 +479,7 @@ void FdsLocalDomain::sendNodeTableToFdsNodes(int table_type) {
       fds_node_name_t node_name = it->first;
       NodeInfo& next_node_info = it->second;
 
-      FDS_PLOG(parent_log) << "Sending "
+      FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Sending "
                        << ((table_type == table_type_dlt) ? "DLT " : "DMT ")
                        <<  "version "
                        << ((table_type == table_type_dlt) ?
@@ -506,7 +518,9 @@ void FdsLocalDomain::sendAllVolumesToFdsMgrNode(NodeInfo node_info) {
     vol_msg->vol_name = std::string(pVolDesc->name);
     copyPropertiesToVolumeDesc(vol_msg->vol_desc, pVolDesc);
     
-    FDS_PLOG(parent_log) << "Sending create vol to node " << node_info.node_name << " for volume " << pVolInfo->volUUID;
+    FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Sending create vol to node " 
+							 << node_info.node_name 
+							 << " for volume " << pVolInfo->volUUID;
     OMClientAPI->begin_NotifyAddVol(msg_hdr, vol_msg);
   }
 }
@@ -535,7 +549,7 @@ void FdsLocalDomain::sendCreateVolToFdsNodes(VolumeInfo  *pVolInfo) {
       fds_node_name_t node_name = it->first;
       NodeInfo& node_info = it->second;
 
-      FDS_PLOG(parent_log) << "Sending create vol to node "
+      FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Sending create vol to node "
                        << node_name << " for volume "
                        << pVolInfo->volUUID;
 
@@ -554,7 +568,7 @@ FdsLocalDomain::sendTierPolicyToSMNodes(const FDSP_TierPolicyPtr &tier)
         fds_node_name_t node_name = it->first;
         NodeInfo &node_info = it->second;
 
-        FDS_PLOG(parent_log) << "Sending tier policy to node "
+        FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Sending tier policy to node "
             << node_name << " for volume " << tier->tier_vol_uuid;
         ReqCtrlPrx OMClientAPI = node_info.cpPrx;
         OMClientAPI->begin_TierPolicy(tier);
@@ -570,7 +584,7 @@ FdsLocalDomain::sendTierAuditPolicyToSMNodes(const FDSP_TierPolicyAuditPtr &audi
         fds_node_name_t node_name = it->first;
         NodeInfo &node_info = it->second;
 
-        FDS_PLOG(parent_log) << "Sending tier audit policy to node "
+        FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Sending tier audit policy to node "
             << node_name << " for volume " << audit->tier_vol_uuid;
         ReqCtrlPrx OMClientAPI = node_info.cpPrx;
         OMClientAPI->begin_TierPolicyAudit(audit);
@@ -601,7 +615,7 @@ void FdsLocalDomain::sendDeleteVolToFdsNodes(VolumeInfo *pVolInfo) {
       fds_node_name_t node_name = it->first;
       NodeInfo& node_info = it->second;
 
-      FDS_PLOG(parent_log) << "Sending delete vol to node "
+      FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Sending delete vol to node "
                        << node_name << " for volume "
                        << pVolInfo->volUUID;
 
@@ -632,7 +646,7 @@ void FdsLocalDomain::sendAttachVolToHvNode(fds_node_name_t node_name,
 
   NodeInfo& node_info = currentShMap[node_name];
 
-  FDS_PLOG(parent_log) << "Sending attach vol to node " << node_name
+  FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Sending attach vol to node " << node_name
                    << " for volume " << pVolInfo->volUUID;
 
   ReqCtrlPrx OMClientAPI = node_info.cpPrx;
@@ -659,7 +673,7 @@ void FdsLocalDomain::sendDetachVolToHvNode(fds_node_name_t node_name,
 
   NodeInfo& node_info = currentShMap[node_name];
 
-  FDS_PLOG(parent_log) << "Sending detach vol to node " << node_name
+  FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Sending detach vol to node " << node_name
                    << " for volume " << pVolInfo->volUUID;
 
   ReqCtrlPrx OMClientAPI = node_info.cpPrx;
@@ -697,14 +711,35 @@ void FdsLocalDomain::sendThrottleLevelToHvNodes(float throttle_level) {
       fds_node_name_t node_name = it->first;
       NodeInfo& node_info = it->second;
 
-      FDS_PLOG(parent_log) << "Sending throttle msg to node "
-                       << node_name << " for throttle level "
-                       << throttle_level;
+      FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Sending throttle msg to node "
+							   << node_name << " for throttle level "
+							   << throttle_level;
 
       ReqCtrlPrx OMClientAPI = node_info.cpPrx;
       OMClientAPI->begin_SetThrottleLevel(msg_hdr, throttle_msg);
 
   }
 }
+
+/* handle receiving performance stats from AM */
+void FdsLocalDomain::handlePerfStatsFromAM(const FDSP_VolPerfHistListType& hist_list,
+					   const std::string start_timestamp)
+{
+  /* here is an assumption that a volume can only be attached to one AM, need to revisit if 
+   * this is not the case anymore */
+  for (int i = 0; i < hist_list.size(); ++i)
+    {
+      FDSP_VolPerfHistTypePtr vol_hist = hist_list[i];
+      double vol_uuid = vol_hist->vol_uuid;
+      for (int j = 0; j < (vol_hist->stat_list).size(); ++j)
+	{
+	  FDS_PLOG_SEV(parent_log, fds::fds_log::debug) << "OM: handle perfstat from AM for volume "
+							<< vol_hist->vol_uuid;
+
+	  am_stats->setStatFromIce((fds_uint32_t)vol_hist->vol_uuid, start_timestamp, (vol_hist->stat_list)[j]);
+	}
+    }  
+}
+
 
 } /* fds  namespace */
