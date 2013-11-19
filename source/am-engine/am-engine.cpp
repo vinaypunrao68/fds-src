@@ -11,10 +11,7 @@
 #include <boost/program_options/parsers.hpp>
 #include <shared/fds_types.h>
 #include <fds_assert.h>
-
-extern "C" {
-int ngx_main(int argc, char const **argv);
-}
+#include <am-plugin.h>
 
 namespace fds {
 
@@ -114,9 +111,9 @@ AMEngine::run_server()
     // Create all directories if they are not exists.
     umask(0);
     snprintf(path, NGINX_ARG_PARAM, "%s/%s", nginx_prefix, eng_logs);
-    make_nginx_dir(path);
+    ModuleVector::mod_mkdir(path);
     snprintf(path, NGINX_ARG_PARAM, "%s/%s", nginx_prefix, eng_etc);
-    make_nginx_dir(path);
+    ModuleVector::mod_mkdir(path);
 
     nginx_start_argv[0] = mod_params->p_argv[0];
     ngx_main(FDS_ARRAY_ELEM(nginx_start_argv), nginx_start_argv);
