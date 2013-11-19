@@ -356,6 +356,25 @@ void StorHvVolumeTable::dump()
 }
 
 BEGIN_C_DECLS
+int pushFbdReq(fbd_request_t *blkReq) {
+  /*
+   * Map this request into FdsIoReq
+   */
+  FdsIoReq *ioReq = new FdsIoReq((fds::fds_io_op_t)blkReq->io_type,  // IO type
+                                 blkReq->volUUID,  // Vol ID
+                                 "blkDev:vol" + std::to_string(blkReq->volUUID),  // Temp blob name
+                                 blkReq->sec * HVISOR_SECTOR_SIZE,  // Blob offset
+                                 blkReq->len,  // Request buffer length
+                                 blkReq->buf,  // Request data buffer
+                                 (FdsIoReq::cbFunc)blkReq->cb_request);  // Request callback
+  delete ioReq;
+}
+END_C_DECLS
+
+int amPushIo() {
+}
+
+BEGIN_C_DECLS
 int  pushVolQueue(void *req1)
 {
   fds_uint32_t vol_id;

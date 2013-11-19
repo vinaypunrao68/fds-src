@@ -250,6 +250,68 @@ namespace fds {
 #define  FDS_SH_IO_MAGIC_IN_USE 0x1B0A2C3D
 #define  FDS_SH_IO_MAGIC_NOT_IN_USE 0xE1D0A2B3
 
+  class FdsIoReq {
+ public:
+    /*
+     * Callback members
+     * TODO: Resolve this with what's needed by the object-based callbacks.
+     */
+    typedef void (*cbFunc)(void *arg1, void *arg2, void *freq, int res);
+
+ private:
+    /*
+     * Common request header members
+     */
+    fds_uint32_t magic;
+    fds_io_op_t  ioType;
+
+    /*
+     * Volume members
+     */
+    fds_volid_t volId;
+
+    /*
+     * Blob members
+     */
+    std::string  blobName;
+    fds_uint64_t blobOffset;
+
+    /*
+     * Object members
+     */
+    ObjectID objId;
+
+    /*
+     * Buffer members
+     */
+    fds_uint64_t  bufLen;
+    char         *dataBuf;
+
+    /*
+     * Callback members
+     */
+    cbFunc callbackFunc;
+
+    /*
+     * Perf members
+     */
+    fds_uint64_t queuedUsec;  /* Time spec in queue */
+    
+ public:
+    FdsIoReq(fds_io_op_t _op,
+             fds_volid_t _volId,
+             const std::string &_blobName,
+             fds_uint64_t _blobOffset,
+             fds_uint64_t _dataLen,
+             char *_dataBuf,
+             cbFunc _cb) {
+      magic = FDS_SH_IO_MAGIC_IN_USE;
+    }
+    ~FdsIoReq() {
+      magic = FDS_SH_IO_MAGIC_NOT_IN_USE;
+    }    
+  };
+
   class FDS_IOType {
 public:
    FDS_IOType() { };
