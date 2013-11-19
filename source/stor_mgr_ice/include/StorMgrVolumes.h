@@ -178,50 +178,61 @@ namespace fds {
   };
   
   class SmIoReq : public FDS_IOType {
- private:
+  private:
     ObjectID     objId;
-    ObjectBuf    objData;
+    // ObjectBuf    objData;
     fds_volid_t  volUuid;
     fds_uint64_t volOffset;
+    FDSP_PutObjTypePtr putObjReq;
+    FDSP_GetObjTypePtr getObjReq;
 
  public:
     /*
      * This constructor is generally used for
-     * write since it accepts an objBuf.
+     * write since it accepts a putObjReq Ptr.
      * TODO: Wrap this up in a clear interface.
      */
     SmIoReq(fds_uint64_t       _objIdHigh,
             fds_uint64_t       _objIdLow,
-            const std::string& _dataStr,
+            // const std::string& _dataStr,
+	    FDSP_PutObjTypePtr& putObjReq,
             fds_volid_t        _volUuid,
-            fds_io_op_t        _ioType) {
+            fds_io_op_t        _ioType,
+	    fds_uint32_t       _ioReqId) {
       objId = ObjectID(_objIdHigh, _objIdLow);
-      objData.size        = _dataStr.size();
-      objData.data        = _dataStr;
+      // objData.size        = _dataStr.size();
+      // objData.data        = _dataStr;
       volUuid             = _volUuid;
       io_vol_id           = volUuid;
+      assert(_ioType == FDS_IO_WRITE);
       FDS_IOType::io_type = _ioType;
+      io_req_id           = _ioReqId;
+      this->putObjReq = putObjReq;
+      getObjReq = NULL;
     }
 
     /*
      * This constructor is generally used for
-     * read since it takes a request tracking
-     * ID.
+     * read, it takes a getObjReq Ptr.
      * TODO: Wrap this up in a clear interface.
      */
     SmIoReq(fds_uint64_t       _objIdHigh,
             fds_uint64_t       _objIdLow,
-            const std::string& _dataStr,
+            // const std::string& _dataStr,
+	    FDSP_GetObjTypePtr& getObjReq,
             fds_volid_t        _volUuid,
             fds_io_op_t        _ioType,
             fds_uint32_t       _ioReqId) {
       objId = ObjectID(_objIdHigh, _objIdLow);
-      objData.size        = _dataStr.size();
-      objData.data        = _dataStr;
+      // objData.size        = _dataStr.size();
+      // objData.data        = _dataStr;
       volUuid             = _volUuid;
       io_vol_id           = volUuid;
+      assert(_ioType == FDS_IO_READ);
       FDS_IOType::io_type = _ioType;
       io_req_id           = _ioReqId;
+      this->getObjReq = getObjReq;
+      putObjReq = NULL;
     }
     ~SmIoReq() {
     }
@@ -230,8 +241,17 @@ namespace fds {
       return objId;
     }
 
-    const ObjectBuf& getObjData() const {
-      return objData;
+    //const ObjectBuf& getObjData() const {
+    //  return objData;
+    //}
+
+    const FDSP_PutObjTypePtr&  getPutObjReq() const {
+      assert(FDS_IOType::io_type == FDS_IO_WRITE);
+      return putObjReq;
+    }
+
+    const FDSP_GetObjTypePtr&  getGetObjReq() const {
+      return getObjReq;
     }
 
     fds_volid_t getVolId() const {

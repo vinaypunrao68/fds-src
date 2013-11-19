@@ -14,7 +14,7 @@
 
 using namespace std;
 
-namespace fds{
+namespace fds {
 
 
   class ObjectCacheBuf : public ObjectBuf {
@@ -41,7 +41,7 @@ namespace fds{
   typedef boost::shared_ptr<ObjectBuf> ObjBufPtrType; // Smart pointer type using boost shared_ptr template
   typedef boost::shared_ptr<ObjectCacheBuf> ObjCacheBufPtrType; // Smart pointer type using boost shared_ptr template
 
-  typedef unordered_map<ObjectID, ObjCacheBufPtrType, ObjectHash> vol_obj_map_t; // Per-volume map mapping an obj Id to obj buf
+  typedef std::unordered_map<ObjectID, ObjCacheBufPtrType, ObjectHash> vol_obj_map_t; // Per-volume map mapping an obj Id to obj buf
 
   enum slab_allocator_type {
     slab_allocator_type_fds
@@ -142,6 +142,14 @@ namespace fds{
     // without violating min_cache_sz requirement
     bool volume_evictable(fds_volid_t vol_id);
 
+    bool is_object_buf_dirty(fds_volid_t vol_id,
+			     ObjectID objId,
+			     ObjBufPtrType obj_data);
+
+    bool is_object_io_in_progress(fds_volid_t vol_id,
+				  ObjectID objId,
+				  ObjBufPtrType obj_data);
+
     void log_stats_to_file(std::string file_name);
     fds_log *GetLog() { return oc_log; }
 
@@ -152,7 +160,7 @@ namespace fds{
     fds_uint64_t max_cache_size;
     fds_log *oc_log;
 
-    unordered_map <fds_volid_t, VolObjectCache *> vol_cache_map;
+    std::unordered_map <fds_volid_t, VolObjectCache *> vol_cache_map;
     slab_object_allocator_base *slab_allocator;
     eviction_policy_manager_base *plcy_mgr;
     std::atomic<fds_uint64_t> total_mem_used;
