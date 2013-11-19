@@ -811,7 +811,6 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
   ObjBufPtrType objBufPtr = NULL;
   const FDSP_PutObjTypePtr& putObjReq = putReq->getPutObjReq();
 
-  objStorMutex->lock();
   objBufPtr = objCache->object_retrieve(volId, objId);
   if (objBufPtr != NULL) {
     while (objCache->is_object_io_in_progress(volId, objId, objBufPtr)) {

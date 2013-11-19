@@ -289,8 +289,6 @@ namespace fds {
 	n_oios = 0;
 	n_oios = atomic_fetch_add(&(num_outstanding_ios), (unsigned int)1);
 
-	parent_ctrlr->processIO(io);
-
 	FDS_PLOG(qda_log) << "Dispatcher: dispatchIO from queue " << queue_id
 			<< " : # of outstanding ios = " << n_oios+1
 			<< " : # of pending ios = " << n_pios-1;
