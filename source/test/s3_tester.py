@@ -3,6 +3,7 @@
 #
 # Tests basic Amazon S3 functionality.
 import boto
+from boto.s3.connection import S3Connection, OrdinaryCallingFormat
 import unittest
 import optparse
 import pdb
@@ -14,6 +15,7 @@ numObjs  = None
 numBucks = None
 numConns = None
 hostName = None
+hostPort = None
 
 #
 # Describes s3 testing paramters
@@ -22,6 +24,7 @@ class S3Tester():
     s3Connections  = []
     numConnections = 1
     host           = "s3.amazonaws.com"
+    port           = None
     bucketsPerConn = 2
     objectsPerConn = 5
     namePrefix     = "fds-s3-tester-"
@@ -30,11 +33,14 @@ class S3Tester():
 
     def __init__(self,
                  _host  = None,
+                 _port  = None,
                  _conns = None,
                  _bucks = None,
                  _objs  = None):
         if _host != None:
             self.host = _host
+        if _port != None:
+            self.port = int(_port)
         if _conns != None:
             self.numConnections = int(_conns)
         if _bucks != None:
@@ -47,7 +53,17 @@ class S3Tester():
     #
     def openConns(self):
         for i in range(0, self.numConnections):
-            self.s3Connections.append(boto.connect_s3(host=self.host))
+            if self.port == None:
+                self.s3Connections.append(boto.connect_s3(host=self.host,
+                                                          proxy=self.host,
+                                                          calling_format = OrdinaryCallingFormat(),
+                                                          is_secure=False))
+            else:
+                self.s3Connections.append(boto.connect_s3(host=self.host,
+                                                          proxy=self.host,
+                                                          proxy_port=self.port,
+                                                          calling_format = OrdinaryCallingFormat(),
+                                                          is_secure=False))
             assert(self.s3Connections[i] != None)
 
     #
@@ -162,7 +178,11 @@ class TestFunctions(unittest.TestCase):
     def __init__(self,
                  methodName='runTest'):
         unittest.TestCase.__init__(self, methodName)
-        self.s3Test = S3Tester(_host=hostName, _conns=numConns, _bucks=numBucks,_objs=numObjs)
+        self.s3Test = S3Tester(_host=hostName,
+                               _port=hostPort,
+                               _conns=numConns,
+                               _bucks=numBucks,
+                               _objs=numObjs)
 
     def setUp(self):
         self.s3Test.openConns()
@@ -266,6 +286,8 @@ if __name__ == '__main__':
                       help="number of buckets", metavar="INT")
     parser.add_option("-c", "--connections", dest="connections",
                       help="number of connections", metavar="INT")
+    parser.add_option("-p", "--port", dest="port",
+                      help="s3 remote host port", metavar="INT")
     parser.add_option("-r", "--host", dest="host",
                       help="s3 remote hostname", metavar="STRING")
 
@@ -277,6 +299,7 @@ if __name__ == '__main__':
     numBucks = options.buckets
     numConns = options.connections
     hostName = options.host
+    hostPort = options.port
 
     verbosity = 0
     if verbose == True:

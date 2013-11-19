@@ -182,17 +182,6 @@ namespace fds {
       
       ioProcessForEnqueue(queue_id, io);  
       
-      // do while loop is just to limit the scope of the unique_lock, limiting the time we hold ios_pending_mtx
-#if 0
-      do {
-	std::unique_lock<std::mutex> lck(ios_pending_mtx);
-	num_pending_ios++;
-	if (num_pending_ios == 1) {
-	  // wakeup scheduler here.
-	  ios_pending_cv.notify_all();
-	}
-      } while (0);
-#endif
       fds_uint32_t n_pios;
       n_pios = atomic_fetch_add(&(num_pending_ios), (unsigned int)1);
       FDS_PLOG(qda_log) << "Dispatcher: enqueueIO at queue - " << queue_id
@@ -256,14 +245,6 @@ namespace fds {
 
 	parent_ctrlr->waitForWorkers();
 
-#if 0
-	do {
-	  std::unique_lock<std::mutex> lck(ios_pending_mtx);
-	  while (num_pending_ios == 0) {
-	    ios_pending_cv.wait(lck);
-	  }
-	} while (0);
-#endif
 	fds_uint32_t n_pios = 0;
 	while (1) {
 	  n_pios = atomic_load(&num_pending_ios);
@@ -272,7 +253,7 @@ namespace fds {
           } else if (n_pios > 0) {
 	    break;
 	  }
-	  boost::this_thread::sleep(boost::posix_time::microseconds(1000000/(3 * total_svc_rate)));
+	  boost::this_thread::sleep(boost::posix_time::microseconds(100));
 	}
 
 	fds_uint32_t n_oios = 0;
@@ -282,7 +263,7 @@ namespace fds {
 	    if (n_oios < max_outstanding_ios) {
 	      break;
 	    }
-	    boost::this_thread::sleep(boost::posix_time::microseconds(1000000/(3 * total_svc_rate)));
+	    boost::this_thread::sleep(boost::posix_time::microseconds(100));
 	  }
 	}
 	
@@ -296,12 +277,6 @@ namespace fds {
 	assert(io != NULL);
 
 	ioProcessForDispatch(queue_id, io);
-#if 0
-	do {
-	  std::unique_lock<std::mutex> lck(ios_pending_mtx);
-	  num_pending_ios --;
-	} while (0);
-#endif
 
 	qda_lock.read_unlock();
 
@@ -314,12 +289,12 @@ namespace fds {
 	n_oios = 0;
 	n_oios = atomic_fetch_add(&(num_outstanding_ios), (unsigned int)1);
 
-	parent_ctrlr->processIO(io);
-
 	FDS_PLOG(qda_log) << "Dispatcher: dispatchIO from queue " << queue_id
 			<< " : # of outstanding ios = " << n_oios+1
 			<< " : # of pending ios = " << n_pios-1;
 	// assert(n_oios >= 0);
+
+	parent_ctrlr->processIO(io);
 	
       }
 

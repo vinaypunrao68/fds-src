@@ -94,9 +94,9 @@ namespace fds{
     vol_cache->num_cache_hits++;
     objCacheBuf = vol_cache->object_map[objId];
     vol_cache->vol_cache_lock->unlock();
-    if (objCacheBuf->io_in_progress) {
-      return NULL;
-    }
+    //if (objCacheBuf->io_in_progress) {
+    //  return NULL;
+    //}
     plcy_mgr->handle_object_access(vol_id, objId, objCacheBuf);
     ObjBufPtrType objBuf =  boost::static_pointer_cast<ObjectBuf>(objCacheBuf);
     return objBuf;
@@ -187,6 +187,23 @@ namespace fds{
     FDS_PLOG(oc_log) << "Marked object " << objId << " in volume " << vol_id << " clean";
     return 0;
   }
+
+
+  bool FdsObjectCache::is_object_buf_dirty(fds_volid_t vol_id,
+					   ObjectID objId,
+					   ObjBufPtrType obj_data) {
+    ObjCacheBufPtrType obj_cache_buf = boost::static_pointer_cast<ObjectCacheBuf>(obj_data);
+    return (obj_cache_buf->copy_is_dirty);
+  }
+
+  bool FdsObjectCache::is_object_io_in_progress(fds_volid_t vol_id,
+						ObjectID objId,
+						ObjBufPtrType obj_data) {
+    ObjCacheBufPtrType obj_cache_buf = boost::static_pointer_cast<ObjectCacheBuf>(obj_data);
+    return (obj_cache_buf->io_in_progress);
+  }
+
+  
 
   // Internal helper function doign the job of removing the object from the volume index,
   // after doing all sanity checks.

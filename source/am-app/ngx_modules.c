@@ -2,8 +2,6 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 
-
-
 extern ngx_module_t  ngx_core_module;
 extern ngx_module_t  ngx_errlog_module;
 extern ngx_module_t  ngx_conf_module;
@@ -50,6 +48,7 @@ extern ngx_module_t  ngx_http_headers_filter_module;
 extern ngx_module_t  ngx_http_copy_filter_module;
 extern ngx_module_t  ngx_http_range_body_filter_module;
 extern ngx_module_t  ngx_http_not_modified_filter_module;
+extern ngx_module_t  ngx_http_fds_data_module;
 
 ngx_module_t *ngx_modules[] = {
     &ngx_core_module,
@@ -63,7 +62,8 @@ ngx_module_t *ngx_modules[] = {
     &ngx_http_core_module,
     &ngx_http_log_module,
     &ngx_http_upstream_module,
-#if 0
+    &ngx_http_fds_data_module,
+
     &ngx_http_static_module,
     &ngx_http_autoindex_module,
     &ngx_http_index_module,
@@ -99,7 +99,7 @@ ngx_module_t *ngx_modules[] = {
     &ngx_http_copy_filter_module,
     &ngx_http_range_body_filter_module,
     &ngx_http_not_modified_filter_module,
-#endif
+
     NULL
 };
 

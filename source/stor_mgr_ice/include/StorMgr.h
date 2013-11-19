@@ -32,7 +32,9 @@
 
 #include <fds_qos.h>
 #include <qos_ctrl.h>
+#include <fds_obj_cache.h>
 #include <fds_assert.h>
+
 #include <utility>
 #include <atomic>
 #include <unordered_map>
@@ -68,6 +70,8 @@ using namespace Ice;
 using namespace diskio;
 
 namespace fds {
+
+  void log_ocache_stats();
 
   /*
    * Forward declaration of Ice interface class
@@ -213,6 +217,8 @@ namespace fds {
      */
     ObjectRankEngine *rankEngine;
 
+    FdsObjectCache *objCache;
+
     /*
      * Flash write-back members.
      * TODO: These should probably be in the persistent layer
@@ -350,6 +356,10 @@ namespace fds {
 
     const std::string& getStorPrefix() const {
       return stor_prefix;
+    }
+
+    FdsObjectCache *getObjCache() {
+      return objCache;
     }
 
     /*
