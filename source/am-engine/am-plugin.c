@@ -104,19 +104,42 @@ static ngx_int_t
 ngx_http_fds_data_handler(ngx_http_request_t *r)
 {
     ngx_int_t                     rc;
+    ngx_chain_t                   out;
+    ngx_buf_t                    *b;
+    ngx_table_elt_t              *h;
     ngx_http_fds_data_loc_conf_t *fdscf;
 
     fdscf = ngx_http_get_module_loc_conf(r, ngx_http_fds_data_module);
-    /*
-    if (!(r->method & (NGX_HTTP_GET | NGX_HTTP_HEAD))) {
-        return NGX_HTTP_NOT_ALLOWED;
+    if (r->method & NGX_HTTP_POST) {
+        rc = ngx_http_read_client_request_body(r, ngx_http_fds_read_body);
+        if (rc >= NGX_HTTP_SPECIAL_RESPONSE) {
+            return rc;
+        }
+        return NGX_DONE;
     }
-    */
-    rc = ngx_http_read_client_request_body(r, ngx_http_fds_read_body);
-    if (rc >= NGX_HTTP_SPECIAL_RESPONSE) {
-        return rc;
-    }
-    return NGX_DONE;
+    h = r->headers_in.host;
+    printf("Got request %p, header:\n", r);
+    printf("\tHost: key %s, value %s\n", h->key.data, h->value.data);
+    printf("\tURI: %s\n", r->request_line.data);
+    printf("\tMethod: %s\n", r->method_name.data);
+    printf("\tProtocol: %s\n", r->http_protocol.data);
+
+    r->headers_out.status = NGX_HTTP_OK;
+    r->headers_out.content_length_n = sizeof("Hello world") - 1;
+
+    rc = ngx_http_send_header(r);
+    b = ngx_calloc_buf(r->pool);
+    out.buf  = b;
+    out.next = NULL;
+
+    b->start = b->pos = "Hello world";
+    b->end = b->last = b->start + sizeof("Hello world") - 1;
+    b->memory        = 1;
+    b->last_buf      = 1;
+    b->last_in_chain = 1;
+
+    rc = ngx_http_output_filter(r, &out);
+    return rc;
 }
 
 /*
