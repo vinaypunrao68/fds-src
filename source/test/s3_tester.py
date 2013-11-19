@@ -3,6 +3,7 @@
 #
 # Tests basic Amazon S3 functionality.
 import boto
+from boto.s3.connection import S3Connection, OrdinaryCallingFormat
 import unittest
 import optparse
 import pdb
@@ -39,7 +40,7 @@ class S3Tester():
         if _host != None:
             self.host = _host
         if _port != None:
-            self.port = _port
+            self.port = int(_port)
         if _conns != None:
             self.numConnections = int(_conns)
         if _bucks != None:
@@ -55,7 +56,9 @@ class S3Tester():
             if self.port == None:
                 self.s3Connections.append(boto.connect_s3(host=self.host))
             else:
-                self.s3Connections.append(boto.connect_s3(host=self.host, port=self.port))
+                #self.s3Connections.append(boto.connect_s3(host=self.host, port=self.port))
+                pdb.set_trace()
+                self.s3Connections.append(S3Connection(host=self.host, port=self.port, calling_format = OrdinaryCallingFormat(), is_secure=False))
             assert(self.s3Connections[i] != None)
 
     #
