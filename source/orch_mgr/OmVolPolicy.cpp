@@ -64,11 +64,13 @@ Error VolPolicyMgr::createPolicy(const FdspPolInfoPtr& pol_info)
     }
   else if (err.ok())
     {
-      FDS_PLOG(parent_log) << "VolPolicyMgr::createPolicy -- policy " << polid << " already exists";
+      FDS_PLOG_SEV(parent_log, fds::fds_log::warning) << "VolPolicyMgr::createPolicy -- policy " 
+						      << polid << " already exists";
     }
   else 
     {
-      FDS_PLOG(parent_log) << "VolPolicyMgt::createPolicy -- failed to access policy catalog to add policy " << polid;
+      FDS_PLOG_SEV(parent_log, fds::fds_log::error) 
+	<< "VolPolicyMgt::createPolicy -- failed to access policy catalog to add policy " << polid;
     }
 
   return err;

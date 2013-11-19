@@ -286,8 +286,18 @@ class FdsLocalDomain {
      */
     void loadNodesFromFile(const std::string& dltFileName,
                           const std::string& dmtFileName);
+
+    void handlePerfStatsFromAM(const FDSP_VolPerfHistListType& hist_list,
+			       const std::string start_timestamp);
+
   /* parent log */
   fds_log* parent_log;
+
+ private: 
+
+  /* recent history of perf stats OM receives from AM nodes */
+  PerfStats* am_stats;
+
 }; 
 
  class localDomainInfo {

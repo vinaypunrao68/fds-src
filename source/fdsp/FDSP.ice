@@ -371,8 +371,31 @@ class FDSP_ThrottleMsgType {
   */
 };
 
+class FDSP_PerfStatType {
+  long   nios;     /* number of IOs in stat time interval  */
+  long   min_lat;  /* minimum latency */
+  long   max_lat;  /* maximum latency */
+  double ave_lat;  /* average latency */
+
+  int stat_type;     /* 0 - read/disk, 1 - write/disk, 2 - read/flash, 3 - write/flash, 5 - total 
+                      * Note that SH will only return stat_type 5 (for now) */
+  long rel_seconds;  /* timestamp -- in seconds relative to FDSP_PerfstatsType::start_timestamp */
+};
+
+sequence<FDSP_PerfStatType> FDSP_PerfStatListType;
+ 
+class FDSP_VolPerfHistType {
+  double vol_uuid;
+  FDSP_PerfStatListType  stat_list;  /* list of performance stats (one or more time slots) for this volume */
+};
+
+sequence<FDSP_VolPerfHistType> FDSP_VolPerfHistListType;
+
 class FDSP_PerfstatsType {
-  FDSP_MgrIdType node_type; /* type of node - SM/SH */
+  FDSP_MgrIdType            node_type; /* type of node - SM/SH */ 
+  int                       slot_len_sec; /* length of each stat time slot */
+  string                    start_timestamp; /* to calc absolute timestamps of stats which contain relative timestamps */
+  FDSP_VolPerfHistListType  vol_hist_list; /* list of performance histories of volumes */
 };
 
 class FDSP_QueueStateType {

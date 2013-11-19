@@ -367,7 +367,9 @@ int OMgrClient::registerNodeWithOM(const FDS_ProtocolInterface::FDSP_AnnounceDis
   return (0);
 }
 
-int OMgrClient::pushPerfstatsToOM()
+int OMgrClient::pushPerfstatsToOM(const std::string& start_ts,
+				  int stat_slot_len,
+				  const FDS_ProtocolInterface::FDSP_VolPerfHistListType& hist_list)
 {
   try {
     std::string tcpProxyStr = std::string("OrchMgr: tcp -h ") + 
@@ -377,8 +379,12 @@ int OMgrClient::pushPerfstatsToOM()
     initOMMsgHdr(msg_hdr);
     FDSP_PerfstatsTypePtr perf_stats_msg = new FDSP_PerfstatsType;
     perf_stats_msg->node_type = my_node_type;
+    perf_stats_msg->start_timestamp = start_ts;
+    perf_stats_msg->slot_len_sec = stat_slot_len;
+    perf_stats_msg->vol_hist_list = hist_list;  
 
-    FDS_PLOG_SEV(omc_log, fds::fds_log::normal) << "OMClient pushing perfstats to OM at " << tcpProxyStr;
+    FDS_PLOG_SEV(omc_log, fds::fds_log::normal) << "OMClient pushing perfstats to OM at " << tcpProxyStr
+						<< " start ts " << start_ts;
 
     fdspConfigPathAPI->begin_NotifyPerfstats(msg_hdr, perf_stats_msg);
 

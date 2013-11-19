@@ -94,6 +94,7 @@
 #include <util/Log.h>
 #include <concurrency/Mutex.h>
 #include <lib/Catalog.h>
+#include <lib/PerfStats.h>
 #include "OmTier.h"
 #include "OmVolPolicy.h"
 #include "OmLocDomain.h"
