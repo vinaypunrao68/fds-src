@@ -47,6 +47,7 @@ enum FDSP_MsgCodeType {
    FDSP_MSG_ATTACH_VOL_CMD,
    FDSP_MSG_DETACH_VOL_CMD,
    FDSP_MSG_REG_NODE,
+   FDSP_MSG_TEST_BUCKET,
 
    FDSP_MSG_NOTIFY_VOL,
    FDSP_MSG_ATTACH_VOL_CTRL,
@@ -222,7 +223,7 @@ class FDSP_DMT_Type {
 
 class FDSP_VolumeInfoType {
 
-  string 		 vol_name;  /* Name of the volume */
+  string 		 vol_name;  /* Name of the volume or bucket*/
   int 	 		 tennantId;  // Tennant id that owns the volume
   int    		 localDomainId;  // Local domain id that owns vol
   int	 		 globDomainId;
@@ -300,6 +301,14 @@ class FDSP_CreateVolType {
   string 		 vol_name;
   FDSP_VolumeInfoType 	 vol_info; /* Volume properties and attributes */
 
+};
+
+class FDSP_TestBucket {
+  string 		 bucket_name;
+  FDSP_VolumeInfoType 	 vol_info; /* Bucket properties and attributes */
+  bool                   attach_vol_reqd; /* Should OMgr send out an attach volume if the bucket is accessible, etc */
+  string                 accessKeyId;
+  string                 secretAccessKey;
 };
 
 class FDSP_PolicyInfoType {
@@ -476,6 +485,7 @@ class FDSP_MsgHdrType {
     int        tennant_id;      /* Tennant owning the Local-domain and Storage hypervisor */
     int        local_domain_id; /* Local domain the volume in question belongs */
     double        glob_volume_id;  /* Tennant owning the Local-domain and Storage hypervisor */
+    string       bucket_name;    /* Bucket Name or Container Name for S3 or Azure entities */
 		
     		/* Source and Destination Distributed s/w entities */
     FDSP_MgrIdType       src_id;

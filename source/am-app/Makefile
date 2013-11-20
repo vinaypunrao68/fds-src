@@ -21,6 +21,8 @@ user_nginx_libs   :=  \
     pthread crypt pcre crypto z
 
 user_non_fds_libs :=  \
+    boost_system \
+    boost_thread \
     boost_program_options \
     $(user_nginx_libs)
 

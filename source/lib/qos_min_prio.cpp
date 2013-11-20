@@ -43,7 +43,8 @@ Error QoSMinPrioDispatcher::registerQueue(fds_uint32_t queue_id,
 					  20);
 
   if (!qstate) {
-    FDS_PLOG(qda_log) << "QoSMinPrioDispatcher: failed to create queue state for queue " << queue_id;
+    FDS_PLOG_SEV(qda_log, fds::fds_log::error) 
+      << "QoSMinPrioDispatcher: failed to create queue state for queue " << queue_id;
     err = ERR_MAX;
     return err;
   }
@@ -63,9 +64,10 @@ Error QoSMinPrioDispatcher::registerQueue(fds_uint32_t queue_id,
   qstate_map[queue_id] = qstate;
   qda_lock.write_unlock();
 
-  FDS_PLOG(qda_log) << "QoSMinPrioDispatcher: registered queue " << queue_id
-		    << " with min_iops=" << queue->iops_min
-		    << " ; prio=" << queue->priority;
+  FDS_PLOG_SEV(qda_log, fds::fds_log::notification) 
+    << "QoSMinPrioDispatcher: registered queue " << queue_id
+    << " with min_iops=" << queue->iops_min
+    << " ; prio=" << queue->priority;
 
   return err;
 }
@@ -92,7 +94,8 @@ Error QoSMinPrioDispatcher::deregisterQueue(fds_uint32_t queue_id)
 
   delete qstate;
 
-  FDS_PLOG(qda_log) << "QoSMinPrioDispatcher: deregistered queue " << queue_id;
+  FDS_PLOG_SEV(qda_log, fds::fds_log::notification) 
+    << "QoSMinPrioDispatcher: deregistered queue " << queue_id;
 
   return err;
 }
@@ -130,8 +133,6 @@ fds_uint32_t QoSMinPrioDispatcher::getNextQueueForDispatch()
   double min_wma;
   int min_wma_hiprio;
 
-  FDS_PLOG(qda_log) << "QoSMinPrioDispatcher: getNextQueueForDispatch";
-
   /* this is work-conserving dispatcher, since this function is called only when:
    * 1) we have at least one pending IO (in any queue); AND
    * 2) the current number of outstanding IOs < max */  
@@ -157,8 +158,10 @@ fds_uint32_t QoSMinPrioDispatcher::getNextQueueForDispatch()
     fds_uint64_t exp_assured_toks = qstate->updateTokens();
     /* we only getting expired assured tokens for debugging */
     if (exp_assured_toks > 0) {
-      FDS_PLOG(qda_log) << "QoSMinPrioDispatcher: queue " << qstate->queue_id 
-			<< " lost " << exp_assured_toks << " assured tokens";
+      FDS_PLOG_SEV(qda_log, fds::fds_log::debug) 
+	<< "QoSMinPrioDispatcher: queue " 
+	<< qstate->queue_id 
+	<< " lost " << exp_assured_toks << " assured tokens";
     }
 
     /* check if we can serve the IO from the head of queue with assured tokens */

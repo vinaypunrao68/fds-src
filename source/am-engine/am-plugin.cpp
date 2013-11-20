@@ -1,6 +1,9 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
+#include <am-engine/s3connector.h>
+
+extern "C" {
 #include <am-plugin.h>
 #include <ngx_config.h>
 #include <ngx_core.h>
@@ -83,11 +86,11 @@ ngx_http_fds_read_body(ngx_http_request_t *r)
     r->headers_out.content_length_n = sizeof("Hello world") - 1;
 
     rc = ngx_http_send_header(r);
-    b = ngx_calloc_buf(r->pool);
+    b = (ngx_buf_t *)ngx_calloc_buf(r->pool);
     out.buf  = b;
     out.next = NULL;
 
-    b->start = b->pos = "Hello world";
+    b->start = b->pos = (u_char *)"Hello world";
     b->end = b->last = b->start + sizeof("Hello world") - 1;
     b->memory        = 1;
     b->last_buf      = 1;
@@ -109,7 +112,8 @@ ngx_http_fds_data_handler(ngx_http_request_t *r)
     ngx_table_elt_t              *h;
     ngx_http_fds_data_loc_conf_t *fdscf;
 
-    fdscf = ngx_http_get_module_loc_conf(r, ngx_http_fds_data_module);
+    fdscf = (ngx_http_fds_data_loc_conf_t *)
+        ngx_http_get_module_loc_conf(r, ngx_http_fds_data_module);
     if (r->method & NGX_HTTP_POST) {
         rc = ngx_http_read_client_request_body(r, ngx_http_fds_read_body);
         if (rc >= NGX_HTTP_SPECIAL_RESPONSE) {
@@ -124,15 +128,16 @@ ngx_http_fds_data_handler(ngx_http_request_t *r)
     printf("\tMethod: %s\n", r->method_name.data);
     printf("\tProtocol: %s\n", r->http_protocol.data);
 
+    return ngx_fds_obj_get(r);
     r->headers_out.status = NGX_HTTP_OK;
     r->headers_out.content_length_n = sizeof("Hello world") - 1;
 
     rc = ngx_http_send_header(r);
-    b = ngx_calloc_buf(r->pool);
+    b = (ngx_buf_t *)ngx_calloc_buf(r->pool);
     out.buf  = b;
     out.next = NULL;
 
-    b->start = b->pos = "Hello world";
+    b->start = b->pos = (u_char *)"Hello world";
     b->end = b->last = b->start + sizeof("Hello world") - 1;
     b->memory        = 1;
     b->last_buf      = 1;
@@ -152,10 +157,11 @@ ngx_http_fds_data_connector(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_http_core_loc_conf_t     *clcf;
     ngx_http_fds_data_loc_conf_t *fdscf;
 
-    clcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_core_module);
+    clcf = (ngx_http_core_loc_conf_t *)
+        ngx_http_conf_get_module_loc_conf(cf, ngx_http_core_module);
     clcf->handler = ngx_http_fds_data_handler;
 
-    fdscf = conf;
+    fdscf = (ngx_http_fds_data_loc_conf_t *)conf;
     fdscf->fds_enable = 1;
     return NGX_CONF_OK;
 }
@@ -169,7 +175,8 @@ ngx_http_fds_data_create_loc_conf(ngx_conf_t *cf)
 {
     ngx_http_fds_data_loc_conf_t *fdscf;
 
-    fdscf = ngx_pcalloc(cf->pool, sizeof(*fdscf));
+    fdscf = (ngx_http_fds_data_loc_conf_t *)
+        ngx_pcalloc(cf->pool, sizeof(*fdscf));
     if (fdscf == NULL) {
         return NGX_CONF_ERROR;
     }
@@ -187,7 +194,63 @@ ngx_http_fds_data_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_http_fds_data_loc_conf_t *prev;
     ngx_http_fds_data_loc_conf_t *self;
 
-    prev = parent;
-    self = child;
+    prev = (ngx_http_fds_data_loc_conf_t *)parent;
+    self = (ngx_http_fds_data_loc_conf_t *)child;
     return NGX_CONF_OK;
 }
+
+// ---------------------------------------------------------------------------
+// Protocol connector dispatch.
+// ---------------------------------------------------------------------------
+
+// ngx_fds_obj_get
+// ---------------
+//
+ngx_int_t
+ngx_fds_obj_get(ngx_http_request_t *r)
+{
+    fds::S3_GetObject *s3 = new fds::S3_GetObject(r);
+
+    // Do sync processing for now.
+    s3->ame_request_handler();
+    delete s3;
+    return NGX_DONE;
+}
+
+// ngx_fds_obj_put
+// ---------------
+//
+ngx_int_t
+ngx_fds_obj_put(ngx_http_request_t *r)
+{
+    return NGX_DONE;
+}
+
+// ngx_fds_obj_delete
+// ------------------
+//
+ngx_int_t
+ngx_fds_obj_delete(ngx_http_request_t *r)
+{
+    return NGX_DONE;
+}
+
+// ngx_fds_bucket_create
+// ---------------------
+//
+ngx_int_t
+ngx_fds_bucket_create(ngx_http_request_t *r)
+{
+    return NGX_DONE;
+}
+
+// ngx_fds_bucket_delete
+// ---------------------
+//
+ngx_int_t
+ngx_fds_bucket_delete(ngx_http_request_t *r)
+{
+    return NGX_DONE;
+}
+
+} // extern "C"
