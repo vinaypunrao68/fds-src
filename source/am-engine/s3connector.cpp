@@ -17,7 +17,7 @@ extern "C" {
 namespace fds {
 
 S3_GetObject::S3_GetObject(ngx_http_request_t *req)
-    : FDSN_GetObject(req)
+    : Conn_GetObject(req)
 {
 }
 

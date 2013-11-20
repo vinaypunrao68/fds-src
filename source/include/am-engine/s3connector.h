@@ -11,7 +11,7 @@ namespace fds {
 
 // S3 Get connector which does S3 specific object get semantic.
 //
-class S3_GetObject : public FDSN_GetObject
+class S3_GetObject : public Conn_GetObject
 {
   public:
     S3_GetObject(struct ngx_http_request_s *req);

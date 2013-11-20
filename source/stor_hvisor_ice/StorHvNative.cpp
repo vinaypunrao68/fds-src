@@ -50,10 +50,24 @@ void FDS_NativeAPI::GetObject(BucketContext *bucketctxt,
 			      GetConditions *get_cond,
 			      fds_uint64_t startByte,
 			      fds_uint64_t byteCount,
-			      void *reqcontext,
-			      fdsnGetObjectHandler getObjCallback,
-			      void *callbackdata)
+                  Conn_GetObject *connector)
 {
+    int   get_len, got_len;
+    void  *cookie;
+    char  *buf;
+    // Process the request
+
+    // Now send the header response.
+    get_len = 100;
+    connector->fdsn_send_get_response(0, get_len);
+
+    // Now send the data response.
+    cookie = connector->fdsn_alloc_get_buffer(get_len, &buf, &got_len);
+
+    // Assuming get_len == got_len always for now.
+    // Fill in the data to the buf.
+
+    connector->fdsn_send_get_buffer(cookie, get_len, true);
 }
 
 void FDS_NativeAPI::PutObject(BucketContext *buckctxt, 

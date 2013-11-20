@@ -100,12 +100,13 @@ make_nginx_dir(char const *const path)
 // ----------
 //
 void
-AMEngine::run_server()
+AMEngine::run_server(FDS_NativeAPI *api)
 {
     using namespace std;
     const string *fds_root;
     char          path[NGINX_ARG_PARAM];
 
+    eng_api = api;
     fds_root = &mod_params->fds_root;
     if (eng_signal != "") {
         nginx_signal_argv[0] = mod_params->p_argv[0];
@@ -192,7 +193,7 @@ AME_Request::ame_set_resp_keyval(char const *const k, char const *const v)
 // ----------------------
 //
 void *
-AME_Request::ame_push_resp_data_buf(int *buf_len, char **buf_adr)
+AME_Request::ame_push_resp_data_buf(int ask, char **buf, int *got)
 {
     return NULL;
 }
@@ -200,20 +201,21 @@ AME_Request::ame_push_resp_data_buf(int *buf_len, char **buf_adr)
 // ame_send_resp_data
 // ------------------
 //
-void
-AME_Request::ame_send_resp_data(void *buf_cookie, int val_len, int last_buf)
+ame_ret_e
+AME_Request::ame_send_resp_data(void *buf_cookie, int len, fds_bool_t last)
 {
+    return AME_OK;
 }
 
 // ---------------------------------------------------------------------------
-// FDSN Adapter connector.
+// Connector Adapters
 // ---------------------------------------------------------------------------
-FDSN_GetObject::FDSN_GetObject(ngx_http_request_t *req)
+Conn_GetObject::Conn_GetObject(ngx_http_request_t *req)
     : AME_Request(req)
 {
 }
 
-FDSN_GetObject::~FDSN_GetObject()
+Conn_GetObject::~Conn_GetObject()
 {
 }
 
@@ -221,29 +223,20 @@ FDSN_GetObject::~FDSN_GetObject()
 // -------------------
 //
 void
-FDSN_GetObject::ame_request_handler()
+Conn_GetObject::ame_request_handler()
 {
-    char *adr;
-    int   len, buf_len = 100;
-
     // Process request data, which doesn't have any data for GET.
-    // Notify FDSN API about the get request, pass this obj to the API.
 
-    // Assuming FDSN API called the right method to setup response data length.
+}
+
+// fdsn_send_get_response
+// ----------------------
+//
+void
+Conn_GetObject::fdsn_send_get_response(int status, int get_len)
+{
+    // Protocol-specific will send the response data.
     ame_send_response_hdr();
-
-    // Determine buffer length to hold GET data.
-    while (buf_len) {
-        void *cookie = ame_push_resp_data_buf(&len, &adr);
-
-        // Call FDSN to fill in data to the { adr, len }.
-        if (buf_len > len) {
-            buf_len -= len;
-        } else {
-            buf_len = 0;
-        }
-        ame_send_resp_data(cookie, len, buf_len == 0);
-    }
 }
 
 } // namespace fds

@@ -12,6 +12,6 @@ int main(int argc, char **argv)
     fds::ModuleVector am_module(argc, argv, am_mod_vec);
 
     am_module.mod_execute();
-    fds::gl_AMEngine.run_server();
+    fds::gl_AMEngine.run_server(NULL);
     return 0;
 }
