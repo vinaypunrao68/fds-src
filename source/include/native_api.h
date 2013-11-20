@@ -394,6 +394,7 @@ class FDS_NativeAPI {
                  fdsnGetObjectHandler getObjCallback,
                  void *callbackdata
                  );
+  void PutObject(BucketContext *bucket_ctxt, 
                  std::string ObjKey, 
                  PutProperties *putproperties,
                  void *reqContext,
@@ -405,6 +406,20 @@ class FDS_NativeAPI {
                     void *reqcontext, 
                     fdsnResponseHandler responseHandler,
                     void *callbackData);
+
+ private: /* methods */
+
+  /* Checks if bucket is attached to AM, if not, sends test bucket
+   * message to OM
+   * return error:
+   *    ERR_OK if bucket is already attached to AM
+   *    ERR_PENDING_RESP if test bucket message was sent to AM and now
+   *    we are waiting for response from OM (either we get attach volume 
+   *    message or volume does not exist).
+   *    Other error codes if error happened.
+   */
+  Error testBucketInternal(BucketContext *bucket_ctxt);
+
 };
 }
 #endif 
