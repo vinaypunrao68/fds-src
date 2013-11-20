@@ -80,7 +80,8 @@ Error QoSHTBDispatcher::registerQueue(fds_uint32_t queue_id,
                                           wait_time_microsec, 
                                           default_que_burst_size);
   if (!qstate) {
-    FDS_PLOG(qda_log) << "QoSHTBDispatcher: failed to allocate memory for queue state for queue: " << queue_id;
+    FDS_PLOG_SEV(qda_log, fds::fds_log::error) 
+      << "QoSHTBDispatcher: failed to allocate memory for queue state for queue: " << queue_id;
     err = ERR_MAX;
     return err;
   }
@@ -92,7 +93,7 @@ Error QoSHTBDispatcher::registerQueue(fds_uint32_t queue_id,
   if ((q_min_rate + total_min_rate) > total_rate) {
     qda_lock.write_unlock();
     delete qstate;
-    FDS_PLOG(qda_log) << "QoSHTBDispatcher: invalid qos rates.  q_min_rate: "
+    FDS_PLOG_SEV(qda_log, fds::fds_log::error) << "QoSHTBDispatcher: invalid qos rates.  q_min_rate: "
     		<< q_min_rate << " total_min_rate: " << total_min_rate << " total_rate: "
     		<< total_rate;
     err = ERR_INVALID_ARG;
@@ -127,7 +128,7 @@ Error QoSHTBDispatcher::registerQueue(fds_uint32_t queue_id,
   qstate_map[queue_id] = qstate;
   qda_lock.write_unlock();
 
-  FDS_PLOG(qda_log) << "QosHTBDispatcher: registered queue " << queue_id
+  FDS_PLOG_SEV(qda_log, fds::fds_log::notification) << "QosHTBDispatcher: registered queue " << queue_id
 		    << "with min_iops=" << queue->iops_min
 		    << "; max_iops=" << queue->iops_max
 		    << "; prio=" << queue->priority
@@ -172,7 +173,7 @@ Error QoSHTBDispatcher::deregisterQueue(fds_uint32_t queue_id)
   /* cleanup */
   delete qstate;
  
-  FDS_PLOG(qda_log) << "QosHTBDispatcher: deregistered queue " << queue_id
+  FDS_PLOG_SEV(qda_log, fds::fds_log::notification) << "QosHTBDispatcher: deregistered queue " << queue_id
                     << "; total_min_rate " << new_total_min_rate
                     << ", total_avail_rate " << new_total_avail_rate; 
   
@@ -185,8 +186,10 @@ void QoSHTBDispatcher::setThrottleLevel(float throttle_level)
   fds_int32_t tlevel_x = (fds_int32_t) throttle_level;
   double tlevel_frac = fabs((double)throttle_level - (double)tlevel_x);
 
-  FDS_PLOG(qda_log) << "QosHTBDispatcher: set throttle level to " << throttle_level
-		    << "; X=" << tlevel_x << ", Y/10=" << tlevel_frac;
+  FDS_PLOG_SEV(qda_log, fds::fds_log::notification) << "QosHTBDispatcher: set throttle level to " 
+						    << throttle_level
+						    << "; X=" << tlevel_x 
+						    << ", Y/10=" << tlevel_frac;
 
   qda_lock.write_lock();
   for (qstate_map_it_t it = qstate_map.begin();
@@ -223,10 +226,12 @@ void QoSHTBDispatcher::setThrottleLevel(float throttle_level)
 	 * all volumes are throttled down, and no sharing is happening */
       }
 
-      FDS_PLOG(qda_log) << "QosHTBDispatcher: setThrottleLevel(" << throttle_level <<") queue " << qstate->queue_id 
-			<< " Policy (" << qstate->min_rate << "," << qstate->max_rate << "," << qstate->priority
-			<< "), effective min_rate=" << qstate->getEffectiveMinRate() 
-			<< ", effective max_rate=" << qstate->getEffectiveMaxRate();
+      FDS_PLOG_SEV(qda_log, fds::fds_log::notification) << "QosHTBDispatcher: setThrottleLevel(" 
+							<< throttle_level <<") queue " << qstate->queue_id 
+							<< " Policy (" << qstate->min_rate 
+							<< "," << qstate->max_rate << "," << qstate->priority
+							<< "), effective min_rate=" << qstate->getEffectiveMinRate() 
+							<< ", effective max_rate=" << qstate->getEffectiveMaxRate();
     }
   qda_lock.write_unlock();
 }
@@ -236,8 +241,9 @@ void QoSHTBDispatcher::ioProcessForEnqueue(fds_uint32_t queue_id,
 {
   TBQueueState* qstate = qstate_map[queue_id];
   assert(qstate);
-  FDS_PLOG(qda_log) << "QoSHTBDispatcher: handling enqueue IO to queue " << queue_id;
-  qstate->handleIoEnqueue(io);
+  fds_uint32_t queued_ios = qstate->handleIoEnqueue(io);
+  FDS_PLOG(qda_log) << "QoSHTBDispatcher: handling enqueue IO to queue " << queue_id
+		    << " ; # of queued_ios " << (queued_ios+1);
 }
 
 void QoSHTBDispatcher::ioProcessForDispatch(fds_uint32_t queue_id,
@@ -288,8 +294,10 @@ fds_uint32_t QoSHTBDispatcher::getNextQueueForDispatch()
       if (exp_assured_toks > 0) {
 	/* first put expired assured tokens to the avail_pool */
 	avail_pool.addTokens(exp_assured_toks);
-	FDS_PLOG(qda_log) << "QoSHTVDispatcher: moving " << exp_assured_toks << " expired assured toks from "
-			  << "queue " << qstate->queue_id << " to the pool of available tokens";
+	FDS_PLOG_SEV(qda_log, fds::fds_log::debug) << "QoSHTVDispatcher: moving " 
+						   << exp_assured_toks << " expired assured toks from "
+						   << "queue " << qstate->queue_id 
+						   << " to the pool of available tokens";
       }
 
       /* try to see if we can serve the io from the head of queue with assured tokens */
