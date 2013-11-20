@@ -129,12 +129,12 @@ void sh_test_w(const char *data,
   w_req->cb_request = sh_test_w_callback;
   
   if (w_verify == true) {
+    // pushFbdReq(w_req);
     pushVolQueue(w_req);
-//    StorHvisorProcIoWr( w_req, sh_test_w_callback, NULL, NULL);
   } else {
-  w_req->cb_request = sh_test_nv_callback;
+    w_req->cb_request = sh_test_nv_callback;
+    // pushFbdReq(w_req);
     pushVolQueue(w_req);
-//    StorHvisorProcIoWr( w_req, sh_test_nv_callback, NULL, NULL);
   }
   
   /*
@@ -198,9 +198,8 @@ int sh_test_r(char *r_buf, fds_uint32_t len, fds_uint32_t offset, fds_volid_t vo
   r_req->io_type = 0;
   r_req->hvisorHdl = hvisor_hdl;
   r_req->cb_request = sh_test_r_callback;
+  // pushFbdReq(r_req);
   pushVolQueue(r_req);
-  
-//  StorHvisorProcIoRd( r_req, sh_test_r_callback, NULL, NULL);
 
   /*
    * Wait until we've finished this read
@@ -698,6 +697,56 @@ StorHvCtrl::~StorHvCtrl()
   delete sh_log;
 }
 
+fds::Error StorHvCtrl::pushBlobReq(fds::FdsBlobReq *blobReq) {
+  fds_verify(blobReq->magicInUse() == true);
+  fds::Error err(ERR_OK);
+
+  /*
+   * Pack the blobReq in to a qosReq to pass to QoS
+   */
+  AmQosReq *qosReq  = new AmQosReq(blobReq);
+  fds_volid_t volId = blobReq->getVolId();
+
+  fds::StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(volId);
+  if ((shVol == NULL) || (shVol->volQueue == NULL)) {
+    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error)
+        << "Volume and queueus are NOT setup for volume " << volId;
+    err = fds::ERR_INVALID_ARG;
+    return err;
+  }
+  /*
+   * TODO: We should handle some sort of success/failure here?
+   */
+  qos_ctrl->enqueueIO(volId, qosReq);
+  shVol->readUnlock();
+
+  FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::debug)
+      << "Queued IO for vol " << volId;
+
+  return err;
+}
+
+fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
+  fds::Error err(ERR_OK);
+
+  FDS_PLOG_SEV(sh_log, fds::fds_log::normal)
+      << "Doing a put blob operation!";
+
+  delete qosReq;
+
+  return err;
+}
+
+fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
+  fds::Error err(ERR_OK);
+
+  FDS_PLOG_SEV(sh_log, fds::fds_log::normal)
+      << "Doing a get blob operation!";
+
+  delete qosReq;
+
+  return err;
+}
 
 fds_log* StorHvCtrl::GetLog() {
   return sh_log;

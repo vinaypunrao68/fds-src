@@ -11,7 +11,6 @@
 #include <fds_err.h>
 #include <fds_volume.h>
 
-
 namespace fds {
 class StorHvQosCtrl : public FDS_QoSControl { 
   public:
