@@ -2,15 +2,17 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 #include <am-engine/am-engine.h>
+#include <am-plugin.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+
 extern "C" {
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_http.h>
-}
+} // extern "C"
 
 #include <iostream>
 #include <boost/program_options.hpp>
@@ -130,6 +132,9 @@ AMEngine::mod_shutdown()
 {
 }
 
+// ---------------------------------------------------------------------------
+// Generic request/response protocol through NGINX module.
+// ---------------------------------------------------------------------------
 AME_Request::AME_Request(ngx_http_request_t *req)
     : fdsio::Request(false)
 {
@@ -139,46 +144,70 @@ AME_Request::~AME_Request()
 {
 }
 
+// ame_reqt_iter_reset
+// -------------------
+//
 void
 AME_Request::ame_reqt_iter_reset()
 {
 }
 
+// ame_reqt_iter_next
+// ------------------
+//
 ame_ret_e
 AME_Request::ame_reqt_iter_next()
 {
     return AME_OK;
 }
 
+// ame_reqt_iter_data
+// ------------------
+//
 char const *const
 AME_Request::ame_reqt_iter_data(int *len)
 {
     return NULL;
 }
 
+// ame_get_reqt_hdr_val
+// --------------------
+//
 char const *const
 AME_Request::ame_get_reqt_hdr_val(char const *const key)
 {
     return NULL;
 }
 
+// ame_set_resp_keyval
+// -------------------
+//
 ame_ret_e
 AME_Request::ame_set_resp_keyval(char const *const k, char const *const v)
 {
     return AME_OK;
 }
 
+// ame_push_resp_data_buf
+// ----------------------
+//
 void *
 AME_Request::ame_push_resp_data_buf(int *buf_len, char **buf_adr)
 {
     return NULL;
 }
 
+// ame_send_resp_data
+// ------------------
+//
 void
 AME_Request::ame_send_resp_data(void *buf_cookie, int val_len, int last_buf)
 {
 }
 
+// ---------------------------------------------------------------------------
+// FDSN Adapter connector.
+// ---------------------------------------------------------------------------
 FDSN_GetObject::FDSN_GetObject(ngx_http_request_t *req)
     : AME_Request(req)
 {
@@ -188,25 +217,33 @@ FDSN_GetObject::~FDSN_GetObject()
 {
 }
 
+// ame_request_handler
+// -------------------
+//
 void
 FDSN_GetObject::ame_request_handler()
 {
-}
+    char *adr;
+    int   len, buf_len = 100;
 
-S3_GetObject::S3_GetObject(ngx_http_request_t *req)
-    : FDSN_GetObject(req),
-      resp_xx_key(NULL), resp_xx_value(NULL)
-{
-}
+    // Process request data, which doesn't have any data for GET.
+    // Notify FDSN API about the get request, pass this obj to the API.
 
-S3_GetObject::~S3_GetObject()
-{
-}
+    // Assuming FDSN API called the right method to setup response data length.
+    ame_send_response_hdr();
 
-ame_ret_e
-S3_GetObject::ame_send_response_hdr()
-{
-    return AME_OK;
+    // Determine buffer length to hold GET data.
+    while (buf_len) {
+        void *cookie = ame_push_resp_data_buf(&len, &adr);
+
+        // Call FDSN to fill in data to the { adr, len }.
+        if (buf_len > len) {
+            buf_len -= len;
+        } else {
+            buf_len = 0;
+        }
+        ame_send_resp_data(cookie, len, buf_len == 0);
+    }
 }
 
 } // namespace fds

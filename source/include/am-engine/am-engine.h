@@ -108,25 +108,6 @@ class FDSN_GetObject : public AME_Request
   protected:
 };
 
-// S3 Get connector which does S3 specific object get semantic.
-//
-class S3_GetObject : public FDSN_GetObject
-{
-  public:
-    S3_GetObject(struct ngx_http_request_s *req);
-    ~S3_GetObject();
-
-    // Send response header in S3 protocol.
-    //
-    virtual ame_ret_e ame_send_response_hdr();
-
-  protected:
-    // List of known key-values that we'll need to send the GET response.
-    //
-    char *resp_xx_key;
-    char *resp_xx_value;
-};
-
 } // namespace fds
 
 #endif /* INCLUDE_AM_ENGINE_H_ */

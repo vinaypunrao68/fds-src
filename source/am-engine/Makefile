@@ -3,11 +3,10 @@ user_target      := lib
 user_rtime_env   := user
 user_build_dir   :=
 user_incl_dir    :=
-user_cc          := \
-    am-plugin.c
-
 user_cpp         :=               \
-    am-engine.cpp
+    am-engine.cpp \
+    am-plugin.cpp \
+    s3connector.cpp
 
 user_ar_libs     := fds-am-engine
 fds-am-engine    := $(user_cpp) $(user_cc)
