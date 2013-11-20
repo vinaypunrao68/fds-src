@@ -117,6 +117,14 @@ class StorHvVolumeTable
    */
   StorHvVolume* getVolume(fds_volid_t vol_uuid);
 
+  /* returns volume uuid if found in volume map.
+   * if volume does not exist, returns 'invalid_vol_id'  
+   */
+  fds_volid_t getVolumeUUID(const std::string& vol_name);
+
+  /* returns true if volume exists, otherwise retuns false */
+  fds_bool_t volumeExists(const std::string& vol_name);
+
  private: /* methods */ 
 
   /* handler for volume-related control message from OM */
