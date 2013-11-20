@@ -199,7 +199,7 @@ typedef struct ErrorDetails
 typedef enum
 {
     CannedAclPrivate                  = 0, /* private */
-    annedAclPublicRead               = 1, /* public-read */
+    CannedAclPublicRead               = 1, /* public-read */
     CannedAclPublicReadWrite          = 2, /* public-read-write */
     CannedAclAuthenticatedRead        = 3  /* authenticated-read */
 } CannedAcl;
@@ -315,7 +315,7 @@ class GetConditions {
  *        0 to indicate the end of data, or > 0 to identify the number of
  *        bytes that were written into the buffer by this callback
  **/
-typedef int (fdsnPutObjectHandler)(int bufferSize, char *buffer,
+typedef int (fdsnPutObjectHandler)(void *reqContext, fds_uint64_t bufferSize, char *buffer,
                                       void *callbackData);
 
 
@@ -335,7 +335,7 @@ typedef int (fdsnPutObjectHandler)(int bufferSize, char *buffer,
  *         Typically, this will return either S3StatusOK or
  *         S3StatusAbortedByCallback.
  **/
-typedef FDSN_Status (fdsnGetObjectHandler)(int bufferSize, const char *buffer,
+typedef FDSN_Status (fdsnGetObjectHandler)(void *reqContext, fds_uint64_t bufferSize, const char *buffer,
                                            void *callbackData);
 typedef void (fdsnResponseHandler)(FDSN_Status status,
                                           const ErrorDetails *errorDetails,
@@ -389,12 +389,15 @@ class FDS_NativeAPI {
                  std::string ObjKey, 
                  GetConditions *get_cond, 
                  fds_uint64_t startByte, fds_uint64_t byteCount,
-                 Conn_GetObject *connector);
-
-  void PutObject(BucketContext *buckctxt, 
+                 char *buffer, fds_uint64_t buflen,
+                 void *reqcontext,
+                 fdsnGetObjectHandler getObjCallback,
+                 void *callbackdata
+                 );
                  std::string ObjKey, 
                  PutProperties *putproperties,
                  void *reqContext,
+                 char *buffer, fds_uint64_t buflen,
                  fdsnPutObjectHandler putObjHandler, 
                  void *callbackData);
   void DeleteObject(BucketContext *bucket_ctxt, 
