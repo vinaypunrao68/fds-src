@@ -16,7 +16,8 @@ StorHvisor_cpp    :=                   \
     StorHvJournal.cpp                  \
     qos_ctrl.cpp	               \
     StorHvQosCtrl.cpp                  \
-    StorHvVolumes.cpp
+    StorHvVolumes.cpp		       \
+    StorHvNative.cpp	
 
 user_cpp          :=                   \
     $(StorHvisor_cpp)
