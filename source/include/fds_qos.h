@@ -83,7 +83,7 @@ namespace fds {
       }
       queue_map[queue_id] = queue;
 
-	FDS_PLOG(qda_log) << "Dispatcher: registering queue - "
+      FDS_PLOG_SEV(qda_log, fds::fds_log::notification) << "Dispatcher: registering queue - "
 			<< queue_id << " with min - "
 			<< queue->iops_min << ", max - " << queue->iops_max
 			<< ", priority - " << queue->priority
@@ -200,30 +200,30 @@ namespace fds {
       int ret = 0;
 
       params.sched_priority = sched_get_priority_max(SCHED_FIFO);
-      FDS_PLOG(qda_log) << "Dispatcher: trying to set dispatcher thread realtime prio = " << params.sched_priority;
+      FDS_PLOG_SEV(qda_log, fds::fds_log::notification) << "Dispatcher: trying to set dispatcher thread realtime prio = " << params.sched_priority;
  
       /* Attempt to set thread real-time priority to the SCHED_FIFO policy */
       ret = pthread_setschedparam(this_thread, SCHED_FIFO, &params);
       if (ret != 0) {
-   	FDS_PLOG(qda_log) << "Dispatcher: Unsuccessful in setting scheduler thread realtime prio";
+   	FDS_PLOG_SEV(qda_log, fds::fds_log::warning) << "Dispatcher: Unsuccessful in setting scheduler thread realtime prio";
       }
       else {
       /* success - Now verify the change in thread priority */
 	int policy = 0;
 	ret = pthread_getschedparam(this_thread, &policy, &params);
 	if (ret != 0) {
-	  FDS_PLOG(qda_log) << "Dispatcher: Couldn't retrieve real-time scheduling parameters for dispatcher thread";
+	  FDS_PLOG_SEV(qda_log, fds::fds_log::warning) << "Dispatcher: Couldn't retrieve real-time scheduling parameters for dispatcher thread";
 	}
  
 	/* Check the correct policy was applied */
 	if(policy != SCHED_FIFO) {
-	  FDS_PLOG(qda_log) << "Dispatcher:Scheduling is NOT SCHED_FIFO!";
+	  FDS_PLOG_SEV(qda_log, fds::fds_log::warning) << "Dispatcher:Scheduling is NOT SCHED_FIFO!";
 	} else {
 	  FDS_PLOG(qda_log) << "Dispatcher: thread SCHED_FIFO OK";
 	}
  
 	/* Print thread scheduling priority */
-	FDS_PLOG(qda_log) << "Dispatcher: Scheduler thread priority is " << params.sched_priority;
+	FDS_PLOG_SEV(qda_log, fds::fds_log::notification) << "Dispatcher: Scheduler thread priority is " << params.sched_priority;
       }
 
     }
@@ -288,8 +288,6 @@ namespace fds {
 
 	n_oios = 0;
 	n_oios = atomic_fetch_add(&(num_outstanding_ios), (unsigned int)1);
-
-	parent_ctrlr->processIO(io);
 
 	FDS_PLOG(qda_log) << "Dispatcher: dispatchIO from queue " << queue_id
 			<< " : # of outstanding ios = " << n_oios+1

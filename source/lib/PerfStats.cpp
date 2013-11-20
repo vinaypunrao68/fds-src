@@ -5,9 +5,9 @@
 
 namespace fds {
 
-  PerfStats::PerfStats(const std::string prefix, int slot_len_sec)
+  PerfStats::PerfStats(const std::string prefix, int slots, int slot_len_sec)
     : sec_in_slot(slot_len_sec),
-      num_slots(FDS_STAT_DEFAULT_HIST_SLOTS),
+      num_slots(slots),
       statTimer(new IceUtil::Timer),
       statTimerTask(new StatTimerTask(this))
   {
@@ -96,6 +96,31 @@ namespace fds {
     }
   }
 
+  /* returns appropriate stat history, or creates one if it does not exist */
+  StatHistory* PerfStats::getHistoryWithReadLockHeld(fds_uint32_t class_id)
+  {
+    StatHistory* hist = NULL;
+
+    if (histmap.count(class_id) > 0) {
+      hist = histmap[class_id];
+      assert(hist);
+    }
+    else{
+      /* we see this class_id for the first time, create a history for it */
+      map_rwlock.read_unlock();
+      hist = new StatHistory(class_id, num_slots, sec_in_slot);
+      if (!hist) return NULL;
+
+      map_rwlock.write_lock();
+      histmap[class_id] = hist;
+      map_rwlock.write_unlock();
+ 
+      map_rwlock.read_lock();
+    }
+
+    return hist;
+  }
+
   void PerfStats::recordIO(fds_uint32_t     class_id,
                            long             microlat,
                            diskio::DataTier tier,
@@ -106,25 +131,11 @@ namespace fds {
     boost::posix_time::time_duration elapsed = boost::posix_time::microsec_clock::universal_time() - start_time;
 
     map_rwlock.read_lock();
-    if (histmap.count(class_id) > 0) {
-      hist = histmap[class_id];
-      assert(hist);
-    }
-    else{
-      /* we see this class_id for the first time, create a history for it */
-      map_rwlock.read_unlock();
-      hist = new StatHistory(class_id, num_slots, sec_in_slot);
-      if (!hist) return;
-
-      map_rwlock.write_lock();
-      histmap[class_id] = hist;
-      map_rwlock.write_unlock();
- 
-      map_rwlock.read_lock();
-    }
+    hist = getHistoryWithReadLockHeld(class_id);
 
     /* stat history should handle its own lock */
-    hist->addIo(elapsed.total_seconds(), microlat, tier, opType);
+    if (hist)
+      hist->addIo(elapsed.total_seconds(), microlat, tier, opType);
 
     map_rwlock.read_unlock();
   }
@@ -152,7 +163,67 @@ namespace fds {
     /* we are only pushing stats if they are enabled */
     if ( !isEnabled()) return;
 
-    om_client->pushPerfstatsToOM();
+    /* For now, slot length of stats should be the same on SH/SM and OM 
+     * so if you want to modify slot length, change FDS_STAT_DEFAULT_SLOT_LENGTH
+     * Asserting here if sec_in_slot is not that value; 
+     * TODO: either synchronize among SHs/ SMs about slot length or somehow 
+     * handle different slot lengths on OM      */
+    fds_verify(sec_in_slot == FDS_STAT_DEFAULT_SLOT_LENGTH);
+
+    FDS_ProtocolInterface::FDSP_VolPerfHistListType hist_list;
+    map_rwlock.read_lock();
+    for (std::unordered_map<fds_uint32_t, StatHistory*>::iterator it = histmap.begin();
+	 it != histmap.end();
+	 ++it)
+      {
+	FDS_ProtocolInterface::FDSP_VolPerfHistTypePtr vol_hist = 
+	  new FDS_ProtocolInterface::FDSP_VolPerfHistType;
+	vol_hist->vol_uuid = it->first;
+	it->second->getStats(vol_hist->stat_list);
+	if ( (vol_hist->stat_list).size() > 0) {
+	  /* we only want to send stats of non-idle vols */
+	  hist_list.push_back(vol_hist);
+	}
+      }
+    map_rwlock.read_unlock();
+
+    /* if all vols are idle, we don't want to send stats to OM */
+    if (hist_list.size() > 0) {
+      om_client->pushPerfstatsToOM(to_iso_string(start_time), sec_in_slot, hist_list);
+    }
+
+  }
+
+  void PerfStats::setStatFromIce(fds_uint32_t class_id, 
+				 const std::string& start_timestamp,
+				 const FDS_ProtocolInterface::FDSP_PerfStatTypePtr& stat_msg)
+  {
+    StatHistory* hist = NULL;
+    if ( !isEnabled()) return;
+
+    /* rel_seconds in 'stat_msg' is relative to 'start_timestamp', so we need to 
+     * calculate timestamp in seconds relative to start_time of this history */
+    boost::posix_time::ptime remote_start_ts = boost::posix_time::from_iso_string(start_timestamp);
+    long loc_rel_sec = stat_msg->rel_seconds;
+    if (start_time > remote_start_ts) {
+      boost::posix_time::time_duration diff = start_time - remote_start_ts;
+      // start_time ... remote_start_time ......... rel_seconds
+      loc_rel_sec += diff.total_seconds();
+    }
+    else {
+      boost::posix_time::time_duration diff = remote_start_ts - start_time;
+      // remote_start_time ... start_time ........ rel_seconds
+      loc_rel_sec -= diff.total_seconds();
+    }
+
+    map_rwlock.read_lock();
+    hist = getHistoryWithReadLockHeld(class_id);
+
+    /* stat history should handle its own lock */
+    if (hist)
+      hist->addStat(loc_rel_sec, stat_msg);
+
+    map_rwlock.read_unlock();
   }
 
   /* timer taks to print all perf stats */

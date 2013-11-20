@@ -118,16 +118,16 @@ int FdsCli::fdsCliPraser(int argc, char* argv[])
   		volData->vol_info->tennantId = 0;
   		volData->vol_info->localDomainId = 0;
   		volData->vol_info->globDomainId = 0;
-    		volData->vol_info->volUUID = vm["volume-id"].as<int>();
+    		//volData->vol_info->volUUID = vm["volume-id"].as<int>();
 
     		volData->vol_info->capacity = vm["volume-size"].as<double>();
     		volData->vol_info->maxQuota = 0;
     		volData->vol_info->volType = FDSP_VOL_BLKDEV_TYPE;
 
-  		volData->vol_info->replicaCnt = 0;
- 	 	volData->vol_info->writeQuorum = 0;
- 		volData->vol_info->readQuorum = 0;
-    		volData->vol_info->consisProtocol = FDSP_CONS_PROTO_STRONG;
+  		volData->vol_info->defReplicaCnt = 0;
+ 	 	volData->vol_info->defWriteQuorum = 0;
+ 		volData->vol_info->defReadQuorum = 0;
+    		volData->vol_info->defConsisProtocol = FDSP_CONS_PROTO_STRONG;
 
 		volData->vol_info->volPolicyId = vm["volume-policy"].as<int>();
 		volData->vol_info->archivePolicyId = 0;
@@ -154,11 +154,11 @@ int FdsCli::fdsCliPraser(int argc, char* argv[])
 		volData->vol_info = new FDSP_VolumeInfoType();
 
     		volData->vol_info->vol_name = vm["volume-modify"].as<std::string>();
-    		volData->vol_info->volUUID = vm["volume-id"].as<int>();
+    		//volData->vol_info->volUUID = vm["volume-id"].as<int>();
 
     		volData->vol_info->capacity = vm["volume-size"].as<double>();
     		volData->vol_info->volType = FDSP_VOL_BLKDEV_TYPE;
-    		volData->vol_info->consisProtocol = FDSP_CONS_PROTO_STRONG;
+    		volData->vol_info->defConsisProtocol = FDSP_CONS_PROTO_STRONG;
 
 		volData->vol_info->volPolicyId = vm["volume-policy"].as<int>();
 		volData->vol_info->archivePolicyId = 0;
@@ -177,7 +177,7 @@ int FdsCli::fdsCliPraser(int argc, char* argv[])
 		FDSP_DeleteVolTypePtr volData = new FDSP_DeleteVolType();
 
     		volData->vol_name = vm["volume-delete"].as<std::string>();
-    		volData->vol_uuid = vm["volume-id"].as<int>();
+    		//volData->vol_uuid = vm["volume-id"].as<int>();
    		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(proxy);
     		cfgPrx->DeleteVol(msg_hdr, volData);
 	} else if(vm.count("volume-attach") && vm.count("volume-id") && vm.count("node-id")) {
@@ -190,7 +190,7 @@ int FdsCli::fdsCliPraser(int argc, char* argv[])
 		FDSP_AttachVolCmdTypePtr volData = new FDSP_AttachVolCmdType();
 
     		volData->vol_name = vm["volume-attach"].as<std::string>();
-    		volData->vol_uuid = vm["volume-id"].as<int>();
+    		// volData->vol_uuid = vm["volume-id"].as<int>();
     		volData->node_id = vm["node-id"].as<std::string>();
    		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(proxy);
     		cfgPrx->AttachVol(msg_hdr, volData);
@@ -205,7 +205,7 @@ int FdsCli::fdsCliPraser(int argc, char* argv[])
 		FDSP_AttachVolCmdTypePtr volData = new FDSP_AttachVolCmdType();
 
     		volData->vol_name = vm["volume-detach"].as<std::string>();
-    		volData->vol_uuid = vm["volume-id"].as<int>();
+    		//volData->vol_uuid = vm["volume-id"].as<int>();
     		volData->node_id = vm["node-id"].as<std::string>();
    		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(proxy);
     		cfgPrx->DetachVol(msg_hdr, volData);

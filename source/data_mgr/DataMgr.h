@@ -166,6 +166,7 @@ public:
      */
     ReqHandlerPtr  reqHandleSrv;
     std::unordered_map<std::string, RespHandlerPrx> respHandleCli;
+    fds_rwlock respMapMtx;
     OMgrClient     *omClient;
 
     fds_log *dm_log;

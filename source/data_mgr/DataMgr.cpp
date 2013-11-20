@@ -295,7 +295,6 @@ DataMgr::DataMgr()
   /*
    *  init Data Manager  QOS class.
    */
-
   qosCtrl = new dmQosCtrl(this, 20, FDS_QoSControl::FDS_DISPATCH_WFQ, dm_log);
   qosCtrl->runScheduler();
 
@@ -690,7 +689,9 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
    */
   msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_UPDATE_CAT_OBJ_RSP;
 
+  dataMgr->respMapMtx.read_lock();
   dataMgr->respHandleCli[updCatReq->src_node_name]->begin_UpdateCatalogObjectResp( msg_hdr, update_catalog);
+  dataMgr->respMapMtx.read_unlock();
 
   FDS_PLOG(dataMgr->GetLog()) << "Sending async update catalog response with "
                               << "volume id: " << msg_hdr->glob_volume_id
@@ -758,9 +759,11 @@ void DataMgr::ReqHandler::UpdateCatalogObject(const FDS_ProtocolInterface::
   msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_UPDATE_CAT_OBJ_RSP;
   msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
   dataMgr->swapMgrId(msg_hdr);
+  dataMgr->respMapMtx.read_lock();
   dataMgr->respHandleCli[msg_hdr->src_node_name]->begin_UpdateCatalogObjectResp(
 										msg_hdr,
 										update_catalog);
+  dataMgr->respMapMtx.read_unlock();
   FDS_PLOG(dataMgr->GetLog()) << "FDS_TEST_DM_NOOP defined. Set update catalog response right after receiving req.";
 
   return;
@@ -793,9 +796,11 @@ void DataMgr::ReqHandler::UpdateCatalogObject(const FDS_ProtocolInterface::
    		*/
   		msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_UPDATE_CAT_OBJ_RSP;
   		dataMgr->swapMgrId(msg_hdr);
+                dataMgr->respMapMtx.read_lock();
   		dataMgr->respHandleCli[msg_hdr->src_node_name]->begin_UpdateCatalogObjectResp(
       						msg_hdr,
       						update_catalog);
+                dataMgr->respMapMtx.read_unlock();
 
   		FDS_PLOG(dataMgr->GetLog()) << "Sending async update catalog response with "
                               << "volume id: " << msg_hdr->glob_volume_id
@@ -856,8 +861,9 @@ DataMgr::queryCatalogBackend(dmCatReq  *qryCatReq) {
   query_catalog->dm_transaction_id = qryCatReq->transId;
   query_catalog->dm_operation = qryCatReq->transOp;
 
-
+  dataMgr->respMapMtx.read_lock();
   dataMgr->respHandleCli[qryCatReq->src_node_name]->begin_QueryCatalogObjectResp(msg_hdr, query_catalog);
+  dataMgr->respMapMtx.read_unlock();
   FDS_PLOG(dataMgr->GetLog()) << "Sending async query catalog response with "
                               << "volume id: " << msg_hdr->glob_volume_id
                               << ", volume offset: "
@@ -936,7 +942,9 @@ void DataMgr::ReqHandler::QueryCatalogObject(const FDS_ProtocolInterface::
    		*/
   		msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_QUERY_CAT_OBJ_RSP;
   		dataMgr->swapMgrId(msg_hdr);
+                dataMgr->respMapMtx.read_lock();
   		dataMgr->respHandleCli[msg_hdr->src_node_name]->begin_QueryCatalogObjectResp(msg_hdr, query_catalog);
+                dataMgr->respMapMtx.read_unlock();
   		FDS_PLOG(dataMgr->GetLog()) << "Sending async query catalog response with "
                               << "volume id: " << msg_hdr->glob_volume_id
                               << ", volume offset: "
@@ -978,8 +986,10 @@ void DataMgr::ReqHandler::AssociateRespCallback(const Ice::Identity& ident,
         << "Caught a NULL exception accessing _communicator";
   }
 
+  dataMgr->respMapMtx.write_lock();
   dataMgr->respHandleCli[src_node_name] = FDS_ProtocolInterface::FDSP_DataPathRespPrx::
       uncheckedCast(current.con->createProxy(ident));
+  dataMgr->respMapMtx.write_unlock();
 }
 
 void

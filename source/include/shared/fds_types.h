@@ -8,7 +8,7 @@
 #ifdef __cplusplus
 #define c_decls_begin        extern "C" {
 #define c_decls_end          }
-typedef bool                  fds_bool_t;
+typedef bool                 fds_bool_t;
 #else
 #define c_decls_begin
 #define c_decls_end

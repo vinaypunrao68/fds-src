@@ -52,15 +52,18 @@ class S3Tester():
     # Opens remote host connections
     #
     def openConns(self):
-        pdb.set_trace()
-        self.port = 8000
         for i in range(0, self.numConnections):
             if self.port == None:
-                self.s3Connections.append(boto.connect_s3(host=self.host))
+                self.s3Connections.append(boto.connect_s3(host=self.host,
+                                                          proxy=self.host,
+                                                          calling_format = OrdinaryCallingFormat(),
+                                                          is_secure=False))
             else:
-                #self.s3Connections.append(boto.connect_s3(host=self.host, port=self.port))
-                pdb.set_trace()
-                self.s3Connections.append(S3Connection(host=self.host, port=self.port, calling_format = OrdinaryCallingFormat(), is_secure=False))
+                self.s3Connections.append(boto.connect_s3(host=self.host,
+                                                          proxy=self.host,
+                                                          proxy_port=self.port,
+                                                          calling_format = OrdinaryCallingFormat(),
+                                                          is_secure=False))
             assert(self.s3Connections[i] != None)
 
     #

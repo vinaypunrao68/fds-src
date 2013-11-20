@@ -230,7 +230,7 @@ Error StorHvVolumeTable::registerVolume(const VolumeDesc& vdesc)
   map_rwlock.write_unlock();
 
 
-  FDS_PLOG(vt_log) << "StorHvVolumeTable - Register new volume " << vol_uuid
+  FDS_PLOG_SEV(vt_log, fds::fds_log::notification) << "StorHvVolumeTable - Register new volume " << vol_uuid
 		   << ", policy " << vdesc.volPolicyId
 		   << " (iops_min=" << vdesc.iops_min << ",iops_max=" << vdesc.iops_max <<",prio=" << vdesc.relativePrio << ")"
                    << " result: " << err.GetErrstr();  
@@ -248,7 +248,7 @@ Error StorHvVolumeTable::removeVolume(fds_volid_t vol_uuid)
 
   map_rwlock.write_lock();
   if (volume_map.count(vol_uuid) == 0) {
-    FDS_PLOG(vt_log) << "StorHvVolumeTable - removeVolume called for non-existing volume "
+    FDS_PLOG_SEV(vt_log, fds::fds_log::warning) << "StorHvVolumeTable - removeVolume called for non-existing volume "
                      << vol_uuid;
     err = ERR_INVALID_ARG;
     map_rwlock.write_unlock();
@@ -262,7 +262,7 @@ Error StorHvVolumeTable::removeVolume(fds_volid_t vol_uuid)
   vol->destroy();
   delete vol;
   
-  FDS_PLOG(vt_log) << "StorHvVolumeTable - Removed volume "
+  FDS_PLOG_SEV(vt_log, fds::fds_log::notification) << "StorHvVolumeTable - Removed volume "
                    << vol_uuid;
  
   return err;
@@ -283,7 +283,7 @@ StorHvVolume* StorHvVolumeTable::getVolume(fds_volid_t vol_uuid)
     ret_vol = volume_map[vol_uuid];
   }
   else {
-    FDS_PLOG(vt_log) << "StorHvVolumeTable::getVolume - Volume " << vol_uuid
+    FDS_PLOG_SEV(vt_log, fds::fds_log::warning) << "StorHvVolumeTable::getVolume - Volume " << vol_uuid
                      << " does not exist";    
   }
   map_rwlock.read_unlock();
@@ -305,13 +305,40 @@ StorHvVolume* StorHvVolumeTable::getLockedVolume(fds_volid_t vol_uuid)
     if (!ret_vol->isValidLocked())
     {
       ret_vol->readUnlock();
-      FDS_PLOG(vt_log) << "StorHvVolumeTable::getLockedVolume - Volume " << vol_uuid
-                       << "does not exist anymore, must have beed destroyed";
+      FDS_PLOG_SEV(vt_log, fds::fds_log::error) << "StorHvVolumeTable::getLockedVolume - Volume " << vol_uuid
+                       << "does not exist anymore, must have been destroyed";
       return NULL;
     }    
   }
 
   return ret_vol;
+}
+
+/* returns true if volume is registered and is in volume_map, otherwise returns false */
+fds_bool_t StorHvVolumeTable::volumeExists(const std::string& vol_name)
+{
+  return (getVolumeUUID(vol_name) != invalid_vol_id);
+}
+
+/* returns volume UUID if found in volume map, otherwise returns invalid_vol_id */
+fds_volid_t StorHvVolumeTable::getVolumeUUID(const std::string& vol_name)
+{
+  fds_volid_t ret_id = invalid_vol_id;
+  map_rwlock.read_lock();
+  /* we need to iterate to check names of volumes (or we could keep vol name -> uuid 
+   * map, but we would need to synchronize it with volume_map, etc, can revisit this later) */
+  for (std::unordered_map<fds_volid_t, StorHvVolume*>::iterator it = volume_map.begin(); 
+       it != volume_map.end(); 
+       ++it)
+    {
+      if (vol_name.compare((it->second)->voldesc->name) == 0) {
+	/* we found the volume, however if we found it second time, not good  */
+	fds_verify(ret_id == invalid_vol_id);
+	ret_id = it->first;
+      }
+    }
+  map_rwlock.read_unlock();
+  return ret_id;
 }
 
 /*
@@ -323,18 +350,18 @@ void StorHvVolumeTable::volumeEventHandler(fds_volid_t vol_uuid,
 {
   switch (vol_action) {
   case fds_notify_vol_attatch:
-    FDS_PLOG(storHvisor->GetLog()) << "StorHvVolumeTable - Received volume attach event from OM"
+    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification) << "StorHvVolumeTable - Received volume attach event from OM"
                                    << " for volume " << vol_uuid;
 
     storHvisor->vol_table->registerVolume(vdb ? *vdb : VolumeDesc("", vol_uuid));
     break;
   case fds_notify_vol_detach:
-    FDS_PLOG(storHvisor->GetLog()) << "StorHvVolumeTable - Received volume detach event from OM"
+    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification) << "StorHvVolumeTable - Received volume detach event from OM"
                                    << " for volume " << vol_uuid;
     storHvisor->vol_table->removeVolume(vol_uuid);
     break;
   default:
-    FDS_PLOG(storHvisor->GetLog()) << "StorHvVolumeTable - Received unexpected volume event from OM"
+    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::warning) << "StorHvVolumeTable - Received unexpected volume event from OM"
                                    << " for volume " << vol_uuid;
   } 
 }
@@ -353,6 +380,25 @@ void StorHvVolumeTable::dump()
                        << ", type " << it->second->voldesc->volType;
     }
   map_rwlock.read_unlock();
+}
+
+BEGIN_C_DECLS
+int pushFbdReq(fbd_request_t *blkReq) {
+  /*
+   * Map this request into FdsIoReq
+   */
+  FdsIoReq *ioReq = new FdsIoReq((fds::fds_io_op_t)blkReq->io_type,  // IO type
+                                 blkReq->volUUID,  // Vol ID
+                                 "blkDev:vol" + std::to_string(blkReq->volUUID),  // Temp blob name
+                                 blkReq->sec * HVISOR_SECTOR_SIZE,  // Blob offset
+                                 blkReq->len,  // Request buffer length
+                                 blkReq->buf,  // Request data buffer
+                                 (FdsIoReq::cbFunc)blkReq->cb_request);  // Request callback
+  delete ioReq;
+}
+END_C_DECLS
+
+int amPushIo() {
 }
 
 BEGIN_C_DECLS

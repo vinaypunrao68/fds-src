@@ -41,7 +41,7 @@ namespace fds {
    	avail_ssd_iops_min += n_info.ssd_iops_min;
    	avail_ssd_capacity += n_info.ssd_capacity;
      
-     FDS_PLOG(parent_log) << "Total Disk Resources "
+	FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Total Disk Resources "
                      << "  Total Disk iops Max : " << total_disk_iops_max
                      << "  Total Disk iops Min : " << total_disk_iops_min
                      << "  Total Disk capacity : " << total_disk_capacity
@@ -84,7 +84,7 @@ int FdsAdminCtrl::volAdminControl(VolumeInfo  *pVolInfo) {
   iopc_subcluster = (avail_disk_iops_max/REPLICATION_FACTOR);
 
   if ((total_vol_disk_cap + pVolDesc->capacity) > avail_disk_capacity) {
-    FDS_PLOG(parent_log) << " Cluster is running out of disk capacity \n"
+    FDS_PLOG_SEV(parent_log, fds::fds_log::error) << " Cluster is running out of disk capacity \n"
                          << "total volume disk  capacity:"
                          << total_vol_disk_cap;
     return -1;
@@ -102,16 +102,18 @@ int FdsAdminCtrl::volAdminControl(VolumeInfo  *pVolInfo) {
     total_vol_iops_max += pVolDesc->iops_max;
     total_vol_disk_cap += pVolDesc->capacity;
 
-    FDS_PLOG(parent_log) << "updated disk params disk-cap:" << avail_disk_capacity << ":: min:"  
-                         <<  total_vol_iops_min << ":: max:" << total_vol_iops_max << "\n";
+    FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "updated disk params disk-cap:" 
+							 << avail_disk_capacity << ":: min:"  
+							 << total_vol_iops_min << ":: max:" 
+							 << total_vol_iops_max << "\n";
     FDS_PLOG(parent_log) << " admin control successful \n";
     return 0;
   } else  {
-    FDS_PLOG(parent_log) << " Unable to create Volume,Running out of IOPS \n ";
-    FDS_PLOG(parent_log) << "Available disk Capacity:" 
-                         << avail_disk_capacity << "::Total min IOPS:"  
-                         <<  total_vol_iops_min << ":: Total max IOPS:" 
-                         << total_vol_iops_max << "\n";
+    FDS_PLOG_SEV(parent_log, fds::fds_log::error) << " Unable to create Volume,Running out of IOPS \n ";
+    FDS_PLOG_SEV(parent_log, fds::fds_log::error) << "Available disk Capacity:" 
+						  << avail_disk_capacity << "::Total min IOPS:"  
+						  <<  total_vol_iops_min << ":: Total max IOPS:" 
+						  << total_vol_iops_max << "\n";
     return -1;
   }
 

@@ -3,7 +3,6 @@
 
 #include <boost/thread/condition.hpp>
 #include <cpplist.h>
-#include <fds_err.h>
 #include <concurrency/Mutex.h>
 
 namespace fdsio {
@@ -86,7 +85,7 @@ class RequestStatus
     RequestStatus();
     ~RequestStatus();
 
-    fds::Error               req_result;
+    std::string              req_result;
 };
 
 //

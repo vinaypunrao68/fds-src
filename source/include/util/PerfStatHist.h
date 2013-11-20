@@ -66,6 +66,11 @@ class IoStat
   long getMinLatency() const;
   long getMaxLatency() const;
 
+  /* copy stat to ice struct if the stat contains at least one sample / IO */
+  bool copyIfNotZero(FDS_ProtocolInterface::FDSP_PerfStatTypePtr& fdsp_stat, int stat_type);
+  /* add stats to 'stat' of appropriate type from ice msg */
+  void addFromIceMsg(const FDS_ProtocolInterface::FDSP_PerfStatTypePtr& fdsp_stat);
+
  private: /* methods */
   inline int statIndex(diskio::DataTier tier, fds_io_op_t opType) const {
     if ((tier == diskio::diskTier) && (opType == FDS_IO_READ))
@@ -105,11 +110,23 @@ class StatHistory
 	     diskio::DataTier tier = diskio::maxTier,  /* Defaults to invalid tier */
 	     fds_io_op_t opType = FDS_OP_INVALID);     /* Defaults to invalid op */
    
-  int getStatsCopy(IoStat** stat_ary, int* len);
+
+  /* used to send stats history to OM. To save amount of data we send over to OM
+   * we remember last stats getStats returns and start filling in the history 
+   * from tha last timestamp. This means that calling getStats back to back will 
+   * result in first call to getStats returning stat history and second call to 
+   * getStats will not return anything (if called right away), because new time slot
+   * did not fill yet. Thus it works similarly to 'print' method, where we get perf 
+   * of a particular time slot only once.  */
+  void getStats(FDS_ProtocolInterface::FDSP_PerfStatListType& perf_list);
+  void addStat(long rel_seconds, const FDS_ProtocolInterface::FDSP_PerfStatTypePtr& fdsp_stat);
 
   /* Each stat is printed in format: 
    * [curts],volid,seconds_since_beginning_of_history,iops,ave_lat,min_lat,max_lat  */
   void print(std::ofstream& dumpFile, boost::posix_time::ptime curts);
+
+ private: /* methods */
+  int prepareSlotWithWriteLockHeld(long rel_seconds); 
 
  private:
   /* identifyer of a IO stream/volume/qos class/etc for which we are collecting this history */
@@ -130,6 +147,13 @@ class StatHistory
   /* keep track of timestamps we print, so that we
    * don't output same stat more than once */
   long last_printed_ts; 
+
+  /* keep track of timestamps we return with 'getStats', so 
+   * that we don't return same stat more than once; We could
+   * re-use 'last_printed_ts', but that would mean interleaving 
+   * code in 'print' and 'getStats', so to separate these two 
+   * functionalities we keeping track fo those timestamps separately  */
+  long last_returned_ts;
 };
 
 

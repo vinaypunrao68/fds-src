@@ -23,7 +23,9 @@ namespace fds {
 class PerfStats
 {
  public: 
-  PerfStats(const std::string prefix, int slot_len_sec = FDS_STAT_DEFAULT_SLOT_LENGTH);
+  PerfStats(const std::string prefix, 
+	    int slots = FDS_STAT_DEFAULT_HIST_SLOTS,
+	    int slot_len_sec = FDS_STAT_DEFAULT_SLOT_LENGTH);
   ~PerfStats();
 
   /* explicitly enable or desable stats; disabled stats mean that recordIO
@@ -43,6 +45,11 @@ class PerfStats
                 diskio::DataTier tier = diskio::maxTier,  /* Defaults to invalid tier */
                 fds_io_op_t opType = FDS_OP_INVALID);     /* Defaults to invalid op */
 
+  /* For use on OM side to fill in stats that we receive from other nodes from the Ice message */
+  void setStatFromIce(fds_uint32_t class_id, 
+		      const std::string& start_timestamp,
+		      const FDS_ProtocolInterface::FDSP_PerfStatTypePtr& stat_msg);  
+
   /* print stats to file */
   void print();
 
@@ -52,7 +59,10 @@ class PerfStats
   /* called on timer event to send stats to OM */
   void pushToOM();
 
- private:
+ private: /* methods */
+  StatHistory* getHistoryWithReadLockHeld(fds_uint32_t class_id);
+
+ private: /* data */
   std::atomic<bool> b_enabled;
 
   /* number of seconds in one stat slot, configurable */
