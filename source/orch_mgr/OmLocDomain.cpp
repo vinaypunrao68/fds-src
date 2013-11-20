@@ -55,7 +55,9 @@ FdsLocalDomain::FdsLocalDomain(const std::string& om_prefix, fds_log* om_log)
   new_vol->properties = new VolumeDesc(new_vol->vol_name,
                                        new_vol->volUUID);
   new_vol->hv_nodes.push_back("localhost-sh");
-  volumeMap[new_vol->volUUID] = new_vol;
+  volumeMap[new_vol->vol_name] = new_vol;
+  
+  next_free_vol_id = 2;
 
   /*
    * per domain  admin control
@@ -280,9 +282,9 @@ void FdsLocalDomain::copyPropertiesToVolumeDesc(FdspVolDescPtr v_desc,
   v_desc->capacity = pVol->capacity;
   v_desc->volType = pVol->volType;
   v_desc->maxQuota = pVol->maxQuota;
-  v_desc->replicaCnt = pVol->replicaCnt;
+  v_desc->defReplicaCnt = pVol->replicaCnt;
 
-  v_desc->consisProtocol = FDS_ProtocolInterface::
+  v_desc->defConsisProtocol = FDS_ProtocolInterface::
       FDSP_ConsisProtoType(pVol->consisProtocol);
   v_desc->appWorkload = pVol->appWorkload;
 
@@ -324,6 +326,12 @@ fds_int32_t FdsLocalDomain::getFreeNodeId(const std::string& node_name) {
   }
   FDS_PLOG_SEV(parent_log, fds::fds_log::error) << "No id available to allocate to node " << node_name;
   return -1;
+}
+
+fds_int32_t FdsLocalDomain::getNextFreeVolId() {
+  
+  return next_free_vol_id++;
+  
 }
 
 /*

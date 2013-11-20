@@ -201,7 +201,7 @@ class FDSP_VolumeInfoType {
   int 	 		 tennantId;  // Tennant id that owns the volume
   int    		 localDomainId;  // Local domain id that owns vol
   int	 		 globDomainId;
-  double	 	 volUUID;
+  // double	 	 volUUID;
 
 // Basic operational properties
 
@@ -211,10 +211,10 @@ class FDSP_VolumeInfoType {
 
 // Consistency related properties
 
-  int        		 replicaCnt;  // Number of replicas reqd for this volume
-  int        		 writeQuorum;  // Quorum number of writes for success
-  int        		 readQuorum;  // This will be 1 for now
-  FDSP_ConsisProtoType 	 consisProtocol;  // Read-Write consistency protocol
+  int        		 defReplicaCnt;  // Number of replicas reqd for this volume
+  int        		 defWriteQuorum;  // Quorum number of writes for success
+  int        		 defReadQuorum;  // This will be 1 for now
+  FDSP_ConsisProtoType 	 defConsisProtocol;  // Read-Write consistency protocol
 
 // Other policies
 
@@ -243,10 +243,10 @@ class FDSP_VolumeDescType {
 
 // Consistency related properties
 
-  int        		 replicaCnt;  // Number of replicas reqd for this volume
-  int        		 writeQuorum;  // Quorum number of writes for success
-  int        		 readQuorum;  // This will be 1 for now
-  FDSP_ConsisProtoType 	 consisProtocol;  // Read-Write consistency protocol
+  int        		 defReplicaCnt;  // Number of replicas reqd for this volume
+  int        		 defWriteQuorum;  // Quorum number of writes for success
+  int        		 defReadQuorum;  // This will be 1 for now
+  FDSP_ConsisProtoType 	 defConsisProtocol;  // Read-Write consistency protocol
 
 // Other policies
 
@@ -287,7 +287,7 @@ class FDSP_PolicyInfoType {
 
 class FDSP_DeleteVolType {
   string 		 vol_name;  /* Name of the volume */
-  double    		 vol_uuid;
+  // double    		 vol_uuid;
   int			 domain_id;
 };
 
@@ -299,7 +299,7 @@ class FDSP_ModifyVolType {
 
 class FDSP_AttachVolCmdType {
   string		 vol_name; // Name of the volume to attach
-  double		 vol_uuid; // UUID of the volume being attached
+  // double		 vol_uuid; // UUID of the volume being attached
   string		 node_id;  // Id of the hypervisor node where the volume should be attached
   int			 domain_id;
 };
