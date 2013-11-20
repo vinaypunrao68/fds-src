@@ -1,6 +1,8 @@
 #ifndef SOURCE_FDS_NATIVE_API_H_
 #define SOURCE_FDS_NATIVE_API_H_
 
+/* Only include what we need to avoid un-needed dependencies. */
+/*
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,7 +15,10 @@
 #include <pthread.h>
 #include <fdsp/FDSP.h>
 #include <fds_volume.h>
+*/
 #include <fds_types.h>
+#include <fds_err.h>
+/*
 #include <unistd.h>
 #include <assert.h>
 #include <iostream>
@@ -23,10 +28,12 @@
 #include <concurrency/Mutex.h>
 #include <concurrency/RwLock.h>
 
-
 #include <utility>
 #include <atomic>
+*/
+#include <am-engine/am-engine.h>
 #include <list>
+
 namespace fds { 
 class BucketContext { 
 public:
@@ -194,7 +201,7 @@ typedef struct ErrorDetails
 typedef enum
 {
     CannedAclPrivate                  = 0, /* private */
-    annedAclPublicRead               = 1, /* public-read */
+    CannedAclPublicRead               = 1, /* public-read */
     CannedAclPublicReadWrite          = 2, /* public-read-write */
     CannedAclAuthenticatedRead        = 3  /* authenticated-read */
 } CannedAcl;
@@ -310,7 +317,7 @@ class GetConditions {
  *        0 to indicate the end of data, or > 0 to identify the number of
  *        bytes that were written into the buffer by this callback
  **/
-typedef int (fdsnPutObjectHandler)(int bufferSize, char *buffer,
+typedef int (fdsnPutObjectHandler)(void *reqContext, fds_uint64_t bufferSize, char *buffer,
                                       void *callbackData);
 
 
@@ -330,7 +337,7 @@ typedef int (fdsnPutObjectHandler)(int bufferSize, char *buffer,
  *         Typically, this will return either S3StatusOK or
  *         S3StatusAbortedByCallback.
  **/
-typedef FDSN_Status (fdsnGetObjectHandler)(int bufferSize, const char *buffer,
+typedef FDSN_Status (fdsnGetObjectHandler)(void *reqContext, fds_uint64_t bufferSize, const char *buffer,
                                            void *callbackData);
 typedef void (fdsnResponseHandler)(FDSN_Status status,
                                           const ErrorDetails *errorDetails,
@@ -346,6 +353,9 @@ typedef FDSN_Status (fdsnListBucketHandler)(int isTruncated,
 
 // FDS_NativeAPI  object class : One object per client Type so that the semantics of 
 // the particular access protocols can be followed in returning the data
+// TODO: [Vy] I'd like to make this class as singleton and inherits from
+// fds::Module class.
+//
 class FDS_NativeAPI { 
   public :
 
@@ -358,6 +368,9 @@ class FDS_NativeAPI {
   };
   FDSN_ClientType clientType;
 
+  // TODO: [Vy]: I think this API layer doesn't need to aware of any client's
+  // semantics.  Specific semantic is handled by the connector layer.
+  //
   FDS_NativeAPI(FDSN_ClientType type);
   ~FDS_NativeAPI(); 
 
@@ -374,18 +387,21 @@ class FDS_NativeAPI {
                     void *requestContext,
                     fdsnResponseHandler *handler, void *callbackData);
 
+  // After this call returns bucketctx, get_cond are no longer valid.
   void GetObject(BucketContext *bucketctxt, 
                  std::string ObjKey, 
                  GetConditions *get_cond, 
                  fds_uint64_t startByte, fds_uint64_t byteCount,
+                 char *buffer, fds_uint64_t buflen,
                  void *reqcontext,
                  fdsnGetObjectHandler getObjCallback,
                  void *callbackdata
                  );
-  void PutObject(BucketContext *buckctxt, 
+  void PutObject(BucketContext *bucket_ctxt, 
                  std::string ObjKey, 
                  PutProperties *putproperties,
                  void *reqContext,
+                 char *buffer, fds_uint64_t buflen,
                  fdsnPutObjectHandler putObjHandler, 
                  void *callbackData);
   void DeleteObject(BucketContext *bucket_ctxt, 
@@ -393,6 +409,20 @@ class FDS_NativeAPI {
                     void *reqcontext, 
                     fdsnResponseHandler responseHandler,
                     void *callbackData);
+
+ private: /* methods */
+
+  /* Checks if bucket is attached to AM, if not, sends test bucket
+   * message to OM
+   * return error:
+   *    ERR_OK if bucket is already attached to AM
+   *    ERR_PENDING_RESP if test bucket message was sent to AM and now
+   *    we are waiting for response from OM (either we get attach volume 
+   *    message or volume does not exist).
+   *    Other error codes if error happened.
+   */
+  Error testBucketInternal(BucketContext *bucket_ctxt);
+
 };
 }
 #endif 

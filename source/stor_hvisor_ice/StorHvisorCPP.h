@@ -6,6 +6,7 @@
 #define BEGIN_C_DECLS
 #define END_C_DECLS
 #endif
+
 BEGIN_C_DECLS
 typedef int (*hv_create_blkdev)(uint64_t voluuid, uint64_t capacity);
 typedef void  (*hv_delete_blkdev)(int minor);
