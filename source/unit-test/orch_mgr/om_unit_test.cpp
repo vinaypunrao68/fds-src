@@ -381,13 +381,13 @@ class OmUnitTest {
     for (fds_uint32_t i = 0; i < num_updates; i++) {
       crt_vol->vol_name = std::string("Volume ") + std::to_string(i+1);
       crt_vol->vol_info->vol_name = crt_vol->vol_name;
-      crt_vol->vol_info->volUUID = i+1;
+      // crt_vol->vol_info->volUUID = i+1;
       // crt_vol->vol_info->capacity = 1024 * 1024 * 1024;  // 1 Gig
       // Currently set capacity to 0 size no one has register a storage
       // node with OM to increase/create initial capacity.
       crt_vol->vol_info->capacity = 0;
       crt_vol->vol_info->volType = FDS_ProtocolInterface::FDSP_VOL_BLKDEV_TYPE;
-      crt_vol->vol_info->consisProtocol =
+      crt_vol->vol_info->defConsisProtocol =
           FDS_ProtocolInterface::FDSP_CONS_PROTO_STRONG;
       crt_vol->vol_info->appWorkload =
           FDS_ProtocolInterface::FDSP_APP_WKLD_TRANSACTION;
@@ -395,7 +395,7 @@ class OmUnitTest {
 
       FDS_PLOG(test_log) << "OM unit test client creating volume "
                          << crt_vol->vol_info->vol_name
-                         << " with UUID " << crt_vol->vol_info->volUUID
+	// << " with UUID " << crt_vol->vol_info->volUUID
                          << " and capacity " << crt_vol->vol_info->capacity;
 
       fdspConfigPathAPI->CreateVol(msg_hdr, crt_vol);
@@ -526,13 +526,13 @@ class OmUnitTest {
        {
 	 crt_vol->vol_name = std::string("Volume ") + std::to_string(vol_start_uuid + i);
 	 crt_vol->vol_info->vol_name = crt_vol->vol_name;
-	 crt_vol->vol_info->volUUID = vol_start_uuid + i;
+	 // crt_vol->vol_info->volUUID = vol_start_uuid + i;
 	 // crt_vol->vol_info->capacity = 1024 * 1024 * 1024;  // 1 Gig
          // Currently set capacity to 0 size no one has register a storage
          // node with OM to increase/create initial capacity.
          crt_vol->vol_info->capacity = 0;
 	 crt_vol->vol_info->volType = FDS_ProtocolInterface::FDSP_VOL_BLKDEV_TYPE;
-         crt_vol->vol_info->consisProtocol =
+         crt_vol->vol_info->defConsisProtocol =
 	   FDS_ProtocolInterface::FDSP_CONS_PROTO_STRONG;
          crt_vol->vol_info->appWorkload =
 	   FDS_ProtocolInterface::FDSP_APP_WKLD_TRANSACTION;
@@ -540,7 +540,7 @@ class OmUnitTest {
 
 	 FDS_PLOG(test_log) << "OM unit test client creating volume "
 			    << crt_vol->vol_info->vol_name
-			    << " with UUID " << crt_vol->vol_info->volUUID
+	   //<< " with UUID " << crt_vol->vol_info->volUUID
 			    << " and policy " << crt_vol->vol_info->volPolicyId;
 
 	 fdspConfigPathAPI->CreateVol(msg_hdr, crt_vol);
@@ -553,10 +553,11 @@ class OmUnitTest {
      FDS_ProtocolInterface::FDSP_AttachVolCmdTypePtr att_vol =
        new FDS_ProtocolInterface::FDSP_AttachVolCmdType();
      att_vol->vol_name = std::string("Volume ") + std::to_string(vol_start_uuid);
-     att_vol->vol_uuid = vol_start_uuid;
+     // att_vol->vol_uuid = vol_start_uuid;
      att_vol->node_id = std::to_string(2);
      FDS_PLOG(test_log) << "OM unit test client attaching volume "
-     			<< att_vol->vol_name << " UUID " << att_vol->vol_uuid 
+     			<< att_vol->vol_name 
+       //  << " UUID " << att_vol->vol_uuid 
 			<< " to node " << att_vol->node_id; 
      fdspConfigPathAPI->AttachVol(msg_hdr, att_vol);
      FDS_PLOG(test_log) << "OM unit test client completed attaching volume.";

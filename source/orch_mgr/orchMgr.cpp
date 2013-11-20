@@ -178,14 +178,14 @@ return 0;
 int OrchMgr::CreateVol(const FdspMsgHdrPtr& fdsp_msg,
                         const FdspCrtVolPtr& crt_vol_req) {
   Error err(ERR_OK);
-  int  vol_id = crt_vol_req->vol_info->volUUID;
+  // int  vol_id = crt_vol_req->vol_info->volUUID;
   int  domain_id = crt_vol_req->vol_info->localDomainId;
   std::string vol_name = crt_vol_req->vol_info->vol_name;
   localDomainInfo  *currentDom;
   int returnCode;
 
   FDS_PLOG_SEV(GetLog(), fds::fds_log::notification) << "Received CreateVol Req for volume "
-						     << vol_name << " ; id - " << vol_id;
+						     << vol_name ;
 
   /*
    * get the domain Id. If  Domain is not created  use  default domain 
@@ -196,15 +196,15 @@ int OrchMgr::CreateVol(const FdspMsgHdrPtr& fdsp_msg,
    
   om_mutex->lock();
 
-  if ( currentDom->domain_ptr->volumeMap.count(vol_id) != 0) {
-    FDS_PLOG_SEV(om_log, fds::fds_log::warning) << "Received CreateVol for existing volume " << vol_id;
+  if ( currentDom->domain_ptr->volumeMap.count(vol_name) != 0) {
+    FDS_PLOG_SEV(om_log, fds::fds_log::warning) << "Received CreateVol for existing volume " << vol_name;
     om_mutex->unlock();
     return -1;
   }
   VolumeInfo *new_vol = new VolumeInfo();
   new_vol->vol_name = vol_name;
-  new_vol->volUUID = vol_id;
-  new_vol->properties = new VolumeDesc(crt_vol_req->vol_info);
+  new_vol->volUUID = currentDom->domain_ptr->getNextFreeVolId();
+  new_vol->properties = new VolumeDesc(crt_vol_req->vol_info, new_vol->volUUID);
   err = policy_mgr->fillVolumeDescPolicy(new_vol->properties);
   if ( err == ERR_CAT_ENTRY_NOT_FOUND ) {
       /* TODO: policy not in the catalog , should we return error or use default policu */
@@ -227,7 +227,7 @@ int OrchMgr::CreateVol(const FdspMsgHdrPtr& fdsp_msg,
     return -1; 
   }
 
-  currentDom->domain_ptr->volumeMap[vol_id] = new_vol;
+  currentDom->domain_ptr->volumeMap[vol_name] = new_vol;
   currentDom->domain_ptr->sendCreateVolToFdsNodes(new_vol);
  /* update the per domain disk resource  */
   om_mutex->unlock();
@@ -236,13 +236,13 @@ int OrchMgr::CreateVol(const FdspMsgHdrPtr& fdsp_msg,
 
 void OrchMgr::DeleteVol(const FdspMsgHdrPtr& fdsp_msg,
                         const FdspDelVolPtr& del_vol_req) {
-  int  vol_id = del_vol_req->vol_uuid;
+  // int  vol_id = del_vol_req->vol_uuid;
   std::string vol_name = del_vol_req->vol_name;
   VolumeInfo *cur_vol;
   localDomainInfo  *currentDom;
 
   FDS_PLOG_SEV(GetLog(), fds::fds_log::notification) << "Received DeleteVol Req for volume "
-						     << vol_name << " ; id - " << vol_id;
+						     << vol_name ;
 
   /*
    * get the domain Id. If  Domain is not created  use  default domain 
@@ -251,12 +251,12 @@ void OrchMgr::DeleteVol(const FdspMsgHdrPtr& fdsp_msg,
    currentDom  = locDomMap[DEFAULT_LOC_DOMAIN_ID];
 
   om_mutex->lock();
-  if ( currentDom->domain_ptr->volumeMap.count(vol_id) == 0) {
-    FDS_PLOG_SEV(om_log, fds::fds_log::warning) << "Received DeleteVol for non-existent volume " << vol_id;
+  if ( currentDom->domain_ptr->volumeMap.count(vol_name) == 0) {
+    FDS_PLOG_SEV(om_log, fds::fds_log::warning) << "Received DeleteVol for non-existent volume " << vol_name;
     om_mutex->unlock();
     return;
   }
-  VolumeInfo *del_vol =  currentDom->domain_ptr->volumeMap[vol_id];
+  VolumeInfo *del_vol =  currentDom->domain_ptr->volumeMap[vol_name];
 
   for (int i = 0; i < del_vol->hv_nodes.size(); i++) {
     if (currentDom->domain_ptr->currentShMap.count(del_vol->hv_nodes[i]) == 0) {
@@ -272,10 +272,10 @@ void OrchMgr::DeleteVol(const FdspMsgHdrPtr& fdsp_msg,
    /*
     * update  admission control  class  to reflect the  delete Volume 
     */
-   cur_vol= currentDom->domain_ptr->volumeMap[vol_id];
+   cur_vol= currentDom->domain_ptr->volumeMap[vol_name];
    currentDom->domain_ptr->admin_ctrl->updateAdminControlParams(cur_vol);
 
-   currentDom->domain_ptr->volumeMap.erase(vol_id);
+   currentDom->domain_ptr->volumeMap.erase(vol_name);
   om_mutex->unlock();
 
   delete del_vol;
@@ -336,13 +336,13 @@ void OrchMgr::ModifyPolicy(const FdspMsgHdrPtr& fdsp_msg,
 
 void OrchMgr::AttachVol(const FdspMsgHdrPtr &fdsp_msg,
                         const FdspAttVolCmdPtr &atc_vol_req) {
-  int  vol_id = atc_vol_req->vol_uuid;
+  // int  vol_id = atc_vol_req->vol_uuid;
   std::string vol_name = atc_vol_req->vol_name;
   fds_node_name_t node_name = atc_vol_req->node_id;
   localDomainInfo  *currentDom;
 
   FDS_PLOG_SEV(GetLog(), fds::fds_log::notification) << "Received Attach Vol Req for volume "
-						     << vol_name << " ; id - " << vol_id
+						     << vol_name
 						     << " at node " << node_name;
 
   /*
@@ -352,13 +352,13 @@ void OrchMgr::AttachVol(const FdspMsgHdrPtr &fdsp_msg,
     currentDom  = locDomMap[DEFAULT_LOC_DOMAIN_ID];
 
   om_mutex->lock();
-  if ( currentDom->domain_ptr->volumeMap.count(vol_id) == 0) {
+  if ( currentDom->domain_ptr->volumeMap.count(vol_name) == 0) {
     FDS_PLOG_SEV(om_log, fds::fds_log::warning) << "Received Attach Vol for non-existent volume "
-						<< vol_id;
+						<< vol_name;
     om_mutex->unlock();
     return;
   }
-  VolumeInfo *this_vol =  currentDom->domain_ptr->volumeMap[vol_id];
+  VolumeInfo *this_vol =  currentDom->domain_ptr->volumeMap[vol_name];
 #if 0
   // Let's actually allow this, as a means of provisioning before HV is online
   if (currentDom->domain_ptr->currentShMap.count(node_id) == 0) {
@@ -370,7 +370,7 @@ void OrchMgr::AttachVol(const FdspMsgHdrPtr &fdsp_msg,
 
   for (int i = 0; i < this_vol->hv_nodes.size(); i++) {
     if (this_vol->hv_nodes[i] == node_name) {
-      FDS_PLOG_SEV(om_log, fds::fds_log::notification) << "Attach Vol req for volume " << vol_id
+      FDS_PLOG_SEV(om_log, fds::fds_log::notification) << "Attach Vol req for volume " << vol_name
 						       << " rejected because this volume is "
 						       << "already attached at node " << node_name;
       om_mutex->unlock();
@@ -388,26 +388,26 @@ void OrchMgr::AttachVol(const FdspMsgHdrPtr &fdsp_msg,
 
 void OrchMgr::DetachVol(const FdspMsgHdrPtr    &fdsp_msg,
                         const FdspAttVolCmdPtr &dtc_vol_req) {
-  int  vol_id = dtc_vol_req->vol_uuid;
+  // int  vol_id = dtc_vol_req->vol_uuid;
   std::string vol_name = dtc_vol_req->vol_name;
   fds_node_name_t node_name = dtc_vol_req->node_id;
   fds_bool_t node_not_attached = true;
   localDomainInfo  *currentDom;
 
   FDS_PLOG_SEV(GetLog(), fds::fds_log::notification) << "Received Detach Vol Req for volume "
-						     << vol_name << " ; id - " << vol_id
+						     << vol_name
 						     << " at node " << node_name;
 
   currentDom  = locDomMap[DEFAULT_LOC_DOMAIN_ID];
 
   om_mutex->lock();
-  if ( currentDom->domain_ptr->volumeMap.count(vol_id) == 0) {
+  if ( currentDom->domain_ptr->volumeMap.count(vol_name) == 0) {
     FDS_PLOG_SEV(om_log, fds::fds_log::warning) << "Received Detach Vol for non-existent volume "
-						<< vol_id;
+						<< vol_name;
     om_mutex->unlock();
     return;
   }
-  VolumeInfo *this_vol =  currentDom->domain_ptr->volumeMap[vol_id];
+  VolumeInfo *this_vol =  currentDom->domain_ptr->volumeMap[vol_name];
 #if 0
   if (currentDom->domain_ptr->currentShMap.count(node_id) == 0) {
     FDS_PLOG(om_log) << "Received Detach Vol for non-existent node " << node_id;
@@ -424,7 +424,7 @@ void OrchMgr::DetachVol(const FdspMsgHdrPtr    &fdsp_msg,
     }
   }
   if (node_not_attached) {
-    FDS_PLOG_SEV(om_log, fds::fds_log::notification) << "Detach Vol req for volume " << vol_id
+    FDS_PLOG_SEV(om_log, fds::fds_log::notification) << "Detach Vol req for volume " << vol_name
 						     << " rejected because this volume is "
 						     << "not attached at node " << node_name;
   } else {

@@ -372,7 +372,7 @@ class DmUnitTest {
     vol_msg->vol_desc->rel_prio = 2;
     vol_msg->vol_desc->capacity = 0x1 << 30; // 1 Gig
     vol_msg->vol_desc->volType = FDS_ProtocolInterface::FDSP_VOL_BLKDEV_TYPE;
-    vol_msg->vol_desc->consisProtocol = FDS_ProtocolInterface::FDSP_CONS_PROTO_STRONG;
+    vol_msg->vol_desc->defConsisProtocol = FDS_ProtocolInterface::FDSP_CONS_PROTO_STRONG;
     vol_msg->vol_desc->appWorkload = FDS_ProtocolInterface::FDSP_APP_WKLD_FILESYS;
 
     for (fds_uint32_t i = 0; i < num_vols; i++) {
