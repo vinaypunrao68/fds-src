@@ -625,6 +625,10 @@ class TestResp : public FDS_ProtocolInterface::FDSP_DataPathResp {
                            redir_write_obj_req,
                            const Ice::Current &) {
   }
+  void GetVolumeBlobListResp(const FDSP_MsgHdrTypePtr& fds_msg, 
+			     const FDSP_GetVolumeBlobListRespTypePtr& blob_list_rsp, 
+			     const Ice::Current &){
+    }
 };
 
 class TestClient : public Ice::Application {

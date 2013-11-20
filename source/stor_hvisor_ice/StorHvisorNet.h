@@ -107,6 +107,10 @@ public:
     void RedirReadObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_RedirReadObjTypePtr& redir_write_obj_req, const Ice::Current &)
     { 
     }
+
+    void GetVolumeBlobListResp(const FDSP_MsgHdrTypePtr& fds_msg, const FDSP_GetVolumeBlobListRespTypePtr& blob_list_rsp, const Ice::Current &){
+    }
+
 };
 
 
