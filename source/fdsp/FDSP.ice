@@ -25,6 +25,7 @@ enum FDSP_MsgCodeType {
    FDSP_MSG_VERIFY_OBJ_REQ,
    FDSP_MSG_UPDATE_CAT_OBJ_REQ,
    FDSP_MSG_QUERY_CAT_OBJ_REQ,
+   FDSP_MSG_GET_VOL_BLOB_LIST_REQ,
    FDSP_MSG_OFFSET_WRITE_OBJ_REQ,
    FDSP_MSG_REDIR_READ_OBJ_REQ,
 
@@ -33,6 +34,7 @@ enum FDSP_MsgCodeType {
    FDSP_MSG_VERIFY_OBJ_RSP,
    FDSP_MSG_UPDATE_CAT_OBJ_RSP,
    FDSP_MSG_QUERY_CAT_OBJ_RSP,
+   FDSP_MSG_GET_VOL_BLOB_LIST_RSP,
    FDSP_MSG_OFFSET_WRITE_OBJ_RSP,
    FDSP_MSG_REDIR_READ_OBJ_RSP,
 
@@ -45,6 +47,7 @@ enum FDSP_MsgCodeType {
    FDSP_MSG_ATTACH_VOL_CMD,
    FDSP_MSG_DETACH_VOL_CMD,
    FDSP_MSG_REG_NODE,
+   FDSP_MSG_TEST_BUCKET,
 
    FDSP_MSG_NOTIFY_VOL,
    FDSP_MSG_ATTACH_VOL_CTRL,
@@ -159,6 +162,29 @@ class FDSP_QueryCatalogType {
   int      dm_operation;       /* Transaction type = OPEN, COMMIT, CANCEL */
 };
 
+class FDSP_BlobInfoType{
+  string blob_name;
+};
+
+sequence<FDSP_BlobInfoType> BlobInfoListType;
+
+const long blob_list_iterator_begin = 0;
+const long blob_list_iterator_end = 0xffffffff;
+
+class FDSP_GetVolumeBlobListReqType {
+  // take volUUID from the header
+  int max_blobs_to_return; 
+  long iterator_cookie; //set to "0" the first time and store and return for successive iterations
+};
+
+class FDSP_GetVolumeBlobListRespType {
+  int num_blobs_in_resp;
+  bool end_of_list; // true if there are no more blobs to return
+  long iterator_cookie; // store and return this for the next iteration.
+  BlobInfoListType blob_info_list; // list of blob_info structures.  
+};
+
+
 enum FDSP_NodeState {
      FDS_Node_Up,
      FDS_Node_Down,
@@ -197,7 +223,7 @@ class FDSP_DMT_Type {
 
 class FDSP_VolumeInfoType {
 
-  string 		 vol_name;  /* Name of the volume */
+  string 		 vol_name;  /* Name of the volume or bucket*/
   int 	 		 tennantId;  // Tennant id that owns the volume
   int    		 localDomainId;  // Local domain id that owns vol
   int	 		 globDomainId;
@@ -275,6 +301,14 @@ class FDSP_CreateVolType {
   string 		 vol_name;
   FDSP_VolumeInfoType 	 vol_info; /* Volume properties and attributes */
 
+};
+
+class FDSP_TestBucket {
+  string 		 bucket_name;
+  FDSP_VolumeInfoType 	 vol_info; /* Bucket properties and attributes */
+  bool                   attach_vol_reqd; /* Should OMgr send out an attach volume if the bucket is accessible, etc */
+  string                 accessKeyId;
+  string                 secretAccessKey;
 };
 
 class FDSP_PolicyInfoType {
@@ -451,6 +485,7 @@ class FDSP_MsgHdrType {
     int        tennant_id;      /* Tennant owning the Local-domain and Storage hypervisor */
     int        local_domain_id; /* Local domain the volume in question belongs */
     double        glob_volume_id;  /* Tennant owning the Local-domain and Storage hypervisor */
+    string       bucket_name;    /* Bucket Name or Container Name for S3 or Azure entities */
 		
     		/* Source and Destination Distributed s/w entities */
     FDSP_MgrIdType       src_id;
@@ -489,6 +524,9 @@ interface FDSP_DataPathReq {
     void RedirReadObject(FDSP_MsgHdrType fdsp_msg, FDSP_RedirReadObjType redir_write_obj_req);
 
     void AssociateRespCallback(Ice::Identity ident, string src_node_name); // Associate Response callback ICE-object with DM/SM for this source node.
+
+    void GetVolumeBlobList(FDSP_MsgHdrType fds_msg, FDSP_GetVolumeBlobListReqType blob_list_req);
+
 };
 
 interface FDSP_DataPathResp {
@@ -503,6 +541,8 @@ interface FDSP_DataPathResp {
     void OffsetWriteObjectResp(FDSP_MsgHdrType fdsp_msg, FDSP_OffsetWriteObjType offset_write_obj_req);
 
     void RedirReadObjectResp(FDSP_MsgHdrType fdsp_msg, FDSP_RedirReadObjType redir_write_obj_req);
+
+    void GetVolumeBlobListResp(FDSP_MsgHdrType fds_msg, FDSP_GetVolumeBlobListRespType blob_list_rsp);
 
 };
 

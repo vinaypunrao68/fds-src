@@ -406,6 +406,13 @@ namespace fds {
     void AssociateRespCallback(const Ice::Identity&,
 			       const std::string& src_node_name,
 			       const Ice::Current&);
+
+    void GetVolumeBlobList(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fds_msg, 
+			   const FDS_ProtocolInterface::FDSP_GetVolumeBlobListReqTypePtr& blob_list_req,
+			   const Ice::Current& current) {
+      
+    }
+
   };
 
 }  // namespace fds

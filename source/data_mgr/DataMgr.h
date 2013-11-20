@@ -308,6 +308,12 @@ public:
       void AssociateRespCallback(const Ice::Identity& ident,
 				 const std::string& src_node_name,
                                  const Ice::Current& current);
+
+      void GetVolumeBlobList(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fds_msg, 
+			     const FDS_ProtocolInterface::FDSP_GetVolumeBlobListReqTypePtr& blob_list_req,
+			     const Ice::Current& current) {
+
+      }
     };
 
     /*
@@ -349,6 +355,10 @@ public:
                                const FDS_ProtocolInterface::
                                FDSP_RedirReadObjTypePtr& redir_read_obj,
                                const Ice::Current&);
+      void GetVolumeBlobListResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fds_msg, 
+				 const FDS_ProtocolInterface::FDSP_GetVolumeBlobListRespTypePtr& blob_list_rsp, 
+				 const Ice::Current &){
+    }
     };
   };
 
