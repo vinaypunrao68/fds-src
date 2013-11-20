@@ -784,6 +784,7 @@ void hvisor_queue_read(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq)
 
 //	rc = StorHvisorProcIoRd( p_new_req, hvisor_complete_td_request, (void *)vbd, (void *)vreq);
 	/* queue the  request  to the per volume queue */
+        // rc = pushFbdReq(p_new_req);
 	rc = pushVolQueue(p_new_req);
 	if (rc) {
 	  hvisor_complete_td_request((void *)vbd, (void *)vreq, p_new_req, rc);
@@ -844,6 +845,7 @@ void hvisor_queue_write(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq
 
 //	rc = StorHvisorProcIoWr( p_new_req, hvisor_complete_td_request, (void *)vbd, (void *)vreq);
 	/* queue the  request  to the per volume queue */
+        // rc = pushFbdReq(p_new_req);
 	rc = pushVolQueue(p_new_req);
 	if (rc) {
 	  hvisor_complete_td_request((void *)vbd, (void *)vreq, p_new_req, rc);
@@ -1081,34 +1083,36 @@ hvisor_complete_td_request_noop(void *arg1, void *arg2,
 
 
 int8_t  buf[4096];
-int send_test_io(int offset, int vol_id)
-{
-    int len = 4096;
-    int  i;
+int send_test_io(int offset, int vol_id) {
+  int len = 4096;
+  int  i;
   fbd_request_t *p_new_treq;
   p_new_treq = (fbd_request_t *)malloc(sizeof(fbd_request_t));
 
-      for ( i = 1; i < len; i++)
-             buf[i] = i;
+  for ( i = 1; i < len; i++)
+    buf[i] = i;
 
-//        memcpy((void *)(p_new_treq->buf), (void *)buf, len);
+  //        memcpy((void *)(p_new_treq->buf), (void *)buf, len);
 
-
-        p_new_treq->op = 1;
-        p_new_treq->io_type = 1;
-        p_new_treq->buf = buf;;
-        p_new_treq->sec = offset/HVISOR_SECTOR_SIZE;
-        p_new_treq->secs = 8;
-        p_new_treq->len = len;
-        p_new_treq->volUUID = vol_id;
-  		p_new_treq->vbd = NULL;
-  		p_new_treq->vReq = NULL;
-  		p_new_treq->hvisorHdl = hvisor_hdl;
-  		p_new_treq->cb_request = hvisor_complete_td_request_noop;
-//        StorHvisorProcIoWr( p_new_treq, hvisor_complete_td_request_noop,NULL,NULL);
-		pushVolQueue(p_new_treq);
-    	return 0;
-
+  p_new_treq->op = 1;
+  p_new_treq->io_type = 1;
+  p_new_treq->buf = buf;;
+  p_new_treq->sec = offset/HVISOR_SECTOR_SIZE;
+  p_new_treq->secs = 8;
+  p_new_treq->len = len;
+  p_new_treq->volUUID = vol_id;
+  p_new_treq->vbd = NULL;
+  p_new_treq->vReq = NULL;
+  p_new_treq->hvisorHdl = hvisor_hdl;
+  p_new_treq->cb_request = hvisor_complete_td_request_noop;
+  //        StorHvisorProcIoWr( p_new_treq, hvisor_complete_td_request_noop,NULL,NULL);
+           
+  /*
+   * TODO: Let's not always return 0 here.
+   */
+  // pushFbdReq(p_new_treq);
+  pushVolQueue(p_new_treq);
+  return 0;
 }
 
 int8_t  read_buf[4096];
@@ -1131,6 +1135,7 @@ int read_test_io(int offset, int vol_id)
     p_new_treq->hvisorHdl = hvisor_hdl;
     p_new_treq->cb_request = hvisor_complete_td_request_noop;
 //    StorHvisorProcIoRd(p_new_treq, hvisor_complete_td_request_noop, NULL, NULL );
+    // pushFbdReq(p_new_treq);
     pushVolQueue(p_new_treq);
     return 0;
 

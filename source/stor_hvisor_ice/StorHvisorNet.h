@@ -132,7 +132,6 @@ typedef unsigned char doid_t[20];
 
 /*************************************************************************** */
 
-
 class StorHvCtrl {
 
 
@@ -172,6 +171,10 @@ public:
   std::string                 myIp;
   std::string                 my_node_name;
 
+  fds::Error pushBlobReq(FdsBlobReq *blobReq);
+  fds::Error putBlob(AmQosReq *qosReq);
+  fds::Error getBlob(AmQosReq *qosReq);
+
   void  InitIceObjects();
   void InitDmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
   void InitSmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
@@ -191,4 +194,25 @@ private:
   sh_comm_modes mode;
   IceUtil::CtrlCHandler *shCtrlHandler;
 };
+
+extern StorHvCtrl *storHvisor;
+
+/*
+ * Static function for process IO via a threadpool
+ */
+static void processBlobReq(AmQosReq *qosReq) {
+  fds_verify(qosReq->io_module == FDS_IOType::STOR_HV_IO);
+  fds_verify(qosReq->magicInUse() == true);
+
+  fds::Error err(ERR_OK);
+  if (qosReq->io_type == fds::FDS_IO_READ) {
+    err = storHvisor->getBlob(qosReq);
+  } else {
+    fds_verify(qosReq->io_type == fds::FDS_IO_WRITE);
+    err = storHvisor->putBlob(qosReq);
+  }
+
+  fds_verify(err == ERR_OK);
+}
+
 #endif

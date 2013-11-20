@@ -250,7 +250,7 @@ namespace fds {
 #define  FDS_SH_IO_MAGIC_IN_USE 0x1B0A2C3D
 #define  FDS_SH_IO_MAGIC_NOT_IN_USE 0xE1D0A2B3
 
-  class FdsIoReq {
+  class FdsBlobReq {
  public:
     /*
      * Callback members
@@ -284,7 +284,7 @@ namespace fds {
     /*
      * Buffer members
      */
-    fds_uint64_t  bufLen;
+    fds_uint64_t  dataLen;
     char         *dataBuf;
 
     /*
@@ -298,18 +298,37 @@ namespace fds {
     fds_uint64_t queuedUsec;  /* Time spec in queue */
     
  public:
-    FdsIoReq(fds_io_op_t _op,
-             fds_volid_t _volId,
+    FdsBlobReq(fds_io_op_t      _op,
+             fds_volid_t        _volId,
              const std::string &_blobName,
-             fds_uint64_t _blobOffset,
-             fds_uint64_t _dataLen,
-             char *_dataBuf,
-             cbFunc _cb) {
-      magic = FDS_SH_IO_MAGIC_IN_USE;
+             fds_uint64_t       _blobOffset,
+             fds_uint64_t       _dataLen,
+             char              *_dataBuf,
+             cbFunc             _cb)
+        : magic(FDS_SH_IO_MAGIC_IN_USE),
+        ioType(_op),
+        volId(_volId),
+        blobName(_blobName),
+        blobOffset(_blobOffset),
+        dataLen(_dataLen),
+        dataBuf(_dataBuf),
+        callbackFunc(_cb) {
     }
-    ~FdsIoReq() {
+    ~FdsBlobReq() {
       magic = FDS_SH_IO_MAGIC_NOT_IN_USE;
-    }    
+    }
+
+    fds_bool_t magicInUse() const {
+      return (magic == FDS_SH_IO_MAGIC_IN_USE);
+    }
+
+    fds_volid_t getVolId() const {
+      return volId;
+    }
+
+    fds_io_op_t  getIoType() const {
+      return ioType;
+    }
   };
 
   class FDS_IOType {
@@ -336,13 +355,9 @@ public:
    boost::posix_time::ptime dispatch_time;
    boost::posix_time::ptime io_done_time;	 
 
- 
-   // SM & DM objects for IO processing
-   //  //FDSP_MsgHdrTypePtr msgHdr;
-   //   //FDSP_PutObjTypePtr putObj;
-   //    //FDSP_GetObjTypePtr getObj;
-   //
-   //     // SH & UBD objects for IO processing -  blockdevice mode
+   /*
+    * TODO: Blkdev specific fields. REMOVE THESE!
+    */
    void *fbd_req;
    void *vbd;
    void *vbd_req;
