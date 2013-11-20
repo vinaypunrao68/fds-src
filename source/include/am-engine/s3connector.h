@@ -17,9 +17,9 @@ class S3_GetObject : public Conn_GetObject
     S3_GetObject(struct ngx_http_request_s *req);
     ~S3_GetObject();
 
-    // Send response header in S3 protocol.
+    // Format response header in S3 protocol.
     //
-    virtual ame_ret_e ame_send_response_hdr();
+    virtual ame_ret_e ame_format_response_hdr();
 
   protected:
     // List of known key-values that we'll need to send the GET response.

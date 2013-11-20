@@ -26,7 +26,7 @@ S3_GetObject::~S3_GetObject()
 }
 
 ame_ret_e
-S3_GetObject::ame_send_response_hdr()
+S3_GetObject::ame_format_response_hdr()
 {
 }
 

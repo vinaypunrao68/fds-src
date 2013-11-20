@@ -19,6 +19,7 @@ extern "C" {
 #include <boost/program_options/parsers.hpp>
 #include <shared/fds_types.h>
 #include <fds_assert.h>
+#include <native_api.h>
 #include <am-plugin.h>
 
 namespace fds {
@@ -137,7 +138,7 @@ AMEngine::mod_shutdown()
 // Generic request/response protocol through NGINX module.
 // ---------------------------------------------------------------------------
 AME_Request::AME_Request(ngx_http_request_t *req)
-    : fdsio::Request(false)
+    : fdsio::Request(false), ame_req(req)
 {
 }
 
@@ -189,13 +190,60 @@ AME_Request::ame_set_resp_keyval(char const *const k, char const *const v)
     return AME_OK;
 }
 
+// ame_set_std_resp
+// ----------------
+// Common code path to set standard response to client.
+//
+ame_ret_e
+AME_Request::ame_set_std_resp(int status, int len)
+{
+    ngx_http_request_t *r;
+
+    r = ame_req;
+    r->headers_out.status           = NGX_HTTP_OK;
+    r->headers_out.content_length_n = len;
+
+    return AME_OK;
+}
+
+// ame_send_response_hdr
+// ---------------------
+// Common code path to send the complete response header to client.
+//
+ame_ret_e
+AME_Request::ame_send_response_hdr()
+{
+    ngx_int_t          rc;
+    ngx_http_request_t *r;
+
+    r  = ame_req;
+    rc = ngx_http_send_header(r);
+    return AME_OK;
+}
+
 // ame_push_resp_data_buf
 // ----------------------
 //
 void *
 AME_Request::ame_push_resp_data_buf(int ask, char **buf, int *got)
 {
-    return NULL;
+    ngx_buf_t          *b;
+    ngx_http_request_t *r;
+
+    r = ame_req;
+    b = (ngx_buf_t *)ngx_calloc_buf(r->pool);
+    b->memory        = 1;
+    b->last_buf      = 0;
+    b->last_in_chain = 0;
+
+    b->start = (u_char *)ngx_palloc(r->pool, ask);
+    b->end   = b->start + ask;
+    b->pos   = b->start;
+    b->last  = b->end;
+
+    *buf = (char *)b->pos;
+    *got = ask;
+    return (void *)b;
 }
 
 // ame_send_resp_data
@@ -204,6 +252,21 @@ AME_Request::ame_push_resp_data_buf(int ask, char **buf, int *got)
 ame_ret_e
 AME_Request::ame_send_resp_data(void *buf_cookie, int len, fds_bool_t last)
 {
+    ngx_buf_t          *buf;
+    ngx_int_t          rc;
+    ngx_chain_t        out;
+    ngx_http_request_t *r;
+
+    r   = ame_req;
+    buf = (ngx_buf_t *)buf_cookie;
+    out.buf  = buf;
+    out.next = NULL;
+
+    if (last == true) {
+        buf->last_buf      = 1;
+        buf->last_in_chain = 1;
+    }
+    rc = ngx_http_output_filter(r, &out);
     return AME_OK;
 }
 
@@ -219,14 +282,34 @@ Conn_GetObject::~Conn_GetObject()
 {
 }
 
+// get_callback_fn
+// ---------------
+//
+static FDSN_Status
+get_callback_fn(void *req, fds_uint64_t bufsize, const char *buf, void *cb)
+{
+    return FDSN_StatusOK;
+}
+
 // ame_request_handler
 // -------------------
 //
 void
 Conn_GetObject::ame_request_handler()
 {
-    // Process request data, which doesn't have any data for GET.
+    int           get_len, got_len;
+    char          *buf;
+    void          *cookie;
+    FDS_NativeAPI *api;
+    std::string    key;
 
+    get_len = 100;
+    cookie = fdsn_alloc_get_buffer(get_len, &buf, &got_len);
+    api->GetObject(NULL, key, NULL, 0, get_len, buf, get_len,
+                  (void *)this, get_callback_fn, NULL);
+
+    fdsn_send_get_response(0, get_len);
+    fdsn_send_get_buffer(buf, get_len, true);
 }
 
 // fdsn_send_get_response
@@ -236,6 +319,12 @@ void
 Conn_GetObject::fdsn_send_get_response(int status, int get_len)
 {
     // Protocol-specific will send the response data.
+    ame_set_std_resp(status, get_len);
+
+    // Any connector specific response format.
+    ame_format_response_hdr();
+
+    // Send the response out.
     ame_send_response_hdr();
 }
 

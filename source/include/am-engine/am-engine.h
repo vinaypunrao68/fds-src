@@ -74,12 +74,18 @@ class AME_Request : public fdsio::Request
     //
     char const *const ame_get_reqt_hdr_val(char const *const key);
 
+    // ame_set_std_resp
+    // ----------------
+    // Common path to set the standard response status/len.
+    //
+    ame_ret_e ame_set_std_resp(int status, int len);
+
     // ame_set_resp_keyval
     // -------------------
     // Set key/value in the response to send to the client.
     //
     ame_ret_e ame_set_resp_keyval(char const *const k, char const *const v);
-    virtual ame_ret_e ame_send_response_hdr() = 0;
+    virtual ame_ret_e ame_format_response_hdr() = 0;
 
   protected:
     struct ngx_http_request_s  *ame_req;
@@ -116,6 +122,11 @@ class AME_Request : public fdsio::Request
     //
     void *ame_push_resp_data_buf(int ask, char **buf, int *got_len);
     ame_ret_e ame_send_resp_data(void *cookie, int len, fds_bool_t last);
+
+    // ame_send_response_hdr
+    // ---------------------
+    // Common code path to send the response header to the client.
+    ame_ret_e ame_send_response_hdr();
 };
 
 // Connector Adapter to implement GetObject Method.
@@ -150,6 +161,7 @@ class Conn_GetObject : public AME_Request
     {
         return ame_push_resp_data_buf(ask_len, buf_adr, got_len);
     }
+
     // fdsn_send_get_buffer
     // --------------------
     // Send the get buffer to the client.  If this is the last call, FDSN
