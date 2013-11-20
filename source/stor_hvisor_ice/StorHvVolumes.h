@@ -145,6 +145,46 @@ class StorHvVolumeTable
   fds_bool_t created_log;
 };
 
+/*
+ * Internal wrapper class for AM QoS
+ * requests.
+ */
+class AmQosReq : public FDS_IOType {
+private:
+  FdsBlobReq *blobReq;
+
+public:
+  AmQosReq(FdsBlobReq *_br)
+      : blobReq(_br) {
+    /*
+     * Set the base class defaults
+     */
+    io_magic  = FDS_SH_IO_MAGIC_IN_USE;
+    io_module = STOR_HV_IO;
+    io_vol_id = blobReq->getVolId();
+    io_type   = blobReq->getIoType();
+    /*
+     * Set a reqId here. Need a atomic counter in
+     * Sh ctrl
+     */
+    io_req_id = 885;
+
+    /*
+     * Zero out FBD stuff to make sure we don't use it.
+     * TODO: Remove this once it's remove from base class.
+     */
+    fbd_req = NULL;
+    vbd     = NULL;
+    vbd_req = NULL;
+  }
+  ~AmQosReq() {
+  }
+
+  fds_bool_t magicInUse() const {
+    return blobReq->magicInUse();
+  }
+};
+
 } // namespace fds
 
 #endif // __STOR_HV_VOLS_H_
