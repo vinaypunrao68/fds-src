@@ -433,6 +433,11 @@ void CreateStorHvisor(int argc, char *argv[], hv_create_blkdev cr_blkdev, hv_del
   CreateSHMode(argc, argv, cr_blkdev, del_blkdev, false, 0, 0);
 }
 
+void CreateStorHvisorS3(int argc, char *argv[])
+{
+  CreateSHMode(argc, argv, NULL, NULL, false, 0, 0);
+}
+
 void CreateSHMode(int argc,
                   char *argv[],
                   hv_create_blkdev cr_blkdev, 

@@ -335,11 +335,12 @@ ngx_fds_bucket_get(HttpRequest *http_req)
 ngx_int_t
 ngx_fds_bucket_put(HttpRequest *http_req)
 {
-  fds::S3_GetObject *s3 = new fds::S3_GetObject(*http_req);
+  fds::S3_PutBucket *s3 = new fds::S3_PutBucket(*http_req);
 
   // Do sync processing for now.
   s3->ame_request_handler();
   delete s3;
+  return NGX_DONE;
 }
 
 // ngx_fds_bucket_delete

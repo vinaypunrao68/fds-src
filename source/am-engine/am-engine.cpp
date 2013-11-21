@@ -474,13 +474,22 @@ Conn_PutBucket::~Conn_PutBucket()
 {
 }
 
-// putbucket_callback_fn
-// ---------------------
+// put_callback_fn
+// ---------------
 //
-static void
-putbucket_callback_fn(FDSN_Status status,
-                      const ErrorDetails *details, void *cb)
+
+void Conn_PutBucket::cb(FDSN_Status status,
+    const ErrorDetails *errorDetails,
+    void *callbackData)
 {
+  Conn_PutBucket *conn_pb_obj =  (Conn_PutBucket*) callbackData;
+  void *resp_buf;
+  char *temp;
+  int resp_buf_len = 2;
+
+  resp_buf  = conn_pb_obj->ame_push_resp_data_buf(resp_buf_len, &temp, &resp_buf_len);
+  conn_pb_obj->fdsn_send_put_response(200, resp_buf_len);
+  conn_pb_obj->ame_send_resp_data(resp_buf, resp_buf_len, true);
 }
 
 // ame_request_handler
@@ -489,22 +498,24 @@ putbucket_callback_fn(FDSN_Status status,
 void
 Conn_PutBucket::ame_request_handler()
 {
+    fds_uint64_t  len;
+    const char          *buf;
     FDS_NativeAPI *api;
+    std::string   key;
+    BucketContext bucket_ctx("host", get_bucket_id(), "accessid", "secretkey");
 
     api = ame_fds_hook();
-    api->CreateBucket(NULL, CannedAclPublicRead, (void *)this,
-                      putbucket_callback_fn, NULL);
 
-    fdsn_send_putbucket_response(0);
+    api->CreateBucket(&bucket_ctx, CannedAclPrivate, NULL, fds::Conn_PutBucket::cb, this);
 }
 
-// fdsn_send_putbucket_response
-// ----------------------------
+// fdsn_send_put_response
+// ----------------------
 //
 void
-Conn_PutBucket::fdsn_send_putbucket_response(int status)
+Conn_PutBucket::fdsn_send_put_response(int status, int put_len)
 {
-    ame_set_std_resp(status, 0);
+    ame_set_std_resp(status, put_len);
     ame_send_response_hdr();
 }
 
