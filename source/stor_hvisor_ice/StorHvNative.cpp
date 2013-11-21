@@ -71,14 +71,14 @@ void FDS_NativeAPI::GetBucket(BucketContext *bucketContext,
 			      std::string delimiter,
 			      fds_uint32_t maxkeys,
 			      void *requestContext,
-			      fdsnListBucketHandler *handler, 
+			      fdsnListBucketHandler handler, 
 			      void *callbackData)
 {
 }
  
 void FDS_NativeAPI::DeleteBucket(BucketContext* bucketCtxt,
 				 void *requestContext,
-				 fdsnResponseHandler *handler, 
+				 fdsnResponseHandler handler, 
 				 void *callbackData)
 {
     fds_volid_t ret_id; 
@@ -115,12 +115,13 @@ void FDS_NativeAPI::GetObject(BucketContext *bucket_ctxt,
 {
   Error err(ERR_OK);
   fds_volid_t volid;
+  FdsBlobReq *blob_req = NULL;
   FDS_PLOG(storHvisor->GetLog()) << "FDS_NativeAPI::GetObject bucket " << bucket_ctxt->bucketName
 				 << " objKey " << ObjKey;
 
   /* check if bucket is attached to this AM, if not, ask OM to attach */
   err = checkBucketExists(bucket_ctxt, &volid);
-  if ( !err.ok() && (err != ERR_PENDING_RESP)) {
+  if ( !err.ok() && (err != Error(ERR_PENDING_RESP)) ) {
     /* bucket not attached and we failed to send query to OM */
     (getObjCallback)(req_context, 0, NULL, callback_data, FDSN_StatusInternalError, NULL);
     FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::warning) << "FDS_NativeAPI::GetObject bucket " << bucket_ctxt->bucketName
@@ -130,12 +131,34 @@ void FDS_NativeAPI::GetObject(BucketContext *bucket_ctxt,
   }
 
   /* create request */
+  blob_req = new GetBlobReq(volid, 
+			    ObjKey,
+			    startByte,
+			    buflen,
+			    buffer,
+			    byteCount,
+			    bucket_ctxt,
+			    get_cond,
+			    req_context,
+			    getObjCallback,
+			    callback_data);
+
+  if (!blob_req) {
+    (getObjCallback)(req_context, 0, NULL, callback_data, FDSN_StatusOutOfMemory, NULL);
+    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error) << "FDS_NativeAPI::GetObject bucket " 
+							    << bucket_ctxt->bucketName
+							    << " objKey " << ObjKey 
+							    << " -- failed to allocate GetBlobReq";
+    return;
+  }
 
   if ( err.ok() ) {
     /* bucket is already attached to this AM, enqueue IO */
+      storHvisor->pushBlobReq(blob_req);
   } 
-  else if (err == ERR_PENDING_RESP) {
+  else if (err == Error(ERR_PENDING_RESP)) {
     /* we are waiting for OM to tell us if bucket exists */
+    storHvisor->vol_table->addBlobToWaitQueue(bucket_ctxt->bucketName, blob_req);
   }
   // else we already handled above
 
@@ -143,7 +166,7 @@ void FDS_NativeAPI::GetObject(BucketContext *bucket_ctxt,
 
 void FDS_NativeAPI::PutObject(BucketContext *bucket_ctxt, 
 			      std::string ObjKey, 
-			      PutProperties *putproperties,
+			      PutProperties *put_properties,
 			      void *req_context,
 			      char *buffer, 
 			      fds_uint64_t buflen,
@@ -152,30 +175,55 @@ void FDS_NativeAPI::PutObject(BucketContext *bucket_ctxt,
 {
   Error err(ERR_OK);
   fds_volid_t volid;
+  FdsBlobReq *blob_req = NULL;
   FDS_PLOG(storHvisor->GetLog()) << "FDS_NativeAPI::PutObject bucket " << bucket_ctxt->bucketName
 				 << " objKey " << ObjKey;
 
 
   /* check if bucket is attached to this AM, if not, ask OM to attach */
   err = checkBucketExists(bucket_ctxt, &volid);
-  if ( !err.ok() && (err != ERR_PENDING_RESP)) {
+  if ( !err.ok() && (err != Error(ERR_PENDING_RESP)) ) {
     /* bucket not attached and we failed to send query to OM */
-    (putObjHandler)(req_context, 0, NULL, callback_data, FDSN_StatusInternalError, NULL);
-    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::warning) << "FDS_NativeAPI::PutObject bucket " << bucket_ctxt->bucketName
+    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::warning) << "FDS_NativeAPI::PutObject bucket " 
+							      << bucket_ctxt->bucketName
 							      << " objKey " << ObjKey 
 							      << " -- could't find out from OM if bucket exists";
+
+    (putObjHandler)(req_context, 0, NULL, callback_data, FDSN_StatusInternalError, NULL);
     return;
   }
 
   /* create request */
+  blob_req = new PutBlobReq(volid, 
+			    ObjKey,
+			    0,
+			    buflen,
+			    buffer,
+			    bucket_ctxt,
+			    put_properties,
+			    req_context,
+			    putObjHandler,
+			    callback_data);
+
+  if (!blob_req) {
+    (putObjHandler)(req_context, 0, NULL, callback_data, FDSN_StatusOutOfMemory, NULL);
+    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error) << "FDS_NativeAPI::PutObject bucket " 
+							    << bucket_ctxt->bucketName
+							    << " objKey " << ObjKey 
+							    << " -- failed to allocate PutBlobReq";
+    return;
+  }
 
   if ( err.ok() ) {
     /* bucket is already attached to this AM, enqueue IO */
+      storHvisor->pushBlobReq(blob_req);
   } 
-  else if (err == ERR_PENDING_RESP) {
+  else if (err == Error(ERR_PENDING_RESP)) {
     /* we are waiting for OM to tell us if bucket exists */
+    storHvisor->vol_table->addBlobToWaitQueue(bucket_ctxt->bucketName, blob_req);
   }
   // else we already handled above 
+
 }
 
 void FDS_NativeAPI::DeleteObject(BucketContext *bucket_ctxt, 
@@ -186,31 +234,64 @@ void FDS_NativeAPI::DeleteObject(BucketContext *bucket_ctxt,
 {
   Error err(ERR_OK);
   fds_volid_t volid;
+  FdsBlobReq *blob_req = NULL;
   FDS_PLOG(storHvisor->GetLog()) << "FDS_NativeAPI::DeleteObject bucket " << bucket_ctxt->bucketName
 				 << " objKey " << ObjKey;
 
   /* check if bucket is attached to this AM, if not, ask OM to attach */
   err = checkBucketExists(bucket_ctxt, &volid);
-  if ( !err.ok() && (err != ERR_PENDING_RESP)) {
+  if ( !err.ok() && (err != Error(ERR_PENDING_RESP)) ) {
     /* bucket not attached and we failed to send query to OM */
-    (responseHandler)(FDSN_StatusInternalError, NULL, callback_data);
     FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::warning) << "FDS_NativeAPI::DeleteObject bucket " << bucket_ctxt->bucketName
 							      << " objKey " << ObjKey 
 							      << " -- could't find out from OM if bucket exists";
+    (responseHandler)(FDSN_StatusInternalError, NULL, callback_data);
     return;
   }
 
   /* create request */
+  blob_req = new DeleteBlobReq(volid, 
+			       ObjKey,
+			       bucket_ctxt,
+			       req_context,
+			       responseHandler,
+			       callback_data);
+
+  if (!blob_req) {
+    (responseHandler)(FDSN_StatusOutOfMemory, NULL, callback_data);
+    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error) << "FDS_NativeAPI::DeleteObject bucket " 
+							    << bucket_ctxt->bucketName
+							    << " objKey " << ObjKey 
+							    << " -- failed to allocate DeleteBlobReq";
+    return;
+  }
+
 
   if ( err.ok() ) {
     /* bucket is already attached to this AM, enqueue IO */
+    storHvisor->pushBlobReq(blob_req);
   } 
-  else if (err == ERR_PENDING_RESP) {
+  else if (err == Error(ERR_PENDING_RESP)) {
     /* we are waiting for OM to tell us if bucket exists */
+    storHvisor->vol_table->addBlobToWaitQueue(bucket_ctxt->bucketName, blob_req);
   }
   // else we already handled above 
+}
 
+void FDS_NativeAPI::DoCallback(FdsBlobReq* blob_req, Error error)
+{
+  FDS_PLOG(storHvisor->GetLog()) << "FDS_NativeAPI: callback to complete blob request : "
+				 << error.GetErrstr();
 
+  switch (blob_req->getIoType()) {
+  case FDS_PUT_BLOB:
+    static_cast<PutBlobReq*>(blob_req)->DoCallback(FDSN_StatusInternalError, NULL);
+    break;
+  case FDS_GET_BLOB:
+    break;
+  case FDS_DELETE_BLOB:
+    break;
+  };
 }
 
 /*
@@ -249,7 +330,7 @@ Error FDS_NativeAPI::checkBucketExists(BucketContext *bucket_ctxt, fds_volid_t* 
 					     bucket_ctxt->accessKeyId,
 					     bucket_ctxt->secretAccessKey);
 
-  err = (om_err == 0) ? ERR_PENDING_RESP : ERR_MAX; //TODO: we need some generic error
+  err = (om_err == 0) ? Error(ERR_PENDING_RESP) : Error(ERR_INVALID_ARG); //TODO: we need some generic error
 
   *ret_volid = volid;
   return err;
