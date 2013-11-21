@@ -443,10 +443,70 @@ void OrchMgr::DetachVol(const FdspMsgHdrPtr    &fdsp_msg,
 void OrchMgr::TestBucket(const FdspMsgHdrPtr& fdsp_msg,
 			 const FdspTestBucketPtr& test_buck_req)
 {
+  localDomainInfo  *currentDom;
+  std::string bucket_name = test_buck_req->bucket_name;
+  std::string source_node_name = fdsp_msg->src_node_name;
   FDS_PLOG_SEV(GetLog(), fds::fds_log::notification) << "OM received test bucket request for bucket "
-						     << test_buck_req->bucket_name
+						     << bucket_name
 						     << " attach_vol_reqd = "  
 						     << test_buck_req->attach_vol_reqd;
+
+
+
+  /*
+   * get the domain Id. If  Domain is not created  use  default domain 
+   * for now use the default domain
+   */
+  currentDom  = locDomMap[DEFAULT_LOC_DOMAIN_ID];
+
+   /* check if volume exists */
+  om_mutex->lock();
+  if ( currentDom->domain_ptr->volumeMap.count(bucket_name) == 0) {
+    FDS_PLOG_SEV(om_log, fds::fds_log::notification) << "OM: TestBucket -- bucket " << bucket_name
+						     << " does not exist, will sent error back to requesting node "
+						     << source_node_name;
+
+    if (currentDom->domain_ptr->currentShMap.count(source_node_name) > 0) {
+      currentDom->domain_ptr->sendTestBucketResponseToHvNode(source_node_name, bucket_name, false);
+    }
+    else {
+      FDS_PLOG_SEV(om_log, fds::fds_log::warning) << "OM: TestBucket -- OM does not know about requesting node "
+						  << source_node_name;
+    }
+  }
+  else if (test_buck_req->attach_vol_reqd == false) {
+    /* OM was not requested to attach volume to node, so just returning success */
+    FDS_PLOG_SEV(om_log, fds::fds_log::notification) << "OM: TestBucket -- bucket " << bucket_name
+						     << " exists! OM sending success back to requesting node "
+						     << source_node_name;
+
+    if (currentDom->domain_ptr->currentShMap.count(source_node_name) > 0) {
+      currentDom->domain_ptr->sendTestBucketResponseToHvNode(source_node_name, bucket_name, true);
+    }
+    else {
+      FDS_PLOG_SEV(om_log, fds::fds_log::warning) << "OM: TestBucket -- OM does not know about requesting node "
+						  << source_node_name;
+    }
+  }
+  else {
+    VolumeInfo *this_vol =  currentDom->domain_ptr->volumeMap[bucket_name];
+
+    for (int i = 0; i < this_vol->hv_nodes.size(); i++) {
+      if (this_vol->hv_nodes[i] == source_node_name) {
+	FDS_PLOG_SEV(om_log, fds::fds_log::warning) << "OM: TestBucket - bucket " << bucket_name
+						    << " is already attached to the requesting node "
+						    << source_node_name << " so nothing to do";
+	om_mutex->unlock();
+	return;
+      }
+    }
+    this_vol->hv_nodes.push_back(source_node_name);
+    if (currentDom->domain_ptr->currentShMap.count(source_node_name) > 0) {
+      currentDom->domain_ptr->sendAttachVolToHvNode(source_node_name, this_vol);
+    }
+  }
+
+  om_mutex->unlock();
 }
 
 void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
