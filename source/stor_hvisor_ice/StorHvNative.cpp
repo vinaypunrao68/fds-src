@@ -81,6 +81,25 @@ void FDS_NativeAPI::DeleteBucket(BucketContext* bucketCtxt,
 				 fdsnResponseHandler *handler, 
 				 void *callbackData)
 {
+    fds_volid_t ret_id; 
+   // check the bucket is already attached. 
+   ret_id = storHvisor->vol_table->volumeExists(bucketCtxt->bucketName);
+   if (ret_id == invalid_vol_id) {
+       FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error) << " S3 Bucket  Does not exsists  BucketID: " << ret_id;
+
+     (handler)(FDSN_StatusErrorBucketNotExists,NULL,NULL);
+     return;
+   }
+
+   FDSP_DeleteVolTypePtr volData = new FDSP_DeleteVolType();
+   volData->vol_name  = std::string(bucketCtxt->bucketName);
+   volData->domain_id = 0;
+   // send the  bucket create request to OM
+
+   storHvisor->om_client->pushDeleteBucketToOM(volData); 
+   /* TBD. Since this one is async call Error  checking involved, need more discussiosn */
+   (handler)(FDSN_StatusOK,NULL,NULL);
+    return;
 }
 
 void FDS_NativeAPI::GetObject(BucketContext *bucketctxt, 
