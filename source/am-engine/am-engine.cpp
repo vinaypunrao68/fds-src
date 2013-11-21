@@ -220,6 +220,10 @@ AME_Request::ame_send_response_hdr()
     ngx_int_t          rc;
     ngx_http_request_t *r;
 
+    // Any protocol-connector specific response format.
+    ame_format_response_hdr();
+
+    // Do actual sending.
     r  = ame_req.getNginxReq();
     rc = ngx_http_send_header(r);
     return AME_OK;
@@ -275,7 +279,7 @@ AME_Request::ame_send_resp_data(void *buf_cookie, int len, fds_bool_t last)
 }
 
 // ---------------------------------------------------------------------------
-// Connector Adapters
+// GetObject Connector Adapter
 // ---------------------------------------------------------------------------
 Conn_GetObject::Conn_GetObject(HttpRequest &req)
     : AME_Request(req)
@@ -311,7 +315,9 @@ Conn_GetObject::ame_request_handler()
     // todo: create Bucket context
 
     get_len = 100;
-    cookie = fdsn_alloc_get_buffer(get_len, &buf, &got_len);
+    cookie  = fdsn_alloc_get_buffer(get_len, &buf, &got_len);
+
+    api = ame_fds_hook();
     api->GetObject(NULL, key, NULL, 0, get_len, buf, get_len,
                   (void *)this, get_callback_fn, NULL);
 
@@ -325,13 +331,58 @@ Conn_GetObject::ame_request_handler()
 void
 Conn_GetObject::fdsn_send_get_response(int status, int get_len)
 {
-    // Protocol-specific will send the response data.
     ame_set_std_resp(status, get_len);
+    ame_send_response_hdr();
+}
 
-    // Any connector specific response format.
-    ame_format_response_hdr();
+// ---------------------------------------------------------------------------
+// PutObject Connector Adapter
+// ---------------------------------------------------------------------------
+Conn_PutObject::Conn_PutObject(ngx_http_request_t *req)
+    : AME_Request(req)
+{
+}
 
-    // Send the response out.
+Conn_PutObject::~Conn_PutObject()
+{
+}
+
+// put_callback_fn
+// ---------------
+//
+static int
+put_callback_fn(void *req, fds_uint64_t size, char *buf, void *cb)
+{
+    return 0;
+}
+
+// ame_request_handler
+// -------------------
+//
+void
+Conn_PutObject::ame_request_handler()
+{
+    fds_uint64_t  len;
+    char          *buf;
+    FDS_NativeAPI *api;
+    std::string   key;
+
+    // Rao, get header info out, assign the buf and len here for PUT data.
+    //
+    api = ame_fds_hook();
+    api->PutObject(NULL, key, NULL, (void *)this,
+                   buf, len, put_callback_fn, NULL);
+
+    fdsn_send_put_response(0);
+}
+
+// fdsn_send_put_response
+// ----------------------
+//
+void
+Conn_PutObject::fdsn_send_put_response(int status)
+{
+    ame_set_std_resp(status, 0);
     ame_send_response_hdr();
 }
 

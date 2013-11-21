@@ -39,6 +39,7 @@ class AMEngine : public Module
 
 extern AMEngine              gl_AMEngine;
 
+// ---------------------------------------------------------------------------
 // ame_fds_hook
 // ------------
 // Return the API obj to hook up with FDS API.
@@ -129,7 +130,7 @@ class AME_Request : public fdsio::Request
     ame_ret_e ame_send_response_hdr();
 };
 
-// Connector Adapter to implement GetObject Method.
+// Connector Adapter to implement GetObject method.
 //
 class Conn_GetObject : public AME_Request
 {
@@ -184,6 +185,26 @@ class Conn_GetObject : public AME_Request
     {
         return ame_send_resp_data(cookie, len, last);
     }
+
+  protected:
+};
+
+// Connector Adapter to implement PutObject method.
+//
+class Conn_PutObject : public AME_Request
+{
+  public:
+    Conn_PutObject(struct ngx_http_request_s *req);
+    ~Conn_PutObject();
+
+    // Connector method to handle PutObject request.
+    //
+    virtual void ame_request_handler();
+
+    // Common code to send response back to the client.  Connector specific
+    // will provide more detail on the response.
+    //
+    virtual void fdsn_send_put_response(int status);
 
   protected:
 };

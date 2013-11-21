@@ -196,6 +196,13 @@ class TestResp : public FDS_ProtocolInterface::FDSP_ConfigPathResp {
                         const FDS_ProtocolInterface::FDSP_RegisterNodeTypePtr&
                         reg_node_resp,
                         const Ice::Current&) {}
+
+  void TestBucketResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
+                        fdsp_msg,
+                        const FDS_ProtocolInterface::FDSP_TestBucketPtr&
+                        reg_node_resp,
+                        const Ice::Current&) {}
+
 };
 
 class OmUnitTest {
@@ -616,6 +623,81 @@ class OmUnitTest {
  return result;
   }
 
+  fds_int32_t buckets_test() {
+    FDS_PLOG(test_log) << "Starting test: buckets_test()";
+
+    FDS_ProtocolInterface::FDSP_ConfigPathReqPrx fdspConfigPathAPI =
+        createOmComm(om_port_num);
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr =
+        new FDS_ProtocolInterface::FDSP_MsgHdrType;
+    initOMMsgHdr(msg_hdr);
+
+    /* we should register AM node so we can see notifications */
+     FDS_ProtocolInterface::FDSP_RegisterNodeTypePtr reg_node_msg =
+        new FDS_ProtocolInterface::FDSP_RegisterNodeType;
+
+     reg_node_msg->domain_id  = 0;
+     reg_node_msg->ip_hi_addr = 0;
+     reg_node_msg->ip_lo_addr = 0x7f000001; /* 127.0.0.1 */
+     reg_node_msg->data_port  = 0;
+     /*
+      * Add some zeroed out disk info
+      */
+     reg_node_msg->disk_info = new FDS_ProtocolInterface::FDSP_AnnounceDiskCapability();
+
+      /*
+       * Create and endpoint to reflect the "node" that
+       * we're registering, so that "node" can recieve
+       * updates from the OM.
+       */
+     reg_node_msg->control_port = cp_port_num + 4;
+     createCpEndpoint(reg_node_msg->control_port);
+
+      /*
+       * TODO: Make the name just an int since the OM turns this into
+       * a UUID to address the node. Fix this by adding a UUID int to
+       * the FDSP.
+       */
+     reg_node_msg->node_name = "test_AM";
+
+      /*
+       * TODO: Change this to a service type since nodes registering
+       * and services registering should be two different things
+       * eventually.
+       */
+     reg_node_msg->node_type = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
+
+     fdspConfigPathAPI->RegisterNode(msg_hdr, reg_node_msg);
+
+     FDS_PLOG(test_log) << "Completed node registration " << reg_node_msg->node_name << " at IP "
+                         << fds::ipv4_addr_to_str(reg_node_msg->ip_lo_addr)
+                         << " control port " << reg_node_msg->control_port;
+
+    /* test bucket that does not exist */
+     /* TODO: does not like passing vol_info for some reason */
+#if 0
+    FDS_ProtocolInterface::FDSP_TestBucketPtr test_buck_msg =
+        new FDS_ProtocolInterface::FDSP_TestBucket;
+
+    test_buck_msg->bucket_name = std::string("no_exist_bucket");
+    test_buck_msg->vol_info = NULL; //new FDS_ProtocolInterface::FDSP_VolumeInfoType;
+    //    test_buck_msg->vol_info->vol_name = std::string("volA");
+    test_buck_msg->attach_vol_reqd = true;
+    test_buck_msg->accessKeyId = "x";
+    test_buck_msg->secretAccessKey = "y";
+
+    fdspConfigPathAPI->TestBucket(msg_hdr, test_buck_msg);
+
+    FDS_PLOG(test_log) << "Completed test bucket request for bucket " 
+			<< test_buck_msg->bucket_name;
+#endif
+
+    FDS_PLOG(test_log) << "Ending test: buckets_test()";
+    return 0;
+  }
+
+
+
  public:
   OmUnitTest() {
     test_log = new fds_log("om_test", "logs");
@@ -623,6 +705,7 @@ class OmUnitTest {
     unit_tests.push_back("node_reg");
     unit_tests.push_back("vol_reg");
     unit_tests.push_back("policy");
+    unit_tests.push_back("buckets_test");
 
     num_updates = 10;
   }
@@ -656,6 +739,8 @@ class OmUnitTest {
       result = vol_reg();
     } else if (testname == "policy") {
       result = policy_test();
+    } else if (testname == "buckets_test") {
+      result = buckets_test();
     } else {
       std::cout << "Unknown unit test " << testname << std::endl;
     }
