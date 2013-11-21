@@ -147,23 +147,55 @@ class FDSP_VerifyObjType {
   string  data_obj;
 };
 
+struct FDSP_BlobDigestType {
+  long low;
+  long high;
+};
+
+struct FDSP_BlobObjectInfo {
+ long offset;
+ FDS_ObjectIdType data_obj_id;
+ long size;     
+};
+
+sequence <FDSP_BlobObjectInfo> FDSP_BlobObjectList;
+
+struct FDSP_MetaDataPair {
+ string key;
+ string value;
+};
+
+sequence <FDSP_MetaDataPair> FDSP_MetaDataList;
 
 class FDSP_UpdateCatalogType {
-  int      volume_offset;       /* Offset inside the volume where the object resides */
-  FDS_ObjectIdType   data_obj_id;         /* Object id of the object that this block is being mapped to */
+  string   blob_name;       /* User visible name of the blob*/
+  long blob_size;
+  int blob_mime_type;
+  FDSP_BlobDigestType digest;
+  FDSP_BlobObjectList   obj_list;         /* List of object ids of the objects that this blob is being mapped to */
+  FDSP_MetaDataList meta_list; /* sequence of arbitrary key/value pairs */
+
   int      dm_transaction_id;  /* Transaction id */
   int      dm_operation;       /* Transaction type = OPEN, COMMIT, CANCEL */
 };
 
 class FDSP_QueryCatalogType {
-  int      volume_offset;       /* Offset inside the volume where the object resides */
-  FDS_ObjectIdType   data_obj_id;         /* Object id of the object that this block is being mapped to */
+
+  string   blob_name;       /* User visible name of the blob*/
+  long blob_size;
+  int blob_mime_type;
+  FDSP_BlobDigestType digest;
+  FDSP_BlobObjectList   obj_list;         /* List of object ids of the objects that this blob is being mapped to */
+  FDSP_MetaDataList meta_list; /* sequence of arbitrary key/value pairs */
+
   int      dm_transaction_id;  /* Transaction id */
   int      dm_operation;       /* Transaction type = OPEN, COMMIT, CANCEL */
 };
 
-class FDSP_BlobInfoType{
+struct FDSP_BlobInfoType{
   string blob_name;
+  long blob_size;
+  int mime_type;
 };
 
 sequence<FDSP_BlobInfoType> BlobInfoListType;
@@ -336,6 +368,16 @@ class FDSP_AttachVolCmdType {
   // double		 vol_uuid; // UUID of the volume being attached
   string		 node_id;  // Id of the hypervisor node where the volume should be attached
   int			 domain_id;
+};
+
+class FDSP_GetVolInfoReqType {
+ string vol_name;
+ int domain_id;
+};
+
+class FDSP_GetVolInfoRespType {
+ string vol_name;
+ FDSP_VolumeDescType vol_desc;
 };
 
 class FDSP_NotifyVolType {
@@ -559,6 +601,7 @@ interface FDSP_ConfigPathReq {
   int CreateDomain(FDSP_MsgHdrType fdsp_msg, FDSP_CreateDomainType crt_dom_req);
   int DeleteDomain(FDSP_MsgHdrType fdsp_msg, FDSP_CreateDomainType del_dom_req);
   void SetThrottleLevel(FDSP_MsgHdrType fdsp_msg, FDSP_ThrottleMsgType throttle_msg);	
+  void GetVolInfo(FDSP_MsgHdrType fdsp_msg, FDSP_GetVolInfoReqType vol_info_req);
 
   /* 
   These are actually control messages from SM/DM/SH to OM. Need to move these to that control interface some time.
@@ -582,6 +625,7 @@ interface FDSP_ConfigPathResp {
   void RegisterNodeResp(FDSP_MsgHdrType fdsp_msg, FDSP_RegisterNodeType reg_node_resp);
   int CreateDomainResp(FDSP_MsgHdrType fdsp_msg, FDSP_CreateDomainType crt_dom_resp);
   int DeleteDomainResp(FDSP_MsgHdrType fdsp_msg, FDSP_CreateDomainType del_dom_resp);
+  void GetVolInfoResp(FDSP_MsgHdrType fdsp_msg, FDSP_GetVolInfoRespType vol_info_rsp);
 };
 
 interface FDSP_ControlPathReq {

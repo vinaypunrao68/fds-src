@@ -266,10 +266,21 @@ int StorHvisorProcIoWr(void *_io)
   
   put_obj_req->data_obj = std::string((const char *)tmpbuf, (size_t )data_size);
   put_obj_req->data_obj_len = data_size;
+
+  upd_obj_req->obj_list.clear();
+
+  FDS_ProtocolInterface::FDSP_BlobObjectInfo upd_obj_info;
+  upd_obj_info.offset = 0;
+  upd_obj_info.size = data_size;
   
-  put_obj_req->data_obj_id.hash_high = upd_obj_req->data_obj_id.hash_high = objID.GetHigh();
-  put_obj_req->data_obj_id.hash_low = upd_obj_req->data_obj_id.hash_low = objID.GetLow();
+  put_obj_req->data_obj_id.hash_high = upd_obj_info.data_obj_id.hash_high = objID.GetHigh();
+  put_obj_req->data_obj_id.hash_low = upd_obj_info.data_obj_id.hash_low = objID.GetLow();
   
+  upd_obj_req->obj_list.push_back(upd_obj_info);
+  upd_obj_req->meta_list.clear();
+  upd_obj_req->blob_size = data_size;
+
+
   fdsp_msg_hdr->glob_volume_id    = vol_id;
   fdsp_msg_hdr_dm->glob_volume_id = vol_id;
   
@@ -338,7 +349,7 @@ int StorHvisorProcIoWr(void *_io)
   // DMT lookup from the data placement object
   num_nodes = 8;
   storHvisor->InitDmMsgHdr(fdsp_msg_hdr_dm);
-  upd_obj_req->volume_offset = data_offset;
+  upd_obj_req->blob_name = std::to_string(data_offset);
   upd_obj_req->dm_transaction_id = 1;
   upd_obj_req->dm_operation = FDS_DMGR_TXN_STATUS_OPEN;
   fdsp_msg_hdr_dm->req_cookie = trans_id;

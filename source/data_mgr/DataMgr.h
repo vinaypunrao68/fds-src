@@ -54,7 +54,8 @@ public:
  public:
     ObjectID     objId;
     fds_volid_t  volId;
-    fds_uint64_t volOffset;
+    // fds_uint64_t volOffset;
+    std::string blob_name;
     fds_uint32_t transId;
     fds_uint32_t transOp;
     long 	 srcIp;
@@ -66,9 +67,9 @@ public:
 
 
     dmCatReq(fds_uint64_t       _objIdHigh,
-            fds_uint64_t       _objIdLow,
-            fds_volid_t        _volId,
-	    fds_uint64_t       _volOffset,
+	     fds_uint64_t       _objIdLow,
+	     fds_volid_t        _volId,
+	     std::string       _blobName,
             fds_uint32_t 	_transId,
             fds_uint32_t 	_transOp,
             long 	 	_srcIp,
@@ -80,7 +81,7 @@ public:
             fds_io_op_t        _ioType) {
          objId = ObjectID(_objIdHigh, _objIdLow);
          volId             = _volId;
-         volOffset         = _volOffset;
+         blob_name         = _blobName;
          transId           = _transId;
          transOp           = _transOp;
          srcIp 	           = _srcIp;
@@ -210,17 +211,17 @@ public:
     Error _process_rm_vol(fds_volid_t vol_uuid);
 
     Error _process_open(fds_volid_t vol_uuid,
-                        fds_uint32_t vol_offset,
+                        std::string blob_name,
                         fds_uint32_t trans_id,
                         const ObjectID& oid);
     Error _process_commit(fds_volid_t vol_uuid,
-                          fds_uint32_t vol_offset,
+                          std::string blob_name,
                           fds_uint32_t trans_id,
                           const ObjectID& oid);
     Error _process_abort();
 
     Error _process_query(fds_volid_t vol_uuid,
-                         fds_uint32_t vol_offset,
+                         std::string blob_name,
                          ObjectID *oid);
 
     fds_bool_t volExistsLocked(fds_volid_t vol_uuid) const;
