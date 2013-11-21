@@ -83,8 +83,8 @@ void FDS_NativeAPI::DeleteBucket(BucketContext* bucketCtxt,
 {
     fds_volid_t ret_id; 
    // check the bucket is already attached. 
-   ret_id = storHvisor->vol_table->volumeExists(bucketCtxt->bucketName);
-   if (ret_id == invalid_vol_id) {
+   ret_id = storHvisor->vol_table->getVolumeUUID(bucketCtxt->bucketName);
+   if (ret_id != invalid_vol_id) {
        FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error) << " S3 Bucket  Does not exsists  BucketID: " << ret_id;
 
      (handler)(FDSN_StatusErrorBucketNotExists,NULL,NULL);
