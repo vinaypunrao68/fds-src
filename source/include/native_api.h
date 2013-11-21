@@ -318,7 +318,7 @@ class GetConditions {
  *        bytes that were written into the buffer by this callback
  **/
 typedef int (fdsnPutObjectHandler)(void *reqContext, fds_uint64_t bufferSize, char *buffer,
-                                      void *callbackData, FDSN_Status status, ErrorDetails *errDetails);
+				   void *callbackData, FDSN_Status status, ErrorDetails* errDetails);
 
 
 /**
@@ -420,9 +420,10 @@ class FDS_NativeAPI {
    *    we are waiting for response from OM (either we get attach volume 
    *    message or volume does not exist).
    *    Other error codes if error happened.
+   * \return ret_volid will contain volume uuid for the bucket if returned 
+   * value is ERR_OK
    */
-  Error testBucketInternal(BucketContext *bucket_ctxt);
-
+  Error checkBucketExists(BucketContext *bucket_ctxt, fds_volid_t* ret_volid);
 };
 }
 #endif 
