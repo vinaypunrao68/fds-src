@@ -1,6 +1,8 @@
 #ifndef SOURCE_FDS_NATIVE_API_H_
 #define SOURCE_FDS_NATIVE_API_H_
 
+/* Only include what we need to avoid un-needed dependencies. */
+/*
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,7 +15,10 @@
 #include <pthread.h>
 #include <fdsp/FDSP.h>
 #include <fds_volume.h>
+*/
 #include <fds_types.h>
+#include <fds_err.h>
+/*
 #include <unistd.h>
 #include <assert.h>
 #include <iostream>
@@ -23,10 +28,12 @@
 #include <concurrency/Mutex.h>
 #include <concurrency/RwLock.h>
 
-
 #include <utility>
 #include <atomic>
+*/
+#include <am-engine/am-engine.h>
 #include <list>
+
 namespace fds { 
 class BucketContext { 
 public:
@@ -346,6 +353,9 @@ typedef FDSN_Status (fdsnListBucketHandler)(int isTruncated,
 
 // FDS_NativeAPI  object class : One object per client Type so that the semantics of 
 // the particular access protocols can be followed in returning the data
+// TODO: [Vy] I'd like to make this class as singleton and inherits from
+// fds::Module class.
+//
 class FDS_NativeAPI { 
   public :
 
@@ -358,6 +368,9 @@ class FDS_NativeAPI {
   };
   FDSN_ClientType clientType;
 
+  // TODO: [Vy]: I think this API layer doesn't need to aware of any client's
+  // semantics.  Specific semantic is handled by the connector layer.
+  //
   FDS_NativeAPI(FDSN_ClientType type);
   ~FDS_NativeAPI(); 
 
@@ -374,6 +387,7 @@ class FDS_NativeAPI {
                     void *requestContext,
                     fdsnResponseHandler *handler, void *callbackData);
 
+  // After this call returns bucketctx, get_cond are no longer valid.
   void GetObject(BucketContext *bucketctxt, 
                  std::string ObjKey, 
                  GetConditions *get_cond, 

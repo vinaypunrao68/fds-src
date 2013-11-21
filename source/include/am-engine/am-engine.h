@@ -9,7 +9,10 @@
 #include <string>
 
 struct ngx_http_request_s;
+
 namespace fds {
+class FDS_NativeAPI;
+static FDS_NativeAPI *ame_fds_hook(void);
 
 class AMEngine : public Module
 {
@@ -23,16 +26,29 @@ class AMEngine : public Module
     int  mod_init(SysParams const *const param);
     void mod_startup();
     void mod_shutdown();
-    void run_server();
+    void run_server(FDS_NativeAPI *api);
 
   private:
+    friend FDS_NativeAPI *ame_fds_hook(void);
+
     std::string              eng_signal;
     char const *const        eng_etc;
     char const *const        eng_logs;
     char const *const        eng_conf;
+    FDS_NativeAPI            *eng_api;
 };
 
 extern AMEngine              gl_AMEngine;
+
+// ---------------------------------------------------------------------------
+// ame_fds_hook
+// ------------
+// Return the API obj to hook up with FDS API.
+//
+static inline FDS_NativeAPI *ame_fds_hook(void)
+{
+    return gl_AMEngine.eng_api;
+}
 
 // Common return code used by this API.
 typedef enum
@@ -53,6 +69,28 @@ class AME_Request : public fdsio::Request
     AME_Request(struct ngx_http_request_s *req);
     ~AME_Request();
 
+    // ame_get_reqt_hdr_val
+    // --------------------
+    // Return the value corresponding with the key in the request header.
+    //
+    char const *const ame_get_reqt_hdr_val(char const *const key);
+
+    // ame_set_std_resp
+    // ----------------
+    // Common path to set the standard response status/len.
+    //
+    ame_ret_e ame_set_std_resp(int status, int len);
+
+    // ame_set_resp_keyval
+    // -------------------
+    // Set key/value in the response to send to the client.
+    //
+    ame_ret_e ame_set_resp_keyval(char const *const k, char const *const v);
+    virtual ame_ret_e ame_format_response_hdr() = 0;
+
+  protected:
+    struct ngx_http_request_s  *ame_req;
+
     // Common request path.
     // The request handler is called through ame_request_handler().
     // Get request data:
@@ -67,7 +105,6 @@ class AME_Request : public fdsio::Request
     void ame_reqt_iter_reset();
     ame_ret_e ame_reqt_iter_next();
     char const *const ame_reqt_iter_data(int *len);
-    char const *const ame_get_reqt_hdr_val(char const *const key);
     virtual void ame_request_handler() = 0;
 
     // Common response path.
@@ -84,26 +121,84 @@ class AME_Request : public fdsio::Request
     //    ame_send_resp_data(cookie, valid_len, last_buf);
     //    If the last buf is true, this object will be freed by the AM Engine.
     //
-    ame_ret_e ame_set_resp_keyval(char const *const k, char const *const v);
-    void *ame_push_resp_data_buf(int *buf_len, char **buf_adr);
-    void  ame_send_resp_data(void *buf_cookie, int val_len, int last_buf);
-    virtual ame_ret_e ame_send_response_hdr() = 0;
+    void *ame_push_resp_data_buf(int ask, char **buf, int *got_len);
+    ame_ret_e ame_send_resp_data(void *cookie, int len, fds_bool_t last);
 
-  protected:
-    struct ngx_http_request_s  *ame_req;
+    // ame_send_response_hdr
+    // ---------------------
+    // Common code path to send the response header to the client.
+    ame_ret_e ame_send_response_hdr();
 };
 
-// FDSN Adapter to implement GetObject Method.
+// Connector Adapter to implement GetObject method.
 //
-class FDSN_GetObject : public AME_Request
+class Conn_GetObject : public AME_Request
 {
   public:
-    FDSN_GetObject(struct ngx_http_request_s *req);
-    ~FDSN_GetObject();
+    Conn_GetObject(struct ngx_http_request_s *req);
+    ~Conn_GetObject();
 
-    // Method to interface with FDSN to handle GetObject request.
+    // Connector method to handle GetObject request.
     //
     virtual void ame_request_handler();
+
+    // ame_send_get_response
+    // ---------------------
+    // Primitive API to allow FDSN to send simple response to the client.
+    //
+    virtual void
+    fdsn_send_get_response(int status, int get_len);
+
+    // fdsn_alloc_get_buffer
+    // ---------------------
+    // Allocate buffer to store data for the GET request.
+    // @param ask_len (i): the length in byte that FDSN asked for.
+    // @param buf_adr (o): address of the buffer.
+    // @param got_len (o): actual length that the transport layer can alloc.
+    // @return cookie to pass to fdsn_send_get_buffer().
+    //
+    virtual void *
+    fdsn_alloc_get_buffer(int ask_len, char **buf_adr, int *got_len)
+    {
+        return ame_push_resp_data_buf(ask_len, buf_adr, got_len);
+    }
+
+    // fdsn_send_get_buffer
+    // --------------------
+    // Send the get buffer to the client.  If this is the last call, FDSN
+    // can free its resources.
+    // @param cookie (i): cookie obtained from the alloc() API.
+    // @param len (i): buffer length containing valid data.
+    // @param last (i): true if this is the last buffer.  Since the connector
+    //    layer also has the expected length in fdsn_send_get_response(),
+    //    it'll performn cross check to make sure everything adds up.
+    // @return status of the send op.
+    //
+    virtual ame_ret_e
+    fdsn_send_get_buffer(void *cookie, int len, fds_bool_t last)
+    {
+        return ame_send_resp_data(cookie, len, last);
+    }
+
+  protected:
+};
+
+// Connector Adapter to implement PutObject method.
+//
+class Conn_PutObject : public AME_Request
+{
+  public:
+    Conn_PutObject(struct ngx_http_request_s *req);
+    ~Conn_PutObject();
+
+    // Connector method to handle PutObject request.
+    //
+    virtual void ame_request_handler();
+
+    // Common code to send response back to the client.  Connector specific
+    // will provide more detail on the response.
+    //
+    virtual void fdsn_send_put_response(int status);
 
   protected:
 };
