@@ -2,6 +2,7 @@ topdir            := ../..
 probe_dir         := $(topdir)/fds-probe
 user_target       := test
 user_rtime_env    := user
+user_build_dir    := s3
 
 user_incl_dir     := $(probe_dir)/include /usr/include/fuse
 user_cpp_flags    :=

@@ -315,7 +315,7 @@ Conn_GetObject::ame_request_handler()
                   (void *)this, get_callback_fn, NULL);
 
     fdsn_send_get_response(0, get_len);
-    fdsn_send_get_buffer(buf, get_len, true);
+    fdsn_send_get_buffer(cookie, get_len, true);
 }
 
 // fdsn_send_get_response
