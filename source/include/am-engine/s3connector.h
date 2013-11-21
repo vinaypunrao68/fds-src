@@ -6,7 +6,6 @@
 
 #include <am-engine/am-engine.h>
 
-struct ngx_http_request_s;
 namespace fds {
 
 // S3 Get connector which does S3 specific object get semantic.
@@ -14,8 +13,14 @@ namespace fds {
 class S3_GetObject : public Conn_GetObject
 {
   public:
-    S3_GetObject(struct ngx_http_request_s *req);
+    S3_GetObject(HttpRequest &req);
     ~S3_GetObject();
+
+    // returns bucket id
+    virtual std::string get_bucket_id();
+
+    // returns the object id
+    virtual std::string get_object_id();
 
     // Format response header in S3 protocol.
     //
