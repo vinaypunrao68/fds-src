@@ -5,7 +5,9 @@
 #define _HTTP_UTILS_H_
 #include <vector>
 #include <string>
+extern "C" {
 #include <ngx_http.h>
+}
 class HttpRequest {
 public:
   HttpRequest(ngx_http_request_t* ngx_req);

@@ -194,7 +194,7 @@ class Conn_GetObject : public AME_Request
 class Conn_PutObject : public AME_Request
 {
   public:
-    Conn_PutObject(struct ngx_http_request_s *req);
+    Conn_PutObject(HttpRequest &req);
     ~Conn_PutObject();
 
     // Connector method to handle PutObject request.

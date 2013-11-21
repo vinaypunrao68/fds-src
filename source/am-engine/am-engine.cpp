@@ -338,7 +338,7 @@ Conn_GetObject::fdsn_send_get_response(int status, int get_len)
 // ---------------------------------------------------------------------------
 // PutObject Connector Adapter
 // ---------------------------------------------------------------------------
-Conn_PutObject::Conn_PutObject(ngx_http_request_t *req)
+Conn_PutObject::Conn_PutObject(HttpRequest &req)
     : AME_Request(req)
 {
 }
