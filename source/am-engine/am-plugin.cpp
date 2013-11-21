@@ -3,7 +3,7 @@
  */
 #include <am-engine/s3connector.h>
 #include <am-plugin.h>
-#include <http_utils.h>
+#include <am-engine/http_utils.h>
 #include <boost/tokenizer.hpp>
 #include <fds_assert.h>
 extern "C" {
@@ -279,16 +279,16 @@ send_response(ngx_http_request_t *r) {
 ngx_int_t
 ngx_fds_obj_get(HttpRequest *http_req)
 {
-//  fds::S3_GetObject *s3 = new fds::S3_GetObject(http_req->getNginxReq());
-//
-//  // Do sync processing for now.
-//  s3->ame_request_handler();
-//  delete s3;
-  ngx_chain_t                   out;
-  ngx_int_t rc;
-  std::cout << http_req->toString();
+  fds::S3_GetObject *s3 = new fds::S3_GetObject(*http_req);
 
-  return send_response(http_req->getNginxReq());
+  // Do sync processing for now.
+  s3->ame_request_handler();
+  delete s3;
+//  ngx_chain_t                   out;
+//  ngx_int_t rc;
+//  std::cout << http_req->toString();
+//
+//  return send_response(http_req->getNginxReq());
 }
 
 // ngx_fds_obj_put

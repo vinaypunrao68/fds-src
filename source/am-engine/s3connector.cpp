@@ -16,7 +16,7 @@ extern "C" {
 
 namespace fds {
 
-S3_GetObject::S3_GetObject(ngx_http_request_t *req)
+S3_GetObject::S3_GetObject(HttpRequest &req)
     : Conn_GetObject(req)
 {
 }
@@ -28,6 +28,16 @@ S3_GetObject::~S3_GetObject()
 ame_ret_e
 S3_GetObject::ame_format_response_hdr()
 {
+}
+
+std::string S3_GetObject::get_bucket_id()
+{
+  return ame_req.getURIParts()[0];
+}
+
+std::string S3_GetObject::get_object_id()
+{
+  return ame_req.getURIParts()[1];
 }
 
 } // namespace fds

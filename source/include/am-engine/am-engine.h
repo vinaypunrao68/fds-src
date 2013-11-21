@@ -7,8 +7,7 @@
 #include <fds_module.h>
 #include <fds_request.h>
 #include <string>
-
-struct ngx_http_request_s;
+#include <am-engine/http_utils.h>
 
 namespace fds {
 class FDS_NativeAPI;
@@ -65,7 +64,7 @@ typedef enum
 class AME_Request : public fdsio::Request
 {
   public:
-    AME_Request(struct ngx_http_request_s *req);
+    AME_Request(HttpRequest &req);
     ~AME_Request();
 
     // ame_get_reqt_hdr_val
@@ -88,7 +87,8 @@ class AME_Request : public fdsio::Request
     virtual ame_ret_e ame_format_response_hdr() = 0;
 
   protected:
-    struct ngx_http_request_s  *ame_req;
+    HttpRequest ame_req;
+
 
     // Common request path.
     // The request handler is called through ame_request_handler().
@@ -134,8 +134,14 @@ class AME_Request : public fdsio::Request
 class Conn_GetObject : public AME_Request
 {
   public:
-    Conn_GetObject(struct ngx_http_request_s *req);
+    Conn_GetObject(HttpRequest &req);
     ~Conn_GetObject();
+
+    // returns bucket id
+    virtual std::string get_bucket_id() = 0;
+
+    // returns the object id
+    virtual std::string get_object_id() = 0;
 
     // Connector method to handle GetObject request.
     //

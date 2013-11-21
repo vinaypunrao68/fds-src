@@ -137,7 +137,7 @@ AMEngine::mod_shutdown()
 // ---------------------------------------------------------------------------
 // Generic request/response protocol through NGINX module.
 // ---------------------------------------------------------------------------
-AME_Request::AME_Request(ngx_http_request_t *req)
+AME_Request::AME_Request(HttpRequest &req)
     : fdsio::Request(false), ame_req(req)
 {
 }
@@ -160,6 +160,7 @@ AME_Request::ame_reqt_iter_reset()
 ame_ret_e
 AME_Request::ame_reqt_iter_next()
 {
+  // todo: rao implement this to the post/put client buffer
     return AME_OK;
 }
 
@@ -169,6 +170,7 @@ AME_Request::ame_reqt_iter_next()
 char const *const
 AME_Request::ame_reqt_iter_data(int *len)
 {
+  // todo: rao implement this to the post/put client buffer
     return NULL;
 }
 
@@ -178,6 +180,7 @@ AME_Request::ame_reqt_iter_data(int *len)
 char const *const
 AME_Request::ame_get_reqt_hdr_val(char const *const key)
 {
+  // todo: rao implement this
     return NULL;
 }
 
@@ -187,6 +190,7 @@ AME_Request::ame_get_reqt_hdr_val(char const *const key)
 ame_ret_e
 AME_Request::ame_set_resp_keyval(char const *const k, char const *const v)
 {
+  // todo: rao implement this
     return AME_OK;
 }
 
@@ -199,7 +203,7 @@ AME_Request::ame_set_std_resp(int status, int len)
 {
     ngx_http_request_t *r;
 
-    r = ame_req;
+    r = ame_req.getNginxReq();
     r->headers_out.status           = NGX_HTTP_OK;
     r->headers_out.content_length_n = len;
 
@@ -216,7 +220,7 @@ AME_Request::ame_send_response_hdr()
     ngx_int_t          rc;
     ngx_http_request_t *r;
 
-    r  = ame_req;
+    r  = ame_req.getNginxReq();
     rc = ngx_http_send_header(r);
     return AME_OK;
 }
@@ -230,7 +234,7 @@ AME_Request::ame_push_resp_data_buf(int ask, char **buf, int *got)
     ngx_buf_t          *b;
     ngx_http_request_t *r;
 
-    r = ame_req;
+    r = ame_req.getNginxReq();
     b = (ngx_buf_t *)ngx_calloc_buf(r->pool);
     b->memory        = 1;
     b->last_buf      = 0;
@@ -257,7 +261,7 @@ AME_Request::ame_send_resp_data(void *buf_cookie, int len, fds_bool_t last)
     ngx_chain_t        out;
     ngx_http_request_t *r;
 
-    r   = ame_req;
+    r   = ame_req.getNginxReq();
     buf = (ngx_buf_t *)buf_cookie;
     out.buf  = buf;
     out.next = NULL;
@@ -273,7 +277,7 @@ AME_Request::ame_send_resp_data(void *buf_cookie, int len, fds_bool_t last)
 // ---------------------------------------------------------------------------
 // Connector Adapters
 // ---------------------------------------------------------------------------
-Conn_GetObject::Conn_GetObject(ngx_http_request_t *req)
+Conn_GetObject::Conn_GetObject(HttpRequest &req)
     : AME_Request(req)
 {
 }
@@ -301,7 +305,10 @@ Conn_GetObject::ame_request_handler()
     char          *buf;
     void          *cookie;
     FDS_NativeAPI *api;
-    std::string    key;
+    std::string    key = get_object_id();
+    std::string bucket_id = get_bucket_id();
+
+    // todo: create Bucket context
 
     get_len = 100;
     cookie = fdsn_alloc_get_buffer(get_len, &buf, &got_len);
