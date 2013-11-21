@@ -350,8 +350,11 @@ class ShClientCb : public FDS_ProtocolInterface::FDSP_DataPathResp {
                               FDS_ProtocolInterface::FDSP_QueryCatalogTypePtr&
                               cat_obj_req,
                               const Ice::Current &) {
-    ObjectID oid(cat_obj_req->data_obj_id.hash_high,
-                 cat_obj_req->data_obj_id.hash_high);
+    ObjectID oid(0,0);
+    if (cat_obj_req->obj_list.size() > 0) {
+      FDS_ProtocolInterface::FDSP_BlobObjectInfo& cat_obj_info = cat_obj_req->obj_list[0];
+      oid.SetId(cat_obj_info.data_obj_id.hash_high, cat_obj_info.data_obj_id.hash_high);
+    }
     std::cout << "Got a response query catalog for object " << oid << std::endl;
   }
 

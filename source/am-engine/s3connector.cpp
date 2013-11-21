@@ -58,6 +58,16 @@ S3_PutObject::ame_format_response_hdr()
     return AME_OK;
 }
 
+std::string S3_PutObject::get_bucket_id()
+{
+  return ame_req.getURIParts()[0];
+}
+
+std::string S3_PutObject::get_object_id()
+{
+  return ame_req.getURIParts()[1];
+}
+
 // ---------------------------------------------------------------------------
 
 S3_GetBucket::S3_GetBucket(HttpRequest &req)

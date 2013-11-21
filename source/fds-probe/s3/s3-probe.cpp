@@ -52,7 +52,7 @@ Probe_PutObject::~Probe_PutObject()
 void
 Probe_PutObject::ame_request_handler()
 {
-    fdsn_send_put_response(0);
+    fdsn_send_put_response(0, 0);
 }
 
 } // namespace fds

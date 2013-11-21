@@ -262,7 +262,7 @@ namespace fds {
      */
     typedef void (*cbFunc)(void *arg1, void *arg2, void *freq, int res);
 
- private:
+  protected:
     /*
      * Common request header members
      */

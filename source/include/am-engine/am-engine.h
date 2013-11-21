@@ -132,6 +132,7 @@ class AME_Request : public fdsio::Request
     char                     *resp_pos;
     char                     *resp_end;
     int                      resp_len;
+    ngx_chain_t              *post_buf_itr;
 
     // Common request path.
     // The request handler is called through ame_request_handler().
@@ -241,6 +242,12 @@ class Conn_PutObject : public AME_Request
     Conn_PutObject(HttpRequest &req);
     ~Conn_PutObject();
 
+    // returns bucket id
+    virtual std::string get_bucket_id() = 0;
+
+    // returns the object id
+    virtual std::string get_object_id() = 0;
+
     // Connector method to handle PutObject request.
     //
     virtual void ame_request_handler();
@@ -248,7 +255,7 @@ class Conn_PutObject : public AME_Request
     // Common code to send response back to the client.  Connector specific
     // will provide more detail on the response.
     //
-    virtual void fdsn_send_put_response(int status);
+    virtual void fdsn_send_put_response(int status, int put_len);
 
   protected:
 };

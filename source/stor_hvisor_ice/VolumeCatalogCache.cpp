@@ -122,12 +122,12 @@ Error VolumeCatalogCache::Query(fds_uint64_t block_id,
     msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
     msg_hdr->req_cookie = trans_id;
 
-    query_req->volume_offset         = block_id;
+    query_req->blob_name         = std::to_string(block_id);
     query_req->dm_transaction_id     = 1;
     query_req->dm_operation          =
         FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_OPEN;
-    query_req->data_obj_id.hash_high = 0;
-    query_req->data_obj_id.hash_low  = 0;
+    query_req->obj_list.clear();
+    query_req->meta_list.clear();
 
     /*
      * Locate a DM endpoint to try.
