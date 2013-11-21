@@ -185,6 +185,7 @@ namespace fds {
     virtual int run(int argc, char* argv[]);
     void interruptCallback(int cb);
     fds_log* GetLog();
+    void defaultS3BucketPolicy();  // default  policy  desc  for s3 bucket
 
     // With one big class, it's the same as using global variables for OM
     // with single big lock.
