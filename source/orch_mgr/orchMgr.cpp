@@ -435,6 +435,15 @@ void OrchMgr::DetachVol(const FdspMsgHdrPtr    &fdsp_msg,
   om_mutex->unlock();
 }
 
+void OrchMgr::TestBucket(const FdspMsgHdrPtr& fdsp_msg,
+			 const FdspTestBucketPtr& test_buck_req)
+{
+  FDS_PLOG_SEV(GetLog(), fds::fds_log::notification) << "OM received test bucket request for bucket "
+						     << test_buck_req->bucket_name
+						     << " attach_vol_reqd = "  
+						     << test_buck_req->attach_vol_reqd;
+}
+
 void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
                            const FdspRegNodePtr &reg_node_req) {
   std::string ip_addr_str;
@@ -769,6 +778,12 @@ void OrchMgr::ReqCfgHandler::RegisterNode(const FdspMsgHdrPtr &fdsp_msg,
                                           const FdspRegNodePtr &reg_node_req,
                                           const Ice::Current&) {
   orchMgr->RegisterNode(fdsp_msg, reg_node_req);
+}
+
+void OrchMgr::ReqCfgHandler::TestBucket(const FdspMsgHdrPtr& fdsp_msg,
+					const FdspTestBucketPtr& test_buck_req,
+					const Ice::Current&) {
+  orchMgr->TestBucket(fdsp_msg, test_buck_req);
 }
 
 void OrchMgr::ReqCfgHandler::SetThrottleLevel(const FDSP_MsgHdrTypePtr& fdsp_msg, 

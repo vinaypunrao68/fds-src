@@ -133,6 +133,11 @@ namespace fds {
     int pushPerfstatsToOM(const std::string& start_ts,
 			  int stat_slot_len, 
 			  const FDS_ProtocolInterface::FDSP_VolPerfHistListType& hist_list);
+    int testBucket(const std::string& bucket_name,
+		   const FDS_ProtocolInterface::FDSP_VolumeInfoTypePtr& vol_info,
+		   fds_bool_t attach_vol_reqd,
+		   const std::string& accessKeyId,
+		   const std::string& secretAccessKey);
 
     int recvNodeEvent(int node_id, FDSP_MgrIdType node_type, unsigned int node_ip, int node_state, const FDSP_Node_Info_TypePtr& node_info);
     int recvDLTUpdate(int dlt_version, const Node_Table_Type& dlt_table);

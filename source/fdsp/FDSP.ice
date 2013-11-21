@@ -537,7 +537,7 @@ interface FDSP_ConfigPathReq {
   void RegisterNode(FDSP_MsgHdrType fdsp_msg, FDSP_RegisterNodeType reg_node_req);
   void NotifyQueueFull(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyQueueStateType queue_state_info);
   void NotifyPerfstats(FDSP_MsgHdrType fdsp_msg, FDSP_PerfstatsType push_stats_msg);
-
+  void TestBucket(FDSP_MsgHdrType fdsp_msg, FDSP_TestBucket test_buck_msg);
 };
 
 interface FDSP_ConfigPathResp {
@@ -550,6 +550,7 @@ interface FDSP_ConfigPathResp {
   void AttachVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolCmdType atc_vol_req);
   void DetachVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolCmdType dtc_vol_req);
   void RegisterNodeResp(FDSP_MsgHdrType fdsp_msg, FDSP_RegisterNodeType reg_node_resp);
+  void TestBucketResp(FDSP_MsgHdrType fdsp_msg, FDSP_TestBucket test_buck_resp);
   int CreateDomainResp(FDSP_MsgHdrType fdsp_msg, FDSP_CreateDomainType crt_dom_resp);
   int DeleteDomainResp(FDSP_MsgHdrType fdsp_msg, FDSP_CreateDomainType del_dom_resp);
 };

@@ -395,6 +395,37 @@ int OMgrClient::pushPerfstatsToOM(const std::string& start_ts,
   return 0;
 }
 
+int OMgrClient::testBucket(const std::string& bucket_name,
+			   const FDS_ProtocolInterface::FDSP_VolumeInfoTypePtr& vol_info,
+			   fds_bool_t attach_vol_reqd,
+			   const std::string& accessKeyId,
+			   const std::string& secretAccessKey)
+{
+  try {
+    std::string tcpProxyStr = std::string("OrchMgr: tcp -h ") + 
+      omIpStr + std::string(" -p ") + std::to_string(omConfigPort);
+    FDSP_ConfigPathReqPrx fdspConfigPathAPI = FDSP_ConfigPathReqPrx::checkedCast(rpc_comm->stringToProxy(tcpProxyStr));
+    FDSP_MsgHdrTypePtr msg_hdr = new FDSP_MsgHdrType;
+    initOMMsgHdr(msg_hdr);
+    FDSP_TestBucketPtr test_buck_msg = new FDSP_TestBucket;
+    test_buck_msg->bucket_name = bucket_name;
+    test_buck_msg->vol_info = vol_info;
+    test_buck_msg->attach_vol_reqd = attach_vol_reqd;
+    test_buck_msg->accessKeyId = accessKeyId;
+    test_buck_msg->secretAccessKey;
+
+    FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient sending test bucket request to OM at " << tcpProxyStr;
+
+    fdspConfigPathAPI->begin_TestBucket(msg_hdr, test_buck_msg);
+  }
+  catch (...) {
+    FDS_PLOG_SEV(omc_log, fds::fds_log::error) << "OMClient unable to send testBucket request to OM. Check if OM is up and restart.";
+    return -1;
+  }
+
+  return 0;
+}
+
 int OMgrClient::recvNodeEvent(int node_id, 
 			      FDSP_MgrIdType node_type, 
 			      unsigned int node_ip, 
