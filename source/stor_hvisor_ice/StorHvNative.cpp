@@ -76,7 +76,7 @@ void FDS_NativeAPI::GetBucket(BucketContext *bucketContext,
 {
 }
  
-void FDS_NativeAPI::DeleteBucket(BucketContext bucketCtxt,
+void FDS_NativeAPI::DeleteBucket(BucketContext* bucketCtxt,
 				 void *requestContext,
 				 fdsnResponseHandler *handler, 
 				 void *callbackData)

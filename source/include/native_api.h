@@ -318,7 +318,7 @@ class GetConditions {
  *        bytes that were written into the buffer by this callback
  **/
 typedef int (fdsnPutObjectHandler)(void *reqContext, fds_uint64_t bufferSize, char *buffer,
-                                      void *callbackData);
+                                      void *callbackData, FDSN_Status status, ErrorDetails *errDetails);
 
 
 /**
@@ -338,7 +338,7 @@ typedef int (fdsnPutObjectHandler)(void *reqContext, fds_uint64_t bufferSize, ch
  *         S3StatusAbortedByCallback.
  **/
 typedef FDSN_Status (fdsnGetObjectHandler)(void *reqContext, fds_uint64_t bufferSize, const char *buffer,
-                                           void *callbackData);
+                                           void *callbackData, FDSN_Status status, ErrorDetails *errDetails);
 typedef void (fdsnResponseHandler)(FDSN_Status status,
                                           const ErrorDetails *errorDetails,
                                           void *callbackData);
@@ -383,7 +383,7 @@ class FDS_NativeAPI {
                     std::string delimiter, fds_uint32_t maxkeys,
                     void *requestContext,
                     fdsnListBucketHandler *handler, void *callbackData);
-  void DeleteBucket(BucketContext bucketCtxt,
+  void DeleteBucket(BucketContext *bucketCtxt,
                     void *requestContext,
                     fdsnResponseHandler *handler, void *callbackData);
 
