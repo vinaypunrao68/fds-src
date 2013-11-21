@@ -4,12 +4,12 @@
 #include <am-engine/am-engine.h>
 #include <native_api.h>
 extern "C" {
-  extern void CreateSHMode(int argc, char *argv[]);
+  extern void CreateStorHvisorS3(int argc, char *argv[]);
 }
 
 int main(int argc, char **argv)
 {
-  CreateSHMode(argc, argv);
+  CreateStorHvisorS3(argc, argv);
     fds::FDS_NativeAPI *api = new
         fds::FDS_NativeAPI(fds::FDS_NativeAPI::FDSN_AWS_S3);
 
