@@ -106,7 +106,7 @@ void FDS_NativeAPI::PutObject(BucketContext *bucket_ctxt,
 			      std::string ObjKey, 
 			      PutProperties *putproperties,
 			      void *reqContext,
-			      char *buffer, 
+			      const char *buffer,
 			      fds_uint64_t buflen,
 			      fdsnPutObjectHandler putObjHandler, 
 			      void *callbackData)

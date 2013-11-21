@@ -140,6 +140,12 @@ AMEngine::mod_shutdown()
 AME_Request::AME_Request(HttpRequest &req)
     : fdsio::Request(false), ame_req(req)
 {
+  if (ame_req.getNginxReq()->request_body &&
+      ame_req.getNginxReq()->request_body->bufs) {
+    post_buf_itr = ame_req.getNginxReq()->request_body->bufs;
+  } else {
+    post_buf_itr = NULL;
+  }
 }
 
 AME_Request::~AME_Request()
@@ -170,8 +176,16 @@ AME_Request::ame_reqt_iter_next()
 char const *const
 AME_Request::ame_reqt_iter_data(int *len)
 {
-  // todo: rao implement this to the post/put client buffer
+  if (post_buf_itr == NULL) {
+    *len = 0;
     return NULL;
+  }
+
+  char const *const data = (char const *const) post_buf_itr->buf->start;
+  *len = post_buf_itr->buf->end - post_buf_itr->buf->start;
+  post_buf_itr = post_buf_itr->next;
+
+  return data;
 }
 
 // ame_get_reqt_hdr_val
@@ -240,15 +254,18 @@ AME_Request::ame_push_resp_data_buf(int ask, char **buf, int *got)
 
     r = ame_req.getNginxReq();
     b = (ngx_buf_t *)ngx_calloc_buf(r->pool);
+    memset(b, sizeof(ngx_buf_t), 0);
+
     b->memory        = 1;
     b->last_buf      = 0;
     b->last_in_chain = 0;
 
-    b->start = (u_char *)ngx_palloc(r->pool, ask);
-    b->end   = b->start + ask;
-    b->pos   = b->start;
-    b->last  = b->end;
-
+    if (ask > 0) {
+      b->start = (u_char *)ngx_palloc(r->pool, ask);
+      b->end   = b->start + ask;
+      b->pos   = b->start;
+      b->last  = b->end;
+    }
     *buf = (char *)b->pos;
     *got = ask;
     return (void *)b;
@@ -266,7 +283,9 @@ AME_Request::ame_send_resp_data(void *buf_cookie, int len, fds_bool_t last)
     ngx_http_request_t *r;
 
     r   = ame_req.getNginxReq();
+
     buf = (ngx_buf_t *)buf_cookie;
+    buf->end = buf->start + len;
     out.buf  = buf;
     out.next = NULL;
 
@@ -274,6 +293,7 @@ AME_Request::ame_send_resp_data(void *buf_cookie, int len, fds_bool_t last)
         buf->last_buf      = 1;
         buf->last_in_chain = 1;
     }
+
     rc = ngx_http_output_filter(r, &out);
     return AME_OK;
 }
@@ -309,20 +329,23 @@ Conn_GetObject::ame_request_handler()
     char          *buf;
     void          *cookie;
     FDS_NativeAPI *api;
+    BucketContext *bucket_ctx = NULL;
     std::string    key = get_object_id();
     std::string bucket_id = get_bucket_id();
 
-    // todo: create Bucket context
+    // todo: fill bucket context
 
     get_len = 100;
     cookie  = fdsn_alloc_get_buffer(get_len, &buf, &got_len);
 
     api = ame_fds_hook();
-    api->GetObject(NULL, key, NULL, 0, get_len, buf, get_len,
-                  (void *)this, get_callback_fn, NULL);
+    // todo: remove comment
+//    api->GetObject(bucket_ctx, key, NULL, 0, get_len, buf, get_len,
+//                  (void *)this, get_callback_fn, NULL);
 
+    // todo: move this code into callback once cb is implemented
     fdsn_send_get_response(0, get_len);
-    fdsn_send_get_buffer(buf, get_len, true);
+    fdsn_send_get_buffer(cookie, get_len, true);
 }
 
 // fdsn_send_get_response
@@ -363,26 +386,37 @@ void
 Conn_PutObject::ame_request_handler()
 {
     fds_uint64_t  len;
-    char          *buf;
+    const char          *buf;
     FDS_NativeAPI *api;
     std::string   key;
+    void *resp_buf;
+    char *temp;
+    int resp_buf_len = 2;
 
-    // Rao, get header info out, assign the buf and len here for PUT data.
-    //
+    buf = ame_reqt_iter_data((int*) &len);
+    if (buf == NULL || len == 0) {
+      // todo: instead of assert put a log.  Also think about what needes
+      // to be returned to server
+      fds_assert(!"no body");
+      return ;
+    }
     api = ame_fds_hook();
-    api->PutObject(NULL, key, NULL, (void *)this,
-                   buf, len, put_callback_fn, NULL);
+    // todo: uncomment
+//    api->PutObject(NULL, key, NULL, (void *)this,
+//                   buf, len, put_callback_fn, NULL);
 
-    fdsn_send_put_response(0);
+    resp_buf  = ame_push_resp_data_buf(resp_buf_len, &temp, &resp_buf_len);
+    fdsn_send_put_response(200, resp_buf_len);
+    ame_send_resp_data(resp_buf, resp_buf_len, true);
 }
 
 // fdsn_send_put_response
 // ----------------------
 //
 void
-Conn_PutObject::fdsn_send_put_response(int status)
+Conn_PutObject::fdsn_send_put_response(int status, int put_len)
 {
-    ame_set_std_resp(status, 0);
+    ame_set_std_resp(status, put_len);
     ame_send_response_hdr();
 }
 

@@ -33,6 +33,31 @@ class S3_GetObject : public Conn_GetObject
     char *resp_xx_value;
 };
 
+// S3 Put connector which does S3 specific object get semantic.
+//
+class S3_PutObject : public Conn_PutObject
+{
+  public:
+    S3_PutObject(HttpRequest &req);
+    ~S3_PutObject();
+
+    // returns bucket id
+    virtual std::string get_bucket_id();
+
+    // returns the object id
+    virtual std::string get_object_id();
+
+    // Format response header in S3 protocol.
+    //
+    virtual ame_ret_e ame_format_response_hdr();
+
+  protected:
+    // List of known key-values that we'll need to send the GET response.
+    //
+    char *resp_xx_key;
+    char *resp_xx_value;
+};
+
 } // namespace fds
 
 #endif /* INCLUDE_AM_ENGINE_H_ */

@@ -401,7 +401,7 @@ class FDS_NativeAPI {
                  std::string ObjKey, 
                  PutProperties *putproperties,
                  void *reqContext,
-                 char *buffer, fds_uint64_t buflen,
+                 const char *buffer, fds_uint64_t buflen,
                  fdsnPutObjectHandler putObjHandler, 
                  void *callbackData);
   void DeleteObject(BucketContext *bucket_ctxt, 

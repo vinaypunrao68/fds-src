@@ -143,7 +143,7 @@ ngx_http_fds_data_handler(ngx_http_request_t *r)
 
     fdscf = (ngx_http_fds_data_loc_conf_t *)
         ngx_http_get_module_loc_conf(r, ngx_http_fds_data_module);
-    if (r->method & NGX_HTTP_POST) {
+    if (r->method == NGX_HTTP_POST || r->method == NGX_HTTP_PUT) {
         rc = ngx_http_read_client_request_body(r, ngx_http_fds_read_body);
         if (rc >= NGX_HTTP_SPECIAL_RESPONSE) {
             return rc;
@@ -284,11 +284,7 @@ ngx_fds_obj_get(HttpRequest *http_req)
   // Do sync processing for now.
   s3->ame_request_handler();
   delete s3;
-//  ngx_chain_t                   out;
-//  ngx_int_t rc;
-//  std::cout << http_req->toString();
-//
-//  return send_response(http_req->getNginxReq());
+  return NGX_DONE;
 }
 
 // ngx_fds_obj_put
@@ -297,12 +293,14 @@ ngx_fds_obj_get(HttpRequest *http_req)
 ngx_int_t
 ngx_fds_obj_put(HttpRequest *http_req)
 {
-  ngx_chain_t                   out;
-  ngx_int_t rc;
-  std::cout << http_req->toString();
+  fds::S3_PutObject *s3 = new fds::S3_PutObject(*http_req);
 
-  return send_response(http_req->getNginxReq());}
+  // Do sync processing for now.
+  s3->ame_request_handler();
+  delete s3;
+  return NGX_DONE;
 
+}
 // ngx_fds_obj_delete
 // ------------------
 //
