@@ -28,7 +28,7 @@ S3_GetObject::~S3_GetObject()
 ame_ret_e
 S3_GetObject::ame_format_response_hdr()
 {
-  return AME_OK;
+    return AME_OK;
 }
 
 std::string S3_GetObject::get_bucket_id()
@@ -40,6 +40,8 @@ std::string S3_GetObject::get_object_id()
 {
   return ame_req.getURIParts()[1];
 }
+
+// ---------------------------------------------------------------------------
 
 S3_PutObject::S3_PutObject(HttpRequest &req)
     : Conn_PutObject(req)
@@ -53,7 +55,7 @@ S3_PutObject::~S3_PutObject()
 ame_ret_e
 S3_PutObject::ame_format_response_hdr()
 {
-  return AME_OK;
+    return AME_OK;
 }
 
 std::string S3_PutObject::get_bucket_id()
@@ -65,6 +67,25 @@ std::string S3_PutObject::get_object_id()
 {
   return ame_req.getURIParts()[1];
 }
+
+// ---------------------------------------------------------------------------
+
+S3_GetBucket::S3_GetBucket(HttpRequest &req)
+    : Conn_GetBucket(req)
+{
+}
+
+S3_GetBucket::~S3_GetBucket()
+{
+}
+
+ame_ret_e
+S3_GetBucket::ame_format_response_hdr()
+{
+    return AME_OK;
+}
+
+// ---------------------------------------------------------------------------
 
 S3_PutBucket::S3_PutBucket(HttpRequest &req)
     : Conn_PutBucket(req)

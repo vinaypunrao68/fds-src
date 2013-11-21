@@ -73,6 +73,11 @@ AMEngine::mod_init(SysParams const *const p)
             return 1;
         }
     }
+    // Fix up the key table setup.
+    for (int i = 0; sgt_AMEKey[i].u.kv_key != nullptr; i++) {
+        fds_verify(sgt_AMEKey[i].kv_idx == i);
+        sgt_AMEKey[i].kv_keylen = strlen(sgt_AMEKey[i].u.kv_key) - 1;
+    }
     return 0;
 }
 
@@ -136,10 +141,30 @@ AMEngine::mod_shutdown()
 
 // ---------------------------------------------------------------------------
 // Generic request/response protocol through NGINX module.
+//
+// Reference URL:
+// http://docs.aws.amazon.com/AmazonS3/latest/API/
+//      RESTCommonResponseHeaders.html
 // ---------------------------------------------------------------------------
+
+ame_keytab_t sgt_AMEKey[] =
+{
+    { { "Content-Length" },      0, RESP_CONTENT_LEN },
+    { { "Connection" },          0, RESP_CONNECTION },
+    { { "open" },                0, RESP_CONNECTION_OPEN },
+    { { "close" },               0, RESP_CONNECTION_CLOSE },
+    { { "Etag" },                0, RESP_ETAG },
+    { { "Date" },                0, RESP_DATE },
+    { { "Server" },              0, RESP_SERVER },
+    { { nullptr }, 0, AME_HDR_KEY_MAX }
+};
+
 AME_Request::AME_Request(HttpRequest &req)
     : fdsio::Request(false), ame_req(req)
 {
+    resp_len  = 1024;
+    resp_pos  = resp_buf;
+    resp_end  = resp_buf + resp_len;
   if (ame_req.getNginxReq()->request_body &&
       ame_req.getNginxReq()->request_body->bufs) {
     post_buf_itr = ame_req.getNginxReq()->request_body->bufs;
@@ -200,11 +225,23 @@ AME_Request::ame_get_reqt_hdr_val(char const *const key)
 
 // ame_set_resp_keyval
 // -------------------
+// Assume key/value buffers remain valid until this object is destroyed.
 //
 ame_ret_e
-AME_Request::ame_set_resp_keyval(char const *const k, char const *const v)
+AME_Request::ame_set_resp_keyval(char *k, ngx_int_t klen,
+                                 char *v, ngx_int_t vlen)
 {
-  // todo: rao implement this
+    ngx_table_elt_t    *h;
+    ngx_http_request_t *r;
+
+    r = ame_req.getNginxReq();
+    h = (ngx_table_elt_t *)ngx_list_push(&r->headers_out.headers);
+
+    h->key.len    = klen;
+    h->key.data   = (u_char *)k;
+    h->value.len  = vlen;
+    h->value.data = (u_char *)v;
+
     return AME_OK;
 }
 
@@ -215,12 +252,19 @@ AME_Request::ame_set_resp_keyval(char const *const k, char const *const v)
 ame_ret_e
 AME_Request::ame_set_std_resp(int status, int len)
 {
+    int                used;
+    char               *buf;
     ngx_http_request_t *r;
 
     r = ame_req.getNginxReq();
     r->headers_out.status           = NGX_HTTP_OK;
     r->headers_out.content_length_n = len;
 
+    // Response with "Connecton: close"
+    ame_set_resp_keyval(sgt_AMEKey[RESP_CONNECTION].u.kv_key_name,
+                        sgt_AMEKey[RESP_CONNECTION].kv_keylen,
+                        sgt_AMEKey[RESP_CONNECTION_CLOSE].u.kv_key_name,
+                        sgt_AMEKey[RESP_CONNECTION_CLOSE].kv_keylen);
     return AME_OK;
 }
 
@@ -314,7 +358,9 @@ Conn_GetObject::~Conn_GetObject()
 // ---------------
 //
 static FDSN_Status
-get_callback_fn(void *req, fds_uint64_t bufsize, const char *buf, void *cb, FDSN_Status status, ErrorDetails *errdetails)
+get_callback_fn(void *req, fds_uint64_t bufsize,
+                const char *buf, void *cb,
+                FDSN_Status status, ErrorDetails *errdetails)
 {
     return FDSN_StatusOK;
 }
@@ -374,7 +420,8 @@ Conn_PutObject::~Conn_PutObject()
 // ---------------
 //
 static int
-put_callback_fn(void *req, fds_uint64_t size, char *buf, void *cb, FDSN_Status status, ErrorDetails *errdetails)
+put_callback_fn(void *req, fds_uint64_t size, char *buf, void *cb,
+                FDSN_Status status, ErrorDetails *errdetails)
 {
     return 0;
 }
@@ -449,6 +496,7 @@ void Conn_PutBucket::cb(FDSN_Status status,
   conn_pb_obj->fdsn_send_put_response(200, resp_buf_len);
   conn_pb_obj->ame_send_resp_data(resp_buf, resp_buf_len, true);
 }
+
 // ame_request_handler
 // -------------------
 //
@@ -473,6 +521,36 @@ void
 Conn_PutBucket::fdsn_send_put_response(int status, int put_len)
 {
     ame_set_std_resp(status, put_len);
+    ame_send_response_hdr();
+}
+
+// ---------------------------------------------------------------------------
+// GetBucket Connector Adapter
+// ---------------------------------------------------------------------------
+Conn_GetBucket::Conn_GetBucket(HttpRequest &req)
+    : AME_Request(req)
+{
+}
+
+Conn_GetBucket::~Conn_GetBucket()
+{
+}
+
+// ame_request_handler
+// -------------------
+//
+void
+Conn_GetBucket::ame_request_handler()
+{
+}
+
+// fdsn_send_getbucket_response
+// ----------------------------
+//
+void
+Conn_GetBucket::fdsn_send_getbucket_response(int status)
+{
+    ame_set_std_resp(status, 0);
     ame_send_response_hdr();
 }
 

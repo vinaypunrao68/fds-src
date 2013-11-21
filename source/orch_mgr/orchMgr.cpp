@@ -81,7 +81,6 @@ int OrchMgr::run(int argc, char* argv[]) {
   /*
    * create a default policy ( ID = 50) for S3 bucket
    */
-   void defaultS3BucketPolicy();
 
   /*
    * Set basic thread properties.
@@ -125,6 +124,7 @@ int OrchMgr::run(int argc, char* argv[]) {
 
   adapter->activate();
 
+  defaultS3BucketPolicy();
   communicator()->waitForShutdown();
 
   return EXIT_SUCCESS;
@@ -835,6 +835,7 @@ void OrchMgr::defaultS3BucketPolicy()
  err = orchMgr->policy_mgr->createPolicy(policy_info);
  orchMgr->om_mutex->unlock();
 
+ FDS_PLOG_SEV(GetLog(), fds::fds_log::normal) << "Created  default S3 policy "; 
 }
 
 

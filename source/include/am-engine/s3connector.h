@@ -33,7 +33,7 @@ class S3_GetObject : public Conn_GetObject
     char *resp_xx_value;
 };
 
-// S3 Put connector which does S3 specific object get semantic.
+// S3 Put connector which does S3 specific object put semantic.
 //
 class S3_PutObject : public Conn_PutObject
 {
@@ -58,7 +58,20 @@ class S3_PutObject : public Conn_PutObject
     char *resp_xx_value;
 };
 
-// S3 Put connector which does S3 specific object get semantic.
+// S3 Get Bucket connector
+//
+class S3_GetBucket : public Conn_GetBucket
+{
+  public:
+    S3_GetBucket(HttpRequest &req);
+    ~S3_GetBucket();
+
+    virtual ame_ret_e ame_format_response_hdr();
+
+  protected:
+};
+
+// S3 Put Bucket connector
 //
 class S3_PutBucket : public Conn_PutBucket
 {
