@@ -465,6 +465,26 @@ int OMgrClient::pushCreateBucketToOM(const FDS_ProtocolInterface::FDSP_VolumeInf
   return 0;
 }
 
+int OMgrClient::pushDeleteBucketToOM(const FDS_ProtocolInterface::FDSP_DeleteVolTypePtr& volInfo)
+{
+  try {
+         std::string tcpProxyStr = std::string("OrchMgr: tcp -h ") + 
+         		omIpStr + std::string(" -p ") + std::to_string(omConfigPort);
+  	 FDSP_ConfigPathReqPrx fdspConfigPathAPI = FDSP_ConfigPathReqPrx::checkedCast(rpc_comm->stringToProxy(tcpProxyStr));
+         FDSP_MsgHdrTypePtr msg_hdr = new FDSP_MsgHdrType;
+         initOMMsgHdr(msg_hdr);
+
+ 	FDSP_DeleteVolTypePtr volData = new FDSP_DeleteVolType();
+   	volData->vol_name  = volInfo->vol_name;
+  	volData->domain_id = volInfo->domain_id;
+    	fdspConfigPathAPI->begin_DeleteVol(msg_hdr, volData);
+
+  } catch (...) {
+    FDS_PLOG_SEV(omc_log, fds::fds_log::error) << "OMClient unable to push perf stats to OM. Check if OM is up and restart.";
+  }
+
+  return 0;
+}
 
 int OMgrClient::recvNodeEvent(int node_id, 
 			      FDSP_MgrIdType node_type, 

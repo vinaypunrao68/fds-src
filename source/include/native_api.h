@@ -120,6 +120,7 @@ typedef enum
     FDSN_StatusErrorAmbiguousGrantByEmailAddress               ,
     FDSN_StatusErrorBadDigest                                  ,
     FDSN_StatusErrorBucketAlreadyExists                        ,
+    FDSN_StatusErrorBucketNotExists                            ,
     FDSN_StatusErrorBucketAlreadyOwnedByYou                    ,
     FDSN_StatusErrorBucketNotEmpty                             ,
     FDSN_StatusErrorCredentialsNotSupported                    ,
