@@ -42,8 +42,17 @@ public:
   std::string   accessKeyId; // Identifies the tennantID or accountName
   std::string   secretAccessKey;
 
-  BucketContext();
-  ~BucketContext();
+  BucketContext(const std::string& _hostName,
+		const std::string& _bucketName,
+		const std::string& _accessKeyId,
+		const std::string& _secretAccessKey) 
+    : hostName(_hostName),
+    bucketName(_bucketName),
+    accessKeyId(_accessKeyId),
+    secretAccessKey(_secretAccessKey)
+    {
+    }
+  ~BucketContext() {}
 };
 
 class MetaNameValue { 
@@ -120,6 +129,7 @@ typedef enum
     FDSN_StatusErrorAmbiguousGrantByEmailAddress               ,
     FDSN_StatusErrorBadDigest                                  ,
     FDSN_StatusErrorBucketAlreadyExists                        ,
+    FDSN_StatusErrorBucketNotExists                            ,
     FDSN_StatusErrorBucketAlreadyOwnedByYou                    ,
     FDSN_StatusErrorBucketNotEmpty                             ,
     FDSN_StatusErrorCredentialsNotSupported                    ,
@@ -317,8 +327,8 @@ class GetConditions {
  *        0 to indicate the end of data, or > 0 to identify the number of
  *        bytes that were written into the buffer by this callback
  **/
-typedef int (fdsnPutObjectHandler)(void *reqContext, fds_uint64_t bufferSize, char *buffer,
-                                      void *callbackData);
+typedef int (*fdsnPutObjectHandler)(void *reqContext, fds_uint64_t bufferSize, char *buffer,
+				    void *callbackData, FDSN_Status status, ErrorDetails* errDetails);
 
 
 /**
@@ -337,12 +347,12 @@ typedef int (fdsnPutObjectHandler)(void *reqContext, fds_uint64_t bufferSize, ch
  *         Typically, this will return either S3StatusOK or
  *         S3StatusAbortedByCallback.
  **/
-typedef FDSN_Status (fdsnGetObjectHandler)(void *reqContext, fds_uint64_t bufferSize, const char *buffer,
-                                           void *callbackData);
-typedef void (fdsnResponseHandler)(FDSN_Status status,
+typedef FDSN_Status (*fdsnGetObjectHandler)(void *reqContext, fds_uint64_t bufferSize, const char *buffer,
+                                           void *callbackData, FDSN_Status status, ErrorDetails *errDetails);
+typedef void (*fdsnResponseHandler)(FDSN_Status status,
                                           const ErrorDetails *errorDetails,
                                           void *callbackData);
-typedef FDSN_Status (fdsnListBucketHandler)(int isTruncated,
+typedef FDSN_Status (*fdsnListBucketHandler)(int isTruncated,
                                         const char *nextMarker,
                                         int contentsCount,
                                         const ListBucketContents *contents,
@@ -382,10 +392,10 @@ class FDS_NativeAPI {
                     std::string prefix, std::string marker,
                     std::string delimiter, fds_uint32_t maxkeys,
                     void *requestContext,
-                    fdsnListBucketHandler *handler, void *callbackData);
-  void DeleteBucket(BucketContext bucketCtxt,
+                    fdsnListBucketHandler handler, void *callbackData);
+  void DeleteBucket(BucketContext *bucketCtxt,
                     void *requestContext,
-                    fdsnResponseHandler *handler, void *callbackData);
+                    fdsnResponseHandler handler, void *callbackData);
 
   // After this call returns bucketctx, get_cond are no longer valid.
   void GetObject(BucketContext *bucketctxt, 
@@ -401,7 +411,7 @@ class FDS_NativeAPI {
                  std::string ObjKey, 
                  PutProperties *putproperties,
                  void *reqContext,
-                 const char *buffer, fds_uint64_t buflen,
+                 char *buffer, fds_uint64_t buflen,
                  fdsnPutObjectHandler putObjHandler, 
                  void *callbackData);
   void DeleteObject(BucketContext *bucket_ctxt, 
@@ -409,6 +419,8 @@ class FDS_NativeAPI {
                     void *reqcontext, 
                     fdsnResponseHandler responseHandler,
                     void *callbackData);
+
+  static void DoCallback(FdsBlobReq* blob_req, Error error);
 
  private: /* methods */
 
@@ -420,9 +432,10 @@ class FDS_NativeAPI {
    *    we are waiting for response from OM (either we get attach volume 
    *    message or volume does not exist).
    *    Other error codes if error happened.
+   * \return ret_volid will contain volume uuid for the bucket if returned 
+   * value is ERR_OK
    */
-  Error testBucketInternal(BucketContext *bucket_ctxt);
-
+  Error checkBucketExists(BucketContext *bucket_ctxt, fds_volid_t* ret_volid);
 };
 }
 #endif 

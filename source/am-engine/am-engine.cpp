@@ -314,7 +314,7 @@ Conn_GetObject::~Conn_GetObject()
 // ---------------
 //
 static FDSN_Status
-get_callback_fn(void *req, fds_uint64_t bufsize, const char *buf, void *cb)
+get_callback_fn(void *req, fds_uint64_t bufsize, const char *buf, void *cb, FDSN_Status status, ErrorDetails *errdetails)
 {
     return FDSN_StatusOK;
 }
@@ -374,7 +374,7 @@ Conn_PutObject::~Conn_PutObject()
 // ---------------
 //
 static int
-put_callback_fn(void *req, fds_uint64_t size, char *buf, void *cb)
+put_callback_fn(void *req, fds_uint64_t size, char *buf, void *cb, FDSN_Status status, ErrorDetails *errdetails)
 {
     return 0;
 }

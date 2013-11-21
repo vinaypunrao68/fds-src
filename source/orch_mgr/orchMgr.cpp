@@ -779,6 +779,11 @@ void OrchMgr::ReqCfgHandler::DetachVol(const FdspMsgHdrPtr& fdsp_msg,
   orchMgr->DetachVol(fdsp_msg, dtc_vol_req);
 }
 
+void OrchMgr::ReqCfgHandler::GetVolInfo(const ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg, 
+		      const ::FDS_ProtocolInterface::FDSP_GetVolInfoReqTypePtr& get_vol_req, 
+		const ::Ice::Current&) {
+}
+
 void OrchMgr::ReqCfgHandler::RegisterNode(const FdspMsgHdrPtr &fdsp_msg,
                                           const FdspRegNodePtr &reg_node_req,
                                           const Ice::Current&) {

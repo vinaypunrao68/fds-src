@@ -234,6 +234,10 @@ Error StorHvVolumeTable::registerVolume(const VolumeDesc& vdesc)
 		   << ", policy " << vdesc.volPolicyId
 		   << " (iops_min=" << vdesc.iops_min << ",iops_max=" << vdesc.iops_max <<",prio=" << vdesc.relativePrio << ")"
                    << " result: " << err.GetErrstr();  
+
+  /* check if any blobs are waiting for volume to be registered, and if so,
+   * move them to appropriate qos queue  */
+  moveWaitBlobsToQosQueue(vol_uuid, vdesc.name, err);
   
   return err;
 }
@@ -339,6 +343,99 @@ fds_volid_t StorHvVolumeTable::getVolumeUUID(const std::string& vol_name)
     }
   map_rwlock.read_unlock();
   return ret_id;
+}
+
+
+/*
+ * Add blob request to wait queue because a blob is waiting for OM
+ * to attach bucjets to AM; once vol table receives vol attach event,
+ * it will move all requests waiting in the queue for that bucket 
+ * to appropriate qos queue 
+ */
+void StorHvVolumeTable::addBlobToWaitQueue(const std::string& bucket_name,
+					   FdsBlobReq* blob_req)
+{
+  fds_verify(blob_req->magicInUse() == true);
+
+  /* we can check again that this table does not know about this bucket */
+  fds_verify(volumeExists(bucket_name) == false);
+
+  FDS_PLOG_SEV(vt_log, fds::fds_log::debug) << "VolumeTable -- adding blob to wait queue, waiting for "
+					    << "bucket " << bucket_name;
+
+  /* pack to qos req */
+  AmQosReq *qosReq = new AmQosReq(blob_req);
+
+  wait_rwlock.write_lock();
+  wait_blobs_it_t it = wait_blobs.find(bucket_name);
+  if (it != wait_blobs.end()) {
+    /* we already have vector of waiting blobs for this bucket name */
+    (it->second).push_back(qosReq);
+  }
+  else {
+    /* we need to start a new vector */
+    wait_blobs[bucket_name].push_back(qosReq);
+  }
+  wait_rwlock.write_unlock();
+}
+
+void StorHvVolumeTable::moveWaitBlobsToQosQueue(fds_volid_t vol_uuid, 
+						const std::string& vol_name, 
+						Error error)
+{
+  Error err = error;
+  bucket_wait_vec_t blobs;
+
+  wait_rwlock.read_lock();
+  wait_blobs_it_t it = wait_blobs.find(vol_name);
+  if (it != wait_blobs.end()) {
+    /* we have a wait queue of blobs for this volume name */
+    blobs.swap(it->second);
+    wait_blobs.erase(it);
+  }
+  wait_rwlock.read_unlock();
+
+  if (blobs.size() == 0) {
+    FDS_PLOG_SEV(vt_log, fds::fds_log::debug) << "VolumeTable::moveWaitBlobsToQueue -- "
+					      << "no blobs waiting for bucket " << vol_name;
+    return; // no blobs waiting  
+  }
+
+  if ( err.ok() ) 
+    {
+      fds::StorHvVolume *shvol = getLockedVolume(vol_uuid);
+      if (( shvol == NULL) || (shvol->volQueue == NULL)) {
+	FDS_PLOG_SEV(vt_log, fds::fds_log::error) <<  "VolumeTable::moveWaitBlobsToQosQueue -- " 
+						  << "Volume and  Queueus are NOT setup :" << vol_uuid;
+	err = ERR_INVALID_ARG;
+      }
+      if ( err.ok()) {
+	for (int i = 0; i < blobs.size(); ++i) {
+	  FDS_PLOG_SEV(vt_log, fds::fds_log::debug) << "VolumeTable - moving blob to qos queue of vol  " << vol_uuid
+						    << " vol_name " << vol_name;
+	  storHvisor->qos_ctrl->enqueueIO(vol_uuid, blobs[i]);
+
+	}
+	blobs.clear();
+      }
+      shvol->readUnlock();
+    }
+
+  if ( !err.ok()) {
+    /* we haven't pushed requests to qos queue either because we already 
+     * got 'error' parameter with !err.ok() or we couldn't find volume
+     * so complete blobs in 'blobs' vector with error (if there are any) */
+    for (int i = 0; i < blobs.size(); ++i) {
+      AmQosReq* qosReq = blobs[i];
+      blobs[i] = NULL;
+      FdsBlobReq* blobReq = qosReq->fdsBlobReq();
+      FDS_NativeAPI::DoCallback(blobReq, err);
+      FDS_PLOG_SEV(vt_log, fds::fds_log::debug) 
+	<< "VolumeTable -- completion of blob request before moving it to QoS queue";
+      delete qosReq;
+    } 
+    blobs.clear();
+  }
 }
 
 /*

@@ -274,6 +274,10 @@ namespace fds {
                      const FdspAttVolCmdPtr& dtc_vol_req,
                      const Ice::Current&);
 
+      void GetVolInfo(const ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg, 
+		      const ::FDS_ProtocolInterface::FDSP_GetVolInfoReqTypePtr& get_vol_req, 
+		      const ::Ice::Current&);
+
       void RegisterNode(const FdspMsgHdrPtr&  fdsp_msg,
                         const FdspRegNodePtr& reg_node_req,
                         const Ice::Current&);

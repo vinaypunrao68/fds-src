@@ -276,9 +276,22 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rx_msg) 
   
   if (txn->trans_state > FDS_TRANS_OPEN) {
     /*
+      -  Initialize the common portion of the payload and then 
       -  browse through the list of the DM nodes that sent the open txn response .
       -  send  DM - commit request 
     */
+
+    upd_obj_req->dm_operation = FDS_DMGR_TXN_STATUS_COMMITED;
+    upd_obj_req->dm_transaction_id = 1;
+    FDS_ProtocolInterface::FDSP_BlobObjectInfo upd_obj_info;
+    upd_obj_info.offset = 0;
+    upd_obj_info.data_obj_id.hash_high = txn->data_obj_id.hash_high;
+    upd_obj_info.data_obj_id.hash_low =  txn->data_obj_id.hash_low;
+    upd_obj_info.size = 0; // TODO: fix this.
+    upd_obj_req->obj_list.clear();
+    upd_obj_req->obj_list.push_back(upd_obj_info);
+    upd_obj_req->meta_list.clear();
+    upd_obj_req->blob_name = std::to_string(txn->block_offset);
     
     for (node = 0; node < txn->num_dm_nodes; node++)
     {
@@ -286,11 +299,6 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rx_msg) 
       {
         if ((txn->dm_ack[node].commit_status) == FDS_CLS_ACK)
         {
-          upd_obj_req->dm_operation = FDS_DMGR_TXN_STATUS_COMMITED;
-          upd_obj_req->dm_transaction_id = 1;
-          upd_obj_req->data_obj_id.hash_high = txn->data_obj_id.hash_high;
-          upd_obj_req->data_obj_id.hash_low =  txn->data_obj_id.hash_low;
-          upd_obj_req->volume_offset = txn->block_offset;
 	  wr_msg->dst_ip_lo_addr = txn->dm_ack[node].ipAddr;
           wr_msg->dst_port = txn->dm_ack[node].port;
           
@@ -365,9 +373,6 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
       return;
     }
     
-    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - GOT A QUERY RESPONSE! Object ID :- " 
-				   << cat_obj_req->data_obj_id.hash_high << ":" << cat_obj_req->data_obj_id.hash_low ;
-    
     StorHvJournalEntryLock je_lock(journEntry);
     if (!journEntry->isActive()) {
       FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Journal Entry is In-Active";
@@ -417,8 +422,15 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
       shvol->journal_tbl->release_trans_id(trans_id);
       return;
     }
+
+    fds_verify(cat_obj_req->obj_list.size() > 0);
+    FDS_ProtocolInterface::FDSP_BlobObjectInfo& cat_obj_info = cat_obj_req->obj_list[0];
+    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - GOT A QUERY RESPONSE! Object ID :- " 
+				   << cat_obj_info.data_obj_id.hash_high << ":" << cat_obj_info.data_obj_id.hash_low ;
     
-    doid_high = cat_obj_req->data_obj_id.hash_high;
+
+    
+    doid_high = cat_obj_info.data_obj_id.hash_high;
     doid_dlt_key = doid_high >> 56;
     
     FDS_ProtocolInterface::FDSP_GetObjTypePtr get_obj_req = new FDSP_GetObjType;
@@ -456,8 +468,8 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
     fdsp_msg_hdr->dst_ip_lo_addr = node_ip;
     fdsp_msg_hdr->dst_port = node_port;
     fdsp_msg_hdr->src_node_name = storHvisor->my_node_name;
-    get_obj_req->data_obj_id.hash_high = cat_obj_req->data_obj_id.hash_high;
-    get_obj_req->data_obj_id.hash_low = cat_obj_req->data_obj_id.hash_low;
+    get_obj_req->data_obj_id.hash_high = cat_obj_info.data_obj_id.hash_high;
+    get_obj_req->data_obj_id.hash_low = cat_obj_info.data_obj_id.hash_low;
     get_obj_req->data_obj_len = journEntry->data_obj_len;
     if (endPoint) {
       endPoint->fdspDPAPI->begin_GetObject(fdsp_msg_hdr, get_obj_req);
@@ -465,8 +477,8 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
       journEntry->trans_state = FDS_TRANS_GET_OBJ;
     }
     
-    obj_id.SetId( cat_obj_req->data_obj_id.hash_high,cat_obj_req->data_obj_id.hash_low);
+    obj_id.SetId( cat_obj_info.data_obj_id.hash_high,cat_obj_info.data_obj_id.hash_low);
     shvol->vol_catalog_cache->Update(
-        (fds_uint64_t)cat_obj_req->volume_offset,
-        obj_id);
+				     (fds_uint64_t)strtoull(cat_obj_req->blob_name.c_str(), NULL, 0),
+				     obj_id);
 }

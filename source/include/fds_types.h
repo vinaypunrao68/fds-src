@@ -244,6 +244,10 @@ namespace fds {
    FDS_IO_OFFSET_WRITE,
    FDS_CAT_UPD,
    FDS_CAT_QRY,
+   FDS_PUT_BLOB, 
+   FDS_GET_BLOB,
+   FDS_DELETE_BLOB,
+   FDS_LIST_BUCKET,
    FDS_OP_INVALID
   } fds_io_op_t;
 
@@ -258,7 +262,7 @@ namespace fds {
      */
     typedef void (*cbFunc)(void *arg1, void *arg2, void *freq, int res);
 
- private:
+  protected:
     /*
      * Common request header members
      */

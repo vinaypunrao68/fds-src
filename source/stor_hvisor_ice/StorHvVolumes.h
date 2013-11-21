@@ -26,6 +26,7 @@
 #include "VolumeCatalogCache.h"
 #include "qos_ctrl.h"
 #include "StorHvJournal.h"
+#include "native_api.h"
 
 
 /* defaults */
@@ -86,6 +87,7 @@ class StorHvVolumeLock
  private:
   StorHvVolume *shvol;
 };
+class AmQosReq;
 
 class StorHvVolumeTable
 {
@@ -125,6 +127,14 @@ class StorHvVolumeTable
   /* returns true if volume exists, otherwise retuns false */
   fds_bool_t volumeExists(const std::string& vol_name);
 
+  /* add blob request to wait queue -- those are blobs that
+   * are waiting for OM to attach buckets to AM; once 
+   * vol table receives vol attach event, it will move 
+   * all requests waiting in the queue for that bucket to
+   * appropriate qos queue */
+  void addBlobToWaitQueue(const std::string& bucket_name,
+			  FdsBlobReq* blob_req);
+
  private: /* methods */ 
 
   /* handler for volume-related control message from OM */
@@ -132,6 +142,10 @@ class StorHvVolumeTable
                                  VolumeDesc *vdb,
                                  fds_vol_notify_t vol_action);
  
+  void moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
+			       const std::string& vol_name,
+			       Error error);
+
   /* print volume map, other detailed state to log */
   void dump();
     
@@ -142,7 +156,15 @@ class StorHvVolumeTable
 
   /* Protects volume_map */
   fds_rwlock map_rwlock;
-  
+
+  /* list of blobs that are waiting for OM to attach appropriate
+   * bucket to AM if it exists/ or return 'does not exist error */
+  typedef std::vector<AmQosReq*> bucket_wait_vec_t;
+  typedef std::map<std::string, bucket_wait_vec_t> wait_blobs_t;
+  typedef std::map<std::string, bucket_wait_vec_t>::iterator wait_blobs_it_t; 
+  wait_blobs_t wait_blobs;
+  fds_rwlock wait_rwlock;
+
   /* Reference to parent SH instance */
   StorHvCtrl *parent_sh;
 
@@ -153,6 +175,126 @@ class StorHvVolumeTable
   fds_bool_t created_log;
 };
 
+class GetBlobReq: public FdsBlobReq {
+ public:
+  BucketContext *bucket_ctxt;
+  std::string ObjKey;
+  GetConditions *get_cond;
+  //  fds_uint64_t startByte; //same as blob_offset in base class
+  fds_uint64_t byteCount;
+  void *req_context;
+  fdsnGetObjectHandler getObjCallback;
+  void *callback_data;
+  
+  GetBlobReq(fds_volid_t _volid,
+	     const std::string& _blob_name, //same as objKey
+	     fds_uint64_t _blob_offset,
+	     fds_uint64_t _data_len,
+	     char* _data_buf,
+	     fds_uint64_t _byte_count, 
+	     BucketContext* _bucket_ctxt,
+	     GetConditions* _get_conds,
+	     void* _req_context,
+	     fdsnGetObjectHandler _get_obj_handler,
+	     void* _callback_data)
+    : FdsBlobReq(FDS_GET_BLOB, _volid, _blob_name, _blob_offset, _data_len, _data_buf, NULL),
+    bucket_ctxt(_bucket_ctxt),
+    ObjKey(_blob_name),
+    get_cond(_get_conds),
+    byteCount(_byte_count),
+    req_context(_req_context),
+    getObjCallback(_get_obj_handler),
+    callback_data(_callback_data)
+    {
+    }
+
+  ~GetBlobReq() { };
+
+  void DoCallback(FDSN_Status status, ErrorDetails* errDetails) {
+    (getObjCallback)(req_context, dataLen, dataBuf, callback_data, status, errDetails);
+  }
+
+};
+
+
+class PutBlobReq: public FdsBlobReq {
+ public:
+  BucketContext *bucket_ctxt;
+  std::string ObjKey;
+  PutProperties *putProperties;
+  void *req_context;
+  fdsnPutObjectHandler putObjCallback;
+  void *callback_data;
+  
+ PutBlobReq(fds_volid_t _volid,
+	    const std::string& _blob_name, //same as objKey
+	    fds_uint64_t _blob_offset,
+	    fds_uint64_t _data_len,
+	    char* _data_buf,
+	    BucketContext* _bucket_ctxt,
+	    PutProperties* _put_props,
+	    void* _req_context,
+	    fdsnPutObjectHandler _put_obj_handler,
+	    void* _callback_data) 
+   : FdsBlobReq(FDS_PUT_BLOB, _volid, _blob_name, _blob_offset, _data_len, _data_buf, NULL),
+    bucket_ctxt(_bucket_ctxt),
+    ObjKey(_blob_name),
+    putProperties(_put_props),
+    req_context(_req_context),
+    putObjCallback(_put_obj_handler),
+    callback_data(_callback_data)
+    {
+    }
+
+  ~PutBlobReq() { };
+
+  void DoCallback(FDSN_Status status, ErrorDetails* errDetails) {
+    (putObjCallback)(req_context, dataLen, dataBuf, callback_data, status, errDetails);
+  }
+};
+
+
+class DeleteBlobReq: public FdsBlobReq {
+ public:
+  BucketContext *bucket_ctxt;
+  std::string ObjKey;
+  void *req_context;
+  fdsnResponseHandler responseCallback;
+  void *callback_data;
+  
+ DeleteBlobReq(fds_volid_t _volid,
+	       const std::string& _blob_name,
+	       BucketContext* _bucket_ctxt,
+	       void* _req_context,
+	       fdsnResponseHandler _resp_handler,
+	       void* _callback_data) 
+   : FdsBlobReq(FDS_DELETE_BLOB, _volid, _blob_name, 0, 0, NULL, NULL),
+    bucket_ctxt(_bucket_ctxt),
+    ObjKey(_blob_name),
+    req_context(_req_context),
+    responseCallback(_resp_handler),
+    callback_data(_callback_data)
+    {
+    }
+
+  ~DeleteBlobReq() { };
+};
+
+class ListBucketReq { 
+ public:
+  BucketContext *bucketctxt;
+  std::string prefix;
+  std::string marker;
+  std::string delimiter;
+  fds_uint32_t maxkeys;
+  void *requestContext;
+  fdsnListBucketHandler handler;
+  void *callbackData;
+  
+  ListBucketReq() { };
+  ~ListBucketReq() { };
+};
+
 /*
  * Internal wrapper class for AM QoS
  * requests.
@@ -160,6 +302,10 @@ class StorHvVolumeTable
 class AmQosReq : public FDS_IOType {
 private:
   FdsBlobReq *blobReq;
+  PutBlobReq  *putBlobReq;
+  GetBlobReq  *getBlobReq;
+  DeleteBlobReq  *deleteBlobReq;;
+  ListBucketReq  *listBucketReq;
 
 public:
   AmQosReq(FdsBlobReq *_br)
@@ -191,6 +337,11 @@ public:
   fds_bool_t magicInUse() const {
     return blobReq->magicInUse();
   }
+
+  FdsBlobReq *fdsBlobReq() const {
+    return blobReq;
+  }
+ 
 };
 
 } // namespace fds
