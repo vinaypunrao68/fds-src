@@ -76,7 +76,7 @@ AMEngine::mod_init(SysParams const *const p)
     // Fix up the key table setup.
     for (int i = 0; sgt_AMEKey[i].u.kv_key != nullptr; i++) {
         fds_verify(sgt_AMEKey[i].kv_idx == i);
-        sgt_AMEKey[i].kv_keylen = strlen(sgt_AMEKey[i].u.kv_key) - 1;
+        sgt_AMEKey[i].kv_keylen = strlen(sgt_AMEKey[i].u.kv_key);
     }
     return 0;
 }
@@ -260,11 +260,9 @@ AME_Request::ame_set_std_resp(int status, int len)
     r->headers_out.status           = NGX_HTTP_OK;
     r->headers_out.content_length_n = len;
 
-    // Response with "Connecton: close"
-    ame_set_resp_keyval(sgt_AMEKey[RESP_CONNECTION].u.kv_key_name,
-                        sgt_AMEKey[RESP_CONNECTION].kv_keylen,
-                        sgt_AMEKey[RESP_CONNECTION_CLOSE].u.kv_key_name,
-                        sgt_AMEKey[RESP_CONNECTION_CLOSE].kv_keylen);
+    if (len == 0) {
+        r->header_only = 1;
+    }
     return AME_OK;
 }
 
@@ -436,9 +434,7 @@ Conn_PutObject::ame_request_handler()
     const char          *buf;
     FDS_NativeAPI *api;
     std::string   key;
-    void *resp_buf;
     char *temp;
-    int resp_buf_len = 2;
 
     buf = ame_reqt_iter_data((int*) &len);
     if (buf == NULL || len == 0) {
@@ -452,9 +448,8 @@ Conn_PutObject::ame_request_handler()
 //    api->PutObject(NULL, key, NULL, (void *)this,
 //                   buf, len, put_callback_fn, NULL);
 
-    resp_buf  = ame_push_resp_data_buf(resp_buf_len, &temp, &resp_buf_len);
-    fdsn_send_put_response(200, resp_buf_len);
-    ame_send_resp_data(resp_buf, resp_buf_len, true);
+    fdsn_send_put_response(200, 0);
+    // ame_send_resp_data(resp_buf, resp_buf_len, true);
 }
 
 // fdsn_send_put_response
