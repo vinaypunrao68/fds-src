@@ -9,7 +9,7 @@ namespace fds {
 // GetObject Probe
 // ---------------------------------------------------------------------------
 
-Probe_GetObject::Probe_GetObject(struct ngx_http_request_s *req)
+Probe_GetObject::Probe_GetObject(HttpRequest &req)
     : S3_GetObject(req)
 {
 }
@@ -33,12 +33,11 @@ Probe_GetObject::ame_request_handler()
     fdsn_send_get_buffer(cookie, 0, true);
 }
 
-#if 0
 // ---------------------------------------------------------------------------
 // PutObject Probe
 // ---------------------------------------------------------------------------
 
-Probe_PutObject::Probe_PutObject(struct ngx_http_request_s *req)
+Probe_PutObject::Probe_PutObject(HttpRequest &req)
     : S3_PutObject(req)
 {
 }
@@ -55,5 +54,5 @@ Probe_PutObject::ame_request_handler()
 {
     fdsn_send_put_response(0);
 }
-#endif
+
 } // namespace fds

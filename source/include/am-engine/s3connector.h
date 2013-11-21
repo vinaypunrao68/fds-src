@@ -33,6 +33,51 @@ class S3_GetObject : public Conn_GetObject
     char *resp_xx_value;
 };
 
+// S3 Put connector which does S3 specific object put semantic.
+//
+class S3_PutObject : public Conn_PutObject
+{
+  public:
+    S3_PutObject(HttpRequest &req);
+    ~S3_PutObject();
+
+    // Format response header in S3 protocol.
+    //
+    virtual ame_ret_e ame_format_response_hdr();
+
+  protected:
+    // List of known key-values that we'll need to send the PUT response.
+    //
+    char *resp_xx_key;
+    char *resp_xx_value;
+};
+
+// S3 Get Bucket connector
+//
+class S3_GetBucket : public Conn_GetBucket
+{
+  public:
+    S3_GetBucket(HttpRequest &req);
+    ~S3_GetBucket();
+
+    virtual ame_ret_e ame_format_response_hdr();
+
+  protected:
+};
+
+// S3 Put Bucket connector
+//
+class S3_PutBucket : public Conn_PutBucket
+{
+  public:
+    S3_PutBucket(HttpRequest &req);
+    ~S3_PutBucket();
+
+    virtual ame_ret_e ame_format_response_hdr();
+
+  protected:
+};
+
 } // namespace fds
 
 #endif /* INCLUDE_AM_ENGINE_H_ */
