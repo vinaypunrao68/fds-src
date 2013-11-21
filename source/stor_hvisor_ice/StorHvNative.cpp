@@ -31,7 +31,7 @@ void FDS_NativeAPI::CreateBucket(BucketContext *bucket_ctx,
   if (ret_id != invalid_vol_id) {
        FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error) << " S3 Bucket Already exsists  BucketID: " << ret_id;
 
-     (responseHandler)(FDSN_StatusErrorBucketAlreadyExists,NULL,NULL);
+     (responseHandler)(FDSN_StatusErrorBucketAlreadyExists,NULL,callback_data);
      return;
    }
 
@@ -59,7 +59,7 @@ void FDS_NativeAPI::CreateBucket(BucketContext *bucket_ctx,
 
     storHvisor->om_client->pushCreateBucketToOM(vol_info);
 
-    (responseHandler)(FDSN_StatusOK,NULL,NULL);
+    (responseHandler)(FDSN_StatusOK,NULL,callback_data);
      return;
 }
 
@@ -168,7 +168,7 @@ void FDS_NativeAPI::PutObject(BucketContext *bucket_ctxt,
 			      std::string ObjKey, 
 			      PutProperties *put_properties,
 			      void *req_context,
-			      char *buffer, 
+			      char *buffer,
 			      fds_uint64_t buflen,
 			      fdsnPutObjectHandler putObjHandler, 
 			      void *callback_data)

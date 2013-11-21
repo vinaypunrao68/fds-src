@@ -438,6 +438,7 @@ int OMgrClient::pushCreateBucketToOM(const FDS_ProtocolInterface::FDSP_VolumeInf
          FDSP_CreateVolTypePtr volData = new FDSP_CreateVolType();
          volData->vol_info = new FDSP_VolumeInfoType();
 
+         volData->vol_name = volInfo->vol_name;
          volData->vol_info->vol_name = volInfo->vol_name;
          volData->vol_info->tennantId = volInfo->tennantId;
          volData->vol_info->localDomainId = volInfo->localDomainId;

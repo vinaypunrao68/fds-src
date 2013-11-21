@@ -12,16 +12,20 @@ extern "C" {
 #include <ngx_core.h>
 #include <ngx_http.h>
 
-static char* ngx_http_fds_data_connector(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
-static void* ngx_http_fds_data_create_loc_conf(ngx_conf_t *cf);
-static char* ngx_http_fds_data_merge_loc_conf(ngx_conf_t *cf, void *prev, void *conf);
-static std::vector<std::string> ngx_parse_uri_parts(ngx_http_request_t *r);
+static char *
+ngx_http_fds_data_connector(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+
+static void *ngx_http_fds_data_create_loc_conf(ngx_conf_t *cf);
+
+static char *
+ngx_http_fds_data_merge_loc_conf(ngx_conf_t *cf, void *prev, void *conf);
+
+static std::vector<std::string>
+ngx_parse_uri_parts(ngx_http_request_t *r);
+
 static void ngx_http_fds_read_body(ngx_http_request_t *r);
 static ngx_int_t ngx_http_fds_data_handler(ngx_http_request_t *r);
-static ngx_int_t ngx_route_http_request(ngx_http_request_t *r);
-static char* ngx_http_fds_data_connector(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
-static void* ngx_http_fds_data_create_loc_conf(ngx_conf_t *cf);
-static char* ngx_http_fds_data_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child);
+static ngx_int_t ngx_http_fds_route_request(ngx_http_request_t *r);
 
 ngx_int_t ngx_fds_obj_get(HttpRequest *http_req);
 ngx_int_t ngx_fds_obj_put(HttpRequest *http_req);
@@ -125,7 +129,7 @@ ngx_http_fds_read_body(ngx_http_request_t *r)
 //    b->last_in_chain = 1;
 //
 //    rc = ngx_http_output_filter(r, &out);
-  ngx_route_http_request(r);
+  ngx_http_fds_route_request(r);
 }
 
 /*
@@ -143,7 +147,8 @@ ngx_http_fds_data_handler(ngx_http_request_t *r)
 
     fdscf = (ngx_http_fds_data_loc_conf_t *)
         ngx_http_get_module_loc_conf(r, ngx_http_fds_data_module);
-    if (r->method & NGX_HTTP_POST) {
+
+    if (r->method == NGX_HTTP_POST || r->method == NGX_HTTP_PUT) {
         rc = ngx_http_read_client_request_body(r, ngx_http_fds_read_body);
         if (rc >= NGX_HTTP_SPECIAL_RESPONSE) {
             return rc;
@@ -157,13 +162,12 @@ ngx_http_fds_data_handler(ngx_http_request_t *r)
 //    printf("\tMethod: %s\n", r->method_name.data);
 //    printf("\tProtocol: %s\n", r->http_protocol.data);
 
-    return ngx_route_http_request(r);
+    return ngx_http_fds_route_request(r);
 }
 
 static ngx_int_t
-ngx_route_http_request(ngx_http_request_t *r)
+ngx_http_fds_route_request(ngx_http_request_t *r)
 {
-
   ngx_int_t ecode = NGX_HTTP_BAD_REQUEST; // default ecode
   HttpRequest http_req(r);
   std::vector<std::string> uri_parts = http_req.getURIParts();
@@ -225,6 +229,7 @@ ngx_http_fds_data_create_loc_conf(ngx_conf_t *cf)
 
     fdscf = (ngx_http_fds_data_loc_conf_t *)
         ngx_pcalloc(cf->pool, sizeof(*fdscf));
+
     if (fdscf == NULL) {
         return NGX_CONF_ERROR;
     }
@@ -252,27 +257,29 @@ ngx_http_fds_data_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 // ---------------------------------------------------------------------------
 
 ngx_int_t
-send_response(ngx_http_request_t *r) {
-      ngx_chain_t                   out;
-      ngx_buf_t                    *b;
-      ngx_int_t rc;
+send_response(ngx_http_request_t *r)
+{
+    ngx_chain_t                   out;
+    ngx_buf_t                    *b;
+    ngx_int_t rc;
 
-      r->headers_out.status = NGX_HTTP_OK;
-      r->headers_out.content_length_n = sizeof("Hello world") - 1;
-      rc = ngx_http_send_header(r);
+    r->headers_out.status = NGX_HTTP_OK;
+    r->headers_out.content_length_n = sizeof("Hello world") - 1;
+    rc = ngx_http_send_header(r);
 
-      b = (ngx_buf_t *)ngx_calloc_buf(r->pool);
-      out.buf  = b;
-      out.next = NULL;
+    b = (ngx_buf_t *)ngx_calloc_buf(r->pool);
+    out.buf  = b;
+    out.next = NULL;
 
-      b->start = b->pos = (u_char *)"Hello world";
-      b->end = b->last = b->start + sizeof("Hello world") - 1;
-      b->memory        = 1;
-      b->last_buf      = 1;
-      b->last_in_chain = 1;
+    b->start = b->pos = (u_char *)"Hello world";
+    b->end = b->last = b->start + sizeof("Hello world") - 1;
+    b->memory        = 1;
+    b->last_buf      = 1;
+    b->last_in_chain = 1;
 
-      return ngx_http_output_filter(r, &out);
+    return ngx_http_output_filter(r, &out);
 }
+
 // ngx_fds_obj_get
 // ---------------
 //
@@ -284,11 +291,7 @@ ngx_fds_obj_get(HttpRequest *http_req)
   // Do sync processing for now.
   s3->ame_request_handler();
   delete s3;
-//  ngx_chain_t                   out;
-//  ngx_int_t rc;
-//  std::cout << http_req->toString();
-//
-//  return send_response(http_req->getNginxReq());
+  return NGX_DONE;
 }
 
 // ngx_fds_obj_put
@@ -297,12 +300,13 @@ ngx_fds_obj_get(HttpRequest *http_req)
 ngx_int_t
 ngx_fds_obj_put(HttpRequest *http_req)
 {
-  ngx_chain_t                   out;
-  ngx_int_t rc;
-  std::cout << http_req->toString();
+  fds::S3_PutObject *s3 = new fds::S3_PutObject(*http_req);
 
-  return send_response(http_req->getNginxReq());}
-
+  // Do sync processing for now.
+  s3->ame_request_handler();
+  delete s3;
+  return NGX_DONE;
+}
 // ngx_fds_obj_delete
 // ------------------
 //
@@ -318,11 +322,12 @@ ngx_fds_obj_delete(HttpRequest *http_req)
 ngx_int_t
 ngx_fds_bucket_get(HttpRequest *http_req)
 {
-  ngx_chain_t                   out;
-  ngx_int_t rc;
-  std::cout << http_req->toString();
+  fds::S3_GetObject *s3 = new fds::S3_GetObject(*http_req);
 
-  return send_response(http_req->getNginxReq());}
+  // Do sync processing for now.
+  s3->ame_request_handler();
+  delete s3;
+}
 
 // ngx_fds_bucket_put
 // ---------------------
@@ -330,11 +335,13 @@ ngx_fds_bucket_get(HttpRequest *http_req)
 ngx_int_t
 ngx_fds_bucket_put(HttpRequest *http_req)
 {
-  ngx_chain_t                   out;
-  ngx_int_t rc;
-  std::cout << http_req->toString();
+  fds::S3_PutBucket *s3 = new fds::S3_PutBucket(*http_req);
 
-  return send_response(http_req->getNginxReq());}
+  // Do sync processing for now.
+  s3->ame_request_handler();
+  delete s3;
+  return NGX_DONE;
+}
 
 // ngx_fds_bucket_delete
 // ---------------------

@@ -8,6 +8,7 @@
 #include <fds_request.h>
 #include <string>
 #include <am-engine/http_utils.h>
+#include <native_api.h>
 
 namespace fds {
 class FDS_NativeAPI;
@@ -59,6 +60,40 @@ typedef enum
     AME_MAX
 } ame_ret_e;
 
+// Table of keys used request and response headers.
+// Reference spec URL:
+// http://docs.aws.amazon.com/AmazonS3/latest/API/
+//   Common response: RESTCommonResponseHeaders.html
+//
+// Don't change the order because they're indices to the keytab table.
+typedef enum
+{
+    RESP_CONTENT_LEN         = 0,
+    RESP_CONNECTION          = 1,
+    RESP_CONNECTION_OPEN     = 2,
+    RESP_CONNECTION_CLOSE    = 3,
+    RESP_ETAG                = 4,
+    RESP_DATE                = 5,
+    RESP_SERVER              = 6,
+    AME_HDR_KEY_MAX
+} ame_hdr_key_e;
+
+typedef struct ame_keytab ame_keytab_t;
+struct ame_keytab
+{
+    union {
+        char const *const    kv_key;
+        char                 *kv_key_name;
+    } u;
+    ngx_int_t                kv_keylen;
+    ame_hdr_key_e            kv_idx;
+};
+
+// Get the key and its length to fill in REST's header, indexed by its enum.
+//
+extern ame_keytab_t sgt_AMEKey[];
+
+// ---------------------------------------------------------------------------
 // Generic connector to handle request/response protocol with buffer chunks
 // semantic
 //
@@ -83,13 +118,22 @@ class AME_Request : public fdsio::Request
     // ame_set_resp_keyval
     // -------------------
     // Set key/value in the response to send to the client.
+    // Assume key/value buffers remain valid until this obj is freed.
     //
-    ame_ret_e ame_set_resp_keyval(char const *const k, char const *const v);
+    ame_ret_e ame_set_resp_keyval(char *k, ngx_int_t klen,
+                                  char *v, ngx_int_t vlen);
+
     virtual ame_ret_e ame_format_response_hdr() = 0;
 
   protected:
     HttpRequest ame_req;
-
+    // TODO: we need to do this in the proper way like how NGINX manages a
+    // string buf. Just do something quick right now.
+    char                     resp_buf[1024];
+    char                     *resp_pos;
+    char                     *resp_end;
+    int                      resp_len;
+    ngx_chain_t              *post_buf_itr;
 
     // Common request path.
     // The request handler is called through ame_request_handler().
@@ -130,6 +174,7 @@ class AME_Request : public fdsio::Request
     ame_ret_e ame_send_response_hdr();
 };
 
+// ---------------------------------------------------------------------------
 // Connector Adapter to implement GetObject method.
 //
 class Conn_GetObject : public AME_Request
@@ -189,6 +234,7 @@ class Conn_GetObject : public AME_Request
   protected:
 };
 
+// ---------------------------------------------------------------------------
 // Connector Adapter to implement PutObject method.
 //
 class Conn_PutObject : public AME_Request
@@ -197,6 +243,12 @@ class Conn_PutObject : public AME_Request
     Conn_PutObject(HttpRequest &req);
     ~Conn_PutObject();
 
+    // returns bucket id
+    virtual std::string get_bucket_id() = 0;
+
+    // returns the object id
+    virtual std::string get_object_id() = 0;
+
     // Connector method to handle PutObject request.
     //
     virtual void ame_request_handler();
@@ -204,8 +256,48 @@ class Conn_PutObject : public AME_Request
     // Common code to send response back to the client.  Connector specific
     // will provide more detail on the response.
     //
-    virtual void fdsn_send_put_response(int status);
+    virtual void fdsn_send_put_response(int status, int put_len);
 
+  protected:
+};
+
+// Connector Adapter to implement PutObject method.
+//
+class Conn_PutBucket : public AME_Request
+{
+public:
+  // put bucket callback from FDS Api
+  static void cb(FDSN_Status status, const ErrorDetails *errorDetails, void *callbackData);
+
+  public:
+    Conn_PutBucket(HttpRequest &req);
+    ~Conn_PutBucket();
+
+    // returns bucket id
+    virtual std::string get_bucket_id() = 0;
+
+    // Connector method to handle PutBucket request.
+    //
+    virtual void ame_request_handler();
+
+    // Common code to send response back to the client.  Connector specific
+    // will provide more detail on the response.
+    //
+    virtual void fdsn_send_put_response(int status, int put_len);
+  protected:
+};
+
+// ---------------------------------------------------------------------------
+// Connector Adapter to implement GetBucket method.
+//
+class Conn_GetBucket : public AME_Request
+{
+  public:
+    Conn_GetBucket(HttpRequest &req);
+    ~Conn_GetBucket();
+
+    virtual void ame_request_handler();
+    virtual void fdsn_send_getbucket_response(int status);
   protected:
 };
 
