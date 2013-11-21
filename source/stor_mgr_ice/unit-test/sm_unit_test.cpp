@@ -728,7 +728,7 @@ class SmUnitTest {
 	}
       }
 
-    system("../bin/fdscli --auto-tier-migration on --domain-id 1");
+    // system("../bin/fdscli --auto-tier-migration on --domain-id 1");
     /*
      * Spin and wait for the gets to complete.
      */
@@ -750,7 +750,7 @@ class SmUnitTest {
      * repeating timer every 30 seconds (can change in ObjectRankEngine 
      * constructor.  */
     sleep(40);
-    system("../bin/fdscli --auto-tier-migration off --domain-id 1");
+    // system("../bin/fdscli --auto-tier-migration off --domain-id 1");
 
     /* step 4 -- can either start migrator or can hack ranking engine 
      * to call migrate as soon it promoted hot objs/ demotes existing objs

@@ -6,7 +6,8 @@ user_incl_dir    :=
 user_cpp         :=               \
     am-engine.cpp \
     am-plugin.cpp \
-    s3connector.cpp
+    s3connector.cpp \
+    http_utils.cpp
 
 user_ar_libs     := fds-am-engine
 fds-am-engine    := $(user_cpp) $(user_cc)

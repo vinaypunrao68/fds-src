@@ -79,6 +79,11 @@ int OrchMgr::run(int argc, char* argv[]) {
   Ice::PropertiesPtr props = communicator()->getProperties();
 
   /*
+   * create a default policy ( ID = 50) for S3 bucket
+   */
+   void defaultS3BucketPolicy();
+
+  /*
    * Set basic thread properties.
    */
   props->setProperty("OrchMgr.ThreadPool.Size", "50");
@@ -435,6 +440,15 @@ void OrchMgr::DetachVol(const FdspMsgHdrPtr    &fdsp_msg,
   om_mutex->unlock();
 }
 
+void OrchMgr::TestBucket(const FdspMsgHdrPtr& fdsp_msg,
+			 const FdspTestBucketPtr& test_buck_req)
+{
+  FDS_PLOG_SEV(GetLog(), fds::fds_log::notification) << "OM received test bucket request for bucket "
+						     << test_buck_req->bucket_name
+						     << " attach_vol_reqd = "  
+						     << test_buck_req->attach_vol_reqd;
+}
+
 void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
                            const FdspRegNodePtr &reg_node_req) {
   std::string ip_addr_str;
@@ -776,6 +790,12 @@ void OrchMgr::ReqCfgHandler::RegisterNode(const FdspMsgHdrPtr &fdsp_msg,
   orchMgr->RegisterNode(fdsp_msg, reg_node_req);
 }
 
+void OrchMgr::ReqCfgHandler::TestBucket(const FdspMsgHdrPtr& fdsp_msg,
+					const FdspTestBucketPtr& test_buck_req,
+					const Ice::Current&) {
+  orchMgr->TestBucket(fdsp_msg, test_buck_req);
+}
+
 void OrchMgr::ReqCfgHandler::SetThrottleLevel(const FDSP_MsgHdrTypePtr& fdsp_msg, 
 		      const FDSP_ThrottleMsgTypePtr& throttle_req, 
 		      const Ice::Current&) {
@@ -798,6 +818,25 @@ void OrchMgr::ReqCfgHandler::AssociateRespCallback(
     const Ice::Identity& ident,
     const Ice::Current& current) {
 }
+
+void OrchMgr::defaultS3BucketPolicy()
+{
+  Error err(ERR_OK);
+
+ FDSP_PolicyInfoTypePtr policy_info = new FDSP_PolicyInfoType();
+
+ policy_info->policy_name = std::string("S3-Bucket_policy");
+ policy_info->policy_id = 50;
+ policy_info->iops_min = 400;
+ policy_info->iops_max = 600;
+ policy_info->rel_prio = 1;
+
+ orchMgr->om_mutex->lock();
+ err = orchMgr->policy_mgr->createPolicy(policy_info);
+ orchMgr->om_mutex->unlock();
+
+}
+
 
 OrchMgr *gl_orch_mgr;
 

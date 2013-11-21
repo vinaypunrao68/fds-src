@@ -26,6 +26,7 @@
 #include "VolumeCatalogCache.h"
 #include "qos_ctrl.h"
 #include "StorHvJournal.h"
+#include "native_api.h"
 
 
 /* defaults */
@@ -151,6 +152,107 @@ class StorHvVolumeTable
    */
   fds_log *vt_log;
   fds_bool_t created_log;
+};
+
+class GetBlobReq {
+ public:
+  BucketContext *bucketctxt;
+  std::string ObjKey;
+  GetConditions *get_cond;
+  fds_uint64_t startByte; 
+  fds_uint64_t byteCount;
+  void *reqcontext;
+  fdsnGetObjectHandler getObjCallback;
+  void *callbackdata;
+  
+  GetBlobReq() { };
+  ~GetBlobReq() { };
+};
+
+
+class PutBlobReq {
+ public:
+  BucketContext *bucketctxt;
+  std::string ObjKey;
+  PutProperties *putProperties;
+  void *reqcontext;
+  fdsnPutObjectHandler putObjCallback;
+  void *callbackdata;
+  
+  PutBlobReq() { };
+  ~PutBlobReq() { };
+};
+
+
+class DeleteBlobReq {
+ public:
+  BucketContext *bucketctxt;
+  std::string ObjKey;
+  void *reqcontext;
+  fdsnResponseHandler responseCallback;
+  void *callbackdata;
+  
+  DeleteBlobReq() { };
+  ~DeleteBlobReq() { };
+};
+
+class ListBucketReq { 
+ public:
+  BucketContext *bucketctxt;
+  std::string prefix;
+  std::string marker;
+  std::string delimiter;
+  fds_uint32_t maxkeys;
+  void *requestContext;
+  fdsnListBucketHandler handler;
+  void *callbackData;
+  
+  ListBucketReq() { };
+  ~ListBucketReq() { };
+};
+
+/*
+ * Internal wrapper class for AM QoS
+ * requests.
+ */
+class AmQosReq : public FDS_IOType {
+private:
+  FdsBlobReq *blobReq;
+  PutBlobReq  *putBlobReq;
+  GetBlobReq  *getBlobReq;
+  DeleteBlobReq  *deleteBlobReq;;
+  ListBucketReq  *listBucketReq;
+
+public:
+  AmQosReq(FdsBlobReq *_br)
+      : blobReq(_br) {
+    /*
+     * Set the base class defaults
+     */
+    io_magic  = FDS_SH_IO_MAGIC_IN_USE;
+    io_module = STOR_HV_IO;
+    io_vol_id = blobReq->getVolId();
+    io_type   = blobReq->getIoType();
+    /*
+     * Set a reqId here. Need a atomic counter in
+     * Sh ctrl
+     */
+    io_req_id = 885;
+
+    /*
+     * Zero out FBD stuff to make sure we don't use it.
+     * TODO: Remove this once it's remove from base class.
+     */
+    fbd_req = NULL;
+    vbd     = NULL;
+    vbd_req = NULL;
+  }
+  ~AmQosReq() {
+  }
+
+  fds_bool_t magicInUse() const {
+    return blobReq->magicInUse();
+  }
 };
 
 } // namespace fds
