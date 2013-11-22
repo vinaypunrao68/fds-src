@@ -12,7 +12,8 @@ DataMgr *dataMgr;
 
 void DataMgr::vol_handler(fds_volid_t vol_uuid,
                           VolumeDesc *desc,
-                          fds_vol_notify_t vol_action) {
+                          fds_vol_notify_t vol_action,
+			  FDS_ProtocolInterface::FDSP_ResultType result) {
   Error err(ERR_OK);
   FDS_PLOG(dataMgr->GetLog()) << "Received vol notif from OM for "
                               << vol_uuid;
@@ -151,7 +152,7 @@ Error DataMgr::_process_rm_vol(fds_volid_t vol_uuid) {
 }
 
 Error DataMgr::_process_open(fds_volid_t vol_uuid,
-                             fds_uint32_t vol_offset,
+                             std::string blob_name,
                              fds_uint32_t trans_id,
                              const ObjectID& oid) {
   Error err(ERR_OK);
@@ -183,12 +184,12 @@ Error DataMgr::_process_open(fds_volid_t vol_uuid,
   }
 
 
-  err = vol_meta->OpenTransaction(vol_offset, oid,vol_meta->vol_desc);
+  err = vol_meta->OpenTransaction(strtoull(blob_name.c_str(), NULL, 0), oid,vol_meta->vol_desc);
 
   if (err.ok()) {
     FDS_PLOG(dataMgr->GetLog()) << "Opened transaction for volume "
-                                << vol_uuid << " at offset "
-                                << vol_offset << " and mapped to object "
+                                << vol_uuid << ",  blob "
+                                << blob_name << " and mapped to object "
                                 << oid;
   } else {
     FDS_PLOG(dataMgr->GetLog()) << "Failed to open transaction for volume "
@@ -199,7 +200,7 @@ Error DataMgr::_process_open(fds_volid_t vol_uuid,
 }
 
 Error DataMgr::_process_commit(fds_volid_t vol_uuid,
-                               fds_uint32_t vol_offset,
+                               std::string blob_name,
                                fds_uint32_t trans_id,
                                const ObjectID& oid) {
   Error err(ERR_OK);
@@ -212,8 +213,8 @@ Error DataMgr::_process_commit(fds_volid_t vol_uuid,
    * into the VVC on open.
    */
   FDS_PLOG(dataMgr->GetLog()) << "Committed transaction for volume "
-                              << vol_uuid << " to offset "
-                              << vol_offset << " and mapped to object "
+                              << vol_uuid << " , blob "
+                              << blob_name << " and mapped to object "
                               << oid;
 
   return err;
@@ -231,7 +232,7 @@ Error DataMgr::_process_abort() {
 }
 
 Error DataMgr::_process_query(fds_volid_t vol_uuid,
-                              fds_uint32_t vol_offset,
+                              std::string blob_name,
                               ObjectID *oid) {
   Error err(ERR_OK);
   /*
@@ -259,12 +260,12 @@ Error DataMgr::_process_query(fds_volid_t vol_uuid,
   }
 
 
-  err = vol_meta->QueryVcat(vol_offset, oid);
+  err = vol_meta->QueryVcat(strtoull(blob_name.c_str(), NULL, 0), oid);
 
   if (err.ok()) {
     FDS_PLOG(dataMgr->GetLog()) << "Vol meta query for volume "
-                                << vol_uuid << " at offset "
-                                << vol_offset << " found object " << *oid;
+                                << vol_uuid << " , blob "
+                                << blob_name << " found object " << *oid;
   } else {
     FDS_PLOG(dataMgr->GetLog()) << "Vol meta query FAILED for volume "
                                 << vol_uuid;
@@ -528,7 +529,7 @@ int DataMgr::run(int argc, char* argv[]) {
                                testVolId * 2,
                                testVolId);
       fds_assert(testVdb != NULL);
-      vol_handler(testVolId, testVdb, fds_notify_vol_add); 
+      vol_handler(testVolId, testVdb, fds_notify_vol_add, FDS_ProtocolInterface::FDSP_ERR_OK); 
 
       delete testVdb;
     }
@@ -632,8 +633,8 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
 
   FDS_PLOG(dataMgr->GetLog()) << "Processing update catalog request with "
                               << "volume id: " << updCatReq->volId
-                              << ", volume offset: "
-                              << updCatReq->volOffset
+                              << ", blob name: "
+                              << updCatReq->blob_name
                               << ", Obj ID " << objId
                               << ", Trans ID "
                               << updCatReq->transId
@@ -646,13 +647,13 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
   if (updCatReq->transOp ==
       FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_OPEN) {
     err = dataMgr->_process_open((fds_volid_t)updCatReq->volId,
-                                 updCatReq->volOffset,
+                                 updCatReq->blob_name,
                                  updCatReq->transId,
                                  objId);
   } else if (updCatReq->transOp ==
              FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_COMMITED) {
     err = dataMgr->_process_commit(updCatReq->volId,
-                                   updCatReq->volOffset,
+                                   updCatReq->blob_name,
                                    updCatReq->transId,
                                    objId);
   } else {
@@ -662,12 +663,12 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
   FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr = new FDSP_MsgHdrType;
   FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr update_catalog = new FDSP_UpdateCatalogType;
   DataMgr::InitMsgHdr(msg_hdr);
+  update_catalog->obj_list.clear();
+  update_catalog->meta_list.clear();
 
   if (err.ok()) {
     msg_hdr->result  = FDS_ProtocolInterface::FDSP_ERR_OK;
     msg_hdr->err_msg = "Dude, you're good to go!";
-    update_catalog->data_obj_id.hash_high = objId.GetHigh();
-    update_catalog->data_obj_id.hash_low = objId.GetLow();
   } else {
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_FAILED;
     msg_hdr->err_msg  = "Something hit the fan...";
@@ -681,7 +682,7 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
   msg_hdr->glob_volume_id =  updCatReq->volId;
   msg_hdr->req_cookie =  updCatReq->reqCookie;
 
-  update_catalog->volume_offset = updCatReq->volOffset;
+  update_catalog->blob_name = updCatReq->blob_name;
   update_catalog->dm_transaction_id = updCatReq->transId;
   update_catalog->dm_operation = updCatReq->transOp;
   /*
@@ -695,8 +696,8 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
 
   FDS_PLOG(dataMgr->GetLog()) << "Sending async update catalog response with "
                               << "volume id: " << msg_hdr->glob_volume_id
-                              << ", volume offset: "
-                              << update_catalog->volume_offset
+                              << ", blob name: "
+                              << update_catalog->blob_name
                               << ", Obj ID " << objId
                               << ", Trans ID "
                               << update_catalog->dm_transaction_id
@@ -728,9 +729,10 @@ DataMgr::updateCatalogInternal(FDSP_UpdateCatalogTypePtr updCatReq,
     /*
      * allocate a new update cat log  class and  queue  to per volume queue.
      */
-    dmCatReq *dmUpdReq = new DataMgr::dmCatReq(updCatReq->data_obj_id.hash_high,
-                                 updCatReq->data_obj_id.hash_low, volId, updCatReq->volume_offset,
-				 updCatReq->dm_transaction_id, updCatReq->dm_operation,srcIp,
+    dmCatReq *dmUpdReq = new DataMgr::dmCatReq(updCatReq->obj_list[0].data_obj_id.hash_high,
+					       updCatReq->obj_list[0].data_obj_id.hash_low, 
+					       volId, updCatReq->blob_name,
+					       updCatReq->dm_transaction_id, updCatReq->dm_operation,srcIp,
 					       dstIp,srcPort,dstPort, src_node_name, reqCookie, FDS_CAT_UPD); 
 
     err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(dmUpdReq));
@@ -769,24 +771,24 @@ void DataMgr::ReqHandler::UpdateCatalogObject(const FDS_ProtocolInterface::
   return;
 #endif /* FDS_TEST_DM_NOOP */
 
-  ObjectID oid(update_catalog->data_obj_id.hash_high,
-               update_catalog->data_obj_id.hash_low);
+  ObjectID oid(update_catalog->obj_list[0].data_obj_id.hash_high,
+               update_catalog->obj_list[0].data_obj_id.hash_low);
 
   FDS_PLOG(dataMgr->GetLog()) << "Processing update catalog request with "
                               << "volume id: " << msg_hdr->glob_volume_id
-                              << ", volume offset: "
-                              << update_catalog->volume_offset
+                              << ", blob_name: "
+                              << update_catalog->blob_name
                               << ", Obj ID: " << oid
                               << ", Trans ID: "
                               << update_catalog->dm_transaction_id
                               << ", OP ID " << update_catalog->dm_operation;
 
-   err = dataMgr->updateCatalogInternal(update_catalog,msg_hdr->glob_volume_id,
-			 msg_hdr->src_ip_lo_addr,msg_hdr->dst_ip_lo_addr,msg_hdr->src_port,
-					msg_hdr->dst_port,msg_hdr->src_node_name, msg_hdr->req_cookie);
+  err = dataMgr->updateCatalogInternal(update_catalog,msg_hdr->glob_volume_id,
+				       msg_hdr->src_ip_lo_addr,msg_hdr->dst_ip_lo_addr,msg_hdr->src_port,
+				       msg_hdr->dst_port,msg_hdr->src_node_name, msg_hdr->req_cookie);
 
-  	if (!err.ok()) {
-  	   FDS_PLOG(dataMgr->GetLog()) << "Error Queueing the update Catalog request to Per volume Queue";
+  if (!err.ok()) {
+    FDS_PLOG(dataMgr->GetLog()) << "Error Queueing the update Catalog request to Per volume Queue";
     		msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_FAILED;
     		msg_hdr->err_msg  = "Something hit the fan...";
     		msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
@@ -804,8 +806,8 @@ void DataMgr::ReqHandler::UpdateCatalogObject(const FDS_ProtocolInterface::
 
   		FDS_PLOG(dataMgr->GetLog()) << "Sending async update catalog response with "
                               << "volume id: " << msg_hdr->glob_volume_id
-                              << ", volume offset: "
-                              << update_catalog->volume_offset
+                              << ", blob name: "
+                              << update_catalog->blob_name
                               << ", Obj ID " << oid
                               << ", Trans ID "
                               << update_catalog->dm_transaction_id
@@ -830,18 +832,22 @@ DataMgr::queryCatalogBackend(dmCatReq  *qryCatReq) {
    
   ObjectID objId = qryCatReq->objId;
   err = dataMgr->_process_query(qryCatReq->volId,
-                                qryCatReq->volOffset,
+                                qryCatReq->blob_name,
                                 &objId);
 
   FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr = new FDSP_MsgHdrType;
   FDS_ProtocolInterface::FDSP_QueryCatalogTypePtr query_catalog = new FDSP_QueryCatalogType;
   DataMgr::InitMsgHdr(msg_hdr);
+  query_catalog->obj_list.clear();
+  query_catalog->meta_list.clear();
 
   if (err.ok()) {
     msg_hdr->result  = FDS_ProtocolInterface::FDSP_ERR_OK;
     msg_hdr->err_msg = "Dude, you're good to go!";
-    query_catalog->data_obj_id.hash_high = objId.GetHigh();
-    query_catalog->data_obj_id.hash_low = objId.GetLow();
+    FDS_ProtocolInterface::FDSP_BlobObjectInfo query_obj_info;
+    query_obj_info.data_obj_id.hash_high = objId.GetHigh();
+    query_obj_info.data_obj_id.hash_low = objId.GetLow();
+    query_catalog->obj_list.push_back(query_obj_info);
   } else {
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_FAILED;
     msg_hdr->err_msg  = "Something hit the fan...";
@@ -857,7 +863,7 @@ DataMgr::queryCatalogBackend(dmCatReq  *qryCatReq) {
   msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_QUERY_CAT_OBJ_RSP;
 
 
-  query_catalog->volume_offset = qryCatReq->volOffset;
+  query_catalog->blob_name = qryCatReq->blob_name;
   query_catalog->dm_transaction_id = qryCatReq->transId;
   query_catalog->dm_operation = qryCatReq->transOp;
 
@@ -866,8 +872,8 @@ DataMgr::queryCatalogBackend(dmCatReq  *qryCatReq) {
   dataMgr->respMapMtx.read_unlock();
   FDS_PLOG(dataMgr->GetLog()) << "Sending async query catalog response with "
                               << "volume id: " << msg_hdr->glob_volume_id
-                              << ", volume offset: "
-                              << query_catalog->volume_offset
+                              << ", blob name: "
+                              << query_catalog->blob_name
                               << ", Obj ID " << objId
                               << ", Trans ID "
                               << query_catalog->dm_transaction_id
@@ -890,10 +896,10 @@ DataMgr::queryCatalogInternal(FDSP_QueryCatalogTypePtr qryCatReq,
     /*
      * allocate a new query cat log  class and  queue  to per volume queue.
      */
-    dmCatReq *dmQryReq = new DataMgr::dmCatReq(qryCatReq->data_obj_id.hash_high,
-                                 qryCatReq->data_obj_id.hash_low, volId, qryCatReq->volume_offset,
-				 qryCatReq->dm_transaction_id, qryCatReq->dm_operation,srcIp,
-					       dstIp, srcPort,dstPort,src_node_name, reqCookie, FDS_CAT_QRY); 
+  dmCatReq *dmQryReq = new DataMgr::dmCatReq(0,0,
+					     volId, qryCatReq->blob_name,
+					     qryCatReq->dm_transaction_id, qryCatReq->dm_operation,srcIp,
+					     dstIp, srcPort,dstPort,src_node_name, reqCookie, FDS_CAT_QRY); 
 
     err = qosCtrl->enqueueIO(dmQryReq->getVolId(), static_cast<FDS_IOType*>(dmQryReq));
     if (err != ERR_OK) {
@@ -917,21 +923,20 @@ void DataMgr::ReqHandler::QueryCatalogObject(const FDS_ProtocolInterface::
                                              &query_catalog,
                                              const Ice::Current&) {
   Error err(ERR_OK);
-  ObjectID oid(query_catalog->data_obj_id.hash_high,
-               query_catalog->data_obj_id.hash_low);
+  ObjectID oid(0,0);
 
   FDS_PLOG(dataMgr->GetLog()) << "Processing query catalog request with "
                               << "volume id: " << msg_hdr->glob_volume_id
-                              << ", volume offset: "
-                              << query_catalog->volume_offset
+                              << ", blob name: "
+                              << query_catalog->blob_name
                               << ", Obj ID " << oid
                               << ", Trans ID "
                               << query_catalog->dm_transaction_id
                               << ", OP ID " << query_catalog->dm_operation;
 
-   err = dataMgr->queryCatalogInternal(query_catalog,msg_hdr->glob_volume_id,
-			 msg_hdr->src_ip_lo_addr,msg_hdr->dst_ip_lo_addr,msg_hdr->src_port,
-				       msg_hdr->dst_port, msg_hdr->src_node_name, msg_hdr->req_cookie);
+  err = dataMgr->queryCatalogInternal(query_catalog,msg_hdr->glob_volume_id,
+				      msg_hdr->src_ip_lo_addr,msg_hdr->dst_ip_lo_addr,msg_hdr->src_port,
+				      msg_hdr->dst_port, msg_hdr->src_node_name, msg_hdr->req_cookie);
   	if (!err.ok()) {
     		msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_FAILED;
     		msg_hdr->err_msg  = "Something hit the fan...";
@@ -947,8 +952,8 @@ void DataMgr::ReqHandler::QueryCatalogObject(const FDS_ProtocolInterface::
                 dataMgr->respMapMtx.read_unlock();
   		FDS_PLOG(dataMgr->GetLog()) << "Sending async query catalog response with "
                               << "volume id: " << msg_hdr->glob_volume_id
-                              << ", volume offset: "
-                              << query_catalog->volume_offset
+                              << ", blob : "
+                              << query_catalog->blob_name
                               << ", Obj ID " << oid
                               << ", Trans ID "
                               << query_catalog->dm_transaction_id

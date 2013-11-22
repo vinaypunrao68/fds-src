@@ -1,6 +1,8 @@
 #ifndef SOURCE_FDS_NATIVE_API_H_
 #define SOURCE_FDS_NATIVE_API_H_
 
+/* Only include what we need to avoid un-needed dependencies. */
+/*
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,7 +15,10 @@
 #include <pthread.h>
 #include <fdsp/FDSP.h>
 #include <fds_volume.h>
+*/
 #include <fds_types.h>
+#include <fds_err.h>
+/*
 #include <unistd.h>
 #include <assert.h>
 #include <iostream>
@@ -23,10 +28,11 @@
 #include <concurrency/Mutex.h>
 #include <concurrency/RwLock.h>
 
-
 #include <utility>
 #include <atomic>
+*/
 #include <list>
+
 namespace fds { 
 class BucketContext { 
 public:
@@ -35,8 +41,17 @@ public:
   std::string   accessKeyId; // Identifies the tennantID or accountName
   std::string   secretAccessKey;
 
-  BucketContext();
-  ~BucketContext();
+  BucketContext(const std::string& _hostName,
+		const std::string& _bucketName,
+		const std::string& _accessKeyId,
+		const std::string& _secretAccessKey) 
+    : hostName(_hostName),
+    bucketName(_bucketName),
+    accessKeyId(_accessKeyId),
+    secretAccessKey(_secretAccessKey)
+    {
+    }
+  ~BucketContext() {}
 };
 
 class MetaNameValue { 
@@ -113,6 +128,7 @@ typedef enum
     FDSN_StatusErrorAmbiguousGrantByEmailAddress               ,
     FDSN_StatusErrorBadDigest                                  ,
     FDSN_StatusErrorBucketAlreadyExists                        ,
+    FDSN_StatusErrorBucketNotExists                            ,
     FDSN_StatusErrorBucketAlreadyOwnedByYou                    ,
     FDSN_StatusErrorBucketNotEmpty                             ,
     FDSN_StatusErrorCredentialsNotSupported                    ,
@@ -310,8 +326,8 @@ class GetConditions {
  *        0 to indicate the end of data, or > 0 to identify the number of
  *        bytes that were written into the buffer by this callback
  **/
-typedef int (fdsnPutObjectHandler)(void *reqContext, fds_uint64_t bufferSize, char *buffer,
-                                      void *callbackData);
+typedef int (*fdsnPutObjectHandler)(void *reqContext, fds_uint64_t bufferSize, char *buffer,
+				    void *callbackData, FDSN_Status status, ErrorDetails* errDetails);
 
 
 /**
@@ -330,12 +346,12 @@ typedef int (fdsnPutObjectHandler)(void *reqContext, fds_uint64_t bufferSize, ch
  *         Typically, this will return either S3StatusOK or
  *         S3StatusAbortedByCallback.
  **/
-typedef FDSN_Status (fdsnGetObjectHandler)(void *reqContext, fds_uint64_t bufferSize, const char *buffer,
-                                           void *callbackData);
-typedef void (fdsnResponseHandler)(FDSN_Status status,
+typedef FDSN_Status (*fdsnGetObjectHandler)(void *reqContext, fds_uint64_t bufferSize, const char *buffer,
+                                           void *callbackData, FDSN_Status status, ErrorDetails *errDetails);
+typedef void (*fdsnResponseHandler)(FDSN_Status status,
                                           const ErrorDetails *errorDetails,
                                           void *callbackData);
-typedef FDSN_Status (fdsnListBucketHandler)(int isTruncated,
+typedef FDSN_Status (*fdsnListBucketHandler)(int isTruncated,
                                         const char *nextMarker,
                                         int contentsCount,
                                         const ListBucketContents *contents,
@@ -346,6 +362,9 @@ typedef FDSN_Status (fdsnListBucketHandler)(int isTruncated,
 
 // FDS_NativeAPI  object class : One object per client Type so that the semantics of 
 // the particular access protocols can be followed in returning the data
+// TODO: [Vy] I'd like to make this class as singleton and inherits from
+// fds::Module class.
+//
 class FDS_NativeAPI { 
   public :
 
@@ -358,6 +377,9 @@ class FDS_NativeAPI {
   };
   FDSN_ClientType clientType;
 
+  // TODO: [Vy]: I think this API layer doesn't need to aware of any client's
+  // semantics.  Specific semantic is handled by the connector layer.
+  //
   FDS_NativeAPI(FDSN_ClientType type);
   ~FDS_NativeAPI(); 
 
@@ -369,11 +391,12 @@ class FDS_NativeAPI {
                     std::string prefix, std::string marker,
                     std::string delimiter, fds_uint32_t maxkeys,
                     void *requestContext,
-                    fdsnListBucketHandler *handler, void *callbackData);
-  void DeleteBucket(BucketContext bucketCtxt,
+                    fdsnListBucketHandler handler, void *callbackData);
+  void DeleteBucket(BucketContext *bucketCtxt,
                     void *requestContext,
-                    fdsnResponseHandler *handler, void *callbackData);
+                    fdsnResponseHandler handler, void *callbackData);
 
+  // After this call returns bucketctx, get_cond are no longer valid.
   void GetObject(BucketContext *bucketctxt, 
                  std::string ObjKey, 
                  GetConditions *get_cond, 
@@ -396,6 +419,11 @@ class FDS_NativeAPI {
                     fdsnResponseHandler responseHandler,
                     void *callbackData);
 
+  static void DoCallback(FdsBlobReq* blob_req,
+                         Error error,
+                         fds_uint32_t ignore,
+                         fds_int32_t  result);
+
  private: /* methods */
 
   /* Checks if bucket is attached to AM, if not, sends test bucket
@@ -406,8 +434,14 @@ class FDS_NativeAPI {
    *    we are waiting for response from OM (either we get attach volume 
    *    message or volume does not exist).
    *    Other error codes if error happened.
+   * \return ret_volid will contain volume uuid for the bucket if returned 
+   * value is ERR_OK
    */
-  Error testBucketInternal(BucketContext *bucket_ctxt);
+  Error checkBucketExists(BucketContext *bucket_ctxt, fds_volid_t* ret_volid);
+
+  /* helper function to initialize volume info to some default values, used by several native api methods */
+  void initVolInfo(FDS_ProtocolInterface::FDSP_VolumeInfoTypePtr vol_info, 
+		   const std::string& bucket_name);
 
 };
 }

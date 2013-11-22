@@ -306,7 +306,8 @@ void ObjectStorMgr::nodeEventOmHandler(int node_id,
 void
 ObjectStorMgr::volEventOmHandler(fds_volid_t  volumeId,
                                  VolumeDesc  *vdb,
-                                 int          action) {
+                                 int          action,
+				 FDSP_ResultType result) {
   StorMgrVolume* vol = NULL;
   Error err = ERR_OK;
 
@@ -1409,7 +1410,8 @@ ObjectStorMgr::run(int argc, char* argv[]) {
 
       volEventOmHandler(testVolId,
                         testVdb,
-                        FDS_VOL_ACTION_CREATE);
+                        FDS_VOL_ACTION_CREATE,
+			FDS_ProtocolInterface::FDSP_ERR_OK);
 
       delete testVdb;
     }

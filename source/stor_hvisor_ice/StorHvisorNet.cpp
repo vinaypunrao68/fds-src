@@ -437,6 +437,11 @@ void CreateStorHvisor(int argc, char *argv[], hv_create_blkdev cr_blkdev, hv_del
   CreateSHMode(argc, argv, cr_blkdev, del_blkdev, false, 0, 0);
 }
 
+void CreateStorHvisorS3(int argc, char *argv[])
+{
+  CreateSHMode(argc, argv, NULL, NULL, false, 0, 0);
+}
+
 void CreateSHMode(int argc,
                   char *argv[],
                   hv_create_blkdev cr_blkdev, 
@@ -749,7 +754,7 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
   /*
    * Pull out the blob request
    */
-  FdsBlobReq *blobReq = qosReq->getBlobReq();
+  FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
   fds_verify(blobReq->magicInUse() == true);
 
   fds_volid_t   volId = blobReq->getVolId();
@@ -818,23 +823,34 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
   msgHdrSm->glob_volume_id    = volId;
   msgHdrDm->glob_volume_id    = volId;
 
+  /*
+   * Setup network put object & catalog request
+   */
   FDSP_PutObjTypePtr put_obj_req = new FDSP_PutObjType;
   put_obj_req->data_obj = std::string((const char *)blobReq->getDataBuf(),
                                       (size_t )blobReq->getDataLen());
   put_obj_req->data_obj_len = blobReq->getDataLen();
 
   FDSP_UpdateCatalogTypePtr upd_obj_req = new FDSP_UpdateCatalogType;
-  put_obj_req->data_obj_id.hash_high = upd_obj_req->data_obj_id.hash_high =
-      objId.GetHigh();
-  put_obj_req->data_obj_id.hash_low = upd_obj_req->data_obj_id.hash_low =
-      objId.GetLow();
+  upd_obj_req->obj_list.clear();
 
-  // Initialize the journEntry with a open txn
+  FDS_ProtocolInterface::FDSP_BlobObjectInfo upd_obj_info;
+  upd_obj_info.offset = blobReq->getBlobOffset();  // May need to change to 0 for now?
+  upd_obj_info.size = blobReq->getDataLen();
+
+  put_obj_req->data_obj_id.hash_high = upd_obj_info.data_obj_id.hash_high = objId.GetHigh();
+  put_obj_req->data_obj_id.hash_low = upd_obj_info.data_obj_id.hash_low = objId.GetLow();
+
+  upd_obj_req->obj_list.push_back(upd_obj_info);
+  upd_obj_req->meta_list.clear();
+  upd_obj_req->blob_size = blobReq->getDataLen();  // Size of the whole blob? Or just what I'm putting
+
+  
+
+  /*
+   * Initialize the journEntry with a open txn
+   */
   journEntry->trans_state = FDS_TRANS_OPEN;
-  // journEntry->write_ctx = (void *)blobReq; // TODO: Can remove if caching qosreq
-  // journEntry->comp_req = comp_req;
-  // journEntry->comp_arg1 = arg1;
-  // journEntry->comp_arg2 = arg2;
   journEntry->io = qosReq;
   journEntry->sm_msg = msgHdrSm;
   journEntry->dm_msg = msgHdrDm;
@@ -904,7 +920,6 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
    */
   numNodes = 8;  // TODO: Why 8? Use vol/blob repl factor
   InitDmMsgHdr(msgHdrDm);
-  upd_obj_req->volume_offset      = blobReq->getBlobOffset();
   upd_obj_req->dm_transaction_id  = 1;  // TODO: Don't hard code
   upd_obj_req->dm_operation       = FDS_DMGR_TXN_STATUS_OPEN;
   msgHdrDm->req_cookie     = transId;
@@ -1049,7 +1064,7 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
   /*
    * Pull out the blob request
    */
-  FdsBlobReq *blobReq = qosReq->getBlobReq();
+  FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
   fds_verify(blobReq->magicInUse() == true);
 
   fds_volid_t   volId = blobReq->getVolId();
@@ -1230,7 +1245,7 @@ fds::Error StorHvCtrl::getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
    */
   fds::AmQosReq   *qosReq  = static_cast<fds::AmQosReq *>(txn->io);
   fds_verify(qosReq != NULL);
-  fds::FdsBlobReq *blobReq = qosReq->getBlobReq();
+  fds::FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
   fds_verify(blobReq != NULL);
   FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "Responding to getBlob trans " << transId
                                                    <<" for blob " << blobReq->getBlobName()

@@ -1,18 +1,22 @@
-topdir            := ..
+topdir            := ../../..
 user_target       := exe
 user_rtime_env    := user
 
-user_incl_dir     :=
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  :=  \
+    fds-probe-adapters \
+    fds-s3-probe \
+    fds-probe \
     fds-am-engine \
     fds-StorHvisor \
     fds-lib \
+    fds-dsk-mgnt \
+    fds-dsk-io \
     fds-umod \
     fds-util \
-    fds-fdsp \
     fds-hash \
+    fds-fdsp \
     fds-thread
 
 user_nginx_libs   :=  \
@@ -37,13 +41,13 @@ user_non_fds_libs :=  \
     IceStorm \
     $(user_nginx_libs)
 
-user_cc           :=  \
+user_cc           := \
     ngx_modules.c
 
-user_cpp          :=  \
-    am-main.cpp
+user_cpp          := \
+    s3-pm-probe.cpp
 
-user_bin_exe      := AMAgent
-AMAgent           := $(user_cpp) $(user_cc)
+user_bin_exe      := s3-pm-probe
+s3-pm-probe       := s3-pm-probe.cpp $(user_cc)
 
 include $(topdir)/Makefile.incl

@@ -655,7 +655,8 @@ void FdsLocalDomain::sendAttachVolToHvNode(fds_node_name_t node_name,
   NodeInfo& node_info = currentShMap[node_name];
 
   FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Sending attach vol to node " << node_name
-                   << " for volume " << pVolInfo->volUUID;
+						       << " node_id " << node_info.node_id
+    ;//       << " for volume " << pVolInfo->volUUID;
 
   ReqCtrlPrx OMClientAPI = node_info.cpPrx;
   OMClientAPI->begin_AttachVol(msg_hdr, vol_msg);
@@ -686,6 +687,50 @@ void FdsLocalDomain::sendDetachVolToHvNode(fds_node_name_t node_name,
 
   ReqCtrlPrx OMClientAPI = node_info.cpPrx;
   OMClientAPI->begin_DetachVol(msg_hdr, vol_msg);
+}
+
+/* Send response for TestBucket if we are not sending attach volume message */
+void FdsLocalDomain::sendTestBucketResponseToHvNode(fds_node_name_t node_name,
+						    const std::string& bucket_name,
+						    fds_bool_t vol_exists)
+{
+  // HACK! -- sending attach volume message with error code
+
+  FdspMsgHdrPtr msg_hdr = new FDS_ProtocolInterface::FDSP_MsgHdrType;
+  FdspAttVolPtr vol_msg = new FDS_ProtocolInterface::FDSP_AttachVolType;
+  vol_msg->vol_desc = new FDS_ProtocolInterface::FDSP_VolumeDescType();
+
+  initOMMsgHdr(msg_hdr);
+  msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_ATTACH_VOL_CTRL;
+  msg_hdr->dst_id = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
+  msg_hdr->glob_volume_id = 9876;
+
+  msg_hdr->result = (vol_exists) ? FDSP_ERR_VOLUME_EXISTS : FDSP_ERR_VOLUME_DOES_NOT_EXIST;
+  msg_hdr->err_msg = (vol_exists) ? std::string("Bucket exists") : std::string("Bucket does not exist");
+
+  vol_msg->vol_name = bucket_name;
+  /* initialize to something, even though it's ignored, but otherwise ice not happy */
+  vol_msg->vol_desc->vol_name = vol_msg->vol_name;
+  vol_msg->vol_desc->volUUID = 9876;
+  vol_msg->vol_desc->tennantId = 0; 
+  vol_msg->vol_desc->localDomainId = 0; 
+  vol_msg->vol_desc->globDomainId = 0; 
+  vol_msg->vol_desc->capacity = 1000000;
+  vol_msg->vol_desc->volType = FDS_ProtocolInterface::FDSP_VOL_S3_TYPE; 
+  vol_msg->vol_desc->maxQuota = 0;
+  vol_msg->vol_desc->defReplicaCnt = 1; 
+  vol_msg->vol_desc->defConsisProtocol = FDS_ProtocolInterface::FDSP_CONS_PROTO_STRONG;
+  vol_msg->vol_desc->appWorkload = FDS_ProtocolInterface::FDSP_APP_S3_OBJS;
+
+  NodeInfo& node_info = currentShMap[node_name];
+
+  FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Sending TestBucket response (attach vol with error code) to node " 
+						       << node_name
+						       << " for bucket " << vol_msg->vol_name
+						       << " node_info-> node-id = " << node_info.node_id;
+
+  ReqCtrlPrx OMClientAPI = node_info.cpPrx;
+  OMClientAPI->begin_AttachVol(msg_hdr, vol_msg);
 }
 
 /*

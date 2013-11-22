@@ -79,6 +79,10 @@ int OrchMgr::run(int argc, char* argv[]) {
   Ice::PropertiesPtr props = communicator()->getProperties();
 
   /*
+   * create a default policy ( ID = 50) for S3 bucket
+   */
+
+  /*
    * Set basic thread properties.
    */
   props->setProperty("OrchMgr.ThreadPool.Size", "50");
@@ -120,6 +124,7 @@ int OrchMgr::run(int argc, char* argv[]) {
 
   adapter->activate();
 
+  defaultS3BucketPolicy();
   communicator()->waitForShutdown();
 
   return EXIT_SUCCESS;
@@ -204,6 +209,7 @@ int OrchMgr::CreateVol(const FdspMsgHdrPtr& fdsp_msg,
   VolumeInfo *new_vol = new VolumeInfo();
   new_vol->vol_name = vol_name;
   new_vol->volUUID = currentDom->domain_ptr->getNextFreeVolId();
+  FDS_PLOG_SEV(GetLog(), fds::fds_log::normal) << " created volume ID " << new_vol->volUUID; 
   new_vol->properties = new VolumeDesc(crt_vol_req->vol_info, new_vol->volUUID);
   err = policy_mgr->fillVolumeDescPolicy(new_vol->properties);
   if ( err == ERR_CAT_ENTRY_NOT_FOUND ) {
@@ -432,6 +438,75 @@ void OrchMgr::DetachVol(const FdspMsgHdrPtr    &fdsp_msg,
       currentDom->domain_ptr->sendDetachVolToHvNode(node_name, this_vol);
     }
   }
+  om_mutex->unlock();
+}
+
+void OrchMgr::TestBucket(const FdspMsgHdrPtr& fdsp_msg,
+			 const FdspTestBucketPtr& test_buck_req)
+{
+  localDomainInfo  *currentDom;
+  std::string bucket_name = test_buck_req->bucket_name;
+  std::string source_node_name = fdsp_msg->src_node_name;
+  FDS_PLOG_SEV(GetLog(), fds::fds_log::notification) << "OM received test bucket request for bucket "
+						     << bucket_name
+						     << " attach_vol_reqd = "  
+						     << test_buck_req->attach_vol_reqd;
+
+
+
+  /*
+   * get the domain Id. If  Domain is not created  use  default domain 
+   * for now use the default domain
+   */
+  currentDom  = locDomMap[DEFAULT_LOC_DOMAIN_ID];
+
+   /* check if volume exists */
+  om_mutex->lock();
+  if ( currentDom->domain_ptr->volumeMap.count(bucket_name) == 0) {
+    FDS_PLOG_SEV(om_log, fds::fds_log::notification) << "OM: TestBucket -- bucket " << bucket_name
+						     << " does not exist, will sent error back to requesting node "
+						     << source_node_name;
+
+    if (currentDom->domain_ptr->currentShMap.count(source_node_name) > 0) {
+      currentDom->domain_ptr->sendTestBucketResponseToHvNode(source_node_name, bucket_name, false);
+    }
+    else {
+      FDS_PLOG_SEV(om_log, fds::fds_log::warning) << "OM: TestBucket -- OM does not know about requesting node "
+						  << source_node_name;
+    }
+  }
+  else if (test_buck_req->attach_vol_reqd == false) {
+    /* OM was not requested to attach volume to node, so just returning success */
+    FDS_PLOG_SEV(om_log, fds::fds_log::notification) << "OM: TestBucket -- bucket " << bucket_name
+						     << " exists! OM sending success back to requesting node "
+						     << source_node_name;
+
+    if (currentDom->domain_ptr->currentShMap.count(source_node_name) > 0) {
+      currentDom->domain_ptr->sendTestBucketResponseToHvNode(source_node_name, bucket_name, true);
+    }
+    else {
+      FDS_PLOG_SEV(om_log, fds::fds_log::warning) << "OM: TestBucket -- OM does not know about requesting node "
+						  << source_node_name;
+    }
+  }
+  else {
+    VolumeInfo *this_vol =  currentDom->domain_ptr->volumeMap[bucket_name];
+
+    for (int i = 0; i < this_vol->hv_nodes.size(); i++) {
+      if (this_vol->hv_nodes[i] == source_node_name) {
+	FDS_PLOG_SEV(om_log, fds::fds_log::warning) << "OM: TestBucket - bucket " << bucket_name
+						    << " is already attached to the requesting node "
+						    << source_node_name << " so nothing to do";
+	om_mutex->unlock();
+	return;
+      }
+    }
+    this_vol->hv_nodes.push_back(source_node_name);
+    if (currentDom->domain_ptr->currentShMap.count(source_node_name) > 0) {
+      currentDom->domain_ptr->sendAttachVolToHvNode(source_node_name, this_vol);
+    }
+  }
+
   om_mutex->unlock();
 }
 
@@ -765,10 +840,21 @@ void OrchMgr::ReqCfgHandler::DetachVol(const FdspMsgHdrPtr& fdsp_msg,
   orchMgr->DetachVol(fdsp_msg, dtc_vol_req);
 }
 
+void OrchMgr::ReqCfgHandler::GetVolInfo(const ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg, 
+		      const ::FDS_ProtocolInterface::FDSP_GetVolInfoReqTypePtr& get_vol_req, 
+		const ::Ice::Current&) {
+}
+
 void OrchMgr::ReqCfgHandler::RegisterNode(const FdspMsgHdrPtr &fdsp_msg,
                                           const FdspRegNodePtr &reg_node_req,
                                           const Ice::Current&) {
   orchMgr->RegisterNode(fdsp_msg, reg_node_req);
+}
+
+void OrchMgr::ReqCfgHandler::TestBucket(const FdspMsgHdrPtr& fdsp_msg,
+					const FdspTestBucketPtr& test_buck_req,
+					const Ice::Current&) {
+  orchMgr->TestBucket(fdsp_msg, test_buck_req);
 }
 
 void OrchMgr::ReqCfgHandler::SetThrottleLevel(const FDSP_MsgHdrTypePtr& fdsp_msg, 
@@ -793,6 +879,26 @@ void OrchMgr::ReqCfgHandler::AssociateRespCallback(
     const Ice::Identity& ident,
     const Ice::Current& current) {
 }
+
+void OrchMgr::defaultS3BucketPolicy()
+{
+  Error err(ERR_OK);
+
+ FDSP_PolicyInfoTypePtr policy_info = new FDSP_PolicyInfoType();
+
+ policy_info->policy_name = std::string("S3-Bucket_policy");
+ policy_info->policy_id = 50;
+ policy_info->iops_min = 400;
+ policy_info->iops_max = 600;
+ policy_info->rel_prio = 1;
+
+ orchMgr->om_mutex->lock();
+ err = orchMgr->policy_mgr->createPolicy(policy_info);
+ orchMgr->om_mutex->unlock();
+
+ FDS_PLOG_SEV(GetLog(), fds::fds_log::normal) << "Created  default S3 policy "; 
+}
+
 
 OrchMgr *gl_orch_mgr;
 
