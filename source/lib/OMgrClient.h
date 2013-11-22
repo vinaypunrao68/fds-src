@@ -128,7 +128,9 @@ namespace fds {
                     unsigned int *node_ip_addr,
                     fds_uint32_t *node_port,
                     int *node_state);
-    int getDLTNodesForDoidKey(unsigned char doid_key, int *node_ids, int *n_nodes);
+    int getDLTNodesForDoidKey(unsigned char doid_key,
+                              fds_int32_t *node_ids,
+                              fds_int32_t *n_nodes);
     int getDMTNodesForVolume(int vol_id, int *node_ids, int *n_nodes);
     int pushPerfstatsToOM(const std::string& start_ts,
 			  int stat_slot_len, 

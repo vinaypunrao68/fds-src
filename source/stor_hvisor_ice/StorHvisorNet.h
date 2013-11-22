@@ -174,6 +174,12 @@ public:
   fds::Error pushBlobReq(FdsBlobReq *blobReq);
   fds::Error putBlob(AmQosReq *qosReq);
   fds::Error getBlob(AmQosReq *qosReq);
+  fds::Error putObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
+                        const FDSP_PutObjTypePtr& putObjRsp);
+  fds::Error upCatResp(const FDSP_MsgHdrTypePtr& rxMsg, 
+                       const FDSP_UpdateCatalogTypePtr& catObjRsp);
+  fds::Error getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
+                        const FDSP_GetObjTypePtr& getObjRsp);
 
   void  InitIceObjects();
   void InitDmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);

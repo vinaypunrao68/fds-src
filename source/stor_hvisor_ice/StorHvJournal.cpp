@@ -248,9 +248,9 @@ void StorHvJournal::return_free_trans_id(unsigned int trans_id) {
 // If there is one for the passed offset, that trans_id is returned.
 // Caller must remember to acquire the lock for the journal entry after this call, before using it.
  
-unsigned int StorHvJournal::get_trans_id_for_block(unsigned int block_offset)
+fds_uint32_t StorHvJournal::get_trans_id_for_block(fds_uint64_t block_offset)
 {
-  unsigned int trans_id;
+  fds_uint32_t trans_id;
  
   lock();
   try{
@@ -300,7 +300,7 @@ void StorHvJournal::release_trans_id(unsigned int trans_id)
 
 }
 
-StorHvJournalEntry *StorHvJournal::get_journal_entry(int trans_id) {
+StorHvJournalEntry *StorHvJournal::get_journal_entry(fds_uint32_t trans_id) {
 
   StorHvJournalEntry *jrnl_e = &rwlog_tbl[trans_id];
   return jrnl_e;

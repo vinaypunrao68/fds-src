@@ -388,12 +388,15 @@ int pushFbdReq(fbd_request_t *blkReq) {
    * Map this blk request into a blob request
    */
   FdsBlobReq *blobReq = new FdsBlobReq((fds::fds_io_op_t)blkReq->io_type,  // IO type
-                                     blkReq->volUUID,  // Vol ID
-                                     "blkDev:vol" + std::to_string(blkReq->volUUID),  // Temp blob name
-                                     blkReq->sec * HVISOR_SECTOR_SIZE,  // Blob offset
-                                     blkReq->len,  // Request buffer length
-                                     blkReq->buf,  // Request data buffer
-                                     (FdsBlobReq::cbFunc)blkReq->cb_request);  // Request callback
+                                       blkReq->volUUID,  // Vol ID
+                                       "blkDev:vol" + std::to_string(blkReq->volUUID),  // Temp blob name
+                                       blkReq->sec * HVISOR_SECTOR_SIZE,  // Blob offset
+                                       blkReq->len,  // Request buffer length
+                                       blkReq->buf,  // Data buffer
+                                       blkReq->cb_request, // Callback function
+                                       blkReq->vbd,  // Callback arg1
+                                       blkReq->vReq, // Callback arg2
+                                       blkReq);  // Callback arg 3 (request struct itself)
   Error err = storHvisor->pushBlobReq(blobReq);
   fds_verify(err == ERR_OK);
 }

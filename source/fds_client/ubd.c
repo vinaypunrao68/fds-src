@@ -782,10 +782,9 @@ void hvisor_queue_read(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq)
 	cppout("UBD: Sending read req to hypervisor with vbd - %p, vol - %llx, vreq - %p, fbd_req - %p\n",
 	       vbd, vbd->uuid, vreq, p_new_req);
 
-//	rc = StorHvisorProcIoRd( p_new_req, hvisor_complete_td_request, (void *)vbd, (void *)vreq);
 	/* queue the  request  to the per volume queue */
-        // rc = pushFbdReq(p_new_req);
-	rc = pushVolQueue(p_new_req);
+        rc = pushFbdReq(p_new_req);
+	// rc = pushVolQueue(p_new_req);
 	if (rc) {
 	  hvisor_complete_td_request((void *)vbd, (void *)vreq, p_new_req, rc);
 	}
@@ -843,10 +842,9 @@ void hvisor_queue_write(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq
 	cppout("UBD: Sending write req to hypervisor with vbd - %p, vol - %llx, vreq - %p, fbd_req - %p\n",
 	       vbd, vbd->uuid, vreq, p_new_req);
 
-//	rc = StorHvisorProcIoWr( p_new_req, hvisor_complete_td_request, (void *)vbd, (void *)vreq);
 	/* queue the  request  to the per volume queue */
-        // rc = pushFbdReq(p_new_req);
-	rc = pushVolQueue(p_new_req);
+        rc = pushFbdReq(p_new_req);
+	// rc = pushVolQueue(p_new_req);
 	if (rc) {
 	  hvisor_complete_td_request((void *)vbd, (void *)vreq, p_new_req, rc);
 	}
@@ -1105,13 +1103,12 @@ int send_test_io(int offset, int vol_id) {
   p_new_treq->vReq = NULL;
   p_new_treq->hvisorHdl = hvisor_hdl;
   p_new_treq->cb_request = hvisor_complete_td_request_noop;
-  //        StorHvisorProcIoWr( p_new_treq, hvisor_complete_td_request_noop,NULL,NULL);
            
   /*
    * TODO: Let's not always return 0 here.
    */
-  // pushFbdReq(p_new_treq);
-  pushVolQueue(p_new_treq);
+  pushFbdReq(p_new_treq);
+  // pushVolQueue(p_new_treq);
   return 0;
 }
 
@@ -1134,9 +1131,9 @@ int read_test_io(int offset, int vol_id)
     p_new_treq->vReq = NULL;
     p_new_treq->hvisorHdl = hvisor_hdl;
     p_new_treq->cb_request = hvisor_complete_td_request_noop;
-//    StorHvisorProcIoRd(p_new_treq, hvisor_complete_td_request_noop, NULL, NULL );
-    // pushFbdReq(p_new_treq);
-    pushVolQueue(p_new_treq);
+
+    pushFbdReq(p_new_treq);
+    // pushVolQueue(p_new_treq);
     return 0;
 
 }

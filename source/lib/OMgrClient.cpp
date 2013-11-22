@@ -530,7 +530,9 @@ int OMgrClient::getNodeInfo(int node_id,
   return 0;
 } 
 
-int OMgrClient::getDLTNodesForDoidKey(unsigned char doid_key, int *node_ids, int *n_nodes) {
+int OMgrClient::getDLTNodesForDoidKey(unsigned char doid_key,
+                                      fds_int32_t *node_ids,
+                                      fds_int32_t *n_nodes) {
   
   omc_lock.read_lock();
 

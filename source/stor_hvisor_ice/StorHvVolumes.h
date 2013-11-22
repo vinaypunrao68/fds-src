@@ -162,7 +162,8 @@ private:
   FdsBlobReq *blobReq;
 
 public:
-  AmQosReq(FdsBlobReq *_br)
+  AmQosReq(FdsBlobReq *_br,
+           fds_uint32_t _reqId)
       : blobReq(_br) {
     /*
      * Set the base class defaults
@@ -171,11 +172,7 @@ public:
     io_module = STOR_HV_IO;
     io_vol_id = blobReq->getVolId();
     io_type   = blobReq->getIoType();
-    /*
-     * Set a reqId here. Need a atomic counter in
-     * Sh ctrl
-     */
-    io_req_id = 885;
+    io_req_id = _reqId;
 
     /*
      * Zero out FBD stuff to make sure we don't use it.
@@ -190,6 +187,10 @@ public:
 
   fds_bool_t magicInUse() const {
     return blobReq->magicInUse();
+  }
+
+  FdsBlobReq* getBlobReq() {
+    return blobReq;
   }
 };
 
