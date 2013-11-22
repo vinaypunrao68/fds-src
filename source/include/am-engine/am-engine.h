@@ -80,19 +80,19 @@ typedef enum
 
     // RESTBucket response keys
     REST_LIST_BUCKET         = 7,
-    REST_NAME                = 9,
-    REST_PREFIX              = 11,
-    REST_MARKER              = 13,
-    REST_MAX_KEYS            = 15,
-    REST_IS_TRUNCATED        = 17,
-    REST_CONTENTS            = 19,
-    REST_KEY                 = 21,
-    REST_ETAG                = 23,
-    REST_SIZE                = 25,
-    REST_STORAGE_CLASS       = 27,
-    REST_OWNER               = 29,
-    REST_ID                  = 31,
-    REST_DISPLAY_NAME        = 33,
+    REST_NAME                = 8,
+    REST_PREFIX              = 9,
+    REST_MARKER              = 10,
+    REST_MAX_KEYS            = 11,
+    REST_IS_TRUNCATED        = 12,
+    REST_CONTENTS            = 13,
+    REST_KEY                 = 14,
+    REST_ETAG                = 15,
+    REST_SIZE                = 16,
+    REST_STORAGE_CLASS       = 17,
+    REST_OWNER               = 18,
+    REST_ID                  = 19,
+    REST_DISPLAY_NAME        = 20,
     AME_HDR_KEY_MAX
 } ame_hdr_key_e;
 

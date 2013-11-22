@@ -148,8 +148,8 @@ public:
    std::string  ownerId;
    std::string  ownerDisplayName;
 
-   ListBucketContents();
-   ~ListBucketContents();
+   ListBucketContents() {}
+   ~ListBucketContents() {}
 };
 
 typedef enum
