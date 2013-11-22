@@ -140,7 +140,8 @@ class StorHvVolumeTable
   /* handler for volume-related control message from OM */
   static void volumeEventHandler(fds_volid_t vol_uuid, 
                                  VolumeDesc *vdb,
-                                 fds_vol_notify_t vol_action);
+                                 fds_vol_notify_t vol_action,
+				 FDS_ProtocolInterface::FDSP_ResultType);
  
   void moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
 			       const std::string& vol_name,

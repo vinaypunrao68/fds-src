@@ -12,7 +12,8 @@ DataMgr *dataMgr;
 
 void DataMgr::vol_handler(fds_volid_t vol_uuid,
                           VolumeDesc *desc,
-                          fds_vol_notify_t vol_action) {
+                          fds_vol_notify_t vol_action,
+			  FDS_ProtocolInterface::FDSP_ResultType result) {
   Error err(ERR_OK);
   FDS_PLOG(dataMgr->GetLog()) << "Received vol notif from OM for "
                               << vol_uuid;
@@ -528,7 +529,7 @@ int DataMgr::run(int argc, char* argv[]) {
                                testVolId * 2,
                                testVolId);
       fds_assert(testVdb != NULL);
-      vol_handler(testVolId, testVdb, fds_notify_vol_add); 
+      vol_handler(testVolId, testVdb, fds_notify_vol_add, FDS_ProtocolInterface::FDSP_ERR_OK); 
 
       delete testVdb;
     }

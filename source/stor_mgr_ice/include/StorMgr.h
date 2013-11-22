@@ -348,7 +348,8 @@ namespace fds {
                                    FDS_ProtocolInterface::FDSP_MgrIdType node_type);
     static void volEventOmHandler(fds::fds_volid_t volume_id,
                                   fds::VolumeDesc *vdb,
-                                  int vol_action);
+                                  int vol_action,
+				  FDSP_ResultType resut);
 
     int run(int, char*[]);
     void interruptCallback(int);

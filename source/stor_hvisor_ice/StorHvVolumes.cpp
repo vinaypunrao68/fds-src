@@ -443,14 +443,26 @@ void StorHvVolumeTable::moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
  */
 void StorHvVolumeTable::volumeEventHandler(fds_volid_t vol_uuid,
                                            VolumeDesc *vdb,
-                                           fds_vol_notify_t vol_action)
+                                           fds_vol_notify_t vol_action,
+					   FDS_ProtocolInterface::FDSP_ResultType result)
 {
   switch (vol_action) {
   case fds_notify_vol_attatch:
     FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification) << "StorHvVolumeTable - Received volume attach event from OM"
                                    << " for volume " << vol_uuid;
 
-    storHvisor->vol_table->registerVolume(vdb ? *vdb : VolumeDesc("", vol_uuid));
+    if (result == FDS_ProtocolInterface::FDSP_ERR_OK) {
+      storHvisor->vol_table->registerVolume(vdb ? *vdb : VolumeDesc("", vol_uuid));
+    }
+    else if (result == FDS_ProtocolInterface::FDSP_ERR_VOLUME_DOES_NOT_EXIST) {
+      /* complete all requests that are waiting on bucket to attach with error */
+      if (vdb) {
+	FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification) << "StorHvVolumeTable - Volume " 
+								       << vdb->name << "does not exist.";
+      }
+      storHvisor->vol_table->moveWaitBlobsToQosQueue(vol_uuid, vdb ? vdb->name : "unknown", Error(ERR_NOT_FOUND));
+    }
+
     break;
   case fds_notify_vol_detach:
     FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification) << "StorHvVolumeTable - Received volume detach event from OM"
