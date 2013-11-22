@@ -460,7 +460,24 @@ int OMgrClient::pushCreateBucketToOM(const FDS_ProtocolInterface::FDSP_VolumeInf
 
     	 fdspConfigPathAPI->begin_CreateVol(msg_hdr, volData);
   } catch (...) {
-    FDS_PLOG_SEV(omc_log, fds::fds_log::error) << "OMClient unable to push perf stats to OM. Check if OM is up and restart.";
+    FDS_PLOG_SEV(omc_log, fds::fds_log::error) << "OMClient unable to push  the create bucket request to OM. Check if OM is up and restart.";
+  }
+
+   /* do attach volume for this bucket */
+  try {
+    std::string tcpProxyStr = std::string("OrchMgr: tcp -h ") + 
+         		omIpStr + std::string(" -p ") + std::to_string(omConfigPort);
+  	 FDSP_ConfigPathReqPrx fdspConfigPathAPI = FDSP_ConfigPathReqPrx::checkedCast(rpc_comm->stringToProxy(tcpProxyStr));
+         FDSP_MsgHdrTypePtr msg_hdr = new FDSP_MsgHdrType;
+         initOMMsgHdr(msg_hdr);
+
+        FDSP_AttachVolCmdTypePtr volData = new  FDSP_AttachVolCmdType();
+
+   	volData->vol_name = volInfo->vol_name; 
+   	volData->node_id = std::string("localhost-sh"); 
+  	fdspConfigPathAPI->AttachVol(msg_hdr, volData);
+  } catch (...) {
+    FDS_PLOG_SEV(omc_log, fds::fds_log::error) << "OMClient unable to push  the attach  bucket to  OM. Check if OM is up and restart.";
   }
 
   return 0;
