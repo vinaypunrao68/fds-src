@@ -435,6 +435,11 @@ class FDS_NativeAPI {
    * value is ERR_OK
    */
   Error checkBucketExists(BucketContext *bucket_ctxt, fds_volid_t* ret_volid);
+
+  /* helper function to initialize volume info to some default values, used by several native api methods */
+  void initVolInfo(FDS_ProtocolInterface::FDSP_VolumeInfoTypePtr vol_info, 
+		   const std::string& bucket_name);
+
 };
 }
 #endif 

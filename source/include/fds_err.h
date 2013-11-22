@@ -25,7 +25,8 @@ namespace fds {
     "Unable to query into catalog",
     "Catalog entry not found",
     "Invalid argument or parameter",
-    "Not Found"
+    "Response is pending",
+    "Not found"
   };
   
   typedef enum {
