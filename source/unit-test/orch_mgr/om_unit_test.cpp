@@ -67,11 +67,18 @@ class ControlPathReq : public FDS_ProtocolInterface::FDSP_ControlPathReq {
 
   void AttachVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
                  const FDS_ProtocolInterface::FDSP_AttachVolTypePtr& vol_msg,
-                 const Ice::Current&) { 
+                 const Ice::Current&) 
+  {
+    std::string msg_str(msg_hdr->err_msg);
 
-    VolumeDesc *vdb = new VolumeDesc(vol_msg->vol_desc);
-    PrintVolumeDesc("NotifyVolAttach", vdb);
-    delete vdb;
+    FDS_PLOG(test_log) << "NotifyVolAttach: received " << msg_str;
+
+    if (msg_hdr->result == FDS_ProtocolInterface::FDSP_ERR_OK) 
+      { 
+    	VolumeDesc *vdb = new VolumeDesc(vol_msg->vol_desc);
+    	PrintVolumeDesc("NotifyVolAttach", vdb);
+    	delete vdb;
+      }
   }
 
   void DetachVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
@@ -659,7 +666,7 @@ class OmUnitTest {
        * the FDSP.
        */
      reg_node_msg->node_name = "test_AM";
-
+     msg_hdr->src_node_name = reg_node_msg->node_name;
       /*
        * TODO: Change this to a service type since nodes registering
        * and services registering should be two different things
@@ -674,12 +681,11 @@ class OmUnitTest {
                          << " control port " << reg_node_msg->control_port;
 
     /* test bucket that does not exist */
-     /* TODO: does not like passing vol_info for some reason */
-#if 0
+     /* TODO: need to fully init vol_info, but not used for now, so not doing that yet */
     FDS_ProtocolInterface::FDSP_TestBucketPtr test_buck_msg =
         new FDS_ProtocolInterface::FDSP_TestBucket;
 
-    test_buck_msg->bucket_name = std::string("no_exist_bucket");
+    test_buck_msg->bucket_name = std::string("Volume 901");
     test_buck_msg->vol_info = NULL; //new FDS_ProtocolInterface::FDSP_VolumeInfoType;
     //    test_buck_msg->vol_info->vol_name = std::string("volA");
     test_buck_msg->attach_vol_reqd = true;
@@ -690,7 +696,6 @@ class OmUnitTest {
 
     FDS_PLOG(test_log) << "Completed test bucket request for bucket " 
 			<< test_buck_msg->bucket_name;
-#endif
 
     FDS_PLOG(test_log) << "Ending test: buckets_test()";
     return 0;

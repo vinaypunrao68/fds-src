@@ -284,7 +284,10 @@ class FdsLocalDomain {
       Broadcast SetThrottleLevel message to all SH Nodes
     */
     void sendThrottleLevelToHvNodes(float throttle_level);
-    
+ 
+    /* Send response for TestBucket if we are not sending attach volume message */ 
+    void sendTestBucketResponseToHvNode(fds_node_name_t node_name, const std::string& bucket_name, fds_bool_t vol_exists);
+   
     /*
      * Testing related member functions
      */
