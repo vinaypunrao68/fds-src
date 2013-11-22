@@ -14,10 +14,10 @@ using namespace FDS_ProtocolInterface;
 
 #define FDS_VOL_ACTION_NONE   0
 #define FDS_VOL_ACTION_CREATE 1
-#define FDS_VOL_ACTION_MODIFY 2
-#define FDS_VOL_ACTION_ATTACH 3
-#define FDS_VOL_ACTION_DETACH 4
-#define FDS_VOL_ACTION_DELETE 5
+#define FDS_VOL_ACTION_DELETE 2
+#define FDS_VOL_ACTION_MODIFY 3
+#define FDS_VOL_ACTION_ATTACH 4
+#define FDS_VOL_ACTION_DETACH 5
 
 typedef struct _node_info_t {
 
