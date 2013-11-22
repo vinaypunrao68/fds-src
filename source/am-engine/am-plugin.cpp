@@ -6,6 +6,10 @@
 #include <am-engine/http_utils.h>
 #include <boost/tokenizer.hpp>
 #include <fds_assert.h>
+
+/* The factory creating objects to handle supported commands. */
+static fds::AMEngine  *sgt_ame_plugin;
+
 extern "C" {
 #include <am-plugin.h>
 #include <ngx_config.h>
@@ -81,6 +85,17 @@ struct ngx_http_fds_data_loc_conf
     ngx_flag_t               fds_enable;
 };
 
+/*
+ * ngx_register_plugin
+ * -------------------
+ * Register the plugin having factory methods to create objects that will
+ * handle supported APIs.
+ */
+void
+ngx_register_plugin(fds::AMEngine *engine)
+{
+    sgt_ame_plugin = engine;
+}
 
 /**
  * Parse uri into its individual parts and return those parts
@@ -286,12 +301,11 @@ send_response(ngx_http_request_t *r)
 ngx_int_t
 ngx_fds_obj_get(HttpRequest *http_req)
 {
-  fds::S3_GetObject *s3 = new fds::S3_GetObject(*http_req);
+    fds::Conn_GetObject *get = sgt_ame_plugin->ame_getobj_hdler(*http_req);
 
-  // Do sync processing for now.
-  s3->ame_request_handler();
-  delete s3;
-  return NGX_DONE;
+    get->ame_request_handler();
+    delete get;
+    return NGX_DONE;
 }
 
 // ngx_fds_obj_put
@@ -300,12 +314,11 @@ ngx_fds_obj_get(HttpRequest *http_req)
 ngx_int_t
 ngx_fds_obj_put(HttpRequest *http_req)
 {
-  fds::S3_PutObject *s3 = new fds::S3_PutObject(*http_req);
+    fds::Conn_PutObject *put = sgt_ame_plugin->ame_putobj_hdler(*http_req);
 
-  // Do sync processing for now.
-  s3->ame_request_handler();
-  delete s3;
-  return NGX_DONE;
+    put->ame_request_handler();
+    delete put;
+    return NGX_DONE;
 }
 // ngx_fds_obj_delete
 // ------------------
@@ -313,13 +326,12 @@ ngx_fds_obj_put(HttpRequest *http_req)
 ngx_int_t
 ngx_fds_obj_delete(HttpRequest *http_req)
 {
-  fds::S3_DelObject *s3 = new fds::S3_DelObject(*http_req);
+    fds::Conn_DelObject *del = sgt_ame_plugin->ame_delobj_hdler(*http_req);
 
-  // Do sync processing for now.
-  s3->ame_request_handler();
-  delete s3;
-  return NGX_DONE;
-
+    // Do sync processing for now.
+    del->ame_request_handler();
+    delete del;
+    return NGX_DONE;
 }
 
 // ngx_fds_bucket_get
@@ -328,12 +340,12 @@ ngx_fds_obj_delete(HttpRequest *http_req)
 ngx_int_t
 ngx_fds_bucket_get(HttpRequest *http_req)
 {
-  fds::S3_GetBucket *s3 = new fds::S3_GetBucket(*http_req);
+    fds::Conn_GetBucket *get = sgt_ame_plugin->ame_getbucket_hdler(*http_req);
 
-  // Do sync processing for now.
-  s3->ame_request_handler();
-  delete s3;
-  return NGX_DONE;
+    // Do sync processing for now.
+    get->ame_request_handler();
+    delete get;
+    return NGX_DONE;
 }
 
 // ngx_fds_bucket_put
@@ -342,12 +354,12 @@ ngx_fds_bucket_get(HttpRequest *http_req)
 ngx_int_t
 ngx_fds_bucket_put(HttpRequest *http_req)
 {
-  fds::S3_PutBucket *s3 = new fds::S3_PutBucket(*http_req);
+    fds::Conn_PutBucket *put = sgt_ame_plugin->ame_putbucket_hdler(*http_req);
 
-  // Do sync processing for now.
-  s3->ame_request_handler();
-  delete s3;
-  return NGX_DONE;
+    // Do sync processing for now.
+    put->ame_request_handler();
+    delete put;
+    return NGX_DONE;
 }
 
 // ngx_fds_bucket_delete
@@ -356,12 +368,12 @@ ngx_fds_bucket_put(HttpRequest *http_req)
 ngx_int_t
 ngx_fds_bucket_delete(HttpRequest *http_req)
 {
-  fds::S3_DelBucket *s3 = new fds::S3_DelBucket(*http_req);
+    fds::Conn_DelBucket *del = sgt_ame_plugin->ame_delbucket_hdler(*http_req);
 
-  // Do sync processing for now.
-  s3->ame_request_handler();
-  delete s3;
-  return NGX_DONE;
+    // Do sync processing for now.
+    del->ame_request_handler();
+    delete del;
+    return NGX_DONE;
 }
 
 } // extern "C"

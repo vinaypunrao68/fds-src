@@ -796,7 +796,7 @@ class SmUnitTest {
 
     Module *sm_probe_vec[] = {
       &probe,
-      &gl_probeMainLib,
+      &gl_probeBlkLib,
       NULL
     };
 
@@ -818,7 +818,7 @@ class SmUnitTest {
     /*
      * This will listen forever...
      */
-    gl_probeMainLib.probe_run_main(&probe);
+    gl_probeBlkLib.probe_run_main(&probe);
 
     return 0;
   }
