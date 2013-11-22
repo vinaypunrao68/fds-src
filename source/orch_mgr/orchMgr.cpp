@@ -209,6 +209,7 @@ int OrchMgr::CreateVol(const FdspMsgHdrPtr& fdsp_msg,
   VolumeInfo *new_vol = new VolumeInfo();
   new_vol->vol_name = vol_name;
   new_vol->volUUID = currentDom->domain_ptr->getNextFreeVolId();
+  FDS_PLOG_SEV(GetLog(), fds::fds_log::normal) << " created volume ID " << new_vol->volUUID; 
   new_vol->properties = new VolumeDesc(crt_vol_req->vol_info, new_vol->volUUID);
   err = policy_mgr->fillVolumeDescPolicy(new_vol->properties);
   if ( err == ERR_CAT_ENTRY_NOT_FOUND ) {
