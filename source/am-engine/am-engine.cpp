@@ -216,8 +216,8 @@ AME_Request::ame_reqt_iter_data(int *len)
     return NULL;
   }
 
-  char* data = (char*) post_buf_itr->buf->start;
-  *len = post_buf_itr->buf->end - post_buf_itr->buf->start;
+  char* data = (char*) post_buf_itr->buf->pos;
+  *len = post_buf_itr->buf->last - post_buf_itr->buf->pos;
   post_buf_itr = post_buf_itr->next;
 
   return data;
@@ -341,7 +341,7 @@ AME_Request::ame_send_resp_data(void *buf_cookie, int len, fds_bool_t last)
     r   = ame_req.getNginxReq();
 
     buf = (ngx_buf_t *)buf_cookie;
-    buf->end = buf->start + len;
+    buf->last = buf->pos + len;
     out.buf  = buf;
     out.next = NULL;
 
@@ -474,7 +474,7 @@ Conn_PutObject::ame_request_handler()
 //                   buf, len, Conn_PutObject::cb, this);
     /*********************************/
     buf[len] = '\0';
-    printf("len: %d, data: %s", len, buf);
+    printf("len: %d, data: %.5s", len, buf);
     Conn_PutObject::cb(NULL, 0, NULL, this, FDSN_StatusOK, NULL);
     /**********************************/
 }
