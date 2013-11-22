@@ -18,6 +18,28 @@ FDS_NativeAPI::~FDS_NativeAPI()
 {
 }
 
+void FDS_NativeAPI::initVolInfo(FDSP_VolumeInfoTypePtr vol_info, const std::string& bucket_name)
+{
+  vol_info->vol_name = std::string(bucket_name);
+  vol_info->tennantId = 0;
+  vol_info->localDomainId = 0;
+  vol_info->globDomainId = 0;
+
+  vol_info->capacity = (1024*1024*100);
+  vol_info->maxQuota = 0;
+  vol_info->volType = FDSP_VOL_S3_TYPE;
+
+  vol_info->defReplicaCnt = 0;
+  vol_info->defWriteQuorum = 0;
+  vol_info->defReadQuorum = 0;
+  vol_info->defConsisProtocol = FDSP_CONS_PROTO_STRONG;
+
+  vol_info->volPolicyId = 50; // default S3 policy desc ID
+  vol_info->archivePolicyId = 0;
+  vol_info->placementPolicy = 0;
+  vol_info->appWorkload = FDSP_APP_WKLD_TRANSACTION;
+}
+
 /* Create a bucket */
 void FDS_NativeAPI::CreateBucket(BucketContext *bucket_ctx, 
 				 CannedAcl  canned_acl,
@@ -36,24 +58,8 @@ void FDS_NativeAPI::CreateBucket(BucketContext *bucket_ctx,
    }
 
    FDSP_VolumeInfoTypePtr vol_info = new FDSP_VolumeInfoType();
-     vol_info->vol_name = std::string(bucket_ctx->bucketName);
-     vol_info->tennantId = 0;
-     vol_info->localDomainId = 0;
-     vol_info->globDomainId = 0;
-
-     vol_info->capacity = (1024*1024*100);
-     vol_info->maxQuota = 0;
-     vol_info->volType = FDSP_VOL_S3_TYPE;
-
-     vol_info->defReplicaCnt = 0;
-     vol_info->defWriteQuorum = 0;
-     vol_info->defReadQuorum = 0;
-     vol_info->defConsisProtocol = FDSP_CONS_PROTO_STRONG;
-
-     vol_info->volPolicyId = 50;  // default S3 policy desc ID
-     vol_info->archivePolicyId = 0;
-     vol_info->placementPolicy = 0;
-     vol_info->appWorkload = FDSP_APP_WKLD_TRANSACTION;
+   initVolInfo(vol_info, bucket_ctx->bucketName);
+   vol_info->volPolicyId = 50;  // default S3 policy desc ID
 
    // send the  bucket create request to OM
 
@@ -320,9 +326,7 @@ Error FDS_NativeAPI::checkBucketExists(BucketContext *bucket_ctxt, fds_volid_t* 
   /* else -- the volume not attached but it could have been already created,
    * so we will send test bucket msg to OM */
   FDSP_VolumeInfoTypePtr vol_info = new FDSP_VolumeInfoType();
-  vol_info->vol_name = std::string(bucket_ctxt->bucketName);
-  vol_info->volType = FDSP_VOL_S3_TYPE;
-  /* at this point we don't know anything about volume (?) */
+  initVolInfo(vol_info, bucket_ctxt->bucketName);
 
   om_err = storHvisor->om_client->testBucket(bucket_ctxt->bucketName,
 					     vol_info,
