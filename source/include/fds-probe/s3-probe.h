@@ -41,9 +41,15 @@ class ProbeS3Eng : public AMEngine_S3
     ProbeS3Eng(char const *const name) : AMEngine_S3(name) {}
     ~ProbeS3Eng() {}
 
+    // Hookup this S3 engine probe to the back-end adapter.
+    //
     void probe_connect_adapter(ProbeMod *adapter) {
         pr_adapter = adapter;
     }
+    ProbeMod *probe_get_adapter() {
+        return pr_adapter;
+    }
+
     // Object factory
     //
     virtual Conn_GetObject *ame_getobj_hdler(HttpRequest &req) {
