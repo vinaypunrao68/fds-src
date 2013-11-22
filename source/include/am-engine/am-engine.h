@@ -137,6 +137,7 @@ public:
     char                     *resp_end;
     int                      resp_len;
     ngx_chain_t              *post_buf_itr;
+    std::string              etag;
 
     // Common request path.
     // The request handler is called through ame_request_handler().
