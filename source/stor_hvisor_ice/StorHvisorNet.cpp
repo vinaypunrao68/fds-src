@@ -920,6 +920,7 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
    */
   numNodes = 8;  // TODO: Why 8? Use vol/blob repl factor
   InitDmMsgHdr(msgHdrDm);
+  upd_obj_req->blob_name = blobReq->getBlobName();
   upd_obj_req->dm_transaction_id  = 1;  // TODO: Don't hard code
   upd_obj_req->dm_operation       = FDS_DMGR_TXN_STATUS_OPEN;
   msgHdrDm->req_cookie     = transId;
