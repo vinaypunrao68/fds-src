@@ -100,10 +100,38 @@ namespace fds {
       return err;
     }
 
+
+    virtual Error modifyQueueQosParams(fds_uint32_t queue_id,
+				       fds_uint64_t iops_min,
+				       fds_uint64_t iops_max,
+				       fds_uint32_t prio)
+    {
+      Error err(ERR_OK);
+      qda_lock.write_lock();
+      err = modifyQueueQosWithLockHeld(queue_id, iops_min, iops_max, prio);
+      qda_lock.write_unlock();
+      return err;
+    }
+
+    Error modifyQueueQosWithLockHeld(fds_uint32_t queue_id,
+				     fds_uint64_t iops_min,
+				     fds_uint64_t iops_max,
+				     fds_uint32_t prio) 
+    {
+      Error err(ERR_OK);
+      if (queue_map.count(queue_id) == 0) {
+	err = Error(ERR_INVALID_ARG);
+	return err;
+      }
+      FDS_VolumeQueue *que = queue_map[queue_id];
+      que->modifyQosParams(iops_min, iops_max, prio);
+      return err;
+    }
+
     Error deregisterQueueWithLockHeld(fds_uint32_t queue_id) {
       Error err(ERR_OK);
       if  (queue_map.count(queue_id) == 0) {
-	err = ERR_INVALID_ARG;
+	err = Error(ERR_INVALID_ARG);
 	return err;
       }
       FDS_VolumeQueue *que = queue_map[queue_id];

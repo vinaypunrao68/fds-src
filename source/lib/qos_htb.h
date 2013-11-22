@@ -203,6 +203,11 @@ namespace fds {
     /* this implementation calls base class deregisterQueue first */
     virtual Error deregisterQueue(fds_uint32_t queue_id);
 
+    virtual Error modifyQueueQosParams(fds_uint32_t queue_id,
+				       fds_uint64_t iops_min,
+				       fds_uint64_t iops_max,
+				       fds_uint32_t prio);
+
     virtual void setThrottleLevel(float throttle_level);
 
     /**** extra methods that we could also add to base class ***/
@@ -213,13 +218,11 @@ namespace fds {
      * an ability to notify OM that some volumes will not be able to meet their reserved rate */
     Error modifyTotalRate(fds_uint64_t _total_rate);
   
-    /* modify queue's configurable parameters */
-    /*    Error modifyQueueParams(fds_uint32_t queue_id, 
-			    fds_uint64_t q_min_rate,
-			    fds_uint64_t q_max_rate,
-			    fds_uint32_t q_priority);*/
-
    using FDS_QoSDispatcher::dispatchIOs;
+
+  private:
+   void setQueueThrottleLevel(TBQueueState* qstate, float throttle_level); 
+   void setQueueThrottleLevel(TBQueueState* qstate, fds_uint32_t tlevel_x, double tlevel_frac);
 
   private:
     /****** configurable parameters *****/
@@ -245,6 +248,9 @@ namespace fds {
 
     /* total burst size from dispatcher */
     fds_uint64_t max_burst_size; /* in number of IOs */
+
+    /* current throttle level */
+    float current_throttle_level;
 
     /***** dynamic state ******/
     RecvTokenBucket avail_pool; /* pool of available tokens (non-guaranteed tokens + expired guaranteed tokens) */
