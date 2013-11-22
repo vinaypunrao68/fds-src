@@ -64,10 +64,12 @@ typedef enum
 // Reference spec URL:
 // http://docs.aws.amazon.com/AmazonS3/latest/API/
 //   Common response: RESTCommonResponseHeaders.html
+//   Bucket get     : RESTBucketGET.html
 //
 // Don't change the order because they're indices to the keytab table.
 typedef enum
 {
+    // Common response keys
     RESP_CONTENT_LEN         = 0,
     RESP_CONNECTION          = 1,
     RESP_CONNECTION_OPEN     = 2,
@@ -75,6 +77,22 @@ typedef enum
     RESP_ETAG                = 4,
     RESP_DATE                = 5,
     RESP_SERVER              = 6,
+
+    // RESTBucket response keys
+    REST_LIST_BUCKET         = 7,
+    REST_NAME                = 9,
+    REST_PREFIX              = 11,
+    REST_MARKER              = 13,
+    REST_MAX_KEYS            = 15,
+    REST_IS_TRUNCATED        = 17,
+    REST_CONTENTS            = 19,
+    REST_KEY                 = 21,
+    REST_ETAG                = 23,
+    REST_SIZE                = 25,
+    REST_STORAGE_CLASS       = 27,
+    REST_OWNER               = 29,
+    REST_ID                  = 31,
+    REST_DISPLAY_NAME        = 33,
     AME_HDR_KEY_MAX
 } ame_hdr_key_e;
 
@@ -126,13 +144,7 @@ class AME_Request : public fdsio::Request
     virtual ame_ret_e ame_format_response_hdr() = 0;
 
   protected:
-    HttpRequest ame_req;
-    // TODO: we need to do this in the proper way like how NGINX manages a
-    // string buf. Just do something quick right now.
-    char                     resp_buf[1024];
-    char                     *resp_pos;
-    char                     *resp_end;
-    int                      resp_len;
+    HttpRequest              ame_req;
     ngx_chain_t              *post_buf_itr;
 
     // Common request path.
@@ -265,9 +277,11 @@ class Conn_PutObject : public AME_Request
 //
 class Conn_PutBucket : public AME_Request
 {
-public:
-  // put bucket callback from FDS Api
-  static void cb(FDSN_Status status, const ErrorDetails *errorDetails, void *callbackData);
+  public:
+    // put bucket callback from FDS Api
+    static void
+    fdsn_cb(FDSN_Status status,
+            const ErrorDetails *errorDetails, void *callbackData);
 
   public:
     Conn_PutBucket(HttpRequest &req);
@@ -293,11 +307,19 @@ public:
 class Conn_GetBucket : public AME_Request
 {
   public:
+    // Get Bucket callback from FDS API.
+    static FDSN_Status
+    fdsn_getbucket(int isTruncated, const char *nextMaker,
+                   int contentsCount, const ListBucketContents *contents,
+                   int commPrefixCount, const char **commPrefixes,
+                   void *cbarg);
+
+  public:
     Conn_GetBucket(HttpRequest &req);
     ~Conn_GetBucket();
 
     virtual void ame_request_handler();
-    virtual void fdsn_send_getbucket_response(int status);
+    virtual void fdsn_send_getbucket_response(int status, int len);
   protected:
 };
 

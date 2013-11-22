@@ -25,6 +25,7 @@ extern "C" {
 namespace fds {
 
 const int    NGINX_ARG_PARAM = 80;
+const int    NGX_RESP_CHUNK_SIZE = (16 << 10);
 static char  nginx_prefix[NGINX_ARG_PARAM];
 static char  nginx_config[NGINX_ARG_PARAM];
 static char  nginx_signal[NGINX_ARG_PARAM];
@@ -74,7 +75,7 @@ AMEngine::mod_init(SysParams const *const p)
         }
     }
     // Fix up the key table setup.
-    for (int i = 0; sgt_AMEKey[i].u.kv_key != nullptr; i++) {
+    for (int i = 0; sgt_AMEKey[i].kv_idx != AME_HDR_KEY_MAX; i++) {
         fds_verify(sgt_AMEKey[i].kv_idx == i);
         sgt_AMEKey[i].kv_keylen = strlen(sgt_AMEKey[i].u.kv_key);
     }
@@ -145,8 +146,8 @@ AMEngine::mod_shutdown()
 // Reference URL:
 // http://docs.aws.amazon.com/AmazonS3/latest/API/
 //      RESTCommonResponseHeaders.html
+//      RESTBucketGET.html
 // ---------------------------------------------------------------------------
-
 ame_keytab_t sgt_AMEKey[] =
 {
     { { "Content-Length" },      0, RESP_CONTENT_LEN },
@@ -156,15 +157,28 @@ ame_keytab_t sgt_AMEKey[] =
     { { "Etag" },                0, RESP_ETAG },
     { { "Date" },                0, RESP_DATE },
     { { "Server" },              0, RESP_SERVER },
-    { { nullptr }, 0, AME_HDR_KEY_MAX }
+
+    // RESTBucketGET response keys
+    { { "ListBucketResult" },    0, REST_LIST_BUCKET },
+    { { "Name" },                0, REST_NAME },
+    { { "Prefix" },              0, REST_PREFIX },
+    { { "Marker" },              0, REST_MARKER },
+    { { "MaxKeys" },             0, REST_MAX_KEYS },
+    { { "IsTruncated" },         0, REST_IS_TRUNCATED },
+    { { "Contents" },            0, REST_CONTENTS },
+    { { "Key" },                 0, REST_KEY },
+    { { "Etag" },                0, REST_ETAG },
+    { { "Size" },                0, REST_SIZE },
+    { { "StorageClass" },        0, REST_STORAGE_CLASS },
+    { { "Owner" },               0, REST_OWNER },
+    { { "ID" },                  0, REST_ID },
+    { { "DisplayName" },         0, REST_DISPLAY_NAME },
+    { { nullptr },               0, AME_HDR_KEY_MAX }
 };
 
 AME_Request::AME_Request(HttpRequest &req)
     : fdsio::Request(false), ame_req(req)
 {
-    resp_len  = 1024;
-    resp_pos  = resp_buf;
-    resp_end  = resp_buf + resp_len;
   if (ame_req.getNginxReq()->request_body &&
       ame_req.getNginxReq()->request_body->bufs) {
     post_buf_itr = ame_req.getNginxReq()->request_body->bufs;
@@ -477,8 +491,7 @@ Conn_PutBucket::~Conn_PutBucket()
 // put_callback_fn
 // ---------------
 //
-
-void Conn_PutBucket::cb(FDSN_Status status,
+void Conn_PutBucket::fdsn_cb(FDSN_Status status,
     const ErrorDetails *errorDetails,
     void *callbackData)
 {
@@ -505,8 +518,8 @@ Conn_PutBucket::ame_request_handler()
     BucketContext bucket_ctx("host", get_bucket_id(), "accessid", "secretkey");
 
     api = ame_fds_hook();
-
-    api->CreateBucket(&bucket_ctx, CannedAclPrivate, NULL, fds::Conn_PutBucket::cb, this);
+    api->CreateBucket(&bucket_ctx, CannedAclPrivate,
+                      NULL, fds::Conn_PutBucket::fdsn_cb, this);
 }
 
 // fdsn_send_put_response
@@ -531,21 +544,140 @@ Conn_GetBucket::~Conn_GetBucket()
 {
 }
 
+// fdsn_getbucket
+// --------------
+// Callback from FDSN to notify us that they have data to send out.
+//
+FDSN_Status
+Conn_GetBucket::fdsn_getbucket(int isTruncated, const char *nextMarker,
+        int contentCount, const ListBucketContents *contents,
+        int commPrefixCnt, const char **commPrefixes, void *cbarg)
+{
+    int            i, got, used, sent;
+    void           *resp;
+    char           *cur;
+    Conn_GetBucket *gbucket = (Conn_GetBucket *)cbarg;
+
+    resp = gbucket->ame_push_resp_data_buf(NGX_RESP_CHUNK_SIZE, &cur, &got);
+
+    // Format the header to send out.
+    sent = 0;
+    used = snprintf(cur, got,
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?><%s>\n"
+            "  <%s></%s>\n  <%s>%s</%s>\n  <%s>%s</%s>\n"
+            "  <%s>%d</%s>\n  <%s>%s</%s>\n",
+            sgt_AMEKey[REST_LIST_BUCKET].u.kv_key,
+            sgt_AMEKey[REST_NAME].u.kv_key, sgt_AMEKey[REST_NAME].u.kv_key,
+
+            sgt_AMEKey[REST_PREFIX].u.kv_key,
+            commPrefixes == nullptr ? "" : commPrefixes[0],
+            sgt_AMEKey[REST_PREFIX].u.kv_key,
+
+            sgt_AMEKey[REST_MARKER].u.kv_key,
+            nextMarker == nullptr ? "" : nextMarker,
+            sgt_AMEKey[REST_MARKER].u.kv_key,
+
+            sgt_AMEKey[REST_MAX_KEYS].u.kv_key, contentCount,
+            sgt_AMEKey[REST_MAX_KEYS].u.kv_key,
+
+            sgt_AMEKey[REST_IS_TRUNCATED].u.kv_key,
+            isTruncated ? "true" : "false",
+            sgt_AMEKey[REST_IS_TRUNCATED].u.kv_key);
+
+    // We shouldn't run out of room here.
+    fds_verify(used < got);
+    sent += used;
+    cur  += used;
+    got  -= used;
+
+    for (i = 0; i < contentCount; i++) {
+        used = snprintf(cur, got,
+                "  <%s>\n"
+                "    <%s>%s</%s>\n"
+                "    <%s>%s</%s>\n"
+                "    <%s>%llu</%s>\n"
+                "    <%s>%s</%s>\n"
+                "    <%s>\n"
+                "      <%s>%s</%s>\n"
+                "      <%s>%s</%s>\n"
+                "    </%s>\n"
+                "  </%s>\n",
+                sgt_AMEKey[REST_CONTENTS].u.kv_key,
+
+                sgt_AMEKey[REST_KEY].u.kv_key,
+                contents[i].objKey.c_str(),
+                sgt_AMEKey[REST_KEY].u.kv_key,
+
+                sgt_AMEKey[REST_ETAG].u.kv_key,
+                contents[i].eTag.c_str(),
+                sgt_AMEKey[REST_ETAG].u.kv_key,
+
+                sgt_AMEKey[REST_SIZE].u.kv_key,
+                contents[i].size,
+                sgt_AMEKey[REST_SIZE].u.kv_key,
+
+                sgt_AMEKey[REST_STORAGE_CLASS].u.kv_key,
+                "STANDARD",
+                sgt_AMEKey[REST_STORAGE_CLASS].u.kv_key,
+
+                sgt_AMEKey[REST_OWNER].u.kv_key,
+
+                sgt_AMEKey[REST_ID].u.kv_key,
+                contents[i].ownerId.c_str(),
+                sgt_AMEKey[REST_ID].u.kv_key,
+
+                sgt_AMEKey[REST_DISPLAY_NAME].u.kv_key,
+                contents[i].ownerDisplayName.c_str(),
+                sgt_AMEKey[REST_DISPLAY_NAME].u.kv_key,
+
+                sgt_AMEKey[REST_OWNER].u.kv_key,
+
+                sgt_AMEKey[REST_CONTENTS].u.kv_key);
+
+        if (used == got) {
+            // XXX: not yet handle!
+            fds_assert(!"Increase bigger buffer size!");
+        }
+        sent += used;
+        cur  += used;
+        got  -= used;
+    }
+    used = snprintf(cur, got, "</%s>\n",
+                    sgt_AMEKey[REST_LIST_BUCKET].u.kv_key);
+    sent += used;
+
+    gbucket->fdsn_send_getbucket_response(200, sent);
+    gbucket->ame_send_resp_data(resp, sent, true);
+}
+
 // ame_request_handler
 // -------------------
 //
 void
 Conn_GetBucket::ame_request_handler()
 {
+    FDS_NativeAPI *api;
+    std::string    prefix, marker, deli;
+    ListBucketContents content;
+
+    content.objKey = "foo";
+    //, 0, "zcede", 100, "vy", "Vy Nguyen"};
+
+    /*
+    api = ame_fds_hook();
+    api->GetBucket(NULL, prefix, marker, deli, 1000, NULL,
+                   fds::Conn_GetBucket::fdsn_getbucket, (void *)this);
+    */
+    fdsn_getbucket(false, "marker", 1, &content, 0, NULL, (void *)this);
 }
 
 // fdsn_send_getbucket_response
 // ----------------------------
 //
 void
-Conn_GetBucket::fdsn_send_getbucket_response(int status)
+Conn_GetBucket::fdsn_send_getbucket_response(int status, int len)
 {
-    ame_set_std_resp(status, 0);
+    ame_set_std_resp(status, len);
     ame_send_response_hdr();
 }
 
