@@ -349,7 +349,13 @@ ngx_fds_bucket_put(HttpRequest *http_req)
 ngx_int_t
 ngx_fds_bucket_delete(HttpRequest *http_req)
 {
-    return NGX_DONE;
+  fds::S3_DelBucket *s3 = new fds::S3_DelBucket(*http_req);
+
+  // Do sync processing for now.
+  s3->ame_request_handler();
+  delete s3;
+  return NGX_DONE;
+
 }
 
 } // extern "C"

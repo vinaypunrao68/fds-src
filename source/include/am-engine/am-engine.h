@@ -301,6 +301,26 @@ class Conn_GetBucket : public AME_Request
   protected:
 };
 
+// Connector Adapter to implement GetBucket method.
+//
+class Conn_DelBucket : public AME_Request
+{
+public:
+  // delete bucket callback from FDS Api
+  static void cb(FDSN_Status status, const ErrorDetails *errorDetails, void *callbackData);
+
+  public:
+    Conn_DelBucket(HttpRequest &req);
+    ~Conn_DelBucket();
+
+    // returns bucket id
+    virtual std::string get_bucket_id() = 0;
+
+    virtual void ame_request_handler();
+    virtual void fdsn_send_delbucket_response(int status, int len);
+  protected:
+};
+
 } // namespace fds
 
 #endif /* INCLUDE_AM_ENGINE_H_ */

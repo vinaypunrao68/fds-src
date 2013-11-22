@@ -107,4 +107,26 @@ std::string S3_PutBucket::get_bucket_id()
   return ame_req.getURIParts()[0];
 }
 
+// ---------------------------------------------------------------------------
+
+S3_DelBucket::S3_DelBucket(HttpRequest &req)
+    : Conn_DelBucket(req)
+{
+}
+
+S3_DelBucket::~S3_DelBucket()
+{
+}
+
+ame_ret_e
+S3_DelBucket::ame_format_response_hdr()
+{
+  return AME_OK;
+}
+
+std::string S3_DelBucket::get_bucket_id()
+{
+  return ame_req.getURIParts()[0];
+}
+
 } // namespace fds

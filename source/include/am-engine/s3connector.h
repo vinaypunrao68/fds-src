@@ -93,5 +93,27 @@ class S3_PutBucket : public Conn_PutBucket
     char *resp_xx_value;
 };
 
+// S3 Delete Bucket connector
+//
+class S3_DelBucket : public Conn_DelBucket
+{
+  public:
+    S3_DelBucket(HttpRequest &req);
+    ~S3_DelBucket();
+
+    // returns bucket id
+    virtual std::string get_bucket_id();
+
+    // Format response header in S3 protocol.
+    //
+    virtual ame_ret_e ame_format_response_hdr();
+
+  protected:
+    // List of known key-values that we'll need to send the GET response.
+    //
+    char *resp_xx_key;
+    char *resp_xx_value;
+};
+
 } // namespace fds
 #endif /* INCLUDE_AM_ENGINE_H_ */

@@ -549,4 +549,60 @@ Conn_GetBucket::fdsn_send_getbucket_response(int status)
     ame_send_response_hdr();
 }
 
+// ---------------------------------------------------------------------------
+// PutBucket Connector Adapter
+// ---------------------------------------------------------------------------
+Conn_DelBucket::Conn_DelBucket(HttpRequest &req)
+    : AME_Request(req)
+{
+}
+
+Conn_DelBucket::~Conn_DelBucket()
+{
+}
+
+// delete_callback_fn
+// ---------------
+//
+
+void Conn_DelBucket::cb(FDSN_Status status,
+    const ErrorDetails *errorDetails,
+    void *callbackData)
+{
+  Conn_DelBucket *conn_pb_obj =  (Conn_DelBucket*) callbackData;
+  void *resp_buf;
+  char *temp;
+  int resp_buf_len = 2;
+
+  resp_buf  = conn_pb_obj->ame_push_resp_data_buf(resp_buf_len, &temp, &resp_buf_len);
+  conn_pb_obj->fdsn_send_delbucket_response(200, resp_buf_len);
+  conn_pb_obj->ame_send_resp_data(resp_buf, resp_buf_len, true);
+}
+
+// ame_request_handler
+// -------------------
+//
+void
+Conn_DelBucket::ame_request_handler()
+{
+    fds_uint64_t  len;
+    const char          *buf;
+    FDS_NativeAPI *api;
+    std::string   key;
+    BucketContext bucket_ctx("host", get_bucket_id(), "accessid", "secretkey");
+
+    api = ame_fds_hook();
+    api->DeleteBucket(&bucket_ctx, NULL, fds::Conn_DelBucket::cb, this);
+}
+
+// fdsn_send_put_response
+// ----------------------
+//
+void
+Conn_DelBucket::fdsn_send_delbucket_response(int status, int len)
+{
+    ame_set_std_resp(status, len);
+    ame_send_response_hdr();
+}
+
 } // namespace fds
