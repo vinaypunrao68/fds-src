@@ -15,7 +15,7 @@ void OMgrClientRPCI::NotifyAddVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePt
   assert(vol_msg->type == FDS_ProtocolInterface::FDSP_NOTIFY_ADD_VOL);
   fds_vol_notify_t type = fds_notify_vol_add;
   fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-  om_client->recvNotifyVol(vol_msg->vol_desc->volUUID, vdb, type);
+  om_client->recvNotifyVol(vol_msg->vol_desc->volUUID, vdb, type, msg_hdr->result);
 
 }
 
@@ -26,7 +26,7 @@ void OMgrClientRPCI::NotifyRmVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr
   assert(vol_msg->type == FDS_ProtocolInterface::FDSP_NOTIFY_RM_VOL);
   fds_vol_notify_t type = fds_notify_vol_rm;
   fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-  om_client->recvNotifyVol(vol_msg->vol_desc->volUUID, vdb, type);
+  om_client->recvNotifyVol(vol_msg->vol_desc->volUUID, vdb, type, msg_hdr->result);
 
 }
       
@@ -34,7 +34,7 @@ void OMgrClientRPCI::AttachVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& 
 			       const FDS_ProtocolInterface::FDSP_AttachVolTypePtr& vol_msg,
 			       const Ice::Current&) {
   fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-  om_client->recvVolAttachState(vol_msg->vol_desc->volUUID, vdb, FDS_VOL_ACTION_ATTACH);
+  om_client->recvVolAttachState(vol_msg->vol_desc->volUUID, vdb, FDS_VOL_ACTION_ATTACH, msg_hdr->result);
 }
 
 
@@ -42,7 +42,7 @@ void OMgrClientRPCI::DetachVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& 
 			       const FDS_ProtocolInterface::FDSP_AttachVolTypePtr& vol_msg,
 			       const Ice::Current&) {
   fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-  om_client->recvVolAttachState(vol_msg->vol_desc->volUUID, vdb, FDS_VOL_ACTION_DETACH);
+  om_client->recvVolAttachState(vol_msg->vol_desc->volUUID, vdb, FDS_VOL_ACTION_DETACH, msg_hdr->result);
 }
 
 void OMgrClientRPCI::NotifyNodeAdd(const FDSP_MsgHdrTypePtr& msg_hdr, 
@@ -522,13 +522,14 @@ int OMgrClient::recvNodeEvent(int node_id,
 
 int OMgrClient::recvNotifyVol(fds_volid_t vol_id,
                               VolumeDesc *vdb,
-                              fds_vol_notify_t vol_action) {
+                              fds_vol_notify_t vol_action,
+			      FDSP_ResultType result) {
 
   FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received volume event for volume " << vol_id 
 						    << " action - " << vol_action;
 
   if (this->vol_evt_hdlr) {
-    this->vol_evt_hdlr(vol_id, vdb, vol_action);
+    this->vol_evt_hdlr(vol_id, vdb, vol_action, result);
   }
   return (0);
   
@@ -536,7 +537,8 @@ int OMgrClient::recvNotifyVol(fds_volid_t vol_id,
 
 int OMgrClient::recvVolAttachState(fds_volid_t vol_id,
                                    VolumeDesc *vdb,
-                                   int vol_action) {
+                                   int vol_action,
+				   FDSP_ResultType result) {
 
   assert((vol_action == FDS_VOL_ACTION_ATTACH) || (vol_action == FDS_VOL_ACTION_DETACH));
 
@@ -549,7 +551,7 @@ int OMgrClient::recvVolAttachState(fds_volid_t vol_id,
 						    << " action - " << type;
 
   if (this->vol_evt_hdlr) {
-    this->vol_evt_hdlr(vol_id, vdb, type);
+    this->vol_evt_hdlr(vol_id, vdb, type, result);
   }
   return (0);
   
