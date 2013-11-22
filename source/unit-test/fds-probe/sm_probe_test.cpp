@@ -16,12 +16,12 @@ main(int argc, char **argv)
 {
     fds::Module *sm_probe_vec[] = {
         &diskio::gl_dataIOMod,
-        &fds::gl_probeMainLib,
+        &fds::gl_probeBlkLib,
         nullptr
     };
     fds::ModuleVector sm_probe(argc, argv, sm_probe_vec);
 
     sm_probe.mod_execute();
-    fds::gl_probeMainLib.probe_run_main(&fds::gl_SM_ProbeMod);
+    fds::gl_probeBlkLib.probe_run_main(&fds::gl_SM_ProbeMod);
     return 0;
 }

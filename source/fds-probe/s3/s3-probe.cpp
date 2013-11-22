@@ -5,12 +5,14 @@
 
 namespace fds {
 
+ProbeS3Eng gl_probeS3Eng("S4 Probe Eng");
+
 // ---------------------------------------------------------------------------
 // GetObject Probe
 // ---------------------------------------------------------------------------
 
-Probe_GetObject::Probe_GetObject(HttpRequest &req)
-    : S3_GetObject(req)
+Probe_GetObject::Probe_GetObject(AMEngine *eng, HttpRequest &req)
+    : S3_GetObject(eng, req)
 {
 }
 
@@ -37,8 +39,8 @@ Probe_GetObject::ame_request_handler()
 // PutObject Probe
 // ---------------------------------------------------------------------------
 
-Probe_PutObject::Probe_PutObject(HttpRequest &req)
-    : S3_PutObject(req)
+Probe_PutObject::Probe_PutObject(AMEngine *eng, HttpRequest &req)
+    : S3_PutObject(eng, req)
 {
 }
 

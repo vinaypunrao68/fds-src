@@ -3,6 +3,22 @@
 #include <boost/tokenizer.hpp>
 #include <sstream>
 
+std::string HttpUtils::computeEtag(const char* data, size_t len)
+{
+    ngx_md5_t ctx;
+    unsigned char result[16];
+    char md5string[34];
+    ngx_md5_init(&ctx);
+    ngx_md5_update(&ctx, data, len);
+    ngx_md5_final(result, &ctx);
+
+    for(int i = 0; i < 16; ++i)
+        sprintf(&md5string[i*2], "%02x", (unsigned int)result[i]);
+
+    md5string[33] = '\0';
+    return std::string((const char*)md5string);
+}
+
 HttpRequest::HttpRequest(ngx_http_request_t* ngx_req) {
   fds_assert(ngx_req != NULL);
 

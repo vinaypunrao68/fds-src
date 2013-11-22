@@ -368,7 +368,7 @@ class ProbeCtrlLoad : public virtual ProbeMod
 };
 
 // ----------------------------------------------------------------------------
-// Probe Library Module
+// Probe Block Library Module
 // ----------------------------------------------------------------------------
 class ProbeMainLib : public Module
 {
@@ -391,7 +391,7 @@ class ProbeMainLib : public Module
     char                     *fuse_argv[4];
 };
 
-extern ProbeMainLib          gl_probeMainLib;
+extern ProbeMainLib          gl_probeBlkLib;
 
 } // namespace fds
 
