@@ -419,7 +419,10 @@ class FDS_NativeAPI {
                     fdsnResponseHandler responseHandler,
                     void *callbackData);
 
-  static void DoCallback(FdsBlobReq* blob_req, Error error);
+  static void DoCallback(FdsBlobReq* blob_req,
+                         Error error,
+                         fds_uint32_t ignore,
+                         fds_int32_t  result);
 
  private: /* methods */
 
@@ -435,6 +438,11 @@ class FDS_NativeAPI {
    * value is ERR_OK
    */
   Error checkBucketExists(BucketContext *bucket_ctxt, fds_volid_t* ret_volid);
+
+  /* helper function to initialize volume info to some default values, used by several native api methods */
+  void initVolInfo(FDS_ProtocolInterface::FDSP_VolumeInfoTypePtr vol_info, 
+		   const std::string& bucket_name);
+
 };
 }
 #endif 

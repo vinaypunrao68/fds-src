@@ -58,6 +58,31 @@ class S3_PutObject : public Conn_PutObject
     char *resp_xx_value;
 };
 
+// S3 Delete connector which does S3 specific object delete semantic.
+//
+class S3_DelObject : public Conn_DelObject
+{
+  public:
+    S3_DelObject(HttpRequest &req);
+    ~S3_DelObject();
+
+    // returns bucket id
+    virtual std::string get_bucket_id();
+
+    // returns the object id
+    virtual std::string get_object_id();
+
+    // Format response header in S3 protocol.
+    //
+    virtual ame_ret_e ame_format_response_hdr();
+
+  protected:
+    // List of known key-values that we'll need to send the GET response.
+    //
+    char *resp_xx_key;
+    char *resp_xx_value;
+};
+
 // S3 Get Bucket connector
 //
 class S3_GetBucket : public Conn_GetBucket
@@ -78,6 +103,28 @@ class S3_PutBucket : public Conn_PutBucket
   public:
     S3_PutBucket(HttpRequest &req);
     ~S3_PutBucket();
+
+    // returns bucket id
+    virtual std::string get_bucket_id();
+
+    // Format response header in S3 protocol.
+    //
+    virtual ame_ret_e ame_format_response_hdr();
+
+  protected:
+    // List of known key-values that we'll need to send the GET response.
+    //
+    char *resp_xx_key;
+    char *resp_xx_value;
+};
+
+// S3 Delete Bucket connector
+//
+class S3_DelBucket : public Conn_DelBucket
+{
+  public:
+    S3_DelBucket(HttpRequest &req);
+    ~S3_DelBucket();
 
     // returns bucket id
     virtual std::string get_bucket_id();

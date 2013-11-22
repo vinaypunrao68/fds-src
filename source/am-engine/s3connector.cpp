@@ -70,6 +70,33 @@ std::string S3_PutObject::get_object_id()
 
 // ---------------------------------------------------------------------------
 
+S3_DelObject::S3_DelObject(HttpRequest &req)
+    : Conn_DelObject(req)
+{
+}
+
+S3_DelObject::~S3_DelObject()
+{
+}
+
+ame_ret_e
+S3_DelObject::ame_format_response_hdr()
+{
+    return AME_OK;
+}
+
+std::string S3_DelObject::get_bucket_id()
+{
+  return ame_req.getURIParts()[0];
+}
+
+std::string S3_DelObject::get_object_id()
+{
+  return ame_req.getURIParts()[1];
+}
+
+// ---------------------------------------------------------------------------
+
 S3_GetBucket::S3_GetBucket(HttpRequest &req)
     : Conn_GetBucket(req)
 {
@@ -103,6 +130,28 @@ S3_PutBucket::ame_format_response_hdr()
 }
 
 std::string S3_PutBucket::get_bucket_id()
+{
+  return ame_req.getURIParts()[0];
+}
+
+// ---------------------------------------------------------------------------
+
+S3_DelBucket::S3_DelBucket(HttpRequest &req)
+    : Conn_DelBucket(req)
+{
+}
+
+S3_DelBucket::~S3_DelBucket()
+{
+}
+
+ame_ret_e
+S3_DelBucket::ame_format_response_hdr()
+{
+  return AME_OK;
+}
+
+std::string S3_DelBucket::get_bucket_id()
 {
   return ame_req.getURIParts()[0];
 }

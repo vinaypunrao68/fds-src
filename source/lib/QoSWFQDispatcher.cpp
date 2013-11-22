@@ -288,6 +288,19 @@ namespace fds {
 
   }
 
+  Error QoSWFQDispatcher::modifyQueueQosParams(fds_uint32_t queue_id,
+					       fds_uint64_t iops_min,
+					       fds_uint64_t iops_max,
+					       fds_uint32_t prio)
+  {
+    Error err(ERR_OK);
+
+    FDS_PLOG_SEV(qda_log, fds::fds_log::error) << "WFQ Dispatcher: modifyQueueQosParams not implemented!";
+    err = Error(ERR_NOT_FOUND);
+
+    return err;
+  }
+
   Error QoSWFQDispatcher::deregisterQueue(fds_uint32_t queue_id) {
 
       Error err(ERR_OK);

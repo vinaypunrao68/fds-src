@@ -228,7 +228,8 @@ public:
 
     static void vol_handler(fds_volid_t vol_uuid,
                             VolumeDesc* desc,
-                            fds_vol_notify_t vol_action);
+                            fds_vol_notify_t vol_action,
+			    FDS_ProtocolInterface::FDSP_ResultType result);
 
     static void node_handler(fds_int32_t  node_id,
                              fds_uint32_t node_ip,

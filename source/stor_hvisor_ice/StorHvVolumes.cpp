@@ -363,8 +363,13 @@ void StorHvVolumeTable::addBlobToWaitQueue(const std::string& bucket_name,
   FDS_PLOG_SEV(vt_log, fds::fds_log::debug) << "VolumeTable -- adding blob to wait queue, waiting for "
 					    << "bucket " << bucket_name;
 
-  /* pack to qos req */
-  AmQosReq *qosReq = new AmQosReq(blob_req);
+  /*
+   * Pack to qos req
+   * TODO: We're hard coding 885 as the request ID to
+   * pass to QoS. SHCtrl has a request counter but
+   * we can't see if from here...Let's fix that eventually.
+   */
+  AmQosReq *qosReq = new AmQosReq(blob_req, 885);
 
   wait_rwlock.write_lock();
   wait_blobs_it_t it = wait_blobs.find(bucket_name);
@@ -428,8 +433,8 @@ void StorHvVolumeTable::moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
     for (int i = 0; i < blobs.size(); ++i) {
       AmQosReq* qosReq = blobs[i];
       blobs[i] = NULL;
-      FdsBlobReq* blobReq = qosReq->fdsBlobReq();
-      FDS_NativeAPI::DoCallback(blobReq, err);
+      FdsBlobReq* blobReq = qosReq->getBlobReqPtr();
+      FDS_NativeAPI::DoCallback(blobReq, err, 0, 0);  // Hard coding a result!
       FDS_PLOG_SEV(vt_log, fds::fds_log::debug) 
 	<< "VolumeTable -- completion of blob request before moving it to QoS queue";
       delete qosReq;
@@ -443,14 +448,26 @@ void StorHvVolumeTable::moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
  */
 void StorHvVolumeTable::volumeEventHandler(fds_volid_t vol_uuid,
                                            VolumeDesc *vdb,
-                                           fds_vol_notify_t vol_action)
+                                           fds_vol_notify_t vol_action,
+					   FDS_ProtocolInterface::FDSP_ResultType result)
 {
   switch (vol_action) {
   case fds_notify_vol_attatch:
     FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification) << "StorHvVolumeTable - Received volume attach event from OM"
                                    << " for volume " << vol_uuid;
 
-    storHvisor->vol_table->registerVolume(vdb ? *vdb : VolumeDesc("", vol_uuid));
+    if (result == FDS_ProtocolInterface::FDSP_ERR_OK) {
+      storHvisor->vol_table->registerVolume(vdb ? *vdb : VolumeDesc("", vol_uuid));
+    }
+    else if (result == FDS_ProtocolInterface::FDSP_ERR_VOLUME_DOES_NOT_EXIST) {
+      /* complete all requests that are waiting on bucket to attach with error */
+      if (vdb) {
+	FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification) << "StorHvVolumeTable - Volume " 
+								       << vdb->name << "does not exist.";
+      }
+      storHvisor->vol_table->moveWaitBlobsToQosQueue(vol_uuid, vdb ? vdb->name : "unknown", Error(ERR_NOT_FOUND));
+    }
+
     break;
   case fds_notify_vol_detach:
     FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification) << "StorHvVolumeTable - Received volume detach event from OM"
@@ -485,12 +502,15 @@ int pushFbdReq(fbd_request_t *blkReq) {
    * Map this blk request into a blob request
    */
   FdsBlobReq *blobReq = new FdsBlobReq((fds::fds_io_op_t)blkReq->io_type,  // IO type
-                                     blkReq->volUUID,  // Vol ID
-                                     "blkDev:vol" + std::to_string(blkReq->volUUID),  // Temp blob name
-                                     blkReq->sec * HVISOR_SECTOR_SIZE,  // Blob offset
-                                     blkReq->len,  // Request buffer length
-                                     blkReq->buf,  // Request data buffer
-                                     (FdsBlobReq::cbFunc)blkReq->cb_request);  // Request callback
+                                       blkReq->volUUID,  // Vol ID
+                                       "blkDev:vol" + std::to_string(blkReq->volUUID),  // Temp blob name
+                                       blkReq->sec * HVISOR_SECTOR_SIZE,  // Blob offset
+                                       blkReq->len,  // Request buffer length
+                                       blkReq->buf,  // Data buffer
+                                       blkReq->cb_request, // Callback function
+                                       blkReq->vbd,  // Callback arg1
+                                       blkReq->vReq, // Callback arg2
+                                       blkReq);  // Callback arg 3 (request struct itself)
   Error err = storHvisor->pushBlobReq(blobReq);
   fds_verify(err == ERR_OK);
 }

@@ -176,6 +176,16 @@ ame_keytab_t sgt_AMEKey[] =
     { { nullptr },               0, AME_HDR_KEY_MAX }
 };
 
+int AME_Request::map_fdsn_status(FDSN_Status status)
+{
+  if (status == FDSN_StatusOK) {
+    return NGX_HTTP_OK;
+  } else {
+    // todo: do better mapping.  Log the error
+    return NGX_HTTP_INTERNAL_SERVER_ERROR;
+  }
+}
+
 AME_Request::AME_Request(HttpRequest &req)
     : fdsio::Request(false), ame_req(req)
 {
@@ -212,7 +222,7 @@ AME_Request::ame_reqt_iter_next()
 // ame_reqt_iter_data
 // ------------------
 //
-char const *const
+char*
 AME_Request::ame_reqt_iter_data(int *len)
 {
   if (post_buf_itr == NULL) {
@@ -220,7 +230,7 @@ AME_Request::ame_reqt_iter_data(int *len)
     return NULL;
   }
 
-  char const *const data = (char const *const) post_buf_itr->buf->start;
+  char* data = (char*) post_buf_itr->buf->start;
   *len = post_buf_itr->buf->end - post_buf_itr->buf->start;
   post_buf_itr = post_buf_itr->next;
 
@@ -369,12 +379,17 @@ Conn_GetObject::~Conn_GetObject()
 // get_callback_fn
 // ---------------
 //
-static FDSN_Status
-get_callback_fn(void *req, fds_uint64_t bufsize,
-                const char *buf, void *cb,
+FDSN_Status
+Conn_GetObject::cb(void *req, fds_uint64_t bufsize,
+                const char *buf, void *cbData,
                 FDSN_Status status, ErrorDetails *errdetails)
 {
-    return FDSN_StatusOK;
+  Conn_GetObject *conn_go = (Conn_GetObject*) cbData;
+  int ret_status = map_fdsn_status(status);
+
+  conn_go->fdsn_send_get_response(ret_status, (int) bufsize);
+  conn_go->fdsn_send_get_buffer(conn_go->cur_get_buffer, (int) bufsize, true);
+  return FDSN_StatusOK;
 }
 
 // ame_request_handler
@@ -383,27 +398,24 @@ get_callback_fn(void *req, fds_uint64_t bufsize,
 void
 Conn_GetObject::ame_request_handler()
 {
-    int           get_len, got_len;
+    static int buf_req_len = 3 * (1 << 20); // 3MB
+    int buf_len;
     char          *buf;
-    void          *cookie;
     FDS_NativeAPI *api;
-    BucketContext *bucket_ctx = NULL;
-    std::string    key = get_object_id();
-    std::string bucket_id = get_bucket_id();
+    BucketContext bucket_ctx("host", get_bucket_id(), "accessid", "secretkey");
 
-    // todo: fill bucket context
-
-    get_len = 100;
-    cookie  = fdsn_alloc_get_buffer(get_len, &buf, &got_len);
+    cur_get_buffer  = fdsn_alloc_get_buffer(buf_req_len, &buf, &buf_len);
 
     api = ame_fds_hook();
-    // todo: remove comment
-//    api->GetObject(bucket_ctx, key, NULL, 0, get_len, buf, get_len,
-//                  (void *)this, get_callback_fn, NULL);
 
-    // todo: move this code into callback once cb is implemented
-    fdsn_send_get_response(0, get_len);
-    fdsn_send_get_buffer(cookie, get_len, true);
+//    api->GetObject(&bucket_ctx, get_object_id(), NULL, 0, buf_len, buf, buf_len,
+//                  (void *)this, Conn_GetObject::cb, NULL);
+    /*******************************/
+    const char *ret_data = "This here is my response";
+    strncpy(buf, ret_data, strlen(ret_data));
+    Conn_GetObject::cb(NULL, strlen(ret_data), buf, this, FDSN_StatusOK, NULL);
+    /*******************************/
+
 }
 
 // fdsn_send_get_response
@@ -431,11 +443,13 @@ Conn_PutObject::~Conn_PutObject()
 // put_callback_fn
 // ---------------
 //
-static int
-put_callback_fn(void *req, fds_uint64_t size, char *buf, void *cb,
-                FDSN_Status status, ErrorDetails *errdetails)
+
+int
+Conn_PutObject::cb(void *reqContext, fds_uint64_t bufferSize, char *buffer,
+    void *callbackData, FDSN_Status status, ErrorDetails* errDetails)
 {
-    return 0;
+  int ret_status = map_fdsn_status(status);
+  ((Conn_PutObject*) callbackData)->fdsn_send_put_response(ret_status, 0);
 }
 
 // ame_request_handler
@@ -445,9 +459,9 @@ void
 Conn_PutObject::ame_request_handler()
 {
     fds_uint64_t  len;
-    const char          *buf;
+    char          *buf;
     FDS_NativeAPI *api;
-    std::string   key;
+    BucketContext bucket_ctx("host", get_bucket_id(), "accessid", "secretkey");
     char *temp;
 
     buf = ame_reqt_iter_data((int*) &len);
@@ -457,13 +471,15 @@ Conn_PutObject::ame_request_handler()
       fds_assert(!"no body");
       return ;
     }
-    api = ame_fds_hook();
-    // todo: uncomment
-//    api->PutObject(NULL, key, NULL, (void *)this,
-//                   buf, len, put_callback_fn, NULL);
 
-    fdsn_send_put_response(200, 0);
-    // ame_send_resp_data(resp_buf, resp_buf_len, true);
+    api = ame_fds_hook();
+//    api->PutObject(&bucket_ctx, get_object_id(), NULL, NULL,
+//                   buf, len, Conn_PutObject::cb, this);
+    /*********************************/
+    buf[len] = '\0';
+    printf("len: %d, data: %s", len, buf);
+    Conn_PutObject::cb(NULL, 0, NULL, this, FDSN_StatusOK, NULL);
+    /**********************************/
 }
 
 // fdsn_send_put_response
@@ -473,6 +489,58 @@ void
 Conn_PutObject::fdsn_send_put_response(int status, int put_len)
 {
     ame_set_std_resp(status, put_len);
+    ame_send_response_hdr();
+}
+
+
+// ---------------------------------------------------------------------------
+// DelObject Connector Adapter
+// ---------------------------------------------------------------------------
+Conn_DelObject::Conn_DelObject(HttpRequest &req)
+    : AME_Request(req)
+{
+}
+
+Conn_DelObject::~Conn_DelObject()
+{
+}
+
+// delete callback fn
+// ---------------
+//
+
+void Conn_DelObject::cb(FDSN_Status status,
+    const ErrorDetails *errorDetails,
+    void *callbackData)
+{
+  int ret_status = map_fdsn_status(status);
+  ((Conn_DelObject*) callbackData)->fdsn_send_del_response(ret_status, 0);
+}
+
+// ame_request_handler
+// -------------------
+//
+void
+Conn_DelObject::ame_request_handler()
+{
+    fds_uint64_t  len;
+    FDS_NativeAPI *api;
+    BucketContext bucket_ctx("host", get_bucket_id(), "accessid", "secretkey");
+    char *temp;
+
+
+    api = ame_fds_hook();
+    api->DeleteObject(&bucket_ctx, get_object_id(), NULL, Conn_DelObject::cb, this);
+
+}
+
+// fdsn_send_put_response
+// ----------------------
+//
+void
+Conn_DelObject::fdsn_send_del_response(int status, int len)
+{
+    ame_set_std_resp(status, len);
     ame_send_response_hdr();
 }
 
@@ -676,6 +744,62 @@ Conn_GetBucket::ame_request_handler()
 //
 void
 Conn_GetBucket::fdsn_send_getbucket_response(int status, int len)
+{
+    ame_set_std_resp(status, len);
+    ame_send_response_hdr();
+}
+
+// ---------------------------------------------------------------------------
+// PutBucket Connector Adapter
+// ---------------------------------------------------------------------------
+Conn_DelBucket::Conn_DelBucket(HttpRequest &req)
+    : AME_Request(req)
+{
+}
+
+Conn_DelBucket::~Conn_DelBucket()
+{
+}
+
+// delete_callback_fn
+// ---------------
+//
+
+void Conn_DelBucket::cb(FDSN_Status status,
+    const ErrorDetails *errorDetails,
+    void *callbackData)
+{
+  Conn_DelBucket *conn_pb_obj =  (Conn_DelBucket*) callbackData;
+  void *resp_buf;
+  char *temp;
+  int resp_buf_len = 2;
+
+  resp_buf  = conn_pb_obj->ame_push_resp_data_buf(resp_buf_len, &temp, &resp_buf_len);
+  conn_pb_obj->fdsn_send_delbucket_response(200, resp_buf_len);
+  conn_pb_obj->ame_send_resp_data(resp_buf, resp_buf_len, true);
+}
+
+// ame_request_handler
+// -------------------
+//
+void
+Conn_DelBucket::ame_request_handler()
+{
+    fds_uint64_t  len;
+    const char          *buf;
+    FDS_NativeAPI *api;
+    std::string   key;
+    BucketContext bucket_ctx("host", get_bucket_id(), "accessid", "secretkey");
+
+    api = ame_fds_hook();
+    api->DeleteBucket(&bucket_ctx, NULL, fds::Conn_DelBucket::cb, this);
+}
+
+// fdsn_send_put_response
+// ----------------------
+//
+void
+Conn_DelBucket::fdsn_send_delbucket_response(int status, int len)
 {
     ame_set_std_resp(status, len);
     ame_send_response_hdr();

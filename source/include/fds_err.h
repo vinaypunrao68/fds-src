@@ -25,6 +25,8 @@ namespace fds {
     "Unable to query into catalog",
     "Catalog entry not found",
     "Invalid argument or parameter",
+    "Response is pending",
+    "Not found"
   };
   
   typedef enum {
@@ -37,6 +39,7 @@ namespace fds {
     ERR_CAT_ENTRY_NOT_FOUND  = 6,
     ERR_INVALID_ARG          = 7,
     ERR_PENDING_RESP         = 8,
+    ERR_NOT_FOUND = 9,
     ERR_MAX
   } fds_errno_t;
   

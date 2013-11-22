@@ -488,6 +488,15 @@ public:
    delete volQueue;
  }
 
+ void modifyQosParams(fds_uint64_t _iops_min,
+		      fds_uint64_t _iops_max,
+		      fds_uint32_t _prio)
+ {
+   iops_max = _iops_max;
+   iops_min = _iops_min;
+   priority = _prio;
+ }
+
  void activate() {
    volQState = FDS_VOL_Q_ACTIVE;
  }

@@ -35,15 +35,17 @@ Error StorHvQosCtrl::processIO(FDS_IOType *io) {
   fds_verify(io->io_module == FDS_IOType::STOR_HV_IO);
   
   // TODO: New call to eventually be uncommented
-  // threadPool->schedule(processBlobReq, static_cast<AmQosReq*>(io));
+  threadPool->schedule(processBlobReq, static_cast<AmQosReq*>(io));
 
   // TODO: Old code to eventually remove
+  /*
   if(io->io_type == FDS_IO_READ) {
     threadPool->schedule(StorHvisorProcIoRd, io);
   } else {
     fds_verify(io->io_type == FDS_IO_WRITE);
     threadPool->schedule(StorHvisorProcIoWr, io);
   }
+  */
 
   return err;
 }

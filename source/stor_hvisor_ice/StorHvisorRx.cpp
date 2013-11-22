@@ -174,173 +174,173 @@ int StorHvCtrl::fds_process_update_catalog_resp(const FDSP_MsgHdrTypePtr& rx_msg
 }
 
 // Warning: Assumes that caller holds the lock to the transaction
-int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rx_msg) {
-  
-  FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr upd_obj_req = new FDSP_UpdateCatalogType;
-  FDSP_MsgHdrTypePtr   sm_msg_ptr;
-  ObjectID obj_id;
-  int node=0;
-  fbd_request_t *req; 
-  int trans_id;
-  FDS_RPC_EndPoint *endPoint = NULL;
-  FDSP_MsgHdrTypePtr     wr_msg;
-  fds_uint32_t vol_id;
-  
-  vol_id = rx_msg->glob_volume_id;
-  
-  trans_id = rx_msg->req_cookie; 
-  StorHvVolume* vol = vol_table->getVolume(vol_id);
-  StorHvVolumeLock vol_lock(vol);
-  if (!vol || !vol->isValidLocked()) {
-      FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Error: State transition attempted for an un-registered volume";
-      return (0); // TODO: return error?
-  }
+int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
 
-  StorHvJournalEntry *txn = vol->journal_tbl->get_journal_entry(trans_id);
+  fds_int32_t  result  = 0;
+  fds_uint32_t transId = rxMsg->req_cookie; 
+  fds_volid_t  volId   = rxMsg->glob_volume_id;
+
+  StorHvVolume* vol = vol_table->getVolume(volId);
+  fds_verify(vol != NULL);
+  StorHvVolumeLock vol_lock(vol);
+  fds_verify(vol->isValidLocked() == true);
+
+  StorHvJournalEntry *txn = vol->journal_tbl->get_journal_entry(transId);
+  fds_verify(txn != NULL);
   
-  req = (fbd_request_t *)txn->write_ctx;
-  wr_msg = txn->dm_msg;
-  sm_msg_ptr = txn->sm_msg;
+  FDSP_MsgHdrTypePtr dmMsg = txn->dm_msg;
   
-  FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - State transition attempted for transaction " << trans_id  << "current state - "  << txn->trans_state  << "sm_ack" << txn->sm_ack_cnt << "dm_ack " << txn->dm_ack_cnt << "dm_commits" << txn->dm_commit_cnt ;
-  
-  
+  FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "State transition attemp for trans "
+                                                   << transId  << " cur state "  << txn->trans_state
+                                                   << " sm_ack: " << txn->sm_ack_cnt << " dm_ack: "
+                                                   << txn->dm_ack_cnt << " dm_commits: "
+                                                   << txn->dm_commit_cnt;    
   switch(txn->trans_state)  {
-    case FDS_TRANS_OPEN :
-      {
-        if ((txn->sm_ack_cnt < FDS_MIN_ACK) || (txn->dm_ack_cnt < FDS_MIN_ACK)) 
-        {
-          break;
-        }
-        FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id \
-                                       << " volID:" << vol_id << " -  State Transition to FDS_TRANS_OPENED : Received min ack from  DM and SM. ";
-        txn->trans_state = FDS_TRANS_OPENED;
-      }	 
-      break;
-      
-    case  FDS_TRANS_OPENED :
-      {
-        if (txn->dm_commit_cnt >= FDS_MIN_ACK) 
-        {
-          FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id 
-                                         << " volID:" << vol_id << " -  State Transition to FDS_TRANS_COMMITTED  : Received min commits from  DM ";
-          txn->trans_state = FDS_TRANS_COMMITTED;
-        }
+    case FDS_TRANS_OPEN:
+      if ((txn->sm_ack_cnt < FDS_MIN_ACK) || (txn->dm_ack_cnt < FDS_MIN_ACK)) {
+        break;
       }
-      
+      FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "Move trans " << transId
+                                                       << " to FDS_TRANS_OPENED:"
+                                                       << " received min DM/SM acks";
+      txn->trans_state = FDS_TRANS_OPENED;
+      break;
+     
+    case FDS_TRANS_OPENED:
+      if (txn->dm_commit_cnt >= FDS_MIN_ACK) {
+        FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "Move trans " << transId
+                                                         << " to FDS_TRANS_COMMITTED:"
+                                                         << " received min DM commits";
+        txn->trans_state = FDS_TRANS_COMMITTED;
+      }      
       if (txn->dm_commit_cnt < txn->num_dm_nodes)
         break;
       // else fall through to next case.
       
-    case FDS_TRANS_COMMITTED :
-      {
-        if((txn->sm_ack_cnt == txn->num_sm_nodes) && (txn->dm_commit_cnt == txn->num_dm_nodes))
-        {
-          FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id
-					 << " volID:" << vol_id << " -  State Transition to FDS_TRANS_SYNCED  : Received all acks and commits from  DM and SM. Ending req  " 
-					 <<  req;
-          txn->trans_state = FDS_TRANS_SYNCED;
-          
-          /*
-            -  add the vvc entry
-            -  If we are thinking of adding the cache , we may have to keep a copy on the cache 
-          */
-	  
-          
-          obj_id.SetId(txn->data_obj_id.hash_high, txn->data_obj_id.hash_low);
-          vol->vol_catalog_cache->Update(
-              (fds_uint64_t)req->sec*HVISOR_SECTOR_SIZE,
-              obj_id);          
-          
-          qos_ctrl->markIODone(txn->io);
-          // destroy the txn, reclaim the space and return from here	    
-          txn->trans_state = FDS_TRANS_EMPTY;
-          txn->write_ctx = 0;
-          // del_timer(txn->p_ti);
-          if (req) {
-            txn->fbd_complete_req(req, 0);
-          } else {
-	    fds_verify(req);
-	    assert(0);	
-	  }
-          txn->reset();
-          vol->journal_tbl->release_trans_id(trans_id);
-          return(0);
-        }
+    case FDS_TRANS_COMMITTED:
+      if((txn->sm_ack_cnt == txn->num_sm_nodes) &&
+         (txn->dm_commit_cnt == txn->num_dm_nodes)) {
+        FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "Move trans " << transId
+                                                         << " to FDS_TRANS_SYNCED:"
+                                                         << " received all DM/SM acks and commits.";
+        txn->trans_state = FDS_TRANS_SYNCED;
+        
+        /*
+         * Add the vvc entry
+         * If we are thinking of adding the cache , we may have to keep a copy on the cache 
+         */        
+        fds::AmQosReq   *qosReq  = static_cast<fds::AmQosReq *>(txn->io);
+        fds_verify(qosReq != NULL);
+        fds::FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
+        fds_verify(blobReq != NULL);
+        vol->vol_catalog_cache->Update(
+            blobReq->getBlobOffset(), // TODO: This passing offset, but VCC thinks it's block ID
+            ObjectID(txn->data_obj_id.hash_high, txn->data_obj_id.hash_low));
+        
+        /*
+         * Mark the IO complete, clean up txn, and callback
+         */
+        qos_ctrl->markIODone(qosReq);
+        txn->trans_state = FDS_TRANS_EMPTY;
+        txn->write_ctx   = 0;
+        // del_timer(txn->p_ti);
+        blobReq->cbWithResult(0);
+
+        txn->reset();
+        vol->journal_tbl->release_trans_id(transId);
+
+        /*
+         * TODO: We're deleting the request structure. This assumes
+         * that the caller got everything they needed when the callback
+         * was invoked.
+         */
+        delete blobReq;
+
+        return result;
       }
       break;
-      
-    default : 
-      break;
+
+    default:
+      fds_panic("Unknown SH/AM Journal Trans state for trans %u, state %d",
+                transId, txn->trans_state);
   }
   
+  /*
+   * Handle processing for open transactions
+   */
   if (txn->trans_state > FDS_TRANS_OPEN) {
     /*
-      -  Initialize the common portion of the payload and then 
-      -  browse through the list of the DM nodes that sent the open txn response .
-      -  send  DM - commit request 
-    */
-
-    upd_obj_req->dm_operation = FDS_DMGR_TXN_STATUS_COMMITED;
-    upd_obj_req->dm_transaction_id = 1;
+     * Browse through the list of the DM nodes that sent the open txn response.
+     * Send  DM - commit request 
+     */
     FDS_ProtocolInterface::FDSP_BlobObjectInfo upd_obj_info;
-    upd_obj_info.offset = 0;
+    upd_obj_info.offset = txn->block_offset; // TODO: May need to revert to 0
     upd_obj_info.data_obj_id.hash_high = txn->data_obj_id.hash_high;
     upd_obj_info.data_obj_id.hash_low =  txn->data_obj_id.hash_low;
     upd_obj_info.size = 0; // TODO: fix this.
+
+    FDSP_UpdateCatalogTypePtr upd_obj_req = new FDSP_UpdateCatalogType;
+    upd_obj_req->dm_operation = FDS_DMGR_TXN_STATUS_COMMITED;
+    upd_obj_req->dm_transaction_id = 1;
     upd_obj_req->obj_list.clear();
     upd_obj_req->obj_list.push_back(upd_obj_info);
     upd_obj_req->meta_list.clear();
     upd_obj_req->blob_name = std::to_string(txn->block_offset);
     
-    for (node = 0; node < txn->num_dm_nodes; node++)
-    {
-      if (txn->dm_ack[node].ack_status) 
-      {
-        if ((txn->dm_ack[node].commit_status) == FDS_CLS_ACK)
-        {
-	  wr_msg->dst_ip_lo_addr = txn->dm_ack[node].ipAddr;
-          wr_msg->dst_port = txn->dm_ack[node].port;
+    for (fds_uint32_t node = 0; node < txn->num_dm_nodes; node++) {
+      if (txn->dm_ack[node].ack_status != 0) {
+        if ((txn->dm_ack[node].commit_status) == FDS_CLS_ACK) {
+	  dmMsg->dst_ip_lo_addr = txn->dm_ack[node].ipAddr;
+          dmMsg->dst_port = txn->dm_ack[node].port;
           
+          FDS_RPC_EndPoint *endPoint = NULL;
           storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(txn->dm_ack[node].ipAddr,
                                                      txn->dm_ack[node].port,
                                                      FDSP_DATA_MGR,
                                                      &endPoint);
-          
-          
-          if (endPoint) {
-            endPoint->fdspDPAPI->begin_UpdateCatalogObject(wr_msg, upd_obj_req);
-	    txn->dm_ack[node].commit_status = FDS_COMMIT_MSG_SENT;
-            FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:"
-                                           << trans_id << " volID:" << vol_id
-                                           << " -  Sent async UpdCatObjCommit req to DM at "
-                                           <<  (unsigned int) txn->dm_ack[node].ipAddr
-                                           << " port " << txn->dm_ack[node].port;
-          } else {
-            FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - No end point found for DM at ip " <<  (unsigned int) txn->dm_ack[node].ipAddr;
-          }
-          
-        }
-      }
-    }
-  }
-  return 0;
+          fds_verify(endPoint != NULL);
+          endPoint->fdspDPAPI->begin_UpdateCatalogObject(dmMsg, upd_obj_req);
+          txn->dm_ack[node].commit_status = FDS_COMMIT_MSG_SENT;
+          FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "For trans " << transId
+                                                           << " sent UpdCatObjCommit req to DM ip "
+                                                           << txn->dm_ack[node].ipAddr
+                                                           << " port " << txn->dm_ack[node].port;
+        }  // if FDS_CLS_ACK
+      }  // if ack_status
+    } // for (node)
+  } // If TRANS_OPEN
+
+  return result;
 }
 
 
-void FDSP_DataPathRespCbackI::GetObjectResp(const FDSP_MsgHdrTypePtr& msghdr, const FDSP_GetObjTypePtr& get_obj, const Ice::Current&) {
+void FDSP_DataPathRespCbackI::GetObjectResp(const FDSP_MsgHdrTypePtr& msghdr,
+                                            const FDSP_GetObjTypePtr& get_obj,
+                                            const Ice::Current&) {
    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << msghdr->req_cookie << " - Received get obj response for txn  " <<  msghdr->req_cookie; 
-  storHvisor->fds_process_get_obj_resp(msghdr, get_obj);
+   // storHvisor->fds_process_get_obj_resp(msghdr, get_obj);
+   fds::Error err = storHvisor->getObjResp(msghdr, get_obj);
+   fds_verify(err == ERR_OK);
 }
 
-void FDSP_DataPathRespCbackI::PutObjectResp(const FDSP_MsgHdrTypePtr& msghdr, const FDSP_PutObjTypePtr& put_obj, const Ice::Current&) {
-   FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << msghdr->req_cookie << " - Received put obj response for txn  " << msghdr->req_cookie; 
-  storHvisor->fds_process_put_obj_resp(msghdr, put_obj);
+void FDSP_DataPathRespCbackI::PutObjectResp(const FDSP_MsgHdrTypePtr& msghdr,
+                                            const FDSP_PutObjTypePtr& put_obj,
+                                            const Ice::Current&) {
+  FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::debug) << "Received putObjResp for txn "
+                                                          << msghdr->req_cookie; 
+   // storHvisor->fds_process_put_obj_resp(msghdr, put_obj);
+   fds::Error err = storHvisor->putObjResp(msghdr, put_obj);
+   fds_verify(err == ERR_OK);
 }
 
-void FDSP_DataPathRespCbackI::UpdateCatalogObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_UpdateCatalogTypePtr& update_cat, const Ice::Current &) {
-   FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << fdsp_msg->req_cookie <<" - Received upd cat obj response for txn " <<  fdsp_msg->req_cookie; 
-	 storHvisor->fds_process_update_catalog_resp(fdsp_msg, update_cat);
+void FDSP_DataPathRespCbackI::UpdateCatalogObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg,
+                                                      const FDSP_UpdateCatalogTypePtr& update_cat,
+                                                      const Ice::Current &) {
+  FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::debug) << "Received updCatObjResp for txn "
+                                                          <<  fdsp_msg->req_cookie; 
+  // storHvisor->fds_process_update_catalog_resp(fdsp_msg, update_cat);
+  fds::Error err = storHvisor->upCatResp(fdsp_msg, update_cat);
+  fds_verify(err == ERR_OK);
 }
 
 void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(

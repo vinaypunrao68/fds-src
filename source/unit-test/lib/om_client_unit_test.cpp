@@ -13,7 +13,7 @@ void my_node_event_handler(int node_id,
 
 }
 
-void my_vol_event_handler(fds::fds_volid_t volume_id, fds::VolumeDesc *vdb, fds_vol_notify_t vol_action) {
+void my_vol_event_handler(fds::fds_volid_t volume_id, fds::VolumeDesc *vdb, fds_vol_notify_t vol_action, FDS_ProtocolInterface::FDSP_ResultType result) {
   
   printf("Recvd vol event: Vol id - %llu, action -%d\n", (unsigned long long) volume_id, vol_action);
 

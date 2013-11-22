@@ -117,6 +117,9 @@ extern ame_keytab_t sgt_AMEKey[];
 //
 class AME_Request : public fdsio::Request
 {
+public:
+  static int map_fdsn_status(FDSN_Status status);
+
   public:
     AME_Request(HttpRequest &req);
     ~AME_Request();
@@ -160,7 +163,7 @@ class AME_Request : public fdsio::Request
     //
     void ame_reqt_iter_reset();
     ame_ret_e ame_reqt_iter_next();
-    char const *const ame_reqt_iter_data(int *len);
+    char* ame_reqt_iter_data(int *len);
     virtual void ame_request_handler() = 0;
 
     // Common response path.
@@ -191,6 +194,11 @@ class AME_Request : public fdsio::Request
 //
 class Conn_GetObject : public AME_Request
 {
+public:
+  static FDSN_Status cb(void *req, fds_uint64_t bufsize,
+      const char *buf, void *cb,
+      FDSN_Status status, ErrorDetails *errdetails);
+
   public:
     Conn_GetObject(HttpRequest &req);
     ~Conn_GetObject();
@@ -244,6 +252,7 @@ class Conn_GetObject : public AME_Request
     }
 
   protected:
+    void *cur_get_buffer;
 };
 
 // ---------------------------------------------------------------------------
@@ -251,6 +260,10 @@ class Conn_GetObject : public AME_Request
 //
 class Conn_PutObject : public AME_Request
 {
+public:
+  static int cb(void *reqContext, fds_uint64_t bufferSize, char *buffer,
+      void *callbackData, FDSN_Status status, ErrorDetails* errDetails);
+
   public:
     Conn_PutObject(HttpRequest &req);
     ~Conn_PutObject();
@@ -269,6 +282,38 @@ class Conn_PutObject : public AME_Request
     // will provide more detail on the response.
     //
     virtual void fdsn_send_put_response(int status, int put_len);
+
+  protected:
+};
+
+// ---------------------------------------------------------------------------
+// Connector Adapter to implement DelObject method.
+//
+class Conn_DelObject : public AME_Request
+{
+public:
+  static void cb(FDSN_Status status,
+      const ErrorDetails *errorDetails,
+      void *callbackData);
+
+  public:
+    Conn_DelObject(HttpRequest &req);
+    ~Conn_DelObject();
+
+    // returns bucket id
+    virtual std::string get_bucket_id() = 0;
+
+    // returns the object id
+    virtual std::string get_object_id() = 0;
+
+    // Connector method to handle DelObject request.
+    //
+    virtual void ame_request_handler();
+
+    // Common code to send response back to the client.  Connector specific
+    // will provide more detail on the response.
+    //
+    virtual void fdsn_send_del_response(int status, int len);
 
   protected:
 };
@@ -320,6 +365,26 @@ class Conn_GetBucket : public AME_Request
 
     virtual void ame_request_handler();
     virtual void fdsn_send_getbucket_response(int status, int len);
+  protected:
+};
+
+// Connector Adapter to implement GetBucket method.
+//
+class Conn_DelBucket : public AME_Request
+{
+public:
+  // delete bucket callback from FDS Api
+  static void cb(FDSN_Status status, const ErrorDetails *errorDetails, void *callbackData);
+
+  public:
+    Conn_DelBucket(HttpRequest &req);
+    ~Conn_DelBucket();
+
+    // returns bucket id
+    virtual std::string get_bucket_id() = 0;
+
+    virtual void ame_request_handler();
+    virtual void fdsn_send_delbucket_response(int status, int len);
   protected:
 };
 

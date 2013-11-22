@@ -98,12 +98,19 @@ public:
   FDS_ObjectIdType data_obj_id;
   int      data_obj_len;
   unsigned int block_offset;
-  void     *fbd_ptr;
-  void     *read_ctx;
-  void     *write_ctx;
-  blkdev_complete_req_cb_t comp_req;
-  void 	*comp_arg1;
-  void 	*comp_arg2;
+  /*
+   * These block specific fields can be removed.
+   * They are simply left here because legacy, unused
+   * functions still reference them, so they are needed
+   * for that legacy, unused code to compile
+   */
+  void     *fbd_ptr;   // TODO: Remove
+  void     *read_ctx;  // TODO: Remove
+  void     *write_ctx; // TODO: Remove
+  blkdev_complete_req_cb_t comp_req; // TODO: Remove
+  void 	*comp_arg1; // TODO: Remove
+  void 	*comp_arg2; // TODO: Remove
+
   FDS_IOType             *io;
   FDSP_MsgHdrTypePtr     sm_msg;
   FDSP_MsgHdrTypePtr     dm_msg;
@@ -132,7 +139,7 @@ private:
 
   fds_mutex *jrnl_tbl_mutex;
   StorHvJournalEntry  *rwlog_tbl;
-  std::unordered_map<unsigned int, unsigned int> block_to_jrnl_idx;
+  std::unordered_map<fds_uint64_t, fds_uint32_t> block_to_jrnl_idx;
   std::queue<unsigned int> free_trans_ids;
   unsigned int max_journal_entries;
 
@@ -150,8 +157,8 @@ public:
 	void lock();
 	void unlock();
 
-	StorHvJournalEntry *get_journal_entry(int trans_id);
-	unsigned int get_trans_id_for_block(unsigned int block_offset);
+	StorHvJournalEntry *get_journal_entry(fds_uint32_t trans_id);
+	fds_uint32_t get_trans_id_for_block(fds_uint64_t block_offset);
 	void release_trans_id(unsigned int trans_id);
         void schedule(const TimerTaskPtr& task, const IceUtil::Time& interval) {
              ioTimer->schedule(task, interval);
