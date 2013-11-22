@@ -87,7 +87,7 @@ void FDS_NativeAPI::DeleteBucket(BucketContext* bucketCtxt,
    if (ret_id != invalid_vol_id) {
        FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error) << " S3 Bucket  Does not exsists  BucketID: " << ret_id;
 
-     (handler)(FDSN_StatusErrorBucketNotExists,NULL,NULL);
+     (handler)(FDSN_StatusErrorBucketNotExists,NULL,callbackData);
      return;
    }
 
@@ -98,7 +98,7 @@ void FDS_NativeAPI::DeleteBucket(BucketContext* bucketCtxt,
 
    storHvisor->om_client->pushDeleteBucketToOM(volData); 
    /* TBD. Since this one is async call Error  checking involved, need more discussiosn */
-   (handler)(FDSN_StatusOK,NULL,NULL);
+   (handler)(FDSN_StatusOK,NULL,callbackData);
     return;
 }
 
