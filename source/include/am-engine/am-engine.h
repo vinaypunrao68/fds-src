@@ -154,6 +154,7 @@ public:
     HttpRequest              ame_req;
     AMEngine                 *ame;
     ngx_chain_t              *post_buf_itr;
+    std::string              etag;
 
     // Common request path.
     // The request handler is called through ame_request_handler().

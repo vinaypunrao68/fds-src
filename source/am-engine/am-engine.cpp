@@ -229,8 +229,8 @@ AME_Request::ame_reqt_iter_data(int *len)
     return NULL;
   }
 
-  char* data = (char*) post_buf_itr->buf->start;
-  *len = post_buf_itr->buf->end - post_buf_itr->buf->start;
+  char* data = (char*) post_buf_itr->buf->pos;
+  *len = post_buf_itr->buf->last - post_buf_itr->buf->pos;
   post_buf_itr = post_buf_itr->next;
 
   return data;
@@ -282,7 +282,6 @@ AME_Request::ame_set_std_resp(int status, int len)
     r = ame_req.getNginxReq();
     r->headers_out.status           = NGX_HTTP_OK;
     r->headers_out.content_length_n = len;
-
     if (len == 0) {
         r->header_only = 1;
     }
@@ -298,12 +297,17 @@ AME_Request::ame_send_response_hdr()
 {
     ngx_int_t          rc;
     ngx_http_request_t *r;
+    std::string etag_key = "ETag";
 
     // Any protocol-connector specific response format.
     ame_format_response_hdr();
 
     // Do actual sending.
     r  = ame_req.getNginxReq();
+    if (etag.size() > 0) {
+      ame_set_resp_keyval(const_cast<char*>(etag_key.c_str()), etag_key.size(),
+          const_cast<char*>(etag.c_str()), etag.size());
+    }
     rc = ngx_http_send_header(r);
     return AME_OK;
 }
@@ -350,10 +354,9 @@ AME_Request::ame_send_resp_data(void *buf_cookie, int len, fds_bool_t last)
     r   = ame_req.getNginxReq();
 
     buf = (ngx_buf_t *)buf_cookie;
-    buf->last = buf->start + len;
-    buf->end  = buf->start + len;
-    out.buf   = buf;
-    out.next  = NULL;
+    buf->last = buf->pos + len;
+    out.buf  = buf;
+    out.next = NULL;
 
     if (last == true) {
         buf->last_buf      = 1;
@@ -386,6 +389,9 @@ Conn_GetObject::cb(void *req, fds_uint64_t bufsize,
 {
   Conn_GetObject *conn_go = (Conn_GetObject*) cbData;
   int ret_status = map_fdsn_status(status);
+  if (ret_status == NGX_HTTP_OK) {
+    conn_go->etag = HttpUtils::computeEtag(buf, bufsize);
+  }
 
   conn_go->fdsn_send_get_response(ret_status, (int) bufsize);
   conn_go->fdsn_send_get_buffer(conn_go->cur_get_buffer, (int) bufsize, true);
@@ -448,7 +454,8 @@ Conn_PutObject::cb(void *reqContext, fds_uint64_t bufferSize, char *buffer,
     void *callbackData, FDSN_Status status, ErrorDetails* errDetails)
 {
   int ret_status = map_fdsn_status(status);
-  ((Conn_PutObject*) callbackData)->fdsn_send_put_response(ret_status, 0);
+  Conn_PutObject *conn_po = (Conn_PutObject*) callbackData;
+  conn_po->fdsn_send_put_response(ret_status, 0);
 }
 
 // ame_request_handler
@@ -471,12 +478,15 @@ Conn_PutObject::ame_request_handler()
       return ;
     }
 
+    /* compute etag to be sent as response.  Ideally this is done by AM */
+    etag = HttpUtils::computeEtag(buf, len);
+
     api = ame->ame_fds_hook();
 //    api->PutObject(&bucket_ctx, get_object_id(), NULL, NULL,
 //                   buf, len, Conn_PutObject::cb, this);
     /*********************************/
     buf[len] = '\0';
-    printf("len: %llu, data: %s", len, buf);
+    printf("len: %d, data: %.5s", len, buf);
     Conn_PutObject::cb(NULL, 0, NULL, this, FDSN_StatusOK, NULL);
     /**********************************/
 }
