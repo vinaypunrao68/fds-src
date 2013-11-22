@@ -297,6 +297,7 @@ void FDS_NativeAPI::DoCallback(FdsBlobReq  *blob_req,
     static_cast<PutBlobReq*>(blob_req)->DoCallback(FDSN_StatusInternalError, NULL);
     break;
   case FDS_GET_BLOB:
+    static_cast<GetBlobReq*>(blob_req)->DoCallback(FDSN_StatusInternalError, NULL);
     break;
   case FDS_DELETE_BLOB:
     break;

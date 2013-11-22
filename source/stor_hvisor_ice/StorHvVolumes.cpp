@@ -503,7 +503,9 @@ int pushFbdReq(fbd_request_t *blkReq) {
    */
   FdsBlobReq *blobReq = new FdsBlobReq((fds::fds_io_op_t)blkReq->io_type,  // IO type
                                        blkReq->volUUID,  // Vol ID
-                                       "blkDev:vol" + std::to_string(blkReq->volUUID),  // Temp blob name
+                                       std::to_string((fds_uint64_t)blkReq->sec *
+                                                      HVISOR_SECTOR_SIZE),  // Temp blob name is offset
+                                       // "blkDev:vol" + std::to_string(blkReq->volUUID),  // Temp blob name is volId
                                        blkReq->sec * HVISOR_SECTOR_SIZE,  // Blob offset
                                        blkReq->len,  // Request buffer length
                                        blkReq->buf,  // Data buffer

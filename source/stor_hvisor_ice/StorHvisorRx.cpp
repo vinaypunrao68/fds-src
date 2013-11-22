@@ -285,7 +285,15 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
     upd_obj_req->obj_list.clear();
     upd_obj_req->obj_list.push_back(upd_obj_info);
     upd_obj_req->meta_list.clear();
-    upd_obj_req->blob_name = std::to_string(txn->block_offset);
+
+    /*
+     * Set the blob name from the blob request
+     */
+    fds::AmQosReq   *qosReq  = static_cast<fds::AmQosReq *>(txn->io);
+    fds_verify(qosReq != NULL);
+    fds::FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
+    fds_verify(blobReq != NULL);
+    upd_obj_req->blob_name = blobReq->getBlobName();
     
     for (fds_uint32_t node = 0; node < txn->num_dm_nodes; node++) {
       if (txn->dm_ack[node].ack_status != 0) {
@@ -478,6 +486,9 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
     }
     
     obj_id.SetId( cat_obj_info.data_obj_id.hash_high,cat_obj_info.data_obj_id.hash_low);
+    /*
+     * TODO: Change this when the interface to VCC changes.
+     */
     shvol->vol_catalog_cache->Update(
 				     (fds_uint64_t)strtoull(cat_obj_req->blob_name.c_str(), NULL, 0),
 				     obj_id);

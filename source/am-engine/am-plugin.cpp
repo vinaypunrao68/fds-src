@@ -328,7 +328,7 @@ ngx_fds_obj_delete(HttpRequest *http_req)
 ngx_int_t
 ngx_fds_bucket_get(HttpRequest *http_req)
 {
-  fds::S3_GetObject *s3 = new fds::S3_GetObject(*http_req);
+  fds::S3_GetBucket *s3 = new fds::S3_GetBucket(*http_req);
 
   // Do sync processing for now.
   s3->ame_request_handler();
@@ -362,7 +362,6 @@ ngx_fds_bucket_delete(HttpRequest *http_req)
   s3->ame_request_handler();
   delete s3;
   return NGX_DONE;
-
 }
 
 } // extern "C"
