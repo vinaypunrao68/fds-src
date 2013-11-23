@@ -15,7 +15,7 @@ void OMgrClientRPCI::NotifyAddVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePt
   assert(vol_msg->type == FDS_ProtocolInterface::FDSP_NOTIFY_ADD_VOL);
   fds_vol_notify_t type = fds_notify_vol_add;
   fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-  om_client->recvNotifyVol(vol_msg->vol_desc->volUUID, vdb, type);
+  om_client->recvNotifyVol(vol_msg->vol_desc->volUUID, vdb, type, msg_hdr->result);
 
 }
 
@@ -26,7 +26,7 @@ void OMgrClientRPCI::NotifyRmVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr
   assert(vol_msg->type == FDS_ProtocolInterface::FDSP_NOTIFY_RM_VOL);
   fds_vol_notify_t type = fds_notify_vol_rm;
   fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-  om_client->recvNotifyVol(vol_msg->vol_desc->volUUID, vdb, type);
+  om_client->recvNotifyVol(vol_msg->vol_desc->volUUID, vdb, type, msg_hdr->result);
 
 }
       
@@ -34,7 +34,7 @@ void OMgrClientRPCI::AttachVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& 
 			       const FDS_ProtocolInterface::FDSP_AttachVolTypePtr& vol_msg,
 			       const Ice::Current&) {
   fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-  om_client->recvVolAttachState(vol_msg->vol_desc->volUUID, vdb, FDS_VOL_ACTION_ATTACH);
+  om_client->recvVolAttachState(vol_msg->vol_desc->volUUID, vdb, FDS_VOL_ACTION_ATTACH, msg_hdr->result);
 }
 
 
@@ -42,7 +42,7 @@ void OMgrClientRPCI::DetachVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& 
 			       const FDS_ProtocolInterface::FDSP_AttachVolTypePtr& vol_msg,
 			       const Ice::Current&) {
   fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-  om_client->recvVolAttachState(vol_msg->vol_desc->volUUID, vdb, FDS_VOL_ACTION_DETACH);
+  om_client->recvVolAttachState(vol_msg->vol_desc->volUUID, vdb, FDS_VOL_ACTION_DETACH, msg_hdr->result);
 }
 
 void OMgrClientRPCI::NotifyNodeAdd(const FDSP_MsgHdrTypePtr& msg_hdr, 
@@ -308,7 +308,7 @@ void OMgrClient::initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
 
         msg_hdr->src_id = my_node_type;
         msg_hdr->dst_id = FDSP_ORCH_MGR;
-	msg_hdr->src_node_name = "";
+	msg_hdr->src_node_name = my_node_name;
 
         msg_hdr->err_code=FDSP_ERR_SM_NO_SPACE;
         msg_hdr->result=FDSP_ERR_OK;
@@ -438,6 +438,7 @@ int OMgrClient::pushCreateBucketToOM(const FDS_ProtocolInterface::FDSP_VolumeInf
          FDSP_CreateVolTypePtr volData = new FDSP_CreateVolType();
          volData->vol_info = new FDSP_VolumeInfoType();
 
+         volData->vol_name = volInfo->vol_name;
          volData->vol_info->vol_name = volInfo->vol_name;
          volData->vol_info->tennantId = volInfo->tennantId;
          volData->vol_info->localDomainId = volInfo->localDomainId;
@@ -459,7 +460,24 @@ int OMgrClient::pushCreateBucketToOM(const FDS_ProtocolInterface::FDSP_VolumeInf
 
     	 fdspConfigPathAPI->begin_CreateVol(msg_hdr, volData);
   } catch (...) {
-    FDS_PLOG_SEV(omc_log, fds::fds_log::error) << "OMClient unable to push perf stats to OM. Check if OM is up and restart.";
+    FDS_PLOG_SEV(omc_log, fds::fds_log::error) << "OMClient unable to push  the create bucket request to OM. Check if OM is up and restart.";
+  }
+
+   /* do attach volume for this bucket */
+  try {
+    std::string tcpProxyStr = std::string("OrchMgr: tcp -h ") + 
+         		omIpStr + std::string(" -p ") + std::to_string(omConfigPort);
+  	 FDSP_ConfigPathReqPrx fdspConfigPathAPI = FDSP_ConfigPathReqPrx::checkedCast(rpc_comm->stringToProxy(tcpProxyStr));
+         FDSP_MsgHdrTypePtr msg_hdr = new FDSP_MsgHdrType;
+         initOMMsgHdr(msg_hdr);
+
+        FDSP_AttachVolCmdTypePtr volData = new  FDSP_AttachVolCmdType();
+
+   	volData->vol_name = volInfo->vol_name; 
+   	volData->node_id = std::string("localhost-sh"); 
+  	fdspConfigPathAPI->AttachVol(msg_hdr, volData);
+  } catch (...) {
+    FDS_PLOG_SEV(omc_log, fds::fds_log::error) << "OMClient unable to push  the attach  bucket to  OM. Check if OM is up and restart.";
   }
 
   return 0;
@@ -521,13 +539,14 @@ int OMgrClient::recvNodeEvent(int node_id,
 
 int OMgrClient::recvNotifyVol(fds_volid_t vol_id,
                               VolumeDesc *vdb,
-                              fds_vol_notify_t vol_action) {
+                              fds_vol_notify_t vol_action,
+			      FDSP_ResultType result) {
 
   FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received volume event for volume " << vol_id 
 						    << " action - " << vol_action;
 
   if (this->vol_evt_hdlr) {
-    this->vol_evt_hdlr(vol_id, vdb, vol_action);
+    this->vol_evt_hdlr(vol_id, vdb, vol_action, result);
   }
   return (0);
   
@@ -535,7 +554,8 @@ int OMgrClient::recvNotifyVol(fds_volid_t vol_id,
 
 int OMgrClient::recvVolAttachState(fds_volid_t vol_id,
                                    VolumeDesc *vdb,
-                                   int vol_action) {
+                                   int vol_action,
+				   FDSP_ResultType result) {
 
   assert((vol_action == FDS_VOL_ACTION_ATTACH) || (vol_action == FDS_VOL_ACTION_DETACH));
 
@@ -548,7 +568,7 @@ int OMgrClient::recvVolAttachState(fds_volid_t vol_id,
 						    << " action - " << type;
 
   if (this->vol_evt_hdlr) {
-    this->vol_evt_hdlr(vol_id, vdb, type);
+    this->vol_evt_hdlr(vol_id, vdb, type, result);
   }
   return (0);
   
@@ -621,7 +641,9 @@ int OMgrClient::getNodeInfo(int node_id,
   return 0;
 } 
 
-int OMgrClient::getDLTNodesForDoidKey(unsigned char doid_key, int *node_ids, int *n_nodes) {
+int OMgrClient::getDLTNodesForDoidKey(unsigned char doid_key,
+                                      fds_int32_t *node_ids,
+                                      fds_int32_t *n_nodes) {
   
   omc_lock.read_lock();
 

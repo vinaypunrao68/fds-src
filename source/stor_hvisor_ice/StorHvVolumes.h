@@ -140,7 +140,8 @@ class StorHvVolumeTable
   /* handler for volume-related control message from OM */
   static void volumeEventHandler(fds_volid_t vol_uuid, 
                                  VolumeDesc *vdb,
-                                 fds_vol_notify_t vol_action);
+                                 fds_vol_notify_t vol_action,
+				 FDS_ProtocolInterface::FDSP_ResultType);
  
   void moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
 			       const std::string& vol_name,
@@ -176,7 +177,7 @@ class StorHvVolumeTable
 };
 
 class GetBlobReq: public FdsBlobReq {
- public:
+public:
   BucketContext *bucket_ctxt;
   std::string ObjKey;
   GetConditions *get_cond;
@@ -197,15 +198,15 @@ class GetBlobReq: public FdsBlobReq {
 	     void* _req_context,
 	     fdsnGetObjectHandler _get_obj_handler,
 	     void* _callback_data)
-    : FdsBlobReq(FDS_GET_BLOB, _volid, _blob_name, _blob_offset, _data_len, _data_buf, NULL),
-    bucket_ctxt(_bucket_ctxt),
-    ObjKey(_blob_name),
-    get_cond(_get_conds),
-    byteCount(_byte_count),
+    : FdsBlobReq(FDS_GET_BLOB, _volid, _blob_name, _blob_offset,
+                 _data_len, _data_buf, FDS_NativeAPI::DoCallback, this, Error(ERR_OK), 0),
+      bucket_ctxt(_bucket_ctxt),
+      ObjKey(_blob_name),
+      get_cond(_get_conds),
+      byteCount(_byte_count),
     req_context(_req_context),
-    getObjCallback(_get_obj_handler),
-    callback_data(_callback_data)
-    {
+      getObjCallback(_get_obj_handler),
+      callback_data(_callback_data) {
     }
 
   ~GetBlobReq() { };
@@ -236,7 +237,8 @@ class PutBlobReq: public FdsBlobReq {
 	    void* _req_context,
 	    fdsnPutObjectHandler _put_obj_handler,
 	    void* _callback_data) 
-   : FdsBlobReq(FDS_PUT_BLOB, _volid, _blob_name, _blob_offset, _data_len, _data_buf, NULL),
+   : FdsBlobReq(FDS_PUT_BLOB, _volid, _blob_name, _blob_offset,
+                _data_len, _data_buf, FDS_NativeAPI::DoCallback, this, Error(ERR_OK), 0),
     bucket_ctxt(_bucket_ctxt),
     ObjKey(_blob_name),
     putProperties(_put_props),
@@ -268,13 +270,13 @@ class DeleteBlobReq: public FdsBlobReq {
 	       void* _req_context,
 	       fdsnResponseHandler _resp_handler,
 	       void* _callback_data) 
-   : FdsBlobReq(FDS_DELETE_BLOB, _volid, _blob_name, 0, 0, NULL, NULL),
+   : FdsBlobReq(FDS_DELETE_BLOB, _volid, _blob_name, 0, 0, NULL,
+                FDS_NativeAPI::DoCallback, this, Error(ERR_OK), 0),
     bucket_ctxt(_bucket_ctxt),
     ObjKey(_blob_name),
     req_context(_req_context),
     responseCallback(_resp_handler),
-    callback_data(_callback_data)
-    {
+    callback_data(_callback_data) {
     }
 
   ~DeleteBlobReq() { };
@@ -308,7 +310,8 @@ private:
   ListBucketReq  *listBucketReq;
 
 public:
-  AmQosReq(FdsBlobReq *_br)
+  AmQosReq(FdsBlobReq *_br,
+           fds_uint32_t _reqId)
       : blobReq(_br) {
     /*
      * Set the base class defaults
@@ -317,11 +320,7 @@ public:
     io_module = STOR_HV_IO;
     io_vol_id = blobReq->getVolId();
     io_type   = blobReq->getIoType();
-    /*
-     * Set a reqId here. Need a atomic counter in
-     * Sh ctrl
-     */
-    io_req_id = 885;
+    io_req_id = _reqId;
 
     /*
      * Zero out FBD stuff to make sure we don't use it.
@@ -337,8 +336,7 @@ public:
   fds_bool_t magicInUse() const {
     return blobReq->magicInUse();
   }
-
-  FdsBlobReq *fdsBlobReq() const {
+  FdsBlobReq* getBlobReqPtr() {
     return blobReq;
   }
  

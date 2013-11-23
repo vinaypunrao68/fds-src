@@ -131,7 +131,7 @@ cuse_process_arg(void *data, const char *arg, int key, struct fuse_args *out)
 
 namespace fds {
 
-ProbeMainLib gl_probeMainLib("Main Probe Lib");
+ProbeMainLib gl_probeBlkLib("Main Probe Lib");
 
 ProbeMainLib::ProbeMainLib(char const *const name)
     : Module(name), dev_argv{ dev_name, nullptr }, fuse_argc(0)

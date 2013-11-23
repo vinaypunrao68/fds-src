@@ -18,6 +18,28 @@ FDS_NativeAPI::~FDS_NativeAPI()
 {
 }
 
+void FDS_NativeAPI::initVolInfo(FDSP_VolumeInfoTypePtr vol_info, const std::string& bucket_name)
+{
+  vol_info->vol_name = std::string(bucket_name);
+  vol_info->tennantId = 0;
+  vol_info->localDomainId = 0;
+  vol_info->globDomainId = 0;
+
+  vol_info->capacity = (1024*1024*100);
+  vol_info->maxQuota = 0;
+  vol_info->volType = FDSP_VOL_S3_TYPE;
+
+  vol_info->defReplicaCnt = 0;
+  vol_info->defWriteQuorum = 0;
+  vol_info->defReadQuorum = 0;
+  vol_info->defConsisProtocol = FDSP_CONS_PROTO_STRONG;
+
+  vol_info->volPolicyId = 50; // default S3 policy desc ID
+  vol_info->archivePolicyId = 0;
+  vol_info->placementPolicy = 0;
+  vol_info->appWorkload = FDSP_APP_WKLD_TRANSACTION;
+}
+
 /* Create a bucket */
 void FDS_NativeAPI::CreateBucket(BucketContext *bucket_ctx, 
 				 CannedAcl  canned_acl,
@@ -31,35 +53,19 @@ void FDS_NativeAPI::CreateBucket(BucketContext *bucket_ctx,
   if (ret_id != invalid_vol_id) {
        FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error) << " S3 Bucket Already exsists  BucketID: " << ret_id;
 
-     (responseHandler)(FDSN_StatusErrorBucketAlreadyExists,NULL,NULL);
+     (responseHandler)(FDSN_StatusErrorBucketAlreadyExists,NULL,callback_data);
      return;
    }
 
    FDSP_VolumeInfoTypePtr vol_info = new FDSP_VolumeInfoType();
-     vol_info->vol_name = std::string(bucket_ctx->bucketName);
-     vol_info->tennantId = 0;
-     vol_info->localDomainId = 0;
-     vol_info->globDomainId = 0;
-
-     vol_info->capacity = (1024*1024*100);
-     vol_info->maxQuota = 0;
-     vol_info->volType = FDSP_VOL_S3_TYPE;
-
-     vol_info->defReplicaCnt = 0;
-     vol_info->defWriteQuorum = 0;
-     vol_info->defReadQuorum = 0;
-     vol_info->defConsisProtocol = FDSP_CONS_PROTO_STRONG;
-
-     vol_info->volPolicyId = 50;  // default S3 policy desc ID
-     vol_info->archivePolicyId = 0;
-     vol_info->placementPolicy = 0;
-     vol_info->appWorkload = FDSP_APP_WKLD_TRANSACTION;
+   initVolInfo(vol_info, bucket_ctx->bucketName);
+   vol_info->volPolicyId = 50;  // default S3 policy desc ID
 
    // send the  bucket create request to OM
 
     storHvisor->om_client->pushCreateBucketToOM(vol_info);
 
-    (responseHandler)(FDSN_StatusOK,NULL,NULL);
+    (responseHandler)(FDSN_StatusOK,NULL,callback_data);
      return;
 }
 
@@ -84,10 +90,10 @@ void FDS_NativeAPI::DeleteBucket(BucketContext* bucketCtxt,
     fds_volid_t ret_id; 
    // check the bucket is already attached. 
    ret_id = storHvisor->vol_table->getVolumeUUID(bucketCtxt->bucketName);
-   if (ret_id != invalid_vol_id) {
+   if (ret_id == invalid_vol_id) {
        FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error) << " S3 Bucket  Does not exsists  BucketID: " << ret_id;
 
-     (handler)(FDSN_StatusErrorBucketNotExists,NULL,NULL);
+     (handler)(FDSN_StatusErrorBucketNotExists,NULL,callbackData);
      return;
    }
 
@@ -98,7 +104,7 @@ void FDS_NativeAPI::DeleteBucket(BucketContext* bucketCtxt,
 
    storHvisor->om_client->pushDeleteBucketToOM(volData); 
    /* TBD. Since this one is async call Error  checking involved, need more discussiosn */
-   (handler)(FDSN_StatusOK,NULL,NULL);
+   (handler)(FDSN_StatusOK,NULL,callbackData);
     return;
 }
 
@@ -168,7 +174,7 @@ void FDS_NativeAPI::PutObject(BucketContext *bucket_ctxt,
 			      std::string ObjKey, 
 			      PutProperties *put_properties,
 			      void *req_context,
-			      char *buffer, 
+			      char *buffer,
 			      fds_uint64_t buflen,
 			      fdsnPutObjectHandler putObjHandler, 
 			      void *callback_data)
@@ -278,7 +284,10 @@ void FDS_NativeAPI::DeleteObject(BucketContext *bucket_ctxt,
   // else we already handled above 
 }
 
-void FDS_NativeAPI::DoCallback(FdsBlobReq* blob_req, Error error)
+void FDS_NativeAPI::DoCallback(FdsBlobReq  *blob_req,
+                               Error        error,
+                               fds_uint32_t ignore,
+                               fds_int32_t  result)
 {
   FDS_PLOG(storHvisor->GetLog()) << "FDS_NativeAPI: callback to complete blob request : "
 				 << error.GetErrstr();
@@ -288,6 +297,7 @@ void FDS_NativeAPI::DoCallback(FdsBlobReq* blob_req, Error error)
     static_cast<PutBlobReq*>(blob_req)->DoCallback(FDSN_StatusInternalError, NULL);
     break;
   case FDS_GET_BLOB:
+    static_cast<GetBlobReq*>(blob_req)->DoCallback(FDSN_StatusInternalError, NULL);
     break;
   case FDS_DELETE_BLOB:
     break;
@@ -320,9 +330,7 @@ Error FDS_NativeAPI::checkBucketExists(BucketContext *bucket_ctxt, fds_volid_t* 
   /* else -- the volume not attached but it could have been already created,
    * so we will send test bucket msg to OM */
   FDSP_VolumeInfoTypePtr vol_info = new FDSP_VolumeInfoType();
-  vol_info->vol_name = std::string(bucket_ctxt->bucketName);
-  vol_info->volType = FDSP_VOL_S3_TYPE;
-  /* at this point we don't know anything about volume (?) */
+  initVolInfo(vol_info, bucket_ctxt->bucketName);
 
   om_err = storHvisor->om_client->testBucket(bucket_ctxt->bucketName,
 					     vol_info,

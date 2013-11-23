@@ -174,6 +174,12 @@ public:
   fds::Error pushBlobReq(FdsBlobReq *blobReq);
   fds::Error putBlob(AmQosReq *qosReq);
   fds::Error getBlob(AmQosReq *qosReq);
+  fds::Error putObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
+                        const FDSP_PutObjTypePtr& putObjRsp);
+  fds::Error upCatResp(const FDSP_MsgHdrTypePtr& rxMsg, 
+                       const FDSP_UpdateCatalogTypePtr& catObjRsp);
+  fds::Error getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
+                        const FDSP_GetObjTypePtr& getObjRsp);
 
   void  InitIceObjects();
   void InitDmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
@@ -205,10 +211,12 @@ static void processBlobReq(AmQosReq *qosReq) {
   fds_verify(qosReq->magicInUse() == true);
 
   fds::Error err(ERR_OK);
-  if (qosReq->io_type == fds::FDS_IO_READ) {
+  if ((qosReq->io_type == fds::FDS_IO_READ) || 
+      (qosReq->io_type == fds::FDS_GET_BLOB)) {
     err = storHvisor->getBlob(qosReq);
   } else {
-    fds_verify(qosReq->io_type == fds::FDS_IO_WRITE);
+    fds_verify((qosReq->io_type == fds::FDS_IO_WRITE) || 
+	       (qosReq->io_type == fds::FDS_PUT_BLOB));
     err = storHvisor->putBlob(qosReq);
   }
 

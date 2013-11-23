@@ -70,7 +70,9 @@ enum FDSP_MgrIdType {
 
 enum FDSP_ResultType {
   FDSP_ERR_OK,
-  FDSP_ERR_FAILED
+  FDSP_ERR_FAILED,
+  FDSP_ERR_VOLUME_DOES_NOT_EXIST,
+  FDSP_ERR_VOLUME_EXISTS
 };
 
 enum FDSP_ErrType {

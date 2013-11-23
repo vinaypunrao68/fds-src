@@ -55,8 +55,12 @@ class FDS_QoSControl {
 
    FDS_QoSControl(fds_uint32_t _max_thrds, dispatchAlgoType algo, fds_log *log, const std::string& prefix);
    
-   Error   registerVolume(fds_uint64_t voluuid, FDS_VolumeQueue *q);
-   Error   deregisterVolume(fds_uint64_t voluuid);
+   Error   registerVolume(fds_volid_t voluuid, FDS_VolumeQueue *q);
+   Error   deregisterVolume(fds_volid_t voluuid);
+   Error modifyVolumeQosParams(fds_volid_t vol_uuid, 
+			       fds_uint64_t iops_min, 
+			       fds_uint64_t iops_max,
+			       fds_uint32_t prio);
    
    void    setQosDispatcher(dispatchAlgoType algo_type, FDS_QoSDispatcher *qosDispatcher);
    void    runScheduler(); // Calls in the QosDispatcher's main dispatch routine

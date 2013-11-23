@@ -5,9 +5,17 @@
 #define _HTTP_UTILS_H_
 #include <vector>
 #include <string>
+
 extern "C" {
 #include <ngx_http.h>
+#include <ngx_md5.h>
 }
+
+class HttpUtils {
+public:
+  static std::string computeEtag(const char* data, size_t len);
+};
+
 class HttpRequest {
 public:
   HttpRequest(ngx_http_request_t* ngx_req);

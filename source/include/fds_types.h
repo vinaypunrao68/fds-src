@@ -20,6 +20,8 @@
 #include <functional>
 #include <shared/fds_types.h>
 
+#include <boost/bind.hpp>
+#include <boost/function.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 
 /*
@@ -260,7 +262,7 @@ namespace fds {
      * Callback members
      * TODO: Resolve this with what's needed by the object-based callbacks.
      */
-    typedef void (*cbFunc)(void *arg1, void *arg2, void *freq, int res);
+    typedef boost::function<void(fds_int32_t)> callbackBind;
 
   protected:
     /*
@@ -294,7 +296,7 @@ namespace fds {
     /*
      * Callback members
      */
-    cbFunc callbackFunc;
+    callbackBind callback;    
 
     /*
      * Perf members
@@ -303,12 +305,30 @@ namespace fds {
     
  public:
     FdsBlobReq(fds_io_op_t      _op,
-             fds_volid_t        _volId,
-             const std::string &_blobName,
-             fds_uint64_t       _blobOffset,
-             fds_uint64_t       _dataLen,
-             char              *_dataBuf,
-             cbFunc             _cb)
+               fds_volid_t        _volId,
+               const std::string &_blobName,
+               fds_uint64_t       _blobOffset,
+               fds_uint64_t       _dataLen,
+               char              *_dataBuf)
+        : magic(FDS_SH_IO_MAGIC_IN_USE),
+        ioType(_op),
+        volId(_volId),
+        blobName(_blobName),
+        blobOffset(_blobOffset),
+        dataLen(_dataLen),
+        dataBuf(_dataBuf) {
+    }
+    template<typename F, typename A, typename B, typename C>
+    FdsBlobReq(fds_io_op_t      _op,
+               fds_volid_t        _volId,
+               const std::string &_blobName,
+               fds_uint64_t       _blobOffset,
+               fds_uint64_t       _dataLen,
+               char              *_dataBuf,
+               F f,
+               A a,
+               B b,
+               C c)
         : magic(FDS_SH_IO_MAGIC_IN_USE),
         ioType(_op),
         volId(_volId),
@@ -316,7 +336,7 @@ namespace fds {
         blobOffset(_blobOffset),
         dataLen(_dataLen),
         dataBuf(_dataBuf),
-        callbackFunc(_cb) {
+        callback(boost::bind(f, a, b, c, _1)) {
     }
     ~FdsBlobReq() {
       magic = FDS_SH_IO_MAGIC_NOT_IN_USE;
@@ -325,13 +345,39 @@ namespace fds {
     fds_bool_t magicInUse() const {
       return (magic == FDS_SH_IO_MAGIC_IN_USE);
     }
-
     fds_volid_t getVolId() const {
       return volId;
     }
-
     fds_io_op_t  getIoType() const {
       return ioType;
+    }
+    void cbWithResult(int result) {
+      return callback(result);
+    }
+    const std::string& getBlobName() const {
+      return blobName;
+    }
+    fds_uint64_t getBlobOffset() const {
+      return blobOffset;
+    }
+    const char *getDataBuf() const {
+      return dataBuf;
+    }
+    fds_uint64_t getDataLen() const {
+      return dataLen;
+    }
+    void setDataBuf(const char* _buf) {
+      /*
+       * TODO: For now we're assuming the buffer is preallocated
+       * by the owner and the length has been set already.
+       */
+      memcpy(dataBuf, _buf, dataLen);
+    }
+    void setObjId(const ObjectID& _oid) {
+      objId = _oid;
+    }
+    void setQueuedUsec(fds_uint64_t _usec) {
+      queuedUsec = _usec;
     }
   };
 
@@ -360,7 +406,9 @@ public:
    boost::posix_time::ptime io_done_time;	 
 
    /*
-    * TODO: Blkdev specific fields. REMOVE THESE!
+    * TODO: Blkdev specific fields that can be REMOVED.
+    * These are left here simply because legacy, unused code
+    * still references these and needs them to compile.
     */
    void *fbd_req;
    void *vbd;

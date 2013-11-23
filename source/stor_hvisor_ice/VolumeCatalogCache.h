@@ -38,9 +38,10 @@ namespace fds {
   class CatalogCache {
  private:
     /*
-     * Maps a volume offset to a object ID.
+     * Maps a blob offset to a object ID.
      */
-    std::unordered_map<fds_uint32_t, ObjectID> offset_map;
+    typedef std::unordered_map<fds_uint32_t, ObjectID> OffsetMap;
+    OffsetMap offset_map;
 
     /*
      * Protects the offset_map.
@@ -73,9 +74,11 @@ namespace fds {
     fds_volid_t vol_id;
 
     /*
-     * Local cache class for this volume's catalog.
+     * Local map to catalog/offset cache for each blob
      */
-    CatalogCache cat_cache;
+    typedef std::unordered_map<std::string, CatalogCache *> BlobMap;
+    BlobMap blobMap;
+    fds_rwlock blobRwLock;
 
     /*
      * Reference to parent SH instance.
@@ -87,6 +90,14 @@ namespace fds {
      */
     fds_log    *vcc_log;
     fds_bool_t  created_log;
+
+    /*
+     * Function for issuing DM queries
+     */
+    Error queryDm(const std::string& blobName,
+                  fds_uint64_t blobOffset,
+                  fds_uint32_t trans_id,
+                  ObjectID *oid);
 
  public:
     /*
@@ -100,11 +111,13 @@ namespace fds {
 
     VolumeCatalogCache();
     ~VolumeCatalogCache();
-
-    Error Query(fds_uint64_t block_id,
+    
+    Error Query(const std::string& blobName,
+                fds_uint64_t blobOffset,
                 fds_uint32_t trans_id,
                 ObjectID *oid);
-    Error Update(fds_uint64_t block_id,
+    Error Update(const std::string& blobName,
+                 fds_uint64_t blobOffset,
                  const ObjectID &oid);
     void Clear();
 
