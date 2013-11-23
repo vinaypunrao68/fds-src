@@ -635,6 +635,24 @@ class TestResp : public FDS_ProtocolInterface::FDSP_DataPathResp {
     }
   }
 
+  void DeleteCatalogObjectResp(const
+                              FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
+                              fdsp_msg,
+                               const
+                              FDS_ProtocolInterface::FDSP_DeleteCatalogTypePtr&
+                              del_cat_obj,
+                              const Ice::Current &) {
+  }
+
+  void DeleteObjectResp(const
+                              FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
+                              fdsp_msg,
+                               const
+                              FDS_ProtocolInterface::FDSP_DeleteObjTypePtr&
+                              del_cat_obj,
+                              const Ice::Current &) {
+  }
+
   void OffsetWriteObjectResp(const
                              FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
                              fdsp_msg,

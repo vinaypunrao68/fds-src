@@ -189,6 +189,10 @@ class SmUnitTest {
         std::cout << "The ioreq on the resp is NULL!" << std::endl;
       }
     }
+    void DeleteObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                       const FDS_ProtocolInterface::FDSP_DeleteObjTypePtr& del_req,
+                       const Ice::Current&) {
+    }
 
     void UpdateCatalogObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
                                  fdsp_msg,
@@ -205,6 +209,11 @@ class SmUnitTest {
                                 FDS_ProtocolInterface::FDSP_QueryCatalogTypePtr&
                                 cat_obj_req,
                                 const Ice::Current &) {
+    }
+
+    void DeleteCatalogObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                       const FDS_ProtocolInterface::FDSP_DeleteCatalogTypePtr& del_req,
+                       const Ice::Current&) {
     }
 
     void OffsetWriteObjectResp(const

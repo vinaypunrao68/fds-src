@@ -265,6 +265,9 @@ namespace fds {
                             fds_volid_t        volId,
                             fds_uint32_t       transId,
                             fds_uint32_t       numObjs);
+    Error deleteObjectInternal(FDSP_DeleteObjTypePtr delObjReq, 
+                            fds_volid_t        volId,
+                            fds_uint32_t       transId);
     Error checkDuplicate(const ObjectID  &objId,
                          const ObjectBuf &objCompData);
     Error writeObjectLocation(const ObjectID &objId, 
@@ -274,6 +277,7 @@ namespace fds {
                               meta_obj_map_t *objMaps);
     Error readObjectLocations(const ObjectID     &objId,
                               diskio::MetaObjMap &objMaps);
+    Error deleteObjectLocation(const ObjectID     &objId);
     Error writeObject(const ObjectID   &objId,
                       const ObjectBuf  &objCompData,
                       fds_volid_t       volId,
@@ -334,8 +338,11 @@ namespace fds {
                    const FDS_ProtocolInterface::FDSP_PutObjTypePtr& put_obj);
     void GetObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
                    const FDS_ProtocolInterface::FDSP_GetObjTypePtr& get_obj);
+    void DeleteObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                   const FDS_ProtocolInterface::FDSP_DeleteObjTypePtr& del_obj);
     Error getObjectInternal(SmIoReq* getReq);
     Error putObjectInternal(SmIoReq* putReq);
+    Error deleteObjectInternal(SmIoReq* delReq);
     Error relocateObject(const ObjectID &objId,
                               diskio::DataTier from_tier,
                               diskio::DataTier to_tier);
@@ -388,12 +395,19 @@ namespace fds {
     void GetObject(const FDSP_MsgHdrTypePtr &msg_hdr,
                    const FDSP_GetObjTypePtr& get_obj, const Ice::Current&);
 
+    void DeleteObject(const FDSP_MsgHdrTypePtr &msg_hdr,
+                   const FDSP_DeleteObjTypePtr &del_obj, const Ice::Current&);
+
     void UpdateCatalogObject(const FDSP_MsgHdrTypePtr &msg_hdr,
                              const FDSP_UpdateCatalogTypePtr& update_catalog,
                              const Ice::Current&);
 
     void QueryCatalogObject(const FDSP_MsgHdrTypePtr &msg_hdr,
                             const FDSP_QueryCatalogTypePtr& query_catalog,
+                            const Ice::Current&);
+
+    void DeleteCatalogObject(const FDSP_MsgHdrTypePtr &msg_hdr,
+                            const FDSP_DeleteCatalogTypePtr& delete_catalog,
                             const Ice::Current&);
 
     void OffsetWriteObject(const FDSP_MsgHdrTypePtr& msg_hdr,

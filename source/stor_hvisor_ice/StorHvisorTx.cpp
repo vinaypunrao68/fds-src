@@ -26,6 +26,9 @@ extern StorHvCtrl *storHvisor;
 #define FDS_IO_LONG_TIME  60 // seconds
 
 BEGIN_C_DECLS
+/*----------------------------------------------------------------------------------------
+
+---------------------------------------------------------------------------------*/
 int StorHvisorProcIoRd(void *_io)
 {
  FDS_IOType *io = (FDS_IOType *)_io;
@@ -187,6 +190,9 @@ int StorHvisorProcIoRd(void *_io)
   return 0; // je_lock destructor will unlock the journal entry
 }
 
+/*----------------------------------------------------------------------------------------
+
+---------------------------------------------------------------------------------*/
 int StorHvisorProcIoWr(void *_io)
 {
   FDS_IOType *io = (FDS_IOType *)_io;
@@ -397,6 +403,7 @@ int StorHvisorProcIoWr(void *_io)
     shvol->readUnlock(); 
   return 0;
 }
+
 END_C_DECLS
 
 
