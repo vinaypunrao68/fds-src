@@ -187,7 +187,6 @@ int OrchMgr::CreateVol(const FdspMsgHdrPtr& fdsp_msg,
   int  domain_id = crt_vol_req->vol_info->localDomainId;
   std::string vol_name = crt_vol_req->vol_info->vol_name;
   localDomainInfo  *currentDom;
-  int returnCode;
 
   FDS_PLOG_SEV(GetLog(), fds::fds_log::notification) << "Received CreateVol Req for volume "
 						     << vol_name ;
@@ -225,11 +224,12 @@ int OrchMgr::CreateVol(const FdspMsgHdrPtr& fdsp_msg,
     * check the resource  availability 
     */
 
-  returnCode = currentDom->domain_ptr->admin_ctrl->volAdminControl(new_vol);
-  if (returnCode != 0) {
-    FDS_PLOG_SEV(GetLog(), fds::fds_log::error) << "Unable to create Volume " << vol_name ;
+  err = currentDom->domain_ptr->admin_ctrl->volAdminControl(new_vol->properties);
+  if ( !err.ok() ) {
     delete new_vol;
     om_mutex->unlock();
+    FDS_PLOG_SEV(GetLog(), fds::fds_log::error) << "Unable to create Volume " << vol_name 
+						<< "; result" << err.GetErrstr();
     return -1; 
   }
 
@@ -279,7 +279,7 @@ void OrchMgr::DeleteVol(const FdspMsgHdrPtr& fdsp_msg,
     * update  admission control  class  to reflect the  delete Volume 
     */
    cur_vol= currentDom->domain_ptr->volumeMap[vol_name];
-   currentDom->domain_ptr->admin_ctrl->updateAdminControlParams(cur_vol);
+   currentDom->domain_ptr->admin_ctrl->updateAdminControlParams(cur_vol->properties);
 
    currentDom->domain_ptr->volumeMap.erase(vol_name);
   om_mutex->unlock();
@@ -288,8 +288,88 @@ void OrchMgr::DeleteVol(const FdspMsgHdrPtr& fdsp_msg,
 }
 
 void OrchMgr::ModifyVol(const FdspMsgHdrPtr& fdsp_msg,
-                        const FdspModVolPtr& mod_vol_req) {
-  FDS_PLOG(GetLog()) << "Received ModifyVol  Msg";
+                        const FdspModVolPtr& mod_vol_req) 
+{
+  Error err(ERR_OK);
+  std::string vol_name = mod_vol_req->vol_desc->vol_name;
+  localDomainInfo  *currentDom = NULL;
+  VolumeDesc *new_voldesc = NULL;
+
+  FDS_PLOG_SEV(GetLog(), fds::fds_log::notification) << "Received ModifyVol Msg for volume " << vol_name;
+
+  /*
+   * get the domain Id. If  Domain is not created  use  default domain 
+   * for now  use the default domain
+   */
+   currentDom  = locDomMap[DEFAULT_LOC_DOMAIN_ID];
+
+  om_mutex->lock();
+  if ( currentDom->domain_ptr->volumeMap.count(vol_name) == 0) {
+    FDS_PLOG_SEV(om_log, fds::fds_log::warning) << "Received ModifyVol for non-existent volume " << vol_name;
+    om_mutex->unlock();
+    return;
+  }
+  VolumeInfo *mod_vol =  currentDom->domain_ptr->volumeMap[vol_name];
+  new_voldesc = new VolumeDesc(*(mod_vol->properties));
+
+  /* we will not modify capacity for now, just policy id or min/max iops and priority */
+  if (mod_vol_req->vol_desc->volPolicyId != 0) {
+    /* change policy id and get its description from the catalog */
+    new_voldesc->volPolicyId = mod_vol_req->vol_desc->volPolicyId;
+    err = policy_mgr->fillVolumeDescPolicy(new_voldesc);
+    if ( err == ERR_CAT_ENTRY_NOT_FOUND ) {
+      /* policy not in the catalog , revert to old policy id and return */
+      FDS_PLOG_SEV(GetLog(), fds::fds_log::warning) << "Modify volume " << vol_name 
+						    << " requested unknown policy " << (mod_vol_req->vol_desc)->volPolicyId
+						    << "; keeping original policy " << mod_vol->properties->volPolicyId;
+    }
+    else if (!err.ok()) {
+      FDS_PLOG_SEV(GetLog(), fds::fds_log::error) << "ModifyVol: volume " << vol_name 
+						  << " - Failed to get policy info for policy " << (mod_vol_req->vol_desc)->volPolicyId
+						  << "; keeping original policy " << mod_vol->properties->volPolicyId;
+    }
+
+    /* cleanup and return if error */
+    if (!err.ok()) {
+      /* we did not copy anything to the actual volume desc yet, so just delete new_voldesc */
+      delete new_voldesc;
+      om_mutex->unlock();
+      return;
+    }
+  }
+  else {
+    /* don't modify policy id, just min/max iops and priority in volume descriptor */
+    new_voldesc->iops_min = mod_vol_req->vol_desc->iops_min;
+    new_voldesc->iops_max = mod_vol_req->vol_desc->iops_max;
+    new_voldesc->relativePrio = mod_vol_req->vol_desc->rel_prio;
+    FDS_PLOG_SEV(GetLog(), fds::fds_log::notification) << "ModifyVol: volume " << vol_name 
+						       << " - keeps policy id " << new_voldesc->volPolicyId
+						       << " with new min_iops " << new_voldesc->iops_min
+						       << " max_iops " << new_voldesc->iops_max
+						       << " priority " << new_voldesc->relativePrio;
+  }
+
+  /* check if this volume can go through admission control with modified policy info */
+  err = currentDom->domain_ptr->admin_ctrl->checkVolModify(mod_vol->properties, new_voldesc);
+  if ( !err.ok() ) {
+      /* we did not copy anything to the actual volume desc yet, so just delete new_voldesc */
+    delete new_voldesc;
+    om_mutex->unlock();
+    FDS_PLOG_SEV(GetLog(), fds::fds_log::error) << "ModifyVol: volume " << vol_name 
+						<< " -- cannot admit with new policy info, keeping the old policy";
+    return; 
+  }
+
+  /* we admitted modified policy -- copy updated volume desc into volume info */
+  mod_vol->properties->volPolicyId = new_voldesc->volPolicyId;
+  mod_vol->properties->iops_min = new_voldesc->iops_min;
+  mod_vol->properties->iops_max = new_voldesc->iops_max;
+  mod_vol->properties->relativePrio = new_voldesc->relativePrio;
+  delete new_voldesc;
+
+  currentDom->domain_ptr->sendModifyVolToFdsNodes(mod_vol);
+
+  om_mutex->unlock();
 }
 
 void OrchMgr::CreatePolicy(const FdspMsgHdrPtr& fdsp_msg,

@@ -61,6 +61,15 @@ class ControlPathReq : public FDS_ProtocolInterface::FDSP_ControlPathReq {
     delete vdb;
   }
 
+  void NotifyModVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                    const FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg,
+                    const Ice::Current&) { 
+    assert(vol_msg->type == FDS_ProtocolInterface::FDSP_NOTIFY_MOD_VOL);
+    VolumeDesc *vdb = new VolumeDesc(vol_msg->vol_desc);
+    PrintVolumeDesc("NotifyModVol", vdb);  
+    delete vdb;
+  }
+
   void NotifyRmVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
                    const FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg,
                    const Ice::Current&) { }
@@ -69,16 +78,16 @@ class ControlPathReq : public FDS_ProtocolInterface::FDSP_ControlPathReq {
                  const FDS_ProtocolInterface::FDSP_AttachVolTypePtr& vol_msg,
                  const Ice::Current&) 
   {
-    std::string msg_str(msg_hdr->err_msg);
-
-    FDS_PLOG(test_log) << "NotifyVolAttach: received " << msg_str;
-
     if (msg_hdr->result == FDS_ProtocolInterface::FDSP_ERR_OK) 
       { 
     	VolumeDesc *vdb = new VolumeDesc(vol_msg->vol_desc);
     	PrintVolumeDesc("NotifyVolAttach", vdb);
     	delete vdb;
       }
+    else {
+      std::string msg_str(msg_hdr->err_msg);
+      FDS_PLOG(test_log) << "NotifyVolAttach: received " << msg_str;
+    }
   }
 
   void DetachVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
@@ -253,6 +262,58 @@ class OmUnitTest {
 
     msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
+  }
+
+  /*
+   * Helper function to init vol info
+   */
+  void initVolInfo(FDS_ProtocolInterface::FDSP_VolumeInfoTypePtr& vol_info, const std::string& vol_name) {
+    vol_info->vol_name = vol_name;
+    vol_info->tennantId = 0;
+    vol_info->localDomainId = 0;
+    vol_info->globDomainId = 0;
+
+    vol_info->capacity = 0;
+    vol_info->volType = FDS_ProtocolInterface::FDSP_VOL_BLKDEV_TYPE;
+    vol_info->defConsisProtocol =
+          FDS_ProtocolInterface::FDSP_CONS_PROTO_STRONG;
+    vol_info->appWorkload =
+          FDS_ProtocolInterface::FDSP_APP_WKLD_TRANSACTION;
+    vol_info->volPolicyId = 0;
+
+    vol_info->defReplicaCnt = 0;
+    vol_info->defWriteQuorum = 0;
+    vol_info->defReadQuorum = 0;
+
+    vol_info->archivePolicyId = 0;
+    vol_info->placementPolicy = 0;
+  }
+
+  /*
+   * Helper function to init vol desc
+   */
+  void initVolDesc(FDS_ProtocolInterface::FDSP_VolumeDescTypePtr& vol_desc) {
+    vol_desc->vol_name = std::string("test");
+    vol_desc->tennantId = 0;
+    vol_desc->localDomainId = 0;
+    vol_desc->globDomainId = 0;
+
+    vol_desc->capacity = 0;
+    vol_desc->volType = FDS_ProtocolInterface::FDSP_VOL_BLKDEV_TYPE;
+    vol_desc->defConsisProtocol =
+          FDS_ProtocolInterface::FDSP_CONS_PROTO_STRONG;
+    vol_desc->appWorkload =
+          FDS_ProtocolInterface::FDSP_APP_WKLD_TRANSACTION;
+    vol_desc->volPolicyId = 0;
+
+    vol_desc->defReplicaCnt = 0;
+    vol_desc->defWriteQuorum = 0;
+    vol_desc->defReadQuorum = 0;
+
+    vol_desc->archivePolicyId = 0;
+    vol_desc->placementPolicy = 0;
+
+    vol_desc->volPolicyId = 0;
   }
 
   /*
@@ -605,6 +666,25 @@ class OmUnitTest {
 	 FDS_PLOG(test_log) << "OM unit test client completed modifying policy";
        }
 
+     /* modify volume's min/max iops & priority info for first volume (that attached to SH node */
+     FDS_ProtocolInterface::FDSP_ModifyVolTypePtr mod_vol =
+       new FDS_ProtocolInterface::FDSP_ModifyVolType();
+     mod_vol->vol_desc = new FDSP_VolumeDescType();
+     initVolDesc(mod_vol->vol_desc);
+     mod_vol->vol_name = std::string("Volume ") + std::to_string(vol_start_uuid);
+     mod_vol->vol_desc->vol_name = mod_vol->vol_name;
+     mod_vol->vol_desc->iops_min = 888;
+     mod_vol->vol_desc->iops_max = 999;
+     mod_vol->vol_desc->rel_prio = 9;
+     FDS_PLOG(test_log) << "OM unit test client modifying volume "
+     			<< mod_vol->vol_name 
+			<< " iops_min " << mod_vol->vol_desc->iops_min
+			<< " iops_max " << mod_vol->vol_desc->iops_max
+			<< " rel_prio " << mod_vol->vol_desc->rel_prio;
+
+     fdspConfigPathAPI->ModifyVol(msg_hdr, mod_vol);
+     FDS_PLOG(test_log) << "OM unit test client completed modifying volume " << mod_vol->vol_name;
+
      /* delete all policies */
      FDS_ProtocolInterface::FDSP_DeletePolicyTypePtr del_pol = 
        new FDS_ProtocolInterface::FDSP_DeletePolicyType();
@@ -680,14 +760,13 @@ class OmUnitTest {
                          << fds::ipv4_addr_to_str(reg_node_msg->ip_lo_addr)
                          << " control port " << reg_node_msg->control_port;
 
-    /* test bucket that does not exist */
-     /* TODO: need to fully init vol_info, but not used for now, so not doing that yet */
+    /* test bucket that we created with prev tests or it does not exist if we run only this test  */
     FDS_ProtocolInterface::FDSP_TestBucketPtr test_buck_msg =
         new FDS_ProtocolInterface::FDSP_TestBucket;
 
     test_buck_msg->bucket_name = std::string("Volume 901");
-    test_buck_msg->vol_info = NULL; //new FDS_ProtocolInterface::FDSP_VolumeInfoType;
-    //    test_buck_msg->vol_info->vol_name = std::string("volA");
+    test_buck_msg->vol_info = new FDS_ProtocolInterface::FDSP_VolumeInfoType;
+    initVolInfo(test_buck_msg->vol_info, test_buck_msg->bucket_name);
     test_buck_msg->attach_vol_reqd = true;
     test_buck_msg->accessKeyId = "x";
     test_buck_msg->secretAccessKey = "y";

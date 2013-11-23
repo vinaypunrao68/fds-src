@@ -32,6 +32,12 @@ void DataMgr::vol_handler(fds_volid_t vol_uuid,
                                     vol_uuid,desc);
   } else if (vol_action == fds_notify_vol_rm) {
     err = dataMgr->_process_rm_vol(vol_uuid);
+  }
+  else if (vol_action == fds_notify_vol_mod) {
+    FDS_PLOG(dataMgr->GetLog()) << "Received vol modify from OM for "
+				<< std::to_string(vol_uuid)
+				<< " TODO: handle this";
+ 
   } else {
     assert(0);
   }

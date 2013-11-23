@@ -176,6 +176,9 @@ namespace fds {
 		   const FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg,
 		   const Ice::Current&);
 
+    void NotifyModVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+		   const FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg,
+		   const Ice::Current&);
       
     void AttachVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
 		   const FDS_ProtocolInterface::FDSP_AttachVolTypePtr& vol_msg,
