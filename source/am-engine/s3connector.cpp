@@ -9,15 +9,18 @@ extern "C" {
 #include <ngx_http.h>
 } // extern "C"
 
-#include <iostream>
-#include <shared/fds_types.h>
 #include <fds_assert.h>
-#include <am-plugin.h>
+#include <shared/fds_types.h>
+#include <am-engine/s3connector.h>
 
 namespace fds {
 
-S3_GetObject::S3_GetObject(HttpRequest &req)
-    : Conn_GetObject(req)
+AMEngine_S3 gl_AMEngineS3("AM S3 Engine");
+
+// ---------------------------------------------------------------------------
+
+S3_GetObject::S3_GetObject(AMEngine *eng, HttpRequest &req)
+    : Conn_GetObject(eng, req)
 {
 }
 
@@ -43,8 +46,8 @@ std::string S3_GetObject::get_object_id()
 
 // ---------------------------------------------------------------------------
 
-S3_PutObject::S3_PutObject(HttpRequest &req)
-    : Conn_PutObject(req)
+S3_PutObject::S3_PutObject(AMEngine *eng, HttpRequest &req)
+    : Conn_PutObject(eng, req)
 {
 }
 
@@ -70,8 +73,8 @@ std::string S3_PutObject::get_object_id()
 
 // ---------------------------------------------------------------------------
 
-S3_DelObject::S3_DelObject(HttpRequest &req)
-    : Conn_DelObject(req)
+S3_DelObject::S3_DelObject(AMEngine *eng, HttpRequest &req)
+    : Conn_DelObject(eng, req)
 {
 }
 
@@ -97,8 +100,8 @@ std::string S3_DelObject::get_object_id()
 
 // ---------------------------------------------------------------------------
 
-S3_GetBucket::S3_GetBucket(HttpRequest &req)
-    : Conn_GetBucket(req)
+S3_GetBucket::S3_GetBucket(AMEngine *eng, HttpRequest &req)
+    : Conn_GetBucket(eng, req)
 {
 }
 
@@ -114,8 +117,8 @@ S3_GetBucket::ame_format_response_hdr()
 
 // ---------------------------------------------------------------------------
 
-S3_PutBucket::S3_PutBucket(HttpRequest &req)
-    : Conn_PutBucket(req)
+S3_PutBucket::S3_PutBucket(AMEngine *eng, HttpRequest &req)
+    : Conn_PutBucket(eng, req)
 {
 }
 
@@ -136,8 +139,8 @@ std::string S3_PutBucket::get_bucket_id()
 
 // ---------------------------------------------------------------------------
 
-S3_DelBucket::S3_DelBucket(HttpRequest &req)
-    : Conn_DelBucket(req)
+S3_DelBucket::S3_DelBucket(AMEngine *eng, HttpRequest &req)
+    : Conn_DelBucket(eng, req)
 {
 }
 
