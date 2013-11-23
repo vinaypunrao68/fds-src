@@ -150,6 +150,22 @@ public:
     HttpRequest              ame_req;
     ngx_chain_t              *post_buf_itr;
     std::string              etag;
+    /*
+     * todo: once we switch to async model with handling requests, these members
+     * shouldn't be neeeded
+     */
+    int resp_status;
+    const char *resp_buf;
+    int resp_buf_len;
+    bool req_completed;
+    fdsio::RequestQueue queue;
+    void notify_request_completed(int status, const char *buf, int len) {
+      resp_status = status;
+      resp_buf = buf;
+      resp_buf_len = len;
+      req_completed = true;
+      req_complete();
+    }
 
     // Common request path.
     // The request handler is called through ame_request_handler().
