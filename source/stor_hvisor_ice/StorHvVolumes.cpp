@@ -474,6 +474,10 @@ void StorHvVolumeTable::volumeEventHandler(fds_volid_t vol_uuid,
                                    << " for volume " << vol_uuid;
     storHvisor->vol_table->removeVolume(vol_uuid);
     break;
+  case fds_notify_vol_mod:
+    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification) << "StorHvVolumeTable - Received volume modify  event from OM"
+                                   << " for volume " << vdb->name;
+    break;
   default:
     FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::warning) << "StorHvVolumeTable - Received unexpected volume event from OM"
                                    << " for volume " << vol_uuid;

@@ -16,6 +16,7 @@ int main(int argc, char **argv)
     fds::ModuleVector s3_pm_probe(argc, argv, s3_pm_probe_vec);
 
     s3_pm_probe.mod_execute();
+    fds::gl_probeS3Eng.probe_connect_adapter(&fds::gl_PM_ProbeMod);
     fds::gl_probeS3Eng.run_server(nullptr);
     return 0;
 }

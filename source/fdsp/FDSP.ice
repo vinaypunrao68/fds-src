@@ -22,8 +22,10 @@ enum fds_dmgr_txn_state {
 enum FDSP_MsgCodeType {
    FDSP_MSG_PUT_OBJ_REQ,
    FDSP_MSG_GET_OBJ_REQ,
+   FDSP_MSG_DELETE_OBJ_REQ,
    FDSP_MSG_VERIFY_OBJ_REQ,
    FDSP_MSG_UPDATE_CAT_OBJ_REQ,
+   FDSP_MSG_DELETE_CAT_OBJ_REQ,
    FDSP_MSG_QUERY_CAT_OBJ_REQ,
    FDSP_MSG_GET_VOL_BLOB_LIST_REQ,
    FDSP_MSG_OFFSET_WRITE_OBJ_REQ,
@@ -31,8 +33,10 @@ enum FDSP_MsgCodeType {
 
    FDSP_MSG_PUT_OBJ_RSP,
    FDSP_MSG_GET_OBJ_RSP,
+   FDSP_MSG_DELETE_OBJ_RSP,
    FDSP_MSG_VERIFY_OBJ_RSP,
    FDSP_MSG_UPDATE_CAT_OBJ_RSP,
+   FDSP_MSG_DELETE_CAT_OBJ_RSP,
    FDSP_MSG_QUERY_CAT_OBJ_RSP,
    FDSP_MSG_GET_VOL_BLOB_LIST_RSP,
    FDSP_MSG_OFFSET_WRITE_OBJ_RSP,
@@ -125,6 +129,12 @@ class FDSP_GetObjType {
   string  data_obj;
 };
 
+class  FDSP_DeleteObjType { /* This is a SH-->SM msg to delete the objectId */
+  FDS_ObjectIdType   data_obj_id;
+  int      data_obj_len;
+};
+
+
 class FDSP_OffsetWriteObjType {
   FDS_ObjectIdType   data_obj_id_old;
   int      data_obj_len;
@@ -192,6 +202,10 @@ class FDSP_QueryCatalogType {
 
   int      dm_transaction_id;  /* Transaction id */
   int      dm_operation;       /* Transaction type = OPEN, COMMIT, CANCEL */
+};
+
+class  FDSP_DeleteCatalogType { /* This is a SH-->SM msg to delete the objectId */
+  string   blob_name;       /* User visible name of the blob*/
 };
 
 struct FDSP_BlobInfoType{
@@ -362,7 +376,7 @@ class FDSP_DeleteVolType {
 class FDSP_ModifyVolType {
   string 		 vol_name;  /* Name of the volume */
   double		 vol_uuid;
-  FDSP_VolumeInfoType	 vol_info;  /* New updated volume properties */
+  FDSP_VolumeDescType	 vol_desc;  /* New updated volume descriptor */
 };
 
 class FDSP_AttachVolCmdType {
@@ -371,6 +385,7 @@ class FDSP_AttachVolCmdType {
   string		 node_id;  // Id of the hypervisor node where the volume should be attached
   int			 domain_id;
 };
+
 
 class FDSP_GetVolInfoReqType {
  string vol_name;
@@ -559,9 +574,13 @@ interface FDSP_DataPathReq {
 
     void PutObject(FDSP_MsgHdrType fdsp_msg, FDSP_PutObjType put_obj_req);
 
+    void DeleteObject(FDSP_MsgHdrType fdsp_msg, FDSP_DeleteObjType del_obj_req);
+
     void UpdateCatalogObject(FDSP_MsgHdrType fdsp_msg, FDSP_UpdateCatalogType cat_obj_req);
 
     void QueryCatalogObject(FDSP_MsgHdrType fdsp_msg, FDSP_QueryCatalogType cat_obj_req);
+
+    void DeleteCatalogObject(FDSP_MsgHdrType fdsp_msg, FDSP_DeleteCatalogType cat_obj_req);
 
     void OffsetWriteObject(FDSP_MsgHdrType fdsp_msg, FDSP_OffsetWriteObjType offset_write_obj_req);
 
@@ -578,9 +597,13 @@ interface FDSP_DataPathResp {
 
     void PutObjectResp(FDSP_MsgHdrType fdsp_msg, FDSP_PutObjType put_obj_req);
 
+    void DeleteObjectResp(FDSP_MsgHdrType fdsp_msg, FDSP_DeleteObjType del_obj_req);
+
     void UpdateCatalogObjectResp(FDSP_MsgHdrType fdsp_msg, FDSP_UpdateCatalogType cat_obj_req);
 
     void QueryCatalogObjectResp(FDSP_MsgHdrType fdsp_msg, FDSP_QueryCatalogType cat_obj_req);
+
+    void DeleteCatalogObjectResp(FDSP_MsgHdrType fdsp_msg, FDSP_DeleteCatalogType cat_obj_req);
 
     void OffsetWriteObjectResp(FDSP_MsgHdrType fdsp_msg, FDSP_OffsetWriteObjType offset_write_obj_req);
 
@@ -637,6 +660,7 @@ interface FDSP_ControlPathReq {
 
   void NotifyAddVol(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyVolType not_add_vol_req);
   void NotifyRmVol(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyVolType not_rm_vol_req);
+  void NotifyModVol(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyVolType not_mod_vol_req);
   void AttachVol(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolType atc_vol_req);
   void DetachVol(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolType dtc_vol_req);
   void NotifyNodeAdd(FDSP_MsgHdrType fdsp_msg, FDSP_Node_Info_Type node_info);
@@ -652,6 +676,7 @@ interface FDSP_ControlPathReq {
 interface FDSP_ControlPathResp {
   void NotifyAddVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyVolType not_add_vol_resp);
   void NotifyRmVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyVolType not_rm_vol_resp);
+  void NotifyModVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyVolType not_mod_vol_resp);
   void AttachVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolType atc_vol_resp);
   void DetachVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolType dtc_vol_resp);
   void NotifyNodeAddResp(FDSP_MsgHdrType fdsp_msg, FDSP_Node_Info_Type node_info_resp);

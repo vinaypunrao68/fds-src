@@ -66,6 +66,7 @@ PM_ProbeMod::pr_put(ProbeRequest &probe)
     meta_vol_io_t  vio;
     meta_obj_id_t  oid;
     fds::ObjectBuf *buf;
+    ProbeIORequest *io = dynamic_cast<ProbeIORequest *>(&probe);
     diskio::DataIO &pio = diskio::DataIO::disk_singleton();
 
     vadr_set_inval(vio.vol_adr);
@@ -75,7 +76,7 @@ PM_ProbeMod::pr_put(ProbeRequest &probe)
     oid.oid_hash_lo = hash_lo++;
     buf = new ObjectBuf;
     buf->size = 8 << diskio::DataIO::disk_io_blk_shift();
-    buf->data.reserve(buf->size);
+    buf->data.assign(io->pr_wr_buf, io->pr_wr_size);
 
     req = new DiskReqTest(vio, oid, buf, true, diskio::diskTier);
     pio.disk_write(req);

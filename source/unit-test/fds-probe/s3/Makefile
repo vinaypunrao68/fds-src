@@ -1,5 +1,5 @@
 topdir            := ../../..
-user_target       := exe
+user_target       := test
 user_rtime_env    := user
 user_incl_dir     := $(topdir)/fds-probe/include
 

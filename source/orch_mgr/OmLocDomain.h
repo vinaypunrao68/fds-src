@@ -241,6 +241,10 @@ class FdsLocalDomain {
      */
     void sendCreateVolToFdsNodes(VolumeInfo *pVol);
     /*
+     * Broadcast modify vol ctrl message to all SH/DM/SM Nodes
+     */
+    void sendModifyVolToFdsNodes(VolumeInfo *pVol);
+    /*
      * Broadcast delete vol ctrl message to all DM/SM Nodes
      */
     void sendDeleteVolToFdsNodes(VolumeInfo *pVol);

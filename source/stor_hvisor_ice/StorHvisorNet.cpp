@@ -1283,6 +1283,201 @@ fds::Error StorHvCtrl::getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
   return err;
 }
 
+/*****************************************************************************
+
+*****************************************************************************/
+fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
+  FDS_RPC_EndPoint *endPoint = NULL; 
+  unsigned int node_ip = 0;
+  fds_uint32_t node_port = 0;
+  unsigned int doid_dlt_key=0;
+  int num_nodes = 8, i =0;
+  int node_ids[8];
+  int node_state = -1;
+  fds::Error err(ERR_OK);
+  ObjectID oid;
+  fds_uint32_t vol_id;
+  FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
+  fds_verify(blobReq->magicInUse() == true);
+  DeleteBlobReq *del_blob_req = (DeleteBlobReq *)blobReq;
+
+  fds_volid_t   volId = blobReq->getVolId();
+  StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(volId);
+  if ((shVol == NULL) || (shVol->isValidLocked() == false)) {
+    shVol->readUnlock();
+    FDS_PLOG_SEV(sh_log, fds::fds_log::critical) << "deleteBlob failed to get volume for vol "
+                                                 << volId;
+    
+    blobReq->cbWithResult(-1);
+    err = ERR_DISK_WRITE_FAILED;
+    delete qosReq;
+    return err;
+  }
+
+  /* Check if there is an outstanding transaction for this block offset  */
+  // fds_uint32_t transId = shVol->journal_tbl->get_trans_id_for_block(blobReq->getBlobOffset());
+  fds_uint32_t transId = shVol->journal_tbl->get_trans_id_for_blob(blobReq->getBlobName(),
+                                                                   blobReq->getBlobOffset());
+  StorHvJournalEntry *journEntry = shVol->journal_tbl->get_journal_entry(transId);
+  
+  StorHvJournalEntryLock je_lock(journEntry);
+  
+  if (journEntry->isActive()) {
+    FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << transId << " - Transaction  is already in ACTIVE state, completing request "
+				   << transId << " with ERROR(-2) ";
+    // There is an ongoing transaciton for this offset.
+    // We should queue this up for later processing once that completes.
+    
+    // For now, return an error.
+    blobReq->cbWithResult(-2);
+    err = ERR_INVALID_ARG;
+    delete qosReq;
+    return err;
+  }
+
+  journEntry->setActive();
+
+  FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << transId << " volID:" << volId << " - Activated txn for req :" << transId;
+  
+  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr = new FDSP_MsgHdrType;
+  FDS_ProtocolInterface::FDSP_DeleteObjTypePtr del_obj_req = new FDSP_DeleteObjType;
+  
+  storHvisor->InitSmMsgHdr(fdsp_msg_hdr);
+  fdsp_msg_hdr->msg_code = FDSP_MSG_DELETE_OBJ_REQ;
+  fdsp_msg_hdr->msg_id =  1;
+  
+  
+  journEntry->trans_state = FDS_TRANS_OPEN;
+  journEntry->sm_msg = fdsp_msg_hdr; 
+  journEntry->dm_msg = NULL;
+  journEntry->sm_ack_cnt = 0;
+  journEntry->dm_ack_cnt = 0;
+  journEntry->op = FDS_IO_READ;
+  journEntry->data_obj_id.hash_high = 0;
+  journEntry->data_obj_id.hash_low = 0;
+  journEntry->data_obj_len = blobReq->getDataLen();
+  journEntry->io = qosReq;
+  
+  fdsp_msg_hdr->req_cookie = transId;
+  
+  err = shVol->vol_catalog_cache->Query(blobReq->getBlobName(),
+                                        blobReq->getBlobOffset(),
+                                        transId,
+                                        &oid);
+  if (err.GetErrno() == ERR_PENDING_RESP) {
+    FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << transId << " volID:" << volId << " - Vol catalog Cache Query pending :" << err.GetErrno() << std::endl ;
+    journEntry->trans_state = FDS_TRANS_VCAT_QUERY_PENDING;
+    return err.GetErrno();
+  }
+  
+  if (err.GetErrno() == ERR_CAT_QUERY_FAILED)
+  {
+    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:" << transId << " volID:" << vol_id << " - Error reading the Vol catalog  Error code : " <<  err.GetErrno() << std::endl;
+    blobReq->cbWithResult(err.GetErrno());
+    return err.GetErrno();
+  }
+  
+  FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << transId << " volID:" << vol_id << " - object ID: " << oid.GetHigh() <<  ":" << oid.GetLow()									 << "  ObjLen:" << journEntry->data_obj_len;
+  
+  // We have a Cache HIT *$###
+  //
+  uint64_t doid_dlt = oid.GetHigh();
+  doid_dlt_key = (doid_dlt >> 56);
+  
+  fdsp_msg_hdr->glob_volume_id = vol_id;;
+  fdsp_msg_hdr->req_cookie = transId;
+  fdsp_msg_hdr->msg_code = FDSP_MSG_DELETE_OBJ_REQ;
+  fdsp_msg_hdr->msg_id =  1;
+  fdsp_msg_hdr->src_ip_lo_addr = SRC_IP;
+  fdsp_msg_hdr->src_port = 0;
+  fdsp_msg_hdr->src_node_name = storHvisor->my_node_name;
+  del_obj_req->data_obj_id.hash_high = oid.GetHigh();
+  del_obj_req->data_obj_id.hash_low = oid.GetLow();
+  del_obj_req->data_obj_len = blobReq->getDataLen();
+  
+  journEntry->op = FDS_IO_READ;
+  journEntry->data_obj_id.hash_high = oid.GetHigh();;
+  journEntry->data_obj_id.hash_low = oid.GetLow();;
+  
+  // Lookup the Primary SM node-id/ip-address to send the DeleteObject to
+  storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(doid_dlt_key, node_ids, &num_nodes);
+  if(num_nodes == 0) {
+    FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << transId << " volID:" << volId << " -  DLT Nodes  NOT  confiigured. Check on OM Manager. Completing request with ERROR(-1)";
+    blobReq->cbWithResult(-1);
+    return ERR_GET_DLT_FAILED;
+  }
+  storHvisor->dataPlacementTbl->getNodeInfo(node_ids[0],
+                                            &node_ip,
+                                            &node_port,
+                                            &node_state);
+  
+  fdsp_msg_hdr->dst_ip_lo_addr = node_ip;
+  fdsp_msg_hdr->dst_port       = node_port;
+  
+  // *****CAVEAT: Modification reqd
+  // ******  Need to find out which is the primary SM and send this out to that SM. ********
+  storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip,
+                                             node_port,
+                                             FDSP_STOR_MGR,
+                                             &endPoint);
+  
+  // RPC Call DeleteObject to StorMgr
+  journEntry->trans_state = FDS_TRANS_DEL_OBJ;
+  if (endPoint)
+  { 
+    endPoint->fdspDPAPI->begin_DeleteObject(fdsp_msg_hdr, del_obj_req);
+    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:" << transId << " volID:" << volId << " - Sent async DelObj req to SM";
+  }
+  
+  // RPC Call DeleteCatalogObject to DataMgr
+  FDS_ProtocolInterface::FDSP_DeleteCatalogTypePtr del_cat_obj_req = new FDSP_DeleteCatalogType;
+  num_nodes = 8;
+  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr_dm = new FDSP_MsgHdrType;
+  storHvisor->InitDmMsgHdr(fdsp_msg_hdr_dm);
+  fdsp_msg_hdr_dm->req_cookie = transId;
+  fdsp_msg_hdr_dm->src_ip_lo_addr = SRC_IP;
+  fdsp_msg_hdr_dm->src_node_name = storHvisor->my_node_name;
+  fdsp_msg_hdr_dm->src_port = 0;
+  fdsp_msg_hdr_dm->dst_port = node_port;
+  storHvisor->dataPlacementTbl->getDMTNodesForVolume(volId, node_ids, &num_nodes);
+  
+  for (i = 0; i < num_nodes; i++) {
+    node_ip = 0;
+    node_port = 0;
+    node_state = -1;
+    storHvisor->dataPlacementTbl->getNodeInfo(node_ids[i],
+                                              &node_ip,
+                                              &node_port,
+                                              &node_state);
+    
+    journEntry->dm_ack[i].ipAddr = node_ip;
+    journEntry->dm_ack[i].port = node_port;
+    fdsp_msg_hdr_dm->dst_ip_lo_addr = node_ip;
+    fdsp_msg_hdr_dm->dst_port = node_port;
+    journEntry->dm_ack[i].ack_status = FDS_CLS_ACK;
+    journEntry->dm_ack[i].commit_status = FDS_CLS_ACK;
+    journEntry->num_dm_nodes = num_nodes;
+    del_cat_obj_req->blob_name = blobReq->getBlobName();
+    
+    // Call Update Catalog RPC call to DM
+    storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip,
+                                               node_port,
+                                               FDSP_DATA_MGR,
+                                               &endPoint);
+    if (endPoint){
+      endPoint->fdspDPAPI->begin_DeleteCatalogObject(fdsp_msg_hdr_dm, del_cat_obj_req);
+      FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:"
+                                     << transId << " volID:" << volId
+                                     << " - Sent async DELETE_CAT_OBJ_REQ request to DM at "
+                                     <<  node_ip << " port " << node_port;
+    }
+  }
+  // Schedule a timer here to track the responses and the original request
+  IceUtil::Time interval = IceUtil::Time::seconds(FDS_IO_LONG_TIME);
+  shVol->journal_tbl->schedule(journEntry->ioTimerTask, interval);
+  return ERR_OK; // je_lock destructor will unlock the journal entry
+}
+
 fds_log* StorHvCtrl::GetLog() {
   return sh_log;
 }

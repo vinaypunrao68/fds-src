@@ -2,6 +2,7 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 #include <fds-probe/s3-probe.h>
+#include <fds_assert.h>
 
 namespace fds {
 
@@ -54,6 +55,29 @@ Probe_PutObject::~Probe_PutObject()
 void
 Probe_PutObject::ame_request_handler()
 {
+    int            len;
+    char           *buf;
+    fds_uint64_t   vid;
+    ObjectID       oid;
+    ProbeMod       *probe;
+    ProbeIORequest *preq;
+
+    // Get data from S3 connector.
+    buf = ame_reqt_iter_data(&len);
+
+    // Hookup with the back-end probe adapter.
+    vid   = 2;
+    probe = ((ProbeS3Eng *)ame)->probe_get_adapter();
+    preq  = probe->pr_alloc_req(oid, 0, vid, 0, len, buf);
+    fds_verify(preq != nullptr);
+
+    probe->pr_enqueue(*preq);
+    probe->pr_intercept_request(*preq);
+    probe->pr_put(*preq);
+    probe->pr_verify_request(*preq);
+    preq->req_wait();
+    delete preq;
+
     fdsn_send_put_response(0, 0);
 }
 

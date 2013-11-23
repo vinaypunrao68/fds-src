@@ -97,9 +97,13 @@ public:
 
     void PutObjectResp(const FDSP_MsgHdrTypePtr&, const FDSP_PutObjTypePtr&, const Ice::Current&);
 
+    void DeleteObjectResp(const FDSP_MsgHdrTypePtr&, const FDSP_DeleteObjTypePtr&, const Ice::Current&);
+
     void UpdateCatalogObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_UpdateCatalogTypePtr& cat_obj_req, const Ice::Current &); 
 
     void QueryCatalogObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_QueryCatalogTypePtr& cat_obj_req, const Ice::Current &);
+
+    void DeleteCatalogObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_DeleteCatalogTypePtr& cat_obj_req, const Ice::Current &);
 
     void OffsetWriteObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_OffsetWriteObjTypePtr& offset_write_obj_req, const Ice::Current &) {
 
@@ -174,6 +178,7 @@ public:
   fds::Error pushBlobReq(FdsBlobReq *blobReq);
   fds::Error putBlob(AmQosReq *qosReq);
   fds::Error getBlob(AmQosReq *qosReq);
+  fds::Error deleteBlob(AmQosReq *qosReq);
   fds::Error putObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
                         const FDSP_PutObjTypePtr& putObjRsp);
   fds::Error upCatResp(const FDSP_MsgHdrTypePtr& rxMsg, 
@@ -211,13 +216,23 @@ static void processBlobReq(AmQosReq *qosReq) {
   fds_verify(qosReq->magicInUse() == true);
 
   fds::Error err(ERR_OK);
-  if ((qosReq->io_type == fds::FDS_IO_READ) || 
-      (qosReq->io_type == fds::FDS_GET_BLOB)) {
-    err = storHvisor->getBlob(qosReq);
-  } else {
-    fds_verify((qosReq->io_type == fds::FDS_IO_WRITE) || 
-	       (qosReq->io_type == fds::FDS_PUT_BLOB));
-    err = storHvisor->putBlob(qosReq);
+  switch (qosReq->io_type) { 
+    case fds::FDS_IO_READ :
+    case fds::FDS_GET_BLOB :
+      err = storHvisor->getBlob(qosReq);
+      break;
+
+    case fds::FDS_IO_WRITE :
+    case fds::FDS_PUT_BLOB:
+      err = storHvisor->putBlob(qosReq);
+      break;
+
+    case fds::FDS_DELETE_BLOB: 
+      err = storHvisor->deleteBlob(qosReq);
+      break;
+
+    default :
+      break;
   }
 
   fds_verify(err == ERR_OK);

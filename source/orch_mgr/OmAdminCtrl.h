@@ -62,8 +62,9 @@ public:
    void addDiskCapacity( class NodeInfo& n_info);
    void getAvailableDiskCapacity(FdspVolInfoPtr&  pVolInfo);  
    void updateAvailableDiskCapacity(FdspVolInfoPtr&  pVolInfo);
-   int volAdminControl(class VolumeInfo  *pVolInfo);
-   int updateAdminControlParams(class VolumeInfo  *pVolInfo);
+   Error volAdminControl(VolumeDesc  *pVolDesc);
+   Error checkVolModify(VolumeDesc *cur_desc, VolumeDesc *new_desc);
+   void updateAdminControlParams(VolumeDesc  *pVolInfo);
    void initDiskCapabilities();
 
   /* parent log */

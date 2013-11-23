@@ -486,7 +486,7 @@ Conn_PutObject::ame_request_handler()
 //                   buf, len, Conn_PutObject::cb, this);
     /*********************************/
     buf[len] = '\0';
-    printf("len: %d, data: %.5s", len, buf);
+    printf("len: %llu, data: %.5s", len, buf);
     Conn_PutObject::cb(NULL, 0, NULL, this, FDSN_StatusOK, NULL);
     /**********************************/
 }
