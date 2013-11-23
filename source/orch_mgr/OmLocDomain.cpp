@@ -567,6 +567,62 @@ void FdsLocalDomain::sendCreateVolToFdsNodes(VolumeInfo  *pVolInfo) {
   }
 }
 
+void FdsLocalDomain::sendModifyVolToFdsNodes(VolumeInfo* pVolInfo)
+{
+  VolumeDesc* pVolDesc = pVolInfo->properties;
+
+  FdspMsgHdrPtr msg_hdr = new FDS_ProtocolInterface::FDSP_MsgHdrType;
+  FdspNotVolPtr vol_msg = new FDS_ProtocolInterface::FDSP_NotifyVolType;
+  vol_msg->vol_desc = new FDS_ProtocolInterface::FDSP_VolumeDescType();
+
+  initOMMsgHdr(msg_hdr);
+  msg_hdr->glob_volume_id = pVolDesc->volUUID;
+  vol_msg->type = FDS_ProtocolInterface::FDSP_NOTIFY_MOD_VOL;
+  vol_msg->vol_name = std::string(pVolDesc->name);
+  copyPropertiesToVolumeDesc(vol_msg->vol_desc, pVolDesc);
+
+  /* Send to all DM/SM nodes */
+  for (int i = 0; i < 2; i++) {
+    node_map_t& node_map = (i == 0) ? currentDmMap:currentSmMap;
+    msg_hdr->dst_id = (i == 0) ?
+        FDS_ProtocolInterface::FDSP_DATA_MGR :
+        FDS_ProtocolInterface::FDSP_STOR_MGR;
+
+    for (auto it = node_map.begin(); it != node_map.end(); ++it) {
+      fds_node_name_t node_name = it->first;
+      NodeInfo& node_info = it->second;
+
+      FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Sending modify vol to node "
+							   << node_name << " for volume "
+							   << pVolInfo->vol_name << " UUID " 
+							   << pVolInfo->volUUID;
+
+      ReqCtrlPrx OMClientAPI = node_info.cpPrx;
+      OMClientAPI->begin_NotifyModVol(msg_hdr, vol_msg);
+    }
+  }
+
+  /* send to SH nodes to which this volume is attached to */
+  msg_hdr->dst_id = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
+  for (int i = 0; i < pVolInfo->hv_nodes.size(); ++i)
+    {
+      if (currentShMap.count(pVolInfo->hv_nodes[i]) == 0) {
+	FDS_PLOG_SEV(parent_log, fds::fds_log::error) << "Inconsistent state detected. "
+						      << "AM node in volume's hvnode lis but not in AM map"
+						      << " for volume " << pVolInfo->vol_name;
+	fds_verify(false);
+      }
+      FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Sending modify vol to AM node "
+							   << pVolInfo->hv_nodes[i] << " for volume "
+							   << pVolInfo->vol_name << " UUID " 
+							   << pVolInfo->volUUID;
+
+      NodeInfo& node_info = currentShMap[pVolInfo->hv_nodes[i]];
+      ReqCtrlPrx OMClientAPI = node_info.cpPrx;
+      OMClientAPI->begin_NotifyModVol(msg_hdr, vol_msg);
+    }
+}
+
 void
 FdsLocalDomain::sendTierPolicyToSMNodes(const FDSP_TierPolicyPtr &tier)
 {

@@ -1,6 +1,7 @@
 topdir            := ../../..
-user_target       := exe
+user_target       := test
 user_rtime_env    := user
+user_incl_dir     := $(topdir)/fds-probe/include
 
 user_cpp_flags    :=
 user_fds_so_libs  :=

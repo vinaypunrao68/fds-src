@@ -66,6 +66,7 @@ PM_ProbeMod::pr_put(ProbeRequest &probe)
     meta_vol_io_t  vio;
     meta_obj_id_t  oid;
     fds::ObjectBuf *buf;
+    ProbeIORequest *io = dynamic_cast<ProbeIORequest *>(&probe);
     diskio::DataIO &pio = diskio::DataIO::disk_singleton();
 
     vadr_set_inval(vio.vol_adr);
@@ -75,7 +76,7 @@ PM_ProbeMod::pr_put(ProbeRequest &probe)
     oid.oid_hash_lo = hash_lo++;
     buf = new ObjectBuf;
     buf->size = 8 << diskio::DataIO::disk_io_blk_shift();
-    buf->data.reserve(buf->size);
+    buf->data.assign(io->pr_wr_buf, io->pr_wr_size);
 
     req = new DiskReqTest(vio, oid, buf, true, diskio::diskTier);
     pio.disk_write(req);
@@ -144,39 +145,3 @@ PM_ProbeMod::mod_shutdown()
 }
 
 } // namespace fds
-
-#if 0
-extern "C" {
-
-void
-init_fds_mod(int argc, char **argv)
-{
-    fds::Module *pm_probe_vec[] =
-    {
-        &diskio::gl_dataIOMod,
-        &fds::gl_PM_ProbeMod,
-        nullptr
-    };
-    fds::ModuleVector pm_probe(argc, argv, pm_probe_vec);
-    pm_probe.mod_execute();
-}
-
-extern void
-fds_do_read(size_t off, size_t size)
-{
-    cout << "RD " << off << ", size " << size << endl;
-}
-
-extern void
-fds_do_write(size_t off, size_t size)
-{
-    fds::ObjectBuf  buf;
-    fds::ProbeRequest probe(0, buf, fds::gl_PM_ProbeMod);
-
-    fds::gl_PM_ProbeMod.pr_put(probe);
-//    cout << "WR " << off << ", size " << size << endl;
-}
-
-} // extern "C"
-
-#endif

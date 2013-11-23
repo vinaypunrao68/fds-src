@@ -1152,7 +1152,10 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
    * Get the object ID from vcc and add it to journal entry and get msg
    */
   ObjectID objId;
-  err = shVol->vol_catalog_cache->Query(blobReq->getBlobOffset(), transId, &objId);
+  err = shVol->vol_catalog_cache->Query(blobReq->getBlobName(),
+                                        blobReq->getBlobOffset(),
+                                        transId,
+                                        &objId);
   fds_verify(err == ERR_OK);
 
   journEntry->data_obj_id.hash_high = objId.GetHigh();

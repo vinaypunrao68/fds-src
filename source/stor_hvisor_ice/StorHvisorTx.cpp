@@ -115,7 +115,7 @@ int StorHvisorProcIoRd(void *_io)
   
   fdsp_msg_hdr->req_cookie = trans_id;
   
-  err  = shvol->vol_catalog_cache->Query(data_offset, trans_id, &oid);
+  err  = shvol->vol_catalog_cache->Query(std::to_string(data_offset), data_offset, trans_id, &oid);
   if (err.GetErrno() == ERR_PENDING_RESP) {
     FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Vol catalog Cache Query pending :" << err.GetErrno() << req;
     journEntry->trans_state = FDS_TRANS_VCAT_QUERY_PENDING;

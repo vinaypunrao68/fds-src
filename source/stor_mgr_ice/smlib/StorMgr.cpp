@@ -313,7 +313,7 @@ ObjectStorMgr::volEventOmHandler(fds_volid_t  volumeId,
 
   switch(action) {
     case FDS_VOL_ACTION_CREATE :
-      FDS_PLOG(objStorMgr->GetLog()) << "Received create for vol "
+      FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::notification) << "Received create for vol "
                                      << "[" << volumeId << ", "
                                      << vdb->getName() << "]";
       fds_assert(vdb != NULL);
@@ -330,13 +330,18 @@ ObjectStorMgr::volEventOmHandler(fds_volid_t  volumeId,
       objStorMgr->objCache->vol_cache_create(volumeId, 1024 * 1024 * 8, 1024 * 1024 * 256);
       fds_assert(err == ERR_OK);
       if (err != ERR_OK) {
-    	  FDS_PLOG(objStorMgr->GetLog()) << "registration failed for vol id " << volumeId << " error: "
+	FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::error) << "registration failed for vol id " << volumeId << " error: "
     			  << err;
       }
       break;
 
     case FDS_VOL_ACTION_DELETE:
-      FDS_PLOG(objStorMgr->GetLog()) << "Received delete for vol "
+      FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::notification) << "Received delete for vol "
+                                     << "[" << volumeId << ", "
+                                     << vdb->getName() << "]";
+      break;
+  case fds_notify_vol_mod:
+    FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::notification) << "Received modify for vol "
                                      << "[" << volumeId << ", "
                                      << vdb->getName() << "]";
       break;

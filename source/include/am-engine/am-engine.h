@@ -12,14 +12,20 @@
 
 namespace fds {
 class FDS_NativeAPI;
-static FDS_NativeAPI *ame_fds_hook(void);
+class Conn_GetObject;
+class Conn_PutObject;
+class Conn_DelObject;
+class Conn_GetBucket;
+class Conn_PutBucket;
+class Conn_DelBucket;
 
 class AMEngine : public Module
 {
   public:
     AMEngine(char const *const name) :
         Module(name), eng_signal(), eng_etc("etc"),
-        eng_logs("logs"), eng_conf("etc/fds.conf") {}
+        eng_logs("logs"), eng_conf("etc/fds.conf"),
+        queue(1, 1000) {}
 
     ~AMEngine() {}
 
@@ -27,28 +33,31 @@ class AMEngine : public Module
     void mod_startup();
     void mod_shutdown();
     void run_server(FDS_NativeAPI *api);
+    fdsio::RequestQueue* get_queue() {
+      return &queue;
+    }
 
+    // Factory methods to create objects handling required protocol.
+    virtual Conn_GetObject *ame_getobj_hdler(HttpRequest &req) = 0;
+    virtual Conn_PutObject *ame_putobj_hdler(HttpRequest &req) = 0;
+    virtual Conn_DelObject *ame_delobj_hdler(HttpRequest &req) = 0;
+    virtual Conn_GetBucket *ame_getbucket_hdler(HttpRequest &req) = 0;
+    virtual Conn_PutBucket *ame_putbucket_hdler(HttpRequest &req) = 0;
+    virtual Conn_DelBucket *ame_delbucket_hdler(HttpRequest &req) = 0;
+
+    FDS_NativeAPI *ame_fds_hook() {
+        return eng_api;
+    }
   private:
-    friend FDS_NativeAPI *ame_fds_hook(void);
-
     std::string              eng_signal;
     char const *const        eng_etc;
     char const *const        eng_logs;
     char const *const        eng_conf;
     FDS_NativeAPI            *eng_api;
+    fdsio::RequestQueue queue;
 };
 
-extern AMEngine              gl_AMEngine;
-
 // ---------------------------------------------------------------------------
-// ame_fds_hook
-// ------------
-// Return the API obj to hook up with FDS API.
-//
-static inline FDS_NativeAPI *ame_fds_hook(void)
-{
-    return gl_AMEngine.eng_api;
-}
 
 // Common return code used by this API.
 typedef enum
@@ -121,7 +130,7 @@ public:
   static int map_fdsn_status(FDSN_Status status);
 
   public:
-    AME_Request(HttpRequest &req);
+    AME_Request(AMEngine *eng, HttpRequest &req);
     ~AME_Request();
 
     // ame_get_reqt_hdr_val
@@ -148,6 +157,7 @@ public:
 
   protected:
     HttpRequest              ame_req;
+    AMEngine                 *ame;
     ngx_chain_t              *post_buf_itr;
     std::string              etag;
     /*
@@ -158,7 +168,7 @@ public:
     const char *resp_buf;
     int resp_buf_len;
     bool req_completed;
-    fdsio::RequestQueue queue;
+
     void notify_request_completed(int status, const char *buf, int len) {
       resp_status = status;
       resp_buf = buf;
@@ -217,7 +227,7 @@ public:
       FDSN_Status status, ErrorDetails *errdetails);
 
   public:
-    Conn_GetObject(HttpRequest &req);
+    Conn_GetObject(AMEngine *eng, HttpRequest &req);
     ~Conn_GetObject();
 
     // returns bucket id
@@ -282,7 +292,7 @@ public:
       void *callbackData, FDSN_Status status, ErrorDetails* errDetails);
 
   public:
-    Conn_PutObject(HttpRequest &req);
+    Conn_PutObject(AMEngine *eng, HttpRequest &req);
     ~Conn_PutObject();
 
     // returns bucket id
@@ -314,7 +324,7 @@ public:
       void *callbackData);
 
   public:
-    Conn_DelObject(HttpRequest &req);
+    Conn_DelObject(AMEngine *eng, HttpRequest &req);
     ~Conn_DelObject();
 
     // returns bucket id
@@ -346,7 +356,7 @@ class Conn_PutBucket : public AME_Request
             const ErrorDetails *errorDetails, void *callbackData);
 
   public:
-    Conn_PutBucket(HttpRequest &req);
+    Conn_PutBucket(AMEngine *eng, HttpRequest &req);
     ~Conn_PutBucket();
 
     // returns bucket id
@@ -377,7 +387,7 @@ class Conn_GetBucket : public AME_Request
                    void *cbarg);
 
   public:
-    Conn_GetBucket(HttpRequest &req);
+    Conn_GetBucket(AMEngine *eng, HttpRequest &req);
     ~Conn_GetBucket();
 
     virtual void ame_request_handler();
@@ -391,10 +401,11 @@ class Conn_DelBucket : public AME_Request
 {
 public:
   // delete bucket callback from FDS Api
-  static void cb(FDSN_Status status, const ErrorDetails *errorDetails, void *callbackData);
+  static void cb(FDSN_Status status,
+                 const ErrorDetails *errorDetails, void *callbackData);
 
   public:
-    Conn_DelBucket(HttpRequest &req);
+    Conn_DelBucket(AMEngine *eng, HttpRequest &req);
     ~Conn_DelBucket();
 
     // returns bucket id

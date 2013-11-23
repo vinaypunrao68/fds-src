@@ -234,7 +234,8 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
         fds::FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
         fds_verify(blobReq != NULL);
         vol->vol_catalog_cache->Update(
-            blobReq->getBlobOffset(), // TODO: This passing offset, but VCC thinks it's block ID
+            blobReq->getBlobName(),
+            blobReq->getBlobOffset(),
             ObjectID(txn->data_obj_id.hash_high, txn->data_obj_id.hash_low));
         
         /*
@@ -487,9 +488,12 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
     
     obj_id.SetId( cat_obj_info.data_obj_id.hash_high,cat_obj_info.data_obj_id.hash_low);
     /*
-     * TODO: Change this when the interface to VCC changes.
+     * TODO: Don't just grab the hard coded first catalog object in the list.
+     * Actually loop here.
      */
-    shvol->vol_catalog_cache->Update(
-				     (fds_uint64_t)strtoull(cat_obj_req->blob_name.c_str(), NULL, 0),
-				     obj_id);
+    FDS_PLOG(storHvisor->GetLog()) << "Doing a update catalog request after resp received";
+    shvol->vol_catalog_cache->Update(cat_obj_req->blob_name,
+                                     cat_obj_info.offset,
+                                     obj_id);
+    FDS_PLOG(storHvisor->GetLog()) << "Done with a update catalog request after resp received";
 }

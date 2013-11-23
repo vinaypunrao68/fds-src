@@ -362,7 +362,7 @@ class FDSP_DeleteVolType {
 class FDSP_ModifyVolType {
   string 		 vol_name;  /* Name of the volume */
   double		 vol_uuid;
-  FDSP_VolumeInfoType	 vol_info;  /* New updated volume properties */
+  FDSP_VolumeDescType	 vol_desc;  /* New updated volume descriptor */
 };
 
 class FDSP_AttachVolCmdType {
@@ -637,6 +637,7 @@ interface FDSP_ControlPathReq {
 
   void NotifyAddVol(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyVolType not_add_vol_req);
   void NotifyRmVol(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyVolType not_rm_vol_req);
+  void NotifyModVol(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyVolType not_mod_vol_req);
   void AttachVol(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolType atc_vol_req);
   void DetachVol(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolType dtc_vol_req);
   void NotifyNodeAdd(FDSP_MsgHdrType fdsp_msg, FDSP_Node_Info_Type node_info);
@@ -652,6 +653,7 @@ interface FDSP_ControlPathReq {
 interface FDSP_ControlPathResp {
   void NotifyAddVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyVolType not_add_vol_resp);
   void NotifyRmVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyVolType not_rm_vol_resp);
+  void NotifyModVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyVolType not_mod_vol_resp);
   void AttachVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolType atc_vol_resp);
   void DetachVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolType dtc_vol_resp);
   void NotifyNodeAddResp(FDSP_MsgHdrType fdsp_msg, FDSP_Node_Info_Type node_info_resp);

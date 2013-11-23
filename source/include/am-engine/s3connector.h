@@ -13,7 +13,7 @@ namespace fds {
 class S3_GetObject : public Conn_GetObject
 {
   public:
-    S3_GetObject(HttpRequest &req);
+    S3_GetObject(AMEngine *eng, HttpRequest &req);
     ~S3_GetObject();
 
     // returns bucket id
@@ -38,7 +38,7 @@ class S3_GetObject : public Conn_GetObject
 class S3_PutObject : public Conn_PutObject
 {
   public:
-    S3_PutObject(HttpRequest &req);
+    S3_PutObject(AMEngine *eng, HttpRequest &req);
     ~S3_PutObject();
 
     // returns bucket id
@@ -63,7 +63,7 @@ class S3_PutObject : public Conn_PutObject
 class S3_DelObject : public Conn_DelObject
 {
   public:
-    S3_DelObject(HttpRequest &req);
+    S3_DelObject(AMEngine *eng, HttpRequest &req);
     ~S3_DelObject();
 
     // returns bucket id
@@ -88,7 +88,7 @@ class S3_DelObject : public Conn_DelObject
 class S3_GetBucket : public Conn_GetBucket
 {
   public:
-    S3_GetBucket(HttpRequest &req);
+    S3_GetBucket(AMEngine *eng, HttpRequest &req);
     ~S3_GetBucket();
 
     virtual ame_ret_e ame_format_response_hdr();
@@ -101,7 +101,7 @@ class S3_GetBucket : public Conn_GetBucket
 class S3_PutBucket : public Conn_PutBucket
 {
   public:
-    S3_PutBucket(HttpRequest &req);
+    S3_PutBucket(AMEngine *eng, HttpRequest &req);
     ~S3_PutBucket();
 
     // returns bucket id
@@ -123,7 +123,7 @@ class S3_PutBucket : public Conn_PutBucket
 class S3_DelBucket : public Conn_DelBucket
 {
   public:
-    S3_DelBucket(HttpRequest &req);
+    S3_DelBucket(AMEngine *eng, HttpRequest &req);
     ~S3_DelBucket();
 
     // returns bucket id
@@ -139,6 +139,39 @@ class S3_DelBucket : public Conn_DelBucket
     char *resp_xx_key;
     char *resp_xx_value;
 };
+
+class AMEngine_S3 : public AMEngine
+{
+  public:
+    AMEngine_S3(char const *const name) : AMEngine(name) {}
+    ~AMEngine_S3() {}
+
+    // Object factory.
+    //
+    virtual Conn_GetObject *ame_getobj_hdler(HttpRequest &req) {
+        return new S3_GetObject(this, req);
+    }
+    virtual Conn_PutObject *ame_putobj_hdler(HttpRequest &req) {
+        return new S3_PutObject(this, req);
+    }
+    virtual Conn_DelObject *ame_delobj_hdler(HttpRequest &req) {
+        return new S3_DelObject(this, req);
+    }
+
+    // Bucket factory.
+    //
+    virtual Conn_GetBucket *ame_getbucket_hdler(HttpRequest &req) {
+        return new S3_GetBucket(this, req);
+    }
+    virtual Conn_PutBucket *ame_putbucket_hdler(HttpRequest &req) {
+        return new S3_PutBucket(this, req);
+    }
+    virtual Conn_DelBucket *ame_delbucket_hdler(HttpRequest &req) {
+        return new S3_DelBucket(this, req);
+    }
+};
+
+extern AMEngine_S3 gl_AMEngineS3;
 
 } // namespace fds
 #endif /* INCLUDE_AM_ENGINE_H_ */

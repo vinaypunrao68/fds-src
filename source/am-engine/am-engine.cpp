@@ -43,8 +43,6 @@ static char const *nginx_signal_argv[] =
     "-s", nginx_signal
 };
 
-AMEngine gl_AMEngine("AM Engine Module");
-
 int
 AMEngine::mod_init(SysParams const *const p)
 {
@@ -131,6 +129,7 @@ AMEngine::run_server(FDS_NativeAPI *api)
     snprintf(path, NGINX_ARG_PARAM, "%s/%s", nginx_prefix, eng_etc);
     ModuleVector::mod_mkdir(path);
 
+    ngx_register_plugin(this);
     nginx_start_argv[0] = mod_params->p_argv[0];
     ngx_main(FDS_ARRAY_ELEM(nginx_start_argv), nginx_start_argv);
 }
@@ -186,9 +185,8 @@ int AME_Request::map_fdsn_status(FDSN_Status status)
   }
 }
 
-AME_Request::AME_Request(HttpRequest &req)
-    : fdsio::Request(true), ame_req(req),
-      queue(1, 1000)
+AME_Request::AME_Request(AMEngine *eng, HttpRequest &req)
+    : fdsio::Request(true), ame(eng), ame_req(req)
 {
   if (ame_req.getNginxReq()->request_body &&
       ame_req.getNginxReq()->request_body->bufs) {
@@ -200,7 +198,7 @@ AME_Request::AME_Request(HttpRequest &req)
   resp_buf = NULL;
   resp_buf_len = 0;
   req_completed = false;
-  queue.rq_enqueue(this, 0);
+  eng->get_queue()->rq_enqueue(this, 0);
 }
 
 AME_Request::~AME_Request()
@@ -377,8 +375,8 @@ AME_Request::ame_send_resp_data(void *buf_cookie, int len, fds_bool_t last)
 // ---------------------------------------------------------------------------
 // GetObject Connector Adapter
 // ---------------------------------------------------------------------------
-Conn_GetObject::Conn_GetObject(HttpRequest &req)
-    : AME_Request(req)
+Conn_GetObject::Conn_GetObject(AMEngine *eng, HttpRequest &req)
+    : AME_Request(eng, req)
 {
 }
 
@@ -413,7 +411,7 @@ Conn_GetObject::ame_request_handler()
 
     cur_get_buffer  = fdsn_alloc_get_buffer(buf_req_len, &buf, &buf_len);
 
-    api = ame_fds_hook();
+    api = ame->ame_fds_hook();
 
     api->GetObject(&bucket_ctx, get_object_id(), NULL, 0, buf_len, buf, buf_len,
         (void *)this, Conn_GetObject::cb, NULL);
@@ -445,8 +443,8 @@ Conn_GetObject::fdsn_send_get_response(int status, int get_len)
 // ---------------------------------------------------------------------------
 // PutObject Connector Adapter
 // ---------------------------------------------------------------------------
-Conn_PutObject::Conn_PutObject(HttpRequest &req)
-    : AME_Request(req)
+Conn_PutObject::Conn_PutObject(AMEngine *eng, HttpRequest &req)
+    : AME_Request(eng, req)
 {
 }
 
@@ -461,9 +459,10 @@ int
 Conn_PutObject::cb(void *reqContext, fds_uint64_t bufferSize, char *buffer,
     void *callbackData, FDSN_Status status, ErrorDetails* errDetails)
 {
+  printf("put object cb invoked\n");
   Conn_PutObject *conn_po = (Conn_PutObject*) callbackData;
   conn_po->notify_request_completed(map_fdsn_status(status), NULL, 0);
-  printf("put object cb invoked\n");
+
 }
 
 // ame_request_handler
@@ -472,7 +471,7 @@ Conn_PutObject::cb(void *reqContext, fds_uint64_t bufferSize, char *buffer,
 void
 Conn_PutObject::ame_request_handler()
 {
-    fds_uint64_t  len;
+    int  len;
     char          *buf;
     FDS_NativeAPI *api;
     BucketContext bucket_ctx("host", get_bucket_id(), "accessid", "secretkey");
@@ -490,11 +489,12 @@ Conn_PutObject::ame_request_handler()
     etag = HttpUtils::computeEtag(buf, len);
     printf("len: %d, data: %.4s\n", len, buf);
 
-    api = ame_fds_hook();
+    api = ame->ame_fds_hook();
     api->PutObject(&bucket_ctx, get_object_id(), NULL, NULL,
                    buf, len, Conn_PutObject::cb, this);
 
     if (!req_completed) {
+      fds_assert(req_blocking_mode() == false);
       printf("put object waiting\n");
       req_wait();
     }
@@ -515,8 +515,8 @@ Conn_PutObject::fdsn_send_put_response(int status, int put_len)
 // ---------------------------------------------------------------------------
 // DelObject Connector Adapter
 // ---------------------------------------------------------------------------
-Conn_DelObject::Conn_DelObject(HttpRequest &req)
-    : AME_Request(req)
+Conn_DelObject::Conn_DelObject(AMEngine *eng, HttpRequest &req)
+    : AME_Request(eng, req)
 {
 }
 
@@ -543,7 +543,7 @@ Conn_DelObject::ame_request_handler()
     FDS_NativeAPI *api;
     BucketContext bucket_ctx("host", get_bucket_id(), "accessid", "secretkey");
 
-    api = ame_fds_hook();
+    api = ame->ame_fds_hook();
     api->DeleteObject(&bucket_ctx, get_object_id(), NULL, Conn_DelObject::cb, this);
 
     if (!req_completed) {
@@ -565,8 +565,8 @@ Conn_DelObject::fdsn_send_del_response(int status, int len)
 // ---------------------------------------------------------------------------
 // PutBucket Connector Adapter
 // ---------------------------------------------------------------------------
-Conn_PutBucket::Conn_PutBucket(HttpRequest &req)
-    : AME_Request(req)
+Conn_PutBucket::Conn_PutBucket(AMEngine *eng, HttpRequest &req)
+    : AME_Request(eng, req)
 {
 }
 
@@ -581,6 +581,7 @@ void Conn_PutBucket::fdsn_cb(FDSN_Status status,
     const ErrorDetails *errorDetails,
     void *callbackData)
 {
+  printf("put bucket cb done\n");
   Conn_PutBucket *conn_pb_obj =  (Conn_PutBucket*) callbackData;
   conn_pb_obj->notify_request_completed(map_fdsn_status(status), NULL, 0);
 }
@@ -594,11 +595,13 @@ Conn_PutBucket::ame_request_handler()
     FDS_NativeAPI *api;
     BucketContext bucket_ctx("host", get_bucket_id(), "accessid", "secretkey");
 
-    api = ame_fds_hook();
+    api = ame->ame_fds_hook();
     api->CreateBucket(&bucket_ctx, CannedAclPrivate,
                       NULL, fds::Conn_PutBucket::fdsn_cb, this);
     if (!req_completed) {
+      printf("put bucket waiting\n");
       req_wait();
+      printf("put bucket wait done\n");
     }
     fdsn_send_put_response(resp_status, 0);
 }
@@ -616,8 +619,8 @@ Conn_PutBucket::fdsn_send_put_response(int status, int put_len)
 // ---------------------------------------------------------------------------
 // GetBucket Connector Adapter
 // ---------------------------------------------------------------------------
-Conn_GetBucket::Conn_GetBucket(HttpRequest &req)
-    : AME_Request(req)
+Conn_GetBucket::Conn_GetBucket(AMEngine *eng, HttpRequest &req)
+    : AME_Request(eng, req)
 {
 }
 
@@ -753,7 +756,7 @@ Conn_GetBucket::ame_request_handler()
     content.ownerDisplayName = "Vy Nguyen";
 
     /*
-    api = ame_fds_hook();
+    api = ame->ame_fds_hook();
     api->GetBucket(NULL, prefix, marker, deli, 1000, NULL,
                    fds::Conn_GetBucket::fdsn_getbucket, (void *)this);
     */
@@ -773,8 +776,8 @@ Conn_GetBucket::fdsn_send_getbucket_response(int status, int len)
 // ---------------------------------------------------------------------------
 // PutBucket Connector Adapter
 // ---------------------------------------------------------------------------
-Conn_DelBucket::Conn_DelBucket(HttpRequest &req)
-    : AME_Request(req)
+Conn_DelBucket::Conn_DelBucket(AMEngine *eng, HttpRequest &req)
+    : AME_Request(eng, req)
 {
 }
 
@@ -802,7 +805,7 @@ Conn_DelBucket::ame_request_handler()
     FDS_NativeAPI *api;
     BucketContext bucket_ctx("host", get_bucket_id(), "accessid", "secretkey");
 
-    api = ame_fds_hook();
+    api = ame->ame_fds_hook();
     api->DeleteBucket(&bucket_ctx, NULL, fds::Conn_DelBucket::cb, this);
 
     if (!req_completed) {

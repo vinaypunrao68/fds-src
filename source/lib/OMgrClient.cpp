@@ -19,6 +19,15 @@ void OMgrClientRPCI::NotifyAddVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePt
 
 }
 
+void OMgrClientRPCI::NotifyModVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                                  const FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg,
+                                  const Ice::Current&) {
+  assert(vol_msg->type == FDS_ProtocolInterface::FDSP_NOTIFY_MOD_VOL);
+  fds_vol_notify_t type = fds_notify_vol_mod;
+  fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
+  om_client->recvNotifyVol(vol_msg->vol_desc->volUUID, vdb, type, msg_hdr->result);
+}
+
 void OMgrClientRPCI::NotifyRmVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
                      const FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg,
 			       const Ice::Current&) {

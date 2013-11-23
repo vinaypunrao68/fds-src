@@ -66,7 +66,7 @@ int FdsCli::fdsCliPraser(int argc, char* argv[])
 	("help", "Show FDS  Configuration Options")
 	("volume-create",po::value<std::string>(),"Create volume: volume-create <vol name> -s <size> -p <policy-id> -i <volume-id> ")
 	("volume-delete",po::value<std::string>(), "Delete volume : volume-delete <vol name> -i <volume-id>")
-	("volume-modify",po::value<std::string>(), "Modify volume: volume-modify <vol name> -s <size> -p <policy-id> -i <volume-id>")
+	("volume-modify",po::value<std::string>(), "Modify volume: volume-modify <vol name> -s <size> [-p <policy-id> OR -g <iops-min> -m <iops-max> -r <rel-prio>]")
 	("volume-attach",po::value<std::string>(), "Attach volume: volume-attach <vol name> -i <volume-id> -n <node-id>")
 	("volume-detach",po::value<std::string>(), "Detach volume: volume-detach <vol name> -i <volume-id> -n <node-id>")
 	("volume-show",po::value<std::string>(), "Show volume")
@@ -141,29 +141,51 @@ int FdsCli::fdsCliPraser(int argc, char* argv[])
 		}
 
 
-	} else if (vm.count("volume-modify") && vm.count("volume-size") &&  \
-				vm.count("volume-policy") && vm.count("volume-id")) {
+	} else if (vm.count("volume-modify") && vm.count("volume-size")) {
 
-		FDS_PLOG(cli_log) << " Modify Volume ";
-		FDS_PLOG(cli_log) << vm["volume-modify"].as<std::string>() << " -volume name";
-		FDS_PLOG(cli_log) << vm["volume-size"].as<double>() << " -volume size";
-		FDS_PLOG(cli_log) << vm["volume-policy"].as<int>() << " -volume policy";
-		FDS_PLOG(cli_log) << vm["volume-id"].as<int>() << " -volume id";
+	  FDS_PLOG_SEV(cli_log, fds::fds_log::notification) << " Modify Volume ";
+	  FDS_PLOG_SEV(cli_log, fds::fds_log::notification) << vm["volume-modify"].as<std::string>() << " -volume name";
+	  FDS_PLOG_SEV(cli_log, fds::fds_log::notification) << vm["volume-size"].as<double>() << " -volume size";
+	  if (vm.count("volume-policy")) {
+	    FDS_PLOG_SEV(cli_log, fds::fds_log::notification) << vm["volume-policy"].as<int>() << " -volume policy";
+	    if (vm.count("iops-min") || vm.count("iops-max") || vm.count("rel-prio")) {
+	      FDS_PLOG_SEV(cli_log, fds::fds_log::notification) << "Since prolicy id is specified, min/max iops and priority will be ignored";
+	    }
+
+	  }
+	  else {
+	    if ((vm.count("iops-min")==0) || (vm.count("iops-max")==0) || (vm.count("rel-prio")==0)) {
+	      FDS_PLOG_SEV(cli_log, fds::fds_log::error) << "If 'volume-policy' is not specified, must specify min/max iops and relative priority";
+	      return 0;
+	    }
+	    FDS_PLOG_SEV(cli_log, fds::fds_log::notification) << vm["iops-min"].as<double>() << " -minimum iops";		
+	    FDS_PLOG_SEV(cli_log, fds::fds_log::notification) << vm["iops-max"].as<double>() << " -maximum iops";
+	    FDS_PLOG_SEV(cli_log, fds::fds_log::notification) << vm["rel-prio"].as<int>() << " -relative priority";
+	  }
 
 		FDSP_ModifyVolTypePtr volData = new FDSP_ModifyVolType();
-		volData->vol_info = new FDSP_VolumeInfoType();
+		volData->vol_desc = new FDSP_VolumeDescType();
 
-    		volData->vol_info->vol_name = vm["volume-modify"].as<std::string>();
-    		//volData->vol_info->volUUID = vm["volume-id"].as<int>();
+    		volData->vol_name = vm["volume-modify"].as<std::string>();
+    		volData->vol_desc->vol_name = volData->vol_name;
 
-    		volData->vol_info->capacity = vm["volume-size"].as<double>();
-    		volData->vol_info->volType = FDSP_VOL_BLKDEV_TYPE;
-    		volData->vol_info->defConsisProtocol = FDSP_CONS_PROTO_STRONG;
+    		volData->vol_desc->capacity = vm["volume-size"].as<double>();
+    		volData->vol_desc->volType = FDSP_VOL_BLKDEV_TYPE;
+    		volData->vol_desc->defConsisProtocol = FDSP_CONS_PROTO_STRONG;
 
-		volData->vol_info->volPolicyId = vm["volume-policy"].as<int>();
-		volData->vol_info->archivePolicyId = 0;
-		volData->vol_info->placementPolicy = 0;
-    		volData->vol_info->appWorkload = FDSP_APP_WKLD_TRANSACTION;
+		volData->vol_desc->archivePolicyId = 0;
+		volData->vol_desc->placementPolicy = 0;
+    		volData->vol_desc->appWorkload = FDSP_APP_WKLD_TRANSACTION;
+
+	        if (vm.count("volume-policy")) {
+		  volData->vol_desc->volPolicyId = vm["volume-policy"].as<int>();
+		}
+		else { 
+		  volData->vol_desc->volPolicyId = 0; /* 0 means don't modify actual policy id */
+		  volData->vol_desc->iops_min = vm["iops-min"].as<double>();
+		  volData->vol_desc->iops_max = vm["iops-max"].as<double>();
+		  volData->vol_desc->rel_prio = vm["rel-prio"].as<int>();
+		}
 
    		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(proxy);
     		cfgPrx->ModifyVol(msg_hdr, volData);
