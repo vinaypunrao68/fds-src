@@ -42,6 +42,7 @@ namespace fds {
     ERR_PENDING_RESP         = 8,
     ERR_NOT_FOUND            = 9,
     ERR_VOL_ADMISSION_FAILED = 10,
+    ERR_GET_DLT_FAILED = 11,
     ERR_MAX
   } fds_errno_t;
   
