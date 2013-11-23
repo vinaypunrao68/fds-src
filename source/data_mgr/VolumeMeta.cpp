@@ -49,21 +49,21 @@ VolumeMeta::~VolumeMeta() {
   delete vol_mtx;
 }
 
-Error VolumeMeta::OpenTransaction(fds_uint32_t vol_offset,
-                                  const ObjectID& oid,VolumeDesc* desc) {
+Error VolumeMeta::OpenTransaction(const std::string blob_name,
+                                  const BlobNode*& bnode, VolumeDesc* desc) {
   Error err(ERR_OK);
 
   /*
    * TODO: Just put it in the vcat for now.
    */
 
-  ObjectID test(oid.ToString());
 
+  Record key((const char *)blob_name.c_str(),
+             blob_name.size());
 
-  Record key((const char *)&vol_offset,
-             sizeof(vol_offset));
-  std::string oid_string = oid.ToString();
-  Record val(oid_string);
+  std::string val_string = bnode->ToString();
+
+  Record val(val_string);
 
   vol_mtx->lock();
   err = vcat->Update(key, val);
@@ -72,19 +72,21 @@ Error VolumeMeta::OpenTransaction(fds_uint32_t vol_offset,
   return err;
 }
 
-Error VolumeMeta::QueryVcat(fds_uint32_t vol_offset,
-                            ObjectID *oid) {
+Error VolumeMeta::QueryVcat(const std::string blob_name,
+                            BlobNode*& bnode) {
   Error err(ERR_OK);
 
-  Record key((const char *)&vol_offset,
-             sizeof(vol_offset));
+  bnode = NULL;
+
+  Record key((const char *)blob_name.c_str(),
+             blob_name.size());
 
   /*
    * The query will allocate the record.
    * TODO: Don't have the query allocate
    * anything. That's not safe.
    */
-  std::string val;
+  std::string val = "";
 
   vol_mtx->lock();
   err = vcat->Query(key, &val);
@@ -92,21 +94,15 @@ Error VolumeMeta::QueryVcat(fds_uint32_t vol_offset,
 
   if (! err.ok()) {
     FDS_PLOG(dm_log) << "Failed to query for vol " << *vol_desc
-                     << " offset " << vol_offset << " with err "
+                     << " blob " << blob_name << " with err "
                      << err;
     return err;
-  } else if (val.size() != oid->GetLen()) {
-    /*
-     * Expect the record to the be object sized.
-     */
-    FDS_PLOG(dm_log) << "Failed to query for vol " << *vol_desc
-                     << " offset " << vol_offset << " with size "
-                     << val.size() << " expected " << oid->GetLen();
-    err = ERR_CAT_QUERY_FAILED;
-    return err;
-  }
+  } 
 
-  oid->SetId(val.c_str());
+  bnode = new BlobNode(val);
+
+  FDS_PLOG(dm_log) << "Query for " << blob_name << " returned string: " << val
+		   << " .  Constructed bnode: " << bnode->ToString();
 
   return err;
 }
