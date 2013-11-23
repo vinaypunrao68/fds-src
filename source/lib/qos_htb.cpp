@@ -140,8 +140,8 @@ Error QoSHTBDispatcher::registerQueue(fds_uint32_t queue_id,
 }
 
 Error QoSHTBDispatcher::modifyQueueQosParams(fds_uint32_t queue_id,
-					     fds_uint64_t iops_max,
 					     fds_uint64_t iops_min,
+					     fds_uint64_t iops_max,
 					     fds_uint32_t prio)
 {
   Error err(ERR_OK);
@@ -182,6 +182,22 @@ Error QoSHTBDispatcher::modifyQueueQosParams(fds_uint32_t queue_id,
     qda_lock.write_unlock();
     return err;
   }
+
+  /* update total min rate and avail rate */
+  fds_verify(total_min_rate >= qstate->min_rate);
+  total_min_rate = total_min_rate - qstate->min_rate + iops_min;
+  new_total_min_rate = total_min_rate;
+  new_total_avail_rate = avail_pool.getRate() + qstate->min_rate;
+  if (new_total_avail_rate > iops_min) {
+     new_total_avail_rate -= iops_min;
+  }
+  else {
+     /* for now we allow total_min_rate to exceed total_rate, means avail rate is 0,
+      * Even if avail_pool does not generate any tokens, it still gets unused 
+      * assured tokens (from min_iops reservation) and shares them with other queues */
+     new_total_avail_rate = 0;
+  }
+  avail_pool.modifyRate(new_total_avail_rate);
 
   /* modify queue state params */
   qstate->min_rate = iops_min;

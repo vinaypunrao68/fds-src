@@ -242,6 +242,39 @@ Error StorHvVolumeTable::registerVolume(const VolumeDesc& vdesc)
   return err;
 }
 
+Error StorHvVolumeTable::modifyVolumePolicy(fds_volid_t vol_uuid,
+					    const VolumeDesc& vdesc)
+{
+  Error err(ERR_OK);
+  StorHvVolume *vol = getLockedVolume(vol_uuid);
+  if (vol && vol->volQueue)
+    {
+      /* update volume descriptor */
+      (vol->voldesc)->modifyPolicyInfo(vdesc.iops_min,
+				      vdesc.iops_max,
+				      vdesc.relativePrio);
+ 
+      /* notify appropriate qos queue about the change in qos params*/
+      err = storHvisor->qos_ctrl->modifyVolumeQosParams(vol_uuid,
+							vdesc.iops_min,
+							vdesc.iops_max,
+							vdesc.relativePrio);
+    }
+  else {
+    err = Error(ERR_NOT_FOUND);
+  }
+  vol->readUnlock();
+
+  FDS_PLOG_SEV(vt_log, fds::fds_log::notification) << "StorHvVolumeTable - modify policy info for volume " 
+						   << vdesc.name
+						   << " (iops_min=" << vdesc.iops_min 
+						   << ",iops_max=" << vdesc.iops_max 
+						   << ",prio=" << vdesc.relativePrio << ")"
+						   << " RESULT " << err.GetErrstr();
+
+  return err;
+}
+
 /*
  * Removes volume from the map, returns error if volume does not exist
  */
@@ -464,8 +497,8 @@ void StorHvVolumeTable::volumeEventHandler(fds_volid_t vol_uuid,
       if (vdb) {
 	FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification) << "StorHvVolumeTable - Volume " 
 								       << vdb->name << "does not exist.";
+	storHvisor->vol_table->moveWaitBlobsToQosQueue(vol_uuid, vdb->name, Error(ERR_NOT_FOUND));
       }
-      storHvisor->vol_table->moveWaitBlobsToQosQueue(vol_uuid, vdb ? vdb->name : "unknown", Error(ERR_NOT_FOUND));
     }
 
     break;
@@ -475,8 +508,10 @@ void StorHvVolumeTable::volumeEventHandler(fds_volid_t vol_uuid,
     storHvisor->vol_table->removeVolume(vol_uuid);
     break;
   case fds_notify_vol_mod:
+    fds_verify(vdb != NULL);
     FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification) << "StorHvVolumeTable - Received volume modify  event from OM"
                                    << " for volume " << vdb->name;
+    storHvisor->vol_table->modifyVolumePolicy(vol_uuid, *vdb);
     break;
   default:
     FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::warning) << "StorHvVolumeTable - Received unexpected volume event from OM"

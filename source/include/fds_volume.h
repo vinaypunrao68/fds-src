@@ -212,6 +212,15 @@ namespace fds {
     ~VolumeDesc() {
     }
 
+    void modifyPolicyInfo(fds_uint64_t _iops_min,
+			  fds_uint64_t _iops_max,
+			  fds_uint32_t _priority)
+    {
+      iops_min = _iops_min;
+      iops_max = _iops_max;
+      relativePrio = _priority;
+    }
+
     std::string getName() const {
       return name;
     }

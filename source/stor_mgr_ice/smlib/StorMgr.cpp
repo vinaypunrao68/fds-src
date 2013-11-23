@@ -311,13 +311,13 @@ ObjectStorMgr::volEventOmHandler(fds_volid_t  volumeId,
   StorMgrVolume* vol = NULL;
   Error err = ERR_OK;
 
+  fds_assert(vdb != NULL);
+
   switch(action) {
     case FDS_VOL_ACTION_CREATE :
       FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::notification) << "Received create for vol "
                                      << "[" << volumeId << ", "
                                      << vdb->getName() << "]";
-      fds_assert(vdb != NULL);
-
       /*
        * Needs to reference the global SM object
        * since this is a static function.
@@ -344,6 +344,16 @@ ObjectStorMgr::volEventOmHandler(fds_volid_t  volumeId,
     FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::notification) << "Received modify for vol "
                                      << "[" << volumeId << ", "
                                      << vdb->getName() << "]";
+
+      vol = objStorMgr->volTbl->getVolume(volumeId);
+      fds_assert(vol != NULL);
+      vol->voldesc->modifyPolicyInfo(vdb->iops_min, vdb->iops_max, vdb->relativePrio);
+      err = objStorMgr->qosCtrl->modifyVolumeQosParams(vol->getVolId(),
+						       vdb->iops_min, vdb->iops_max, vdb->relativePrio);
+      if ( !err.ok() )  {
+	FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::error) << "Modify volume policy failed for vol " << vdb->getName() << " error: "
+								<< err.GetErrstr();
+      }
       break;
     default:
       fds_panic("Unknown (corrupt?) volume event recieved!");

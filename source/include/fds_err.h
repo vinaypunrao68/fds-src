@@ -26,8 +26,8 @@ namespace fds {
     "Catalog entry not found",
     "Invalid argument or parameter",
     "Response is pending",
-    "Admission control for a volume failed",
-    "Not found"
+    "Not found",
+    "Admission control for a volume failed"
   };
   
   typedef enum {

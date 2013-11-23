@@ -35,8 +35,8 @@ void DataMgr::vol_handler(fds_volid_t vol_uuid,
   }
   else if (vol_action == fds_notify_vol_mod) {
     FDS_PLOG(dataMgr->GetLog()) << "Received vol modify from OM for "
-				<< std::to_string(vol_uuid)
-				<< " TODO: handle this";
+				<< std::to_string(vol_uuid);
+    err = dataMgr->_process_mod_vol(vol_uuid, *desc);
  
   } else {
     assert(0);
@@ -125,6 +125,31 @@ Error DataMgr::_process_add_vol(const std::string& vol_name,
 
   err = _add_vol_locked(vol_name, vol_uuid,desc);
 
+
+  return err;
+}
+
+Error DataMgr::_process_mod_vol(fds_volid_t vol_uuid, const VolumeDesc& voldesc)
+{
+  Error err(ERR_OK);
+
+  vol_map_mtx->lock();
+  /* make sure volume exists */
+  if (volExistsLocked(vol_uuid) == false) {
+    FDS_PLOG_SEV(dataMgr->GetLog(), fds::fds_log::error) << "Received modify policy request for "
+							 << "non-existant volume [" << vol_uuid 
+							 << ", " << voldesc.name << "]" ;
+    err = Error(ERR_NOT_FOUND);
+    vol_map_mtx->unlock();
+    return err;
+  }
+  VolumeMeta *vm = vol_meta_map[vol_uuid];
+  vm->vol_desc->modifyPolicyInfo(voldesc.iops_min, voldesc.iops_max, voldesc.relativePrio);
+  err = qosCtrl->modifyVolumeQosParams(vol_uuid, voldesc.iops_min, voldesc.iops_max, voldesc.relativePrio);
+  vol_map_mtx->unlock();
+
+  FDS_PLOG_SEV(dataMgr->GetLog(), fds::fds_log::notification) << "Modify policy for volume "
+							      << voldesc.name << " RESULT: " << err.GetErrstr();
 
   return err;
 }
