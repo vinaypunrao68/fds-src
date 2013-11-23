@@ -97,13 +97,17 @@ public:
   fds_io_op_t   op;
   FDS_ObjectIdType data_obj_id;
   int      data_obj_len;
-  unsigned int block_offset;
+
+  std::string blobName;
+  fds_uint64_t blobOffset;
+
   /*
    * These block specific fields can be removed.
    * They are simply left here because legacy, unused
    * functions still reference them, so they are needed
    * for that legacy, unused code to compile
    */
+  unsigned int block_offset;
   void     *fbd_ptr;   // TODO: Remove
   void     *read_ctx;  // TODO: Remove
   void     *write_ctx; // TODO: Remove
@@ -140,6 +144,10 @@ private:
   fds_mutex *jrnl_tbl_mutex;
   StorHvJournalEntry  *rwlog_tbl;
   std::unordered_map<fds_uint64_t, fds_uint32_t> block_to_jrnl_idx;
+  /*
+   * New jrnl index for blobs
+   */
+  std::unordered_map<std::string, fds_uint32_t> blob_to_jrnl_idx;
   std::queue<unsigned int> free_trans_ids;
   unsigned int max_journal_entries;
 
@@ -158,8 +166,11 @@ public:
 	void unlock();
 
 	StorHvJournalEntry *get_journal_entry(fds_uint32_t trans_id);
-	fds_uint32_t get_trans_id_for_block(fds_uint64_t block_offset);
-	void release_trans_id(unsigned int trans_id);
+	fds_uint32_t get_trans_id_for_block(fds_uint64_t block_offset);  // Legacy block
+        fds_uint32_t get_trans_id_for_blob(const std::string& blobName,
+                                          fds_uint64_t blobOffset);
+	void release_trans_id(unsigned int trans_id);  // Legacy block
+        void releaseTransId(fds_uint32_t transId);
         void schedule(const TimerTaskPtr& task, const IceUtil::Time& interval) {
              ioTimer->schedule(task, interval);
         }

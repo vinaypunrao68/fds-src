@@ -779,9 +779,9 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
 
   /*
    * Get/lock a journal entry for the request.
-   * TODO: MAKE THE OFFSET BLOB RELATIVE!!!
    */
-  fds_uint32_t transId = shVol->journal_tbl->get_trans_id_for_block(blobReq->getBlobOffset());
+  fds_uint32_t transId = shVol->journal_tbl->get_trans_id_for_blob(blobReq->getBlobName(),
+                                                                   blobReq->getBlobOffset());
   FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "Assigning transaction ID " << transId
                                                    << " to put request";
   StorHvJournalEntry *journEntry = shVol->journal_tbl->get_journal_entry(transId);
@@ -1069,7 +1069,7 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
   fds_verify(blobReq->magicInUse() == true);
 
   fds_volid_t   volId = blobReq->getVolId();
-  StorHvVolume *shVol = storHvisor->vol_table->getVolume(volId);
+  StorHvVolume *shVol = vol_table->getVolume(volId);
   if ((shVol == NULL) || (shVol->isValidLocked() == false)) {
     FDS_PLOG_SEV(sh_log, fds::fds_log::critical) << "getBlob failed to get volume for vol "
                                                  << volId;    
@@ -1088,9 +1088,9 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
 
   /*
    * Get/lock a journal entry for the request.
-   * TODO: MAKE THE OFFSET BLOB RELATIVE!!!
    */
-  fds_uint32_t transId = shVol->journal_tbl->get_trans_id_for_block(blobReq->getBlobOffset());
+  fds_uint32_t transId = shVol->journal_tbl->get_trans_id_for_blob(blobReq->getBlobName(),
+                                                                   blobReq->getBlobOffset());
   FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "Assigning transaction ID " << transId
                                                    << " to get request";
   StorHvJournalEntry *journEntry = shVol->journal_tbl->get_journal_entry(transId);
@@ -1271,7 +1271,7 @@ fds::Error StorHvCtrl::getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
   }
 
   txn->reset();
-  vol->journal_tbl->release_trans_id(transId);
+  vol->journal_tbl->releaseTransId(transId);
 
   /*
    * TODO: We're deleting the request structure. This assumes

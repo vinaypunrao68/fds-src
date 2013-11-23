@@ -248,7 +248,7 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
         blobReq->cbWithResult(0);
 
         txn->reset();
-        vol->journal_tbl->release_trans_id(transId);
+        vol->journal_tbl->releaseTransId(transId);
 
         /*
          * TODO: We're deleting the request structure. This assumes
@@ -275,7 +275,7 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
      * Send  DM - commit request 
      */
     FDS_ProtocolInterface::FDSP_BlobObjectInfo upd_obj_info;
-    upd_obj_info.offset = txn->block_offset; // TODO: May need to revert to 0
+    upd_obj_info.offset = txn->blobOffset;  // May want to revert to 0 for blocks?
     upd_obj_info.data_obj_id.hash_high = txn->data_obj_id.hash_high;
     upd_obj_info.data_obj_id.hash_low =  txn->data_obj_id.hash_low;
     upd_obj_info.size = 0; // TODO: fix this.
@@ -398,7 +398,7 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
         journEntry->fbd_complete_req(req, -1);
       }
       journEntry->reset();
-      shvol->journal_tbl->release_trans_id(trans_id);
+      shvol->journal_tbl->releaseTransId(trans_id);
       return;
     }
     
@@ -412,7 +412,7 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
         journEntry->fbd_complete_req(req, -1);
       }
       journEntry->reset();
-      shvol->journal_tbl->release_trans_id(trans_id);
+      shvol->journal_tbl->releaseTransId(trans_id);
       return;
     }
     
@@ -428,7 +428,7 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
         journEntry->fbd_complete_req(req, 0);
       }
       journEntry->reset();
-      shvol->journal_tbl->release_trans_id(trans_id);
+      shvol->journal_tbl->releaseTransId(trans_id);
       return;
     }
 
@@ -455,7 +455,7 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
         journEntry->fbd_complete_req(req, 0);
       }
       journEntry->reset();
-      shvol->journal_tbl->release_trans_id(trans_id);
+      shvol->journal_tbl->releaseTransId(trans_id);
       return;
     }
     storHvisor->dataPlacementTbl->getNodeInfo(node_ids[0],
