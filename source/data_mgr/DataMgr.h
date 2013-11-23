@@ -286,6 +286,10 @@ public:
                      const FDS_ProtocolInterface::FDSP_GetObjTypePtr& get_obj,
                      const Ice::Current&);
 
+      void DeleteObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &msg_hdr,
+                     const FDS_ProtocolInterface::FDSP_DeleteObjTypePtr& get_obj,
+                     const Ice::Current&);
+
       void UpdateCatalogObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr
                                &msg_hdr,
                                const FDS_ProtocolInterface::
@@ -296,6 +300,12 @@ public:
                               &msg_hdr,
                               const FDS_ProtocolInterface::
                               FDSP_QueryCatalogTypePtr& query_catalog,
+                              const Ice::Current&);
+
+      void DeleteCatalogObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr
+                              &msg_hdr,
+                              const FDS_ProtocolInterface::
+                              FDSP_DeleteCatalogTypePtr& query_catalog,
                               const Ice::Current&);
 
       void OffsetWriteObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
@@ -349,6 +359,11 @@ public:
                                   FDSP_MsgHdrTypePtr &msg_hdr,
                                   const FDS_ProtocolInterface::
                                   FDSP_QueryCatalogTypePtr& query_catalog,
+                                  const Ice::Current&);
+      void DeleteCatalogObjectResp(const FDS_ProtocolInterface::
+                                  FDSP_MsgHdrTypePtr &msg_hdr,
+                                  const FDS_ProtocolInterface::
+                                  FDSP_DeleteCatalogTypePtr& query_catalog,
                                   const Ice::Current&);
       void OffsetWriteObjectResp(const FDS_ProtocolInterface::
                                  FDSP_MsgHdrTypePtr& msg_hdr,

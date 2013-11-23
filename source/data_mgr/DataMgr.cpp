@@ -988,6 +988,30 @@ void DataMgr::ReqHandler::QueryCatalogObject(const FDS_ProtocolInterface::
 }
 
 
+void DataMgr::ReqHandler::DeleteCatalogObject(const FDS_ProtocolInterface::
+                                             FDSP_MsgHdrTypePtr &msg_hdr,
+                                             const FDS_ProtocolInterface::
+                                             FDSP_DeleteCatalogTypePtr
+                                             &delete_catalog,
+                                             const Ice::Current&) {
+  Error err(ERR_OK);
+
+  FDS_PLOG(dataMgr->GetLog()) << "Processing Delete catalog request with "
+                              << "volume id: " << msg_hdr->glob_volume_id
+                              << ", blob name: "
+                              << delete_catalog->blob_name;
+
+}
+
+void DataMgr::ReqHandler::DeleteObject(const FDS_ProtocolInterface::
+                                             FDSP_MsgHdrTypePtr &msg_hdr,
+                                             const FDS_ProtocolInterface::
+                                             FDSP_DeleteObjTypePtr
+                                             &delete_obj,
+                                             const Ice::Current&) {
+}
+
+
 void DataMgr::ReqHandler::OffsetWriteObject(const FDS_ProtocolInterface::
                                             FDSP_MsgHdrTypePtr &msg_hdr,
                                             const FDS_ProtocolInterface::
@@ -1042,6 +1066,15 @@ DataMgr::RespHandler::UpdateCatalogObjectResp(const FDS_ProtocolInterface::
                                               FDSP_MsgHdrTypePtr &msg_hdr,
                                               const FDS_ProtocolInterface::
                                               FDSP_UpdateCatalogTypePtr
+                                              &update_catalog,
+                                              const Ice::Current&) {
+}
+
+void
+DataMgr::RespHandler::DeleteCatalogObjectResp(const FDS_ProtocolInterface::
+                                              FDSP_MsgHdrTypePtr &msg_hdr,
+                                              const FDS_ProtocolInterface::
+                                              FDSP_DeleteCatalogTypePtr
                                               &update_catalog,
                                               const Ice::Current&) {
 }

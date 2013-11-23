@@ -134,6 +134,56 @@ ObjectStorMgrI::GetObject(const FDSP_MsgHdrTypePtr& msgHdr,
 }
 
 void
+ObjectStorMgrI::DeleteObject(const FDSP_MsgHdrTypePtr& msgHdr,
+                          const FDSP_DeleteObjTypePtr& delObj,
+                          const Ice::Current&) {
+  FDS_PLOG(objStorMgr->GetLog()) << "Received a Putobject() network request";
+
+#ifdef FDS_TEST_SM_NOOP
+  msgHdr->msg_code = FDSP_MSG_PUT_OBJ_RSP;
+  msgHdr->result = FDSP_ERR_OK;
+  objStorMgr->swapMgrId(msgHdr);
+  objStorMgr->fdspDataPathClient[msgHdr->src_node_name]->begin_DeleteObjectResp(msgHdr, delObj);
+  FDS_PLOG(objStorMgr->GetLog()) << "FDS_TEST_SM_NOOP defined. Sent async PutObj response right after receiving req.";
+  return;
+#endif /* FDS_TEST_SM_NOOP */
+
+  /*
+   * Track the outstanding get request.
+   * TODO: This is a total hack. We're overloading the msg_hdr's
+   * msg_chksum field to track the outstanding request Id that
+   * we pass into the SM.
+   *
+   * TODO: We should check if this value has rolled at some point.
+   * Though it's big enough for us to not care right now.
+   */
+  fds_uint64_t reqId;
+  reqId = std::atomic_fetch_add(&(objStorMgr->nextReqId), (fds_uint64_t)1);
+  msgHdr->msg_chksum = reqId;
+  objStorMgr->waitingReqMutex->lock();
+  objStorMgr->waitingReqs[reqId] = msgHdr;
+  objStorMgr->waitingReqMutex->unlock();
+
+  objStorMgr->DeleteObject(msgHdr, delObj);
+
+  /*
+   * If we failed to enqueue the I/O return the error response
+   * now as there is no more processing to do.
+   */
+  if (msgHdr->result != FDSP_ERR_OK) {
+    objStorMgr->waitingReqMutex->lock();
+    objStorMgr->waitingReqs.erase(reqId);
+    objStorMgr->waitingReqMutex->unlock();
+
+    msgHdr->msg_code = FDSP_MSG_DELETE_OBJ_RSP;
+    objStorMgr->swapMgrId(msgHdr);
+    objStorMgr->fdspDataPathClient[msgHdr->src_node_name]->begin_DeleteObjectResp(msgHdr, delObj);
+
+    FDS_PLOG(objStorMgr->GetLog()) << "Sent async PutObj response after receiving";
+  }
+}
+
+void
 ObjectStorMgrI::UpdateCatalogObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_UpdateCatalogTypePtr& update_catalog , const Ice::Current&) {
   FDS_PLOG(objStorMgr->GetLog()) << "Wrong Interface Call: In the interface updatecatalog()";
 }
@@ -141,6 +191,11 @@ ObjectStorMgrI::UpdateCatalogObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDS
 void
 ObjectStorMgrI::QueryCatalogObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_QueryCatalogTypePtr& query_catalog , const Ice::Current&) {
   FDS_PLOG(objStorMgr->GetLog())<< "Wrong Interface Call: In the interface QueryCatalogObject()";
+}
+
+void
+ObjectStorMgrI::DeleteCatalogObject(const FDSP_MsgHdrTypePtr &msg_hdr, const FDSP_DeleteCatalogTypePtr& query_catalog , const Ice::Current&) {
+  FDS_PLOG(objStorMgr->GetLog())<< "Wrong Interface Call: In the interface DeleteCatalogObject()";
 }
 
 void
@@ -577,6 +632,51 @@ ObjectStorMgr::readObjectLocations(const ObjectID &objId,
 }
 
 Error
+ObjectStorMgr::deleteObjectLocation(const ObjectID& objId) { 
+
+  Error err(ERR_OK);
+  meta_obj_map_t *obj_map;
+
+  diskio::MetaObjMap objMap;
+  ObjectBuf          objData;
+
+    /*
+     * Get existing object locations
+     */
+    err = readObjectLocations(objId, objMap);
+    if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
+      FDS_PLOG(objStorMgr->GetLog()) << "Failed to read existing object locations"
+                                     << " during location write";
+      return err;
+    } else if (err == ERR_DISK_READ_FAILED) {
+      /*
+       * Assume this error means the key just did not exist.
+       * TODO: Add an err to differention "no key" from "failed read".
+       */
+      FDS_PLOG(objStorMgr->GetLog()) << "Not able to read existing object locations"
+                                     << ", assuming no prior entry existed";
+      err = ERR_OK;
+    }
+
+  /*
+   * Set the ref_cnt to 0, which will be the delete marker for this object and Garbage collector feeds on these objects
+   */
+  obj_map->obj_refcnt = -1;
+  objData.size = objMap.marshalledSize();
+  objData.data = std::string(objMap.marshalling(), objMap.marshalledSize());
+  err = objStorDB->Put(objId, objData);
+  if (err == ERR_OK) {
+    FDS_PLOG(GetLog()) << "Setting the delete marker for object "
+                       << objId << " to " << objMap;
+  } else {
+    FDS_PLOG(GetLog()) << "Failed to put object " << objId
+                       << " into odb with error " << err;
+  }
+
+  return err;
+}
+
+Error
 ObjectStorMgr::readObject(const ObjectID& objId,
 			  ObjectBuf& objData) {
   diskio::DataTier tier;
@@ -985,6 +1085,73 @@ ObjectStorMgr::putObjectInternal(FDSP_PutObjTypePtr putObjReq,
    return err;
 }
 
+Error
+ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
+  Error err(ERR_OK);
+  const ObjectID&  objId    = delReq->getObjId();
+  fds_volid_t volId         = delReq->getVolId();
+  ObjBufPtrType objBufPtr = NULL;
+  const FDSP_DeleteObjTypePtr& delObjReq = delReq->getDeleteObjReq();
+
+
+  objBufPtr = objCache->object_retrieve(volId, objId);
+  if (objBufPtr != NULL) {
+    objCache->object_release(volId, objId, objBufPtr);
+  } 
+
+  //ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_journal_entry_for_key(objId);
+  objStorMutex->lock();
+  /*
+   * Delete the object 
+   */
+  err = deleteObjectLocation(objId);
+  objStorMutex->unlock();
+  if (err != fds::ERR_OK) {
+     FDS_PLOG(objStorMgr->GetLog()) << "Failed to delete object " << err;
+  } else {
+     FDS_PLOG(objStorMgr->GetLog()) << "Successfully delete object " << objId;
+  }
+
+  //omJrnl->release_journal_entry_with_notify(jrnlEntry);
+  qosCtrl->markIODone(*delReq,
+                      diskio::diskTier);
+
+  /*
+   * Prepare a response to send back.
+   */
+  waitingReqMutex->lock();
+  fds_verify(waitingReqs.count(delReq->io_req_id) > 0);
+  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr = waitingReqs[delReq->io_req_id];
+  waitingReqs.erase(delReq->io_req_id);
+  waitingReqMutex->unlock();
+
+  FDS_ProtocolInterface::FDSP_DeleteObjTypePtr delObj =
+      new FDS_ProtocolInterface::FDSP_DeleteObjType();
+  delObj->data_obj_id.hash_high = objId.GetHigh();
+  delObj->data_obj_id.hash_low  = objId.GetLow();
+  delObj->data_obj_len          = objBufPtr->size;
+
+  if (err == ERR_OK) {
+    msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_OK;
+  } else {
+    msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_FAILED;
+  }
+
+  msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_DELETE_OBJ_RSP;
+  swapMgrId(msgHdr);
+  fdspDataPathClient[msgHdr->src_node_name]->begin_DeleteObjectResp(msgHdr, delObj);
+  FDS_PLOG(objStorMgr->GetLog()) << "Sent async DelObj response after processing";
+
+  /*
+   * Free the IO request structure that
+   * was allocated when the request was
+   * enqueued.
+   */
+  delete delReq;
+
+  return err;
+}
+
 void
 ObjectStorMgr::PutObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
                          const FDSP_PutObjTypePtr& put_obj_req) {
@@ -1005,6 +1172,34 @@ ObjectStorMgr::PutObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
                           fdsp_msg->glob_volume_id,
                           fdsp_msg->msg_chksum,
                           fdsp_msg->num_objects);
+  if (err != ERR_OK) {
+    fdsp_msg->result = FDSP_ERR_FAILED;
+    fdsp_msg->err_code = err.getIceErr();
+  } else {
+    fdsp_msg->result = FDSP_ERR_OK;
+  }
+}
+
+
+void
+ObjectStorMgr::DeleteObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
+                         const FDSP_DeleteObjTypePtr& del_obj_req) {
+  Error err(ERR_OK);
+
+  // Verify the integrity of the FDSP msg using chksums
+  // 
+  // stor_mgr_verify_msg(fdsp_msg);
+  //
+  ObjectID oid(del_obj_req->data_obj_id.hash_high,
+               del_obj_req->data_obj_id.hash_low);
+
+  FDS_PLOG(objStorMgr->GetLog()) << "PutObject Obj ID: " << oid
+                                 << ", glob_vol_id: " << fdsp_msg->glob_volume_id
+                                 << ", for request ID: " << fdsp_msg->msg_chksum
+                                 << ", Num Objs: " << fdsp_msg->num_objects;
+  err = deleteObjectInternal(del_obj_req,
+                             fdsp_msg->glob_volume_id, 
+                             fdsp_msg->msg_chksum);
   if (err != ERR_OK) {
     fdsp_msg->result = FDSP_ERR_FAILED;
     fdsp_msg->err_code = err.getIceErr();
@@ -1110,34 +1305,31 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
 }
 
 Error
-ObjectStorMgr::getObjectInternal(FDSP_GetObjTypePtr getObjReq, 
-                                 fds_volid_t        volId, 
-                                 fds_uint32_t       transId, 
-                                 fds_uint32_t       numObjs) {
+ObjectStorMgr::deleteObjectInternal(FDSP_DeleteObjTypePtr delObjReq, 
+                                 fds_volid_t        volId,
+                                 fds_uint32_t       transId) {
   Error err(ERR_OK);
 
   /*
    * Allocate and enqueue an IO request. The request is freed
    * when the IO completes.
    */
-  SmIoReq *ioReq = new SmIoReq(getObjReq->data_obj_id.hash_high,
-                               getObjReq->data_obj_id.hash_low,
+  SmIoReq *ioReq = new SmIoReq(delObjReq->data_obj_id.hash_high,
+                               delObjReq->data_obj_id.hash_low,
                                // "",
-			       getObjReq,
+			       delObjReq,
                                volId,
-                               FDS_IO_READ,
+                               FDS_DELETE_BLOB,
                                transId);
 
   err = qosCtrl->enqueueIO(ioReq->getVolId(), static_cast<FDS_IOType*>(ioReq));
 
   if (err != fds::ERR_OK) {
-    FDS_PLOG(objStorMgr->GetLog()) << "Unable to enqueue getObject request "
+    FDS_PLOG(objStorMgr->GetLog()) << "Unable to enqueue delObject request "
                                    << transId;
-    getObjReq->data_obj_len = 0;
-    getObjReq->data_obj.assign("");
     return err;
   }
-  FDS_PLOG(objStorMgr->GetLog()) << "Successfully enqueued getObject request "
+  FDS_PLOG(objStorMgr->GetLog()) << "Successfully enqueued delObject request "
                                  << transId;
 
   return err;
@@ -1176,29 +1368,6 @@ ObjectStorMgr::GetObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
     fdsp_msg->result = FDSP_ERR_OK;
   }
 }
-
-inline void ObjectStorMgr::swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg) {
- FDSP_MgrIdType temp_id;
- long tmp_addr;
- fds_uint32_t tmp_port;
-
- temp_id = fdsp_msg->dst_id;
- fdsp_msg->dst_id = fdsp_msg->src_id;
- fdsp_msg->src_id = temp_id;
-
- tmp_addr = fdsp_msg->dst_ip_hi_addr;
- fdsp_msg->dst_ip_hi_addr = fdsp_msg->src_ip_hi_addr;
- fdsp_msg->src_ip_hi_addr = tmp_addr;
-
- tmp_addr = fdsp_msg->dst_ip_lo_addr;
- fdsp_msg->dst_ip_lo_addr = fdsp_msg->src_ip_lo_addr;
- fdsp_msg->src_ip_lo_addr = tmp_addr;
-
- tmp_port = fdsp_msg->dst_port;
- fdsp_msg->dst_port = fdsp_msg->src_port;
- fdsp_msg->src_port = tmp_port;
-}
-
 
 /*------------------------------------------------------------------------------------- 
  * Storage Mgr main  processor : Listen on the socket and spawn or assign thread from a pool
@@ -1450,12 +1619,73 @@ fds_log* ObjectStorMgr::GetLog() {
   return sm_log;
 }
 
+Error
+ObjectStorMgr::getObjectInternal(FDSP_GetObjTypePtr getObjReq, 
+                                 fds_volid_t        volId, 
+                                 fds_uint32_t       transId, 
+                                 fds_uint32_t       numObjs) {
+  Error err(ERR_OK);
+
+  /*
+   * Allocate and enqueue an IO request. The request is freed
+   * when the IO completes.
+   */
+  SmIoReq *ioReq = new SmIoReq(getObjReq->data_obj_id.hash_high,
+                               getObjReq->data_obj_id.hash_low,
+                               // "",
+			       getObjReq,
+                               volId,
+                               FDS_IO_READ,
+                               transId);
+
+  err = qosCtrl->enqueueIO(ioReq->getVolId(), static_cast<FDS_IOType*>(ioReq));
+
+  if (err != fds::ERR_OK) {
+    FDS_PLOG(objStorMgr->GetLog()) << "Unable to enqueue getObject request "
+                                   << transId;
+    getObjReq->data_obj_len = 0;
+    getObjReq->data_obj.assign("");
+    return err;
+  }
+  FDS_PLOG(objStorMgr->GetLog()) << "Successfully enqueued getObject request "
+                                 << transId;
+
+  return err;
+}
+
+inline void ObjectStorMgr::swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg) {
+ FDSP_MgrIdType temp_id;
+ long tmp_addr;
+ fds_uint32_t tmp_port;
+
+ temp_id = fdsp_msg->dst_id;
+ fdsp_msg->dst_id = fdsp_msg->src_id;
+ fdsp_msg->src_id = temp_id;
+
+ tmp_addr = fdsp_msg->dst_ip_hi_addr;
+ fdsp_msg->dst_ip_hi_addr = fdsp_msg->src_ip_hi_addr;
+ fdsp_msg->src_ip_hi_addr = tmp_addr;
+
+ tmp_addr = fdsp_msg->dst_ip_lo_addr;
+ fdsp_msg->dst_ip_lo_addr = fdsp_msg->src_ip_lo_addr;
+ fdsp_msg->src_ip_lo_addr = tmp_addr;
+
+ tmp_port = fdsp_msg->dst_port;
+ fdsp_msg->dst_port = fdsp_msg->src_port;
+ fdsp_msg->src_port = tmp_port;
+}
+
+
 void getObjectExt(SmIoReq* getReq) {
      objStorMgr->getObjectInternal(getReq);
 }
 
 void putObjectExt(SmIoReq* putReq) {
      objStorMgr->putObjectInternal(putReq);
+}
+
+void delObjectExt(SmIoReq* putReq) {
+     objStorMgr->deleteObjectInternal(putReq);
 }
 
 
@@ -1469,6 +1699,9 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
    } else if (io->io_type == FDS_IO_WRITE) {
           FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a put request";
           threadPool->schedule(putObjectExt,io);
+   } else if (io->io_type == FDS_IO_WRITE) {
+          FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a put request";
+          threadPool->schedule(delObjectExt,io);
    } else {
           assert(0);
    }

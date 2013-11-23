@@ -185,6 +185,7 @@ namespace fds {
     fds_uint64_t volOffset;
     FDSP_PutObjTypePtr putObjReq;
     FDSP_GetObjTypePtr getObjReq;
+    FDSP_DeleteObjTypePtr delObjReq;
 
  public:
     /*
@@ -209,6 +210,7 @@ namespace fds {
       io_req_id           = _ioReqId;
       this->putObjReq = putObjReq;
       getObjReq = NULL;
+      delObjReq = NULL;
     }
 
     /*
@@ -233,10 +235,35 @@ namespace fds {
       io_req_id           = _ioReqId;
       this->getObjReq = getObjReq;
       putObjReq = NULL;
+      delObjReq = NULL;
     }
     ~SmIoReq() {
     }
 
+    /*
+     * This constructor is generally used for
+     * write since it accepts a deleteObjReq Ptr.
+     * TODO: Wrap this up in a clear interface.
+     */
+    SmIoReq(fds_uint64_t       _objIdHigh,
+            fds_uint64_t       _objIdLow,
+            // const std::string& _dataStr,
+	    FDSP_DeleteObjTypePtr& delObjReq,
+            fds_volid_t        _volUuid,
+            fds_io_op_t        _ioType,
+	    fds_uint32_t       _ioReqId) {
+      objId = ObjectID(_objIdHigh, _objIdLow);
+      // objData.size        = _dataStr.size();
+      // objData.data        = _dataStr;
+      volUuid             = _volUuid;
+      io_vol_id           = volUuid;
+      assert(_ioType == FDS_IO_WRITE);
+      FDS_IOType::io_type = _ioType;
+      io_req_id           = _ioReqId;
+      this->delObjReq = delObjReq;
+      getObjReq = NULL;
+      putObjReq = NULL;
+    }
     const ObjectID& getObjId() const {
       return objId;
     }
@@ -252,6 +279,10 @@ namespace fds {
 
     const FDSP_GetObjTypePtr&  getGetObjReq() const {
       return getObjReq;
+    }
+
+    const FDSP_DeleteObjTypePtr&  getDeleteObjReq() const {
+      return delObjReq;
     }
 
     fds_volid_t getVolId() const {

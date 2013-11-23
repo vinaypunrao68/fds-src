@@ -248,7 +248,7 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
         blobReq->cbWithResult(0);
 
         txn->reset();
-        vol->journal_tbl->release_trans_id(transId);
+        vol->journal_tbl->releaseTransId(transId);
 
         /*
          * TODO: We're deleting the request structure. This assumes
@@ -275,7 +275,7 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
      * Send  DM - commit request 
      */
     FDS_ProtocolInterface::FDSP_BlobObjectInfo upd_obj_info;
-    upd_obj_info.offset = txn->block_offset; // TODO: May need to revert to 0
+    upd_obj_info.offset = txn->blobOffset;  // May want to revert to 0 for blocks?
     upd_obj_info.data_obj_id.hash_high = txn->data_obj_id.hash_high;
     upd_obj_info.data_obj_id.hash_low =  txn->data_obj_id.hash_low;
     upd_obj_info.size = 0; // TODO: fix this.
@@ -352,6 +352,18 @@ void FDSP_DataPathRespCbackI::UpdateCatalogObjectResp(const FDSP_MsgHdrTypePtr& 
   fds_verify(err == ERR_OK);
 }
 
+void FDSP_DataPathRespCbackI::DeleteCatalogObjectResp(
+    const FDSP_MsgHdrTypePtr& fdsp_msg_hdr,
+    const FDSP_DeleteCatalogTypePtr& cat_obj_req,
+    const Ice::Current &) {
+}
+
+void FDSP_DataPathRespCbackI::DeleteObjectResp(
+    const FDSP_MsgHdrTypePtr& fdsp_msg_hdr,
+    const FDSP_DeleteObjTypePtr& cat_obj_req,
+    const Ice::Current &) {
+}
+
 void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
     const FDSP_MsgHdrTypePtr& fdsp_msg_hdr,
     const FDSP_QueryCatalogTypePtr& cat_obj_req,
@@ -398,7 +410,7 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
         journEntry->fbd_complete_req(req, -1);
       }
       journEntry->reset();
-      shvol->journal_tbl->release_trans_id(trans_id);
+      shvol->journal_tbl->releaseTransId(trans_id);
       return;
     }
     
@@ -412,7 +424,7 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
         journEntry->fbd_complete_req(req, -1);
       }
       journEntry->reset();
-      shvol->journal_tbl->release_trans_id(trans_id);
+      shvol->journal_tbl->releaseTransId(trans_id);
       return;
     }
     
@@ -428,7 +440,7 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
         journEntry->fbd_complete_req(req, 0);
       }
       journEntry->reset();
-      shvol->journal_tbl->release_trans_id(trans_id);
+      shvol->journal_tbl->releaseTransId(trans_id);
       return;
     }
 
@@ -442,7 +454,6 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
     doid_high = cat_obj_info.data_obj_id.hash_high;
     doid_dlt_key = doid_high >> 56;
     
-    FDS_ProtocolInterface::FDSP_GetObjTypePtr get_obj_req = new FDSP_GetObjType;
     // Lookup the Primary SM node-id/ip-address to send the GetObject to
     storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(doid_dlt_key, node_ids, &num_nodes);
     if(num_nodes == 0) {
@@ -455,37 +466,50 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
         journEntry->fbd_complete_req(req, 0);
       }
       journEntry->reset();
-      shvol->journal_tbl->release_trans_id(trans_id);
+      shvol->journal_tbl->releaseTransId(trans_id);
       return;
     }
     storHvisor->dataPlacementTbl->getNodeInfo(node_ids[0],
                                               &node_ip,
                                               &node_port,
                                               &node_state);
-    //
-    // *****CAVEAT: Modification reqd
-    // ******  Need to find out which is the primary SM and send this out to that SM. ********
-    storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip,
-                                               node_port,
-                                               FDSP_STOR_MGR,
-                                               &endPoint);
+       //
+       // *****CAVEAT: Modification reqd
+       // ******  Need to find out which is the primary SM and send this out to that SM. ********
+       storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip,
+                                                  node_port,
+                                                  FDSP_STOR_MGR,
+                                                  &endPoint);
     
-    // RPC Call GetObject to StorMgr
-    fdsp_msg_hdr->msg_code = FDSP_MSG_GET_OBJ_REQ;
-    fdsp_msg_hdr->msg_id =  1;
-    // fdsp_msg_hdr->src_ip_lo_addr = SRC_IP;
-    fdsp_msg_hdr->dst_ip_lo_addr = node_ip;
-    fdsp_msg_hdr->dst_port = node_port;
-    fdsp_msg_hdr->src_node_name = storHvisor->my_node_name;
-    get_obj_req->data_obj_id.hash_high = cat_obj_info.data_obj_id.hash_high;
-    get_obj_req->data_obj_id.hash_low = cat_obj_info.data_obj_id.hash_low;
-    get_obj_req->data_obj_len = journEntry->data_obj_len;
-    if (endPoint) {
-      endPoint->fdspDPAPI->begin_GetObject(fdsp_msg_hdr, get_obj_req);
-      FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Sent Async getObj req to SM at " << node_ip ;
-      journEntry->trans_state = FDS_TRANS_GET_OBJ;
-    }
-    
+       // RPC Call GetObject to StorMgr
+       fdsp_msg_hdr->msg_code = FDSP_MSG_GET_OBJ_REQ;
+       fdsp_msg_hdr->msg_id =  1;
+          // fdsp_msg_hdr->src_ip_lo_addr = SRC_IP;
+       fdsp_msg_hdr->dst_ip_lo_addr = node_ip;
+       fdsp_msg_hdr->dst_port = node_port;
+       fdsp_msg_hdr->src_node_name = storHvisor->my_node_name;
+       if ( journEntry->io->io_type == FDS_IO_READ || journEntry->io->io_type == FDS_GET_BLOB) { 
+         FDS_ProtocolInterface::FDSP_GetObjTypePtr get_obj_req = new FDSP_GetObjType;
+         get_obj_req->data_obj_id.hash_high = cat_obj_info.data_obj_id.hash_high;
+         get_obj_req->data_obj_id.hash_low = cat_obj_info.data_obj_id.hash_low;
+         get_obj_req->data_obj_len = journEntry->data_obj_len;
+         if (endPoint) {
+           endPoint->fdspDPAPI->begin_GetObject(fdsp_msg_hdr, get_obj_req);
+           FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Sent Async getObj req to SM at " << node_ip ;
+           journEntry->trans_state = FDS_TRANS_GET_OBJ;
+         }
+       } else if (journEntry->io->io_type == FDS_DELETE_BLOB) { 
+         FDS_ProtocolInterface::FDSP_DeleteObjTypePtr del_obj_req = new FDSP_DeleteObjType;
+         del_obj_req->data_obj_id.hash_high = cat_obj_info.data_obj_id.hash_high;
+         del_obj_req->data_obj_id.hash_low = cat_obj_info.data_obj_id.hash_low;
+         del_obj_req->data_obj_len = journEntry->data_obj_len;
+         if (endPoint) {
+           endPoint->fdspDPAPI->begin_DeleteObject(fdsp_msg_hdr, del_obj_req);
+           FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Sent Async deleteObj req to SM at " << node_ip ;
+           journEntry->trans_state = FDS_TRANS_DEL_OBJ;
+         }
+       }
+
     obj_id.SetId( cat_obj_info.data_obj_id.hash_high,cat_obj_info.data_obj_id.hash_low);
     /*
      * TODO: Don't just grab the hard coded first catalog object in the list.
