@@ -76,7 +76,7 @@ void fds_log::init(const std::string& logfile,
    */
   sink->locked_backend()->scan_for_files();
 
-  sink->locked_backend()->auto_flush(false);
+  sink->locked_backend()->auto_flush(true);
 
   /*
    * Set the filter to not print messages below
