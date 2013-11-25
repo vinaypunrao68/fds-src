@@ -1364,7 +1364,7 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   journEntry->dm_msg = NULL;
   journEntry->sm_ack_cnt = 0;
   journEntry->dm_ack_cnt = 0;
-  journEntry->op = FDS_IO_READ;
+  journEntry->op = FDS_DELETE_BLOB;
   journEntry->data_obj_id.hash_high = 0;
   journEntry->data_obj_id.hash_low = 0;
   journEntry->data_obj_len = blobReq->getDataLen();
@@ -1446,6 +1446,7 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   num_nodes = 8;
   FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr_dm = new FDSP_MsgHdrType;
   storHvisor->InitDmMsgHdr(fdsp_msg_hdr_dm);
+  fdsp_msg_hdr_dm->msg_code = FDSP_MSG_DELETE_CAT_OBJ_REQ;
   fdsp_msg_hdr_dm->req_cookie = transId;
   fdsp_msg_hdr_dm->src_ip_lo_addr = SRC_IP;
   fdsp_msg_hdr_dm->src_node_name = storHvisor->my_node_name;
