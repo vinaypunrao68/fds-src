@@ -24,7 +24,8 @@ class AMEngine : public Module
   public:
     AMEngine(char const *const name) :
         Module(name), eng_signal(), eng_etc("etc"),
-        eng_logs("logs"), eng_conf("etc/fds.conf") {}
+        eng_logs("logs"), eng_conf("etc/fds.conf"),
+        queue(1, 1000) {}
 
     ~AMEngine() {}
 
@@ -32,6 +33,9 @@ class AMEngine : public Module
     void mod_startup();
     void mod_shutdown();
     void run_server(FDS_NativeAPI *api);
+    fdsio::RequestQueue* get_queue() {
+      return &queue;
+    }
 
     // Factory methods to create objects handling required protocol.
     virtual Conn_GetObject *ame_getobj_hdler(HttpRequest &req) = 0;
@@ -50,6 +54,7 @@ class AMEngine : public Module
     char const *const        eng_logs;
     char const *const        eng_conf;
     FDS_NativeAPI            *eng_api;
+    fdsio::RequestQueue queue;
 };
 
 // ---------------------------------------------------------------------------
@@ -155,6 +160,22 @@ public:
     AMEngine                 *ame;
     ngx_chain_t              *post_buf_itr;
     std::string              etag;
+    /*
+     * todo: once we switch to async model with handling requests, these members
+     * shouldn't be neeeded
+     */
+    int resp_status;
+    const char *resp_buf;
+    int resp_buf_len;
+    bool req_completed;
+
+    void notify_request_completed(int status, const char *buf, int len) {
+      resp_status = status;
+      resp_buf = buf;
+      resp_buf_len = len;
+      req_completed = true;
+      req_complete();
+    }
 
     // Common request path.
     // The request handler is called through ame_request_handler().
