@@ -6,6 +6,7 @@
 #define BEGIN_C_DECLS
 #define END_C_DECLS
 #endif
+
 BEGIN_C_DECLS
 typedef int (*hv_create_blkdev)(uint64_t voluuid, uint64_t capacity);
 typedef void  (*hv_delete_blkdev)(int minor);
@@ -16,6 +17,7 @@ int StorHvisorProcIoWr(void *io);
 int unitTest(fds_uint32_t time_secs);
 int unitTestFile(const char *inname, const char *outname, unsigned int base_vol, int num_vols);
 void CreateStorHvisor(int argc, char *argv[], hv_create_blkdev cr_blkdev, hv_delete_blkdev del_blkdev);
+void CreateStorHvisorS3(int argc, char *argv[]);
 void CreateSHMode(int argc,
                   char *argv[],
                   hv_create_blkdev cr_blkdev,
@@ -26,5 +28,6 @@ void CreateSHMode(int argc,
 void DeleteStorHvisor(void);
 void cppOut( char *format, ... );
 void ctrlCCallbackHandler(int signal);
-int  pushVolQueue(void *req);
+int pushVolQueue(void *req);
+int pushFbdReq(fbd_request_t *blkReq);
 END_C_DECLS

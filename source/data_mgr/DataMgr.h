@@ -14,6 +14,7 @@
 #include <netinet/in.h>
 #include <ifaddrs.h>
 #include <arpa/inet.h>
+#include <stdlib.h>
 
 #include <fdsp/FDSP.h>
 #include <Ice/Ice.h>
@@ -52,9 +53,8 @@ public:
   void InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
   class dmCatReq : public FDS_IOType {
  public:
-    ObjectID     objId;
     fds_volid_t  volId;
-    fds_uint64_t volOffset;
+    std::string blob_name;
     fds_uint32_t transId;
     fds_uint32_t transOp;
     long 	 srcIp;
@@ -63,24 +63,24 @@ public:
     fds_uint32_t dstPort;
     std::string src_node_name;
     fds_uint32_t reqCookie;
+    FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr fdspUpdCatReqPtr;
 
 
-    dmCatReq(fds_uint64_t       _objIdHigh,
-            fds_uint64_t       _objIdLow,
-            fds_volid_t        _volId,
-	    fds_uint64_t       _volOffset,
-            fds_uint32_t 	_transId,
-            fds_uint32_t 	_transOp,
-            long 	 	_srcIp,
-            long 	 	_dstIp,
-            fds_uint32_t 	_srcPort,
-            fds_uint32_t 	_dstPort,
+    dmCatReq(fds_volid_t        _volId,
+	     std::string        _blob_name,
+	     fds_uint32_t 	_transId,
+	     fds_uint32_t 	_transOp,
+	     long 	 	_srcIp,
+	     long 	 	_dstIp,
+	     fds_uint32_t 	_srcPort,
+	     fds_uint32_t 	_dstPort,
 	     std::string        _src_node_name,
-            fds_uint32_t 	_reqCookie,
-            fds_io_op_t        _ioType) {
-         objId = ObjectID(_objIdHigh, _objIdLow);
+	     fds_uint32_t 	_reqCookie,
+	     fds_io_op_t        _ioType,
+	     FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr _updCatReq)
+    {
          volId             = _volId;
-         volOffset         = _volOffset;
+      	 blob_name         = _blob_name;
          transId           = _transId;
          transOp           = _transOp;
          srcIp 	           = _srcIp;
@@ -90,10 +90,11 @@ public:
 	 src_node_name     = _src_node_name;
          reqCookie         = _reqCookie;
          FDS_IOType::io_type = _ioType;
-      }
-
-      const ObjectID& getObjId() const {
-        return objId;
+	 FDS_IOType::io_vol_id = _volId;
+	 fdspUpdCatReqPtr = _updCatReq;
+	 if (_ioType !=   FDS_CAT_UPD) {
+	   fds_verify(_updCatReq == (FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr)NULL);
+	 }
       }
 
       fds_volid_t getVolId() const {
@@ -101,6 +102,7 @@ public:
       }
 
       ~dmCatReq() {
+	fdspUpdCatReqPtr = NULL;
       }
     };
 
@@ -166,6 +168,7 @@ public:
      */
     ReqHandlerPtr  reqHandleSrv;
     std::unordered_map<std::string, RespHandlerPrx> respHandleCli;
+    fds_rwlock respMapMtx;
     OMgrClient     *omClient;
 
     fds_log *dm_log;
@@ -208,26 +211,29 @@ public:
     Error _process_add_vol(const std::string& vol_name,
                            fds_volid_t vol_uuid,VolumeDesc* desc);
     Error _process_rm_vol(fds_volid_t vol_uuid);
+    Error _process_mod_vol(fds_volid_t vol_uuid,
+			   const VolumeDesc& voldesc);
 
     Error _process_open(fds_volid_t vol_uuid,
-                        fds_uint32_t vol_offset,
+                        std::string blob_name,
                         fds_uint32_t trans_id,
-                        const ObjectID& oid);
+                        const BlobNode*& bnode);
     Error _process_commit(fds_volid_t vol_uuid,
-                          fds_uint32_t vol_offset,
+                          std::string blob_name,
                           fds_uint32_t trans_id,
-                          const ObjectID& oid);
+                          const BlobNode*& bnode);
     Error _process_abort();
 
     Error _process_query(fds_volid_t vol_uuid,
-                         fds_uint32_t vol_offset,
-                         ObjectID *oid);
+                         std::string blob_name,
+                         BlobNode*& bnode);
 
     fds_bool_t volExistsLocked(fds_volid_t vol_uuid) const;
 
     static void vol_handler(fds_volid_t vol_uuid,
                             VolumeDesc* desc,
-                            fds_vol_notify_t vol_action);
+                            fds_vol_notify_t vol_action,
+			    FDS_ProtocolInterface::FDSP_ResultType result);
 
     static void node_handler(fds_int32_t  node_id,
                              fds_uint32_t node_ip,
@@ -285,6 +291,10 @@ public:
                      const FDS_ProtocolInterface::FDSP_GetObjTypePtr& get_obj,
                      const Ice::Current&);
 
+      void DeleteObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &msg_hdr,
+                     const FDS_ProtocolInterface::FDSP_DeleteObjTypePtr& get_obj,
+                     const Ice::Current&);
+
       void UpdateCatalogObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr
                                &msg_hdr,
                                const FDS_ProtocolInterface::
@@ -295,6 +305,12 @@ public:
                               &msg_hdr,
                               const FDS_ProtocolInterface::
                               FDSP_QueryCatalogTypePtr& query_catalog,
+                              const Ice::Current&);
+
+      void DeleteCatalogObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr
+                              &msg_hdr,
+                              const FDS_ProtocolInterface::
+                              FDSP_DeleteCatalogTypePtr& query_catalog,
                               const Ice::Current&);
 
       void OffsetWriteObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
@@ -312,6 +328,12 @@ public:
       void AssociateRespCallback(const Ice::Identity& ident,
 				 const std::string& src_node_name,
                                  const Ice::Current& current);
+
+      void GetVolumeBlobList(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fds_msg, 
+			     const FDS_ProtocolInterface::FDSP_GetVolumeBlobListReqTypePtr& blob_list_req,
+			     const Ice::Current& current) {
+
+      }
     };
 
     /*
@@ -343,6 +365,11 @@ public:
                                   const FDS_ProtocolInterface::
                                   FDSP_QueryCatalogTypePtr& query_catalog,
                                   const Ice::Current&);
+      void DeleteCatalogObjectResp(const FDS_ProtocolInterface::
+                                  FDSP_MsgHdrTypePtr &msg_hdr,
+                                  const FDS_ProtocolInterface::
+                                  FDSP_DeleteCatalogTypePtr& query_catalog,
+                                  const Ice::Current&);
       void OffsetWriteObjectResp(const FDS_ProtocolInterface::
                                  FDSP_MsgHdrTypePtr& msg_hdr,
                                  const FDS_ProtocolInterface::
@@ -353,6 +380,10 @@ public:
                                const FDS_ProtocolInterface::
                                FDSP_RedirReadObjTypePtr& redir_read_obj,
                                const Ice::Current&);
+      void GetVolumeBlobListResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fds_msg, 
+				 const FDS_ProtocolInterface::FDSP_GetVolumeBlobListRespTypePtr& blob_list_rsp, 
+				 const Ice::Current &){
+    }
     };
   };
 

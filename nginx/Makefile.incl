@@ -12,6 +12,6 @@ user_incl_dir  += \
     $(nginx_dir)/objs
 
 user_cc_flags  += \
-    -pipe -O -W -Wall -Wpointer-arith -Wno-unused-parameter -Werror -g
+    -pipe -W -Wall -Wpointer-arith -Wno-unused-parameter -Werror -g
 
 include $(topdir)/Makefile.incl

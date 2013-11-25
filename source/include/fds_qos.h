@@ -83,7 +83,7 @@ namespace fds {
       }
       queue_map[queue_id] = queue;
 
-	FDS_PLOG(qda_log) << "Dispatcher: registering queue - "
+      FDS_PLOG_SEV(qda_log, fds::fds_log::notification) << "Dispatcher: registering queue - "
 			<< queue_id << " with min - "
 			<< queue->iops_min << ", max - " << queue->iops_max
 			<< ", priority - " << queue->priority
@@ -100,10 +100,38 @@ namespace fds {
       return err;
     }
 
+
+    virtual Error modifyQueueQosParams(fds_uint32_t queue_id,
+				       fds_uint64_t iops_min,
+				       fds_uint64_t iops_max,
+				       fds_uint32_t prio)
+    {
+      Error err(ERR_OK);
+      qda_lock.write_lock();
+      err = modifyQueueQosWithLockHeld(queue_id, iops_min, iops_max, prio);
+      qda_lock.write_unlock();
+      return err;
+    }
+
+    Error modifyQueueQosWithLockHeld(fds_uint32_t queue_id,
+				     fds_uint64_t iops_min,
+				     fds_uint64_t iops_max,
+				     fds_uint32_t prio) 
+    {
+      Error err(ERR_OK);
+      if (queue_map.count(queue_id) == 0) {
+	err = Error(ERR_INVALID_ARG);
+	return err;
+      }
+      FDS_VolumeQueue *que = queue_map[queue_id];
+      que->modifyQosParams(iops_min, iops_max, prio);
+      return err;
+    }
+
     Error deregisterQueueWithLockHeld(fds_uint32_t queue_id) {
       Error err(ERR_OK);
       if  (queue_map.count(queue_id) == 0) {
-	err = ERR_INVALID_ARG;
+	err = Error(ERR_INVALID_ARG);
 	return err;
       }
       FDS_VolumeQueue *que = queue_map[queue_id];
@@ -182,17 +210,6 @@ namespace fds {
       
       ioProcessForEnqueue(queue_id, io);  
       
-      // do while loop is just to limit the scope of the unique_lock, limiting the time we hold ios_pending_mtx
-#if 0
-      do {
-	std::unique_lock<std::mutex> lck(ios_pending_mtx);
-	num_pending_ios++;
-	if (num_pending_ios == 1) {
-	  // wakeup scheduler here.
-	  ios_pending_cv.notify_all();
-	}
-      } while (0);
-#endif
       fds_uint32_t n_pios;
       n_pios = atomic_fetch_add(&(num_pending_ios), (unsigned int)1);
       FDS_PLOG(qda_log) << "Dispatcher: enqueueIO at queue - " << queue_id
@@ -211,30 +228,30 @@ namespace fds {
       int ret = 0;
 
       params.sched_priority = sched_get_priority_max(SCHED_FIFO);
-      FDS_PLOG(qda_log) << "Dispatcher: trying to set dispatcher thread realtime prio = " << params.sched_priority;
+      FDS_PLOG_SEV(qda_log, fds::fds_log::notification) << "Dispatcher: trying to set dispatcher thread realtime prio = " << params.sched_priority;
  
       /* Attempt to set thread real-time priority to the SCHED_FIFO policy */
       ret = pthread_setschedparam(this_thread, SCHED_FIFO, &params);
       if (ret != 0) {
-   	FDS_PLOG(qda_log) << "Dispatcher: Unsuccessful in setting scheduler thread realtime prio";
+   	FDS_PLOG_SEV(qda_log, fds::fds_log::warning) << "Dispatcher: Unsuccessful in setting scheduler thread realtime prio";
       }
       else {
       /* success - Now verify the change in thread priority */
 	int policy = 0;
 	ret = pthread_getschedparam(this_thread, &policy, &params);
 	if (ret != 0) {
-	  FDS_PLOG(qda_log) << "Dispatcher: Couldn't retrieve real-time scheduling parameters for dispatcher thread";
+	  FDS_PLOG_SEV(qda_log, fds::fds_log::warning) << "Dispatcher: Couldn't retrieve real-time scheduling parameters for dispatcher thread";
 	}
  
 	/* Check the correct policy was applied */
 	if(policy != SCHED_FIFO) {
-	  FDS_PLOG(qda_log) << "Dispatcher:Scheduling is NOT SCHED_FIFO!";
+	  FDS_PLOG_SEV(qda_log, fds::fds_log::warning) << "Dispatcher:Scheduling is NOT SCHED_FIFO!";
 	} else {
 	  FDS_PLOG(qda_log) << "Dispatcher: thread SCHED_FIFO OK";
 	}
  
 	/* Print thread scheduling priority */
-	FDS_PLOG(qda_log) << "Dispatcher: Scheduler thread priority is " << params.sched_priority;
+	FDS_PLOG_SEV(qda_log, fds::fds_log::notification) << "Dispatcher: Scheduler thread priority is " << params.sched_priority;
       }
 
     }
@@ -256,14 +273,6 @@ namespace fds {
 
 	parent_ctrlr->waitForWorkers();
 
-#if 0
-	do {
-	  std::unique_lock<std::mutex> lck(ios_pending_mtx);
-	  while (num_pending_ios == 0) {
-	    ios_pending_cv.wait(lck);
-	  }
-	} while (0);
-#endif
 	fds_uint32_t n_pios = 0;
 	while (1) {
 	  n_pios = atomic_load(&num_pending_ios);
@@ -272,7 +281,7 @@ namespace fds {
           } else if (n_pios > 0) {
 	    break;
 	  }
-	  boost::this_thread::sleep(boost::posix_time::microseconds(1000000/(3 * total_svc_rate)));
+	  boost::this_thread::sleep(boost::posix_time::microseconds(100));
 	}
 
 	fds_uint32_t n_oios = 0;
@@ -282,7 +291,7 @@ namespace fds {
 	    if (n_oios < max_outstanding_ios) {
 	      break;
 	    }
-	    boost::this_thread::sleep(boost::posix_time::microseconds(1000000/(3 * total_svc_rate)));
+	    boost::this_thread::sleep(boost::posix_time::microseconds(100));
 	  }
 	}
 	
@@ -296,12 +305,6 @@ namespace fds {
 	assert(io != NULL);
 
 	ioProcessForDispatch(queue_id, io);
-#if 0
-	do {
-	  std::unique_lock<std::mutex> lck(ios_pending_mtx);
-	  num_pending_ios --;
-	} while (0);
-#endif
 
 	qda_lock.read_unlock();
 
@@ -314,12 +317,12 @@ namespace fds {
 	n_oios = 0;
 	n_oios = atomic_fetch_add(&(num_outstanding_ios), (unsigned int)1);
 
-	parent_ctrlr->processIO(io);
-
 	FDS_PLOG(qda_log) << "Dispatcher: dispatchIO from queue " << queue_id
 			<< " : # of outstanding ios = " << n_oios+1
 			<< " : # of pending ios = " << n_pios-1;
 	// assert(n_oios >= 0);
+
+	parent_ctrlr->processIO(io);
 	
       }
 

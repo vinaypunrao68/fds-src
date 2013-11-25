@@ -41,7 +41,7 @@ namespace fds {
    	avail_ssd_iops_min += n_info.ssd_iops_min;
    	avail_ssd_capacity += n_info.ssd_capacity;
      
-     FDS_PLOG(parent_log) << "Total Disk Resources "
+	FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Total Disk Resources "
                      << "  Total Disk iops Max : " << total_disk_iops_max
                      << "  Total Disk iops Min : " << total_disk_iops_min
                      << "  Total Disk capacity : " << total_disk_capacity
@@ -66,28 +66,31 @@ namespace fds {
    void  FdsAdminCtrl::updateAvailableDiskCapacity(FdspVolInfoPtr&  pVolInfo) {  
    }
 
-   int FdsAdminCtrl::updateAdminControlParams(VolumeInfo  *pVolInfo) {
-    	VolumeDesc  *pVolDesc = pVolInfo->properties;
-
-        /* release  the resources since volume is deleted */
-   	 total_vol_iops_min -= pVolDesc->iops_min; 
-   	 total_vol_iops_min -= pVolDesc->iops_max;  
-	 total_vol_disk_cap -= pVolDesc->capacity;
-   }
+void FdsAdminCtrl::updateAdminControlParams(VolumeDesc  *pVolDesc) {
+  /* release  the resources since volume is deleted */
+  fds_verify(pVolDesc->iops_min <= total_vol_iops_min);
+  fds_verify(pVolDesc->iops_max <= total_vol_iops_max);
+  fds_verify(pVolDesc->capacity <= total_vol_disk_cap);
+  total_vol_iops_min -= pVolDesc->iops_min;
+  total_vol_iops_max -= pVolDesc->iops_max;  
+  total_vol_disk_cap -= pVolDesc->capacity;
+}
    
 
-int FdsAdminCtrl::volAdminControl(VolumeInfo  *pVolInfo) {
+Error FdsAdminCtrl::volAdminControl(VolumeDesc  *pVolDesc) 
+{
+  Error err(ERR_OK);
   double iopc_subcluster = 0;
   double iopc_subcluster_result = 0;
-  VolumeDesc  *pVolDesc = pVolInfo->properties;
 
   iopc_subcluster = (avail_disk_iops_max/REPLICATION_FACTOR);
 
   if ((total_vol_disk_cap + pVolDesc->capacity) > avail_disk_capacity) {
-    FDS_PLOG(parent_log) << " Cluster is running out of disk capacity \n"
+    FDS_PLOG_SEV(parent_log, fds::fds_log::error) << " Cluster is running out of disk capacity \n"
                          << "total volume disk  capacity:"
                          << total_vol_disk_cap;
-    return -1;
+    err = Error(ERR_VOL_ADMISSION_FAILED);
+    return err;
   }
 
   FDS_PLOG(parent_log) << " inside   admin control iopc sub cluster: "
@@ -102,22 +105,49 @@ int FdsAdminCtrl::volAdminControl(VolumeInfo  *pVolInfo) {
     total_vol_iops_max += pVolDesc->iops_max;
     total_vol_disk_cap += pVolDesc->capacity;
 
-    FDS_PLOG(parent_log) << "updated disk params disk-cap:" << avail_disk_capacity << ":: min:"  
-                         <<  total_vol_iops_min << ":: max:" << total_vol_iops_max << "\n";
+    FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "updated disk params disk-cap:" 
+							 << avail_disk_capacity << ":: min:"  
+							 << total_vol_iops_min << ":: max:" 
+							 << total_vol_iops_max << "\n";
     FDS_PLOG(parent_log) << " admin control successful \n";
-    return 0;
+    return err;
   } else  {
-    FDS_PLOG(parent_log) << " Unable to create Volume,Running out of IOPS \n ";
-    FDS_PLOG(parent_log) << "Available disk Capacity:" 
-                         << avail_disk_capacity << "::Total min IOPS:"  
-                         <<  total_vol_iops_min << ":: Total max IOPS:" 
-                         << total_vol_iops_max << "\n";
-    return -1;
+    FDS_PLOG_SEV(parent_log, fds::fds_log::error) << " Unable to create Volume,Running out of IOPS \n ";
+    FDS_PLOG_SEV(parent_log, fds::fds_log::error) << "Available disk Capacity:" 
+						  << avail_disk_capacity << "::Total min IOPS:"  
+						  <<  total_vol_iops_min << ":: Total max IOPS:" 
+						  << total_vol_iops_max << "\n";
+    err = Error(ERR_VOL_ADMISSION_FAILED);
+    return err;
   }
 
-  return -1;
+  return err;
 }
    
+Error FdsAdminCtrl::checkVolModify(VolumeDesc *cur_desc, VolumeDesc *new_desc)
+{
+  Error err(ERR_OK);
+  fds_uint64_t cur_total_vol_disk_cap = total_vol_disk_cap;
+  fds_uint64_t cur_total_vol_iops_min = total_vol_iops_min;
+  fds_uint64_t cur_total_vol_iops_max = total_vol_iops_max;
+
+  /* check modify by first subtracting current vol values and doing admin 
+   * control based on new values */
+  updateAdminControlParams(cur_desc);
+
+  err = volAdminControl(new_desc);
+  if ( !err.ok()) {
+    /* cannot admit volume -- revert to original values */
+    total_vol_disk_cap = cur_total_vol_disk_cap;
+    total_vol_iops_min = cur_total_vol_iops_min;
+    total_vol_iops_max = cur_total_vol_iops_max;
+    return err;
+  }
+
+  /* success */
+  return err;
+}
+
 
    void FdsAdminCtrl::initDiskCapabilities() {
 

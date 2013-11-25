@@ -8,7 +8,8 @@ user_rtime_env    := user
 user_incl_dir     :=                          \
     $(hvisor_dir)                             \
     $(topdir)/fds_client/include              \
-    $(topdir)
+    $(topdir)                                 \
+    $(topdir)/lib
 
 user_cpp_flags    :=
 user_fds_so_libs  :=

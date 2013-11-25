@@ -1,7 +1,4 @@
-#include <boost/filesystem/operations.hpp>
-#include <boost/filesystem/path.hpp>
-
-#include <util/PerfStat.h>
+#include <util/PerfStatHist.h>
 
 namespace fds {
 
@@ -109,7 +106,7 @@ namespace fds {
   {
     int index = statIndex(tier, opType);
     fds_verify(index < PERF_STAT_TYPES);
-    return (long)stat[PERF_STAT_TYPES-1].ave_lat;
+    return (long)stat[index].ave_lat;
   }
 
   long IoStat::getMinLatency() const
@@ -125,8 +122,47 @@ namespace fds {
     return stat[PERF_STAT_TYPES-1].max_lat;
   }
 
+  void IoStat::addFromIceMsg(const FDS_ProtocolInterface::FDSP_PerfStatTypePtr& fdsp_stat)
+  {
+    int index = fdsp_stat->stat_type;
+    fds_verify((index >= 0) && (index < PERF_STAT_TYPES));
+
+    Stat stat_to_add;
+    stat_to_add.reset();
+    stat_to_add.nsamples = fdsp_stat->nios;
+    stat_to_add.min_lat = fdsp_stat->min_lat;
+    stat_to_add.max_lat = fdsp_stat->max_lat;
+    stat_to_add.ave_lat = fdsp_stat->ave_lat; 
+
+    stat[index].add(stat_to_add); 
+  }
+
+  bool IoStat::copyIfNotZero(FDS_ProtocolInterface::FDSP_PerfStatTypePtr& fdsp_stat, int stat_type)
+  {
+    int index = stat_type; /* we use index for stat type, make sure only IoStat interprets stat_type */
+    if (index >= PERF_STAT_TYPES) 
+      return false;
+
+    /* to reduce amount of data we transfer, OM for now only cares about total, disk/flash read/write 
+     * stat_type. This means ignoring index > 3 && index != PERF_STAT_TYPE-1*/
+    if ((index > 3) && (index != (PERF_STAT_TYPES-1)))
+	return false;
+
+    long iops = (long)((double)stat[index].nsamples / (double) interval_sec);
+    if (iops <= 0)
+      return false; /* no iops recorded */
+
+    fdsp_stat->stat_type = stat_type;
+    fdsp_stat->rel_seconds = rel_ts_sec;
+    fdsp_stat->nios = iops;
+    fdsp_stat->min_lat = stat[index].min_lat;
+    fdsp_stat->max_lat = stat[index].max_lat;
+    fdsp_stat->ave_lat = (long)stat[index].ave_lat;
+    return true;
+  }
+
   StatHistory::StatHistory(fds_uint32_t _id, int slots, int slot_len_sec)
-    : id(_id), nslots(slots), sec_in_slot(slot_len_sec), last_printed_ts(-1)
+    : id(_id), nslots(slots), sec_in_slot(slot_len_sec), last_printed_ts(-1), last_returned_ts(-1)
   {
     /* cap nslots to max */
     if (nslots > FDS_STAT_MAX_HIST_SLOTS)
@@ -153,27 +189,51 @@ namespace fds {
 
   void StatHistory::addIo(long rel_seconds, long microlat, diskio::DataTier tier, fds_io_op_t opType)
   {
+    int index = 0;
+    lock.write_lock();
+
+    index = prepareSlotWithWriteLockHeld(rel_seconds);
+    if ((index >= 0) && (index < nslots))
+      stat_slots[index].add(microlat, tier, opType); 
+
+    lock.write_unlock();
+  }
+
+  void StatHistory::addStat(long rel_seconds, 
+			    const FDS_ProtocolInterface::FDSP_PerfStatTypePtr& fdsp_stat)
+  {
+    int index = 0;
+    lock.write_lock();
+
+    index = prepareSlotWithWriteLockHeld(rel_seconds);
+    if ((index >= 0) && (index < nslots)) {
+      stat_slots[index].addFromIceMsg(fdsp_stat);
+    }
+
+    lock.write_unlock();
+  }
+
+
+  /* \return index of slot that we need to fill in, -1 means do not fill in  */
+  int StatHistory::prepareSlotWithWriteLockHeld(long rel_seconds)
+  {
     long slot_num = rel_seconds / sec_in_slot;
     long slot_start_sec = rel_seconds;
     int index = slot_num % nslots;
 
     /* common case -- we will add IO to already existing slot */
-    lock.write_lock();
 
     /* check if we already started to fill in this slot */
     if (stat_slots[index].getTimestamp() == slot_start_sec)
       {
 	/* the slot indexed with this timestamp already has I/Os of the same time interval */
-	stat_slots[index].add(microlat, tier, opType);
-        lock.write_unlock();
-	return;
+	return index;
       }
      
     if (slot_num <= last_slot_num) {
       /* we need a new slot, but it's it the past, so we got timestamp that is too old */
       /* maybe we should return error, since we should configure long enough history so that does not happen */
-      lock.write_unlock();
-      return;
+      return -1;
     }
 
     /* we need to start a new time slot */
@@ -189,48 +249,19 @@ namespace fds {
       /* make sure we did not do full circle back to the index of timestamp of this IO */
       if (ind == index) break;
 
-      stat_slots[ind].reset(cur_slot_num * sec_in_slot);
+      /* we still need to check that we haven't started filling in this timeslot
+       * does not matter in SH/SM where timestamps come in order, but important 
+       * when OM filling in the stats that may come out of order */
+      if (stat_slots[ind].getTimestamp() != (cur_slot_num * sec_in_slot))
+	stat_slots[ind].reset(cur_slot_num * sec_in_slot);
+
       cur_slot_num--;
     }
-
-    /* actually add IO stat  */
-    stat_slots[index].add(microlat, tier, opType);
 
     /* update last slot num */
     last_slot_num = slot_num;
 
-    lock.write_unlock();
-  }
-
-  int StatHistory::getStatsCopy(IoStat** stat_ary, int* len)
-  {
-    IoStat *stats = NULL;
-    int length = nslots - 1; /* we most likely will not have last slot completely filled in*/
-
-    int statix = ((last_slot_num % nslots) + 1) % nslots;  /* index of the oldest stat in stat_slots */
-
-    /* if we just started and have uninitialized slots, 
-     * it's ok, we will just get first set of 0s, we can
-     * throw away first history, if not, it will still look ok on graph */
-
-    /* create stats array */
-    stats = new IoStat[length];
-    if (!stats) {
-      return -1;
-    }
-
-    /* fill in stats array, index = 0 will have the oldest stat */
-    for (int i = 0; i < length; ++i)
-      {
-	stats[i] = stat_slots[statix];
-	statix = (statix + 1) % nslots;
-      }
-
-    /* return */
-    *stat_ary = stats;
-    *len = length;
-
-    return 0;
+    return index;
   }
 
   void StatHistory::print(std::ofstream& dumpFile, boost::posix_time::ptime curts)
@@ -274,144 +305,51 @@ namespace fds {
     lock.read_unlock();
   }
 
-  /******** PerfStats class implementation *******/
-
-  PerfStats::PerfStats(const std::string prefix, int slot_len_sec)
-    : sec_in_slot(slot_len_sec),
-      num_slots(FDS_STAT_DEFAULT_HIST_SLOTS),
-      statTimer(new IceUtil::Timer),
-      statTimerTask(new StatTimerTask(this))
+  void StatHistory::getStats(FDS_ProtocolInterface::FDSP_PerfStatListType& perf_list)
   {
-    start_time = boost::posix_time::second_clock::universal_time();
+    long latest_ts = 0;
+    lock.read_lock();
+    int endix = last_slot_num % nslots;
+    int startix = (endix + 1) % nslots; /* index of oldest stat */
+    int ix = startix;
 
-    /* name of file where we dump stats should contain current local time */
-    boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
+    if (nslots == 0) return;
 
-    std::string dirname("stats");
-    std::string nowstr = to_simple_string(now);
-    std::size_t i = nowstr.find_first_of(" ");
-    std::size_t k = nowstr.find_first_of(".");
-    std::string ts_str("");
-    if (i != std::string::npos) {
-      ts_str = nowstr.substr(0, i);
-      if (k == std::string::npos) {
-	ts_str.append("-");
-	ts_str.append(nowstr.substr(i+1));
-      }	     	    
-    }
-
-    /*make sure stats directory exists */
-    if ( !boost::filesystem::exists(dirname.c_str()) )
+    /* we will skip the last timeslot, because it is most likely not filled in */
+    while (ix != endix)
       {
-	boost::filesystem::create_directory(dirname.c_str());
+	long ts = stat_slots[ix].getTimestamp();
+	if (ts > last_returned_ts)
+	  {
+	    {
+	      /* total */
+	      FDS_ProtocolInterface::FDSP_PerfStatTypePtr tot_stat = 
+		new FDS_ProtocolInterface::FDSP_PerfStatType;
+	      if (stat_slots[ix].copyIfNotZero(tot_stat, PERF_STAT_TYPES-1)) {
+		perf_list.push_back(tot_stat);
+	      }
+	    }
+	    for (int i = 0; i < (PERF_STAT_TYPES-1); ++i)
+	      {
+		FDS_ProtocolInterface::FDSP_PerfStatTypePtr stat = 
+		  new FDS_ProtocolInterface::FDSP_PerfStatType;
+		if (stat_slots[ix].copyIfNotZero(stat, i)) {
+		  perf_list.push_back(stat);
+		}
+	      }
+	    if (latest_ts < ts)
+	      latest_ts = ts;
+
+	  }
+
+	ix = (ix + 1) % nslots;
       }
 
-    /* use timestamp in the filename */
-    std::string fname =dirname + std::string("//") + prefix + std::string("_") + ts_str + std::string(".stat");
-    statfile.open(fname.c_str(), std::ios::out | std::ios::app );
+    if (latest_ts != 0)
+      last_returned_ts = latest_ts;
 
-    /* we will init histories when we see new class_ids (in recordIo() method) */
-
-    /* for now, stats are disbled by default */
-    b_enabled = ATOMIC_VAR_INIT(false);
+    lock.read_unlock();
   }
 
-  PerfStats::~PerfStats()
-  {
-    statTimer->destroy();
-    for (std::unordered_map<fds_uint32_t, StatHistory*>::iterator it = histmap.begin();
-	 it != histmap.end();
-	 ++it)
-      {
-	StatHistory* hist = it->second;
-	delete hist;
-      }
-    histmap.clear();
-
-    if (statfile.is_open()){
-      statfile.close();
-    }
-  }
-
-  Error PerfStats::enable()
-  {
-    Error err(ERR_OK);
-    bool was_enabled = atomic_exchange(&b_enabled, true);
-    if (!was_enabled) {
-      IceUtil::Time interval = IceUtil::Time::seconds(sec_in_slot * (num_slots - 2));
-      try {
-	statTimer->scheduleRepeated(statTimerTask, interval);
-      } catch (IceUtil::IllegalArgumentException&) {
-	/* ok, already dumping stats, ignore this exception */
-      } catch (...) {
-	err = ERR_MAX; 
-      }
-    }
-    return err;
-  }
-
-  void PerfStats::disable()
-  {
-    bool was_enabled = atomic_exchange(&b_enabled, false);
-    if (was_enabled) {
-       statTimer->cancel(statTimerTask);
-       /* print stats we gathered but have not yet printed */
-       print();
-    }
-  }
-
-  void PerfStats::recordIO(fds_uint32_t     class_id,
-                           long             microlat,
-                           diskio::DataTier tier,
-                           fds_io_op_t      opType) {
-    if ( !isEnabled()) return;
-
-    StatHistory* hist = NULL;
-    boost::posix_time::time_duration elapsed = boost::posix_time::microsec_clock::universal_time() - start_time;
-
-    map_rwlock.read_lock();
-    if (histmap.count(class_id) > 0) {
-      hist = histmap[class_id];
-      assert(hist);
-    }
-    else{
-      /* we see this class_id for the first time, create a history for it */
-      map_rwlock.read_unlock();
-      hist = new StatHistory(class_id, num_slots, sec_in_slot);
-      if (!hist) return;
-
-      map_rwlock.write_lock();
-      histmap[class_id] = hist;
-      map_rwlock.write_unlock();
- 
-      map_rwlock.read_lock();
-    }
-
-    /* stat history should handle its own lock */
-    hist->addIo(elapsed.total_seconds(), microlat, tier, opType);
-
-    map_rwlock.read_unlock();
-  }
-
-  void PerfStats::print()
-  {
-    if ( !isEnabled()) return;
-
-    map_rwlock.read_lock();
-    boost::posix_time::ptime now_local = boost::posix_time::microsec_clock::local_time();
-    for (std::unordered_map<fds_uint32_t, StatHistory*>::iterator it = histmap.begin();
-	 it != histmap.end();
-	 ++it)
-      {
-	it->second->print(statfile, now_local);
-      }
-    map_rwlock.read_unlock();
-  }
-
-  /* timer taks to print all perf stats */
-  void StatTimerTask::runTimerTask()
-  {
-     stats->print();
-  }
 
 } /* namespace fds*/

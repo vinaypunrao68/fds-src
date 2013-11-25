@@ -22,17 +22,23 @@ enum fds_dmgr_txn_state {
 enum FDSP_MsgCodeType {
    FDSP_MSG_PUT_OBJ_REQ,
    FDSP_MSG_GET_OBJ_REQ,
+   FDSP_MSG_DELETE_OBJ_REQ,
    FDSP_MSG_VERIFY_OBJ_REQ,
    FDSP_MSG_UPDATE_CAT_OBJ_REQ,
+   FDSP_MSG_DELETE_CAT_OBJ_REQ,
    FDSP_MSG_QUERY_CAT_OBJ_REQ,
+   FDSP_MSG_GET_VOL_BLOB_LIST_REQ,
    FDSP_MSG_OFFSET_WRITE_OBJ_REQ,
    FDSP_MSG_REDIR_READ_OBJ_REQ,
 
    FDSP_MSG_PUT_OBJ_RSP,
    FDSP_MSG_GET_OBJ_RSP,
+   FDSP_MSG_DELETE_OBJ_RSP,
    FDSP_MSG_VERIFY_OBJ_RSP,
    FDSP_MSG_UPDATE_CAT_OBJ_RSP,
+   FDSP_MSG_DELETE_CAT_OBJ_RSP,
    FDSP_MSG_QUERY_CAT_OBJ_RSP,
+   FDSP_MSG_GET_VOL_BLOB_LIST_RSP,
    FDSP_MSG_OFFSET_WRITE_OBJ_RSP,
    FDSP_MSG_REDIR_READ_OBJ_RSP,
 
@@ -45,6 +51,7 @@ enum FDSP_MsgCodeType {
    FDSP_MSG_ATTACH_VOL_CMD,
    FDSP_MSG_DETACH_VOL_CMD,
    FDSP_MSG_REG_NODE,
+   FDSP_MSG_TEST_BUCKET,
 
    FDSP_MSG_NOTIFY_VOL,
    FDSP_MSG_ATTACH_VOL_CTRL,
@@ -67,7 +74,9 @@ enum FDSP_MgrIdType {
 
 enum FDSP_ResultType {
   FDSP_ERR_OK,
-  FDSP_ERR_FAILED
+  FDSP_ERR_FAILED,
+  FDSP_ERR_VOLUME_DOES_NOT_EXIST,
+  FDSP_ERR_VOLUME_EXISTS
 };
 
 enum FDSP_ErrType {
@@ -120,6 +129,12 @@ class FDSP_GetObjType {
   string  data_obj;
 };
 
+class  FDSP_DeleteObjType { /* This is a SH-->SM msg to delete the objectId */
+  FDS_ObjectIdType   data_obj_id;
+  int      data_obj_len;
+};
+
+
 class FDSP_OffsetWriteObjType {
   FDS_ObjectIdType   data_obj_id_old;
   int      data_obj_len;
@@ -144,20 +159,79 @@ class FDSP_VerifyObjType {
   string  data_obj;
 };
 
+struct FDSP_BlobDigestType {
+  long low;
+  long high;
+};
+
+struct FDSP_BlobObjectInfo {
+ long offset;
+ FDS_ObjectIdType data_obj_id;
+ long size;     
+};
+
+sequence <FDSP_BlobObjectInfo> FDSP_BlobObjectList;
+
+struct FDSP_MetaDataPair {
+ string key;
+ string value;
+};
+
+sequence <FDSP_MetaDataPair> FDSP_MetaDataList;
 
 class FDSP_UpdateCatalogType {
-  int      volume_offset;       /* Offset inside the volume where the object resides */
-  FDS_ObjectIdType   data_obj_id;         /* Object id of the object that this block is being mapped to */
+  string   blob_name;       /* User visible name of the blob*/
+  long blob_size;
+  int blob_mime_type;
+  FDSP_BlobDigestType digest;
+  FDSP_BlobObjectList   obj_list;         /* List of object ids of the objects that this blob is being mapped to */
+  FDSP_MetaDataList meta_list; /* sequence of arbitrary key/value pairs */
+
   int      dm_transaction_id;  /* Transaction id */
   int      dm_operation;       /* Transaction type = OPEN, COMMIT, CANCEL */
 };
 
 class FDSP_QueryCatalogType {
-  int      volume_offset;       /* Offset inside the volume where the object resides */
-  FDS_ObjectIdType   data_obj_id;         /* Object id of the object that this block is being mapped to */
+
+  string   blob_name;       /* User visible name of the blob*/
+  long blob_size;
+  int blob_mime_type;
+  FDSP_BlobDigestType digest;
+  FDSP_BlobObjectList   obj_list;         /* List of object ids of the objects that this blob is being mapped to */
+  FDSP_MetaDataList meta_list; /* sequence of arbitrary key/value pairs */
+
   int      dm_transaction_id;  /* Transaction id */
   int      dm_operation;       /* Transaction type = OPEN, COMMIT, CANCEL */
 };
+
+class  FDSP_DeleteCatalogType { /* This is a SH-->SM msg to delete the objectId */
+  string   blob_name;       /* User visible name of the blob*/
+};
+
+struct FDSP_BlobInfoType{
+  string blob_name;
+  long blob_size;
+  int mime_type;
+};
+
+sequence<FDSP_BlobInfoType> BlobInfoListType;
+
+const long blob_list_iterator_begin = 0;
+const long blob_list_iterator_end = 0xffffffff;
+
+class FDSP_GetVolumeBlobListReqType {
+  // take volUUID from the header
+  int max_blobs_to_return; 
+  long iterator_cookie; //set to "0" the first time and store and return for successive iterations
+};
+
+class FDSP_GetVolumeBlobListRespType {
+  int num_blobs_in_resp;
+  bool end_of_list; // true if there are no more blobs to return
+  long iterator_cookie; // store and return this for the next iteration.
+  BlobInfoListType blob_info_list; // list of blob_info structures.  
+};
+
 
 enum FDSP_NodeState {
      FDS_Node_Up,
@@ -197,11 +271,11 @@ class FDSP_DMT_Type {
 
 class FDSP_VolumeInfoType {
 
-  string 		 vol_name;  /* Name of the volume */
+  string 		 vol_name;  /* Name of the volume or bucket*/
   int 	 		 tennantId;  // Tennant id that owns the volume
   int    		 localDomainId;  // Local domain id that owns vol
   int	 		 globDomainId;
-  double	 	 volUUID;
+  // double	 	 volUUID;
 
 // Basic operational properties
 
@@ -211,10 +285,10 @@ class FDSP_VolumeInfoType {
 
 // Consistency related properties
 
-  int        		 replicaCnt;  // Number of replicas reqd for this volume
-  int        		 writeQuorum;  // Quorum number of writes for success
-  int        		 readQuorum;  // This will be 1 for now
-  FDSP_ConsisProtoType 	 consisProtocol;  // Read-Write consistency protocol
+  int        		 defReplicaCnt;  // Number of replicas reqd for this volume
+  int        		 defWriteQuorum;  // Quorum number of writes for success
+  int        		 defReadQuorum;  // This will be 1 for now
+  FDSP_ConsisProtoType 	 defConsisProtocol;  // Read-Write consistency protocol
 
 // Other policies
 
@@ -243,10 +317,10 @@ class FDSP_VolumeDescType {
 
 // Consistency related properties
 
-  int        		 replicaCnt;  // Number of replicas reqd for this volume
-  int        		 writeQuorum;  // Quorum number of writes for success
-  int        		 readQuorum;  // This will be 1 for now
-  FDSP_ConsisProtoType 	 consisProtocol;  // Read-Write consistency protocol
+  int        		 defReplicaCnt;  // Number of replicas reqd for this volume
+  int        		 defWriteQuorum;  // Quorum number of writes for success
+  int        		 defReadQuorum;  // This will be 1 for now
+  FDSP_ConsisProtoType 	 defConsisProtocol;  // Read-Write consistency protocol
 
 // Other policies
 
@@ -277,6 +351,14 @@ class FDSP_CreateVolType {
 
 };
 
+class FDSP_TestBucket {
+  string 		 bucket_name;
+  FDSP_VolumeInfoType 	 vol_info; /* Bucket properties and attributes */
+  bool                   attach_vol_reqd; /* Should OMgr send out an attach volume if the bucket is accessible, etc */
+  string                 accessKeyId;
+  string                 secretAccessKey;
+};
+
 class FDSP_PolicyInfoType {
   string                 policy_name; /* Name of the policy */
   int                    policy_id;   /* policy id */
@@ -287,21 +369,32 @@ class FDSP_PolicyInfoType {
 
 class FDSP_DeleteVolType {
   string 		 vol_name;  /* Name of the volume */
-  double    		 vol_uuid;
+  // double    		 vol_uuid;
   int			 domain_id;
 };
 
 class FDSP_ModifyVolType {
   string 		 vol_name;  /* Name of the volume */
   double		 vol_uuid;
-  FDSP_VolumeInfoType	 vol_info;  /* New updated volume properties */
+  FDSP_VolumeDescType	 vol_desc;  /* New updated volume descriptor */
 };
 
 class FDSP_AttachVolCmdType {
   string		 vol_name; // Name of the volume to attach
-  double		 vol_uuid; // UUID of the volume being attached
+  // double		 vol_uuid; // UUID of the volume being attached
   string		 node_id;  // Id of the hypervisor node where the volume should be attached
   int			 domain_id;
+};
+
+
+class FDSP_GetVolInfoReqType {
+ string vol_name;
+ int domain_id;
+};
+
+class FDSP_GetVolInfoRespType {
+ string vol_name;
+ FDSP_VolumeDescType vol_desc;
 };
 
 class FDSP_NotifyVolType {
@@ -371,6 +464,33 @@ class FDSP_ThrottleMsgType {
   */
 };
 
+class FDSP_PerfStatType {
+  long   nios;     /* number of IOs in stat time interval  */
+  long   min_lat;  /* minimum latency */
+  long   max_lat;  /* maximum latency */
+  double ave_lat;  /* average latency */
+
+  int stat_type;     /* 0 - read/disk, 1 - write/disk, 2 - read/flash, 3 - write/flash, 5 - total 
+                      * Note that SH will only return stat_type 5 (for now) */
+  long rel_seconds;  /* timestamp -- in seconds relative to FDSP_PerfstatsType::start_timestamp */
+};
+
+sequence<FDSP_PerfStatType> FDSP_PerfStatListType;
+ 
+class FDSP_VolPerfHistType {
+  double vol_uuid;
+  FDSP_PerfStatListType  stat_list;  /* list of performance stats (one or more time slots) for this volume */
+};
+
+sequence<FDSP_VolPerfHistType> FDSP_VolPerfHistListType;
+
+class FDSP_PerfstatsType {
+  FDSP_MgrIdType            node_type; /* type of node - SM/SH */ 
+  int                       slot_len_sec; /* length of each stat time slot */
+  string                    start_timestamp; /* to calc absolute timestamps of stats which contain relative timestamps */
+  FDSP_VolPerfHistListType  vol_hist_list; /* list of performance histories of volumes */
+};
+
 class FDSP_QueueStateType {
 
   int domain_id;
@@ -424,6 +544,7 @@ class FDSP_MsgHdrType {
     int        tennant_id;      /* Tennant owning the Local-domain and Storage hypervisor */
     int        local_domain_id; /* Local domain the volume in question belongs */
     double        glob_volume_id;  /* Tennant owning the Local-domain and Storage hypervisor */
+    string       bucket_name;    /* Bucket Name or Container Name for S3 or Azure entities */
 		
     		/* Source and Destination Distributed s/w entities */
     FDSP_MgrIdType       src_id;
@@ -453,15 +574,22 @@ interface FDSP_DataPathReq {
 
     void PutObject(FDSP_MsgHdrType fdsp_msg, FDSP_PutObjType put_obj_req);
 
+    void DeleteObject(FDSP_MsgHdrType fdsp_msg, FDSP_DeleteObjType del_obj_req);
+
     void UpdateCatalogObject(FDSP_MsgHdrType fdsp_msg, FDSP_UpdateCatalogType cat_obj_req);
 
     void QueryCatalogObject(FDSP_MsgHdrType fdsp_msg, FDSP_QueryCatalogType cat_obj_req);
+
+    void DeleteCatalogObject(FDSP_MsgHdrType fdsp_msg, FDSP_DeleteCatalogType cat_obj_req);
 
     void OffsetWriteObject(FDSP_MsgHdrType fdsp_msg, FDSP_OffsetWriteObjType offset_write_obj_req);
 
     void RedirReadObject(FDSP_MsgHdrType fdsp_msg, FDSP_RedirReadObjType redir_write_obj_req);
 
     void AssociateRespCallback(Ice::Identity ident, string src_node_name); // Associate Response callback ICE-object with DM/SM for this source node.
+
+    void GetVolumeBlobList(FDSP_MsgHdrType fds_msg, FDSP_GetVolumeBlobListReqType blob_list_req);
+
 };
 
 interface FDSP_DataPathResp {
@@ -469,13 +597,19 @@ interface FDSP_DataPathResp {
 
     void PutObjectResp(FDSP_MsgHdrType fdsp_msg, FDSP_PutObjType put_obj_req);
 
+    void DeleteObjectResp(FDSP_MsgHdrType fdsp_msg, FDSP_DeleteObjType del_obj_req);
+
     void UpdateCatalogObjectResp(FDSP_MsgHdrType fdsp_msg, FDSP_UpdateCatalogType cat_obj_req);
 
     void QueryCatalogObjectResp(FDSP_MsgHdrType fdsp_msg, FDSP_QueryCatalogType cat_obj_req);
 
+    void DeleteCatalogObjectResp(FDSP_MsgHdrType fdsp_msg, FDSP_DeleteCatalogType cat_obj_req);
+
     void OffsetWriteObjectResp(FDSP_MsgHdrType fdsp_msg, FDSP_OffsetWriteObjType offset_write_obj_req);
 
     void RedirReadObjectResp(FDSP_MsgHdrType fdsp_msg, FDSP_RedirReadObjType redir_write_obj_req);
+
+    void GetVolumeBlobListResp(FDSP_MsgHdrType fds_msg, FDSP_GetVolumeBlobListRespType blob_list_rsp);
 
 };
 
@@ -492,6 +626,7 @@ interface FDSP_ConfigPathReq {
   int CreateDomain(FDSP_MsgHdrType fdsp_msg, FDSP_CreateDomainType crt_dom_req);
   int DeleteDomain(FDSP_MsgHdrType fdsp_msg, FDSP_CreateDomainType del_dom_req);
   void SetThrottleLevel(FDSP_MsgHdrType fdsp_msg, FDSP_ThrottleMsgType throttle_msg);	
+  void GetVolInfo(FDSP_MsgHdrType fdsp_msg, FDSP_GetVolInfoReqType vol_info_req);
 
   /* 
   These are actually control messages from SM/DM/SH to OM. Need to move these to that control interface some time.
@@ -499,8 +634,8 @@ interface FDSP_ConfigPathReq {
   */ 
   void RegisterNode(FDSP_MsgHdrType fdsp_msg, FDSP_RegisterNodeType reg_node_req);
   void NotifyQueueFull(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyQueueStateType queue_state_info);
- 
-
+  void NotifyPerfstats(FDSP_MsgHdrType fdsp_msg, FDSP_PerfstatsType push_stats_msg);
+  void TestBucket(FDSP_MsgHdrType fdsp_msg, FDSP_TestBucket test_buck_msg);
 };
 
 interface FDSP_ConfigPathResp {
@@ -513,8 +648,10 @@ interface FDSP_ConfigPathResp {
   void AttachVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolCmdType atc_vol_req);
   void DetachVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolCmdType dtc_vol_req);
   void RegisterNodeResp(FDSP_MsgHdrType fdsp_msg, FDSP_RegisterNodeType reg_node_resp);
+  void TestBucketResp(FDSP_MsgHdrType fdsp_msg, FDSP_TestBucket test_buck_resp);
   int CreateDomainResp(FDSP_MsgHdrType fdsp_msg, FDSP_CreateDomainType crt_dom_resp);
   int DeleteDomainResp(FDSP_MsgHdrType fdsp_msg, FDSP_CreateDomainType del_dom_resp);
+  void GetVolInfoResp(FDSP_MsgHdrType fdsp_msg, FDSP_GetVolInfoRespType vol_info_rsp);
 };
 
 interface FDSP_ControlPathReq {
@@ -523,6 +660,7 @@ interface FDSP_ControlPathReq {
 
   void NotifyAddVol(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyVolType not_add_vol_req);
   void NotifyRmVol(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyVolType not_rm_vol_req);
+  void NotifyModVol(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyVolType not_mod_vol_req);
   void AttachVol(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolType atc_vol_req);
   void DetachVol(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolType dtc_vol_req);
   void NotifyNodeAdd(FDSP_MsgHdrType fdsp_msg, FDSP_Node_Info_Type node_info);
@@ -538,6 +676,7 @@ interface FDSP_ControlPathReq {
 interface FDSP_ControlPathResp {
   void NotifyAddVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyVolType not_add_vol_resp);
   void NotifyRmVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyVolType not_rm_vol_resp);
+  void NotifyModVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyVolType not_mod_vol_resp);
   void AttachVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolType atc_vol_resp);
   void DetachVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolType dtc_vol_resp);
   void NotifyNodeAddResp(FDSP_MsgHdrType fdsp_msg, FDSP_Node_Info_Type node_info_resp);

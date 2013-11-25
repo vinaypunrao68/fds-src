@@ -94,6 +94,10 @@ namespace fds {
 		     fds_uint32_t maximum_outstanding_ios, fds_log *parent_log);
     Error registerQueue(fds_uint32_t queue_id, FDS_VolumeQueue *queue);
     Error deregisterQueue(fds_uint32_t queue_id);
+    Error modifyQueueQosParams(fds_uint32_t queue_id,
+			       fds_uint64_t iops_min,
+			       fds_uint64_t iops_max,
+			       fds_uint32_t prio);
 
   };
 }

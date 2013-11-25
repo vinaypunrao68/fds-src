@@ -94,6 +94,7 @@
 #include <util/Log.h>
 #include <concurrency/Mutex.h>
 #include <lib/Catalog.h>
+#include <lib/PerfStats.h>
 #include "OmTier.h"
 #include "OmVolPolicy.h"
 #include "OmLocDomain.h"
@@ -128,6 +129,7 @@ namespace fds {
   typedef FDS_ProtocolInterface::FDSP_AttachVolCmdTypePtr FdspAttVolCmdPtr;
   typedef FDS_ProtocolInterface::FDSP_RegisterNodeTypePtr FdspRegNodePtr;
   typedef FDS_ProtocolInterface::FDSP_NotifyVolTypePtr    FdspNotVolPtr;
+  typedef FDS_ProtocolInterface::FDSP_TestBucketPtr       FdspTestBucketPtr;
 
   typedef FDS_ProtocolInterface::FDSP_VolumeInfoTypePtr FdspVolInfoPtr;
   typedef FDS_ProtocolInterface::FDSP_PolicyInfoTypePtr FdspPolInfoPtr;
@@ -184,6 +186,7 @@ namespace fds {
     virtual int run(int argc, char* argv[]);
     void interruptCallback(int cb);
     fds_log* GetLog();
+    void defaultS3BucketPolicy();  // default  policy  desc  for s3 bucket
 
     // With one big class, it's the same as using global variables for OM
     // with single big lock.
@@ -230,6 +233,10 @@ namespace fds {
 			  const FDSP_ThrottleMsgTypePtr& throttle_req);
     void NotifyQueueFull(const FDSP_MsgHdrTypePtr& fdsp_msg,
 			 const FDSP_NotifyQueueStateTypePtr& queue_state_req);
+    void NotifyPerfstats(const FDSP_MsgHdrTypePtr& fdsp_msg,
+			 const FDSP_PerfstatsTypePtr& perf_stats_msg);
+    void TestBucket(const FDSP_MsgHdrTypePtr& fdsp_msg,
+		    const FDSP_TestBucketPtr& test_buck_req);
 
 
     class ReqCfgHandler : public FDS_ProtocolInterface::FDSP_ConfigPathReq {
@@ -267,6 +274,10 @@ namespace fds {
                      const FdspAttVolCmdPtr& dtc_vol_req,
                      const Ice::Current&);
 
+      void GetVolInfo(const ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg, 
+		      const ::FDS_ProtocolInterface::FDSP_GetVolInfoReqTypePtr& get_vol_req, 
+		      const ::Ice::Current&);
+
       void RegisterNode(const FdspMsgHdrPtr&  fdsp_msg,
                         const FdspRegNodePtr& reg_node_req,
                         const Ice::Current&);
@@ -287,6 +298,14 @@ namespace fds {
       void NotifyQueueFull(const FDSP_MsgHdrTypePtr& fdsp_msg,
 			   const FDSP_NotifyQueueStateTypePtr& queue_state_req, 
 			   const Ice::Current&);
+
+      void NotifyPerfstats(const FDSP_MsgHdrTypePtr& fdsp_msg,
+			   const FDSP_PerfstatsTypePtr& perf_stats_msg,
+			   const Ice::Current&);
+
+      void TestBucket(const FDSP_MsgHdrTypePtr& fdsp_msg,
+		      const FDSP_TestBucketPtr& test_buck_req,
+		      const Ice::Current&);
 
     };
   };

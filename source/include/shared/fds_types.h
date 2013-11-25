@@ -8,9 +8,11 @@
 #ifdef __cplusplus
 #define c_decls_begin        extern "C" {
 #define c_decls_end          }
+typedef bool                 fds_bool_t;
 #else
 #define c_decls_begin
 #define c_decls_end
+typedef int                  fds_bool_t;
 #endif
 
 typedef unsigned long long   fds_blk_t;
@@ -24,7 +26,6 @@ typedef short                fds_int16_t;
 typedef unsigned char        fds_uint8_t;
 typedef char                 fds_int8_t;
 typedef char                 fds_char_t;
-typedef bool                 fds_bool_t;
 
 /* Get the offset of a field y inside struct X. */
 #define fds_offset_of(X, y)   ((unsigned long)((void *)&(((X *)0)->y)))

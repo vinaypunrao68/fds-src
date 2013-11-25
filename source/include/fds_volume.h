@@ -74,19 +74,20 @@ namespace fds {
     /*
      * Constructors/destructors
      */
-    VolumeDesc(FDSP_VolumeInfoTypePtr&  volinfo) {
+
+    VolumeDesc(FDSP_VolumeInfoTypePtr&  volinfo, fds_volid_t vol_uuid) {
       name = volinfo->vol_name;
       tennantId = volinfo->tennantId;  
       localDomainId = volinfo->localDomainId;  
       globDomainId = volinfo->globDomainId;
-      volUUID = volinfo->volUUID;
+      volUUID = vol_uuid;
       volType = volinfo->volType;
       capacity = volinfo->capacity;
       maxQuota = volinfo->maxQuota; 
-      replicaCnt = volinfo->replicaCnt; 
-      writeQuorum = volinfo->writeQuorum; 
-      readQuorum = volinfo->readQuorum;  
-      consisProtocol = volinfo->consisProtocol; 
+      replicaCnt = volinfo->defReplicaCnt; 
+      writeQuorum = volinfo->defWriteQuorum; 
+      readQuorum = volinfo->defReadQuorum;  
+      consisProtocol = volinfo->defConsisProtocol; 
       volPolicyId = volinfo->volPolicyId;
       archivePolicyId = volinfo->archivePolicyId;
       placementPolicy = volinfo->placementPolicy;  
@@ -101,6 +102,7 @@ namespace fds {
       relativePrio = 0;
       assert(volUUID != invalid_vol_id);
     }
+
 
     VolumeDesc(const VolumeDesc& vdesc) { 
       name = vdesc.name;
@@ -135,10 +137,10 @@ namespace fds {
 	volType = voldesc->volType;
 	capacity = voldesc->capacity;
 	maxQuota = voldesc->maxQuota;
-	replicaCnt = voldesc->replicaCnt; 
-	writeQuorum = voldesc->writeQuorum; 
-	readQuorum = voldesc->readQuorum;  
-	consisProtocol = voldesc->consisProtocol; 
+	replicaCnt = voldesc->defReplicaCnt; 
+	writeQuorum = voldesc->defWriteQuorum; 
+	readQuorum = voldesc->defReadQuorum;  
+	consisProtocol = voldesc->defConsisProtocol; 
 	volPolicyId = voldesc->volPolicyId;
 	archivePolicyId = voldesc->archivePolicyId;
 	placementPolicy = voldesc->placementPolicy;  
@@ -208,6 +210,15 @@ namespace fds {
         }
 
     ~VolumeDesc() {
+    }
+
+    void modifyPolicyInfo(fds_uint64_t _iops_min,
+			  fds_uint64_t _iops_max,
+			  fds_uint32_t _priority)
+    {
+      iops_min = _iops_min;
+      iops_max = _iops_max;
+      relativePrio = _priority;
     }
 
     std::string getName() const {
@@ -484,6 +495,15 @@ public:
 
 ~FDS_VolumeQueue() {
    delete volQueue;
+ }
+
+ void modifyQosParams(fds_uint64_t _iops_min,
+		      fds_uint64_t _iops_max,
+		      fds_uint32_t _prio)
+ {
+   iops_max = _iops_max;
+   iops_min = _iops_min;
+   priority = _prio;
  }
 
  void activate() {

@@ -32,7 +32,9 @@
 
 #include <fds_qos.h>
 #include <qos_ctrl.h>
+#include <fds_obj_cache.h>
 #include <fds_assert.h>
+
 #include <utility>
 #include <atomic>
 #include <unordered_map>
@@ -68,6 +70,8 @@ using namespace Ice;
 using namespace diskio;
 
 namespace fds {
+
+  void log_ocache_stats();
 
   /*
    * Forward declaration of Ice interface class
@@ -213,6 +217,8 @@ namespace fds {
      */
     ObjectRankEngine *rankEngine;
 
+    FdsObjectCache *objCache;
+
     /*
      * Flash write-back members.
      * TODO: These should probably be in the persistent layer
@@ -261,6 +267,9 @@ namespace fds {
                             fds_volid_t        volId,
                             fds_uint32_t       transId,
                             fds_uint32_t       numObjs);
+    Error deleteObjectInternal(FDSP_DeleteObjTypePtr delObjReq, 
+                            fds_volid_t        volId,
+                            fds_uint32_t       transId);
     Error checkDuplicate(const ObjectID  &objId,
                          const ObjectBuf &objCompData);
     Error writeObjectLocation(const ObjectID &objId, 
@@ -270,6 +279,7 @@ namespace fds {
                               meta_obj_map_t *objMaps);
     Error readObjectLocations(const ObjectID     &objId,
                               diskio::MetaObjMap &objMaps);
+    Error deleteObjectLocation(const ObjectID     &objId);
     Error writeObject(const ObjectID   &objId,
                       const ObjectBuf  &objCompData,
                       fds_volid_t       volId,
@@ -330,8 +340,11 @@ namespace fds {
                    const FDS_ProtocolInterface::FDSP_PutObjTypePtr& put_obj);
     void GetObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
                    const FDS_ProtocolInterface::FDSP_GetObjTypePtr& get_obj);
+    void DeleteObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                   const FDS_ProtocolInterface::FDSP_DeleteObjTypePtr& del_obj);
     Error getObjectInternal(SmIoReq* getReq);
     Error putObjectInternal(SmIoReq* putReq);
+    Error deleteObjectInternal(SmIoReq* delReq);
     Error relocateObject(const ObjectID &objId,
                               diskio::DataTier from_tier,
                               diskio::DataTier to_tier);
@@ -344,7 +357,8 @@ namespace fds {
                                    FDS_ProtocolInterface::FDSP_MgrIdType node_type);
     static void volEventOmHandler(fds::fds_volid_t volume_id,
                                   fds::VolumeDesc *vdb,
-                                  int vol_action);
+                                  int vol_action,
+				  FDSP_ResultType resut);
 
     int run(int, char*[]);
     void interruptCallback(int);
@@ -359,6 +373,9 @@ namespace fds {
     }
     SysParams* getSysParams() {
     	return sysParams;
+    }
+    FdsObjectCache *getObjCache() {
+      return objCache;
     }
 
     /*
@@ -386,12 +403,19 @@ namespace fds {
     void GetObject(const FDSP_MsgHdrTypePtr &msg_hdr,
                    const FDSP_GetObjTypePtr& get_obj, const Ice::Current&);
 
+    void DeleteObject(const FDSP_MsgHdrTypePtr &msg_hdr,
+                   const FDSP_DeleteObjTypePtr &del_obj, const Ice::Current&);
+
     void UpdateCatalogObject(const FDSP_MsgHdrTypePtr &msg_hdr,
                              const FDSP_UpdateCatalogTypePtr& update_catalog,
                              const Ice::Current&);
 
     void QueryCatalogObject(const FDSP_MsgHdrTypePtr &msg_hdr,
                             const FDSP_QueryCatalogTypePtr& query_catalog,
+                            const Ice::Current&);
+
+    void DeleteCatalogObject(const FDSP_MsgHdrTypePtr &msg_hdr,
+                            const FDSP_DeleteCatalogTypePtr& delete_catalog,
                             const Ice::Current&);
 
     void OffsetWriteObject(const FDSP_MsgHdrTypePtr& msg_hdr,
@@ -405,6 +429,13 @@ namespace fds {
     void AssociateRespCallback(const Ice::Identity&,
 			       const std::string& src_node_name,
 			       const Ice::Current&);
+
+    void GetVolumeBlobList(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fds_msg, 
+			   const FDS_ProtocolInterface::FDSP_GetVolumeBlobListReqTypePtr& blob_list_req,
+			   const Ice::Current& current) {
+      
+    }
+
   };
 
 }  // namespace fds

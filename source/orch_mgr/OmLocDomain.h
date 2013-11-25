@@ -175,7 +175,7 @@ class FdsLocalDomain {
   ~FdsLocalDomain();
 
   typedef std::unordered_map<fds_node_name_t, NodeInfo> node_map_t;
-  typedef std::unordered_map<int, VolumeInfo *> volume_map_t;
+  typedef std::unordered_map<std::string, VolumeInfo *> volume_map_t;
 
   node_map_t currentSmMap;
   node_map_t currentDmMap;
@@ -216,6 +216,8 @@ class FdsLocalDomain {
     int current_dlt_version;
     int current_dmt_version;
 
+    int next_free_vol_id;
+
     float current_throttle_level;
 
     void copyPropertiesToVolumeDesc(FdspVolDescPtr v_desc,
@@ -226,6 +228,8 @@ class FdsLocalDomain {
      * Get a new node_id to be allocated for a new node
      */
     fds_int32_t getFreeNodeId(const std::string& node_name);
+
+    fds_int32_t getNextFreeVolId();
     /*
      * Broadcast a node event to all DM/SM/HV nodes
      */
@@ -236,6 +240,10 @@ class FdsLocalDomain {
      * Broadcast create vol ctrl message to all DM/SM Nodes
      */
     void sendCreateVolToFdsNodes(VolumeInfo *pVol);
+    /*
+     * Broadcast modify vol ctrl message to all SH/DM/SM Nodes
+     */
+    void sendModifyVolToFdsNodes(VolumeInfo *pVol);
     /*
      * Broadcast delete vol ctrl message to all DM/SM Nodes
      */
@@ -280,14 +288,27 @@ class FdsLocalDomain {
       Broadcast SetThrottleLevel message to all SH Nodes
     */
     void sendThrottleLevelToHvNodes(float throttle_level);
-    
+ 
+    /* Send response for TestBucket if we are not sending attach volume message */ 
+    void sendTestBucketResponseToHvNode(fds_node_name_t node_name, const std::string& bucket_name, fds_bool_t vol_exists);
+   
     /*
      * Testing related member functions
      */
     void loadNodesFromFile(const std::string& dltFileName,
                           const std::string& dmtFileName);
+
+    void handlePerfStatsFromAM(const FDSP_VolPerfHistListType& hist_list,
+			       const std::string start_timestamp);
+
   /* parent log */
   fds_log* parent_log;
+
+ private: 
+
+  /* recent history of perf stats OM receives from AM nodes */
+  PerfStats* am_stats;
+
 }; 
 
  class localDomainInfo {

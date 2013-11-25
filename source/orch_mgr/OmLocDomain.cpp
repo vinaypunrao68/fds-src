@@ -55,19 +55,33 @@ FdsLocalDomain::FdsLocalDomain(const std::string& om_prefix, fds_log* om_log)
   new_vol->properties = new VolumeDesc(new_vol->vol_name,
                                        new_vol->volUUID);
   new_vol->hv_nodes.push_back("localhost-sh");
-  volumeMap[new_vol->volUUID] = new_vol;
+  volumeMap[new_vol->vol_name] = new_vol;
+  
+  next_free_vol_id = 2;
 
   /*
    * per domain  admin control
    */
 
    admin_ctrl = new FdsAdminCtrl(om_prefix, om_log);
+
+   /* cached stats that we receve from AM - we will keep a bit longer history
+    * than AM does to account for async receive of stats from multiple AM
+    * and then CLI query for them */
+   am_stats = new PerfStats(om_prefix+"OM_from_AM", 3*FDS_STAT_DEFAULT_HIST_SLOTS);
+   if (am_stats) {
+     am_stats->enable(); /* stats are not enabled by default */
+   }
 }
 
 FdsLocalDomain::~FdsLocalDomain()
 {
   delete curDlt;
   delete curDmt;
+  if (am_stats) {
+    am_stats->disable();
+    delete am_stats;
+  }
 }
 
 
@@ -129,7 +143,7 @@ void FdsLocalDomain::updateDltLocked() {
    * the DLT.
    * TODO: For now just call a round robin.
    */
-  FDS_PLOG(parent_log) << "Updating DLT";
+  FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Updating DLT";
   roundRobinDlt(static_cast<fds_placement_table *>(curDlt),
                 currentSmMap,
                 parent_log);
@@ -144,7 +158,7 @@ void FdsLocalDomain::updateDmtLocked() {
    * the DLT.
    * TODO: For now just call a round robin.
    */
-  FDS_PLOG(parent_log) << "Updating DMT";
+  FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Updating DMT";
   roundRobinDlt(static_cast<fds_placement_table *>(curDmt),
                 currentDmMap,
                 parent_log);
@@ -175,7 +189,7 @@ void FdsLocalDomain::loadNodesFromFile(const std::string& dltFileName,
   size_t n_bytes = 0;
   char *line_ptr = 0;
 
-  FDS_PLOG(parent_log) << "Loading cluster map from local files "
+  FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Loading cluster map from local files "
                    << dltFileName << " and " << dmtFileName
                    << std::endl;
 
@@ -268,9 +282,9 @@ void FdsLocalDomain::copyPropertiesToVolumeDesc(FdspVolDescPtr v_desc,
   v_desc->capacity = pVol->capacity;
   v_desc->volType = pVol->volType;
   v_desc->maxQuota = pVol->maxQuota;
-  v_desc->replicaCnt = pVol->replicaCnt;
+  v_desc->defReplicaCnt = pVol->replicaCnt;
 
-  v_desc->consisProtocol = FDS_ProtocolInterface::
+  v_desc->defConsisProtocol = FDS_ProtocolInterface::
       FDSP_ConsisProtoType(pVol->consisProtocol);
   v_desc->appWorkload = pVol->appWorkload;
 
@@ -310,8 +324,14 @@ fds_int32_t FdsLocalDomain::getFreeNodeId(const std::string& node_name) {
       return i;
     }
   }
-  FDS_PLOG(parent_log) << "No id available to allocate to node " << node_name;
+  FDS_PLOG_SEV(parent_log, fds::fds_log::error) << "No id available to allocate to node " << node_name;
   return -1;
+}
+
+fds_int32_t FdsLocalDomain::getNextFreeVolId() {
+  
+  return next_free_vol_id++;
+  
 }
 
 /*
@@ -352,7 +372,7 @@ void FdsLocalDomain::sendMgrNodeListToFdsNode(const NodeInfo& n_info) {
       node_info_ptr->control_port = next_node_info.control_port;
       node_info_ptr->data_port = next_node_info.data_port;
 
-      FDS_PLOG(parent_log) << "Sending node notification to node "
+      FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Sending node notification to node "
                        << n_info.node_name << " for node "
                        << node_name << " IP " << node_info_ptr->ip_lo_addr
                        << " port " << node_info_ptr->data_port << " state - "
@@ -411,7 +431,7 @@ void FdsLocalDomain::sendNodeEventToFdsNodes(const NodeInfo& nodeInfo,
         continue;
       }
 
-      FDS_PLOG(parent_log) << "Sending node notification to node "
+      FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Sending node notification to node "
                        << node_name << " for node "
                        << nodeInfo.node_name << " state - "
                        << node_state;
@@ -467,7 +487,7 @@ void FdsLocalDomain::sendNodeTableToFdsNodes(int table_type) {
       fds_node_name_t node_name = it->first;
       NodeInfo& next_node_info = it->second;
 
-      FDS_PLOG(parent_log) << "Sending "
+      FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Sending "
                        << ((table_type == table_type_dlt) ? "DLT " : "DMT ")
                        <<  "version "
                        << ((table_type == table_type_dlt) ?
@@ -506,7 +526,9 @@ void FdsLocalDomain::sendAllVolumesToFdsMgrNode(NodeInfo node_info) {
     vol_msg->vol_name = std::string(pVolDesc->name);
     copyPropertiesToVolumeDesc(vol_msg->vol_desc, pVolDesc);
     
-    FDS_PLOG(parent_log) << "Sending create vol to node " << node_info.node_name << " for volume " << pVolInfo->volUUID;
+    FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Sending create vol to node " 
+							 << node_info.node_name 
+							 << " for volume " << pVolInfo->volUUID;
     OMClientAPI->begin_NotifyAddVol(msg_hdr, vol_msg);
   }
 }
@@ -535,7 +557,7 @@ void FdsLocalDomain::sendCreateVolToFdsNodes(VolumeInfo  *pVolInfo) {
       fds_node_name_t node_name = it->first;
       NodeInfo& node_info = it->second;
 
-      FDS_PLOG(parent_log) << "Sending create vol to node "
+      FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Sending create vol to node "
                        << node_name << " for volume "
                        << pVolInfo->volUUID;
 
@@ -543,6 +565,62 @@ void FdsLocalDomain::sendCreateVolToFdsNodes(VolumeInfo  *pVolInfo) {
       OMClientAPI->begin_NotifyAddVol(msg_hdr, vol_msg);
     }
   }
+}
+
+void FdsLocalDomain::sendModifyVolToFdsNodes(VolumeInfo* pVolInfo)
+{
+  VolumeDesc* pVolDesc = pVolInfo->properties;
+
+  FdspMsgHdrPtr msg_hdr = new FDS_ProtocolInterface::FDSP_MsgHdrType;
+  FdspNotVolPtr vol_msg = new FDS_ProtocolInterface::FDSP_NotifyVolType;
+  vol_msg->vol_desc = new FDS_ProtocolInterface::FDSP_VolumeDescType();
+
+  initOMMsgHdr(msg_hdr);
+  msg_hdr->glob_volume_id = pVolDesc->volUUID;
+  vol_msg->type = FDS_ProtocolInterface::FDSP_NOTIFY_MOD_VOL;
+  vol_msg->vol_name = std::string(pVolDesc->name);
+  copyPropertiesToVolumeDesc(vol_msg->vol_desc, pVolDesc);
+
+  /* Send to all DM/SM nodes */
+  for (int i = 0; i < 2; i++) {
+    node_map_t& node_map = (i == 0) ? currentDmMap:currentSmMap;
+    msg_hdr->dst_id = (i == 0) ?
+        FDS_ProtocolInterface::FDSP_DATA_MGR :
+        FDS_ProtocolInterface::FDSP_STOR_MGR;
+
+    for (auto it = node_map.begin(); it != node_map.end(); ++it) {
+      fds_node_name_t node_name = it->first;
+      NodeInfo& node_info = it->second;
+
+      FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Sending modify vol to node "
+							   << node_name << " for volume "
+							   << pVolInfo->vol_name << " UUID " 
+							   << pVolInfo->volUUID;
+
+      ReqCtrlPrx OMClientAPI = node_info.cpPrx;
+      OMClientAPI->begin_NotifyModVol(msg_hdr, vol_msg);
+    }
+  }
+
+  /* send to SH nodes to which this volume is attached to */
+  msg_hdr->dst_id = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
+  for (int i = 0; i < pVolInfo->hv_nodes.size(); ++i)
+    {
+      if (currentShMap.count(pVolInfo->hv_nodes[i]) == 0) {
+	FDS_PLOG_SEV(parent_log, fds::fds_log::error) << "Inconsistent state detected. "
+						      << "AM node in volume's hvnode lis but not in AM map"
+						      << " for volume " << pVolInfo->vol_name;
+	fds_verify(false);
+      }
+      FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Sending modify vol to AM node "
+							   << pVolInfo->hv_nodes[i] << " for volume "
+							   << pVolInfo->vol_name << " UUID " 
+							   << pVolInfo->volUUID;
+
+      NodeInfo& node_info = currentShMap[pVolInfo->hv_nodes[i]];
+      ReqCtrlPrx OMClientAPI = node_info.cpPrx;
+      OMClientAPI->begin_NotifyModVol(msg_hdr, vol_msg);
+    }
 }
 
 void
@@ -554,7 +632,7 @@ FdsLocalDomain::sendTierPolicyToSMNodes(const FDSP_TierPolicyPtr &tier)
         fds_node_name_t node_name = it->first;
         NodeInfo &node_info = it->second;
 
-        FDS_PLOG(parent_log) << "Sending tier policy to node "
+        FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Sending tier policy to node "
             << node_name << " for volume " << tier->tier_vol_uuid;
         ReqCtrlPrx OMClientAPI = node_info.cpPrx;
         OMClientAPI->begin_TierPolicy(tier);
@@ -570,7 +648,7 @@ FdsLocalDomain::sendTierAuditPolicyToSMNodes(const FDSP_TierPolicyAuditPtr &audi
         fds_node_name_t node_name = it->first;
         NodeInfo &node_info = it->second;
 
-        FDS_PLOG(parent_log) << "Sending tier audit policy to node "
+        FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Sending tier audit policy to node "
             << node_name << " for volume " << audit->tier_vol_uuid;
         ReqCtrlPrx OMClientAPI = node_info.cpPrx;
         OMClientAPI->begin_TierPolicyAudit(audit);
@@ -601,7 +679,7 @@ void FdsLocalDomain::sendDeleteVolToFdsNodes(VolumeInfo *pVolInfo) {
       fds_node_name_t node_name = it->first;
       NodeInfo& node_info = it->second;
 
-      FDS_PLOG(parent_log) << "Sending delete vol to node "
+      FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Sending delete vol to node "
                        << node_name << " for volume "
                        << pVolInfo->volUUID;
 
@@ -632,8 +710,9 @@ void FdsLocalDomain::sendAttachVolToHvNode(fds_node_name_t node_name,
 
   NodeInfo& node_info = currentShMap[node_name];
 
-  FDS_PLOG(parent_log) << "Sending attach vol to node " << node_name
-                   << " for volume " << pVolInfo->volUUID;
+  FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Sending attach vol to node " << node_name
+						       << " node_id " << node_info.node_id
+    ;//       << " for volume " << pVolInfo->volUUID;
 
   ReqCtrlPrx OMClientAPI = node_info.cpPrx;
   OMClientAPI->begin_AttachVol(msg_hdr, vol_msg);
@@ -659,11 +738,55 @@ void FdsLocalDomain::sendDetachVolToHvNode(fds_node_name_t node_name,
 
   NodeInfo& node_info = currentShMap[node_name];
 
-  FDS_PLOG(parent_log) << "Sending detach vol to node " << node_name
+  FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Sending detach vol to node " << node_name
                    << " for volume " << pVolInfo->volUUID;
 
   ReqCtrlPrx OMClientAPI = node_info.cpPrx;
   OMClientAPI->begin_DetachVol(msg_hdr, vol_msg);
+}
+
+/* Send response for TestBucket if we are not sending attach volume message */
+void FdsLocalDomain::sendTestBucketResponseToHvNode(fds_node_name_t node_name,
+						    const std::string& bucket_name,
+						    fds_bool_t vol_exists)
+{
+  // HACK! -- sending attach volume message with error code
+
+  FdspMsgHdrPtr msg_hdr = new FDS_ProtocolInterface::FDSP_MsgHdrType;
+  FdspAttVolPtr vol_msg = new FDS_ProtocolInterface::FDSP_AttachVolType;
+  vol_msg->vol_desc = new FDS_ProtocolInterface::FDSP_VolumeDescType();
+
+  initOMMsgHdr(msg_hdr);
+  msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_ATTACH_VOL_CTRL;
+  msg_hdr->dst_id = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
+  msg_hdr->glob_volume_id = 9876;
+
+  msg_hdr->result = (vol_exists) ? FDSP_ERR_VOLUME_EXISTS : FDSP_ERR_VOLUME_DOES_NOT_EXIST;
+  msg_hdr->err_msg = (vol_exists) ? std::string("Bucket exists") : std::string("Bucket does not exist");
+
+  vol_msg->vol_name = bucket_name;
+  /* initialize to something, even though it's ignored, but otherwise ice not happy */
+  vol_msg->vol_desc->vol_name = vol_msg->vol_name;
+  vol_msg->vol_desc->volUUID = 9876;
+  vol_msg->vol_desc->tennantId = 0; 
+  vol_msg->vol_desc->localDomainId = 0; 
+  vol_msg->vol_desc->globDomainId = 0; 
+  vol_msg->vol_desc->capacity = 1000000;
+  vol_msg->vol_desc->volType = FDS_ProtocolInterface::FDSP_VOL_S3_TYPE; 
+  vol_msg->vol_desc->maxQuota = 0;
+  vol_msg->vol_desc->defReplicaCnt = 1; 
+  vol_msg->vol_desc->defConsisProtocol = FDS_ProtocolInterface::FDSP_CONS_PROTO_STRONG;
+  vol_msg->vol_desc->appWorkload = FDS_ProtocolInterface::FDSP_APP_S3_OBJS;
+
+  NodeInfo& node_info = currentShMap[node_name];
+
+  FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Sending TestBucket response (attach vol with error code) to node " 
+						       << node_name
+						       << " for bucket " << vol_msg->vol_name
+						       << " node_info-> node-id = " << node_info.node_id;
+
+  ReqCtrlPrx OMClientAPI = node_info.cpPrx;
+  OMClientAPI->begin_AttachVol(msg_hdr, vol_msg);
 }
 
 /*
@@ -697,14 +820,35 @@ void FdsLocalDomain::sendThrottleLevelToHvNodes(float throttle_level) {
       fds_node_name_t node_name = it->first;
       NodeInfo& node_info = it->second;
 
-      FDS_PLOG(parent_log) << "Sending throttle msg to node "
-                       << node_name << " for throttle level "
-                       << throttle_level;
+      FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Sending throttle msg to node "
+							   << node_name << " for throttle level "
+							   << throttle_level;
 
       ReqCtrlPrx OMClientAPI = node_info.cpPrx;
       OMClientAPI->begin_SetThrottleLevel(msg_hdr, throttle_msg);
 
   }
 }
+
+/* handle receiving performance stats from AM */
+void FdsLocalDomain::handlePerfStatsFromAM(const FDSP_VolPerfHistListType& hist_list,
+					   const std::string start_timestamp)
+{
+  /* here is an assumption that a volume can only be attached to one AM, need to revisit if 
+   * this is not the case anymore */
+  for (int i = 0; i < hist_list.size(); ++i)
+    {
+      FDSP_VolPerfHistTypePtr vol_hist = hist_list[i];
+      double vol_uuid = vol_hist->vol_uuid;
+      for (int j = 0; j < (vol_hist->stat_list).size(); ++j)
+	{
+	  FDS_PLOG_SEV(parent_log, fds::fds_log::debug) << "OM: handle perfstat from AM for volume "
+							<< vol_hist->vol_uuid;
+
+	  am_stats->setStatFromIce((fds_uint32_t)vol_hist->vol_uuid, start_timestamp, (vol_hist->stat_list)[j]);
+	}
+    }  
+}
+
 
 } /* fds  namespace */

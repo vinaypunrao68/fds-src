@@ -61,6 +61,16 @@ Error err(ERR_OK);
    return err;
 }
 
+Error FDS_QoSControl::modifyVolumeQosParams(fds_volid_t vol_uuid,
+					    fds_uint64_t iops_min,
+					    fds_uint64_t iops_max,
+					    fds_uint32_t prio)
+{
+  Error err(ERR_OK);
+  err = dispatcher->modifyQueueQosParams(vol_uuid, iops_min, iops_max, prio); 
+  return err;
+}
+
 
 Error   FDS_QoSControl::deregisterVolume(fds_volid_t vol_uuid) {
 Error err(ERR_OK);
@@ -83,6 +93,14 @@ Error FDS_QoSControl::processIO(FDS_IOType *) {
   Error err(ERR_OK);
   return err;
 } 
+
+
+void FDS_QoSControl::registerOmClient(OMgrClient* om_client)
+{
+  if (stats) {
+    stats->registerOmClient(om_client);
+  }
+}
 
 }  // namespace fds
 

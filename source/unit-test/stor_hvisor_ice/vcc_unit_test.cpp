@@ -63,9 +63,10 @@ class VccUnitTest {
     VolumeCatalogCache *vcc = vol->vol_catalog_cache;
 
     for (fds_uint32_t i = 0; i < 2; i++) {
-      fds_uint64_t block_id = 1 + i;
-      ObjectID oid(block_id, (block_id * i));
-      err = vcc->Update(block_id, oid);
+      fds_uint64_t blobOffset = 1 + i;
+      std::string blobName = "blob-" + std::to_string(blobOffset);
+      ObjectID oid(blobOffset, (blobOffset * i));
+      err = vcc->Update(blobName, blobOffset, oid);
       if (!err.ok() && err != ERR_PENDING_RESP) {
         std::cout << "Failed to update volume cache "
                   << vol_uuid << std::endl;
@@ -100,9 +101,10 @@ class VccUnitTest {
     VolumeCatalogCache *vcc = vol->vol_catalog_cache;
 
     for (fds_uint32_t i = 0; i < 2; i++) {
-      fds_uint64_t block_id = 1 + i;
+      fds_uint64_t blobOffset = 1 + i;
+      std::string blobName = "blob-" + std::to_string(blobOffset);
       ObjectID oid;
-      err = vcc->Query(block_id, 0, &oid);
+      err = vcc->Query(blobName, blobOffset, 0, &oid);
       if (!err.ok() && err != ERR_PENDING_RESP) {
         std::cout << "Failed to query volume cache "
                   << vol_uuid << std::endl;
@@ -122,9 +124,10 @@ class VccUnitTest {
     fds_uint32_t num_updates = 2000;
 
     for (fds_uint32_t i = 0; i < num_updates; i++) {
-      fds_uint64_t block_id = 1 + i;
-      ObjectID oid(block_id, (block_id * i));
-      err = vcc->Update(block_id, oid);
+      fds_uint64_t blobOffset = 1 + i;
+      std::string blobName = "blob-" + std::to_string(blobOffset);
+      ObjectID oid(blobOffset, (blobOffset * i));
+      err = vcc->Update(blobName, blobOffset, oid);
       if (!err.ok() && err != ERR_PENDING_RESP) {
         FDS_PLOG(vcc_log) << "Failed to update volume cache "
                           << vol_uuid << std::endl;
@@ -356,8 +359,11 @@ class ShClientCb : public FDS_ProtocolInterface::FDSP_DataPathResp {
                               FDS_ProtocolInterface::FDSP_QueryCatalogTypePtr&
                               cat_obj_req,
                               const Ice::Current &) {
-    ObjectID oid(cat_obj_req->data_obj_id.hash_high,
-                 cat_obj_req->data_obj_id.hash_high);
+    ObjectID oid(0,0);
+    if (cat_obj_req->obj_list.size() > 0) {
+      FDS_ProtocolInterface::FDSP_BlobObjectInfo& cat_obj_info = cat_obj_req->obj_list[0];
+      oid.SetId(cat_obj_info.data_obj_id.hash_high, cat_obj_info.data_obj_id.hash_high);
+    }
     std::cout << "Got a response query catalog for object " << oid << std::endl;
   }
 

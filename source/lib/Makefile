@@ -11,12 +11,15 @@ user_cpp         :=               \
 	fds_obj_cache.cpp	\
 	qos_min_prio.cpp        \
 	TransJournal.cpp        \
+        PerfStats.cpp        \
 
 #user_cc          :=               \
 #    tvclib.c                      \
 #    vvc_db.c                      \
 #    vvclib.c                      \
 #    vvc_private.c
+
+user_incl_dir    := $(topdir)
 
 # TODO: should change this directory and this lib to something more
 # specific.

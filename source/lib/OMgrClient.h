@@ -14,10 +14,10 @@ using namespace FDS_ProtocolInterface;
 
 #define FDS_VOL_ACTION_NONE   0
 #define FDS_VOL_ACTION_CREATE 1
-#define FDS_VOL_ACTION_MODIFY 2
-#define FDS_VOL_ACTION_ATTACH 3
-#define FDS_VOL_ACTION_DETACH 4
-#define FDS_VOL_ACTION_DELETE 5
+#define FDS_VOL_ACTION_DELETE 2
+#define FDS_VOL_ACTION_MODIFY 3
+#define FDS_VOL_ACTION_ATTACH 4
+#define FDS_VOL_ACTION_DETACH 5
 
 typedef struct _node_info_t {
 
@@ -49,7 +49,8 @@ namespace fds {
                                        FDSP_MgrIdType node_type);
   typedef void (*volume_event_handler_t)(fds::fds_volid_t volume_id, 
 					 fds::VolumeDesc *vdb, 
-					 fds_vol_notify_t vol_action);
+					 fds_vol_notify_t vol_action,
+					 const FDSP_ResultType result);
   typedef void (*throttle_cmd_handler_t)(const float throttle_level);
   typedef void (*tier_cmd_handler_t)(const FDSP_TierPolicyPtr &tier);
   typedef void (*tier_audit_cmd_handler_t)(const FDSP_TierPolicyAuditPtr &tier);
@@ -124,12 +125,24 @@ namespace fds {
     int startAcceptingControlMessages();
     int startAcceptingControlMessages(fds_uint32_t port_num);
     int registerNodeWithOM(const FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr& diskInfo);
+    int pushCreateBucketToOM(const FDS_ProtocolInterface::FDSP_VolumeInfoTypePtr& volInfo);
+    int pushDeleteBucketToOM(const FDS_ProtocolInterface::FDSP_DeleteVolTypePtr& volInfo);
     int getNodeInfo(int node_id,
                     unsigned int *node_ip_addr,
                     fds_uint32_t *node_port,
                     int *node_state);
-    int getDLTNodesForDoidKey(unsigned char doid_key, int *node_ids, int *n_nodes);
+    int getDLTNodesForDoidKey(unsigned char doid_key,
+                              fds_int32_t *node_ids,
+                              fds_int32_t *n_nodes);
     int getDMTNodesForVolume(int vol_id, int *node_ids, int *n_nodes);
+    int pushPerfstatsToOM(const std::string& start_ts,
+			  int stat_slot_len, 
+			  const FDS_ProtocolInterface::FDSP_VolPerfHistListType& hist_list);
+    int testBucket(const std::string& bucket_name,
+		   const FDS_ProtocolInterface::FDSP_VolumeInfoTypePtr& vol_info,
+		   fds_bool_t attach_vol_reqd,
+		   const std::string& accessKeyId,
+		   const std::string& secretAccessKey);
 
     int recvNodeEvent(int node_id, FDSP_MgrIdType node_type, unsigned int node_ip, int node_state, const FDSP_Node_Info_TypePtr& node_info);
     int recvDLTUpdate(int dlt_version, const Node_Table_Type& dlt_table);
@@ -137,8 +150,9 @@ namespace fds {
 
     int recvNotifyVol(fds_volid_t vol_id,
                       VolumeDesc *vdb,
-                      fds_vol_notify_t vol_action);
-    int recvVolAttachState(fds_volid_t vol_id, VolumeDesc *vdb, int vol_action);
+                      fds_vol_notify_t vol_action,
+		      FDSP_ResultType);
+    int recvVolAttachState(fds_volid_t vol_id, VolumeDesc *vdb, int vol_action, FDSP_ResultType);
     int recvSetThrottleLevel(const float throttle_level);
     int recvTierPolicy(const FDSP_TierPolicyPtr &tier);
     int recvTierPolicyAudit(const FDSP_TierPolicyAuditPtr &audit);
@@ -162,6 +176,9 @@ namespace fds {
 		   const FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg,
 		   const Ice::Current&);
 
+    void NotifyModVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+		   const FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg,
+		   const Ice::Current&);
       
     void AttachVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
 		   const FDS_ProtocolInterface::FDSP_AttachVolTypePtr& vol_msg,

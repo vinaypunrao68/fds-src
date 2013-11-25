@@ -17,10 +17,19 @@
 *.swp
 cscope.*
 tags
+core
 
 # Built directories
 build.*
 linux-*
+
+# All RPC stuffs
+/source/include/net-proxies/iomsg.h
+/source/net-proxies/*_clnt.c
+/source/net-proxies/*_serv.c
+/source/net-proxies/*_svc.c
+/source/net-proxies/*_server.c
+/source/net-proxies/*_xdr.c
 
 # All ICE stuffs.
 *Ice-3.5.0/cpp/bin/*
@@ -29,7 +38,16 @@ linux-*
 *Ice-3.5.0/cpp/include/*
 *Ice-3.5.0/cpp/src/*
 *Ice-3.5.0/cpp/test/*
+/source/include/fdsp/*
+
+# All Pharos stuffs
+/source/tools/pharos/libposix-aio-0.8.1/*
+/source/tools/pharos/*
+/source/tools/results/*
 
 # Kernel built files.
 *.cmd
 *.ko
+/source/stor_hvisor/.tmp_versions/*
+/source/stor_hvisor/?odule*
+/source/stor_hvisor/*.mod.*

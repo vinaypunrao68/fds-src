@@ -189,6 +189,10 @@ class SmUnitTest {
         std::cout << "The ioreq on the resp is NULL!" << std::endl;
       }
     }
+    void DeleteObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                       const FDS_ProtocolInterface::FDSP_DeleteObjTypePtr& del_req,
+                       const Ice::Current&) {
+    }
 
     void UpdateCatalogObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
                                  fdsp_msg,
@@ -207,6 +211,11 @@ class SmUnitTest {
                                 const Ice::Current &) {
     }
 
+    void DeleteCatalogObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                       const FDS_ProtocolInterface::FDSP_DeleteCatalogTypePtr& del_req,
+                       const Ice::Current&) {
+    }
+
     void OffsetWriteObjectResp(const
                                FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
                              fdsp_msg,
@@ -222,6 +231,10 @@ class SmUnitTest {
                              FDS_ProtocolInterface::FDSP_RedirReadObjTypePtr&
                              redir_write_obj_req,
                              const Ice::Current &) {
+    }
+    void GetVolumeBlobListResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fds_msg, 
+			       const FDS_ProtocolInterface::FDSP_GetVolumeBlobListRespTypePtr& blob_list_rsp, 
+			       const Ice::Current &){
     }
   };
 
@@ -724,7 +737,7 @@ class SmUnitTest {
 	}
       }
 
-    system("../bin/fdscli --auto-tier-migration on --domain-id 1");
+    // system("../bin/fdscli --auto-tier-migration on --domain-id 1");
     /*
      * Spin and wait for the gets to complete.
      */
@@ -746,7 +759,7 @@ class SmUnitTest {
      * repeating timer every 30 seconds (can change in ObjectRankEngine 
      * constructor.  */
     sleep(40);
-    system("../bin/fdscli --auto-tier-migration off --domain-id 1");
+    // system("../bin/fdscli --auto-tier-migration off --domain-id 1");
 
     /* step 4 -- can either start migrator or can hack ranking engine 
      * to call migrate as soon it promoted hot objs/ demotes existing objs
@@ -792,7 +805,7 @@ class SmUnitTest {
 
     Module *sm_probe_vec[] = {
       &probe,
-      &gl_probeMainLib,
+      &gl_probeBlkLib,
       NULL
     };
 
@@ -814,7 +827,7 @@ class SmUnitTest {
     /*
      * This will listen forever...
      */
-    gl_probeMainLib.probe_run_main(&probe);
+    gl_probeBlkLib.probe_run_main(&probe);
 
     return 0;
   }

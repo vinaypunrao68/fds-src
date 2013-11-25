@@ -11,11 +11,10 @@ user_non_fds_libs :=                                                          \
 
 user_incl_dir     := $(util_dir) $(util_dir)/hash $(topdir)/include/hash
 user_cpp          :=                                                          \
-    hash_test.cpp log_unit_test.cpp perfstat_unit_test.cpp
+    hash_test.cpp log_unit_test.cpp
 
-user_bin_exe      := hashtest log_unit_test perfstat_unit_test
+user_bin_exe      := hashtest log_unit_test 
 hashtest          := hash_test.cpp
 log_unit_test     := log_unit_test.cpp
-perfstat_unit_test:= perfstat_unit_test.cpp
 
 include $(topdir)/Makefile.incl

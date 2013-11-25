@@ -31,6 +31,10 @@ StorHvJournalEntry::StorHvJournalEntry()
    comp_arg1 = 0;
    comp_arg2 = 0;
    incarnation_number = 0;
+
+   blobOffset = 0;
+   blobName.clear();
+
    // Initialize lock to unlocked state here
    je_mutex = new fds_mutex("Journal Entry Mutex");
 }
@@ -248,9 +252,9 @@ void StorHvJournal::return_free_trans_id(unsigned int trans_id) {
 // If there is one for the passed offset, that trans_id is returned.
 // Caller must remember to acquire the lock for the journal entry after this call, before using it.
  
-unsigned int StorHvJournal::get_trans_id_for_block(unsigned int block_offset)
+fds_uint32_t StorHvJournal::get_trans_id_for_block(fds_uint64_t block_offset)
 {
-  unsigned int trans_id;
+  fds_uint32_t trans_id;
  
   lock();
   try{
@@ -272,6 +276,43 @@ unsigned int StorHvJournal::get_trans_id_for_block(unsigned int block_offset)
     rwlog_tbl[trans_id].block_offset = block_offset;
   }
    FDS_PLOG(storHvisor->GetLog()) << " StorHvJournal:" << "IO-XID:" << trans_id <<" - Assigned transaction id " << trans_id << " for block " << block_offset;
+  return trans_id;
+}
+
+fds_uint32_t StorHvJournal::get_trans_id_for_blob(const std::string& blobName,
+                                                  fds_uint64_t blobOffset) {
+  fds_uint32_t trans_id;
+ 
+  lock();
+  try{
+    trans_id = blob_to_jrnl_idx.at(blobName + ":" + std::to_string(blobOffset));
+    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification) << "Comparing "
+                                                                   << rwlog_tbl[trans_id].blobOffset
+                                                                   << " and " << blobOffset
+                                                                   << " and "
+                                                                   << rwlog_tbl[trans_id].blobName
+                                                                   << " and " << blobName;
+    fds_verify((rwlog_tbl[trans_id].blobOffset == blobOffset) &&
+               (rwlog_tbl[trans_id].blobName == blobName));      
+    unlock();
+  } catch (const std::out_of_range& err) {
+    /*
+     * Catching this exception is our indicaction that the
+     * journal entry didn't exist and we need to create it.
+     */
+    trans_id = get_free_trans_id();
+    blob_to_jrnl_idx[blobName + ":" + std::to_string(blobOffset)] = trans_id;
+    unlock();
+    StorHvJournalEntryLock je_lock(&rwlog_tbl[trans_id]);
+    fds_verify(rwlog_tbl[trans_id].isActive() == false);
+
+    rwlog_tbl[trans_id].blobName = blobName;
+    rwlog_tbl[trans_id].blobOffset = blobOffset;
+  }
+  FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification) << "Assigned trans id "
+                                                                 << trans_id << " for blob "
+                                                                 << blobName << " offset "
+                                                                 << blobOffset;
   return trans_id;
 }
 
@@ -297,10 +338,30 @@ void StorHvJournal::release_trans_id(unsigned int trans_id)
   unlock();
 
   FDS_PLOG(storHvisor->GetLog()) << " StorHvJournal:" << "IO-XID:" << trans_id <<  " - Released transaction id  " << trans_id ;
-
 }
 
-StorHvJournalEntry *StorHvJournal::get_journal_entry(int trans_id) {
+void StorHvJournal::releaseTransId(unsigned int transId) {
+
+  std::string blobName = rwlog_tbl[transId].blobName;
+  fds_uint64_t blobOffset = rwlog_tbl[transId].blobOffset;
+
+  lock();
+
+  blob_to_jrnl_idx.erase(blobName + ":" + std::to_string(blobOffset));
+  
+  rwlog_tbl[transId].blobOffset = 0;
+  rwlog_tbl[transId].blobName.clear();
+  rwlog_tbl[transId].reset();
+  ioTimer->cancel(rwlog_tbl[transId].ioTimerTask);
+  return_free_trans_id(transId);
+
+  unlock();
+  
+  FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification)
+      << "Released transaction id " << transId;
+}
+
+StorHvJournalEntry *StorHvJournal::get_journal_entry(fds_uint32_t trans_id) {
 
   StorHvJournalEntry *jrnl_e = &rwlog_tbl[trans_id];
   return jrnl_e;
@@ -325,11 +386,12 @@ void StorHvJournalEntry::fbd_process_req_timeout()
   }
 }
 
-void StorHvIoTimerTask::runTimerTask()
-{
+void StorHvIoTimerTask::runTimerTask() {
   jrnlEntry->lock();
   jrnlEntry->fbd_process_req_timeout();
-  jrnlTbl->release_trans_id(jrnlEntry->trans_id);
+  // jrnlTbl->release_trans_id(jrnlEntry->trans_id);
+  jrnlTbl->releaseTransId(jrnlEntry->trans_id);
   jrnlEntry->unlock();
 }
-} // namespace fds
+
+}  // namespace fds

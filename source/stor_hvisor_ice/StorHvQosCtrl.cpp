@@ -31,21 +31,23 @@ StorHvQosCtrl::~StorHvQosCtrl() {
 
 
 Error StorHvQosCtrl::processIO(FDS_IOType *io) {
-   Error err(ERR_OK);
-    if ( io->io_module == FDS_IOType::STOR_HV_IO) {
-        if(io->io_type == FDS_IO_READ) {
-             threadPool->schedule(StorHvisorProcIoRd, io);
-        } else if(io->io_type == FDS_IO_WRITE) {
-             threadPool->schedule(StorHvisorProcIoWr, io);
-        } else
-                FDS_PLOG(qos_log)  << " Invalid op ";
-    }
-    else {
-      FDS_PLOG(qos_log) << "StorHvQosCtrl: unexpected FDS_IOType: " << io->io_module
-			<< "; expecting STOR_HV_IO";
-      err = ERR_MAX;    
-    }
-    return err;
+  Error err(ERR_OK);
+  fds_verify(io->io_module == FDS_IOType::STOR_HV_IO);
+  
+  // TODO: New call to eventually be uncommented
+  threadPool->schedule(processBlobReq, static_cast<AmQosReq*>(io));
+
+  // TODO: Old code to eventually remove
+  /*
+  if(io->io_type == FDS_IO_READ) {
+    threadPool->schedule(StorHvisorProcIoRd, io);
+  } else {
+    fds_verify(io->io_type == FDS_IO_WRITE);
+    threadPool->schedule(StorHvisorProcIoWr, io);
+  }
+  */
+
+  return err;
 }
 
 
@@ -83,6 +85,17 @@ Error err(ERR_OK);
    err = htb_dispatcher->registerQueue(vol_uuid, volq);
    return err;
 }
+
+Error StorHvQosCtrl::modifyVolumeQosParams(fds_volid_t vol_uuid,
+					  fds_uint64_t iops_min,
+					  fds_uint64_t iops_max,
+					  fds_uint32_t prio)
+{
+  Error err(ERR_OK);
+  err = htb_dispatcher->modifyQueueQosParams(vol_uuid, iops_min, iops_max, prio);
+  return err;
+}
+
 
 fds_uint32_t StorHvQosCtrl::waitForWorkers() {
   return 1;

@@ -97,9 +97,13 @@ public:
 
     void PutObjectResp(const FDSP_MsgHdrTypePtr&, const FDSP_PutObjTypePtr&, const Ice::Current&);
 
+    void DeleteObjectResp(const FDSP_MsgHdrTypePtr&, const FDSP_DeleteObjTypePtr&, const Ice::Current&);
+
     void UpdateCatalogObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_UpdateCatalogTypePtr& cat_obj_req, const Ice::Current &); 
 
     void QueryCatalogObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_QueryCatalogTypePtr& cat_obj_req, const Ice::Current &);
+
+    void DeleteCatalogObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_DeleteCatalogTypePtr& cat_obj_req, const Ice::Current &);
 
     void OffsetWriteObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_OffsetWriteObjTypePtr& offset_write_obj_req, const Ice::Current &) {
 
@@ -107,6 +111,10 @@ public:
     void RedirReadObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_RedirReadObjTypePtr& redir_write_obj_req, const Ice::Current &)
     { 
     }
+
+    void GetVolumeBlobListResp(const FDSP_MsgHdrTypePtr& fds_msg, const FDSP_GetVolumeBlobListRespTypePtr& blob_list_rsp, const Ice::Current &){
+    }
+
 };
 
 
@@ -127,7 +135,6 @@ typedef union {
 typedef unsigned char doid_t[20];
 
 /*************************************************************************** */
-
 
 class StorHvCtrl {
 
@@ -170,6 +177,17 @@ public:
   std::string                 myIp;
   std::string                 my_node_name;
 
+  fds::Error pushBlobReq(FdsBlobReq *blobReq);
+  fds::Error putBlob(AmQosReq *qosReq);
+  fds::Error getBlob(AmQosReq *qosReq);
+  fds::Error deleteBlob(AmQosReq *qosReq);
+  fds::Error putObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
+                        const FDSP_PutObjTypePtr& putObjRsp);
+  fds::Error upCatResp(const FDSP_MsgHdrTypePtr& rxMsg, 
+                       const FDSP_UpdateCatalogTypePtr& catObjRsp);
+  fds::Error getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
+                        const FDSP_GetObjTypePtr& getObjRsp);
+
   void  InitIceObjects();
   void InitDmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
   void InitSmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
@@ -191,4 +209,37 @@ private:
   sh_comm_modes mode;
   IceUtil::CtrlCHandler *shCtrlHandler;
 };
+
+extern StorHvCtrl *storHvisor;
+
+/*
+ * Static function for process IO via a threadpool
+ */
+static void processBlobReq(AmQosReq *qosReq) {
+  fds_verify(qosReq->io_module == FDS_IOType::STOR_HV_IO);
+  fds_verify(qosReq->magicInUse() == true);
+
+  fds::Error err(ERR_OK);
+  switch (qosReq->io_type) { 
+    case fds::FDS_IO_READ :
+    case fds::FDS_GET_BLOB :
+      err = storHvisor->getBlob(qosReq);
+      break;
+
+    case fds::FDS_IO_WRITE :
+    case fds::FDS_PUT_BLOB:
+      err = storHvisor->putBlob(qosReq);
+      break;
+
+    case fds::FDS_DELETE_BLOB: 
+      err = storHvisor->deleteBlob(qosReq);
+      break;
+
+    default :
+      break;
+  }
+
+  fds_verify(err == ERR_OK);
+}
+
 #endif

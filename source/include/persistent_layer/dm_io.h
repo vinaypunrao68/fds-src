@@ -2,6 +2,7 @@
 #define INCLUDE_DISK_MGR_DM_IO_H_
 
 #include <cpplist.h>
+#include <fds_err.h>
 #include <fds_types.h>
 #include <fds_module.h>
 #include <fds_request.h>
