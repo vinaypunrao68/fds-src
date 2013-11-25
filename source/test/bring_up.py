@@ -113,6 +113,7 @@ class StorClient():
     ipStr = None
     name  = None
     isBlk = False
+    logSeverity = 2
     ubdBin = "ubd"
     blkDir = "stor_hvisor"
     blkMod = "fbd.ko"
@@ -126,6 +127,9 @@ class StorClient():
     def setBlk(self, _blk):
         self.isBlk = _blk
 
+    def setLogSeverity(self, _sev):
+        self.logSeverity = _sev
+
     def getBlkCmd(self, srcPath):
         return "insmod %s/%s" % (srcPath + "/" + self.blkDir,
                                  self.blkMod)
@@ -137,6 +141,8 @@ class StorClient():
     def getUbdCmd(self):
         return self.ubdBin
 
+    def getLogSeverity(self):
+        return self.logSeverity 
 #
 # Defines a node in the cluster
 #
@@ -147,6 +153,7 @@ class StorNode():
     dataPort = 7900
     configPort = None
     isOm = False
+    logSeverity = 2
     omBin = "orchMgr"
     dmBin = "DataMgr"
     smBin = "StorMgr"
@@ -167,24 +174,29 @@ class StorNode():
         self.dataPort = _dp
 
     def setConfPort(self, _cp):
-        self.configPort = _cp
-
+        self.configPort = _cp 
+    
+    def setLogSeverity(self, _sev):
+        self.logSeverity = _sev
+        
     def getOmCmd(self):
         return "%s --port=%d --prefix=%s_" % (self.omBin,
                                               self.configPort,
                                               self.name)
 
     def getSmCmd(self):
-        return "%s --port=%d --cp_port=%d --prefix=%s_" % (self.smBin,
+        return "%s --port=%d --cp_port=%d --prefix=%s_ --log-severity %d" % (self.smBin,
                                                           self.dataPort,
                                                           self.controlPort,
-                                                          self.name)
+                                                          self.name,
+                                                          self.logSeverity)
 
     def getDmCmd(self):
-        return "%s --port=%d --cp_port=%d --prefix=%s_" % (self.dmBin,
+        return "%s --port=%d --cp_port=%d --prefix=%s_ --log-severity %d" % (self.dmBin,
                                                            self.dataPort + 1,
                                                            self.controlPort + 1,
-                                                           self.name)
+                                                           self.name,
+                                                           self.logSeverity)
 
     def getOmBin(self):
         return self.omBin
@@ -195,6 +207,8 @@ class StorNode():
     def getDmBin(self):
         return self.dmBin
 
+    def getLogSeverity(self):
+        return self.logSeverity 
 #
 # Defines how to bring up a cluster
 #
@@ -338,6 +352,8 @@ class TestBringUp():
                     client.setBlk(True)
                 else:
                     client.setBlk(False)
+            elif key == "log_severity":
+                client.setLogSeverity(int(value))
             else:
                 print "Unknown item %s, %s in %s" % (key, value, name)
 
@@ -365,6 +381,8 @@ class TestBringUp():
                 node.setDp(int(value))
             elif key == "config_port":
                 node.setConfPort(int(value))
+            elif key == "log_severity":
+                node.setLogSeverity(int(value))
             else:
                 print "Unknown item %s, %s in %s" % (key, value, name)
         
@@ -439,7 +457,7 @@ class TestBringUp():
     # Builds the command to start SH UBD service
     #
     def buildUbdCmd(self, client):
-        cmd = self.ldLibPath + "; " + self.iceHome + "; " + " cd " + self.fdsBinDir + "; " + "ulimit -s 4096; " + "./" + client.getUbdCmd() + " --om_ip=" + self.omIpStr + " --om_port=" + str(self.omConfPort) + " --node_name=localhost-" + client.name
+        cmd = self.ldLibPath + "; " + self.iceHome + "; " + " cd " + self.fdsBinDir + "; " + "ulimit -s 4096; " + "./" + client.getUbdCmd() + " --om_ip=" + self.omIpStr + " --om_port=" + str(self.omConfPort) + " --node_name=localhost-" + client.name + " --log-severity " + str(client.getLogSeverity())
         return cmd
 
 

@@ -152,10 +152,12 @@ public:
     MAX
   } sh_comm_modes;
   
-  StorHvCtrl(int argc, char *argv[]);
-  StorHvCtrl(int argc, char *argv[], sh_comm_modes _mode);
+  StorHvCtrl(int argc, char *argv[], SysParams *params);
+  StorHvCtrl(int argc, char *argv[], SysParams *params,
+      sh_comm_modes _mode);
   StorHvCtrl(int argc,
              char *argv[],
+             SysParams *params,
              sh_comm_modes _mode,
              fds_uint32_t sm_port_num,
              fds_uint32_t dm_port_num);
@@ -197,11 +199,13 @@ public:
   int fds_process_put_obj_resp(const FDSP_MsgHdrTypePtr& rx_msg,const  FDSP_PutObjTypePtr& put_obj_rsp );
   int fds_process_update_catalog_resp(const FDSP_MsgHdrTypePtr& rx_msg,const  FDSP_UpdateCatalogTypePtr& cat_obj_rsp );
   fds_log* GetLog();
+  SysParams* getSysParams();
   void StartOmClient();
   sh_comm_modes GetRunTimeMode() { return mode; }
 
 private:
   fds_log *sh_log;
+  SysParams *sysParams;
   sh_comm_modes mode;
   IceUtil::CtrlCHandler *shCtrlHandler;
 };

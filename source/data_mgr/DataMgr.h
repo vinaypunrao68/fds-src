@@ -182,6 +182,7 @@ public:
     OMgrClient     *omClient;
 
     fds_log *dm_log;
+    SysParams *sysParams;
     dmQosCtrl   *qosCtrl;
 
     /*
@@ -261,6 +262,10 @@ public:
     void interruptCallback(int arg);
     void swapMgrId(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg);
     fds_log* GetLog();
+
+    void setSysParams(SysParams *params);
+    SysParams* getSysParams();
+
     std::string getPrefix() const;
     fds_bool_t volExists(fds_volid_t vol_uuid) const;
     FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr dInfo;
