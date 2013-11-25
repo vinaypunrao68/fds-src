@@ -234,9 +234,33 @@ AME_Request::ame_reqt_iter_data(int *len)
     return NULL;
   }
 
-  char* data = (char*) post_buf_itr->buf->pos;
-  *len = post_buf_itr->buf->last - post_buf_itr->buf->pos;
-  post_buf_itr = post_buf_itr->next;
+//  char* data = (char*) post_buf_itr->buf->pos;
+//  *len = post_buf_itr->buf->last - post_buf_itr->buf->pos;
+//  post_buf_itr = post_buf_itr->next;
+
+  /* Temporary code so that we return a single buffer containing all content in a body */
+  int copy_len = 0;
+  *len = 0;
+  char *data = (char *)ngx_palloc(ame_req.getNginxReq()->pool,
+      ame_req.getNginxReq()->headers_in.content_length_n);
+  if (data == NULL) {
+    fds_assert(!"Null data");
+    return NULL;
+  }
+
+  while (post_buf_itr != NULL) {
+    copy_len = post_buf_itr->buf->last - post_buf_itr->buf->pos;
+    memcpy(&data[*len], post_buf_itr->buf->pos, copy_len);
+    *len += copy_len;
+
+    post_buf_itr = post_buf_itr->next;
+  }
+
+  if (*len != ame_req.getNginxReq()->headers_in.content_length_n) {
+    fds_assert(!"Invalid data accounting");
+    *len = 0;
+    return NULL;
+  }
 
   return data;
 }
@@ -417,7 +441,7 @@ Conn_GetObject::ame_request_handler()
     api = ame->ame_fds_hook();
 
     api->GetObject(&bucket_ctx, get_object_id(), NULL, 0, buf_len, buf, buf_len,
-        (void *)this, Conn_GetObject::cb, NULL);
+        (void *)this, Conn_GetObject::cb, (void *) this);
 
     if (!req_completed) {
       req_wait();
