@@ -210,6 +210,8 @@ public:
     Error _process_add_vol(const std::string& vol_name,
                            fds_volid_t vol_uuid,VolumeDesc* desc);
     Error _process_rm_vol(fds_volid_t vol_uuid);
+    Error _process_mod_vol(fds_volid_t vol_uuid,
+			   const VolumeDesc& voldesc);
 
     Error _process_open(fds_volid_t vol_uuid,
                         std::string blob_name,

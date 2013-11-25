@@ -142,6 +142,9 @@ class StorHvVolumeTable
                                  VolumeDesc *vdb,
                                  fds_vol_notify_t vol_action,
 				 FDS_ProtocolInterface::FDSP_ResultType);
+
+  Error modifyVolumePolicy(fds_volid_t vol_uuid,
+			  const VolumeDesc& vdesc);
  
   void moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
 			       const std::string& vol_name,
