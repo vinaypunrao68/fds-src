@@ -314,6 +314,9 @@ AME_Request::ame_send_response_hdr()
           const_cast<char*>(etag.c_str()), etag.size());
     }
     rc = ngx_http_send_header(r);
+    if (r->header_only) {
+        ngx_http_finalize_request(r, rc);
+    }
     return AME_OK;
 }
 
