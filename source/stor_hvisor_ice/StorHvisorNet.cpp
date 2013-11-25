@@ -1395,7 +1395,7 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   del_obj_req->data_obj_id.hash_low = oid.GetLow();
   del_obj_req->data_obj_len = blobReq->getDataLen();
   
-  journEntry->op = FDS_IO_READ;
+  journEntry->op = FDS_DELETE_BLOB;
   journEntry->data_obj_id.hash_high = oid.GetHigh();;
   journEntry->data_obj_id.hash_low = oid.GetLow();;
   
