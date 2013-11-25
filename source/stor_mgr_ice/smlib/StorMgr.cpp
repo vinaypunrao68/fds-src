@@ -1699,7 +1699,7 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
    } else if (io->io_type == FDS_IO_WRITE) {
           FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a put request";
           threadPool->schedule(putObjectExt,io);
-   } else if (io->io_type == FDS_IO_WRITE) {
+   } else if (io->io_type == FDS_DELETE_BLOB) {
           FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a put request";
           threadPool->schedule(delObjectExt,io);
    } else {
