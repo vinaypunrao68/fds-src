@@ -543,6 +543,10 @@ int  hvisor_create_blkdev(uint64_t vol_uuid, uint64_t capacity)
   char *ring_devname = 0;
   td_vbd_t *vbd;
   int err=0;
+
+#ifdef HVISOR_USPACE_TEST
+  return (0);
+#endif
   vbd = hvisor_vbd_create(vol_uuid, capacity);
   
   cppout("create blkdev for volume : %llx  capacity : %lld \n", vol_uuid, capacity);
@@ -572,12 +576,17 @@ int  hvisor_create_blkdev(uint64_t vol_uuid, uint64_t capacity)
   hvisor_set_capacity(minor, capacity);
   pthread_create(&vbd->tx_thread, NULL, __hvisor_run, vbd);
   return minor;
+
 }
 
 
 int hvisor_delete_blkdev(int minor) 
 {
-td_vbd_t *vbd;
+
+#ifdef HVISOR_USPACE_TEST
+  return (0);
+#endif
+  td_vbd_t *vbd;
    if (minor < HVISOR_MAX_VBDS && hvisor_vbds[minor] != NULL) { 
        vbd = hvisor_vbds[minor]; 
        vbd->runningFlag = 0;
