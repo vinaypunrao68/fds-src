@@ -1352,7 +1352,7 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   journEntry->dm_msg = NULL;
   journEntry->sm_ack_cnt = 0;
   journEntry->dm_ack_cnt = 0;
-  journEntry->op = FDS_IO_READ;
+  journEntry->op = FDS_DELETE_BLOB;
   journEntry->data_obj_id.hash_high = 0;
   journEntry->data_obj_id.hash_low = 0;
   journEntry->data_obj_len = blobReq->getDataLen();
