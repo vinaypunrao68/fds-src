@@ -92,7 +92,6 @@ Error VolumeMeta::listBlobs(std::list<BlobNode>& bNodeList) {
   }
   vol_mtx->unlock();
 
-  FDS_PLOG_SEV(dm_log, fds::fds_log::normal) << "Done adding blobs to the list";
   return err;
 }
 

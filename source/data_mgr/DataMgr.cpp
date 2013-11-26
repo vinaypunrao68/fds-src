@@ -286,8 +286,7 @@ Error DataMgr::_process_list(fds_volid_t volId,
                        std::to_string(volId),
                        volId, vol_meta->vol_desc);
   if (!err.ok()) {
-    FDS_PLOG(dm_log) << "Failed to add vol during query "
-                     << "transaction for volume " << volId;
+    FDS_PLOG(dm_log) << "Failed to add vol during list blob for volume " << volId;
     return err;
   }
 
@@ -732,7 +731,6 @@ void DataMgr::ReqHandler::GetVolumeBlobList(const FDSP_MsgHdrTypePtr& msg_hdr,
                                             const FDSP_GetVolumeBlobListReqTypePtr& blobListReq,
                                             const Ice::Current& current) {
   Error err(ERR_OK);
-  FDS_PLOG_SEV(dataMgr->GetLog(), fds::fds_log::notification) << "Got a get blob list request";
 
   err = dataMgr->blobListInternal(blobListReq, msg_hdr->glob_volume_id,
                                   msg_hdr->src_ip_lo_addr, msg_hdr->dst_ip_lo_addr, msg_hdr->src_port,
@@ -759,8 +757,8 @@ void DataMgr::ReqHandler::GetVolumeBlobList(const FDSP_MsgHdrTypePtr& msg_hdr,
         blobListResp);
     dataMgr->respMapMtx.read_unlock();
 
-    FDS_PLOG(dataMgr->GetLog()) << "Sending async blob list error response with "
-                                << "volume id: " << msg_hdr->glob_volume_id;
+    FDS_PLOG_SEV(dataMgr->GetLog(), fds::fds_log::error) << "Sending async blob list error response with "
+                                                         << "volume id: " << msg_hdr->glob_volume_id;
   }  
 }
 
@@ -967,8 +965,6 @@ void
 DataMgr::blobListBackend(dmCatReq *listBlobReq) {
   Error err(ERR_OK);
 
-  FDS_PLOG_SEV(dm_log, fds::fds_log::notification) << "Received a backend list blob request";
-
   std::list<BlobNode> bNodeList;
   err = _process_list(listBlobReq->volId, bNodeList);
 
@@ -1091,9 +1087,8 @@ DataMgr::blobListInternal(const FDSP_GetVolumeBlobListReqTypePtr& blob_list_req,
     delete dmListReq;
     return err;
   }
-  FDS_PLOG(dataMgr->GetLog()) << "Successfully enqueued  Catalog  request "
-                              << reqCookie;
-   return err;
+
+  return err;
 }
 
 Error
