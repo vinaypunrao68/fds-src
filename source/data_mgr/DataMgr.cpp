@@ -262,6 +262,48 @@ Error DataMgr::_process_abort() {
   return err;
 }
 
+Error DataMgr::_process_list(fds_volid_t volId,
+                             std::list<BlobNode>& bNodeList) {
+  Error err(ERR_OK);
+
+  /*
+   * Get a local reference to the vol meta.
+   */
+  vol_map_mtx->lock();
+  VolumeMeta *vol_meta = vol_meta_map[volId];
+  vol_map_mtx->unlock();
+  fds_verify(vol_meta != NULL);
+
+  /*
+   * Check the map to see if we know about the volume
+   * and just add it if we don't.
+   * TODO: We should not implicitly create the volume here!
+   * We should only be creating the volume on OM volume create
+   * requests.
+   * TODO: Just hack the name as the offset for now.
+   */
+  err = _add_if_no_vol(stor_prefix +
+                       std::to_string(volId),
+                       volId, vol_meta->vol_desc);
+  if (!err.ok()) {
+    FDS_PLOG(dm_log) << "Failed to add vol during query "
+                     << "transaction for volume " << volId;
+    return err;
+  }
+
+  err = vol_meta->listBlobs(bNodeList);
+  if (err.ok()) {
+    FDS_PLOG(dataMgr->GetLog()) << "Vol meta list blobs for volume "
+                                << volId << " returned " << bNodeList.size()
+                                << " blobs";
+  } else {
+    FDS_PLOG(dataMgr->GetLog()) << "Vol meta list blobs FAILED for volume "
+                                << volId;
+  }
+
+  return err;
+}
+
 Error DataMgr::_process_query(fds_volid_t vol_uuid,
                               std::string blob_name,
                               BlobNode*& bnode) {
@@ -686,6 +728,41 @@ void DataMgr::ReqHandler::GetObject(const FDS_ProtocolInterface::
                                     const Ice::Current&) {
 }
 
+void DataMgr::ReqHandler::GetVolumeBlobList(const FDSP_MsgHdrTypePtr& msg_hdr, 
+                                            const FDSP_GetVolumeBlobListReqTypePtr& blobListReq,
+                                            const Ice::Current& current) {
+  Error err(ERR_OK);
+  FDS_PLOG_SEV(dataMgr->GetLog(), fds::fds_log::notification) << "Got a get blob list request";
+
+  err = dataMgr->blobListInternal(blobListReq, msg_hdr->glob_volume_id,
+                                  msg_hdr->src_ip_lo_addr, msg_hdr->dst_ip_lo_addr, msg_hdr->src_port,
+                                  msg_hdr->dst_port, msg_hdr->src_node_name, msg_hdr->req_cookie);
+
+  if (!err.ok()) {
+    FDS_PLOG(dataMgr->GetLog()) << "Error Queueing the blob list request to per volume Queue";
+    msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_FAILED;
+    msg_hdr->err_msg  = "Something hit the fan...";
+    msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+
+    /*
+     * Reverse the msg direction and send the response.
+     */
+    msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_GET_VOL_BLOB_LIST_RSP;
+    dataMgr->swapMgrId(msg_hdr);
+    dataMgr->respMapMtx.read_lock();
+    FDS_ProtocolInterface::FDSP_GetVolumeBlobListRespTypePtr blobListResp =
+        new FDS_ProtocolInterface::FDSP_GetVolumeBlobListRespType;
+    blobListResp->num_blobs_in_resp = 0;
+    blobListResp->end_of_list = true;
+    dataMgr->respHandleCli[msg_hdr->src_node_name]->begin_GetVolumeBlobListResp(
+        msg_hdr,
+        blobListResp);
+    dataMgr->respMapMtx.read_unlock();
+
+    FDS_PLOG(dataMgr->GetLog()) << "Sending async blob list error response with "
+                                << "volume id: " << msg_hdr->glob_volume_id;
+  }  
+}
 
 void
 DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
@@ -885,6 +962,59 @@ void DataMgr::ReqHandler::UpdateCatalogObject(const FDS_ProtocolInterface::
 }
 
 
+
+void
+DataMgr::blobListBackend(dmCatReq *listBlobReq) {
+  Error err(ERR_OK);
+
+  FDS_PLOG_SEV(dm_log, fds::fds_log::notification) << "Received a backend list blob request";
+
+  std::list<BlobNode> bNodeList;
+  err = _process_list(listBlobReq->volId, bNodeList);
+
+  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr = new FDSP_MsgHdrType();
+  FDSP_GetVolumeBlobListRespTypePtr blobListResp = new FDSP_GetVolumeBlobListRespType();
+  DataMgr::InitMsgHdr(msg_hdr);
+  if (err.ok()) {
+    msg_hdr->result  = FDS_ProtocolInterface::FDSP_ERR_OK;
+    msg_hdr->err_msg = "Dude, you're good to go!";
+  } else {
+    msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_FAILED;
+    msg_hdr->err_msg  = "Something hit the fan...";
+    msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+  }
+
+  msg_hdr->src_ip_lo_addr = listBlobReq->dstIp;
+  msg_hdr->dst_ip_lo_addr = listBlobReq->srcIp;
+  msg_hdr->src_port       = listBlobReq->dstPort;
+  msg_hdr->dst_port       = listBlobReq->srcPort;
+  msg_hdr->glob_volume_id = listBlobReq->volId;
+  msg_hdr->req_cookie     = listBlobReq->reqCookie;
+
+  blobListResp->num_blobs_in_resp = bNodeList.size();
+  blobListResp->end_of_list       = true;  // TODO: For now, just returning entire list
+  blobListResp->iterator_cookie   = 0;
+  for (std::list<BlobNode>::iterator it = bNodeList.begin();
+       it != bNodeList.end();
+       it++) {
+    FDSP_BlobInfoType bInfo;
+    bInfo.blob_name = (*it).blob_name;
+    bInfo.blob_size = (*it).blob_size;
+    bInfo.mime_type = (*it).blob_mime_type;
+    blobListResp->blob_info_list.push_back(bInfo);
+  }
+  respMapMtx.read_lock();
+  respHandleCli[listBlobReq->src_node_name]->begin_GetVolumeBlobListResp(msg_hdr, blobListResp);
+  respMapMtx.read_unlock();
+  FDS_PLOG_SEV(dm_log, fds::fds_log::normal) << "Sending async blob list response with "
+                                             << "volume id: " << msg_hdr->glob_volume_id
+                                             << " and " << blobListResp->num_blobs_in_resp
+                                             << " blobs";
+
+  qosCtrl->markIODone(*listBlobReq);
+  delete listBlobReq;
+}
+
 void
 DataMgr::queryCatalogBackend(dmCatReq  *qryCatReq) {
   Error err(ERR_OK);
@@ -943,7 +1073,28 @@ DataMgr::queryCatalogBackend(dmCatReq  *qryCatReq) {
 
 }
 
+Error
+DataMgr::blobListInternal(const FDSP_GetVolumeBlobListReqTypePtr& blob_list_req,
+                          fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
+                          fds_uint32_t dstPort, std::string src_node_name, fds_uint32_t reqCookie) {
+  fds::Error err(fds::ERR_OK);
 
+  /*
+   * allocate a new query cat log  class and  queue  to per volume queue.
+   */
+  dmCatReq *dmListReq = new DataMgr::dmCatReq(volId, srcIp, dstIp, srcPort, dstPort,
+                                              src_node_name, reqCookie, FDS_LIST_BLOB);
+  err = qosCtrl->enqueueIO(dmListReq->getVolId(), static_cast<FDS_IOType*>(dmListReq));
+  if (err != ERR_OK) {
+    FDS_PLOG(dataMgr->GetLog()) << "Unable to enqueue blob list request "
+                                << reqCookie;
+    delete dmListReq;
+    return err;
+  }
+  FDS_PLOG(dataMgr->GetLog()) << "Successfully enqueued  Catalog  request "
+                              << reqCookie;
+   return err;
+}
 
 Error
 DataMgr::queryCatalogInternal(FDSP_QueryCatalogTypePtr qryCatReq, 
@@ -1220,6 +1371,14 @@ DataMgr::RespHandler::QueryCatalogObjectResp(const FDS_ProtocolInterface::
 }
 
 void
+DataMgr::RespHandler::GetVolumeBlobListResp(const FDS_ProtocolInterface::
+                                            FDSP_MsgHdrTypePtr& fds_msg, 
+                                            const FDS_ProtocolInterface::
+                                            FDSP_GetVolumeBlobListRespTypePtr& blob_list_rsp, 
+                                            const Ice::Current &) {
+}
+
+void
 DataMgr::RespHandler::OffsetWriteObjectResp(const FDS_ProtocolInterface::
                                             FDSP_MsgHdrTypePtr& msg_hdr,
                                             const FDS_ProtocolInterface::
@@ -1254,6 +1413,13 @@ int scheduleDeleteCatObj(void * _io) {
 
     dataMgr->deleteCatObjBackend(io);
     return 0;
+}
+
+int scheduleBlobList(void * _io) {
+  fds::DataMgr::dmCatReq *io = (fds::DataMgr::dmCatReq*)_io;
+
+  dataMgr->blobListBackend(io);
+  return 0;
 }
 
 void DataMgr::InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)

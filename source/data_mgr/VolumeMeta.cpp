@@ -72,6 +72,30 @@ Error VolumeMeta::OpenTransaction(const std::string blob_name,
   return err;
 }
 
+Error VolumeMeta::listBlobs(std::list<BlobNode>& bNodeList) {
+  Error err(ERR_OK);
+
+  /*
+   * Lock the entire DB for now since levelDB's iterator
+   * isn't thread-safe
+   */
+  vol_mtx->lock();
+  Catalog::catalog_iterator_t *dbIt = vcat->NewIterator();
+  for (dbIt->SeekToFirst(); dbIt->Valid(); dbIt->Next()) {
+    Record key = dbIt->key();
+    std::string value(dbIt->value().ToString());
+
+    FDS_PLOG_SEV(dm_log, fds::fds_log::normal) << "List blobs iterating over key "
+                                               << key.ToString() << " and value "
+                     << value;
+    bNodeList.push_back(BlobNode(value));
+  }
+  vol_mtx->unlock();
+
+  FDS_PLOG_SEV(dm_log, fds::fds_log::normal) << "Done adding blobs to the list";
+  return err;
+}
+
 Error VolumeMeta::QueryVcat(const std::string blob_name,
                             BlobNode*& bnode) {
   Error err(ERR_OK);
