@@ -381,6 +381,10 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
     int trans_id = fdsp_msg_hdr->req_cookie;
     fbd_request_t *req;
     fds_uint32_t vol_id = fdsp_msg_hdr->glob_volume_id;
+
+    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx: " << "IO_XID: " << trans_id << " - Volume " << vol_id 
+				   << " Received query catalog response" ;
+
     StorHvVolume *shvol = storHvisor->vol_table->getVolume(vol_id);
     StorHvVolumeLock vol_lock(shvol);    
     if (!shvol || !shvol->isValidLocked()) {
