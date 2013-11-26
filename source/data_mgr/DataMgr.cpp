@@ -1058,7 +1058,7 @@ DataMgr::deleteCatObjBackend(dmCatReq  *delCatReq) {
   dataMgr->respMapMtx.read_lock();
   dataMgr->respHandleCli[delCatReq->src_node_name]->begin_DeleteCatalogObjectResp(msg_hdr, delete_catalog);
   dataMgr->respMapMtx.read_unlock();
-  FDS_PLOG(dataMgr->GetLog()) << "Sending async query catalog response with "
+  FDS_PLOG(dataMgr->GetLog()) << "Sending async delete catalog obj response with "
                               << "volume id: " << msg_hdr->glob_volume_id
                               << ", blob name: "
                               << delete_catalog->blob_name;
@@ -1081,7 +1081,7 @@ DataMgr::deleteCatObjInternal(FDSP_DeleteCatalogTypePtr delCatReq,
      * allocate a new query cat log  class and  queue  to per volume queue.
      */
   dmCatReq *dmDelReq = new DataMgr::dmCatReq(volId, delCatReq->blob_name, srcIp,0,0,
-					     dstIp, srcPort,dstPort,src_node_name, reqCookie, FDS_CAT_QRY, NULL); 
+					     dstIp, srcPort,dstPort,src_node_name, reqCookie, FDS_DELETE_BLOB, NULL); 
 
     err = qosCtrl->enqueueIO(dmDelReq->getVolId(), static_cast<FDS_IOType*>(dmDelReq));
     if (err != ERR_OK) {

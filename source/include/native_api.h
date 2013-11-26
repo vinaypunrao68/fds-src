@@ -150,6 +150,21 @@ public:
 
    ListBucketContents() {}
    ~ListBucketContents() {}
+
+   void set(const std::string& _key, 
+	    fds_uint64_t _modified,
+	    const std::string& _eTag,
+	    fds_uint64_t _size,
+	    const std::string& _ownerId,
+	    const std::string& _ownerDisplayName)
+   {
+     objKey = _key;
+     lastModified = _modified;
+     eTag = _eTag;
+     size = _size;
+     ownerId = _ownerId;
+     ownerDisplayName = _ownerDisplayName;
+   }
 };
 
 typedef enum

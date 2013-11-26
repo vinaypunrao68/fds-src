@@ -187,6 +187,8 @@ public:
                        const FDSP_UpdateCatalogTypePtr& catObjRsp);
   fds::Error getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
                         const FDSP_GetObjTypePtr& getObjRsp);
+  fds::Error getBucketResp(const FDSP_MsgHdrTypePtr& rxMgr,
+			   const FDSP_GetVolumeBlobListRespTypePtr& blobListResp);
 
   void  InitIceObjects();
   void InitDmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);

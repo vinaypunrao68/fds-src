@@ -357,6 +357,8 @@ void FDSP_DataPathRespCbackI::DeleteCatalogObjectResp(
     const FDSP_MsgHdrTypePtr& fdsp_msg_hdr,
     const FDSP_DeleteCatalogTypePtr& cat_obj_req,
     const Ice::Current &) {
+  FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::debug) << "Received deleteCatObjResp for txn "
+                                                          <<  fdsp_msg_hdr->req_cookie; 
 }
 
 void FDSP_DataPathRespCbackI::DeleteObjectResp(
@@ -571,4 +573,6 @@ void FDSP_DataPathRespCbackI::GetVolumeBlobListResp(
     const Ice::Current &) {
   FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::debug) << "Received GetVolumeBlobListResp for txn "
                                                           <<  fdsp_msg_hdr->req_cookie; 
+  fds::Error err = storHvisor->getBucketResp(fdsp_msg_hdr, blob_list_resp);
+  fds_verify(err == ERR_OK);
 }
