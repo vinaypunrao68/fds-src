@@ -457,7 +457,7 @@ namespace fds {
     Error QueryVcat(const std::string blob_name,
                     BlobNode*& bnode);
     Error DeleteVcat(const std::string blob_name);
-
+    Error listBlobs(std::list<BlobNode>& bNodeList);
   };
 
 }  // namespace fds

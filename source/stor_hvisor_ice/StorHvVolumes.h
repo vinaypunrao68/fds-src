@@ -185,7 +185,7 @@ public:
   std::string ObjKey;
   GetConditions *get_cond;
   //  fds_uint64_t startByte; //same as blob_offset in base class
-  fds_uint64_t byteCount;
+  fds_uint64_t byteCount; /* NOTE: we are ignoring byteCount for now (not implemented) */
   void *req_context;
   fdsnGetObjectHandler getObjCallback;
   void *callback_data;
