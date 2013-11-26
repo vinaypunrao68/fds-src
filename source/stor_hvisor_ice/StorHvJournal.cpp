@@ -373,15 +373,17 @@ StorHvJournalEntry *StorHvJournal::get_journal_entry(fds_uint32_t trans_id) {
   // And takes care of releasing the transaction id to the free pool
 void StorHvJournalEntry::fbd_process_req_timeout()
 {
-  fbd_request *req;
+  FdsBlobReq *blobReq = static_cast<fds::AmQosReq*>(io)->getBlobReqPtr();
+  fds_verify(blobReq != NULL);
+
   if (isActive()) {
     storHvisor->qos_ctrl->markIODone(io);
-    req = (fbd_request_t *)write_ctx;
-    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " - Timing out, responding to  the block : " << req;
-    if (req) {
-      write_ctx = 0;
-      fbd_complete_req(req, -1);
-    }
+    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " - Timing out, responding to  the block : " 
+				   << blobReq->getBlobName() << " offset" << blobReq->getBlobOffset();
+    write_ctx = 0;
+    blobReq->cbWithResult(-1);
+    delete blobReq;
+    blobReq = NULL;
     reset();
   }
 }

@@ -328,22 +328,19 @@ int unitTest2(fds_uint32_t time_mins)
   sleep(10);
   FDS_PLOG(storHvisor->GetLog()) << "Blob write unit test -- waited 10 sec after putObject()";
 
-
-
   FDS_PLOG(storHvisor->GetLog()) << "Blob unit test -- will get bucket list from bucket " << buck_context->bucketName;
   api->GetBucket(buck_context, "", "", "", 10, NULL, sh_test_list_bucket_callback, NULL);
-  sleep(10);
+  sleep(5);
 
   /*
   FDS_PLOG(storHvisor->GetLog()) << "Blob unit test -- will get same object from " << buck_context->bucketName;
   api->GetObject(buck_context, "ut_key", &get_conds, 0, 0, r_buf, 2*req_size, NULL, sh_test_get_callback, NULL);
   sleep(5);
-
+  */
 
   FDS_PLOG(storHvisor->GetLog()) << "Blob unit test -- will delete same object from " << buck_context->bucketName;
   api->DeleteObject(buck_context, "ut_key", NULL, sh_test_delete_callback, NULL);
-  sleep(15);
-  */
+  sleep(10);
 
   delete buck_context;
   delete put_props;
@@ -1478,6 +1475,8 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   StorHvJournalEntryLock je_lock(journEntry);
   
   if (journEntry->isActive()) {
+    shVol->readUnlock();
+
     FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << transId << " - Transaction  is already in ACTIVE state, completing request "
 				   << transId << " with ERROR(-2) ";
     // There is an ongoing transaciton for this offset.
@@ -1520,6 +1519,8 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
                                         transId,
                                         &oid);
   if (err.GetErrno() == ERR_PENDING_RESP) {
+    shVol->readUnlock();
+
     FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << transId << " volID:" << vol_id << " - Vol catalog Cache Query pending :" << err.GetErrno() << std::endl ;
     journEntry->trans_state = FDS_TRANS_VCAT_QUERY_PENDING;
     return err.GetErrno();
@@ -1527,6 +1528,8 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   
   if (err.GetErrno() == ERR_CAT_QUERY_FAILED)
   {
+    shVol->readUnlock();
+
     FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:" << transId << " volID:" << vol_id << " - Error reading the Vol catalog  Error code : " <<  err.GetErrno() << std::endl;
     blobReq->cbWithResult(err.GetErrno());
     return err.GetErrno();
@@ -1558,6 +1561,7 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(doid_dlt_key, node_ids, &num_nodes);
   if(num_nodes == 0) {
     FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << transId << " volID:" << vol_id << " -  DLT Nodes  NOT  confiigured. Check on OM Manager. Completing request with ERROR(-1)";
+    shVol->readUnlock();
     blobReq->cbWithResult(-1);
     return ERR_GET_DLT_FAILED;
   }
@@ -1632,6 +1636,9 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   // Schedule a timer here to track the responses and the original request
   IceUtil::Time interval = IceUtil::Time::seconds(FDS_IO_LONG_TIME);
   shVol->journal_tbl->schedule(journEntry->ioTimerTask, interval);
+
+  shVol->readUnlock();
+
   return ERR_OK; // je_lock destructor will unlock the journal entry
 }
 
