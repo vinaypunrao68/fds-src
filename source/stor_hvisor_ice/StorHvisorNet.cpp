@@ -65,8 +65,8 @@ static FDSN_Status sh_test_list_bucket_callback(int isTruncated, const char* nex
 
   for (int i = 0; i < count; ++i) {
     FDS_PLOG(storHvisor->GetLog()) << "content #" << i
-				   << " key " << contents->objKey
-				   << " size " << contents->size;
+				   << " key " << contents[i].objKey
+				   << " size " << contents[i].size;
   }
 
   return FDSN_StatusOK;
@@ -321,6 +321,15 @@ int unitTest2(fds_uint32_t time_mins)
   sleep(10);
   FDS_PLOG(storHvisor->GetLog()) << "Blob write unit test -- waited 10 sec after putObject()";
 
+  FDS_PLOG(storHvisor->GetLog()) << "Blob unit test -- will put object to " << buck_context->bucketName;
+  memset(w_buf, 0xfe0d, req_size);
+  api->PutObject(buck_context, "another_test_key", put_props, NULL, w_buf, req_size, sh_test_put_callback, NULL); 
+
+  sleep(10);
+  FDS_PLOG(storHvisor->GetLog()) << "Blob write unit test -- waited 10 sec after putObject()";
+
+
+
   FDS_PLOG(storHvisor->GetLog()) << "Blob unit test -- will get bucket list from bucket " << buck_context->bucketName;
   api->GetBucket(buck_context, "", "", "", 10, NULL, sh_test_list_bucket_callback, NULL);
   sleep(10);
@@ -329,12 +338,12 @@ int unitTest2(fds_uint32_t time_mins)
   FDS_PLOG(storHvisor->GetLog()) << "Blob unit test -- will get same object from " << buck_context->bucketName;
   api->GetObject(buck_context, "ut_key", &get_conds, 0, 0, r_buf, 2*req_size, NULL, sh_test_get_callback, NULL);
   sleep(5);
-  */
+
 
   FDS_PLOG(storHvisor->GetLog()) << "Blob unit test -- will delete same object from " << buck_context->bucketName;
   api->DeleteObject(buck_context, "ut_key", NULL, sh_test_delete_callback, NULL);
   sleep(15);
-
+  */
 
   delete buck_context;
   delete put_props;
@@ -1759,7 +1768,7 @@ fds::Error StorHvCtrl::listBucket(fds::AmQosReq *qosReq) {
 		     <<  node_ip << " port " << node_port;
 
   // Schedule a timer here to track the responses and the original request
-  IceUtil::Time interval = IceUtil::Time::seconds(2/*FDS_IO_LONG_TIME*/);
+  IceUtil::Time interval = IceUtil::Time::seconds(FDS_IO_LONG_TIME);
   shVol->journal_tbl->schedule(journEntry->ioTimerTask, interval);
   return err; // je_lock destructor will unlock the journal entry
 }
@@ -1768,10 +1777,10 @@ fds::Error StorHvCtrl::getBucketResp(const FDSP_MsgHdrTypePtr& rxMsg,
 				     const FDSP_GetVolumeBlobListRespTypePtr& blobListResp)
 {
   fds::Error err(ERR_OK);
-  fds_verify(rxMsg->msg_code == FDSP_MSG_GET_VOL_BLOB_LIST_RSP);
-
   fds_uint32_t transId = rxMsg->req_cookie;
   fds_volid_t volId    = rxMsg->glob_volume_id;
+
+  fds_verify(rxMsg->msg_code == FDS_ProtocolInterface::FDSP_MSG_GET_VOL_BLOB_LIST_RSP);
 
   StorHvVolume* vol = vol_table->getVolume(volId);
   fds_verify(vol != NULL);  // Should not receive resp for non existant vol
