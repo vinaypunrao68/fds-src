@@ -305,6 +305,31 @@ Error DataMgr::_process_query(fds_volid_t vol_uuid,
   return err;
 }
 
+
+Error DataMgr::_process_delete(fds_volid_t vol_uuid,
+                              std::string blob_name) {
+  Error err(ERR_OK);
+  /*
+   * Get a local reference to the vol meta.
+   */
+  vol_map_mtx->lock();
+  VolumeMeta *vol_meta = vol_meta_map[vol_uuid];
+  vol_map_mtx->unlock();
+
+  err = vol_meta->DeleteVcat(blob_name);
+
+  if (err.ok()) {
+    FDS_PLOG(dataMgr->GetLog()) << "Vol meta Delete for volume "
+                                << vol_uuid << " , blob "
+                                << blob_name ;
+  } else {
+    FDS_PLOG(dataMgr->GetLog()) << "Vol meta delete FAILED for volume "
+                                << vol_uuid;
+  }
+
+  return err;
+}
+
 DataMgr::DataMgr()
     : port_num(0),
       cp_port_num(0),
@@ -385,12 +410,10 @@ int DataMgr::run(int argc, char* argv[]) {
       omConfigPort = strtoul(argv[i] + 10, NULL, 0);
     } else if (strncmp(argv[i], "--test_mode", 11) == 0) {
       useTestMode = true;
-    } else {
-      std::cout << "Invalid argument " << argv[i] << std::endl;
-      return -1;
     }
   }
 
+  GetLog()->setSeverityFilter((fds_log::severity_level) (getSysParams()->log_severity));
   if (useTestMode == true) {
     runMode = TEST_MODE;
   }
@@ -599,6 +622,14 @@ void DataMgr::swapMgrId(const FDS_ProtocolInterface::
 
 fds_log* DataMgr::GetLog() {
   return dm_log;
+}
+
+void DataMgr::setSysParams(SysParams *params) {
+	sysParams = params;
+}
+
+SysParams* DataMgr::getSysParams() {
+	return sysParams;
 }
 
 std::string DataMgr::getPrefix() const {
@@ -988,6 +1019,84 @@ void DataMgr::ReqHandler::QueryCatalogObject(const FDS_ProtocolInterface::
 }
 
 
+void
+DataMgr::deleteCatObjBackend(dmCatReq  *delCatReq) {
+  Error err(ERR_OK);
+   
+  BlobNode *bnode = NULL;
+  err = dataMgr->_process_delete(delCatReq->volId,
+                                delCatReq->blob_name);
+
+  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr = new FDSP_MsgHdrType;
+  FDS_ProtocolInterface::FDSP_DeleteCatalogTypePtr delete_catalog = new FDSP_DeleteCatalogType;
+  DataMgr::InitMsgHdr(msg_hdr);
+
+  if (err.ok()) {
+    msg_hdr->result  = FDS_ProtocolInterface::FDSP_ERR_OK;
+    msg_hdr->err_msg = "Dude, you're good to go!";
+  } else {
+    msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_FAILED;
+    msg_hdr->err_msg  = "Something hit the fan...";
+    msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+  }
+
+  if (bnode) {
+    delete bnode;
+  }
+
+  msg_hdr->src_ip_lo_addr =  delCatReq->dstIp;
+  msg_hdr->dst_ip_lo_addr =  delCatReq->srcIp;
+  msg_hdr->src_port =  delCatReq->dstPort;
+  msg_hdr->dst_port =  delCatReq->srcPort;
+  msg_hdr->glob_volume_id =  delCatReq->volId;
+  msg_hdr->req_cookie =  delCatReq->reqCookie;
+  msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_DELETE_CAT_OBJ_RSP;
+
+
+  delete_catalog->blob_name = delCatReq->blob_name;
+
+  dataMgr->respMapMtx.read_lock();
+  dataMgr->respHandleCli[delCatReq->src_node_name]->begin_DeleteCatalogObjectResp(msg_hdr, delete_catalog);
+  dataMgr->respMapMtx.read_unlock();
+  FDS_PLOG(dataMgr->GetLog()) << "Sending async query catalog response with "
+                              << "volume id: " << msg_hdr->glob_volume_id
+                              << ", blob name: "
+                              << delete_catalog->blob_name;
+
+  qosCtrl->markIODone(*delCatReq);
+  delete delCatReq;
+
+}
+
+
+
+Error
+DataMgr::deleteCatObjInternal(FDSP_DeleteCatalogTypePtr delCatReq, 
+                                 fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
+			      fds_uint32_t dstPort, std::string src_node_name, fds_uint32_t reqCookie) {
+  fds::Error err(fds::ERR_OK);
+
+    
+    /*
+     * allocate a new query cat log  class and  queue  to per volume queue.
+     */
+  dmCatReq *dmDelReq = new DataMgr::dmCatReq(volId, delCatReq->blob_name, srcIp,0,0,
+					     dstIp, srcPort,dstPort,src_node_name, reqCookie, FDS_CAT_QRY, NULL); 
+
+    err = qosCtrl->enqueueIO(dmDelReq->getVolId(), static_cast<FDS_IOType*>(dmDelReq));
+    if (err != ERR_OK) {
+      FDS_PLOG(dataMgr->GetLog()) << "Unable to enqueue Deletye Catalog request "
+                                     << reqCookie;
+      return err;
+    }
+    else 
+    	FDS_PLOG(dataMgr->GetLog()) << "Successfully enqueued  delete Catalog  request "
+                                   << reqCookie;
+
+   return err;
+
+}
+
 void DataMgr::ReqHandler::DeleteCatalogObject(const FDS_ProtocolInterface::
                                              FDSP_MsgHdrTypePtr &msg_hdr,
                                              const FDS_ProtocolInterface::
@@ -1000,7 +1109,29 @@ void DataMgr::ReqHandler::DeleteCatalogObject(const FDS_ProtocolInterface::
                               << "volume id: " << msg_hdr->glob_volume_id
                               << ", blob name: "
                               << delete_catalog->blob_name;
+  err = dataMgr->deleteCatObjInternal(delete_catalog,msg_hdr->glob_volume_id,
+				      msg_hdr->src_ip_lo_addr,msg_hdr->dst_ip_lo_addr,msg_hdr->src_port,
+				      msg_hdr->dst_port, msg_hdr->src_node_name, msg_hdr->req_cookie);
+  	if (!err.ok()) {
+    		msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_FAILED;
+    		msg_hdr->err_msg  = "Error Enqueue delete Cat request";
+    		msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
 
+  		/*
+   		* Reverse the msg direction and send the response.
+   		*/
+  		msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_DELETE_CAT_OBJ_RSP;
+  		dataMgr->swapMgrId(msg_hdr);
+                dataMgr->respMapMtx.read_lock();
+  		dataMgr->respHandleCli[msg_hdr->src_node_name]->begin_DeleteCatalogObjectResp(msg_hdr, delete_catalog);
+                dataMgr->respMapMtx.read_unlock();
+  		FDS_PLOG(dataMgr->GetLog()) << "Sending async delete catalog response with "
+                              << "volume id: " << msg_hdr->glob_volume_id
+                              << ", blob : "
+                              << delete_catalog->blob_name;
+	}
+	else 
+  	   FDS_PLOG(dataMgr->GetLog()) << "Successfully Enqueued  the Delete catalog request";
 }
 
 void DataMgr::ReqHandler::DeleteObject(const FDS_ProtocolInterface::
@@ -1118,6 +1249,13 @@ int scheduleQueryCatalog(void * _io) {
     return 0;
 }
 
+int scheduleDeleteCatObj(void * _io) {
+        fds::DataMgr::dmCatReq *io = (fds::DataMgr::dmCatReq*)_io;
+
+    dataMgr->deleteCatObjBackend(io);
+    return 0;
+}
+
 void DataMgr::InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
 {
         msg_hdr->minor_ver = 0;
@@ -1152,6 +1290,12 @@ int main(int argc, char *argv[]) {
 
   fds::dataMgr = new fds::DataMgr();
 
+  fds::Module *io_dm_vec[] = {
+    nullptr
+  };
+  fds::ModuleVector  io_dm(argc, argv, io_dm_vec);
+
+  fds::dataMgr->setSysParams(io_dm.get_sys_params());
   fds::dataMgr->main(argc, argv, "dm_test.conf");
 
   delete fds::dataMgr;

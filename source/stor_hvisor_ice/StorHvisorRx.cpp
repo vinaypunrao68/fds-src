@@ -12,6 +12,7 @@
 using namespace std;
 using namespace FDS_ProtocolInterface;
 using namespace Ice;
+#define SRC_IP  0x0a010a65
 
 extern StorHvCtrl *storHvisor;
 
@@ -400,7 +401,7 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
       return;
     }
     
-    if (journEntry->op !=  FDS_IO_READ) { 
+    if (journEntry->op !=  FDS_IO_READ && journEntry->op != FDS_GET_BLOB && journEntry->op != FDS_DELETE_BLOB) { 
       FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Journal Entry  " << fdsp_msg_hdr->req_cookie <<  "  QueryCatalogObjResp for a non IO_READ transaction" ;
       req = (fbd_request_t *)journEntry->write_ctx;
       journEntry->trans_state = FDS_TRANS_EMPTY;
@@ -448,6 +449,8 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
     FDS_ProtocolInterface::FDSP_BlobObjectInfo& cat_obj_info = cat_obj_req->obj_list[0];
     FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - GOT A QUERY RESPONSE! Object ID :- " 
 				   << cat_obj_info.data_obj_id.hash_high << ":" << cat_obj_info.data_obj_id.hash_low ;
+    AmQosReq *qosReq = (AmQosReq *)journEntry->io;
+    FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
     
 
     
@@ -498,6 +501,15 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
            FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Sent Async getObj req to SM at " << node_ip ;
            journEntry->trans_state = FDS_TRANS_GET_OBJ;
          }
+         obj_id.SetId( cat_obj_info.data_obj_id.hash_high,cat_obj_info.data_obj_id.hash_low);
+         /*
+          * TODO: Don't just grab the hard coded first catalog object in the list.
+          * Actually loop here.
+          */
+         FDS_PLOG(storHvisor->GetLog()) << "Doing a update catalog request after resp received";
+         shvol->vol_catalog_cache->Update(cat_obj_req->blob_name,
+                                     cat_obj_info.offset,
+                                     obj_id);
        } else if (journEntry->io->io_type == FDS_DELETE_BLOB) { 
          FDS_ProtocolInterface::FDSP_DeleteObjTypePtr del_obj_req = new FDSP_DeleteObjType;
          del_obj_req->data_obj_id.hash_high = cat_obj_info.data_obj_id.hash_high;
@@ -508,16 +520,46 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
            FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Sent Async deleteObj req to SM at " << node_ip ;
            journEntry->trans_state = FDS_TRANS_DEL_OBJ;
          }
+         // RPC Call DeleteCatalogObject to DataMgr
+         FDS_ProtocolInterface::FDSP_DeleteCatalogTypePtr del_cat_obj_req = new FDSP_DeleteCatalogType;
+         num_nodes = 8;
+         FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr_dm = new FDSP_MsgHdrType;
+         storHvisor->InitDmMsgHdr(fdsp_msg_hdr_dm);
+         fdsp_msg_hdr_dm->msg_code = FDSP_MSG_DELETE_CAT_OBJ_REQ;
+         fdsp_msg_hdr_dm->req_cookie = trans_id;
+         fdsp_msg_hdr_dm->src_ip_lo_addr = SRC_IP;
+         fdsp_msg_hdr_dm->src_node_name = storHvisor->my_node_name;
+         fdsp_msg_hdr_dm->src_port = 0;
+         fdsp_msg_hdr_dm->dst_port = node_port;
+         storHvisor->dataPlacementTbl->getDMTNodesForVolume(vol_id, node_ids, &num_nodes);
+         
+         for (int i = 0; i < num_nodes; i++) {
+           node_ip = 0;
+           node_port = 0;
+           node_state = -1;
+           storHvisor->dataPlacementTbl->getNodeInfo(node_ids[i],
+                                                     &node_ip,
+                                                     &node_port,
+                                                     &node_state);
+           
+           fdsp_msg_hdr_dm->dst_ip_lo_addr = node_ip;
+           fdsp_msg_hdr_dm->dst_port = node_port;
+           del_cat_obj_req->blob_name = blobReq->getBlobName();
+    
+           // Call Update Catalog RPC call to DM
+           storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip,
+                                               node_port,
+                                               FDSP_DATA_MGR,
+                                               &endPoint);
+           if (endPoint){
+             endPoint->fdspDPAPI->begin_DeleteCatalogObject(fdsp_msg_hdr_dm, del_cat_obj_req);
+             FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:"
+                                     << trans_id << " volID:" << vol_id
+                                     << " - Sent async DELETE_CAT_OBJ_REQ request to DM at "
+                                     <<  node_ip << " port " << node_port;
+           }
+         }
        }
 
-    obj_id.SetId( cat_obj_info.data_obj_id.hash_high,cat_obj_info.data_obj_id.hash_low);
-    /*
-     * TODO: Don't just grab the hard coded first catalog object in the list.
-     * Actually loop here.
-     */
-    FDS_PLOG(storHvisor->GetLog()) << "Doing a update catalog request after resp received";
-    shvol->vol_catalog_cache->Update(cat_obj_req->blob_name,
-                                     cat_obj_info.offset,
-                                     obj_id);
     FDS_PLOG(storHvisor->GetLog()) << "Done with a update catalog request after resp received";
 }

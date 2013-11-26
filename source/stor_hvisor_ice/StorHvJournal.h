@@ -16,6 +16,7 @@
 #define  FDS_TRANS_VCAT_QUERY_PENDING   0x6
 #define  FDS_TRANS_GET_OBJ	        0x7
 #define  FDS_TRANS_DEL_OBJ	        0x8
+#define  FDS_TRANS_GET_BUCKET           0x9
 
 #define  FDS_MIN_ACK                    1
 #define  FDS_CLS_ACK                    0

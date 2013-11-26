@@ -456,6 +456,7 @@ namespace fds {
                           const BlobNode*& bnode, VolumeDesc *pVol);
     Error QueryVcat(const std::string blob_name,
                     BlobNode*& bnode);
+    Error DeleteVcat(const std::string blob_name);
 
   };
 

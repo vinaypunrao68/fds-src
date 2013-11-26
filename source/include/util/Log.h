@@ -85,9 +85,17 @@ namespace fds {
      */
     fds_log(const std::string& logfile,
             const std::string& logloc);
+    /*
+     * Constructs new log in specific location.
+     */
+    fds_log(const std::string& logfile,
+                     const std::string& logloc,
+                     severity_level level);
     
     ~fds_log();
     
+    void setSeverityFilter(const severity_level &level);
+
     boost::log::sources::severity_logger_mt<severity_level>& get_slog() { return slg; }
   };
 

@@ -387,7 +387,7 @@ class FDS_NativeAPI {
   void CreateBucket(BucketContext *bucket_ctx, CannedAcl  canned_acl, 
                     void *req_ctxt, fdsnResponseHandler responseHandler, void *callback_data);
   // Get the bucket contents  or objets belonging to this bucket
-  void GetBucket(BucketContext *bucketContext,
+  void GetBucket(BucketContext *bucket_ctxt,
                     std::string prefix, std::string marker,
                     std::string delimiter, fds_uint32_t maxkeys,
                     void *requestContext,

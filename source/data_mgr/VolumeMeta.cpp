@@ -107,6 +107,29 @@ Error VolumeMeta::QueryVcat(const std::string blob_name,
   return err;
 }
 
+Error VolumeMeta::DeleteVcat(const std::string blob_name) {
+  Error err(ERR_OK);
+
+
+  Record key((const char *)blob_name.c_str(),
+             blob_name.size());
+
+
+  vol_mtx->lock();
+  err = vcat->Delete(key);
+  vol_mtx->unlock();
+
+  if (! err.ok()) {
+    FDS_PLOG(dm_log) << "Failed to delete vol " << *vol_desc
+                     << " blob " << blob_name << " with err "
+                     << err;
+    return err;
+  } 
+
+  return err;
+}
+
+
 void VolumeMeta::dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol) {
   v_desc->name = pVol->name;
   v_desc->volUUID = pVol->volUUID;

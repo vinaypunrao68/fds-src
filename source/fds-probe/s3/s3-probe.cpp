@@ -75,10 +75,12 @@ Probe_PutObject::ame_request_handler()
     probe->pr_intercept_request(*preq);
     probe->pr_put(*preq);
     probe->pr_verify_request(*preq);
-    preq->req_wait();
+
+    // We're doing sync. call right now.
     delete preq;
 
     fdsn_send_put_response(0, 0);
+    req_complete();
 }
 
 } // namespace fds

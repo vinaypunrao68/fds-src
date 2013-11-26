@@ -47,6 +47,7 @@ namespace fds {
 #define DM_TP_THREADS 20
 int scheduleUpdateCatalog(void * _io);
 int scheduleQueryCatalog(void * _io);
+int scheduleDeleteCatObj(void * _io);
 
   class DataMgr : virtual public Ice::Application {
 public:
@@ -134,16 +135,25 @@ public:
       Error processIO(FDS_IOType* _io) {
         Error err(ERR_OK);
         dmCatReq *io = static_cast<dmCatReq*>(_io);
-
-        if (io->io_type == FDS_CAT_UPD) {
-          FDS_PLOG(FDS_QoSControl::qos_log) << "Processing  the Catalog update  request";
-	  threadPool->schedule(scheduleUpdateCatalog, io);
-        } else if (io->io_type == FDS_CAT_QRY) {
-          FDS_PLOG(FDS_QoSControl::qos_log) << "Processing  the Catalog Query  request";
-	  threadPool->schedule(scheduleQueryCatalog, io);
-        } else {
-          assert(0);
-        }
+	switch(io->io_type)
+	{
+	  case FDS_CAT_UPD:
+             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing  the Catalog update  request";
+	     threadPool->schedule(scheduleUpdateCatalog, io);
+	     break;
+	  case FDS_CAT_QRY:
+             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing  the Catalog Query  request";
+	     threadPool->schedule(scheduleQueryCatalog, io);
+	     break;
+	  case FDS_DELETE_BLOB:
+             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing  the Delete Blob request";
+	     threadPool->schedule(scheduleDeleteCatObj, io);
+	     break;
+	  default:
+             FDS_PLOG(FDS_QoSControl::qos_log) << "Unknown IO Type received";
+             assert(0);
+	     break;
+	}
 
         return err;
       }
@@ -172,6 +182,7 @@ public:
     OMgrClient     *omClient;
 
     fds_log *dm_log;
+    SysParams *sysParams;
     dmQosCtrl   *qosCtrl;
 
     /*
@@ -226,6 +237,8 @@ public:
     Error _process_query(fds_volid_t vol_uuid,
                          std::string blob_name,
                          BlobNode*& bnode);
+    Error _process_delete(fds_volid_t vol_uuid,
+                         std::string blob_name);
 
     fds_bool_t volExistsLocked(fds_volid_t vol_uuid) const;
 
@@ -249,12 +262,17 @@ public:
     void interruptCallback(int arg);
     void swapMgrId(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg);
     fds_log* GetLog();
+
+    void setSysParams(SysParams *params);
+    SysParams* getSysParams();
+
     std::string getPrefix() const;
     fds_bool_t volExists(fds_volid_t vol_uuid) const;
     FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr dInfo;
 
     void updateCatalogBackend(dmCatReq  *updCatReq);
     void queryCatalogBackend(dmCatReq  *qryCatReq);
+    void deleteCatObjBackend(dmCatReq  *delCatReq);
 
     /* 
      * FDS protocol processing proto types 
@@ -263,6 +281,9 @@ public:
                                  fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
 				    fds_uint32_t dstPort, std::string src_node_name, fds_uint32_t reqCookie);
 	Error queryCatalogInternal(FDSP_QueryCatalogTypePtr qryCatReq, 
+                                 fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
+				   fds_uint32_t dstPort, std::string src_node_name, fds_uint32_t reqCookie);
+	Error deleteCatObjInternal(FDSP_DeleteCatalogTypePtr delCatReq, 
                                  fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
 				   fds_uint32_t dstPort, std::string src_node_name, fds_uint32_t reqCookie);
 

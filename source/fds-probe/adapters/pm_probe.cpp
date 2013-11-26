@@ -75,7 +75,7 @@ PM_ProbeMod::pr_put(ProbeRequest &probe)
     oid.oid_hash_hi = hash_hi++;
     oid.oid_hash_lo = hash_lo++;
     buf = new ObjectBuf;
-    buf->size = 8 << diskio::DataIO::disk_io_blk_shift();
+    buf->size = io->pr_wr_size << diskio::DataIO::disk_io_blk_shift();
     buf->data.assign(io->pr_wr_buf, io->pr_wr_size);
 
     req = new DiskReqTest(vio, oid, buf, true, diskio::diskTier);

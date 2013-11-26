@@ -6,6 +6,7 @@
 #include <Ice/Object.h>
 #include <IceUtil/Iterator.h>
 #include <IceUtil/CtrlCHandler.h>
+#include <fds_module.h>
 #include "StorHvisorNet.h"
 //#include "hvisor_lib.h"
 #include "StorHvisorCPP.h"
@@ -29,6 +30,32 @@ fds_notification notifier;
 fds_mutex map_mtx("map mutex");
 std::map<fds_uint32_t, std::string> written_data;
 std::map<fds_uint32_t, fds_bool_t> verified_data;
+
+
+static int sh_test_put_callback(void* context, fds_uint64_t buf_size, char* buf, void *callback_data,
+				FDSN_Status status, ErrorDetails* errDetaills)
+{
+  FDS_PLOG(storHvisor->GetLog()) << "sh_test_put_callback is called with status " << status;
+}
+
+static FDSN_Status sh_test_get_callback(void* context, fds_uint64_t buf_size, const char* buf, void *callback_data,
+				FDSN_Status status, ErrorDetails* errDetaills)
+{
+  FDS_PLOG(storHvisor->GetLog()) << "sh_test_get_callback is called with status " << status;
+}
+
+static void sh_test_create_bucket_callback(FDSN_Status status, const ErrorDetails* errDetails, void* callback_data)
+{
+  FDS_PLOG(storHvisor->GetLog()) << "sh_test_create_bucket_callback is called with status " << status;
+}
+
+static FDSN_Status sh_test_list_bucket_callback(int isTruncated, const char* nextMarker, int count, const ListBucketContents* contents,
+					 int comminPrefixesCount, const char**commonPrefixes, void* callback_data)
+{
+  FDS_PLOG(storHvisor->GetLog()) << "sh_test_list_bucket_callback is called"; 
+}
+
+
 
 static void sh_test_w_callback(void *arg1,
                                void *arg2,
@@ -228,6 +255,74 @@ int sh_test_r(char *r_buf, fds_uint32_t len, fds_uint32_t offset, fds_volid_t vo
   }
 
   return result;
+}
+
+// TEMP -- for testing native api directly, not called from 
+// desktop unit test, can exchange names with unitTest and it will be
+// called with desktop test
+int unitTest2(fds_uint32_t time_mins)
+{
+  fds_uint32_t req_size;
+  char *w_buf;
+  char *r_buf;
+  fds_uint32_t result;
+  FDS_NativeAPI* api;
+  BucketContext* buck_context;
+  PutProperties* put_props;
+  GetConditions get_conds;
+
+  VolumeDesc voldesc("default_vol2", 2);
+  voldesc.iops_min = 10;
+  voldesc.iops_max = 1000;
+
+  FDS_PLOG(storHvisor->GetLog()) << "Blob unit test -- testing putObject()";
+
+  req_size = 8192;
+  result = 0;
+  /*
+   * Note these buffers are reused at every loop
+   * iteration and are freed at the end of the test.
+   */
+  w_buf    = new char[req_size]();
+  r_buf    = new char[req_size]();
+
+  /* do one request for now */
+  api = new FDS_NativeAPI(FDS_NativeAPI::FDSN_AWS_S3);
+  buck_context = new BucketContext("hostA", "default_vol2", "X", "Y");
+  put_props = new PutProperties();
+
+  /* first create bucket */
+  FDS_PLOG(storHvisor->GetLog()) << "Blob unit test -- will create bucket " << buck_context->bucketName;
+  api->CreateBucket(buck_context, CannedAclPublicRead, NULL, sh_test_create_bucket_callback, NULL);
+  sleep(5);
+
+
+  FDS_PLOG(storHvisor->GetLog()) << "Blob unit test -- will put object to " << buck_context->bucketName;
+  memset(w_buf, 0xfeed, req_size);
+  api->PutObject(buck_context, "ut_key", put_props, NULL, w_buf, req_size, sh_test_put_callback, NULL); 
+
+  sleep(10);
+  FDS_PLOG(storHvisor->GetLog()) << "Blob write unit test -- waited 10 sec after putObject()";
+
+  FDS_PLOG(storHvisor->GetLog()) << "Blob unit test -- will get bucket list from bucket " << buck_context->bucketName;
+  api->GetBucket(buck_context, "", "", "", 10, NULL, sh_test_list_bucket_callback, NULL);
+  sleep(15);
+
+  /*
+  FDS_PLOG(storHvisor->GetLog()) << "Blob unit test -- will get same object from " << buck_context->bucketName;
+  api->GetObject(buck_context, "ut_key", &get_conds, 0, req_size, r_buf, req_size, NULL, sh_test_get_callback, NULL);
+  sleep(5);
+  */
+
+  delete buck_context;
+  delete put_props;
+  delete api;
+
+  delete w_buf;
+  delete r_buf;
+
+  return result;
+
 }
 
 int unitTest(fds_uint32_t time_mins) {
@@ -450,10 +545,18 @@ void CreateSHMode(int argc,
                   fds_uint32_t sm_port,
                   fds_uint32_t dm_port)
 {
+
+  fds::Module *io_dm_vec[] = {
+    nullptr
+  };
+  fds::ModuleVector  io_dm(argc, argv, io_dm_vec);
+
   if (test_mode == true) {
-    storHvisor = new StorHvCtrl(argc, argv, StorHvCtrl::TEST_BOTH, sm_port, dm_port);
+    storHvisor = new StorHvCtrl(argc, argv, io_dm.get_sys_params(),
+        StorHvCtrl::TEST_BOTH, sm_port, dm_port);
   } else {
-    storHvisor = new StorHvCtrl(argc, argv, StorHvCtrl::NORMAL);
+    storHvisor = new StorHvCtrl(argc, argv, io_dm.get_sys_params(),
+        StorHvCtrl::NORMAL);
   }
 
   storHvisor->cr_blkdev = cr_blkdev;
@@ -487,6 +590,7 @@ std::atomic_uint nextIoReqId;
 
 StorHvCtrl::StorHvCtrl(int argc,
                        char *argv[],
+                       SysParams *params,
                        sh_comm_modes _mode,
                        fds_uint32_t sm_port_num,
                        fds_uint32_t dm_port_num)
@@ -526,7 +630,9 @@ StorHvCtrl::StorHvCtrl(int argc,
   nextIoReqId = 0;
   
 
-  sh_log = new fds_log("sh", "logs");
+  sysParams = params;
+
+  sh_log = new fds_log("sh", "logs", (fds_log::severity_level) sysParams->log_severity);
   FDS_PLOG(sh_log) << "StorHvisorNet - Constructing the Storage Hvisor";
 
   /* create OMgr client if in normal mode */
@@ -688,16 +794,16 @@ StorHvCtrl::StorHvCtrl(int argc,
 /*
  * Constructor uses comm with DM and SM if no mode provided.
  */
-StorHvCtrl::StorHvCtrl(int argc, char *argv[])
-    : StorHvCtrl(argc, argv, NORMAL, 0, 0) {
+StorHvCtrl::StorHvCtrl(int argc, char *argv[], SysParams *params)
+    : StorHvCtrl(argc, argv, params, NORMAL, 0, 0) {
 
 }
 
 StorHvCtrl::StorHvCtrl(int argc,
                        char *argv[],
+                       SysParams *params,
                        sh_comm_modes _mode)
-    : StorHvCtrl(argc, argv, _mode, 0, 0) {
-
+    : StorHvCtrl(argc, argv, params, _mode, 0, 0) {
 }
 
 StorHvCtrl::~StorHvCtrl()
@@ -1316,7 +1422,7 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
 
   /* Check if there is an outstanding transaction for this block offset  */
   // fds_uint32_t transId = shVol->journal_tbl->get_trans_id_for_block(blobReq->getBlobOffset());
-  fds_uint32_t transId = shVol->journal_tbl->get_trans_id_for_blob(blobReq->getBlobName(),
+   fds_uint32_t transId = shVol->journal_tbl->get_trans_id_for_blob(blobReq->getBlobName(),
                                                                    blobReq->getBlobOffset());
   StorHvJournalEntry *journEntry = shVol->journal_tbl->get_journal_entry(transId);
   
@@ -1352,7 +1458,7 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   journEntry->dm_msg = NULL;
   journEntry->sm_ack_cnt = 0;
   journEntry->dm_ack_cnt = 0;
-  journEntry->op = FDS_IO_READ;
+  journEntry->op = FDS_DELETE_BLOB;
   journEntry->data_obj_id.hash_high = 0;
   journEntry->data_obj_id.hash_low = 0;
   journEntry->data_obj_len = blobReq->getDataLen();
@@ -1395,7 +1501,7 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   del_obj_req->data_obj_id.hash_low = oid.GetLow();
   del_obj_req->data_obj_len = blobReq->getDataLen();
   
-  journEntry->op = FDS_IO_READ;
+  journEntry->op = FDS_DELETE_BLOB;
   journEntry->data_obj_id.hash_high = oid.GetHigh();;
   journEntry->data_obj_id.hash_low = oid.GetLow();;
   
@@ -1434,6 +1540,7 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   num_nodes = 8;
   FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr_dm = new FDSP_MsgHdrType;
   storHvisor->InitDmMsgHdr(fdsp_msg_hdr_dm);
+  fdsp_msg_hdr_dm->msg_code = FDSP_MSG_DELETE_CAT_OBJ_REQ;
   fdsp_msg_hdr_dm->req_cookie = transId;
   fdsp_msg_hdr_dm->src_ip_lo_addr = SRC_IP;
   fdsp_msg_hdr_dm->src_node_name = storHvisor->my_node_name;
@@ -1478,8 +1585,153 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   return ERR_OK; // je_lock destructor will unlock the journal entry
 }
 
+fds::Error StorHvCtrl::listBucket(fds::AmQosReq *qosReq) {
+  fds::Error err(ERR_OK);
+  FDS_RPC_EndPoint *endPoint = NULL; 
+  unsigned int node_ip = 0;
+  fds_uint32_t node_port = 0;
+  int node_state = -1;
+
+  FDS_PLOG_SEV(sh_log, fds::fds_log::normal)
+      << "Doing a list bucket operation!";
+
+  /*
+   * Pull out the blob request
+   */
+  FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
+  fds_verify(blobReq->magicInUse() == true);
+
+  fds_volid_t   volId = blobReq->getVolId();
+  StorHvVolume *shVol = vol_table->getVolume(volId);
+  if ((shVol == NULL) || (shVol->isValidLocked() == false)) {
+    FDS_PLOG_SEV(sh_log, fds::fds_log::critical) << "listBucket failed to get volume for vol "
+                                                 << volId;    
+    blobReq->cbWithResult(-1);
+    err = ERR_NOT_FOUND;
+    delete qosReq;
+    return err;
+  }
+
+  /*
+   * Track how long the request was queued before get() dispatch
+   * TODO: Consider moving to the QoS request
+   */
+  blobReq->setQueuedUsec(shVol->journal_tbl->microsecSinceCtime(
+      boost::posix_time::microsec_clock::universal_time()));
+
+  fds_uint32_t transId = shVol->journal_tbl->get_trans_id_for_blob(blobReq->getBlobName(),
+                                                                   blobReq->getBlobOffset());
+  StorHvJournalEntry *journEntry = shVol->journal_tbl->get_journal_entry(transId);
+  
+  StorHvJournalEntryLock je_lock(journEntry);
+  
+  if (journEntry->isActive()) {
+    FDS_PLOG_SEV(GetLog(), fds::fds_log::error) <<" StorHvisorTx:" << "IO-XID:" << transId 
+						  << " - Transaction  is already in ACTIVE state, completing request "
+						  << transId << " with ERROR(-2) ";
+    // There is an ongoing transaciton for this bucket.
+    // We should queue this up for later processing once that completes.
+    
+    // For now, return an error.
+    blobReq->cbWithResult(-2);
+    err = ERR_INVALID_ARG;
+    delete qosReq;
+    return err;
+  }
+
+  journEntry->setActive();
+
+  FDS_PLOG(GetLog()) <<" StorHvisorTx:" << "IO-XID:" << transId << " volID:" << volId << " - Activated txn for req :" << transId;
+
+  /*
+   * Setup msg header
+   */
+  fds_int32_t num_nodes = 8;  // TODO: Why 8? Look up vol/blob repl factor
+  fds_int32_t node_ids[num_nodes];  // TODO: Doesn't need to be signed
+  memset(node_ids, 0x00, sizeof(fds_int32_t) * num_nodes);
+
+  FDSP_MsgHdrTypePtr msgHdr = new FDSP_MsgHdrType;
+  InitDmMsgHdr(msgHdr);
+  msgHdr->msg_code       = FDSP_MSG_GET_VOL_BLOB_LIST_REQ;
+  msgHdr->msg_id         =  1;
+  msgHdr->req_cookie     = transId;
+  msgHdr->glob_volume_id = volId;
+  msgHdr->src_ip_lo_addr = SRC_IP;
+  msgHdr->src_port       = 0;
+  msgHdr->src_node_name  = my_node_name;
+  msgHdr->bucket_name    = blobReq->getBlobName(); /* ListBucketReq stores bucket name in blob name */
+ 
+  /*
+   * Setup journal entry
+   */
+  journEntry->trans_state = FDS_TRANS_GET_BUCKET;
+  journEntry->sm_msg = NULL; 
+  journEntry->dm_msg = msgHdr;
+  journEntry->sm_ack_cnt = 0;
+  journEntry->dm_ack_cnt = 0;
+  journEntry->op = FDS_LIST_BUCKET;
+  journEntry->data_obj_id.hash_high = 0;
+  journEntry->data_obj_id.hash_low = 0;
+  journEntry->data_obj_len = 0;
+  journEntry->io = qosReq;
+  dataPlacementTbl->getDMTNodesForVolume(volId, node_ids, &num_nodes);
+
+  if(num_nodes == 0) {
+    FDS_PLOG_SEV(GetLog(), fds::fds_log::error) <<" StorHvisorTx:" << "IO-XID:" << transId << " volID:" << volId 
+						<< " -  DMT Nodes  NOT  configured. Check on OM Manager. Completing request with ERROR(-1)";
+    blobReq->cbWithResult(-1);
+    err = ERR_GET_DMT_FAILED;
+    delete qosReq;
+    return err;
+  }
+
+  /* getting from first DM in the list */
+  FDS_ProtocolInterface::FDSP_GetVolumeBlobListReqTypePtr get_bucket_list_req = 
+    new FDS_ProtocolInterface::FDSP_GetVolumeBlobListReqType;
+
+  node_ip = 0;
+  node_port = 0;
+  node_state = -1;
+  dataPlacementTbl->getNodeInfo(node_ids[0],
+				&node_ip,
+				&node_port,
+				&node_state);
+    
+  msgHdr->dst_ip_lo_addr = node_ip;
+  msgHdr->dst_port = node_port;
+
+  get_bucket_list_req->max_blobs_to_return = static_cast<ListBucketReq*>(blobReq)->maxkeys;
+  get_bucket_list_req->iterator_cookie = static_cast<ListBucketReq*>(blobReq)->iter_cookie;
+
+  // Call Get Volume Blob List to DM
+  rpcSwitchTbl->Get_RPC_EndPoint(node_ip,
+				 node_port,
+				 FDSP_DATA_MGR,
+				 &endPoint);
+
+  fds_verify(endPoint != NULL);
+
+  endPoint->fdspDPAPI->begin_GetVolumeBlobList(msgHdr, get_bucket_list_req);
+  FDS_PLOG(GetLog()) << " StorHvisorTx:" << "IO-XID:"
+		     << transId << " volID:" << volId
+		     << " - Sent async GET_VOL_BLOB_LIST_REQ request to DM at "
+		     <<  node_ip << " port " << node_port;
+
+  // Schedule a timer here to track the responses and the original request
+  IceUtil::Time interval = IceUtil::Time::seconds(FDS_IO_LONG_TIME);
+  shVol->journal_tbl->schedule(journEntry->ioTimerTask, interval);
+
+  delete qosReq;
+  return err; // je_lock destructor will unlock the journal entry
+}
+
+
 fds_log* StorHvCtrl::GetLog() {
   return sh_log;
+}
+
+SysParams* StorHvCtrl::getSysParams() {
+  return sysParams;
 }
 
 void StorHvCtrl::StartOmClient() {

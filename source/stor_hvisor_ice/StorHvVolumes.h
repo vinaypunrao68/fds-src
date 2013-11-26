@@ -285,19 +285,56 @@ class DeleteBlobReq: public FdsBlobReq {
   ~DeleteBlobReq() { };
 };
 
-class ListBucketReq { 
+#define FDS_SH_BUCKET_MAGIC  0xBCE12345
+class ListBucketReq: public FdsBlobReq { 
  public:
-  BucketContext *bucketctxt;
+  BucketContext *bucket_ctxt;
   std::string prefix;
   std::string marker;
   std::string delimiter;
   fds_uint32_t maxkeys;
-  void *requestContext;
+  void *request_context;
   fdsnListBucketHandler handler;
-  void *callbackData;
+  void *callback_data;
+  fds_long_t iter_cookie;
+
+  /* sets bucket name to blob name in the base class,
+   * which is used to get trans id in journal table, and
+   * some magic number for offset */
   
-  ListBucketReq() { };
+  ListBucketReq(fds_volid_t _volid,
+		BucketContext *_bucket_ctxt,
+		const std::string& _prefix, 
+		const std::string& _marker,
+		const std::string& _delimiter,
+		fds_uint32_t _max_keys,
+		void* _req_context,
+		fdsnListBucketHandler _handler,
+		void* _callback_data)
+    : FdsBlobReq(FDS_LIST_BUCKET, _volid, _bucket_ctxt->bucketName, FDS_SH_BUCKET_MAGIC, 0, NULL,
+		 FDS_NativeAPI::DoCallback, this, Error(ERR_OK), 0),
+    bucket_ctxt(_bucket_ctxt),
+    prefix(_prefix),
+    marker(_marker),
+    delimiter(_delimiter),
+    maxkeys(_max_keys),
+    request_context(_req_context),
+    handler(_handler),
+    callback_data(_callback_data),
+    iter_cookie(0) {
+    }
+
   ~ListBucketReq() { };
+
+  void DoCallback(int isTruncated, 
+		  const char* next_marker, 
+		  int contents_count,
+		  const ListBucketContents* contents, 
+		  FDSN_Status status, 
+		  ErrorDetails* errDetails) {
+    (handler)(isTruncated, next_marker, contents_count, contents, 0, NULL, callback_data);
+  }
+
 };
 
 /*

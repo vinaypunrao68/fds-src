@@ -158,7 +158,27 @@ fds_log::fds_log(const std::string& logfile,
        false); // record id  
 }
 
+fds_log::fds_log(const std::string& logfile,
+                 const std::string& logloc,
+                 severity_level level) {
+  init(logfile,
+       logloc,
+       true,   // timestamp
+       true,   // severity
+       level, // minimum sev level
+       false,  // process name
+       false,  // process id
+       true,   // thread id
+       false); // record id
+}
+
 fds_log::~fds_log() {
+}
+
+void fds_log::setSeverityFilter(const severity_level &level) {
+	sink->reset_filter();
+	sink->set_filter(
+	      boost::log::expressions::attr<severity_level>("Severity").or_default(normal) >= level);
 }
 
 }  // namespace fds
