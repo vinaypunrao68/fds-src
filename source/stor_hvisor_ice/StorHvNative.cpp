@@ -71,15 +71,58 @@ void FDS_NativeAPI::CreateBucket(BucketContext *bucket_ctx,
 
 
 /* Get the bucket contents  or objets belonging to this bucket */
-void FDS_NativeAPI::GetBucket(BucketContext *bucketContext,
+void FDS_NativeAPI::GetBucket(BucketContext *bucket_ctxt,
 			      std::string prefix,
 			      std::string marker,
 			      std::string delimiter,
 			      fds_uint32_t maxkeys,
-			      void *requestContext,
+			      void *req_context,
 			      fdsnListBucketHandler handler, 
-			      void *callbackData)
+			      void *callback_data)
 {
+  Error err(ERR_OK);
+  fds_volid_t volid;
+  FdsBlobReq *blob_req = NULL;
+  FDS_PLOG(storHvisor->GetLog()) << "FDS_NativeAPI::GetBucket for bucket " << bucket_ctxt->bucketName;
+
+  /* check if bucket is attached to this AM, if not, ask OM to attach */
+  err = checkBucketExists(bucket_ctxt, &volid);
+  if ( !err.ok() && (err != Error(ERR_PENDING_RESP)) ) {
+    /* bucket not attached and we failed to send query to OM */
+    (handler)(0, "", 0, NULL, 0, NULL, callback_data);
+    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::warning) << "FDS_NativeAPI::GetBucket for bucket " << bucket_ctxt->bucketName
+							      << " -- could't find out from OM if bucket exists";
+    return;
+  }
+
+  /* create request */
+  blob_req = new ListBucketReq(volid, 
+			       bucket_ctxt,
+			       prefix,
+			       marker,
+			       delimiter,
+			       maxkeys,
+			       req_context,
+			       handler,
+			       callback_data);
+
+  if (!blob_req) {
+    (handler)(0, "", 0, NULL, 0, NULL, callback_data);
+    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error) << "FDS_NativeAPI::GetBucket for bucket " 
+							    << bucket_ctxt->bucketName
+							    << " -- failed to allocate ListBucketReq";
+    return;
+  }
+
+  if ( err.ok() ) {
+    /* bucket is already attached to this AM, enqueue IO */
+      storHvisor->pushBlobReq(blob_req);
+  } 
+  else if (err == Error(ERR_PENDING_RESP)) {
+    /* we are waiting for OM to tell us if bucket exists */
+    storHvisor->vol_table->addBlobToWaitQueue(bucket_ctxt->bucketName, blob_req);
+  }
+  // else we already handled above
 }
  
 void FDS_NativeAPI::DeleteBucket(BucketContext* bucketCtxt,
@@ -289,17 +332,27 @@ void FDS_NativeAPI::DoCallback(FdsBlobReq  *blob_req,
                                fds_uint32_t ignore,
                                fds_int32_t  result)
 {
+  FDSN_Status status(FDSN_StatusOK);
+
   FDS_PLOG(storHvisor->GetLog()) << "FDS_NativeAPI: callback to complete blob request : "
 				 << error.GetErrstr();
 
+  if ( !error.ok() ) {
+    status = FDSN_StatusInternalError;
+  }
+
   switch (blob_req->getIoType()) {
   case FDS_PUT_BLOB:
-    static_cast<PutBlobReq*>(blob_req)->DoCallback(FDSN_StatusInternalError, NULL);
+    static_cast<PutBlobReq*>(blob_req)->DoCallback(status, NULL);
     break;
   case FDS_GET_BLOB:
-    static_cast<GetBlobReq*>(blob_req)->DoCallback(FDSN_StatusInternalError, NULL);
+    static_cast<GetBlobReq*>(blob_req)->DoCallback(status, NULL);
     break;
   case FDS_DELETE_BLOB:
+    break;
+  case FDS_LIST_BUCKET:
+    /* this callback is called for list bucket on error */
+    static_cast<ListBucketReq*>(blob_req)->DoCallback(0, "", 0, NULL, status, NULL);
     break;
   };
 }

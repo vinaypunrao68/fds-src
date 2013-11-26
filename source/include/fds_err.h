@@ -28,7 +28,8 @@ namespace fds {
     "Response is pending",
     "Not found",
     "Admission control for a volume failed",
-    "Get DLT failed"
+    "Get DLT failed",
+    "Get DMT failed"
   };
   
   typedef enum {
@@ -43,7 +44,8 @@ namespace fds {
     ERR_PENDING_RESP         = 8,
     ERR_NOT_FOUND            = 9,
     ERR_VOL_ADMISSION_FAILED = 10,
-    ERR_GET_DLT_FAILED = 11,
+    ERR_GET_DLT_FAILED       = 11,
+    ERR_GET_DMT_FAILED       = 12,
     ERR_MAX
   } fds_errno_t;
   

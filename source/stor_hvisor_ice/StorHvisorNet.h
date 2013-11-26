@@ -181,6 +181,7 @@ public:
   fds::Error putBlob(AmQosReq *qosReq);
   fds::Error getBlob(AmQosReq *qosReq);
   fds::Error deleteBlob(AmQosReq *qosReq);
+  fds::Error listBucket(AmQosReq *qosReq);
   fds::Error putObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
                         const FDSP_PutObjTypePtr& putObjRsp);
   fds::Error upCatResp(const FDSP_MsgHdrTypePtr& rxMsg, 
@@ -234,6 +235,10 @@ static void processBlobReq(AmQosReq *qosReq) {
     case fds::FDS_DELETE_BLOB: 
       err = storHvisor->deleteBlob(qosReq);
       break;
+
+  case fds::FDS_LIST_BUCKET:
+    err = storHvisor->listBucket(qosReq);
+    break;
 
     default :
       break;
