@@ -1265,6 +1265,14 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
                                         blobReq->getBlobOffset(),
                                         transId,
                                         &objId);
+  if (err == ERR_PENDING_RESP) {
+    FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "Vol catalog cache query pending: "
+                                                     << " for blob " << blobReq->getBlobName()
+                                                     << " and offset " << blobReq->getBlobOffset()
+                                                     << " with err " << err;
+    journEntry->trans_state = FDS_TRANS_VCAT_QUERY_PENDING;
+    return err;
+  }
   fds_verify(err == ERR_OK);
 
   journEntry->data_obj_id.hash_high = objId.GetHigh();
