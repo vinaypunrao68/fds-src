@@ -283,6 +283,10 @@ class DeleteBlobReq: public FdsBlobReq {
     }
 
   ~DeleteBlobReq() { };
+
+  void DoCallback(FDSN_Status status, ErrorDetails* errDetails) {
+    (responseCallback)(status, errDetails, callback_data);
+  }
 };
 
 #define FDS_SH_BUCKET_MAGIC  0xBCE12345

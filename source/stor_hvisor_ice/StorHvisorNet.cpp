@@ -65,8 +65,8 @@ static FDSN_Status sh_test_list_bucket_callback(int isTruncated, const char* nex
 
   for (int i = 0; i < count; ++i) {
     FDS_PLOG(storHvisor->GetLog()) << "content #" << i
-				   << " key " << contents->objKey
-				   << " size " << contents->size;
+				   << " key " << contents[i].objKey
+				   << " size " << contents[i].size;
   }
 
   return FDSN_StatusOK;
@@ -321,9 +321,16 @@ int unitTest2(fds_uint32_t time_mins)
   sleep(10);
   FDS_PLOG(storHvisor->GetLog()) << "Blob write unit test -- waited 10 sec after putObject()";
 
+  FDS_PLOG(storHvisor->GetLog()) << "Blob unit test -- will put object to " << buck_context->bucketName;
+  memset(w_buf, 0xfe0d, req_size);
+  api->PutObject(buck_context, "another_test_key", put_props, NULL, w_buf, req_size, sh_test_put_callback, NULL); 
+
+  sleep(10);
+  FDS_PLOG(storHvisor->GetLog()) << "Blob write unit test -- waited 10 sec after putObject()";
+
   FDS_PLOG(storHvisor->GetLog()) << "Blob unit test -- will get bucket list from bucket " << buck_context->bucketName;
   api->GetBucket(buck_context, "", "", "", 10, NULL, sh_test_list_bucket_callback, NULL);
-  sleep(10);
+  sleep(5);
 
   /*
   FDS_PLOG(storHvisor->GetLog()) << "Blob unit test -- will get same object from " << buck_context->bucketName;
@@ -333,8 +340,7 @@ int unitTest2(fds_uint32_t time_mins)
 
   FDS_PLOG(storHvisor->GetLog()) << "Blob unit test -- will delete same object from " << buck_context->bucketName;
   api->DeleteObject(buck_context, "ut_key", NULL, sh_test_delete_callback, NULL);
-  sleep(15);
-
+  sleep(10);
 
   delete buck_context;
   delete put_props;
@@ -851,7 +857,8 @@ fds::Error StorHvCtrl::pushBlobReq(fds::FdsBlobReq *blobReq) {
 
   fds::StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(volId);
   if ((shVol == NULL) || (shVol->volQueue == NULL)) {
-    shVol->readUnlock();
+    if (shVol)
+      shVol->readUnlock();
     FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error)
         << "Volume and queueus are NOT setup for volume " << volId;
     err = fds::ERR_INVALID_ARG;
@@ -1240,7 +1247,7 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
     FDS_PLOG_SEV(sh_log, fds::fds_log::critical) << "Transaction " << transId << " is already ACTIVE"
                                                  << ", just give up and return error.";
     blobReq->cbWithResult(-2);
-    err = ERR_DISK_READ_FAILED;
+    err = ERR_OK;
     delete qosReq;
     return err;
   }
@@ -1292,6 +1299,7 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
                                                      << " and offset " << blobReq->getBlobOffset()
                                                      << " with err " << err;
     journEntry->trans_state = FDS_TRANS_VCAT_QUERY_PENDING;
+    err = ERR_OK;
     return err;
   }
   fds_verify(err == ERR_OK);
@@ -1469,6 +1477,8 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   StorHvJournalEntryLock je_lock(journEntry);
   
   if (journEntry->isActive()) {
+    shVol->readUnlock();
+
     FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << transId << " - Transaction  is already in ACTIVE state, completing request "
 				   << transId << " with ERROR(-2) ";
     // There is an ongoing transaciton for this offset.
@@ -1511,6 +1521,8 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
                                         transId,
                                         &oid);
   if (err.GetErrno() == ERR_PENDING_RESP) {
+    shVol->readUnlock();
+
     FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << transId << " volID:" << vol_id << " - Vol catalog Cache Query pending :" << err.GetErrno() << std::endl ;
     journEntry->trans_state = FDS_TRANS_VCAT_QUERY_PENDING;
     return err.GetErrno();
@@ -1518,6 +1530,8 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   
   if (err.GetErrno() == ERR_CAT_QUERY_FAILED)
   {
+    shVol->readUnlock();
+
     FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:" << transId << " volID:" << vol_id << " - Error reading the Vol catalog  Error code : " <<  err.GetErrno() << std::endl;
     blobReq->cbWithResult(err.GetErrno());
     return err.GetErrno();
@@ -1549,6 +1563,7 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(doid_dlt_key, node_ids, &num_nodes);
   if(num_nodes == 0) {
     FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << transId << " volID:" << vol_id << " -  DLT Nodes  NOT  confiigured. Check on OM Manager. Completing request with ERROR(-1)";
+    shVol->readUnlock();
     blobReq->cbWithResult(-1);
     return ERR_GET_DLT_FAILED;
   }
@@ -1623,6 +1638,9 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   // Schedule a timer here to track the responses and the original request
   IceUtil::Time interval = IceUtil::Time::seconds(FDS_IO_LONG_TIME);
   shVol->journal_tbl->schedule(journEntry->ioTimerTask, interval);
+
+  shVol->readUnlock();
+
   return ERR_OK; // je_lock destructor will unlock the journal entry
 }
 
@@ -1759,7 +1777,7 @@ fds::Error StorHvCtrl::listBucket(fds::AmQosReq *qosReq) {
 		     <<  node_ip << " port " << node_port;
 
   // Schedule a timer here to track the responses and the original request
-  IceUtil::Time interval = IceUtil::Time::seconds(2/*FDS_IO_LONG_TIME*/);
+  IceUtil::Time interval = IceUtil::Time::seconds(FDS_IO_LONG_TIME);
   shVol->journal_tbl->schedule(journEntry->ioTimerTask, interval);
   return err; // je_lock destructor will unlock the journal entry
 }
@@ -1768,10 +1786,10 @@ fds::Error StorHvCtrl::getBucketResp(const FDSP_MsgHdrTypePtr& rxMsg,
 				     const FDSP_GetVolumeBlobListRespTypePtr& blobListResp)
 {
   fds::Error err(ERR_OK);
-  fds_verify(rxMsg->msg_code == FDSP_MSG_GET_VOL_BLOB_LIST_RSP);
-
   fds_uint32_t transId = rxMsg->req_cookie;
   fds_volid_t volId    = rxMsg->glob_volume_id;
+
+  fds_verify(rxMsg->msg_code == FDS_ProtocolInterface::FDSP_MSG_GET_VOL_BLOB_LIST_RSP);
 
   StorHvVolume* vol = vol_table->getVolume(volId);
   fds_verify(vol != NULL);  // Should not receive resp for non existant vol

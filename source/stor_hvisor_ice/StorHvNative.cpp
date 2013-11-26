@@ -349,6 +349,7 @@ void FDS_NativeAPI::DoCallback(FdsBlobReq  *blob_req,
     static_cast<GetBlobReq*>(blob_req)->DoCallback(status, NULL);
     break;
   case FDS_DELETE_BLOB:
+    static_cast<DeleteBlobReq*>(blob_req)->DoCallback(status, NULL);
     break;
   case FDS_LIST_BUCKET:
     /* in case of list bucket, this method is called only on error */

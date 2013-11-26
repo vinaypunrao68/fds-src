@@ -980,6 +980,7 @@ DataMgr::blobListBackend(dmCatReq *listBlobReq) {
     msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
   }
 
+  msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_GET_VOL_BLOB_LIST_RSP;
   msg_hdr->src_ip_lo_addr = listBlobReq->dstIp;
   msg_hdr->dst_ip_lo_addr = listBlobReq->srcIp;
   msg_hdr->src_port       = listBlobReq->dstPort;
@@ -1433,7 +1434,7 @@ void DataMgr::InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
         msg_hdr->tennant_id = 0;
         msg_hdr->local_domain_id = 0;
 
-        msg_hdr->src_id = FDSP_STOR_HVISOR;
+        msg_hdr->src_id = FDSP_DATA_MGR;
         msg_hdr->dst_id = FDSP_STOR_MGR;
 
 	msg_hdr->src_node_name = "";
