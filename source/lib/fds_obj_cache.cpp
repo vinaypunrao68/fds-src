@@ -103,8 +103,10 @@ namespace fds{
   }
 
   // Release ref cnt..do we need this if we use smart ptr?
-  int FdsObjectCache::object_release(fds_volid_t vol_id, ObjectID objId, ObjBufPtrType obj_data) {
-    // no op for now since we use smart pointers which gives us ref_cnt
+  int FdsObjectCache::object_release(fds_volid_t vol_id, ObjectID objId, ObjBufPtrType& obj_data) {
+    // assign NULL to the passed in ptr reference, there by forcefully releasing the reference
+    // held by the caller
+    obj_data = NULL;
   }
 
   // Simply allocate buffer, object will not be in any cache lookup until object add is done.
@@ -168,7 +170,7 @@ namespace fds{
   // Add it to the cache map so it is available for future lookups.
   int FdsObjectCache::object_add(fds_volid_t vol_id, 
 				 ObjectID objId, 
-				 ObjBufPtrType obj_data,
+				 ObjBufPtrType& obj_data,
 				 bool is_dirty) {
     ObjCacheBufPtrType obj_cache_buf = boost::static_pointer_cast<ObjectCacheBuf>(obj_data);
     plcy_mgr->handle_object_access(vol_id, objId, obj_cache_buf);
@@ -181,7 +183,7 @@ namespace fds{
 
   int FdsObjectCache::mark_object_clean(fds_volid_t vol_id,
 					ObjectID objId,
-					ObjBufPtrType obj_data) {
+					ObjBufPtrType& obj_data) {
     ObjCacheBufPtrType obj_cache_buf = boost::static_pointer_cast<ObjectCacheBuf>(obj_data);
     obj_cache_buf->copy_is_dirty = false;
     FDS_PLOG(oc_log) << "Marked object " << objId << " in volume " << vol_id << " clean";
@@ -191,14 +193,14 @@ namespace fds{
 
   bool FdsObjectCache::is_object_buf_dirty(fds_volid_t vol_id,
 					   ObjectID objId,
-					   ObjBufPtrType obj_data) {
+					   ObjBufPtrType& obj_data) {
     ObjCacheBufPtrType obj_cache_buf = boost::static_pointer_cast<ObjectCacheBuf>(obj_data);
     return (obj_cache_buf->copy_is_dirty);
   }
 
   bool FdsObjectCache::is_object_io_in_progress(fds_volid_t vol_id,
 						ObjectID objId,
-						ObjBufPtrType obj_data) {
+						ObjBufPtrType& obj_data) {
     ObjCacheBufPtrType obj_cache_buf = boost::static_pointer_cast<ObjectCacheBuf>(obj_data);
     return (obj_cache_buf->io_in_progress);
   }
@@ -207,7 +209,7 @@ namespace fds{
 
   // Internal helper function doign the job of removing the object from the volume index,
   // after doing all sanity checks.
-  ObjCacheBufPtrType FdsObjectCache::object_remove(fds_volid_t vol_id, ObjectID objId) {
+  ObjCacheBufPtrType FdsObjectCache::object_remove(fds_volid_t vol_id, ObjectID objId, bool ignore_in_progress) {
 
     volmap_rwlock.read_lock();
     VolObjectCache *vol_cache = NULL;
@@ -229,7 +231,8 @@ namespace fds{
 
     ObjCacheBufPtrType& objBuf = vol_cache->object_map[objId];
 
-    assert((objBuf->copy_is_dirty == false) && (objBuf->io_in_progress == false));
+    assert((objBuf->copy_is_dirty == false) && 
+	   ((ignore_in_progress) || (objBuf->io_in_progress == false)));
 
     if (objBuf.use_count() > 2) { 
       // Volume index tbl and the eviction_plcy_mgr are the only ones that should have a reference.
@@ -256,7 +259,7 @@ namespace fds{
   int FdsObjectCache::object_delete(fds_volid_t vol_id, ObjectID objId) {
     int rc;
     
-    ObjCacheBufPtrType objBuf = object_remove(vol_id, objId);
+    ObjCacheBufPtrType objBuf = object_remove(vol_id, objId, /* ignore_in_progress= */true);
     if (objBuf == NULL) {
       return -1;
     }
@@ -271,7 +274,7 @@ namespace fds{
   // This is similar to object_delete but does not call plcy_manager to notify about object deletion.
   // This is for plcy_manager to call when it decides to evict an object.
   int FdsObjectCache::object_evict(fds_volid_t vol_id, ObjectID objId) {
-    ObjCacheBufPtrType objBuf = object_remove(vol_id, objId);
+    ObjCacheBufPtrType objBuf = object_remove(vol_id, objId, /*ignore_in_progress=*/false);
     if (objBuf == NULL) {
       return -1;
     }

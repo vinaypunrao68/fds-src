@@ -173,6 +173,9 @@ public:
     AMEngine                 *ame;
     ngx_chain_t              *post_buf_itr;
     std::string              etag;
+
+    // Tell the engine if we need to finalize this request.
+    fds_bool_t               ame_finalize;
     /*
      * todo: once we switch to async model with handling requests, these members
      * shouldn't be neeeded

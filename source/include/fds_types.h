@@ -246,6 +246,7 @@ namespace fds {
    FDS_IO_OFFSET_WRITE,
    FDS_CAT_UPD,
    FDS_CAT_QRY,
+   FDS_LIST_BLOB,
    FDS_PUT_BLOB, 
    FDS_GET_BLOB,
    FDS_DELETE_BLOB,
@@ -365,6 +366,9 @@ namespace fds {
     }
     fds_uint64_t getDataLen() const {
       return dataLen;
+    }
+    void setDataLen(fds_uint64_t len) {
+      dataLen = len;
     }
     void setDataBuf(const char* _buf) {
       /*

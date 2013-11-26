@@ -554,6 +554,7 @@ int pushFbdReq(fbd_request_t *blkReq) {
                                        blkReq);  // Callback arg 3 (request struct itself)
   Error err = storHvisor->pushBlobReq(blobReq);
   fds_verify(err == ERR_OK);
+  return (0);
 }
 END_C_DECLS
 

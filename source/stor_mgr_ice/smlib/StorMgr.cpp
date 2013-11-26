@@ -928,12 +928,15 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
   diskio::DataTier tierUsed = diskio::maxTier;
   ObjBufPtrType objBufPtr = NULL;
   const FDSP_PutObjTypePtr& putObjReq = putReq->getPutObjReq();
+  bool new_buff_allocated = false;
+
+  //ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_journal_entry_for_key(objId);
+  objStorMutex->lock();
 
   objBufPtr = objCache->object_retrieve(volId, objId);
   if (objBufPtr != NULL) {
-    while (objCache->is_object_io_in_progress(volId, objId, objBufPtr)) {
-      usleep(500);
-    }
+    fds_verify(!(objCache->is_object_io_in_progress(volId, objId, objBufPtr)));
+
     // Now check for dedup here.
     if (objBufPtr->data == putObjReq->data_obj) {
       err = ERR_DUPLICATE;
@@ -944,22 +947,27 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
       err = ERR_HASH_COLLISION;
     }
     objCache->object_release(volId, objId, objBufPtr);
-  } else {
-    objBufPtr = objCache->object_alloc(volId, objId, putObjReq->data_obj.size());
-    memcpy((void *)objBufPtr->data.c_str(), (void *)putObjReq->data_obj.c_str(), putObjReq->data_obj.size()); 
-  }
+  } 
 
-
-  //ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_journal_entry_for_key(objId);
-  objStorMutex->lock();
   // Find if this object is a duplicate
   if (err == ERR_OK) {
+    // Nothing in cache. Let's allocate a new buf from cache mgr and copy over the data
+
+    objBufPtr = objCache->object_alloc(volId, objId, putObjReq->data_obj.size());
+    memcpy((void *)objBufPtr->data.c_str(), (void *)putObjReq->data_obj.c_str(), putObjReq->data_obj.size()); 
+    new_buff_allocated = true;
+
     err = checkDuplicate(objId,
 			 *objBufPtr);
+
   }
   
   if (err == ERR_DUPLICATE) {
-	objStorMutex->unlock();
+    if (new_buff_allocated) {
+      objCache->object_add(volId, objId, objBufPtr, false);
+      objCache->object_release(volId, objId, objBufPtr); 
+    }
+    objStorMutex->unlock();
     FDS_PLOG(objStorMgr->GetLog()) << "Put dup:  " << err
                                    << ", returning success";
     /*
@@ -967,7 +975,11 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
      */
     err = ERR_OK;
   } else if (err != ERR_OK) {
-	objStorMutex->unlock();
+    if (new_buff_allocated) {
+      objCache->object_release(volId, objId, objBufPtr); 
+      objCache->object_delete(volId, objId);
+    }
+    objStorMutex->unlock();
     FDS_PLOG(objStorMgr->GetLog()) << "Failed to check object duplicate status on put: "
                                    << err;
   } else {
@@ -976,15 +988,17 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
      * Write the object and record which tier it went to
      */
     err = writeObject(objId, *objBufPtr, volId, tierUsed);
-    objCache->object_add(volId, objId, objBufPtr, false);
-    objCache->object_release(volId, objId, objBufPtr); 
 
-    objStorMutex->unlock();
     if (err != fds::ERR_OK) {
+      objCache->object_release(volId, objId, objBufPtr);       
+      objCache->object_delete(volId, objId);
+      objStorMutex->unlock();
       FDS_PLOG(objStorMgr->GetLog()) << "Failed to put object " << err;
     } else {
+      objCache->object_add(volId, objId, objBufPtr, false);
+      objCache->object_release(volId, objId, objBufPtr); 
+      objStorMutex->unlock();
       FDS_PLOG(objStorMgr->GetLog()) << "Successfully put object " << objId;
-
       /* if we successfully put to flash -- notify ranking engine */
       if (tierUsed == diskio::flashTier) {
 	StorMgrVolume *vol = volTbl->getVolume(volId);
@@ -992,6 +1006,9 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
 	rankEngine->rankAndInsertObject(objId, *(vol->voldesc)); 
       }
     }
+
+
+
     /*
      * Stores a reverse mapping from the volume's disk location
      * to the oid at that location.
@@ -1022,7 +1039,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
       new FDS_ProtocolInterface::FDSP_PutObjType();
   putObj->data_obj_id.hash_high = objId.GetHigh();
   putObj->data_obj_id.hash_low  = objId.GetLow();
-  putObj->data_obj_len          = objBufPtr->size;
+  putObj->data_obj_len          = putObjReq->data_obj_len;
 
   if (err == ERR_OK) {
     msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_OK;
@@ -1099,6 +1116,7 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
   objBufPtr = objCache->object_retrieve(volId, objId);
   if (objBufPtr != NULL) {
     objCache->object_release(volId, objId, objBufPtr);
+    objCache->object_delete(volId, objId);
   } 
 
   //ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_journal_entry_for_key(objId);
@@ -1237,6 +1255,8 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
     objBufPtr = objCache->object_alloc(volId, objId, objData.size);
     memcpy((void *)objBufPtr->data.c_str(), (void *)objData.data.c_str(), objData.size);
     objCache->object_add(volId, objId, objBufPtr, false); // read data is always clean
+  } else {
+    fds_verify(!(objCache->is_object_io_in_progress(volId, objId, objBufPtr)));
   }
 
   objStorMutex->unlock();

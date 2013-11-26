@@ -186,7 +186,7 @@ int AME_Request::map_fdsn_status(FDSN_Status status)
 }
 
 AME_Request::AME_Request(AMEngine *eng, HttpRequest &req)
-    : fdsio::Request(true), ame(eng), ame_req(req)
+    : fdsio::Request(true), ame(eng), ame_req(req), ame_finalize(false)
 {
   if (ame_req.getNginxReq()->request_body &&
       ame_req.getNginxReq()->request_body->bufs) {
@@ -338,7 +338,7 @@ AME_Request::ame_send_response_hdr()
           const_cast<char*>(etag.c_str()), etag.size());
     }
     rc = ngx_http_send_header(r);
-    if (r->header_only) {
+    if (ame_finalize == true) {
         ngx_http_finalize_request(r, rc);
     }
     return AME_OK;
@@ -476,6 +476,7 @@ Conn_GetObject::fdsn_send_get_response(int status, int get_len)
 Conn_PutObject::Conn_PutObject(AMEngine *eng, HttpRequest &req)
     : AME_Request(eng, req)
 {
+    ame_finalize = true;
 }
 
 Conn_PutObject::~Conn_PutObject()
@@ -492,7 +493,6 @@ Conn_PutObject::cb(void *reqContext, fds_uint64_t bufferSize, char *buffer,
   printf("put object cb invoked\n");
   Conn_PutObject *conn_po = (Conn_PutObject*) callbackData;
   conn_po->notify_request_completed(map_fdsn_status(status), NULL, 0);
-
 }
 
 // ame_request_handler
@@ -775,21 +775,10 @@ Conn_GetBucket::ame_request_handler()
 {
     FDS_NativeAPI *api;
     std::string    prefix, marker, deli;
-    ListBucketContents content;
 
-    content.objKey = "foo";
-    content.lastModified = 10;
-    content.eTag = "abc123";
-    content.size = 100;
-    content.ownerId = "vy";
-    content.ownerDisplayName = "Vy Nguyen";
-
-    /*
     api = ame->ame_fds_hook();
     api->GetBucket(NULL, prefix, marker, deli, 1000, NULL,
                    fds::Conn_GetBucket::fdsn_getbucket, (void *)this);
-    */
-    fdsn_getbucket(false, "marker", 1, &content, 0, NULL, (void *)this);
 }
 
 // fdsn_send_getbucket_response

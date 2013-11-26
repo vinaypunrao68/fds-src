@@ -112,8 +112,7 @@ public:
     { 
     }
 
-    void GetVolumeBlobListResp(const FDSP_MsgHdrTypePtr& fds_msg, const FDSP_GetVolumeBlobListRespTypePtr& blob_list_rsp, const Ice::Current &){
-    }
+    void GetVolumeBlobListResp(const FDSP_MsgHdrTypePtr& fds_msg, const FDSP_GetVolumeBlobListRespTypePtr& blob_list_rsp, const Ice::Current &);
 
 };
 
@@ -181,12 +180,15 @@ public:
   fds::Error putBlob(AmQosReq *qosReq);
   fds::Error getBlob(AmQosReq *qosReq);
   fds::Error deleteBlob(AmQosReq *qosReq);
+  fds::Error listBucket(AmQosReq *qosReq);
   fds::Error putObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
                         const FDSP_PutObjTypePtr& putObjRsp);
   fds::Error upCatResp(const FDSP_MsgHdrTypePtr& rxMsg, 
                        const FDSP_UpdateCatalogTypePtr& catObjRsp);
   fds::Error getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
                         const FDSP_GetObjTypePtr& getObjRsp);
+  fds::Error getBucketResp(const FDSP_MsgHdrTypePtr& rxMgr,
+			   const FDSP_GetVolumeBlobListRespTypePtr& blobListResp);
 
   void  InitIceObjects();
   void InitDmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
@@ -234,6 +236,10 @@ static void processBlobReq(AmQosReq *qosReq) {
     case fds::FDS_DELETE_BLOB: 
       err = storHvisor->deleteBlob(qosReq);
       break;
+
+  case fds::FDS_LIST_BUCKET:
+    err = storHvisor->listBucket(qosReq);
+    break;
 
     default :
       break;

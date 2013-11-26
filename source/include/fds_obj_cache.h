@@ -111,7 +111,7 @@ namespace fds {
     ObjBufPtrType object_retrieve(fds_volid_t vol_id, ObjectID objId);
 
     // Release ref cnt..do we need this if we use smart ptr?
-    int object_release(fds_volid_t vol_id, ObjectID objId, ObjBufPtrType obj_data);
+    int object_release(fds_volid_t vol_id, ObjectID objId, ObjBufPtrType& obj_data);
 
     // Simply allocate buffer, object will not be in any cache lookup until object add is done.
     // If the cache can grow, new buf space will be allocated.
@@ -121,13 +121,13 @@ namespace fds {
 			       fds_uint64_t obj_size); 
     
     // Add it to the cache map so it is available for future lookups.
-    int object_add(fds_volid_t vol_id, ObjectID objId, ObjBufPtrType obj_data, bool is_dirty);
+    int object_add(fds_volid_t vol_id, ObjectID objId, ObjBufPtrType& obj_data, bool is_dirty);
 
     // Was the object previously added as dirty? Call this after 
     // the object is synced to persistent storage.
     int mark_object_clean(fds_volid_t vol_id,
 			  ObjectID objId,
-			  ObjBufPtrType obj_data);
+			  ObjBufPtrType& obj_data);
 
     // Delete this object from the cache map and use the buffer for reallocation for future alloc requests
     // Primarily to be used to by an external garbage collection thread
@@ -144,11 +144,11 @@ namespace fds {
 
     bool is_object_buf_dirty(fds_volid_t vol_id,
 			     ObjectID objId,
-			     ObjBufPtrType obj_data);
+			     ObjBufPtrType& obj_data);
 
     bool is_object_io_in_progress(fds_volid_t vol_id,
 				  ObjectID objId,
-				  ObjBufPtrType obj_data);
+				  ObjBufPtrType& obj_data);
 
     void log_stats_to_file(std::string file_name);
     fds_log *GetLog() { return oc_log; }
@@ -168,7 +168,7 @@ namespace fds {
                               // against volume create/delete events.
     
     void *lru_data; // TBD, a calendar queue probably. Priority queues are very space-intensive for large number of objects.
-    ObjCacheBufPtrType object_remove(fds_volid_t vol_id, ObjectID objId);
+    ObjCacheBufPtrType object_remove(fds_volid_t vol_id, ObjectID objId, bool ignore_in_progress);
 
   };
 

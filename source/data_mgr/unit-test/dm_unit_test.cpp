@@ -297,6 +297,55 @@ class DmUnitTest {
     return 0;
   }
 
+  fds_uint32_t basic_bloblist() {
+    FDS_PLOG(test_log) << "Starting test: basic_bloblist()";
+
+    /*
+     * Send lots of transaction open requests.
+     */
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr =
+        new FDS_ProtocolInterface::FDSP_MsgHdrType;
+    FDS_ProtocolInterface::FDSP_GetVolumeBlobListReqTypePtr listReq =
+        new FDS_ProtocolInterface::FDSP_GetVolumeBlobListReqType;
+
+    msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_GET_VOL_BLOB_LIST_REQ;
+    msg_hdr->src_id   = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
+    msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_DATA_MGR;
+    msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
+    msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msg_hdr->src_node_name = "dm_test_client";
+    msg_hdr->glob_volume_id = 1; /* TODO: Don't hard code to 1 */
+
+    fds_int32_t blobsToReturn = 10;
+    fds_uint64_t cookie = 1;
+    Ice::AsyncResultPtr *rp;
+	
+    rp = new Ice::AsyncResultPtr[num_conc_reqs];
+
+    for (fds_uint32_t i = 0; i < num_updates; i++) {
+      listReq->max_blobs_to_return = blobsToReturn;
+      listReq->iterator_cookie = cookie;
+      msg_hdr->req_cookie = i;
+
+      try {
+        rp[i%num_conc_reqs] = fdspDPAPI->begin_GetVolumeBlobList(msg_hdr, listReq);
+        FDS_PLOG(test_log) << "Sent list blobs message to DM";
+
+      } catch(...) {
+        FDS_PLOG(test_log) << "Failed to send list blobs message to DM";
+      }
+
+      if (i % num_conc_reqs == num_conc_reqs-1) {
+        for (fds_uint32_t j = 0; j < num_conc_reqs; j++) {
+          rp[j]->waitForCompleted();
+        }
+      }      
+    }
+
+    FDS_PLOG(test_log) << "Ending test: basic_bloblist()";
+    return 0;
+  }
+
   fds_int32_t basic_query() {
     FDS_PLOG(test_log) << "Starting test: basic_query()";
 
@@ -467,6 +516,7 @@ class DmUnitTest {
     unit_tests.push_back("basic_uq");
     unit_tests.push_back("basic_query");
     unit_tests.push_back("basic_multivol");
+    unit_tests.push_back("basic_bloblist");
 
     num_updates = num_up_arg;
     max_outstanding_ios = max_oios;;
@@ -500,6 +550,8 @@ class DmUnitTest {
       result = basic_query();
     } else if (testname == "basic_multivol") {
       result = basic_multivol();
+    } else if (testname == "basic_bloblist") {
+      result = basic_bloblist();
     } else {
       std::cout << "Unknown unit test " << testname << std::endl;
     }
@@ -672,7 +724,8 @@ class TestResp : public FDS_ProtocolInterface::FDSP_DataPathResp {
   void GetVolumeBlobListResp(const FDSP_MsgHdrTypePtr& fds_msg, 
 			     const FDSP_GetVolumeBlobListRespTypePtr& blob_list_rsp, 
 			     const Ice::Current &){
-    }
+    FDS_PLOG_SEV(test_log, fds::fds_log::normal) << "Received listblob response";
+  }
 };
 
 class TestClient : public Ice::Application {

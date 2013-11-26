@@ -31,6 +31,49 @@ fds_mutex map_mtx("map mutex");
 std::map<fds_uint32_t, std::string> written_data;
 std::map<fds_uint32_t, fds_bool_t> verified_data;
 
+
+static int sh_test_put_callback(void* context, fds_uint64_t buf_size, char* buf, void *callback_data,
+				FDSN_Status status, ErrorDetails* errDetaills)
+{
+  FDS_PLOG(storHvisor->GetLog()) << "sh_test_put_callback is called with status " << status;
+}
+
+static FDSN_Status sh_test_get_callback(void* context, fds_uint64_t buf_size, const char* buf, void *callback_data,
+				FDSN_Status status, ErrorDetails* errDetaills)
+{
+  FDS_PLOG(storHvisor->GetLog()) << "sh_test_get_callback is called with status " << status
+				 << " data length " << buf_size;
+}
+
+static void sh_test_delete_callback(FDSN_Status status, const ErrorDetails* errDetails, void* callback_data)
+{
+  FDS_PLOG(storHvisor->GetLog()) << "sh_test_delete_callback is called with status " << status;
+}
+
+static void sh_test_create_bucket_callback(FDSN_Status status, const ErrorDetails* errDetails, void* callback_data)
+{
+  FDS_PLOG(storHvisor->GetLog()) << "sh_test_create_bucket_callback is called with status " << status;
+}
+
+static FDSN_Status sh_test_list_bucket_callback(int isTruncated, const char* nextMarker, int count, const ListBucketContents* contents,
+					 int comminPrefixesCount, const char**commonPrefixes, void* callback_data)
+{
+  FDS_PLOG(storHvisor->GetLog()) << "sh_test_list_bucket_callback is called"; 
+  if (contents == NULL) {
+    return FDSN_StatusOK;
+  }
+
+  for (int i = 0; i < count; ++i) {
+    FDS_PLOG(storHvisor->GetLog()) << "content #" << i
+				   << " key " << contents[i].objKey
+				   << " size " << contents[i].size;
+  }
+
+  return FDSN_StatusOK;
+}
+
+
+
 static void sh_test_w_callback(void *arg1,
                                void *arg2,
                                fbd_request_t *w_req,
@@ -229,6 +272,85 @@ int sh_test_r(char *r_buf, fds_uint32_t len, fds_uint32_t offset, fds_volid_t vo
   }
 
   return result;
+}
+
+// TEMP -- for testing native api directly, not called from 
+// desktop unit test, can exchange names with unitTest and it will be
+// called with desktop test
+int unitTest2(fds_uint32_t time_mins)
+{
+  fds_uint32_t req_size;
+  char *w_buf;
+  char *r_buf;
+  fds_uint32_t result;
+  FDS_NativeAPI* api;
+  BucketContext* buck_context;
+  PutProperties* put_props;
+  GetConditions get_conds;
+
+  VolumeDesc voldesc("default_vol2", 2);
+  voldesc.iops_min = 10;
+  voldesc.iops_max = 1000;
+
+  FDS_PLOG(storHvisor->GetLog()) << "Blob unit test -- testing putObject()";
+
+  req_size = 8192;
+  result = 0;
+  /*
+   * Note these buffers are reused at every loop
+   * iteration and are freed at the end of the test.
+   */
+  w_buf    = new char[req_size]();
+  r_buf    = new char[2*req_size]();
+
+  /* do one request for now */
+  api = new FDS_NativeAPI(FDS_NativeAPI::FDSN_AWS_S3);
+  buck_context = new BucketContext("hostA", "default_vol2", "X", "Y");
+  put_props = new PutProperties();
+
+  /* first create bucket */
+  FDS_PLOG(storHvisor->GetLog()) << "Blob unit test -- will create bucket " << buck_context->bucketName;
+  api->CreateBucket(buck_context, CannedAclPublicRead, NULL, sh_test_create_bucket_callback, NULL);
+  sleep(5);
+
+
+  FDS_PLOG(storHvisor->GetLog()) << "Blob unit test -- will put object to " << buck_context->bucketName;
+  memset(w_buf, 0xfeed, req_size);
+  api->PutObject(buck_context, "ut_key", put_props, NULL, w_buf, req_size, sh_test_put_callback, NULL); 
+
+  sleep(10);
+  FDS_PLOG(storHvisor->GetLog()) << "Blob write unit test -- waited 10 sec after putObject()";
+
+  FDS_PLOG(storHvisor->GetLog()) << "Blob unit test -- will put object to " << buck_context->bucketName;
+  memset(w_buf, 0xfe0d, req_size);
+  api->PutObject(buck_context, "another_test_key", put_props, NULL, w_buf, req_size, sh_test_put_callback, NULL); 
+
+  sleep(10);
+  FDS_PLOG(storHvisor->GetLog()) << "Blob write unit test -- waited 10 sec after putObject()";
+
+  FDS_PLOG(storHvisor->GetLog()) << "Blob unit test -- will get bucket list from bucket " << buck_context->bucketName;
+  api->GetBucket(buck_context, "", "", "", 10, NULL, sh_test_list_bucket_callback, NULL);
+  sleep(5);
+
+  /*
+  FDS_PLOG(storHvisor->GetLog()) << "Blob unit test -- will get same object from " << buck_context->bucketName;
+  api->GetObject(buck_context, "ut_key", &get_conds, 0, 0, r_buf, 2*req_size, NULL, sh_test_get_callback, NULL);
+  sleep(5);
+  */
+
+  FDS_PLOG(storHvisor->GetLog()) << "Blob unit test -- will delete same object from " << buck_context->bucketName;
+  api->DeleteObject(buck_context, "ut_key", NULL, sh_test_delete_callback, NULL);
+  sleep(10);
+
+  delete buck_context;
+  delete put_props;
+  delete api;
+
+  delete w_buf;
+  delete r_buf;
+
+  return result;
+
 }
 
 int unitTest(fds_uint32_t time_mins) {
@@ -772,7 +894,9 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
   fds_volid_t   volId = blobReq->getVolId();
   StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(volId);
   if ((shVol == NULL) || (shVol->isValidLocked() == false)) {
-    shVol->readUnlock();
+    if (shVol) {
+      shVol->readUnlock();
+    }
     FDS_PLOG_SEV(sh_log, fds::fds_log::critical) << "putBlob failed to get volume for vol "
                                                  << volId;
     
@@ -1168,6 +1292,14 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
                                         blobReq->getBlobOffset(),
                                         transId,
                                         &objId);
+  if (err == ERR_PENDING_RESP) {
+    FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "Vol catalog cache query pending: "
+                                                     << " for blob " << blobReq->getBlobName()
+                                                     << " and offset " << blobReq->getBlobOffset()
+                                                     << " with err " << err;
+    journEntry->trans_state = FDS_TRANS_VCAT_QUERY_PENDING;
+    return err;
+  }
   fds_verify(err == ERR_OK);
 
   journEntry->data_obj_id.hash_high = objId.GetHigh();
@@ -1266,12 +1398,21 @@ fds::Error StorHvCtrl::getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
   FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "Responding to getBlob trans " << transId
                                                    <<" for blob " << blobReq->getBlobName()
                                                    << " and offset " << blobReq->getBlobOffset()
+						   << " length " << getObjRsp->data_obj_len
                                                    << " with result " << rxMsg->result;
   /*
    * Mark the IO complete, clean up txn, and callback
    */
   qos_ctrl->markIODone(txn->io);
   if (rxMsg->result == FDSP_ERR_OK) {
+    if (blobReq->getIoType() == FDS_GET_BLOB) {
+      /* NOTE: we are currently supporting only getting the whole blob
+       * so the requester does not know about the blob length, 
+       * we get the blob length in response from SM;
+       * will need to revisit when we also support (don't ignore) byteCount in native api */
+      fds_verify(getObjRsp->data_obj_len <= blobReq->getDataLen());
+      blobReq->setDataLen(getObjRsp->data_obj_len);
+    }
     fds_verify(getObjRsp->data_obj_len == blobReq->getDataLen());
     blobReq->setDataBuf(getObjRsp->data_obj.c_str());
     blobReq->cbWithResult(0);
@@ -1308,17 +1449,16 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   int node_state = -1;
   fds::Error err(ERR_OK);
   ObjectID oid;
-  fds_uint32_t vol_id;
   FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
   fds_verify(blobReq->magicInUse() == true);
   DeleteBlobReq *del_blob_req = (DeleteBlobReq *)blobReq;
 
-  fds_volid_t   volId = blobReq->getVolId();
-  StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(volId);
+  fds_volid_t   vol_id = blobReq->getVolId();
+  StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(vol_id);
   if ((shVol == NULL) || (shVol->isValidLocked() == false)) {
     shVol->readUnlock();
     FDS_PLOG_SEV(sh_log, fds::fds_log::critical) << "deleteBlob failed to get volume for vol "
-                                                 << volId;
+                                                 << vol_id;
     
     blobReq->cbWithResult(-1);
     err = ERR_DISK_WRITE_FAILED;
@@ -1328,13 +1468,15 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
 
   /* Check if there is an outstanding transaction for this block offset  */
   // fds_uint32_t transId = shVol->journal_tbl->get_trans_id_for_block(blobReq->getBlobOffset());
-  fds_uint32_t transId = shVol->journal_tbl->get_trans_id_for_blob(blobReq->getBlobName(),
+   fds_uint32_t transId = shVol->journal_tbl->get_trans_id_for_blob(blobReq->getBlobName(),
                                                                    blobReq->getBlobOffset());
   StorHvJournalEntry *journEntry = shVol->journal_tbl->get_journal_entry(transId);
   
   StorHvJournalEntryLock je_lock(journEntry);
   
   if (journEntry->isActive()) {
+    shVol->readUnlock();
+
     FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << transId << " - Transaction  is already in ACTIVE state, completing request "
 				   << transId << " with ERROR(-2) ";
     // There is an ongoing transaciton for this offset.
@@ -1349,7 +1491,7 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
 
   journEntry->setActive();
 
-  FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << transId << " volID:" << volId << " - Activated txn for req :" << transId;
+  FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << transId << " volID:" << vol_id << " - Activated txn for req :" << transId;
   
   FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr = new FDSP_MsgHdrType;
   FDS_ProtocolInterface::FDSP_DeleteObjTypePtr del_obj_req = new FDSP_DeleteObjType;
@@ -1377,13 +1519,17 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
                                         transId,
                                         &oid);
   if (err.GetErrno() == ERR_PENDING_RESP) {
-    FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << transId << " volID:" << volId << " - Vol catalog Cache Query pending :" << err.GetErrno() << std::endl ;
+    shVol->readUnlock();
+
+    FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << transId << " volID:" << vol_id << " - Vol catalog Cache Query pending :" << err.GetErrno() << std::endl ;
     journEntry->trans_state = FDS_TRANS_VCAT_QUERY_PENDING;
     return err.GetErrno();
   }
   
   if (err.GetErrno() == ERR_CAT_QUERY_FAILED)
   {
+    shVol->readUnlock();
+
     FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:" << transId << " volID:" << vol_id << " - Error reading the Vol catalog  Error code : " <<  err.GetErrno() << std::endl;
     blobReq->cbWithResult(err.GetErrno());
     return err.GetErrno();
@@ -1414,7 +1560,8 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   // Lookup the Primary SM node-id/ip-address to send the DeleteObject to
   storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(doid_dlt_key, node_ids, &num_nodes);
   if(num_nodes == 0) {
-    FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << transId << " volID:" << volId << " -  DLT Nodes  NOT  confiigured. Check on OM Manager. Completing request with ERROR(-1)";
+    FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << transId << " volID:" << vol_id << " -  DLT Nodes  NOT  confiigured. Check on OM Manager. Completing request with ERROR(-1)";
+    shVol->readUnlock();
     blobReq->cbWithResult(-1);
     return ERR_GET_DLT_FAILED;
   }
@@ -1438,7 +1585,7 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   if (endPoint)
   { 
     endPoint->fdspDPAPI->begin_DeleteObject(fdsp_msg_hdr, del_obj_req);
-    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:" << transId << " volID:" << volId << " - Sent async DelObj req to SM";
+    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:" << transId << " volID:" << vol_id << " - Sent async DelObj req to SM";
   }
   
   // RPC Call DeleteCatalogObject to DataMgr
@@ -1447,12 +1594,13 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr_dm = new FDSP_MsgHdrType;
   storHvisor->InitDmMsgHdr(fdsp_msg_hdr_dm);
   fdsp_msg_hdr_dm->msg_code = FDSP_MSG_DELETE_CAT_OBJ_REQ;
+  fdsp_msg_hdr_dm->glob_volume_id = vol_id;
   fdsp_msg_hdr_dm->req_cookie = transId;
   fdsp_msg_hdr_dm->src_ip_lo_addr = SRC_IP;
   fdsp_msg_hdr_dm->src_node_name = storHvisor->my_node_name;
   fdsp_msg_hdr_dm->src_port = 0;
   fdsp_msg_hdr_dm->dst_port = node_port;
-  storHvisor->dataPlacementTbl->getDMTNodesForVolume(volId, node_ids, &num_nodes);
+  storHvisor->dataPlacementTbl->getDMTNodesForVolume(vol_id, node_ids, &num_nodes);
   
   for (i = 0; i < num_nodes; i++) {
     node_ip = 0;
@@ -1480,7 +1628,7 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
     if (endPoint){
       endPoint->fdspDPAPI->begin_DeleteCatalogObject(fdsp_msg_hdr_dm, del_cat_obj_req);
       FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:"
-                                     << transId << " volID:" << volId
+                                     << transId << " volID:" << vol_id
                                      << " - Sent async DELETE_CAT_OBJ_REQ request to DM at "
                                      <<  node_ip << " port " << node_port;
     }
@@ -1488,8 +1636,247 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   // Schedule a timer here to track the responses and the original request
   IceUtil::Time interval = IceUtil::Time::seconds(FDS_IO_LONG_TIME);
   shVol->journal_tbl->schedule(journEntry->ioTimerTask, interval);
+
+  shVol->readUnlock();
+
   return ERR_OK; // je_lock destructor will unlock the journal entry
 }
+
+fds::Error StorHvCtrl::listBucket(fds::AmQosReq *qosReq) {
+  fds::Error err(ERR_OK);
+  FDS_RPC_EndPoint *endPoint = NULL; 
+  unsigned int node_ip = 0;
+  fds_uint32_t node_port = 0;
+  int node_state = -1;
+
+  FDS_PLOG_SEV(sh_log, fds::fds_log::normal)
+      << "Doing a list bucket operation!";
+
+  /*
+   * Pull out the blob request
+   */
+  FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
+  fds_verify(blobReq->magicInUse() == true);
+
+  fds_volid_t   volId = blobReq->getVolId();
+  StorHvVolume *shVol = vol_table->getVolume(volId);
+  if ((shVol == NULL) || (shVol->isValidLocked() == false)) {
+    FDS_PLOG_SEV(sh_log, fds::fds_log::critical) << "listBucket failed to get volume for vol "
+                                                 << volId;    
+    blobReq->cbWithResult(-1);
+    err = ERR_NOT_FOUND;
+    delete qosReq;
+    return err;
+  }
+
+  /*
+   * Track how long the request was queued before get() dispatch
+   * TODO: Consider moving to the QoS request
+   */
+  blobReq->setQueuedUsec(shVol->journal_tbl->microsecSinceCtime(
+      boost::posix_time::microsec_clock::universal_time()));
+
+  fds_uint32_t transId = shVol->journal_tbl->get_trans_id_for_blob(blobReq->getBlobName(),
+                                                                   blobReq->getBlobOffset());
+  StorHvJournalEntry *journEntry = shVol->journal_tbl->get_journal_entry(transId);
+  
+  StorHvJournalEntryLock je_lock(journEntry);
+  
+  if (journEntry->isActive()) {
+    FDS_PLOG_SEV(GetLog(), fds::fds_log::error) <<" StorHvisorTx:" << "IO-XID:" << transId 
+						  << " - Transaction  is already in ACTIVE state, completing request "
+						  << transId << " with ERROR(-2) ";
+    // There is an ongoing transaciton for this bucket.
+    // We should queue this up for later processing once that completes.
+    
+    // For now, return an error.
+    blobReq->cbWithResult(-2);
+    err = ERR_INVALID_ARG;
+    delete qosReq;
+    return err;
+  }
+
+  journEntry->setActive();
+
+  FDS_PLOG(GetLog()) <<" StorHvisorTx:" << "IO-XID:" << transId << " volID:" << volId << " - Activated txn for req :" << transId;
+
+  /*
+   * Setup msg header
+   */
+  fds_int32_t num_nodes = 8;  // TODO: Why 8? Look up vol/blob repl factor
+  fds_int32_t node_ids[num_nodes];  // TODO: Doesn't need to be signed
+  memset(node_ids, 0x00, sizeof(fds_int32_t) * num_nodes);
+
+  FDSP_MsgHdrTypePtr msgHdr = new FDSP_MsgHdrType;
+  InitDmMsgHdr(msgHdr);
+  msgHdr->msg_code       = FDSP_MSG_GET_VOL_BLOB_LIST_REQ;
+  msgHdr->msg_id         =  1;
+  msgHdr->req_cookie     = transId;
+  msgHdr->glob_volume_id = volId;
+  msgHdr->src_ip_lo_addr = SRC_IP;
+  msgHdr->src_port       = 0;
+  msgHdr->src_node_name  = my_node_name;
+  msgHdr->bucket_name    = blobReq->getBlobName(); /* ListBucketReq stores bucket name in blob name */
+ 
+  /*
+   * Setup journal entry
+   */
+  journEntry->trans_state = FDS_TRANS_GET_BUCKET;
+  journEntry->sm_msg = NULL; 
+  journEntry->dm_msg = msgHdr;
+  journEntry->sm_ack_cnt = 0;
+  journEntry->dm_ack_cnt = 0;
+  journEntry->op = FDS_LIST_BUCKET;
+  journEntry->data_obj_id.hash_high = 0;
+  journEntry->data_obj_id.hash_low = 0;
+  journEntry->data_obj_len = 0;
+  journEntry->io = qosReq;
+  dataPlacementTbl->getDMTNodesForVolume(volId, node_ids, &num_nodes);
+
+  if(num_nodes == 0) {
+    FDS_PLOG_SEV(GetLog(), fds::fds_log::error) <<" StorHvisorTx:" << "IO-XID:" << transId << " volID:" << volId 
+						<< " -  DMT Nodes  NOT  configured. Check on OM Manager. Completing request with ERROR(-1)";
+    blobReq->cbWithResult(-1);
+    err = ERR_GET_DMT_FAILED;
+    delete qosReq;
+    return err;
+  }
+
+  /* getting from first DM in the list */
+  FDS_ProtocolInterface::FDSP_GetVolumeBlobListReqTypePtr get_bucket_list_req = 
+    new FDS_ProtocolInterface::FDSP_GetVolumeBlobListReqType;
+
+  node_ip = 0;
+  node_port = 0;
+  node_state = -1;
+  dataPlacementTbl->getNodeInfo(node_ids[0],
+				&node_ip,
+				&node_port,
+				&node_state);
+    
+  msgHdr->dst_ip_lo_addr = node_ip;
+  msgHdr->dst_port = node_port;
+
+  get_bucket_list_req->max_blobs_to_return = static_cast<ListBucketReq*>(blobReq)->maxkeys;
+  get_bucket_list_req->iterator_cookie = static_cast<ListBucketReq*>(blobReq)->iter_cookie;
+
+  // Call Get Volume Blob List to DM
+  rpcSwitchTbl->Get_RPC_EndPoint(node_ip,
+				 node_port,
+				 FDSP_DATA_MGR,
+				 &endPoint);
+
+  fds_verify(endPoint != NULL);
+
+  endPoint->fdspDPAPI->begin_GetVolumeBlobList(msgHdr, get_bucket_list_req);
+  FDS_PLOG(GetLog()) << " StorHvisorTx:" << "IO-XID:"
+		     << transId << " volID:" << volId
+		     << " - Sent async GET_VOL_BLOB_LIST_REQ request to DM at "
+		     <<  node_ip << " port " << node_port;
+
+  // Schedule a timer here to track the responses and the original request
+  IceUtil::Time interval = IceUtil::Time::seconds(FDS_IO_LONG_TIME);
+  shVol->journal_tbl->schedule(journEntry->ioTimerTask, interval);
+  return err; // je_lock destructor will unlock the journal entry
+}
+
+fds::Error StorHvCtrl::getBucketResp(const FDSP_MsgHdrTypePtr& rxMsg,
+				     const FDSP_GetVolumeBlobListRespTypePtr& blobListResp)
+{
+  fds::Error err(ERR_OK);
+  fds_uint32_t transId = rxMsg->req_cookie;
+  fds_volid_t volId    = rxMsg->glob_volume_id;
+
+  fds_verify(rxMsg->msg_code == FDS_ProtocolInterface::FDSP_MSG_GET_VOL_BLOB_LIST_RSP);
+
+  StorHvVolume* vol = vol_table->getVolume(volId);
+  fds_verify(vol != NULL);  // Should not receive resp for non existant vol
+
+  StorHvVolumeLock vol_lock(vol);
+  fds_verify(vol->isValidLocked() == true);
+
+  StorHvJournalEntry *txn = vol->journal_tbl->get_journal_entry(transId);
+  fds_verify(txn != NULL);
+
+  StorHvJournalEntryLock je_lock(txn);
+  fds_verify(txn->isActive() == true);  // Should not receive resp for inactive txn
+  fds_verify(txn->trans_state == FDS_TRANS_GET_BUCKET);
+
+
+  /*
+   * List of blobs ready, respond to callback
+   */
+  fds::AmQosReq   *qosReq  = static_cast<fds::AmQosReq *>(txn->io);
+  fds_verify(qosReq != NULL);
+  fds::FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
+  fds_verify(blobReq != NULL);
+  fds_verify(blobReq->getIoType() == FDS_LIST_BUCKET);
+  FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "Responding to getBucket trans " << transId
+                                                   <<" for bucket " << blobReq->getBlobName()
+						   << " num of blobs " << blobListResp->num_blobs_in_resp
+						   << " end_of_list? " << blobListResp->end_of_list
+                                                   << " with result " << rxMsg->result;
+  /*
+   * Mark the IO complete, clean up txn, and callback
+   */
+  qos_ctrl->markIODone(txn->io);
+  if (rxMsg->result == FDSP_ERR_OK) {
+    ListBucketContents* contents = new ListBucketContents[blobListResp->num_blobs_in_resp];
+    fds_verify(contents != NULL);
+    fds_verify(blobListResp->num_blobs_in_resp == (blobListResp->blob_info_list).size());
+    for (int i = 0; i < blobListResp->num_blobs_in_resp; ++i)
+      {
+	contents[i].set((blobListResp->blob_info_list)[i].blob_name,
+			0, // last modified
+			"",  // eTag
+			(blobListResp->blob_info_list)[i].blob_size, 
+			"", // ownerId
+			"");
+      }
+
+    /* in case there are more blobs in the list, remember iter_cookie */
+    ListBucketReq* list_buck = static_cast<ListBucketReq*>(blobReq);
+    list_buck->iter_cookie = blobListResp->iterator_cookie;
+
+    /* call ListBucketReq's callback directly */
+    list_buck->DoCallback( (blobListResp->end_of_list == true) ? 0 : 1, //isTrancated == 0 if no more blobs to return?
+			   "", // next_marker ?
+			   blobListResp->num_blobs_in_resp,
+			   contents,
+			   FDSN_StatusOK,
+			   NULL);
+
+  } else {
+    /*
+     * We received an error from SM
+     */
+    blobReq->cbWithResult(-1);
+  }
+
+  txn->reset();
+  vol->journal_tbl->releaseTransId(transId);
+
+  /* if there are more blobs to return, we update blobReq with new iter_cookie 
+   * that we got from SM and queue back to QoS queue 
+   * TODO: or should we not release transaction ? */
+  if (blobListResp->end_of_list == false) {
+    FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "GetBucketResp -- bucket " << blobReq->getBlobName()
+						     << " has more blobs, queueing request for next list of blobs";
+    pushBlobReq(blobReq);
+    return err;
+  }
+
+  /*
+   * TODO: We're deleting the request structure. This assumes
+   * that the caller got everything they needed when the callback
+   * was invoked.
+   */
+  delete blobReq;
+
+  return err;
+
+}
+
 
 fds_log* StorHvCtrl::GetLog() {
   return sh_log;

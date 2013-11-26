@@ -48,10 +48,15 @@ namespace fds {
 int scheduleUpdateCatalog(void * _io);
 int scheduleQueryCatalog(void * _io);
 int scheduleDeleteCatObj(void * _io);
+int scheduleBlobList(void * _io);
 
   class DataMgr : virtual public Ice::Application {
 public:
   void InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
+
+  /*
+   * TODO: Make more generic name than catalog request
+   */
   class dmCatReq : public FDS_IOType {
  public:
     fds_volid_t  volId;
@@ -66,6 +71,20 @@ public:
     fds_uint32_t reqCookie;
     FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr fdspUpdCatReqPtr;
 
+    dmCatReq(fds_volid_t  _volId,
+             long 	  _srcIp,
+	     long 	  _dstIp,
+	     fds_uint32_t _srcPort,
+	     fds_uint32_t _dstPort,
+	     std::string  _src_node_name,
+	     fds_uint32_t _reqCookie,
+	     fds_io_op_t  _ioType)
+        : volId(_volId), srcIp(_srcIp), dstIp(_dstIp),
+        srcPort(_srcPort), dstPort(_dstPort), src_node_name(_src_node_name),
+        reqCookie(_reqCookie), fdspUpdCatReqPtr(NULL) {
+      io_type = _ioType;
+      io_vol_id = _volId;
+    }
 
     dmCatReq(fds_volid_t        _volId,
 	     std::string        _blob_name,
@@ -148,6 +167,10 @@ public:
 	  case FDS_DELETE_BLOB:
              FDS_PLOG(FDS_QoSControl::qos_log) << "Processing  the Delete Blob request";
 	     threadPool->schedule(scheduleDeleteCatObj, io);
+	     break;
+	  case FDS_LIST_BLOB:
+             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing the blob list request";
+	     threadPool->schedule(scheduleBlobList, io);
 	     break;
 	  default:
              FDS_PLOG(FDS_QoSControl::qos_log) << "Unknown IO Type received";
@@ -239,6 +262,8 @@ public:
                          BlobNode*& bnode);
     Error _process_delete(fds_volid_t vol_uuid,
                          std::string blob_name);
+    Error _process_list(fds_volid_t volId,
+                        std::list<BlobNode>& bNodeList);
 
     fds_bool_t volExistsLocked(fds_volid_t vol_uuid) const;
 
@@ -273,19 +298,23 @@ public:
     void updateCatalogBackend(dmCatReq  *updCatReq);
     void queryCatalogBackend(dmCatReq  *qryCatReq);
     void deleteCatObjBackend(dmCatReq  *delCatReq);
+    void blobListBackend(dmCatReq *listBlobReq);
 
     /* 
      * FDS protocol processing proto types 
      */
-	Error updateCatalogInternal(FDSP_UpdateCatalogTypePtr updCatReq, 
-                                 fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
-				    fds_uint32_t dstPort, std::string src_node_name, fds_uint32_t reqCookie);
-	Error queryCatalogInternal(FDSP_QueryCatalogTypePtr qryCatReq, 
-                                 fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
-				   fds_uint32_t dstPort, std::string src_node_name, fds_uint32_t reqCookie);
-	Error deleteCatObjInternal(FDSP_DeleteCatalogTypePtr delCatReq, 
-                                 fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
-				   fds_uint32_t dstPort, std::string src_node_name, fds_uint32_t reqCookie);
+    Error updateCatalogInternal(FDSP_UpdateCatalogTypePtr updCatReq, 
+                                fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
+                                fds_uint32_t dstPort, std::string src_node_name, fds_uint32_t reqCookie);
+    Error queryCatalogInternal(FDSP_QueryCatalogTypePtr qryCatReq, 
+                               fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
+                               fds_uint32_t dstPort, std::string src_node_name, fds_uint32_t reqCookie);
+    Error deleteCatObjInternal(FDSP_DeleteCatalogTypePtr delCatReq, 
+                               fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
+                               fds_uint32_t dstPort, std::string src_node_name, fds_uint32_t reqCookie);
+    Error blobListInternal(const FDSP_GetVolumeBlobListReqTypePtr& blob_list_req,
+                           fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
+                           fds_uint32_t dstPort, std::string src_node_name, fds_uint32_t reqCookie);
 
 
     /*
@@ -345,11 +374,9 @@ public:
 				 const std::string& src_node_name,
                                  const Ice::Current& current);
 
-      void GetVolumeBlobList(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fds_msg, 
-			     const FDS_ProtocolInterface::FDSP_GetVolumeBlobListReqTypePtr& blob_list_req,
-			     const Ice::Current& current) {
-
-      }
+      void GetVolumeBlobList(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr, 
+			     const FDS_ProtocolInterface::FDSP_GetVolumeBlobListReqTypePtr& blobListReq,
+			     const Ice::Current& current);
     };
 
     /*
@@ -398,8 +425,7 @@ public:
                                const Ice::Current&);
       void GetVolumeBlobListResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fds_msg, 
 				 const FDS_ProtocolInterface::FDSP_GetVolumeBlobListRespTypePtr& blob_list_rsp, 
-				 const Ice::Current &){
-    }
+				 const Ice::Current &);
     };
   };
 

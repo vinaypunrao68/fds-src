@@ -150,6 +150,21 @@ public:
 
    ListBucketContents() {}
    ~ListBucketContents() {}
+
+   void set(const std::string& _key, 
+	    fds_uint64_t _modified,
+	    const std::string& _eTag,
+	    fds_uint64_t _size,
+	    const std::string& _ownerId,
+	    const std::string& _ownerDisplayName)
+   {
+     objKey = _key;
+     lastModified = _modified;
+     eTag = _eTag;
+     size = _size;
+     ownerId = _ownerId;
+     ownerDisplayName = _ownerDisplayName;
+   }
 };
 
 typedef enum
@@ -387,7 +402,7 @@ class FDS_NativeAPI {
   void CreateBucket(BucketContext *bucket_ctx, CannedAcl  canned_acl, 
                     void *req_ctxt, fdsnResponseHandler responseHandler, void *callback_data);
   // Get the bucket contents  or objets belonging to this bucket
-  void GetBucket(BucketContext *bucketContext,
+  void GetBucket(BucketContext *bucket_ctxt,
                     std::string prefix, std::string marker,
                     std::string delimiter, fds_uint32_t maxkeys,
                     void *requestContext,

@@ -207,7 +207,7 @@ ngx_http_fds_route_request(ngx_http_request_t *r)
     if (uri_parts.size() == 1) {
       return ngx_fds_bucket_delete(&http_req);
     } else if (uri_parts.size() == 2) {
-      return ngx_fds_obj_put(&http_req);
+      return ngx_fds_obj_delete(&http_req);
     }
     break;
   }
