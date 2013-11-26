@@ -185,14 +185,14 @@ class StorNode():
                                               self.name)
 
     def getSmCmd(self):
-        return "%s --port=%d --cp_port=%d --prefix=%s_ --log-severity %d" % (self.smBin,
+        return "%s --port=%d --cp_port=%d --prefix=%s_ --log-severity=%d" % (self.smBin,
                                                           self.dataPort,
                                                           self.controlPort,
                                                           self.name,
                                                           self.logSeverity)
 
     def getDmCmd(self):
-        return "%s --port=%d --cp_port=%d --prefix=%s_ --log-severity %d" % (self.dmBin,
+        return "%s --port=%d --cp_port=%d --prefix=%s_ --log-severity=%d" % (self.dmBin,
                                                            self.dataPort + 1,
                                                            self.controlPort + 1,
                                                            self.name,
@@ -457,7 +457,7 @@ class TestBringUp():
     # Builds the command to start SH UBD service
     #
     def buildUbdCmd(self, client):
-        cmd = self.ldLibPath + "; " + self.iceHome + "; " + " cd " + self.fdsBinDir + "; " + "ulimit -s 4096; " + "./" + client.getUbdCmd() + " --om_ip=" + self.omIpStr + " --om_port=" + str(self.omConfPort) + " --node_name=localhost-" + client.name + " --log-severity " + str(client.getLogSeverity())
+        cmd = self.ldLibPath + "; " + self.iceHome + "; " + " cd " + self.fdsBinDir + "; " + "ulimit -s 4096; " + "./" + client.getUbdCmd() + " --om_ip=" + self.omIpStr + " --om_port=" + str(self.omConfPort) + " --node_name=localhost-" + client.name + " --log-severity=" + str(client.getLogSeverity())
         return cmd
 
 
