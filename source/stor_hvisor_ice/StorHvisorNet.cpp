@@ -851,7 +851,8 @@ fds::Error StorHvCtrl::pushBlobReq(fds::FdsBlobReq *blobReq) {
 
   fds::StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(volId);
   if ((shVol == NULL) || (shVol->volQueue == NULL)) {
-    shVol->readUnlock();
+    if (shVol)
+      shVol->readUnlock();
     FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error)
         << "Volume and queueus are NOT setup for volume " << volId;
     err = fds::ERR_INVALID_ARG;
@@ -1240,7 +1241,7 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
     FDS_PLOG_SEV(sh_log, fds::fds_log::critical) << "Transaction " << transId << " is already ACTIVE"
                                                  << ", just give up and return error.";
     blobReq->cbWithResult(-2);
-    err = ERR_DISK_READ_FAILED;
+    err = ERR_OK;
     delete qosReq;
     return err;
   }
@@ -1292,6 +1293,7 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
                                                      << " and offset " << blobReq->getBlobOffset()
                                                      << " with err " << err;
     journEntry->trans_state = FDS_TRANS_VCAT_QUERY_PENDING;
+    err = ERR_OK;
     return err;
   }
   fds_verify(err == ERR_OK);

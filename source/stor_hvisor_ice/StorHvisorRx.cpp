@@ -381,7 +381,7 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
     FDS_RPC_EndPoint *endPoint = NULL;
     uint64_t doid_high;
     int trans_id = fdsp_msg_hdr->req_cookie;
-    fbd_request_t *req;
+    //fbd_request_t *req;
     fds_uint32_t vol_id = fdsp_msg_hdr->glob_volume_id;
 
     FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx: " << "IO_XID: " << trans_id << " - Volume " << vol_id 
@@ -406,31 +406,32 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
       FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Journal Entry is In-Active";
       return;
     }
+
+    fds::AmQosReq   *qosReq  = (AmQosReq *)journEntry->io;
+    fds_verify(qosReq != NULL);
+    fds::FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
+    fds_verify(blobReq != NULL);
     
     if (journEntry->op !=  FDS_IO_READ && journEntry->op != FDS_GET_BLOB && journEntry->op != FDS_DELETE_BLOB) { 
       FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Journal Entry  " << fdsp_msg_hdr->req_cookie <<  "  QueryCatalogObjResp for a non IO_READ transaction" ;
-      req = (fbd_request_t *)journEntry->write_ctx;
       journEntry->trans_state = FDS_TRANS_EMPTY;
       journEntry->write_ctx = 0;
-      if(req) {
-        FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Responding to the block device with Error" ;
-        journEntry->fbd_complete_req(req, -1);
-      }
+      FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Responding to AM request with Error" ;
+      blobReq->cbWithResult(-1);
       journEntry->reset();
+      delete blobReq;
       shvol->journal_tbl->releaseTransId(trans_id);
       return;
     }
     
     if (journEntry->trans_state != FDS_TRANS_VCAT_QUERY_PENDING) {
-      FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Journal Entry  " << fdsp_msg_hdr->req_cookie <<  " QueryCatalogObjResp for a transaction node in Query Pending " ;
-      req = (fbd_request_t *)journEntry->write_ctx;
+      FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Journal Entry  " << fdsp_msg_hdr->req_cookie <<  " QueryCatalogObjResp for a transaction node not in Query Pending " ;
       journEntry->trans_state = FDS_TRANS_EMPTY;
       journEntry->write_ctx = 0;
-      if(req) {
-        FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Responding to the block device with Error" ;
-        journEntry->fbd_complete_req(req, -1);
-      }
+      FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Responding to the block device with Error" ;
+      blobReq->cbWithResult(-1);      
       journEntry->reset();
+      delete blobReq;
       shvol->journal_tbl->releaseTransId(trans_id);
       return;
     }
@@ -438,15 +439,26 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
     // If Data Mgr does not have an entry, simply return 0s.
     if (fdsp_msg_hdr->result != FDS_ProtocolInterface::FDSP_ERR_OK) {
       FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Journal Entry  " << fdsp_msg_hdr->req_cookie <<  ":  QueryCatalogObjResp returned error ";
-      req = (fbd_request_t *)journEntry->write_ctx;
       storHvisor->qos_ctrl->markIODone(journEntry->io);
       journEntry->trans_state = FDS_TRANS_EMPTY;
       journEntry->write_ctx = 0;
-      if(req) {
-        memset(req->buf, 0, req->len);
-        journEntry->fbd_complete_req(req, 0);
+      // memset(req->buf, 0, req->len);
+#if 0
+      // TODO: We need to do something like below to fill the return buff with zeroes.
+      if (blobReq->getIoType() == FDS_GET_BLOB) {
+	/* NOTE: we are currently supporting only getting the whole blob
+	 * so the requester does not know about the blob length, 
+	 * we get the blob length in response from SM;
+	 * will need to revisit when we also support (don't ignore) byteCount in native api */
+	fds_verify(getObjRsp->data_obj_len <= blobReq->getDataLen());
+	blobReq->setDataLen(getObjRsp->data_obj_len);
       }
+      fds_verify(getObjRsp->data_obj_len == blobReq->getDataLen());
+      blobReq->setDataBuf(getObjRsp->data_obj.c_str());
+#endif      
+      blobReq->cbWithResult(0);  
       journEntry->reset();
+      delete blobReq;
       shvol->journal_tbl->releaseTransId(trans_id);
       return;
     }
@@ -455,8 +467,8 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
     FDS_ProtocolInterface::FDSP_BlobObjectInfo& cat_obj_info = cat_obj_req->obj_list[0];
     FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - GOT A QUERY RESPONSE! Object ID :- " 
 				   << cat_obj_info.data_obj_id.hash_high << ":" << cat_obj_info.data_obj_id.hash_low ;
-    AmQosReq *qosReq = (AmQosReq *)journEntry->io;
-    FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
+    //AmQosReq *qosReq = (AmQosReq *)journEntry->io;
+    //FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
     
 
     
@@ -467,17 +479,16 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
     storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(doid_dlt_key, node_ids, &num_nodes);
     if(num_nodes == 0) {
       FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - DataPlace Error : no nodes in DLT :Jrnl Entry" << fdsp_msg_hdr->req_cookie <<  "QueryCatalogObjResp ";
-      req = (fbd_request_t *)journEntry->write_ctx;
       storHvisor->qos_ctrl->markIODone(journEntry->io);
       journEntry->trans_state = FDS_TRANS_EMPTY;
       journEntry->write_ctx = 0;
-      if(req) {
-        journEntry->fbd_complete_req(req, 0);
-      }
+      blobReq->cbWithResult(0);  
       journEntry->reset();
+      delete blobReq;
       shvol->journal_tbl->releaseTransId(trans_id);
       return;
     }
+
     storHvisor->dataPlacementTbl->getNodeInfo(node_ids[0],
                                               &node_ip,
                                               &node_port,

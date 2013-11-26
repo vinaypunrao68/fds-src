@@ -457,7 +457,7 @@ class TestBringUp():
     # Builds the command to start SH UBD service
     #
     def buildUbdCmd(self, client):
-        cmd = self.ldLibPath + "; " + self.iceHome + "; " + " cd " + self.fdsBinDir + "; " + "ulimit -s 4096; " + "./" + client.getUbdCmd() + " --om_ip=" + self.omIpStr + " --om_port=" + str(self.omConfPort) + " --node_name=localhost-" + client.name + " --log-severity " + str(client.getLogSeverity())
+        cmd = self.ldLibPath + "; " + self.iceHome + "; " + " cd " + self.fdsBinDir + "; " + "ulimit -s 4096; " +  "ulimit -c unlimited;" + "./" + client.getUbdCmd() + " --om_ip=" + self.omIpStr + " --om_port=" + str(self.omConfPort) + " --node_name=localhost-" + client.name + " --log-severity " + str(client.getLogSeverity())
         return cmd
 
 
