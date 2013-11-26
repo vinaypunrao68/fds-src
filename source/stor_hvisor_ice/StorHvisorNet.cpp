@@ -41,7 +41,8 @@ static int sh_test_put_callback(void* context, fds_uint64_t buf_size, char* buf,
 static FDSN_Status sh_test_get_callback(void* context, fds_uint64_t buf_size, const char* buf, void *callback_data,
 				FDSN_Status status, ErrorDetails* errDetaills)
 {
-  FDS_PLOG(storHvisor->GetLog()) << "sh_test_get_callback is called with status " << status;
+  FDS_PLOG(storHvisor->GetLog()) << "sh_test_get_callback is called with status " << status
+				 << " data length " << buf_size;
 }
 
 static void sh_test_create_bucket_callback(FDSN_Status status, const ErrorDetails* errDetails, void* callback_data)
@@ -284,7 +285,7 @@ int unitTest2(fds_uint32_t time_mins)
    * iteration and are freed at the end of the test.
    */
   w_buf    = new char[req_size]();
-  r_buf    = new char[req_size]();
+  r_buf    = new char[2*req_size]();
 
   /* do one request for now */
   api = new FDS_NativeAPI(FDS_NativeAPI::FDSN_AWS_S3);
@@ -304,15 +305,17 @@ int unitTest2(fds_uint32_t time_mins)
   sleep(10);
   FDS_PLOG(storHvisor->GetLog()) << "Blob write unit test -- waited 10 sec after putObject()";
 
+  /*
   FDS_PLOG(storHvisor->GetLog()) << "Blob unit test -- will get bucket list from bucket " << buck_context->bucketName;
   api->GetBucket(buck_context, "", "", "", 10, NULL, sh_test_list_bucket_callback, NULL);
   sleep(15);
-
-  /*
-  FDS_PLOG(storHvisor->GetLog()) << "Blob unit test -- will get same object from " << buck_context->bucketName;
-  api->GetObject(buck_context, "ut_key", &get_conds, 0, req_size, r_buf, req_size, NULL, sh_test_get_callback, NULL);
-  sleep(5);
   */
+
+  
+  FDS_PLOG(storHvisor->GetLog()) << "Blob unit test -- will get same object from " << buck_context->bucketName;
+  api->GetObject(buck_context, "ut_key", &get_conds, 0, 0, r_buf, 2*req_size, NULL, sh_test_get_callback, NULL);
+  sleep(5);
+  
 
   delete buck_context;
   delete put_props;
@@ -1360,12 +1363,21 @@ fds::Error StorHvCtrl::getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
   FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "Responding to getBlob trans " << transId
                                                    <<" for blob " << blobReq->getBlobName()
                                                    << " and offset " << blobReq->getBlobOffset()
+						   << " length " << getObjRsp->data_obj_len
                                                    << " with result " << rxMsg->result;
   /*
    * Mark the IO complete, clean up txn, and callback
    */
   qos_ctrl->markIODone(txn->io);
   if (rxMsg->result == FDSP_ERR_OK) {
+    if (blobReq->getIoType() == FDS_GET_BLOB) {
+      /* NOTE: we are currently supporting only getting the whole blob
+       * so the requester does not know about the blob length, 
+       * we get the blob length in response from SM;
+       * will need to revisit when we also support (don't ignore) byteCount in native api */
+      fds_verify(getObjRsp->data_obj_len <= blobReq->getDataLen());
+      blobReq->setDataLen(getObjRsp->data_obj_len);
+    }
     fds_verify(getObjRsp->data_obj_len == blobReq->getDataLen());
     blobReq->setDataBuf(getObjRsp->data_obj.c_str());
     blobReq->cbWithResult(0);

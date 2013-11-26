@@ -563,3 +563,12 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
 
     FDS_PLOG(storHvisor->GetLog()) << "Done with a update catalog request after resp received";
 }
+
+
+void FDSP_DataPathRespCbackI::GetVolumeBlobListResp(
+    const FDSP_MsgHdrTypePtr& fdsp_msg_hdr,
+    const FDSP_GetVolumeBlobListRespTypePtr& blob_list_resp,
+    const Ice::Current &) {
+  FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::debug) << "Received GetVolumeBlobListResp for txn "
+                                                          <<  fdsp_msg_hdr->req_cookie; 
+}

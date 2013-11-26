@@ -366,6 +366,9 @@ namespace fds {
     fds_uint64_t getDataLen() const {
       return dataLen;
     }
+    void setDataLen(fds_uint64_t len) {
+      dataLen = len;
+    }
     void setDataBuf(const char* _buf) {
       /*
        * TODO: For now we're assuming the buffer is preallocated
