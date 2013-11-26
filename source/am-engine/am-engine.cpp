@@ -420,6 +420,9 @@ Conn_GetObject::cb(void *req, fds_uint64_t bufsize,
                 FDSN_Status status, ErrorDetails *errdetails)
 {
   Conn_GetObject *conn_go = (Conn_GetObject*) cbData;
+  FDS_PLOG(conn_go->get_log()) << "GetObject bucket: " << conn_go->get_bucket_id()
+      << " , object: " << conn_go->get_object_id() << " , len: " << bufsize
+      << ", status: " << status;
   conn_go->notify_request_completed(map_fdsn_status(status), buf, (int)bufsize);
   return FDSN_StatusOK;
 }
@@ -514,7 +517,7 @@ Conn_PutObject::ame_request_handler()
 
     /* compute etag to be sent as response.  Ideally this is done by AM */
     etag = HttpUtils::computeEtag(buf, len);
-    printf("len: %d, data: %.4s\n", len, buf);
+    FDS_PLOG(get_log()) << "PutObject bucket: " << get_bucket_id() << " , object: " << get_object_id() << " , len: " << len;
 
     api = ame->ame_fds_hook();
     api->PutObject(&bucket_ctx, get_object_id(), NULL, NULL,
@@ -522,10 +525,9 @@ Conn_PutObject::ame_request_handler()
 
     if (!req_completed) {
       fds_assert(req_blocking_mode() == false);
-      printf("put object waiting\n");
       req_wait();
     }
-    printf("put object wait done\n");
+
     fdsn_send_put_response(resp_status, 0);
 }
 
