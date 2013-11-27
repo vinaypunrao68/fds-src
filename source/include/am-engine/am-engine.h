@@ -406,9 +406,13 @@ class Conn_GetBucket : public AME_Request
     Conn_GetBucket(AMEngine *eng, HttpRequest &req);
     ~Conn_GetBucket();
 
+    // returns bucket id
+    virtual std::string get_bucket_id() = 0;
+
     virtual void ame_request_handler();
     virtual void fdsn_send_getbucket_response(int status, int len);
   protected:
+    void *cur_get_buffer;
 };
 
 // Connector Adapter to implement GetBucket method.

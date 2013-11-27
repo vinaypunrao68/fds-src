@@ -669,9 +669,11 @@ Conn_GetBucket::fdsn_getbucket(int isTruncated, const char *nextMarker,
     int            i, got, used, sent;
     void           *resp;
     char           *cur;
+    char           *buf;
     Conn_GetBucket *gbucket = (Conn_GetBucket *)cbarg;
 
-    resp = gbucket->ame_push_resp_data_buf(NGX_RESP_CHUNK_SIZE, &cur, &got);
+    gbucket->cur_get_buffer = gbucket->ame_push_resp_data_buf(NGX_RESP_CHUNK_SIZE, &cur, &got);
+    buf = cur;
 
     // Format the header to send out.
     sent = 0;
@@ -763,8 +765,8 @@ Conn_GetBucket::fdsn_getbucket(int isTruncated, const char *nextMarker,
                     sgt_AMEKey[REST_LIST_BUCKET].u.kv_key);
     sent += used;
 
-    gbucket->fdsn_send_getbucket_response(200, sent);
-    gbucket->ame_send_resp_data(resp, sent, true);
+    gbucket->notify_request_completed(NGX_HTTP_OK, buf, sent);
+
 }
 
 // ame_request_handler
@@ -775,10 +777,21 @@ Conn_GetBucket::ame_request_handler()
 {
     FDS_NativeAPI *api;
     std::string    prefix, marker, deli;
+    BucketContext bucket_ctx("host", get_bucket_id(), "accessid", "secretkey");
 
     api = ame->ame_fds_hook();
-    api->GetBucket(NULL, prefix, marker, deli, 1000, NULL,
+    api->GetBucket(&bucket_ctx, prefix, marker, deli, 1000, NULL,
                    fds::Conn_GetBucket::fdsn_getbucket, (void *)this);
+
+    if (!req_completed) {
+      req_wait();
+    }
+    if (resp_status == NGX_HTTP_OK) {
+      fdsn_send_getbucket_response(resp_status, (int) resp_buf_len);
+      ame_send_resp_data(cur_get_buffer, (int) resp_buf_len, true);
+    } else {
+      fdsn_send_getbucket_response(resp_status, 0);
+    }
 }
 
 // fdsn_send_getbucket_response

@@ -93,6 +93,9 @@ class S3_GetBucket : public Conn_GetBucket
 
     virtual ame_ret_e ame_format_response_hdr();
 
+    // returns bucket id
+    virtual std::string get_bucket_id();
+
   protected:
 };
 
