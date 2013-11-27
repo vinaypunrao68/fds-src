@@ -235,7 +235,7 @@ class TestSequenceFunctions(unittest.TestCase):
             prefix_arg += " " + extra_args
         comp_arg = port_arg + " " + prefix_arg + " " + root_arg
         cmd = comp_exe + " " + comp_arg
-        cmd = "ulimit -s 4096; %s" % (cmd)
+        cmd = "ulimit -s 4096; ulimit -c unlimited; %s" % (cmd)
         print "Starting server cmd %s" % (cmd)
 
         #
@@ -303,7 +303,7 @@ class TestSequenceFunctions(unittest.TestCase):
         else:
             comp_arg = args
         comp_cmd = comp_exe + " " + comp_arg
-        comp_cmd = "ulimit -s 4096; %s" % (comp_cmd)
+        comp_cmd = "ulimit -s 4096; ulimit -c unlimited; %s" % (comp_cmd)
         print "Starting unit test cmd %s" % (comp_cmd)
 
         #
