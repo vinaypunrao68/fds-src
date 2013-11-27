@@ -3,6 +3,7 @@
  */
 #include "fdsCli.h"
 #include "cli-policy.h"
+#include <fds_assert.h>
 #include <boost/program_options.hpp>
 #include <boost/program_options/parsers.hpp>
 
@@ -86,6 +87,7 @@ int FdsCli::fdsCliPraser(int argc, char* argv[])
 	("iops-min,g",po::value<double>(),"minimum IOPS")
 	("iops-max,m",po::value<double>(),"maximum IOPS")
 	("rel-prio,r",po::value<int>(),"relative priority")
+        ("vol-type,y",po::value<std::string>()->default_value("s3"),"volume access type")
     ("om_ip", po::value<std::string>(), "OM IP addr") /* Consumed already */
     ("om_port", po::value<fds_uint32_t>(), "OM config port"); /* Consumed already */
 
@@ -122,7 +124,16 @@ int FdsCli::fdsCliPraser(int argc, char* argv[])
 
     		volData->vol_info->capacity = vm["volume-size"].as<double>();
     		volData->vol_info->maxQuota = 0;
-    		volData->vol_info->volType = FDSP_VOL_BLKDEV_TYPE;
+                if (vm.count("vol-type")) {
+                  if (vm["vol-type"].as<std::string>() == "s3") {
+                    volData->vol_info->volType = FDSP_VOL_S3_TYPE;
+                  } else {
+                    fds_verify(vm["vol-type"].as<std::string>() == "blk");
+                    volData->vol_info->volType = FDSP_VOL_BLKDEV_TYPE;
+                  }
+                } else {
+                  volData->vol_info->volType = FDSP_VOL_S3_TYPE;
+                }
 
   		volData->vol_info->defReplicaCnt = 0;
  	 	volData->vol_info->defWriteQuorum = 0;
@@ -170,7 +181,16 @@ int FdsCli::fdsCliPraser(int argc, char* argv[])
     		volData->vol_desc->vol_name = volData->vol_name;
 
     		volData->vol_desc->capacity = vm["volume-size"].as<double>();
-    		volData->vol_desc->volType = FDSP_VOL_BLKDEV_TYPE;
+                if (vm.count("vol-type")) {
+                  if (vm["vol-type"].as<std::string>() == "s3") {
+                    volData->vol_desc->volType = FDSP_VOL_S3_TYPE;
+                  } else {
+                    fds_verify(vm["vol-type"].as<std::string>() == "blk");
+                    volData->vol_desc->volType = FDSP_VOL_BLKDEV_TYPE;
+                  }
+                } else {
+                  volData->vol_desc->volType = FDSP_VOL_S3_TYPE;
+                }
     		volData->vol_desc->defConsisProtocol = FDSP_CONS_PROTO_STRONG;
 
 		volData->vol_desc->archivePolicyId = 0;
