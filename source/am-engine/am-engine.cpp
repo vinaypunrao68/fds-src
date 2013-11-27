@@ -659,10 +659,10 @@ Conn_GetBucket::~Conn_GetBucket()
 // --------------
 // Callback from FDSN to notify us that they have data to send out.
 //
-FDSN_Status
+void
 Conn_GetBucket::fdsn_getbucket(int isTruncated, const char *nextMarker,
         int contentCount, const ListBucketContents *contents,
-        int commPrefixCnt, const char **commPrefixes, void *cbarg)
+        int commPrefixCnt, const char **commPrefixes, void *cbarg, FDSN_Status status)
 {
     int            i, got, used, sent;
     void           *resp;

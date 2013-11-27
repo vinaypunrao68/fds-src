@@ -336,7 +336,7 @@ class ListBucketReq: public FdsBlobReq {
 		  const ListBucketContents* contents, 
 		  FDSN_Status status, 
 		  ErrorDetails* errDetails) {
-    (handler)(isTruncated, next_marker, contents_count, contents, 0, NULL, callback_data);
+    (handler)(isTruncated, next_marker, contents_count, contents, 0, NULL, callback_data, status);
   }
 
 };
@@ -348,10 +348,6 @@ class ListBucketReq: public FdsBlobReq {
 class AmQosReq : public FDS_IOType {
 private:
   FdsBlobReq *blobReq;
-  PutBlobReq  *putBlobReq;
-  GetBlobReq  *getBlobReq;
-  DeleteBlobReq  *deleteBlobReq;;
-  ListBucketReq  *listBucketReq;
 
 public:
   AmQosReq(FdsBlobReq *_br,

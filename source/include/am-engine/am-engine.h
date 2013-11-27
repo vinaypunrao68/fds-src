@@ -383,11 +383,11 @@ class Conn_GetBucket : public AME_Request
 {
   public:
     // Get Bucket callback from FDS API.
-    static FDSN_Status
+    static void
     fdsn_getbucket(int isTruncated, const char *nextMaker,
                    int contentsCount, const ListBucketContents *contents,
                    int commPrefixCount, const char **commPrefixes,
-                   void *cbarg);
+                   void *cbarg, FDSN_Status status);
 
   public:
     Conn_GetBucket(AMEngine *eng, HttpRequest &req);
