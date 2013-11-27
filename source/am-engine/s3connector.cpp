@@ -115,6 +115,10 @@ S3_GetBucket::ame_format_response_hdr()
     return AME_OK;
 }
 
+std::string S3_GetBucket::get_bucket_id()
+{
+  return ame_req.getURIParts()[0];
+}
 // ---------------------------------------------------------------------------
 
 S3_PutBucket::S3_PutBucket(AMEngine *eng, HttpRequest &req)

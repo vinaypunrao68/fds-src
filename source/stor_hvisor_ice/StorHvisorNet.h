@@ -245,7 +245,7 @@ static void processBlobReq(AmQosReq *qosReq) {
       break;
   }
 
-  fds_verify(err == ERR_OK);
+  fds_verify((err == ERR_OK) || (err == ERR_NOT_IMPLEMENTED));
 }
 
 #endif

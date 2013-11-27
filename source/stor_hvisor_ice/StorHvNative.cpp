@@ -89,7 +89,7 @@ void FDS_NativeAPI::GetBucket(BucketContext *bucket_ctxt,
   err = checkBucketExists(bucket_ctxt, &volid);
   if ( !err.ok() && (err != Error(ERR_PENDING_RESP)) ) {
     /* bucket not attached and we failed to send query to OM */
-    (handler)(0, "", 0, NULL, 0, NULL, callback_data);
+    (handler)(0, "", 0, NULL, 0, NULL, callback_data, FDSN_StatusInternalError);
     FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::warning) << "FDS_NativeAPI::GetBucket for bucket " << bucket_ctxt->bucketName
 							      << " -- could't find out from OM if bucket exists";
     return;
@@ -107,7 +107,7 @@ void FDS_NativeAPI::GetBucket(BucketContext *bucket_ctxt,
 			       callback_data);
 
   if (!blob_req) {
-    (handler)(0, "", 0, NULL, 0, NULL, callback_data);
+    (handler)(0, "", 0, NULL, 0, NULL, callback_data, FDSN_StatusInternalError);
     FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error) << "FDS_NativeAPI::GetBucket for bucket " 
 							    << bucket_ctxt->bucketName
 							    << " -- failed to allocate ListBucketReq";
@@ -375,10 +375,10 @@ Error FDS_NativeAPI::checkBucketExists(BucketContext *bucket_ctxt, fds_volid_t* 
   fds_volid_t volid = invalid_vol_id;
   FDS_PLOG(storHvisor->GetLog()) << "FDS_NativeAPI::testBucketInternal  bucket " << bucket_ctxt->bucketName;
 
-  volid = storHvisor->vol_table->volumeExists(bucket_ctxt->bucketName);
-  if (volid != invalid_vol_id) {
-    *ret_volid = volid;
-    return err; /* success */
+  if (storHvisor->vol_table->volumeExists(bucket_ctxt->bucketName)) {
+    *ret_volid =  storHvisor->vol_table->getVolumeUUID(bucket_ctxt->bucketName);
+    fds_verify(*ret_volid != invalid_vol_id);
+    return err;
   }
 
   /* else -- the volume not attached but it could have been already created,

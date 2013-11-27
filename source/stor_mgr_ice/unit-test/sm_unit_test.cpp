@@ -185,8 +185,6 @@ class SmUnitTest {
       ProbeIORequest *ioReq = parentUt->getAndRmPending(msg_hdr->req_cookie);
       if (ioReq != NULL) {
         ioReq->req_complete();
-      } else {
-        std::cout << "The ioreq on the resp is NULL!" << std::endl;
       }
     }
     void DeleteObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
@@ -702,6 +700,7 @@ class SmUnitTest {
     /* step 2 -- do lots of reads for volume 2 so we should see volume 2
      * gets to use the flash and kick out other vols objects -- should first
      * kick out objects of vol 8 (lowest prio) and then objects of vol 5 */
+    ackedGets = 0;
     FDS_ProtocolInterface::FDSP_GetObjTypePtr get_req =
         new FDS_ProtocolInterface::FDSP_GetObjType;
     
@@ -715,34 +714,33 @@ class SmUnitTest {
     int v = 2;
     msg_hdr->glob_volume_id = vols[v];
     int num_reads = 20;
-    for (int k = 0; k < num_reads; ++k)
-      {
-	for (fds_uint32_t i = 1; i < (num_updates+1); i++) {
-	  id = i+v*(num_updates+1);
+    for (int k = 0; k < num_reads; ++k) {
+      for (fds_uint32_t i = 1; i < (num_updates+1); i++) {
+        id = i+v*(num_updates+1);
 
-	  oid = ObjectID(id, id * id);
-	  get_req->data_obj_id.hash_high = oid.GetHigh();
-	  get_req->data_obj_id.hash_low  = oid.GetLow();
-	  get_req->data_obj_len          = 0;
+        oid = ObjectID(id, id * id);
+        get_req->data_obj_id.hash_high = oid.GetHigh();
+        get_req->data_obj_id.hash_low  = oid.GetLow();
+        get_req->data_obj_len          = 0;
     
-	  try {
-	    fdspDPAPI->begin_GetObject(msg_hdr, get_req);
-	    FDS_PLOG(test_log) << "Sent get obj message to SM"
-			       << " with object ID " << oid;
-	  } catch(...) {
-	    FDS_PLOG(test_log) << "Failed get obj message to SM"
-			       << " with object ID " << oid;
-	    return -1;
-	  }
-	}
+        try {
+          fdspDPAPI->begin_GetObject(msg_hdr, get_req);
+          FDS_PLOG(test_log) << "Sent get obj message to SM"
+                             << " with object ID " << oid;
+        } catch(...) {
+          FDS_PLOG(test_log) << "Failed get obj message to SM"
+                             << " with object ID " << oid;
+          return -1;
+        }
       }
+    }
 
     // system("../bin/fdscli --auto-tier-migration on --domain-id 1");
     /*
      * Spin and wait for the gets to complete.
      */
-    /*    fds_uint64_t acks = ackedGets.load();
-    while (acks != num_updates) {
+    fds_uint64_t acks = ackedGets.load();
+    while (acks != (num_reads * num_updates)) {
       FDS_PLOG(test_log) << "Received " << acks
                          << " of " << num_updates
                          << " get response";
@@ -750,8 +748,7 @@ class SmUnitTest {
       acks = ackedGets.load();
     }
     FDS_PLOG(test_log) << "Received all " << acks << " of "
-                       << num_updates << " get responses";
-    */
+                       << (num_reads * num_updates) << " get responses";
 
     /* step 3 -- we need to wait for at least 30 seconds to let
      * ranking engine to get the hot objects from the stat tracker.
@@ -766,30 +763,42 @@ class SmUnitTest {
      * in the rank table. */
     //TODO
 
+    ackedGets = 0;
     v = 0;
     msg_hdr->glob_volume_id = vols[v];
     num_reads = 1;
-    for (int k = 0; k < num_reads; ++k)
-      {
-	for (fds_uint32_t i = 1; i < (num_updates+1); i++) {
-	  id = i+v*(num_updates+1);
+    for (int k = 0; k < num_reads; ++k) {
+      for (fds_uint32_t i = 1; i < (num_updates+1); i++) {
+        id = i+v*(num_updates+1);
 
-	  oid = ObjectID(id, id * id);
-	  get_req->data_obj_id.hash_high = oid.GetHigh();
-	  get_req->data_obj_id.hash_low  = oid.GetLow();
-	  get_req->data_obj_len          = 0;
+        oid = ObjectID(id, id * id);
+        get_req->data_obj_id.hash_high = oid.GetHigh();
+        get_req->data_obj_id.hash_low  = oid.GetLow();
+        get_req->data_obj_len          = 0;
     
-	  try {
-	    fdspDPAPI->begin_GetObject(msg_hdr, get_req);
-	    FDS_PLOG(test_log) << "Sent get obj message to SM"
-			       << " with object ID " << oid;
-	  } catch(...) {
-	    FDS_PLOG(test_log) << "Failed get obj message to SM"
-			       << " with object ID " << oid;
-	    return -1;
-	  }
-	}
+        try {
+          fdspDPAPI->begin_GetObject(msg_hdr, get_req);
+          FDS_PLOG(test_log) << "Sent get obj message to SM"
+                             << " with object ID " << oid;
+        } catch(...) {
+          FDS_PLOG(test_log) << "Failed get obj message to SM"
+                             << " with object ID " << oid;
+          return -1;
+        }
       }
+    }
+
+    acks = ackedGets.load();
+    while (acks != (num_reads * num_updates)) {
+      FDS_PLOG(test_log) << "Received " << acks
+                         << " of " << num_updates
+                         << " get response";
+      sleep(1);
+      acks = ackedGets.load();
+    }
+    FDS_PLOG(test_log) << "Received all " << acks << " of "
+                       << (num_reads * num_updates) << " get responses";
+
     /* we should look at perf stat output to actually see if migrations happened */
 
     FDS_PLOG(test_log) << "Ending test: basic_migration()";
@@ -841,7 +850,6 @@ class SmUnitTest {
                       Ice::ObjectAdapterPtr adapter_arg)  // NOLINT(*)
       : fdspDPAPI(fdspDPAPI_arg),
         adapter(adapter_arg) {
-
     test_log   = new fds_log("sm_test", "logs");
     objMapLock = new fds_mutex("Added object map lock");
 
