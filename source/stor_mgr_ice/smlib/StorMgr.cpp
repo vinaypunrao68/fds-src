@@ -137,14 +137,14 @@ void
 ObjectStorMgrI::DeleteObject(const FDSP_MsgHdrTypePtr& msgHdr,
                           const FDSP_DeleteObjTypePtr& delObj,
                           const Ice::Current&) {
-  FDS_PLOG(objStorMgr->GetLog()) << "Received a Putobject() network request";
+  FDS_PLOG(objStorMgr->GetLog()) << "Received a Deleteobject() network request";
 
 #ifdef FDS_TEST_SM_NOOP
   msgHdr->msg_code = FDSP_MSG_PUT_OBJ_RSP;
   msgHdr->result = FDSP_ERR_OK;
   objStorMgr->swapMgrId(msgHdr);
   objStorMgr->fdspDataPathClient[msgHdr->src_node_name]->begin_DeleteObjectResp(msgHdr, delObj);
-  FDS_PLOG(objStorMgr->GetLog()) << "FDS_TEST_SM_NOOP defined. Sent async PutObj response right after receiving req.";
+  FDS_PLOG(objStorMgr->GetLog()) << "FDS_TEST_SM_NOOP defined. Sent async DeleteObj response right after receiving req.";
   return;
 #endif /* FDS_TEST_SM_NOOP */
 
@@ -179,7 +179,7 @@ ObjectStorMgrI::DeleteObject(const FDSP_MsgHdrTypePtr& msgHdr,
     objStorMgr->swapMgrId(msgHdr);
     objStorMgr->fdspDataPathClient[msgHdr->src_node_name]->begin_DeleteObjectResp(msgHdr, delObj);
 
-    FDS_PLOG(objStorMgr->GetLog()) << "Sent async PutObj response after receiving";
+    FDS_PLOG(objStorMgr->GetLog()) << "Sent async DeleteObj response after receiving";
   }
 }
 
@@ -1109,15 +1109,8 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
   Error err(ERR_OK);
   const ObjectID&  objId    = delReq->getObjId();
   fds_volid_t volId         = delReq->getVolId();
-  ObjBufPtrType objBufPtr = NULL;
   const FDSP_DeleteObjTypePtr& delObjReq = delReq->getDeleteObjReq();
 
-
-  objBufPtr = objCache->object_retrieve(volId, objId);
-  if (objBufPtr != NULL) {
-    objCache->object_release(volId, objId, objBufPtr);
-    objCache->object_delete(volId, objId);
-  } 
 
   //ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_journal_entry_for_key(objId);
   objStorMutex->lock();
@@ -1149,7 +1142,7 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
       new FDS_ProtocolInterface::FDSP_DeleteObjType();
   delObj->data_obj_id.hash_high = objId.GetHigh();
   delObj->data_obj_id.hash_low  = objId.GetLow();
-  delObj->data_obj_len          = objBufPtr->size;
+  delObj->data_obj_len          = delObjReq->data_obj_len;
 
   if (err == ERR_OK) {
     msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_OK;

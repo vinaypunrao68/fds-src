@@ -257,7 +257,6 @@ namespace fds {
       // objData.data        = _dataStr;
       volUuid             = _volUuid;
       io_vol_id           = volUuid;
-      assert(_ioType == FDS_IO_WRITE);
       FDS_IOType::io_type = _ioType;
       io_req_id           = _ioReqId;
       this->delObjReq = delObjReq;
