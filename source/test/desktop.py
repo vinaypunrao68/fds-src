@@ -70,7 +70,8 @@ bin_args = {
 }
 use_fds_root_set = {
     STORMGR,
-    DATAMGR
+    DATAMGR,
+    STORHVI
 }
 dir_map = {
     STORMGR : fds_bin_dir,
@@ -278,6 +279,14 @@ class TestSequenceFunctions(unittest.TestCase):
         os.chdir(comp_dir)
 
         #
+        # Make the root directory
+        #
+        use_root = server in use_fds_root_set
+        if use_root:
+            os.system('mkdir -p ' + fds_dump_dir + "/" + prefix_base + str(ident) + "/hdd")
+            os.system('mkdir -p ' + fds_dump_dir + "/" + prefix_base + str(ident) + "/ssd")
+
+        #
         # Construct unit test command
         #
         comp_ut = ut_map[server]
@@ -416,7 +425,12 @@ class TestSequenceFunctions(unittest.TestCase):
         #
         sm_port = port_map[STORMGR] + num_instances
         dm_port = port_map[DATAMGR] + num_instances
-        args = " --unit_test --sm_port=%d --dm_port=%d" % (sm_port, dm_port)
+        args = " --unit_test --sm_port=%d --dm_port=%d --fds-root=%s/%s%d" % (sm_port,
+                                                                             dm_port,
+                                                                             fds_dump_dir,
+                                                                             prefix_base,
+                                                                             num_instances)
+        print "Using", args
         status = self.start_ut(STORHVI, num_instances, args)
 
         #
@@ -469,7 +483,13 @@ class TestSequenceFunctions(unittest.TestCase):
         #
         sm_port = port_map[STORMGR] + num_instances
         dm_port = port_map[DATAMGR] + num_instances
-        args = " --ut_file --infile=%s --outfile=%s --sm_port=%d --dm_port=%d" % (tmp_file, out_file, sm_port, dm_port)
+        args = " --ut_file --infile=%s --outfile=%s --sm_port=%d --dm_port=%d --fds-root=%s/%s%d" % (tmp_file,
+                                                                                                     out_file,
+                                                                                                     sm_port,
+                                                                                                     dm_port,
+                                                                                                     fds_dump_dir,
+                                                                                                     prefix_base,
+                                                                                                     num_instances)
         status = self.start_ut(STORHVI, num_instances, args)        
 
         #
