@@ -375,10 +375,10 @@ Error FDS_NativeAPI::checkBucketExists(BucketContext *bucket_ctxt, fds_volid_t* 
   fds_volid_t volid = invalid_vol_id;
   FDS_PLOG(storHvisor->GetLog()) << "FDS_NativeAPI::testBucketInternal  bucket " << bucket_ctxt->bucketName;
 
-  volid = storHvisor->vol_table->volumeExists(bucket_ctxt->bucketName);
-  if (volid != invalid_vol_id) {
-    *ret_volid = volid;
-    return err; /* success */
+  if (storHvisor->vol_table->volumeExists(bucket_ctxt->bucketName)) {
+    *ret_volid =  storHvisor->vol_table->getVolumeUUID(bucket_ctxt->bucketName);
+    fds_verify(*ret_volid != invalid_vol_id);
+    return err;
   }
 
   /* else -- the volume not attached but it could have been already created,

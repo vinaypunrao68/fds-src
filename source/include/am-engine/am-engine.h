@@ -9,6 +9,7 @@
 #include <string>
 #include <am-engine/http_utils.h>
 #include <native_api.h>
+#include <util/Log.h>
 
 namespace fds {
 class FDS_NativeAPI;
@@ -25,7 +26,9 @@ class AMEngine : public Module
     AMEngine(char const *const name) :
         Module(name), eng_signal(), eng_etc("etc"),
         eng_logs("logs"), eng_conf("etc/fds.conf"),
-        queue(1, 1000) {}
+        queue(1, 1000) {
+      ame_log = new fds_log("ame", "logs");
+    }
 
     ~AMEngine() {}
 
@@ -48,6 +51,11 @@ class AMEngine : public Module
     FDS_NativeAPI *ame_fds_hook() {
         return eng_api;
     }
+
+    fds_log* get_log() {
+      return ame_log;
+    }
+
   private:
     std::string              eng_signal;
     char const *const        eng_etc;
@@ -55,6 +63,7 @@ class AMEngine : public Module
     char const *const        eng_conf;
     FDS_NativeAPI            *eng_api;
     fdsio::RequestQueue queue;
+    fds_log *ame_log;
 };
 
 // ---------------------------------------------------------------------------
@@ -154,6 +163,10 @@ public:
                                   char *v, ngx_int_t vlen);
 
     virtual ame_ret_e ame_format_response_hdr() = 0;
+
+    fds_log* get_log() {
+      return ame->get_log();
+    }
 
   protected:
     HttpRequest              ame_req;
@@ -393,9 +406,13 @@ class Conn_GetBucket : public AME_Request
     Conn_GetBucket(AMEngine *eng, HttpRequest &req);
     ~Conn_GetBucket();
 
+    // returns bucket id
+    virtual std::string get_bucket_id() = 0;
+
     virtual void ame_request_handler();
     virtual void fdsn_send_getbucket_response(int status, int len);
   protected:
+    void *cur_get_buffer;
 };
 
 // Connector Adapter to implement GetBucket method.
