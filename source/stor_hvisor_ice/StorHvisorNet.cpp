@@ -55,21 +55,18 @@ static void sh_test_create_bucket_callback(FDSN_Status status, const ErrorDetail
   FDS_PLOG(storHvisor->GetLog()) << "sh_test_create_bucket_callback is called with status " << status;
 }
 
-static FDSN_Status sh_test_list_bucket_callback(int isTruncated, const char* nextMarker, int count, const ListBucketContents* contents,
-					 int comminPrefixesCount, const char**commonPrefixes, void* callback_data)
+static void sh_test_list_bucket_callback(int isTruncated, const char* nextMarker, int count, const ListBucketContents* contents,
+					 int comminPrefixesCount, const char**commonPrefixes, void* callback_data, FDSN_Status status)
 {
-  FDS_PLOG(storHvisor->GetLog()) << "sh_test_list_bucket_callback is called"; 
+  FDS_PLOG(storHvisor->GetLog()) << "sh_test_list_bucket_callback is called with status " << status; 
   if (contents == NULL) {
-    return FDSN_StatusOK;
+    return;
   }
-
   for (int i = 0; i < count; ++i) {
     FDS_PLOG(storHvisor->GetLog()) << "content #" << i
 				   << " key " << contents[i].objKey
 				   << " size " << contents[i].size;
   }
-
-  return FDSN_StatusOK;
 }
 
 
@@ -857,7 +854,8 @@ fds::Error StorHvCtrl::pushBlobReq(fds::FdsBlobReq *blobReq) {
 
   fds::StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(volId);
   if ((shVol == NULL) || (shVol->volQueue == NULL)) {
-    shVol->readUnlock();
+    if (shVol)
+      shVol->readUnlock();
     FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error)
         << "Volume and queueus are NOT setup for volume " << volId;
     err = fds::ERR_INVALID_ARG;
@@ -938,7 +936,7 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
     FDS_PLOG_SEV(sh_log, fds::fds_log::critical) << "Transaction " << transId << " is already ACTIVE"
                                                  << ", just give up and return error.";
     blobReq->cbWithResult(-2);
-    err = ERR_DISK_WRITE_FAILED;
+    err = ERR_NOT_IMPLEMENTED;
     delete qosReq;
     return err;
   }
@@ -1246,7 +1244,7 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
     FDS_PLOG_SEV(sh_log, fds::fds_log::critical) << "Transaction " << transId << " is already ACTIVE"
                                                  << ", just give up and return error.";
     blobReq->cbWithResult(-2);
-    err = ERR_DISK_READ_FAILED;
+    err = ERR_NOT_IMPLEMENTED;
     delete qosReq;
     return err;
   }
@@ -1298,10 +1296,11 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
                                                      << " and offset " << blobReq->getBlobOffset()
                                                      << " with err " << err;
     journEntry->trans_state = FDS_TRANS_VCAT_QUERY_PENDING;
+    err = ERR_OK;
     return err;
   }
-  fds_verify(err == ERR_OK);
 
+  fds_verify(err == ERR_OK);
   journEntry->data_obj_id.hash_high = objId.GetHigh();
   journEntry->data_obj_id.hash_low  = objId.GetLow();
 
@@ -1484,7 +1483,7 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
     
     // For now, return an error.
     blobReq->cbWithResult(-2);
-    err = ERR_INVALID_ARG;
+    err = ERR_NOT_IMPLEMENTED;
     delete qosReq;
     return err;
   }

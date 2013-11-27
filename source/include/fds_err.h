@@ -29,7 +29,8 @@ namespace fds {
     "Not found",
     "Admission control for a volume failed",
     "Get DLT failed",
-    "Get DMT failed"
+    "Get DMT failed",
+    "Feature not implemented"
   };
   
   typedef enum {
@@ -46,6 +47,7 @@ namespace fds {
     ERR_VOL_ADMISSION_FAILED = 10,
     ERR_GET_DLT_FAILED       = 11,
     ERR_GET_DMT_FAILED       = 12,
+    ERR_NOT_IMPLEMENTED      = 13,
     ERR_MAX
   } fds_errno_t;
   

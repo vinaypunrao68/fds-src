@@ -661,16 +661,21 @@ Conn_GetBucket::~Conn_GetBucket()
 // --------------
 // Callback from FDSN to notify us that they have data to send out.
 //
-FDSN_Status
+void
 Conn_GetBucket::fdsn_getbucket(int isTruncated, const char *nextMarker,
         int contentCount, const ListBucketContents *contents,
-        int commPrefixCnt, const char **commPrefixes, void *cbarg)
+        int commPrefixCnt, const char **commPrefixes, void *cbarg, FDSN_Status status)
 {
     int            i, got, used, sent;
     void           *resp;
     char           *cur;
     char           *buf;
     Conn_GetBucket *gbucket = (Conn_GetBucket *)cbarg;
+
+    if (status != FDSN_StatusOK) {
+      gbucket->notify_request_completed(map_fdsn_status(status), NULL, 0);
+      return;
+    }
 
     gbucket->cur_get_buffer = gbucket->ame_push_resp_data_buf(NGX_RESP_CHUNK_SIZE, &cur, &got);
     buf = cur;

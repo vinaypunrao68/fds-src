@@ -20,6 +20,7 @@ class StorVol():
     size   = None
     policy = None
     client = None
+    access = None
     cliBin = "fdscli"
 
     def __init__(self, _name):
@@ -37,12 +38,16 @@ class StorVol():
     def setClient(self, _clientName):
         self.client = _clientName
 
+    def setAccess(self, _accessType):
+        self.access = _accessType
+
     def getCrtCmd(self):
-        return "%s --volume-create %s -i %d -s %d -p %d" % (self.cliBin,
-                                                            self.name,
-                                                            self.volId,
-                                                            self.size,
-                                                            self.policy)
+        return "%s --volume-create %s -i %d -s %d -p %d -y %s" % (self.cliBin,
+                                                                  self.name,
+                                                                  self.volId,
+                                                                  self.size,
+                                                                  self.policy,
+                                                                  self.access)
 
     def getAttCmd(self):
         # The client name is hard coded for now because
@@ -114,6 +119,7 @@ class StorClient():
     name  = None
     isBlk = False
     logSeverity = 2
+    amBin  = "AMAgent"
     ubdBin = "ubd"
     blkDir = "stor_hvisor"
     blkMod = "fbd.ko"
@@ -140,6 +146,9 @@ class StorClient():
 
     def getUbdCmd(self):
         return self.ubdBin
+
+    def getAmCmd(self):
+        return self.amBin
 
     def getLogSeverity(self):
         return self.logSeverity 
@@ -331,6 +340,8 @@ class TestBringUp():
                 volume.setPolicy(int(value))
             elif key == "client":
                 volume.setClient(value)
+            elif key == "access":
+                volume.setAccess(value)
             else:
                 print "Unknown item %s, %s in %s" % (key, value, name)
 
@@ -457,9 +468,15 @@ class TestBringUp():
     # Builds the command to start SH UBD service
     #
     def buildUbdCmd(self, client):
-        cmd = self.ldLibPath + "; " + self.iceHome + "; " + " cd " + self.fdsBinDir + "; " + "ulimit -s 4096; " + "./" + client.getUbdCmd() + " --om_ip=" + self.omIpStr + " --om_port=" + str(self.omConfPort) + " --node_name=localhost-" + client.name + " --log-severity=" + str(client.getLogSeverity())
+        cmd = self.ldLibPath + "; " + self.iceHome + "; " + " cd " + self.fdsBinDir + "; " + "ulimit -s 4096; " +  "ulimit -c unlimited;" + "./" + client.getUbdCmd() + " --om_ip=" + self.omIpStr + " --om_port=" + str(self.omConfPort) + " --node_name=localhost-" + client.name + " --log-severity " + str(client.getLogSeverity())
         return cmd
 
+    #
+    # Builds the command to start SH AM service
+    #
+    def buildAmCmd(self, client):
+        cmd = self.ldLibPath + "; " + self.iceHome + "; " + " cd " + self.fdsBinDir + "; " + "ulimit -s 4096; " + "ulimit -c unlimited; " + "./" + client.getAmCmd() + " --om_ip=" + self.omIpStr + " --om_port=" + str(self.omConfPort) + " --node_name=localhost-" + client.name + " --log-severity " + str(client.getLogSeverity())
+        return cmd
 
     #
     # Builds the command to create a policy
@@ -772,9 +789,15 @@ class TestBringUp():
                     return -1
             else:
                 #
-                # Currently we don't have non-block services. Boo.
+                # Start AM user space process
                 #
-                print "Currently only support block based clients"
+                cmd = self.buildAmCmd(client)
+                started = self.runNodeCmd(client, cmd, "tcp connection established")
+                if started == True:
+                    print "Client AM running on %s..." % (client.ipStr)
+                else:
+                    print "Failed to start AM..."
+                    return -1
 
         except Exception, e:
             print "*** Caught exception %s: %s" % (e.__class__, e)
@@ -815,6 +838,17 @@ class TestBringUp():
                     print "Removed kernel module on %s..." % (client.ipStr)
                 else:
                     print "Failed to remove kernel module"
+                    return -1
+            else:
+                #
+                # Bring down AM user space process
+                #
+                amCmd = "pkill -9 " + client.getAmCmd()
+                result = self.runNodeCmd(client, amCmd)
+                if result == True:
+                    print "Brought down AM on %s..." % (client.ipStr)
+                else:
+                    print "Failed to bring down AM"
                     return -1
         
         except Exception, e:

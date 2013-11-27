@@ -69,7 +69,8 @@ bin_args = {
     DATAMGR : "--test_mode"
 }
 use_fds_root_set = {
-    STORMGR
+    STORMGR,
+    DATAMGR
 }
 dir_map = {
     STORMGR : fds_bin_dir,

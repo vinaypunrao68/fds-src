@@ -89,7 +89,7 @@ void FDS_NativeAPI::GetBucket(BucketContext *bucket_ctxt,
   err = checkBucketExists(bucket_ctxt, &volid);
   if ( !err.ok() && (err != Error(ERR_PENDING_RESP)) ) {
     /* bucket not attached and we failed to send query to OM */
-    (handler)(0, "", 0, NULL, 0, NULL, callback_data);
+    (handler)(0, "", 0, NULL, 0, NULL, callback_data, FDSN_StatusInternalError);
     FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::warning) << "FDS_NativeAPI::GetBucket for bucket " << bucket_ctxt->bucketName
 							      << " -- could't find out from OM if bucket exists";
     return;
@@ -107,7 +107,7 @@ void FDS_NativeAPI::GetBucket(BucketContext *bucket_ctxt,
 			       callback_data);
 
   if (!blob_req) {
-    (handler)(0, "", 0, NULL, 0, NULL, callback_data);
+    (handler)(0, "", 0, NULL, 0, NULL, callback_data, FDSN_StatusInternalError);
     FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error) << "FDS_NativeAPI::GetBucket for bucket " 
 							    << bucket_ctxt->bucketName
 							    << " -- failed to allocate ListBucketReq";
