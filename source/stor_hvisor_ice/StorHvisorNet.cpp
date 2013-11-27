@@ -1302,8 +1302,8 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
     err = ERR_OK;
     return err;
   }
-  fds_verify(err == ERR_OK);
 
+  fds_verify(err == ERR_OK);
   journEntry->data_obj_id.hash_high = objId.GetHigh();
   journEntry->data_obj_id.hash_low  = objId.GetLow();
 
