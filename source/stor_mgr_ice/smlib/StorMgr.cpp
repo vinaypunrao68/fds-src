@@ -1109,8 +1109,15 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
   Error err(ERR_OK);
   const ObjectID&  objId    = delReq->getObjId();
   fds_volid_t volId         = delReq->getVolId();
+  ObjBufPtrType objBufPtr = NULL;
   const FDSP_DeleteObjTypePtr& delObjReq = delReq->getDeleteObjReq();
 
+  objBufPtr = objCache->object_retrieve(volId, objId);
+  if (objBufPtr != NULL) {
+     objCache->object_release(volId, objId, objBufPtr);
+    objCache->object_delete(volId, objId);
+  } 
+ 
 
   //ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_journal_entry_for_key(objId);
   objStorMutex->lock();

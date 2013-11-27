@@ -24,7 +24,7 @@ sleep 5
 # Assuming our stor mgr is compiled with large rank table size, we
 # should see that all writes to volumes #2,3,4 (on iops graph, that would be numbers 2,3,4, as well)
 # go to flash. All writes to volume #5 (on iops graph its label is 1) should go to disk.
-./run-delay-workloads.sh -p "tier-demo-initial-write" -w "sample_workloads/seq_write.sh:/dev/fbd1" -w "sample_workloads/seq_write.sh:/dev/fbd2" -w "sample_workloads/seq_write.sh:/dev/fbd3" -w "sample_workloads/seq_write.sh:/dev/fbd4"
+./run-delay-workloads.sh -p "tier-demo-initial-write" -w "sample_workloads/seq_write.sh:/dev/fbd0" -w "sample_workloads/seq_write.sh:/dev/fbd1" -w "sample_workloads/seq_write.sh:/dev/fbd2" -w "sample_workloads/seq_write.sh:/dev/fbd3"
 
 sleep 5
 
@@ -33,7 +33,7 @@ sleep 5
 # we should see that vols with ids 2,3,4 get all reads from flash (since rank table size is large, it should not be
 # filled yet. We should see that vol5 will start getting its reads from flash after some time
 # 
-./run-delay-workloads.sh -p "tier-demo" -w "sample_workloads/seq_read_loop.sh:/dev/fbd4" -w "sample_workloads/seq_read.sh:/dev/fbd2" -w "sample_workloads/seq_read.sh:/dev/fbd3" -w "sample_workloads/seq_read.sh:/dev/fbd1"
+./run-delay-workloads.sh -p "tier-demo" -w "sample_workloads/seq_read_loop.sh:/dev/fbd3" -w "sample_workloads/seq_read.sh:/dev/fbd1" -w "sample_workloads/seq_read.sh:/dev/fbd2" -w "sample_workloads/seq_read.sh:/dev/fbd0"
 
 
 mv results results-tier-demo

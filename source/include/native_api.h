@@ -366,13 +366,14 @@ typedef FDSN_Status (*fdsnGetObjectHandler)(void *reqContext, fds_uint64_t buffe
 typedef void (*fdsnResponseHandler)(FDSN_Status status,
                                           const ErrorDetails *errorDetails,
                                           void *callbackData);
-typedef FDSN_Status (*fdsnListBucketHandler)(int isTruncated,
-                                        const char *nextMarker,
-                                        int contentsCount,
-                                        const ListBucketContents *contents,
-                                        int commonPrefixesCount,
-                                        const char **commonPrefixes,
-                                        void *callbackData);
+typedef void (*fdsnListBucketHandler)(int isTruncated,
+				      const char *nextMarker,
+				      int contentsCount,
+				      const ListBucketContents *contents,
+				      int commonPrefixesCount,
+				      const char **commonPrefixes,
+				      void *callbackData,
+				      FDSN_Status status);
 
 
 // FDS_NativeAPI  object class : One object per client Type so that the semantics of 
