@@ -424,7 +424,7 @@ void OrchMgr::AttachVol(const FdspMsgHdrPtr &fdsp_msg,
                         const FdspAttVolCmdPtr &atc_vol_req) {
   // int  vol_id = atc_vol_req->vol_uuid;
   std::string vol_name = atc_vol_req->vol_name;
-  fds_node_name_t node_name = atc_vol_req->node_id;
+  fds_node_name_t node_name = fdsp_msg->src_node_name;
   localDomainInfo  *currentDom;
 
   FDS_PLOG_SEV(GetLog(), fds::fds_log::notification) << "Received Attach Vol Req for volume "

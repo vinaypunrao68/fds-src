@@ -251,7 +251,9 @@ class VccUnitTest {
 
  public:
   explicit VccUnitTest(fds_uint32_t port_arg,
-                       fds_uint32_t cp_port_arg) :
+                       fds_uint32_t cp_port_arg,
+                       int argc,
+                       char *argv[]) :
       dm_port_num(port_arg),
       cp_port_num(cp_port_arg) {
     vcc_log = new fds_log("vcc_test", "logs");
@@ -261,10 +263,8 @@ class VccUnitTest {
     unit_tests.push_back("basic_mt");
 
     /*
-     * Create the SH control. Pass some empty cmdline args.
+     * Create the SH control. Pass the given cmdline args.
      */
-    int argc = 0;
-    char* argv[argc];
     fds::Module *io_dm_vec[] = {
       nullptr
     };
@@ -409,16 +409,16 @@ class ShClient : public Ice::Application {
         dm_port_num = strtoul(argv[i] + 7, NULL, 0);
       } else if (strncmp(argv[i], "--cp_port=", 10) == 0) {
         cp_port_num = strtoul(argv[i] + 10, NULL, 0);
-      } else {
-        std::cout << "Invalid argument " << argv[i] << std::endl;
-        return -1;
       }
+      /*
+       * Allow unused args that may be processed by fds module
+       */
     }
 
     /*
      * Setup the basic unit test.
      */
-    VccUnitTest unittest(dm_port_num, cp_port_num);
+    VccUnitTest unittest(dm_port_num, cp_port_num, argc, argv);
 
     if (testname.empty()) {
       unittest.Run();

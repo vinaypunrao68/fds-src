@@ -66,12 +66,14 @@ bin_map = {
 bin_args = {
     OM      : "--test",
     STORMGR : "--test_mode",
-    DATAMGR : "--test_mode"
+    DATAMGR : "--test_mode",
+    VCC     : "--test_mode"
 }
 use_fds_root_set = {
     STORMGR,
     DATAMGR,
-    STORHVI
+    STORHVI,
+    VCC
 }
 dir_map = {
     STORMGR : fds_bin_dir,
@@ -300,6 +302,8 @@ class TestSequenceFunctions(unittest.TestCase):
                 cp_port_arg = " --cp_port=%d" % (cp_port + ident)
                 port_arg += cp_port_arg
             comp_arg = port_arg
+            if server == VCC:
+                comp_arg = comp_arg + " --fds-root=%s/%s%d" % (fds_dump_dir, prefix_base, ident)
         else:
             comp_arg = args
         comp_cmd = comp_exe + " " + comp_arg
