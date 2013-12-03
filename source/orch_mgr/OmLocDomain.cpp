@@ -910,7 +910,6 @@ void FdsLocalDomain::getStats(void)
     /* note we hardcoded IOPS average of 5 seconds, we should probably have that as a parameter */
     json_file << "    {"
 	      << "\"id\": " << pVolInfo->volUUID << ", "
-	      << "\"name\": " << pVolInfo->vol_name << ", "
 	      << "\"priority\": " << pVolInfo->properties->relativePrio << ", "
 	      << "\"performance\": " << perf << ", "  
 	      << "\"sla\": " << sla << ", "
