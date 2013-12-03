@@ -185,6 +185,8 @@ public:
                         const FDSP_PutObjTypePtr& putObjRsp);
   fds::Error upCatResp(const FDSP_MsgHdrTypePtr& rxMsg, 
                        const FDSP_UpdateCatalogTypePtr& catObjRsp);
+  fds::Error deleteCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
+                           const FDSP_DeleteCatalogTypePtr& delCatRsp);
   fds::Error getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
                         const FDSP_GetObjTypePtr& getObjRsp);
   fds::Error getBucketResp(const FDSP_MsgHdrTypePtr& rxMgr,

@@ -85,7 +85,10 @@ S3_DelObject::~S3_DelObject()
 ame_ret_e
 S3_DelObject::ame_format_response_hdr()
 {
-    return AME_OK;
+  if (resp_status == NGX_HTTP_OK) {
+    ame_set_std_resp(NGX_HTTP_NO_CONTENT, ame_req.getNginxReq()->headers_out.content_length_n);
+  }
+  return AME_OK;
 }
 
 std::string S3_DelObject::get_bucket_id()
