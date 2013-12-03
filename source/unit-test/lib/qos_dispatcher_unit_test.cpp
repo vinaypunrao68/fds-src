@@ -17,12 +17,14 @@
 unsigned long num_volumes = 10;
 unsigned long tot_rate = 1000;
 unsigned long time_to_run = 50;
+unsigned long num_volumes_to_mdfy = 2;
 
 #define NUM_VOLUMES num_volumes
 #define TOTAL_RATE tot_rate
 #define IOPS_TO_ALLOCATE ((unsigned int) 3*TOTAL_RATE/4)
 #define AVG_IOPS_TO_ALLOCATE_PER_VOLUME ((unsigned int) IOPS_TO_ALLOCATE/NUM_VOLUMES)
-#define VOL_IOPS(i) ((unsigned int) AVG_IOPS_TO_ALLOCATE_PER_VOLUME + (i - 4.5) * TOTAL_RATE/100)
+#define IOPS_DELTA ((unsigned int) AVG_IOPS_TO_ALLOCATE_PER_VOLUME/10)
+#define VOL_IOPS(i) ((unsigned int) AVG_IOPS_TO_ALLOCATE_PER_VOLUME + ((long)i - ((float)NUM_VOLUMES-1)/2)*TOTAL_RATE/100)
 
 using namespace std;
 using namespace fds;
@@ -34,6 +36,8 @@ StatIOPS *iops_stats;
 
 // boost::posix_time::ptime last_work_time;
 
+#define MAX_PRIORITY 10
+
 class VolQueueDesc {
 
 public:
@@ -44,11 +48,15 @@ public:
 
   fds_uint64_t in_rate;
   fds_uint32_t max_burst_size;
+
+  FDS_QoSControl *qctrl;
   
   VolQueueDesc(fds_uint32_t q_id, fds_uint64_t min_iops, fds_uint64_t max_iops,
-	       int priority, fds_uint64_t ingress_rate, fds_uint32_t max_burst):
+	       int priority, fds_uint64_t ingress_rate, fds_uint32_t max_burst,
+	       FDS_QoSControl *_qctrl):
     queue_id(q_id), iops_min(min_iops), iops_max(max_iops),
-    queue_priority(priority), in_rate(ingress_rate), max_burst_size(max_burst)
+    queue_priority(priority), in_rate(ingress_rate), max_burst_size(max_burst),
+    qctrl(_qctrl)
   {
     
   }
@@ -62,7 +70,7 @@ public:
 
 };
 
-void create_volume(VolQueueDesc *volQDesc, FDS_QoSControl *qctrl) {
+void create_volume(VolQueueDesc *volQDesc) {
 
   FDS_Volume fds_vol;
 
@@ -74,11 +82,29 @@ void create_volume(VolQueueDesc *volQDesc, FDS_QoSControl *qctrl) {
   cout << "Registering volume " << volQDesc->queue_id << endl;
   FDS_VolumeQueue *volQ = new FDS_VolumeQueue(1024, fds_vol.voldesc->iops_max, fds_vol.voldesc->iops_min, fds_vol.voldesc->relativePrio);
 
-  qctrl->registerVolume(volQDesc->queue_id, volQ );
+  volQDesc->qctrl->registerVolume(volQDesc->queue_id, volQ );
 
   FDS_PLOG(ut_log) << "Volume " << volQDesc->queue_id << " Registered"  << endl;
 
 }
+
+void change_volume_qos(VolQueueDesc *volQDesc) {
+
+  volQDesc->queue_priority = MAX_PRIORITY-1-volQDesc->queue_priority;
+  if (volQDesc->queue_id < (float)NUM_VOLUMES/2){
+    volQDesc->iops_min = volQDesc->iops_min - (float)volQDesc->iops_min/4;
+  } else {
+    volQDesc->iops_min = volQDesc->iops_min + (float)volQDesc->iops_min/4;
+  }
+  // new_iops_max = volQDesc->iops_max; 
+  volQDesc->qctrl->modifyVolumeQosParams(volQDesc->queue_id, 
+					 volQDesc->iops_min, 
+					 volQDesc->iops_max,
+					 volQDesc->queue_priority);  
+
+  FDS_PLOG(ut_log) << "Volume " << volQDesc->queue_id << " qos parameters changed"  << endl;
+}
+
 
 void start_queue_ios(VolQueueDesc *volQDesc, FDS_QoSControl *qctrl) {
 
@@ -95,6 +121,8 @@ void start_queue_ios(VolQueueDesc *volQDesc, FDS_QoSControl *qctrl) {
   std::default_random_engine rgen2(2*volQDesc->queue_id+1);
   std::poisson_distribution<unsigned int> int_arr_distribution(avg_inter_arr_time);
   std::uniform_int_distribution<unsigned int> burst_size_distribution(1, volQDesc->max_burst_size);
+  bool qos_params_changed = false;
+
 
   FDS_PLOG(ut_log) << "Starting thread for volume " << volQDesc->ToString() << endl; 
 
@@ -106,6 +134,14 @@ void start_queue_ios(VolQueueDesc *volQDesc, FDS_QoSControl *qctrl) {
     if (time_since_start > boost::posix_time::seconds(time_to_run)) {
       break;
     }
+    if (volQDesc->queue_id % (NUM_VOLUMES/num_volumes_to_mdfy) == 1) {
+      if (!qos_params_changed) {
+	if (time_since_start > boost::posix_time::seconds(time_to_run/(volQDesc->queue_id + 1))) {
+	  change_volume_qos(volQDesc);
+	  qos_params_changed = true;
+	}
+      }
+  }
     boost::posix_time::time_duration delta = now - last_io_time;
     last_io_time = now;
     if (delta < boost::posix_time::microseconds(inter_arrival_time)) {
@@ -205,10 +241,11 @@ int main(int argc, char *argv[]) {
     VolQueueDesc *volQDesc = new VolQueueDesc(i+1, // queue_id
 					      (fds_uint64_t)VOL_IOPS(i), //min_iops
 					      TOTAL_RATE, //max_iops
-					      i%10, //priority
+					      i%MAX_PRIORITY, //priority
 					      (fds_uint64_t)VOL_IOPS(i)*1.5, //ingress_rate
-					      5 + 5 * (i%10)); // max_burst_size
-    create_volume(volQDesc, qctrl);
+					      5 + 5 * (i%10),
+					      qctrl); // max_burst_size
+    create_volume(volQDesc);
     volQDescs.push_back(volQDesc);
     qids.push_back(i+1);
   }
@@ -370,6 +407,16 @@ namespace fds {
   Error FDS_QoSControl::enqueueIO(fds_volid_t volUUID, FDS_IOType *io) {
     Error err(ERR_OK);
     dispatcher->enqueueIO(volUUID, io);
+    return err;
+  }
+
+  Error FDS_QoSControl::modifyVolumeQosParams(fds_volid_t vol_uuid,
+					    fds_uint64_t iops_min,
+					    fds_uint64_t iops_max,
+					    fds_uint32_t prio)
+  {
+    Error err(ERR_OK);
+    err = dispatcher->modifyQueueQosParams(vol_uuid, iops_min, iops_max, prio); 
     return err;
   }
 

@@ -66,12 +66,14 @@ bin_map = {
 bin_args = {
     OM      : "--test",
     STORMGR : "--test_mode",
-    DATAMGR : "--test_mode"
+    DATAMGR : "--test_mode",
+    VCC     : "--test_mode"
 }
 use_fds_root_set = {
     STORMGR,
     DATAMGR,
-    STORHVI
+    STORHVI,
+    VCC
 }
 dir_map = {
     STORMGR : fds_bin_dir,
@@ -235,7 +237,7 @@ class TestSequenceFunctions(unittest.TestCase):
             prefix_arg += " " + extra_args
         comp_arg = port_arg + " " + prefix_arg + " " + root_arg
         cmd = comp_exe + " " + comp_arg
-        cmd = "ulimit -s 4096; %s" % (cmd)
+        cmd = "ulimit -s 4096; ulimit -c unlimited; %s" % (cmd)
         print "Starting server cmd %s" % (cmd)
 
         #
@@ -300,10 +302,12 @@ class TestSequenceFunctions(unittest.TestCase):
                 cp_port_arg = " --cp_port=%d" % (cp_port + ident)
                 port_arg += cp_port_arg
             comp_arg = port_arg
+            if server == VCC:
+                comp_arg = comp_arg + " --fds-root=%s/%s%d" % (fds_dump_dir, prefix_base, ident)
         else:
             comp_arg = args
         comp_cmd = comp_exe + " " + comp_arg
-        comp_cmd = "ulimit -s 4096; %s" % (comp_cmd)
+        comp_cmd = "ulimit -s 4096; ulimit -c unlimited; %s" % (comp_cmd)
         print "Starting unit test cmd %s" % (comp_cmd)
 
         #

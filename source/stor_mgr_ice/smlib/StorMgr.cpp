@@ -441,7 +441,7 @@ void ObjectStorMgr::writeBackFunc(ObjectStorMgr *parent) {
        * Note I have no idea if this is the
        * correct amount of time or not.
        */
-      FDS_PLOG(objStorMgr->GetLog()) << "Nothing dirty in flash, going to sleep...";
+      FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::debug) << "Nothing dirty in flash, going to sleep...";
       sleep(5);
       continue;
     }

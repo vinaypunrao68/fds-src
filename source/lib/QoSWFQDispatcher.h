@@ -72,6 +72,9 @@ namespace fds {
     }
 
     fds_uint32_t getNextQueueInPriorityWFQList(fds_uint32_t queue_id) {
+      if (queue_desc_map.empty()) {
+	return 0;
+      }
 	auto it = queue_desc_map.find(queue_id);
 	if (it != queue_desc_map.end())
 	  it++;
@@ -87,6 +90,8 @@ namespace fds {
     void ioProcessForDispatch(fds_uint32_t queue_id, FDS_IOType *io);
     fds_uint32_t getNextQueueForDispatch();
     void inc_num_ios_dispatched(unsigned int io_dispatch_type);
+    Error assignSpotsToQueue(WFQQueueDesc *qd);
+    Error revokeSpotsFromQueue(WFQQueueDesc *qd);
 
   public:
 

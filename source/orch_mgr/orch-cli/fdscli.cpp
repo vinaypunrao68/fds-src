@@ -235,6 +235,7 @@ int FdsCli::fdsCliPraser(int argc, char* argv[])
     		volData->vol_name = vm["volume-attach"].as<std::string>();
     		// volData->vol_uuid = vm["volume-id"].as<int>();
     		volData->node_id = vm["node-id"].as<std::string>();
+                msg_hdr->src_node_name = vm["node-id"].as<std::string>();
    		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(proxy);
     		cfgPrx->AttachVol(msg_hdr, volData);
 

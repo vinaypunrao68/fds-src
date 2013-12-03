@@ -124,6 +124,13 @@ namespace fds {
 	return err;
       }
       FDS_VolumeQueue *que = queue_map[queue_id];
+
+      FDS_PLOG_SEV(qda_log, fds::fds_log::notification) << "Dispatcher: modifying queue qos params- "
+			<< queue_id << " with min - "
+			<< iops_min << ", max - " << iops_max
+			<< ", priority - " << prio
+			<< ", total server rate = " << total_svc_rate; 
+
       que->modifyQosParams(iops_min, iops_max, prio);
       return err;
     }
