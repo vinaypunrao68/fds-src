@@ -16,7 +16,7 @@ void DataMgr::vol_handler(fds_volid_t vol_uuid,
 			  FDS_ProtocolInterface::FDSP_ResultType result) {
   Error err(ERR_OK);
   FDS_PLOG(dataMgr->GetLog()) << "Received vol notif from OM for "
-                              << vol_uuid;
+                              << vol_uuid <<  desc->getName();
 
   /*
    * TODO: Check the vol action to see whether to add
@@ -378,7 +378,7 @@ DataMgr::DataMgr()
       use_om(true),
       numTestVols(10),
       runMode(NORMAL_MODE),
-      scheduleRate(2000),
+      scheduleRate(5000),
       num_threads(DM_TP_THREADS) {
   dm_log = new fds_log("dm", "logs");
   vol_map_mtx = new fds_mutex("Volume map mutex");
