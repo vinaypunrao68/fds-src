@@ -326,7 +326,7 @@ AME_Request::ame_send_response_hdr()
 {
     ngx_int_t          rc;
     ngx_http_request_t *r;
-    std::string etag_key = "ETag";
+    std::string etag_key = "etag";
 
     // Any protocol-connector specific response format.
     ame_format_response_hdr();
@@ -452,6 +452,7 @@ Conn_GetObject::ame_request_handler()
 
     if (resp_status == NGX_HTTP_OK) {
       etag = HttpUtils::computeEtag(resp_buf, resp_buf_len);
+      etag = "\"" + etag + "\"";
       fdsn_send_get_response(resp_status, (int) resp_buf_len);
       fdsn_send_get_buffer(cur_get_buffer, (int) resp_buf_len, true);
     } else {
@@ -517,6 +518,7 @@ Conn_PutObject::ame_request_handler()
 
     /* compute etag to be sent as response.  Ideally this is done by AM */
     etag = HttpUtils::computeEtag(buf, len);
+    etag = "\"" + etag + "\"";
     FDS_PLOG(get_log()) << "PutObject bucket: " << get_bucket_id() << " , object: " << get_object_id() << " , len: " << len;
 
     api = ame->ame_fds_hook();
