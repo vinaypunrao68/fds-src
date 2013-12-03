@@ -597,6 +597,7 @@ Conn_DelObject::fdsn_send_del_response(int status, int len)
 Conn_PutBucket::Conn_PutBucket(AMEngine *eng, HttpRequest &req)
     : AME_Request(eng, req)
 {
+    ame_finalize = true;
 }
 
 Conn_PutBucket::~Conn_PutBucket()
