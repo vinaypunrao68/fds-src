@@ -873,9 +873,7 @@ void FdsLocalDomain::getStats(void)
   /* ignore most recent slots because OM may not receive latest stats from all AMs */
   ts -= boost::posix_time::seconds(am_stats->getSecondsInSlot() * FDS_STAT_DEFAULT_HIST_SLOTS);
   std::string temp_str = to_iso_extended_string(ts);
-  std::size_t j = temp_str.find_first_of("T");
   std::size_t i = temp_str.find_first_of(",");
-  fds_verify(j!=std::string::npos);
   std::string ts_str("");
   if (i != std::string::npos) {
     ts_str = temp_str.substr(0, i);
@@ -883,7 +881,6 @@ void FdsLocalDomain::getStats(void)
   else {
     ts_str = temp_str;
   }
-  ts_str.replace(j, 1, " ");
 
   json_file << "{" << std::endl;
   json_file << "\"time\": \"" << ts_str << "\"" << std::endl; 
