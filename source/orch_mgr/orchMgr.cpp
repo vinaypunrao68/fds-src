@@ -180,6 +180,29 @@ int OrchMgr::DeleteDomain(const FdspMsgHdrPtr& fdsp_msg,
  /* TBD*/
 return 0;
 }
+
+void OrchMgr::GetDomainStats(const FdspMsgHdrPtr& fdsp_msg,
+			     const FdspGetDomStatsPtr& get_stats_req)
+{
+  int domain_id = get_stats_req->domain_id;
+  localDomainInfo  *currentDom = NULL;
+
+  FDS_PLOG_SEV(GetLog(), fds::fds_log::normal) << "Received GetDomainStats Req for domain " 
+					       << domain_id;
+
+  /*
+   * Use default domain for now... 
+   */
+  FDS_PLOG_SEV(GetLog(), fds::fds_log::warning) << "For now always returning stats of default domain. "
+						<< "Domain id in the request is ignored";
+
+  currentDom  = locDomMap[DEFAULT_LOC_DOMAIN_ID];
+
+  if (currentDom) {
+    currentDom->domain_ptr->getStats();
+  }
+}
+
 int OrchMgr::CreateVol(const FdspMsgHdrPtr& fdsp_msg,
                         const FdspCrtVolPtr& crt_vol_req) {
   Error err(ERR_OK);
@@ -867,6 +890,19 @@ int OrchMgr::ReqCfgHandler::CreateDomain(const FdspMsgHdrPtr& fdsp_msg,
   catch(...) {
     FDS_PLOG_SEV(orchMgr->GetLog(), fds::fds_log::error) << "Orch Mgr encountered exception while "
 							 << "processing create domain";
+  }
+}
+
+void OrchMgr::ReqCfgHandler::GetDomainStats(const FdspMsgHdrPtr& fdsp_msg,
+					    const FdspGetDomStatsPtr& get_stats_req,
+					    const Ice::Current&)
+{
+  try {
+    orchMgr->GetDomainStats(fdsp_msg, get_stats_req);
+  }
+  catch(...) {
+    FDS_PLOG_SEV(orchMgr->GetLog(), fds::fds_log::error) << "Orch Mgr encountered exception while "
+							 << "processing get domain stats";
   }
 }
 

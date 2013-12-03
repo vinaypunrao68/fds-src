@@ -72,6 +72,10 @@ FdsLocalDomain::FdsLocalDomain(const std::string& om_prefix, fds_log* om_log)
    if (am_stats) {
      am_stats->enable(); /* stats are not enabled by default */
    }
+
+   /* TEMP file */
+   std::string fname = std::string("stats//") + om_prefix+"-example.json";
+   json_file.open(fname.c_str(), std::ios::out | std::ios::app);
 }
 
 FdsLocalDomain::~FdsLocalDomain()
@@ -81,6 +85,9 @@ FdsLocalDomain::~FdsLocalDomain()
   if (am_stats) {
     am_stats->disable();
     delete am_stats;
+  }
+  if (json_file.is_open()) {
+    json_file.close();
   }
 }
 
@@ -848,6 +855,75 @@ void FdsLocalDomain::handlePerfStatsFromAM(const FDSP_VolPerfHistListType& hist_
 	  am_stats->setStatFromIce((fds_uint32_t)vol_hist->vol_uuid, start_timestamp, (vol_hist->stat_list)[j]);
 	}
     }  
+}
+
+/* get recent perf stats for all existing volumes */
+void FdsLocalDomain::getStats(void)
+{
+  int count = 0;
+  boost::posix_time::ptime ts = boost::posix_time::second_clock::local_time();
+  /* here are some hardcored values assuming that AMs send stats every 
+   * (default slots num - 2)-second intervals, and OM receives 
+   * (default slots num - 1)-second interval worth of stats;
+   * OM keeps 2*(default slots num) number of slots of stats. When we get 
+   * stats, we ignore last (default slot num) of slots in case OM did not
+   * get the latest set of stats from all AMs, and calculate average performance
+   * of 5 seconds that come before the last default number of slots worth of stats */
+
+  /* ignore most recent slots because OM may not receive latest stats from all AMs */
+  ts -= boost::posix_time::seconds(am_stats->getSecondsInSlot() * FDS_STAT_DEFAULT_HIST_SLOTS);
+  std::string temp_str = to_iso_extended_string(ts);
+  std::size_t j = temp_str.find_first_of("T");
+  std::size_t i = temp_str.find_first_of(",");
+  fds_verify(j!=std::string::npos);
+  std::string ts_str("");
+  if (i != std::string::npos) {
+    ts_str = temp_str.substr(0, i);
+  }
+  else {
+    ts_str = temp_str;
+  }
+  ts_str.replace(j, 1, " ");
+
+  json_file << "{" << std::endl;
+  json_file << "\"time\": \"" << ts_str << "\"" << std::endl; 
+  json_file << "\"volumes\":" << std::endl;
+  json_file << "  [" << std::endl;
+
+  /* for each volume, append perf info */
+  for (auto it = volumeMap.begin(); it != volumeMap.end(); ++it) {
+    VolumeInfo *pVolInfo = it->second;
+    if (!pVolInfo && !pVolInfo->properties)
+      continue;
+
+    FDS_PLOG(parent_log) << "printing stats for volume " << pVolInfo->vol_name;
+    if (count > 0) {
+      json_file << "," << std::endl;
+    }
+
+    /* TODO: the UI wants perf to be value between 0 - 100, so here we assume 
+     * performance no higher than 3200 IOPS; check again what's expected */
+    int sla = (int)(pVolInfo->properties->iops_min / 32);
+    int limit = (int)(pVolInfo->properties->iops_max / 32);
+    int perf = (int)(am_stats->getAverageIOPS(pVolInfo->volUUID, ts, 5) / 32);
+
+    /* note we hardcoded IOPS average of 5 seconds, we should probably have that as a parameter */
+    json_file << "    {"
+	      << "\"id\": " << pVolInfo->volUUID << ", "
+	      << "\"name\": " << pVolInfo->vol_name << ", "
+	      << "\"priority\": " << pVolInfo->properties->relativePrio << ", "
+	      << "\"performance\": " << perf << ", "  
+	      << "\"sla\": " << sla << ", "
+	      << "\"limit\": " << limit
+	      << "}";
+
+    ++count;
+  }
+
+  json_file << std::endl;
+  json_file << "  ]" << std::endl;
+  json_file << "}," << std::endl;
+  json_file.flush();
 }
 
 

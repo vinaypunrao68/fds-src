@@ -75,7 +75,8 @@ int FdsCli::fdsCliPraser(int argc, char* argv[])
 	("policy-delete",po::value<std::string>(), "Delete policy: policy-delete <policy name> -p <policy-id>")
 	("policy-modify",po::value<std::string>(), "Modify policy: policy-modify <policy name> -p <policy-id> -g <iops-min> -m <iops-max> -r <rel-prio> ")
 	("domain-create",po::value<std::string>(), "Create domain: domain-create <domain name> -k <domain-id>")
-	("domain-delete",po::value<std::string>(), "Create domain: domain-delete <domain name> -k <domain-id>")
+	("domain-delete",po::value<std::string>(), "Delete domain: domain-delete <domain name> -k <domain-id>")
+	("domain-stats", "Get domain stats: domain-stats -k <domain-id>")
 	("throttle", "Throttle traffic: throttle -t <throttle_level> ")
 	("policy-show",po::value<std::string>(), "Show policy")
 	("volume-size,s",po::value<double>(),"volume capacity")
@@ -319,18 +320,26 @@ int FdsCli::fdsCliPraser(int argc, char* argv[])
     		cfgPrx->CreateDomain(msg_hdr, domainData);
 
 	} else 	if (vm.count("domain-delete") && vm.count("domain-id")) {
-		FDS_PLOG(cli_log) << " Domain Delete ";
-		FDS_PLOG(cli_log) << vm["domain-delete"].as<std::string>() << "-domain name";
-		FDS_PLOG(cli_log) << vm["domain-id"].as<int>() <<  " -domain id ";
+	  FDS_PLOG_SEV(cli_log, fds::fds_log::notification) << " Domain Delete ";
+	  FDS_PLOG_SEV(cli_log, fds::fds_log::notification) << vm["domain-delete"].as<std::string>() << "-domain name";
+	  FDS_PLOG_SEV(cli_log, fds::fds_log::notification) << vm["domain-id"].as<int>() <<  " -domain id ";
 		
 		FDSP_CreateDomainTypePtr domainData = new FDSP_CreateDomainType();
 		domainData->domain_name = vm["domain-delete"].as<std::string>();
 		domainData->domain_id = vm["domain-id"].as<int>();
    		cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(proxy);
     		cfgPrx->DeleteDomain(msg_hdr, domainData);
+	} else 	if (vm.count("domain-stats") && vm.count("domain-id")) {
+	  FDS_PLOG_SEV(cli_log, fds::fds_log::notification) << " Domain Stats ";
+	  FDS_PLOG_SEV(cli_log, fds::fds_log::notification) << vm["domain-id"].as<int>() <<  " -domain id ";
+		
+	  FDSP_GetDomainStatsTypePtr domainData = new FDSP_GetDomainStatsType();
+	  domainData->domain_id = vm["domain-id"].as<int>();
+	  cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(proxy);
+	  cfgPrx->GetDomainStats(msg_hdr, domainData);
         } else if (vm.count("throttle") && vm.count("throttle-level")) {
-	  	FDS_PLOG(cli_log) << " Throttle ";
-		FDS_PLOG(cli_log) << vm["throttle-level"].as<float>() << "-throttle_level";
+	  FDS_PLOG_SEV(cli_log, fds::fds_log::notification) << " Throttle ";
+	  FDS_PLOG_SEV(cli_log, fds::fds_log::notification) << vm["throttle-level"].as<float>() << "-throttle_level";
 
 		FDSP_ThrottleMsgTypePtr throttle_msg = new FDS_ProtocolInterface::FDSP_ThrottleMsgType;
 		throttle_msg->domain_id = 0;

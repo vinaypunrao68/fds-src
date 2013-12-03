@@ -121,6 +121,11 @@ class StatHistory
   void getStats(FDS_ProtocolInterface::FDSP_PerfStatListType& perf_list);
   void addStat(long rel_seconds, const FDS_ProtocolInterface::FDSP_PerfStatTypePtr& fdsp_stat);
 
+  /* get average IOPS for interval [rel_end_seconds - interval_sec, rel_end_seconds) */
+  long getAverageIOPS(long rel_end_seconds, 
+		      int interval_sec);
+
+
   /* Each stat is printed in format: 
    * [curts],volid,seconds_since_beginning_of_history,iops,ave_lat,min_lat,max_lat  */
   void print(std::ofstream& dumpFile, boost::posix_time::ptime curts);
