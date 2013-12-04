@@ -13,7 +13,7 @@ namespace fds {
 class S3_GetObject : public Conn_GetObject
 {
   public:
-    S3_GetObject(AMEngine *eng, HttpRequest &req);
+    S3_GetObject(AMEngine *eng, AME_HttpReq *req);
     ~S3_GetObject();
 
     // returns bucket id
@@ -24,7 +24,7 @@ class S3_GetObject : public Conn_GetObject
 
     // Format response header in S3 protocol.
     //
-    virtual ame_ret_e ame_format_response_hdr();
+    virtual int ame_format_response_hdr();
 
   protected:
     // List of known key-values that we'll need to send the GET response.
@@ -38,7 +38,7 @@ class S3_GetObject : public Conn_GetObject
 class S3_PutObject : public Conn_PutObject
 {
   public:
-    S3_PutObject(AMEngine *eng, HttpRequest &req);
+    S3_PutObject(AMEngine *eng, AME_HttpReq *req);
     ~S3_PutObject();
 
     // returns bucket id
@@ -49,7 +49,7 @@ class S3_PutObject : public Conn_PutObject
 
     // Format response header in S3 protocol.
     //
-    virtual ame_ret_e ame_format_response_hdr();
+    virtual int ame_format_response_hdr();
 
   protected:
     // List of known key-values that we'll need to send the GET response.
@@ -63,7 +63,7 @@ class S3_PutObject : public Conn_PutObject
 class S3_DelObject : public Conn_DelObject
 {
   public:
-    S3_DelObject(AMEngine *eng, HttpRequest &req);
+    S3_DelObject(AMEngine *eng, AME_HttpReq *req);
     ~S3_DelObject();
 
     // returns bucket id
@@ -74,7 +74,7 @@ class S3_DelObject : public Conn_DelObject
 
     // Format response header in S3 protocol.
     //
-    virtual ame_ret_e ame_format_response_hdr();
+    virtual int ame_format_response_hdr();
 
   protected:
     // List of known key-values that we'll need to send the GET response.
@@ -88,10 +88,10 @@ class S3_DelObject : public Conn_DelObject
 class S3_GetBucket : public Conn_GetBucket
 {
   public:
-    S3_GetBucket(AMEngine *eng, HttpRequest &req);
+    S3_GetBucket(AMEngine *eng, AME_HttpReq *req);
     ~S3_GetBucket();
 
-    virtual ame_ret_e ame_format_response_hdr();
+    virtual int ame_format_response_hdr();
 
     // returns bucket id
     virtual std::string get_bucket_id();
@@ -104,7 +104,7 @@ class S3_GetBucket : public Conn_GetBucket
 class S3_PutBucket : public Conn_PutBucket
 {
   public:
-    S3_PutBucket(AMEngine *eng, HttpRequest &req);
+    S3_PutBucket(AMEngine *eng, AME_HttpReq *req);
     ~S3_PutBucket();
 
     // returns bucket id
@@ -112,7 +112,7 @@ class S3_PutBucket : public Conn_PutBucket
 
     // Format response header in S3 protocol.
     //
-    virtual ame_ret_e ame_format_response_hdr();
+    virtual int ame_format_response_hdr();
 
   protected:
     // List of known key-values that we'll need to send the GET response.
@@ -126,7 +126,7 @@ class S3_PutBucket : public Conn_PutBucket
 class S3_DelBucket : public Conn_DelBucket
 {
   public:
-    S3_DelBucket(AMEngine *eng, HttpRequest &req);
+    S3_DelBucket(AMEngine *eng, AME_HttpReq *req);
     ~S3_DelBucket();
 
     // returns bucket id
@@ -134,7 +134,7 @@ class S3_DelBucket : public Conn_DelBucket
 
     // Format response header in S3 protocol.
     //
-    virtual ame_ret_e ame_format_response_hdr();
+    virtual int ame_format_response_hdr();
 
   protected:
     // List of known key-values that we'll need to send the GET response.
@@ -151,25 +151,25 @@ class AMEngine_S3 : public AMEngine
 
     // Object factory.
     //
-    virtual Conn_GetObject *ame_getobj_hdler(HttpRequest &req) {
+    virtual Conn_GetObject *ame_getobj_hdler(AME_HttpReq *req) {
         return new S3_GetObject(this, req);
     }
-    virtual Conn_PutObject *ame_putobj_hdler(HttpRequest &req) {
+    virtual Conn_PutObject *ame_putobj_hdler(AME_HttpReq *req) {
         return new S3_PutObject(this, req);
     }
-    virtual Conn_DelObject *ame_delobj_hdler(HttpRequest &req) {
+    virtual Conn_DelObject *ame_delobj_hdler(AME_HttpReq *req) {
         return new S3_DelObject(this, req);
     }
 
     // Bucket factory.
     //
-    virtual Conn_GetBucket *ame_getbucket_hdler(HttpRequest &req) {
+    virtual Conn_GetBucket *ame_getbucket_hdler(AME_HttpReq *req) {
         return new S3_GetBucket(this, req);
     }
-    virtual Conn_PutBucket *ame_putbucket_hdler(HttpRequest &req) {
+    virtual Conn_PutBucket *ame_putbucket_hdler(AME_HttpReq *req) {
         return new S3_PutBucket(this, req);
     }
-    virtual Conn_DelBucket *ame_delbucket_hdler(HttpRequest &req) {
+    virtual Conn_DelBucket *ame_delbucket_hdler(AME_HttpReq *req) {
         return new S3_DelBucket(this, req);
     }
 };

@@ -12,7 +12,7 @@ ProbeS3Eng gl_probeS3Eng("S4 Probe Eng");
 // GetObject Probe
 // ---------------------------------------------------------------------------
 
-Probe_GetObject::Probe_GetObject(AMEngine *eng, HttpRequest &req)
+Probe_GetObject::Probe_GetObject(AMEngine *eng, AME_HttpReq *req)
     : S3_GetObject(eng, req)
 {
 }
@@ -31,16 +31,17 @@ Probe_GetObject::ame_request_handler()
     void   *cookie;
     char   *buf;
 
-    cookie = fdsn_alloc_get_buffer(0, &buf, &len);
+    cookie = ame_push_resp_data_buf(0, &buf, &len);
     fdsn_send_get_response(0, 0);
-    fdsn_send_get_buffer(cookie, 0, true);
+    ame_send_resp_data(cookie, 0, true);
+    req_complete();
 }
 
 // ---------------------------------------------------------------------------
 // PutObject Probe
 // ---------------------------------------------------------------------------
 
-Probe_PutObject::Probe_PutObject(AMEngine *eng, HttpRequest &req)
+Probe_PutObject::Probe_PutObject(AMEngine *eng, AME_HttpReq *req)
     : S3_PutObject(eng, req)
 {
 }

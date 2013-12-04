@@ -7,9 +7,15 @@
 #include <fds_module.h>
 #include <fds_request.h>
 #include <string>
-#include <am-engine/http_utils.h>
 #include <native_api.h>
 #include <util/Log.h>
+#include <am-engine/http_utils.h>
+
+extern "C" {
+struct ngx_chain_s;
+struct ngx_http_request_s;
+typedef struct ngx_http_request_s AME_HttpReq;
+}
 
 namespace fds {
 class FDS_NativeAPI;
@@ -41,12 +47,12 @@ class AMEngine : public Module
     }
 
     // Factory methods to create objects handling required protocol.
-    virtual Conn_GetObject *ame_getobj_hdler(HttpRequest &req) = 0;
-    virtual Conn_PutObject *ame_putobj_hdler(HttpRequest &req) = 0;
-    virtual Conn_DelObject *ame_delobj_hdler(HttpRequest &req) = 0;
-    virtual Conn_GetBucket *ame_getbucket_hdler(HttpRequest &req) = 0;
-    virtual Conn_PutBucket *ame_putbucket_hdler(HttpRequest &req) = 0;
-    virtual Conn_DelBucket *ame_delbucket_hdler(HttpRequest &req) = 0;
+    virtual Conn_GetObject *ame_getobj_hdler(AME_HttpReq *req) = 0;
+    virtual Conn_PutObject *ame_putobj_hdler(AME_HttpReq *req) = 0;
+    virtual Conn_DelObject *ame_delobj_hdler(AME_HttpReq *req) = 0;
+    virtual Conn_GetBucket *ame_getbucket_hdler(AME_HttpReq *req) = 0;
+    virtual Conn_PutBucket *ame_putbucket_hdler(AME_HttpReq *req) = 0;
+    virtual Conn_DelBucket *ame_delbucket_hdler(AME_HttpReq *req) = 0;
 
     FDS_NativeAPI *ame_fds_hook() {
         return eng_api;
@@ -67,16 +73,6 @@ class AMEngine : public Module
 };
 
 // ---------------------------------------------------------------------------
-
-// Common return code used by this API.
-typedef enum
-{
-    AME_OK           = 0,
-    AME_TRY_AGAIN    = 1,
-    AME_HAVE_DATA    = 2,
-    AME_NO_MORE_DATA = 3,
-    AME_MAX
-} ame_ret_e;
 
 // Table of keys used request and response headers.
 // Reference spec URL:
@@ -121,7 +117,7 @@ struct ame_keytab
         char const *const    kv_key;
         char                 *kv_key_name;
     } u;
-    ngx_int_t                kv_keylen;
+    int                      kv_keylen;
     ame_hdr_key_e            kv_idx;
 };
 
@@ -139,7 +135,7 @@ public:
   static int map_fdsn_status(FDSN_Status status);
 
   public:
-    AME_Request(AMEngine *eng, HttpRequest &req);
+    AME_Request(AMEngine *eng, AME_HttpReq *req);
     ~AME_Request();
 
     // ame_get_reqt_hdr_val
@@ -152,26 +148,27 @@ public:
     // ----------------
     // Common path to set the standard response status/len.
     //
-    ame_ret_e ame_set_std_resp(int status, int len);
+    int ame_set_std_resp(int status, int len);
 
     // ame_set_resp_keyval
     // -------------------
     // Set key/value in the response to send to the client.
-    // Assume key/value buffers remain valid until this obj is freed.
+    // Key/value strings can be on the stack if the caller calls
+    // ame_send_response_hdr() in the same context.
     //
-    ame_ret_e ame_set_resp_keyval(char *k, ngx_int_t klen,
-                                  char *v, ngx_int_t vlen);
-
-    virtual ame_ret_e ame_format_response_hdr() = 0;
+    int ame_set_resp_keyval(char *k, int klen, char *v, int vlen);
+    virtual int  ame_format_response_hdr() = 0;
+    virtual void ame_request_handler() = 0;
 
     fds_log* get_log() {
       return ame->get_log();
     }
 
   protected:
-    HttpRequest              ame_req;
     AMEngine                 *ame;
-    ngx_chain_t              *post_buf_itr;
+    AME_HttpReq              *ame_req;
+    struct ngx_chain_s       *post_buf_itr;
+    HttpRequest              ame_http;
     std::string              etag;
 
     // Tell the engine if we need to finalize this request.
@@ -183,13 +180,11 @@ public:
     int resp_status;
     const char *resp_buf;
     int resp_buf_len;
-    bool req_completed;
 
     void notify_request_completed(int status, const char *buf, int len) {
       resp_status = status;
       resp_buf = buf;
       resp_buf_len = len;
-      req_completed = true;
       req_complete();
     }
 
@@ -205,9 +200,8 @@ public:
     //    uri  = ame_get_req_hdr_val("uri");
     //
     void ame_reqt_iter_reset();
-    ame_ret_e ame_reqt_iter_next();
+    int ame_reqt_iter_next();
     char* ame_reqt_iter_data(int *len);
-    virtual void ame_request_handler() = 0;
 
     // Common response path.
     // The request handler then prepares response data.
@@ -224,12 +218,12 @@ public:
     //    If the last buf is true, this object will be freed by the AM Engine.
     //
     void *ame_push_resp_data_buf(int ask, char **buf, int *got_len);
-    ame_ret_e ame_send_resp_data(void *cookie, int len, fds_bool_t last);
+    int ame_send_resp_data(void *cookie, int len, fds_bool_t last);
 
     // ame_send_response_hdr
     // ---------------------
     // Common code path to send the response header to the client.
-    ame_ret_e ame_send_response_hdr();
+    int ame_send_response_hdr();
 };
 
 // ---------------------------------------------------------------------------
@@ -243,7 +237,7 @@ public:
       FDSN_Status status, ErrorDetails *errdetails);
 
   public:
-    Conn_GetObject(AMEngine *eng, HttpRequest &req);
+    Conn_GetObject(AMEngine *eng, AME_HttpReq *req);
     ~Conn_GetObject();
 
     // returns bucket id
@@ -263,37 +257,6 @@ public:
     virtual void
     fdsn_send_get_response(int status, int get_len);
 
-    // fdsn_alloc_get_buffer
-    // ---------------------
-    // Allocate buffer to store data for the GET request.
-    // @param ask_len (i): the length in byte that FDSN asked for.
-    // @param buf_adr (o): address of the buffer.
-    // @param got_len (o): actual length that the transport layer can alloc.
-    // @return cookie to pass to fdsn_send_get_buffer().
-    //
-    virtual void *
-    fdsn_alloc_get_buffer(int ask_len, char **buf_adr, int *got_len)
-    {
-        return ame_push_resp_data_buf(ask_len, buf_adr, got_len);
-    }
-
-    // fdsn_send_get_buffer
-    // --------------------
-    // Send the get buffer to the client.  If this is the last call, FDSN
-    // can free its resources.
-    // @param cookie (i): cookie obtained from the alloc() API.
-    // @param len (i): buffer length containing valid data.
-    // @param last (i): true if this is the last buffer.  Since the connector
-    //    layer also has the expected length in fdsn_send_get_response(),
-    //    it'll performn cross check to make sure everything adds up.
-    // @return status of the send op.
-    //
-    virtual ame_ret_e
-    fdsn_send_get_buffer(void *cookie, int len, fds_bool_t last)
-    {
-        return ame_send_resp_data(cookie, len, last);
-    }
-
   protected:
     void *cur_get_buffer;
 };
@@ -308,7 +271,7 @@ public:
       void *callbackData, FDSN_Status status, ErrorDetails* errDetails);
 
   public:
-    Conn_PutObject(AMEngine *eng, HttpRequest &req);
+    Conn_PutObject(AMEngine *eng, AME_HttpReq *req);
     ~Conn_PutObject();
 
     // returns bucket id
@@ -340,7 +303,7 @@ public:
       void *callbackData);
 
   public:
-    Conn_DelObject(AMEngine *eng, HttpRequest &req);
+    Conn_DelObject(AMEngine *eng, AME_HttpReq *req);
     ~Conn_DelObject();
 
     // returns bucket id
@@ -372,7 +335,7 @@ class Conn_PutBucket : public AME_Request
             const ErrorDetails *errorDetails, void *callbackData);
 
   public:
-    Conn_PutBucket(AMEngine *eng, HttpRequest &req);
+    Conn_PutBucket(AMEngine *eng, AME_HttpReq *req);
     ~Conn_PutBucket();
 
     // returns bucket id
@@ -403,7 +366,7 @@ class Conn_GetBucket : public AME_Request
                    void *cbarg, FDSN_Status status);
 
   public:
-    Conn_GetBucket(AMEngine *eng, HttpRequest &req);
+    Conn_GetBucket(AMEngine *eng, AME_HttpReq *req);
     ~Conn_GetBucket();
 
     // returns bucket id
@@ -425,7 +388,7 @@ public:
                  const ErrorDetails *errorDetails, void *callbackData);
 
   public:
-    Conn_DelBucket(AMEngine *eng, HttpRequest &req);
+    Conn_DelBucket(AMEngine *eng, AME_HttpReq *req);
     ~Conn_DelBucket();
 
     // returns bucket id

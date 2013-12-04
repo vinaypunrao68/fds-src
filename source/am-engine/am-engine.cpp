@@ -2,6 +2,7 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 #include <am-engine/am-engine.h>
+#include <am-engine/http_utils.h>
 #include <am-plugin.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -185,19 +186,19 @@ int AME_Request::map_fdsn_status(FDSN_Status status)
   }
 }
 
-AME_Request::AME_Request(AMEngine *eng, HttpRequest &req)
-    : fdsio::Request(true), ame(eng), ame_req(req), ame_finalize(false)
+AME_Request::AME_Request(AMEngine *eng, AME_HttpReq *req)
+    : fdsio::Request(true), ame(eng), ame_req(req),
+      ame_http(req), ame_finalize(false)
 {
-  if (ame_req.getNginxReq()->request_body &&
-      ame_req.getNginxReq()->request_body->bufs) {
-    post_buf_itr = ame_req.getNginxReq()->request_body->bufs;
+  if (ame_req->request_body &&
+      ame_req->request_body->bufs) {
+    post_buf_itr = ame_req->request_body->bufs;
   } else {
     post_buf_itr = NULL;
   }
   resp_status = 500;
   resp_buf = NULL;
   resp_buf_len = 0;
-  req_completed = false;
   eng->get_queue()->rq_enqueue(this, 0);
 }
 
@@ -216,11 +217,11 @@ AME_Request::ame_reqt_iter_reset()
 // ame_reqt_iter_next
 // ------------------
 //
-ame_ret_e
+int
 AME_Request::ame_reqt_iter_next()
 {
   // todo: rao implement this to the post/put client buffer
-    return AME_OK;
+    return NGX_OK;
 }
 
 // ame_reqt_iter_data
@@ -234,15 +235,11 @@ AME_Request::ame_reqt_iter_data(int *len)
     return NULL;
   }
 
-//  char* data = (char*) post_buf_itr->buf->pos;
-//  *len = post_buf_itr->buf->last - post_buf_itr->buf->pos;
-//  post_buf_itr = post_buf_itr->next;
-
   /* Temporary code so that we return a single buffer containing all content in a body */
   int copy_len = 0;
   *len = 0;
-  char *data = (char *)ngx_palloc(ame_req.getNginxReq()->pool,
-      ame_req.getNginxReq()->headers_in.content_length_n);
+  char *data = (char *)ngx_palloc(ame_req->pool,
+      ame_req->headers_in.content_length_n);
   if (data == NULL) {
     fds_assert(!"Null data");
     return NULL;
@@ -256,7 +253,7 @@ AME_Request::ame_reqt_iter_data(int *len)
     post_buf_itr = post_buf_itr->next;
   }
 
-  if (*len != ame_req.getNginxReq()->headers_in.content_length_n) {
+  if (*len != ame_req->headers_in.content_length_n) {
     fds_assert(!"Invalid data accounting");
     *len = 0;
     return NULL;
@@ -277,16 +274,14 @@ AME_Request::ame_get_reqt_hdr_val(char const *const key)
 
 // ame_set_resp_keyval
 // -------------------
-// Assume key/value buffers remain valid until this object is destroyed.
 //
-ame_ret_e
-AME_Request::ame_set_resp_keyval(char *k, ngx_int_t klen,
-                                 char *v, ngx_int_t vlen)
+int
+AME_Request::ame_set_resp_keyval(char *k, int klen, char *v, int vlen)
 {
     ngx_table_elt_t    *h;
     ngx_http_request_t *r;
 
-    r = ame_req.getNginxReq();
+    r = ame_req;
     h = (ngx_table_elt_t *)ngx_list_push(&r->headers_out.headers);
 
     h->key.len    = klen;
@@ -294,34 +289,34 @@ AME_Request::ame_set_resp_keyval(char *k, ngx_int_t klen,
     h->value.len  = vlen;
     h->value.data = (u_char *)v;
 
-    return AME_OK;
+    return NGX_OK;
 }
 
 // ame_set_std_resp
 // ----------------
 // Common code path to set standard response to client.
 //
-ame_ret_e
+int
 AME_Request::ame_set_std_resp(int status, int len)
 {
     int                used;
     char               *buf;
     ngx_http_request_t *r;
 
-    r = ame_req.getNginxReq();
+    r = ame_req;
     r->headers_out.status           = status;
     r->headers_out.content_length_n = len;
     if (len == 0) {
         r->header_only = 1;
     }
-    return AME_OK;
+    return NGX_OK;
 }
 
 // ame_send_response_hdr
 // ---------------------
 // Common code path to send the complete response header to client.
 //
-ame_ret_e
+int
 AME_Request::ame_send_response_hdr()
 {
     ngx_int_t          rc;
@@ -332,16 +327,16 @@ AME_Request::ame_send_response_hdr()
     ame_format_response_hdr();
 
     // Do actual sending.
-    r  = ame_req.getNginxReq();
+    r  = ame_req;
     if (etag.size() > 0) {
       ame_set_resp_keyval(const_cast<char*>(etag_key.c_str()), etag_key.size(),
           const_cast<char*>(etag.c_str()), etag.size());
     }
     rc = ngx_http_send_header(r);
-    if (ame_finalize == true) {
+    if (ame_finalize == true || r->header_only) {
         ngx_http_finalize_request(r, rc);
     }
-    return AME_OK;
+    return NGX_OK;
 }
 
 // ame_push_resp_data_buf
@@ -353,7 +348,7 @@ AME_Request::ame_push_resp_data_buf(int ask, char **buf, int *got)
     ngx_buf_t          *b;
     ngx_http_request_t *r;
 
-    r = ame_req.getNginxReq();
+    r = ame_req;
     b = (ngx_buf_t *)ngx_calloc_buf(r->pool);
     memset(b, sizeof(ngx_buf_t), 0);
 
@@ -375,7 +370,7 @@ AME_Request::ame_push_resp_data_buf(int ask, char **buf, int *got)
 // ame_send_resp_data
 // ------------------
 //
-ame_ret_e
+int
 AME_Request::ame_send_resp_data(void *buf_cookie, int len, fds_bool_t last)
 {
     ngx_buf_t          *buf;
@@ -383,8 +378,7 @@ AME_Request::ame_send_resp_data(void *buf_cookie, int len, fds_bool_t last)
     ngx_chain_t        out;
     ngx_http_request_t *r;
 
-    r   = ame_req.getNginxReq();
-
+    r   = ame_req;
     buf = (ngx_buf_t *)buf_cookie;
     buf->last = buf->pos + len;
     out.buf  = buf;
@@ -396,13 +390,13 @@ AME_Request::ame_send_resp_data(void *buf_cookie, int len, fds_bool_t last)
     }
 
     rc = ngx_http_output_filter(r, &out);
-    return AME_OK;
+    return NGX_OK;
 }
 
 // ---------------------------------------------------------------------------
 // GetObject Connector Adapter
 // ---------------------------------------------------------------------------
-Conn_GetObject::Conn_GetObject(AMEngine *eng, HttpRequest &req)
+Conn_GetObject::Conn_GetObject(AMEngine *eng, AME_HttpReq *req)
     : AME_Request(eng, req)
 {
 }
@@ -439,25 +433,22 @@ Conn_GetObject::ame_request_handler()
     FDS_NativeAPI *api;
     BucketContext bucket_ctx("host", get_bucket_id(), "accessid", "secretkey");
 
-    cur_get_buffer  = fdsn_alloc_get_buffer(buf_req_len, &buf, &buf_len);
+    cur_get_buffer  = ame_push_resp_data_buf(buf_req_len, &buf, &buf_len);
 
     api = ame->ame_fds_hook();
 
     api->GetObject(&bucket_ctx, get_object_id(), NULL, 0, buf_len, buf, buf_len,
         (void *)this, Conn_GetObject::cb, (void *) this);
 
-    if (!req_completed) {
-      req_wait();
-    }
+    req_wait();
 
     if (resp_status == NGX_HTTP_OK) {
       etag = HttpUtils::computeEtag(resp_buf, resp_buf_len);
       fdsn_send_get_response(resp_status, (int) resp_buf_len);
-      fdsn_send_get_buffer(cur_get_buffer, (int) resp_buf_len, true);
+      ame_send_resp_data(cur_get_buffer, (int) resp_buf_len, true);
     } else {
       fdsn_send_get_response(resp_status, 0);
     }
-
 }
 
 // fdsn_send_get_response
@@ -473,7 +464,7 @@ Conn_GetObject::fdsn_send_get_response(int status, int get_len)
 // ---------------------------------------------------------------------------
 // PutObject Connector Adapter
 // ---------------------------------------------------------------------------
-Conn_PutObject::Conn_PutObject(AMEngine *eng, HttpRequest &req)
+Conn_PutObject::Conn_PutObject(AMEngine *eng, AME_HttpReq *req)
     : AME_Request(eng, req)
 {
     ame_finalize = true;
@@ -512,7 +503,7 @@ Conn_PutObject::ame_request_handler()
       // todo: instead of assert put a log.  Also think about what needes
       // to be returned to server
       fds_assert(!"no body");
-      return ;
+      return;
     }
 
     /* compute etag to be sent as response.  Ideally this is done by AM */
@@ -523,10 +514,8 @@ Conn_PutObject::ame_request_handler()
     api->PutObject(&bucket_ctx, get_object_id(), NULL, NULL,
                    buf, len, Conn_PutObject::cb, this);
 
-    if (!req_completed) {
-      fds_assert(req_blocking_mode() == false);
-      req_wait();
-    }
+    fds_assert(req_blocking_mode() == false);
+    req_wait();
 
     fdsn_send_put_response(resp_status, 0);
 }
@@ -544,7 +533,7 @@ Conn_PutObject::fdsn_send_put_response(int status, int put_len)
 // ---------------------------------------------------------------------------
 // DelObject Connector Adapter
 // ---------------------------------------------------------------------------
-Conn_DelObject::Conn_DelObject(AMEngine *eng, HttpRequest &req)
+Conn_DelObject::Conn_DelObject(AMEngine *eng, AME_HttpReq *req)
     : AME_Request(eng, req)
 {
 }
@@ -575,9 +564,7 @@ Conn_DelObject::ame_request_handler()
     api = ame->ame_fds_hook();
     api->DeleteObject(&bucket_ctx, get_object_id(), NULL, Conn_DelObject::cb, this);
 
-    if (!req_completed) {
-      req_wait();
-    }
+    req_wait();
     fdsn_send_del_response(resp_status, 0);
 }
 
@@ -594,7 +581,7 @@ Conn_DelObject::fdsn_send_del_response(int status, int len)
 // ---------------------------------------------------------------------------
 // PutBucket Connector Adapter
 // ---------------------------------------------------------------------------
-Conn_PutBucket::Conn_PutBucket(AMEngine *eng, HttpRequest &req)
+Conn_PutBucket::Conn_PutBucket(AMEngine *eng, AME_HttpReq *req)
     : AME_Request(eng, req)
 {
     ame_finalize = true;
@@ -628,11 +615,7 @@ Conn_PutBucket::ame_request_handler()
     api = ame->ame_fds_hook();
     api->CreateBucket(&bucket_ctx, CannedAclPrivate,
                       NULL, fds::Conn_PutBucket::fdsn_cb, this);
-    if (!req_completed) {
-      printf("put bucket waiting\n");
-      req_wait();
-      printf("put bucket wait done\n");
-    }
+    req_wait();
     fdsn_send_put_response(resp_status, 0);
 }
 
@@ -649,7 +632,7 @@ Conn_PutBucket::fdsn_send_put_response(int status, int put_len)
 // ---------------------------------------------------------------------------
 // GetBucket Connector Adapter
 // ---------------------------------------------------------------------------
-Conn_GetBucket::Conn_GetBucket(AMEngine *eng, HttpRequest &req)
+Conn_GetBucket::Conn_GetBucket(AMEngine *eng, AME_HttpReq *req)
     : AME_Request(eng, req)
 {
 }
@@ -789,9 +772,7 @@ Conn_GetBucket::ame_request_handler()
     api->GetBucket(&bucket_ctx, prefix, marker, deli, 1000, NULL,
                    fds::Conn_GetBucket::fdsn_getbucket, (void *)this);
 
-    if (!req_completed) {
-      req_wait();
-    }
+    req_wait();
     if (resp_status == NGX_HTTP_OK) {
       fdsn_send_getbucket_response(resp_status, (int) resp_buf_len);
       ame_send_resp_data(cur_get_buffer, (int) resp_buf_len, true);
@@ -813,7 +794,7 @@ Conn_GetBucket::fdsn_send_getbucket_response(int status, int len)
 // ---------------------------------------------------------------------------
 // PutBucket Connector Adapter
 // ---------------------------------------------------------------------------
-Conn_DelBucket::Conn_DelBucket(AMEngine *eng, HttpRequest &req)
+Conn_DelBucket::Conn_DelBucket(AMEngine *eng, AME_HttpReq *req)
     : AME_Request(eng, req)
 {
 }
@@ -845,9 +826,7 @@ Conn_DelBucket::ame_request_handler()
     api = ame->ame_fds_hook();
     api->DeleteBucket(&bucket_ctx, NULL, fds::Conn_DelBucket::cb, this);
 
-    if (!req_completed) {
-      req_wait();
-    }
+    req_wait();
     fdsn_send_delbucket_response(resp_status, 0);
 }
 
