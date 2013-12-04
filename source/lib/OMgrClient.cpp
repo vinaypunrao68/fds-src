@@ -470,6 +470,7 @@ int OMgrClient::pushCreateBucketToOM(const FDS_ProtocolInterface::FDSP_VolumeInf
     	 fdspConfigPathAPI->begin_CreateVol(msg_hdr, volData);
   } catch (...) {
     FDS_PLOG_SEV(omc_log, fds::fds_log::error) << "OMClient unable to push  the create bucket request to OM. Check if OM is up and restart.";
+    return -1;
   }
 
    /* do attach volume for this bucket */
@@ -486,6 +487,33 @@ int OMgrClient::pushCreateBucketToOM(const FDS_ProtocolInterface::FDSP_VolumeInf
   	fdspConfigPathAPI->AttachVol(msg_hdr, volData);
   } catch (...) {
     FDS_PLOG_SEV(omc_log, fds::fds_log::error) << "OMClient unable to push  the attach  bucket to  OM. Check if OM is up and restart.";
+    return -1;
+  }
+
+  return 0;
+}
+
+int OMgrClient::pushModifyBucketToOM(const std::string& bucket_name,
+				     const FDS_ProtocolInterface::FDSP_VolumeDescTypePtr& vol_desc)
+{
+  try {
+    std::string tcpProxyStr = std::string("OrchMgr: tcp -h ") + 
+      omIpStr + std::string(" -p ") + std::to_string(omConfigPort);
+    FDSP_ConfigPathReqPrx fdspConfigPathAPI = FDSP_ConfigPathReqPrx::checkedCast(rpc_comm->stringToProxy(tcpProxyStr));
+    FDSP_MsgHdrTypePtr msg_hdr = new FDSP_MsgHdrType;
+    initOMMsgHdr(msg_hdr);
+    FDSP_ModifyVolTypePtr mod_vol_msg = new FDSP_ModifyVolType();
+    mod_vol_msg->vol_name = bucket_name;
+    mod_vol_msg->vol_uuid = 0; /* make sure that uuid is not checked, because we don't know it here */
+    mod_vol_msg->vol_desc = vol_desc;
+
+    FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient sending modify bucket request to OM at " << tcpProxyStr;
+
+    fdspConfigPathAPI->begin_ModifyVol(msg_hdr, mod_vol_msg);
+  }
+  catch (...) {
+    FDS_PLOG_SEV(omc_log, fds::fds_log::error) << "OMClient unable to send ModifyBucket request to OM. Check if OM is up and restart.";
+    return -1;
   }
 
   return 0;

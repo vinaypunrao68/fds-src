@@ -69,6 +69,10 @@ static void sh_test_list_bucket_callback(int isTruncated, const char* nextMarker
   }
 }
 
+static void sh_test_modify_bucket_callback(FDSN_Status status, const ErrorDetails* errDetails, void* callback_data)
+{
+  FDS_PLOG(storHvisor->GetLog()) << "sh_modify_bucket_callback is called with status " << status;
+}
 
 
 static void sh_test_w_callback(void *arg1,
@@ -289,6 +293,8 @@ int unitTest2(fds_uint32_t time_mins)
   voldesc.iops_min = 10;
   voldesc.iops_max = 1000;
 
+  QosParams qos_params(386, 943, 8);
+
   FDS_PLOG(storHvisor->GetLog()) << "Blob unit test -- testing putObject()";
 
   req_size = 8192;
@@ -310,7 +316,12 @@ int unitTest2(fds_uint32_t time_mins)
   api->CreateBucket(buck_context, CannedAclPublicRead, NULL, sh_test_create_bucket_callback, NULL);
   sleep(5);
 
+  /* modify bucket's qos params*/
+  FDS_PLOG(storHvisor->GetLog()) << "Blob unit test -- will modify qos params for bucket " << buck_context->bucketName;
+  api->ModifyBucket(buck_context, qos_params, NULL, sh_test_modify_bucket_callback, NULL);
+  sleep(5);
 
+  /* test put requests to bucket */
   FDS_PLOG(storHvisor->GetLog()) << "Blob unit test -- will put object to " << buck_context->bucketName;
   memset(w_buf, 0xfeed, req_size);
   api->PutObject(buck_context, "ut_key", put_props, NULL, w_buf, req_size, sh_test_put_callback, NULL); 

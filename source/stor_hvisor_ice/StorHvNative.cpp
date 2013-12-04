@@ -40,6 +40,28 @@ void FDS_NativeAPI::initVolInfo(FDSP_VolumeInfoTypePtr vol_info, const std::stri
   vol_info->appWorkload = FDSP_APP_WKLD_TRANSACTION;
 }
 
+void FDS_NativeAPI::initVolDesc(FDSP_VolumeDescTypePtr vol_desc, const std::string& bucket_name)
+{
+  vol_desc->vol_name = std::string(bucket_name);
+  vol_desc->tennantId = 0;
+  vol_desc->localDomainId = 0;
+  vol_desc->globDomainId = 0;
+
+  vol_desc->capacity = (1024*1024*100);
+  vol_desc->maxQuota = 0;
+  vol_desc->volType = FDSP_VOL_S3_TYPE;
+
+  vol_desc->defReplicaCnt = 0;
+  vol_desc->defWriteQuorum = 0;
+  vol_desc->defReadQuorum = 0;
+  vol_desc->defConsisProtocol = FDSP_CONS_PROTO_STRONG;
+
+  vol_desc->volPolicyId = 50; // default S3 policy desc ID
+  vol_desc->archivePolicyId = 0;
+  vol_desc->placementPolicy = 0;
+  vol_desc->appWorkload = FDSP_APP_WKLD_TRANSACTION;
+}
+
 /* Create a bucket */
 void FDS_NativeAPI::CreateBucket(BucketContext *bucket_ctx, 
 				 CannedAcl  canned_acl,
@@ -47,6 +69,7 @@ void FDS_NativeAPI::CreateBucket(BucketContext *bucket_ctx,
 				 fdsnResponseHandler responseHandler,
 				 void *callback_data)
 {
+  int om_err = 0;
   fds_volid_t ret_id;
    // check the bucket is already attached. 
   ret_id = storHvisor->vol_table->getVolumeUUID(bucket_ctx->bucketName);
@@ -63,10 +86,15 @@ void FDS_NativeAPI::CreateBucket(BucketContext *bucket_ctx,
 
    // send the  bucket create request to OM
 
-    storHvisor->om_client->pushCreateBucketToOM(vol_info);
+   om_err = storHvisor->om_client->pushCreateBucketToOM(vol_info);
+   if (om_err != 0) {
+    (responseHandler)(FDSN_StatusInternalError, NULL, callback_data);
+    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::warning) << "FDS_NativeAPI::CreateBucket bucket " << bucket_ctx->bucketName
+							      << " -- could't send create bucket request to OM";
+    return;
+   }
 
-    (responseHandler)(FDSN_StatusOK,NULL,callback_data);
-     return;
+   (responseHandler)(FDSN_StatusOK,NULL,callback_data);
 }
 
 
@@ -149,6 +177,51 @@ void FDS_NativeAPI::DeleteBucket(BucketContext* bucketCtxt,
    /* TBD. Since this one is async call Error  checking involved, need more discussiosn */
    (handler)(FDSN_StatusOK,NULL,callbackData);
     return;
+}
+
+
+/* This method sends modify volume (bucket) message directly to OM, independent
+ * whether this AM has this bucket attached or not. This AM will modify qos params
+ * in response to modify volume from OM  (in response to this method call) */
+void FDS_NativeAPI::ModifyBucket(BucketContext *bucket_ctxt,
+				 const QosParams& qos_params,
+				 void *req_ctxt,
+				 fdsnResponseHandler handler,
+				 void *callback_data)
+{
+  int om_err = 0;
+  FDSP_VolumeDescTypePtr voldesc = new FDSP_VolumeDescType();
+
+  FDS_PLOG(storHvisor->GetLog()) << "FDS_NativeAPI::ModifyBucket bucket " << bucket_ctxt->bucketName
+				 << " -- min_iops " << qos_params.iops_min
+				 << ", max_iops " << qos_params.iops_max
+				 << ", priority " << qos_params.relativePrio;
+
+
+  /* send modify volume request to OM -- we don't care if bucket is attached to this AM, 
+   * this AM will modify bucket qos params in response to modify volume msg from OM */
+  initVolDesc(voldesc, bucket_ctxt->bucketName);
+  voldesc->volPolicyId = 0; /* 0 means don't modify actual policy id, just qos params */
+  voldesc->iops_min = qos_params.iops_min;
+  voldesc->iops_max = qos_params.iops_max;
+  voldesc->rel_prio = qos_params.relativePrio;
+
+  om_err = storHvisor->om_client->pushModifyBucketToOM(bucket_ctxt->bucketName,
+						       voldesc);
+
+  if (om_err != 0) {
+    (handler)(FDSN_StatusInternalError, NULL, callback_data);
+    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::warning) << "FDS_NativeAPI::ModifyBucket bucket " << bucket_ctxt->bucketName
+							      << " -- could't send modify bucket request to OM";
+    return;
+  }
+
+  /* TODO: we reply with err_ok right away, even if error could happen on OM
+   * to implement async call we need AM to handle msg responses from OM + 
+   * add 'admin' queue to volume queues with some rate and send msgs to OM when 
+   * we dequeue those requests (not here). 
+   */
+  (handler)(FDSN_StatusOK, NULL, callback_data);
 }
 
 void FDS_NativeAPI::GetObject(BucketContext *bucket_ctxt, 
