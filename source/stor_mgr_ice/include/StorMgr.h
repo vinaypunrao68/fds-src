@@ -181,7 +181,7 @@ namespace fds {
         parentSm = _parent;
 
         //dispatcher = new QoSMinPrioDispatcher(this, log, 3000);
-       dispatcher = new QoSWFQDispatcher(this, 3000, 20, log);
+       dispatcher = new QoSWFQDispatcher(this, 5000, 20, log);
        //dispatcher = new QoSHTBDispatcher(this, log, 150);
 
         /* base class created stats, but they are disable by default */

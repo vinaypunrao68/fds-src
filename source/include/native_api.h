@@ -63,6 +63,22 @@ public:
   ~MetaNameValue();
 };
 
+class QosParams {
+ public:
+  double iops_min;
+  double iops_max;
+  int relativePrio;
+
+  QosParams(double _iops_min,
+	    double _iops_max,
+	    int _prio)
+    : iops_min(_iops_min),
+    iops_max(_iops_max),
+    relativePrio(_prio) {
+    }
+  ~QosParams() {}
+};
+
 typedef enum
 {
     FDSN_StatusOK                                              ,
@@ -412,6 +428,13 @@ class FDS_NativeAPI {
                     void *requestContext,
                     fdsnResponseHandler handler, void *callbackData);
 
+  /* Modify bucket policy */
+  void ModifyBucket(BucketContext *bucket_ctxt,
+		    const QosParams& qos_params,
+		    void* req_ctxt,
+		    fdsnResponseHandler handler,
+		    void *callback_data);
+
   // After this call returns bucketctx, get_cond are no longer valid.
   void GetObject(BucketContext *bucketctxt, 
                  std::string ObjKey, 
@@ -457,6 +480,9 @@ class FDS_NativeAPI {
 
   /* helper function to initialize volume info to some default values, used by several native api methods */
   void initVolInfo(FDS_ProtocolInterface::FDSP_VolumeInfoTypePtr vol_info, 
+		   const std::string& bucket_name);
+
+  void initVolDesc(FDS_ProtocolInterface::FDSP_VolumeDescTypePtr vol_desc, 
 		   const std::string& bucket_name);
 
 };

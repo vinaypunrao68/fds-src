@@ -344,6 +344,10 @@ class FDSP_CreateDomainType {
 
 };
 
+class FDSP_GetDomainStatsType {
+  int			 domain_id;
+};
+
 class FDSP_CreateVolType {
 
   string 		 vol_name;
@@ -627,6 +631,7 @@ interface FDSP_ConfigPathReq {
   int DeleteDomain(FDSP_MsgHdrType fdsp_msg, FDSP_CreateDomainType del_dom_req);
   void SetThrottleLevel(FDSP_MsgHdrType fdsp_msg, FDSP_ThrottleMsgType throttle_msg);	
   void GetVolInfo(FDSP_MsgHdrType fdsp_msg, FDSP_GetVolInfoReqType vol_info_req);
+  void GetDomainStats(FDSP_MsgHdrType fdsp_msg, FDSP_GetDomainStatsType get_stats_msg);  
 
   /* 
   These are actually control messages from SM/DM/SH to OM. Need to move these to that control interface some time.
@@ -652,6 +657,7 @@ interface FDSP_ConfigPathResp {
   int CreateDomainResp(FDSP_MsgHdrType fdsp_msg, FDSP_CreateDomainType crt_dom_resp);
   int DeleteDomainResp(FDSP_MsgHdrType fdsp_msg, FDSP_CreateDomainType del_dom_resp);
   void GetVolInfoResp(FDSP_MsgHdrType fdsp_msg, FDSP_GetVolInfoRespType vol_info_rsp);
+  void GetDomainStats(FDSP_MsgHdrType fdsp_msg, FDSP_GetDomainStatsType get_stats_rsp);
 };
 
 interface FDSP_ControlPathReq {

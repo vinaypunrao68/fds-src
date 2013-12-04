@@ -69,6 +69,10 @@ static void sh_test_list_bucket_callback(int isTruncated, const char* nextMarker
   }
 }
 
+static void sh_test_modify_bucket_callback(FDSN_Status status, const ErrorDetails* errDetails, void* callback_data)
+{
+  FDS_PLOG(storHvisor->GetLog()) << "sh_modify_bucket_callback is called with status " << status;
+}
 
 
 static void sh_test_w_callback(void *arg1,
@@ -289,6 +293,8 @@ int unitTest2(fds_uint32_t time_mins)
   voldesc.iops_min = 10;
   voldesc.iops_max = 1000;
 
+  QosParams qos_params(386, 943, 8);
+
   FDS_PLOG(storHvisor->GetLog()) << "Blob unit test -- testing putObject()";
 
   req_size = 8192;
@@ -310,7 +316,12 @@ int unitTest2(fds_uint32_t time_mins)
   api->CreateBucket(buck_context, CannedAclPublicRead, NULL, sh_test_create_bucket_callback, NULL);
   sleep(5);
 
+  /* modify bucket's qos params*/
+  FDS_PLOG(storHvisor->GetLog()) << "Blob unit test -- will modify qos params for bucket " << buck_context->bucketName;
+  api->ModifyBucket(buck_context, qos_params, NULL, sh_test_modify_bucket_callback, NULL);
+  sleep(5);
 
+  /* test put requests to bucket */
   FDS_PLOG(storHvisor->GetLog()) << "Blob unit test -- will put object to " << buck_context->bucketName;
   memset(w_buf, 0xfeed, req_size);
   api->PutObject(buck_context, "ut_key", put_props, NULL, w_buf, req_size, sh_test_put_callback, NULL); 
@@ -1190,6 +1201,68 @@ fds::Error StorHvCtrl::upCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
   return err;
 }
 
+fds::Error StorHvCtrl::deleteCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
+                                     const FDSP_DeleteCatalogTypePtr& delCatRsp) {
+  fds::Error err(ERR_OK);
+
+  fds_verify(rxMsg->msg_code == FDSP_MSG_DELETE_CAT_OBJ_RSP);
+
+  fds_uint32_t transId = rxMsg->req_cookie;
+  fds_volid_t  volId   = rxMsg->glob_volume_id;
+
+  StorHvVolume* vol = vol_table->getVolume(volId);
+  fds_verify(vol != NULL);  // Should not receive resp for non existant vol
+
+  StorHvVolumeLock vol_lock(vol);
+  fds_verify(vol->isValidLocked() == true);
+
+  StorHvJournalEntry *txn = vol->journal_tbl->get_journal_entry(transId);
+  fds_verify(txn != NULL);
+
+  StorHvJournalEntryLock je_lock(txn);
+  fds_verify(txn->isActive() == true);  // Should not receive resp for inactive txn
+  fds_verify(txn->trans_state == FDS_TRANS_DEL_OBJ);
+
+  /*
+   * TODO: We're short cutting here and responding to the client when we get
+   * only the resonse from a single DM. We need to finish this transaction by
+   * tracking all of the responses from all SMs/DMs in the journal.
+   */
+  fds::AmQosReq *qosReq  = static_cast<fds::AmQosReq *>(txn->io);
+  fds_verify(qosReq != NULL);
+  fds::FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
+  fds_verify(blobReq != NULL);
+  fds_verify(blobReq->getIoType() == FDS_DELETE_BLOB);
+  FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "Responding to deleteBlob trans " << transId
+                                                   <<" for blob " << blobReq->getBlobName()
+                                                   << " with result " << rxMsg->result;
+
+  /*
+   * Mark the IO complete, clean up txn, and callback
+   */
+  qos_ctrl->markIODone(txn->io);
+  if (rxMsg->result == FDSP_ERR_OK) {
+    blobReq->cbWithResult(0);
+  } else {
+    /*
+     * We received an error from SM
+     */
+    blobReq->cbWithResult(-1);
+  }
+
+  txn->reset();
+  vol->journal_tbl->releaseTransId(transId);
+
+  /*
+   * TODO: We're deleting the request structure. This assumes
+   * that the caller got everything they needed when the callback
+   * was invoked.
+   */
+  delete blobReq;
+
+  return err;
+}
+
 fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
   fds::Error err(ERR_OK);
 
@@ -1466,7 +1539,6 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   }
 
   /* Check if there is an outstanding transaction for this block offset  */
-  // fds_uint32_t transId = shVol->journal_tbl->get_trans_id_for_block(blobReq->getBlobOffset());
    fds_uint32_t transId = shVol->journal_tbl->get_trans_id_for_blob(blobReq->getBlobName(),
                                                                    blobReq->getBlobOffset());
   StorHvJournalEntry *journEntry = shVol->journal_tbl->get_journal_entry(transId);

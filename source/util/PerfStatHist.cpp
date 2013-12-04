@@ -305,6 +305,39 @@ namespace fds {
     lock.read_unlock();
   }
 
+  long StatHistory::getAverageIOPS(long rel_end_seconds,
+				   int interval_sec)
+  {
+    long ret_iops = 0;
+
+    lock.read_lock();
+    int endix = last_slot_num % nslots;
+    int startix = (endix + 1) % nslots; /* index of oldest stat */
+    int ix = startix;
+
+    int slot_count = 0;
+    long rel_start_seconds = rel_end_seconds - interval_sec;
+
+    /* we will skip the last timeslot, because it is most likely not filled in */
+    while (ix != endix)
+      {
+	long ts = stat_slots[ix].getTimestamp();
+	if ((ts >= rel_start_seconds) && (ts < rel_end_seconds))
+	  {
+	    ret_iops += stat_slots[ix].getIops();
+	    slot_count++;
+	  }
+	ix = (ix + 1) % nslots;
+      }
+
+    /* get the average */
+    if (slot_count > 0)
+      ret_iops = (long)( (double)ret_iops/(double)slot_count );
+
+    lock.read_unlock();
+    return ret_iops;
+  }
+
   void StatHistory::getStats(FDS_ProtocolInterface::FDSP_PerfStatListType& perf_list)
   {
     long latest_ts = 0;

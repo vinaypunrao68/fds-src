@@ -344,6 +344,7 @@ void ObjectStorMgr::nodeEventOmHandler(int node_id,
                                        fds_uint32_t node_port,
                                        FDS_ProtocolInterface::FDSP_MgrIdType node_type)
 {
+      FDS_PLOG(objStorMgr->GetLog()) << "ObjectStorMgr - Node event Handler " << node_id << " Node IP Address " <<  node_ip_addr;
     switch(node_state) {
        case FDS_Node_Up :
            FDS_PLOG(objStorMgr->GetLog()) << "ObjectStorMgr - Node UP event NodeId " << node_id << " Node IP Address " <<  node_ip_addr;
@@ -396,6 +397,9 @@ ObjectStorMgr::volEventOmHandler(fds_volid_t  volumeId,
       FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::notification) << "Received delete for vol "
                                      << "[" << volumeId << ", "
                                      << vdb->getName() << "]";
+      objStorMgr->qosCtrl->quieseceIOs(volumeId);
+      objStorMgr->qosCtrl->deregisterVolume(volumeId);
+      objStorMgr->volTbl->deregisterVolume(volumeId);
       break;
   case fds_notify_vol_mod:
     FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::notification) << "Received modify for vol "

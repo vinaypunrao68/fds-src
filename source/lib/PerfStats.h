@@ -28,6 +28,8 @@ class PerfStats
 	    int slot_len_sec = FDS_STAT_DEFAULT_SLOT_LENGTH);
   ~PerfStats();
 
+  inline int getSecondsInSlot() const {return sec_in_slot;}
+
   /* explicitly enable or desable stats; disabled stats mean that recordIO
    * and printing functions are noop. Once stats are enabled again, we will
    * continue to print stats to the same output file (so file will have a gap
@@ -49,6 +51,11 @@ class PerfStats
   void setStatFromIce(fds_uint32_t class_id, 
 		      const std::string& start_timestamp,
 		      const FDS_ProtocolInterface::FDSP_PerfStatTypePtr& stat_msg);  
+
+  /* get average IOPS for time interval [end_ts - interval_sec ... end_ts] */
+  long getAverageIOPS(fds_uint32_t class_id,
+		      const boost::posix_time::ptime end_ts,
+		      int interval_sec);
 
   /* print stats to file */
   void print();

@@ -355,10 +355,13 @@ void FDSP_DataPathRespCbackI::UpdateCatalogObjectResp(const FDSP_MsgHdrTypePtr& 
 
 void FDSP_DataPathRespCbackI::DeleteCatalogObjectResp(
     const FDSP_MsgHdrTypePtr& fdsp_msg_hdr,
-    const FDSP_DeleteCatalogTypePtr& cat_obj_req,
+    const FDSP_DeleteCatalogTypePtr& del_obj_req,
     const Ice::Current &) {
   FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::debug) << "Received deleteCatObjResp for txn "
                                                           <<  fdsp_msg_hdr->req_cookie; 
+
+  fds::Error err = storHvisor->deleteCatResp(fdsp_msg_hdr, del_obj_req);
+  fds_verify(err == ERR_OK);
 }
 
 void FDSP_DataPathRespCbackI::DeleteObjectResp(
