@@ -86,7 +86,7 @@ int
 S3_DelObject::ame_format_response_hdr()
 {
   if (resp_status == NGX_HTTP_OK) {
-    ame_set_std_resp(NGX_HTTP_NO_CONTENT, ame_req.getNginxReq()->headers_out.content_length_n);
+    ame_set_std_resp(NGX_HTTP_NO_CONTENT, ame_req->headers_out.content_length_n);
   }
   return NGX_OK;
 }
