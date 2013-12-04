@@ -1,6 +1,7 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
+#include <sys/eventfd.h>
 #include <am-engine/s3connector.h>
 #include <am-plugin.h>
 #include <am-engine/http_utils.h>
@@ -30,13 +31,6 @@ ngx_parse_uri_parts(ngx_http_request_t *r);
 static void ngx_http_fds_read_body(ngx_http_request_t *r);
 static ngx_int_t ngx_http_fds_data_handler(ngx_http_request_t *r);
 static ngx_int_t ngx_http_fds_route_request(ngx_http_request_t *r);
-
-ngx_int_t ngx_fds_obj_get(HttpRequest *http_req);
-ngx_int_t ngx_fds_obj_put(HttpRequest *http_req);
-ngx_int_t ngx_fds_obj_delete(HttpRequest *http_req);
-ngx_int_t ngx_fds_bucket_get(HttpRequest *http_req);
-ngx_int_t ngx_fds_bucket_put(HttpRequest *http_req);
-ngx_int_t ngx_fds_bucket_delete(HttpRequest *http_req);
 
 static ngx_command_t  ngx_http_fds_data_commands[] =
 {
@@ -83,7 +77,10 @@ typedef struct ngx_http_fds_data_loc_conf ngx_http_fds_data_loc_conf_t;
 struct ngx_http_fds_data_loc_conf
 {
     ngx_flag_t               fds_enable;
+    fds::AME_CtxList        *fds_context;
 };
+
+static ngx_http_fds_data_loc_conf_t *sgt_fds_data_cfg;
 
 /*
  * ngx_register_plugin
@@ -112,39 +109,50 @@ ngx_parse_uri_parts(ngx_http_request_t *r) {
   return uri_parts;
 }
 
+/*
+ * ngx_http_fds_read_body
+ * ----------------------
+ */
 static void
 ngx_http_fds_read_body(ngx_http_request_t *r)
 {
-//    ngx_int_t                     rc;
-//    ngx_chain_t                   out;
-//    ngx_buf_t                    *b;
-//    ngx_table_elt_t              *h;
-//    ngx_http_fds_data_loc_conf_t *fdscf;
-//
-//    h = r->headers_in.host;
-//    printf("Got request %p, header:\n", r);
-//    printf("\tHost: key %s, value %s\n", h->key.data, h->value.data);
-//    printf("\tURI: %s\n", r->request_line.data);
-//    printf("\tMethod: %s\n", r->method_name.data);
-//    printf("\tProtocol: %s\n", r->http_protocol.data);
-//    printf("\tData: %s\n", r->request_body->bufs->buf->start);
-//
-//    r->headers_out.status = NGX_HTTP_OK;
-//    r->headers_out.content_length_n = sizeof("Hello world") - 1;
-//
-//    rc = ngx_http_send_header(r);
-//    b = (ngx_buf_t *)ngx_calloc_buf(r->pool);
-//    out.buf  = b;
-//    out.next = NULL;
-//
-//    b->start = b->pos = (u_char *)"Hello world";
-//    b->end = b->last = b->start + sizeof("Hello world") - 1;
-//    b->memory        = 1;
-//    b->last_buf      = 1;
-//    b->last_in_chain = 1;
-//
-//    rc = ngx_http_output_filter(r, &out);
-  ngx_http_fds_route_request(r);
+    fds::AME_Request         *am_req;
+    HttpRequest               http_req(r);
+    std::vector<std::string>  uri_parts = http_req.getURIParts();
+
+    am_req = NULL;
+    switch (r->method) {
+    case NGX_HTTP_GET:
+        if (uri_parts.size() == 1) {
+            am_req = sgt_ame_plugin->ame_getbucket_hdler(r);
+        } else if (uri_parts.size() == 2) {
+            am_req = sgt_ame_plugin->ame_getobj_hdler(r);
+        }
+        break;
+
+    case NGX_HTTP_POST:
+    case NGX_HTTP_PUT:
+        if (uri_parts.size() == 1) {
+            am_req = sgt_ame_plugin->ame_putbucket_hdler(r);
+        } else if (uri_parts.size() == 2) {
+            am_req = sgt_ame_plugin->ame_putobj_hdler(r);
+        }
+        break;
+
+    case NGX_HTTP_DELETE:
+        if (uri_parts.size() == 1) {
+            am_req = sgt_ame_plugin->ame_delbucket_hdler(r);
+        } else if (uri_parts.size() == 2) {
+            am_req = sgt_ame_plugin->ame_delobj_hdler(r);
+        }
+        break;
+    }
+    if (am_req != NULL) {
+        am_req->ame_request_handler();
+        delete am_req;
+    } else {
+        ngx_http_finalize_request(r, NGX_HTTP_BAD_REQUEST);
+    }
 }
 
 /*
@@ -154,64 +162,13 @@ ngx_http_fds_read_body(ngx_http_request_t *r)
 static ngx_int_t
 ngx_http_fds_data_handler(ngx_http_request_t *r)
 {
-    ngx_int_t                     rc;
-    ngx_chain_t                   out;
-    ngx_buf_t                    *b;
-    ngx_table_elt_t              *h;
-    ngx_http_fds_data_loc_conf_t *fdscf;
+    ngx_int_t rc;
 
-    fdscf = (ngx_http_fds_data_loc_conf_t *)
-        ngx_http_get_module_loc_conf(r, ngx_http_fds_data_module);
-
-    if (r->method == NGX_HTTP_POST || r->method == NGX_HTTP_PUT) {
-        rc = ngx_http_read_client_request_body(r, ngx_http_fds_read_body);
-        if (rc >= NGX_HTTP_SPECIAL_RESPONSE) {
-            return rc;
-        }
-        return NGX_DONE;
+    rc = ngx_http_read_client_request_body(r, ngx_http_fds_read_body);
+    if (rc >= NGX_HTTP_SPECIAL_RESPONSE) {
+        return rc;
     }
-//    h = r->headers_in.host;
-//    printf("Got request %p, header:\n", r);
-//    printf("\tHost: key %s, value %s\n", h->key.data, h->value.data);
-//    printf("\tURI: %s\n", r->request_line.data);
-//    printf("\tMethod: %s\n", r->method_name.data);
-//    printf("\tProtocol: %s\n", r->http_protocol.data);
-
-    return ngx_http_fds_route_request(r);
-}
-
-static ngx_int_t
-ngx_http_fds_route_request(ngx_http_request_t *r)
-{
-  ngx_int_t ecode = NGX_HTTP_BAD_REQUEST; // default ecode
-  HttpRequest http_req(r);
-  std::vector<std::string> uri_parts = http_req.getURIParts();
-
-  switch (r->method) {
-  case NGX_HTTP_GET:
-    if (uri_parts.size() == 1) {
-      return ngx_fds_bucket_get(&http_req);
-    } else if (uri_parts.size() == 2) {
-      return ngx_fds_obj_get(&http_req);
-    }
-    break;
-  case NGX_HTTP_POST:
-  case NGX_HTTP_PUT:
-    if (uri_parts.size() == 1) {
-      return ngx_fds_bucket_put(&http_req);
-    } else if (uri_parts.size() == 2) {
-      return ngx_fds_obj_put(&http_req);
-    }
-    break;
-  case NGX_HTTP_DELETE:
-    if (uri_parts.size() == 1) {
-      return ngx_fds_bucket_delete(&http_req);
-    } else if (uri_parts.size() == 2) {
-      return ngx_fds_obj_delete(&http_req);
-    }
-    break;
-  }
-  return ecode;
+    return NGX_DONE;
 }
 
 /*
@@ -230,6 +187,7 @@ ngx_http_fds_data_connector(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     fdscf = (ngx_http_fds_data_loc_conf_t *)conf;
     fdscf->fds_enable = 1;
+
     return NGX_CONF_OK;
 }
 
@@ -242,14 +200,18 @@ ngx_http_fds_data_create_loc_conf(ngx_conf_t *cf)
 {
     ngx_http_fds_data_loc_conf_t *fdscf;
 
-    fdscf = (ngx_http_fds_data_loc_conf_t *)
-        ngx_pcalloc(cf->pool, sizeof(*fdscf));
+    if (sgt_fds_data_cfg == NULL) {
+        fdscf = (ngx_http_fds_data_loc_conf_t *)
+            ngx_pcalloc(cf->pool, sizeof(*fdscf));
 
-    if (fdscf == NULL) {
-        return NGX_CONF_ERROR;
+        if (fdscf == NULL) {
+            return NGX_CONF_ERROR;
+        }
+        sgt_fds_data_cfg   = fdscf;
+        fdscf->fds_context = new fds::AME_CtxList(cf->cycle->connection_n);
+        fdscf->fds_enable  = NGX_CONF_UNSET;
     }
-    fdscf->fds_enable = NGX_CONF_UNSET;
-    return fdscf;
+    return sgt_fds_data_cfg;
 }
 
 /*
@@ -267,113 +229,121 @@ ngx_http_fds_data_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
     return NGX_CONF_OK;
 }
 
-// ---------------------------------------------------------------------------
-// Protocol connector dispatch.
-// ---------------------------------------------------------------------------
+} /* extern "C" */
 
-ngx_int_t
-send_response(ngx_http_request_t *r)
+namespace fds {
+
+/*
+ * AME_Ctx
+ * -------
+ * Constructor for the context object that acts as "upstream" module to nginx.
+ */
+AME_Ctx::AME_Ctx()
+    : ame_req(NULL), ame_ngx_req(NULL), ame_handler_fn(NULL), ame_next(NULL)
 {
-    ngx_chain_t                   out;
-    ngx_buf_t                    *b;
-    ngx_int_t rc;
+    static int cnt = 0;
 
-    r->headers_out.status = NGX_HTTP_OK;
-    r->headers_out.content_length_n = sizeof("Hello world") - 1;
-    rc = ngx_http_send_header(r);
-
-    b = (ngx_buf_t *)ngx_calloc_buf(r->pool);
-    out.buf  = b;
-    out.next = NULL;
-
-    b->start = b->pos = (u_char *)"Hello world";
-    b->end = b->last = b->start + sizeof("Hello world") - 1;
-    b->memory        = 1;
-    b->last_buf      = 1;
-    b->last_in_chain = 1;
-
-    return ngx_http_output_filter(r, &out);
+    ame_epoll_fd = eventfd(0xfdfd, EFD_CLOEXEC | EFD_NONBLOCK);
+    fds_verify(ame_epoll_fd > 0);
 }
 
-// ngx_fds_obj_get
-// ---------------
-//
-ngx_int_t
-ngx_fds_obj_get(HttpRequest *http_req)
+/*
+ * ame_register_handler
+ * --------------------
+ * Register for the handler to be called from nginx when an "upstream" thread
+ * notified it with ame_notify_handler() call.
+ */
+void
+AME_Ctx::ame_register_handler(void (*handler)(AME_Request *req))
 {
-    fds::Conn_GetObject *get = sgt_ame_plugin->ame_getobj_hdler(*http_req);
-
-    get->ame_request_handler();
-    delete get;
-    return NGX_DONE;
+    fds_verify(ame_handler_fn == NULL);
+    ame_handler_fn = handler;
 }
 
-// ngx_fds_obj_put
-// ---------------
-//
-ngx_int_t
-ngx_fds_obj_put(HttpRequest *http_req)
+/*
+ * ame_notify_handler
+ * ------------------
+ * Called by the "upstream" handler to notify the handler run by nginx's event
+ * thread to handle the event associated with the context.
+ */
+void
+AME_Ctx::ame_notify_handler()
 {
-    fds::Conn_PutObject *put = sgt_ame_plugin->ame_putobj_hdler(*http_req);
-
-    put->ame_request_handler();
-    delete put;
-    return NGX_DONE;
-}
-// ngx_fds_obj_delete
-// ------------------
-//
-ngx_int_t
-ngx_fds_obj_delete(HttpRequest *http_req)
-{
-    fds::Conn_DelObject *del = sgt_ame_plugin->ame_delobj_hdler(*http_req);
-
-    // Do sync processing for now.
-    del->ame_request_handler();
-    delete del;
-    return NGX_DONE;
 }
 
-// ngx_fds_bucket_get
-// ---------------------
-//
-ngx_int_t
-ngx_fds_bucket_get(HttpRequest *http_req)
+/*
+ * ame_register_ctx
+ * ----------------
+ * Register the context obj with nginx's event loop so that it could invoke
+ * the handler when service thread notifies it with ame_notify_handler().
+ *
+ * Note: only nginx thread calls register/unregister method so that we
+ * can add/remove ctx obj w/out lock.
+ */
+void
+AME_Ctx::ame_register_ctx()
 {
-    fds::Conn_GetBucket *get = sgt_ame_plugin->ame_getbucket_hdler(*http_req);
-
-    // Do sync processing for now.
-    get->ame_request_handler();
-    delete get;
-    return NGX_DONE;
 }
 
-// ngx_fds_bucket_put
-// ---------------------
-//
-ngx_int_t
-ngx_fds_bucket_put(HttpRequest *http_req)
+void
+AME_Ctx::ame_unregister_ctx()
 {
-    fds::Conn_PutBucket *put = sgt_ame_plugin->ame_putbucket_hdler(*http_req);
-
-    // Do sync processing for now.
-    put->ame_request_handler();
-    delete put;
-    return NGX_DONE;
 }
 
-// ngx_fds_bucket_delete
-// ---------------------
-//
-ngx_int_t
-ngx_fds_bucket_delete(HttpRequest *http_req)
+/*
+ * AME_CtxList
+ * -----------
+ * Manager to manage free list of ctx objs used to keep track of requests
+ * submitted to FDS upstream module.
+ */
+AME_CtxList::AME_CtxList(int elm) : ame_free_ctx_cnt(elm)
 {
-    fds::Conn_DelBucket *del = sgt_ame_plugin->ame_delbucket_hdler(*http_req);
+    int i;
 
-    // Do sync processing for now.
-    del->ame_request_handler();
-    delete del;
-    return NGX_DONE;
+    // TODO: increase sys limit.
+    elm = 512;
+    ame_arr_ctx  = new AME_Ctx [elm];
+    ame_free_ctx = &ame_arr_ctx[0];
+    for (i = 1; i < elm; i++) {
+        fds_verify(ame_arr_ctx[i].ame_next == NULL);
+        ame_arr_ctx[i - 1].ame_next = &ame_arr_ctx[i];
+    }
 }
 
-} // extern "C"
+/*
+ * ame_get_ctx
+ * -----------
+ * Only ngx can call ame_get/put_ctx methods so that we can get/put ctx obj
+ * without lock.
+ */
+AME_Ctx *
+AME_CtxList::ame_get_ctx()
+{
+    if (ame_free_ctx != NULL) {
+        AME_Ctx *ctx = ame_free_ctx;
+        ame_free_ctx = ctx->ame_next;
+        ame_free_ctx_cnt--;
+        fds_verify(ame_free_ctx_cnt >= 0);
+
+        ctx->ame_next = NULL;
+        return ctx;
+    }
+    return NULL;
+}
+
+/*
+ * ame_put_ctx
+ * -----------
+ * Only ngx can call ame_get/put_ctx methods so that we can get/put ctx obj
+ * without lock.
+ */
+void
+AME_CtxList::ame_put_ctx(AME_Ctx *ctx)
+{
+    fds_verify((ctx != NULL) && (ctx->ame_next == NULL));
+    ctx->ame_next = ame_free_ctx;
+    ame_free_ctx  = ctx;
+    ame_free_ctx_cnt++;
+}
+
+} // namespace fds

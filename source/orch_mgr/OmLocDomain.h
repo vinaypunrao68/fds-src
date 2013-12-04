@@ -301,6 +301,8 @@ class FdsLocalDomain {
     void handlePerfStatsFromAM(const FDSP_VolPerfHistListType& hist_list,
 			       const std::string start_timestamp);
 
+    void getStats(void);
+
   /* parent log */
   fds_log* parent_log;
 
@@ -308,6 +310,9 @@ class FdsLocalDomain {
 
   /* recent history of perf stats OM receives from AM nodes */
   PerfStats* am_stats;
+  /* This is temporary JSON file, will remove as soon as 
+   * implement real stats polling from cli */
+  std::ofstream json_file;
 
 }; 
 

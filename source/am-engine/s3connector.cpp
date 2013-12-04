@@ -19,7 +19,7 @@ AMEngine_S3 gl_AMEngineS3("AM S3 Engine");
 
 // ---------------------------------------------------------------------------
 
-S3_GetObject::S3_GetObject(AMEngine *eng, HttpRequest &req)
+S3_GetObject::S3_GetObject(AMEngine *eng, AME_HttpReq *req)
     : Conn_GetObject(eng, req)
 {
 }
@@ -28,25 +28,25 @@ S3_GetObject::~S3_GetObject()
 {
 }
 
-ame_ret_e
+int
 S3_GetObject::ame_format_response_hdr()
 {
-    return AME_OK;
+    return NGX_OK;
 }
 
 std::string S3_GetObject::get_bucket_id()
 {
-  return ame_req.getURIParts()[0];
+  return ame_http.getURIParts()[0];
 }
 
 std::string S3_GetObject::get_object_id()
 {
-  return ame_req.getURIParts()[1];
+  return ame_http.getURIParts()[1];
 }
 
 // ---------------------------------------------------------------------------
 
-S3_PutObject::S3_PutObject(AMEngine *eng, HttpRequest &req)
+S3_PutObject::S3_PutObject(AMEngine *eng, AME_HttpReq *req)
     : Conn_PutObject(eng, req)
 {
 }
@@ -55,25 +55,25 @@ S3_PutObject::~S3_PutObject()
 {
 }
 
-ame_ret_e
+int
 S3_PutObject::ame_format_response_hdr()
 {
-    return AME_OK;
+    return NGX_OK;
 }
 
 std::string S3_PutObject::get_bucket_id()
 {
-  return ame_req.getURIParts()[0];
+  return ame_http.getURIParts()[0];
 }
 
 std::string S3_PutObject::get_object_id()
 {
-  return ame_req.getURIParts()[1];
+  return ame_http.getURIParts()[1];
 }
 
 // ---------------------------------------------------------------------------
 
-S3_DelObject::S3_DelObject(AMEngine *eng, HttpRequest &req)
+S3_DelObject::S3_DelObject(AMEngine *eng, AME_HttpReq *req)
     : Conn_DelObject(eng, req)
 {
 }
@@ -82,25 +82,28 @@ S3_DelObject::~S3_DelObject()
 {
 }
 
-ame_ret_e
+int
 S3_DelObject::ame_format_response_hdr()
 {
-    return AME_OK;
+  if (resp_status == NGX_HTTP_OK) {
+    ame_set_std_resp(NGX_HTTP_NO_CONTENT, ame_req->headers_out.content_length_n);
+  }
+  return NGX_OK;
 }
 
 std::string S3_DelObject::get_bucket_id()
 {
-  return ame_req.getURIParts()[0];
+  return ame_http.getURIParts()[0];
 }
 
 std::string S3_DelObject::get_object_id()
 {
-  return ame_req.getURIParts()[1];
+  return ame_http.getURIParts()[1];
 }
 
 // ---------------------------------------------------------------------------
 
-S3_GetBucket::S3_GetBucket(AMEngine *eng, HttpRequest &req)
+S3_GetBucket::S3_GetBucket(AMEngine *eng, AME_HttpReq *req)
     : Conn_GetBucket(eng, req)
 {
 }
@@ -109,19 +112,19 @@ S3_GetBucket::~S3_GetBucket()
 {
 }
 
-ame_ret_e
+int
 S3_GetBucket::ame_format_response_hdr()
 {
-    return AME_OK;
+    return NGX_OK;
 }
 
 std::string S3_GetBucket::get_bucket_id()
 {
-  return ame_req.getURIParts()[0];
+  return ame_http.getURIParts()[0];
 }
 // ---------------------------------------------------------------------------
 
-S3_PutBucket::S3_PutBucket(AMEngine *eng, HttpRequest &req)
+S3_PutBucket::S3_PutBucket(AMEngine *eng, AME_HttpReq *req)
     : Conn_PutBucket(eng, req)
 {
 }
@@ -130,20 +133,20 @@ S3_PutBucket::~S3_PutBucket()
 {
 }
 
-ame_ret_e
+int
 S3_PutBucket::ame_format_response_hdr()
 {
-  return AME_OK;
+  return NGX_OK;
 }
 
 std::string S3_PutBucket::get_bucket_id()
 {
-  return ame_req.getURIParts()[0];
+  return ame_http.getURIParts()[0];
 }
 
 // ---------------------------------------------------------------------------
 
-S3_DelBucket::S3_DelBucket(AMEngine *eng, HttpRequest &req)
+S3_DelBucket::S3_DelBucket(AMEngine *eng, AME_HttpReq *req)
     : Conn_DelBucket(eng, req)
 {
 }
@@ -152,15 +155,15 @@ S3_DelBucket::~S3_DelBucket()
 {
 }
 
-ame_ret_e
+int
 S3_DelBucket::ame_format_response_hdr()
 {
-  return AME_OK;
+  return NGX_OK;
 }
 
 std::string S3_DelBucket::get_bucket_id()
 {
-  return ame_req.getURIParts()[0];
+  return ame_http.getURIParts()[0];
 }
 
 } // namespace fds

@@ -135,6 +135,7 @@ namespace fds {
   typedef FDS_ProtocolInterface::FDSP_PolicyInfoTypePtr FdspPolInfoPtr;
   typedef FDS_ProtocolInterface::FDSP_VolumeDescTypePtr FdspVolDescPtr; 
   typedef FDS_ProtocolInterface::FDSP_CreateDomainTypePtr  FdspCrtDomPtr;
+  typedef FDS_ProtocolInterface::FDSP_GetDomainStatsTypePtr FdspGetDomStatsPtr;
 
   typedef std::unordered_map<int, localDomainInfo *> loc_domain_map_t;
 
@@ -238,6 +239,8 @@ namespace fds {
     void TestBucket(const FDSP_MsgHdrTypePtr& fdsp_msg,
 		    const FDSP_TestBucketPtr& test_buck_req);
 
+    void GetDomainStats(const FdspMsgHdrPtr& fdsp_msg,
+			const FdspGetDomStatsPtr& get_stats_req);
 
     class ReqCfgHandler : public FDS_ProtocolInterface::FDSP_ConfigPathReq {
    private:
@@ -290,6 +293,10 @@ namespace fds {
       int DeleteDomain(const FdspMsgHdrPtr& fdsp_msg,
                      const FdspCrtDomPtr& del_dom_req,
                      const Ice::Current&);
+
+      void GetDomainStats(const FdspMsgHdrPtr& fdsp_msg,
+			  const FdspGetDomStatsPtr& get_stats_req,
+			  const Ice::Current&);
 
       void SetThrottleLevel(const FDSP_MsgHdrTypePtr& fdsp_msg, 
 			    const FDSP_ThrottleMsgTypePtr& throttle_req, 

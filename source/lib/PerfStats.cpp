@@ -226,6 +226,32 @@ namespace fds {
     map_rwlock.read_unlock();
   }
 
+  long PerfStats::getAverageIOPS(fds_uint32_t class_id,
+				 const boost::posix_time::ptime end_ts,
+				 int interval_sec)
+  {
+    long ret_iops = 0;
+
+    if ( !isEnabled()) return ret_iops;
+
+    /* if we asked IOPS too early, IOPS is 0 (=not recorded) */
+    if (end_ts < start_time) 
+      return ret_iops;
+
+    StatHistory* hist = NULL;
+    boost::posix_time::time_duration elapsed = end_ts - start_time;
+
+    map_rwlock.read_lock();
+    hist = getHistoryWithReadLockHeld(class_id);
+
+    /* stat history should handle its own lock */
+    if (hist)
+      ret_iops = hist->getAverageIOPS(elapsed.total_seconds(), interval_sec);
+
+    map_rwlock.read_unlock();
+    return ret_iops;
+  }
+
   /* timer taks to print all perf stats */
   void StatTimerTask::runTimerTask()
   {

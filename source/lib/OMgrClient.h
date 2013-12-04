@@ -127,6 +127,9 @@ namespace fds {
     int registerNodeWithOM(const FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr& diskInfo);
     int pushCreateBucketToOM(const FDS_ProtocolInterface::FDSP_VolumeInfoTypePtr& volInfo);
     int pushDeleteBucketToOM(const FDS_ProtocolInterface::FDSP_DeleteVolTypePtr& volInfo);
+    int pushModifyBucketToOM(const std::string& bucket_name,
+			     const FDS_ProtocolInterface::FDSP_VolumeDescTypePtr& vol_desc);
+
     int getNodeInfo(int node_id,
                     unsigned int *node_ip_addr,
                     fds_uint32_t *node_port,
