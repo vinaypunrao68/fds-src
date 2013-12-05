@@ -37,9 +37,9 @@
                   <a href="#" class="dropdown-toggle" data-toggle="dropdown">
 		  Control <b class="caret"></b></a>
                   <ul class="dropdown-menu">
-                    <li><a href="#">Slow (100 rps)</a></li>
-                    <li><a href="#">Medium (500 rps)</a></li>
-                    <li><a href="#">Fast (1000 rps)</a></li>
+                    <li><a href="#" class="concurrency_control" id="conc_5">Low (5 concurrent requests)</a></li>
+                    <li><a href="#" class="concurrency_control" id="conc_20">Medium (20 concurrent requests)</a></li>
+                    <li><a href="#" class="concurrency_control" id="conc_50">High (50 concurrent requests)</a></li>
                     <li class="divider"></li>
                     <li class="dropdown-header">Other Actions</li>
                     <li><a href="#" id="stop_flash_button">Stop Flashing Photos</a></li>
@@ -95,7 +95,7 @@ var object_size = [];
 var count = 0;
 var num_objects = 0;
 var first_log = 1;
-var image_change_interval = 200;
+var image_change_interval = 500;
 
 var chart = {};
 var chart_data = {};
@@ -105,12 +105,15 @@ var stop_changing_pics = 0;
 
 var total_objs_rcvd = [0,0];
 var total_kbs_rcvd = [0,0];
+var sum_latency = [0,0];
 var last_stats_reset_time = [0,0];
 var current_stats_idx = 0;
 var last_image_chg_time = 0;
 var stats_history_length = 5000;
+var max_outstanding_reqs = 5;
+var num_outstanding_reqs = 0;
 
-function update_stats(rcvd_obj_size, current_time) {
+function update_stats(rcvd_obj_size, current_time, latency) {
 
   total_objs_rcvd[0]++;
   total_objs_rcvd[1]++;
@@ -118,8 +121,10 @@ function update_stats(rcvd_obj_size, current_time) {
   total_kbs_rcvd[0] += rcvd_obj_size;
   total_kbs_rcvd[1] += rcvd_obj_size;
 
+  sum_latency[0] += latency;
+  sum_latency[1] += latency;
 
-  //console.log("Recevied object of size " + rcvd_obj_size + " at time " + current_time);
+  console.log("Stats - " + total_objs_rcvd[current_stats_idx] + "," + sum_latency[current_stats_idx]);
 
   var time_elapsed_since_last_reset = current_time - last_stats_reset_time[current_stats_idx]; // in milliseconds
   if (time_elapsed_since_last_reset == 0) {
@@ -127,6 +132,12 @@ function update_stats(rcvd_obj_size, current_time) {
   }
   var current_rqps = Math.floor(total_objs_rcvd[current_stats_idx]*1000/time_elapsed_since_last_reset);
   var current_kbps = Math.floor(total_kbs_rcvd[current_stats_idx]*1000/time_elapsed_since_last_reset);
+  var num_objs_rcvd = total_objs_rcvd[current_stats_idx];
+  if (num_objs_rcvd == 0) {
+    num_objs_rcvd = 1;
+  }
+  var current_avg_lat = Math.floor(sum_latency[current_stats_idx]/num_objs_rcvd);
+  //var current_avg_lat = 500;
 
   chart_data["RQPS"] = google.visualization.arrayToDataTable([
           ['Label', 'Value'],
@@ -138,13 +149,20 @@ function update_stats(rcvd_obj_size, current_time) {
           ["KBPS", current_kbps],
         ]);
 
+  chart_data["Latency"] = google.visualization.arrayToDataTable([
+          ['Label', 'Value'],
+          ["Latency", current_avg_lat],
+        ]);
+
   chart["RQPS"].draw(chart_data["RQPS"], chart_options["RQPS"]);
   chart["KBPS"].draw(chart_data["KBPS"], chart_options["KBPS"]);
+  chart["Latency"].draw(chart_data["Latency"], chart_options["Latency"]);
 
   if (time_elapsed_since_last_reset >= stats_history_length) {
      last_stats_reset_time[current_stats_idx] = current_time;
      total_objs_rcvd[current_stats_idx] = 0;
      total_kbs_rcvd[current_stats_idx] = 0;
+     sum_latency[current_stats_idx] = 0;
      current_stats_idx = 1-current_stats_idx;
   }
 
@@ -161,18 +179,20 @@ function get_next_photo() {
 
   if ((stop_changing_pics) || (time_since_last_image_chg < image_change_interval)) {
      $.get(object_url,function(data, status) {
-       console.log("Get object status: " + status + " for object: " + object_key[curr_count] + "; size - " + object_size[curr_count] + "KB at time " + current_time);
+       var completion_time = new Date().getTime();
+       var latency = completion_time - current_time;
+       console.log("Get object status: " + status + " for object: " + object_key[curr_count] + "; size - " + object_size[curr_count] + "KB at time " + completion_time + "; latency - " + latency + "ms");
        //$("#display_photo").attr("src", "data:image/jpeg;base64," + atob(data)); 
        //$("#photo_caption").text(object_key[curr_count]);
-       update_stats(object_size[curr_count], current_time);
-       setTimeout(get_next_photo, 0);
+       update_stats(object_size[curr_count], completion_time, latency);
+       num_outstanding_reqs -= 1;
      });
   } else {
      $("#display_photo").attr("src", object_url);
      $("#photo_caption").text(object_key[curr_count]);
      last_image_chg_time = current_time;
-     update_stats(object_size[curr_count], current_time);
-     setTimeout(get_next_photo, 0);     
+     update_stats(object_size[curr_count], current_time, 300);
+     num_outstanding_reqs -= 1;
   }
 }
 
@@ -200,8 +220,21 @@ function drawGauge(label, max, ticks) {
 function drawGauges() {
 
    drawGauge("RQPS", 50, 2);
-   drawGauge("Latency", 500, 25);
+   drawGauge("Latency", 1000, 50);
    drawGauge("KBPS", 30000, 1500);
+
+}
+
+function start_fetch_loop() {
+
+  while (1) {
+    if (num_outstanding_reqs >= max_outstanding_reqs) {
+      setTimeout(start_fetch_loop, 100);
+      break;
+    }
+    num_outstanding_reqs += 1;
+    get_next_photo();
+  }
 
 }
 
@@ -220,6 +253,14 @@ $(document).ready(function(){
   
   });
 
+  $(".concurrency_control").click(function() {
+    var conc_id = $(this).attr("id");
+    var conc = parseInt(conc_id.split("_")[1]);
+    console.log("Now simulating " + conc + " connections");
+    max_outstanding_reqs = conc;
+    image_change_interval = 2500/conc;
+  });
+
   $.get(bucket_url,function(data,status){
     //alert("Data: " + data.toString() + "\nStatus: " + status);
     $(data).find("Contents").each(function() {
@@ -233,10 +274,7 @@ $(document).ready(function(){
     last_stats_reset_time[0] = last_stats_reset_time[1] - stats_history_length/2;
     last_image_chg_time = last_stats_reset_time[1];
     current_stats_idx = 0;
-    get_next_photo();
-    setTimeout(get_next_photo, 250);    
-    setTimeout(get_next_photo, 500);    
-    setTimeout(get_next_photo, 750);    
+    start_fetch_loop();
   });
 });
 </script>
