@@ -73,14 +73,14 @@ ngx_module_t ngx_http_fds_data_module =
     NGX_MODULE_V1_PADDING
 };
 
-typedef struct ngx_http_fds_data_loc_conf ngx_http_fds_data_loc_conf_t;
-struct ngx_http_fds_data_loc_conf
+typedef struct ngx_http_fds_loc_conf ngx_http_fds_loc_conf_t;
+struct ngx_http_fds_loc_conf
 {
     ngx_flag_t               fds_enable;
     fds::AME_CtxList        *fds_context;
 };
 
-static ngx_http_fds_data_loc_conf_t *sgt_fds_data_cfg;
+static ngx_http_fds_loc_conf_t *sgt_fds_data_cfg;
 
 /*
  * ngx_register_plugin
@@ -116,9 +116,11 @@ ngx_parse_uri_parts(ngx_http_request_t *r) {
 static void
 ngx_http_fds_read_body(ngx_http_request_t *r)
 {
+    fds::AME_Ctx             *am_ctx;
     fds::AME_Request         *am_req;
     HttpRequest               http_req(r);
     std::vector<std::string>  uri_parts = http_req.getURIParts();
+    ngx_http_fds_loc_conf_t  *fdcf;
 
     am_req = NULL;
     switch (r->method) {
@@ -147,12 +149,21 @@ ngx_http_fds_read_body(ngx_http_request_t *r)
         }
         break;
     }
-    if (am_req != NULL) {
-        am_req->ame_request_handler();
-        delete am_req;
-    } else {
+    if (am_req == NULL) {
         ngx_http_finalize_request(r, NGX_HTTP_BAD_REQUEST);
+        return;
     }
+    fdcf = (ngx_http_fds_loc_conf_t *)
+        ngx_http_get_module_loc_conf(r, ngx_http_fds_data_module);
+
+    am_ctx = fdcf->fds_context->ame_get_ctx(am_req);
+    am_ctx->ame_register_ctx();
+    am_req->ame_add_context(am_ctx);
+    am_req->ame_request_handler();
+
+    am_ctx->ame_unregister_ctx();
+    fdcf->fds_context->ame_put_ctx(am_ctx);
+    delete am_req;
 }
 
 /*
@@ -178,14 +189,14 @@ ngx_http_fds_data_handler(ngx_http_request_t *r)
 static char *
 ngx_http_fds_data_connector(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
-    ngx_http_core_loc_conf_t     *clcf;
-    ngx_http_fds_data_loc_conf_t *fdscf;
+    ngx_http_core_loc_conf_t  *clcf;
+    ngx_http_fds_loc_conf_t   *fdscf;
 
     clcf = (ngx_http_core_loc_conf_t *)
         ngx_http_conf_get_module_loc_conf(cf, ngx_http_core_module);
     clcf->handler = ngx_http_fds_data_handler;
 
-    fdscf = (ngx_http_fds_data_loc_conf_t *)conf;
+    fdscf = (ngx_http_fds_loc_conf_t *)conf;
     fdscf->fds_enable = 1;
 
     return NGX_CONF_OK;
@@ -198,18 +209,17 @@ ngx_http_fds_data_connector(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 static void *
 ngx_http_fds_data_create_loc_conf(ngx_conf_t *cf)
 {
-    ngx_http_fds_data_loc_conf_t *fdscf;
+    ngx_http_fds_loc_conf_t *fdcf;
 
     if (sgt_fds_data_cfg == NULL) {
-        fdscf = (ngx_http_fds_data_loc_conf_t *)
-            ngx_pcalloc(cf->pool, sizeof(*fdscf));
+        fdcf = (ngx_http_fds_loc_conf_t *)ngx_pcalloc(cf->pool, sizeof(*fdcf));
 
-        if (fdscf == NULL) {
+        if (fdcf == NULL) {
             return NGX_CONF_ERROR;
         }
-        sgt_fds_data_cfg   = fdscf;
-        fdscf->fds_context = new fds::AME_CtxList(cf->cycle->connection_n);
-        fdscf->fds_enable  = NGX_CONF_UNSET;
+        sgt_fds_data_cfg  = fdcf;
+        fdcf->fds_context = new fds::AME_CtxList(cf->cycle->connection_n);
+        fdcf->fds_enable  = NGX_CONF_UNSET;
     }
     return sgt_fds_data_cfg;
 }
@@ -221,11 +231,11 @@ ngx_http_fds_data_create_loc_conf(ngx_conf_t *cf)
 static char *
 ngx_http_fds_data_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 {
-    ngx_http_fds_data_loc_conf_t *prev;
-    ngx_http_fds_data_loc_conf_t *self;
+    ngx_http_fds_loc_conf_t *prev;
+    ngx_http_fds_loc_conf_t *self;
 
-    prev = (ngx_http_fds_data_loc_conf_t *)parent;
-    self = (ngx_http_fds_data_loc_conf_t *)child;
+    prev = (ngx_http_fds_loc_conf_t *)parent;
+    self = (ngx_http_fds_loc_conf_t *)child;
     return NGX_CONF_OK;
 }
 
@@ -239,12 +249,21 @@ namespace fds {
  * Constructor for the context object that acts as "upstream" module to nginx.
  */
 AME_Ctx::AME_Ctx()
-    : ame_req(NULL), ame_ngx_req(NULL), ame_handler_fn(NULL), ame_next(NULL)
+    : ame_req(NULL), ame_handler_fn(NULL), ame_next(NULL), ame_epoll_fd(0)
 {
-    static int cnt = 0;
+    ame_init_ngx_ctx();
+}
 
-    ame_epoll_fd = eventfd(0xfdfd, EFD_CLOEXEC | EFD_NONBLOCK);
-    fds_verify(ame_epoll_fd > 0);
+// ame_init_ngx_ctx
+// ----------------
+//
+void
+AME_Ctx::ame_init_ngx_ctx()
+{
+    ame_connect   = NULL;
+    ame_out_bufs  = NULL;
+    ame_busy_bufs = NULL;
+    ame_free_bufs = NULL;
 }
 
 /*
@@ -254,7 +273,7 @@ AME_Ctx::AME_Ctx()
  * notified it with ame_notify_handler() call.
  */
 void
-AME_Ctx::ame_register_handler(void (*handler)(AME_Request *req))
+AME_Ctx::ame_register_handler(void (*handler)(AME_Ctx *req))
 {
     fds_verify(ame_handler_fn == NULL);
     ame_handler_fn = handler;
@@ -283,11 +302,23 @@ AME_Ctx::ame_notify_handler()
 void
 AME_Ctx::ame_register_ctx()
 {
+    ngx_http_request_t *r;
+
+    if (ame_epoll_fd == 0) {
+        ame_epoll_fd = eventfd(0xfdfd, EFD_CLOEXEC | EFD_NONBLOCK);
+    }
+    fds_verify(ame_epoll_fd > 0);
+    ngx_http_set_ctx(ame_req->ame_req, this, ngx_http_fds_data_module);
+
+    r = ame_req->ame_req;
+    ame_connect = ngx_get_connection(ame_epoll_fd, r->connection->log);
 }
 
 void
 AME_Ctx::ame_unregister_ctx()
 {
+    ngx_free_connection(ame_connect);
+    // ngx_close_connection(ame_connect);
 }
 
 /*
@@ -300,8 +331,6 @@ AME_CtxList::AME_CtxList(int elm) : ame_free_ctx_cnt(elm)
 {
     int i;
 
-    // TODO: increase sys limit.
-    elm = 512;
     ame_arr_ctx  = new AME_Ctx [elm];
     ame_free_ctx = &ame_arr_ctx[0];
     for (i = 1; i < elm; i++) {
@@ -317,7 +346,7 @@ AME_CtxList::AME_CtxList(int elm) : ame_free_ctx_cnt(elm)
  * without lock.
  */
 AME_Ctx *
-AME_CtxList::ame_get_ctx()
+AME_CtxList::ame_get_ctx(AME_Request *req)
 {
     if (ame_free_ctx != NULL) {
         AME_Ctx *ctx = ame_free_ctx;
@@ -325,7 +354,10 @@ AME_CtxList::ame_get_ctx()
         ame_free_ctx_cnt--;
         fds_verify(ame_free_ctx_cnt >= 0);
 
-        ctx->ame_next = NULL;
+        ctx->ame_next       = NULL;
+        ctx->ame_req        = req;
+        ctx->ame_state      = 0;
+        ctx->ame_handler_fn = NULL;
         return ctx;
     }
     return NULL;
@@ -341,6 +373,8 @@ void
 AME_CtxList::ame_put_ctx(AME_Ctx *ctx)
 {
     fds_verify((ctx != NULL) && (ctx->ame_next == NULL));
+
+    ctx->ame_init_ngx_ctx();
     ctx->ame_next = ame_free_ctx;
     ame_free_ctx  = ctx;
     ame_free_ctx_cnt++;

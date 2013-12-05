@@ -206,6 +206,17 @@ AME_Request::~AME_Request()
 {
 }
 
+// ame_request_async_callback
+// --------------------------
+//
+void
+AME_Request::ame_request_async_callback(int status)
+{
+    ame_resp_status = status;
+    ame_ctx->ame_notify_handler();
+    req_complete();
+}
+
 // ame_reqt_iter_reset
 // -------------------
 //
@@ -390,6 +401,9 @@ AME_Request::ame_send_resp_data(void *buf_cookie, int len, fds_bool_t last)
     }
 
     rc = ngx_http_output_filter(r, &out);
+    if (last) {
+        ngx_http_finalize_request(r, rc);
+    }
     return NGX_OK;
 }
 

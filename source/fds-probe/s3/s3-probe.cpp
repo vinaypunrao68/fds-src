@@ -31,9 +31,9 @@ Probe_GetObject::ame_request_handler()
     void   *cookie;
     char   *buf;
 
-    cookie = ame_push_resp_data_buf(0, &buf, &len);
-    fdsn_send_get_response(0, 0);
-    ame_send_resp_data(cookie, 0, true);
+    cookie = ame_push_resp_data_buf(10, &buf, &len);
+    fdsn_send_get_response(0, 10);
+    ame_send_resp_data(cookie, 10, true);
     req_complete();
 }
 

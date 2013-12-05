@@ -18,6 +18,7 @@ typedef struct ngx_http_request_s AME_HttpReq;
 }
 
 namespace fds {
+class AME_Ctx;
 class FDS_NativeAPI;
 class Conn_GetObject;
 class Conn_PutObject;
@@ -131,12 +132,19 @@ extern ame_keytab_t sgt_AMEKey[];
 //
 class AME_Request : public fdsio::Request
 {
-public:
-  static int map_fdsn_status(FDSN_Status status);
+  public:
+    static int map_fdsn_status(FDSN_Status status);
 
   public:
     AME_Request(AMEngine *eng, AME_HttpReq *req);
     ~AME_Request();
+
+    // ame_add_context
+    // ---------------
+    // Add context to track the state of this request and synchronize with the
+    // event loop in the plugin module.
+    //
+    void ame_add_context(AME_Ctx *ctx) { ame_ctx = ctx; }
 
     // ame_get_reqt_hdr_val
     // --------------------
@@ -165,10 +173,14 @@ public:
     }
 
   protected:
+    friend class AME_Ctx;
+
     AMEngine                 *ame;
+    AME_Ctx                  *ame_ctx;
     AME_HttpReq              *ame_req;
     struct ngx_chain_s       *post_buf_itr;
     HttpRequest              ame_http;
+    int                      ame_resp_status;
     std::string              etag;
 
     // Tell the engine if we need to finalize this request.
@@ -187,6 +199,13 @@ public:
       resp_buf_len = len;
       req_complete();
     }
+
+    // Async callback to transfer the control to the ame_ctx context maintained
+    // by this request object.  The caller must setup the correct handler and
+    // internal state in ame_ctx object so that when this method is called,
+    // it'll get back the control at the correct context.
+    //
+    void ame_request_async_callback(int status);
 
     // Common request path.
     // The request handler is called through ame_request_handler().
