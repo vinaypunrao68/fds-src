@@ -41,6 +41,7 @@ enum FDSP_MsgCodeType {
    FDSP_MSG_GET_VOL_BLOB_LIST_RSP,
    FDSP_MSG_OFFSET_WRITE_OBJ_RSP,
    FDSP_MSG_REDIR_READ_OBJ_RSP,
+   FDSP_MSG_GET_BUCKET_STATS_RSP,
 
    FDSP_MSG_CREATE_VOL,
    FDSP_MSG_MODIFY_VOL,
@@ -495,6 +496,21 @@ class FDSP_PerfstatsType {
   FDSP_VolPerfHistListType  vol_hist_list; /* list of performance histories of volumes */
 };
 
+class FDSP_BucketStatType {
+  double             vol_uuid;
+  double             performance;  /* average iops */
+  double             sla;          /* minimum (guaranteed) iops */
+  double             limit;        /* maximum iops */
+  int                rel_prio;     /* relative priority */
+};
+
+sequence<FDSP_BucketStatType> FDSP_BucketStatListType;
+
+class FDSP_BucketStatsRespType {
+  string                    timestamp;          /* timestamp of the stats */
+  FDSP_BucketStatListType   bucket_stats_list;  /* list of bucket stats */     
+};
+
 class FDSP_QueueStateType {
 
   int domain_id;
@@ -677,6 +693,10 @@ interface FDSP_ControlPathReq {
   void TierPolicy(FDSP_TierPolicy tier);
   void TierPolicyAudit(FDSP_TierPolicyAudit audit);
 
+ /* These should be config path response from OM to SH, but since SH does not implement the 
+  * config resp interface, we keep those here for now
+  */
+  void NotifyBucketStats(FDSP_MsgHdrType fdsp_msg, FDSP_BucketStatsRespType buck_stats_msg);
 };
 
 interface FDSP_ControlPathResp {

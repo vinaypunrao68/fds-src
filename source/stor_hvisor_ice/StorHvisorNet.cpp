@@ -74,6 +74,24 @@ static void sh_test_modify_bucket_callback(FDSN_Status status, const ErrorDetail
   FDS_PLOG(storHvisor->GetLog()) << "sh_modify_bucket_callback is called with status " << status;
 }
 
+static void sh_test_get_bucket_stats_callback(const std::string& timestamp, int content_count, const BucketStatsContent* contents,
+					      void *req_context, void *callback_data, 
+					      FDSN_Status status, ErrorDetails* errDetails)
+{
+  FDS_PLOG(storHvisor->GetLog()) << "sh_get_bucket_stats_callback is called with status " << status;
+  if (contents == NULL)
+    return;
+ 
+  for (int i = 0; i < content_count; ++i) {
+    FDS_PLOG(storHvisor->GetLog()) << "content #" << i
+				   << " id " << contents[i].vol_uuid
+				   << " prio " << contents[i].priority
+				   << " performance " << contents[i].performance
+				   << " sla " << contents[i].sla
+				   << " limit " << contents[i].limit;
+  }
+}
+
 
 static void sh_test_w_callback(void *arg1,
                                void *arg2,
@@ -326,15 +344,17 @@ int unitTest2(fds_uint32_t time_mins)
   memset(w_buf, 0xfeed, req_size);
   api->PutObject(buck_context, "ut_key", put_props, NULL, w_buf, req_size, sh_test_put_callback, NULL); 
 
-  sleep(10);
-  FDS_PLOG(storHvisor->GetLog()) << "Blob write unit test -- waited 10 sec after putObject()";
-
+  sleep(1);
   FDS_PLOG(storHvisor->GetLog()) << "Blob unit test -- will put object to " << buck_context->bucketName;
   memset(w_buf, 0xfe0d, req_size);
   api->PutObject(buck_context, "another_test_key", put_props, NULL, w_buf, req_size, sh_test_put_callback, NULL); 
 
-  sleep(10);
-  FDS_PLOG(storHvisor->GetLog()) << "Blob write unit test -- waited 10 sec after putObject()";
+  sleep(2);
+  FDS_PLOG(storHvisor->GetLog()) << "Blob write unit test -- waited 2 sec after putObject()";
+
+  FDS_PLOG(storHvisor->GetLog()) << "Blob unit test -- will get stats of all buckets ";
+  api->GetBucketStats(NULL, sh_test_get_bucket_stats_callback, NULL);
+  sleep(3);
 
   FDS_PLOG(storHvisor->GetLog()) << "Blob unit test -- will get bucket list from bucket " << buck_context->bucketName;
   api->GetBucket(buck_context, "", "", "", 10, NULL, sh_test_list_bucket_callback, NULL);
@@ -726,6 +746,9 @@ StorHvCtrl::StorHvCtrl(int argc,
   initData.properties->load("fds.conf");
   _communicator = Ice::initialize(argc, argv, initData);
   Ice::PropertiesPtr props = _communicator->getProperties();
+
+  /* register handlers for receiving responses to admin requests */
+  om_client->registerBucketStatsCmdHandler(bucketStatsRespHandler);
 
   /*  Create the QOS Controller object */ 
   qos_ctrl = new StorHvQosCtrl(50, fds::FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET, sh_log);
@@ -1948,6 +1971,176 @@ fds::Error StorHvCtrl::getBucketResp(const FDSP_MsgHdrTypePtr& rxMsg,
 
 }
 
+fds::Error StorHvCtrl::getBucketStats(fds::AmQosReq *qosReq) {
+  fds::Error err(ERR_OK);
+  int om_err = 0;
+  
+  FDS_PLOG_SEV(sh_log, fds::fds_log::normal)
+      << "Doing a get bucket stats operation!";
+  
+  /*
+   * Pull out the blob request
+   */
+  FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
+  fds_verify(blobReq->magicInUse() == true);
+
+  fds_volid_t   volId = blobReq->getVolId();
+  fds_verify(volId == admin_vol_id); /* must be in admin queue */
+  
+  StorHvVolume *shVol = vol_table->getVolume(volId);
+  if ((shVol == NULL) || (shVol->isValidLocked() == false)) {
+    FDS_PLOG_SEV(sh_log, fds::fds_log::critical) << "getBucketStats failed to get admin volume";
+    blobReq->cbWithResult(-1);
+    err = ERR_NOT_FOUND;
+    delete qosReq;
+    return err;
+  }
+
+  /*
+   * Track how long the request was queued before get() dispatch
+   * TODO: Consider moving to the QoS request
+   */
+  blobReq->setQueuedUsec(shVol->journal_tbl->microsecSinceCtime(
+      				boost::posix_time::microsec_clock::universal_time()));
+
+  fds_uint32_t transId = shVol->journal_tbl->get_trans_id_for_blob(blobReq->getBlobName(),
+                                                                   blobReq->getBlobOffset());
+  StorHvJournalEntry *journEntry = shVol->journal_tbl->get_journal_entry(transId);
+  
+  StorHvJournalEntryLock je_lock(journEntry);
+
+  if (journEntry->isActive()) {
+    FDS_PLOG_SEV(GetLog(), fds::fds_log::error) <<" StorHvisorTx:" << "IO-XID:" << transId 
+						  << " - Transaction  is already in ACTIVE state, completing request "
+						  << transId << " with ERROR(-2) ";
+    // There is an ongoing transaciton for this bucket.
+    // We should queue this up for later processing once that completes.
+    
+    // For now, return an error.
+    blobReq->cbWithResult(-2);
+    err = ERR_NOT_IMPLEMENTED;
+    delete qosReq;
+    return err;
+  }
+
+  journEntry->setActive();
+
+  FDS_PLOG(GetLog()) <<" StorHvisorTx:" << "IO-XID:" << transId << " volID:" << admin_vol_id << " - Activated txn for req :" << transId;
+ 
+  /*
+   * Setup journal entry
+   */
+  journEntry->trans_state = FDS_TRANS_BUCKET_STATS;
+  journEntry->sm_msg = NULL; 
+  journEntry->dm_msg = NULL;
+  journEntry->sm_ack_cnt = 0;
+  journEntry->dm_ack_cnt = 0;
+  journEntry->op = FDS_BUCKET_STATS;
+  journEntry->data_obj_id.hash_high = 0;
+  journEntry->data_obj_id.hash_low = 0;
+  journEntry->data_obj_len = 0;
+  journEntry->io = qosReq;
+  
+  /* send request to OM */
+  om_err = om_client->pushGetBucketStatsToOM(transId);
+
+  if(om_err != 0) {
+    FDS_PLOG_SEV(GetLog(), fds::fds_log::error) <<" StorHvisorTx:" << "IO-XID:" << transId << " volID:" << admin_vol_id
+						<< " -  Couldn't send get bucket stats to OM. Completing request with ERROR(-1)";
+    blobReq->cbWithResult(-1);
+    err = ERR_NOT_FOUND;
+    delete qosReq;
+    return err;
+  }
+
+  FDS_PLOG(GetLog()) << " StorHvisorTx:" << "IO-XID:"
+		     << transId 
+		     << " - Sent async Get Bucket Stats request to OM";
+
+  // Schedule a timer here to track the responses and the original request
+  IceUtil::Time interval = IceUtil::Time::seconds(FDS_IO_LONG_TIME);
+  shVol->journal_tbl->schedule(journEntry->ioTimerTask, interval);
+  return err;
+}
+
+void StorHvCtrl::bucketStatsRespHandler(const FDSP_MsgHdrTypePtr& rx_msg,
+					const FDSP_BucketStatsRespTypePtr& buck_stats) {
+  storHvisor->getBucketStatsResp(rx_msg, buck_stats);
+}
+
+void StorHvCtrl::getBucketStatsResp(const FDSP_MsgHdrTypePtr& rx_msg,
+				    const FDSP_BucketStatsRespTypePtr& buck_stats)
+{
+  fds_uint32_t transId = rx_msg->req_cookie;
+ 
+  fds_verify(rx_msg->msg_code == FDS_ProtocolInterface::FDSP_MSG_GET_BUCKET_STATS_RSP);
+
+  StorHvVolume* vol = vol_table->getVolume(admin_vol_id);
+  fds_verify(vol != NULL);  // admin vol must always exist
+
+  StorHvVolumeLock vol_lock(vol);
+  fds_verify(vol->isValidLocked() == true);
+
+  StorHvJournalEntry *txn = vol->journal_tbl->get_journal_entry(transId);
+  fds_verify(txn != NULL);
+
+  StorHvJournalEntryLock je_lock(txn);
+  fds_verify(txn->isActive() == true);  // Should not receive resp for inactive txn
+  fds_verify(txn->trans_state == FDS_TRANS_BUCKET_STATS);
+
+  /*
+   * respond to caller with buckets' stats
+   */
+  fds::AmQosReq   *qosReq  = static_cast<fds::AmQosReq *>(txn->io);
+  fds_verify(qosReq != NULL);
+  fds::FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
+  fds_verify(blobReq != NULL);
+  fds_verify(blobReq->getIoType() == FDS_BUCKET_STATS);
+  FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "Responding to getBucketStats trans " << transId
+						   << " number of buckets " << (buck_stats->bucket_stats_list).size()
+                                                   << " with result " << rx_msg->result;
+
+  /*
+   * Mark the IO complete, clean up txn, and callback
+   */
+  qos_ctrl->markIODone(txn->io);
+  if (rx_msg->result == FDSP_ERR_OK) {
+    BucketStatsContent* contents = NULL;
+    int count = (buck_stats->bucket_stats_list).size();
+
+    if (count > 0) {
+      contents = new BucketStatsContent[count];
+      fds_verify(contents != NULL);
+      for (int i = 0; i < count; ++i)
+	{
+	  contents[i].set((buck_stats->bucket_stats_list)[i]->vol_uuid,
+			  (buck_stats->bucket_stats_list)[i]->rel_prio,
+			  (buck_stats->bucket_stats_list)[i]->performance,
+			  (buck_stats->bucket_stats_list)[i]->sla,
+			  (buck_stats->bucket_stats_list)[i]->limit);
+	}
+    }
+
+    /* call BucketStats callback directly */
+    BucketStatsReq *stats_req = static_cast<BucketStatsReq*>(blobReq);
+    stats_req->DoCallback(buck_stats->timestamp, count, contents, FDSN_StatusOK, NULL);
+
+  } else {    
+    /*
+     * We received an error from OM
+     */
+    blobReq->cbWithResult(-1);
+  }
+  
+  txn->reset();
+  vol->journal_tbl->releaseTransId(transId);
+  /*
+   * TODO: We're deleting the request structure. This assumes
+   * that the caller got everything they needed when the callback
+   * was invoked.
+   */
+  delete blobReq;
+}
 
 fds_log* StorHvCtrl::GetLog() {
   return sh_log;

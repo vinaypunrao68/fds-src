@@ -107,6 +107,14 @@ OMgrClientRPCI::TierPolicyAudit(const FDSP_TierPolicyAuditPtr &audit,
     om_client->omc_srv_pol->serv_recvTierPolicyAuditReq(audit);
 }
 
+void OMgrClientRPCI::NotifyBucketStats(const FDSP_MsgHdrTypePtr& msg_hdr,
+				       const FDSP_BucketStatsRespTypePtr& buck_stats_msg,
+				       const Ice::Current&)
+{
+  fds_verify(msg_hdr->dst_id == FDS_ProtocolInterface::FDSP_STOR_HVISOR);
+  om_client->recvBucketStats(msg_hdr, buck_stats_msg);
+}
+
 OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
                        const std::string& _omIpStr,
                        fds_uint32_t _omPort,
@@ -123,6 +131,7 @@ OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
   node_evt_hdlr = NULL;
   vol_evt_hdlr = NULL;
   throttle_cmd_hdlr = NULL;
+  bucket_stats_cmd_hdlr = NULL;
   if (parent_log) {
     omc_log = parent_log;
   } else {
@@ -138,6 +147,7 @@ OMgrClient::OMgrClient() {
   node_evt_hdlr = NULL;
   vol_evt_hdlr = NULL;
   throttle_cmd_hdlr = NULL;
+  bucket_stats_cmd_hdlr = NULL;
   omc_log = new fds_log("omc", "logs");
   initRPCComm();
 }
@@ -159,6 +169,11 @@ int OMgrClient::registerEventHandlerForVolEvents(volume_event_handler_t vol_even
 
 int OMgrClient::registerThrottleCmdHandler(throttle_cmd_handler_t throttle_cmd_hdlr) {
   this->throttle_cmd_hdlr = throttle_cmd_hdlr;
+  return 0;
+}
+
+int OMgrClient::registerBucketStatsCmdHandler(bucket_stats_cmd_handler_t cmd_hdlr) {
+  bucket_stats_cmd_hdlr = cmd_hdlr;
   return 0;
 }
 
@@ -435,6 +450,31 @@ int OMgrClient::testBucket(const std::string& bucket_name,
   return 0;
 }
 
+int OMgrClient::pushGetBucketStatsToOM(fds_uint32_t req_cookie)
+{
+  try {
+    std::string tcpProxyStr = std::string("OrchMgr: tcp -h ") + 
+      omIpStr + std::string(" -p ") + std::to_string(omConfigPort);
+    FDSP_ConfigPathReqPrx fdspConfigPathAPI = FDSP_ConfigPathReqPrx::checkedCast(rpc_comm->stringToProxy(tcpProxyStr));
+    FDSP_MsgHdrTypePtr msg_hdr = new FDSP_MsgHdrType;
+    initOMMsgHdr(msg_hdr);
+    msg_hdr->req_cookie = req_cookie;
+
+    FDSP_GetDomainStatsTypePtr get_stats_msg = new FDSP_GetDomainStatsType();
+    get_stats_msg->domain_id = 1; /* this is ignored in OM */
+
+    FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient sending get bucket stats request to OM at " << tcpProxyStr;
+
+    fdspConfigPathAPI->begin_GetDomainStats(msg_hdr, get_stats_msg);
+  }
+  catch (...) {
+    FDS_PLOG_SEV(omc_log, fds::fds_log::error) << "OMClient unable to send GetBucketStats request to OM. Check if OM is up and restart.";
+    return -1;
+  }
+
+  return 0;
+}
+
 int OMgrClient::pushCreateBucketToOM(const FDS_ProtocolInterface::FDSP_VolumeInfoTypePtr& volInfo)
 {
   try {
@@ -650,6 +690,19 @@ int OMgrClient::recvSetThrottleLevel(const float throttle_level) {
   }
   return (0);
 
+}
+
+int OMgrClient::recvBucketStats(const FDSP_MsgHdrTypePtr& msg_hdr, 
+				const FDSP_BucketStatsRespTypePtr& stats_msg)
+{
+  FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received buckets' stats with timestamp  " 
+						    << stats_msg->timestamp;
+
+  if (bucket_stats_cmd_hdlr) {
+    bucket_stats_cmd_hdlr(msg_hdr, stats_msg);
+  }
+
+  return 0;
 }
 
 int OMgrClient::getNodeInfo(int node_id,

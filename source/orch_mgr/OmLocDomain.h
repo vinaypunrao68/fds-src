@@ -301,7 +301,9 @@ class FdsLocalDomain {
     void handlePerfStatsFromAM(const FDSP_VolPerfHistListType& hist_list,
 			       const std::string start_timestamp);
 
-    void getStats(void);
+    void sendBucketStats(fds_uint32_t perf_time_interval,
+			 fds_node_name_t dest_node_name);
+    void printStatsToJsonFile(void); /* this is a TEMP function for testing (and producing json file if needed */
 
   /* parent log */
   fds_log* parent_log;

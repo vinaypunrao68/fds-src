@@ -199,8 +199,13 @@ void OrchMgr::GetDomainStats(const FdspMsgHdrPtr& fdsp_msg,
   currentDom  = locDomMap[DEFAULT_LOC_DOMAIN_ID];
 
   if (currentDom) {
-    currentDom->domain_ptr->getStats();
+    om_mutex->lock();
+    currentDom->domain_ptr->sendBucketStats(5, fdsp_msg->src_node_name);
+    /* if need to test printing to json file, call this func instead .. */
+    //    currentDom->domain_ptr->printStatsToJsonFile();
+    om_mutex->unlock();
   }
+
 }
 
 int OrchMgr::CreateVol(const FdspMsgHdrPtr& fdsp_msg,

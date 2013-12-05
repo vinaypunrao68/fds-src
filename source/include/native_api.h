@@ -183,6 +183,37 @@ public:
    }
 };
 
+class BucketStatsContent {
+public:
+  fds_volid_t vol_uuid;
+  int priority;          /* bucket's priority */
+  double performance;    /* bucket's average iops (timer interval configurable) */
+  double sla;            /* bucket's minimum iops */
+  double limit;          /* bucket's maximum iops */
+
+  BucketStatsContent() 
+    : vol_uuid(0),
+    priority(0),
+    performance(0),
+    sla(0),
+    limit(0) {
+    }
+
+  ~BucketStatsContent() {}
+
+  void set(fds_volid_t _id,
+	   int _prio,
+	   double _perf,
+	   double _sla,
+	   double _limit) {
+    vol_uuid = _id;
+    priority = _prio;
+    performance = _perf;
+    sla = _sla;
+    limit = _limit;
+  }
+};
+
 typedef enum
 {
     AclPermissionRead                    = 0,
@@ -391,6 +422,14 @@ typedef void (*fdsnListBucketHandler)(int isTruncated,
 				      void *callbackData,
 				      FDSN_Status status);
 
+typedef void (*fdsnBucketStatsHandler)(const std::string& timestamp,
+				       int content_count,
+				       const BucketStatsContent* contents,
+				       void *req_context,
+				       void *callbackData,
+				       FDSN_Status status,
+				       ErrorDetails *err_details);
+
 
 // FDS_NativeAPI  object class : One object per client Type so that the semantics of 
 // the particular access protocols can be followed in returning the data
@@ -434,6 +473,13 @@ class FDS_NativeAPI {
 		    void* req_ctxt,
 		    fdsnResponseHandler handler,
 		    void *callback_data);
+
+  /* Retreive stats of all existing buckets
+   * Buckets do not need to be attached to this AM, retrieves stats directly from OM 
+   * Note: in the future, we can also have API to get stats for a particular bucket */
+  void GetBucketStats(void *req_ctxt,
+		      fdsnBucketStatsHandler resp_handler,
+		      void *callback_data);
 
   // After this call returns bucketctx, get_cond are no longer valid.
   void GetObject(BucketContext *bucketctxt, 

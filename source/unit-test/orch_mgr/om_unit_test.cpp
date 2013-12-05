@@ -143,6 +143,12 @@ class ControlPathReq : public FDS_ProtocolInterface::FDSP_ControlPathReq {
   {
   }
 
+  void NotifyBucketStats(const FDSP_MsgHdrTypePtr& msg_hdr,
+			 const FDSP_BucketStatsRespTypePtr& stats_msg, 
+			 const Ice::Current&)
+  {
+  }
+
 private:
   fds_log* test_log;
 };
