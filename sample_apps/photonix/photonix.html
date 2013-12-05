@@ -85,7 +85,6 @@
 
 <script type='text/javascript' src='https://www.google.com/jsapi'></script>
 
-
 <script>
 
 var bucket_url = "http://s3.amazonaws.com/Bucket_Wild_Life";
@@ -137,7 +136,6 @@ function update_stats(rcvd_obj_size, current_time, latency) {
     num_objs_rcvd = 1;
   }
   var current_avg_lat = Math.floor(sum_latency[current_stats_idx]/num_objs_rcvd);
-  //var current_avg_lat = 500;
 
   chart_data["RQPS"] = google.visualization.arrayToDataTable([
           ['Label', 'Value'],
@@ -182,8 +180,6 @@ function get_next_photo() {
        var completion_time = new Date().getTime();
        var latency = completion_time - current_time;
        console.log("Get object status: " + status + " for object: " + object_key[curr_count] + "; size - " + object_size[curr_count] + "KB at time " + completion_time + "; latency - " + latency + "ms");
-       //$("#display_photo").attr("src", "data:image/jpeg;base64," + atob(data)); 
-       //$("#photo_caption").text(object_key[curr_count]);
        update_stats(object_size[curr_count], completion_time, latency);
        num_outstanding_reqs -= 1;
      });
