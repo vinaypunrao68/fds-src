@@ -1500,15 +1500,16 @@ fds::Error StorHvCtrl::getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
    */
   qos_ctrl->markIODone(txn->io);
   if (rxMsg->result == FDSP_ERR_OK) {
-    if (blobReq->getIoType() == FDS_GET_BLOB) {
-      /* NOTE: we are currently supporting only getting the whole blob
-       * so the requester does not know about the blob length, 
-       * we get the blob length in response from SM;
-       * will need to revisit when we also support (don't ignore) byteCount in native api */
-      fds_verify(getObjRsp->data_obj_len <= blobReq->getDataLen());
-      blobReq->setDataLen(getObjRsp->data_obj_len);
-    }
-    fds_verify(getObjRsp->data_obj_len == blobReq->getDataLen());
+    fds_verify(blobReq->getIoType() == FDS_GET_BLOB);
+    /* NOTE: we are currently supporting only getting the whole blob
+     * so the requester does not know about the blob length, 
+     * we get the blob length in response from SM;
+     * will need to revisit when we also support (don't ignore) byteCount in native api.
+     * For now, just verify the existing buffer is big enough to hold
+     * the data.
+     */
+    fds_verify(getObjRsp->data_obj_len <= blobReq->getDataLen());
+    blobReq->setDataLen(getObjRsp->data_obj_len);    
     blobReq->setDataBuf(getObjRsp->data_obj.c_str());
     blobReq->cbWithResult(0);
   } else {
