@@ -286,6 +286,7 @@ AME_Request::ame_set_resp_keyval(char *k, int klen, char *v, int vlen)
 
     h->key.len    = klen;
     h->key.data   = (u_char *)k;
+    h->hash       = ngx_hash_key_lc(h->key.data, h->key.len);
     h->value.len  = vlen;
     h->value.data = (u_char *)v;
 
@@ -321,7 +322,7 @@ AME_Request::ame_send_response_hdr()
 {
     ngx_int_t          rc;
     ngx_http_request_t *r;
-    std::string etag_key = "etag";
+    std::string etag_key = "ETag";
 
     // Any protocol-connector specific response format.
     ame_format_response_hdr();
@@ -385,11 +386,12 @@ AME_Request::ame_send_resp_data(void *buf_cookie, int len, fds_bool_t last)
     out.next = NULL;
 
     if (last == true) {
-        buf->last_buf      = 1;
-        buf->last_in_chain = 1;
+      buf->last_buf      = 1;
+      buf->last_in_chain = 1;
     }
 
-    rc = ngx_http_output_filter(r, &out);
+    ngx_http_finalize_request(r, ngx_http_output_filter(r, &out));
+
     return NGX_OK;
 }
 
@@ -427,7 +429,7 @@ Conn_GetObject::cb(void *req, fds_uint64_t bufsize,
 void
 Conn_GetObject::ame_request_handler()
 {
-    static int buf_req_len = 3 * (1 << 20); // 3MB
+    static int buf_req_len = 6 * (1 << 20); // 6MB
     int buf_len;
     char          *buf;
     FDS_NativeAPI *api;
