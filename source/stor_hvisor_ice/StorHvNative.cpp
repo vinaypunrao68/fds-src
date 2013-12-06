@@ -451,12 +451,12 @@ void FDS_NativeAPI::DoCallback(FdsBlobReq  *blob_req,
     break;
   case FDS_LIST_BUCKET:
     /* in case of list bucket, this method is called only on error */
-    fds_verify(!error.ok());
+    fds_verify(!error.ok() || (result != 0));
     static_cast<ListBucketReq*>(blob_req)->DoCallback(0, "", 0, NULL, status, NULL);
     break;
   case FDS_BUCKET_STATS:
     /* in case of get bucket stats, this method is called only on error */
-    fds_verify(!error.ok());
+    fds_verify(!error.ok() || (result != 0));
     static_cast<BucketStatsReq*>(blob_req)->DoCallback("", 0, NULL, status, NULL);
     break;
   };
