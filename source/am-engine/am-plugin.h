@@ -22,30 +22,83 @@ class AME_Ctx
   public:
     AME_Ctx();
 
-    void ame_register_ctx();
-    void ame_register_handler(void (*handler)(AME_Ctx *req));
-    void ame_notify_handler();
-    void ame_unregister_ctx();
+    virtual int  ame_register_ctx();
+    virtual void ame_unregister_ctx();
+    virtual void ame_notify_handler();
+    virtual void ame_invoke_handler();
+    virtual void ame_free_context();
+
+    // Map buffer from nginx for AMEngine module to use with fdsn.
+    //
+    ame_buf_t *ame_alloc_buf(int len, char **buf, int *got);
+    inline char *ame_buf_info(ame_buf_t *buf, int *len)
+    {
+        *len = buf->last - buf->pos;
+        return (char *)buf->pos;
+    }
+
+    // Simple input buffer iteration to keep track of where we are with input
+    // buffers.
+    //
+    inline void ame_save_input_buf(ame_chain_t *chain)
+    {
+        ame_in_chain = chain;
+    }
+    inline char *ame_curr_input_buf(int *len)
+    {
+        if (ame_in_chain != NULL) {
+            return ame_buf_info(ame_in_chain->buf, len);
+        }
+        *len = 0;
+        return NULL;
+    }
+    inline bool ame_next_input_buf()
+    {
+        if (ame_in_chain != NULL) {
+            ame_in_chain = ame_in_chain->next;
+        }
+        return ame_in_chain != NULL ? true : false;
+    }
+
+    // Simple output buffer iteration to keep track of where we are with output
+    // buffers.
+    //
+    inline void ame_push_output_buf(ame_buf_t *buf)
+    {
+        ame_out_buf = buf;
+    }
+    inline char *ame_curr_output_buf(ame_buf_t **buf, int *len)
+    {
+        *buf = ame_out_buf;
+        if (ame_out_buf != NULL) {
+            return ame_buf_info(ame_out_buf, len);
+        }
+        *len = 0;
+        return NULL;
+    }
+    // This call must be made only by nginx event loop thread.
+    void ame_pop_output_buf();
+
+    // Temp. code, will remove
+    char                     *ame_temp_buf;
 
   protected:
-    // TODO: check if we need to abstract this class with pure handlers to
-    // handle event's loop stop/resume model.
-    //
     AME_Ctx                  *ame_next;
     AME_Request              *ame_req;
-    void                    (*ame_handler_fn)(AME_Ctx *ctx);
     int                       ame_state;
 
     // Hookup with nginx event loop.
     //
     int                       ame_epoll_fd;
     ngx_connection_t         *ame_connect;
-    ngx_chain_t              *ame_out_bufs;
-    ngx_chain_t              *ame_busy_bufs;
-    ngx_chain_t              *ame_free_bufs;
+
+    ame_buf_t                *ame_out_buf;
+    ame_chain_t              *ame_in_chain;
+    ame_chain_t               ame_output;
+    ame_chain_t               ame_free_buf;
 
     friend class AME_CtxList;
-    ~AME_Ctx() {}
+    virtual ~AME_Ctx() {}
     void ame_init_ngx_ctx();
 };
 

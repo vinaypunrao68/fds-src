@@ -160,10 +160,6 @@ ngx_http_fds_read_body(ngx_http_request_t *r)
     am_ctx->ame_register_ctx();
     am_req->ame_add_context(am_ctx);
     am_req->ame_request_handler();
-
-    am_ctx->ame_unregister_ctx();
-    fdcf->fds_context->ame_put_ctx(am_ctx);
-    delete am_req;
 }
 
 /*
@@ -239,6 +235,22 @@ ngx_http_fds_data_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
     return NGX_CONF_OK;
 }
 
+/*
+ * ame_context_handler
+ * -------------------
+ */
+static void
+ame_context_handler(ngx_event_t *evt)
+{
+    fds::AME_Ctx     *ctx;
+    ngx_connection_t *c;
+
+    c   = (ngx_connection_t *)evt->data;
+    ctx = (fds::AME_Ctx *)c->data;
+    printf("Epoll invoke handler ctx %p\n", ctx);
+    ctx->ame_invoke_handler();
+}
+
 } /* extern "C" */
 
 namespace fds {
@@ -248,8 +260,7 @@ namespace fds {
  * -------
  * Constructor for the context object that acts as "upstream" module to nginx.
  */
-AME_Ctx::AME_Ctx()
-    : ame_req(NULL), ame_handler_fn(NULL), ame_next(NULL), ame_epoll_fd(0)
+AME_Ctx::AME_Ctx() : ame_req(NULL), ame_next(NULL), ame_temp_buf(NULL)
 {
     ame_init_ngx_ctx();
 }
@@ -260,10 +271,15 @@ AME_Ctx::AME_Ctx()
 void
 AME_Ctx::ame_init_ngx_ctx()
 {
+    ame_epoll_fd  = 0;
     ame_connect   = NULL;
-    ame_out_bufs  = NULL;
-    ame_busy_bufs = NULL;
-    ame_free_bufs = NULL;
+    ame_out_buf   = NULL;
+    ame_in_chain  = NULL;
+
+    ame_output.buf    = NULL;
+    ame_output.next   = NULL;
+    ame_free_buf.buf  = NULL;
+    ame_free_buf.next = NULL;
 }
 
 /*
@@ -273,10 +289,61 @@ AME_Ctx::ame_init_ngx_ctx()
  * notified it with ame_notify_handler() call.
  */
 void
-AME_Ctx::ame_register_handler(void (*handler)(AME_Ctx *req))
+AME_Ctx::ame_invoke_handler()
 {
-    fds_verify(ame_handler_fn == NULL);
-    ame_handler_fn = handler;
+    if (ame_req->ame_request_resume() == NGX_DONE) {
+        printf("Done with everything, free ctx %p, req %p\n", this, ame_req);
+        ame_free_context();
+    }
+}
+
+/*
+ * ame_alloc_buf
+ * -------------
+ */
+ngx_buf_t *
+AME_Ctx::ame_alloc_buf(int len, char **buf, int *got)
+{
+    ngx_buf_t          *b;
+    ngx_http_request_t *r;
+
+    if (len > 0) {
+        r = ame_req->ame_req;
+        b = (ngx_buf_t *)ngx_calloc_buf(r->pool);
+        ngx_memset(b, 0, sizeof(*b));
+
+        b->memory = 1;
+        b->start  = (u_char *)ngx_palloc(r->pool, len);
+        b->end    = b->start + len;
+        b->pos    = b->start;
+        b->last   = b->end;
+        *got      = len;
+        return b;
+    }
+    *got = 0;
+    return NULL;
+}
+
+/*
+ * ame_pop_output_buf
+ * ------------------
+ */
+void
+AME_Ctx::ame_pop_output_buf()
+{
+    // XXX: not now.
+}
+
+/*
+ * ame_free_context
+ * ----------------
+ * Call to cleanup resources used to handle the request.
+ */
+void
+AME_Ctx::ame_free_context()
+{
+    delete ame_req;
+    ame_unregister_ctx();
 }
 
 /*
@@ -288,6 +355,12 @@ AME_Ctx::ame_register_handler(void (*handler)(AME_Ctx *req))
 void
 AME_Ctx::ame_notify_handler()
 {
+    int rc;
+
+    /* XXX: TODO must have timeout if fails here. */
+    printf("Callback notify wakeup ctx %p\n", this);
+    rc = eventfd_write(ame_epoll_fd, 0xfddf);
+    fds_verify(rc == 0);
 }
 
 /*
@@ -299,26 +372,70 @@ AME_Ctx::ame_notify_handler()
  * Note: only nginx thread calls register/unregister method so that we
  * can add/remove ctx obj w/out lock.
  */
-void
+int
 AME_Ctx::ame_register_ctx()
 {
+    ngx_int_t           evt;
+    ngx_event_t        *rev, *wev;
+    ngx_connection_t   *c;
     ngx_http_request_t *r;
 
-    if (ame_epoll_fd == 0) {
-        ame_epoll_fd = eventfd(0xfdfd, EFD_CLOEXEC | EFD_NONBLOCK);
+    fds_verify(ame_epoll_fd == 0);
+    ame_epoll_fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
+    if (ame_epoll_fd <= 0) {
+        ame_epoll_fd = 0;
+        return NGX_ERROR;
     }
-    fds_verify(ame_epoll_fd > 0);
     ngx_http_set_ctx(ame_req->ame_req, this, ngx_http_fds_data_module);
 
     r = ame_req->ame_req;
+    c = r->connection;
     ame_connect = ngx_get_connection(ame_epoll_fd, r->connection->log);
+    if (ame_connect == NULL) {
+        ngx_log_error(NGX_LOG_ALERT, c->log, NGX_ERROR, "no more connection");
+        return NGX_ERROR;
+    }
+    if (ngx_add_conn(ame_connect) == NGX_ERROR) {
+        ngx_log_error(NGX_LOG_ALERT, c->log, NGX_ERROR, "failed to add conn");
+        goto failed;
+        return NGX_ERROR;
+    }
+    rev = ame_connect->read;
+    wev = ame_connect->write;
+    rev->log = c->log;
+    wev->log = c->log;
+
+    if (ngx_event_flags & NGX_USE_CLEAR_EVENT) {
+        evt = NGX_CLEAR_EVENT;
+    } else {
+        evt = NGX_LEVEL_EVENT;
+    }
+    if (ngx_add_event(ame_connect->read, NGX_READ_EVENT, evt) != NGX_OK) {
+        goto failed;
+    }
+    wev->active       = 0;
+    rev->ready        = 1;
+    rev->handler      = ame_context_handler;
+    ame_connect->data = (void *)this;
+
+    printf("Added event loop ok, conn %p, ctx %p, obj %p\n",
+            ame_connect, this, ame_req);
+    return NGX_OK;
+
+failed:
+    ngx_free_connection(ame_connect);
+    printf("Failed to add event loop\n");
+    return NGX_ERROR;
 }
 
+// ame_unregister_ctx
+// ------------------
+//
 void
 AME_Ctx::ame_unregister_ctx()
 {
-    ngx_free_connection(ame_connect);
-    // ngx_close_connection(ame_connect);
+    ngx_close_connection(ame_connect);
+    sgt_fds_data_cfg->fds_context->ame_put_ctx(this);
 }
 
 /*
@@ -354,10 +471,9 @@ AME_CtxList::ame_get_ctx(AME_Request *req)
         ame_free_ctx_cnt--;
         fds_verify(ame_free_ctx_cnt >= 0);
 
-        ctx->ame_next       = NULL;
-        ctx->ame_req        = req;
-        ctx->ame_state      = 0;
-        ctx->ame_handler_fn = NULL;
+        ctx->ame_next  = NULL;
+        ctx->ame_req   = req;
+        ctx->ame_state = 0;
         return ctx;
     }
     return NULL;

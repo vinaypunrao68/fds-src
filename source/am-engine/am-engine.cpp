@@ -176,7 +176,7 @@ ame_keytab_t sgt_AMEKey[] =
     { { nullptr },               0, AME_HDR_KEY_MAX }
 };
 
-int AME_Request::map_fdsn_status(FDSN_Status status)
+int AME_Request::ame_map_fdsn_status(FDSN_Status status)
 {
   if (status == FDSN_StatusOK) {
     return NGX_HTTP_OK;
@@ -190,31 +190,38 @@ AME_Request::AME_Request(AMEngine *eng, AME_HttpReq *req)
     : fdsio::Request(true), ame(eng), ame_req(req),
       ame_http(req), ame_finalize(false)
 {
-  if (ame_req->request_body &&
-      ame_req->request_body->bufs) {
-    post_buf_itr = ame_req->request_body->bufs;
-  } else {
-    post_buf_itr = NULL;
-  }
-  resp_status = 500;
-  resp_buf = NULL;
-  resp_buf_len = 0;
-  eng->get_queue()->rq_enqueue(this, 0);
+    ame_resp_status = 500;
+    eng->ame_get_queue()->rq_enqueue(this, 0);
 }
 
 AME_Request::~AME_Request()
 {
+    req_complete();
 }
 
-// ame_request_async_callback
-// --------------------------
+// ame_add_context
+// ---------------
 //
 void
-AME_Request::ame_request_async_callback(int status)
+AME_Request::ame_add_context(AME_Ctx *ctx)
+{
+    ame_ctx = ctx;
+    if (ame_req->request_body && ame_req->request_body->bufs) {
+        ame_ctx->ame_save_input_buf(ame_req->request_body->bufs);
+    }
+}
+
+// ame_signal_resume
+// -----------------
+// Called by FDSN to signal the resumption of the event loop.
+//
+void
+AME_Request::ame_signal_resume(int status)
 {
     ame_resp_status = status;
+
+    // This will cause the event loop to run the request_resume() method.
     ame_ctx->ame_notify_handler();
-    req_complete();
 }
 
 // ame_reqt_iter_reset
@@ -238,39 +245,37 @@ AME_Request::ame_reqt_iter_next()
 // ame_reqt_iter_data
 // ------------------
 //
-char*
+char *
 AME_Request::ame_reqt_iter_data(int *len)
 {
-  if (post_buf_itr == NULL) {
+    char *data, *curr;
+    int   data_len, copy_len;
+
+    if (ame_ctx->ame_curr_input_buf(len) == NULL) {
+        return NULL;
+    }
+    // Temporary code so that we return a single buffer containing all
+    // content in a body.
     *len = 0;
-    return NULL;
-  }
+    copy_len = 0;
+    data_len = ame_req->headers_in.content_length_n;
 
-  /* Temporary code so that we return a single buffer containing all content in a body */
-  int copy_len = 0;
-  *len = 0;
-  char *data = (char *)ngx_palloc(ame_req->pool,
-      ame_req->headers_in.content_length_n);
-  if (data == NULL) {
-    fds_assert(!"Null data");
-    return NULL;
-  }
+    data = (char *)ngx_palloc(ame_req->pool, data_len);
+    fds_verify(data != NULL);
 
-  while (post_buf_itr != NULL) {
-    copy_len = post_buf_itr->buf->last - post_buf_itr->buf->pos;
-    memcpy(&data[*len], post_buf_itr->buf->pos, copy_len);
-    *len += copy_len;
+    do {
+        curr = ame_ctx->ame_curr_input_buf(&copy_len);
+        fds_verify(curr != NULL);
 
-    post_buf_itr = post_buf_itr->next;
-  }
+        ngx_memcpy(&data[*len], curr, copy_len);
+        *len += copy_len;
+    } while (ame_ctx->ame_next_input_buf() == true);
 
-  if (*len != ame_req->headers_in.content_length_n) {
-    fds_assert(!"Invalid data accounting");
-    *len = 0;
-    return NULL;
-  }
+    fds_verify(*len == data_len);
 
-  return data;
+    // Save this so that we can free it later.
+    ame_ctx->ame_temp_buf = data;
+    return data;
 }
 
 // ame_get_reqt_hdr_val
@@ -332,17 +337,17 @@ AME_Request::ame_send_response_hdr()
 {
     ngx_int_t          rc;
     ngx_http_request_t *r;
-    std::string etag_key = "etag";
 
     // Any protocol-connector specific response format.
     ame_format_response_hdr();
 
+    if (ame_etag.size() > 0) {
+      ame_set_resp_keyval(sgt_AMEKey[REST_ETAG].u.kv_key_name,
+              sgt_AMEKey[REST_ETAG].kv_keylen,
+              const_cast<char*>(ame_etag.c_str()), ame_etag.size());
+    }
     // Do actual sending.
     r  = ame_req;
-    if (etag.size() > 0) {
-      ame_set_resp_keyval(const_cast<char*>(etag_key.c_str()), etag_key.size(),
-          const_cast<char*>(etag.c_str()), etag.size());
-    }
     rc = ngx_http_send_header(r);
     if (ame_finalize == true || r->header_only) {
         ngx_http_finalize_request(r, rc);
@@ -350,61 +355,56 @@ AME_Request::ame_send_response_hdr()
     return NGX_OK;
 }
 
-// ame_push_resp_data_buf
-// ----------------------
-//
-void *
-AME_Request::ame_push_resp_data_buf(int ask, char **buf, int *got)
+// ame_finalize_response
+// ---------------------
+// Common path to finalize the request by sending the response w/out data back
+// to client.
+void
+AME_Request::ame_finalize_response(int status)
 {
-    ngx_buf_t          *b;
-    ngx_http_request_t *r;
-
-    r = ame_req;
-    b = (ngx_buf_t *)ngx_calloc_buf(r->pool);
-    memset(b, sizeof(ngx_buf_t), 0);
-
-    b->memory        = 1;
-    b->last_buf      = 0;
-    b->last_in_chain = 0;
-
-    if (ask > 0) {
-      b->start = (u_char *)ngx_palloc(r->pool, ask);
-      b->end   = b->start + ask;
-      b->pos   = b->start;
-      b->last  = b->end;
-    }
-    *buf = (char *)b->pos;
-    *got = ask;
-    return (void *)b;
+    ame_set_std_resp(status, 0);
+    ame_send_response_hdr();
 }
 
 // ame_send_resp_data
 // ------------------
 //
 int
-AME_Request::ame_send_resp_data(void *buf_cookie, int len, fds_bool_t last)
+AME_Request::ame_send_resp_data(ame_buf_t *buf, int len, fds_bool_t last)
 {
-    ngx_buf_t          *buf;
     ngx_int_t          rc;
     ngx_chain_t        out;
     ngx_http_request_t *r;
 
-    r   = ame_req;
-    buf = (ngx_buf_t *)buf_cookie;
-    buf->last = buf->pos + len;
-    out.buf  = buf;
-    out.next = NULL;
+    r = ame_req;
+    fds_verify((buf->last - buf->pos) == len);
 
     if (last == true) {
         buf->last_buf      = 1;
         buf->last_in_chain = 1;
     }
+    out.buf  = buf;
+    out.next = NULL;
 
     rc = ngx_http_output_filter(r, &out);
     if (last) {
         ngx_http_finalize_request(r, rc);
     }
     return NGX_OK;
+}
+
+// ame_finalize_request
+// --------------------
+// Finalize request to cut short the processing to return back to client with
+// error code.
+void
+AME_Request::ame_finalize_request(int status)
+{
+    // TODO: map status back to NGX_ rc error code.
+    ngx_http_finalize_request(ame_req, status);
+
+    // Will free this object and its context.
+    ame_ctx->ame_free_context();
 }
 
 // ---------------------------------------------------------------------------
@@ -419,20 +419,45 @@ Conn_GetObject::~Conn_GetObject()
 {
 }
 
-// get_callback_fn
-// ---------------
+// fdsn_getobj_cbfn
+// ----------------
 //
-FDSN_Status
-Conn_GetObject::cb(void *req, fds_uint64_t bufsize,
-                const char *buf, void *cbData,
-                FDSN_Status status, ErrorDetails *errdetails)
+static FDSN_Status
+fdsn_getobj_cbfn(void *req, fds_uint64_t bufsize,
+                 const char *buf, void *cbData,
+                 FDSN_Status status, ErrorDetails *errdetails)
 {
-  Conn_GetObject *conn_go = (Conn_GetObject*) cbData;
-  FDS_PLOG(conn_go->get_log()) << "GetObject bucket: " << conn_go->get_bucket_id()
-      << " , object: " << conn_go->get_object_id() << " , len: " << bufsize
-      << ", status: " << status;
-  conn_go->notify_request_completed(map_fdsn_status(status), buf, (int)bufsize);
-  return FDSN_StatusOK;
+    Conn_GetObject *conn_go = (Conn_GetObject *)cbData;
+
+    FDS_PLOG(conn_go->ame_get_log()) << "GetObject bucket: "
+        << conn_go->get_bucket_id() << " , object: "
+        << conn_go->get_object_id() << " , len: "
+        << bufsize << ", status: " << status;
+
+    conn_go->ame_signal_resume(AME_Request::ame_map_fdsn_status(status));
+    return FDSN_StatusOK;
+}
+
+// ame_request_resume
+// ------------------
+//
+int
+Conn_GetObject::ame_request_resume()
+{
+    int        len;
+    char      *adr;
+    ame_buf_t *buf;
+
+    adr = ame_ctx->ame_curr_output_buf(&buf, &len);
+    if (ame_resp_status == NGX_HTTP_OK) {
+        ame_etag = "\"" + HttpUtils::computeEtag(adr, len) + "\"";
+        ame_set_std_resp(ame_resp_status, len);
+        ame_send_response_hdr();
+        ame_send_resp_data(buf, len, true);
+    } else {
+        ame_finalize_response(ame_resp_status);
+    }
+    return NGX_DONE;
 }
 
 // ame_request_handler
@@ -441,39 +466,19 @@ Conn_GetObject::cb(void *req, fds_uint64_t bufsize,
 void
 Conn_GetObject::ame_request_handler()
 {
-    static int buf_req_len = 3 * (1 << 20); // 3MB
-    int buf_len;
-    char          *buf;
+    static int buf_req_len = (3 << 20); // 3MB
+    int           len;
+    char          *adr;
+    ame_buf_t     *buf;
     FDS_NativeAPI *api;
     BucketContext bucket_ctx("host", get_bucket_id(), "accessid", "secretkey");
 
-    cur_get_buffer  = ame_push_resp_data_buf(buf_req_len, &buf, &buf_len);
+    buf = ame_ctx->ame_alloc_buf(buf_req_len, &adr, &len);
+    ame_ctx->ame_push_output_buf(buf);
 
     api = ame->ame_fds_hook();
-
-    api->GetObject(&bucket_ctx, get_object_id(), NULL, 0, buf_len, buf, buf_len,
-        (void *)this, Conn_GetObject::cb, (void *) this);
-
-    req_wait();
-
-    if (resp_status == NGX_HTTP_OK) {
-      etag = HttpUtils::computeEtag(resp_buf, resp_buf_len);
-      etag = "\"" + etag + "\"";
-      fdsn_send_get_response(resp_status, (int) resp_buf_len);
-      ame_send_resp_data(cur_get_buffer, (int) resp_buf_len, true);
-    } else {
-      fdsn_send_get_response(resp_status, 0);
-    }
-}
-
-// fdsn_send_get_response
-// ----------------------
-//
-void
-Conn_GetObject::fdsn_send_get_response(int status, int get_len)
-{
-    ame_set_std_resp(status, get_len);
-    ame_send_response_hdr();
+    api->GetObject(&bucket_ctx, get_object_id(), NULL, 0, len, adr, len,
+        (void *)buf, fdsn_getobj_cbfn, (void *)this);
 }
 
 // ---------------------------------------------------------------------------
@@ -492,13 +497,38 @@ Conn_PutObject::~Conn_PutObject()
 // put_callback_fn
 // ---------------
 //
-int
-Conn_PutObject::cb(void *reqContext, fds_uint64_t bufferSize, char *buffer,
+static int
+fdsn_putobj_cbfn(void *reqContext, fds_uint64_t bufferSize, char *buffer,
     void *callbackData, FDSN_Status status, ErrorDetails* errDetails)
 {
-  printf("put object cb invoked\n");
-  Conn_PutObject *conn_po = (Conn_PutObject*) callbackData;
-  conn_po->notify_request_completed(map_fdsn_status(status), NULL, 0);
+    Conn_PutObject *conn_po = (Conn_PutObject*)callbackData;
+
+    printf("Signal to wake up event loop obj %p\n", conn_po);
+    conn_po->ame_signal_resume(AME_Request::ame_map_fdsn_status(status));
+    return 0;
+}
+
+// ame_request_resume
+// ------------------
+// We're here after the callback function wakes up the event loop to resume
+// the putobject method.
+//
+int
+Conn_PutObject::ame_request_resume()
+{
+    /* compute etag to be sent as response.  Ideally this is done by AM */
+    // etag = HttpUtils::computeEtag(buf, len);
+    // etag = "\"" + etag + "\"";
+    FDS_PLOG(ame_get_log()) << "PutObject bucket: " << get_bucket_id()
+        << " , object: " << get_object_id();
+
+    printf("Put object resume %p, buf %p\n", this, ame_ctx->ame_temp_buf);
+    // Temp. code.  We need to have a proper buffer chunking model here.
+    if (ame_ctx->ame_temp_buf != NULL) {
+        ngx_pfree(ame_req->pool, ame_ctx->ame_temp_buf);
+    }
+    ame_finalize_response(ame_resp_status);
+    return NGX_DONE;
 }
 
 // ame_request_handler
@@ -507,43 +537,20 @@ Conn_PutObject::cb(void *reqContext, fds_uint64_t bufferSize, char *buffer,
 void
 Conn_PutObject::ame_request_handler()
 {
-    int  len;
+    int           len;
     char          *buf;
     FDS_NativeAPI *api;
     BucketContext bucket_ctx("host", get_bucket_id(), "accessid", "secretkey");
-    char *temp;
 
-    buf = ame_reqt_iter_data((int*) &len);
+    buf = ame_reqt_iter_data(&len);
     if (buf == NULL || len == 0) {
-      // todo: instead of assert put a log.  Also think about what needes
-      // to be returned to server
-      fds_assert(!"no body");
-      return;
+        ame_finalize_request(NGX_HTTP_BAD_REQUEST);
+        return;
     }
-
-    /* compute etag to be sent as response.  Ideally this is done by AM */
-    etag = HttpUtils::computeEtag(buf, len);
-    etag = "\"" + etag + "\"";
-    FDS_PLOG(get_log()) << "PutObject bucket: " << get_bucket_id() << " , object: " << get_object_id() << " , len: " << len;
-
     api = ame->ame_fds_hook();
-    api->PutObject(&bucket_ctx, get_object_id(), NULL, NULL,
-                   buf, len, Conn_PutObject::cb, this);
-
-    fds_assert(req_blocking_mode() == false);
-    req_wait();
-
-    fdsn_send_put_response(resp_status, 0);
-}
-
-// fdsn_send_put_response
-// ----------------------
-//
-void
-Conn_PutObject::fdsn_send_put_response(int status, int put_len)
-{
-    ame_set_std_resp(status, put_len);
-    ame_send_response_hdr();
+    api->PutObject(&bucket_ctx, get_object_id(), NULL, buf,
+                   buf, len, fdsn_putobj_cbfn, (void *)this);
+    printf("Done submitting put obj %p, buf %p\n", this, buf);
 }
 
 // ---------------------------------------------------------------------------
@@ -558,14 +565,24 @@ Conn_DelObject::~Conn_DelObject()
 {
 }
 
-// delete callback fn
+// fdsn_delobj_cbfn
+// ----------------
+//
+static void
+fdsn_delobj_cbfn(FDSN_Status status, const ErrorDetails *err, void *arg)
+{
+    Conn_DelObject *conn_do = (Conn_DelObject *)arg;
+    conn_do->ame_signal_resume(AME_Request::ame_map_fdsn_status(status));
+}
+
+// ame_request_resume
 // ------------------
 //
-void Conn_DelObject::cb(FDSN_Status status,
-    const ErrorDetails *errorDetails,
-    void *callbackData)
+int
+Conn_DelObject::ame_request_resume()
 {
-  ((Conn_DelObject*) callbackData)->notify_request_completed(map_fdsn_status(status), NULL, 0);
+    ame_finalize_response(ame_resp_status);
+    return NGX_DONE;
 }
 
 // ame_request_handler
@@ -578,20 +595,8 @@ Conn_DelObject::ame_request_handler()
     BucketContext bucket_ctx("host", get_bucket_id(), "accessid", "secretkey");
 
     api = ame->ame_fds_hook();
-    api->DeleteObject(&bucket_ctx, get_object_id(), NULL, Conn_DelObject::cb, this);
-
-    req_wait();
-    fdsn_send_del_response(resp_status, 0);
-}
-
-// fdsn_send_put_response
-// ----------------------
-//
-void
-Conn_DelObject::fdsn_send_del_response(int status, int len)
-{
-    ame_set_std_resp(status, len);
-    ame_send_response_hdr();
+    api->DeleteObject(&bucket_ctx, get_object_id(),
+                      NULL, fdsn_delobj_cbfn, this);
 }
 
 // ---------------------------------------------------------------------------
@@ -607,16 +612,24 @@ Conn_PutBucket::~Conn_PutBucket()
 {
 }
 
-// put_callback_fn
-// ---------------
+// fdsn_putbucket_cbfn
+// -------------------
 //
-void Conn_PutBucket::fdsn_cb(FDSN_Status status,
-    const ErrorDetails *errorDetails,
-    void *callbackData)
+static void
+fdsn_putbucket_cbfn(FDSN_Status status, const ErrorDetails *err, void *arg)
 {
-  printf("put bucket cb done\n");
-  Conn_PutBucket *conn_pb_obj =  (Conn_PutBucket*) callbackData;
-  conn_pb_obj->notify_request_completed(map_fdsn_status(status), NULL, 0);
+    Conn_PutBucket *conn_pb = (Conn_PutBucket *)arg;
+    conn_pb->ame_signal_resume(AME_Request::ame_map_fdsn_status(status));
+}
+
+// ame_request_resume
+// ------------------
+//
+int
+Conn_PutBucket::ame_request_resume()
+{
+    ame_finalize_response(ame_resp_status);
+    return NGX_DONE;
 }
 
 // ame_request_handler
@@ -630,19 +643,7 @@ Conn_PutBucket::ame_request_handler()
 
     api = ame->ame_fds_hook();
     api->CreateBucket(&bucket_ctx, CannedAclPrivate,
-                      NULL, fds::Conn_PutBucket::fdsn_cb, this);
-    req_wait();
-    fdsn_send_put_response(resp_status, 0);
-}
-
-// fdsn_send_put_response
-// ----------------------
-//
-void
-Conn_PutBucket::fdsn_send_put_response(int status, int put_len)
-{
-    ame_set_std_resp(status, put_len);
-    ame_send_response_hdr();
+                      NULL, fdsn_putbucket_cbfn, this);
 }
 
 // ---------------------------------------------------------------------------
@@ -657,28 +658,42 @@ Conn_GetBucket::~Conn_GetBucket()
 {
 }
 
-// fdsn_getbucket
-// --------------
+// fdsn_getbucket_cbfn
+// -------------------
 // Callback from FDSN to notify us that they have data to send out.
 //
-void
-Conn_GetBucket::fdsn_getbucket(int isTruncated, const char *nextMarker,
-        int contentCount, const ListBucketContents *contents,
-        int commPrefixCnt, const char **commPrefixes, void *cbarg, FDSN_Status status)
+static void
+fdsn_getbucket_cbfn(int isTruncated, const char *nextMarker, int contentCount,
+        const ListBucketContents *contents, int commPrefixCnt,
+        const char **commPrefixes, void *cbarg, FDSN_Status status)
 {
-    int            i, got, used, sent;
-    void           *resp;
-    char           *cur;
-    char           *buf;
     Conn_GetBucket *gbucket = (Conn_GetBucket *)cbarg;
 
     if (status != FDSN_StatusOK) {
-      gbucket->notify_request_completed(map_fdsn_status(status), NULL, 0);
-      return;
+        gbucket->ame_signal_resume(AME_Request::ame_map_fdsn_status(status));
+        return;
     }
+    gbucket->ame_fmt_resp_data(isTruncated, nextMarker, contentCount,
+            contents, commPrefixCnt, commPrefixes);
 
-    gbucket->cur_get_buffer = gbucket->ame_push_resp_data_buf(NGX_RESP_CHUNK_SIZE, &cur, &got);
-    buf = cur;
+    gbucket->ame_signal_resume(NGX_HTTP_OK);
+}
+
+// ame_fmt_resp_data
+// -----------------
+// Format response data with result from listing objects in the bucket.
+//
+void
+Conn_GetBucket::ame_fmt_resp_data(int is_truncated, const char *next_marker,
+        int content_cnt, const ListBucketContents *contents,
+        int comm_prefix_cnt, const char **comm_prefix)
+{
+    int        i, got, used, sent;
+    char      *cur;
+    ame_buf_t *buf;
+
+    buf = ame_ctx->ame_alloc_buf(NGX_RESP_CHUNK_SIZE, &cur, &got);
+    ame_ctx->ame_push_output_buf(buf);
 
     // Format the header to send out.
     sent = 0;
@@ -694,18 +709,18 @@ Conn_GetBucket::fdsn_getbucket(int isTruncated, const char *nextMarker,
             sgt_AMEKey[REST_NAME].u.kv_key, sgt_AMEKey[REST_NAME].u.kv_key,
 
             sgt_AMEKey[REST_PREFIX].u.kv_key,
-            commPrefixes == nullptr ? "" : commPrefixes[0],
+            comm_prefix == nullptr ? "" : comm_prefix[0],
             sgt_AMEKey[REST_PREFIX].u.kv_key,
 
             sgt_AMEKey[REST_MARKER].u.kv_key,
-            nextMarker == nullptr ? "" : nextMarker,
+            next_marker == nullptr ? "" : next_marker,
             sgt_AMEKey[REST_MARKER].u.kv_key,
 
-            sgt_AMEKey[REST_MAX_KEYS].u.kv_key, contentCount,
+            sgt_AMEKey[REST_MAX_KEYS].u.kv_key, content_cnt,
             sgt_AMEKey[REST_MAX_KEYS].u.kv_key,
 
             sgt_AMEKey[REST_IS_TRUNCATED].u.kv_key,
-            isTruncated ? "true" : "false",
+            is_truncated ? "true" : "false",
             sgt_AMEKey[REST_IS_TRUNCATED].u.kv_key);
 
     // We shouldn't run out of room here.
@@ -714,7 +729,7 @@ Conn_GetBucket::fdsn_getbucket(int isTruncated, const char *nextMarker,
     cur  += used;
     got  -= used;
 
-    for (i = 0; i < contentCount; i++) {
+    for (i = 0; i < content_cnt; i++) {
         used = snprintf(cur, got,
                 "  <%s>\n"
                 "    <%s>%s</%s>\n"
@@ -769,9 +784,29 @@ Conn_GetBucket::fdsn_getbucket(int isTruncated, const char *nextMarker,
     used = snprintf(cur, got, "</%s>\n",
                     sgt_AMEKey[REST_LIST_BUCKET].u.kv_key);
     sent += used;
+    buf->last = buf->pos + sent;
+}
 
-    gbucket->notify_request_completed(NGX_HTTP_OK, buf, sent);
+// ame_request_resume
+// ------------------
+//
+int
+Conn_GetBucket::ame_request_resume()
+{
+    int        len;
+    char      *adr;
+    ame_buf_t *buf;
 
+    adr = ame_ctx->ame_curr_output_buf(&buf, &len);
+    if (ame_resp_status == NGX_HTTP_OK) {
+        ame_etag = "\"" + HttpUtils::computeEtag(adr, len) + "\"";
+        ame_set_std_resp(ame_resp_status, len);
+        ame_send_response_hdr();
+        ame_send_resp_data(buf, len, true);
+    } else {
+        ame_finalize_response(ame_resp_status);
+    }
+    return NGX_DONE;
 }
 
 // ame_request_handler
@@ -782,29 +817,11 @@ Conn_GetBucket::ame_request_handler()
 {
     FDS_NativeAPI *api;
     std::string    prefix, marker, deli;
-    BucketContext bucket_ctx("host", get_bucket_id(), "accessid", "secretkey");
+    BucketContext  bucket_ctx("host", get_bucket_id(), "accessid", "secretkey");
 
     api = ame->ame_fds_hook();
     api->GetBucket(&bucket_ctx, prefix, marker, deli, 1000, NULL,
-                   fds::Conn_GetBucket::fdsn_getbucket, (void *)this);
-
-    req_wait();
-    if (resp_status == NGX_HTTP_OK) {
-      fdsn_send_getbucket_response(resp_status, (int) resp_buf_len);
-      ame_send_resp_data(cur_get_buffer, (int) resp_buf_len, true);
-    } else {
-      fdsn_send_getbucket_response(resp_status, 0);
-    }
-}
-
-// fdsn_send_getbucket_response
-// ----------------------------
-//
-void
-Conn_GetBucket::fdsn_send_getbucket_response(int status, int len)
-{
-    ame_set_std_resp(status, len);
-    ame_send_response_hdr();
+                   fdsn_getbucket_cbfn, (void *)this);
 }
 
 // ---------------------------------------------------------------------------
@@ -819,15 +836,24 @@ Conn_DelBucket::~Conn_DelBucket()
 {
 }
 
-// delete_callback_fn
-// ---------------
+// fdsn_delbucket_cbfn
+// -------------------
 //
-void Conn_DelBucket::cb(FDSN_Status status,
-    const ErrorDetails *errorDetails,
-    void *callbackData)
+static void
+fdsn_delbucket_cbfn(FDSN_Status status, const ErrorDetails *err, void *arg)
 {
-  Conn_DelBucket *conn_pb_obj = (Conn_DelBucket*) callbackData;
-  conn_pb_obj->notify_request_completed(map_fdsn_status(status), NULL, 0);
+    Conn_DelBucket *conn_pb = (Conn_DelBucket *)arg;
+    conn_pb->ame_signal_resume(AME_Request::ame_map_fdsn_status(status));
+}
+
+// ame_request_resume
+// ------------------
+//
+int
+Conn_DelBucket::ame_request_resume()
+{
+    ame_finalize_response(ame_resp_status);
+    return NGX_DONE;
 }
 
 // ame_request_handler
@@ -840,20 +866,7 @@ Conn_DelBucket::ame_request_handler()
     BucketContext bucket_ctx("host", get_bucket_id(), "accessid", "secretkey");
 
     api = ame->ame_fds_hook();
-    api->DeleteBucket(&bucket_ctx, NULL, fds::Conn_DelBucket::cb, this);
-
-    req_wait();
-    fdsn_send_delbucket_response(resp_status, 0);
-}
-
-// fdsn_send_put_response
-// ----------------------
-//
-void
-Conn_DelBucket::fdsn_send_delbucket_response(int status, int len)
-{
-    ame_set_std_resp(status, len);
-    ame_send_response_hdr();
+    api->DeleteBucket(&bucket_ctx, NULL, fdsn_delbucket_cbfn, this);
 }
 
 } // namespace fds

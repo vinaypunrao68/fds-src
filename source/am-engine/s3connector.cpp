@@ -3,11 +3,13 @@
  */
 #include <am-engine/s3connector.h>
 
+#if 0
 extern "C" {
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_http.h>
 } // extern "C"
+#endif
 
 #include <fds_assert.h>
 #include <shared/fds_types.h>
@@ -85,8 +87,9 @@ S3_DelObject::~S3_DelObject()
 int
 S3_DelObject::ame_format_response_hdr()
 {
-  if (resp_status == NGX_HTTP_OK) {
-    ame_set_std_resp(NGX_HTTP_NO_CONTENT, ame_req->headers_out.content_length_n);
+  if (ame_resp_status == NGX_HTTP_OK) {
+    ame_set_std_resp(NGX_HTTP_NO_CONTENT,
+                     ame_req->headers_out.content_length_n);
   }
   return NGX_OK;
 }
