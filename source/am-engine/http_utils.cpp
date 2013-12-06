@@ -46,6 +46,39 @@ ngx_http_request_t* HttpRequest::getNginxReq() const
   return _pReq;
 }
 
+// getReqHdrVal
+// --------------------
+// Return the value corresponding with the key in the request header.
+//
+fds_bool_t HttpRequest::getReqHdrVal(char const *const key,
+                                     std::string& data) const {
+  ngx_list_t ngxList = _pReq->headers_in.headers;
+
+  /*
+   * Iterate over each element in each part.
+   */
+  for(ngx_list_part_t *part = &(ngxList.part); part != NULL; part = part->next) {
+    for (fds_uint32_t nelts = 0; nelts < part->nelts; nelts++) {
+      ngx_table_elt_t *elt = &(((ngx_table_elt_t *)part->elts)[nelts]);
+      ngx_str_t eltKey = elt->key;
+
+      /*
+       * Check if key matches input.
+       * Note: We're only comparing with eltKey's length so
+       * if the input key is a super-string of eltKey it will
+       * still match.
+       */
+      if (strncmp(key, (const char *)eltKey.data, eltKey.len) == 0) {
+        ngx_str_t eltData = elt->value;
+        data.assign((const char *)eltData.data, eltData.len);
+        return true;
+      }
+    }
+  } 
+
+  return false;
+}
+
 std::string HttpRequest::toString() const
 {
   std::ostringstream stream;

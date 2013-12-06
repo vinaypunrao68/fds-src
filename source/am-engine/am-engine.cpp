@@ -140,6 +140,10 @@ AMEngine::mod_shutdown()
 {
 }
 
+Conn_PutBucketParams *AMEngine::ame_putbucketparams_hdler(AME_HttpReq *req) {
+  return new Conn_PutBucketParams(this, req);
+}
+
 // ---------------------------------------------------------------------------
 // Generic request/response protocol through NGINX module.
 //
@@ -262,16 +266,6 @@ AME_Request::ame_reqt_iter_data(int *len)
   return data;
 }
 
-// ame_get_reqt_hdr_val
-// --------------------
-//
-char const *const
-AME_Request::ame_get_reqt_hdr_val(char const *const key)
-{
-  // todo: rao implement this
-    return NULL;
-}
-
 // ame_set_resp_keyval
 // -------------------
 //
@@ -286,6 +280,7 @@ AME_Request::ame_set_resp_keyval(char *k, int klen, char *v, int vlen)
 
     h->key.len    = klen;
     h->key.data   = (u_char *)k;
+    h->hash       = ngx_hash_key_lc(h->key.data, h->key.len);
     h->value.len  = vlen;
     h->value.data = (u_char *)v;
 
@@ -321,7 +316,7 @@ AME_Request::ame_send_response_hdr()
 {
     ngx_int_t          rc;
     ngx_http_request_t *r;
-    std::string etag_key = "etag";
+    std::string etag_key = "ETag";
 
     // Any protocol-connector specific response format.
     ame_format_response_hdr();
@@ -385,11 +380,12 @@ AME_Request::ame_send_resp_data(void *buf_cookie, int len, fds_bool_t last)
     out.next = NULL;
 
     if (last == true) {
-        buf->last_buf      = 1;
-        buf->last_in_chain = 1;
+      buf->last_buf      = 1;
+      buf->last_in_chain = 1;
     }
 
-    rc = ngx_http_output_filter(r, &out);
+    ngx_http_finalize_request(r, ngx_http_output_filter(r, &out));
+
     return NGX_OK;
 }
 
@@ -427,7 +423,7 @@ Conn_GetObject::cb(void *req, fds_uint64_t bufsize,
 void
 Conn_GetObject::ame_request_handler()
 {
-    static int buf_req_len = 3 * (1 << 20); // 3MB
+    static int buf_req_len = 6 * (1 << 20); // 6MB
     int buf_len;
     char          *buf;
     FDS_NativeAPI *api;
@@ -794,7 +790,93 @@ Conn_GetBucket::fdsn_send_getbucket_response(int status, int len)
 }
 
 // ---------------------------------------------------------------------------
-// PutBucket Connector Adapter
+// PutBucketParams Connector Adapter
+// ---------------------------------------------------------------------------
+Conn_PutBucketParams::Conn_PutBucketParams(AMEngine *eng, AME_HttpReq *req)
+    : AME_Request(eng, req), validParams(true)
+{
+    ame_finalize = true;
+
+    std::string value;
+    fds_bool_t keyExists = ame_http.getReqHdrVal("priority", value);
+    if (keyExists == false) {
+      validParams = false;
+    } else {
+      relative_prio = std::stoul(value);
+    }
+
+    keyExists = ame_http.getReqHdrVal("sla", value);
+    if (keyExists == false) {
+      validParams = false;
+    } else {
+      iops_min = std::stod(value);
+    }
+
+    keyExists = ame_http.getReqHdrVal("limit", value);
+    if (keyExists == false) {
+      validParams = false;
+    } else {
+      iops_max = std::stod(value);
+    }
+}
+
+Conn_PutBucketParams::~Conn_PutBucketParams()
+{
+}
+
+// put_callback_fn
+// ---------------
+//
+void Conn_PutBucketParams::fdsn_cb(FDSN_Status status,
+                                   const ErrorDetails *errorDetails,
+                                   void *callbackData)
+{
+  printf("put bucket params cb done\n");
+  Conn_PutBucketParams *conn_pbp_obj = (Conn_PutBucketParams*) callbackData;
+  conn_pbp_obj->notify_request_completed(map_fdsn_status(status), NULL, 0);
+}
+
+// ame_request_handler
+// -------------------
+//
+void
+Conn_PutBucketParams::ame_request_handler()
+{
+    FDS_NativeAPI *api;
+    BucketContext bucket_ctx("host", get_bucket_id(), "accessid", "secretkey");
+
+    if (validParams == false) {
+      resp_status = NGX_HTTP_INTERNAL_SERVER_ERROR;
+    } else {
+      QosParams qos_params(iops_min, iops_max, relative_prio);
+
+      api = ame->ame_fds_hook();
+      api->ModifyBucket(&bucket_ctx, qos_params,
+                        NULL, fds::Conn_PutBucketParams::fdsn_cb, this);
+      req_wait();
+    }
+
+    fdsn_send_put_response(resp_status, 0);
+}
+
+int
+Conn_PutBucketParams::ame_format_response_hdr()
+{
+    return NGX_OK;
+}
+
+// fdsn_send_put_response
+// ----------------------
+//
+void
+Conn_PutBucketParams::fdsn_send_put_response(int status, int put_len)
+{
+    ame_set_std_resp(status, put_len);
+    ame_send_response_hdr();
+}
+
+// ---------------------------------------------------------------------------
+// DeleteBucket Connector Adapter
 // ---------------------------------------------------------------------------
 Conn_DelBucket::Conn_DelBucket(AMEngine *eng, AME_HttpReq *req)
     : AME_Request(eng, req)

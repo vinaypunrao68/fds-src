@@ -119,6 +119,8 @@ ngx_http_fds_read_body(ngx_http_request_t *r)
     fds::AME_Request         *am_req;
     HttpRequest               http_req(r);
     std::vector<std::string>  uri_parts = http_req.getURIParts();
+    std::string               value;
+    fds_bool_t                keyExists;
 
     am_req = NULL;
     switch (r->method) {
@@ -133,7 +135,17 @@ ngx_http_fds_read_body(ngx_http_request_t *r)
     case NGX_HTTP_POST:
     case NGX_HTTP_PUT:
         if (uri_parts.size() == 1) {
+          /*
+           * Check to see if modify bucket headers exist.
+           * If so, call putbucketparams, if not just
+           * putbucket.
+           */
+          keyExists = http_req.getReqHdrVal("FdsReqType", value);
+          if ((keyExists == true) && (value == "modPolicy")) {
+            am_req = sgt_ame_plugin->ame_putbucketparams_hdler(r);
+          } else {
             am_req = sgt_ame_plugin->ame_putbucket_hdler(r);
+          }
         } else if (uri_parts.size() == 2) {
             am_req = sgt_ame_plugin->ame_putobj_hdler(r);
         }

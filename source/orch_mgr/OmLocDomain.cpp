@@ -337,8 +337,10 @@ fds_int32_t FdsLocalDomain::getFreeNodeId(const std::string& node_name) {
 
 fds_int32_t FdsLocalDomain::getNextFreeVolId() {
   
+  if ( (next_free_vol_id+1) == admin_vol_id) 
+    ++next_free_vol_id;
+
   return next_free_vol_id++;
-  
 }
 
 /*
@@ -857,8 +859,74 @@ void FdsLocalDomain::handlePerfStatsFromAM(const FDSP_VolPerfHistListType& hist_
     }  
 }
 
-/* get recent perf stats for all existing volumes */
-void FdsLocalDomain::getStats(void)
+/* get recent perf stats for all existing volumes and send them to the requesting node */
+void FdsLocalDomain::sendBucketStats(fds_uint32_t perf_time_interval,
+				     fds_node_name_t dest_node_name)
+{
+  FdspMsgHdrPtr msg_hdr = new FDS_ProtocolInterface::FDSP_MsgHdrType;
+  FDSP_BucketStatsRespTypePtr buck_stats_rsp = new FDSP_BucketStatsRespType();
+  initOMMsgHdr(msg_hdr);
+  msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_GET_BUCKET_STATS_RSP;
+  msg_hdr->dst_id = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
+  msg_hdr->glob_volume_id = 0; /* should ignore */
+
+  boost::posix_time::ptime ts = boost::posix_time::second_clock::local_time();
+  /* here are some hardcored values assuming that AMs send stats every 
+   * (default slots num - 2)-second intervals, and OM receives 
+   * (default slots num - 1)-second interval worth of stats;
+   * OM keeps 3*(default slots num) number of slots of stats. When we get 
+   * stats, we ignore last (default slot num) of slots in case OM did not
+   * get the latest set of stats from all AMs, and calculate average performance
+   * over a 'perf_time_interval' in seconds time interval. */
+
+  /* ignore most recent slots because OM may not receive latest stats from all AMs */
+  ts -= boost::posix_time::seconds(am_stats->getSecondsInSlot() * FDS_STAT_DEFAULT_HIST_SLOTS);
+  std::string temp_str = to_iso_extended_string(ts);
+  std::size_t i = temp_str.find_first_of(",");
+  std::string ts_str("");
+  if (i != std::string::npos) {
+    ts_str = temp_str.substr(0, i);
+  }
+  else {
+    ts_str = temp_str;
+  }
+
+  /* the timestamp is the most recent timestamp of the interval we are getting the average perf
+   * i.e., performance is average iops of interval [timestamp - interval_length... timestamp] */
+  buck_stats_rsp->timestamp = ts_str;
+
+  /* for each volume, append perf info */
+  for (auto it = volumeMap.begin(); it != volumeMap.end(); ++it) {
+    VolumeInfo *pVolInfo = it->second;
+    if (!pVolInfo && !pVolInfo->properties)
+      continue;
+
+    FDSP_BucketStatTypePtr stat = new FDSP_BucketStatType();
+
+    FDS_PLOG(parent_log) << "sendBucketStats: will send stats for volume " << pVolInfo->vol_name;
+
+    /* TODO: the UI wants perf to be value between 0 - 100, so here we assume 
+     * performance no higher than 3200 IOPS; check again what's expected */
+    stat->vol_uuid = pVolInfo->volUUID;
+    stat->sla = pVolInfo->properties->iops_min / 32;
+    stat->limit = pVolInfo->properties->iops_max / 32;
+    stat->performance = am_stats->getAverageIOPS(pVolInfo->volUUID, ts, perf_time_interval) / 32;
+    stat->rel_prio = pVolInfo->properties->relativePrio;
+    (buck_stats_rsp->bucket_stats_list).push_back(stat);
+  }
+
+  NodeInfo& node_info = currentShMap[dest_node_name];
+
+  FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Sending GetBucketStats response to node " 
+						       << dest_node_name
+						       << " node_info-> node-id = " << node_info.node_id;
+
+  ReqCtrlPrx OMClientAPI = node_info.cpPrx;
+  OMClientAPI->begin_NotifyBucketStats(msg_hdr, buck_stats_rsp);
+}
+
+/* temp function to print recent perf stats of all existing volumes to json file */
+void FdsLocalDomain::printStatsToJsonFile(void)
 {
   int count = 0;
   boost::posix_time::ptime ts = boost::posix_time::second_clock::local_time();

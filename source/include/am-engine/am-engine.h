@@ -25,6 +25,7 @@ class Conn_DelObject;
 class Conn_GetBucket;
 class Conn_PutBucket;
 class Conn_DelBucket;
+class Conn_PutBucketParams;
 
 class AMEngine : public Module
 {
@@ -53,6 +54,7 @@ class AMEngine : public Module
     virtual Conn_GetBucket *ame_getbucket_hdler(AME_HttpReq *req) = 0;
     virtual Conn_PutBucket *ame_putbucket_hdler(AME_HttpReq *req) = 0;
     virtual Conn_DelBucket *ame_delbucket_hdler(AME_HttpReq *req) = 0;
+    virtual Conn_PutBucketParams *ame_putbucketparams_hdler(AME_HttpReq *req);
 
     FDS_NativeAPI *ame_fds_hook() {
         return eng_api;
@@ -137,12 +139,6 @@ public:
   public:
     AME_Request(AMEngine *eng, AME_HttpReq *req);
     ~AME_Request();
-
-    // ame_get_reqt_hdr_val
-    // --------------------
-    // Return the value corresponding with the key in the request header.
-    //
-    char const *const ame_get_reqt_hdr_val(char const *const key);
 
     // ame_set_std_resp
     // ----------------
@@ -397,6 +393,59 @@ public:
     virtual void ame_request_handler();
     virtual void fdsn_send_delbucket_response(int status, int len);
   protected:
+};
+
+// Connector Adapter to implement PutBucketParams method.
+//
+class Conn_PutBucketParams : public AME_Request
+{
+  public:
+    // put bucket params callback from FDS Api
+    static void
+    fdsn_cb(FDSN_Status status,
+            const ErrorDetails *errorDetails, void *callbackData);
+
+  public:
+    Conn_PutBucketParams(AMEngine *eng, AME_HttpReq *req);
+    ~Conn_PutBucketParams();
+
+    // returns bucket id
+    virtual std::string get_bucket_id() {
+      return ame_http.getURIParts()[0];
+    }
+
+    // returns relative priority
+    virtual fds_uint32_t get_relative_prio() {
+      return relative_prio;
+    }
+
+    // returns min iops
+    virtual double get_iops_min() {
+      return iops_min;
+    }
+
+    // returns max iops
+    virtual double get_iops_max() {
+      return iops_max;
+    }
+
+    // Connector method to handle PutBucket request.
+    //
+    virtual void ame_request_handler();
+
+    // Common code to send response back to the client.  Connector specific
+    // will provide more detail on the response.
+    //
+    virtual void fdsn_send_put_response(int status, int put_len);
+
+    // Format response header in S3 protocol.
+    //
+    virtual int ame_format_response_hdr();
+  protected:
+    fds_uint32_t relative_prio;
+    double       iops_min;
+    double       iops_max;
+    fds_bool_t   validParams;
 };
 
 } // namespace fds

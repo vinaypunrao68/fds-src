@@ -289,7 +289,40 @@ class DeleteBlobReq: public FdsBlobReq {
   }
 };
 
-#define FDS_SH_BUCKET_MAGIC  0xBCE12345
+
+#define FDS_SH_BUCKET_LIST_MAGIC  0xBCE12345
+#define FDS_SH_BUCKET_STATS_MAGIC 0xCDF23456
+class BucketStatsReq: public FdsBlobReq {
+ public:
+  void *request_context;
+  fdsnBucketStatsHandler resp_handler;
+  void *callback_data;
+
+  /* for "get all bucket stats", blob name in base class is set to 
+   * "all", it's ok if some other bucket will have this name, because 
+   * we can identify response to a request by trans id (once request is dispatched */
+
+  BucketStatsReq(void *_req_context,
+		 fdsnBucketStatsHandler _handler,
+		 void *_callback_data)
+    : FdsBlobReq(FDS_BUCKET_STATS, admin_vol_id, "all", FDS_SH_BUCKET_STATS_MAGIC, 0, NULL,
+		 FDS_NativeAPI::DoCallback, this, Error(ERR_OK), 0),
+    request_context(_req_context),
+    resp_handler(_handler),
+    callback_data(_callback_data) {
+    }
+
+  ~BucketStatsReq() {};
+
+  void DoCallback(const std::string& timestamp,
+		  int content_count,
+		  const BucketStatsContent* contents,
+		  FDSN_Status status,
+		  ErrorDetails *err_details) {
+    (resp_handler)(timestamp, content_count, contents, request_context, callback_data, status, err_details);
+  }
+};
+
 class ListBucketReq: public FdsBlobReq { 
  public:
   BucketContext *bucket_ctxt;
@@ -315,7 +348,7 @@ class ListBucketReq: public FdsBlobReq {
 		void* _req_context,
 		fdsnListBucketHandler _handler,
 		void* _callback_data)
-    : FdsBlobReq(FDS_LIST_BUCKET, _volid, _bucket_ctxt->bucketName, FDS_SH_BUCKET_MAGIC, 0, NULL,
+    : FdsBlobReq(FDS_LIST_BUCKET, _volid, _bucket_ctxt->bucketName, FDS_SH_BUCKET_LIST_MAGIC, 0, NULL,
 		 FDS_NativeAPI::DoCallback, this, Error(ERR_OK), 0),
     bucket_ctxt(_bucket_ctxt),
     prefix(_prefix),

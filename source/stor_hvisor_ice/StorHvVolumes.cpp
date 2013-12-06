@@ -122,6 +122,25 @@ StorHvVolumeTable::StorHvVolumeTable(StorHvCtrl *sh_ctrl, fds_log *parent_log)
 
   next_io_req_id = ATOMIC_VAR_INIT(0);
 
+  /* setup 'admin' queue that will hold requests to OM 
+   * such as 'get bucket stats' and 'get bucket' */
+  {
+    VolumeDesc admin_vdesc("admin_vol", admin_vol_id);
+    admin_vdesc.iops_min = 10;
+    admin_vdesc.iops_max = 500; 
+    admin_vdesc.relativePrio = 9;
+    admin_vdesc.capacity = 0; /* not really a volume, using volume struct to hold admin requests  */
+    StorHvVolume *admin_vol = new StorHvVolume(admin_vdesc, parent_sh, vt_log);
+    if (admin_vol) {
+      volume_map[admin_vol_id] = admin_vol;
+      sh_ctrl->qos_ctrl->registerVolume(admin_vol_id, admin_vol->volQueue);
+      FDS_PLOG_SEV(vt_log, fds::fds_log::notification) << "StorHvVolumeTable -- constructor registered admin volume";
+    }
+    else {
+      FDS_PLOG_SEV(vt_log, fds::fds_log::error) << "StorHvVolumeTable -- failed to allocate admin volume struct";
+    }
+  }
+
   if (sh_ctrl->GetRunTimeMode() == StorHvCtrl::TEST_BOTH) {
     VolumeDesc vdesc("default_vol", FDS_DEFAULT_VOL_UUID);
     vdesc.iops_min = 200;
