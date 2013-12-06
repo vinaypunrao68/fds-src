@@ -251,6 +251,7 @@ namespace fds {
    FDS_GET_BLOB,
    FDS_DELETE_BLOB,
    FDS_LIST_BUCKET,
+   FDS_BUCKET_STATS,
    FDS_OP_INVALID
   } fds_io_op_t;
 

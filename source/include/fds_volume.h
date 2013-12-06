@@ -31,6 +31,7 @@ namespace fds {
   typedef boost::posix_time::ptime ptime;
 
   const fds_volid_t invalid_vol_id = 0;
+  const fds_volid_t admin_vol_id = 0x8001;  /* not a real volume, using volume data struct to queue admin commands from AM to OM */
 
   /*
    * Basic descriptor class for a volume. This is intended

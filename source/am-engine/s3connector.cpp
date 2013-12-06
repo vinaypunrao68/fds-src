@@ -161,6 +161,9 @@ S3_DelBucket::~S3_DelBucket()
 int
 S3_DelBucket::ame_format_response_hdr()
 {
+  if (ame_resp_status == NGX_HTTP_OK) {
+    ame_set_std_resp(NGX_HTTP_NO_CONTENT, ame_req->headers_out.content_length_n);
+  }
   return NGX_OK;
 }
 

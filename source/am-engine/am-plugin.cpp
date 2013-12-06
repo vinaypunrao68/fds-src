@@ -121,6 +121,8 @@ ngx_http_fds_read_body(ngx_http_request_t *r)
     HttpRequest               http_req(r);
     std::vector<std::string>  uri_parts = http_req.getURIParts();
     ngx_http_fds_loc_conf_t  *fdcf;
+    std::string               value;
+    fds_bool_t                keyExists;
 
     am_req = NULL;
     switch (r->method) {
@@ -129,13 +131,30 @@ ngx_http_fds_read_body(ngx_http_request_t *r)
             am_req = sgt_ame_plugin->ame_getbucket_hdler(r);
         } else if (uri_parts.size() == 2) {
             am_req = sgt_ame_plugin->ame_getobj_hdler(r);
+        } else if (uri_parts.size() == 0) {
+            /* Check if this is a get bucket stats request - 
+             * this one gets stats for all existing buckets */
+            keyExists = http_req.getReqHdrVal("FdsReqType", value);
+            if ((keyExists == true) && (value == "getStats")) {
+                am_req = sgt_ame_plugin->ame_getbucketstats_hdler(r);
+            }
         }
         break;
 
     case NGX_HTTP_POST:
     case NGX_HTTP_PUT:
         if (uri_parts.size() == 1) {
+          /*
+           * Check to see if modify bucket headers exist.
+           * If so, call putbucketparams, if not just
+           * putbucket.
+           */
+          keyExists = http_req.getReqHdrVal("FdsReqType", value);
+          if ((keyExists == true) && (value == "modPolicy")) {
+            am_req = sgt_ame_plugin->ame_putbucketparams_hdler(r);
+          } else {
             am_req = sgt_ame_plugin->ame_putbucket_hdler(r);
+          }
         } else if (uri_parts.size() == 2) {
             am_req = sgt_ame_plugin->ame_putobj_hdler(r);
         }
@@ -247,7 +266,6 @@ ame_context_handler(ngx_event_t *evt)
 
     c   = (ngx_connection_t *)evt->data;
     ctx = (fds::AME_Ctx *)c->data;
-    printf("Epoll invoke handler ctx %p\n", ctx);
     ctx->ame_invoke_handler();
 }
 
@@ -292,7 +310,6 @@ void
 AME_Ctx::ame_invoke_handler()
 {
     if (ame_req->ame_request_resume() == NGX_DONE) {
-        printf("Done with everything, free ctx %p, req %p\n", this, ame_req);
         ame_free_context();
     }
 }
@@ -317,9 +334,11 @@ AME_Ctx::ame_alloc_buf(int len, char **buf, int *got)
         b->end    = b->start + len;
         b->pos    = b->start;
         b->last   = b->end;
+        *buf      = (char *)b->pos;
         *got      = len;
         return b;
     }
+    *buf = NULL;
     *got = 0;
     return NULL;
 }
@@ -358,7 +377,6 @@ AME_Ctx::ame_notify_handler()
     int rc;
 
     /* XXX: TODO must have timeout if fails here. */
-    printf("Callback notify wakeup ctx %p\n", this);
     rc = eventfd_write(ame_epoll_fd, 0xfddf);
     fds_verify(rc == 0);
 }
@@ -418,8 +436,6 @@ AME_Ctx::ame_register_ctx()
     rev->handler      = ame_context_handler;
     ame_connect->data = (void *)this;
 
-    printf("Added event loop ok, conn %p, ctx %p, obj %p\n",
-            ame_connect, this, ame_req);
     return NGX_OK;
 
 failed:

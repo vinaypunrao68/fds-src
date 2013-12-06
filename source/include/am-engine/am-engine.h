@@ -30,6 +30,8 @@ class Conn_DelObject;
 class Conn_GetBucket;
 class Conn_PutBucket;
 class Conn_DelBucket;
+class Conn_PutBucketParams;
+class Conn_GetBucketStats;
 
 class AMEngine : public Module
 {
@@ -54,6 +56,8 @@ class AMEngine : public Module
     virtual Conn_GetBucket *ame_getbucket_hdler(AME_HttpReq *req) = 0;
     virtual Conn_PutBucket *ame_putbucket_hdler(AME_HttpReq *req) = 0;
     virtual Conn_DelBucket *ame_delbucket_hdler(AME_HttpReq *req) = 0;
+    virtual Conn_PutBucketParams *ame_putbucketparams_hdler(AME_HttpReq *req);
+    virtual Conn_GetBucketStats *ame_getbucketstats_hdler(AME_HttpReq *req);
 
     inline FDS_NativeAPI *ame_fds_hook() {
         return eng_api;
@@ -110,6 +114,16 @@ typedef enum
     REST_OWNER               = 18,
     REST_ID                  = 19,
     REST_DISPLAY_NAME        = 20,
+
+    // Bucket Stats/Policy response keys -- our own
+    RESP_QOS_PRIORITY        = 21,
+    RESP_QOS_SLA             = 22,
+    RESP_QOS_LIMIT           = 23,
+    RESP_QOS_PERFORMANCE     = 24,
+    RESP_STATS_TIME          = 25,
+    RESP_STATS_VOLS          = 26,
+    RESP_STATS_ID            = 27,
+
     AME_HDR_KEY_MAX
 } ame_hdr_key_e;
 
@@ -139,7 +153,7 @@ class AME_Request : public fdsio::Request
 
   public:
     AME_Request(AMEngine *eng, AME_HttpReq *req);
-    ~AME_Request();
+    virtual ~AME_Request();
 
     // ame_add_context
     // ---------------
@@ -252,7 +266,7 @@ class Conn_GetObject : public AME_Request
 {
   public:
     Conn_GetObject(AMEngine *eng, AME_HttpReq *req);
-    ~Conn_GetObject();
+    virtual ~Conn_GetObject();
 
     // returns bucket id
     virtual std::string get_bucket_id() = 0;
@@ -276,7 +290,7 @@ class Conn_PutObject : public AME_Request
 {
   public:
     Conn_PutObject(AMEngine *eng, AME_HttpReq *req);
-    ~Conn_PutObject();
+    virtual ~Conn_PutObject();
 
     // returns bucket id
     virtual std::string get_bucket_id() = 0;
@@ -299,7 +313,7 @@ class Conn_DelObject : public AME_Request
 {
   public:
     Conn_DelObject(AMEngine *eng, AME_HttpReq *req);
-    ~Conn_DelObject();
+    virtual ~Conn_DelObject();
 
     // returns bucket id
     virtual std::string get_bucket_id() = 0;
@@ -321,7 +335,7 @@ class Conn_PutBucket : public AME_Request
 {
   public:
     Conn_PutBucket(AMEngine *eng, AME_HttpReq *req);
-    ~Conn_PutBucket();
+    virtual ~Conn_PutBucket();
 
     // returns bucket id
     virtual std::string get_bucket_id() = 0;
@@ -341,7 +355,7 @@ class Conn_GetBucket : public AME_Request
 {
   public:
     Conn_GetBucket(AMEngine *eng, AME_HttpReq *req);
-    ~Conn_GetBucket();
+    virtual ~Conn_GetBucket();
 
     // returns bucket id
     virtual std::string get_bucket_id() = 0;
@@ -365,7 +379,7 @@ class Conn_DelBucket : public AME_Request
 {
   public:
     Conn_DelBucket(AMEngine *eng, AME_HttpReq *req);
-    ~Conn_DelBucket();
+    virtual ~Conn_DelBucket();
 
     // returns bucket id
     virtual std::string get_bucket_id() = 0;
@@ -375,6 +389,80 @@ class Conn_DelBucket : public AME_Request
 
   protected:
 };
+
+// Connector Adapter to implement PutBucketParams method.
+//
+class Conn_PutBucketParams : public AME_Request
+{
+  public:
+    Conn_PutBucketParams(AMEngine *eng, AME_HttpReq *req);
+    virtual ~Conn_PutBucketParams();
+
+    // returns bucket id
+    virtual std::string get_bucket_id() {
+      return ame_http.getURIParts()[0];
+    }
+
+    // returns relative priority
+    virtual fds_uint32_t get_relative_prio() {
+      return relative_prio;
+    }
+
+    // returns min iops
+    virtual double get_iops_min() {
+      return iops_min;
+    }
+
+    // returns max iops
+    virtual double get_iops_max() {
+      return iops_max;
+    }
+
+    // Connector method to handle PutBucket request.
+    //
+    virtual void ame_request_handler();
+    virtual int  ame_request_resume();
+
+    // Format response header in FDS protocol.
+    //
+    virtual int ame_format_response_hdr();
+  protected:
+    fds_uint32_t relative_prio;
+    double       iops_min;
+    double       iops_max;
+    fds_bool_t   validParams;
+};
+
+// ---------------------------------------------------------------------------
+// Connector Adapter to implement GetBucketStats method.
+//
+class Conn_GetBucketStats : public AME_Request
+{
+  public:
+    Conn_GetBucketStats(AMEngine *eng, AME_HttpReq *req);
+    virtual ~Conn_GetBucketStats();
+
+    /* returns bucket id
+     * currently we get stats for all existing buckets, 
+     * so so this will return empty string for now, but 
+     * we may extend this to get stats for a particular bucket as well */
+    virtual std::string get_bucket_id() {
+      return std::string("");
+    }
+
+    virtual void ame_request_handler();
+    virtual int  ame_request_resume();
+
+    // Format response header in FDS protocol.
+    //
+    virtual int ame_format_response_hdr();
+    void ame_fmt_resp_data(const std::string &timestamp,
+            int content_count, const BucketStatsContent *contents);
+
+  protected:
+    void *cur_get_buffer;
+};
+
 
 } // namespace fds
 

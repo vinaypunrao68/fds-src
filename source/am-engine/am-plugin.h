@@ -4,6 +4,7 @@
 #ifndef INCLUDE_AM_ENGINE_AM_PLUGIN_H_
 #define INCLUDE_AM_ENGINE_AM_PLUGIN_H_
 
+#include <fds_assert.h>
 #include <am-engine/am-engine.h>
 
 extern "C" {
@@ -31,8 +32,8 @@ class AME_Ctx
     // Map buffer from nginx for AMEngine module to use with fdsn.
     //
     ame_buf_t *ame_alloc_buf(int len, char **buf, int *got);
-    inline char *ame_buf_info(ame_buf_t *buf, int *len)
-    {
+
+    inline char *ame_buf_info(ame_buf_t *buf, int *len) {
         *len = buf->last - buf->pos;
         return (char *)buf->pos;
     }
@@ -40,20 +41,24 @@ class AME_Ctx
     // Simple input buffer iteration to keep track of where we are with input
     // buffers.
     //
-    inline void ame_save_input_buf(ame_chain_t *chain)
-    {
+    inline void ame_save_input_buf(ame_chain_t *chain) {
         ame_in_chain = chain;
     }
-    inline char *ame_curr_input_buf(int *len)
-    {
+    inline void ame_update_input_buf(int len) {
+        // TODO: Not yet until we can handle chunk!
+        // fds_verify(ame_in_chain != NULL);
+        // fds_verify(ame_in_chain->buf != NULL);
+        // ame_in_chain->buf->last += len;
+        ame_temp_len = len;
+    }
+    inline char *ame_curr_input_buf(int *len) {
         if (ame_in_chain != NULL) {
             return ame_buf_info(ame_in_chain->buf, len);
         }
         *len = 0;
         return NULL;
     }
-    inline bool ame_next_input_buf()
-    {
+    inline bool ame_next_input_buf() {
         if (ame_in_chain != NULL) {
             ame_in_chain = ame_in_chain->next;
         }
@@ -63,12 +68,14 @@ class AME_Ctx
     // Simple output buffer iteration to keep track of where we are with output
     // buffers.
     //
-    inline void ame_push_output_buf(ame_buf_t *buf)
-    {
+    inline void ame_push_output_buf(ame_buf_t *buf) {
         ame_out_buf = buf;
     }
-    inline char *ame_curr_output_buf(ame_buf_t **buf, int *len)
-    {
+    inline void ame_update_output_buf(int len) {
+        // TODO: better buffer chunking API.
+        ame_temp_len = len;
+    }
+    inline char *ame_curr_output_buf(ame_buf_t **buf, int *len) {
         *buf = ame_out_buf;
         if (ame_out_buf != NULL) {
             return ame_buf_info(ame_out_buf, len);
@@ -81,6 +88,7 @@ class AME_Ctx
 
     // Temp. code, will remove
     char                     *ame_temp_buf;
+    int                       ame_temp_len;
 
   protected:
     AME_Ctx                  *ame_next;

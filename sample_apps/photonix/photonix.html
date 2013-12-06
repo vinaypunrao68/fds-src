@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Photonix - Serving Photos at the speed of Light</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Bootstrap -->
+    <link href="bootstrap-3.0.2/dist/css/bootstrap.min.css" rel="stylesheet" media="screen">
+    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+      <script src="bootstrap-3.0.2/assets/js/html5shiv.js"></script>
+      <script src="bootstrap-3.0.2/assets/js/respond.min.js"></script>
+    <![endif]-->
+   </head>
+
+<body style>
+<div class="navbar-wrapper" style="background-color:#6f6c6c">
+   <div class="container" >
+        <div class="navbar navbar-inverse navbar-static-top" role="navigation">
+          <div class="container">
+            <div class="navbar-header">
+              <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+              </button>
+              <a class="navbar-brand" href="#">
+	      Photonix 
+	      </a>
+            </div>
+            <div class="navbar-collapse collapse">
+              <ul class="nav navbar-nav">
+                <li class="active"><a href="#">Home</a></li>
+                <li><a href="#about">About</a></li>
+                <li><a href="#contact">Contact</a></li>
+                <li class="dropdown">
+                  <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+		  Control <b class="caret"></b></a>
+                  <ul class="dropdown-menu">
+                    <li><a href="#" class="concurrency_control" id="conc_5">Low (5 concurrent requests)</a></li>
+                    <li><a href="#" class="concurrency_control" id="conc_20">Medium (20 concurrent requests)</a></li>
+                    <li><a href="#" class="concurrency_control" id="conc_50">High (50 concurrent requests)</a></li>
+                    <li class="divider"></li>
+                    <li class="dropdown-header">Other Actions</li>
+                    <li><a href="#" id="stop_flash_button">Stop Flashing Photos</a></li>
+                    <li><a href="#">Show Live Graphs</a></li>
+                  </ul>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+   </div>
+</div>
+<div id="main_frame" class="row">
+ <div class="row" id="photo_row" style="background-color:#6f6c6c">
+   <div class="col-md-3"> </div> 
+   <div class="col-md-6" id="photo_region">
+     <div class="row" id="photo_box" margin-top="5%" margin-bottom="5%"
+      align="center">
+       <image id=display_photo height="500px" 
+        src=http://upload.wikimedia.org/wikipedia/commons/1/17/Tiger_in_Ranthambhore.jpg>
+     </div>
+     <div class="row" height="5px"> <br> </div>
+     <div class="row">
+       <p id="photo_caption" align="center" style="color:#ffffff"> Now Serving: "Tiger_in_Ranthambhore.jpg"</p>
+     </div>
+  </div>
+  <div class="col-md-3"> </div>
+ </div>
+ <div class="row" id=gauge_row">
+   <div class="row" id="gauge_div" align="center">
+     <div  class="col-md-4" id="Latency_gauge_div"> </div>
+     <div  class="col-md-4" id="RQPS_gauge_div"> </div>
+     <div  class="col-md-4" id="KBPS_gauge_div"> </div>
+   </div>
+ </div>
+</div>
+
+<!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+<script src="http://code.jquery.com/jquery.js"></script>
+<!-- Include all compiled plugins (below), or include individual files as needed -->
+<script src="bootstrap-3.0.2/dist/js/bootstrap.min.js"></script>
+
+<script type='text/javascript' src='https://www.google.com/jsapi'></script>
+
+<script>
+
+var bucket_url = "http://s3.amazonaws.com/Bucket_Wild_Life";
+var object_key = [];
+var object_size = [];
+
+var count = 0;
+var num_objects = 0;
+var first_log = 1;
+var image_change_interval = 500;
+
+var chart = {};
+var chart_data = {};
+var chart_options = {};
+
+var stop_changing_pics = 0;
+
+var total_objs_rcvd = [0,0];
+var total_kbs_rcvd = [0,0];
+var sum_latency = [0,0];
+var last_stats_reset_time = [0,0];
+var current_stats_idx = 0;
+var last_image_chg_time = 0;
+var stats_history_length = 5000;
+var max_outstanding_reqs = 5;
+var num_outstanding_reqs = 0;
+
+function update_stats(rcvd_obj_size, current_time, latency) {
+
+  total_objs_rcvd[0]++;
+  total_objs_rcvd[1]++;
+
+  total_kbs_rcvd[0] += rcvd_obj_size;
+  total_kbs_rcvd[1] += rcvd_obj_size;
+
+  sum_latency[0] += latency;
+  sum_latency[1] += latency;
+
+  console.log("Stats - " + total_objs_rcvd[current_stats_idx] + "," + sum_latency[current_stats_idx]);
+
+  var time_elapsed_since_last_reset = current_time - last_stats_reset_time[current_stats_idx]; // in milliseconds
+  if (time_elapsed_since_last_reset == 0) {
+     time_elapsed_since_last_reset = 1;
+  }
+  var current_rqps = Math.floor(total_objs_rcvd[current_stats_idx]*1000/time_elapsed_since_last_reset);
+  var current_kbps = Math.floor(total_kbs_rcvd[current_stats_idx]*1000/time_elapsed_since_last_reset);
+  var num_objs_rcvd = total_objs_rcvd[current_stats_idx];
+  if (num_objs_rcvd == 0) {
+    num_objs_rcvd = 1;
+  }
+  var current_avg_lat = Math.floor(sum_latency[current_stats_idx]/num_objs_rcvd);
+
+  chart_data["RQPS"] = google.visualization.arrayToDataTable([
+          ['Label', 'Value'],
+          ["RQPS", current_rqps],
+        ]);
+
+  chart_data["KBPS"] = google.visualization.arrayToDataTable([
+          ['Label', 'Value'],
+          ["KBPS", current_kbps],
+        ]);
+
+  chart_data["Latency"] = google.visualization.arrayToDataTable([
+          ['Label', 'Value'],
+          ["Latency", current_avg_lat],
+        ]);
+
+  chart["RQPS"].draw(chart_data["RQPS"], chart_options["RQPS"]);
+  chart["KBPS"].draw(chart_data["KBPS"], chart_options["KBPS"]);
+  chart["Latency"].draw(chart_data["Latency"], chart_options["Latency"]);
+
+  if (time_elapsed_since_last_reset >= stats_history_length) {
+     last_stats_reset_time[current_stats_idx] = current_time;
+     total_objs_rcvd[current_stats_idx] = 0;
+     total_kbs_rcvd[current_stats_idx] = 0;
+     sum_latency[current_stats_idx] = 0;
+     current_stats_idx = 1-current_stats_idx;
+  }
+
+}
+
+function get_next_photo() {
+
+  var object_url = bucket_url + "/" + object_key[count];
+  var curr_count = count;
+  count = (count + 1) % num_objects;
+  var current_time = new Date().getTime();
+
+  var time_since_last_image_chg = current_time - last_image_chg_time;
+
+  if ((stop_changing_pics) || (time_since_last_image_chg < image_change_interval)) {
+     $.get(object_url,function(data, status) {
+       var completion_time = new Date().getTime();
+       var latency = completion_time - current_time;
+       console.log("Get object status: " + status + " for object: " + object_key[curr_count] + "; size - " + object_size[curr_count] + "KB at time " + completion_time + "; latency - " + latency + "ms");
+       update_stats(object_size[curr_count], completion_time, latency);
+       num_outstanding_reqs -= 1;
+     });
+  } else {
+     $("#display_photo").attr("src", object_url);
+     $("#photo_caption").text(object_key[curr_count]);
+     last_image_chg_time = current_time;
+     update_stats(object_size[curr_count], current_time, 300);
+     num_outstanding_reqs -= 1;
+  }
+}
+
+google.load('visualization', '1', {packages:['gauge']});
+google.setOnLoadCallback(drawGauges);
+
+function drawGauge(label, max, ticks) {
+
+   chart_data[label] = google.visualization.arrayToDataTable([
+          ['Label', 'Value'],
+          [label, 0],
+        ]);
+
+   chart_options[label] = {
+      height: 120,
+      min:0, max: max,
+      minorTicks: ticks
+   };
+
+   chart[label] = new google.visualization.Gauge(document.getElementById((label + '_gauge_div')));
+   chart[label].draw(chart_data[label], chart_options[label]);
+
+}
+
+function drawGauges() {
+
+   drawGauge("RQPS", 50, 2);
+   drawGauge("Latency", 1000, 50);
+   drawGauge("KBPS", 30000, 1500);
+
+}
+
+function start_fetch_loop() {
+
+  while (1) {
+    if (num_outstanding_reqs >= max_outstanding_reqs) {
+      setTimeout(start_fetch_loop, 100);
+      break;
+    }
+    num_outstanding_reqs += 1;
+    get_next_photo();
+  }
+
+}
+
+$(document).ready(function(){
+
+  $.ajaxSetup({cache: false});
+
+  $("#stop_flash_button").click(function() {
+    if (!stop_changing_pics) {
+       stop_changing_pics = 1;
+       $("#stop_flash_button").text("Resume Flashing Photos");
+    } else {
+       stop_changing_pics = 0;
+       $("#stop_flash_button").text("Stop Flashing Photos");
+    }
+  
+  });
+
+  $(".concurrency_control").click(function() {
+    var conc_id = $(this).attr("id");
+    var conc = parseInt(conc_id.split("_")[1]);
+    console.log("Now simulating " + conc + " connections");
+    max_outstanding_reqs = conc;
+    image_change_interval = 2500/conc;
+  });
+
+  $.get(bucket_url,function(data,status){
+    //alert("Data: " + data.toString() + "\nStatus: " + status);
+    $(data).find("Contents").each(function() {
+          curr_obj_idx = num_objects++;
+          object_key[curr_obj_idx] = $(this).find("Key").text();
+          var obj_sz = (parseInt($(this).find("Size").text()))/1024;
+          object_size[curr_obj_idx] = Math.floor(obj_sz);
+       });
+    //alert("Found " + num_objects + " objects");
+    last_stats_reset_time[1] = new Date().getTime();
+    last_stats_reset_time[0] = last_stats_reset_time[1] - stats_history_length/2;
+    last_image_chg_time = last_stats_reset_time[1];
+    current_stats_idx = 0;
+    start_fetch_loop();
+  });
+});
+</script>
+</body>
+</html>

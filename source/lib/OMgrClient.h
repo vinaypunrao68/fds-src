@@ -54,6 +54,8 @@ namespace fds {
   typedef void (*throttle_cmd_handler_t)(const float throttle_level);
   typedef void (*tier_cmd_handler_t)(const FDSP_TierPolicyPtr &tier);
   typedef void (*tier_audit_cmd_handler_t)(const FDSP_TierPolicyAuditPtr &tier);
+  typedef void (*bucket_stats_cmd_handler_t)(const FDSP_MsgHdrTypePtr& rx_msg,
+					     const FDSP_BucketStatsRespTypePtr& buck_stats);
 
   class OMgrClient {
 
@@ -81,6 +83,7 @@ namespace fds {
     throttle_cmd_handler_t throttle_cmd_hdlr;
     tier_cmd_handler_t       tier_cmd_hdlr;
     tier_audit_cmd_handler_t tier_audit_cmd_hdlr;
+    bucket_stats_cmd_handler_t bucket_stats_cmd_hdlr;
 
 #if 0
     Ice::CommunicatorPtr pubsub_comm;
@@ -112,6 +115,7 @@ namespace fds {
     int registerEventHandlerForNodeEvents(node_event_handler_t node_event_hdlr);
     int registerEventHandlerForVolEvents(volume_event_handler_t vol_event_hdlr);
     int registerThrottleCmdHandler(throttle_cmd_handler_t throttle_cmd_hdlr);
+    int registerBucketStatsCmdHandler(bucket_stats_cmd_handler_t cmd_hdlr);
 
     // This logging is public for external plugins.  Avoid making this object
     // too big and all methods uses its data as global variables with big lock.
@@ -129,6 +133,7 @@ namespace fds {
     int pushDeleteBucketToOM(const FDS_ProtocolInterface::FDSP_DeleteVolTypePtr& volInfo);
     int pushModifyBucketToOM(const std::string& bucket_name,
 			     const FDS_ProtocolInterface::FDSP_VolumeDescTypePtr& vol_desc);
+    int pushGetBucketStatsToOM(fds_uint32_t req_cookie);
 
     int getNodeInfo(int node_id,
                     unsigned int *node_ip_addr,
@@ -159,6 +164,9 @@ namespace fds {
     int recvSetThrottleLevel(const float throttle_level);
     int recvTierPolicy(const FDSP_TierPolicyPtr &tier);
     int recvTierPolicyAudit(const FDSP_TierPolicyAuditPtr &audit);
+    int recvBucketStats(const FDSP_MsgHdrTypePtr& msg_hdr, 
+			const FDSP_BucketStatsRespTypePtr& buck_stats_msg);
+
   };
 
   class OMgrClientRPCI : public FDS_ProtocolInterface::FDSP_ControlPathReq {
@@ -214,6 +222,10 @@ namespace fds {
     void TierPolicy(const FDSP_TierPolicyPtr &tier, const Ice::Current &);
     void TierPolicyAudit(const FDSP_TierPolicyAuditPtr &audit,
                          const Ice::Current &);
+
+    void NotifyBucketStats(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+			   const FDS_ProtocolInterface::FDSP_BucketStatsRespTypePtr& buck_stats_msg,
+			   const Ice::Current&);
   };
 
 }
