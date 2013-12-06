@@ -144,6 +144,11 @@ Conn_PutBucketParams *AMEngine::ame_putbucketparams_hdler(AME_HttpReq *req) {
   return new Conn_PutBucketParams(this, req);
 }
 
+Conn_GetBucketStats *AMEngine::ame_getbucketstats_hdler(AME_HttpReq *req) {
+  return new Conn_GetBucketStats(this, req);
+}
+
+
 // ---------------------------------------------------------------------------
 // Generic request/response protocol through NGINX module.
 //
@@ -177,7 +182,18 @@ ame_keytab_t sgt_AMEKey[] =
     { { "Owner" },               0, REST_OWNER },
     { { "ID" },                  0, REST_ID },
     { { "DisplayName" },         0, REST_DISPLAY_NAME },
-    { { nullptr },               0, AME_HDR_KEY_MAX }
+
+    // Bucket Stats/Policy response keys -- our own
+    { { "priority" },            0, RESP_QOS_PRIORITY },
+    { { "sla" },                 0, RESP_QOS_SLA },
+    { { "limit" },               0, RESP_QOS_LIMIT },
+    { { "performance" },         0, RESP_QOS_PERFORMANCE },
+    { { "time" },                0, RESP_STATS_TIME },
+    { { "volumes" },             0, RESP_STATS_VOLS },
+    { { "id" },                  0, RESP_STATS_ID },
+
+
+   { { nullptr },               0, AME_HDR_KEY_MAX }
 };
 
 int AME_Request::map_fdsn_status(FDSN_Status status)
@@ -923,5 +939,150 @@ Conn_DelBucket::fdsn_send_delbucket_response(int status, int len)
     ame_set_std_resp(status, len);
     ame_send_response_hdr();
 }
+
+
+// ---------------------------------------------------------------------------
+// GetBucketStats Connector Adapter
+// ---------------------------------------------------------------------------
+Conn_GetBucketStats::Conn_GetBucketStats(AMEngine *eng, AME_HttpReq *req)
+    : AME_Request(eng, req)
+{
+}
+
+Conn_GetBucketStats::~Conn_GetBucketStats()
+{
+}
+
+// fdsn_getbucket
+// --------------
+// Callback from FDSN to notify us that they have data to send out.
+//
+void
+Conn_GetBucketStats::fdsn_getbucketstats(const std::string& timestamp,
+					 int content_count,
+					 const BucketStatsContent* contents,
+					 void *req_context, 
+					 void *callback_data,
+					 FDSN_Status status,
+					 ErrorDetails *err_details)
+{
+    int            i, got, used, sent;
+    void           *resp;
+    char           *cur;
+    char           *buf;
+    Conn_GetBucketStats *gbstats = (Conn_GetBucketStats *)callback_data;
+
+    if (status != FDSN_StatusOK) {
+      gbstats->notify_request_completed(map_fdsn_status(status), NULL, 0);
+      return;
+    }
+
+    gbstats->cur_get_buffer = gbstats->ame_push_resp_data_buf(NGX_RESP_CHUNK_SIZE, &cur, &got);
+    buf = cur;
+
+    /* we are sending stats in json format */
+
+    // Format the header to send out.
+    sent = 0;
+    used = snprintf(cur, got,
+		    "{\n"
+		    "\"%s\": \"%s\"\n"
+		    "\"%s\":\n"
+		    "  [\n",
+		    sgt_AMEKey[RESP_STATS_TIME].u.kv_key,
+		    timestamp.c_str(),
+		    sgt_AMEKey[RESP_STATS_VOLS].u.kv_key);
+
+
+    // We shouldn't run out of room here.
+    fds_verify(used < got);
+    sent += used;
+    cur  += used;
+    got  -= used;
+
+    for (i = 0; i < content_count; i++) {
+        used = snprintf(cur, got,
+			"    {\"%s\": %lu, \"%s\": %d, \"%s\": %ld, \"%s\": %ld, \"%s\": %ld}",
+			sgt_AMEKey[RESP_STATS_ID].u.kv_key,
+			contents[i].vol_uuid,
+
+			sgt_AMEKey[RESP_QOS_PRIORITY].u.kv_key,
+			contents[i].priority,
+
+			sgt_AMEKey[RESP_QOS_PERFORMANCE].u.kv_key,
+			(long)contents[i].performance,
+
+			sgt_AMEKey[RESP_QOS_SLA].u.kv_key,
+			(long)contents[i].sla,
+
+			sgt_AMEKey[RESP_QOS_LIMIT].u.kv_key,
+			(long)contents[i].limit);
+
+        if (used == got) {
+            // XXX: not yet handle!
+            fds_assert(!"Increase bigger buffer size!");
+        }
+        sent += used;
+        cur  += used;
+        got  -= used;
+
+	if (i < (content_count-1)) {
+	  used = snprintf(cur, got, ",\n");
+	}
+	else {
+	  used = snprintf(cur, got, "\n");
+	}
+
+        if (used == got) {
+            // XXX: not yet handle!
+            fds_assert(!"Increase bigger buffer size!");
+        }
+        sent += used;
+        cur  += used;
+        got  -= used;
+    }
+    used = snprintf(cur, got, "  ]\n}\n");
+    sent += used;
+
+    gbstats->notify_request_completed(NGX_HTTP_OK, buf, sent);
+}
+
+// ame_request_handler
+// -------------------
+//
+void
+Conn_GetBucketStats::ame_request_handler()
+{
+    FDS_NativeAPI *api;
+
+    api = ame->ame_fds_hook();
+    api->GetBucketStats(NULL, fds::Conn_GetBucketStats::fdsn_getbucketstats, (void*)this);
+
+    req_wait();
+    if (resp_status == NGX_HTTP_OK) {
+      fdsn_send_getbucketstats_response(resp_status, (int) resp_buf_len);
+      ame_send_resp_data(cur_get_buffer, (int) resp_buf_len, true);
+    } else {
+      fdsn_send_getbucketstats_response(resp_status, 0);
+    }
+}
+
+// fdsn_send_getbucketstats_response
+// ----------------------------
+//
+void
+Conn_GetBucketStats::fdsn_send_getbucketstats_response(int status, int len)
+{
+    ame_set_std_resp(status, len);
+    ame_send_response_hdr();
+}
+
+int
+Conn_GetBucketStats::ame_format_response_hdr()
+{
+    return NGX_OK;
+}
+
+
 
 } // namespace fds

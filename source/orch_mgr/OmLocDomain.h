@@ -302,7 +302,8 @@ class FdsLocalDomain {
 			       const std::string start_timestamp);
 
     void sendBucketStats(fds_uint32_t perf_time_interval,
-			 fds_node_name_t dest_node_name);
+			 fds_node_name_t dest_node_name,
+			 fds_uint32_t req_cookie);
     void printStatsToJsonFile(void); /* this is a TEMP function for testing (and producing json file if needed */
 
   /* parent log */

@@ -130,6 +130,14 @@ ngx_http_fds_read_body(ngx_http_request_t *r)
         } else if (uri_parts.size() == 2) {
             am_req = sgt_ame_plugin->ame_getobj_hdler(r);
         }
+	else if (uri_parts.size() == 0) {
+	  /* Check if this is a get bucket stats request - 
+	   * this one gets stats for all existing buckets */
+          keyExists = http_req.getReqHdrVal("FdsReqType", value);
+          if ((keyExists == true) && (value == "getStats")) {
+	    am_req = sgt_ame_plugin->ame_getbucketstats_hdler(r);
+	  }
+	}
         break;
 
     case NGX_HTTP_POST:

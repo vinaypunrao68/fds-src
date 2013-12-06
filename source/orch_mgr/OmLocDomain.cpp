@@ -861,13 +861,15 @@ void FdsLocalDomain::handlePerfStatsFromAM(const FDSP_VolPerfHistListType& hist_
 
 /* get recent perf stats for all existing volumes and send them to the requesting node */
 void FdsLocalDomain::sendBucketStats(fds_uint32_t perf_time_interval,
-				     fds_node_name_t dest_node_name)
+				     fds_node_name_t dest_node_name,
+				     fds_uint32_t req_cookie)
 {
   FdspMsgHdrPtr msg_hdr = new FDS_ProtocolInterface::FDSP_MsgHdrType;
   FDSP_BucketStatsRespTypePtr buck_stats_rsp = new FDSP_BucketStatsRespType();
   initOMMsgHdr(msg_hdr);
   msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_GET_BUCKET_STATS_RSP;
   msg_hdr->dst_id = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
+  msg_hdr->req_cookie = req_cookie; /* copying from msg header that requested stats */
   msg_hdr->glob_volume_id = 0; /* should ignore */
 
   boost::posix_time::ptime ts = boost::posix_time::second_clock::local_time();

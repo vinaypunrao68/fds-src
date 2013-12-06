@@ -26,6 +26,7 @@ class Conn_GetBucket;
 class Conn_PutBucket;
 class Conn_DelBucket;
 class Conn_PutBucketParams;
+class Conn_GetBucketStats;
 
 class AMEngine : public Module
 {
@@ -55,6 +56,7 @@ class AMEngine : public Module
     virtual Conn_PutBucket *ame_putbucket_hdler(AME_HttpReq *req) = 0;
     virtual Conn_DelBucket *ame_delbucket_hdler(AME_HttpReq *req) = 0;
     virtual Conn_PutBucketParams *ame_putbucketparams_hdler(AME_HttpReq *req);
+    virtual Conn_GetBucketStats *ame_getbucketstats_hdler(AME_HttpReq *req);
 
     FDS_NativeAPI *ame_fds_hook() {
         return eng_api;
@@ -109,6 +111,16 @@ typedef enum
     REST_OWNER               = 18,
     REST_ID                  = 19,
     REST_DISPLAY_NAME        = 20,
+
+    // Bucket Stats/Policy response keys -- our own
+    RESP_QOS_PRIORITY        = 21,
+    RESP_QOS_SLA             = 22,
+    RESP_QOS_LIMIT           = 23,
+    RESP_QOS_PERFORMANCE     = 24,
+    RESP_STATS_TIME          = 25,
+    RESP_STATS_VOLS          = 26,
+    RESP_STATS_ID            = 27,
+
     AME_HDR_KEY_MAX
 } ame_hdr_key_e;
 
@@ -447,6 +459,42 @@ class Conn_PutBucketParams : public AME_Request
     double       iops_max;
     fds_bool_t   validParams;
 };
+
+// ---------------------------------------------------------------------------
+// Connector Adapter to implement GetBucketStats method.
+//
+class Conn_GetBucketStats : public AME_Request
+{
+  public:
+    // Get Bucket Stats callback from FDS API.
+    static void
+      fdsn_getbucketstats(const std::string& timestamp,
+			  int content_count, const BucketStatsContent *contents,
+			  void *req_context, void *callback_data,
+			  FDSN_Status status, ErrorDetails *err_details);
+
+  public:
+    Conn_GetBucketStats(AMEngine *eng, AME_HttpReq *req);
+    ~Conn_GetBucketStats();
+
+    /* returns bucket id
+     * currently we get stats for all existing buckets, 
+     * so so this will return empty string for now, but 
+     * we may extend this to get stats for a particular bucket as well */
+    virtual std::string get_bucket_id() {
+      return std::string("");
+    }
+
+    virtual void ame_request_handler();
+    virtual void fdsn_send_getbucketstats_response(int status, int len);
+
+    // Format response header in S3 protocol.
+    //
+    virtual int ame_format_response_hdr();
+  protected:
+    void *cur_get_buffer;
+};
+
 
 } // namespace fds
 
