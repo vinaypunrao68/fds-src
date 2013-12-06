@@ -556,6 +556,11 @@ void StorHvVolumeTable::dump()
 
 BEGIN_C_DECLS
 int pushFbdReq(fbd_request_t *blkReq) {
+
+	if (blkReq->io_type == FDS_IO_READ)
+		blkReq->io_type = FDS_GET_BLOB;
+	else if ( blkReq->io_type == FDS_IO_WRITE)
+		blkReq->io_type = FDS_PUT_BLOB;
   /*
    * Map this blk request into a blob request
    */
