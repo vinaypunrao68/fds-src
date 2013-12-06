@@ -12,12 +12,17 @@
 #include <am-engine/http_utils.h>
 
 extern "C" {
+struct ngx_buf_s;
 struct ngx_chain_s;
 struct ngx_http_request_s;
+
+typedef struct ngx_buf_s          ame_buf_t;
+typedef struct ngx_chain_s        ame_chain_t;
 typedef struct ngx_http_request_s AME_HttpReq;
 }
 
 namespace fds {
+class AME_Ctx;
 class FDS_NativeAPI;
 class Conn_GetObject;
 class Conn_PutObject;
@@ -26,6 +31,7 @@ class Conn_GetBucket;
 class Conn_PutBucket;
 class Conn_DelBucket;
 class Conn_PutBucketParams;
+class Conn_GetBucketStats;
 
 class AMEngine : public Module
 {
@@ -33,19 +39,15 @@ class AMEngine : public Module
     AMEngine(char const *const name) :
         Module(name), eng_signal(), eng_etc("etc"),
         eng_logs("logs"), eng_conf("etc/fds.conf"),
-        queue(1, 1000) {
-      ame_log = new fds_log("ame", "logs");
+        ame_queue(1, 1000) {
+        ame_log = new fds_log("ame", "logs");
     }
-
     ~AMEngine() {}
 
     int  mod_init(SysParams const *const param);
     void mod_startup();
     void mod_shutdown();
     void run_server(FDS_NativeAPI *api);
-    fdsio::RequestQueue* get_queue() {
-      return &queue;
-    }
 
     // Factory methods to create objects handling required protocol.
     virtual Conn_GetObject *ame_getobj_hdler(AME_HttpReq *req) = 0;
@@ -55,13 +57,16 @@ class AMEngine : public Module
     virtual Conn_PutBucket *ame_putbucket_hdler(AME_HttpReq *req) = 0;
     virtual Conn_DelBucket *ame_delbucket_hdler(AME_HttpReq *req) = 0;
     virtual Conn_PutBucketParams *ame_putbucketparams_hdler(AME_HttpReq *req);
+    virtual Conn_GetBucketStats *ame_getbucketstats_hdler(AME_HttpReq *req);
 
-    FDS_NativeAPI *ame_fds_hook() {
+    inline FDS_NativeAPI *ame_fds_hook() {
         return eng_api;
     }
-
-    fds_log* get_log() {
-      return ame_log;
+    inline fdsio::RequestQueue *ame_get_queue() {
+        return &ame_queue;
+    }
+    inline fds_log *ame_get_log() {
+        return ame_log;
     }
 
   private:
@@ -70,8 +75,8 @@ class AMEngine : public Module
     char const *const        eng_logs;
     char const *const        eng_conf;
     FDS_NativeAPI            *eng_api;
-    fdsio::RequestQueue queue;
-    fds_log *ame_log;
+    fdsio::RequestQueue      ame_queue;
+    fds_log                  *ame_log;
 };
 
 // ---------------------------------------------------------------------------
@@ -109,6 +114,16 @@ typedef enum
     REST_OWNER               = 18,
     REST_ID                  = 19,
     REST_DISPLAY_NAME        = 20,
+
+    // Bucket Stats/Policy response keys -- our own
+    RESP_QOS_PRIORITY        = 21,
+    RESP_QOS_SLA             = 22,
+    RESP_QOS_LIMIT           = 23,
+    RESP_QOS_PERFORMANCE     = 24,
+    RESP_STATS_TIME          = 25,
+    RESP_STATS_VOLS          = 26,
+    RESP_STATS_ID            = 27,
+
     AME_HDR_KEY_MAX
 } ame_hdr_key_e;
 
@@ -133,12 +148,25 @@ extern ame_keytab_t sgt_AMEKey[];
 //
 class AME_Request : public fdsio::Request
 {
-public:
-  static int map_fdsn_status(FDSN_Status status);
+  public:
+    static int ame_map_fdsn_status(FDSN_Status status);
 
   public:
     AME_Request(AMEngine *eng, AME_HttpReq *req);
-    ~AME_Request();
+    virtual ~AME_Request();
+
+    // ame_add_context
+    // ---------------
+    // Add the context to keep track of internal states when this obj is moved
+    // around the event loop.
+    //
+    void ame_add_context(AME_Ctx *ctx);
+
+    // ame_get_reqt_hdr_val
+    // --------------------
+    // Return the value corresponding with the key in the request header.
+    //
+    char const *const ame_get_reqt_hdr_val(char const *const key);
 
     // ame_set_std_resp
     // ----------------
@@ -149,40 +177,41 @@ public:
     // ame_set_resp_keyval
     // -------------------
     // Set key/value in the response to send to the client.
-    // Key/value strings can be on the stack if the caller calls
+    // Key/value strings can be on the stack if the caller calls the method
     // ame_send_response_hdr() in the same context.
     //
     int ame_set_resp_keyval(char *k, int klen, char *v, int vlen);
-    virtual int  ame_format_response_hdr() = 0;
-    virtual void ame_request_handler() = 0;
 
-    fds_log* get_log() {
-      return ame->get_log();
+    // ame_signal_resume
+    // -----------------
+    // Callback by engine driver to resume the event loop.  The event loop
+    // is the loop of ame_request_handle() and ame_request_resume() until
+    // the last response is done or ame_finalize_request() method is called
+    // to cut short the stack with error status.
+    //
+    void ame_signal_resume(int status);
+
+    virtual void ame_request_handler() = 0;
+    virtual int  ame_request_resume() = 0;
+    virtual int  ame_format_response_hdr() = 0;
+
+    inline fds_log *ame_get_log() {
+        return ame->ame_get_log();
     }
 
   protected:
+    friend class AME_Ctx;
+
     AMEngine                 *ame;
+    AME_Ctx                  *ame_ctx;
     AME_HttpReq              *ame_req;
     struct ngx_chain_s       *post_buf_itr;
     HttpRequest              ame_http;
-    std::string              etag;
+    int                      ame_resp_status;
+    std::string              ame_etag;
 
     // Tell the engine if we need to finalize this request.
     fds_bool_t               ame_finalize;
-    /*
-     * todo: once we switch to async model with handling requests, these members
-     * shouldn't be neeeded
-     */
-    int resp_status;
-    const char *resp_buf;
-    int resp_buf_len;
-
-    void notify_request_completed(int status, const char *buf, int len) {
-      resp_status = status;
-      resp_buf = buf;
-      resp_buf_len = len;
-      req_complete();
-    }
 
     // Common request path.
     // The request handler is called through ame_request_handler().
@@ -195,31 +224,39 @@ public:
     //    host = ame_get_req_hdr_val("host");
     //    uri  = ame_get_req_hdr_val("uri");
     //
-    void ame_reqt_iter_reset();
-    int ame_reqt_iter_next();
-    char* ame_reqt_iter_data(int *len);
+    void  ame_reqt_iter_reset();
+    int   ame_reqt_iter_next();
+    char *ame_reqt_iter_data(int *len);
 
     // Common response path.
     // The request handler then prepares response data.
     // Format key/value in response header:
     //    ame_set_resp_keyval("Content-Type", "application/xml");
     //    ...
-    // Get buffer to send response data:
-    //    cookie = ame_push_resp_data_buf(&len, &buf_adr);
-    //    fill data to buf_adr, len.
-    //    ...
     // Send partial/full response data:
     //    ame_send_response_hdr();
     //    ame_send_resp_data(cookie, valid_len, last_buf);
     //    If the last buf is true, this object will be freed by the AM Engine.
     //
-    void *ame_push_resp_data_buf(int ask, char **buf, int *got_len);
-    int ame_send_resp_data(void *cookie, int len, fds_bool_t last);
+    int   ame_send_resp_data(ame_buf_t *cookie, int len, fds_bool_t last);
 
-    // ame_send_response_hdr
-    // ---------------------
-    // Common code path to send the response header to the client.
-    int ame_send_response_hdr();
+    // Common send response path.
+    // o The send_respone_hdr method is used to send header with data setup by
+    //   other methods.  If there isn't any data expected in the header, it'll
+    //   complete the response; otherwise, the engine needs the send_resp_data
+    //   method above with 'last' == true to complete the response.
+    // o The finalize_response method is used to send response back to client
+    //   without any data.
+    //
+    int  ame_send_response_hdr();
+    void ame_finalize_response(int status);
+
+    // ame_finalize_request
+    // --------------------
+    // Use this method to cut short the processing stack and return back to
+    // client with the error status.
+    //
+    void ame_finalize_request(int status);
 };
 
 // ---------------------------------------------------------------------------
@@ -227,14 +264,9 @@ public:
 //
 class Conn_GetObject : public AME_Request
 {
-public:
-  static FDSN_Status cb(void *req, fds_uint64_t bufsize,
-      const char *buf, void *cb,
-      FDSN_Status status, ErrorDetails *errdetails);
-
   public:
     Conn_GetObject(AMEngine *eng, AME_HttpReq *req);
-    ~Conn_GetObject();
+    virtual ~Conn_GetObject();
 
     // returns bucket id
     virtual std::string get_bucket_id() = 0;
@@ -242,16 +274,10 @@ public:
     // returns the object id
     virtual std::string get_object_id() = 0;
 
-    // Connector method to handle GetObject request.
+    // Connector methods to handle/resume GetObject request.
     //
     virtual void ame_request_handler();
-
-    // ame_send_get_response
-    // ---------------------
-    // Primitive API to allow FDSN to send simple response to the client.
-    //
-    virtual void
-    fdsn_send_get_response(int status, int get_len);
+    virtual int  ame_request_resume();
 
   protected:
     void *cur_get_buffer;
@@ -262,13 +288,9 @@ public:
 //
 class Conn_PutObject : public AME_Request
 {
-public:
-  static int cb(void *reqContext, fds_uint64_t bufferSize, char *buffer,
-      void *callbackData, FDSN_Status status, ErrorDetails* errDetails);
-
   public:
     Conn_PutObject(AMEngine *eng, AME_HttpReq *req);
-    ~Conn_PutObject();
+    virtual ~Conn_PutObject();
 
     // returns bucket id
     virtual std::string get_bucket_id() = 0;
@@ -276,14 +298,10 @@ public:
     // returns the object id
     virtual std::string get_object_id() = 0;
 
-    // Connector method to handle PutObject request.
+    // Connector method to handle/resume PutObject request.
     //
     virtual void ame_request_handler();
-
-    // Common code to send response back to the client.  Connector specific
-    // will provide more detail on the response.
-    //
-    virtual void fdsn_send_put_response(int status, int put_len);
+    virtual int  ame_request_resume();
 
   protected:
 };
@@ -293,14 +311,9 @@ public:
 //
 class Conn_DelObject : public AME_Request
 {
-public:
-  static void cb(FDSN_Status status,
-      const ErrorDetails *errorDetails,
-      void *callbackData);
-
   public:
     Conn_DelObject(AMEngine *eng, AME_HttpReq *req);
-    ~Conn_DelObject();
+    virtual ~Conn_DelObject();
 
     // returns bucket id
     virtual std::string get_bucket_id() = 0;
@@ -308,14 +321,10 @@ public:
     // returns the object id
     virtual std::string get_object_id() = 0;
 
-    // Connector method to handle DelObject request.
+    // Connector method to handle/resume DelObject request.
     //
     virtual void ame_request_handler();
-
-    // Common code to send response back to the client.  Connector specific
-    // will provide more detail on the response.
-    //
-    virtual void fdsn_send_del_response(int status, int len);
+    virtual int  ame_request_resume();
 
   protected:
 };
@@ -325,26 +334,17 @@ public:
 class Conn_PutBucket : public AME_Request
 {
   public:
-    // put bucket callback from FDS Api
-    static void
-    fdsn_cb(FDSN_Status status,
-            const ErrorDetails *errorDetails, void *callbackData);
-
-  public:
     Conn_PutBucket(AMEngine *eng, AME_HttpReq *req);
-    ~Conn_PutBucket();
+    virtual ~Conn_PutBucket();
 
     // returns bucket id
     virtual std::string get_bucket_id() = 0;
 
-    // Connector method to handle PutBucket request.
+    // Connector method to handle/resume PutBucket request.
     //
     virtual void ame_request_handler();
+    virtual int  ame_request_resume();
 
-    // Common code to send response back to the client.  Connector specific
-    // will provide more detail on the response.
-    //
-    virtual void fdsn_send_put_response(int status, int put_len);
   protected:
 };
 
@@ -354,22 +354,21 @@ class Conn_PutBucket : public AME_Request
 class Conn_GetBucket : public AME_Request
 {
   public:
-    // Get Bucket callback from FDS API.
-    static void
-    fdsn_getbucket(int isTruncated, const char *nextMaker,
-                   int contentsCount, const ListBucketContents *contents,
-                   int commPrefixCount, const char **commPrefixes,
-                   void *cbarg, FDSN_Status status);
-
-  public:
     Conn_GetBucket(AMEngine *eng, AME_HttpReq *req);
-    ~Conn_GetBucket();
+    virtual ~Conn_GetBucket();
 
     // returns bucket id
     virtual std::string get_bucket_id() = 0;
 
     virtual void ame_request_handler();
-    virtual void fdsn_send_getbucket_response(int status, int len);
+    virtual int  ame_request_resume();
+
+    // Format response data with result from listing objects in the bucket.
+    //
+    void ame_fmt_resp_data(int is_trucated, const char *next_marker,
+            int content_cnt, const ListBucketContents *contents,
+            int comm_prefix_cnt, const char **comm_prefix);
+
   protected:
     void *cur_get_buffer;
 };
@@ -378,20 +377,16 @@ class Conn_GetBucket : public AME_Request
 //
 class Conn_DelBucket : public AME_Request
 {
-public:
-  // delete bucket callback from FDS Api
-  static void cb(FDSN_Status status,
-                 const ErrorDetails *errorDetails, void *callbackData);
-
   public:
     Conn_DelBucket(AMEngine *eng, AME_HttpReq *req);
-    ~Conn_DelBucket();
+    virtual ~Conn_DelBucket();
 
     // returns bucket id
     virtual std::string get_bucket_id() = 0;
 
     virtual void ame_request_handler();
-    virtual void fdsn_send_delbucket_response(int status, int len);
+    virtual int  ame_request_resume();
+
   protected:
 };
 
@@ -400,14 +395,8 @@ public:
 class Conn_PutBucketParams : public AME_Request
 {
   public:
-    // put bucket params callback from FDS Api
-    static void
-    fdsn_cb(FDSN_Status status,
-            const ErrorDetails *errorDetails, void *callbackData);
-
-  public:
     Conn_PutBucketParams(AMEngine *eng, AME_HttpReq *req);
-    ~Conn_PutBucketParams();
+    virtual ~Conn_PutBucketParams();
 
     // returns bucket id
     virtual std::string get_bucket_id() {
@@ -432,13 +421,9 @@ class Conn_PutBucketParams : public AME_Request
     // Connector method to handle PutBucket request.
     //
     virtual void ame_request_handler();
+    virtual int  ame_request_resume();
 
-    // Common code to send response back to the client.  Connector specific
-    // will provide more detail on the response.
-    //
-    virtual void fdsn_send_put_response(int status, int put_len);
-
-    // Format response header in S3 protocol.
+    // Format response header in FDS protocol.
     //
     virtual int ame_format_response_hdr();
   protected:
@@ -447,6 +432,37 @@ class Conn_PutBucketParams : public AME_Request
     double       iops_max;
     fds_bool_t   validParams;
 };
+
+// ---------------------------------------------------------------------------
+// Connector Adapter to implement GetBucketStats method.
+//
+class Conn_GetBucketStats : public AME_Request
+{
+  public:
+    Conn_GetBucketStats(AMEngine *eng, AME_HttpReq *req);
+    virtual ~Conn_GetBucketStats();
+
+    /* returns bucket id
+     * currently we get stats for all existing buckets, 
+     * so so this will return empty string for now, but 
+     * we may extend this to get stats for a particular bucket as well */
+    virtual std::string get_bucket_id() {
+      return std::string("");
+    }
+
+    virtual void ame_request_handler();
+    virtual int  ame_request_resume();
+
+    // Format response header in FDS protocol.
+    //
+    virtual int ame_format_response_hdr();
+    void ame_fmt_resp_data(const std::string &timestamp,
+            int content_count, const BucketStatsContent *contents);
+
+  protected:
+    void *cur_get_buffer;
+};
+
 
 } // namespace fds
 

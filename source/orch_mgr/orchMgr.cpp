@@ -200,7 +200,7 @@ void OrchMgr::GetDomainStats(const FdspMsgHdrPtr& fdsp_msg,
 
   if (currentDom) {
     om_mutex->lock();
-    currentDom->domain_ptr->sendBucketStats(5, fdsp_msg->src_node_name);
+    currentDom->domain_ptr->sendBucketStats(5, fdsp_msg->src_node_name, fdsp_msg->req_cookie);
     /* if need to test printing to json file, call this func instead .. */
     //    currentDom->domain_ptr->printStatsToJsonFile();
     om_mutex->unlock();

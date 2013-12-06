@@ -201,7 +201,7 @@ class TestFunctions(unittest.TestCase):
     #
     # Tests listing buckets in a remote host account
     #
-    def test_a_listBucket(self):
+    def XXX_a_listBucket(self):
         testName = "Bucket list"
         self.beginTestHdr(testName)
 
@@ -255,6 +255,9 @@ class TestFunctions(unittest.TestCase):
                 getData = self.s3Test.getObject(connId,
                                                 bucket,
                                                 keys[objId])
+                print "getData: ", getData
+                print "data[]: ", data[objId]
+                print ""
                 self.assertTrue(getData == data[objId])
 
             for objId in range(0, len(keys)):
