@@ -24,7 +24,6 @@
 #include <iostream>
 #include <Ice/Ice.h>
 #include <util/Log.h>
-#include <util/Log.h>
 #include <concurrency/Mutex.h>
 #include <concurrency/RwLock.h>
 
@@ -32,6 +31,15 @@
 #include <atomic>
 */
 #include <list>
+
+/* Put Bucket Policy and Get Stats use normalized values (between 0 and 100) for 
+ * "sla" (iops_min), "limit" (iops_max) and "performance" (average iops). 
+ * For now we are just dividing absolute values by the below constant number 
+ * -- I got it from the maximum end-to-end performance we are getting right now 
+ * = 3200 IOPS divided by 100 to get % when we divide sla/perf/limit by this number 
+ * We will just tune this number for now, and dicide later how to better normalize 
+ * these values. */
+#define FDSN_QOS_PERF_NORMALIZER 32 
 
 namespace fds { 
 class BucketContext { 
@@ -208,9 +216,12 @@ public:
 	   double _limit) {
     vol_uuid = _id;
     priority = _prio;
-    performance = _perf;
-    sla = _sla;
-    limit = _limit;
+
+    /* we are currently returning values from 0 to 100, 
+     * so normalize the values */
+    performance = _perf / FDSN_QOS_PERF_NORMALIZER;
+    sla = _sla / FDSN_QOS_PERF_NORMALIZER;
+    limit = _limit / FDSN_QOS_PERF_NORMALIZER;
   }
 };
 
