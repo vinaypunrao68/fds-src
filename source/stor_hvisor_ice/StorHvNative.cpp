@@ -190,11 +190,30 @@ void FDS_NativeAPI::ModifyBucket(BucketContext *bucket_ctxt,
 				 void *callback_data)
 {
   int om_err = 0;
+  double iops_min = qos_params.iops_min;
+  double iops_max = qos_params.iops_max;
   FDSP_VolumeDescTypePtr voldesc = new FDSP_VolumeDescType();
 
+  /* iops_min and iops_max in qos params must be values from 0 to 100, 
+   * and priority from 1 to 10 */ 
+  if ((iops_min < 0) || (iops_min > 100) || 
+      (iops_max < 0) || (iops_max > 100) || 
+      (qos_params.relativePrio < 1) || (qos_params.relativePrio > 10)) {
+      (handler)(FDSN_StatusInternalError, NULL, callback_data);
+      FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error) << "FDS_NativeAPI::ModifyBucket bucket " 
+							      << bucket_ctxt->bucketName
+							      << " sla (iops_min) and limit (iops_max) must be "
+							      << "from 0 to 100, and priority from 1 to 10";
+      return;
+    }
+
+  /* get absolute numbers for iops min and max */
+  iops_min = iops_min * FDSN_QOS_PERF_NORMALIZER;
+  iops_max = iops_max * FDSN_QOS_PERF_NORMALIZER;
+
   FDS_PLOG(storHvisor->GetLog()) << "FDS_NativeAPI::ModifyBucket bucket " << bucket_ctxt->bucketName
-				 << " -- min_iops " << qos_params.iops_min
-				 << ", max_iops " << qos_params.iops_max
+				 << " -- min_iops " << iops_min << " (sla " << qos_params.iops_min << ")"
+				 << ", max_iops " << iops_max << " (limit " << qos_params.iops_max << ")"
 				 << ", priority " << qos_params.relativePrio;
 
 
@@ -202,8 +221,8 @@ void FDS_NativeAPI::ModifyBucket(BucketContext *bucket_ctxt,
    * this AM will modify bucket qos params in response to modify volume msg from OM */
   initVolDesc(voldesc, bucket_ctxt->bucketName);
   voldesc->volPolicyId = 0; /* 0 means don't modify actual policy id, just qos params */
-  voldesc->iops_min = qos_params.iops_min;
-  voldesc->iops_max = qos_params.iops_max;
+  voldesc->iops_min = iops_min;
+  voldesc->iops_max = iops_max;
   voldesc->rel_prio = qos_params.relativePrio;
 
   om_err = storHvisor->om_client->pushModifyBucketToOM(bucket_ctxt->bucketName,
@@ -211,8 +230,8 @@ void FDS_NativeAPI::ModifyBucket(BucketContext *bucket_ctxt,
 
   if (om_err != 0) {
     (handler)(FDSN_StatusInternalError, NULL, callback_data);
-    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::warning) << "FDS_NativeAPI::ModifyBucket bucket " << bucket_ctxt->bucketName
-							      << " -- could't send modify bucket request to OM";
+    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error) << "FDS_NativeAPI::ModifyBucket bucket " << bucket_ctxt->bucketName
+							    << " -- could't send modify bucket request to OM";
     return;
   }
 

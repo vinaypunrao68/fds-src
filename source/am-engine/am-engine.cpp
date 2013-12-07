@@ -1031,7 +1031,7 @@ Conn_GetBucketStats::ame_fmt_resp_data(const std::string &timestamp,
     sent = 0;
     used = snprintf(cur, got,
 		    "{\n"
-		    "\"%s\": \"%s\"\n"
+		    "\"%s\": \"%s\",\n"
 		    "\"%s\":\n"
 		    "  [\n",
 		    sgt_AMEKey[RESP_STATS_TIME].u.kv_key,
