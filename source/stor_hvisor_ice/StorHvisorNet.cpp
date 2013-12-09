@@ -1243,6 +1243,19 @@ fds::Error StorHvCtrl::deleteCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
   fds_verify(txn != NULL);
 
   StorHvJournalEntryLock je_lock(txn);
+  if (txn->isActive() == true) {
+    /*
+     * TODO: This is a HACK to get multi-node delete working!
+     * We're going to ignore inactive transactions for now because
+     * we always respond and clean up the transaction on the first
+     * response, meaning the second response doesn't have a transaction
+     * to update. This is a result of only partially implementing the
+     * delete transaction state.
+     * We don't call the callback or delete the blob request because we
+     * assume it's been done already by the first response received.    
+     */
+    return err;
+  }
   fds_verify(txn->isActive() == true);  // Should not receive resp for inactive txn
   fds_verify(txn->trans_state == FDS_TRANS_DEL_OBJ);
 
