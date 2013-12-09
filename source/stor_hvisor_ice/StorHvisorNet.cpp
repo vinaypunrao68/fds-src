@@ -84,7 +84,7 @@ static void sh_test_get_bucket_stats_callback(const std::string& timestamp, int 
  
   for (int i = 0; i < content_count; ++i) {
     FDS_PLOG(storHvisor->GetLog()) << "content #" << i
-				   << " id " << contents[i].vol_uuid
+				   << " name " << contents[i].bucket_name
 				   << " prio " << contents[i].priority
 				   << " performance " << contents[i].performance
 				   << " sla " << contents[i].sla
@@ -2114,7 +2114,7 @@ void StorHvCtrl::getBucketStatsResp(const FDSP_MsgHdrTypePtr& rx_msg,
       fds_verify(contents != NULL);
       for (int i = 0; i < count; ++i)
 	{
-	  contents[i].set((buck_stats->bucket_stats_list)[i]->vol_uuid,
+	  contents[i].set((buck_stats->bucket_stats_list)[i]->vol_name,
 			  (buck_stats->bucket_stats_list)[i]->rel_prio,
 			  (buck_stats->bucket_stats_list)[i]->performance,
 			  (buck_stats->bucket_stats_list)[i]->sla,

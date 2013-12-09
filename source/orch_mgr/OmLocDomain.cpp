@@ -907,7 +907,7 @@ void FdsLocalDomain::sendBucketStats(fds_uint32_t perf_time_interval,
 
     FDS_PLOG(parent_log) << "sendBucketStats: will send stats for volume " << pVolInfo->vol_name;
 
-    stat->vol_uuid = pVolInfo->volUUID;
+    stat->vol_name = pVolInfo->vol_name;
     stat->sla = pVolInfo->properties->iops_min;
     stat->limit = pVolInfo->properties->iops_max;
     stat->performance = am_stats->getAverageIOPS(pVolInfo->volUUID, ts, perf_time_interval);
