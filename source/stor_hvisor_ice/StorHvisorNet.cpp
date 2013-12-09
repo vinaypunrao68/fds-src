@@ -1243,7 +1243,7 @@ fds::Error StorHvCtrl::deleteCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
   fds_verify(txn != NULL);
 
   StorHvJournalEntryLock je_lock(txn);
-  if (txn->isActive() == true) {
+  if (txn->isActive() != true) {
     /*
      * TODO: This is a HACK to get multi-node delete working!
      * We're going to ignore inactive transactions for now because
