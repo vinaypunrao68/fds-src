@@ -636,6 +636,7 @@ class OmUnitTest {
      att_vol->vol_name = std::string("Volume ") + std::to_string(vol_start_uuid);
      // att_vol->vol_uuid = vol_start_uuid;
      att_vol->node_id = std::to_string(2);
+     msg_hdr->src_node_name = att_vol->node_id;
      FDS_PLOG(test_log) << "OM unit test client attaching volume "
      			<< att_vol->vol_name 
        //  << " UUID " << att_vol->vol_uuid 

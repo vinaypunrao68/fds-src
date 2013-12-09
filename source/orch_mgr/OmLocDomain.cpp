@@ -907,12 +907,10 @@ void FdsLocalDomain::sendBucketStats(fds_uint32_t perf_time_interval,
 
     FDS_PLOG(parent_log) << "sendBucketStats: will send stats for volume " << pVolInfo->vol_name;
 
-    /* TODO: the UI wants perf to be value between 0 - 100, so here we assume 
-     * performance no higher than 3200 IOPS; check again what's expected */
-    stat->vol_uuid = pVolInfo->volUUID;
-    stat->sla = pVolInfo->properties->iops_min / 32;
-    stat->limit = pVolInfo->properties->iops_max / 32;
-    stat->performance = am_stats->getAverageIOPS(pVolInfo->volUUID, ts, perf_time_interval) / 32;
+    stat->vol_name = pVolInfo->vol_name;
+    stat->sla = pVolInfo->properties->iops_min;
+    stat->limit = pVolInfo->properties->iops_max;
+    stat->performance = am_stats->getAverageIOPS(pVolInfo->volUUID, ts, perf_time_interval);
     stat->rel_prio = pVolInfo->properties->relativePrio;
     (buck_stats_rsp->bucket_stats_list).push_back(stat);
   }

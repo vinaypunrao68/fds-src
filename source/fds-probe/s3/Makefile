@@ -2,7 +2,10 @@ topdir           := ../..
 user_target      := lib
 user_rtime_env   := user
 user_build_dir   :=
-user_incl_dir    := ../include
+user_incl_dir    :=               \
+    ../include \
+    $(topdir)/am-engine
+
 user_cpp         :=               \
     s3-probe.cpp
 

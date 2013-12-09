@@ -2,6 +2,7 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 #include <fds-probe/s3-probe.h>
+#include <am-plugin.h>
 #include <fds_assert.h>
 
 namespace fds {
@@ -27,14 +28,17 @@ Probe_GetObject::~Probe_GetObject()
 void
 Probe_GetObject::ame_request_handler()
 {
-    int    len;
-    void   *cookie;
-    char   *buf;
+    int        len;
+    char      *buf;
+    ame_buf_t *cookie;
 
-    cookie = ame_push_resp_data_buf(0, &buf, &len);
-    fdsn_send_get_response(0, 0);
-    ame_send_resp_data(cookie, 0, true);
-    req_complete();
+    cookie = ame_ctx->ame_alloc_buf(10, &buf, &len);
+    ame_set_std_resp(0, 10);
+    ame_send_response_hdr();
+    ame_send_resp_data(cookie, 10, true);
+
+    fds_assert(ame_ctx != NULL);
+    ame_ctx->ame_notify_handler();
 }
 
 // ---------------------------------------------------------------------------
@@ -80,8 +84,11 @@ Probe_PutObject::ame_request_handler()
     // We're doing sync. call right now.
     delete preq;
 
-    fdsn_send_put_response(0, 0);
-    req_complete();
+    ame_set_std_resp(0, 10);
+    ame_send_response_hdr();
+
+    fds_assert(ame_ctx != NULL);
+    ame_ctx->ame_notify_handler();
 }
 
 } // namespace fds

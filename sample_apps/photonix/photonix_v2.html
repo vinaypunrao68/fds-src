@@ -2,9 +2,8 @@
 <html>
   <head>
     <title>Photonix - Serving Photos at the speed of Light</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="utf-8" name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- Bootstrap -->
-    <link href="bootstrap-3.0.2/dist/css/bootstrap.min.css" rel="stylesheet" media="screen">
     <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
     <!--[if lt IE 9]>
       <script src="bootstrap-3.0.2/assets/js/html5shiv.js"></script>
@@ -12,7 +11,9 @@
     <![endif]-->
    </head>
 
-<body style>
+<body>
+
+<link href="/static/photonix/bootstrap-3.0.2/dist/css/bootstrap.css" rel="stylesheet" type="text/css" media="screen" charset="utf-8">
 <div class="navbar-wrapper" style="background-color:#6f6c6c">
    <div class="container" >
         <div class="navbar navbar-inverse navbar-static-top" role="navigation">
@@ -75,18 +76,27 @@
      <div  class="col-md-4" id="KBPS_gauge_div"> </div>
    </div>
  </div>
+ <div class="row" style="height:10px"></div>
+ <div class="row" id="input_row" align="center">
+   <div class="col-md-4"></div>
+   <div class="col-md-4">
+   Load: min <input type="range" id="conc_slider" name="conc_control" min="1" max="100">max
+   </div>
+   <div class="col-md-4"></div>
+ </div>
 </div>
 
 <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
-<script src="http://code.jquery.com/jquery.js"></script>
+<script type='text/javascript' src="http://code.jquery.com/jquery.js"></script>
 <!-- Include all compiled plugins (below), or include individual files as needed -->
-<script src="bootstrap-3.0.2/dist/js/bootstrap.min.js"></script>
+<script type='text/javascript' src="/static/photonix/bootstrap-3.0.2/dist/js/bootstrap.js"></script>
 
 <script type='text/javascript' src='https://www.google.com/jsapi'></script>
 
 <script>
 
-var bucket_url = "http://s3.amazonaws.com/Bucket_Wild_Life";
+//var bucket_url = "http://s3.amazonaws.com/Bucket_Wild_Life";
+var bucket_url = "http://10.1.10.16:8000/Bucket_Wild_Life";
 var object_key = [];
 var object_size = [];
 
@@ -108,6 +118,7 @@ var last_stats_reset_time = [0,0];
 var current_stats_idx = 0;
 var last_image_chg_time = 0;
 var stats_history_length = 5000;
+var conc_reqs_ceil = 50;
 var max_outstanding_reqs = 5;
 var num_outstanding_reqs = 0;
 
@@ -209,8 +220,6 @@ function get_next_photo() {
   }
 }
 
-google.load('visualization', '1', {packages:['gauge']});
-google.setOnLoadCallback(drawGauges);
 
 function drawGauge(label, max, ticks) {
 
@@ -251,6 +260,9 @@ function start_fetch_loop() {
 
 }
 
+google.load('visualization', '1', {packages:['gauge']});
+google.setOnLoadCallback(drawGauges);
+
 $(document).ready(function(){
 
   $.ajaxSetup({cache: false});
@@ -272,6 +284,14 @@ $(document).ready(function(){
     console.log("Now simulating " + conc + " connections");
     max_outstanding_reqs = conc;
     image_change_interval = 2500/conc;
+  });
+
+  $("#conc_slider").mouseup(function(){
+    var new_pc = parseInt($("input").val());
+    var new_val = new_pc * conc_reqs_ceil/100;
+    console.log("Num concurrent connections changed to " + new_pc + "% (" + new_val + ")");
+    max_outstanding_reqs = new_val;
+    image_change_interval = 2500/new_val;
   });
 
   $.get(bucket_url,function(data,status){
