@@ -302,10 +302,9 @@ fds_uint32_t StorHvJournal::get_trans_id_for_blob(const std::string& blobName,
      */
     trans_id = get_free_trans_id();
     blob_to_jrnl_idx[blobName + ":" + std::to_string(blobOffset)] = trans_id;
+    StorHvJournalEntryLock je_lock(&rwlog_tbl[trans_id]); 
     unlock();
-    StorHvJournalEntryLock je_lock(&rwlog_tbl[trans_id]);
     fds_verify(rwlog_tbl[trans_id].isActive() == false);
-
     rwlog_tbl[trans_id].blobName = blobName;
     rwlog_tbl[trans_id].blobOffset = blobOffset;
   }

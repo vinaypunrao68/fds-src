@@ -82,7 +82,7 @@
    <div class="col-md-4">
    Load: min <input type="range" id="conc_slider" name="conc_control" min="1" max="100">max
    </div>
-   <div class="col-md-4"></div>
+   <div class="col-md-4" align = "center" id="num_outstanding_hide"> </div>
  </div>
 </div>
 
@@ -118,7 +118,7 @@ var last_stats_reset_time = [0,0];
 var current_stats_idx = 0;
 var last_image_chg_time = 0;
 var stats_history_length = 5000;
-var conc_reqs_ceil = 50;
+var conc_reqs_ceil = 256;
 var max_outstanding_reqs = 5;
 var num_outstanding_reqs = 0;
 
@@ -196,9 +196,12 @@ function get_next_photo() {
        console.log("Get object status: " + status + " for object: " + object_key[curr_count] + "; size - " + object_size[curr_count] + "KB at time " + completion_time + "; latency - " + latency + "ms");
        update_stats(object_size[curr_count], completion_time, latency);
        num_outstanding_reqs -= 1;
+       $("#num_outstanding").html(num_outstanding_reqs);
      });
   } else {
 
+
+      last_image_chg_time = current_time;
       console.log("Loading image for object: " + object_key[curr_count]);
 
       var img = $('<img id="display_photo_" + curr_count>'); //Equivalent: $(document.createElement('img'))
@@ -206,13 +209,14 @@ function get_next_photo() {
       img.one("load", function() {
          var completion_time = new Date().getTime();
          var latency = completion_time - current_time;
-         $("#photo_box").empty();
-         $(this).appendTo("#photo_box");
-         console.log("Load image completed for object: " + object_key[curr_count] + "; size - " + object_size[curr_count] + "KB at time " + completion_time + "; latency - " + latency + "ms");
-         $("#photo_caption").text(object_key[curr_count]);
-         last_image_chg_time = completion_time;
-         update_stats(object_size[curr_count], completion_time, latency);
          num_outstanding_reqs -= 1;
+         $("#num_outstanding").html(num_outstanding_reqs);
+	 $("#photo_box").empty();
+         $(this).appendTo("#photo_box");
+         $("#photo_caption").text(object_key[curr_count]);
+	 
+         console.log("Load image completed for object: " + object_key[curr_count] + "; size - " + object_size[curr_count] + "KB at time " + completion_time + "; latency - " + latency + "ms");
+         update_stats(object_size[curr_count], completion_time, latency);
       });
       img.attr('src', object_url + "?time=" + current_time);
 
@@ -255,6 +259,7 @@ function start_fetch_loop() {
       break;
     }
     num_outstanding_reqs += 1;
+    $("#num_outstanding").html(num_outstanding_reqs);
     get_next_photo();
   }
 
