@@ -497,7 +497,7 @@ class FDSP_PerfstatsType {
 };
 
 class FDSP_BucketStatType {
-  double             vol_uuid;
+  string             vol_name;
   double             performance;  /* average iops */
   double             sla;          /* minimum (guaranteed) iops */
   double             limit;        /* maximum iops */

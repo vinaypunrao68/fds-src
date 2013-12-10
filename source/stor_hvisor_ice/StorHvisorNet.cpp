@@ -84,7 +84,7 @@ static void sh_test_get_bucket_stats_callback(const std::string& timestamp, int 
  
   for (int i = 0; i < content_count; ++i) {
     FDS_PLOG(storHvisor->GetLog()) << "content #" << i
-				   << " id " << contents[i].vol_uuid
+				   << " name " << contents[i].bucket_name
 				   << " prio " << contents[i].priority
 				   << " performance " << contents[i].performance
 				   << " sla " << contents[i].sla
@@ -1243,6 +1243,19 @@ fds::Error StorHvCtrl::deleteCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
   fds_verify(txn != NULL);
 
   StorHvJournalEntryLock je_lock(txn);
+  if (txn->isActive() != true) {
+    /*
+     * TODO: This is a HACK to get multi-node delete working!
+     * We're going to ignore inactive transactions for now because
+     * we always respond and clean up the transaction on the first
+     * response, meaning the second response doesn't have a transaction
+     * to update. This is a result of only partially implementing the
+     * delete transaction state.
+     * We don't call the callback or delete the blob request because we
+     * assume it's been done already by the first response received.    
+     */
+    return err;
+  }
   fds_verify(txn->isActive() == true);  // Should not receive resp for inactive txn
   fds_verify(txn->trans_state == FDS_TRANS_DEL_OBJ);
 
@@ -2114,7 +2127,7 @@ void StorHvCtrl::getBucketStatsResp(const FDSP_MsgHdrTypePtr& rx_msg,
       fds_verify(contents != NULL);
       for (int i = 0; i < count; ++i)
 	{
-	  contents[i].set((buck_stats->bucket_stats_list)[i]->vol_uuid,
+	  contents[i].set((buck_stats->bucket_stats_list)[i]->vol_name,
 			  (buck_stats->bucket_stats_list)[i]->rel_prio,
 			  (buck_stats->bucket_stats_list)[i]->performance,
 			  (buck_stats->bucket_stats_list)[i]->sla,

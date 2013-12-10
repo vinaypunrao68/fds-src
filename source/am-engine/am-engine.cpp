@@ -1050,10 +1050,10 @@ Conn_GetBucketStats::ame_fmt_resp_data(const std::string &timestamp,
 
     for (i = 0; i < content_count; i++) {
         used = snprintf(cur, got,
-			"    {\"%s\": %llu, \"%s\": %d, \"%s\": %ld, \"%s\": %ld, "
+			"    {\"%s\": \"%s\", \"%s\": %d, \"%s\": %ld, \"%s\": %ld, "
             "\"%s\": %ld}",
 			sgt_AMEKey[RESP_STATS_ID].u.kv_key,
-			contents[i].vol_uuid,
+			(contents[i].bucket_name).c_str(),
 
 			sgt_AMEKey[RESP_QOS_PRIORITY].u.kv_key,
 			contents[i].priority,
