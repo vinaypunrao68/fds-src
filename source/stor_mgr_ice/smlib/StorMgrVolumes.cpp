@@ -155,7 +155,7 @@ StorMgrVolumeTable::registerVolume(const VolumeDesc& vdb) {
      * TODO: Should probably compare the known volume's details with
      * the one we're being told about.
      */
-    FDS_PLOG(vt_log) << "Register already known volume " << volUuid;
+    FDS_PLOG_SEV(vt_log, fds::fds_log::notification) << "Register already known volume " << volUuid;
   }
   map_rwlock.write_unlock();
 
@@ -174,8 +174,8 @@ StorMgrVolume* StorMgrVolumeTable::getVolume(fds_volid_t vol_uuid)
   if (volume_map.count(vol_uuid) > 0) {
     ret_vol = volume_map[vol_uuid];
   }  else {
-    FDS_PLOG(vt_log) << "StorMgrVolumeTable::getVolume - Volume " << vol_uuid
-                     << " does not exist";    
+    FDS_PLOG_SEV(vt_log, fds::fds_log::error) << "StorMgrVolumeTable::getVolume - Volume " << vol_uuid
+					      << " does not exist";    
   }
   map_rwlock.read_unlock();
 
@@ -188,7 +188,7 @@ StorMgrVolume *vol = NULL;
 
    map_rwlock.write_lock();
    if (volume_map.count(vol_uuid) == 0) {
-       FDS_PLOG(vt_log) << "StorMgrVolumeTable - deregistering volume called for non-existing volume "
+     FDS_PLOG_SEV(vt_log, fds::fds_log::error) << "StorMgrVolumeTable - deregistering volume called for non-existing volume "
                         << vol_uuid;
        err = ERR_INVALID_ARG;
        map_rwlock.write_unlock();
@@ -215,7 +215,7 @@ fds_uint32_t StorMgrVolumeTable::getVolAccessStats(fds_volid_t vol_uuid) {
   if (volume_map.count(vol_uuid) > 0) {
     vol = volume_map[vol_uuid];
   }  else {
-    FDS_PLOG(vt_log) << "STATS-VOL stats  requested on - Volume " << vol_uuid
+    FDS_PLOG_SEV(vt_log, fds::fds_log::error) << "STATS-VOL stats  requested on - Volume " << vol_uuid
                      << " does not exist";    
     map_rwlock.read_unlock();
     return AveNumVolObj;
@@ -237,11 +237,11 @@ Error StorMgrVolumeTable::updateVolStats(fds_volid_t vol_uuid) {
    if (volume_map.count(vol_uuid) > 0) {
      vol = volume_map[vol_uuid];
    }  else {
-       FDS_PLOG(vt_log) << "STATS-VOL - update stats request for non-existing volume " 
-																		<< vol_uuid;
-       err = ERR_INVALID_ARG;
-       map_rwlock.write_unlock();
-      return err;
+     FDS_PLOG_SEV(vt_log, fds::fds_log::error) << "STATS-VOL - update stats request for non-existing volume "
+					       << vol_uuid;
+     err = ERR_INVALID_ARG;
+     map_rwlock.write_unlock();
+     return err;
    }
 
    /*
@@ -270,21 +270,23 @@ void StorMgrVolumeTable::volumeEventHandler(fds_volid_t vol_uuid,
   Error err(ERR_OK);
   switch (vol_action) {
       case fds_notify_vol_add:
-        FDS_PLOG(objStorMgr->GetLog()) << "StorMgrVolumeTable - Received volume attach event from OM"
-					       << " for volume " << vol_uuid;
+        FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::notification) 
+	  << "StorMgrVolumeTable - Received volume attach event from OM"
+	  << " for volume " << vol_uuid;
         err = objStorMgr->regVol(vdb ? *vdb : VolumeDesc("", vol_uuid));
         fds_verify(err == ERR_OK);
         break;
 
      case fds_notify_vol_rm:
-        FDS_PLOG(objStorMgr->GetLog()) << "StorMgrVolumeTable - Received volume detach event from OM"
-				       << " for volume " << vol_uuid;
+       FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::notification) 
+	 << "StorMgrVolumeTable - Received volume detach event from OM"
+	 <<" for volume " << vol_uuid;
         err = objStorMgr->deregVol(vdb->GetID());
         fds_verify(err == ERR_OK);
         break;
 
     default:
-        FDS_PLOG(objStorMgr->GetLog()) << "StorMgrVolumeTable - Received unexpected volume event from OM"
+      FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::warning) << "StorMgrVolumeTable - Received unexpected volume event from OM"
                                       << " for volume " << vol_uuid;
         break;
   } 
@@ -299,7 +301,7 @@ Error StorMgrVolumeTable::createVolIndexEntry(fds_volid_t vol_uuid,
   StorMgrVolume *vol;
   map_rwlock.write_lock();
   if (volume_map.count(vol_uuid) == 0) {
-    FDS_PLOG(vt_log) << "StorMgrVolumeTable - createVolIndexEntry volume "
+    FDS_PLOG_SEV(vt_log, fds::fds_log::error) << "StorMgrVolumeTable - createVolIndexEntry volume "
                      << "called for non-existing volume " << vol_uuid;
     err = ERR_INVALID_ARG;
     map_rwlock.write_unlock();
@@ -322,7 +324,7 @@ Error StorMgrVolumeTable::deleteVolIndexEntry(fds_volid_t vol_uuid,
   StorMgrVolume *vol;
   map_rwlock.write_lock();
   if (volume_map.count(vol_uuid) == 0) {
-    FDS_PLOG(vt_log) << "StorMgrVolumeTable - deleteVolIndexEntry volume "
+    FDS_PLOG_SEV(vt_log, fds::fds_log::error) << "StorMgrVolumeTable - deleteVolIndexEntry volume "
                      << "called for non-existing volume " << vol_uuid;
     err = ERR_INVALID_ARG;
     map_rwlock.write_unlock();
