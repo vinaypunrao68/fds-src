@@ -131,7 +131,7 @@ namespace fds {
     if (next_queue != 0) {
       WFQQueueDesc *next_qd = queue_desc_map[next_queue];
       assert(next_qd->num_rate_based_credits > 0);
-      assert(next_qd->num_rate_based_credits <= next_qd->max_rate_based_credits);
+      //assert(next_qd->num_rate_based_credits <= next_qd->max_rate_based_credits);
       next_qd->num_rate_based_credits--;
       inc_num_ios_dispatched(io_dispatch_type_credit);
       FDS_PLOG(qda_log) << "Dispatcher: picking next credit based queue " << next_queue

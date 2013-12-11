@@ -463,6 +463,10 @@ Conn_GetObject::ame_request_resume()
 
     adr = ame_ctx->ame_curr_output_buf(&buf, &len);
     len = ame_ctx->ame_temp_len;
+
+    FDS_PLOG(ame_get_log()) << "GetObject resume status " << ame_resp_status
+	<< ", obj: " << get_object_id() << ", buf len " << len;
+
     if (ame_resp_status == NGX_HTTP_OK) {
         ame_etag = "\"" + HttpUtils::computeEtag(adr, len) + "\"";
         ame_set_std_resp(ame_resp_status, len);
@@ -714,7 +718,7 @@ Conn_GetBucket::ame_fmt_resp_data(int is_truncated, const char *next_marker,
     char      *cur;
     ame_buf_t *buf;
 
-    buf = ame_ctx->ame_alloc_buf(NGX_RESP_CHUNK_SIZE, &cur, &got);
+    buf = ame_ctx->ame_alloc_buf(NGX_RESP_CHUNK_SIZE*4, &cur, &got);
     ame_ctx->ame_push_output_buf(buf);
 
     // Format the header to send out.
