@@ -950,8 +950,8 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
    */
   fds_uint32_t transId = shVol->journal_tbl->get_trans_id_for_blob(blobReq->getBlobName(),
                                                                    blobReq->getBlobOffset());
-  FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "Assigning transaction ID " << transId
-                                                   << " to put request";
+  FDS_PLOG_SEV(sh_log, fds::fds_log::normal) << "Assigning transaction ID " << transId
+					     << " to put request";
   StorHvJournalEntry *journEntry = shVol->journal_tbl->get_journal_entry(transId);
   fds_verify(journEntry != NULL);
   StorHvJournalEntryLock jeLock(journEntry);
@@ -1334,8 +1334,8 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
    */
   fds_uint32_t transId = shVol->journal_tbl->get_trans_id_for_blob(blobReq->getBlobName(),
                                                                    blobReq->getBlobOffset());
-  FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "Assigning transaction ID " << transId
-                                                   << " to get request";
+  FDS_PLOG_SEV(sh_log, fds::fds_log::normal) << "Assigning transaction ID " << transId
+					     << " to get request";
   StorHvJournalEntry *journEntry = shVol->journal_tbl->get_journal_entry(transId);
   fds_verify(journEntry != NULL);
   StorHvJournalEntryLock jeLock(journEntry);
