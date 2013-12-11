@@ -7,6 +7,7 @@ import ConfigParser
 import re
 import pdb
 import traceback
+import time
 
 verbose = False
 debug = False
@@ -636,6 +637,8 @@ class TestBringUp():
         else:
             print "Failed to create volume"
             return -1
+
+        time.sleep(2)
 
         #
         # Runs this command on the OM IP
