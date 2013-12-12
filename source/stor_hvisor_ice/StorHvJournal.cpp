@@ -280,9 +280,12 @@ fds_uint32_t StorHvJournal::get_trans_id_for_block(fds_uint64_t block_offset)
 }
 
 fds_uint32_t StorHvJournal::get_trans_id_for_blob(const std::string& blobName,
-                                                  fds_uint64_t blobOffset) {
+                                                  fds_uint64_t blobOffset,
+						  bool& trans_in_progress) {
   fds_uint32_t trans_id;
  
+  trans_in_progress = false;
+
   lock();
   try{
     trans_id = blob_to_jrnl_idx.at(blobName + ":" + std::to_string(blobOffset));
@@ -293,7 +296,8 @@ fds_uint32_t StorHvJournal::get_trans_id_for_blob(const std::string& blobName,
                                                                    << rwlog_tbl[trans_id].blobName
                                                                    << " and " << blobName;
     fds_verify((rwlog_tbl[trans_id].blobOffset == blobOffset) &&
-               (rwlog_tbl[trans_id].blobName == blobName));      
+               (rwlog_tbl[trans_id].blobName == blobName));
+    trans_in_progress = true;
     unlock();
   } catch (const std::out_of_range& err) {
     /*

@@ -948,8 +948,10 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
   /*
    * Get/lock a journal entry for the request.
    */
+  bool trans_in_progress = false;
   fds_uint32_t transId = shVol->journal_tbl->get_trans_id_for_blob(blobReq->getBlobName(),
-                                                                   blobReq->getBlobOffset());
+                                                                   blobReq->getBlobOffset(),
+								   trans_in_progress);
   FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "Assigning transaction ID " << transId
                                                    << " to put request";
   StorHvJournalEntry *journEntry = shVol->journal_tbl->get_journal_entry(transId);
@@ -959,7 +961,7 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
   /*
    * Check if the entry is already active.
    */
-  if (journEntry->isActive() == true) {
+  if ((trans_in_progress) || (journEntry->isActive() == true)) {
     /*
      * There is an on-going transaction for this offset
      * Queue this up for later processing.
@@ -1332,8 +1334,10 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
   /*
    * Get/lock a journal entry for the request.
    */
+  bool trans_in_progress = false;
   fds_uint32_t transId = shVol->journal_tbl->get_trans_id_for_blob(blobReq->getBlobName(),
-                                                                   blobReq->getBlobOffset());
+                                                                   blobReq->getBlobOffset(),
+								   trans_in_progress);
   FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "Assigning transaction ID " << transId
                                                    << " to get request";
   StorHvJournalEntry *journEntry = shVol->journal_tbl->get_journal_entry(transId);
@@ -1343,7 +1347,7 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
   /*
    * Check if the entry is already active.
    */
-  if (journEntry->isActive() == true) {
+  if ((trans_in_progress) || (journEntry->isActive() == true)) {
     /*
      * There is an on-going transaction for this offset
      * Queue this up for later processing.
@@ -1576,13 +1580,15 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   }
 
   /* Check if there is an outstanding transaction for this block offset  */
-   fds_uint32_t transId = shVol->journal_tbl->get_trans_id_for_blob(blobReq->getBlobName(),
-                                                                   blobReq->getBlobOffset());
+  bool trans_in_progress = false;
+  fds_uint32_t transId = shVol->journal_tbl->get_trans_id_for_blob(blobReq->getBlobName(),
+                                                                   blobReq->getBlobOffset(),
+								   trans_in_progress);
   StorHvJournalEntry *journEntry = shVol->journal_tbl->get_journal_entry(transId);
   
   StorHvJournalEntryLock je_lock(journEntry);
   
-  if (journEntry->isActive()) {
+  if ((trans_in_progress) || (journEntry->isActive())) {
     shVol->readUnlock();
 
     FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << transId << " - Transaction  is already in ACTIVE state, completing request "
@@ -1784,13 +1790,15 @@ fds::Error StorHvCtrl::listBucket(fds::AmQosReq *qosReq) {
   blobReq->setQueuedUsec(shVol->journal_tbl->microsecSinceCtime(
       boost::posix_time::microsec_clock::universal_time()));
 
+  bool trans_in_progress = false;
   fds_uint32_t transId = shVol->journal_tbl->get_trans_id_for_blob(blobReq->getBlobName(),
-                                                                   blobReq->getBlobOffset());
+                                                                   blobReq->getBlobOffset(),
+								   trans_in_progress);
   StorHvJournalEntry *journEntry = shVol->journal_tbl->get_journal_entry(transId);
   
   StorHvJournalEntryLock je_lock(journEntry);
   
-  if (journEntry->isActive()) {
+  if ((trans_in_progress) || (journEntry->isActive())) {
     FDS_PLOG_SEV(GetLog(), fds::fds_log::error) <<" StorHvisorTx:" << "IO-XID:" << transId 
 						  << " - Transaction  is already in ACTIVE state, completing request "
 						  << transId << " with ERROR(-2) ";
@@ -2017,13 +2025,15 @@ fds::Error StorHvCtrl::getBucketStats(fds::AmQosReq *qosReq) {
   blobReq->setQueuedUsec(shVol->journal_tbl->microsecSinceCtime(
       				boost::posix_time::microsec_clock::universal_time()));
 
+  bool trans_in_progress = false;
   fds_uint32_t transId = shVol->journal_tbl->get_trans_id_for_blob(blobReq->getBlobName(),
-                                                                   blobReq->getBlobOffset());
+                                                                   blobReq->getBlobOffset(),
+								   trans_in_progress);
   StorHvJournalEntry *journEntry = shVol->journal_tbl->get_journal_entry(transId);
   
   StorHvJournalEntryLock je_lock(journEntry);
 
-  if (journEntry->isActive()) {
+  if ((trans_in_progress) || (journEntry->isActive())) {
     FDS_PLOG_SEV(GetLog(), fds::fds_log::error) <<" StorHvisorTx:" << "IO-XID:" << transId 
 						  << " - Transaction  is already in ACTIVE state, completing request "
 						  << transId << " with ERROR(-2) ";

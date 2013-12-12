@@ -171,7 +171,8 @@ public:
 	StorHvJournalEntry *get_journal_entry(fds_uint32_t trans_id);
 	fds_uint32_t get_trans_id_for_block(fds_uint64_t block_offset);  // Legacy block
         fds_uint32_t get_trans_id_for_blob(const std::string& blobName,
-                                          fds_uint64_t blobOffset);
+					   fds_uint64_t blobOffset,
+					   bool& trans_in_progress);
 	void release_trans_id(unsigned int trans_id);  // Legacy block
         void releaseTransId(fds_uint32_t transId);
         void schedule(const TimerTaskPtr& task, const IceUtil::Time& interval) {
