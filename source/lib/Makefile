@@ -12,6 +12,7 @@ user_cpp         :=               \
 	qos_min_prio.cpp        \
 	TransJournal.cpp        \
         PerfStats.cpp        \
+	jsoncpp.cpp             \
 
 #user_cc          :=               \
 #    tvclib.c                      \
