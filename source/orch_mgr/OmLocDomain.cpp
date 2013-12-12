@@ -50,7 +50,7 @@ FdsLocalDomain::FdsLocalDomain(const std::string& om_prefix, fds_log* om_log)
    * CreateVol() rpc, this is easier.
    */
   VolumeInfo *new_vol = new VolumeInfo();
-  new_vol->vol_name = "Test volume";
+  new_vol->vol_name = "TestVolume";
   new_vol->volUUID = 1;
   new_vol->properties = new VolumeDesc(new_vol->vol_name,
                                        new_vol->volUUID);
