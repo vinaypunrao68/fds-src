@@ -857,28 +857,6 @@ Conn_PutBucketParams::Conn_PutBucketParams(AMEngine *eng, AME_HttpReq *req)
     : AME_Request(eng, req), validParams(true)
 {
     ame_finalize = true;
-
-    std::string value;
-    fds_bool_t keyExists = ame_http.getReqHdrVal("priority", value);
-    if (keyExists == false) {
-      validParams = false;
-    } else {
-      relative_prio = std::stoul(value);
-    }
-
-    keyExists = ame_http.getReqHdrVal("sla", value);
-    if (keyExists == false) {
-      validParams = false;
-    } else {
-      iops_min = std::stod(value);
-    }
-
-    keyExists = ame_http.getReqHdrVal("limit", value);
-    if (keyExists == false) {
-      validParams = false;
-    } else {
-      iops_max = std::stod(value);
-    }
 }
 
 Conn_PutBucketParams::~Conn_PutBucketParams()
@@ -916,6 +894,35 @@ Conn_PutBucketParams::ame_request_handler()
 {
     FDS_NativeAPI *api;
     BucketContext bucket_ctx("host", get_bucket_id(), "accessid", "secretkey");
+
+    int   len;
+    char *buf;
+
+    buf = ame_reqt_iter_data(&len);
+    if (buf == NULL || len == 0) {
+      validParams = false;
+    }
+
+    Json::Value  root;
+    Json::Reader reader;
+    std::string  strBuf(buf, len);
+    fds_bool_t   parseOk = reader.parse(strBuf, root);
+    if (parseOk == false) {
+      validParams = false;
+    } else {
+      relative_prio = root.get("priority", 0).asUInt();
+      if (relative_prio == 0) {
+        validParams = false;
+      }
+      iops_min = root.get("sla", -1).asDouble();
+      if (iops_min == -1) {
+        validParams = false;
+      }
+      iops_max = root.get("limit", -1).asDouble();
+      if (iops_max == -1) {
+        validParams = false;
+      }
+    }
 
     if (validParams == false) {
         ame_finalize_response(NGX_HTTP_INTERNAL_SERVER_ERROR);
