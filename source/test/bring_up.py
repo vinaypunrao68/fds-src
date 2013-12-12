@@ -7,6 +7,7 @@ import ConfigParser
 import re
 import pdb
 import traceback
+import time
 
 verbose = False
 debug = False
@@ -189,9 +190,10 @@ class StorNode():
         self.logSeverity = _sev
         
     def getOmCmd(self):
-        return "%s --port=%d --prefix=%s_" % (self.omBin,
+        return "%s --port=%d --prefix=%s_ --log-severity=%d" % (self.omBin,
                                               self.configPort,
-                                              self.name)
+                                              self.name,
+                                              self.logSeverity)
 
     def getSmCmd(self):
         return "%s --port=%d --cp_port=%d --prefix=%s_ --log-severity=%d" % (self.smBin,
@@ -256,6 +258,7 @@ class TestBringUp():
     sshUser = None
     sshPswd = None
     sshPort = 22
+    sshPkey = None
 
     #
     # Relative path info on remote node
@@ -424,6 +427,8 @@ class TestBringUp():
                 self.setPath(self.config.get(section, "path"))
                 self.sshUser = self.config.get(section, "user")
                 self.sshPswd = self.config.get(section, "passwd")
+                if self.config.has_option(section, "privatekey") == True:
+                    self.sshPkey = self.config.get(section, "privatekey")
             elif re.match(self.sh_sec_prefix, section) != None:
                 self.loadClient(section, self.config.items(section))
             elif re.match(self.vol_sec_prefix, section) != None:
@@ -538,7 +543,11 @@ class TestBringUp():
             client = paramiko.SSHClient()
             client.load_system_host_keys()
             client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            client.connect(ipOver, self.sshPort, self.sshUser, self.sshPswd)
+            if self.sshPkey == None:
+                client.connect(ipOver, self.sshPort, self.sshUser, self.sshPswd)
+            else:
+                key = paramiko.RSAKey.from_private_key_file(self.sshPkey)
+                client.connect(ipOver, port=self.sshPort, username=self.sshUser, pkey=key)
 
             #
             # Run remote cmd
@@ -629,6 +638,8 @@ class TestBringUp():
         else:
             print "Failed to create volume"
             return -1
+
+        time.sleep(2)
 
         #
         # Runs this command on the OM IP

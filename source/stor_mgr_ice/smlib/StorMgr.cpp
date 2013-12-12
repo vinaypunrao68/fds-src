@@ -347,12 +347,12 @@ void ObjectStorMgr::nodeEventOmHandler(int node_id,
       FDS_PLOG(objStorMgr->GetLog()) << "ObjectStorMgr - Node event Handler " << node_id << " Node IP Address " <<  node_ip_addr;
     switch(node_state) {
        case FDS_Node_Up :
-           FDS_PLOG(objStorMgr->GetLog()) << "ObjectStorMgr - Node UP event NodeId " << node_id << " Node IP Address " <<  node_ip_addr;
+	 FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::notification) << "ObjectStorMgr - Node UP event NodeId " << node_id << " Node IP Address " <<  node_ip_addr;
          break;
 
        case FDS_Node_Down:
        case FDS_Node_Rmvd:
-           FDS_PLOG(objStorMgr->GetLog()) << " ObjectStorMgr - Node Down event NodeId :" << node_id << " node IP addr" << node_ip_addr ;
+	 FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::notification) << " ObjectStorMgr - Node Down event NodeId :" << node_id << " node IP addr" << node_ip_addr ;
         break;
     }
 }
@@ -565,7 +565,7 @@ ObjectStorMgr::writeObjectLocation(const ObjectID& objId,
      */
     err = readObjectLocations(objId, objMap);
     if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
-      FDS_PLOG(objStorMgr->GetLog()) << "Failed to read existing object locations"
+      FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::error) << "Failed to read existing object locations"
                                      << " during location write";
       return err;
     } else if (err == ERR_DISK_READ_FAILED) {
@@ -591,7 +591,7 @@ ObjectStorMgr::writeObjectLocation(const ObjectID& objId,
     FDS_PLOG(GetLog()) << "Updating object location for object "
                        << objId << " to " << objMap;
   } else {
-    FDS_PLOG(GetLog()) << "Failed to put object " << objId
+    FDS_PLOG_SEV(GetLog(), fds::fds_log::error) << "Failed to put object " << objId
                        << " into odb with error " << err;
   }
 
@@ -651,7 +651,7 @@ ObjectStorMgr::deleteObjectLocation(const ObjectID& objId) {
      */
     err = readObjectLocations(objId, objMap);
     if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
-      FDS_PLOG(objStorMgr->GetLog()) << "Failed to read existing object locations"
+      FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::error) << "Failed to read existing object locations"
                                      << " during location write";
       return err;
     } else if (err == ERR_DISK_READ_FAILED) {
@@ -675,7 +675,7 @@ ObjectStorMgr::deleteObjectLocation(const ObjectID& objId) {
     FDS_PLOG(GetLog()) << "Setting the delete marker for object "
                        << objId << " to " << objMap;
   } else {
-    FDS_PLOG(GetLog()) << "Failed to put object " << objId
+    FDS_PLOG_SEV(GetLog(), fds::fds_log::error) << "Failed to put object " << objId
                        << " into odb with error " << err;
   }
 
@@ -984,8 +984,8 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
       objCache->object_delete(volId, objId);
     }
     objStorMutex->unlock();
-    FDS_PLOG(objStorMgr->GetLog()) << "Failed to check object duplicate status on put: "
-                                   << err;
+    FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::error) << "Failed to check object duplicate status on put: "
+							    << err;
   } else {
 
     /*
@@ -997,7 +997,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
       objCache->object_release(volId, objId, objBufPtr);       
       objCache->object_delete(volId, objId);
       objStorMutex->unlock();
-      FDS_PLOG(objStorMgr->GetLog()) << "Failed to put object " << err;
+      FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::error) << "Failed to put object " << err;
     } else {
       objCache->object_add(volId, objId, objBufPtr, false);
       objCache->object_release(volId, objId, objBufPtr); 
@@ -1097,7 +1097,7 @@ ObjectStorMgr::putObjectInternal(FDSP_PutObjTypePtr putObjReq,
        * we'll just stop at the first error we see to make sure it
        * doesn't get lost.
        */
-      FDS_PLOG(objStorMgr->GetLog()) << "Unable to enqueue putObject request "
+      FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::error) << "Unable to enqueue putObject request "
                                      << transId;
       return err;
     }
@@ -1131,7 +1131,7 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
   err = deleteObjectLocation(objId);
   objStorMutex->unlock();
   if (err != fds::ERR_OK) {
-     FDS_PLOG(objStorMgr->GetLog()) << "Failed to delete object " << err;
+    FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::error) << "Failed to delete object " << err;
   } else {
      FDS_PLOG(objStorMgr->GetLog()) << "Successfully delete object " << objId;
   }
@@ -1266,7 +1266,7 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
   objStorMutex->unlock();
 
   if (err != fds::ERR_OK) {
-    FDS_PLOG(objStorMgr->GetLog()) << "Failed to get object " << objId
+    FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::error) << "Failed to get object " << objId
                                    << " with error " << err;
     /*
      * Set the data to empty so we don't return
@@ -1351,7 +1351,7 @@ ObjectStorMgr::deleteObjectInternal(FDSP_DeleteObjTypePtr delObjReq,
   err = qosCtrl->enqueueIO(ioReq->getVolId(), static_cast<FDS_IOType*>(ioReq));
 
   if (err != fds::ERR_OK) {
-    FDS_PLOG(objStorMgr->GetLog()) << "Unable to enqueue delObject request "
+    FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::error) << "Unable to enqueue delObject request "
                                    << transId;
     return err;
   }
@@ -1466,7 +1466,7 @@ ObjectStorMgr::run(int argc, char* argv[]) {
     return 0;
   }
 
-  FDS_PLOG(objStorMgr->GetLog()) << "Stor Mgr port_number :" << port_num;
+  FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::notification) << "Stor Mgr port_number :" << port_num;
   
   /*
    * Set basic thread properties.
@@ -1512,7 +1512,7 @@ ObjectStorMgr::run(int argc, char* argv[]) {
     }
   }
   assert(myIp.empty() == false);
-  FDS_PLOG(objStorMgr->GetLog()) << "Stor Mgr IP:" << myIp;
+  FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::notification) << "Stor Mgr IP:" << myIp;
 
   /*
    * Query persistent layer for disk parameter details 
@@ -1526,7 +1526,7 @@ ObjectStorMgr::run(int argc, char* argv[]) {
   while (1) {
     info = out.query_pop();
     if (info != nullptr) {
-      FDS_PLOG(objStorMgr->GetLog()) << "Max blks capacity: " << info->di_max_blks_cap
+      FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::notification) << "Max blks capacity: " << info->di_max_blks_cap
                                      << ", Disk type........: " << info->di_disk_type
                                      << ", Max iops.........: " << info->di_max_iops
                                      << ", Min iops.........: " << info->di_min_iops
@@ -1546,7 +1546,7 @@ ObjectStorMgr::run(int argc, char* argv[]) {
         dInfo->ssd_latency_max = info->di_max_latency; /* in us second */
         dInfo->ssd_latency_min = info->di_min_latency; /* in us second */
       } else 
-        FDS_PLOG(objStorMgr->GetLog()) << "Unknown Disk Type " << info->di_disk_type;
+        FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::warning) << "Unknown Disk Type " << info->di_disk_type;
 
       delete info;
       continue;
@@ -1670,7 +1670,7 @@ ObjectStorMgr::getObjectInternal(FDSP_GetObjTypePtr getObjReq,
   err = qosCtrl->enqueueIO(ioReq->getVolId(), static_cast<FDS_IOType*>(ioReq));
 
   if (err != fds::ERR_OK) {
-    FDS_PLOG(objStorMgr->GetLog()) << "Unable to enqueue getObject request "
+    FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::error) << "Unable to enqueue getObject request "
                                    << transId;
     getObjReq->data_obj_len = 0;
     getObjReq->data_obj.assign("");

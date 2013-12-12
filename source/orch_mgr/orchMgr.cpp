@@ -55,12 +55,10 @@ int OrchMgr::run(int argc, char* argv[]) {
       stor_prefix = argv[i] + 9;
     } else if (strncmp(argv[i], "--test", 7) == 0) {
       test_mode = true;
-    } else {
-      std::cout << "Invalid argument " << argv[i] << std::endl;
-      return -1;
     }
   }
 
+  GetLog()->setSeverityFilter((fds_log::severity_level) (getSysParams()->log_severity));
 
   policy_mgr = new VolPolicyMgr(stor_prefix, om_log);
 
@@ -128,6 +126,14 @@ int OrchMgr::run(int argc, char* argv[]) {
   communicator()->waitForShutdown();
 
   return EXIT_SUCCESS;
+}
+
+void OrchMgr::setSysParams(SysParams *params) {
+  sysParams = params;
+}
+
+SysParams* OrchMgr::getSysParams() {
+  return sysParams;
 }
 
 fds_log* OrchMgr::GetLog() {
@@ -1029,6 +1035,13 @@ int main(int argc, char *argv[]) {
   fds::orchMgr = new fds::OrchMgr();
 
   fds::gl_orch_mgr = fds::orchMgr;
+
+  fds::Module *io_dm_vec[] = {
+    nullptr
+  };
+  fds::ModuleVector  io_dm(argc, argv, io_dm_vec);
+  fds::orchMgr->setSysParams(io_dm.get_sys_params());
+
   fds::orchMgr->main(argc, argv, "orch_mgr.conf");
 
   delete fds::orchMgr;

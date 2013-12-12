@@ -10,6 +10,7 @@
 #include <native_api.h>
 #include <util/Log.h>
 #include <am-engine/http_utils.h>
+#include <json/json.h>
 
 extern "C" {
 struct ngx_buf_s;
