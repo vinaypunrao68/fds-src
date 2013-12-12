@@ -132,31 +132,24 @@ ngx_http_fds_read_body(ngx_http_request_t *r)
         } else if (uri_parts.size() == 2) {
             am_req = sgt_ame_plugin->ame_getobj_hdler(r);
         } else if (uri_parts.size() == 0) {
-            /* Check if this is a get bucket stats request - 
-             * this one gets stats for all existing buckets */
-            keyExists = http_req.getReqHdrVal("FdsReqType", value);
-            if ((keyExists == true) && (value == "getStats")) {
-                am_req = sgt_ame_plugin->ame_getbucketstats_hdler(r);
-            }
+          /*
+           * We're assuming any host request with no URI
+           * parts is a getStats request.
+           */
+          am_req = sgt_ame_plugin->ame_getbucketstats_hdler(r);
         }
         break;
 
     case NGX_HTTP_POST:
     case NGX_HTTP_PUT:
         if (uri_parts.size() == 1) {
-          /*
-           * Check to see if modify bucket headers exist.
-           * If so, call putbucketparams, if not just
-           * putbucket.
-           */
-          keyExists = http_req.getReqHdrVal("FdsReqType", value);
-          if ((keyExists == true) && (value == "modPolicy")) {
+          am_req = sgt_ame_plugin->ame_putbucket_hdler(r);
+        } else if (uri_parts.size() == 2) {
+          if (uri_parts[1] == "modPolicy") {
             am_req = sgt_ame_plugin->ame_putbucketparams_hdler(r);
           } else {
-            am_req = sgt_ame_plugin->ame_putbucket_hdler(r);
-          }
-        } else if (uri_parts.size() == 2) {
             am_req = sgt_ame_plugin->ame_putobj_hdler(r);
+          }
         }
         break;
 
