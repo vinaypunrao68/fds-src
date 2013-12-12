@@ -142,6 +142,7 @@ namespace fds {
   class OrchMgr : virtual public Ice::Application {
   private:
     fds_log *om_log;
+    SysParams *sysParams;
     ReqCfgHandlerPtr   reqCfgHandlersrv;
     /*
      * TODO: These maps should eventually be pulled out into
@@ -186,6 +187,10 @@ namespace fds {
 
     virtual int run(int argc, char* argv[]);
     void interruptCallback(int cb);
+
+    void setSysParams(SysParams *params);
+    SysParams* getSysParams();
+
     fds_log* GetLog();
     void defaultS3BucketPolicy();  // default  policy  desc  for s3 bucket
 
