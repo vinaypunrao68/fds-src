@@ -68,7 +68,7 @@ FdsLocalDomain::FdsLocalDomain(const std::string& om_prefix, fds_log* om_log)
    /* cached stats that we receve from AM - we will keep a bit longer history
     * than AM does to account for async receive of stats from multiple AM
     * and then CLI query for them */
-   am_stats = new PerfStats(om_prefix+"OM_from_AM", 3*FDS_STAT_DEFAULT_HIST_SLOTS);
+   am_stats = new PerfStats(om_prefix+"OM_from_AM", 5*FDS_STAT_DEFAULT_HIST_SLOTS);
    if (am_stats) {
      am_stats->enable(); /* stats are not enabled by default */
    }
@@ -911,9 +911,9 @@ void FdsLocalDomain::sendBucketStats(fds_uint32_t perf_time_interval,
     stat->rel_prio = pVolInfo->properties->relativePrio;
     (buck_stats_rsp->bucket_stats_list).push_back(stat);
 
-    FDS_PLOG_SEV(parent_log, fds::fds_log::normal) << "sendBucketStats: will send stats for volume " 
-						   << pVolInfo->vol_name
-						   << " perf " << stat->performance;
+    FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "sendBucketStats: will send stats for volume " 
+							 << pVolInfo->vol_name
+							 << " perf " << stat->performance;
   }
 
   NodeInfo& node_info = currentShMap[dest_node_name];

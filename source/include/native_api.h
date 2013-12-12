@@ -219,9 +219,18 @@ public:
 
     /* we are currently returning values from 0 to 100, 
      * so normalize the values */
-    performance = _perf / FDSN_QOS_PERF_NORMALIZER;
-    sla = _sla / FDSN_QOS_PERF_NORMALIZER;
-    limit = _limit / FDSN_QOS_PERF_NORMALIZER;
+    performance = _perf / (double)FDSN_QOS_PERF_NORMALIZER;
+    if (performance > 100.0) {
+      performance = 100.0;
+    }
+    sla = _sla / (double)FDSN_QOS_PERF_NORMALIZER;
+    if (sla > 100.0) {
+      sla = 100.0;
+    }
+    limit = _limit / (double)FDSN_QOS_PERF_NORMALIZER;
+    if (limit > 100.0) {
+      limit = 100.0;
+    }
   }
 };
 
