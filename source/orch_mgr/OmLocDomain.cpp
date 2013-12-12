@@ -872,7 +872,7 @@ void FdsLocalDomain::sendBucketStats(fds_uint32_t perf_time_interval,
   msg_hdr->req_cookie = req_cookie; /* copying from msg header that requested stats */
   msg_hdr->glob_volume_id = 0; /* should ignore */
 
-  boost::posix_time::ptime ts = boost::posix_time::second_clock::local_time();
+  boost::posix_time::ptime ts = boost::posix_time::second_clock::universal_time();
   /* here are some hardcored values assuming that AMs send stats every 
    * (default slots num - 2)-second intervals, and OM receives 
    * (default slots num - 1)-second interval worth of stats;
@@ -904,22 +904,23 @@ void FdsLocalDomain::sendBucketStats(fds_uint32_t perf_time_interval,
       continue;
 
     FDSP_BucketStatTypePtr stat = new FDSP_BucketStatType();
-
-    FDS_PLOG(parent_log) << "sendBucketStats: will send stats for volume " << pVolInfo->vol_name;
-
     stat->vol_name = pVolInfo->vol_name;
     stat->sla = pVolInfo->properties->iops_min;
     stat->limit = pVolInfo->properties->iops_max;
     stat->performance = am_stats->getAverageIOPS(pVolInfo->volUUID, ts, perf_time_interval);
     stat->rel_prio = pVolInfo->properties->relativePrio;
     (buck_stats_rsp->bucket_stats_list).push_back(stat);
+
+    FDS_PLOG_SEV(parent_log, fds::fds_log::normal) << "sendBucketStats: will send stats for volume " 
+						   << pVolInfo->vol_name
+						   << " perf " << stat->performance;
   }
 
   NodeInfo& node_info = currentShMap[dest_node_name];
 
-  FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Sending GetBucketStats response to node " 
-						       << dest_node_name
-						       << " node_info-> node-id = " << node_info.node_id;
+  FDS_PLOG_SEV(parent_log, fds::fds_log::normal) << "Sending GetBucketStats response to node " 
+						 << dest_node_name
+						 << " node_info-> node-id = " << node_info.node_id;
 
   ReqCtrlPrx OMClientAPI = node_info.cpPrx;
   OMClientAPI->begin_NotifyBucketStats(msg_hdr, buck_stats_rsp);
@@ -929,7 +930,7 @@ void FdsLocalDomain::sendBucketStats(fds_uint32_t perf_time_interval,
 void FdsLocalDomain::printStatsToJsonFile(void)
 {
   int count = 0;
-  boost::posix_time::ptime ts = boost::posix_time::second_clock::local_time();
+  boost::posix_time::ptime ts = boost::posix_time::second_clock::universal_time();
   /* here are some hardcored values assuming that AMs send stats every 
    * (default slots num - 2)-second intervals, and OM receives 
    * (default slots num - 1)-second interval worth of stats;
