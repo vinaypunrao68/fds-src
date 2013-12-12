@@ -190,9 +190,10 @@ class StorNode():
         self.logSeverity = _sev
         
     def getOmCmd(self):
-        return "%s --port=%d --prefix=%s_" % (self.omBin,
+        return "%s --port=%d --prefix=%s_ --log-severity=%d" % (self.omBin,
                                               self.configPort,
-                                              self.name)
+                                              self.name,
+                                              self.logSeverity)
 
     def getSmCmd(self):
         return "%s --port=%d --cp_port=%d --prefix=%s_ --log-severity=%d" % (self.smBin,
