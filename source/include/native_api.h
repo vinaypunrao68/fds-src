@@ -39,7 +39,7 @@
  * = 3200 IOPS divided by 100 to get % when we divide sla/perf/limit by this number 
  * We will just tune this number for now, and dicide later how to better normalize 
  * these values. */
-#define FDSN_QOS_PERF_NORMALIZER 32 
+#define FDSN_QOS_PERF_NORMALIZER 20 
 
 namespace fds { 
 class BucketContext { 
