@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>FDS - Perf Mon Dash Board</title>
+    <meta charset="utf-8" name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Bootstrap -->
+    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+      <script src="bootstrap-3.0.2/assets/js/html5shiv.js"></script>
+      <script src="bootstrap-3.0.2/assets/js/respond.min.js"></script>
+    <![endif]-->
+   </head>
+
+<body>
+
+<link href="/static/photonix/bootstrap-3.0.2/dist/css/bootstrap.css" rel="stylesheet" type="text/css" media="screen" charset="utf-8">
+<div class="navbar-wrapper">
+   <div class="container" >
+        <div class="navbar navbar-inverse navbar-static-top" role="navigation">
+          <div class="container">
+            <div class="navbar-header">
+              <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+              </button>
+              <a class="navbar-brand" href="#">
+	      FDS Perf Board
+	      </a>
+            </div>
+            <div class="navbar-collapse collapse">
+              <ul class="nav navbar-nav">
+                <li class="active"><a href="#">Home</a></li>
+                <li><a href="#about">About</a></li>
+                <li><a href="#contact">Contact</a></li>
+                <li class="dropdown">
+                  <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+		  Control <b class="caret"></b></a>
+                  <ul class="dropdown-menu">
+                    <li><a href="#">Refresh Stats</a></li>
+                  </ul>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+   </div>
+</div>
+<div id="main_frame" class="row">
+ <div class="row" id="stats_container">
+   <div class="col-md-3"> </div> 
+   <div class="col-md-8" id="stats_region" align="center">
+     <div class="row" style="height:10px"> </div>
+     <div class="row" id="stats_box"
+      align="center" height="210px">
+      <br>
+     </div>
+     <div class="row" height="10px"> <br> </div>
+  </div>
+  <div class="col-md-2"> </div>
+ </div>
+ <div class="row" style="height:20px"> </div>
+</div>
+
+<!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+<script type='text/javascript' src="http://code.jquery.com/jquery.js"></script>
+<!-- Include all compiled plugins (below), or include individual files as needed -->
+<script type='text/javascript' src="/static/photonix/bootstrap-3.0.2/dist/js/bootstrap.js"></script>
+<script>
+
+var stats_url = "http://10.1.10.16:8000";
+
+function update_stats(data) {
+    stats_obj = JSON.parse(data);
+    //$("#stats_box").html(data);
+    for (var i = 0; i < stats_obj.volumes.length; i++) {
+      var vol = stats_obj.volumes[i];
+      var vol_id = vol.id;
+      var vol_perf = vol.performance + 1;
+      var vol_row = $("#stats_vol_" + vol_id + "_row");
+      if (vol_row.length <= 0) {
+        var stats_html = "<div class=\"row\" id=\"stats_vol_" + vol_id + "_row\">";
+        stats_html += "<div class=\"col-md-3\" align=\"right\">" +  vol_id + ":</div>";
+	stats_html += "<div class=\"col-md-4\" align=\"left\">";
+        stats_html += "<canvas id=\"stats_vol_" + vol_id + "_bar\" width=\"200px\" height=\"5px\" style=\"border:1px solid #c3c3c3;\" float=\"left\"> </canvas>";  
+	stats_html += "</div>";
+        stats_html += "<div class=\"col-md-1\" id=\"stats_vol_" + vol_id + "_val\" float=\"left\"> 0 </div>";
+        //        console.log("html string " + stats_html);
+        $("#stats_box").append(stats_html);
+      }
+      var vol_bar = document.getElementById("stats_vol_" + vol_id + "_bar");
+      var ctx = vol_bar.getContext("2d");
+      ctx.fillStyle="#00FF00";
+      ctx.fillRect(0,0,vol_perf*20,5);
+      $("#stats_vol_" + vol_id + "_val").text(vol_perf*32);        
+    }
+
+}
+
+function get_stats() {
+
+   var current_time = new Date().getTime();   
+
+   $.get(stats_url + "?time=" + current_time, function(data, status) {
+       console.log("Get stats status: " + status + ", data - " + data);
+       update_stats(data);
+       setTimeout(get_stats, 1000);
+     });
+
+}
+
+$(document).ready(function(){
+  $.ajaxSetup({cache: false});
+  get_stats();
+
+});
+</script>
+</body>
+</html>
