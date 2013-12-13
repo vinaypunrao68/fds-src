@@ -40,23 +40,6 @@ FdsLocalDomain::FdsLocalDomain(const std::string& om_prefix, fds_log* om_log)
   curDlt = new FdsDlt(dltWidth, dltDepth);
   curDmt = new FdsDmt(dmtWidth, dmtDepth);
 
-
-  /*
-   * TODO: Remove this or move it to a test mode eventually.
-   * This creates a stock volume that the OM knows about so
-   * that an OM volume create request isn't needed. Since
-   * other nodes (SH/SM/DM) don't generally communicate
-   * over the Ice config path, which is what contains the
-   * CreateVol() rpc, this is easier.
-   */
-  VolumeInfo *new_vol = new VolumeInfo();
-  new_vol->vol_name = "TestVolume";
-  new_vol->volUUID = 1;
-  new_vol->properties = new VolumeDesc(new_vol->vol_name,
-                                       new_vol->volUUID);
-  new_vol->hv_nodes.push_back("localhost-sh");
-  volumeMap[new_vol->vol_name] = new_vol;
-  
   next_free_vol_id = 2;
 
   /*
