@@ -110,7 +110,7 @@ function update_stats(data) {
     for (var i = 0; i < stats_obj.volumes.length; i++) {
       var vol = stats_obj.volumes[i];
       var vol_id = vol.id;
-      var vol_perf = vol.performance + 1;
+      var vol_perf = vol.performance;
 
       if (!(vol_id in vol_id_to_chart_idx)) {
          vol_id_to_chart_idx[vol_id] = next_chart_idx;
@@ -119,7 +119,7 @@ function update_stats(data) {
       }
       var vol_idx = vol_id_to_chart_idx[vol_id];
       var vol_perf_data = perf_data[vol_idx];
-      vol_perf_data[1] = vol_perf*32;
+      vol_perf_data[1] = vol_perf*20;
 
    }
 
