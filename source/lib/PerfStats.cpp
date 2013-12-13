@@ -207,13 +207,13 @@ namespace fds {
     long loc_rel_sec = stat_msg->rel_seconds;
     if (start_time > remote_start_ts) {
       boost::posix_time::time_duration diff = start_time - remote_start_ts;
-      // start_time ... remote_start_time ......... rel_seconds
-      loc_rel_sec += diff.total_seconds();
+      // remote_start_time ... start_time ......... rel_seconds
+      loc_rel_sec -= diff.total_seconds();
     }
     else {
       boost::posix_time::time_duration diff = remote_start_ts - start_time;
-      // remote_start_time ... start_time ........ rel_seconds
-      loc_rel_sec -= diff.total_seconds();
+      // start_time ... remote_start_time ........ rel_seconds
+      loc_rel_sec += diff.total_seconds();
     }
 
     map_rwlock.read_lock();
