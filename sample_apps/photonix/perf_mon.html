@@ -50,13 +50,14 @@
 </div>
 <div id="main_frame" class="row">
  <div class="row" id="stats_container">
-   <div class="col-md-3"> </div> 
+   <div class="col-md-2"> </div> 
    <div class="col-md-8" id="stats_region" align="center">
      <div class="row" style="height:10px"> </div>
      <div class="row" id="stats_box"
       align="center" height="210px">
       <br>
      </div>
+     <div id="chart_div"> </div>
      <div class="row" height="10px"> <br> </div>
   </div>
   <div class="col-md-2"> </div>
@@ -68,9 +69,40 @@
 <script type='text/javascript' src="http://code.jquery.com/jquery.js"></script>
 <!-- Include all compiled plugins (below), or include individual files as needed -->
 <script type='text/javascript' src="/static/photonix/bootstrap-3.0.2/dist/js/bootstrap.js"></script>
+<script type="text/javascript" src="https://www.google.com/jsapi"></script>
+
 <script>
 
 var stats_url = "http://10.1.10.16:8000";
+
+google.load("visualization", "1", {packages:["corechart"]});
+google.setOnLoadCallback(initChart);
+
+var perf_data;
+var chart_options;
+var perf_chart;
+
+var vol_id_to_chart_idx = {};
+var next_chart_idx = 1;
+
+function initChart() {
+
+   perf_data = [
+          ['Volume', 'RQPS'],
+          ];
+
+   chart_options = {
+          title: 'Volume Performance',
+          vAxis: {title: 'Volume',  titleTextStyle: {color: 'red'}},
+          hAxis: {minValue: 0, maxValue:400},
+          animation: {duartion: 1000, easing: 'in'}
+   };
+
+   var chart_data = google.visualization.arrayToDataTable(perf_data); 
+   perf_chart = new google.visualization.BarChart(document.getElementById('chart_div'));
+   perf_chart.draw(chart_data, chart_options);
+}
+
 
 function update_stats(data) {
     stats_obj = JSON.parse(data);
@@ -79,23 +111,20 @@ function update_stats(data) {
       var vol = stats_obj.volumes[i];
       var vol_id = vol.id;
       var vol_perf = vol.performance + 1;
-      var vol_row = $("#stats_vol_" + vol_id + "_row");
-      if (vol_row.length <= 0) {
-        var stats_html = "<div class=\"row\" id=\"stats_vol_" + vol_id + "_row\">";
-        stats_html += "<div class=\"col-md-3\" align=\"right\">" +  vol_id + ":</div>";
-	stats_html += "<div class=\"col-md-4\" align=\"left\">";
-        stats_html += "<canvas id=\"stats_vol_" + vol_id + "_bar\" width=\"200px\" height=\"5px\" style=\"border:1px solid #c3c3c3;\" float=\"left\"> </canvas>";  
-	stats_html += "</div>";
-        stats_html += "<div class=\"col-md-1\" id=\"stats_vol_" + vol_id + "_val\" float=\"left\"> 0 </div>";
-        //        console.log("html string " + stats_html);
-        $("#stats_box").append(stats_html);
+
+      if (!(vol_id in vol_id_to_chart_idx)) {
+         vol_id_to_chart_idx[vol_id] = next_chart_idx;
+	 perf_data[next_chart_idx] = [vol_id, 0];		
+         next_chart_idx++;
       }
-      var vol_bar = document.getElementById("stats_vol_" + vol_id + "_bar");
-      var ctx = vol_bar.getContext("2d");
-      ctx.fillStyle="#00FF00";
-      ctx.fillRect(0,0,vol_perf*20,5);
-      $("#stats_vol_" + vol_id + "_val").text(vol_perf*32);        
-    }
+      var vol_idx = vol_id_to_chart_idx[vol_id];
+      var vol_perf_data = perf_data[vol_idx];
+      vol_perf_data[1] = vol_perf*32;
+
+   }
+
+   var chart_data = google.visualization.arrayToDataTable(perf_data); 
+   perf_chart.draw(chart_data, chart_options);
 
 }
 
