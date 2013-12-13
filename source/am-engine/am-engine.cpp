@@ -441,10 +441,10 @@ fdsn_getobj_cbfn(void *req, fds_uint64_t bufsize,
     AME_Ctx        *ctx = (AME_Ctx *)req;
     Conn_GetObject *conn_go = (Conn_GetObject *)cbData;
 
-    FDS_PLOG(conn_go->ame_get_log()) << "GetObject bucket: "
-        << conn_go->get_bucket_id() << " , object: "
-        << conn_go->get_object_id() << " , len: "
-        << bufsize << ", status: " << status;
+    // FDS_PLOG(conn_go->ame_get_log()) << "GetObject bucket: "
+    // << conn_go->get_bucket_id() << " , object: "
+    //  << conn_go->get_object_id() << " , len: "
+    //  << bufsize << ", status: " << status;
 
     ctx->ame_update_output_buf(bufsize);
     conn_go->ame_signal_resume(AME_Request::ame_map_fdsn_status(status));
@@ -464,8 +464,8 @@ Conn_GetObject::ame_request_resume()
     adr = ame_ctx->ame_curr_output_buf(&buf, &len);
     len = ame_ctx->ame_temp_len;
 
-    FDS_PLOG(ame_get_log()) << "GetObject resume status " << ame_resp_status
-	<< ", obj: " << get_object_id() << ", buf len " << len;
+    // FDS_PLOG(ame_get_log()) << "GetObject resume status " << ame_resp_status
+    //	<< ", obj: " << get_object_id() << ", buf len " << len;
 
     if (ame_resp_status == NGX_HTTP_OK) {
         ame_etag = "\"" + HttpUtils::computeEtag(adr, len) + "\"";
@@ -547,8 +547,8 @@ Conn_PutObject::ame_request_resume()
     //
     len = ame_ctx->ame_temp_len;
     ame_etag = "\"" + HttpUtils::computeEtag(ame_ctx->ame_temp_buf, len) + "\"";
-    FDS_PLOG(ame_get_log()) << "PutObject bucket: " << get_bucket_id()
-        << " , object: " << get_object_id();
+    // FDS_PLOG(ame_get_log()) << "PutObject bucket: " << get_bucket_id()
+    // << " , object: " << get_object_id();
 
     // Temp. code.  We need to have a proper buffer chunking model here.
     if (ame_ctx->ame_temp_buf != NULL) {
