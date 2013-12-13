@@ -222,26 +222,26 @@ var hoverDetail = new Rickshaw.Graph.HoverDetail({
     });
 
 var legend = new Rickshaw.Graph.Legend({
-      element : document.querySelector('#legend'),
-      graph : graph
-    });
+      element : document.querySelector('#legend'
+  ), graph : graph
+  });
 
 function get_stats() {
-      $.get(stats_url, function(get_data, status) {
-        console.log("data: " + get_data);
-        var stats = JSON.parse(get_data);
-        var data = {};
-        for (var i = 0; i < stats.volumes.length; i++) {
-          data[stats.volumes[i].id] = stats.volumes[i].performance;
-          //data[stats.volumes[i].id] = Math.random() * 100;
-        }
+    $.get(stats_url, function(get_data, status) {
+      console.log("data: " + get_data);
+      var stats = JSON.parse(get_data);
+      var data = {};
+      for (var i = 0; i < stats.volumes.length; i++) {
+        data[stats.volumes[i].id] = stats.volumes[i].performance;
+        //data[stats.volumes[i].id] = Math.random() * 100;
+      }
 
-        graph.series.addData(data);
-        graph.render();
-        
-        update_stats(get_data);
-      });  
-}
+      graph.series.addData(data);
+      graph.render();
+
+      update_stats(get_data);
+    });
+  }
 /* get_stats timer */
 var iv = setInterval(get_stats, tv);
 
