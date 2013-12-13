@@ -1571,7 +1571,7 @@ ObjectStorMgr::run(int argc, char* argv[]) {
    * omClient. Create before register with OM because
    * the OM vol event receivers depend on this table.
    */
-  volTbl = new StorMgrVolumeTable(this);
+  volTbl = new StorMgrVolumeTable(this, sm_log);
 
   /* Create tier related classes -- has to be after volTbl is created */
   rankEngine = new ObjectRankEngine(stor_prefix, 100000, volTbl, objStats, objStorMgr->GetLog());
