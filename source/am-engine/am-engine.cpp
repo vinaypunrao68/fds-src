@@ -718,7 +718,7 @@ Conn_GetBucket::ame_fmt_resp_data(int is_truncated, const char *next_marker,
     char      *cur;
     ame_buf_t *buf;
 
-    buf = ame_ctx->ame_alloc_buf(NGX_RESP_CHUNK_SIZE*4, &cur, &got);
+    buf = ame_ctx->ame_alloc_buf(NGX_RESP_CHUNK_SIZE*64, &cur, &got);
     ame_ctx->ame_push_output_buf(buf);
 
     // Format the header to send out.
