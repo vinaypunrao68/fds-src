@@ -12,7 +12,7 @@
 #include "StorHvisorCPP.h"
 #include <hash/MurmurHash3.h>
 
-#define FDS_REPLICATION_FACTOR 1
+#define FDS_REPLICATION_FACTOR 2
 
 void *hvisor_hdl;
 StorHvCtrl *storHvisor;
