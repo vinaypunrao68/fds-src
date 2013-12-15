@@ -73,6 +73,11 @@ Error QoSHTBDispatcher::registerQueue(fds_uint32_t queue_id,
   if (q_max_rate == 0) 
      q_max_rate = HTB_QUEUE_RATE_INFINITE_MAX;
    
+  /* since highest priority queues will get all the slack, give some minimum
+   * iops to queues iops_min == 0 */
+  if (q_min_rate < HTB_QUEUE_RATE_MIN) 
+    q_min_rate = HTB_QUEUE_RATE_MIN;
+
   /* we need a new state to control new queue */
   TBQueueState *qstate = new TBQueueState(queue_id, 
                                           q_min_rate, 
@@ -147,12 +152,18 @@ Error QoSHTBDispatcher::modifyQueueQosParams(fds_uint32_t queue_id,
   Error err(ERR_OK);
   fds_uint64_t new_total_min_rate = 0;
   fds_uint64_t new_total_avail_rate = 0;
+  fds_uint64_t q_min_rate = iops_min;
   fds_uint64_t q_max_rate = iops_max;
   TBQueueState* qstate = NULL;
 
   /* If iops_max == 0, means no max, set max_rate to a very high value */
   if (q_max_rate == 0) 
      q_max_rate = HTB_QUEUE_RATE_INFINITE_MAX;
+
+  /* since highest priority queues will get all the slack, give some minimum
+   * iops to queues iops_min == 0 */
+  if (q_min_rate < HTB_QUEUE_RATE_MIN) 
+    q_min_rate = HTB_QUEUE_RATE_MIN;
 
   qda_lock.write_lock();
 
@@ -166,18 +177,18 @@ Error QoSHTBDispatcher::modifyQueueQosParams(fds_uint32_t queue_id,
 
   /* for now, do not allow total min rate to increase above total rate -- return error
    *  TODO: should we scale down all volumes' min rates? */
-  if ((iops_min > qstate->min_rate) && ((iops_min - qstate->min_rate + total_min_rate) > total_rate)) {
+  if ((q_min_rate > qstate->min_rate) && ((q_min_rate - qstate->min_rate + total_min_rate) > total_rate)) {
     qda_lock.write_unlock();
     FDS_PLOG_SEV(qda_log, fds::fds_log::error) << "QoSHTBDispatcher: invalid qos rates.  q_min_rate: "
-					       << iops_min << " total_min_rate: " 
-					       << total_min_rate-qstate->min_rate+iops_min 
+					       << q_min_rate << " total_min_rate: " 
+					       << total_min_rate-qstate->min_rate+q_min_rate 
 					       << "  total_rate: " << total_rate;
     err = Error(ERR_INVALID_ARG);
     return err;
   }
 
   /* call base class to actually modify queue qos params */
-  err = FDS_QoSDispatcher::modifyQueueQosWithLockHeld(queue_id, iops_min, iops_max, prio);
+  err = FDS_QoSDispatcher::modifyQueueQosWithLockHeld(queue_id, q_min_rate, q_max_rate, prio);
   if (!err.ok()) {
     qda_lock.write_unlock();
     return err;
@@ -185,11 +196,11 @@ Error QoSHTBDispatcher::modifyQueueQosParams(fds_uint32_t queue_id,
 
   /* update total min rate and avail rate */
   fds_verify(total_min_rate >= qstate->min_rate);
-  total_min_rate = total_min_rate - qstate->min_rate + iops_min;
+  total_min_rate = total_min_rate - qstate->min_rate + q_min_rate;
   new_total_min_rate = total_min_rate;
   new_total_avail_rate = avail_pool.getRate() + qstate->min_rate;
-  if (new_total_avail_rate > iops_min) {
-     new_total_avail_rate -= iops_min;
+  if (new_total_avail_rate > q_min_rate) {
+     new_total_avail_rate -= q_min_rate;
   }
   else {
      /* for now we allow total_min_rate to exceed total_rate, means avail rate is 0,
@@ -200,8 +211,8 @@ Error QoSHTBDispatcher::modifyQueueQosParams(fds_uint32_t queue_id,
   avail_pool.modifyRate(new_total_avail_rate);
 
   /* modify queue state params */
-  qstate->min_rate = iops_min;
-  qstate->max_rate = iops_max;
+  qstate->min_rate = q_min_rate;
+  qstate->max_rate = q_max_rate;
   qstate->priority = prio;
   /* since we may also have a throttle level set, this func will change effective min/max rates
    * of token bucket based on iops min and max but also a current throttle level */
@@ -209,8 +220,8 @@ Error QoSHTBDispatcher::modifyQueueQosParams(fds_uint32_t queue_id,
   qda_lock.write_unlock();
 
   FDS_PLOG_SEV(qda_log, fds::fds_log::notification) << "QosHTBDispatcher: modified queue " << queue_id
-		    << "new min_iops=" << iops_min
-		    << "; max_iops=" << iops_max
+		    << "new min_iops=" << q_min_rate
+		    << "; max_iops=" << q_max_rate
 		    << "; prio=" << prio
                     << "; total_min_rate " << new_total_min_rate 
                     << ", total_avail_rate " << new_total_avail_rate;
