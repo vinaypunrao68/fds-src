@@ -416,5 +416,3 @@
 #ifndef NGX_GROUP
 #define NGX_GROUP  "nogroup"
 #endif
-
-#define NGX_DEBUG 1

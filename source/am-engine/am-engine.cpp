@@ -3,6 +3,7 @@
  */
 #include <am-engine/am-engine.h>
 #include <am-engine/http_utils.h>
+#include <util/fds_stat.h>
 #include <am-plugin.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,6 +32,48 @@ static char  nginx_prefix[NGINX_ARG_PARAM];
 static char  nginx_config[NGINX_ARG_PARAM];
 static char  nginx_signal[NGINX_ARG_PARAM];
 
+static const stat_decode_t stat_ngx_decode[] =
+{
+    { STAT_NGX_GET,             "Nginx GET E2E" },
+    { STAT_NGX_GET_FDSN,        "Nginx reached FDSN GET" },
+    { STAT_NGX_GET_FDSN_RET,    "Nginx returned from FDSN GET" },
+    { STAT_NGX_GET_FDSN_CB,     "Nginx received cb from FDSN" },
+    { STAT_NGX_GET_RESUME,      "Nginx resumed GET event" },
+
+    { STAT_NGX_PUT,             "Nginx PUT E2E" },
+    { STAT_NGX_PUT_FDSN,        "Nginx reached FDSN PUT" },
+    { STAT_NGX_PUT_FDSN_RET,    "Nginx returned from FDSN PUT" },
+    { STAT_NGX_PUT_FDSN_CB,     "Nginx received cb from FDSN" },
+    { STAT_NGX_PUT_RESUME,      "Nginx resumed PUT event" },
+
+    { STAT_NGX_DEL,             "Nginx DEL E2E" },
+    { STAT_NGX_DEL_FDSN,        "Nginx reached FDSN DEL" },
+    { STAT_NGX_DEL_FDSN_RET,    "Nginx returned from FDSN DEL" },
+    { STAT_NGX_DEL_FDSN_CB,     "Nginx received cb from FDSN" },
+    { STAT_NGX_DEL_RESUME,      "Nginx resumed DEL event" },
+
+    { STAT_NGX_GET_BK,          "Nginx GET bucket E2E" },
+    { STAT_NGX_GET_BK_FDSN,     "Nginx reached FDSN GET bucket" },
+    { STAT_NGX_GET_BK_FDSN_RET, "Nginx returned from FDSN GET bucket" },
+    { STAT_NGX_GET_BK_FDSN_CB,  "Nginx received cb from FDSN" },
+    { STAT_NGX_GET_BK_RESUME,   "Nginx resumed GET bucket event" },
+
+    { STAT_NGX_PUT_BK,          "Nginx PUT bucket E2E" },
+    { STAT_NGX_PUT_BK_FDSN,     "Nginx reached FDSN PUT bucket" },
+    { STAT_NGX_PUT_BK_FDSN_RET, "Nginx returned from FDSN PUT bucket" },
+    { STAT_NGX_PUT_BK_FDSN_CB,  "Nginx received cb from FDSN" },
+    { STAT_NGX_PUT_BK_RESUME,   "Nginx resumed PUT bucket event" },
+
+    { STAT_NGX_DEL_BK,          "Nginx DEL bucket E2E" },
+    { STAT_NGX_DEL_BK_FDSN,     "Nginx reached FDSN DEL bucket" },
+    { STAT_NGX_DEL_BK_FDSN_RET, "Nginx returned from FDSN DEL bucket" },
+    { STAT_NGX_DEL_BK_FDSN_CB,  "Nginx received cb from FDSN" },
+    { STAT_NGX_DEL_BK_RESUME,   "Nginx resumed DEL bucket event" },
+
+    { STAT_NGX_DEFAULT,         "Untraced ngx command" },
+    { STAT_NGX_POINT_MAX,       NULL }
+};
+
 static char const *nginx_start_argv[] =
 {
     nullptr,
@@ -44,6 +87,9 @@ static char const *nginx_signal_argv[] =
     "-s", nginx_signal
 };
 
+// mod_init
+// --------
+//
 int
 AMEngine::mod_init(SysParams const *const p)
 {
@@ -81,9 +127,13 @@ AMEngine::mod_init(SysParams const *const p)
     return 0;
 }
 
+// mod_startup
+// -----------
+//
 void
 AMEngine::mod_startup()
 {
+    gl_fds_stat.stat_reg_mod(STAT_NGX, stat_ngx_decode);
 }
 
 // make_nginix_dir
@@ -111,6 +161,7 @@ AMEngine::run_server(FDS_NativeAPI *api)
     using namespace std;
     const string *fds_root;
     char          path[NGINX_ARG_PARAM];
+
 
     eng_api = api;
     fds_root = &mod_params->fds_root;
@@ -147,7 +198,6 @@ Conn_PutBucketParams *AMEngine::ame_putbucketparams_hdler(AME_HttpReq *req) {
 Conn_GetBucketStats *AMEngine::ame_getbucketstats_hdler(AME_HttpReq *req) {
   return new Conn_GetBucketStats(this, req);
 }
-
 
 // ---------------------------------------------------------------------------
 // Generic request/response protocol through NGINX module.
@@ -210,6 +260,9 @@ AME_Request::AME_Request(AMEngine *eng, AME_HttpReq *req)
     : fdsio::Request(true), ame(eng), ame_req(req),
       ame_http(req), ame_finalize(false)
 {
+    ame_clk_all = clock();
+    ame_stat_pt = STAT_NGX_DEFAULT;
+
     ame_resp_status = 500;
     eng->ame_get_queue()->rq_enqueue(this, 0);
 }
@@ -217,6 +270,7 @@ AME_Request::AME_Request(AMEngine *eng, AME_HttpReq *req)
 AME_Request::~AME_Request()
 {
     req_complete();
+    fds_stat_record(STAT_NGX, ame_stat_pt, ame_clk_all, clock());
 }
 
 // ame_add_context
@@ -424,6 +478,7 @@ AME_Request::ame_finalize_request(int status)
 Conn_GetObject::Conn_GetObject(AMEngine *eng, AME_HttpReq *req)
     : AME_Request(eng, req)
 {
+    ame_stat_pt = STAT_NGX_GET;
 }
 
 Conn_GetObject::~Conn_GetObject()
@@ -441,10 +496,9 @@ fdsn_getobj_cbfn(void *req, fds_uint64_t bufsize,
     AME_Ctx        *ctx = (AME_Ctx *)req;
     Conn_GetObject *conn_go = (Conn_GetObject *)cbData;
 
-    FDS_PLOG(conn_go->ame_get_log()) << "GetObject bucket: "
-        << conn_go->get_bucket_id() << " , object: "
-        << conn_go->get_object_id() << " , len: "
-        << bufsize << ", status: " << status;
+    conn_go->ame_clk_fdsn_cb = clock();
+    fds_stat_record(STAT_NGX, STAT_NGX_GET_FDSN_CB,
+                    conn_go->ame_clk_fdsn, conn_go->ame_clk_fdsn_cb);
 
     ctx->ame_update_output_buf(bufsize);
     conn_go->ame_signal_resume(AME_Request::ame_map_fdsn_status(status));
@@ -461,11 +515,9 @@ Conn_GetObject::ame_request_resume()
     char      *adr;
     ame_buf_t *buf;
 
+    fds_stat_record(STAT_NGX, STAT_NGX_GET_RESUME, ame_clk_fdsn_cb, clock());
     adr = ame_ctx->ame_curr_output_buf(&buf, &len);
     len = ame_ctx->ame_temp_len;
-
-    FDS_PLOG(ame_get_log()) << "GetObject resume status " << ame_resp_status
-	<< ", obj: " << get_object_id() << ", buf len " << len;
 
     if (ame_resp_status == NGX_HTTP_OK) {
         ame_etag = "\"" + HttpUtils::computeEtag(adr, len) + "\"";
@@ -493,10 +545,20 @@ Conn_GetObject::ame_request_handler()
 
     buf = ame_ctx->ame_alloc_buf(buf_req_len, &adr, &len);
     ame_ctx->ame_push_output_buf(buf);
+    if (get_bucket_id() == "stat") {
+        len = gl_fds_stat.stat_out(STAT_NGX, adr, len);
+        ame_ctx->ame_update_output_buf(len);
+        ame_signal_resume(200);
+        return;
+    }
+    ame_clk_fdsn = clock();
+    fds_stat_record(STAT_NGX, STAT_NGX_GET_FDSN, ame_clk_all, ame_clk_fdsn);
 
     api = ame->ame_fds_hook();
     api->GetObject(&bucket_ctx, get_object_id(), NULL, 0, len, adr, len,
         (void *)ame_ctx, fdsn_getobj_cbfn, (void *)this);
+
+    fds_stat_record(STAT_NGX, STAT_NGX_GET_FDSN_RET, ame_clk_fdsn_cb, clock());
 }
 
 // ---------------------------------------------------------------------------
@@ -506,6 +568,7 @@ Conn_PutObject::Conn_PutObject(AMEngine *eng, AME_HttpReq *req)
     : AME_Request(eng, req)
 {
     ame_finalize = true;
+    ame_stat_pt  = STAT_NGX_PUT;
 }
 
 Conn_PutObject::~Conn_PutObject()
@@ -585,6 +648,7 @@ Conn_PutObject::ame_request_handler()
 Conn_DelObject::Conn_DelObject(AMEngine *eng, AME_HttpReq *req)
     : AME_Request(eng, req)
 {
+    ame_stat_pt = STAT_NGX_DEL;
 }
 
 Conn_DelObject::~Conn_DelObject()
@@ -632,6 +696,7 @@ Conn_PutBucket::Conn_PutBucket(AMEngine *eng, AME_HttpReq *req)
     : AME_Request(eng, req)
 {
     ame_finalize = true;
+    ame_stat_pt  = STAT_NGX_PUT_BK;
 }
 
 Conn_PutBucket::~Conn_PutBucket()
@@ -678,6 +743,7 @@ Conn_PutBucket::ame_request_handler()
 Conn_GetBucket::Conn_GetBucket(AMEngine *eng, AME_HttpReq *req)
     : AME_Request(eng, req)
 {
+    ame_stat_pt = STAT_NGX_GET_BK;
 }
 
 Conn_GetBucket::~Conn_GetBucket()
@@ -947,6 +1013,7 @@ Conn_PutBucketParams::ame_format_response_hdr()
 Conn_DelBucket::Conn_DelBucket(AMEngine *eng, AME_HttpReq *req)
     : AME_Request(eng, req)
 {
+    ame_stat_pt = STAT_NGX_DEL_BK;
 }
 
 Conn_DelBucket::~Conn_DelBucket()
