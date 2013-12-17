@@ -83,6 +83,13 @@ Error FdsAdminCtrl::volAdminControl(VolumeDesc  *pVolDesc)
   double iopc_subcluster = 0;
   double iopc_subcluster_result = 0;
 
+  if (pVolDesc->iops_min > pVolDesc->iops_max) {
+    FDS_PLOG_SEV(parent_log, fds::fds_log::error) << " Cannot admit volume " << pVolDesc->name
+						  << " -- iops_min must be below iops_max";
+    err = Error(ERR_VOL_ADMISSION_FAILED);
+    return err;
+  }
+
   iopc_subcluster = (avail_disk_iops_max/REPLICATION_FACTOR);
 
   if ((total_vol_disk_cap + pVolDesc->capacity) > avail_disk_capacity) {
