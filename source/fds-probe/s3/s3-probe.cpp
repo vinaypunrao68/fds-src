@@ -2,6 +2,7 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 #include <fds-probe/s3-probe.h>
+#include <util/fds_stat.h>
 #include <am-plugin.h>
 #include <fds_assert.h>
 
@@ -32,6 +33,7 @@ ProbeS3Eng::~ProbeS3Eng()
 Probe_GetObject::Probe_GetObject(AMEngine *eng, AME_HttpReq *req)
     : S3_GetObject(eng, req)
 {
+    ame_stat_pt = STAT_NGX_GET;
 }
 
 Probe_GetObject::~Probe_GetObject()
@@ -44,6 +46,8 @@ Probe_GetObject::~Probe_GetObject()
 int
 Probe_GetObject::ame_request_resume()
 {
+    fds_stat_record(STAT_NGX,
+                    STAT_NGX_GET_RESUME, ame_clk_fdsn, fds_rdtsc());
     return NGX_DONE;
 }
 
@@ -57,13 +61,23 @@ Probe_GetObject::ame_request_handler()
     char      *buf;
     ame_buf_t *cookie;
 
-    cookie = ame_ctx->ame_alloc_buf(1024, &buf, &len);
-    ame_set_std_resp(0, 1024);
+    if (get_bucket_id() == "stat") {
+        cookie = ame_ctx->ame_alloc_buf(1 << 20, &buf, &len);
+        len = gl_fds_stat.stat_out(STAT_NGX, buf, len);
+    } else {
+        cookie = ame_ctx->ame_alloc_buf(1024, &buf, &len);
+    }
+    ame_clk_fdsn = fds_rdtsc();
+    fds_stat_record(STAT_NGX, STAT_NGX_GET_FDSN, ame_clk_all, ame_clk_fdsn);
+
+    ame_set_std_resp(0, len);
     ame_send_response_hdr();
-    ame_send_resp_data(cookie, 1024, true);
+    ame_send_resp_data(cookie, len, true);
 
     fds_assert(ame_ctx != NULL);
     ame_ctx->ame_notify_handler();
+    fds_stat_record(STAT_NGX,
+                    STAT_NGX_GET_FDSN_RET, ame_clk_fdsn, fds_rdtsc());
 }
 
 // ---------------------------------------------------------------------------

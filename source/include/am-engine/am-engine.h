@@ -4,7 +4,6 @@
 #ifndef INCLUDE_AM_ENGINE_H_
 #define INCLUDE_AM_ENGINE_H_
 
-#include <time.h>
 #include <fds_module.h>
 #include <fds_request.h>
 #include <string>
@@ -198,9 +197,9 @@ class AME_Request : public fdsio::Request
   public:
     // Clock time to record perf stat.
     int                      ame_stat_pt;
-    clock_t                  ame_clk_all;
-    clock_t                  ame_clk_fdsn;
-    clock_t                  ame_clk_fdsn_cb;
+    fds_uint64_t             ame_clk_all;
+    fds_uint64_t             ame_clk_fdsn;
+    fds_uint64_t             ame_clk_fdsn_cb;
 
     static int ame_map_fdsn_status(FDSN_Status status);
 

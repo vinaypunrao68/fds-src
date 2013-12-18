@@ -260,8 +260,10 @@ AME_Request::AME_Request(AMEngine *eng, AME_HttpReq *req)
     : fdsio::Request(true), ame(eng), ame_req(req),
       ame_http(req), ame_finalize(false)
 {
-    ame_clk_all = clock();
-    ame_stat_pt = STAT_NGX_DEFAULT;
+    ame_clk_all     = fds_rdtsc();
+    ame_stat_pt     = STAT_NGX_DEFAULT;
+    ame_clk_fdsn    = 0;
+    ame_clk_fdsn_cb = 0;
 
     ame_resp_status = 500;
     eng->ame_get_queue()->rq_enqueue(this, 0);
@@ -270,7 +272,7 @@ AME_Request::AME_Request(AMEngine *eng, AME_HttpReq *req)
 AME_Request::~AME_Request()
 {
     req_complete();
-    fds_stat_record(STAT_NGX, ame_stat_pt, ame_clk_all, clock());
+    fds_stat_record(STAT_NGX, ame_stat_pt, ame_clk_all, fds_rdtsc());
 }
 
 // ame_add_context
@@ -496,7 +498,7 @@ fdsn_getobj_cbfn(void *req, fds_uint64_t bufsize,
     AME_Ctx        *ctx = (AME_Ctx *)req;
     Conn_GetObject *conn_go = (Conn_GetObject *)cbData;
 
-    conn_go->ame_clk_fdsn_cb = clock();
+    conn_go->ame_clk_fdsn_cb = fds_rdtsc();
     fds_stat_record(STAT_NGX, STAT_NGX_GET_FDSN_CB,
                     conn_go->ame_clk_fdsn, conn_go->ame_clk_fdsn_cb);
 
@@ -515,7 +517,8 @@ Conn_GetObject::ame_request_resume()
     char      *adr;
     ame_buf_t *buf;
 
-    fds_stat_record(STAT_NGX, STAT_NGX_GET_RESUME, ame_clk_fdsn_cb, clock());
+    fds_stat_record(STAT_NGX,
+                    STAT_NGX_GET_RESUME, ame_clk_fdsn_cb, fds_rdtsc());
     adr = ame_ctx->ame_curr_output_buf(&buf, &len);
     len = ame_ctx->ame_temp_len;
 
@@ -546,19 +549,20 @@ Conn_GetObject::ame_request_handler()
     buf = ame_ctx->ame_alloc_buf(buf_req_len, &adr, &len);
     ame_ctx->ame_push_output_buf(buf);
     if (get_bucket_id() == "stat") {
-        len = gl_fds_stat.stat_out(STAT_NGX, adr, len);
+        len = gl_fds_stat.stat_out(STAT_MAX_MODS, adr, len);
         ame_ctx->ame_update_output_buf(len);
         ame_signal_resume(200);
         return;
     }
-    ame_clk_fdsn = clock();
+    ame_clk_fdsn = fds_rdtsc();
     fds_stat_record(STAT_NGX, STAT_NGX_GET_FDSN, ame_clk_all, ame_clk_fdsn);
 
     api = ame->ame_fds_hook();
     api->GetObject(&bucket_ctx, get_object_id(), NULL, 0, len, adr, len,
         (void *)ame_ctx, fdsn_getobj_cbfn, (void *)this);
 
-    fds_stat_record(STAT_NGX, STAT_NGX_GET_FDSN_RET, ame_clk_fdsn_cb, clock());
+    fds_stat_record(STAT_NGX,
+                    STAT_NGX_GET_FDSN_RET, ame_clk_fdsn, fds_rdtsc());
 }
 
 // ---------------------------------------------------------------------------

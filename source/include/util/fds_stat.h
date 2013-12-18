@@ -36,9 +36,10 @@ class StatRec
     int                      stat_hist_cnt;
     int                      stat_hist_idx;
     int                      stat_reqs;
+    int                      stat_cpu_switch;
     int                     *stat_req_hist;
     int                      stat_histgram[STAT_HISTGRAM];
-    clock_t                  stat_prev_period;
+    fds_uint64_t             stat_prev_period;
 };
 
 class StatMod
@@ -70,21 +71,53 @@ class StatModule : public Module
 
     void stat_set_hist(stat_mod_e mod, int seclong);
     void stat_sampling();
-    void stat_record(stat_mod_e mod, int point, clock_t start, clock_t end);
+    void stat_record(stat_mod_e mod, int pt, fds_uint64_t start, fds_uint64_t);
 
     inline void stat_enable(fds_bool_t enable) {
         stat_on = enable;
+    }
+    inline int stat_tck_per_us() {
+        return stat_cpu_mhz;
     }
   private:
     int                      stat_cpu_mhz;
     StatMod                  stat_mod[STAT_MAX_MODS];
 
+    int  stat_rec_out(StatMod *stat, int point, char **buf, int *len);
     void stat_sampling_mod(stat_mod_e mod);
 };
 
 extern StatModule gl_fds_stat;
 
-//static inline volatile fds_uint64_t
+/*
+ * fds_tck_per_us
+ * --------------
+ * Return number of ticks per micro second.
+ */
+static inline int fds_tck_per_us()
+{
+    return gl_fds_stat.stat_tck_per_us();
+}
+
+/*
+ * fds_rdtsc
+ * ---------
+ * Return the current CPU's ticks.  Need to move this to arch dep header file.
+ */
+static inline volatile fds_uint64_t fds_rdtsc()
+{
+//    return (fds_uint64_t)clock();
+#ifdef __i386__
+    register fds_uint64_t tsc asm("eax");
+    asm volatile(".byte 15, 49" : : : "eax", "edx");
+    return tsc;
+#else
+    register fds_uint64_t hi, lo;
+
+    asm volatile("cpuid; rdtscp" : "=a"(lo), "=d"(hi));
+    return ((hi << 32) | lo);
+#endif
+}
 
 /*
  * fds_stat_record
@@ -92,9 +125,9 @@ extern StatModule gl_fds_stat;
  * Record the stat at the module and recording point.
  */
 static inline void
-fds_stat_record(stat_mod_e mod, int point, clock_t start, clock_t end)
+fds_stat_record(stat_mod_e mod, int point, fds_uint64_t start, fds_uint64_t end)
 {
-    if (gl_fds_stat.stat_on && (end >= start)) {
+    if (gl_fds_stat.stat_on) {
         gl_fds_stat.stat_record(mod, point, start, end);
     }
 }

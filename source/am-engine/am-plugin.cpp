@@ -2,6 +2,7 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 #include <sys/eventfd.h>
+#include <util/fds_stat.h>
 #include <am-engine/s3connector.h>
 #include <am-plugin.h>
 #include <am-engine/http_utils.h>
@@ -444,6 +445,10 @@ void
 AME_Ctx::ame_unregister_ctx()
 {
     ngx_close_connection(ame_connect);
+
+    if (ame_epoll_fd != 0) {
+        close(ame_epoll_fd);
+    }
     sgt_fds_data_cfg->fds_context->ame_put_ctx(this);
 }
 

@@ -20,19 +20,18 @@ bit_ones32(register unsigned int x)
 static inline int
 bit_hibit(unsigned int x)
 {
-    unsigned int num, i, hi, lo;
+    unsigned int num, i, hi;
     static const unsigned int shft[] = { 16, 8, 4, 2, 1, 0 },
                               mask[] = { 0xffff, 0xff, 0xf, 0x3, 0x1 };
 
     num = 0;
     for (i = 0; shft[i]; i++) {
         hi = x >> shft[i];
-        lo = x & mask[i];
         if (hi) {
             x = hi;
             num += shft[i];
         } else {
-            x = lo;
+            x = x & mask[i];
         }
     }
     return (num + x);

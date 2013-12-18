@@ -21,6 +21,7 @@ StatRec::StatRec()
     stat_reqs        = 0;
     stat_req_hist    = NULL;
     stat_prev_period = 0;
+    stat_cpu_switch  = 0;
     memset(stat_histgram, 0, sizeof(int) * STAT_HISTGRAM);
 }
 
@@ -65,6 +66,7 @@ StatModule::mod_init(SysParams const *const param)
         goto def;
     }
     len = read(fd, buf, buf_len);
+    close(fd);
     if (len <= 0) {
         goto def;
     }
@@ -76,15 +78,14 @@ StatModule::mod_init(SysParams const *const param)
                 goto def;
             }
             mhz = atof(p + 1);
-            stat_cpu_mhz = (int)mhz;
-            printf("cpu mhz %f, int %d\n", mhz, stat_cpu_mhz);
+            stat_cpu_mhz = (int)(mhz * 2);
             break;
         }
     }
     return 0;
 
 def:
-    stat_cpu_mhz = 2000;
+    stat_cpu_mhz = CLOCKS_PER_SEC;
     return 0;
 }
 
@@ -170,7 +171,10 @@ StatModule::stat_sampling()
 // -----------
 //
 void
-StatModule::stat_record(stat_mod_e mod, int point, clock_t start, clock_t end)
+StatModule::stat_record(stat_mod_e   mod,
+                        int          point,
+                        fds_uint64_t start,
+                        fds_uint64_t end)
 {
     int       dif, idx;
     StatRec  *rec;
@@ -178,11 +182,17 @@ StatModule::stat_record(stat_mod_e mod, int point, clock_t start, clock_t end)
 
     stat = &stat_mod[mod];
     rec  = &stat->stat_rec[point];
-    dif  = (int)(end - start) / CLOCKS_PER_USEC;
-    idx  = bit_hibit(dif);
-
-    // Don't care if we lost some updates here.
-    rec->stat_histgram[idx]++;
+    if (end >= start) {
+        dif  = (int)((end - start) / stat_cpu_mhz);
+        idx  = bit_hibit(dif);
+        if (idx != 0) {
+            idx--;
+        }
+        // Don't care if we lost some updates here.
+        rec->stat_histgram[idx]++;
+    } else {
+        rec->stat_cpu_switch++;
+    }
     rec->stat_reqs++;
     stat_sampling_mod(mod);
 }
@@ -239,44 +249,74 @@ static char const *const stat_time_fmt[] =
 int
 StatModule::stat_out(stat_mod_e mod, char *buf, int len)
 {
-    int             i, j, save, cnt, req_sum, off;
-    float           pct, pct_sum;
+    int             i, j, used;
     StatMod        *stat;
+
+    used = 0;
+    if (mod == STAT_MAX_MODS) {
+        for (i = 0; i < STAT_MAX_MODS; i++) {
+            stat = &stat_mod[i];
+            if (stat == NULL) {
+                continue;
+            }
+            for (j = 0; j < stat->stat_pts; j++) {
+                used += stat_rec_out(stat, j, &buf, &len);
+            }
+        }
+    } else {
+        stat = &stat_mod[mod];
+        for (i = 0; i < stat->stat_pts; i++) {
+            used += stat_rec_out(stat, i, &buf, &len);
+        }
+    }
+    return used;
+}
+
+// stat_rec_out
+// ------------
+//
+int
+StatModule::stat_rec_out(StatMod *stat, int point, char **buf, int *len)
+{
+    int             i, save, cnt, req_sum, off;
+    float           pct, pct_sum;
     StatRec        *rec;
     stat_decode_t  *dcode;
 
-    save = len;
-    stat = &stat_mod[mod];
-    for (i = 0; i < stat->stat_pts; i++) {
-        rec = stat->stat_rec + i;
-        off = snprintf(buf, len, "\n<<<<<<  [  %s  ] >>>>>>\n",
-                       stat->stat_decode[i].stat_name);
-        len -= off;
-        buf += off;
+    req_sum = 0;
+    pct_sum = 0;
+    save    = *len;
+    rec     = stat->stat_rec + point;
 
-        req_sum = 0;
-        pct_sum = 0;
-        for (j = 0; j < STAT_HISTGRAM; j++) {
-            req_sum += rec->stat_histgram[j];
-        }
-        for (j = 0; j < STAT_HISTGRAM; j++) {
-            cnt = rec->stat_histgram[j];
-            if (cnt == 0) {
-                continue;
-            }
-            pct = (cnt * 100) / req_sum;
-            pct_sum += pct;
-            off = snprintf(buf, len, "%6.2f%% %s %6u\n",
-                           pct, stat_time_fmt[j], cnt);
-            len -= off;
-            buf += off;
-        }
-        off = snprintf(buf, len, "%6.2f%%            Total   :  %6u\n",
-                       pct_sum, req_sum);
-        len -= off;
-        buf += off;
+    for (i = 0; i < STAT_HISTGRAM; i++) {
+        req_sum += rec->stat_histgram[i];
     }
-    return (save - len);
+    if (req_sum == 0) {
+        return 0;
+    }
+    off = snprintf(*buf, *len, "\n<<<<<<[  %s  ]>>>>>>\n",
+                   stat->stat_decode[point].stat_name);
+    *len -= off;
+    *buf += off;
+
+    for (i = 0; i < STAT_HISTGRAM; i++) {
+        cnt = rec->stat_histgram[i];
+        if (cnt == 0) {
+            continue;
+        }
+        pct = (cnt * 100) / req_sum;
+        pct_sum += pct;
+        off = snprintf(*buf, *len, "%6.2f%% %s %6u\n",
+                       pct, stat_time_fmt[i], cnt);
+        *len -= off;
+        *buf += off;
+    }
+    off = snprintf(*buf, *len,
+                   "%6.2f%%            Total   :  %6u   cpu switch: %d\n",
+                   pct_sum, req_sum, rec->stat_cpu_switch);
+    *len -= off;
+    *buf += off;
+    return (save - *len);
 }
 
 } // namespace fds
