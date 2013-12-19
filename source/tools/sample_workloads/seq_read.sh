@@ -16,9 +16,9 @@ NAME=${FNAME%.*}
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PHAROS_DIR=$(dirname $SCRIPTDIR)/pharos
 
-runtime=240        # number of IOs generator will produce ( positive number means length of experiment in seconds) 
+runtime=480        # number of IOs generator will produce ( positive number means length of experiment in seconds) 
 blocksize=4          # in KB
-outstand_count=40    # number of outstanding IOs from workload generator 
+outstand_count=60    # number of outstanding IOs from workload generator 
 access=s             # 'r' is random and 's' is sequential
 
 tracename=$RESULT_DIR/$PREFIX"__"$NAME"_vol"$VOLID".stat" # note .stat extension otherwise plotting scrip will ignore it
