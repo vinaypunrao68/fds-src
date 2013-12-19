@@ -227,7 +227,7 @@ ObjectStorMgrI::AssociateRespCallback(const Ice::Identity& ident, const std::str
 ObjectStorMgr::ObjectStorMgr() :
     runMode(NORMAL_MODE),
     numTestVols(10),
-    totalRate(500),
+    totalRate(2000),
     qosThrds(10),
     port_num(0),
     shuttingDown(false),

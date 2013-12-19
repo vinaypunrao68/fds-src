@@ -97,7 +97,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
                               << vol_uuid;
 
   VolumeMeta *vm = vol_meta_map[vol_uuid];
-  vm->dmVolQueue = new FDS_VolumeQueue(4096, vdesc->iops_max, vdesc->iops_min, vdesc->relativePrio);
+  vm->dmVolQueue = new FDS_VolumeQueue(4096, vdesc->iops_max, 2*vdesc->iops_min, vdesc->relativePrio);
   vm->dmVolQueue->activate();
   dataMgr->qosCtrl->registerVolume(vol_uuid, dynamic_cast<FDS_VolumeQueue*>(vm->dmVolQueue));
 
@@ -144,8 +144,8 @@ Error DataMgr::_process_mod_vol(fds_volid_t vol_uuid, const VolumeDesc& voldesc)
     return err;
   }
   VolumeMeta *vm = vol_meta_map[vol_uuid];
-  vm->vol_desc->modifyPolicyInfo(voldesc.iops_min, voldesc.iops_max, voldesc.relativePrio);
-  err = qosCtrl->modifyVolumeQosParams(vol_uuid, voldesc.iops_min, voldesc.iops_max, voldesc.relativePrio);
+  vm->vol_desc->modifyPolicyInfo(2*voldesc.iops_min, voldesc.iops_max, voldesc.relativePrio);
+  err = qosCtrl->modifyVolumeQosParams(vol_uuid, 2*voldesc.iops_min, voldesc.iops_max, voldesc.relativePrio);
   vol_map_mtx->unlock();
 
   FDS_PLOG_SEV(dataMgr->GetLog(), fds::fds_log::notification) << "Modify policy for volume "
@@ -378,7 +378,7 @@ DataMgr::DataMgr()
       use_om(true),
       numTestVols(10),
       runMode(NORMAL_MODE),
-      scheduleRate(5000),
+      scheduleRate(4000),
       num_threads(DM_TP_THREADS) {
   dm_log = new fds_log("dm", "logs");
   vol_map_mtx = new fds_mutex("Volume map mutex");

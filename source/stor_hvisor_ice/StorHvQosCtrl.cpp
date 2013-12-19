@@ -12,7 +12,7 @@ void StorHvQosCtrl::throttleCmdHandler(const float throttle_level) {
 StorHvQosCtrl::StorHvQosCtrl(uint32_t max_thrds, dispatchAlgoType algo, fds_log *log) 
   : FDS_QoSControl::FDS_QoSControl(max_thrds, algo, log, "SH") 
 {
-     total_rate = 3000;
+     total_rate = 2000;
      if ( dispatchAlgo == FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET) {
         htb_dispatcher = new QoSHTBDispatcher(this, qos_log, total_rate);
      }
