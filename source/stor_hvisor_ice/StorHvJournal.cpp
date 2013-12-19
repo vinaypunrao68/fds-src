@@ -289,16 +289,17 @@ fds_uint32_t StorHvJournal::get_trans_id_for_blob(const std::string& blobName,
   lock();
   try{
     trans_id = blob_to_jrnl_idx.at(blobName + ":" + std::to_string(blobOffset));
+    trans_in_progress = true;
+    unlock();
+    //    StorHvJournalEntryLock je_lock(&rwlog_tbl[trans_id]); 
     FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification) << "Comparing "
                                                                    << rwlog_tbl[trans_id].blobOffset
                                                                    << " and " << blobOffset
                                                                    << " and "
                                                                    << rwlog_tbl[trans_id].blobName
                                                                    << " and " << blobName;
-    fds_verify((rwlog_tbl[trans_id].blobOffset == blobOffset) &&
-               (rwlog_tbl[trans_id].blobName == blobName));
-    trans_in_progress = true;
-    unlock();
+    /*fds_verify((rwlog_tbl[trans_id].blobOffset == blobOffset) &&
+      (rwlog_tbl[trans_id].blobName == blobName));*/
   } catch (const std::out_of_range& err) {
     /*
      * Catching this exception is our indicaction that the
@@ -312,10 +313,10 @@ fds_uint32_t StorHvJournal::get_trans_id_for_blob(const std::string& blobName,
     rwlog_tbl[trans_id].blobName = blobName;
     rwlog_tbl[trans_id].blobOffset = blobOffset;
   }
-  FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification) << "Assigned trans id "
-                                                                 << trans_id << " for blob "
-                                                                 << blobName << " offset "
-                                                                 << blobOffset;
+  FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::normal) << "Assigned trans id "
+							   << trans_id << " for blob "
+							   << blobName << " offset "
+							   << blobOffset;
   return trans_id;
 }
 
@@ -360,7 +361,7 @@ void StorHvJournal::releaseTransId(unsigned int transId) {
 
   unlock();
   
-  FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification)
+  FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::normal)
       << "Released transaction id " << transId;
 }
 
