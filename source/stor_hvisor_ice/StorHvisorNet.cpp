@@ -1084,9 +1084,9 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
     fds_verify(endPoint != NULL);
 
     endPoint->fdspDPAPI->begin_PutObject(msgHdrSm, put_obj_req);
-    FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "For transaction " << transId
-                                                     << " sent async PUT_OBJ_REQ to SM ip "
-                                                     << node_ip << " port " << node_port;
+    FDS_PLOG_SEV(sh_log, fds::fds_log::normal) << "For transaction " << transId
+					       << " sent async PUT_OBJ_REQ to SM ip "
+					       << node_ip << " port " << node_port;
   }
 
   /*
@@ -1134,9 +1134,9 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
     fds_verify(endPoint != NULL);
 
     endPoint->fdspDPAPI->begin_UpdateCatalogObject(msgHdrDm, upd_obj_req);
-    FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "For transaction " << transId
-                                                     << " sent async UP_CAT_REQ to DM ip "
-                                                     << node_ip << " port " << node_port;
+    FDS_PLOG_SEV(sh_log, fds::fds_log::normal) << "For transaction " << transId
+					       << " sent async UP_CAT_REQ to DM ip "
+					       << node_ip << " port " << node_port;
   }
 
   // Schedule a timer here to track the responses and the original request
@@ -1177,10 +1177,10 @@ fds::Error StorHvCtrl::putObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
   result = txn->fds_set_smack_status(rxMsg->src_ip_lo_addr,
                                      rxMsg->src_port);
   fds_verify(result == 0);
-  FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "For transaction " << transId
-                                                   << " recvd PUT_OBJ_RESP from SM ip "
-                                                   << rxMsg->src_ip_lo_addr
-                                                   << " port " << rxMsg->src_port;
+  FDS_PLOG_SEV(sh_log, fds::fds_log::normal) << "For transaction " << transId
+					     << " recvd PUT_OBJ_RESP from SM ip "
+					     << rxMsg->src_ip_lo_addr
+					     << " port " << rxMsg->src_port;
   result = fds_move_wr_req_state_machine(rxMsg);
   fds_verify(result == 0);
 
@@ -1212,17 +1212,17 @@ fds::Error StorHvCtrl::upCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
     result = txn->fds_set_dmack_status(rxMsg->src_ip_lo_addr,
                                        rxMsg->src_port);
     fds_verify(result == 0);
-    FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "Recvd DM TXN_STATUS_OPEN RSP for transId "
-                                                     << transId  << " ip " << rxMsg->src_ip_lo_addr
-                                                     << " port " << rxMsg->src_port;
+    FDS_PLOG_SEV(sh_log, fds::fds_log::normal) << "Recvd DM TXN_STATUS_OPEN RSP for transId "
+					       << transId  << " ip " << rxMsg->src_ip_lo_addr
+					       << " port " << rxMsg->src_port;
   } else {
     fds_verify(catObjRsp->dm_operation == FDS_DMGR_TXN_STATUS_COMMITED);
     result = txn->fds_set_dm_commit_status(rxMsg->src_ip_lo_addr,
                                            rxMsg->src_port);
     fds_verify(result == 0);
-    FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "Recvd DM TXN_STATUS_COMMITED RSP for transId "
-                                                     << transId  << " ip " << rxMsg->src_ip_lo_addr
-                                                     << " port " << rxMsg->src_port;
+    FDS_PLOG_SEV(sh_log, fds::fds_log::normal) << "Recvd DM TXN_STATUS_COMMITED RSP for transId "
+					       << transId  << " ip " << rxMsg->src_ip_lo_addr
+					       << " port " << rxMsg->src_port;
   }  
   result = fds_move_wr_req_state_machine(rxMsg);
   fds_verify(result == 0);
@@ -1465,8 +1465,8 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
 
   // RPC getObject to StorMgr
   endPoint->fdspDPAPI->begin_GetObject(msgHdr, get_obj_req);
-  FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "For trans " << transId
-                                                   << " sent async GetObj req to SM";
+  FDS_PLOG_SEV(sh_log, fds::fds_log::normal) << "For trans " << transId
+					     << " sent async GetObj req to SM";
   
   // Schedule a timer here to track the responses and the original request
   IceUtil::Time interval = IceUtil::Time::seconds(FDS_IO_LONG_TIME);
