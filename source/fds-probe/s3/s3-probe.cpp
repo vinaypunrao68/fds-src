@@ -143,7 +143,7 @@ Probe_PutObject::ame_request_handler()
 
     // Hookup with the back-end probe adapter.
     vid   = 2;
-    s3eng = (ProbeS3Eng *)ame;
+    s3eng = static_cast<ProbeS3Eng *>(ame);
     probe = s3eng->probe_get_adapter();
     preq  = probe->pr_alloc_req(oid, 0, vid, 0, len, buf);
 
@@ -151,4 +151,4 @@ Probe_PutObject::ame_request_handler()
     s3eng->probe_get_thrpool()->schedule(probe_obj_write, probe, preq, this);
 }
 
-} // namespace fds
+}   // namespace fds

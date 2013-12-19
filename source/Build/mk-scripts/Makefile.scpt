@@ -171,6 +171,20 @@ endif
 endef
 
 # ----------------------------------------------------------------------------
+# Script to do cpp, hpp style check.
+#
+define scpt_check_style
+	@for f in $(3); do                                                       \
+		if [ "`basename $$f`" = "$(4)" ]; then                               \
+			echo " ...skipped!"; touch $(5);                                 \
+			exit 0;                                                          \
+		fi;                                                                  \
+	done;                                                                    \
+	echo "";                                                                 \
+    $(1) $(2) $(4) && touch $(5);
+endef
+
+# ----------------------------------------------------------------------------
 # Script to remove a file list
 # TODO: should find a better way to pass variables to the shell.
 #

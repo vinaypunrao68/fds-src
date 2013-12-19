@@ -1,7 +1,7 @@
 topdir            := ..
 user_target       := exe
 user_rtime_env    := user
-user_build_dir    := smlib policy unit-test
+user_build_dir    := smlib policy
 user_install_loc  := exe
 user_install      := config.server om_client.conf stor_mgr.conf stor_mgr.cfg
 
@@ -23,6 +23,7 @@ stor_mgr_cpp      := stormgr_main.cpp
 user_cpp          :=                   \
     $(stor_mgr_cpp)
 
+user_no_style     := $(user_cpp) $(user_cc)
 user_bin_exe      := StorMgr
 StorMgr           := $(stor_mgr_cpp)
 

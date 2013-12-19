@@ -13,6 +13,7 @@ user_non_fds_libs :=                                                          \
     Ice IceUtil IceStorm
 
 user_cpp          := odb_unit_test.cpp
+user_no_style     := $(user_cpp) $(user_cc)
 user_bin_exe      := odb_unit_test
 odb_unit_test     := odb_unit_test.cpp
 

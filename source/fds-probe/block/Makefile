@@ -6,6 +6,7 @@ user_incl_dir    := ../include /usr/include/fuse
 user_cpp         :=               \
     cuse_probe.cpp
 
+user_no_style    := $(user_cpp)
 user_ar_libs     := fds-probe-blk
 fds-probe-blk    := $(user_cpp)
 

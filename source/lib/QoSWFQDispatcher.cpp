@@ -58,7 +58,7 @@ namespace fds {
 	highest_credits = accumulated_credits;
       }
     }
-    FDS_PLOG(qda_log) << "Dispatcher: credit state: [" << credits_str << "]";
+    FDS_PLOG_SEV(qda_log, fds::fds_log::debug) << "Dispatcher: credit state: [" << credits_str << "]";
     return queue_with_highest_credits;
   }
 
@@ -109,7 +109,7 @@ namespace fds {
 
       if ((next_queue != 0) && (n_pios > 0)) {
 	inc_num_ios_dispatched(io_dispatch_type_rate);
-	FDS_PLOG(qda_log) << "Dispatcher: picking next rate based queue " << next_queue
+	FDS_PLOG_SEV(qda_log, fds::fds_log::debug) << "Dispatcher: picking next rate based queue " << next_queue
 			  << " for slot " << next_rate_based_spot-1
 	                  << "; current throttle state - ("
 			  << current_guaranteed_ios_rate << ":" << expected_guaranteed_ios_rate  << ", " 

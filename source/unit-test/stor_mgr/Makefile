@@ -25,6 +25,7 @@ user_cpp          :=                   \
     $(stor_mgr_probe)                  \
     $(s3_sm_probe)
 
+user_no_style     := $(user_cpp) $(user_cc)
 user_bin_exe      := StorMgrProbe s3-sm-probe
 StorMgrProbe      := $(stor_mgr_probe)
 s3-sm-probe       := $(s3_sm_probe)

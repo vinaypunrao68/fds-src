@@ -12,6 +12,8 @@
 #include "StorHvisorCPP.h"
 #include <hash/MurmurHash3.h>
 
+#define FDS_REPLICATION_FACTOR 2
+
 void *hvisor_hdl;
 StorHvCtrl *storHvisor;
 
@@ -1048,7 +1050,7 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
    * Get DLT node list.
    */
   unsigned char dltKey = objId.GetHigh() >> 56;  // TODO: Just pass the objId
-  fds_int32_t numNodes = 8;  // TODO: Why 8? Look up vol/blob repl factor
+  fds_int32_t numNodes = FDS_REPLICATION_FACTOR;  // TODO: Why 8? Look up vol/blob repl factor
   fds_int32_t nodeIds[numNodes];  // TODO: Doesn't need to be signed
   memset(nodeIds, 0x00, sizeof(fds_int32_t) * numNodes);
   dataPlacementTbl->getDLTNodesForDoidKey(dltKey, nodeIds, &numNodes);
@@ -1090,7 +1092,7 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
   /*
    * Setup DM messages
    */
-  numNodes = 8;  // TODO: Why 8? Use vol/blob repl factor
+  numNodes = FDS_REPLICATION_FACTOR;  // TODO: Why 8? Use vol/blob repl factor
   InitDmMsgHdr(msgHdrDm);
   upd_obj_req->blob_name = blobReq->getBlobName();
   upd_obj_req->dm_transaction_id  = 1;  // TODO: Don't hard code
@@ -1434,7 +1436,7 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
    * Look up primary SM from DLT entries
    */
   unsigned char dltKey = objId.GetHigh() >> 56;  // TODO: Just pass the objId
-  fds_int32_t numNodes = 8;  // TODO: Why 8? Look up vol/blob repl factor
+  fds_int32_t numNodes = FDS_REPLICATION_FACTOR;  // TODO: Why 8? Look up vol/blob repl factor
   fds_int32_t nodeIds[numNodes];  // TODO: Doesn't need to be signed
   dataPlacementTbl->getDLTNodesForDoidKey(dltKey, nodeIds, &numNodes);
   fds_verify(numNodes > 0);
@@ -1561,7 +1563,7 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   unsigned int node_ip = 0;
   fds_uint32_t node_port = 0;
   unsigned int doid_dlt_key=0;
-  int num_nodes = 8, i =0;
+  int num_nodes = FDS_REPLICATION_FACTOR, i =0;
   int node_ids[8];
   int node_state = -1;
   fds::Error err(ERR_OK);
@@ -1708,7 +1710,7 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   
   // RPC Call DeleteCatalogObject to DataMgr
   FDS_ProtocolInterface::FDSP_DeleteCatalogTypePtr del_cat_obj_req = new FDSP_DeleteCatalogType;
-  num_nodes = 8;
+  num_nodes = FDS_REPLICATION_FACTOR;
   FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr_dm = new FDSP_MsgHdrType;
   storHvisor->InitDmMsgHdr(fdsp_msg_hdr_dm);
   fdsp_msg_hdr_dm->msg_code = FDSP_MSG_DELETE_CAT_OBJ_REQ;
@@ -1823,7 +1825,7 @@ fds::Error StorHvCtrl::listBucket(fds::AmQosReq *qosReq) {
   /*
    * Setup msg header
    */
-  fds_int32_t num_nodes = 8;  // TODO: Why 8? Look up vol/blob repl factor
+  fds_int32_t num_nodes = FDS_REPLICATION_FACTOR;  // TODO: Why 8? Look up vol/blob repl factor
   fds_int32_t node_ids[num_nodes];  // TODO: Doesn't need to be signed
   memset(node_ids, 0x00, sizeof(fds_int32_t) * num_nodes);
 

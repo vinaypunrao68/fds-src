@@ -41,7 +41,7 @@ class AMEngine : public Module
         Module(name), eng_signal(), eng_etc("etc"),
         eng_logs("logs"), eng_conf("etc/fds.conf"),
         ame_queue(1, 1000) {
-        ame_log = new fds_log("ame", "logs");
+          // ame_log = new fds_log("ame", "logs");
     }
     ~AMEngine() {}
 
@@ -66,9 +66,9 @@ class AMEngine : public Module
     inline fdsio::RequestQueue *ame_get_queue() {
         return &ame_queue;
     }
-    inline fds_log *ame_get_log() {
-        return ame_log;
-    }
+    //inline fds_log *ame_get_log() {
+    //  return ame_log;
+    //}
 
   private:
     std::string              eng_signal;
@@ -77,7 +77,7 @@ class AMEngine : public Module
     char const *const        eng_conf;
     FDS_NativeAPI            *eng_api;
     fdsio::RequestQueue      ame_queue;
-    fds_log                  *ame_log;
+    // fds_log                  *ame_log;
 };
 
 // ---------------------------------------------------------------------------
@@ -247,9 +247,9 @@ class AME_Request : public fdsio::Request
     virtual int  ame_request_resume() = 0;
     virtual int  ame_format_response_hdr() = 0;
 
-    inline fds_log *ame_get_log() {
-        return ame->ame_get_log();
-    }
+    // inline fds_log *ame_get_log() {
+    // return ame->ame_get_log();
+    // }
 
   protected:
     friend class AME_Ctx;

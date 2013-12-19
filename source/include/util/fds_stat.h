@@ -5,8 +5,8 @@
 #define INCLUDE_UTIL_FDS_STAT_H_
 
 #include <time.h>
-#include <fds_module.h>
 #include <shared/fds_types.h>
+#include <fds_module.h>
 
 namespace fds {
 

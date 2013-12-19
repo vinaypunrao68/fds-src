@@ -5,6 +5,7 @@ user_build_dir   := hash
 user_cpp         := \
     PerfStatHist.cpp Log.cpp
 
+user_no_style    := $(user_cpp)
 user_ar_libs     := fds-util
 fds-util         := $(user_cpp)
 

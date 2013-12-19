@@ -8,6 +8,8 @@ user_build_dir :=      \
     persistent_layer   \
     umod-lib           \
     stor_hvisor_ice    \
-    util
+    util               \
+    data-mgr           \
+    stor-mgr
 
 include $(topdir)/Makefile.incl

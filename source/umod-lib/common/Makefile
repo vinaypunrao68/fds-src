@@ -7,6 +7,7 @@ user_cpp         := \
     fds_module.cpp \
     fds_stat.cpp
 
+user_no_style    := $(user_cpp)
 user_ar_libs     := fds-umod
 fds-umod         := $(user_cpp)
 

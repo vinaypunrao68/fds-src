@@ -9,6 +9,32 @@
       <script src="bootstrap-3.0.2/assets/js/html5shiv.js"></script>
       <script src="bootstrap-3.0.2/assets/js/respond.min.js"></script>
     <![endif]-->
+		<link type="text/css" rel="stylesheet" href="http://code.shutterstock.com/rickshaw/src/css/graph.css">
+		<link type="text/css" rel="stylesheet" href="http://code.shutterstock.com/rickshaw/src/css/detail.css">
+		<link type="text/css" rel="stylesheet" href="http://code.shutterstock.com/rickshaw/src/css/legend.css">
+		<link type="text/css" rel="stylesheet" href="http://code.shutterstock.com/rickshaw/examples/css/extensions.css">
+		<style>
+			#chart_container {
+				position: relative;
+				display: inline-block;
+				font-family: Arial, Helvetica, sans-serif;
+			}
+			#chart {
+				display: inline-block;
+				margin-left: 40px;
+			}
+			#y_axis {
+				position: absolute;
+				top: 0;
+				bottom: 0;
+				width: 40px;
+			}
+			#legend {
+				display: inline-block;
+				vertical-align: top;
+				margin: 0 0 0 10px;
+			}
+		</style>    
    </head>
 
 <body>
@@ -50,17 +76,42 @@
 </div>
 <div id="main_frame" class="row">
  <div class="row" id="stats_container">
-   <div class="col-md-3"> </div> 
+   <div class="col-md-2"> </div> 
    <div class="col-md-8" id="stats_region" align="center">
      <div class="row" style="height:10px"> </div>
      <div class="row" id="stats_box"
       align="center" height="210px">
       <br>
      </div>
+     <div id="chart_div"> </div>
      <div class="row" height="10px"> <br> </div>
   </div>
   <div class="col-md-2"> </div>
  </div>
+
+ <div class="row" id="stats_container2">
+   <div class="col-md-2"> </div> 
+   <div class="col-md-8" id="stats_region2" align="center">
+     <div class="row" style="height:10px"> </div>
+     <div class="row" id="stats_box2"
+      align="center" height="210px">
+      <br>
+     </div>
+     <div id="chart_container">
+          <div id="y_axis"></div>
+          <div id="chart"></div>
+          <div id="legend"></div>
+     </div>
+     <div class="row" height="10px"> <br> </div>
+  </div>
+  <div class="col-md-2"> </div>
+ </div>
+
+ <!-- <div id="chart_container">
+ 	<div id="y_axis"></div>
+ 	<div id="chart"></div>
+ 	<div id="legend"></div>
+ </div> --> 
  <div class="row" style="height:20px"> </div>
 </div>
 
@@ -68,9 +119,44 @@
 <script type='text/javascript' src="http://code.jquery.com/jquery.js"></script>
 <!-- Include all compiled plugins (below), or include individual files as needed -->
 <script type='text/javascript' src="/static/photonix/bootstrap-3.0.2/dist/js/bootstrap.js"></script>
+<script type="text/javascript" src="https://www.google.com/jsapi"></script>
+
+<script src="http://code.shutterstock.com/rickshaw/vendor/d3.v3.js"></script>
+<script src="http://code.shutterstock.com/rickshaw/rickshaw.js"></script>
+
+
 <script>
 
-var stats_url = "http://10.1.10.16:8000";
+var stats_url = "http://10.1.10.15:8000";
+
+google.load("visualization", "1", {packages:["corechart"]});
+google.setOnLoadCallback(initChart);
+
+var perf_data;
+var chart_options;
+var perf_chart;
+
+var vol_id_to_chart_idx = {};
+var next_chart_idx = 1;
+
+function initChart() {
+
+   perf_data = [
+          ['Volume', 'RQPS'],
+          ];
+
+   chart_options = {
+          title: 'Volume Performance',
+          vAxis: {title: 'Volume',  titleTextStyle: {color: 'red'}},
+          hAxis: {minValue: 0, maxValue:400},
+          animation: {duartion: 1000, easing: 'in'}
+   };
+
+   var chart_data = google.visualization.arrayToDataTable(perf_data); 
+   perf_chart = new google.visualization.BarChart(document.getElementById('chart_div'));
+   perf_chart.draw(chart_data, chart_options);
+}
+
 
 function update_stats(data) {
     stats_obj = JSON.parse(data);
@@ -78,44 +164,94 @@ function update_stats(data) {
     for (var i = 0; i < stats_obj.volumes.length; i++) {
       var vol = stats_obj.volumes[i];
       var vol_id = vol.id;
-      var vol_perf = vol.performance + 1;
-      var vol_row = $("#stats_vol_" + vol_id + "_row");
-      if (vol_row.length <= 0) {
-        var stats_html = "<div class=\"row\" id=\"stats_vol_" + vol_id + "_row\">";
-        stats_html += "<div class=\"col-md-3\" align=\"right\">" +  vol_id + ":</div>";
-	stats_html += "<div class=\"col-md-4\" align=\"left\">";
-        stats_html += "<canvas id=\"stats_vol_" + vol_id + "_bar\" width=\"200px\" height=\"5px\" style=\"border:1px solid #c3c3c3;\" float=\"left\"> </canvas>";  
-	stats_html += "</div>";
-        stats_html += "<div class=\"col-md-1\" id=\"stats_vol_" + vol_id + "_val\" float=\"left\"> 0 </div>";
-        //        console.log("html string " + stats_html);
-        $("#stats_box").append(stats_html);
+      var vol_perf = vol.performance;
+
+      if (!(vol_id in vol_id_to_chart_idx)) {
+         vol_id_to_chart_idx[vol_id] = next_chart_idx;
+	 perf_data[next_chart_idx] = [vol_id, 0];		
+         next_chart_idx++;
       }
-      var vol_bar = document.getElementById("stats_vol_" + vol_id + "_bar");
-      var ctx = vol_bar.getContext("2d");
-      ctx.fillStyle="#00FF00";
-      ctx.fillRect(0,0,vol_perf*20,5);
-      $("#stats_vol_" + vol_id + "_val").text(vol_perf*32);        
-    }
+      var vol_idx = vol_id_to_chart_idx[vol_id];
+      var vol_perf_data = perf_data[vol_idx];
+      vol_perf_data[1] = vol_perf*20;
+
+   }
+
+   var chart_data = google.visualization.arrayToDataTable(perf_data); 
+   perf_chart.draw(chart_data, chart_options);
 
 }
+
+var tv = 2000;
+    // instantiate our graph!
+var graph = new Rickshaw.Graph({
+      element : document.getElementById("chart"),
+      width : 600,
+      height : 300,
+      renderer : 'line',
+      series : new Rickshaw.Series.FixedDuration([{
+        name : 'volume2'
+      }, {
+        name : 'volume3'
+      }, {
+        name : 'volume4'
+      }, {
+        name : 'volume5'
+      }, {
+        name : 'volume6'
+      }], undefined, {
+        timeInterval : tv,
+        maxDataPoints : 100,
+        timeBase : new Date().getTime() / 1000
+      })
+    });
+
+var x_axis = new Rickshaw.Graph.Axis.Time({
+      graph : graph
+    });
+
+var y_axis = new Rickshaw.Graph.Axis.Y({
+      graph : graph,
+      orientation : 'left',
+      tickFormat : Rickshaw.Fixtures.Number.formatKMBT,
+      element : document.getElementById('y_axis'),
+    });
+
+var hoverDetail = new Rickshaw.Graph.HoverDetail({
+      graph : graph
+    });
+
+var legend = new Rickshaw.Graph.Legend({
+      element : document.querySelector('#legend'
+  ), graph : graph
+  });
 
 function get_stats() {
+    $.get(stats_url, function(get_data, status) {
+      console.log("data: " + get_data);
+      var stats = JSON.parse(get_data);
+      var data = {};
+      for (var i = 0; i < stats.volumes.length; i++) {
+        data[stats.volumes[i].id] = stats.volumes[i].performance;
+        //data[stats.volumes[i].id] = Math.random() * 100;
+      }
 
-   var current_time = new Date().getTime();   
+      graph.series.addData(data);
+      graph.render();
 
-   $.get(stats_url + "?time=" + current_time, function(data, status) {
-       console.log("Get stats status: " + status + ", data - " + data);
-       update_stats(data);
-       setTimeout(get_stats, 1000);
-     });
+      update_stats(get_data);
+    });
+  }
+/* get_stats timer */
+var iv = setInterval(get_stats, tv);
 
-}
+$(document).ready(function() {
+      $.ajaxSetup({
+        cache : false
+      });     
+      get_stats();
 
-$(document).ready(function(){
-  $.ajaxSetup({cache: false});
-  get_stats();
-
-});
+    }); 
 </script>
 </body>
 </html>

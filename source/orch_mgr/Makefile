@@ -25,6 +25,7 @@ orch_mgr_cpp      :=                   \
 user_cpp          :=                   \
     $(orch_mgr_cpp)
 
+user_no_style     := $(user_cpp) $(user_cc)
 user_bin_exe      := orchMgr
 orchMgr           := $(orch_mgr_cpp)
 

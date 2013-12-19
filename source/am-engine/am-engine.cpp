@@ -3,26 +3,28 @@
  */
 #include <am-engine/am-engine.h>
 #include <am-engine/http_utils.h>
-#include <util/fds_stat.h>
-#include <am-plugin.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 
 extern "C" {
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_http.h>
-} // extern "C"
+}   // extern "C"
 
-#include <iostream>
-#include <boost/program_options.hpp>
-#include <boost/program_options/parsers.hpp>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <shared/fds_types.h>
 #include <fds_assert.h>
-#include <native_api.h>
+
+#include <boost/program_options.hpp>
+#include <boost/program_options/parsers.hpp>
+#include <string>
+#include <iostream>
+
+#include <util/fds_stat.h>
 #include <am-plugin.h>
+#include <native_api.h>
 
 namespace fds {
 
@@ -93,7 +95,6 @@ static char const *nginx_signal_argv[] =
 int
 AMEngine::mod_init(SysParams const *const p)
 {
-    using namespace std;
     namespace po = boost::program_options;
 
     Module::mod_init(p);
@@ -109,13 +110,13 @@ AMEngine::mod_init(SysParams const *const p)
             options(desc).allow_unregistered().run(), vm);
     po::notify(vm);
     if (vm.count("help")) {
-        cout << desc << endl;
+        std::cout << desc << std::endl;
         return 1;
     }
     if (vm.count("signal")) {
         if ((eng_signal != "stop") && (eng_signal != "quit") &&
             (eng_signal != "reopen") && (eng_signal != "reload")) {
-            cout << "Expect --signal stop|quit|reopen|reload" << endl;
+            std::cout << "Expect --signal stop|quit|reopen|reload" << std::endl;
             return 1;
         }
     }
@@ -158,10 +159,8 @@ make_nginx_dir(char const *const path)
 void
 AMEngine::run_server(FDS_NativeAPI *api)
 {
-    using namespace std;
-    const string *fds_root;
-    char          path[NGINX_ARG_PARAM];
-
+    const std::string *fds_root;
+    char path[NGINX_ARG_PARAM];
 
     eng_api = api;
     fds_root = &mod_params->fds_root;
@@ -192,11 +191,11 @@ AMEngine::mod_shutdown()
 }
 
 Conn_PutBucketParams *AMEngine::ame_putbucketparams_hdler(AME_HttpReq *req) {
-  return new Conn_PutBucketParams(this, req);
+    return new Conn_PutBucketParams(this, req);
 }
 
 Conn_GetBucketStats *AMEngine::ame_getbucketstats_hdler(AME_HttpReq *req) {
-  return new Conn_GetBucketStats(this, req);
+    return new Conn_GetBucketStats(this, req);
 }
 
 // ---------------------------------------------------------------------------
@@ -242,18 +241,17 @@ ame_keytab_t sgt_AMEKey[] =
     { { "volumes" },             0, RESP_STATS_VOLS },
     { { "id" },                  0, RESP_STATS_ID },
 
-
-   { { nullptr },               0, AME_HDR_KEY_MAX }
+    { { nullptr },               0, AME_HDR_KEY_MAX }
 };
 
 int AME_Request::ame_map_fdsn_status(FDSN_Status status)
 {
-  if (status == FDSN_StatusOK) {
-    return NGX_HTTP_OK;
-  } else {
-    // todo: do better mapping.  Log the error
-    return NGX_HTTP_INTERNAL_SERVER_ERROR;
-  }
+    if (status == FDSN_StatusOK) {
+        return NGX_HTTP_OK;
+    } else {
+        // todo: do better mapping.  Log the error
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
 }
 
 AME_Request::AME_Request(AMEngine *eng, AME_HttpReq *req)
@@ -314,7 +312,7 @@ AME_Request::ame_reqt_iter_reset()
 int
 AME_Request::ame_reqt_iter_next()
 {
-  // todo: rao implement this to the post/put client buffer
+    // todo: rao implement this to the post/put client buffer
     return NGX_OK;
 }
 
@@ -336,7 +334,7 @@ AME_Request::ame_reqt_iter_data(int *len)
     copy_len = 0;
     data_len = ame_req->headers_in.content_length_n;
 
-    data = (char *)ngx_palloc(ame_req->pool, data_len);
+    data = static_cast<char *>(ngx_palloc(ame_req->pool, data_len));
     fds_verify(data != NULL);
 
     do {
@@ -364,13 +362,13 @@ AME_Request::ame_set_resp_keyval(char *k, int klen, char *v, int vlen)
     ngx_http_request_t *r;
 
     r = ame_req;
-    h = (ngx_table_elt_t *)ngx_list_push(&r->headers_out.headers);
+    h = static_cast<ngx_table_elt_t *>(ngx_list_push(&r->headers_out.headers));
 
     h->key.len    = klen;
-    h->key.data   = (u_char *)k;
+    h->key.data   = reinterpret_cast<u_char *>(k);
     h->hash       = ngx_hash_key_lc(h->key.data, h->key.len);
     h->value.len  = vlen;
-    h->value.data = (u_char *)v;
+    h->value.data = reinterpret_cast<u_char *>(v);
 
     return NGX_OK;
 }
@@ -467,7 +465,7 @@ AME_Request::ame_send_resp_data(ame_buf_t *buf, int len, fds_bool_t last)
 void
 AME_Request::ame_finalize_request(int status)
 {
-    // TODO: map status back to NGX_ rc error code.
+    // TODO(rao): map status back to NGX_ rc error code.
     ngx_http_finalize_request(ame_req, status);
 
     // Will free this object and its context.
@@ -495,12 +493,17 @@ fdsn_getobj_cbfn(void *req, fds_uint64_t bufsize,
                  const char *buf, void *cbData,
                  FDSN_Status status, ErrorDetails *errdetails)
 {
-    AME_Ctx        *ctx = (AME_Ctx *)req;
-    Conn_GetObject *conn_go = (Conn_GetObject *)cbData;
+    AME_Ctx        *ctx = static_cast<AME_Ctx *>(req);
+    Conn_GetObject *conn_go = static_cast<Conn_GetObject *>(cbData);
 
     conn_go->ame_clk_fdsn_cb = fds_rdtsc();
     fds_stat_record(STAT_NGX, STAT_NGX_GET_FDSN_CB,
                     conn_go->ame_clk_fdsn, conn_go->ame_clk_fdsn_cb);
+
+    // FDS_PLOG(conn_go->ame_get_log()) << "GetObject bucket: "
+    // << conn_go->get_bucket_id() << " , object: "
+    //  << conn_go->get_object_id() << " , len: "
+    //  << bufsize << ", status: " << status;
 
     ctx->ame_update_output_buf(bufsize);
     conn_go->ame_signal_resume(AME_Request::ame_map_fdsn_status(status));
@@ -539,7 +542,7 @@ Conn_GetObject::ame_request_resume()
 void
 Conn_GetObject::ame_request_handler()
 {
-    static int buf_req_len = (6 << 20); // 6MB
+    static int buf_req_len = (6 << 20);   // 6MB
     int           len;
     char          *adr;
     ame_buf_t     *buf;
@@ -559,7 +562,8 @@ Conn_GetObject::ame_request_handler()
 
     api = ame->ame_fds_hook();
     api->GetObject(&bucket_ctx, get_object_id(), NULL, 0, len, adr, len,
-        (void *)ame_ctx, fdsn_getobj_cbfn, (void *)this);
+            static_cast<void *>(ame_ctx), fdsn_getobj_cbfn,
+            static_cast<void *>(this));
 
     fds_stat_record(STAT_NGX,
                     STAT_NGX_GET_FDSN_RET, ame_clk_fdsn, fds_rdtsc());
@@ -586,8 +590,8 @@ static int
 fdsn_putobj_cbfn(void *reqContext, fds_uint64_t bufferSize, char *buffer,
     void *callbackData, FDSN_Status status, ErrorDetails* errDetails)
 {
-    AME_Ctx        *ctx = (AME_Ctx *)reqContext;
-    Conn_PutObject *conn_po = (Conn_PutObject*)callbackData;
+    AME_Ctx        *ctx = static_cast<AME_Ctx *>(reqContext);
+    Conn_PutObject *conn_po = static_cast<Conn_PutObject *>(callbackData);
 
     ctx->ame_update_input_buf(bufferSize);
     conn_po->ame_signal_resume(AME_Request::ame_map_fdsn_status(status));
@@ -614,8 +618,8 @@ Conn_PutObject::ame_request_resume()
     //
     len = ame_ctx->ame_temp_len;
     ame_etag = "\"" + HttpUtils::computeEtag(ame_ctx->ame_temp_buf, len) + "\"";
-    FDS_PLOG(ame_get_log()) << "PutObject bucket: " << get_bucket_id()
-        << " , object: " << get_object_id();
+    // FDS_PLOG(ame_get_log()) << "PutObject bucket: " << get_bucket_id()
+    // << " , object: " << get_object_id();
 
     // Temp. code.  We need to have a proper buffer chunking model here.
     if (ame_ctx->ame_temp_buf != NULL) {
@@ -642,8 +646,9 @@ Conn_PutObject::ame_request_handler()
         return;
     }
     api = ame->ame_fds_hook();
-    api->PutObject(&bucket_ctx, get_object_id(), NULL, (void *)ame_ctx,
-                   buf, len, fdsn_putobj_cbfn, (void *)this);
+    api->PutObject(&bucket_ctx, get_object_id(), NULL,
+                   static_cast<void *>(ame_ctx), buf, len,
+                   fdsn_putobj_cbfn, static_cast<void *>(this));
 }
 
 // ---------------------------------------------------------------------------
@@ -665,7 +670,7 @@ Conn_DelObject::~Conn_DelObject()
 static void
 fdsn_delobj_cbfn(FDSN_Status status, const ErrorDetails *err, void *arg)
 {
-    Conn_DelObject *conn_do = (Conn_DelObject *)arg;
+    Conn_DelObject *conn_do = static_cast<Conn_DelObject *>(arg);
     conn_do->ame_signal_resume(AME_Request::ame_map_fdsn_status(status));
 }
 
@@ -713,7 +718,7 @@ Conn_PutBucket::~Conn_PutBucket()
 static void
 fdsn_putbucket_cbfn(FDSN_Status status, const ErrorDetails *err, void *arg)
 {
-    Conn_PutBucket *conn_pb = (Conn_PutBucket *)arg;
+    Conn_PutBucket *conn_pb = static_cast<Conn_PutBucket *>(arg);
     conn_pb->ame_signal_resume(AME_Request::ame_map_fdsn_status(status));
 }
 
@@ -763,7 +768,7 @@ fdsn_getbucket_cbfn(int isTruncated, const char *nextMarker, int contentCount,
         const ListBucketContents *contents, int commPrefixCnt,
         const char **commPrefixes, void *cbarg, FDSN_Status status)
 {
-    Conn_GetBucket *gbucket = (Conn_GetBucket *)cbarg;
+    Conn_GetBucket *gbucket = static_cast<Conn_GetBucket *>(cbarg);
 
     if (status != FDSN_StatusOK) {
         gbucket->ame_signal_resume(AME_Request::ame_map_fdsn_status(status));
@@ -788,7 +793,7 @@ Conn_GetBucket::ame_fmt_resp_data(int is_truncated, const char *next_marker,
     char      *cur;
     ame_buf_t *buf;
 
-    buf = ame_ctx->ame_alloc_buf(NGX_RESP_CHUNK_SIZE*4, &cur, &got);
+    buf = ame_ctx->ame_alloc_buf(NGX_RESP_CHUNK_SIZE*64, &cur, &got);
     ame_ctx->ame_push_output_buf(buf);
 
     // Format the header to send out.
@@ -917,7 +922,7 @@ Conn_GetBucket::ame_request_handler()
 
     api = ame->ame_fds_hook();
     api->GetBucket(&bucket_ctx, prefix, marker, deli, 1000, NULL,
-                   fdsn_getbucket_cbfn, (void *)this);
+                   fdsn_getbucket_cbfn, static_cast<void *>(this));
 }
 
 // ---------------------------------------------------------------------------
@@ -942,7 +947,9 @@ fdsn_putbucket_param_cb(FDSN_Status status,
                         const ErrorDetails *errorDetails,
                         void *callbackData)
 {
-    Conn_PutBucketParams *conn_pbp = (Conn_PutBucketParams *)callbackData;
+    Conn_PutBucketParams *conn_pbp;
+
+    conn_pbp = static_cast<Conn_PutBucketParams *>(callbackData);
     conn_pbp->ame_signal_resume(AME_Request::ame_map_fdsn_status(status));
 }
 
@@ -1000,8 +1007,8 @@ Conn_PutBucketParams::ame_request_handler()
         QosParams qos_params(iops_min, iops_max, relative_prio);
 
         api = ame->ame_fds_hook();
-        api->ModifyBucket(&bucket_ctx, qos_params,
-                           NULL, fdsn_putbucket_param_cb, (void *)this);
+        api->ModifyBucket(&bucket_ctx, qos_params, NULL,
+                          fdsn_putbucket_param_cb, static_cast<void *>(this));
     }
 }
 
@@ -1030,7 +1037,7 @@ Conn_DelBucket::~Conn_DelBucket()
 static void
 fdsn_delbucket_cbfn(FDSN_Status status, const ErrorDetails *err, void *arg)
 {
-    Conn_DelBucket *conn_pb = (Conn_DelBucket *)arg;
+    Conn_DelBucket *conn_pb = static_cast<Conn_DelBucket *>(arg);
     conn_pb->ame_signal_resume(AME_Request::ame_map_fdsn_status(status));
 }
 
@@ -1076,15 +1083,16 @@ Conn_GetBucketStats::~Conn_GetBucketStats()
 //
 static void
 fdsn_getbucket_stat_cb(const std::string& timestamp,
-					 int content_count,
-					 const BucketStatsContent* contents,
-					 void *req_context,
-					 void *callback_data,
-					 FDSN_Status status,
-					 ErrorDetails *err_details)
+                       int content_count,
+                       const BucketStatsContent* contents,
+                       void *req_context,
+                       void *callback_data,
+                       FDSN_Status status,
+                       ErrorDetails *err_details)
 {
-    Conn_GetBucketStats *gbstats = (Conn_GetBucketStats *)callback_data;
+    Conn_GetBucketStats *gbstats;
 
+    gbstats = static_cast<Conn_GetBucketStats *>(callback_data);
     if (status != FDSN_StatusOK) {
         gbstats->ame_signal_resume(AME_Request::ame_map_fdsn_status(status));
         return;
@@ -1112,13 +1120,13 @@ Conn_GetBucketStats::ame_fmt_resp_data(const std::string &timestamp,
     // Format the header to send out.
     sent = 0;
     used = snprintf(cur, got,
-		    "{\n"
-		    "\"%s\": \"%s\",\n"
-		    "\"%s\":\n"
-		    "  [\n",
-		    sgt_AMEKey[RESP_STATS_TIME].u.kv_key,
-		    timestamp.c_str(),
-		    sgt_AMEKey[RESP_STATS_VOLS].u.kv_key);
+            "{\n"
+            "\"%s\": \"%s\",\n"
+            "\"%s\":\n"
+            "  [\n",
+            sgt_AMEKey[RESP_STATS_TIME].u.kv_key,
+            timestamp.c_str(),
+            sgt_AMEKey[RESP_STATS_VOLS].u.kv_key);
 
     // We shouldn't run out of room here.
     fds_verify(used < got);
@@ -1128,22 +1136,22 @@ Conn_GetBucketStats::ame_fmt_resp_data(const std::string &timestamp,
 
     for (i = 0; i < content_count; i++) {
         used = snprintf(cur, got,
-			"    {\"%s\": \"%s\", \"%s\": %d, \"%s\": %ld, \"%s\": %ld, "
-            "\"%s\": %ld}",
-			sgt_AMEKey[RESP_STATS_ID].u.kv_key,
-			(contents[i].bucket_name).c_str(),
+                "    {\"%s\": \"%s\", \"%s\": %d, \"%s\": %d, \"%s\": %d, "
+                "\"%s\": %d}",
+                sgt_AMEKey[RESP_STATS_ID].u.kv_key,
+                (contents[i].bucket_name).c_str(),
 
-			sgt_AMEKey[RESP_QOS_PRIORITY].u.kv_key,
-			contents[i].priority,
+                sgt_AMEKey[RESP_QOS_PRIORITY].u.kv_key,
+                contents[i].priority,
 
-			sgt_AMEKey[RESP_QOS_PERFORMANCE].u.kv_key,
-			(long)contents[i].performance,
+                sgt_AMEKey[RESP_QOS_PERFORMANCE].u.kv_key,
+                static_cast<int>(contents[i].performance),
 
-			sgt_AMEKey[RESP_QOS_SLA].u.kv_key,
-			(long)contents[i].sla,
+                sgt_AMEKey[RESP_QOS_SLA].u.kv_key,
+                static_cast<int>(contents[i].sla),
 
-			sgt_AMEKey[RESP_QOS_LIMIT].u.kv_key,
-			(long)contents[i].limit);
+                sgt_AMEKey[RESP_QOS_LIMIT].u.kv_key,
+                static_cast<int>(contents[i].limit));
 
         if (used == got) {
             // XXX: not yet handle!
@@ -1156,7 +1164,7 @@ Conn_GetBucketStats::ame_fmt_resp_data(const std::string &timestamp,
         if (i < (content_count-1)) {
             used = snprintf(cur, got, ",\n");
         } else {
-	        used = snprintf(cur, got, "\n");
+            used = snprintf(cur, got, "\n");
         }
         if (used == got) {
             // XXX: not yet handle!
@@ -1202,7 +1210,8 @@ Conn_GetBucketStats::ame_request_handler()
     FDS_NativeAPI *api;
 
     api = ame->ame_fds_hook();
-    api->GetBucketStats(NULL, fdsn_getbucket_stat_cb, (void *)this);
+    api->GetBucketStats(NULL, fdsn_getbucket_stat_cb,
+                        static_cast<void *>(this));
 }
 
 int
@@ -1210,4 +1219,4 @@ Conn_GetBucketStats::ame_format_response_hdr()
 {
     return NGX_OK;
 }
-} // namespace fds
+}   // namespace fds
