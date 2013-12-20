@@ -125,13 +125,13 @@ namespace fds {
 
     /*
      * Command line settable members
-     */
-    fds_uint32_t port_num;     /* Data path port num */
-    fds_uint32_t cp_port_num;  /* Control path port num */
-    std::string  myIp;         /* This nodes local IP */
-    std::string  stor_prefix;  /* Local storage prefix */
-    SmRunModes   runMode;      /* Whether we're in a test mode or not */
-    fds_uint32_t numTestVols;  /* Number of vols to use in test mode */
+     */    
+    fds_uint32_t port_num;     /**< Data path port num */
+    fds_uint32_t cp_port_num;  /**< Control path port num */
+    std::string  myIp;         /**< This nodes local IP */
+    std::string  stor_prefix;  /**< Local storage prefix */
+    SmRunModes   runMode;      /**< Whether we're in a test mode or not */
+    fds_uint32_t numTestVols;  /**< Number of vols to use in test mode */
 
     /*
      * OM/boostrap related members

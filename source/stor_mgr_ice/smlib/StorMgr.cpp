@@ -923,6 +923,8 @@ ObjectStorMgr::relocateObject(const ObjectID &objId,
 
 /**
  * Process a single object put.
+ * @param the request structure ptr
+ * @return any associated error
  */
 Error
 ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {

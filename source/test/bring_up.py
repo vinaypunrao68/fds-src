@@ -12,8 +12,7 @@ import time
 verbose = False
 debug = False
 
-#
-# Defines a volume in the cluster
+## Defines a volume in the cluster
 #
 class StorVol():
     name   = None
@@ -60,7 +59,7 @@ class StorVol():
                                                                 self.client)
 
 
-#
+##
 # Defines a policy in the cluster
 #
 class StorPol():
@@ -112,7 +111,7 @@ class StorPol():
             self.cliBin, opt, self.volType, vol_id
         )
 
-#
+##
 # Defines a client in the cluster
 #
 class StorClient():
@@ -153,7 +152,8 @@ class StorClient():
 
     def getLogSeverity(self):
         return self.logSeverity 
-#
+
+##
 # Defines a node in the cluster
 #
 class StorNode():
@@ -220,7 +220,8 @@ class StorNode():
 
     def getLogSeverity(self):
         return self.logSeverity 
-#
+
+##
 # Defines how to bring up a cluster
 #
 class TestBringUp():
@@ -278,7 +279,7 @@ class TestBringUp():
         self.cfgFile = _cfg_file
         self.nodes = []
 
-    #
+    ##
     # Sets up cluster path variables
     #
     def setPath(self, _path):
@@ -292,7 +293,7 @@ class TestBringUp():
         self.iceHome = self.iceHome + self.srcPath + "/" + self.fdsIceDir
 
 
-    #
+    ##
     # Loads a volume from items
     # in the cfg file
     #
@@ -316,6 +317,7 @@ class TestBringUp():
 
         self.policies.append(policy)
 
+    ##
     # Get the policy config obj matching the policy id.
     #
     def getPolicy(self, pol_id):
@@ -326,7 +328,7 @@ class TestBringUp():
         print "Can't find policy id ", pol_id
         return None
 
-    #
+    ##
     # Loads a volume from items
     # in the cfg file
     #
@@ -350,7 +352,7 @@ class TestBringUp():
 
         self.volumes.append(volume)
 
-    #
+    ##
     # Loads a client from items
     # in the cfg file
     #
@@ -373,7 +375,7 @@ class TestBringUp():
 
         self.clients.append(client)
 
-    #
+    ##
     # Loads a node from items
     # in the cfg file
     #
@@ -409,7 +411,7 @@ class TestBringUp():
 
         self.nodes.append(node)
 
-    #
+    ##
     # Parses the cfg file and populates
     # cluster info.
     #
@@ -442,7 +444,7 @@ class TestBringUp():
                 print "Parsed section %s with items %s" % (section,
                                                            self.config.items(section))
 
-    #
+    ##
     # Builds the command to bring up a node service
     #
     def buildNodeCmd(self, node, nodeType = None):
@@ -462,56 +464,56 @@ class TestBringUp():
 
         return cmd
 
-    #
+    ##
     # Builds the command to insert a kernel module
     #
     def buildModCmd(self, client):
         cmd = client.getBlkCmd(self.srcPath)
         return cmd
 
-    #
+    ##
     # Builds the command to start SH UBD service
     #
     def buildUbdCmd(self, client):
         cmd = self.ldLibPath + "; " + self.iceHome + "; " + " cd " + self.fdsBinDir + "; " + "ulimit -s 4096; " +  "ulimit -c unlimited;" + "./" + client.getUbdCmd() + " --om_ip=" + self.omIpStr + " --om_port=" + str(self.omConfPort) + " --node_name=localhost-" + client.name + " --log-severity=" + str(client.getLogSeverity())
         return cmd
 
-    #
+    ##
     # Builds the command to start SH AM service
     #
     def buildAmCmd(self, client):
         cmd = self.ldLibPath + "; " + self.iceHome + "; " + " cd " + self.fdsBinDir + "; " + "ulimit -s 4096; " + "ulimit -c unlimited; " + "./" + client.getAmCmd() + " --om_ip=" + self.omIpStr + " --om_port=" + str(self.omConfPort) + " --node_name=localhost-" + client.name + " --log-severity=" + str(client.getLogSeverity())
         return cmd
 
-    #
+    ##
     # Builds the command to create a policy
     #
     def buildPolCrtCmd(self, policy):
         cmd = self.ldLibPath + "; " + self.iceHome + "; " + " cd " + self.fdsBinDir + "; " + "./" + policy.getCrtCmd() + " --om_ip=" + self.omIpStr + " --om_port=" + str(self.omConfPort)
         return cmd
 
-    #
+    ##
     # Builds the command to delete a policy
     #
     def buildPolDelCmd(self, policy):
         cmd = self.ldLibPath + "; " + self.iceHome + "; " + " cd " + self.fdsBinDir + "; " + "./" + policy.getDelCmd() + " --om_ip=" + self.omIpStr + " --om_port=" + str(self.omConfPort)
         return cmd
 
-    #
+    ##
     # Builds the command to create a volume
     #
     def buildVolCrtCmd(self, volume):
         cmd = self.ldLibPath + "; " + self.iceHome + "; " + " cd " + self.fdsBinDir + "; " + "./" + volume.getCrtCmd() + " --om_ip=" + self.omIpStr + " --om_port=" + str(self.omConfPort)
         return cmd
 
-    #
+    ##
     # Builds the command to attach a volume
     #
     def buildVolAttCmd(self, volume):
         cmd = self.ldLibPath + "; " + self.iceHome + "; " + " cd " + self.fdsBinDir + "; " + "./" + volume.getAttCmd() + " --om_ip=" + self.omIpStr + " --om_port=" + str(self.omConfPort)
         return cmd
 
-    #
+    ##
     # Builds the command to setup volume tier type.
     #
     def buildVolTierCmd(self, volume):
@@ -524,7 +526,7 @@ class TestBringUp():
                str(self.omConfPort))
         return cmd
 
-    #
+    ##
     # Builds the command to run a remote command
     #
     def runNodeCmd(self, node, cmd, checkStr = None, ipOver = None):
@@ -588,7 +590,7 @@ class TestBringUp():
         return True
 
 
-    #
+    ##
     # Create policy in the cluster
     #
     def polBringUp(self, policy):
@@ -606,7 +608,7 @@ class TestBringUp():
         return 0
 
 
-    #
+    ##
     # Delete policy from the cluster
     #
     def polBringDown(self, policy):
@@ -624,7 +626,7 @@ class TestBringUp():
         return 0
 
 
-    #
+    ##
     # Create and attach volume to cluster
     #
     def volBringUp(self, volume):
@@ -667,7 +669,7 @@ class TestBringUp():
             return -1
         return 0
 
-    #
+    ##
     # Bring down all of the services associated
     # with this node
     #
@@ -712,7 +714,7 @@ class TestBringUp():
 
         return 0
 
-    #
+    ##
     # Bring ups all of the services associated with
     # this node.
     #
@@ -765,7 +767,7 @@ class TestBringUp():
 
         return 0
 
-    #
+    ##
     # Bring up client/SH services. This may
     # bring up either block-based or object-based
     # services
@@ -821,7 +823,7 @@ class TestBringUp():
 
         return 0
 
-    #
+    ##
     # Bring down client/SH services. This may
     # bring down either block-based or object-based
     # services
@@ -874,7 +876,7 @@ class TestBringUp():
         return 0
 
 
-    #
+    ##
     # Bring up policies across a cluster
     #
     def bringUpPols(self):
@@ -885,7 +887,7 @@ class TestBringUp():
         
         return 0
 
-    #
+    ##
     # Bring down policies across a cluster
     #
     def bringDownPols(self):
@@ -896,7 +898,7 @@ class TestBringUp():
 
         return 0
 
-    #
+    ##
     # Bring up volumes across a cluster
     #
     def bringUpVols(self):
@@ -907,7 +909,7 @@ class TestBringUp():
         
         return 0
 
-    #
+    ##
     # Bring up services on all cluster nodes
     #
     def bringUpNodes(self):
@@ -932,7 +934,7 @@ class TestBringUp():
                     return result
         return 0
 
-    #
+    ##
     # Bring down services on all cluster nodes
     #
     def bringDownNodes(self):
@@ -942,7 +944,7 @@ class TestBringUp():
                 return result
         return 0
 
-    #
+    ##
     # Bring up services on all cluster clients
     #
     def bringUpClients(self):
@@ -952,7 +954,7 @@ class TestBringUp():
                 return result
         return 0
 
-    #
+    ##
     # Bring down services on all cluster clients
     #
     def bringDownClients(self):
