@@ -16,7 +16,7 @@ NAME=${FNAME%.*}
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PHAROS_DIR=$(dirname $SCRIPTDIR)/pharos
 
-runtime=-64000        # number of IOs generator will produce ( positive number means length of experiment in seconds) 
+runtime=-100000      # number of IOs generator will produce ( positive number means length of experiment in seconds) 
 blocksize=4          # in KB
 outstand_count=40    # number of outstanding IOs from workload generator 
 access=s             # 'r' is random and 's' is sequential
