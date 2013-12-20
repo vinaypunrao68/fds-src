@@ -5,6 +5,7 @@ user_build_dir   :=
 user_cpp         :=               \
     dm_service.cpp
 
+user_no_style    := $(user_cpp)
 user_ar_libs     := fds-dsk-mgnt
 fds-dsk-mgnt     := $(user_cpp)
 

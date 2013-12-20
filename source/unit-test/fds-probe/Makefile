@@ -17,6 +17,7 @@ user_non_fds_libs :=                                                          \
 user_cpp          :=                                                          \
     pm_probe_test.cpp sm_probe_test.cpp
 
+user_no_style     := $(user_cpp) $(user_cc)
 user_bin_exe      := pm_blk_probe sm_blk_probe
 pm_blk_probe      := pm_probe_test.cpp
 sm_blk_probe      := sm_probe_test.cpp

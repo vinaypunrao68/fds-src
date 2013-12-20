@@ -2,6 +2,7 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 
+#include <FDSNStat.h>
 #include <native_api.h>
 #include <StorHvisorNet.h>
 
@@ -12,6 +13,7 @@ namespace fds {
 FDS_NativeAPI::FDS_NativeAPI(FDSN_ClientType type)
   : clientType(type) 
 {
+    fdsn_register_stat();
 }
 
 FDS_NativeAPI::~FDS_NativeAPI()
@@ -281,12 +283,17 @@ void FDS_NativeAPI::GetObject(BucketContext *bucket_ctxt,
 {
   Error err(ERR_OK);
   fds_volid_t volid;
+  fds_uint64_t start, end;
   FdsBlobReq *blob_req = NULL;
   FDS_PLOG(storHvisor->GetLog()) << "FDS_NativeAPI::GetObject bucket " << bucket_ctxt->bucketName
 				 << " objKey " << ObjKey;
 
   /* check if bucket is attached to this AM, if not, ask OM to attach */
+  start = fds_rdtsc();
   err = checkBucketExists(bucket_ctxt, &volid);
+  end = fds_rdtsc();
+  fds_stat_record(STAT_FDSN, FDSN_GO_CHK_BKET_EXIST, start, end);
+
   if ( !err.ok() && (err != Error(ERR_PENDING_RESP)) ) {
     /* bucket not attached and we failed to send query to OM */
     (getObjCallback)(req_context, 0, NULL, callback_data, FDSN_StatusInternalError, NULL);
@@ -297,6 +304,7 @@ void FDS_NativeAPI::GetObject(BucketContext *bucket_ctxt,
   }
 
   /* create request */
+  start = end;
   blob_req = new GetBlobReq(volid, 
 			    ObjKey,
 			    startByte,
@@ -317,14 +325,21 @@ void FDS_NativeAPI::GetObject(BucketContext *bucket_ctxt,
 							    << " -- failed to allocate GetBlobReq";
     return;
   }
+  end = fds_rdtsc();
+  fds_stat_record(STAT_FDSN, FDSN_GO_ALLOC_BLOB_REQ, start, end);
 
   if ( err.ok() ) {
     /* bucket is already attached to this AM, enqueue IO */
+      start = end;
       storHvisor->pushBlobReq(blob_req);
+      end = fds_rdtsc();
+      fds_stat_record(STAT_FDSN, FDSN_GO_ENQUEUE_IO, start, end);
   } 
   else if (err == Error(ERR_PENDING_RESP)) {
     /* we are waiting for OM to tell us if bucket exists */
+    start = end;
     storHvisor->vol_table->addBlobToWaitQueue(bucket_ctxt->bucketName, blob_req);
+    fds_stat_record(STAT_FDSN, FDSN_GO_ADD_WAIT_QUEUE, start, end);
   }
   // else we already handled above
 

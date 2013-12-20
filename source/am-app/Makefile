@@ -43,6 +43,7 @@ user_cc           :=  \
 user_cpp          :=  \
     am-main.cpp
 
+user_no_style     := $(user_cpp) $(user_cc)
 user_bin_exe      := AMAgent
 AMAgent           := $(user_cpp) $(user_cc)
 

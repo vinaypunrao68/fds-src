@@ -15,6 +15,8 @@ typedef bool                 fds_bool_t;
 typedef int                  fds_bool_t;
 #endif
 
+c_decls_begin
+
 typedef unsigned long long   fds_blk_t;
 typedef unsigned long long   fds_uint64_t;
 typedef long long            fds_int64_t;
@@ -55,5 +57,7 @@ typedef enum {
     FDS_TIER_SATA            = 4,
     FDS_TIER_MAX
 } fds_tier_type_e;
+
+c_decls_end
 
 #endif /* INCLUDE_SHARED_FDS_TYPES_H_ */

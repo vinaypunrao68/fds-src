@@ -1,18 +1,21 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
-#include <sys/eventfd.h>
-#include <am-engine/s3connector.h>
 #include <am-plugin.h>
-#include <am-engine/http_utils.h>
+#include <sys/eventfd.h>
+#include <string>
+#include <vector>
 #include <boost/tokenizer.hpp>
+
 #include <fds_assert.h>
+#include <util/fds_stat.h>
+#include <am-engine/s3connector.h>
+#include <am-engine/http_utils.h>
 
 /* The factory creating objects to handle supported commands. */
 static fds::AMEngine  *sgt_ame_plugin;
 
 extern "C" {
-#include <am-plugin.h>
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_http.h>
@@ -99,14 +102,14 @@ ngx_register_plugin(fds::AMEngine *engine)
  */
 static std::vector<std::string>
 ngx_parse_uri_parts(ngx_http_request_t *r) {
-  std::vector<std::string> uri_parts;
-  std::string uri((const char*) r->uri.data, r->uri.len);
-  boost::char_separator<char> sep("/");
-  boost::tokenizer<boost::char_separator<char>> tokens(uri, sep);
-  for (const auto& t : tokens) {
-    uri_parts.push_back(t);
-  }
-  return uri_parts;
+    std::vector<std::string> uri_parts;
+    std::string uri((const char*) r->uri.data, r->uri.len);
+    boost::char_separator<char> sep("/");
+    boost::tokenizer<boost::char_separator<char>> tokens(uri, sep);
+    for (const auto& t : tokens) {
+        uri_parts.push_back(t);
+    }
+    return uri_parts;
 }
 
 /*
@@ -165,8 +168,8 @@ ngx_http_fds_read_body(ngx_http_request_t *r)
         ngx_http_finalize_request(r, NGX_HTTP_BAD_REQUEST);
         return;
     }
-    fdcf = (ngx_http_fds_loc_conf_t *)
-        ngx_http_get_module_loc_conf(r, ngx_http_fds_data_module);
+    fdcf = reinterpret_cast<ngx_http_fds_loc_conf_t *>
+        (ngx_http_get_module_loc_conf(r, ngx_http_fds_data_module));
 
     am_ctx = fdcf->fds_context->ame_get_ctx(am_req);
     am_ctx->ame_register_ctx();
@@ -200,11 +203,11 @@ ngx_http_fds_data_connector(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_http_core_loc_conf_t  *clcf;
     ngx_http_fds_loc_conf_t   *fdscf;
 
-    clcf = (ngx_http_core_loc_conf_t *)
-        ngx_http_conf_get_module_loc_conf(cf, ngx_http_core_module);
+    clcf = reinterpret_cast<ngx_http_core_loc_conf_t *>
+        (ngx_http_conf_get_module_loc_conf(cf, ngx_http_core_module));
     clcf->handler = ngx_http_fds_data_handler;
 
-    fdscf = (ngx_http_fds_loc_conf_t *)conf;
+    fdscf = reinterpret_cast<ngx_http_fds_loc_conf_t *>(conf);
     fdscf->fds_enable = 1;
 
     return NGX_CONF_OK;
@@ -220,7 +223,8 @@ ngx_http_fds_data_create_loc_conf(ngx_conf_t *cf)
     ngx_http_fds_loc_conf_t *fdcf;
 
     if (sgt_fds_data_cfg == NULL) {
-        fdcf = (ngx_http_fds_loc_conf_t *)ngx_pcalloc(cf->pool, sizeof(*fdcf));
+        fdcf = reinterpret_cast<ngx_http_fds_loc_conf_t *>
+            (ngx_pcalloc(cf->pool, sizeof(*fdcf)));
 
         if (fdcf == NULL) {
             return NGX_CONF_ERROR;
@@ -242,8 +246,8 @@ ngx_http_fds_data_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_http_fds_loc_conf_t *prev;
     ngx_http_fds_loc_conf_t *self;
 
-    prev = (ngx_http_fds_loc_conf_t *)parent;
-    self = (ngx_http_fds_loc_conf_t *)child;
+    prev = static_cast<ngx_http_fds_loc_conf_t *>(parent);
+    self = static_cast<ngx_http_fds_loc_conf_t *>(child);
     return NGX_CONF_OK;
 }
 
@@ -257,11 +261,10 @@ ame_context_handler(ngx_event_t *evt)
     fds::AME_Ctx     *ctx;
     ngx_connection_t *c;
 
-    c   = (ngx_connection_t *)evt->data;
-    ctx = (fds::AME_Ctx *)c->data;
+    c   = static_cast<ngx_connection_t *>(evt->data);
+    ctx = static_cast<fds::AME_Ctx *>(c->data);
     ctx->ame_invoke_handler();
 }
-
 } /* extern "C" */
 
 namespace fds {
@@ -319,15 +322,15 @@ AME_Ctx::ame_alloc_buf(int len, char **buf, int *got)
 
     if (len > 0) {
         r = ame_req->ame_req;
-        b = (ngx_buf_t *)ngx_calloc_buf(r->pool);
+        b = static_cast<ngx_buf_t *>(ngx_calloc_buf(r->pool));
         ngx_memset(b, 0, sizeof(*b));
 
         b->memory = 1;
-        b->start  = (u_char *)ngx_palloc(r->pool, len);
+        b->start  = static_cast<u_char *>(ngx_palloc(r->pool, len));
         b->end    = b->start + len;
         b->pos    = b->start;
         b->last   = b->end;
-        *buf      = (char *)b->pos;
+        *buf      = reinterpret_cast<char *>(b->pos);
         *got      = len;
         return b;
     }
@@ -427,11 +430,11 @@ AME_Ctx::ame_register_ctx()
     wev->active       = 0;
     rev->ready        = 1;
     rev->handler      = ame_context_handler;
-    ame_connect->data = (void *)this;
+    ame_connect->data = static_cast<void *>(this);
 
     return NGX_OK;
 
-failed:
+ failed:
     ngx_free_connection(ame_connect);
     printf("Failed to add event loop\n");
     return NGX_ERROR;
@@ -444,6 +447,10 @@ void
 AME_Ctx::ame_unregister_ctx()
 {
     ngx_close_connection(ame_connect);
+
+    if (ame_epoll_fd != 0) {
+        close(ame_epoll_fd);
+    }
     sgt_fds_data_cfg->fds_context->ame_put_ctx(this);
 }
 
@@ -505,4 +512,4 @@ AME_CtxList::ame_put_ctx(AME_Ctx *ctx)
     ame_free_ctx_cnt++;
 }
 
-} // namespace fds
+}   // namespace fds

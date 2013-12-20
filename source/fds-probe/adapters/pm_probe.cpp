@@ -6,8 +6,6 @@
 #include <persistent_layer/dm_io.h>
 #include <persistent_layer/pm_unit_test.h>
 
-using namespace std;
-
 namespace fds {
 
 // req_complete
@@ -66,7 +64,7 @@ PM_ProbeMod::pr_put(ProbeRequest &probe)
     meta_vol_io_t  vio;
     meta_obj_id_t  oid;
     fds::ObjectBuf *buf;
-    ProbeIORequest *io = dynamic_cast<ProbeIORequest *>(&probe);
+    ProbeIORequest *io = reinterpret_cast<ProbeIORequest *>(&probe);
     diskio::DataIO &pio = diskio::DataIO::disk_singleton();
 
     vadr_set_inval(vio.vol_adr);
@@ -143,5 +141,4 @@ void
 PM_ProbeMod::mod_shutdown()
 {
 }
-
-} // namespace fds
+}   // namespace fds

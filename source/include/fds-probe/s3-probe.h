@@ -6,6 +6,7 @@
 
 #include <fds-probe/fds_probe.h>
 #include <am-engine/s3connector.h>
+#include <concurrency/ThreadPool.h>
 
 namespace fds {
 
@@ -18,6 +19,7 @@ class Probe_GetObject : public S3_GetObject
     ~Probe_GetObject();
 
     virtual void ame_request_handler();
+    virtual int  ame_request_resume();
   protected:
 };
 
@@ -30,6 +32,7 @@ class Probe_PutObject : public S3_PutObject
     ~Probe_PutObject();
 
     virtual void ame_request_handler();
+    virtual int  ame_request_resume();
   protected:
 };
 
@@ -38,8 +41,8 @@ class Probe_PutObject : public S3_PutObject
 class ProbeS3Eng : public AMEngine_S3
 {
   public:
-    ProbeS3Eng(char const *const name) : AMEngine_S3(name) {}
-    ~ProbeS3Eng() {}
+    ProbeS3Eng(char const *const name);
+    ~ProbeS3Eng();
 
     // Hookup this S3 engine probe to the back-end adapter.
     //
@@ -48,6 +51,9 @@ class ProbeS3Eng : public AMEngine_S3
     }
     ProbeMod *probe_get_adapter() {
         return pr_adapter;
+    }
+    fds_threadpool *probe_get_thrpool() {
+        return pr_thrpool;
     }
 
     // Object factory
@@ -75,6 +81,7 @@ class ProbeS3Eng : public AMEngine_S3
     }
   private:
     ProbeMod                 *pr_adapter;
+    fds_threadpool           *pr_thrpool;
 };
 
 extern ProbeS3Eng gl_probeS3Eng;

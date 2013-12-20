@@ -23,6 +23,7 @@ user_non_fds_libs :=                                                          \
 user_cpp          :=                   \
     vcc_unit_test.cpp
 
+user_no_style     := $(user_cpp) $(user_cc)
 user_bin_exe      := vcc_unit_test
 vcc_unit_test     := vcc_unit_test.cpp
 

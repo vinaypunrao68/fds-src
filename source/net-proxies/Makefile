@@ -17,6 +17,7 @@ user_cpp         :=               \
     vol_io_clnt.cpp               \
     vol_io_serv.cpp
 
+user_no_style    := $(user_cc) $(user_cpp)
 user_ar_libs     := fds-netproxy
 fds-netproxy     := $(user_cpp)
 

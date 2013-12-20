@@ -19,11 +19,15 @@ user_non_fds_libs :=                                                          \
     boost_program_options Ice IceUtil IceStorm leveldb ssl crypto leveldb
 
 stor_mgr_probe    := stormgr_probe_main.cpp
+s3_sm_probe       := s3-sm-probe.cpp
 
 user_cpp          :=                   \
-    $(stor_mgr_probe)
+    $(stor_mgr_probe)                  \
+    $(s3_sm_probe)
 
-user_bin_exe      := StorMgrProbe
+user_no_style     := $(user_cpp) $(user_cc)
+user_bin_exe      := StorMgrProbe s3-sm-probe
 StorMgrProbe      := $(stor_mgr_probe)
+s3-sm-probe       := $(s3_sm_probe)
 
 include $(topdir)/Makefile.incl

@@ -15,14 +15,16 @@ StorHvisor_cpp    :=                   \
     StorHvisorRx.cpp                   \
     VolumeCatalogCache.cpp             \
     StorHvJournal.cpp                  \
-    qos_ctrl.cpp	               \
+    qos_ctrl.cpp	                   \
     StorHvQosCtrl.cpp                  \
-    StorHvVolumes.cpp		       \
-    StorHvNative.cpp	
+    StorHvVolumes.cpp		           \
+    StorHvNative.cpp	               \
+    FDSNStat.cpp
 
 user_cpp          :=                   \
     $(StorHvisor_cpp)
 
+user_no_style     := $(user_cpp) $(user_cc)
 user_ar_libs      := fds-StorHvisor
 fds-StorHvisor    := $(StorHvisor_cpp)
 

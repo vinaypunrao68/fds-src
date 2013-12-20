@@ -13,6 +13,7 @@ user_incl_dir     := $(util_dir) $(util_dir)/hash $(topdir)/include/hash
 user_cpp          :=                                                          \
     hash_test.cpp log_unit_test.cpp
 
+user_no_style     := $(user_cpp) $(user_cc)
 user_bin_exe      := hashtest log_unit_test 
 hashtest          := hash_test.cpp
 log_unit_test     := log_unit_test.cpp

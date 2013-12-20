@@ -29,6 +29,7 @@ user_cpp         :=      \
     Types.cpp
 
 user_cc          := PMurHash.c 
+user_no_style    := $(user_cpp) $(user_cc)
 user_ar_libs     := fds-hash
 fds-hash         := $(user_cpp) $(user_cc)
 

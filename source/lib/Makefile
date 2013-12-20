@@ -21,6 +21,7 @@ user_cpp         :=               \
 #    vvc_private.c
 
 user_incl_dir    := $(topdir)
+user_no_style    := $(user_cpp)
 
 # TODO: should change this directory and this lib to something more
 # specific.

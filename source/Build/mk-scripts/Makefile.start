@@ -129,6 +129,8 @@ yacc            := $(main_tool_dir)/bison
 lex             := $(main_tool_dir)/flex
 lint            := $(main_tool_dir)/lint
 rpcgen          := $(main_tool_dir)/rpcgen
+cc_style        := $(incl_scripts)/cstyle.pl
+cpp_style       := $(incl_scripts)/cpplint.py
 
 # Common library that most modules need to link.
 #

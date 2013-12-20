@@ -2,6 +2,7 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 #include <am-engine/s3connector.h>
+#include <util/fds_stat.h>
 #include <native_api.h>
 
 extern "C" {
@@ -15,6 +16,7 @@ int main(int argc, char **argv)
         fds::FDS_NativeAPI(fds::FDS_NativeAPI::FDSN_AWS_S3);
 
     fds::Module *am_mod_vec[] = {
+        &fds::gl_fds_stat,
         &fds::gl_AMEngineS3,
         nullptr
     };

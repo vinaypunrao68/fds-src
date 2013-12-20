@@ -2834,11 +2834,11 @@ def CheckStyle(filename, clean_lines, linenum, file_extension, nesting_state,
     error(filename, linenum, 'whitespace/end_of_line', 4,
           'Line ends in whitespace.  Consider deleting these extra spaces.')
   # There are certain situations we allow one space, notably for labels
-  elif ((initial_spaces == 1 or initial_spaces == 3) and
+  elif ((initial_spaces == 1 or initial_spaces == 2 or initial_spaces == 3) and
         not Match(r'\s*\w+\s*:\s*$', cleansed_line)):
     error(filename, linenum, 'whitespace/indent', 3,
           'Weird number of spaces at line-start.  '
-          'Are you using a 2-space indent?')
+          'Are you using a 4-space indent?')
   # Labels should always be indented at least one space.
   elif not initial_spaces and line[:2] != '//' and Search(r'[^:]:\s*$',
                                                           line):

@@ -13,6 +13,6 @@ user_incl_dir  += \
 
 user_cc_flags  += \
     -pipe -W -Wall -Wpointer-arith -Wno-unused-parameter -Werror -g \
-    -O0 -DNGX_DEBUG
+    -O3
 
 include $(topdir)/Makefile.incl

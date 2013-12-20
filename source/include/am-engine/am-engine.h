@@ -144,12 +144,63 @@ struct ame_keytab
 extern ame_keytab_t sgt_AMEKey[];
 
 // ---------------------------------------------------------------------------
+// Performance stat collection points.  These are indices to array.
+//
+enum
+{
+    STAT_NGX_GET             = 0,
+    STAT_NGX_GET_FDSN        = 1,
+    STAT_NGX_GET_FDSN_RET    = 2,
+    STAT_NGX_GET_FDSN_CB     = 3,
+    STAT_NGX_GET_RESUME      = 4,
+
+    STAT_NGX_PUT             = 5,
+    STAT_NGX_PUT_FDSN        = 6,
+    STAT_NGX_PUT_FDSN_RET    = 7,
+    STAT_NGX_PUT_FDSN_CB     = 8,
+    STAT_NGX_PUT_RESUME      = 9,
+
+    STAT_NGX_DEL             = 10,
+    STAT_NGX_DEL_FDSN        = 11,
+    STAT_NGX_DEL_FDSN_RET    = 12,
+    STAT_NGX_DEL_FDSN_CB     = 13,
+    STAT_NGX_DEL_RESUME      = 14,
+
+    STAT_NGX_GET_BK          = 15,
+    STAT_NGX_GET_BK_FDSN     = 16,
+    STAT_NGX_GET_BK_FDSN_RET = 17,
+    STAT_NGX_GET_BK_FDSN_CB  = 18,
+    STAT_NGX_GET_BK_RESUME   = 19,
+
+    STAT_NGX_PUT_BK          = 20,
+    STAT_NGX_PUT_BK_FDSN     = 21,
+    STAT_NGX_PUT_BK_FDSN_RET = 22,
+    STAT_NGX_PUT_BK_FDSN_CB  = 23,
+    STAT_NGX_PUT_BK_RESUME   = 24,
+
+    STAT_NGX_DEL_BK          = 25,
+    STAT_NGX_DEL_BK_FDSN     = 26,
+    STAT_NGX_DEL_BK_FDSN_RET = 27,
+    STAT_NGX_DEL_BK_FDSN_CB  = 28,
+    STAT_NGX_DEL_BK_RESUME   = 29,
+
+    STAT_NGX_DEFAULT         = 30,
+    STAT_NGX_POINT_MAX       = 31
+};
+
+// ---------------------------------------------------------------------------
 // Generic connector to handle request/response protocol with buffer chunks
 // semantic
 //
 class AME_Request : public fdsio::Request
 {
   public:
+    // Clock time to record perf stat.
+    int                      ame_stat_pt;
+    fds_uint64_t             ame_clk_all;
+    fds_uint64_t             ame_clk_fdsn;
+    fds_uint64_t             ame_clk_fdsn_cb;
+
     static int ame_map_fdsn_status(FDSN_Status status);
 
   public:
@@ -444,8 +495,8 @@ class Conn_GetBucketStats : public AME_Request
     virtual ~Conn_GetBucketStats();
 
     /* returns bucket id
-     * currently we get stats for all existing buckets, 
-     * so so this will return empty string for now, but 
+     * currently we get stats for all existing buckets,
+     * so so this will return empty string for now, but
      * we may extend this to get stats for a particular bucket as well */
     virtual std::string get_bucket_id() {
       return std::string("");

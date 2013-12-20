@@ -10,6 +10,7 @@ user_cc           :=                   \
     hvisor_tbl.c                       \
     fbd_hash.c
 
+user_no_style     := $(user_cpp) $(user_cc)
 user_ar_libs      := hvisor
 hvisor            := $(user_cc)
 

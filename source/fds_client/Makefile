@@ -19,6 +19,7 @@ ubd_cc            :=                   \
     ubd.c
 
 user_cc           := $(ubd_cc)
+user_no_style     := $(user_cpp) $(user_cc)
 user_bin_exe      := ubd
 ubd               := $(ubd_cc)
 
