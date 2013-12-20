@@ -117,6 +117,60 @@ class SHHandler : public sh_serviceIf {
  private:
 };
 
+class ShServerEventHandler : public TServerEventHandler {
+ public:
+  virtual void preServe() {
+    printf("ShServerEventHandler::%s\n", __FUNCTION__);
+  }
+  virtual void* createContext(boost::shared_ptr<TProtocol> input,
+                              boost::shared_ptr<TProtocol> output) {
+    printf("ShServerEventHandler::%s\n", __FUNCTION__);
+    return NULL;
+  }
+  virtual void deleteContext(void* serverContext,
+                             boost::shared_ptr<TProtocol>input,
+                             boost::shared_ptr<TProtocol>output) {
+    printf("ShServerEventHandler::%s\n", __FUNCTION__);
+  }
+  virtual void processContext(void* serverContext,
+                              boost::shared_ptr<TTransport> transport) {
+    printf("ShServerEventHandler::%s\n", __FUNCTION__);
+  }
+};
+
+class ShProcessorEventHandler : public TProcessorEventHandler {
+ public:
+  virtual void* getContext(const char* fn_name, void* serverContext) {
+    printf("ShProcessorEventHandler::%s\n", __FUNCTION__);
+    return NULL;
+  }
+
+  /**
+   * Expected to free resources associated with a context.
+   */
+  virtual void freeContext(void* ctx, const char* fn_name) {
+    printf("ShProcessorEventHandler::%s\n", __FUNCTION__);
+  }
+  virtual void preRead(void* ctx, const char* fn_name) {
+    printf("ShProcessorEventHandler::%s\n", __FUNCTION__);
+  }
+  virtual void postRead(void* ctx, const char* fn_name, uint32_t bytes) {
+    printf("ShProcessorEventHandler::%s\n", __FUNCTION__);
+  }
+  virtual void preWrite(void* ctx, const char* fn_name) {
+    printf("ShProcessorEventHandler::%s\n", __FUNCTION__);
+  }
+  virtual void postWrite(void* ctx, const char* fn_name, uint32_t bytes) {
+    printf("ShProcessorEventHandler::%s\n", __FUNCTION__);
+  }
+  virtual void asyncComplete(void* ctx, const char* fn_name) {
+    printf("ShProcessorEventHandler::%s\n", __FUNCTION__);
+  }
+  virtual void handlerError(void* ctx, const char* fn_name) {
+    printf("ShProcessorEventHandler::%s\n", __FUNCTION__);
+  }
+};
+
 class SHServer : public Runnable {
 public:
   SHServer() {
@@ -127,13 +181,22 @@ public:
     boost::shared_ptr<TProtocolFactory> protocolFactory(new TBinaryProtocolFactory());
     boost::shared_ptr<TProcessor> processor(new sh_serviceProcessor(handler_));
     boost::shared_ptr<TServerTransport> serverTransport(new TServerSocket(9090));
-    boost::shared_ptr<TTransportFactory> transportFactory(new TBufferedTransportFactory());
+    //boost::shared_ptr<TTransportFactory> transportFactory(new TBufferedTransportFactory());
+    //boost::shared_ptr<TTransportFactory> transportFactory(new TTransportFactory());
+    boost::shared_ptr<TTransportFactory> transportFactory(new TFramedTransportFactory());
     server_.reset(new TThreadedServer(processor, serverTransport, transportFactory, protocolFactory));
+
+    boost::shared_ptr<TServerEventHandler> serverEventHandler(new ShServerEventHandler());
+    server_->setServerEventHandler(serverEventHandler);
+    boost::shared_ptr<ShProcessorEventHandler> processorEventHandler(new ShProcessorEventHandler());
+    processor->setEventHandler(processorEventHandler);
 
     /* SM client information */
     boost::shared_ptr<TTransport> sm_socket(new TSocket("localhost", 9091));
-    boost::shared_ptr<TBufferedTransport> sm_transport(new TBufferedTransport(sm_socket));
+//    boost::shared_ptr<TBufferedTransport> sm_transport(new TBufferedTransport(sm_socket));
+    boost::shared_ptr<TFramedTransport> sm_transport(new TFramedTransport(sm_socket));
     boost::shared_ptr<TProtocol> sm_protocol(new TBinaryProtocol(sm_transport));
+//    boost::shared_ptr<TProtocol> sm_protocol(new TBinaryProtocol(sm_socket));
     sm_client_.reset(new sm_serviceClient(sm_protocol));
   }
 
@@ -153,17 +216,46 @@ private:
   boost::shared_ptr<sm_serviceClient> sm_client_;
 };
 
+boost::shared_ptr<sm_serviceClient> get_client(const std::string &ip , int port) {
+  boost::shared_ptr<sm_serviceClient> sm_client;
+  boost::shared_ptr<TTransport> sm_socket(new TSocket(ip, port));
+  //    boost::shared_ptr<TBufferedTransport> sm_transport(new TBufferedTransport(sm_socket));
+  boost::shared_ptr<TFramedTransport> sm_transport(new TFramedTransport(sm_socket));
+  boost::shared_ptr<TProtocol> sm_protocol(new TBinaryProtocol(sm_transport));
+  //    boost::shared_ptr<TProtocol> sm_protocol(new TBinaryProtocol(sm_socket));
+  sm_client.reset(new sm_serviceClient(sm_protocol));
+  return sm_client;
+}
+
+
 int main(int argc, char** argv) {
 
   PosixThreadFactory tFactory(PosixThreadFactory::ROUND_ROBIN, PosixThreadFactory::NORMAL, 1, false);
   boost::shared_ptr<SHServer> sh_server(new SHServer());
   shared_ptr<Thread> t1 = tFactory.newThread(sh_server);
   t1->start();
-  usleep(2000000);
+  usleep(1000000);
 
   /* invoke a sm method */
-  sh_server->get_sm_client()->getOutputProtocol()->getTransport()->open();
-  sh_server->get_sm_client()->put_object("obj1");
+  boost::shared_ptr<sm_serviceClient> c1 = get_client("localhost", 9091);
+  c1->getOutputProtocol()->getTransport()->open();
+  c1->put_object("obj1");
+  usleep(1000000);
+
+  boost::shared_ptr<sm_serviceClient> c2 = get_client("localhost", 9091);
+  c2->getOutputProtocol()->getTransport()->open();
+  c2->put_object("obj2");
+  usleep(1000000);
+
+  boost::shared_ptr<sm_serviceClient> c3 = get_client("localhost", 9091);
+  c3->getOutputProtocol()->getTransport()->open();
+  c3->put_object("obj3");
+  usleep(1000000);
+
+  boost::shared_ptr<sm_serviceClient> c4 = get_client("localhost", 9091);
+  c4->getOutputProtocol()->getTransport()->open();
+  c4->put_object("obj4");
+  usleep(1000000);
 
   t1->join();
   return 0;
