@@ -12,24 +12,23 @@ user_cpp          := \
 user_non_fds_libs :=  \
     thrift-genlib thrift-parse fl
 
-user_no_style     := $(user_cc) $(user_cpp)
 user_bin_exe      := thrift
 thrift            := $(user_cc) $(user_cpp)
 
 # Customize Makefile rules to build .lex and .yy
 #
-user_predep      := thrifty.h thriftl.cc
+user_predep      := thrifty.cc thriftl.cc
 user_clean       := thrifty.h thrifty.cc thriftl.cc
 
 include $(thrift_dir)/Makefile.incl
 
-thrifty.h: thrifty.yy
-	@echo "    [BISON]     $<"
+thrifty.cc: thrifty.yy
+	@echo "    [BISON]       $<"
 	@$(yacc) -y -d $<
 	@mv y.tab.h thrifty.h
 	@mv y.tab.c thrifty.cc
 
 thriftl.cc: thriftl.ll
-	@echo "    [FLEX]      $<"
+	@echo "    [FLEX]        $<"
 	@$(lex) $<
 	@mv lex.yy.c thriftl.cc

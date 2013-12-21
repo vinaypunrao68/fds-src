@@ -11,6 +11,7 @@ user_incl_dir  += \
     $(nginx_src_dir)/mail \
     $(nginx_dir)/objs
 
+user_no_style  += $(user_cpp) $(user_cc)
 user_cc_flags  += \
     -pipe -W -Wall -Wpointer-arith -Wno-unused-parameter -Werror -g \
     -O3

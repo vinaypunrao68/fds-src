@@ -6,7 +6,6 @@ user_cc_flags    :=
 user_cpp         := \
     parse.cc
 
-user_no_style    := $(user_cc) $(user_cpp)
 user_ar_libs     := thrift-parse
 thrift-parse     := $(user_cc) $(user_cpp)
 

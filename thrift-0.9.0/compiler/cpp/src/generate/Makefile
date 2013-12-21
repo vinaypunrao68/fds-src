@@ -27,7 +27,6 @@ user_cpp         := \
     t_go_generator.cc \
     t_d_generator.cc
 
-user_no_style    := $(user_cc) $(user_cpp)
 user_ar_libs     := thrift-genlib
 thrift-genlib    := $(user_cc) $(user_cpp)
 
