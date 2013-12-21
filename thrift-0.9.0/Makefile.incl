@@ -1,0 +1,14 @@
+topdir          := $(thrift_dir)/..
+user_ext_build  := true
+
+user_incl_dir   += \
+    $(thrift_dir)/compiler/cpp/src \
+    $(thrift_dir)/lib/cpp/src/thrift
+
+user_cpp_flags  += \
+    -DHAVE_CONFIG_H -Wall -Wno-sign-compare -Wno-unused -O2
+
+user_cc_flags   += \
+    -DHAVE_CONFIG_H -Wall -Wno-sign-compare -Wno-unused -O2
+
+include $(topdir)/Makefile.incl

@@ -35,6 +35,7 @@ local_c_dep_files   := $(patsubst %.c,%,$(local_c_files))
 
 local_cpp_files     := $(user_cpp)
 local_cpp_dep_files := $(patsubst %.cpp,%,$(local_cpp_files))
+local_cpp_dep_files += $(patsubst %.cc,%,$(local_cpp_files))
 local_style_files   := $(comm_cc_chks) $(comm_cpp_chks)
 
 local_mk_files      := $(wildcard Makefile*)
@@ -208,6 +209,14 @@ endif
 # Rule to compile .cpp file.
 #
 $(comm_dir_objs)/%.o : %.cpp
+ifdef VERBOSE
+	$(cpp) $(local_cpp_flags) -c $< -o $@
+else
+	@echo "    [CPP]         $<"
+	@$(cpp) $(local_cpp_flags) -c $< -o $@
+endif
+
+$(comm_dir_objs)/%.o : %.cc
 ifdef VERBOSE
 	$(cpp) $(local_cpp_flags) -c $< -o $@
 else

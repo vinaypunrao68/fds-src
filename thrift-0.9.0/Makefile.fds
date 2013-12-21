@@ -1,0 +1,4 @@
+topdir         := ..
+user_build_dir := compiler/cpp/src
+
+include $(topdir)/Makefile.incl
