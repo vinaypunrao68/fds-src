@@ -1,12 +1,6 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
-
-/*
- * Generic catalog super class. Provides basic
- * backing storage, update, and query.
- */
-
 #ifndef SOURCE_LIB_CATALOG_H_
 #define SOURCE_LIB_CATALOG_H_
 
@@ -19,20 +13,24 @@
 
 namespace fds {
 
-  /*
-   * TODO: Just use leveldb's slice. Consider our own class
-   * in the future.
+  /**
+   * Just use leveldb's slice. We should consider our
+   * own class in the future.
    */
   typedef leveldb::Slice Record;
 
+  /**
+   * Generic catalog super class.
+   * Provides basic backing storage, update, and query.
+   */
   class Catalog {
  private:
-    /*
+    /**
      * Backing file name
      */
     std::string backing_file;
 
-    /*
+    /** The backing db.
      * Currently implements an LSM-tree.
      * We should make this more generic
      * and provide a generic interface for
@@ -44,22 +42,25 @@ namespace fds {
      * Database options. These are not expected
      * to change.
      */
-    leveldb::Options      options;
-    leveldb::WriteOptions write_options;
-    leveldb::ReadOptions  read_options;
+    leveldb::Options      options;       /**< LevelDB options */
+    leveldb::WriteOptions write_options; /**< LevelDB write options */
+    leveldb::ReadOptions  read_options;  /**< LevelDB read options */
 
  public:
+    /** Constructor */
     explicit Catalog(const std::string& _file);
+    /** Default destructor */
     ~Catalog();
 
+    /** Uses the underlying leveldb iterator */
     typedef leveldb::Iterator catalog_iterator_t;
+    /** Gets catalog iterator
+     * @return Pointer to catalog iterator
+     */
     catalog_iterator_t *NewIterator() { return db->NewIterator(read_options); }
 
     fds::Error Update(const Record& key, const Record& val);
     fds::Error Query(const Record& key, std::string* val);
-
-    /* delete catalog entry for 'key', 
-     * not an error if 'key' is not in the database */
     fds::Error Delete(const Record& key);
 
     std::string GetFile() const;

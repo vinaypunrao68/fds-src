@@ -4,7 +4,7 @@
 
 #include <string>
 
-#include "Catalog.h"
+#include <lib/Catalog.h>
 #include <leveldb/filter_policy.h>
 
 namespace fds {
@@ -12,74 +12,95 @@ namespace fds {
 #define WRITE_BUFFER_SIZE   50 * 1024 * 1024;
 #define FILTER_BITS_PER_KEY 128  // Todo: Change this something not arbitrary
 
+/** Catalog constructor
+ * @param[in] _file The catalog's on disk backing file
+ */
 Catalog::Catalog(const std::string& _file)
     : backing_file(_file) {
-  /*
-   * Setup DB options
-   */
-  options.create_if_missing = 1;
-  options.filter_policy     =
-      leveldb::NewBloomFilterPolicy(FILTER_BITS_PER_KEY);
-  options.write_buffer_size = WRITE_BUFFER_SIZE;
+    /*
+     * Setup DB options
+     */
+    options.create_if_missing = 1;
+    options.filter_policy     =
+            leveldb::NewBloomFilterPolicy(FILTER_BITS_PER_KEY);
+    options.write_buffer_size = WRITE_BUFFER_SIZE;
 
-  write_options.sync = true;
+    write_options.sync = true;
 
-  leveldb::Status status = leveldb::DB::Open(options, backing_file, &db);
-  /* Open has to succeed */
-  assert(status.ok());
+    leveldb::Status status = leveldb::DB::Open(options, backing_file, &db);
+    /* Open has to succeed */
+    assert(status.ok());
 }
 
+/** The default destructor
+ */
 Catalog::~Catalog() {
-  delete options.filter_policy;
-  delete db;
+    delete options.filter_policy;
+    delete db;
 }
 
+/** Updates the catalog
+ * @param[in] key the key to write to
+ * @param[in] val the data to write
+ * @return The result of the update
+ */
 Error
 Catalog::Update(const Record& key, const Record& val) {
-  Error err(ERR_OK);
+    Error err(ERR_OK);
 
-  std::string test = val.ToString();
+    std::string test = val.ToString();
 
-  leveldb::Status status = db->Put(write_options, key, val);
-  if (!status.ok()) {
-    err = Error(ERR_DISK_WRITE_FAILED);
-  }
+    leveldb::Status status = db->Put(write_options, key, val);
+    if (!status.ok()) {
+        err = Error(ERR_DISK_WRITE_FAILED);
+    }
 
-  return err;
+    return err;
 }
 
+/** Queries the catalog
+ * @param[in]  key   the key to write to
+ * @param[out] value the data found
+ * @return The result of the query
+ */
 Error
 Catalog::Query(const Record& key, std::string* value) {
-  Error err(ERR_OK);
+    Error err(ERR_OK);
 
-  leveldb::Status status = db->Get(read_options, key, value);
-  if (status.IsNotFound()) {
-    err = fds::Error(fds::ERR_CAT_ENTRY_NOT_FOUND);
-    return err;
-  }
-  else if (!status.ok()) {
-    err = fds::Error(fds::ERR_DISK_READ_FAILED);
-    return err;
-  } 
+    leveldb::Status status = db->Get(read_options, key, value);
+    if (status.IsNotFound()) {
+        err = fds::Error(fds::ERR_CAT_ENTRY_NOT_FOUND);
+        return err;
+    } else if (!status.ok()) {
+        err = fds::Error(fds::ERR_DISK_READ_FAILED);
+        return err;
+    }
 
-  return err;
+    return err;
 }
 
+/** Delete a key/value pair
+ * @param[in] key the key to delete
+ * @return The result of the delete
+ */
 Error
 Catalog::Delete(const Record& key) {
-  Error err(ERR_OK);
+    Error err(ERR_OK);
 
-  leveldb::Status status = db->Delete(write_options, key);
-  if (!status.ok()) {
-    err = Error(ERR_DISK_WRITE_FAILED);
-  }
+    leveldb::Status status = db->Delete(write_options, key);
+    if (!status.ok()) {
+        err = Error(ERR_DISK_WRITE_FAILED);
+    }
 
-  return err; 
+    return err;
 }
 
+/** Gets backing file name
+ * @return Copy of backing file name
+ */
 std::string
 Catalog::GetFile() const {
-  return backing_file;
+    return backing_file;
 }
 
 }  // namespace fds
