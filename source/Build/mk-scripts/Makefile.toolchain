@@ -7,6 +7,7 @@
 # Toolchain under FDS's Makefile system.
 #
 toolchain_lib        := $(topdir)/../Build/$(osdep_target)/lib
+toolchain_bin        := $(topdir)/../Build/$(osdep_target)/bin
 
 # NGINX settings.
 #
@@ -26,6 +27,10 @@ toolchain_ice        := $(topdir)/../Ice-3.5.0
 toolchain_ice_top    := $(toolchain_ice)/cpp
 toolchain_ice_lib    := $(toolchain_ice_top)/lib
 toolchain_ice_bin    := $(toolchain_ice_top)/bin
+
+# Thrift settings.
+#
+tool_thrift          := $(toolchain_bin)/thrift
 
 # Boost settings.
 #

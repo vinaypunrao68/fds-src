@@ -108,6 +108,7 @@ comm_list2obj    = $(patsubst %$(1),$(comm_dir_objs)/%.o,$(filter %$(1), $(2)))
 comm_src2obj     = $(call comm_list2obj,.s,$(1))
 comm_src2obj    += $(call comm_list2obj,.S,$(1))
 comm_src2obj    += $(call comm_list2obj,.c,$(1))
+comm_src2obj    += $(call comm_list2obj,.cc,$(1))
 comm_src2obj    += $(call comm_list2obj,.cpp,$(1))
 
 comm_cc_objs    := $(call comm_list2obj,.c,$(user_cc))
@@ -115,6 +116,7 @@ comm_cc_chks    := $(call comm_list2chk,.c,$(user_cc))
 comm_cc_flints  := $(call comm_list2obj,.lob,$(user_cc))
 
 comm_cpp_objs   := $(call comm_list2obj,.cpp,$(user_cpp))
+comm_cpp_objs   += $(call comm_list2obj,.cc,$(user_cpp))
 comm_cpp_chks   := $(call comm_list2chk,.cpp,$(user_cpp))
 comm_cpp_flints := $(call comm_list2obj,.lob,$(user_cpp))
 
