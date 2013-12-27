@@ -4,6 +4,9 @@
 #include "gen/putget.pb.h"
 #include "include/zhelpers.hpp"
 #include <string>
+#include <list>
+
+#include <thread>
 extern "C" {
 #include <czmq.h>
 }
@@ -36,6 +39,7 @@ int fds_proto_to_zmq_msg(const T &fds_proto, zmq::message_t &message)
   return 0;
 }
 
+/* ZMQ based communication channel for an endpoint */
 class ZMQAsyncEndPoint {
 public:
   ZMQAsyncEndPoint(zmq::context_t &zmq_ctx, const std::string &addr)
@@ -73,5 +77,50 @@ private:
   zmq::socket_t _socket;
 };
 
+/*
+ * ZMQ based round robin asynchronous server.
+ */
+// todo: 1. remove dependency on czmq
+// 2. handle all the return codes from zmq calls
+// 3. Ensure proper clean up is taking place when we exit
+class ZMQRRWorkerAsyncServer {
+public:
+  ZMQRRWorkerAsyncServer(zctx_t *ctx, int worker_cnt) {
+    ctx_ = ctx;
+    worker_cnt_ = worker_cnt;
+  }
+
+  virtual ~ZMQRRWorkerAsyncServer() {}
+
+  virtual void start()
+  {
+      //  Frontend socket talks to clients over TCP
+      void *frontend = zsocket_new (ctx_, ZMQ_ROUTER);
+      zsocket_bind (frontend, "tcp://*:5570");
+
+      //  Backend socket talks to workers over inproc
+      void *backend = zsocket_new (ctx_, ZMQ_DEALER);
+      zsocket_bind (backend, "inproc://backend");
+
+      //  Launch pool of worker threads, precise number is not critical
+      int thread_nbr;
+      for (thread_nbr = 0; thread_nbr < worker_cnt_; thread_nbr++) {
+        workers_.push_back(std::thread(&ZMQRRWorkerAsyncServer::handle, this));
+      }
+
+      //  Connect backend to frontend via a proxy
+      zmq_proxy (frontend, backend, NULL);
+  }
+
+  /*
+   * Implement this handler to handle messages
+   */
+  virtual void handle() = 0;
+
+protected:
+  zctx_t *ctx_;
+  int worker_cnt_;
+  std::list<std::thread> workers_;
+};
 } // namespace fds
 #endif
