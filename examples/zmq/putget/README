@@ -1,0 +1,8 @@
+Simple demonstration of sending and receiving protobufs via zeromq as transport.
+Files
+sh.cc: Simulates sh client
+sm.cc: Simulates sm server
+comm_utils.h: Helper classes/functions
+
+Dependencies:
+-zeromq core(libzmq), c bindings from zeromq(libczmq)

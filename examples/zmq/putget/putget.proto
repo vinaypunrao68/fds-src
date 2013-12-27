@@ -1,0 +1,24 @@
+package Fds;
+
+message PutObjReq {
+  required string obj_id = 1;
+  required string content = 2;
+}
+
+message PutObjResp {
+  required string obj_id = 2;
+}
+
+message FdsReq {
+	enum Type { PutObjReq = 1;}
+	required Type type = 1;
+	
+	optional PutObjReq po_req = 2;
+}
+
+message FdsResp {
+	enum Type { PutObjResp = 1;}	
+	required Type type = 1;
+	
+	optional PutObjResp po_resp = 2;		
+}
