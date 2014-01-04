@@ -31,6 +31,8 @@ toolchain_ice_bin    := $(toolchain_ice_top)/bin
 # Thrift settings.
 #
 tool_thrift          := $(toolchain_bin)/thrift
+toolchain_thrf       := $(topdir)/../thrift-0.9.0
+toolchain_thrf_incl  := -I$(toolchain_thrf)/lib/cpp/src
 
 # Boost settings.
 #
@@ -49,6 +51,7 @@ toolchain_incl_flags := -I$(toolchain_boost_incl)
 toolchain_incl_flags += -I$(toolchain_ice_top)/include
 toolchain_incl_flags += -I$(toolchain_ldb_incl) -I$(toolchain_ldb)
 toolchain_incl_flags += $(toolchain_nginx_incl)
+toolchain_incl_flags += $(toolchain_thrf_incl)
 
 toolchain_cc_flags   := $(toolchain_incl_flags)
 toolchain_cpp_flags  := $(toolchain_incl_flags)

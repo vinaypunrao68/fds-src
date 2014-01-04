@@ -24,7 +24,7 @@ user_cpp          :=                       \
     perfstat_unit_test.cpp
 
 user_cc           :=
-user_no_style     := $(user_cpp) $(user_cc)
+user_no_style     := $(user_cpp) $(user_cc) $(wildcard *.h)
 
 user_bin_exe      := \
     catalog_test \
