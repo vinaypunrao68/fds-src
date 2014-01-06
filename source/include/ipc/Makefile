@@ -7,6 +7,8 @@ user_build_dir := \
     concurrency \
     fds-probe \
     hash \
+    ipc \
+    json \
     persistent_layer \
     shared \
     util

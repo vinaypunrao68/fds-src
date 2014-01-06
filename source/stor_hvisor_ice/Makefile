@@ -24,7 +24,7 @@ StorHvisor_cpp    :=                   \
 user_cpp          :=                   \
     $(StorHvisor_cpp)
 
-user_no_style     := $(user_cpp) $(user_cc)
+user_no_style     := $(user_cpp) $(user_cc) $(wildcard *.h)
 user_ar_libs      := fds-StorHvisor
 fds-StorHvisor    := $(StorHvisor_cpp)
 

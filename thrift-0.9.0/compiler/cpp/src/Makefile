@@ -2,16 +2,36 @@ thrift_dir        := ../../..
 user_taget        := exe
 user_rtime_env    := user
 user_incl_dir     :=
-user_build_dir    := generate parse
+user_build_dir    :=
 user_cc           := md5.c
 user_cpp          := \
     thrifty.cc \
     thriftl.cc \
-    main.cc
+    main.cc \
+    generate/t_generator.cc \
+    generate/t_c_glib_generator.cc \
+    generate/t_cpp_generator.cc \
+    generate/t_java_generator.cc \
+    generate/t_as3_generator.cc \
+    generate/t_csharp_generator.cc \
+    generate/t_py_generator.cc \
+    generate/t_rb_generator.cc \
+    generate/t_perl_generator.cc \
+    generate/t_php_generator.cc \
+    generate/t_erl_generator.cc \
+    generate/t_cocoa_generator.cc \
+    generate/t_st_generator.cc \
+    generate/t_ocaml_generator.cc \
+    generate/t_hs_generator.cc \
+    generate/t_xsd_generator.cc \
+    generate/t_html_generator.cc \
+    generate/t_javame_generator.cc \
+    generate/t_delphi_generator.cc \
+    generate/t_go_generator.cc \
+    generate/t_d_generator.cc \
+    parse/parse.cc
 
-user_non_fds_libs :=  \
-    thrift-genlib thrift-parse fl
-
+user_non_fds_libs :=  fl
 user_bin_exe      := thrift
 thrift            := $(user_cc) $(user_cpp)
 
@@ -27,6 +47,8 @@ thrifty.cc: thrifty.yy
 	@$(yacc) -y -d $<
 	@mv y.tab.h thrifty.h
 	@mv y.tab.c thrifty.cc
+	mkdir -p $(osdep_user_build)/generate
+	mkdir -p $(osdep_user_build)/parse
 
 thriftl.cc: thriftl.ll
 	@echo "    [FLEX]        $<"

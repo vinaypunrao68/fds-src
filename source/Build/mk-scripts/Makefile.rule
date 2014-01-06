@@ -12,7 +12,8 @@ local_cpp_flags := $(osdep_cpp_flags) $(main_cpp_flags)
 local_cpp_flags += $(comm_cpp_flags) $(user_cpp_flags)
 
 local_chk_cc    :=
-local_chk_cpp   := --filter=-whitespace/braces,-readability/streams,-build/include_order
+local_chk_cpp   := \
+    --filter=-whitespace/braces,-readability/streams,-build/include_order
 local_chk_cpp   += --root=$(topdir)
 
 rule_ar_flags   := $(osdep_ar_flags) $(user_ar_flags)
@@ -36,12 +37,13 @@ local_c_dep_files   := $(patsubst %.c,%,$(local_c_files))
 local_cpp_files     := $(user_cpp)
 local_cpp_dep_files := $(patsubst %.cpp,%,$(local_cpp_files))
 local_cpp_dep_files += $(patsubst %.cc,%,$(local_cpp_files))
-local_style_files   := $(comm_cc_chks) $(comm_cpp_chks)
 
 local_mk_files      := $(wildcard Makefile*)
 local_src_files     := $(local_c_files) $(local_cpp_files)
 local_obj_files     := $(comm_cc_objs) $(comm_cpp_objs)
-local_chk_files     := $(comm_cc_chks) $(comm_cpp_chks)
+local_chk_files     := \
+    $(comm_cc_chks) $(comm_cpp_chks) \
+    $(comm_hh_chks) $(comm_hpp_chks)
 
 # Dependency file
 #
@@ -153,12 +155,12 @@ endif
 # Clean target
 #
 .PHONY: clean
-clean: $(user_clean)
+clean:
 	@$(scpt_make_clean)
 ifdef user_clean
 	@for f in $(user_clean); do                                               \
 		[ -f $$f ] && rm $$f;                                                 \
-	done
+	done; exit 0
 endif
 ifdef user_build_dir
 	@$(scpt_build_subdir)
@@ -171,7 +173,7 @@ ifdef comm_clobber
 endif
 
 # -----------------------------------------------------------------------------
-# Rule to do style check for .c file.
+# Rule to do style check for .c/.h file.
 #
 $(comm_dir_objs)/%.chk : %.c
 ifdef VERBOSE
@@ -181,8 +183,16 @@ else
 	@$(call scpt_check_style,$(cc_style),$(local_chk_cc),$(user_no_style),$<,$@)
 endif
 
+$(comm_dir_objs)/%.chk : %.h
+ifdef VERBOSE
+	$(call scpt_check_style,$(cc_style),$(local_chk_cc),$(user_no_style),$<,$@)
+else
+	@echo -n "    [H STYLE]     $<"
+	@$(call scpt_check_style,$(cc_style),$(local_chk_cc),$(user_no_style),$<,$@)
+endif
+
 # -----------------------------------------------------------------------------
-# Rule to do style check for .cpp file.
+# Rule to do style check for .cpp/.hpp file.
 #
 $(comm_dir_objs)/%.chk : %.cpp
 ifdef VERBOSE
@@ -190,6 +200,16 @@ ifdef VERBOSE
         $(cpp_style),$(local_chk_cpp),$(user_no_style),$<,$@)
 else
 	@echo -n "    [CPP STYLE]   $<"
+	@$(call scpt_check_style, \
+        $(cpp_style),$(local_chk_cpp),$(user_no_style),$<,$@)
+endif
+
+$(comm_dir_objs)/%.chk : %.hpp
+ifdef VERBOSE
+	$(call scpt_check_style, \
+        $(cpp_style),$(local_chk_cpp),$(user_no_style),$<,$@)
+else
+	@echo -n "    [HPP STYLE]   $<"
 	@$(call scpt_check_style, \
         $(cpp_style),$(local_chk_cpp),$(user_no_style),$<,$@)
 endif
@@ -275,7 +295,7 @@ mk_debug:
 	@echo user_rtime = $(user_rtime_env), user_target = $(user_target)
 	@echo osdep_target = $(osdep_target) flags = $(local_cc_flags)
 	@echo ld = $(rule_ld_flags)
-	@echo comm_no_chks= $(comm_no_chks)
+	@echo user_predep= $(user_predep)
 	@echo comm_cc_chks= $(comm_cc_chks)
 	@echo comm_cpp_chks= $(comm_cpp_chks)
 

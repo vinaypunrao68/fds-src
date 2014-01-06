@@ -35,7 +35,7 @@ data_mgr_cpp      :=                   \
 user_cpp          :=                   \
     $(data_mgr_cpp)
 
-user_no_style     := $(user_cpp) $(user_cc)
+user_no_style     := $(user_cpp) $(user_cc) $(wildcard *.h)
 user_bin_exe      := DataMgr
 DataMgr           := $(data_mgr_cpp)
 

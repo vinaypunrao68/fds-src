@@ -6,7 +6,7 @@ topdir         := .
 #
 user_build_dir :=                       \
     fdsp                                \
-    include/fdsp                        \
+    include                             \
     osdep                               \
     net-proxies                         \
     umod-lib                            \

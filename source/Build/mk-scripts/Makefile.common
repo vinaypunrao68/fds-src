@@ -113,11 +113,13 @@ comm_src2obj    += $(call comm_list2obj,.cpp,$(1))
 
 comm_cc_objs    := $(call comm_list2obj,.c,$(user_cc))
 comm_cc_chks    := $(call comm_list2chk,.c,$(user_cc))
+comm_hh_chks    := $(call comm_list2chk,.h,$(user_hh))
 comm_cc_flints  := $(call comm_list2obj,.lob,$(user_cc))
 
 comm_cpp_objs   := $(call comm_list2obj,.cpp,$(user_cpp))
 comm_cpp_objs   += $(call comm_list2obj,.cc,$(user_cpp))
 comm_cpp_chks   := $(call comm_list2chk,.cpp,$(user_cpp))
+comm_hpp_chks   := $(call comm_list2chk,.hpp,$(user_hpp))
 comm_cpp_flints := $(call comm_list2obj,.lob,$(user_cpp))
 
 comm_clobber    := $(wildcard cscope.* tags TAGS)
