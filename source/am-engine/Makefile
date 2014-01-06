@@ -9,6 +9,7 @@ user_cpp         :=               \
     s3connector.cpp \
     http_utils.cpp
 
+user_no_style    := $(wildcard *.h)
 user_ar_libs     := fds-am-engine
 fds-am-engine    := $(user_cpp) $(user_cc)
 

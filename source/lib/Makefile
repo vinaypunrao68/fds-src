@@ -26,6 +26,7 @@ user_no_style    := \
     TransJournal.cpp     \
     PerfStats.cpp        \
     jsoncpp.cpp          \
+    $(wildcard *.h)
 
 # TODO: should change this directory and this lib to something more
 # specific.
