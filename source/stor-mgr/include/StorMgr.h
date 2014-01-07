@@ -34,6 +34,7 @@
 #include <qos_ctrl.h>
 #include <fds_obj_cache.h>
 #include <fds_assert.h>
+#include <fds_config.hpp>
 
 #include <utility>
 #include <atomic>
@@ -55,6 +56,8 @@
 
 #include <TierEngine.h>
 #include <ObjRank.h>
+
+#include <fds_module.h>
 
 #undef FDS_TEST_SM_NOOP      /* if defined, IO completes as soon as it arrives to SM */
 
@@ -115,8 +118,10 @@ namespace fds {
   };
 
 
-  class ObjectStorMgr : virtual public Ice::Application {
- private:
+  class ObjectStorMgr :
+  virtual public Ice::Application,
+          public Module {
+private:
     typedef enum {
       NORMAL_MODE = 0,
       TEST_MODE   = 1,
@@ -141,7 +146,7 @@ namespace fds {
     /*
      * Local storage members
      */
-//    TransJournal<ObjectID, ObjectIdJrnlEntry> *omJrnl;
+    // TransJournal<ObjectID, ObjectIdJrnlEntry> *omJrnl;
     fds_mutex *objStorMutex;
     ObjectDB  *objStorDB;
     ObjectDB  *objIndexDB;
@@ -255,6 +260,7 @@ namespace fds {
     PerfStats *perfStats;
 
     SysParams *sysParams;
+    boost::shared_ptr<FdsConfig> config_;
 
     /*
      * Private request processing members.
@@ -295,8 +301,12 @@ namespace fds {
 
  public:
 
-    ObjectStorMgr();
+    ObjectStorMgr(const boost::shared_ptr<FdsConfig> &config);
     ~ObjectStorMgr();
+
+    int  mod_init(SysParams const *const param);
+    void mod_startup();
+    void mod_shutdown();
 
     fds_log* GetLog();
     fds_log *sm_log;
@@ -304,7 +314,14 @@ namespace fds {
     /*
      * stats  class 
      */
-      ObjStatsTracker   *objStats;
+    ObjStatsTracker   *objStats;
+
+    /**
+     * Runs the storage manager server.
+     * This function is not intended to return until
+     * the server is no longer running.
+     */
+    void runServer();
 
     fds_bool_t isShuttingDown() const {
       return shuttingDown;
@@ -368,12 +385,6 @@ namespace fds {
       return stor_prefix;
     }
 
-    void setSysParams(SysParams *params) {
-    	sysParams = params;
-    }
-    SysParams* getSysParams() {
-    	return sysParams;
-    }
     FdsObjectCache *getObjCache() {
       return objCache;
     }

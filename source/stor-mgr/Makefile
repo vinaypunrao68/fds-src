@@ -3,6 +3,7 @@ user_target       := exe
 user_rtime_env    := user
 user_build_dir    := smlib policy include
 user_install_loc  := exe
+user_install      := fds.conf 
 
 # TODO: avoid include across components, put in include dir instead.
 #
@@ -37,13 +38,14 @@ user_non_fds_libs :=                                                          \
     leveldb \
     ssl \
     crypto \
-    leveldb
+    leveldb \
+    config++
 
 stor_mgr_cpp      := stormgr_main.cpp
 user_cpp          :=                   \
     $(stor_mgr_cpp)
 
-user_no_style     := $(user_cpp) $(user_cc)
+user_no_style     := 
 user_bin_exe      := StorMgr
 StorMgr           := $(stor_mgr_cpp)
 

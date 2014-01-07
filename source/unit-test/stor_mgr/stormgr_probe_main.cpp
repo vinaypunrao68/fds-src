@@ -3,11 +3,13 @@
  */
 #include <sm_probe.h>
 #include <iostream>
+#include <fds_config.hpp>
 #include <policy_tier.h>
 #include <StorMgr.h>
 
 int main(int argc, char *argv[]) {
-  objStorMgr = new ObjectStorMgr();
+    boost::shared_ptr<FdsConfig> config(new FdsConfig("fds.conf"));
+    objStorMgr = new ObjectStorMgr(config);
 
   /* Instantiate a DiskManager Module instance */
   fds::Module *io_dm_vec[] = {

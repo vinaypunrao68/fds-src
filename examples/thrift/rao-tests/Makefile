@@ -11,13 +11,13 @@ INC := -I$(THRIFT_DIR) -I$(BOOST_DIR)
 all: sm_server sh_server
 
 %.o: %.cpp
-	$(CXX) -Wall -DHAVE_INTTYPES_H -DHAVE_NETINET_IN_H $(INC) -c $< -o $@
+	$(CXX) -std=c++11 -Wall -DHAVE_INTTYPES_H -DHAVE_NETINET_IN_H $(INC) -c $< -o $@
 
 sm_server: sm_server.o $(GEN_OBJ)
-	$(CXX) $^ -o $@ -L/usr/local/lib -lthrift 
+	$(CXX) $^ -std=c++11 -o $@ -L/usr/local/lib -lthrift 
 
 sh_server: sh_server.o $(GEN_OBJ)
-	$(CXX) $^ -o $@ -L/usr/local/lib -lthrift 
+	$(CXX) $^ -std=c++11 -o $@ -L/usr/local/lib -lthrift 
 
 clean:
 	$(RM) *.o sm_server sh_server 

@@ -50,7 +50,9 @@ int scheduleQueryCatalog(void * _io);
 int scheduleDeleteCatObj(void * _io);
 int scheduleBlobList(void * _io);
 
-  class DataMgr : virtual public Ice::Application {
+  class DataMgr :
+  virtual public Ice::Application,
+          public Module {
 public:
   void InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
 
@@ -97,8 +99,7 @@ public:
 	     std::string        _src_node_name,
 	     fds_uint32_t 	_reqCookie,
 	     fds_io_op_t        _ioType,
-	     FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr _updCatReq)
-    {
+	     FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr _updCatReq) {
          volId             = _volId;
       	 blob_name         = _blob_name;
          transId           = _transId;
@@ -205,7 +206,6 @@ public:
     OMgrClient     *omClient;
 
     fds_log *dm_log;
-    SysParams *sysParams;
     dmQosCtrl   *qosCtrl;
 
     /*
@@ -282,14 +282,21 @@ public:
     DataMgr();
     ~DataMgr();
 
+    int  mod_init(SysParams const *const param);
+    void mod_startup();
+    void mod_shutdown();
 
     virtual int run(int argc, char* argv[]);
     void interruptCallback(int arg);
     void swapMgrId(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg);
     fds_log* GetLog();
 
-    void setSysParams(SysParams *params);
-    SysParams* getSysParams();
+    /**
+     * Runs the data manager server.
+     * This function is not intended to return until
+     * the server is no longer running.
+     */
+    void runServer();
 
     std::string getPrefix() const;
     fds_bool_t volExists(fds_volid_t vol_uuid) const;

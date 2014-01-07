@@ -372,14 +372,16 @@ Error DataMgr::_process_delete(fds_volid_t vol_uuid,
 }
 
 DataMgr::DataMgr()
-    : port_num(0),
-      cp_port_num(0),
-      omConfigPort(0),
-      use_om(true),
-      numTestVols(10),
-      runMode(NORMAL_MODE),
-      scheduleRate(4000),
-      num_threads(DM_TP_THREADS) {
+    :
+    Module("Data Manager"),
+    port_num(0),
+    cp_port_num(0),
+    omConfigPort(0),
+    use_om(true),
+    numTestVols(10),
+    runMode(NORMAL_MODE),
+    scheduleRate(4000),
+    num_threads(DM_TP_THREADS) {
   dm_log = new fds_log("dm", "logs");
   vol_map_mtx = new fds_mutex("Volume map mutex");
 
@@ -421,7 +423,24 @@ DataMgr::~DataMgr() {
   delete dm_log;
   delete qosCtrl;
 }
- 
+
+int DataMgr::mod_init(SysParams const *const param) {
+    Module::mod_init(param);
+    return 0;
+}
+
+void DataMgr::mod_startup() {    
+}
+
+void DataMgr::mod_shutdown() {
+}
+
+void DataMgr::runServer() {
+  /*
+   * TODO: Replace this when we pull ICE out.
+   */
+  this->main(mod_params->p_argc, mod_params->p_argv, "dm_test.conf");
+}
 
 int DataMgr::run(int argc, char* argv[]) {
 
@@ -454,7 +473,7 @@ int DataMgr::run(int argc, char* argv[]) {
     }
   }
 
-  GetLog()->setSeverityFilter((fds_log::severity_level) (getSysParams()->log_severity));
+  GetLog()->setSeverityFilter((fds_log::severity_level) (mod_params->log_severity));
   if (useTestMode == true) {
     runMode = TEST_MODE;
   }
@@ -663,14 +682,6 @@ void DataMgr::swapMgrId(const FDS_ProtocolInterface::
 
 fds_log* DataMgr::GetLog() {
   return dm_log;
-}
-
-void DataMgr::setSysParams(SysParams *params) {
-	sysParams = params;
-}
-
-SysParams* DataMgr::getSysParams() {
-	return sysParams;
 }
 
 std::string DataMgr::getPrefix() const {
@@ -1452,13 +1463,16 @@ int main(int argc, char *argv[]) {
 
   fds::dataMgr = new fds::DataMgr();
 
-  fds::Module *io_dm_vec[] = {
+  fds::Module *dmVec[] = {
+    fds::dataMgr,
     nullptr
   };
-  fds::ModuleVector  io_dm(argc, argv, io_dm_vec);
+  fds::ModuleVector dmModVec(argc, argv, dmVec);
+  dmModVec.mod_execute();
 
-  fds::dataMgr->setSysParams(io_dm.get_sys_params());
-  fds::dataMgr->main(argc, argv, "dm_test.conf");
+  fds::dataMgr->runServer();
 
   delete fds::dataMgr;
+
+  return 0;
 }
