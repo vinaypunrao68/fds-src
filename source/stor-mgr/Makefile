@@ -3,6 +3,7 @@ user_target       := exe
 user_rtime_env    := user
 user_build_dir    := smlib policy include
 user_install_loc  := exe
+user_install      := fds.conf 
 
 # TODO: avoid include across components, put in include dir instead.
 #
