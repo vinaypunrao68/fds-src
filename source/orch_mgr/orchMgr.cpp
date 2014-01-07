@@ -13,7 +13,8 @@ namespace fds {
 OrchMgr *orchMgr;
 
 OrchMgr::OrchMgr()
-    : port_num(0),
+    : Module("Orch Manager"),
+      port_num(0),
       test_mode(false) {
   om_log = new fds_log("om", "logs");
   om_mutex = new fds_mutex("OrchMgrMutex");
@@ -44,6 +45,24 @@ OrchMgr::~OrchMgr() {
     delete policy_mgr;
 }
 
+int OrchMgr::mod_init(SysParams const *const param) {
+    Module::mod_init(param);
+    return 0;
+}
+
+void OrchMgr::mod_startup() {    
+}
+
+void OrchMgr::mod_shutdown() {
+}
+
+void OrchMgr::runServer() {
+  /*
+   * TODO: Replace this when we pull ICE out.
+   */
+  this->main(mod_params->p_argc, mod_params->p_argv, "orch_mgr.conf");
+}
+
 int OrchMgr::run(int argc, char* argv[]) {
   /*
    * Process the cmdline args.
@@ -58,7 +77,7 @@ int OrchMgr::run(int argc, char* argv[]) {
     }
   }
 
-  GetLog()->setSeverityFilter((fds_log::severity_level) (getSysParams()->log_severity));
+  GetLog()->setSeverityFilter((fds_log::severity_level) (mod_params->log_severity));
 
   policy_mgr = new VolPolicyMgr(stor_prefix, om_log);
 
@@ -126,14 +145,6 @@ int OrchMgr::run(int argc, char* argv[]) {
   communicator()->waitForShutdown();
 
   return EXIT_SUCCESS;
-}
-
-void OrchMgr::setSysParams(SysParams *params) {
-  sysParams = params;
-}
-
-SysParams* OrchMgr::getSysParams() {
-  return sysParams;
 }
 
 fds_log* OrchMgr::GetLog() {
@@ -1036,15 +1047,17 @@ int main(int argc, char *argv[]) {
 
   fds::gl_orch_mgr = fds::orchMgr;
 
-  fds::Module *io_dm_vec[] = {
+  fds::Module *omVec[] = {
+    fds::orchMgr,
     nullptr
   };
-  fds::ModuleVector  io_dm(argc, argv, io_dm_vec);
-  fds::orchMgr->setSysParams(io_dm.get_sys_params());
+  fds::ModuleVector omModVec(argc, argv, omVec);
+  omModVec.mod_execute();
 
-  fds::orchMgr->main(argc, argv, "orch_mgr.conf");
+  fds::orchMgr->runServer();
 
   delete fds::orchMgr;
+
   return 0;
 }
 

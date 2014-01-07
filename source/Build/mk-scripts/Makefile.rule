@@ -183,14 +183,6 @@ else
 	@$(call scpt_check_style,$(cc_style),$(local_chk_cc),$(user_no_style),$<,$@)
 endif
 
-$(comm_dir_objs)/%.chk : %.h
-ifdef VERBOSE
-	$(call scpt_check_style,$(cc_style),$(local_chk_cc),$(user_no_style),$<,$@)
-else
-	@echo -n "    [H STYLE]     $<"
-	@$(call scpt_check_style,$(cc_style),$(local_chk_cc),$(user_no_style),$<,$@)
-endif
-
 # -----------------------------------------------------------------------------
 # Rule to do style check for .cpp/.hpp file.
 #
@@ -204,12 +196,12 @@ else
         $(cpp_style),$(local_chk_cpp),$(user_no_style),$<,$@)
 endif
 
-$(comm_dir_objs)/%.chk : %.hpp
+$(comm_dir_objs)/%.chk : %.h
 ifdef VERBOSE
 	$(call scpt_check_style, \
         $(cpp_style),$(local_chk_cpp),$(user_no_style),$<,$@)
 else
-	@echo -n "    [HPP STYLE]   $<"
+	@echo -n "    [H STYLE]   $<"
 	@$(call scpt_check_style, \
         $(cpp_style),$(local_chk_cpp),$(user_no_style),$<,$@)
 endif
