@@ -56,8 +56,6 @@
 #include <TierEngine.h>
 #include <ObjRank.h>
 
-#include <fds_module.h>
-
 #undef FDS_TEST_SM_NOOP      /* if defined, IO completes as soon as it arrives to SM */
 
 #define FDS_STOR_MGR_LISTEN_PORT FDS_CLUSTER_TCP_PORT_SM
@@ -117,10 +115,8 @@ namespace fds {
   };
 
 
-  class ObjectStorMgr :
-  virtual public Ice::Application,
-          public Module {
-private:
+  class ObjectStorMgr : virtual public Ice::Application {
+ private:
     typedef enum {
       NORMAL_MODE = 0,
       TEST_MODE   = 1,
@@ -145,7 +141,7 @@ private:
     /*
      * Local storage members
      */
-    // TransJournal<ObjectID, ObjectIdJrnlEntry> *omJrnl;
+//    TransJournal<ObjectID, ObjectIdJrnlEntry> *omJrnl;
     fds_mutex *objStorMutex;
     ObjectDB  *objStorDB;
     ObjectDB  *objIndexDB;
@@ -258,6 +254,8 @@ private:
     };
     PerfStats *perfStats;
 
+    SysParams *sysParams;
+
     /*
      * Private request processing members.
      */
@@ -300,24 +298,13 @@ private:
     ObjectStorMgr();
     ~ObjectStorMgr();
 
-    int  mod_init(SysParams const *const param);
-    void mod_startup();
-    void mod_shutdown();
-
     fds_log* GetLog();
     fds_log *sm_log;
     TierEngine     *tierEngine;
     /*
      * stats  class 
      */
-    ObjStatsTracker   *objStats;
-
-    /**
-     * Runs the storage manager server.
-     * This function is not intended to return until
-     * the server is no longer running.
-     */
-    void runServer();
+      ObjStatsTracker   *objStats;
 
     fds_bool_t isShuttingDown() const {
       return shuttingDown;
@@ -381,6 +368,12 @@ private:
       return stor_prefix;
     }
 
+    void setSysParams(SysParams *params) {
+    	sysParams = params;
+    }
+    SysParams* getSysParams() {
+    	return sysParams;
+    }
     FdsObjectCache *getObjCache() {
       return objCache;
     }

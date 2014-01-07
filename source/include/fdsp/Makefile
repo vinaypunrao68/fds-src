@@ -1,9 +1,9 @@
 topdir           := ../..
 user_target      := lib
 user_rtime_env   := user
-user_cpp         := \
-    FDSP.cpp orch_proto.cpp
 
+local_nocpp      := $(wildcard *.skeleton.*)
+user_cpp         := $(filter-out $(local_nocpp),$(wildcard *.cpp))
 user_no_style    := $(user_cpp) $(wildcard *.h)
 user_ar_libs     := fds-fdsp
 fds-fdsp         := $(user_cpp)

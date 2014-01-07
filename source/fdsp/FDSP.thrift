@@ -654,15 +654,6 @@ service FDSP_ConfigPathReq {
   oneway void SetThrottleLevel(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ThrottleMsgType throttle_msg),	
   oneway void GetVolInfo(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetVolInfoReqType vol_info_req),
   oneway void GetDomainStats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetDomainStatsType get_stats_msg),  
-
-  /* 
-  These are actually control messages from SM/DM/SH to OM. Need to move these to that control i32erface some time.
-  For now, keeping it in config path i32erface since OM does not implement the control i32erface.
-  */ 
-  oneway void RegisterNode(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RegisterNodeType reg_node_req),
-  oneway void NotifyQueueFull(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyQueueStateType queue_state_info),
-  oneway void NotifyPerfstats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PerfstatsType push_stats_msg),
-  oneway void TestBucket(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_TestBucket test_buck_msg)
 }
 
 service FDSP_ConfigPathResp {
@@ -682,6 +673,23 @@ service FDSP_ConfigPathResp {
   oneway void GetDomainStats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetDomainStatsType get_stats_rsp)
 }
 
+/*
+ * Control messages from SM/DM/SH to OM
+ */
+service FDSP_OMControlPathReq {
+  oneway void RegisterNode(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RegisterNodeType reg_node_req),
+  oneway void NotifyQueueFull(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyQueueStateType queue_state_info),
+  oneway void NotifyPerfstats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PerfstatsType push_stats_msg),
+  oneway void TestBucket(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_TestBucket test_buck_msg)
+}
+
+service FDSP_OMControlPathResp {
+  oneway void RegisterNode(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RegisterNodeType reg_node_rsp),
+  oneway void NotifyQueueFull(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyQueueStateType queue_state_rsp),
+  oneway void NotifyPerfstats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PerfstatsType push_stats_rsp),
+  oneway void TestBucket(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_TestBucket test_buck_rsp)
+}
+
 service FDSP_ControlPathReq {
 
   /* OM to SM/DM/SH control messages */
@@ -698,10 +706,6 @@ service FDSP_ControlPathReq {
   oneway void SetThrottleLevel(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ThrottleMsgType throttle_msg),
   oneway void TierPolicy(1:FDSP_TierPolicy tier),
   oneway void TierPolicyAudit(1:FDSP_TierPolicyAudit audit),
-
- /* These should be config path response from OM to SH, but since SH does not implement the 
-  * config resp interface, we keep those here for now
-  */
   oneway void NotifyBucketStats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_BucketStatsRespType buck_stats_msg)
 }
 

@@ -3,7 +3,6 @@ user_target       := exe
 user_rtime_env    := user
 user_build_dir    := smlib policy include
 user_install_loc  := exe
-user_install      := config.server om_client.conf stor_mgr.conf stor_mgr.cfg
 
 # TODO: avoid include across components, put in include dir instead.
 #
@@ -11,7 +10,7 @@ user_incl_dir     := $(topdir) include
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  :=                   \
-    fds-smlib-ice \
+    fds-smlib \
     fds-StorHvisor \
     fds-lib \
     fds-odb \
@@ -21,7 +20,7 @@ user_fds_ar_libs  :=                   \
     fds-thread \
     fds-util \
     fds-odb \
-    fds-vpolicy-ice \
+    fds-vpolicy \
     fds-netproxy \
     fds-fdsp
 
@@ -41,11 +40,10 @@ user_non_fds_libs :=                                                          \
     leveldb
 
 stor_mgr_cpp      := stormgr_main.cpp
-
 user_cpp          :=                   \
     $(stor_mgr_cpp)
 
-user_no_style     :=
+user_no_style     := $(user_cpp) $(user_cc)
 user_bin_exe      := StorMgr
 StorMgr           := $(stor_mgr_cpp)
 
