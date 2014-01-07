@@ -15,7 +15,8 @@ FdsCli  *fdsCli;
 std::ostringstream tcpProxyStr;
 FDSP_ConfigPathReqPrx  cfgPrx;
 
-FdsCli::FdsCli() {
+FdsCli::FdsCli() :
+        Module("Fds Cli") {
   cli_log = new fds_log("cli", "logs");
   FDS_PLOG(cli_log) << "Constructing the CLI";
 }
@@ -23,6 +24,24 @@ FdsCli::FdsCli() {
 FdsCli::~FdsCli() {
   FDS_PLOG(cli_log) << "Destructing the CLI";
   delete cli_log;
+}
+
+int FdsCli::mod_init(SysParams const *const param) {
+    Module::mod_init(param);
+    return 0;
+}
+
+void FdsCli::mod_startup() {    
+}
+
+void FdsCli::mod_shutdown() {
+}
+
+void FdsCli::runServer() {
+  /*
+   * TODO: Replace this when we pull ICE out.
+   */
+  this->main(mod_params->p_argc, mod_params->p_argv, "orch_mgr.conf");
 }
 
 void FdsCli::InitCfgMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
@@ -397,15 +416,17 @@ int FdsCli::run(int argc, char* argv[]) {
 
 int main(int argc, char* argv[])
 {
-    fds::Module *cli_vec[] = {
-        &fds::gl_OMCli,
-        nullptr
-    };
-    fds::ModuleVector  fds_cli_vec(argc, argv, cli_vec);
     fds::fdsCli = new fds::FdsCli();
 
+    fds::Module *cliVec[] = {
+        &fds::gl_OMCli,
+        fds::fdsCli,
+        nullptr
+    };
+    fds::ModuleVector fds_cli_vec(argc, argv, cliVec);
     fds_cli_vec.mod_execute();
-    fds::fdsCli->main(argc, argv, "orch_mgr.conf");
+
+    fds::fdsCli->runServer();
 
     delete fds::fdsCli;
     return 0;
