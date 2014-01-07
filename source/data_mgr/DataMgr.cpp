@@ -1467,7 +1467,7 @@ int main(int argc, char *argv[]) {
     fds::dataMgr,
     nullptr
   };
-  fds::ModuleVector  dmModVec(argc, argv, dmVec);
+  fds::ModuleVector dmModVec(argc, argv, dmVec);
   dmModVec.mod_execute();
 
   fds::dataMgr->runServer();

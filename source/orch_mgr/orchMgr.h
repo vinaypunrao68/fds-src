@@ -139,11 +139,13 @@ namespace fds {
 
   typedef std::unordered_map<int, localDomainInfo *> loc_domain_map_t;
 
-  class OrchMgr : virtual public Ice::Application {
+  class OrchMgr :
+  virtual public Ice::Application,
+          public Module {
   private:
     fds_log *om_log;
     SysParams *sysParams;
-    ReqCfgHandlerPtr   reqCfgHandlersrv;
+    ReqCfgHandlerPtr reqCfgHandlersrv;
     /*
      * TODO: These maps should eventually be pulled out into
      * a separate class that defines a cluster map. In other
@@ -185,11 +187,19 @@ namespace fds {
     OrchMgr();
     ~OrchMgr();
 
+    int  mod_init(SysParams const *const param);
+    void mod_startup();
+    void mod_shutdown();
+
     virtual int run(int argc, char* argv[]);
     void interruptCallback(int cb);
 
-    void setSysParams(SysParams *params);
-    SysParams* getSysParams();
+    /**
+     * Runs the orch manager server.
+     * This function is not intended to return until
+     * the server is no longer running.
+     */
+    void runServer();
 
     fds_log* GetLog();
     void defaultS3BucketPolicy();  // default  policy  desc  for s3 bucket
