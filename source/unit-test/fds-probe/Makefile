@@ -7,15 +7,27 @@ user_build_dir    := s3
 user_incl_dir     := $(probe_dir)/include /usr/include/fuse
 user_cpp_flags    :=
 user_fds_so_libs  :=
-user_fds_ar_libs  :=                                                          \
-    fds-probe-adapters fds-probe-blk fds-probe fds-dsk-mgnt fds-dsk-io        \
-    fds-umod fds-thread fds-fdsp
+user_fds_ar_libs  := \
+    fds-probe-adapters \
+    fds-probe-blk \
+    fds-probe \
+    fds-dsk-mgnt \
+    fds-dsk-io \
+    fds-umod \
+    fds-thread \
+    fds-fdsp
 
-user_non_fds_libs :=                                                          \
-    boost_system boost_thread boost_program_options Ice IceUtil fuse
+user_non_fds_libs := \
+    boost_system \
+    boost_thread \
+    boost_program_options \
+    Ice \
+    IceUtil \
+    fuse
 
-user_cpp          :=                                                          \
-    pm_probe_test.cpp sm_probe_test.cpp
+user_cpp          := \
+    pm_probe_test.cpp \
+    sm_probe_test.cpp
 
 user_no_style     := $(user_cpp) $(user_cc)
 user_bin_exe      := pm_blk_probe sm_blk_probe
