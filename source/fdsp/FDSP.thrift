@@ -217,7 +217,7 @@ struct FDSP_BlobInfoType{
 typedef list<FDSP_BlobInfoType> BlobInfoListType
 
 const i64 blob_list_iterator_begin = 0
-const i64 blob_list_iterator_end = 0xffffffff
+const i64 blob_list_iterator_end = 1
 
 struct FDSP_GetVolumeBlobListReqType {
   // take volUUID from the header
@@ -588,133 +588,133 @@ struct FDSP_MsgHdrType {
 }
 
 service FDSP_SessionReq {
-    oneway void AssociateRespCallback(string src_node_name), // Associate Response callback ICE-object with DM/SM for this source node.
+    oneway void AssociateRespCallback(1:string src_node_name) // Associate Response callback ICE-object with DM/SM for this source node.
 }
 
 service FDSP_DataPathReq {
-    oneway void GetObject(FDSP_MsgHdrType fdsp_msg, FDSP_GetObjType get_obj_req),
+    oneway void GetObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetObjType get_obj_req),
 
-    oneway void PutObject(FDSP_MsgHdrType fdsp_msg, FDSP_PutObjType put_obj_req),
+    oneway void PutObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PutObjType put_obj_req),
 
-    oneway void DeleteObject(FDSP_MsgHdrType fdsp_msg, FDSP_DeleteObjType del_obj_req),
+    oneway void DeleteObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteObjType del_obj_req),
 
-    oneway void OffsetWriteObject(FDSP_MsgHdrType fdsp_msg, FDSP_OffsetWriteObjType offset_write_obj_req),
+    oneway void OffsetWriteObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_OffsetWriteObjType offset_write_obj_req),
 
-    oneway void RedirReadObject(FDSP_MsgHdrType fdsp_msg, FDSP_RedirReadObjType redir_write_obj_req),
+    oneway void RedirReadObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RedirReadObjType redir_write_obj_req)
 
 }
 
 service FDSP_MetaDataPathReq { 
 
-    oneway void UpdateCatalogObject(FDSP_MsgHdrType fdsp_msg, FDSP_UpdateCatalogType cat_obj_req),
+    oneway void UpdateCatalogObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_UpdateCatalogType cat_obj_req),
 
-    oneway void QueryCatalogObject(FDSP_MsgHdrType fdsp_msg, FDSP_QueryCatalogType cat_obj_req),
+    oneway void QueryCatalogObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_QueryCatalogType cat_obj_req),
 
-    oneway void DeleteCatalogObject(FDSP_MsgHdrType fdsp_msg, FDSP_DeleteCatalogType cat_obj_req),
+    oneway void DeleteCatalogObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteCatalogType cat_obj_req),
 
-    oneway void GetVolumeBlobList(FDSP_MsgHdrType fds_msg, FDSP_GetVolumeBlobListReqType blob_list_req),
+    oneway void GetVolumeBlobList(1:FDSP_MsgHdrType fds_msg, 2:FDSP_GetVolumeBlobListReqType blob_list_req)
 }
 
 service FDSP_MetaDataPathResp {
 
-    oneway void UpdateCatalogObjectResp(FDSP_MsgHdrType fdsp_msg, FDSP_UpdateCatalogType cat_obj_req),
+    oneway void UpdateCatalogObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_UpdateCatalogType cat_obj_req),
 
-    oneway void QueryCatalogObjectResp(FDSP_MsgHdrType fdsp_msg, FDSP_QueryCatalogType cat_obj_req),
+    oneway void QueryCatalogObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_QueryCatalogType cat_obj_req),
 
-    oneway void DeleteCatalogObjectResp(FDSP_MsgHdrType fdsp_msg, FDSP_DeleteCatalogType cat_obj_req),
+    oneway void DeleteCatalogObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteCatalogType cat_obj_req),
 
-    oneway void GetVolumeBlobListResp(FDSP_MsgHdrType fds_msg, FDSP_GetVolumeBlobListRespType blob_list_rsp),
+    oneway void GetVolumeBlobListResp(1:FDSP_MsgHdrType fds_msg, 2:FDSP_GetVolumeBlobListRespType blob_list_rsp)
 }
 
 service FDSP_DataPathResp {
-    oneway void GetObjectResp(FDSP_MsgHdrType fdsp_msg, FDSP_GetObjType get_obj_req),
+    oneway void GetObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetObjType get_obj_req),
 
-    oneway void PutObjectResp(FDSP_MsgHdrType fdsp_msg, FDSP_PutObjType put_obj_req),
+    oneway void PutObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PutObjType put_obj_req),
 
-    oneway void DeleteObjectResp(FDSP_MsgHdrType fdsp_msg, FDSP_DeleteObjType del_obj_req),
+    oneway void DeleteObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteObjType del_obj_req),
 
-    oneway void OffsetWriteObjectResp(FDSP_MsgHdrType fdsp_msg, FDSP_OffsetWriteObjType offset_write_obj_req),
+    oneway void OffsetWriteObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_OffsetWriteObjType offset_write_obj_req),
 
-    oneway void RedirReadObjectResp(FDSP_MsgHdrType fdsp_msg, FDSP_RedirReadObjType redir_write_obj_req),
+    oneway void RedirReadObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RedirReadObjType redir_write_obj_req)
 
 }
 
 service FDSP_ConfigPathReq {
-  oneway i32 CreateVol(FDSP_MsgHdrType fdsp_msg, FDSP_CreateVolType crt_vol_req),
-  oneway void DeleteVol(FDSP_MsgHdrType fdsp_msg, FDSP_DeleteVolType del_vol_req),
-  oneway void ModifyVol(FDSP_MsgHdrType fdsp_msg, FDSP_ModifyVolType mod_vol_req),
-  oneway void CreatePolicy(FDSP_MsgHdrType fdsp_msg, FDSP_CreatePolicyType crt_pol_req),
-  oneway void DeletePolicy(FDSP_MsgHdrType fdsp_msg, FDSP_DeletePolicyType del_pol_req),
-  oneway void ModifyPolicy(FDSP_MsgHdrType fdsp_msg, FDSP_ModifyPolicyType mod_pol_req),
-  oneway void AttachVol(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolCmdType atc_vol_req),
-  oneway void DetachVol(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolCmdType dtc_vol_req),
-  oneway void AssociateRespCallback(i64 ident), // Associate Response callback ICE-object with DM/SM 
-  oneway i32 CreateDomain(FDSP_MsgHdrType fdsp_msg, FDSP_CreateDomainType crt_dom_req),
-  oneway i32 DeleteDomain(FDSP_MsgHdrType fdsp_msg, FDSP_CreateDomainType del_dom_req),
-  oneway void SetThrottleLevel(FDSP_MsgHdrType fdsp_msg, FDSP_ThrottleMsgType throttle_msg),	
-  oneway void GetVolInfo(FDSP_MsgHdrType fdsp_msg, FDSP_GetVolInfoReqType vol_info_req),
-  oneway void GetDomainStats(FDSP_MsgHdrType fdsp_msg, FDSP_GetDomainStatsType get_stats_msg),  
+  oneway void CreateVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreateVolType crt_vol_req),
+  oneway void DeleteVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteVolType del_vol_req),
+  oneway void ModifyVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ModifyVolType mod_vol_req),
+  oneway void CreatePolicy(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreatePolicyType crt_pol_req),
+  oneway void DeletePolicy(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeletePolicyType del_pol_req),
+  oneway void ModifyPolicy(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ModifyPolicyType mod_pol_req),
+  oneway void AttachVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolCmdType atc_vol_req),
+  oneway void DetachVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolCmdType dtc_vol_req),
+  oneway void AssociateRespCallback(1:i64 ident), // Associate Response callback ICE-object with DM/SM 
+  oneway void CreateDomain(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreateDomainType crt_dom_req),
+  oneway void DeleteDomain(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreateDomainType del_dom_req),
+  oneway void SetThrottleLevel(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ThrottleMsgType throttle_msg),	
+  oneway void GetVolInfo(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetVolInfoReqType vol_info_req),
+  oneway void GetDomainStats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetDomainStatsType get_stats_msg),  
 
   /* 
   These are actually control messages from SM/DM/SH to OM. Need to move these to that control i32erface some time.
   For now, keeping it in config path i32erface since OM does not implement the control i32erface.
   */ 
-  oneway void RegisterNode(FDSP_MsgHdrType fdsp_msg, FDSP_RegisterNodeType reg_node_req),
-  oneway void NotifyQueueFull(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyQueueStateType queue_state_info),
-  oneway void NotifyPerfstats(FDSP_MsgHdrType fdsp_msg, FDSP_PerfstatsType push_stats_msg),
-  oneway void TestBucket(FDSP_MsgHdrType fdsp_msg, FDSP_TestBucket test_buck_msg),
+  oneway void RegisterNode(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RegisterNodeType reg_node_req),
+  oneway void NotifyQueueFull(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyQueueStateType queue_state_info),
+  oneway void NotifyPerfstats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PerfstatsType push_stats_msg),
+  oneway void TestBucket(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_TestBucket test_buck_msg)
 }
 
 service FDSP_ConfigPathResp {
-  oneway void CreateVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_CreateVolType crt_vol_resp),
-  oneway void DeleteVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_DeleteVolType del_vol_resp),
-  oneway void ModifyVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_ModifyVolType mod_vol_resp),
-  oneway void CreatePolicyResp(FDSP_MsgHdrType fdsp_msg, FDSP_CreatePolicyType crt_pol_resp),
-  oneway void DeletePolicyResp(FDSP_MsgHdrType fdsp_msg, FDSP_DeletePolicyType del_pol_resp),
-  oneway void ModifyPolicyResp(FDSP_MsgHdrType fdsp_msg, FDSP_ModifyPolicyType mod_pol_resp),
-  oneway void AttachVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolCmdType atc_vol_req),
-  oneway void DetachVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolCmdType dtc_vol_req),
-  oneway void RegisterNodeResp(FDSP_MsgHdrType fdsp_msg, FDSP_RegisterNodeType reg_node_resp),
-  oneway void TestBucketResp(FDSP_MsgHdrType fdsp_msg, FDSP_TestBucket test_buck_resp),
-  oneway i32 CreateDomainResp(FDSP_MsgHdrType fdsp_msg, FDSP_CreateDomainType crt_dom_resp),
-  oneway i32 DeleteDomainResp(FDSP_MsgHdrType fdsp_msg, FDSP_CreateDomainType del_dom_resp),
-  oneway void GetVolInfoResp(FDSP_MsgHdrType fdsp_msg, FDSP_GetVolInfoRespType vol_info_rsp),
-  oneway void GetDomainStats(FDSP_MsgHdrType fdsp_msg, FDSP_GetDomainStatsType get_stats_rsp),
+  oneway void CreateVolResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreateVolType crt_vol_resp),
+  oneway void DeleteVolResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteVolType del_vol_resp),
+  oneway void ModifyVolResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ModifyVolType mod_vol_resp),
+  oneway void CreatePolicyResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreatePolicyType crt_pol_resp),
+  oneway void DeletePolicyResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeletePolicyType del_pol_resp),
+  oneway void ModifyPolicyResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ModifyPolicyType mod_pol_resp),
+  oneway void AttachVolResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolCmdType atc_vol_req),
+  oneway void DetachVolResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolCmdType dtc_vol_req),
+  oneway void RegisterNodeResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RegisterNodeType reg_node_resp),
+  oneway void TestBucketResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_TestBucket test_buck_resp),
+  oneway void CreateDomainResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreateDomainType crt_dom_resp),
+  oneway void DeleteDomainResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreateDomainType del_dom_resp),
+  oneway void GetVolInfoResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetVolInfoRespType vol_info_rsp),
+  oneway void GetDomainStats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetDomainStatsType get_stats_rsp)
 }
 
 service FDSP_ControlPathReq {
 
   /* OM to SM/DM/SH control messages */
 
-  oneway void NotifyAddVol(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyVolType not_add_vol_req),
-  oneway void NotifyRmVol(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyVolType not_rm_vol_req),
-  oneway void NotifyModVol(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyVolType not_mod_vol_req),
-  oneway void AttachVol(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolType atc_vol_req),
-  oneway void DetachVol(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolType dtc_vol_req),
-  oneway void NotifyNodeAdd(FDSP_MsgHdrType fdsp_msg, FDSP_Node_Info_Type node_info),
-  oneway void NotifyNodeRmv(FDSP_MsgHdrType fdsp_msg, FDSP_Node_Info_Type node_info),
-  oneway void NotifyDLTUpdate(FDSP_MsgHdrType fdsp_msg, FDSP_DLT_Type dlt_info),
-  oneway void NotifyDMTUpdate(FDSP_MsgHdrType fdsp_msg, FDSP_DMT_Type dmt_info),
-  oneway void SetThrottleLevel(FDSP_MsgHdrType fdsp_msg, FDSP_ThrottleMsgType throttle_msg),
-  oneway void TierPolicy(FDSP_TierPolicy tier),
-  oneway void TierPolicyAudit(FDSP_TierPolicyAudit audit),
+  oneway void NotifyAddVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyVolType not_add_vol_req),
+  oneway void NotifyRmVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyVolType not_rm_vol_req),
+  oneway void NotifyModVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyVolType not_mod_vol_req),
+  oneway void AttachVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolType atc_vol_req),
+  oneway void DetachVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolType dtc_vol_req),
+  oneway void NotifyNodeAdd(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_Node_Info_Type node_info),
+  oneway void NotifyNodeRmv(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_Node_Info_Type node_info),
+  oneway void NotifyDLTUpdate(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DLT_Type dlt_info),
+  oneway void NotifyDMTUpdate(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DMT_Type dmt_info),
+  oneway void SetThrottleLevel(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ThrottleMsgType throttle_msg),
+  oneway void TierPolicy(1:FDSP_TierPolicy tier),
+  oneway void TierPolicyAudit(1:FDSP_TierPolicyAudit audit),
 
  /* These should be config path response from OM to SH, but since SH does not implement the 
   * config resp interface, we keep those here for now
   */
-  oneway void NotifyBucketStats(FDSP_MsgHdrType fdsp_msg, FDSP_BucketStatsRespType buck_stats_msg),
+  oneway void NotifyBucketStats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_BucketStatsRespType buck_stats_msg)
 }
 
 service FDSP_ControlPathResp {
-  oneway void NotifyAddVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyVolType not_add_vol_resp),
-  oneway void NotifyRmVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyVolType not_rm_vol_resp),
-  oneway void NotifyModVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyVolType not_mod_vol_resp),
-  oneway void AttachVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolType atc_vol_resp),
-  oneway void DetachVolResp(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolType dtc_vol_resp),
-  oneway void NotifyNodeAddResp(FDSP_MsgHdrType fdsp_msg, FDSP_Node_Info_Type node_info_resp),
-  oneway void NotifyNodeRmvResp(FDSP_MsgHdrType fdsp_msg, FDSP_Node_Info_Type node_info_resp),
-  oneway void NotifyDLTUpdateResp(FDSP_MsgHdrType fdsp_msg, FDSP_DLT_Type dlt_info_resp),
-  oneway void NotifyDMTUpdateResp(FDSP_MsgHdrType fdsp_msg, FDSP_DMT_Type dmt_info_resp),
+  oneway void NotifyAddVolResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyVolType not_add_vol_resp),
+  oneway void NotifyRmVolResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyVolType not_rm_vol_resp),
+  oneway void NotifyModVolResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyVolType not_mod_vol_resp),
+  oneway void AttachVolResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolType atc_vol_resp),
+  oneway void DetachVolResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolType dtc_vol_resp),
+  oneway void NotifyNodeAddResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_Node_Info_Type node_info_resp),
+  oneway void NotifyNodeRmvResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_Node_Info_Type node_info_resp),
+  oneway void NotifyDLTUpdateResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DLT_Type dlt_info_resp),
+  oneway void NotifyDMTUpdateResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DMT_Type dmt_info_resp)
 }
 
 
