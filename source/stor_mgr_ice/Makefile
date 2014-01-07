@@ -11,7 +11,7 @@ user_incl_dir     := $(topdir) include
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  :=                   \
-    fds-smlib \
+    fds-smlib-ice \
     fds-StorHvisor \
     fds-lib \
     fds-odb \
@@ -21,7 +21,7 @@ user_fds_ar_libs  :=                   \
     fds-thread \
     fds-util \
     fds-odb \
-    fds-vpolicy \
+    fds-vpolicy-ice \
     fds-netproxy \
     fds-fdsp
 

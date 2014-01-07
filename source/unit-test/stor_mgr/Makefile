@@ -1,5 +1,5 @@
 topdir            := ../..
-smdir             := $(topdir)/stor_mgr_ice
+smdir             := $(topdir)/stor-mgr
 probedir          := $(topdir)/fds-probe
 user_target       := exe
 user_rtime_env    := user
@@ -16,7 +16,7 @@ user_fds_ar_libs  :=                   \
 
 user_non_fds_libs :=                                                          \
     boost_log boost_system boost_filesystem boost_thread boost_date_time      \
-    boost_program_options Ice IceUtil IceStorm leveldb ssl crypto leveldb
+    boost_program_options Ice IceUtil IceStorm leveldb ssl crypto leveldb config++
 
 stor_mgr_probe    := stormgr_probe_main.cpp
 s3_sm_probe       := s3-sm-probe.cpp

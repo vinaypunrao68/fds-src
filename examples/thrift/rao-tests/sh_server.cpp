@@ -21,6 +21,7 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <vector>
+#include <chrono>
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/transport/TSocket.h>
 #include <thrift/transport/TTransportUtils.h>
@@ -41,6 +42,14 @@ using namespace apache::thrift::concurrency;
 using namespace Sh;
 using namespace Sm;
 using namespace boost;
+
+// globals
+static int total = 100; // total # of put reqs to send
+static int total_rcvd = 0; // total # of responses for put req received
+static int put_obj_size = 1 << 20; // payload size of put req
+static auto start_time = std::chrono::high_resolution_clock::now();
+static auto end_time = std::chrono::high_resolution_clock::now();
+
 
 //class MyThread : public Runnable {
 //public:
@@ -111,7 +120,11 @@ class SHHandler : public sh_serviceIf {
   }
 
   virtual void put_object_done(const std::string& obj) {
-    printf("Yay! receieved: %s\n", obj.c_str());
+    total_rcvd++;
+    if (total_rcvd == total) {
+      end_time = std::chrono::high_resolution_clock::now();
+      std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end_time-start_time).count() << std::endl;
+    }
   }
 
  private:
@@ -180,16 +193,16 @@ public:
     /* server config */
     boost::shared_ptr<TProtocolFactory> protocolFactory(new TBinaryProtocolFactory());
     boost::shared_ptr<TProcessor> processor(new sh_serviceProcessor(handler_));
-    boost::shared_ptr<TServerTransport> serverTransport(new TServerSocket(9090));
+    boost::shared_ptr<TServerTransport> serverTransport(new TServerSocket(9092));
     //boost::shared_ptr<TTransportFactory> transportFactory(new TBufferedTransportFactory());
     //boost::shared_ptr<TTransportFactory> transportFactory(new TTransportFactory());
     boost::shared_ptr<TTransportFactory> transportFactory(new TFramedTransportFactory());
     server_.reset(new TThreadedServer(processor, serverTransport, transportFactory, protocolFactory));
 
-    boost::shared_ptr<TServerEventHandler> serverEventHandler(new ShServerEventHandler());
-    server_->setServerEventHandler(serverEventHandler);
-    boost::shared_ptr<ShProcessorEventHandler> processorEventHandler(new ShProcessorEventHandler());
-    processor->setEventHandler(processorEventHandler);
+//    boost::shared_ptr<TServerEventHandler> serverEventHandler(new ShServerEventHandler());
+//    server_->setServerEventHandler(serverEventHandler);
+//    boost::shared_ptr<ShProcessorEventHandler> processorEventHandler(new ShProcessorEventHandler());
+//    processor->setEventHandler(processorEventHandler);
 
     /* SM client information */
     boost::shared_ptr<TTransport> sm_socket(new TSocket("localhost", 9091));
@@ -201,9 +214,7 @@ public:
   }
 
   virtual void run() {
-    printf("Starting the SH server...\n");
     server_->serve();
-    printf("done.\n");
   }
 
   boost::shared_ptr<sm_serviceClient> get_sm_client() {
@@ -227,35 +238,43 @@ boost::shared_ptr<sm_serviceClient> get_client(const std::string &ip , int port)
   return sm_client;
 }
 
+std::string get_put_obj(int obj_size) {
+  return std::string(obj_size, 'o');
+}
 
 int main(int argc, char** argv) {
 
   PosixThreadFactory tFactory(PosixThreadFactory::ROUND_ROBIN, PosixThreadFactory::NORMAL, 1, false);
   boost::shared_ptr<SHServer> sh_server(new SHServer());
-  shared_ptr<Thread> t1 = tFactory.newThread(sh_server);
+  boost::shared_ptr<Thread> t1 = tFactory.newThread(sh_server);
   t1->start();
   usleep(1000000);
 
   /* invoke a sm method */
-  boost::shared_ptr<sm_serviceClient> c1 = get_client("localhost", 9091);
+  boost::shared_ptr<sm_serviceClient> c1 = sh_server->get_sm_client();
   c1->getOutputProtocol()->getTransport()->open();
-  c1->put_object("obj1");
-  usleep(1000000);
-
-  boost::shared_ptr<sm_serviceClient> c2 = get_client("localhost", 9091);
-  c2->getOutputProtocol()->getTransport()->open();
-  c2->put_object("obj2");
-  usleep(1000000);
-
-  boost::shared_ptr<sm_serviceClient> c3 = get_client("localhost", 9091);
-  c3->getOutputProtocol()->getTransport()->open();
-  c3->put_object("obj3");
-  usleep(1000000);
-
-  boost::shared_ptr<sm_serviceClient> c4 = get_client("localhost", 9091);
-  c4->getOutputProtocol()->getTransport()->open();
-  c4->put_object("obj4");
-  usleep(1000000);
+  int cnt = 0;
+  start_time = std::chrono::high_resolution_clock::now();
+  while (cnt < total) {
+    c1->put_object(/*std::string(put_obj_size, 'o')*/get_put_obj(put_obj_size));
+    cnt++;
+  }
+//  usleep(1000000);
+//
+//  boost::shared_ptr<sm_serviceClient> c2 = get_client("localhost", 9091);
+//  c2->getOutputProtocol()->getTransport()->open();
+//  c2->put_object("obj2");
+//  usleep(1000000);
+//
+//  boost::shared_ptr<sm_serviceClient> c3 = get_client("localhost", 9091);
+//  c3->getOutputProtocol()->getTransport()->open();
+//  c3->put_object("obj3");
+//  usleep(1000000);
+//
+//  boost::shared_ptr<sm_serviceClient> c4 = get_client("localhost", 9091);
+//  c4->getOutputProtocol()->getTransport()->open();
+//  c4->put_object("obj4");
+//  usleep(1000000);
 
   t1->join();
   return 0;

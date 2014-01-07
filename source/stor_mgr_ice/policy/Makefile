@@ -8,7 +8,7 @@ user_cpp         :=               \
     policy_tier.cpp
 
 user_no_style     := $(user_cpp) $(user_cc)
-user_ar_libs     := fds-vpolicy
-fds-vpolicy      := $(user_cpp)
+user_ar_libs      := fds-vpolicy-ice
+fds-vpolicy-ice   := $(user_cpp)
 
 include $(topdir)/Makefile.incl

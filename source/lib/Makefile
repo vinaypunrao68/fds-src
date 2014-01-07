@@ -13,6 +13,7 @@ user_cpp         :=      \
     TransJournal.cpp     \
     PerfStats.cpp        \
     jsoncpp.cpp          \
+    fds_config.cpp
 
 user_incl_dir    := $(topdir)
 user_no_style    := \
