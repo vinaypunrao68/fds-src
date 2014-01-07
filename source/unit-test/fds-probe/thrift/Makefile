@@ -40,7 +40,6 @@ user_non_fds_libs :=  \
     Ice \
     IceUtil \
     IceStorm \
-    sh_server \
     $(user_nginx_libs)
 
 user_cc           := \
