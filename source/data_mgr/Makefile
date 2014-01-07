@@ -11,13 +11,13 @@ user_incl_dir     := $(topdir)
 user_cpp_flags    := -DDMGR_LIVE_DEBUG
 user_fds_so_libs  :=
 user_fds_ar_libs  := \
-    fds-StorHvisor \
+    fds-StorHvisor-ice \
     fds-lib \
     fds-dsk-mgnt \
     fds-umod \
     fds-thread \
     fds-util \
-    fds-fdsp
+    fds-fdsp-ice
 
 user_non_fds_libs := \
     boost_log \

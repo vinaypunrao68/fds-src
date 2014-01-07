@@ -20,7 +20,7 @@ user_build_dir :=                       \
     data_mgr                            \
     stor-mgr                            \
     stor_mgr_ice                        \
-    stor_hvisor                         \
+    stor-hvisor                         \
     fds_client                          \
     am-app                              \
     unit-test

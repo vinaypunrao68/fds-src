@@ -15,7 +15,7 @@ user_fds_ar_libs  := \
     fds-dsk-io \
     fds-umod \
     fds-thread \
-    fds-fdsp
+    fds-fdsp-ice
 
 user_non_fds_libs := \
     boost_system \

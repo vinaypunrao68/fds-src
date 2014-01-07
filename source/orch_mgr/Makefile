@@ -11,7 +11,7 @@ user_fds_ar_libs  := \
     fds-lib \
     fds-util \
     fds-netproxy \
-    fds-fdsp \
+    fds-fdsp-ice \
     fds-umod
 
 user_non_fds_libs := \
