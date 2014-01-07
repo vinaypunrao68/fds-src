@@ -18,6 +18,7 @@ user_build_dir :=                       \
     stor_hvisor_ice                     \
     orch_mgr                            \
     data_mgr                            \
+    stor-mgr                            \
     stor_mgr_ice                        \
     stor_hvisor                         \
     fds_client                          \
