@@ -224,16 +224,18 @@ ObjectStorMgrI::AssociateRespCallback(const Ice::Identity& ident, const std::str
  * are being hard coded in the initializer
  * list below.
  */
-ObjectStorMgr::ObjectStorMgr() :
-    runMode(NORMAL_MODE),
-    numTestVols(10),
-    totalRate(2000),
-    qosThrds(10),
-    port_num(0),
-    shuttingDown(false),
-    numWBThreads(1),
-    maxDirtyObjs(10000),
-    cp_port_num(0) {
+ObjectStorMgr::ObjectStorMgr(const boost::shared_ptr<FdsConfig> &config) :
+        Module("StorMgr"),
+        runMode(NORMAL_MODE),
+        numTestVols(10),
+        totalRate(2000),
+        qosThrds(10),
+        port_num(0),
+        shuttingDown(false),
+        numWBThreads(1),
+        maxDirtyObjs(10000),
+        cp_port_num(0),
+        config_(config) {
   /*
    * TODO: Fix the totalRate above to not
    * be hard coded.
@@ -290,8 +292,6 @@ ObjectStorMgr::ObjectStorMgr() :
   perfStats = new PerfStats("migratorSmStats");
   err = perfStats->enable();
   fds_verify(err == ERR_OK);
-
-  sysParams = NULL;
 }
 
 ObjectStorMgr::~ObjectStorMgr() {
@@ -336,6 +336,24 @@ ObjectStorMgr::~ObjectStorMgr() {
   delete volTbl;
   delete objStorMutex;
   //delete omJrnl;
+}
+
+int ObjectStorMgr::mod_init(SysParams const *const param) {
+    Module::mod_init(param);
+    return 0;
+}
+
+void ObjectStorMgr::mod_startup() {    
+}
+
+void ObjectStorMgr::mod_shutdown() {
+}
+
+void ObjectStorMgr::runServer() {
+  /*
+   * TODO: Replace this when we pull ICE out.
+   */
+  objStorMgr->main(mod_params->p_argc, mod_params->p_argv, "stor_mgr.conf");
 }
 
 void ObjectStorMgr::nodeEventOmHandler(int node_id,
@@ -1437,7 +1455,7 @@ ObjectStorMgr::run(int argc, char* argv[]) {
     }
   }
 
-  GetLog()->setSeverityFilter((fds_log::severity_level) (getSysParams()->log_severity));
+  GetLog()->setSeverityFilter((fds_log::severity_level) (mod_params->log_severity));
 
   if (useTestMode == true) {
     runMode = TEST_MODE;
