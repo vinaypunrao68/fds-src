@@ -249,14 +249,16 @@ endif
 #
 ifdef local_dep_file
 $(local_dep_file): $(local_src_files)
-		@if [ ! -z "$(local_cc_files)" ]; then                                \
-		    echo "    [DEP]         $(local_cc_files)";                       \
-            $(cc) -MM -MT $(local_cc_flags) $(local_cc_files) >> $@;          \
-        fi;                                                                   \
-        if [ ! -z "$(local_cpp_files)" ]; then                                \
-		    echo "    [DEP]         $(local_cpp_files)";                      \
-            $(cpp) -MM -MT $(local_cpp_flags) $(local_cpp_files) >> $@;       \
-        fi;
+	@[ -f $@ ] && rm $@;                                                      \
+	for f in $(local_cc_files); do                                            \
+		echo "    [DEP]         $$f";                                         \
+		obj=$${f%.*}.o;                                                       \
+        $(cc) -MM -MT $(comm_dir_objs)/$${f%.*}.o $(local_cc_flags) $$f >> $@;\
+	done;                                                                     \
+	for f in $(local_cpp_files); do                                           \
+		echo "    [DEP]         $$f";                                         \
+        $(cpp) -MM -MT $(comm_dir_objs)/$${f%.*}.o $(local_cpp_flags) $$f >> $@;\
+    done;         
 endif
 
 # -----------------------------------------------------------------------------
