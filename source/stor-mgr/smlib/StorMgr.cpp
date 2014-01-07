@@ -243,6 +243,7 @@ ObjectStorMgr::ObjectStorMgr(const boost::shared_ptr<FdsConfig> &config) :
 
   // Init  the log infra  
   sm_log = new fds_log("sm", "logs");
+  sm_log->setSeverityFilter((fds_log::severity_level) config_->get<int>("fds.sm.log_severity"));
   FDS_PLOG(sm_log) << "Constructing the Object Storage Manager";
   objStorMutex = new fds_mutex("Object Store Mutex");
   waitingReqMutex = new fds_mutex("Object Store Mutex");
@@ -1454,8 +1455,6 @@ ObjectStorMgr::run(int argc, char* argv[]) {
       useTestMode = true;
     }
   }
-
-  GetLog()->setSeverityFilter((fds_log::severity_level) (mod_params->log_severity));
 
   if (useTestMode == true) {
     runMode = TEST_MODE;
