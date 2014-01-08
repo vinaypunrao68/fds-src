@@ -1,0 +1,12 @@
+topdir          := $(jansson_dir)/..
+user_ext_build  := true
+
+user_no_style   += $(user_cc) $(user_cpp)
+user_incl_dir   += \
+    $(jansson_dir)
+
+user_cpp_flags  +=
+user_cc_flags   += \
+    -DHAVE_CONFIG_H -Wall -Wextra -Wdeclaration-after-statement -g -O2
+
+include $(topdir)/Makefile.incl
