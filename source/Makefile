@@ -16,7 +16,7 @@ user_build_dir :=                       \
     fds-probe                           \
     persistent_layer                    \
     stor_hvisor_ice                     \
-    orch_mgr                            \
+    orch_mgr_ice                        \
     data_mgr                            \
     stor-mgr                            \
     stor-hvisor                         \
