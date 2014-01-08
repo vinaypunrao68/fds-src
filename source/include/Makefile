@@ -11,8 +11,29 @@ user_build_dir := \
     shared \
     util
 
-user_hh        := $(wildcard *.h)
-user_hpp       := $(wildcard *.hpp)
-user_no_style  := $(user_hh) $(user_hpp)
+user_h         := $(wildcard *.h)
+user_hpp       := $(wildcard *.h)
+user_no_style  := \
+	cpplist.h             \
+	data_mgr.h            \
+	fds_assert.h          \
+	fds_commons_rm.h      \
+	fds_config.hpp        \
+	fds_err.h             \
+	fds_obj_cache.h       \
+	fds_placement_table.h \
+	fds_qos.h             \
+	fds_request.h         \
+	fds_resource.h        \
+	fds_types.h           \
+	fds_volume.h          \
+	native_api.h          \
+	odb.h                 \
+	PerfTrace.h           \
+	qos_ctrl.h            \
+	rdtsc.h               \
+	TransJournal.h        \
+	tvclib.h              \
+	vvclib.h
 
 include $(topdir)/Makefile.incl

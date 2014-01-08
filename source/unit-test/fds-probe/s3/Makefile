@@ -17,7 +17,7 @@ user_fds_ar_libs  :=  \
     fds-umod \
     fds-util \
     fds-hash \
-    fds-fdsp \
+    fds-fdsp-ice \
     fds-thread
 
 user_nginx_libs   :=  \

@@ -3,6 +3,7 @@ user_target       := exe
 user_rtime_env    := user
 user_build_dir    := smlib policy include
 user_install_loc  := exe
+user_install      := fds.conf 
 
 # TODO: avoid include across components, put in include dir instead.
 #
@@ -11,7 +12,7 @@ user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  :=                   \
     fds-smlib \
-    fds-StorHvisor \
+    fds-StorHvisor-ice \
     fds-lib \
     fds-odb \
     fds-dsk-mgnt \
@@ -22,7 +23,7 @@ user_fds_ar_libs  :=                   \
     fds-odb \
     fds-vpolicy \
     fds-netproxy \
-    fds-fdsp
+    fds-fdsp-ice
 
 user_non_fds_libs :=                                                          \
     boost_log \
@@ -37,13 +38,14 @@ user_non_fds_libs :=                                                          \
     leveldb \
     ssl \
     crypto \
-    leveldb
+    leveldb \
+    config++
 
 stor_mgr_cpp      := stormgr_main.cpp
 user_cpp          :=                   \
     $(stor_mgr_cpp)
 
-user_no_style     := $(user_cpp) $(user_cc)
+user_no_style     := 
 user_bin_exe      := StorMgr
 StorMgr           := $(stor_mgr_cpp)
 

@@ -56,8 +56,6 @@ class SMHandler : public sm_serviceIf {
   }
 
   virtual void put_object(const std::string& objId) {
-    printf("%s, objId: %s\n", __FUNCTION__, objId.c_str());
-
     if (!sh_transport_->isOpen()) {
       sh_transport_->open();
     }
@@ -140,10 +138,10 @@ public:
     handler_.reset(new SMHandler());
 
     /* server config */
-    boost::shared_ptr<ThreadManager> threadManager = ThreadManager::newSimpleThreadManager(2);
-    boost::shared_ptr<PosixThreadFactory> threadFactory = boost::shared_ptr<PosixThreadFactory>(new PosixThreadFactory());
-    threadManager->threadFactory(threadFactory);
-    threadManager->start();
+//    boost::shared_ptr<ThreadManager> threadManager = ThreadManager::newSimpleThreadManager(2);
+//    boost::shared_ptr<PosixThreadFactory> threadFactory = boost::shared_ptr<PosixThreadFactory>(new PosixThreadFactory());
+//    threadManager->threadFactory(threadFactory);
+//    threadManager->start();
 
     boost::shared_ptr<TProtocolFactory> protocolFactory(new TBinaryProtocolFactory());
     boost::shared_ptr<TProcessor> processor(new sm_serviceProcessor(handler_));
@@ -151,17 +149,17 @@ public:
     //boost::shared_ptr<TTransportFactory> transportFactory(new TBufferedTransportFactory());
     //boost::shared_ptr<TTransportFactory> transportFactory(new TTransportFactory());
     boost::shared_ptr<TTransportFactory> transportFactory(new TFramedTransportFactory());
-    //server_.reset(new TThreadedServer(processor, serverTransport, transportFactory, protocolFactory));
-    server_.reset(new TThreadPoolServer(processor, serverTransport, transportFactory, protocolFactory, threadManager));
+    server_.reset(new TThreadedServer(processor, serverTransport, transportFactory, protocolFactory));
+    //server_.reset(new TThreadPoolServer(processor, serverTransport, transportFactory, protocolFactory, threadManager));
 
-    boost::shared_ptr<TServerEventHandler> serverEventHandler(new SmServerEventHandler());
-    server_->setServerEventHandler(serverEventHandler);
-    boost::shared_ptr<SmProcessorEventHandler> processorEventHandler(new SmProcessorEventHandler());
-    processor->setEventHandler(processorEventHandler);
+//    boost::shared_ptr<TServerEventHandler> serverEventHandler(new SmServerEventHandler());
+//    server_->setServerEventHandler(serverEventHandler);
+//    boost::shared_ptr<SmProcessorEventHandler> processorEventHandler(new SmProcessorEventHandler());
+//    processor->setEventHandler(processorEventHandler);
 
 
     /* SH client information */
-    boost::shared_ptr<TTransport> sh_socket(new TSocket("localhost", 9090));
+    boost::shared_ptr<TTransport> sh_socket(new TSocket("localhost", 9092));
     //boost::shared_ptr<TBufferedTransport> sh_transport(new TBufferedTransport(sh_socket));
     boost::shared_ptr<TFramedTransport> sh_transport(new TFramedTransport(sh_socket));
     boost::shared_ptr<TProtocol> sh_protocol(new TBinaryProtocol(sh_transport));
@@ -190,7 +188,7 @@ private:
 int main(int argc, char** argv) {
   PosixThreadFactory tFactory(PosixThreadFactory::ROUND_ROBIN, PosixThreadFactory::NORMAL, 1, false);
   boost::shared_ptr<SMServer> sm_server(new SMServer());
-  shared_ptr<Thread> t1 = tFactory.newThread(sm_server);
+  boost::shared_ptr<Thread> t1 = tFactory.newThread(sm_server);
   t1->start();
   usleep(2000000);
 
