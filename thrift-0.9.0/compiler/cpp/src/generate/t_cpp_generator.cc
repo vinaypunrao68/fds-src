@@ -3259,8 +3259,14 @@ void t_cpp_generator::generate_process_function(t_service* tservice,
 
     for (f_iter = fields.begin(); f_iter != fields.end(); ++f_iter) {
       out <<
-	indent() << "pargs." << (*f_iter)->get_name() << " = new "
-		 << type_name((*f_iter)->get_type()) << "();"
+	indent() << "boost::shared_ptr<" <<  type_name((*f_iter)->get_type()) << "> "
+		 << (*f_iter)->get_name() << "_sptr(new "
+		 <<  type_name((*f_iter)->get_type()) << "());"
+		 << endl;
+
+      out <<
+	indent() << "pargs." << (*f_iter)->get_name() << " = "
+		 << (*f_iter)->get_name() << "_sptr.get();"
 		 << endl;
     }
 
@@ -3306,7 +3312,7 @@ void t_cpp_generator::generate_process_function(t_service* tservice,
       } else {
         out << ", ";
       }
-      out << "pargs." << (*f_iter)->get_name() << "";
+      out << (*f_iter)->get_name() << "_sptr";
     }
     out << ");" << endl;
 
@@ -4532,8 +4538,10 @@ string t_cpp_generator::argument_list(t_struct* tstruct, bool name_params,
     } else {
       result += ", ";
     }
-    result += type_name((*f_iter)->get_type(), false, (ptr_args?false:true)) + " " +
-      (ptr_args?"*":"") + 
+    result += 
+      (ptr_args?"boost::shared_ptr<":"") + 
+      type_name((*f_iter)->get_type(), false, (ptr_args?false:true)) +
+      (ptr_args?">&":"") + " " +
       (name_params ? (*f_iter)->get_name() : "/* " + (*f_iter)->get_name() + " */");
   }
   return result;
