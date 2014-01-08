@@ -7,26 +7,7 @@
 #include <ifaddrs.h>
 #include <arpa/inet.h>
 
-#include <Ice/ProxyF.h>
-#include <Ice/ObjectF.h>
-#include <Ice/Exception.h>
-#include <Ice/LocalObject.h>
-#include <Ice/StreamHelpers.h>
-#include <Ice/Proxy.h>
-#include <Ice/Object.h>
-#include <Ice/Outgoing.h>
-#include <Ice/OutgoingAsync.h>
-#include <Ice/Incoming.h>
-#include <Ice/IncomingAsync.h>
-#include <Ice/Direct.h>
-#include <Ice/FactoryTableInit.h>
-#include <IceUtil/ScopedArray.h>
-#include <IceUtil/Optional.h>
-#include <Ice/StreamF.h>
-#include <Ice/UndefSysMacros.h>
-#include <IceUtil/IceUtil.h>
-#include <Ice/Ice.h>
-#include <fdsp/FDSP.h>
+
 #include <list>
 #include "RPC_EndPoint.h"
 #include "StorHvDataPlace.h"
@@ -41,6 +22,11 @@
 #include "fds_qos.h" 
 #include "StorHvQosCtrl.h" 
 
+#include <fdsp/FDSP_DataPathReq.h>
+#include <fdsp/FDSP_MetaDataPathReq.h>
+#include <fdsp/FDSP_DataPathResp.h>
+#include <fdsp/FDSP_MetaDataPathResp.h>
+
 #include <map>
 // #include "util/concurrency/Thread.h"
 #include <concurrency/Synchronization.h>
@@ -49,18 +35,6 @@
 #undef  FDS_TEST_SH_NOOP              /* IO returns (filled with 0s for read) as soon as SH receives it from ubd */
 #undef FDS_TEST_SH_NOOP_DISPATCH     /* IO returns (filled with 0s for read) as soon as dispatcher takes it from the queue */
 
-
-#ifndef ICE_IGNORE_VERSION
-#   if ICE_INT_VERSION / 100 != 305
-#       error Ice version mismatch!
-#   endif
-#   if ICE_INT_VERSION % 100 > 50
-#       error Beta header file detected
-#   endif
-#   if ICE_INT_VERSION % 100 < 0
-#       error Ice patch level mismatch!
-#   endif
-#endif
 
 
 #define  FDS_NODE_OFFLINE               0
@@ -90,29 +64,37 @@ using namespace FDS_ProtocolInterface;
 using namespace std;
 using namespace fds;
 
-class FDSP_DataPathRespCbackI : public FDSP_DataPathResp
+class FDSP_DataPathRespCbackI : public FDSP_DataPathRespIf
 {
 public:
-    void GetObjectResp(const FDSP_MsgHdrTypePtr&, const FDSP_GetObjTypePtr&, const Ice::Current&);
+    void GetObjectResp(const FDSP_MsgHdrTypePtr&, const FDSP_GetObjTypePtr&);
 
-    void PutObjectResp(const FDSP_MsgHdrTypePtr&, const FDSP_PutObjTypePtr&, const Ice::Current&);
+    void PutObjectResp(const FDSP_MsgHdrTypePtr&, const FDSP_PutObjTypePtr&);
 
-    void DeleteObjectResp(const FDSP_MsgHdrTypePtr&, const FDSP_DeleteObjTypePtr&, const Ice::Current&);
+    void DeleteObjectResp(const FDSP_MsgHdrTypePtr&, const FDSP_DeleteObjTypePtr&);
 
-    void UpdateCatalogObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_UpdateCatalogTypePtr& cat_obj_req, const Ice::Current &); 
-
-    void QueryCatalogObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_QueryCatalogTypePtr& cat_obj_req, const Ice::Current &);
-
-    void DeleteCatalogObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_DeleteCatalogTypePtr& cat_obj_req, const Ice::Current &);
-
-    void OffsetWriteObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_OffsetWriteObjTypePtr& offset_write_obj_req, const Ice::Current &) {
+    void OffsetWriteObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_OffsetWriteObjTypePtr& offset_write_obj_req) {
 
     }
-    void RedirReadObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_RedirReadObjTypePtr& redir_write_obj_req, const Ice::Current &)
+    void RedirReadObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_RedirReadObjTypePtr& redir_write_obj_req)
     { 
     }
 
-    void GetVolumeBlobListResp(const FDSP_MsgHdrTypePtr& fds_msg, const FDSP_GetVolumeBlobListRespTypePtr& blob_list_rsp, const Ice::Current &);
+
+};
+
+
+class FDSP_DataPathMetaDataPathRespCbackI : public FDSP_MetaDataPathRespIf
+{
+public:
+
+    void UpdateCatalogObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_UpdateCatalogTypePtr& cat_obj_req); 
+
+    void QueryCatalogObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_QueryCatalogTypePtr& cat_obj_req);
+
+    void DeleteCatalogObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_DeleteCatalogTypePtr& cat_obj_req);
+
+    void GetVolumeBlobListResp(const FDSP_MsgHdrTypePtr& fds_msg, const FDSP_GetVolumeBlobListRespTypePtr& blob_list_rsp);
 
 };
 
