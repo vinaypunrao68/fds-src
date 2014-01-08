@@ -19,7 +19,6 @@ user_build_dir :=                       \
     orch_mgr                            \
     data_mgr                            \
     stor-mgr                            \
-    stor_mgr_ice                        \
     stor-hvisor                         \
     fds_client                          \
     am-app                              \
