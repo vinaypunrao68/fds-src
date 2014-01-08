@@ -89,6 +89,7 @@
 
 #include <fds_types.h>
 #include <fds_err.h>
+#include <fds_config.hpp>
 #include <fds_placement_table.h>
 #include <fdsp/FDSP.h>
 #include <util/Log.h>
@@ -145,6 +146,7 @@ namespace fds {
   private:
     fds_log *om_log;
     SysParams *sysParams;
+    boost::shared_ptr<FdsConfig> om_config;
     ReqCfgHandlerPtr reqCfgHandlersrv;
     /*
      * TODO: These maps should eventually be pulled out into
@@ -184,7 +186,7 @@ namespace fds {
     void SetThrottleLevelForDomain(int domain_id, float throttle_level);
 
   public:
-    OrchMgr();
+    OrchMgr(const boost::shared_ptr<FdsConfig>& config);
     ~OrchMgr();
 
     int  mod_init(SysParams const *const param);
