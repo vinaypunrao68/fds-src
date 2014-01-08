@@ -1,0 +1,4 @@
+topdir         := ..
+user_build_dir := src test/bin
+
+include $(topdir)/Makefile.incl

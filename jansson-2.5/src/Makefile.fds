@@ -1,0 +1,21 @@
+jansson_dir       := ..
+user_taget        := lib
+user_rtime_env    := user
+user_incl_dir     :=
+user_build_dir    :=
+user_cc           := \
+    dump.c \
+    error.c \
+    hashtable.c \
+    load.c \
+    memory.c \
+    pack_unpack.c \
+    strbuffer.c \
+    strconv.c \
+    utf.c \
+    value.c
+                
+user_ar_libs      := jansson
+jansson           := $(user_cc)
+
+include $(jansson_dir)/Makefile.incl
