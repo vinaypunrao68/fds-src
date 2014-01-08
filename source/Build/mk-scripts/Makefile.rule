@@ -160,6 +160,7 @@ clean:
 ifdef user_clean
 	@for f in $(user_clean); do                                               \
 		[ -f $$f ] && rm $$f;                                                 \
+        [ -d $$f ] && (cd $$f; make clean);                                   \
 	done; exit 0
 endif
 ifdef user_build_dir
