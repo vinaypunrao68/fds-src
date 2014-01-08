@@ -16,10 +16,10 @@ user_build_dir :=                       \
     fds-probe                           \
     persistent_layer                    \
     stor_hvisor_ice                     \
-    orch_mgr                            \
+    orch_mgr_ice                        \
     data_mgr                            \
-    stor_mgr_ice                        \
-    stor_hvisor                         \
+    stor-mgr                            \
+    stor-hvisor                         \
     fds_client                          \
     am-app                              \
     unit-test

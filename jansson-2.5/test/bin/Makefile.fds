@@ -1,0 +1,11 @@
+jansson_dir       := ../..
+user_taget        := exe
+user_rtime_env    := user
+user_incl_dir     := $(jansson_dir)/src
+user_build_dir    :=
+user_cc           := json_process.c
+user_bin_exe      := jans
+user_non_fds_libs := jansson
+jans              := $(user_cc)
+
+include $(jansson_dir)/Makefile.incl

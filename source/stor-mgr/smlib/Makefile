@@ -1,0 +1,22 @@
+topdir            := ../..
+user_target       := lib
+user_rtime_env    := user
+user_build_dir    :=
+
+# TODO: avoid include across components, put in include dir instead.
+#
+user_incl_dir     := $(topdir) ../include
+user_cpp_flags    :=
+user_cpp          :=                   \
+    StorMgr.cpp                        \
+    StorMgrVolumes.cpp                 \
+    ObjRank.cpp                        \
+    ObjStats.cpp                       \
+    TierEngine.cpp                     \
+    TierPutAlgorithms.cpp
+
+user_no_style     := $(user_cpp) $(user_cc)
+user_ar_libs      := fds-smlib
+fds-smlib         := $(user_cpp)
+
+include $(topdir)/Makefile.incl

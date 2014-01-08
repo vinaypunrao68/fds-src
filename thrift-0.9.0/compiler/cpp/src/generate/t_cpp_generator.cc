@@ -203,9 +203,9 @@ class t_cpp_generator : public t_oop_generator {
   std::string type_name(t_type* ttype, bool in_typedef=false, bool arg=false);
   std::string base_type_name(t_base_type::t_base tbase);
   std::string declare_field(t_field* tfield, bool init=false, bool pointer=false, bool constant=false, bool reference=false);
-  std::string function_signature(t_function* tfunction, std::string style, std::string prefix="", bool name_params=true);
+  std::string function_signature(t_function* tfunction, std::string style, std::string prefix="", bool name_params=true, bool ptr_args=false);
   std::string cob_function_signature(t_function* tfunction, std::string prefix="", bool name_params=true);
-  std::string argument_list(t_struct* tstruct, bool name_params=true, bool start_comma=false);
+  std::string argument_list(t_struct* tstruct, bool name_params=true, bool start_comma=false, bool ptr_args=false);
   std::string type_to_enum(t_type* ttype);
   std::string local_reflection_name(const char*, t_type* ttype, bool external=false);
 
@@ -1033,6 +1033,11 @@ void t_cpp_generator::generate_struct_definition(ofstream& out,
       tstruct->get_name() << " &b);" << endl <<
       endl;
   }
+
+  out << endl <<
+    indent() << "typedef boost::shared_ptr<" << tstruct->get_name() <<
+    ">" << " " << tstruct->get_name() << "_Ptr;" << endl << endl;
+
 }
 
 /**
@@ -1727,6 +1732,11 @@ void t_cpp_generator::generate_service_helpers(t_service* tservice) {
     generate_struct_reader(out, ts);
     generate_struct_writer(out, ts);
     ts->set_name(tservice->get_name() + "_" + (*f_iter)->get_name() + "_pargs");
+ generate_struct_definition(f_header_, ts, false, true, true, true);
+    generate_struct_writer(out, ts, true);
+    generate_struct_reader(out, ts, true);
+    ts->set_name(tservice->get_name() + "_" + (*f_iter)->get_name() + "_pargs_const");
+    
     generate_struct_definition(f_header_, ts, false, true, false, true);
     generate_struct_writer(out, ts, true);
     ts->set_name(name_orig);
@@ -1782,6 +1792,9 @@ void t_cpp_generator::generate_service_interface(t_service* tservice, string sty
   for (f_iter = functions.begin(); f_iter != functions.end(); ++f_iter) {
     f_header_ <<
       indent() << "virtual " << function_signature(*f_iter, style) << " = 0;" << endl;
+    f_header_ <<
+      indent() << "virtual " << function_signature(*f_iter, style, "", true, true) << " = 0;" << endl;
+  
   }
   indent_down();
   f_header_ <<
@@ -2328,6 +2341,9 @@ void t_cpp_generator::generate_service_client(t_service* tservice, string style)
   vector<t_function*>::const_iterator f_iter;
   for (f_iter = functions.begin(); f_iter != functions.end(); ++f_iter) {
     indent(f_header_) << function_signature(*f_iter, ifstyle) << ";" << endl;
+    indent(f_header_) << function_signature(*f_iter, ifstyle, "", true, true)
+		      << " {}" << endl;
+
     // TODO(dreiss): Use private inheritance to avoid generating thise in cob-style.
     t_function send_function(g_type_void,
         string("send_") + (*f_iter)->get_name(),
@@ -2455,7 +2471,7 @@ void t_cpp_generator::generate_service_client(t_service* tservice, string style)
       scope_up(out);
 
       // Function arguments and results
-      string argsname = tservice->get_name() + "_" + (*f_iter)->get_name() + "_pargs";
+      string argsname = tservice->get_name() + "_" + (*f_iter)->get_name() + "_pargs_const";
       string resultname = tservice->get_name() + "_" + (*f_iter)->get_name() + "_presult";
 
       // Serialize the request
@@ -3215,6 +3231,8 @@ void t_cpp_generator::generate_process_function(t_service* tservice,
 
     string argsname = tservice->get_name() + "_" + tfunction->get_name() +
       "_args";
+    string pargsname = tservice->get_name() + "_" + tfunction->get_name() + 
+      "_pargs";
     string resultname = tservice->get_name() + "_" + tfunction->get_name() +
       "_result";
 
@@ -3237,8 +3255,23 @@ void t_cpp_generator::generate_process_function(t_service* tservice,
       indent() << "  this->eventHandler_->preRead(ctx, " <<
         service_func_name << ");" << endl <<
       indent() << "}" << endl << endl <<
-      indent() << argsname << " args;" << endl <<
-      indent() << "args.read(iprot);" << endl <<
+      indent() << pargsname << " pargs;" << endl;
+
+    for (f_iter = fields.begin(); f_iter != fields.end(); ++f_iter) {
+      out <<
+	indent() << "boost::shared_ptr<" <<  type_name((*f_iter)->get_type()) << "> "
+		 << (*f_iter)->get_name() << "_sptr(new "
+		 <<  type_name((*f_iter)->get_type()) << "());"
+		 << endl;
+
+      out <<
+	indent() << "pargs." << (*f_iter)->get_name() << " = "
+		 << (*f_iter)->get_name() << "_sptr.get();"
+		 << endl;
+    }
+
+    out << 
+      indent() << "pargs.read(iprot);" << endl <<
       indent() << "iprot->readMessageEnd();" << endl <<
       indent() << "uint32_t bytes = iprot->getTransport()->readEnd();" <<
         endl << endl <<
@@ -3279,7 +3312,7 @@ void t_cpp_generator::generate_process_function(t_service* tservice,
       } else {
         out << ", ";
       }
-      out << "args." << (*f_iter)->get_name();
+      out << (*f_iter)->get_name() << "_sptr";
     }
     out << ");" << endl;
 
@@ -3760,6 +3793,10 @@ void t_cpp_generator::generate_service_skeleton(t_service* tservice) {
   for (f_iter = functions.begin(); f_iter != functions.end(); ++f_iter) {
     f_skeleton <<
       indent() << function_signature(*f_iter, "") << " {" << endl <<
+      indent() << "  // Don't do anything here. This stub is just to keep cpp compiler happy" << endl <<
+      indent() << "}" << endl <<
+      endl << endl <<
+      indent() << function_signature(*f_iter, "", "", true, true) << " {" << endl <<
       indent() << "  // Your implementation goes here" << endl <<
       indent() << "  printf(\"" << (*f_iter)->get_name() << "\\n\");" << endl <<
       indent() << "}" << endl <<
@@ -4436,7 +4473,8 @@ string t_cpp_generator::declare_field(t_field* tfield, bool init, bool pointer, 
 string t_cpp_generator::function_signature(t_function* tfunction,
                                            string style,
                                            string prefix,
-                                           bool name_params) {
+                                           bool name_params,
+					   bool ptr_args) {
   t_type* ttype = tfunction->get_returntype();
   t_struct* arglist = tfunction->get_arglist();
   bool has_xceptions = !tfunction->get_xceptions()->get_members().empty();
@@ -4446,11 +4484,11 @@ string t_cpp_generator::function_signature(t_function* tfunction,
       return
         "void " + prefix + tfunction->get_name() +
         "(" + type_name(ttype) + (name_params ? "& _return" : "& /* _return */") +
-        argument_list(arglist, name_params, true) + ")";
+        argument_list(arglist, name_params, true, ptr_args) + ")";
     } else {
       return
         type_name(ttype) + " " + prefix + tfunction->get_name() +
-        "(" + argument_list(arglist, name_params) + ")";
+        "(" + argument_list(arglist, name_params, false, ptr_args) + ")";
     }
   } else if (style.substr(0,3) == "Cob") {
     string cob_type;
@@ -4487,7 +4525,8 @@ string t_cpp_generator::function_signature(t_function* tfunction,
  * @param tstruct The struct definition
  * @return Comma sepearated list of all field names in that struct
  */
-string t_cpp_generator::argument_list(t_struct* tstruct, bool name_params, bool start_comma) {
+string t_cpp_generator::argument_list(t_struct* tstruct, bool name_params, 
+				      bool start_comma, bool ptr_args) {
   string result = "";
 
   const vector<t_field*>& fields = tstruct->get_members();
@@ -4499,7 +4538,10 @@ string t_cpp_generator::argument_list(t_struct* tstruct, bool name_params, bool 
     } else {
       result += ", ";
     }
-    result += type_name((*f_iter)->get_type(), false, true) + " " +
+    result += 
+      (ptr_args?"boost::shared_ptr<":"") + 
+      type_name((*f_iter)->get_type(), false, (ptr_args?false:true)) +
+      (ptr_args?">&":"") + " " +
       (name_params ? (*f_iter)->get_name() : "/* " + (*f_iter)->get_name() + " */");
   }
   return result;

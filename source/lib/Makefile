@@ -12,7 +12,7 @@ user_cpp         :=      \
     qos_min_prio.cpp     \
     TransJournal.cpp     \
     PerfStats.cpp        \
-    jsoncpp.cpp          \
+    jsoncpp.cpp          
 
 user_incl_dir    := $(topdir)
 user_no_style    := \

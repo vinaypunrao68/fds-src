@@ -6,8 +6,8 @@
  *   Command line  interface.
  */
 
-#ifndef FDS_CLI_H
-#define FDS_CLI_H
+#ifndef SOURCE_ORCH_MGR_ORCH_CLI_FDSCLI_H_
+#define SOURCE_ORCH_MGR_ORCH_CLI_FDSCLI_H_
 
 #include <iostream>
 #include <vector>
@@ -21,30 +21,37 @@
 #include <fds_err.h>
 #include <util/Log.h>
 
-
-
-using namespace FDS_ProtocolInterface;
+#include <fds_module.h>
 
 namespace fds {
 
-   extern std::ostringstream tcpProxyStr;
-   extern FDSP_ConfigPathReqPrx  cfgPrx;
+    extern std::ostringstream tcpProxyStr;
+    extern FDS_ProtocolInterface::FDSP_ConfigPathReqPrx  cfgPrx;
 
-  class FdsCli : virtual public Ice::Application {
+    class FdsCli :
+    virtual public Ice::Application,
+        public Module {
   private:
-    fds_log *cli_log;
+        fds_log *cli_log;
 
   public:
-    FdsCli();
-    ~FdsCli();
+        FdsCli();
+        ~FdsCli();
 
-   virtual int run(int argc, char* argv[]);
-//   void interruptCallback(int);
-   fds_log* GetLog();
-   int fdsCliPraser(int argc, char* argv[]);
-   void InitCfgMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
-   };
+        int  mod_init(SysParams const *const param);
+        void mod_startup();
+        void mod_shutdown();
+
+        void runServer();
+
+        virtual int run(int argc, char* argv[]);
+        // void interruptCallback(int);
+        fds_log* GetLog();
+        int fdsCliPraser(int argc, char* argv[]);
+        void InitCfgMsgHdr(
+            const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr);
+    };
 
 }  // namespace fds
 
-#endif  // FDS_CLI_H
+#endif  // SOURCE_ORCH_MGR_ORCH_CLI_FDSCLI_H_

@@ -11,8 +11,8 @@ user_incl_dir     := $(topdir) include
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  :=                   \
-    fds-smlib \
-    fds-StorHvisor \
+    fds-smlib-ice \
+    fds-StorHvisor-ice \
     fds-lib \
     fds-odb \
     fds-dsk-mgnt \
@@ -21,9 +21,9 @@ user_fds_ar_libs  :=                   \
     fds-thread \
     fds-util \
     fds-odb \
-    fds-vpolicy \
+    fds-vpolicy-ice \
     fds-netproxy \
-    fds-fdsp
+    fds-fdsp-ice
 
 user_non_fds_libs :=                                                          \
     boost_log \
@@ -45,7 +45,7 @@ stor_mgr_cpp      := stormgr_main.cpp
 user_cpp          :=                   \
     $(stor_mgr_cpp)
 
-user_no_style     := $(user_cpp) $(user_cc)
+user_no_style     :=
 user_bin_exe      := StorMgr
 StorMgr           := $(stor_mgr_cpp)
 

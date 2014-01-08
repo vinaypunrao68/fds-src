@@ -22,7 +22,7 @@ public:
       zmsg_t *msg = zmsg_recv (handler);
       zframe_t *identity = zmsg_pop (msg);
       zframe_t *content = zmsg_pop (msg);
-      zframe_print(content, "Req: ");
+      //zframe_print(content, "Req: ");
       assert (content);
       zmsg_destroy (&msg);
 
@@ -45,7 +45,7 @@ public:
         resp.set_allocated_po_resp(po_resp);
         resp.SerializeToString(&resp_str);
         resp_frame = zframe_new(resp_str.c_str(), resp_str.size());
-        zframe_print(resp_frame, "Resp: ");
+        //zframe_print(resp_frame, "Resp: ");
 
         zframe_send (&identity, handler, ZFRAME_REUSE + ZFRAME_MORE);
         zframe_send (&resp_frame, handler, 0);

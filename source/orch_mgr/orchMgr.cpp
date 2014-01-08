@@ -12,28 +12,33 @@ namespace fds {
 
 OrchMgr *orchMgr;
 
-OrchMgr::OrchMgr()
-    : port_num(0),
-      test_mode(false) {
-  om_log = new fds_log("om", "logs");
-  om_mutex = new fds_mutex("OrchMgrMutex");
+OrchMgr::OrchMgr(const boost::shared_ptr<FdsConfig> &config)
+    : Module("Orch Manager"),
+      port_num(0),
+      test_mode(false),
+      om_config(config) {
 
-  for (int i = 0; i < MAX_OM_NODES; i++) {
+    om_log = new fds_log("om", "logs");
+    om_log->setSeverityFilter(
+        (fds_log::severity_level) om_config->get<int>("fds.om.log_severity"));
+
+    om_mutex = new fds_mutex("OrchMgrMutex");
+
+    for (int i = 0; i < MAX_OM_NODES; i++) {
+        /*
+         * TODO: Make this variable length rather
+         * that statically allocated.
+         */
+        node_id_to_name[i] = "";
+    }
+
     /*
-     * TODO: Make this variable length rather
-     * that statically allocated.
+     * Testing code for loading test info from disk.
      */
-    node_id_to_name[i] = "";
-  }
+    // loadNodesFromFile("dlt1.txt", "dmt1.txt");
+    // updateTables();
 
-
-  /*
-   * Testing code for loading test info from disk.
-   */
-  // loadNodesFromFile("dlt1.txt", "dmt1.txt");
-  // updateTables();
-
-  FDS_PLOG(om_log) << "Constructing the Orchestration  Manager";
+    FDS_PLOG(om_log) << "Constructing the Orchestration  Manager";
 }
 
 OrchMgr::~OrchMgr() {
@@ -42,6 +47,24 @@ OrchMgr::~OrchMgr() {
   delete om_log;
   if (policy_mgr)
     delete policy_mgr;
+}
+
+int OrchMgr::mod_init(SysParams const *const param) {
+    Module::mod_init(param);
+    return 0;
+}
+
+void OrchMgr::mod_startup() {    
+}
+
+void OrchMgr::mod_shutdown() {
+}
+
+void OrchMgr::runServer() {
+  /*
+   * TODO: Replace this when we pull ICE out.
+   */
+  this->main(mod_params->p_argc, mod_params->p_argv, "orch_mgr.conf");
 }
 
 int OrchMgr::run(int argc, char* argv[]) {
@@ -58,7 +81,7 @@ int OrchMgr::run(int argc, char* argv[]) {
     }
   }
 
-  GetLog()->setSeverityFilter((fds_log::severity_level) (getSysParams()->log_severity));
+  GetLog()->setSeverityFilter((fds_log::severity_level) (mod_params->log_severity));
 
   policy_mgr = new VolPolicyMgr(stor_prefix, om_log);
 
@@ -94,9 +117,9 @@ int OrchMgr::run(int argc, char* argv[]) {
   if (port_num != 0) {
     orchMgrPortNum = port_num;
   } else {
-    orchMgrPortNum = props->getPropertyAsInt("OrchMgr.ConfigPort");
+      orchMgrPortNum = om_config->get<int>("fds.om.config_port");
   }
-  orchMgrIPAddress = props->getProperty("OrchMgr.IPAddress");
+  orchMgrIPAddress = om_config->get<std::string>("fds.om.ip_address");
 
   FDS_PLOG_SEV(om_log, fds::fds_log::notification) << "Orchestration Manager using port " << orchMgrPortNum;
 
@@ -126,14 +149,6 @@ int OrchMgr::run(int argc, char* argv[]) {
   communicator()->waitForShutdown();
 
   return EXIT_SUCCESS;
-}
-
-void OrchMgr::setSysParams(SysParams *params) {
-  sysParams = params;
-}
-
-SysParams* OrchMgr::getSysParams() {
-  return sysParams;
 }
 
 fds_log* OrchMgr::GetLog() {
@@ -1032,19 +1047,22 @@ OrchMgr *gl_orch_mgr;
 }  // namespace fds
 
 int main(int argc, char *argv[]) {
-  fds::orchMgr = new fds::OrchMgr();
+    boost::shared_ptr<fds::FdsConfig> config(new fds::FdsConfig("orch_mgr.conf"));
+    fds::orchMgr = new fds::OrchMgr(config);
 
-  fds::gl_orch_mgr = fds::orchMgr;
+    fds::gl_orch_mgr = fds::orchMgr;
 
-  fds::Module *io_dm_vec[] = {
-    nullptr
-  };
-  fds::ModuleVector  io_dm(argc, argv, io_dm_vec);
-  fds::orchMgr->setSysParams(io_dm.get_sys_params());
+    fds::Module *omVec[] = {
+        fds::orchMgr,
+        nullptr};
 
-  fds::orchMgr->main(argc, argv, "orch_mgr.conf");
+    fds::ModuleVector omModVec(argc, argv, omVec);
+    omModVec.mod_execute();
 
-  delete fds::orchMgr;
-  return 0;
+    fds::orchMgr->runServer();
+
+    delete fds::orchMgr;
+
+    return 0;
 }
 

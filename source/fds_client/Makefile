@@ -9,7 +9,13 @@ user_incl_dir     := include $(topdir)/stor_hvisor_ice lib
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  :=                                                          \
-    fds-StorHvisor fds-lib fds-umod fds-thread fds-util fds-fdsp fds-hash
+    fds-StorHvisor \
+    fds-lib \
+    fds-umod \
+    fds-thread \
+    fds-util \
+    fds-fdsp-ice \
+    fds-hash
 
 user_non_fds_libs :=                                                          \
     boost_log boost_system boost_thread boost_date_time boost_program_options \
