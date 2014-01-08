@@ -2,9 +2,10 @@ topdir           := ../..
 user_target      := lib
 user_rtime_env   := user
 user_cpp         := \
-    ThreadPool.cpp Synchronization.cpp Mutex.cpp
+    ThreadPool.cpp \
+    Synchronization.cpp \
+    Mutex.cpp
 
-user_no_style    := $(user_cpp)
 user_ar_libs     := fds-thread
 fds-thread       := $(user_cpp)
 

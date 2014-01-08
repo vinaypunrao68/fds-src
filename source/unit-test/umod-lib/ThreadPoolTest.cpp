@@ -153,7 +153,7 @@ TestSuiteBase::TestSuiteBase(int thpool_cnt, int test_cnt)
     for (i = 0; i < test_cnt; i++) {
         _ts_tests[i] = 0;
     }
-    _ts_pool = new fds::fds_threadpool(thpool_cnt);
+    _ts_pool = new fds::fds_threadpool(-1, 10, 2, 2, thpool_cnt);
 }
 
 /** \~TestSuiteBase
@@ -336,7 +336,7 @@ TPoolConcurency::tu_exec(void)
 int
 main(int argc, char* argv[])
 {
-    fds::TPoolTestData    tp_data(1000);
+    fds::TPoolTestData    tp_data(2000);
     fds::TestSuiteBase    tp_test(100, 4);
 
     tp_test.tsuit_add_test(new fds::TPoolCpu(tp_data));
@@ -346,5 +346,6 @@ main(int argc, char* argv[])
 
     tp_test.tsuit_run_tests(1000);
     tp_test.tsuit_report();
+    sleep(200);
     return 0;
 }
