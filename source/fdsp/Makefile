@@ -14,7 +14,11 @@ local_ice_target := $(patsubst %.ice,$(local_ice_outdir)/%.h, $(local_ice_src))
 # Customize Makefile rules only unique to this directory.
 #
 user_predep      := $(local_ice_target) $(local_thft_target)
-user_clean       := $(local_ice_target) $(wildcard gen-cpp/*)
+user_clean       := \
+    $(local_ice_target) \
+    $(wildcard $(local_thft_hdrdir)/*.h) \
+    $(wildcard $(local_thft_hdrdir)/*.cpp) \
+    $(local_thft_hdrdir)
 
 include $(topdir)/Makefile.incl
 
@@ -57,4 +61,3 @@ endif
 endef
 
 $(foreach thft,$(local_thft_src),$(eval $(call local_mk_thft_cpp,$(thft))))
-
