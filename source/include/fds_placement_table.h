@@ -21,8 +21,7 @@
  * constructor from ICE network
  * table type.
  */
-// #include "fdsp/fds_pubsub.h"
-#include <fdsp/FDSP.h>
+#include <fdsp/FDSP_types.h>
 
 namespace fds {
 
@@ -221,11 +220,11 @@ namespace fds {
      * Though it is up to caller to free it.
      */
     FDS_ProtocolInterface::FDSP_DLT_TypePtr toIce() const {
-      FDS_ProtocolInterface::FDSP_DLT_TypePtr iceDlt =
-          new FDS_ProtocolInterface::FDSP_DLT_Type;
-      iceDlt->DLT_version = fds_placement_table::getVersion();
-      iceDlt->DLT = fds_placement_table::toIce();
-      return iceDlt;
+        FDS_ProtocolInterface::FDSP_DLT_TypePtr iceDlt(
+            new FDS_ProtocolInterface::FDSP_DLT_Type);
+        iceDlt->DLT_version = fds_placement_table::getVersion();
+        iceDlt->DLT = fds_placement_table::toIce();
+        return iceDlt;
     }
   };
 
@@ -255,11 +254,11 @@ namespace fds {
      * Though it is up to caller to free it.
      */
     FDS_ProtocolInterface::FDSP_DMT_TypePtr toIce() const {
-      FDS_ProtocolInterface::FDSP_DMT_TypePtr iceDlt =
-          new FDS_ProtocolInterface::FDSP_DMT_Type;
-      iceDlt->DMT_version = fds_placement_table::getVersion();
-      iceDlt->DMT = fds_placement_table::toIce();
-      return iceDlt;
+        FDS_ProtocolInterface::FDSP_DMT_TypePtr iceDlt(
+            new FDS_ProtocolInterface::FDSP_DMT_Type);
+        iceDlt->DMT_version = fds_placement_table::getVersion();
+        iceDlt->DMT = fds_placement_table::toIce();
+        return iceDlt;
     }
   };
 

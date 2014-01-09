@@ -16,7 +16,7 @@
 #include <fds_types.h>
 #include <fds_err.h>
 #include <fds_assert.h>
-#include <fdsp/FDSP.h>
+#include <fdsp/FDSP_types.h>
 #include <boost/thread/thread.hpp>
 #include <boost/lockfree/queue.hpp>
 #include <boost/atomic.hpp>

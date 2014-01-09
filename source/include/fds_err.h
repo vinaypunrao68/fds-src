@@ -7,9 +7,9 @@
 
 /*
  * TODO: This is only needed to support
- * compatability with Ice error codes.
+ * compatability with FDSP error codes.
  */
-#include <fdsp/FDSP.h>
+#include <fdsp/FDSP_types.h>
 
 #include <sstream>
 #include <string>
@@ -88,7 +88,7 @@ namespace fds {
       return _errno;
     }
 
-    FDS_ProtocolInterface::FDSP_ErrType getIceErr() const {
+    FDS_ProtocolInterface::FDSP_ErrType getFdspErr() const {
       /*
        * TODO: We only return code since it's the only code
        * available to return.
