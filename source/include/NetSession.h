@@ -4,8 +4,6 @@
 #include <fdsp/FDSP_DataPathResp.h>
 #include <fdsp/FDSP_MetaDataPathReq.h>
 #include <fdsp/FDSP_MetaDataPathResp.h>
-#include <list>
-#include <ubd.h>
 #include <concurrency/Mutex.h>
 #include <fds_types.h>
 
@@ -48,8 +46,12 @@ public:
         //Req and Resp handlers
 	FDSP_DataPathReq  fdspDPAPI;
         FDSP_DataPathResp fdspDataPathResp;
-	FDSP_MetaDataPathReq  fdspMetaDataAPI;
+	FDSP_MetaDataPathReq  fdspMetaDataReq;
         FDSP_MetaDataPathResp fdspMetaDataPathResp;
+	FDSP_ControlPathReq  fdspControlPathReq;
+        FDSP_ControlPathResp fdspControlPathResp;
+	FDSP_ConfigPathReq  fdspConfigPathReq;
+        FDSP_ConfigPathResp fdspConfigPathResp;
 
         netSession& operator=(const netSession& rhs) {
           if (this != &rhs) {
@@ -99,31 +101,31 @@ public :
     fds_mutex   *sessionTblMutex;
 
 // Client Procedures
-    netSession*       startSession(int  dst_ipaddr, int port, std::string dst_node_name, FDSP_MgrIdType mgr_id, int num_channels);
+    netSession*       startSession(int  dst_ipaddr, int port, FDSP_MgrIdType mgr_id, int num_channels);
 
-    netSession*       startSession(string  dst_ipaddr, int port, std::string dst_node_name, FDSP_MgrIdType mgr_id, int num_channels);
+    netSession*       startSession(std::string dst_node_name, int port, FDSP_MgrIdType mgr_id, int num_channels);
 
-    void 	      endSession(int  ip_addr, FDSP_MgrIdType);
+    void 	      endSession(int  dst_ip_addr, FDSP_MgrIdType);
 
-    void 	      endSession(string  ip_addr, FDSP_MgrIdType);
+    void 	      endSession(string  dst_node_name, FDSP_MgrIdType);
 
     void 	      endSession(netSession *);
 
 // client side getSession
     netSession*       getSession(int dst_ip_addr, FDSP_MgrIdType mgrId);
 
-    netSession*       getSession(string dst_ip_addr, FDSP_MgrIdType mgrId);
+    netSession*       getSession(string dst_node_name, FDSP_MgrIdType mgrId);
 
 // Server side getSession
-    netSession*       getSession(string dst_node_name, FDSP_MgrIdType mgrId);
+    netSession*       getSession(std::string dst_node_name, FDSP_MgrIdType mgrId);
 
-    netSession*       getSession(string dst_node_name, FDSP_MgrIdType mgrId);
+    netSession*       getSession(std::string dst_node_name, FDSP_MgrIdType mgrId);
    
 // Server Procedures
     // Create a new server session
     netSession*       createServerSession(int  local_ipaddr, int port, std::string local_node_name, FDSP_MgrIdType mgr_id);
 
-    netSession*       createServerSession(std::string  local_node_name, int port, std::string local_node_name, FDSP_MgrIdType mgr_id);
+    netSession*       createServerSession(std::string  local_node_name, int port, FDSP_MgrIdType mgr_id);
 
     void              listenSession(netSession* server_session); // Blocking call equivalent to .run or .serve
 
