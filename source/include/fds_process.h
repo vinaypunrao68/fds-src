@@ -27,8 +27,11 @@ class FdsProcess : public boost::noncopyable {
     /**
      *
      * @param config_path - configuration path
+     * @param base_path - base path to stanza to describing the process config
      */
-    explicit FdsProcess(const std::string &config_path);
+    FdsProcess(const std::string &config_path,
+            const std::string &base_path);
+
     virtual ~FdsProcess();
 
     /**
@@ -66,8 +69,8 @@ class FdsProcess : public boost::noncopyable {
     /* Signal handler thread */
     pthread_t sig_tid_;
 
-    /* Process wide config */
-    boost::shared_ptr<FdsConfig> config_;
+    /* Process wide config accessor */
+    FdsConfigAccessor conf_helper_;
     // todo: Following should be there
     // logger
 };

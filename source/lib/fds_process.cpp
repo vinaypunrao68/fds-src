@@ -12,8 +12,10 @@ namespace fds {
 FdsProcess* FdsProcess::fds_process_ = NULL;
 
 /* Methods */
-FdsProcess::FdsProcess(const std::string &config_path)
-: config_(new FdsConfig(config_path))
+FdsProcess::FdsProcess(const std::string &config_path,
+        const std::string &base_path)
+: conf_helper_(boost::shared_ptr<FdsConfig>(new FdsConfig(config_path)),
+               base_path)
 {
     fds_assert(fds_process_ == NULL);
 

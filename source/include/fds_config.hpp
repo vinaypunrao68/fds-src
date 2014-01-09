@@ -48,6 +48,71 @@ private:
 };
 
 /**
+ * Helper class for accessing config values from FdsConfig.  It essentially
+ * stores the FdsConfig object and base path with in the config.  For every
+ * get(key) access basepath is appened to the key.
+ */
+class FdsConfigAccessor {
+public:
+    /**
+     *
+     * @param fds_config FdsConfig object
+     * @param base_path base path
+     */
+    FdsConfigAccessor(const boost::shared_ptr<FdsConfig> &fds_config,
+            const std::string &base_path)
+    {
+        fds_config_ = fds_config;
+        base_path_ = base_path;
+    }
+
+    /**
+     *
+     * @return FdsConfig object
+     */
+    boost::shared_ptr<FdsConfig> get_fds_config()
+    {
+        return fds_config_;
+    }
+
+    /**
+     *
+     * @return base path
+     */
+    std::string get_base_path()
+    {
+        return base_path_;
+    }
+
+    /**
+     * @see FdsConfig::get(const std::string &key)
+     * @param key - config key without the basepath
+     * @return
+     */
+    template<class T>
+    T get(const std::string &key)
+    {
+        return fds_config_->get<T>(base_path_+key);
+    }
+
+    /**
+     * @see FdsConfig::get(const std::string &key, const T &default_value)
+     * @param key - config key without the basepath
+     * @param default_value
+     * @return
+     */
+    template<class T>
+    T get(const std::string &key, const T &default_value)
+    {
+        return fds_config_->get<T>(base_path_+key, default_value);
+    }
+
+private:
+    boost::shared_ptr<FdsConfig> fds_config_;
+    std::string base_path_;
+};
+
+/**
  *
  * @param key key is the path of the key to get.  Key is '.' separated.
  * @return value associated with key.  If key doesn't exist throws an exception

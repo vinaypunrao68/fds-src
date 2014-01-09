@@ -119,7 +119,7 @@ namespace fds {
 
 
   class ObjectStorMgr :
-  virtual public Ice::Application,
+  virtual public Ice::Application, // todo: remove this once fds net stuff is in place.
           public Module {
 private:
     typedef enum {
