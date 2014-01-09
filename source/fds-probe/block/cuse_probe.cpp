@@ -5,6 +5,7 @@
 
 #include <stdlib.h>
 #include <cuse_lowlevel.h>
+#include <string>
 #include <iostream>
 #include <boost/program_options.hpp>
 #include <boost/program_options/parsers.hpp>
@@ -13,7 +14,6 @@
 #include <fds-probe/fds_probe.h>
 
 extern "C" {
-
 static void
 cuse_open(fuse_req_t req, struct fuse_file_info *fi)
 {
@@ -23,26 +23,24 @@ cuse_open(fuse_req_t req, struct fuse_file_info *fi)
 static void
 cuse_read(fuse_req_t req, size_t size, off_t off, struct fuse_file_info *fi)
 {
-    using namespace fds;
-
-    size_t         rd_size;
-    fds_uint64_t   vid;
-    ObjectID       oid;
-    ProbeMod       *mod;
-    ProbeIORequest *probe;
+    size_t              rd_size;
+    fds_uint64_t        vid;
+    fds::ObjectID       oid;
+    fds::ProbeMod       *mod;
+    fds::ProbeIORequest *probe;
 
     mod = (fds::ProbeMod *)fuse_req_userdata(req);
     fds_verify(mod != nullptr);
 
     // Hardcode vid to 2 for now.
     vid   = 2;
-    probe = mod->pr_alloc_req(oid, 0, vid, off, size, nullptr);
+    probe = mod->pr_alloc_req(&oid, 0, vid, off, size, nullptr);
     fds_verify(probe != nullptr);
 
-    mod->pr_enqueue(*probe);
-    mod->pr_intercept_request(*probe);
-    mod->pr_get(*probe);
-    mod->pr_verify_request(*probe);
+    mod->pr_enqueue(probe);
+    mod->pr_intercept_request(probe);
+    mod->pr_get(probe);
+    mod->pr_verify_request(probe);
     probe->req_wait();
 
     fuse_reply_buf(req, probe->pr_rd_buf(&rd_size), size);
@@ -56,24 +54,22 @@ cuse_write(fuse_req_t            req,
            off_t                 off,
            struct fuse_file_info *fi)
 {
-    using namespace fds;
-
-    fds_uint64_t   vid;
-    ObjectID       oid;
-    ProbeMod       *mod;
-    ProbeIORequest *probe;
+    fds_uint64_t        vid;
+    fds::ObjectID       oid;
+    fds::ProbeMod       *mod;
+    fds::ProbeIORequest *probe;
 
     mod = (fds::ProbeMod *)fuse_req_userdata(req);
     fds_verify(mod != nullptr);
 
     vid   = 2;
-    probe = mod->pr_alloc_req(oid, 0, vid, off, size, buf);
+    probe = mod->pr_alloc_req(&oid, 0, vid, off, size, buf);
     fds_verify(probe != nullptr);
 
-    mod->pr_enqueue(*probe);
-    mod->pr_intercept_request(*probe);
-    mod->pr_put(*probe);
-    mod->pr_verify_request(*probe);
+    mod->pr_enqueue(probe);
+    mod->pr_intercept_request(probe);
+    mod->pr_put(probe);
+    mod->pr_verify_request(probe);
     probe->req_wait();
 
     fuse_reply_write(req, size);
@@ -126,8 +122,7 @@ cuse_process_arg(void *data, const char *arg, int key, struct fuse_args *out)
 {
     return 1;
 }
-
-} // extern "C"
+}  // extern "C"
 
 namespace fds {
 
@@ -148,7 +143,6 @@ ProbeMainLib::~ProbeMainLib()
 int
 ProbeMainLib::mod_init(SysParams const *const param)
 {
-    using namespace std;
     namespace po = boost::program_options;
 
     std::string             devname;
@@ -170,11 +164,12 @@ ProbeMainLib::mod_init(SysParams const *const param)
     po::notify(vm);
 
     if (vm.count("help")) {
-        cout << desc << endl;
+        std::cout << desc << std::endl;
         return 0;
     }
     if (devname.empty()) {
-        cout << "Expect valid device name in --dev-name option" << endl;
+        std::cout << "Expect valid device name in --dev-name option"
+            << std::endl;
         return 1;
     }
     snprintf(dev_name, sizeof(dev_name), "DEVNAME=%s", devname.c_str());
@@ -207,9 +202,8 @@ ProbeMainLib::probe_run_main(ProbeMod *adapter, bool thr)
     struct fuse_args fargs =
         FUSE_ARGS_INIT(mod_params->p_argc, mod_params->p_argv);
 
-    using namespace std;
     if (fuse_opt_parse(&fargs, nullptr, cuse_opts, cuse_process_arg)) {
-        cout << "Failed to parse option\n" << endl;
+        std::cout << "Failed to parse option\n" << std::endl;
         exit(1);
     }
     memset(&ci, 0, sizeof(ci));
@@ -221,4 +215,4 @@ ProbeMainLib::probe_run_main(ProbeMod *adapter, bool thr)
     cuse_lowlevel_main(fargs.argc, fargs.argv, &ci, &cuse_clop, adapter);
 }
 
-} // namespace fds
+}  // namespace fds

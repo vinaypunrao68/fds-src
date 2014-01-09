@@ -2,9 +2,8 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 #include <iostream>
+#include <string>
 #include <sm_probe.h>
-
-using namespace std;
 
 namespace fds {
 
@@ -17,13 +16,13 @@ probe_mod_param_t sm_probe_param =
 };
 
 SM_ProbeMod gl_SM_ProbeMod("SM Probe Adapter",
-                           sm_probe_param, nullptr);
+                           &sm_probe_param, nullptr);
 
 // pr_intercept_request
 // --------------------
 //
 void
-SM_ProbeMod::pr_intercept_request(ProbeRequest &req)
+SM_ProbeMod::pr_intercept_request(ProbeRequest *req)
 {
 }
 
@@ -31,7 +30,7 @@ SM_ProbeMod::pr_intercept_request(ProbeRequest &req)
 // ------
 //
 void
-SM_ProbeMod::pr_put(ProbeRequest &probe)
+SM_ProbeMod::pr_put(ProbeRequest *probe)
 {
 }
 
@@ -39,7 +38,7 @@ SM_ProbeMod::pr_put(ProbeRequest &probe)
 // ------
 //
 void
-SM_ProbeMod::pr_get(ProbeRequest &req)
+SM_ProbeMod::pr_get(ProbeRequest *req)
 {
 }
 
@@ -47,7 +46,7 @@ SM_ProbeMod::pr_get(ProbeRequest &req)
 // ---------
 //
 void
-SM_ProbeMod::pr_delete(ProbeRequest &req)
+SM_ProbeMod::pr_delete(ProbeRequest *req)
 {
 }
 
@@ -55,7 +54,7 @@ SM_ProbeMod::pr_delete(ProbeRequest &req)
 // -----------------
 //
 void
-SM_ProbeMod::pr_verify_request(ProbeRequest &req)
+SM_ProbeMod::pr_verify_request(ProbeRequest *req)
 {
 }
 
@@ -63,7 +62,7 @@ SM_ProbeMod::pr_verify_request(ProbeRequest &req)
 // -------------
 //
 void
-SM_ProbeMod::pr_gen_report(std::string &out)
+SM_ProbeMod::pr_gen_report(std::string *out)
 {
 }
 
@@ -93,4 +92,4 @@ SM_ProbeMod::mod_shutdown()
 {
 }
 
-} // namespace fds
+}  // namespace fds

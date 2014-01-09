@@ -126,7 +126,7 @@ class ProbeMod;
 class ProbeRequest : public virtual fdsio::Request
 {
   public:
-    ProbeRequest(int stat_cnt, size_t bufsize, ProbeMod &mod);
+    ProbeRequest(int stat_cnt, size_t bufsize, ProbeMod *mod);
     virtual ~ProbeRequest();
 
     // pr_request_done
@@ -152,7 +152,7 @@ class ProbeRequest : public virtual fdsio::Request
     // owner module.
     //
     virtual bool
-    pr_inj_eval_trigger(probe_point_e point, ProbeMod &probe, Module *owner)
+    pr_inj_eval_trigger(probe_point_e point, ProbeMod *probe, Module *owner)
     {
         return false;
     }
@@ -161,7 +161,7 @@ class ProbeRequest : public virtual fdsio::Request
     // ----------------
     // Write custom action to run when the conditional trigger hits.
     //
-    virtual void pr_inj_do_action(ProbeMod &mod, Module *owner) {}
+    virtual void pr_inj_do_action(ProbeMod *mod, Module *owner) {}
 
     // pr_report_stat
     // --------------
@@ -191,7 +191,7 @@ class ProbeRequest : public virtual fdsio::Request
     // generator.
     //
     void *
-    pr_obj_from_data(ProbeMod &mod, Module *owner, ObjectBuf &buf)
+    pr_obj_from_data(ProbeMod *mod, Module *owner, ObjectBuf *buf)
     {
         return nullptr;
     }
@@ -201,11 +201,11 @@ class ProbeRequest : public virtual fdsio::Request
     // use.
     //
     virtual void
-    pr_gen_usr_obj(ProbeMod &m, Module *owner, ObjectBuf &buf) {}
+    pr_gen_usr_obj(ProbeMod *m, Module *owner, ObjectBuf *buf) {}
 
 
   private:
-    ProbeMod                 &pr_mod;
+    ProbeMod                 *pr_mod;
     fds_uint64_t             *pr_stats;
 };
 
@@ -218,8 +218,8 @@ class ProbeIORequest : public virtual ProbeRequest
     ProbeIORequest(int           stat_cnt,
                    size_t        bufsize,
                    const char    *wr_buf,
-                   ProbeMod      &mod,
-                   ObjectID      &oid,
+                   ProbeMod      *mod,
+                   ObjectID      *oid,
                    fds_uint64_t  off,
                    fds_uint64_t  vid,
                    fds_uint64_t  voff);
@@ -258,13 +258,13 @@ struct probe_mod_param
 class ProbeMod : public Module
 {
   public:
-    ProbeMod(char const *const name, probe_mod_param_t &param, Module *owner);
+    ProbeMod(char const *const name, probe_mod_param_t *param, Module *owner);
     virtual ~ProbeMod();
 
     // Common factory methods.
     //
     virtual ProbeIORequest *
-    pr_alloc_req(ObjectID      &oid,
+    pr_alloc_req(ObjectID      *oid,
                  fds_uint64_t  off,
                  fds_uint64_t  vid,
                  fds_uint64_t  voff,
@@ -277,12 +277,12 @@ class ProbeMod : public Module
     // On every put/get/delete, the adapter must call pr_request_done() to
     // complete the request.
     //
-    virtual void pr_intercept_request(ProbeRequest &req) = 0;
-    virtual void pr_put(ProbeRequest &req) = 0;
-    virtual void pr_get(ProbeRequest &req) = 0;
-    virtual void pr_delete(ProbeRequest &req) = 0;
-    virtual void pr_verify_request(ProbeRequest &req) = 0;
-    virtual void pr_gen_report(std::string &out) = 0;
+    virtual void pr_intercept_request(ProbeRequest *req) = 0;
+    virtual void pr_put(ProbeRequest *req) = 0;
+    virtual void pr_get(ProbeRequest *req) = 0;
+    virtual void pr_delete(ProbeRequest *req) = 0;
+    virtual void pr_verify_request(ProbeRequest *req) = 0;
+    virtual void pr_gen_report(std::string *out) = 0;
 
     // pr_enqueue
     // ----------
@@ -291,18 +291,18 @@ class ProbeMod : public Module
     // waiting for the completion in req->req_wait().
     //
     virtual void
-    pr_enqueue(ProbeRequest &req)
+    pr_enqueue(ProbeRequest *req)
     {
-        pr_queue.rq_enqueue(&req, 0);
+        pr_queue.rq_enqueue(req, 0);
     }
     // pr_get_inj_points
     // -----------------
     // Return the list of injection points that this probe module provides.
     //
     virtual probe_inj_point_t const *const
-    pr_get_inj_points(int &rec_cnt)
+    pr_get_inj_points(int *rec_cnt)
     {
-        rec_cnt = pr_param.pr_inj_act_cnt;
+        *rec_cnt = pr_param->pr_inj_act_cnt;
         return pr_inj_points;
     }
     // pr_get_inj_actions
@@ -311,9 +311,9 @@ class ProbeMod : public Module
     // this probe module.
     //
     virtual probe_inj_action_t const *const
-    pr_get_inj_actions(int &rec_cnt)
+    pr_get_inj_actions(int *rec_cnt)
     {
-        rec_cnt = pr_param.pr_inj_pts_cnt;
+        *rec_cnt = pr_param->pr_inj_pts_cnt;
         return pr_inj_actions;
     }
     // pr_get_stat_info
@@ -321,16 +321,16 @@ class ProbeMod : public Module
     // Return the string that maps stat id for caller to decode the data.
     //
     virtual probe_stat_info const *const
-    pr_get_stat_info(int &rec_cnt)
+    pr_get_stat_info(int *rec_cnt)
     {
-        rec_cnt = pr_param.pr_stat_cnt;
+        *rec_cnt = pr_param->pr_stat_cnt;
         return pr_stats_info;
     }
 
   protected:
     friend class ProbeRequest;
     fdsio::RequestQueue      pr_queue;
-    probe_mod_param_t        &pr_param;
+    probe_mod_param_t        *pr_param;
     Module                   *pr_mod_owner;
     probe_stat_info_t        *pr_stats_info;
     probe_inj_point_t        *pr_inj_points;
@@ -338,21 +338,21 @@ class ProbeMod : public Module
 
     // Common code to evalue an injection point.
     //
-    virtual void pr_inj_point(probe_point_e probe, ProbeRequest &req);
+    virtual void pr_inj_point(probe_point_e probe, ProbeRequest *req);
 
     // Generic injection point triggers.
-    virtual bool pr_inj_trigger_pct_hit(probe_point_e inj, ProbeRequest &req);
-    virtual bool pr_inj_trigger_rand_hit(probe_point_e inj, ProbeRequest &);
-    virtual bool pr_inj_trigger_freq_hit(probe_point_e inj, ProbeRequest &);
-    virtual bool pr_inj_trigger_payload(probe_point_e inj, ProbeRequest &);
-    virtual bool pr_inj_trigger_io_attr(probe_point_e inj, ProbeRequest &);
+    virtual bool pr_inj_trigger_pct_hit(probe_point_e inj, ProbeRequest *req);
+    virtual bool pr_inj_trigger_rand_hit(probe_point_e inj, ProbeRequest *);
+    virtual bool pr_inj_trigger_freq_hit(probe_point_e inj, ProbeRequest *);
+    virtual bool pr_inj_trigger_payload(probe_point_e inj, ProbeRequest *);
+    virtual bool pr_inj_trigger_io_attr(probe_point_e inj, ProbeRequest *);
 
     // Generic injection actions.
     //
-    virtual void pr_inj_act_bailout(ProbeRequest &req);
-    virtual void pr_inj_act_panic(ProbeRequest &req);
-    virtual void pr_inj_act_delay(ProbeRequest &req);
-    virtual void pr_inj_act_corrupt(ProbeRequest &req);
+    virtual void pr_inj_act_bailout(ProbeRequest *req);
+    virtual void pr_inj_act_panic(ProbeRequest *req);
+    virtual void pr_inj_act_delay(ProbeRequest *req);
+    virtual void pr_inj_act_corrupt(ProbeRequest *req);
 };
 
 // ----------------------------------------------------------------------------
