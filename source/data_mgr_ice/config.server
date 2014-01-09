@@ -1,0 +1,47 @@
+#
+# The server creates one single object adapter with the name
+# "Hello". The following line sets the endpoints for this
+# adapter.
+#
+DataMgr.Endpoints=tcp -h localhost -p 6900
+
+DataMgr.ThreadPool.Size=30
+DataMgr.ThreadPool.SizeMax=35
+DataMgr.ThreadPool.SizeWarn=34
+Ice.Trace.ThreadPool=1
+
+DataMgr.IPAddress=127.0.0.1
+DataMgr.PortNumber=6900
+
+Ice.ThreadPool.Client.Size=100
+Ice.ThreadPool.Client.SizeMax=200
+Ice.ThreadPool.Client.SizeWarn=150
+
+#
+Ice.ThreadPool.Server.Size=100
+Ice.ThreadPool.Server.SizeMax=200
+Ice.ThreadPool.Server.SizeWarn=150
+
+
+#
+# Warn about connection exceptions
+#
+Ice.Warn.Connections=1
+
+#
+# Network Tracing
+#
+# 0 = no network tracing
+# 1 = trace connection establishment and closure
+# 2 = like 1, but more detailed
+# 3 = like 2, but also trace data transfer
+#
+Ice.Trace.Network=3
+
+#
+# Protocol Tracing
+#
+# 0 = no protocol tracing
+# 1 = trace protocol messages
+#
+Ice.Trace.Protocol=1
