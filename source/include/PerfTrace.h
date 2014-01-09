@@ -11,13 +11,12 @@
 #include <ifaddrs.h>
 #include <arpa/inet.h>
 #include <pthread.h>
-#include <fdsp/FDSP.h>
+#include <fdsp/FDSP_types.h>
 #include <fds_volume.h>
 #include <fds_types.h>
 #include <unistd.h>
 #include <assert.h>
 #include <iostream>
-#include <Ice/Ice.h>
 #include <util/Log.h>
 #include <util/Log.h>
 #include <concurrency/Mutex.h>

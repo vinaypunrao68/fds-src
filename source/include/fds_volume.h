@@ -75,35 +75,35 @@ namespace fds {
     /*
      * Constructors/destructors
      */
-
-    VolumeDesc(FDSP_VolumeInfoTypePtr&  volinfo, fds_volid_t vol_uuid) {
-      name = volinfo->vol_name;
-      tennantId = volinfo->tennantId;  
-      localDomainId = volinfo->localDomainId;  
-      globDomainId = volinfo->globDomainId;
-      volUUID = vol_uuid;
-      volType = volinfo->volType;
-      capacity = volinfo->capacity;
-      maxQuota = volinfo->maxQuota; 
-      replicaCnt = volinfo->defReplicaCnt; 
-      writeQuorum = volinfo->defWriteQuorum; 
-      readQuorum = volinfo->defReadQuorum;  
-      consisProtocol = volinfo->defConsisProtocol; 
-      volPolicyId = volinfo->volPolicyId;
-      archivePolicyId = volinfo->archivePolicyId;
-      placementPolicy = volinfo->placementPolicy;  
-      appWorkload = volinfo->appWorkload;
-      backupVolume = volinfo->backupVolume;
-      /// FDSP_VolumeInfoTypePtr does not contain policy details 
-      // but it is so far only called in orchMgr where policy
-      // details are explicitly set after the construction, so 
-      // just fill in zeros here
-      iops_min = 0;
-      iops_max = 0;
-      relativePrio = 0;
-      assert(volUUID != invalid_vol_id);
+    
+    VolumeDesc(const FDS_ProtocolInterface::FDSP_VolumeInfoType& volinfo,
+               fds_volid_t vol_uuid) {
+        name = volinfo.vol_name;
+        tennantId = volinfo.tennantId;  
+        localDomainId = volinfo.localDomainId;  
+        globDomainId = volinfo.globDomainId;
+        volUUID = vol_uuid;
+        volType = volinfo.volType;
+        capacity = volinfo.capacity;
+        maxQuota = volinfo.maxQuota; 
+        replicaCnt = volinfo.defReplicaCnt; 
+        writeQuorum = volinfo.defWriteQuorum; 
+        readQuorum = volinfo.defReadQuorum;  
+        consisProtocol = volinfo.defConsisProtocol; 
+        volPolicyId = volinfo.volPolicyId;
+        archivePolicyId = volinfo.archivePolicyId;
+        placementPolicy = volinfo.placementPolicy;  
+        appWorkload = volinfo.appWorkload;
+        backupVolume = volinfo.backupVolume;
+        /// FDSP_VolumeInfoTypePtr does not contain policy details 
+        // but it is so far only called in orchMgr where policy
+        // details are explicitly set after the construction, so 
+        // just fill in zeros here
+        iops_min = 0;
+        iops_max = 0;
+        relativePrio = 0;
+        assert(volUUID != invalid_vol_id);
     }
-
 
     VolumeDesc(const VolumeDesc& vdesc) { 
       name = vdesc.name;
@@ -129,7 +129,7 @@ namespace fds {
       assert(volUUID != invalid_vol_id);
     }
 
-    VolumeDesc(FDSP_VolumeDescTypePtr& voldesc) {
+    VolumeDesc(FDS_ProtocolInterface::FDSP_VolumeDescTypePtr& voldesc) {
 	name = voldesc->vol_name;
 	tennantId = voldesc->tennantId;  
 	localDomainId = voldesc->localDomainId;  

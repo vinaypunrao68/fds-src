@@ -1,7 +1,5 @@
 #ifndef __FDS_QOS_CTRL_H__
 #define __FDS_QOS_CTRL_H__
-#include <Ice/Ice.h>
-#include <IceUtil/IceUtil.h>
 #include <boost/thread/thread.hpp>
 #include <boost/lockfree/queue.hpp>
 #include <iostream>
@@ -10,7 +8,7 @@
 #include <lib/PerfStats.h>
 #include <concurrency/ThreadPool.h>
 #include "fds_err.h"
-#include <fdsp/FDSP.h>
+#include <fdsp/FDSP_types.h>
 #include <fds_types.h>
 #include <fds_err.h>
 #include <fds_volume.h>

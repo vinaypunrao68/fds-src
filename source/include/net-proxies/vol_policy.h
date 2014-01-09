@@ -5,8 +5,7 @@
 #define INCLUDE_NET_PROXY_VOL_POLICY_H_
 
 #include <fdsp/orch_proto.h>
-#include <fdsp/FDSP.h>
-#include <Ice/Ice.h>
+#include <fdsp/FDSP_types.h>
 #include <string>
 #include <fds_module.h>
 

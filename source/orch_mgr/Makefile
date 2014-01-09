@@ -45,7 +45,6 @@ user_cpp          :=                   \
 user_no_style     := \
     orchMgr.cpp                        \
     OmTier.cpp                         \
-    OmVolPolicy.cpp		       \
     OmLocDomain.cpp		       \
     OmAdminCtrl.cpp                    \
     $(user_cc)                         \
