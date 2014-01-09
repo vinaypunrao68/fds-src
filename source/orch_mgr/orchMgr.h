@@ -91,7 +91,9 @@
 #include <fds_err.h>
 #include <fds_config.hpp>
 #include <fds_placement_table.h>
-#include <fdsp/FDSP.h>
+#include <fdsp/FDSP_types.h>
+#include <fdsp/FDSP_ConfigPathReq.h>
+#include <fdsp/FDSP_OMControlPathReq.h>
 #include <util/Log.h>
 #include <concurrency/Mutex.h>
 #include <lib/Catalog.h>
@@ -105,46 +107,47 @@
 #define DEFAULT_LOC_DOMAIN_ID  1
 #define DEFAULT_GLB_DOMAIN_ID  1
 
+
 namespace fds {
 
-  typedef std::string fds_node_name_t;
-  typedef FDS_ProtocolInterface::FDSP_MgrIdType fds_node_type_t;
-  typedef FDS_ProtocolInterface::FDSP_NodeState FdspNodeState;
-  typedef FDS_ProtocolInterface::FDSP_ConfigPathReqPtr  ReqCfgHandlerPtr;
-  typedef FDS_ProtocolInterface::FDSP_ControlPathReqPrx ReqCtrlPrx;
+    typedef std::string fds_node_name_t;
+    typedef FDS_ProtocolInterface::FDSP_MgrIdType fds_node_type_t;
+    typedef FDS_ProtocolInterface::FDSP_NodeState FdspNodeState;
+    typedef FDS_ProtocolInterface::FDSP_ConfigPathReqPtr  ReqCfgHandlerPtr;
+    typedef FDS_ProtocolInterface::FDSP_ControlPathReqPrx ReqCtrlPrx;
 
-  typedef FDS_ProtocolInterface::FDSP_MsgHdrTypePtr     FdspMsgHdrPtr;
-  typedef FDS_ProtocolInterface::FDSP_CreateVolTypePtr  FdspCrtVolPtr;
-  typedef FDS_ProtocolInterface::FDSP_DeleteVolTypePtr  FdspDelVolPtr;
-  typedef FDS_ProtocolInterface::FDSP_ModifyVolTypePtr  FdspModVolPtr;
+    typedef FDS_ProtocolInterface::FDSP_MsgHdrTypePtr     FdspMsgHdrPtr;
+    typedef FDS_ProtocolInterface::FDSP_CreateVolTypePtr  FdspCrtVolPtr;
+    typedef FDS_ProtocolInterface::FDSP_DeleteVolTypePtr  FdspDelVolPtr;
+    typedef FDS_ProtocolInterface::FDSP_ModifyVolTypePtr  FdspModVolPtr;
 
-  typedef FDS_ProtocolInterface::FDSP_CreatePolicyTypePtr FdspCrtPolPtr;
-  typedef FDS_ProtocolInterface::FDSP_DeletePolicyTypePtr FdspDelPolPtr;
-  typedef FDS_ProtocolInterface::FDSP_ModifyPolicyTypePtr FdspModPolPtr;
+    typedef FDS_ProtocolInterface::FDSP_CreatePolicyTypePtr FdspCrtPolPtr;
+    typedef FDS_ProtocolInterface::FDSP_DeletePolicyTypePtr FdspDelPolPtr;
+    typedef FDS_ProtocolInterface::FDSP_ModifyPolicyTypePtr FdspModPolPtr;
 
-  /*
-   * NOTE: AttVolCmd is the command in the config plane, received at OM from CLI/GUI.
-   * AttVol is the attach vol message sent from the OM to the HVs in the control plane.
-   */
-  typedef FDS_ProtocolInterface::FDSP_AttachVolTypePtr    FdspAttVolPtr;
-  typedef FDS_ProtocolInterface::FDSP_AttachVolCmdTypePtr FdspAttVolCmdPtr;
-  typedef FDS_ProtocolInterface::FDSP_RegisterNodeTypePtr FdspRegNodePtr;
-  typedef FDS_ProtocolInterface::FDSP_NotifyVolTypePtr    FdspNotVolPtr;
-  typedef FDS_ProtocolInterface::FDSP_TestBucketPtr       FdspTestBucketPtr;
+    /*
+     * NOTE: AttVolCmd is the command in the config plane, received at OM from CLI/GUI.
+     * AttVol is the attach vol message sent from the OM to the HVs in the control plane.
+     */
+    typedef FDS_ProtocolInterface::FDSP_AttachVolTypePtr    FdspAttVolPtr;
+    typedef FDS_ProtocolInterface::FDSP_AttachVolCmdTypePtr FdspAttVolCmdPtr;
+    typedef FDS_ProtocolInterface::FDSP_RegisterNodeTypePtr FdspRegNodePtr;
+    typedef FDS_ProtocolInterface::FDSP_NotifyVolTypePtr    FdspNotVolPtr;
+    typedef FDS_ProtocolInterface::FDSP_TestBucketPtr       FdspTestBucketPtr;
 
-  typedef FDS_ProtocolInterface::FDSP_VolumeInfoTypePtr FdspVolInfoPtr;
-  typedef FDS_ProtocolInterface::FDSP_PolicyInfoTypePtr FdspPolInfoPtr;
-  typedef FDS_ProtocolInterface::FDSP_VolumeDescTypePtr FdspVolDescPtr; 
-  typedef FDS_ProtocolInterface::FDSP_CreateDomainTypePtr  FdspCrtDomPtr;
-  typedef FDS_ProtocolInterface::FDSP_GetDomainStatsTypePtr FdspGetDomStatsPtr;
+    typedef FDS_ProtocolInterface::FDSP_VolumeInfoTypePtr FdspVolInfoPtr;
+    typedef FDS_ProtocolInterface::FDSP_PolicyInfoTypePtr FdspPolInfoPtr;
+    typedef FDS_ProtocolInterface::FDSP_VolumeDescTypePtr FdspVolDescPtr;
+    typedef FDS_ProtocolInterface::FDSP_CreateDomainTypePtr  FdspCrtDomPtr;
+    typedef FDS_ProtocolInterface::FDSP_GetDomainStatsTypePtr FdspGetDomStatsPtr;
 
-  typedef std::unordered_map<int, localDomainInfo *> loc_domain_map_t;
+    typedef std::unordered_map<int, localDomainInfo *> loc_domain_map_t;
 
-  class OrchMgr :
+  class OrchMgr:
   virtual public Ice::Application,
           public Module {
-  private:
-    fds_log *om_log;
+private:
+              fds_log *om_log;
     SysParams *sysParams;
     boost::shared_ptr<FdsConfig> om_config;
     ReqCfgHandlerPtr reqCfgHandlersrv;
@@ -259,79 +262,183 @@ namespace fds {
     void GetDomainStats(const FdspMsgHdrPtr& fdsp_msg,
 			const FdspGetDomStatsPtr& get_stats_req);
 
-    class ReqCfgHandler : public FDS_ProtocolInterface::FDSP_ConfigPathReq {
-   private:
-      OrchMgr *orchMgr;
 
-   public:
-      explicit ReqCfgHandler(OrchMgr *oMgr);
-      ~ReqCfgHandler();
+    /* config path: cli -> OM  */
+    class FDSP_ConfigPathReqHandler : 
+    virtual public FDSP_ConfigPathReqIf {
+  public:
+        explicit FDSP_ConfigPathReqHandler(OrchMgr *oMgr);
 
-      int CreateVol(const FdspMsgHdrPtr& fdsp_msg,
-                     const FdspCrtVolPtr& crt_vol_req,
-                     const Ice::Current&);
-      void DeleteVol(const FdspMsgHdrPtr& fdsp_msg,
-                     const FdspDelVolPtr& del_vol_req,
-                     const Ice::Current&);
-      void ModifyVol(const FdspMsgHdrPtr& fdsp_msg,
-                     const FdspModVolPtr& mod_vol_req,
-                     const Ice::Current&);
+        int32_t CreateVol(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_CreateVolType& crt_vol_req);
+        int32_t CreateVol(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_CreateVolTypePtr& crt_vol_req);
 
-      void CreatePolicy(const FdspMsgHdrPtr& fdsp_msg,
-                        const FdspCrtPolPtr& crt_pol_req,
-                        const Ice::Current&);
-      void DeletePolicy(const FdspMsgHdrPtr& fdsp_msg,
-                        const FdspDelPolPtr& del_pol_req,
-                        const Ice::Current&);
-      void ModifyPolicy(const FdspMsgHdrPtr& fdsp_msg,
-                        const FdspModPolPtr& mod_pol_req,
-                        const Ice::Current&);
+        int32_t DeleteVol(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_DeleteVolType& del_vol_req);
+        int32_t DeleteVol(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_DeleteVolTypePtr& del_vol_req);
 
-      void AttachVol(const FdspMsgHdrPtr& fdsp_msg,
-                     const FdspAttVolCmdPtr& atc_vol_req,
-                     const Ice::Current&);
-      void DetachVol(const FdspMsgHdrPtr& fdsp_msg,
-                     const FdspAttVolCmdPtr& dtc_vol_req,
-                     const Ice::Current&);
+        int32_t ModifyVol(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_ModifyVolType& mod_vol_req);
+        int32_t ModifyVol(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_ModifyVolTypePtr& mod_vol_req);
 
-      void GetVolInfo(const ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg, 
-		      const ::FDS_ProtocolInterface::FDSP_GetVolInfoReqTypePtr& get_vol_req, 
-		      const ::Ice::Current&);
+        int32_t CreatePolicy(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_CreatePolicyType& crt_pol_req);
+        int32_t CreatePolicy(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_CreatePolicyTypePtr& crt_pol_req);
 
-      void RegisterNode(const FdspMsgHdrPtr&  fdsp_msg,
-                        const FdspRegNodePtr& reg_node_req,
-                        const Ice::Current&);
+        int32_t DeletePolicy(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_DeletePolicyType& del_pol_req);
+        int32_t DeletePolicy(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_DeletePolicyTypePtr& del_pol_req);
 
-      void AssociateRespCallback(const Ice::Identity& ident,
-                                 const Ice::Current& current);
-      int CreateDomain(const FdspMsgHdrPtr& fdsp_msg,
-                     const FdspCrtDomPtr& crt_dom_req,
-                     const Ice::Current&);
-      int DeleteDomain(const FdspMsgHdrPtr& fdsp_msg,
-                     const FdspCrtDomPtr& del_dom_req,
-                     const Ice::Current&);
+        int32_t ModifyPolicy(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_ModifyPolicyType& mod_pol_req);
+        int32_t ModifyPolicy(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_ModifyPolicyTypePtr& mod_pol_req);
 
-      void GetDomainStats(const FdspMsgHdrPtr& fdsp_msg,
-			  const FdspGetDomStatsPtr& get_stats_req,
-			  const Ice::Current&);
+        int32_t AttachVol(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_AttachVolCmdType& atc_vol_req);
+        int32_t AttachVol(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_AttachVolCmdTypePtr& atc_vol_req);
 
-      void SetThrottleLevel(const FDSP_MsgHdrTypePtr& fdsp_msg, 
-			    const FDSP_ThrottleMsgTypePtr& throttle_req, 
-			    const Ice::Current&);
+        int32_t DetachVol(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_AttachVolCmdType& dtc_vol_req);
+        int32_t DetachVol(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_AttachVolCmdTypePtr& dtc_vol_req);
 
-      void NotifyQueueFull(const FDSP_MsgHdrTypePtr& fdsp_msg,
-			   const FDSP_NotifyQueueStateTypePtr& queue_state_req, 
-			   const Ice::Current&);
+        int32_t AssociateRespCallback(const int64_t ident);
+        int32_t AssociateRespCallback(boost::shared_ptr<int64_t>& ident);
 
-      void NotifyPerfstats(const FDSP_MsgHdrTypePtr& fdsp_msg,
-			   const FDSP_PerfstatsTypePtr& perf_stats_msg,
-			   const Ice::Current&);
+        int32_t CreateDomain(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_CreateDomainType& crt_dom_req);
+        int32_t CreateDomain(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_CreateDomainTypePtr& crt_dom_req);
 
-      void TestBucket(const FDSP_MsgHdrTypePtr& fdsp_msg,
-		      const FDSP_TestBucketPtr& test_buck_req,
-		      const Ice::Current&);
+        int32_t DeleteDomain(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_CreateDomainType& del_dom_req);
+        int32_t DeleteDomain(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_CreateDomainTypePtr& del_dom_req);
 
+        int32_t SetThrottleLevel(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_ThrottleMsgType& throttle_msg);
+        int32_t SetThrottleLevel(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_ThrottleMsgTypePtr& throttle_msg);
+
+        int32_t GetVolInfo(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_GetVolInfoReqType& vol_info_req);
+        int32_t GetVolInfo(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_GetVolInfoReqTypePtr& vol_info_req);
+
+        int32_t GetDomainStats(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_GetDomainStatsType& get_stats_msg);
+        int32_t GetDomainStats(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_GetDomainStatsTypePtr& get_stats_msg);
+
+  private:
+        OrchMgr *orchMgr;
     };
+
+    /* OM control path: SH/SM/DM to OM */
+    class FDSP_OMControlPathReqHandler :
+    virtual public FDSP_OMControlPathReqIf {
+  public:
+        explicit FDSP_OMControlPathReqHandler(OrchMgr *oMgr);
+
+        void CreateBucket(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_CreateVolType& crt_buck_req);
+        void CreateBucket(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_CreateVolTypePtr& crt_buck_req);
+
+        void DeleteBucket(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_DeleteVolType& del_buck_req);
+        void DeleteBucket(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_DeleteVolTypePtr& del_buck_req);
+
+        void ModifyBucket(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_ModifyVolType& mod_buck_req);
+        void ModifyBucket(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_ModifyVolTypePtr& mod_buck_req);
+
+        void AttachBucket(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_AttachVolCmdType& atc_buck_req);
+        void AttachBucket(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_AttachVolCmdTypePtr& atc_buck_req);
+
+        void RegisterNode(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_RegisterNodeType& reg_node_req);
+        void RegisterNode(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_RegisterNodeTypePtr& reg_node_req);
+
+        void NotifyQueueFull(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_NotifyQueueStateType& queue_state_info);
+        void NotifyQueueFull(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_NotifyQueueStateTypePtr& queue_state_info);
+
+        void NotifyPerfstats(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_PerfstatsType& push_stats_msg);
+        void NotifyPerfstats(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_PerfstatsTypePtr& push_stats_msg);
+
+        void TestBucket(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_TestBucket& test_buck_msg);
+        void TestBucket(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_TestBucketPtr& test_buck_msg);
+
+        void GetDomainStats(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_GetDomainStatsType& get_stats_msg);
+        void GetDomainStats(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_GetDomainStatsTypePtr& get_stats_msg);
+  private:
+        OrchMgr* orchMgr;
+};
+
   };
 
 extern OrchMgr *gl_orch_mgr;
