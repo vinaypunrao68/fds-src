@@ -34,6 +34,7 @@ user_no_style  := \
 	rdtsc.h               \
 	TransJournal.h        \
 	tvclib.h              \
-	vvclib.h
+	vvclib.h              \
+        NetSession.h          
 
 include $(topdir)/Makefile.incl
