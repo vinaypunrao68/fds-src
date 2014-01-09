@@ -38,7 +38,7 @@ void FdsProcess::setup(int argc, char *argv[], fds::Module **mod_vec)
 }
 
 void*
-FdsProcess::sig_handler(void*)
+FdsProcess::sig_handler(void* param)
 {
     sigset_t ctrl_c_sigs;
     sigemptyset(&ctrl_c_sigs);
@@ -63,10 +63,10 @@ FdsProcess::sig_handler(void*)
         if (FdsProcess::fds_process_) {
             FdsProcess::fds_process_->interrupt_cb(signum);
         } else {
-            return NULL;
+            return reinterpret_cast<void*>(NULL);
         }
     }
-    return NULL;
+    return reinterpret_cast<void*>(NULL);
 }
 
 /**

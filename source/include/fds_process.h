@@ -2,8 +2,8 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 
-#ifndef _FDS_PROCESS_H_
-#define _FDS_PROCESS_H_
+#ifndef SOURCE_INCLUDE_FDS_PROCESS_H_
+#define SOURCE_INCLUDE_FDS_PROCESS_H_
 
 #include <pthread.h>
 #include <csignal>
@@ -23,12 +23,12 @@ namespace fds {
  * 2. Module vector based initialization
  */
 class FdsProcess : public boost::noncopyable {
-public:
+ public:
     /**
      *
      * @param config_path - configuration path
      */
-    FdsProcess(const std::string &config_path);
+    explicit FdsProcess(const std::string &config_path);
     virtual ~FdsProcess();
 
     /**
@@ -54,12 +54,12 @@ public:
      */
     virtual void interrupt_cb(int signum);
 
-protected:
+ protected:
     // static members/methods
-    static void* sig_handler(void*);
+    static void* sig_handler(void* param);
     static FdsProcess *fds_process_;
 
-protected:
+ protected:
     virtual void setup_sig_handler();
     virtual void setup_mod_vector(fds::Module **mod_vec);
 
@@ -74,4 +74,4 @@ protected:
 
 }  // namespace fds
 
-#endif
+#endif  // SOURCE_INCLUDE_FDS_PROCESS_H_
