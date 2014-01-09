@@ -1,8 +1,8 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
-#ifndef INCLUDE_FDS_PROBE_H_
-#define INCLUDE_FDS_PROBE_H_
+#ifndef SOURCE_INCLUDE_FDS_PROBE_FDS_PROBE_H_
+#define SOURCE_INCLUDE_FDS_PROBE_FDS_PROBE_H_
 
 #include <string>
 #include <fds_module.h>
@@ -373,7 +373,7 @@ class ProbeCtrlLoad : public virtual ProbeMod
 class ProbeMainLib : public Module
 {
   public:
-    ProbeMainLib(char const *const name);
+    explicit ProbeMainLib(char const *const name);
     ~ProbeMainLib();
 
     virtual int  mod_init(SysParams const *const param);
@@ -393,6 +393,6 @@ class ProbeMainLib : public Module
 
 extern ProbeMainLib          gl_probeBlkLib;
 
-} // namespace fds
+}  // namespace fds
 
-#endif /* INCLUDE_FDS_PROBE_H_ */
+#endif  // SOURCE_INCLUDE_FDS_PROBE_FDS_PROBE_H_

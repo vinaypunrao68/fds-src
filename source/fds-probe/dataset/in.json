@@ -1,0 +1,89 @@
+{
+    "Run-Setup": {
+        "Threads": [
+            {
+                "Name"           : "System",
+                "tp-min-thr"     : 2,
+                "tp-max-thr"     : 10,
+                "tp-spawn-thres" : 10,
+                "tp-idle-seconds": 2
+            },
+            {
+                "Name"           : "Test",
+                "tp-min-thr"     : 2,
+                "tp-max-thr"     : 10,
+                "tp-spawn-thres" : 10,
+                "tp-idle-seconds": 2
+            }
+        ],
+        "Server": {
+            "srv-port" : 8080
+        }
+    },
+    "Run-Loads": [
+        {
+            "Name"            : "Run",
+            "rt-loop"         : 1000,
+            "rt-conncurent"   : 100,
+            "rt-duration-sec" : 60
+        },
+        {
+            "Name"            : "Idle",
+            "rt-duration-sec" : 60
+        }
+    ],
+    "Run-Server-In-Data": [
+        [ "open",  "/dev/null" ],
+        [ "creat", "/tmp/" ],
+        [ "time" ]
+    ],
+    "Run-Client-In-Data": [
+        {
+            "Name"        : "Example-script",
+            "Script"      : "/bin/yes",
+            "Script-Args" : "abc",
+            "cache-output": true
+        },
+        {
+            "Name"        : "Sleep",
+            "Script"      : "sleep",
+            "Script-Args" : "10"
+        }
+    ],
+    "Run-Resources": [
+        {
+            "Name"        : "Memory"
+        },
+        {
+            "Name"        : "CPU"
+        },
+        {
+            "Name"        : "Net-bandwidth"
+        }
+    ],
+    "Run-Config": [
+        {
+            "Name" : "Syscall",
+            "Comp" : [
+                "System", "Run", "Run-Server-In-Data", "Memory"
+            ]
+        },
+        {
+            "Name" : "Ext-script",
+            "Comp" : [
+                "Test", "Run", "Run-Client-In-Data"
+            ]
+        },
+        {
+            "Name" : "Ext-IDLE",
+            "Comp" : [
+                "Idle", "Sleep"
+            ]
+        }
+    ],
+    "Run-Timeline": [
+        { "Parallel": [ "Syscall", "Ext-script" ] },
+        { "Barrier" : "Ext-IDLE" }, 
+        { "Parallel": [ "Syscall", "Ext-script" ] }
+    ]
+}
