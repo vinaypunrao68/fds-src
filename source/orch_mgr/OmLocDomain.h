@@ -16,7 +16,7 @@
 #include <fds_err.h>
 #include <fds_placement_table.h>
 #include <fds_volume.h>
-#include <fdsp/FDSP.h>
+#include <fdsp/FDSP_types.h>
 #include <util/Log.h>
 #include "orchMgr.h"
 #include "OmAdminCtrl.h"

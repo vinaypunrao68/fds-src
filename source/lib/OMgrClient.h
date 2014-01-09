@@ -2,7 +2,7 @@
 #define _OMGRCLIENT_H
 #include <fds_err.h>
 #include <fds_volume.h>
-#include "fdsp/FDSP.h"
+#include "fdsp/FDSP_types.h"
 #include <util/Log.h>
 #include <unordered_map>
 #include <Ice/Ice.h>
