@@ -224,8 +224,10 @@ ObjectStorMgrI::AssociateRespCallback(const Ice::Identity& ident, const std::str
  * are being hard coded in the initializer
  * list below.
  */
-ObjectStorMgr::ObjectStorMgr(const boost::shared_ptr<FdsConfig> &config) :
+ObjectStorMgr::ObjectStorMgr(const std::string &config_path,
+        const std::string &base_path) :
         Module("StorMgr"),
+        FdsProcess(config_path, base_path),
         runMode(NORMAL_MODE),
         numTestVols(10),
         totalRate(2000),
@@ -234,8 +236,8 @@ ObjectStorMgr::ObjectStorMgr(const boost::shared_ptr<FdsConfig> &config) :
         shuttingDown(false),
         numWBThreads(1),
         maxDirtyObjs(10000),
-        cp_port_num(0),
-        config_(config) {
+        cp_port_num(0)
+{
   /*
    * TODO: Fix the totalRate above to not
    * be hard coded.
@@ -243,7 +245,7 @@ ObjectStorMgr::ObjectStorMgr(const boost::shared_ptr<FdsConfig> &config) :
 
   // Init  the log infra  
   sm_log = new fds_log("sm", "logs");
-  sm_log->setSeverityFilter((fds_log::severity_level) config_->get<int>("fds.sm.log_severity"));
+  sm_log->setSeverityFilter((fds_log::severity_level) conf_helper_.get<int>("log_severity"));
   FDS_PLOG(sm_log) << "Constructing the Object Storage Manager";
   objStorMutex = new fds_mutex("Object Store Mutex");
   waitingReqMutex = new fds_mutex("Object Store Mutex");
@@ -342,6 +344,268 @@ ObjectStorMgr::~ObjectStorMgr() {
 int ObjectStorMgr::mod_init(SysParams const *const param) {
     Module::mod_init(param);
     return 0;
+}
+
+void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
+{
+    /*
+     * Invoke FdsProcess setup so that it can setup the signal hander and
+     * execute the module vector for us
+     */
+    FdsProcess::setup(argc, argv, mod_vec);
+
+    /* Rest of the setup */
+    // todo: clean up the code below.  It's doing too many things here.
+    // Refactor into functions or make it part of module vector
+
+    fds_bool_t      unit_test;
+    fds_bool_t      useTestMode;
+    std::string     endPointStr;
+    DmDiskInfo     *info;
+    DmDiskQuery     in;
+    DmDiskQueryOut  out;
+    std::string     omIpStr;
+    fds_uint32_t    omConfigPort;
+
+    unit_test    = false;
+    useTestMode  = false;
+    omConfigPort = 0;
+    runMode = NORMAL_MODE;
+
+
+    for (int i = 1; i < argc; i++) {
+      std::string arg(argv[i]);
+      if (arg == "--unit_test") {
+        unit_test = true;
+      } else if (strncmp(argv[i], "--cp_port=", 10) == 0) {
+        cp_port_num = strtoul(argv[i] + 10, NULL, 0);
+      } else if (strncmp(argv[i], "--om_ip=", 8) == 0) {
+        omIpStr = argv[i] + 8;
+      } else if (strncmp(argv[i], "--om_port=", 10) == 0) {
+        omConfigPort = strtoul(argv[i] + 10, NULL, 0);
+      } else if (strncmp(argv[i], "--prefix=", 9) == 0) {
+        stor_prefix = argv[i] + 9;
+      } else if (strncmp(argv[i], "--test_mode", 11) == 0) {
+        useTestMode = true;
+      }
+    }
+
+    port_num = mod_params->service_port;
+
+    if (useTestMode == true) {
+      runMode = TEST_MODE;
+    }
+
+    // Create leveldb
+    std::string filename= stor_prefix + "SNodeObjRepository";
+    objStorDB  = new ObjectDB(filename);
+    filename= stor_prefix + "SNodeObjIndex";
+    objIndexDB  = new ObjectDB(filename);
+
+    Ice::PropertiesPtr props = communicator()->getProperties();
+
+    if (cp_port_num == 0) {
+      cp_port_num = props->getPropertyAsInt("ObjectStorMgrSvr.ControlPort");
+    }
+
+    if (port_num == 0) {
+      /*
+       * Pull the port from the config file if it wasn't
+       * specified on the command line.
+       */
+      port_num = props->getPropertyAsInt("ObjectStorMgrSvr.PortNumber");
+    }
+
+    if (unit_test) {
+      objStorMgr->unitTest();
+      return;
+    }
+
+    FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::notification) << "Stor Mgr port_number :" << port_num;
+
+    /*
+     * Set basic thread properties.
+     */
+    props->setProperty("ObjectStorMgrSvr.ThreadPool.Client.Size", "200");
+    props->setProperty("ObjectStorMgrSvr.ThreadPool.Client.SizeMax", "400");
+    props->setProperty("ObjectStorMgrSvr.ThreadPool.Client.SizeWarn", "300");
+
+    props->setProperty("ObjectStorMgrSvr.ThreadPool.Server.Size", "200");
+    props->setProperty("ObjectStorMgrSvr.ThreadPool.Server.SizeMax", "400");
+    props->setProperty("ObjectStorMgrSvr.ThreadPool.Server.SizeWarn", "300");
+
+    std::ostringstream tcpProxyStr;
+    tcpProxyStr << "tcp -p " << port_num;
+
+    Ice::ObjectAdapterPtr adapter = communicator()->createObjectAdapterWithEndpoints("ObjectStorMgrSvr", tcpProxyStr.str());
+    fdspDataPathServer = new ObjectStorMgrI(communicator());
+    adapter->add(fdspDataPathServer, communicator()->stringToIdentity("ObjectStorMgrSvr"));
+
+    callbackOnInterrupt();
+
+    adapter->activate();
+
+    struct ifaddrs *ifAddrStruct = NULL;
+    struct ifaddrs *ifa          = NULL;
+    void   *tmpAddrPtr           = NULL;
+
+    /*
+     * Get the local IP of the host.
+     * This is needed by the OM.
+     */
+    getifaddrs(&ifAddrStruct);
+    for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
+      if (ifa->ifa_addr->sa_family == AF_INET) { // IPv4
+        if (strncmp(ifa->ifa_name, "lo", 2) != 0) {
+            tmpAddrPtr = &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
+            char addrBuf[INET_ADDRSTRLEN];
+            inet_ntop(AF_INET, tmpAddrPtr, addrBuf, INET_ADDRSTRLEN);
+            myIp = std::string(addrBuf);
+        if (myIp.find("10.1") != std::string::npos)
+          break; /* TODO: more dynamic */
+        }
+      }
+    }
+    assert(myIp.empty() == false);
+    FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::notification) << "Stor Mgr IP:" << myIp;
+
+    /*
+     * Query persistent layer for disk parameter details
+     */
+    fds::DmQuery &query = fds::DmQuery::dm_query();
+    in.dmq_mask = fds::dmq_disk_info;
+    query.dm_disk_query(in, &out);
+    /* we should be bundling multiple disk parameters into one message to OM TBD */
+    FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr dInfo =
+        new FDS_ProtocolInterface::FDSP_AnnounceDiskCapability();
+    while (1) {
+      info = out.query_pop();
+      if (info != nullptr) {
+        FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::notification) << "Max blks capacity: " << info->di_max_blks_cap
+                                       << ", Disk type........: " << info->di_disk_type
+                                       << ", Max iops.........: " << info->di_max_iops
+                                       << ", Min iops.........: " << info->di_min_iops
+                                       << ", Max latency (us).: " << info->di_max_latency
+                                       << ", Min latency (us).: " << info->di_min_latency;
+
+        if ( info->di_disk_type == FDS_DISK_SATA) {
+          dInfo->disk_iops_max =  info->di_max_iops; /*  max avarage IOPS */
+          dInfo->disk_iops_min =  info->di_min_iops; /* min avarage IOPS */
+          dInfo->disk_capacity = info->di_max_blks_cap;  /* size in blocks */
+          dInfo->disk_latency_max = info->di_max_latency; /* in us second */
+          dInfo->disk_latency_min = info->di_min_latency; /* in us second */
+        } else if (info->di_disk_type == FDS_DISK_SSD) {
+          dInfo->ssd_iops_max =  info->di_max_iops; /*  max avarage IOPS */
+          dInfo->ssd_iops_min =  info->di_min_iops; /* min avarage IOPS */
+          dInfo->ssd_capacity = info->di_max_blks_cap;  /* size in blocks */
+          dInfo->ssd_latency_max = info->di_max_latency; /* in us second */
+          dInfo->ssd_latency_min = info->di_min_latency; /* in us second */
+        } else
+          FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::warning) << "Unknown Disk Type " << info->di_disk_type;
+
+        delete info;
+        continue;
+      }
+      break;
+    }
+
+    /*
+     * Register this node with OM.
+     */
+    omClient = new OMgrClient(FDSP_STOR_MGR,
+                              omIpStr,
+                              omConfigPort,
+                              myIp,
+                              port_num,
+                              stor_prefix + "localhost-sm",
+                              sm_log);
+
+    /*
+     * Create local volume table. Create after omClient
+     * is initialized, because it needs to register with the
+     * omClient. Create before register with OM because
+     * the OM vol event receivers depend on this table.
+     */
+    volTbl = new StorMgrVolumeTable(this, sm_log);
+
+    /* Create tier related classes -- has to be after volTbl is created */
+    rankEngine = new ObjectRankEngine(stor_prefix, 100000, volTbl, objStats, objStorMgr->GetLog());
+    tierEngine = new TierEngine(TierEngine::FDS_TIER_PUT_ALGO_BASIC_RANK, volTbl, rankEngine, objStorMgr->GetLog());
+    objCache = new FdsObjectCache(1024 * 1024 * 256,
+                  slab_allocator_type_default,
+                  eviction_policy_type_default,
+                  objStorMgr->GetLog());
+
+    std::thread *stats_thread = new std::thread(log_ocache_stats);
+
+    /*
+     * Register/boostrap from OM
+     */
+    omClient->initialize();
+    omClient->registerEventHandlerForNodeEvents((node_event_handler_t)nodeEventOmHandler);
+    omClient->registerEventHandlerForVolEvents((volume_event_handler_t)volEventOmHandler);
+    omClient->omc_srv_pol = &sg_SMVolPolicyServ;
+    omClient->startAcceptingControlMessages(cp_port_num);
+    omClient->registerNodeWithOM(dInfo);
+
+    /*
+     * Create local variables for test mode
+     */
+    if (runMode == TEST_MODE) {
+      /*
+       * Create test volumes.
+       */
+      VolumeDesc*  testVdb;
+      std::string testVolName;
+      for (fds_uint32_t testVolId = 1; testVolId < numTestVols + 1; testVolId++) {
+        testVolName = "testVol" + std::to_string(testVolId);
+        /*
+         * We're using the ID as the min/max/priority
+         * for the volume QoS.
+         */
+        testVdb = new VolumeDesc(testVolName,
+                                 testVolId,
+                                 8+ testVolId,
+                                 10000,       /* high max iops so that unit tests does not take forever to finish */
+                                 testVolId);
+        fds_assert(testVdb != NULL);
+        if ( (testVolId % 3) == 0)
+      testVdb->volType = FDSP_VOL_BLKDEV_DISK_TYPE;
+        else if ( (testVolId % 3) == 1)
+      testVdb->volType = FDSP_VOL_BLKDEV_SSD_TYPE;
+        else
+      testVdb->volType = FDSP_VOL_BLKDEV_HYBRID_TYPE;
+
+        volEventOmHandler(testVolId,
+                          testVdb,
+                          FDS_VOL_ACTION_CREATE,
+              FDS_ProtocolInterface::FDSP_ERR_OK);
+
+        delete testVdb;
+      }
+    }
+
+    /*
+     * Kick off the writeback thread(s)
+     */
+    writeBackThreads->schedule(writeBackFunc, this);
+
+    communicator()->waitForShutdown();
+
+    if (ifAddrStruct != NULL) {
+      freeifaddrs(ifAddrStruct);
+    }
+}
+
+void ObjectStorMgr::run()
+{
+    // run the server here
+}
+
+void ObjectStorMgr::interrupt_cb(int signum)
+{
+    // todo: shutown code goes here.  Similar to ICE this interrupt_cb
+    // invoked on a separte thread just for handling interrupts.
 }
 
 void ObjectStorMgr::mod_startup() {    

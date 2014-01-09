@@ -36,7 +36,7 @@ void FdsProcess::setup(int argc, char *argv[], fds::Module **mod_vec)
 {
     setup_sig_handler();
 
-    setup_mod_vector(mod_vec);
+    setup_mod_vector(argc, argv, mod_vec);
 }
 
 void*
@@ -96,9 +96,14 @@ void FdsProcess::setup_sig_handler()
     fds_assert(rc == 0);
 }
 
-void FdsProcess::setup_mod_vector(fds::Module **mod_vec)
+void FdsProcess::setup_mod_vector(int argc, char *argv[], fds::Module **mod_vec)
 {
-    // todo: implement this
+    if (!mod_vec) {
+        return;
+    }
+
+    fds::ModuleVector mod_vec_obj(argc, argv, mod_vec);
+    mod_vec_obj.mod_execute();
 }
 
 void FdsProcess::interrupt_cb(int signum)

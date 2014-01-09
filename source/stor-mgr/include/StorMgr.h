@@ -58,6 +58,7 @@
 #include <ObjRank.h>
 
 #include <fds_module.h>
+#include <fds_process.h>
 
 #undef FDS_TEST_SM_NOOP      /* if defined, IO completes as soon as it arrives to SM */
 
@@ -119,8 +120,11 @@ namespace fds {
 
 
   class ObjectStorMgr :
-  virtual public Ice::Application, // todo: remove this once fds net stuff is in place.
-          public Module {
+          virtual public Ice::Application, // todo: remove this once fds net stuff is in place.
+          public FdsProcess,
+          public Module // todo: We shouldn't be deriving module here.  ObjectStorMgr is
+                        // an FDSProcess, it contains Modules
+  {
 private:
     typedef enum {
       NORMAL_MODE = 0,
@@ -260,7 +264,6 @@ private:
     PerfStats *perfStats;
 
     SysParams *sysParams;
-    boost::shared_ptr<FdsConfig> config_;
 
     /*
      * Private request processing members.
@@ -301,9 +304,16 @@ private:
 
  public:
 
-    ObjectStorMgr(const boost::shared_ptr<FdsConfig> &config);
+    ObjectStorMgr(const std::string &config_path,
+            const std::string &base_path);
     ~ObjectStorMgr();
 
+    /* From FdsProcess */
+    virtual void setup(int argc, char *argv[], fds::Module **mod_vec) override;
+    virtual void run() override;
+    virtual void interrupt_cb(int signum) override;
+
+    /* From Module */
     int  mod_init(SysParams const *const param);
     void mod_startup();
     void mod_shutdown();

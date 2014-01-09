@@ -7,8 +7,7 @@
 #include <fds_process.h>
 
 int main(int argc, char *argv[]) {
-    boost::shared_ptr<FdsConfig> config(new FdsConfig("fds.conf"));
-    objStorMgr = new ObjectStorMgr(config);
+    objStorMgr = new ObjectStorMgr("fds.conf", "fds.sm.");
 
     /* Instantiate a DiskManager Module instance */
     fds::Module *smVec[] = {
@@ -18,12 +17,11 @@ int main(int argc, char *argv[]) {
         objStorMgr,
         nullptr
     };
-    fds::ModuleVector smModVec(argc, argv, smVec);
-    smModVec.mod_execute();
-
-    objStorMgr->runServer();
+    objStorMgr->setup(argc, argv, smVec);
+    objStorMgr->run();
 
     delete objStorMgr;
+
     return 0;
 }
 
