@@ -11,7 +11,7 @@ user_fds_ar_libs  := \
     fds-lib \
     fds-util \
     fds-netproxy \
-    fds-fdsp-ice \
+    fds-fdsp \
     fds-umod
 
 user_non_fds_libs := \
@@ -36,12 +36,21 @@ orch_mgr_cpp      :=                   \
     OmTier.cpp                         \
     OmVolPolicy.cpp		       \
     OmLocDomain.cpp		       \
-    OmAdminCtrl.cpp
+    OmAdminCtrl.cpp                    \
+    OmReqHandler.cpp
 
 user_cpp          :=                   \
     $(orch_mgr_cpp)
 
-user_no_style     := $(user_cpp) $(user_cc) $(wildcard *.h)
+user_no_style     := \
+    orchMgr.cpp                        \
+    OmTier.cpp                         \
+    OmVolPolicy.cpp		       \
+    OmLocDomain.cpp		       \
+    OmAdminCtrl.cpp                    \
+    $(user_cc)                         \
+    $(wildcard *.h)
+
 user_bin_exe      := orchMgr
 orchMgr           := $(orch_mgr_cpp)
 

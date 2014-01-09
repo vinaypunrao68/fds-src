@@ -1036,7 +1036,7 @@ void t_cpp_generator::generate_struct_definition(ofstream& out,
 
   out << endl <<
     indent() << "typedef boost::shared_ptr<" << tstruct->get_name() <<
-    ">" << " " << tstruct->get_name() << "_Ptr;" << endl << endl;
+    ">" << " " << tstruct->get_name() << "Ptr;" << endl << endl;
 
 }
 

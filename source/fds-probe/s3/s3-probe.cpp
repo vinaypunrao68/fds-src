@@ -101,10 +101,10 @@ probe_obj_write(ProbeMod         *probe,
                 ProbeIORequest   *preq,
                 Probe_PutObject  *obj)
 {
-    probe->pr_enqueue(*preq);
-    probe->pr_intercept_request(*preq);
-    probe->pr_put(*preq);
-    probe->pr_verify_request(*preq);
+    probe->pr_enqueue(preq);
+    probe->pr_intercept_request(preq);
+    probe->pr_put(preq);
+    probe->pr_verify_request(preq);
 
     delete preq;
     obj->ame_signal_resume(NGX_HTTP_OK);
@@ -145,7 +145,7 @@ Probe_PutObject::ame_request_handler()
     vid   = 2;
     s3eng = static_cast<ProbeS3Eng *>(ame);
     probe = s3eng->probe_get_adapter();
-    preq  = probe->pr_alloc_req(oid, 0, vid, 0, len, buf);
+    preq  = probe->pr_alloc_req(&oid, 0, vid, 0, len, buf);
 
     fds_verify(preq != nullptr);
     s3eng->probe_get_thrpool()->schedule(probe_obj_write, probe, preq, this);
