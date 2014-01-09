@@ -4,8 +4,7 @@
 
 #include <StorMgr.h>
 #include <policy_tier.h>
-
-#include <fds_config.hpp>
+#include <fds_process.h>
 
 int main(int argc, char *argv[]) {
     boost::shared_ptr<FdsConfig> config(new FdsConfig("fds.conf"));
@@ -25,7 +24,6 @@ int main(int argc, char *argv[]) {
     objStorMgr->runServer();
 
     delete objStorMgr;
-
     return 0;
 }
 

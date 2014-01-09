@@ -24,7 +24,8 @@ user_non_fds_libs := \
     Ice \
     IceUtil \
     IceStorm \
-    leveldb
+    leveldb \
+    config++
 
 # TODO: need to move Catalog.h to include, avoid cross module include ref.
 #

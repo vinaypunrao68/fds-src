@@ -2,6 +2,7 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 #include <iostream>
+#include <string>
 #include <pm_probe.h>
 #include <persistent_layer/dm_io.h>
 #include <persistent_layer/pm_unit_test.h>
@@ -42,14 +43,14 @@ probe_mod_param_t pm_probe_param =
 };
 
 PM_ProbeMod gl_PM_ProbeMod("PM Probe Adapter",
-                           pm_probe_param,
+                           &pm_probe_param,
                            &diskio::gl_dataIOMod);
 
 // pr_intercept_request
 // --------------------
 //
 void
-PM_ProbeMod::pr_intercept_request(ProbeRequest &req)
+PM_ProbeMod::pr_intercept_request(ProbeRequest *req)
 {
 }
 
@@ -57,7 +58,7 @@ PM_ProbeMod::pr_intercept_request(ProbeRequest &req)
 // ------
 //
 void
-PM_ProbeMod::pr_put(ProbeRequest &probe)
+PM_ProbeMod::pr_put(ProbeRequest *probe)
 {
     static int hash_hi = 1, hash_lo = 1;
     DiskReqTest    *req;
@@ -79,32 +80,32 @@ PM_ProbeMod::pr_put(ProbeRequest &probe)
     req = new DiskReqTest(vio, oid, buf, true, diskio::diskTier);
     pio.disk_write(req);
     delete req;
-    probe.pr_request_done();
+    probe->pr_request_done();
 }
 
 // pr_get
 // ------
 //
 void
-PM_ProbeMod::pr_get(ProbeRequest &req)
+PM_ProbeMod::pr_get(ProbeRequest *req)
 {
-    req.req_complete();
+    req->req_complete();
 }
 
 // pr_delete
 // ---------
 //
 void
-PM_ProbeMod::pr_delete(ProbeRequest &req)
+PM_ProbeMod::pr_delete(ProbeRequest *req)
 {
-    req.req_complete();
+    req->req_complete();
 }
 
 // pr_verify_request
 // -----------------
 //
 void
-PM_ProbeMod::pr_verify_request(ProbeRequest &req)
+PM_ProbeMod::pr_verify_request(ProbeRequest *req)
 {
 }
 
@@ -112,7 +113,7 @@ PM_ProbeMod::pr_verify_request(ProbeRequest &req)
 // -------------
 //
 void
-PM_ProbeMod::pr_gen_report(std::string &out)
+PM_ProbeMod::pr_gen_report(std::string *out)
 {
 }
 

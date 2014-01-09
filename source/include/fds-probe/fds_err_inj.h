@@ -1,8 +1,8 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
-#ifndef INCLUDE_FDS_INJ_ERR_H_
-#define INCLUDE_FDS_INJ_ERR_H_
+#ifndef SOURCE_INCLUDE_FDS_PROBE_FDS_ERR_INJ_H_
+#define SOURCE_INCLUDE_FDS_PROBE_FDS_ERR_INJ_H_
 
 #include <fds_types.h>
 
@@ -19,13 +19,11 @@ typedef enum
     // Injection point ID for SM (Storage Manager) is 0x200-0x800.
     PR_SM_INJ_POINT_BASE = 0x200,
     PR_SM_INJ_POINT_END  = 0x7ff
-
 } probe_point_e;
 
 typedef enum
 {
     PR_ACT_NONE = 0
-
 } probe_action_e;
 
 // Associative pair to map id to string to identify injection points and
@@ -67,6 +65,6 @@ struct probe_stat_rec
     fds_uint64_t             pr_cputicks;
 };
 
-} // namespace fds
+}  // namespace fds
 
-#endif /* INCLUDE_FDS_INJ_ERR_H_ */
+#endif  // SOURCE_INCLUDE_FDS_PROBE_FDS_ERR_INJ_H_

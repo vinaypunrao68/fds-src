@@ -1,8 +1,8 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
-#ifndef INCLUDE_S3_PROBE_H_
-#define INCLUDE_S3_PROBE_H_
+#ifndef SOURCE_INCLUDE_FDS_PROBE_S3_PROBE_H_
+#define SOURCE_INCLUDE_FDS_PROBE_S3_PROBE_H_
 
 #include <fds-probe/fds_probe.h>
 #include <am-engine/s3connector.h>
@@ -41,7 +41,7 @@ class Probe_PutObject : public S3_PutObject
 class ProbeS3Eng : public AMEngine_S3
 {
   public:
-    ProbeS3Eng(char const *const name);
+    explicit ProbeS3Eng(char const *const name);
     ~ProbeS3Eng();
 
     // Hookup this S3 engine probe to the back-end adapter.
@@ -86,6 +86,6 @@ class ProbeS3Eng : public AMEngine_S3
 
 extern ProbeS3Eng gl_probeS3Eng;
 
-} // namespace fds
+}  // namespace fds
 
-#endif /* INCLUDE_S3_PROBE_H_ */
+#endif  // SOURCE_INCLUDE_FDS_PROBE_S3_PROBE_H_

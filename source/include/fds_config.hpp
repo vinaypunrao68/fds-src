@@ -1,3 +1,7 @@
+/*
+ * Copyright 2013 Formation Data Systems, Inc.
+ */
+
 #ifndef _FDS_CONFIG_H_
 #define _FDS_CONFIG_H_
 
@@ -9,17 +13,17 @@
 namespace fds {
 
 /**
- * Generic FdsConfig exception
+ * Generic Fds exception
  */
-class FdsConfigException : public std::exception {
+class FdsException : public std::exception {
 public:
-    FdsConfigException(const std::string &key)
+    FdsException(const std::string &desc)
     {
-        key_ = key;
+        desc_ = desc;
     }
-    const char* what() const noexcept {return key_.c_str();}
+    const char* what() const noexcept {return desc_.c_str();}
 private:
-    std::string key_;
+    std::string desc_;
 };
 
 /**
@@ -53,7 +57,7 @@ T FdsConfig::get(const std::string &key)
 {
     T val;
     if (!config_.lookupValue(key, val)) {
-        throw FdsConfigException("Failed to lookup " + key);
+        throw FdsException("Failed to lookup " + key);
     }
     return val;
 
