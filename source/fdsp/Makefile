@@ -26,7 +26,7 @@ local_ice_make   := $(toolchain_ice_bin)/slice2cpp
 local_ice_flags  := --underscore -I. -I$(topdir)/include
 local_ice_flags  += -I$(toolchain_ice)/slice
 
-local_thft_flags := --gen cpp --allow-64bit-consts -out $(local_thft_hdrdir)
+local_thft_flags := --gen cpp:pure_enums --allow-64bit-consts -out $(local_thft_hdrdir)
 
 # Rules to buld ICE files
 #
