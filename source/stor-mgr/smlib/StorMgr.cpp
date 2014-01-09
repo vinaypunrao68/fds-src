@@ -1443,8 +1443,6 @@ ObjectStorMgr::run(int argc, char* argv[]) {
       unit_test = true;
     } else if (strncmp(argv[i], "--cp_port=", 10) == 0) {
       cp_port_num = strtoul(argv[i] + 10, NULL, 0);
-    } else if (strncmp(argv[i], "--port=", 7) == 0) {
-      port_num = strtoul(argv[i] + 7, NULL, 0);
     } else if (strncmp(argv[i], "--om_ip=", 8) == 0) {
       omIpStr = argv[i] + 8;
     } else if (strncmp(argv[i], "--om_port=", 10) == 0) {
@@ -1455,6 +1453,8 @@ ObjectStorMgr::run(int argc, char* argv[]) {
       useTestMode = true;
     }
   }
+
+  port_num = mod_params->service_port;
 
   if (useTestMode == true) {
     runMode = TEST_MODE;

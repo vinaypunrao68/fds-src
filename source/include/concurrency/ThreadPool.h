@@ -113,12 +113,17 @@ class fds_threadpool : boost::noncopyable
     thp_state_e         thp_state;         /* state of the pool. */
     thpool_worker     **thp_workers;
     dlist_t             thp_wk_idle;       /* FIFO list of idle workers. */
+    dlist_t             thp_wk_term;       /* FIFO list of terminate wks */
     dlist_t             thp_tasks;         /* FIFO list of tasks. */
-    fds_uint32_t        thp_max_tasks;     /* max pending tasks. */
-    fds_uint32_t        thp_tasks_pend;
-    fds_uint32_t        thp_act_threads;
-    fds_uint32_t        thp_num_threads;
-    fds_uint32_t        thp_barrier_wait;
+    int                 thp_max_tasks;     /* max pending tasks. */
+    int                 thp_act_threads;
+    int                 thp_num_threads;
+    int                 thp_max_threads;
+    int                 thp_thres_spawn;
+    int                 thp_idle_sec;
+    int                 thp_barrier_wait;
+    int                 thp_spawning;
+    int                 thp_tasks_pend;
 
     /* Thread pool stats. */
     fds_uint32_t        thp_total_tasks;
@@ -130,9 +135,18 @@ class fds_threadpool : boost::noncopyable
     /* Worker notifies the pool owner when its thread exits. */
     void thp_worker_exits(thpool_worker *worker);
 
+    /* Threadpool house keeping jobs. */
+    void thp_house_keeping();
+
   public:
-    explicit fds_threadpool(fds_uint32_t num_threads = 10);
     ~fds_threadpool();
+    /*
+     * Create the threadpool with min, request threshold to spawn new thread,
+     * max, and the time in seconds to destroy an indle thread.
+     */
+    explicit fds_threadpool(int min_thr = 10);
+    fds_threadpool(int max_tsk, int spawn_thres,
+                   int idle_sec, int min_thr = 10, int max_thr = 10);
 
     /* Block until all preceding pending tasks are completed. */
     void thp_barrier();

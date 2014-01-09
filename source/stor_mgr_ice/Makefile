@@ -12,7 +12,7 @@ user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  :=                   \
     fds-smlib-ice \
-    fds-StorHvisor \
+    fds-StorHvisor-ice \
     fds-lib \
     fds-odb \
     fds-dsk-mgnt \
@@ -23,7 +23,7 @@ user_fds_ar_libs  :=                   \
     fds-odb \
     fds-vpolicy-ice \
     fds-netproxy \
-    fds-fdsp
+    fds-fdsp-ice
 
 user_non_fds_libs :=                                                          \
     boost_log \

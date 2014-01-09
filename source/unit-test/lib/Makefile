@@ -3,7 +3,7 @@ user_target       := test
 user_rtime_env    := user
 
 user_fds_so_libs  :=
-user_fds_ar_libs  := fds-hash fds-lib fds-util fds-fdsp fds-thread fds-odb
+user_fds_ar_libs  := fds-hash fds-lib fds-util fds-fdsp-ice fds-thread fds-odb
 user_non_fds_libs :=                                                          \
     boost_log \
     boost_filesystem \

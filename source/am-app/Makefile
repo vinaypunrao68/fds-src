@@ -11,7 +11,7 @@ user_fds_ar_libs  :=  \
     fds-lib \
     fds-umod \
     fds-util \
-    fds-fdsp \
+    fds-fdsp-ice \
     fds-hash \
     fds-thread
 

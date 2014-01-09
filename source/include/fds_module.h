@@ -1,5 +1,10 @@
-#ifndef INCLUDE_FDS_MOUDLE_H_
-#define INCLUDE_FDS_MOUDLE_H_
+/*
+ * Copyright 2014 Formation Data Systems, Inc.
+ */
+#ifndef SOURCE_INCLUDE_FDS_MODULE_H_
+#define SOURCE_INCLUDE_FDS_MODULE_H_
+
+#include <fds_types.h>
 
 #include <string>
 #include <boost/function.hpp>
@@ -14,7 +19,9 @@ class UnitTestParams
 class SimEnvParams
 {
   public:
-    SimEnvParams(const std::string &prefix) : sim_disk_prefix(prefix) {}
+    explicit SimEnvParams(const std::string &prefix) :
+    sim_disk_prefix(prefix) {
+    }
     ~SimEnvParams() {}
 
     std::string              sim_disk_prefix;
@@ -22,24 +29,31 @@ class SimEnvParams
     int                      sim_ssd_mb;
 };
 
+/**
+ * Class that maintain system variables for a
+ * process.
+ */
 class SysParams
 {
   public:
     SysParams() : fds_sim(nullptr), fds_utp(nullptr) {}
     ~SysParams() {}
 
-    int                      sys_num_thr;
-    int                      sys_hdd_cnt;
-    int                      sys_ssd_cnt;
-    int                      log_severity;
-    std::string              fds_root;
-    std::string              hdd_root;
-    std::string              ssd_root;
-    SimEnvParams             *fds_sim;
-    UnitTestParams           *fds_utp;
+    int             sys_num_thr;
+    int             sys_hdd_cnt;   /**< Number of HDD devices */
+    int             sys_ssd_cnt;   /**< Number of SSD devices */
+    int             log_severity;  /**< Severity level for logger */
+    fds_uint32_t    service_port;  /**< Port for service to listen */
+    fds_uint32_t    control_port;  /**< Port for control to listen */
+    fds_uint32_t    config_port;   /**< Port to connect for config */
+    std::string     fds_root;      /**< Root directory for FDS data */
+    std::string     hdd_root;      /**< Root directory for HDD devices */
+    std::string     ssd_root;      /**< Root directory for SSD devices */
+    SimEnvParams    *fds_sim;
+    UnitTestParams  *fds_utp;
 
-    int                      p_argc;
-    char                     **p_argv;
+    int             p_argc;
+    char            **p_argv;
 };
 
 class ModuleVector;
@@ -47,7 +61,7 @@ class ModuleVector;
 class Module
 {
   public:
-    Module(char const *const name);
+    explicit Module(char const *const name);
     virtual ~Module();
 
     // Define standard sequence of bring up and shutdown a module and
@@ -106,6 +120,6 @@ class ModuleVector
     SysParams                sys_params;
 };
 
-} // namespace fds
+}  // namespace fds
 
-#endif /* INCLUDE_FDS_MOUDLE_H_ */
+#endif  // SOURCE_INCLUDE_FDS_MODULE_H_

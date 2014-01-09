@@ -11,7 +11,7 @@ user_fds_ar_libs  := \
     fds-lib \
     fds-thread \
     fds-util \
-    fds-fdsp \
+    fds-fdsp-ice \
     fds-hash \
     fds-probe-adapters \
     fds-probe-blk \
