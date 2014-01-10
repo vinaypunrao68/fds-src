@@ -79,8 +79,6 @@
 #ifndef SOURCE_ORCH_MGR_ORCHMGR_H_
 #define SOURCE_ORCH_MGR_ORCHMGR_H_
 
-#include <Ice/Ice.h>
-
 #include <unordered_map>
 #include <cstdio>
 
@@ -90,6 +88,7 @@
 #include <fds_types.h>
 #include <fds_err.h>
 #include <fds_config.hpp>
+#include <fds_process.h>
 #include <fds_placement_table.h>
 #include <fdsp/FDSP_types.h>
 #include <fdsp/FDSP_ConfigPathReq.h>
@@ -113,8 +112,8 @@ namespace fds {
     typedef std::string fds_node_name_t;
     typedef FDS_ProtocolInterface::FDSP_MgrIdType fds_node_type_t;
     typedef FDS_ProtocolInterface::FDSP_NodeState FdspNodeState;
-    typedef FDS_ProtocolInterface::FDSP_ConfigPathReqPtr  ReqCfgHandlerPtr;
-    typedef FDS_ProtocolInterface::FDSP_ControlPathReqPrx ReqCtrlPrx;
+    //    typedef FDS_ProtocolInterface::FDSP_ConfigPathReqPtr  ReqCfgHandlerPtr;
+    //typedef FDS_ProtocolInterface::FDSP_ControlPathReqPrx ReqCtrlPrx;
 
     typedef FDS_ProtocolInterface::FDSP_MsgHdrTypePtr     FdspMsgHdrPtr;
     typedef FDS_ProtocolInterface::FDSP_CreateVolTypePtr  FdspCrtVolPtr;
@@ -140,71 +139,70 @@ namespace fds {
     typedef FDS_ProtocolInterface::FDSP_VolumeDescTypePtr FdspVolDescPtr;
     typedef FDS_ProtocolInterface::FDSP_CreateDomainTypePtr  FdspCrtDomPtr;
     typedef FDS_ProtocolInterface::FDSP_GetDomainStatsTypePtr FdspGetDomStatsPtr;
-
+    
     typedef std::unordered_map<int, localDomainInfo *> loc_domain_map_t;
 
-  class OrchMgr:
-  virtual public Ice::Application,
-          public Module {
-private:
-              fds_log *om_log;
-    SysParams *sysParams;
-    boost::shared_ptr<FdsConfig> om_config;
-    ReqCfgHandlerPtr reqCfgHandlersrv;
-    /*
-     * TODO: These maps should eventually be pulled out into
-     * a separate class that defines a cluster map. In other
-     * words, a class that defines the state of the cluster
-     * at a certain point of time, which these maps being part
-     * of that class.
-     */
-    loc_domain_map_t locDomMap;
-    int current_dlt_version;
-    int current_dmt_version;
-    FDS_ProtocolInterface::Node_Table_Type current_dlt_table;
-    FDS_ProtocolInterface::Node_Table_Type current_dmt_table;
-    fds_mutex *om_mutex;
-    std::string node_id_to_name[MAX_OM_NODES];
-    const int table_type_dlt = 0;
-    const int table_type_dmt = 1;
+    class OrchMgr:
+    public FdsProcess,
+    public Module {
+  private:
+        fds_log *om_log;
+        SysParams *sysParams;
+        //ReqCfgHandlerPtr reqCfgHandlersrv; // TODO(thrift)
+        /*
+         * TODO: These maps should eventually be pulled out into
+         * a separate class that defines a cluster map. In other
+         * words, a class that defines the state of the cluster
+         * at a certain point of time, which these maps being part
+         * of that class.
+         */
+        loc_domain_map_t locDomMap;
+        int current_dlt_version;
+        int current_dmt_version;
+        FDS_ProtocolInterface::Node_Table_Type current_dlt_table;
+        FDS_ProtocolInterface::Node_Table_Type current_dmt_table;
+        fds_mutex *om_mutex;
+        std::string node_id_to_name[MAX_OM_NODES];
+        const int table_type_dlt = 0;
+        const int table_type_dmt = 1;
  
-    /*
-     * local domain 
-     */
-     FdsLocalDomain  *local_domain;
-     FdsLocalDomain  *current_domain;
- 
-    /*
-     * Cmdline configurables
-     */
-    int port_num;
-    std::string stor_prefix;
-    fds_bool_t test_mode;
-
-    /* policy manager */
-    VolPolicyMgr        *policy_mgr;
-    Ice_VolPolicyServ   *om_ice_proxy;
-    Orch_VolPolicyServ  *om_policy_srv;
-
-    void SetThrottleLevelForDomain(int domain_id, float throttle_level);
+        /*
+         * local domain 
+         */
+        FdsLocalDomain  *local_domain;
+        FdsLocalDomain  *current_domain;
+        
+        /*
+         * Cmdline configurables
+         */
+        int port_num;
+        std::string stor_prefix;
+        fds_bool_t test_mode;
+        
+        /* policy manager */
+        VolPolicyMgr        *policy_mgr;
+        Ice_VolPolicyServ   *om_ice_proxy;
+        Orch_VolPolicyServ  *om_policy_srv;
+        
+        void SetThrottleLevelForDomain(int domain_id, float throttle_level);
 
   public:
-    OrchMgr(const boost::shared_ptr<FdsConfig>& config);
+    OrchMgr(const std::string& config_path,
+            const std::string& base_path);
     ~OrchMgr();
+
+    /**** From FdsProcess ****/
+    virtual void setup(int argc, char *argv[], fds::Module **mod_vec) override;
+    /* 
+     * Runs the orch manager server.
+     * Does not return until the server is no longer running
+     */
+    virtual void run() override;
+    virtual void interrupt_cb(int signum) override;
 
     int  mod_init(SysParams const *const param);
     void mod_startup();
     void mod_shutdown();
-
-    virtual int run(int argc, char* argv[]);
-    void interruptCallback(int cb);
-
-    /**
-     * Runs the orch manager server.
-     * This function is not intended to return until
-     * the server is no longer running.
-     */
-    void runServer();
 
     fds_log* GetLog();
     void defaultS3BucketPolicy();  // default  policy  desc  for s3 bucket
