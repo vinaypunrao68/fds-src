@@ -415,10 +415,10 @@ namespace fds {
 
         void NotifyPerfstats(
             const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-            const ::FDS_ProtocolInterface::FDSP_PerfstatsType& push_stats_msg);
+            const ::FDS_ProtocolInterface::FDSP_PerfstatsType& perf_stats_msg);
         void NotifyPerfstats(
             ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-            ::FDS_ProtocolInterface::FDSP_PerfstatsTypePtr& push_stats_msg);
+            ::FDS_ProtocolInterface::FDSP_PerfstatsTypePtr& perf_stats_msg);
 
         void TestBucket(
             const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,

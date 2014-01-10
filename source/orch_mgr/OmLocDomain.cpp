@@ -346,7 +346,8 @@ void FdsLocalDomain::sendMgrNodeListToFdsNode(const NodeInfo& n_info) {
     msg_hdr_ptr->tennant_id = 1;
     msg_hdr_ptr->local_domain_id = 1;
 
-    ReqCtrlPrx OMClientAPI = n_info.cpPrx;
+    // TODO(thift)
+    // ReqCtrlPrx OMClientAPI = n_info.cpPrx;
 
     for (int i = 0; i < 2; i++) {
         node_map_t& node_map = (i == 0) ? currentDmMap:currentSmMap;
@@ -377,7 +378,8 @@ void FdsLocalDomain::sendMgrNodeListToFdsNode(const NodeInfo& n_info) {
 
 
             if (next_node_info.node_state == FDS_ProtocolInterface::FDS_Node_Up) {
-                OMClientAPI->begin_NotifyNodeAdd(msg_hdr_ptr, node_info_ptr);
+                // TODO(thrift)
+                // OMClientAPI->begin_NotifyNodeAdd(msg_hdr_ptr, node_info_ptr);
             } else {
                 /*
                  * Nothing to send about this node really. The new node does
@@ -434,12 +436,13 @@ void FdsLocalDomain::sendNodeEventToFdsNodes(const NodeInfo& nodeInfo,
                     << nodeInfo.node_name << " state - "
                     << node_state;
 
-            ReqCtrlPrx OMClientAPI = next_node_info.cpPrx;
-            if (node_state == FDS_ProtocolInterface::FDS_Node_Up) {
-                OMClientAPI->begin_NotifyNodeAdd(msg_hdr_ptr, node_info_ptr);
-            } else {
-                OMClientAPI->begin_NotifyNodeRmv(msg_hdr_ptr, node_info_ptr);
-            }
+            // TODO(thrift)
+            // ReqCtrlPrx OMClientAPI = next_node_info.cpPrx;
+            // if (node_state == FDS_ProtocolInterface::FDS_Node_Up) {
+            //    OMClientAPI->begin_NotifyNodeAdd(msg_hdr_ptr, node_info_ptr);
+            // } else {
+            //    OMClientAPI->begin_NotifyNodeRmv(msg_hdr_ptr, node_info_ptr);
+            // }
         }
     }
 }
@@ -491,12 +494,13 @@ void FdsLocalDomain::sendNodeTableToFdsNodes(int table_type) {
                         current_dlt_version : current_dmt_version)
                     << " to node " << node_name;
 
-            ReqCtrlPrx OMClientAPI = next_node_info.cpPrx;
-            if (table_type == table_type_dlt) {
-                OMClientAPI->begin_NotifyDLTUpdate(msg_hdr_ptr, dlt_info_ptr);
-            } else {
-                OMClientAPI->begin_NotifyDMTUpdate(msg_hdr_ptr, dmt_info_ptr);
-            }
+            // TODO(thrift)
+            // ReqCtrlPrx OMClientAPI = next_node_info.cpPrx;
+            // if (table_type == table_type_dlt) {
+            //    OMClientAPI->begin_NotifyDLTUpdate(msg_hdr_ptr, dlt_info_ptr);
+            // } else {
+            //    OMClientAPI->begin_NotifyDMTUpdate(msg_hdr_ptr, dmt_info_ptr);
+            // }
         }
     }
 }
@@ -506,8 +510,6 @@ void FdsLocalDomain::sendNodeTableToFdsNodes(int table_type) {
  * messages) to a newly registering SM/DM Node
  */
 void FdsLocalDomain::sendAllVolumesToFdsMgrNode(NodeInfo node_info) {
-    ReqCtrlPrx OMClientAPI = node_info.cpPrx;
-
     FdspMsgHdrPtr msg_hdr(new FDS_ProtocolInterface::FDSP_MsgHdrType);
     FdspNotVolPtr vol_msg(new FDS_ProtocolInterface::FDSP_NotifyVolType);
 
@@ -527,7 +529,9 @@ void FdsLocalDomain::sendAllVolumesToFdsMgrNode(NodeInfo node_info) {
                 << node_info.node_name
                 << " for volume " << pVolInfo->volUUID;
 
-        OMClientAPI->begin_NotifyAddVol(msg_hdr, vol_msg);
+        // TODO(thrift)
+        // ReqCtrlPrx OMClientAPI = node_info.cpPrx;
+        // OMClientAPI->begin_NotifyAddVol(msg_hdr, vol_msg);
     }
 }
 
@@ -559,8 +563,9 @@ void FdsLocalDomain::sendCreateVolToFdsNodes(VolumeInfo  *pVolInfo) {
                     << node_name << " for volume "
                     << pVolInfo->volUUID;
 
-            ReqCtrlPrx OMClientAPI = node_info.cpPrx;
-            OMClientAPI->begin_NotifyAddVol(msg_hdr, vol_msg);
+            // TODO(thrift)
+            // ReqCtrlPrx OMClientAPI = node_info.cpPrx;
+            // OMClientAPI->begin_NotifyAddVol(msg_hdr, vol_msg);
         }
     }
 }
@@ -595,8 +600,9 @@ void FdsLocalDomain::sendModifyVolToFdsNodes(VolumeInfo* pVolInfo)
                     << pVolInfo->vol_name << " UUID "
                     << pVolInfo->volUUID;
 
-            ReqCtrlPrx OMClientAPI = node_info.cpPrx;
-            OMClientAPI->begin_NotifyModVol(msg_hdr, vol_msg);
+            // TODO(thrift)
+            // ReqCtrlPrx OMClientAPI = node_info.cpPrx;
+            // OMClientAPI->begin_NotifyModVol(msg_hdr, vol_msg);
         }
     }
 
@@ -618,8 +624,9 @@ void FdsLocalDomain::sendModifyVolToFdsNodes(VolumeInfo* pVolInfo)
                 << pVolInfo->volUUID;
 
         NodeInfo& node_info = currentShMap[pVolInfo->hv_nodes[i]];
-        ReqCtrlPrx OMClientAPI = node_info.cpPrx;
-        OMClientAPI->begin_NotifyModVol(msg_hdr, vol_msg);
+        // TODO(thrift)
+        // ReqCtrlPrx OMClientAPI = node_info.cpPrx;
+        // OMClientAPI->begin_NotifyModVol(msg_hdr, vol_msg);
     }
 }
 
@@ -636,8 +643,9 @@ FdsLocalDomain::sendTierPolicyToSMNodes(const FDSP_TierPolicyPtr &tier)
                 << "Sending tier policy to node "
                 << node_name << " for volume " << tier->tier_vol_uuid;
 
-        ReqCtrlPrx OMClientAPI = node_info.cpPrx;
-        OMClientAPI->begin_TierPolicy(tier);
+        // TODO(thrift)
+        // ReqCtrlPrx OMClientAPI = node_info.cpPrx;
+        // OMClientAPI->begin_TierPolicy(tier);
     }
 }
 
@@ -654,8 +662,9 @@ FdsLocalDomain::sendTierAuditPolicyToSMNodes(const FDSP_TierPolicyAuditPtr &audi
                 << "Sending tier audit policy to node "
                 << node_name << " for volume " << audit->tier_vol_uuid;
 
-        ReqCtrlPrx OMClientAPI = node_info.cpPrx;
-        OMClientAPI->begin_TierPolicyAudit(audit);
+        // TODO(thrift)
+        // ReqCtrlPrx OMClientAPI = node_info.cpPrx;
+        // OMClientAPI->begin_TierPolicyAudit(audit);
     }
 }
 
@@ -687,8 +696,9 @@ void FdsLocalDomain::sendDeleteVolToFdsNodes(VolumeInfo *pVolInfo) {
                     << node_name << " for volume "
                     << pVolInfo->volUUID;
 
-            ReqCtrlPrx OMClientAPI = node_info.cpPrx;
-            OMClientAPI->begin_NotifyRmVol(msg_hdr, vol_msg);
+            // TODO(thrift)
+            // ReqCtrlPrx OMClientAPI = node_info.cpPrx;
+            // OMClientAPI->begin_NotifyRmVol(msg_hdr, vol_msg);
         }
     }
 }
@@ -716,8 +726,9 @@ void FdsLocalDomain::sendAttachVolToHvNode(fds_node_name_t node_name,
             << "Sending attach vol to node " << node_name
             << " node_id " << node_info.node_id;
 
-    ReqCtrlPrx OMClientAPI = node_info.cpPrx;
-    OMClientAPI->begin_AttachVol(msg_hdr, vol_msg);
+    // TODO(thrift)
+    // ReqCtrlPrx OMClientAPI = node_info.cpPrx;
+    // OMClientAPI->begin_AttachVol(msg_hdr, vol_msg);
 }
 
 // Send attach vol ctrl message to a HV node
@@ -742,8 +753,9 @@ void FdsLocalDomain::sendDetachVolToHvNode(fds_node_name_t node_name,
             << "Sending detach vol to node " << node_name
             << " for volume " << pVolInfo->volUUID;
 
-    ReqCtrlPrx OMClientAPI = node_info.cpPrx;
-    OMClientAPI->begin_DetachVol(msg_hdr, vol_msg);
+    // TODO(thrift)
+    // ReqCtrlPrx OMClientAPI = node_info.cpPrx;
+    // OMClientAPI->begin_DetachVol(msg_hdr, vol_msg);
 }
 
 /* Send response for TestBucket if we are not sending attach volume message */
@@ -787,8 +799,9 @@ void FdsLocalDomain::sendTestBucketResponseToHvNode(fds_node_name_t node_name,
             << " for bucket " << vol_msg->vol_name
             << " node_info-> node-id = " << node_info.node_id;
 
-    ReqCtrlPrx OMClientAPI = node_info.cpPrx;
-    OMClientAPI->begin_AttachVol(msg_hdr, vol_msg);
+    // TODO(thrift)
+    // ReqCtrlPrx OMClientAPI = node_info.cpPrx;
+    // OMClientAPI->begin_AttachVol(msg_hdr, vol_msg);
 }
 
 /*
@@ -825,8 +838,9 @@ void FdsLocalDomain::sendThrottleLevelToHvNodes(float throttle_level) {
                 << node_name << " for throttle level "
                 << throttle_level;
 
-        ReqCtrlPrx OMClientAPI = node_info.cpPrx;
-        OMClientAPI->begin_SetThrottleLevel(msg_hdr, throttle_msg);
+        // TODO(thrift)
+        // ReqCtrlPrx OMClientAPI = node_info.cpPrx;
+        // OMClientAPI->begin_SetThrottleLevel(msg_hdr, throttle_msg);
     }
 }
 
@@ -919,8 +933,9 @@ void FdsLocalDomain::sendBucketStats(fds_uint32_t perf_time_interval,
             << dest_node_name
             << " node_info-> node-id = " << node_info.node_id;
 
-    ReqCtrlPrx OMClientAPI = node_info.cpPrx;
-    OMClientAPI->begin_NotifyBucketStats(msg_hdr, buck_stats_rsp);
+    // TODO(thrift)
+    // ReqCtrlPrx OMClientAPI = node_info.cpPrx;
+    // OMClientAPI->begin_NotifyBucketStats(msg_hdr, buck_stats_rsp);
 }
 
 /* temp function to print recent perf stats of all existing volumes to json file */
