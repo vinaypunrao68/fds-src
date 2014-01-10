@@ -22,8 +22,7 @@ user_fds_ar_libs  :=                   \
     fds-util \
     fds-odb \
     fds-vpolicy \
-    fds-netproxy \
-    fds-fdsp-ice
+    fds-netproxy 
 
 user_non_fds_libs :=                                                          \
     boost_log \

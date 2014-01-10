@@ -2,8 +2,8 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_STOR_MGR_ICE_STORMGRVOLUMES_H_
-#define SOURCE_STOR_MGR_ICE_STORMGRVOLUMES_H_
+#ifndef SOURCE_STOR_MGR_STORMGRVOLUMES_H_
+#define SOURCE_STOR_MGR_STORMGRVOLUMES_H_
 
 #include <Ice/Ice.h>
 #include <IceUtil/IceUtil.h>
@@ -14,7 +14,7 @@
 #include <list>
 #include <unordered_map>
 
-#include <fdsp/FDSP.h>
+#include <fdsp/FDSP_types.h>
 #include <fds_err.h>
 #include <fds_types.h>
 #include <fds_volume.h>
@@ -290,4 +290,4 @@ namespace fds {
   };
 }  // namespace fds
 
-#endif  // SOURCE_STOR_MGR_ICE_STORMGRVOLUMES_H_
+#endif  // SOURCE_STOR_MGR_STORMGRVOLUMES_H_

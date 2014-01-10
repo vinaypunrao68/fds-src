@@ -17,7 +17,7 @@
 
 #include "stor_mgr_err.h"
 
-#include <fdsp/FDSP.h>
+#include <fdsp/FDSP_types.h>
 #include <hash/MurmurHash3.h>
 #include <fds_volume.h>
 #include <lib/Catalog.h>
