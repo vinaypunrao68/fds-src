@@ -181,7 +181,7 @@ namespace fds {
         
         /* policy manager */
         VolPolicyMgr        *policy_mgr;
-        Ice_VolPolicyServ   *om_ice_proxy;
+        Thrift_VolPolicyServ   *om_ice_proxy;
         Orch_VolPolicyServ  *om_policy_srv;
         
         void SetThrottleLevelForDomain(int domain_id, float throttle_level);

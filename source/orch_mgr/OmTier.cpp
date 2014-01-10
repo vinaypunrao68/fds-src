@@ -11,7 +11,7 @@ using namespace std;
 namespace fds {
 
 void
-Orch_VolPolicyServ::serv_recvTierPolicyReq(const opi::tier_pol_time_unit &tier)
+Orch_VolPolicyServ::serv_recvTierPolicyReq(const fdp::tier_pol_time_unit &tier)
 {
     FDS_ProtocolInterface::FDSP_TierPolicyPtr sm_data(
         new FDS_ProtocolInterface::FDSP_TierPolicy);
@@ -59,7 +59,7 @@ Orch_VolPolicyServ::serv_recvTierPolicyReq(const opi::tier_pol_time_unit &tier)
 }
 
 void
-Orch_VolPolicyServ::serv_recvAuditTierPolicy(const opi::tier_pol_audit &audit)
+Orch_VolPolicyServ::serv_recvAuditTierPolicy(const fdp::tier_pol_audit &audit)
 {
     FDS_ProtocolInterface::FDSP_TierPolicyAuditPtr sm_data(
         new FDS_ProtocolInterface::FDSP_TierPolicyAudit);

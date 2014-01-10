@@ -149,31 +149,31 @@ VolPolicyCLI::cli_exec_cmdline(SysParams const *const param)
         fds_verify(cli_client != nullptr);
     }
     int tier_opt = 0;
-    pol_tier_media = opi::TIER_MEIDA_NO_VAL;
+    pol_tier_media = fdp::TIER_MEIDA_NO_VAL;
     if (vm.count("vol-type")) {
         if (pol_tier_media_arg == "ssd") {
-            pol_tier_media = opi::TIER_MEDIA_SSD;
+            pol_tier_media = fdp::TIER_MEDIA_SSD;
         } else if (pol_tier_media_arg == "disk") {
-            pol_tier_media = opi::TIER_MEDIA_HDD;
+            pol_tier_media = fdp::TIER_MEDIA_HDD;
         } else if (pol_tier_media_arg == "hybrid") {
-            pol_tier_media = opi::TIER_MEDIA_HYBRID;
+            pol_tier_media = fdp::TIER_MEDIA_HYBRID;
         } else {
-            pol_tier_media = opi::TIER_MEDIA_HYBRID_PREFCAP;
+            pol_tier_media = fdp::TIER_MEDIA_HYBRID_PREFCAP;
         }
         tier_opt++;
     }
     if (vm.count("tier-prefetch")) {
         if (pol_tier_algo == "mru") {
-            pol_tier_prefetch = opi::PREFETCH_MRU;
+            pol_tier_prefetch = fdp::PREFETCH_MRU;
         } else if (pol_tier_algo == "random") {
-            pol_tier_prefetch = opi::PREFETCH_RAND;
+            pol_tier_prefetch = fdp::PREFETCH_RAND;
         } else {
-            pol_tier_prefetch = opi::PREFETCH_ARC;
+            pol_tier_prefetch = fdp::PREFETCH_ARC;
         }
         tier_opt++;
     }
     if (vm.count("auto-tier")) {
-        struct opi::tier_pol_time_unit req;
+        struct fdp::tier_pol_time_unit req;
 
         if (pol_vol_id == 0) {
             std::cout << "Need volume id with --auto-tier" << std::endl;
@@ -207,7 +207,7 @@ VolPolicyCLI::cli_exec_cmdline(SysParams const *const param)
         cli_client->clnt_setTierPolicy(req);
     }
     if (vm.count("auto-tier-migration")) {
-        struct opi::tier_pol_time_unit dom_req;
+        struct fdp::tier_pol_time_unit dom_req;
 
         memset(&dom_req, 0, sizeof(dom_req));
         if (pol_domain_id == 0) {
