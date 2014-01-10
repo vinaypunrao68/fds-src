@@ -5,6 +5,11 @@
 #include <string>
 
 #include "DataMgr.h"
+#include <thrift/protocol/TBinaryProtocol.h>
+#include <thrift/server/TSimpleServer.h>
+#include <thrift/transport/TServerSocket.h>
+#include <thrift/transport/TBufferTransports.h>
+
 
 namespace fds {
 
@@ -439,7 +444,9 @@ void DataMgr::runServer() {
   /*
    * TODO: Replace this when we pull ICE out.
    */
-  this->main(mod_params->p_argc, mod_params->p_argv, "dm_test.conf");
+  //  this->main(mod_params->p_argc, mod_params->p_argv, "dm_test.conf");
+  this->run(mod_params->p_argc, mod_params->p_argv);
+
 }
 
 int DataMgr::run(int argc, char* argv[]) {
@@ -478,25 +485,12 @@ int DataMgr::run(int argc, char* argv[]) {
     runMode = TEST_MODE;
   }
 
-  Ice::PropertiesPtr props = communicator()->getProperties();
-
-  /*
-   * Set basic thread properties.
-   */
-  props->setProperty("DataMgr.ThreadPool.Client.Size", "100");
-  props->setProperty("DataMgr.ThreadPool.Client.SizeMax", "300");
-  props->setProperty("DataMgr.ThreadPool.Client.SizeWarn", "200");
-
-  props->setProperty("DataMgr.ThreadPool.Server.Size", "200");
-  props->setProperty("DataMgr.ThreadPool.Server.SizeMax", "300");
-  props->setProperty("DataMgr.ThreadPool.Server.SizeWarn", "200");
-
   if (port_num == 0) {
     /*
      * Pull the port from the config file if it wasn't
      * specified on the command line.
      */
-    port_num = props->getPropertyAsInt("DataMgr.PortNumber");
+    port_num = 7902;
   }
 
   FDS_PLOG(dm_log) << "Data Manager using port " << port_num;
@@ -508,7 +502,7 @@ int DataMgr::run(int argc, char* argv[]) {
      * Pull the control port from the config file if it
      * wasn't specified on the command line.
      */
-    cp_port_num = props->getPropertyAsInt("DataMgr.ControlPort");
+    cp_port_num = 7903;
   }
 
   FDS_PLOG(dm_log) << "Data Manager using control port "
@@ -518,18 +512,24 @@ int DataMgr::run(int argc, char* argv[]) {
   /*
    * Setup TCP endpoint.
    */
-  std::ostringstream tcpProxyStr;
-  tcpProxyStr << "tcp -p " << port_num;
-  Ice::ObjectAdapterPtr adapter =
-      communicator()->createObjectAdapterWithEndpoints(
-          "DataMgr", tcpProxyStr.str());
 
-  reqHandleSrv = new ReqHandler(communicator());
-  adapter->add(reqHandleSrv, communicator()->stringToIdentity("DataMgr"));
+  ReqHandlerPtr tmp_handler(new ReqHandler()); 
+  reqHandleSrv = tmp_handler;
+  boost::shared_ptr<apache::thrift::TProcessor>
+          processor(new FDSP_MetaDataPathReqProcessor(reqHandleSrv));
+  boost::shared_ptr<apache::thrift::transport::TServerTransport>
+          serverTransport(new apache::thrift::transport::TServerSocket(port_num));
+  shared_ptr<apache::thrift::transport::TTransportFactory>
+          transportFactory(new apache::thrift::transport::TBufferedTransportFactory());
+  shared_ptr<apache::thrift::protocol::TProtocolFactory>
+          protocolFactory(new apache::thrift::protocol::TBinaryProtocolFactory());
 
+  apache::thrift::server::TSimpleServer
+          server(processor, serverTransport, transportFactory, protocolFactory);
+  server.serve();
 
-  adapter->activate();
-  callbackOnInterrupt();
+  // TODO: Replace this with an equivalent FDS module/process call
+  // callbackOnInterrupt();
   
   struct ifaddrs *ifAddrStruct = NULL;
   struct ifaddrs *ifa          = NULL;
@@ -564,7 +564,7 @@ int DataMgr::run(int argc, char* argv[]) {
     in.dmq_mask = fds::dmq_disk_info;
     query.dm_disk_query(in, &out);
     /* we should be bundling multiple disk  parameters  into one message to OM TBD */ 
-    dInfo = new  FDSP_AnnounceDiskCapability(); 
+    dInfo.reset(new FDSP_AnnounceDiskCapability());
     while (1) {
         info = out.query_pop();
         if (info != nullptr) {
@@ -649,8 +649,6 @@ int DataMgr::run(int argc, char* argv[]) {
     }
   }
 
-  communicator()->waitForShutdown();
-  
   if (ifAddrStruct != NULL) {
     freeifaddrs(ifAddrStruct);
   }
@@ -709,38 +707,18 @@ fds_bool_t DataMgr::volExists(fds_volid_t vol_uuid) const {
 
 void DataMgr::interruptCallback(int arg) {
   FDS_PLOG(dataMgr->GetLog()) << "Shutting down communicator";
-  communicator()->shutdown();
+  // TODO: call module/process shutdown
 }
 
-DataMgr::ReqHandler::ReqHandler(const Ice::CommunicatorPtr& communicator) {
+DataMgr::ReqHandler::ReqHandler() {
 }
 
 DataMgr::ReqHandler::~ReqHandler() {
 }
 
-DataMgr::RespHandler::RespHandler() {
-}
+void DataMgr::ReqHandler::GetVolumeBlobList(FDSP_MsgHdrTypePtr& msg_hdr, 
+                                            FDSP_GetVolumeBlobListReqTypePtr& blobListReq) {
 
-DataMgr::RespHandler::~RespHandler() {
-}
-
-void DataMgr::ReqHandler::PutObject(const FDS_ProtocolInterface::
-                                    FDSP_MsgHdrTypePtr &msg_hdr,
-                                    const FDS_ProtocolInterface::
-                                    FDSP_PutObjTypePtr &put_obj,
-                                    const Ice::Current&) {
-}
-
-void DataMgr::ReqHandler::GetObject(const FDS_ProtocolInterface::
-                                    FDSP_MsgHdrTypePtr &msg_hdr,
-                                    const FDS_ProtocolInterface::
-                                    FDSP_GetObjTypePtr& get_obj,
-                                    const Ice::Current&) {
-}
-
-void DataMgr::ReqHandler::GetVolumeBlobList(const FDSP_MsgHdrTypePtr& msg_hdr, 
-                                            const FDSP_GetVolumeBlobListReqTypePtr& blobListReq,
-                                            const Ice::Current& current) {
   Error err(ERR_OK);
 
   err = dataMgr->blobListInternal(blobListReq, msg_hdr->glob_volume_id,
@@ -759,13 +737,12 @@ void DataMgr::ReqHandler::GetVolumeBlobList(const FDSP_MsgHdrTypePtr& msg_hdr,
     msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_GET_VOL_BLOB_LIST_RSP;
     dataMgr->swapMgrId(msg_hdr);
     dataMgr->respMapMtx.read_lock();
-    FDS_ProtocolInterface::FDSP_GetVolumeBlobListRespTypePtr blobListResp =
-        new FDS_ProtocolInterface::FDSP_GetVolumeBlobListRespType;
+    FDS_ProtocolInterface::FDSP_GetVolumeBlobListRespTypePtr
+            blobListResp(new FDS_ProtocolInterface::FDSP_GetVolumeBlobListRespType);
     blobListResp->num_blobs_in_resp = 0;
     blobListResp->end_of_list = true;
-    dataMgr->respHandleCli[msg_hdr->src_node_name]->begin_GetVolumeBlobListResp(
-        msg_hdr,
-        blobListResp);
+    dataMgr->respHandleCli[msg_hdr->src_node_name]->GetVolumeBlobListResp(*msg_hdr,
+									  *blobListResp);
     dataMgr->respMapMtx.read_unlock();
 
     FDS_PLOG_SEV(dataMgr->GetLog(), fds::fds_log::error) << "Sending async blob list error response with "
@@ -810,8 +787,9 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
   if (bnode)
     delete bnode;
 
-  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr = new FDSP_MsgHdrType;
-  FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr update_catalog = new FDSP_UpdateCatalogType;
+  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
+  FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr
+          update_catalog(new FDSP_UpdateCatalogType);
   DataMgr::InitMsgHdr(msg_hdr);
   update_catalog->obj_list.clear();
   update_catalog->meta_list.clear();
@@ -841,7 +819,7 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
   msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_UPDATE_CAT_OBJ_RSP;
 
   dataMgr->respMapMtx.read_lock();
-  dataMgr->respHandleCli[updCatReq->src_node_name]->begin_UpdateCatalogObjectResp( msg_hdr, update_catalog);
+  dataMgr->respHandleCli[updCatReq->src_node_name]->UpdateCatalogObjectResp(*msg_hdr, *update_catalog);
   dataMgr->respMapMtx.read_unlock();
 
   FDS_PLOG(dataMgr->GetLog()) << "Sending async update catalog response with "
@@ -897,12 +875,11 @@ DataMgr::updateCatalogInternal(FDSP_UpdateCatalogTypePtr updCatReq,
 }
 
 
-void DataMgr::ReqHandler::UpdateCatalogObject(const FDS_ProtocolInterface::
+void DataMgr::ReqHandler::UpdateCatalogObject(FDS_ProtocolInterface::
                                               FDSP_MsgHdrTypePtr &msg_hdr,
-                                              const FDS_ProtocolInterface::
+                                              FDS_ProtocolInterface::
                                               FDSP_UpdateCatalogTypePtr
-                                              &update_catalog,
-                                              const Ice::Current&) {
+                                              &update_catalog) {
   Error err(ERR_OK);
 
 #ifdef FDS_TEST_DM_NOOP
@@ -910,9 +887,9 @@ void DataMgr::ReqHandler::UpdateCatalogObject(const FDS_ProtocolInterface::
   msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
   dataMgr->swapMgrId(msg_hdr);
   dataMgr->respMapMtx.read_lock();
-  dataMgr->respHandleCli[msg_hdr->src_node_name]->begin_UpdateCatalogObjectResp(
-										msg_hdr,
-										update_catalog);
+  dataMgr->respHandleCli[msg_hdr->src_node_name]->UpdateCatalogObjectResp(
+									  *msg_hdr,
+									  *update_catalog);
   dataMgr->respMapMtx.read_unlock();
   FDS_PLOG(dataMgr->GetLog()) << "FDS_TEST_DM_NOOP defined. Set update catalog response right after receiving req.";
 
@@ -945,9 +922,8 @@ void DataMgr::ReqHandler::UpdateCatalogObject(const FDS_ProtocolInterface::
   		msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_UPDATE_CAT_OBJ_RSP;
   		dataMgr->swapMgrId(msg_hdr);
                 dataMgr->respMapMtx.read_lock();
-  		dataMgr->respHandleCli[msg_hdr->src_node_name]->begin_UpdateCatalogObjectResp(
-      						msg_hdr,
-      						update_catalog);
+  		dataMgr->respHandleCli[msg_hdr->src_node_name]->UpdateCatalogObjectResp(*msg_hdr,
+											*update_catalog);
                 dataMgr->respMapMtx.read_unlock();
 
   		FDS_PLOG(dataMgr->GetLog()) << "Sending async update catalog response with "
@@ -979,8 +955,9 @@ DataMgr::blobListBackend(dmCatReq *listBlobReq) {
   std::list<BlobNode> bNodeList;
   err = _process_list(listBlobReq->volId, bNodeList);
 
-  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr = new FDSP_MsgHdrType();
-  FDSP_GetVolumeBlobListRespTypePtr blobListResp = new FDSP_GetVolumeBlobListRespType();
+  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType());
+  FDSP_GetVolumeBlobListRespTypePtr
+          blobListResp(new FDSP_GetVolumeBlobListRespType());
   DataMgr::InitMsgHdr(msg_hdr);
   if (err.ok()) {
     msg_hdr->result  = FDS_ProtocolInterface::FDSP_ERR_OK;
@@ -1012,7 +989,7 @@ DataMgr::blobListBackend(dmCatReq *listBlobReq) {
     blobListResp->blob_info_list.push_back(bInfo);
   }
   respMapMtx.read_lock();
-  respHandleCli[listBlobReq->src_node_name]->begin_GetVolumeBlobListResp(msg_hdr, blobListResp);
+  respHandleCli[listBlobReq->src_node_name]->GetVolumeBlobListResp(*msg_hdr, *blobListResp);
   respMapMtx.read_unlock();
   FDS_PLOG_SEV(dm_log, fds::fds_log::normal) << "Sending async blob list response with "
                                              << "volume id: " << msg_hdr->glob_volume_id
@@ -1032,8 +1009,8 @@ DataMgr::queryCatalogBackend(dmCatReq  *qryCatReq) {
                                 qryCatReq->blob_name,
                                 bnode);
 
-  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr = new FDSP_MsgHdrType;
-  FDS_ProtocolInterface::FDSP_QueryCatalogTypePtr query_catalog = new FDSP_QueryCatalogType;
+  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
+  FDS_ProtocolInterface::FDSP_QueryCatalogTypePtr query_catalog(new FDSP_QueryCatalogType);
   DataMgr::InitMsgHdr(msg_hdr);
   query_catalog->obj_list.clear();
   query_catalog->meta_list.clear();
@@ -1066,7 +1043,7 @@ DataMgr::queryCatalogBackend(dmCatReq  *qryCatReq) {
   query_catalog->dm_operation = qryCatReq->transOp;
 
   dataMgr->respMapMtx.read_lock();
-  dataMgr->respHandleCli[qryCatReq->src_node_name]->begin_QueryCatalogObjectResp(msg_hdr, query_catalog);
+  dataMgr->respHandleCli[qryCatReq->src_node_name]->QueryCatalogObjectResp(*msg_hdr, *query_catalog);
   dataMgr->respMapMtx.read_unlock();
   FDS_PLOG(dataMgr->GetLog()) << "Sending async query catalog response with "
                               << "volume id: " << msg_hdr->glob_volume_id
@@ -1132,12 +1109,12 @@ DataMgr::queryCatalogInternal(FDSP_QueryCatalogTypePtr qryCatReq,
 
 
 
-void DataMgr::ReqHandler::QueryCatalogObject(const FDS_ProtocolInterface::
+void DataMgr::ReqHandler::QueryCatalogObject(FDS_ProtocolInterface::
                                              FDSP_MsgHdrTypePtr &msg_hdr,
-                                             const FDS_ProtocolInterface::
+                                             FDS_ProtocolInterface::
                                              FDSP_QueryCatalogTypePtr
-                                             &query_catalog,
-                                             const Ice::Current&) {
+                                             &query_catalog) {
+
   Error err(ERR_OK);
 
   FDS_PLOG(dataMgr->GetLog()) << "Processing query catalog request with "
@@ -1162,7 +1139,8 @@ void DataMgr::ReqHandler::QueryCatalogObject(const FDS_ProtocolInterface::
   		msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_QUERY_CAT_OBJ_RSP;
   		dataMgr->swapMgrId(msg_hdr);
                 dataMgr->respMapMtx.read_lock();
-  		dataMgr->respHandleCli[msg_hdr->src_node_name]->begin_QueryCatalogObjectResp(msg_hdr, query_catalog);
+  		dataMgr->respHandleCli[msg_hdr->src_node_name]->QueryCatalogObjectResp(*msg_hdr, 
+										       *query_catalog);
                 dataMgr->respMapMtx.read_unlock();
   		FDS_PLOG(dataMgr->GetLog()) << "Sending async query catalog response with "
                               << "volume id: " << msg_hdr->glob_volume_id
@@ -1185,8 +1163,8 @@ DataMgr::deleteCatObjBackend(dmCatReq  *delCatReq) {
   err = dataMgr->_process_delete(delCatReq->volId,
                                 delCatReq->blob_name);
 
-  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr = new FDSP_MsgHdrType;
-  FDS_ProtocolInterface::FDSP_DeleteCatalogTypePtr delete_catalog = new FDSP_DeleteCatalogType;
+  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
+  FDS_ProtocolInterface::FDSP_DeleteCatalogTypePtr delete_catalog(new FDSP_DeleteCatalogType);
   DataMgr::InitMsgHdr(msg_hdr);
 
   if (err.ok()) {
@@ -1214,7 +1192,7 @@ DataMgr::deleteCatObjBackend(dmCatReq  *delCatReq) {
   delete_catalog->blob_name = delCatReq->blob_name;
 
   dataMgr->respMapMtx.read_lock();
-  dataMgr->respHandleCli[delCatReq->src_node_name]->begin_DeleteCatalogObjectResp(msg_hdr, delete_catalog);
+  dataMgr->respHandleCli[delCatReq->src_node_name]->DeleteCatalogObjectResp(*msg_hdr, *delete_catalog);
   dataMgr->respMapMtx.read_unlock();
   FDS_PLOG(dataMgr->GetLog()) << "Sending async delete catalog obj response with "
                               << "volume id: " << msg_hdr->glob_volume_id
@@ -1230,7 +1208,7 @@ DataMgr::deleteCatObjBackend(dmCatReq  *delCatReq) {
 
 Error
 DataMgr::deleteCatObjInternal(FDSP_DeleteCatalogTypePtr delCatReq, 
-                                 fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
+                              fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
 			      fds_uint32_t dstPort, std::string src_node_name, fds_uint32_t reqCookie) {
   fds::Error err(fds::ERR_OK);
 
@@ -1255,12 +1233,12 @@ DataMgr::deleteCatObjInternal(FDSP_DeleteCatalogTypePtr delCatReq,
 
 }
 
-void DataMgr::ReqHandler::DeleteCatalogObject(const FDS_ProtocolInterface::
-                                             FDSP_MsgHdrTypePtr &msg_hdr,
-                                             const FDS_ProtocolInterface::
-                                             FDSP_DeleteCatalogTypePtr
-                                             &delete_catalog,
-                                             const Ice::Current&) {
+void DataMgr::ReqHandler::DeleteCatalogObject(FDS_ProtocolInterface::
+                                              FDSP_MsgHdrTypePtr &msg_hdr,
+                                              FDS_ProtocolInterface::
+                                              FDSP_DeleteCatalogTypePtr
+                                              &delete_catalog) {
+
   Error err(ERR_OK);
 
   FDS_PLOG(dataMgr->GetLog()) << "Processing Delete catalog request with "
@@ -1281,7 +1259,8 @@ void DataMgr::ReqHandler::DeleteCatalogObject(const FDS_ProtocolInterface::
   		msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_DELETE_CAT_OBJ_RSP;
   		dataMgr->swapMgrId(msg_hdr);
                 dataMgr->respMapMtx.read_lock();
-  		dataMgr->respHandleCli[msg_hdr->src_node_name]->begin_DeleteCatalogObjectResp(msg_hdr, delete_catalog);
+  		dataMgr->respHandleCli[msg_hdr->src_node_name]->DeleteCatalogObjectResp(*msg_hdr, 
+											*delete_catalog);
                 dataMgr->respMapMtx.read_unlock();
   		FDS_PLOG(dataMgr->GetLog()) << "Sending async delete catalog response with "
                               << "volume id: " << msg_hdr->glob_volume_id
@@ -1292,30 +1271,7 @@ void DataMgr::ReqHandler::DeleteCatalogObject(const FDS_ProtocolInterface::
   	   FDS_PLOG(dataMgr->GetLog()) << "Successfully Enqueued  the Delete catalog request";
 }
 
-void DataMgr::ReqHandler::DeleteObject(const FDS_ProtocolInterface::
-                                             FDSP_MsgHdrTypePtr &msg_hdr,
-                                             const FDS_ProtocolInterface::
-                                             FDSP_DeleteObjTypePtr
-                                             &delete_obj,
-                                             const Ice::Current&) {
-}
-
-
-void DataMgr::ReqHandler::OffsetWriteObject(const FDS_ProtocolInterface::
-                                            FDSP_MsgHdrTypePtr &msg_hdr,
-                                            const FDS_ProtocolInterface::
-                                            FDSP_OffsetWriteObjTypePtr
-                                            &offset_write_obj,
-                                            const Ice::Current&) {
-}
-
-void DataMgr::ReqHandler::RedirReadObject(const FDS_ProtocolInterface::
-                                          FDSP_MsgHdrTypePtr &msg_hdr,
-                                          const FDS_ProtocolInterface::
-                                          FDSP_RedirReadObjTypePtr
-                                          &redir_read_obj,
-                                          const Ice::Current&) {
-}
+#if 0
 
 void DataMgr::ReqHandler::AssociateRespCallback(const Ice::Identity& ident,
 						const std::string& src_node_name,
@@ -1334,73 +1290,7 @@ void DataMgr::ReqHandler::AssociateRespCallback(const Ice::Identity& ident,
   dataMgr->respMapMtx.write_unlock();
 }
 
-void
-DataMgr::RespHandler::PutObjectResp(const FDS_ProtocolInterface::
-                                    FDSP_MsgHdrTypePtr &msg_hdr,
-                                    const FDS_ProtocolInterface::
-                                    FDSP_PutObjTypePtr &put_obj,
-                                    const Ice::Current&) {
-}
-
-void
-DataMgr::RespHandler::GetObjectResp(const FDS_ProtocolInterface::
-                                    FDSP_MsgHdrTypePtr &msg_hdr,
-                                    const FDS_ProtocolInterface::
-                                    FDSP_GetObjTypePtr& get_obj,
-                                    const Ice::Current&) {
-}
-
-void
-DataMgr::RespHandler::UpdateCatalogObjectResp(const FDS_ProtocolInterface::
-                                              FDSP_MsgHdrTypePtr &msg_hdr,
-                                              const FDS_ProtocolInterface::
-                                              FDSP_UpdateCatalogTypePtr
-                                              &update_catalog,
-                                              const Ice::Current&) {
-}
-
-void
-DataMgr::RespHandler::DeleteCatalogObjectResp(const FDS_ProtocolInterface::
-                                              FDSP_MsgHdrTypePtr &msg_hdr,
-                                              const FDS_ProtocolInterface::
-                                              FDSP_DeleteCatalogTypePtr
-                                              &update_catalog,
-                                              const Ice::Current&) {
-}
-
-void
-DataMgr::RespHandler::QueryCatalogObjectResp(const FDS_ProtocolInterface::
-                                             FDSP_MsgHdrTypePtr &msg_hdr,
-                                             const FDS_ProtocolInterface::
-                                             FDSP_QueryCatalogTypePtr
-                                             &query_catalog,
-                                             const Ice::Current&) {
-}
-
-void
-DataMgr::RespHandler::GetVolumeBlobListResp(const FDS_ProtocolInterface::
-                                            FDSP_MsgHdrTypePtr& fds_msg, 
-                                            const FDS_ProtocolInterface::
-                                            FDSP_GetVolumeBlobListRespTypePtr& blob_list_rsp, 
-                                            const Ice::Current &) {
-}
-
-void
-DataMgr::RespHandler::OffsetWriteObjectResp(const FDS_ProtocolInterface::
-                                            FDSP_MsgHdrTypePtr& msg_hdr,
-                                            const FDS_ProtocolInterface::
-                                            FDSP_OffsetWriteObjTypePtr
-                                            &offset_write_obj,
-                                            const Ice::Current&) {
-}
-
-void
-DataMgr::RespHandler::RedirReadObjectResp(const FDS_ProtocolInterface::
-                                          FDSP_MsgHdrTypePtr &msg_hdr,
-                                          const FDS_ProtocolInterface::
-                                          FDSP_RedirReadObjTypePtr &redir_obj,
-                                          const Ice::Current&) {
-}
+#endif
 
 int scheduleUpdateCatalog(void * _io) {
         fds::DataMgr::dmCatReq *io = (fds::DataMgr::dmCatReq*)_io;

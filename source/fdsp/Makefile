@@ -7,7 +7,7 @@ local_thft_hdrdir := $(topdir)/include/fdsp
 local_thft_target := $(patsubst %.thrift,$(local_thft_hdrdir)/%_types.h, \
     $(local_thft_src))
 
-local_ice_src    := FDSP.ice orch_proto.ice
+local_ice_src    := orch_proto.ice
 local_ice_outdir := $(topdir)/include/fdsp
 local_ice_target := $(patsubst %.ice,$(local_ice_outdir)/%.h, $(local_ice_src))
 

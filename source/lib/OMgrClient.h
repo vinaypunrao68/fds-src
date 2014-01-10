@@ -2,7 +2,8 @@
 #define _OMGRCLIENT_H
 #include <fds_err.h>
 #include <fds_volume.h>
-#include "fdsp/FDSP.h"
+#include "fdsp/FDSP_types.h"
+#include "fdsp/FDSP_ControlPathReq.h"
 #include <util/Log.h>
 #include <unordered_map>
 #include <Ice/Ice.h>
@@ -97,7 +98,7 @@ namespace fds {
     std::string          rpc_srv_id;
     Ice::CommunicatorPtr rpc_comm;
     Ice::ObjectAdapterPtr rpc_adapter;
-    FDS_ProtocolInterface::FDSP_ControlPathReqPtr om_client_rpc_i;
+    FDS_ProtocolInterface::FDSP_ControlPathReqClient om_client_rpc_i;
     void initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
     int initRPCComm();
 
@@ -169,7 +170,7 @@ namespace fds {
 
   };
 
-  class OMgrClientRPCI : public FDS_ProtocolInterface::FDSP_ControlPathReq {
+  class OMgrClientRPCI : public FDS_ProtocolInterface::FDSP_ControlPathReqIf {
 
   private:
     OMgrClient *om_client;
