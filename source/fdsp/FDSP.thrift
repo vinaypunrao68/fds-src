@@ -495,7 +495,7 @@ struct FDSP_PerfstatsType {
 }
 
 struct FDSP_BucketStatType {
-  1: double             vol_uuid,
+  1: string             vol_name,
   2: double             performance,  /* average iops */
   3: double             sla,          /* minimum (guaranteed) iops */
   4: double             limit,        /* maximum iops */
@@ -525,7 +525,7 @@ struct FDSP_TierPolicy {
     4: i32             tier_media,
     5: i32             tier_prefetch_algo,
     6: i64            tier_media_pct,
-    7: i64            tier_i32erval_sec,
+    7: i64            tier_interval_sec,
 }
 
 struct FDSP_TierPolicyAudit {
