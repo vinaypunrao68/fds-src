@@ -99,7 +99,7 @@
 #include <lib/Catalog.h>
 #include <lib/PerfStats.h>
 #include "OmTier.h"
-#include "OmVolPolicy.h"
+#include "OmVolPolicy.hpp"
 #include "OmLocDomain.h"
 #include "OmAdminCtrl.h"
 
@@ -226,22 +226,22 @@ private:
     void om_BigUnlock() { om_mutex->unlock(); }
 
     int CreateVol(const FdspMsgHdrPtr& fdsp_msg,
-                   const FdspCrtVolPtr& crt_vol_req);
-    void DeleteVol(const FdspMsgHdrPtr& fdsp_msg,
-                   const FdspDelVolPtr& del_vol_req);
-    void ModifyVol(const FdspMsgHdrPtr& fdsp_msg,
-                   const FdspModVolPtr& mod_vol_req);
+                  const FdspCrtVolPtr& crt_vol_req);
+    int DeleteVol(const FdspMsgHdrPtr& fdsp_msg,
+                  const FdspDelVolPtr& del_vol_req);
+    int ModifyVol(const FdspMsgHdrPtr& fdsp_msg,
+                  const FdspModVolPtr& mod_vol_req);
 
-    void CreatePolicy(const FdspMsgHdrPtr& fdsp_msg,
-                      const FdspCrtPolPtr& crt_pol_req);
-    void DeletePolicy(const FdspMsgHdrPtr& fdsp_msg,
-                      const FdspDelPolPtr& del_pol_req);
-    void ModifyPolicy(const FdspMsgHdrPtr& fdsp_msg,
-                      const FdspModPolPtr& mod_pol_req);
+    int CreatePolicy(const FdspMsgHdrPtr& fdsp_msg,
+                     const FdspCrtPolPtr& crt_pol_req);
+    int DeletePolicy(const FdspMsgHdrPtr& fdsp_msg,
+                     const FdspDelPolPtr& del_pol_req);
+    int ModifyPolicy(const FdspMsgHdrPtr& fdsp_msg,
+                     const FdspModPolPtr& mod_pol_req);
 
-    void AttachVol(const FdspMsgHdrPtr& fdsp_msg,
+    int AttachVol(const FdspMsgHdrPtr& fdsp_msg,
                    const FdspAttVolCmdPtr& atc_vol_req);
-    void DetachVol(const FdspMsgHdrPtr& fdsp_msg,
+    int DetachVol(const FdspMsgHdrPtr& fdsp_msg,
                    const FdspAttVolCmdPtr& dtc_vol_req);
 
     void RegisterNode(const FdspMsgHdrPtr& fdsp_msg,
@@ -250,17 +250,17 @@ private:
                      const FdspCrtDomPtr& crt_dom_req);
     int DeleteDomain(const FdspMsgHdrPtr& fdsp_msg,
                      const FdspCrtDomPtr& del_dom_req);
-    void SetThrottleLevel(const FDSP_MsgHdrTypePtr& fdsp_msg, 
-			  const FDSP_ThrottleMsgTypePtr& throttle_req);
+    int SetThrottleLevel(const FDSP_MsgHdrTypePtr& fdsp_msg, 
+                         const FDSP_ThrottleMsgTypePtr& throttle_req);
     void NotifyQueueFull(const FDSP_MsgHdrTypePtr& fdsp_msg,
-			 const FDSP_NotifyQueueStateTypePtr& queue_state_req);
+                        const FDSP_NotifyQueueStateTypePtr& queue_state_req);
     void NotifyPerfstats(const FDSP_MsgHdrTypePtr& fdsp_msg,
-			 const FDSP_PerfstatsTypePtr& perf_stats_msg);
+                        const FDSP_PerfstatsTypePtr& perf_stats_msg);
     void TestBucket(const FDSP_MsgHdrTypePtr& fdsp_msg,
 		    const FDSP_TestBucketPtr& test_buck_req);
 
-    void GetDomainStats(const FdspMsgHdrPtr& fdsp_msg,
-			const FdspGetDomStatsPtr& get_stats_req);
+    int GetDomainStats(const FdspMsgHdrPtr& fdsp_msg,
+                       const FdspGetDomStatsPtr& get_stats_req);
 
 
     /* config path: cli -> OM  */
