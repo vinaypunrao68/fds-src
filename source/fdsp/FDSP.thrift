@@ -525,7 +525,7 @@ struct FDSP_TierPolicy {
     4: i32             tier_media,
     5: i32             tier_prefetch_algo,
     6: i64            tier_media_pct,
-    7: i64            tier_i32erval_sec,
+    7: i64            tier_interval_sec,
 }
 
 struct FDSP_TierPolicyAudit {
