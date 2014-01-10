@@ -30,7 +30,8 @@ class CliComponent
 class VolPolicyCLI : public virtual CliComponent
 {
   public:
-    VolPolicyCLI() : CliComponent("Volume Policy") {}
+    VolPolicyCLI()
+            : CliComponent("Volume Policy") {}
     ~VolPolicyCLI() {}
 
     virtual bool

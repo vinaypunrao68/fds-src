@@ -11,45 +11,47 @@
 
 #include <iostream>
 #include <vector>
+#include <string>
 #include "boost/lexical_cast.hpp"
 #include "boost/optional.hpp"
 #include "boost/program_options.hpp"
-#include <string>
-#include <Ice/Ice.h>
+
 #include <fds_types.h>
-#include <fdsp/FDSP.h>
+#include <fdsp/FDSP_types.h>
+#include <fds_config.hpp>
 #include <fds_err.h>
 #include <util/Log.h>
-
 #include <fds_module.h>
 
 namespace fds {
 
     extern std::ostringstream tcpProxyStr;
-    extern FDS_ProtocolInterface::FDSP_ConfigPathReqPrx  cfgPrx;
+    //    extern FDS_ProtocolInterface::FDSP_ConfigPathReqPrx  cfgPrx;
 
     class FdsCli :
-    virtual public Ice::Application,
-        public Module {
+    public Module {
   private:
         fds_log *cli_log;
+        boost::shared_ptr<FdsConfig> om_config;
 
   public:
-        FdsCli();
+        explicit FdsCli(const boost::shared_ptr<FdsConfig>& omconf);
         ~FdsCli();
 
         int  mod_init(SysParams const *const param);
         void mod_startup();
         void mod_shutdown();
 
-        void runServer();
+        int run(int argc, char* argv[]);
 
-        virtual int run(int argc, char* argv[]);
-        // void interruptCallback(int);
         fds_log* GetLog();
-        int fdsCliPraser(int argc, char* argv[]);
+        int fdsCliParser(int argc, char* argv[]);
+
+  private: /* methods */
         void InitCfgMsgHdr(
-            const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr);
+            FDS_ProtocolInterface::FDSP_MsgHdrType& msg_hdr);
+        FDS_ProtocolInterface::FDSP_VolType stringToVolType(
+            const std::string& vol_type);
     };
 
 }  // namespace fds
