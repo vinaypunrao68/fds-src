@@ -5,9 +5,6 @@
 #ifndef SOURCE_STOR_MGR_STORMGRVOLUMES_H_
 #define SOURCE_STOR_MGR_STORMGRVOLUMES_H_
 
-#include <Ice/Ice.h>
-#include <IceUtil/IceUtil.h>
-
 /* TODO: move this to interface file in include dir */
 #include <lib/OMgrClient.h>
 
