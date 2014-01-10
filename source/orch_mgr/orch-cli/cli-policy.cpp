@@ -68,22 +68,22 @@ CliComponent::cli_init_connection()
 
 // \cli_init_ice_connection
 // ------------------------
-//
+// TODO(thrift)
 int
 CliComponent::cli_init_ice_connection(int om_port)
 {
     std::string           om_ip;
     std::ostringstream    serv;
-    Ice::CommunicatorPtr  comm = FdsCli::communicator();
-    Ice::PropertiesPtr    props = comm->getProperties();
+    boost::shared_ptr<fds::FdsConfig> config(new fds::FdsConfig("orch_mgr.conf"));
+    //    Ice::CommunicatorPtr  comm = FdsCli::communicator();
 
     if (om_port == 0) {
-        om_port = props->getPropertyAsInt("OrchMgr.ConfigPort");
+        om_port = config->get<int>("fds.om.config_port");
     }
-    om_ip = props->getProperty("OrchMgr.IPAddress");
+    om_ip = config->get<std::string>("fds.om.ip_address");
     serv << ORCH_MGR_POLICY_ID << ": tcp -h " << om_ip << " -p " << om_port;
 
-    cli_client = new Ice_VolPolicyClnt(comm, serv.str());
+    //cli_client = new Ice_VolPolicyClnt(comm, serv.str());
     return 0;
 }
 
