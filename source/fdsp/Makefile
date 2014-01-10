@@ -2,7 +2,7 @@ topdir           := ..
 user_target      := lib
 user_rtime_env   := user
 
-local_thft_src    := FDSP.thrift
+local_thft_src    := FDSP.thrift orch_proto.thrift
 local_thft_hdrdir := $(topdir)/include/fdsp
 local_thft_target := $(patsubst %.thrift,$(local_thft_hdrdir)/%_types.h, \
     $(local_thft_src))

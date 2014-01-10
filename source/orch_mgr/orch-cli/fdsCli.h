@@ -49,7 +49,7 @@ namespace fds {
 
   private: /* methods */
         void InitCfgMsgHdr(
-            FDS_ProtocolInterface::FDSP_MsgHdrType& msg_hdr);
+            FDS_ProtocolInterface::FDSP_MsgHdrType* msg_hdr);
         FDS_ProtocolInterface::FDSP_VolType stringToVolType(
             const std::string& vol_type);
     };

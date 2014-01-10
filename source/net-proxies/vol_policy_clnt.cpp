@@ -5,36 +5,38 @@
 
 namespace fds {
 
-Ice_VolPolicyClnt::Ice_VolPolicyClnt(Ice::CommunicatorPtr comm,
+Thrift_VolPolicyClnt::Thrift_VolPolicyClnt(/*Ice::CommunicatorPtr comm,*/
                                      std::string          serv_id)
     : VolPolicyClnt(serv_id)
 {
-    Ice::ObjectPrx proxy = comm->stringToProxy(net_serv_id);
-    clnt_mgr = opi::orch_PolicyReqPrx::checkedCast(proxy);
+    //    Ice::ObjectPrx proxy = comm->stringToProxy(net_serv_id);
+    // clnt_mgr = opi::orch_PolicyReqPrx::checkedCast(proxy);
 }
 
+/*
 int
-Ice_VolPolicyClnt::clnt_bind_ice_client(Ice::CommunicatorPtr comm,
+Thrift_VolPolicyClnt::clnt_bind_ice_client(Ice::CommunicatorPtr comm,
                                         std::string          serv_id)
 {
     return 0;
 }
+*/
 
-Ice_VolPolicyClnt::~Ice_VolPolicyClnt()
+Thrift_VolPolicyClnt::~Thrift_VolPolicyClnt()
 {
 }
 
 int
-Ice_VolPolicyClnt::clnt_setTierPolicy(struct opi::tier_pol_time_unit &req)
+Thrift_VolPolicyClnt::clnt_setTierPolicy(struct fdp::tier_pol_time_unit &req)
 {
-    clnt_mgr->applyTierPolicy(req);
+    //    clnt_mgr->applyTierPolicy(req);
     return 0;
 }
 
 int
-Ice_VolPolicyClnt::clnt_getAuditTier(struct opi::tier_pol_audit &audit)
+Thrift_VolPolicyClnt::clnt_getAuditTier(struct fdp::tier_pol_audit &audit)
 {
-    clnt_mgr->auditTierPolicy(audit);
+    //    clnt_mgr->auditTierPolicy(audit);
     return 0;
 }
 

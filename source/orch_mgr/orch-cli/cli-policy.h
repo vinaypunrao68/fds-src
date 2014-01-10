@@ -53,8 +53,8 @@ class VolPolicyCLI : public virtual CliComponent
     std::string                 pol_tier_sched;
     std::string                 pol_tier_domain;
     std::string                 pol_tier_algo;
-    opi::tier_media_type_e      pol_tier_media;
-    opi::tier_prefetch_type_e   pol_tier_prefetch;
+    fdp::tier_media_type_e      pol_tier_media;
+    fdp::tier_prefetch_type_e   pol_tier_prefetch;
 };
 
 class OrchCliModule : public Module
