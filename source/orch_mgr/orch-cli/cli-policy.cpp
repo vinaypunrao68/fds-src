@@ -83,7 +83,7 @@ CliComponent::cli_init_ice_connection(int om_port)
     om_ip = config->get<std::string>("fds.om.ip_address");
     serv << ORCH_MGR_POLICY_ID << ": tcp -h " << om_ip << " -p " << om_port;
 
-    //cli_client = new Ice_VolPolicyClnt(comm, serv.str());
+    // cli_client = new Ice_VolPolicyClnt(comm, serv.str());
     return 0;
 }
 
@@ -93,7 +93,6 @@ CliComponent::cli_init_ice_connection(int om_port)
 bool
 VolPolicyCLI::cli_exec_cmdline(SysParams const *const param)
 {
-    using namespace std;
     namespace po = boost::program_options;
 
     po::variables_map       vm;
@@ -142,7 +141,7 @@ VolPolicyCLI::cli_exec_cmdline(SysParams const *const param)
     po::notify(vm);
 
     if (vm.count("help")) {
-        cout << desc << endl;
+        std::cout << desc << std::endl;
         return true;
     }
     if (cli_client == nullptr) {
@@ -177,7 +176,7 @@ VolPolicyCLI::cli_exec_cmdline(SysParams const *const param)
         struct opi::tier_pol_time_unit req;
 
         if (pol_vol_id == 0) {
-            cout << "Need volume id with --auto-tier" << endl;
+            std::cout << "Need volume id with --auto-tier" << std::endl;
             return true;
         }
         memset(&req, 0, sizeof(req));
@@ -186,18 +185,18 @@ VolPolicyCLI::cli_exec_cmdline(SysParams const *const param)
         } else if (pol_tier_sched == "off") {
             req.tier_period.ts_sec = TIER_SCHED_DEACTIVATE;
         } else {
-            cout << "Valid option is 'on' or 'off' after --auto-tier" << endl;
+            std::cout << "Valid option is 'on' or 'off' after --auto-tier" << std::endl;
             return true;
         }
         pol_tier_pct = 100;
         if ((pol_tier_pct < 0) || (pol_tier_pct > 100)) {
-            cout << "Media tier percentage must be between 0-100%" << endl;
+            std::cout << "Media tier percentage must be between 0-100%" << std::endl;
             return true;
         }
-        cout << "Vol id " << pol_vol_id << ", pct " << pol_tier_pct << endl;
-        cout << "Schedule " << pol_tier_sched << endl;
-        cout << "Media " << pol_tier_media_arg << endl;
-        cout << "Send to OM tier schedule" << endl;
+        std::cout << "Vol id " << pol_vol_id << ", pct " << pol_tier_pct << std::endl;
+        std::cout << "Schedule " << pol_tier_sched << std::endl;
+        std::cout << "Media " << pol_tier_media_arg << std::endl;
+        std::cout << "Send to OM tier schedule" << std::endl;
 
         req.tier_vol_uuid      = pol_vol_id;
         req.tier_media         = pol_tier_media;
@@ -212,7 +211,7 @@ VolPolicyCLI::cli_exec_cmdline(SysParams const *const param)
 
         memset(&dom_req, 0, sizeof(dom_req));
         if (pol_domain_id == 0) {
-            cout << "Need domain id with --auto-tier" << endl;
+            std::cout << "Need domain id with --auto-tier" << std::endl;
             return true;
         }
         if (pol_tier_domain == "on") {
@@ -220,7 +219,7 @@ VolPolicyCLI::cli_exec_cmdline(SysParams const *const param)
         } else if (pol_tier_domain == "off") {
             dom_req.tier_period.ts_sec = TIER_SCHED_DEACTIVATE;
         } else {
-            cout << "Valid option is 'on' or 'off' after --auto-tier-migration\n";
+            std::cout << "Valid option is 'on' or 'off' after --auto-tier-migration\n";
         }
         dom_req.tier_domain_policy = true;
         dom_req.tier_domain_uuid   = pol_domain_id;
@@ -230,4 +229,4 @@ VolPolicyCLI::cli_exec_cmdline(SysParams const *const param)
     return true;
 }
 
-} // namespace fds
+}  // namespace fds

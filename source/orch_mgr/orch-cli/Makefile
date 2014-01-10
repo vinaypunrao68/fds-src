@@ -22,7 +22,6 @@ user_cpp          :=                   \
 
 user_hpp          := fdsCli.h
 
-user_no_style     := $(user_cpp) $(user_cc)
 user_bin_exe      := fdscli
 fdscli            := $(fds_cli_cpp)
 
