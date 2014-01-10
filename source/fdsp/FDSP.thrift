@@ -495,7 +495,7 @@ struct FDSP_PerfstatsType {
 }
 
 struct FDSP_BucketStatType {
-  1: double             vol_uuid,
+  1: string             vol_name,
   2: double             performance,  /* average iops */
   3: double             sla,          /* minimum (guaranteed) iops */
   4: double             limit,        /* maximum iops */
