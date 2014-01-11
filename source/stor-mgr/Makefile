@@ -31,9 +31,6 @@ user_non_fds_libs :=                                                          \
     boost_thread \
     boost_date_time      \
     boost_program_options \
-    Ice \
-    IceUtil \
-    IceStorm \
     leveldb \
     ssl \
     crypto \

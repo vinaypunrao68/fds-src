@@ -65,9 +65,9 @@ public:
      * @param task - task to execute
      * @param time - duration in micro, milli, sec, etc.
      */
-    template<class Period>
+    template<typename Rep, typename Period>
     void schedule(const FdsTimerTaskPtr& task,
-            const std::chrono::duration<int, Period>& time)
+            const std::chrono::duration<Rep, Period>& time)
     {
 
     }
@@ -78,9 +78,9 @@ public:
      * @param task - task to execute
      * @param time - duration in micro, milli, sec, etc.
      */
-    template<class Period>
+    template<typename Rep, typename Period>
     void scheduleRepeated(const FdsTimerTaskPtr& task,
-            const std::chrono::duration<int, Period>& time)
+            const std::chrono::duration<Rep, Period>& time)
     {
 
     }
