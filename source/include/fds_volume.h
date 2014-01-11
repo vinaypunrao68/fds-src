@@ -129,27 +129,27 @@ namespace fds {
       assert(volUUID != invalid_vol_id);
     }
 
-    VolumeDesc(FDS_ProtocolInterface::FDSP_VolumeDescTypePtr& voldesc) {
-	name = voldesc->vol_name;
-	tennantId = voldesc->tennantId;  
-	localDomainId = voldesc->localDomainId;  
-	globDomainId = voldesc->globDomainId;
-	volUUID = voldesc->volUUID;
-	volType = voldesc->volType;
-	capacity = voldesc->capacity;
-	maxQuota = voldesc->maxQuota;
-	replicaCnt = voldesc->defReplicaCnt; 
-	writeQuorum = voldesc->defWriteQuorum; 
-	readQuorum = voldesc->defReadQuorum;  
-	consisProtocol = voldesc->defConsisProtocol; 
-	volPolicyId = voldesc->volPolicyId;
-	archivePolicyId = voldesc->archivePolicyId;
-	placementPolicy = voldesc->placementPolicy;  
-	appWorkload = voldesc->appWorkload;
-	backupVolume = voldesc->backupVolume;
-	iops_min = voldesc->iops_min;
-	iops_max = voldesc->iops_max;
-	relativePrio = voldesc->rel_prio;
+    VolumeDesc(FDS_ProtocolInterface::FDSP_VolumeDescType& voldesc) {
+	name = voldesc.vol_name;
+	tennantId = voldesc.tennantId;  
+	localDomainId = voldesc.localDomainId;  
+	globDomainId = voldesc.globDomainId;
+	volUUID = voldesc.volUUID;
+	volType = voldesc.volType;
+	capacity = voldesc.capacity;
+	maxQuota = voldesc.maxQuota;
+	replicaCnt = voldesc.defReplicaCnt; 
+	writeQuorum = voldesc.defWriteQuorum; 
+	readQuorum = voldesc.defReadQuorum;  
+	consisProtocol = voldesc.defConsisProtocol; 
+	volPolicyId = voldesc.volPolicyId;
+	archivePolicyId = voldesc.archivePolicyId;
+	placementPolicy = voldesc.placementPolicy;  
+	appWorkload = voldesc.appWorkload;
+	backupVolume = voldesc.backupVolume;
+	iops_min = voldesc.iops_min;
+	iops_max = voldesc.iops_max;
+	relativePrio = voldesc.rel_prio;
 	assert(volUUID != invalid_vol_id);
       }
 

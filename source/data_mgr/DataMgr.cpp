@@ -513,8 +513,7 @@ int DataMgr::run(int argc, char* argv[]) {
    * Setup TCP endpoint.
    */
 
-  ReqHandlerPtr tmp_handler(new ReqHandler()); 
-  reqHandleSrv = tmp_handler;
+  reqHandleSrv.reset(new ReqHandler());
   boost::shared_ptr<apache::thrift::TProcessor>
           processor(new FDSP_MetaDataPathReqProcessor(reqHandleSrv));
   boost::shared_ptr<apache::thrift::transport::TServerTransport>
