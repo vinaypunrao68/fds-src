@@ -93,6 +93,7 @@
 #include <fdsp/FDSP_types.h>
 #include <fdsp/FDSP_ConfigPathReq.h>
 #include <fdsp/FDSP_OMControlPathReq.h>
+#include <fdsp/FDSP_ControlPathResp.h>
 #include <util/Log.h>
 #include <concurrency/Mutex.h>
 #include <lib/Catalog.h>
@@ -435,9 +436,81 @@ namespace fds {
             ::FDS_ProtocolInterface::FDSP_GetDomainStatsTypePtr& get_stats_msg);
   private:
         OrchMgr* orchMgr;
-};
+    };
 
-  };
+    /* control response handler*/
+    class FDSP_ControlPathRespHandler : 
+    virtual public FDSP_ControlPathRespIf {
+  public:
+        explicit FDSP_ControlPathRespHandler(OrchMgr *oMgr);
+
+        void NotifyAddVolResp(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_NotifyVolType& not_add_vol_resp);
+        void NotifyAddVolResp(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_add_vol_resp);
+
+        void NotifyRmVolResp(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_NotifyVolType& not_rm_vol_resp);
+        void NotifyRmVolResp(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_rm_vol_resp);
+
+        void NotifyModVolResp(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_NotifyVolType& not_mod_vol_resp);
+        void NotifyModVolResp(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_mod_vol_resp);
+
+        void AttachVolResp(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_AttachVolType& atc_vol_resp);
+        void AttachVolResp(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_AttachVolTypePtr& atc_vol_resp);
+
+        void DetachVolResp(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_AttachVolType& dtc_vol_resp);
+        void DetachVolResp(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_AttachVolTypePtr& dtc_vol_resp);
+
+        void NotifyNodeAddResp(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_Node_Info_Type& node_info_resp);
+        void NotifyNodeAddResp(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp);
+
+        void NotifyNodeRmvResp(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_Node_Info_Type& node_info_resp);
+        void NotifyNodeRmvResp(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp);
+
+        void NotifyDLTUpdateResp(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_DLT_Type& dlt_info_resp);
+        void NotifyDLTUpdateResp(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_DLT_TypePtr& dlt_info_resp);
+
+        void NotifyDMTUpdateResp(
+            const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const FDS_ProtocolInterface::FDSP_DMT_Type& dmt_info_resp);
+        void NotifyDMTUpdateResp(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_DMT_TypePtr& dmt_info_resp);
+  private:
+        OrchMgr* orchMgr;
+    };
+
+    };
 
 extern OrchMgr *gl_orch_mgr;
 

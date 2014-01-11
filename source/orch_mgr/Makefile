@@ -37,7 +37,8 @@ orch_mgr_cpp      :=                   \
     OmVolPolicy.cpp		       \
     OmLocDomain.cpp		       \
     OmAdminCtrl.cpp                    \
-    OmReqHandler.cpp
+    OmReqHandler.cpp                   \
+    OmRespHandler.cpp
 
 user_cpp          :=                   \
     $(orch_mgr_cpp)
