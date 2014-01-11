@@ -122,24 +122,26 @@ namespace fds {
     return stat[PERF_STAT_TYPES-1].max_lat;
   }
 
-  void IoStat::addFromIceMsg(const FDS_ProtocolInterface::FDSP_PerfStatTypePtr& fdsp_stat)
+  void IoStat::addFromFdspMsg(const FDS_ProtocolInterface::FDSP_PerfStatType& fdsp_stat)
   {
-    int index = fdsp_stat->stat_type;
+    int index = fdsp_stat.stat_type;
     fds_verify((index >= 0) && (index < PERF_STAT_TYPES));
 
     Stat stat_to_add;
     stat_to_add.reset();
-    stat_to_add.nsamples = fdsp_stat->nios;
-    stat_to_add.min_lat = fdsp_stat->min_lat;
-    stat_to_add.max_lat = fdsp_stat->max_lat;
-    stat_to_add.ave_lat = fdsp_stat->ave_lat; 
+    stat_to_add.nsamples = fdsp_stat.nios;
+    stat_to_add.min_lat = fdsp_stat.min_lat;
+    stat_to_add.max_lat = fdsp_stat.max_lat;
+    stat_to_add.ave_lat = fdsp_stat.ave_lat; 
 
     stat[index].add(stat_to_add); 
   }
 
-  bool IoStat::copyIfNotZero(FDS_ProtocolInterface::FDSP_PerfStatTypePtr& fdsp_stat, int stat_type)
+  bool IoStat::copyIfNotZero(FDS_ProtocolInterface::FDSP_PerfStatType& fdsp_stat,
+                             int stat_type)
   {
-    int index = stat_type; /* we use index for stat type, make sure only IoStat interprets stat_type */
+    int index = stat_type; /* we use index for stat type, 
+                            * make sure only IoStat interprets stat_type */
     if (index >= PERF_STAT_TYPES) 
       return false;
 
@@ -152,12 +154,12 @@ namespace fds {
     if (iops <= 0)
       return false; /* no iops recorded */
 
-    fdsp_stat->stat_type = stat_type;
-    fdsp_stat->rel_seconds = rel_ts_sec;
-    fdsp_stat->nios = iops;
-    fdsp_stat->min_lat = stat[index].min_lat;
-    fdsp_stat->max_lat = stat[index].max_lat;
-    fdsp_stat->ave_lat = (long)stat[index].ave_lat;
+    fdsp_stat.stat_type = stat_type;
+    fdsp_stat.rel_seconds = rel_ts_sec;
+    fdsp_stat.nios = iops;
+    fdsp_stat.min_lat = stat[index].min_lat;
+    fdsp_stat.max_lat = stat[index].max_lat;
+    fdsp_stat.ave_lat = (long)stat[index].ave_lat;
     return true;
   }
 
@@ -200,14 +202,14 @@ namespace fds {
   }
 
   void StatHistory::addStat(long rel_seconds, 
-			    const FDS_ProtocolInterface::FDSP_PerfStatTypePtr& fdsp_stat)
+			    const FDS_ProtocolInterface::FDSP_PerfStatType& fdsp_stat)
   {
     int index = 0;
     lock.write_lock();
 
     index = prepareSlotWithWriteLockHeld(rel_seconds);
     if ((index >= 0) && (index < nslots)) {
-      stat_slots[index].addFromIceMsg(fdsp_stat);
+      stat_slots[index].addFromFdspMsg(fdsp_stat);
     }
 
     lock.write_unlock();
@@ -338,8 +340,8 @@ namespace fds {
     return ret_iops;
   }
 
-  void StatHistory::getStats(FDS_ProtocolInterface::FDSP_PerfStatListType& perf_list)
-  {
+void StatHistory::getStats(FDS_ProtocolInterface::FDSP_PerfStatListType* perf_list)
+{
     long latest_ts = 0;
     lock.read_lock();
     int endix = last_slot_num % nslots;
@@ -355,20 +357,18 @@ namespace fds {
 	if (ts > last_returned_ts)
 	  {
 	    {
-	      /* total */
-	      FDS_ProtocolInterface::FDSP_PerfStatTypePtr tot_stat = 
-		new FDS_ProtocolInterface::FDSP_PerfStatType;
-	      if (stat_slots[ix].copyIfNotZero(tot_stat, PERF_STAT_TYPES-1)) {
-		perf_list.push_back(tot_stat);
-	      }
+                /* total */
+                FDS_ProtocolInterface::FDSP_PerfStatType tot_stat;
+                if (stat_slots[ix].copyIfNotZero(tot_stat, PERF_STAT_TYPES-1)) {
+                    perf_list->push_back(tot_stat);
+                }
 	    }
 	    for (int i = 0; i < (PERF_STAT_TYPES-1); ++i)
 	      {
-		FDS_ProtocolInterface::FDSP_PerfStatTypePtr stat = 
-		  new FDS_ProtocolInterface::FDSP_PerfStatType;
-		if (stat_slots[ix].copyIfNotZero(stat, i)) {
-		  perf_list.push_back(stat);
-		}
+                  FDS_ProtocolInterface::FDSP_PerfStatType stat;
+                  if (stat_slots[ix].copyIfNotZero(stat, i)) {
+                      perf_list->push_back(stat);
+                  }
 	      }
 	    if (latest_ts < ts)
 	      latest_ts = ts;
@@ -382,7 +382,7 @@ namespace fds {
       last_returned_ts = latest_ts;
 
     lock.read_unlock();
-  }
+}
 
 
 } /* namespace fds*/

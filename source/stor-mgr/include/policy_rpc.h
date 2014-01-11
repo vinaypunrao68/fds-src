@@ -25,19 +25,13 @@ class VolPolicyRPC : public virtual Module
     {
         pol_server = &server;
     }
-    // Ice transport specific functions.
-    //
-    int rpc_init_ice_client(Ice::CommunicatorPtr comm, std::string srv_id);
-    int rpc_register_ice_server(Ice::CommunicatorPtr  comm,
-                                Ice::ObjectAdapterPtr adapter,
-                                std::string           serv_id);
+
+    int rpc_init_client();
+    int rpc_register_server();
 
   protected:
     // Client proxy can be generic type.
     VolPolicyClnt            *pol_client;
-
-    // Server adapter must be transport specific.
-    Ice_VolPolicyServ        *pol_ice_adapter;
     VolPolicyServ            *pol_server;
 };
 

@@ -64,7 +64,8 @@ class FdsProcess : public boost::noncopyable {
 
  protected:
     virtual void setup_sig_handler();
-    virtual void setup_mod_vector(int argc, char *argv[], fds::Module **mod_vec);
+    virtual void setup_mod_vector(int argc, char *argv[],
+                                  fds::Module **mod_vec);
 
     /* Signal handler thread */
     pthread_t sig_tid_;

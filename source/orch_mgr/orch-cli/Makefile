@@ -10,7 +10,7 @@ user_fds_ar_libs  :=                                                          \
 
 user_non_fds_libs :=                                                          \
     boost_log boost_system boost_thread boost_date_time boost_program_options \
-    Ice IceUtil leveldb
+    Ice IceUtil leveldb config++
 
 user_incl_dir     :=
 
@@ -22,7 +22,6 @@ user_cpp          :=                   \
 
 user_hpp          := fdsCli.h
 
-user_no_style     := $(user_cpp) $(user_cc)
 user_bin_exe      := fdscli
 fdscli            := $(fds_cli_cpp)
 

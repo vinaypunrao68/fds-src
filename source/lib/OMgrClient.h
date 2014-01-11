@@ -2,11 +2,20 @@
 #define _OMGRCLIENT_H
 #include <fds_err.h>
 #include <fds_volume.h>
-#include "fdsp/FDSP.h"
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <ifaddrs.h>
+#include <arpa/inet.h>
+#include <stdlib.h>
+
+#include "fdsp/FDSP_types.h"
+#include "fdsp/FDSP_ControlPathReq.h"
+#include "fdsp/FDSP_OMControlPathReq.h"
 #include <util/Log.h>
+
 #include <unordered_map>
-#include <Ice/Ice.h>
-#include <IceStorm/IceStorm.h>
 #include <concurrency/RwLock.h>
 #include <net-proxies/vol_policy.h>
 
@@ -85,19 +94,9 @@ namespace fds {
     tier_audit_cmd_handler_t tier_audit_cmd_hdlr;
     bucket_stats_cmd_handler_t bucket_stats_cmd_hdlr;
 
-#if 0
-    Ice::CommunicatorPtr pubsub_comm;
-    IceStorm::TopicManagerPrx pubsub_topicManager;
-    Ice::ObjectAdapterPtr pubsub_adapter;
-    FDS_OMgr_SubscriberPtr om_pubsub_client_i;
-    Ice::ObjectPrx pubsub_proxy;
-    IceStorm::TopicPrx pubsub_topic;
-#endif
-
     std::string          rpc_srv_id;
-    Ice::CommunicatorPtr rpc_comm;
-    Ice::ObjectAdapterPtr rpc_adapter;
-    FDS_ProtocolInterface::FDSP_ControlPathReqPtr om_client_rpc_i;
+    shared_ptr<FDS_ProtocolInterface::FDSP_ControlPathReqIf> om_client_rpc_i;
+    FDS_ProtocolInterface::FDSP_OMControlPathReqClient *om_client_prx;
     void initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
     int initRPCComm();
 
@@ -169,7 +168,7 @@ namespace fds {
 
   };
 
-  class OMgrClientRPCI : public FDS_ProtocolInterface::FDSP_ControlPathReq {
+  class OMgrClientRPCI : public FDS_ProtocolInterface::FDSP_ControlPathReqIf {
 
   private:
     OMgrClient *om_client;
@@ -178,54 +177,108 @@ namespace fds {
   public:
 
     OMgrClientRPCI(OMgrClient *om_c);
+
+    void NotifyAddVol(const FDSP_MsgHdrType& fdsp_msg,
+                      const FDSP_NotifyVolType& not_add_vol_req) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
       
-    void NotifyAddVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-		   const FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg,
-		   const Ice::Current&);
+    void NotifyAddVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                      FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg);
 
-    void NotifyRmVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-		   const FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg,
-		   const Ice::Current&);
+    void NotifyRmVol(const FDSP_MsgHdrType& fdsp_msg,
+                     const FDSP_NotifyVolType& not_rm_vol_req) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
 
-    void NotifyModVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-		   const FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg,
-		   const Ice::Current&);
+    void NotifyRmVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                     FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg);
+
+    void NotifyModVol(const FDSP_MsgHdrType& fdsp_msg,
+                      const FDSP_NotifyVolType& not_mod_vol_req) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
+    void NotifyModVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                      FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg);
       
-    void AttachVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-		   const FDS_ProtocolInterface::FDSP_AttachVolTypePtr& vol_msg,
-		   const Ice::Current&);
-      
-    void DetachVol(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-		   const FDS_ProtocolInterface::FDSP_AttachVolTypePtr& vol_msg,
-		   const Ice::Current&);
+    void AttachVol(const FDSP_MsgHdrType& fdsp_msg, const FDSP_AttachVolType& atc_vol_req) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
 
-    void NotifyNodeAdd(const FDSP_MsgHdrTypePtr& msg_hdr, 
-		       const FDSP_Node_Info_TypePtr& node_info,
-		       const Ice::Current&);
+    void AttachVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+		   FDS_ProtocolInterface::FDSP_AttachVolTypePtr& vol_msg);
+    
 
-    void NotifyNodeRmv(const FDSP_MsgHdrTypePtr& msg_hdr, 
-		       const FDSP_Node_Info_TypePtr& node_info,
-		       const Ice::Current&);
+    void DetachVol(const FDSP_MsgHdrType& fdsp_msg,
+                   const FDSP_AttachVolType& dtc_vol_req) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
 
-    void NotifyDLTUpdate(const FDSP_MsgHdrTypePtr& msg_hdr,
-			 const FDSP_DLT_TypePtr& dlt_info,
-			 const Ice::Current&);
+    void DetachVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+		   FDS_ProtocolInterface::FDSP_AttachVolTypePtr& vol_msg);
 
-    void NotifyDMTUpdate(const FDSP_MsgHdrTypePtr& msg_hdr,
-			 const FDSP_DMT_TypePtr& dmt_info,
-			 const Ice::Current&);
+    void NotifyNodeAdd(const FDSP_MsgHdrType& fdsp_msg,
+                       const FDSP_Node_Info_Type& node_info) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
 
-    void SetThrottleLevel(const FDSP_MsgHdrTypePtr& msg_hdr, 
-					const FDSP_ThrottleMsgTypePtr& throttle_msg, 
-					    const Ice::Current&);
+    void NotifyNodeAdd(FDSP_MsgHdrTypePtr& msg_hdr, 
+		       FDSP_Node_Info_TypePtr& node_info);
 
-    void TierPolicy(const FDSP_TierPolicyPtr &tier, const Ice::Current &);
-    void TierPolicyAudit(const FDSP_TierPolicyAuditPtr &audit,
-                         const Ice::Current &);
+    void NotifyNodeRmv(const FDSP_MsgHdrType& fdsp_msg,
+                       const FDSP_Node_Info_Type& node_info) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
 
-    void NotifyBucketStats(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-			   const FDS_ProtocolInterface::FDSP_BucketStatsRespTypePtr& buck_stats_msg,
-			   const Ice::Current&);
+    void NotifyNodeRmv(FDSP_MsgHdrTypePtr& msg_hdr, 
+		       FDSP_Node_Info_TypePtr& node_info);
+
+    void NotifyDLTUpdate(const FDSP_MsgHdrType& fdsp_msg,
+                         const FDSP_DLT_Type& dlt_info) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
+    void NotifyDLTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
+			 FDSP_DLT_TypePtr& dlt_info);
+
+    void NotifyDMTUpdate(const FDSP_MsgHdrType& msg_hdr,
+			 const FDSP_DMT_Type& dmt_info) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
+    void NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
+			 FDSP_DMT_TypePtr& dmt_info);
+
+
+    void SetThrottleLevel(const FDSP_MsgHdrType& msg_hdr,
+                          const FDSP_ThrottleMsgType& throttle_msg) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
+    void SetThrottleLevel(FDSP_MsgHdrTypePtr& msg_hdr,
+                          FDSP_ThrottleMsgTypePtr& throttle_msg);
+
+    void TierPolicy(const FDSP_TierPolicy &tier) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
+    void TierPolicy(FDSP_TierPolicyPtr &tier);
+
+    void TierPolicyAudit(const FDSP_TierPolicyAudit &audit) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
+    void TierPolicyAudit(FDSP_TierPolicyAuditPtr &audit);
+
+    void NotifyBucketStats(const FDS_ProtocolInterface::FDSP_MsgHdrType& msg_hdr,
+			   const FDS_ProtocolInterface::FDSP_BucketStatsRespType& buck_stats_msg) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
+    void NotifyBucketStats(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+			   FDS_ProtocolInterface::FDSP_BucketStatsRespTypePtr& buck_stats_msg);
+
   };
 
 }

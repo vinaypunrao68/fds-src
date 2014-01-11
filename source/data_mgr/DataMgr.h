@@ -16,8 +16,10 @@
 #include <arpa/inet.h>
 #include <stdlib.h>
 
-#include <fdsp/FDSP.h>
-#include <Ice/Ice.h>
+//#include <fdsp/FDSP.h>
+//#include <Ice/Ice.h>
+#include <fdsp/FDSP_MetaDataPathReq.h>
+#include <fdsp/FDSP_MetaDataPathResp.h>
 
 #include <fds_err.h>
 #include <fds_types.h>
@@ -51,8 +53,7 @@ int scheduleDeleteCatObj(void * _io);
 int scheduleBlobList(void * _io);
 
   class DataMgr :
-  virtual public Ice::Application,
-          public Module {
+  virtual public Module {
 public:
   void InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
 
@@ -194,11 +195,11 @@ public:
     };
 
 
-    typedef FDS_ProtocolInterface::FDSP_DataPathReqPtr  ReqHandlerPtr;
-    typedef FDS_ProtocolInterface::FDSP_DataPathRespPrx RespHandlerPrx;
+    typedef boost::shared_ptr<FDS_ProtocolInterface::FDSP_MetaDataPathReqIf>  ReqHandlerPtr;
+    typedef FDS_ProtocolInterface::FDSP_MetaDataPathRespClient *RespHandlerPrx;
 
     /*
-     * Ice handlers and comm endpoints.
+     * RPC handlers and comm endpoints.
      */
     ReqHandlerPtr  reqHandleSrv;
     std::unordered_map<std::string, RespHandlerPrx> respHandleCli;
@@ -327,114 +328,56 @@ public:
     /*
      * Nested class that manages the server interface.
      */
-    class ReqHandler : public FDS_ProtocolInterface::FDSP_DataPathReq {
+    class ReqHandler : public FDS_ProtocolInterface::FDSP_MetaDataPathReqIf {
    private:
-      Ice::CommunicatorPtr _communicator;
 
    public:
-      explicit ReqHandler(const Ice::CommunicatorPtr& communicator);
+      explicit ReqHandler();
       ~ReqHandler();
 
-      void PutObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &msg_hdr,
-                     const FDS_ProtocolInterface::FDSP_PutObjTypePtr &put_obj,
-                     const Ice::Current&);
+      void UpdateCatalogObject(const FDSP_MsgHdrType& fdsp_msg, 
+			       const FDSP_UpdateCatalogType& cat_obj_req) {
+	// Don't do anything here. This stub is just to keep cpp compiler happy
+      }
 
-      void GetObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &msg_hdr,
-                     const FDS_ProtocolInterface::FDSP_GetObjTypePtr& get_obj,
-                     const Ice::Current&);
+      void QueryCatalogObject(const FDSP_MsgHdrType& fdsp_msg, 
+			      const FDSP_QueryCatalogType& cat_obj_req) {
+	// Don't do anything here. This stub is just to keep cpp compiler happy
+      }
 
-      void DeleteObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr &msg_hdr,
-                     const FDS_ProtocolInterface::FDSP_DeleteObjTypePtr& get_obj,
-                     const Ice::Current&);
+      void DeleteCatalogObject(const FDSP_MsgHdrType& fdsp_msg, 
+			       const FDSP_DeleteCatalogType& cat_obj_req) {
+	// Don't do anything here. This stub is just to keep cpp compiler happy
+      }
 
-      void UpdateCatalogObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr
+      void GetVolumeBlobList(const FDSP_MsgHdrType& fds_msg, 
+			     const FDSP_GetVolumeBlobListReqType& blob_list_req) {
+	// Don't do anything here. This stub is just to keep cpp compiler happy
+      }
+
+      void UpdateCatalogObject(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr
                                &msg_hdr,
-                               const FDS_ProtocolInterface::
-                               FDSP_UpdateCatalogTypePtr& update_catalog,
-                               const Ice::Current&);
+                               FDS_ProtocolInterface::
+                               FDSP_UpdateCatalogTypePtr& update_catalog);
 
-      void QueryCatalogObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr
+
+      void QueryCatalogObject(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr
                               &msg_hdr,
-                              const FDS_ProtocolInterface::
-                              FDSP_QueryCatalogTypePtr& query_catalog,
-                              const Ice::Current&);
+                              FDS_ProtocolInterface::
+                              FDSP_QueryCatalogTypePtr& query_catalog);
 
-      void DeleteCatalogObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr
-                              &msg_hdr,
-                              const FDS_ProtocolInterface::
-                              FDSP_DeleteCatalogTypePtr& query_catalog,
-                              const Ice::Current&);
 
-      void OffsetWriteObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
-                             msg_hdr,
-                             const FDS_ProtocolInterface::
-                             FDSP_OffsetWriteObjTypePtr& offset_write_obj,
-                             const Ice::Current&);
+      void DeleteCatalogObject(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr
+			       &msg_hdr,
+			       FDS_ProtocolInterface::
+			       FDSP_DeleteCatalogTypePtr& query_catalog);
 
-      void RedirReadObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr
-                           &msg_hdr,
-                           const FDS_ProtocolInterface::
-                           FDSP_RedirReadObjTypePtr& redir_read_obj,
-                           const Ice::Current&);
+      void GetVolumeBlobList(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr, 
+			     FDS_ProtocolInterface::FDSP_GetVolumeBlobListReqTypePtr& blobListReq);
 
-      void AssociateRespCallback(const Ice::Identity& ident,
-				 const std::string& src_node_name,
-                                 const Ice::Current& current);
-
-      void GetVolumeBlobList(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr, 
-			     const FDS_ProtocolInterface::FDSP_GetVolumeBlobListReqTypePtr& blobListReq,
-			     const Ice::Current& current);
     };
 
-    /*
-     * Nested class that manages the client interface.
-     */
-    class RespHandler : public FDS_ProtocolInterface::FDSP_DataPathResp {
-   public:
-      RespHandler();
-      ~RespHandler();
-
-      void PutObjectResp(const FDS_ProtocolInterface::
-                         FDSP_MsgHdrTypePtr &msg_hdr,
-                         const FDS_ProtocolInterface::
-                         FDSP_PutObjTypePtr &put_obj,
-                         const Ice::Current&);
-
-      void GetObjectResp(const FDS_ProtocolInterface::
-                         FDSP_MsgHdrTypePtr &msg_hdr,
-                         const FDS_ProtocolInterface::
-                         FDSP_GetObjTypePtr& get_obj,
-                         const Ice::Current&);
-      void UpdateCatalogObjectResp(const FDS_ProtocolInterface::
-                                   FDSP_MsgHdrTypePtr &msg_hdr,
-                                   const FDS_ProtocolInterface::
-                                   FDSP_UpdateCatalogTypePtr& update_catalog,
-                                   const Ice::Current&);
-      void QueryCatalogObjectResp(const FDS_ProtocolInterface::
-                                  FDSP_MsgHdrTypePtr &msg_hdr,
-                                  const FDS_ProtocolInterface::
-                                  FDSP_QueryCatalogTypePtr& query_catalog,
-                                  const Ice::Current&);
-      void DeleteCatalogObjectResp(const FDS_ProtocolInterface::
-                                  FDSP_MsgHdrTypePtr &msg_hdr,
-                                  const FDS_ProtocolInterface::
-                                  FDSP_DeleteCatalogTypePtr& query_catalog,
-                                  const Ice::Current&);
-      void OffsetWriteObjectResp(const FDS_ProtocolInterface::
-                                 FDSP_MsgHdrTypePtr& msg_hdr,
-                                 const FDS_ProtocolInterface::
-                                 FDSP_OffsetWriteObjTypePtr& offset_write_obj,
-                                 const Ice::Current&);
-      void RedirReadObjectResp(const FDS_ProtocolInterface::
-                               FDSP_MsgHdrTypePtr &msg_hdr,
-                               const FDS_ProtocolInterface::
-                               FDSP_RedirReadObjTypePtr& redir_read_obj,
-                               const Ice::Current&);
-      void GetVolumeBlobListResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fds_msg, 
-				 const FDS_ProtocolInterface::FDSP_GetVolumeBlobListRespTypePtr& blob_list_rsp, 
-				 const Ice::Current &);
-    };
-  };
+   };
 
 }  // namespace fds
 

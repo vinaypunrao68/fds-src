@@ -1,16 +1,20 @@
+/*
+ * Copyright 2013 Formation Data Systems, Inc.
+ */
+
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/path.hpp>
 
-#include "PerfStats.h"
+#include <PerfStats.h>
 
 namespace fds {
 
-  PerfStats::PerfStats(const std::string prefix, int slots, int slot_len_sec)
-    : sec_in_slot(slot_len_sec),
-      num_slots(slots),
-      statTimer(new IceUtil::Timer),
-      statTimerTask(new StatTimerTask(this))
-  {
+PerfStats::PerfStats(const std::string prefix, int slots, int slot_len_sec)
+        : sec_in_slot(slot_len_sec),
+          num_slots(slots),
+          statTimer(new IceUtil::Timer),
+          statTimerTask(new StatTimerTask(this))
+{
     start_time = boost::posix_time::second_clock::universal_time();
 
     /* name of file where we dump stats should contain current local time */
@@ -24,20 +28,21 @@ namespace fds {
     if (i != std::string::npos) {
       ts_str = nowstr.substr(0, i);
       if (k == std::string::npos) {
-	ts_str.append("-");
-	ts_str.append(nowstr.substr(i+1));
-      }	     	    
+          ts_str.append("-");
+          ts_str.append(nowstr.substr(i+1));
+      }
     }
 
     /*make sure stats directory exists */
     if ( !boost::filesystem::exists(dirname.c_str()) )
       {
-	boost::filesystem::create_directory(dirname.c_str());
+          boost::filesystem::create_directory(dirname.c_str());
       }
 
     /* use timestamp in the filename */
-    std::string fname =dirname + std::string("//") + prefix + std::string("_") + ts_str + std::string(".stat");
-    statfile.open(fname.c_str(), std::ios::out | std::ios::app );
+    std::string fname = dirname + std::string("//") + prefix +
+            std::string("_") + ts_str + std::string(".stat");
+    statfile.open(fname.c_str(), std::ios::out | std::ios::app);
 
     /* we will init histories when we see new class_ids (in recordIo() method) */
 
@@ -45,67 +50,66 @@ namespace fds {
     b_enabled = ATOMIC_VAR_INIT(false);
 
     om_client = NULL;
-  }
+}
 
-  PerfStats::~PerfStats()
-  {
+PerfStats::~PerfStats()
+{
     statTimer->destroy();
     for (std::unordered_map<fds_uint32_t, StatHistory*>::iterator it = histmap.begin();
-	 it != histmap.end();
-	 ++it)
-      {
-	StatHistory* hist = it->second;
-	delete hist;
-      }
+         it != histmap.end();
+         ++it)
+    {
+        StatHistory* hist = it->second;
+        delete hist;
+    }
     histmap.clear();
 
     if (statfile.is_open()){
       statfile.close();
     }
-  }
+}
 
-  void PerfStats::registerOmClient(OMgrClient* _om_client)
-  {
+void PerfStats::registerOmClient(OMgrClient* _om_client)
+{
     om_client = _om_client;
-  }
+}
 
-  Error PerfStats::enable()
-  {
+Error PerfStats::enable()
+{
     Error err(ERR_OK);
     bool was_enabled = atomic_exchange(&b_enabled, true);
     if (!was_enabled) {
-      IceUtil::Time interval = IceUtil::Time::seconds(sec_in_slot * (num_slots - 2));
-      try {
-	statTimer->scheduleRepeated(statTimerTask, interval);
-      } catch (IceUtil::IllegalArgumentException&) {
-	/* ok, already dumping stats, ignore this exception */
-      } catch (...) {
-	err = ERR_MAX; 
-      }
+        IceUtil::Time interval = IceUtil::Time::seconds(sec_in_slot * (num_slots - 2));
+        try {
+            statTimer->scheduleRepeated(statTimerTask, interval);
+        } catch(IceUtil::IllegalArgumentException&) {
+            /* ok, already dumping stats, ignore this exception */
+        } catch(...) {
+            err = ERR_MAX;
+        }
     }
     return err;
-  }
+}
 
-  void PerfStats::disable()
-  {
+void PerfStats::disable()
+{
     bool was_enabled = atomic_exchange(&b_enabled, false);
     if (was_enabled) {
-       statTimer->cancel(statTimerTask);
-       /* print stats we gathered but have not yet printed */
-       print();
+        statTimer->cancel(statTimerTask);
+        /* print stats we gathered but have not yet printed */
+        print();
     }
-  }
+}
 
-  /* returns appropriate stat history, or creates one if it does not exist */
-  StatHistory* PerfStats::getHistoryWithReadLockHeld(fds_uint32_t class_id)
-  {
+/* returns appropriate stat history, or creates one if it does not exist */
+StatHistory* PerfStats::getHistoryWithReadLockHeld(fds_uint32_t class_id)
+{
     StatHistory* hist = NULL;
-
+    
     if (histmap.count(class_id) > 0) {
       hist = histmap[class_id];
       assert(hist);
-    }
-    else{
+    } else {
       /* we see this class_id for the first time, create a history for it */
       map_rwlock.read_unlock();
       hist = new StatHistory(class_id, num_slots, sec_in_slot);
@@ -114,19 +118,19 @@ namespace fds {
       map_rwlock.write_lock();
       histmap[class_id] = hist;
       map_rwlock.write_unlock();
- 
+
       map_rwlock.read_lock();
     }
 
     return hist;
-  }
+}
 
-  void PerfStats::recordIO(fds_uint32_t     class_id,
-                           long             microlat,
-                           diskio::DataTier tier,
-                           fds_io_op_t      opType) {
+void PerfStats::recordIO(fds_uint32_t     class_id,
+                         long             microlat,
+                         diskio::DataTier tier,
+                         fds_io_op_t      opType) {
     if ( !isEnabled()) return;
-
+    
     StatHistory* hist = NULL;
     boost::posix_time::time_duration elapsed = boost::posix_time::microsec_clock::universal_time() - start_time;
 
@@ -138,10 +142,10 @@ namespace fds {
       hist->addIo(elapsed.total_seconds(), microlat, tier, opType);
 
     map_rwlock.read_unlock();
-  }
+}
 
-  void PerfStats::print()
-  {
+void PerfStats::print()
+{
     if ( !isEnabled()) return;
 
     map_rwlock.read_lock();
@@ -153,13 +157,13 @@ namespace fds {
 	it->second->print(statfile, now_local);
       }
     map_rwlock.read_unlock();
-  }
+}
 
-  void PerfStats::pushToOM()
-  {
+void PerfStats::pushToOM()
+{
     /* check if we registered OM client */
     if (!om_client) return;
-
+    
     /* we are only pushing stats if they are enabled */
     if ( !isEnabled()) return;
 
@@ -175,14 +179,13 @@ namespace fds {
     for (std::unordered_map<fds_uint32_t, StatHistory*>::iterator it = histmap.begin();
 	 it != histmap.end();
 	 ++it)
-      {
-	FDS_ProtocolInterface::FDSP_VolPerfHistTypePtr vol_hist = 
-	  new FDS_ProtocolInterface::FDSP_VolPerfHistType;
-	vol_hist->vol_uuid = it->first;
-	it->second->getStats(vol_hist->stat_list);
-	if ( (vol_hist->stat_list).size() > 0) {
-	  /* we only want to send stats of non-idle vols */
-	  hist_list.push_back(vol_hist);
+    {
+        FDS_ProtocolInterface::FDSP_VolPerfHistType vol_hist;
+	vol_hist.vol_uuid = it->first;
+	it->second->getStats(&vol_hist.stat_list);
+	if ( (vol_hist.stat_list).size() > 0) {
+            /* we only want to send stats of non-idle vols */
+            hist_list.push_back(vol_hist);
 	}
       }
     map_rwlock.read_unlock();
@@ -191,20 +194,19 @@ namespace fds {
     if (hist_list.size() > 0) {
       om_client->pushPerfstatsToOM(to_iso_string(start_time), sec_in_slot, hist_list);
     }
-
   }
 
-  void PerfStats::setStatFromIce(fds_uint32_t class_id, 
-				 const std::string& start_timestamp,
-				 const FDS_ProtocolInterface::FDSP_PerfStatTypePtr& stat_msg)
-  {
+void PerfStats::setStatFromFdsp(fds_uint32_t class_id, 
+                                const std::string& start_timestamp,
+                                const FDS_ProtocolInterface::FDSP_PerfStatType& stat_msg)
+{
     StatHistory* hist = NULL;
     if ( !isEnabled()) return;
-
+    
     /* rel_seconds in 'stat_msg' is relative to 'start_timestamp', so we need to 
      * calculate timestamp in seconds relative to start_time of this history */
     boost::posix_time::ptime remote_start_ts = boost::posix_time::from_iso_string(start_timestamp);
-    long loc_rel_sec = stat_msg->rel_seconds;
+    long loc_rel_sec = stat_msg.rel_seconds;
     if (start_time > remote_start_ts) {
       boost::posix_time::time_duration diff = start_time - remote_start_ts;
       // remote_start_time ... start_time ......... rel_seconds
@@ -226,14 +228,14 @@ namespace fds {
     map_rwlock.read_unlock();
   }
 
-  long PerfStats::getAverageIOPS(fds_uint32_t class_id,
-				 const boost::posix_time::ptime end_ts,
-				 int interval_sec)
-  {
+long PerfStats::getAverageIOPS(fds_uint32_t class_id,
+                               const boost::posix_time::ptime end_ts,
+                               int interval_sec)
+{
     long ret_iops = 0;
-
+ 
     if ( !isEnabled()) return ret_iops;
-
+    
     /* if we asked IOPS too early, IOPS is 0 (=not recorded) */
     if (end_ts < start_time) 
       return ret_iops;
@@ -252,12 +254,12 @@ namespace fds {
     return ret_iops;
   }
 
-  /* timer taks to print all perf stats */
-  void StatTimerTask::runTimerTask()
-  {
-     stats->print();
-     stats->pushToOM();
-  }
+/* timer taks to print all perf stats */
+void StatTimerTask::runTimerTask()
+{
+    stats->print();
+    stats->pushToOM();
+}
 
-} /* namespace fds*/
+}  // namespace fds
 

@@ -11,13 +11,13 @@ user_incl_dir     := $(topdir)
 user_cpp_flags    := -DDMGR_LIVE_DEBUG
 user_fds_so_libs  :=
 user_fds_ar_libs  := \
-    fds-StorHvisor-ice \
     fds-lib \
     fds-dsk-mgnt \
     fds-umod \
     fds-thread \
     fds-util \
-    fds-fdsp-ice
+    # fds-fdsp-ice \
+    # fds-StorHvisor-ice \
 
 user_non_fds_libs := \
     boost_log \
@@ -26,7 +26,8 @@ user_non_fds_libs := \
     boost_thread \
     boost_date_time \
     boost_program_options \
-    Ice IceUtil IceStorm leveldb ssl crypto leveldb
+    leveldb ssl crypto \
+    #Ice IceUtil IceStorm \
 
 data_mgr_cpp      :=                   \
     DataMgr.cpp                        \

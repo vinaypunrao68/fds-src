@@ -32,19 +32,16 @@ VolPolicyRPC::mod_shutdown()
 }
 
 int
-VolPolicyRPC::rpc_init_ice_client(Ice::CommunicatorPtr comm, std::string srv_id)
+VolPolicyRPC::rpc_init_client()
 {
-    pol_client = new Ice_VolPolicyClnt(comm, srv_id);
+    // todo: init client.  Passin appropriate params
 }
 
 int
-VolPolicyRPC::rpc_register_ice_server(Ice::CommunicatorPtr  comm,
-                                      Ice::ObjectAdapterPtr adapter,
-                                      std::string           serv_id)
+VolPolicyRPC::rpc_register_server()
 {
-    fds_verify(pol_server != nullptr);
-    pol_ice_adapter = new Ice_VolPolicyServ(serv_id, *pol_server);
-    return pol_ice_adapter->serv_registerIceAdapter(comm, adapter);
+    // todo: init client.  Passin appropriate params
+    return 0;
 }
 
 void

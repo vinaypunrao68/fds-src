@@ -37,7 +37,8 @@ orch_mgr_cpp      :=                   \
     OmVolPolicy.cpp		       \
     OmLocDomain.cpp		       \
     OmAdminCtrl.cpp                    \
-    OmReqHandler.cpp
+    OmReqHandler.cpp                   \
+    OmRespHandler.cpp
 
 user_cpp          :=                   \
     $(orch_mgr_cpp)
@@ -45,8 +46,6 @@ user_cpp          :=                   \
 user_no_style     := \
     orchMgr.cpp                        \
     OmTier.cpp                         \
-    OmVolPolicy.cpp		       \
-    OmLocDomain.cpp		       \
     OmAdminCtrl.cpp                    \
     $(user_cc)                         \
     $(wildcard *.h)

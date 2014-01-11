@@ -13,13 +13,13 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <IceUtil/IceUtil.h>
 
 #include "stor_mgr_err.h"
 
-#include <fdsp/FDSP.h>
+#include <fdsp/FDSP_types.h>
 #include <hash/MurmurHash3.h>
 #include <fds_volume.h>
+#include <fds_timer.h>
 #include <lib/Catalog.h>
 #include <unistd.h>
 #include <assert.h>
@@ -261,13 +261,12 @@ class ObjectRankEngine {
 
    /* timer to periodically get stats from stat tracker and 
     * and make 'demote/promote' decisions based on out cached lowrank list */
-   IceUtil::TimerPtr rankTimer;
-   IceUtil::TimerTaskPtr rankTimerTask;
+   FdsTimerPtr rankTimer;
+   FdsTimerTaskPtr rankTimerTask;
 
 };
 
-using namespace IceUtil;
-class RankTimerTask: public IceUtil::TimerTask {
+class RankTimerTask: public FdsTimerTask {
  public:
   ObjectRankEngine* rank_eng;
 
