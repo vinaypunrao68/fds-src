@@ -120,7 +120,7 @@ class StatHistory
    * getStats will not return anything (if called right away), because new time slot
    * did not fill yet. Thus it works similarly to 'print' method, where we get perf 
    * of a particular time slot only once.  */
-  void getStats(FDS_ProtocolInterface::FDSP_PerfStatListType& perf_list);
+  void getStats(FDS_ProtocolInterface::FDSP_PerfStatListType* perf_list);
   void addStat(long rel_seconds,
                const FDS_ProtocolInterface::FDSP_PerfStatType& fdsp_stat);
 

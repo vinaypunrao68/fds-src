@@ -340,7 +340,7 @@ namespace fds {
     return ret_iops;
   }
 
-void StatHistory::getStats(FDS_ProtocolInterface::FDSP_PerfStatListType& perf_list)
+void StatHistory::getStats(FDS_ProtocolInterface::FDSP_PerfStatListType* perf_list)
 {
     long latest_ts = 0;
     lock.read_lock();
@@ -360,14 +360,14 @@ void StatHistory::getStats(FDS_ProtocolInterface::FDSP_PerfStatListType& perf_li
                 /* total */
                 FDS_ProtocolInterface::FDSP_PerfStatType tot_stat;
                 if (stat_slots[ix].copyIfNotZero(tot_stat, PERF_STAT_TYPES-1)) {
-                    perf_list.push_back(tot_stat);
+                    perf_list->push_back(tot_stat);
                 }
 	    }
 	    for (int i = 0; i < (PERF_STAT_TYPES-1); ++i)
 	      {
                   FDS_ProtocolInterface::FDSP_PerfStatType stat;
                   if (stat_slots[ix].copyIfNotZero(stat, i)) {
-                      perf_list.push_back(stat);
+                      perf_list->push_back(stat);
                   }
 	      }
 	    if (latest_ts < ts)
