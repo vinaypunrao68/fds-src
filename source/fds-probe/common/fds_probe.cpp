@@ -51,20 +51,69 @@ ProbeRequest::pr_report_stat(probe_stat_rec_t *out, int rec_cnt)
 }
 
 // ----------------------------------------------------------------------------
-
+// Common Probe Module
+// ----------------------------------------------------------------------------
 ProbeMod::ProbeMod(char const *const name,
                    probe_mod_param_t *param,
                    Module            *owner)
     : Module(name), pr_queue(1, 0xffff), pr_param(param), pr_mod_owner(owner),
-      pr_stats_info(nullptr), pr_inj_points(nullptr), pr_inj_actions(nullptr)
+      pr_stats_info(nullptr), pr_inj_points(nullptr), pr_inj_actions(nullptr),
+      pr_mtx("Probe Mtx"), pr_thrpool(nullptr)
 {
 }
 
 ProbeMod::~ProbeMod()
 {
+    if (pr_thrpool != NULL) {
+        delete pr_thrpool;
+    }
     delete [] pr_stats_info;
     delete [] pr_inj_points;
     delete [] pr_inj_actions;
+}
+
+// pr_add_module
+// -------------
+//
+void
+ProbeMod::pr_add_module(ProbeMod *chain)
+{
+    pr_mtx.lock();
+    pr_chain.push_front(chain);
+    pr_mtx.unlock();
+}
+
+// pr_get_module
+// -------------
+//
+ProbeMod *
+ProbeMod::pr_get_module()
+{
+    ProbeMod *chain;
+
+    pr_mtx.lock();
+    chain = pr_chain.front();
+    pr_chain.pop_front();
+    pr_mtx.unlock();
+
+    return chain;
+}
+
+// pr_get_module
+// -------------
+//
+void
+ProbeMod::pr_get_module(fds_threadpool *pool,
+                        ProbeMod *chain, ProbeRequest *req)
+{
+}
+
+// pr_get_module_callback
+// ----------------------
+//
+void
+ProbeMod::pr_get_module_callback(ProbeRequest *req)
+{
 }
 
 // pr_inj_point

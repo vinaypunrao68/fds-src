@@ -6,8 +6,10 @@
 
 #include <string>
 #include <fds_module.h>
+#include <fds_assert.h>
 #include <fds_request.h>
 #include <fds-probe/fds_err_inj.h>
+#include <concurrency/ThreadPool.h>
 
 /*
  * -------------------
@@ -261,8 +263,10 @@ class ProbeMod : public Module
     ProbeMod(char const *const name, probe_mod_param_t *param, Module *owner);
     virtual ~ProbeMod();
 
-    // Common factory methods.
-    //
+    /**
+     * Common API to allocate IO request to use in data path.
+     * @return the request used in required pure virtual functions.
+     */
     virtual ProbeIORequest *
     pr_alloc_req(ObjectID      *oid,
                  fds_uint64_t  off,
@@ -271,11 +275,65 @@ class ProbeMod : public Module
                  size_t        buf_siz,
                  const char    *buf);
 
+    /**
+     * Allocate additional instance for this adapter so that the connector
+     * can pump more data to this connector w/out doing any locking.
+     * @return the adapter to hookup to the S3/block connector.
+     */
+    virtual ProbeMod *pr_new_instance() = 0;
+
+    /**
+     * Add other probe module to chain with this module.
+     * @param adapter (i) - the module to chain.
+     */
+    virtual void pr_add_module(ProbeMod *chain);
+
+    /**
+     * Get the first available chained module that was added by the call above.
+     * Block the caller if the list is empty.
+     */
+    virtual ProbeMod *pr_get_module();
+
+    /**
+     * Async API for the method above.
+     * @param pool (i) thread pool to queue up the request when the chain
+     *     list is empty.  NULL will block the caller.
+     * @param chain (i) the module obj where its pr_get_module_callback()
+     *     will be called.
+     * @param req (i) request to pass to the callback method.
+     */
+    virtual void
+    pr_get_module(fds_threadpool *pool, ProbeMod *chain, ProbeRequest *req);
+
+    /**
+     * Callback method for the async API above.
+     */
+    virtual void pr_get_module_callback(ProbeRequest *req);
+
+    /**
+     * Create threadpool for this probe module.
+     */
+    inline void
+    pr_create_thrpool(int max_task, int spawn_thres,
+                      int idle_sec, int min_thr, int max_thr)
+    {
+        fds_verify(pr_thrpool == NULL);
+        pr_thrpool = new fds_threadpool(max_task,
+                spawn_thres, idle_sec, min_thr, max_thr);
+    }
+    /**
+     * Get threadpool from this probe module.
+     */
+    inline fds_threadpool *pr_get_thrpool() {
+        return pr_thrpool;
+    }
+
     // Module owner must provide the following functions to connect the module
     // to FDS Probe to receive workloads and hook up with standard front-end
     // unit test code.
-    // On every put/get/delete, the adapter must call pr_request_done() to
-    // complete the request.
+    //
+    // IMPORTANT: On every put/get/delete, the adapter must call
+    // pr_request_done() to complete the request.
     //
     virtual void pr_intercept_request(ProbeRequest *req) = 0;
     virtual void pr_put(ProbeRequest *req) = 0;
@@ -330,6 +388,9 @@ class ProbeMod : public Module
   protected:
     friend class ProbeRequest;
     fdsio::RequestQueue      pr_queue;
+    std::list<ProbeMod *>    pr_chain;
+    fds_mutex                pr_mtx;
+    fds_threadpool           *pr_thrpool;
     probe_mod_param_t        *pr_param;
     Module                   *pr_mod_owner;
     probe_stat_info_t        *pr_stats_info;

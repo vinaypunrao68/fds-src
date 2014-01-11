@@ -14,44 +14,25 @@ extern "C" {
 
 namespace fds {
 
+static probe_mod_param_t s3_probe_param =
+{
+    .pr_stat_cnt     = 0,
+    .pr_inj_pts_cnt  = 0,
+    .pr_inj_act_cnt  = 0,
+    .pr_max_sec_tout = 0
+};
+
 ProbeS3Eng gl_probeS3Eng("S4 Probe Eng");
 
-ProbeS3Eng::ProbeS3Eng(char const *const name)
-    : AMEngine_S3(name), pr_adapter(), pr_mtx("Probe Mtx")
+ProbeS3Eng::ProbeS3Eng(char const *const name) : AMEngine_S3(name)
 {
-    pr_thrpool = new fds_threadpool(10);
+    probe_s3 = new ProbeS3(name, &s3_probe_param, NULL);
+    probe_s3->pr_create_thrpool(-1, 10, 10, 10, 10);
 }
 
 ProbeS3Eng::~ProbeS3Eng()
 {
-    delete pr_thrpool;
-}
-
-// probe_add_adapter
-// ------------------
-//
-void
-ProbeS3Eng::probe_add_adapter(ProbeMod *adapter)
-{
-    pr_mtx.lock();
-    pr_adapter.push_front(adapter);
-    pr_mtx.unlock();
-}
-
-// probe_get_adapter
-// -----------------
-//
-ProbeMod *
-ProbeS3Eng::probe_get_adapter()
-{
-    ProbeMod *adapter;
-
-    pr_mtx.lock();
-    adapter = pr_adapter.front();
-    pr_adapter.pop_front();
-    pr_mtx.unlock();
-
-    return adapter;
+    delete probe_s3;
 }
 
 // ---------------------------------------------------------------------------

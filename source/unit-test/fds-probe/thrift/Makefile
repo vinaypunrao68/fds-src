@@ -1,54 +1,15 @@
-topdir            := ../../..
+probe_topdir      := ..
 local_thrift_hdr  := thrift-gen
-
-user_target       := test
-user_rtime_env    := user
 user_build_dir    := $(local_thrift_hdr)
 user_incl_dir     := \
-    $(topdir)/fds-probe/include \
-    $(topdir)/am-engine \
     $(local_thrift_hdr)
 
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  :=  \
-    fds-probe-adapters \
-    fds-probe \
-    fds-s3-probe \
-    fds-am-engine \
-    fds-StorHvisor \
-    fds-lib \
-    fds-dsk-mgnt \
-    fds-dsk-io \
-    fds-umod \
-    fds-util \
-    fds-hash \
-    fds-fdsp-ice \
-    fds-thread \
     fds-probe-thrift-utest
 
-user_nginx_libs   :=  \
-    ngx-http-module \
-    ngx-http \
-    ngx-event-module \
-    ngx-event \
-    ngx-core \
-    ngx-os \
-    ngx-core \
-    pthread crypt pcre crypto z
-
-user_non_fds_libs :=  \
-    boost_log \
-    boost_system \
-    boost_thread \
-    boost_date_time \
-    boost_program_options \
-    boost_filesystem \
-    thrift \
-    Ice \
-    IceUtil \
-    IceStorm \
-    $(user_nginx_libs)
+user_non_fds_libs :=
 
 user_hh           := \
     s3-thrift-probe.h
@@ -81,7 +42,7 @@ local_thrift_flgs := --gen cpp:pure_enums --allow-64bit-consts -out $(local_thri
 user_predep       := $(local_thrift_tgt)
 user_clean        := $(local_thrift_hdr)
 
-include $(topdir)/Makefile.incl
+include $(probe_topdir)/Makefile.s3
 
 # Rules to build Thrift files
 #

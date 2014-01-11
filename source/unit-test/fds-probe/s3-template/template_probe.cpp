@@ -1,13 +1,14 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
+ *
+ * Template to write probe adapter.  Replace XX with your namespace.
  */
-#include <iostream>
+#include <template_probe.h>
 #include <string>
-#include <sm_probe.h>
 
 namespace fds {
 
-probe_mod_param_t sm_probe_param =
+probe_mod_param_t XX_probe_param =
 {
     .pr_stat_cnt     = 0,
     .pr_inj_pts_cnt  = 0,
@@ -15,23 +16,23 @@ probe_mod_param_t sm_probe_param =
     .pr_max_sec_tout = 0
 };
 
-SM_ProbeMod gl_SM_ProbeMod("SM Probe Adapter",
-                           &sm_probe_param, nullptr);
+XX_ProbeMod gl_XX_ProbeMod("XX Probe Adapter",
+                           &XX_probe_param, nullptr);
 
 // pr_new_instance
 // ---------------
 //
 ProbeMod *
-SM_ProbeMod::pr_new_instance()
+XX_ProbeMod::pr_new_instance()
 {
-    return new SM_ProbeMod("SM Inst", &sm_probe_param, NULL);
+    return new XX_ProbeMod("XX Inst", &XX_probe_param, NULL);
 }
 
 // pr_intercept_request
 // --------------------
 //
 void
-SM_ProbeMod::pr_intercept_request(ProbeRequest *req)
+XX_ProbeMod::pr_intercept_request(ProbeRequest *req)
 {
 }
 
@@ -39,7 +40,7 @@ SM_ProbeMod::pr_intercept_request(ProbeRequest *req)
 // ------
 //
 void
-SM_ProbeMod::pr_put(ProbeRequest *probe)
+XX_ProbeMod::pr_put(ProbeRequest *probe)
 {
 }
 
@@ -47,7 +48,7 @@ SM_ProbeMod::pr_put(ProbeRequest *probe)
 // ------
 //
 void
-SM_ProbeMod::pr_get(ProbeRequest *req)
+XX_ProbeMod::pr_get(ProbeRequest *req)
 {
 }
 
@@ -55,7 +56,7 @@ SM_ProbeMod::pr_get(ProbeRequest *req)
 // ---------
 //
 void
-SM_ProbeMod::pr_delete(ProbeRequest *req)
+XX_ProbeMod::pr_delete(ProbeRequest *req)
 {
 }
 
@@ -63,7 +64,7 @@ SM_ProbeMod::pr_delete(ProbeRequest *req)
 // -----------------
 //
 void
-SM_ProbeMod::pr_verify_request(ProbeRequest *req)
+XX_ProbeMod::pr_verify_request(ProbeRequest *req)
 {
 }
 
@@ -71,7 +72,7 @@ SM_ProbeMod::pr_verify_request(ProbeRequest *req)
 // -------------
 //
 void
-SM_ProbeMod::pr_gen_report(std::string *out)
+XX_ProbeMod::pr_gen_report(std::string *out)
 {
 }
 
@@ -79,7 +80,7 @@ SM_ProbeMod::pr_gen_report(std::string *out)
 // --------
 //
 int
-SM_ProbeMod::mod_init(SysParams const *const param)
+XX_ProbeMod::mod_init(SysParams const *const param)
 {
     Module::mod_init(param);
     return 0;
@@ -89,7 +90,7 @@ SM_ProbeMod::mod_init(SysParams const *const param)
 // -----------
 //
 void
-SM_ProbeMod::mod_startup()
+XX_ProbeMod::mod_startup()
 {
 }
 
@@ -97,7 +98,7 @@ SM_ProbeMod::mod_startup()
 // ------------
 //
 void
-SM_ProbeMod::mod_shutdown()
+XX_ProbeMod::mod_shutdown()
 {
 }
 

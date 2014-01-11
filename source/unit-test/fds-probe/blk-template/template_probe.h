@@ -5,7 +5,7 @@
 #define SOURCE_FDS_PROBE_INCLUDE_TEMPLATE_PROBE_H_
 
 /*
- * Header file Template for probe adapter.  Replace XX with your name space.
+ * Header file template for probe adapter.  Replace XX with your probe name
  */
 #include <string>
 #include <fds-probe/fds_probe.h>
@@ -19,6 +19,7 @@ class XX_ProbeMod : public ProbeMod
         : ProbeMod(name, param, owner) {}
     virtual ~XX_ProbeMod() {}
 
+    ProbeMod *pr_new_instance();
     void pr_intercept_request(ProbeRequest *req);
     void pr_put(ProbeRequest *req);
     void pr_get(ProbeRequest *req);
