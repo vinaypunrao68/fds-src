@@ -79,8 +79,6 @@
 #ifndef SOURCE_ORCH_MGR_ORCHMGR_H_
 #define SOURCE_ORCH_MGR_ORCHMGR_H_
 
-#include <Ice/Ice.h>
-
 #include <unordered_map>
 #include <cstdio>
 
@@ -90,10 +88,12 @@
 #include <fds_types.h>
 #include <fds_err.h>
 #include <fds_config.hpp>
+#include <fds_process.h>
 #include <fds_placement_table.h>
 #include <fdsp/FDSP_types.h>
 #include <fdsp/FDSP_ConfigPathReq.h>
 #include <fdsp/FDSP_OMControlPathReq.h>
+#include <fdsp/FDSP_ControlPathResp.h>
 #include <util/Log.h>
 #include <concurrency/Mutex.h>
 #include <lib/Catalog.h>
@@ -113,8 +113,8 @@ namespace fds {
     typedef std::string fds_node_name_t;
     typedef FDS_ProtocolInterface::FDSP_MgrIdType fds_node_type_t;
     typedef FDS_ProtocolInterface::FDSP_NodeState FdspNodeState;
-    typedef FDS_ProtocolInterface::FDSP_ConfigPathReqPtr  ReqCfgHandlerPtr;
-    typedef FDS_ProtocolInterface::FDSP_ControlPathReqPrx ReqCtrlPrx;
+    //    typedef FDS_ProtocolInterface::FDSP_ConfigPathReqPtr  ReqCfgHandlerPtr;
+    //typedef FDS_ProtocolInterface::FDSP_ControlPathReqPrx ReqCtrlPrx;
 
     typedef FDS_ProtocolInterface::FDSP_MsgHdrTypePtr     FdspMsgHdrPtr;
     typedef FDS_ProtocolInterface::FDSP_CreateVolTypePtr  FdspCrtVolPtr;
@@ -140,71 +140,70 @@ namespace fds {
     typedef FDS_ProtocolInterface::FDSP_VolumeDescTypePtr FdspVolDescPtr;
     typedef FDS_ProtocolInterface::FDSP_CreateDomainTypePtr  FdspCrtDomPtr;
     typedef FDS_ProtocolInterface::FDSP_GetDomainStatsTypePtr FdspGetDomStatsPtr;
-
+    
     typedef std::unordered_map<int, localDomainInfo *> loc_domain_map_t;
 
-  class OrchMgr:
-  virtual public Ice::Application,
-          public Module {
-private:
-              fds_log *om_log;
-    SysParams *sysParams;
-    boost::shared_ptr<FdsConfig> om_config;
-    ReqCfgHandlerPtr reqCfgHandlersrv;
-    /*
-     * TODO: These maps should eventually be pulled out into
-     * a separate class that defines a cluster map. In other
-     * words, a class that defines the state of the cluster
-     * at a certain point of time, which these maps being part
-     * of that class.
-     */
-    loc_domain_map_t locDomMap;
-    int current_dlt_version;
-    int current_dmt_version;
-    FDS_ProtocolInterface::Node_Table_Type current_dlt_table;
-    FDS_ProtocolInterface::Node_Table_Type current_dmt_table;
-    fds_mutex *om_mutex;
-    std::string node_id_to_name[MAX_OM_NODES];
-    const int table_type_dlt = 0;
-    const int table_type_dmt = 1;
+    class OrchMgr:
+    public FdsProcess,
+    public Module {
+  private:
+        fds_log *om_log;
+        SysParams *sysParams;
+        //ReqCfgHandlerPtr reqCfgHandlersrv; // TODO(thrift)
+        /*
+         * TODO: These maps should eventually be pulled out into
+         * a separate class that defines a cluster map. In other
+         * words, a class that defines the state of the cluster
+         * at a certain point of time, which these maps being part
+         * of that class.
+         */
+        loc_domain_map_t locDomMap;
+        int current_dlt_version;
+        int current_dmt_version;
+        FDS_ProtocolInterface::Node_Table_Type current_dlt_table;
+        FDS_ProtocolInterface::Node_Table_Type current_dmt_table;
+        fds_mutex *om_mutex;
+        std::string node_id_to_name[MAX_OM_NODES];
+        const int table_type_dlt = 0;
+        const int table_type_dmt = 1;
  
-    /*
-     * local domain 
-     */
-     FdsLocalDomain  *local_domain;
-     FdsLocalDomain  *current_domain;
- 
-    /*
-     * Cmdline configurables
-     */
-    int port_num;
-    std::string stor_prefix;
-    fds_bool_t test_mode;
-
-    /* policy manager */
-    VolPolicyMgr        *policy_mgr;
-    Ice_VolPolicyServ   *om_ice_proxy;
-    Orch_VolPolicyServ  *om_policy_srv;
-
-    void SetThrottleLevelForDomain(int domain_id, float throttle_level);
+        /*
+         * local domain 
+         */
+        FdsLocalDomain  *local_domain;
+        FdsLocalDomain  *current_domain;
+        
+        /*
+         * Cmdline configurables
+         */
+        int port_num;
+        std::string stor_prefix;
+        fds_bool_t test_mode;
+        
+        /* policy manager */
+        VolPolicyMgr        *policy_mgr;
+        Thrift_VolPolicyServ   *om_ice_proxy;
+        Orch_VolPolicyServ  *om_policy_srv;
+        
+        void SetThrottleLevelForDomain(int domain_id, float throttle_level);
 
   public:
-    OrchMgr(const boost::shared_ptr<FdsConfig>& config);
+    OrchMgr(const std::string& config_path,
+            const std::string& base_path);
     ~OrchMgr();
+
+    /**** From FdsProcess ****/
+    virtual void setup(int argc, char *argv[], fds::Module **mod_vec) override;
+    /* 
+     * Runs the orch manager server.
+     * Does not return until the server is no longer running
+     */
+    virtual void run() override;
+    virtual void interrupt_cb(int signum) override;
 
     int  mod_init(SysParams const *const param);
     void mod_startup();
     void mod_shutdown();
-
-    virtual int run(int argc, char* argv[]);
-    void interruptCallback(int cb);
-
-    /**
-     * Runs the orch manager server.
-     * This function is not intended to return until
-     * the server is no longer running.
-     */
-    void runServer();
 
     fds_log* GetLog();
     void defaultS3BucketPolicy();  // default  policy  desc  for s3 bucket
@@ -417,10 +416,10 @@ private:
 
         void NotifyPerfstats(
             const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-            const ::FDS_ProtocolInterface::FDSP_PerfstatsType& push_stats_msg);
+            const ::FDS_ProtocolInterface::FDSP_PerfstatsType& perf_stats_msg);
         void NotifyPerfstats(
             ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-            ::FDS_ProtocolInterface::FDSP_PerfstatsTypePtr& push_stats_msg);
+            ::FDS_ProtocolInterface::FDSP_PerfstatsTypePtr& perf_stats_msg);
 
         void TestBucket(
             const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
@@ -437,9 +436,81 @@ private:
             ::FDS_ProtocolInterface::FDSP_GetDomainStatsTypePtr& get_stats_msg);
   private:
         OrchMgr* orchMgr;
-};
+    };
 
-  };
+    /* control response handler*/
+    class FDSP_ControlPathRespHandler : 
+    virtual public FDSP_ControlPathRespIf {
+  public:
+        explicit FDSP_ControlPathRespHandler(OrchMgr *oMgr);
+
+        void NotifyAddVolResp(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_NotifyVolType& not_add_vol_resp);
+        void NotifyAddVolResp(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_add_vol_resp);
+
+        void NotifyRmVolResp(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_NotifyVolType& not_rm_vol_resp);
+        void NotifyRmVolResp(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_rm_vol_resp);
+
+        void NotifyModVolResp(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_NotifyVolType& not_mod_vol_resp);
+        void NotifyModVolResp(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_mod_vol_resp);
+
+        void AttachVolResp(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_AttachVolType& atc_vol_resp);
+        void AttachVolResp(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_AttachVolTypePtr& atc_vol_resp);
+
+        void DetachVolResp(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_AttachVolType& dtc_vol_resp);
+        void DetachVolResp(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_AttachVolTypePtr& dtc_vol_resp);
+
+        void NotifyNodeAddResp(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_Node_Info_Type& node_info_resp);
+        void NotifyNodeAddResp(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp);
+
+        void NotifyNodeRmvResp(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_Node_Info_Type& node_info_resp);
+        void NotifyNodeRmvResp(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp);
+
+        void NotifyDLTUpdateResp(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_DLT_Type& dlt_info_resp);
+        void NotifyDLTUpdateResp(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_DLT_TypePtr& dlt_info_resp);
+
+        void NotifyDMTUpdateResp(
+            const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const FDS_ProtocolInterface::FDSP_DMT_Type& dmt_info_resp);
+        void NotifyDMTUpdateResp(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_DMT_TypePtr& dmt_info_resp);
+  private:
+        OrchMgr* orchMgr;
+    };
+
+    };
 
 extern OrchMgr *gl_orch_mgr;
 

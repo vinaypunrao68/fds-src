@@ -2,8 +2,8 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_STOR_MGR_ICE_INCLUDE_TIERENGINE_H_
-#define SOURCE_STOR_MGR_ICE_INCLUDE_TIERENGINE_H_
+#ifndef SOURCE_STOR_MGR_INCLUDE_TIERENGINE_H_
+#define SOURCE_STOR_MGR_INCLUDE_TIERENGINE_H_
 
 #include <StorMgr.h>
 #include <StorMgrVolumes.h>
@@ -158,4 +158,4 @@ const fds_uint32_t max_migration_threads =30;
   };
 }  // namespace fds
 
-#endif  // SOURCE_STOR_MGR_ICE_INCLUDE_TIERENGINE_H_
+#endif  // SOURCE_STOR_MGR_INCLUDE_TIERENGINE_H_

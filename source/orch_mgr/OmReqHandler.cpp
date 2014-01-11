@@ -6,7 +6,7 @@
 
 namespace fds {
 
-OrchMgr::FDSP_ConfigPathReqHandler::ReqCfgHandler(OrchMgr *oMgr) {
+OrchMgr::FDSP_ConfigPathReqHandler::FDSP_ConfigPathReqHandler(OrchMgr *oMgr) {
     orchMgr = oMgr;
 }
 
@@ -259,7 +259,7 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::DeleteDomain(
 
     int err = 0;
     try {
-        err = orchMgr->CreateDomain(fdsp_msg, crt_dom_req);
+        err = orchMgr->DeleteDomain(fdsp_msg, del_dom_req);
     }
     catch(...) {
         FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
@@ -318,12 +318,12 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::GetDomainStats(
 }
 
 int32_t OrchMgr::FDSP_ConfigPathReqHandler::GetDomainStats(
-    ::FDS_ProtocolInterface::FDSP_MsgHdrType_Ptr& fdsp_msg,
-    ::FDS_ProtocolInterface::FDSP_GetDomainStatsType_Ptr& get_stats_msg) {
+    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+    ::FDS_ProtocolInterface::FDSP_GetDomainStatsTypePtr& get_stats_msg) {
 
     int err = 0;
     try {
-        err = orchMgr->GetDomainStats(fdsp_msg, get_stats_req);
+        err = orchMgr->GetDomainStats(fdsp_msg, get_stats_msg);
     }
     catch(...) {
         FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
@@ -404,8 +404,8 @@ void OrchMgr::FDSP_OMControlPathReqHandler::RegisterNode(
 }
 
 void OrchMgr::FDSP_OMControlPathReqHandler::RegisterNode(
-    ::FDS_ProtocolInterface::FDSP_MsgHdrType_Ptr& fdsp_msg,
-    ::FDS_ProtocolInterface::FDSP_RegisterNodeType_Ptr& reg_node_req) {
+    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+    ::FDS_ProtocolInterface::FDSP_RegisterNodeTypePtr& reg_node_req) {
     orchMgr->RegisterNode(fdsp_msg, reg_node_req);
 }
 
@@ -423,13 +423,13 @@ void OrchMgr::FDSP_OMControlPathReqHandler::NotifyQueueFull(
 
 void OrchMgr::FDSP_OMControlPathReqHandler::NotifyPerfstats(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const ::FDS_ProtocolInterface::FDSP_PerfstatsType& push_stats_msg) {
+    const ::FDS_ProtocolInterface::FDSP_PerfstatsType& perf_stats_msg) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
 }
 
 void OrchMgr::FDSP_OMControlPathReqHandler::NotifyPerfstats(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    ::FDS_ProtocolInterface::FDSP_PerfstatsTypePtr& push_stats_msg) {
+    ::FDS_ProtocolInterface::FDSP_PerfstatsTypePtr& perf_stats_msg) {
 
     orchMgr->NotifyPerfstats(fdsp_msg, perf_stats_msg);
 }

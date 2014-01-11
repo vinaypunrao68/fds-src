@@ -20,7 +20,7 @@ ObjectRankEngine::ObjectRankEngine(const std::string& _sm_prefix,
     obj_stats(_obj_stats),
     ranklog(log),
     sm_volTbl(_sm_volTbl),
-    rankTimer(new IceUtil::Timer()),
+    rankTimer(new FdsTimer()),
     rankTimerTask(new RankTimerTask(this))
 {
   std::string filename(_sm_prefix + "ObjRankDB");
@@ -104,9 +104,8 @@ Error ObjectRankEngine::initialize()
 
   /* start timer for getting hot objects from the stats tracker.
    * for now setting small intervals so we can have short demo */
-  IceUtil::Time interval = IceUtil::Time::seconds(30);
   try {
-    rankTimer->scheduleRepeated(rankTimerTask, interval);
+    rankTimer->scheduleRepeated(rankTimerTask, std::chrono::seconds(30));
   } catch (...) {
     FDS_PLOG(ranklog) << "ObjectRankEngine: ERROR: failed to schedule timer to analyze stats from stat tracker";
     err = ERR_MAX;

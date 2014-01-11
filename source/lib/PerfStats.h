@@ -48,10 +48,10 @@ class PerfStats
                 fds_io_op_t opType = FDS_OP_INVALID);     /* Defaults to invalid op */
 
   /* For use on OM side to fill in stats that we receive from other nodes from the Ice message */
-  void setStatFromIce(fds_uint32_t class_id, 
-		      const std::string& start_timestamp,
-		      const FDS_ProtocolInterface::FDSP_PerfStatTypePtr& stat_msg);  
-
+  void setStatFromFdsp(fds_uint32_t class_id, 
+                       const std::string& start_timestamp,
+                       const FDS_ProtocolInterface::FDSP_PerfStatType& stat_msg);  
+  
   /* get average IOPS for time interval [end_ts - interval_sec ... end_ts] */
   long getAverageIOPS(fds_uint32_t class_id,
 		      const boost::posix_time::ptime end_ts,

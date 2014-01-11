@@ -20,7 +20,6 @@
 #include <iostream>
 #include <list>
 #include <vector>
-#include <Ice/Ice.h>
 #include <util/Log.h>
 #include <concurrency/Mutex.h>
 

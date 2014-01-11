@@ -194,9 +194,9 @@ namespace fds {
 
   }
 
-  void PerfStats::setStatFromIce(fds_uint32_t class_id, 
+  void PerfStats::setStatFromFdsp(fds_uint32_t class_id, 
 				 const std::string& start_timestamp,
-				 const FDS_ProtocolInterface::FDSP_PerfStatTypePtr& stat_msg)
+				 const FDS_ProtocolInterface::FDSP_PerfStatType& stat_msg)
   {
     StatHistory* hist = NULL;
     if ( !isEnabled()) return;
@@ -204,7 +204,7 @@ namespace fds {
     /* rel_seconds in 'stat_msg' is relative to 'start_timestamp', so we need to 
      * calculate timestamp in seconds relative to start_time of this history */
     boost::posix_time::ptime remote_start_ts = boost::posix_time::from_iso_string(start_timestamp);
-    long loc_rel_sec = stat_msg->rel_seconds;
+    long loc_rel_sec = stat_msg.rel_seconds;
     if (start_time > remote_start_ts) {
       boost::posix_time::time_duration diff = start_time - remote_start_ts;
       // remote_start_time ... start_time ......... rel_seconds

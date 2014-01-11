@@ -495,7 +495,7 @@ struct FDSP_PerfstatsType {
 }
 
 struct FDSP_BucketStatType {
-  1: double             vol_uuid,
+  1: string             vol_name,
   2: double             performance,  /* average iops */
   3: double             sla,          /* minimum (guaranteed) iops */
   4: double             limit,        /* maximum iops */
@@ -525,7 +525,7 @@ struct FDSP_TierPolicy {
     4: i32             tier_media,
     5: i32             tier_prefetch_algo,
     6: i64            tier_media_pct,
-    7: i64            tier_i32erval_sec,
+    7: i64            tier_interval_sec,
 }
 
 struct FDSP_TierPolicyAudit {
@@ -669,7 +669,7 @@ service FDSP_OMControlPathReq {
   oneway void AttachBucket(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolCmdType atc_buck_req),
   oneway void RegisterNode(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RegisterNodeType reg_node_req),
   oneway void NotifyQueueFull(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyQueueStateType queue_state_info),
-  oneway void NotifyPerfstats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PerfstatsType push_stats_msg),
+  oneway void NotifyPerfstats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PerfstatsType perf_stats_msg),
   oneway void TestBucket(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_TestBucket test_buck_msg),
   oneway void GetDomainStats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetDomainStatsType get_stats_msg),  
 }
@@ -681,7 +681,7 @@ service FDSP_OMControlPathResp {
   oneway void AttachBucketResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolCmdType atc_buck_req),
   oneway void RegisterNodeResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RegisterNodeType reg_node_rsp),
   oneway void NotifyQueueFullResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyQueueStateType queue_state_rsp),
-  oneway void NotifyPerfstatsResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PerfstatsType push_stats_rsp),
+  oneway void NotifyPerfstatsResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PerfstatsType perf_stats_rsp),
   oneway void TestBucketResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_TestBucket test_buck_rsp)
   oneway void GetDomainStatsResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetDomainStatsType get_stats_rsp),  
 }

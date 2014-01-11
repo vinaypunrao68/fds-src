@@ -66,10 +66,12 @@ class IoStat
   long getMinLatency() const;
   long getMaxLatency() const;
 
-  /* copy stat to ice struct if the stat contains at least one sample / IO */
-  bool copyIfNotZero(FDS_ProtocolInterface::FDSP_PerfStatTypePtr& fdsp_stat, int stat_type);
-  /* add stats to 'stat' of appropriate type from ice msg */
-  void addFromIceMsg(const FDS_ProtocolInterface::FDSP_PerfStatTypePtr& fdsp_stat);
+  /* copy stat to fdsp struct if the stat contains at least one sample / IO */
+  bool copyIfNotZero(FDS_ProtocolInterface::FDSP_PerfStatType& fdsp_stat,
+                     int stat_type);
+
+  /* add stats to 'stat' of appropriate type from fdsp msg */
+  void addFromFdspMsg(const FDS_ProtocolInterface::FDSP_PerfStatType& fdsp_stat);
 
  private: /* methods */
   inline int statIndex(diskio::DataTier tier, fds_io_op_t opType) const {
@@ -119,7 +121,8 @@ class StatHistory
    * did not fill yet. Thus it works similarly to 'print' method, where we get perf 
    * of a particular time slot only once.  */
   void getStats(FDS_ProtocolInterface::FDSP_PerfStatListType& perf_list);
-  void addStat(long rel_seconds, const FDS_ProtocolInterface::FDSP_PerfStatTypePtr& fdsp_stat);
+  void addStat(long rel_seconds,
+               const FDS_ProtocolInterface::FDSP_PerfStatType& fdsp_stat);
 
   /* get average IOPS for interval [rel_end_seconds - interval_sec, rel_end_seconds) */
   long getAverageIOPS(long rel_end_seconds, 

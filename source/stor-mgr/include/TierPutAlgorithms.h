@@ -2,11 +2,11 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_STOR_MGR_ICE_INCLUDE_TIERPUTALGORITHMS_H_
-#define SOURCE_STOR_MGR_ICE_INCLUDE_TIERPUTALGORITHMS_H_
+#ifndef SOURCE_STOR_MGR_INCLUDE_TIERPUTALGORITHMS_H_
+#define SOURCE_STOR_MGR_INCLUDE_TIERPUTALGORITHMS_H_
 
-#include "stor_mgr_ice/include/TierEngine.h"
-#include "stor_mgr_ice/include/ObjRank.h"
+#include "stor-mgr/include/TierEngine.h"
+#include "stor-mgr/include/ObjRank.h"
 
 namespace fds {
 
@@ -70,4 +70,4 @@ namespace fds {
 
 }  // namespace fds
 
-#endif  // SOURCE_STOR_MGR_ICE_INCLUDE_TIERPUTALGORITHMS_H_
+#endif  // SOURCE_STOR_MGR_INCLUDE_TIERPUTALGORITHMS_H_

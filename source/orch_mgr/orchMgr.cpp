@@ -12,15 +12,16 @@ namespace fds {
 
 OrchMgr *orchMgr;
 
-OrchMgr::OrchMgr(const boost::shared_ptr<FdsConfig> &config)
+OrchMgr::OrchMgr(const std::string& config_path,
+                 const std::string& base_path)
     : Module("Orch Manager"),
+      FdsProcess(config_path, base_path),
       port_num(0),
-      test_mode(false),
-      om_config(config) {
+      test_mode(false) {
 
     om_log = new fds_log("om", "logs");
     om_log->setSeverityFilter(
-        (fds_log::severity_level) om_config->get<int>("fds.om.log_severity"));
+        (fds_log::severity_level) conf_helper_.get<int>("log_severity"));
 
     om_mutex = new fds_mutex("OrchMgrMutex");
 
@@ -60,107 +61,110 @@ void OrchMgr::mod_startup() {
 void OrchMgr::mod_shutdown() {
 }
 
-void OrchMgr::runServer() {
-  /*
-   * TODO: Replace this when we pull ICE out.
-   */
-  this->main(mod_params->p_argc, mod_params->p_argv, "orch_mgr.conf");
+void OrchMgr::setup(int argc, char* argv[],
+                    fds::Module **mod_vec)
+{
+    /* First invoke FdsProcess setup so that it
+     * sets up the signal handler and executes
+     * module vector
+     */
+    FdsProcess::setup(argc, argv, mod_vec);
+
+    /*
+     * Process the cmdline args.
+     */
+    for (int i = 1; i < argc; i++) {
+        if (strncmp(argv[i], "--port=", 7) == 0) {
+            port_num = strtoul(argv[i] + 7, NULL, 0);
+        } else if (strncmp(argv[i], "--prefix=", 9) == 0) {
+            stor_prefix = argv[i] + 9;
+        } else if (strncmp(argv[i], "--test", 7) == 0) {
+            test_mode = true;
+        }
+    }
+
+    GetLog()->setSeverityFilter((fds_log::severity_level) (mod_params->log_severity));
+
+    policy_mgr = new VolPolicyMgr(stor_prefix, om_log);
+
+    /*
+     * create a default domain. If the domains are NOT configured 
+     * all the nodes will be in default domain
+     */
+    FdsLocalDomain *default_domain = new FdsLocalDomain(stor_prefix, om_log);
+    localDomainInfo  *default_domain_info = new localDomainInfo();
+    default_domain_info->loc_domain_name = "Default Domain";
+    default_domain_info->loc_dom_id = 1;
+    default_domain_info->glb_dom_id = 1;
+    default_domain_info->domain_ptr = default_domain;
+    locDomMap[default_domain_info->loc_dom_id] = default_domain_info;
+
+    /*
+     * Set basic thread properties.
+     */
+    // TODO (thrift)
+    /*
+    props->setProperty("OrchMgr.ThreadPool.Size", "50");
+    props->setProperty("OrchMgr.ThreadPool.SizeMax", "100");
+    props->setProperty("OrchMgr.ThreadPool.SizeWarn", "75");
+    */
+
+    std::string orchMgrIPAddress;
+    int orchMgrPortNum;
+
+    FDS_PLOG(om_log) << " port num rx " << port_num;
+    if (port_num != 0) {
+        orchMgrPortNum = port_num;
+    } else {
+        orchMgrPortNum = conf_helper_.get<int>("config_port");
+    }
+    orchMgrIPAddress = conf_helper_.get<std::string>("ip_address");
+    
+    FDS_PLOG_SEV(om_log, fds_log::notification)
+            << "Orchestration Manager using port " << orchMgrPortNum;
+
+    /*
+     * setup CLI client adaptor interface  this also used for receiving the node up
+     * messages from DM, SH and SM 
+     */
+    // TODO (thrift)
+    /*
+    std::ostringstream tcpProxyStr;
+    tcpProxyStr << "tcp -p " << orchMgrPortNum;
+    Ice::ObjectAdapterPtr adapter =
+            communicator()->createObjectAdapterWithEndpoints(
+                "OrchMgr",
+                tcpProxyStr.str());
+    
+    reqCfgHandlersrv = new ReqCfgHandler(this);
+    adapter->add(reqCfgHandlersrv, communicator()->stringToIdentity("OrchMgr"));
+    
+    om_policy_srv = new Orch_VolPolicyServ();
+    om_ice_proxy  = new Ice_VolPolicyServ(ORCH_MGR_POLICY_ID, *om_policy_srv);
+    om_ice_proxy->serv_registerIceAdapter(communicator(), adapter);
+    
+    adapter->activate();
+    */
+
+    defaultS3BucketPolicy();
 }
 
-int OrchMgr::run(int argc, char* argv[]) {
-  /*
-   * Process the cmdline args.
-   */
-  for (int i = 1; i < argc; i++) {
-    if (strncmp(argv[i], "--port=", 7) == 0) {
-      port_num = strtoul(argv[i] + 7, NULL, 0);
-    } else if (strncmp(argv[i], "--prefix=", 9) == 0) {
-      stor_prefix = argv[i] + 9;
-    } else if (strncmp(argv[i], "--test", 7) == 0) {
-      test_mode = true;
-    }
-  }
+void OrchMgr::run()
+{
+    // run server
+}
 
-  GetLog()->setSeverityFilter((fds_log::severity_level) (mod_params->log_severity));
-
-  policy_mgr = new VolPolicyMgr(stor_prefix, om_log);
-
-  /*
-   * create a default domain. If the domains are NOT configured 
-   * all the nodes will be in default domain
-   */
-   FdsLocalDomain *default_domain = new FdsLocalDomain(stor_prefix, om_log);
-   localDomainInfo  *default_domain_info = new localDomainInfo();
-   default_domain_info->loc_domain_name = "Default Domain";
-   default_domain_info->loc_dom_id = 1;
-   default_domain_info->glb_dom_id = 1;
-   default_domain_info->domain_ptr = default_domain;
-   locDomMap[default_domain_info->loc_dom_id] = default_domain_info;
-
-  Ice::PropertiesPtr props = communicator()->getProperties();
-
-  /*
-   * create a default policy ( ID = 50) for S3 bucket
-   */
-
-  /*
-   * Set basic thread properties.
-   */
-  props->setProperty("OrchMgr.ThreadPool.Size", "50");
-  props->setProperty("OrchMgr.ThreadPool.SizeMax", "100");
-  props->setProperty("OrchMgr.ThreadPool.SizeWarn", "75");
-
-  std::string orchMgrIPAddress;
-  int orchMgrPortNum;
-
-  FDS_PLOG(om_log) << " port num rx " << port_num;
-  if (port_num != 0) {
-    orchMgrPortNum = port_num;
-  } else {
-      orchMgrPortNum = om_config->get<int>("fds.om.config_port");
-  }
-  orchMgrIPAddress = om_config->get<std::string>("fds.om.ip_address");
-
-  FDS_PLOG_SEV(om_log, fds::fds_log::notification) << "Orchestration Manager using port " << orchMgrPortNum;
-
-  callbackOnInterrupt();
-
-  /*
-   * setup CLI client adaptor interface  this also used for receiving the node up
-   * messages from DM, SH and SM 
-   */
-  std::ostringstream tcpProxyStr;
-  tcpProxyStr << "tcp -p " << orchMgrPortNum;
-  Ice::ObjectAdapterPtr adapter =
-      communicator()->createObjectAdapterWithEndpoints(
-          "OrchMgr",
-          tcpProxyStr.str());
-
-  reqCfgHandlersrv = new ReqCfgHandler(this);
-  adapter->add(reqCfgHandlersrv, communicator()->stringToIdentity("OrchMgr"));
-
-  om_policy_srv = new Orch_VolPolicyServ();
-  om_ice_proxy  = new Ice_VolPolicyServ(ORCH_MGR_POLICY_ID, *om_policy_srv);
-  om_ice_proxy->serv_registerIceAdapter(communicator(), adapter);
-
-  adapter->activate();
-
-  defaultS3BucketPolicy();
-  communicator()->waitForShutdown();
-
-  return EXIT_SUCCESS;
+void OrchMgr::interrupt_cb(int signum)
+{
+    FDS_PLOG(orchMgr->GetLog())
+            << "OrchMgr: Shutting down communicator";
+    //communicator()->shutdown();
 }
 
 fds_log* OrchMgr::GetLog() {
   return om_log;
 }
  
-void
-OrchMgr::interruptCallback(int cb) {
-  FDS_PLOG(orchMgr->GetLog()) << "Shutting down communicator";
-  communicator()->shutdown();
-}
-
 int OrchMgr::CreateDomain(const FdspMsgHdrPtr& fdsp_msg,
                         const FdspCrtDomPtr& crt_dom_req) {
 
@@ -757,11 +761,11 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
                          (reg_node_req->disk_info).ssd_latency_max,
                          (reg_node_req->disk_info).ssd_latency_min,
                          (reg_node_req->disk_info).disk_type,
-                         n_info.node_state = FDS_ProtocolInterface::FDS_Node_Up,
-                         FDS_ProtocolInterface::
+                         n_info.node_state = FDS_ProtocolInterface::FDS_Node_Up
+                         /*FDS_ProtocolInterface::
                          FDSP_ControlPathReqPrx::
                          checkedCast(communicator()->stringToProxy(
-                             tcpProxyStr.str()))
+                         tcpProxyStr.str()))*/
                          );
 
     node_map[reg_node_req->node_name] = n_info;
@@ -965,8 +969,7 @@ OrchMgr *gl_orch_mgr;
 }  // namespace fds
 
 int main(int argc, char *argv[]) {
-    boost::shared_ptr<fds::FdsConfig> config(new fds::FdsConfig("orch_mgr.conf"));
-    fds::orchMgr = new fds::OrchMgr(config);
+    fds::orchMgr = new fds::OrchMgr("orch_mgr.conf", "fds.om.");
 
     fds::gl_orch_mgr = fds::orchMgr;
 
@@ -974,10 +977,8 @@ int main(int argc, char *argv[]) {
         fds::orchMgr,
         nullptr};
 
-    fds::ModuleVector omModVec(argc, argv, omVec);
-    omModVec.mod_execute();
-
-    fds::orchMgr->runServer();
+    fds::orchMgr->setup(argc, argv, omVec);
+    fds::orchMgr->run();
 
     delete fds::orchMgr;
 
