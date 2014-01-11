@@ -4,7 +4,7 @@
 #ifndef SOURCE_INCLUDE_FDS_PROBE_S3_PROBE_H_
 #define SOURCE_INCLUDE_FDS_PROBE_S3_PROBE_H_
 
-#include <list>
+#include <string>
 #include <fds-probe/fds_probe.h>
 #include <am-engine/s3connector.h>
 #include <concurrency/ThreadPool.h>

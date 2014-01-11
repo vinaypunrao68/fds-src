@@ -4,6 +4,7 @@
 #ifndef SOURCE_INCLUDE_FDS_PROBE_FDS_PROBE_H_
 #define SOURCE_INCLUDE_FDS_PROBE_FDS_PROBE_H_
 
+#include <list>
 #include <string>
 #include <fds_module.h>
 #include <fds_assert.h>
