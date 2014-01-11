@@ -4,6 +4,7 @@
 #ifndef SOURCE_INCLUDE_FDS_PROBE_S3_PROBE_H_
 #define SOURCE_INCLUDE_FDS_PROBE_S3_PROBE_H_
 
+#include <list>
 #include <fds-probe/fds_probe.h>
 #include <am-engine/s3connector.h>
 #include <concurrency/ThreadPool.h>
@@ -21,6 +22,7 @@ class Probe_GetObject : public S3_GetObject
     virtual void ame_request_handler();
     virtual int  ame_request_resume();
   protected:
+    ProbeIORequest           *preq;
 };
 
 // Probe PUT connector to hooup S3 protocol to the probe.
@@ -34,6 +36,7 @@ class Probe_PutObject : public S3_PutObject
     virtual void ame_request_handler();
     virtual int  ame_request_resume();
   protected:
+    ProbeIORequest           *preq;
 };
 
 // S3 Probe Hookup with FDS Adapters
@@ -46,13 +49,10 @@ class ProbeS3Eng : public AMEngine_S3
 
     // Hookup this S3 engine probe to the back-end adapter.
     //
-    void probe_connect_adapter(ProbeMod *adapter) {
-        pr_adapter = adapter;
-    }
-    ProbeMod *probe_get_adapter() {
-        return pr_adapter;
-    }
-    fds_threadpool *probe_get_thrpool() {
+    void probe_add_adapter(ProbeMod *adapter);
+    ProbeMod *probe_get_adapter();
+
+    inline fds_threadpool *probe_get_thrpool() {
         return pr_thrpool;
     }
 
@@ -68,7 +68,7 @@ class ProbeS3Eng : public AMEngine_S3
         return nullptr;
     }
 
-    // Bucket factory
+    // Bucket factory.
     //
     virtual Conn_GetBucket *ame_getbucket_hdler(AME_HttpReq *req) {
         return nullptr;
@@ -80,7 +80,8 @@ class ProbeS3Eng : public AMEngine_S3
         return nullptr;
     }
   private:
-    ProbeMod                 *pr_adapter;
+    std::list<ProbeMod *>     pr_adapter;
+    fds_mutex                 pr_mtx;
     fds_threadpool           *pr_thrpool;
 };
 

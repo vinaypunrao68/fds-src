@@ -1,4 +1,8 @@
-
+/*
+ * Copyright by Formation Data Systems, Inc.
+ *
+ * List of ngx modules to hookup FDS REST API to unit test
+ */
 #include <ngx_config.h>
 #include <ngx_core.h>
 
@@ -102,4 +106,3 @@ ngx_module_t *ngx_modules[] = {
 
     NULL
 };
-

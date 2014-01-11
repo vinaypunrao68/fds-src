@@ -123,7 +123,7 @@ class ProbeMod;
 // Generic request from FDS Probe Module to drive probe traffic to the testing
 // module.
 //
-class ProbeRequest : public virtual fdsio::Request
+class ProbeRequest : public fdsio::Request
 {
   public:
     ProbeRequest(int stat_cnt, size_t bufsize, ProbeMod *mod);
@@ -212,7 +212,7 @@ class ProbeRequest : public virtual fdsio::Request
 // ----------------------------------------------------------------------------
 // Probe request used in IO/data path.
 // ----------------------------------------------------------------------------
-class ProbeIORequest : public virtual ProbeRequest
+class ProbeIORequest : public ProbeRequest
 {
   public:
     ProbeIORequest(int           stat_cnt,
@@ -358,7 +358,7 @@ class ProbeMod : public Module
 // ----------------------------------------------------------------------------
 // Probe Adapters for Admin/control path.
 // ----------------------------------------------------------------------------
-class ProbeCtrlLoad : public virtual ProbeMod
+class ProbeCtrlLoad : public ProbeMod
 {
   public:
     ProbeCtrlLoad();
