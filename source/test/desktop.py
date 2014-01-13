@@ -111,6 +111,8 @@ cp_port_map = {
 class TestSequenceFunctions(unittest.TestCase):
 
     def cleanupFiles(self, comp=None):
+        return 0
+
         #
         # Descend in the component's directory
         #
@@ -363,7 +365,18 @@ class TestSequenceFunctions(unittest.TestCase):
             self.stop_server(serv)
 
         return status
+
+    def test_helloworld(self):
+        test_name = "Hello World"
+        print "********** Starting test: %s **********" % (test_name)
+
+        status = 0
+        print "Hello World :-)"
+        self.assertEqual(status, 0)
+            
+        print "********** Stopping test: %s **********" % (test_name)
     
+    @unittest.skip("Skipping ICE version of Storage Manager test")
     def test_stormgr(self):
         test_name = "Storage Manager"
         num_instances = 5
@@ -375,6 +388,7 @@ class TestSequenceFunctions(unittest.TestCase):
 
         print "********** Stopping test: %s **********" % (test_name)
 
+    @unittest.skip("Skipping ICE version of Data Manager test")
     def test_datamgr(self):
         test_name = "Data Manager"
         num_instances = 5
@@ -386,6 +400,7 @@ class TestSequenceFunctions(unittest.TestCase):
             
         print "********** Stopping test: %s **********" % (test_name)
 
+    @unittest.skip("Skipping ICE version of Volume Catalog Cache test")
     def test_vcc(self):
         test_name = "Volume catalog cache"
         num_instances = 5
@@ -397,6 +412,7 @@ class TestSequenceFunctions(unittest.TestCase):
 
         print "********** Stopping test: %s **********" % (test_name)
 
+    @unittest.skip("Skipping ICE version of Orchestration Manager test")
     def test_om(self):
         test_name = "Orchestration manager"
         num_instances = 5
@@ -408,6 +424,7 @@ class TestSequenceFunctions(unittest.TestCase):
 
         print "********** Stopping test: %s **********" % (test_name)
 
+    @unittest.skip("Skipping ICE version of Access Manager test")
     def test_sh(self):
         test_name = "Storage Hypervisor"
         status = 0
@@ -447,6 +464,7 @@ class TestSequenceFunctions(unittest.TestCase):
 
         print "********** Stopping test: %s **********" % (test_name)
 
+    @unittest.skip("Skipping ICE version of Cluster File Copy test")
     def test_file_cp(self):
         test_name = "File Copy"
         status = 0
