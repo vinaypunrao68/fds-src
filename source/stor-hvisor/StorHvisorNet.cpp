@@ -629,7 +629,7 @@ void DeleteStorHvisor()
 void ctrlCCallbackHandler(int signal)
 {
   FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification) << "StorHvisorNet -  Received Ctrl C " << signal;
-  storHvisor->_communicator->shutdown();
+// SAN   storHvisor->_communicator->shutdown();
   DeleteStorHvisor();
 }
 
