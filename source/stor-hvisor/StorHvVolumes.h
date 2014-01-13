@@ -5,8 +5,6 @@
 #ifndef __STOR_HV_VOLS_H_
 #define __STOR_HV_VOLS_H_
 
-#include <Ice/Ice.h>
-#include <IceUtil/IceUtil.h>
 #include <boost/thread/thread.hpp>
 #include <boost/lockfree/queue.hpp>
 #include <iostream>
@@ -15,7 +13,6 @@
 
 #include <unordered_map>
 
-#include <fdsp/FDSP.h>
 #include <fds_err.h>
 #include <fds_types.h>
 #include <fds_volume.h>

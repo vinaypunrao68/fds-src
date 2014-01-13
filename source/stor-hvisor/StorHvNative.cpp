@@ -82,7 +82,7 @@ void FDS_NativeAPI::CreateBucket(BucketContext *bucket_ctx,
      return;
    }
 
-   FDSP_VolumeInfoTypePtr vol_info = new FDSP_VolumeInfoType();
+   FDSP_VolumeInfoTypePtr vol_info(new FDSP_VolumeInfoType());
    initVolInfo(vol_info, bucket_ctx->bucketName);
    vol_info->volPolicyId = 50;  // default S3 policy desc ID
 
@@ -170,7 +170,7 @@ void FDS_NativeAPI::DeleteBucket(BucketContext* bucketCtxt,
      return;
    }
 
-   FDSP_DeleteVolTypePtr volData = new FDSP_DeleteVolType();
+   FDSP_DeleteVolTypePtr volData(new FDSP_DeleteVolType());
    volData->vol_name  = std::string(bucketCtxt->bucketName);
    volData->domain_id = 0;
    // send the  bucket create request to OM
@@ -194,7 +194,7 @@ void FDS_NativeAPI::ModifyBucket(BucketContext *bucket_ctxt,
   int om_err = 0;
   double iops_min = qos_params.iops_min;
   double iops_max = qos_params.iops_max;
-  FDSP_VolumeDescTypePtr voldesc = new FDSP_VolumeDescType();
+  FDSP_VolumeDescTypePtr voldesc (new FDSP_VolumeDescType());
 
   /* iops_min and iops_max in qos params must be values from 0 to 100, 
    * and priority from 1 to 10 */ 
@@ -521,7 +521,7 @@ Error FDS_NativeAPI::checkBucketExists(BucketContext *bucket_ctxt, fds_volid_t* 
 
   /* else -- the volume not attached but it could have been already created,
    * so we will send test bucket msg to OM */
-  FDSP_VolumeInfoTypePtr vol_info = new FDSP_VolumeInfoType();
+  FDSP_VolumeInfoTypePtr vol_info(new FDSP_VolumeInfoType());
   initVolInfo(vol_info, bucket_ctxt->bucketName);
 
   om_err = storHvisor->om_client->testBucket(bucket_ctxt->bucketName,
