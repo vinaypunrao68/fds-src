@@ -16,8 +16,8 @@ user_fds_ar_libs  := \
     fds-umod \
     fds-thread \
     fds-util \
-    # fds-fdsp-ice \
-    # fds-StorHvisor-ice \
+	fds-fdsp \
+	fds-StorHvisor \
 
 user_non_fds_libs := \
     boost_log \
@@ -26,8 +26,8 @@ user_non_fds_libs := \
     boost_thread \
     boost_date_time \
     boost_program_options \
-    leveldb ssl crypto \
-    #Ice IceUtil IceStorm \
+	leveldb ssl crypto \
+	thrift \
 
 data_mgr_cpp      :=                   \
     DataMgr.cpp                        \
