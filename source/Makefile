@@ -15,13 +15,13 @@ user_build_dir :=                       \
     am-engine                           \
     fds-probe                           \
     persistent_layer                    \
-    stor_hvisor_ice                     \
     orch_mgr_ice                        \
     data_mgr                            \
     stor-mgr                            \
     stor-hvisor                         \
     fds_client                          \
     am-app                              \
-    unit-test
+    unit-test				\
+#    stor_hvisor_ice                     \
 
 include $(topdir)/Makefile.incl

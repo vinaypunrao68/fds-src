@@ -17,7 +17,7 @@ user_fds_ar_libs  := \
     fds-thread \
     fds-util \
 	fds-fdsp \
-	fds-StorHvisor \
+#	fds-StorHvisor \
 
 user_non_fds_libs := \
     boost_log \
@@ -28,10 +28,14 @@ user_non_fds_libs := \
     boost_program_options \
 	leveldb ssl crypto \
 	thrift \
+	Ice IceUtil \
+
 
 data_mgr_cpp      :=                   \
     DataMgr.cpp                        \
-    VolumeMeta.cpp
+    VolumeMeta.cpp			\
+	qos_ctrl.cpp			\
+
 
 user_cpp          :=                   \
     $(data_mgr_cpp)
