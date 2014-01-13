@@ -20,7 +20,6 @@
 using namespace ::apache::thrift;
 using namespace ::apache::thrift::protocol;
 using namespace ::apache::thrift::transport;
-using namespace ::apache::thrift::server;
 using namespace ::apache::thrift::concurrency;
 
 using namespace FDS_ProtocolInterface;
@@ -43,9 +42,9 @@ public:
 
         netClientSession(string ip_addr_str, int port, FDSP_MgrIdType local_mgr,
                          FDSP_MgrIdrType remote_mgr) : netSession(node_name, port, local_mgr, remote_mgr) {
-            boost::shared_ptr<TTransport> socket = new TSocket(ip_addr_str, port);
-            boost::shared_ptr<TTransport> transport = new TBufferedTransport(socket);
-            boost::shared_ptr<TProtocol> protocol = new TBinaryProtocol(transport);
+            socket = new TSocket(ip_addr_str, port);
+            transport = new TBufferedTransport(socket);
+            protocol = new TBinaryProtocol(transport);
         }
 
         ~netClientSession() {
@@ -57,7 +56,7 @@ public:
 
 class netDataPathClientSession : public netClientSession { 
 public :
-	FDSP_DataPathReq  fdspDPAPI;
+	FDSP_DataPathReqHandler  fdspDPAPI;
         int num_threads;
         boost::shared_ptr<FDSP_DataPathResp> fdspDataPathResp;
         boost::shared_ptr<Thread> th;
@@ -198,9 +197,8 @@ public :
 
 class netDataPathServerSession : public netServerSession { 
 public:
-	FDSP_DataPathReq  fdspDPAPI;
         FDSP_DataPathResp fdspDataPathResp;
-        boost::shared_ptr<FDSP_DataPathReq> handler;
+        boost::shared_ptr<FDSP_DataPathReqHandler> handler;
         boost::shared_ptr<FDSP_DataPathReqIfSingletonFactory> handlerFactory; 
         boost::shared_ptr<TProcessorFactory> processorFactory;
         TThreadPoolServer *server;

@@ -1,14 +1,25 @@
-#include <FDSP_ConfigPathReq.h>
-#include <FDSP_constants.h>
-#include <FDSP_ControlPathResp.h>
-#include <FDSP_DataPathResp.h>
-#include <FDSP_MetaDataPathResp.h>
-#include <FDSP_types.h>
-#include <FDSP_ConfigPathResp.h>
-#include <FDSP_ControlPathReq.h>  
-#include <FDSP_MetaDataPathReq.h>
-#include <FDSP_SessionReq.h>
-#include <FDSP_DataPathReq.h>
+#ifndef __NET_SESS_RESP_SVR_H__
+#define __NET_SESS_RESP_SVR_H__
+#include "fdsp/FDSP_ConfigPathReq.h"
+#include "fdsp/FDSP_constants.h"
+#include "fdsp/FDSP_ControlPathResp.h"
+#include "fdsp/FDSP_DataPathResp.h"
+#include "fdsp/FDSP_MetaDataPathResp.h"
+#include "fdsp/FDSP_types.h"
+#include "fdsp/FDSP_ControlPathReq.h"
+#include "fdsp/FDSP_MetaDataPathReq.h"
+#include "fdsp/FDSP_SessionReq.h"
+#include "fdsp/FDSP_DataPathReq.h"
+
+using namespace ::apache::thrift;
+using namespace ::apache::thrift::protocol;
+using namespace ::apache::thrift::transport;
+using namespace ::apache::thrift::server;
+using namespace ::apache::thrift::concurrency;
+
+using namespace FDS_ProtocolInterface;
+using namespace std;
+using namespace fds;
 
 class fdspDataPathRespReceiver: public Runnable {
 public:
@@ -153,3 +164,4 @@ public:
   boost::shared_ptr<TProcessor> processor_;
 };
 
+#endif
