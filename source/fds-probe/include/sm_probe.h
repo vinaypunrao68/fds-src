@@ -16,6 +16,7 @@ class SM_ProbeMod : public ProbeMod
         : ProbeMod(name, param, owner) {}
     virtual ~SM_ProbeMod() {}
 
+    ProbeMod *pr_new_instance();
     void pr_intercept_request(ProbeRequest *req);
     void pr_put(ProbeRequest *req);
     void pr_get(ProbeRequest *req);

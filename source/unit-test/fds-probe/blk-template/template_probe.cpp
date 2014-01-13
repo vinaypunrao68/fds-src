@@ -3,9 +3,8 @@
  *
  * Template to write probe adapter.  Replace XX with your namespace.
  */
-#include <XX_probe.h>
-
-using namespace std;
+#include <template_probe.h>
+#include <string>
 
 namespace fds {
 
@@ -18,13 +17,22 @@ probe_mod_param_t XX_probe_param =
 };
 
 XX_ProbeMod gl_XX_ProbeMod("XX Probe Adapter",
-                           XX_probe_param, nullptr);
+                           &XX_probe_param, nullptr);
+
+// pr_new_instance
+// ---------------
+//
+ProbeMod *
+XX_ProbeMod::pr_new_instance()
+{
+    return new XX_ProbeMod("XX Inst", &XX_probe_param, NULL);
+}
 
 // pr_intercept_request
 // --------------------
 //
 void
-XX_ProbeMod::pr_intercept_request(ProbeRequest &req)
+XX_ProbeMod::pr_intercept_request(ProbeRequest *req)
 {
 }
 
@@ -32,7 +40,7 @@ XX_ProbeMod::pr_intercept_request(ProbeRequest &req)
 // ------
 //
 void
-XX_ProbeMod::pr_put(ProbeRequest &probe)
+XX_ProbeMod::pr_put(ProbeRequest *probe)
 {
 }
 
@@ -40,7 +48,7 @@ XX_ProbeMod::pr_put(ProbeRequest &probe)
 // ------
 //
 void
-XX_ProbeMod::pr_get(ProbeRequest &req)
+XX_ProbeMod::pr_get(ProbeRequest *req)
 {
 }
 
@@ -48,7 +56,7 @@ XX_ProbeMod::pr_get(ProbeRequest &req)
 // ---------
 //
 void
-XX_ProbeMod::pr_delete(ProbeRequest &req)
+XX_ProbeMod::pr_delete(ProbeRequest *req)
 {
 }
 
@@ -56,7 +64,7 @@ XX_ProbeMod::pr_delete(ProbeRequest &req)
 // -----------------
 //
 void
-XX_ProbeMod::pr_verify_request(ProbeRequest &req)
+XX_ProbeMod::pr_verify_request(ProbeRequest *req)
 {
 }
 
@@ -64,7 +72,7 @@ XX_ProbeMod::pr_verify_request(ProbeRequest &req)
 // -------------
 //
 void
-XX_ProbeMod::pr_gen_report(std::string &out)
+XX_ProbeMod::pr_gen_report(std::string *out)
 {
 }
 
@@ -94,4 +102,4 @@ XX_ProbeMod::mod_shutdown()
 {
 }
 
-} // namespace fds
+}  // namespace fds
