@@ -9,12 +9,12 @@
 
 
 #include <list>
-#include "RPC_EndPoint.h"
 #include "StorHvDataPlace.h"
 #include <fds_err.h>
 #include <fds_types.h>
 
 /* TODO: Use API header in include directory. */
+#include "ubd.h"
 #include <lib/OMgrClient.h>
 #include "StorHvVolumes.h"
 #include "StorHvisorCPP.h" 
@@ -23,9 +23,15 @@
 #include "StorHvQosCtrl.h" 
 
 #include <fdsp/FDSP_DataPathReq.h>
-#include <fdsp/FDSP_MetaDataPathReq.h>
 #include <fdsp/FDSP_DataPathResp.h>
+#include <fdsp/FDSP_MetaDataPathReq.h>
 #include <fdsp/FDSP_MetaDataPathResp.h>
+#include <fdsp/FDSP_ControlPathReq.h>
+#include <fdsp/FDSP_ControlPathResp.h>
+#include <fdsp/FDSP_ConfigPathReq.h>
+
+
+//#include "NetSession.h"
 
 #include <map>
 // #include "util/concurrency/Thread.h"
@@ -84,7 +90,7 @@ public:
 };
 
 
-class FDSP_DataPathMetaDataPathRespCbackI : public FDSP_MetaDataPathRespIf
+class FDSP_MetaDataPathRespCbackI : public FDSP_MetaDataPathRespIf
 {
 public:
 
@@ -117,7 +123,8 @@ typedef unsigned char doid_t[20];
 
 /*************************************************************************** */
 
-class StorHvCtrl {
+class StorHvCtrl
+ {
 
 
 public:
@@ -141,15 +148,16 @@ public:
              SysParams *params,
              sh_comm_modes _mode,
              fds_uint32_t sm_port_num,
-             fds_uint32_t dm_port_num);
+             fds_uint32_t dm_port_num,
+	     std::string config_path);
   ~StorHvCtrl();	
   hv_create_blkdev cr_blkdev;
   hv_delete_blkdev del_blkdev;
   
   // Data Members
-  Ice::CommunicatorPtr _communicator;
+// SAN   Ice::CommunicatorPtr _communicator;
   StorHvDataPlacement        *dataPlacementTbl;
-  FDS_RPC_EndPointTbl        *rpcSwitchTbl; // RPC calls Switch Table
+// SAN   netSession		     *rpcSessionTbl; // RPC calls Switch Table
   StorHvVolumeTable          *vol_table;  
   fds::StorHvQosCtrl             *qos_ctrl; // Qos Controller object
   OMgrClient                 *om_client;
@@ -175,10 +183,10 @@ public:
   fds::Error getBucketResp(const FDSP_MsgHdrTypePtr& rxMsg,
 			   const FDSP_GetVolumeBlobListRespTypePtr& blobListResp);
 
-  static void bucketStatsRespHandler(const FDSP_MsgHdrTypePtr& rx_msg,
-				     const FDSP_BucketStatsRespTypePtr& buck_stats);
-  void getBucketStatsResp(const FDSP_MsgHdrTypePtr& rx_msg,
-			  const FDSP_BucketStatsRespTypePtr& buck_stats);
+  static void bucketStatsRespHandler(const FDSP_MsgHdrType& rx_msg,
+				     const FDSP_BucketStatsRespType& buck_stats);
+  void getBucketStatsResp(const FDSP_MsgHdrType& rx_msg,
+			  const FDSP_BucketStatsRespType& buck_stats);
 
   void  InitIceObjects();
   void InitDmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);

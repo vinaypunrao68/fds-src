@@ -14,12 +14,6 @@
  *                - dmt and dlt table  data structures amd API's 
  */
 
-#include <Ice/Ice.h>
-#include <fdsp/FDSP.h>
-#include <Ice/ObjectFactory.h>
-#include <Ice/BasicStream.h>
-#include <Ice/Object.h>
-#include <IceUtil/Iterator.h>
 #include "StorHvisorNet.h"
 
 #include <stdio.h>
@@ -40,7 +34,7 @@ void StorHvDataPlacement::nodeEventHandler(int node_id,
                                            FDS_ProtocolInterface::FDSP_MgrIdType node_type) {
   // int storMgrPortNum = 6901;
   // int dataMgrPortNum = 6900;
-  FDS_RPC_EndPoint *existing_ep;
+// SAN   FDS_RPC_EndPoint *existing_ep;
   fds_int32_t       exists;
     switch(node_state) { 
        case FDS_ProtocolInterface::FDS_Node_Up : 
@@ -53,29 +47,35 @@ void StorHvDataPlacement::nodeEventHandler(int node_id,
           * Check if we know about this node already
           */
 
+#if 0 //SAN 
          exists = storHvisor->rpcSwitchTbl->
              Get_RPC_EndPoint(node_ip_addr, node_port, node_type, &existing_ep);
          if (exists == 0) {
            FDS_PLOG(storHvisor->GetLog()) << "Node already exists. No need to add.";
            return;
          }
+#endif
          
          if (node_type == FDS_ProtocolInterface::FDSP_STOR_MGR) {
            // storHvisor->rpcSwitchTbl->Add_RPC_EndPoint(node_ip_addr, storMgrPortNum, FDSP_STOR_MGR);
            FDS_PLOG(storHvisor->GetLog()) << "Adding SM RPC endpoint";
+#if 0 //SAN 
            storHvisor->rpcSwitchTbl->
                Add_RPC_EndPoint(node_ip_addr,
                                 (fds_int32_t)node_port,
                                 storHvisor->my_node_name,
                                 FDS_ProtocolInterface::FDSP_STOR_MGR);
+#endif
          } else {
            assert(node_type == FDS_ProtocolInterface::FDSP_DATA_MGR);
            FDS_PLOG(storHvisor->GetLog()) << "Adding DM RPC endpoint";
+#if 0 //SAN  
            storHvisor->rpcSwitchTbl->
              Add_RPC_EndPoint(node_ip_addr,
                               (fds_int32_t)node_port,
                               storHvisor->my_node_name,
                               FDS_ProtocolInterface::FDSP_DATA_MGR); 
+#endif
          }
          FDS_PLOG(storHvisor->GetLog()) << "Added an endpoint";
 
@@ -84,8 +84,10 @@ void StorHvDataPlacement::nodeEventHandler(int node_id,
        case FDS_ProtocolInterface::FDS_Node_Down:
        case FDS_ProtocolInterface::FDS_Node_Rmvd:
          FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTbl - Node Down event NodeId :" << node_id << " node IP addr" << node_ip_addr ;
+#if 0 //SAN 
           storHvisor->rpcSwitchTbl->Delete_RPC_EndPoint(node_ip_addr,  FDSP_STOR_MGR);
           storHvisor->rpcSwitchTbl->Delete_RPC_EndPoint(node_ip_addr,  FDSP_DATA_MGR);
+#endif
 	break;
     }
 }

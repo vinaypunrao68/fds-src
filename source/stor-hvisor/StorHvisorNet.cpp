@@ -1,16 +1,11 @@
 #include <cstdarg>
-#include <Ice/Ice.h>
-#include <fdsp/FDSP.h>
-#include <Ice/ObjectFactory.h>
-#include <Ice/BasicStream.h>
-#include <Ice/Object.h>
-#include <IceUtil/Iterator.h>
-#include <IceUtil/CtrlCHandler.h>
 #include <fds_module.h>
 #include "StorHvisorNet.h"
-//#include "hvisor_lib.h"
+#include "hvisor_lib.h"
 #include "StorHvisorCPP.h"
 #include <hash/MurmurHash3.h>
+#include <fds_config.hpp>
+#include <fds_process.h>
 
 #define FDS_REPLICATION_FACTOR 2
 
@@ -19,8 +14,6 @@ StorHvCtrl *storHvisor;
 
 using namespace std;
 using namespace FDS_ProtocolInterface;
-using namespace Ice;
-using namespace IceUtil;
 
 /*
  * Globals being used for the unit test.
@@ -585,10 +578,6 @@ int unitTestFile(const char *inname, const char *outname, unsigned int base_vol_
 }
 
 
-void CreateStorHvisor(int argc, char *argv[], hv_create_blkdev cr_blkdev, hv_delete_blkdev del_blkdev)
-{
-  CreateSHMode(argc, argv, cr_blkdev, del_blkdev, false, 0, 0);
-}
 
 void CreateStorHvisorS3(int argc, char *argv[])
 {
@@ -607,11 +596,12 @@ void CreateSHMode(int argc,
   fds::Module *io_dm_vec[] = {
     nullptr
   };
+
   fds::ModuleVector  io_dm(argc, argv, io_dm_vec);
 
   if (test_mode == true) {
     storHvisor = new StorHvCtrl(argc, argv, io_dm.get_sys_params(),
-        StorHvCtrl::TEST_BOTH, sm_port, dm_port);
+        StorHvCtrl::TEST_BOTH, sm_port, dm_port,"fds.conf");
   } else {
     storHvisor = new StorHvCtrl(argc, argv, io_dm.get_sys_params(),
         StorHvCtrl::NORMAL);
@@ -625,7 +615,6 @@ void CreateSHMode(int argc,
    * Appropriate callbacks were setup by data placement and volume table objects  
    */
   storHvisor->StartOmClient();
-  // storHvisor->om_client->registerNodeWithOM();
   storHvisor->qos_ctrl->runScheduler();
 
   FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification) << "StorHvisorNet - Created storHvisor " << storHvisor;
@@ -640,7 +629,7 @@ void DeleteStorHvisor()
 void ctrlCCallbackHandler(int signal)
 {
   FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification) << "StorHvisorNet -  Received Ctrl C " << signal;
-  storHvisor->_communicator->shutdown();
+// SAN   storHvisor->_communicator->shutdown();
   DeleteStorHvisor();
 }
 
@@ -651,14 +640,17 @@ StorHvCtrl::StorHvCtrl(int argc,
                        SysParams *params,
                        sh_comm_modes _mode,
                        fds_uint32_t sm_port_num,
-                       fds_uint32_t dm_port_num)
-  : mode(_mode) {
+                       fds_uint32_t dm_port_num,
+		       std::string config_path)
+  : mode(_mode) { 
   std::string  omIpStr;
   fds_uint32_t omConfigPort;
   std::string node_name = "localhost-sh";
+  boost::shared_ptr<FdsConfig> config (new FdsConfig(config_path));
 
   omConfigPort = 0;
 
+   
   /*
    * Parse out cmdline options here.
    * TODO: We're parsing some options here and
@@ -743,21 +735,16 @@ StorHvCtrl::StorHvCtrl(int argc,
     FDS_PLOG_SEV(sh_log, fds::fds_log::error) << "StorHvisorNet - Failed to create OMgrClient, will not receive any OM events";
   }
 
-  Ice::InitializationData initData;
-  initData.properties = Ice::createProperties();
-  initData.properties->load("fds.conf");
-  _communicator = Ice::initialize(argc, argv, initData);
-  Ice::PropertiesPtr props = _communicator->getProperties();
 
   /* register handlers for receiving responses to admin requests */
-  om_client->registerBucketStatsCmdHandler(bucketStatsRespHandler);
+// SAN   om_client->registerBucketStatsCmdHandler(bucketStatsRespHandler);
 
   /*  Create the QOS Controller object */ 
   qos_ctrl = new StorHvQosCtrl(50, fds::FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET, sh_log);
   om_client->registerThrottleCmdHandler(StorHvQosCtrl::throttleCmdHandler);
   qos_ctrl->registerOmClient(om_client); /* so it will start periodically pushing perfstats to OM */
 
-  rpcSwitchTbl = new FDS_RPC_EndPointTbl(_communicator);
+// SAN   rpcSessionTbl = new netSession();
 
   /* TODO: for now StorHvVolumeTable constructor will create 
    * volume 1, revisit this soon when we add multi-volume support
@@ -768,9 +755,6 @@ StorHvCtrl::StorHvCtrl(int argc,
   /*
    * Set basic thread properties.
    */
-  props->setProperty("StorHvisorClient.ThreadPool.Size", "100");
-  props->setProperty("StorHvisorClient.ThreadPool.SizeMax", "200");
-  props->setProperty("StorHvisorClient.ThreadPool.SizeWarn", "100");
 
   FDS_PLOG(sh_log) << "StorHvisorNet - StorHvCtrl basic infra init successfull ";
   
@@ -794,20 +778,20 @@ StorHvCtrl::StorHvCtrl(int argc,
     if (dm_port_num != 0) {
       dataMgrPortNum = dm_port_num;
     } else {
-      dataMgrPortNum = props->getPropertyAsInt("DataMgr.PortNumber");
+      dataMgrPortNum = config->get<int>("fds.dm.PortNumber");
     }
-    dataMgrIPAddress = props->getProperty("DataMgr.IPAddress");
-    rpcSwitchTbl->Add_RPC_EndPoint(dataMgrIPAddress, dataMgrPortNum, my_node_name, FDSP_DATA_MGR);
+    dataMgrIPAddress = config->get<string>("fds.dm.IPAddress");
+//    rpcSwitchTbl->Add_RPC_EndPoint(dataMgrIPAddress, dataMgrPortNum, my_node_name, FDSP_DATA_MGR);
   }
   if ((mode == STOR_MGR_TEST) ||
       (mode == TEST_BOTH)) {
     if (sm_port_num != 0) {
       storMgrPortNum = sm_port_num;
     } else {
-      storMgrPortNum  = props->getPropertyAsInt("ObjectStorMgrSvr.PortNumber");
+      storMgrPortNum  = config->get<int>("fds.sm.PortNumber");
     }
-    storMgrIPAddress  = props->getProperty("ObjectStorMgrSvr.IPAddress");
-    rpcSwitchTbl->Add_RPC_EndPoint(storMgrIPAddress, storMgrPortNum, my_node_name, FDSP_STOR_MGR);
+    storMgrIPAddress  = config->get<string>("fds.sm.IPAddress");
+//    rpcSwitchTbl->Add_RPC_EndPoint(storMgrIPAddress, storMgrPortNum, my_node_name, FDSP_STOR_MGR);
   }
   
   if ((mode == DATA_MGR_TEST) ||
@@ -815,14 +799,16 @@ StorHvCtrl::StorHvCtrl(int argc,
     /*
      * TODO: Currently we always add the DM IP in the DM and BOTH test modes.
      */
-    fds_uint32_t ip_num = FDS_RPC_EndPoint::ipString2Addr(dataMgrIPAddress);
+    fds_uint32_t ip_num;
+// SAN    ip_num  = FDS_RPC_EndPoint::ipString2Addr(dataMgrIPAddress);
     dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NO_OM_MODE,
                                                 ip_num,
                                                 storMgrPortNum,
                                                 dataMgrPortNum,
                                                 om_client);
   } else if (mode == STOR_MGR_TEST) {
-    fds_uint32_t ip_num = FDS_RPC_EndPoint::ipString2Addr(storMgrIPAddress);
+    fds_uint32_t ip_num;
+// SAN    ip_num = FDS_RPC_EndPoint::ipString2Addr(storMgrIPAddress);
     dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NO_OM_MODE,
                                                 ip_num,
                                                 storMgrPortNum,
@@ -834,29 +820,13 @@ StorHvCtrl::StorHvCtrl(int argc,
                                                 om_client);
   }
 
-  /*
-   * Only create a ctrl-c handler in normal mode since
-   * a test mode may define its own handler (via ICE) or
-   * just finish to the end without needing ctrl-c.
-   */
-#if 0
-  if (mode == NORMAL) {
-    shCtrlHandler = new IceUtil::CtrlCHandler();
-    try {
-      shCtrlHandler->setCallback(ctrlCCallbackHandler);
-    } catch (const CtrlCHandlerException&) {
-      assert(0);
-    }
-  }
-#endif
-
 }
 
 /*
  * Constructor uses comm with DM and SM if no mode provided.
  */
 StorHvCtrl::StorHvCtrl(int argc, char *argv[], SysParams *params)
-    : StorHvCtrl(argc, argv, params, NORMAL, 0, 0) {
+    : StorHvCtrl(argc, argv, params, NORMAL, 0, 0, "") {
 
 }
 
@@ -864,7 +834,7 @@ StorHvCtrl::StorHvCtrl(int argc,
                        char *argv[],
                        SysParams *params,
                        sh_comm_modes _mode)
-    : StorHvCtrl(argc, argv, params, _mode, 0, 0) {
+    : StorHvCtrl(argc, argv, params, _mode, 0, 0, "") {
 }
 
 StorHvCtrl::~StorHvCtrl()
@@ -992,20 +962,20 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
                       &objId);
   blobReq->setObjId(objId);
 
-  FDSP_MsgHdrTypePtr msgHdrSm = new FDSP_MsgHdrType;
-  FDSP_MsgHdrTypePtr msgHdrDm = new FDSP_MsgHdrType;
+  FDSP_MsgHdrTypePtr msgHdrSm(new FDSP_MsgHdrType);
+  FDSP_MsgHdrTypePtr msgHdrDm(new FDSP_MsgHdrType);
   msgHdrSm->glob_volume_id    = volId;
   msgHdrDm->glob_volume_id    = volId;
 
   /*
    * Setup network put object & catalog request
    */
-  FDSP_PutObjTypePtr put_obj_req = new FDSP_PutObjType;
+  FDSP_PutObjTypePtr put_obj_req(new FDSP_PutObjType);
   put_obj_req->data_obj = std::string((const char *)blobReq->getDataBuf(),
                                       (size_t )blobReq->getDataLen());
   put_obj_req->data_obj_len = blobReq->getDataLen();
 
-  FDSP_UpdateCatalogTypePtr upd_obj_req = new FDSP_UpdateCatalogType;
+  FDSP_UpdateCatalogTypePtr upd_obj_req(new FDSP_UpdateCatalogType);
   upd_obj_req->obj_list.clear();
 
   FDS_ProtocolInterface::FDSP_BlobObjectInfo upd_obj_info;
@@ -1076,14 +1046,13 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
     journEntry->num_sm_nodes     = numNodes;
 
     // Call Put object RPC to SM
+#if 0 // SAN
     FDS_RPC_EndPoint *endPoint = NULL;
-    rpcSwitchTbl->Get_RPC_EndPoint(node_ip,
-                                   node_port,
-                                   FDSP_STOR_MGR,
-                                   &endPoint);
+    rpcSwitchTbl->Get_RPC_EndPoint(node_ip, node_port, FDSP_STOR_MGR, &endPoint);
     fds_verify(endPoint != NULL);
 
-    endPoint->fdspDPAPI->begin_PutObject(msgHdrSm, put_obj_req);
+    endPoint->fdspDPAPI->PutObject(msgHdrSm, put_obj_req);
+#endif
     FDS_PLOG_SEV(sh_log, fds::fds_log::normal) << "For transaction " << transId
 					       << " sent async PUT_OBJ_REQ to SM ip "
 					       << node_ip << " port " << node_port;
@@ -1126,14 +1095,13 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
     journEntry->num_dm_nodes            = numNodes;
     
     // Call Update Catalog RPC call to DM
+#if 0 //SAN
     FDS_RPC_EndPoint *endPoint = NULL;
-    rpcSwitchTbl->Get_RPC_EndPoint(node_ip,
-                                   node_port,
-                                   FDSP_DATA_MGR,
-                                   &endPoint);
+    rpcSwitchTbl->Get_RPC_EndPoint(node_ip, node_port, FDSP_DATA_MGR, &endPoint);
     fds_verify(endPoint != NULL);
 
-    endPoint->fdspDPAPI->begin_UpdateCatalogObject(msgHdrDm, upd_obj_req);
+    endPoint->fdspDPAPI->UpdateCatalogObject(msgHdrDm, upd_obj_req);
+#endif
     FDS_PLOG_SEV(sh_log, fds::fds_log::normal) << "For transaction " << transId
 					       << " sent async UP_CAT_REQ to DM ip "
 					       << node_ip << " port " << node_port;
@@ -1372,7 +1340,8 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
   /*
    * Setup msg header
    */
-  FDSP_MsgHdrTypePtr msgHdr = new FDSP_MsgHdrType;
+//  FDSP_MsgHdrTypePtr msgHdr = new FDSP_MsgHdrType;
+  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr(new FDSP_MsgHdrType);
   InitSmMsgHdr(msgHdr);
   msgHdr->msg_code       = FDSP_MSG_GET_OBJ_REQ;
   msgHdr->msg_id         =  1;
@@ -1423,7 +1392,7 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
   journEntry->data_obj_id.hash_high = objId.GetHigh();
   journEntry->data_obj_id.hash_low  = objId.GetLow();
 
-  FDSP_GetObjTypePtr get_obj_req     = new FDSP_GetObjType;
+  FDSP_GetObjTypePtr get_obj_req(new FDSP_GetObjType);
   get_obj_req->data_obj_id.hash_high = objId.GetHigh();
   get_obj_req->data_obj_id.hash_low  = objId.GetLow();
   get_obj_req->data_obj_len          = blobReq->getDataLen();
@@ -1456,15 +1425,14 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
   msgHdr->dst_ip_lo_addr = node_ip;
   msgHdr->dst_port       = node_port;
 
+#if 0 //SAN
   FDS_RPC_EndPoint *endPoint = NULL; 
-  rpcSwitchTbl->Get_RPC_EndPoint(node_ip,
-                                 node_port,
-                                 FDSP_STOR_MGR,
-                                 &endPoint);
+  rpcSwitchTbl->Get_RPC_EndPoint(node_ip, node_port, FDSP_STOR_MGR, &endPoint);
   fds_verify(endPoint != NULL);
 
   // RPC getObject to StorMgr
-  endPoint->fdspDPAPI->begin_GetObject(msgHdr, get_obj_req);
+  endPoint->fdspDPAPI->GetObject(msgHdr, get_obj_req);
+#endif
   FDS_PLOG_SEV(sh_log, fds::fds_log::normal) << "For trans " << transId
 					     << " sent async GetObj req to SM";
   
@@ -1559,7 +1527,7 @@ fds::Error StorHvCtrl::getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
 
 *****************************************************************************/
 fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
-  FDS_RPC_EndPoint *endPoint = NULL; 
+// SAN   FDS_RPC_EndPoint *endPoint = NULL; 
   unsigned int node_ip = 0;
   fds_uint32_t node_port = 0;
   unsigned int doid_dlt_key=0;
@@ -1613,8 +1581,8 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
 
   FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << transId << " volID:" << vol_id << " - Activated txn for req :" << transId;
   
-  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr = new FDSP_MsgHdrType;
-  FDS_ProtocolInterface::FDSP_DeleteObjTypePtr del_obj_req = new FDSP_DeleteObjType;
+  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr(new FDSP_MsgHdrType);
+  FDS_ProtocolInterface::FDSP_DeleteObjTypePtr del_obj_req(new FDSP_DeleteObjType);
   
   storHvisor->InitSmMsgHdr(fdsp_msg_hdr);
   fdsp_msg_hdr->msg_code = FDSP_MSG_DELETE_OBJ_REQ;
@@ -1695,23 +1663,20 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   
   // *****CAVEAT: Modification reqd
   // ******  Need to find out which is the primary SM and send this out to that SM. ********
-  storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip,
-                                             node_port,
-                                             FDSP_STOR_MGR,
-                                             &endPoint);
+//  storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip, node_port, FDSP_STOR_MGR, &endPoint);
   
   // RPC Call DeleteObject to StorMgr
   journEntry->trans_state = FDS_TRANS_DEL_OBJ;
-  if (endPoint)
-  { 
-    endPoint->fdspDPAPI->begin_DeleteObject(fdsp_msg_hdr, del_obj_req);
-    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:" << transId << " volID:" << vol_id << " - Sent async DelObj req to SM";
-  }
+//  if (endPoint)
+//  { 
+//    endPoint->fdspDPAPI->DeleteObject(fdsp_msg_hdr, del_obj_req);
+//    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:" << transId << " volID:" << vol_id << " - Sent async DelObj req to SM";
+//  }
   
   // RPC Call DeleteCatalogObject to DataMgr
-  FDS_ProtocolInterface::FDSP_DeleteCatalogTypePtr del_cat_obj_req = new FDSP_DeleteCatalogType;
+  FDS_ProtocolInterface::FDSP_DeleteCatalogTypePtr del_cat_obj_req(new FDSP_DeleteCatalogType);
   num_nodes = FDS_REPLICATION_FACTOR;
-  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr_dm = new FDSP_MsgHdrType;
+  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr_dm(new FDSP_MsgHdrType);
   storHvisor->InitDmMsgHdr(fdsp_msg_hdr_dm);
   fdsp_msg_hdr_dm->msg_code = FDSP_MSG_DELETE_CAT_OBJ_REQ;
   fdsp_msg_hdr_dm->glob_volume_id = vol_id;
@@ -1740,18 +1705,20 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
     journEntry->num_dm_nodes = num_nodes;
     del_cat_obj_req->blob_name = blobReq->getBlobName();
     
+#if 0 //SAN
     // Call Update Catalog RPC call to DM
     storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip,
                                                node_port,
                                                FDSP_DATA_MGR,
                                                &endPoint);
     if (endPoint){
-      endPoint->fdspDPAPI->begin_DeleteCatalogObject(fdsp_msg_hdr_dm, del_cat_obj_req);
+      endPoint->fdspDPAPI->DeleteCatalogObject(fdsp_msg_hdr_dm, del_cat_obj_req);
       FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:"
                                      << transId << " volID:" << vol_id
                                      << " - Sent async DELETE_CAT_OBJ_REQ request to DM at "
                                      <<  node_ip << " port " << node_port;
     }
+#endif
   }
   // Schedule a timer here to track the responses and the original request
   IceUtil::Time interval = IceUtil::Time::seconds(FDS_IO_LONG_TIME);
@@ -1764,7 +1731,7 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
 
 fds::Error StorHvCtrl::listBucket(fds::AmQosReq *qosReq) {
   fds::Error err(ERR_OK);
-  FDS_RPC_EndPoint *endPoint = NULL; 
+// SAN   FDS_RPC_EndPoint *endPoint = NULL; 
   unsigned int node_ip = 0;
   fds_uint32_t node_port = 0;
   int node_state = -1;
@@ -1829,7 +1796,7 @@ fds::Error StorHvCtrl::listBucket(fds::AmQosReq *qosReq) {
   fds_int32_t node_ids[num_nodes];  // TODO: Doesn't need to be signed
   memset(node_ids, 0x00, sizeof(fds_int32_t) * num_nodes);
 
-  FDSP_MsgHdrTypePtr msgHdr = new FDSP_MsgHdrType;
+  FDSP_MsgHdrTypePtr msgHdr(new FDSP_MsgHdrType);
   InitDmMsgHdr(msgHdr);
   msgHdr->msg_code       = FDSP_MSG_GET_VOL_BLOB_LIST_REQ;
   msgHdr->msg_id         =  1;
@@ -1865,8 +1832,8 @@ fds::Error StorHvCtrl::listBucket(fds::AmQosReq *qosReq) {
   }
 
   /* getting from first DM in the list */
-  FDS_ProtocolInterface::FDSP_GetVolumeBlobListReqTypePtr get_bucket_list_req = 
-    new FDS_ProtocolInterface::FDSP_GetVolumeBlobListReqType;
+  FDS_ProtocolInterface::FDSP_GetVolumeBlobListReqTypePtr get_bucket_list_req
+    (new FDS_ProtocolInterface::FDSP_GetVolumeBlobListReqType);
 
   node_ip = 0;
   node_port = 0;
@@ -1882,6 +1849,7 @@ fds::Error StorHvCtrl::listBucket(fds::AmQosReq *qosReq) {
   get_bucket_list_req->max_blobs_to_return = static_cast<ListBucketReq*>(blobReq)->maxkeys;
   get_bucket_list_req->iterator_cookie = static_cast<ListBucketReq*>(blobReq)->iter_cookie;
 
+#if 0 //SAN
   // Call Get Volume Blob List to DM
   rpcSwitchTbl->Get_RPC_EndPoint(node_ip,
 				 node_port,
@@ -1890,7 +1858,8 @@ fds::Error StorHvCtrl::listBucket(fds::AmQosReq *qosReq) {
 
   fds_verify(endPoint != NULL);
 
-  endPoint->fdspDPAPI->begin_GetVolumeBlobList(msgHdr, get_bucket_list_req);
+  endPoint->fdspDPAPI->GetVolumeBlobList(msgHdr, get_bucket_list_req);
+#endif
   FDS_PLOG(GetLog()) << " StorHvisorTx:" << "IO-XID:"
 		     << transId << " volID:" << volId
 		     << " - Sent async GET_VOL_BLOB_LIST_REQ request to DM at "
@@ -2093,17 +2062,17 @@ fds::Error StorHvCtrl::getBucketStats(fds::AmQosReq *qosReq) {
   return err;
 }
 
-void StorHvCtrl::bucketStatsRespHandler(const FDSP_MsgHdrTypePtr& rx_msg,
-					const FDSP_BucketStatsRespTypePtr& buck_stats) {
+void StorHvCtrl::bucketStatsRespHandler(const FDSP_MsgHdrType& rx_msg,
+					const FDSP_BucketStatsRespType& buck_stats) {
   storHvisor->getBucketStatsResp(rx_msg, buck_stats);
 }
 
-void StorHvCtrl::getBucketStatsResp(const FDSP_MsgHdrTypePtr& rx_msg,
-				    const FDSP_BucketStatsRespTypePtr& buck_stats)
+void StorHvCtrl::getBucketStatsResp(const FDSP_MsgHdrType& rx_msg,
+				    const FDSP_BucketStatsRespType& buck_stats)
 {
-  fds_uint32_t transId = rx_msg->req_cookie;
+  fds_uint32_t transId = rx_msg.req_cookie;
  
-  fds_verify(rx_msg->msg_code == FDS_ProtocolInterface::FDSP_MSG_GET_BUCKET_STATS_RSP);
+  fds_verify(rx_msg.msg_code == FDS_ProtocolInterface::FDSP_MSG_GET_BUCKET_STATS_RSP);
 
   StorHvVolume* vol = vol_table->getVolume(admin_vol_id);
   fds_verify(vol != NULL);  // admin vol must always exist
@@ -2127,33 +2096,33 @@ void StorHvCtrl::getBucketStatsResp(const FDSP_MsgHdrTypePtr& rx_msg,
   fds_verify(blobReq != NULL);
   fds_verify(blobReq->getIoType() == FDS_BUCKET_STATS);
   FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "Responding to getBucketStats trans " << transId
-						   << " number of buckets " << (buck_stats->bucket_stats_list).size()
-                                                   << " with result " << rx_msg->result;
+						   << " number of buckets " << (buck_stats.bucket_stats_list).size()
+                                                   << " with result " << rx_msg.result;
 
   /*
    * Mark the IO complete, clean up txn, and callback
    */
   qos_ctrl->markIODone(txn->io);
-  if (rx_msg->result == FDSP_ERR_OK) {
+  if (rx_msg.result == FDSP_ERR_OK) {
     BucketStatsContent* contents = NULL;
-    int count = (buck_stats->bucket_stats_list).size();
+    int count = (buck_stats.bucket_stats_list).size();
 
     if (count > 0) {
       contents = new BucketStatsContent[count];
       fds_verify(contents != NULL);
       for (int i = 0; i < count; ++i)
 	{
-	  contents[i].set((buck_stats->bucket_stats_list)[i]->vol_name,
-			  (buck_stats->bucket_stats_list)[i]->rel_prio,
-			  (buck_stats->bucket_stats_list)[i]->performance,
-			  (buck_stats->bucket_stats_list)[i]->sla,
-			  (buck_stats->bucket_stats_list)[i]->limit);
+	  contents[i].set((buck_stats.bucket_stats_list)[i].vol_name,
+			  (buck_stats.bucket_stats_list)[i].rel_prio,
+			  (buck_stats.bucket_stats_list)[i].performance,
+			  (buck_stats.bucket_stats_list)[i].sla,
+			  (buck_stats.bucket_stats_list)[i].limit);
 	}
     }
 
     /* call BucketStats callback directly */
     BucketStatsReq *stats_req = static_cast<BucketStatsReq*>(blobReq);
-    stats_req->DoCallback(buck_stats->timestamp, count, contents, FDSN_StatusOK, NULL);
+    stats_req->DoCallback(buck_stats.timestamp, count, contents, FDSN_StatusOK, NULL);
 
   } else {    
     /*
@@ -2189,7 +2158,8 @@ void StorHvCtrl::StartOmClient() {
   if (om_client) {
     om_client->startAcceptingControlMessages();
     FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "StorHvisorNet - Started accepting control messages from OM";
-    dInfo = new  FDSP_AnnounceDiskCapability();
+//    dInfo = new  FDSP_AnnounceDiskCapability();
+    dInfo.reset(new FDSP_AnnounceDiskCapability());
     dInfo->disk_iops_max =  10000; /* avarage IOPS */
     dInfo->disk_iops_min =  100; /* avarage IOPS */
     dInfo->disk_capacity = 100;  /* size in GB */

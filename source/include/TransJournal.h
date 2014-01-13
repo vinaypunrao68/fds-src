@@ -13,14 +13,12 @@
 using namespace FDS_ProtocolInterface;
 using namespace std;
 using namespace fds;
-using namespace Ice;
 
 namespace fds {
 
 template<typename KeyT, typename JEntryT>
 class TransJournal;
 
-using namespace IceUtil;
 
 template <typename JEntryT>
 class  TransJournalEntryLock {

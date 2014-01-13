@@ -1,9 +1,3 @@
-#include <Ice/Ice.h>
-#include <fdsp/FDSP.h>
-#include <Ice/ObjectFactory.h>
-#include <Ice/BasicStream.h>
-#include <Ice/Object.h>
-#include <IceUtil/Iterator.h>
 #include "list.h"
 #include "StorHvisorNet.h"
 #include "StorHvisorCPP.h"
@@ -12,12 +6,9 @@
 #include "qos_ctrl.h"
 #include <hash/MurmurHash3.h>
 #include <arpa/inet.h>
-//#include "tapdisk.h"
 
 using namespace std;
 using namespace FDS_ProtocolInterface;
-using namespace Ice;
-using namespace IceUtil;
 using namespace fds;
 
 extern StorHvCtrl *storHvisor;
@@ -36,7 +27,7 @@ int StorHvisorProcIoRd(void *_io)
  blkdev_complete_req_cb_t comp_req = io->comp_req; 
  void *arg1 = ((fbd_request *)io->fbd_req)->vbd; 
  void *arg2 = ((fbd_request *)io->fbd_req)->vReq;
-  FDS_RPC_EndPoint *endPoint = NULL; 
+// SAN   FDS_RPC_EndPoint *endPoint = NULL; 
   unsigned int node_ip = 0;
   fds_uint32_t node_port = 0;
   unsigned int doid_dlt_key=0;
@@ -93,8 +84,8 @@ int StorHvisorProcIoRd(void *_io)
 
   FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Activated txn for req :" << io->io_req_id;
   
-  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr = new FDSP_MsgHdrType;
-  FDS_ProtocolInterface::FDSP_GetObjTypePtr get_obj_req = new FDSP_GetObjType;
+  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr(new FDSP_MsgHdrType);
+  FDS_ProtocolInterface::FDSP_GetObjTypePtr get_obj_req(new FDSP_GetObjType);
   
   storHvisor->InitSmMsgHdr(fdsp_msg_hdr);
   fdsp_msg_hdr->msg_code = FDSP_MSG_GET_OBJ_REQ;
@@ -169,6 +160,7 @@ int StorHvisorProcIoRd(void *_io)
   fdsp_msg_hdr->dst_ip_lo_addr = node_ip;
   fdsp_msg_hdr->dst_port       = node_port;
   
+#if 0  //SAN 
   // *****CAVEAT: Modification reqd
   // ******  Need to find out which is the primary SM and send this out to that SM. ********
   storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip,
@@ -180,9 +172,10 @@ int StorHvisorProcIoRd(void *_io)
   journEntry->trans_state = FDS_TRANS_GET_OBJ;
   if (endPoint)
   { 
-    endPoint->fdspDPAPI->begin_GetObject(fdsp_msg_hdr, get_obj_req);
+    endPoint->fdspDPAPI->GetObject(fdsp_msg_hdr, get_obj_req);
     FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Sent async GetObj req to SM";
   }
+#endif
   
   // Schedule a timer here to track the responses and the original request
   IceUtil::Time interval = IceUtil::Time::seconds(FDS_IO_LONG_TIME);
@@ -208,7 +201,7 @@ int StorHvisorProcIoWr(void *_io)
   ObjectID  objID;
   unsigned char doid_dlt_key;
   int num_nodes=8;
-  FDS_RPC_EndPoint *endPoint = NULL;
+// SAN   FDS_RPC_EndPoint *endPoint = NULL;
   int node_ids[8];
   fds_uint32_t node_ip = 0;
   fds_uint32_t node_port = 0;
@@ -262,10 +255,10 @@ int StorHvisorProcIoWr(void *_io)
   
   journEntry->setActive();
   
-  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr = new FDSP_MsgHdrType;
-  FDS_ProtocolInterface::FDSP_PutObjTypePtr put_obj_req = new FDSP_PutObjType;
-  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr_dm = new FDSP_MsgHdrType;
-  FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr upd_obj_req = new FDSP_UpdateCatalogType;
+  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr(new FDSP_MsgHdrType);
+  FDS_ProtocolInterface::FDSP_PutObjTypePtr put_obj_req(new FDSP_PutObjType);
+  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr_dm(new FDSP_MsgHdrType);
+  FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr upd_obj_req(new FDSP_UpdateCatalogType);
   
   // Obtain MurmurHash on the data object
   MurmurHash3_x64_128(tmpbuf, data_size, 0, &objID );
@@ -338,18 +331,20 @@ int StorHvisorProcIoWr(void *_io)
     journEntry->sm_ack[i].ack_status = FDS_CLS_ACK;
     journEntry->num_sm_nodes = num_nodes;
 
+#if 0 //SAN 
     // Call Put object RPC to SM
     storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip,
                                                node_port,
                                                FDSP_STOR_MGR,
                                                &endPoint);
     if (endPoint) { 
-      endPoint->fdspDPAPI->begin_PutObject(fdsp_msg_hdr, put_obj_req);
+      endPoint->fdspDPAPI->PutObject(fdsp_msg_hdr, put_obj_req);
       FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:"
                                      << trans_id << " volID:" << vol_id
                                      << " -  Sent async PUT_OBJ_REQ request to SM at "
                                      << node_ip << " port " << node_port;
     }
+#endif 
   }
   
   // DMT lookup from the data placement object
@@ -383,18 +378,20 @@ int StorHvisorProcIoWr(void *_io)
     journEntry->dm_ack[i].commit_status = FDS_CLS_ACK;
     journEntry->num_dm_nodes = num_nodes;
     
+#if 0 //SAN 
     // Call Update Catalog RPC call to DM
     storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip,
                                                node_port,
                                                FDSP_DATA_MGR,
                                                &endPoint);
     if (endPoint){
-      endPoint->fdspDPAPI->begin_UpdateCatalogObject(fdsp_msg_hdr_dm, upd_obj_req);
+      endPoint->fdspDPAPI->UpdateCatalogObject(fdsp_msg_hdr_dm, upd_obj_req);
       FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:"
                                      << trans_id << " volID:" << vol_id
                                      << " - Sent async UPDATE_CAT_OBJ_REQ request to DM at "
                                      <<  node_ip << " port " << node_port;
     }
+#endif 
   }
   
   // Schedule a timer here to track the responses and the original request

@@ -1,16 +1,10 @@
 #include <stdexcept>
-
-#include <IceUtil/IceUtil.h>
-#include <Ice/Ice.h>
-
-#include <fdsp/FDSP.h>
 #include <fds_err.h>
 #include <fds_types.h>
 #include <StorHvisorNet.h>
 //#include "fds_client/include/ubd.h"
 #include "StorHvJournal.h"
 
-using namespace IceUtil;
 extern StorHvCtrl *storHvisor;
 namespace fds {
 
