@@ -2,14 +2,14 @@
     "Run-Setup": {
         "Threads": [
             {
-                "Name"           : "System",
+                "ID-Name"        : "System",
                 "tp-min-thr"     : 2,
                 "tp-max-thr"     : 10,
                 "tp-spawn-thres" : 10,
                 "tp-idle-seconds": 2
             },
             {
-                "Name"           : "Test",
+                "ID-Name"        : "Test",
                 "tp-min-thr"     : 2,
                 "tp-max-thr"     : 10,
                 "tp-spawn-thres" : 10,
@@ -18,65 +18,67 @@
         ],
         "Server": {
             "srv-port" : 8080
-        }
+        },
+        "Loads": [
+            {
+                "ID-Name"         : "Run",
+                "rt-loop"         : 1000,
+                "rt-concurrent"   : 100,
+                "rt-duration-sec" : 60
+            },
+            {
+                "ID-Name"         : "Idle",
+                "rt-duration-sec" : 60
+            }
+        ],
     },
-    "Run-Loads": [
-        {
-            "Name"            : "Run",
-            "rt-loop"         : 1000,
-            "rt-conncurent"   : 100,
-            "rt-duration-sec" : 60
-        },
-        {
-            "Name"            : "Idle",
-            "rt-duration-sec" : 60
-        }
-    ],
-    "Run-Server-In-Data": [
-        [ "open",  "/dev/null" ],
-        [ "creat", "/tmp/" ],
-        [ "time" ]
-    ],
-    "Run-Client-In-Data": [
-        {
-            "Name"        : "Example-script",
-            "Script"      : "/bin/yes",
-            "Script-Args" : "abc",
-            "cache-output": true
-        },
-        {
-            "Name"        : "Sleep",
-            "Script"      : "sleep",
-            "Script-Args" : "10"
-        }
-    ],
+    "Run-Input": {
+        "Server-Load": [
+            [ "open",  "/dev/null" ],
+            [ "creat", "/tmp/" ],
+            [ "time" ]
+        ],
+        "Client-Load": [
+            {
+                "ID-Name"     : "Example-script",
+                "Script"      : "/bin/yes",
+                "Script-Args" : "abc",
+                "cache-output": true
+            },
+            {
+                "ID-Name"     : "Sleep",
+                "Script"      : "sleep",
+                "Script-Args" : "10"
+            }
+        ],
+    },
     "Run-Resources": [
         {
-            "Name"        : "Memory"
+            "ID-Name"     : "Memory"
         },
         {
-            "Name"        : "CPU"
+            "ID-Name"     : "CPU"
         },
         {
-            "Name"        : "Net-bandwidth"
+            "ID-Name"     : "Net-bandwidth"
         }
     ],
     "Run-Config": [
         {
-            "Name" : "Syscall",
-            "Comp" : [
-                "System", "Run", "Run-Server-In-Data", "Memory"
+            "ID-Name" : "Syscall",
+            "Comp"    : [
+                "System", "Run", "Server-Load", "Memory"
             ]
         },
         {
-            "Name" : "Ext-script",
-            "Comp" : [
-                "Test", "Run", "Run-Client-In-Data"
+            "ID-Name" : "Ext-script",
+            "Comp"    : [
+                "Test", "Run", "Client-Load"
             ]
         },
         {
-            "Name" : "Ext-IDLE",
-            "Comp" : [
+            "ID-Name" : "Ext-IDLE",
+            "Comp"    : [
                 "Idle", "Sleep"
             ]
         }

@@ -5,6 +5,7 @@
 #include <util/fds_stat.h>
 #include <am-plugin.h>
 #include <fds_assert.h>
+#include <utest-types.h>
 
 extern "C" {
 #include <ngx_config.h>
@@ -28,6 +29,11 @@ ProbeS3Eng::ProbeS3Eng(char const *const name) : AMEngine_S3(name)
 {
     probe_s3 = new ProbeS3(name, &s3_probe_param, NULL);
     probe_s3->pr_create_thrpool(-1, 10, 10, 10, 10);
+
+    probe_rt = new JsObjManager();
+    probe_rt->js_register_template(new UT_ThreadTempl(probe_rt));
+    probe_rt->js_register_template(new UT_ServerTempl(probe_rt));
+    probe_rt->js_register_template(new UT_LoadTempl(probe_rt));
 }
 
 ProbeS3Eng::~ProbeS3Eng()
@@ -38,7 +44,6 @@ ProbeS3Eng::~ProbeS3Eng()
 // ---------------------------------------------------------------------------
 // GetObject Probe
 // ---------------------------------------------------------------------------
-
 Probe_GetObject::Probe_GetObject(AMEngine *eng, AME_HttpReq *req)
     : S3_GetObject(eng, req), preq(NULL)
 {
@@ -142,7 +147,6 @@ Probe_GetObject::ame_request_handler()
 // ---------------------------------------------------------------------------
 // PutObject Probe
 // ---------------------------------------------------------------------------
-
 Probe_PutObject::Probe_PutObject(AMEngine *eng, AME_HttpReq *req)
     : S3_PutObject(eng, req), preq(NULL)
 {
@@ -212,6 +216,39 @@ Probe_PutObject::ame_request_handler()
     fds_verify(preq != nullptr);
     s3eng->probe_get_thrpool()->
         schedule(probe_obj_write, probe, preq, this, s3eng);
+}
+
+// ---------------------------------------------------------------------------
+// Probe PUT Bucket - used in control path.
+// ---------------------------------------------------------------------------
+Probe_PutBucket::Probe_PutBucket(AMEngine *eng, AME_HttpReq *req)
+    : S3_PutBucket(eng, req)
+{
+}
+
+Probe_PutBucket::~Probe_PutBucket()
+{
+}
+
+// Admin/control handler
+// ---------------------
+//
+int
+Probe_PutBucket::ame_request_resume()
+{
+    ame_finalize_response(ame_resp_status);
+    return NGX_DONE;
+}
+
+void
+Probe_PutBucket::ame_request_handler()
+{
+    int           len;
+    char         *buf;
+
+    buf = ame_reqt_iter_data(&len);
+
+    ame_signal_resume(NGX_HTTP_OK);
 }
 
 }   // namespace fds

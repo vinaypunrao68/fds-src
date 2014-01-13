@@ -6,6 +6,7 @@
 
 #include <string>
 #include <fds-probe/fds_probe.h>
+#include <fds-probe/js-object.h>
 #include <am-engine/s3connector.h>
 #include <concurrency/ThreadPool.h>
 
@@ -37,6 +38,19 @@ class Probe_PutObject : public S3_PutObject
     virtual int  ame_request_resume();
   protected:
     ProbeIORequest           *preq;
+};
+
+// Probe PUT Bucket to hookup control path to the probe.
+//
+class Probe_PutBucket : public S3_PutBucket
+{
+  public:
+    Probe_PutBucket(AMEngine *eng, AME_HttpReq *req);
+    ~Probe_PutBucket();
+
+    virtual void ame_request_handler();
+    virtual int  ame_request_resume();
+  protected:
 };
 
 // Doing this to avoid multiple inheritance.
@@ -101,13 +115,14 @@ class ProbeS3Eng : public AMEngine_S3
         return nullptr;
     }
     virtual Conn_PutBucket *ame_putbucket_hdler(AME_HttpReq *req) {
-        return nullptr;
+        return new Probe_PutBucket(this, req);
     }
     virtual Conn_DelBucket *ame_delbucker_hdler(AME_HttpReq *req) {
         return nullptr;
     }
   private:
     ProbeS3                  *probe_s3;
+    JsObjManager             *probe_rt;
 };
 
 extern ProbeS3Eng gl_probeS3Eng;
