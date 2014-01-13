@@ -176,7 +176,8 @@ namespace fds {
         /*
          * Cmdline configurables
          */
-        int port_num;
+        int conf_port_num; /* config port to listen for cli commands */
+        int ctrl_port_num; /* control port (register node + config cmds from AM) */
         std::string stor_prefix;
         fds_bool_t test_mode;
         
