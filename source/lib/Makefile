@@ -10,10 +10,11 @@ user_cpp         :=      \
     qos_htb.cpp          \
     fds_obj_cache.cpp	 \
     qos_min_prio.cpp     \
-    TransJournal.cpp     \
     PerfStats.cpp        \
     jsoncpp.cpp          \
     fds_process.cpp
+#    TransJournal.cpp     \
+
 
 user_incl_dir    := $(topdir)
 user_no_style    := \
