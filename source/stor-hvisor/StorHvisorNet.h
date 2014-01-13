@@ -155,7 +155,7 @@ public:
   hv_delete_blkdev del_blkdev;
   
   // Data Members
-  Ice::CommunicatorPtr _communicator;
+// SAN   Ice::CommunicatorPtr _communicator;
   StorHvDataPlacement        *dataPlacementTbl;
 // SAN   netSession		     *rpcSessionTbl; // RPC calls Switch Table
   StorHvVolumeTable          *vol_table;  

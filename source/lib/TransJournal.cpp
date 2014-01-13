@@ -1,14 +1,11 @@
 #include <stdexcept>
 
-#include <IceUtil/IceUtil.h>
-#include <Ice/Ice.h>
 
-#include <fdsp/FDSP.h>
+#include <fdsp/FDSP_types.h>
 #include <fds_err.h>
 #include <fds_types.h>
 #include <TransJournal.h>
 
-using namespace IceUtil;
 
 namespace fds {
 
