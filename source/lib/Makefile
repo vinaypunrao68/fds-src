@@ -5,6 +5,7 @@ user_cpp         :=      \
     PerfTrace.cpp        \
     Catalog.cpp          \
     VolumeCatalog.cpp    \
+    fds_timer.cpp        \
     OMgrClient.cpp       \
     QoSWFQDispatcher.cpp \
     qos_htb.cpp          \
@@ -13,7 +14,7 @@ user_cpp         :=      \
     TransJournal.cpp     \
     PerfStats.cpp        \
     jsoncpp.cpp          \
-    fds_process.cpp
+    fds_process.cpp      
 
 user_incl_dir    := $(topdir)
 user_no_style    := \
