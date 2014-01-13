@@ -14,6 +14,7 @@
 
 #include <util/Log.h>
 #include <fds_assert.h>
+#include <concurrency/Mutex.h>
 
 namespace fds
 {
@@ -30,14 +31,17 @@ public:
 
     virtual void runTimerTask() = 0;
 
-private:
+protected:
+    /* Lock for protecting scheduled variable */
+    fds_spinlock lock_;
+    /* Whether timer is scheduled or not */
+    bool scheduled_;
+    /* Timer object */
     boost::asio::steady_timer timer_;
     friend class FdsTimer;
 };
 
 typedef boost::shared_ptr<FdsTimerTask> FdsTimerTaskPtr;
-
-
 
 /**
  * The timer class is used to schedule tasks for one-time execution or
@@ -75,18 +79,7 @@ public:
     bool schedule(FdsTimerTaskPtr& task,
             const std::chrono::duration<Rep, Period>& time)
     {
-        std::size_t pending_cnt;
-        boost::system::error_code error;
-
-        pending_cnt = task->timer_.expires_from_now(time, error);
-        if (pending_cnt != 0 || error) {
-            FDS_PLOG_WARN(log_) << " Failed to schedule task. Error: " << error
-                    << " Pending cnt: " << pending_cnt;
-            return false;
-        }
-        task->timer_.async_wait(boost::bind(&FdsTimer::handler, this,
-                boost::asio::placeholders::error, task));
-        return true;
+        return schedule_internal(task, time, false);
     }
 
     /**
@@ -100,7 +93,7 @@ public:
     bool scheduleRepeated(FdsTimerTaskPtr& task,
             const std::chrono::duration<Rep, Period>& time)
     {
-        return false;
+        return schedule_internal(task, time, true);
     }
 
     /**
@@ -114,8 +107,60 @@ public:
 private:
     void start_io_service();
 
+    template<typename Rep, typename Period>
+    bool schedule_internal(FdsTimerTaskPtr& task,
+            const std::chrono::duration<Rep, Period>& time,
+            const bool& repeated)
+    {
+        {
+            fds_spinlock::scoped_lock l(task->lock_);
+            if (task->scheduled_) {
+                return false;
+            }
+            task->scheduled_ = true;
+        }
+
+        std::size_t pending_cnt;
+        boost::system::error_code error;
+
+        pending_cnt = task->timer_.expires_from_now(time, error);
+        if (pending_cnt != 0 || error) {
+            /* This really shouldn't happen */ 
+            fds_verify(!"Failed to schedule task");
+        }
+        task->timer_.async_wait(boost::bind(&FdsTimer::handler<Rep, Period>, this,
+                boost::asio::placeholders::error, task, repeated, time));
+        return true;
+    }
+
+    template<typename Rep, typename Period>
     void handler(const boost::system::error_code& error,
-            FdsTimerTaskPtr &task);
+            FdsTimerTaskPtr& task,
+            const bool& repeated,
+            const std::chrono::duration<Rep, Period>& time)
+    {
+        {
+            fds_spinlock::scoped_lock l(task->lock_);
+            if (!task->scheduled_) {
+                /* task has been cancelled.  Don't invoke the handler */
+                return;
+            }
+            task->scheduled_ = false;
+        }
+
+        if (error ==  boost::asio::error::operation_aborted) {
+            /* Handler isn't invoked for cancelled timers */
+            return;
+        } else if (error) {
+            FDS_PLOG_WARN(log_) << "Failed to invoked handler for task.  Error: " << error;
+            return;
+        }
+        task->runTimerTask();
+
+        if (repeated) {
+            scheduleRepeated(task, time);
+        }
+    }
 
     boost::shared_ptr<fds_log> log_;
     boost::asio::io_service io_service_;
