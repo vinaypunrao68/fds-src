@@ -43,14 +43,12 @@ public:
 using namespace FDS_ProtocolInterface;
 using namespace std;
 using namespace fds;
-using namespace Ice;
 
 namespace fds {
 
 class StorHvJournal;
 class StorHvJournalEntry;
 
-using namespace IceUtil;
 class StorHvIoTimerTask : public IceUtil::TimerTask {
 public:
  StorHvJournalEntry *jrnlEntry;

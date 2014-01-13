@@ -11,8 +11,6 @@
 #ifndef SOURCE_STOR_HVISOR_ICE_VOLUMECATALOGCACHE_H_
 #define SOURCE_STOR_HVISOR_ICE_VOLUMECATALOGCACHE_H_
 
-#include <Ice/Ice.h>
-#include <IceUtil/IceUtil.h>
 
 #include <unordered_map>
 #include <stdexcept>
@@ -20,7 +18,6 @@
 #include <fds_err.h>
 #include <fds_types.h>
 #include <fds_volume.h>
-#include <fdsp/FDSP.h>
 #include <util/Log.h>
 #include <concurrency/Mutex.h>
 #include <concurrency/RwLock.h>

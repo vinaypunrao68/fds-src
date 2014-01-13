@@ -1,9 +1,3 @@
-#include <Ice/Ice.h>
-#include <fdsp/FDSP.h>
-#include <Ice/ObjectFactory.h>
-#include <Ice/BasicStream.h>
-#include <Ice/Object.h>
-#include <IceUtil/Iterator.h>
 #include "StorHvisorNet.h"
 #include "list.h"
 #include "StorHvisorCPP.h"
@@ -11,7 +5,6 @@
 
 using namespace std;
 using namespace FDS_ProtocolInterface;
-using namespace Ice;
 #define SRC_IP  0x0a010a65
 
 extern StorHvCtrl *storHvisor;
@@ -282,7 +275,7 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
     upd_obj_info.data_obj_id.hash_low =  txn->data_obj_id.hash_low;
     upd_obj_info.size = 0; // TODO: fix this.
 
-    FDSP_UpdateCatalogTypePtr upd_obj_req = new FDSP_UpdateCatalogType;
+    FDSP_UpdateCatalogTypePtr upd_obj_req(new FDSP_UpdateCatalogType);
     upd_obj_req->dm_operation = FDS_DMGR_TXN_STATUS_COMMITED;
     upd_obj_req->dm_transaction_id = 1;
     upd_obj_req->obj_list.clear();
@@ -304,13 +297,15 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
 	  dmMsg->dst_ip_lo_addr = txn->dm_ack[node].ipAddr;
           dmMsg->dst_port = txn->dm_ack[node].port;
           
+#if 0 //SAN 
           FDS_RPC_EndPoint *endPoint = NULL;
           storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(txn->dm_ack[node].ipAddr,
                                                      txn->dm_ack[node].port,
                                                      FDSP_DATA_MGR,
                                                      &endPoint);
           fds_verify(endPoint != NULL);
-          endPoint->fdspDPAPI->begin_UpdateCatalogObject(dmMsg, upd_obj_req);
+          endPoint->fdspDPAPI->UpdateCatalogObject(dmMsg, upd_obj_req);
+#endif
           txn->dm_ack[node].commit_status = FDS_COMMIT_MSG_SENT;
           FDS_PLOG_SEV(sh_log, fds::fds_log::normal) << "For trans " << transId
                                                            << " sent UpdCatObjCommit req to DM ip "
@@ -326,8 +321,7 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
 
 
 void FDSP_DataPathRespCbackI::GetObjectResp(const FDSP_MsgHdrTypePtr& msghdr,
-                                            const FDSP_GetObjTypePtr& get_obj,
-                                            const Ice::Current&) {
+                                            const FDSP_GetObjTypePtr& get_obj) {
    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << msghdr->req_cookie << " - Received get obj response for txn  " <<  msghdr->req_cookie; 
    // storHvisor->fds_process_get_obj_resp(msghdr, get_obj);
    fds::Error err = storHvisor->getObjResp(msghdr, get_obj);
@@ -335,8 +329,7 @@ void FDSP_DataPathRespCbackI::GetObjectResp(const FDSP_MsgHdrTypePtr& msghdr,
 }
 
 void FDSP_DataPathRespCbackI::PutObjectResp(const FDSP_MsgHdrTypePtr& msghdr,
-                                            const FDSP_PutObjTypePtr& put_obj,
-                                            const Ice::Current&) {
+                                            const FDSP_PutObjTypePtr& put_obj) {
   FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::debug) << "Received putObjResp for txn "
                                                           << msghdr->req_cookie; 
    // storHvisor->fds_process_put_obj_resp(msghdr, put_obj);
@@ -344,9 +337,8 @@ void FDSP_DataPathRespCbackI::PutObjectResp(const FDSP_MsgHdrTypePtr& msghdr,
    fds_verify(err == ERR_OK);
 }
 
-void FDSP_DataPathRespCbackI::UpdateCatalogObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg,
-                                                      const FDSP_UpdateCatalogTypePtr& update_cat,
-                                                      const Ice::Current &) {
+void FDSP_MetaDataPathRespCbackI::UpdateCatalogObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg,
+                                                      const FDSP_UpdateCatalogTypePtr& update_cat) {
   FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::debug) << "Received updCatObjResp for txn "
                                                           <<  fdsp_msg->req_cookie; 
   // storHvisor->fds_process_update_catalog_resp(fdsp_msg, update_cat);
@@ -354,10 +346,9 @@ void FDSP_DataPathRespCbackI::UpdateCatalogObjectResp(const FDSP_MsgHdrTypePtr& 
   fds_verify(err == ERR_OK);
 }
 
-void FDSP_DataPathRespCbackI::DeleteCatalogObjectResp(
+void FDSP_MetaDataPathRespCbackI::DeleteCatalogObjectResp(
     const FDSP_MsgHdrTypePtr& fdsp_msg_hdr,
-    const FDSP_DeleteCatalogTypePtr& del_obj_req,
-    const Ice::Current &) {
+    const FDSP_DeleteCatalogTypePtr& del_obj_req) {
   FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::debug) << "Received deleteCatObjResp for txn "
                                                           <<  fdsp_msg_hdr->req_cookie; 
 
@@ -367,14 +358,12 @@ void FDSP_DataPathRespCbackI::DeleteCatalogObjectResp(
 
 void FDSP_DataPathRespCbackI::DeleteObjectResp(
     const FDSP_MsgHdrTypePtr& fdsp_msg_hdr,
-    const FDSP_DeleteObjTypePtr& cat_obj_req,
-    const Ice::Current &) {
+    const FDSP_DeleteObjTypePtr& cat_obj_req) {
 }
 
-void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
+void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
     const FDSP_MsgHdrTypePtr& fdsp_msg_hdr,
-    const FDSP_QueryCatalogTypePtr& cat_obj_req,
-    const Ice::Current &) {
+    const FDSP_QueryCatalogTypePtr& cat_obj_req) {
     int num_nodes=8;
     int node_ids[8];
     int node_state = -1;
@@ -382,7 +371,7 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
     fds_uint32_t node_port = 0;
     ObjectID obj_id;
     int doid_dlt_key;
-    FDS_RPC_EndPoint *endPoint = NULL;
+// SAN     FDS_RPC_EndPoint *endPoint = NULL;
     uint64_t doid_high;
     int trans_id = fdsp_msg_hdr->req_cookie;
     //fbd_request_t *req;
@@ -499,6 +488,7 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
                                               &node_ip,
                                               &node_port,
                                               &node_state);
+#if 0 //SAN 
        //
        // *****CAVEAT: Modification reqd
        // ******  Need to find out which is the primary SM and send this out to that SM. ********
@@ -506,6 +496,7 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
                                                   node_port,
                                                   FDSP_STOR_MGR,
                                                   &endPoint);
+#endif
     
        // RPC Call GetObject to StorMgr
        fdsp_msg_hdr->msg_code = FDSP_MSG_GET_OBJ_REQ;
@@ -515,15 +506,17 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
        fdsp_msg_hdr->dst_port = node_port;
        fdsp_msg_hdr->src_node_name = storHvisor->my_node_name;
        if ( journEntry->io->io_type == FDS_IO_READ || journEntry->io->io_type == FDS_GET_BLOB) { 
-         FDS_ProtocolInterface::FDSP_GetObjTypePtr get_obj_req = new FDSP_GetObjType;
+         FDS_ProtocolInterface::FDSP_GetObjTypePtr get_obj_req(new FDSP_GetObjType);
          get_obj_req->data_obj_id.hash_high = cat_obj_info.data_obj_id.hash_high;
          get_obj_req->data_obj_id.hash_low = cat_obj_info.data_obj_id.hash_low;
          get_obj_req->data_obj_len = journEntry->data_obj_len;
+#if 0 //SAN 
          if (endPoint) {
-           endPoint->fdspDPAPI->begin_GetObject(fdsp_msg_hdr, get_obj_req);
+           endPoint->fdspDPAPI->GetObject(fdsp_msg_hdr, get_obj_req);
            FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Sent Async getObj req to SM at " << node_ip ;
            journEntry->trans_state = FDS_TRANS_GET_OBJ;
          }
+#endif
          obj_id.SetId( cat_obj_info.data_obj_id.hash_high,cat_obj_info.data_obj_id.hash_low);
          /*
           * TODO: Don't just grab the hard coded first catalog object in the list.
@@ -534,19 +527,21 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
                                      cat_obj_info.offset,
                                      obj_id);
        } else if (journEntry->io->io_type == FDS_DELETE_BLOB) { 
-         FDS_ProtocolInterface::FDSP_DeleteObjTypePtr del_obj_req = new FDSP_DeleteObjType;
+         FDS_ProtocolInterface::FDSP_DeleteObjTypePtr del_obj_req(new FDSP_DeleteObjType);
          del_obj_req->data_obj_id.hash_high = cat_obj_info.data_obj_id.hash_high;
          del_obj_req->data_obj_id.hash_low = cat_obj_info.data_obj_id.hash_low;
          del_obj_req->data_obj_len = journEntry->data_obj_len;
+#if 0 //SAN 
          if (endPoint) {
-           endPoint->fdspDPAPI->begin_DeleteObject(fdsp_msg_hdr, del_obj_req);
+           endPoint->fdspDPAPI->DeleteObject(fdsp_msg_hdr, del_obj_req);
            FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Sent Async deleteObj req to SM at " << node_ip ;
            journEntry->trans_state = FDS_TRANS_DEL_OBJ;
          }
+#endif
          // RPC Call DeleteCatalogObject to DataMgr
-         FDS_ProtocolInterface::FDSP_DeleteCatalogTypePtr del_cat_obj_req = new FDSP_DeleteCatalogType;
+         FDS_ProtocolInterface::FDSP_DeleteCatalogTypePtr del_cat_obj_req(new FDSP_DeleteCatalogType);
          num_nodes = 8;
-         FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr_dm = new FDSP_MsgHdrType;
+         FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr_dm(new FDSP_MsgHdrType);
          storHvisor->InitDmMsgHdr(fdsp_msg_hdr_dm);
          fdsp_msg_hdr_dm->msg_code = FDSP_MSG_DELETE_CAT_OBJ_REQ;
          fdsp_msg_hdr_dm->req_cookie = trans_id;
@@ -569,18 +564,20 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
            fdsp_msg_hdr_dm->dst_port = node_port;
            del_cat_obj_req->blob_name = blobReq->getBlobName();
     
+#if 0  //SAN 
            // Call Update Catalog RPC call to DM
            storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip,
                                                node_port,
                                                FDSP_DATA_MGR,
                                                &endPoint);
            if (endPoint){
-             endPoint->fdspDPAPI->begin_DeleteCatalogObject(fdsp_msg_hdr_dm, del_cat_obj_req);
+             endPoint->fdspDPAPI->DeleteCatalogObject(fdsp_msg_hdr_dm, del_cat_obj_req);
              FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:"
                                      << trans_id << " volID:" << vol_id
                                      << " - Sent async DELETE_CAT_OBJ_REQ request to DM at "
                                      <<  node_ip << " port " << node_port;
            }
+#endif
          }
        }
 
@@ -588,10 +585,10 @@ void FDSP_DataPathRespCbackI::QueryCatalogObjectResp(
 }
 
 
-void FDSP_DataPathRespCbackI::GetVolumeBlobListResp(
+void FDSP_MetaDataPathRespCbackI::GetVolumeBlobListResp(
     const FDSP_MsgHdrTypePtr& fdsp_msg_hdr,
-    const FDSP_GetVolumeBlobListRespTypePtr& blob_list_resp,
-    const Ice::Current &) {
+    const FDSP_GetVolumeBlobListRespTypePtr& blob_list_resp
+    ) {
   FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::debug) << "Received GetVolumeBlobListResp for txn "
                                                           <<  fdsp_msg_hdr->req_cookie; 
   fds::Error err = storHvisor->getBucketResp(fdsp_msg_hdr, blob_list_resp);

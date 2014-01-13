@@ -6,8 +6,6 @@
 #include <persistent_layer/dm_io.h>
 #include <iostream>
 
-using namespace std;
-
 // This is the example of stand-alone SM unit test if SM code were structured
 // with FDS Module.
 //

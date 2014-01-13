@@ -1,0 +1,26 @@
+topdir            := $(probe_topdir)/../..
+user_target       := test
+user_rtime_env    := user
+
+user_incl_dir     += \
+    $(topdir)/fds-probe/include \
+    $(topdir)/am-engine
+
+user_cpp_flags    +=
+user_fds_so_libs  +=
+user_fds_ar_libs  +=  \
+    fds-probe-adapters \
+    fds-probe \
+    fds-probe-blk \
+    fds-lib \
+    fds-umod \
+    fds-util \
+    fds-thread
+
+user_non_fds_libs +=  \
+    boost_system \
+    boost_thread \
+    boost_program_options \
+    fuse
+
+include $(topdir)/Makefile.incl

@@ -2,9 +2,8 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 
-#include "stor_hvisor_ice/VolumeCatalogCache.h"
-
-#include "stor_hvisor_ice/StorHvisorNet.h"
+#include "VolumeCatalogCache.h"
+#include "StorHvisorNet.h"
 
 extern StorHvCtrl *storHvisor;
 
@@ -119,10 +118,10 @@ Error VolumeCatalogCache::queryDm(const std::string& blobName,
   /*
    * Construct the message to send to DM.
    */
-  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr =
-      new FDS_ProtocolInterface::FDSP_MsgHdrType;
-  FDS_ProtocolInterface::FDSP_QueryCatalogTypePtr query_req =
-      new FDS_ProtocolInterface::FDSP_QueryCatalogType;
+  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr
+      (new FDS_ProtocolInterface::FDSP_MsgHdrType);
+  FDS_ProtocolInterface::FDSP_QueryCatalogTypePtr query_req
+      (new FDS_ProtocolInterface::FDSP_QueryCatalogType);
 
   msg_hdr->glob_volume_id = vol_id;
   msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_QUERY_CAT_OBJ_REQ;
@@ -147,7 +146,7 @@ Error VolumeCatalogCache::queryDm(const std::string& blobName,
   /*
    * Locate a DM endpoint to try.
    */
-  FDS_RPC_EndPoint *endPoint = NULL;
+// SAN   FDS_RPC_EndPoint *endPoint = NULL;
   int node_ids[8];
   int num_nodes = 8;
   parent_sh->dataPlacementTbl->getDMTNodesForVolume(vol_id,
@@ -169,9 +168,11 @@ Error VolumeCatalogCache::queryDm(const std::string& blobName,
       return err;
     }
 
+#if 0 //SAN
     ret_code = parent_sh->rpcSwitchTbl->Get_RPC_EndPoint(node_ip,
                                                          FDSP_DATA_MGR,
                                                          &endPoint);
+#endif
     if (ret_code != 0) {
       FDS_PLOG(vcc_log) << "VolumeCatalogCache - "
                         << "Unable to get RPC endpoint for "
@@ -180,6 +181,7 @@ Error VolumeCatalogCache::queryDm(const std::string& blobName,
       return err;
     }
 
+#if 0 //SAN
     if (endPoint != NULL) {
       located_ep = true;
       /*
@@ -205,6 +207,7 @@ Error VolumeCatalogCache::queryDm(const std::string& blobName,
       }
       break;
     }
+#endif
   }
   if (located_ep == false) {
     FDS_PLOG(vcc_log) << " VolumeCatalogCache - "

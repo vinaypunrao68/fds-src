@@ -18,6 +18,15 @@ probe_mod_param_t sm_probe_param =
 SM_ProbeMod gl_SM_ProbeMod("SM Probe Adapter",
                            &sm_probe_param, nullptr);
 
+// pr_new_instance
+// ---------------
+//
+ProbeMod *
+SM_ProbeMod::pr_new_instance()
+{
+    return new SM_ProbeMod("SM Inst", &sm_probe_param, NULL);
+}
+
 // pr_intercept_request
 // --------------------
 //

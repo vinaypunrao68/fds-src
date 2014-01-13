@@ -46,6 +46,16 @@ PM_ProbeMod gl_PM_ProbeMod("PM Probe Adapter",
                            &pm_probe_param,
                            &diskio::gl_dataIOMod);
 
+// pr_new_instance
+// ---------------
+//
+ProbeMod *
+PM_ProbeMod::pr_new_instance()
+{
+    return new PM_ProbeMod("PM Inst",
+                           &pm_probe_param, &diskio::gl_dataIOMod);
+}
+
 // pr_intercept_request
 // --------------------
 //

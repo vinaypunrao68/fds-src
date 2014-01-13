@@ -9,7 +9,6 @@ user_incl_dir     := $(topdir) $(topdir)/fds_client/include $(topdir)/lib
 user_fds_ar_libs  := fds-umod 
 StorHvisor_cpp    :=                   \
     StorHvisorNet.cpp                  \
-    RPC_EndPoint.cpp                   \
     StorHvisorTx.cpp                   \
     StorHvisorTbl.cpp                  \
     StorHvisorRx.cpp                   \

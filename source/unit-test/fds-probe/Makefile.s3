@@ -1,0 +1,47 @@
+topdir            := $(probe_topdir)/../..
+user_target       := test
+user_rtime_env    := user
+
+user_incl_dir     += \
+    $(topdir)/fds-probe/include \
+    $(topdir)/am-engine
+
+user_cpp_flags    +=
+user_fds_so_libs  +=
+user_fds_ar_libs  +=  \
+    fds-probe-adapters \
+    fds-probe \
+    fds-s3-probe \
+    fds-am-engine \
+    fds-StorHvisor \
+    fds-lib \
+    fds-umod \
+    fds-util \
+    fds-hash \
+    fds-fdsp-ice \
+    fds-thread \
+
+local_nginx_libs   :=  \
+    ngx-http-module \
+    ngx-http \
+    ngx-event-module \
+    ngx-event \
+    ngx-core \
+    ngx-os \
+    ngx-core \
+    pthread crypt pcre crypto z
+
+user_non_fds_libs +=  \
+    boost_log \
+    boost_system \
+    boost_thread \
+    boost_date_time \
+    boost_program_options \
+    boost_filesystem \
+    thrift \
+    Ice \
+    IceUtil \
+    IceStorm \
+    $(local_nginx_libs)
+
+include $(topdir)/Makefile.incl
