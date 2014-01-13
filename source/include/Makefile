@@ -35,6 +35,7 @@ user_no_style  := \
 	TransJournal.h        \
 	tvclib.h              \
 	vvclib.h              \
+    fds_timer.h           \
         NetSession.h          
 
 include $(topdir)/Makefile.incl
