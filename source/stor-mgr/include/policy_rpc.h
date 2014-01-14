@@ -41,17 +41,15 @@ class SM_VolPolicyServ : public virtual VolPolicyServ
     SM_VolPolicyServ() : VolPolicyServ("SM Vol Policy") {}
     ~SM_VolPolicyServ() {}
 
-    virtual void serv_recvTierPolicyReq(const fdp::tier_pol_time_unit &req);
-    virtual void serv_recvAuditTierPolicy(const fdp::tier_pol_audit &audit);
-    virtual void serv_recvTierPolicyReq(const fdp::tier_pol_time_unitPtr &req);
-    virtual void serv_recvAuditTierPolicy(const fdp::tier_pol_auditPtr &audit);
+    virtual void serv_recvTierPolicyReq(const fdp::tier_pol_time_unitPtr &req) override;
+    virtual void serv_recvAuditTierPolicy(const fdp::tier_pol_auditPtr &audit) override;
 
     // Plugin in with current OMClient code.
     virtual void
-    serv_recvTierPolicyReq(const fdp::FDSP_TierPolicyPtr &tier);
+    serv_recvTierPolicyReq(const fdp::FDSP_TierPolicyPtr &tier) override;
 
     virtual void
-    serv_recvTierPolicyAuditReq(const fdp::FDSP_TierPolicyAuditPtr &tier);
+    serv_recvTierPolicyAuditReq(const fdp::FDSP_TierPolicyAuditPtr &tier) override;
 };
 
 extern VolPolicyRPC          gl_SMVolPolicy;

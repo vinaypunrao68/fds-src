@@ -15,7 +15,6 @@ user_cpp         :=      \
     jsoncpp.cpp          \
     fds_process.cpp
 #    TransJournal.cpp     \
-    fds_process.cpp      
 
 user_incl_dir    := $(topdir)
 user_no_style    := \

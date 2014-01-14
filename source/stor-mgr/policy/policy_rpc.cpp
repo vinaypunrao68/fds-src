@@ -45,12 +45,12 @@ VolPolicyRPC::rpc_register_server()
 }
 
 void
-SM_VolPolicyServ::serv_recvTierPolicyReq(const fdp::tier_pol_time_unit &req)
+SM_VolPolicyServ::serv_recvTierPolicyReq(const fdp::tier_pol_time_unitPtr &req)
 {
 }
 
 void
-SM_VolPolicyServ::serv_recvAuditTierPolicy(const fdp::tier_pol_audit &audit)
+SM_VolPolicyServ::serv_recvAuditTierPolicy(const fdp::tier_pol_auditPtr &audit)
 {
 }
 
