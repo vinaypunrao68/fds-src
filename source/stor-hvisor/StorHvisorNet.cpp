@@ -1,11 +1,15 @@
+#include <iostream>
+#include <chrono>
 #include <cstdarg>
 #include <fds_module.h>
+#include <fds_timer.h>
 #include "StorHvisorNet.h"
 #include "hvisor_lib.h"
 #include "StorHvisorCPP.h"
 #include <hash/MurmurHash3.h>
 #include <fds_config.hpp>
 #include <fds_process.h>
+#include <boost/date_time/posix_time/posix_time.hpp>
 
 #define FDS_REPLICATION_FACTOR 2
 
@@ -1108,8 +1112,8 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
   }
 
   // Schedule a timer here to track the responses and the original request
-  IceUtil::Time interval = IceUtil::Time::seconds(FDS_IO_LONG_TIME);
-  shVol->journal_tbl->schedule(journEntry->ioTimerTask, interval);
+//  IceUtil::Time interval = IceUtil::Time::seconds(FDS_IO_LONG_TIME);
+  shVol->journal_tbl->schedule(journEntry->ioTimerTask, std::chrono::seconds(FDS_IO_LONG_TIME));
 
   // Release the vol read lock
   shVol->readUnlock();
@@ -1437,8 +1441,8 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
 					     << " sent async GetObj req to SM";
   
   // Schedule a timer here to track the responses and the original request
-  IceUtil::Time interval = IceUtil::Time::seconds(FDS_IO_LONG_TIME);
-  shVol->journal_tbl->schedule(journEntry->ioTimerTask, interval);
+//  IceUtil::Time interval = IceUtil::Time::seconds(FDS_IO_LONG_TIME);
+  shVol->journal_tbl->schedule(journEntry->ioTimerTask, std::chrono::seconds(FDS_IO_LONG_TIME));
 
   /*
    * Note je_lock destructor will unlock the journal entry automatically
@@ -1721,8 +1725,8 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
 #endif
   }
   // Schedule a timer here to track the responses and the original request
-  IceUtil::Time interval = IceUtil::Time::seconds(FDS_IO_LONG_TIME);
-  shVol->journal_tbl->schedule(journEntry->ioTimerTask, interval);
+//  IceUtil::Time interval = IceUtil::Time::seconds(FDS_IO_LONG_TIME);
+  shVol->journal_tbl->schedule(journEntry->ioTimerTask, std::chrono::seconds(FDS_IO_LONG_TIME));
 
   shVol->readUnlock();
 
@@ -1866,8 +1870,8 @@ fds::Error StorHvCtrl::listBucket(fds::AmQosReq *qosReq) {
 		     <<  node_ip << " port " << node_port;
 
   // Schedule a timer here to track the responses and the original request
-  IceUtil::Time interval = IceUtil::Time::seconds(FDS_IO_LONG_TIME);
-  shVol->journal_tbl->schedule(journEntry->ioTimerTask, interval);
+//  IceUtil::Time interval = IceUtil::Time::seconds(FDS_IO_LONG_TIME);
+  shVol->journal_tbl->schedule(journEntry->ioTimerTask, std::chrono::seconds(FDS_IO_LONG_TIME));
   return err; // je_lock destructor will unlock the journal entry
 }
 
@@ -2057,8 +2061,8 @@ fds::Error StorHvCtrl::getBucketStats(fds::AmQosReq *qosReq) {
 		     << " - Sent async Get Bucket Stats request to OM";
 
   // Schedule a timer here to track the responses and the original request
-  IceUtil::Time interval = IceUtil::Time::seconds(FDS_IO_LONG_TIME);
-  shVol->journal_tbl->schedule(journEntry->ioTimerTask, interval);
+//  IceUtil::Time interval = IceUtil::Time::seconds(FDS_IO_LONG_TIME);
+  shVol->journal_tbl->schedule(journEntry->ioTimerTask, std::chrono::seconds(FDS_IO_LONG_TIME));
   return err;
 }
 

@@ -178,8 +178,9 @@ int StorHvisorProcIoRd(void *_io)
 #endif
   
   // Schedule a timer here to track the responses and the original request
-  IceUtil::Time interval = IceUtil::Time::seconds(FDS_IO_LONG_TIME);
-  shvol->journal_tbl->schedule(journEntry->ioTimerTask, interval);
+//  IceUtil::Time interval = IceUtil::Time::seconds(FDS_IO_LONG_TIME);
+//  shvol->journal_tbl->schedule(journEntry->ioTimerTask, interval);
+  shvol->journal_tbl->schedule(journEntry->ioTimerTask, std::chrono::seconds(FDS_IO_LONG_TIME));
   return 0; // je_lock destructor will unlock the journal entry
 }
 
@@ -395,8 +396,9 @@ int StorHvisorProcIoWr(void *_io)
   }
   
   // Schedule a timer here to track the responses and the original request
-  IceUtil::Time interval = IceUtil::Time::seconds(FDS_IO_LONG_TIME);
-  shvol->journal_tbl->schedule(journEntry->ioTimerTask, interval);
+//  IceUtil::Time interval = IceUtil::Time::seconds(FDS_IO_LONG_TIME);
+//  shvol->journal_tbl->schedule(journEntry->ioTimerTask, interval);
+  shvol->journal_tbl->schedule(journEntry->ioTimerTask, std::chrono::seconds(FDS_IO_LONG_TIME));
     shvol->readUnlock(); 
   return 0;
 }

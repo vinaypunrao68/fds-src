@@ -5,7 +5,6 @@
 #ifndef ORCH_MGR_ADMINCTRL_H_
 #define ORCH_MGR_ADMINCTRL_H_
 
-#include <Ice/Ice.h>
 #include <unordered_map>
 #include <cstdio>
 #include <string>

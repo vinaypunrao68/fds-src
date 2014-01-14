@@ -55,6 +55,13 @@ private:
 class FdsConfigAccessor {
 public:
     /**
+     * Default constructor.  Follow it up with init()
+     */
+    FdsConfigAccessor()
+    {
+    }
+
+    /**
      *
      * @param fds_config FdsConfig object
      * @param base_path base path
@@ -62,10 +69,20 @@ public:
     FdsConfigAccessor(const boost::shared_ptr<FdsConfig> &fds_config,
             const std::string &base_path)
     {
+        init(fds_config, base_path);
+    }
+
+    /**
+     *
+     * @param fds_config FdsConfig object
+     * @param base_path base path
+     */
+    void init(const boost::shared_ptr<FdsConfig> &fds_config,
+            const std::string &base_path)
+    {
         fds_config_ = fds_config;
         base_path_ = base_path;
     }
-
     /**
      *
      * @return FdsConfig object

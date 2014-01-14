@@ -16,8 +16,6 @@
 #include <arpa/inet.h>
 #include <stdlib.h>
 
-//#include <fdsp/FDSP.h>
-//#include <Ice/Ice.h>
 #include <fdsp/FDSP_MetaDataPathReq.h>
 #include <fdsp/FDSP_MetaDataPathResp.h>
 

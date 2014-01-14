@@ -71,7 +71,6 @@ using namespace FDS_ProtocolInterface;
 using namespace fds;
 using namespace osm;
 using namespace std;
-using namespace Ice;
 using namespace diskio;
 
 namespace fds {
@@ -320,7 +319,7 @@ class ObjectStorMgr :
     void mod_startup();
     void mod_shutdown();
 
-    fds_log* GetLog();
+    fds_log* GetLog() {return sm_log;}
     fds_log *sm_log;
     TierEngine     *tierEngine;
     /*

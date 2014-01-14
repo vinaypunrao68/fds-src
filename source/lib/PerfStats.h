@@ -5,8 +5,7 @@
 #ifndef LIB_PERF_STATS_H_
 #define LIB_PERF_STATS_H_
 
-#include <IceUtil/IceUtil.h>
-
+#include <fds_timer.h>
 #include <util/PerfStatHist.h>
 #include <lib/OMgrClient.h>
 
@@ -84,25 +83,26 @@ class PerfStats
   boost::posix_time::ptime start_time;
   std::ofstream statfile;
 
-  IceUtil::TimerPtr statTimer;
-  IceUtil::TimerTaskPtr statTimerTask;
+  FdsTimerPtr statTimer;
+  FdsTimerTaskPtr statTimerTask;
 
   /* does not own, get passed via registerOmClient */
   OMgrClient* om_client;
 };
 
 
- using namespace IceUtil;
- class StatTimerTask:public IceUtil::TimerTask {
+ class StatTimerTask : public FdsTimerTask {
  public:
    PerfStats* stats;
 
-   StatTimerTask(PerfStats* _stats) {
+   StatTimerTask(FdsTimer &timer, PerfStats* _stats) 
+       : FdsTimerTask(timer)
+   {
      stats = _stats;
-   };
+   }
    ~StatTimerTask() {}
 
-   void runTimerTask();
+   virtual void runTimerTask() override;
  };
 
 

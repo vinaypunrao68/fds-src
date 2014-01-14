@@ -207,7 +207,7 @@ private:
   fds_log *sh_log;
   SysParams *sysParams;
   sh_comm_modes mode;
-  IceUtil::CtrlCHandler *shCtrlHandler;
+// SAN   IceUtil::CtrlCHandler *shCtrlHandler;
 };
 
 extern StorHvCtrl *storHvisor;

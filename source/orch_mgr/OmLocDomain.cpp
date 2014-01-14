@@ -252,16 +252,6 @@ void FdsLocalDomain::loadNodesFromFile(const std::string& dltFileName,
     fclose(fp);
 }
 
-#if 0
-// config path request  handler
-OrchMgr::ReqCfgHandler::ReqCfgHandler(OrchMgr *oMgr) {
-    this->orchMgr = oMgr;
-}
-
-OrchMgr::ReqCfgHandler::~ReqCfgHandler() {
-}
-#endif
-
 void FdsLocalDomain::copyPropertiesToVolumeDesc(
     FDS_ProtocolInterface::FDSP_VolumeDescType& v_desc,
     VolumeDesc *pVol) {
@@ -465,12 +455,12 @@ void FdsLocalDomain::sendNodeTableToFdsNodes(int table_type) {
         // dlt_info_ptr = new FDS_ProtocolInterface::FDSP_DLT_Type;
         // dlt_info_ptr->DLT_version = current_dlt_version;
         // dlt_info_ptr->DLT = current_dlt_table;
-        dlt_info_ptr = curDlt->toIce();
+        dlt_info_ptr = curDlt->toFdsp();
     } else {
         // dmt_info_ptr = new FDS_ProtocolInterface::FDSP_DMT_Type;
         // dmt_info_ptr->DMT_version = current_dmt_version;
         // dmt_info_ptr->DMT = current_dmt_table;
-        dmt_info_ptr = curDmt->toIce();
+        dmt_info_ptr = curDmt->toFdsp();
     }
 
     for (int i = 0; i < 3; i++) {

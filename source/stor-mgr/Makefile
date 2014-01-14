@@ -12,7 +12,7 @@ user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  :=                   \
     fds-smlib \
-    fds-StorHvisor-ice \
+    fds-StorHvisor \
     fds-lib \
     fds-odb \
     fds-dsk-mgnt \
@@ -22,7 +22,8 @@ user_fds_ar_libs  :=                   \
     fds-util \
     fds-odb \
     fds-vpolicy \
-    fds-netproxy 
+    fds-netproxy \
+    fds-fdsp
 
 user_non_fds_libs :=                                                          \
     boost_log \
@@ -35,7 +36,8 @@ user_non_fds_libs :=                                                          \
     ssl \
     crypto \
     leveldb \
-    config++
+    config++ \
+    thrift
 
 stor_mgr_cpp      := stormgr_main.cpp
 user_cpp          :=                   \

@@ -270,7 +270,9 @@ class RankTimerTask: public FdsTimerTask {
  public:
   ObjectRankEngine* rank_eng;
 
-  RankTimerTask(ObjectRankEngine* _rank_eng) {
+  RankTimerTask(FdsTimer &timer, ObjectRankEngine* _rank_eng) 
+  : FdsTimerTask(timer)
+  {
     rank_eng = _rank_eng;
   }
   ~RankTimerTask() {}

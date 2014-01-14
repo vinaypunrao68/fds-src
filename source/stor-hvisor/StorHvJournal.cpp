@@ -1,6 +1,7 @@
 #include <stdexcept>
 #include <fds_err.h>
 #include <fds_types.h>
+#include "fds_timer.h"
 #include <StorHvisorNet.h>
 //#include "fds_client/include/ubd.h"
 #include "StorHvJournal.h"
@@ -38,10 +39,10 @@ StorHvJournalEntry::~StorHvJournalEntry()
   delete je_mutex;
 }
 
-void StorHvJournalEntry::init(unsigned int transid, StorHvJournal *jrnl_tbl)
+void StorHvJournalEntry::init(unsigned int transid, StorHvJournal *jrnl_tbl, FdsTimer *ioTimer)
 {
   trans_id = transid;
-  ioTimerTask = new StorHvIoTimerTask(this, jrnl_tbl);
+  ioTimerTask.reset  (new StorHvIoTimerTask(this, jrnl_tbl, ioTimer));
 }
 
 void StorHvJournalEntry::reset()
@@ -175,7 +176,7 @@ StorHvJournalEntryLock::~ StorHvJournalEntryLock() {
 }
 
 StorHvJournal::StorHvJournal(unsigned int max_jrnl_entries)
-  : ioTimer(new IceUtil::Timer())
+  : ioTimer(new FdsTimer())
 {
 	unsigned int i =0;
 
@@ -184,7 +185,7 @@ StorHvJournal::StorHvJournal(unsigned int max_jrnl_entries)
 	rwlog_tbl = new StorHvJournalEntry[max_journal_entries];
   
 	for (i = 0; i < max_journal_entries; i++) {
-          rwlog_tbl[i].init(i, this);    
+          rwlog_tbl[i].init(i, this,ioTimer);    
 	  free_trans_ids.push(i);
 	}
 

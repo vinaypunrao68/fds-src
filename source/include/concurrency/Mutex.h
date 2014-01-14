@@ -75,6 +75,12 @@ namespace fds {
    * basic scoped_lock.
    */
   typedef fds_mutex::scoped_lock fds_scoped_lock;
+
+  /* 
+   * fds_spinlock and fds_mutex is the same for now until we implement
+   * a spinlock.  
+   */
+  typedef fds_mutex fds_spinlock;
 }  // namespace fds
 
 #endif  // SOURCE_UTIL_CONCURRENCY_MUTEX_H_
