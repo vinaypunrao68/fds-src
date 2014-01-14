@@ -12,8 +12,8 @@ namespace fds {
 PerfStats::PerfStats(const std::string prefix, int slots, int slot_len_sec)
         : sec_in_slot(slot_len_sec),
           num_slots(slots),
-          statTimer(new IceUtil::Timer),
-          statTimerTask(new StatTimerTask(this))
+          statTimer(new FdsTimer()),
+          statTimerTask(new StatTimerTask(*statTimer, this))
 {
     start_time = boost::posix_time::second_clock::universal_time();
 
@@ -79,12 +79,9 @@ Error PerfStats::enable()
     Error err(ERR_OK);
     bool was_enabled = atomic_exchange(&b_enabled, true);
     if (!was_enabled) {
-        IceUtil::Time interval = IceUtil::Time::seconds(sec_in_slot * (num_slots - 2));
-        try {
-            statTimer->scheduleRepeated(statTimerTask, interval);
-        } catch(IceUtil::IllegalArgumentException&) {
-            /* ok, already dumping stats, ignore this exception */
-        } catch(...) {
+        bool ret = statTimer->scheduleRepeated(statTimerTask, 
+                                std::chrono::seconds(sec_in_slot * (num_slots - 2)));
+        if (!ret) {
             err = ERR_MAX;
         }
     }

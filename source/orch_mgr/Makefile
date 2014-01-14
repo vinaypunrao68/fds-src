@@ -23,9 +23,9 @@ user_non_fds_libs := \
     boost_program_options \
     Ice \
     IceUtil \
-    IceStorm \
     leveldb \
-    config++
+    config++ \
+    thrift
 
 # TODO: need to move Catalog.h to include, avoid cross module include ref.
 #

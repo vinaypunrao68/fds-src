@@ -4,7 +4,9 @@
 #include <boost/asio/steady_timer.hpp>
 #include <boost/bind.hpp>
 #include <thread>
+#include <fds_globals.h>
 #include <fds_timer.h>
+#include "fds_process_globals.h"
 //#include <boost/date_time/posix_time/posix_time.hpp>
 
 using namespace fds;  // NOLINT
@@ -147,8 +149,7 @@ int TimerTaskImpl::total_run = 0;
 
 /* Test basic functionality of schedule() and cancel() methods */
 void test_fds_timer1() {
-    boost::shared_ptr<fds_log> log(new fds_log("test.log"));
-    FdsTimer timer(log);
+    FdsTimer timer;
     boost::shared_ptr<FdsTimerTask> taskPtr(new TimerTaskImpl(timer));
     TimerTaskImpl *taskImplPtr = (TimerTaskImpl*) taskPtr.get();
     bool ret;
@@ -170,15 +171,13 @@ void test_fds_timer1() {
     std::this_thread::sleep_for( std::chrono::milliseconds(20));
     fds_verify(taskImplPtr->run_cnt == 1);
 
-    /* schedule same task twice.  2nd schedule invocation should
-     * cancel the first one. Task shouldn't be run 
-     */
+    /* schedule same task twice.  Task should be run only once */
     ret = timer.schedule(taskPtr, std::chrono::milliseconds(2));
     fds_verify(ret == true);
     ret = timer.schedule(taskPtr, std::chrono::milliseconds(2));
     fds_verify(ret == false);
     std::this_thread::sleep_for( std::chrono::milliseconds(20));
-    fds_verify(taskImplPtr->run_cnt == 1);
+    fds_verify(taskImplPtr->run_cnt == 2);
 
     /* cancel prior to schduling should return fasle */
     ret = timer.cancel(taskPtr);
@@ -191,8 +190,7 @@ void test_fds_timer1() {
 void test_fds_timer2() {
     int task_cnt = 100;
     std::vector<FdsTimerTaskPtr> tasks;
-    boost::shared_ptr<fds_log> log(new fds_log("test.log"));
-    FdsTimer timer(log);
+    FdsTimer timer;
     bool ret;
 
     TimerTaskImpl::total_run = 0;
@@ -218,8 +216,43 @@ void test_fds_timer2() {
 
     timer.destroy();
 }
+
+/* Test basic functionality of schedule() and cancel() methods */
+void test_fds_repeated_timer1() {
+    FdsTimer timer;
+    boost::shared_ptr<FdsTimerTask> taskPtr(new TimerTaskImpl(timer));
+    TimerTaskImpl *taskImplPtr = (TimerTaskImpl*) taskPtr.get();
+    bool ret;
+    
+    /*Schedule repeated timer and make sure it's invoked multiple times*/
+    ret = timer.scheduleRepeated(taskPtr, std::chrono::milliseconds(1));
+    fds_verify(ret == true);
+    std::this_thread::sleep_for( std::chrono::milliseconds(20));
+    ret = timer.cancel(taskPtr);
+    fds_verify(ret == true);
+    fds_verify(taskImplPtr->run_cnt >= 10);
+
+    /* cancel prior to schduling should return fasle */
+    ret = timer.cancel(taskPtr);
+    fds_verify(ret == false);
+
+    /* schedule and cancel immediately.  Task shouldn't be run */
+    int prev_run_cnt = taskImplPtr->run_cnt;
+    ret = timer.schedule(taskPtr, std::chrono::milliseconds(2));
+    fds_verify(ret == true);
+    ret = timer.cancel(taskPtr);
+    fds_verify(ret == true);
+    std::this_thread::sleep_for( std::chrono::milliseconds(20));
+    fds_verify(taskImplPtr->run_cnt == prev_run_cnt);
+
+    timer.destroy();
+}
 int main()
 {
+    fds_verify(g_fdslog != NULL);
+
     test_fds_timer1();
     test_fds_timer2();
+    test_fds_repeated_timer1();
+    return 0;
 }

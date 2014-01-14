@@ -11,7 +11,7 @@ user_fds_ar_libs  :=  \
     fds-lib \
     fds-umod \
     fds-util \
-    fds-fdsp-ice \
+    fds-fdsp \
     fds-hash \
     fds-thread
 
@@ -32,9 +32,7 @@ user_non_fds_libs :=  \
     boost_date_time \
     boost_program_options \
     boost_filesystem \
-    Ice \
-    IceUtil \
-    IceStorm \
+    thrift \
     $(user_nginx_libs)
 
 user_cc           :=  \
