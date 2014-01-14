@@ -11,9 +11,10 @@
 #include <string>
 #include <boost/utility.hpp>
 #include <boost/shared_ptr.hpp>
+#include <fds_globals.h>
 #include <fds_module.h>
 #include <fds_config.hpp>
-
+#include <util/Log.h>
 
 namespace fds {
 
@@ -60,7 +61,6 @@ class FdsProcess : public boost::noncopyable {
  protected:
     // static members/methods
     static void* sig_handler(void* param);
-    static FdsProcess *fds_process_;
 
  protected:
     virtual void setup_sig_handler();
@@ -72,8 +72,6 @@ class FdsProcess : public boost::noncopyable {
 
     /* Process wide config accessor */
     FdsConfigAccessor conf_helper_;
-    // todo: Following should be there
-    // logger
 };
 
 }  // namespace fds

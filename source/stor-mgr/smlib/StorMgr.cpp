@@ -183,6 +183,16 @@ ObjectStorMgrI::DeleteObject(FDSP_MsgHdrTypePtr& msgHdr,
     }
 }
 
+void
+ObjectStorMgrI::OffsetWriteObject(FDSP_MsgHdrTypePtr& msg_hdr, FDSP_OffsetWriteObjTypePtr& offset_write_obj) {
+  FDS_PLOG(objStorMgr->GetLog()) << "In the interface offsetwrite()";
+}
+
+void
+ObjectStorMgrI::RedirReadObject(FDSP_MsgHdrTypePtr &msg_hdr, FDSP_RedirReadObjTypePtr& redir_read_obj) {
+  FDS_PLOG(objStorMgr->GetLog()) << "In the interface redirread()";
+}
+
 /**
  * Storage manager member functions
  * 
@@ -211,7 +221,7 @@ ObjectStorMgr::ObjectStorMgr(const std::string &config_path,
      */
 
     // Init  the log infra
-    sm_log = new fds_log("sm", "logs");
+    sm_log = g_fdslog;
     sm_log->setSeverityFilter((fds_log::severity_level) conf_helper_.get<int>("log_severity"));
     FDS_PLOG(sm_log) << "Constructing the Object Storage Manager";
     objStorMutex = new fds_mutex("Object Store Mutex");
@@ -302,7 +312,6 @@ ObjectStorMgr::~ObjectStorMgr() {
     delete tierEngine;
     delete rankEngine;
 
-    delete sm_log;
     delete volTbl;
     delete objStorMutex;
     //delete omJrnl;
@@ -1636,6 +1645,40 @@ ObjectStorMgr::GetObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
     } else {
         fdsp_msg->result = FDSP_ERR_OK;
     }
+}
+
+Error
+ObjectStorMgr::getObjectInternal(FDSP_GetObjTypePtr getObjReq, 
+                                 fds_volid_t        volId, 
+                                 fds_uint32_t       transId, 
+                                 fds_uint32_t       numObjs) {
+  Error err(ERR_OK);
+
+  /*
+   * Allocate and enqueue an IO request. The request is freed
+   * when the IO completes.
+   */
+  SmIoReq *ioReq = new SmIoReq(getObjReq->data_obj_id.hash_high,
+                               getObjReq->data_obj_id.hash_low,
+                               // "",
+			       getObjReq,
+                               volId,
+                               FDS_IO_READ,
+                               transId);
+
+  err = qosCtrl->enqueueIO(ioReq->getVolId(), static_cast<FDS_IOType*>(ioReq));
+
+  if (err != fds::ERR_OK) {
+    FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::error) << "Unable to enqueue getObject request "
+                                   << transId;
+    getObjReq->data_obj_len = 0;
+    getObjReq->data_obj.assign("");
+    return err;
+  }
+  FDS_PLOG(objStorMgr->GetLog()) << "Successfully enqueued getObject request "
+                                 << transId;
+
+  return err;
 }
 
 inline void ObjectStorMgr::swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg) {

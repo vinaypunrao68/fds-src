@@ -12,6 +12,7 @@
 #include <boost/bind.hpp>
 #include <thread>
 
+#include <fds_globals.h>
 #include <util/Log.h>
 #include <fds_assert.h>
 #include <concurrency/Mutex.h>
@@ -54,9 +55,8 @@ public:
 
     /**
      * Constructor
-     * @param log
      */
-    FdsTimer(boost::shared_ptr<fds_log> log);
+    FdsTimer();
 
     /**
      * Destroy the timer and detach its execution thread if the calling thread
@@ -152,7 +152,7 @@ private:
             /* Handler isn't invoked for cancelled timers */
             return;
         } else if (error) {
-            FDS_PLOG_WARN(log_) << "Failed to invoked handler for task.  Error: " << error;
+            FDS_PLOG_WARN(g_fdslog) << "Failed to invoked handler for task.  Error: " << error;
             return;
         }
         task->runTimerTask();
@@ -162,7 +162,6 @@ private:
         }
     }
 
-    boost::shared_ptr<fds_log> log_;
     boost::asio::io_service io_service_;
     boost::asio::io_service::work work_;
     std::thread io_thread_;

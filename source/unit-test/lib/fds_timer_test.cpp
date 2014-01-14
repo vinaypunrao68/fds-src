@@ -4,7 +4,9 @@
 #include <boost/asio/steady_timer.hpp>
 #include <boost/bind.hpp>
 #include <thread>
+#include <fds_globals.h>
 #include <fds_timer.h>
+#include "fds_process_globals.h"
 //#include <boost/date_time/posix_time/posix_time.hpp>
 
 using namespace fds;  // NOLINT
@@ -147,8 +149,7 @@ int TimerTaskImpl::total_run = 0;
 
 /* Test basic functionality of schedule() and cancel() methods */
 void test_fds_timer1() {
-    boost::shared_ptr<fds_log> log(new fds_log("test.log"));
-    FdsTimer timer(log);
+    FdsTimer timer;
     boost::shared_ptr<FdsTimerTask> taskPtr(new TimerTaskImpl(timer));
     TimerTaskImpl *taskImplPtr = (TimerTaskImpl*) taskPtr.get();
     bool ret;
@@ -189,8 +190,7 @@ void test_fds_timer1() {
 void test_fds_timer2() {
     int task_cnt = 100;
     std::vector<FdsTimerTaskPtr> tasks;
-    boost::shared_ptr<fds_log> log(new fds_log("test.log"));
-    FdsTimer timer(log);
+    FdsTimer timer;
     bool ret;
 
     TimerTaskImpl::total_run = 0;
@@ -219,8 +219,7 @@ void test_fds_timer2() {
 
 /* Test basic functionality of schedule() and cancel() methods */
 void test_fds_repeated_timer1() {
-    boost::shared_ptr<fds_log> log(new fds_log("test.log"));
-    FdsTimer timer(log);
+    FdsTimer timer;
     boost::shared_ptr<FdsTimerTask> taskPtr(new TimerTaskImpl(timer));
     TimerTaskImpl *taskImplPtr = (TimerTaskImpl*) taskPtr.get();
     bool ret;
@@ -250,6 +249,8 @@ void test_fds_repeated_timer1() {
 }
 int main()
 {
+    fds_verify(g_fdslog != NULL);
+
     test_fds_timer1();
     test_fds_timer2();
     test_fds_repeated_timer1();
