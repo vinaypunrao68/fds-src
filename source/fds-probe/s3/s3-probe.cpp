@@ -29,16 +29,23 @@ ProbeS3Eng::ProbeS3Eng(char const *const name) : AMEngine_S3(name)
 {
     probe_s3 = new ProbeS3(name, &s3_probe_param, NULL);
     probe_s3->pr_create_thrpool(-1, 10, 10, 10, 10);
-
-    probe_rt = new JsObjManager();
-    probe_rt->js_register_template(new UT_ThreadTempl(probe_rt));
-    probe_rt->js_register_template(new UT_ServerTempl(probe_rt));
-    probe_rt->js_register_template(new UT_LoadTempl(probe_rt));
 }
 
 ProbeS3Eng::~ProbeS3Eng()
 {
     delete probe_s3;
+}
+
+ProbeS3::ProbeS3(char const *const name,
+                 probe_mod_param_t *param, Module *owner)
+    : ProbeMod(name, param, owner)
+{
+    pr_objects->js_register_template(new UT_RunSetupTempl(pr_objects));
+    pr_objects->js_register_template(new UT_RunInputTemplate(pr_objects));
+}
+
+ProbeS3::~ProbeS3()
+{
 }
 
 // ---------------------------------------------------------------------------
@@ -245,9 +252,21 @@ Probe_PutBucket::ame_request_handler()
 {
     int           len;
     char         *buf;
+    json_t       *root;
+    ProbeS3Eng   *s3p;
+    JsObjManager *objs;
+    json_error_t  err;
 
-    buf = ame_reqt_iter_data(&len);
+    buf  = ame_reqt_iter_data(&len);
+    s3p  = static_cast<ProbeS3Eng *>(ame);
+    objs = s3p->probe_get_obj_mgr();
+    buf[len] = '\0';
 
+    root = json_loads(buf, 0, &err);
+    if (root != NULL) {
+        objs->js_exec(root);
+        json_decref(root);
+    }
     ame_signal_resume(NGX_HTTP_OK);
 }
 

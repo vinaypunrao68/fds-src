@@ -28,9 +28,11 @@
             },
             {
                 "ID-Name"         : "Idle",
+                "rt-loop"         : 0,
+                "rt-concurrent"   : 0,
                 "rt-duration-sec" : 60
             }
-        ],
+        ]
     },
     "Run-Input": {
         "Server-Load": [
@@ -41,16 +43,17 @@
         "Client-Load": [
             {
                 "ID-Name"     : "Example-script",
-                "Script"      : "/bin/yes",
-                "Script-Args" : "abc",
+                "script"      : "/bin/yes",
+                "script-args" : "abc",
                 "cache-output": true
             },
             {
                 "ID-Name"     : "Sleep",
-                "Script"      : "sleep",
-                "Script-Args" : "10"
+                "script"      : "sleep",
+                "script-args" : "10",
+                "cache-output": false
             }
-        ],
+        ]
     },
     "Run-Resources": [
         {

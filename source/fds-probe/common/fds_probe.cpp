@@ -58,8 +58,9 @@ ProbeMod::ProbeMod(char const *const name,
                    Module            *owner)
     : Module(name), pr_queue(1, 0xffff), pr_param(param), pr_mod_owner(owner),
       pr_stats_info(nullptr), pr_inj_points(nullptr), pr_inj_actions(nullptr),
-      pr_mtx("Probe Mtx"), pr_thrpool(nullptr)
+      pr_mtx("Probe Mtx"), pr_thrpool(nullptr), pr_parent(NULL)
 {
+    pr_objects = new JsObjManager();
 }
 
 ProbeMod::~ProbeMod()
@@ -70,6 +71,7 @@ ProbeMod::~ProbeMod()
     delete [] pr_stats_info;
     delete [] pr_inj_points;
     delete [] pr_inj_actions;
+    delete pr_objects;
 }
 
 // pr_add_module
@@ -81,6 +83,8 @@ ProbeMod::pr_add_module(ProbeMod *chain)
     pr_mtx.lock();
     pr_chain.push_front(chain);
     pr_mtx.unlock();
+
+    chain->pr_parent = this;
 }
 
 // pr_get_module

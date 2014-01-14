@@ -61,9 +61,9 @@ class ProbeS3 : public ProbeMod
     /**
      * Implement required methods.
      */
+    virtual ~ProbeS3();
     ProbeS3(char const *const name,
-            probe_mod_param_t *param, Module *owner)
-        : ProbeMod(name, param, owner) {}
+            probe_mod_param_t *param, Module *owner);
 
     ProbeMod *pr_new_instance() { return NULL; }
     void pr_intercept_request(ProbeRequest *req) {}
@@ -96,6 +96,9 @@ class ProbeS3Eng : public AMEngine_S3
     inline fds_threadpool *probe_get_thrpool() {
         return probe_s3->pr_get_thrpool();
     }
+    inline JsObjManager *probe_get_obj_mgr() {
+        return probe_s3->pr_get_obj_mgr();
+    }
 
     // Object factory
     //
@@ -122,7 +125,6 @@ class ProbeS3Eng : public AMEngine_S3
     }
   private:
     ProbeS3                  *probe_s3;
-    JsObjManager             *probe_rt;
 };
 
 extern ProbeS3Eng gl_probeS3Eng;

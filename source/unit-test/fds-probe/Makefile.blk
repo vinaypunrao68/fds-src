@@ -21,6 +21,7 @@ user_non_fds_libs +=  \
     boost_system \
     boost_thread \
     boost_program_options \
+    jansson \
     fuse
 
 include $(topdir)/Makefile.incl

@@ -10,6 +10,7 @@
 #include <fds_assert.h>
 #include <fds_request.h>
 #include <fds-probe/fds_err_inj.h>
+#include <fds-probe/js-object.h>
 #include <concurrency/ThreadPool.h>
 
 /*
@@ -385,11 +386,21 @@ class ProbeMod : public Module
         *rec_cnt = pr_param->pr_stat_cnt;
         return pr_stats_info;
     }
+    // pr_get_obj_mgr
+    // --------------
+    //
+    inline JsObjManager *pr_get_obj_mgr()
+    {
+        return pr_objects;
+    }
 
   protected:
     friend class ProbeRequest;
     fdsio::RequestQueue      pr_queue;
     std::list<ProbeMod *>    pr_chain;
+    ProbeMod                 *pr_parent;
+    JsObjManager             *pr_objects;
+
     fds_mutex                pr_mtx;
     fds_threadpool           *pr_thrpool;
     probe_mod_param_t        *pr_param;
