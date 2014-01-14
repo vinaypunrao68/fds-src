@@ -16,11 +16,6 @@
 
 #include <fds_types.h>
 #include <fds_err.h>
-/*
- * TODO: Needed to create the copy
- * constructor from ICE network
- * table type.
- */
 #include <fdsp/FDSP_types.h>
 
 namespace fds {
@@ -59,16 +54,16 @@ namespace fds {
     }
 
     explicit fds_placement_table(
-        const FDS_ProtocolInterface::Node_Table_Type& ice_dlt) {
-      for (fds_uint32_t i = 0; i < ice_dlt.size(); i++) {
+		const FDS_ProtocolInterface::Node_Table_Type& fdsp_dlt) {
+      for (fds_uint32_t i = 0; i < fdsp_dlt.size(); i++) {
         std::vector<fds_nodeid_t> node_list;
         table[i] = node_list;
-        for (fds_uint32_t j = 0; j < ice_dlt[i].size(); j++) {
+        for (fds_uint32_t j = 0; j < fdsp_dlt[i].size(); j++) {
           /*
-           * Copy the ice dlt nodeid entry into
+           * Copy the fdsp dlt nodeid entry into
            * the local dlt.
            */
-          table[i].push_back(ice_dlt[i][j]);
+          table[i].push_back(fdsp_dlt[i][j]);
         }
       }
     }
@@ -101,10 +96,10 @@ namespace fds {
     }
 
     /*
-     * Returns an Ice version of this table
+     * Returns an FDSP version of this table
      */
-    FDS_ProtocolInterface::Node_Table_Type toIce() const {
-      FDS_ProtocolInterface::Node_Table_Type iceTable;
+    FDS_ProtocolInterface::Node_Table_Type toFdsp() const {
+      FDS_ProtocolInterface::Node_Table_Type fdspTable;
       
       for (std::unordered_map<fds_uint32_t,
                std::vector<fds_nodeid_t>>::const_iterator it = table.cbegin();
@@ -114,10 +109,10 @@ namespace fds {
         for (fds_uint32_t i = 0; i < (it->second).size(); i++) {
           node_vect.push_back((it->second)[i]);
         }
-        iceTable.push_back(node_vect);
+        fdspTable.push_back(node_vect);
       }
 
-      return iceTable;
+      return fdspTable;
     }
 
     /*
@@ -208,23 +203,23 @@ namespace fds {
     fds_placement_table(_width, _max_depth) {
     }
 
-    explicit FdsDlt(const FDS_ProtocolInterface::Node_Table_Type& ice_dlt) :
-    fds_placement_table(ice_dlt) {
+    explicit FdsDlt(const FDS_ProtocolInterface::Node_Table_Type& fdsp_dlt) :
+    fds_placement_table(fdsp_dlt) {
     }
 
     using fds_placement_table::insert;
     using fds_placement_table::clear;
 
     /*
-     * A new Ice DLT pointer is allocated in this function.
+     * A new FDSP DLT pointer is allocated in this function.
      * Though it is up to caller to free it.
      */
-    FDS_ProtocolInterface::FDSP_DLT_TypePtr toIce() const {
-        FDS_ProtocolInterface::FDSP_DLT_TypePtr iceDlt(
+    FDS_ProtocolInterface::FDSP_DLT_TypePtr toFdsp() const {
+        FDS_ProtocolInterface::FDSP_DLT_TypePtr fdspDlt(
             new FDS_ProtocolInterface::FDSP_DLT_Type);
-        iceDlt->DLT_version = fds_placement_table::getVersion();
-        iceDlt->DLT = fds_placement_table::toIce();
-        return iceDlt;
+        fdspDlt->DLT_version = fds_placement_table::getVersion();
+        fdspDlt->DLT = fds_placement_table::toFdsp();
+        return fdspDlt;
     }
   };
 
@@ -242,23 +237,23 @@ namespace fds {
     fds_placement_table(_width, _max_depth) {
     }
 
-    explicit FdsDmt(const FDS_ProtocolInterface::Node_Table_Type& ice_dmt) :
-    fds_placement_table(ice_dmt) {
+    explicit FdsDmt(const FDS_ProtocolInterface::Node_Table_Type& fdsp_dmt) :
+    fds_placement_table(fdsp_dmt) {
     }
 
     using fds_placement_table::insert;
     using fds_placement_table::clear;
     
     /*
-     * A new Ice DLT pointer is allocated in this function.
+     * A new FDSP DLT pointer is allocated in this function.
      * Though it is up to caller to free it.
      */
-    FDS_ProtocolInterface::FDSP_DMT_TypePtr toIce() const {
-        FDS_ProtocolInterface::FDSP_DMT_TypePtr iceDlt(
+    FDS_ProtocolInterface::FDSP_DMT_TypePtr toFdsp() const {
+        FDS_ProtocolInterface::FDSP_DMT_TypePtr fdspDlt(
             new FDS_ProtocolInterface::FDSP_DMT_Type);
-        iceDlt->DMT_version = fds_placement_table::getVersion();
-        iceDlt->DMT = fds_placement_table::toIce();
-        return iceDlt;
+        fdspDlt->DMT_version = fds_placement_table::getVersion();
+        fdspDlt->DMT = fds_placement_table::toFdsp();
+        return fdspDlt;
     }
   };
 
