@@ -11,6 +11,8 @@
 #include "fdsp/FDSP_MetaDataPathReq.h"
 #include "fdsp/FDSP_SessionReq.h"
 #include "fdsp/FDSP_DataPathReq.h"
+#include "fdsp/FDSP_OMControlPathReq.h"
+#include "fdsp/FDSP_OMControlPathResp.h"
 #include <thrift/concurrency/ThreadManager.h>
 #include <thrift/concurrency/PosixThreadFactory.h>
 #include <thrift/protocol/TBinaryProtocol.h>
@@ -129,40 +131,6 @@ fdspControlPathRespReceiver(boost::shared_ptr<TProtocol>& prot,
         }
         catch (TException& tx) {
             printf("fdspControlPathResponse Receiver exception");
-        }
-    }
-
-public:
-    boost::shared_ptr<TProtocol> prot_;
-    boost::shared_ptr<TProcessor> processor_;
-};
-
-class fdspConfigPathRespReceiver: public Runnable {
-public:
-fdspConfigPathRespReceiver(boost::shared_ptr<TProtocol>& prot,
-                           boost::shared_ptr<FDSP_ConfigPathRespIf>& hdlr)
-        : prot_(prot),
-            processor_(new fdspConfigPathRespProcessor(hdlr)) {
-    }
-    
-    void run() {
-        /* wait for connection to be established */
-        /* for now just busy wait */
-        while (!prot_->getTransport()->isOpen()) {
-            printf("fdspConfigPathRespReceiver: waiting for transport...\n");
-            usleep(500);
-        }
-        
-        try {
-            for (;;) {
-                if (!processor_->process(prot_, prot_, NULL) ||
-                    !prot_->getTransport()->peek()) {
-                    break;
-                }
-            }
-        }
-        catch (TException& tx) {
-            printf("fdspConfigPathResponse Receiver exception");
         }
     }
 
