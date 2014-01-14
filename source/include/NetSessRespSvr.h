@@ -1,5 +1,6 @@
 #ifndef __NET_SESS_RESP_SVR_H__
 #define __NET_SESS_RESP_SVR_H__
+#include <arpa/inet.h>
 #include "fdsp/FDSP_ConfigPathReq.h"
 #include "fdsp/FDSP_constants.h"
 #include "fdsp/FDSP_ControlPathResp.h"
@@ -10,6 +11,17 @@
 #include "fdsp/FDSP_MetaDataPathReq.h"
 #include "fdsp/FDSP_SessionReq.h"
 #include "fdsp/FDSP_DataPathReq.h"
+#include <thrift/concurrency/ThreadManager.h>
+#include <thrift/concurrency/PosixThreadFactory.h>
+#include <thrift/protocol/TBinaryProtocol.h>
+#include <thrift/server/TThreadPoolServer.h>
+#include <thrift/transport/TServerSocket.h>
+#include <thrift/transport/TBufferTransports.h>
+#include <thrift/transport/TTransportUtils.h>
+
+#include <stdexcept>
+#include <sstream>
+#include <iostream>
 
 using namespace ::apache::thrift;
 using namespace ::apache::thrift::protocol;
@@ -26,7 +38,7 @@ public:
   fdspDataPathRespReceiver(boost::shared_ptr<TProtocol> prot,
                    boost::shared_ptr<FDSP_DataPathRespIf> hdlr)
     : prot_(prot),
-      processor_(new fdspDataPathRespProcessor(hdlr))
+      processor_(new FDSP_DataPathRespProcessor(hdlr))
   {
   }
 
@@ -62,7 +74,7 @@ public:
   fdspMetaDataPathRespReceiver(boost::shared_ptr<TProtocol> prot,
                    boost::shared_ptr<FDSP_MetaDataPathRespIf> hdlr)
     : prot_(prot),
-      processor_(new fdspDataPathRespProcessor(hdlr))
+      processor_(new FDSP_MetaDataPathRespProcessor(hdlr))
   {
   }
 
@@ -99,7 +111,7 @@ public:
   fdspControlPathRespReceiver(boost::shared_ptr<TProtocol> prot,
                    boost::shared_ptr<FDSP_ControlPathRespIf> hdlr)
     : prot_(prot),
-      processor_(new fdspControlPathRespProcessor(hdlr))
+      processor_(new FDSP_ControlPathRespProcessor(hdlr))
   {
   }
 
@@ -129,6 +141,7 @@ public:
   boost::shared_ptr<TProcessor> processor_;
 };
 
+#if 0
 class fdspConfigPathRespReceiver: public Runnable {
 public:
   fdspConfigPathRespReceiver(boost::shared_ptr<TProtocol> prot,
@@ -163,5 +176,6 @@ public:
   boost::shared_ptr<TProtocol> prot_;
   boost::shared_ptr<TProcessor> processor_;
 };
+#endif
 
 #endif

@@ -1,5 +1,23 @@
 #ifndef __NET_SESS_RESP_CLIENT_H__
 #define __NET_SESS_RESP_CLIENT_H__
+#include <stdio.h>
+#include <stdexcept>
+#include <sstream>
+#include <iostream>
+#include "fds_types.h"
+#include <arpa/inet.h>
+#include <thrift/transport/TTransportUtils.h>
+#include <thrift/concurrency/PosixThreadFactory.h>
+#include <boost/date_time/posix_time/posix_time.hpp>
+#include <thrift/concurrency/ThreadManager.h>
+#include <thrift/concurrency/PosixThreadFactory.h>
+#include <thrift/protocol/TBinaryProtocol.h>
+#include <thrift/server/TThreadPoolServer.h>
+#include <thrift/transport/TSocket.h>
+#include <thrift/transport/TServerSocket.h>
+#include <thrift/transport/TBufferTransports.h>
+#include <thrift/transport/TTransportUtils.h>
+
 #include "fdsp/FDSP_ConfigPathReq.h"
 #include "fdsp/FDSP_constants.h"
 #include "fdsp/FDSP_ControlPathResp.h"
@@ -11,16 +29,19 @@
 #include "fdsp/FDSP_SessionReq.h"
 #include "fdsp/FDSP_DataPathReq.h"
 #include "fdsp/FDSP_DataPathReq.h"
-#include "fdsp_types.h"
 
 
-using namespace ::apache::thrift;
-using namespace ::apache::thrift::protocol;
-using namespace ::apache::thrift::transport;
+using namespace apache::thrift;
+using namespace apache::thrift::protocol;
+using namespace apache::thrift::transport;
+using namespace apache::thrift::concurrency;
 
-using namespace FDS_ProtocolInterface;
 using namespace std;
 using namespace fds;
+using namespace FDS_ProtocolInterface;
+
+typedef void (*set_client_t)(boost::shared_ptr<TTransport> transport, void* context);
+
 class FDSP_DataPathReqHandler : virtual public FDSP_DataPathReqIf {
  public:
   FDSP_DataPathReqHandler()
@@ -37,20 +58,19 @@ class FDSP_DataPathReqHandler : virtual public FDSP_DataPathReqIf {
 
 public:
   boost::shared_ptr<TProtocol> protocol_;
-  boost::shared_ptr<DataPathRespClient> client;
+  boost::shared_ptr<FDSP_DataPathRespClient> client;
 };
 
 
 class FdsDataPathReqProcessorFactory: public TProcessorFactory {
 public:
-  FdsDataPathReqProcessorFactory(const boost::shared_ptr<FDSP_DataPathReqIfFactory> &handlerFactory)
-    : handler_factory(handlerFactory) {}
+  FdsDataPathReqProcessorFactory(const boost::shared_ptr<FDSP_DataPathReqIfFactory> &handlerFactory,
+                                 set_client_t set_client_cb, void* context)
+    : handler_factory(handlerFactory), set_client_hdlr(set_client_cb), context_(context) {}
 
   boost::shared_ptr<TProcessor> getProcessor(const TConnectionInfo& connInfo)
   {
-    FDSP_DataPathReqHandler* ptr = dynamic_cast<FDSP_DataPathReqHandler*>(handler_factory->getHandler(connInfo));
-    ptr->setClient(connInfo.transport);
-    
+    set_client_hdlr(connInfo.transport, context_);
 
     ReleaseHandler<FDSP_DataPathReqIfFactory> cleanup(handler_factory);
     boost::shared_ptr<FDSP_DataPathReqIf> handler(handler_factory->getHandler(connInfo), cleanup);
@@ -60,9 +80,14 @@ public:
 
 protected:
   boost::shared_ptr<FDSP_DataPathReqIfFactory> handler_factory;
+
+private:
+  set_client_t set_client_hdlr;
+  void* context_;
 };
 
 
+#if 0
 class FDSP_MetaDataPathReqHandler : virtual public FDSP_MetaDataPathReqIf {
  public:
   FDSP_MetaDataPathReqHandler()
@@ -113,7 +138,7 @@ class FDSP_ControlPathReqHandler : virtual public FDSP_ControlPathReqIf {
 
   void setClient(boost::shared_ptr<TTransport> trans)
   {
-    printf("FDSP_MetaDataPathReqHandler: set DataPathRespClient\n");
+    printf("FDSP_ControlPathReqHandler: set DataPathRespClient\n");
     protocol_.reset(new TBinaryProtocol(trans));
     client.reset(new FDSP_ControlPathRespClient(protocol_));
   }
@@ -185,4 +210,5 @@ public:
 protected:
   boost::shared_ptr<FDSP_ConfigPathReqIfFactory> handler_factory;
 };
+#endif
 #endif
