@@ -1,11 +1,14 @@
 #ifndef __STOR_HV_JRNL_H_
 #define __STOR_HV_JRNL_H_
 
+#include <iostream>
+#include <chrono>
 #include <queue>
 #include <unordered_map>
 #include <concurrency/Mutex.h>
 #include "fds_types.h"
 #include "StorHvisorCPP.h"
+#include <fds_timer.h>
 
 #define  FDS_TRANS_EMPTY                0x00
 #define  FDS_TRANS_OPEN                 0x1
@@ -49,17 +52,20 @@ namespace fds {
 class StorHvJournal;
 class StorHvJournalEntry;
 
-class StorHvIoTimerTask : public IceUtil::TimerTask {
+class StorHvIoTimerTask : public fds::FdsTimerTask {
 public:
  StorHvJournalEntry *jrnlEntry;
  StorHvJournal      *jrnlTbl;
 
   void runTimerTask();
-  StorHvIoTimerTask(StorHvJournalEntry *jrnl_entry, StorHvJournal *jrnl_tbl) {
+  StorHvIoTimerTask(StorHvJournalEntry *jrnl_entry, StorHvJournal *jrnl_tbl, FdsTimer *ioTimer):FdsTimerTask(*ioTimer) {
      jrnlEntry = jrnl_entry;
      jrnlTbl = jrnl_tbl;
   }
+//  :FdsTimerTask(ioTimer);
 };
+
+typedef boost::shared_ptr<StorHvIoTimerTask> StorHvIoTimerTaskPtr;
 
 class   StorHvJournalEntry {
 
@@ -70,7 +76,7 @@ public:
   StorHvJournalEntry();
   ~StorHvJournalEntry();
 
-  void init(unsigned int transid, StorHvJournal* jrnl_tbl);
+  void init(unsigned int transid, StorHvJournal* jrnl_tbl, FdsTimer *ioTimer);
   void reset();
   void setActive();
   void setInactive();
@@ -86,7 +92,8 @@ public:
   void fbd_complete_req(fbd_request_t *req, int status);
   void fbd_process_req_timeout();
 
-  IceUtil::TimerTaskPtr ioTimerTask;
+//  IceUtil::TimerTaskPtr ioTimerTask;
+  FdsTimerTaskPtr  ioTimerTask;
   bool   is_in_use;
   unsigned int trans_id;
   short  replc_cnt;
@@ -154,7 +161,7 @@ private:
 
   unsigned int get_free_trans_id();
   void return_free_trans_id(unsigned int trans_id);
-  IceUtil::TimerPtr ioTimer;
+  FdsTimer  *ioTimer;
 
   boost::posix_time::ptime ctime; /* time the journal was created */
 
@@ -173,9 +180,17 @@ public:
 					   bool& trans_in_progress);
 	void release_trans_id(unsigned int trans_id);  // Legacy block
         void releaseTransId(fds_uint32_t transId);
-        void schedule(const TimerTaskPtr& task, const IceUtil::Time& interval) {
+        template<typename Rep, typename Period>
+        bool schedule(FdsTimerTaskPtr& task,
+            const std::chrono::duration<Rep, Period>& interval) {	
+             return ioTimer->schedule(task, interval);
+    	}
+
+#if 0
+        void schedule(const TimerTaskPtr& task,const std::chrono::interval) {
              ioTimer->schedule(task, interval);
         }
+#endif
 	long microsecSinceCtime(boost::posix_time::ptime timestamp) {
 	  boost::posix_time::time_duration elapsed = timestamp - ctime;
 	  return elapsed.total_microseconds();

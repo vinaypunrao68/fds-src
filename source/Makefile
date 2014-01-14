@@ -15,7 +15,7 @@ user_build_dir :=                       \
     am-engine                           \
     fds-probe                           \
     persistent_layer                    \
-    orch_mgr_ice                        \
+    orch_mgr                            \
     data_mgr                            \
     stor-mgr                            \
     stor-hvisor                         \

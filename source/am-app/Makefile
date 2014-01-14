@@ -33,6 +33,7 @@ user_non_fds_libs :=  \
     boost_program_options \
     boost_filesystem \
     thrift \
+    config++ \
     $(user_nginx_libs)
 
 user_cc           :=  \
