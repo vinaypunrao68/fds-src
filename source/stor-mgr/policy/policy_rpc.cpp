@@ -45,12 +45,12 @@ VolPolicyRPC::rpc_register_server()
 }
 
 void
-SM_VolPolicyServ::serv_recvTierPolicyReq(const opi::tier_pol_time_unit &req)
+SM_VolPolicyServ::serv_recvTierPolicyReq(const fdp::tier_pol_time_unit &req)
 {
 }
 
 void
-SM_VolPolicyServ::serv_recvAuditTierPolicy(const opi::tier_pol_audit &audit)
+SM_VolPolicyServ::serv_recvAuditTierPolicy(const fdp::tier_pol_audit &audit)
 {
 }
 
@@ -76,11 +76,11 @@ SM_VolPolicyServ::serv_recvTierPolicyReq(const fdp::FDSP_TierPolicyPtr &tier)
     if (tier->tier_interval_sec != TIER_SCHED_DEACTIVATE) {
         //
         objStorMgr->tierEngine->migrator->startRankTierMigration();
-        if (tier->tier_media == opi::TIER_MEDIA_SSD) {
+        if (tier->tier_media == fdp::TIER_MEDIA_SSD) {
             desc->volType = fdp::FDSP_VOL_BLKDEV_SSD_TYPE;
-        } else if (tier->tier_media == opi::TIER_MEDIA_HDD) {
+        } else if (tier->tier_media == fdp::TIER_MEDIA_HDD) {
             desc->volType = fdp::FDSP_VOL_BLKDEV_DISK_TYPE;
-        } else if (tier->tier_media == opi::TIER_MEDIA_HYBRID) {
+        } else if (tier->tier_media == fdp::TIER_MEDIA_HYBRID) {
             desc->volType = fdp::FDSP_VOL_BLKDEV_HYBRID_TYPE;
         } else {
             desc->volType = fdp::FDSP_VOL_BLKDEV_HYBRID_PREFCAP_TYPE;

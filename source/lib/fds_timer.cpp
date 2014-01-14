@@ -16,9 +16,8 @@ FdsTimerTask::FdsTimerTask(FdsTimer &fds_timer) // NOLINT
 
 FdsTimerTask::~FdsTimerTask() { }
 
-FdsTimer::FdsTimer(boost::shared_ptr<fds_log> log)
-    : log_(log),
-      work_(io_service_),
+FdsTimer::FdsTimer()
+    : work_(io_service_),
       io_thread_(&FdsTimer::start_io_service, this)
 {
 }
@@ -48,7 +47,7 @@ void FdsTimer::start_io_service()
     try {
         io_service_.run();
     } catch(const std::exception &e) {
-        FDS_PLOG_WARN(log_) << e.what();
+        FDS_PLOG_WARN(g_fdslog) << e.what();
     }
 }
 

@@ -21,7 +21,7 @@ ObjectRankEngine::ObjectRankEngine(const std::string& _sm_prefix,
     ranklog(log),
     sm_volTbl(_sm_volTbl),
     rankTimer(new FdsTimer()),
-    rankTimerTask(new RankTimerTask(this))
+    rankTimerTask(new RankTimerTask(*rankTimer, this))
 {
   std::string filename(_sm_prefix + "ObjRankDB");
   rankDB = new Catalog(filename);

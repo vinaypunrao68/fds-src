@@ -6,26 +6,41 @@
 
 #include <fds_assert.h>
 #include <fds_process.h>
+#include <util/Log.h>
 
 namespace fds {
-/* static declarations */
-FdsProcess* FdsProcess::fds_process_ = NULL;
 
-/* Methods */
+/* Processwide globals from fds_process.h */
+FdsProcess *g_fdsprocess = NULL;
+fds_log *g_fdslog = NULL;
+
 FdsProcess::FdsProcess(const std::string &config_path,
         const std::string &base_path)
-: conf_helper_(boost::shared_ptr<FdsConfig>(new FdsConfig(config_path)),
-               base_path)
 {
-    fds_assert(fds_process_ == NULL);
+    fds_verify(g_fdsprocess == NULL);
 
-    fds_process_ = this;
+    /* Initialize process wide globals */
+    g_fdsprocess = this;
+
+    std::string log_file = "process.log";
+    if (base_path.size() > 0) {
+        log_file = base_path;
+        std::replace(log_file.begin(), log_file.end(), '.', '_');
+    }
+    g_fdslog = new fds_log(log_file);
+
+    /* Initialize FdsProcess sepecific */
+    conf_helper_.init(boost::shared_ptr<FdsConfig>(new FdsConfig(config_path)),
+               base_path);
 }
 
 FdsProcess::~FdsProcess()
 {
-    fds_process_ = NULL;
+    /* cleanup process wide globals */
+    g_fdsprocess = NULL;
+    delete g_fdslog;
 
+    /* Terminate signal handling thread */
     int rc = pthread_kill(sig_tid_, SIGTERM);
     assert(rc == 0);
     rc = pthread_join(sig_tid_, NULL);
@@ -62,8 +77,8 @@ FdsProcess::sig_handler(void* param)
         }
         assert(rc == 0);
 
-        if (FdsProcess::fds_process_) {
-            FdsProcess::fds_process_->interrupt_cb(signum);
+        if (g_fdsprocess) {
+            g_fdsprocess->interrupt_cb(signum);
         } else {
             return reinterpret_cast<void*>(NULL);
         }
