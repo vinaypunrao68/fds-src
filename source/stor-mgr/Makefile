@@ -22,7 +22,8 @@ user_fds_ar_libs  :=                   \
     fds-util \
     fds-odb \
     fds-vpolicy \
-    fds-netproxy 
+    fds-netproxy \
+    fds-fdsp
 
 user_non_fds_libs :=                                                          \
     boost_log \
@@ -35,7 +36,8 @@ user_non_fds_libs :=                                                          \
     ssl \
     crypto \
     leveldb \
-    config++
+    config++ \
+    thrift
 
 stor_mgr_cpp      := stormgr_main.cpp
 user_cpp          :=                   \
