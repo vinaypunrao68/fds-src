@@ -2,8 +2,8 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_INCLUDE_FDS_GLOBALS_
-#define SOURCE_INCLUDE_FDS_GLOBALS_
+#ifndef SOURCE_INCLUDE_FDS_GLOBALS_H_
+#define SOURCE_INCLUDE_FDS_GLOBALS_H_
 
 /**
  * Global fds references
@@ -18,4 +18,4 @@ namespace fds {
     extern fds_log *g_fdslog;
 }  // namespace fds
 
-#endif  // SOURCE_INCLUDE_FDS_GLOBALS
+#endif  // SOURCE_INCLUDE_FDS_GLOBALS_H_
