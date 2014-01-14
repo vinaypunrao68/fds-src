@@ -128,8 +128,9 @@ UT_ThpoolSyscall::js_exec_obj(JsObject *array, JsObjTemplate *templ)
 
     for (i = 0; i < num; i++) {
         obj = array->js_array_elm(i);
-        std::cout << static_cast<char *>(obj->js_pod_object()) << '\n';
+        std::cout << static_cast<char *>(obj->js_pod_object()) << ' ';
     }
+    std::cout << std::endl;
     return JsObject::js_exec_obj(array, templ);
 }
 

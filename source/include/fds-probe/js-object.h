@@ -5,6 +5,7 @@
 #define SOURCE_INCLUDE_FDS_PROBE_JS_OBJECT_H_
 
 #include <vector>
+#include <string>
 #include <boost/utility.hpp>
 #include <boost/unordered_map.hpp>
 #include <jansson.h>
@@ -84,7 +85,7 @@ class JsObject
 class JsObjArray : public JsObject
 {
   public:
-    JsObjArray(int num);
+    explicit JsObjArray(int num);
     virtual ~JsObjArray() {}
 
     virtual JsObject *&operator[](int idx);
