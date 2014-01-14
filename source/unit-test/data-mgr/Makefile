@@ -8,7 +8,7 @@ user_install_loc  := test
 user_incl_dir     := $(topdir)/data_mgr
 user_cpp_flags    := -DDMGR_LIVE_DEBUG
 user_fds_so_libs  :=
-user_fds_ar_libs  := fds-thread fds-util fds-fdsp-ice fds-lib
+user_fds_ar_libs  := fds-thread fds-util fds-fdsp fds-lib
 user_non_fds_libs :=                                                          \
     boost_log \
     boost_filesystem \
@@ -16,7 +16,8 @@ user_non_fds_libs :=                                                          \
     boost_thread \
     boost_date_time \
     boost_program_options \
-    Ice IceUtil IceStorm leveldb ssl crypto leveldb
+    Ice IceUtil ssl crypto leveldb \
+	thrift
 
 user_cpp          :=                   \
     dm_unit_test.cpp

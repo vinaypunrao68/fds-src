@@ -1,8 +1,6 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
-#include <Ice/Ice.h>
-#include <IceUtil/IceUtil.h>
 
 #include <cstdlib>
 #include <iostream>  // NOLINT(*)
@@ -13,7 +11,24 @@
 
 #include <util/Log.h>
 #include <fds_types.h>
-#include <fdsp/FDSP.h>
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <ifaddrs.h>
+#include <arpa/inet.h>
+#include <stdlib.h>
+
+
+#include <thrift/protocol/TBinaryProtocol.h>
+#include <thrift/transport/TSocket.h>
+#include <thrift/transport/TTransportUtils.h>
+
+#include <fdsp/FDSP_MetaDataPathReq.h>
+#include <fdsp/FDSP_MetaDataPathResp.h>
+#include <fdsp/FDSP_ControlPathReq.h>
+#include <fdsp/FDSP_ControlPathResp.h>
+
 #include "../../unit-test/lib/test_stat.h"
 
 #define DEF_NUM_CONC_REQS 3
@@ -28,8 +43,8 @@ namespace fds {
 class DmUnitTest {
  private:
   std::list<std::string>  unit_tests;
-  FDS_ProtocolInterface::FDSP_DataPathReqPrx& fdspDPAPI;
-  FDS_ProtocolInterface::FDSP_ControlPathReqPrx& fdspCPAPI;
+  FDS_ProtocolInterface::FDSP_MetaDataPathReqClient *fdspMDPAPI;
+  FDS_ProtocolInterface::FDSP_ControlPathReqClient *fdspCPAPI;
 
   fds_log *test_log;
 
@@ -46,10 +61,10 @@ class DmUnitTest {
     /*
      * Send lots of transaction open requests.
      */
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr =
-        new FDS_ProtocolInterface::FDSP_MsgHdrType;
-    FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr update_req =
-        new FDS_ProtocolInterface::FDSP_UpdateCatalogType;
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr
+            msg_hdr(new FDS_ProtocolInterface::FDSP_MsgHdrType);
+    FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr
+            update_req(new FDS_ProtocolInterface::FDSP_UpdateCatalogType);
 
     msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_UPDATE_CAT_OBJ_REQ;
     msg_hdr->src_id   = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
@@ -61,10 +76,7 @@ class DmUnitTest {
 
     fds_uint32_t block_id;
     ObjectID oid;
-    Ice::AsyncResultPtr *rp;
 	
-    rp = new Ice::AsyncResultPtr[num_conc_reqs];
-
     for (fds_uint32_t i = 0; i < num_updates; i++) {
       block_id = i;
       oid = ObjectID(i, i * i);
@@ -92,28 +104,18 @@ class DmUnitTest {
       update_req->meta_list.clear();
 
       try {
-        rp[i%num_conc_reqs] = fdspDPAPI->begin_UpdateCatalogObject(
-            msg_hdr, update_req);
-        FDS_PLOG(test_log) << "Sent trans open message to DM"
-                          << " for volume offset" << update_req->blob_name
-                          << " and object " << oid;
-	fds_uint32_t n_ios_outstanding = atomic_fetch_add(&num_ios_outstanding, (unsigned int)1);
+          fdspMDPAPI->UpdateCatalogObject(msg_hdr, update_req);
+          FDS_PLOG(test_log) << "Sent trans open message to DM"
+                             << " for volume offset" << update_req->blob_name
+                             << " and object " << oid;
+          fds_uint32_t n_ios_outstanding = atomic_fetch_add(&num_ios_outstanding,
+                                                            (unsigned int)1);
 
       } catch(...) {
         FDS_PLOG(test_log) << "Failed to send trans open message to DM"
                            << " for volume offsete "
                            << update_req->blob_name
                            << " an object " << oid;
-      }
-
-      if (!test_mode_perf) {
-
-	if (i % num_conc_reqs == num_conc_reqs-1) {
-	  int j;
-	  for (j = 0; j < num_conc_reqs; j++) {
-	    rp[j]->waitForCompleted();
-	  }
-	}
       }
 
     }
@@ -140,15 +142,12 @@ class DmUnitTest {
       update_req->meta_list.clear();
 
       try {
-        Ice::AsyncResultPtr rp = fdspDPAPI->begin_UpdateCatalogObject(
-            msg_hdr, update_req);
-        FDS_PLOG(test_log) << "Sent trans commit message to DM"
-                           << " for volume offset"
-                           << update_req->blob_name
-                           << " and object " << oid;
-	if (!test_mode_perf) {
-	  rp->waitForCompleted();
-	}
+          fdspMDPAPI->UpdateCatalogObject(
+              msg_hdr, update_req);
+          FDS_PLOG(test_log) << "Sent trans commit message to DM"
+                             << " for volume offset"
+                             << update_req->blob_name
+                             << " and object " << oid;
       } catch(...) {
         FDS_PLOG(test_log) << "Failed to send trans commit message to DM"
                            << " for volume offsete "
@@ -177,10 +176,10 @@ class DmUnitTest {
     /*
      * Send lots of transaction open requests.
      */
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr =
-        new FDS_ProtocolInterface::FDSP_MsgHdrType;
-    FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr update_req =
-        new FDS_ProtocolInterface::FDSP_UpdateCatalogType;
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr
+            msg_hdr(new FDS_ProtocolInterface::FDSP_MsgHdrType);
+    FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr
+            update_req(new FDS_ProtocolInterface::FDSP_UpdateCatalogType);
 
     msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_UPDATE_CAT_OBJ_REQ;
     msg_hdr->src_id   = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
@@ -210,7 +209,7 @@ class DmUnitTest {
       update_req->meta_list.clear();
 
       try {
-        fdspDPAPI->UpdateCatalogObject(msg_hdr, update_req);
+        fdspMDPAPI->UpdateCatalogObject(msg_hdr, update_req);
         FDS_PLOG(test_log) << "Sent trans open message to DM"
                           << " for volume offset"
                            << update_req->blob_name
@@ -245,7 +244,7 @@ class DmUnitTest {
 
 
       try {
-        fdspDPAPI->UpdateCatalogObject(msg_hdr, update_req);
+        fdspMDPAPI->UpdateCatalogObject(msg_hdr, update_req);
         FDS_PLOG(test_log) << "Sent trans commit message to DM"
                            << " for volume offset "
                            << update_req->blob_name
@@ -261,8 +260,8 @@ class DmUnitTest {
     /*
      * Send queries for the newly put DM entires.
      */
-    FDS_ProtocolInterface::FDSP_QueryCatalogTypePtr query_req =
-        new FDS_ProtocolInterface::FDSP_QueryCatalogType;
+    FDS_ProtocolInterface::FDSP_QueryCatalogTypePtr
+            query_req(new FDS_ProtocolInterface::FDSP_QueryCatalogType);
     msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_QUERY_CAT_OBJ_REQ;
 
     for (fds_uint32_t i = 0; i < num_updates; i++) {
@@ -281,7 +280,7 @@ class DmUnitTest {
       query_req->meta_list.clear();
 
       try {
-        fdspDPAPI->QueryCatalogObject(msg_hdr, query_req);
+        fdspMDPAPI->QueryCatalogObject(msg_hdr, query_req);
         FDS_PLOG(test_log) << "Sent query message to DM"
                            << " for volume offset "
                            << update_req->blob_name;
@@ -303,10 +302,10 @@ class DmUnitTest {
     /*
      * Send lots of transaction open requests.
      */
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr =
-        new FDS_ProtocolInterface::FDSP_MsgHdrType;
-    FDS_ProtocolInterface::FDSP_GetVolumeBlobListReqTypePtr listReq =
-        new FDS_ProtocolInterface::FDSP_GetVolumeBlobListReqType;
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr
+            msg_hdr(new FDS_ProtocolInterface::FDSP_MsgHdrType);
+    FDS_ProtocolInterface::FDSP_GetVolumeBlobListReqTypePtr
+            listReq(new FDS_ProtocolInterface::FDSP_GetVolumeBlobListReqType);
 
     msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_GET_VOL_BLOB_LIST_REQ;
     msg_hdr->src_id   = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
@@ -318,28 +317,20 @@ class DmUnitTest {
 
     fds_int32_t blobsToReturn = 10;
     fds_uint64_t cookie = 1;
-    Ice::AsyncResultPtr *rp;
 	
-    rp = new Ice::AsyncResultPtr[num_conc_reqs];
-
     for (fds_uint32_t i = 0; i < num_updates; i++) {
       listReq->max_blobs_to_return = blobsToReturn;
       listReq->iterator_cookie = cookie;
       msg_hdr->req_cookie = i;
 
       try {
-        rp[i%num_conc_reqs] = fdspDPAPI->begin_GetVolumeBlobList(msg_hdr, listReq);
+        fdspMDPAPI->GetVolumeBlobList(msg_hdr, listReq);
         FDS_PLOG(test_log) << "Sent list blobs message to DM";
 
       } catch(...) {
         FDS_PLOG(test_log) << "Failed to send list blobs message to DM";
       }
 
-      if (i % num_conc_reqs == num_conc_reqs-1) {
-        for (fds_uint32_t j = 0; j < num_conc_reqs; j++) {
-          rp[j]->waitForCompleted();
-        }
-      }      
     }
 
     FDS_PLOG(test_log) << "Ending test: basic_bloblist()";
@@ -352,8 +343,8 @@ class DmUnitTest {
     /*
      * Send lots of transaction open requests.
      */
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr =
-        new FDS_ProtocolInterface::FDSP_MsgHdrType;
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr
+            msg_hdr(new FDS_ProtocolInterface::FDSP_MsgHdrType);
 
     msg_hdr->src_id   = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
     msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_DATA_MGR;
@@ -368,8 +359,8 @@ class DmUnitTest {
     /*
      * Send queries for the newly put DM entires.
      */
-    FDS_ProtocolInterface::FDSP_QueryCatalogTypePtr query_req =
-        new FDS_ProtocolInterface::FDSP_QueryCatalogType;
+    FDS_ProtocolInterface::FDSP_QueryCatalogTypePtr
+            query_req(new FDS_ProtocolInterface::FDSP_QueryCatalogType);
     msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_QUERY_CAT_OBJ_REQ;
 
     for (fds_uint32_t i = 0; i < num_updates; i++) {
@@ -388,7 +379,7 @@ class DmUnitTest {
       query_req->meta_list.clear();
 
       try {
-        fdspDPAPI->begin_QueryCatalogObject(msg_hdr, query_req);
+        fdspMDPAPI->QueryCatalogObject(msg_hdr, query_req);
         FDS_PLOG(test_log) << "Sent query message to DM"
                            << " for volume offset "
                            << query_req->blob_name;
@@ -414,12 +405,11 @@ class DmUnitTest {
     /*
      * Send lots of create vol requests.
      */
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr =
-        new FDS_ProtocolInterface::FDSP_MsgHdrType;
-    FDS_ProtocolInterface::FDSP_NotifyVolTypePtr vol_msg =
-        new FDS_ProtocolInterface::FDSP_NotifyVolType;
-    vol_msg->vol_desc = new FDS_ProtocolInterface::FDSP_VolumeDescType();
-
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr
+            msg_hdr(new FDS_ProtocolInterface::FDSP_MsgHdrType);
+    FDS_ProtocolInterface::FDSP_NotifyVolTypePtr
+            vol_msg(new FDS_ProtocolInterface::FDSP_NotifyVolType);
+  
     msg_hdr->minor_ver = 0;
     msg_hdr->msg_code =
         FDS_ProtocolInterface::FDSP_MSG_NOTIFY_VOL;
@@ -443,19 +433,19 @@ class DmUnitTest {
 
     vol_msg->type = FDS_ProtocolInterface::FDSP_NOTIFY_ADD_VOL;
 
-    vol_msg->vol_desc->rel_prio = 2;
-    vol_msg->vol_desc->capacity = 0x1 << 30; // 1 Gig
-    vol_msg->vol_desc->volType = FDS_ProtocolInterface::FDSP_VOL_BLKDEV_TYPE;
-    vol_msg->vol_desc->defConsisProtocol = FDS_ProtocolInterface::FDSP_CONS_PROTO_STRONG;
-    vol_msg->vol_desc->appWorkload = FDS_ProtocolInterface::FDSP_APP_WKLD_FILESYS;
+    vol_msg->vol_desc.rel_prio = 2;
+    vol_msg->vol_desc.capacity = 0x1 << 30; // 1 Gig
+    vol_msg->vol_desc.volType = FDS_ProtocolInterface::FDSP_VOL_BLKDEV_TYPE;
+    vol_msg->vol_desc.defConsisProtocol = FDS_ProtocolInterface::FDSP_CONS_PROTO_STRONG;
+    vol_msg->vol_desc.appWorkload = FDS_ProtocolInterface::FDSP_APP_WKLD_FILESYS;
 
     for (fds_uint32_t i = 0; i < num_vols; i++) {
 
       msg_hdr->glob_volume_id = i + 1;
-      vol_msg->vol_desc->volUUID = i + 1;
+      vol_msg->vol_desc.volUUID = i + 1;
 
       vol_msg->vol_name = "Vol_" + std::to_string(msg_hdr->glob_volume_id);
-      vol_msg->vol_desc->vol_name = vol_msg->vol_name;
+      vol_msg->vol_desc.vol_name = vol_msg->vol_name;
 
       fdspCPAPI->NotifyAddVol(msg_hdr, vol_msg);
     }
@@ -466,9 +456,9 @@ class DmUnitTest {
     vol_msg->type = FDS_ProtocolInterface::FDSP_NOTIFY_RM_VOL;
     for (fds_uint32_t i = 0; i < num_vols; i++) {
       msg_hdr->glob_volume_id = i + 1;
-      vol_msg->vol_desc->volUUID = i + 1;
+      vol_msg->vol_desc.volUUID = i + 1;
       vol_msg->vol_name = "Vol_" + std::to_string(msg_hdr->glob_volume_id);
-      vol_msg->vol_desc->vol_name = vol_msg->vol_name;
+      vol_msg->vol_desc.vol_name = vol_msg->vol_name;
 
       fdspCPAPI->NotifyRmVol(msg_hdr, vol_msg);
     }
@@ -482,11 +472,11 @@ class DmUnitTest {
   /*
    * The non-const refernce is OK.
    */
-  explicit DmUnitTest(FDS_ProtocolInterface::FDSP_DataPathReqPrx&
-                      fdspDPAPI_arg,
-                      FDS_ProtocolInterface::FDSP_ControlPathReqPrx&
-                      fdspCPAPI_arg) // NOLINT(*)
-      : fdspDPAPI(fdspDPAPI_arg),
+  explicit DmUnitTest(FDS_ProtocolInterface::FDSP_MetaDataPathReqClient 
+                      *fdspMDPAPI_arg,
+                      FDS_ProtocolInterface::FDSP_ControlPathReqClient
+                      *fdspCPAPI_arg) // NOLINT(*)
+      : fdspMDPAPI(fdspMDPAPI_arg),
         fdspCPAPI(fdspCPAPI_arg) {
     test_log = new fds_log("dm_test", "logs");
 
@@ -501,14 +491,14 @@ class DmUnitTest {
 
   }
 
-  explicit DmUnitTest(FDS_ProtocolInterface::FDSP_DataPathReqPrx&
-                      fdspDPAPI_arg,
-                      FDS_ProtocolInterface::FDSP_ControlPathReqPrx&
-                      fdspCPAPI_arg,
+  explicit DmUnitTest(FDS_ProtocolInterface::FDSP_MetaDataPathReqClient
+                      *fdspMDPAPI_arg,
+                      FDS_ProtocolInterface::FDSP_ControlPathReqClient
+                      *fdspCPAPI_arg,
                       fds_uint32_t num_up_arg,
 		      bool testperf,
 		      fds_uint32_t max_oios) // NOLINT(*)
-      : fdspDPAPI(fdspDPAPI_arg),
+      : fdspMDPAPI(fdspMDPAPI_arg),
         fdspCPAPI(fdspCPAPI_arg) {
     test_log = new fds_log("dm_test", "logs");
 
@@ -588,42 +578,38 @@ class DmUnitTest {
 /*
  * Ice communication classes
  */
-class TestResp : public FDS_ProtocolInterface::FDSP_DataPathResp {
- private:
-  fds_log *test_log;
+class TestResp : public FDS_ProtocolInterface::FDSP_MetaDataPathRespIf {
+  private:
+    fds_log *test_log;
 
- public:
-  TestResp()
-      : test_log(NULL) {
-  }
+  public:
+    TestResp()
+            : test_log(NULL) {
+    }
 
-  explicit TestResp(fds_log *log)
-      : test_log(log) {
-  }
-  ~TestResp() {
-  }
+    explicit TestResp(fds_log *log)
+    : test_log(log) {
+    }
+    ~TestResp() {
+    }
 
-  void SetLog(fds_log *log) {
-    assert(test_log == NULL);
-    test_log = log;
-  }
+    void SetLog(fds_log *log) {
+        assert(test_log == NULL);
+        test_log = log;
+    }
 
-  void GetObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&,
-                     const FDS_ProtocolInterface::FDSP_GetObjTypePtr&,
-                     const Ice::Current&) {
-  }
+    void UpdateCatalogObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrType&
+                                 fdsp_msg,
+                                 const
+                                 FDS_ProtocolInterface::FDSP_UpdateCatalogType&
+                                 update_req) {
+    }
 
-  void PutObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&,
-                     const FDS_ProtocolInterface::FDSP_PutObjTypePtr&,
-                     const Ice::Current&) {
-  }
+    void UpdateCatalogObjectResp(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
+                                 fdsp_msg,
+                                 FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr&
+                                 update_req) {
 
-  void UpdateCatalogObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
-                               fdsp_msg,
-                               const
-                               FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr&
-                               update_req,
-                               const Ice::Current &) {
     if (update_req->dm_operation ==
         FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_OPEN) {
       fds_uint32_t n_ios_outstanding;
@@ -652,93 +638,82 @@ class TestResp : public FDS_ProtocolInterface::FDSP_DataPathResp {
        */
       assert(0);
     }
-  }
-
-  void QueryCatalogObjectResp(const
-                              FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
-                              fdsp_msg,
-                               const
-                              FDS_ProtocolInterface::FDSP_QueryCatalogTypePtr&
-                              cat_obj_req,
-                              const Ice::Current &) {
-    if (fdsp_msg->result == FDS_ProtocolInterface::FDSP_ERR_OK) {
-      FDS_ProtocolInterface::FDSP_BlobObjectInfo& cat_obj_info = cat_obj_req->obj_list[0];
-      ObjectID oid(cat_obj_info.data_obj_id.hash_high,
-                   cat_obj_info.data_obj_id.hash_low);
-      FDS_PLOG(test_log) << "Received query response success with object "
-                         << oid << " for volume offset "
-                         << cat_obj_req->blob_name;
-      if ((cat_obj_info.data_obj_id.hash_high *
-           cat_obj_info.data_obj_id.hash_high !=
-           cat_obj_info.data_obj_id.hash_low)
-          || (strtoull(cat_obj_req->blob_name.c_str(), NULL, 0) !=
-              cat_obj_info.data_obj_id.hash_high)) {
-        FDS_PLOG(test_log) << "****** Received object ID seems to be incorrect";
-        assert(0);
-      }
-    } else {
-      FDS_PLOG(test_log) << "Received query response failure for offset "
-                         << cat_obj_req->blob_name;
-      /*
-       * TODO: Just panic for now. Eventually we want to tie
-       * the response back to the request in the unit test
-       * function and have the unit test return error.
-       */
-      assert(0);
     }
-  }
 
-  void DeleteCatalogObjectResp(const
-                              FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
+    void QueryCatalogObjectResp(const
+                              FDS_ProtocolInterface::FDSP_MsgHdrType&
                               fdsp_msg,
                                const
-                              FDS_ProtocolInterface::FDSP_DeleteCatalogTypePtr&
-                              del_cat_obj,
-                              const Ice::Current &) {
-  }
+                              FDS_ProtocolInterface::FDSP_QueryCatalogType&
+                              cat_obj_req) {
 
-  void DeleteObjectResp(const
-                              FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
-                              fdsp_msg,
-                               const
-                              FDS_ProtocolInterface::FDSP_DeleteObjTypePtr&
-                              del_cat_obj,
-                              const Ice::Current &) {
-  }
+    }
 
-  void OffsetWriteObjectResp(const
-                             FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
-                             fdsp_msg,
-                             const
-                             FDS_ProtocolInterface::FDSP_OffsetWriteObjTypePtr&
-                             offset_write_obj_req,
-                             const Ice::Current &) {
-  }
-  void RedirReadObjectResp(const
-                           FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
-                           fdsp_msg,
-                           const
-                           FDS_ProtocolInterface::FDSP_RedirReadObjTypePtr&
-                           redir_write_obj_req,
-                           const Ice::Current &) {
-  }
-  void GetVolumeBlobListResp(const FDSP_MsgHdrTypePtr& fds_msg, 
-			     const FDSP_GetVolumeBlobListRespTypePtr& blob_list_rsp, 
-			     const Ice::Current &){
-    FDS_PLOG_SEV(test_log, fds::fds_log::normal) << "Received listblob response";
-  }
+    void QueryCatalogObjectResp(
+                                FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
+                                fdsp_msg,
+                                FDS_ProtocolInterface::FDSP_QueryCatalogTypePtr&
+                                cat_obj_req) {
+        if (fdsp_msg->result == FDS_ProtocolInterface::FDSP_ERR_OK) {
+            FDS_ProtocolInterface::FDSP_BlobObjectInfo& cat_obj_info = cat_obj_req->obj_list[0];
+            ObjectID oid(cat_obj_info.data_obj_id.hash_high,
+                         cat_obj_info.data_obj_id.hash_low);
+            FDS_PLOG(test_log) << "Received query response success with object "
+                               << oid << " for volume offset "
+                               << cat_obj_req->blob_name;
+            if ((cat_obj_info.data_obj_id.hash_high *
+                 cat_obj_info.data_obj_id.hash_high !=
+                 cat_obj_info.data_obj_id.hash_low)
+                || (strtoull(cat_obj_req->blob_name.c_str(), NULL, 0) !=
+                    cat_obj_info.data_obj_id.hash_high)) {
+                FDS_PLOG(test_log) << "****** Received object ID seems to be incorrect";
+                assert(0);
+            }
+        } else {
+            FDS_PLOG(test_log) << "Received query response failure for offset "
+                               << cat_obj_req->blob_name;
+            /*
+             * TODO: Just panic for now. Eventually we want to tie
+             * the response back to the request in the unit test
+             * function and have the unit test return error.
+             */
+            assert(0);
+        }
+    }
+
+    void DeleteCatalogObjectResp(const
+                                 FDS_ProtocolInterface::FDSP_MsgHdrType&
+                                 fdsp_msg,
+                                 const
+                                 FDS_ProtocolInterface::FDSP_DeleteCatalogType&
+                                 del_cat_obj) {
+    }
+
+    void DeleteCatalogObjectResp(
+                                 FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
+                                 fdsp_msg,
+                                 FDS_ProtocolInterface::FDSP_DeleteCatalogTypePtr&
+                                 del_cat_obj) {
+    }
+
+    void GetVolumeBlobListResp(const FDSP_MsgHdrType& fds_msg, 
+                               const FDSP_GetVolumeBlobListRespType& blob_list_rsp) {
+        FDS_PLOG_SEV(test_log, fds::fds_log::normal) << "Received listblob response";
+    }
+
+    void GetVolumeBlobListResp(FDSP_MsgHdrTypePtr& fds_msg, 
+                               FDSP_GetVolumeBlobListRespTypePtr& blob_list_rsp) {
+        FDS_PLOG_SEV(test_log, fds::fds_log::normal) << "Received listblob response";
+    }
 };
 
-class TestClient : public Ice::Application {
+class TestClient {
  public:
   TestClient() {
   }
   ~TestClient() {
   }
 
-  /*
-   * Ice will execute the application via run()
-   */
   int run(int argc, char* argv[]) {
     /*
      * Process the cmdline args.
@@ -776,6 +751,7 @@ class TestClient : public Ice::Application {
      * Setup the network communication. Create a direct data path
      * connection to a single DM.
      */
+#if 0
     Ice::PropertiesPtr props = communicator()->getProperties();
     Ice::ObjectPrx op;
     if (port_num == 0) {
@@ -787,30 +763,27 @@ class TestClient : public Ice::Application {
       tcpProxyStr << "DataMgr: tcp -h " << ip_addr_str << " -p " << port_num;
       op = communicator()->stringToProxy(tcpProxyStr.str());
     }
+#endif
 
-    FDS_ProtocolInterface::FDSP_DataPathReqPrx fdspDPAPI =
-        FDS_ProtocolInterface::FDSP_DataPathReqPrx::checkedCast(op); // NOLINT(*)
+    boost::shared_ptr<apache::thrift::transport::TTransport> 
+            socket(new apache::thrift::transport::TSocket(ip_addr_str, port_num));
+    boost::shared_ptr<apache::thrift::transport::TTransport> 
+            transport(new apache::thrift::transport::TBufferedTransport(socket));
+    boost::shared_ptr<apache::thrift::protocol::TProtocol>
+            protocol(new apache::thrift::protocol::TBinaryProtocol(transport));
+    FDS_ProtocolInterface::FDSP_MetaDataPathReqClient *fdspMDPAPI
+            = new FDS_ProtocolInterface::FDSP_MetaDataPathReqClient(protocol);
 
-    Ice::ObjectAdapterPtr adapter = communicator()->createObjectAdapter("");
-    Ice::Identity ident;
-    ident.name = IceUtil::generateUUID();
-    ident.category = "";
-
-    TestResp* fdspDataPathResp;
-    fdspDataPathResp = new TestResp();
-    if (!fdspDataPathResp) {
+    TestResp *fdspMetaDataPathResp;
+    fdspMetaDataPathResp = new TestResp();
+    if (!fdspMetaDataPathResp) {
       throw "Invalid fdspDataPathRespCback";
     }
-
-    adapter->add(fdspDataPathResp, ident);
-    adapter->activate();
-
-    fdspDPAPI->ice_getConnection()->setAdapter(adapter);
-    fdspDPAPI->AssociateRespCallback(ident, "dm_test_client");
 
     /*
      * Determine control path port number.
      */
+#if 0
     std::string cp_port_str;
     if (cp_port_num == 0) {
       cp_port_str = props->getProperty("DataMgr.ControlPort");
@@ -821,8 +794,15 @@ class TestClient : public Ice::Application {
     omProxyStr << "OrchMgrClient: tcp -h " << ip_addr_str
                << " -p  " << cp_port_num;
     op = communicator()->stringToProxy(omProxyStr.str());
-    FDS_ProtocolInterface::FDSP_ControlPathReqPrx fdspCPAPI =
-        FDS_ProtocolInterface::FDSP_ControlPathReqPrx::checkedCast(op);
+#endif
+    boost::shared_ptr<apache::thrift::transport::TTransport> 
+            csocket(new apache::thrift::transport::TSocket(ip_addr_str, cp_port_num));
+    boost::shared_ptr<apache::thrift::transport::TTransport> 
+            ctransport(new apache::thrift::transport::TBufferedTransport(csocket));
+    boost::shared_ptr<apache::thrift::protocol::TProtocol>
+            cprotocol(new apache::thrift::protocol::TBinaryProtocol(ctransport));
+    FDS_ProtocolInterface::FDSP_ControlPathReqClient *fdspCPAPI 
+            = new FDS_ProtocolInterface::FDSP_ControlPathReqClient(cprotocol);
 
     num_ios_outstanding = ATOMIC_VAR_INIT(0);
     if (testperf) {
@@ -833,7 +813,7 @@ class TestClient : public Ice::Application {
       iops_stats = NULL;
     }
 
-    DmUnitTest unittest(fdspDPAPI, fdspCPAPI, num_updates, testperf, max_oios);
+    DmUnitTest unittest(fdspMDPAPI, fdspCPAPI, num_updates, testperf, max_oios);
 
     /*
      * This is kinda hackey. Want to
@@ -841,7 +821,7 @@ class TestClient : public Ice::Application {
      * but it need to be constructed prior
      * to creating the unit test object.
      */
-    fdspDataPathResp->SetLog(unittest.GetLogPtr());
+    fdspMetaDataPathResp->SetLog(unittest.GetLogPtr());
 
     if (testname.empty()) {
       unittest.Run();
@@ -860,5 +840,7 @@ class TestClient : public Ice::Application {
 int main(int argc, char* argv[]) {
   fds::TestClient dm_client;
 
-  return dm_client.main(argc, argv, "dm_test.conf");
+  //return dm_client.main(argc, argv, "dm_test.conf");
+  return dm_client.run(argc, argv);
+
 }
