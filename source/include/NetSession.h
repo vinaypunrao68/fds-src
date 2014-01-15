@@ -120,6 +120,9 @@ netDataPathClientSession(const std::string& ip_addr_str,
     ~netDataPathClientSession() {
         transport->close();
     }
+    boost::shared_ptr<FDSP_DataPathReqClient> getClient() {
+        return fdspDPAPI;
+    }
     
 private:
     int num_threads;
@@ -510,7 +513,7 @@ netSessionTbl(FDSP_MgrIdType myMgrId)
     netSession*       startSession(int  dst_ipaddr, int port, 
                                    FDSP_MgrIdType mgr_id, int num_channels, void *respSvrObj);
 
-    netSession*       startSession(const std::string& dst_node_name, 
+    netSession*       startSession(const std::string& dst_node_name,
                                    int port, FDSP_MgrIdType mgr_id, 
                                    int num_channels, void *respSvr);
 
