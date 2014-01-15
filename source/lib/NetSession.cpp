@@ -62,7 +62,7 @@ netSession* netSessionTbl::setupClientSession(const std::string& dest_node_name,
                                                      respSvrObj)); 
             } else if (local_mgr_id == FDSP_ORCH_MGR) { 
                 session = dynamic_cast<netSession *>(
-                    new netControlPathClientSession(dest_node_name,
+                    new netOMControlPathClientSession(dest_node_name,
                                                     port,
                                                     local_mgr_id,
                                                     remote_mgr_id,
@@ -80,6 +80,16 @@ netSession* netSessionTbl::setupClientSession(const std::string& dest_node_name,
                                                    remote_mgr_id,
                                                    1, /* number of threads (TODO) */
                                                    respSvrObj)); 
+            } else if ((local_mgr_id == FDSP_STOR_HVISOR) ||
+                       (local_mgr_id == FDSP_STOR_MGR) ||
+                       (local_mgr_id == FDSP_DATA_MGR)) {
+                session = dynamic_cast<netSession *>(
+                    new netOMControlPathClientSession(dest_node_name,
+                                                      port,
+                                                      local_mgr_id,
+                                                      remote_mgr_id,
+                                                      1, /* number of threads (TODO) */
+                                                      respSvrObj)); 
             }
             break;
     } 
@@ -146,12 +156,12 @@ netSession* netSessionTbl::setupServerSession(const std::string& dest_node_name,
                                                    SvrObj)); 
             } else {
                 session = dynamic_cast<netSession *>(
-                    new netControlPathServerSession(dest_node_name,
-                                                    port,
-                                                    local_mgr_id,
-                                                    remote_mgr_id,
-                                                    1, /* number of threads (TODO) */
-                                                    SvrObj)); 
+                    new netOMControlPathServerSession(dest_node_name,
+                                                      port,
+                                                      local_mgr_id,
+                                                      remote_mgr_id,
+                                                      1, /* number of threads (TODO) */
+                                                      SvrObj)); 
             }
             break;
     } 
