@@ -57,9 +57,6 @@ public:
     std::string 	ip_addr_str;
     int 		ip_addr;
     fds_uint32_t    port_num;
-    int role; // Server or Client side binding
-    FDS_ProtocolInterface::FDSP_MgrIdType localMgrId;
-    FDS_ProtocolInterface::FDSP_MgrIdType remoteMgrId;
     sessionErrorCallback cback;
     
     netSession& operator=(const netSession& rhs) {
@@ -73,6 +70,19 @@ public:
         }
         return *this;
     }
+
+    /* accessor methods */
+    FDS_ProtocolInterface::FDSP_MgrIdType getRemoteMgrId() const {
+        return remoteMgrId;
+    }
+    FDS_ProtocolInterface::FDSP_MgrIdType getLocalMgrId() const {
+        return localMgrId;
+    }
+
+private:
+    int role; // Server or Client side binding
+    FDS_ProtocolInterface::FDSP_MgrIdType localMgrId;
+    FDS_ProtocolInterface::FDSP_MgrIdType remoteMgrId;
 };
 
 class netClientSession : virtual public netSession { 
@@ -119,6 +129,9 @@ netDataPathClientSession(const std::string& ip_addr_str,
     }
     ~netDataPathClientSession() {
         transport->close();
+    }
+    boost::shared_ptr<FDSP_DataPathReqClient> getClient() {
+        return fdspDPAPI;
     }
     
 private:
@@ -200,7 +213,7 @@ private:
     boost::shared_ptr<FDSP_ControlPathRespIf> fdspControlPathResp;
     boost::shared_ptr<Thread> recv_thread;
     boost::shared_ptr<fdspControlPathRespReceiver> msg_recv; 
-    shared_ptr<TProcessor> processor;
+    boost::shared_ptr<TProcessor> processor;
 };
 
 /* Assumes sync config path, so respSvrObj passed to the constructor is 
@@ -450,15 +463,17 @@ private:
 
 
 inline std::ostream& operator<<(std::ostream& out, const netSession& ep) {
+  FDS_ProtocolInterface::FDSP_MgrIdType local_mgr_id = ep.getLocalMgrId();
   out << "Network endpoint ";
-  if (ep.localMgrId == FDSP_DATA_MGR) {
+
+  if (local_mgr_id == FDSP_DATA_MGR) {
     out << "DM";
-  } else if (ep.localMgrId == FDSP_STOR_MGR) {
+  } else if (local_mgr_id == FDSP_STOR_MGR) {
     out << "SM";
-  } else if (ep.localMgrId == FDSP_ORCH_MGR) {
+  } else if (local_mgr_id == FDSP_ORCH_MGR) {
     out << "OM";
   } else {
-    assert(ep.localMgrId == FDSP_STOR_HVISOR);
+    assert(local_mgr_id == FDSP_STOR_HVISOR);
     out << "SH";
   }
   out << " with IP " << ep.ip_addr
@@ -491,15 +506,7 @@ netSessionTbl(FDSP_MgrIdType myMgrId)
     int port;
     int num_threads;
     FDSP_MgrIdType localMgrId;
-    FDSP_MgrIdType remoteMgrId;
 
-   // Server Side Local variables 
-
-    boost::shared_ptr<ThreadManager> threadManager;
-    boost::shared_ptr<PosixThreadFactory> threadFactory;
-
-    std::unordered_map<std::string, netSession*> sessionTbl;
-    fds_mutex   *sessionTblMutex;
     static string ipAddr2String(int ipaddr);
     std::string getKey(std::string node_name, FDSP_MgrIdType remote_mgr_id);
 
@@ -510,7 +517,7 @@ netSessionTbl(FDSP_MgrIdType myMgrId)
     netSession*       startSession(int  dst_ipaddr, int port, 
                                    FDSP_MgrIdType mgr_id, int num_channels, void *respSvrObj);
 
-    netSession*       startSession(const std::string& dst_node_name, 
+    netSession*       startSession(const std::string& dst_node_name,
                                    int port, FDSP_MgrIdType mgr_id, 
                                    int num_channels, void *respSvr);
 
@@ -555,6 +562,14 @@ private:
                                    FDS_ProtocolInterface::FDSP_MgrIdType local_mgr_id,
                                    FDS_ProtocolInterface::FDSP_MgrIdType remote_mgr_id,
                                    void* SvrObj);
+
+private: /* data */
+    std::unordered_map<std::string, netSession*> sessionTbl;
+    fds_mutex   *sessionTblMutex;
+
+   // Server Side Local variables 
+    boost::shared_ptr<ThreadManager> threadManager;
+    boost::shared_ptr<PosixThreadFactory> threadFactory;
 };
 
 #endif
