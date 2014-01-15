@@ -189,7 +189,8 @@ namespace fds {
         void SetThrottleLevelForDomain(int domain_id, float throttle_level);
 
   public:
-    OrchMgr(const std::string& config_path,
+    OrchMgr(int argc, char *argv[],
+            const std::string& default_config_path,
             const std::string& base_path);
     ~OrchMgr();
 

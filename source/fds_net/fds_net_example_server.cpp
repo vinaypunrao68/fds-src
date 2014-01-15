@@ -11,6 +11,9 @@
 #include <fds_process.h>
 #include <NetSession.h>
 
+netSession *exampleSession;  // Single global session for now
+boost::shared_ptr<FDSP_DataPathRespClient> respClient;
+
 namespace FDS_ProtocolInterface {
 class exampleDataPathReqIf : public FDSP_DataPathReqIf {
   public:
@@ -26,9 +29,16 @@ class exampleDataPathReqIf : public FDSP_DataPathReqIf {
     }
     void PutObject(const FDSP_MsgHdrType& fdsp_msg,
                    const FDSP_PutObjType& put_obj_req) {
+        std::cout << "Got a non-shared-ptr put object message" << std::endl;
     }
     void PutObject(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,  // NOLINT
                    boost::shared_ptr<FDSP_PutObjType>& put_obj_req) {
+        std::cout << "Got a put object message" << std::endl;
+        respClient =
+                dynamic_cast<netDataPathServerSession *>(exampleSession)->getClient();  // NOLINT
+        FDSP_MsgHdrType resp_msg;
+        FDSP_PutObjType resp_put;
+        respClient->PutObjectResp(resp_msg, resp_put);
     }
     void DeleteObject(const FDSP_MsgHdrType& fdsp_msg,
                       const FDSP_DeleteObjType& del_obj_req) {
@@ -98,12 +108,14 @@ int main(int argc, char *argv[]) {
     std::string myIpStr = getMyIp();
     int myIpInt = netSession::ipString2Addr(myIpStr);
     std::string myNodeName = "Example SM";
-    netSession *exampleSession = nst->createServerSession(myIpInt,
-                                                          8888,
-                                                          myNodeName,
-                                                          FDSP_STOR_HVISOR,
-                                                          edpri);
+    exampleSession = nst->createServerSession(myIpInt,
+                                              8888,
+                                              myNodeName,
+                                              FDSP_STOR_HVISOR,
+                                              edpri);
 
+    // respClient =
+    //     dynamic_cast<netDataPathServerSession *>(exampleSession)->getClient();  // NOLINT
     nst->listenServer(exampleSession);
 
     return 0;
