@@ -1,4 +1,5 @@
 #include <cstdarg>
+#include <NetSession.h>
 #include <Ice/Ice.h>
 #include <fdsp/FDSP.h>
 #include <Ice/ObjectFactory.h>

@@ -5,12 +5,6 @@
 #ifndef SOURCE_LIB_FDS_ERR_H_
 #define SOURCE_LIB_FDS_ERR_H_
 
-/*
- * TODO: This is only needed to support
- * compatability with FDSP error codes.
- */
-#include <fdsp/FDSP_types.h>
-
 #include <sstream>
 #include <string>
 
@@ -86,14 +80,6 @@ namespace fds {
 
     fds_errno_t GetErrno() const {
       return _errno;
-    }
-
-    FDS_ProtocolInterface::FDSP_ErrType getFdspErr() const {
-      /*
-       * TODO: We only return code since it's the only code
-       * available to return.
-       */
-      return FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
     }
 
     std::string GetErrstr() const {
