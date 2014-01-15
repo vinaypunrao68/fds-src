@@ -588,7 +588,7 @@ struct FDSP_MsgHdrType {
 }
 
 service FDSP_SessionReq {
-    oneway void AssociateRespCallback(1:string src_node_name) // Associate Response callback ICE-object with DM/SM for this source node.
+    oneway void AssociateRespCallback(1:string src_node_name) // Associate Response callback with DM/SM for this source node.
 }
 
 service FDSP_DataPathReq {
