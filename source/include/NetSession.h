@@ -48,7 +48,7 @@ public:
     static int ipString2Addr(string ipaddr_str);
     void setSessionErrHandler(sessionErrorCallback cback);
     
-    ~netSession();
+    virtual ~netSession();
     void     endSession();
     
     int 		node_index;

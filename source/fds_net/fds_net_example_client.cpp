@@ -79,8 +79,8 @@ int main(int argc, char *argv[]) {
                                                    numChannels,
                                                    reinterpret_cast<void*>(edpri));
 
-    //    netDataPathClientSession *clientSess =
-    // dynamic_cast<netDataPathClientSession *>(exampleSession)->getClient();  // NOLINT
+    boost::shared_ptr<FDSP_DataPathReqClient> client =
+            dynamic_cast<netDataPathClientSession *>(exampleSession)->getClient();  // NOLINT
 
     return 0;
 }
