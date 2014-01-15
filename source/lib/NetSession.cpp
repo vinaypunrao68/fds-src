@@ -299,7 +299,6 @@ netSession* netSessionTbl::createServerSession(int local_ipaddr,
     src_ipaddr = local_ipaddr;
     port = _port;
     src_node_name = local_node_name;
-    remoteMgrId = remote_mgr_id;
 
     session = setupServerSession(local_node_name, port, localMgrId, remote_mgr_id, respHandlerObj);
     if ( session == NULL ) {
@@ -337,7 +336,7 @@ void netSessionTbl::listenServer(netSession* server_session) {
             break;
             
         case FDSP_ORCH_MGR: 
-            if ( remoteMgrId == FDSP_CLI_MGR) { 
+            if (server_session->getRemoteMgrId() == FDSP_CLI_MGR) { 
                 netConfigPathServerSession *servSession = 
                         reinterpret_cast<netConfigPathServerSession *>(server_session);
                 servSession->listenServer();
