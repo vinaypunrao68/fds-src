@@ -491,6 +491,7 @@ netSessionTbl(FDSP_MgrIdType myMgrId)
     int port;
     int num_threads;
     FDSP_MgrIdType localMgrId;
+    FDSP_MgrIdType remoteMgrId;
 
    // Server Side Local variables 
 
