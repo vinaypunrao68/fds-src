@@ -119,7 +119,6 @@ class SmPlReq : public diskio::DiskRequest {
 
 
 class ObjectStorMgr :
-        //virtual public Ice::Application, // todo: remove this once fds net stuff is in place.
         public FdsProcess,
         public Module // todo: We shouldn't be deriving module here.  ObjectStorMgr is
                       // an FDSProcess, it contains Modules

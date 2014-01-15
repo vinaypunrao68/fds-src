@@ -7,6 +7,8 @@
 
 #include <string>
 #include <exception>
+#include <boost/program_options.hpp>
+#include <boost/lexical_cast.hpp>
 
 #include <libconfig.h++>
 
@@ -36,12 +38,18 @@ public:
         config_.readFile(config_file.c_str());
     }
 
+    void parse_cmdline_args(int argc, const char* argv[]);
+
     template<class T>
     T get(const std::string &key);
 
     template<class T>
     T get(const std::string &key, const T &default_value);
 
+    template<class T>
+    void set(const std::string &key, const T &default_value);
+    
+    bool exists(const std::string &key);
 private:
     /* Config object */
     libconfig::Config config_;
@@ -130,6 +138,60 @@ private:
 };
 
 /**
+ * Parses command line arguments and overrides the config object
+ * with them
+ * @param argc
+ * @param agrv
+ */
+void FdsConfig::parse_cmdline_args(int argc, const char* argv[])
+{
+    namespace po = boost::program_options;
+    po::options_description desc("Allowed options");
+    /*desc.add_options()
+            ("help", "produce help message")
+            ("compression", po::value<int>(), "set compression level")
+            ;
+
+    po::variables_map vm;*/
+    po::parsed_options parsed = 
+            po::command_line_parser(argc, argv).options(desc).allow_unregistered().run();
+
+    for (auto o : parsed.options) {
+        /* Ignore options that don't start with "fds." */
+        if (o.string_key.find("fds.") != 0) {
+            continue;
+        }
+        /* Look up the option key in config file.  Option must
+         * exists in the config file
+         */
+        libconfig::Setting &s = config_.lookup(o.string_key);
+        std::string temp;
+        switch (s.getType()) {
+            case libconfig::Setting::TypeInt64:
+                s = boost::lexical_cast<long long>(o.value[0]);
+                break;
+            case libconfig::Setting::TypeFloat:
+                s = boost::lexical_cast<double>(o.value[0]);
+                break;
+            case libconfig::Setting::TypeInt:
+                s = boost::lexical_cast<int>(o.value[0]);
+                break;
+
+            case libconfig::Setting::TypeString:
+                s = o.value[0];
+                break;
+
+            case libconfig::Setting::TypeBoolean:
+                s = boost::lexical_cast<bool>(o.value[0]);
+                break;
+            default:
+                throw FdsException("Unsupported type specified for key: " + o.string_key);
+        }
+    }
+
+}
+
+/**
  *
  * @param key key is the path of the key to get.  Key is '.' separated.
  * @return value associated with key.  If key doesn't exist throws an exception
@@ -159,6 +221,28 @@ T FdsConfig::get(const std::string &key, const T &default_value)
         return default_value;
     }
     return val;
+}
+
+/**
+ *
+ * @param key key key is the path of the key to get.  Key is '.' separated. Key
+ * must exist already.
+ * @param value value to set 
+ */
+template<class T>
+void FdsConfig::set(const std::string &key, const T &value)
+{
+    libconfig::Setting &s = config_.lookup(key);
+    s = value;
+}
+
+/**
+ * Return true if key exists in the config
+ * @param key
+ */
+bool FdsConfig::exists(const std::string &key)
+{
+    return config_.exists(key);
 }
 
 } // namespace Fds
