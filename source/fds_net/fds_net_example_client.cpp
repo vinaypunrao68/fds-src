@@ -69,14 +69,15 @@ int main(int argc, char *argv[]) {
     exampleDataPathRespIf *edpri = new exampleDataPathRespIf();
 
     boost::shared_ptr<netSessionTbl> nst =
-            boost::shared_ptr<netSessionTbl>(new netSessionTbl());
+            boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_HVISOR));
 
-    std::string sessionName = "Example client";
-    netSession *exampleSession = nst->setupClientSession(sessionName,
-                                                         8888,
-                                                         FDSP_STOR_HVISOR,
-                                                         FDSP_STOR_MGR,
-                                                         reinterpret_cast<void*>(edpri));
+    std::string sessionName  = "Example client";
+    fds_uint32_t numChannels = 1;
+    netSession *exampleSession = nst->startSession(sessionName,
+                                                   8888,
+                                                   FDSP_STOR_MGR,
+                                                   numChannels,
+                                                   reinterpret_cast<void*>(edpri));
 
     return 0;
 }

@@ -92,23 +92,19 @@ int main(int argc, char *argv[]) {
     exampleDataPathReqIf *edpri = new exampleDataPathReqIf();
 
     boost::shared_ptr<netSessionTbl> nst =
-            boost::shared_ptr<netSessionTbl>(new netSessionTbl());
+            boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_MGR));
 
     std::string sessionName = "Example server";
-    netSession *exampleSession = nst->setupServerSession(sessionName,
-                                                         8888,
-                                                         FDSP_STOR_HVISOR,
-                                                         FDSP_STOR_MGR,
-                                                         reinterpret_cast<void*>(edpri));
-
     std::string myIpStr = getMyIp();
     int myIpInt = netSession::ipString2Addr(myIpStr);
     std::string myNodeName = "Example SM";
-    nst->createServerSession(myIpInt,
-                             8888,
-                             myNodeName,
-                             FDSP_STOR_MGR,
-                             edpri);
+    netSession *exampleSession = nst->createServerSession(myIpInt,
+                                                          8888,
+                                                          myNodeName,
+                                                          FDSP_STOR_HVISOR,
+                                                          edpri);
+
+    nst->listenServer(exampleSession);
 
     return 0;
 }

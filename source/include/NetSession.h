@@ -467,14 +467,22 @@ inline std::ostream& operator<<(std::ostream& out, const netSession& ep) {
 }
 
 class netSessionTbl {
-public :
-    netSessionTbl(std::string _src_node_name, int _src_ipaddr, int _port, int _num_threads) :
-        src_node_name(_src_node_name), src_ipaddr(_src_ipaddr), port(_port), num_threads(_num_threads) {
+public:
+netSessionTbl(std::string _src_node_name,
+              int _src_ipaddr,
+              int _port,
+              int _num_threads,
+              FDSP_MgrIdType myMgrId)
+        : src_node_name(_src_node_name),
+            src_ipaddr(_src_ipaddr),
+            port(_port),
+            num_threads(_num_threads),
+            localMgrId(myMgrId) {
+                sessionTblMutex = new fds_mutex("RPC Tbl mutex");
+            }
+netSessionTbl(FDSP_MgrIdType myMgrId)
+        : netSessionTbl("", 0, 0, 10, myMgrId) {
     }
-
-    netSessionTbl() {
-        sessionTblMutex = new fds_mutex("RPC Tbl mutex"); 
-     };
     ~netSessionTbl() {
     }
     
@@ -483,7 +491,6 @@ public :
     int port;
     int num_threads;
     FDSP_MgrIdType localMgrId;
-    FDSP_MgrIdType remoteMgrId;
 
    // Server Side Local variables 
 
@@ -494,18 +501,6 @@ public :
     fds_mutex   *sessionTblMutex;
     static string ipAddr2String(int ipaddr);
     std::string getKey(std::string node_name, FDSP_MgrIdType remote_mgr_id);
-
-    netSession* setupClientSession(const std::string& dest_node_name, 
-                                   int port, 
-                                   FDS_ProtocolInterface::FDSP_MgrIdType local_mgr_id,
-                                   FDS_ProtocolInterface::FDSP_MgrIdType remote_mgr_id,
-                                   void* respSvrObj);
-
-    netSession* setupServerSession(const std::string& dest_node_name, 
-                                   int port, 
-                                   FDS_ProtocolInterface::FDSP_MgrIdType local_mgr_id,
-                                   FDS_ProtocolInterface::FDSP_MgrIdType remote_mgr_id,
-                                   void* SvrObj) ;
 
     // Client Procedures
     /*
@@ -546,6 +541,19 @@ public :
     void              listenServer(netSession* server_session);
 
     void              endServerSession(netSession *server_session );
+
+private:
+    netSession* setupClientSession(const std::string& dest_node_name, 
+                                   int port, 
+                                   FDS_ProtocolInterface::FDSP_MgrIdType local_mgr_id,
+                                   FDS_ProtocolInterface::FDSP_MgrIdType remote_mgr_id,
+                                   void* respSvrObj);
+
+    netSession* setupServerSession(const std::string& dest_node_name, 
+                                   int port, 
+                                   FDS_ProtocolInterface::FDSP_MgrIdType local_mgr_id,
+                                   FDS_ProtocolInterface::FDSP_MgrIdType remote_mgr_id,
+                                   void* SvrObj);
 };
 
 #endif
