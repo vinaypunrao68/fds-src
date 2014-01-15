@@ -58,7 +58,8 @@ public:
     int 		ip_addr;
     fds_uint32_t    port_num;
     int role; // Server or Client side binding
-    FDS_ProtocolInterface::FDSP_MgrIdType mgrId;
+    FDS_ProtocolInterface::FDSP_MgrIdType localMgrId;
+    FDS_ProtocolInterface::FDSP_MgrIdType remoteMgrId;
     sessionErrorCallback cback;
     
     netSession& operator=(const netSession& rhs) {
@@ -67,7 +68,8 @@ public:
             proto_type = rhs.proto_type;
             ip_addr_str = rhs.ip_addr_str;
             ip_addr    = rhs.ip_addr;
-            mgrId      = rhs.mgrId;
+            localMgrId      = rhs.localMgrId;
+            remoteMgrId      = rhs.remoteMgrId;
         }
         return *this;
     }
@@ -149,39 +151,15 @@ public:
 private:
         boost::shared_ptr<FDSP_ControlPathReqClient> fdspCPAPI;
         int num_threads;
-        boost::shared_ptr<FDSP_DataPathRespIf> fdspDataPathResp;
-        boost::shared_ptr<Thread> th;
+        boost::shared_ptr<FDSP_ControlPathRespIf> fdspControlPathResp;
+        boost::shared_ptr<Thread> recv_thread;
         boost::shared_ptr<fdspDataPathRespReceiver> msg_recv; 
         shared_ptr<TProcessor> processor;
 
-        netDataPathClientSession(string ip_addr_str, 
-                                 int port, int num_threads, void *respSvrObj) 
-                                 : netClientSession(ip_addr_str, port, FDSP_STOR_HVISOR, FDSP_STOR_MGR)  { 
-           fdspDPAPI = new FDSP_DataPathReqClient(protocol);
-           fdspDataPathResp.reset(reinterpret_cast<FDSP_DataPathRespIf *> (respSvrObj));
-           processor.reset(new FDSP_DataPathRespProcessor(fdspDataPathResp));
-           PosixThreadFactory threadFactory(PosixThreadFactory::ROUND_ROBIN,
-                                   PosixThreadFactory::NORMAL,
-                                   num_threads,
-                                   false);
-            msg_recv.reset(new fdspDataPathRespReceiver(protocol, fdspDataPathResp));
-            th = threadFactory.newThread(msg_recv);
-            th->start();
-           transport->open();
-        }
-        ~netDataPathClientSession() {
-           transport->close();
-        }
 };
 
 class netServerSession: public netSession { 
 public :
-  boost::shared_ptr<TServerTransport> serverTransport;
-  boost::shared_ptr<TTransportFactory> transportFactory;
-  boost::shared_ptr<TProtocolFactory> protocolFactory;
-  boost::shared_ptr<ThreadManager> threadManager;
-  boost::shared_ptr<PosixThreadFactory> threadFactory;
-
   netServerSession(string node_name, int port, FDSP_MgrIdType local_mgr_id, int num_threads) : 
                    netSession(node_name, port, local_mgr_id, local_mgr_id) { 
        serverTransport.reset(new TServerSocket(port));
@@ -189,8 +167,7 @@ public :
        protocolFactory.reset( new TBinaryProtocolFactory());
 
        threadManager = ThreadManager::newSimpleThreadManager(num_threads);
-       boost::shared_ptr<PosixThreadFactory> threadFactory =
-         boost::shared_ptr<PosixThreadFactory>(new PosixThreadFactory());
+       threadFactory = boost::shared_ptr<PosixThreadFactory>(new PosixThreadFactory());
        threadManager->threadFactory(threadFactory);
        threadManager->start();
   }
@@ -208,17 +185,10 @@ protected:
 
 class netDataPathServerSession : public netServerSession { 
 public:
-        boost::shared_ptr<FDSP_DataPathReqIf> handler;
-        boost::shared_ptr<FDSP_DataPathReqIfSingletonFactory> handlerFactory; 
-        boost::shared_ptr<TProcessorFactory> processorFactory;
-        boost::shared_ptr<TThreadPoolServer> server;
-        boost::shared_ptr<TProtocol> protocol_;
-        boost::shared_ptr<FDSP_DataPathRespClient> client;
-
         netDataPathServerSession(string dest_node_name, int port, FDSP_MgrIdType local_mgr_id, 
                                  FDSP_MgrIdType remote_mgr_id, int num_threads,
                                  void *svrObj) : netServerSession(dest_node_name, port, local_mgr_id, num_threads) {
-          handler.reset(reinterpret_cast<FDSP_DataPathReqIf &> (svrObj));
+          handler = reinterpret_cast<FDSP_DataPathReqIf *> (svrObj);
           handlerFactory.reset(new FDSP_DataPathReqIfSingletonFactory(handler));
           processorFactory.reset(new FdsDataPathReqProcessorFactory(handlerFactory, setClient, this));
         }
@@ -252,7 +222,7 @@ public:
     }
     
 private:
-    boost::shared_ptr<FDSP_DataPathReqIf> handler;
+    FDSP_DataPathReqIf* handler;
     boost::shared_ptr<FDSP_DataPathReqIfSingletonFactory> handlerFactory; 
     boost::shared_ptr<TProcessorFactory> processorFactory;
     boost::shared_ptr<TThreadPoolServer> server;
@@ -262,11 +232,12 @@ private:
 
 class netControlPathServerSession : public netServerSession { 
 public:
-netControlPathServerSession(int num_threads, const boost::shared_ptr<FDSP_ControlPathReqIf>& req_iface)
-        : netServerSession(num_threads),
-            handler(req_iface),
-            handlerFactory(new FDSP_ControlPathReqIfSingletonFactory(handler)),
-            processorFactory(new FdsControlPathReqProcessorFactory(handlerFactory, setClient, this)) { 
+        netControlPathServerSession(string dest_node_name, int port, FDSP_MgrIdType local_mgr_id, 
+                                 FDSP_MgrIdType remote_mgr_id, int num_threads,
+                                 void *svrObj) : netServerSession(dest_node_name, port, local_mgr_id, num_threads),
+                                 handler(req_iface),
+                                 handlerFactory(new FDSP_ControlPathReqIfSingletonFactory(handler)),
+                                 processorFactory(new FdsControlPathReqProcessorFactory(handlerFactory, setClient, this)) { 
     }
 
     ~netControlPathServerSession() {
@@ -278,12 +249,6 @@ netControlPathServerSession(int num_threads, const boost::shared_ptr<FDSP_Contro
         netControlPathServerSession* self = reinterpret_cast<netControlPathServerSession *>(context);
         self->setClientInternal(transport);
     }
-      void listenServer() { 
-          server.reset(new TThreadPoolServer (processorFactory,
-                                          serverTransport,
-                                          transportFactory,
-                                          protocolFactory,
-                                          threadManager));
 
     void setClientInternal(const boost::shared_ptr<TTransport> transport) {
         printf("netSessionServer internal: set DataPathRespClient\n");
@@ -359,7 +324,7 @@ public :
     std::unordered_map<std::string, netSession*> sessionTbl;
     fds_mutex   *sessionTblMutex;
     static string ipAddr2String(int ipaddr);
-    std::string getKey(std::string node_name, FDSP_MgrIdType remote_mgr_id) {
+    std::string getKey(std::string node_name, FDSP_MgrIdType remote_mgr_id);
 
     netSession* setupClientSession(const std::string& dest_node_name, 
                                    int port, 

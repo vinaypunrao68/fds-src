@@ -8,9 +8,6 @@ netSession::netSession()
     : node_index(0), proto_type(0), port_num(0) {
 }
 
-netSession::~netSession() {
-}
-
 netSession::netSession(const std::string& _node_name, int port, 
                        FDS_ProtocolInterface::FDSP_MgrIdType local_mgr_id,
                        FDS_ProtocolInterface::FDSP_MgrIdType remote_mgr_id)
@@ -91,23 +88,6 @@ netSession* netSessionTbl::setupServerSession(const std::string& dest_node_name,
             break;
     } 
     return session;
-}
-
-/*
- * TODO: Clean up all of these constructors to use a single base
- * constructor.
- */
-netSession::netSession(std::string _node_name,
-                       int port, 
-                       FDS_ProtocolInterface::FDSP_MgrIdType remote_mgr_id) {
-  this->port_num = port;
-  ip_addr_str = _node_name;
-  mgrId = remote_mgr_id;
-  /*
-   * TODO: Set Node_index to something. Is 0 correct?
-   */
-  node_index = 0;
-
 }
 
 netSession::~netSession()
@@ -236,12 +216,13 @@ void netSessionTbl::endSession(netSession *session)  {
 netSession*       netSessionTbl::createServerSession(int  local_ipaddr, 
                                                      int port, 
                                                      std::string local_node_name, 
-                                                     FDSP_MgrIdType remote_mgr_id, void *respHandlerObj) {
+                                                     FDSP_MgrIdType remote_mgr_id, 
+                                                     void *respHandlerObj) {
     netSession* session = NULL;
     src_ip_addr = local_ipaddr;
     port = _port;
     src_node_name = local_node_name;
-    localMgrId = mgr_id;
+    remoteMgrId = remote_mgr_id;
 
     session = setupServerSession(local_node_name, port, localMgrId, remote_mgr_id, respHandlerObj);
     if ( session == NULL ) {
@@ -290,5 +271,3 @@ void    netSessionTbl::listenServer(netSession* server_session) {
         break;
     }
 }
-
-
