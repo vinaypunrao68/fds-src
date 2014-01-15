@@ -36,6 +36,8 @@ user_no_style  := \
 	tvclib.h              \
 	vvclib.h              \
     fds_timer.h           \
-        NetSession.h          
+	NetSessRespSvr.h       \
+	NetSessRespClient.h  \
+	NetSession.h          
 
 include $(topdir)/Makefile.incl

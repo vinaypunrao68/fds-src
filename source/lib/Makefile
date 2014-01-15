@@ -2,6 +2,7 @@ topdir           := ..
 user_target      := lib
 user_rtime_env   := user
 user_cpp         :=      \
+    NetSession.cpp       \
     PerfTrace.cpp        \
     Catalog.cpp          \
     VolumeCatalog.cpp    \
@@ -13,11 +14,13 @@ user_cpp         :=      \
     qos_min_prio.cpp     \
     PerfStats.cpp        \
     jsoncpp.cpp          \
-    fds_process.cpp
+    fds_process.cpp      \
+    NetSession.cpp
 #    TransJournal.cpp     \
 
 user_incl_dir    := $(topdir)
 user_no_style    := \
+    NetSession.cpp       \
     PerfTrace.cpp        \
     VolumeCatalog.cpp    \
     OMgrClient.cpp       \
@@ -28,6 +31,7 @@ user_no_style    := \
     TransJournal.cpp     \
     PerfStats.cpp        \
     jsoncpp.cpp          \
+    NetSession.cpp       \
     $(wildcard *.h)
 
 # TODO: should change this directory and this lib to something more

@@ -148,7 +148,7 @@ class ObjectStorMgr :
      * The map is used for sending back the response to the
      * appropriate SH/DM
      */
-    boost::shared_ptr<FDS_ProtocolInterface::FDSP_DataPathReqIf>
+    boost::shared_ptr<FDS_DataPathReqHandler>
         fdspDataPathServer;
     std::unordered_map<std::string,
         boost::shared_ptr<FDS_ProtocolInterface::FDSP_DataPathRespClient> >
@@ -390,7 +390,7 @@ class ObjectStorMgr :
     friend ObjectStorMgrI;
 };
 
-class ObjectStorMgrI : virtual public FDSP_DataPathReqIf {
+class ObjectStorMgrI : virtual public FDSP_DataPathReqHandler {
  public:
     ObjectStorMgrI();
     ~ObjectStorMgrI();
