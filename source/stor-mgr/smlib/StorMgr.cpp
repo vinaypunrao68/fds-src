@@ -205,15 +205,11 @@ ObjectStorMgr::ObjectStorMgr(const std::string &config_path,
         const std::string &base_path) :
                 Module("StorMgr"),
                 FdsProcess(config_path, base_path),
-                runMode(NORMAL_MODE),
-                numTestVols(10),
                 totalRate(2000),
                 qosThrds(10),
-                port_num(0),
                 shuttingDown(false),
                 numWBThreads(1),
-                maxDirtyObjs(10000),
-                cp_port_num(0)
+                maxDirtyObjs(10000)
 {
     /*
      * TODO: Fix the totalRate above to not
@@ -334,43 +330,13 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
     // todo: clean up the code below.  It's doing too many things here.
     // Refactor into functions or make it part of module vector
 
-    fds_bool_t      unit_test;
-    fds_bool_t      useTestMode;
+    std::string     myIp;
     std::string     endPointStr;
     DmDiskInfo     *info;
     DmDiskQuery     in;
     DmDiskQueryOut  out;
-    std::string     omIpStr;
-    fds_uint32_t    omConfigPort;
 
-    unit_test    = false;
-    useTestMode  = false;
-    omConfigPort = 0;
-    runMode = NORMAL_MODE;
-
-
-    for (int i = 1; i < argc; i++) {
-        std::string arg(argv[i]);
-        if (arg == "--unit_test") {
-            unit_test = true;
-        } else if (strncmp(argv[i], "--cp_port=", 10) == 0) {
-            cp_port_num = strtoul(argv[i] + 10, NULL, 0);
-        } else if (strncmp(argv[i], "--om_ip=", 8) == 0) {
-            omIpStr = argv[i] + 8;
-        } else if (strncmp(argv[i], "--om_port=", 10) == 0) {
-            omConfigPort = strtoul(argv[i] + 10, NULL, 0);
-        } else if (strncmp(argv[i], "--prefix=", 9) == 0) {
-            stor_prefix = argv[i] + 9;
-        } else if (strncmp(argv[i], "--test_mode", 11) == 0) {
-            useTestMode = true;
-        }
-    }
-
-    port_num = mod_params->service_port;
-
-    if (useTestMode == true) {
-        runMode = TEST_MODE;
-    }
+    std::string stor_prefix = conf_helper_.get_abs<std::string>("fds.root");
 
     // Create leveldb
     std::string filename= stor_prefix + "SNodeObjRepository";
@@ -382,25 +348,6 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
 #if 0
     // todo: set the properties based on config
     Ice::PropertiesPtr props;
-
-    if (cp_port_num == 0) {
-        cp_port_num = props->getPropertyAsInt("ObjectStorMgrSvr.ControlPort");
-    }
-
-    if (port_num == 0) {
-        /*
-         * Pull the port from the config file if it wasn't
-         * specified on the command line.
-         */
-        port_num = props->getPropertyAsInt("ObjectStorMgrSvr.PortNumber");
-    }
-
-    if (unit_test) {
-        objStorMgr->unitTest();
-        return;
-    }
-
-    FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::notification) << "Stor Mgr port_number :" << port_num;
 
     /*
      * Set basic thread properties.
@@ -414,8 +361,6 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
     props->setProperty("ObjectStorMgrSvr.ThreadPool.Server.SizeWarn", "300");
 #endif
 
-    std::ostringstream tcpProxyStr;
-    tcpProxyStr << "tcp -p " << port_num;
 
     /* Set up FDSP RPC endpoints */
     // todo: Make changes once RPC endpoint code is ready
@@ -442,7 +387,7 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
             }
         }
     }
-    assert(myIp.empty() == false);
+    fds_assert(myIp.empty() == false);
     FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::notification) << "Stor Mgr IP:" << myIp;
 
     /*
@@ -488,10 +433,10 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
      * Register this node with OM.
      */
     omClient = new OMgrClient(FDSP_STOR_MGR,
-            omIpStr,
-            omConfigPort,
+            conf_helper_.get<std::string>("om_ip"),
+            conf_helper_.get<int>("om_port"),
             myIp,
-            port_num,
+            conf_helper_.get<int>("data_port"),
             stor_prefix + "localhost-sm",
             sm_log);
 
@@ -520,18 +465,19 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
     omClient->registerEventHandlerForNodeEvents((node_event_handler_t)nodeEventOmHandler);
     omClient->registerEventHandlerForVolEvents((volume_event_handler_t)volEventOmHandler);
     omClient->omc_srv_pol = &sg_SMVolPolicyServ;
-    omClient->startAcceptingControlMessages(cp_port_num);
+    omClient->startAcceptingControlMessages(conf_helper_.get<int>("control_port"));
     omClient->registerNodeWithOM(dInfo);
 
     /*
      * Create local variables for test mode
      */
-    if (runMode == TEST_MODE) {
+    if (conf_helper_.get<bool>("test_mode") == true) {
         /*
          * Create test volumes.
          */
         VolumeDesc*  testVdb;
         std::string testVolName;
+        int numTestVols = conf_helper_.get<int>("test_volume_cnt");
         for (fds_uint32_t testVolId = 1; testVolId < numTestVols + 1; testVolId++) {
             testVolName = "testVol" + std::to_string(testVolId);
             /*

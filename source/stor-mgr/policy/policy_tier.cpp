@@ -92,7 +92,7 @@ TierPolAction::TierPolAction(fds_uint64_t tier_uuid)
     int i;
 
     for (i = 0; i < TIER_MAX_MEDIA_TYPES; i++) {
-        tier_cur_media[i] = opi::TIER_MEIDA_NO_VAL;
+        tier_cur_media[i] = FDS_ProtocolInterface::TIER_MEIDA_NO_VAL;
         tier_med_pct_consume[i] = 0;
     }
 }
@@ -126,7 +126,7 @@ TierPolAction::tier_do_action()
     if (tier_time_spec->tier_time_effect(duration) == true) {
         // XXX: simple activate call for now.
         if (tier_phase != TierPolAction::TIER_ACT_ACTIVE_NORM) {
-            tier_activate(opi::TIER_MEDIA_SSD, tier_med_pct_consume[0]);
+            tier_activate(FDS_ProtocolInterface::TIER_MEDIA_SSD, tier_med_pct_consume[0]);
         } else {
             tier_deactivate();
         }
@@ -330,7 +330,7 @@ TierStat::~TierStat()
 // -----------------
 //
 void
-TierStat::tier_stat_rec_iop(fds_tier_media_e media, bool rd)
+TierStat::tier_stat_rec_iop(FDS_ProtocolInterface::tier_media_type_e media, bool rd)
 {
 }
 
@@ -338,7 +338,7 @@ TierStat::tier_stat_rec_iop(fds_tier_media_e media, bool rd)
 // ---------------------
 //
 void
-TierStat::tier_stat_rec_latency(fds_tier_media_e media, fds_uint32_t usec)
+TierStat::tier_stat_rec_latency(FDS_ProtocolInterface::tier_media_type_e media, fds_uint32_t usec)
 {
 }
 

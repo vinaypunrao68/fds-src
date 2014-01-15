@@ -28,6 +28,7 @@ user_non_fds_libs := \
     boost_program_options \
 	leveldb ssl crypto \
 	thrift \
+	config++ \
 	Ice IceUtil \
 
 

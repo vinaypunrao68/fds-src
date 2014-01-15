@@ -51,6 +51,10 @@ void FdsProcess::setup(int argc, char *argv[], fds::Module **mod_vec)
 {
     setup_sig_handler();
 
+    /* Parase any config specific commandline arguments */
+    conf_helper_.get_fds_config()->parse_cmdline_args(argc, argv);
+
+    /* Execute module vector */
     setup_mod_vector(argc, argv, mod_vec);
 }
 
