@@ -7,6 +7,7 @@
 
 #include <sstream>
 #include <string>
+#include <fdsp/FDSP_types.h>
 
 namespace fds {
   
@@ -84,6 +85,15 @@ namespace fds {
 
     std::string GetErrstr() const {
       return errstr;
+    }
+
+    FDS_ProtocolInterface::FDSP_ErrType getFdspErr() const
+    {
+        /* 
+         * TODO:  We only return code since it's the only code available to
+         * return.
+         */
+        return FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE; 
     }
 
     Error& operator=(const Error& rhs) {

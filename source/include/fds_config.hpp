@@ -38,7 +38,7 @@ public:
         config_.readFile(config_file.c_str());
     }
 
-    void parse_cmdline_args(int argc, const char* argv[]);
+    void parse_cmdline_args(int argc, char* argv[]);
 
     template<class T>
     T get(const std::string &key);
@@ -132,6 +132,29 @@ public:
         return fds_config_->get<T>(base_path_+key, default_value);
     }
 
+    /**
+     * @see FdsConfig::get(const std::string &key)
+     * @param key - config key with the basepath
+     * @return
+     */
+    template<class T>
+    T get_abs(const std::string &key)
+    {
+        return fds_config_->get<T>(key);
+    }
+
+    /**
+     * @see FdsConfig::get(const std::string &key, const T &default_value)
+     * @param key - config key with the basepath
+     * @param default_value
+     * @return
+     */
+    template<class T>
+    T get_abs(const std::string &key, const T &default_value)
+    {
+        return fds_config_->get<T>(key, default_value);
+    }
+
 private:
     boost::shared_ptr<FdsConfig> fds_config_;
     std::string base_path_;
@@ -143,7 +166,7 @@ private:
  * @param argc
  * @param agrv
  */
-void FdsConfig::parse_cmdline_args(int argc, const char* argv[])
+void FdsConfig::parse_cmdline_args(int argc, char* argv[])
 {
     namespace po = boost::program_options;
     po::options_description desc("Allowed options");
