@@ -304,7 +304,8 @@ public :
     netSessionTbl() {
         sessionTblMutex = new fds_mutex("RPC Tbl mutex"); 
      };
-    ~netSessionTbl();
+    ~netSessionTbl() {
+    }
     
     int src_ipaddr;
     std::string src_node_name;
