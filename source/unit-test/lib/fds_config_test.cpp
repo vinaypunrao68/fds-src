@@ -18,7 +18,7 @@ void cmd_line_parse_test()
 
     /* Basic commnad line parsing and overriding should work */
     int argc = 2;
-    const char *argv[] = {"prog", "--fds.log=10", "--cnt=10"};
+    char *argv[] = {"prog", "--fds.log=10", "--cnt=10"};
     config.parse_cmdline_args(argc, argv);
     fds_verify(10 == config.get<int>("fds.log"));
 
@@ -26,7 +26,7 @@ void cmd_line_parse_test()
     fds_verify(config.exists("cnt") == false);
     
     /* If command line args contain the wrong value type, parsing should fail */
-    const char *argv2[] = {"prog", "--fds.log=blah"};
+    char *argv2[] = {"prog", "--fds.log=blah"};
     bool exception = false;
     try {
         config.parse_cmdline_args(argc, argv2);

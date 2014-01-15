@@ -336,7 +336,7 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
     DmDiskQuery     in;
     DmDiskQueryOut  out;
 
-    std::string stor_prefix = conf_helper_.get_abs<std::string>("fds.sm.root");
+    std::string stor_prefix = conf_helper_.get_abs<std::string>("fds.root");
 
     // Create leveldb
     std::string filename= stor_prefix + "SNodeObjRepository";
