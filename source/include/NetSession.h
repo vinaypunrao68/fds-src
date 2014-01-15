@@ -592,13 +592,11 @@ netSessionTbl(std::string _src_node_name,
 netSessionTbl(FDSP_MgrIdType myMgrId)
         : netSessionTbl("", 0, 0, 10, myMgrId) {
     }
-    ~netSessionTbl() {
-    }
+    ~netSessionTbl();
     
     int src_ipaddr;
     std::string src_node_name;
     int port;
-    int num_threads;
     FDSP_MgrIdType localMgrId;
 
     static string ipAddr2String(int ipaddr);
@@ -620,6 +618,9 @@ netSessionTbl(FDSP_MgrIdType myMgrId)
     void 	      endSession(const std::string& dst_node_name, FDSP_MgrIdType);
 
     void 	      endSession(netSession *);
+
+    /* Ends all client and server sessions in this table */
+    void endAllSessions();
 
 // client side getSession
     netSession*       getSession(int dst_ip_addr, FDSP_MgrIdType mgrId);
@@ -660,6 +661,8 @@ private:
 private: /* data */
     std::unordered_map<std::string, netSession*> sessionTbl;
     fds_mutex   *sessionTblMutex;
+
+    int num_threads;
 
    // Server Side Local variables 
     boost::shared_ptr<ThreadManager> threadManager;

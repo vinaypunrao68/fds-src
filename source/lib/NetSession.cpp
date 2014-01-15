@@ -23,6 +23,11 @@ netSession::netSession(const std::string& _node_name, int port,
   node_index = 0;
 }
 
+netSessionTbl::~netSessionTbl() {
+    endAllSessions();
+    delete sessionTblMutex;
+}
+
 netSession* netSessionTbl::setupClientSession(const std::string& dest_node_name,
                                               int port,
                                               FDS_ProtocolInterface::FDSP_MgrIdType local_mgr_id, 
@@ -298,6 +303,19 @@ void netSession::endSession()
 
 void netSessionTbl::endSession(netSession *session)  {
     session->endSession();
+}
+
+void netSessionTbl::endAllSessions() {
+    sessionTblMutex->lock();
+    for (std::unordered_map<std::string, netSession*>::iterator it = sessionTbl.begin();
+         it != sessionTbl.end();
+         ++it) {
+        netSession* session = it->second;
+        session->endSession();
+        delete session;
+    }
+    sessionTbl.clear();
+    sessionTblMutex->unlock();
 }
 
 netSession* netSessionTbl::createServerSession(int local_ipaddr, 
