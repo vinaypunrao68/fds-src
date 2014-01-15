@@ -544,12 +544,15 @@ class FDS_NativeAPI {
    */
   Error checkBucketExists(BucketContext *bucket_ctxt, fds_volid_t* ret_volid);
 
+#if 0
+  /* TODO: Vy, make the code compile
   /* helper function to initialize volume info to some default values, used by several native api methods */
   void initVolInfo(FDS_ProtocolInterface::FDSP_VolumeInfoTypePtr vol_info, 
 		   const std::string& bucket_name);
 
   void initVolDesc(FDS_ProtocolInterface::FDSP_VolumeDescTypePtr vol_desc, 
 		   const std::string& bucket_name);
+#endif
 
 };
 }

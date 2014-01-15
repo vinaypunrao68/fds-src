@@ -12,6 +12,7 @@ user_fds_ar_libs  +=  \
     fds-probe-adapters \
     fds-probe-blk \
     fds-probe \
+    fds-fdsp \
     fds-lib \
     fds-umod \
     fds-util \
@@ -22,6 +23,8 @@ user_non_fds_libs +=  \
     boost_thread \
     boost_program_options \
     jansson \
-    fuse
+    fuse \
+    thrift \
+    config++
 
 include $(topdir)/Makefile.incl
