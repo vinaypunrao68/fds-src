@@ -23,12 +23,13 @@
 #include "fdsp/FDSP_ControlPathResp.h"
 #include "fdsp/FDSP_DataPathResp.h"
 #include "fdsp/FDSP_MetaDataPathResp.h"
+#include "fdsp/FDSP_OMControlPathResp.h"
 #include "fdsp/FDSP_types.h"
 #include "fdsp/FDSP_ControlPathReq.h"  
 #include "fdsp/FDSP_MetaDataPathReq.h"
 #include "fdsp/FDSP_SessionReq.h"
 #include "fdsp/FDSP_DataPathReq.h"
-#include "fdsp/FDSP_DataPathReq.h"
+#include "fdsp/FDSP_OMControlPathReq.h"
 
 
 using namespace apache::thrift;
@@ -40,7 +41,7 @@ using namespace std;
 using namespace fds;
 using namespace FDS_ProtocolInterface;
 
-typedef void (*set_client_t)(boost::shared_ptr<TTransport>& transport, void* context);
+typedef void (*set_client_t)(const boost::shared_ptr<TTransport> transport, void* context);
 
 class FdsDataPathReqProcessorFactory: public TProcessorFactory {
 public:

@@ -144,7 +144,7 @@ public:
 fdspOMControlPathRespReceiver(boost::shared_ptr<TProtocol>& prot,
                               boost::shared_ptr<FDSP_OMControlPathRespIf>& hdlr)
         : prot_(prot),
-            processor_(new fdspOMControlPathRespProcessor(hdlr)) {
+            processor_(new FDSP_OMControlPathRespProcessor(hdlr)) {
     }
     
     void run() {

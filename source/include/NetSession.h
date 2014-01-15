@@ -5,6 +5,7 @@
 #include <iostream>
 #include <fds_types.h>
 #include <arpa/inet.h>
+#include <unordered_map>
 #include <thrift/concurrency/ThreadManager.h>
 #include <thrift/concurrency/PosixThreadFactory.h>
 #include <thrift/protocol/TBinaryProtocol.h>
@@ -99,7 +100,7 @@ netDataPathClientSession(string ip_addr_str,
         : netClientSession(ip_addr_str, port, FDSP_STOR_HVISOR, FDSP_STOR_MGR),
             fdspDPAPI(new FDSP_DataPathReqClient(protocol)) {
 
-        fdspDataPathResp.reset(reinterpret_cast<FDSP_DataPathRespIf *> respSvrObj);
+        fdspDataPathResp.reset(reinterpret_cast<FDSP_DataPathRespIf *>(respSvrObj));
         processor.reset(new FDSP_DataPathRespProcessor(fdspDataPathResp));
         PosixThreadFactory threadFactory(PosixThreadFactory::ROUND_ROBIN,
                                          PosixThreadFactory::NORMAL,
@@ -126,38 +127,38 @@ private:
 
 class netControlPathClientSession : public netClientSession { 
 public:
-netDataPathClientSession(string ip_addr_str, 
-                         int port, int num_threads, void *respSvrObj) 
-        : netClientSession(ip_addr_str, port, FDSP_STOR_HVISOR, FDSP_STOR_MGR),
-            fdspDPAPI(new FDSP_DataPathReqClient(protocol)) {
-        fdspDataPathResp.reset(reinterpret_cast<FDSP_DataPathRespIf *> respSvrObj);
-        processor.reset(new FDSP_DataPathRespProcessor(fdspDataPathResp));
+    netControlPathClientSession(string ip_addr_str, 
+                                int port, int num_threads, void *respSvrObj) 
+            : netClientSession(ip_addr_str, port, FDSP_STOR_HVISOR, FDSP_STOR_MGR),
+            fdspCPAPI(new FDSP_ControlPathReqClient(protocol)) {
+        fdspControlPathResp.reset(reinterpret_cast<FDSP_ControlPathRespIf *>(respSvrObj));
+        processor.reset(new FDSP_ControlPathRespProcessor(fdspControlPathResp));
         PosixThreadFactory threadFactory(PosixThreadFactory::ROUND_ROBIN,
                                          PosixThreadFactory::NORMAL,
                                          num_threads,
                                          false);
-        msg_recv.reset(new fdspDataPathRespReceiver(protocol, fdspDataPathResp));
+        msg_recv.reset(new fdspControlPathRespReceiver(protocol, fdspControlPathResp));
         recv_thread = threadFactory.newThread(msg_recv);
         recv_thread->start();
         transport->open();
     }
-    ~netDataPathClientSession() {
+    ~netControlPathClientSession() {
         transport->close();
     }
 
 private:
         boost::shared_ptr<FDSP_ControlPathReqClient> fdspCPAPI;
         int num_threads;
-        boost::shared_ptr<FDSP_DataPathRespIf> fdspDataPathResp;
+        boost::shared_ptr<FDSP_ControlPathRespIf> fdspControlPathResp;
         boost::shared_ptr<Thread> recv_thread;
-        boost::shared_ptr<fdspDataPathRespReceiver> msg_recv; 
+        boost::shared_ptr<fdspControlPathRespReceiver> msg_recv; 
         boost::shared_ptr<TProcessor> processor;
 };
 
 class netServerSession: public netSession { 
 public :
   netServerSession(int num_threads) 
-          : serverTransport(new TServerSocket(port)),
+          : serverTransport(new TServerSocket(port_num)),
             transportFactory(new TBufferedTransportFactory()),
             protocolFactory(new TBinaryProtocolFactory()),
             threadFactory(new PosixThreadFactory()) {
@@ -180,7 +181,7 @@ protected:
 
 class netDataPathServerSession : public netServerSession { 
 public:
-netDataPathServerSession(int num_threads, const boost::shared_ptr<FDSP_DataPathReqIf& req_iface)
+netDataPathServerSession(int num_threads, const boost::shared_ptr<FDSP_DataPathReqIf>& req_iface)
         : netServerSession(num_threads),
             handler(req_iface),
             handlerFactory(new FDSP_DataPathReqIfSingletonFactory(handler)),
@@ -191,13 +192,13 @@ netDataPathServerSession(int num_threads, const boost::shared_ptr<FDSP_DataPathR
     }
  
     // Called from within thrift and the right context is passed - nothing to do in the application modules of thrift
-    static void setClient(boost::shared_ptr<TTransport>& transport, void* context) {
+    static void setClient(const boost::shared_ptr<TTransport> transport, void* context) {
         printf("netSessionServer: set DataPathRespClient\n");
         netDataPathServerSession* self = reinterpret_cast<netDataPathServerSession *>(context);
         self->setClientInternal(transport);
     }
 
-    void setClientInternal(boost::shared_ptr<TTransport> transport) {
+    void setClientInternal(const boost::shared_ptr<TTransport> transport) {
         printf("netSessionServer internal: set DataPathRespClient\n");
         protocol_.reset(new TBinaryProtocol(transport));
         client.reset(new FDSP_DataPathRespClient(protocol_));
@@ -229,7 +230,7 @@ private:
 
 class netControlPathServerSession : public netServerSession { 
 public:
-netControlPathServerSession(int num_threads, const boost::shared_ptr<FDSP_ControlPathReqIf& req_iface)
+netControlPathServerSession(int num_threads, const boost::shared_ptr<FDSP_ControlPathReqIf>& req_iface)
         : netServerSession(num_threads),
             handler(req_iface),
             handlerFactory(new FDSP_ControlPathReqIfSingletonFactory(handler)),
@@ -240,16 +241,16 @@ netControlPathServerSession(int num_threads, const boost::shared_ptr<FDSP_Contro
     }
  
     // Called from within thrift and the right context is passed - nothing to do in the application modules of thrift
-    static void setClient(boost::shared_ptr<TTransport>& transport, void* context) {
+    static void setClient(const boost::shared_ptr<TTransport> transport, void* context) {
         printf("netSessionServer: set ControlPathRespClient\n");
         netControlPathServerSession* self = reinterpret_cast<netControlPathServerSession *>(context);
         self->setClientInternal(transport);
     }
 
-    void setClientInternal(boost::shared_ptr<TTransport> transport) {
+    void setClientInternal(const boost::shared_ptr<TTransport> transport) {
         printf("netSessionServer internal: set DataPathRespClient\n");
         protocol_.reset(new TBinaryProtocol(transport));
-        client.reset(new FDSP_DataPathRespClient(protocol_));
+        client.reset(new FDSP_ControlPathRespClient(protocol_));
     }
 
     boost::shared_ptr<FDSP_ControlPathRespClient> getClient() {
@@ -317,7 +318,7 @@ public :
     boost::shared_ptr<ThreadManager> threadManager;
     boost::shared_ptr<PosixThreadFactory> threadFactory;
 
-    std::unordered_map<std::string dest_name_key, netSession *>    sessionTbl;
+    std::unordered_map<std::string, netSession*> sessionTbl;
     fds_mutex   *sessionTblMutex;
 
     netSession* setupClientSession(std::string dest_node_name, 
@@ -330,7 +331,10 @@ public :
                              FDS_ProtocolInterface::FDSP_MgrIdType local_mgr_id,
                              FDS_ProtocolInterface::FDSP_MgrIdType remote_mgr_id) ;
 
-// Client Procedures
+    // Client Procedures
+    /*
+     * TODO: Let's not use a void *. Let's used smart pointer polymorphism.
+     */
     netSession*       startSession(int  dst_ipaddr, int port, 
                                    FDSP_MgrIdType mgr_id, int num_channels, void *respSvrObj);
 
@@ -350,7 +354,7 @@ public :
     netSession*       getSession(string dst_node_name, FDSP_MgrIdType mgrId);
 
 // Server side getSession
-    netSession*       getServerSession(std::string dst_node_name, FDSP_MgrIdType mgrId);
+    netSession*       getServerSession(int dst_ip_addr, FDSP_MgrIdType mgrId);
 
     netSession*       getServerSession(std::string dst_node_name, FDSP_MgrIdType mgrId);
    
