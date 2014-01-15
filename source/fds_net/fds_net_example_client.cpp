@@ -71,13 +71,16 @@ int main(int argc, char *argv[]) {
     boost::shared_ptr<netSessionTbl> nst =
             boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_HVISOR));
 
-    std::string sessionName  = "Example client";
+    std::string remoteIp  = "127.0.0.1";
     fds_uint32_t numChannels = 1;
-    netSession *exampleSession = nst->startSession(sessionName,
+    netSession *exampleSession = nst->startSession(remoteIp,
                                                    8888,
                                                    FDSP_STOR_MGR,
                                                    numChannels,
                                                    reinterpret_cast<void*>(edpri));
+
+    //    netDataPathClientSession *clientSess =
+    // dynamic_cast<netDataPathClientSession *>(exampleSession)->getClient();  // NOLINT
 
     return 0;
 }
