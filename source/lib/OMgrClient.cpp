@@ -8,6 +8,8 @@
 #include <thrift/transport/TTransportUtils.h>
 #include <thrift/transport/TBufferTransports.h>
 
+#include <thread>
+
 using namespace std;
 using namespace fds;
 
@@ -211,6 +213,11 @@ int OMgrClient::initRPCComm() {
 
 }  
 
+static
+void start_om_server(apache::thrift::server::TSimpleServer *svr) {
+  svr->serve();
+}
+
 // Call this to setup the (receiving side) endpoint to lister for control path requests from OM.
 int OMgrClient::startAcceptingControlMessages() {
   return startAcceptingControlMessages(0);
@@ -222,11 +229,13 @@ int OMgrClient::startAcceptingControlMessages(fds_uint32_t port_num) {
   if (my_control_port == 0) {
       // TODO: config 
       // my_control_port = rpc_props->getPropertyAsInt("OMgrClient.PortNumber");
+      fds_verify(0);
   }
 
-  om_client_rpc_i.reset(new OMgrClientRPCI(this));
+  //om_client_rpc_i.reset(new OMgrClientRPCI(this));
+  boost::shared_ptr<OMgrClientRPCI> omc_handler(new OMgrClientRPCI(this));
   boost::shared_ptr<apache::thrift::TProcessor>
-          processor(new FDSP_ControlPathReqProcessor(om_client_rpc_i));
+          processor(new FDSP_ControlPathReqProcessor(omc_handler));
   boost::shared_ptr<apache::thrift::transport::TServerTransport>
           serverTransport(new apache::thrift::transport::TServerSocket(my_control_port));
   boost::shared_ptr<apache::thrift::transport::TTransportFactory>
@@ -235,10 +244,12 @@ int OMgrClient::startAcceptingControlMessages(fds_uint32_t port_num) {
           protocolFactory(new apache::thrift::protocol::TBinaryProtocolFactory());
 
   apache::thrift::server::TSimpleServer
-          server(processor, serverTransport, transportFactory, protocolFactory);
+          *server = new apache::thrift::server::TSimpleServer(processor,
+                                                              serverTransport,
+                                                              transportFactory,
+                                                              protocolFactory);
 
-  // TODO: move this over to another thread
-  server.serve();
+  std::thread *stats_thread = new std::thread(start_om_server, server);
  
   FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient accepting control requests at port " << my_control_port;
 
