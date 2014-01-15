@@ -62,7 +62,7 @@ netSession* netSessionTbl::setupClientSession(const std::string& dest_node_name,
                                                      respSvrObj)); 
             } else if (local_mgr_id == FDSP_ORCH_MGR) { 
                 session = dynamic_cast<netSession *>(
-                    new netControlPathClientSession(dest_node_name,
+                    new netOMControlPathClientSession(dest_node_name,
                                                     port,
                                                     local_mgr_id,
                                                     remote_mgr_id,
@@ -80,6 +80,16 @@ netSession* netSessionTbl::setupClientSession(const std::string& dest_node_name,
                                                    remote_mgr_id,
                                                    1, /* number of threads (TODO) */
                                                    respSvrObj)); 
+            } else if ((local_mgr_id == FDSP_STOR_HVISOR) ||
+                       (local_mgr_id == FDSP_STOR_MGR) ||
+                       (local_mgr_id == FDSP_DATA_MGR)) {
+                session = dynamic_cast<netSession *>(
+                    new netOMControlPathClientSession(dest_node_name,
+                                                      port,
+                                                      local_mgr_id,
+                                                      remote_mgr_id,
+                                                      1, /* number of threads (TODO) */
+                                                      respSvrObj)); 
             }
             break;
     } 
@@ -146,12 +156,12 @@ netSession* netSessionTbl::setupServerSession(const std::string& dest_node_name,
                                                    SvrObj)); 
             } else {
                 session = dynamic_cast<netSession *>(
-                    new netControlPathServerSession(dest_node_name,
-                                                    port,
-                                                    local_mgr_id,
-                                                    remote_mgr_id,
-                                                    1, /* number of threads (TODO) */
-                                                    SvrObj)); 
+                    new netOMControlPathServerSession(dest_node_name,
+                                                      port,
+                                                      local_mgr_id,
+                                                      remote_mgr_id,
+                                                      1, /* number of threads (TODO) */
+                                                      SvrObj)); 
             }
             break;
     } 
@@ -299,7 +309,6 @@ netSession* netSessionTbl::createServerSession(int local_ipaddr,
     src_ipaddr = local_ipaddr;
     port = _port;
     src_node_name = local_node_name;
-    remoteMgrId = remote_mgr_id;
 
     session = setupServerSession(local_node_name, port, localMgrId, remote_mgr_id, respHandlerObj);
     if ( session == NULL ) {
@@ -337,7 +346,7 @@ void netSessionTbl::listenServer(netSession* server_session) {
             break;
             
         case FDSP_ORCH_MGR: 
-            if ( remoteMgrId == FDSP_CLI_MGR) { 
+            if (server_session->getRemoteMgrId() == FDSP_CLI_MGR) { 
                 netConfigPathServerSession *servSession = 
                         reinterpret_cast<netConfigPathServerSession *>(server_session);
                 servSession->listenServer();
