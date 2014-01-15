@@ -24,10 +24,12 @@ class exampleDataPathRespIf : public FDS_ProtocolInterface::FDSP_DataPathRespIf 
     void PutObjectResp(
         const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
         const FDS_ProtocolInterface::FDSP_PutObjType& put_obj_req) {
+        std::cout << "Got a non-shared-ptr put object message" << std::endl;
     }
     void PutObjectResp(
         boost::shared_ptr<FDS_ProtocolInterface::FDSP_MsgHdrType>& fdsp_msg,
         boost::shared_ptr<FDS_ProtocolInterface::FDSP_PutObjType>& put_obj_req) {
+        std::cout << "Got a put object message response" << std::endl;
     }
     void DeleteObjectResp(
         const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
@@ -81,6 +83,11 @@ int main(int argc, char *argv[]) {
 
     boost::shared_ptr<FDSP_DataPathReqClient> client =
             dynamic_cast<netDataPathClientSession *>(exampleSession)->getClient();  // NOLINT
+    FDSP_MsgHdrType fdspMsg;
+    FDSP_PutObjType putObjReq;
+    client->PutObject(fdspMsg, putObjReq);
+
+    sleep(10);
 
     return 0;
 }
