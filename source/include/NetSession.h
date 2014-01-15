@@ -37,40 +37,40 @@ typedef void  (*sessionErrorCallback)(string ip_addr,
 
 class netSession {
 public:
-        netSession();
-	netSession(const std::string& node_name, int port, 
-                         FDS_ProtocolInterface::FDSP_MgrIdType local_mgr_id,
-                         FDS_ProtocolInterface::FDSP_MgrIdType remote_mgr_id);
-	netSession(int  ip_addr_int, int port,
-                         FDS_ProtocolInterface::FDSP_MgrIdType local_mgr_id,
-                         FDS_ProtocolInterface::FDSP_MgrIdType remote_mgr_id);
-        static string ipAddr2String(int ipaddr);
-        static int ipString2Addr(string ipaddr_str);
-        void setSessionErrHandler(sessionErrorCallback cback);
-
-        ~netSession();
-    	void     endSession();
-
-	int 		node_index;
-	int 		channel_number;
-	short   	proto_type;
-	std::string 	ip_addr_str;
-        int 		ip_addr;
-	fds_uint32_t    port_num;
-        int role; // Server or Client side binding
-        FDS_ProtocolInterface::FDSP_MgrIdType mgrId;
-        sessionErrorCallback cback;
-
-        netSession& operator=(const netSession& rhs) {
-          if (this != &rhs) {
+    netSession();
+    netSession(const std::string& node_name, int port, 
+               FDS_ProtocolInterface::FDSP_MgrIdType local_mgr_id,
+               FDS_ProtocolInterface::FDSP_MgrIdType remote_mgr_id);
+    netSession(int  ip_addr_int, int port,
+               FDS_ProtocolInterface::FDSP_MgrIdType local_mgr_id,
+               FDS_ProtocolInterface::FDSP_MgrIdType remote_mgr_id);
+    static string ipAddr2String(int ipaddr);
+    static int ipString2Addr(string ipaddr_str);
+    void setSessionErrHandler(sessionErrorCallback cback);
+    
+    ~netSession();
+    void     endSession();
+    
+    int 		node_index;
+    int 		channel_number;
+    short   	proto_type;
+    std::string 	ip_addr_str;
+    int 		ip_addr;
+    fds_uint32_t    port_num;
+    int role; // Server or Client side binding
+    FDS_ProtocolInterface::FDSP_MgrIdType mgrId;
+    sessionErrorCallback cback;
+    
+    netSession& operator=(const netSession& rhs) {
+        if (this != &rhs) {
             node_index = rhs.node_index;
             proto_type = rhs.proto_type;
             ip_addr_str = rhs.ip_addr_str;
             ip_addr    = rhs.ip_addr;
             mgrId      = rhs.mgrId;
-          }
-          return *this;
         }
+        return *this;
+    }
 };
 
 class netClientSession : virtual public netSession { 
@@ -321,15 +321,17 @@ public :
     std::unordered_map<std::string, netSession*> sessionTbl;
     fds_mutex   *sessionTblMutex;
 
-    netSession* setupClientSession(std::string dest_node_name, 
-                             int port, 
-                             FDS_ProtocolInterface::FDSP_MgrIdType local_mgr_id,
-                             FDS_ProtocolInterface::FDSP_MgrIdType remote_mgr_id) ;
+    netSession* setupClientSession(const std::string& dest_node_name, 
+                                   int port, 
+                                   FDS_ProtocolInterface::FDSP_MgrIdType local_mgr_id,
+                                   FDS_ProtocolInterface::FDSP_MgrIdType remote_mgr_id,
+                                   void* respSvrObj);
 
-    netSession* setupServerSession(std::string dest_node_name, 
-                             int port, 
-                             FDS_ProtocolInterface::FDSP_MgrIdType local_mgr_id,
-                             FDS_ProtocolInterface::FDSP_MgrIdType remote_mgr_id) ;
+    netSession* setupServerSession(const std::string& dest_node_name, 
+                                   int port, 
+                                   FDS_ProtocolInterface::FDSP_MgrIdType local_mgr_id,
+                                   FDS_ProtocolInterface::FDSP_MgrIdType remote_mgr_id,
+                                   void* SvrObj) ;
 
     // Client Procedures
     /*
@@ -338,13 +340,13 @@ public :
     netSession*       startSession(int  dst_ipaddr, int port, 
                                    FDSP_MgrIdType mgr_id, int num_channels, void *respSvrObj);
 
-    netSession*       startSession(std::string dst_node_name, 
+    netSession*       startSession(const std::string& dst_node_name, 
                                    int port, FDSP_MgrIdType mgr_id, 
                                    int num_channels, void *respSvr);
 
     void 	      endSession(int  dst_ip_addr, FDSP_MgrIdType);
 
-    void 	      endSession(string  dst_node_name, FDSP_MgrIdType);
+    void 	      endSession(const std::string& dst_node_name, FDSP_MgrIdType);
 
     void 	      endSession(netSession *);
 
@@ -356,7 +358,7 @@ public :
 // Server side getSession
     netSession*       getServerSession(int dst_ip_addr, FDSP_MgrIdType mgrId);
 
-    netSession*       getServerSession(std::string dst_node_name, FDSP_MgrIdType mgrId);
+    netSession*       getServerSession(const std::string& dst_node_name, FDSP_MgrIdType mgrId);
    
 // Server Procedures
     // Create a new server session, pass in the remote_mgr_id that this service/server provides for
