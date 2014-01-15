@@ -58,7 +58,8 @@ public:
     int 		ip_addr;
     fds_uint32_t    port_num;
     int role; // Server or Client side binding
-    FDS_ProtocolInterface::FDSP_MgrIdType mgrId;
+    FDS_ProtocolInterface::FDSP_MgrIdType localMgrId;
+    FDS_ProtocolInterface::FDSP_MgrIdType remoteMgrId;
     sessionErrorCallback cback;
     
     netSession& operator=(const netSession& rhs) {
@@ -67,7 +68,8 @@ public:
             proto_type = rhs.proto_type;
             ip_addr_str = rhs.ip_addr_str;
             ip_addr    = rhs.ip_addr;
-            mgrId      = rhs.mgrId;
+            localMgrId      = rhs.localMgrId;
+            remoteMgrId      = rhs.remoteMgrId;
         }
         return *this;
     }
@@ -151,19 +153,21 @@ private:
         int num_threads;
         boost::shared_ptr<FDSP_ControlPathRespIf> fdspControlPathResp;
         boost::shared_ptr<Thread> recv_thread;
-        boost::shared_ptr<fdspControlPathRespReceiver> msg_recv; 
-        boost::shared_ptr<TProcessor> processor;
+        boost::shared_ptr<fdspDataPathRespReceiver> msg_recv; 
+        shared_ptr<TProcessor> processor;
+
 };
 
 class netServerSession: public netSession { 
 public :
-  netServerSession(int num_threads) 
-          : serverTransport(new TServerSocket(port_num)),
-            transportFactory(new TBufferedTransportFactory()),
-            protocolFactory(new TBinaryProtocolFactory()),
-            threadFactory(new PosixThreadFactory()) {
+  netServerSession(string node_name, int port, FDSP_MgrIdType local_mgr_id, int num_threads) : 
+                   netSession(node_name, port, local_mgr_id, local_mgr_id) { 
+       serverTransport.reset(new TServerSocket(port));
+       transportFactory.reset( new TBufferedTransportFactory());
+       protocolFactory.reset( new TBinaryProtocolFactory());
 
        threadManager = ThreadManager::newSimpleThreadManager(num_threads);
+       threadFactory = boost::shared_ptr<PosixThreadFactory>(new PosixThreadFactory());
        threadManager->threadFactory(threadFactory);
        threadManager->start();
   }
@@ -181,15 +185,13 @@ protected:
 
 class netDataPathServerSession : public netServerSession { 
 public:
-netDataPathServerSession(int num_threads, const boost::shared_ptr<FDSP_DataPathReqIf>& req_iface)
-        : netServerSession(num_threads),
-            handler(req_iface),
-            handlerFactory(new FDSP_DataPathReqIfSingletonFactory(handler)),
-            processorFactory(new FdsDataPathReqProcessorFactory(handlerFactory, setClient, this)) { 
-    }
-
-    ~netDataPathServerSession() {
-    }
+        netDataPathServerSession(string dest_node_name, int port, FDSP_MgrIdType local_mgr_id, 
+                                 FDSP_MgrIdType remote_mgr_id, int num_threads,
+                                 void *svrObj) : netServerSession(dest_node_name, port, local_mgr_id, num_threads) {
+          handler = reinterpret_cast<FDSP_DataPathReqIf *> (svrObj);
+          handlerFactory.reset(new FDSP_DataPathReqIfSingletonFactory(handler));
+          processorFactory.reset(new FdsDataPathReqProcessorFactory(handlerFactory, setClient, this));
+        }
  
     // Called from within thrift and the right context is passed - nothing to do in the application modules of thrift
     static void setClient(const boost::shared_ptr<TTransport> transport, void* context) {
@@ -220,7 +222,7 @@ netDataPathServerSession(int num_threads, const boost::shared_ptr<FDSP_DataPathR
     }
     
 private:
-    boost::shared_ptr<FDSP_DataPathReqIf> handler;
+    FDSP_DataPathReqIf* handler;
     boost::shared_ptr<FDSP_DataPathReqIfSingletonFactory> handlerFactory; 
     boost::shared_ptr<TProcessorFactory> processorFactory;
     boost::shared_ptr<TThreadPoolServer> server;
@@ -230,11 +232,12 @@ private:
 
 class netControlPathServerSession : public netServerSession { 
 public:
-netControlPathServerSession(int num_threads, const boost::shared_ptr<FDSP_ControlPathReqIf>& req_iface)
-        : netServerSession(num_threads),
-            handler(req_iface),
-            handlerFactory(new FDSP_ControlPathReqIfSingletonFactory(handler)),
-            processorFactory(new FdsControlPathReqProcessorFactory(handlerFactory, setClient, this)) { 
+        netControlPathServerSession(string dest_node_name, int port, FDSP_MgrIdType local_mgr_id, 
+                                 FDSP_MgrIdType remote_mgr_id, int num_threads,
+                                 void *svrObj) : netServerSession(dest_node_name, port, local_mgr_id, num_threads),
+                                 handler(req_iface),
+                                 handlerFactory(new FDSP_ControlPathReqIfSingletonFactory(handler)),
+                                 processorFactory(new FdsControlPathReqProcessorFactory(handlerFactory, setClient, this)) { 
     }
 
     ~netControlPathServerSession() {
@@ -321,6 +324,8 @@ public :
 
     std::unordered_map<std::string, netSession*> sessionTbl;
     fds_mutex   *sessionTblMutex;
+    static string ipAddr2String(int ipaddr);
+    std::string getKey(std::string node_name, FDSP_MgrIdType remote_mgr_id);
 
     netSession* setupClientSession(const std::string& dest_node_name, 
                                    int port, 

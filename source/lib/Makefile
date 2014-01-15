@@ -2,6 +2,7 @@ topdir           := ..
 user_target      := lib
 user_rtime_env   := user
 user_cpp         :=      \
+    NetSession.cpp       \
     PerfTrace.cpp        \
     Catalog.cpp          \
     VolumeCatalog.cpp    \
@@ -19,6 +20,7 @@ user_cpp         :=      \
 
 user_incl_dir    := $(topdir)
 user_no_style    := \
+    NetSession.cpp       \
     PerfTrace.cpp        \
     VolumeCatalog.cpp    \
     OMgrClient.cpp       \
