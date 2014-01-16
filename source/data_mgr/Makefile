@@ -17,7 +17,6 @@ user_fds_ar_libs  := \
     fds-thread \
     fds-util \
 	fds-fdsp \
-#	fds-StorHvisor \
 
 user_non_fds_libs := \
     boost_log \
@@ -28,7 +27,7 @@ user_non_fds_libs := \
     boost_program_options \
 	leveldb ssl crypto \
 	thrift \
-	Ice IceUtil \
+	config++
 
 
 data_mgr_cpp      :=                   \

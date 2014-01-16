@@ -59,16 +59,12 @@ public:
     FdsTimer();
 
     /**
-     * Destroy the timer and detach its execution thread if the calling thread
-     * is the timer thread, join the timer execution thread otherwise.
+     * Destroy the timer service 
      */
     void destroy();
 
     /**
      * Schedule a task for execution after a given delay.
-     * NOTE: Do NOT invoke schedule() the same task object twice before the
-     * runTimerTask() for the frist invocation has been called. Doing so will
-     * will cancel the first task.
      * It's safe to re-use the same task either after runTimerTask() has been
      * invoked or the task object is cancelled.
      * @param task - task to execute
@@ -97,10 +93,9 @@ public:
     }
 
     /**
-     * Cancel a task. Returns true if the task has not yet run or if
-     * Cancel it's a task scheduled for repeated execution. Returns false if
-     * the task has already run, was already cancelled or was never
-     * schedulded.
+     * Cancel a task. 
+     * @return true if task was succsfully cancelled.  Note, false
+     * returned when task wasn't scheduled to begin with.
      */
     bool cancel(const FdsTimerTaskPtr& task);
 

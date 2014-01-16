@@ -8,6 +8,8 @@
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/server/TSimpleServer.h>
 #include <thrift/transport/TServerSocket.h>
+#include <thrift/transport/TSocket.h>
+#include <thrift/transport/TTransportUtils.h>
 #include <thrift/transport/TBufferTransports.h>
 
 
@@ -454,7 +456,7 @@ int DataMgr::run(int argc, char* argv[]) {
   fds::DmDiskInfo     *info;
   fds::DmDiskQuery     in;
   fds::DmDiskQueryOut  out;
-  fds_bool_t      useTestMode;
+  fds_bool_t      useTestMode = false;
 
   /*
    * Process the cmdline args.
@@ -513,9 +515,12 @@ int DataMgr::run(int argc, char* argv[]) {
    * Setup TCP endpoint.
    */
 
-  reqHandleSrv.reset(new ReqHandler());
+  //  reqHandleSrv.reset(new ReqHandler());
+
+  shared_ptr<ReqHandler> reqHandler(new ReqHandler());
+
   boost::shared_ptr<apache::thrift::TProcessor>
-          processor(new FDSP_MetaDataPathReqProcessor(reqHandleSrv));
+          processor(new FDSP_MetaDataPathReqProcessor(reqHandler));
   boost::shared_ptr<apache::thrift::transport::TServerTransport>
           serverTransport(new apache::thrift::transport::TServerSocket(port_num));
   shared_ptr<apache::thrift::transport::TTransportFactory>
@@ -525,7 +530,6 @@ int DataMgr::run(int argc, char* argv[]) {
 
   apache::thrift::server::TSimpleServer
           server(processor, serverTransport, transportFactory, protocolFactory);
-  server.serve();
 
   // TODO: Replace this with an equivalent FDS module/process call
   // callbackOnInterrupt();
@@ -648,6 +652,13 @@ int DataMgr::run(int argc, char* argv[]) {
     }
   }
 
+  try {
+      server.serve();
+  } 
+  catch (...) {
+      std::cout << "thrift server threw an exception" << std::endl;
+  }
+
   if (ifAddrStruct != NULL) {
     freeifaddrs(ifAddrStruct);
   }
@@ -719,6 +730,10 @@ void DataMgr::ReqHandler::GetVolumeBlobList(FDSP_MsgHdrTypePtr& msg_hdr,
                                             FDSP_GetVolumeBlobListReqTypePtr& blobListReq) {
 
   Error err(ERR_OK);
+
+  if (!(dataMgr->respHandleCli.count(msg_hdr->src_node_name))) {
+      AssociateRespCallback(msg_hdr->src_node_name);
+  }
 
   err = dataMgr->blobListInternal(blobListReq, msg_hdr->glob_volume_id,
                                   msg_hdr->src_ip_lo_addr, msg_hdr->dst_ip_lo_addr, msg_hdr->src_port,
@@ -904,6 +919,10 @@ void DataMgr::ReqHandler::UpdateCatalogObject(FDS_ProtocolInterface::
                               << ", Trans ID: "
                               << update_catalog->dm_transaction_id
                               << ", OP ID " << update_catalog->dm_operation;
+
+  if (!(dataMgr->respHandleCli.count(msg_hdr->src_node_name))) {
+      AssociateRespCallback(msg_hdr->src_node_name);
+  }
 
   err = dataMgr->updateCatalogInternal(update_catalog,msg_hdr->glob_volume_id,
 				       msg_hdr->src_ip_lo_addr,msg_hdr->dst_ip_lo_addr,msg_hdr->src_port,
@@ -1124,6 +1143,10 @@ void DataMgr::ReqHandler::QueryCatalogObject(FDS_ProtocolInterface::
                               << query_catalog->dm_transaction_id
                               << ", OP ID " << query_catalog->dm_operation;
 
+  if (!(dataMgr->respHandleCli.count(msg_hdr->src_node_name))) {
+      AssociateRespCallback(msg_hdr->src_node_name);
+  }
+
   err = dataMgr->queryCatalogInternal(query_catalog,msg_hdr->glob_volume_id,
 				      msg_hdr->src_ip_lo_addr,msg_hdr->dst_ip_lo_addr,msg_hdr->src_port,
 				      msg_hdr->dst_port, msg_hdr->src_node_name, msg_hdr->req_cookie);
@@ -1270,26 +1293,28 @@ void DataMgr::ReqHandler::DeleteCatalogObject(FDS_ProtocolInterface::
   	   FDS_PLOG(dataMgr->GetLog()) << "Successfully Enqueued  the Delete catalog request";
 }
 
-#if 0
+void DataMgr::ReqHandler::AssociateRespCallback(const std::string& src_node_name) {
 
-void DataMgr::ReqHandler::AssociateRespCallback(const Ice::Identity& ident,
-						const std::string& src_node_name,
-                                                const Ice::Current& current) {
-  try {
-    std::cout << "Associating response Callback client to DataMgr`"
-              << _communicator->identityToString(ident) << "'"<< std::endl;
-  } catch(IceUtil::NullHandleException) {
-    FDS_PLOG(dataMgr->GetLog())
-        << "Caught a NULL exception accessing _communicator";
-  }
+    std::cout << "Associating response Callback client to DataMgr "
+              << src_node_name << "'"<< std::endl;
+  
+    boost::shared_ptr<apache::thrift::transport::TTransport> 
+            socket(new apache::thrift::transport::TSocket("localhost", 11235));
+    boost::shared_ptr<apache::thrift::transport::TTransport> 
+            transport(new apache::thrift::transport::TBufferedTransport(socket));
+    boost::shared_ptr<apache::thrift::protocol::TProtocol>
+            protocol(new apache::thrift::protocol::TBinaryProtocol(transport));
+    FDS_ProtocolInterface::FDSP_MetaDataPathRespClient *meta_resp_hdl
+            = new FDS_ProtocolInterface::FDSP_MetaDataPathRespClient(protocol);
 
-  dataMgr->respMapMtx.write_lock();
-  dataMgr->respHandleCli[src_node_name] = FDS_ProtocolInterface::FDSP_DataPathRespPrx::
-      uncheckedCast(current.con->createProxy(ident));
-  dataMgr->respMapMtx.write_unlock();
+    transport->open();
+
+    dataMgr->respMapMtx.write_lock();
+    dataMgr->respHandleCli[src_node_name] = meta_resp_hdl;
+    dataMgr->respMapMtx.write_unlock();
+
 }
 
-#endif
 
 int scheduleUpdateCatalog(void * _io) {
         fds::DataMgr::dmCatReq *io = (fds::DataMgr::dmCatReq*)_io;

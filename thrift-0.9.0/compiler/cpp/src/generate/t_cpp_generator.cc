@@ -2342,7 +2342,34 @@ void t_cpp_generator::generate_service_client(t_service* tservice, string style)
   for (f_iter = functions.begin(); f_iter != functions.end(); ++f_iter) {
     indent(f_header_) << function_signature(*f_iter, ifstyle) << ";" << endl;
     indent(f_header_) << function_signature(*f_iter, ifstyle, "", true, true)
-		      << " {}" << endl;
+		      << " {" << endl;
+
+    t_type* ttype = (*f_iter)->get_returntype();
+
+    t_struct* arglist = (*f_iter)->get_arglist();
+    const vector<t_field*>& fields = arglist->get_members();
+    std::string arg_list_str ="";
+    vector<t_field*>::const_iterator fld_iter;
+    bool first = false;
+    if (is_complex_type(ttype)) {
+        first = false;
+        arg_list_str = "_return";
+    } else {
+        first = true;
+    }
+    for (fld_iter = fields.begin(); fld_iter != fields.end(); ++fld_iter) {
+        if (first) {
+            first = false;
+        } else {
+            arg_list_str += ", ";
+        }
+        arg_list_str += "*" + (*fld_iter)->get_name();
+    }
+    indent(f_header_) << "return " << (*f_iter)->get_name() << "("
+                      << arg_list_str 
+                      << ");" << endl;
+
+    indent(f_header_) << "}" << endl;
 
     // TODO(dreiss): Use private inheritance to avoid generating thise in cob-style.
     t_function send_function(g_type_void,

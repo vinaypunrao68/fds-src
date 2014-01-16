@@ -131,16 +131,6 @@ class ObjectStorMgr :
     } SmRunModes;
 
     /*
-     * Command line settable members
-     */    
-    fds_uint32_t port_num;     /**< Data path port num */
-    fds_uint32_t cp_port_num;  /**< Control path port num */
-    std::string  myIp;         /**< This nodes local IP */
-    std::string  stor_prefix;  /**< Local storage prefix */
-    SmRunModes   runMode;      /**< Whether we're in a test mode or not */
-    fds_uint32_t numTestVols;  /**< Number of vols to use in test mode */
-
-    /*
      * OM/boostrap related members
      */
     OMgrClient         *omClient;
@@ -158,7 +148,7 @@ class ObjectStorMgr :
      * The map is used for sending back the response to the
      * appropriate SH/DM
      */
-    boost::shared_ptr<FDS_DataPathReqHandler>
+    boost::shared_ptr<FDSP_DataPathReqIf>
         fdspDataPathServer;
     std::unordered_map<std::string,
         boost::shared_ptr<FDS_ProtocolInterface::FDSP_DataPathRespClient> >
@@ -304,8 +294,9 @@ class ObjectStorMgr :
 
  public:
 
-    ObjectStorMgr(const std::string &config_path,
-            const std::string &base_path);
+    ObjectStorMgr(int argc, char *argv[],
+                  const std::string &default_config_path,
+                  const std::string &base_path);
     ~ObjectStorMgr();
 
     /* From FdsProcess */
@@ -383,8 +374,8 @@ class ObjectStorMgr :
 
     void unitTest();
 
-    const std::string& getStorPrefix() const {
-        return stor_prefix;
+    const std::string getStorPrefix() {
+        return conf_helper_.get_abs<std::string>("fds.sm.root");
     }
 
     FdsObjectCache *getObjCache() {
@@ -400,7 +391,7 @@ class ObjectStorMgr :
     friend ObjectStorMgrI;
 };
 
-class ObjectStorMgrI : virtual public FDSP_DataPathReqHandler {
+class ObjectStorMgrI : virtual public FDSP_DataPathReqIf {
  public:
     ObjectStorMgrI();
     ~ObjectStorMgrI();

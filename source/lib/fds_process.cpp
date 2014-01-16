@@ -14,24 +14,23 @@ namespace fds {
 FdsProcess *g_fdsprocess = NULL;
 fds_log *g_fdslog = NULL;
 
-FdsProcess::FdsProcess(const std::string &config_path,
-        const std::string &base_path)
+FdsProcess::FdsProcess(int argc, char *argv[],
+                       const std::string &config_path,
+                       const std::string &base_path)
 {
     fds_verify(g_fdsprocess == NULL);
 
     /* Initialize process wide globals */
     g_fdsprocess = this;
+ 
+    /* Set up the signal handler.  We should do this before creating any threads */
+    setup_sig_handler();
 
-    std::string log_file = "process.log";
-    if (base_path.size() > 0) {
-        log_file = base_path;
-        std::replace(log_file.begin(), log_file.end(), '.', '_');
-    }
-    g_fdslog = new fds_log(log_file);
+    /* Setup config */
+    setup_config(argc, argv, config_path, base_path);
 
-    /* Initialize FdsProcess sepecific */
-    conf_helper_.init(boost::shared_ptr<FdsConfig>(new FdsConfig(config_path)),
-               base_path);
+    /* Create a global logger */
+    g_fdslog = new fds_log(conf_helper_.get<std::string>("logfile"));
 }
 
 FdsProcess::~FdsProcess()
@@ -47,11 +46,20 @@ FdsProcess::~FdsProcess()
     assert(rc == 0);
 }
 
-void FdsProcess::setup(int argc, char *argv[], fds::Module **mod_vec)
+void FdsProcess::setup(int argc, char *argv[], 
+                       fds::Module **mod_vec)
 {
-    setup_sig_handler();
-
+    /* Execute module vector */
     setup_mod_vector(argc, argv, mod_vec);
+}
+
+void FdsProcess::setup_config(int argc, char *argv[],
+                       const std::string &config_path,
+                       const std::string &base_path)
+{
+    conf_helper_.init(boost::shared_ptr<FdsConfig>(new FdsConfig(config_path)),
+                      base_path);
+    conf_helper_.get_fds_config()->parse_cmdline_args(argc, argv);
 }
 
 void*

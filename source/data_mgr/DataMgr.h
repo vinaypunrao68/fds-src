@@ -55,6 +55,12 @@ int scheduleBlobList(void * _io);
 public:
   void InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
 
+  class ReqHandler;
+  
+  typedef shared_ptr<ReqHandler> ReqHandlerPtr;
+  typedef FDS_ProtocolInterface::FDSP_MetaDataPathRespClient *RespHandlerPrx;
+
+
   /*
    * TODO: Make more generic name than catalog request
    */
@@ -191,10 +197,6 @@ public:
       }
 
     };
-
-
-    typedef boost::shared_ptr<FDS_ProtocolInterface::FDSP_MetaDataPathReqIf>  ReqHandlerPtr;
-    typedef FDS_ProtocolInterface::FDSP_MetaDataPathRespClient *RespHandlerPrx;
 
     /*
      * RPC handlers and comm endpoints.
@@ -372,6 +374,8 @@ public:
 
       void GetVolumeBlobList(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr, 
 			     FDS_ProtocolInterface::FDSP_GetVolumeBlobListReqTypePtr& blobListReq);
+
+      void AssociateRespCallback(const std::string& src_node_name);
 
     };
 

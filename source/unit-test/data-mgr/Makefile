@@ -16,8 +16,9 @@ user_non_fds_libs :=                                                          \
     boost_thread \
     boost_date_time \
     boost_program_options \
-    Ice IceUtil ssl crypto leveldb \
-	thrift
+	ssl crypto leveldb \
+	thrift \
+	Ice IceUtil \
 
 user_cpp          :=                   \
     dm_unit_test.cpp

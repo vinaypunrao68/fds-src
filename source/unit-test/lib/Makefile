@@ -3,7 +3,7 @@ user_target       := test
 user_rtime_env    := user
 
 user_fds_so_libs  :=
-user_fds_ar_libs  := fds-hash fds-lib fds-util fds-fdsp-ice fds-thread fds-odb
+user_fds_ar_libs  := fds-hash fds-lib fds-util fds-fdsp fds-thread fds-odb fds-umod
 user_non_fds_libs :=                                                          \
     boost_log \
     boost_filesystem \
@@ -11,9 +11,10 @@ user_non_fds_libs :=                                                          \
     boost_thread \
     boost_date_time \
     boost_program_options \
-    Ice IceUtil IceStorm  \
+    Ice IceUtil \
     ssl crypto \
-    config++
+    config++ \
+	thrift
 
 user_incl_dir     := $(topdir) $(topdir)/lib $(topdir)/include $(topdir)/util
 user_cpp_flags    := 

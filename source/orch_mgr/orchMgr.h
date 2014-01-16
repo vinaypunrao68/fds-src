@@ -98,6 +98,7 @@
 #include <concurrency/Mutex.h>
 #include <lib/Catalog.h>
 #include <lib/PerfStats.h>
+#include <NetSession.h>
 #include "OmTier.h"
 #include "OmVolPolicy.hpp"
 #include "OmLocDomain.h"
@@ -149,7 +150,9 @@ namespace fds {
   private:
         fds_log *om_log;
         SysParams *sysParams;
-        //ReqCfgHandlerPtr reqCfgHandlersrv; // TODO(thrift)
+        netSessionTbl* net_session_tbl;
+        std::string my_node_name;
+
         /*
          * TODO: These maps should eventually be pulled out into
          * a separate class that defines a cluster map. In other
@@ -189,7 +192,8 @@ namespace fds {
         void SetThrottleLevelForDomain(int domain_id, float throttle_level);
 
   public:
-    OrchMgr(const std::string& config_path,
+    OrchMgr(int argc, char *argv[],
+            const std::string& default_config_path,
             const std::string& base_path);
     ~OrchMgr();
 

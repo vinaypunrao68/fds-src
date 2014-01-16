@@ -8,6 +8,7 @@
 #include <string>
 #include <list>
 #include <atomic>
+#include <thread>
 
 #include <util/Log.h>
 #include <fds_types.h>
@@ -23,6 +24,9 @@
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/transport/TSocket.h>
 #include <thrift/transport/TTransportUtils.h>
+#include <thrift/server/TSimpleServer.h>
+#include <thrift/transport/TServerSocket.h>
+#include <thrift/transport/TBufferTransports.h>
 
 #include <fdsp/FDSP_MetaDataPathReq.h>
 #include <fdsp/FDSP_MetaDataPathResp.h>
@@ -104,7 +108,7 @@ class DmUnitTest {
       update_req->meta_list.clear();
 
       try {
-          fdspMDPAPI->UpdateCatalogObject(msg_hdr, update_req);
+          fdspMDPAPI->UpdateCatalogObject(*msg_hdr, *update_req);
           FDS_PLOG(test_log) << "Sent trans open message to DM"
                              << " for volume offset" << update_req->blob_name
                              << " and object " << oid;
@@ -143,7 +147,7 @@ class DmUnitTest {
 
       try {
           fdspMDPAPI->UpdateCatalogObject(
-              msg_hdr, update_req);
+              *msg_hdr, *update_req);
           FDS_PLOG(test_log) << "Sent trans commit message to DM"
                              << " for volume offset"
                              << update_req->blob_name
@@ -209,7 +213,7 @@ class DmUnitTest {
       update_req->meta_list.clear();
 
       try {
-        fdspMDPAPI->UpdateCatalogObject(msg_hdr, update_req);
+        fdspMDPAPI->UpdateCatalogObject(*msg_hdr, *update_req);
         FDS_PLOG(test_log) << "Sent trans open message to DM"
                           << " for volume offset"
                            << update_req->blob_name
@@ -244,7 +248,7 @@ class DmUnitTest {
 
 
       try {
-        fdspMDPAPI->UpdateCatalogObject(msg_hdr, update_req);
+        fdspMDPAPI->UpdateCatalogObject(*msg_hdr, *update_req);
         FDS_PLOG(test_log) << "Sent trans commit message to DM"
                            << " for volume offset "
                            << update_req->blob_name
@@ -280,7 +284,7 @@ class DmUnitTest {
       query_req->meta_list.clear();
 
       try {
-        fdspMDPAPI->QueryCatalogObject(msg_hdr, query_req);
+        fdspMDPAPI->QueryCatalogObject(*msg_hdr, *query_req);
         FDS_PLOG(test_log) << "Sent query message to DM"
                            << " for volume offset "
                            << update_req->blob_name;
@@ -290,6 +294,8 @@ class DmUnitTest {
                            << update_req->blob_name;
       }
     }
+
+    sleep(10);
 
     FDS_PLOG(test_log) << "Ending test: basic_uq()";
 
@@ -324,7 +330,7 @@ class DmUnitTest {
       msg_hdr->req_cookie = i;
 
       try {
-        fdspMDPAPI->GetVolumeBlobList(msg_hdr, listReq);
+        fdspMDPAPI->GetVolumeBlobList(*msg_hdr, *listReq);
         FDS_PLOG(test_log) << "Sent list blobs message to DM";
 
       } catch(...) {
@@ -332,6 +338,8 @@ class DmUnitTest {
       }
 
     }
+
+    sleep(10);
 
     FDS_PLOG(test_log) << "Ending test: basic_bloblist()";
     return 0;
@@ -379,7 +387,7 @@ class DmUnitTest {
       query_req->meta_list.clear();
 
       try {
-        fdspMDPAPI->QueryCatalogObject(msg_hdr, query_req);
+        fdspMDPAPI->QueryCatalogObject(*msg_hdr, *query_req);
         FDS_PLOG(test_log) << "Sent query message to DM"
                            << " for volume offset "
                            << query_req->blob_name;
@@ -447,7 +455,7 @@ class DmUnitTest {
       vol_msg->vol_name = "Vol_" + std::to_string(msg_hdr->glob_volume_id);
       vol_msg->vol_desc.vol_name = vol_msg->vol_name;
 
-      fdspCPAPI->NotifyAddVol(msg_hdr, vol_msg);
+      fdspCPAPI->NotifyAddVol(*msg_hdr, *vol_msg);
     }
 
     /*
@@ -460,7 +468,7 @@ class DmUnitTest {
       vol_msg->vol_name = "Vol_" + std::to_string(msg_hdr->glob_volume_id);
       vol_msg->vol_desc.vol_name = vol_msg->vol_name;
 
-      fdspCPAPI->NotifyRmVol(msg_hdr, vol_msg);
+      fdspCPAPI->NotifyRmVol(*msg_hdr, *vol_msg);
     }
 
     FDS_PLOG(test_log) << "Ending test: basic_multivol()";
@@ -696,16 +704,24 @@ class TestResp : public FDS_ProtocolInterface::FDSP_MetaDataPathRespIf {
                                  del_cat_obj) {
     }
 
-    void GetVolumeBlobListResp(const FDSP_MsgHdrType& fds_msg, 
-                               const FDSP_GetVolumeBlobListRespType& blob_list_rsp) {
+    void GetVolumeBlobListResp(const FDS_ProtocolInterface::FDSP_MsgHdrType& 
+                               fds_msg, 
+                               const FDS_ProtocolInterface::FDSP_GetVolumeBlobListRespType& 
+                               blob_list_rsp) {
         FDS_PLOG_SEV(test_log, fds::fds_log::normal) << "Received listblob response";
     }
 
-    void GetVolumeBlobListResp(FDSP_MsgHdrTypePtr& fds_msg, 
-                               FDSP_GetVolumeBlobListRespTypePtr& blob_list_rsp) {
+    void GetVolumeBlobListResp(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& 
+                               fds_msg, 
+                               FDS_ProtocolInterface::FDSP_GetVolumeBlobListRespTypePtr& 
+                               blob_list_rsp) {
         FDS_PLOG_SEV(test_log, fds::fds_log::normal) << "Received listblob response";
     }
 };
+
+void start_accepting_responses(apache::thrift::server::TSimpleServer *svr) {
+    svr->serve();
+}
 
 class TestClient {
  public:
@@ -764,6 +780,7 @@ class TestClient {
       op = communicator()->stringToProxy(tcpProxyStr.str());
     }
 #endif
+    ip_addr_str = "localhost";
 
     boost::shared_ptr<apache::thrift::transport::TTransport> 
             socket(new apache::thrift::transport::TSocket(ip_addr_str, port_num));
@@ -774,12 +791,14 @@ class TestClient {
     FDS_ProtocolInterface::FDSP_MetaDataPathReqClient *fdspMDPAPI
             = new FDS_ProtocolInterface::FDSP_MetaDataPathReqClient(protocol);
 
-    TestResp *fdspMetaDataPathResp;
-    fdspMetaDataPathResp = new TestResp();
+    boost::shared_ptr<FDS_ProtocolInterface::FDSP_MetaDataPathRespIf>
+            fdspMetaDataPathResp(new TestResp());
     if (!fdspMetaDataPathResp) {
       throw "Invalid fdspDataPathRespCback";
     }
 
+    transport->open();
+    
     /*
      * Determine control path port number.
      */
@@ -795,6 +814,7 @@ class TestClient {
                << " -p  " << cp_port_num;
     op = communicator()->stringToProxy(omProxyStr.str());
 #endif
+
     boost::shared_ptr<apache::thrift::transport::TTransport> 
             csocket(new apache::thrift::transport::TSocket(ip_addr_str, cp_port_num));
     boost::shared_ptr<apache::thrift::transport::TTransport> 
@@ -803,6 +823,8 @@ class TestClient {
             cprotocol(new apache::thrift::protocol::TBinaryProtocol(ctransport));
     FDS_ProtocolInterface::FDSP_ControlPathReqClient *fdspCPAPI 
             = new FDS_ProtocolInterface::FDSP_ControlPathReqClient(cprotocol);
+
+    ctransport->open();
 
     num_ios_outstanding = ATOMIC_VAR_INIT(0);
     if (testperf) {
@@ -821,7 +843,26 @@ class TestClient {
      * but it need to be constructed prior
      * to creating the unit test object.
      */
-    fdspMetaDataPathResp->SetLog(unittest.GetLogPtr());
+    ((TestResp *)fdspMetaDataPathResp.get())->SetLog(unittest.GetLogPtr());
+
+    int r_port_num = 11235;
+
+    boost::shared_ptr<apache::thrift::TProcessor>
+            r_processor(new FDS_ProtocolInterface::FDSP_MetaDataPathRespProcessor(fdspMetaDataPathResp));
+    boost::shared_ptr<apache::thrift::transport::TServerTransport>
+            r_serverTransport(new apache::thrift::transport::TServerSocket(r_port_num));
+    boost::shared_ptr<apache::thrift::transport::TTransportFactory>
+            r_transportFactory(new apache::thrift::transport::TBufferedTransportFactory());
+    boost::shared_ptr<apache::thrift::protocol::TProtocolFactory>
+            r_protocolFactory(new apache::thrift::protocol::TBinaryProtocolFactory());
+
+    apache::thrift::server::TSimpleServer
+            *r_server = new apache::thrift::server::TSimpleServer(r_processor,
+                                                                  r_serverTransport,
+                                                                  r_transportFactory,
+                                                                  r_protocolFactory);
+
+    std::thread *r_thread = new std::thread(start_accepting_responses, r_server);
 
     if (testname.empty()) {
       unittest.Run();
