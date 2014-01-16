@@ -1,3 +1,6 @@
+/*
+ * Copyright 2014 by Formation Data Systems, Inc.
+ */
 #include <fds_assert.h>
 #include <persistent_layer/dm_io.h>
 
@@ -76,9 +79,10 @@ DiskRequest::DiskRequest(meta_vol_io_t       &vio,
                          fds::ObjectBuf      *buf,
                          bool                block)
     : IndexRequest(oid, vio, block), dat_buf(buf),
-      datTier(diskTier) {
-  obj_id_set_inval(&dat_old_oid);
-  vadr_set_inval(dat_new_vol.vol_adr);
+      datTier(diskTier)
+{
+    obj_id_set_inval(&dat_old_oid);
+    vadr_set_inval(dat_new_vol.vol_adr);
 }
 
 DiskRequest::DiskRequest(meta_vol_io_t       &vio,
@@ -86,8 +90,9 @@ DiskRequest::DiskRequest(meta_vol_io_t       &vio,
                          fds::ObjectBuf      *buf,
                          bool                block,
                          DataTier            tier)
-    : DiskRequest(vio, oid, buf, block) {
-  datTier = tier;
+    : DiskRequest(vio, oid, buf, block)
+{
+    datTier = tier;
 }
 
 DiskRequest::DiskRequest(meta_vol_io_t       &vio,
@@ -97,17 +102,18 @@ DiskRequest::DiskRequest(meta_vol_io_t       &vio,
                          fds::ObjectBuf      *buf,
                          bool                block)
     : IndexRequest(oid, block), dat_buf(buf),
-      datTier(diskTier) {
-  if (old_oid != nullptr) {
-    dat_old_oid = *old_oid;
-  } else {
-    obj_id_set_inval(&dat_old_oid);
-  }
-  if (new_vol != nullptr) {
-    dat_new_vol = *new_vol;
-  } else {
-    vadr_set_inval(dat_new_vol.vol_adr);
-  }
+      datTier(diskTier)
+{
+    if (old_oid != nullptr) {
+        dat_old_oid = *old_oid;
+    } else {
+        obj_id_set_inval(&dat_old_oid);
+    }
+    if (new_vol != nullptr) {
+        dat_new_vol = *new_vol;
+    } else {
+        vadr_set_inval(dat_new_vol.vol_adr);
+    }
 }
 
 DiskRequest::DiskRequest(meta_vol_io_t       &vio,
@@ -117,8 +123,9 @@ DiskRequest::DiskRequest(meta_vol_io_t       &vio,
                          fds::ObjectBuf      *buf,
                          bool                block,
                          DataTier            tier)
-    : DiskRequest(vio, oid, old_oid, new_vol, buf, block) {
-  datTier = tier;
+    : DiskRequest(vio, oid, old_oid, new_vol, buf, block)
+{
+    datTier = tier;
 }
 
 DiskRequest::~DiskRequest()
@@ -164,4 +171,4 @@ DataIOFuncParams::data_io_func(fds_uint32_t time_delta, int *tier)
     return io_func;
 }
 
-} // namespace diskio
+}  // namespace diskio

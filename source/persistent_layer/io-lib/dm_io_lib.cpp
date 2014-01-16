@@ -1,5 +1,9 @@
+/*
+ * Copyright 2014 by Formation Data Systems, Inc.
+ */
 #include <persistentdata.h>
 
+#include <string>
 #include <stdio.h>
 #include <dirent.h>
 #include <sys/stat.h>
@@ -8,8 +12,6 @@
 
 #include <iostream>
 #include <persistent_layer/dm_io.h>
-
-using namespace std;
 
 namespace diskio {
 
@@ -51,14 +53,14 @@ DataIOModule::mod_init(fds::SysParams const *const param)
 {
     Module::mod_init(param);
 
-    cout << "DataIOModule init..." << endl;
+    std::cout << "DataIOModule init..." << std::endl;
     sgt_dataIO = new DataIO;
     for (int i = 0; i < sgt_hdd_count; i++) {
         sgt_hddIO[i] =
             new FilePersisDataIO(dataDiscoveryMod.disk_hdd_path(i), i);
     }
     for (fds_uint32_t i = 0; i < sgt_ssd_count; i++) {
-      sgt_ssdIO[i] = 
+      sgt_ssdIO[i] =
           new FilePersisDataIO(dataDiscoveryMod.disk_ssd_path(i), i);
     }
     return 0;
@@ -71,7 +73,7 @@ void
 DataIOModule::mod_startup()
 {
     Module::mod_startup();
-    cout << "DataIOModule startup..." << endl;
+    std::cout << "DataIOModule startup..." << std::endl;
 }
 
 // \mod_shutdown
@@ -111,10 +113,10 @@ DataDiscoveryModule::~DataDiscoveryModule()
 // place in the label array.
 //
 bool
-DataDiscoveryModule::disk_detect_label(std::string &path, DataTier tier)
+DataDiscoveryModule::disk_detect_label(std::string *path, DataTier tier)
 {
     int         fd, limit;
-    std::string file, base = path + std::string(sgt_dt_file);
+    std::string file, base = *path + std::string(sgt_dt_file);
 
     limit = tier == diskTier ? sgt_hdd_count : sgt_ssd_count;
     for (int i = 0; i < limit; i++) {
@@ -123,14 +125,14 @@ DataDiscoveryModule::disk_detect_label(std::string &path, DataTier tier)
             // Found the valid label.
             if (tier == diskTier) {
                 pd_hdd_labeled[i] = file;
-            } else if(tier == flashTier) {
+            } else if (tier == flashTier) {
                 pd_ssd_labeled[i] = file;
             } else {
               fds_panic("Unknown tier label!");
             }
             close(fd);
-            path.clear();
-            cout << "Found label " << file << endl;
+            path->clear();
+            std::cout << "Found label " << file << std::endl;
             return true;
         }
     }
@@ -143,84 +145,78 @@ DataDiscoveryModule::disk_detect_label(std::string &path, DataTier tier)
 // order of disks at the next time when we come up.
 //
 void
-DataDiscoveryModule::disk_make_label(std::string &base,
+DataDiscoveryModule::disk_make_label(std::string *base,
                                      DataTier tier,
-                                     int diskno) {
-  fds_int32_t   fd;
-  std::string  *labeled;
-  fds_uint32_t  found;
+                                     int diskno)
+{
+    fds_int32_t   fd;
+    std::string  *labeled;
+    fds_uint32_t  found;
 
-  if (tier == diskTier) {
-    labeled = pd_hdd_labeled;
-    found   = pd_hdd_found;
-  } else if (tier == flashTier) {
-    labeled = pd_ssd_labeled;
-    found   = pd_ssd_found;
-  } else {
-    fds_panic("Unknown tier label!");
-  }
+    if (tier == diskTier) {
+        labeled = pd_hdd_labeled;
+        found   = pd_hdd_found;
+    } else if (tier == flashTier) {
+        labeled = pd_ssd_labeled;
+        found   = pd_ssd_found;
+    } else {
+        fds_panic("Unknown tier label!");
+    }
 
-  fds_verify(diskno < found);
-  labeled[diskno] = base +
-      std::string(sgt_dt_file) + std::to_string(diskno);
+    fds_verify(diskno < found);
+    labeled[diskno] = *base + std::string(sgt_dt_file) + std::to_string(diskno);
 
-  fd = open(labeled[diskno].c_str(),
-            O_APPEND | O_CREAT, S_IRUSR | S_IWUSR);
-
-  fds_verify(fd > 0);
-  base.clear();
-  close(fd);
-  cout << "Created label " << labeled[diskno] << endl;
+    fd = open(labeled[diskno].c_str(), O_APPEND | O_CREAT, S_IRUSR | S_IWUSR);
+    fds_verify(fd > 0);
+    base->clear();
+    close(fd);
+    std::cout << "Created label " << labeled[diskno] << std::endl;
 }
 
 // \parse_device_dir
 // ---------
 //
 void
-DataDiscoveryModule::parse_device_dir(const std::string& path,
-                                      DataTier tier) {
-  DIR               *dfd;
-  struct dirent     *dp;
+DataDiscoveryModule::parse_device_dir(const std::string& path, DataTier tier)
+{
+    int                ret;
+    DIR               *dfd;
+    struct dirent     *result, dp;
 
-  dfd = opendir(path.c_str());
-  fds_verify(dfd != NULL);
+    dfd = opendir(path.c_str());
+    fds_verify(dfd != NULL);
 
-  while((dp = readdir(dfd)) != NULL) {
-    struct stat stbuf;
-    std::string subdir(path + "/" + std::string(dp->d_name));
+    for (ret = readdir_r(dfd, &dp, &result);
+         result != NULL && ret == 0; ret = readdir_r(dfd, &dp, &result)) {
+        struct stat stbuf;
+        std::string subdir(path + "/" + std::string(dp.d_name));
 
-    if (stat(path.c_str(), &stbuf) < 0) {
-      continue;
-    }
-
-    if ((stbuf.st_mode & S_IFMT) == S_IFDIR) {
-      if (dp->d_name[0] == '.') {
-        continue;
-      }
-      if (tier == diskTier) {
-        if (pd_hdd_found < pd_hdd_count) {
-          /*
-           * Located a new hdd path
-           */
-          pd_hdd_raw[pd_hdd_found] = subdir;
-          disk_detect_label(pd_hdd_raw[pd_hdd_found], diskTier);
-          pd_hdd_found++;
+        if (stat(path.c_str(), &stbuf) < 0) {
+            continue;
         }
-      } else if (tier == flashTier) {
-        if (pd_ssd_found < pd_ssd_count) {
-          /*
-           * Located a new ssd path
-           */
-          pd_ssd_raw[pd_ssd_found] = subdir;
-          disk_detect_label(pd_ssd_raw[pd_ssd_found], flashTier);
-          pd_ssd_found++;
+        if ((stbuf.st_mode & S_IFMT) == S_IFDIR) {
+            if (dp.d_name[0] == '.') {
+                continue;
+            }
+            if (tier == diskTier) {
+                if (pd_hdd_found < pd_hdd_count) {
+                    /* Located a new hdd path */
+                    pd_hdd_raw[pd_hdd_found] = subdir;
+                    disk_detect_label(&pd_hdd_raw[pd_hdd_found], diskTier);
+                    pd_hdd_found++;
+                }
+            } else if (tier == flashTier) {
+                if (pd_ssd_found < pd_ssd_count) {
+                    /* Located a new ssd path */
+                    pd_ssd_raw[pd_ssd_found] = subdir;
+                    disk_detect_label(&pd_ssd_raw[pd_ssd_found], flashTier);
+                    pd_ssd_found++;
+                }
+            } else {
+                fds_panic("Recieved unknown tier to parse!");
+            }
         }
-      } else {
-        fds_panic("Recieved unknown tier to parse!");
-      }
-
     }
-  }
 }
 
 // \mod_init
@@ -229,16 +225,17 @@ DataDiscoveryModule::parse_device_dir(const std::string& path,
 int
 DataDiscoveryModule::mod_init(fds::SysParams const *const param)
 {
+    int                ret;
     DIR               *dfd;
-    struct dirent     *dp;
+    struct dirent     *result, dp;
     fds::SimEnvParams *sim;
 
     Module::mod_init(param);
     sim = param->fds_sim;
     dfd = opendir(param->fds_root.c_str());
     if (dfd == nullptr) {
-        cout << "Need to setup root storage directory "
-             << param->fds_root << endl;
+        std::cout << "Need to setup root storage directory "
+             << param->fds_root << std::endl;
         return 1;
     }
     pd_hdd_count = sgt_hdd_count;
@@ -250,30 +247,29 @@ DataDiscoveryModule::mod_init(fds::SysParams const *const param)
         pd_hdd_cap_mb = 0;
         pd_ssd_cap_mb = 0;
     }
-    while ((dp = readdir(dfd)) != nullptr) {
+    for (ret = readdir_r(dfd, &dp, &result);
+         result != NULL && ret == 0; ret = readdir_r(dfd, &dp, &result)) {
         struct stat  stbuf;
-        std::string  path(param->fds_root + std::string(dp->d_name));
+        std::string  path(param->fds_root + std::string(dp.d_name));
 
         if (stat(path.c_str(), &stbuf) < 0) {
             continue;
         }
         if ((stbuf.st_mode & S_IFMT) == S_IFDIR) {
-            if (dp->d_name[0] == '.') {
+            if (dp.d_name[0] == '.') {
                 continue;
             }
             if (path.compare(param->fds_root.size(),
-                             string::npos,
-                             param->hdd_root,
-                             0,
+                             std::string::npos,
+                             param->hdd_root, 0,
                              param->hdd_root.size() - 1) == 0) {
               /*
                * Parse the hdd directory
                */
               parse_device_dir(path, diskTier);
             } else if (path.compare(param->fds_root.size(),
-                                    string::npos,
-                                    param->ssd_root,
-                                    0,
+                                    std::string::npos,
+                                    param->ssd_root, 0,
                                     param->ssd_root.size() - 1) == 0) {
               /*
                * Parse the ssd directory
@@ -288,14 +284,13 @@ DataDiscoveryModule::mod_init(fds::SysParams const *const param)
         std::string base(param->fds_root + param->hdd_root);
         umask(0);
         if (mkdir(base.c_str(), 0755) != 0) {
-          if(errno == EACCES) {
-            cout << "Don't have permission to fds root: "
-                 << param->fds_root << endl;
-            return 1;
-          }
-          fds_verify(errno == EEXIST);
+            if (errno == EACCES) {
+                std::cout << "Don't have permission to fds root: "
+                    << param->fds_root << std::endl;
+                return 1;
+            }
+            fds_verify(errno == EEXIST);
         }
-
         base += sim->sim_disk_prefix;
         for (char sd = 'a'; pd_hdd_found < pd_hdd_count; sd++) {
             std::string hdd = base + sd;
@@ -306,8 +301,8 @@ DataDiscoveryModule::mod_init(fds::SysParams const *const param)
                 continue;
             }
             if ((errno == EACCES) || (sd == 'z')) {
-                cout << "Don't have permission to fds root: "
-                     << param->fds_root << endl;
+                std::cout << "Don't have permission to fds root: "
+                     << param->fds_root << std::endl;
                 return 1;
             }
         }
@@ -315,14 +310,13 @@ DataDiscoveryModule::mod_init(fds::SysParams const *const param)
         base = param->fds_root + param->ssd_root;
         umask(0);
         if (mkdir(base.c_str(), 0755) != 0) {
-          if(errno == EACCES) {
-            cout << "Don't have permission to fds root: "
-                 << param->fds_root << endl;
-            return 1;
-          }
-          fds_verify(errno == EEXIST);
+            if (errno == EACCES) {
+                std::cout << "Don't have permission to fds root: "
+                    << param->fds_root << std::endl;
+                return 1;
+            }
+            fds_verify(errno == EEXIST);
         }
-
         base += sim->sim_disk_prefix;
         for (char sd = 'a'; pd_ssd_found < pd_ssd_count; sd++) {
             std::string ssd = base + sd;
@@ -333,8 +327,8 @@ DataDiscoveryModule::mod_init(fds::SysParams const *const param)
                 continue;
             }
             if ((errno == EACCES) || (sd == 'z')) {
-                cout << "Don't have permission to fds root: "
-                     << param->fds_root << endl;
+                std::cout << "Don't have permission to fds root: "
+                     << param->fds_root << std::endl;
                 exit(1);
             }
         }
@@ -343,7 +337,7 @@ DataDiscoveryModule::mod_init(fds::SysParams const *const param)
         if (!pd_hdd_raw[i].empty()) {
             fds_verify(pd_hdd_labeled[i].empty());
 
-            disk_make_label(pd_hdd_raw[i], diskTier, i);
+            disk_make_label(&pd_hdd_raw[i], diskTier, i);
             fds_verify(!pd_hdd_labeled[i].empty());
         } else {
             fds_verify(!pd_hdd_labeled[i].empty());
@@ -353,7 +347,7 @@ DataDiscoveryModule::mod_init(fds::SysParams const *const param)
         if (!pd_ssd_raw[i].empty()) {
             fds_verify(pd_ssd_labeled[i].empty());
 
-            disk_make_label(pd_ssd_raw[i], flashTier, i);
+            disk_make_label(&pd_ssd_raw[i], flashTier, i);
             fds_verify(!pd_ssd_labeled[i].empty());
         } else {
             fds_verify(!pd_ssd_labeled[i].empty());
@@ -572,7 +566,7 @@ DataIO::disk_remap_obj(meta_obj_id_t const *const obj_id,
 // -------------------------
 //
 void
-DataIO::disk_destroy_vol(meta_vol_adr_t &vol)
+DataIO::disk_destroy_vol(meta_vol_adr_t *vol)
 {
 }
 
@@ -584,4 +578,4 @@ DataIO::disk_loc_path_info(fds_uint16_t loc_id, std::string *path)
 {
 }
 
-} // namespace diskio
+}  // namespace diskio
