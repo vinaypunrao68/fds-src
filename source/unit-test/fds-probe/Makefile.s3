@@ -18,7 +18,7 @@ user_fds_ar_libs  +=  \
     fds-umod \
     fds-util \
     fds-hash \
-    fds-fdsp-ice \
+    fds-fdsp \
     fds-thread \
 
 local_nginx_libs   :=  \
@@ -41,7 +41,7 @@ user_non_fds_libs +=  \
     thrift \
     Ice \
     IceUtil \
-    IceStorm \
+    config++ \
     $(local_nginx_libs)
 
 include $(topdir)/Makefile.incl

@@ -159,7 +159,7 @@ netSession* netSessionTbl::setupServerSession(const std::string& dest_node_name,
                                                    remote_mgr_id,
                                                    1, /* number of threads (TODO) */
                                                    SvrObj)); 
-            } else {
+            } else if (remote_mgr_id == FDSP_OMCLIENT_MGR) {
                 session = dynamic_cast<netSession *>(
                     new netOMControlPathServerSession(dest_node_name,
                                                       port,
@@ -368,10 +368,10 @@ void netSessionTbl::listenServer(netSession* server_session) {
                 netConfigPathServerSession *servSession = 
                         reinterpret_cast<netConfigPathServerSession *>(server_session);
                 servSession->listenServer();
-            } else { 
-                //FDSP_ControlPathServerSession *servSession = 
-                //dynamic_cast<FDSP_ConfigPathServerSession *>(server_session);
-                //servSession->listenServer();
+            } else if (server_session->getRemoteMgrId() == FDSP_OMCLIENT_MGR) { 
+                netOMControlPathServerSession *servSession = 
+                        reinterpret_cast<netOMControlPathServerSession *>(server_session);
+                servSession->listenServer();
             }
             break;
             
