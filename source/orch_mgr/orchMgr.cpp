@@ -715,7 +715,6 @@ void OrchMgr::TestBucket(const FdspMsgHdrPtr& fdsp_msg,
 void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
                            const FdspRegNodePtr &reg_node_req) {
     std::string ip_addr_str;
-    Ice::Identity ident;
     std::ostringstream tcpProxyStr;
     localDomainInfo  *currentDom;
 
