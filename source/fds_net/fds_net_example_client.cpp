@@ -86,10 +86,10 @@ int main(int argc, char *argv[]) {
 
     boost::shared_ptr<FDSP_MsgHdrType> fdspMsg =
             boost::shared_ptr<FDSP_MsgHdrType>(new FDSP_MsgHdrType());
+    fdspMsg->src_node_name = remoteIp;
     boost::shared_ptr<FDSP_PutObjType> putObjReq =
             boost::shared_ptr<FDSP_PutObjType>(new FDSP_PutObjType());
     client->PutObject(fdspMsg, putObjReq);
-
     boost::shared_ptr<netSessionTbl> nstB =
             boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_HVISOR));
 

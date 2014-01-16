@@ -35,7 +35,7 @@ class exampleDataPathReqIf : public FDSP_DataPathReqIf {
                    boost::shared_ptr<FDSP_PutObjType>& put_obj_req) {
         std::cout << "Got a put object message" << std::endl;
         respClient =
-                dynamic_cast<netDataPathServerSession *>(exampleSession)->getClient();  // NOLINT
+                dynamic_cast<netDataPathServerSession *>(exampleSession)->getRespClient(fdsp_msg->src_node_name);  // NOLINT
         FDSP_MsgHdrType resp_msg;
         FDSP_PutObjType resp_put;
         respClient->PutObjectResp(resp_msg, resp_put);

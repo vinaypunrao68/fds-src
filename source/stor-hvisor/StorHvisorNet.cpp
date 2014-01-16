@@ -807,16 +807,14 @@ cout << "dataMgrIPAddress: " << dataMgrIPAddress <<  "\n" <<  "storMgrIPAddress"
     /*
      * TODO: Currently we always add the DM IP in the DM and BOTH test modes.
      */
-    fds_uint32_t ip_num;
-// SAN    ip_num  = FDS_RPC_EndPoint::ipString2Addr(dataMgrIPAddress);
+    fds_uint32_t ip_num  = rpcSessionTbl->ipString2Addr(dataMgrIPAddress);
     dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NO_OM_MODE,
                                                 ip_num,
                                                 storMgrPortNum,
                                                 dataMgrPortNum,
                                                 om_client);
   } else if (mode == STOR_MGR_TEST) {
-    fds_uint32_t ip_num;
-// SAN    ip_num = FDS_RPC_EndPoint::ipString2Addr(storMgrIPAddress);
+    fds_uint32_t ip_num = rpcSessionTbl->ipString2Addr(storMgrIPAddress);
     dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NO_OM_MODE,
                                                 ip_num,
                                                 storMgrPortNum,

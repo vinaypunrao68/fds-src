@@ -146,7 +146,7 @@ Error VolumeCatalogCache::queryDm(const std::string& blobName,
   /*
    * Locate a DM endpoint to try.
    */
-// SAN   FDS_RPC_EndPoint *endPoint = NULL;
+  netSession *endPoint = NULL;
   int node_ids[8];
   int num_nodes = 8;
   parent_sh->dataPlacementTbl->getDMTNodesForVolume(vol_id,
@@ -168,12 +168,9 @@ Error VolumeCatalogCache::queryDm(const std::string& blobName,
       return err;
     }
 
-#if 0 //SAN
-    ret_code = parent_sh->rpcSwitchTbl->Get_RPC_EndPoint(node_ip,
-                                                         FDSP_DATA_MGR,
-                                                         &endPoint);
-#endif
-    if (ret_code != 0) {
+    endPoint = storHvisor->rpcSessionTbl->getSession
+             (node_ip, FDS_ProtocolInterface::FDSP_DATA_MGR);
+    if (endPoint == NULL) {
       FDS_PLOG(vcc_log) << "VolumeCatalogCache - "
                         << "Unable to get RPC endpoint for "
                         << node_ip;
@@ -181,14 +178,15 @@ Error VolumeCatalogCache::queryDm(const std::string& blobName,
       return err;
     }
 
-#if 0 //SAN
     if (endPoint != NULL) {
       located_ep = true;
       /*
        * We found a valid endpoint. Let's try it
        */
       try {
-        endPoint->fdspDPAPI->begin_QueryCatalogObject(msg_hdr, query_req);
+         boost::shared_ptr<FDSP_MetaDataPathReqClient> client =
+               dynamic_cast<netMetaDataPathClientSession *>(endPoint)->getClient();
+        client->QueryCatalogObject(msg_hdr, query_req);
         FDS_PLOG(vcc_log) << " VolumeCatalogCache - "
                           << "Async query request sent to DM "
                           << endPoint << " for volume " << vol_id
@@ -207,7 +205,6 @@ Error VolumeCatalogCache::queryDm(const std::string& blobName,
       }
       break;
     }
-#endif
   }
   if (located_ep == false) {
     FDS_PLOG(vcc_log) << " VolumeCatalogCache - "
