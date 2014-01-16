@@ -6,6 +6,7 @@
 
 #include <string>
 #include <fds-probe/fds_probe.h>
+#include <fds-probe/js-object.h>
 #include <am-engine/s3connector.h>
 #include <concurrency/ThreadPool.h>
 
@@ -39,6 +40,19 @@ class Probe_PutObject : public S3_PutObject
     ProbeIORequest           *preq;
 };
 
+// Probe PUT Bucket to hookup control path to the probe.
+//
+class Probe_PutBucket : public S3_PutBucket
+{
+  public:
+    Probe_PutBucket(AMEngine *eng, AME_HttpReq *req);
+    ~Probe_PutBucket();
+
+    virtual void ame_request_handler();
+    virtual int  ame_request_resume();
+  protected:
+};
+
 // Doing this to avoid multiple inheritance.
 //
 class ProbeS3 : public ProbeMod
@@ -47,9 +61,9 @@ class ProbeS3 : public ProbeMod
     /**
      * Implement required methods.
      */
+    virtual ~ProbeS3();
     ProbeS3(char const *const name,
-            probe_mod_param_t *param, Module *owner)
-        : ProbeMod(name, param, owner) {}
+            probe_mod_param_t *param, Module *owner);
 
     ProbeMod *pr_new_instance() { return NULL; }
     void pr_intercept_request(ProbeRequest *req) {}
@@ -82,6 +96,9 @@ class ProbeS3Eng : public AMEngine_S3
     inline fds_threadpool *probe_get_thrpool() {
         return probe_s3->pr_get_thrpool();
     }
+    inline JsObjManager *probe_get_obj_mgr() {
+        return probe_s3->pr_get_obj_mgr();
+    }
 
     // Object factory
     //
@@ -101,7 +118,7 @@ class ProbeS3Eng : public AMEngine_S3
         return nullptr;
     }
     virtual Conn_PutBucket *ame_putbucket_hdler(AME_HttpReq *req) {
-        return nullptr;
+        return new Probe_PutBucket(this, req);
     }
     virtual Conn_DelBucket *ame_delbucker_hdler(AME_HttpReq *req) {
         return nullptr;
