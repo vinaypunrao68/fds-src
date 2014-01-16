@@ -10,7 +10,7 @@ user_cpp         :=               \
     dm_index.cpp                  \
     pdata_request.cpp
 
-user_no_style    := $(user_cpp)
+user_no_style    := dm_read.cpp
 user_ar_libs     := fds-dsk-io
 fds-dsk-io       := $(user_cpp)
 
