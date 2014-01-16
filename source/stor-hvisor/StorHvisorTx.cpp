@@ -27,7 +27,7 @@ int StorHvisorProcIoRd(void *_io)
  blkdev_complete_req_cb_t comp_req = io->comp_req; 
  void *arg1 = ((fbd_request *)io->fbd_req)->vbd; 
  void *arg2 = ((fbd_request *)io->fbd_req)->vReq;
-// SAN   FDS_RPC_EndPoint *endPoint = NULL; 
+  netSession *endPoint = NULL;
   unsigned int node_ip = 0;
   fds_uint32_t node_port = 0;
   unsigned int doid_dlt_key=0;
@@ -160,26 +160,22 @@ int StorHvisorProcIoRd(void *_io)
   fdsp_msg_hdr->dst_ip_lo_addr = node_ip;
   fdsp_msg_hdr->dst_port       = node_port;
   
-#if 0  //SAN 
   // *****CAVEAT: Modification reqd
   // ******  Need to find out which is the primary SM and send this out to that SM. ********
-  storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip,
-                                             node_port,
-                                             FDSP_STOR_MGR,
-                                             &endPoint);
+  endPoint = storHvisor->rpcSessionTbl->getSession
+             (node_ip, FDS_ProtocolInterface::FDSP_STOR_MGR);
   
   // RPC Call GetObject to StorMgr
   journEntry->trans_state = FDS_TRANS_GET_OBJ;
   if (endPoint)
   { 
-    endPoint->fdspDPAPI->GetObject(fdsp_msg_hdr, get_obj_req);
+    boost::shared_ptr<FDSP_DataPathReqClient> client =
+            dynamic_cast<netDataPathClientSession *>(endPoint)->getClient();
+    client->GetObject(fdsp_msg_hdr, get_obj_req);
     FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Sent async GetObj req to SM";
   }
-#endif
   
   // Schedule a timer here to track the responses and the original request
-//  IceUtil::Time interval = IceUtil::Time::seconds(FDS_IO_LONG_TIME);
-//  shvol->journal_tbl->schedule(journEntry->ioTimerTask, interval);
   shvol->journal_tbl->schedule(journEntry->ioTimerTask, std::chrono::seconds(FDS_IO_LONG_TIME));
   return 0; // je_lock destructor will unlock the journal entry
 }
@@ -202,7 +198,7 @@ int StorHvisorProcIoWr(void *_io)
   ObjectID  objID;
   unsigned char doid_dlt_key;
   int num_nodes=8;
-// SAN   FDS_RPC_EndPoint *endPoint = NULL;
+  netSession *endPoint = NULL;
   int node_ids[8];
   fds_uint32_t node_ip = 0;
   fds_uint32_t node_port = 0;
@@ -332,20 +328,18 @@ int StorHvisorProcIoWr(void *_io)
     journEntry->sm_ack[i].ack_status = FDS_CLS_ACK;
     journEntry->num_sm_nodes = num_nodes;
 
-#if 0 //SAN 
     // Call Put object RPC to SM
-    storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip,
-                                               node_port,
-                                               FDSP_STOR_MGR,
-                                               &endPoint);
+    endPoint = storHvisor->rpcSessionTbl->getSession
+             (node_ip, FDS_ProtocolInterface::FDSP_STOR_MGR);
     if (endPoint) { 
-      endPoint->fdspDPAPI->PutObject(fdsp_msg_hdr, put_obj_req);
+        boost::shared_ptr<FDSP_DataPathReqClient> client =
+                dynamic_cast<netDataPathClientSession *>(endPoint)->getClient();
+      client->PutObject(fdsp_msg_hdr, put_obj_req);
       FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:"
                                      << trans_id << " volID:" << vol_id
                                      << " -  Sent async PUT_OBJ_REQ request to SM at "
                                      << node_ip << " port " << node_port;
     }
-#endif 
   }
   
   // DMT lookup from the data placement object
@@ -379,25 +373,21 @@ int StorHvisorProcIoWr(void *_io)
     journEntry->dm_ack[i].commit_status = FDS_CLS_ACK;
     journEntry->num_dm_nodes = num_nodes;
     
-#if 0 //SAN 
     // Call Update Catalog RPC call to DM
-    storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip,
-                                               node_port,
-                                               FDSP_DATA_MGR,
-                                               &endPoint);
+    endPoint = storHvisor->rpcSessionTbl->getSession
+             (node_ip, FDS_ProtocolInterface::FDSP_DATA_MGR);
     if (endPoint){
-      endPoint->fdspDPAPI->UpdateCatalogObject(fdsp_msg_hdr_dm, upd_obj_req);
+        boost::shared_ptr<FDSP_MetaDataPathReqClient> client =
+               dynamic_cast<netMetaDataPathClientSession *>(endPoint)->getClient();
+      client->UpdateCatalogObject(fdsp_msg_hdr_dm, upd_obj_req);
       FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:"
                                      << trans_id << " volID:" << vol_id
                                      << " - Sent async UPDATE_CAT_OBJ_REQ request to DM at "
                                      <<  node_ip << " port " << node_port;
     }
-#endif 
   }
   
   // Schedule a timer here to track the responses and the original request
-//  IceUtil::Time interval = IceUtil::Time::seconds(FDS_IO_LONG_TIME);
-//  shvol->journal_tbl->schedule(journEntry->ioTimerTask, interval);
   shvol->journal_tbl->schedule(journEntry->ioTimerTask, std::chrono::seconds(FDS_IO_LONG_TIME));
     shvol->readUnlock(); 
   return 0;

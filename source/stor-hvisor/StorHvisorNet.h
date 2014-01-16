@@ -206,7 +206,6 @@ public:
   void getBucketStatsResp(const FDSP_MsgHdrType& rx_msg,
 			  const FDSP_BucketStatsRespType& buck_stats);
 
-  void  InitIceObjects();
   void InitDmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
   void InitSmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
   
@@ -227,7 +226,6 @@ private:
   fds_log *sh_log;
   SysParams *sysParams;
   sh_comm_modes mode;
-// SAN   IceUtil::CtrlCHandler *shCtrlHandler;
 };
 
 extern StorHvCtrl *storHvisor;

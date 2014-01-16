@@ -207,6 +207,13 @@ fds_int32_t netSession::ipString2Addr(string ipaddr_str) {
     return (ntohl(sa.sin_addr.s_addr));
 }
 
+fds_int32_t netSessionTbl::ipString2Addr(string ipaddr_str) {
+    struct sockaddr_in sa;
+    sa.sin_addr.s_addr = 0;
+    inet_pton(AF_INET, (char *)ipaddr_str.data(), (void *)&(sa.sin_addr));
+    return (ntohl(sa.sin_addr.s_addr));
+}
+
 netSession* netSessionTbl::startSession(int ipaddr,
 					int port,
 					FDSP_MgrIdType remote_mgr_id,

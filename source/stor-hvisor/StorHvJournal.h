@@ -92,7 +92,6 @@ public:
   void fbd_complete_req(fbd_request_t *req, int status);
   void fbd_process_req_timeout();
 
-//  IceUtil::TimerTaskPtr ioTimerTask;
   FdsTimerTaskPtr  ioTimerTask;
   bool   is_in_use;
   unsigned int trans_id;
