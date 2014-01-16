@@ -14,12 +14,12 @@ user_fds_ar_libs  :=                                                          \
     fds-umod \
     fds-thread \
     fds-util \
-    fds-fdsp-ice \
+    fds-fdsp \
     fds-hash
 
 user_non_fds_libs :=                                                          \
     boost_log boost_system boost_thread boost_date_time boost_program_options \
-    boost_filesystem Ice IceUtil IceStorm
+    boost_filesystem thrift config++ Ice IceUtil
 
 ubd_cc            :=                   \
     ubd.c
