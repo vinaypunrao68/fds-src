@@ -70,22 +70,28 @@ int main(int argc, char *argv[]) {
      */
     exampleDataPathRespIf *edpri = new exampleDataPathRespIf();
 
-    boost::shared_ptr<netSessionTbl> nst =
+    boost::shared_ptr<netSessionTbl> nstA =
             boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_HVISOR));
 
     std::string remoteIp  = "127.0.0.1";
     fds_uint32_t numChannels = 1;
-    netSession *exampleSession = nst->startSession(remoteIp,
-                                                   8888,
-                                                   FDSP_STOR_MGR,
-                                                   numChannels,
-                                                   reinterpret_cast<void*>(edpri));
+    netSession *exampleSessionA = nstA->startSession(remoteIp,
+                                                     8888,
+                                                     FDSP_STOR_MGR,
+                                                     numChannels,
+                                                     reinterpret_cast<void*>(edpri));
 
     boost::shared_ptr<FDSP_DataPathReqClient> client =
-            dynamic_cast<netDataPathClientSession *>(exampleSession)->getClient();  // NOLINT
-    FDSP_MsgHdrType fdspMsg;
-    FDSP_PutObjType putObjReq;
+            dynamic_cast<netDataPathClientSession *>(exampleSessionA)->getClient();  // NOLINT
+
+    boost::shared_ptr<FDSP_MsgHdrType> fdspMsg =
+            boost::shared_ptr<FDSP_MsgHdrType>(new FDSP_MsgHdrType());
+    boost::shared_ptr<FDSP_PutObjType> putObjReq =
+            boost::shared_ptr<FDSP_PutObjType>(new FDSP_PutObjType());
     client->PutObject(fdspMsg, putObjReq);
+
+    boost::shared_ptr<netSessionTbl> nstB =
+            boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_HVISOR));
 
     sleep(10);
 
