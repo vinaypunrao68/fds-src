@@ -169,6 +169,10 @@ netMetaDataPathClientSession(const std::string& ip_addr_str,
     ~netMetaDataPathClientSession() {
         transport->close();
     }
+
+    boost::shared_ptr<FDSP_MetaDataPathReqClient> getClient() {
+        return fdspMDPAPI;
+    }
     
 private:
     int num_threads;

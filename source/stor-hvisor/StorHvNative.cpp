@@ -2,6 +2,7 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 
+#include <fdsp/FDSP_types.h>
 #include <FDSNStat.h>
 #include <native_api.h>
 #include <StorHvisorNet.h>
