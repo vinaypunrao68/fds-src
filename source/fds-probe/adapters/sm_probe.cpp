@@ -18,6 +18,8 @@ probe_mod_param_t sm_probe_param =
 SM_ProbeMod gl_SM_ProbeMod("SM Probe Adapter",
                            &sm_probe_param, nullptr);
 
+// bao2: merge test
+
 // pr_new_instance
 // ---------------
 //
