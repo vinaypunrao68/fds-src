@@ -29,7 +29,9 @@ FdsProcess::FdsProcess(int argc, char *argv[],
     /* Setup config */
     setup_config(argc, argv, config_path, base_path);
 
-    /* Create a global logger */
+    /* Create a global logger.  Logger is created here because we need the file
+     * name from config
+     */
     g_fdslog = new fds_log(conf_helper_.get<std::string>("logfile"));
 }
 
