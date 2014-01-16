@@ -169,6 +169,9 @@ netMetaDataPathClientSession(const std::string& ip_addr_str,
     ~netMetaDataPathClientSession() {
         transport->close();
     }
+    boost::shared_ptr<FDSP_MetaDataPathReqClient> getClient() {
+        return fdspMDPAPI;
+    }
     
 private:
     int num_threads;
@@ -205,6 +208,9 @@ netControlPathClientSession(const std::string& ip_addr_str,
     }
     ~netControlPathClientSession() {
         transport->close();
+    }
+    boost::shared_ptr<FDSP_ControlPathReqClient> getClient() {
+        return fdspCPAPI;
     }
 
 private:
@@ -326,19 +332,22 @@ netDataPathServerSession(string dest_node_name,
     // Called from within thrift and the right context is passed -
     // nothing to do in the application modules of thrift
     static void setClient(const boost::shared_ptr<TTransport> transport, void* context) {
-        printf("netSessionServer: set DataPathRespClient\n");
+        printf("netSessionServer: set DataPathRespClient for new client session \n");
         netDataPathServerSession* self = reinterpret_cast<netDataPathServerSession *>(context);
         self->setClientInternal(transport);
     }
 
     void setClientInternal(const boost::shared_ptr<TTransport> transport) {
-        printf("netSessionServer internal: set DataPathRespClient\n");
+         printf("netSessionServer internal: set DataPathRespClient\n");
         protocol_.reset(new TBinaryProtocol(transport));
-        client.reset(new FDSP_DataPathRespClient(protocol_));
+        boost::shared_ptr<TSocket> sock = boost::static_pointer_cast<TSocket>(transport);
+        string peer_addr = sock->getPeerAddress();
+        printf("netSessionServer internal: set DataPathRespClient %s\n", peer_addr.c_str());
+        respClient[peer_addr] = (dataPathRespClient)new FDSP_DataPathRespClient(protocol_);
     }
 
-    boost::shared_ptr<FDSP_DataPathRespClient> getClient() {
-        return client;
+    boost::shared_ptr<FDSP_DataPathRespClient> getRespClient(string ipaddress) {
+        return respClient[ipaddress];
     }
     
     void listenServer() {         
@@ -351,14 +360,15 @@ netDataPathServerSession(string dest_node_name,
         printf("Starting the server...\n");
         server->serve();
     }
-    
+
 private:
     boost::shared_ptr<FDSP_DataPathReqIf> handler;
     boost::shared_ptr<FDSP_DataPathReqIfSingletonFactory> handlerFactory; 
     boost::shared_ptr<TProcessorFactory> processorFactory;
     boost::shared_ptr<TThreadPoolServer> server;
     boost::shared_ptr<TProtocol> protocol_;
-    boost::shared_ptr<FDSP_DataPathRespClient> client;
+typedef boost::shared_ptr<FDSP_DataPathRespClient> dataPathRespClient;
+    std::unordered_map<std::string, dataPathRespClient> respClient;
 };
 
 class netMetaDataPathServerSession : public netServerSession { 
@@ -386,11 +396,13 @@ netMetaDataPathServerSession(string dest_node_name,
     void setClientInternal(const boost::shared_ptr<TTransport> transport) {
         printf("netSessionServer internal: set MetaDataPathRespClient\n");
         protocol_.reset(new TBinaryProtocol(transport));
-        client.reset(new FDSP_MetaDataPathRespClient(protocol_));
+        boost::shared_ptr<TSocket> sock = boost::static_pointer_cast<TSocket>(transport);
+        string peer_addr = sock->getPeerAddress();
+        respClient[peer_addr] = (metaDataPathRespClient)new FDSP_MetaDataPathRespClient(protocol_);
     }
 
-    boost::shared_ptr<FDSP_MetaDataPathRespClient> getClient() {
-        return client;
+    boost::shared_ptr<FDSP_MetaDataPathRespClient> getRespClient(string ipaddress) {
+        return respClient[ipaddress];
     }
     
     void listenServer() {         
@@ -410,7 +422,8 @@ private:
     boost::shared_ptr<TProcessorFactory> processorFactory;
     boost::shared_ptr<TThreadPoolServer> server;
     boost::shared_ptr<TProtocol> protocol_;
-    boost::shared_ptr<FDSP_MetaDataPathRespClient> client;
+typedef boost::shared_ptr<FDSP_MetaDataPathRespClient> metaDataPathRespClient;
+    std::unordered_map<std::string, metaDataPathRespClient> respClient;
 };
 
 class netControlPathServerSession : public netServerSession { 
@@ -440,11 +453,13 @@ netControlPathServerSession(const std::string& dest_node_name,
     void setClientInternal(const boost::shared_ptr<TTransport> transport) {
         printf("netSessionServer internal: set DataPathRespClient\n");
         protocol_.reset(new TBinaryProtocol(transport));
-        client.reset(new FDSP_ControlPathRespClient(protocol_));
+        boost::shared_ptr<TSocket> sock = boost::static_pointer_cast<TSocket>(transport);
+        string peer_addr = sock->getPeerAddress();
+        respClient[peer_addr] = (controlPathRespClient)new FDSP_ControlPathRespClient(protocol_);
     }
 
-    boost::shared_ptr<FDSP_ControlPathRespClient> getClient() {
-        return client;
+    boost::shared_ptr<FDSP_ControlPathRespClient> getRespClient(string ipaddress) {
+        return respClient[ipaddress];
     }
 
     void listenServer() {         
@@ -464,7 +479,8 @@ private:
     boost::shared_ptr<TProcessorFactory> processorFactory;
     boost::shared_ptr<TThreadPoolServer> server;
     boost::shared_ptr<TProtocol> protocol_;
-    boost::shared_ptr<FDSP_ControlPathRespClient> client;
+typedef boost::shared_ptr<FDSP_ControlPathRespClient> controlPathRespClient;
+    std::unordered_map<std::string, controlPathRespClient> respClient;
 };
 
 class netOMControlPathServerSession : public netServerSession { 
@@ -494,11 +510,13 @@ netOMControlPathServerSession(const std::string& dest_node_name,
     void setClientInternal(const boost::shared_ptr<TTransport> transport) {
         printf("netSessionServer internal: set OMControlPathRespClient\n");
         protocol_.reset(new TBinaryProtocol(transport));
-        client.reset(new FDSP_OMControlPathRespClient(protocol_));
+        boost::shared_ptr<TSocket> sock = boost::static_pointer_cast<TSocket>(transport);
+        string peer_addr = sock->getPeerAddress();
+        respClient[peer_addr] = (omControlPathRespClient)new FDSP_OMControlPathRespClient(protocol_);
     }
 
-    boost::shared_ptr<FDSP_OMControlPathRespClient> getClient() {
-        return client;
+    boost::shared_ptr<FDSP_OMControlPathRespClient> getRespClient(string ipaddress) {
+        return respClient[ipaddress];
     }
     
     void listenServer() {         
@@ -511,14 +529,15 @@ netOMControlPathServerSession(const std::string& dest_node_name,
         printf("Starting the server...\n");
         server->serve();
     }
-    
+
 private:
     boost::shared_ptr<FDSP_OMControlPathReqIf> handler;
     boost::shared_ptr<FDSP_OMControlPathReqIfSingletonFactory> handlerFactory; 
     boost::shared_ptr<TProcessorFactory> processorFactory;
     boost::shared_ptr<TThreadPoolServer> server;
     boost::shared_ptr<TProtocol> protocol_;
-    boost::shared_ptr<FDSP_OMControlPathRespClient> client;
+typedef boost::shared_ptr<FDSP_OMControlPathRespClient> omControlPathRespClient;
+    std::unordered_map<std::string, omControlPathRespClient> respClient;
 };
 
 
@@ -550,12 +569,13 @@ netConfigPathServerSession(const std::string& dest_node_name,
         printf("Starting the server...\n");
         server->serve();
     }
-    
+
 private:
     boost::shared_ptr<FDSP_ConfigPathReqIf> handler;
     boost::shared_ptr<FDSP_ConfigPathReqIfSingletonFactory> handlerFactory; 
     boost::shared_ptr<TProcessorFactory> processorFactory;
     boost::shared_ptr<TThreadPoolServer> server;
+    boost::shared_ptr<Thread> listen_thread;
 };
 
 

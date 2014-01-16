@@ -42,7 +42,7 @@ netSession* netSessionTbl::setupClientSession(const std::string& dest_node_name,
                                                  port,
                                                  local_mgr_id,
                                                  remote_mgr_id,
-                                                 1, /* number of threads (TODO) */
+                                                 num_threads, /* number of threads (TODO) */
                                                  respSvrObj));
  
             } else if (local_mgr_id == FDSP_ORCH_MGR) { 
@@ -51,7 +51,7 @@ netSession* netSessionTbl::setupClientSession(const std::string& dest_node_name,
                                                     port,
                                                     local_mgr_id,
                                                     remote_mgr_id,
-                                                    1, /* number of threads (TODO) */
+                                                    num_threads, /* number of threads (TODO) */
                                                     respSvrObj)); 
             }
             break;
@@ -63,7 +63,7 @@ netSession* netSessionTbl::setupClientSession(const std::string& dest_node_name,
                                                      port,
                                                      local_mgr_id,
                                                      remote_mgr_id,
-                                                     1, /* number of threasd (TODO) */
+                                                     num_threads, /* number of threasd (TODO) */
                                                      respSvrObj)); 
             } else if (local_mgr_id == FDSP_ORCH_MGR) { 
                 session = dynamic_cast<netSession *>(
@@ -71,7 +71,7 @@ netSession* netSessionTbl::setupClientSession(const std::string& dest_node_name,
                                                     port,
                                                     local_mgr_id,
                                                     remote_mgr_id,
-                                                    1, /* number of threads (TODO) */
+                                                    num_threads, /* number of threads (TODO) */
                                                     respSvrObj)); 
             }
             break;
@@ -83,7 +83,7 @@ netSession* netSessionTbl::setupClientSession(const std::string& dest_node_name,
                                                    port,
                                                    local_mgr_id,
                                                    remote_mgr_id,
-                                                   1, /* number of threads (TODO) */
+                                                   num_threads, /* number of threads (TODO) */
                                                    respSvrObj)); 
             } else if ((local_mgr_id == FDSP_STOR_HVISOR) ||
                        (local_mgr_id == FDSP_STOR_MGR) ||
@@ -93,7 +93,7 @@ netSession* netSessionTbl::setupClientSession(const std::string& dest_node_name,
                                                       port,
                                                       local_mgr_id,
                                                       remote_mgr_id,
-                                                      1, /* number of threads (TODO) */
+                                                      num_threads, /* number of threads (TODO) */
                                                       respSvrObj)); 
             }
             break;
