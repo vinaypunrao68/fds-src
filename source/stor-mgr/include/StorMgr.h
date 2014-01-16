@@ -61,6 +61,8 @@
 #include <fds_module.h>
 #include <fds_process.h>
 
+#include <NetSession.h>
+
 #undef FDS_TEST_SM_NOOP      /* if defined, IO completes as soon as it arrives to SM */
 
 #define FDS_STOR_MGR_LISTEN_PORT FDS_CLUSTER_TCP_PORT_SM
@@ -148,8 +150,9 @@ class ObjectStorMgr :
      * The map is used for sending back the response to the
      * appropriate SH/DM
      */
-    boost::shared_ptr<FDSP_DataPathReqIf>
-        fdspDataPathServer;
+    boost::shared_ptr<netSessionTbl> nst_;
+    boost::shared_ptr<FDSP_DataPathReqIf> datapath_handler_;
+    netSession *datapath_session_;
     std::unordered_map<std::string,
         boost::shared_ptr<FDS_ProtocolInterface::FDSP_DataPathRespClient> >
             fdspDataPathClient;
@@ -291,6 +294,8 @@ class ObjectStorMgr :
     Error readObject(const ObjectID   &objId,
             ObjectBuf        &objCompData,
             diskio::DataTier &tier);
+ protected:
+    void setup_datapath_server(const std::string &ip);
 
  public:
 

@@ -319,57 +319,16 @@ int ObjectStorMgr::mod_init(SysParams const *const param) {
     return 0;
 }
 
-void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
+namespace util {
+/**
+ * @return local ip
+ */
+std::string get_local_ip()
 {
-    /*
-     * Invoke FdsProcess setup so that it can setup the signal hander and
-     * execute the module vector for us
-     */
-    FdsProcess::setup(argc, argv, mod_vec);
-
-    /* Rest of the setup */
-    // todo: clean up the code below.  It's doing too many things here.
-    // Refactor into functions or make it part of module vector
-
-    std::string     myIp;
-    std::string     endPointStr;
-    DmDiskInfo     *info;
-    DmDiskQuery     in;
-    DmDiskQueryOut  out;
-
-    std::string stor_prefix = conf_helper_.get_abs<std::string>("fds.root");
-
-    // Create leveldb
-    std::string filename= stor_prefix + "SNodeObjRepository";
-    objStorDB  = new ObjectDB(filename);
-    filename= stor_prefix + "SNodeObjIndex";
-    objIndexDB  = new ObjectDB(filename);
-
-    // todo: set the properties
-#if 0
-    // todo: set the properties based on config
-    Ice::PropertiesPtr props;
-
-    /*
-     * Set basic thread properties.
-     */
-    props->setProperty("ObjectStorMgrSvr.ThreadPool.Client.Size", "200");
-    props->setProperty("ObjectStorMgrSvr.ThreadPool.Client.SizeMax", "400");
-    props->setProperty("ObjectStorMgrSvr.ThreadPool.Client.SizeWarn", "300");
-
-    props->setProperty("ObjectStorMgrSvr.ThreadPool.Server.Size", "200");
-    props->setProperty("ObjectStorMgrSvr.ThreadPool.Server.SizeMax", "400");
-    props->setProperty("ObjectStorMgrSvr.ThreadPool.Server.SizeWarn", "300");
-#endif
-
-
-    /* Set up FDSP RPC endpoints */
-    // todo: Make changes once RPC endpoint code is ready
-    fdspDataPathServer.reset(new ObjectStorMgrI());
-
     struct ifaddrs *ifAddrStruct = NULL;
     struct ifaddrs *ifa          = NULL;
     void   *tmpAddrPtr           = NULL;
+    std::string myIp;
 
     /*
      * Get the local IP of the host.
@@ -388,8 +347,44 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
             }
         }
     }
-    fds_assert(myIp.empty() == false);
-    FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::notification) << "Stor Mgr IP:" << myIp;
+
+    if (ifAddrStruct != NULL) {
+        freeifaddrs(ifAddrStruct);
+    }
+
+    return myIp;
+}
+}
+
+void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
+{
+    /*
+     * Invoke FdsProcess setup so that it can setup the signal hander and
+     * execute the module vector for us
+     */
+    FdsProcess::setup(argc, argv, mod_vec);
+
+    /* Rest of the setup */
+    // todo: clean up the code below.  It's doing too many things here.
+    // Refactor into functions or make it part of module vector
+
+    std::string     myIp;
+    DmDiskInfo     *info;
+    DmDiskQuery     in;
+    DmDiskQueryOut  out;
+
+    std::string stor_prefix = conf_helper_.get_abs<std::string>("fds.root");
+
+    // Create leveldb
+    std::string filename= stor_prefix + "SNodeObjRepository";
+    objStorDB  = new ObjectDB(filename);
+    filename= stor_prefix + "SNodeObjIndex";
+    objIndexDB  = new ObjectDB(filename);
+
+    /* Set up FDSP RPC endpoints */
+    nst_ = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_MGR));
+    myIp = util::get_local_ip();
+    setup_datapath_server(myIp);
 
     /*
      * Query persistent layer for disk parameter details
@@ -511,18 +506,29 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
      * Kick off the writeback thread(s)
      */
     writeBackThreads->schedule(writeBackFunc, this);
+}
 
-    // todo: start the server.  Ideally start the server in run()
-    //communicator()->waitForShutdown();
+void ObjectStorMgr::setup_datapath_server(const std::string &ip)
+{
+    datapath_handler_.reset(new ObjectStorMgrI());
 
-    if (ifAddrStruct != NULL) {
-        freeifaddrs(ifAddrStruct);
-    }
+    int myIpInt = netSession::ipString2Addr(ip);
+    std::string node_name = conf_helper_.get<std::string>(
+        conf_helper_.get_abs<std::string>("fds.root")) + "_SM";
+    // TODO: Ideally createServerSession should take a shared pointer
+    // for datapath_handler.  Make sure that happens.  Otherwise you
+    // end up with a pointer leak.
+    // TODO: Figure out who cleans up datapath_session_
+    datapath_session_ = nst_->createServerSession(myIpInt,
+                                              conf_helper_.get<int>("data_port"),
+                                              node_name,
+                                              FDSP_STOR_HVISOR,
+                                              datapath_handler_.get());
 }
 
 void ObjectStorMgr::run()
 {
-    // run the server here
+    nst_->listenServer(datapath_session_);
 }
 
 void ObjectStorMgr::interrupt_cb(int signum)

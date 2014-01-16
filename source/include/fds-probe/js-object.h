@@ -4,135 +4,279 @@
 #ifndef SOURCE_INCLUDE_FDS_PROBE_JS_OBJECT_H_
 #define SOURCE_INCLUDE_FDS_PROBE_JS_OBJECT_H_
 
-#include <boost/utility.h>
+#include <vector>
+#include <string>
+#include <boost/utility.hpp>
+#include <boost/unordered_map.hpp>
 #include <jansson.h>
+#include <shared/fds_types.h>
+#include <concurrency/Mutex.h>
 
 namespace fds {
 
-/**
- * Template to decode a json object to binary format.  A JsObject type is:
- * - A JSON object w/out any nested sub JSON object under it.
- * - Has a unique name in its schema.
- * - Can only contains char *, int, real, true, false types.
- * - Can be array of such types.
- */
-typedef struct json_decode json_decode_t;
-struct json_decode
-{
-    json_type                js_type;
-    fds_uint32_t             js_arr_cnt;
-    size_t                   js_obj_size;
-    const char              *js_keyword;
-};
+class JsObject;
+class JsObjManager;
+class JsObjTemplate;
+typedef std::vector<JsObject *> JsArray;
+typedef boost::unordered_map<std::string, JsObject *> JsObjSet;
+typedef boost::unordered_map<std::string, JsObjTemplate *> JsObjMap;
 
 /**
- * Generic JSON Object.
+ * JSON Object Instance.
+ * XXX: must have refcount to prevent deletion.
  */
 class JsObject
 {
   public:
-    JsObject(const json_decode_t *decode, int cnt);
-    virtual ~JsObject() {}
+    const char              *js_type_name;
 
-    /**
-     * Factory method to create this obj based on JSON format.
-     *
-     * @param spec (i) - the JSON format must not have any sub obj under it.
-     *     If it's the array, elements must be simple object.
-     */
-    virtual JsObject *json_new(const json_t *spec) = 0;
+    JsObject();
+    virtual ~JsObject();
+    virtual JsObject *js_exec_obj(JsObject *array, JsObjTemplate *templ);
+    virtual JsObject *js_exec_simple(JsObject *array, JsObjTemplate *templ);
 
     /**
      * Return binary type for this object.
-     *
-     * @param size (o) - size of the returned element.
      * @return cast the pointer to expected native binary object.
      */
-    void *json_pod_object(size_t *size);
-
+    inline void *js_pod_object() {
+        return js_bin_data;
+    }
     /**
-     * Return binary type for the given field name.
-     *
-     * @param keyword (i) - name of the field.
-     * @param size (o) - size of the returned element.
-     * @return cast the pointer to expected element (e.g. char *, int *...)
+     * For complex object, return the sub object matching with the key.
      */
-    void *json_pod_field(const char *keyword, size_t *size);
-
+    inline JsObject *js_obj_field(const char *key) {
+        if (js_comp == NULL) {
+            return NULL;
+        }
+        return (*js_comp)[key];
+    }
     /**
-     * Put POD type binary data to this object.
-     *
-     * @param bin (i) - cast from the binary data to copy to this obj.
-     * @param size (i) - size of the struct for consistency check with the
-     *     decoder.
-     * @return true if the size matches & data is copied; false otherwise.
+     * For array object, return the number of elements in the array.
      */
-    fds_bool_t json_put_pod_object(const void *bin, size_t size);
+    virtual int js_array_size();
 
-    /**
-     * Put POD type binary field data to this object.
-     *
-     * @param keyword (i) - name of the field.
-     * @param size (o) - size of the returned element.
-     * @return true if the size matches & data is copied; false otherwise.
-     */
-    fds_bool_t json_put_pod_field(const char *kw, const void *field, size_t sz);
-
-    /**
-     * Return the JSON structure from raw binary data in this obj.
-     * @return the new JSON obj; caller must free it.
-     */
-    json_t *json_encode_object();
-
+    inline JsObject *js_array_elm(int index) {
+        if (js_array == NULL) {
+            return NULL;
+        }
+        return (*js_array)[index];
+    }
+    inline fds_bool_t js_is_basic() {
+        return js_bin_data != NULL;
+    }
   protected:
-    int                      js_dc_cnt;
-    const json_decode_t     *js_decode;
-    const json_t            *js_obj;
-    const char              *js_name;
+    friend class JsObjManager;
+    friend class JsObjTemplate;
 
-    size_t                   js_bin_size;
+    json_t                  *js_data;
+    JsArray                 *js_array;
+    JsObjSet                *js_comp;
+    const char              *js_id_name;
     void                    *js_bin_data;
+
+    void js_init_obj(const char *type, const char *id, json_t *in, void *d,
+                     JsObjSet *c, JsArray *a);
 };
 
 /**
- * JsObject Factory.
- *
- * Data from a .json schema is parsed to break down to JsObject type
- * (e.g. basic object, no sub object).  Each object is identifyed by
- * its unique name.
- *
+ * JSON Array of JsObject Instance.
  */
-class JsObjFactory : public boost::noncopyable
+class JsObjArray : public JsObject
 {
   public:
-    JsObjFactory();
-    ~JsObjFactory();
+    explicit JsObjArray(int num);
+    virtual ~JsObjArray() {}
+
+    virtual JsObject *&operator[](int idx);
+    virtual JsObject *js_exec_obj(JsObject *array, JsObjTemplate *templ);
+};
+
+/**
+ * JSON Object Template to create object above.
+ * XXX: make constructor to create a singleton object.
+ */
+class JsObjTemplate
+{
+  public:
+    const char              *js_type_name;
+
+    JsObjTemplate(const char *type_name, JsObjManager *mgr);
+    virtual ~JsObjTemplate();
 
     /**
-     * Register a JsObject template to the factory.
+     * For complex object, return/register a decoder template.
      */
-    void json_register(const JsObject *template);
+    virtual JsObjTemplate *js_get_template(const char *key);
+    virtual void           js_register_template(JsObjTemplate *templ);
 
     /**
-     * Create a JsObject from JSON format with the given name.
-     * The object is also registered to the factory for lookup.
-     *
-     * @return the new object if it meets all the requirements.
+     * If don't have any obj decoder, try basic json types (e.g. str, int...)
      */
-    JsObject *json_create(const json_t *spec, const char *name);
+    virtual JsObject *js_decode_basic(json_t *in);
 
     /**
-     * Lookup the JsObject from the schema based on its name.
+     * Factory method to create an obj based on JSON format.
+     */
+    virtual JsObject *js_new(json_t *in) = 0;
+
+
+    /**
+     * Use the template to run exec function on an object instance in json fmt.
+     */
+    virtual void js_exec(json_t *in);
+
+    /**
+     * Wrapper API for an obj to request to add itself in the global name space.
+     */
+    virtual JsObject *js_add_global(JsObject *obj, int opts);
+
+    /**
+     * Return the global object manager where this template registered to.
+     */
+    inline JsObjManager *js_global_mgr() {
+        return js_global;
+    }
+
+  protected:
+    JsObjMap                 js_decode;
+    JsObjManager            *js_global;
+
+    virtual JsObject *js_parse(JsObject *empty, json_t *in, void *bin);
+    virtual JsObject *js_init(JsObject *obj, json_t *in, void *d,
+                              JsObjSet *c, JsArray *a);
+};
+
+/**
+ * Common objects that can be shared.  All T classes must inherit from the
+ * base JsObject and provide the js_exec_obj() method.
+ */
+template <class T>
+class JsObjStrTemplate : public JsObjTemplate
+{
+  public:
+    virtual ~JsObjStrTemplate() {}
+    explicit JsObjStrTemplate(const char *type_name, JsObjManager *mgr)
+        : JsObjTemplate(type_name, mgr) {}
+
+    virtual JsObject *js_new(json_t *in)
+    {
+        size_t      len;
+        char       *str;
+        const char *val;
+
+        val = json_string_value(in);
+        if (val != NULL) {
+            len = strlen(val);
+            str = new char [len + 1];
+            strncpy(str, val, len);
+            str[len] = '\0';
+            return js_parse(new T(), in, static_cast<void *>(str));
+        }
+        return NULL;
+    }
+};
+
+template <class T>
+class JsObjIntTemplate : public JsObjTemplate
+{
+  public:
+    virtual ~JsObjIntTemplate() {}
+    explicit JsObjIntTemplate(const char *type_name, JsObjManager *mgr)
+        : JsObjTemplate(type_name, mgr) {}
+
+    virtual JsObject *js_new(json_t *in)
+    {
+        if (json_is_integer(in)) {
+            int *num = new int(json_integer_value(in));
+            return js_parse(new T(), in, static_cast<void *>(num));
+        }
+        return NULL;
+    }
+};
+
+template <class T>
+class JsObjRealTemplate : public JsObjTemplate
+{
+  public:
+    virtual ~JsObjRealTemplate() {}
+    explicit JsObjRealTemplate(const char *type_name, JsObjManager *mgr)
+        : JsObjTemplate(type_name, mgr) {}
+
+    virtual JsObject *js_new(json_t *in)
+    {
+        if (json_is_real(in)) {
+            double *num = new double(json_real_value(in));
+            return js_parse(new T(), in, static_cast<void *>(num));
+        }
+        return NULL;
+    }
+};
+
+const int JSO_MGR_ADD_REPLACE  = 0x0001;
+const int JSO_MGR_ADD_FREE_OLD = 0x0002;
+const int JSO_MGR_ADD_DEF      = (JSO_MGR_ADD_REPLACE | JSO_MGR_ADD_FREE_OLD);
+
+/**
+ * JsObject Manager/Factory.
+ */
+class JsObjManager : public boost::noncopyable
+{
+  public:
+    JsObjManager();
+    ~JsObjManager();
+
+    /**
+     * Main entry to exec data parsed in json format.
+     */
+    virtual void js_exec(json_t *root);
+
+    /**
+     * Register a JsObject template to the factory.  The obj is identifed by
+     * its typed name, not id name (e.g. keyword "ID-Name").
+     */
+    virtual void js_register_template(JsObjTemplate *templ);
+    virtual JsObjTemplate *js_get_template(const char *name);
+
+    /**
+     * Add an object instance to the global name space.  The obj is identified
+     * by the keyword "ID-Name"
+     */
+    virtual JsObject *js_add_global(JsObject *obj, int opts);
+
+    /**
+     * Lookup the JsObject from the schema based on its name (kw "ID-Name").
      * @return the JsObject if found; NULL otherwise.
      */
-    JsObject *json_lookup(const char *name);
+    virtual JsObject *js_lookup(const char *name);
 
     /**
      * Lookup and remove the JsObject matching with the name.
      */
-    JsObject *json_remove(const char *name);
+    virtual JsObject *js_remove_global(const char *name);
+
+    /**
+     * Factory methods to allocate basic JSON types.
+     */
+    virtual JsObject *js_new_basic(json_t *in);
+
+    inline JsObject *js_new_str_obj(json_t *str) {
+        return js_str_decode->js_new(str);
+    }
+    inline JsObject *js_new_int_obj(json_t *in) {
+        return js_str_decode->js_new(in);
+    }
+    inline JsObject *js_new_real_obj(json_t *in) {
+        return js_str_decode->js_new(in);
+    }
 
   protected:
+    fds_mutex                    js_mtx;
+    JsObjMap                     js_decode;
+    JsObjSet                     js_objs;
+    JsObjStrTemplate<JsObject>  *js_str_decode;
+    JsObjIntTemplate<JsObject>  *js_int_decode;
+    JsObjRealTemplate<JsObject> *js_real_decode;
 };
 
 }   // namespace fds

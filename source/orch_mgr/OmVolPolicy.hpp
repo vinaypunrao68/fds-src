@@ -1,7 +1,6 @@
 #ifndef ORCH_MGR_POLICY_H_
 #define ORCH_MGR_POLICY_H_
 
-#include <Ice/Ice.h>
 #include <unordered_map>
 #include <string>
 

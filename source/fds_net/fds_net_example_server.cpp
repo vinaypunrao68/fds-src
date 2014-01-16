@@ -114,8 +114,6 @@ int main(int argc, char *argv[]) {
                                               FDSP_STOR_HVISOR,
                                               edpri);
 
-    // respClient =
-    //     dynamic_cast<netDataPathServerSession *>(exampleSession)->getClient();  // NOLINT
     nst->listenServer(exampleSession);
 
     return 0;

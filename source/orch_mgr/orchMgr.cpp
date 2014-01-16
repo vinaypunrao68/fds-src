@@ -138,16 +138,15 @@ void OrchMgr::setup(int argc, char* argv[],
                                         10,
                                         FDS_ProtocolInterface::FDSP_ORCH_MGR);
 
-    /* we new handler ptr here, but once we pass it to createServerSession
-     * it is made shared_ptr and will be delited on session destruction */
-    FDSP_OMControlPathReqHandler* omc_req_handler_ptr =
-            new FDSP_OMControlPathReqHandler(this);
+    // Andrew - after calling createServerSession() omc_req_handler->orchMgr 
+    // gets set to NULL, Rao can explain the problem
+    omc_req_handler.reset(new FDSP_OMControlPathReqHandler(this));
 
     net_session_tbl->createServerSession(netSession::ipString2Addr(ip_address),
                                          control_portnum,
                                          my_node_name,
                                          FDS_ProtocolInterface::FDSP_OMCLIENT_MGR,
-                                         omc_req_handler_ptr);
+                                         omc_req_handler.get());
 
     /*
      * setup CLI client adaptor interface  this also used for receiving the node up
@@ -196,7 +195,7 @@ void OrchMgr::interrupt_cb(int signum)
 }
 
 fds_log* OrchMgr::GetLog() {
-    return om_log;
+    return g_fdslog; // om_log;
 }
 
 int OrchMgr::CreateDomain(const FdspMsgHdrPtr& fdsp_msg,
@@ -715,7 +714,6 @@ void OrchMgr::TestBucket(const FdspMsgHdrPtr& fdsp_msg,
 void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
                            const FdspRegNodePtr &reg_node_req) {
     std::string ip_addr_str;
-    Ice::Identity ident;
     std::ostringstream tcpProxyStr;
     localDomainInfo  *currentDom;
 

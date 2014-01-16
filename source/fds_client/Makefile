@@ -19,7 +19,7 @@ user_fds_ar_libs  :=                                                          \
 
 user_non_fds_libs :=                                                          \
     boost_log boost_system boost_thread boost_date_time boost_program_options \
-    boost_filesystem thrift config++ Ice IceUtil
+    boost_filesystem thrift config++
 
 ubd_cc            :=                   \
     ubd.c

@@ -5,6 +5,7 @@
 #include <util/fds_stat.h>
 #include <am-plugin.h>
 #include <fds_assert.h>
+#include <utest-types.h>
 
 extern "C" {
 #include <ngx_config.h>
@@ -35,10 +36,21 @@ ProbeS3Eng::~ProbeS3Eng()
     delete probe_s3;
 }
 
+ProbeS3::ProbeS3(char const *const name,
+                 probe_mod_param_t *param, Module *owner)
+    : ProbeMod(name, param, owner)
+{
+    pr_objects->js_register_template(new UT_RunSetupTempl(pr_objects));
+    pr_objects->js_register_template(new UT_RunInputTemplate(pr_objects));
+}
+
+ProbeS3::~ProbeS3()
+{
+}
+
 // ---------------------------------------------------------------------------
 // GetObject Probe
 // ---------------------------------------------------------------------------
-
 Probe_GetObject::Probe_GetObject(AMEngine *eng, AME_HttpReq *req)
     : S3_GetObject(eng, req), preq(NULL)
 {
@@ -142,7 +154,6 @@ Probe_GetObject::ame_request_handler()
 // ---------------------------------------------------------------------------
 // PutObject Probe
 // ---------------------------------------------------------------------------
-
 Probe_PutObject::Probe_PutObject(AMEngine *eng, AME_HttpReq *req)
     : S3_PutObject(eng, req), preq(NULL)
 {
@@ -212,6 +223,51 @@ Probe_PutObject::ame_request_handler()
     fds_verify(preq != nullptr);
     s3eng->probe_get_thrpool()->
         schedule(probe_obj_write, probe, preq, this, s3eng);
+}
+
+// ---------------------------------------------------------------------------
+// Probe PUT Bucket - used in control path.
+// ---------------------------------------------------------------------------
+Probe_PutBucket::Probe_PutBucket(AMEngine *eng, AME_HttpReq *req)
+    : S3_PutBucket(eng, req)
+{
+}
+
+Probe_PutBucket::~Probe_PutBucket()
+{
+}
+
+// Admin/control handler
+// ---------------------
+//
+int
+Probe_PutBucket::ame_request_resume()
+{
+    ame_finalize_response(ame_resp_status);
+    return NGX_DONE;
+}
+
+void
+Probe_PutBucket::ame_request_handler()
+{
+    int           len;
+    char         *buf;
+    json_t       *root;
+    ProbeS3Eng   *s3p;
+    JsObjManager *objs;
+    json_error_t  err;
+
+    buf  = ame_reqt_iter_data(&len);
+    s3p  = static_cast<ProbeS3Eng *>(ame);
+    objs = s3p->probe_get_obj_mgr();
+    buf[len] = '\0';
+
+    root = json_loads(buf, 0, &err);
+    if (root != NULL) {
+        objs->js_exec(root);
+        json_decref(root);
+    }
+    ame_signal_resume(NGX_HTTP_OK);
 }
 
 }   // namespace fds

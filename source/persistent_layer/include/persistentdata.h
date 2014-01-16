@@ -1,8 +1,8 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
-#ifndef INCLUDE_PERISTENT_DATA_H_
-#define INCLUDE_PERISTENT_DATA_H_
+#ifndef SOURCE_PERSISTENT_LAYER_INCLUDE_PERSISTENTDATA_H_
+#define SOURCE_PERSISTENT_LAYER_INCLUDE_PERSISTENTDATA_H_
 
 #include <string>
 #include <persistent_layer/dm_io.h>
@@ -13,7 +13,7 @@ namespace diskio {
 class DataIndexModule : public fds::Module
 {
   public:
-    DataIndexModule(char const *const name);
+    explicit DataIndexModule(char const *const name);
     ~DataIndexModule();
 
     virtual int  mod_init(fds::SysParams const *const param);
@@ -24,7 +24,7 @@ class DataIndexModule : public fds::Module
 class DataDiscoveryModule : public fds::Module
 {
   public:
-    DataDiscoveryModule(char const *const name);
+    explicit DataDiscoveryModule(char const *const name);
     ~DataDiscoveryModule();
 
     virtual int  mod_init(fds::SysParams const *const param);
@@ -36,8 +36,8 @@ class DataDiscoveryModule : public fds::Module
 
   private:
     void parse_device_dir(const std::string &path, DataTier tier);
-    bool disk_detect_label(std::string &path, DataTier tier);
-    void disk_make_label(std::string &path, DataTier tier, int diskno);
+    bool disk_detect_label(std::string *path, DataTier tier);
+    void disk_make_label(std::string *path, DataTier tier, int diskno);
 
     int                      pd_hdd_count;
     int                      pd_ssd_count;
@@ -59,7 +59,7 @@ extern DataDiscoveryModule   dataDiscoveryMod;
 class DataIndexLDb
 {
   public:
-    DataIndexLDb(const char *base);
+    explicit DataIndexLDb(const char *base);
     ~DataIndexLDb();
 
   private:
@@ -109,6 +109,6 @@ class FilePersisDataIO : public PersisDataIO
     char const *const        fi_path;
 };
 
-} // namespace diskio
+}  // namespace diskio
 
-#endif /* INCLUDE_PERISTENT_DATA_H_ */
+#endif  // SOURCE_PERSISTENT_LAYER_INCLUDE_PERSISTENTDATA_H_

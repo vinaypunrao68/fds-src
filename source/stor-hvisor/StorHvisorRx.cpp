@@ -320,16 +320,16 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
 }
 
 
-void FDSP_DataPathRespCbackI::GetObjectResp(const FDSP_MsgHdrTypePtr& msghdr,
-                                            const FDSP_GetObjTypePtr& get_obj) {
+void FDSP_DataPathRespCbackI::GetObjectResp(FDSP_MsgHdrTypePtr& msghdr,
+                                            FDSP_GetObjTypePtr& get_obj) {
    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << msghdr->req_cookie << " - Received get obj response for txn  " <<  msghdr->req_cookie; 
    // storHvisor->fds_process_get_obj_resp(msghdr, get_obj);
    fds::Error err = storHvisor->getObjResp(msghdr, get_obj);
    fds_verify(err == ERR_OK);
 }
 
-void FDSP_DataPathRespCbackI::PutObjectResp(const FDSP_MsgHdrTypePtr& msghdr,
-                                            const FDSP_PutObjTypePtr& put_obj) {
+void FDSP_DataPathRespCbackI::PutObjectResp(FDSP_MsgHdrTypePtr& msghdr,
+                                            FDSP_PutObjTypePtr& put_obj) {
   FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::debug) << "Received putObjResp for txn "
                                                           << msghdr->req_cookie; 
    // storHvisor->fds_process_put_obj_resp(msghdr, put_obj);
@@ -337,8 +337,8 @@ void FDSP_DataPathRespCbackI::PutObjectResp(const FDSP_MsgHdrTypePtr& msghdr,
    fds_verify(err == ERR_OK);
 }
 
-void FDSP_MetaDataPathRespCbackI::UpdateCatalogObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg,
-                                                      const FDSP_UpdateCatalogTypePtr& update_cat) {
+void FDSP_MetaDataPathRespCbackI::UpdateCatalogObjectResp(FDSP_MsgHdrTypePtr& fdsp_msg,
+                                                      FDSP_UpdateCatalogTypePtr& update_cat) {
   FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::debug) << "Received updCatObjResp for txn "
                                                           <<  fdsp_msg->req_cookie; 
   // storHvisor->fds_process_update_catalog_resp(fdsp_msg, update_cat);
@@ -347,8 +347,8 @@ void FDSP_MetaDataPathRespCbackI::UpdateCatalogObjectResp(const FDSP_MsgHdrTypeP
 }
 
 void FDSP_MetaDataPathRespCbackI::DeleteCatalogObjectResp(
-    const FDSP_MsgHdrTypePtr& fdsp_msg_hdr,
-    const FDSP_DeleteCatalogTypePtr& del_obj_req) {
+    FDSP_MsgHdrTypePtr& fdsp_msg_hdr,
+    FDSP_DeleteCatalogTypePtr& del_obj_req) {
   FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::debug) << "Received deleteCatObjResp for txn "
                                                           <<  fdsp_msg_hdr->req_cookie; 
 
@@ -357,13 +357,13 @@ void FDSP_MetaDataPathRespCbackI::DeleteCatalogObjectResp(
 }
 
 void FDSP_DataPathRespCbackI::DeleteObjectResp(
-    const FDSP_MsgHdrTypePtr& fdsp_msg_hdr,
-    const FDSP_DeleteObjTypePtr& cat_obj_req) {
+    FDSP_MsgHdrTypePtr& fdsp_msg_hdr,
+    FDSP_DeleteObjTypePtr& cat_obj_req) {
 }
 
 void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
-    const FDSP_MsgHdrTypePtr& fdsp_msg_hdr,
-    const FDSP_QueryCatalogTypePtr& cat_obj_req) {
+    FDSP_MsgHdrTypePtr& fdsp_msg_hdr,
+    FDSP_QueryCatalogTypePtr& cat_obj_req) {
     int num_nodes=8;
     int node_ids[8];
     int node_state = -1;
@@ -586,8 +586,8 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
 
 
 void FDSP_MetaDataPathRespCbackI::GetVolumeBlobListResp(
-    const FDSP_MsgHdrTypePtr& fdsp_msg_hdr,
-    const FDSP_GetVolumeBlobListRespTypePtr& blob_list_resp
+    FDSP_MsgHdrTypePtr& fdsp_msg_hdr,
+    FDSP_GetVolumeBlobListRespTypePtr& blob_list_resp
     ) {
   FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::debug) << "Received GetVolumeBlobListResp for txn "
                                                           <<  fdsp_msg_hdr->req_cookie; 
