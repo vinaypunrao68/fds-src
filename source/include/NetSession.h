@@ -627,6 +627,7 @@ netSessionTbl(FDSP_MgrIdType myMgrId)
     FDSP_MgrIdType localMgrId;
 
     static string ipAddr2String(int ipaddr);
+    static int ipString2Addr(string ipaddr_str);
     std::string getKey(std::string node_name, FDSP_MgrIdType remote_mgr_id);
 
     // Client Procedures

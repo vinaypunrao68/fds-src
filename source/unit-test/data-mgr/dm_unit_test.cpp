@@ -33,13 +33,13 @@
 #include <fdsp/FDSP_ControlPathReq.h>
 #include <fdsp/FDSP_ControlPathResp.h>
 
-#include "../../unit-test/lib/test_stat.h"
+//#include "../../unit-test/lib/test_stat.h"
 
 #define DEF_NUM_CONC_REQS 3
 int num_conc_reqs = DEF_NUM_CONC_REQS;
 
 std::atomic<unsigned int> num_ios_outstanding;
-fds::StatIOPS *iops_stats;
+//fds::StatIOPS *iops_stats;
 
 
 namespace fds {
@@ -625,10 +625,10 @@ class TestResp : public FDS_ProtocolInterface::FDSP_MetaDataPathRespIf {
       FDS_PLOG(test_log) << "Received DM catalog trans open response ("
 			 << n_ios_outstanding << "): ";
 
-      if (iops_stats) {
-	boost::posix_time::ptime comp_time = boost::posix_time::microsec_clock::universal_time();
-	iops_stats->handleIOCompletion(1, comp_time);
-      }
+      //      if (iops_stats) {
+          //	boost::posix_time::ptime comp_time = boost::posix_time::microsec_clock::universal_time();
+          //    iops_stats->handleIOCompletion(1, comp_time);
+      // }
 
     } else if (update_req->dm_operation ==
                FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_COMMITED) {
@@ -830,9 +830,9 @@ class TestClient {
     if (testperf) {
       std::vector<fds_uint32_t> qids; 
       qids.push_back(1);
-      iops_stats = new StatIOPS("dm_unit_test", qids);
+      // iops_stats = new StatIOPS("dm_unit_test", qids);
     } else {
-      iops_stats = NULL;
+        // iops_stats = NULL;
     }
 
     DmUnitTest unittest(fdspMDPAPI, fdspCPAPI, num_updates, testperf, max_oios);
