@@ -127,7 +127,7 @@ class DiskRequest : public IndexRequest
 
     inline DataTier getTier() const { return datTier; }
     inline fds::ObjectBuf const *const req_obj_buf() { return dat_buf; }
-    inline fds::ObjectBuf *const req_obj_rd_buf() { return dat_buf; }
+    inline fds::ObjectBuf *req_obj_rd_buf() { return dat_buf; }
 
   protected:
     fds::ObjectBuf           *dat_buf;
@@ -231,18 +231,18 @@ class DataIndexProxy
     // Given the key in request structure, put different types of values to
     // the index database.
     //
-    void disk_index_put(IndexRequest &req, meta_obj_map_t *value);
-    void disk_index_put(IndexRequest &req, meta_vol_adr_t *value);
-    void disk_index_put(IndexRequest &req, meta_obj_id_t *value);
+    void disk_index_put(IndexRequest *req, meta_obj_map_t *value);
+    void disk_index_put(IndexRequest *req, meta_vol_adr_t *value);
+    void disk_index_put(IndexRequest *req, meta_obj_id_t *value);
 
     // \disk_index_get
     // ---------------
     // Given the key in request structure, get different types of values from
     // the index database.
     //
-    void disk_index_get(IndexRequest &req, meta_obj_map_t *value);
-    void disk_index_get(IndexRequest &req, meta_vol_adr_t *value);
-    void disk_index_get(IndexRequest &req, meta_obj_id_t *value);
+    void disk_index_get(IndexRequest *req, meta_obj_map_t *value);
+    void disk_index_get(IndexRequest *req, meta_vol_adr_t *value);
+    void disk_index_get(IndexRequest *req, meta_obj_id_t *value);
 
     // \disk_index_update
     // ------------------
@@ -250,14 +250,14 @@ class DataIndexProxy
     // mapping.  The caller needs to call the commit method to save
     // the key to persistent storage.
     //
-    void disk_index_update(IndexRequest &req, meta_obj_map_t *map);
-    void disk_index_commit(IndexRequest &req);
+    void disk_index_update(IndexRequest *req, meta_obj_map_t *map);
+    void disk_index_commit(IndexRequest *req);
 
     // \disk_index_remove
     // ------------------
     // Remove all records associated with the key in the request structure.
     //
-    void disk_index_remove(IndexRequest &req);
+    void disk_index_remove(IndexRequest *req);
 
     // \disk_index_inc/dec_ref
     // -----------------------
@@ -265,8 +265,8 @@ class DataIndexProxy
     // The update to map an object ID to new volume that has reference to
     // it is done in separate index update transaction.
     //
-    void disk_index_inc_ref(IndexRequest &req);
-    void disk_index_dec_ref(IndexRequest &req);
+    void disk_index_inc_ref(IndexRequest *req);
+    void disk_index_dec_ref(IndexRequest *req);
 
   private:
     friend class DataIndexModule;
@@ -290,16 +290,13 @@ class DataIO
 
     // Units for block IO to persistent data store.
     //
-    static inline fds_uint32_t disk_io_blk_shift()
-    {
+    static inline fds_uint32_t disk_io_blk_shift() {
         return fds::DmQuery::dm_blk_shift;
     }
-    static inline fds_uint32_t disk_io_blk_size()
-    {
+    static inline fds_uint32_t disk_io_blk_size() {
         return fds::DmQuery::dm_blk_size;
     }
-    static inline fds_uint32_t disk_io_blk_mask()
-    {
+    static inline fds_uint32_t disk_io_blk_mask() {
         return fds::DmQuery::dm_blk_mask;
     }
     // Round up the given byte to the next block size.
@@ -342,7 +339,7 @@ class DataIO
     // Notify disk mgr to destroy the volume and reclaim spaces that it
     // consumed.
     //
-    void disk_destroy_vol(meta_vol_adr_t &vol);
+    void disk_destroy_vol(meta_vol_adr_t *vol);
 
     // \disk_loc_path_info
     // -------------------
@@ -381,117 +378,102 @@ extern DataIOModule          gl_dataIOMod;
  * layer.
  */
 class MetaObjMap : public PersistentClass {
-private:
-  /*
-   * Defines the Plain-Old-Data version of the class
-   */
-  typedef meta_obj_map_t MetaObjPod;
-
-  /*
-   * Currently we use a vector of PODs. The vector
-   * ensures the PODs are contiguous, so we can still
-   * return a ptr without copying.
-   */
-  std::vector<MetaObjPod> pods;
-
-  fds_bool_t hasTier(DataTier tier) const {
-    for (fds_uint32_t i = 0; i < pods.size(); i++) {
-      if (pods[i].obj_tier == tier) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  fds::Error getTierMap(MetaObjPod &pod,
-                        DataTier    tier) const {
-    fds::Error err(fds::ERR_CAT_ENTRY_NOT_FOUND);
-    for (fds_uint32_t i = 0; i < pods.size(); i++) {
-      if (pods[i].obj_tier == tier) {
-        pod = pods[i];
-        err = fds::ERR_OK;
-        break;
-      }
-    }
-    return err;
-  }
-
-public:
-  MetaObjMap() {
-  }
-  ~MetaObjMap() {
-  }
-  MetaObjMap(const MetaObjPod& pod) {
-    pods.push_back(pod);
-  }
-
-  fds_uint32_t marshalledSize() const {
-    return pods.size() * sizeof(MetaObjPod);
-  }
-
-  const char* marshalling() const {
-    return reinterpret_cast<const char*>(pods.data());
-  }
-
-  void unmarshalling(const char   *persistBuf,
-                     fds_uint32_t  bufSize) {
-    fds_verify(pods.size() == 0);
-    fds_verify((bufSize % sizeof(MetaObjPod)) == 0);
-    for (fds_uint32_t i = 0; i < bufSize; i += sizeof(MetaObjPod)) {
-      pods.push_back(*(reinterpret_cast<const MetaObjPod*>(persistBuf + i)));
-    }
-  }
-  void unmarshalling(const std::string &persistBuf,
-                     fds_uint32_t       bufSize) {
-    fds_verify(persistBuf.size() == bufSize);
-    unmarshalling(persistBuf.c_str(), bufSize);
-  }
-
-  fds_bool_t hasFlashMap() const {
-    return hasTier(flashTier);
-  }
-
-  fds_bool_t hasDiskMap() const {
-    return hasTier(diskTier);
-  }
-
-  fds::Error getFlashMap(MetaObjPod &pod) const {
-    return getTierMap(pod, flashTier);
-  }
-
-  fds::Error getDiskMap(MetaObjPod &pod) const {
-    return getTierMap(pod, diskTier);
-  }
-
-  void updateMap(const MetaObjPod &pod) {
+  private:
     /*
-     * Find if this tier exists and overwrite it.
-     * Otherwise, add the new tier.
+     * Defines the Plain-Old-Data version of the class
      */
-    for (fds_uint32_t i = 0; i < pods.size(); i++) {
-      if (pods[i].obj_tier == pod.obj_tier) {
-        pods[i] = pod;
-        return;
-      }
-    }
-    pods.push_back(pod);
-  }
+    typedef meta_obj_map_t MetaObjPod;
 
-  friend std::ostream& operator<<(std::ostream& out, const MetaObjMap& objMap);
+    /*
+     * Currently we use a vector of PODs. The vector
+     * ensures the PODs are contiguous, so we can still
+     * return a ptr without copying.
+     */
+    std::vector<MetaObjPod> pods;
+
+    fds_bool_t hasTier(DataTier tier) const {
+        for (fds_uint32_t i = 0; i < pods.size(); i++) {
+            if (pods[i].obj_tier == tier) {
+                return true;
+            }
+        }
+        return false;
+    }
+    fds::Error getTierMap(MetaObjPod &pod, DataTier tier) const
+    {
+        fds::Error err(fds::ERR_CAT_ENTRY_NOT_FOUND);
+        for (fds_uint32_t i = 0; i < pods.size(); i++) {
+            if (pods[i].obj_tier == tier) {
+                pod = pods[i];
+                err = fds::ERR_OK;
+                break;
+            }
+        }
+        return err;
+    }
+
+  public:
+    MetaObjMap() {}
+    ~MetaObjMap() {}
+    MetaObjMap(const MetaObjPod& pod) {
+        pods.push_back(pod);
+    }
+    fds_uint32_t marshalledSize() const {
+        return pods.size() * sizeof(MetaObjPod);
+    }
+    const char* marshalling() const {
+        return reinterpret_cast<const char*>(pods.data());
+    }
+    void unmarshalling(const char *persistBuf, fds_uint32_t bufSize)
+    {
+        fds_verify(pods.size() == 0);
+        fds_verify((bufSize % sizeof(MetaObjPod)) == 0);
+        for (fds_uint32_t i = 0; i < bufSize; i += sizeof(MetaObjPod)) {
+            pods.push_back(*(reinterpret_cast<const MetaObjPod*>(persistBuf + i)));
+        }
+    }
+    void unmarshalling(const std::string &persistBuf, fds_uint32_t bufSize) {
+        fds_verify(persistBuf.size() == bufSize);
+        unmarshalling(persistBuf.c_str(), bufSize);
+    }
+    fds_bool_t hasFlashMap() const {
+        return hasTier(flashTier);
+    }
+    fds_bool_t hasDiskMap() const {
+        return hasTier(diskTier);
+    }
+    fds::Error getFlashMap(MetaObjPod &pod) const {
+        return getTierMap(pod, flashTier);
+    }
+    fds::Error getDiskMap(MetaObjPod &pod) const {
+        return getTierMap(pod, diskTier);
+    }
+    void updateMap(const MetaObjPod &pod) {
+        /* Find if this tier exists and overwrite it.  Otherwise, add the new tier. */
+        for (fds_uint32_t i = 0; i < pods.size(); i++) {
+            if (pods[i].obj_tier == pod.obj_tier) {
+                pods[i] = pod;
+                return;
+            }
+        }
+        pods.push_back(pod);
+    }
+    friend std::ostream& operator<<(std::ostream& out, const MetaObjMap& objMap);
 };
 
-inline std::ostream& operator<<(std::ostream& out, const MetaObjMap& objMap) {
-  if (objMap.pods.empty() == true) {
-    out << "Object map empty";
-  } else {
-    for (fds_uint32_t i = 0; i < objMap.pods.size(); i++) {
-      out << "Object map: tier (" << ((objMap.pods[i].obj_tier == diskTier) ? "disk" : "flash")
-          << ") loc id (" << objMap.pods[i].obj_stor_loc_id
-          << ") offset (" << objMap.pods[i].obj_stor_offset
-          << "), ";
+inline std::ostream& operator<<(std::ostream& out, const MetaObjMap& objMap)
+{
+    if (objMap.pods.empty() == true) {
+        out << "Object map empty";
+    } else {
+        for (fds_uint32_t i = 0; i < objMap.pods.size(); i++) {
+            out << "Object map: tier ("
+                << ((objMap.pods[i].obj_tier == diskTier) ? "disk" : "flash")
+                << ") loc id (" << objMap.pods[i].obj_stor_loc_id
+                << ") offset (" << objMap.pods[i].obj_stor_offset << "), ";
+        }
     }
-  }
-  return out;
+    return out;
 }
 
 } // namespace diskio

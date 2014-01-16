@@ -19,7 +19,8 @@ OrchMgr::OrchMgr(int argc, char *argv[],
       FdsProcess(argc, argv, default_config_path, base_path),
       conf_port_num(0),
       ctrl_port_num(0),
-      test_mode(false) {
+      test_mode(false),
+      net_session_tbl(NULL) {
 
     om_log = new fds_log("om", "logs");
     om_log->setSeverityFilter(
@@ -50,6 +51,9 @@ OrchMgr::~OrchMgr() {
     delete om_log;
     if (policy_mgr)
         delete policy_mgr;
+    
+    if (net_session_tbl)
+        delete net_session_tbl; 
 }
 
 int OrchMgr::mod_init(SysParams const *const param) {
@@ -103,15 +107,7 @@ void OrchMgr::setup(int argc, char* argv[],
     default_domain_info->domain_ptr = default_domain;
     locDomMap[default_domain_info->loc_dom_id] = default_domain_info;
 
-    /*
-     * Set basic thread properties.
-     */
-    // TODO(thrift)
-    /*
-    props->setProperty("OrchMgr.ThreadPool.Size", "50");
-    props->setProperty("OrchMgr.ThreadPool.SizeMax", "100");
-    props->setProperty("OrchMgr.ThreadPool.SizeWarn", "75");
-    */
+    my_node_name = stor_prefix + std::string("OrchMgr");
 
     std::string ip_address;
     int config_portnum;
@@ -133,9 +129,31 @@ void OrchMgr::setup(int argc, char* argv[],
             << " control port " << control_portnum;
 
     /*
+     * Setup server session to listen to OMControl path messages from
+     * DM, SM, and SH
+     */
+    net_session_tbl = new netSessionTbl(my_node_name,
+                                        netSession::ipString2Addr(ip_address),
+                                        control_portnum,
+                                        10,
+                                        FDS_ProtocolInterface::FDSP_ORCH_MGR);
+
+    /* we new handler ptr here, but once we pass it to createServerSession
+     * it is made shared_ptr and will be delited on session destruction */
+    FDSP_OMControlPathReqHandler* omc_req_handler_ptr =
+            new FDSP_OMControlPathReqHandler(this);
+
+    net_session_tbl->createServerSession(netSession::ipString2Addr(ip_address),
+                                         control_portnum,
+                                         my_node_name,
+                                         FDS_ProtocolInterface::FDSP_OMCLIENT_MGR,
+                                         omc_req_handler_ptr);
+
+    /*
      * setup CLI client adaptor interface  this also used for receiving the node up
      * messages from DM, SH and SM 
      */
+
     // TODO(thrift)
     /*
     std::ostringstream tcpProxyStr;
@@ -160,7 +178,14 @@ void OrchMgr::setup(int argc, char* argv[],
 
 void OrchMgr::run()
 {
-    // run server
+    // run server to listen for OMControl messages from 
+    // SM, DM and SH
+    netSession* omc_server_session =
+            net_session_tbl->getSession(my_node_name,
+                                        FDS_ProtocolInterface::FDSP_OMCLIENT_MGR);
+    
+    if (omc_server_session)
+        net_session_tbl->listenServer(omc_server_session);
 }
 
 void OrchMgr::interrupt_cb(int signum)

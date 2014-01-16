@@ -282,8 +282,12 @@ private:
 
 class netServerSession: public netSession { 
 public :
-  netServerSession(string node_name, int port, FDSP_MgrIdType local_mgr_id, int num_threads) : 
-                   netSession(node_name, port, local_mgr_id, local_mgr_id) { 
+  netServerSession(string node_name, 
+                   int port,
+                   FDSP_MgrIdType local_mgr_id,
+                   FDSP_MgrIdType remote_mgr_id,
+                   int num_threads) : 
+                   netSession(node_name, port, local_mgr_id, remote_mgr_id) { 
        serverTransport.reset(new TServerSocket(port));
        transportFactory.reset( new TBufferedTransportFactory());
        protocolFactory.reset( new TBinaryProtocolFactory());
@@ -313,7 +317,7 @@ netDataPathServerSession(string dest_node_name,
                          FDSP_MgrIdType remote_mgr_id,
                          int num_threads,
                          void *svrObj)
-        : netServerSession(dest_node_name, port, local_mgr_id, num_threads),
+        : netServerSession(dest_node_name, port, local_mgr_id, remote_mgr_id, num_threads),
             handler(reinterpret_cast<FDSP_DataPathReqIf *>(svrObj)),
             handlerFactory(new FDSP_DataPathReqIfSingletonFactory(handler)),
             processorFactory(new FdsDataPathReqProcessorFactory(handlerFactory, setClient, this)) {
@@ -365,7 +369,7 @@ netMetaDataPathServerSession(string dest_node_name,
                              FDSP_MgrIdType remote_mgr_id,
                              int num_threads,
                              void *svrObj)
-        : netServerSession(dest_node_name, port, local_mgr_id, num_threads),
+        : netServerSession(dest_node_name, port, local_mgr_id, remote_mgr_id, num_threads),
             handler(reinterpret_cast<FDSP_MetaDataPathReqIf *>(svrObj)),
             handlerFactory(new FDSP_MetaDataPathReqIfSingletonFactory(handler)),
             processorFactory(new FdsMetaDataPathReqProcessorFactory(handlerFactory, setClient, this)) {
@@ -417,7 +421,7 @@ netControlPathServerSession(const std::string& dest_node_name,
                             FDSP_MgrIdType remote_mgr_id,
                             int num_threads,
                             void *svrObj)
-        : netServerSession(dest_node_name, port, local_mgr_id, num_threads),
+        : netServerSession(dest_node_name, port, local_mgr_id, remote_mgr_id, num_threads),
             handler(reinterpret_cast<FDSP_ControlPathReqIf *>(svrObj)),
             handlerFactory(new FDSP_ControlPathReqIfSingletonFactory(handler)),
             processorFactory(new FdsControlPathReqProcessorFactory(handlerFactory, setClient, this)) { 
@@ -471,7 +475,7 @@ netOMControlPathServerSession(const std::string& dest_node_name,
                               FDSP_MgrIdType remote_mgr_id,
                               int num_threads,
                               void *svrObj)
-        : netServerSession(dest_node_name, port, local_mgr_id, num_threads),
+        : netServerSession(dest_node_name, port, local_mgr_id, remote_mgr_id, num_threads),
             handler(reinterpret_cast<FDSP_OMControlPathReqIf *>(svrObj)),
             handlerFactory(new FDSP_OMControlPathReqIfSingletonFactory(handler)),
             processorFactory(new FdsOMControlPathReqProcessorFactory(handlerFactory, setClient, this)) { 
@@ -527,7 +531,7 @@ netConfigPathServerSession(const std::string& dest_node_name,
                            FDSP_MgrIdType remote_mgr_id,
                            int num_threads,
                            void *svrObj)
-        : netServerSession(dest_node_name, port, local_mgr_id, num_threads),
+        : netServerSession(dest_node_name, port, local_mgr_id, remote_mgr_id, num_threads),
             handler(reinterpret_cast<FDSP_ConfigPathReqIf *>(svrObj)),
             handlerFactory(new FDSP_ConfigPathReqIfSingletonFactory(handler)),
             processorFactory(new FDSP_ConfigPathReqProcessorFactory(handlerFactory)) { 

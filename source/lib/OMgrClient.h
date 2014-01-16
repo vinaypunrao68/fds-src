@@ -95,7 +95,7 @@ namespace fds {
     bucket_stats_cmd_handler_t bucket_stats_cmd_hdlr;
 
     std::string          rpc_srv_id;
-    shared_ptr<FDS_ProtocolInterface::FDSP_ControlPathReqIf> om_client_rpc_i;
+    std::shared_ptr<FDS_ProtocolInterface::FDSP_ControlPathReqIf> om_client_rpc_i;
     FDS_ProtocolInterface::FDSP_OMControlPathReqClient *om_client_prx;
     void initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
     int initRPCComm();

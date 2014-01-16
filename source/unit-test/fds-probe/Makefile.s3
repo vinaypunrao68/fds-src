@@ -10,15 +10,15 @@ user_cpp_flags    +=
 user_fds_so_libs  +=
 user_fds_ar_libs  +=  \
     fds-probe-adapters \
-    fds-probe \
     fds-s3-probe \
+    fds-probe \
     fds-am-engine \
     fds-StorHvisor \
     fds-lib \
     fds-umod \
     fds-util \
     fds-hash \
-    fds-fdsp-ice \
+    fds-fdsp \
     fds-thread \
 
 local_nginx_libs   :=  \
@@ -39,9 +39,8 @@ user_non_fds_libs +=  \
     boost_program_options \
     boost_filesystem \
     thrift \
-    Ice \
-    IceUtil \
-    IceStorm \
+    jansson \
+    config++ \
     $(local_nginx_libs)
 
 include $(topdir)/Makefile.incl

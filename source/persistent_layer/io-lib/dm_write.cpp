@@ -1,3 +1,6 @@
+/*
+ * Copyright 2013 by Formation Data Systems, Inc.
+ */
 #include <persistentdata.h>
 #include <stdio.h>
 #include <sys/types.h>
@@ -58,15 +61,15 @@ FilePersisDataIO::disk_do_write(DiskRequest *req)
     idx->req_set_peer(req);
     req->req_set_peer(idx);
 
-    len = pwrite64(fi_fd, (void *)buf->data.c_str(),
+    len = pwrite64(fi_fd, static_cast<const void *>(buf->data.c_str()),
                    buf->size, off_blk << shft);
     if (len < 0) {
         perror("Error: ");
     }
     DataIndexProxy &index = DataIndexProxy::disk_index_singleton();
-    index.disk_index_put(*idx, map);
+    index.disk_index_put(idx, map);
     delete idx;
     disk_write_done(req);
 }
 
-} // namespace diskio
+}  // namespace diskio

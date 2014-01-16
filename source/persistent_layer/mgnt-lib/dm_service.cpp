@@ -1,3 +1,6 @@
+/*
+ * Copyright 2014 by Formation Data Systems, Inc.
+ */
 #include <persistent_layer/dm_service.h>
 
 namespace fds {
@@ -162,4 +165,4 @@ DmQuery::dm_set_mod_params(const DmModQuery &query, const DmModParams &p)
     return true;
 }
 
-} // namespace fds
+}  // namespace fds

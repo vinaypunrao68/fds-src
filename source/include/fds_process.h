@@ -46,7 +46,7 @@ class FdsProcess : public boost::noncopyable {
      * @param argv
      * @param mod_vec
      */
-    virtual void setup(int argc, char *argv[], 
+    virtual void setup(int argc, char *argv[],
                        fds::Module **mod_vec);
 
     /**
