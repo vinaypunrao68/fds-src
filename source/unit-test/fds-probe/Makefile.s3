@@ -40,7 +40,7 @@ user_non_fds_libs +=  \
     boost_filesystem \
     thrift \
     jansson \
-    config++
+    config++ \
     $(local_nginx_libs)
 
 include $(topdir)/Makefile.incl
