@@ -17,9 +17,7 @@
 #include <fds_types.h>
 #include <fds_err.h>
 #include <fds_volume.h>
-#include <fdsp/FDSP_types.h>
-#include <fdsp/FDSP_ControlPathReq.h>
-#include <fdsp/FDSP_OMControlPathReq.h>
+#include <NetSession.h>
 #include <util/Log.h>
 #include <concurrency/Mutex.h>
 
@@ -206,7 +204,7 @@ private:
   fds_log* test_log;
 };
 
-class TestResp /*: public FDS_ProtocolInterface::FDSP_ConfigPathResp*/ {
+class TestResp: public FDS_ProtocolInterface::FDSP_OMControlPathRespIf {
   private:
     fds_log *test_log;
     
@@ -225,6 +223,97 @@ class TestResp /*: public FDS_ProtocolInterface::FDSP_ConfigPathResp*/ {
         assert(test_log == NULL);
         test_log = log;
     }
+
+    void CreateBucketResp(const FDSP_MsgHdrType& fdsp_msg,
+                          const FDSP_CreateVolType& crt_buck_rsp) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+    
+    void CreateBucketResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
+                          boost::shared_ptr<FDSP_CreateVolType>& crt_buck_rsp) {
+        // Your implementation goes here
+        FDS_PLOG(test_log) << "CreateBucketResp\n";
+    }
+    
+    void DeleteBucketResp(const FDSP_MsgHdrType& fdsp_msg,
+                          const FDSP_DeleteVolType& del_buck_rsp) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+    void DeleteBucketResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
+                          boost::shared_ptr<FDSP_DeleteVolType>& del_buck_rsp) {
+        // Your implementation goes here
+        FDS_PLOG(test_log) << "DeleteBucketResp\n";
+    }
+
+    void ModifyBucketResp(const FDSP_MsgHdrType& fdsp_msg,
+                          const FDSP_ModifyVolType& mod_buck_rsp) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+    void ModifyBucketResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
+                          boost::shared_ptr<FDSP_ModifyVolType>& mod_buck_rsp) {
+        // Your implementation goes here
+        FDS_PLOG(test_log) << "ModifyBucketResp\n";
+    }
+
+    void AttachBucketResp(const FDSP_MsgHdrType& fdsp_msg,
+                          const FDSP_AttachVolCmdType& atc_buck_req) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+    void AttachBucketResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
+                          boost::shared_ptr<FDSP_AttachVolCmdType>& atc_buck_req) {
+        // Your implementation goes here
+        FDS_PLOG(test_log) << "AttachBucketResp\n";
+    }
+
+    void RegisterNodeResp(const FDSP_MsgHdrType& fdsp_msg,
+                          const FDSP_RegisterNodeType& reg_node_rsp) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+    void RegisterNodeResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
+                          boost::shared_ptr<FDSP_RegisterNodeType>& reg_node_rsp) {
+        // Your implementation goes here
+        FDS_PLOG(test_log) << "RegisterNodeResp\n";
+    }
+
+    void NotifyQueueFullResp(const FDSP_MsgHdrType& fdsp_msg,
+                             const FDSP_NotifyQueueStateType& queue_state_rsp) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+    void NotifyQueueFullResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
+                             boost::shared_ptr<FDSP_NotifyQueueStateType>& queue_state_rsp) {
+        // Your implementation goes here
+        FDS_PLOG(test_log) << "NotifyQueueFullResp\n";
+    }
+
+    void NotifyPerfstatsResp(const FDSP_MsgHdrType& fdsp_msg,
+                             const FDSP_PerfstatsType& perf_stats_rsp) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+    void NotifyPerfstatsResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
+                             boost::shared_ptr<FDSP_PerfstatsType>& perf_stats_rsp) {
+        // Your implementation goes here
+        FDS_PLOG(test_log) << "NotifyPerfstatsResp\n";
+    }
+    
+    void TestBucketResp(const FDSP_MsgHdrType& fdsp_msg,
+                        const FDSP_TestBucket& test_buck_rsp) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+    void TestBucketResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
+                        boost::shared_ptr<FDSP_TestBucket>& test_buck_rsp) {
+        // Your implementation goes here
+        FDS_PLOG(test_log) << "TestBucketResp\n";
+    }
+    
+    void GetDomainStatsResp(const FDSP_MsgHdrType& fdsp_msg,
+                            const FDSP_GetDomainStatsType& get_stats_rsp) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+    void GetDomainStatsResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
+                            boost::shared_ptr<FDSP_GetDomainStatsType>& get_stats_rsp) {
+        // Your implementation goes here
+        FDS_PLOG(test_log) << "GetDomainStatsResp\n";
+    }
 };
 
 class OmUnitTest {
@@ -236,6 +325,9 @@ class OmUnitTest {
     fds_uint32_t om_port_num;
     fds_uint32_t cp_port_num;
     fds_uint32_t num_updates;
+
+    netSessionTbl* net_session_tbl;
+    netSession* omc_server_session;
     
     // std::list<Ice::ObjectAdapterPtr> adapterList;
     
@@ -340,6 +432,8 @@ class OmUnitTest {
          * The OM will need to be aware we're using this nameing
          * convention.
          */
+
+
     /*     Ice::ObjectAdapterPtr rpc_adapter =
                 ice_comm->createObjectAdapterWithEndpoints(
                     "OrchMgrClient" + std::to_string(port), contPathStr);
@@ -366,26 +460,54 @@ class OmUnitTest {
         */
         FDS_PLOG(test_log) << "Cleared control point endpoints list";
     }
+
+    /* create session table and start session 'on omclient node' and add table
+     * to the tbl_list */
+    boost::shared_ptr<FDSP_OMControlPathReqClient>
+    createOmControlPathComm(const std::string& omclient_node_name,
+                            FDS_ProtocolInterface::FDSP_MgrIdType omclient_node_type,
+                            int omclient_port,
+                            std::list<netSessionTbl*>& tbl_list) {
+        
+        netSession* client_session = NULL;
+        TestResp* resp_handler_ptr = new TestResp(test_log);        
+        netSessionTbl* session_tbl = new netSessionTbl(omclient_node_name,
+                                                       0x7f000001,
+                                                       omclient_port,
+                                                       1,
+                                                       omclient_node_type);
+        tbl_list.push_back(session_tbl);
+        client_session = session_tbl->startSession(0x7f000001,
+                                                   cp_port_num,
+                                                   FDS_ProtocolInterface::FDSP_ORCH_MGR,
+                                                   1,
+                                                   resp_handler_ptr);
+        return dynamic_cast<netOMControlPathClientSession*>(client_session)->getClient();
+    }
+
+    void clearOmControlPathComms(std::list<netSessionTbl*>& list) {
+        for (std::list<netSessionTbl*>::iterator it = list.begin();
+             it != list.end();
+             ++it) {
+            netSessionTbl* tbl = *it;
+            tbl->endAllSessions();
+            delete tbl;
+        }
+        list.clear();
+    }
  
-   
-    //FDS_ProtocolInterface::FDSP_ConfigPathReqPrx createOmComm(fds_uint32_t port) {
-    //    std::string ConfigPathStr;
-        /*
-         * We expect the test to communicate over localhost
-         */
-    //     ConfigPathStr = "OrchMgr:tcp -h localhost -p " +
-    //            std::to_string(om_port_num);
-    //    Ice::ObjectPrx obj = ice_comm->stringToProxy(ConfigPathStr);
-    //    return FDS_ProtocolInterface::FDSP_ConfigPathReqPrx::checkedCast(obj);
-    //}
-    
     /*
      * Unit test funtions
      */
     fds_int32_t node_reg() {
         FDS_PLOG(test_log) << "Starting test: node_reg()";
 
-        /* TODO(thrift) need OMControl path client */        
+        /* this test will send register node from simulated
+         * AM, SM, and DM nodes. Since we are simulating 
+         * 'num_updates' number of nodes, we should create
+         * separate netSessionTbl for each 'node'
+         */
+        std::list<netSessionTbl*> session_tbl_list;
 
         FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr(
             new FDS_ProtocolInterface::FDSP_MsgHdrType);
@@ -414,6 +536,15 @@ class OmUnitTest {
         reg_node_msg->data_port = 0;
         
         for (fds_uint32_t i = 0; i < num_updates; i++) {
+            boost::shared_ptr<FDSP_OMControlPathReqClient> ocp_client;
+
+            /*
+             * TODO: Make the name just an int since the OM turns this into
+             * a UUID to address the node. Fix this by adding a UUID int to
+             * the FDSP.
+             */
+            reg_node_msg->node_name = std::to_string(i);
+
             /*
              * Create and endpoint to reflect the "node" that
              * we're registering, so that "node" can recieve
@@ -426,33 +557,35 @@ class OmUnitTest {
             if ((i % 3) == 0) {
                 /* SM -> OM */
                 reg_node_msg->node_type = FDS_ProtocolInterface::FDSP_STOR_MGR;
-                // TODO(thrift) start session                
             } else if ((i % 2) == 0) {
                 /* DM -> OM */
                 reg_node_msg->node_type = FDS_ProtocolInterface::FDSP_DATA_MGR;
-                // TODO(thrift) start session
             } else {
                 /* SH -> OM */
                 reg_node_msg->node_type = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
-                // TODO(thrift) start session
             }
 
-            /*
-             * TODO: Make the name just an int since the OM turns this into
-             * a UUID to address the node. Fix this by adding a UUID int to
-             * the FDSP.
-             */
-            reg_node_msg->node_name = std::to_string(i);
-            
-            //fdspConfigPathAPI->RegisterNode(msg_hdr, reg_node_msg);
+            ocp_client = createOmControlPathComm(reg_node_msg->node_name,
+                                                 reg_node_msg->node_type,
+                                                 reg_node_msg->control_port,
+                                                 session_tbl_list);
+
+            ocp_client->RegisterNode(msg_hdr, reg_node_msg);
             
             FDS_PLOG(test_log) << "Completed node registration " << i << " at IP "
                                << fds::ipv4_addr_to_str(reg_node_msg->ip_lo_addr)
                                << " control port " << reg_node_msg->control_port;
         }
-        
+
+        // since we are using async calls, wait a bit before exiting, 
+        // TODO: signal completion
+        sleep(5);        
+
         //clearCpEndpoints();
         
+        // clear session table
+        clearOmControlPathComms(session_tbl_list);
+
         FDS_PLOG(test_log) << "Ending test: node_reg()";
         return 0;
     }
@@ -804,25 +937,41 @@ class OmUnitTest {
         test_log = new fds_log("om_test", "logs");
         
         unit_tests.push_back("node_reg");
-        unit_tests.push_back("vol_reg");
-        unit_tests.push_back("policy");
-        unit_tests.push_back("buckets_test");
+        // unit_tests.push_back("vol_reg");
+        // unit_tests.push_back("policy");
+        // unit_tests.push_back("buckets_test");
         
         num_updates = 10;
     }
 
     explicit OmUnitTest(fds_uint32_t om_port_arg,
                         fds_uint32_t cp_port_arg,
-                        fds_uint32_t num_up_arg
-                        /*Ice::CommunicatorPtr ice_comm_arg*/)
+                        fds_uint32_t num_up_arg)
             : OmUnitTest() {
         om_port_num = om_port_arg;
         cp_port_num = cp_port_arg;
         num_updates = num_up_arg;
+
+        /* create control path server  */
+
+        /* session table */
+        net_session_tbl = new netSessionTbl("test_OM", 0x7f000001, cp_port_num, 1, FDSP_ORCH_MGR);
+
+        /* create control path server which will receive  attach vol/etc notifications,
+         * which will results after we create, attach volumes, etc in om_unit test
+         * Before, it was just an OMClient server, here we pretent this is an OM client
+         * on SM */
+        // TODO: createServerSession
+        // omc_server_session = createServerSession("OMC_node",
+        // om_port_num, FDSP_STOR_MGR, FDSP_ORCH_MGR);
+
+        /* need to create thread for server to start listening */
+        // TODO(thrift)
     }
 
     ~OmUnitTest() {
         delete test_log;
+        delete net_session_tbl;
     }
     
     fds_log* GetLogPtr() {
@@ -875,70 +1024,62 @@ class OmUnitTest {
 }  // namespace fds
 
 int main(int argc, char* argv[]) {
-  /*
-   * Grab cmdline params
-   */
-  fds_uint32_t om_port_num = 0;
-  fds_uint32_t cp_port_num = 0;
-  fds_uint32_t num_updates = 10;
-  std::string testname;
-  for (int i = 1; i < argc; i++) {
-    if (strncmp(argv[i], "--testname=", 11) == 0) {
-      testname = argv[i] + 11;
-    } else if (strncmp(argv[i], "--port=", 7) == 0) {
-      om_port_num = strtoul(argv[i] + 7, NULL, 0);
-    } else if (strncmp(argv[i], "--cp_port=", 10) == 0) {
-      cp_port_num = strtoul(argv[i] + 10, NULL, 0);
-    } else if (strncmp(argv[i], "--num_updates=", 14) == 0) {
-        num_updates = atoi(argv[i] + 14);
-      } else {
-      std::cerr << "Invalid command line: Unknown argument "
-                << argv[i] << std::endl;
-      return -1;
+    /*
+     * Grab cmdline params
+     */
+    fds_uint32_t om_port_num = 0;
+    fds_uint32_t cp_port_num = 0;
+    fds_uint32_t num_updates = 10;
+    std::string testname;
+    for (int i = 1; i < argc; i++) {
+        if (strncmp(argv[i], "--testname=", 11) == 0) {
+            testname = argv[i] + 11;
+        } else if (strncmp(argv[i], "--port=", 7) == 0) {
+            om_port_num = strtoul(argv[i] + 7, NULL, 0);
+        } else if (strncmp(argv[i], "--cp_port=", 10) == 0) {
+            cp_port_num = strtoul(argv[i] + 10, NULL, 0);
+        } else if (strncmp(argv[i], "--num_updates=", 14) == 0) {
+            num_updates = atoi(argv[i] + 14);
+        } else {
+            std::cerr << "Invalid command line: Unknown argument "
+                      << argv[i] << std::endl;
+            return -1;
+        }
     }
-  }
-
-  /*
-  Ice::InitializationData initData;
-  initData.properties = Ice::createProperties();
-  initData.properties->load("om_client.conf");
-
-  Ice::CommunicatorPtr comm;
-  comm = Ice::initialize(argc, argv, initData);
-
-  Ice::PropertiesPtr om_props = comm->getProperties();
-  */
-  if (om_port_num == 0) {
+    
+    // TODO(config) we did not port om_client.conf yet to new config 
+    // boost::shared_ptr<fds::FdsConfig> omc_config(new fds::FdsConfig("om_client.conf"));
+    if (om_port_num == 0) {
+        /*
+         * Read from config where to contact OM
+         */
+        om_port_num = 8903; // omc_config->get<int>("fds.omc.om.config_port");
+        //om_props->getPropertyAsInt("OMgr.ConfigPort");
+    }
+    
     /*
-     * Read from config where to contact OM
+     * Create control path server to listen for messages from OM.
+     * TODO: We should fork this off into a separate function so
+     * that we can create multiple clients with different ports
+     * that they're listening on.
      */
-      om_port_num = 8903; //om_props->getPropertyAsInt("OMgr.ConfigPort");
-  }
-
-  /*
-   * Create control path server to listen for messages from OM.
-   * TODO: We should fork this off into a separate function so
-   * that we can create multiple clients with different ports
-   * that they're listening on.
-   */
-  if (cp_port_num == 0) {
-    /*
-     * Read from config which port to listen for control path.
-     * We overload the OMgrClient since this is the port the
-     * OM thinks it will be talking to.
-     */
-      cp_port_num = 7903; //om_props->getPropertyAsInt("OMgrClient.PortNumber");
-  }
-
-  fds::OmUnitTest unittest(om_port_num,
-                           cp_port_num,
-                           num_updates
-                           );
-  if (testname.empty()) {
-    unittest.Run();
-  } else {
-    unittest.Run(testname);
-  }
-
-  return 0;
+    if (cp_port_num == 0) {
+        /*
+         * Read from config which port to listen for control path.
+         * We overload the OMgrClient since this is the port the
+         * OM thinks it will be talking to.
+         */
+        cp_port_num = 8904; //omc_config->get<int>("fds.omc.control_port");
+    }
+    
+    fds::OmUnitTest unittest(om_port_num,
+                             cp_port_num,
+                             num_updates);
+    if (testname.empty()) {
+        unittest.Run();
+    } else {
+        unittest.Run(testname);
+    }
+    
+    return 0;
 }
