@@ -513,8 +513,8 @@ void ObjectStorMgr::setup_datapath_server(const std::string &ip)
     datapath_handler_.reset(new ObjectStorMgrI());
 
     int myIpInt = netSession::ipString2Addr(ip);
-    std::string node_name = conf_helper_.get<std::string>(
-        conf_helper_.get_abs<std::string>("fds.root")) + "_SM";
+    std::string node_name = 
+        conf_helper_.get_abs<std::string>("fds.root") + "_SM";
     // TODO: Ideally createServerSession should take a shared pointer
     // for datapath_handler.  Make sure that happens.  Otherwise you
     // end up with a pointer leak.
