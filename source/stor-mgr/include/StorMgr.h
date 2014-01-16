@@ -294,8 +294,9 @@ class ObjectStorMgr :
 
  public:
 
-    ObjectStorMgr(const std::string &config_path,
-            const std::string &base_path);
+    ObjectStorMgr(int argc, char *argv[],
+                  const std::string &default_config_path,
+                  const std::string &base_path);
     ~ObjectStorMgr();
 
     /* From FdsProcess */

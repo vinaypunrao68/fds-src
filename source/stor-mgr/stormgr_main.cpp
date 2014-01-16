@@ -7,7 +7,7 @@
 #include <fds_process.h>
 
 int main(int argc, char *argv[]) {
-    objStorMgr = new ObjectStorMgr("sm.conf", "fds.sm.");
+    objStorMgr = new ObjectStorMgr(argc, argv, "sm.conf", "fds.sm.");
 
     /* Instantiate a DiskManager Module instance */
     fds::Module *smVec[] = {

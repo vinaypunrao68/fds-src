@@ -12,10 +12,11 @@ namespace fds {
 
 OrchMgr *orchMgr;
 
-OrchMgr::OrchMgr(const std::string& config_path,
+OrchMgr::OrchMgr(int argc, char *argv[],
+                 const std::string& default_config_path,
                  const std::string& base_path)
     : Module("Orch Manager"),
-      FdsProcess(config_path, base_path),
+      FdsProcess(argc, argv, default_config_path, base_path),
       conf_port_num(0),
       ctrl_port_num(0),
       test_mode(false),
@@ -998,7 +999,7 @@ OrchMgr *gl_orch_mgr;
 }  // namespace fds 
 
 int main(int argc, char *argv[]) {
-    fds::orchMgr = new fds::OrchMgr("orch_mgr.conf", "fds.om.");
+    fds::orchMgr = new fds::OrchMgr(argc, argv, "orch_mgr.conf", "fds.om.");
 
     fds::gl_orch_mgr = fds::orchMgr;
 

@@ -201,15 +201,16 @@ ObjectStorMgrI::RedirReadObject(FDSP_MsgHdrTypePtr &msg_hdr, FDSP_RedirReadObjTy
  * are being hard coded in the initializer
  * list below.
  */
-ObjectStorMgr::ObjectStorMgr(const std::string &config_path,
-        const std::string &base_path) :
-                Module("StorMgr"),
-                FdsProcess(config_path, base_path),
-                totalRate(2000),
-                qosThrds(10),
-                shuttingDown(false),
-                numWBThreads(1),
-                maxDirtyObjs(10000)
+ObjectStorMgr::ObjectStorMgr(int argc, char *argv[], 
+                             const std::string &default_config_path,
+                             const std::string &base_path) 
+    : Module("StorMgr"),
+    FdsProcess(argc, argv, default_config_path, base_path),
+    totalRate(2000),
+    qosThrds(10),
+    shuttingDown(false),
+    numWBThreads(1),
+    maxDirtyObjs(10000)
 {
     /*
      * TODO: Fix the totalRate above to not

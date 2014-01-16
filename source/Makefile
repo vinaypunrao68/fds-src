@@ -15,10 +15,10 @@ user_build_dir :=                       \
     am-engine                           \
     fds-probe                           \
     persistent_layer                    \
+    stor-hvisor                         \
     orch_mgr                            \
     data_mgr                            \
     stor-mgr                            \
-    stor-hvisor                         \
     fds_client                          \
     am-app                              \
     unit-test				\

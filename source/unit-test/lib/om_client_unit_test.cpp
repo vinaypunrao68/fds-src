@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
 	// om_client->subscribeToOmEvents(0x0a010aca, 1, 1);
 	om_client->startAcceptingControlMessages(control_port);
 
-  	dInfo = new  FDSP_AnnounceDiskCapability();
+  	dInfo.reset(new  FDSP_AnnounceDiskCapability());
   	dInfo->disk_iops_max =  10000; /* avarage IOPS */
   	dInfo->disk_iops_min =  1000; /* avarage IOPS */
   	dInfo->disk_capacity = 100;  /* size in GB */
