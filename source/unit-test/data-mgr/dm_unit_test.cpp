@@ -704,13 +704,17 @@ class TestResp : public FDS_ProtocolInterface::FDSP_MetaDataPathRespIf {
                                  del_cat_obj) {
     }
 
-    void GetVolumeBlobListResp(const FDSP_MsgHdrType& fds_msg, 
-                               const FDSP_GetVolumeBlobListRespType& blob_list_rsp) {
+    void GetVolumeBlobListResp(const FDS_ProtocolInterface::FDSP_MsgHdrType& 
+                               fds_msg, 
+                               const FDS_ProtocolInterface::FDSP_GetVolumeBlobListRespType& 
+                               blob_list_rsp) {
         FDS_PLOG_SEV(test_log, fds::fds_log::normal) << "Received listblob response";
     }
 
-    void GetVolumeBlobListResp(FDSP_MsgHdrTypePtr& fds_msg, 
-                               FDSP_GetVolumeBlobListRespTypePtr& blob_list_rsp) {
+    void GetVolumeBlobListResp(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& 
+                               fds_msg, 
+                               FDS_ProtocolInterface::FDSP_GetVolumeBlobListRespTypePtr& 
+                               blob_list_rsp) {
         FDS_PLOG_SEV(test_log, fds::fds_log::normal) << "Received listblob response";
     }
 };
@@ -844,12 +848,12 @@ class TestClient {
     int r_port_num = 11235;
 
     boost::shared_ptr<apache::thrift::TProcessor>
-            r_processor(new FDSP_MetaDataPathRespProcessor(fdspMetaDataPathResp));
+            r_processor(new FDS_ProtocolInterface::FDSP_MetaDataPathRespProcessor(fdspMetaDataPathResp));
     boost::shared_ptr<apache::thrift::transport::TServerTransport>
             r_serverTransport(new apache::thrift::transport::TServerSocket(r_port_num));
-    shared_ptr<apache::thrift::transport::TTransportFactory>
+    boost::shared_ptr<apache::thrift::transport::TTransportFactory>
             r_transportFactory(new apache::thrift::transport::TBufferedTransportFactory());
-    shared_ptr<apache::thrift::protocol::TProtocolFactory>
+    boost::shared_ptr<apache::thrift::protocol::TProtocolFactory>
             r_protocolFactory(new apache::thrift::protocol::TBinaryProtocolFactory());
 
     apache::thrift::server::TSimpleServer
