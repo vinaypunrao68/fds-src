@@ -652,7 +652,7 @@ StorHvCtrl::StorHvCtrl(int argc,
   fds_uint32_t omConfigPort;
   std::string node_name = "localhost-sh";
   omConfigPort = 0;
-  boost::shared_ptr<FdsConfig> config (new FdsConfig(config_path));
+  boost::shared_ptr<FdsConfig> config (new FdsConfig(config_path,argc,argv));
    
   /*
    * Parse out cmdline options here.
@@ -724,6 +724,7 @@ StorHvCtrl::StorHvCtrl(int argc,
    * Pass 0 as the data path port since the SH is not
    * listening on that port.
    */
+ cout << " om config port : " << omConfigPort;
   om_client = new OMgrClient(FDSP_STOR_HVISOR,
                              omIpStr,
                              omConfigPort,
