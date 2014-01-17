@@ -1,7 +1,7 @@
 topdir            := ../..
 user_target       := test
 user_rtime_env    := user
-user_install      := $(topdir)/stor-mgr/sm.conf
+user_install      := sm_ut.conf
 user_install_loc  := test
 
 user_incl_dir     := $(topdir) $(topdir)/stor-mgr
@@ -28,7 +28,9 @@ user_non_fds_libs := \
     ssl \
     crypto \
     leveldb \
-    fuse
+    fuse \
+    config++ \
+    thrift
 
 user_cpp          := sm_unit_test.cpp 
 user_no_style     := $(user_cpp) $(user_cc)

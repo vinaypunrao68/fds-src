@@ -535,6 +535,7 @@ void ObjectStorMgr::interrupt_cb(int signum)
 {
     // todo: shutown code goes here.  Similar to ICE this interrupt_cb
     // invoked on a separte thread just for handling interrupts.
+    nst_.reset(); 
 }
 
 void ObjectStorMgr::mod_startup() {    
