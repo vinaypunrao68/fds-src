@@ -203,7 +203,7 @@ int main(int argc, char *argv[]) {
     std::string myNodeName = "Example SM";
     exampleSession = nst->createServerSession(myIpInt,
                                               8888,
-                                              myNodeName,
+                                              myIpStr,
                                               FDSP_STOR_HVISOR,
                                               edpri);
 

@@ -69,9 +69,9 @@ int main(int argc, char *argv[]) {
      * needs to change to support this.
      */
     exampleDataPathRespIf *edpri = new exampleDataPathRespIf();
-
     boost::shared_ptr<netSessionTbl> nstA =
-            boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_HVISOR));
+            boost::shared_ptr<netSessionTbl>(new netSessionTbl("127.0.0.1",
+                                             0, 4500, 10, FDSP_STOR_HVISOR));
 
     std::string remoteIp  = "127.0.0.1";
     fds_uint32_t numChannels = 1;
@@ -86,14 +86,15 @@ int main(int argc, char *argv[]) {
 
     boost::shared_ptr<FDSP_MsgHdrType> fdspMsg =
             boost::shared_ptr<FDSP_MsgHdrType>(new FDSP_MsgHdrType());
-    fdspMsg->src_node_name = remoteIp;
+    fdspMsg->src_node_name = "127.0.0.1";
     boost::shared_ptr<FDSP_PutObjType> putObjReq =
             boost::shared_ptr<FDSP_PutObjType>(new FDSP_PutObjType());
     client->PutObject(fdspMsg, putObjReq);
+    sleep(10);
+    exampleSessionA->endSession();
     boost::shared_ptr<netSessionTbl> nstB =
             boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_HVISOR));
 
-    sleep(10);
 
     return 0;
 }
