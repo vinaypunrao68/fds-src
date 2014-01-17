@@ -1,6 +1,8 @@
 topdir            := ../..
 user_target       := test
 user_rtime_env    := user
+user_install      := conf_test.conf
+user_install_loc  := test
 
 user_fds_so_libs  :=
 user_fds_ar_libs  := fds-hash fds-lib fds-util fds-fdsp fds-thread fds-odb fds-umod

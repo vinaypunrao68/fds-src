@@ -9,6 +9,7 @@
 #include <exception>
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
+#include <iostream>
 
 #include <libconfig.h++>
 
@@ -33,30 +34,46 @@ private:
  */
 class FdsConfig {
 public:
-    FdsConfig(const std::string &config_file)
+
+    FdsConfig() 
     {
-        config_.readFile(config_file.c_str());
+    }
+
+    FdsConfig(const std::string &default_config_file, 
+              int argc, char *argv[])
+    {
+        init(default_config_file, argc, argv);
     }
 
     /**
      * Parses command line arguments and overrides the config object
      * with them
+     * @param default_config_file - deafult confilg file path.  Can be over
+     * ridden on command line
      * @param argc
      * @param agrv
      */
-    void parse_cmdline_args(int argc, char* argv[])
+    void init(const std::string &default_config_file, 
+              int argc, char* argv[])
     {
         namespace po = boost::program_options;
         po::options_description desc("Allowed options");
-        /*desc.add_options()
-                ("help", "produce help message")
-                ("compression", po::value<int>(), "set compression level")
-                ;
 
-        po::variables_map vm;*/
         po::parsed_options parsed = 
                 po::command_line_parser(argc, argv).options(desc).allow_unregistered().run();
+        
+        /* Config path specified on the command line is given preference */
+        std::string config_file = default_config_file;
+        for (auto o : parsed.options) {
+            if (o.string_key.find("conf_file") == 0) {
+                config_file = o.value[0];
+                break;
+            }
+        }
+        config_.readFile(config_file.c_str());
+        std::cout << "Config read from file: " << config_file << std::endl;
 
+        /* Override config read from with command line params */
         for (auto o : parsed.options) {
             /* Ignore options that don't start with "fds." */
             if (o.string_key.find("fds.") != 0) {
@@ -88,6 +105,7 @@ public:
                 default:
                     throw FdsException("Unsupported type specified for key: " + o.string_key);
             }
+            std::cout << o.string_key << " Overridden to " << o.value[0] << std::endl;
         }
 
     }

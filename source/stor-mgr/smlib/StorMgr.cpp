@@ -373,7 +373,7 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
     DmDiskQuery     in;
     DmDiskQueryOut  out;
 
-    std::string stor_prefix = conf_helper_.get_abs<std::string>("fds.root");
+    std::string stor_prefix = conf_helper_.get<std::string>("prefix");
 
     // Create leveldb
     std::string filename= stor_prefix + "SNodeObjRepository";
@@ -514,7 +514,7 @@ void ObjectStorMgr::setup_datapath_server(const std::string &ip)
 
     int myIpInt = netSession::ipString2Addr(ip);
     std::string node_name = 
-        conf_helper_.get_abs<std::string>("fds.root") + "_SM";
+        conf_helper_.get<std::string>("prefix") + "_SM";
     // TODO: Ideally createServerSession should take a shared pointer
     // for datapath_handler.  Make sure that happens.  Otherwise you
     // end up with a pointer leak.
@@ -533,9 +533,11 @@ void ObjectStorMgr::run()
 
 void ObjectStorMgr::interrupt_cb(int signum)
 {
-    // todo: shutown code goes here.  Similar to ICE this interrupt_cb
-    // invoked on a separte thread just for handling interrupts.
     nst_.reset(); 
+
+    // todo: We shouldn't have to do this.  For some reason main thread
+    // isn't giving up control
+    exit(0);
 }
 
 void ObjectStorMgr::mod_startup() {    

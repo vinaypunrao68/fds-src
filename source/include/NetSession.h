@@ -316,8 +316,8 @@ protected:
 };
 
 class netDataPathServerSession : public netServerSession { 
-public:
-netDataPathServerSession(string dest_node_name,
+ public:
+  netDataPathServerSession(string dest_node_name,
                          int port,
                          FDSP_MgrIdType local_mgr_id, 
                          FDSP_MgrIdType remote_mgr_id,
@@ -328,6 +328,10 @@ netDataPathServerSession(string dest_node_name,
             handlerFactory(new FDSP_DataPathReqIfSingletonFactory(handler)),
             processorFactory(new FdsDataPathReqProcessorFactory(handlerFactory, setClient, this)) {
     }
+
+  ~netDataPathServerSession() {
+      server->stop();
+  }
  
     // Called from within thrift and the right context is passed -
     // nothing to do in the application modules of thrift
@@ -375,8 +379,8 @@ typedef boost::shared_ptr<FDSP_DataPathRespClient> dataPathRespClient;
 };
 
 class netMetaDataPathServerSession : public netServerSession { 
-public:
-netMetaDataPathServerSession(string dest_node_name,
+ public:
+  netMetaDataPathServerSession(string dest_node_name,
                              int port,
                              FDSP_MgrIdType local_mgr_id, 
                              FDSP_MgrIdType remote_mgr_id,
@@ -387,7 +391,12 @@ netMetaDataPathServerSession(string dest_node_name,
             handlerFactory(new FDSP_MetaDataPathReqIfSingletonFactory(handler)),
             processorFactory(new FdsMetaDataPathReqProcessorFactory(handlerFactory, setClient, this)) {
     }
-    
+
+   ~netMetaDataPathServerSession()
+   {
+       server->stop();
+   }
+
     // Called from within thrift and the right context is passed -
     // nothing to do in the application modules of thrift
     static void setClient(const boost::shared_ptr<TTransport> transport, void* context) {
@@ -444,6 +453,7 @@ netControlPathServerSession(const std::string& dest_node_name,
     }
 
     ~netControlPathServerSession() {
+        server->stop();
     }
  
     // Called from within thrift and the right context is passed - nothing to do in the application modules of thrift
@@ -501,6 +511,7 @@ netOMControlPathServerSession(const std::string& dest_node_name,
     }
 
     ~netOMControlPathServerSession() {
+        server->stop();
     }
  
     // Called from within thrift and the right context is passed - nothing to do in the application modules of thrift
@@ -560,6 +571,7 @@ netConfigPathServerSession(const std::string& dest_node_name,
     }
 
     ~netConfigPathServerSession() {
+        server->stop();
     }
  
     void listenServer() {         

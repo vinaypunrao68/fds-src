@@ -22,7 +22,6 @@ FdsProcess::FdsProcess(int argc, char *argv[],
 
     /* Initialize process wide globals */
     g_fdsprocess = this;
- 
     /* Set up the signal handler.  We should do this before creating any threads */
     setup_sig_handler();
 
@@ -48,7 +47,7 @@ FdsProcess::~FdsProcess()
     fds_assert(rc == 0);
 }
 
-void FdsProcess::setup(int argc, char *argv[], 
+void FdsProcess::setup(int argc, char *argv[],
                        fds::Module **mod_vec)
 {
     /* Execute module vector */
@@ -56,12 +55,12 @@ void FdsProcess::setup(int argc, char *argv[],
 }
 
 void FdsProcess::setup_config(int argc, char *argv[],
-                       const std::string &config_path,
+                       const std::string &default_config_file,
                        const std::string &base_path)
 {
-    conf_helper_.init(boost::shared_ptr<FdsConfig>(new FdsConfig(config_path)),
-                      base_path);
-    conf_helper_.get_fds_config()->parse_cmdline_args(argc, argv);
+    boost::shared_ptr<FdsConfig> config(new FdsConfig(default_config_file,
+                                                      argc, argv));
+    conf_helper_.init(config, base_path);
 }
 
 void*

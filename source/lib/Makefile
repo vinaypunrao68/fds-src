@@ -31,7 +31,6 @@ user_no_style    := \
     TransJournal.cpp     \
     PerfStats.cpp        \
     jsoncpp.cpp          \
-    fds_process.cpp      \
     NetSession.cpp       \
     $(wildcard *.h)
 

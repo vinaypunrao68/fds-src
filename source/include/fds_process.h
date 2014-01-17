@@ -21,18 +21,19 @@ namespace fds {
 /**
  * Generic process class.  It provides the following capabilities
  * 1. Signal handling.  Can be overridden.
- * 2. Module vector based initialization
+ * 2. Configuration from file and command line
+ * 3. Module vector based initialization
  */
 class FdsProcess : public boost::noncopyable {
  public:
     /**
      * @param argc
      * @param argv
-     * @param default_config_path - default configuration path
+     * @param default_config_file - default configuration file path
      * @param base_path - base path to stanza to describing the process config
      */
     FdsProcess(int argc, char *argv[],
-               const std::string &default_config_path,
+               const std::string &default_config_file,
                const std::string &base_path);
 
     virtual ~FdsProcess();

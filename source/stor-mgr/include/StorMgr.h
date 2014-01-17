@@ -380,7 +380,7 @@ class ObjectStorMgr :
     void unitTest();
 
     const std::string getStorPrefix() {
-        return conf_helper_.get_abs<std::string>("fds.sm.root");
+        return conf_helper_.get<std::string>("prefix");
     }
 
     FdsObjectCache *getObjCache() {
