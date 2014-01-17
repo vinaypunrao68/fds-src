@@ -10,7 +10,6 @@ user_fds_so_libs  :=
 user_fds_ar_libs  := fds-odb fds-thread fds-fdsp fds-hash
 user_non_fds_libs :=                                                          \
     boost_thread boost_date_time boost_program_options leveldb                \
-    Ice IceUtil
 
 user_cpp          := odb_unit_test.cpp
 user_no_style     := $(user_cpp) $(user_cc)

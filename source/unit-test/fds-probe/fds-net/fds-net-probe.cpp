@@ -23,7 +23,7 @@ class exampleDataPathRespIf : public FDS_ProtocolInterface::FDSP_DataPathRespIf 
     void GetObjectResp(
         const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
         const FDS_ProtocolInterface::FDSP_GetObjType& get_obj_req) {
-        std::cout << "Got a non-shared-ptr gett object message" << std::endl;
+        std::cout << "Got a non-shared-ptr get object message response" << std::endl;
     }
     void GetObjectResp(
         boost::shared_ptr<FDS_ProtocolInterface::FDSP_MsgHdrType>& fdsp_msg,
@@ -33,7 +33,7 @@ class exampleDataPathRespIf : public FDS_ProtocolInterface::FDSP_DataPathRespIf 
     void PutObjectResp(
         const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
         const FDS_ProtocolInterface::FDSP_PutObjType& put_obj_req) {
-        std::cout << "Got a non-shared-ptr put object message" << std::endl;
+        std::cout << "Got a non-shared-ptr put object message response" << std::endl;
     }
     void PutObjectResp(
         boost::shared_ptr<FDS_ProtocolInterface::FDSP_MsgHdrType>& fdsp_msg,
@@ -184,7 +184,11 @@ fdsNetProbeMod::mod_init(SysParams const *const param)
 {
     Module::mod_init(param);
 
-    amTbl = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_HVISOR));
+    amTbl = boost::shared_ptr<netSessionTbl>(new netSessionTbl(localIp,
+                                                               0,
+                                                               7777,
+                                                               10,
+                                                               FDSP_STOR_HVISOR));
 
     edpri = new exampleDataPathRespIf();
     return 0;
