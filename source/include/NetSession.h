@@ -85,7 +85,7 @@ private:
     FDS_ProtocolInterface::FDSP_MgrIdType remoteMgrId;
 };
 
-class netClientSession : virtual public netSession { 
+class netClientSession : public netSession { 
 public:
 netClientSession(string node_name, int port, FDSP_MgrIdType local_mgr,
                  FDSP_MgrIdType remote_mgr) 

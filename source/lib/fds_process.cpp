@@ -43,9 +43,9 @@ FdsProcess::~FdsProcess()
 
     /* Terminate signal handling thread */
     int rc = pthread_kill(sig_tid_, SIGTERM);
-    assert(rc == 0);
+    fds_assert(rc == 0);
     rc = pthread_join(sig_tid_, NULL);
-    assert(rc == 0);
+    fds_assert(rc == 0);
 }
 
 void FdsProcess::setup(int argc, char *argv[], 
@@ -85,10 +85,11 @@ FdsProcess::sig_handler(void* param)
              */
             continue;
         }
-        assert(rc == 0);
+        fds_assert(rc == 0);
 
         if (g_fdsprocess) {
             g_fdsprocess->interrupt_cb(signum);
+            return NULL;
         } else {
             return reinterpret_cast<void*>(NULL);
         }
