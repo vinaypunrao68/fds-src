@@ -26,6 +26,13 @@
 
 namespace fds {
 
+template<typename Func>
+void poll_until(Func pred) {
+    while (!pred()) {
+        sleep(1);
+    }
+}
+
 typedef boost::shared_ptr<FDS_ProtocolInterface::FDSP_DataPathReqClient> 
     FDSP_DataPathReqClientPtr;
 
@@ -218,6 +225,7 @@ class SmUnitTest {
          * TODO: May want to sanity check the other response fields.
          */
         fds_verify(msg_hdr->result == FDS_ProtocolInterface::FDSP_ERR_OK);
+        parentUt->updateAckedPuts();
         ProbeIORequest *ioReq = parentUt->getAndRmPending(msg_hdr->req_cookie);
         if (ioReq != NULL) {
             ioReq->req_complete();
@@ -245,6 +253,7 @@ class SmUnitTest {
   FDSP_DataPathReqClientPtr fdspDPAPI;
   boost::shared_ptr<TestResp> fdspDataPathResp;
   netSession *session_;
+  std::string node_name_;
   FdsConfigAccessor conf_helper_;
 
   /*
@@ -277,6 +286,7 @@ class SmUnitTest {
   std::unordered_map<ObjectID, std::string, ObjectHash> added_objs;
   fds_mutex *objMapLock;
   std::atomic<fds_uint64_t>  ackedGets;
+  std::atomic<fds_uint64_t>  ackedPuts;
 
   /*
    * Helper functions.
@@ -297,6 +307,10 @@ class SmUnitTest {
           << ": SUCCESS";
       objMapLock->unlock();
       return true;
+  }
+
+  void updateAckedPuts() {
+      ackedPuts++;
   }
 
   void updatePutObj(const ObjectID& oid,
@@ -331,7 +345,7 @@ class SmUnitTest {
       msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_STOR_MGR;    
       msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
       msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
-      msg_hdr->src_node_name = "sm_test_client";
+      msg_hdr->src_node_name = node_name_; 
       /*
        * TODO: Change this! We should reg a volume.
        */
@@ -369,7 +383,8 @@ class SmUnitTest {
           }
       }
 
-      FDS_PLOG(g_fdslog) << "Ending test: basic_update()";
+      while (ackedPuts.load() != num_updates) {sleep(1);}
+
       return 0;
   }
 
@@ -387,7 +402,7 @@ class SmUnitTest {
       msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_STOR_MGR;    
       msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
       msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
-      msg_hdr->src_node_name = "sm_test_client";
+      msg_hdr->src_node_name = node_name_; 
       /*
        * TODO: Change this! We should reg a volume.
        */
@@ -497,7 +512,7 @@ class SmUnitTest {
       msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_STOR_MGR;    
       msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
       msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
-      msg_hdr->src_node_name = "sm_test_client";
+      msg_hdr->src_node_name = node_name_; 
       /*
        * TODO: Change this! We should reg a volume.
        */
@@ -605,7 +620,7 @@ class SmUnitTest {
       msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_STOR_MGR;
       msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
       msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
-      msg_hdr->src_node_name = "sm_test_client";
+      msg_hdr->src_node_name = node_name_; 
 
       for (fds_uint32_t i = 0; i < num_updates; i++) {
           oid = ObjectID(i, i * i);
@@ -645,7 +660,7 @@ class SmUnitTest {
       msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_STOR_MGR;    
       msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
       msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
-      msg_hdr->src_node_name = "sm_test_client";
+      msg_hdr->src_node_name = node_name_; 
 
       /* storMgr creates 10 volumes, and volume ids = 2, 5, 8 are hybrid 
        * so lets use those for this test; lower volume ids have higher prio  */
@@ -713,7 +728,7 @@ class SmUnitTest {
       msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_STOR_MGR;
       msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
       msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
-      msg_hdr->src_node_name = "sm_test_client";
+      msg_hdr->src_node_name = node_name_; 
 
       int v = 2;
       msg_hdr->glob_volume_id = vols[v];
@@ -900,6 +915,7 @@ class SmUnitTest {
                                     static_cast<void*>(fdspDataPathResp.get()));
 
       fdspDPAPI = static_cast<netDataPathClientSession *>(session_)->getClient();  // NOLINT
+      node_name_ = "127.0.0.1";
   }
 
   fds_int32_t Run(const std::string& testname) {
