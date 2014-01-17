@@ -378,8 +378,11 @@ Error DataMgr::_process_delete(fds_volid_t vol_uuid,
   return err;
 }
 
-DataMgr::DataMgr()
+DataMgr::DataMgr(int argc, char *argv[],
+             const std::string &default_config_path,
+             const std::string &base_path)
     :
+        FdsProcess(argc, argv, default_config_path, base_path),
     Module("Data Manager"),
     port_num(0),
     cp_port_num(0),
@@ -442,16 +445,27 @@ void DataMgr::mod_startup() {
 void DataMgr::mod_shutdown() {
 }
 
-void DataMgr::runServer() {
+//void DataMgr::runServer() {
   /*
    * TODO: Replace this when we pull ICE out.
    */
   //  this->main(mod_params->p_argc, mod_params->p_argv, "dm_test.conf");
-  this->run(mod_params->p_argc, mod_params->p_argv);
+    //  this->run(mod_params->p_argc, mod_params->p_argv);
 
+//}
+
+void DataMgr::run()
+{
+  try {
+      mdp_server->serve();
+  } 
+  catch (...) {
+      std::cout << "thrift server threw an exception" << std::endl;
+  }
 }
 
-int DataMgr::run(int argc, char* argv[]) {
+
+void DataMgr::setup(int argc, char* argv[], fds::Module **mod_vec) {
 
   fds::DmDiskInfo     *info;
   fds::DmDiskQuery     in;
@@ -462,8 +476,16 @@ int DataMgr::run(int argc, char* argv[]) {
    * Process the cmdline args.
    */
 
+  /*
+   * Invoke FdsProcess setup so that it can setup the signal hander and
+   * execute the module vector for us
+   */
+
   runMode = NORMAL_MODE;
 
+  FdsProcess::setup(argc, argv, mod_vec);
+
+#if 0
   for (fds_int32_t i = 1; i < argc; i++) {
     if (strncmp(argv[i], "--port=", 7) == 0) {
       port_num = strtoul(argv[i] + 7, NULL, 0);
@@ -481,32 +503,38 @@ int DataMgr::run(int argc, char* argv[]) {
       useTestMode = true;
     }
   }
+#endif
 
-  GetLog()->setSeverityFilter((fds_log::severity_level) (mod_params->log_severity));
+  port_num = conf_helper_.get_abs<int>("fds.dm.port");
+  cp_port_num = conf_helper_.get_abs<int>("fds.dm.cp_port");
+  stor_prefix = conf_helper_.get_abs<std::string>("fds.dm.prefix");
+  use_om = !(conf_helper_.get_abs<bool>("fds.dm.no_om"));
+  omIpStr = conf_helper_.get_abs<std::string>("fds.dm.om_ip");
+  omConfigPort = conf_helper_.get_abs<int>("fds.dm.om_port");
+  useTestMode = conf_helper_.get_abs<bool>("fds.dm.test_mode");
+  int sev_level = conf_helper_.get_abs<int>("fds.dm.log_severity");
+  
+
+  GetLog()->setSeverityFilter(( fds_log::severity_level)sev_level);
   if (useTestMode == true) {
     runMode = TEST_MODE;
   }
 
   if (port_num == 0) {
-    /*
-     * Pull the port from the config file if it wasn't
-     * specified on the command line.
-     */
-    port_num = 7902;
+      /* set default port */
+      port_num = 7902;
   }
-
   FDS_PLOG(dm_log) << "Data Manager using port " << port_num;
+
   FDS_PLOG(dm_log) << "Data Manager using storage prefix "
                    << stor_prefix;
 
   if (cp_port_num == 0) {
     /*
-     * Pull the control port from the config file if it
-     * wasn't specified on the command line.
+      set default port
      */
     cp_port_num = 7903;
   }
-
   FDS_PLOG(dm_log) << "Data Manager using control port "
                    << cp_port_num;
 
@@ -528,11 +556,11 @@ int DataMgr::run(int argc, char* argv[]) {
   shared_ptr<apache::thrift::protocol::TProtocolFactory>
           protocolFactory(new apache::thrift::protocol::TBinaryProtocolFactory());
 
-  apache::thrift::server::TSimpleServer
-          server(processor, serverTransport, transportFactory, protocolFactory);
+  mdp_server = new apache::thrift::server::TSimpleServer(processor,
+                                                         serverTransport,
+                                                         transportFactory,
+                                                         protocolFactory);
 
-  // TODO: Replace this with an equivalent FDS module/process call
-  // callbackOnInterrupt();
   
   struct ifaddrs *ifAddrStruct = NULL;
   struct ifaddrs *ifa          = NULL;
@@ -652,18 +680,10 @@ int DataMgr::run(int argc, char* argv[]) {
     }
   }
 
-  try {
-      server.serve();
-  } 
-  catch (...) {
-      std::cout << "thrift server threw an exception" << std::endl;
-  }
-
   if (ifAddrStruct != NULL) {
     freeifaddrs(ifAddrStruct);
   }
 
-  return EXIT_SUCCESS;
 }
 
 void DataMgr::swapMgrId(const FDS_ProtocolInterface::
@@ -715,9 +735,10 @@ fds_bool_t DataMgr::volExists(fds_volid_t vol_uuid) const {
   return result;
 }
 
-void DataMgr::interruptCallback(int arg) {
-  FDS_PLOG(dataMgr->GetLog()) << "Shutting down communicator";
-  // TODO: call module/process shutdown
+void DataMgr::interrupt_cb(int signum) {
+  FDS_PLOG(dataMgr->GetLog()) << " Received signal " 
+                              << signum << ". Shutting down communicator";
+  exit(0);
 }
 
 DataMgr::ReqHandler::ReqHandler() {
@@ -1375,18 +1396,18 @@ void DataMgr::InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
 
 int main(int argc, char *argv[]) {
 
-  fds::dataMgr = new fds::DataMgr();
+    fds::dataMgr = new fds::DataMgr(argc, argv, "dm.conf", "fds.dm.");
 
-  fds::Module *dmVec[] = {
-    fds::dataMgr,
-    nullptr
-  };
-  fds::ModuleVector dmModVec(argc, argv, dmVec);
-  dmModVec.mod_execute();
+    fds::Module *dmVec[] = {
+        fds::dataMgr,
+        nullptr
+    };
 
-  fds::dataMgr->runServer();
+    fds::dataMgr->setup(argc, argv, dmVec);
+    fds::dataMgr->run();
 
-  delete fds::dataMgr;
+    delete fds::dataMgr;
 
-  return 0;
+    return 0;
+  
 }

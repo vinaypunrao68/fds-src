@@ -10,7 +10,7 @@ user_fds_ar_libs  :=                                                          \
 
 user_non_fds_libs :=                                                          \
     boost_log boost_system boost_thread boost_date_time boost_program_options \
-    boost_filesystem Ice IceUtil leveldb
+    boost_filesystem leveldb
 
 user_cpp          :=                   \
     dm_service_test.cpp                \
