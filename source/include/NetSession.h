@@ -375,15 +375,27 @@ class netDataPathServerSession : public netServerSession {
          printf("netSessionServer internal: set DataPathRespClient\n");
         protocol_.reset(new TBinaryProtocol(transport));
         boost::shared_ptr<TSocket> sock = boost::static_pointer_cast<TSocket>(transport);
-        string peer_addr = sock->getPeerAddress();
-        printf("netSessionServer internal: set DataPathRespClient %s\n", peer_addr.c_str());
+        // Convert any IPv4 mapped address to normal ipv4 address for the key
+        std::string peer_addr = sock->getPeerAddress();
+        std::string peer_address;
+        int port = sock->getPeerPort();
+        char *paddr = (char *)peer_addr.data();
+     
+        if (strncmp(peer_addr.c_str(), "::ffff:", (sizeof("::ffff:") -1)) == 0 ) {
+             paddr = paddr + sizeof("::ffff:") -1;
+             peer_address.append(paddr);
+        } else {
+             peer_address =  peer_addr; 
+        }
+        std::cout << "netSessionServer internal: set DataPathRespClient "  << peer_address;
         dataPathRespClient dprespcli( new FDSP_DataPathRespClient(protocol_));
-        respClient[peer_addr] = dprespcli;
+        respClient[peer_address.c_str()] = dprespcli;
     }
 
-    boost::shared_ptr<FDSP_DataPathRespClient> getRespClient(string ipaddress) {
-        string ipaddr_str = "::ffff:" + ipaddress;
-        dataPathRespClient dprespcli = respClient[ipaddr_str];
+    boost::shared_ptr<FDSP_DataPathRespClient> getRespClient(string ipaddress, int port) {
+        stringstream ss;
+        ss <<  ipaddress ; 
+        dataPathRespClient dprespcli = respClient[ss.str()];
         return dprespcli;
     }
     
