@@ -305,10 +305,15 @@ netSession *netSessionTbl::getSession(int ip_addr, FDSP_MgrIdType mgr_id)
 void netSession::endSession() 
 {
     // TODO -- calling delete on netSession should close everything I think 
-    //   transport->close();
+   //   transport->close();
+      
 }
 
-void netSessionTbl::endSession(netSession *session)  {
+void netSessionTbl::endSession(int  dst_ip_addr, FDSP_MgrIdType mgr_id) 
+{
+    netSession* session = NULL;
+    std::string node_name = ipAddr2String(dst_ip_addr);
+    session = getSession(node_name, mgr_id);
     session->endSession();
 }
 

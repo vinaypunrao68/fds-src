@@ -77,8 +77,8 @@ void StorHvDataPlacement::nodeEventHandler(int node_id,
        case FDS_ProtocolInterface::FDS_Node_Down:
        case FDS_ProtocolInterface::FDS_Node_Rmvd:
          FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTbl - Node Down event NodeId :" << node_id << " node IP addr" << node_ip_addr ;
-          storHvisor->rpcSessionTbl->endSession(node_ip_addr,  FDSP_STOR_MGR);
-          storHvisor->rpcSessionTbl->endSession(node_ip_addr,  FDSP_DATA_MGR);
+          storHvisor->rpcSessionTbl->endSession(node_ip_addr,  FDS_ProtocolInterface::FDSP_STOR_MGR);
+          storHvisor->rpcSessionTbl->endSession(node_ip_addr,  FDS_ProtocolInterface::FDSP_DATA_MGR);
 	break;
     }
 }

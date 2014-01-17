@@ -786,7 +786,7 @@ StorHvCtrl::StorHvCtrl(int argc,
       dataMgrPortNum = config->get<int>("fds.dm.PortNumber");
     }
     dataMgrIPAddress = config->get<string>("fds.dm.IPAddress");
-//    rpcSwitchTbl->Add_RPC_EndPoint(dataMgrIPAddress, dataMgrPortNum, my_node_name, FDSP_DATA_MGR);
+//SAN    rpcSwitchTbl->Add_RPC_EndPoint(dataMgrIPAddress, dataMgrPortNum, my_node_name, FDSP_DATA_MGR);
   }
   if ((mode == STOR_MGR_TEST) ||
       (mode == TEST_BOTH)) {
@@ -796,7 +796,7 @@ StorHvCtrl::StorHvCtrl(int argc,
       storMgrPortNum  = config->get<int>("fds.sm.PortNumber");
     }
     storMgrIPAddress  = config->get<string>("fds.sm.IPAddress");
-//    rpcSwitchTbl->Add_RPC_EndPoint(storMgrIPAddress, storMgrPortNum, my_node_name, FDSP_STOR_MGR);
+//SAN    rpcSwitchTbl->Add_RPC_EndPoint(storMgrIPAddress, storMgrPortNum, my_node_name, FDSP_STOR_MGR);
   }
 
 cout << "dataMgrPortNum: " << dataMgrPortNum  << "\n" << "storMgrPortNum: " << storMgrPortNum << "\n";  
