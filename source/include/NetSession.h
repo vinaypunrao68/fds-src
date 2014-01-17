@@ -29,6 +29,8 @@ using namespace ::apache::thrift::concurrency;
 using namespace FDS_ProtocolInterface;
 using namespace std;
 using namespace fds;
+#define NETSESS_SERVER 1
+#define NETSESS_CLIENT 0
 
 typedef void  (*sessionErrorCallback)(string ip_addr, 
                                       FDSP_MgrIdType mgrId, 
@@ -78,6 +80,9 @@ public:
     FDS_ProtocolInterface::FDSP_MgrIdType getLocalMgrId() const {
         return localMgrId;
     }
+    void setSessionRole(int role_){ 
+       role = role_;
+    }
 
 private:
     int role; // Server or Client side binding
@@ -96,6 +101,10 @@ netClientSession(string node_name, int port, FDSP_MgrIdType local_mgr,
     }
     
     ~netClientSession() {
+    }
+
+    void endSession() { 
+       transport->close();
     }
     
 protected:
@@ -130,6 +139,11 @@ netDataPathClientSession(const std::string& ip_addr_str,
     ~netDataPathClientSession() {
         transport->close();
     }
+
+    void endSession() { 
+       transport->close();
+    }
+
     boost::shared_ptr<FDSP_DataPathReqClient> getClient() {
         return fdspDPAPI;
     }
@@ -172,6 +186,9 @@ netMetaDataPathClientSession(const std::string& ip_addr_str,
     boost::shared_ptr<FDSP_MetaDataPathReqClient> getClient() {
         return fdspMDPAPI;
     }
+    void endSession() { 
+         transport->close();
+    }
     
 private:
     int num_threads;
@@ -212,6 +229,9 @@ netControlPathClientSession(const std::string& ip_addr_str,
     boost::shared_ptr<FDSP_ControlPathReqClient> getClient() {
         return fdspCPAPI;
     }
+    void endSession() { 
+         transport->close();
+    }
 
 private:
     boost::shared_ptr<FDSP_ControlPathReqClient> fdspCPAPI;
@@ -250,6 +270,9 @@ netOMControlPathClientSession(const std::string& ip_addr_str,
     boost::shared_ptr<FDSP_OMControlPathReqClient> getClient() {
         return fdspOMCPAPI;
     }
+    void endSession() { 
+         transport->close();
+    }
 
 private:
     boost::shared_ptr<FDSP_OMControlPathReqClient> fdspOMCPAPI;
@@ -279,6 +302,9 @@ netConfigPathClientSession(const std::string& ip_addr_str,
     ~netConfigPathClientSession() {
         transport->close();
     }
+    void endSession() { 
+         transport->close();
+    }
     
 private:
     boost::shared_ptr<FDSP_ConfigPathReqClient> fdspConfAPI;
@@ -305,6 +331,10 @@ public :
   }
 
   ~netServerSession() {
+  }
+
+  void endSession() { 
+    serverTransport->close();
   }
 
 protected:
@@ -427,6 +457,9 @@ class netMetaDataPathServerSession : public netServerSession {
         printf("Starting the server...\n");
         server->serve();
     }
+ 
+    void endSession() { 
+    }
     
 private:
     boost::shared_ptr<FDSP_MetaDataPathReqIf> handler;
@@ -485,6 +518,8 @@ netControlPathServerSession(const std::string& dest_node_name,
         printf("Starting the server...\n");
         server->serve();
     }
+    void endSession() { 
+    }
     
 private:
     boost::shared_ptr<FDSP_ControlPathReqIf> handler;
@@ -542,6 +577,8 @@ netOMControlPathServerSession(const std::string& dest_node_name,
         
         printf("Starting the server...\n");
         server->serve();
+    }
+    void endSession() { 
     }
 
 private:

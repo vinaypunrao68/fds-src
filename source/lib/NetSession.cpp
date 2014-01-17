@@ -98,6 +98,7 @@ netSession* netSessionTbl::setupClientSession(const std::string& dest_node_name,
             }
             break;
     } 
+    session->setSessionRole(NETSESS_CLIENT);
     return session;
 }
 
@@ -305,8 +306,17 @@ netSession *netSessionTbl::getSession(int ip_addr, FDSP_MgrIdType mgr_id)
 void netSession::endSession() 
 {
     // TODO -- calling delete on netSession should close everything I think 
-   //   transport->close();
-      
+    //   transport->close();
+    if ( role == NETSESS_SERVER) { 
+       netServerSession *servSession = 
+                           dynamic_cast<netServerSession *>(this);
+       servSession->endSession();
+    } else { 
+       netClientSession *clientSession = 
+                           dynamic_cast<netClientSession *>(this);
+       clientSession->endSession();
+
+    }
 }
 
 void netSessionTbl::endSession(int  dst_ip_addr, FDSP_MgrIdType mgr_id) 
@@ -344,6 +354,7 @@ netSession* netSessionTbl::createServerSession(int local_ipaddr,
     if ( session == NULL ) {
        return NULL;
     }
+    session->setSessionRole(NETSESS_SERVER);
     std::string node_name_key = getKey(local_node_name, remote_mgr_id);
     
     sessionTblMutex->lock();
