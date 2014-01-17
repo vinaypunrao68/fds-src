@@ -22,6 +22,7 @@
 #include <fds_err.h>
 #include <fds_types.h>
 #include <fds_volume.h>
+#include <fds_process.h>
 
 /* TODO: avoid cross module include, move API header file to include dir. */
 #include <lib/OMgrClient.h>
@@ -39,6 +40,7 @@
 
 #include <lib/QoSWFQDispatcher.h>
 #include <lib/qos_min_prio.h>
+#include <thrift/server/TSimpleServer.h>
 
 #undef FDS_TEST_DM_NOOP     /* if defined, puts complete as soon as they arrive to DM (not for gets right now) */
 
@@ -50,8 +52,10 @@ int scheduleQueryCatalog(void * _io);
 int scheduleDeleteCatObj(void * _io);
 int scheduleBlobList(void * _io);
 
-  class DataMgr :
-  virtual public Module {
+  class DataMgr : public FdsProcess,
+        public Module // todo: We shouldn't be deriving module here.  ObjectStorMgr is
+                      // an FDSProcess, it contains Modules
+        {
 public:
   void InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
 
@@ -202,6 +206,7 @@ public:
      * RPC handlers and comm endpoints.
      */
     ReqHandlerPtr  reqHandleSrv;
+    apache::thrift::server::TSimpleServer *mdp_server;
     std::unordered_map<std::string, RespHandlerPrx> respHandleCli;
     fds_rwlock respMapMtx;
     OMgrClient     *omClient;
@@ -280,26 +285,25 @@ public:
                              FDS_ProtocolInterface::FDSP_MgrIdType node_type);
 
  public:
-    DataMgr();
+    DataMgr(int argc, char *argv[],
+             const std::string &default_config_path,
+             const std::string &base_path);
     ~DataMgr();
 
+  /* From FdsProcess */
+    virtual void setup(int argc, char *argv[], fds::Module **mod_vec) override;
+    virtual void run() override;
+    virtual void interrupt_cb(int signum) override;
+
+    /* From Module */
     int  mod_init(SysParams const *const param);
     void mod_startup();
     void mod_shutdown();
 
-    virtual int run(int argc, char* argv[]);
-    void interruptCallback(int arg);
     void swapMgrId(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg);
     fds_log* GetLog();
 
-    /**
-     * Runs the data manager server.
-     * This function is not intended to return until
-     * the server is no longer running.
-     */
-    void runServer();
-
-    std::string getPrefix() const;
+     std::string getPrefix() const;
     fds_bool_t volExists(fds_volid_t vol_uuid) const;
     FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr dInfo;
 
