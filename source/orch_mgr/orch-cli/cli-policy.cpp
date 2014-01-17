@@ -74,7 +74,8 @@ CliComponent::cli_init_ice_connection(int om_port)
 {
     std::string           om_ip;
     std::ostringstream    serv;
-    boost::shared_ptr<fds::FdsConfig> config(new fds::FdsConfig("orch_mgr.conf"));
+    boost::shared_ptr<fds::FdsConfig> config(
+        new fds::FdsConfig("orch_mgr.conf", 0, NULL));
     //    Ice::CommunicatorPtr  comm = FdsCli::communicator();
 
     if (om_port == 0) {

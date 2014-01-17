@@ -485,7 +485,8 @@ int FdsCli::run(int argc, char* argv[])
 
 int main(int argc, char* argv[])
 {
-    boost::shared_ptr<fds::FdsConfig> om_config(new fds::FdsConfig("orch_mgr.conf"));
+    boost::shared_ptr<fds::FdsConfig> om_config(
+        new fds::FdsConfig("orch_mgr.conf", argc, argv));
     fds::fdsCli = new fds::FdsCli(om_config);
 
     fds::Module *cliVec[] = {
