@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 Formation Data Systems, Inc.
+ * Copyright 2014 Formation Data Systems, Inc.
  */
 
 #include <sys/socket.h>
@@ -15,6 +15,97 @@ netSession *exampleSession;  // Single global session for now
 boost::shared_ptr<FDSP_DataPathRespClient> respClient;
 
 namespace FDS_ProtocolInterface {
+class exampleConfigPathReqIf : public FDSP_ConfigPathReqIf {
+  public:
+    exampleConfigPathReqIf() {
+    }
+    ~exampleConfigPathReqIf() {
+    }
+    fds_int32_t CreateVol(const FDSP_MsgHdrType& fdsp_msg,
+                          const FDSP_CreateVolType& crt_vol_req) {
+    }
+    fds_int32_t CreateVol(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,  // NOLINT
+                          boost::shared_ptr<FDSP_CreateVolType>& crt_vol_req) {
+    }
+    fds_int32_t DeleteVol(const FDSP_MsgHdrType& fdsp_msg,
+                          const FDSP_DeleteVolType& del_vol_req) {
+    }
+    fds_int32_t DeleteVol(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,  // NOLINT
+                          boost::shared_ptr<FDSP_DeleteVolType>& del_vol_req) {
+    }
+    fds_int32_t ModifyVol(const FDSP_MsgHdrType& fdsp_msg,
+                          const FDSP_ModifyVolType& mod_vol_req) {
+    }
+    fds_int32_t ModifyVol(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,  // NOLINT
+                          boost::shared_ptr<FDSP_ModifyVolType>& mod_vol_req) {
+    }
+    fds_int32_t CreatePolicy(const FDSP_MsgHdrType& fdsp_msg,
+                             const FDSP_CreatePolicyType& crt_pol_req) {
+    }
+    fds_int32_t CreatePolicy(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,  // NOLINT
+                             boost::shared_ptr<FDSP_CreatePolicyType>& crt_pol_req) {
+    }
+    fds_int32_t DeletePolicy(const FDSP_MsgHdrType& fdsp_msg,
+                             const FDSP_DeletePolicyType& del_pol_req) {
+    }
+    fds_int32_t DeletePolicy(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,  // NOLINT
+                             boost::shared_ptr<FDSP_DeletePolicyType>& del_pol_req) {
+    }
+    fds_int32_t ModifyPolicy(const FDSP_MsgHdrType& fdsp_msg,
+                             const FDSP_ModifyPolicyType& mod_pol_req) {
+    }
+    fds_int32_t ModifyPolicy(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,  // NOLINT
+                             boost::shared_ptr<FDSP_ModifyPolicyType>& mod_pol_req) {
+    }
+    fds_int32_t AttachVol(const FDSP_MsgHdrType& fdsp_msg,
+                          const FDSP_AttachVolCmdType& atc_vol_req) {
+    }
+    fds_int32_t AttachVol(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,  // NOLINT
+                          boost::shared_ptr<FDSP_AttachVolCmdType>& atc_vol_req) {
+    }
+    fds_int32_t DetachVol(const FDSP_MsgHdrType& fdsp_msg,
+                          const FDSP_AttachVolCmdType& dtc_vol_req) {
+    }
+    fds_int32_t DetachVol(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,  // NOLINT
+                          boost::shared_ptr<FDSP_AttachVolCmdType>& dtc_vol_req) {
+    }
+    fds_int32_t AssociateRespCallback(const int64_t ident) {
+    }
+    fds_int32_t AssociateRespCallback(boost::shared_ptr<int64_t>& ident) {  // NOLINT
+    }
+    fds_int32_t CreateDomain(const FDSP_MsgHdrType& fdsp_msg,
+                             const FDSP_CreateDomainType& crt_dom_req) {
+    }
+    fds_int32_t CreateDomain(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,  // NOLINT
+                             boost::shared_ptr<FDSP_CreateDomainType>& crt_dom_req) {
+    }
+    fds_int32_t DeleteDomain(const FDSP_MsgHdrType& fdsp_msg,
+                             const FDSP_CreateDomainType& del_dom_req) {
+    }
+    fds_int32_t DeleteDomain(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,  // NOLINT
+                             boost::shared_ptr<FDSP_CreateDomainType>& del_dom_req) {
+    }
+    fds_int32_t SetThrottleLevel(const FDSP_MsgHdrType& fdsp_msg,
+                                 const FDSP_ThrottleMsgType& throttle_msg) {
+    }
+    fds_int32_t SetThrottleLevel(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,  // NOLINT
+                                 boost::shared_ptr<FDSP_ThrottleMsgType>& throttle_msg) {
+    }
+    fds_int32_t GetVolInfo(const FDSP_MsgHdrType& fdsp_msg,
+                           const FDSP_GetVolInfoReqType& vol_info_req) {
+    }
+    fds_int32_t GetVolInfo(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,  // NOLINT
+                           boost::shared_ptr<FDSP_GetVolInfoReqType>& vol_info_req) {
+    }
+    fds_int32_t GetDomainStats(const FDSP_MsgHdrType& fdsp_msg,
+                               const FDSP_GetDomainStatsType& get_stats_msg) {
+    }
+    fds_int32_t GetDomainStats(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,  // NOLINT
+                               boost::shared_ptr<FDSP_GetDomainStatsType>&
+                               get_stats_msg) {
+    }
+};
+
 class exampleDataPathReqIf : public FDSP_DataPathReqIf {
   public:
     exampleDataPathReqIf() {
@@ -34,8 +125,10 @@ class exampleDataPathReqIf : public FDSP_DataPathReqIf {
     void PutObject(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,  // NOLINT
                    boost::shared_ptr<FDSP_PutObjType>& put_obj_req) {
         std::cout << "Got a put object message" << std::endl;
+        std::string ipStr = netSession::ipAddr2String(fdsp_msg->src_ip_lo_addr);
         respClient =
-                dynamic_cast<netDataPathServerSession *>(exampleSession)->getClient();  // NOLINT
+                dynamic_cast<netDataPathServerSession *>  // NOLINT
+                (exampleSession)->getRespClient(ipStr);
         FDSP_MsgHdrType resp_msg;
         FDSP_PutObjType resp_put;
         respClient->PutObjectResp(resp_msg, resp_put);
@@ -102,6 +195,7 @@ int main(int argc, char *argv[]) {
     exampleDataPathReqIf *edpri = new exampleDataPathReqIf();
 
     boost::shared_ptr<netSessionTbl> nst =
+            // boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_ORCH_MGR));
             boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_MGR));
 
     std::string sessionName = "Example server";
