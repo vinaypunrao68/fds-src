@@ -9,6 +9,7 @@
 #include <exception>
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/algorithm/string.hpp>
 #include <iostream>
 
 #include <libconfig.h++>
@@ -100,7 +101,7 @@ public:
                     break;
 
                 case libconfig::Setting::TypeBoolean:
-                    s = boost::lexical_cast<bool>(o.value[0]);
+                    s = boost::iequals(o.value[0], "true");
                     break;
                 default:
                     throw FdsException("Unsupported type specified for key: " + o.string_key);
