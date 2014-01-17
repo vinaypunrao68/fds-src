@@ -1,7 +1,7 @@
 topdir            := ..
 user_target       := exe
 user_rtime_env    := user
-user_install      := dm_test.conf om_client.conf
+user_install      := dm.conf dm_test.conf om_client.conf
 user_install_loc  := exe
 user_build_dir    :=
 
