@@ -343,11 +343,14 @@ netDataPathServerSession(string dest_node_name,
         boost::shared_ptr<TSocket> sock = boost::static_pointer_cast<TSocket>(transport);
         string peer_addr = sock->getPeerAddress();
         printf("netSessionServer internal: set DataPathRespClient %s\n", peer_addr.c_str());
-        respClient[peer_addr] = (dataPathRespClient)new FDSP_DataPathRespClient(protocol_);
+        dataPathRespClient dprespcli( new FDSP_DataPathRespClient(protocol_));
+        respClient[peer_addr] = dprespcli;
     }
 
     boost::shared_ptr<FDSP_DataPathRespClient> getRespClient(string ipaddress) {
-        return respClient[ipaddress];
+        string ipaddr_str = "::ffff:" + ipaddress;
+        dataPathRespClient dprespcli = respClient[ipaddr_str];
+        return dprespcli;
     }
     
     void listenServer() {         

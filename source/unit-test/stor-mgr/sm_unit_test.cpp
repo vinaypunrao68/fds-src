@@ -2,9 +2,7 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 #include <cstdlib>
-#include <Ice/Ice.h>
-#include <IceUtil/IceUtil.h>
-#include <fdsp/FDSP.h>
+#include <fdsp/FDSP_types.h>
 #include <hash/MurmurHash3.h>
 
 #include <iostream>  // NOLINT(*)
@@ -13,17 +11,25 @@
 #include <string>
 #include <list>
 #include <atomic>
+#include <boost/shared_ptr.hpp>
 
 #include <util/Log.h>
 #include <fds_assert.h>
-#include <fds_types.h>
+#include <fdsp/FDSP_types.h>
+#include <fdsp/FDSP_DataPathReq.h>
+#include <fdsp/FDSP_DataPathResp.h>
 #include <concurrency/Mutex.h>
 #include <fds-probe/fds_probe.h>
 
+
 namespace fds {
+
+typedef boost::shared_ptr<FDS_ProtocolInterface::FDSP_DataPathReqClient> 
+    FDSP_DataPathReqClientPtr;
 
 class SmUnitTest {
  private:
+#ifdef SM_PROBE_TEST
   /*
    * FDS Probe workload gen class.
    */
@@ -38,7 +44,7 @@ class SmUnitTest {
                        probe_mod_param_t &param,
                        Module            *owner,
                        SmUnitTest        *parentUt_arg) :
-        ProbeMod(name.c_str(), param, owner),
+        ProbeMod(name.c_str(), &param, owner),
         parentUt(parentUt_arg) {
       offMapMtx = new fds_mutex("offset map mutex");
     }
@@ -51,8 +57,8 @@ class SmUnitTest {
     void pr_put(ProbeRequest &req) {
       ProbeIORequest &ioReq = dynamic_cast<ProbeIORequest&>(req);
 
-      FDS_ProtocolInterface::FDSP_MsgHdrTypePtr putHdr =
-          new FDS_ProtocolInterface::FDSP_MsgHdrType;
+      FDS_ProtocolInterface::FDSP_MsgHdrTypePtr putHdr(
+          new FDS_ProtocolInterface::FDSP_MsgHdrType);
       putHdr->msg_code       = FDS_ProtocolInterface::FDSP_MSG_PUT_OBJ_REQ;
       putHdr->src_id         = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
       putHdr->dst_id         = FDS_ProtocolInterface::FDSP_STOR_MGR;
@@ -62,8 +68,8 @@ class SmUnitTest {
       putHdr->glob_volume_id = 5;
       putHdr->num_objects    = 1;
 
-      FDS_ProtocolInterface::FDSP_PutObjTypePtr putReq =
-          new FDS_ProtocolInterface::FDSP_PutObjType;
+      FDS_ProtocolInterface::FDSP_PutObjTypePtr putReq(
+          new FDS_ProtocolInterface::FDSP_PutObjType);
       putReq->volume_offset         = ioReq.pr_voff;
       putReq->data_obj_len          = ioReq.pr_wr_size;
       putReq->data_obj              = std::string(ioReq.pr_wr_buf, ioReq.pr_wr_size);
@@ -76,7 +82,7 @@ class SmUnitTest {
 
       putHdr->req_cookie = parentUt->addPending(ioReq);
       
-      parentUt->fdspDPAPI->begin_PutObject(putHdr, putReq);
+      parentUt->fdspDPAPI->PutObject(putHdr, putReq);
       FDS_PLOG(parentUt->test_log) << "Sent put obj message to SM"
                                    << " for volume offset " << putReq->volume_offset
                                    << " with object ID " << ioReq.pr_oid << " and data size "
@@ -93,8 +99,8 @@ class SmUnitTest {
     void pr_get(ProbeRequest &req) {
       ProbeIORequest &ioReq = dynamic_cast<ProbeIORequest&>(req);
       
-      FDS_ProtocolInterface::FDSP_MsgHdrTypePtr getHdr =
-          new FDS_ProtocolInterface::FDSP_MsgHdrType;
+      FDS_ProtocolInterface::FDSP_MsgHdrTypePtr getHdr(
+          new FDS_ProtocolInterface::FDSP_MsgHdrType);
       getHdr->msg_code       = FDS_ProtocolInterface::FDSP_MSG_GET_OBJ_REQ;
       getHdr->src_id         = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
       getHdr->dst_id         = FDS_ProtocolInterface::FDSP_STOR_MGR;
@@ -104,8 +110,8 @@ class SmUnitTest {
       getHdr->glob_volume_id = 5;
       getHdr->num_objects    = 1;
 
-      FDS_ProtocolInterface::FDSP_GetObjTypePtr getReq =
-          new FDS_ProtocolInterface::FDSP_GetObjType;
+      FDS_ProtocolInterface::FDSP_GetObjTypePtr getReq(
+          new FDS_ProtocolInterface::FDSP_GetObjType);
       if (offsetMap.count(ioReq.pr_voff) == 0) {
         std::cout << "Recieved read for unknown offset " << ioReq.pr_voff
                   << " so just ending the read here!"<< std::endl;
@@ -124,7 +130,7 @@ class SmUnitTest {
 
       getHdr->req_cookie = parentUt->addPending(ioReq);
 
-      parentUt->fdspDPAPI->begin_GetObject(getHdr, getReq);
+      parentUt->fdspDPAPI->GetObject(getHdr, getReq);
       FDS_PLOG(parentUt->test_log) << "Sent get obj message to SM"
                                    << " for object ID " << ioReq.pr_oid << " and data size "
                                    << getReq->data_obj_len;
@@ -141,11 +147,12 @@ class SmUnitTest {
     void mod_shutdown() {
     }
   };
+#endif
 
   /*
    * Ice response communuication class.
    */
-  class TestResp : public FDS_ProtocolInterface::FDSP_DataPathResp {
+  class TestResp : public FDS_ProtocolInterface::FDSP_DataPathRespIf {
    private:
     SmUnitTest *parentUt;
 
@@ -156,9 +163,35 @@ class SmUnitTest {
     ~TestResp() {
     }
 
-    void GetObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-                       const FDS_ProtocolInterface::FDSP_GetObjTypePtr& get_req,
-                       const Ice::Current&) {
+    void GetObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg, 
+                       const FDS_ProtocolInterface::FDSP_GetObjType& get_obj_req) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
+    void PutObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg, 
+                       const FDS_ProtocolInterface::FDSP_PutObjType& put_obj_req) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
+    void DeleteObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg, 
+                          const FDS_ProtocolInterface::FDSP_DeleteObjType& del_obj_req) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
+
+    void OffsetWriteObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg, 
+                               const FDS_ProtocolInterface::FDSP_OffsetWriteObjType& offset_write_obj_req) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
+
+    void RedirReadObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg, 
+                             const FDS_ProtocolInterface::FDSP_RedirReadObjType& redir_write_obj_req) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
+    void GetObjectResp(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                       FDS_ProtocolInterface::FDSP_GetObjTypePtr& get_req) {
       /*
        * TODO: May want to sanity check the other response fields.
        */
@@ -175,9 +208,8 @@ class SmUnitTest {
       }
     }
 
-    void PutObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-                       const FDS_ProtocolInterface::FDSP_PutObjTypePtr& put_req,
-                       const Ice::Current&) {
+    void PutObjectResp(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                       FDS_ProtocolInterface::FDSP_PutObjTypePtr& put_req) {
       /*
        * TODO: May want to sanity check the other response fields.
        */
@@ -187,59 +219,25 @@ class SmUnitTest {
         ioReq->req_complete();
       }
     }
-    void DeleteObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-                       const FDS_ProtocolInterface::FDSP_DeleteObjTypePtr& del_req,
-                       const Ice::Current&) {
+    void DeleteObjectResp(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                       FDS_ProtocolInterface::FDSP_DeleteObjTypePtr& del_req) {
     }
 
-    void UpdateCatalogObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
-                                 fdsp_msg,
-                                 const
-                                 FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr&
-                                 update_req,
-                                 const Ice::Current &) {
-    }
-
-    void QueryCatalogObjectResp(const
-                                FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
-                                fdsp_msg,
-                                const
-                                FDS_ProtocolInterface::FDSP_QueryCatalogTypePtr&
-                                cat_obj_req,
-                                const Ice::Current &) {
-    }
-
-    void DeleteCatalogObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-                       const FDS_ProtocolInterface::FDSP_DeleteCatalogTypePtr& del_req,
-                       const Ice::Current&) {
-    }
-
-    void OffsetWriteObjectResp(const
-                               FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
+    void OffsetWriteObjectResp(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
                              fdsp_msg,
-                               const
-                               FDS_ProtocolInterface::FDSP_OffsetWriteObjTypePtr&
-                               offset_write_obj_req,
-                               const Ice::Current &) {
+                             FDS_ProtocolInterface::FDSP_OffsetWriteObjTypePtr&
+                             offset_write_obj_req) {
     }
-    void RedirReadObjectResp(const
-                             FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
+    void RedirReadObjectResp(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
                              fdsp_msg,
-                             const
                              FDS_ProtocolInterface::FDSP_RedirReadObjTypePtr&
-                             redir_write_obj_req,
-                             const Ice::Current &) {
-    }
-    void GetVolumeBlobListResp(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fds_msg, 
-			       const FDS_ProtocolInterface::FDSP_GetVolumeBlobListRespTypePtr& blob_list_rsp, 
-			       const Ice::Current &){
+                             redir_write_obj_req) {
     }
   };
 
   std::list<std::string>  unit_tests;
-  FDS_ProtocolInterface::FDSP_DataPathReqPrx& fdspDPAPI;
+  FDSP_DataPathReqClientPtr fdspDPAPI;
   TestResp* fdspDataPathResp;
-  Ice::ObjectAdapterPtr adapter;
 
   fds_log *test_log;
 
@@ -317,10 +315,10 @@ class SmUnitTest {
     /*
      * Send lots of put requests.
      */
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr =
-        new FDS_ProtocolInterface::FDSP_MsgHdrType;
-    FDS_ProtocolInterface::FDSP_PutObjTypePtr put_req =
-        new FDS_ProtocolInterface::FDSP_PutObjType;
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr(
+        new FDS_ProtocolInterface::FDSP_MsgHdrType);
+    FDS_ProtocolInterface::FDSP_PutObjTypePtr put_req(
+        new FDS_ProtocolInterface::FDSP_PutObjType);
     
     msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_PUT_OBJ_REQ;    
     msg_hdr->src_id   = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
@@ -373,10 +371,10 @@ class SmUnitTest {
 
     FDS_PLOG(test_log) << "Starting test: basic_uq()";
     
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr =
-        new FDS_ProtocolInterface::FDSP_MsgHdrType;
-    FDS_ProtocolInterface::FDSP_PutObjTypePtr put_req =
-        new FDS_ProtocolInterface::FDSP_PutObjType;
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr(
+        new FDS_ProtocolInterface::FDSP_MsgHdrType);
+    FDS_ProtocolInterface::FDSP_PutObjTypePtr put_req(
+        new FDS_ProtocolInterface::FDSP_PutObjType);
     
     msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_PUT_OBJ_REQ;    
     msg_hdr->src_id   = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
@@ -427,8 +425,8 @@ class SmUnitTest {
     }
 
     ackedGets = 0;
-    FDS_ProtocolInterface::FDSP_GetObjTypePtr get_req =
-        new FDS_ProtocolInterface::FDSP_GetObjType;
+    FDS_ProtocolInterface::FDSP_GetObjTypePtr get_req(
+        new FDS_ProtocolInterface::FDSP_GetObjType);
     
     msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_GET_OBJ_REQ;
     msg_hdr->src_id   = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
@@ -483,10 +481,10 @@ class SmUnitTest {
 
     FDS_PLOG(test_log) << "Starting test: basic_dedupe()";
     
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr =
-        new FDS_ProtocolInterface::FDSP_MsgHdrType;
-    FDS_ProtocolInterface::FDSP_PutObjTypePtr put_req =
-        new FDS_ProtocolInterface::FDSP_PutObjType;
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr(
+        new FDS_ProtocolInterface::FDSP_MsgHdrType);
+    FDS_ProtocolInterface::FDSP_PutObjTypePtr put_req(
+        new FDS_ProtocolInterface::FDSP_PutObjType);
     
     msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_PUT_OBJ_REQ;    
     msg_hdr->src_id   = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
@@ -534,8 +532,8 @@ class SmUnitTest {
     }
 
     ackedGets = 0;
-    FDS_ProtocolInterface::FDSP_GetObjTypePtr get_req =
-        new FDS_ProtocolInterface::FDSP_GetObjType;
+    FDS_ProtocolInterface::FDSP_GetObjTypePtr get_req(
+        new FDS_ProtocolInterface::FDSP_GetObjType);
     
     msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_GET_OBJ_REQ;
     msg_hdr->src_id   = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
@@ -588,13 +586,13 @@ class SmUnitTest {
 
     FDS_PLOG(test_log) << "Starting test: basic_query()";
     
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr =
-        new FDS_ProtocolInterface::FDSP_MsgHdrType;
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr(
+        new FDS_ProtocolInterface::FDSP_MsgHdrType);
 
     ObjectID oid;
 
-    FDS_ProtocolInterface::FDSP_GetObjTypePtr get_req =
-        new FDS_ProtocolInterface::FDSP_GetObjType;
+    FDS_ProtocolInterface::FDSP_GetObjTypePtr get_req(
+        new FDS_ProtocolInterface::FDSP_GetObjType);
     
     msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_GET_OBJ_REQ;
     msg_hdr->src_id   = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
@@ -610,7 +608,7 @@ class SmUnitTest {
       get_req->data_obj_len          = 0;
     
       try {
-        fdspDPAPI->begin_GetObject(msg_hdr, get_req);
+        fdspDPAPI->GetObject(msg_hdr, get_req);
         FDS_PLOG(test_log) << "Sent get obj message to SM"
                            << " with object ID " << oid;
       } catch(...) {
@@ -631,10 +629,10 @@ class SmUnitTest {
     /*
      * Send lots of put requests.
      */
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr =
-        new FDS_ProtocolInterface::FDSP_MsgHdrType;
-    FDS_ProtocolInterface::FDSP_PutObjTypePtr put_req =
-        new FDS_ProtocolInterface::FDSP_PutObjType;
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr(
+        new FDS_ProtocolInterface::FDSP_MsgHdrType);
+    FDS_ProtocolInterface::FDSP_PutObjTypePtr put_req(
+        new FDS_ProtocolInterface::FDSP_PutObjType);
     
     msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_PUT_OBJ_REQ;    
     msg_hdr->src_id   = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
@@ -701,8 +699,8 @@ class SmUnitTest {
      * gets to use the flash and kick out other vols objects -- should first
      * kick out objects of vol 8 (lowest prio) and then objects of vol 5 */
     ackedGets = 0;
-    FDS_ProtocolInterface::FDSP_GetObjTypePtr get_req =
-        new FDS_ProtocolInterface::FDSP_GetObjType;
+    FDS_ProtocolInterface::FDSP_GetObjTypePtr get_req(
+        new FDS_ProtocolInterface::FDSP_GetObjType);
     
     msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_GET_OBJ_REQ;
     msg_hdr->src_id   = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
@@ -724,7 +722,7 @@ class SmUnitTest {
         get_req->data_obj_len          = 0;
     
         try {
-          fdspDPAPI->begin_GetObject(msg_hdr, get_req);
+          fdspDPAPI->GetObject(msg_hdr, get_req);
           FDS_PLOG(test_log) << "Sent get obj message to SM"
                              << " with object ID " << oid;
         } catch(...) {
@@ -777,7 +775,7 @@ class SmUnitTest {
         get_req->data_obj_len          = 0;
     
         try {
-          fdspDPAPI->begin_GetObject(msg_hdr, get_req);
+          fdspDPAPI->GetObject(msg_hdr, get_req);
           FDS_PLOG(test_log) << "Sent get obj message to SM"
                              << " with object ID " << oid;
         } catch(...) {
@@ -806,6 +804,7 @@ class SmUnitTest {
     return 0;
   }
 
+#ifdef SM_PROBE_TEST
   fds_uint32_t basic_probe() {
     FDS_PLOG(test_log) << "Starting test: basic_probe()";
 
@@ -840,31 +839,20 @@ class SmUnitTest {
 
     return 0;
   }
+#endif
 
  public:
   /*
    * The non-const refernce is OK.
    */
-  explicit SmUnitTest(FDS_ProtocolInterface::FDSP_DataPathReqPrx&
-                      fdspDPAPI_arg,
-                      Ice::ObjectAdapterPtr adapter_arg)  // NOLINT(*)
-      : fdspDPAPI(fdspDPAPI_arg),
-        adapter(adapter_arg) {
+  explicit SmUnitTest(int port_no)
+  {
     test_log   = new fds_log("sm_test", "logs");
     objMapLock = new fds_mutex("Added object map lock");
 
+    // TODO: Create client and server 
     fdspDataPathResp = new TestResp(this);
     fds_assert(fdspDataPathResp != NULL);
-
-    Ice::Identity ident;
-    ident.name = IceUtil::generateUUID();
-    ident.category = "";
-
-    adapter->add(fdspDataPathResp, ident);
-    adapter->activate();
-
-    fdspDPAPI->ice_getConnection()->setAdapter(adapter);
-    fdspDPAPI->AssociateRespCallback(ident, "sm_test_client");
 
     unit_tests.push_back("basic_update");
     unit_tests.push_back("basic_uq");
@@ -877,11 +865,8 @@ class SmUnitTest {
     reqMutex = new fds_mutex("pending io mutex");
   }
 
-  explicit SmUnitTest(FDS_ProtocolInterface::FDSP_DataPathReqPrx&
-                      fdspDPAPI_arg,
-                      Ice::ObjectAdapterPtr adapter_arg,
-                      fds_uint32_t num_up_arg)  // NOLINT(*)
-      : SmUnitTest(fdspDPAPI_arg, adapter_arg) {
+  explicit SmUnitTest(int port_no, fds_uint32_t num_up_arg) 
+      : SmUnitTest(port_no) {
     num_updates = num_up_arg;
   }
 
@@ -903,8 +888,6 @@ class SmUnitTest {
   fds_log* GetLogPtr() {
     return test_log;
   }
-
-  friend SmUtProbe;
 
   fds_int32_t Run(const std::string& testname) {
     fds_int32_t result = 0;
@@ -928,7 +911,9 @@ class SmUnitTest {
     } else if (testname == "basic_migration") {
       result = basic_migration();
     } else if (testname == "basic_probe") {
+#ifdef SM_PROBE_TEST
       result = basic_probe();
+#endif
     } else {
       std::cout << "Unknown unit test " << testname << std::endl;
     }
@@ -964,7 +949,7 @@ class SmUnitTest {
 /*
  * Ice request communication class.
  */
-class TestClient : public Ice::Application {
+class TestClient { 
  public:
   TestClient() {
   }
@@ -974,13 +959,13 @@ class TestClient : public Ice::Application {
   /*
    * Ice will execute the application via run()
    */
-  int run(int argc, char* argv[]) {
+  int run(int argc, char* argv[], const std::string &conf_file) {
     /*
      * Process the cmdline args.
      */
     std::string testname;
     fds_uint32_t num_updates = 100;
-    fds_uint32_t port_num = 0, cp_port_num=0;
+    fds_uint32_t port_num = 0;
     std::string ip_addr_str;
     for (int i = 1; i < argc; i++) {
       if (strncmp(argv[i], "--testname=", 11) == 0) {
@@ -989,36 +974,13 @@ class TestClient : public Ice::Application {
         num_updates = atoi(argv[i] + 14);
       } else if (strncmp(argv[i], "--port=", 7) == 0) {
         port_num = strtoul(argv[i] + 7, NULL, 0);
-      } else if (strncmp(argv[i], "--cp_port=", 10) == 0) {
-        cp_port_num = strtoul(argv[i] + 10, NULL, 0);
       } else {
         std::cout << "Invalid argument " << argv[i] << std::endl;
         return -1;
       }
     }
 
-    /*
-     * Setup the network communication. Create a direct connection to
-     */
-    Ice::PropertiesPtr props = communicator()->getProperties();
-    Ice::ObjectPrx op;
-    if (port_num == 0) {
-      op = communicator()->propertyToProxy("ObjectStorMgrSvr.Proxy");
-    } else if (cp_port_num == 0) { 
-      cp_port_num = communicator()->propertyToProxy("ObjectStorMgrSvr.ControlPort");
-    } else {
-      std::ostringstream tcpProxyStr;
-      ip_addr_str = props->getProperty("ObjectStorMgrSvr.IPAddress");
-
-      tcpProxyStr << "ObjectStorMgrSvr: tcp -h " << ip_addr_str << " -p " << port_num;
-      op = communicator()->stringToProxy(tcpProxyStr.str());
-    }
-
-    FDS_ProtocolInterface::FDSP_DataPathReqPrx fdspDPAPI =
-        FDS_ProtocolInterface::FDSP_DataPathReqPrx::checkedCast(op); // NOLINT(*)
-
-    Ice::ObjectAdapterPtr adapter = communicator()->createObjectAdapter("");
-    SmUnitTest unittest(fdspDPAPI, adapter, num_updates);
+    SmUnitTest unittest(port_num, num_updates);
 
     if (testname.empty()) {
       unittest.Run();
@@ -1037,5 +999,5 @@ class TestClient : public Ice::Application {
 int main(int argc, char* argv[]) {
   fds::TestClient sm_client;
 
-  return sm_client.main(argc, argv, "stor_mgr.conf");
+  return sm_client.run(argc, argv, "stor_mgr.conf");
 }
