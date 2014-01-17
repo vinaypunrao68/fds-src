@@ -40,7 +40,7 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
     msgHdr->msg_code = FDSP_MSG_PUT_OBJ_RSP;
     msgHdr->result = FDSP_ERR_OK;
     objStorMgr->swapMgrId(msgHdr);
-    objStorMgr->fdspDataPathClient[msgHdr->src_node_name]->PutObjectResp(msgHdr, putObj);
+    objStorMgr->fdspDataPathClient(msgHdr->src_node_name)->PutObjectResp(msgHdr, putObj);
     FDS_PLOG(objStorMgr->GetLog()) << "FDS_TEST_SM_NOOP defined. Sent async PutObj response right after receiving req.";
     return;
 #endif /* FDS_TEST_SM_NOOP */
@@ -74,7 +74,7 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
 
         msgHdr->msg_code = FDSP_MSG_PUT_OBJ_RSP;
         objStorMgr->swapMgrId(msgHdr);
-        objStorMgr->fdspDataPathClient[msgHdr->src_node_name]->PutObjectResp(msgHdr, putObj);
+        objStorMgr->fdspDataPathClient(msgHdr->src_node_name)->PutObjectResp(msgHdr, putObj);
 
         FDS_PLOG(objStorMgr->GetLog()) << "Sent async PutObj response after receiving";
     }
@@ -90,7 +90,7 @@ ObjectStorMgrI::GetObject(FDSP_MsgHdrTypePtr& msgHdr,
     msgHdr->msg_code = FDSP_MSG_GET_OBJ_RSP;
     msgHdr->result = FDSP_ERR_OK;
     objStorMgr->swapMgrId(msgHdr);
-    objStorMgr->fdspDataPathClient[msgHdr->src_node_name]->GetObjectResp(msgHdr, getObj);
+    objStorMgr->fdspDataPathClient(msgHdr->src_node_name)->GetObjectResp(msgHdr, getObj);
     FDS_PLOG(objStorMgr->GetLog()) << "FDS_TEST_SM_NOOP defined. Sent async GetObj response right after receiving req.";
     return;
 #endif /* FDS_TEST_SM_NOOP */
@@ -127,7 +127,7 @@ ObjectStorMgrI::GetObject(FDSP_MsgHdrTypePtr& msgHdr,
 
         msgHdr->msg_code = FDSP_MSG_GET_OBJ_RSP;
         objStorMgr->swapMgrId(msgHdr);
-        objStorMgr->fdspDataPathClient[msgHdr->src_node_name]->GetObjectResp(msgHdr, getObj);
+        objStorMgr->fdspDataPathClient(msgHdr->src_node_name)->GetObjectResp(msgHdr, getObj);
 
         FDS_PLOG(objStorMgr->GetLog()) << "Sent async GetObj response after receiving";
     }
@@ -143,7 +143,7 @@ ObjectStorMgrI::DeleteObject(FDSP_MsgHdrTypePtr& msgHdr,
     msgHdr->msg_code = FDSP_MSG_PUT_OBJ_RSP;
     msgHdr->result = FDSP_ERR_OK;
     objStorMgr->swapMgrId(msgHdr);
-    objStorMgr->fdspDataPathClient[msgHdr->src_node_name]->DeleteObjectResp(msgHdr, delObj);
+    objStorMgr->fdspDataPathClient(msgHdr->src_node_name)->DeleteObjectResp(msgHdr, delObj);
     FDS_PLOG(objStorMgr->GetLog()) << "FDS_TEST_SM_NOOP defined. Sent async DeleteObj response right after receiving req.";
     return;
 #endif /* FDS_TEST_SM_NOOP */
@@ -177,7 +177,7 @@ ObjectStorMgrI::DeleteObject(FDSP_MsgHdrTypePtr& msgHdr,
 
         msgHdr->msg_code = FDSP_MSG_DELETE_OBJ_RSP;
         objStorMgr->swapMgrId(msgHdr);
-        objStorMgr->fdspDataPathClient[msgHdr->src_node_name]->DeleteObjectResp(msgHdr, delObj);
+        objStorMgr->fdspDataPathClient(msgHdr->src_node_name)->DeleteObjectResp(msgHdr, delObj);
 
         FDS_PLOG(objStorMgr->GetLog()) << "Sent async DeleteObj response after receiving";
     }
@@ -519,11 +519,12 @@ void ObjectStorMgr::setup_datapath_server(const std::string &ip)
     // for datapath_handler.  Make sure that happens.  Otherwise you
     // end up with a pointer leak.
     // TODO: Figure out who cleans up datapath_session_
-    datapath_session_ = nst_->createServerSession(myIpInt,
+    datapath_session_ = static_cast<netDataPathServerSession*>(
+                            nst_->createServerSession(myIpInt,
                                               conf_helper_.get<int>("data_port"),
                                               node_name,
                                               FDSP_STOR_HVISOR,
-                                              datapath_handler_.get());
+                                              datapath_handler_.get()));
 }
 
 void ObjectStorMgr::run()
@@ -1261,7 +1262,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
 
     msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_PUT_OBJ_RSP;
     swapMgrId(msgHdr);
-    fdspDataPathClient[msgHdr->src_node_name]->PutObjectResp(msgHdr, putObj);
+    fdspDataPathClient(msgHdr->src_node_name)->PutObjectResp(msgHdr, putObj);
     FDS_PLOG(objStorMgr->GetLog()) << "Sent async PutObj response after processing";
 
     /*
@@ -1370,7 +1371,7 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
 
     msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_DELETE_OBJ_RSP;
     swapMgrId(msgHdr);
-    fdspDataPathClient[msgHdr->src_node_name]->DeleteObjectResp(msgHdr, delObj);
+    fdspDataPathClient(msgHdr->src_node_name)->DeleteObjectResp(msgHdr, delObj);
     FDS_PLOG(objStorMgr->GetLog()) << "Sent async DelObj response after processing";
 
     /*
@@ -1517,7 +1518,7 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
     }
     msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_GET_OBJ_RSP;
     swapMgrId(msgHdr);
-    fdspDataPathClient[msgHdr->src_node_name]->GetObjectResp(msgHdr, getObj);
+    fdspDataPathClient(msgHdr->src_node_name)->GetObjectResp(msgHdr, getObj);
     FDS_PLOG(objStorMgr->GetLog()) << "Sent async GetObj response after processing";
 
     objStats->updateIOpathStats(getReq->getVolId(), getReq->getObjId());

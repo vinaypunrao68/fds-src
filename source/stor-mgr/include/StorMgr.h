@@ -152,11 +152,14 @@ class ObjectStorMgr :
      */
     boost::shared_ptr<netSessionTbl> nst_;
     boost::shared_ptr<FDSP_DataPathReqIf> datapath_handler_;
-    netSession *datapath_session_;
-    std::unordered_map<std::string,
-        boost::shared_ptr<FDS_ProtocolInterface::FDSP_DataPathRespClient> >
-            fdspDataPathClient;
+    netDataPathServerSession *datapath_session_;
 
+    /* Helper for accessing datapth response client */
+    inline boost::shared_ptr<FDS_ProtocolInterface::FDSP_DataPathRespClient> 
+    fdspDataPathClient(const std::string& src_node_name)
+    {
+        return datapath_session_->getRespClient(src_node_name);
+    }
     /*
      * TODO: this one should be the singleton by itself.  Need to make it
      * a stand-alone module like resource manager for volume.
