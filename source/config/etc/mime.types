@@ -4,7 +4,7 @@ types {
     text/css                              css;
     text/xml                              xml;
     image/gif                             gif;
-    image/jpeg                            jpeg jpg;
+    image/jpeg                            jpeg;
     application/javascript                js;
     application/atom+xml                  atom;
     application/rss+xml                   rss;
@@ -23,7 +23,7 @@ types {
     image/x-ms-bmp                        bmp;
     image/svg+xml                         svg svgz;
     image/webp                            webp;
-    image/jpeg				  jpg;
+    image/jpg				  jpg;
 
     application/font-woff                 woff;
     application/java-archive              jar war ear;

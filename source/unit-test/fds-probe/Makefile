@@ -1,7 +1,8 @@
 topdir            := ../..
 user_build_dir    := s3 thrift pm sm \
-    s3-template \
+    s3-template  \
     blk-template \
-    threadpool
+    threadpool   \
+    fds-net
 
 include $(topdir)/Makefile.incl

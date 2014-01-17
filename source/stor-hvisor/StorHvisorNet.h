@@ -31,7 +31,7 @@
 #include <fdsp/FDSP_ConfigPathReq.h>
 
 
-//#include "NetSession.h"
+#include "NetSession.h"
 
 #include <map>
 // #include "util/concurrency/Thread.h"
@@ -70,38 +70,57 @@ using namespace FDS_ProtocolInterface;
 using namespace std;
 using namespace fds;
 
-class FDSP_DataPathRespCbackI : public FDSP_DataPathRespIf
+class FDSP_DataPathRespCbackI : public FDS_ProtocolInterface::FDSP_DataPathRespIf
 {
 public:
-    void GetObjectResp(const FDSP_MsgHdrTypePtr&, const FDSP_GetObjTypePtr&);
-
-    void PutObjectResp(const FDSP_MsgHdrTypePtr&, const FDSP_PutObjTypePtr&);
-
-    void DeleteObjectResp(const FDSP_MsgHdrTypePtr&, const FDSP_DeleteObjTypePtr&);
-
-    void OffsetWriteObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_OffsetWriteObjTypePtr& offset_write_obj_req) {
-
+    FDSP_DataPathRespCbackI() {
     }
-    void RedirReadObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_RedirReadObjTypePtr& redir_write_obj_req)
-    { 
+    ~FDSP_DataPathRespCbackI() {
     }
 
+   virtual void GetObjectResp(const FDSP_MsgHdrType& fdsp_msg, const FDSP_GetObjType& get_obj_req) {
+   }
+   virtual void GetObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg, boost::shared_ptr<FDSP_GetObjType>& get_obj_req);
+   virtual void PutObjectResp(const FDSP_MsgHdrType& fdsp_msg, const FDSP_PutObjType& put_obj_req) {
+   }
+   virtual void PutObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg, boost::shared_ptr<FDSP_PutObjType>& put_obj_req);
+   virtual void DeleteObjectResp(const FDSP_MsgHdrType& fdsp_msg, const FDSP_DeleteObjType& del_obj_req) {
+   }
+   virtual void DeleteObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg, boost::shared_ptr<FDSP_DeleteObjType>& del_obj_req);
+   virtual void OffsetWriteObjectResp(const FDSP_MsgHdrType& fdsp_msg, const FDSP_OffsetWriteObjType& offset_write_obj_req) {
+   }
+   virtual void OffsetWriteObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg, boost::shared_ptr<FDSP_OffsetWriteObjType>& offset_write_obj_req) {
+   }
+   virtual void RedirReadObjectResp(const FDSP_MsgHdrType& fdsp_msg, const FDSP_RedirReadObjType& redir_write_obj_req) {
+   }
+   virtual void RedirReadObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg, boost::shared_ptr<FDSP_RedirReadObjType>& redir_write_obj_req){
+   }
 
 };
 
 
-class FDSP_MetaDataPathRespCbackI : public FDSP_MetaDataPathRespIf
+class FDSP_MetaDataPathRespCbackI : public FDS_ProtocolInterface::FDSP_MetaDataPathRespIf
 {
 public:
+    FDSP_MetaDataPathRespCbackI() {
+    }
 
-    void UpdateCatalogObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_UpdateCatalogTypePtr& cat_obj_req); 
+    ~FDSP_MetaDataPathRespCbackI() {
+    }
 
-    void QueryCatalogObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_QueryCatalogTypePtr& cat_obj_req);
 
-    void DeleteCatalogObjectResp(const FDSP_MsgHdrTypePtr& fdsp_msg, const FDSP_DeleteCatalogTypePtr& cat_obj_req);
-
-    void GetVolumeBlobListResp(const FDSP_MsgHdrTypePtr& fds_msg, const FDSP_GetVolumeBlobListRespTypePtr& blob_list_rsp);
-
+    virtual void UpdateCatalogObjectResp(const FDSP_MsgHdrType& fdsp_msg, const FDSP_UpdateCatalogType& cat_obj_req) {
+    }
+    virtual void UpdateCatalogObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg, boost::shared_ptr<FDSP_UpdateCatalogType>& cat_obj_req);
+    virtual void QueryCatalogObjectResp(const FDSP_MsgHdrType& fdsp_msg, const FDSP_QueryCatalogType& cat_obj_req) {
+    }
+    virtual void QueryCatalogObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg, boost::shared_ptr<FDSP_QueryCatalogType>& cat_obj_req);
+    virtual void DeleteCatalogObjectResp(const FDSP_MsgHdrType& fdsp_msg, const FDSP_DeleteCatalogType& cat_obj_req) {
+    }
+    virtual void DeleteCatalogObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg, boost::shared_ptr<FDSP_DeleteCatalogType>& cat_obj_req);
+    virtual void GetVolumeBlobListResp(const FDSP_MsgHdrType& fds_msg, const FDSP_GetVolumeBlobListRespType& blob_list_rsp) {
+    }
+    virtual void GetVolumeBlobListResp(boost::shared_ptr<FDSP_MsgHdrType>& fds_msg, boost::shared_ptr<FDSP_GetVolumeBlobListRespType>& blob_list_rsp);
 };
 
 
@@ -155,9 +174,8 @@ public:
   hv_delete_blkdev del_blkdev;
   
   // Data Members
-// SAN   Ice::CommunicatorPtr _communicator;
   StorHvDataPlacement        *dataPlacementTbl;
-// SAN   netSession		     *rpcSessionTbl; // RPC calls Switch Table
+  netSessionTbl		     *rpcSessionTbl; // RPC calls Switch Table
   StorHvVolumeTable          *vol_table;  
   fds::StorHvQosCtrl             *qos_ctrl; // Qos Controller object
   OMgrClient                 *om_client;
@@ -188,7 +206,6 @@ public:
   void getBucketStatsResp(const FDSP_MsgHdrType& rx_msg,
 			  const FDSP_BucketStatsRespType& buck_stats);
 
-  void  InitIceObjects();
   void InitDmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
   void InitSmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
   
@@ -202,12 +219,13 @@ public:
   SysParams* getSysParams();
   void StartOmClient();
   sh_comm_modes GetRunTimeMode() { return mode; }
+  FDSP_DataPathRespCbackI	*dPathRespCback;
+  FDSP_MetaDataPathRespCbackI	*mPathRespCback;
 
 private:
   fds_log *sh_log;
   SysParams *sysParams;
   sh_comm_modes mode;
-// SAN   IceUtil::CtrlCHandler *shCtrlHandler;
 };
 
 extern StorHvCtrl *storHvisor;

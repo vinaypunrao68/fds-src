@@ -2,6 +2,8 @@ topdir            := ..
 user_target       := exe
 user_rtime_env    := user
 user_build_dir    :=
+user_install_loc  := exe
+user_install      := fds.conf
 
 # TODO: remove the topdir path in the include search
 #

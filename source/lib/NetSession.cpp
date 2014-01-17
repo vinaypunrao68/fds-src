@@ -117,7 +117,7 @@ netSession* netSessionTbl::setupServerSession(const std::string& dest_node_name,
                                                     port,
                                                     local_mgr_id,
                                                     remote_mgr_id,
-                                                    1, /* number of threads (TODO) */
+                                                    num_threads, /* number of threads (TODO) */
                                                     SvrObj)); 
             } else {
                 session = dynamic_cast<netSession *>(
@@ -125,7 +125,7 @@ netSession* netSessionTbl::setupServerSession(const std::string& dest_node_name,
                                                  port,
                                                  local_mgr_id,
                                                  remote_mgr_id,
-                                                 1, /* number of threads (TODO) */
+                                                 num_threads, /* number of threads (TODO) */
                                                  SvrObj)); 
             }
             break;
@@ -137,7 +137,7 @@ netSession* netSessionTbl::setupServerSession(const std::string& dest_node_name,
                                                   port,
                                                   local_mgr_id,
                                                   remote_mgr_id,
-                                                  1, /* number of threads (TODO) */
+                                                  num_threads, /* number of threads (TODO) */
                                                   SvrObj));             
             } else {
 	      session = dynamic_cast<netSession *>(
@@ -145,7 +145,7 @@ netSession* netSessionTbl::setupServerSession(const std::string& dest_node_name,
                                                    port,
                                                    local_mgr_id,
                                                    remote_mgr_id,
-                                                   1, /* number of threads (TODO) */
+                                                   num_threads, /* number of threads (TODO) */
                                                    SvrObj)); 
             }
             break;
@@ -157,7 +157,7 @@ netSession* netSessionTbl::setupServerSession(const std::string& dest_node_name,
                                                    port,
                                                    local_mgr_id,
                                                    remote_mgr_id,
-                                                   1, /* number of threads (TODO) */
+                                                   num_threads, /* number of threads (TODO) */
                                                    SvrObj)); 
             } else if (remote_mgr_id == FDSP_OMCLIENT_MGR) {
                 session = dynamic_cast<netSession *>(
@@ -165,7 +165,7 @@ netSession* netSessionTbl::setupServerSession(const std::string& dest_node_name,
                                                       port,
                                                       local_mgr_id,
                                                       remote_mgr_id,
-                                                      1, /* number of threads (TODO) */
+                                                      num_threads, /* number of threads (TODO) */
                                                       SvrObj)); 
             }
             break;
@@ -201,6 +201,13 @@ string netSessionTbl::ipAddr2String(int ipaddr) {
 }
 
 fds_int32_t netSession::ipString2Addr(string ipaddr_str) {
+    struct sockaddr_in sa;
+    sa.sin_addr.s_addr = 0;
+    inet_pton(AF_INET, (char *)ipaddr_str.data(), (void *)&(sa.sin_addr));
+    return (ntohl(sa.sin_addr.s_addr));
+}
+
+fds_int32_t netSessionTbl::ipString2Addr(string ipaddr_str) {
     struct sockaddr_in sa;
     sa.sin_addr.s_addr = 0;
     inet_pton(AF_INET, (char *)ipaddr_str.data(), (void *)&(sa.sin_addr));
@@ -298,10 +305,15 @@ netSession *netSessionTbl::getSession(int ip_addr, FDSP_MgrIdType mgr_id)
 void netSession::endSession() 
 {
     // TODO -- calling delete on netSession should close everything I think 
-    //   transport->close();
+   //   transport->close();
+      
 }
 
-void netSessionTbl::endSession(netSession *session)  {
+void netSessionTbl::endSession(int  dst_ip_addr, FDSP_MgrIdType mgr_id) 
+{
+    netSession* session = NULL;
+    std::string node_name = ipAddr2String(dst_ip_addr);
+    session = getSession(node_name, mgr_id);
     session->endSession();
 }
 
