@@ -668,8 +668,13 @@ StorHvCtrl::StorHvCtrl(int argc,
          */
         omIpStr = argv[i] + 8;
       }
+      else 
+        omIpStr = config->get<string>("fds.om.IPAddress");
     } else if (strncmp(argv[i], "--om_port=", 10) == 0) {
-      omConfigPort = strtoul(argv[i] + 10, NULL, 0);
+      if (mode == NORMAL) 
+      	  omConfigPort = strtoul(argv[i] + 10, NULL, 0);
+      else
+      	  omConfigPort = config->get<int>("fds.om.PortNumber");
     }  else if (strncmp(argv[i], "--node_name=", 12) == 0) {
       node_name = argv[i] + 12;
     } 
@@ -682,6 +687,10 @@ StorHvCtrl::StorHvCtrl(int argc,
   my_node_name = node_name;
   nextIoReqId = 0;
   
+  if (mode != NORMAL) {
+        omIpStr = config->get<string>("fds.om.IPAddress");
+      	 omConfigPort = config->get<int>("fds.om.PortNumber");
+  }
 
   sysParams = params;
 
@@ -724,7 +733,7 @@ StorHvCtrl::StorHvCtrl(int argc,
    * Pass 0 as the data path port since the SH is not
    * listening on that port.
    */
- cout << " om config port : " << omConfigPort;
+ cout << " om config port : " << omConfigPort << "om IP " << omIpStr << "\n";
   om_client = new OMgrClient(FDSP_STOR_HVISOR,
                              omIpStr,
                              omConfigPort,
@@ -747,6 +756,7 @@ StorHvCtrl::StorHvCtrl(int argc,
   qos_ctrl = new StorHvQosCtrl(50, fds::FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET, sh_log);
   om_client->registerThrottleCmdHandler(StorHvQosCtrl::throttleCmdHandler);
   qos_ctrl->registerOmClient(om_client); /* so it will start periodically pushing perfstats to OM */
+  om_client->startAcceptingControlMessages(config->get<int>("fds.om.PortNumber"));
 
    rpcSessionTbl = new netSessionTbl(FDSP_STOR_HVISOR);
    dPathRespCback = new FDSP_DataPathRespCbackI();
@@ -800,8 +810,8 @@ StorHvCtrl::StorHvCtrl(int argc,
 //SAN    rpcSwitchTbl->Add_RPC_EndPoint(storMgrIPAddress, storMgrPortNum, my_node_name, FDSP_STOR_MGR);
   }
 
-cout << "dataMgrPortNum: " << dataMgrPortNum  << "\n" << "storMgrPortNum: " << storMgrPortNum << "\n";  
-cout << "dataMgrIPAddress: " << dataMgrIPAddress <<  "\n" <<  "storMgrIPAddress" << storMgrIPAddress << "\n";
+//cout << "dataMgrPortNum: " << dataMgrPortNum  << "\n" << "storMgrPortNum: " << storMgrPortNum << "\n";  
+//cout << "dataMgrIPAddress: " << dataMgrIPAddress <<  "\n" <<  "storMgrIPAddress" << storMgrIPAddress << "\n";
 
   if ((mode == DATA_MGR_TEST) ||
       (mode == TEST_BOTH)) {
@@ -2165,7 +2175,6 @@ void StorHvCtrl::StartOmClient() {
    * Appropriate callbacks were setup by data placement and volume table objects  
    */
   if (om_client) {
-    om_client->startAcceptingControlMessages();
     FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "StorHvisorNet - Started accepting control messages from OM";
 //    dInfo = new  FDSP_AnnounceDiskCapability();
     dInfo.reset(new FDSP_AnnounceDiskCapability());

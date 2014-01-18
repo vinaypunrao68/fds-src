@@ -22,10 +22,7 @@ OrchMgr::OrchMgr(int argc, char *argv[],
       test_mode(false),
       net_session_tbl(NULL) {
 
-    om_log = new fds_log("om", "logs");
-    om_log->setSeverityFilter(
-        (fds_log::severity_level) conf_helper_.get<int>("log_severity"));
-
+    om_log  = g_fdslog;
     om_mutex = new fds_mutex("OrchMgrMutex");
 
     for (int i = 0; i < MAX_OM_NODES; i++) {
