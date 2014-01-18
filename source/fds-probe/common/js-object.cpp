@@ -46,22 +46,9 @@ JsObjTemplate::js_parse(JsObject *empty, json_t *in, void *bin)
     JsObject      *obj;
     JsObjSet      *comp;
     JsArray       *arr;
-    JsObjArray    *oarray;
     const char    *key;
     JsObjTemplate *decode;
 
-    arr = NULL;
-    num = json_array_size(in);
-    if (num > 0) {
-        arr = new JsArray(num);
-        json_array_foreach(in, index, val) {
-            if (json_is_object(val) || json_is_array(val)) {
-                (*arr)[index] = js_new(val);
-            } else {
-                (*arr)[index] = js_decode_basic(val);
-            }
-        }
-    }
     if (bin != NULL) {
         // This is the basic type, the caller has the binary format.
         //
@@ -73,8 +60,8 @@ JsObjTemplate::js_parse(JsObject *empty, json_t *in, void *bin)
     json_object_foreach(in, key, val) {
         decode = js_decode[key];
         if (json_typeof(val) == JSON_ARRAY) {
-            num    = json_array_size(val);
-            oarray = new JsObjArray(num);
+            num = json_array_size(val);
+            arr = new JsArray(num);
 
             json_array_foreach(val, index, sub) {
                 if (decode != NULL) {
@@ -83,12 +70,12 @@ JsObjTemplate::js_parse(JsObject *empty, json_t *in, void *bin)
                     obj = js_decode_basic(sub);
                 }
                 if (obj == NULL) {
-                    delete oarray;
+                    delete arr;
                     goto unknown;
                 }
-                (*oarray)[index] = obj;
+                (*arr)[index] = obj;
             }
-            (*comp)[key] = static_cast<JsObject *>(oarray);
+            obj = js_init(new JsObject(), val, NULL, NULL, arr);
         } else {
             if (decode == NULL) {
                 obj = js_decode_basic(val);
@@ -98,10 +85,10 @@ JsObjTemplate::js_parse(JsObject *empty, json_t *in, void *bin)
             if (obj == NULL) {
                 goto unknown;
             }
-            (*comp)[key] = obj;
         }
+        (*comp)[key] = obj;
     }
-    return js_init(empty, in, NULL, comp, arr);
+    return js_init(empty, in, NULL, comp, NULL);
 
  unknown:
     delete comp;
@@ -207,45 +194,28 @@ JsObject::~JsObject()
     }
 }
 
-// js_exec_simple
-// --------------
-//
-JsObject *
-JsObject::js_exec_simple(JsObject *array, JsObjTemplate *templ)
-{
-    if (js_array != NULL) {
-        for (auto it = js_array->cbegin(); it != js_array->cend(); ++it) {
-            (*it)->js_exec_obj(array, templ);
-        }
-    }
-    if (js_comp != NULL) {
-        for (auto it = js_comp->begin(); it != js_comp->end(); ++it) {
-            it->second->js_exec_obj(array, templ);
-        }
-    }
-    return this;
-}
-
 // js_exec_obj
 // -----------
 //
 JsObject *
-JsObject::js_exec_obj(JsObject *array, JsObjTemplate *templ)
+JsObject::js_exec_obj(JsObject *parent, JsObjTemplate *templ)
 {
-    if (array != NULL) {
-        int       i, num;
-        JsObject *obj;
-
-        num = array->js_array_size();
-        for (i = 0; i < num; i++) {
-            obj = array->js_array_elm(i);
-            obj = obj->js_exec_simple(NULL, templ);
-
+    if (js_array != NULL) {
+        (*js_array)[0]->js_exec_obj(this, templ);
+#if 0
+        for (auto it = js_array->cbegin(); it != js_array->cend(); ++it) {
             // XXX: need to check remove out of array & free memory.
+            (*it)->js_exec_obj(this, templ);
         }
-        return NULL;
+#endif
     }
-    return js_exec_simple(NULL, templ);
+    if (js_comp != NULL) {
+        for (auto it = js_comp->begin(); it != js_comp->end(); ++it) {
+            // XXX: need to check remove out of the table & free memory.
+            it->second->js_exec_obj(this, templ);
+        }
+    }
+    return this;
 }
 
 // js_array_size
@@ -261,28 +231,11 @@ JsObject::js_array_size()
     return 0;
 }
 
-// ----------------------------------------------------------------------------
-// JSON Array Obj Instance
-// ----------------------------------------------------------------------------
-JsObjArray::JsObjArray(int num) : JsObject()
-{
-    js_array = new JsArray(num);
-}
-
 JsObject *&
-JsObjArray::operator[](int idx)
+JsObject::operator[](int idx)
 {
     fds_verify(idx < js_array->size());
     return (*js_array)[idx];
-}
-
-// js_exec_obj
-// -----------
-//
-JsObject *
-JsObjArray::js_exec_obj(JsObject *array, JsObjTemplate *templ)
-{
-    return (*js_array)[0]->js_exec_obj(this, templ);
 }
 
 // ----------------------------------------------------------------------------
