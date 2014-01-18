@@ -1597,6 +1597,7 @@ void t_cpp_generator::generate_service(t_service* tservice) {
       "}}}" << endl;
   }
   f_header_ <<
+    "#include <thrift/concurrency/Mutex.h>" << endl <<
     "#include <thrift/TDispatchProcessor.h>" << endl;
   if (gen_cob_style_) {
     f_header_ <<
@@ -2391,6 +2392,7 @@ void t_cpp_generator::generate_service_client(t_service* tservice, string style)
       " protected:" << endl;
     indent_up();
 
+    f_header_ << indent() << "::apache::thrift::concurrency::Mutex lock_;" << endl;
     if (style == "Cob") {
       f_header_ <<
         indent() << "boost::shared_ptr< ::apache::thrift::async::TAsyncChannel> channel_;"  << endl <<
@@ -2504,6 +2506,7 @@ void t_cpp_generator::generate_service_client(t_service* tservice, string style)
       // Serialize the request
       out <<
         indent() << "int32_t cseqid = 0;" << endl <<
+        indent() << "lock_.lock();" << endl <<
         indent() << _this << "oprot_->writeMessageBegin(\"" <<
         (*f_iter)->get_name() <<
         "\", ::apache::thrift::protocol::T_CALL, cseqid);" << endl <<
@@ -2520,7 +2523,8 @@ void t_cpp_generator::generate_service_client(t_service* tservice, string style)
         endl <<
         indent() << _this << "oprot_->writeMessageEnd();" << endl <<
         indent() << _this << "oprot_->getTransport()->writeEnd();" << endl <<
-        indent() << _this << "oprot_->getTransport()->flush();" << endl;
+        indent() << _this << "oprot_->getTransport()->flush();" << endl <<
+        indent() << _this << "lock_.unlock();" << endl;
 
       scope_down(out);
       out << endl;
