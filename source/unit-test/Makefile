@@ -8,7 +8,7 @@ user_build_dir :=      \
     umod-lib           \
     util               \
     data-mgr           \
-#    stor-mgr	       \
+    stor-mgr	       \
 #    stor_mgr           \
 #    stor_hvisor_ice    \
 

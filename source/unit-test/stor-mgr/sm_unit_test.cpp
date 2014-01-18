@@ -26,13 +26,6 @@
 
 namespace fds {
 
-template<typename Func>
-void poll_until(Func pred) {
-    while (!pred()) {
-        sleep(1);
-    }
-}
-
 typedef boost::shared_ptr<FDS_ProtocolInterface::FDSP_DataPathReqClient> 
     FDSP_DataPathReqClientPtr;
 
@@ -311,6 +304,7 @@ class SmUnitTest {
 
   void updateAckedPuts() {
       ackedPuts++;
+      FDS_PLOG(g_fdslog) << "Receiver PutObj response for object cnt: " << ackedPuts; 
   }
 
   void updatePutObj(const ObjectID& oid,
@@ -383,6 +377,7 @@ class SmUnitTest {
           }
       }
 
+      /* Wait for puts to finish */
       while (ackedPuts.load() != num_updates) {sleep(1);}
 
       return 0;
@@ -391,6 +386,9 @@ class SmUnitTest {
   fds_int32_t basic_uq() {
 
       FDS_PLOG(g_fdslog) << "Starting test: basic_uq()";
+
+      ackedPuts = 0;
+      ackedGets = 0;
 
       FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr(
           new FDS_ProtocolInterface::FDSP_MsgHdrType);
@@ -444,6 +442,11 @@ class SmUnitTest {
           }
           objIdsPut.push_back(oid);
       }
+
+      /* Wait for puts to finish */
+      while (ackedPuts.load() != num_updates) {sleep(1);}
+      std::cout << "Received responses for all " << num_updates 
+          << " Puts" << std::endl;
 
       ackedGets = 0;
       FDS_ProtocolInterface::FDSP_GetObjTypePtr get_req(

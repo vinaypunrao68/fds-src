@@ -158,7 +158,8 @@ class ObjectStorMgr :
     inline boost::shared_ptr<FDS_ProtocolInterface::FDSP_DataPathRespClient> 
     fdspDataPathClient(const std::string& src_node_name)
     {
-        return datapath_session_->getRespClient(src_node_name);
+        // TODO: change 2nd param to correct value 
+        return datapath_session_->getRespClient(src_node_name, 0);
     }
     /*
      * TODO: this one should be the singleton by itself.  Need to make it
