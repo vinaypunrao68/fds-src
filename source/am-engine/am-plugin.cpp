@@ -121,7 +121,7 @@ ngx_http_fds_read_body(ngx_http_request_t *r)
 {
     fds::AME_Ctx             *am_ctx;
     fds::AME_Request         *am_req;
-    HttpRequest               http_req(r);
+    fds::HttpRequest          http_req(r);
     std::vector<std::string>  uri_parts = http_req.getURIParts();
     ngx_http_fds_loc_conf_t  *fdcf;
     std::string               value;
