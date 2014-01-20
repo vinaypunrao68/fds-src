@@ -1,8 +1,8 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
-#ifndef INCLUDE_AM_ENGINE_H_
-#define INCLUDE_AM_ENGINE_H_
+#ifndef SOURCE_INCLUDE_AM_ENGINE_AM_ENGINE_H_
+#define SOURCE_INCLUDE_AM_ENGINE_AM_ENGINE_H_
 
 #include <fds_module.h>
 #include <fds_request.h>
@@ -37,12 +37,10 @@ class Conn_GetBucketStats;
 class AMEngine : public Module
 {
   public:
-    AMEngine(char const *const name) :
+    explicit AMEngine(char const *const name) :
         Module(name), eng_signal(), eng_etc("etc"),
         eng_logs("logs"), eng_conf("etc/fds.conf"),
-        ame_queue(1, 1000) {
-          // ame_log = new fds_log("ame", "logs");
-    }
+        ame_queue(1, 1000) {}
     ~AMEngine() {}
 
     int  mod_init(SysParams const *const param);
@@ -66,9 +64,6 @@ class AMEngine : public Module
     inline fdsio::RequestQueue *ame_get_queue() {
         return &ame_queue;
     }
-    //inline fds_log *ame_get_log() {
-    //  return ame_log;
-    //}
 
   private:
     std::string              eng_signal;
@@ -77,7 +72,6 @@ class AMEngine : public Module
     char const *const        eng_conf;
     FDS_NativeAPI            *eng_api;
     fdsio::RequestQueue      ame_queue;
-    // fds_log                  *ame_log;
 };
 
 // ---------------------------------------------------------------------------
@@ -515,7 +509,6 @@ class Conn_GetBucketStats : public AME_Request
     void *cur_get_buffer;
 };
 
+}  // namespace fds
 
-} // namespace fds
-
-#endif /* INCLUDE_AM_ENGINE_H_ */
+#endif  // SOURCE_INCLUDE_AM_ENGINE_AM_ENGINE_H_

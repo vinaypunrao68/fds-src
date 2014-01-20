@@ -9,7 +9,10 @@
 #include <vector>
 #include <sstream>
 
-std::string HttpUtils::computeEtag(const char* data, size_t len)
+namespace fds {
+
+std::string
+HttpUtils::computeEtag(const char* data, size_t len)
 {
     const int buf_len = 16;
     ngx_md5_t ctx;
@@ -27,7 +30,8 @@ std::string HttpUtils::computeEtag(const char* data, size_t len)
     return std::string((const char*)md5string);
 }
 
-HttpRequest::HttpRequest(ngx_http_request_t* ngx_req) {
+HttpRequest::HttpRequest(ngx_http_request_t* ngx_req)
+{
     fds_assert(ngx_req != NULL);
 
     _pReq = ngx_req;
@@ -40,26 +44,30 @@ HttpRequest::HttpRequest(ngx_http_request_t* ngx_req) {
     }
 }
 
-std::vector<std::string>& HttpRequest::getURIParts()
+std::vector<std::string> &
+HttpRequest::getURIParts()
 {
     return _uriParts;
 }
-const std::vector<std::string>& HttpRequest::getURIParts() const
+const std::vector<std::string> &
+HttpRequest::getURIParts() const
 {
     return _uriParts;
 }
 
-ngx_http_request_t* HttpRequest::getNginxReq() const
+ngx_http_request_t *
+HttpRequest::getNginxReq() const
 {
     return _pReq;
 }
 
 // getReqHdrVal
-// --------------------
+// ------------
 // Return the value corresponding with the key in the request header.
 //
-fds_bool_t HttpRequest::getReqHdrVal(char const *const key,
-                                     std::string& data) const {
+fds_bool_t
+HttpRequest::getReqHdrVal(char const *const key, std::string *data) const
+{
     ngx_list_t ngxList = _pReq->headers_in.headers;
 
     /*
@@ -80,7 +88,7 @@ fds_bool_t HttpRequest::getReqHdrVal(char const *const key,
              */
             if (strncmp(key, (const char *)eltKey.data, eltKey.len) == 0) {
                 ngx_str_t eltData = elt->value;
-                data.assign((const char *)eltData.data, eltData.len);
+                data->assign((const char *)eltData.data, eltData.len);
                 return true;
             }
         }
@@ -88,7 +96,8 @@ fds_bool_t HttpRequest::getReqHdrVal(char const *const key,
     return false;
 }
 
-std::string HttpRequest::toString() const
+std::string
+HttpRequest::toString() const
 {
     std::ostringstream stream;
     stream << "Method: "
@@ -100,3 +109,5 @@ std::string HttpRequest::toString() const
     }
     return stream.str();
 }
+
+}   // namespace fds

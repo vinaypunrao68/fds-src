@@ -31,9 +31,16 @@ class JsObject
     const char              *js_type_name;
 
     JsObject();
+    explicit JsObject(int arr_size);
+
     virtual ~JsObject();
-    virtual JsObject *js_exec_obj(JsObject *array, JsObjTemplate *templ);
-    virtual JsObject *js_exec_simple(JsObject *array, JsObjTemplate *templ);
+    virtual JsObject *js_exec_obj(JsObject *parent, JsObjTemplate *templ);
+
+    /**
+     * For array object, return the number of elements in the array.
+     */
+    virtual int js_array_size();
+    virtual JsObject *&operator[](int idx);
 
     /**
      * Return binary type for this object.
@@ -51,17 +58,6 @@ class JsObject
         }
         return (*js_comp)[key];
     }
-    /**
-     * For array object, return the number of elements in the array.
-     */
-    virtual int js_array_size();
-
-    inline JsObject *js_array_elm(int index) {
-        if (js_array == NULL) {
-            return NULL;
-        }
-        return (*js_array)[index];
-    }
     inline fds_bool_t js_is_basic() {
         return js_bin_data != NULL;
     }
@@ -77,19 +73,6 @@ class JsObject
 
     void js_init_obj(const char *type, const char *id, json_t *in, void *d,
                      JsObjSet *c, JsArray *a);
-};
-
-/**
- * JSON Array of JsObject Instance.
- */
-class JsObjArray : public JsObject
-{
-  public:
-    explicit JsObjArray(int num);
-    virtual ~JsObjArray() {}
-
-    virtual JsObject *&operator[](int idx);
-    virtual JsObject *js_exec_obj(JsObject *array, JsObjTemplate *templ);
 };
 
 /**

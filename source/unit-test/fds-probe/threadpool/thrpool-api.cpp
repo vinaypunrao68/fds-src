@@ -117,35 +117,34 @@ Thrpool_ProbeMod::mod_shutdown()
 // Threadpool control path
 // ----------------------------------------------------------------------------
 JsObject *
-UT_ThpoolSyscall::js_exec_obj(JsObject *array, JsObjTemplate *templ)
+UT_ThpoolSyscall::js_exec_obj(JsObject *parent, JsObjTemplate *templ)
 {
     int       i, num;
     JsObject *obj;
 
-    num = array->js_array_size();
-    std::cout << "Thread pool syscall " << array
-        << ", cnt " << num << std::endl;
+    num = parent->js_array_size();
+    std::cout << "Thread pool syscall, cnt " << num << std::endl;
 
     for (i = 0; i < num; i++) {
-        obj = array->js_array_elm(i);
+        obj = (*parent)[i];
         std::cout << static_cast<char *>(obj->js_pod_object()) << ' ';
     }
     std::cout << std::endl;
-    return JsObject::js_exec_obj(array, templ);
+    return JsObject::js_exec_obj(this, templ);
 }
 
 JsObject *
-UT_ThpoolBoost::js_exec_obj(JsObject *array, JsObjTemplate *templ)
+UT_ThpoolBoost::js_exec_obj(JsObject *parent, JsObjTemplate *templ)
 {
     std::cout << "Thread boost args is called... " << std::endl;
-    return JsObject::js_exec_obj(array, templ);
+    return JsObject::js_exec_obj(this, templ);
 }
 
 JsObject *
-UT_ThpoolMath::js_exec_obj(JsObject *array, JsObjTemplate *templ)
+UT_ThpoolMath::js_exec_obj(JsObject *parent, JsObjTemplate *templ)
 {
     std::cout << "Thread pool math is called... " << std::endl;
-    return JsObject::js_exec_obj(array, templ);
+    return JsObject::js_exec_obj(this, templ);
 }
 
 }  // namespace fds
