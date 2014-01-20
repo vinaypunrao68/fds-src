@@ -237,6 +237,25 @@ Probe_PutBucket::~Probe_PutBucket()
 {
 }
 
+// ctrl_obj_write
+// --------------
+//
+static void
+ctrl_obj_write(ProbeS3Eng *s3eng, Probe_PutBucket *put, char *buf)
+{
+    json_t       *root;
+    JsObjManager *objs;
+    json_error_t  err;
+
+    objs = s3eng->probe_get_obj_mgr();
+    root = json_loads(buf, 0, &err);
+    if (root != NULL) {
+        objs->js_exec(root);
+        json_decref(root);
+    }
+    put->ame_signal_resume(NGX_HTTP_OK);
+}
+
 // Admin/control handler
 // ---------------------
 //
@@ -252,22 +271,13 @@ Probe_PutBucket::ame_request_handler()
 {
     int           len;
     char         *buf;
-    json_t       *root;
     ProbeS3Eng   *s3p;
-    JsObjManager *objs;
-    json_error_t  err;
 
-    buf  = ame_reqt_iter_data(&len);
-    s3p  = static_cast<ProbeS3Eng *>(ame);
-    objs = s3p->probe_get_obj_mgr();
+    buf = ame_reqt_iter_data(&len);
     buf[len] = '\0';
 
-    root = json_loads(buf, 0, &err);
-    if (root != NULL) {
-        objs->js_exec(root);
-        json_decref(root);
-    }
-    ame_signal_resume(NGX_HTTP_OK);
+    s3p = static_cast<ProbeS3Eng *>(ame);
+    s3p->probe_get_thrpool()->schedule(ctrl_obj_write, s3p, this, buf);
 }
 
 }   // namespace fds

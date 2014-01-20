@@ -1,9 +1,10 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
-#ifndef INCLUDE_S3_CONNECTOR_H_
-#define INCLUDE_S3_CONNECTOR_H_
+#ifndef SOURCE_INCLUDE_AM_ENGINE_S3CONNECTOR_H_
+#define SOURCE_INCLUDE_AM_ENGINE_S3CONNECTOR_H_
 
+#include <string>
 #include <am-engine/am-engine.h>
 
 namespace fds {
@@ -146,7 +147,7 @@ class S3_DelBucket : public Conn_DelBucket
 class AMEngine_S3 : public AMEngine
 {
   public:
-    AMEngine_S3(char const *const name) : AMEngine(name) {}
+    explicit AMEngine_S3(char const *const name) : AMEngine(name) {}
     ~AMEngine_S3() {}
 
     // Object factory.
@@ -176,5 +177,5 @@ class AMEngine_S3 : public AMEngine
 
 extern AMEngine_S3 gl_AMEngineS3;
 
-} // namespace fds
-#endif /* INCLUDE_AM_ENGINE_H_ */
+}  // namespace fds
+#endif  // SOURCE_INCLUDE_AM_ENGINE_S3CONNECTOR_H_
