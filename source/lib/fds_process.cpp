@@ -32,10 +32,24 @@ FdsProcess::FdsProcess(int argc, char *argv[],
      * name from config
      */
     g_fdslog = new fds_log(conf_helper_.get<std::string>("logfile"));
+
+    /* Process wide counters setup */
+    setup_cntrs_mgr();
+
+    /* if graphite is enabled, setup graphite task to dump counters */
+    if (conf_helper_.get<bool>("enable_graphite")) {
+        /* NOTE: Timer service will be setup as well */
+        setup_graphite();
+    }
 }
 
 FdsProcess::~FdsProcess()
 {
+    /* Kill timer service */
+    if (timer_servicePtr_) {
+        timer_servicePtr_->destroy();
+    }
+
     /* cleanup process wide globals */
     g_fdsprocess = NULL;
     delete g_fdslog;
@@ -129,6 +143,31 @@ void FdsProcess::setup_mod_vector(int argc, char *argv[], fds::Module **mod_vec)
 
     fds::ModuleVector mod_vec_obj(argc, argv, mod_vec);
     mod_vec_obj.mod_execute();
+}
+
+void FdsProcess::setup_cntrs_mgr()
+{
+    fds_verify(cntrs_mgrPtr_.get() == NULL);
+    cntrs_mgrPtr_.reset(new FdsCountersMgr());
+}
+
+void FdsProcess::setup_timer_service()
+{
+    if (!timer_servicePtr_) {
+        timer_servicePtr_.reset(new FdsTimer());
+    }
+}
+
+void FdsProcess::setup_graphite()
+{
+    std::string ip = conf_helper_.get<std::string>("graphite.ip");
+    int port = conf_helper_.get<int>("graphite.port");
+
+    setup_timer_service();
+
+    graphitePtr_.reset(new GraphiteClient(ip, port,
+                                          timer_servicePtr_, cntrs_mgrPtr_));
+    graphitePtr_->start(1 /* seconds */);
 }
 
 void FdsProcess::interrupt_cb(int signum)

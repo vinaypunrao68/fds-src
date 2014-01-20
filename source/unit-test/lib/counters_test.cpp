@@ -1,16 +1,9 @@
-/* Copyright 2013 Formation Data Systems, Inc.
- */
-#ifndef _FDS_COUNTERS_H
-#define _FDS_COUNTERS_H
-
 #include <iostream>
 #include <atomic>
 #include <vector>
 #include <boost/noncopyable.hpp>
 #include <fds_assert.h>
-#include <concurrency/Mutex.h>
 
-namespace fds {
 /* Forward declarations */
 class FdsCounters;
 class FdsBaseCounter;
@@ -18,28 +11,20 @@ class FdsCountersMgr;
 
 /**
  * @brief Counter manager.  Mananges the job of exporting registered
- * FdsCounters class objects in various different formats.
- * Supported format are:
- * -Graphite
+ * FdsCounters class objects.
  */
 class FdsCountersMgr : public boost::noncopyable {
  public:
-  FdsCountersMgr();
   void add_for_export(FdsCounters *counters);
   void remove_from_export(FdsCounters *counters);
 
   std::string export_as_graphite();
-
  protected:
-  /* Counter objects that are exported out */
-  std::vector<FdsCounters*> exp_counters_;
-  /* Lock for this object */
-  fds_mutex lock_;
+  std::vector<FdsCounters*> exp_counters;
 };
 
 /**
- * @brief Base counters class.  Any module that has a set of counters
- * should derive from this class
+ * @brief Base counters class
  */
 class FdsCounters : public boost::noncopyable { 
  public:
@@ -49,11 +34,6 @@ class FdsCounters : public boost::noncopyable {
       if (mgr) {
           mgr->add_for_export(this);
       }
-  }
-  
-  std::string id() const
-  {
-      return id_;
   }
 
  protected:
@@ -82,7 +62,6 @@ class FdsCounters : public boost::noncopyable {
   std::string id_;
   
   friend class FdsBaseCounter;
-  friend class FdsCountersMgr;
 };
 
 /**
@@ -117,11 +96,7 @@ class FdsBaseCounter : public boost::noncopyable {
   std::string id_;
 };
 
-
-/**
- * @brief Numeric counter
- */
-class NumericCounter : public FdsBaseCounter
+class NumericCounter : public FdsBaseCounter, std::atomic<uint64_t> 
 {
  public:
   NumericCounter(const std::string &id, FdsCounters *export_parent)
@@ -131,16 +106,52 @@ class NumericCounter : public FdsBaseCounter
 
   virtual uint64_t value() const override
   {
-      return val_.load();
+      return load();
+  }
+};
+
+
+
+
+/**
+ * @brief 
+ *
+ * @param id
+ * @param counters
+ */
+void FdsCountersMgr::add_for_export(FdsCounters *counters)
+{
+}
+
+/**
+ * @brief 
+ *
+ * @param counters
+ */
+void FdsCountersMgr::remove_from_export(FdsCounters *counters)
+{
+}
+
+std::string FdsCountersMgr::export_as_graphite()
+{
+    return "";
+}
+
+class SMCounters : public FdsCounters
+{
+ public:
+  SMCounters(const std::string &id, FdsCountersMgr *mgr)
+      : FdsCounters(id, mgr),
+        puts_cntr("puts_cntr", this),
+        gets_cntr("gets_cntr", this)
+  {
   }
 
-  inline void incr() {
-      val_++;
-  } 
+  NumericCounter puts_cntr;
+  NumericCounter gets_cntr;
 
- private:
-  std::atomic<uint64_t> val_;
 };
-}  // namespace fds
 
-#endif
+int main() {
+    return 0;
+}

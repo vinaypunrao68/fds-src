@@ -28,6 +28,7 @@ user_cpp          :=                       \
 	ocache_unit_test.cpp         \
     perfstat_unit_test.cpp \
     fds_process_interrupt_test.cpp \
+    counters_test.cpp \
 #    tb_unit_test.cpp \
 #    qos_dispatcher_unit_test.cpp \
 
@@ -41,7 +42,8 @@ user_bin_exe      := \
     om_client_test \
     ocache_unit_test \
     perfstat_unit_test\
-    fds_process_interrupt_test
+    fds_process_interrupt_test\
+    counters_test\
 #    tb_unit_test \
 #    qos_dispatcher_unit_test \
 
@@ -55,5 +57,6 @@ perfstat_unit_test      := perfstat_unit_test.cpp
 fds_process_interrupt_test := fds_process_interrupt_test.cpp
 fds_timer_test := fds_timer_test.cpp
 fds_config_test:= fds_config_test.cpp
+counters_test:= counters_test.cpp
 
 include $(topdir)/Makefile.incl
