@@ -27,7 +27,8 @@ namespace fds {
     typedef std::string fds_node_name_t;
     typedef FDS_ProtocolInterface::FDSP_MgrIdType fds_node_type_t;
     typedef FDS_ProtocolInterface::FDSP_NodeState FdspNodeState;
-    //    typedef FDS_ProtocolInterface::FDSP_ControlPathReqPrx ReqCtrlPrx;
+    typedef boost::shared_ptr<FDS_ProtocolInterface::FDSP_ControlPathReqClient>
+      FDSP_ControlPathReqClientPtr;
     typedef FDS_ProtocolInterface::FDSP_VolumeDescTypePtr FdspVolDescPtr; 
     typedef FDS_ProtocolInterface::FDSP_MsgHdrTypePtr     FdspMsgHdrPtr;
 
@@ -55,7 +56,6 @@ namespace fds {
         fds_uint32_t  ssd_latency_min;
         fds_uint32_t  disk_type;
         FdspNodeState node_state;
-        //ReqCtrlPrx    cpPrx; // TODO(thrift)
         
   public:
         NodeInfo() { }
@@ -77,29 +77,37 @@ namespace fds {
            fds_int32_t _s_latency_max,
            fds_int32_t _s_latency_min,
            fds_uint32_t  disk_type,
-           const FdspNodeState& _state
-           /*const ReqCtrlPrx& _prx*/) : // TODO(thrift)
-        node_id(_id),
-                node_name(_name),
-                node_type(_type),
-                node_ip_address(_ip),
-                control_port(_cp_port),
-                data_port(_d_port),
-                disk_iops_max(_disk_iops_max),
-                disk_iops_min(_disk_iops_min),
-                disk_capacity(_disk_capacity),
-                disk_latency_max(_d_latency_max),
-                disk_latency_min(_d_latency_min),
-                ssd_iops_max(_ssd_iops_max),
-                ssd_iops_min(_ssd_iops_min),
-                ssd_capacity(_ssd_capacity),
-                ssd_latency_max(_s_latency_max),
-                ssd_latency_min(_s_latency_min),
-                disk_type(_type),
-                node_state(_state)
-                        /*cpPrx(_prx)*/ {  // TODO(thrift)
-                }
-
+           const FdspNodeState& _state,
+	   boost::shared_ptr<netSessionTbl>& nst,
+	   boost::shared_ptr<FDSP_ControlPathRespIf>& resp_handler)
+    : node_id(_id),
+	  node_name(_name),
+	  node_type(_type),
+	  node_ip_address(_ip),
+	  control_port(_cp_port),
+	  data_port(_d_port),
+	  disk_iops_max(_disk_iops_max),
+	  disk_iops_min(_disk_iops_min),
+	  disk_capacity(_disk_capacity),
+	  disk_latency_max(_d_latency_max),
+	  disk_latency_min(_d_latency_min),
+	  ssd_iops_max(_ssd_iops_max),
+	  ssd_iops_min(_ssd_iops_min),
+	  ssd_capacity(_ssd_capacity),
+	  ssd_latency_max(_s_latency_max),
+	  ssd_latency_min(_s_latency_min),
+	  disk_type(_type),
+	  node_state(_state),
+	  net_session_tbl(nst) {
+	    /* start session for client that will send ctrl 
+	    * messages to this node */
+	    net_session_tbl->startSession(node_ip_address,
+					  control_port,
+					  node_type,
+					  1,
+					  resp_handler.get());
+	  }
+	
         /*
          * This constructor below is only used for
          * testing. It does not communicate with any
@@ -141,13 +149,24 @@ namespace fds {
                 }
         
         ~NodeInfo() {
+            net_session_tbl->endSession(node_ip_address,
+                                        node_type);
         }
+
+	FDSP_ControlPathReqClientPtr getClient() const {
+	  netSession* client_session =
+	    net_session_tbl->getSession(node_ip_address,
+					node_type);
+	  return static_cast<netControlPathClientSession*>(client_session)->getClient();
+	}
         
         /*
          * TODO: This should have a copy constructor and an
          * assignment operator since they're being used by
          * the maps. The default ones are dangerous.
          */
+    private:
+	boost::shared_ptr<netSessionTbl> net_session_tbl;
     };
     
     class VolumeInfo {
