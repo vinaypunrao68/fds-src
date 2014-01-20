@@ -797,7 +797,10 @@ StorHvCtrl::StorHvCtrl(int argc,
       dataMgrPortNum = config->get<int>("fds.dm.PortNumber");
     }
     dataMgrIPAddress = config->get<string>("fds.dm.IPAddress");
-//SAN    rpcSwitchTbl->Add_RPC_EndPoint(dataMgrIPAddress, dataMgrPortNum, my_node_name, FDSP_DATA_MGR);
+    storHvisor->rpcSessionTbl->
+            startSession(dataMgrIPAddress,
+                  (fds_int32_t)dataMgrPortNum,
+                      FDS_ProtocolInterface::FDSP_DATA_MGR,0,reinterpret_cast<void*>(storHvisor->dPathRespCback));
   }
   if ((mode == STOR_MGR_TEST) ||
       (mode == TEST_BOTH)) {
@@ -807,7 +810,10 @@ StorHvCtrl::StorHvCtrl(int argc,
       storMgrPortNum  = config->get<int>("fds.sm.PortNumber");
     }
     storMgrIPAddress  = config->get<string>("fds.sm.IPAddress");
-//SAN    rpcSwitchTbl->Add_RPC_EndPoint(storMgrIPAddress, storMgrPortNum, my_node_name, FDSP_STOR_MGR);
+    storHvisor->rpcSessionTbl->
+            startSession(storMgrIPAddress,
+                  (fds_int32_t)storMgrPortNum,
+                      FDS_ProtocolInterface::FDSP_STOR_MGR,0,reinterpret_cast<void*>(storHvisor->dPathRespCback));
   }
 
 //cout << "dataMgrPortNum: " << dataMgrPortNum  << "\n" << "storMgrPortNum: " << storMgrPortNum << "\n";  
