@@ -345,6 +345,22 @@ protected:
   boost::shared_ptr<ThreadManager> threadManager;
 };
 
+inline
+std::string getIPV4FromMappedAddress(std::string& peer_addr) {
+    std::string peer_address;
+    char *paddr = (char *)peer_addr.data();
+    
+    if (strncmp(peer_addr.c_str(), "::ffff:", (sizeof("::ffff:") -1)) == 0 ) {
+        paddr = paddr + sizeof("::ffff:") -1;
+        peer_address.append(paddr);
+    } else {
+        peer_address =  peer_addr; 
+    }
+    return peer_address;
+}
+
+
+
 class netDataPathServerSession : public netServerSession { 
  public:
   netDataPathServerSession(string dest_node_name,
@@ -372,7 +388,7 @@ class netDataPathServerSession : public netServerSession {
     }
 
     void setClientInternal(const boost::shared_ptr<TTransport> transport) {
-         printf("netSessionServer internal: set DataPathRespClient\n");
+        printf("netSessionServer internal: set DataPathRespClient\n");
         protocol_.reset(new TBinaryProtocol(transport));
         boost::shared_ptr<TSocket> sock = boost::static_pointer_cast<TSocket>(transport);
         // Convert any IPv4 mapped address to normal ipv4 address for the key
@@ -448,11 +464,12 @@ class netMetaDataPathServerSession : public netServerSession {
     }
 
     void setClientInternal(const boost::shared_ptr<TTransport> transport) {
-        printf("netSessionServer internal: set MetaDataPathRespClient\n");
         protocol_.reset(new TBinaryProtocol(transport));
         boost::shared_ptr<TSocket> sock = boost::static_pointer_cast<TSocket>(transport);
         string peer_addr = sock->getPeerAddress();
-        respClient[peer_addr] = (metaDataPathRespClient)new FDSP_MetaDataPathRespClient(protocol_);
+        string peer_address = getIPV4FromMappedAddress(peer_addr);
+        printf("netSessionServer internal: setting MetaDataPathRespClient for %s\n", peer_address.c_str());
+        respClient[peer_address] = (metaDataPathRespClient)new FDSP_MetaDataPathRespClient(protocol_);
     }
 
     boost::shared_ptr<FDSP_MetaDataPathRespClient> getRespClient(string ipaddress) {
