@@ -2,7 +2,11 @@
     "Run-Input": {
         "Server-Load": {
             "threadpool": {
-                "thpool-syscall": [ "open",  "/dev/null", "foo", "bar" ],
+                "thpool-syscall": [ 
+                    [ "open",  "/dev/null", "foo", "bar" ],
+                    [ "read", "/dev/null" ],
+                    [ "write", "/dev/foo" ]
+                ],
                 "thpool-boost": [ "random", "foo", "bar" ],
                 "thpool-math": [ "integer", "float" ]
             }

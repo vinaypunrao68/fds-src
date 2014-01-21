@@ -44,19 +44,22 @@ class Thrpool_ProbeMod : public ProbeMod
 class UT_ThpoolSyscall : public JsObject
 {
   public:
-    virtual JsObject *js_exec_obj(JsObject *array, JsObjTemplate *templ);
+    virtual JsObject *js_exec_obj(JsObject *array, JsObjTemplate *templ,
+                                  std::list<std::string> *out);
 };
 
 class UT_ThpoolBoost : public JsObject
 {
   public:
-    virtual JsObject *js_exec_obj(JsObject *array, JsObjTemplate *templ);
+    virtual JsObject *js_exec_obj(JsObject *array, JsObjTemplate *templ,
+                                  std::list<std::string> *out);
 };
 
 class UT_ThpoolMath : public JsObject
 {
   public:
-    virtual JsObject *js_exec_obj(JsObject *array, JsObjTemplate *templ);
+    virtual JsObject *js_exec_obj(JsObject *array, JsObjTemplate *templ,
+                                  std::list<std::string> *out);
 };
 
 class UT_ThpoolSvcTemplate : public JsObjTemplate

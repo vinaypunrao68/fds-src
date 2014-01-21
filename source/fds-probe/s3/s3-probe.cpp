@@ -1,6 +1,8 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
+#include <list>
+#include <string>
 #include <fds-probe/s3-probe.h>
 #include <util/fds_stat.h>
 #include <am-plugin.h>
@@ -243,16 +245,30 @@ Probe_PutBucket::~Probe_PutBucket()
 static void
 ctrl_obj_write(ProbeS3Eng *s3eng, Probe_PutBucket *put, char *buf)
 {
-    json_t       *root;
-    JsObjManager *objs;
-    json_error_t  err;
+    int                     got, len;
+    json_t                 *root;
+    char                   *cur;
+    AME_Ctx                *ctx;
+    ame_buf_t              *mem;
+    JsObjManager           *objs;
+    json_error_t            err;
+    std::list<std::string>  out;
 
     objs = s3eng->probe_get_obj_mgr();
     root = json_loads(buf, 0, &err);
     if (root != NULL) {
-        objs->js_exec(root);
+        objs->js_exec(root, &out);
         json_decref(root);
     }
+    ctx = put->ame_get_context();
+    mem = ctx->ame_alloc_buf(1 << 20, &cur, &got);
+    ctx->ame_push_output_buf(mem);
+
+    std::list<std::string>::iterator it = out.begin();
+    len = JsObject::js_output(&out, &it, cur, got);
+    mem->last = mem->pos + len;
+
+    std::cout << "buff: " << cur << ", len " << len << std::endl;
     put->ame_signal_resume(NGX_HTTP_OK);
 }
 
@@ -262,7 +278,18 @@ ctrl_obj_write(ProbeS3Eng *s3eng, Probe_PutBucket *put, char *buf)
 int
 Probe_PutBucket::ame_request_resume()
 {
-    ame_finalize_response(ame_resp_status);
+    int        len;
+    char      *adr;
+    ame_buf_t *buf;
+
+    adr = ame_ctx->ame_curr_output_buf(&buf, &len);
+    if (len > 0) {
+        ame_set_std_resp(NGX_HTTP_OK, len);
+        ame_send_response_hdr();
+        ame_send_resp_data(buf, len, true);
+    } else {
+        ame_finalize_response(NGX_HTTP_OK);
+    }
     return NGX_DONE;
 }
 

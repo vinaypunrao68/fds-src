@@ -3,8 +3,9 @@
  *
  * Template to write probe adapter.  Replace Thrpool with your namespace.
  */
-#include <thrpool-api.h>
+#include <list>
 #include <string>
+#include <thrpool-api.h>
 #include <utest-types.h>
 
 namespace fds {
@@ -117,7 +118,8 @@ Thrpool_ProbeMod::mod_shutdown()
 // Threadpool control path
 // ----------------------------------------------------------------------------
 JsObject *
-UT_ThpoolSyscall::js_exec_obj(JsObject *parent, JsObjTemplate *templ)
+UT_ThpoolSyscall::js_exec_obj(JsObject *parent, JsObjTemplate *templ,
+                              std::list<std::string> *out)
 {
     int       i, num;
     JsObject *obj;
@@ -130,21 +132,23 @@ UT_ThpoolSyscall::js_exec_obj(JsObject *parent, JsObjTemplate *templ)
         std::cout << static_cast<char *>(obj->js_pod_object()) << ' ';
     }
     std::cout << std::endl;
-    return JsObject::js_exec_obj(this, templ);
+    return JsObject::js_exec_obj(this, templ, out);
 }
 
 JsObject *
-UT_ThpoolBoost::js_exec_obj(JsObject *parent, JsObjTemplate *templ)
+UT_ThpoolBoost::js_exec_obj(JsObject *parent, JsObjTemplate *templ,
+                            std::list<std::string> *out)
 {
     std::cout << "Thread boost args is called... " << std::endl;
-    return JsObject::js_exec_obj(this, templ);
+    return JsObject::js_exec_obj(this, templ, out);
 }
 
 JsObject *
-UT_ThpoolMath::js_exec_obj(JsObject *parent, JsObjTemplate *templ)
+UT_ThpoolMath::js_exec_obj(JsObject *parent, JsObjTemplate *templ,
+                           std::list<std::string> *out)
 {
     std::cout << "Thread pool math is called... " << std::endl;
-    return JsObject::js_exec_obj(this, templ);
+    return JsObject::js_exec_obj(this, templ, out);
 }
 
 }  // namespace fds
