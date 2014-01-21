@@ -147,13 +147,13 @@ namespace fds {
     class OrchMgr:
     public FdsProcess,
     public Module {
-    public:
-      class FDSP_OMControlPathReqHandler;
   private:
         fds_log *om_log;
         SysParams *sysParams;
-        netSessionTbl* net_session_tbl;
-	boost::shared_ptr<FDSP_OMControlPathReqHandler> omc_req_handler;
+        /* net session tbl for OM control path*/
+        boost::shared_ptr<netSessionTbl> omcp_session_tbl; 
+	boost::shared_ptr<FDSP_OMControlPathReqIf> omcp_req_handler;
+        boost::shared_ptr<FDSP_ControlPathRespIf> cp_resp_handler;
         std::string my_node_name;
 
         /*

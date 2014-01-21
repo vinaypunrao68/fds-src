@@ -34,7 +34,6 @@
 
 using namespace apache::thrift;
 using namespace apache::thrift::protocol;
-using namespace apache::thrift::transport;
 using namespace apache::thrift::concurrency;
 
 using namespace std;

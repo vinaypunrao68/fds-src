@@ -23,7 +23,6 @@
 
 using namespace ::apache::thrift;
 using namespace ::apache::thrift::protocol;
-using namespace ::apache::thrift::transport;
 using namespace ::apache::thrift::concurrency;
 
 using namespace FDS_ProtocolInterface;
@@ -96,8 +95,8 @@ public:
 netClientSession(string node_name, int port, FDSP_MgrIdType local_mgr,
                  FDSP_MgrIdType remote_mgr) 
         : netSession(node_name, port, local_mgr, remote_mgr),
-            socket(new TSocket(node_name, port)),
-            transport(new TBufferedTransport(socket)),
+            socket(new apache::thrift::transport::TSocket(node_name, port)),
+            transport(new apache::thrift::transport::TBufferedTransport(socket)),
             protocol(new TBinaryProtocol(transport)) {
     }
     
@@ -321,8 +320,8 @@ public :
                    FDSP_MgrIdType remote_mgr_id,
                    int num_threads) : 
                    netSession(node_name, port, local_mgr_id, remote_mgr_id) { 
-       serverTransport.reset(new TServerSocket(port));
-       transportFactory.reset( new TBufferedTransportFactory());
+       serverTransport.reset(new apache::thrift::transport::TServerSocket(port));
+       transportFactory.reset( new apache::thrift::transport::TBufferedTransportFactory());
        protocolFactory.reset( new TBinaryProtocolFactory());
 
        threadManager = ThreadManager::newSimpleThreadManager(num_threads);
@@ -375,7 +374,8 @@ class netDataPathServerSession : public netServerSession {
     void setClientInternal(const boost::shared_ptr<TTransport> transport) {
          printf("netSessionServer internal: set DataPathRespClient\n");
         protocol_.reset(new TBinaryProtocol(transport));
-        boost::shared_ptr<TSocket> sock = boost::static_pointer_cast<TSocket>(transport);
+        boost::shared_ptr<apache::thrift::transport::TSocket> sock =
+                boost::static_pointer_cast<apache::thrift::transport::TSocket>(transport);
         // Convert any IPv4 mapped address to normal ipv4 address for the key
         std::string peer_addr = sock->getPeerAddress();
         std::string peer_address;
@@ -451,7 +451,8 @@ class netMetaDataPathServerSession : public netServerSession {
     void setClientInternal(const boost::shared_ptr<TTransport> transport) {
         printf("netSessionServer internal: set MetaDataPathRespClient\n");
         protocol_.reset(new TBinaryProtocol(transport));
-        boost::shared_ptr<TSocket> sock = boost::static_pointer_cast<TSocket>(transport);
+        boost::shared_ptr<apache::thrift::transport::TSocket> sock =
+                boost::static_pointer_cast<apache::thrift::transport::TSocket>(transport);
         string peer_addr = sock->getPeerAddress();
         respClient[peer_addr] = (metaDataPathRespClient)new FDSP_MetaDataPathRespClient(protocol_);
     }
@@ -512,7 +513,8 @@ netControlPathServerSession(const std::string& dest_node_name,
     void setClientInternal(const boost::shared_ptr<TTransport> transport) {
         printf("netSessionServer internal: set DataPathRespClient\n");
         protocol_.reset(new TBinaryProtocol(transport));
-        boost::shared_ptr<TSocket> sock = boost::static_pointer_cast<TSocket>(transport);
+        boost::shared_ptr<apache::thrift::transport::TSocket> sock =
+                boost::static_pointer_cast<apache::thrift::transport::TSocket>(transport);
         string peer_addr = sock->getPeerAddress();
         respClient[peer_addr] = (controlPathRespClient)new FDSP_ControlPathRespClient(protocol_);
     }
@@ -572,7 +574,8 @@ netOMControlPathServerSession(const std::string& dest_node_name,
     void setClientInternal(const boost::shared_ptr<TTransport> transport) {
         printf("netSessionServer internal: set OMControlPathRespClient\n");
         protocol_.reset(new TBinaryProtocol(transport));
-        boost::shared_ptr<TSocket> sock = boost::static_pointer_cast<TSocket>(transport);
+        boost::shared_ptr<apache::thrift::transport::TSocket> sock =
+                boost::static_pointer_cast<apache::thrift::transport::TSocket>(transport);
         string peer_addr = sock->getPeerAddress();
         respClient[peer_addr] = (omControlPathRespClient)new FDSP_OMControlPathRespClient(protocol_);
     }
