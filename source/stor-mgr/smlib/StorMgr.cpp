@@ -346,7 +346,7 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
 
     /* Set up FDSP RPC endpoints */
     nst_ = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_MGR));
-    myIp = netSession::get_local_ip();
+    myIp = netSession::getLocalIp();
     setup_datapath_server(myIp);
 
     /*
@@ -397,7 +397,8 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
             myIp,
             conf_helper_.get<int>("data_port"),
             stor_prefix + "localhost-sm",
-            sm_log);
+            sm_log,
+            nst_);
 
     /*
      * Create local volume table. Create after omClient
