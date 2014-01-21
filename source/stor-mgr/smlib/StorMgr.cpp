@@ -416,6 +416,7 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
             eviction_policy_type_default,
             objStorMgr->GetLog());
 
+    // TODO: join this thread
     std::thread *stats_thread = new std::thread(log_ocache_stats);
 
     /*

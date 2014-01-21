@@ -242,7 +242,7 @@ int OMgrClient::startAcceptingControlMessages(fds_uint32_t port_num) {
   }
   std::string myIp = netSession::getLocalIp();
   int myIpInt = netSession::ipString2Addr(myIp);
-  boost::shared_ptr<OMgrClientRPCI> omrpc_handler_(new OMgrClientRPCI(this));
+  omrpc_handler_.reset(new OMgrClientRPCI(this));
   // TODO: Ideally createServerSession should take a shared pointer
   // for omrpc_handler_.  Make sure that happens.  Otherwise you
   // end up with a pointer leak.
