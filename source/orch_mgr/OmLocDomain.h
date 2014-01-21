@@ -149,9 +149,12 @@ namespace fds {
                 }
         
         ~NodeInfo() {
+        }
+
+	void endClientSession() {
             net_session_tbl->endSession(node_ip_address,
                                         node_type);
-        }
+	}
 
 	FDSP_ControlPathReqClientPtr getClient() const {
 	  netSession* client_session =
