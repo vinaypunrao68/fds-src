@@ -122,11 +122,11 @@ fdsNetProbeMod::pr_put(ProbeRequest *req)
 
     io = static_cast<ProbeIORequest *>(req);
 
-    // TODO(andrew): Put the put logic here
     std::cout << "Sending a put()" << std::endl;
     boost::shared_ptr<FDSP_MsgHdrType> fdspMsg =
             boost::shared_ptr<FDSP_MsgHdrType>(new FDSP_MsgHdrType());
     fdspMsg->src_node_name = localIp;
+    fdspMsg->src_port      = 0;
     boost::shared_ptr<FDSP_PutObjType> putObjReq =
             boost::shared_ptr<FDSP_PutObjType>(new FDSP_PutObjType());
     dpClient->PutObject(fdspMsg, putObjReq);
@@ -142,11 +142,11 @@ fdsNetProbeMod::pr_get(ProbeRequest *req)
 
     io = static_cast<ProbeIORequest *>(req);
 
-    // TODO(andrew): Put the get logic here
     std::cout << "Sending a get()" << std::endl;
     boost::shared_ptr<FDSP_MsgHdrType> fdspMsg =
             boost::shared_ptr<FDSP_MsgHdrType>(new FDSP_MsgHdrType());
     fdspMsg->src_node_name = localIp;
+    fdspMsg->src_port      = 0;
     boost::shared_ptr<FDSP_GetObjType> getObjReq =
             boost::shared_ptr<FDSP_GetObjType>(new FDSP_GetObjType());
     dpClient->GetObject(fdspMsg, getObjReq);
