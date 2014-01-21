@@ -47,7 +47,7 @@ std::string FdsCountersMgr::export_as_graphite()
     for (auto counters : exp_counters_) {
         std::string counters_id = counters->id();
         for (auto c : counters->exp_counters_) {
-            // oss << counters_id << "." << c->id() << " " << c->value() << std::endl;
+            oss << counters_id << "." << c->id() << " " << c->value() << std::endl;
         }
     }
     return oss.str();
