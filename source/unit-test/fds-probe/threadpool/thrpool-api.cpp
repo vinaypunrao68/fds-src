@@ -189,7 +189,7 @@ UT_ThpoolBoost::js_exec_obj(JsObject *parent, JsObjTemplate *templ,
         std::cout << "Invalid op: " << op << std::endl;
     }
 
-    return JsObject::js_exec_obj(this, templ);
+    return JsObject::js_exec_obj(this, templ, out);
 }
 
 UT_ThpoolBoost_Array2D UT_ThpoolBoost::ut_thpboost_array(boost::extents[10][10]);
