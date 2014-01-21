@@ -339,7 +339,11 @@ void netSession::endSession()
     } else { 
        netClientSession *clientSession = 
                            dynamic_cast<netClientSession *>(this);
-       clientSession->endSession();
+       if (clientSession) {
+           clientSession->endSession();
+       } else {
+           printf("** NetSession Error - unable to end client session \n");
+       }
 
     }
 }
