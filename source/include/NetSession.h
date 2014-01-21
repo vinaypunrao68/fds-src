@@ -51,7 +51,7 @@ public:
     void setSessionErrHandler(sessionErrorCallback cback);
     
     virtual ~netSession();
-    void     endSession();
+    virtual void endSession() = 0;
     
     int 		node_index;
     int 		channel_number;
@@ -100,11 +100,14 @@ netClientSession(string node_name, int port, FDSP_MgrIdType local_mgr,
             protocol(new TBinaryProtocol(transport)) {
     }
     
-    ~netClientSession() {
+    virtual ~netClientSession() {
+        if (transport->isOpen())
+            transport->close();
     }
 
-    void endSession() { 
-       transport->close();
+    virtual void endSession() { 
+        if (transport->isOpen())
+            transport->close();
     }
     
 protected:
@@ -137,11 +140,11 @@ netDataPathClientSession(const std::string& ip_addr_str,
         transport->open();
     }
     ~netDataPathClientSession() {
-        transport->close();
     }
 
     void endSession() { 
-       transport->close();
+        if (transport->isOpen())
+            transport->close();
     }
 
     boost::shared_ptr<FDSP_DataPathReqClient> getClient() {
@@ -181,13 +184,13 @@ netMetaDataPathClientSession(const std::string& ip_addr_str,
         transport->open();
     }
     ~netMetaDataPathClientSession() {
-        transport->close();
     }
     boost::shared_ptr<FDSP_MetaDataPathReqClient> getClient() {
         return fdspMDPAPI;
     }
-    void endSession() { 
-         transport->close();
+    void endSession() {
+        if (transport->isOpen()) 
+            transport->close();
     }
     
 private:
@@ -224,13 +227,13 @@ netControlPathClientSession(const std::string& ip_addr_str,
         transport->open();
     }
     ~netControlPathClientSession() {
-        transport->close();
     }
     boost::shared_ptr<FDSP_ControlPathReqClient> getClient() {
         return fdspCPAPI;
     }
     void endSession() { 
-         transport->close();
+        if (transport->isOpen())
+            transport->close();
     }
 
 private:
@@ -265,13 +268,13 @@ netOMControlPathClientSession(const std::string& ip_addr_str,
         transport->open();
     }
     ~netOMControlPathClientSession() {
-        transport->close();
     }
     boost::shared_ptr<FDSP_OMControlPathReqClient> getClient() {
         return fdspOMCPAPI;
     }
     void endSession() { 
-         transport->close();
+        if (transport->isOpen())
+            transport->close();
     }
 
 private:
@@ -300,10 +303,13 @@ netConfigPathClientSession(const std::string& ip_addr_str,
         transport->open();
     }
     ~netConfigPathClientSession() {
-        transport->close();
+    }
+    boost::shared_ptr<FDSP_ConfigPathReqClient> getClient() {
+        return fdspConfAPI;
     }
     void endSession() { 
-         transport->close();
+        if (transport->isOpen())
+            transport->close();
     }
     
 private:
@@ -330,11 +336,10 @@ public :
        threadManager->start();
   }
 
-  ~netServerSession() {
+  virtual ~netServerSession() {
   }
 
-  void endSession() { 
-    serverTransport->close();
+  virtual void endSession() { 
   }
 
 protected:
@@ -517,7 +522,6 @@ netControlPathServerSession(const std::string& dest_node_name,
     }
 
     ~netControlPathServerSession() {
-        server->stop();
     }
  
     // Called from within thrift and the right context is passed - nothing to do in the application modules of thrift
@@ -551,6 +555,7 @@ netControlPathServerSession(const std::string& dest_node_name,
         server->serve();
     }
     void endSession() { 
+        server->stop();
     }
     
 private:
@@ -559,7 +564,7 @@ private:
     boost::shared_ptr<TProcessorFactory> processorFactory;
     boost::shared_ptr<TThreadPoolServer> server;
     boost::shared_ptr<TProtocol> protocol_;
-typedef boost::shared_ptr<FDSP_ControlPathRespClient> controlPathRespClient;
+    typedef boost::shared_ptr<FDSP_ControlPathRespClient> controlPathRespClient;
     std::unordered_map<std::string, controlPathRespClient> respClient;
 };
 
@@ -578,7 +583,6 @@ netOMControlPathServerSession(const std::string& dest_node_name,
     }
 
     ~netOMControlPathServerSession() {
-        server->stop();
     }
  
     // Called from within thrift and the right context is passed - nothing to do in the application modules of thrift
@@ -611,7 +615,9 @@ netOMControlPathServerSession(const std::string& dest_node_name,
         printf("Starting the server...\n");
         server->serve();
     }
+
     void endSession() { 
+        server->stop();
     }
 
 private:
@@ -641,7 +647,6 @@ netConfigPathServerSession(const std::string& dest_node_name,
     }
 
     ~netConfigPathServerSession() {
-        server->stop();
     }
  
     void listenServer() {         
@@ -653,6 +658,10 @@ netConfigPathServerSession(const std::string& dest_node_name,
         
         printf("Starting the server...\n");
         server->serve();
+    }
+
+    void endSession() {
+        server->stop();
     }
 
 private:

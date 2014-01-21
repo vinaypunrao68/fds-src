@@ -21,7 +21,8 @@ OrchMgr::OrchMgr(int argc, char *argv[],
       ctrl_port_num(0),
       test_mode(false),
       omcp_req_handler(new FDSP_OMControlPathReqHandler(this)),
-      cp_resp_handler(new FDSP_ControlPathRespHandler(this)) {
+      cp_resp_handler(new FDSP_ControlPathRespHandler(this)),
+      cfg_req_handler(new FDSP_ConfigPathReqHandler(this)) {
     
     om_log  = g_fdslog;
     om_mutex = new fds_mutex("OrchMgrMutex");
@@ -45,6 +46,9 @@ OrchMgr::OrchMgr(int argc, char *argv[],
 
 OrchMgr::~OrchMgr() {
     FDS_PLOG(om_log) << "Destructing the Orchestration  Manager";
+
+    cfg_session_tbl->endAllSessions();
+    cfgserver_thread->join();
 
     delete om_log;
     if (policy_mgr)
@@ -141,6 +145,24 @@ void OrchMgr::setup(int argc, char* argv[],
                                           omcp_req_handler.get());
     
     /*
+     * Setup server session to listen to config path messages from fdscli
+     */
+    cfg_session_tbl = boost::shared_ptr<netSessionTbl>(
+        new netSessionTbl(my_node_name,
+                          netSession::ipString2Addr(ip_address),
+                          config_portnum,
+                          10,
+                          FDS_ProtocolInterface::FDSP_ORCH_MGR));
+
+    cfg_session_tbl->createServerSession(netSession::ipString2Addr(ip_address),
+                                         config_portnum,
+                                         my_node_name,
+                                         FDS_ProtocolInterface::FDSP_CLI_MGR,
+                                         cfg_req_handler.get());
+
+    cfgserver_thread.reset(new std::thread(&OrchMgr::start_cfgpath_server, this));
+
+    /*
      * setup CLI client adaptor interface  this also used for receiving the node up
      * messages from DM, SH and SM 
      */
@@ -179,12 +201,24 @@ void OrchMgr::run()
         omcp_session_tbl->listenServer(omc_server_session);
 }
 
+void OrchMgr::start_cfgpath_server()
+{
+    netSession* cfg_server_session = 
+            cfg_session_tbl->getSession(my_node_name,
+                                        FDS_ProtocolInterface::FDSP_CLI_MGR);
+    
+    if (cfg_server_session)
+        cfg_session_tbl->listenServer(cfg_server_session);
+}
+
 void OrchMgr::interrupt_cb(int signum)
 {
     FDS_PLOG(orchMgr->GetLog())
             << "OrchMgr: Shutting down communicator";
 
     omcp_session_tbl.reset();
+    cfg_session_tbl.reset();
+    exit(0);
 }
 
 fds_log* OrchMgr::GetLog() {

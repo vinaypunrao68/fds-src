@@ -10,12 +10,11 @@
 
 namespace fds {
 FdsCli  *fdsCli;
-std::ostringstream tcpProxyStr;
-// FDSP_ConfigPathReqPrx  cfgPrx; // TODO(thrift)
 
 FdsCli::FdsCli(const boost::shared_ptr<FdsConfig>& omconf)
         : Module("Fds Cli"),
-          om_config(omconf) {
+          om_config(omconf),
+          my_node_name("fdscli") {
     cli_log = new fds_log("cli", "logs");
     cli_log->setSeverityFilter(
         (fds_log::severity_level) om_config->get<int>("fds.om.log_severity"));
@@ -83,6 +82,21 @@ FDS_ProtocolInterface::FDSP_VolType FdsCli::stringToVolType(
     return FDS_ProtocolInterface::FDSP_VOL_S3_TYPE;
 }
 
+FDSP_ConfigPathReqClientPtr FdsCli::startClientSession() {
+    netSession* client_session =
+            net_session_tbl->startSession(om_ip,
+                                          om_cfg_port,
+                                          FDS_ProtocolInterface::FDSP_ORCH_MGR,
+                                          1,
+                                          NULL);
+    fds_verify(client_session != NULL);
+    return static_cast<netConfigPathClientSession*>(client_session)->getClient();
+}
+
+void FdsCli::endClientSession() {
+    net_session_tbl->endSession(om_ip, FDS_ProtocolInterface::FDSP_ORCH_MGR);
+}
+
 int FdsCli::fdsCliParser(int argc, char* argv[])
 {
     FDS_ProtocolInterface::FDSP_MsgHdrType msg_hdr;
@@ -139,9 +153,6 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
              "OM config port"); /* Consumed already */
 
     po::variables_map vm;
-    // TODO(thrift)
-    //    Ice::ObjectPrx proxy = communicator()->stringToProxy(tcpProxyStr.str());
-
     po::store(po::command_line_parser(argc, argv).
               options(desc).allow_unregistered().run(), vm);
     po::notify(vm);
@@ -151,6 +162,8 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         gl_OMCli.mod_run();
         return 1;
     }
+
+    FDSP_ConfigPathReqClientPtr cfgPrx = startClientSession();
 
     if (vm.count("volume-create") && vm.count("volume-size") &&
         vm.count("volume-policy") && vm.count("volume-id")) {
@@ -189,14 +202,10 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         volData.vol_info.placementPolicy = 0;
         volData.vol_info.appWorkload = FDS_ProtocolInterface::FDSP_APP_WKLD_TRANSACTION;
 
-        // TODO(thift)
-        /*
-        cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(proxy);
-        if((return_code = cfgPrx->CreateVol(msg_hdr, volData)) !=0 ) {
+        if ((return_code = cfgPrx->CreateVol(msg_hdr, volData)) !=0) {
             std::system("clear");
             cout << "Error: Creating the Volume, Running out of Disk  resources \n";
         }
-        */
 
     } else if (vm.count("volume-modify") && vm.count("volume-size")) {
         FDS_PLOG_SEV(cli_log, fds_log::notification)
@@ -254,9 +263,7 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
             volData.vol_desc.rel_prio = vm["rel-prio"].as<int>();
         }
 
-        // TODO(thrift)
-        // cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(proxy);
-        // cfgPrx->ModifyVol(msg_hdr, volData);
+        cfgPrx->ModifyVol(msg_hdr, volData);
 
     } else if (vm.count("volume-delete") && vm.count("volume-id")) {
         FDS_PLOG_SEV(cli_log, fds_log::notification)
@@ -269,9 +276,7 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         FDS_ProtocolInterface::FDSP_DeleteVolType volData;
         volData.vol_name = vm["volume-delete"].as<std::string>();
 
-        // TODO(thrift)
-        // cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(proxy);
-        // cfgPrx->DeleteVol(msg_hdr, volData);
+        cfgPrx->DeleteVol(msg_hdr, volData);
 
     } else if (vm.count("volume-attach") &&
                vm.count("volume-id") &&
@@ -290,9 +295,7 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         volData.node_id = vm["node-id"].as<std::string>();
         msg_hdr.src_node_name = vm["node-id"].as<std::string>();
 
-        // TODO(thrift)
-        // cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(proxy);
-        // cfgPrx->AttachVol(msg_hdr, volData);
+        cfgPrx->AttachVol(msg_hdr, volData);
 
     } else if (vm.count("volume-detach") &&
                vm.count("volume-id") &&
@@ -310,9 +313,7 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         volData.vol_name = vm["volume-detach"].as<std::string>();
         volData.node_id = vm["node-id"].as<std::string>();
 
-        // TODO(thrift)
-        // cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(proxy);
-        // cfgPrx->DetachVol(msg_hdr, volData);
+        cfgPrx->DetachVol(msg_hdr, volData);
 
     } else if ( vm.count("policy-create") && vm.count("volume-policy") && \
                 vm.count("iops-max") && vm.count("iops-max") && vm.count("rel-prio")) {
@@ -338,9 +339,7 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         policyData.policy_info.iops_max = vm["iops-max"].as<double>();
         policyData.policy_info.rel_prio = vm["rel-prio"].as<int>();
 
-        // TODO(thrift)
-        // cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(proxy);
-        // cfgPrx->CreatePolicy(msg_hdr, policyData);
+        cfgPrx->CreatePolicy(msg_hdr, policyData);
 
     } else if (vm.count("policy-delete") && vm.count("volume-policy")) {
         FDS_PLOG_SEV(cli_log, fds_log::notification)
@@ -355,9 +354,7 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         policyData.policy_name = vm["policy-delete"].as<std::string>();
         policyData.policy_id = vm["volume-policy"].as<int>();
 
-        // TODO(thrift)
-        // cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(proxy);
-        // cfgPrx->DeletePolicy(msg_hdr, policyData);
+        cfgPrx->DeletePolicy(msg_hdr, policyData);
 
     } else if (vm.count("policy-modify") && vm.count("volume-policy") && \
                vm.count("iops-max") && vm.count("iops-max") && vm.count("rel-prio")) {
@@ -383,9 +380,7 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         policyData.policy_info.iops_max = vm["iops-max"].as<double>();
         policyData.policy_info.rel_prio = vm["rel-prio"].as<int>();
 
-        // TODO(thrift)
-        // cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(proxy);
-        // cfgPrx->ModifyPolicy(msg_hdr, policyData);
+        cfgPrx->ModifyPolicy(msg_hdr, policyData);
 
     } else if (vm.count("domain-create") && vm.count("domain-id")) {
         FDS_PLOG_SEV(cli_log, fds_log::notification)
@@ -399,9 +394,7 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         domainData.domain_name = vm["domain-create"].as<std::string>();
         domainData.domain_id = vm["domain-id"].as<int>();
 
-        // TODO(thrift)
-        // cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(proxy);
-        // cfgPrx->CreateDomain(msg_hdr, domainData);
+        cfgPrx->CreateDomain(msg_hdr, domainData);
 
     } else if (vm.count("domain-delete") && vm.count("domain-id")) {
         FDS_PLOG_SEV(cli_log, fds_log::notification)
@@ -415,9 +408,7 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         domainData.domain_name = vm["domain-delete"].as<std::string>();
         domainData.domain_id = vm["domain-id"].as<int>();
 
-        // TODO(thrift)
-        // cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(proxy);
-        // cfgPrx->DeleteDomain(msg_hdr, domainData);
+        cfgPrx->DeleteDomain(msg_hdr, domainData);
     } else if (vm.count("domain-stats") && vm.count("domain-id")) {
         FDS_PLOG_SEV(cli_log, fds_log::notification)
                 << " Domain Stats ";
@@ -427,9 +418,7 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         FDS_ProtocolInterface::FDSP_GetDomainStatsType domainData;
         domainData.domain_id = vm["domain-id"].as<int>();
 
-        // TODO(thrift)
-        // cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(proxy);
-        // cfgPrx->GetDomainStats(msg_hdr, domainData);
+        cfgPrx->GetDomainStats(msg_hdr, domainData);
 
     } else if (vm.count("throttle") && vm.count("throttle-level")) {
         FDS_PLOG_SEV(cli_log, fds_log::notification)
@@ -441,13 +430,12 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         throttle_msg.domain_id = 0;
         throttle_msg.throttle_level = vm["throttle-level"].as<float>();
 
-        // TODO(thrift)
-        // cfgPrx = FDSP_ConfigPathReqPrx::checkedCast(proxy);
-        // cfgPrx->SetThrottleLevel(msg_hdr, throttle_msg);
+        cfgPrx->SetThrottleLevel(msg_hdr, throttle_msg);
     } else {
         gl_OMCli.mod_run();
     }
 
+    endClientSession();
     return 0;
 }
 
@@ -476,7 +464,16 @@ int FdsCli::run(int argc, char* argv[])
         omIpStr = om_config->get<std::string>("fds.om.ip_address");
     }
 
-    tcpProxyStr << "OrchMgr: tcp -h " << omIpStr << " -p  " << omConfigPort;
+    /* remember port and ip for getting client later */
+    om_cfg_port = omConfigPort;
+    om_ip = netSession::ipString2Addr(omIpStr);
+
+    net_session_tbl = boost::shared_ptr<netSessionTbl>(
+        new netSessionTbl(my_node_name,
+                          om_ip,
+                          om_cfg_port,
+                          10,
+                          FDS_ProtocolInterface::FDSP_CLI_MGR));
 
     fdsCli->fdsCliParser(argc, argv);
 }

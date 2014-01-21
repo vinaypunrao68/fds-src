@@ -156,6 +156,12 @@ namespace fds {
         boost::shared_ptr<FDSP_ControlPathRespIf> cp_resp_handler;
         std::string my_node_name;
 
+        /* net session tbl for OM config path server */
+        boost::shared_ptr<netSessionTbl> cfg_session_tbl;
+        boost::shared_ptr<FDSP_ConfigPathReqIf> cfg_req_handler;
+        /* config path server is run on this thread */
+        boost::shared_ptr<std::thread> cfgserver_thread;
+
         /*
          * TODO: These maps should eventually be pulled out into
          * a separate class that defines a cluster map. In other
@@ -199,6 +205,7 @@ namespace fds {
             const std::string& default_config_path,
             const std::string& base_path);
     ~OrchMgr();
+    void start_cfgpath_server();
 
     /**** From FdsProcess ****/
     virtual void setup(int argc, char *argv[], fds::Module **mod_vec) override;

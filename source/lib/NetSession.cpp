@@ -202,7 +202,6 @@ netSession* netSessionTbl::setupServerSession(const std::string& dest_node_name,
 
 netSession::~netSession()
 {
-    this->endSession();
 }
 
 /*
@@ -363,26 +362,6 @@ netSession *netSessionTbl::getSession(int ip_addr, FDSP_MgrIdType mgr_id)
 {
     std::string node_name = ipAddr2String(ip_addr);
     return getSession(node_name, mgr_id);
-}
-
-void netSession::endSession() 
-{
-    // TODO -- calling delete on netSession should close everything I think 
-    //   transport->close();
-    if ( role == NETSESS_SERVER) { 
-       netServerSession *servSession = 
-                           dynamic_cast<netServerSession *>(this);
-       servSession->endSession();
-    } else { 
-       netClientSession *clientSession = 
-                           dynamic_cast<netClientSession *>(this);
-       if (clientSession) {
-           clientSession->endSession();
-       } else {
-           printf("** NetSession Error - unable to end client session \n");
-       }
-
-    }
 }
 
 void netSessionTbl::endSession(int  dst_ip_addr, FDSP_MgrIdType mgr_id) 
