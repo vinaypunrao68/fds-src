@@ -631,7 +631,8 @@ void DataMgr::setup(int argc, char* argv[], fds::Module **mod_vec) {
                                 myIp,
                                 port_num,
                                 node_name,
-                                dm_log);
+                                dm_log,
+                                nstable);
       omClient->initialize();
       omClient->registerEventHandlerForNodeEvents(node_handler);
       omClient->registerEventHandlerForVolEvents(vol_handler);
