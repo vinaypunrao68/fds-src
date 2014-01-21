@@ -132,7 +132,7 @@ netSession* netSessionTbl::setupServerSession(const std::string& dest_node_name,
                                                     port,
                                                     local_mgr_id,
                                                     remote_mgr_id,
-                                                    num_threads, /* number of threads (TODO) */
+                                                    num_threads,
                                                     SvrObj)); 
             } else {
                 session = dynamic_cast<netSession *>(
@@ -140,7 +140,7 @@ netSession* netSessionTbl::setupServerSession(const std::string& dest_node_name,
                                                  port,
                                                  local_mgr_id,
                                                  remote_mgr_id,
-                                                 num_threads, /* number of threads (TODO) */
+                                                 num_threads,
                                                  SvrObj)); 
             }
             break;
@@ -152,7 +152,7 @@ netSession* netSessionTbl::setupServerSession(const std::string& dest_node_name,
                                                   port,
                                                   local_mgr_id,
                                                   remote_mgr_id,
-                                                  num_threads, /* number of threads (TODO) */
+                                                  num_threads,
                                                   SvrObj));             
             } else {
 	      session = dynamic_cast<netSession *>(
@@ -160,10 +160,21 @@ netSession* netSessionTbl::setupServerSession(const std::string& dest_node_name,
                                                    port,
                                                    local_mgr_id,
                                                    remote_mgr_id,
-                                                   num_threads, /* number of threads (TODO) */
+                                                   num_threads,
                                                    SvrObj)); 
             }
             break;
+
+        case FDSP_STOR_HVISOR :
+            if (remote_mgr_id == FDSP_ORCH_MGR) {
+	      session = dynamic_cast<netSession *>(
+                  new netControlPathServerSession(dest_node_name,
+                                                  port,
+                                                  local_mgr_id,
+                                                  remote_mgr_id,
+                                                  num_threads,
+                                                  SvrObj));             
+            }
 
         case FDSP_ORCH_MGR: 
             if (remote_mgr_id == FDSP_CLI_MGR) { 
@@ -172,7 +183,7 @@ netSession* netSessionTbl::setupServerSession(const std::string& dest_node_name,
                                                    port,
                                                    local_mgr_id,
                                                    remote_mgr_id,
-                                                   num_threads, /* number of threads (TODO) */
+                                                   num_threads, 
                                                    SvrObj)); 
             } else if (remote_mgr_id == FDSP_OMCLIENT_MGR) {
                 session = dynamic_cast<netSession *>(
@@ -180,7 +191,7 @@ netSession* netSessionTbl::setupServerSession(const std::string& dest_node_name,
                                                       port,
                                                       local_mgr_id,
                                                       remote_mgr_id,
-                                                      num_threads, /* number of threads (TODO) */
+                                                      num_threads, 
                                                       SvrObj)); 
             }
             break;
