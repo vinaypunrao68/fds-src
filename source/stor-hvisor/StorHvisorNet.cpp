@@ -740,7 +740,8 @@ StorHvCtrl::StorHvCtrl(int argc,
                              myIp,
                              0,
                              node_name,
-                             sh_log);
+                             sh_log,
+                             rpcSessionTbl);
   if (om_client) {
     om_client->initialize();
   }
@@ -758,7 +759,7 @@ StorHvCtrl::StorHvCtrl(int argc,
   qos_ctrl->registerOmClient(om_client); /* so it will start periodically pushing perfstats to OM */
   om_client->startAcceptingControlMessages(config->get<int>("fds.om.PortNumber"));
 
-   rpcSessionTbl = new netSessionTbl(FDSP_STOR_HVISOR);
+   rpcSessionTbl.reset(new netSessionTbl(FDSP_STOR_HVISOR));
    dPathRespCback = new FDSP_DataPathRespCbackI();
    mPathRespCback = new FDSP_MetaDataPathRespCbackI();
 

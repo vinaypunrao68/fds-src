@@ -48,6 +48,7 @@ public:
                FDS_ProtocolInterface::FDSP_MgrIdType remote_mgr_id);
     static string ipAddr2String(int ipaddr);
     static int ipString2Addr(string ipaddr_str);
+    static std::string getLocalIp();
     void setSessionErrHandler(sessionErrorCallback cback);
     
     virtual ~netSession();
