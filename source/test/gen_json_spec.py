@@ -11,11 +11,17 @@ import make_json_serializable
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--spec_cnt", help="generate n number of unique json spec")
+parser.add_argument("--print_pretty", help="pretty print json spec [1|0]")
 args = parser.parse_args()
 if args.spec_cnt:
     json_comb_default = int(args.spec_cnt)
 else:
     json_comb_default = 0
+
+if args.print_pretty == "1":
+    json_print_pretty = 4
+else:
+    json_print_pretty = None
 
 random.seed(100)
 
@@ -129,7 +135,7 @@ while i < json_combination:
 
     #parse_json(js_spec)
 
-    js_res = json.dumps(js_spec)
+    js_res = json.dumps(js_spec, sort_keys = False, indent = json_print_pretty)
 
     if js_res in json_result_list:
         missed += 1
