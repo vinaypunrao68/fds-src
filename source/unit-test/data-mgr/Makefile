@@ -8,7 +8,7 @@ user_install_loc  := test
 user_incl_dir     := $(topdir)/data_mgr
 user_cpp_flags    := -DDMGR_LIVE_DEBUG
 user_fds_so_libs  :=
-user_fds_ar_libs  := fds-thread fds-util fds-fdsp fds-lib
+user_fds_ar_libs  := fds-lib fds-thread fds-util fds-fdsp
 user_non_fds_libs :=                                                          \
     boost_log \
     boost_filesystem \

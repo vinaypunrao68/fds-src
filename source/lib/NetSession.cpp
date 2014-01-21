@@ -1,8 +1,12 @@
+#include <ifaddrs.h>
 #include <list>
 #include <NetSession.h>
 #include <NetSessRespClient.h>
 #include <NetSessRespSvr.h>
 #include <arpa/inet.h>
+#include <fds_assert.h>
+#include <regex>
+#include <sstream>
 
 netSession::netSession()
     : node_index(0), proto_type(0), port_num(0) {
@@ -33,7 +37,7 @@ netSession* netSessionTbl::setupClientSession(const std::string& dest_node_name,
                                               FDS_ProtocolInterface::FDSP_MgrIdType local_mgr_id, 
                                               FDS_ProtocolInterface::FDSP_MgrIdType remote_mgr_id,
                                               void *respSvrObj) {
-    netSession *session;
+    netSession *session = NULL;
     switch(remote_mgr_id) { 
         case FDSP_STOR_MGR :  
             if (local_mgr_id == FDSP_STOR_HVISOR) { 
@@ -42,7 +46,7 @@ netSession* netSessionTbl::setupClientSession(const std::string& dest_node_name,
                                                  port,
                                                  local_mgr_id,
                                                  remote_mgr_id,
-                                                 num_threads, /* number of threads (TODO) */
+                                                 num_threads, 
                                                  respSvrObj));
  
             } else if (local_mgr_id == FDSP_ORCH_MGR) { 
@@ -51,7 +55,7 @@ netSession* netSessionTbl::setupClientSession(const std::string& dest_node_name,
                                                     port,
                                                     local_mgr_id,
                                                     remote_mgr_id,
-                                                    num_threads, /* number of threads (TODO) */
+                                                    num_threads, 
                                                     respSvrObj)); 
             }
             break;
@@ -63,15 +67,27 @@ netSession* netSessionTbl::setupClientSession(const std::string& dest_node_name,
                                                      port,
                                                      local_mgr_id,
                                                      remote_mgr_id,
-                                                     num_threads, /* number of threasd (TODO) */
+                                                     num_threads,
                                                      respSvrObj)); 
             } else if (local_mgr_id == FDSP_ORCH_MGR) { 
                 session = dynamic_cast<netSession *>(
-                    new netOMControlPathClientSession(dest_node_name,
+                    new netControlPathClientSession(dest_node_name,
                                                     port,
                                                     local_mgr_id,
                                                     remote_mgr_id,
-                                                    num_threads, /* number of threads (TODO) */
+                                                    num_threads, 
+                                                    respSvrObj)); 
+            }
+            break;
+
+        case FDSP_STOR_HVISOR :
+            if (local_mgr_id == FDSP_ORCH_MGR) {
+                session = dynamic_cast<netSession *>(
+                    new netControlPathClientSession(dest_node_name,
+                                                    port,
+                                                    local_mgr_id,
+                                                    remote_mgr_id,
+                                                    num_threads, 
                                                     respSvrObj)); 
             }
             break;
@@ -83,7 +99,7 @@ netSession* netSessionTbl::setupClientSession(const std::string& dest_node_name,
                                                    port,
                                                    local_mgr_id,
                                                    remote_mgr_id,
-                                                   num_threads, /* number of threads (TODO) */
+                                                   num_threads, 
                                                    respSvrObj)); 
             } else if ((local_mgr_id == FDSP_STOR_HVISOR) ||
                        (local_mgr_id == FDSP_STOR_MGR) ||
@@ -93,11 +109,12 @@ netSession* netSessionTbl::setupClientSession(const std::string& dest_node_name,
                                                       port,
                                                       local_mgr_id,
                                                       remote_mgr_id,
-                                                      num_threads, /* number of threads (TODO) */
+                                                      num_threads, 
                                                       respSvrObj)); 
             }
             break;
     } 
+    fds_verify(session != NULL);
     session->setSessionRole(NETSESS_CLIENT);
     return session;
 }
@@ -118,7 +135,7 @@ netSession* netSessionTbl::setupServerSession(const std::string& dest_node_name,
                                                     port,
                                                     local_mgr_id,
                                                     remote_mgr_id,
-                                                    num_threads, /* number of threads (TODO) */
+                                                    num_threads,
                                                     SvrObj)); 
             } else {
                 session = dynamic_cast<netSession *>(
@@ -126,7 +143,7 @@ netSession* netSessionTbl::setupServerSession(const std::string& dest_node_name,
                                                  port,
                                                  local_mgr_id,
                                                  remote_mgr_id,
-                                                 num_threads, /* number of threads (TODO) */
+                                                 num_threads,
                                                  SvrObj)); 
             }
             break;
@@ -138,7 +155,7 @@ netSession* netSessionTbl::setupServerSession(const std::string& dest_node_name,
                                                   port,
                                                   local_mgr_id,
                                                   remote_mgr_id,
-                                                  num_threads, /* number of threads (TODO) */
+                                                  num_threads,
                                                   SvrObj));             
             } else {
 	      session = dynamic_cast<netSession *>(
@@ -146,10 +163,21 @@ netSession* netSessionTbl::setupServerSession(const std::string& dest_node_name,
                                                    port,
                                                    local_mgr_id,
                                                    remote_mgr_id,
-                                                   num_threads, /* number of threads (TODO) */
+                                                   num_threads,
                                                    SvrObj)); 
             }
             break;
+
+        case FDSP_STOR_HVISOR :
+            if (remote_mgr_id == FDSP_ORCH_MGR) {
+	      session = dynamic_cast<netSession *>(
+                  new netControlPathServerSession(dest_node_name,
+                                                  port,
+                                                  local_mgr_id,
+                                                  remote_mgr_id,
+                                                  num_threads,
+                                                  SvrObj));             
+            }
 
         case FDSP_ORCH_MGR: 
             if (remote_mgr_id == FDSP_CLI_MGR) { 
@@ -158,7 +186,7 @@ netSession* netSessionTbl::setupServerSession(const std::string& dest_node_name,
                                                    port,
                                                    local_mgr_id,
                                                    remote_mgr_id,
-                                                   num_threads, /* number of threads (TODO) */
+                                                   num_threads, 
                                                    SvrObj)); 
             } else if (remote_mgr_id == FDSP_OMCLIENT_MGR) {
                 session = dynamic_cast<netSession *>(
@@ -166,7 +194,7 @@ netSession* netSessionTbl::setupServerSession(const std::string& dest_node_name,
                                                       port,
                                                       local_mgr_id,
                                                       remote_mgr_id,
-                                                      num_threads, /* number of threads (TODO) */
+                                                      num_threads, 
                                                       SvrObj)); 
             }
             break;
@@ -176,7 +204,6 @@ netSession* netSessionTbl::setupServerSession(const std::string& dest_node_name,
 
 netSession::~netSession()
 {
-    this->endSession();
 }
 
 /*
@@ -213,6 +240,43 @@ fds_int32_t netSessionTbl::ipString2Addr(string ipaddr_str) {
     sa.sin_addr.s_addr = 0;
     inet_pton(AF_INET, (char *)ipaddr_str.data(), (void *)&(sa.sin_addr));
     return (ntohl(sa.sin_addr.s_addr));
+}
+
+
+
+/**
+ * @return local ip
+ */
+std::string netSession::getLocalIp()
+{
+    struct ifaddrs *ifAddrStruct = NULL;
+    struct ifaddrs *ifa          = NULL;
+    void   *tmpAddrPtr           = NULL;
+    std::string myIp;
+
+    /*
+     * Get the local IP of the host.
+     * This is needed by the OM.
+     */
+    getifaddrs(&ifAddrStruct);
+    for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
+        if (ifa->ifa_addr->sa_family == AF_INET) { // IPv4
+            if (strncmp(ifa->ifa_name, "lo", 2) != 0) {
+                tmpAddrPtr = &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
+                char addrBuf[INET_ADDRSTRLEN];
+                inet_ntop(AF_INET, tmpAddrPtr, addrBuf, INET_ADDRSTRLEN);
+                myIp = std::string(addrBuf);
+                if (myIp.find("10.1") != std::string::npos)
+                    break; /* TODO: more dynamic */
+            }
+        }
+    }
+
+    if (ifAddrStruct != NULL) {
+        freeifaddrs(ifAddrStruct);
+    }
+
+    return myIp;
 }
 
 netSession* netSessionTbl::startSession(int ipaddr,
@@ -303,22 +367,6 @@ netSession *netSessionTbl::getSession(int ip_addr, FDSP_MgrIdType mgr_id)
     return getSession(node_name, mgr_id);
 }
 
-void netSession::endSession() 
-{
-    // TODO -- calling delete on netSession should close everything I think 
-    //   transport->close();
-    if ( role == NETSESS_SERVER) { 
-       netServerSession *servSession = 
-                           dynamic_cast<netServerSession *>(this);
-       servSession->endSession();
-    } else { 
-       netClientSession *clientSession = 
-                           dynamic_cast<netClientSession *>(this);
-       clientSession->endSession();
-
-    }
-}
-
 void netSessionTbl::endSession(int  dst_ip_addr, FDSP_MgrIdType mgr_id) 
 {
     netSession* session = NULL;
@@ -371,7 +419,11 @@ netSession* netSessionTbl::createServerSession(int local_ipaddr,
 void netSessionTbl::listenServer(netSession* server_session) {
     switch(localMgrId) { 
         case FDSP_STOR_MGR: 
-            {
+            if (server_session->getRemoteMgrId() == FDSP_ORCH_MGR) {
+                netControlPathServerSession *servSession = 
+                        reinterpret_cast<netControlPathServerSession *>(server_session);
+                servSession->listenServer();
+            } else {
                 netDataPathServerSession *servSession = 
                         reinterpret_cast<netDataPathServerSession *>(server_session);
                 servSession->listenServer();
@@ -379,13 +431,25 @@ void netSessionTbl::listenServer(netSession* server_session) {
             break;
             
         case FDSP_DATA_MGR: 
-            {
+            if (server_session->getRemoteMgrId() == FDSP_ORCH_MGR) {
+                netControlPathServerSession *servSession = 
+                        reinterpret_cast<netControlPathServerSession *>(server_session);
+                servSession->listenServer();
+            } else {
                 netMetaDataPathServerSession *servSession = 
                         reinterpret_cast<netMetaDataPathServerSession *>(server_session);
                 servSession->listenServer();
             }
             break;
-            
+
+        case FDSP_STOR_HVISOR:
+            if (server_session->getRemoteMgrId() == FDSP_ORCH_MGR) {
+                netControlPathServerSession *servSession = 
+                        reinterpret_cast<netControlPathServerSession *>(server_session);
+                servSession->listenServer();
+            }            
+            break;
+
         case FDSP_ORCH_MGR: 
             if (server_session->getRemoteMgrId() == FDSP_CLI_MGR) { 
                 netConfigPathServerSession *servSession = 

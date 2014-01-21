@@ -9,6 +9,7 @@
 #include <ifaddrs.h>
 #include <arpa/inet.h>
 #include <stdlib.h>
+#include <thread>
 
 #include "fdsp/FDSP_types.h"
 #include "fdsp/FDSP_ControlPathReq.h"
@@ -18,6 +19,7 @@
 #include <unordered_map>
 #include <concurrency/RwLock.h>
 #include <net-proxies/vol_policy.h>
+#include <NetSession.h>
 
 using namespace FDS_ProtocolInterface;
 
@@ -94,9 +96,20 @@ namespace fds {
     tier_audit_cmd_handler_t tier_audit_cmd_hdlr;
     bucket_stats_cmd_handler_t bucket_stats_cmd_hdlr;
 
-    std::string          rpc_srv_id;
-    std::shared_ptr<FDS_ProtocolInterface::FDSP_ControlPathReqIf> om_client_rpc_i;
-    FDS_ProtocolInterface::FDSP_OMControlPathReqClient *om_client_prx;
+    /* Session table for OM client */
+    boost::shared_ptr<netSessionTbl> nst_;
+
+    /* RPC handler for request coming from OM */
+    boost::shared_ptr<FDS_ProtocolInterface::FDSP_ControlPathReqIf> omrpc_handler_;
+    /* Session associated with omrpc_handler_ */
+    netControlPathServerSession *omrpc_handler_session_;
+    /* omrpc_handler_ server is run on this thread */
+    boost::shared_ptr<std::thread> omrpc_handler_thread_;
+
+    /* client for sending messages to OM */
+    netSession *omclient_prx_session_;
+    boost::shared_ptr<FDS_ProtocolInterface::FDSP_OMControlPathReqClient> om_client_prx;
+
     void initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
     int initRPCComm();
 
@@ -109,8 +122,12 @@ namespace fds {
                const std::string& _hostIp,
                fds_uint32_t data_port,
                const std::string& node_name,
-               fds_log *parent_log);
+               fds_log *parent_log,
+               boost::shared_ptr<netSessionTbl> nst);
+    ~OMgrClient();
     int initialize();
+    void start_omrpc_handler();
+
     int registerEventHandlerForNodeEvents(node_event_handler_t node_event_hdlr);
     int registerEventHandlerForVolEvents(volume_event_handler_t vol_event_hdlr);
     int registerThrottleCmdHandler(throttle_cmd_handler_t throttle_cmd_hdlr);

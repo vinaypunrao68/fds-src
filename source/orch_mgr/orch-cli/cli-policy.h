@@ -8,23 +8,29 @@
 #include <boost/program_options.hpp>
 #include <fds_module.h>
 #include <net-proxies/vol_policy.h>
+#include <NetSession.h>
 
 namespace fds {
 class CliComponent
 {
   public:
     CliComponent(char const *const name)
-        : cli_comp(name), cli_client(nullptr) {}
+        : cli_comp(name) {}
     ~CliComponent() {}
 
     virtual int  cli_init_connection();
     virtual bool cli_exec_cmdline(fds::SysParams const *const param) = 0;
 
+    void setCliClient(
+        boost::shared_ptr<fdp::FDSP_ConfigPathReqClient> clnt) {
+        cli_client = clnt;
+    }
+
   protected:
     char const *const           cli_comp;
-    VolPolicyClnt               *cli_client;
+    boost::shared_ptr<fdp::FDSP_ConfigPathReqClient> cli_client;
 
-    int cli_init_ice_connection(int port);
+    int cli_init_thrift_connection(int port);
 };
 
 class VolPolicyCLI : public virtual CliComponent
@@ -34,8 +40,7 @@ class VolPolicyCLI : public virtual CliComponent
             : CliComponent("Volume Policy") {}
     ~VolPolicyCLI() {}
 
-    virtual bool
-    cli_exec_cmdline(SysParams const *const param);
+    virtual bool cli_exec_cmdline(SysParams const *const param);
 
   private:
     double                      pol_vol_capacity;
@@ -62,6 +67,11 @@ class OrchCliModule : public Module
   public:
     OrchCliModule(char const *const name);
     ~OrchCliModule() {}
+
+    void setCliClient(
+        boost::shared_ptr<fdp::FDSP_ConfigPathReqClient> clnt) {
+        vol_policy.setCliClient(clnt);
+    }
 
     virtual int  mod_init(SysParams const *const param);
     virtual void mod_startup();

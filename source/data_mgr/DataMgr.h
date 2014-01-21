@@ -40,7 +40,7 @@
 
 #include <lib/QoSWFQDispatcher.h>
 #include <lib/qos_min_prio.h>
-#include <thrift/server/TSimpleServer.h>
+#include <NetSession.h>
 
 #undef FDS_TEST_DM_NOOP     /* if defined, puts complete as soon as they arrive to DM (not for gets right now) */
 
@@ -61,8 +61,8 @@ public:
 
   class ReqHandler;
   
-  typedef shared_ptr<ReqHandler> ReqHandlerPtr;
-  typedef FDS_ProtocolInterface::FDSP_MetaDataPathRespClient *RespHandlerPrx;
+  typedef boost::shared_ptr<ReqHandler> ReqHandlerPtr;
+  typedef boost::shared_ptr<FDS_ProtocolInterface::FDSP_MetaDataPathRespClient> RespHandlerPrx;
 
 
   /*
@@ -205,9 +205,11 @@ public:
     /*
      * RPC handlers and comm endpoints.
      */
-    ReqHandlerPtr  reqHandleSrv;
-    apache::thrift::server::TSimpleServer *mdp_server;
-    std::unordered_map<std::string, RespHandlerPrx> respHandleCli;
+    ReqHandlerPtr  metadatapath_handler;
+    boost::shared_ptr<netSessionTbl> nstable;
+    netMetaDataPathServerSession *metadatapath_session;
+    // std::unordered_map<std::string, RespHandlerPrx> respHandleCli;
+   
     fds_rwlock respMapMtx;
     OMgrClient     *omClient;
 
@@ -284,7 +286,10 @@ public:
                              fds_uint32_t node_port,
                              FDS_ProtocolInterface::FDSP_MgrIdType node_type);
 
- public:
+  protected:
+    void setup_metadatapath_server(const std::string &ip);
+
+  public:
     DataMgr(int argc, char *argv[],
              const std::string &default_config_path,
              const std::string &base_path);
@@ -303,9 +308,13 @@ public:
     void swapMgrId(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg);
     fds_log* GetLog();
 
-     std::string getPrefix() const;
+    std::string getPrefix() const;
     fds_bool_t volExists(fds_volid_t vol_uuid) const;
     FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr dInfo;
+
+    inline RespHandlerPrx respHandleCli(const string& src_node_name) {
+        return metadatapath_session->getRespClient(src_node_name);
+    }
 
     void updateCatalogBackend(dmCatReq  *updCatReq);
     void queryCatalogBackend(dmCatReq  *qryCatReq);
@@ -378,8 +387,6 @@ public:
 
       void GetVolumeBlobList(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr, 
 			     FDS_ProtocolInterface::FDSP_GetVolumeBlobListReqTypePtr& blobListReq);
-
-      void AssociateRespCallback(const std::string& src_node_name);
 
     };
 

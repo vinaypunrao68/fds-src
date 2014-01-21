@@ -70,21 +70,18 @@ CliComponent::cli_init_connection()
 // ------------------------
 // TODO(thrift)
 int
-CliComponent::cli_init_ice_connection(int om_port)
+CliComponent::cli_init_thrift_connection(int om_port)
 {
     std::string           om_ip;
-    std::ostringstream    serv;
     boost::shared_ptr<fds::FdsConfig> config(
         new fds::FdsConfig("orch_mgr.conf", 0, NULL));
-    //    Ice::CommunicatorPtr  comm = FdsCli::communicator();
 
     if (om_port == 0) {
         om_port = config->get<int>("fds.om.config_port");
     }
     om_ip = config->get<std::string>("fds.om.ip_address");
-    serv << ORCH_MGR_POLICY_ID << ": tcp -h " << om_ip << " -p " << om_port;
 
-    // cli_client = new Ice_VolPolicyClnt(comm, serv.str());
+    // cli_client = new Thrift_VolPolicyClnt(om_ip, om_port);
     return 0;
 }
 
@@ -145,10 +142,6 @@ VolPolicyCLI::cli_exec_cmdline(SysParams const *const param)
         std::cout << desc << std::endl;
         return true;
     }
-    if (cli_client == nullptr) {
-        cli_init_ice_connection(pol_orch_port);
-        fds_verify(cli_client != nullptr);
-    }
     int tier_opt = 0;
     pol_tier_media = fdp::TIER_MEIDA_NO_VAL;
     if (vm.count("vol-type")) {
@@ -205,7 +198,7 @@ VolPolicyCLI::cli_exec_cmdline(SysParams const *const param)
         req.tier_prefetch      = pol_tier_prefetch;
         req.tier_domain_policy = false;
 
-        cli_client->clnt_setTierPolicy(req);
+        cli_client->applyTierPolicy(req);
     }
     if (vm.count("auto-tier-migration")) {
         struct fdp::tier_pol_time_unit dom_req;
@@ -225,7 +218,7 @@ VolPolicyCLI::cli_exec_cmdline(SysParams const *const param)
         dom_req.tier_domain_policy = true;
         dom_req.tier_domain_uuid   = pol_domain_id;
 
-        cli_client->clnt_setTierPolicy(dom_req);
+        cli_client->applyTierPolicy(dom_req);
     }
     return true;
 }

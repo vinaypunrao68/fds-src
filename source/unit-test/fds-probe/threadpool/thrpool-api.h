@@ -10,6 +10,7 @@
 #include <string>
 #include <fds-probe/fds_probe.h>
 #include <utest-types.h>
+#include <boost/multi_array.hpp>
 
 namespace fds {
 
@@ -48,11 +49,17 @@ class UT_ThpoolSyscall : public JsObject
                                   std::list<std::string> *out);
 };
 
+typedef boost::multi_array<int, 2> UT_ThpoolBoost_Array2D;
+typedef UT_ThpoolBoost_Array2D::index UT_ThpoolBoost_Array2DIndex;
+
 class UT_ThpoolBoost : public JsObject
 {
   public:
     virtual JsObject *js_exec_obj(JsObject *array, JsObjTemplate *templ,
                                   std::list<std::string> *out);
+  protected:
+    static UT_ThpoolBoost_Array2D ut_thpboost_array;
+    void ut_boost_array_2d_print(void);
 };
 
 class UT_ThpoolMath : public JsObject

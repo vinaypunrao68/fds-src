@@ -729,6 +729,10 @@ StorHvCtrl::StorHvCtrl(int argc,
     freeifaddrs(ifAddrStruct);
   }
 
+//   rpcSessionTbl.reset(new netSessionTbl(FDSP_STOR_HVISOR));
+   rpcSessionTbl = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_HVISOR));
+   dPathRespCback = new FDSP_DataPathRespCbackI();
+   mPathRespCback = new FDSP_MetaDataPathRespCbackI();
   /*
    * Pass 0 as the data path port since the SH is not
    * listening on that port.
@@ -740,7 +744,8 @@ StorHvCtrl::StorHvCtrl(int argc,
                              myIp,
                              0,
                              node_name,
-                             sh_log);
+                             sh_log,
+                             rpcSessionTbl);
   if (om_client) {
     om_client->initialize();
   }
@@ -758,9 +763,6 @@ StorHvCtrl::StorHvCtrl(int argc,
   qos_ctrl->registerOmClient(om_client); /* so it will start periodically pushing perfstats to OM */
   om_client->startAcceptingControlMessages(config->get<int>("fds.om.PortNumber"));
 
-   rpcSessionTbl = new netSessionTbl(FDSP_STOR_HVISOR);
-   dPathRespCback = new FDSP_DataPathRespCbackI();
-   mPathRespCback = new FDSP_MetaDataPathRespCbackI();
 
   /* TODO: for now StorHvVolumeTable constructor will create 
    * volume 1, revisit this soon when we add multi-volume support
@@ -797,7 +799,10 @@ StorHvCtrl::StorHvCtrl(int argc,
       dataMgrPortNum = config->get<int>("fds.dm.PortNumber");
     }
     dataMgrIPAddress = config->get<string>("fds.dm.IPAddress");
-//SAN    rpcSwitchTbl->Add_RPC_EndPoint(dataMgrIPAddress, dataMgrPortNum, my_node_name, FDSP_DATA_MGR);
+    storHvisor->rpcSessionTbl->
+            startSession(dataMgrIPAddress,
+                  (fds_int32_t)dataMgrPortNum,
+                      FDS_ProtocolInterface::FDSP_DATA_MGR,0,reinterpret_cast<void*>(storHvisor->dPathRespCback));
   }
   if ((mode == STOR_MGR_TEST) ||
       (mode == TEST_BOTH)) {
@@ -807,7 +812,10 @@ StorHvCtrl::StorHvCtrl(int argc,
       storMgrPortNum  = config->get<int>("fds.sm.PortNumber");
     }
     storMgrIPAddress  = config->get<string>("fds.sm.IPAddress");
-//SAN    rpcSwitchTbl->Add_RPC_EndPoint(storMgrIPAddress, storMgrPortNum, my_node_name, FDSP_STOR_MGR);
+    storHvisor->rpcSessionTbl->
+            startSession(storMgrIPAddress,
+                  (fds_int32_t)storMgrPortNum,
+                      FDS_ProtocolInterface::FDSP_STOR_MGR,0,reinterpret_cast<void*>(storHvisor->dPathRespCback));
   }
 
 //cout << "dataMgrPortNum: " << dataMgrPortNum  << "\n" << "storMgrPortNum: " << storMgrPortNum << "\n";  

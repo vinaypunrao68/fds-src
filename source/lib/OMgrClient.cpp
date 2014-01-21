@@ -119,7 +119,8 @@ OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
                        const std::string& _hostIp,
                        fds_uint32_t data_port,
                        const std::string& node_name,
-                       fds_log *parent_log) {
+                       fds_log *parent_log,
+                       boost::shared_ptr<netSessionTbl> nst) {
   my_node_type = node_type;
   omIpStr      = _omIpStr;
   omConfigPort = _omPort;
@@ -130,13 +131,12 @@ OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
   vol_evt_hdlr = NULL;
   throttle_cmd_hdlr = NULL;
   bucket_stats_cmd_hdlr = NULL;
-  om_client_prx = NULL;
   if (parent_log) {
     omc_log = parent_log;
   } else {
     omc_log = new fds_log("omc", "logs");
   }
-
+  nst_ = nst;
   initRPCComm();
 }
 
@@ -147,9 +147,14 @@ OMgrClient::OMgrClient() {
   vol_evt_hdlr = NULL;
   throttle_cmd_hdlr = NULL;
   bucket_stats_cmd_hdlr = NULL;
-  om_client_prx = NULL;
   omc_log = new fds_log("omc", "logs");
   initRPCComm();
+}
+
+OMgrClient::~OMgrClient()
+{
+    omrpc_handler_session_->endSession();
+    omrpc_handler_thread_->join();
 }
 
 int OMgrClient::initialize() {
@@ -213,9 +218,13 @@ int OMgrClient::initRPCComm() {
 
 }  
 
-static
-void start_om_server(apache::thrift::server::TSimpleServer *svr) {
-  svr->serve();
+/**
+ * @brief Starts OM RPC handling server.  This function is to be run on a
+ * separate thread.  OMgrClient destructor does a join() on this thread
+ */
+void OMgrClient::start_omrpc_handler()
+{
+    nst_->listenServer(omrpc_handler_session_);
 }
 
 // Call this to setup the (receiving side) endpoint to lister for control path requests from OM.
@@ -231,7 +240,22 @@ int OMgrClient::startAcceptingControlMessages(fds_uint32_t port_num) {
       // my_control_port = rpc_props->getPropertyAsInt("OMgrClient.PortNumber");
       fds_verify(0);
   }
+  std::string myIp = netSession::getLocalIp();
+  int myIpInt = netSession::ipString2Addr(myIp);
+  omrpc_handler_.reset(new OMgrClientRPCI(this));
+  // TODO: Ideally createServerSession should take a shared pointer
+  // for omrpc_handler_.  Make sure that happens.  Otherwise you
+  // end up with a pointer leak.
+  omrpc_handler_session_ = static_cast<netControlPathServerSession*>(
+      nst_->createServerSession(myIpInt,
+                                my_control_port, 
+                                my_node_name,
+                                FDSP_ORCH_MGR,
+                                omrpc_handler_.get()));
 
+  omrpc_handler_thread_.reset(new std::thread(&OMgrClient::start_omrpc_handler, this));
+
+#if 0
   //om_client_rpc_i.reset(new OMgrClientRPCI(this));
   boost::shared_ptr<OMgrClientRPCI> omc_handler(new OMgrClientRPCI(this));
   boost::shared_ptr<apache::thrift::TProcessor>
@@ -249,7 +273,8 @@ int OMgrClient::startAcceptingControlMessages(fds_uint32_t port_num) {
                                                               transportFactory,
                                                               protocolFactory);
 
-  std::thread *stats_thread = new std::thread(start_om_server, server);
+#endif
+
  
   FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient accepting control requests at port " << my_control_port;
 
@@ -288,7 +313,15 @@ int OMgrClient::registerNodeWithOM(const FDS_ProtocolInterface::FDSP_AnnounceDis
                                    dInfo) {
 
   try {
+      omclient_prx_session_ = nst_->startSession(omIpStr,
+                                    omConfigPort,
+                                    FDSP_ORCH_MGR,
+                                    1, /* number of channels */
+                                   NULL /* TODO:  pass in response path server pointer */); 
 
+      om_client_prx = static_cast<netOMControlPathClientSession*>(omclient_prx_session_)->\
+                      getClient();  // NOLINT
+#if 0
    boost::shared_ptr<apache::thrift::transport::TTransport>
            socket(new apache::thrift::transport::TSocket(omIpStr, omConfigPort));
    boost::shared_ptr<apache::thrift::transport::TTransport>
@@ -298,7 +331,7 @@ int OMgrClient::registerNodeWithOM(const FDS_ProtocolInterface::FDSP_AnnounceDis
   
    om_client_prx = new FDS_ProtocolInterface::FDSP_OMControlPathReqClient(protocol);
    transport->open();
-
+#endif
       
    FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
    initOMMsgHdr(msg_hdr);

@@ -147,14 +147,20 @@ namespace fds {
     class OrchMgr:
     public FdsProcess,
     public Module {
-    public:
-      class FDSP_OMControlPathReqHandler;
   private:
         fds_log *om_log;
         SysParams *sysParams;
-        netSessionTbl* net_session_tbl;
-	boost::shared_ptr<FDSP_OMControlPathReqHandler> omc_req_handler;
+        /* net session tbl for OM control path*/
+        boost::shared_ptr<netSessionTbl> omcp_session_tbl; 
+	boost::shared_ptr<FDSP_OMControlPathReqIf> omcp_req_handler;
+        boost::shared_ptr<FDSP_ControlPathRespIf> cp_resp_handler;
         std::string my_node_name;
+
+        /* net session tbl for OM config path server */
+        boost::shared_ptr<netSessionTbl> cfg_session_tbl;
+        boost::shared_ptr<FDSP_ConfigPathReqIf> cfg_req_handler;
+        /* config path server is run on this thread */
+        boost::shared_ptr<std::thread> cfgserver_thread;
 
         /*
          * TODO: These maps should eventually be pulled out into
@@ -199,6 +205,7 @@ namespace fds {
             const std::string& default_config_path,
             const std::string& base_path);
     ~OrchMgr();
+    void start_cfgpath_server();
 
     /**** From FdsProcess ****/
     virtual void setup(int argc, char *argv[], fds::Module **mod_vec) override;
@@ -268,6 +275,12 @@ namespace fds {
 
     int GetDomainStats(const FdspMsgHdrPtr& fdsp_msg,
                        const FdspGetDomStatsPtr& get_stats_req);
+
+    int ApplyTierPolicy(
+        ::FDS_ProtocolInterface::tier_pol_time_unitPtr& policy);
+
+    int AuditTierPolicy(
+        ::FDS_ProtocolInterface::tier_pol_auditPtr& audit);
 
 
     /* config path: cli -> OM  */
@@ -369,6 +382,16 @@ namespace fds {
         int32_t GetDomainStats(
             ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
             ::FDS_ProtocolInterface::FDSP_GetDomainStatsTypePtr& get_stats_msg);
+
+        int32_t applyTierPolicy(
+            const ::FDS_ProtocolInterface::tier_pol_time_unit& policy);
+        int32_t applyTierPolicy(
+            ::FDS_ProtocolInterface::tier_pol_time_unitPtr& policy);
+
+        int32_t auditTierPolicy(
+            const ::FDS_ProtocolInterface::tier_pol_audit& audit);
+        int32_t auditTierPolicy(
+            ::FDS_ProtocolInterface::tier_pol_auditPtr& audit);
 
   private:
         OrchMgr *orchMgr;

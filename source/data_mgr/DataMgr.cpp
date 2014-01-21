@@ -5,13 +5,6 @@
 #include <string>
 
 #include "DataMgr.h"
-#include <thrift/protocol/TBinaryProtocol.h>
-#include <thrift/server/TSimpleServer.h>
-#include <thrift/transport/TServerSocket.h>
-#include <thrift/transport/TSocket.h>
-#include <thrift/transport/TTransportUtils.h>
-#include <thrift/transport/TBufferTransports.h>
-
 
 namespace fds {
 
@@ -434,6 +427,43 @@ DataMgr::~DataMgr() {
   delete qosCtrl;
 }
 
+namespace util {
+/**
+ * @return local ip
+ */
+std::string get_local_ip()
+{
+    struct ifaddrs *ifAddrStruct = NULL;
+    struct ifaddrs *ifa          = NULL;
+    void   *tmpAddrPtr           = NULL;
+    std::string myIp;
+
+    /*
+     * Get the local IP of the host.
+     * This is needed by the OM.
+     */
+    getifaddrs(&ifAddrStruct);
+    for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
+        if (ifa->ifa_addr->sa_family == AF_INET) { // IPv4
+            if (strncmp(ifa->ifa_name, "lo", 2) != 0) {
+                tmpAddrPtr = &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
+                char addrBuf[INET_ADDRSTRLEN];
+                inet_ntop(AF_INET, tmpAddrPtr, addrBuf, INET_ADDRSTRLEN);
+                myIp = std::string(addrBuf);
+                if (myIp.find("10.1") != std::string::npos)
+                    break; /* TODO: more dynamic */
+            }
+        }
+    }
+
+    if (ifAddrStruct != NULL) {
+        freeifaddrs(ifAddrStruct);
+    }
+
+    return myIp;
+}
+}
+
 int DataMgr::mod_init(SysParams const *const param) {
     Module::mod_init(param);
     return 0;
@@ -457,11 +487,30 @@ void DataMgr::mod_shutdown() {
 void DataMgr::run()
 {
   try {
-      mdp_server->serve();
+      nstable->listenServer(metadatapath_session);
   } 
   catch (...) {
-      std::cout << "thrift server threw an exception" << std::endl;
+      std::cout << "starting server threw an exception" << std::endl;
   }
+}
+
+void DataMgr::setup_metadatapath_server(const std::string &ip)
+{
+    metadatapath_handler.reset(new ReqHandler());
+
+    int myIpInt = netSession::ipString2Addr(ip);
+    std::string node_name = 
+        conf_helper_.get<std::string>("prefix") + "_DM_" + ip;
+    // TODO: Ideally createServerSession should take a shared pointer
+    // for datapath_handler.  Make sure that happens.  Otherwise you
+    // end up with a pointer leak.
+    // TODO: Figure out who cleans up datapath_session_
+    metadatapath_session = static_cast<netMetaDataPathServerSession*>(
+        nstable->createServerSession(myIpInt,
+                                     port_num,
+                                     node_name,
+                                     FDSP_STOR_HVISOR,
+                                     metadatapath_handler.get()));
 }
 
 
@@ -485,26 +534,6 @@ void DataMgr::setup(int argc, char* argv[], fds::Module **mod_vec) {
 
   FdsProcess::setup(argc, argv, mod_vec);
 
-#if 0
-  for (fds_int32_t i = 1; i < argc; i++) {
-    if (strncmp(argv[i], "--port=", 7) == 0) {
-      port_num = strtoul(argv[i] + 7, NULL, 0);
-    } else if (strncmp(argv[i], "--cp_port=", 10) == 0) {
-      cp_port_num = strtoul(argv[i] + 10, NULL, 0);
-    } else if (strncmp(argv[i], "--prefix=", 9) == 0) {
-      stor_prefix = argv[i] + 9;
-    } else if (strncmp(argv[i], "--no_om", 7) == 0) {
-      use_om = false;
-    } else if (strncmp(argv[i], "--om_ip=", 8) == 0) {
-      omIpStr = argv[i] + 8;
-    } else if (strncmp(argv[i], "--om_port=", 10) == 0) {
-      omConfigPort = strtoul(argv[i] + 10, NULL, 0);
-    } else if (strncmp(argv[i], "--test_mode", 11) == 0) {
-      useTestMode = true;
-    }
-  }
-#endif
-
   port_num = conf_helper_.get_abs<int>("fds.dm.port");
   cp_port_num = conf_helper_.get_abs<int>("fds.dm.cp_port");
   stor_prefix = conf_helper_.get_abs<std::string>("fds.dm.prefix");
@@ -514,7 +543,6 @@ void DataMgr::setup(int argc, char* argv[], fds::Module **mod_vec) {
   useTestMode = conf_helper_.get_abs<bool>("fds.dm.test_mode");
   int sev_level = conf_helper_.get_abs<int>("fds.dm.log_severity");
   
-
   GetLog()->setSeverityFilter(( fds_log::severity_level)sev_level);
   if (useTestMode == true) {
     runMode = TEST_MODE;
@@ -539,64 +567,28 @@ void DataMgr::setup(int argc, char* argv[], fds::Module **mod_vec) {
                    << cp_port_num;
 
 
-  /*
-   * Setup TCP endpoint.
-   */
-
-  //  reqHandleSrv.reset(new ReqHandler());
-
-  shared_ptr<ReqHandler> reqHandler(new ReqHandler());
-
-  boost::shared_ptr<apache::thrift::TProcessor>
-          processor(new FDSP_MetaDataPathReqProcessor(reqHandler));
-  boost::shared_ptr<apache::thrift::transport::TServerTransport>
-          serverTransport(new apache::thrift::transport::TServerSocket(port_num));
-  shared_ptr<apache::thrift::transport::TTransportFactory>
-          transportFactory(new apache::thrift::transport::TBufferedTransportFactory());
-  shared_ptr<apache::thrift::protocol::TProtocolFactory>
-          protocolFactory(new apache::thrift::protocol::TBinaryProtocolFactory());
-
-  mdp_server = new apache::thrift::server::TSimpleServer(processor,
-                                                         serverTransport,
-                                                         transportFactory,
-                                                         protocolFactory);
-
-  
-  struct ifaddrs *ifAddrStruct = NULL;
-  struct ifaddrs *ifa          = NULL;
-  void   *tmpAddrPtr           = NULL;
-  
-  /*
-   * Get the local IP of the host.
-   * This is needed by the OM.
-   */
-  getifaddrs(&ifAddrStruct);
-  for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
-    if (ifa->ifa_addr->sa_family == AF_INET) { // IPv4
-      if (strncmp(ifa->ifa_name, "lo", 2) != 0) {
-        tmpAddrPtr = &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
-        char addrBuf[INET_ADDRSTRLEN];
-        inet_ntop(AF_INET, tmpAddrPtr, addrBuf, INET_ADDRSTRLEN);
-        myIp = std::string(addrBuf);
-        if (myIp.find("10.1") != std::string::npos)
-	  break; /* TODO: more dynamic */
-      }
-    }
-  }
+  /* Set up FDSP RPC endpoints */
+  nstable = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_DATA_MGR));
+  myIp = util::get_local_ip();
   assert(myIp.empty() == false);
+  std::string node_name = 
+          conf_helper_.get<std::string>("prefix") + "_DM_" + myIp;
+
   FDS_PLOG(dm_log) << "Data Manager using IP:"
-                   << myIp;
+                   << myIp << " and node name "
+                   << node_name;
   
+  setup_metadatapath_server(myIp);
 
   /*
    * Query  Disk Manager  for disk parameter details 
    */
-    fds::DmQuery        &query = fds::DmQuery::dm_query();
-    in.dmq_mask = fds::dmq_disk_info;
-    query.dm_disk_query(in, &out);
-    /* we should be bundling multiple disk  parameters  into one message to OM TBD */ 
-    dInfo.reset(new FDSP_AnnounceDiskCapability());
-    while (1) {
+  fds::DmQuery        &query = fds::DmQuery::dm_query();
+  in.dmq_mask = fds::dmq_disk_info;
+  query.dm_disk_query(in, &out);
+  /* we should be bundling multiple disk  parameters  into one message to OM TBD */ 
+  dInfo.reset(new FDSP_AnnounceDiskCapability());
+  while (1) {
         info = out.query_pop();
         if (info != nullptr) {
   	    FDS_PLOG(dm_log) << "Max blks capacity: " << info->di_max_blks_cap
@@ -625,65 +617,62 @@ void DataMgr::setup(int argc, char* argv[], fds::Module **mod_vec) {
             continue;
         }
         break;
-    }
+  }
 
 
   if (use_om) {
-    FDS_PLOG(dm_log) << " Initialising the OM client ";
-  /*
-   * Setup communication with OM.
-   */
-  omClient = new OMgrClient(FDSP_DATA_MGR,
-                            omIpStr,
-                            omConfigPort,
-                            myIp,
-                            port_num,
-                            stor_prefix + "localhost-dm",
-                            dm_log);
-  omClient->initialize();
-  omClient->registerEventHandlerForNodeEvents(node_handler);
-  omClient->registerEventHandlerForVolEvents(vol_handler);
-  /*
-   * Brings up the control path interface.
-   * This does not require OM to be running and can
-   * be used for testing DM by itself.
-   */
-  omClient->startAcceptingControlMessages(cp_port_num);
-    /*
-     * Registers the DM with the OM. Uses OM for bootstrapping
-     * on start. Requires the OM to be up and running prior.
-     */
-     omClient->registerNodeWithOM(dInfo);
- }
-
+      FDS_PLOG(dm_log) << " Initialising the OM client ";
+      /*
+       * Setup communication with OM.
+       */
+      omClient = new OMgrClient(FDSP_DATA_MGR,
+                                omIpStr,
+                                omConfigPort,
+                                myIp,
+                                port_num,
+                                node_name,
+                                dm_log,
+                                nstable);
+      omClient->initialize();
+      omClient->registerEventHandlerForNodeEvents(node_handler);
+      omClient->registerEventHandlerForVolEvents(vol_handler);
+      /*
+       * Brings up the control path interface.
+       * This does not require OM to be running and can
+       * be used for testing DM by itself.
+       */
+      omClient->startAcceptingControlMessages(cp_port_num);
+      /*
+       * Registers the DM with the OM. Uses OM for bootstrapping
+       * on start. Requires the OM to be up and running prior.
+       */
+      omClient->registerNodeWithOM(dInfo);
+  }
+  
   if (runMode == TEST_MODE) {
     /*
      * Create test volumes.
      */
-    std::string testVolName;
-    VolumeDesc*  testVdb;
-    for (fds_uint32_t testVolId = 1; testVolId < numTestVols + 1; testVolId++) {
-      testVolName = "testVol" + std::to_string(testVolId);
-      /*
-       * We're using the ID as the min/max/priority
-       * for the volume QoS.
-       */
-      testVdb = new VolumeDesc(testVolName,
-                               testVolId,
-                               testVolId,
-                               testVolId * 2,
-                               testVolId);
-      fds_assert(testVdb != NULL);
-      vol_handler(testVolId, testVdb, fds_notify_vol_add, FDS_ProtocolInterface::FDSP_ERR_OK); 
-
-      delete testVdb;
-    }
+      std::string testVolName;
+      VolumeDesc*  testVdb;
+      for (fds_uint32_t testVolId = 1; testVolId < numTestVols + 1; testVolId++) {
+          testVolName = "testVol" + std::to_string(testVolId);
+          /*
+           * We're using the ID as the min/max/priority
+           * for the volume QoS.
+           */
+          testVdb = new VolumeDesc(testVolName,
+                                   testVolId,
+                                   testVolId,
+                                   testVolId * 2,
+                                   testVolId);
+          fds_assert(testVdb != NULL);
+          vol_handler(testVolId, testVdb, fds_notify_vol_add, FDS_ProtocolInterface::FDSP_ERR_OK); 
+          
+          delete testVdb;
+      }
   }
-
-  if (ifAddrStruct != NULL) {
-    freeifaddrs(ifAddrStruct);
-  }
-
+  
 }
 
 void DataMgr::swapMgrId(const FDS_ProtocolInterface::
@@ -752,10 +741,6 @@ void DataMgr::ReqHandler::GetVolumeBlobList(FDSP_MsgHdrTypePtr& msg_hdr,
 
   Error err(ERR_OK);
 
-  if (!(dataMgr->respHandleCli.count(msg_hdr->src_node_name))) {
-      AssociateRespCallback(msg_hdr->src_node_name);
-  }
-
   err = dataMgr->blobListInternal(blobListReq, msg_hdr->glob_volume_id,
                                   msg_hdr->src_ip_lo_addr, msg_hdr->dst_ip_lo_addr, msg_hdr->src_port,
                                   msg_hdr->dst_port, msg_hdr->src_node_name, msg_hdr->req_cookie);
@@ -776,7 +761,7 @@ void DataMgr::ReqHandler::GetVolumeBlobList(FDSP_MsgHdrTypePtr& msg_hdr,
             blobListResp(new FDS_ProtocolInterface::FDSP_GetVolumeBlobListRespType);
     blobListResp->num_blobs_in_resp = 0;
     blobListResp->end_of_list = true;
-    dataMgr->respHandleCli[msg_hdr->src_node_name]->GetVolumeBlobListResp(*msg_hdr,
+    dataMgr->respHandleCli(msg_hdr->src_node_name)->GetVolumeBlobListResp(*msg_hdr,
 									  *blobListResp);
     dataMgr->respMapMtx.read_unlock();
 
@@ -854,7 +839,7 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
   msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_UPDATE_CAT_OBJ_RSP;
 
   dataMgr->respMapMtx.read_lock();
-  dataMgr->respHandleCli[updCatReq->src_node_name]->UpdateCatalogObjectResp(*msg_hdr, *update_catalog);
+  dataMgr->respHandleCli(updCatReq->src_node_name)->UpdateCatalogObjectResp(*msg_hdr, *update_catalog);
   dataMgr->respMapMtx.read_unlock();
 
   FDS_PLOG(dataMgr->GetLog()) << "Sending async update catalog response with "
@@ -922,7 +907,7 @@ void DataMgr::ReqHandler::UpdateCatalogObject(FDS_ProtocolInterface::
   msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
   dataMgr->swapMgrId(msg_hdr);
   dataMgr->respMapMtx.read_lock();
-  dataMgr->respHandleCli[msg_hdr->src_node_name]->UpdateCatalogObjectResp(
+  dataMgr->respHandleCli(msg_hdr->src_node_name)->UpdateCatalogObjectResp(
 									  *msg_hdr,
 									  *update_catalog);
   dataMgr->respMapMtx.read_unlock();
@@ -941,10 +926,6 @@ void DataMgr::ReqHandler::UpdateCatalogObject(FDS_ProtocolInterface::
                               << update_catalog->dm_transaction_id
                               << ", OP ID " << update_catalog->dm_operation;
 
-  if (!(dataMgr->respHandleCli.count(msg_hdr->src_node_name))) {
-      AssociateRespCallback(msg_hdr->src_node_name);
-  }
-
   err = dataMgr->updateCatalogInternal(update_catalog,msg_hdr->glob_volume_id,
 				       msg_hdr->src_ip_lo_addr,msg_hdr->dst_ip_lo_addr,msg_hdr->src_port,
 				       msg_hdr->dst_port,msg_hdr->src_node_name, msg_hdr->req_cookie);
@@ -961,7 +942,7 @@ void DataMgr::ReqHandler::UpdateCatalogObject(FDS_ProtocolInterface::
   		msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_UPDATE_CAT_OBJ_RSP;
   		dataMgr->swapMgrId(msg_hdr);
                 dataMgr->respMapMtx.read_lock();
-  		dataMgr->respHandleCli[msg_hdr->src_node_name]->UpdateCatalogObjectResp(*msg_hdr,
+  		dataMgr->respHandleCli(msg_hdr->src_node_name)->UpdateCatalogObjectResp(*msg_hdr,
 											*update_catalog);
                 dataMgr->respMapMtx.read_unlock();
 
@@ -1028,7 +1009,7 @@ DataMgr::blobListBackend(dmCatReq *listBlobReq) {
     blobListResp->blob_info_list.push_back(bInfo);
   }
   respMapMtx.read_lock();
-  respHandleCli[listBlobReq->src_node_name]->GetVolumeBlobListResp(*msg_hdr, *blobListResp);
+  respHandleCli(listBlobReq->src_node_name)->GetVolumeBlobListResp(*msg_hdr, *blobListResp);
   respMapMtx.read_unlock();
   FDS_PLOG_SEV(dm_log, fds::fds_log::normal) << "Sending async blob list response with "
                                              << "volume id: " << msg_hdr->glob_volume_id
@@ -1082,7 +1063,7 @@ DataMgr::queryCatalogBackend(dmCatReq  *qryCatReq) {
   query_catalog->dm_operation = qryCatReq->transOp;
 
   dataMgr->respMapMtx.read_lock();
-  dataMgr->respHandleCli[qryCatReq->src_node_name]->QueryCatalogObjectResp(*msg_hdr, *query_catalog);
+  dataMgr->respHandleCli(qryCatReq->src_node_name)->QueryCatalogObjectResp(*msg_hdr, *query_catalog);
   dataMgr->respMapMtx.read_unlock();
   FDS_PLOG(dataMgr->GetLog()) << "Sending async query catalog response with "
                               << "volume id: " << msg_hdr->glob_volume_id
@@ -1164,9 +1145,6 @@ void DataMgr::ReqHandler::QueryCatalogObject(FDS_ProtocolInterface::
                               << query_catalog->dm_transaction_id
                               << ", OP ID " << query_catalog->dm_operation;
 
-  if (!(dataMgr->respHandleCli.count(msg_hdr->src_node_name))) {
-      AssociateRespCallback(msg_hdr->src_node_name);
-  }
 
   err = dataMgr->queryCatalogInternal(query_catalog,msg_hdr->glob_volume_id,
 				      msg_hdr->src_ip_lo_addr,msg_hdr->dst_ip_lo_addr,msg_hdr->src_port,
@@ -1182,7 +1160,7 @@ void DataMgr::ReqHandler::QueryCatalogObject(FDS_ProtocolInterface::
   		msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_QUERY_CAT_OBJ_RSP;
   		dataMgr->swapMgrId(msg_hdr);
                 dataMgr->respMapMtx.read_lock();
-  		dataMgr->respHandleCli[msg_hdr->src_node_name]->QueryCatalogObjectResp(*msg_hdr, 
+  		dataMgr->respHandleCli(msg_hdr->src_node_name)->QueryCatalogObjectResp(*msg_hdr, 
 										       *query_catalog);
                 dataMgr->respMapMtx.read_unlock();
   		FDS_PLOG(dataMgr->GetLog()) << "Sending async query catalog response with "
@@ -1235,7 +1213,7 @@ DataMgr::deleteCatObjBackend(dmCatReq  *delCatReq) {
   delete_catalog->blob_name = delCatReq->blob_name;
 
   dataMgr->respMapMtx.read_lock();
-  dataMgr->respHandleCli[delCatReq->src_node_name]->DeleteCatalogObjectResp(*msg_hdr, *delete_catalog);
+  dataMgr->respHandleCli(delCatReq->src_node_name)->DeleteCatalogObjectResp(*msg_hdr, *delete_catalog);
   dataMgr->respMapMtx.read_unlock();
   FDS_PLOG(dataMgr->GetLog()) << "Sending async delete catalog obj response with "
                               << "volume id: " << msg_hdr->glob_volume_id
@@ -1302,7 +1280,7 @@ void DataMgr::ReqHandler::DeleteCatalogObject(FDS_ProtocolInterface::
   		msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_DELETE_CAT_OBJ_RSP;
   		dataMgr->swapMgrId(msg_hdr);
                 dataMgr->respMapMtx.read_lock();
-  		dataMgr->respHandleCli[msg_hdr->src_node_name]->DeleteCatalogObjectResp(*msg_hdr, 
+  		dataMgr->respHandleCli(msg_hdr->src_node_name)->DeleteCatalogObjectResp(*msg_hdr, 
 											*delete_catalog);
                 dataMgr->respMapMtx.read_unlock();
   		FDS_PLOG(dataMgr->GetLog()) << "Sending async delete catalog response with "
@@ -1313,29 +1291,6 @@ void DataMgr::ReqHandler::DeleteCatalogObject(FDS_ProtocolInterface::
 	else 
   	   FDS_PLOG(dataMgr->GetLog()) << "Successfully Enqueued  the Delete catalog request";
 }
-
-void DataMgr::ReqHandler::AssociateRespCallback(const std::string& src_node_name) {
-
-    std::cout << "Associating response Callback client to DataMgr "
-              << src_node_name << "'"<< std::endl;
-  
-    boost::shared_ptr<apache::thrift::transport::TTransport> 
-            socket(new apache::thrift::transport::TSocket("localhost", 11235));
-    boost::shared_ptr<apache::thrift::transport::TTransport> 
-            transport(new apache::thrift::transport::TBufferedTransport(socket));
-    boost::shared_ptr<apache::thrift::protocol::TProtocol>
-            protocol(new apache::thrift::protocol::TBinaryProtocol(transport));
-    FDS_ProtocolInterface::FDSP_MetaDataPathRespClient *meta_resp_hdl
-            = new FDS_ProtocolInterface::FDSP_MetaDataPathRespClient(protocol);
-
-    transport->open();
-
-    dataMgr->respMapMtx.write_lock();
-    dataMgr->respHandleCli[src_node_name] = meta_resp_hdl;
-    dataMgr->respMapMtx.write_unlock();
-
-}
-
 
 int scheduleUpdateCatalog(void * _io) {
         fds::DataMgr::dmCatReq *io = (fds::DataMgr::dmCatReq*)_io;
