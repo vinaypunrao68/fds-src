@@ -396,7 +396,11 @@ netSession* netSessionTbl::createServerSession(int local_ipaddr,
 void netSessionTbl::listenServer(netSession* server_session) {
     switch(localMgrId) { 
         case FDSP_STOR_MGR: 
-            {
+            if (server_session->getRemoteMgrId() == FDSP_ORCH_MGR) {
+                netControlPathServerSession *servSession = 
+                        reinterpret_cast<netControlPathServerSession *>(server_session);
+                servSession->listenServer();
+            } else {
                 netDataPathServerSession *servSession = 
                         reinterpret_cast<netDataPathServerSession *>(server_session);
                 servSession->listenServer();
@@ -404,13 +408,25 @@ void netSessionTbl::listenServer(netSession* server_session) {
             break;
             
         case FDSP_DATA_MGR: 
-            {
+            if (server_session->getRemoteMgrId() == FDSP_ORCH_MGR) {
+                netControlPathServerSession *servSession = 
+                        reinterpret_cast<netControlPathServerSession *>(server_session);
+                servSession->listenServer();
+            } else {
                 netMetaDataPathServerSession *servSession = 
                         reinterpret_cast<netMetaDataPathServerSession *>(server_session);
                 servSession->listenServer();
             }
             break;
-            
+
+        case FDSP_STOR_HVISOR:
+            if (server_session->getRemoteMgrId() == FDSP_ORCH_MGR) {
+                netControlPathServerSession *servSession = 
+                        reinterpret_cast<netControlPathServerSession *>(server_session);
+                servSession->listenServer();
+            }            
+            break;
+
         case FDSP_ORCH_MGR: 
             if (server_session->getRemoteMgrId() == FDSP_CLI_MGR) { 
                 netConfigPathServerSession *servSession = 
