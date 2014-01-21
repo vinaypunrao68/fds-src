@@ -1,4 +1,13 @@
 #!/usr/bin/env python
+"""@package docstring
+Documentation for gen_json_spec
+
+Generate JSon test spec with the following rules:
+1) Serially - each element in JSonVal is generated serially.
+2) Combinatorial - each element of JSonVal is generated combinatorially.
+3) Incrementally - each element of JSonTestID is generated incrementally
+                   from initial value.
+"""
 import sys
 import json
 import types
@@ -8,148 +17,211 @@ import argparse
 from subprocess import call
 from pprint import pprint
 import make_json_serializable
+import ConfigParser
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--spec_cnt", help="generate n number of unique json spec")
-parser.add_argument("--print_pretty", help="pretty print json spec [1|0]")
-args = parser.parse_args()
-if args.spec_cnt:
-    json_comb_default = int(args.spec_cnt)
-else:
-    json_comb_default = 0
-
-if args.print_pretty == "1":
-    json_print_pretty = 4
-else:
-    json_print_pretty = None
-
-random.seed(100)
-
+   
 class JSonVal(object):
     def __init__(self, values):
         self.values = values
         self.counter = 0
-        self.random = 1
 
     def to_json(self):
-        if self.random == 1:
-            idx = random.randint(0, len(self.values) - 1)
-        else:
-            idx = self.counter
-            self.counter += 1
-            if self.counter == len(self.values):
-                self.counter = 0
+        idx = self.counter
+        self.counter += 1
+        if self.counter == len(self.values):
+            self.counter = 0
         return self.values[idx]
 
     def get_values(self):
         return self.values
-syscall_cmd = JSonVal(['open', 'close', 'read', 'write'])
-syscall_path = JSonVal(['/dev/null', '/tmp/foo', '/tmp/foo2'])
 
-#boost_cmd = JSonVal(['add', 'sub', 'print'])
-#boost_array_index0 = JSonVal(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'])
-#boost_array_index1 = JSonVal(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'])
-#boost_value = JSonVal(['100', '200'])
+class JSonValRandom(JSonVal):
+    def to_json(self):
+        idx = random.randint(0, len(self.values) - 1)
+        return self.values[idx]
 
-boost_cmd = JSonVal(['add', 'sub', 'print'])
-boost_array_index0 = JSonVal(['0', '1', '2'])
-boost_array_index1 = JSonVal(['0', '1', '2'])
-boost_value = JSonVal(['100', '200'])
+class JSonTestID(JSonVal):
+    def to_json(self):
+        next_idx = self.counter
+        self.counter += 1
+        if self.counter == (1 << 24):
+            sys.exit("ERROR: test case ID reached maximum")
+        return (self.values[0] << 24) + next_idx
 
-math_cmd = JSonVal(['square_root', 'multiply', 'divide', 'add', 'subtract'])
-math_operand_left = JSonVal(['100', '200', '300', '400'])
-math_operand_right = JSonVal(['10', '20', '30', '40'])
+class JSonTestCmdLine(object):
+    def __read_config_file(self, config_file):
+        # XXX: Add curl command to be run, in config file
+        # XXX: Add client test id in config file, command line will override
+        if config_file is not None:
+            # config = ConfigParser.ConfigParser()
+            # config.read(config_file)
+            # print "reading config file %s" % config_file
+            print "config file not supported"
+            sys.exit(1)
 
-if json_comb_default != 0:
-    json_combination = json_comb_default
-else:
-    json_combination = len(syscall_cmd.get_values()) *          \
-                       len(syscall_path.get_values()) *         \
-                       len(boost_cmd.get_values()) *            \
-                       len(boost_array_index0.get_values()) *   \
-                       len(boost_array_index1.get_values()) *   \
-                       len(boost_value.get_values()) *          \
-                       len(math_cmd.get_values()) *             \
-                       len(math_operand_left.get_values()) *    \
-                       len(math_operand_right.get_values())
+    def __init__(self):
+        # parse command line arguments
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--client_id",
+                            help="unique client test ID, def 0")
+        parser.add_argument("--config",
+                            help="test case configuration file.")
+        parser.add_argument("--spec_cnt", \
+                            help="generate n number of unique json spec, def all.")
+        parser.add_argument("--sort_keys", \
+                            help="sort json keys in json spec [0|1], def 0.")
+        parser.add_argument("--print_pretty",
+                            help="pretty print json spec [0|1], def 0.")
+        parser.add_argument("--dryrun",
+                            help="do not make http/curl call to server [0|1], def 0")
+        args = parser.parse_args()
 
-list_thpool_syscall = [syscall_cmd, syscall_path, 'FOO', 'BAR']
-list_thpool_boost = [boost_cmd, boost_array_index0, boost_array_index1, boost_value]
-list_thpool_math = [math_cmd, math_operand_left, math_operand_right] 
-
-dict_threadpool = {'thpool-syscall' : list_thpool_syscall,
-                   'thpool-boost'   : list_thpool_boost,
-                   'thpool-math'    : list_thpool_math}
-
-dict_server_load = {'threadpool': dict_threadpool} 
-dict_run_input = {'Server-Load' : dict_server_load}
-js_spec = {'Run-Input' : dict_run_input,
-           'Foo'       : 'Bar'}
-
-# function not used, pretty print json spec.
-def parse_js_spec(json_spec, level):
-    if type(json_spec) == tuple:
-        print "  " * level,
-        if type(json_spec[1]) == list:
-            open_bracket = ": "
-            close_bracket = ""
-        elif type(json_spec[1]) == str:
-            open_bracket = ": "
-            close_bracket = ""
+        if args.client_id:
+            self.cmd_client_id = JSonTestID([int(args.client_id)])
         else:
-            open_bracket = " {"
-            close_bracket = "}"
+            self.cmd_client_id = JSonTestID([0])
 
-        if open_bracket == ": ":
-            print "\"" + json_spec[0] + "\"", open_bracket,
+        if args.config:
+            self.__read_config_file(args.config)
         else:
-            print "\"" + json_spec[0] + "\"", open_bracket
-        parse_js_spec(json_spec[1], level + 1)
-        if close_bracket != "":
-            print "  " * level,
-            print close_bracket,
-    elif type(json_spec) == dict:
-        for key in json_spec:
-            json_tuple = (key, json_spec[key])
-            parse_js_spec(json_tuple, level + 1)
-            print ","
-    elif type(json_spec) == list:
-        # print "  " * level,
-        # print json_spec,
-        res = json.dumps(json_spec)
-        print res,
-    else:
-        # print "  " * level,
-        print json_spec,
+            self.__read_config_file(None)
 
-def parse_json(js_spec):
-    print "{"
-    parse_js_spec(js_spec, 0)
-    print "}"
+        if args.spec_cnt:
+            self.cmd_spec_cnt = int(args.spec_cnt)
+        else:
+            self.cmd_spec_cnt = 0
 
-print "Generating JSon unique spec: %d" % json_combination
-json_result_list = []
-i = 0
-missed = 0
-while i < json_combination:
+        if args.sort_keys:
+            self.cmd_sort_keys = True
+        else:
+            self.cmd_sort_keys = False
 
-    #parse_json(js_spec)
+        if args.print_pretty == "1":
+            self.cmd_print_pretty = 4
+        else:
+            self.cmd_print_pretty = None
 
-    js_res = json.dumps(js_spec, sort_keys = False, indent = json_print_pretty)
+        if args.dryrun == "1":
+            self.cmd_dryrun = True
+        else:
+            self.cmd_dryrun = False
 
-    if js_res in json_result_list:
-        missed += 1
-        if missed >= 100:
-            print ".",
-            missed = 0
-    else:
-        json_result_list.append(js_res)
-        print js_res
-        i += 1
-print "\nTOTAL combination generated: %d" % json_combination
+    def get_client_id(self):
+        return self.cmd_client_id
 
-for json_cmd in json_result_list:
-    call(["curl", "-v", "-X", "POST", "-d", json_cmd, "http://localhost:8000/abc"])
-    call(["curl", "-v", "-X", "PUT", "-d", json_cmd, "http://localhost:8000/abc"])
-    call(["curl", "-v", "-X", "POST", "-d", json_cmd, "http://localhost:8000/abc/def"])
-    call(["curl", "-v", "-X", "PUT", "-d", json_cmd, "http://localhost:8000/abc/def"])
+    def get_spec_cnt(self):
+        return self.cmd_spec_cnt
+
+    def get_sort_keys(self):
+        return self.cmd_sort_keys
+
+    def get_print_pretty(self):
+        return self.cmd_print_pretty
+
+    def get_dryrun(self):
+        return self.cmd_dryrun
+
+class JSonTestCfg(object):
+    def __init__(self, cmd_line, test_spec):
+        self.cfg_cmd_line  = cmd_line
+        self.cfg_test_spec = test_spec
+
+    def __get_combination(self, ts, comb):
+        if type(ts) is dict:
+            for key in ts:
+                val = ts[key]
+                if isinstance(val, JSonVal):
+                    values_list = val.get_values()
+                    comb       *= len(values_list)
+                elif type(val) == dict:
+                    comb = self.__get_combination(val, comb)
+                elif type(val) == list:
+                    comb = self.__get_combination(val, comb)
+        elif type(ts) is list:
+            for elm in ts:
+                if isinstance(elm, JSonVal):
+                    values_list = elm.get_values()
+                    comb       *= len(values_list)
+                elif type(elm) == dict:
+                    comb = self.__get_combination(val, comb)
+                elif type(elm) == list:
+                    comb = self.__get_combination(val, comb)
+        return comb
+
+    def get_client_id(self):
+        return self.cfg_cmd_line.get_client_id()
+
+    def get_spec_cnt(self):
+        cnt  = self.cfg_cmd_line.get_spec_cnt() 
+        if cnt == 0:
+            comb = self.__get_combination(self.cfg_test_spec, 1)
+            res = comb
+        else:
+            res = cnt
+        return res
+
+    def get_sort_keys(self):
+        return self.cfg_cmd_line.get_sort_keys()
+
+    def get_print_pretty(self):
+        return self.cfg_cmd_line.get_print_pretty()
+
+    def get_dryrun(self):
+        return self.cfg_cmd_line.get_dryrun()
+
+    def get_test_spec(self):
+        return self.cfg_test_spec
+
+class JSonTestClient(object):
+    js_test_missed_limit = 100
+
+    def __init__(self, test_cfg):
+        self.js_test_id           = test_cfg.get_client_id()
+        self.js_test_spec_cnt     = test_cfg.get_spec_cnt()
+        self.js_test_sort_keys    = test_cfg.get_sort_keys()
+        self.js_test_print_pretty = test_cfg.get_print_pretty()
+        self.js_test_dryrun       = test_cfg.get_dryrun()
+        self.js_test_spec         = test_cfg.get_test_spec()
+        self.js_result_list       = []
+        self.js_result_dict       = {}
+ 
+    def run(self):
+        print "Generating %d JSon unique spec." % self.js_test_spec_cnt
+        i           = 0
+        missed      = 0
+        result_list = []
+        result_dict = {}
+        while i < self.js_test_spec_cnt:
+
+            if self.js_test_print_pretty is None:
+                js_res = json.dumps(self.js_test_spec,                      \
+                                    sort_keys = self.js_test_sort_keys)
+            else:
+                js_res = json.dumps(self.js_test_spec,                      \
+                                    sort_keys = self.js_test_sort_keys,     \
+                                    indent    = self.js_test_print_pretty)
+
+            if js_res in result_dict:
+                missed += 1
+                if missed >= JSonTestClient.js_test_missed_limit:
+                    print ".",
+                    missed = 0
+            else:
+                print js_res
+                result_dict[js_res] = js_res
+                result_list.append(js_res)
+                i += 1
+        print "\nTotal unique test spec generated: %d" % self.js_test_spec_cnt
+        self.js_result_list = result_list
+        self.js_result_dict = result_dict
+
+        if self.js_test_dryrun == False:
+            for json_cmd in result_list:
+                call(["curl", "-v", "-X", "POST", "-d", \
+                      json_cmd, "http://localhost:8000/abc"])
+                call(["curl", "-v", "-X", "PUT", "-d",  \
+                      json_cmd, "http://localhost:8000/abc"])
+                call(["curl", "-v", "-X", "POST", "-d", \
+                      json_cmd, "http://localhost:8000/abc/def"])
+                call(["curl", "-v", "-X", "PUT", "-d",  \
+                      json_cmd, "http://localhost:8000/abc/def"])
