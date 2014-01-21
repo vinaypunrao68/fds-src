@@ -3,7 +3,7 @@
 #include <string>
 #include <sstream>
 #include <fds_counters.h>
-
+#include <ctime>
 namespace fds {
 
 FdsCountersMgr::FdsCountersMgr()
@@ -44,10 +44,13 @@ std::string FdsCountersMgr::export_as_graphite()
 
     fds_mutex::scoped_lock lock(lock_);
 
+    std::time_t ts = std::time(NULL);
+
     for (auto counters : exp_counters_) {
         std::string counters_id = counters->id();
         for (auto c : counters->exp_counters_) {
-            oss << counters_id << "." << c->id() << " " << c->value() << std::endl;
+            oss << counters_id << "." << c->id() << " " << c->value()
+                << " " << ts << std::endl;
         }
     }
     return oss.str();
