@@ -17,9 +17,13 @@
 #include <fdsp/FDSP_DataPathResp.h>
 #include <fdsp/FDSP_MetaDataPathReq.h>
 #include <fdsp/FDSP_MetaDataPathResp.h>
+#include <fds_globals.h>
 #include <NetSessRespClient.h>
 #include <NetSessRespSvr.h>
+#include <util/Log.h>
+#include <fds_assert.h>
 
+#include <fds_uuid.h>
 
 using namespace ::apache::thrift;
 using namespace ::apache::thrift::protocol;
@@ -31,10 +35,15 @@ using namespace fds;
 #define NETSESS_SERVER 1
 #define NETSESS_CLIENT 0
 
+
+
+
 typedef void  (*sessionErrorCallback)(string ip_addr, 
                                       FDSP_MgrIdType mgrId, 
                                       int channel, int errno, 
                                       std::string errMsg); 
+
+typedef boost::shared_ptr<TTransport> TTransportPtr;
 
 class netSession {
 public:
@@ -48,6 +57,21 @@ public:
     static string ipAddr2String(int ipaddr);
     static int ipString2Addr(string ipaddr_str);
     static std::string getLocalIp();
+
+    inline static std::string getIPV4FromMappedAddress(const std::string& peer_addr) 
+    {
+        std::string peer_address;
+        char *paddr = (char *)peer_addr.data();
+
+        if (strncmp(peer_addr.c_str(), "::ffff:", (sizeof("::ffff:") -1)) == 0 ) {
+            paddr = paddr + sizeof("::ffff:") -1;
+            peer_address.append(paddr);
+        } else {
+            peer_address =  peer_addr; 
+        }
+        return peer_address;
+    }
+
     void setSessionErrHandler(sessionErrorCallback cback);
     
     virtual ~netSession();
@@ -96,8 +120,11 @@ netClientSession(string node_name, int port, FDSP_MgrIdType local_mgr,
                  FDSP_MgrIdType remote_mgr) 
         : netSession(node_name, port, local_mgr, remote_mgr),
             socket(new apache::thrift::transport::TSocket(node_name, port)),
-            transport(new apache::thrift::transport::TBufferedTransport(socket)),
-            protocol(new TBinaryProtocol(transport)) {
+            transport(new apache::thrift::transport::TBufferedTransport(
+                    boost::dynamic_pointer_cast<apache::thrift::transport::TTransport>(socket))),
+            protocol(new TBinaryProtocol(transport)),
+            session_id_("")
+    {
     }
     
     virtual ~netClientSession() {
@@ -110,11 +137,40 @@ netClientSession(string node_name, int port, FDSP_MgrIdType local_mgr,
             transport->close();
     }
     
+    std::string get_session_id() {
+        return session_id_; 
+    }
+    
 protected:
-    boost::shared_ptr<TTransport> socket;
+    /**
+     * @brief Once client connects the first thing it should do is invoked
+     * this method to get a session id.  All futher communication should
+     * use this session id
+     *
+     * @param client_if
+     */
+    virtual void establishSession(boost::shared_ptr<FDSP_ServiceIf> client_if)
+    {
+        FDSP_SessionReqResp session_info; 
+        FDSP_MsgHdrType fdsp_msg;
+
+        session_info.status = 0;
+        fdsp_msg.src_node_name = socket->getPeerAddress();
+        fdsp_msg.src_port = socket->getPort();
+
+        client_if->EstablishSession(session_info, fdsp_msg);
+        // TODO: based on return code the do the appropriate
+        fds_verify(session_info.status == 0 && !session_info.sid.empty());
+        session_id_ = session_info.sid;
+
+        FDS_PLOG(g_fdslog) << __FUNCTION__ << " sid: " << session_id_;
+    }
+protected:
+    boost::shared_ptr<apache::thrift::transport::TSocket> socket;
     boost::shared_ptr<TTransport> transport;
     boost::shared_ptr<TProtocol> protocol;
     boost::shared_ptr<TThreadPoolServer> server;
+    std::string session_id_;
 };
 
 class netDataPathClientSession : public netClientSession { 
@@ -138,7 +194,9 @@ netDataPathClientSession(const std::string& ip_addr_str,
         recv_thread = threadFactory.newThread(msg_recv);
         recv_thread->start();
         transport->open();
+        establishSession(boost::dynamic_pointer_cast<FDSP_ServiceIf>(fdspDPAPI));
     }
+
     ~netDataPathClientSession() {
     }
 
@@ -325,9 +383,12 @@ public :
                    FDSP_MgrIdType local_mgr_id,
                    FDSP_MgrIdType remote_mgr_id,
                    int num_threads) : 
-                   netSession(node_name, port, local_mgr_id, remote_mgr_id) { 
+                   netSession(node_name, port, local_mgr_id, remote_mgr_id),
+                   lock_("netServerSession lock"),
+                   event_handler_(*this)
+    { 
        serverTransport.reset(new apache::thrift::transport::TServerSocket(port));
-       transportFactory.reset( new apache::thrift::transport::TBufferedTransportFactory());
+       transportFactory.reset(getTransportFactory());
        protocolFactory.reset( new TBinaryProtocolFactory());
 
        threadManager = ThreadManager::newSimpleThreadManager(num_threads);
@@ -342,27 +403,134 @@ public :
   virtual void endSession() { 
   }
 
+  
+  /**
+   * @brief Adds a new response client session.  Client transport with
+   * port and ip must exist in auth_pending_transports_.
+   *
+   * @param ip
+   * @param port
+   * @param session_id
+   */
+  virtual void addRespClientSession(const std::string &ip, const int &port, 
+                                const std::string &session_id)
+  {
+      fds_mutex::scoped_lock l(lock_);
+      std::string key = getTransportKey(ip, port); 
+      auto itr = auth_pending_transports_.find(key);
+      fds_verify(itr != auth_pending_transports_.end());
+
+      /* Remove from pending and add to response client table */
+      TTransportPtr transport = itr->second;
+      auth_pending_transports_.erase(itr);
+      setClientInternal(session_id, transport);
+
+      FDS_PLOG(g_fdslog) << __FUNCTION__ << " key: " << key << " sid: " << session_id;
+  }
+
+protected:
+  TTransportFactory* getTransportFactory()
+  {
+      /* NOTE: if return a diffrent TTransportFactory, make sure you adjust
+       * getTransportKey() to match as well
+       */
+      return new apache::thrift::transport::TBufferedTransportFactory();
+  }
+
+  static std::string getTransportKey(TTransportPtr transport)
+  {
+      std::stringstream ret;
+
+      /* What we get is TBufferedTransport.  We will extract TSocket from it */
+      boost::shared_ptr<apache::thrift::transport::TBufferedTransport> buf_transport =
+          boost::static_pointer_cast<apache::thrift::transport::TBufferedTransport>(transport);
+
+      boost::shared_ptr<apache::thrift::transport::TSocket> sock =
+          boost::static_pointer_cast<apache::thrift::transport::TSocket>\
+          (buf_transport->getUnderlyingTransport());
+
+      return getTransportKey(sock->getPeerAddress(), sock->getPeerPort());
+  }
+
+  static std::string getTransportKey(const std::string &ip, const int &port)
+  {
+      std::stringstream ret;
+      // Convert any IPv4 mapped address to normal ipv4 address for the key
+      std::string ip_addr = netSession::getIPV4FromMappedAddress(ip);
+      ret << ip_addr << ":" << port; 
+      return ret.str();
+  }
+
+
+  // TODO: Either make this pure virtual or move up setClientInternal
+  // impelementations, which might be cleaner but a larger change
+  // NOTE:  This method invoked under lock
+  virtual void setClientInternal(const std::string &session_id,
+                                 TTransportPtr tranport)
+  {
+  }
+
+private:
+  class ServerEventHandler : public TServerEventHandler {
+   public:
+    ServerEventHandler(netServerSession &parent)
+        : parent_(parent)
+    {
+    }
+    /**
+     * Called when a new client has connected and is about to being processing.
+     */
+    virtual void* createContext(boost::shared_ptr<TProtocol> input,
+                                boost::shared_ptr<TProtocol> output) override {
+        fds_mutex::scoped_lock l(parent_.lock_);
+        TTransportPtr transport = input->getTransport();
+        std::string key = getTransportKey(transport);
+        /* This key must not exist prior */
+        fds_verify(parent_.auth_pending_transports_.find(key) == 
+                   parent_.auth_pending_transports_.end());
+        parent_.auth_pending_transports_[key] = transport; 
+
+        FDS_PLOG(g_fdslog) << __FUNCTION__ << " key: " << key;
+        return NULL;
+    }
+    /**
+     * Called when a client has finished request-handling to delete server
+     * context.
+     */
+    virtual void deleteContext(void* serverContext,
+                               boost::shared_ptr<TProtocol>input,
+                               boost::shared_ptr<TProtocol>output) {
+        fds_mutex::scoped_lock l(parent_.lock_);
+        TTransportPtr transport = input->getTransport();
+        std::string key = getTransportKey(transport);
+        /* Transport may or may not exist in auth_pending_transports_,
+         * we will remove anyways 
+         */
+        parent_.auth_pending_transports_.erase(key);
+        FDS_PLOG(g_fdslog) << __FUNCTION__ << " key: " << key;
+        // TODO: Cleaning up session.  We dont have ip+port->sid mapping.
+        // We may have to extend auth_pending_transports_ to contain this
+        // info along with state information
+    }
+   private:
+    netServerSession &parent_;
+  };
 protected:
   boost::shared_ptr<TServerTransport> serverTransport;
   boost::shared_ptr<TTransportFactory> transportFactory;
   boost::shared_ptr<TProtocolFactory> protocolFactory;
   boost::shared_ptr<PosixThreadFactory> threadFactory;
   boost::shared_ptr<ThreadManager> threadManager;
+  
+  /* Lock to protect auth_pending_transports and respClients */
+  fds_mutex lock_;
+  /* Transports pending authorization */
+  std::unordered_map<std::string, TTransportPtr> auth_pending_transports_;
+  /* TServer event handler */
+  ServerEventHandler event_handler_;
 };
 
-inline
-std::string getIPV4FromMappedAddress(std::string& peer_addr) {
-    std::string peer_address;
-    char *paddr = (char *)peer_addr.data();
-    
-    if (strncmp(peer_addr.c_str(), "::ffff:", (sizeof("::ffff:") -1)) == 0 ) {
-        paddr = paddr + sizeof("::ffff:") -1;
-        peer_address.append(paddr);
-    } else {
-        peer_address =  peer_addr; 
-    }
-    return peer_address;
-}
+
 
 
 
@@ -387,9 +555,11 @@ class netDataPathServerSession : public netServerSession {
     // Called from within thrift and the right context is passed -
     // nothing to do in the application modules of thrift
     static void setClient(const boost::shared_ptr<TTransport> transport, void* context) {
+#if 0
         printf("netSessionServer: set DataPathRespClient for new client session \n");
         netDataPathServerSession* self = reinterpret_cast<netDataPathServerSession *>(context);
         self->setClientInternal(transport);
+#endif
     }
 
     void setClientInternal(const boost::shared_ptr<TTransport> transport) {
@@ -432,13 +602,22 @@ class netDataPathServerSession : public netServerSession {
         server->serve();
     }
 
+protected:
+  virtual void setClientInternal(const std::string &session_id,
+                                 TTransportPtr tranport) override
+  {
+        dataPathRespClient dprespcli( new FDSP_DataPathRespClient(protocol_));
+        respClient[session_id] = dprespcli;
+  }
+
+
 private:
     boost::shared_ptr<FDSP_DataPathReqIf> handler;
     boost::shared_ptr<FDSP_DataPathReqIfSingletonFactory> handlerFactory; 
     boost::shared_ptr<TProcessorFactory> processorFactory;
     boost::shared_ptr<TThreadPoolServer> server;
     boost::shared_ptr<TProtocol> protocol_;
-typedef boost::shared_ptr<FDSP_DataPathRespClient> dataPathRespClient;
+    typedef boost::shared_ptr<FDSP_DataPathRespClient> dataPathRespClient;
     std::unordered_map<std::string, dataPathRespClient> respClient;
 };
 
@@ -787,5 +966,45 @@ private: /* data */
     boost::shared_ptr<ThreadManager> threadManager;
     boost::shared_ptr<PosixThreadFactory> threadFactory;
 };
+
+namespace fds {
+class FDSP_ServiceImpl : virtual public FDSP_ServiceIf {
+ public:
+  FDSP_ServiceImpl()
+  {
+  }
+
+  virtual void set_server_session(netServerSession *srvr_session)
+  {
+      srvr_session_ = srvr_session;
+  }
+
+  /**
+   * @brief We get this request after socket connect.  As part of this call
+   * we will create session and associate the connection with the generated
+   * session id.  This connection is also used for response client
+   *
+   * @param _return
+   * @param fdsp_msg
+   */
+  virtual void EstablishSession(FDSP_SessionReqResp& _return,
+                                const FDSP_MsgHdrType& fdsp_msg) override
+  {
+      /* Generate a uuid and add a session.  Any further authentication can be
+       * done here 
+       */
+      srvr_session_->addRespClientSession(fdsp_msg.src_node_name, 
+                                         fdsp_msg.src_port, fds::get_uuid());
+  } 
+
+  virtual void EstablishSession(FDSP_SessionReqResp& _return,
+                                boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg) override
+  {
+      EstablishSession(_return, *fdsp_msg);
+  }
+ protected: 
+  netServerSession *srvr_session_;
+};
+}  // namespace fds
 
 #endif

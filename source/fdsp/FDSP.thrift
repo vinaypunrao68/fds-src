@@ -592,7 +592,17 @@ service FDSP_SessionReq {
     oneway void AssociateRespCallback(1:string src_node_name) // Associate Response callback with DM/SM for this source node.
 }
 
-service FDSP_DataPathReq {
+/* Response for establish session request */
+struct FDSP_SessionReqResp {
+    1: i32           status, // TODO: This should be fdsp error code
+    2: string        sid,
+}
+
+service FDSP_Service {
+	FDSP_SessionReqResp EstablishSession(1:FDSP_MsgHdrType fdsp_msg)
+}
+
+service FDSP_DataPathReq extends FDSP_Service {
     oneway void GetObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetObjType get_obj_req),
 
     oneway void PutObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PutObjType put_obj_req),
@@ -605,7 +615,7 @@ service FDSP_DataPathReq {
 
 }
 
-service FDSP_MetaDataPathReq { 
+service FDSP_MetaDataPathReq {
 
     oneway void UpdateCatalogObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_UpdateCatalogType cat_obj_req),
 

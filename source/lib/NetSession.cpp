@@ -5,6 +5,8 @@
 #include <NetSessRespSvr.h>
 #include <arpa/inet.h>
 #include <fds_assert.h>
+#include <regex>
+#include <sstream>
 
 netSession::netSession()
     : node_index(0), proto_type(0), port_num(0) {
@@ -239,6 +241,7 @@ fds_int32_t netSessionTbl::ipString2Addr(string ipaddr_str) {
     inet_pton(AF_INET, (char *)ipaddr_str.data(), (void *)&(sa.sin_addr));
     return (ntohl(sa.sin_addr.s_addr));
 }
+
 
 
 /**
