@@ -1,11 +1,12 @@
 #!/usr/bin/env python
+import pdb
+import gen_json_spec
 from gen_json_spec import JSonTestCmdLine
 from gen_json_spec import JSonVal
 from gen_json_spec import JSonValRandom
 from gen_json_spec import JSonTestCfg
 from gen_json_spec import JSonTestCfg
 from gen_json_spec import JSonTestClient
-
 
 # Create command line object to parse command line parameters and cfg file.
 #
@@ -106,9 +107,14 @@ math_cmd            = JSonVal(['add', 'subtract'])
 math_operand_left   = JSonVal(['100', '200'])
 math_operand_right  = JSonVal(['10', '20'])
 
-list_thpool_syscall = [syscall_cmd, syscall_path, 'FOO', 'BAR']
+math_cmd_list1      = [math_cmd, math_operand_left, math_operand_right]
+math_cmd_list2      = [math_cmd, math_operand_left]
+
+list_thpool_syscall = [[syscall_cmd, syscall_path, 'FOO', 'BAR'], \
+                       [syscall_cmd, syscall_path, 'FOO', 'BAR']]
 list_thpool_boost   = [boost_cmd, boost_array_index0, boost_array_index1, boost_value]
-list_thpool_math    = [math_cmd, math_operand_left, math_operand_right]
+list_thpool_math    = gen_json_spec.create_list_of_lists([math_cmd_list1, math_cmd_list2],
+                                                         4, True)
 
 dict_threadpool     = {'thpool-syscall' : list_thpool_syscall,
                        'thpool-boost'   : list_thpool_boost,
@@ -131,9 +137,15 @@ test_client = JSonTestClient(test_cfg)
 # 1) Generate <n> number of unique JSon spec given test configuration.
 # 2) Make http calls to server with the generated JSon spec.
 test_client.run()
-
 ###############################################################################
 # The test for the test.
+def gen_json_spec_test_create_list_of_lists():
+    list_1 = ["1", "2", "3"]
+    list_2 = ["a", "b"]
+    create_test_lists = [list_1, list_2]
+    res_lists = gen_json_spec.create_list_of_lists(create_test_lists, 10, True)
+    print res_lists
+
 def gen_json_spec_selftest():
     comb =  len(syscall_cmd.get_values()) * \
             len(syscall_path.get_values()) * \
