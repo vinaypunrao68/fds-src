@@ -270,11 +270,6 @@ netMetaDataPathClientSession(const std::string& ip_addr_str,
             fdspMetaDataPathResp(reinterpret_cast<FDSP_MetaDataPathRespIf *>(respSvrObj)),
             processor(new FDSP_MetaDataPathRespProcessor(fdspMetaDataPathResp)) {
 
-        /* The first message sent to server is a connect request.  DO
-         * NOT start receive thread before establishing a connection session */
-        transport->open();
-        establishSession(boost::dynamic_pointer_cast<FDSP_ServiceIf>(fdspMDPAPI));
-
         PosixThreadFactory threadFactory(PosixThreadFactory::ROUND_ROBIN,
                                          PosixThreadFactory::NORMAL,
                                          num_threads,
@@ -316,10 +311,6 @@ netControlPathClientSession(const std::string& ip_addr_str,
             fdspCPAPI(new FDSP_ControlPathReqClient(protocol)),
             fdspControlPathResp(reinterpret_cast<FDSP_ControlPathRespIf *>(respSvrObj)),
             processor(new FDSP_ControlPathRespProcessor(fdspControlPathResp)) {
-        /* The first message sent to server is a connect request.  DO
-         * NOT start receive thread before establishing a connection session */
-        transport->open();
-        establishSession(boost::dynamic_pointer_cast<FDSP_ServiceIf>(fdspCPAPI));
 
         PosixThreadFactory threadFactory(PosixThreadFactory::ROUND_ROBIN,
                                          PosixThreadFactory::NORMAL,
@@ -360,10 +351,6 @@ netOMControlPathClientSession(const std::string& ip_addr_str,
             fdspOMCPAPI(new FDSP_OMControlPathReqClient(protocol)),
             fdspOMControlPathResp(reinterpret_cast<FDSP_OMControlPathRespIf *>(respSvrObj)),
             processor(new FDSP_OMControlPathRespProcessor(fdspOMControlPathResp)) {
-        /* The first message sent to server is a connect request.  DO
-         * NOT start receive thread before establishing a connection session */
-        transport->open();
-        establishSession(boost::dynamic_pointer_cast<FDSP_ServiceIf>(fdspOMCPAPI));
 
         PosixThreadFactory threadFactory(PosixThreadFactory::ROUND_ROBIN,
                                          PosixThreadFactory::NORMAL,
