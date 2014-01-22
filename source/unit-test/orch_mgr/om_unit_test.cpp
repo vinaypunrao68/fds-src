@@ -18,6 +18,7 @@
 #include <fds_types.h>
 #include <fds_err.h>
 #include <fds_volume.h>
+#include <fds_process_globals.h>
 #include <NetSession.h>
 #include <util/Log.h>
 #include <concurrency/Mutex.h>
@@ -446,7 +447,7 @@ class OmUnitTest {
      * send OMControl messages to OM; will add session table t o
      * 'tbl_list'
      */
-    boost::shared_ptr<FDSP_OMControlPathReqClient>
+    netOMControlPathClientSession*
     createOmClientComm(const std::string& omclient_node_name,
                             FDS_ProtocolInterface::FDSP_MgrIdType omclient_node_type,
                             int omclient_port,
@@ -462,7 +463,7 @@ class OmUnitTest {
                                                        1,
                                                        omclient_node_type);
         if (!session_tbl) {
-            return boost::shared_ptr<FDSP_OMControlPathReqClient>();
+            return NULL;
         }
         tbl_list.push_back(session_tbl);
 
@@ -487,7 +488,7 @@ class OmUnitTest {
                                                    resp_handler_ptr);
 
 
-        return dynamic_cast<netOMControlPathClientSession*>(client_session)->getClient();
+        return static_cast<netOMControlPathClientSession*>(client_session);
     }
 
     void clearOmClientComms(std::list<netSessionTbl*>& list) {
@@ -520,7 +521,7 @@ class OmUnitTest {
         FDS_ProtocolInterface::FDSP_RegisterNodeTypePtr reg_node_msg(
             new FDS_ProtocolInterface::FDSP_RegisterNodeType);
         
-        boost::shared_ptr<FDSP_OMControlPathReqClient> ocp_client;
+        netOMControlPathClientSession* ocp_client_session;
         
         reg_node_msg->domain_id  = 0;
         reg_node_msg->ip_hi_addr = 0;
@@ -546,22 +547,22 @@ class OmUnitTest {
          */
         reg_node_msg->node_name = node_name;
         
-        ocp_client = createOmClientComm(reg_node_msg->node_name,
-                                        reg_node_msg->node_type,
-                                        reg_node_msg->control_port,
-                                        nst_list);
-        if (!ocp_client) {
+        ocp_client_session = createOmClientComm(reg_node_msg->node_name,
+                                                reg_node_msg->node_type,
+                                                reg_node_msg->control_port,
+                                                nst_list);
+        if (!ocp_client_session) {
             FDS_PLOG(test_log) << "ERROR: failed to create OmClientComm for node "
                                << reg_node_msg->node_name;
-            return ocp_client;
+            return boost::shared_ptr<FDSP_OMControlPathReqClient>();
         }
         
-        ocp_client->RegisterNode(msg_hdr, reg_node_msg);
+        ocp_client_session->getClient()->RegisterNode(msg_hdr, reg_node_msg);
         FDS_PLOG(test_log) << "Completed node registration at IP "
                            << fds::ipv4_addr_to_str(reg_node_msg->ip_lo_addr)
                            << " control port " << reg_node_msg->control_port;
 
-        return ocp_client;
+        return ocp_client_session->getClient();
     } 
 
  
@@ -605,7 +606,7 @@ class OmUnitTest {
         reg_node_msg->data_port = 0;
         
         for (fds_uint32_t i = 0; i < num_updates; i++) {
-            boost::shared_ptr<FDSP_OMControlPathReqClient> ocp_client;
+            netOMControlPathClientSession* ocp_client_session;
 
             /*
              * TODO: Make the name just an int since the OM turns this into
@@ -634,12 +635,12 @@ class OmUnitTest {
                 reg_node_msg->node_type = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
             }
 
-            ocp_client = createOmClientComm(reg_node_msg->node_name,
-                                            reg_node_msg->node_type,
-                                            reg_node_msg->control_port,
-                                            session_tbl_list);
+            ocp_client_session = createOmClientComm(reg_node_msg->node_name,
+                                                    reg_node_msg->node_type,
+                                                    reg_node_msg->control_port,
+                                                    session_tbl_list);
             
-            ocp_client->RegisterNode(msg_hdr, reg_node_msg);
+            ocp_client_session->getClient()->RegisterNode(msg_hdr, reg_node_msg);
             
             FDS_PLOG(test_log) << "Sent node registration " << i << " at IP "
                                << fds::ipv4_addr_to_str(reg_node_msg->ip_lo_addr)
@@ -979,6 +980,7 @@ class OmUnitTest {
                                       FDS_ProtocolInterface::FDSP_ORCH_MGR,
                                       1,
                                       NULL);
+        
     }
 
     ~OmUnitTest() {

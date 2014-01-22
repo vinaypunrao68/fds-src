@@ -161,8 +161,10 @@ netClientSession(string node_name, int port, FDSP_MgrIdType local_mgr,
          * NOT start receive thread before establishing a connection
          * session*/
         transport->open();
-        //MCSUPPORT:
-        establishSession(/*boost::dynamic_pointer_cast<FDSP_ServiceIf>(fdspDPAPI)*/);
+        while (!transport->isOpen()) {
+            usleep(500);
+        }
+        establishSession();
     }
     
     virtual ~netClientSession() {
@@ -392,8 +394,6 @@ netConfigPathClientSession(const std::string& ip_addr_str,
                            void *respSvrObj) 
             : netClientSession(ip_addr_str, port, local_mgr_id, remote_mgr_id),
             fdspConfAPI(new FDSP_ConfigPathReqClient(protocol)) {
-        
-        transport->open();
     }
     ~netConfigPathClientSession() {
     }
@@ -440,6 +440,7 @@ public :
 
   virtual int addRespClientSession(const std::string &session_id, TTransportPtr t)
   {
+      return 0;
   }
 protected:
   TTransportFactory* getTransportFactory()
@@ -948,12 +949,18 @@ netConfigPathServerSession(const std::string& dest_node_name,
                                             protocolFactory,
                                             threadManager));
         
+        server->setServerEventHandler(event_handler_);
         printf("Starting the server...\n");
         server->serve();
     }
 
     void endSession() {
         server->stop();
+    }
+
+protected:
+    virtual void setClientInternal(const std::string &session_id,
+                                   TTransportPtr transport) override {
     }
 
 private:
