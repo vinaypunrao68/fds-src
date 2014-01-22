@@ -329,9 +329,10 @@ void FdsLocalDomain::sendMgrNodeListToFdsNode(const NodeInfo& n_info) {
     FDS_ProtocolInterface::FDSP_Node_Info_TypePtr node_info_ptr(
         new FDS_ProtocolInterface::FDSP_Node_Info_Type);
 
-    initOMMsgHdr(msg_hdr_ptr);
     FDSP_ControlPathReqClientPtr ctrlAPI = n_info.getClient();
 
+    initOMMsgHdr(msg_hdr_ptr);
+    msg_hdr_ptr->session_uuid = n_info.getSessionId();
     msg_hdr_ptr->msg_code = FDS_ProtocolInterface::FDSP_MSG_NOTIFY_NODE_ADD;
     msg_hdr_ptr->msg_id = 0;
     msg_hdr_ptr->tennant_id = 1;
@@ -423,6 +424,7 @@ void FdsLocalDomain::sendNodeEventToFdsNodes(const NodeInfo& nodeInfo,
                     << nodeInfo.node_name << " state - "
                     << node_state;
 
+            msg_hdr_ptr->session_uuid = next_node_info.getSessionId();
             if (node_state == FDS_ProtocolInterface::FDS_Node_Up) {
                 next_node_info.getClient()->NotifyNodeAdd(msg_hdr_ptr, node_info_ptr);
             } else {
@@ -479,6 +481,7 @@ void FdsLocalDomain::sendNodeTableToFdsNodes(int table_type) {
                         current_dlt_version : current_dmt_version)
                     << " to node " << node_name;
 
+            msg_hdr_ptr->session_uuid = next_node_info.getSessionId();
             if (table_type == table_type_dlt) {
                 next_node_info.getClient()->NotifyDLTUpdate(msg_hdr_ptr, dlt_info_ptr);
             } else {
@@ -497,6 +500,7 @@ void FdsLocalDomain::sendAllVolumesToFdsMgrNode(NodeInfo node_info) {
     FdspNotVolPtr vol_msg(new FDS_ProtocolInterface::FDSP_NotifyVolType);
 
     initOMMsgHdr(msg_hdr);
+    msg_hdr->session_uuid = node_info.getSessionId();
     vol_msg->type = FDS_ProtocolInterface::FDSP_NOTIFY_ADD_VOL;
     msg_hdr->dst_id = FDS_ProtocolInterface::FDSP_DATA_MGR;
 
@@ -544,6 +548,7 @@ void FdsLocalDomain::sendCreateVolToFdsNodes(VolumeInfo  *pVolInfo) {
                     << node_name << " for volume "
                     << pVolInfo->volUUID;
 
+            msg_hdr->session_uuid = node_info.getSessionId();
             node_info.getClient()->NotifyAddVol(msg_hdr, vol_msg);
         }
     }
@@ -579,6 +584,7 @@ void FdsLocalDomain::sendModifyVolToFdsNodes(VolumeInfo* pVolInfo)
                     << pVolInfo->vol_name << " UUID "
                     << pVolInfo->volUUID;
 
+            msg_hdr->session_uuid = node_info.getSessionId();
             node_info.getClient()->NotifyModVol(msg_hdr, vol_msg);
         }
     }
@@ -601,6 +607,7 @@ void FdsLocalDomain::sendModifyVolToFdsNodes(VolumeInfo* pVolInfo)
                 << pVolInfo->volUUID;
 
         NodeInfo& node_info = currentShMap[pVolInfo->hv_nodes[i]];
+        msg_hdr->session_uuid = node_info.getSessionId();
         node_info.getClient()->NotifyModVol(msg_hdr, vol_msg);
     }
 }
@@ -669,6 +676,7 @@ void FdsLocalDomain::sendDeleteVolToFdsNodes(VolumeInfo *pVolInfo) {
                     << node_name << " for volume "
                     << pVolInfo->volUUID;
 
+            msg_hdr->session_uuid = node_info.getSessionId();
             node_info.getClient()->NotifyRmVol(msg_hdr, vol_msg);
         }
     }
@@ -697,6 +705,7 @@ void FdsLocalDomain::sendAttachVolToHvNode(fds_node_name_t node_name,
             << "Sending attach vol to node " << node_name
             << " node_id " << node_info.node_id;
 
+    msg_hdr->session_uuid = node_info.getSessionId();
     node_info.getClient()->AttachVol(msg_hdr, vol_msg);
 }
 
@@ -722,6 +731,7 @@ void FdsLocalDomain::sendDetachVolToHvNode(fds_node_name_t node_name,
             << "Sending detach vol to node " << node_name
             << " for volume " << pVolInfo->volUUID;
 
+    msg_hdr->session_uuid = node_info.getSessionId();
     node_info.getClient()->DetachVol(msg_hdr, vol_msg);
 }
 
@@ -766,6 +776,7 @@ void FdsLocalDomain::sendTestBucketResponseToHvNode(fds_node_name_t node_name,
             << " for bucket " << vol_msg->vol_name
             << " node_info-> node-id = " << node_info.node_id;
 
+    msg_hdr->session_uuid = node_info.getSessionId();
     node_info.getClient()->AttachVol(msg_hdr, vol_msg);
 }
 
@@ -803,6 +814,7 @@ void FdsLocalDomain::sendThrottleLevelToHvNodes(float throttle_level) {
                 << node_name << " for throttle level "
                 << throttle_level;
 
+        msg_hdr->session_uuid = node_info.getSessionId();
         node_info.getClient()->SetThrottleLevel(msg_hdr, throttle_msg);
     }
 }
@@ -896,6 +908,7 @@ void FdsLocalDomain::sendBucketStats(fds_uint32_t perf_time_interval,
             << dest_node_name
             << " node_info-> node-id = " << node_info.node_id;
 
+    msg_hdr->session_uuid = node_info.getSessionId();
     node_info.getClient()->NotifyBucketStats(msg_hdr, buck_stats_rsp);
 }
 

@@ -101,11 +101,14 @@ namespace fds {
 	  net_session_tbl(nst) {
 	    /* start session for client that will send ctrl 
 	    * messages to this node */
-	    net_session_tbl->startSession(node_ip_address,
-					  control_port,
-					  node_type,
-					  1,
-					  resp_handler.get());
+              netSession* client_session =
+                      net_session_tbl->startSession(node_ip_address,
+                                                    control_port,
+                                                    node_type,
+                                                    1,
+                                                    resp_handler.get());
+              
+              ctrl_session = static_cast<netControlPathClientSession*>(client_session);
 	  }
 	
         /*
@@ -157,11 +160,12 @@ namespace fds {
 	}
 
 	FDSP_ControlPathReqClientPtr getClient() const {
-	  netSession* client_session =
-	    net_session_tbl->getSession(node_ip_address,
-					node_type);
-	  return static_cast<netControlPathClientSession*>(client_session)->getClient();
+	  return ctrl_session->getClient();
 	}
+
+        std::string getSessionId() const {
+            return ctrl_session->getSessionId();
+        }
         
         /*
          * TODO: This should have a copy constructor and an
@@ -170,6 +174,7 @@ namespace fds {
          */
     private:
 	boost::shared_ptr<netSessionTbl> net_session_tbl;
+        netControlPathClientSession* ctrl_session; /* cached client session */
     };
     
     class VolumeInfo {

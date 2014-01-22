@@ -135,7 +135,7 @@ void OrchMgr::setup(int argc, char* argv[],
         new netSessionTbl(my_node_name,
                           netSession::ipString2Addr(ip_address),
                           control_portnum,
-                          10,
+                          100,
                           FDS_ProtocolInterface::FDSP_ORCH_MGR));
     
     omcp_session_tbl->createServerSession(netSession::ipString2Addr(ip_address),
@@ -151,7 +151,7 @@ void OrchMgr::setup(int argc, char* argv[],
         new netSessionTbl(my_node_name,
                           netSession::ipString2Addr(ip_address),
                           config_portnum,
-                          10,
+                          100,
                           FDS_ProtocolInterface::FDSP_ORCH_MGR));
 
     cfg_session_tbl->createServerSession(netSession::ipString2Addr(ip_address),

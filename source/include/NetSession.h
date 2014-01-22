@@ -196,7 +196,7 @@ protected:
         boost::shared_ptr<FDSP_ServiceClient> client_if(new FDSP_ServiceClient(protocol));
 
         session_info.status = 0;
-        fdsp_msg.src_node_name = socket->getPeerAddress();
+        fdsp_msg.session_uuid = socket->getPeerAddress();
         fdsp_msg.src_port = socket->getPeerPort();
         
         client_if->EstablishSession(session_info, fdsp_msg);
