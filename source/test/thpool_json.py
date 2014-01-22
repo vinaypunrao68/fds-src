@@ -15,7 +15,7 @@ from gen_json_spec import JSonTestClient
 # usage: thpool_json.py [-h] [--client_id CLIENT_ID] [--config CONFIG]
 #                       [--spec_cnt SPEC_CNT] [--sort_keys SORT_KEYS]
 #                       [--print_pretty PRINT_PRETTY] [--dryrun DRYRUN]
-# 
+#
 # optional arguments:
 #   -h, --help            show this help message and exit
 #   --client_id CLIENT_ID
@@ -48,15 +48,15 @@ cmd_line = JSonTestCmdLine()
 #                                             1 element of syscall_cmd is insert here
 #                                             per JSon spec generated.
 #                    syscall_path,       <--- ['/dev/null', '/tmp/foo', '/tmp/foo2']
-#                    "FOO", 
+#                    "FOO",
 #                    "BAR"
-#                ], 
+#                ],
 #                "thpool-boost": [
 #                    boost_cmd,          <--- ['add', 'sub', 'print']
 #                    boost_array_index0, <--- ['0', '1']
 #                    boost_array_index1, <--- ['0', '1']
 #                    boost_value         <--- ['100', '200']
-#                ], 
+#                ],
 #                "thpool-math": [
 #                    math_cmd,           <--- ['add', 'subtract']
 #                    math_operand_left,  <--- ['100', '200']
@@ -64,7 +64,7 @@ cmd_line = JSonTestCmdLine()
 #                ]
 #            }
 #        }
-#    }, 
+#    },
 #    "Test-ID": JSonTestID               <--- Incremental ID per JSon spec generated.
 #}
 #
@@ -74,25 +74,25 @@ cmd_line = JSonTestCmdLine()
 #        "Server-Load": {
 #            "threadpool": {
 #                "thpool-syscall": [
-#                    "read", 
-#                    "/tmp/foo", 
-#                    "FOO", 
+#                    "read",
+#                    "/tmp/foo",
+#                    "FOO",
 #                    "BAR"
-#                ], 
+#                ],
 #                "thpool-boost": [
-#                    "sub", 
-#                    "0", 
-#                    "0", 
+#                    "sub",
+#                    "0",
+#                    "0",
 #                    "100"
-#                ], 
+#                ],
 #                "thpool-math": [
-#                    "add", 
-#                    "100", 
+#                    "add",
+#                    "100",
 #                    "10"
 #                ]
 #            }
 #        }
-#    }, 
+#    },
 #    "Test-ID": 2290
 #}
 syscall_cmd         = JSonVal(['open', 'close', 'read', 'write'])
