@@ -4,7 +4,6 @@
 #ifndef SOURCE_FDS_PROBE_INCLUDE_UTEST_TYPES_H_
 #define SOURCE_FDS_PROBE_INCLUDE_UTEST_TYPES_H_
 
-#include <list>
 #include <string>
 #include <fds-probe/js-object.h>
 
@@ -29,8 +28,8 @@ struct ut_thr_param
 class UT_Thread : public JsObject
 {
   public:
-    virtual JsObject *js_exec_obj(JsObject *parent, JsObjTemplate *templ,
-                                  std::list<std::string> *out);
+    virtual JsObject *js_exec_obj(JsObject *parent,
+                                  JsObjTemplate *templ, JsObjOutput *out);
 
     inline ut_thr_param_t *thr_param() {
         return static_cast<ut_thr_param_t *>(js_pod_object());
@@ -71,8 +70,8 @@ struct ut_srv_param
 class UT_Server : public JsObject
 {
   public:
-    virtual JsObject *js_exec_obj(JsObject *parent, JsObjTemplate *templ,
-                                  std::list<std::string> *out);
+    virtual JsObject *js_exec_obj(JsObject *parent,
+                                  JsObjTemplate *templ, JsObjOutput *out);
 
     inline ut_srv_param_t *srv_param() {
         return static_cast<ut_srv_param_t *>(js_pod_object());
@@ -111,8 +110,8 @@ struct ut_load_param
 class UT_Load : public JsObject
 {
   public:
-    virtual JsObject *js_exec_obj(JsObject *parent, JsObjTemplate *templ,
-                                  std::list<std::string> *out);
+    virtual JsObject *js_exec_obj(JsObject *parent,
+                                  JsObjTemplate *templ, JsObjOutput *out);
 
     inline ut_load_param_t *load_param() {
         return static_cast<ut_load_param_t *>(js_pod_object());
@@ -145,8 +144,8 @@ class UT_LoadTempl : public JsObjTemplate
 class UT_RunSetup : public JsObject
 {
   public:
-    virtual JsObject *js_exec_obj(JsObject *parent, JsObjTemplate *templ,
-                                  std::list<std::string> *out);
+    virtual JsObject *js_exec_obj(JsObject *parent,
+                                  JsObjTemplate *templ, JsObjOutput *out);
 
     inline UT_Thread *js_get_thread(int idx) {
         JsObject *obj = js_obj_field("Threads");
@@ -189,8 +188,8 @@ class UT_RunSetupTempl : public JsObjTemplate
 class UT_ServerLoad : public JsObject
 {
   public:
-    virtual JsObject *js_exec_obj(JsObject *parent, JsObjTemplate *templ,
-                                  std::list<std::string> *out);
+    virtual JsObject *js_exec_obj(JsObject *parent,
+                                  JsObjTemplate *templ, JsObjOutput *out);
 };
 
 class UT_ServerLoadTempl : public JsObjTemplate
@@ -219,8 +218,8 @@ struct ut_client_param
 class UT_ClientLoad : public JsObject
 {
   public:
-    virtual JsObject *js_exec_obj(JsObject *parent, JsObjTemplate *templ,
-                                  std::list<std::string> *out);
+    virtual JsObject *js_exec_obj(JsObject *parent,
+                                  JsObjTemplate *templ, JsObjOutput *out);
 
     inline ut_client_param_t *client_load_param() {
         return static_cast<ut_client_param_t *>(js_pod_object());
@@ -254,8 +253,8 @@ class UT_ClientLoadTempl : public JsObjTemplate
 class UT_RunInput : public JsObject
 {
   public:
-    virtual JsObject *js_exec_obj(JsObject *parent, JsObjTemplate *templ,
-                                  std::list<std::string> *out);
+    virtual JsObject *js_exec_obj(JsObject *parent,
+                                  JsObjTemplate *templ, JsObjOutput *out);
 
     inline UT_ServerLoad *js_get_server_load() {
         JsObject *obj = js_obj_field("Server-Load");

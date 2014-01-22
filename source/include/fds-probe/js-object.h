@@ -16,6 +16,7 @@
 namespace fds {
 
 class JsObject;
+class JsObjOutput;
 class JsObjManager;
 class JsObjTemplate;
 typedef std::vector<JsObject *> JsArray;
@@ -35,13 +36,13 @@ class JsObject
     explicit JsObject(int arr_size);
 
     virtual ~JsObject();
-    virtual JsObject *js_exec_obj(JsObject *parent, JsObjTemplate *templ,
-                                  std::list<std::string> *out);
+    virtual JsObject *js_exec_obj(JsObject *parent,
+                                  JsObjTemplate *templ, JsObjOutput *out);
 
     /**
      * Decoder interface, map back to json formated string.
      */
-    virtual void js_output(std::list<std::string> *out, int indent = 0);
+    virtual void js_output(JsObjOutput *out, int indent = 0);
 
     /**
      * For array object, return the number of elements in the array.
@@ -68,14 +69,6 @@ class JsObject
     inline fds_bool_t js_is_basic() {
         return js_bin_data != NULL;
     }
-    /**
-     * Dump the output from the list of strings to one linear string, len.
-     * @return the length consumed by the buffer and iterator that can be
-     * used for the next time.
-     */
-    static size_t
-    js_output(std::list<std::string> *out,
-              std::list<std::string>::iterator *it, char *buf, size_t len);
 
   protected:
     friend class JsObjManager;
@@ -123,7 +116,7 @@ class JsObjTemplate
     /**
      * Use the template to run exec function on an object instance in json fmt.
      */
-    virtual void js_exec(json_t *in, std::list<std::string> *out);
+    virtual void js_exec(json_t *in, JsObjOutput *out);
 
     /**
      * Wrapper API for an obj to request to add itself in the global name space.
@@ -148,13 +141,54 @@ class JsObjTemplate
 };
 
 /**
+ * Output obj to manage fragment of output strings from other objs.
+ */
+class JsObjOutput
+{
+  public:
+    JsObjOutput() : js_outlen(0) {}
+    ~JsObjOutput() {}
+
+    /**
+     * Push the string to output list.  The string will be copied to the list.
+     */
+    virtual void js_push_str(const char *str);
+
+    /**
+     * Initialize the iterator that will be used for js_output method to pull
+     * output string out.
+     */
+    inline std::list<std::string>::iterator js_output_init() {
+        return js_output.begin();
+    }
+    /**
+     * Return total length would be required to copy all output fragments to
+     * a flat, linear string.
+     */
+    inline size_t js_output_len() {
+        return js_outlen;
+    }
+    /**
+     * Dump the output from the list of strings to one linear string, len.
+     * @return the length consumed by the buffer and iterator that can be
+     * used for the next time.
+     */
+    virtual size_t
+    js_out(std::list<std::string>::iterator *it, char *buf, size_t len);
+
+  protected:
+    size_t                   js_outlen;
+    std::list<std::string>   js_output;
+};
+
+/**
  * Common objects that can be shared.  All T classes must inherit from the
  * base JsObject and provide the js_exec_obj() method.
  */
 class JsObjBasic : public JsObject
 {
   public:
-    virtual void js_output(std::list<std::string> *out, int indent);
+    virtual void js_output(JsObjOutput *out, int indent);
 };
 
 template <class T>
@@ -235,7 +269,7 @@ class JsObjManager : public boost::noncopyable
     /**
      * Main entry to exec data parsed in json format.
      */
-    virtual void js_exec(json_t *root, std::list<std::string> *out);
+    virtual void js_exec(json_t *root, JsObjOutput *out);
 
     /**
      * Register a JsObject template to the factory.  The obj is identifed by

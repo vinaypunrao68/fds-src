@@ -154,7 +154,7 @@ JsObjTemplate::js_register_template(JsObjTemplate *templ)
 // -------
 //
 void
-JsObjTemplate::js_exec(json_t *in, std::list<std::string> *out)
+JsObjTemplate::js_exec(json_t *in, JsObjOutput *out)
 {
     int           index;
     json_t       *val;
@@ -222,8 +222,7 @@ JsObject::~JsObject()
 // -----------
 //
 JsObject *
-JsObject::js_exec_obj(JsObject *parent,
-                      JsObjTemplate *templ, std::list<std::string> *out)
+JsObject::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *out)
 {
     if (js_array != NULL) {
         if ((*js_array)[0]->js_array_size() == 0) {
@@ -268,20 +267,21 @@ JsObject::operator[](int idx)
 // ---------
 //
 void
-JsObject::js_output(std::list<std::string> *out, int indent)
+JsObject::js_output(JsObjOutput *out, int indent)
 {
+    const char *beg, *end;
+
     if (js_array != NULL) {
         for (auto it = js_array->cbegin(); it != js_array->cend(); ++it) {
             (*it)->js_output(out, indent + 1);
             if ((it + 1) != js_array->cend()) {
-                out->push_back(", ");
+                out->js_push_str(", ");
             }
         }
     }
     if (js_comp != NULL) {
-        const char *beg, *end;
         for (auto it = js_comp->cbegin(); it != js_comp->cend(); ++it) {
-            out->push_back(it->first);
+            out->js_push_str(it->first.c_str());
             if (it->second->js_array_size() == 0) {
                 if (js_is_basic()) {
                     auto lst = ++it;
@@ -300,11 +300,11 @@ JsObject::js_output(std::list<std::string> *out, int indent)
                 end = "]\n";
             }
             if (beg != NULL) {
-                out->push_back(beg);
+                out->js_push_str(beg);
             }
             it->second->js_output(out, indent + 1);
             if (end != NULL) {
-                out->push_back(end);
+                out->js_push_str(end);
             }
         }
     }
@@ -315,14 +315,14 @@ JsObject::js_output(std::list<std::string> *out, int indent)
 // Format output for basic data types.
 //
 void
-JsObjBasic::js_output(std::list<std::string> *out, int indent)
+JsObjBasic::js_output(JsObjOutput *out, int indent)
 {
     char number[64];
 
     if (json_is_string(js_data)) {
-        out->push_back("\"");
-        out->push_back(reinterpret_cast<char *>(js_pod_object()));
-        out->push_back("\"");
+        out->js_push_str("\"");
+        out->js_push_str(reinterpret_cast<char *>(js_pod_object()));
+        out->js_push_str("\"");
         return;
     }
     if (json_is_integer(js_data)) {
@@ -334,23 +334,34 @@ JsObjBasic::js_output(std::list<std::string> *out, int indent)
     } else {
         return;
     }
-    out->push_back(number);
+    out->js_push_str(number);
+}
+
+// ----------------------------------------------------------------------------
+// JSON Obj Output
+// ----------------------------------------------------------------------------
+
+// js_push_str
+// -----------
+//
+void
+JsObjOutput::js_push_str(const char *str)
+{
+    js_output.push_back(str);
+    js_outlen += js_output.back().size();
 }
 
 // js_output
 // ---------
-// Dump of output from the list to a flat string starting at the it.
 //
 size_t
-JsObject::js_output(std::list<std::string> *out,
-                    std::list<std::string>::iterator *it,
-                    char *buf, size_t len)
+JsObjOutput::js_out(std::list<std::string>::iterator *it, char *buf, size_t len)
 {
     size_t size, used;
 
     used = 0;
     size = 0;
-    for (; (*it) != out->cend(); ++(*it)) {
+    for (; (*it) != js_output.cend(); ++(*it)) {
         if ((**it).size() > len) {
             return size;
         }
@@ -381,7 +392,7 @@ JsObjManager::~JsObjManager()
 // -------
 //
 void
-JsObjManager::js_exec(json_t *root, std::list<std::string> *out)
+JsObjManager::js_exec(json_t *root, JsObjOutput *out)
 {
     int            idx;
     json_t        *val;
