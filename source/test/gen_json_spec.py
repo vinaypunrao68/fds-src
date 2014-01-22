@@ -52,6 +52,8 @@ class JSonTestCmdLine(object):
     def __read_config_file(self, config_file):
         # XXX: Add curl command to be run, in config file
         # XXX: Add client test id in config file, command line will override
+        # XXX: have hostname and path
+        # XXX: ctrl/data put/post
         if config_file is not None:
             # config = ConfigParser.ConfigParser()
             # config.read(config_file)
@@ -91,7 +93,7 @@ class JSonTestCmdLine(object):
         else:
             self.cmd_spec_cnt = 0
 
-        if args.sort_keys:
+        if args.sort_keys == "1":
             self.cmd_sort_keys = True
         else:
             self.cmd_sort_keys = False
