@@ -20,6 +20,24 @@ import make_json_serializable
 import ConfigParser
 
 
+def create_list_of_lists(template_lists, count, rand):
+    i = 0
+    res_lists = []
+    list_cur = 0
+    list_len = len(template_lists)
+    while i < count:
+        if rand == True:
+            idx = random.randint(0, list_len - 1)
+        else:
+            idx = list_cur
+            list_cur += 1
+            if list_cur == list_len:
+                list_cur = 0
+        res_lists.append(template_lists[idx])
+
+        i += 1
+    return res_lists
+
 class JSonVal(object):
     def __init__(self, values):
         self.values = values
@@ -145,9 +163,9 @@ class JSonTestCfg(object):
                     values_list = elm.get_values()
                     comb       *= len(values_list)
                 elif type(elm) == dict:
-                    comb = self.__get_combination(val, comb)
+                    comb = self.__get_combination(elm, comb)
                 elif type(elm) == list:
-                    comb = self.__get_combination(val, comb)
+                    comb = self.__get_combination(elm, comb)
         return comb
 
     def get_client_id(self):
