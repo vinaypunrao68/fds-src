@@ -1007,7 +1007,7 @@ netSessionTbl(std::string _src_node_name,
                 sessionTblMutex = new fds_mutex("RPC Tbl mutex");
             }
 netSessionTbl(FDSP_MgrIdType myMgrId)
-        : netSessionTbl("", 0, 0, 10, myMgrId) {
+        : netSessionTbl("", 0, 0, 100, myMgrId) {
     }
     ~netSessionTbl();
     
