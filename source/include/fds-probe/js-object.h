@@ -15,6 +15,7 @@
 
 namespace fds {
 
+class ProbeMod;
 class JsObject;
 class JsObjOutput;
 class JsObjManager;
@@ -176,7 +177,17 @@ class JsObjOutput
     virtual size_t
     js_out(std::list<std::string>::iterator *it, char *buf, size_t len);
 
+    /**
+     * Enable the probe module to set/get its working context.
+     */
+    inline void js_set_context(ProbeMod *ctx) {
+        js_ctx = ctx;
+    }
+    inline ProbeMod *js_get_context(ProbeMod *ctx) {
+        return js_ctx;
+    }
   protected:
+    ProbeMod                *js_ctx;
     size_t                   js_outlen;
     std::list<std::string>   js_output;
 };
