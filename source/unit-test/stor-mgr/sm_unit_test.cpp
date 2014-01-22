@@ -916,9 +916,9 @@ class SmUnitTest {
                                     FDSP_STOR_MGR,
                                     1, /* number of channels */
                                     static_cast<void*>(fdspDataPathResp.get()));
-
-      fdspDPAPI = static_cast<netDataPathClientSession *>(session_)->getClient();  // NOLINT
-      node_name_ = "127.0.0.1";
+      netDataPathClientSession *dp_session =  static_cast<netDataPathClientSession *>(session_);
+      fdspDPAPI = dp_session->getClient();  // NOLINT
+      node_name_ = dp_session->getSessionId();
   }
 
   fds_int32_t Run(const std::string& testname) {

@@ -168,7 +168,7 @@ netClientSession(string node_name, int port, FDSP_MgrIdType local_mgr,
             transport->close();
     }
     
-    std::string get_session_id() {
+    std::string getSessionId() {
         return session_id_; 
     }
     
@@ -644,10 +644,9 @@ class netDataPathServerSession : public netServerSession {
         respClient[peer_address.c_str()] = dprespcli;
     }
 
-    boost::shared_ptr<FDSP_DataPathRespClient> getRespClient(string ipaddress, int port) {
-        stringstream ss;
-        ss <<  ipaddress ; 
-        dataPathRespClient dprespcli = respClient[ss.str()];
+    boost::shared_ptr<FDSP_DataPathRespClient> getRespClient(const std::string& sid) {
+        // TODO: range check
+        dataPathRespClient dprespcli = respClient[sid];
         return dprespcli;
     }
     
