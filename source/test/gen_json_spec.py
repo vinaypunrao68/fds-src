@@ -18,7 +18,7 @@ from subprocess import call
 from pprint import pprint
 import make_json_serializable
 import ConfigParser
-
+import mmh3
 
 class JSonVal(object):
     def __init__(self, values):
@@ -39,6 +39,10 @@ class JSonValRandom(JSonVal):
     def to_json(self):
         idx = random.randint(0, len(self.values) - 1)
         return self.values[idx]
+
+class JSonHexRandom(JSonVal):
+    def to_json(self):
+        return '0x%030x' % random.randrange(16**32)
 
 class JSonTestID(JSonVal):
     def to_json(self):
@@ -145,9 +149,9 @@ class JSonTestCfg(object):
                     values_list = elm.get_values()
                     comb       *= len(values_list)
                 elif type(elm) == dict:
-                    comb = self.__get_combination(val, comb)
+                    comb = self.__get_combination(elm, comb)
                 elif type(elm) == list:
-                    comb = self.__get_combination(val, comb)
+                    comb = self.__get_combination(elm, comb)
         return comb
 
     def get_client_id(self):
