@@ -104,7 +104,9 @@ boost_array_index1  = JSonHexRandom(['1'])
 boost_value         = JSonValRandom(['100', '200'])
 
 list_thpool_boost   = [[boost_cmd, boost_array_index0, boost_array_index1, boost_value],
-                       [boost_cmd, boost_array_index0, boost_array_index1]]
+                       [boost_cmd, boost_array_index0, boost_array_index1],
+                       [boost_cmd, boost_array_index0],
+]
 
 dict_threadpool     = {'object-ops'    : list_thpool_boost}
 

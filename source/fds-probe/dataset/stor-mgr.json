@@ -1,0 +1,16 @@
+{
+    "Run-Input": {
+        "Server-Load": {
+	    "dp-setup": {
+	        "num-vols": 2,
+		"num-objs": 1000,
+		"rand-data": false,
+		"verify": true
+            },
+            "dp-workload": {
+                "object-ops": [[ "put",  "2", "0x47bce5c74f589f4867dbd57e9ca9f808", "I am object data 0"],
+			      [ "get",  "2", "0x47bce5c74f589f4867dbd57e9ca9f808"]],
+            }
+        }
+    }
+}
