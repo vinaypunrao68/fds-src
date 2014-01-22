@@ -1,6 +1,8 @@
 /*
  * Copyright 2013 by Formation Data Systems, Inc.
  */
+#include <list>
+#include <string>
 #include <iostream>
 #include <fds_assert.h>
 #include <fds-probe/js-object.h>
@@ -35,17 +37,49 @@ JsObjTemplate::js_init(JsObject *obj, json_t *in, void *bin,
     return obj;
 }
 
+// js_parse_array
+// --------------
+//
+JsObject *
+JsObjTemplate::js_parse_array(json_t *in, JsObjTemplate *decode)
+{
+    size_t         num, index;
+    json_t        *sub;
+    JsArray       *arr;
+    JsObject      *obj;
+
+    num = json_array_size(in);
+    arr = new JsArray(num);
+    fds_verify(num > 0);
+
+    json_array_foreach(in, index, sub) {
+        if (json_typeof(sub) == JSON_ARRAY) {
+            obj = js_parse_array(sub, decode);
+        } else {
+            if (decode != NULL) {
+                obj = decode->js_new(sub);
+            } else {
+                obj = js_decode_basic(sub);
+            }
+        }
+        if (obj == NULL) {
+            delete arr;
+            return NULL;
+        }
+        (*arr)[index] = obj;
+    }
+    return js_init(new JsObject(), in, NULL, NULL, arr);
+}
+
 // js_parse
 // --------
 //
 JsObject *
 JsObjTemplate::js_parse(JsObject *empty, json_t *in, void *bin)
 {
-    size_t         num, index;
-    json_t        *val, *sub;
+    json_t        *val;
     JsObject      *obj;
     JsObjSet      *comp;
-    JsArray       *arr;
     const char    *key;
     JsObjTemplate *decode;
 
@@ -54,37 +88,27 @@ JsObjTemplate::js_parse(JsObject *empty, json_t *in, void *bin)
         //
         return js_init(empty, in, bin, NULL, NULL);
     }
+    if (json_typeof(in) == JSON_ARRAY) {
+        // This is the array.  The component name is the parent object.
+        //
+        return js_parse_array(in, this);
+    }
     // This is the complex type, we need to go further down the hierachy.
     //
     comp = new JsObjSet();
     json_object_foreach(in, key, val) {
         decode = js_decode[key];
         if (json_typeof(val) == JSON_ARRAY) {
-            num = json_array_size(val);
-            arr = new JsArray(num);
-
-            json_array_foreach(val, index, sub) {
-                if (decode != NULL) {
-                    obj = decode->js_new(sub);
-                } else {
-                    obj = js_decode_basic(sub);
-                }
-                if (obj == NULL) {
-                    delete arr;
-                    goto unknown;
-                }
-                (*arr)[index] = obj;
-            }
-            obj = js_init(new JsObject(), val, NULL, NULL, arr);
-        } else {
+            obj = js_parse_array(val, decode);
+         } else {
             if (decode == NULL) {
                 obj = js_decode_basic(val);
             } else {
                 obj = decode->js_new(val);
             }
-            if (obj == NULL) {
-                continue;
-            }
+        }
+        if (obj == NULL) {
+            continue;
         }
         (*comp)[key] = obj;
     }
@@ -130,18 +154,18 @@ JsObjTemplate::js_register_template(JsObjTemplate *templ)
 // -------
 //
 void
-JsObjTemplate::js_exec(json_t *in)
+JsObjTemplate::js_exec(json_t *in, std::list<std::string> *out)
 {
     int           index;
     json_t       *val;
     JsObject     *obj;
 
     json_array_foreach(in, index, val) {
-        js_exec(val);
+        js_exec(val, out);
     }
     obj = js_new(in);
     if (obj != NULL) {
-        if (obj->js_exec_obj(NULL, this) != NULL) {
+        if (obj->js_exec_obj(NULL, this, out) != NULL) {
             delete obj;
         }
     }
@@ -198,23 +222,25 @@ JsObject::~JsObject()
 // -----------
 //
 JsObject *
-JsObject::js_exec_obj(JsObject *parent, JsObjTemplate *templ)
+JsObject::js_exec_obj(JsObject *parent,
+                      JsObjTemplate *templ, std::list<std::string> *out)
 {
     if (js_array != NULL) {
-        (*js_array)[0]->js_exec_obj(this, templ);
-#if 0
-        for (auto it = js_array->cbegin(); it != js_array->cend(); ++it) {
-            // XXX: need to check remove out of array & free memory.
-            (*it)->js_exec_obj(this, templ);
+        if ((*js_array)[0]->js_array_size() == 0) {
+            (*js_array)[0]->js_exec_obj(this, templ, out);
+        } else {
+            for (auto it = js_array->cbegin(); it != js_array->cend(); ++it) {
+                (*it)->js_exec_obj(this, templ, out);
+            }
         }
-#endif
     }
     if (js_comp != NULL) {
         for (auto it = js_comp->begin(); it != js_comp->end(); ++it) {
             // XXX: need to check remove out of the table & free memory.
-            it->second->js_exec_obj(this, templ);
+            it->second->js_exec_obj(this, templ, out);
         }
     }
+    // js_output(out);
     return this;
 }
 
@@ -238,15 +264,113 @@ JsObject::operator[](int idx)
     return (*js_array)[idx];
 }
 
+// js_output
+// ---------
+//
+void
+JsObject::js_output(std::list<std::string> *out, int indent)
+{
+    if (js_array != NULL) {
+        for (auto it = js_array->cbegin(); it != js_array->cend(); ++it) {
+            (*it)->js_output(out, indent + 1);
+            if ((it + 1) != js_array->cend()) {
+                out->push_back(", ");
+            }
+        }
+    }
+    if (js_comp != NULL) {
+        const char *beg, *end;
+        for (auto it = js_comp->cbegin(); it != js_comp->cend(); ++it) {
+            out->push_back(it->first);
+            if (it->second->js_array_size() == 0) {
+                if (js_is_basic()) {
+                    auto lst = ++it;
+                    beg = NULL;
+                    if (lst != js_comp->cend()) {
+                        end = ",\n";
+                    } else {
+                        end = NULL;
+                    }
+                } else {
+                    beg = ":{\n";
+                    end = "}\n";
+                }
+            } else {
+                beg = ":[\n";
+                end = "]\n";
+            }
+            if (beg != NULL) {
+                out->push_back(beg);
+            }
+            it->second->js_output(out, indent + 1);
+            if (end != NULL) {
+                out->push_back(end);
+            }
+        }
+    }
+}
+
+// js_output
+// ---------
+// Format output for basic data types.
+//
+void
+JsObjBasic::js_output(std::list<std::string> *out, int indent)
+{
+    char number[64];
+
+    if (json_is_string(js_data)) {
+        out->push_back("\"");
+        out->push_back(reinterpret_cast<char *>(js_pod_object()));
+        out->push_back("\"");
+        return;
+    }
+    if (json_is_integer(js_data)) {
+        snprintf(number, sizeof(number),
+                 "%ud", *(reinterpret_cast<unsigned int *>(js_pod_object())));
+    } else if (json_is_real(js_data)) {
+        snprintf(number, sizeof(number),
+                 "%f", *(reinterpret_cast<double *>(js_pod_object())));
+    } else {
+        return;
+    }
+    out->push_back(number);
+}
+
+// js_output
+// ---------
+// Dump of output from the list to a flat string starting at the it.
+//
+size_t
+JsObject::js_output(std::list<std::string> *out,
+                    std::list<std::string>::iterator *it,
+                    char *buf, size_t len)
+{
+    size_t size, used;
+
+    used = 0;
+    size = 0;
+    for (; (*it) != out->cend(); ++(*it)) {
+        if ((**it).size() > len) {
+            return size;
+        }
+        used  = snprintf(buf, len, "%s", (**it).c_str());
+        size += used;
+        buf  += used;
+        len  -= used;
+    }
+    return size;
+}
+
 // ----------------------------------------------------------------------------
 // JSON Obj Manager/Factory
 // ----------------------------------------------------------------------------
 JsObjManager::JsObjManager()
     : js_mtx("JsObjManager Mtx"), js_decode(), js_objs()
 {
-    js_str_decode  = new JsObjStrTemplate<JsObject>(NULL, this);
-    js_int_decode  = new JsObjIntTemplate<JsObject>(NULL, this);
-    js_real_decode = new JsObjRealTemplate<JsObject>(NULL, this);
+    js_str_decode  = new JsObjStrTemplate<JsObjBasic>(NULL, this);
+    js_int_decode  = new JsObjIntTemplate<JsObjBasic>(NULL, this);
+    js_real_decode = new JsObjRealTemplate<JsObjBasic>(NULL, this);
 }
 
 JsObjManager::~JsObjManager()
@@ -257,7 +381,7 @@ JsObjManager::~JsObjManager()
 // -------
 //
 void
-JsObjManager::js_exec(json_t *root)
+JsObjManager::js_exec(json_t *root, std::list<std::string> *out)
 {
     int            idx;
     json_t        *val;
@@ -265,14 +389,14 @@ JsObjManager::js_exec(json_t *root)
     JsObjTemplate *decode;
 
     json_array_foreach(root, idx, val) {
-        js_exec(val);
+        js_exec(val, out);
     }
     json_object_foreach(root, key, val) {
         decode = js_decode[key];
         if (decode == NULL) {
             continue;
         }
-        decode->js_exec(val);
+        decode->js_exec(val, out);
     }
 }
 

@@ -19,7 +19,7 @@ namespace fds {
  public:
     diskio::DataTier selectTier(const ObjectID &oid,
                                 fds_volid_t     vol) {
-      if ((random() % 2) == 0) {
+      if ((::random() % 2) == 0) {
         return diskio::flashTier;
       }
       return diskio::diskTier;

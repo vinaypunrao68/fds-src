@@ -4,6 +4,7 @@
 #ifndef SOURCE_INCLUDE_FDS_PROBE_JS_OBJECT_H_
 #define SOURCE_INCLUDE_FDS_PROBE_JS_OBJECT_H_
 
+#include <list>
 #include <vector>
 #include <string>
 #include <boost/utility.hpp>
@@ -34,7 +35,13 @@ class JsObject
     explicit JsObject(int arr_size);
 
     virtual ~JsObject();
-    virtual JsObject *js_exec_obj(JsObject *parent, JsObjTemplate *templ);
+    virtual JsObject *js_exec_obj(JsObject *parent, JsObjTemplate *templ,
+                                  std::list<std::string> *out);
+
+    /**
+     * Decoder interface, map back to json formated string.
+     */
+    virtual void js_output(std::list<std::string> *out, int indent = 0);
 
     /**
      * For array object, return the number of elements in the array.
@@ -61,6 +68,15 @@ class JsObject
     inline fds_bool_t js_is_basic() {
         return js_bin_data != NULL;
     }
+    /**
+     * Dump the output from the list of strings to one linear string, len.
+     * @return the length consumed by the buffer and iterator that can be
+     * used for the next time.
+     */
+    static size_t
+    js_output(std::list<std::string> *out,
+              std::list<std::string>::iterator *it, char *buf, size_t len);
+
   protected:
     friend class JsObjManager;
     friend class JsObjTemplate;
@@ -107,7 +123,7 @@ class JsObjTemplate
     /**
      * Use the template to run exec function on an object instance in json fmt.
      */
-    virtual void js_exec(json_t *in);
+    virtual void js_exec(json_t *in, std::list<std::string> *out);
 
     /**
      * Wrapper API for an obj to request to add itself in the global name space.
@@ -125,6 +141,7 @@ class JsObjTemplate
     JsObjMap                 js_decode;
     JsObjManager            *js_global;
 
+    virtual JsObject *js_parse_array(json_t *in, JsObjTemplate *decode);
     virtual JsObject *js_parse(JsObject *empty, json_t *in, void *bin);
     virtual JsObject *js_init(JsObject *obj, json_t *in, void *d,
                               JsObjSet *c, JsArray *a);
@@ -134,6 +151,12 @@ class JsObjTemplate
  * Common objects that can be shared.  All T classes must inherit from the
  * base JsObject and provide the js_exec_obj() method.
  */
+class JsObjBasic : public JsObject
+{
+  public:
+    virtual void js_output(std::list<std::string> *out, int indent);
+};
+
 template <class T>
 class JsObjStrTemplate : public JsObjTemplate
 {
@@ -212,7 +235,7 @@ class JsObjManager : public boost::noncopyable
     /**
      * Main entry to exec data parsed in json format.
      */
-    virtual void js_exec(json_t *root);
+    virtual void js_exec(json_t *root, std::list<std::string> *out);
 
     /**
      * Register a JsObject template to the factory.  The obj is identifed by
@@ -254,12 +277,12 @@ class JsObjManager : public boost::noncopyable
     }
 
   protected:
-    fds_mutex                    js_mtx;
-    JsObjMap                     js_decode;
-    JsObjSet                     js_objs;
-    JsObjStrTemplate<JsObject>  *js_str_decode;
-    JsObjIntTemplate<JsObject>  *js_int_decode;
-    JsObjRealTemplate<JsObject> *js_real_decode;
+    fds_mutex                      js_mtx;
+    JsObjMap                       js_decode;
+    JsObjSet                       js_objs;
+    JsObjStrTemplate<JsObjBasic>  *js_str_decode;
+    JsObjIntTemplate<JsObjBasic>  *js_int_decode;
+    JsObjRealTemplate<JsObjBasic> *js_real_decode;
 };
 
 }   // namespace fds

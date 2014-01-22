@@ -5,6 +5,56 @@
 #include <NetSessRespSvr.h>
 #include <arpa/inet.h>
 #include <fds_assert.h>
+#include <regex>
+#include <sstream>
+
+namespace fds {
+FDSP_ServiceImpl::FDSP_ServiceImpl()
+{
+}
+
+FDSP_ServiceImpl::FDSP_ServiceImpl(netServerSession *srvr_session, TTransportPtr t) 
+{
+    set_server_info(srvr_session, t);
+}
+
+void FDSP_ServiceImpl::set_server_info(netServerSession *srvr_session, TTransportPtr t){
+    transport_ = t;
+    srvr_session_ = srvr_session;
+}
+
+void FDSP_ServiceImpl::set_server_session(netServerSession *srvr_session)
+{
+    srvr_session_ = srvr_session;
+}
+
+/**
+ * @brief We get this request after socket connect.  As part of this call
+ * we will create session and associate the connection with the generated
+ * session id.  This connection is also used for response client
+ *
+ * @param _return
+ * @param fdsp_msg
+ */
+void FDSP_ServiceImpl::EstablishSession(FDSP_SessionReqResp& _return,
+                                                const FDSP_MsgHdrType& fdsp_msg)
+{
+    /* Generate a uuid and add a session.  Any further authentication can be
+     * done here 
+     */
+    /*srvr_session_->addRespClientSession(fdsp_msg.src_node_name, 
+      fdsp_msg.src_port, fds::get_uuid());*/
+    _return.sid = fds::get_uuid();
+    _return.status = srvr_session_->addRespClientSession(_return.sid, transport_); 
+} 
+
+void FDSP_ServiceImpl::EstablishSession(FDSP_SessionReqResp& _return,
+                                                boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg)
+{
+    EstablishSession(_return, *fdsp_msg);
+}
+}  // namespace fds
+
 
 netSession::netSession()
     : node_index(0), proto_type(0), port_num(0) {
@@ -239,6 +289,7 @@ fds_int32_t netSessionTbl::ipString2Addr(string ipaddr_str) {
     inet_pton(AF_INET, (char *)ipaddr_str.data(), (void *)&(sa.sin_addr));
     return (ntohl(sa.sin_addr.s_addr));
 }
+
 
 
 /**
