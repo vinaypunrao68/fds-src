@@ -83,7 +83,7 @@ JsObjTemplate::js_parse(JsObject *empty, json_t *in, void *bin)
                 obj = decode->js_new(val);
             }
             if (obj == NULL) {
-                goto unknown;
+                continue;
             }
         }
         (*comp)[key] = obj;
