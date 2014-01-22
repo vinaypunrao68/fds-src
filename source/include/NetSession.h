@@ -189,8 +189,6 @@ protected:
         fdsp_msg.src_node_name = socket->getPeerAddress();
         fdsp_msg.src_port = socket->getPeerPort();
         
-        std::cout << "peer: " << socket->getPeerAddress() << ":" << socket->getPeerPort() << " mine " << socket->getHost() << ":" << socket->getPort() << std::endl;
-
         client_if->EstablishSession(session_info, fdsp_msg);
         // TODO: based on return code the do the appropriate
         fds_verify(session_info.status == 0 && !session_info.sid.empty());
@@ -223,6 +221,7 @@ netDataPathClientSession(const std::string& ip_addr_str,
                  * NOT start receive thread before establishing a connection
                  * session*/
         transport->open();
+        //MCSUPPORT:
         establishSession(boost::dynamic_pointer_cast<FDSP_ServiceIf>(fdspDPAPI));
 
         PosixThreadFactory threadFactory(PosixThreadFactory::ROUND_ROBIN,
@@ -440,31 +439,6 @@ public :
   virtual void endSession() { 
   }
 
-  
-  /**
-   * @brief Adds a new response client session.  Client transport with
-   * port and ip must exist in auth_pending_transports_.
-   *
-   * @param ip
-   * @param port
-   * @param session_id
-   */
-  virtual void addRespClientSession(const std::string &ip, const int &port, 
-                                const std::string &session_id)
-  {
-      fds_mutex::scoped_lock l(lock_);
-      std::string key = getTransportKey(ip, port); 
-      auto itr = auth_pending_transports_.find(key);
-      fds_verify(itr != auth_pending_transports_.end());
-
-      /* Remove from pending and add to response client table */
-      TTransportPtr transport = itr->second;
-      auth_pending_transports_.erase(itr);
-      setClientInternal(session_id, transport);
-
-      FDS_PLOG(g_fdslog) << __FUNCTION__ << " key: " << key << " sid: " << session_id;
-  }
-
   virtual int addRespClientSession(const std::string &session_id, TTransportPtr t)
   {
   }
@@ -576,7 +550,7 @@ protected:
   /* Lock to protect auth_pending_transports and respClients */
   fds_mutex lock_;
   /* Transports pending authorization */
-  std::unordered_map<std::string, TTransportPtr> auth_pending_transports_;
+  //std::unordered_map<std::string, TTransportPtr> auth_pending_transports_;
   /* TServer event handler */
   boost::shared_ptr<ServerEventHandler> event_handler_;
 };
@@ -656,6 +630,7 @@ class netDataPathServerSession : public netServerSession {
                                             transportFactory,
                                             protocolFactory,
                                             threadManager));
+        // MCSUPPORT:
         server->setServerEventHandler(event_handler_);
         
         printf("Starting the server...\n");
@@ -663,6 +638,7 @@ class netDataPathServerSession : public netServerSession {
     }
 
 protected:
+  // MCSUPPORT:
   virtual void setClientInternal(const std::string &session_id,
                                  TTransportPtr transport) override
   {
