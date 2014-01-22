@@ -159,7 +159,7 @@ class ObjectStorMgr :
     fdspDataPathClient(const std::string& src_node_name)
     {
         // TODO: change 2nd param to correct value 
-        return datapath_session_->getRespClient(src_node_name, 0);
+        return datapath_session_->getRespClient(src_node_name);
     }
     /*
      * TODO: this one should be the singleton by itself.  Need to make it
@@ -400,7 +400,7 @@ class ObjectStorMgr :
     friend ObjectStorMgrI;
 };
 
-class ObjectStorMgrI : virtual public FDSP_DataPathReqIf {
+class ObjectStorMgrI : virtual public FDSP_DataPathReqIf, public FDSP_ServiceImpl {
  public:
     ObjectStorMgrI();
     ~ObjectStorMgrI();

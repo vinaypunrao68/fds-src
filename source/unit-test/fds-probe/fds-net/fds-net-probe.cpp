@@ -125,7 +125,7 @@ fdsNetProbeMod::pr_put(ProbeRequest *req)
     std::cout << "Sending a put()" << std::endl;
     boost::shared_ptr<FDSP_MsgHdrType> fdspMsg =
             boost::shared_ptr<FDSP_MsgHdrType>(new FDSP_MsgHdrType());
-    fdspMsg->src_node_name = localIp;
+    fdspMsg->src_node_name = sid;
     fdspMsg->src_port      = 0;
     boost::shared_ptr<FDSP_PutObjType> putObjReq =
             boost::shared_ptr<FDSP_PutObjType>(new FDSP_PutObjType());
@@ -145,7 +145,7 @@ fdsNetProbeMod::pr_get(ProbeRequest *req)
     std::cout << "Sending a get()" << std::endl;
     boost::shared_ptr<FDSP_MsgHdrType> fdspMsg =
             boost::shared_ptr<FDSP_MsgHdrType>(new FDSP_MsgHdrType());
-    fdspMsg->src_node_name = localIp;
+    fdspMsg->src_node_name = sid;
     fdspMsg->src_port      = 0;
     boost::shared_ptr<FDSP_GetObjType> getObjReq =
             boost::shared_ptr<FDSP_GetObjType>(new FDSP_GetObjType());
@@ -212,6 +212,7 @@ fdsNetProbeMod::mod_startup()
                                                 numChannels,
                                                 reinterpret_cast<void*>(edpri));
     dpClient = dynamic_cast<netDataPathClientSession *>(dpSession)->getClient();  // NOLINT
+    sid = dynamic_cast<netDataPathClientSession *>(dpSession)->getSessionId();  // NOLINT
 }
 
 // mod_shutdown

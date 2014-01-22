@@ -207,6 +207,9 @@ class AME_Request : public fdsio::Request
     // around the event loop.
     //
     void ame_add_context(AME_Ctx *ctx);
+    inline AME_Ctx *ame_get_context() {
+        return ame_ctx;
+    }
 
     // ame_get_reqt_hdr_val
     // --------------------
@@ -240,10 +243,6 @@ class AME_Request : public fdsio::Request
     virtual void ame_request_handler() = 0;
     virtual int  ame_request_resume() = 0;
     virtual int  ame_format_response_hdr() = 0;
-
-    // inline fds_log *ame_get_log() {
-    // return ame->ame_get_log();
-    // }
 
   protected:
     friend class AME_Ctx;

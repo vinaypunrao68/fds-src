@@ -475,7 +475,8 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
 
 void ObjectStorMgr::setup_datapath_server(const std::string &ip)
 {
-    datapath_handler_.reset(new ObjectStorMgrI());
+    ObjectStorMgrI *osmi = new ObjectStorMgrI(); 
+    datapath_handler_.reset(osmi);
 
     int myIpInt = netSession::ipString2Addr(ip);
     std::string node_name = 
@@ -490,6 +491,7 @@ void ObjectStorMgr::setup_datapath_server(const std::string &ip)
                                               node_name,
                                               FDSP_STOR_HVISOR,
                                               datapath_handler_.get()));
+    osmi->set_server_session(datapath_session_);
 }
 
 void ObjectStorMgr::run()

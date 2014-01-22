@@ -18,7 +18,7 @@ from subprocess import call
 from pprint import pprint
 import make_json_serializable
 import ConfigParser
-
+import mmh3
 
 def create_list_of_lists(template_lists, count, rand):
     i = 0
@@ -57,6 +57,10 @@ class JSonValRandom(JSonVal):
     def to_json(self):
         idx = random.randint(0, len(self.values) - 1)
         return self.values[idx]
+
+class JSonHexRandom(JSonVal):
+    def to_json(self):
+        return '0x%030x' % random.randrange(16**32)
 
 class JSonTestID(JSonVal):
     def to_json(self):
