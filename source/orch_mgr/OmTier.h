@@ -14,8 +14,8 @@ class Orch_VolPolicyServ : public virtual VolPolicyServ
     Orch_VolPolicyServ() : VolPolicyServ("OM Vol Policy") {}
     ~Orch_VolPolicyServ() {}
 
-    virtual void serv_recvTierPolicyReq(const fdp::tier_pol_time_unit &req);
-    virtual void serv_recvAuditTierPolicy(const fdp::tier_pol_audit &audit);
+    virtual void serv_recvTierPolicyReq(const fdp::tier_pol_time_unitPtr &req);
+    virtual void serv_recvAuditTierPolicy(const fdp::tier_pol_auditPtr &audit);
 
     // Plugin in with current OMClient code.
     virtual void

@@ -162,29 +162,7 @@ void OrchMgr::setup(int argc, char* argv[],
 
     cfgserver_thread.reset(new std::thread(&OrchMgr::start_cfgpath_server, this));
 
-    /*
-     * setup CLI client adaptor interface  this also used for receiving the node up
-     * messages from DM, SH and SM 
-     */
-
-    // TODO(thrift)
-    /*
-    std::ostringstream tcpProxyStr;
-    tcpProxyStr << "tcp -p " << config_portnum;
-    Ice::ObjectAdapterPtr adapter =
-            communicator()->createObjectAdapterWithEndpoints(
-                "OrchMgr",
-                tcpProxyStr.str());
-    
-    reqCfgHandlersrv = new ReqCfgHandler(this);
-    adapter->add(reqCfgHandlersrv, communicator()->stringToIdentity("OrchMgr"));
-    
     om_policy_srv = new Orch_VolPolicyServ();
-    om_ice_proxy  = new Ice_VolPolicyServ(ORCH_MGR_POLICY_ID, *om_policy_srv);
-    om_ice_proxy->serv_registerIceAdapter(communicator(), adapter);
-    
-    adapter->activate();
-    */
 
     defaultS3BucketPolicy();
 }
@@ -289,6 +267,16 @@ int OrchMgr::GetDomainStats(const FdspMsgHdrPtr& fdsp_msg,
         //    currentDom->domain_ptr->printStatsToJsonFile();
         om_mutex->unlock();
     }
+    return 0;
+}
+
+int OrchMgr::ApplyTierPolicy(::FDS_ProtocolInterface::tier_pol_time_unitPtr& policy) {
+    om_policy_srv->serv_recvTierPolicyReq(policy);
+    return 0;
+}
+
+int OrchMgr::AuditTierPolicy(::FDS_ProtocolInterface::tier_pol_auditPtr& audit) {
+    om_policy_srv->serv_recvAuditTierPolicy(audit);
     return 0;
 }
 

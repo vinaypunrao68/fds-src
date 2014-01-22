@@ -276,6 +276,12 @@ namespace fds {
     int GetDomainStats(const FdspMsgHdrPtr& fdsp_msg,
                        const FdspGetDomStatsPtr& get_stats_req);
 
+    int ApplyTierPolicy(
+        ::FDS_ProtocolInterface::tier_pol_time_unitPtr& policy);
+
+    int AuditTierPolicy(
+        ::FDS_ProtocolInterface::tier_pol_auditPtr& audit);
+
 
     /* config path: cli -> OM  */
     class FDSP_ConfigPathReqHandler : 
@@ -376,6 +382,16 @@ namespace fds {
         int32_t GetDomainStats(
             ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
             ::FDS_ProtocolInterface::FDSP_GetDomainStatsTypePtr& get_stats_msg);
+
+        int32_t applyTierPolicy(
+            const ::FDS_ProtocolInterface::tier_pol_time_unit& policy);
+        int32_t applyTierPolicy(
+            ::FDS_ProtocolInterface::tier_pol_time_unitPtr& policy);
+
+        int32_t auditTierPolicy(
+            const ::FDS_ProtocolInterface::tier_pol_audit& audit);
+        int32_t auditTierPolicy(
+            ::FDS_ProtocolInterface::tier_pol_auditPtr& audit);
 
   private:
         OrchMgr *orchMgr;
