@@ -24,10 +24,10 @@ user_cpp          :=                       \
     fds_timer_test.cpp \
     fds_config_test.cpp \
     catalog_unit_test.cpp \
-    om_client_unit_test.cpp \
 	ocache_unit_test.cpp         \
     perfstat_unit_test.cpp \
     fds_process_interrupt_test.cpp \
+    #om_client_unit_test.cpp \
 #    tb_unit_test.cpp \
 #    qos_dispatcher_unit_test.cpp \
 
@@ -38,16 +38,16 @@ user_bin_exe      := \
     fds_timer_test \
     fds_config_test \
     catalog_test \
-    om_client_test \
     ocache_unit_test \
     perfstat_unit_test\
     fds_process_interrupt_test
+    #om_client_test \
 #    tb_unit_test \
 #    qos_dispatcher_unit_test \
 
 
 catalog_test      := catalog_unit_test.cpp
-om_client_test    := om_client_unit_test.cpp
+#om_client_test    := om_client_unit_test.cpp
 #tb_unit_test      := tb_unit_test.cpp
 #qos_dispatcher_unit_test	:= qos_dispatcher_unit_test.cpp
 ocache_unit_test	:= ocache_unit_test.cpp

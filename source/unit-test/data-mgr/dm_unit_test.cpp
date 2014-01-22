@@ -33,6 +33,8 @@
 #include <fdsp/FDSP_ControlPathReq.h>
 #include <fdsp/FDSP_ControlPathResp.h>
 
+#include <NetSession.h>
+
 //#include "../../unit-test/lib/test_stat.h"
 
 #define DEF_NUM_CONC_REQS 3
@@ -41,14 +43,16 @@ int num_conc_reqs = DEF_NUM_CONC_REQS;
 std::atomic<unsigned int> num_ios_outstanding;
 //fds::StatIOPS *iops_stats;
 
+#define TEST_NODE_NAME "127.0.0.1"
+
 
 namespace fds {
 
 class DmUnitTest {
  private:
-  std::list<std::string>  unit_tests;
-  FDS_ProtocolInterface::FDSP_MetaDataPathReqClient *fdspMDPAPI;
-  FDS_ProtocolInterface::FDSP_ControlPathReqClient *fdspCPAPI;
+    std::list<std::string>  unit_tests;
+    boost::shared_ptr<FDSP_MetaDataPathReqClient> fdspMDPAPI;
+    FDS_ProtocolInterface::FDSP_ControlPathReqClient *fdspCPAPI;
 
   fds_log *test_log;
 
@@ -75,7 +79,10 @@ class DmUnitTest {
     msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_DATA_MGR;
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
     msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
-    msg_hdr->src_node_name = "dm_test_client";
+    // TODO: Fix this and similar places below
+    // once the netsession API to retrieve client session hdl is fixed
+    //msg_hdr->src_node_name = "dm_test_client";
+    msg_hdr->src_node_name = TEST_NODE_NAME; 
     msg_hdr->glob_volume_id = 1; /* TODO: Don't hard code to 1 */
 
     fds_uint32_t block_id;
@@ -190,7 +197,7 @@ class DmUnitTest {
     msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_DATA_MGR;
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
     msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
-    msg_hdr->src_node_name = "dm_test_client";
+    msg_hdr->src_node_name = TEST_NODE_NAME;
     msg_hdr->glob_volume_id = 1; /* TODO: Don't hard code to 1 */
 
     fds_uint32_t block_id;
@@ -318,7 +325,7 @@ class DmUnitTest {
     msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_DATA_MGR;
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
     msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
-    msg_hdr->src_node_name = "dm_test_client";
+    msg_hdr->src_node_name = "TEST_NODE_NAME";
     msg_hdr->glob_volume_id = 2; /* TODO: Don't hard code to 1 */
 
     fds_int32_t blobsToReturn = 10;
@@ -358,7 +365,7 @@ class DmUnitTest {
     msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_DATA_MGR;
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
     msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
-    msg_hdr->src_node_name = "dm_test_client";
+    msg_hdr->src_node_name = "TEST_NODE_NAME";
     msg_hdr->glob_volume_id = 1; /* TODO: Don't hard code to 1 */
 
     fds_uint32_t block_id;
@@ -437,7 +444,7 @@ class DmUnitTest {
     msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_DATA_MGR;
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
     msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
-    msg_hdr->src_node_name = "dm_test_client";
+    msg_hdr->src_node_name = "TEST_NODE_NAME";
 
     vol_msg->type = FDS_ProtocolInterface::FDSP_NOTIFY_ADD_VOL;
 
@@ -480,12 +487,12 @@ class DmUnitTest {
   /*
    * The non-const refernce is OK.
    */
-  explicit DmUnitTest(FDS_ProtocolInterface::FDSP_MetaDataPathReqClient 
-                      *fdspMDPAPI_arg,
-                      FDS_ProtocolInterface::FDSP_ControlPathReqClient
-                      *fdspCPAPI_arg) // NOLINT(*)
-      : fdspMDPAPI(fdspMDPAPI_arg),
-        fdspCPAPI(fdspCPAPI_arg) {
+    explicit DmUnitTest(boost::shared_ptr<FDS_ProtocolInterface::FDSP_MetaDataPathReqClient>&
+                        fdspMDPAPI_arg,
+                        FDS_ProtocolInterface::FDSP_ControlPathReqClient
+                        *fdspCPAPI_arg) // NOLINT(*)
+            : fdspMDPAPI(fdspMDPAPI_arg),
+              fdspCPAPI(fdspCPAPI_arg) {
     test_log = new fds_log("dm_test", "logs");
 
     unit_tests.push_back("basic_update");
@@ -499,15 +506,15 @@ class DmUnitTest {
 
   }
 
-  explicit DmUnitTest(FDS_ProtocolInterface::FDSP_MetaDataPathReqClient
-                      *fdspMDPAPI_arg,
-                      FDS_ProtocolInterface::FDSP_ControlPathReqClient
-                      *fdspCPAPI_arg,
-                      fds_uint32_t num_up_arg,
-		      bool testperf,
-		      fds_uint32_t max_oios) // NOLINT(*)
-      : fdspMDPAPI(fdspMDPAPI_arg),
-        fdspCPAPI(fdspCPAPI_arg) {
+    explicit DmUnitTest(boost::shared_ptr<FDS_ProtocolInterface::FDSP_MetaDataPathReqClient>&
+                        fdspMDPAPI_arg,
+                        FDS_ProtocolInterface::FDSP_ControlPathReqClient
+                        *fdspCPAPI_arg,
+                        fds_uint32_t num_up_arg,
+                        bool testperf,
+                        fds_uint32_t max_oios) // NOLINT(*)
+            : fdspMDPAPI(fdspMDPAPI_arg),
+              fdspCPAPI(fdspCPAPI_arg) {
     test_log = new fds_log("dm_test", "logs");
 
     unit_tests.push_back("basic_update");
@@ -719,9 +726,6 @@ class TestResp : public FDS_ProtocolInterface::FDSP_MetaDataPathRespIf {
     }
 };
 
-void start_accepting_responses(apache::thrift::server::TSimpleServer *svr) {
-    svr->serve();
-}
 
 class TestClient {
  public:
@@ -767,29 +771,8 @@ class TestClient {
      * Setup the network communication. Create a direct data path
      * connection to a single DM.
      */
-#if 0
-    Ice::PropertiesPtr props = communicator()->getProperties();
-    Ice::ObjectPrx op;
-    if (port_num == 0) {
-      op = communicator()->propertyToProxy("StorHvisorClient.Proxy");
-    } else {
-      std::ostringstream tcpProxyStr;
-      ip_addr_str = props->getProperty("DataMgr.IPAddress");
 
-      tcpProxyStr << "DataMgr: tcp -h " << ip_addr_str << " -p " << port_num;
-      op = communicator()->stringToProxy(tcpProxyStr.str());
-    }
-#endif
     ip_addr_str = "localhost";
-
-    boost::shared_ptr<apache::thrift::transport::TTransport> 
-            socket(new apache::thrift::transport::TSocket(ip_addr_str, port_num));
-    boost::shared_ptr<apache::thrift::transport::TTransport> 
-            transport(new apache::thrift::transport::TBufferedTransport(socket));
-    boost::shared_ptr<apache::thrift::protocol::TProtocol>
-            protocol(new apache::thrift::protocol::TBinaryProtocol(transport));
-    FDS_ProtocolInterface::FDSP_MetaDataPathReqClient *fdspMDPAPI
-            = new FDS_ProtocolInterface::FDSP_MetaDataPathReqClient(protocol);
 
     boost::shared_ptr<FDS_ProtocolInterface::FDSP_MetaDataPathRespIf>
             fdspMetaDataPathResp(new TestResp());
@@ -797,24 +780,18 @@ class TestClient {
       throw "Invalid fdspDataPathRespCback";
     }
 
-    transport->open();
-    
-    /*
-     * Determine control path port number.
-     */
-#if 0
-    std::string cp_port_str;
-    if (cp_port_num == 0) {
-      cp_port_str = props->getProperty("DataMgr.ControlPort");
-      cp_port_num = strtoul(cp_port_str.c_str(), NULL, 0);
-    }
-    std::ostringstream omProxyStr;
-    ip_addr_str = props->getProperty("DataMgr.IPAddress");
-    omProxyStr << "OrchMgrClient: tcp -h " << ip_addr_str
-               << " -p  " << cp_port_num;
-    op = communicator()->stringToProxy(omProxyStr.str());
-#endif
+    boost::shared_ptr<netSessionTbl> nstable =
+            boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_HVISOR));
 
+    netSession *mdpSession = nstable->startSession(ip_addr_str,
+                                                   port_num,
+                                                   FDSP_DATA_MGR,
+                                                   1,
+                                                   reinterpret_cast<void*>(fdspMetaDataPathResp.get()));
+
+    boost::shared_ptr<FDSP_MetaDataPathReqClient> fdspMDPAPI_Sptr =
+            dynamic_cast<netMetaDataPathClientSession *>(mdpSession)->getClient();  // NOLINT
+ 
     boost::shared_ptr<apache::thrift::transport::TTransport> 
             csocket(new apache::thrift::transport::TSocket(ip_addr_str, cp_port_num));
     boost::shared_ptr<apache::thrift::transport::TTransport> 
@@ -835,7 +812,7 @@ class TestClient {
         // iops_stats = NULL;
     }
 
-    DmUnitTest unittest(fdspMDPAPI, fdspCPAPI, num_updates, testperf, max_oios);
+    DmUnitTest unittest(fdspMDPAPI_Sptr, fdspCPAPI, num_updates, testperf, max_oios);
 
     /*
      * This is kinda hackey. Want to
@@ -845,35 +822,20 @@ class TestClient {
      */
     ((TestResp *)fdspMetaDataPathResp.get())->SetLog(unittest.GetLogPtr());
 
-    int r_port_num = 11235;
-
-    boost::shared_ptr<apache::thrift::TProcessor>
-            r_processor(new FDS_ProtocolInterface::FDSP_MetaDataPathRespProcessor(fdspMetaDataPathResp));
-    boost::shared_ptr<apache::thrift::transport::TServerTransport>
-            r_serverTransport(new apache::thrift::transport::TServerSocket(r_port_num));
-    boost::shared_ptr<apache::thrift::transport::TTransportFactory>
-            r_transportFactory(new apache::thrift::transport::TBufferedTransportFactory());
-    boost::shared_ptr<apache::thrift::protocol::TProtocolFactory>
-            r_protocolFactory(new apache::thrift::protocol::TBinaryProtocolFactory());
-
-    apache::thrift::server::TSimpleServer
-            *r_server = new apache::thrift::server::TSimpleServer(r_processor,
-                                                                  r_serverTransport,
-                                                                  r_transportFactory,
-                                                                  r_protocolFactory);
-
-    std::thread *r_thread = new std::thread(start_accepting_responses, r_server);
-
     if (testname.empty()) {
       unittest.Run();
     } else {
       unittest.Run(testname);
     }
 
+    fdspMetaDataPathResp = NULL;
+
     return 0;
   }
 
- private:
+  private:
+
+
 };
 
 }  // namespace fds

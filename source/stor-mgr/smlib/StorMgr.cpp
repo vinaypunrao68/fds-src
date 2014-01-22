@@ -319,43 +319,6 @@ int ObjectStorMgr::mod_init(SysParams const *const param) {
     return 0;
 }
 
-namespace util {
-/**
- * @return local ip
- */
-std::string get_local_ip()
-{
-    struct ifaddrs *ifAddrStruct = NULL;
-    struct ifaddrs *ifa          = NULL;
-    void   *tmpAddrPtr           = NULL;
-    std::string myIp;
-
-    /*
-     * Get the local IP of the host.
-     * This is needed by the OM.
-     */
-    getifaddrs(&ifAddrStruct);
-    for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
-        if (ifa->ifa_addr->sa_family == AF_INET) { // IPv4
-            if (strncmp(ifa->ifa_name, "lo", 2) != 0) {
-                tmpAddrPtr = &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
-                char addrBuf[INET_ADDRSTRLEN];
-                inet_ntop(AF_INET, tmpAddrPtr, addrBuf, INET_ADDRSTRLEN);
-                myIp = std::string(addrBuf);
-                if (myIp.find("10.1") != std::string::npos)
-                    break; /* TODO: more dynamic */
-            }
-        }
-    }
-
-    if (ifAddrStruct != NULL) {
-        freeifaddrs(ifAddrStruct);
-    }
-
-    return myIp;
-}
-}
-
 void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
 {
     /*
@@ -383,7 +346,7 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
 
     /* Set up FDSP RPC endpoints */
     nst_ = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_MGR));
-    myIp = util::get_local_ip();
+    myIp = netSession::getLocalIp();
     setup_datapath_server(myIp);
 
     /*
@@ -434,7 +397,8 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
             myIp,
             conf_helper_.get<int>("data_port"),
             stor_prefix + "localhost-sm",
-            sm_log);
+            sm_log,
+            nst_);
 
     /*
      * Create local volume table. Create after omClient
@@ -452,6 +416,7 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
             eviction_policy_type_default,
             objStorMgr->GetLog());
 
+    // TODO: join this thread
     std::thread *stats_thread = new std::thread(log_ocache_stats);
 
     /*

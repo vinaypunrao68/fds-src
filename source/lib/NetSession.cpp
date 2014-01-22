@@ -1,3 +1,4 @@
+#include <ifaddrs.h>
 #include <list>
 #include <NetSession.h>
 #include <NetSessRespClient.h>
@@ -201,7 +202,6 @@ netSession* netSessionTbl::setupServerSession(const std::string& dest_node_name,
 
 netSession::~netSession()
 {
-    this->endSession();
 }
 
 /*
@@ -238,6 +238,42 @@ fds_int32_t netSessionTbl::ipString2Addr(string ipaddr_str) {
     sa.sin_addr.s_addr = 0;
     inet_pton(AF_INET, (char *)ipaddr_str.data(), (void *)&(sa.sin_addr));
     return (ntohl(sa.sin_addr.s_addr));
+}
+
+
+/**
+ * @return local ip
+ */
+std::string netSession::getLocalIp()
+{
+    struct ifaddrs *ifAddrStruct = NULL;
+    struct ifaddrs *ifa          = NULL;
+    void   *tmpAddrPtr           = NULL;
+    std::string myIp;
+
+    /*
+     * Get the local IP of the host.
+     * This is needed by the OM.
+     */
+    getifaddrs(&ifAddrStruct);
+    for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
+        if (ifa->ifa_addr->sa_family == AF_INET) { // IPv4
+            if (strncmp(ifa->ifa_name, "lo", 2) != 0) {
+                tmpAddrPtr = &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
+                char addrBuf[INET_ADDRSTRLEN];
+                inet_ntop(AF_INET, tmpAddrPtr, addrBuf, INET_ADDRSTRLEN);
+                myIp = std::string(addrBuf);
+                if (myIp.find("10.1") != std::string::npos)
+                    break; /* TODO: more dynamic */
+            }
+        }
+    }
+
+    if (ifAddrStruct != NULL) {
+        freeifaddrs(ifAddrStruct);
+    }
+
+    return myIp;
 }
 
 netSession* netSessionTbl::startSession(int ipaddr,
@@ -328,22 +364,6 @@ netSession *netSessionTbl::getSession(int ip_addr, FDSP_MgrIdType mgr_id)
     return getSession(node_name, mgr_id);
 }
 
-void netSession::endSession() 
-{
-    // TODO -- calling delete on netSession should close everything I think 
-    //   transport->close();
-    if ( role == NETSESS_SERVER) { 
-       netServerSession *servSession = 
-                           dynamic_cast<netServerSession *>(this);
-       servSession->endSession();
-    } else { 
-       netClientSession *clientSession = 
-                           dynamic_cast<netClientSession *>(this);
-       clientSession->endSession();
-
-    }
-}
-
 void netSessionTbl::endSession(int  dst_ip_addr, FDSP_MgrIdType mgr_id) 
 {
     netSession* session = NULL;
@@ -396,7 +416,11 @@ netSession* netSessionTbl::createServerSession(int local_ipaddr,
 void netSessionTbl::listenServer(netSession* server_session) {
     switch(localMgrId) { 
         case FDSP_STOR_MGR: 
-            {
+            if (server_session->getRemoteMgrId() == FDSP_ORCH_MGR) {
+                netControlPathServerSession *servSession = 
+                        reinterpret_cast<netControlPathServerSession *>(server_session);
+                servSession->listenServer();
+            } else {
                 netDataPathServerSession *servSession = 
                         reinterpret_cast<netDataPathServerSession *>(server_session);
                 servSession->listenServer();
@@ -404,13 +428,25 @@ void netSessionTbl::listenServer(netSession* server_session) {
             break;
             
         case FDSP_DATA_MGR: 
-            {
+            if (server_session->getRemoteMgrId() == FDSP_ORCH_MGR) {
+                netControlPathServerSession *servSession = 
+                        reinterpret_cast<netControlPathServerSession *>(server_session);
+                servSession->listenServer();
+            } else {
                 netMetaDataPathServerSession *servSession = 
                         reinterpret_cast<netMetaDataPathServerSession *>(server_session);
                 servSession->listenServer();
             }
             break;
-            
+
+        case FDSP_STOR_HVISOR:
+            if (server_session->getRemoteMgrId() == FDSP_ORCH_MGR) {
+                netControlPathServerSession *servSession = 
+                        reinterpret_cast<netControlPathServerSession *>(server_session);
+                servSession->listenServer();
+            }            
+            break;
+
         case FDSP_ORCH_MGR: 
             if (server_session->getRemoteMgrId() == FDSP_CLI_MGR) { 
                 netConfigPathServerSession *servSession = 

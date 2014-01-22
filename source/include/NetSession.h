@@ -47,10 +47,11 @@ public:
                FDS_ProtocolInterface::FDSP_MgrIdType remote_mgr_id);
     static string ipAddr2String(int ipaddr);
     static int ipString2Addr(string ipaddr_str);
+    static std::string getLocalIp();
     void setSessionErrHandler(sessionErrorCallback cback);
     
     virtual ~netSession();
-    void     endSession();
+    virtual void endSession() = 0;
     
     int 		node_index;
     int 		channel_number;
@@ -99,11 +100,14 @@ netClientSession(string node_name, int port, FDSP_MgrIdType local_mgr,
             protocol(new TBinaryProtocol(transport)) {
     }
     
-    ~netClientSession() {
+    virtual ~netClientSession() {
+        if (transport->isOpen())
+            transport->close();
     }
 
-    void endSession() { 
-       transport->close();
+    virtual void endSession() { 
+        if (transport->isOpen())
+            transport->close();
     }
     
 protected:
@@ -136,11 +140,11 @@ netDataPathClientSession(const std::string& ip_addr_str,
         transport->open();
     }
     ~netDataPathClientSession() {
-        transport->close();
     }
 
     void endSession() { 
-       transport->close();
+        if (transport->isOpen())
+            transport->close();
     }
 
     boost::shared_ptr<FDSP_DataPathReqClient> getClient() {
@@ -180,13 +184,13 @@ netMetaDataPathClientSession(const std::string& ip_addr_str,
         transport->open();
     }
     ~netMetaDataPathClientSession() {
-        transport->close();
     }
     boost::shared_ptr<FDSP_MetaDataPathReqClient> getClient() {
         return fdspMDPAPI;
     }
-    void endSession() { 
-         transport->close();
+    void endSession() {
+        if (transport->isOpen()) 
+            transport->close();
     }
     
 private:
@@ -223,13 +227,13 @@ netControlPathClientSession(const std::string& ip_addr_str,
         transport->open();
     }
     ~netControlPathClientSession() {
-        transport->close();
     }
     boost::shared_ptr<FDSP_ControlPathReqClient> getClient() {
         return fdspCPAPI;
     }
     void endSession() { 
-         transport->close();
+        if (transport->isOpen())
+            transport->close();
     }
 
 private:
@@ -264,13 +268,13 @@ netOMControlPathClientSession(const std::string& ip_addr_str,
         transport->open();
     }
     ~netOMControlPathClientSession() {
-        transport->close();
     }
     boost::shared_ptr<FDSP_OMControlPathReqClient> getClient() {
         return fdspOMCPAPI;
     }
     void endSession() { 
-         transport->close();
+        if (transport->isOpen())
+            transport->close();
     }
 
 private:
@@ -299,10 +303,13 @@ netConfigPathClientSession(const std::string& ip_addr_str,
         transport->open();
     }
     ~netConfigPathClientSession() {
-        transport->close();
+    }
+    boost::shared_ptr<FDSP_ConfigPathReqClient> getClient() {
+        return fdspConfAPI;
     }
     void endSession() { 
-         transport->close();
+        if (transport->isOpen())
+            transport->close();
     }
     
 private:
@@ -329,11 +336,10 @@ public :
        threadManager->start();
   }
 
-  ~netServerSession() {
+  virtual ~netServerSession() {
   }
 
-  void endSession() { 
-    serverTransport->close();
+  virtual void endSession() { 
   }
 
 protected:
@@ -343,6 +349,22 @@ protected:
   boost::shared_ptr<PosixThreadFactory> threadFactory;
   boost::shared_ptr<ThreadManager> threadManager;
 };
+
+inline
+std::string getIPV4FromMappedAddress(std::string& peer_addr) {
+    std::string peer_address;
+    char *paddr = (char *)peer_addr.data();
+    
+    if (strncmp(peer_addr.c_str(), "::ffff:", (sizeof("::ffff:") -1)) == 0 ) {
+        paddr = paddr + sizeof("::ffff:") -1;
+        peer_address.append(paddr);
+    } else {
+        peer_address =  peer_addr; 
+    }
+    return peer_address;
+}
+
+
 
 class netDataPathServerSession : public netServerSession { 
  public:
@@ -371,7 +393,7 @@ class netDataPathServerSession : public netServerSession {
     }
 
     void setClientInternal(const boost::shared_ptr<TTransport> transport) {
-         printf("netSessionServer internal: set DataPathRespClient\n");
+        printf("netSessionServer internal: set DataPathRespClient\n");
         protocol_.reset(new TBinaryProtocol(transport));
         boost::shared_ptr<apache::thrift::transport::TSocket> sock =
                 boost::static_pointer_cast<apache::thrift::transport::TSocket>(transport);
@@ -448,12 +470,13 @@ class netMetaDataPathServerSession : public netServerSession {
     }
 
     void setClientInternal(const boost::shared_ptr<TTransport> transport) {
-        printf("netSessionServer internal: set MetaDataPathRespClient\n");
         protocol_.reset(new TBinaryProtocol(transport));
         boost::shared_ptr<apache::thrift::transport::TSocket> sock =
                 boost::static_pointer_cast<apache::thrift::transport::TSocket>(transport);
         string peer_addr = sock->getPeerAddress();
-        respClient[peer_addr] = (metaDataPathRespClient)new FDSP_MetaDataPathRespClient(protocol_);
+        string peer_address = getIPV4FromMappedAddress(peer_addr);
+        printf("netSessionServer internal: setting MetaDataPathRespClient for %s\n", peer_address.c_str());
+        respClient[peer_address] = (metaDataPathRespClient)new FDSP_MetaDataPathRespClient(protocol_);
     }
 
     boost::shared_ptr<FDSP_MetaDataPathRespClient> getRespClient(string ipaddress) {
@@ -499,7 +522,6 @@ netControlPathServerSession(const std::string& dest_node_name,
     }
 
     ~netControlPathServerSession() {
-        server->stop();
     }
  
     // Called from within thrift and the right context is passed - nothing to do in the application modules of thrift
@@ -533,6 +555,7 @@ netControlPathServerSession(const std::string& dest_node_name,
         server->serve();
     }
     void endSession() { 
+        server->stop();
     }
     
 private:
@@ -541,7 +564,7 @@ private:
     boost::shared_ptr<TProcessorFactory> processorFactory;
     boost::shared_ptr<TThreadPoolServer> server;
     boost::shared_ptr<TProtocol> protocol_;
-typedef boost::shared_ptr<FDSP_ControlPathRespClient> controlPathRespClient;
+    typedef boost::shared_ptr<FDSP_ControlPathRespClient> controlPathRespClient;
     std::unordered_map<std::string, controlPathRespClient> respClient;
 };
 
@@ -560,7 +583,6 @@ netOMControlPathServerSession(const std::string& dest_node_name,
     }
 
     ~netOMControlPathServerSession() {
-        server->stop();
     }
  
     // Called from within thrift and the right context is passed - nothing to do in the application modules of thrift
@@ -593,7 +615,9 @@ netOMControlPathServerSession(const std::string& dest_node_name,
         printf("Starting the server...\n");
         server->serve();
     }
+
     void endSession() { 
+        server->stop();
     }
 
 private:
@@ -623,7 +647,6 @@ netConfigPathServerSession(const std::string& dest_node_name,
     }
 
     ~netConfigPathServerSession() {
-        server->stop();
     }
  
     void listenServer() {         
@@ -635,6 +658,10 @@ netConfigPathServerSession(const std::string& dest_node_name,
         
         printf("Starting the server...\n");
         server->serve();
+    }
+
+    void endSession() {
+        server->stop();
     }
 
 private:

@@ -22,17 +22,22 @@
 #include <fds_err.h>
 #include <util/Log.h>
 #include <fds_module.h>
+#include <NetSession.h>
 
 namespace fds {
 
-    extern std::ostringstream tcpProxyStr;
-    //    extern FDS_ProtocolInterface::FDSP_ConfigPathReqPrx  cfgPrx;
+    typedef boost::shared_ptr<FDS_ProtocolInterface::FDSP_ConfigPathReqClient>
+            FDSP_ConfigPathReqClientPtr;
 
     class FdsCli :
     public Module {
   private:
         fds_log *cli_log;
         boost::shared_ptr<FdsConfig> om_config;
+        boost::shared_ptr<netSessionTbl> net_session_tbl;
+        std::string my_node_name;
+        fds_uint32_t om_cfg_port;
+        fds_uint32_t om_ip;
 
   public:
         explicit FdsCli(const boost::shared_ptr<FdsConfig>& omconf);
@@ -52,6 +57,8 @@ namespace fds {
             FDS_ProtocolInterface::FDSP_MsgHdrType* msg_hdr);
         FDS_ProtocolInterface::FDSP_VolType stringToVolType(
             const std::string& vol_type);
+        FDSP_ConfigPathReqClientPtr startClientSession();
+        void endClientSession();
     };
 
 }  // namespace fds

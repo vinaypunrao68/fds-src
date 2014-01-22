@@ -1,4 +1,4 @@
-/*
+ /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
 #include <OmTier.h>
@@ -11,7 +11,7 @@ using namespace std;
 namespace fds {
 
 void
-Orch_VolPolicyServ::serv_recvTierPolicyReq(const fdp::tier_pol_time_unit &tier)
+Orch_VolPolicyServ::serv_recvTierPolicyReq(const fdp::tier_pol_time_unitPtr &tier)
 {
     FDS_ProtocolInterface::FDSP_TierPolicyPtr sm_data(
         new FDS_ProtocolInterface::FDSP_TierPolicy);
@@ -19,15 +19,15 @@ Orch_VolPolicyServ::serv_recvTierPolicyReq(const fdp::tier_pol_time_unit &tier)
 
     cout << "Receive tier policy" << endl;
 
-    sm_data->tier_vol_uuid      = tier.tier_vol_uuid;
-    sm_data->tier_domain_uuid   = tier.tier_domain_uuid;
-    sm_data->tier_domain_policy = tier.tier_domain_policy;
-    sm_data->tier_media         = tier.tier_media;
-    sm_data->tier_prefetch_algo = tier.tier_prefetch;
-    sm_data->tier_media_pct     = tier.tier_media_pct;
-    sm_data->tier_interval_sec  = tier.tier_period.ts_sec;
+    sm_data->tier_vol_uuid      = tier->tier_vol_uuid;
+    sm_data->tier_domain_uuid   = tier->tier_domain_uuid;
+    sm_data->tier_domain_policy = tier->tier_domain_policy;
+    sm_data->tier_media         = tier->tier_media;
+    sm_data->tier_prefetch_algo = tier->tier_prefetch;
+    sm_data->tier_media_pct     = tier->tier_media_pct;
+    sm_data->tier_interval_sec  = tier->tier_period.ts_sec;
 
-    if (tier.tier_domain_policy == false) {
+    if (tier->tier_domain_policy == false) {
         dom->domain_ptr->sendTierPolicyToSMNodes(sm_data);
     } else {
         // Get all volumes in the domain and send out the command.
@@ -59,7 +59,7 @@ Orch_VolPolicyServ::serv_recvTierPolicyReq(const fdp::tier_pol_time_unit &tier)
 }
 
 void
-Orch_VolPolicyServ::serv_recvAuditTierPolicy(const fdp::tier_pol_audit &audit)
+Orch_VolPolicyServ::serv_recvAuditTierPolicy(const fdp::tier_pol_auditPtr &audit)
 {
     FDS_ProtocolInterface::FDSP_TierPolicyAuditPtr sm_data(
         new FDS_ProtocolInterface::FDSP_TierPolicyAudit);
