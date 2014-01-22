@@ -17,6 +17,7 @@
 #include <fdsp/FDSP_DataPathResp.h>
 #include <fdsp/FDSP_MetaDataPathReq.h>
 #include <fdsp/FDSP_MetaDataPathResp.h>
+#include <fdsp/FDSP_Service.h>
 #include <fds_globals.h>
 #include <NetSessRespClient.h>
 #include <NetSessRespSvr.h>
@@ -156,6 +157,12 @@ netClientSession(string node_name, int port, FDSP_MgrIdType local_mgr,
             protocol(new TBinaryProtocol(transport)),
             session_id_("")
     {
+        /* The first message sent to server is a connect request.  DO
+         * NOT start receive thread before establishing a connection
+         * session*/
+        transport->open();
+        //MCSUPPORT:
+        establishSession(/*boost::dynamic_pointer_cast<FDSP_ServiceIf>(fdspDPAPI)*/);
     }
     
     virtual ~netClientSession() {
@@ -180,10 +187,11 @@ protected:
      *
      * @param client_if
      */
-    virtual void establishSession(boost::shared_ptr<FDSP_ServiceIf> client_if)
+    virtual void establishSession()
     {
         FDSP_SessionReqResp session_info; 
         FDSP_MsgHdrType fdsp_msg;
+        boost::shared_ptr<FDSP_ServiceClient> client_if(new FDSP_ServiceClient(protocol));
 
         session_info.status = 0;
         fdsp_msg.src_node_name = socket->getPeerAddress();
@@ -217,12 +225,6 @@ netDataPathClientSession(const std::string& ip_addr_str,
             fdspDataPathResp(reinterpret_cast<FDSP_DataPathRespIf *>(respSvrObj)),
             processor(new FDSP_DataPathRespProcessor(fdspDataPathResp))
     {
-                /* The first message sent to server is a connect request.  DO
-                 * NOT start receive thread before establishing a connection
-                 * session*/
-        transport->open();
-        //MCSUPPORT:
-        establishSession(boost::dynamic_pointer_cast<FDSP_ServiceIf>(fdspDPAPI));
 
         PosixThreadFactory threadFactory(PosixThreadFactory::ROUND_ROBIN,
                                          PosixThreadFactory::NORMAL,

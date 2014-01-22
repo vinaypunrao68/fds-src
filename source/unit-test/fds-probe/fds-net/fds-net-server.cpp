@@ -34,8 +34,7 @@ class exampleDataPathReqIf : virtual public FDSP_DataPathReqIf, public FDSP_Serv
         std::cout << "Got a get object message" << std::endl;
         respClient =
                 dynamic_cast<netDataPathServerSession *>(exampleSession)  // NOLINT
-                ->getRespClient(fdsp_msg->src_node_name,
-                                fdsp_msg->src_port);
+                ->getRespClient(fdsp_msg->src_node_name);
         boost::shared_ptr<FDSP_MsgHdrType> respMsg =
             boost::shared_ptr<FDSP_MsgHdrType>(new FDSP_MsgHdrType());
         boost::shared_ptr<FDSP_GetObjType> respGet =
@@ -52,8 +51,7 @@ class exampleDataPathReqIf : virtual public FDSP_DataPathReqIf, public FDSP_Serv
         std::string ipStr = netSession::ipAddr2String(fdsp_msg->src_ip_lo_addr);
         respClient =
                 dynamic_cast<netDataPathServerSession *>(exampleSession)  // NOLINT
-                ->getRespClient(fdsp_msg->src_node_name,
-                                fdsp_msg->src_port);
+                ->getRespClient(fdsp_msg->src_node_name); 
         boost::shared_ptr<FDSP_MsgHdrType> respMsg =
             boost::shared_ptr<FDSP_MsgHdrType>(new FDSP_MsgHdrType());
         boost::shared_ptr<FDSP_PutObjType> respPut =
