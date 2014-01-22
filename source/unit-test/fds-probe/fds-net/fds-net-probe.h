@@ -47,6 +47,7 @@ class fdsNetProbeMod : public ProbeMod {
     boost::shared_ptr<netSessionTbl> amTbl;
 
     boost::shared_ptr<FDS_ProtocolInterface::FDSP_DataPathReqClient> dpClient;
+    std::string sid;
     exampleDataPathRespIf *edpri;
 };
 
