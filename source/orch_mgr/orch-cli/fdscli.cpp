@@ -432,6 +432,7 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
 
         cfgPrx->SetThrottleLevel(msg_hdr, throttle_msg);
     } else {
+        gl_OMCli.setCliClient(cfgPrx);
         gl_OMCli.mod_run();
     }
 

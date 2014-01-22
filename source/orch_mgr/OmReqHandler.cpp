@@ -335,6 +335,50 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::GetDomainStats(
     return err;
 }
 
+int32_t OrchMgr::FDSP_ConfigPathReqHandler::applyTierPolicy(
+    const ::FDS_ProtocolInterface::tier_pol_time_unit& policy) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+    return 0;
+}
+
+int32_t OrchMgr::FDSP_ConfigPathReqHandler::applyTierPolicy(
+    ::FDS_ProtocolInterface::tier_pol_time_unitPtr& policy) {
+    int err = 0;
+    try {
+        err = orchMgr->ApplyTierPolicy(policy);
+    }
+    catch(...) {
+        FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
+                << "Orch Mgr encountered exception while "
+                << "processing apply tier policy";
+        return -1;
+    }
+
+    return err;
+}
+
+int32_t OrchMgr::FDSP_ConfigPathReqHandler::auditTierPolicy(
+    const ::FDS_ProtocolInterface::tier_pol_audit& audit) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+    return 0;
+}
+
+int32_t OrchMgr::FDSP_ConfigPathReqHandler::auditTierPolicy(
+    ::FDS_ProtocolInterface::tier_pol_auditPtr& audit) {
+    int err = 0;
+    try {
+        err = orchMgr->AuditTierPolicy(audit);
+    }
+    catch(...) {
+        FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
+                << "Orch Mgr encountered exception while "
+                << "processing audit tier policy";
+        return -1;
+    }
+
+    return err;
+}
+
 
 OrchMgr::FDSP_OMControlPathReqHandler::FDSP_OMControlPathReqHandler(
     OrchMgr *oMgr) {

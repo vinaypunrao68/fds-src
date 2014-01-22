@@ -10,7 +10,7 @@
 #include <cpplist.h>
 #include <fds_types.h>
 #include <fds_module.h>
-#include <fdsp/orch_proto_types.h>
+#include <fdsp/FDSP_types.h>
 #include <concurrency/Mutex.h>
 #include <concurrency/ThreadPool.h>
 #include <net-proxies/vol_policy.h>
