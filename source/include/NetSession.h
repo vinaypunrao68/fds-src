@@ -17,6 +17,7 @@
 #include <fdsp/FDSP_DataPathResp.h>
 #include <fdsp/FDSP_MetaDataPathReq.h>
 #include <fdsp/FDSP_MetaDataPathResp.h>
+#include <fdsp/FDSP_Service.h>
 #include <fds_globals.h>
 #include <NetSessRespClient.h>
 #include <NetSessRespSvr.h>
@@ -156,6 +157,12 @@ netClientSession(string node_name, int port, FDSP_MgrIdType local_mgr,
             protocol(new TBinaryProtocol(transport)),
             session_id_("")
     {
+        /* The first message sent to server is a connect request.  DO
+         * NOT start receive thread before establishing a connection
+         * session*/
+        transport->open();
+        //MCSUPPORT:
+        establishSession(/*boost::dynamic_pointer_cast<FDSP_ServiceIf>(fdspDPAPI)*/);
     }
     
     virtual ~netClientSession() {
@@ -168,7 +175,7 @@ netClientSession(string node_name, int port, FDSP_MgrIdType local_mgr,
             transport->close();
     }
     
-    std::string get_session_id() {
+    std::string getSessionId() {
         return session_id_; 
     }
     
@@ -180,17 +187,16 @@ protected:
      *
      * @param client_if
      */
-    virtual void establishSession(boost::shared_ptr<FDSP_ServiceIf> client_if)
+    virtual void establishSession()
     {
         FDSP_SessionReqResp session_info; 
         FDSP_MsgHdrType fdsp_msg;
+        boost::shared_ptr<FDSP_ServiceClient> client_if(new FDSP_ServiceClient(protocol));
 
         session_info.status = 0;
         fdsp_msg.src_node_name = socket->getPeerAddress();
         fdsp_msg.src_port = socket->getPeerPort();
         
-        std::cout << "peer: " << socket->getPeerAddress() << ":" << socket->getPeerPort() << " mine " << socket->getHost() << ":" << socket->getPort() << std::endl;
-
         client_if->EstablishSession(session_info, fdsp_msg);
         // TODO: based on return code the do the appropriate
         fds_verify(session_info.status == 0 && !session_info.sid.empty());
@@ -219,11 +225,6 @@ netDataPathClientSession(const std::string& ip_addr_str,
             fdspDataPathResp(reinterpret_cast<FDSP_DataPathRespIf *>(respSvrObj)),
             processor(new FDSP_DataPathRespProcessor(fdspDataPathResp))
     {
-                /* The first message sent to server is a connect request.  DO
-                 * NOT start receive thread before establishing a connection
-                 * session*/
-        transport->open();
-        establishSession(boost::dynamic_pointer_cast<FDSP_ServiceIf>(fdspDPAPI));
 
         PosixThreadFactory threadFactory(PosixThreadFactory::ROUND_ROBIN,
                                          PosixThreadFactory::NORMAL,
@@ -276,7 +277,6 @@ netMetaDataPathClientSession(const std::string& ip_addr_str,
         msg_recv.reset(new fdspMetaDataPathRespReceiver(protocol, fdspMetaDataPathResp));
         recv_thread = threadFactory.newThread(msg_recv);
         recv_thread->start();
-        transport->open();
     }
     ~netMetaDataPathClientSession() {
     }
@@ -319,7 +319,6 @@ netControlPathClientSession(const std::string& ip_addr_str,
         msg_recv.reset(new fdspControlPathRespReceiver(protocol, fdspControlPathResp));
         recv_thread = threadFactory.newThread(msg_recv);
         recv_thread->start();
-        transport->open();
     }
     ~netControlPathClientSession() {
     }
@@ -352,7 +351,7 @@ netOMControlPathClientSession(const std::string& ip_addr_str,
             fdspOMCPAPI(new FDSP_OMControlPathReqClient(protocol)),
             fdspOMControlPathResp(reinterpret_cast<FDSP_OMControlPathRespIf *>(respSvrObj)),
             processor(new FDSP_OMControlPathRespProcessor(fdspOMControlPathResp)) {
-        
+
         PosixThreadFactory threadFactory(PosixThreadFactory::ROUND_ROBIN,
                                          PosixThreadFactory::NORMAL,
                                          num_threads,
@@ -360,7 +359,6 @@ netOMControlPathClientSession(const std::string& ip_addr_str,
         msg_recv.reset(new fdspOMControlPathRespReceiver(protocol, fdspOMControlPathResp));
         recv_thread = threadFactory.newThread(msg_recv);
         recv_thread->start();
-        transport->open();
     }
     ~netOMControlPathClientSession() {
     }
@@ -438,31 +436,6 @@ public :
   }
 
   virtual void endSession() { 
-  }
-
-  
-  /**
-   * @brief Adds a new response client session.  Client transport with
-   * port and ip must exist in auth_pending_transports_.
-   *
-   * @param ip
-   * @param port
-   * @param session_id
-   */
-  virtual void addRespClientSession(const std::string &ip, const int &port, 
-                                const std::string &session_id)
-  {
-      fds_mutex::scoped_lock l(lock_);
-      std::string key = getTransportKey(ip, port); 
-      auto itr = auth_pending_transports_.find(key);
-      fds_verify(itr != auth_pending_transports_.end());
-
-      /* Remove from pending and add to response client table */
-      TTransportPtr transport = itr->second;
-      auth_pending_transports_.erase(itr);
-      setClientInternal(session_id, transport);
-
-      FDS_PLOG(g_fdslog) << __FUNCTION__ << " key: " << key << " sid: " << session_id;
   }
 
   virtual int addRespClientSession(const std::string &session_id, TTransportPtr t)
@@ -576,7 +549,7 @@ protected:
   /* Lock to protect auth_pending_transports and respClients */
   fds_mutex lock_;
   /* Transports pending authorization */
-  std::unordered_map<std::string, TTransportPtr> auth_pending_transports_;
+  //std::unordered_map<std::string, TTransportPtr> auth_pending_transports_;
   /* TServer event handler */
   boost::shared_ptr<ServerEventHandler> event_handler_;
 };
@@ -644,10 +617,9 @@ class netDataPathServerSession : public netServerSession {
         respClient[peer_address.c_str()] = dprespcli;
     }
 
-    boost::shared_ptr<FDSP_DataPathRespClient> getRespClient(string ipaddress, int port) {
-        stringstream ss;
-        ss <<  ipaddress ; 
-        dataPathRespClient dprespcli = respClient[ss.str()];
+    boost::shared_ptr<FDSP_DataPathRespClient> getRespClient(const std::string& sid) {
+        // TODO: range check
+        dataPathRespClient dprespcli = respClient[sid];
         return dprespcli;
     }
     
@@ -657,6 +629,7 @@ class netDataPathServerSession : public netServerSession {
                                             transportFactory,
                                             protocolFactory,
                                             threadManager));
+        // MCSUPPORT:
         server->setServerEventHandler(event_handler_);
         
         printf("Starting the server...\n");
@@ -664,6 +637,7 @@ class netDataPathServerSession : public netServerSession {
     }
 
 protected:
+  // MCSUPPORT:
   virtual void setClientInternal(const std::string &session_id,
                                  TTransportPtr transport) override
   {
@@ -671,7 +645,6 @@ protected:
         dataPathRespClient dprespcli( new FDSP_DataPathRespClient(protocol_));
         respClient[session_id] = dprespcli;
   }
-
 
 private:
     boost::shared_ptr<FDSP_DataPathReqIf> handler;
@@ -702,15 +675,28 @@ class netMetaDataPathServerSession : public netServerSession {
        server->stop();
    }
 
+   /* NOTE this is called under a lock */
+   virtual int addRespClientSession(const std::string &session_id, TTransportPtr t) override
+   {
+       // TODO:  Do checks to make sure transport and session_id are unique 
+       protocol_.reset(new TBinaryProtocol(t));
+       metaDataPathRespClient dprespcli( new FDSP_MetaDataPathRespClient(protocol_));
+       respClient[session_id] = dprespcli;
+       return 0;
+   }
+
     // Called from within thrift and the right context is passed -
     // nothing to do in the application modules of thrift
     static void setClient(const boost::shared_ptr<TTransport> transport, void* context) {
+        /*
         printf("netSessionServer: set MetaDataPathRespClient\n");
         netMetaDataPathServerSession* self = reinterpret_cast<netMetaDataPathServerSession *>(context);
         self->setClientInternal(transport);
+        */
     }
 
     void setClientInternal(const boost::shared_ptr<TTransport> transport) {
+        /*
         protocol_.reset(new TBinaryProtocol(transport));
         boost::shared_ptr<apache::thrift::transport::TSocket> sock =
                 boost::static_pointer_cast<apache::thrift::transport::TSocket>(transport);
@@ -718,10 +704,13 @@ class netMetaDataPathServerSession : public netServerSession {
         string peer_address = getIPV4FromMappedAddress(peer_addr);
         printf("netSessionServer internal: setting MetaDataPathRespClient for %s\n", peer_address.c_str());
         respClient[peer_address] = (metaDataPathRespClient)new FDSP_MetaDataPathRespClient(protocol_);
+        */
     }
 
-    boost::shared_ptr<FDSP_MetaDataPathRespClient> getRespClient(string ipaddress) {
-        return respClient[ipaddress];
+    boost::shared_ptr<FDSP_MetaDataPathRespClient> getRespClient(const std::string& sid) {
+        // TODO: range check
+        metaDataPathRespClient dprespcli = respClient[sid];
+        return dprespcli;
     }
     
     void listenServer() {         
@@ -730,12 +719,22 @@ class netMetaDataPathServerSession : public netServerSession {
                                             transportFactory,
                                             protocolFactory,
                                             threadManager));
-        
+
+        server->setServerEventHandler(event_handler_);        
         printf("Starting the server...\n");
         server->serve();
     }
  
     void endSession() { 
+    }
+
+protected:
+    virtual void setClientInternal(const std::string &session_id,
+                                   TTransportPtr transport) override
+    {
+        protocol_.reset(new TBinaryProtocol(transport));
+        metaDataPathRespClient dprespcli( new FDSP_MetaDataPathRespClient(protocol_));
+        respClient[session_id] = dprespcli;
     }
     
 private:
@@ -764,25 +763,41 @@ netControlPathServerSession(const std::string& dest_node_name,
 
     ~netControlPathServerSession() {
     }
+
+    /* NOTE this is called under a lock */
+    virtual int addRespClientSession(const std::string &session_id, TTransportPtr t) override
+    {
+        // TODO:  Do checks to make sure transport and session_id are unique 
+        protocol_.reset(new TBinaryProtocol(t));
+        controlPathRespClient dprespcli( new FDSP_ControlPathRespClient(protocol_));
+        respClient[session_id] = dprespcli;
+        return 0;
+    }
  
     // Called from within thrift and the right context is passed - nothing to do in the application modules of thrift
     static void setClient(const boost::shared_ptr<TTransport> transport, void* context) {
+        /*
         printf("netSessionServer: set ControlPathRespClient\n");
         netControlPathServerSession* self = reinterpret_cast<netControlPathServerSession *>(context);
         self->setClientInternal(transport);
+        */
     }
 
     void setClientInternal(const boost::shared_ptr<TTransport> transport) {
+        /*
         printf("netSessionServer internal: set DataPathRespClient\n");
         protocol_.reset(new TBinaryProtocol(transport));
         boost::shared_ptr<apache::thrift::transport::TSocket> sock =
                 boost::static_pointer_cast<apache::thrift::transport::TSocket>(transport);
         string peer_addr = sock->getPeerAddress();
         respClient[peer_addr] = (controlPathRespClient)new FDSP_ControlPathRespClient(protocol_);
+        */
     }
 
-    boost::shared_ptr<FDSP_ControlPathRespClient> getRespClient(string ipaddress) {
-        return respClient[ipaddress];
+    boost::shared_ptr<FDSP_ControlPathRespClient> getRespClient(const std::string& sid) {
+        // TODO: range check
+        controlPathRespClient dprespcli = respClient[sid];
+        return dprespcli;
     }
 
     void listenServer() {         
@@ -792,11 +807,21 @@ netControlPathServerSession(const std::string& dest_node_name,
                                             protocolFactory,
                                             threadManager));
         
+        server->setServerEventHandler(event_handler_);
         printf("Starting the server...\n");
         server->serve();
     }
     void endSession() { 
         server->stop();
+    }
+
+protected:
+    virtual void setClientInternal(const std::string &session_id,
+                                   TTransportPtr transport) override
+    {
+        protocol_.reset(new TBinaryProtocol(transport));
+        controlPathRespClient dprespcli( new FDSP_ControlPathRespClient(protocol_));
+        respClient[session_id] = dprespcli;
     }
     
 private:
@@ -826,24 +851,40 @@ netOMControlPathServerSession(const std::string& dest_node_name,
     ~netOMControlPathServerSession() {
     }
  
+    /* NOTE this is called under a lock */
+    virtual int addRespClientSession(const std::string &session_id, TTransportPtr t) override
+    {
+        // TODO:  Do checks to make sure transport and session_id are unique 
+        protocol_.reset(new TBinaryProtocol(t));
+        omControlPathRespClient dprespcli( new FDSP_OMControlPathRespClient(protocol_));
+        respClient[session_id] = dprespcli;
+        return 0;
+    }
+
     // Called from within thrift and the right context is passed - nothing to do in the application modules of thrift
     static void setClient(const boost::shared_ptr<TTransport> transport, void* context) {
+        /*
         printf("netSessionServer: set OMControlPathRespClient\n");
         netOMControlPathServerSession* self = reinterpret_cast<netOMControlPathServerSession *>(context);
         self->setClientInternal(transport);
+        */
     }
 
     void setClientInternal(const boost::shared_ptr<TTransport> transport) {
+        /*
         printf("netSessionServer internal: set OMControlPathRespClient\n");
         protocol_.reset(new TBinaryProtocol(transport));
         boost::shared_ptr<apache::thrift::transport::TSocket> sock =
                 boost::static_pointer_cast<apache::thrift::transport::TSocket>(transport);
         string peer_addr = sock->getPeerAddress();
         respClient[peer_addr] = (omControlPathRespClient)new FDSP_OMControlPathRespClient(protocol_);
+        */
     }
 
-    boost::shared_ptr<FDSP_OMControlPathRespClient> getRespClient(string ipaddress) {
-        return respClient[ipaddress];
+    boost::shared_ptr<FDSP_OMControlPathRespClient> getRespClient(const std::string& sid) {
+        // TODO: range check
+        omControlPathRespClient dprespcli = respClient[sid];
+        return dprespcli;
     }
     
     void listenServer() {         
@@ -853,6 +894,7 @@ netOMControlPathServerSession(const std::string& dest_node_name,
                                             protocolFactory,
                                             threadManager));
         
+        server->setServerEventHandler(event_handler_);
         printf("Starting the server...\n");
         server->serve();
     }
@@ -861,13 +903,22 @@ netOMControlPathServerSession(const std::string& dest_node_name,
         server->stop();
     }
 
+protected:
+    virtual void setClientInternal(const std::string &session_id,
+                                   TTransportPtr transport) override
+    {
+        protocol_.reset(new TBinaryProtocol(transport));
+        omControlPathRespClient dprespcli( new FDSP_OMControlPathRespClient(protocol_));
+        respClient[session_id] = dprespcli;
+    }
+    
 private:
     boost::shared_ptr<FDSP_OMControlPathReqIf> handler;
     boost::shared_ptr<FDSP_OMControlPathReqIfSingletonFactory> handlerFactory; 
     boost::shared_ptr<TProcessorFactory> processorFactory;
     boost::shared_ptr<TThreadPoolServer> server;
     boost::shared_ptr<TProtocol> protocol_;
-typedef boost::shared_ptr<FDSP_OMControlPathRespClient> omControlPathRespClient;
+    typedef boost::shared_ptr<FDSP_OMControlPathRespClient> omControlPathRespClient;
     std::unordered_map<std::string, omControlPathRespClient> respClient;
 };
 
