@@ -3,7 +3,6 @@
  *
  * Template to write probe adapter.  Replace Thrpool with your namespace.
  */
-#include <list>
 #include <string>
 #include <thrpool-api.h>
 #include <utest-types.h>
@@ -121,8 +120,8 @@ Thrpool_ProbeMod::mod_shutdown()
 // Threadpool control path
 // ----------------------------------------------------------------------------
 JsObject *
-UT_ThpoolSyscall::js_exec_obj(JsObject *parent, JsObjTemplate *templ,
-                              std::list<std::string> *out)
+UT_ThpoolSyscall::js_exec_obj(JsObject *parent,
+                              JsObjTemplate *templ, JsObjOutput *out)
 {
     int       i, num;
     JsObject *obj;
@@ -140,8 +139,8 @@ UT_ThpoolSyscall::js_exec_obj(JsObject *parent, JsObjTemplate *templ,
 }
 
 JsObject *
-UT_ThpoolBoost::js_exec_obj(JsObject *parent, JsObjTemplate *templ,
-                            std::list<std::string> *out)
+UT_ThpoolBoost::js_exec_obj(JsObject *parent,
+                            JsObjTemplate *templ, JsObjOutput *out)
 {
     int         i, num;
     JsObject   *obj;
@@ -206,8 +205,8 @@ UT_ThpoolBoost::ut_boost_array_2d_print(void)
 }
 
 JsObject *
-UT_ThpoolMath::js_exec_obj(JsObject *parent, JsObjTemplate *templ,
-                           std::list<std::string> *out)
+UT_ThpoolMath::js_exec_obj(JsObject *parent,
+                           JsObjTemplate *templ, JsObjOutput *out)
 {
     std::cout << "Thread pool math is called... " << std::endl;
     return JsObject::js_exec_obj(this, templ, out);

@@ -45,8 +45,8 @@ class Thrpool_ProbeMod : public ProbeMod
 class UT_ThpoolSyscall : public JsObject
 {
   public:
-    virtual JsObject *js_exec_obj(JsObject *array, JsObjTemplate *templ,
-                                  std::list<std::string> *out);
+    virtual JsObject *js_exec_obj(JsObject *array,
+                                  JsObjTemplate *templ, JsObjOutput *out);
 };
 
 typedef boost::multi_array<int, 2> UT_ThpoolBoost_Array2D;
@@ -55,8 +55,8 @@ typedef UT_ThpoolBoost_Array2D::index UT_ThpoolBoost_Array2DIndex;
 class UT_ThpoolBoost : public JsObject
 {
   public:
-    virtual JsObject *js_exec_obj(JsObject *array, JsObjTemplate *templ,
-                                  std::list<std::string> *out);
+    virtual JsObject *js_exec_obj(JsObject *array,
+                                  JsObjTemplate *templ, JsObjOutput *out);
   protected:
     static UT_ThpoolBoost_Array2D ut_thpboost_array;
     void ut_boost_array_2d_print(void);
@@ -65,8 +65,8 @@ class UT_ThpoolBoost : public JsObject
 class UT_ThpoolMath : public JsObject
 {
   public:
-    virtual JsObject *js_exec_obj(JsObject *array, JsObjTemplate *templ,
-                                  std::list<std::string> *out);
+    virtual JsObject *js_exec_obj(JsObject *array,
+                                  JsObjTemplate *templ, JsObjOutput *out);
 };
 
 class UT_ThpoolSvcTemplate : public JsObjTemplate

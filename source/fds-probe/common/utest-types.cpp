@@ -1,7 +1,6 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
-#include <list>
 #include <string>
 #include <iostream>
 #include <utest-types.h>
@@ -9,8 +8,8 @@
 namespace fds {
 
 JsObject *
-UT_Thread::js_exec_obj(JsObject *parent, JsObjTemplate *templ,
-                       std::list<std::string> *out)
+UT_Thread::js_exec_obj(JsObject *parent,
+                       JsObjTemplate *templ, JsObjOutput *out)
 {
     ut_thr_param_t *p;
 
@@ -24,8 +23,8 @@ UT_Thread::js_exec_obj(JsObject *parent, JsObjTemplate *templ,
 }
 
 JsObject *
-UT_Server::js_exec_obj(JsObject *parent, JsObjTemplate *templ,
-                       std::list<std::string> *out)
+UT_Server::js_exec_obj(JsObject *parent,
+                       JsObjTemplate *templ, JsObjOutput *out)
 {
     ut_srv_param_t *p;
 
@@ -37,8 +36,8 @@ UT_Server::js_exec_obj(JsObject *parent, JsObjTemplate *templ,
 }
 
 JsObject *
-UT_Load::js_exec_obj(JsObject *parent, JsObjTemplate *templ,
-                     std::list<std::string> *out)
+UT_Load::js_exec_obj(JsObject *parent,
+                     JsObjTemplate *templ, JsObjOutput *out)
 {
     ut_load_param_t *p;
 
@@ -52,24 +51,24 @@ UT_Load::js_exec_obj(JsObject *parent, JsObjTemplate *templ,
 }
 
 JsObject *
-UT_RunSetup::js_exec_obj(JsObject *parent, JsObjTemplate *templ,
-                         std::list<std::string> *out)
+UT_RunSetup::js_exec_obj(JsObject *parent,
+                         JsObjTemplate *templ, JsObjOutput *out)
 {
     std::cout << "Run-Setup exec is called" << std::endl;
     return JsObject::js_exec_obj(this, templ, out);
 }
 
 JsObject *
-UT_ServerLoad::js_exec_obj(JsObject *parent, JsObjTemplate *templ,
-                           std::list<std::string> *out)
+UT_ServerLoad::js_exec_obj(JsObject *parent,
+                           JsObjTemplate *templ, JsObjOutput *out)
 {
     std::cout << "Server load obj " << std::endl;
     return JsObject::js_exec_obj(this, templ, out);
 }
 
 JsObject *
-UT_ClientLoad::js_exec_obj(JsObject *parent, JsObjTemplate *templ,
-                           std::list<std::string> *out)
+UT_ClientLoad::js_exec_obj(JsObject *parent,
+                           JsObjTemplate *templ, JsObjOutput *out)
 {
     int                i, num;
     UT_ClientLoad     *obj;
@@ -88,8 +87,8 @@ UT_ClientLoad::js_exec_obj(JsObject *parent, JsObjTemplate *templ,
 }
 
 JsObject *
-UT_RunInput::js_exec_obj(JsObject *parent, JsObjTemplate *templ,
-                         std::list<std::string> *out)
+UT_RunInput::js_exec_obj(JsObject *parent,
+                         JsObjTemplate *templ, JsObjOutput *out)
 {
     std::cout << "RunInput exec " << std::endl;
     return JsObject::js_exec_obj(this, templ, out);
