@@ -957,9 +957,9 @@ class OmUnitTest {
         test_log = new fds_log("om_test", "logs");
         
         unit_tests.push_back("node_reg");
-        unit_tests.push_back("vol_reg");
-        unit_tests.push_back("policy");
-        unit_tests.push_back("buckets_test");
+        //unit_tests.push_back("vol_reg");
+        //unit_tests.push_back("policy");
+        //unit_tests.push_back("buckets_test");
         
         num_updates = 5;
     }
@@ -971,7 +971,7 @@ class OmUnitTest {
         om_port_num = om_port_arg;
         cp_port_num = cp_port_arg;
         om_ip = 0x7f000001;
-        num_updates = num_up_arg;
+        num_updates = 3; //num_up_arg;
 
         /* start config client session */
         net_session_tbl->startSession(om_ip,
