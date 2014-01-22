@@ -13,6 +13,7 @@
 #include <iostream>  // NOLINT(*)
 #include <string>
 #include <list>
+#include <thread>
 
 #include <fds_types.h>
 #include <fds_err.h>
@@ -22,6 +23,8 @@
 #include <concurrency/Mutex.h>
 
 namespace fds {
+
+typedef boost::shared_ptr<FDS_ProtocolInterface::FDSP_ConfigPathReqClient> FDSP_ConfigPathReqClientPtr;
 
 class ControlPathReq : public FDS_ProtocolInterface::FDSP_ControlPathReqIf {
   public:
@@ -121,7 +124,8 @@ class ControlPathReq : public FDS_ProtocolInterface::FDSP_ControlPathReqIf {
 
     void NotifyNodeAdd(FDSP_MsgHdrTypePtr& msg_hdr, 
 		       FDSP_Node_Info_TypePtr& node_info) {
-         FDS_PLOG(test_log) << "NotifyNodeAdd recvd";
+         FDS_PLOG(test_log) << "NotifyNodeAdd recvd"
+                            << " for node " << node_info->node_name;
     }
 
     void NotifyNodeRmv(const FDSP_MsgHdrType& fdsp_msg,
@@ -141,11 +145,11 @@ class ControlPathReq : public FDS_ProtocolInterface::FDSP_ControlPathReqIf {
 
     void NotifyDLTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
 			 FDSP_DLT_TypePtr& dlt_info) {
-        std::cout << "Received a DLT update" << std::endl;
+        FDS_PLOG(test_log) << "Received a DLT update" << std::endl;
         for (fds_uint32_t i = 0; i < dlt_info->DLT.size(); i++) {
             for (fds_uint32_t j = 0; j < dlt_info->DLT[i].size(); j++) {
-                std::cout << "Bucket " << i << " entry " << j
-                          << " value " << dlt_info->DLT[i][j] << std::endl;
+                FDS_PLOG(test_log) << "Bucket " << i << " entry " << j
+                                   << " value " << dlt_info->DLT[i][j] << std::endl;
             }
         }
     }
@@ -157,15 +161,15 @@ class ControlPathReq : public FDS_ProtocolInterface::FDSP_ControlPathReqIf {
 
     void NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
 			 FDSP_DMT_TypePtr& dmt_info) {
-        std::cout << "Received a DMT update" << std::endl;
+        FDS_PLOG(test_log) << "Received a DMT update" << std::endl;
         for (fds_uint32_t i = 0; i < dmt_info->DMT.size(); i++) {
             for (fds_uint32_t j = 0; j < dmt_info->DMT[i].size(); j++) {
-                std::cout << "Bucket " << i << " entry " << j
-                          << " value " << dmt_info->DMT[i][j] << std::endl;
+                FDS_PLOG(test_log) << "Bucket " << i << " entry " << j
+                                   << " value " << dmt_info->DMT[i][j] << std::endl;
             }
         }
     }
-
+    
     void SetThrottleLevel(const FDSP_MsgHdrType& msg_hdr,
                           const FDSP_ThrottleMsgType& throttle_msg) {
         // Don't do anything here. This stub is just to keep cpp compiler happy
@@ -324,13 +328,12 @@ class OmUnitTest {
     
     fds_uint32_t om_port_num;
     fds_uint32_t cp_port_num;
+    fds_uint32_t om_ip;
     fds_uint32_t num_updates;
 
-    netSessionTbl* net_session_tbl;
-    netSession* omc_server_session;
-    
-    // std::list<Ice::ObjectAdapterPtr> adapterList;
-    
+    boost::shared_ptr<netSessionTbl> net_session_tbl;
+    std::vector<std::thread*> server_threads;
+
     /*
      * Helper function to construct msg hdr
      */
@@ -409,13 +412,13 @@ class OmUnitTest {
     }
 
     void initDiskCapabilities(FDS_ProtocolInterface::FDSP_AnnounceDiskCapability* disk_cap) {
-        disk_cap->disk_iops_max = 100;
-        disk_cap->disk_iops_min = 10;
-        disk_cap->disk_capacity = 1024;
+        disk_cap->disk_iops_max = 5000;
+        disk_cap->disk_iops_min = 1000;
+        disk_cap->disk_capacity = 102400;
         disk_cap->disk_latency_max = 10000;
         disk_cap->disk_latency_min = 1000;
-        disk_cap->ssd_iops_max = 1000;
-        disk_cap->ssd_iops_min = 100;
+        disk_cap->ssd_iops_max = 20000;
+        disk_cap->ssd_iops_min = 10000;
         disk_cap->ssd_capacity = 1024;
         disk_cap->ssd_latency_max = 1000;
         disk_cap->ssd_latency_min = 100;
@@ -423,69 +426,71 @@ class OmUnitTest {
     }
     
     /*
-     * Helper function to create and remember endpoints.
+     * Helper functions to create and remember net sessions
      */
-    void createCpEndpoint(fds_uint32_t port) {
-        std::string contPathStr = std::string("tcp -p ") + std::to_string(port);
-        /*
-         * Add our port to the endpoint name to make it unique.
-         * The OM will need to be aware we're using this nameing
-         * convention.
-         */
+    FDSP_ConfigPathReqClientPtr getConfigClient() {
+        netSession* client_session =
+                net_session_tbl->getSession(om_ip,
+                                            FDS_ProtocolInterface::FDSP_ORCH_MGR);
 
-
-    /*     Ice::ObjectAdapterPtr rpc_adapter =
-                ice_comm->createObjectAdapterWithEndpoints(
-                    "OrchMgrClient" + std::to_string(port), contPathStr);
-        ControlPathReq *cpr = new ControlPathReq(test_log);
-        rpc_adapter->add(cpr,
-                         ice_comm->stringToIdentity(
-                             "OrchMgrClient" + std::to_string(port)));
-        rpc_adapter->activate();
-        
-        adapterList.push_back(rpc_adapter);
-    */
-        FDS_PLOG(test_log) << "Create endpoint at " << contPathStr;
+        return static_cast<netConfigPathClientSession*>(client_session)->getClient();
     }
 
-    void clearCpEndpoints() {
-
-        /*        while (!adapterList.empty())
-        {
-            Ice::ObjectAdapterPtr rpc_adapter = adapterList.back();
-            rpc_adapter->destroy();
-            adapterList.pop_back();
-        }
-        adapterList.clear();
-        */
-        FDS_PLOG(test_log) << "Cleared control point endpoints list";
+    static void run_server_thread(netSessionTbl* session_tbl, netSession* server_session) {
+        session_tbl->listenServer(server_session);
     }
 
-    /* create session table and start session 'on omclient node' and add table
-     * to the tbl_list */
+    /* simulate creating an OMClient node (SH, SM, or DM based on 
+     * omclient_node_name; Will start server session to listen
+     * for control messages from OM and start client session to
+     * send OMControl messages to OM; will add session table t o
+     * 'tbl_list'
+     */
     boost::shared_ptr<FDSP_OMControlPathReqClient>
-    createOmControlPathComm(const std::string& omclient_node_name,
+    createOmClientComm(const std::string& omclient_node_name,
                             FDS_ProtocolInterface::FDSP_MgrIdType omclient_node_type,
                             int omclient_port,
                             std::list<netSessionTbl*>& tbl_list) {
         
         netSession* client_session = NULL;
+	netSession* server_session = NULL;
         TestResp* resp_handler_ptr = new TestResp(test_log);        
+	ControlPathReq* cpreq_handler_ptr = new ControlPathReq(test_log);
         netSessionTbl* session_tbl = new netSessionTbl(omclient_node_name,
                                                        0x7f000001,
                                                        omclient_port,
                                                        1,
                                                        omclient_node_type);
+        if (!session_tbl) {
+            return boost::shared_ptr<FDSP_OMControlPathReqClient>();
+        }
         tbl_list.push_back(session_tbl);
+
+	/* server session on the same 'node' to listen for control messages from OM */
+	server_session = session_tbl->createServerSession(0x7f000001,
+							  omclient_port,
+							  omclient_node_name,
+							  FDS_ProtocolInterface::FDSP_ORCH_MGR,
+							  cpreq_handler_ptr);
+
+	/* start thread to listen for control msgs from OM */
+	std::thread* new_thread = new std::thread(&OmUnitTest::run_server_thread, session_tbl, server_session);
+	if (new_thread) 
+	  server_threads.push_back(new_thread);
+
+
+	/* client session to send OMControl messages to OM */
         client_session = session_tbl->startSession(0x7f000001,
                                                    cp_port_num,
                                                    FDS_ProtocolInterface::FDSP_ORCH_MGR,
                                                    1,
                                                    resp_handler_ptr);
+
+
         return dynamic_cast<netOMControlPathClientSession*>(client_session)->getClient();
     }
 
-    void clearOmControlPathComms(std::list<netSessionTbl*>& list) {
+    void clearOmClientComms(std::list<netSessionTbl*>& list) {
         for (std::list<netSessionTbl*>::iterator it = list.begin();
              it != list.end();
              ++it) {
@@ -494,7 +499,71 @@ class OmUnitTest {
             delete tbl;
         }
         list.clear();
+        for (int i = 0; i < server_threads.size(); ++i) {
+            server_threads[i]->join();
+        }
+        while (server_threads.size() > 0) {
+            std::thread* th = server_threads.back();
+            delete th;
+            server_threads.pop_back();
+        }
     }
+
+    boost::shared_ptr<FDSP_OMControlPathReqClient>
+    register_node(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr,
+                  const std::string node_name,
+                  FDS_ProtocolInterface::FDSP_MgrIdType node_type,
+                  fds_uint32_t port,
+                  fds_uint32_t ip_addr,
+                  std::list<netSessionTbl*> & nst_list) {
+        
+        FDS_ProtocolInterface::FDSP_RegisterNodeTypePtr reg_node_msg(
+            new FDS_ProtocolInterface::FDSP_RegisterNodeType);
+        
+        boost::shared_ptr<FDSP_OMControlPathReqClient> ocp_client;
+        
+        reg_node_msg->domain_id  = 0;
+        reg_node_msg->ip_hi_addr = 0;
+        reg_node_msg->ip_lo_addr = ip_addr;
+        reg_node_msg->data_port  = 0;
+        /*
+         * Add some zeroed out disk info
+         */
+        initDiskCapabilities(&(reg_node_msg->disk_info));
+        
+        /*
+         * Create and endpoint to reflect the "node" that
+         * we're registering, so that "node" can recieve
+         * updates from the OM.
+         */
+        reg_node_msg->control_port = port;
+        reg_node_msg->node_type = node_type;
+        
+        /*
+         * TODO: Make the name just an int since the OM turns this into
+         * a UUID to address the node. Fix this by adding a UUID int to
+         * the FDSP.
+         */
+        reg_node_msg->node_name = node_name;
+        
+        ocp_client = createOmClientComm(reg_node_msg->node_name,
+                                        reg_node_msg->node_type,
+                                        reg_node_msg->control_port,
+                                        nst_list);
+        if (!ocp_client) {
+            FDS_PLOG(test_log) << "ERROR: failed to create OmClientComm for node "
+                               << reg_node_msg->node_name;
+            return ocp_client;
+        }
+        
+        ocp_client->RegisterNode(msg_hdr, reg_node_msg);
+        FDS_PLOG(test_log) << "Completed node registration at IP "
+                           << fds::ipv4_addr_to_str(reg_node_msg->ip_lo_addr)
+                           << " control port " << reg_node_msg->control_port;
+
+        return ocp_client;
+    } 
+
  
     /*
      * Unit test funtions
@@ -553,7 +622,7 @@ class OmUnitTest {
              * a node from SM, DM, and SH, we need to create 
              * appropriate sessions
              */
-            reg_node_msg->control_port = cp_port_num + i;
+            reg_node_msg->control_port = cp_port_num + i + 1;
             if ((i % 3) == 0) {
                 /* SM -> OM */
                 reg_node_msg->node_type = FDS_ProtocolInterface::FDSP_STOR_MGR;
@@ -565,14 +634,14 @@ class OmUnitTest {
                 reg_node_msg->node_type = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
             }
 
-            ocp_client = createOmControlPathComm(reg_node_msg->node_name,
-                                                 reg_node_msg->node_type,
-                                                 reg_node_msg->control_port,
-                                                 session_tbl_list);
-
+            ocp_client = createOmClientComm(reg_node_msg->node_name,
+                                            reg_node_msg->node_type,
+                                            reg_node_msg->control_port,
+                                            session_tbl_list);
+            
             ocp_client->RegisterNode(msg_hdr, reg_node_msg);
             
-            FDS_PLOG(test_log) << "Completed node registration " << i << " at IP "
+            FDS_PLOG(test_log) << "Sent node registration " << i << " at IP "
                                << fds::ipv4_addr_to_str(reg_node_msg->ip_lo_addr)
                                << " control port " << reg_node_msg->control_port;
         }
@@ -581,10 +650,8 @@ class OmUnitTest {
         // TODO: signal completion
         sleep(5);        
 
-        //clearCpEndpoints();
-        
         // clear session table
-        clearOmControlPathComms(session_tbl_list);
+        clearOmClientComms(session_tbl_list);
 
         FDS_PLOG(test_log) << "Ending test: node_reg()";
         return 0;
@@ -592,12 +659,9 @@ class OmUnitTest {
     
     fds_int32_t vol_reg() {
         FDS_PLOG(test_log) << "Starting test: vol_reg()";
-        
-        /* TODO(thrift) Config path client */
-        /*
-        FDS_ProtocolInterface::FDSP_ConfigPathReqPrx fdspConfigPathAPI =
-                createOmComm(om_port_num);
-        */
+
+        FDSP_ConfigPathReqClientPtr fdspConfigPathAPI = getConfigClient();
+
 
         FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr(
             new FDS_ProtocolInterface::FDSP_MsgHdrType);
@@ -607,6 +671,7 @@ class OmUnitTest {
             new FDS_ProtocolInterface::FDSP_CreateVolType());
         
         initOMMsgHdr(msg_hdr);
+
         for (fds_uint32_t i = 0; i < num_updates; i++) {
             crt_vol->vol_name = std::string("Volume ") + std::to_string(i+1);
             (crt_vol->vol_info).vol_name = crt_vol->vol_name;
@@ -624,9 +689,8 @@ class OmUnitTest {
                                << (crt_vol->vol_info).vol_name
                                << " and capacity " << (crt_vol->vol_info).capacity;
             
-            // TODO(thrift)
-            // fdspConfigPathAPI->CreateVol(msg_hdr, crt_vol);
-            
+            fdspConfigPathAPI->CreateVol(msg_hdr, crt_vol);
+
             FDS_PLOG(test_log) << "OM unit test client completed creating volume.";
         }
         
@@ -642,13 +706,9 @@ class OmUnitTest {
             FDS_PLOG(test_log) << "Nothing to do for test volume policy, num_updates == 0";
             return result;
         }
-        
-        // TODO(thrift) config path client 
-        /*
-        FDS_ProtocolInterface::FDSP_ConfigPathReqPrx fdspConfigPathAPI = 
-                createOmComm(om_port_num);
-        */
 
+        FDSP_ConfigPathReqClientPtr fdspConfigPathAPI = getConfigClient();
+        
         FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr(
             new FDS_ProtocolInterface::FDSP_MsgHdrType);
         initOMMsgHdr(msg_hdr);
@@ -684,59 +744,45 @@ class OmUnitTest {
                                << "; iops_max " << (crt_pol->policy_info).iops_max
                                << "; rel_prio " << (crt_pol->policy_info).rel_prio;
             
-            // TODO(thrift)
-            // fdspConfigPathAPI->CreatePolicy(msg_hdr, crt_pol);
+            fdspConfigPathAPI->CreatePolicy(msg_hdr, crt_pol);
             
             FDS_PLOG(test_log) << "OM unit test client completed creating policy";
             
         }
 
         /* register SH, DM, and SM nodes */
-
-        /* TODO(thift) need OMControl path client */
-        FDS_ProtocolInterface::FDSP_RegisterNodeTypePtr reg_node_msg(
-            new FDS_ProtocolInterface::FDSP_RegisterNodeType);
-        
-        reg_node_msg->domain_id  = 0;
-        reg_node_msg->ip_hi_addr = 0;
-        reg_node_msg->ip_lo_addr = 0x7f000001; /* 127.0.0.1 */
-        reg_node_msg->data_port  = 0;
-        /*
-         * Add some zeroed out disk info
-         */
-        initDiskCapabilities(&(reg_node_msg->disk_info));
-        
-        for (fds_uint32_t i = 0; i < 3; i++) {
-            /*
-             * Create and endpoint to reflect the "node" that
-             * we're registering, so that "node" can recieve
-             * updates from the OM.
-             */
-            reg_node_msg->control_port = cp_port_num + i;
-            if (i == 0) {
-                reg_node_msg->node_type = FDS_ProtocolInterface::FDSP_STOR_MGR;
-            } else if (i == 1) {
-                reg_node_msg->node_type = FDS_ProtocolInterface::FDSP_DATA_MGR;
-            } else {
-                reg_node_msg->node_type = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
-            }
-            // createCpEndpoint(reg_node_msg->control_port);
-            
-            /*
-             * TODO: Make the name just an int since the OM turns this into
-             * a UUID to address the node. Fix this by adding a UUID int to
-             * the FDSP.
-             */
-            reg_node_msg->node_name = std::to_string(i);
-            
-            // TODO(thrift) OM control path
-            // fdspConfigPathAPI->RegisterNode(msg_hdr, reg_node_msg);
-            
-            FDS_PLOG(test_log) << "Completed node registration " << i << " at IP "
-                               << fds::ipv4_addr_to_str(reg_node_msg->ip_lo_addr)
-                               << " control port " << reg_node_msg->control_port;
+        std::list<netSessionTbl*> session_tbl_list;
+        if (!register_node(msg_hdr,
+                          "SM_policytest_node",
+                          FDS_ProtocolInterface::FDSP_STOR_MGR,
+                          cp_port_num+1,
+                          0x7f000001, /* 127.0.0.1 */
+                           session_tbl_list)) {
+            return -1;
         }
 
+        if (!register_node(msg_hdr,
+                           "DM_policytest_node",
+                           FDS_ProtocolInterface::FDSP_DATA_MGR,
+                           cp_port_num+2,
+                           0x7f000001, /* 127.0.0.1 */
+                           session_tbl_list)) {
+            return -1;
+        }
+
+        if (!register_node(msg_hdr,
+                           "SH_policytest_node",
+                           FDS_ProtocolInterface::FDSP_STOR_HVISOR,
+                           cp_port_num+3,
+                           0x7f000001, /* 127.0.0.1 */
+                           session_tbl_list)) {
+            return -1;
+        }
+
+        /* since those are async calls, lets wait a bit, but would be better to signal 
+         * sleeping also ok, we will just not receive volume attach, create, etc notifications
+         * on our simulated nodes */
+        sleep(2);
 
         /* create volumes, one for each policy */
         /* SM and DM should receive 'volume add' notifications that include volume policy details */
@@ -763,8 +809,7 @@ class OmUnitTest {
                                << (crt_vol->vol_info).vol_name
                                << " and policy " << (crt_vol->vol_info).volPolicyId;
             
-            // TODO(thrift)
-            // fdspConfigPathAPI->CreateVol(msg_hdr, crt_vol);
+            fdspConfigPathAPI->CreateVol(msg_hdr, crt_vol);
             
             FDS_PLOG(test_log) << "OM unit test client completed creating volume.";
         }
@@ -774,15 +819,13 @@ class OmUnitTest {
         FDS_ProtocolInterface::FDSP_AttachVolCmdTypePtr att_vol(
             new FDS_ProtocolInterface::FDSP_AttachVolCmdType());
         att_vol->vol_name = std::string("Volume ") + std::to_string(vol_start_uuid);
-        // att_vol->vol_uuid = vol_start_uuid;
-        att_vol->node_id = std::to_string(2);
-        msg_hdr->src_node_name = att_vol->node_id;
+        att_vol->node_id = "SH_policytest_node"; 
+        msg_hdr->src_node_name = "SH_policytest_node"; 
         FDS_PLOG(test_log) << "OM unit test client attaching volume "
                            << att_vol->vol_name 
                            << " to node " << att_vol->node_id; 
 
-        // TODO(thrift)
-        // fdspConfigPathAPI->AttachVol(msg_hdr, att_vol);
+        fdspConfigPathAPI->AttachVol(msg_hdr, att_vol);
         FDS_PLOG(test_log) << "OM unit test client completed attaching volume.";
         
         /* modify policy with id 0 */
@@ -806,8 +849,7 @@ class OmUnitTest {
                                << mod_pol->policy_name
                                << "; id " << (mod_pol->policy_info).policy_id;
             
-            // TODO(thrift)
-            // fdspConfigPathAPI->ModifyPolicy(msg_hdr, mod_pol);
+            fdspConfigPathAPI->ModifyPolicy(msg_hdr, mod_pol);
             
             FDS_PLOG(test_log) << "OM unit test client completed modifying policy";
         }
@@ -827,8 +869,7 @@ class OmUnitTest {
                            << " iops_max " << (mod_vol->vol_desc).iops_max
                            << " rel_prio " << (mod_vol->vol_desc).rel_prio;
 
-        // TODO(thrift)
-        // fdspConfigPathAPI->ModifyVol(msg_hdr, mod_vol);
+        fdspConfigPathAPI->ModifyVol(msg_hdr, mod_vol);
         FDS_PLOG(test_log) << "OM unit test client completed modifying volume " << mod_vol->vol_name;
 
         /* delete all policies */
@@ -844,71 +885,37 @@ class OmUnitTest {
                                << del_pol->policy_name
                                << "; id" << del_pol->policy_id;
             
-            // TODO(thrift)
-            // fdspConfigPathAPI->DeletePolicy(msg_hdr, del_pol);
+            fdspConfigPathAPI->DeletePolicy(msg_hdr, del_pol);
             
             FDS_PLOG(test_log) << "OM unit test client completed deleting policy"; 
             
         }
         FDS_PLOG(test_log) << " Finished test: policy";
      
-        // TODO(thrift)
-        clearCpEndpoints();
-        
+        // clear session table
+        clearOmClientComms(session_tbl_list);
+
         return result;
     }
     
     fds_int32_t buckets_test() {
         FDS_PLOG(test_log) << "Starting test: buckets_test()";
 
-        // TODO(thrift) OMControl path client         
-
         FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr(
             new FDS_ProtocolInterface::FDSP_MsgHdrType);
         initOMMsgHdr(msg_hdr);
         
-        /* we should register AM node so we can see notifications */
-        FDS_ProtocolInterface::FDSP_RegisterNodeTypePtr reg_node_msg(
-            new FDS_ProtocolInterface::FDSP_RegisterNodeType);
-        
-        reg_node_msg->domain_id  = 0;
-        reg_node_msg->ip_hi_addr = 0;
-        reg_node_msg->ip_lo_addr = 0x7f000001; /* 127.0.0.1 */
-        reg_node_msg->data_port  = 0;
-        /*
-         * Add some zeroed out disk info
-         */
-        initDiskCapabilities(&(reg_node_msg->disk_info));
-        
-        /*
-         * Create and endpoint to reflect the "node" that
-         * we're registering, so that "node" can recieve
-         * updates from the OM.
-         */
-        reg_node_msg->control_port = cp_port_num + 4;
-        // TODO(thrift) AM -> OM 
-        // createCpEndpoint(reg_node_msg->control_port);
-        
-        /*
-         * TODO: Make the name just an int since the OM turns this into
-         * a UUID to address the node. Fix this by adding a UUID int to
-         * the FDSP.
-         */
-        reg_node_msg->node_name = "test_AM";
-        msg_hdr->src_node_name = reg_node_msg->node_name;
-        /*
-         * TODO: Change this to a service type since nodes registering
-         * and services registering should be two different things
-         * eventually.
-         */
-        reg_node_msg->node_type = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
-        
-        // TODO(thrift) 
-        // fdspConfigPathAPI->RegisterNode(msg_hdr, reg_node_msg);
-        
-        FDS_PLOG(test_log) << "Completed node registration " << reg_node_msg->node_name << " at IP "
-                           << fds::ipv4_addr_to_str(reg_node_msg->ip_lo_addr)
-                           << " control port " << reg_node_msg->control_port;
+        /* we should register AM node that will send test bucket msg */
+        std::list<netSessionTbl*> session_tbl_list;
+        boost::shared_ptr<FDSP_OMControlPathReqClient> ocp_client =
+                register_node(msg_hdr,
+                              "test_AM",
+                              FDS_ProtocolInterface::FDSP_STOR_HVISOR,
+                              cp_port_num+4,
+                              0x7f000001, /* 127.0.0.1 */
+                              session_tbl_list);
+        if (!ocp_client)
+            return -1;
         
         /* test bucket that we created with prev tests or it does not exist if we run only this test  */
         FDS_ProtocolInterface::FDSP_TestBucketPtr test_buck_msg(
@@ -920,28 +927,41 @@ class OmUnitTest {
         test_buck_msg->accessKeyId = "x";
         test_buck_msg->secretAccessKey = "y";
         
-        // TODO(thrift)
-        // fdspConfigPathAPI->TestBucket(msg_hdr, test_buck_msg);
+        ocp_client->TestBucket(msg_hdr, test_buck_msg);
+        /* since TestBucket is async, lets sleep a bit to see if we get 
+         * vol attach notification (we should get attach vol if this test
+         * runs after policy test, if standalone, test bucket will be 
+         * negative */
+        sleep(2);
+        
+        FDS_PLOG(test_log) << "Completed test bucket request for bucket " 
+                           << test_buck_msg->bucket_name;
+        
+        // clear session table
+        clearOmClientComms(session_tbl_list);
 
-    FDS_PLOG(test_log) << "Completed test bucket request for bucket " 
-                       << test_buck_msg->bucket_name;
-    
-    FDS_PLOG(test_log) << "Ending test: buckets_test()";
-    return 0;
+        FDS_PLOG(test_log) << "Ending test: buckets_test()";
+        return 0;
     }
     
 
 
   public:
-    OmUnitTest() {
+    OmUnitTest()
+            : net_session_tbl(new netSessionTbl("OM_unit_test",
+                                                0x7f000001,
+                                                0,
+                                                1,
+                                                FDS_ProtocolInterface::FDSP_CLI_MGR)) {
+
         test_log = new fds_log("om_test", "logs");
         
         unit_tests.push_back("node_reg");
-        // unit_tests.push_back("vol_reg");
-        // unit_tests.push_back("policy");
-        // unit_tests.push_back("buckets_test");
+        unit_tests.push_back("vol_reg");
+        unit_tests.push_back("policy");
+        unit_tests.push_back("buckets_test");
         
-        num_updates = 10;
+        num_updates = 5;
     }
 
     explicit OmUnitTest(fds_uint32_t om_port_arg,
@@ -950,28 +970,20 @@ class OmUnitTest {
             : OmUnitTest() {
         om_port_num = om_port_arg;
         cp_port_num = cp_port_arg;
+        om_ip = 0x7f000001;
         num_updates = num_up_arg;
 
-        /* create control path server  */
-
-        /* session table */
-        net_session_tbl = new netSessionTbl("test_OM", 0x7f000001, cp_port_num, 1, FDSP_ORCH_MGR);
-
-        /* create control path server which will receive  attach vol/etc notifications,
-         * which will results after we create, attach volumes, etc in om_unit test
-         * Before, it was just an OMClient server, here we pretent this is an OM client
-         * on SM */
-        // TODO: createServerSession
-        // omc_server_session = createServerSession("OMC_node",
-        // om_port_num, FDSP_STOR_MGR, FDSP_ORCH_MGR);
-
-        /* need to create thread for server to start listening */
-        // TODO(thrift)
+        /* start config client session */
+        net_session_tbl->startSession(om_ip,
+                                      om_port_num, 
+                                      FDS_ProtocolInterface::FDSP_ORCH_MGR,
+                                      1,
+                                      NULL);
     }
 
     ~OmUnitTest() {
+        net_session_tbl->endSession(om_ip, FDS_ProtocolInterface::FDSP_ORCH_MGR);
         delete test_log;
-        delete net_session_tbl;
     }
     
     fds_log* GetLogPtr() {
