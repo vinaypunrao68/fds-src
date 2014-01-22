@@ -1,9 +1,11 @@
 #!/usr/bin/env python
-import pdb
-import gen_json_spec
+#
+# Copyright 2014 Formation Data Systems, Inc.
+#
 from gen_json_spec import JSonTestCmdLine
 from gen_json_spec import JSonVal
 from gen_json_spec import JSonValRandom
+from gen_json_spec import JSonHexRandom
 from gen_json_spec import JSonTestCfg
 from gen_json_spec import JSonTestCfg
 from gen_json_spec import JSonTestClient
@@ -12,10 +14,10 @@ from gen_json_spec import JSonTestClient
 #
 # JSonTestCmdLine has the responsibility of parsing the following arguments from cmd line.
 #
-# $ ./thpool_json.py -h
-# usage: thpool_json.py [-h] [--client_id CLIENT_ID] [--config CONFIG]
-#                       [--spec_cnt SPEC_CNT] [--sort_keys SORT_KEYS]
-#                       [--print_pretty PRINT_PRETTY] [--dryrun DRYRUN]
+# $ ./sm_json.py -h
+# usage: sm_json.py [-h] [--client_id CLIENT_ID] [--config CONFIG]
+#                        [--spec_cnt SPEC_CNT] [--sort_keys SORT_KEYS]
+#                        [--print_pretty PRINT_PRETTY] [--dryrun DRYRUN]
 #
 # optional arguments:
 #   -h, --help            show this help message and exit
@@ -96,31 +98,17 @@ cmd_line = JSonTestCmdLine()
 #    },
 #    "Test-ID": 2290
 #}
-syscall_cmd         = JSonVal(['open', 'close', 'read', 'write'])
-syscall_path        = JSonVal(['/dev/null', '/tmp/foo', '/tmp/foo2'])
-boost_cmd           = JSonVal(['add', 'sub', 'print'])
-boost_array_index0  = JSonVal(['0', '1'])
-boost_array_index1  = JSonVal(['0', '1'])
-boost_value         = JSonVal(['100', '200'])
+boost_cmd           = JSonVal(['put', 'get'])
+boost_array_index0  = JSonVal(['1', '1'])
+boost_array_index1  = JSonHexRandom(['1'])
+boost_value         = JSonValRandom(['100', '200'])
 
-math_cmd            = JSonVal(['add', 'subtract'])
-math_operand_left   = JSonVal(['100', '200'])
-math_operand_right  = JSonVal(['10', '20'])
+list_thpool_boost   = [[boost_cmd, boost_array_index0, boost_array_index1, boost_value],
+                       [boost_cmd, boost_array_index0, boost_array_index1]]
 
-math_cmd_list1      = [math_cmd, math_operand_left, math_operand_right]
-math_cmd_list2      = [math_cmd, math_operand_left]
+dict_threadpool     = {'object-ops'    : list_thpool_boost}
 
-list_thpool_syscall = [[syscall_cmd, syscall_path, 'FOO', 'BAR'], \
-                       [syscall_cmd, syscall_path, 'FOO', 'BAR']]
-list_thpool_boost   = [boost_cmd, boost_array_index0, boost_array_index1, boost_value]
-list_thpool_math    = gen_json_spec.create_list_of_lists([math_cmd_list1, math_cmd_list2],
-                                                         4, True)
-
-dict_threadpool     = {'thpool-syscall' : list_thpool_syscall,
-                       'thpool-boost'   : list_thpool_boost,
-                       'thpool-math'    : list_thpool_math}
-
-dict_server_load    = {'threadpool'     : dict_threadpool}
+dict_server_load    = {'dp-workload'    : dict_threadpool}
 dict_run_input      = {'Server-Load'    : dict_server_load}
 js_spec             = {'Run-Input'      : dict_run_input,
                        'Test-ID'        : cmd_line.get_client_id()} # get unique client ID
@@ -137,24 +125,13 @@ test_client = JSonTestClient(test_cfg)
 # 1) Generate <n> number of unique JSon spec given test configuration.
 # 2) Make http calls to server with the generated JSon spec.
 test_client.run()
+
 ###############################################################################
 # The test for the test.
-def gen_json_spec_test_create_list_of_lists():
-    list_1 = ["1", "2", "3"]
-    list_2 = ["a", "b"]
-    create_test_lists = [list_1, list_2]
-    res_lists = gen_json_spec.create_list_of_lists(create_test_lists, 10, True)
-    print res_lists
-
 def gen_json_spec_selftest():
-    comb =  len(syscall_cmd.get_values()) * \
-            len(syscall_path.get_values()) * \
-            len(boost_cmd.get_values()) * \
+    comb =  len(boost_cmd.get_values()) * \
             len(boost_array_index0.get_values()) * \
             len(boost_array_index1.get_values()) * \
-            len(boost_value.get_values()) * \
-            len(math_cmd.get_values()) * \
-            len(math_operand_left.get_values()) * \
-            len(math_operand_right.get_values())
+            len(boost_value.get_values())
     print "Combination calculated: %d" % comb
 # gen_json_spec_selftest()

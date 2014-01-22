@@ -243,7 +243,7 @@ Probe_PutBucket::~Probe_PutBucket()
 // --------------
 //
 static void
-ctrl_obj_write(ProbeS3Eng *s3eng, Probe_PutBucket *put, char *buf)
+ctrl_obj_write(ProbeS3Eng *s3eng, ProbeS3 *clnt, Probe_PutBucket *put, char *buf)
 {
     int                got, len;
     json_t            *root;
@@ -257,9 +257,12 @@ ctrl_obj_write(ProbeS3Eng *s3eng, Probe_PutBucket *put, char *buf)
     objs = s3eng->probe_get_obj_mgr();
     root = json_loads(buf, 0, &err);
     if (root != NULL) {
+        out.js_set_context(clnt);
         objs->js_exec(root, &out);
         json_decref(root);
     }
+    s3eng->probe_add_adapter(clnt);
+
     ctx = put->ame_get_context();
     mem = ctx->ame_alloc_buf(1 << 20, &cur, &got);
     ctx->ame_push_output_buf(mem);
@@ -268,8 +271,6 @@ ctrl_obj_write(ProbeS3Eng *s3eng, Probe_PutBucket *put, char *buf)
     len = out.js_out(&it, cur, got);
     mem->last = mem->pos + len;
 
-    std::cout << "Outlen " << out.js_output_len() << std::endl;
-    std::cout << "buff: " << cur << ", len " << len << std::endl;
     put->ame_signal_resume(NGX_HTTP_OK);
 }
 
@@ -300,13 +301,15 @@ Probe_PutBucket::ame_request_handler()
 {
     int           len;
     char         *buf;
+    ProbeS3      *clnt;
     ProbeS3Eng   *s3p;
 
     buf = ame_reqt_iter_data(&len);
     buf[len] = '\0';
 
-    s3p = static_cast<ProbeS3Eng *>(ame);
-    s3p->probe_get_thrpool()->schedule(ctrl_obj_write, s3p, this, buf);
+    s3p  = static_cast<ProbeS3Eng *>(ame);
+    clnt = static_cast<ProbeS3 *>(s3p->probe_get_adapter());
+    s3p->probe_get_thrpool()->schedule(ctrl_obj_write, s3p, clnt, this, buf);
 }
 
 }   // namespace fds
