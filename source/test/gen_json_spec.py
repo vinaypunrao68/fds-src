@@ -19,7 +19,7 @@ from pprint import pprint
 import make_json_serializable
 import ConfigParser
 
-   
+
 class JSonVal(object):
     def __init__(self, values):
         self.values = values
@@ -154,7 +154,7 @@ class JSonTestCfg(object):
         return self.cfg_cmd_line.get_client_id()
 
     def get_spec_cnt(self):
-        cnt  = self.cfg_cmd_line.get_spec_cnt() 
+        cnt  = self.cfg_cmd_line.get_spec_cnt()
         if cnt == 0:
             comb = self.__get_combination(self.cfg_test_spec, 1)
             res = comb
@@ -186,7 +186,7 @@ class JSonTestClient(object):
         self.js_test_spec         = test_cfg.get_test_spec()
         self.js_result_list       = []
         self.js_result_dict       = {}
- 
+
     def run(self):
         print "Generating %d JSon unique spec." % self.js_test_spec_cnt
         i           = 0
