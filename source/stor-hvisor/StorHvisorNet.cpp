@@ -659,6 +659,7 @@ StorHvCtrl::StorHvCtrl(int argc,
    * TODO: We're parsing some options here and
    * some in ubd. We need to unify this.
    */
+
   for (fds_uint32_t i = 1; i < argc; i++) {
     if (strncmp(argv[i], "--om_ip=", 8) == 0) {
       if (mode == NORMAL) {
@@ -694,7 +695,10 @@ StorHvCtrl::StorHvCtrl(int argc,
 
   sysParams = params;
 
-  sh_log = new fds_log("sh", "logs", (fds_log::severity_level) sysParams->log_severity);
+  //sh_log = new fds_log("sh", "logs", (fds_log::severity_level) sysParams->log_severity);
+  sh_log = g_fdslog;
+  //fds::init_process_globals("sh-global.log");
+//  sh_log = new fds_log("sh", "logs", config->get<int>("fds.am.log_severity"));
   FDS_PLOG(sh_log) << "StorHvisorNet - Constructing the Storage Hvisor";
 
   /* create OMgr client if in normal mode */
@@ -755,7 +759,7 @@ StorHvCtrl::StorHvCtrl(int argc,
 
 
   /* register handlers for receiving responses to admin requests */
-// SAN   om_client->registerBucketStatsCmdHandler(bucketStatsRespHandler);
+  om_client->registerBucketStatsCmdHandler(bucketStatsRespHandler);
 
   /*  Create the QOS Controller object */ 
   qos_ctrl = new StorHvQosCtrl(50, fds::FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET, sh_log);
@@ -1080,6 +1084,8 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
 
     boost::shared_ptr<FDSP_DataPathReqClient> client =
             dynamic_cast<netDataPathClientSession *>(endPoint)->getClient();
+    netDataPathClientSession *sessionCtx =  static_cast<netDataPathClientSession *>(endPoint);
+    msgHdrSm->session_uuid = sessionCtx->getSessionId();
     client->PutObject(msgHdrSm, put_obj_req);
     FDS_PLOG_SEV(sh_log, fds::fds_log::normal) << "For transaction " << transId
 					       << " sent async PUT_OBJ_REQ to SM ip "
@@ -1131,6 +1137,8 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
 
     boost::shared_ptr<FDSP_MetaDataPathReqClient> client =
             dynamic_cast<netMetaDataPathClientSession *>(endPoint)->getClient();
+    netDataPathClientSession *sessionCtx =  static_cast<netDataPathClientSession *>(endPoint);
+    msgHdrDm->session_uuid = sessionCtx->getSessionId();
     client->UpdateCatalogObject(msgHdrDm, upd_obj_req);
 
     FDS_PLOG_SEV(sh_log, fds::fds_log::normal) << "For transaction " << transId
@@ -1381,6 +1389,7 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
   msgHdr->src_port       = 0;
 //  msgHdr->src_node_name  = my_node_name;
   msgHdr->src_node_name = storHvisor->myIp;
+  msgHdr->session_uuid = 
 
   /*
    * Setup journal entry
@@ -1463,6 +1472,8 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
 
   boost::shared_ptr<FDSP_DataPathReqClient> client =
           dynamic_cast<netDataPathClientSession *>(endPoint)->getClient();
+  netDataPathClientSession *sessionCtx =  static_cast<netDataPathClientSession *>(endPoint);
+  msgHdr->session_uuid = sessionCtx->getSessionId();
   // RPC getObject to StorMgr
   client->GetObject(msgHdr, get_obj_req);
 
@@ -1706,6 +1717,8 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   { 
        boost::shared_ptr<FDSP_DataPathReqClient> client =
              dynamic_cast<netDataPathClientSession *>(endPoint)->getClient();
+      netDataPathClientSession *sessionCtx =  static_cast<netDataPathClientSession *>(endPoint);
+      fdsp_msg_hdr->session_uuid = sessionCtx->getSessionId();
       client->DeleteObject(fdsp_msg_hdr, del_obj_req);
     FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:" << transId << " volID:" << vol_id << " - Sent async DelObj req to SM";
   }
@@ -1751,6 +1764,8 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
     if (endPoint){
        boost::shared_ptr<FDSP_MetaDataPathReqClient> client =
              dynamic_cast<netMetaDataPathClientSession *>(endPoint)->getClient();
+      netDataPathClientSession *sessionCtx =  static_cast<netDataPathClientSession *>(endPoint);
+      fdsp_msg_hdr->session_uuid = sessionCtx->getSessionId();
       client->DeleteCatalogObject(fdsp_msg_hdr_dm, del_cat_obj_req);
       FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:"
                                      << transId << " volID:" << vol_id
@@ -1895,6 +1910,8 @@ fds::Error StorHvCtrl::listBucket(fds::AmQosReq *qosReq) {
   boost::shared_ptr<FDSP_MetaDataPathReqClient> client =
              dynamic_cast<netMetaDataPathClientSession *>(endPoint)->getClient();
 
+  netDataPathClientSession *sessionCtx =  static_cast<netDataPathClientSession *>(endPoint);
+  msgHdr->session_uuid = sessionCtx->getSessionId();
   client->GetVolumeBlobList(msgHdr, get_bucket_list_req);
   FDS_PLOG(GetLog()) << " StorHvisorTx:" << "IO-XID:"
 		     << transId << " volID:" << volId
@@ -2096,17 +2113,17 @@ fds::Error StorHvCtrl::getBucketStats(fds::AmQosReq *qosReq) {
   return err;
 }
 
-void StorHvCtrl::bucketStatsRespHandler(const FDSP_MsgHdrType& rx_msg,
-					const FDSP_BucketStatsRespType& buck_stats) {
+void StorHvCtrl::bucketStatsRespHandler(const FDSP_MsgHdrTypePtr& rx_msg,
+					const FDSP_BucketStatsRespTypePtr& buck_stats) {
   storHvisor->getBucketStatsResp(rx_msg, buck_stats);
 }
 
-void StorHvCtrl::getBucketStatsResp(const FDSP_MsgHdrType& rx_msg,
-				    const FDSP_BucketStatsRespType& buck_stats)
+void StorHvCtrl::getBucketStatsResp(const FDSP_MsgHdrTypePtr& rx_msg,
+				    const FDSP_BucketStatsRespTypePtr& buck_stats)
 {
-  fds_uint32_t transId = rx_msg.req_cookie;
+  fds_uint32_t transId = rx_msg->req_cookie;
  
-  fds_verify(rx_msg.msg_code == FDS_ProtocolInterface::FDSP_MSG_GET_BUCKET_STATS_RSP);
+  fds_verify(rx_msg->msg_code == FDS_ProtocolInterface::FDSP_MSG_GET_BUCKET_STATS_RSP);
 
   StorHvVolume* vol = vol_table->getVolume(admin_vol_id);
   fds_verify(vol != NULL);  // admin vol must always exist
@@ -2130,33 +2147,33 @@ void StorHvCtrl::getBucketStatsResp(const FDSP_MsgHdrType& rx_msg,
   fds_verify(blobReq != NULL);
   fds_verify(blobReq->getIoType() == FDS_BUCKET_STATS);
   FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "Responding to getBucketStats trans " << transId
-						   << " number of buckets " << (buck_stats.bucket_stats_list).size()
-                                                   << " with result " << rx_msg.result;
+						   << " number of buckets " << (buck_stats->bucket_stats_list).size()
+                                                   << " with result " << rx_msg->result;
 
   /*
    * Mark the IO complete, clean up txn, and callback
    */
   qos_ctrl->markIODone(txn->io);
-  if (rx_msg.result == FDSP_ERR_OK) {
+  if (rx_msg->result == FDSP_ERR_OK) {
     BucketStatsContent* contents = NULL;
-    int count = (buck_stats.bucket_stats_list).size();
+    int count = (buck_stats->bucket_stats_list).size();
 
     if (count > 0) {
       contents = new BucketStatsContent[count];
       fds_verify(contents != NULL);
       for (int i = 0; i < count; ++i)
 	{
-	  contents[i].set((buck_stats.bucket_stats_list)[i].vol_name,
-			  (buck_stats.bucket_stats_list)[i].rel_prio,
-			  (buck_stats.bucket_stats_list)[i].performance,
-			  (buck_stats.bucket_stats_list)[i].sla,
-			  (buck_stats.bucket_stats_list)[i].limit);
+	  contents[i].set((buck_stats->bucket_stats_list)[i].vol_name,
+			  (buck_stats->bucket_stats_list)[i].rel_prio,
+			  (buck_stats->bucket_stats_list)[i].performance,
+			  (buck_stats->bucket_stats_list)[i].sla,
+			  (buck_stats->bucket_stats_list)[i].limit);
 	}
     }
 
     /* call BucketStats callback directly */
     BucketStatsReq *stats_req = static_cast<BucketStatsReq*>(blobReq);
-    stats_req->DoCallback(buck_stats.timestamp, count, contents, FDSN_StatusOK, NULL);
+    stats_req->DoCallback(buck_stats->timestamp, count, contents, FDSN_StatusOK, NULL);
 
   } else {    
     /*

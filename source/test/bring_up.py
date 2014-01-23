@@ -122,7 +122,7 @@ class StorClient():
     logSeverity = 2
     amBin  = "AMAgent"
     ubdBin = "ubd"
-    blkDir = "stor_hvisor"
+    blkDir = "fds_client/blk_dev"
     blkMod = "fbd.ko"
 
     def __init__(self, _name):
@@ -163,6 +163,7 @@ class StorNode():
     controlPort = 6900
     dataPort = 7900
     configPort = None
+    omControlPort = None
     isOm = False
     logSeverity = 2
     omBin = "orchMgr"
@@ -186,25 +187,29 @@ class StorNode():
 
     def setConfPort(self, _cp):
         self.configPort = _cp 
+
+    def setOCPort(self, _cp):
+        self.omControlPort = _cp 
     
     def setLogSeverity(self, _sev):
         self.logSeverity = _sev
         
     def getOmCmd(self):
-        return "%s --port=%d --prefix=%s_ --log-severity=%d" % (self.omBin,
+        return "%s --fds.om.config_port=%d --fds.om.control_port=%d --fds.om.prefix=%s_ --fds.om.log_severity=%d" % (self.omBin,
                                               self.configPort,
+                                              self.omControlPort,
                                               self.name,
                                               self.logSeverity)
 
     def getSmCmd(self):
-        return "%s --port=%d --cp_port=%d --prefix=%s_ --log-severity=%d" % (self.smBin,
+        return "%s --fds.sm.data_port=%d --fds.sm.control_port=%d --fds.sm.prefix=%s_ --fds.sm.test_mode=false --fds.sm.log_severity=%d" % (self.smBin,
                                                           self.dataPort,
                                                           self.controlPort,
                                                           self.name,
                                                           self.logSeverity)
 
     def getDmCmd(self):
-        return "%s --port=%d --cp_port=%d --prefix=%s_ --log-severity=%d" % (self.dmBin,
+        return "%s --fds.dm.port=%d --fds.dm.cp_port=%d --fds.dm.prefix=%s_ --fds.dm.log_severity=%d" % (self.dmBin,
                                                            self.dataPort + 1,
                                                            self.controlPort + 1,
                                                            self.name,
@@ -253,6 +258,7 @@ class TestBringUp():
     #
     omIpStr    = None
     omConfPort = None
+    omCtrlPort = None
 
     #
     # SSH login params
@@ -273,6 +279,8 @@ class TestBringUp():
     fdsLdbLibDir = "../leveldb-1.12.0/"
     fdsIceLibDir = "../Ice-3.5.0/cpp/lib/"
     fdsBstLibDir = "/usr/local/lib"
+    fdsLibcfgLibDir = "../libconfig-1.4.9/lib/.libs"
+    fdsThriftLibDir = "../thrift-0.9.0"
     ldLibPath    = "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
     iceHome      = "export ICE_HOME="
 
@@ -288,9 +296,11 @@ class TestBringUp():
         self.fdsIceDir = self.srcPath + "/" + self.fdsIceDir
         self.fdsLdbLibDir = self.srcPath + "/" + self.fdsLdbLibDir
         self.fdsIceLibDir = self.srcPath + "/" + self.fdsIceLibDir
+        self.fdsLibcfgLibDir = self.srcPath + "/" + self.fdsLibcfgLibDir
+        self.fdsThriftLibDir = self.srcPath + "/" + self.fdsThriftLibDir
 
         self.fdsBinDir = self.srcPath + "/" + self.fdsBinDir
-        self.ldLibPath = self.ldLibPath + ":" + self.fdsLdbLibDir + ":" + self.fdsIceLibDir + ":" + self.fdsBstLibDir
+        self.ldLibPath = self.ldLibPath + ":" + self.fdsLdbLibDir + ":" + self.fdsIceLibDir + ":" + self.fdsBstLibDir + ":" + self.fdsLibcfgLibDir + ":" + self.fdsThriftLibDir
         self.iceHome = self.iceHome + self.srcPath + "/" + self.fdsIceDir
 
 
@@ -398,6 +408,8 @@ class TestBringUp():
                 node.setDp(int(value))
             elif key == "config_port":
                 node.setConfPort(int(value))
+            elif key == "om_control_port":
+                node.setOCPort(int(value))
             elif key == "log_severity":
                 node.setLogSeverity(int(value))
             else:
@@ -406,7 +418,8 @@ class TestBringUp():
         if node.isOm == True:
             self.omIpStr    = node.ipStr
             self.omConfPort = node.configPort
-            if (self.omIpStr == None) or (self.omConfPort == None):
+            self.omCtrlPort = node.omControlPort
+            if (self.omIpStr == None) or (self.omConfPort == None) or (self.omCtrlPort == None):
                 print "Error: An OM port and IP must be specified"
                 return -1
 
@@ -452,12 +465,12 @@ class TestBringUp():
         cmd = self.ldLibPath + "; " + self.iceHome + "; " + "cd " + self.fdsBinDir + "; " + "ulimit -c unlimited;" + "./"
         if nodeType == "SM":
             cmd += node.getSmCmd()
-            cmd += " --om_ip=%s --om_port=%d" % (self.omIpStr,
-                                                 self.omConfPort)
+            cmd += " --fds.sm.om_ip=%s --fds.sm.om_port=%d" % (self.omIpStr,
+                                                 self.omCtrlPort)
         elif nodeType == "DM":
             cmd += node.getDmCmd()
-            cmd += " --om_ip=%s --om_port=%d" % (self.omIpStr,
-                                                 self.omConfPort)
+            cmd += " --fds.dm.om_ip=%s --fds.dm.om_port=%d" % (self.omIpStr,
+                                                 self.omCtrlPort)
         elif node.isOm == True:
             cmd += node.getOmCmd()
         else:
@@ -476,14 +489,14 @@ class TestBringUp():
     # Builds the command to start SH UBD service
     #
     def buildUbdCmd(self, client):
-        cmd = self.ldLibPath + "; " + self.iceHome + "; " + " cd " + self.fdsBinDir + "; " + "ulimit -s 4096; " +  "ulimit -c unlimited;" + "./" + client.getUbdCmd() + " --om_ip=" + self.omIpStr + " --om_port=" + str(self.omConfPort) + " --node_name=localhost-" + client.name + " --log-severity=" + str(client.getLogSeverity())
+        cmd = self.ldLibPath + "; " + self.iceHome + "; " + " cd " + self.fdsBinDir + "; " + "ulimit -s 4096; " +  "ulimit -c unlimited;" + "./" + client.getUbdCmd() + " --om_ip=" + self.omIpStr + " --om_port=" + str(self.omCtrlPort) + " --node_name=localhost-" + client.name + " --log-severity=" + str(client.getLogSeverity())
         return cmd
 
     ##
     # Builds the command to start SH AM service
     #
     def buildAmCmd(self, client):
-        cmd = self.ldLibPath + "; " + self.iceHome + "; " + " cd " + self.fdsBinDir + "; " + "ulimit -s 4096; " + "ulimit -c unlimited; " + "./" + client.getAmCmd() + " --om_ip=" + self.omIpStr + " --om_port=" + str(self.omConfPort) + " --node_name=localhost-" + client.name + " --log-severity=" + str(client.getLogSeverity())
+        cmd = self.ldLibPath + "; " + self.iceHome + "; " + " cd " + self.fdsBinDir + "; " + "ulimit -s 4096; " + "ulimit -c unlimited; " + "./" + client.getAmCmd() + " --om_ip=" + self.omIpStr + " --om_port=" + str(self.omCtrlPort) + " --node_name=localhost-" + client.name + " --log-severity=" + str(client.getLogSeverity())
         return cmd
 
     ##
@@ -563,6 +576,7 @@ class TestBringUp():
 
             if checkStr != None:
                 line = stderr.readline()
+                print line
                 while line != "":
                     if verbose == True:
                         print line
@@ -655,19 +669,21 @@ class TestBringUp():
             print "Failed to attach volume"
             return -1
 
+        time.sleep(5)
+
         #
         # Run this tier policy command on the OM IP
         #
-        tierCmd = self.buildVolTierCmd(volume)
-        if tierCmd is None:
-            return 0
+        #tierCmd = self.buildVolTierCmd(volume)
+        #if tierCmd is None:
+        #    return 0
 
-        result = self.runNodeCmd(None, tierCmd, ipOver=self.omIpStr)
-        if result == True:
-            print "Setup volume tier command with OM on %s..." % self.omIpStr
-        else:
-            print "Failed to setup volume tier command"
-            return -1
+        #result = self.runNodeCmd(None, tierCmd, ipOver=self.omIpStr)
+        #if result == True:
+        #    print "Setup volume tier command with OM on %s..." % self.omIpStr
+        #else:
+        #    print "Failed to setup volume tier command"
+        #    return -1
         return 0
 
     ##
@@ -728,7 +744,7 @@ class TestBringUp():
             #
             if node.isOm == True:
                 cmd = self.buildNodeCmd(node)
-                started = self.runNodeCmd(node, cmd, "accepting tcp connections")
+                started = self.runNodeCmd(node, cmd, "Starting the server")
                 if started == True:
                     print "Server OM running on %s..." % (node.ipStr)
                 else:
@@ -739,7 +755,7 @@ class TestBringUp():
             # Bring up SM
             #
             cmd = self.buildNodeCmd(node, "SM")
-            started = self.runNodeCmd(node, cmd, "accepting tcp connections")            
+            started = self.runNodeCmd(node, cmd, "Starting the server")            
             if started == True:
                 print "Server SM running on %s..." % (node.ipStr)
             else:
@@ -750,7 +766,7 @@ class TestBringUp():
             # Bring up DM
             #
             cmd = cmd = self.buildNodeCmd(node, "DM")
-            started = self.runNodeCmd(node, cmd, "accepting tcp connections")            
+            started = self.runNodeCmd(node, cmd, "Starting the server")            
             if started == True:
                 print "Server DM running on %s..." % (node.ipStr)
             else:
@@ -795,7 +811,7 @@ class TestBringUp():
                 # Start UBD user space process
                 #
                 cmd = self.buildUbdCmd(client)
-                started = self.runNodeCmd(client, cmd, "tcp connection established")
+                started = self.runNodeCmd(client, cmd, "Starting the server")
                 if started == True:
                     print "Client UBD running on %s..." % (client.ipStr)
                 else:
@@ -806,7 +822,7 @@ class TestBringUp():
                 # Start AM user space process
                 #
                 cmd = self.buildAmCmd(client)
-                started = self.runNodeCmd(client, cmd, "tcp connection established")
+                started = self.runNodeCmd(client, cmd, "Starting the server")
                 if started == True:
                     print "Client AM running on %s..." % (client.ipStr)
                 else:

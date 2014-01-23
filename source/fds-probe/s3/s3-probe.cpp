@@ -305,6 +305,10 @@ Probe_PutBucket::ame_request_handler()
     ProbeS3Eng   *s3p;
 
     buf = ame_reqt_iter_data(&len);
+    if (buf == NULL) {
+        ame_signal_resume(NGX_HTTP_OK);
+        return;
+    }
     buf[len] = '\0';
 
     s3p  = static_cast<ProbeS3Eng *>(ame);

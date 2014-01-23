@@ -25,7 +25,11 @@ XX_ProbeMod gl_XX_ProbeMod("XX Probe Adapter",
 ProbeMod *
 XX_ProbeMod::pr_new_instance()
 {
-    return new XX_ProbeMod("XX Inst", &XX_probe_param, NULL);
+    XX_ProbeMod *adapter = new XX_ProbeMod("XX Inst", &XX_probe_param, NULL);
+
+    adapter->mod_init(mod_params);
+    adapter->mod_startup();
+    return adapter;
 }
 
 // pr_intercept_request

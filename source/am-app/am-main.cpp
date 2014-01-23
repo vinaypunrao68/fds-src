@@ -4,6 +4,7 @@
 #include <am-engine/s3connector.h>
 #include <util/fds_stat.h>
 #include <native_api.h>
+#include <fds_process.h>
 
 extern "C" {
   extern void CreateStorHvisorS3(int argc, char *argv[]);
@@ -11,6 +12,7 @@ extern "C" {
 
 int main(int argc, char **argv)
 {
+    fds::init_process_globals("am.log");
     CreateStorHvisorS3(argc, argv);
     fds::FDS_NativeAPI *api = new
         fds::FDS_NativeAPI(fds::FDS_NativeAPI::FDSN_AWS_S3);
