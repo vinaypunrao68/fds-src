@@ -102,8 +102,7 @@ class JSonKeyVal(JSonVal):
         if self.count == 0:
             self.count = 1
             (key, val) = self.generator_function(self.generator_arg, None)
-            key_hex_str = hex(key)
-            key_hex_str = key_hex_str[:-1]
+            key_hex_str = "{0:#0{1}x}".format(key, 34)
 
             self.cur_key_hex_str = key_hex_str
             self.cur_value = val
@@ -112,8 +111,8 @@ class JSonKeyVal(JSonVal):
         else:
             self.count = 0
             (tkey, tval) = self.generator_function(self.generator_arg, self.cur_value)
-            tkey = hex(tkey)
-            tkey = tkey[:-1]
+            tkey = "{0:#0{1}x}".format(tkey, 34)
+            tkey.format(34)
             assert tkey == self.cur_key_hex_str
             return self.cur_value
         #return [key_hex_str, val]
@@ -340,12 +339,12 @@ class JSonTestClient(object):
             for json_cmd in result_list:
                 call(["curl", "-v", "-X", "POST", "-d", \
                       json_cmd, "http://localhost:8000/abc"])
-                call(["curl", "-v", "-X", "PUT", "-d",  \
-                      json_cmd, "http://localhost:8000/abc"])
-                call(["curl", "-v", "-X", "POST", "-d", \
-                      json_cmd, "http://localhost:8000/abc/def"])
-                call(["curl", "-v", "-X", "PUT", "-d",  \
-                      json_cmd, "http://localhost:8000/abc/def"])
+                #call(["curl", "-v", "-X", "PUT", "-d",  \
+                #      json_cmd, "http://localhost:8000/abc"])
+                #call(["curl", "-v", "-X", "POST", "-d", \
+                #      json_cmd, "http://localhost:8000/abc/def"])
+                #call(["curl", "-v", "-X", "PUT", "-d",  \
+                #      json_cmd, "http://localhost:8000/abc/def"])
 
 
 ###############################################################################
