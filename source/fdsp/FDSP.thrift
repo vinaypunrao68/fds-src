@@ -586,6 +586,8 @@ struct FDSP_MsgHdrType {
 /* Checksum of the entire message including the payload/objects */
     25: i32         req_cookie, 
     26: i32         msg_chksum, 
+
+    27: string      session_uuid
 }
 
 enum tier_prefetch_type_e
@@ -693,7 +695,7 @@ service FDSP_Service {
 	FDSP_SessionReqResp EstablishSession(1:FDSP_MsgHdrType fdsp_msg)
 }
 
-service FDSP_DataPathReq extends FDSP_Service {
+service FDSP_DataPathReq {
     oneway void GetObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetObjType get_obj_req),
 
     oneway void PutObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PutObjType put_obj_req),
