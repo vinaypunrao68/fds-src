@@ -109,7 +109,7 @@ private:
     {
         {
             fds_spinlock::scoped_lock l(task->lock_);
-            if (task->scheduled_) {
+            if (task->scheduled_ && !repeated) {
                 return false;
             }
             task->scheduled_ = true;
