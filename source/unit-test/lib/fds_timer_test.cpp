@@ -6,7 +6,7 @@
 #include <thread>
 #include <fds_globals.h>
 #include <fds_timer.h>
-#include "fds_process_globals.h"
+#include <fds_process.h>
 //#include <boost/date_time/posix_time/posix_time.hpp>
 
 using namespace fds;  // NOLINT
@@ -249,7 +249,7 @@ void test_fds_repeated_timer1() {
 }
 int main()
 {
-    fds_verify(g_fdslog != NULL);
+    init_process_globals("fds-timer-test.log");
 
     test_fds_timer1();
     test_fds_timer2();

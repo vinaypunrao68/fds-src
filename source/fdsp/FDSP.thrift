@@ -586,6 +586,8 @@ struct FDSP_MsgHdrType {
 /* Checksum of the entire message including the payload/objects */
     25: i32         req_cookie, 
     26: i32         msg_chksum, 
+
+    27: string      session_uuid
 }
 
 enum tier_prefetch_type_e

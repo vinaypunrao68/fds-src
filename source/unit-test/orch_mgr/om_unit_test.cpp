@@ -18,7 +18,7 @@
 #include <fds_types.h>
 #include <fds_err.h>
 #include <fds_volume.h>
-#include <fds_process_globals.h>
+#include <fds_process.h>
 #include <NetSession.h>
 #include <util/Log.h>
 #include <concurrency/Mutex.h>
@@ -1038,6 +1038,9 @@ class OmUnitTest {
 }  // namespace fds
 
 int main(int argc, char* argv[]) {
+
+    init_process_globals("fds-timer-test.log");
+
     /*
      * Grab cmdline params
      */

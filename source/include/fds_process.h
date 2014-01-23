@@ -18,6 +18,16 @@
 
 namespace fds {
 
+/* These are exposed to make it easy to access them */
+extern FdsProcess* g_fdsprocess;
+extern fds_log* g_fdslog;
+
+/* Helper functions to init process globals. Only invoke these if you
+ * aren't deriving from fds_process 
+ */
+void init_process_globals(const std::string &log_name);
+void init_process_globals(fds_log *log);
+
 /**
  * Generic process class.  It provides the following capabilities
  * 1. Signal handling.  Can be overridden.
