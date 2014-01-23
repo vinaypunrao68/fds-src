@@ -400,7 +400,7 @@ class ObjectStorMgr :
     friend ObjectStorMgrI;
 };
 
-class ObjectStorMgrI : virtual public FDSP_DataPathReqIf, public FDSP_ServiceImpl {
+class ObjectStorMgrI : virtual public FDSP_DataPathReqIf {
  public:
     ObjectStorMgrI();
     ~ObjectStorMgrI();

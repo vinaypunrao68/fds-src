@@ -55,7 +55,6 @@ class FDSP_ServiceImpl : virtual public FDSP_ServiceIf {
   FDSP_ServiceImpl(netServerSession *srvr_session, TTransportPtr t);
 
   void set_server_info(netServerSession *srvr_session, TTransportPtr t);
-  virtual void set_server_session(netServerSession *srvr_session);
 
   /**
    * @brief We get this request after socket connect.  As part of this call
@@ -196,7 +195,8 @@ protected:
         boost::shared_ptr<FDSP_ServiceClient> client_if(new FDSP_ServiceClient(protocol));
 
         session_info.status = 0;
-        fdsp_msg.session_uuid = socket->getPeerAddress();
+        /* We will overload src_node_name to contain the ip address */
+        fdsp_msg.src_node_name = socket->getPeerAddress();
         fdsp_msg.src_port = socket->getPeerPort();
         
         client_if->EstablishSession(session_info, fdsp_msg);
