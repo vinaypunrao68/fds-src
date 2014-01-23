@@ -23,11 +23,6 @@ void FDSP_ServiceImpl::set_server_info(netServerSession *srvr_session, TTranspor
     srvr_session_ = srvr_session;
 }
 
-void FDSP_ServiceImpl::set_server_session(netServerSession *srvr_session)
-{
-    srvr_session_ = srvr_session;
-}
-
 /**
  * @brief We get this request after socket connect.  As part of this call
  * we will create session and associate the connection with the generated
