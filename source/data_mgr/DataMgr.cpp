@@ -743,7 +743,7 @@ void DataMgr::ReqHandler::GetVolumeBlobList(FDSP_MsgHdrTypePtr& msg_hdr,
 
   err = dataMgr->blobListInternal(blobListReq, msg_hdr->glob_volume_id,
                                   msg_hdr->src_ip_lo_addr, msg_hdr->dst_ip_lo_addr, msg_hdr->src_port,
-                                  msg_hdr->dst_port, msg_hdr->src_node_name, msg_hdr->req_cookie);
+                                  msg_hdr->dst_port, msg_hdr->session_uuid, msg_hdr->req_cookie);
 
   if (!err.ok()) {
     FDS_PLOG(dataMgr->GetLog()) << "Error Queueing the blob list request to per volume Queue";
@@ -761,7 +761,7 @@ void DataMgr::ReqHandler::GetVolumeBlobList(FDSP_MsgHdrTypePtr& msg_hdr,
             blobListResp(new FDS_ProtocolInterface::FDSP_GetVolumeBlobListRespType);
     blobListResp->num_blobs_in_resp = 0;
     blobListResp->end_of_list = true;
-    dataMgr->respHandleCli(msg_hdr->src_node_name)->GetVolumeBlobListResp(*msg_hdr,
+    dataMgr->respHandleCli(msg_hdr->session_uuid)->GetVolumeBlobListResp(*msg_hdr,
 									  *blobListResp);
     dataMgr->respMapMtx.read_unlock();
 
@@ -839,7 +839,7 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
   msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_UPDATE_CAT_OBJ_RSP;
 
   dataMgr->respMapMtx.read_lock();
-  dataMgr->respHandleCli(updCatReq->src_node_name)->UpdateCatalogObjectResp(*msg_hdr, *update_catalog);
+  dataMgr->respHandleCli(updCatReq->session_uuid)->UpdateCatalogObjectResp(*msg_hdr, *update_catalog);
   dataMgr->respMapMtx.read_unlock();
 
   FDS_PLOG(dataMgr->GetLog()) << "Sending async update catalog response with "
@@ -869,7 +869,7 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
 Error
 DataMgr::updateCatalogInternal(FDSP_UpdateCatalogTypePtr updCatReq, 
 			       fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
-			       fds_uint32_t dstPort, std::string src_node_name, fds_uint32_t reqCookie) {
+			       fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie) {
   fds::Error err(fds::ERR_OK);
 
     
@@ -878,7 +878,7 @@ DataMgr::updateCatalogInternal(FDSP_UpdateCatalogTypePtr updCatReq,
      */
   dmCatReq *dmUpdReq = new DataMgr::dmCatReq(volId, updCatReq->blob_name,
 					     updCatReq->dm_transaction_id, updCatReq->dm_operation,srcIp,
-					     dstIp,srcPort,dstPort, src_node_name, reqCookie, FDS_CAT_UPD,
+					     dstIp,srcPort,dstPort, session_uuid, reqCookie, FDS_CAT_UPD,
 					     updCatReq); 
 
   err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(dmUpdReq));
@@ -907,7 +907,7 @@ void DataMgr::ReqHandler::UpdateCatalogObject(FDS_ProtocolInterface::
   msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
   dataMgr->swapMgrId(msg_hdr);
   dataMgr->respMapMtx.read_lock();
-  dataMgr->respHandleCli(msg_hdr->src_node_name)->UpdateCatalogObjectResp(
+  dataMgr->respHandleCli(msg_hdr->session_uuid)->UpdateCatalogObjectResp(
 									  *msg_hdr,
 									  *update_catalog);
   dataMgr->respMapMtx.read_unlock();
@@ -928,7 +928,7 @@ void DataMgr::ReqHandler::UpdateCatalogObject(FDS_ProtocolInterface::
 
   err = dataMgr->updateCatalogInternal(update_catalog,msg_hdr->glob_volume_id,
 				       msg_hdr->src_ip_lo_addr,msg_hdr->dst_ip_lo_addr,msg_hdr->src_port,
-				       msg_hdr->dst_port,msg_hdr->src_node_name, msg_hdr->req_cookie);
+				       msg_hdr->dst_port,msg_hdr->session_uuid, msg_hdr->req_cookie);
 
   if (!err.ok()) {
     FDS_PLOG(dataMgr->GetLog()) << "Error Queueing the update Catalog request to Per volume Queue";
@@ -942,7 +942,7 @@ void DataMgr::ReqHandler::UpdateCatalogObject(FDS_ProtocolInterface::
   		msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_UPDATE_CAT_OBJ_RSP;
   		dataMgr->swapMgrId(msg_hdr);
                 dataMgr->respMapMtx.read_lock();
-  		dataMgr->respHandleCli(msg_hdr->src_node_name)->UpdateCatalogObjectResp(*msg_hdr,
+  		dataMgr->respHandleCli(msg_hdr->session_uuid)->UpdateCatalogObjectResp(*msg_hdr,
 											*update_catalog);
                 dataMgr->respMapMtx.read_unlock();
 
@@ -1009,7 +1009,7 @@ DataMgr::blobListBackend(dmCatReq *listBlobReq) {
     blobListResp->blob_info_list.push_back(bInfo);
   }
   respMapMtx.read_lock();
-  respHandleCli(listBlobReq->src_node_name)->GetVolumeBlobListResp(*msg_hdr, *blobListResp);
+  respHandleCli(listBlobReq->session_uuid)->GetVolumeBlobListResp(*msg_hdr, *blobListResp);
   respMapMtx.read_unlock();
   FDS_PLOG_SEV(dm_log, fds::fds_log::normal) << "Sending async blob list response with "
                                              << "volume id: " << msg_hdr->glob_volume_id
@@ -1063,7 +1063,7 @@ DataMgr::queryCatalogBackend(dmCatReq  *qryCatReq) {
   query_catalog->dm_operation = qryCatReq->transOp;
 
   dataMgr->respMapMtx.read_lock();
-  dataMgr->respHandleCli(qryCatReq->src_node_name)->QueryCatalogObjectResp(*msg_hdr, *query_catalog);
+  dataMgr->respHandleCli(qryCatReq->session_uuid)->QueryCatalogObjectResp(*msg_hdr, *query_catalog);
   dataMgr->respMapMtx.read_unlock();
   FDS_PLOG(dataMgr->GetLog()) << "Sending async query catalog response with "
                               << "volume id: " << msg_hdr->glob_volume_id
@@ -1081,14 +1081,14 @@ DataMgr::queryCatalogBackend(dmCatReq  *qryCatReq) {
 Error
 DataMgr::blobListInternal(const FDSP_GetVolumeBlobListReqTypePtr& blob_list_req,
                           fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
-                          fds_uint32_t dstPort, std::string src_node_name, fds_uint32_t reqCookie) {
+                          fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie) {
   fds::Error err(fds::ERR_OK);
 
   /*
    * allocate a new query cat log  class and  queue  to per volume queue.
    */
   dmCatReq *dmListReq = new DataMgr::dmCatReq(volId, srcIp, dstIp, srcPort, dstPort,
-                                              src_node_name, reqCookie, FDS_LIST_BLOB);
+                                              session_uuid, reqCookie, FDS_LIST_BLOB);
   err = qosCtrl->enqueueIO(dmListReq->getVolId(), static_cast<FDS_IOType*>(dmListReq));
   if (err != ERR_OK) {
     FDS_PLOG(dataMgr->GetLog()) << "Unable to enqueue blob list request "
@@ -1103,7 +1103,7 @@ DataMgr::blobListInternal(const FDSP_GetVolumeBlobListReqTypePtr& blob_list_req,
 Error
 DataMgr::queryCatalogInternal(FDSP_QueryCatalogTypePtr qryCatReq, 
                                  fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
-			      fds_uint32_t dstPort, std::string src_node_name, fds_uint32_t reqCookie) {
+			      fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie) {
   fds::Error err(fds::ERR_OK);
 
     
@@ -1112,7 +1112,7 @@ DataMgr::queryCatalogInternal(FDSP_QueryCatalogTypePtr qryCatReq,
      */
   dmCatReq *dmQryReq = new DataMgr::dmCatReq(volId, qryCatReq->blob_name,
 					     qryCatReq->dm_transaction_id, qryCatReq->dm_operation,srcIp,
-					     dstIp, srcPort,dstPort,src_node_name, reqCookie, FDS_CAT_QRY, NULL); 
+					     dstIp, srcPort,dstPort,session_uuid, reqCookie, FDS_CAT_QRY, NULL); 
 
     err = qosCtrl->enqueueIO(dmQryReq->getVolId(), static_cast<FDS_IOType*>(dmQryReq));
     if (err != ERR_OK) {
@@ -1148,7 +1148,7 @@ void DataMgr::ReqHandler::QueryCatalogObject(FDS_ProtocolInterface::
 
   err = dataMgr->queryCatalogInternal(query_catalog,msg_hdr->glob_volume_id,
 				      msg_hdr->src_ip_lo_addr,msg_hdr->dst_ip_lo_addr,msg_hdr->src_port,
-				      msg_hdr->dst_port, msg_hdr->src_node_name, msg_hdr->req_cookie);
+				      msg_hdr->dst_port, msg_hdr->session_uuid, msg_hdr->req_cookie);
   	if (!err.ok()) {
     		msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_FAILED;
     		msg_hdr->err_msg  = "Something hit the fan...";
@@ -1160,7 +1160,7 @@ void DataMgr::ReqHandler::QueryCatalogObject(FDS_ProtocolInterface::
   		msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_QUERY_CAT_OBJ_RSP;
   		dataMgr->swapMgrId(msg_hdr);
                 dataMgr->respMapMtx.read_lock();
-  		dataMgr->respHandleCli(msg_hdr->src_node_name)->QueryCatalogObjectResp(*msg_hdr, 
+  		dataMgr->respHandleCli(msg_hdr->session_uuid)->QueryCatalogObjectResp(*msg_hdr, 
 										       *query_catalog);
                 dataMgr->respMapMtx.read_unlock();
   		FDS_PLOG(dataMgr->GetLog()) << "Sending async query catalog response with "
@@ -1213,7 +1213,7 @@ DataMgr::deleteCatObjBackend(dmCatReq  *delCatReq) {
   delete_catalog->blob_name = delCatReq->blob_name;
 
   dataMgr->respMapMtx.read_lock();
-  dataMgr->respHandleCli(delCatReq->src_node_name)->DeleteCatalogObjectResp(*msg_hdr, *delete_catalog);
+  dataMgr->respHandleCli(delCatReq->session_uuid)->DeleteCatalogObjectResp(*msg_hdr, *delete_catalog);
   dataMgr->respMapMtx.read_unlock();
   FDS_PLOG(dataMgr->GetLog()) << "Sending async delete catalog obj response with "
                               << "volume id: " << msg_hdr->glob_volume_id
@@ -1230,7 +1230,7 @@ DataMgr::deleteCatObjBackend(dmCatReq  *delCatReq) {
 Error
 DataMgr::deleteCatObjInternal(FDSP_DeleteCatalogTypePtr delCatReq, 
                               fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
-			      fds_uint32_t dstPort, std::string src_node_name, fds_uint32_t reqCookie) {
+			      fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie) {
   fds::Error err(fds::ERR_OK);
 
     
@@ -1238,7 +1238,7 @@ DataMgr::deleteCatObjInternal(FDSP_DeleteCatalogTypePtr delCatReq,
      * allocate a new query cat log  class and  queue  to per volume queue.
      */
   dmCatReq *dmDelReq = new DataMgr::dmCatReq(volId, delCatReq->blob_name, srcIp,0,0,
-					     dstIp, srcPort,dstPort,src_node_name, reqCookie, FDS_DELETE_BLOB, NULL); 
+					     dstIp, srcPort,dstPort,session_uuid, reqCookie, FDS_DELETE_BLOB, NULL); 
 
     err = qosCtrl->enqueueIO(dmDelReq->getVolId(), static_cast<FDS_IOType*>(dmDelReq));
     if (err != ERR_OK) {
@@ -1268,7 +1268,7 @@ void DataMgr::ReqHandler::DeleteCatalogObject(FDS_ProtocolInterface::
                               << delete_catalog->blob_name;
   err = dataMgr->deleteCatObjInternal(delete_catalog,msg_hdr->glob_volume_id,
 				      msg_hdr->src_ip_lo_addr,msg_hdr->dst_ip_lo_addr,msg_hdr->src_port,
-				      msg_hdr->dst_port, msg_hdr->src_node_name, msg_hdr->req_cookie);
+				      msg_hdr->dst_port, msg_hdr->session_uuid, msg_hdr->req_cookie);
   	if (!err.ok()) {
     		msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_FAILED;
     		msg_hdr->err_msg  = "Error Enqueue delete Cat request";
@@ -1280,7 +1280,7 @@ void DataMgr::ReqHandler::DeleteCatalogObject(FDS_ProtocolInterface::
   		msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_DELETE_CAT_OBJ_RSP;
   		dataMgr->swapMgrId(msg_hdr);
                 dataMgr->respMapMtx.read_lock();
-  		dataMgr->respHandleCli(msg_hdr->src_node_name)->DeleteCatalogObjectResp(*msg_hdr, 
+  		dataMgr->respHandleCli(msg_hdr->session_uuid)->DeleteCatalogObjectResp(*msg_hdr, 
 											*delete_catalog);
                 dataMgr->respMapMtx.read_unlock();
   		FDS_PLOG(dataMgr->GetLog()) << "Sending async delete catalog response with "

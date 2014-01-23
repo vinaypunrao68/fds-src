@@ -34,6 +34,7 @@
 #include <fdsp/FDSP_ControlPathResp.h>
 
 #include <NetSession.h>
+#include "fds_process.h"
 
 //#include "../../unit-test/lib/test_stat.h"
 
@@ -43,8 +44,8 @@ int num_conc_reqs = DEF_NUM_CONC_REQS;
 std::atomic<unsigned int> num_ios_outstanding;
 //fds::StatIOPS *iops_stats;
 
-#define TEST_NODE_NAME "127.0.0.1"
-
+std::string session_uuid;
+#define TEST_NODE_NAME "DM_Unit_Test_Client"
 
 namespace fds {
 
@@ -79,10 +80,8 @@ class DmUnitTest {
     msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_DATA_MGR;
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
     msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
-    // TODO: Fix this and similar places below
-    // once the netsession API to retrieve client session hdl is fixed
-    //msg_hdr->src_node_name = "dm_test_client";
-    msg_hdr->src_node_name = TEST_NODE_NAME; 
+    msg_hdr->src_node_name = TEST_NODE_NAME;
+    msg_hdr->session_uuid = session_uuid;
     msg_hdr->glob_volume_id = 1; /* TODO: Don't hard code to 1 */
 
     fds_uint32_t block_id;
@@ -198,6 +197,7 @@ class DmUnitTest {
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
     msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
     msg_hdr->src_node_name = TEST_NODE_NAME;
+    msg_hdr->session_uuid = session_uuid;
     msg_hdr->glob_volume_id = 1; /* TODO: Don't hard code to 1 */
 
     fds_uint32_t block_id;
@@ -325,7 +325,8 @@ class DmUnitTest {
     msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_DATA_MGR;
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
     msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
-    msg_hdr->src_node_name = "TEST_NODE_NAME";
+    msg_hdr->src_node_name = TEST_NODE_NAME;
+    msg_hdr->session_uuid = session_uuid;
     msg_hdr->glob_volume_id = 2; /* TODO: Don't hard code to 1 */
 
     fds_int32_t blobsToReturn = 10;
@@ -365,7 +366,8 @@ class DmUnitTest {
     msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_DATA_MGR;
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
     msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
-    msg_hdr->src_node_name = "TEST_NODE_NAME";
+    msg_hdr->src_node_name = TEST_NODE_NAME;
+    msg_hdr->session_uuid = session_uuid;
     msg_hdr->glob_volume_id = 1; /* TODO: Don't hard code to 1 */
 
     fds_uint32_t block_id;
@@ -444,7 +446,8 @@ class DmUnitTest {
     msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_DATA_MGR;
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
     msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
-    msg_hdr->src_node_name = "TEST_NODE_NAME";
+    msg_hdr->src_node_name = TEST_NODE_NAME;
+    msg_hdr->session_uuid = session_uuid;
 
     vol_msg->type = FDS_ProtocolInterface::FDSP_NOTIFY_ADD_VOL;
 
@@ -783,15 +786,20 @@ class TestClient {
     boost::shared_ptr<netSessionTbl> nstable =
             boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_HVISOR));
 
-    netSession *mdpSession = nstable->startSession(ip_addr_str,
+    netSession *_session = nstable->startSession(ip_addr_str,
                                                    port_num,
                                                    FDSP_DATA_MGR,
                                                    1,
                                                    reinterpret_cast<void*>(fdspMetaDataPathResp.get()));
 
+    netMetaDataPathClientSession *mdp_session =  static_cast<netMetaDataPathClientSession *>(_session);
+
     boost::shared_ptr<FDSP_MetaDataPathReqClient> fdspMDPAPI_Sptr =
-            dynamic_cast<netMetaDataPathClientSession *>(mdpSession)->getClient();  // NOLINT
+            mdp_session->getClient();  // NOLINT
  
+    session_uuid = mdp_session->getSessionId();
+
+
     boost::shared_ptr<apache::thrift::transport::TTransport> 
             csocket(new apache::thrift::transport::TSocket(ip_addr_str, cp_port_num));
     boost::shared_ptr<apache::thrift::transport::TTransport> 
@@ -842,6 +850,8 @@ class TestClient {
 
 int main(int argc, char* argv[]) {
   fds::TestClient dm_client;
+
+  fds::init_process_globals("global-log.log");
 
   //return dm_client.main(argc, argv, "dm_test.conf");
   return dm_client.run(argc, argv);
