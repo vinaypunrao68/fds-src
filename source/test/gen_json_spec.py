@@ -19,6 +19,8 @@ from pprint import pprint
 import make_json_serializable
 import ConfigParser
 import mmh3
+import os
+import string
 
 def create_list_of_lists(template_lists, count, rand):
     i = 0
@@ -37,6 +39,18 @@ def create_list_of_lists(template_lists, count, rand):
 
         i += 1
     return res_lists
+
+
+def generate_random_string(length=8):
+    res = ''
+    for i in range(length):
+        res = res + random.choice(string.printable)
+    return res
+
+def generate_mmh3_4k_random_data(number_of_chunk):
+    rand_str_data = generate_random_string(number_of_chunk * 4096)
+    mmh3_val      = mmh3.hash128(rand_str_data)
+    return (mmh3_val, rand_str_data)
 
 class JSonVal(object):
     def __init__(self, values):
@@ -61,6 +75,19 @@ class JSonValRandom(JSonVal):
 class JSonHexRandom(JSonVal):
     def to_json(self):
         return '0x%030x' % random.randrange(16**32)
+
+class JSonKeyVal(JSonVal):
+    def __init__(self, generator, generator_arg, values_count):
+        self.generator_function = generator
+        self.generator_arg      = generator_arg
+        self.generator_count    = values_count
+    def to_json(self):
+        (key, val) = self.generator_function(self.generator_arg)
+        key_hex_str = hex(key)
+        key_hex_str = key_hex_str[:-1]
+        return [key_hex_str, val]
+    def get_values(self):
+        return [None] * self.generator_count
 
 class JSonTestID(JSonVal):
     def to_json(self):
@@ -249,3 +276,88 @@ class JSonTestClient(object):
                       json_cmd, "http://localhost:8000/abc/def"])
                 call(["curl", "-v", "-X", "PUT", "-d",  \
                       json_cmd, "http://localhost:8000/abc/def"])
+
+
+###############################################################################
+# The test for the test.
+
+cmd_line = JSonTestCmdLine()
+
+syscall_cmd         = JSonVal(['open', 'close', 'read', 'write'])
+syscall_path        = JSonVal(['/dev/null', '/tmp/foo', '/tmp/foo2'])
+boost_cmd           = JSonVal(['add', 'sub', 'print'])
+boost_array_index0  = JSonVal(['0', '1'])
+boost_array_index1  = JSonVal(['0', '1'])
+boost_value         = JSonVal(['100', '200'])
+
+math_cmd            = JSonVal(['add', 'subtract'])
+math_operand_left   = JSonVal(['100', '200'])
+math_operand_right  = JSonVal(['10', '20'])
+
+math_cmd_list1      = [math_cmd, math_operand_left, math_operand_right]
+math_cmd_list2      = [math_cmd, math_operand_left]
+
+list_thpool_syscall = [[syscall_cmd, syscall_path, 'FOO', 'BAR'], \
+                       [syscall_cmd, syscall_path, 'FOO', 'BAR']]
+list_thpool_boost   = [boost_cmd, boost_array_index0, boost_array_index1, boost_value]
+list_thpool_math    = create_list_of_lists([math_cmd_list1, math_cmd_list2], 4, True)
+
+dict_threadpool     = {'thpool-syscall' : list_thpool_syscall,
+                       'thpool-boost'   : list_thpool_boost,
+                       'thpool-math'    : list_thpool_math}
+
+dict_server_load    = {'threadpool'     : dict_threadpool}
+dict_run_input      = {'Server-Load'    : dict_server_load}
+js_spec             = {'Run-Input'      : dict_run_input,
+                       'Test-ID'        : cmd_line.get_client_id()} # get unique client ID
+
+# Create client test config.
+# Bind the command line argument with the JSon spec with objects.
+test_cfg = JSonTestCfg(cmd_line, js_spec)
+
+# Create test client instance.
+test_client = JSonTestClient(test_cfg)
+
+# Run test client.
+#
+# 1) Generate <n> number of unique JSon spec given test configuration.
+# 2) Make http calls to server with the generated JSon spec.
+# test_client.run()
+
+def gen_json_spec_test_create_list_of_lists():
+    list_1 = ["1", "2", "3"]
+    list_2 = ["a", "b"]
+    create_test_lists = [list_1, list_2]
+    res_lists = create_list_of_lists(create_test_lists, 10, True)
+    print res_lists
+
+def gen_json_spec_selftest():
+    comb =  len(syscall_cmd.get_values()) * \
+            len(syscall_path.get_values()) * \
+            len(boost_cmd.get_values()) * \
+            len(boost_array_index0.get_values()) * \
+            len(boost_array_index1.get_values()) * \
+            len(boost_value.get_values()) * \
+            len(math_cmd.get_values()) * \
+            len(math_operand_left.get_values()) * \
+            len(math_operand_right.get_values())
+    print "Combination calculated: %d" % comb
+
+def gen_json_spec_test_keyval():
+    #(hash_val, rand_data) = generate_mmh3_4k_random_data(1)
+    #print rand_data
+    #print hash_val
+    #syscall_data = JSonKeyVal(generate_mmh3_4k_random_data, 1, 4)
+    #syscall_data = {"key": ['40947508796434783991892619254342943078']}
+    #syscall_data = ['40947508796434783991892619254342943078', 'asdfasdfasdf']
+    syscall_data = JSonKeyVal(generate_mmh3_4k_random_data, 1, 1)
+    dict_syscall = {"key": syscall_data}
+    js_res = json.dumps(dict_syscall,                      \
+                        sort_keys = True,     \
+                        indent    = 4)
+    print js_res
+
+# Test functions:
+# gen_json_spec_selftest()
+# gen_json_spec_test_create_list_of_lists()
+gen_json_spec_test_keyval()
