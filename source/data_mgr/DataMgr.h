@@ -78,7 +78,7 @@ public:
     long 	 dstIp;
     fds_uint32_t srcPort;
     fds_uint32_t dstPort;
-    std::string src_node_name;
+    std::string session_uuid;
     fds_uint32_t reqCookie;
     FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr fdspUpdCatReqPtr;
 
@@ -87,11 +87,11 @@ public:
 	     long 	  _dstIp,
 	     fds_uint32_t _srcPort,
 	     fds_uint32_t _dstPort,
-	     std::string  _src_node_name,
+	     std::string  _session_uuid,
 	     fds_uint32_t _reqCookie,
 	     fds_io_op_t  _ioType)
         : volId(_volId), srcIp(_srcIp), dstIp(_dstIp),
-        srcPort(_srcPort), dstPort(_dstPort), src_node_name(_src_node_name),
+        srcPort(_srcPort), dstPort(_dstPort), session_uuid(_session_uuid),
         reqCookie(_reqCookie), fdspUpdCatReqPtr(NULL) {
       io_type = _ioType;
       io_vol_id = _volId;
@@ -105,7 +105,7 @@ public:
 	     long 	 	_dstIp,
 	     fds_uint32_t 	_srcPort,
 	     fds_uint32_t 	_dstPort,
-	     std::string        _src_node_name,
+	     std::string        _session_uuid,
 	     fds_uint32_t 	_reqCookie,
 	     fds_io_op_t        _ioType,
 	     FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr _updCatReq) {
@@ -117,7 +117,7 @@ public:
          dstIp 	           = _dstIp;
          srcPort           = _srcPort;
          dstPort           = _dstPort;
-	 src_node_name     = _src_node_name;
+	 session_uuid     = _session_uuid;
          reqCookie         = _reqCookie;
          FDS_IOType::io_type = _ioType;
 	 FDS_IOType::io_vol_id = _volId;
@@ -312,8 +312,8 @@ public:
     fds_bool_t volExists(fds_volid_t vol_uuid) const;
     FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr dInfo;
 
-    inline RespHandlerPrx respHandleCli(const string& src_node_name) {
-        return metadatapath_session->getRespClient(src_node_name);
+    inline RespHandlerPrx respHandleCli(const string& session_uuid) {
+        return metadatapath_session->getRespClient(session_uuid);
     }
 
     void updateCatalogBackend(dmCatReq  *updCatReq);
@@ -326,16 +326,16 @@ public:
      */
     Error updateCatalogInternal(FDSP_UpdateCatalogTypePtr updCatReq, 
                                 fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
-                                fds_uint32_t dstPort, std::string src_node_name, fds_uint32_t reqCookie);
+                                fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie);
     Error queryCatalogInternal(FDSP_QueryCatalogTypePtr qryCatReq, 
                                fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
-                               fds_uint32_t dstPort, std::string src_node_name, fds_uint32_t reqCookie);
+                               fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie);
     Error deleteCatObjInternal(FDSP_DeleteCatalogTypePtr delCatReq, 
                                fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
-                               fds_uint32_t dstPort, std::string src_node_name, fds_uint32_t reqCookie);
+                               fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie);
     Error blobListInternal(const FDSP_GetVolumeBlobListReqTypePtr& blob_list_req,
                            fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
-                           fds_uint32_t dstPort, std::string src_node_name, fds_uint32_t reqCookie);
+                           fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie);
 
 
     /*
