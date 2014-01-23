@@ -695,9 +695,9 @@ StorHvCtrl::StorHvCtrl(int argc,
 
   sysParams = params;
 
-//  sh_log = new fds_log("sh", "logs", (fds_log::severity_level) sysParams->log_severity);
+  //sh_log = new fds_log("sh", "logs", (fds_log::severity_level) sysParams->log_severity);
   sh_log = g_fdslog;
-//  fds::init_process_global(sh_log);
+  //fds::init_process_globals("sh-global.log");
 //  sh_log = new fds_log("sh", "logs", config->get<int>("fds.am.log_severity"));
   FDS_PLOG(sh_log) << "StorHvisorNet - Constructing the Storage Hvisor";
 
@@ -759,7 +759,7 @@ StorHvCtrl::StorHvCtrl(int argc,
 
 
   /* register handlers for receiving responses to admin requests */
-// SAN   om_client->registerBucketStatsCmdHandler(bucketStatsRespHandler);
+  om_client->registerBucketStatsCmdHandler(bucketStatsRespHandler);
 
   /*  Create the QOS Controller object */ 
   qos_ctrl = new StorHvQosCtrl(50, fds::FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET, sh_log);
@@ -2113,17 +2113,17 @@ fds::Error StorHvCtrl::getBucketStats(fds::AmQosReq *qosReq) {
   return err;
 }
 
-void StorHvCtrl::bucketStatsRespHandler(const FDSP_MsgHdrType& rx_msg,
-					const FDSP_BucketStatsRespType& buck_stats) {
+void StorHvCtrl::bucketStatsRespHandler(const FDSP_MsgHdrTypePtr& rx_msg,
+					const FDSP_BucketStatsRespTypePtr& buck_stats) {
   storHvisor->getBucketStatsResp(rx_msg, buck_stats);
 }
 
-void StorHvCtrl::getBucketStatsResp(const FDSP_MsgHdrType& rx_msg,
-				    const FDSP_BucketStatsRespType& buck_stats)
+void StorHvCtrl::getBucketStatsResp(const FDSP_MsgHdrTypePtr& rx_msg,
+				    const FDSP_BucketStatsRespTypePtr& buck_stats)
 {
-  fds_uint32_t transId = rx_msg.req_cookie;
+  fds_uint32_t transId = rx_msg->req_cookie;
  
-  fds_verify(rx_msg.msg_code == FDS_ProtocolInterface::FDSP_MSG_GET_BUCKET_STATS_RSP);
+  fds_verify(rx_msg->msg_code == FDS_ProtocolInterface::FDSP_MSG_GET_BUCKET_STATS_RSP);
 
   StorHvVolume* vol = vol_table->getVolume(admin_vol_id);
   fds_verify(vol != NULL);  // admin vol must always exist
@@ -2147,33 +2147,33 @@ void StorHvCtrl::getBucketStatsResp(const FDSP_MsgHdrType& rx_msg,
   fds_verify(blobReq != NULL);
   fds_verify(blobReq->getIoType() == FDS_BUCKET_STATS);
   FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "Responding to getBucketStats trans " << transId
-						   << " number of buckets " << (buck_stats.bucket_stats_list).size()
-                                                   << " with result " << rx_msg.result;
+						   << " number of buckets " << (buck_stats->bucket_stats_list).size()
+                                                   << " with result " << rx_msg->result;
 
   /*
    * Mark the IO complete, clean up txn, and callback
    */
   qos_ctrl->markIODone(txn->io);
-  if (rx_msg.result == FDSP_ERR_OK) {
+  if (rx_msg->result == FDSP_ERR_OK) {
     BucketStatsContent* contents = NULL;
-    int count = (buck_stats.bucket_stats_list).size();
+    int count = (buck_stats->bucket_stats_list).size();
 
     if (count > 0) {
       contents = new BucketStatsContent[count];
       fds_verify(contents != NULL);
       for (int i = 0; i < count; ++i)
 	{
-	  contents[i].set((buck_stats.bucket_stats_list)[i].vol_name,
-			  (buck_stats.bucket_stats_list)[i].rel_prio,
-			  (buck_stats.bucket_stats_list)[i].performance,
-			  (buck_stats.bucket_stats_list)[i].sla,
-			  (buck_stats.bucket_stats_list)[i].limit);
+	  contents[i].set((buck_stats->bucket_stats_list)[i].vol_name,
+			  (buck_stats->bucket_stats_list)[i].rel_prio,
+			  (buck_stats->bucket_stats_list)[i].performance,
+			  (buck_stats->bucket_stats_list)[i].sla,
+			  (buck_stats->bucket_stats_list)[i].limit);
 	}
     }
 
     /* call BucketStats callback directly */
     BucketStatsReq *stats_req = static_cast<BucketStatsReq*>(blobReq);
-    stats_req->DoCallback(buck_stats.timestamp, count, contents, FDSN_StatusOK, NULL);
+    stats_req->DoCallback(buck_stats->timestamp, count, contents, FDSN_StatusOK, NULL);
 
   } else {    
     /*
