@@ -27,7 +27,13 @@ Thrpool_ProbeMod gl_Thrpool_ProbeMod("Thrpool Probe Adapter",
 ProbeMod *
 Thrpool_ProbeMod::pr_new_instance()
 {
-    return new Thrpool_ProbeMod("Thrpool Inst", &Thrpool_probe_param, NULL);
+    Thrpool_ProbeMod *adapter;
+
+    adapter = new Thrpool_ProbeMod("Thrpool Inst", &Thrpool_probe_param, NULL);
+
+    adapter->mod_init(mod_params);
+    adapter->mod_startup();
+    return adapter;
 }
 
 // pr_intercept_request
@@ -53,7 +59,6 @@ Thrpool_ProbeMod::pr_put(ProbeRequest *probe)
 void
 Thrpool_ProbeMod::pr_get(ProbeRequest *req)
 {
-    std::cout << "Thrpool_ProbeMode: Get data is called " << std::endl;
 }
 
 // pr_delete

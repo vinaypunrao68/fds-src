@@ -234,12 +234,12 @@ JsObject::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *out)
         }
     }
     if (js_comp != NULL) {
-        for (auto it = js_comp->begin(); it != js_comp->end(); ++it) {
+        for (auto it = js_comp->cbegin(); it != js_comp->cend(); ++it) {
             // XXX: need to check remove out of the table & free memory.
             it->second->js_exec_obj(this, templ, out);
         }
     }
-    // js_output(out);
+    js_output(out);
     return this;
 }
 
@@ -266,40 +266,45 @@ JsObject::operator[](int idx)
 // js_output
 // ---------
 //
-void
+fds_bool_t
 JsObject::js_output(JsObjOutput *out, int indent)
 {
+    fds_bool_t  ret, more;
     const char *beg, *end;
 
+    ret = false;
     if (js_array != NULL) {
         for (auto it = js_array->cbegin(); it != js_array->cend(); ++it) {
-            (*it)->js_output(out, indent + 1);
-            if ((it + 1) != js_array->cend()) {
-                out->js_push_str(", ");
+            if ((*it)->js_output(out, indent + 1) == true) {
+                if ((it + 1) != js_array->cend()) {
+                    out->js_push_str(", ");
+                }
+                ret = true;
             }
         }
     }
     if (js_comp != NULL) {
         for (auto it = js_comp->cbegin(); it != js_comp->cend(); ++it) {
+            out->js_push_str("\"");
             out->js_push_str(it->first.c_str());
+            out->js_push_str("\"");
+
+            auto lst = it;
+            more = (++lst != js_comp->cend()) ? true : false;
             if (it->second->js_array_size() == 0) {
                 if (js_is_basic()) {
-                    auto lst = ++it;
                     beg = NULL;
-                    if (lst != js_comp->cend()) {
-                        end = ",\n";
-                    } else {
-                        end = NULL;
-                    }
+                    end = (more == true) ? ",\n" : NULL;
                 } else {
                     beg = ":{\n";
-                    end = "}\n";
+                    end = (more == true) ? "},\n" : "}\n";
                 }
             } else {
                 beg = ":[\n";
-                end = "]\n";
+                end = (more == true) ? "],\n" : "]\n";
             }
             if (beg != NULL) {
+                ret = true;
                 out->js_push_str(beg);
             }
             it->second->js_output(out, indent + 1);
@@ -308,13 +313,14 @@ JsObject::js_output(JsObjOutput *out, int indent)
             }
         }
     }
+    return ret;
 }
 
 // js_output
 // ---------
 // Format output for basic data types.
 //
-void
+fds_bool_t
 JsObjBasic::js_output(JsObjOutput *out, int indent)
 {
     char number[64];
@@ -323,7 +329,7 @@ JsObjBasic::js_output(JsObjOutput *out, int indent)
         out->js_push_str("\"");
         out->js_push_str(reinterpret_cast<char *>(js_pod_object()));
         out->js_push_str("\"");
-        return;
+        return true;
     }
     if (json_is_integer(js_data)) {
         snprintf(number, sizeof(number),
@@ -332,9 +338,10 @@ JsObjBasic::js_output(JsObjOutput *out, int indent)
         snprintf(number, sizeof(number),
                  "%f", *(reinterpret_cast<double *>(js_pod_object())));
     } else {
-        return;
+        return false;
     }
     out->js_push_str(number);
+    return true;
 }
 
 // ----------------------------------------------------------------------------

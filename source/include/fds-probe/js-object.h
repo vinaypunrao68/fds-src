@@ -43,7 +43,7 @@ class JsObject
     /**
      * Decoder interface, map back to json formated string.
      */
-    virtual void js_output(JsObjOutput *out, int indent = 0);
+    virtual fds_bool_t js_output(JsObjOutput *out, int indent = 0);
 
     /**
      * For array object, return the number of elements in the array.
@@ -199,7 +199,7 @@ class JsObjOutput
 class JsObjBasic : public JsObject
 {
   public:
-    virtual void js_output(JsObjOutput *out, int indent);
+    virtual fds_bool_t js_output(JsObjOutput *out, int indent);
 };
 
 template <class T>
