@@ -47,10 +47,9 @@ def generate_random_string(length=8):
         res = res + random.choice(string.printable)
     return res
 
-def generate_mmh3_4k_random_data(number_of_chunk, check_value):
+def generate_mmh3_4k_random_data(data_size, check_value):
     if check_value == None:
-        rand_str_data = generate_random_string(number_of_chunk *
-                                               generate_mmh3_4k_random_data_chunk_size)
+        rand_str_data = generate_random_string(data_size)
     else:
         rand_str_data = check_value
     mmh3_val      = mmh3.hash128(rand_str_data)
@@ -61,10 +60,6 @@ def generate_mmh3_4k_random_data(number_of_chunk, check_value):
 #   print rand_str_data
 #   print "========================================================="
     return (mmh3_val, rand_str_data)
-
-# making it smaller for testing
-# generate_mmh3_4k_random_data_chunk_size = 4096
-generate_mmh3_4k_random_data_chunk_size = 8
 
 class JSonVal(object):
     def __init__(self, values):

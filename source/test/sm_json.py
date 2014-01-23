@@ -104,15 +104,20 @@ cmd_line = JSonTestCmdLine()
 sm_put_cmd          = JSonVal(['put'])
 sm_get_cmd          = JSonVal(['get'])
 sm_del_cmd          = JSonVal(['delete'])
-sm_vol_id           = JSonVal(['1', '2', '3', '4', '5',
-                               '6', '7', '8', '9', '10'])
-sm_obj_id_data      = JSonKeyValStored(gen_json_spec.generate_mmh3_4k_random_data, 1, 1)
+sm_vol_id           = JSonVal(['1']) # JSonVal(['1', '2', '3', '4', '5',
+                      #         '6', '7', '8', '9', '10'])
+sm_obj_data_size    = 8
+sm_obj_id_data      = JSonKeyValStored(gen_json_spec.generate_mmh3_4k_random_data,
+                                       sm_obj_data_size, 1)
 sm_obj_id_data_saved = JSonKeyValRetrive(sm_obj_id_data)
 sm_obj_id_data_saved2 = JSonKeyValRetrive(sm_obj_id_data)
 
-sm_cmd_list1        = [sm_put_cmd, sm_vol_id, sm_obj_id_data, sm_obj_id_data]
-sm_cmd_list2        = [sm_get_cmd, sm_vol_id, sm_obj_id_data_saved]
-sm_cmd_list3        = [sm_del_cmd, sm_vol_id, sm_obj_id_data_saved2]
+sm_cmd_list1        = [sm_put_cmd, sm_vol_id, sm_obj_id_data, \
+                       sm_obj_data_size, sm_obj_id_data]
+sm_cmd_list2        = [sm_get_cmd, sm_vol_id, sm_obj_data_size, \
+                       sm_obj_id_data_saved]
+sm_cmd_list3        = [sm_del_cmd, sm_vol_id, sm_obj_data_size, \
+                       sm_obj_id_data_saved2]
 
 list_sm_cmd   = gen_json_spec.create_list_of_lists(
     [sm_cmd_list1, sm_cmd_list2],
