@@ -247,6 +247,7 @@ class SmUnitTest {
   boost::shared_ptr<TestResp> fdspDataPathResp;
   netSession *session_;
   std::string node_name_;
+  std::string session_uuid_;
   FdsConfigAccessor conf_helper_;
 
   /*
@@ -340,6 +341,7 @@ class SmUnitTest {
       msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
       msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
       msg_hdr->src_node_name = node_name_; 
+      msg_hdr->session_uuid = session_uuid_; 
       /*
        * TODO: Change this! We should reg a volume.
        */
@@ -401,6 +403,7 @@ class SmUnitTest {
       msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
       msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
       msg_hdr->src_node_name = node_name_; 
+      msg_hdr->session_uuid = session_uuid_; 
       /*
        * TODO: Change this! We should reg a volume.
        */
@@ -516,6 +519,7 @@ class SmUnitTest {
       msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
       msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
       msg_hdr->src_node_name = node_name_; 
+      msg_hdr->session_uuid = session_uuid_; 
       /*
        * TODO: Change this! We should reg a volume.
        */
@@ -624,6 +628,7 @@ class SmUnitTest {
       msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
       msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
       msg_hdr->src_node_name = node_name_; 
+      msg_hdr->session_uuid = session_uuid_; 
 
       for (fds_uint32_t i = 0; i < num_updates; i++) {
           oid = ObjectID(i, i * i);
@@ -664,6 +669,7 @@ class SmUnitTest {
       msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
       msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
       msg_hdr->src_node_name = node_name_; 
+      msg_hdr->session_uuid = session_uuid_; 
 
       /* storMgr creates 10 volumes, and volume ids = 2, 5, 8 are hybrid 
        * so lets use those for this test; lower volume ids have higher prio  */
@@ -732,6 +738,7 @@ class SmUnitTest {
       msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
       msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
       msg_hdr->src_node_name = node_name_; 
+      msg_hdr->session_uuid = session_uuid_; 
 
       int v = 2;
       msg_hdr->glob_volume_id = vols[v];
@@ -918,7 +925,8 @@ class SmUnitTest {
                                     static_cast<void*>(fdspDataPathResp.get()));
       netDataPathClientSession *dp_session =  static_cast<netDataPathClientSession *>(session_);
       fdspDPAPI = dp_session->getClient();  // NOLINT
-      node_name_ = dp_session->getSessionId();
+      session_uuid_ = dp_session->getSessionId();
+      node_name_ = "localhost-sm";
   }
 
   fds_int32_t Run(const std::string& testname) {
