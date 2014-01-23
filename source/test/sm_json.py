@@ -10,6 +10,8 @@ from gen_json_spec import JSonHexRandom
 from gen_json_spec import JSonTestCfg
 from gen_json_spec import JSonTestCfg
 from gen_json_spec import JSonTestClient
+from gen_json_spec import JSonKeyValStored
+from gen_json_spec import JSonKeyValRetrive
 
 # Create command line object to parse command line parameters and cfg file.
 #
@@ -100,18 +102,21 @@ cmd_line = JSonTestCmdLine()
 #    "Test-ID": 2290
 #}
 sm_put_cmd          = JSonVal(['put'])
-sm_obj_cmd          = JSonVal(['get', 'delete'])
+sm_get_cmd          = JSonVal(['get'])
+sm_del_cmd          = JSonVal(['delete'])
 sm_vol_id           = JSonVal(['1', '2', '3', '4', '5',
                                '6', '7', '8', '9', '10'])
-sm_obj_id           = JSonHexRandom(['1'])
-sm_obj_data         = JSonValRandom(['100', '200'])
+sm_obj_id_data      = JSonKeyValStored(gen_json_spec.generate_mmh3_4k_random_data, 1, 1)
+sm_obj_id_data_saved = JSonKeyValRetrive(sm_obj_id_data)
+sm_obj_id_data_saved2 = JSonKeyValRetrive(sm_obj_id_data)
 
-sm_cmd_list1        = [sm_put_cmd, sm_vol_id, sm_obj_id, sm_obj_data]
-sm_cmd_list2        = [sm_obj_cmd, sm_vol_id, sm_obj_id]
+sm_cmd_list1        = [sm_put_cmd, sm_vol_id, sm_obj_id_data, sm_obj_id_data]
+sm_cmd_list2        = [sm_get_cmd, sm_vol_id, sm_obj_id_data_saved]
+sm_cmd_list3        = [sm_del_cmd, sm_vol_id, sm_obj_id_data_saved2]
 
 list_sm_cmd   = gen_json_spec.create_list_of_lists(
-    [sm_cmd_list1, sm_cmd_list2],
-    8, True)
+    [sm_cmd_list1, sm_cmd_list2, sm_cmd_list3],
+    9, False)
 
 dict_sm             = {'object-ops'    : list_sm_cmd}
 

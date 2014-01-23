@@ -5,6 +5,7 @@ from gen_json_spec import JSonTestCmdLine
 from gen_json_spec import JSonVal
 from gen_json_spec import JSonValRandom
 from gen_json_spec import JSonKeyVal
+from gen_json_spec import JSonKeyValStored
 from gen_json_spec import JSonTestCfg
 from gen_json_spec import JSonTestCfg
 from gen_json_spec import JSonTestClient
@@ -99,7 +100,7 @@ cmd_line = JSonTestCmdLine()
 #}
 syscall_cmd         = JSonVal(['open', 'close', 'read', 'write'])
 syscall_path        = JSonVal(['/dev/null', '/tmp/foo', '/tmp/foo2'])
-syscall_data        = JSonKeyVal(gen_json_spec.generate_mmh3_4k_random_data, 1, 4)
+syscall_data        = JSonKeyValStored(gen_json_spec.generate_mmh3_4k_random_data, 1, 1)
 
 boost_cmd           = JSonVal(['add', 'sub', 'print'])
 boost_array_index0  = JSonVal(['0', '1'])
@@ -114,7 +115,8 @@ math_cmd_list1      = [math_cmd, math_operand_left, math_operand_right]
 math_cmd_list2      = [math_cmd, math_operand_left]
 
 list_thpool_syscall = [[syscall_cmd, syscall_path, ['FOO', 'BAR']], \
-                       [syscall_cmd, syscall_path, syscall_data]]
+                       [syscall_cmd, syscall_path, syscall_data, syscall_data]]
+                      # for keyval pair, they must be placed next to each other
 list_thpool_boost   = [boost_cmd, boost_array_index0, boost_array_index1, boost_value]
 list_thpool_math    = gen_json_spec.create_list_of_lists([math_cmd_list1, math_cmd_list2],
                                                          4, True)
@@ -127,6 +129,7 @@ dict_server_load    = {'threadpool'     : dict_threadpool}
 dict_run_input      = {'Server-Load'    : dict_server_load}
 js_spec             = {'Run-Input'      : dict_run_input,
                        'Test-ID'        : cmd_line.get_client_id()} # get unique client ID
+
 
 # Create client test config.
 # Bind the command line argument with the JSon spec with objects.

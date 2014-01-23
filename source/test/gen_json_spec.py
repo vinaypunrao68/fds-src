@@ -47,10 +47,24 @@ def generate_random_string(length=8):
         res = res + random.choice(string.printable)
     return res
 
-def generate_mmh3_4k_random_data(number_of_chunk):
-    rand_str_data = generate_random_string(number_of_chunk * 4096)
+def generate_mmh3_4k_random_data(number_of_chunk, check_value):
+    if check_value == None:
+        rand_str_data = generate_random_string(number_of_chunk *
+                                               generate_mmh3_4k_random_data_chunk_size)
+    else:
+        rand_str_data = check_value
     mmh3_val      = mmh3.hash128(rand_str_data)
+#   print "========================================================="
+#   foo = hex(mmh3_val)
+#   foo = foo[:-1]
+#   print foo
+#   print rand_str_data
+#   print "========================================================="
     return (mmh3_val, rand_str_data)
+
+# making it smaller for testing
+# generate_mmh3_4k_random_data_chunk_size = 4096
+generate_mmh3_4k_random_data_chunk_size = 8
 
 class JSonVal(object):
     def __init__(self, values):
@@ -81,13 +95,69 @@ class JSonKeyVal(JSonVal):
         self.generator_function = generator
         self.generator_arg      = generator_arg
         self.generator_count    = values_count
+        self.count              = 0
+        self.cur_key_hex_str    = None
+        self.cur_value          = None
     def to_json(self):
-        (key, val) = self.generator_function(self.generator_arg)
-        key_hex_str = hex(key)
-        key_hex_str = key_hex_str[:-1]
-        return [key_hex_str, val]
+        if self.count == 0:
+            self.count = 1
+            (key, val) = self.generator_function(self.generator_arg, None)
+            key_hex_str = hex(key)
+            key_hex_str = key_hex_str[:-1]
+
+            self.cur_key_hex_str = key_hex_str
+            self.cur_value = val
+
+            return key_hex_str
+        else:
+            self.count = 0
+            (tkey, tval) = self.generator_function(self.generator_arg, self.cur_value)
+            tkey = hex(tkey)
+            tkey = tkey[:-1]
+            assert tkey == self.cur_key_hex_str
+            return self.cur_value
+        #return [key_hex_str, val]
     def get_values(self):
         return [None] * self.generator_count
+
+    def get_key(self):
+        return self.cur_key_hex_str
+    def get_value(self):
+        if self.count == 0:
+            return self.cur_value
+        return None
+
+
+class JSonKeyValStored(JSonKeyVal):
+    def __init__(self, generator, generator_arg, values_count):
+        JSonKeyVal.__init__(self, generator, generator_arg, values_count)
+        self.saved_key_list = []
+        self.saved_key_dict = {}
+
+    def to_json(self):
+        res = super(JSonKeyValStored, self).to_json()
+        key = self.get_key()
+        val = self.get_value()
+
+        if key != None and val != None:
+            self.saved_key_list.append(key)
+            self.saved_key_dict[key] = val
+
+        return res
+    def get_saved_list(self):
+        return self.saved_key_list
+
+class JSonKeyValRetrive(object):
+    def __init__(self, json_keyval_stored):
+        self.keyval_stored = json_keyval_stored
+        self.keyval_cur    = 0
+
+    def to_json(self):
+        saved_list = self.keyval_stored.get_saved_list()
+        assert self.keyval_cur < len(saved_list)
+        idx = self.keyval_cur;
+        self.keyval_cur += 1
+        return saved_list[idx]
 
 class JSonTestID(JSonVal):
     def to_json(self):
@@ -344,14 +414,14 @@ def gen_json_spec_selftest():
     print "Combination calculated: %d" % comb
 
 def gen_json_spec_test_keyval():
-    #(hash_val, rand_data) = generate_mmh3_4k_random_data(1)
+    #(hash_val, rand_data) = generate_mmh3_4k_random_data(1, None)
     #print rand_data
     #print hash_val
-    #syscall_data = JSonKeyVal(generate_mmh3_4k_random_data, 1, 4)
+    #syscall_data = JSonKeyVal(generate_mmh3_4k_random_data, 1, 1)
     #syscall_data = {"key": ['40947508796434783991892619254342943078']}
     #syscall_data = ['40947508796434783991892619254342943078', 'asdfasdfasdf']
     syscall_data = JSonKeyVal(generate_mmh3_4k_random_data, 1, 1)
-    dict_syscall = {"key": syscall_data}
+    dict_syscall = {"key": [syscall_data, syscall_data]}
     js_res = json.dumps(dict_syscall,                      \
                         sort_keys = True,     \
                         indent    = 4)
@@ -360,4 +430,4 @@ def gen_json_spec_test_keyval():
 # Test functions:
 # gen_json_spec_selftest()
 # gen_json_spec_test_create_list_of_lists()
-gen_json_spec_test_keyval()
+# gen_json_spec_test_keyval()
