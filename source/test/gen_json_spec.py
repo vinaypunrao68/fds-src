@@ -189,6 +189,8 @@ class JSonTestCmdLine(object):
                             help="pretty print json spec [0|1], def 0.")
         parser.add_argument("--dryrun",
                             help="do not make http/curl call to server [0|1], def 0")
+        parser.add_argument("--verbose",
+                            help="print json spec and curl commands, def 0")
         args = parser.parse_args()
 
         if args.client_id:
@@ -221,6 +223,11 @@ class JSonTestCmdLine(object):
         else:
             self.cmd_dryrun = False
 
+        if args.verbose == "1":
+            self.cmd_verbose = True
+        else:
+            self.cmd_verbose = False
+
     def get_client_id(self):
         return self.cmd_client_id
 
@@ -232,6 +239,9 @@ class JSonTestCmdLine(object):
 
     def get_print_pretty(self):
         return self.cmd_print_pretty
+
+    def get_verbose(self):
+        return self.cmd_verbose
 
     def get_dryrun(self):
         return self.cmd_dryrun
@@ -284,6 +294,9 @@ class JSonTestCfg(object):
     def get_dryrun(self):
         return self.cfg_cmd_line.get_dryrun()
 
+    def get_verbose(self):
+        return self.cfg_cmd_line.get_verbose()
+
     def get_test_spec(self):
         return self.cfg_test_spec
 
@@ -296,6 +309,7 @@ class JSonTestClient(object):
         self.js_test_sort_keys    = test_cfg.get_sort_keys()
         self.js_test_print_pretty = test_cfg.get_print_pretty()
         self.js_test_dryrun       = test_cfg.get_dryrun()
+        self.js_test_verbose      = test_cfg.get_verbose()
         self.js_test_spec         = test_cfg.get_test_spec()
         self.js_result_list       = []
         self.js_result_dict       = {}
@@ -322,7 +336,9 @@ class JSonTestClient(object):
                     print ".",
                     missed = 0
             else:
-                print js_res
+                if self.js_test_verbose == True:
+                    print js_res
+
                 result_dict[js_res] = js_res
                 result_list.append(js_res)
                 i += 1
@@ -330,9 +346,14 @@ class JSonTestClient(object):
         self.js_result_list = result_list
         self.js_result_dict = result_dict
 
+        if self.js_test_verbose:
+            curl_verbose = "-v"
+        else:
+            curl_verbose = ""
+
         if self.js_test_dryrun == False:
             for json_cmd in result_list:
-                call(["curl", "-v", "-X", "POST", "-d", \
+                call(["curl", curl_verbose, "-X", "POST", "-d", \
                       json_cmd, "http://localhost:8000/abc"])
                 #call(["curl", "-v", "-X", "PUT", "-d",  \
                 #      json_cmd, "http://localhost:8000/abc"])
