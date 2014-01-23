@@ -183,7 +183,7 @@ class JsObjOutput
     inline void js_set_context(ProbeMod *ctx) {
         js_ctx = ctx;
     }
-    inline ProbeMod *js_get_context(ProbeMod *ctx) {
+    inline ProbeMod *js_get_context() {
         return js_ctx;
     }
   protected:

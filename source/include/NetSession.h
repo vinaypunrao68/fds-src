@@ -204,7 +204,7 @@ protected:
         fds_verify(session_info.status == 0 && !session_info.sid.empty());
         session_id_ = session_info.sid;
 
-        FDS_PLOG(g_fdslog) << __FUNCTION__ << " sid: " << session_id_;
+        //FDS_PLOG(g_fdslog) << __FUNCTION__ << " sid: " << session_id_;
     }
 protected:
     boost::shared_ptr<apache::thrift::transport::TSocket> socket;
@@ -502,7 +502,7 @@ private:
         FDSP_ServiceProcessor conn_processor(iface);
         bool ret = conn_processor.process(input, output, NULL);
         if (!ret) {
-            FDS_PLOG(g_fdslog) << "Failed to process conn request "; 
+            //FDS_PLOG(g_fdslog) << "Failed to process conn request "; 
         }
 #if 0
         TTransportPt transport = input->getTransport();
@@ -633,7 +633,7 @@ class netDataPathServerSession : public netServerSession {
         // MCSUPPORT:
         server->setServerEventHandler(event_handler_);
         
-        printf("Starting the server...\n");
+        std::cerr << "Starting the server..." << std::endl;
         server->serve();
     }
 
@@ -722,7 +722,7 @@ class netMetaDataPathServerSession : public netServerSession {
                                             threadManager));
 
         server->setServerEventHandler(event_handler_);        
-        printf("Starting the server...\n");
+        std::cerr << "Starting the server..." << std::endl;
         server->serve();
     }
  
@@ -809,7 +809,7 @@ netControlPathServerSession(const std::string& dest_node_name,
                                             threadManager));
         
         server->setServerEventHandler(event_handler_);
-        printf("Starting the server...\n");
+        std::cerr << "Starting the server..." << std::endl;
         server->serve();
     }
     void endSession() { 
@@ -896,7 +896,7 @@ netOMControlPathServerSession(const std::string& dest_node_name,
                                             threadManager));
         
         server->setServerEventHandler(event_handler_);
-        printf("Starting the server...\n");
+        std::cerr << "Starting the server..." << std::endl;
         server->serve();
     }
 
@@ -950,7 +950,7 @@ netConfigPathServerSession(const std::string& dest_node_name,
                                             threadManager));
         
         server->setServerEventHandler(event_handler_);
-        printf("Starting the server...\n");
+        std::cerr << "Starting the server..." << std::endl;
         server->serve();
     }
 

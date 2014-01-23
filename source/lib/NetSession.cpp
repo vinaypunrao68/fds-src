@@ -339,16 +339,16 @@ std::string netSessionTbl::getKey(std::string node_name, FDSP_MgrIdType remote_m
             node_name_key  += "_SM";
             break;
         case FDSP_DATA_MGR :  
-            node_name += "_DM";
+            node_name_key += "_DM";
             break;
         case FDSP_ORCH_MGR : 
-            node_name += "_OM";
+            node_name_key += "_OM";
             break;
         case FDSP_STOR_HVISOR :
-            node_name += "_AM";
+            node_name_key += "_AM";
             break;
         case FDSP_CLI_MGR : 
-            node_name += "_CLI";
+            node_name_key += "_CLI";
             break;
     }
     
@@ -357,16 +357,16 @@ std::string netSessionTbl::getKey(std::string node_name, FDSP_MgrIdType remote_m
             node_name_key  += "_SM";
             break;
         case FDSP_DATA_MGR :  
-            node_name += "_DM";
+            node_name_key += "_DM";
             break;
         case FDSP_ORCH_MGR : 
-            node_name += "_OM";
+            node_name_key += "_OM";
             break;
         case FDSP_STOR_HVISOR :
-            node_name += "_AM";
+            node_name_key += "_AM";
             break;
         case FDSP_CLI_MGR : 
-            node_name += "_CLI";
+            node_name_key += "_CLI";
             break;
     }
     return node_name_key;
