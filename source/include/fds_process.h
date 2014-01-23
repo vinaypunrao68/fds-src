@@ -98,7 +98,7 @@ class FdsProcess : public boost::noncopyable {
 
     /* Process wide counters manager */
     boost::shared_ptr<FdsCountersMgr> cntrs_mgrPtr_;
-    
+
     /* Process wide timer service.  Not enabled by default.  It needs
      * to be explicitly enabled 
      */

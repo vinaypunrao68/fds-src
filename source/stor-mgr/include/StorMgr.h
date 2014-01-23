@@ -36,6 +36,7 @@
 #include <fds_obj_cache.h>
 #include <fds_assert.h>
 #include <fds_config.hpp>
+#include <fds_stopwatch.h>
 
 #include <utility>
 #include <atomic>
@@ -128,12 +129,14 @@ class SMCounters : public FdsCounters
   SMCounters(const std::string &id, FdsCountersMgr *mgr)
       : FdsCounters(id, mgr),
         put_reqs("put_reqs", this),
-        get_reqs("get_reqs", this)
+        get_reqs("get_reqs", this),
+        puts_latency("puts_latency", this)
   {
   }
 
   NumericCounter put_reqs;
   NumericCounter get_reqs;
+  LatencyCounter puts_latency;
 };
 
 class ObjectStorMgr :
@@ -268,6 +271,11 @@ class ObjectStorMgr :
     WaitingReqMap              waitingReqs;
     std::atomic<fds_uint64_t>  nextReqId;
     fds_mutex                 *waitingReqMutex;
+
+    /* Ideally this should be part of the same data strucuture that keeps track
+     * of request 
+     */
+    std::unordered_map<fds_uint64_t, FdsStopwatch> reqLatencyMap;
 
     /*
      * Local perf stat collection

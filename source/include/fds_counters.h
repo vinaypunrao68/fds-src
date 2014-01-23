@@ -1,8 +1,9 @@
 /* Copyright 2013 Formation Data Systems, Inc.
  */
-#ifndef _FDS_COUNTERS_H
-#define _FDS_COUNTERS_H
+#ifndef SOURCE_INCLUDE_FDS_COUNTERS_H_
+#define SOURCE_INCLUDE_FDS_COUNTERS_H_
 
+#include <string>
 #include <iostream>
 #include <atomic>
 #include <vector>
@@ -141,6 +142,35 @@ class NumericCounter : public FdsBaseCounter
  private:
   std::atomic<uint64_t> val_;
 };
+
+class LatencyCounter : public FdsBaseCounter
+{
+ public:
+  LatencyCounter(const std::string &id, FdsCounters *export_parent)
+      : FdsBaseCounter(id, export_parent)
+  {
+  }
+
+  virtual uint64_t value() const override
+  {
+      uint64_t cnt = cnt_.load();
+      uint64_t lat = total_latency_.load();
+      if (cnt == 0) {
+          return 0;
+      }
+      return lat / cnt;
+  }
+
+  inline void update(const uint64_t &latency) {
+    total_latency_.fetch_add(latency);
+    cnt_++;
+  } 
+
+ private:
+  std::atomic<uint64_t> total_latency_;
+  std::atomic<uint64_t> cnt_;
+};
+
 }  // namespace fds
 
-#endif
+#endif  // SOURCE_INCLUDE_FDS_COUNTERS_H_

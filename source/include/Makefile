@@ -38,6 +38,9 @@ user_no_style  := \
     fds_timer.h           \
 	NetSessRespSvr.h       \
 	NetSessRespClient.h  \
-	NetSession.h          
+	NetSession.h        \
+        fds_counters.h	    \
+	fds_stopwatch.h     \
+	graphite_client.h
 
 include $(topdir)/Makefile.incl
