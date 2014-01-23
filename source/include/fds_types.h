@@ -20,6 +20,8 @@
 #include <functional>
 #include <shared/fds_types.h>
 
+#include <fds_assert.h>
+
 #include <boost/bind.hpp>
 #include <boost/function.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -133,6 +135,22 @@ namespace fds {
       hash_high = rhs.hash_high;
       hash_low = rhs.hash_low;
       return *this;
+    }
+
+    /**
+     * Sets the object id based on a hex string
+     * @param hexStr (i) Hex string
+     *
+     * Verifies the hex string and its format
+     */
+    ObjectID& operator=(const std::string& hexStr) {
+        fds_verify(hexStr.compare(0, 2, "0x") == 0);  // Require 0x prefix
+        fds_verify(hexStr.size() == (32 + 2));  // Account for 0x
+
+        hash_high = std::strtoull(hexStr.substr(0, 18).c_str(), NULL, 16);
+        hash_low  = std::strtoull(hexStr.substr(18).c_str(), NULL, 16);
+
+        return *this;
     }
 
     std::string ToHex() const {
