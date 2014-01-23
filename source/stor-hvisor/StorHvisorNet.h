@@ -175,7 +175,7 @@ public:
   
   // Data Members
   StorHvDataPlacement        *dataPlacementTbl;
-  netSessionTbl		     *rpcSessionTbl; // RPC calls Switch Table
+  boost::shared_ptr<netSessionTbl> rpcSessionTbl; // RPC calls Switch Table
   StorHvVolumeTable          *vol_table;  
   fds::StorHvQosCtrl             *qos_ctrl; // Qos Controller object
   OMgrClient                 *om_client;

@@ -4,8 +4,8 @@
 #ifndef INCLUDE_NET_PROXY_VOL_POLICY_H_
 #define INCLUDE_NET_PROXY_VOL_POLICY_H_
 
-#include <fdsp/orch_proto_types.h>
-#include <fdsp/orch_PolicyReq.h>
+// #include <fdsp/orch_proto_types.h>
+// #include <fdsp/orch_PolicyReq.h>
 #include <fdsp/FDSP_types.h>
 #include <string>
 #include <fds_module.h>
@@ -85,7 +85,7 @@ class VolPolicyServ
 
 // Thrift-specific server side handler.
 //
-class Thrift_VolPolicyServ : virtual public fdp::orch_PolicyReqIf
+class Thrift_VolPolicyServ /*: virtual public fdp::orch_PolicyReqIf */
 {
   public:
     Thrift_VolPolicyServ(std::string serv_id, VolPolicyServ &server)

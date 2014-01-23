@@ -1,13 +1,15 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
+#include <string>
 #include <iostream>
 #include <utest-types.h>
 
 namespace fds {
 
 JsObject *
-UT_Thread::js_exec_obj(JsObject *array, JsObjTemplate *templ)
+UT_Thread::js_exec_obj(JsObject *parent,
+                       JsObjTemplate *templ, JsObjOutput *out)
 {
     ut_thr_param_t *p;
 
@@ -21,7 +23,8 @@ UT_Thread::js_exec_obj(JsObject *array, JsObjTemplate *templ)
 }
 
 JsObject *
-UT_Server::js_exec_obj(JsObject *array, JsObjTemplate *templ)
+UT_Server::js_exec_obj(JsObject *parent,
+                       JsObjTemplate *templ, JsObjOutput *out)
 {
     ut_srv_param_t *p;
 
@@ -33,7 +36,8 @@ UT_Server::js_exec_obj(JsObject *array, JsObjTemplate *templ)
 }
 
 JsObject *
-UT_Load::js_exec_obj(JsObject *array, JsObjTemplate *templ)
+UT_Load::js_exec_obj(JsObject *parent,
+                     JsObjTemplate *templ, JsObjOutput *out)
 {
     ut_load_param_t *p;
 
@@ -47,45 +51,47 @@ UT_Load::js_exec_obj(JsObject *array, JsObjTemplate *templ)
 }
 
 JsObject *
-UT_RunSetup::js_exec_obj(JsObject *array, JsObjTemplate *templ)
+UT_RunSetup::js_exec_obj(JsObject *parent,
+                         JsObjTemplate *templ, JsObjOutput *out)
 {
     std::cout << "Run-Setup exec is called" << std::endl;
-    return JsObject::js_exec_obj(array, templ);
+    return JsObject::js_exec_obj(this, templ, out);
 }
 
 JsObject *
-UT_ServerLoad::js_exec_obj(JsObject *array, JsObjTemplate *templ)
+UT_ServerLoad::js_exec_obj(JsObject *parent,
+                           JsObjTemplate *templ, JsObjOutput *out)
 {
     std::cout << "Server load obj " << std::endl;
-    return JsObject::js_exec_obj(array, templ);
+    return JsObject::js_exec_obj(this, templ, out);
 }
 
 JsObject *
-UT_ClientLoad::js_exec_obj(JsObject *array, JsObjTemplate *templ)
+UT_ClientLoad::js_exec_obj(JsObject *parent,
+                           JsObjTemplate *templ, JsObjOutput *out)
 {
-    if (array != NULL) {
-        int                i, num;
-        UT_ClientLoad     *obj;
-        ut_client_param_t *p;
+    int                i, num;
+    UT_ClientLoad     *obj;
+    ut_client_param_t *p;
 
-        num = array->js_array_size();
-        for (i = 0; i < num; i++) {
-            obj = static_cast<UT_ClientLoad *>(array->js_array_elm(i));
-            p   = obj->client_load_param();
-            std::cout << "Client load " << i << ", script: "
-                << p->cl_script << ", args "
-                << p->cl_script_args << std::endl;
-        }
+    num = js_array_size();
+    for (i = 0; i < num; i++) {
+        obj = static_cast<UT_ClientLoad *>((*this)[i]);
+        p   = obj->client_load_param();
+        std::cout << "Client load " << i << ", script: "
+            << p->cl_script << ", args "
+            << p->cl_script_args << std::endl;
     }
     std::cout << "Client load obj " << std::endl;
     return this;
 }
 
 JsObject *
-UT_RunInput::js_exec_obj(JsObject *array, JsObjTemplate *templ)
+UT_RunInput::js_exec_obj(JsObject *parent,
+                         JsObjTemplate *templ, JsObjOutput *out)
 {
     std::cout << "RunInput exec " << std::endl;
-    return JsObject::js_exec_obj(array, templ);
+    return JsObject::js_exec_obj(this, templ, out);
 }
 
 }  // namespace fds

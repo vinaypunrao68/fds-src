@@ -729,6 +729,10 @@ StorHvCtrl::StorHvCtrl(int argc,
     freeifaddrs(ifAddrStruct);
   }
 
+//   rpcSessionTbl.reset(new netSessionTbl(FDSP_STOR_HVISOR));
+   rpcSessionTbl = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_HVISOR));
+   dPathRespCback = new FDSP_DataPathRespCbackI();
+   mPathRespCback = new FDSP_MetaDataPathRespCbackI();
   /*
    * Pass 0 as the data path port since the SH is not
    * listening on that port.
@@ -740,7 +744,8 @@ StorHvCtrl::StorHvCtrl(int argc,
                              myIp,
                              0,
                              node_name,
-                             sh_log);
+                             sh_log,
+                             rpcSessionTbl);
   if (om_client) {
     om_client->initialize();
   }
@@ -758,9 +763,6 @@ StorHvCtrl::StorHvCtrl(int argc,
   qos_ctrl->registerOmClient(om_client); /* so it will start periodically pushing perfstats to OM */
   om_client->startAcceptingControlMessages(config->get<int>("fds.om.PortNumber"));
 
-   rpcSessionTbl = new netSessionTbl(FDSP_STOR_HVISOR);
-   dPathRespCback = new FDSP_DataPathRespCbackI();
-   mPathRespCback = new FDSP_MetaDataPathRespCbackI();
 
   /* TODO: for now StorHvVolumeTable constructor will create 
    * volume 1, revisit this soon when we add multi-volume support
@@ -797,7 +799,10 @@ StorHvCtrl::StorHvCtrl(int argc,
       dataMgrPortNum = config->get<int>("fds.dm.PortNumber");
     }
     dataMgrIPAddress = config->get<string>("fds.dm.IPAddress");
-//SAN    rpcSwitchTbl->Add_RPC_EndPoint(dataMgrIPAddress, dataMgrPortNum, my_node_name, FDSP_DATA_MGR);
+    storHvisor->rpcSessionTbl->
+            startSession(dataMgrIPAddress,
+                  (fds_int32_t)dataMgrPortNum,
+                      FDS_ProtocolInterface::FDSP_DATA_MGR,0,reinterpret_cast<void*>(storHvisor->dPathRespCback));
   }
   if ((mode == STOR_MGR_TEST) ||
       (mode == TEST_BOTH)) {
@@ -807,7 +812,10 @@ StorHvCtrl::StorHvCtrl(int argc,
       storMgrPortNum  = config->get<int>("fds.sm.PortNumber");
     }
     storMgrIPAddress  = config->get<string>("fds.sm.IPAddress");
-//SAN    rpcSwitchTbl->Add_RPC_EndPoint(storMgrIPAddress, storMgrPortNum, my_node_name, FDSP_STOR_MGR);
+    storHvisor->rpcSessionTbl->
+            startSession(storMgrIPAddress,
+                  (fds_int32_t)storMgrPortNum,
+                      FDS_ProtocolInterface::FDSP_STOR_MGR,0,reinterpret_cast<void*>(storHvisor->dPathRespCback));
   }
 
 //cout << "dataMgrPortNum: " << dataMgrPortNum  << "\n" << "storMgrPortNum: " << storMgrPortNum << "\n";  
@@ -1025,12 +1033,14 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
 
   InitSmMsgHdr(msgHdrSm);
   msgHdrSm->src_ip_lo_addr = SRC_IP;
-  msgHdrSm->src_node_name = my_node_name;
+//  msgHdrSm->src_node_name = my_node_name;
+  msgHdrSm->src_node_name = storHvisor->myIp;
   msgHdrSm->req_cookie = transId;
 
   FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "Putting object " << objId << " for blob "
                                                    << blobReq->getBlobName() << " and offset "
-                                                   << blobReq->getBlobOffset() << " in trans "
+                                                   << blobReq->getBlobOffset() << "src node ip"
+                                                   << msgHdrSm->src_node_name << "in Trans"
                                                    << transId;
 
   /*
@@ -1086,7 +1096,8 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
   upd_obj_req->dm_operation       = FDS_DMGR_TXN_STATUS_OPEN;
   msgHdrDm->req_cookie     = transId;
   msgHdrDm->src_ip_lo_addr = SRC_IP;
-  msgHdrDm->src_node_name  = my_node_name;
+//  msgHdrDm->src_node_name  = my_node_name;
+  msgHdrSm->src_node_name = storHvisor->myIp;
   msgHdrDm->src_port       = 0;
   memset(nodeIds, 0x00, sizeof(fds_int32_t) * numNodes);
   dataPlacementTbl->getDMTNodesForVolume(volId, nodeIds, &numNodes);
@@ -1368,7 +1379,8 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
   msgHdr->glob_volume_id = volId;
   msgHdr->src_ip_lo_addr = SRC_IP;
   msgHdr->src_port       = 0;
-  msgHdr->src_node_name  = my_node_name;
+//  msgHdr->src_node_name  = my_node_name;
+  msgHdr->src_node_name = storHvisor->myIp;
 
   /*
    * Setup journal entry
@@ -1656,7 +1668,8 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   fdsp_msg_hdr->msg_id =  1;
   fdsp_msg_hdr->src_ip_lo_addr = SRC_IP;
   fdsp_msg_hdr->src_port = 0;
-  fdsp_msg_hdr->src_node_name = storHvisor->my_node_name;
+//  fdsp_msg_hdr->src_node_name = storHvisor->my_node_name;
+  fdsp_msg_hdr->src_node_name = storHvisor->myIp;
   del_obj_req->data_obj_id.hash_high = oid.GetHigh();
   del_obj_req->data_obj_id.hash_low = oid.GetLow();
   del_obj_req->data_obj_len = blobReq->getDataLen();
@@ -1707,7 +1720,8 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   fdsp_msg_hdr_dm->glob_volume_id = vol_id;
   fdsp_msg_hdr_dm->req_cookie = transId;
   fdsp_msg_hdr_dm->src_ip_lo_addr = SRC_IP;
-  fdsp_msg_hdr_dm->src_node_name = storHvisor->my_node_name;
+//  fdsp_msg_hdr_dm->src_node_name = storHvisor->my_node_name;
+  fdsp_msg_hdr->src_node_name = storHvisor->myIp;
   fdsp_msg_hdr_dm->src_port = 0;
   fdsp_msg_hdr_dm->dst_port = node_port;
   storHvisor->dataPlacementTbl->getDMTNodesForVolume(vol_id, node_ids, &num_nodes);
@@ -1827,7 +1841,8 @@ fds::Error StorHvCtrl::listBucket(fds::AmQosReq *qosReq) {
   msgHdr->glob_volume_id = volId;
   msgHdr->src_ip_lo_addr = SRC_IP;
   msgHdr->src_port       = 0;
-  msgHdr->src_node_name  = my_node_name;
+//  msgHdr->src_node_name  = my_node_name;
+  msgHdr->src_node_name = storHvisor->myIp;
   msgHdr->bucket_name    = blobReq->getBlobName(); /* ListBucketReq stores bucket name in blob name */
  
   /*

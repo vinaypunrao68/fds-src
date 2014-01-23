@@ -4,9 +4,12 @@
 #include <fds-net-probe.h>
 #include <util/fds_stat.h>
 #include <fds-probe/s3-probe.h>
+#include <fds_process.h>
 
 int main(int argc, char **argv)
 {
+    fds::init_process_globals("fds-net-global.log");
+
     fds::Module *s3_fds_net_probe_vec[] = {
         &fds::gl_fds_stat,
         &fds::gl_probeS3Eng,
@@ -17,7 +20,7 @@ int main(int argc, char **argv)
     fdsNetProbeVec.mod_execute();
 
     fds::gl_probeS3Eng.probe_add_adapter(&fds::gl_fdsNetProbeMod);
-    for (int i = 0; i < 0; i++) {
+    for (int i = 0; i < 4; i++) {
         fds::gl_probeS3Eng.probe_add_adapter(
             fds::gl_fdsNetProbeMod.pr_new_instance());
     }

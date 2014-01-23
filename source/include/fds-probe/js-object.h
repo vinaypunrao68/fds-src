@@ -4,6 +4,7 @@
 #ifndef SOURCE_INCLUDE_FDS_PROBE_JS_OBJECT_H_
 #define SOURCE_INCLUDE_FDS_PROBE_JS_OBJECT_H_
 
+#include <list>
 #include <vector>
 #include <string>
 #include <boost/utility.hpp>
@@ -14,7 +15,9 @@
 
 namespace fds {
 
+class ProbeMod;
 class JsObject;
+class JsObjOutput;
 class JsObjManager;
 class JsObjTemplate;
 typedef std::vector<JsObject *> JsArray;
@@ -31,9 +34,22 @@ class JsObject
     const char              *js_type_name;
 
     JsObject();
+    explicit JsObject(int arr_size);
+
     virtual ~JsObject();
-    virtual JsObject *js_exec_obj(JsObject *array, JsObjTemplate *templ);
-    virtual JsObject *js_exec_simple(JsObject *array, JsObjTemplate *templ);
+    virtual JsObject *js_exec_obj(JsObject *parent,
+                                  JsObjTemplate *templ, JsObjOutput *out);
+
+    /**
+     * Decoder interface, map back to json formated string.
+     */
+    virtual void js_output(JsObjOutput *out, int indent = 0);
+
+    /**
+     * For array object, return the number of elements in the array.
+     */
+    virtual int js_array_size();
+    virtual JsObject *&operator[](int idx);
 
     /**
      * Return binary type for this object.
@@ -51,20 +67,10 @@ class JsObject
         }
         return (*js_comp)[key];
     }
-    /**
-     * For array object, return the number of elements in the array.
-     */
-    virtual int js_array_size();
-
-    inline JsObject *js_array_elm(int index) {
-        if (js_array == NULL) {
-            return NULL;
-        }
-        return (*js_array)[index];
-    }
     inline fds_bool_t js_is_basic() {
         return js_bin_data != NULL;
     }
+
   protected:
     friend class JsObjManager;
     friend class JsObjTemplate;
@@ -77,19 +83,6 @@ class JsObject
 
     void js_init_obj(const char *type, const char *id, json_t *in, void *d,
                      JsObjSet *c, JsArray *a);
-};
-
-/**
- * JSON Array of JsObject Instance.
- */
-class JsObjArray : public JsObject
-{
-  public:
-    explicit JsObjArray(int num);
-    virtual ~JsObjArray() {}
-
-    virtual JsObject *&operator[](int idx);
-    virtual JsObject *js_exec_obj(JsObject *array, JsObjTemplate *templ);
 };
 
 /**
@@ -124,7 +117,7 @@ class JsObjTemplate
     /**
      * Use the template to run exec function on an object instance in json fmt.
      */
-    virtual void js_exec(json_t *in);
+    virtual void js_exec(json_t *in, JsObjOutput *out);
 
     /**
      * Wrapper API for an obj to request to add itself in the global name space.
@@ -142,15 +135,73 @@ class JsObjTemplate
     JsObjMap                 js_decode;
     JsObjManager            *js_global;
 
+    virtual JsObject *js_parse_array(json_t *in, JsObjTemplate *decode);
     virtual JsObject *js_parse(JsObject *empty, json_t *in, void *bin);
     virtual JsObject *js_init(JsObject *obj, json_t *in, void *d,
                               JsObjSet *c, JsArray *a);
 };
 
 /**
+ * Output obj to manage fragment of output strings from other objs.
+ */
+class JsObjOutput
+{
+  public:
+    JsObjOutput() : js_outlen(0) {}
+    ~JsObjOutput() {}
+
+    /**
+     * Push the string to output list.  The string will be copied to the list.
+     */
+    virtual void js_push_str(const char *str);
+
+    /**
+     * Initialize the iterator that will be used for js_output method to pull
+     * output string out.
+     */
+    inline std::list<std::string>::iterator js_output_init() {
+        return js_output.begin();
+    }
+    /**
+     * Return total length would be required to copy all output fragments to
+     * a flat, linear string.
+     */
+    inline size_t js_output_len() {
+        return js_outlen;
+    }
+    /**
+     * Dump the output from the list of strings to one linear string, len.
+     * @return the length consumed by the buffer and iterator that can be
+     * used for the next time.
+     */
+    virtual size_t
+    js_out(std::list<std::string>::iterator *it, char *buf, size_t len);
+
+    /**
+     * Enable the probe module to set/get its working context.
+     */
+    inline void js_set_context(ProbeMod *ctx) {
+        js_ctx = ctx;
+    }
+    inline ProbeMod *js_get_context(ProbeMod *ctx) {
+        return js_ctx;
+    }
+  protected:
+    ProbeMod                *js_ctx;
+    size_t                   js_outlen;
+    std::list<std::string>   js_output;
+};
+
+/**
  * Common objects that can be shared.  All T classes must inherit from the
  * base JsObject and provide the js_exec_obj() method.
  */
+class JsObjBasic : public JsObject
+{
+  public:
+    virtual void js_output(JsObjOutput *out, int indent);
+};
+
 template <class T>
 class JsObjStrTemplate : public JsObjTemplate
 {
@@ -229,7 +280,7 @@ class JsObjManager : public boost::noncopyable
     /**
      * Main entry to exec data parsed in json format.
      */
-    virtual void js_exec(json_t *root);
+    virtual void js_exec(json_t *root, JsObjOutput *out);
 
     /**
      * Register a JsObject template to the factory.  The obj is identifed by
@@ -271,12 +322,12 @@ class JsObjManager : public boost::noncopyable
     }
 
   protected:
-    fds_mutex                    js_mtx;
-    JsObjMap                     js_decode;
-    JsObjSet                     js_objs;
-    JsObjStrTemplate<JsObject>  *js_str_decode;
-    JsObjIntTemplate<JsObject>  *js_int_decode;
-    JsObjRealTemplate<JsObject> *js_real_decode;
+    fds_mutex                      js_mtx;
+    JsObjMap                       js_decode;
+    JsObjSet                       js_objs;
+    JsObjStrTemplate<JsObjBasic>  *js_str_decode;
+    JsObjIntTemplate<JsObjBasic>  *js_int_decode;
+    JsObjRealTemplate<JsObjBasic> *js_real_decode;
 };
 
 }   // namespace fds

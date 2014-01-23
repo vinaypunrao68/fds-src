@@ -20,8 +20,10 @@ OrchMgr::OrchMgr(int argc, char *argv[],
       conf_port_num(0),
       ctrl_port_num(0),
       test_mode(false),
-      net_session_tbl(NULL) {
-
+      omcp_req_handler(new FDSP_OMControlPathReqHandler(this)),
+      cp_resp_handler(new FDSP_ControlPathRespHandler(this)),
+      cfg_req_handler(new FDSP_ConfigPathReqHandler(this)) {
+    
     om_log  = g_fdslog;
     om_mutex = new fds_mutex("OrchMgrMutex");
 
@@ -45,12 +47,12 @@ OrchMgr::OrchMgr(int argc, char *argv[],
 OrchMgr::~OrchMgr() {
     FDS_PLOG(om_log) << "Destructing the Orchestration  Manager";
 
+    cfg_session_tbl->endAllSessions();
+    cfgserver_thread->join();
+
     delete om_log;
     if (policy_mgr)
         delete policy_mgr;
-    
-    if (net_session_tbl)
-        delete net_session_tbl; 
 }
 
 int OrchMgr::mod_init(SysParams const *const param) {
@@ -129,45 +131,38 @@ void OrchMgr::setup(int argc, char* argv[],
      * Setup server session to listen to OMControl path messages from
      * DM, SM, and SH
      */
-    net_session_tbl = new netSessionTbl(my_node_name,
-                                        netSession::ipString2Addr(ip_address),
-                                        control_portnum,
-                                        10,
-                                        FDS_ProtocolInterface::FDSP_ORCH_MGR);
-
-    // Andrew - after calling createServerSession() omc_req_handler->orchMgr 
-    // gets set to NULL, Rao can explain the problem
-    omc_req_handler.reset(new FDSP_OMControlPathReqHandler(this));
-
-    net_session_tbl->createServerSession(netSession::ipString2Addr(ip_address),
-                                         control_portnum,
-                                         my_node_name,
-                                         FDS_ProtocolInterface::FDSP_OMCLIENT_MGR,
-                                         omc_req_handler.get());
-
+    omcp_session_tbl = boost::shared_ptr<netSessionTbl>(
+        new netSessionTbl(my_node_name,
+                          netSession::ipString2Addr(ip_address),
+                          control_portnum,
+                          100,
+                          FDS_ProtocolInterface::FDSP_ORCH_MGR));
+    
+    omcp_session_tbl->createServerSession(netSession::ipString2Addr(ip_address),
+                                          control_portnum,
+                                          my_node_name,
+                                          FDS_ProtocolInterface::FDSP_OMCLIENT_MGR,
+                                          omcp_req_handler.get());
+    
     /*
-     * setup CLI client adaptor interface  this also used for receiving the node up
-     * messages from DM, SH and SM 
+     * Setup server session to listen to config path messages from fdscli
      */
+    cfg_session_tbl = boost::shared_ptr<netSessionTbl>(
+        new netSessionTbl(my_node_name,
+                          netSession::ipString2Addr(ip_address),
+                          config_portnum,
+                          100,
+                          FDS_ProtocolInterface::FDSP_ORCH_MGR));
 
-    // TODO(thrift)
-    /*
-    std::ostringstream tcpProxyStr;
-    tcpProxyStr << "tcp -p " << config_portnum;
-    Ice::ObjectAdapterPtr adapter =
-            communicator()->createObjectAdapterWithEndpoints(
-                "OrchMgr",
-                tcpProxyStr.str());
-    
-    reqCfgHandlersrv = new ReqCfgHandler(this);
-    adapter->add(reqCfgHandlersrv, communicator()->stringToIdentity("OrchMgr"));
-    
+    cfg_session_tbl->createServerSession(netSession::ipString2Addr(ip_address),
+                                         config_portnum,
+                                         my_node_name,
+                                         FDS_ProtocolInterface::FDSP_CLI_MGR,
+                                         cfg_req_handler.get());
+
+    cfgserver_thread.reset(new std::thread(&OrchMgr::start_cfgpath_server, this));
+
     om_policy_srv = new Orch_VolPolicyServ();
-    om_ice_proxy  = new Ice_VolPolicyServ(ORCH_MGR_POLICY_ID, *om_policy_srv);
-    om_ice_proxy->serv_registerIceAdapter(communicator(), adapter);
-    
-    adapter->activate();
-    */
 
     defaultS3BucketPolicy();
 }
@@ -177,18 +172,31 @@ void OrchMgr::run()
     // run server to listen for OMControl messages from 
     // SM, DM and SH
     netSession* omc_server_session =
-            net_session_tbl->getSession(my_node_name,
-                                        FDS_ProtocolInterface::FDSP_OMCLIENT_MGR);
+            omcp_session_tbl->getSession(my_node_name,
+                                         FDS_ProtocolInterface::FDSP_OMCLIENT_MGR);
     
     if (omc_server_session)
-        net_session_tbl->listenServer(omc_server_session);
+        omcp_session_tbl->listenServer(omc_server_session);
+}
+
+void OrchMgr::start_cfgpath_server()
+{
+    netSession* cfg_server_session = 
+            cfg_session_tbl->getSession(my_node_name,
+                                        FDS_ProtocolInterface::FDSP_CLI_MGR);
+    
+    if (cfg_server_session)
+        cfg_session_tbl->listenServer(cfg_server_session);
 }
 
 void OrchMgr::interrupt_cb(int signum)
 {
     FDS_PLOG(orchMgr->GetLog())
             << "OrchMgr: Shutting down communicator";
-    // communicator()->shutdown();
+
+    omcp_session_tbl.reset();
+    cfg_session_tbl.reset();
+    exit(0);
 }
 
 fds_log* OrchMgr::GetLog() {
@@ -259,6 +267,16 @@ int OrchMgr::GetDomainStats(const FdspMsgHdrPtr& fdsp_msg,
         //    currentDom->domain_ptr->printStatsToJsonFile();
         om_mutex->unlock();
     }
+    return 0;
+}
+
+int OrchMgr::ApplyTierPolicy(::FDS_ProtocolInterface::tier_pol_time_unitPtr& policy) {
+    om_policy_srv->serv_recvTierPolicyReq(policy);
+    return 0;
+}
+
+int OrchMgr::AuditTierPolicy(::FDS_ProtocolInterface::tier_pol_auditPtr& audit) {
+    om_policy_srv->serv_recvAuditTierPolicy(audit);
     return 0;
 }
 
@@ -793,11 +811,9 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
                          (reg_node_req->disk_info).ssd_latency_max,
                          (reg_node_req->disk_info).ssd_latency_min,
                          (reg_node_req->disk_info).disk_type,
-                         n_info.node_state = FDS_ProtocolInterface::FDS_Node_Up
-                         /*FDS_ProtocolInterface::
-                         FDSP_ControlPathReqPrx::
-                         checkedCast(communicator()->stringToProxy(
-                         tcpProxyStr.str()))*/);
+                         n_info.node_state = FDS_ProtocolInterface::FDS_Node_Up,
+                         omcp_session_tbl,
+                         cp_resp_handler);
 
     node_map[reg_node_req->node_name] = n_info;
 

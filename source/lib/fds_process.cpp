@@ -14,6 +14,18 @@ namespace fds {
 FdsProcess *g_fdsprocess = NULL;
 fds_log *g_fdslog = NULL;
 
+void init_process_globals(const std::string &log_name)
+{
+    fds_verify(g_fdslog == nullptr);
+    g_fdslog = new fds_log(log_name);
+}
+
+void init_process_globals(fds_log *log)
+{
+    fds_verify(g_fdslog == nullptr);
+    g_fdslog = log;
+}
+
 FdsProcess::FdsProcess(int argc, char *argv[],
                        const std::string &config_path,
                        const std::string &base_path)

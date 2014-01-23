@@ -4,6 +4,7 @@
 #ifndef SOURCE_FDS_PROBE_INCLUDE_UTEST_TYPES_H_
 #define SOURCE_FDS_PROBE_INCLUDE_UTEST_TYPES_H_
 
+#include <string>
 #include <fds-probe/js-object.h>
 
 namespace fds {
@@ -27,7 +28,8 @@ struct ut_thr_param
 class UT_Thread : public JsObject
 {
   public:
-    virtual JsObject *js_exec_obj(JsObject *array, JsObjTemplate *templ);
+    virtual JsObject *js_exec_obj(JsObject *parent,
+                                  JsObjTemplate *templ, JsObjOutput *out);
 
     inline ut_thr_param_t *thr_param() {
         return static_cast<ut_thr_param_t *>(js_pod_object());
@@ -49,6 +51,7 @@ class UT_ThreadTempl : public JsObjTemplate
                 "tp-max-thr",      &p->thr_max,
                 "tp-spawn-thres",  &p->thr_spawn_thres,
                 "tp-idle-seconds", &p->thr_idle_sec)) {
+            delete p;
             return NULL;
         }
         return js_parse(new UT_Thread(), in, p);
@@ -67,7 +70,8 @@ struct ut_srv_param
 class UT_Server : public JsObject
 {
   public:
-    virtual JsObject *js_exec_obj(JsObject *array, JsObjTemplate *templ);
+    virtual JsObject *js_exec_obj(JsObject *parent,
+                                  JsObjTemplate *templ, JsObjOutput *out);
 
     inline ut_srv_param_t *srv_param() {
         return static_cast<ut_srv_param_t *>(js_pod_object());
@@ -85,6 +89,7 @@ class UT_ServerTempl : public JsObjTemplate
         ut_srv_param_t *p = new ut_srv_param_t;
         if (json_unpack(in, "{s:i}",
                 "srv-port",     &p->srv_port)) {
+            delete p;
             return NULL;
         }
         return js_parse(new UT_Server(), in, p);
@@ -105,7 +110,8 @@ struct ut_load_param
 class UT_Load : public JsObject
 {
   public:
-    virtual JsObject *js_exec_obj(JsObject *array, JsObjTemplate *templ);
+    virtual JsObject *js_exec_obj(JsObject *parent,
+                                  JsObjTemplate *templ, JsObjOutput *out);
 
     inline ut_load_param_t *load_param() {
         return static_cast<ut_load_param_t *>(js_pod_object());
@@ -125,6 +131,7 @@ class UT_LoadTempl : public JsObjTemplate
                 "rt-loop",         &p->rt_loop,
                 "rt-concurrent",   &p->rt_concurrent,
                 "rt-duration-sec", &p->rt_duration_sec)) {
+            delete p;
             return NULL;
         }
         return js_parse(new UT_Load(), in, p);
@@ -137,12 +144,13 @@ class UT_LoadTempl : public JsObjTemplate
 class UT_RunSetup : public JsObject
 {
   public:
-    virtual JsObject *js_exec_obj(JsObject *array, JsObjTemplate *templ);
+    virtual JsObject *js_exec_obj(JsObject *parent,
+                                  JsObjTemplate *templ, JsObjOutput *out);
 
     inline UT_Thread *js_get_thread(int idx) {
         JsObject *obj = js_obj_field("Threads");
         if (obj != NULL) {
-            return static_cast<UT_Thread *>(obj->js_array_elm(idx));
+            return static_cast<UT_Thread *>((*obj)[idx]);
         }
         return NULL;
     }
@@ -180,7 +188,8 @@ class UT_RunSetupTempl : public JsObjTemplate
 class UT_ServerLoad : public JsObject
 {
   public:
-    virtual JsObject *js_exec_obj(JsObject *array, JsObjTemplate *templ);
+    virtual JsObject *js_exec_obj(JsObject *parent,
+                                  JsObjTemplate *templ, JsObjOutput *out);
 };
 
 class UT_ServerLoadTempl : public JsObjTemplate
@@ -209,7 +218,8 @@ struct ut_client_param
 class UT_ClientLoad : public JsObject
 {
   public:
-    virtual JsObject *js_exec_obj(JsObject *array, JsObjTemplate *templ);
+    virtual JsObject *js_exec_obj(JsObject *parent,
+                                  JsObjTemplate *templ, JsObjOutput *out);
 
     inline ut_client_param_t *client_load_param() {
         return static_cast<ut_client_param_t *>(js_pod_object());
@@ -230,6 +240,7 @@ class UT_ClientLoadTempl : public JsObjTemplate
                 "script",          &p->cl_script,
                 "script-args",     &p->cl_script_args,
                 "cache-output",    &p->cl_cache)) {
+            delete p;
             return NULL;
         }
         return js_parse(new UT_ClientLoad(), in, p);
@@ -242,7 +253,8 @@ class UT_ClientLoadTempl : public JsObjTemplate
 class UT_RunInput : public JsObject
 {
   public:
-    virtual JsObject *js_exec_obj(JsObject *array, JsObjTemplate *templ);
+    virtual JsObject *js_exec_obj(JsObject *parent,
+                                  JsObjTemplate *templ, JsObjOutput *out);
 
     inline UT_ServerLoad *js_get_server_load() {
         JsObject *obj = js_obj_field("Server-Load");

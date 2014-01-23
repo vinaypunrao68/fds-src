@@ -40,7 +40,7 @@
 
 #include <lib/QoSWFQDispatcher.h>
 #include <lib/qos_min_prio.h>
-#include <thrift/server/TSimpleServer.h>
+#include <NetSession.h>
 
 #undef FDS_TEST_DM_NOOP     /* if defined, puts complete as soon as they arrive to DM (not for gets right now) */
 
@@ -61,8 +61,8 @@ public:
 
   class ReqHandler;
   
-  typedef shared_ptr<ReqHandler> ReqHandlerPtr;
-  typedef FDS_ProtocolInterface::FDSP_MetaDataPathRespClient *RespHandlerPrx;
+  typedef boost::shared_ptr<ReqHandler> ReqHandlerPtr;
+  typedef boost::shared_ptr<FDS_ProtocolInterface::FDSP_MetaDataPathRespClient> RespHandlerPrx;
 
 
   /*
@@ -78,7 +78,7 @@ public:
     long 	 dstIp;
     fds_uint32_t srcPort;
     fds_uint32_t dstPort;
-    std::string src_node_name;
+    std::string session_uuid;
     fds_uint32_t reqCookie;
     FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr fdspUpdCatReqPtr;
 
@@ -87,11 +87,11 @@ public:
 	     long 	  _dstIp,
 	     fds_uint32_t _srcPort,
 	     fds_uint32_t _dstPort,
-	     std::string  _src_node_name,
+	     std::string  _session_uuid,
 	     fds_uint32_t _reqCookie,
 	     fds_io_op_t  _ioType)
         : volId(_volId), srcIp(_srcIp), dstIp(_dstIp),
-        srcPort(_srcPort), dstPort(_dstPort), src_node_name(_src_node_name),
+        srcPort(_srcPort), dstPort(_dstPort), session_uuid(_session_uuid),
         reqCookie(_reqCookie), fdspUpdCatReqPtr(NULL) {
       io_type = _ioType;
       io_vol_id = _volId;
@@ -105,7 +105,7 @@ public:
 	     long 	 	_dstIp,
 	     fds_uint32_t 	_srcPort,
 	     fds_uint32_t 	_dstPort,
-	     std::string        _src_node_name,
+	     std::string        _session_uuid,
 	     fds_uint32_t 	_reqCookie,
 	     fds_io_op_t        _ioType,
 	     FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr _updCatReq) {
@@ -117,7 +117,7 @@ public:
          dstIp 	           = _dstIp;
          srcPort           = _srcPort;
          dstPort           = _dstPort;
-	 src_node_name     = _src_node_name;
+	 session_uuid     = _session_uuid;
          reqCookie         = _reqCookie;
          FDS_IOType::io_type = _ioType;
 	 FDS_IOType::io_vol_id = _volId;
@@ -205,9 +205,11 @@ public:
     /*
      * RPC handlers and comm endpoints.
      */
-    ReqHandlerPtr  reqHandleSrv;
-    apache::thrift::server::TSimpleServer *mdp_server;
-    std::unordered_map<std::string, RespHandlerPrx> respHandleCli;
+    ReqHandlerPtr  metadatapath_handler;
+    boost::shared_ptr<netSessionTbl> nstable;
+    netMetaDataPathServerSession *metadatapath_session;
+    // std::unordered_map<std::string, RespHandlerPrx> respHandleCli;
+   
     fds_rwlock respMapMtx;
     OMgrClient     *omClient;
 
@@ -284,7 +286,10 @@ public:
                              fds_uint32_t node_port,
                              FDS_ProtocolInterface::FDSP_MgrIdType node_type);
 
- public:
+  protected:
+    void setup_metadatapath_server(const std::string &ip);
+
+  public:
     DataMgr(int argc, char *argv[],
              const std::string &default_config_path,
              const std::string &base_path);
@@ -303,9 +308,13 @@ public:
     void swapMgrId(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg);
     fds_log* GetLog();
 
-     std::string getPrefix() const;
+    std::string getPrefix() const;
     fds_bool_t volExists(fds_volid_t vol_uuid) const;
     FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr dInfo;
+
+    inline RespHandlerPrx respHandleCli(const string& session_uuid) {
+        return metadatapath_session->getRespClient(session_uuid);
+    }
 
     void updateCatalogBackend(dmCatReq  *updCatReq);
     void queryCatalogBackend(dmCatReq  *qryCatReq);
@@ -317,16 +326,16 @@ public:
      */
     Error updateCatalogInternal(FDSP_UpdateCatalogTypePtr updCatReq, 
                                 fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
-                                fds_uint32_t dstPort, std::string src_node_name, fds_uint32_t reqCookie);
+                                fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie);
     Error queryCatalogInternal(FDSP_QueryCatalogTypePtr qryCatReq, 
                                fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
-                               fds_uint32_t dstPort, std::string src_node_name, fds_uint32_t reqCookie);
+                               fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie);
     Error deleteCatObjInternal(FDSP_DeleteCatalogTypePtr delCatReq, 
                                fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
-                               fds_uint32_t dstPort, std::string src_node_name, fds_uint32_t reqCookie);
+                               fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie);
     Error blobListInternal(const FDSP_GetVolumeBlobListReqTypePtr& blob_list_req,
                            fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
-                           fds_uint32_t dstPort, std::string src_node_name, fds_uint32_t reqCookie);
+                           fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie);
 
 
     /*
@@ -378,8 +387,6 @@ public:
 
       void GetVolumeBlobList(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr, 
 			     FDS_ProtocolInterface::FDSP_GetVolumeBlobListReqTypePtr& blobListReq);
-
-      void AssociateRespCallback(const std::string& src_node_name);
 
     };
 

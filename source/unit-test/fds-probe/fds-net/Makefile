@@ -26,6 +26,7 @@ user_cpp          := \
     $(local_server) \
     $(local_probe_clnt)
 
+user_no_style     := fds-net-server.cpp
 user_bin_exe      := fds-net-probe fds-net-server
 fds-net-probe     := $(local_probe_clnt)
 fds-net-server    := $(local_server)

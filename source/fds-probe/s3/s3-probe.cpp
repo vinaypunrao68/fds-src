@@ -1,6 +1,8 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
+#include <list>
+#include <string>
 #include <fds-probe/s3-probe.h>
 #include <util/fds_stat.h>
 #include <am-plugin.h>
@@ -237,13 +239,60 @@ Probe_PutBucket::~Probe_PutBucket()
 {
 }
 
+// ctrl_obj_write
+// --------------
+//
+static void
+ctrl_obj_write(ProbeS3Eng *s3eng, ProbeS3 *clnt, Probe_PutBucket *put, char *buf)
+{
+    int                got, len;
+    json_t            *root;
+    char              *cur;
+    AME_Ctx           *ctx;
+    ame_buf_t         *mem;
+    JsObjManager      *objs;
+    json_error_t       err;
+    JsObjOutput        out;
+
+    objs = s3eng->probe_get_obj_mgr();
+    root = json_loads(buf, 0, &err);
+    if (root != NULL) {
+        out.js_set_context(clnt);
+        objs->js_exec(root, &out);
+        json_decref(root);
+    }
+    s3eng->probe_add_adapter(clnt);
+
+    ctx = put->ame_get_context();
+    mem = ctx->ame_alloc_buf(1 << 20, &cur, &got);
+    ctx->ame_push_output_buf(mem);
+
+    std::list<std::string>::iterator it = out.js_output_init();
+    len = out.js_out(&it, cur, got);
+    mem->last = mem->pos + len;
+
+    put->ame_signal_resume(NGX_HTTP_OK);
+}
+
 // Admin/control handler
 // ---------------------
 //
 int
 Probe_PutBucket::ame_request_resume()
 {
-    ame_finalize_response(ame_resp_status);
+    int        len;
+    char      *adr;
+    ame_buf_t *buf;
+
+    adr = ame_ctx->ame_curr_output_buf(&buf, &len);
+    if (len > 0) {
+        ame_finalize = false;
+        ame_set_std_resp(NGX_HTTP_OK, len);
+        ame_send_response_hdr();
+        ame_send_resp_data(buf, len, true);
+    } else {
+        ame_finalize_response(NGX_HTTP_OK);
+    }
     return NGX_DONE;
 }
 
@@ -252,22 +301,15 @@ Probe_PutBucket::ame_request_handler()
 {
     int           len;
     char         *buf;
-    json_t       *root;
+    ProbeS3      *clnt;
     ProbeS3Eng   *s3p;
-    JsObjManager *objs;
-    json_error_t  err;
 
-    buf  = ame_reqt_iter_data(&len);
-    s3p  = static_cast<ProbeS3Eng *>(ame);
-    objs = s3p->probe_get_obj_mgr();
+    buf = ame_reqt_iter_data(&len);
     buf[len] = '\0';
 
-    root = json_loads(buf, 0, &err);
-    if (root != NULL) {
-        objs->js_exec(root);
-        json_decref(root);
-    }
-    ame_signal_resume(NGX_HTTP_OK);
+    s3p  = static_cast<ProbeS3Eng *>(ame);
+    clnt = static_cast<ProbeS3 *>(s3p->probe_get_adapter());
+    s3p->probe_get_thrpool()->schedule(ctrl_obj_write, s3p, clnt, this, buf);
 }
 
 }   // namespace fds
