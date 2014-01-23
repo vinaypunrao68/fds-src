@@ -115,7 +115,7 @@ sm_cmd_list2        = [sm_get_cmd, sm_vol_id, sm_obj_id_data_saved]
 sm_cmd_list3        = [sm_del_cmd, sm_vol_id, sm_obj_id_data_saved2]
 
 list_sm_cmd   = gen_json_spec.create_list_of_lists(
-    [sm_cmd_list1, sm_cmd_list2, sm_cmd_list3],
+    [sm_cmd_list1, sm_cmd_list2],
     9, False)
 
 dict_sm             = {'object-ops'    : list_sm_cmd}
