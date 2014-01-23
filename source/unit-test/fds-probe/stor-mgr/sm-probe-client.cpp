@@ -21,13 +21,26 @@ probe_mod_param_t Sm_probe_param =
 Sm_ProbeMod gl_Sm_ProbeMod("Storage Manager Client Probe Adapter",
                            &Sm_probe_param, nullptr);
 
+/**
+ * Global map of written objects used for verification.
+ * This is global so that all probemod objects can access
+ * the same map. When a response is received, we don't know
+ * which probemod sent it.
+ */
+std::unordered_map<ObjectID, std::string, ObjectHash> writtenObjs;
+fds_mutex objMapLock("Written object map lock");
+
 // pr_new_instance
 // ---------------
 //
 ProbeMod *
 Sm_ProbeMod::pr_new_instance()
 {
-    return new Sm_ProbeMod("Sm Client Inst", &Sm_probe_param, NULL);
+    Sm_ProbeMod *spm = new Sm_ProbeMod("Sm Client Inst", &Sm_probe_param, NULL);
+    spm->mod_init(mod_params);
+    spm->mod_startup();
+
+    return spm;
 }
 
 // pr_intercept_request
@@ -56,7 +69,8 @@ Sm_ProbeMod::sendPut(const PutParams &putReq)
     fdspMsg->dst_id   = FDS_ProtocolInterface::FDSP_STOR_MGR;
     fdspMsg->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
     fdspMsg->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
-    fdspMsg->src_node_name  = sessionId;
+    fdspMsg->src_node_name = myName;
+    fdspMsg->session_uuid  = sessionId;
     fdspMsg->src_port       = 0;  // Don't know port at the moment
     fdspMsg->glob_volume_id = putReq.volId;
     fdspMsg->num_objects    = 1;
@@ -91,7 +105,8 @@ Sm_ProbeMod::sendGet(const GetParams &getReq)
     fdspMsg->dst_id   = FDS_ProtocolInterface::FDSP_STOR_MGR;
     fdspMsg->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
     fdspMsg->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
-    fdspMsg->src_node_name  = sessionId;
+    fdspMsg->src_node_name = myName;
+    fdspMsg->session_uuid  = sessionId;
     fdspMsg->src_port       = 0;  // Don't know port at the moment
     fdspMsg->glob_volume_id = getReq.volId;
 
@@ -122,7 +137,8 @@ Sm_ProbeMod::sendDelete(const DeleteParams &delReq)
     fdspMsg->dst_id   = FDS_ProtocolInterface::FDSP_STOR_MGR;
     fdspMsg->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
     fdspMsg->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
-    fdspMsg->src_node_name  = sessionId;
+    fdspMsg->src_node_name = myName;
+    fdspMsg->session_uuid  = sessionId;
     fdspMsg->src_port       = 0;  // Don't know port at the moment
     fdspMsg->glob_volume_id = delReq.volId;
 
@@ -222,32 +238,32 @@ Sm_ProbeMod::setTestParams(const TestParams &p) {
 fds_bool_t
 Sm_ProbeMod::checkGetObj(const ObjectID& oid,
                          const std::string& objData) {
-    objMapLock->lock();
+    objMapLock.lock();
     if (objData != writtenObjs[oid]) {
         std::cout << "Failed get correct object! For object "
                   << oid << " Got ["
                   << objData << "] but expected ["
                   << writtenObjs[oid] << "]";
-        objMapLock->unlock();
+        objMapLock.unlock();
         return false;
     }
     std::cout << "Get check for object " << oid
               << ": SUCCESS" << std::endl;
-    objMapLock->unlock();
+    objMapLock.unlock();
     return true;
 }
 
 void
 Sm_ProbeMod::updatePutObj(const ObjectID& oid,
                           const std::string& objData) {
-    objMapLock->lock();
+    objMapLock.lock();
     /*
      * Note that this overwrites whatever was previously
      * cached at that oid.
      */
     writtenObjs[oid] = objData;
     std::cout << "Put object " << oid << " into map" << std::endl;
-    objMapLock->unlock();
+    objMapLock.unlock();
 }
 
 // ----------------------------------------------------------------------------
@@ -316,16 +332,6 @@ UT_ObjectOpcall::js_exec_obj(JsObject *parent,
     fds_uint32_t numElems;
 
     parseOp(parent, static_cast<Sm_ProbeMod *>(out->js_get_context()));
-    /*
-    JsObject *op;
-
-    numElems = parent->js_array_size();
-    for (fds_uint32_t i = 0; i < numElems; i++) {
-        op = (*parent)[i];
-        // Parse and perform op
-        parseOp(op);
-    }
-    */
 
     return JsObject::js_exec_obj(this, templ, out);
 }

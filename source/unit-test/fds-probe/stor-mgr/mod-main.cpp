@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 Formation Data Systems, Inc.
+ * Copyright 2014 Formation Data Systems, Inc.
  *
  * Template code to create a stand-alone unit test using the probe
  * framework to pump data to the test code.
@@ -9,10 +9,12 @@
 #include <util/fds_stat.h>
 #include <fds-probe/s3-probe.h>
 
-#include <fds_process_globals.h>
+#include <fds_process.h>
 
 int main(int argc, char **argv)
 {
+    fds::init_process_globals("sm-client-probe.log");
+
     fds::Module *probe_vec[] = {
         &fds::gl_fds_stat,
         &fds::gl_probeS3Eng,

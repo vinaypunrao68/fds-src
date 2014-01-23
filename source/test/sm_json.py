@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 #
 # Copyright 2014 Formation Data Systems, Inc.
-#
+
+import gen_json_spec
 from gen_json_spec import JSonTestCmdLine
 from gen_json_spec import JSonVal
 from gen_json_spec import JSonValRandom
@@ -98,19 +99,23 @@ cmd_line = JSonTestCmdLine()
 #    },
 #    "Test-ID": 2290
 #}
-boost_cmd           = JSonVal(['put', 'get'])
-boost_array_index0  = JSonVal(['1', '1'])
-boost_array_index1  = JSonHexRandom(['1'])
-boost_value         = JSonValRandom(['100', '200'])
+sm_put_cmd          = JSonVal(['put'])
+sm_obj_cmd          = JSonVal(['get', 'delete'])
+sm_vol_id           = JSonVal(['1', '2', '3', '4', '5',
+                               '6', '7', '8', '9', '10'])
+sm_obj_id           = JSonHexRandom(['1'])
+sm_obj_data         = JSonValRandom(['100', '200'])
 
-list_thpool_boost   = [[boost_cmd, boost_array_index0, boost_array_index1, boost_value],
-                       [boost_cmd, boost_array_index0, boost_array_index1],
-                       [boost_cmd, boost_array_index0],
-]
+sm_cmd_list1        = [sm_put_cmd, sm_vol_id, sm_obj_id, sm_obj_data]
+sm_cmd_list2        = [sm_obj_cmd, sm_vol_id, sm_obj_id]
 
-dict_threadpool     = {'object-ops'    : list_thpool_boost}
+list_sm_cmd   = gen_json_spec.create_list_of_lists(
+    [sm_cmd_list1, sm_cmd_list2],
+    8, True)
 
-dict_server_load    = {'dp-workload'    : dict_threadpool}
+dict_sm             = {'object-ops'    : list_sm_cmd}
+
+dict_server_load    = {'dp-workload'    : dict_sm}
 dict_run_input      = {'Server-Load'    : dict_server_load}
 js_spec             = {'Run-Input'      : dict_run_input,
                        'Test-ID'        : cmd_line.get_client_id()} # get unique client ID
@@ -127,13 +132,3 @@ test_client = JSonTestClient(test_cfg)
 # 1) Generate <n> number of unique JSon spec given test configuration.
 # 2) Make http calls to server with the generated JSon spec.
 test_client.run()
-
-###############################################################################
-# The test for the test.
-def gen_json_spec_selftest():
-    comb =  len(boost_cmd.get_values()) * \
-            len(boost_array_index0.get_values()) * \
-            len(boost_array_index1.get_values()) * \
-            len(boost_value.get_values())
-    print "Combination calculated: %d" % comb
-# gen_json_spec_selftest()

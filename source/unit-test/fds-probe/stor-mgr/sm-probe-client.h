@@ -17,6 +17,9 @@
 namespace fds {
 
 class probeDataPathRespIf;
+
+extern std::unordered_map<ObjectID, std::string, ObjectHash> writtenObjs;
+extern fds_mutex objMapLock;
     
 /**
  * SM probe that acts as an SM client.
@@ -36,10 +39,8 @@ class Sm_ProbeMod : public ProbeMod
             numObjs(10),
             randData(false),
             verify(true) {
-        objMapLock = new fds_mutex("Written object map lock");
     }
     virtual ~Sm_ProbeMod() {
-        delete objMapLock;
     }
 
     ProbeMod *pr_new_instance();
@@ -107,9 +108,6 @@ class Sm_ProbeMod : public ProbeMod
     fds_uint32_t numObjs;   /**< Number of objects to use */
     fds_bool_t   randData;  /**< Use random data or not */
     fds_bool_t   verify;    /**< Verify data or not */
-
-    std::unordered_map<ObjectID, std::string, ObjectHash> writtenObjs;
-    fds_mutex *objMapLock;
 };
 
 // ----------------------------------------------------------------------------
@@ -231,20 +229,29 @@ class probeDataPathRespIf : public FDS_ProtocolInterface::FDSP_DataPathRespIf {
     void PutObjectResp(
         const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
         const FDS_ProtocolInterface::FDSP_PutObjType& put_obj_req) {
-        std::cout << "Got a non-shared-ptr put object message response" << std::endl;
+        fds_panic("Got unhandled non-shared-ptr put object message response");
     }
     void PutObjectResp(
-        boost::shared_ptr<FDS_ProtocolInterface::FDSP_MsgHdrType>& fdsp_msg,
-        boost::shared_ptr<FDS_ProtocolInterface::FDSP_PutObjType>& put_obj_req) {
-        std::cout << "Got a put object message response" << std::endl;
+        boost::shared_ptr<FDS_ProtocolInterface::FDSP_MsgHdrType>& msgHdr,
+        boost::shared_ptr<FDS_ProtocolInterface::FDSP_PutObjType>& putObjReq) {
+        /*
+         * TODO: May want to sanity check the other response fields.
+         */
+        fds_verify(msgHdr->result == FDS_ProtocolInterface::FDSP_ERR_OK);
     }
     void DeleteObjectResp(
         const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
         const FDS_ProtocolInterface::FDSP_DeleteObjType& del_obj_req) {
+        fds_panic("Got unhandled non-shared-ptr delete object message response");
     }
     void DeleteObjectResp(
-        boost::shared_ptr<FDS_ProtocolInterface::FDSP_MsgHdrType>& fdsp_msg,
-        boost::shared_ptr<FDS_ProtocolInterface::FDSP_DeleteObjType>& del_obj_req) {
+        boost::shared_ptr<FDS_ProtocolInterface::FDSP_MsgHdrType>& msgHdr,
+        boost::shared_ptr<FDS_ProtocolInterface::FDSP_DeleteObjType>& delObjReq) {
+        std::cout << "Received a delete object response" << std::endl;
+        /*
+         * TODO: May want to sanity check the other response fields.
+         */
+        fds_verify(msgHdr->result == FDS_ProtocolInterface::FDSP_ERR_OK);
     }
     void OffsetWriteObjectResp(
         const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
