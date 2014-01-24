@@ -26,11 +26,12 @@ ame_http_parse_url(AMEngine *eng, AME_HttpReq *req)
         # Actions
 
         # Grammar
-        bucket = [0-9]+ "/";
+        bucket    = [0-9]+ "/";
+        object    = bucket "/";
 
         main := (
-            bucket 
-#object |
+            bucket |
+            object
 #            unit_test
         )*;
 
