@@ -12,6 +12,9 @@ from gen_json_spec import JSonTestCfg
 from gen_json_spec import JSonTestClient
 from gen_json_spec import JSonKeyValStored
 from gen_json_spec import JSonKeyValRetrive
+from gen_json_spec import JSonKeyValTri
+from gen_json_spec import JSonKeyValTriStored
+from gen_json_spec import JSonKeyValTriRetrive
 
 # Create command line object to parse command line parameters and cfg file.
 #
@@ -104,20 +107,22 @@ cmd_line = JSonTestCmdLine()
 sm_put_cmd          = JSonVal(['put'])
 sm_get_cmd          = JSonVal(['get'])
 sm_del_cmd          = JSonVal(['delete'])
-sm_vol_id           = JSonVal(['1']) # JSonVal(['1', '2', '3', '4', '5',
-                      #         '6', '7', '8', '9', '10'])
+sm_vol_id           = JSonVal(['1', '2', '3', '4', '5',
+                               '6', '7', '8', '9', '10'])
 sm_obj_data_size    = 8
-sm_obj_id_data      = JSonKeyValStored(gen_json_spec.generate_mmh3_4k_random_data,
-                                       sm_obj_data_size, 1)
-sm_obj_id_data_saved = JSonKeyValRetrive(sm_obj_id_data)
-sm_obj_id_data_saved2 = JSonKeyValRetrive(sm_obj_id_data)
+sm_obj_id_data      = JSonKeyValTriStored(gen_json_spec.generate_mmh3_4k_random_data,
+                                    sm_obj_data_size,
+                                    1,
+                                    sm_vol_id)
+sm_obj_id_data_saved = JSonKeyValTriRetrive(sm_obj_id_data)
+sm_obj_id_data_saved2 = JSonKeyValTriRetrive(sm_obj_id_data)
 
-sm_cmd_list1        = [sm_put_cmd, sm_vol_id, sm_obj_id_data, \
+sm_cmd_list1        = [sm_put_cmd, sm_obj_id_data, sm_obj_id_data, \
                        sm_obj_data_size, sm_obj_id_data]
-sm_cmd_list2        = [sm_get_cmd, sm_vol_id, sm_obj_data_size, \
-                       sm_obj_id_data_saved]
-sm_cmd_list3        = [sm_del_cmd, sm_vol_id, sm_obj_data_size, \
-                       sm_obj_id_data_saved2]
+sm_cmd_list2        = [sm_get_cmd, sm_obj_id_data_saved, sm_obj_id_data_saved]
+sm_cmd_list3        = [sm_del_cmd, sm_obj_id_data_saved2, sm_obj_id_data_saved2]
+                      # XXX: list currently copy by reference, not by value.
+                      #      sm_cmd_list3 will not work.
 
 list_sm_cmd   = gen_json_spec.create_list_of_lists(
     [sm_cmd_list1, sm_cmd_list2],

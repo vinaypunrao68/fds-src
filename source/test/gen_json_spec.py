@@ -110,7 +110,6 @@ class JSonKeyVal(JSonVal):
             tkey.format(34)
             assert tkey == self.cur_key_hex_str
             return self.cur_value
-        #return [key_hex_str, val]
     def get_values(self):
         return [None] * self.generator_count
 
@@ -120,7 +119,6 @@ class JSonKeyVal(JSonVal):
         if self.count == 0:
             return self.cur_value
         return None
-
 
 class JSonKeyValStored(JSonKeyVal):
     def __init__(self, generator, generator_arg, values_count):
@@ -133,11 +131,11 @@ class JSonKeyValStored(JSonKeyVal):
         key = self.get_key()
         val = self.get_value()
 
-        if key != None and val != None:
+        if self.count == 0:
             self.saved_key_list.append(key)
             self.saved_key_dict[key] = val
-
         return res
+
     def get_saved_list(self):
         return self.saved_key_list
 
@@ -147,11 +145,96 @@ class JSonKeyValRetrive(object):
         self.keyval_cur    = 0
 
     def to_json(self):
-        saved_list = self.keyval_stored.get_saved_list()
-        assert self.keyval_cur < len(saved_list)
-        idx = self.keyval_cur;
-        self.keyval_cur += 1
-        return saved_list[idx]
+        saved_keys = self.keyval_stored.get_saved_list()
+        assert len(saved_keys) > 0
+        res = saved_keys.pop()
+        return res
+
+class JSonKeyValTri(JSonKeyVal):
+    def __init__(self, generator, generator_arg, values_count, tri_vals):
+        JSonKeyVal.__init__(self, generator, generator_arg, values_count)
+        self.tri_values = tri_vals
+        self.cur_tri_val = None
+
+    def to_json(self):
+        if self.count == 0:
+            self.count = 1
+            (key, val) = self.generator_function(self.generator_arg, None)
+            key_hex_str = "{0:#0{1}x}".format(key, 34)
+            tri_val = self.tri_values.to_json()
+
+            self.cur_key_hex_str = key_hex_str
+            self.cur_value = val
+            self.cur_tri_val = tri_val
+
+            return self.cur_tri_val
+        elif self.count == 1:
+            self.count = 2
+            return self.cur_key_hex_str
+        else:
+            assert self.count == 2
+            self.count = 0
+            (tkey, tval) = self.generator_function(self.generator_arg, self.cur_value)
+            tkey = "{0:#0{1}x}".format(tkey, 34)
+            tkey.format(34)
+            assert tkey == self.cur_key_hex_str
+            return self.cur_value
+
+    def get_key(self):
+        if self.count == 0:
+            return self.cur_key_hex_str
+        return None
+
+    def get_value(self):
+        if self.count == 0:
+            return self.cur_value
+        return None
+
+    def get_tri(self):
+        return self.cur_tri_val
+
+
+class JSonKeyValTriStored(JSonKeyValTri):
+    def __init__(self, generator, generator_arg, values_count, tri_vals):
+        JSonKeyValTri.__init__(self, generator, generator_arg, values_count, tri_vals)
+        self.saved_key_list = []
+        self.saved_key_dict = {}
+        self.saved_tri_list = []
+
+    def to_json(self):
+        res = super(JSonKeyValTriStored, self).to_json()
+        key = self.get_key()
+        val = self.get_value()
+        tri = self.get_tri()
+
+        if self.count == 0:
+            self.saved_key_list.append(key)
+            self.saved_key_dict[key] = val
+            self.saved_tri_list.append(tri)
+        return res
+
+    def get_saved_list(self):
+        return (self.saved_key_list, self.saved_tri_list)
+
+class JSonKeyValTriRetrive(object):
+    def __init__(self, json_keyval_stored):
+        self.keyval_stored = json_keyval_stored
+        self.keyval_cur    = 0
+        self.count         = 0
+
+    def to_json(self):
+        (saved_keys, saved_tri) = self.keyval_stored.get_saved_list()
+        if self.count == 0:
+            assert len(saved_tri) > 0
+            self.count = 1
+            res = saved_tri.pop()
+        else:
+            assert len(saved_keys) > 0
+            self.count = 0
+            res = saved_keys.pop()
+        return res
+#XXX: provide a retrive class to retrive key-pair in randommize order, assuming
+#     all key-pair-stored are generated.
 
 class JSonTestID(JSonVal):
     def to_json(self):
