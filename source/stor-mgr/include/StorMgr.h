@@ -36,6 +36,7 @@
 #include <fds_obj_cache.h>
 #include <fds_assert.h>
 #include <fds_config.hpp>
+#include <fds_stopwatch.h>
 
 #include <utility>
 #include <atomic>
@@ -119,6 +120,24 @@ class SmPlReq : public diskio::DiskRequest {
     }
 };
 
+/**
+ * @brief Storage manager counters
+ */
+class SMCounters : public FdsCounters
+{
+ public:
+  SMCounters(const std::string &id, FdsCountersMgr *mgr)
+      : FdsCounters(id, mgr),
+        put_reqs("put_reqs", this),
+        get_reqs("get_reqs", this),
+        puts_latency("puts_latency", this)
+  {
+  }
+
+  NumericCounter put_reqs;
+  NumericCounter get_reqs;
+  LatencyCounter puts_latency;
+};
 
 class ObjectStorMgr :
         public FdsProcess,
@@ -153,6 +172,9 @@ class ObjectStorMgr :
     boost::shared_ptr<netSessionTbl> nst_;
     boost::shared_ptr<FDSP_DataPathReqIf> datapath_handler_;
     netDataPathServerSession *datapath_session_;
+
+    /* Counters */
+    SMCounters counters_;
 
     /* Helper for accessing datapth response client */
     inline boost::shared_ptr<FDS_ProtocolInterface::FDSP_DataPathRespClient> 

@@ -122,7 +122,7 @@ class StorClient():
     logSeverity = 2
     amBin  = "AMAgent"
     ubdBin = "ubd"
-    blkDir = "stor_hvisor"
+    blkDir = "fds_client/blk_dev"
     blkMod = "fbd.ko"
 
     def __init__(self, _name):
@@ -489,7 +489,7 @@ class TestBringUp():
     # Builds the command to start SH UBD service
     #
     def buildUbdCmd(self, client):
-        cmd = self.ldLibPath + "; " + self.iceHome + "; " + " cd " + self.fdsBinDir + "; " + "ulimit -s 4096; " +  "ulimit -c unlimited;" + "./" + client.getUbdCmd() + " --fds.om.IPAddress=" + self.omIpStr + " --fds.om.PortNumber=" + str(self.omCtrlPort) + " --fds.am.log_severity=" + str(client.getLogSeverity())
+        cmd = self.ldLibPath + "; " + self.iceHome + "; " + " cd " + self.fdsBinDir + "; " + "ulimit -s 4096; " +  "ulimit -c unlimited;" + "./" + client.getUbdCmd() + " --om_ip=" + self.omIpStr + " --om_port=" + str(self.omCtrlPort) + " --node_name=localhost-" + client.name + " --log-severity=" + str(client.getLogSeverity())
         return cmd
 
     ##
@@ -668,6 +668,8 @@ class TestBringUp():
         else:
             print "Failed to attach volume"
             return -1
+
+        time.sleep(5)
 
         #
         # Run this tier policy command on the OM IP

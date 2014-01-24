@@ -14,6 +14,8 @@
 #include <fds_globals.h>
 #include <fds_module.h>
 #include <fds_config.hpp>
+#include <fds_counters.h>
+#include <graphite_client.h>
 #include <util/Log.h>
 
 namespace fds {
@@ -82,6 +84,9 @@ class FdsProcess : public boost::noncopyable {
                const std::string &base_path);
 
     virtual void setup_sig_handler();
+    virtual void setup_cntrs_mgr();
+    virtual void setup_timer_service();
+    virtual void setup_graphite();
     virtual void setup_mod_vector(int argc, char *argv[],
                                   fds::Module **mod_vec);
 
@@ -90,6 +95,19 @@ class FdsProcess : public boost::noncopyable {
 
     /* Process wide config accessor */
     FdsConfigAccessor conf_helper_;
+
+    /* Process wide counters manager */
+    boost::shared_ptr<FdsCountersMgr> cntrs_mgrPtr_;
+
+    /* Process wide timer service.  Not enabled by default.  It needs
+     * to be explicitly enabled 
+     */
+    boost::shared_ptr<FdsTimer> timer_servicePtr_;
+
+    /* Graphite client for exporting stats.  Only enabled based on config and a
+     * compiler directive DEV_BUILD (this isn't done yet)
+     */
+    boost::shared_ptr<GraphiteClient> graphitePtr_;
 };
 
 }  // namespace fds
