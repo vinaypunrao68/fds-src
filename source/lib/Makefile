@@ -15,7 +15,8 @@ user_cpp         :=      \
     PerfStats.cpp        \
     jsoncpp.cpp          \
     fds_process.cpp      \
-    NetSession.cpp
+    NetSession.cpp       \
+    fds_counters.cpp
 #    TransJournal.cpp     \
 
 user_incl_dir    := $(topdir)

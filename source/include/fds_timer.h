@@ -109,7 +109,7 @@ private:
     {
         {
             fds_spinlock::scoped_lock l(task->lock_);
-            if (task->scheduled_) {
+            if (task->scheduled_ && !repeated) {
                 return false;
             }
             task->scheduled_ = true;
@@ -140,7 +140,11 @@ private:
                 /* task has been cancelled.  Don't invoke the handler */
                 return;
             }
-            task->scheduled_ = false;
+
+            /* We will not set scheduled_ to false for repeated task here */
+            if (!repeated) {
+                task->scheduled_ = false;
+            }
         }
 
         if (error ==  boost::asio::error::operation_aborted) {

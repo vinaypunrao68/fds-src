@@ -109,9 +109,9 @@ sm_get_cmd          = JSonVal(['get'])
 sm_del_cmd          = JSonVal(['delete'])
 sm_vol_id           = JSonVal(['1', '2', '3', '4', '5',
                                '6', '7', '8', '9', '10'])
-sm_obj_data_size    = 8
+sm_obj_data_size    = "8"
 sm_obj_id_data      = JSonKeyValTriStored(gen_json_spec.generate_mmh3_4k_random_data,
-                                    sm_obj_data_size,
+                                    int(sm_obj_data_size),
                                     1,
                                     sm_vol_id)
 sm_obj_id_data_saved = JSonKeyValTriRetrive(sm_obj_id_data)

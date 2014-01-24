@@ -278,7 +278,6 @@ UT_ObjectOpcall::parseOp(JsObject *parent, Sm_ProbeMod *probeMod)
     std::string op = static_cast<char *>(obj->js_pod_object());
 
     if (op == "put") {
-        std::cout << "Parsing put request..." << std::endl;
         Sm_ProbeMod::PutParams p;
         obj = (*parent)[1];
         p.volId = strtoul((static_cast<char *>(obj->js_pod_object())), NULL, 10);
@@ -289,13 +288,13 @@ UT_ObjectOpcall::parseOp(JsObject *parent, Sm_ProbeMod *probeMod)
         p.objId = objIdHexStr;
 
         obj = (*parent)[3];
+        p.dataLen = strtoul(static_cast<char *>(obj->js_pod_object()), NULL, 10);
+
+        obj = (*parent)[4];
         p.objData = static_cast<char *>(obj->js_pod_object());
-        p.dataLen = strlen(p.objData);
 
         probeMod->sendPut(p);
     } else if (op == "get") {
-        std::cout << "Parsing get request..." << std::endl;
-
         Sm_ProbeMod::GetParams g;
         obj = (*parent)[1];
         g.volId = strtoul((static_cast<char *>(obj->js_pod_object())), NULL, 10);
@@ -307,8 +306,6 @@ UT_ObjectOpcall::parseOp(JsObject *parent, Sm_ProbeMod *probeMod)
 
         probeMod->sendGet(g);
     } else if (op == "delete") {
-        std::cout << "Parsing delete request..." << std::endl;
-
         Sm_ProbeMod::DeleteParams d;
         obj = (*parent)[1];
         d.volId = strtoul((static_cast<char *>(obj->js_pod_object())), NULL, 10);

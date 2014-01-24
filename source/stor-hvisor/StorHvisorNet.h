@@ -201,10 +201,10 @@ public:
   fds::Error getBucketResp(const FDSP_MsgHdrTypePtr& rxMsg,
 			   const FDSP_GetVolumeBlobListRespTypePtr& blobListResp);
 
-  static void bucketStatsRespHandler(const FDSP_MsgHdrType& rx_msg,
-				     const FDSP_BucketStatsRespType& buck_stats);
-  void getBucketStatsResp(const FDSP_MsgHdrType& rx_msg,
-			  const FDSP_BucketStatsRespType& buck_stats);
+  static void bucketStatsRespHandler(const FDSP_MsgHdrTypePtr& rx_msg,
+				     const FDSP_BucketStatsRespTypePtr& buck_stats);
+  void getBucketStatsResp(const FDSP_MsgHdrTypePtr& rx_msg,
+			  const FDSP_BucketStatsRespTypePtr& buck_stats);
 
   void InitDmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
   void InitSmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);

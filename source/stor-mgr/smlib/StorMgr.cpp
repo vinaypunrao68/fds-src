@@ -210,7 +210,8 @@ ObjectStorMgr::ObjectStorMgr(int argc, char *argv[],
     qosThrds(10),
     shuttingDown(false),
     numWBThreads(1),
-    maxDirtyObjs(10000)
+    maxDirtyObjs(10000),
+    counters_("SM", cntrs_mgrPtr_.get())
 {
     /*
      * TODO: Fix the totalRate above to not
@@ -1376,6 +1377,8 @@ ObjectStorMgr::PutObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
     } else {
         fdsp_msg->result = FDSP_ERR_OK;
     }
+
+    counters_.put_reqs.incr();
 }
 
 
@@ -1568,6 +1571,8 @@ ObjectStorMgr::GetObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
     } else {
         fdsp_msg->result = FDSP_ERR_OK;
     }
+    
+    counters_.get_reqs.incr();
 }
 
 Error
