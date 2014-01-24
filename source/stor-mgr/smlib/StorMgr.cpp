@@ -59,6 +59,7 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
     msgHdr->msg_chksum = reqId;
     objStorMgr->waitingReqMutex->lock();
     objStorMgr->waitingReqs[reqId] = msgHdr;
+    objStorMgr->reqLatencyMap[reqId].start();
     objStorMgr->waitingReqMutex->unlock();
 
     objStorMgr->PutObject(msgHdr, putObj);
@@ -210,7 +211,8 @@ ObjectStorMgr::ObjectStorMgr(int argc, char *argv[],
     qosThrds(10),
     shuttingDown(false),
     numWBThreads(1),
-    maxDirtyObjs(10000)
+    maxDirtyObjs(10000),
+    counters_("SM", cntrs_mgrPtr_.get())
 {
     /*
      * TODO: Fix the totalRate above to not
@@ -1213,6 +1215,8 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
     fds_verify(waitingReqs.count(putReq->io_req_id) > 0);
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr = waitingReqs[putReq->io_req_id];
     waitingReqs.erase(putReq->io_req_id);
+    counters_.puts_latency.update(reqLatencyMap[putReq->io_req_id].elapsed());
+    reqLatencyMap.erase(putReq->io_req_id);
     waitingReqMutex->unlock();
 
     FDSP_PutObjTypePtr putObj(new FDSP_PutObjType());
@@ -1376,6 +1380,8 @@ ObjectStorMgr::PutObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
     } else {
         fdsp_msg->result = FDSP_ERR_OK;
     }
+
+    counters_.put_reqs.incr();
 }
 
 
@@ -1568,6 +1574,8 @@ ObjectStorMgr::GetObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
     } else {
         fdsp_msg->result = FDSP_ERR_OK;
     }
+    
+    counters_.get_reqs.incr();
 }
 
 Error
