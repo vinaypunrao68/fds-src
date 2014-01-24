@@ -272,11 +272,6 @@ class ObjectStorMgr :
     std::atomic<fds_uint64_t>  nextReqId;
     fds_mutex                 *waitingReqMutex;
 
-    /* Ideally this should be part of the same data strucuture that keeps track
-     * of request 
-     */
-    std::unordered_map<fds_uint64_t, FdsStopwatch> reqLatencyMap;
-
     /*
      * Local perf stat collection
      */

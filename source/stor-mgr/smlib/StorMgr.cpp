@@ -59,7 +59,6 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
     msgHdr->msg_chksum = reqId;
     objStorMgr->waitingReqMutex->lock();
     objStorMgr->waitingReqs[reqId] = msgHdr;
-    objStorMgr->reqLatencyMap[reqId].start();
     objStorMgr->waitingReqMutex->unlock();
 
     objStorMgr->PutObject(msgHdr, putObj);
@@ -1215,8 +1214,6 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
     fds_verify(waitingReqs.count(putReq->io_req_id) > 0);
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr = waitingReqs[putReq->io_req_id];
     waitingReqs.erase(putReq->io_req_id);
-    counters_.puts_latency.update(reqLatencyMap[putReq->io_req_id].elapsed());
-    reqLatencyMap.erase(putReq->io_req_id);
     waitingReqMutex->unlock();
 
     FDSP_PutObjTypePtr putObj(new FDSP_PutObjType());
