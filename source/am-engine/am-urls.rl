@@ -29,7 +29,9 @@ ame_http_parse_url(AMEngine *eng, AME_HttpReq *req)
         bucket = [0-9]+ "/";
 
         main := (
-            bucket
+            bucket 
+#object |
+#            unit_test
         )*;
 
         write init;

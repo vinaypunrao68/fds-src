@@ -54,7 +54,6 @@ toolchain_ldb_lib    := $(toolchain_ldb)
 #
 toolchain_libconfig        := $(topdir)/../libconfig-1.4.9
 toolchain_libconfig_incl   := $(toolchain_libconfig)/lib
-toolchain_libconfig_lib    := $(toolchain_libconfig)/lib/.libs
 
 # Jansson settings.
 #
@@ -76,7 +75,6 @@ toolchain_cpp_flags  := $(toolchain_incl_flags)
 
 toolchain_ld_flags   := -L$(toolchain_boost_lib) -L$(toolchain_ice_lib)
 toolchain_ld_flags   += -L$(toolchain_ldb_lib) -L$(toolchain_lib)
-toolchain_ld_flags   += -L$(toolchain_libconfig_lib)
 
 toolchain_so_flags   :=
 toolchain_ar_flags   :=
