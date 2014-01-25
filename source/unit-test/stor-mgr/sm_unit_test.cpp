@@ -943,7 +943,8 @@ class SmUnitTest {
       if (testname == "basic_update") {
           result = basic_update();
       } else if (testname == "basic_uq") {
-          result = basic_uq();
+          while (true)
+              result = basic_uq();
       } else if (testname == "basic_query") {
           result = basic_query();
       } else if (testname == "basic_dedupe") {

@@ -84,6 +84,7 @@ netSession* netSessionTbl::setupClientSession(const std::string& dest_node_name,
     switch(remote_mgr_id) { 
         case FDSP_STOR_MGR :  
             if (local_mgr_id == FDSP_STOR_HVISOR) { 
+#if 0
                 session = dynamic_cast<netSession *>(
                     new netDataPathClientSession(dest_node_name,
                                                  port,
@@ -91,7 +92,25 @@ netSession* netSessionTbl::setupClientSession(const std::string& dest_node_name,
                                                  remote_mgr_id,
                                                  num_threads, 
                                                  respSvrObj));
- 
+#endif 
+
+                /* TODO:  WE SHOULDN'T DO THIS.  Change the interface to take
+                 * shared pointer
+                 */
+                boost::shared_ptr<FDSP_DataPathRespIf> respSvr(
+                    static_cast<FDSP_DataPathRespIf *>(respSvrObj));
+
+                session = dynamic_cast<netSession *>(
+                    new netClientSessionEx<FDSP_DataPathReqClient, 
+                        FDSP_DataPathRespProcessor,FDSP_DataPathRespIf>(dest_node_name,
+                                                                        port,
+                                                                        local_mgr_id,
+                                                                        remote_mgr_id,
+                                                                        respSvr));
+
+                netDataPathClientSession *dp_session =  static_cast<netDataPathClientSession *>(session);
+                fds_verify(session == dp_session);
+                fds_verify(respSvr.get() == dp_session->getRespHandler().get());
             } else if (local_mgr_id == FDSP_ORCH_MGR) { 
                 session = dynamic_cast<netSession *>(
                     new netControlPathClientSession(dest_node_name,
@@ -181,13 +200,18 @@ netSession* netSessionTbl::setupServerSession(const std::string& dest_node_name,
                                                     num_threads,
                                                     SvrObj)); 
             } else {
+                /* TODO:  WE SHOULDN'T DO THIS.  Change the interface to take
+                 * shared pointer
+                 */
+                boost::shared_ptr<FDSP_DataPathReqIf> reqHandler(
+                    static_cast<FDSP_DataPathReqIf*>(SvrObj));
                 session = dynamic_cast<netSession *>(
                     new netDataPathServerSession(dest_node_name,
                                                  port,
                                                  local_mgr_id,
                                                  remote_mgr_id,
                                                  num_threads,
-                                                 SvrObj)); 
+                                                 reqHandler)); 
             }
             break;
             
