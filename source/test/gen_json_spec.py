@@ -21,6 +21,7 @@ import ConfigParser
 import mmh3
 import os
 import string
+import time
 
 def create_list_of_lists(template_lists, count, rand):
     i = 0
@@ -316,7 +317,7 @@ class JSonTestCmdLine(object):
         if args.seed:
             self.cmd_seed = int(args.seed)
         else:
-            self.cmd_seed = None
+            self.cmd_seed = time.time()
 
     def get_client_id(self):
         return self.cmd_client_id
@@ -464,11 +465,11 @@ class JSonTestClient(object):
                 call(["curl", curl_verbose, "-X", "POST", "-d", \
                       json_cmd, "http://localhost:8000/abc"])
                 #call(["curl", "-v", "-X", "PUT", "-d",  \
-                #      json_cmd, "http://localhost:8000/abc"])
+                #     json_cmd, "http://localhost:8000/abc"])
                 #call(["curl", "-v", "-X", "POST", "-d", \
-                #      json_cmd, "http://localhost:8000/abc/def"])
+                #     json_cmd, "http://localhost:8000/abc/def"])
                 #call(["curl", "-v", "-X", "PUT", "-d",  \
-                #      json_cmd, "http://localhost:8000/abc/def"])
+                #     json_cmd, "http://localhost:8000/abc/def"])
         print "\nTotal unique test spec called to curl: %d" % self.js_test_spec_cnt
         self.print_seed()
 
