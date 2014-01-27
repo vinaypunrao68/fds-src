@@ -505,12 +505,13 @@ void DataMgr::setup_metadatapath_server(const std::string &ip)
     // for datapath_handler.  Make sure that happens.  Otherwise you
     // end up with a pointer leak.
     // TODO: Figure out who cleans up datapath_session_
-    metadatapath_session = static_cast<netMetaDataPathServerSession*>(
-        nstable->createServerSession(myIpInt,
-                                     port_num,
-                                     node_name,
-                                     FDSP_STOR_HVISOR,
-                                     metadatapath_handler.get()));
+    metadatapath_session = nstable->\
+                           createServerSession<netMetaDataPathServerSession>(
+                               myIpInt,
+                               port_num,
+                               node_name,
+                               FDSP_STOR_HVISOR,
+                               metadatapath_handler);
 }
 
 

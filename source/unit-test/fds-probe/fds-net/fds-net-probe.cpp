@@ -190,7 +190,7 @@ fdsNetProbeMod::mod_init(SysParams const *const param)
                                                                10,
                                                                FDSP_STOR_HVISOR));
 
-    edpri = new exampleDataPathRespIf();
+    edpri.reset(new exampleDataPathRespIf());
     return 0;
 }
 
@@ -206,13 +206,15 @@ fdsNetProbeMod::mod_startup()
      * Connect to a storage manager. This pointer
      * is manager internall by the
      */
-    netSession *dpSession = amTbl->startSession(remoteIp,
-                                                8888,
-                                                FDSP_STOR_MGR,
-                                                numChannels,
-                                                reinterpret_cast<void*>(edpri));
-    dpClient = dynamic_cast<netDataPathClientSession *>(dpSession)->getClient();  // NOLINT
-    sid = dynamic_cast<netDataPathClientSession *>(dpSession)->getSessionId();  // NOLINT
+    netDataPathClientSession* dpSession = amTbl->\
+                                          startSession<netDataPathClientSession>(
+                                              remoteIp,
+                                              8888,
+                                              FDSP_STOR_MGR,
+                                              numChannels,
+                                              edpri);
+    dpClient = dpSession->getClient();  // NOLINT
+    sid = dpSession->getSessionId();  // NOLINT
 }
 
 // mod_shutdown
