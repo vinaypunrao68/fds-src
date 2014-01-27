@@ -37,8 +37,6 @@ void FDSP_ServiceImpl::EstablishSession(FDSP_SessionReqResp& _return,
     /* Generate a uuid and add a session.  Any further authentication can be
      * done here 
      */
-    /*srvr_session_->addRespClientSession(fdsp_msg.src_node_name, 
-      fdsp_msg.src_port, fds::get_uuid());*/
     _return.sid = fds::get_uuid();
     _return.status = srvr_session_->addRespClientSession(_return.sid, transport_); 
 } 
@@ -74,208 +72,7 @@ netSessionTbl::~netSessionTbl() {
     endAllSessions();
     delete sessionTblMutex;
 }
-#if 0
-netSession* netSessionTbl::setupClientSession(const std::string& dest_node_name,
-                                              int port,
-                                              FDS_ProtocolInterface::FDSP_MgrIdType local_mgr_id, 
-                                              FDS_ProtocolInterface::FDSP_MgrIdType remote_mgr_id,
-                                              void *respSvrObj) {
-    netSession *session = NULL;
-    switch(remote_mgr_id) { 
-        case FDSP_STOR_MGR :  
-            if (local_mgr_id == FDSP_STOR_HVISOR) { 
-#if 0
-                session = dynamic_cast<netSession *>(
-                    new netDataPathClientSession(dest_node_name,
-                                                 port,
-                                                 local_mgr_id,
-                                                 remote_mgr_id,
-                                                 num_threads, 
-                                                 respSvrObj));
-#endif 
 
-                /* TODO:  WE SHOULDN'T DO THIS.  Change the interface to take
-                 * shared pointer
-                 */
-                boost::shared_ptr<FDSP_DataPathRespIf> respSvr(
-                    static_cast<FDSP_DataPathRespIf *>(respSvrObj));
-
-                session = dynamic_cast<netSession *>(
-                    new netClientSessionEx<FDSP_DataPathReqClient, 
-                        FDSP_DataPathRespProcessor,FDSP_DataPathRespIf>(dest_node_name,
-                                                                        port,
-                                                                        local_mgr_id,
-                                                                        remote_mgr_id,
-                                                                        respSvr));
-
-                netDataPathClientSession *dp_session =  static_cast<netDataPathClientSession *>(session);
-                fds_verify(session == dp_session);
-                fds_verify(respSvr.get() == dp_session->getRespHandler().get());
-            } else if (local_mgr_id == FDSP_ORCH_MGR) { 
-                boost::shared_ptr<FDSP_ControlPathRespIf> respSvr(
-                    static_cast<FDSP_ControlPathRespIf *>(respSvrObj));
-                session = dynamic_cast<netSession *>(
-                    new netControlPathClientSession(dest_node_name,
-                                                    port,
-                                                    local_mgr_id,
-                                                    remote_mgr_id,
-                                                    /*num_threads,*/
-                                                    respSvr)); 
-            }
-            break;
-            
-        case FDSP_DATA_MGR : 
-            if (local_mgr_id == FDSP_STOR_HVISOR) { 
-                boost::shared_ptr<FDSP_MetaDataPathRespIf> respSvr(
-                    static_cast<FDSP_MetaDataPathRespIf *>(respSvrObj));
-                session = dynamic_cast<netSession *>(
-                    new netMetaDataPathClientSession(dest_node_name,
-                                                     port,
-                                                     local_mgr_id,
-                                                     remote_mgr_id,
-                                                     /*num_threads,*/
-                                                     respSvr)); 
-            } else if (local_mgr_id == FDSP_ORCH_MGR) { 
-                boost::shared_ptr<FDSP_ControlPathRespIf> respSvr(
-                    static_cast<FDSP_ControlPathRespIf *>(respSvrObj));
-                session = dynamic_cast<netSession *>(
-                    new netControlPathClientSession(dest_node_name,
-                                                    port,
-                                                    local_mgr_id,
-                                                    remote_mgr_id,
-                                                    /*num_threads,*/
-                                                    respSvr)); 
-            }
-            break;
-
-        case FDSP_STOR_HVISOR :
-            if (local_mgr_id == FDSP_ORCH_MGR) {
-                boost::shared_ptr<FDSP_ControlPathRespIf> respSvr(
-                    static_cast<FDSP_ControlPathRespIf *>(respSvrObj));
-                session = dynamic_cast<netSession *>(
-                    new netControlPathClientSession(dest_node_name,
-                                                    port,
-                                                    local_mgr_id,
-                                                    remote_mgr_id,
-                                                    /*num_threads,*/
-                                                    respSvr)); 
-            }
-            break;
-            
-        case FDSP_ORCH_MGR: 
-            if (local_mgr_id == FDSP_CLI_MGR) { 
-                session = dynamic_cast<netSession *>(
-                    new netConfigPathClientSession(dest_node_name,
-                                                   port,
-                                                   local_mgr_id,
-                                                   remote_mgr_id,
-                                                   num_threads, 
-                                                   respSvrObj)); 
-            } else if ((local_mgr_id == FDSP_STOR_HVISOR) ||
-                       (local_mgr_id == FDSP_STOR_MGR) ||
-                       (local_mgr_id == FDSP_DATA_MGR)) {
-                boost::shared_ptr<FDSP_OMControlPathRespIf> respSvr(
-                    static_cast<FDSP_OMControlPathRespIf *>(respSvrObj));
-                session = dynamic_cast<netSession *>(
-                    new netOMControlPathClientSession(dest_node_name,
-                                                      port,
-                                                      local_mgr_id,
-                                                      remote_mgr_id,
-                                                      /*num_threads,*/ 
-                                                      respSvr)); 
-            }
-            break;
-    } 
-    fds_verify(session != NULL);
-    session->setSessionRole(NETSESS_CLIENT);
-    return session;
-}
-#endif
-
-#if 0
-template <class ReqHandlerT>
-netSession* netSessionTbl::setupServerSession(const std::string& dest_node_name,
-                                              int port,
-                                              FDS_ProtocolInterface::FDSP_MgrIdType local_mgr_id,
-                                              FDS_ProtocolInterface::FDSP_MgrIdType remote_mgr_id,
-                                              boost::shared_ptr<ReqHandlerT> reqHandler) {
-    netSession *session = NULL;
-    
-    switch(local_mgr_id) { 
-        case FDSP_STOR_MGR :
-            if (remote_mgr_id == FDSP_ORCH_MGR) {
-                session = dynamic_cast<netSession *>(
-                    new netControlPathServerSession(dest_node_name,
-                                                    port,
-                                                    local_mgr_id,
-                                                    remote_mgr_id,
-                                                    num_threads,
-                                                    reqHandler)); 
-            } else {
-                session = dynamic_cast<netSession *>(
-                    new netDataPathServerSession(dest_node_name,
-                                                 port,
-                                                 local_mgr_id,
-                                                 remote_mgr_id,
-                                                 num_threads,
-                                                 reqHandler)); 
-            }
-            break;
-            
-        case FDSP_DATA_MGR :
-            if (remote_mgr_id == FDSP_ORCH_MGR) {
-                session = dynamic_cast<netSession *>(
-                    new netControlPathServerSession(dest_node_name,
-                                                  port,
-                                                  local_mgr_id,
-                                                  remote_mgr_id,
-                                                  num_threads,
-                                                  reqHandler));             
-            } else {
-	      session = dynamic_cast<netSession *>(
-                  new netMetaDataPathServerSession(dest_node_name,
-                                                   port,
-                                                   local_mgr_id,
-                                                   remote_mgr_id,
-                                                   num_threads,
-                                                   reqHandler)); 
-            }
-            break;
-
-        case FDSP_STOR_HVISOR :
-            if (remote_mgr_id == FDSP_ORCH_MGR) {
-                session = dynamic_cast<netSession *>(
-                    new netControlPathServerSession(dest_node_name,
-                                                  port,
-                                                  local_mgr_id,
-                                                  remote_mgr_id,
-                                                  num_threads,
-                                                  reqHandler));             
-            }
-
-        case FDSP_ORCH_MGR: 
-            if (remote_mgr_id == FDSP_CLI_MGR) { 
-                session = dynamic_cast<netSession *>(
-                    new netConfigPathServerSession(dest_node_name,
-                                                   port,
-                                                   local_mgr_id,
-                                                   remote_mgr_id,
-                                                   num_threads, 
-                                                   reqHandler)); 
-            } else if (remote_mgr_id == FDSP_OMCLIENT_MGR) {
-                session = dynamic_cast<netSession *>(
-                    new netOMControlPathServerSession(dest_node_name,
-                                                      port,
-                                                      local_mgr_id,
-                                                      remote_mgr_id,
-                                                      num_threads, 
-                                                      reqHandler)); 
-            }
-            break;
-    } 
-    return session;
-}
-#endif
 netSession::~netSession()
 {
 }
@@ -353,18 +150,6 @@ std::string netSession::getLocalIp()
     return myIp;
 }
 
-#if 0
-netSession* netSessionTbl::startSession(int ipaddr,
-					int port,
-					FDSP_MgrIdType remote_mgr_id,
-					int num_channels,
-					void *respSvr)
-{
-    std::string node_name = ipAddr2String(ipaddr);
-    return startSession(node_name, port, remote_mgr_id, num_channels, respSvr);
-}
-#endif
-
 std::string netSessionTbl::getKey(std::string node_name, FDSP_MgrIdType remote_mgr_id) { 
     std::string node_name_key = node_name;
     switch ( localMgrId ) { 
@@ -404,27 +189,6 @@ std::string netSessionTbl::getKey(std::string node_name, FDSP_MgrIdType remote_m
     }
     return node_name_key;
 }
-#if 0
-netSession* netSessionTbl::startSession(const std::string& node_name,
-                                        int port,
-                                        FDS_ProtocolInterface::FDSP_MgrIdType remote_mgr_id,
-                                        int num_channels,
-                                        void *respSvr) 
-{
-    netSession *session = static_cast<netSession *>
-            (setupClientSession(node_name, port, localMgrId, remote_mgr_id, respSvr));
-    if (session == NULL) { 
-        return NULL;
-    }
-    std::string node_name_key = getKey(node_name, remote_mgr_id);
-    
-    sessionTblMutex->lock();
-    sessionTbl[node_name_key] = session;
-    sessionTblMutex->unlock();
-    
-    return session;
-}
-#endif
 
 netSession *netSessionTbl::getSession(const std::string& node_name, FDSP_MgrIdType mgr_id) 
 {
@@ -463,37 +227,6 @@ void netSessionTbl::endAllSessions() {
     sessionTbl.clear();
     sessionTblMutex->unlock();
 }
-
-#if 0
-template <class ReqHandlerT>
-netSession* netSessionTbl::createServerSession(int local_ipaddr, 
-					       int _port, 
-					       std::string local_node_name, 
-					       FDSP_MgrIdType remote_mgr_id, 
-					       boost::shared_ptr<ReqHandlerT> reqHandlerObj) {
-    netSession* session = NULL;
-    src_ipaddr = local_ipaddr;
-    port = _port;
-    src_node_name = local_node_name;
-
-    session = setupServerSession(local_node_name, port, localMgrId, remote_mgr_id, reqHandlerObj);
-    if ( session == NULL ) {
-       return NULL;
-    }
-    session->setSessionRole(NETSESS_SERVER);
-    std::string node_name_key = getKey(local_node_name, remote_mgr_id);
-    
-    sessionTblMutex->lock();
-    sessionTbl[node_name_key] = session;
-    sessionTblMutex->unlock();
-    threadManager = ThreadManager::newSimpleThreadManager(num_threads);
-    threadFactory = boost::shared_ptr<PosixThreadFactory>(new PosixThreadFactory());
-    threadManager->threadFactory(threadFactory);
-    threadManager->start();
-
-    return session;
-}
-#endif
 
 void netSessionTbl::listenServer(netSession* server_session) {
     switch(localMgrId) { 
