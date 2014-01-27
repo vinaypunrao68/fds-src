@@ -33,6 +33,11 @@ toolchain_ice_bin    := $(toolchain_ice_top)/bin
 tool_thrift          := $(toolchain_bin)/thrift
 toolchain_thrf       := $(topdir)/../thrift-0.9.0
 toolchain_thrf_incl  := -I$(toolchain_thrf)/lib/cpp/src
+toolchain_thrf_opts  := --gen cpp:pure_enums --allow-64bit-consts
+
+ifdef user_thrift_loc
+toolchain_thrf_opts  += -out $(user_thrift_loc)
+endif
 
 # Boost settings.
 #
@@ -49,7 +54,6 @@ toolchain_ldb_lib    := $(toolchain_ldb)
 #
 toolchain_libconfig        := $(topdir)/../libconfig-1.4.9
 toolchain_libconfig_incl   := $(toolchain_libconfig)/lib
-toolchain_libconfig_lib    := $(toolchain_libconfig)/lib/.libs
 
 # Jansson settings.
 #
@@ -70,7 +74,7 @@ toolchain_cc_flags   := $(toolchain_incl_flags)
 toolchain_cpp_flags  := $(toolchain_incl_flags)
 
 toolchain_ld_flags   := -L$(toolchain_boost_lib) -L$(toolchain_ice_lib)
-toolchain_ld_flags   += -L$(toolchain_ldb_lib) -L$(toolchain_lib) -L$(toolchain_libconfig_lib)
+toolchain_ld_flags   += -L$(toolchain_ldb_lib) -L$(toolchain_lib)
 
 toolchain_so_flags   :=
 toolchain_ar_flags   :=

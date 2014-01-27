@@ -16,7 +16,6 @@ user_non_fds_libs :=                                                          \
     ssl crypto \
     config++ \
 	thrift
-#    Ice IceUtil \
 
 user_incl_dir     := $(topdir) $(topdir)/lib $(topdir)/include $(topdir)/util
 user_cpp_flags    := 
@@ -43,11 +42,6 @@ user_bin_exe      := \
     perfstat_unit_test\
     fds_process_interrupt_test\
     counters_test\
-    fds_process_interrupt_test
-    #om_client_test \
-#    tb_unit_test \
-#    qos_dispatcher_unit_test \
-
 
 catalog_test      := catalog_unit_test.cpp
 #om_client_test    := om_client_unit_test.cpp
