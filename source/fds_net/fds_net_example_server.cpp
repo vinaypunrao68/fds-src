@@ -191,7 +191,7 @@ int main(int argc, char *argv[]) {
      * TODO: Make this a smart pointer. The setupClientSession interface
      * needs to change to support this.
      */
-    exampleDataPathReqIf *edpri = new exampleDataPathReqIf();
+    boost::shared_ptr<exampleDataPathReqIf> edpri(new exampleDataPathReqIf());
 
     boost::shared_ptr<netSessionTbl> nst =
             // boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_ORCH_MGR));
@@ -201,7 +201,7 @@ int main(int argc, char *argv[]) {
     std::string myIpStr = getMyIp();
     int myIpInt = netSession::ipString2Addr(myIpStr);
     std::string myNodeName = "Example SM";
-    exampleSession = nst->createServerSession(myIpInt,
+    exampleSession = nst->createServerSession<netDataPathServerSession>(myIpInt,
                                               8888,
                                               myIpStr,
                                               FDSP_STOR_HVISOR,

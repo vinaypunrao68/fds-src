@@ -219,8 +219,8 @@ public:
   SysParams* getSysParams();
   void StartOmClient();
   sh_comm_modes GetRunTimeMode() { return mode; }
-  FDSP_DataPathRespCbackI	*dPathRespCback;
-  FDSP_MetaDataPathRespCbackI	*mPathRespCback;
+  boost::shared_ptr<FDSP_DataPathRespCbackI> dPathRespCback;
+  boost::shared_ptr<FDSP_MetaDataPathRespCbackI> mPathRespCback;
 
 private:
   fds_log *sh_log;

@@ -182,19 +182,19 @@ Sm_ProbeMod::mod_init(SysParams const *const param)
                                                                10,
                                                                FDSP_STOR_HVISOR));
     // Create interface instance
-    pdpri = new probeDataPathRespIf();
+    pdpri.reset(new probeDataPathRespIf());
 
     // Init session with SM server
-    netSession *dpSession = nsTbl->startSession(smIp,
+    netDataPathClientSession *dpSession = nsTbl->startSession<netDataPathClientSession>(smIp,
                                                 6902,
                                                 FDSP_STOR_MGR,
                                                 numChannels,
-                                                reinterpret_cast<void*>(pdpri));
+                                                pdpri);
     // Get the interface for this session
-    dpClient = dynamic_cast<netDataPathClientSession *>(dpSession)->getClient();  // NOLINT
+    dpClient = dpSession->getClient();  // NOLINT
 
     // Get the ID for the session
-    sessionId = dynamic_cast<netDataPathClientSession *>(dpSession)->getSessionId();  // NOLINT
+    sessionId = dpSession->getSessionId();  // NOLINT
 
     return 0;
 }

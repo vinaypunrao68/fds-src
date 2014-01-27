@@ -486,12 +486,12 @@ void ObjectStorMgr::setup_datapath_server(const std::string &ip)
     // for datapath_handler.  Make sure that happens.  Otherwise you
     // end up with a pointer leak.
     // TODO: Figure out who cleans up datapath_session_
-    datapath_session_ = static_cast<netDataPathServerSession*>(
-                            nst_->createServerSession(myIpInt,
-                                              conf_helper_.get<int>("data_port"),
-                                              node_name,
-                                              FDSP_STOR_HVISOR,
-                                              datapath_handler_.get()));
+    datapath_session_ = nst_->createServerSession<netDataPathServerSession>(
+        myIpInt,
+        conf_helper_.get<int>("data_port"),
+        node_name,
+        FDSP_STOR_HVISOR,
+        datapath_handler_);
 }
 
 void ObjectStorMgr::run()

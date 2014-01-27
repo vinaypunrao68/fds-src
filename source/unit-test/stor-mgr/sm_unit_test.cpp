@@ -245,7 +245,7 @@ class SmUnitTest {
   boost::shared_ptr<netSessionTbl> nst_;
   FDSP_DataPathReqClientPtr fdspDPAPI;
   boost::shared_ptr<TestResp> fdspDataPathResp;
-  netSession *session_;
+  netSession *dp_session_;
   std::string node_name_;
   std::string session_uuid_;
   FdsConfigAccessor conf_helper_;
@@ -918,14 +918,14 @@ class SmUnitTest {
 
       nst_ = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_HVISOR));
 
-      session_ = nst_->startSession(conf_helper_.get<std::string>("sm_ip"),
-                                    conf_helper_.get<int>("sm_data_port"),
-                                    FDSP_STOR_MGR,
-                                    1, /* number of channels */
-                                    static_cast<void*>(fdspDataPathResp.get()));
-      netDataPathClientSession *dp_session =  static_cast<netDataPathClientSession *>(session_);
-      fdspDPAPI = dp_session->getClient();  // NOLINT
-      session_uuid_ = dp_session->getSessionId();
+      dp_session_ = nst_->startSession<netDataPathClientSession>(
+          conf_helper_.get<std::string>("sm_ip"),
+          conf_helper_.get<int>("sm_data_port"),
+          FDSP_STOR_MGR,
+          1, /* number of channels */
+          fdspDataPathResp);
+      fdspDPAPI = dp_session_->getClient();  // NOLINT
+      session_uuid_ = dp_session_->getSessionId();
       node_name_ = "localhost-sm";
   }
 

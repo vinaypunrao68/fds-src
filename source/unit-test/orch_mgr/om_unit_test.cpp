@@ -453,10 +453,10 @@ class OmUnitTest {
                             int omclient_port,
                             std::list<netSessionTbl*>& tbl_list) {
         
-        netSession* client_session = NULL;
+        netOMControlPathClientSession* client_session = NULL;
 	netSession* server_session = NULL;
-        TestResp* resp_handler_ptr = new TestResp(test_log);        
-	ControlPathReq* cpreq_handler_ptr = new ControlPathReq(test_log);
+    boost::shared_ptr<TestResp> resp_handler_ptr(new TestResp(test_log));        
+        boost::shared_ptr<ControlPathReq> cpreq_handler_ptr(new ControlPathReq(test_log));
         netSessionTbl* session_tbl = new netSessionTbl(omclient_node_name,
                                                        0x7f000001,
                                                        omclient_port,
@@ -468,11 +468,12 @@ class OmUnitTest {
         tbl_list.push_back(session_tbl);
 
 	/* server session on the same 'node' to listen for control messages from OM */
-	server_session = session_tbl->createServerSession(0x7f000001,
-							  omclient_port,
-							  omclient_node_name,
-							  FDS_ProtocolInterface::FDSP_ORCH_MGR,
-							  cpreq_handler_ptr);
+	server_session = session_tbl->createServerSession<netControlPathServerSession>(
+        0x7f000001,
+        omclient_port,
+        omclient_node_name,
+        FDS_ProtocolInterface::FDSP_ORCH_MGR,
+        cpreq_handler_ptr);
 
 	/* start thread to listen for control msgs from OM */
 	std::thread* new_thread = new std::thread(&OmUnitTest::run_server_thread, session_tbl, server_session);
@@ -481,14 +482,14 @@ class OmUnitTest {
 
 
 	/* client session to send OMControl messages to OM */
-        client_session = session_tbl->startSession(0x7f000001,
+        client_session = session_tbl->startSession<netMetaDataPathClientSession>(0x7f000001,
                                                    cp_port_num,
                                                    FDS_ProtocolInterface::FDSP_ORCH_MGR,
                                                    1,
                                                    resp_handler_ptr);
 
 
-        return static_cast<netOMControlPathClientSession*>(client_session);
+        return client_session;
     }
 
     void clearOmClientComms(std::list<netSessionTbl*>& list) {
@@ -975,11 +976,11 @@ class OmUnitTest {
         num_updates = 3; //num_up_arg;
 
         /* start config client session */
-        net_session_tbl->startSession(om_ip,
+        net_session_tbl->startSession<netConfigPathClientSession>(om_ip,
                                       om_port_num, 
                                       FDS_ProtocolInterface::FDSP_ORCH_MGR,
                                       1,
-                                      NULL);
+                                      boost::shared_ptr<void>());
         
     }
 

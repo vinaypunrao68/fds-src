@@ -101,14 +101,12 @@ namespace fds {
 	  net_session_tbl(nst) {
 	    /* start session for client that will send ctrl 
 	    * messages to this node */
-              netSession* client_session =
-                      net_session_tbl->startSession(node_ip_address,
+              ctrl_session =
+                      net_session_tbl->startSession<netControlPathClientSession>(node_ip_address,
                                                     control_port,
                                                     node_type,
                                                     1,
-                                                    resp_handler.get());
-              
-              ctrl_session = static_cast<netControlPathClientSession*>(client_session);
+                                                    resp_handler);
 	  }
 	
         /*

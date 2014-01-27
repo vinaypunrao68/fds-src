@@ -786,13 +786,11 @@ class TestClient {
     boost::shared_ptr<netSessionTbl> nstable =
             boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_HVISOR));
 
-    netSession *_session = nstable->startSession(ip_addr_str,
+    netMetaDataPathClientSession *mdp_session = nstable->startSession<netMetaDataPathClientSession>(ip_addr_str,
                                                    port_num,
                                                    FDSP_DATA_MGR,
                                                    1,
-                                                   reinterpret_cast<void*>(fdspMetaDataPathResp.get()));
-
-    netMetaDataPathClientSession *mdp_session =  static_cast<netMetaDataPathClientSession *>(_session);
+                                                   fdspMetaDataPathResp);
 
     boost::shared_ptr<FDSP_MetaDataPathReqClient> fdspMDPAPI_Sptr =
             mdp_session->getClient();  // NOLINT
