@@ -125,6 +125,16 @@ class AME_CtxList
     ~AME_CtxList() {}
 };
 
+/**
+ * Main entry to parse URI to implement FDS's REST API.
+ * @param eng (i) - the engine to provide factory methods to create the
+ *    right object.
+ * @param req (i) - the raw http request received.
+ * @return object that can handle the request.
+ */
+extern AME_Request *
+ame_http_parse_url(AMEngine *eng, AME_HttpReq *req);
+
 } // namespace fds
 
 #endif /* INCLUDE_AM_ENGINE_AM_PLUGIN_H_ */

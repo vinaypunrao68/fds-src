@@ -129,6 +129,7 @@ yacc            := $(main_tool_dir)/bison
 lex             := $(main_tool_dir)/flex
 lint            := $(main_tool_dir)/lint
 rpcgen          := $(main_tool_dir)/rpcgen
+ragel           := $(main_tool_dir)/ragel
 cc_style        := $(incl_scripts)/cstyle.pl
 cpp_style       := $(incl_scripts)/cpplint.py
 

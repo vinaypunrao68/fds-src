@@ -17,7 +17,7 @@ fds_log *g_fdslog = NULL;
 void init_process_globals(const std::string &log_name)
 {
     fds_verify(g_fdslog == nullptr);
-    g_fdslog = new fds_log(log_name);
+    g_fdslog = new fds_log(log_name, "logs");
 }
 
 void init_process_globals(fds_log *log)
@@ -43,7 +43,7 @@ FdsProcess::FdsProcess(int argc, char *argv[],
     /* Create a global logger.  Logger is created here because we need the file
      * name from config
      */
-    g_fdslog = new fds_log(conf_helper_.get<std::string>("logfile"));
+    g_fdslog = new fds_log(conf_helper_.get<std::string>("logfile"), "logs");
 
     /* Process wide counters setup */
     setup_cntrs_mgr();

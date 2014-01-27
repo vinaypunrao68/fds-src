@@ -1,0 +1,4 @@
+topdir         := ..
+user_build_dir := lib
+
+include $(topdir)/Makefile.incl

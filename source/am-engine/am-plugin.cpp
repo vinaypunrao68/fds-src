@@ -175,6 +175,8 @@ ngx_http_fds_read_body(ngx_http_request_t *r)
     am_ctx->ame_register_ctx();
     am_req->ame_add_context(am_ctx);
     am_req->ame_request_handler();
+
+    ame_http_parse_url(sgt_ame_plugin, r);
 }
 
 /*

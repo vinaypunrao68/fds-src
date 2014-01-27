@@ -171,6 +171,36 @@ endif
 endef
 
 # ----------------------------------------------------------------------------
+# Script to do Thrift gen
+#
+define scpt_mk_thrift
+$(patsubst %.thrift,$(user_thrift_loc)/%_types.h, $(1)): $(1)
+ifdef VERBOSE
+	@echo $(tool_thrift) $(toolchain_thrf_opts) $$<
+	@export LD_LIBRARY_PATH=$(toolchain_lib); \
+	$(tool_thrift) $(toolchain_thrf_opts) $$<
+else
+	@echo "    [GEN .thrift] $$<"
+	@export LD_LIBRARY_PATH=$(toolchain_lib); \
+	$(tool_thrift) $(toolchain_thrf_opts) $$<
+endif
+endef
+
+# ----------------------------------------------------------------------------
+# Script to compile ragel files
+#
+define scpt_mk_ragel
+$(patsubst %.rl,%.cpp, $(1)): $(1)
+	@rm -f $$@
+ifdef VERBOSE
+	$(ragel) $$< -G1 -o $$@
+else
+	@echo "    [RAGEL .rl]   $$@"
+	@$(ragel) $$< -G1 -o $$@
+endif
+endef
+
+# ----------------------------------------------------------------------------
 # Script to do cpp, hpp style check.
 #
 define scpt_check_style

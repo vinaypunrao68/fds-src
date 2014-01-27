@@ -21,7 +21,6 @@ user_build_dir :=                       \
     stor-mgr                            \
     fds_client                          \
     am-app                              \
-    unit-test				\
-#    stor_hvisor_ice                     \
+    unit-test
 
 include $(topdir)/Makefile.incl
