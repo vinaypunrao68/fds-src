@@ -31,8 +31,10 @@
 #define FDS_LOG_SEV(lg, sev) BOOST_LOG_SEV(lg.get_slog(), sev)
 #define FDS_PLOG(lg_ptr) BOOST_LOG_SEV(lg_ptr->get_slog(), fds::fds_log::normal)
 #define FDS_PLOG_SEV(lg_ptr, sev) BOOST_LOG_SEV(lg_ptr->get_slog(), sev)
-#define FDS_PLOG_WARN(lg_ptr) BOOST_LOG_SEV(lg_ptr->get_slog(), fds::fds_log::warning)
-#define FDS_PLOG_ERR(lg_ptr) BOOST_LOG_SEV(lg_ptr->get_slog(), fds::fds_log::error)
+#define FDS_PLOG_COMMON(lg_ptr, sev) BOOST_LOG_SEV(lg_ptr->get_slog(), sev) << __FUNCTION__ << " " << __LINE__ << " " << log_string() << " "
+
+#define FDS_PLOG_WARN(lg_ptr) FDS_PLOG_COMMON(lg_ptr, fds::fds_log::warning)
+#define FDS_PLOG_ERR(lg_ptr)  FDS_PLOG_COMMON(lg_ptr, fds::fds_log::error)
 
 namespace fds {
 

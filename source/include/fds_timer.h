@@ -99,6 +99,11 @@ public:
      */
     bool cancel(const FdsTimerTaskPtr& task);
 
+    virtual std::string log_string()
+    {
+        return "FdsTimer";
+    }
+
 private:
     void start_io_service();
 
