@@ -735,8 +735,8 @@ StorHvCtrl::StorHvCtrl(int argc,
 
 //   rpcSessionTbl.reset(new netSessionTbl(FDSP_STOR_HVISOR));
    rpcSessionTbl = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_HVISOR));
-   dPathRespCback = new FDSP_DataPathRespCbackI();
-   mPathRespCback = new FDSP_MetaDataPathRespCbackI();
+   dPathRespCback.reset(new FDSP_DataPathRespCbackI());
+   mPathRespCback.reset(new FDSP_MetaDataPathRespCbackI());
   /*
    * Pass 0 as the data path port since the SH is not
    * listening on that port.

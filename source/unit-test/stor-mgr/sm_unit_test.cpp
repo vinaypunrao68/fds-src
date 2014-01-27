@@ -245,7 +245,7 @@ class SmUnitTest {
   boost::shared_ptr<netSessionTbl> nst_;
   FDSP_DataPathReqClientPtr fdspDPAPI;
   boost::shared_ptr<TestResp> fdspDataPathResp;
-  netSession *dp_session_;
+  netDataPathClientSession* dp_session_;
   std::string node_name_;
   std::string session_uuid_;
   FdsConfigAccessor conf_helper_;

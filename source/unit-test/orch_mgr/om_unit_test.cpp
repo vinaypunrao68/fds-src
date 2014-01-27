@@ -482,7 +482,7 @@ class OmUnitTest {
 
 
 	/* client session to send OMControl messages to OM */
-        client_session = session_tbl->startSession<netMetaDataPathClientSession>(0x7f000001,
+        client_session = session_tbl->startSession<netOMControlPathClientSession>(0x7f000001,
                                                    cp_port_num,
                                                    FDS_ProtocolInterface::FDSP_ORCH_MGR,
                                                    1,

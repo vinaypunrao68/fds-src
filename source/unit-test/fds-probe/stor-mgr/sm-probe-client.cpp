@@ -185,11 +185,13 @@ Sm_ProbeMod::mod_init(SysParams const *const param)
     pdpri.reset(new probeDataPathRespIf());
 
     // Init session with SM server
-    netDataPathClientSession *dpSession = nsTbl->startSession<netDataPathClientSession>(smIp,
-                                                6902,
-                                                FDSP_STOR_MGR,
-                                                numChannels,
-                                                pdpri);
+    netDataPathClientSession *dpSession = nsTbl->\
+                                          startSession<netDataPathClientSession>(
+                                              smIp,
+                                              6902,
+                                              FDSP_STOR_MGR,
+                                              numChannels,
+                                              pdpri);
     // Get the interface for this session
     dpClient = dpSession->getClient();  // NOLINT
 

@@ -546,7 +546,6 @@ netConfigPathClientSession(const std::string& ip_addr_str,
                            int port,
                            FDS_ProtocolInterface::FDSP_MgrIdType local_mgr_id,
                            FDS_ProtocolInterface::FDSP_MgrIdType remote_mgr_id,
-                           int num_threads,
                            boost::shared_ptr<void> resp_handler) 
             : netClientSession(ip_addr_str, port, local_mgr_id, remote_mgr_id),
             fdspConfAPI(new FDSP_ConfigPathReqClient(protocol)) {
@@ -563,7 +562,6 @@ netConfigPathClientSession(const std::string& ip_addr_str,
     
 private:
     boost::shared_ptr<FDSP_ConfigPathReqClient> fdspConfAPI;
-    int num_threads;
 };
 
 
@@ -1437,7 +1435,9 @@ netSessionTbl(FDSP_MgrIdType myMgrId)
                              boost::shared_ptr<RespHandlerT>respHandler)
     {
         std::string node_name = ipAddr2String(dst_ipaddr);
-        return startSession(node_name, port, remote_mgr_id, num_channels, respHandler);
+        return startSession<ClientSessionT, RespHandlerT>(node_name, 
+                                                          port, remote_mgr_id, 
+                                                          num_channels, respHandler);
     }
 
     template <class ClientSessionT, class RespHandlerT>
