@@ -193,10 +193,10 @@ define scpt_mk_ragel
 $(patsubst %.rl,%.cpp, $(1)): $(1)
 	@rm -f $$@
 ifdef VERBOSE
-	$(ragel) $$< -G1 -o $$@
+	$(ragel) $$< -L -G1 -o $$@
 else
 	@echo "    [RAGEL .rl]   $$@"
-	@$(ragel) $$< -G1 -o $$@
+	@$(ragel) $$< -L -G1 -o $$@
 endif
 endef
 
