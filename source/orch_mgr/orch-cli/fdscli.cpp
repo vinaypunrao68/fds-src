@@ -88,7 +88,7 @@ FDSP_ConfigPathReqClientPtr FdsCli::startClientSession() {
                                           om_cfg_port,
                                           FDS_ProtocolInterface::FDSP_ORCH_MGR,
                                           1,
-                                          boost::shared_ptr<void>());
+                                          boost::shared_ptr<FDSP_ConfigPathRespIf>());
     fds_verify(client_session != NULL);
     return static_cast<netConfigPathClientSession*>(client_session)->getClient();
 }

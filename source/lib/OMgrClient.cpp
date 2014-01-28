@@ -318,7 +318,8 @@ int OMgrClient::registerNodeWithOM(const FDS_ProtocolInterface::FDSP_AnnounceDis
                                     FDSP_ORCH_MGR,
                                     1, /* number of channels */
                                    boost::shared_ptr<FDSP_OMControlPathRespIf>()/* TODO:  pass in response path server pointer */); 
-
+      // TODO: change to an assert
+      fds_verify(omclient_prx_session_ != nullptr);
       om_client_prx = omclient_prx_session_->getClient();  // NOLINT
 #if 0
    boost::shared_ptr<apache::thrift::transport::TTransport>

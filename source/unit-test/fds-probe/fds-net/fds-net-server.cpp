@@ -19,7 +19,7 @@ netSession *exampleSession;  // Single global session for now
 boost::shared_ptr<FDSP_DataPathRespClient> respClient;
 
 namespace FDS_ProtocolInterface {
-class exampleDataPathReqIf : virtual public FDSP_DataPathReqIf, public FDSP_ServiceImpl {
+class exampleDataPathReqIf : virtual public FDSP_DataPathReqIf {
   public:
     exampleDataPathReqIf() {
     }

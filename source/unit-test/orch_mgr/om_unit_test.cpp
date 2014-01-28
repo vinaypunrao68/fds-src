@@ -980,7 +980,7 @@ class OmUnitTest {
                                       om_port_num, 
                                       FDS_ProtocolInterface::FDSP_ORCH_MGR,
                                       1,
-                                      boost::shared_ptr<void>());
+                                      boost::shared_ptr<FDSP_ConfigPathRespIf>());
         
     }
 
