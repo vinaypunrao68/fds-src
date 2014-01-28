@@ -21,7 +21,6 @@ user_cpp         :=      \
 
 user_incl_dir    := $(topdir)
 user_no_style    := \
-    NetSession.cpp       \
     PerfTrace.cpp        \
     VolumeCatalog.cpp    \
     OMgrClient.cpp       \
@@ -32,7 +31,6 @@ user_no_style    := \
     TransJournal.cpp     \
     PerfStats.cpp        \
     jsoncpp.cpp          \
-    NetSession.cpp       \
     $(wildcard *.h)
 
 # TODO: should change this directory and this lib to something more

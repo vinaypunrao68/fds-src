@@ -19,7 +19,7 @@ netSession *exampleSession;  // Single global session for now
 boost::shared_ptr<FDSP_DataPathRespClient> respClient;
 
 namespace FDS_ProtocolInterface {
-class exampleDataPathReqIf : virtual public FDSP_DataPathReqIf, public FDSP_ServiceImpl {
+class exampleDataPathReqIf : virtual public FDSP_DataPathReqIf {
   public:
     exampleDataPathReqIf() {
     }
@@ -109,7 +109,7 @@ std::string getMyIp() {
 }
 
 int main(int argc, char **argv) {
-    exampleDataPathReqIf *edpri = new exampleDataPathReqIf();
+    boost::shared_ptr<exampleDataPathReqIf> edpri(new exampleDataPathReqIf());
 
     boost::shared_ptr<netSessionTbl> nst =
             boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_MGR));
@@ -118,7 +118,7 @@ int main(int argc, char **argv) {
     std::string myIpStr = getMyIp();
     int myIpInt = netSession::ipString2Addr(myIpStr);
     std::string myNodeName = "Example SM";
-    exampleSession = nst->createServerSession(myIpInt,
+    exampleSession = nst->createServerSession<netDataPathServerSession>(myIpInt,
                                               8888,
                                               myNodeName,
                                               FDSP_STOR_HVISOR,

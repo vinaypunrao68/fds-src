@@ -50,6 +50,11 @@ class GraphiteClient : public boost::noncopyable
           }
       }
 
+      virtual std::string log_string()
+      {
+          return "Graphite Client timer task";
+      }
+
      private:
       GraphiteClient *parentP_;
     };
@@ -86,6 +91,11 @@ class GraphiteClient : public boost::noncopyable
   {
       timerPtr_->scheduleRepeated(taskPtr_,
                                   std::chrono::seconds(seconds));
+  }
+
+  virtual std::string log_string()
+  {
+      return "GraphiteClient";
   }
 
  private:

@@ -102,7 +102,7 @@ class Sm_ProbeMod : public ProbeMod
     boost::shared_ptr<FDS_ProtocolInterface::
             FDSP_DataPathReqClient> dpClient;  /**< Data path instance */
     std::string sessionId;  /**< UUID for client's session */
-    probeDataPathRespIf *pdpri;  /**< Data path functions */
+    boost::shared_ptr<probeDataPathRespIf> pdpri;  /**< Data path functions */
 
     fds_uint32_t numVols;   /**< Number of objects to use */
     fds_uint32_t numObjs;   /**< Number of objects to use */

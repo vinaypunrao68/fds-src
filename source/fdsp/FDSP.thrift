@@ -765,6 +765,10 @@ service FDSP_ConfigPathReq {
   i32 auditTierPolicy(1: tier_pol_audit audit);
 }
 
+/* Not needed.  But created for symemtry */
+service FDSP_ConfigPathResp {
+}
+
 /*
  * Control/Native API config  messages from SM/DM/SH to OM
  */

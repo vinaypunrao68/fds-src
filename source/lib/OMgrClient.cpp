@@ -246,12 +246,12 @@ int OMgrClient::startAcceptingControlMessages(fds_uint32_t port_num) {
   // TODO: Ideally createServerSession should take a shared pointer
   // for omrpc_handler_.  Make sure that happens.  Otherwise you
   // end up with a pointer leak.
-  omrpc_handler_session_ = static_cast<netControlPathServerSession*>(
-      nst_->createServerSession(myIpInt,
+  omrpc_handler_session_ = 
+      nst_->createServerSession<netControlPathServerSession>(myIpInt,
                                 my_control_port, 
                                 my_node_name,
                                 FDSP_ORCH_MGR,
-                                omrpc_handler_.get()));
+                                omrpc_handler_);
 
   omrpc_handler_thread_.reset(new std::thread(&OMgrClient::start_omrpc_handler, this));
 
@@ -313,14 +313,14 @@ int OMgrClient::registerNodeWithOM(const FDS_ProtocolInterface::FDSP_AnnounceDis
                                    dInfo) {
 
   try {
-      omclient_prx_session_ = nst_->startSession(omIpStr,
+      omclient_prx_session_ = nst_->startSession<netOMControlPathClientSession>(omIpStr,
                                     omConfigPort,
                                     FDSP_ORCH_MGR,
                                     1, /* number of channels */
-                                   NULL /* TODO:  pass in response path server pointer */); 
-
-      om_client_prx = static_cast<netOMControlPathClientSession*>(omclient_prx_session_)->\
-                      getClient();  // NOLINT
+                                   boost::shared_ptr<FDSP_OMControlPathRespIf>()/* TODO:  pass in response path server pointer */); 
+      // TODO: change to an assert
+      fds_verify(omclient_prx_session_ != nullptr);
+      om_client_prx = omclient_prx_session_->getClient();  // NOLINT
 #if 0
    boost::shared_ptr<apache::thrift::transport::TTransport>
            socket(new apache::thrift::transport::TSocket(omIpStr, omConfigPort));

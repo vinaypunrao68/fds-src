@@ -49,7 +49,7 @@ class fdsNetProbeMod : public ProbeMod {
 
     boost::shared_ptr<FDS_ProtocolInterface::FDSP_DataPathReqClient> dpClient;
     std::string sid;
-    exampleDataPathRespIf *edpri;
+    boost::shared_ptr<exampleDataPathRespIf> edpri;
 };
 
 // S3 FDS net Probe Adapter.

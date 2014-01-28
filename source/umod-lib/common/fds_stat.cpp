@@ -78,6 +78,9 @@ StatModule::mod_init(SysParams const *const param)
                 goto def;
             }
             mhz = atof(p + 1);
+            if (mhz < 1) {
+                goto def;
+            }
             stat_cpu_mhz = (int)(mhz * 2);
             break;
         }

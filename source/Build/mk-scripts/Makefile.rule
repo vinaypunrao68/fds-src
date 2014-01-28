@@ -180,7 +180,7 @@ ifdef user_build_dir
 		echo Cleaning `pwd`/$$f;                                              \
 		makearg="clean --no-print-directory";                                 \
 		if [ -e $$f/Makefile.fds ]; then                                      \
-			(cd $$f && $(MAKE) -f Makefile.fds &&makearg);                    \
+			(cd $$f && $(MAKE) -f Makefile.fds $$makearg);                    \
 		else                                                                  \
 			(cd $$f && $(MAKE) $$makearg);                                    \
 		fi                                                                    \

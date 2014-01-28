@@ -107,7 +107,7 @@ namespace fds {
     boost::shared_ptr<std::thread> omrpc_handler_thread_;
 
     /* client for sending messages to OM */
-    netSession *omclient_prx_session_;
+    netOMControlPathClientSession* omclient_prx_session_;
     boost::shared_ptr<FDS_ProtocolInterface::FDSP_OMControlPathReqClient> om_client_prx;
 
     void initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);

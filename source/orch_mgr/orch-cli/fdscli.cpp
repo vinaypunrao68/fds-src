@@ -83,12 +83,12 @@ FDS_ProtocolInterface::FDSP_VolType FdsCli::stringToVolType(
 }
 
 FDSP_ConfigPathReqClientPtr FdsCli::startClientSession() {
-    netSession* client_session =
-            net_session_tbl->startSession(om_ip,
+    netConfigPathClientSession *client_session =
+            net_session_tbl->startSession<netConfigPathClientSession>(om_ip,
                                           om_cfg_port,
                                           FDS_ProtocolInterface::FDSP_ORCH_MGR,
                                           1,
-                                          NULL);
+                                          boost::shared_ptr<FDSP_ConfigPathRespIf>());
     fds_verify(client_session != NULL);
     return static_cast<netConfigPathClientSession*>(client_session)->getClient();
 }

@@ -735,8 +735,8 @@ StorHvCtrl::StorHvCtrl(int argc,
 
 //   rpcSessionTbl.reset(new netSessionTbl(FDSP_STOR_HVISOR));
    rpcSessionTbl = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_HVISOR));
-   dPathRespCback = new FDSP_DataPathRespCbackI();
-   mPathRespCback = new FDSP_MetaDataPathRespCbackI();
+   dPathRespCback.reset(new FDSP_DataPathRespCbackI());
+   mPathRespCback.reset(new FDSP_MetaDataPathRespCbackI());
   /*
    * Pass 0 as the data path port since the SH is not
    * listening on that port.
@@ -804,9 +804,9 @@ StorHvCtrl::StorHvCtrl(int argc,
     }
     dataMgrIPAddress = config->get<string>("fds.dm.IPAddress");
     storHvisor->rpcSessionTbl->
-            startSession(dataMgrIPAddress,
+            startSession<netMetaDataPathClientSession>(dataMgrIPAddress,
                   (fds_int32_t)dataMgrPortNum,
-                      FDS_ProtocolInterface::FDSP_DATA_MGR,0,reinterpret_cast<void*>(storHvisor->dPathRespCback));
+                      FDS_ProtocolInterface::FDSP_DATA_MGR,0,storHvisor->mPathRespCback);
   }
   if ((mode == STOR_MGR_TEST) ||
       (mode == TEST_BOTH)) {
@@ -817,9 +817,9 @@ StorHvCtrl::StorHvCtrl(int argc,
     }
     storMgrIPAddress  = config->get<string>("fds.sm.IPAddress");
     storHvisor->rpcSessionTbl->
-            startSession(storMgrIPAddress,
+            startSession<netDataPathClientSession>(storMgrIPAddress,
                   (fds_int32_t)storMgrPortNum,
-                      FDS_ProtocolInterface::FDSP_STOR_MGR,0,reinterpret_cast<void*>(storHvisor->dPathRespCback));
+                      FDS_ProtocolInterface::FDSP_STOR_MGR,0,storHvisor->dPathRespCback);
   }
 
 //cout << "dataMgrPortNum: " << dataMgrPortNum  << "\n" << "storMgrPortNum: " << storMgrPortNum << "\n";  
