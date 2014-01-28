@@ -318,8 +318,16 @@ int OMgrClient::registerNodeWithOM(const FDS_ProtocolInterface::FDSP_AnnounceDis
                                     FDSP_ORCH_MGR,
                                     1, /* number of channels */
                                    boost::shared_ptr<FDSP_OMControlPathRespIf>()/* TODO:  pass in response path server pointer */); 
-      // TODO: change to an assert
-      fds_verify(omclient_prx_session_ != nullptr);
+      
+      // Just return if the om ptr is NULL because
+      // FDS-net doesn't throw the exception we're
+      // trying to catch. We should probably return
+      // an error and let the caller decide what to do.
+      // fds_verify(omclient_prx_session_ != nullptr);
+      if (omclient_prx_session_ == NULL) {
+          FDS_PLOG_SEV(omc_log, fds::fds_log::critical) << "OMClient unable to register node with OrchMgr. Please check if OrchMgr is up and restart.";
+          return 0;
+      }
       om_client_prx = omclient_prx_session_->getClient();  // NOLINT
 #if 0
    boost::shared_ptr<apache::thrift::transport::TTransport>
