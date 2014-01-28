@@ -852,7 +852,6 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   
   // *****CAVEAT: Modification reqd
   // ******  Need to find out which is the primary SM and send this out to that SM. ********
-//  storHvisor->rpcSwitchTbl->Get_RPC_EndPoint(node_ip, node_port, FDSP_STOR_MGR, &endPoint);
     endPoint = storHvisor->rpcSessionTbl->getSession(node_ip,
                                                FDSP_STOR_MGR);
   
