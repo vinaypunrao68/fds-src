@@ -39,20 +39,20 @@ orch_mgr_cpp      :=                   \
     OmRespHandler.cpp                  \
     OmDataPlacement.cpp
 
-user_cpp          :=                   \
-    $(orch_mgr_cpp)
-
 user_hh           := \
     $(wildcard *.h)
+
+user_cpp          :=                   \
+    $(orch_mgr_cpp)
 
 user_no_style     := \
     orchMgr.cpp                        \
     OmTier.cpp                         \
     OmAdminCtrl.cpp                    \
-    $(user_cc)                         \
     OmAdminCtrl.h                      \
     OmTier.h                           \
-    orchMgr.h
+    orchMgr.h                          \
+    $(user_cc)                         \
 
 user_bin_exe      := orchMgr
 orchMgr           := $(orch_mgr_cpp)

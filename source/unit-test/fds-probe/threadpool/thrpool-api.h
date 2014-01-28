@@ -1,8 +1,8 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
-#ifndef SOURCE_FDS_PROBE_INCLUDE_THRPOOL_API_H_
-#define SOURCE_FDS_PROBE_INCLUDE_THRPOOL_API_H_
+#ifndef SOURCE_UNIT_TEST_FDS_PROBE_THREADPOOL_THRPOOL_API_H_
+#define SOURCE_UNIT_TEST_FDS_PROBE_THREADPOOL_THRPOOL_API_H_
 
 /*
  * Header file template for probe adapter.  Replace Thrpool with your probe name
@@ -73,7 +73,7 @@ class UT_ThpoolSvcTemplate : public JsObjTemplate
 {
   public:
     virtual ~UT_ThpoolSvcTemplate() {}
-    UT_ThpoolSvcTemplate(JsObjManager *mgr) : JsObjTemplate("threadpool", mgr)
+    explicit UT_ThpoolSvcTemplate(JsObjManager *mgr) : JsObjTemplate("threadpool", mgr)
     {
         const char *s;
 
@@ -98,4 +98,4 @@ extern Thrpool_ProbeMod           gl_Thrpool_ProbeMod;
 
 }  // namespace fds
 
-#endif  // SOURCE_FDS_PROBE_INCLUDE_THRPOOL_API_H_
+#endif  // SOURCE_UNIT_TEST_FDS_PROBE_THREADPOOL_THRPOOL_API_H_
