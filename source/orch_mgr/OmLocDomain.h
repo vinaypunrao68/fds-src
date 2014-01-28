@@ -1,7 +1,8 @@
-/*
- * local domain  class 
- *   formation Data systems 
+/*                                                                                                   
+ * Copyright 2014 Formation Data Systems, Inc.                                                       
  */
+
+/** Defines the classes within a single local domain */
 #ifndef ORCH_MGR_LOCDOMAIN_H_
 #define ORCH_MGR_LOCDOMAIN_H_
 
@@ -32,6 +33,10 @@ namespace fds {
     typedef FDS_ProtocolInterface::FDSP_VolumeDescTypePtr FdspVolDescPtr; 
     typedef FDS_ProtocolInterface::FDSP_MsgHdrTypePtr     FdspMsgHdrPtr;
 
+    /**
+     * Defines the parameters/settings for a single
+     * node in the cluster.
+     */
     class NodeInfo {
         /*
          * TODO: Make these private and add accessor/mutator
@@ -174,7 +179,11 @@ namespace fds {
 	boost::shared_ptr<netSessionTbl> net_session_tbl;
         netControlPathClientSession* ctrl_session; /* cached client session */
     };
-    
+
+    /**
+     * Defines the parameters/settings for
+     * volumes in the cluster.
+     */
     class VolumeInfo {
   public:
         std::string vol_name;
@@ -184,7 +193,11 @@ namespace fds {
     };
 
     class FdsAdminCtrl;
-    
+
+    /**
+     * Defines the current settings/state of a
+     * single local domain.
+     */
     class FdsLocalDomain {
         
   public:
@@ -342,15 +355,19 @@ namespace fds {
          * implement real stats polling from cli */
         std::ofstream json_file;
         
-}; 
+    }; 
 
- class localDomainInfo {
+    /**
+     * A compact descriptor for local domain
+     * info.
+     */
+    class localDomainInfo {
   public:
-    std::string loc_domain_name;
-    fds_int32_t  loc_dom_id;
-    fds_int32_t  glb_dom_id; 
-    FdsLocalDomain  *domain_ptr;
-  };
+        std::string loc_domain_name;
+        fds_int32_t  loc_dom_id;
+        fds_int32_t  glb_dom_id; 
+        FdsLocalDomain  *domain_ptr;
+    };
 
-}
+}  // namespace fds
 #endif

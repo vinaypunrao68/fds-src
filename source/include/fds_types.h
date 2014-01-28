@@ -46,6 +46,7 @@
 namespace fds {
 
   typedef fds_uint64_t fds_volid_t;
+  typedef fds_uint64_t VolumeId;
 
   class ObjectID {
  private:
@@ -236,6 +237,11 @@ namespace fds {
       : size(0), data("")
       {
       }
+  };
+
+  class Sha1Digest {
+public:
+      uint8_t data[20];
   };
 
   inline fds_uint32_t str_to_ipv4_addr(std::string ip_str) {
@@ -442,14 +448,12 @@ public:
 }  // namespace fds
 
 namespace std {
-template <>
-struct hash<fds::ObjectID>
-  {
-    std::size_t operator()(const fds::ObjectID oid) const
-    {
-    	return std::hash<std::string>()(oid.ToHex());
-    }
-  };
+    template <>
+    struct hash<fds::ObjectID> {
+        std::size_t operator()(const fds::ObjectID oid) const {
+            return std::hash<std::string>()(oid.ToHex());
+        }
+    };
 }
 
 #endif  // SOURCE_LIB_FDS_TYPES_H_

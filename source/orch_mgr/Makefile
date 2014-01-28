@@ -27,7 +27,7 @@ user_non_fds_libs := \
 
 # TODO: need to move Catalog.h to include, avoid cross module include ref.
 #
-user_incl_dir     := $(topdir) 
+user_incl_dir     := $(topdir) include
 
 orch_mgr_cpp      :=                   \
     orchMgr.cpp                        \
@@ -36,17 +36,23 @@ orch_mgr_cpp      :=                   \
     OmLocDomain.cpp		       \
     OmAdminCtrl.cpp                    \
     OmReqHandler.cpp                   \
-    OmRespHandler.cpp
+    OmRespHandler.cpp                  \
+    OmDataPlacement.cpp
 
 user_cpp          :=                   \
     $(orch_mgr_cpp)
+
+user_hh           := \
+    $(wildcard *.h)
 
 user_no_style     := \
     orchMgr.cpp                        \
     OmTier.cpp                         \
     OmAdminCtrl.cpp                    \
     $(user_cc)                         \
-    $(wildcard *.h)
+    OmAdminCtrl.h                      \
+    OmTier.h                           \
+    orchMgr.h
 
 user_bin_exe      := orchMgr
 orchMgr           := $(orch_mgr_cpp)
