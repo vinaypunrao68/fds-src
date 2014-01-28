@@ -1,8 +1,8 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
-#ifndef SOURCE_FDS_PROBE_INCLUDE_FDS_NET_PROBE_H_
-#define SOURCE_FDS_PROBE_INCLUDE_FDS_NET_PROBE_H_
+#ifndef SOURCE_UNIT_TEST_FDS_PROBE_FDS_NET_FDS_NET_PROBE_H_
+#define SOURCE_UNIT_TEST_FDS_PROBE_FDS_NET_FDS_NET_PROBE_H_
 
 #include <stdio.h>
 #include <unistd.h>
@@ -26,7 +26,7 @@ class fdsNetProbeMod : public ProbeMod {
                    probe_mod_param_t *param,
                    Module *owner);
     virtual ~fdsNetProbeMod() {}
-    
+
     void pr_intercept_request(ProbeRequest *req);
     void pr_put(ProbeRequest *req);
     void pr_get(ProbeRequest *req);
@@ -39,6 +39,7 @@ class fdsNetProbeMod : public ProbeMod {
     void mod_shutdown();
 
     fdsNetProbeMod *pr_new_instance();
+
   private:
     std::string remoteIp;
     std::string localIp;
@@ -57,4 +58,4 @@ extern fdsNetProbeMod           gl_fdsNetProbeMod;
 
 }  // namespace fds
 
-#endif  // SOURCE_FDS_PROBE_INCLUDE_TEMPLATE_PROBE_H_
+#endif  // SOURCE_UNIT_TEST_FDS_PROBE_FDS_NET_FDS_NET_PROBE_H_

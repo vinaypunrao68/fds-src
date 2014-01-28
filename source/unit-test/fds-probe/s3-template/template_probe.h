@@ -1,8 +1,8 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
-#ifndef SOURCE_FDS_PROBE_INCLUDE_TEMPLATE_PROBE_H_
-#define SOURCE_FDS_PROBE_INCLUDE_TEMPLATE_PROBE_H_
+#ifndef SOURCE_UNIT_TEST_FDS_PROBE_S3_TEMPLATE_TEMPLATE_PROBE_H_
+#define SOURCE_UNIT_TEST_FDS_PROBE_S3_TEMPLATE_TEMPLATE_PROBE_H_
 
 /*
  * Header file template for probe adapter.  Replace XX with your probe name
@@ -40,4 +40,4 @@ extern XX_ProbeMod           gl_XX_ProbeMod;
 
 }  // namespace fds
 
-#endif  // SOURCE_FDS_PROBE_INCLUDE_TEMPLATE_PROBE_H_
+#endif  // SOURCE_UNIT_TEST_FDS_PROBE_S3_TEMPLATE_TEMPLATE_PROBE_H_

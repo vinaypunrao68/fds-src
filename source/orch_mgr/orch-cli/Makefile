@@ -20,7 +20,7 @@ fds_cli_cpp       :=                   \
 user_cpp          :=                   \
     $(fds_cli_cpp)                     \
 
-user_hpp          := fdsCli.h
+user_hh           := fdsCli.h
 
 user_bin_exe      := fdscli
 fdscli            := $(fds_cli_cpp)

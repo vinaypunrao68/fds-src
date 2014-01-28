@@ -1,8 +1,8 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
-#ifndef SOURCE_FDS_PROBE_INCLUDE_SM_PROBE_CLIENT_H_
-#define SOURCE_FDS_PROBE_INCLUDE_SM_PROBE_CLIENT_H_
+#ifndef SOURCE_UNIT_TEST_FDS_PROBE_STOR_MGR_SM_PROBE_CLIENT_H_
+#define SOURCE_UNIT_TEST_FDS_PROBE_STOR_MGR_SM_PROBE_CLIENT_H_
 
 /*
  * Header file template for probe adapter.  Replace Thrpool with your probe name
@@ -20,7 +20,7 @@ class probeDataPathRespIf;
 
 extern std::unordered_map<ObjectID, std::string, ObjectHash> writtenObjs;
 extern fds_mutex objMapLock;
-    
+
 /**
  * SM probe that acts as an SM client.
  * Provides implementation of JSON interface to
@@ -91,7 +91,7 @@ class Sm_ProbeMod : public ProbeMod
                       const std::string& objData);
     fds_bool_t checkGetObj(const ObjectID& oid,
                            const std::string& objData);
-    
+
 
   private:
     std::string smIp; /**< Remote SM's IP */
@@ -154,7 +154,7 @@ class UT_SmWorkloadTemplate : public JsObjTemplate
 {
   public:
     virtual ~UT_SmWorkloadTemplate() {}
-    UT_SmWorkloadTemplate(JsObjManager *mgr) : JsObjTemplate("dp-workload", mgr)
+    explicit UT_SmWorkloadTemplate(JsObjManager *mgr) : JsObjTemplate("dp-workload", mgr)
     {
         const char *s;
 
@@ -179,7 +179,7 @@ class UT_SmSetupTemplate : public JsObjTemplate
 {
   public:
     virtual ~UT_SmSetupTemplate() {}
-    UT_SmSetupTemplate(JsObjManager *mgr) : JsObjTemplate("dp-setup", mgr)
+    explicit UT_SmSetupTemplate(JsObjManager *mgr) : JsObjTemplate("dp-setup", mgr)
     {
         const char *s;
 
@@ -275,4 +275,4 @@ class probeDataPathRespIf : public FDS_ProtocolInterface::FDSP_DataPathRespIf {
 
 }  // namespace fds
 
-#endif  // SOURCE_FDS_PROBE_INCLUDE_THRPOOL_API_H_
+#endif  // SOURCE_UNIT_TEST_FDS_PROBE_STOR_MGR_SM_PROBE_CLIENT_H_

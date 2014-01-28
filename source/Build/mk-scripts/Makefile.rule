@@ -196,7 +196,7 @@ endif
 # -----------------------------------------------------------------------------
 # Rule to do style check for .c/.h file.
 #
-$(comm_dir_objs)/%.chk : %.c
+$(comm_dir_objs)/%.c-chk : %.c
 ifdef VERBOSE
 	$(call scpt_check_style,$(cc_style),$(local_chk_cc),$(user_no_style),$<,$@)
 else
@@ -204,10 +204,20 @@ else
 	@$(call scpt_check_style,$(cc_style),$(local_chk_cc),$(user_no_style),$<,$@)
 endif
 
+$(comm_dir_objs)/%.h-chk : %.h
+ifdef VERBOSE
+	$(call scpt_check_style, \
+        $(cpp_style),$(local_chk_cpp),$(user_no_style),$<,$@)
+else
+	@echo -n "    [H STYLE]   $<"
+	@$(call scpt_check_style, \
+        $(cpp_style),$(local_chk_cpp),$(user_no_style),$<,$@)
+endif
+
 # -----------------------------------------------------------------------------
 # Rule to do style check for .cpp/.hpp file.
 #
-$(comm_dir_objs)/%.chk : %.cpp
+$(comm_dir_objs)/%.cpp-chk : %.cpp
 ifdef VERBOSE
 	$(call scpt_check_style, \
         $(cpp_style),$(local_chk_cpp),$(user_no_style),$<,$@)
@@ -217,7 +227,7 @@ else
         $(cpp_style),$(local_chk_cpp),$(user_no_style),$<,$@)
 endif
 
-$(comm_dir_objs)/%.chk : %.h
+$(comm_dir_objs)/%.hpp-chk : %.hpp
 ifdef VERBOSE
 	$(call scpt_check_style, \
         $(cpp_style),$(local_chk_cpp),$(user_no_style),$<,$@)
@@ -312,5 +322,5 @@ mk_debug:
 	@echo ld = $(rule_ld_flags)
 	@echo user_predep= $(user_predep)
 	@echo comm_cc_chks= $(comm_cc_chks)
-	@echo comm_thrf_files= $(comm_thrf_files)
+	@echo user_hh= $(user_hh)
 
