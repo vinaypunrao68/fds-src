@@ -170,6 +170,34 @@ namespace fds {
       SharedMutex::upgrade();
     }
   };
+  
+  
+  /**
+   * Helper Guards for Read and Write Locks
+   * These are scoped locks, that will lock at ctor & unlock at dtor
+   */
+  class ReadGuard {
+    fds_rwlock& lock;
+  public :
+    ReadGuard (fds_rwlock& lock) : lock(lock) {
+      lock.read_lock();
+    }
+    ~ReadGuard() {
+      lock.read_unlock();
+    }
+  };
+
+  class WriteGuard {
+    fds_rwlock& lock;
+  public :
+    WriteGuard (fds_rwlock& lock) : lock(lock) {
+      lock.write_lock();
+    }
+    ~WriteGuard() {
+      lock.write_unlock();
+    }
+  };
+
 }  // namespace fds
 
 #endif  // SOURCE_UTIL_CONCURRENCY_RWLOCK_H_
