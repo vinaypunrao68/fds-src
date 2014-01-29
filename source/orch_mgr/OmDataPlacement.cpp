@@ -1,5 +1,5 @@
-/*                                                                                                   
- * Copyright 2014 Formation Data Systems, Inc.                                                       
+/*
+ * Copyright 2014 Formation Data Systems, Inc.
  */
 
 #include <OmDataPlacement.h>
@@ -9,7 +9,7 @@ namespace fds {
  * Functions definitions for cluster
  * map
  **********/
-ClusterMap::ClusterMap() {
+ClusterMap::ClusterMap() : Module("cluster map") {
 }
 
 ClusterMap::~ClusterMap() {

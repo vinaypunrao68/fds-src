@@ -4,6 +4,7 @@ user_build_dir    := s3 thrift pm sm \
     blk-template \
     threadpool   \
     fds-net      \
-    stor-mgr
+    stor-mgr     \
+    orch-mgr
 
 include $(topdir)/Makefile.incl

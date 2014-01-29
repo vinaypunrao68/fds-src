@@ -6,6 +6,13 @@
 
 namespace fds {
 
+class Resource
+{
+  public:
+    Resource() {}
+    ~Resource() {}
+};
+
 class ResourceUUID
 {
   public:

@@ -1,7 +1,7 @@
 topdir            := ..
 user_target       := exe
 user_rtime_env    := user
-user_build_dir    := orch-cli include
+user_build_dir    := orch-cli include om-dlt
 user_install      := om_client.conf orch_mgr.conf
 user_install_loc  := exe
 
@@ -12,7 +12,8 @@ user_fds_ar_libs  := \
     fds-util \
     fds-netproxy \
     fds-fdsp \
-    fds-umod
+    fds-umod \
+    fds-om-dlt
 
 user_non_fds_libs := \
     boost_log \

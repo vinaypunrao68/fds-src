@@ -1,5 +1,5 @@
-/*                                                                                                   
- * Copyright 2014 Formation Data Systems, Inc.                                                       
+/*
+ * Copyright 2014 Formation Data Systems, Inc.
  */
 
 /** Defines the classes used for data placement and routing tables */

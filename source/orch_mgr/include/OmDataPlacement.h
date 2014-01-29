@@ -1,5 +1,5 @@
-/*                                                                                                   
- * Copyright 2014 Formation Data Systems, Inc.                                                       
+/*
+ * Copyright 2014 Formation Data Systems, Inc.
  */
 
 /** Defines the classes used for data placement and routing tables */
@@ -18,6 +18,7 @@
 #include <fds_placement_table.h>
 #include <concurrency/Mutex.h>
 #include <OmTypes.h>
+#include <OmResources.h>
 
 namespace fds {
 
@@ -30,8 +31,8 @@ namespace fds {
     /**
      * Defines the current state of the cluster at given points in time.
      */
-    class ClusterMap {
-  private:
+    class ClusterMap : public Module {
+  protected:
         NodeMap           currentNodeMap;  /**< Current storage nodes in cluster */
         /**
          * Current version of the map.
@@ -48,7 +49,22 @@ namespace fds {
 
         /**
          * Need some functions to serialize the map
-         */        
+         */
+
+        /**
+         * Iterate through the list of nodes in the membership by index 0...n
+         * to retrieve their agent objects.
+         */
+        int om_member_nodes();
+        const NodeAgent *om_member_info(int node_idx);
+        const NodeAgent *om_member_info(const ResourceUUID &uuid);
+
+        /**
+         * Module methods.
+         */
+        virtual int  mod_init(SysParams const *const param) {}
+        virtual void mod_startup() {}
+        virtual void mod_shutdown() {}
     };
 
     /**
