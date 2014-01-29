@@ -75,11 +75,12 @@ int main(int argc, char *argv[]) {
 
     std::string remoteIp  = "127.0.0.1";
     fds_uint32_t numChannels = 1;
-    netDataPathClientSession *exampleSessionA = nstA->startSession<netDataPathClientSession>(remoteIp,
-                                                     8888,
-                                                     FDSP_STOR_MGR,
-                                                     numChannels,
-                                                     edpri);
+    netDataPathClientSession *exampleSessionA =
+            nstA->startSession<netDataPathClientSession>(remoteIp,
+                                                         8888,
+                                                         FDSP_STOR_MGR,
+                                                         numChannels,
+                                                         edpri);
 
     boost::shared_ptr<FDSP_DataPathReqClient> client =
             exampleSessionA->getClient();  // NOLINT

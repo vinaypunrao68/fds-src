@@ -14,7 +14,8 @@ user_fds_ar_libs  := \
     fds-lib          \
     fds-umod         \
     fds-thread       \
-    fds-fdsp
+    fds-fdsp         \
+    fds-util
 
 user_non_fds_libs :=      \
     boost_log             \
@@ -32,12 +33,14 @@ user_non_fds_libs :=      \
 
 example_clnt_cpp  := fds_net_example_client.cpp
 example_srvr_cpp  := fds_net_example_server.cpp
+example_sm_cpp    := state_machine_example.cpp
 user_cpp          := \
-    $(example_clnt_cpp) $(example_srvr_cpp)
+    $(example_clnt_cpp) $(example_srvr_cpp) $(example_sm_cpp)
 
 user_no_style     := 
-user_bin_exe      := ExClient ExServer
+user_bin_exe      := ExClient ExServer ExStateMachine
 ExClient          := $(example_clnt_cpp)
 ExServer          := $(example_srvr_cpp)
+ExStateMachine    := $(example_sm_cpp)
 
 include $(topdir)/Makefile.incl
