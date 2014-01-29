@@ -30,6 +30,7 @@ namespace fds {
 
     /**
      * Defines the current state of the cluster at given points in time.
+     * The cluster map specifies the current members of the cluster.
      */
     class ClusterMap : public Module {
   protected:
@@ -52,11 +53,17 @@ namespace fds {
          */
 
         /**
-         * Iterate through the list of nodes in the membership by index 0...n
-         * to retrieve their agent objects.
+         * Returns the current number of cluster members.
          */
-        int om_member_nodes();
+        int getNumMembers() const;
+        /**
+         * Returns member info based on the nodes membership
+         * index number.
+         */
         const NodeAgent *om_member_info(int node_idx);
+        /**
+         * Returns member info based on the nodes UUID.
+         */
         const NodeAgent *om_member_info(const ResourceUUID &uuid);
 
         /**

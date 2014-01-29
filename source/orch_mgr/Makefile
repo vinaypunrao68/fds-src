@@ -38,7 +38,8 @@ orch_mgr_cpp      :=                   \
     OmAdminCtrl.cpp                    \
     OmReqHandler.cpp                   \
     OmRespHandler.cpp                  \
-    OmDataPlacement.cpp
+    OmDataPlacement.cpp                \
+    OmPlacementAlgorithms.cpp
 
 user_hh           := \
     $(wildcard *.h)

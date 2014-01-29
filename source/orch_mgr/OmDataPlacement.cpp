@@ -15,6 +15,11 @@ ClusterMap::ClusterMap() : Module("cluster map") {
 ClusterMap::~ClusterMap() {
 }
 
+int
+ClusterMap::getNumMembers() const {
+    return 0;
+}
+
 /**********
  * Functions definitions for data
  * placement
@@ -64,27 +69,5 @@ DataPlacement::mod_startup() {
 
 void
 DataPlacement::mod_shutdown() {
-}
-
-/**********
- * Functions definitions for placement
- * algorithms
- **********/
-Error
-RoundRobinAlgorithm::computeNewDlt(const ClusterMap &currMap,
-                                   const FdsDlt &currDlt,
-                                   fds_uint64_t depth,
-                                   fds_uint64_t width) {
-    Error err(ERR_OK);
-    return err;
-}
-
-Error
-ConsistHashAlgorithm::computeNewDlt(const ClusterMap &currMap,
-                                    const FdsDlt &currDlt,
-                                    fds_uint64_t depth,
-                                    fds_uint64_t width) {
-    Error err(ERR_OK);
-    return err;
 }
 }  // namespace fds
