@@ -9,8 +9,8 @@ namespace fds {
 class Resource
 {
   public:
-    Resource();
-    ~Resource();
+    Resource() {}
+    ~Resource() {}
 };
 
 class ResourceUUID
