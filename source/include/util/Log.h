@@ -32,9 +32,21 @@
 #define FDS_PLOG(lg_ptr) BOOST_LOG_SEV(lg_ptr->get_slog(), fds::fds_log::normal)
 #define FDS_PLOG_SEV(lg_ptr, sev) BOOST_LOG_SEV(lg_ptr->get_slog(), sev)
 #define FDS_PLOG_COMMON(lg_ptr, sev) BOOST_LOG_SEV(lg_ptr->get_slog(), sev) << __FUNCTION__ << " " << __LINE__ << " " << log_string() << " "
-
 #define FDS_PLOG_WARN(lg_ptr) FDS_PLOG_COMMON(lg_ptr, fds::fds_log::warning)
 #define FDS_PLOG_ERR(lg_ptr)  FDS_PLOG_COMMON(lg_ptr, fds::fds_log::error)
+
+//For classes that expose the GetLog() fn .
+#define LOGGERPTR  GetLog()
+//incase your current logger is different fom GetLog(), 
+//redefine macro [LOGGERPTR] at the top of your cpp file
+
+#define LOGTRACE    FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::trace)
+#define LOGDEBUG    FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::debug)
+#define LOGNORMAL   FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::normal)
+#define LOGNOTIFY   FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::notification)
+#define LOGWARN	    FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::warning)
+#define LOGERROR    FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::error)
+#define LOGCRITICAL FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::critical)
 
 namespace fds {
 
