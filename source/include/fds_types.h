@@ -48,6 +48,12 @@ namespace fds {
   typedef fds_uint64_t fds_volid_t;
   typedef fds_uint64_t VolumeId;
 
+  /**
+   * A token id identifies a particular token
+   * region in a DLT routing table.
+   */
+  typedef fds_uint32_t fds_token_id;
+
   class ObjectID {
  private:
     fds_uint64_t hash_high;
