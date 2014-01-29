@@ -6,6 +6,7 @@
 #include <orch-mgr-probe.h>
 #include <string>
 #include <iostream>
+#include <orch-mgr/om-service.h>
 
 namespace fds {
 
@@ -18,7 +19,7 @@ probe_mod_param_t OM_probe_param =
 };
 
 OM_ProbeMod gl_OM_ProbeMod("OM Probe Adapter",
-                           &OM_probe_param, nullptr);
+                           &OM_probe_param, &gl_OMModule);
 
 // pr_new_instance
 // ---------------
@@ -26,7 +27,7 @@ OM_ProbeMod gl_OM_ProbeMod("OM Probe Adapter",
 ProbeMod *
 OM_ProbeMod::pr_new_instance()
 {
-    OM_ProbeMod *adapter = new OM_ProbeMod("OM Inst", &OM_probe_param, NULL);
+    OM_ProbeMod *adapter = new OM_ProbeMod("OM Inst", &OM_probe_param, &gl_OMModule);
 
     adapter->mod_init(mod_params);
     adapter->mod_startup();

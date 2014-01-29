@@ -3,7 +3,10 @@ user_incl_dir     :=
 
 user_cpp_flags    :=
 user_fds_so_libs  :=
-user_fds_ar_libs  :=
+user_fds_ar_libs  := \
+    fds-om-common \
+    fds-om-dlt
+
 user_non_fds_libs :=
 
 user_hh           := $(wildcard *.h)

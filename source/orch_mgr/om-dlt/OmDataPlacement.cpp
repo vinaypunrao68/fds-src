@@ -6,16 +6,6 @@
 #include <OmDataPlacement.h>
 
 namespace fds {
-/**********
- * Functions definitions for cluster
- * map
- **********/
-ClusterMap::ClusterMap() : Module("cluster map") {
-}
-
-ClusterMap::~ClusterMap() {
-}
-
 int
 ClusterMap::getNumMembers() const {
     return currClustMap.size();

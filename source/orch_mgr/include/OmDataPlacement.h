@@ -77,9 +77,9 @@ namespace fds {
         /**
          * Module methods.
          */
-        virtual int  mod_init(SysParams const *const param) {}
-        virtual void mod_startup() {}
-        virtual void mod_shutdown() {}
+        virtual int  mod_init(SysParams const *const param);
+        virtual void mod_startup();
+        virtual void mod_shutdown();
     };
 
     /**
@@ -181,6 +181,9 @@ namespace fds {
          */
         void setAlgorithm(PlacementAlgorithm::AlgorithmTypes type);
     };
+
+
+    extern ClusterMap        gl_OMClusMapMod;
 }  // namespace fds
 
 #endif  // SOURCE_ORCH_MGR_INCLUDE_OMDATAPLACEMENT_H_

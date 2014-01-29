@@ -9,13 +9,14 @@
 #include <orch-mgr-probe.h>
 #include <util/fds_stat.h>
 #include <fds-probe/s3-probe.h>
+#include <orch-mgr/om-service.h>
 
 int main(int argc, char **argv)
 {
     fds::Module *probe_vec[] = {
         &fds::gl_fds_stat,
         &fds::gl_probeS3Eng,
-
+        &fds::gl_OMModule,
         &fds::gl_OM_ProbeMod,
         nullptr
     };

@@ -9,6 +9,7 @@ user_build_dir := \
     hash \
     persistent_layer \
     shared \
+    orch-mgr \
     util
 
 user_h         := $(wildcard *.h)
@@ -23,7 +24,6 @@ user_no_style  := \
 	fds_obj_cache.h       \
 	fds_placement_table.h \
 	fds_qos.h             \
-	fds_request.h         \
 	fds_resource.h        \
 	fds_types.h           \
 	fds_volume.h          \
