@@ -21,7 +21,7 @@ namespace fds {
   }
    
 
-   void FdsAdminCtrl::addDiskCapacity(class NodeInfo& n_info) {
+   void FdsAdminCtrl::addDiskCapacity(const NodeInfo& n_info) {
 
    	total_disk_iops_max += n_info.disk_iops_max;
    	total_disk_iops_min += n_info.disk_iops_min;

@@ -1,7 +1,7 @@
 topdir            := ..
 user_target       := exe
 user_rtime_env    := user
-user_build_dir    := orch-cli
+user_build_dir    := orch-cli include
 user_install      := om_client.conf orch_mgr.conf
 user_install_loc  := exe
 
@@ -49,7 +49,6 @@ user_no_style     := \
     orchMgr.cpp                        \
     OmTier.cpp                         \
     OmAdminCtrl.cpp                    \
-    OmAdminCtrl.h                      \
     OmTier.h                           \
     orchMgr.h                          \
     $(user_cc)                         \
