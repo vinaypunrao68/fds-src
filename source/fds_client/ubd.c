@@ -353,9 +353,9 @@ int main(int argc, char *argv[]) {
   }
 
 #ifdef HVISOR_USPACE_TEST
-  CreateSHMode(argc, argv, hvisor_create_blkdev, hvisor_delete_blkdev, no_om, sm_port, dm_port);
+  CreateStorHvisorBlk(argc, argv, hvisor_create_blkdev, hvisor_delete_blkdev, no_om, sm_port, dm_port);
 #else
-  CreateSHMode(argc, argv, hvisor_create_blkdev, hvisor_delete_blkdev, 0, 0, 0);
+  CreateStorHvisorBlk(argc, argv, hvisor_create_blkdev, hvisor_delete_blkdev, 0, 0, 0);
 #endif
   
 #ifndef HVISOR_USPACE_TEST

@@ -25,6 +25,19 @@ void CreateStorHvisorS3(int argc, char *argv[])
   CreateSHMode(argc, argv, NULL, NULL, false, 0, 0);
 }
 
+void CreateStorHvisorBlk(int argc,
+                  char *argv[],
+                  hv_create_blkdev cr_blkdev, 
+                  hv_delete_blkdev del_blkdev,
+                  fds_bool_t test_mode,
+                  fds_uint32_t sm_port,
+                  fds_uint32_t dm_port)
+{
+  fds::init_process_globals("am.log");
+  CreateSHMode(argc, argv, cr_blkdev, del_blkdev, false, sm_port, dm_port);
+}
+
+
 void CreateSHMode(int argc,
                   char *argv[],
                   hv_create_blkdev cr_blkdev, 
@@ -104,13 +117,9 @@ StorHvCtrl::StorHvCtrl(int argc,
          */
         omIpStr = argv[i] + 8;
       }
-      else 
-        omIpStr = config->get<string>("fds.om.IPAddress");
     } else if (strncmp(argv[i], "--om_port=", 10) == 0) {
       if (mode == NORMAL) 
       	  omConfigPort = strtoul(argv[i] + 10, NULL, 0);
-      else
-      	  omConfigPort = config->get<int>("fds.om.PortNumber");
     }  else if (strncmp(argv[i], "--node_name=", 12) == 0) {
       node_name = argv[i] + 12;
     } 
@@ -122,7 +131,7 @@ StorHvCtrl::StorHvCtrl(int argc,
   }
   my_node_name = node_name;
   
-  if (mode != NORMAL) {
+  if ((mode == NORMAL) && (argc == 1)) {
         omIpStr = config->get<string>("fds.om.IPAddress");
       	 omConfigPort = config->get<int>("fds.om.PortNumber");
   }
@@ -157,7 +166,7 @@ StorHvCtrl::StorHvCtrl(int argc,
                              omIpStr,
                              omConfigPort,
                              myIp,
-                             0,
+                             config->get<int>("fds.om.DataPort"),
                              node_name,
                              sh_log,
                              rpcSessionTbl);
@@ -176,7 +185,7 @@ StorHvCtrl::StorHvCtrl(int argc,
   qos_ctrl = new StorHvQosCtrl(50, fds::FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET, sh_log);
   om_client->registerThrottleCmdHandler(StorHvQosCtrl::throttleCmdHandler);
   qos_ctrl->registerOmClient(om_client); /* so it will start periodically pushing perfstats to OM */
-  om_client->startAcceptingControlMessages(config->get<int>("fds.om.PortNumber"));
+  om_client->startAcceptingControlMessages(config->get<int>("fds.om.ControlPort"));
 
 
   /* TODO: for now StorHvVolumeTable constructor will create 
