@@ -21,6 +21,7 @@ class NodeInventory : public Resource
   public:
     int  node_index() const { return 0; }
     void node_name(std::string *name) const {}
+    ResourceUUID get_uuid() const { return nd_uuid; }
 
     /**
      * Return the storage weight of the node in normalized unit from 0...1000

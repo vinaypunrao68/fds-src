@@ -7,6 +7,7 @@
 #include <string>
 #include <boost/program_options.hpp>
 #include <boost/program_options/parsers.hpp>
+#include <fds_process.h>
 
 namespace fds {
 FdsCli  *fdsCli;
@@ -495,6 +496,7 @@ int main(int argc, char* argv[])
     fds::ModuleVector fds_cli_vec(argc, argv, cliVec);
     fds_cli_vec.mod_execute();
 
+    fds::init_process_globals("cli.log");
     fds::fdsCli->run(argc, argv);
 
     delete fds::fdsCli;

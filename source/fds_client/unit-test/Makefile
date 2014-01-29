@@ -18,7 +18,7 @@ user_non_fds_libs :=                                                          \
 ubd_test_cc       :=                   \
     ubd_test.c
 
-user_cc            := $(ubd_test_cc)
+user_cc             := $(ubd_test_cc)
 user_no_style      := $(user_cpp) $(user_cc)
 user_bin_exe       := hvisor_uspace_test
 hvisor_uspace_test := $(ubd_test_cc)

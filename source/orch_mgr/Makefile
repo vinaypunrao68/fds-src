@@ -1,7 +1,7 @@
 topdir            := ..
 user_target       := exe
 user_rtime_env    := user
-user_build_dir    := orch-cli om-dlt om-common
+user_build_dir    := orch-cli include om-dlt om-common
 user_install      := om_client.conf orch_mgr.conf
 user_install_loc  := exe
 
@@ -38,7 +38,8 @@ orch_mgr_cpp      :=                   \
     OmLocDomain.cpp		       \
     OmAdminCtrl.cpp                    \
     OmReqHandler.cpp                   \
-    OmRespHandler.cpp
+    OmRespHandler.cpp                  \
+    OmPlacementAlgorithms.cpp
 
 user_hh           := \
     $(wildcard *.h)
@@ -50,7 +51,6 @@ user_no_style     := \
     orchMgr.cpp                        \
     OmTier.cpp                         \
     OmAdminCtrl.cpp                    \
-    OmAdminCtrl.h                      \
     OmTier.h                           \
     orchMgr.h                          \
     $(user_cc)                         \

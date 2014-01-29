@@ -56,7 +56,6 @@ void StorHvDataPlacement::nodeEventHandler(int node_id,
          }
          
          if (node_type == FDS_ProtocolInterface::FDSP_STOR_MGR) {
-           // storHvisor->rpcSwitchTbl->Add_RPC_EndPoint(node_ip_addr, storMgrPortNum, FDSP_STOR_MGR);
            FDS_PLOG(storHvisor->GetLog()) << "Adding SM RPC endpoint";
            storHvisor->rpcSessionTbl->
                startSession<netDataPathClientSession>(node_ip_addr,

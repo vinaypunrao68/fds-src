@@ -18,6 +18,13 @@ int unitTest(fds_uint32_t time_secs);
 int unitTestFile(const char *inname, const char *outname, unsigned int base_vol, int num_vols);
 void CreateStorHvisor(int argc, char *argv[], hv_create_blkdev cr_blkdev, hv_delete_blkdev del_blkdev);
 void CreateStorHvisorS3(int argc, char *argv[]);
+void CreateStorHvisorBlk(int argc,
+                  char *argv[],
+                  hv_create_blkdev cr_blkdev,
+                  hv_delete_blkdev del_blkdev,
+                  fds_bool_t test_mode,
+                  fds_uint32_t sm_port,
+                  fds_uint32_t dm_port);
 void CreateSHMode(int argc,
                   char *argv[],
                   hv_create_blkdev cr_blkdev,

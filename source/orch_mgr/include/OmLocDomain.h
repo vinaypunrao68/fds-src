@@ -3,8 +3,8 @@
  */
 
 /** Defines the classes within a single local domain */
-#ifndef SOURCE_ORCH_MGR_OMLOCDOMAIN_H_
-#define SOURCE_ORCH_MGR_OMLOCDOMAIN_H_
+#ifndef SOURCE_ORCH_MGR_INCLUDE_OMLOCDOMAIN_H_
+#define SOURCE_ORCH_MGR_INCLUDE_OMLOCDOMAIN_H_
 
 #include <unordered_map>
 #include <cstdio>
@@ -372,4 +372,4 @@ namespace fds {
 
 }  // namespace fds
 
-#endif  // SOURCE_ORCH_MGR_OMLOCDOMAIN_H_
+#endif  // SOURCE_ORCH_MGR_INCLUDE_OMLOCDOMAIN_H_
