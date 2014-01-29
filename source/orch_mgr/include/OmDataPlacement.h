@@ -12,13 +12,13 @@
 #include <atomic>
 
 #include <fds_types.h>
+#include <fds_module.h>
 #include <fds_err.h>
 #include <concurrency/Mutex.h>
 #include <OmTypes.h>
+#include <OmResources.h>
 
 namespace fds {
-
-    class NodeAgent;
 
     /*
      * TODO: Change map to use a UUID
@@ -57,9 +57,9 @@ namespace fds {
         /**
          * Module methods.
          */
-        virtual int  mod_init(SysParams const *const param);
-        virtual void mod_startup();
-        virtual void mod_shutdown();
+        virtual int  mod_init(SysParams const *const param) {}
+        virtual void mod_startup() {}
+        virtual void mod_shutdown() {}
     };
 
     /**
