@@ -5,11 +5,6 @@
 #include <OmDataPlacement.h>
 
 namespace fds {
-ClusterMap::ClusterMap() : Module("cluster map") {
-}
-
-ClusterMap::~ClusterMap() {
-}
 
 DataPlacement::DataPlacement() {
 }

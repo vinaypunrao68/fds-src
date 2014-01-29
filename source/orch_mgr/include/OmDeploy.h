@@ -70,7 +70,7 @@ class NodeAgent;
 class OM_DLTMod : public Module
 {
   public:
-    explicit OM_DLTMod(char const *const name) : Module(name) {}
+    explicit OM_DLTMod(char const *const name);
     ~OM_DLTMod() {}
 
     /**
@@ -82,6 +82,8 @@ class OM_DLTMod : public Module
 
   protected:
 };
+
+extern OM_DLTMod             gl_OMDltMod;
 
 }  // namespace fds
 

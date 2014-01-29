@@ -62,13 +62,13 @@ class NodeAgent : public NodeInventory
  * Cluster domain manager.  Manage all nodes connected and known to the domain.
  * These nodes may not be in ClusterMap membership.
  */
-class OM_ClusDomainMod : public Module
+class OM_NodeDomainMod : public Module
 {
   public:
-    explicit OM_ClusDomainMod(char const *const name) : Module(name) {}
-    ~OM_ClusDomainMod() {}
+    explicit OM_NodeDomainMod(char const *const name) : Module(name) {}
+    ~OM_NodeDomainMod() {}
 
-    static OM_ClusDomainMod *om_local_domain() { return NULL; }
+    static OM_NodeDomainMod *om_local_domain() { return NULL; }
 
     /**
      * Iterate through the list of nodes by index 0...n to retrieve their
@@ -94,7 +94,7 @@ class OM_ClusDomainMod : public Module
   protected:
 };
 
-extern OM_ClusDomainMod      gl_OMLocNodeDomain;
+extern OM_NodeDomainMod      gl_OMNodeDomainMod;
 
 }  // namespace fds
 #endif  // SOURCE_ORCH_MGR_INCLUDE_OMRESOURCES_H_

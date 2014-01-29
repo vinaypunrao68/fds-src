@@ -5,12 +5,9 @@ user_build_dir    :=
 user_incl_dir     := ../include
 user_hh           := $(wildcard *.h)
 user_cpp          := \
-    OmResources.cpp \
-    OmDeploy.cpp \
-    OmClusMap.cpp \
-    OmDataPlacement.cpp
+    om-service.cpp
 
-user_ar_libs      := fds-om-dlt
-fds-om-dlt        := $(user_cpp)
+user_ar_libs      := fds-om-common
+fds-om-common     := $(user_cpp)
 
 include $(topdir)/Makefile.incl
