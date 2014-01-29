@@ -71,8 +71,8 @@ namespace fds {
         /**
          * Update the current cluster map.
          */
-        Error updateMap(std::list<boost::shared_ptr<NodeAgent>> addNodes,
-                        std::list<boost::shared_ptr<NodeAgent>> rmNodes);
+        Error updateMap(const std::list<boost::shared_ptr<NodeAgent>> &addNodes,
+                        const std::list<boost::shared_ptr<NodeAgent>> &rmNodes);
 
         /**
          * Module methods.
@@ -97,6 +97,10 @@ namespace fds {
             ConsistHash = 1,
         };
         virtual Error computeNewDlt(const ClusterMap &currMap,
+                                    const std::list<boost::shared_ptr<NodeAgent>>
+                                    &addNodes,
+                                    const std::list<boost::shared_ptr<NodeAgent>>
+                                    &rmNodes,
                                     const FdsDlt &currDlt,
                                     fds_uint64_t depth,
                                     fds_uint64_t width) = 0;
@@ -105,6 +109,8 @@ namespace fds {
     class RoundRobinAlgorithm : public PlacementAlgorithm {
   public:
         Error computeNewDlt(const ClusterMap &currMap,
+                            const std::list<boost::shared_ptr<NodeAgent>> &addNodes,
+                            const std::list<boost::shared_ptr<NodeAgent>> &rmNodes,
                             const FdsDlt &currDlt,
                             fds_uint64_t depth,
                             fds_uint64_t width);
@@ -113,6 +119,8 @@ namespace fds {
     class ConsistHashAlgorithm : public PlacementAlgorithm {
   public:
         Error computeNewDlt(const ClusterMap &currMap,
+                            const std::list<boost::shared_ptr<NodeAgent>> &addNodes,
+                            const std::list<boost::shared_ptr<NodeAgent>> &rmNodes,
                             const FdsDlt &currDlt,
                             fds_uint64_t depth,
                             fds_uint64_t width);
@@ -123,7 +131,11 @@ namespace fds {
      */
     class DataPlacement : public fds::Module {
   private:
-        typedef double WeightDist;
+        /**
+         * Current DLT copy.
+         * TODO: Move this over to our new DLT data structure
+         */
+        boost::shared_ptr<FdsDlt> currDlt;
 
         /**
          * The DLT depth defines the maximum number of
@@ -144,9 +156,22 @@ namespace fds {
          */
 
         /**
-         * Current weight distributions. We expect this list to
-         * be sorted.
+         * Current cluster membership. The data placement
+         * engine just stores a reference to the map.
+         * It should be managed/update externally.
          */
+        boost::shared_ptr<ClusterMap> currClusterMap;
+
+        /**
+         * Weight distributions for the current DLT. This
+         * structure describes how well balanced our current
+         * placement assignment is. We expect this list to
+         * be sorted.
+         * Currently, the weights are only stored for the
+         * primary assignments. We should have a weight
+         * distribution from each level in the DLT.
+         */
+        typedef double WeightDist;
         std::list<WeightDist> curWeightDist;
 
         /**
