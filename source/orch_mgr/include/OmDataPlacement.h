@@ -22,10 +22,12 @@
 
 namespace fds {
 
-    /*
-     * TODO: Change map to use a UUID
+    /**
+     * Type that maps a Node's UUID to it's agent descriptor.
      */
-    typedef std::unordered_map<NodeStrName, NodeStrName> NodeMap;
+    typedef std::unordered_map<NodeUuid,
+            boost::shared_ptr<NodeAgent>,
+            UuidHash> NodeMap;
     typedef std::atomic<fds_uint64_t> AtomicMapVersion;
 
     /**
@@ -34,7 +36,7 @@ namespace fds {
      */
     class ClusterMap : public Module {
   protected:
-        NodeMap           currentNodeMap;  /**< Current storage nodes in cluster */
+        NodeMap           currClustMap;  /**< Current storage nodes in cluster */
         /**
          * Current version of the map.
          * The version is monotonically
@@ -65,6 +67,12 @@ namespace fds {
          * Returns member info based on the nodes UUID.
          */
         const NodeAgent *om_member_info(const ResourceUUID &uuid);
+
+        /**
+         * Update the current cluster map.
+         */
+        Error updateMap(std::list<boost::shared_ptr<NodeAgent>> addNodes,
+                        std::list<boost::shared_ptr<NodeAgent>> rmNodes);
 
         /**
          * Module methods.

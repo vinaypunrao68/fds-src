@@ -16,9 +16,30 @@ class Resource
 class ResourceUUID
 {
   public:
+    ResourceUUID() : rs_uuid(0) {}
     ResourceUUID(fds_uint64_t uuid) : rs_uuid(uuid) {}
 
     fds_uint64_t             rs_uuid;
+
+    bool operator==(const ResourceUUID& rhs) const {
+        return (this->rs_uuid == rhs.rs_uuid);
+    }
+
+    bool operator!=(const ResourceUUID& rhs) const {
+      return !(*this == rhs);
+    }
+
+    ResourceUUID& operator=(const ResourceUUID& rhs) {
+      rs_uuid = rhs.rs_uuid;
+      return *this;
+    }
+};
+
+class UuidHash {
+public:
+    fds_uint64_t operator()(const ResourceUUID& rs) const {
+        return rs.rs_uuid;
+    }
 };
 
 class QueryMgr;

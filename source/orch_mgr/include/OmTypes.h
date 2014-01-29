@@ -8,8 +8,11 @@
 
 #include <string>
 
+#include <fds_resource.h>
+
 namespace fds {
     typedef std::string NodeStrName;
+    typedef ResourceUUID NodeUuid;
 
 }  // namespace fds
 
