@@ -10,7 +10,7 @@
 #include <boost/thread/locks.hpp>
 
 #include <string>
-
+#define FDSGUARD(m) fds::fds_scoped_lock _fsl_(m)
 namespace fds {
   /*
    * Basic mutex class. It is based on the basic
