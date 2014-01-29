@@ -1,0 +1,20 @@
+{
+    "Run-Setup": {
+        "om-setup": {
+            "node-info": [
+                {
+                    "node-uuid": "0xabcdef",
+                    "node-name": "node0"
+                },
+                {
+                    "node-uuid": "0x12345678",
+                    "node-name": "node1"
+                },
+                {
+                    "node-uuid": "0xdeadbeef",
+                    "node-name": "node2"
+                }
+            ]
+        }
+    }
+}
