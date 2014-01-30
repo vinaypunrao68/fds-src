@@ -35,7 +35,8 @@ class NodeInventory : public Resource
     ResourceUUID             nd_uuid;
     fds_uint64_t             nd_gbyte_cap;               /**< capacity in GB unit */
 
-    explicit NodeInventory(ResourceUUID *uuid) : nd_uuid(0) {}
+    explicit NodeInventory(const ResourceUUID &uuid)
+            : nd_uuid(uuid) {}
     ~NodeInventory() {}
 
     virtual int node_calc_stor_weight() { return 0; }
@@ -52,11 +53,11 @@ class NodeInventory : public Resource
 class NodeAgent : public NodeInventory
 {
   public:
+    explicit NodeAgent(const ResourceUUID &uuid) : NodeInventory(uuid) {}
+    ~NodeAgent() {}
+
   protected:
     friend class OM_ClusDomainMod;
-
-    explicit NodeAgent(ResourceUUID *uuid) : NodeInventory(uuid) {}
-    ~NodeAgent() {}
 };
 
 /**

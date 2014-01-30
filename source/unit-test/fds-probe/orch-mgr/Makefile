@@ -1,5 +1,6 @@
+topdir            := ../../..
 probe_topdir      := ..
-user_incl_dir     :=
+user_incl_dir     := $(topdir)/orch_mgr/include
 
 user_cpp_flags    :=
 user_fds_so_libs  :=

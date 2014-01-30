@@ -43,8 +43,8 @@ namespace fds {
          * increasing.
          */
         AtomicMapVersion  version;
-        Sha1Digest        checksum;        /**< Content Checksum */
-        fds_mutex         *mapMutex;       /**< Protects the map */
+        Sha1Digest        checksum;             /**< Content Checksum */
+        boost::shared_ptr<fds_mutex> mapMutex;  /**< Protects the map */
 
   public:
         ClusterMap();
@@ -207,8 +207,7 @@ namespace fds {
         void setAlgorithm(PlacementAlgorithm::AlgorithmTypes type);
     };
 
-
-    extern ClusterMap        gl_OMClusMapMod;
+    extern ClusterMap gl_OMClusMapMod;
 }  // namespace fds
 
 #endif  // SOURCE_ORCH_MGR_INCLUDE_OMDATAPLACEMENT_H_

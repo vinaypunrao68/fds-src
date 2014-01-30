@@ -12,6 +12,10 @@ OM_Module                    gl_OMModule("OM");
 OM_Module::OM_Module(char const *const name)
     : Module(name)
 {
+    /*
+     * TODO: Let's use member variables rather than globals.
+     * Members are a better OO-design.
+     */
     static Module *om_mods[] = {
         &gl_OMNodeDomainMod,
         &gl_OMClusMapMod,
@@ -19,6 +23,8 @@ OM_Module::OM_Module(char const *const name)
         NULL
     };
     mod_intern = om_mods;
+
+    om_clus_map = &gl_OMClusMapMod;
 }
 
 OM_Module::~OM_Module() {}
