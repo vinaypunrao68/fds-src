@@ -1610,23 +1610,22 @@ ObjectStorMgr::getObjectInternal(FDSP_GetObjTypePtr getObjReq,
 }
 
 /**
- * @brief Populatees metadata_buf and objdata_buf with objects that belong to a
- * token
+ * @brief Populates obj_list with objects that belong to a token.  Populating
+ * obj_list starts from value provided in itr parameter.  To iterate all the
+ * objects you invoke this function repeatedly with itr from last invocation. 
  *
- * @param token Token id
- * @param itr - In/Out parameter.  On In specifies where to start the
- * iteration from.  On Out specifies where iteration left off
- * @param metadata_buf Meta data will be filled here. metadata_buf is expected
- * to be allocated by the client.  It will be filled up to its size
- * @param objdata_buf Data will be filled here. objdata_buf is expected
- * to be allocated by the client.  It will be filled up to its size
-f
+ * @param token token id 
+ * @param max_size max_size to fill.  sum of the sizes all objects in obj_list
+ * shouldn't exceed max_size
+ * @param obj_list
+ * @param itr
  *
  * @return 
  */
-Error
-ObjectStorMgr::iterateTokenObjects(const fds_token_id &token, SMTokenItr &itr,
-                                   std::string &metadata_buf, std::string &objdata_buf)
+Error ObjectStorMgr::iterateTokenObjects(const fds_token_id &token, 
+                                         const size_t &max_size, 
+                                         FDSP_MigrateObjectList &obj_list, 
+                                         SMTokenItr &itr)
 {
     Error err;
     return err;

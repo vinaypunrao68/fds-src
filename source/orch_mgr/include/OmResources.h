@@ -75,7 +75,7 @@ class NodeAgent : public NodeInventory
     typedef boost::intrusive_ptr<NodeAgent> pointer;
 
     explicit NodeAgent(const ResourceUUID &uuid) : NodeInventory(uuid) {}
-    ~NodeAgent() {}
+    virtual ~NodeAgent() {}
 
   protected:
     friend class OM_ClusDomainMod;
@@ -96,7 +96,7 @@ class OM_NodeDomainMod : public Module
 {
   public:
     explicit OM_NodeDomainMod(char const *const name);
-    ~OM_NodeDomainMod();
+    virtual ~OM_NodeDomainMod();
 
     static OM_NodeDomainMod *om_local_domain() { return NULL; }
 

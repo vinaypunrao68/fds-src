@@ -13,7 +13,7 @@ class Resource
   public:
     typedef boost::intrusive_ptr<Resource> pointer;
     Resource() : rs_refcnt(0) {}
-    ~Resource() {}
+    virtual ~Resource() {}
 
   private:
     mutable boost::atomic<int>  rs_refcnt;
