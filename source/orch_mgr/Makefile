@@ -1,20 +1,21 @@
 topdir            := ..
 user_target       := exe
 user_rtime_env    := user
-user_build_dir    := orch-cli include om-dlt om-common
+user_build_dir    := orch-cli include om-dlt om-common om-lib
 user_install      := om_client.conf orch_mgr.conf
 user_install_loc  := exe
 
 user_fds_so_libs  :=
 user_fds_ar_libs  := \
+    fds-om-lib \
+    fds-om-common \
+    fds-om-dlt \
     fds-thread \
     fds-lib \
     fds-util \
     fds-netproxy \
     fds-fdsp \
-    fds-umod \
-    fds-om-common \
-    fds-om-dlt
+    fds-umod
 
 user_non_fds_libs := \
     boost_log \
@@ -32,29 +33,10 @@ user_non_fds_libs := \
 user_incl_dir     := $(topdir) include
 
 orch_mgr_cpp      :=                   \
-    orchMgr.cpp                        \
-    OmTier.cpp                         \
-    OmVolPolicy.cpp		       \
-    OmLocDomain.cpp		       \
-    OmAdminCtrl.cpp                    \
-    OmReqHandler.cpp                   \
-    OmRespHandler.cpp                  \
-    OmPlacementAlgorithms.cpp
+    orch-mgr-main.cpp
 
-user_hh           := \
-    $(wildcard *.h)
-
-user_cpp          :=                   \
-    $(orch_mgr_cpp)
-
-user_no_style     := \
-    orchMgr.cpp                        \
-    OmTier.cpp                         \
-    OmAdminCtrl.cpp                    \
-    OmTier.h                           \
-    orchMgr.h                          \
-    $(user_cc)                         \
-
+user_hh           := $(wildcard *.h)
+user_cpp          := $(orch_mgr_cpp)
 user_bin_exe      := orchMgr
 orchMgr           := $(orch_mgr_cpp)
 

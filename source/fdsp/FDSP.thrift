@@ -121,18 +121,21 @@ struct FDSP_PutObjType {
   1: FDS_ObjectIdType   data_obj_id,
   2: i32      data_obj_len,
   3: i32      volume_offset, /* Offset inside the volume where the object resides */
-  4: string data_obj
+  4: i32      dlt_version, 
+  5: string data_obj
 }
 
 struct FDSP_GetObjType {
   1: FDS_ObjectIdType   data_obj_id,
   2: i32      data_obj_len,
-  3: string  data_obj
+  3: i32      dlt_version, 
+  4: string  data_obj
 }
 
 struct  FDSP_DeleteObjType { /* This is a SH-->SM msg to delete the objectId */
   1: FDS_ObjectIdType   data_obj_id,
-  2: i32      data_obj_len,
+  2: i32      dlt_version, 
+  3: i32      data_obj_len,
 }
 
 
@@ -140,7 +143,8 @@ struct FDSP_OffsetWriteObjType {
   1: FDS_ObjectIdType   data_obj_id_old,
   2: i32      data_obj_len,
   3: FDS_ObjectIdType   data_obj_id_new,
-  4: string  data_obj
+  4: i32      dlt_version, 
+  5: string  data_obj
 }
 
 
@@ -150,7 +154,8 @@ struct FDSP_RedirReadObjType {
   3: i32      data_obj_suboffset, /* Offset within the object where the actual data is modified */
   4: i32      data_obj_sublen,
   5: FDS_ObjectIdType   data_obj_id_new,
-  6: string   data_obj
+  6: i32      dlt_version, 
+  7: string   data_obj
 } 
 
 

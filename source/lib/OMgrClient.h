@@ -81,7 +81,6 @@ namespace fds {
     fds_uint32_t my_control_port;
     fds_uint32_t my_data_port;
     node_map_t node_map;
-    int dlt_version;
     Node_Table_Type dlt;
     int dmt_version;
     Node_Table_Type dmt;
@@ -127,6 +126,7 @@ namespace fds {
     ~OMgrClient();
     int initialize();
     void start_omrpc_handler();
+    int dlt_version;
 
     int registerEventHandlerForNodeEvents(node_event_handler_t node_event_hdlr);
     int registerEventHandlerForVolEvents(volume_event_handler_t vol_event_hdlr);

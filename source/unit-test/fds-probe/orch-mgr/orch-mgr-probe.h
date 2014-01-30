@@ -32,6 +32,8 @@ class OM_ProbeMod : public ProbeMod
     void mod_startup();
     void mod_shutdown();
 
+    friend class UT_OM_NodeInfo;
+
   private:
 };
 
@@ -44,6 +46,7 @@ extern OM_ProbeMod           gl_OM_ProbeMod;
 typedef struct ut_node_info ut_node_info_t;
 struct ut_node_info
 {
+    fds_bool_t               add;
     fds_uint64_t             nd_uuid;
     const char              *nd_node_name;
 };
@@ -68,13 +71,22 @@ class UT_OM_NodeInfoTemplate : public JsObjTemplate
     virtual JsObject *js_new(json_t *in)
     {
         char           *uuid;
+        char           *action;
         ut_node_info_t *p = new ut_node_info_t;
 
-        if (json_unpack(in, "{s:s, s:s}",
-                "node-uuid",  &uuid,
-                "node-name",  &p->nd_node_name)) {
+        if (json_unpack(in, "{s:s, s:s, s:s}",
+                        "node-action", &action,
+                        "node-uuid",   &uuid,
+                        "node-name",   &p->nd_node_name)) {
             delete p;
             return NULL;
+        }
+        if (strcmp(action, "add") == 0) {
+            p->add = true;
+        } else if (strcmp(action, "rm") == 0) {
+            p->add = false;
+        } else {
+            fds_panic("Unknown node action recieved");
         }
         p->nd_uuid = strtoull(uuid, NULL, 16);
         return js_parse(new UT_OM_NodeInfo(), in, p);

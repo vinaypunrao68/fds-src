@@ -4,9 +4,11 @@
  * Template to write probe adapter.  Replace OM with your namespace.
  */
 #include <orch-mgr-probe.h>
+#include <list>
 #include <string>
 #include <iostream>
 #include <orch-mgr/om-service.h>
+#include <OmDataPlacement.h>
 
 namespace fds {
 
@@ -127,13 +129,26 @@ UT_OM_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput 
     UT_OM_NodeInfo  *node;
     ut_node_info_t  *info;
 
+    std::list<boost::shared_ptr<NodeAgent>> newNodes;
+    std::list<boost::shared_ptr<NodeAgent>> rmNodes;
+
     num = parent->js_array_size();
     for (i = 0; i < num; i++) {
         node = static_cast<UT_OM_NodeInfo *>((*parent)[i]);
         info = node->om_node_info();
         std::cout << "Node uuid " << info->nd_uuid
             << ", name " << info->nd_node_name << std::endl;
+
+        ResourceUUID r_uuid(info->nd_uuid);
+        if (info->add == true) {
+            newNodes.push_back(boost::shared_ptr<NodeAgent>(new NodeAgent(r_uuid)));
+        } else {
+            rmNodes.push_back(boost::shared_ptr<NodeAgent>(new NodeAgent(r_uuid)));
+        }
     }
+
+    ClusterMap *cm = static_cast<ClusterMap *>(gl_OMModule.om_clusmap_mod());
+    cm->updateMap(newNodes, rmNodes);
 }
 
 }  // namespace fds
