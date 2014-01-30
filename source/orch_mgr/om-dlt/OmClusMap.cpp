@@ -2,6 +2,7 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 #include <list>
+#include <iostream>
 
 #include <OmResources.h>
 #include <OmDataPlacement.h>
@@ -33,6 +34,7 @@ ClusterMap::cend() const {
 int
 ClusterMap::mod_init(SysParams const *const param) {
     Module::mod_init(param);
+    std::cout << "ClusterMap init is called " << std::endl;
     return 0;
 }
 
@@ -50,8 +52,8 @@ ClusterMap::getNumMembers() const {
 }
 
 Error
-ClusterMap::updateMap(const std::list<boost::shared_ptr<NodeAgent>> &addNodes,
-                      const std::list<boost::shared_ptr<NodeAgent>> &rmNodes) {
+ClusterMap::updateMap(const std::list<NodeAgent::pointer> &addNodes,
+                      const std::list<NodeAgent::pointer> &rmNodes) {
     Error    err(ERR_OK);
     NodeUuid uuid;
     fds_uint32_t removed;
@@ -62,9 +64,7 @@ ClusterMap::updateMap(const std::list<boost::shared_ptr<NodeAgent>> &addNodes,
     removedNodes.clear();
 
     // Remove nodes from the map
-    for (std::list<boost::shared_ptr<NodeAgent>>::const_iterator it = rmNodes.cbegin();
-         it != rmNodes.cend();
-         it++) {
+    for (auto it = rmNodes.cbegin(); it != rmNodes.cend(); it++) {
         uuid = (*it)->get_uuid();
         removed = currClustMap.erase(uuid);
         // For now, assume it's incorrect to try and remove
@@ -74,9 +74,7 @@ ClusterMap::updateMap(const std::list<boost::shared_ptr<NodeAgent>> &addNodes,
     }
 
     // Add nodes to the map
-    for (std::list<boost::shared_ptr<NodeAgent>>::const_iterator it = addNodes.cbegin();
-         it != addNodes.cend();
-         it++) {
+    for (auto it = addNodes.cbegin(); it != addNodes.cend(); it++) {
         uuid = (*it)->get_uuid();
         // For now, assume it's incorrect to add a node
         // that already exists

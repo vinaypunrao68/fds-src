@@ -1,6 +1,8 @@
 #ifndef INCLUDE_FDS_RESOURCE_H_
 #define INCLUDE_FDS_RESOURCE_H_
 
+#include <boost/atomic.hpp>
+#include <boost/intrusive_ptr.hpp>
 #include <shared/fds_types.h>
 #include <cpplist.h>
 
@@ -9,8 +11,21 @@ namespace fds {
 class Resource
 {
   public:
-    Resource() {}
+    typedef boost::intrusive_ptr<Resource> pointer;
+    Resource() : rs_refcnt(0) {}
     ~Resource() {}
+
+  private:
+    mutable boost::atomic<int>  rs_refcnt;
+    friend void intrusive_ptr_add_ref(const Resource  *x) {
+        x->rs_refcnt.fetch_add(1, boost::memory_order_relaxed);
+    }
+    friend void intrusive_ptr_release(const Resource *x) {
+        if (x->rs_refcnt.fetch_sub(1, boost::memory_order_release) == 1) {
+            boost::atomic_thread_fence(boost::memory_order_acquire);
+            delete x;
+        }
+    }
 };
 
 class ResourceUUID
@@ -36,7 +51,7 @@ class ResourceUUID
 };
 
 class UuidHash {
-public:
+  public:
     fds_uint64_t operator()(const ResourceUUID& rs) const {
         return rs.rs_uuid;
     }

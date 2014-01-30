@@ -686,6 +686,53 @@ struct tier_pol_audit
     13: i64                    tier_pct_ssd_capacity;
 }
 
+/* Token type */
+typedef i32 FDSP_Token
+
+/* raw data for the object */
+typedef string FDSP_ObjectData
+
+/* Payload for MigrateToken RPC */
+struct FDSP_MigrateTokenReq
+{
+    /* Token to be migrated */
+    1: FDSP_Token              token_id
+
+    /* Maximum size in bytes of FDSP_MigrateObjectData to 
+     * send in a single respone 
+     */
+    2: i32                     max_size_per_reply
+}
+
+/* Meta data for migration object */
+struct FDSP_MigrateObjectMetadata
+{
+    1: FDSP_Token              token_id
+}
+
+/* Complete data (metadata included) for migration object */
+struct FDSP_MigrateObjectData
+{
+    /* Object Metadata */
+    1: FDSP_MigrateObjectMetadata meta_data
+
+    /* Object data */
+    2: FDSP_ObjectData            data
+}
+
+/* Collection of FDSP_MigrateObjectData */
+typedef list<FDSP_MigrateObjectData> FDSP_MigrateObjectList
+
+/* Pay load for PutTokenObjects RPC */
+struct PutTokenObjectsReq
+{
+    /* This is final put or not */
+    1: bool complete
+
+    /* List of objects */
+    2: FDSP_MigrateObjectList obj_list
+}
+
 service FDSP_SessionReq {
     oneway void AssociateRespCallback(1:string src_node_name) // Associate Response callback with DM/SM for this source node.
 }
@@ -713,6 +760,19 @@ service FDSP_DataPathReq {
 
 }
 
+service FDSP_DataPathResp {
+    oneway void GetObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetObjType get_obj_req),
+
+    oneway void PutObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PutObjType put_obj_req),
+
+    oneway void DeleteObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteObjType del_obj_req),
+
+    oneway void OffsetWriteObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_OffsetWriteObjType offset_write_obj_req),
+
+    oneway void RedirReadObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RedirReadObjType redir_write_obj_req)
+
+}
+
 service FDSP_MetaDataPathReq {
 
     oneway void UpdateCatalogObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_UpdateCatalogType cat_obj_req),
@@ -735,18 +795,6 @@ service FDSP_MetaDataPathResp {
     oneway void GetVolumeBlobListResp(1:FDSP_MsgHdrType fds_msg, 2:FDSP_GetVolumeBlobListRespType blob_list_rsp)
 }
 
-service FDSP_DataPathResp {
-    oneway void GetObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetObjType get_obj_req),
-
-    oneway void PutObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PutObjType put_obj_req),
-
-    oneway void DeleteObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteObjType del_obj_req),
-
-    oneway void OffsetWriteObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_OffsetWriteObjType offset_write_obj_req),
-
-    oneway void RedirReadObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RedirReadObjType redir_write_obj_req)
-
-}
 
 /*
  * From fdscli to OM (sync messages)
@@ -832,6 +880,19 @@ service FDSP_ControlPathResp {
   oneway void NotifyDMTUpdateResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DMT_Type dmt_info_resp)
 }
 
+service FDSP_MigrationPathReq {
+    oneway void MigrateToken(1:FDSP_MsgHdrType fdsp_msg, 
+                             2:FDSP_MigrateTokenReq migrate_req)
+
+    oneway void PutTokenObjects(1:FDSP_MsgHdrType fdsp_msg, 
+				2:PutTokenObjectsReq mig_put_req)
+}
+
+service FDSP_MigrationPathResp {
+    oneway void MigrateTokenResp(1:FDSP_MsgHdrType fdsp_msg)
+
+    oneway void PutTokenObjectsResp(1:FDSP_MsgHdrType fdsp_msg)
+}
 
 #endif
 

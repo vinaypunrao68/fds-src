@@ -19,6 +19,7 @@
 #include <concurrency/Mutex.h>
 #include <OmTypes.h>
 #include <OmResources.h>
+#include <OmClusterMap.h>
 
 namespace fds {
 
