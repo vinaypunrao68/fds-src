@@ -231,6 +231,7 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
             dynamic_cast<netDataPathClientSession *>(endPoint)->getClient();
     netDataPathClientSession *sessionCtx =  static_cast<netDataPathClientSession *>(endPoint);
     msgHdrSm->session_uuid = sessionCtx->getSessionId();
+    journEntry->session_uuid = msgHdrSm->session_uuid;
     client->PutObject(msgHdrSm, put_obj_req);
     FDS_PLOG_SEV(sh_log, fds::fds_log::normal) << "For transaction " << transId
 					       << " sent async PUT_OBJ_REQ to SM ip "
@@ -282,8 +283,9 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
 
     boost::shared_ptr<FDSP_MetaDataPathReqClient> client =
             dynamic_cast<netMetaDataPathClientSession *>(endPoint)->getClient();
-    netDataPathClientSession *sessionCtx =  static_cast<netDataPathClientSession *>(endPoint);
+    netMetaDataPathClientSession *sessionCtx =  static_cast<netMetaDataPathClientSession *>(endPoint);
     msgHdrDm->session_uuid = sessionCtx->getSessionId();
+    journEntry->session_uuid = msgHdrDm->session_uuid;
     client->UpdateCatalogObject(msgHdrDm, upd_obj_req);
 
     FDS_PLOG_SEV(sh_log, fds::fds_log::normal) << "For transaction " << transId
@@ -534,7 +536,6 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
   msgHdr->src_port       = 0;
 //  msgHdr->src_node_name  = my_node_name;
   msgHdr->src_node_name = storHvisor->myIp;
-  msgHdr->session_uuid = 
 
   /*
    * Setup journal entry
@@ -619,6 +620,7 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
           dynamic_cast<netDataPathClientSession *>(endPoint)->getClient();
   netDataPathClientSession *sessionCtx =  static_cast<netDataPathClientSession *>(endPoint);
   msgHdr->session_uuid = sessionCtx->getSessionId();
+  journEntry->session_uuid = msgHdr->session_uuid;
   // RPC getObject to StorMgr
   client->GetObject(msgHdr, get_obj_req);
 
@@ -863,6 +865,7 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
              dynamic_cast<netDataPathClientSession *>(endPoint)->getClient();
       netDataPathClientSession *sessionCtx =  static_cast<netDataPathClientSession *>(endPoint);
       fdsp_msg_hdr->session_uuid = sessionCtx->getSessionId();
+      journEntry->session_uuid = fdsp_msg_hdr->session_uuid;
       client->DeleteObject(fdsp_msg_hdr, del_obj_req);
     FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:" << transId << " volID:" << vol_id << " - Sent async DelObj req to SM";
   }
@@ -908,8 +911,9 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
     if (endPoint){
        boost::shared_ptr<FDSP_MetaDataPathReqClient> client =
              dynamic_cast<netMetaDataPathClientSession *>(endPoint)->getClient();
-      netDataPathClientSession *sessionCtx =  static_cast<netDataPathClientSession *>(endPoint);
+      netMetaDataPathClientSession *sessionCtx =  static_cast<netMetaDataPathClientSession *>(endPoint);
       fdsp_msg_hdr->session_uuid = sessionCtx->getSessionId();
+      journEntry->session_uuid = fdsp_msg_hdr->session_uuid;
       client->DeleteCatalogObject(fdsp_msg_hdr_dm, del_cat_obj_req);
       FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:"
                                      << transId << " volID:" << vol_id
@@ -1054,8 +1058,9 @@ fds::Error StorHvCtrl::listBucket(fds::AmQosReq *qosReq) {
   boost::shared_ptr<FDSP_MetaDataPathReqClient> client =
              dynamic_cast<netMetaDataPathClientSession *>(endPoint)->getClient();
 
-  netDataPathClientSession *sessionCtx =  static_cast<netDataPathClientSession *>(endPoint);
+  netMetaDataPathClientSession *sessionCtx =  static_cast<netMetaDataPathClientSession *>(endPoint);
   msgHdr->session_uuid = sessionCtx->getSessionId();
+  journEntry->session_uuid = msgHdr->session_uuid;
   client->GetVolumeBlobList(msgHdr, get_bucket_list_req);
   FDS_PLOG(GetLog()) << " StorHvisorTx:" << "IO-XID:"
 		     << transId << " volID:" << volId
