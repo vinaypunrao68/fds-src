@@ -408,8 +408,10 @@ class ObjectStorMgr :
             int vol_action,
             FDSP_ResultType resut);
 
-    Error iterateTokenObjects(const fds_token_id &token, SMTokenItr &itr,
-                              std::string &metadata_buf, std::string &objdata_buf);
+    Error iterateTokenObjects(const fds_token_id &token, 
+                             const size_t &max_size, 
+                             FDSP_MigrateObjectList &obj_list, 
+                             SMTokenItr &itr);
     void unitTest();
 
     const std::string getStorPrefix() {
