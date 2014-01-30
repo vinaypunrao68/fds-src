@@ -106,6 +106,7 @@ public:
   int      data_obj_len;
 
   std::string blobName;
+  std::string session_uuid;
   fds_uint64_t blobOffset;
 
   /*

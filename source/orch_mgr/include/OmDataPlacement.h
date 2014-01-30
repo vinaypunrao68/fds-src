@@ -19,69 +19,9 @@
 #include <concurrency/Mutex.h>
 #include <OmTypes.h>
 #include <OmResources.h>
+#include <OmClusterMap.h>
 
 namespace fds {
-
-    /**
-     * Type that maps a Node's UUID to it's agent descriptor.
-     */
-    typedef std::unordered_map<NodeUuid,
-            boost::shared_ptr<NodeAgent>,
-            UuidHash> NodeMap;
-    typedef std::atomic<fds_uint64_t> AtomicMapVersion;
-
-    /**
-     * Defines the current state of the cluster at given points in time.
-     * The cluster map specifies the current members of the cluster.
-     */
-    class ClusterMap : public Module {
-  protected:
-        NodeMap           currClustMap;  /**< Current storage nodes in cluster */
-        /**
-         * Current version of the map.
-         * The version is monotonically
-         * increasing.
-         */
-        AtomicMapVersion  version;
-        Sha1Digest        checksum;             /**< Content Checksum */
-        boost::shared_ptr<fds_mutex> mapMutex;  /**< Protects the map */
-
-  public:
-        ClusterMap();
-        ~ClusterMap();
-
-        /**
-         * Need some functions to serialize the map
-         */
-
-        /**
-         * Returns the current number of cluster members.
-         */
-        int getNumMembers() const;
-        /**
-         * Returns member info based on the nodes membership
-         * index number.
-         */
-        const NodeAgent *om_member_info(int node_idx);
-        /**
-         * Returns member info based on the nodes UUID.
-         */
-        const NodeAgent *om_member_info(const ResourceUUID &uuid);
-
-        /**
-         * Update the current cluster map.
-         */
-        Error updateMap(const std::list<boost::shared_ptr<NodeAgent>> &addNodes,
-                        const std::list<boost::shared_ptr<NodeAgent>> &rmNodes);
-
-        /**
-         * Module methods.
-         */
-        virtual int  mod_init(SysParams const *const param);
-        virtual void mod_startup();
-        virtual void mod_shutdown();
-    };
-
     /**
      * Abstract base class that defines the interface for a
      * data placement algorithm.
@@ -96,34 +36,29 @@ namespace fds {
             RoundRobin  = 0,
             ConsistHash = 1,
         };
-        virtual Error computeNewDlt(const ClusterMap &currMap,
-                                    const std::list<boost::shared_ptr<NodeAgent>>
-                                    &addNodes,
-                                    const std::list<boost::shared_ptr<NodeAgent>>
-                                    &rmNodes,
-                                    const FdsDlt &currDlt,
-                                    fds_uint64_t depth,
-                                    fds_uint64_t width) = 0;
+        virtual Error computeNewDlt(const ClusterMap *currMap,
+                                    const FdsDlt     *currDlt,
+                                    fds_uint64_t      depth,
+                                    fds_uint64_t      width,
+                                    FdsDlt           *newDlt) = 0;
     };
 
     class RoundRobinAlgorithm : public PlacementAlgorithm {
   public:
-        Error computeNewDlt(const ClusterMap &currMap,
-                            const std::list<boost::shared_ptr<NodeAgent>> &addNodes,
-                            const std::list<boost::shared_ptr<NodeAgent>> &rmNodes,
-                            const FdsDlt &currDlt,
-                            fds_uint64_t depth,
-                            fds_uint64_t width);
+        Error computeNewDlt(const ClusterMap *currMap,
+                            const FdsDlt     *currDlt,
+                            fds_uint64_t      depth,
+                            fds_uint64_t      width,
+                            FdsDlt           *newDlt);
     };
 
     class ConsistHashAlgorithm : public PlacementAlgorithm {
   public:
-        Error computeNewDlt(const ClusterMap &currMap,
-                            const std::list<boost::shared_ptr<NodeAgent>> &addNodes,
-                            const std::list<boost::shared_ptr<NodeAgent>> &rmNodes,
-                            const FdsDlt &currDlt,
-                            fds_uint64_t depth,
-                            fds_uint64_t width);
+        Error computeNewDlt(const ClusterMap *currMap,
+                            const FdsDlt     *currDlt,
+                            fds_uint64_t      depth,
+                            fds_uint64_t      width,
+                            FdsDlt           *newDlt);
     };
 
     /**
@@ -134,8 +69,10 @@ namespace fds {
         /**
          * Current DLT copy.
          * TODO: Move this over to our new DLT data structure
+         * and use a smart pointer (since we pass the structure
+         * around internall).
          */
-        boost::shared_ptr<FdsDlt> currDlt;
+        FdsDlt *curDlt;
 
         /**
          * The DLT depth defines the maximum number of
@@ -151,16 +88,15 @@ namespace fds {
         fds_uint64_t curDltWidth;
 
         /**
-         * Current token list. Maps the current
-         * list of nodes to their tokens.
+         * Need a data structure to maintain DLT histories.
          */
 
         /**
          * Current cluster membership. The data placement
-         * engine just stores a reference to the map.
-         * It should be managed/update externally.
+         * engine manages membership in conjunction with
+         * the placement of data.
          */
-        boost::shared_ptr<ClusterMap> currClusterMap;
+        ClusterMap *curClusterMap;
 
         /**
          * Weight distributions for the current DLT. This
@@ -177,7 +113,7 @@ namespace fds {
         /**
          * Current algorithm used to compute new DLTs.
          */
-        boost::shared_ptr<PlacementAlgorithm> placeAlgo;
+        PlacementAlgorithm *placeAlgo;
         /**
          * Current algorithm type
          */
@@ -205,9 +141,17 @@ namespace fds {
          * Changes the algorithm being used to compute DLTs.
          */
         void setAlgorithm(PlacementAlgorithm::AlgorithmTypes type);
-    };
 
-    extern ClusterMap gl_OMClusMapMod;
+        /**
+         * Reruns DLT computation.
+         */
+        void computeDlt();
+
+        /**
+         * Returns the current version of the DLT.
+         */
+        const FdsDlt *getCurDlt() const;
+    };
 }  // namespace fds
 
 #endif  // SOURCE_ORCH_MGR_INCLUDE_OMDATAPLACEMENT_H_
