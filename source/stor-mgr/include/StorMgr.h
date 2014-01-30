@@ -139,6 +139,11 @@ class SMCounters : public FdsCounters
   LatencyCounter puts_latency;
 };
 
+// TODO:  Fill it up
+class SMTokenItr {
+ public:
+};
+
 class ObjectStorMgr :
         public FdsProcess,
         public Module // todo: We shouldn't be deriving module here.  ObjectStorMgr is
@@ -403,6 +408,10 @@ class ObjectStorMgr :
             int vol_action,
             FDSP_ResultType resut);
 
+    Error iterateTokenObjects(const fds_token_id &token, 
+                             const size_t &max_size, 
+                             FDSP_MigrateObjectList &obj_list, 
+                             SMTokenItr &itr);
     void unitTest();
 
     const std::string getStorPrefix() {
