@@ -221,6 +221,7 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
     journEntry->sm_ack[i].ack_status = FDS_CLS_ACK;
     journEntry->num_sm_nodes     = numNodes;
 
+    put_obj_req->dlt_version =  storHvisor->om_client->dlt_version;
     // Call Put object RPC to SM
     netSession *endPoint = NULL;
     endPoint = storHvisor->rpcSessionTbl->getSession
@@ -610,6 +611,8 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
   msgHdr->dst_ip_lo_addr = node_ip;
   msgHdr->dst_port       = node_port;
 
+  get_obj_req->dlt_version =  storHvisor->om_client->dlt_version;
+
   netSession *endPoint = NULL;
   endPoint = storHvisor->rpcSessionTbl->getSession
            (node_ip, FDS_ProtocolInterface::FDSP_STOR_MGR);
@@ -850,6 +853,7 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   fdsp_msg_hdr->dst_ip_lo_addr = node_ip;
   fdsp_msg_hdr->dst_port       = node_port;
   
+  del_obj_req->dlt_version =  storHvisor->om_client->dlt_version;
   // *****CAVEAT: Modification reqd
   // ******  Need to find out which is the primary SM and send this out to that SM. ********
     endPoint = storHvisor->rpcSessionTbl->getSession(node_ip,
