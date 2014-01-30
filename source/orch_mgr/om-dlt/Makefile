@@ -8,7 +8,8 @@ user_cpp          := \
     OmResources.cpp \
     OmDeploy.cpp \
     OmClusMap.cpp \
-    OmDataPlacement.cpp
+    OmDataPlacement.cpp \
+    OmPlacementAlgorithms.cpp
 
 user_ar_libs      := fds-om-dlt
 fds-om-dlt        := $(user_cpp)

@@ -6,22 +6,41 @@
  *
  * Replace XX with your adapter name.
  */
+#include <orchMgr.h>
 #include <orch-mgr-probe.h>
 #include <util/fds_stat.h>
 #include <fds-probe/s3-probe.h>
 #include <orch-mgr/om-service.h>
 
+namespace fds {
+
+extern OrchMgr *orchMgr;
+
+static void run_om_server(OrchMgr *inst)
+{
+    //  inst->run();   //  not return.
+}
+
+}  // namespace fds
+
 int main(int argc, char **argv)
 {
+    //  fds::orchMgr     = new fds::OrchMgr(argc, argv, "orch_mgr.conf", "fds.om.");
+    fds::gl_orch_mgr = fds::orchMgr;
+
     fds::Module *probe_vec[] = {
         &fds::gl_fds_stat,
         &fds::gl_probeS3Eng,
         &fds::gl_OMModule,
+        //  fds::orchMgr,
         &fds::gl_OM_ProbeMod,
         nullptr
     };
+    //  fds::orchMgr->setup(argc, argv, probe_vec);
     fds::ModuleVector my_probe(argc, argv, probe_vec);
     my_probe.mod_execute();
+
+    fds::fds_threadpool *pool = fds::gl_probeS3Eng.probe_get_thrpool();
 
     /* Add your probe adapter(s) to S3 connector. */
     fds::gl_probeS3Eng.probe_add_adapter(&fds::gl_OM_ProbeMod);
@@ -33,6 +52,7 @@ int main(int argc, char **argv)
     fds::gl_OM_ProbeMod.mod_startup();
 
     /* Now run the S3 engine. */
+    pool->schedule(fds::run_om_server, fds::orchMgr);
     fds::gl_probeS3Eng.run_server(nullptr);
     return 0;
 }
