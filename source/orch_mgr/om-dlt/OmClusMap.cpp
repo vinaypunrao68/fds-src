@@ -52,8 +52,8 @@ ClusterMap::getNumMembers() const {
 }
 
 Error
-ClusterMap::updateMap(const std::list<NodeAgent::pointer> &addNodes,
-                      const std::list<NodeAgent::pointer> &rmNodes) {
+ClusterMap::updateMap(const NodeList &addNodes,
+                      const NodeList &rmNodes) {
     Error    err(ERR_OK);
     NodeUuid uuid;
     fds_uint32_t removed;

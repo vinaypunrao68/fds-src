@@ -5,6 +5,7 @@
 #define SOURCE_ORCH_MGR_INCLUDE_OMRESOURCES_H_
 
 #include <string>
+#include <list>
 #include <unordered_map>
 #include <fds_module.h>
 #include <fds_resource.h>
@@ -84,6 +85,7 @@ class NodeAgent : public NodeInventory
  * Type that maps a node's UUID to its agent object.
  */
 typedef std::unordered_map<NodeUuid, NodeAgent::pointer, UuidHash> NodeMap;
+typedef std::list<NodeAgent::pointer> NodeList;
 typedef FDS_ProtocolInterface::FDSP_RegisterNodeTypePtr  FdspNodeRegMsg;
 
 /**
