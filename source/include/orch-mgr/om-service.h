@@ -37,9 +37,6 @@ class OM_Module : public Module
     virtual void mod_shutdown();
 
   protected:
-    /*
-     * TODO: Let's make these shared ptrs.
-     */
     Module                  *om_node_domain;
     Module                  *om_clus_map;
     Module                  *om_dlt;
