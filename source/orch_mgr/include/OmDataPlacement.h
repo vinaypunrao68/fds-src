@@ -19,68 +19,9 @@
 #include <concurrency/Mutex.h>
 #include <OmTypes.h>
 #include <OmResources.h>
+#include <OmClusterMap.h>
 
 namespace fds {
-
-    /**
-     * Type that maps a Node's UUID to it's agent descriptor.
-     */
-    typedef std::unordered_map<NodeUuid,
-            boost::shared_ptr<NodeAgent>,
-            UuidHash> NodeMap;
-    typedef std::atomic<fds_uint64_t> AtomicMapVersion;
-
-    /**
-     * Defines the current state of the cluster at given points in time.
-     * The cluster map specifies the current members of the cluster.
-     */
-    class ClusterMap : public Module {
-  protected:
-        NodeMap           currClustMap;  /**< Current storage nodes in cluster */
-        /**
-         * Current version of the map.
-         * The version is monotonically
-         * increasing.
-         */
-        AtomicMapVersion  version;
-        Sha1Digest        checksum;             /**< Content Checksum */
-        boost::shared_ptr<fds_mutex> mapMutex;  /**< Protects the map */
-
-  public:
-        ClusterMap();
-        ~ClusterMap();
-
-        /**
-         * Need some functions to serialize the map
-         */
-
-        /**
-         * Returns the current number of cluster members.
-         */
-        int getNumMembers() const;
-        /**
-         * Returns member info based on the nodes membership
-         * index number.
-         */
-        const NodeAgent *om_member_info(int node_idx);
-        /**
-         * Returns member info based on the nodes UUID.
-         */
-        const NodeAgent *om_member_info(const ResourceUUID &uuid);
-
-        /**
-         * Update the current cluster map.
-         */
-        Error updateMap(const std::list<boost::shared_ptr<NodeAgent>> &addNodes,
-                        const std::list<boost::shared_ptr<NodeAgent>> &rmNodes);
-
-        /**
-         * Module methods.
-         */
-        virtual int  mod_init(SysParams const *const param);
-        virtual void mod_startup();
-        virtual void mod_shutdown();
-    };
 
     /**
      * Abstract base class that defines the interface for a
