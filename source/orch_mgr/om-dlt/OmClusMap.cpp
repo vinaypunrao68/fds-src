@@ -11,11 +11,23 @@ namespace fds {
 ClusterMap gl_OMClusMapMod;
 
 ClusterMap::ClusterMap()
-    : Module("OM Cluster Map") {
-    mapMutex = boost::shared_ptr<fds_mutex>(new fds_mutex("cluster map mutex"));
+        : Module("OM Cluster Map"),
+          version(0) {
+    mapMutex = new fds_mutex("cluster map mutex");
 }
 
 ClusterMap::~ClusterMap() {
+    delete mapMutex;
+}
+
+ClusterMap::const_iterator
+ClusterMap::cbegin() const {
+    return currClustMap.cbegin();
+}
+
+ClusterMap::const_iterator
+ClusterMap::cend() const {
+    return currClustMap.cend();
 }
 
 int
@@ -32,7 +44,7 @@ void
 ClusterMap::mod_shutdown() {
 }
 
-int
+fds_uint32_t
 ClusterMap::getNumMembers() const {
     return currClustMap.size();
 }
@@ -46,6 +58,9 @@ ClusterMap::updateMap(const std::list<boost::shared_ptr<NodeAgent>> &addNodes,
 
     mapMutex->lock();
 
+    addedNodes.clear();
+    removedNodes.clear();
+
     // Remove nodes from the map
     for (std::list<boost::shared_ptr<NodeAgent>>::const_iterator it = rmNodes.cbegin();
          it != rmNodes.cend();
@@ -55,6 +70,7 @@ ClusterMap::updateMap(const std::list<boost::shared_ptr<NodeAgent>> &addNodes,
         // For now, assume it's incorrect to try and remove
         // a node that doesn't exist
         fds_verify(removed == 1);
+        removedNodes.push_back(uuid);
     }
 
     // Add nodes to the map
@@ -67,11 +83,34 @@ ClusterMap::updateMap(const std::list<boost::shared_ptr<NodeAgent>> &addNodes,
         fds_verify(currClustMap.count(uuid) == 0);
 
         currClustMap[uuid] = (*it);
+        addedNodes.push_back(uuid);
     }
 
     // Increase the version following the update
     version++;
     mapMutex->unlock();
     return err;
+}
+
+std::list<NodeUuid>
+ClusterMap::getAddedNodes() const {
+    /*
+     * TODO: We should ensure that we're not
+     * in the process of updating the cluster map
+     * as this list may be in the process of being
+     * modifed.
+     */
+    return addedNodes;
+}
+
+std::list<NodeUuid>
+ClusterMap::getRemovedNodes() const {
+    /*
+     * TODO: We should ensure that we're not
+     * in the process of updating the cluster map
+     * as this list may be in the process of being
+     * modifed.
+     */
+    return removedNodes;
 }
 }  // namespace fds

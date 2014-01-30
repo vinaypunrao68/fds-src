@@ -147,8 +147,16 @@ UT_OM_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput 
         }
     }
 
+    // Update the cluster map
     ClusterMap *cm = static_cast<ClusterMap *>(gl_OMModule.om_clusmap_mod());
     cm->updateMap(newNodes, rmNodes);
+
+    // Recompute the DLT
+    DataPlacement *dp = static_cast<DataPlacement *>(gl_OMModule.om_dataplace_mod());
+    dp->computeDlt();
+    const FdsDlt *dlt = dp->getCurDlt();
+
+    std::cout << "New DLT " << *dlt << std::endl;
 }
 
 }  // namespace fds
