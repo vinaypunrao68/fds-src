@@ -35,12 +35,13 @@ user_no_style  := \
 	TransJournal.h        \
 	tvclib.h              \
 	vvclib.h              \
-    fds_timer.h           \
-	NetSessRespSvr.h       \
+	fds_timer.h           \
+	NetSessRespSvr.h      \
 	NetSessRespClient.h  \
 	NetSession.h        \
         fds_counters.h	    \
 	fds_stopwatch.h     \
+	dlt.h                \
 	graphite_client.h
 
 include $(topdir)/Makefile.incl
