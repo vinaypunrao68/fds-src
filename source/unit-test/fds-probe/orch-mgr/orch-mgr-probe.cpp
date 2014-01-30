@@ -140,19 +140,19 @@ UT_OM_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput 
             << ", name " << info->nd_node_name << std::endl;
 
         ResourceUUID r_uuid(info->nd_uuid);
+        NodeAgent::pointer na = new NodeAgent(r_uuid);
         if (info->add == true) {
-            newNodes.push_back(new NodeAgent(r_uuid));
+            newNodes.push_back(na);
         } else {
-            rmNodes.push_back(new NodeAgent(r_uuid));
+            rmNodes.push_back(na);
         }
     }
 
     // Update the cluster map
-    ClusterMap *cm = static_cast<ClusterMap *>(gl_OMModule.om_clusmap_mod());
-    cm->updateMap(newNodes, rmNodes);
+    DataPlacement *dp = static_cast<DataPlacement *>(gl_OMModule.om_dataplace_mod());
+    dp->updateMembers(newNodes, rmNodes);
 
     // Recompute the DLT
-    DataPlacement *dp = static_cast<DataPlacement *>(gl_OMModule.om_dataplace_mod());
     dp->computeDlt();
     const FdsDlt *dlt = dp->getCurDlt();
 

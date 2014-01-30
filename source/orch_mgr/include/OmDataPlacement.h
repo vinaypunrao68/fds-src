@@ -143,6 +143,14 @@ namespace fds {
         void setAlgorithm(PlacementAlgorithm::AlgorithmTypes type);
 
         /**
+         * Updates members of the cluster.
+         * In general, this should necessitate a DLT
+         * recomputation.
+         */
+        Error updateMembers(const NodeList &addNodes,
+                            const NodeList &rmNodes);
+
+        /**
          * Reruns DLT computation.
          */
         void computeDlt();
@@ -151,6 +159,10 @@ namespace fds {
          * Returns the current version of the DLT.
          */
         const FdsDlt *getCurDlt() const;
+        /**
+         * Returns the current version of the cluster map.
+         */
+        const ClusterMap *getCurClustMap() const;
     };
 }  // namespace fds
 

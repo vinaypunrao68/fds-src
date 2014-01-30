@@ -51,6 +51,17 @@ DataPlacement::setAlgorithm(PlacementAlgorithm::AlgorithmTypes type) {
     placementMutex->unlock();
 }
 
+Error
+DataPlacement::updateMembers(const NodeList &addNodes,
+                             const NodeList &rmNodes) {
+    placementMutex->lock();
+    Error err = curClusterMap->updateMap(addNodes, rmNodes);
+    // TODO(Andrew): We should be recomputing the DLT here.
+    placementMutex->unlock();
+
+    return err;
+}
+
 void
 DataPlacement::computeDlt() {
     FdsDlt *newDlt = new FdsDlt(curDltWidth, curDltDepth);
@@ -72,6 +83,11 @@ DataPlacement::computeDlt() {
 const FdsDlt*
 DataPlacement::getCurDlt() const {
     return curDlt;
+}
+
+const ClusterMap*
+DataPlacement::getCurClustMap() const {
+    return curClusterMap;
 }
 
 int
