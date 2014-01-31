@@ -5,7 +5,6 @@
 #define SOURCE_ORCH_MGR_INCLUDE_OMRESOURCES_H_
 
 #include <vector>
-#include <list>
 #include <string>
 #include <list>
 #include <unordered_map>

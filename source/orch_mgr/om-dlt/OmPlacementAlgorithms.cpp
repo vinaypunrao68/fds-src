@@ -49,7 +49,7 @@ RoundRobinAlgorithm::computeNewDlt(const ClusterMap *curMap,
 
         for (fds_uint32_t j = 0; j < bucket_depth; j++) {
             NodeUuid uuid = (nl_it->second)->get_uuid();
-            node_list.push_back(uuid.rs_uuid);
+            node_list.push_back(uuid.uuid_get_val());
             nl_it++;
             if (nl_it == curMap->cend()) {
                 nl_it = curMap->cbegin();
