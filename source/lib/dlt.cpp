@@ -294,7 +294,7 @@ const DLT* DLTManager::getDLT(const fds_uint64_t version) {
 }
 
 
-void DLTManager::setCurrent(uint version) {
+void DLTManager::setCurrent(fds_uint64_t version) {
     std::vector<DLT>::const_iterator iter;
     for (iter = dltList.begin(); iter != dltList.end(); iter++) {
         if (version == iter->version) {
