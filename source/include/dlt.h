@@ -43,6 +43,11 @@ namespace fds {
             fds_verify(index <= length);
             return p[index];
         }
+
+        NodeUuid& operator[] (int index) {
+            return p[index];
+        }
+
         fds_uint32_t getLength() const {
             return length;
         }
@@ -52,7 +57,7 @@ namespace fds {
             }
         }
 
-    private:
+  private:
         NodeUuid     *p;
         fds_uint32_t length;
     };
@@ -68,7 +73,7 @@ namespace fds {
      * Always generated the token using the getToken func.
      */
     class DLT : public Module {
-    public :
+  public :
         /**
          * Return the token ID for a given Object based on
          * the size of this DLT.
@@ -83,7 +88,14 @@ namespace fds {
             fds_uint32_t _depth,
             fds_uint64_t _version,
             bool fInit = false);
+
+        // This is a shallow copy - just for convenience.
+        // if you change a copy's TokenGroup data , the original will be changed
+        // Mebbe we can remove this later
         DLT(const DLT& dlt);
+
+        // Deep copy . Safe modifiable copy.
+        DLT& clone();
 
         /** get all the Nodes for a token/objid */
         DltTokenGroupPtr getNodes(fds_token_id token) const;
@@ -123,7 +135,7 @@ namespace fds {
         void mod_startup();
         void mod_shutdown();
 
-    private:
+  private:
         /**
          * Maps token ids to the group of nodes.
          * Constitutes main dlt structure.
@@ -133,6 +145,7 @@ namespace fds {
         /** Cached reverse map from node to its token ids */
         boost::shared_ptr<NodeTokenMap> mapNodeTokens;
         friend class DLTManager;
+        friend class DLTDiff;
 
         fds_uint64_t version;    /**< OM DLT version */
         time_t       timestamp;  /**< Time OM created DLT */
@@ -142,18 +155,54 @@ namespace fds {
     };
 
     /**
+     * This class maintains the diff between a given dlt and another
+     * Modification to the data will be stored separately without
+     * affecting the original dlt. A DLTDiff can be added to the
+     * DLTManager to be stored as a new DLT. Hopefully only the DLTDiff
+     * will be transmitted across.
+     */
+    class DLTDiff {
+  public:
+        // dlt : is the base dlt relative to which diffs will be maintained
+        // version : is the new version number of the dltdiff. if version is 0
+        // the version will be set as dlt.version1
+        DLTDiff(DLT* baseDlt, uint version = 0);
+
+        // get all the Nodes for a token/objid
+        DltTokenGroupPtr getNodes(fds_token_id token) const;
+        DltTokenGroupPtr getNodes(const ObjectID& objId) const;
+
+        // get the primary node for a token/objid
+        NodeUuid getPrimary(fds_token_id token) const;
+        NodeUuid getPrimary(const ObjectID& objId) const;
+
+        void setNode(fds_token_id token, uint index, NodeUuid nodeuuid);
+
+        TokenList& getChangedTokens();
+
+        fds_uint64_t version;
+        time_t timestamp;
+
+  private:
+        bool fNewDlt;
+        DLT* baseDlt;
+        fds_uint64_t baseVersion;
+        std::map<fds_token_id, DltTokenGroupPtr> mapTokenNodes;
+        friend class DLTManager;
+    };
+
+    /**
      * Manages multiple DLTs ,maintains the current DLT
      * Generates the diff between dlts..
      */
     typedef boost::shared_ptr<const DLT> DLTPtr;
 
     class DLTManager {
-    public :
-        DLTManager()
-                : curPtr(NULL) {
-        }
+  public :
+        DLTManager();
 
         bool add(const DLT& dlt);
+        bool add(const DLTDiff& dltDiff);
 
         // By default the get the current one(0) or the specific version
         const DLT* getDLT(uint version = 0);
@@ -171,8 +220,8 @@ namespace fds {
         NodeUuid getPrimary(fds_token_id token) const;
         NodeUuid getPrimary(const ObjectID& objId) const;
 
-    private:
-        DLT* curPtr;
+  private:
+        const DLT* curPtr;
         std::vector<DLT> dltList;
     };
 }  // namespace fds
