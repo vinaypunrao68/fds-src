@@ -5,6 +5,7 @@
 #include <iostream>
 #include <thread>
 
+#include "SmObjDb.h"
 #include <policy_rpc.h>
 #include <policy_tier.h>
 #include "StorMgr.h"
@@ -276,11 +277,7 @@ ObjectStorMgr::~ObjectStorMgr() {
     FDS_PLOG(objStorMgr->GetLog()) << " Destructing  the Storage  manager";
     shuttingDown = true;
 
-    if (objStorDB)
-        delete objStorDB;
-    if (objIndexDB)
-        delete objIndexDB;
-
+    delete smObjDb;
     /*
      * Clean up the QoS system. Need to wait for I/Os to
      * complete and deregister each volume. The volume info
@@ -340,10 +337,7 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
     std::string stor_prefix = conf_helper_.get<std::string>("prefix");
 
     // Create leveldb
-    std::string filename= stor_prefix + "SNodeObjRepository";
-    objStorDB  = new ObjectDB(filename);
-    filename= stor_prefix + "SNodeObjIndex";
-    objIndexDB  = new ObjectDB(filename);
+    smObjDb = new  SmObjDb(stor_prefix, objStorMgr->GetLog());
 
     /* Set up FDSP RPC endpoints */
     nst_ = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_MGR));
@@ -761,7 +755,7 @@ ObjectStorMgr::writeObjectLocation(const ObjectID& objId,
 
     objData.size = objMap.marshalledSize();
     objData.data = std::string(objMap.marshalling(), objMap.marshalledSize());
-    err = objStorDB->Put(objId, objData);
+    err = smObjDb->Put(objId, objData);
     if (err == ERR_OK) {
         FDS_PLOG(GetLog()) << "Updating object location for object "
                 << objId << " to " << objMap;
@@ -784,7 +778,7 @@ ObjectStorMgr::readObjectLocations(const ObjectID     &objId,
 
     objData.size = 0;
     objData.data = "";
-    err = objStorDB->Get(objId, objData);
+    err = smObjDb->Get(objId, objData);
     if (err == ERR_OK) {
         objData.size = objData.data.size();
         objMaps.unmarshalling(objData.data, objData.size);
@@ -801,7 +795,7 @@ ObjectStorMgr::readObjectLocations(const ObjectID &objId,
 
     objData.size = 0;
     objData.data = "";
-    err = objStorDB->Get(objId, objData);
+    err = smObjDb->Get(objId, objData);
     if (err == ERR_OK) {
         string_to_obj_map(objData.data, objMap);
         FDS_PLOG(GetLog()) << "Retrieving object location for object "
@@ -845,7 +839,7 @@ ObjectStorMgr::deleteObjectLocation(const ObjectID& objId) {
     obj_map->obj_refcnt = -1;
     objData.size = objMap.marshalledSize();
     objData.data = std::string(objMap.marshalling(), objMap.marshalledSize());
-    err = objStorDB->Put(objId, objData);
+    err = smObjDb->Put(objId, objData);
     if (err == ERR_OK) {
         FDS_PLOG(GetLog()) << "Setting the delete marker for object "
                 << objId << " to " << objMap;
@@ -1607,28 +1601,6 @@ ObjectStorMgr::getObjectInternal(FDSP_GetObjTypePtr getObjReq,
                                  << transId;
 
   return err;
-}
-
-/**
- * @brief Populates obj_list with objects that belong to a token.  Populating
- * obj_list starts from value provided in itr parameter.  To iterate all the
- * objects you invoke this function repeatedly with itr from last invocation. 
- *
- * @param token token id 
- * @param max_size max_size to fill.  sum of the sizes all objects in obj_list
- * shouldn't exceed max_size
- * @param obj_list
- * @param itr
- *
- * @return 
- */
-Error ObjectStorMgr::iterateTokenObjects(const fds_token_id &token, 
-                                         const size_t &max_size, 
-                                         FDSP_MigrateObjectList &obj_list, 
-                                         SMTokenItr &itr)
-{
-    Error err;
-    return err;
 }
 
 inline void ObjectStorMgr::swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg) {
