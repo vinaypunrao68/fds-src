@@ -186,6 +186,8 @@ Error VolumeCatalogCache::queryDm(const std::string& blobName,
       try {
          boost::shared_ptr<FDSP_MetaDataPathReqClient> client =
                dynamic_cast<netMetaDataPathClientSession *>(endPoint)->getClient();
+         netMetaDataPathClientSession *sessionCtx =  static_cast<netMetaDataPathClientSession *>(endPoint);
+         msg_hdr->session_uuid = sessionCtx->getSessionId();
         client->QueryCatalogObject(msg_hdr, query_req);
         FDS_PLOG(vcc_log) << " VolumeCatalogCache - "
                           << "Async query request sent to DM "

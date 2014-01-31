@@ -757,11 +757,11 @@ void DataMgr::ReqHandler::GetVolumeBlobList(FDSP_MsgHdrTypePtr& msg_hdr,
      */
     msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_GET_VOL_BLOB_LIST_RSP;
     dataMgr->swapMgrId(msg_hdr);
-    dataMgr->respMapMtx.read_lock();
     FDS_ProtocolInterface::FDSP_GetVolumeBlobListRespTypePtr
             blobListResp(new FDS_ProtocolInterface::FDSP_GetVolumeBlobListRespType);
     blobListResp->num_blobs_in_resp = 0;
     blobListResp->end_of_list = true;
+    dataMgr->respMapMtx.read_lock();
     dataMgr->respHandleCli(msg_hdr->session_uuid)->GetVolumeBlobListResp(*msg_hdr,
 									  *blobListResp);
     dataMgr->respMapMtx.read_unlock();

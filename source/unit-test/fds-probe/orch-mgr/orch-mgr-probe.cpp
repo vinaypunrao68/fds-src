@@ -126,12 +126,14 @@ JsObject *
 UT_OM_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *out)
 {
     int              i, num;
+    FdspNodeRegPtr   ptr;
     UT_OM_NodeInfo  *node;
     ut_node_info_t  *info;
 
-    std::list<boost::shared_ptr<NodeAgent>> newNodes;
-    std::list<boost::shared_ptr<NodeAgent>> rmNodes;
+    std::list<NodeAgent::pointer> newNodes;
+    std::list<NodeAgent::pointer> rmNodes;
 
+    ptr = FdspNodeRegPtr(new FdspNodeReg());
     num = parent->js_array_size();
     for (i = 0; i < num; i++) {
         node = static_cast<UT_OM_NodeInfo *>((*parent)[i]);
@@ -141,14 +143,23 @@ UT_OM_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput 
 
         ResourceUUID r_uuid(info->nd_uuid);
         if (info->add == true) {
-            newNodes.push_back(boost::shared_ptr<NodeAgent>(new NodeAgent(r_uuid)));
+            newNodes.push_back(new NodeAgent(r_uuid));
         } else {
-            rmNodes.push_back(boost::shared_ptr<NodeAgent>(new NodeAgent(r_uuid)));
+            rmNodes.push_back(new NodeAgent(r_uuid));
         }
+        OM_NodeDomainMod::om_local_domain()->om_reg_node_info(&r_uuid, ptr);
     }
 
-    ClusterMap *cm = static_cast<ClusterMap *>(gl_OMModule.om_clusmap_mod());
-    cm->updateMap(newNodes, rmNodes);
+    // Update the cluster map
+    DataPlacement *dp = static_cast<DataPlacement *>(gl_OMModule.om_dataplace_mod());
+    dp->updateMembers(newNodes, rmNodes);
+
+    // Recompute the DLT
+    dp->computeDlt();
+    const DLT *dlt = dp->getCurDlt();
+
+    // std::cout << "New DLT " << *dlt << std::endl;
+    return this;  //  to free this obj
 }
 
 }  // namespace fds

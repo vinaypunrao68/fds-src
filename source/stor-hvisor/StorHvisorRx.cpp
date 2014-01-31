@@ -303,6 +303,8 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
           fds_verify(endPoint != NULL);
           boost::shared_ptr<FDSP_MetaDataPathReqClient> client =
                  dynamic_cast<netMetaDataPathClientSession *>(endPoint)->getClient();
+          netMetaDataPathClientSession *sessionCtx =  static_cast<netMetaDataPathClientSession *>(endPoint);
+          dmMsg->session_uuid = sessionCtx->getSessionId();
           client->UpdateCatalogObject(dmMsg, upd_obj_req);
           txn->dm_ack[node].commit_status = FDS_COMMIT_MSG_SENT;
           FDS_PLOG_SEV(sh_log, fds::fds_log::normal) << "For trans " << transId
@@ -507,6 +509,8 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
          if (endPoint) {
           boost::shared_ptr<FDSP_DataPathReqClient> client =
                 dynamic_cast<netDataPathClientSession *>(endPoint)->getClient();
+           netDataPathClientSession *sessionCtx =  static_cast<netDataPathClientSession *>(endPoint);
+           fdsp_msg_hdr->session_uuid = sessionCtx->getSessionId();
            client->GetObject(fdsp_msg_hdr, get_obj_req);
            FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Sent Async getObj req to SM at " << node_ip ;
            journEntry->trans_state = FDS_TRANS_GET_OBJ;
@@ -529,6 +533,8 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
          if (endPoint) {
           boost::shared_ptr<FDSP_DataPathReqClient> client =
                 dynamic_cast<netDataPathClientSession *>(endPoint)->getClient();
+           netDataPathClientSession *sessionCtx =  static_cast<netDataPathClientSession *>(endPoint);
+           fdsp_msg_hdr->session_uuid = sessionCtx->getSessionId();
            client->DeleteObject(fdsp_msg_hdr, del_obj_req);
            FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Sent Async deleteObj req to SM at " << node_ip ;
            journEntry->trans_state = FDS_TRANS_DEL_OBJ;
@@ -565,6 +571,8 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
            if (endPoint){
                boost::shared_ptr<FDSP_MetaDataPathReqClient> client =
                          dynamic_cast<netMetaDataPathClientSession *>(endPoint)->getClient();
+             netMetaDataPathClientSession *sessionCtx =  static_cast<netMetaDataPathClientSession *>(endPoint);
+             fdsp_msg_hdr_dm->session_uuid = sessionCtx->getSessionId();
              client->DeleteCatalogObject(fdsp_msg_hdr_dm, del_cat_obj_req);
              FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:"
                                      << trans_id << " volID:" << vol_id

@@ -577,7 +577,7 @@ class netSessionTbl {
           sessionTblMutex = new fds_mutex("RPC Tbl mutex");
       }
   netSessionTbl(FDSP_MgrIdType myMgrId)
-      : netSessionTbl("", 0, 0, 100, myMgrId) {
+      : netSessionTbl("", 0, 0, 50, myMgrId) {
       }
   ~netSessionTbl();
 

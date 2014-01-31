@@ -10,6 +10,7 @@
 
 #include <list>
 #include <unordered_map>
+#include <functional>
 
 #include <fdsp/FDSP_types.h>
 #include <fds_err.h>
@@ -234,7 +235,11 @@ namespace fds {
       putObjReq = NULL;
       delObjReq = NULL;
     }
-    ~SmIoReq() {
+
+    SmIoReq() {
+    }
+
+    virtual ~SmIoReq() {
     }
 
     /*
@@ -284,6 +289,33 @@ namespace fds {
     fds_volid_t getVolId() const {
       return volUuid;
     }
+    
+    virtual std::string log_string() {
+       // TODO: Fill it up 
+        std::stringstream ret;
+        return ret.str(); 
+    }
+  };
+
+  typedef boost::shared_ptr<FDSP_MigrateObjectList> FDSP_MigrateObjectListPtr; 
+  /**
+   * @brief Putting token objects request
+   */
+  class PutTokObjectsReq : public SmIoReq {
+   public:
+    virtual std::string log_string() override 
+    {
+        std::stringstream ret;
+        ret << " PutTokObjectsReq Token id: " << token_id;
+        return ret.str(); 
+    }
+
+    /* Token id that objects belong to */
+    fds_token_id token_id;
+    /* List objects and their metadata */
+    FDSP_MigrateObjectListPtr obj_list; 
+    /* Response callback */
+    std::function<void (const Error&)> response_cb; 
   };
 }  // namespace fds
 
