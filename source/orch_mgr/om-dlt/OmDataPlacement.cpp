@@ -1,6 +1,9 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
+#include <unordered_map>
+#include <utility>
+
 #include <OmDataPlacement.h>
 
 namespace fds {
@@ -8,6 +11,22 @@ namespace fds {
  * Functions definitions for data
  * placement
  **********/
+void
+DataPlacement::computeWeightDist(const ClusterMap *cm,
+                                 const FdsDlt     *dlt,
+                                 WeightMap        *sortedWeights) {
+    // Count the weights for each node and the total
+    fds_uint32_t totalWeight = 0;
+    // Pairs each SMs weight and token count
+    std::unordered_map<NodeUuid,
+                       std::pair<fds_uint32_t, fds_uint32_t>,
+                       UuidHash> smCounts;
+    for (ClusterMap::const_iterator it = cm->cbegin();
+         it != cm->cend();
+         it++) {
+    }
+}
+
 DataPlacement::DataPlacement(PlacementAlgorithm::AlgorithmTypes type,
                              fds_uint64_t width,
                              fds_uint64_t depth)
@@ -51,6 +70,17 @@ DataPlacement::setAlgorithm(PlacementAlgorithm::AlgorithmTypes type) {
     placementMutex->unlock();
 }
 
+Error
+DataPlacement::updateMembers(const NodeList &addNodes,
+                             const NodeList &rmNodes) {
+    placementMutex->lock();
+    Error err = curClusterMap->updateMap(addNodes, rmNodes);
+    // TODO(Andrew): We should be recomputing the DLT here.
+    placementMutex->unlock();
+
+    return err;
+}
+
 void
 DataPlacement::computeDlt() {
     FdsDlt *newDlt = new FdsDlt(curDltWidth, curDltDepth);
@@ -72,6 +102,11 @@ DataPlacement::computeDlt() {
 const FdsDlt*
 DataPlacement::getCurDlt() const {
     return curDlt;
+}
+
+const ClusterMap*
+DataPlacement::getCurClustMap() const {
+    return curClusterMap;
 }
 
 int

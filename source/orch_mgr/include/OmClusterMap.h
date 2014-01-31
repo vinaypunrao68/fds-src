@@ -12,11 +12,11 @@
 #include <list>
 
 #include <fds_types.h>
+#include <fds_typedefs.h>
 #include <fds_err.h>
 #include <fds_module.h>
 #include <fds_placement_table.h>
 #include <concurrency/Mutex.h>
-#include <OmTypes.h>
 #include <OmResources.h>
 
 namespace fds {

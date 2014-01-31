@@ -64,7 +64,9 @@ ClusterMap::updateMap(const NodeList &addNodes,
     removedNodes.clear();
 
     // Remove nodes from the map
-    for (auto it = rmNodes.cbegin(); it != rmNodes.cend(); it++) {
+    for (NodeList::const_iterator it = rmNodes.cbegin();
+         it != rmNodes.cend();
+         it++) {
         uuid = (*it)->get_uuid();
         removed = currClustMap.erase(uuid);
         // For now, assume it's incorrect to try and remove
@@ -74,7 +76,9 @@ ClusterMap::updateMap(const NodeList &addNodes,
     }
 
     // Add nodes to the map
-    for (auto it = addNodes.cbegin(); it != addNodes.cend(); it++) {
+    for (NodeList::const_iterator it = addNodes.cbegin();
+         it != addNodes.cend();
+         it++) {
         uuid = (*it)->get_uuid();
         // For now, assume it's incorrect to add a node
         // that already exists

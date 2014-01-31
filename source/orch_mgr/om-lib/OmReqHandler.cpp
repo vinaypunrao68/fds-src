@@ -246,6 +246,31 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::CreateDomain(
     return err;
 }
 
+int32_t OrchMgr::FDSP_ConfigPathReqHandler::RemoveNode(
+    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+    const ::FDS_ProtocolInterface::FDSP_RemoveNodeType& rm_node_req) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+    return 0;
+}
+
+int32_t OrchMgr::FDSP_ConfigPathReqHandler::RemoveNode(
+    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+    ::FDS_ProtocolInterface::FDSP_RemoveNodeTypePtr& rm_node_req) {
+
+    int err = 0;
+    try {
+        err = orchMgr->RemoveNode(fdsp_msg, rm_node_req);
+    }
+    catch(...) {
+        FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
+                << "Orch Mgr encountered exception while "
+                << "processing rmv node";
+        return -1;
+    }
+
+    return err;
+}
+
 int32_t OrchMgr::FDSP_ConfigPathReqHandler::DeleteDomain(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_CreateDomainType& del_dom_req) {

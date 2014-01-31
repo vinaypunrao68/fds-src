@@ -141,6 +141,7 @@ namespace fds {
     typedef FDS_ProtocolInterface::FDSP_VolumeDescTypePtr FdspVolDescPtr;
     typedef FDS_ProtocolInterface::FDSP_CreateDomainTypePtr  FdspCrtDomPtr;
     typedef FDS_ProtocolInterface::FDSP_GetDomainStatsTypePtr FdspGetDomStatsPtr;
+    typedef FDS_ProtocolInterface::FDSP_RemoveNodeTypePtr FdspRmNodePtr;
     
     typedef std::unordered_map<int, localDomainInfo *> loc_domain_map_t;
 
@@ -264,6 +265,9 @@ namespace fds {
                      const FdspCrtDomPtr& crt_dom_req);
     int DeleteDomain(const FdspMsgHdrPtr& fdsp_msg,
                      const FdspCrtDomPtr& del_dom_req);
+
+    int RemoveNode(const FdspMsgHdrPtr& fdsp_msg,
+                   const FdspRmNodePtr& rm_node_req);
     int SetThrottleLevel(const FDSP_MsgHdrTypePtr& fdsp_msg, 
                          const FDSP_ThrottleMsgTypePtr& throttle_req);
     void NotifyQueueFull(const FDSP_MsgHdrTypePtr& fdsp_msg,
@@ -361,6 +365,13 @@ namespace fds {
         int32_t DeleteDomain(
             ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
             ::FDS_ProtocolInterface::FDSP_CreateDomainTypePtr& del_dom_req);
+
+        int32_t RemoveNode(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_RemoveNodeType& rm_node_req);
+        int32_t RemoveNode(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_RemoveNodeTypePtr& rm_node_req);
 
         int32_t SetThrottleLevel(
             const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,

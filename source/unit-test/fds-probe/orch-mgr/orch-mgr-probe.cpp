@@ -126,12 +126,14 @@ JsObject *
 UT_OM_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *out)
 {
     int              i, num;
+    FdspNodeRegPtr   ptr;
     UT_OM_NodeInfo  *node;
     ut_node_info_t  *info;
 
     std::list<NodeAgent::pointer> newNodes;
     std::list<NodeAgent::pointer> rmNodes;
 
+    ptr = FdspNodeRegPtr(new FdspNodeReg());
     num = parent->js_array_size();
     for (i = 0; i < num; i++) {
         node = static_cast<UT_OM_NodeInfo *>((*parent)[i]);
@@ -145,14 +147,14 @@ UT_OM_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput 
         } else {
             rmNodes.push_back(new NodeAgent(r_uuid));
         }
+        OM_NodeDomainMod::om_local_domain()->om_reg_node_info(&r_uuid, ptr);
     }
 
     // Update the cluster map
-    ClusterMap *cm = static_cast<ClusterMap *>(gl_OMModule.om_clusmap_mod());
-    cm->updateMap(newNodes, rmNodes);
+    DataPlacement *dp = static_cast<DataPlacement *>(gl_OMModule.om_dataplace_mod());
+    dp->updateMembers(newNodes, rmNodes);
 
     // Recompute the DLT
-    DataPlacement *dp = static_cast<DataPlacement *>(gl_OMModule.om_dataplace_mod());
     dp->computeDlt();
     const FdsDlt *dlt = dp->getCurDlt();
 
