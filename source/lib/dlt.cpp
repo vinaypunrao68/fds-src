@@ -17,7 +17,7 @@ DLT::DLT(fds_uint32_t _width,
          bool fInit)
         : Module("data placement table"),
           width(_width), depth(_depth),
-          numTokens(pow(2, _width) - 1),
+          numTokens(pow(2, _width)),
           version(_version) {
     distList = boost::shared_ptr<std::vector<DltTokenGroupPtr> >
             (new std::vector<DltTokenGroupPtr>());
@@ -27,7 +27,7 @@ DLT::DLT(fds_uint32_t _width,
         distList->reserve(numTokens);
         for (uint i = 0; i < numTokens; i++) {
             distList->push_back(boost::shared_ptr<DltTokenGroup>(
-                new DltTokenGroup(numTokens)));
+                new DltTokenGroup(depth)));
         }
     }
 }
