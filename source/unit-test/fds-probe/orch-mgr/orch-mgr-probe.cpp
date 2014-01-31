@@ -151,7 +151,11 @@ UT_OM_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput 
     }
 
     // Update the cluster map
-    DataPlacement *dp = static_cast<DataPlacement *>(gl_OMModule.om_dataplace_mod());
+    ProbeMod *mod  = out->js_get_context();
+    OM_Module *om  = static_cast<OM_Module *>(mod->pr_get_owner_module());
+    DataPlacement *dp = static_cast<DataPlacement *>(om->om_dataplace_mod());
+
+    fds_verify(om == &gl_OMModule);
     dp->updateMembers(newNodes, rmNodes);
 
     // Recompute the DLT
