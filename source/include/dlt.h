@@ -111,6 +111,11 @@ namespace fds {
          */
         void generateNodeTokenMap();
 
+        fds_uint64_t getVersion() const;  /**< Gets version */
+        fds_uint32_t getDepth() const;  /**< Gets num replicas per token */
+        fds_uint32_t getWidth() const;  /**< Gets num bits used */
+        fds_uint32_t getNumTokens() const;  /** Gets total num of tokens */
+
         /*
          * Module members
          */
