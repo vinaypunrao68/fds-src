@@ -12,12 +12,12 @@ fds::DLT::DLT(uint numTokens, uint width, bool fInit) {
     this->numTokens = numTokens;
     this->width = width;
 
-    distList = boost::shared_ptr<std::vector<NodeListPtr> >
-            (new std::vector<NodeListPtr>());
+    distList = boost::shared_ptr<std::vector<DltTokenGroupPtr> >
+            (new std::vector<DltTokenGroupPtr>());
     if (fInit) {
         distList->reserve(numTokens);
         for (uint i = 0; i < numTokens; i++) {
-            distList->push_back(boost::shared_ptr<NodeList>(new NodeList()));
+            distList->push_back(boost::shared_ptr<DltTokenGroup>(new DltTokenGroup()));
         }
     }
 }
@@ -30,19 +30,19 @@ fds::DLT::DLT(const DLT& dlt) {
 }
 
 // get all the Nodes for a token/objid
-fds::NodeListPtr fds::DLT::getNodes(Token token) const {
+fds::DltTokenGroupPtr fds::DLT::getNodes(fds_token_id token) const {
     fds_verify(token < numTokens);
     return distList->at(token);
 }
 
-fds::NodeListPtr fds::DLT::getNodes(const ObjectID& objId) const {
-    Token token = getToken(objId);
+fds::DltTokenGroupPtr fds::DLT::getNodes(const ObjectID& objId) const {
+    fds_token_id token = getToken(objId);
     fds_verify(token < numTokens);
     return distList->at(token);
 }
 
 // get the primary node for a token/objid
-fds::NodeUuid fds::DLT::getPrimary(Token token) const {
+fds::NodeUuid fds::DLT::getPrimary(fds_token_id token) const {
     fds_verify(token < numTokens);
     return getNodes(token)->get(0);
 }
@@ -51,25 +51,25 @@ fds::NodeUuid fds::DLT::getPrimary(const ObjectID& objId) const {
     return getNodes(objId)->get(0);
 }
 
-void fds::DLT::setNode(Token token, uint index, NodeUuid nodeuuid) {
+void fds::DLT::setNode(fds_token_id token, uint index, NodeUuid nodeuuid) {
     fds_verify(index < MAX_REPL_FACTOR);
     fds_verify(token < numTokens);
     distList->at(token)->set(index, nodeuuid);
 }
 
-void fds::DLT::setNodes(Token token, const NodeList& nodes) {
+void fds::DLT::setNodes(fds_token_id token, const DltTokenGroup& nodes) {
     for (uint i = 0; i < MAX_REPL_FACTOR ; i++) {
         distList->at(token)->set(i, nodes.get(i));
     }
 }
 
 void fds::DLT::generateNodeTokenMap() {
-    std::vector<NodeListPtr>::const_iterator iter;
+    std::vector<DltTokenGroupPtr>::const_iterator iter;
     mapNodeTokens->clear();
     uint i;
-    Token token = 0;
+    fds_token_id token = 0;
     for (iter = distList->begin(); iter != distList->end(); iter++) {
-        const NodeListPtr& nodeList= *iter;
+        const DltTokenGroupPtr& nodeList= *iter;
         for (i = 0; i < MAX_REPL_FACTOR ; i++){
             (*mapNodeTokens)[nodeList->get(i)].push_back(token);
         }

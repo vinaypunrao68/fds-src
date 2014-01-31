@@ -7,11 +7,11 @@
 #include <string>
 #include <list>
 #include <unordered_map>
+#include <fds_typedefs.h>
 #include <fds_module.h>
 #include <fds_resource.h>
 #include <fdsp/FDSP_types.h>
 #include <concurrency/Mutex.h>
-#include <OmTypes.h>
 
 namespace fds {
 

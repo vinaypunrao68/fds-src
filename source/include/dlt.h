@@ -14,21 +14,23 @@
 
 namespace fds {
     /**
-     * Struct to store an array of nodeuuid. had to do this for shared_ptr.
+     * Class to store an array of nodeuuids that are part of a
+     * DLT's token group. Had to do this for shared_ptr.
      * will consider shared_array later.
      */
-    struct NodeList {
-        NodeList(NodeUuid uid0 = 0,
-                 NodeUuid uid1 = 0,
-                 NodeUuid uid2 = 0,
-                 NodeUuid uid3 = 0) {
+    class DltTokenGroup {
+  public:
+        DltTokenGroup(NodeUuid uid0 = 0,
+                      NodeUuid uid1 = 0,
+                      NodeUuid uid2 = 0,
+                      NodeUuid uid3 = 0) {
             p = new NodeUuid[MAX_REPL_FACTOR];
             p[0] = uid0;
             p[1] = uid1;
             p[2] = uid2;
             p[3] = uid3;
         }
-        NodeList(const NodeList& n) {
+        DltTokenGroup(const DltTokenGroup& n) {
             p = new NodeUuid[MAX_REPL_FACTOR];
             // TODO(Prem): change to memcpy later
             for (uint i = 0; i < MAX_REPL_FACTOR; i++) {
@@ -41,7 +43,7 @@ namespace fds {
         NodeUuid get(uint index) const {
             return p[index];
         }
-        ~NodeList() {
+        ~DltTokenGroup() {
             if (p) {
                 delete[] p;
             }
@@ -51,11 +53,10 @@ namespace fds {
         NodeUuid* p;
     };
 
-    typedef fds_uint16_t Token;
-    typedef boost::shared_ptr<NodeList> NodeListPtr;
-    typedef boost::shared_ptr<std::vector<NodeListPtr>>  DistributionList;
-    typedef std::vector<Token> TokenList;
-    typedef std::map<NodeUuid, std::vector<Token>> NodeTokenMap;
+    typedef boost::shared_ptr<DltTokenGroup> DltTokenGroupPtr;
+    typedef boost::shared_ptr<std::vector<DltTokenGroupPtr>> DistributionList;
+    typedef std::vector<fds_token_id> TokenList;
+    typedef std::map<NodeUuid, std::vector<fds_token_id>> NodeTokenMap;
 
     /**
      * Maintains the relation between a token and the responible nodes.
@@ -64,19 +65,19 @@ namespace fds {
      */
     class DLT {
     public :
-        uint version;
+        fds_uint64_t version;
         time_t timestamp;
-        uint numTokens = MAX_TOKENS;
-        uint width = MAX_REPL_FACTOR;
+        fds_uint32_t numTokens = MAX_TOKENS;
+        fds_uint32_t width = MAX_REPL_FACTOR;
 
         /**
          * Get the Token for a given Object.
          * We need the first 16 bits
          */
-        static Token getToken(const ObjectID& objId) {
+        static fds_token_id getToken(const ObjectID& objId) {
             static uint TOKEN_BITMASK = ((1 << NUM_BITS_FOR_TOKENS) - 1);
             static uint BIT_OFFSET = (64 - NUM_BITS_FOR_TOKENS);
-            return (Token)(TOKEN_BITMASK & (objId.GetHigh() >> BIT_OFFSET));
+            return (fds_token_id)(TOKEN_BITMASK & (objId.GetHigh() >> BIT_OFFSET));
         }
 
         // fInit(true) will setup a blank dlt for adding the token ring info..
@@ -87,11 +88,11 @@ namespace fds {
         DLT(const DLT& dlt);
 
         // get all the Nodes for a token/objid
-        NodeListPtr getNodes(Token token) const;
-        NodeListPtr getNodes(const ObjectID& objId) const;
+        DltTokenGroupPtr getNodes(fds_token_id token) const;
+        DltTokenGroupPtr getNodes(const ObjectID& objId) const;
 
         // get the primary node for a token/objid
-        NodeUuid getPrimary(Token token) const;
+        NodeUuid getPrimary(fds_token_id token) const;
         NodeUuid getPrimary(const ObjectID& objId) const;
 
         // get the Tokens for a given Node
@@ -100,8 +101,8 @@ namespace fds {
         // set the node for given token at a given index
         // index range [0..MAX_REPLICA_FACTOR-1]
         // index[0] is the primary Node for that token
-        void setNode(Token token, uint index, NodeUuid nodeuuid);
-        void setNodes(Token token, const NodeList& nodes);
+        void setNode(fds_token_id token, uint index, NodeUuid nodeuuid);
+        void setNodes(fds_token_id token, const DltTokenGroup& nodes);
 
         // generate the NodeUUID to TokenList Map.
         // Need to be called only when the DLT is created from scratch .
@@ -138,12 +139,12 @@ namespace fds {
 
         // get all the Nodes for a token/objid
         // NOTE:: from the current dlt!!!
-        NodeListPtr getNodes(Token token) const;
-        NodeListPtr getNodes(const ObjectID& objId) const;
+        DltTokenGroupPtr getNodes(fds_token_id token) const;
+        DltTokenGroupPtr getNodes(const ObjectID& objId) const;
 
         // get the primary node for a token/objid
         // NOTE:: from the current dlt!!!
-        NodeUuid getPrimary(Token token) const;
+        NodeUuid getPrimary(fds_token_id token) const;
         NodeUuid getPrimary(const ObjectID& objId) const;
 
     private:
