@@ -12,7 +12,7 @@ user_build_dir := \
     orch-mgr \
     util
 
-user_h         := $(wildcard *.h)
+user_hh        := $(wildcard *.h)
 user_hpp       := $(wildcard *.h)
 user_no_style  := \
 	cpplist.h             \
@@ -41,7 +41,6 @@ user_no_style  := \
 	NetSession.h        \
         fds_counters.h	    \
 	fds_stopwatch.h     \
-	dlt.h                \
 	graphite_client.h
 
 include $(topdir)/Makefile.incl

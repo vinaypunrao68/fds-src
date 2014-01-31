@@ -1,5 +1,8 @@
-#ifndef SOURCE_FDS_TYPEDEFS_H_
-#define SOURCE_FDS_TYPEDEFS_H_
+/*
+ * Copyright 2014 Formation Data Systems, Inc.
+ */
+#ifndef SOURCE_INCLUDE_FDS_TYPEDEFS_H_
+#define SOURCE_INCLUDE_FDS_TYPEDEFS_H_
 
 /**
  * All system wide type definitions.
@@ -17,4 +20,4 @@ namespace fds {
 
 }  // namespace fds
 
-#endif
+#endif  // SOURCE_INCLUDE_FDS_TYPEDEFS_H_
