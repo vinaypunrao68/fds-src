@@ -33,38 +33,60 @@ OM_NodeDomainMod::mod_shutdown()
 {
 }
 
+// om_local_domain
+// ---------------
+//
+OM_NodeDomainMod *
+OM_NodeDomainMod::om_local_domain()
+{
+    return &gl_OMNodeDomainMod;
+}
+
+// om_reg_node_info
+// ----------------
+//
 void
-OM_NodeDomainMod::om_reg_node_info(const ResourceUUID   &uuid,
-                                   const FdspNodeRegMsg *msg)
+OM_NodeDomainMod::om_reg_node_info(const NodeUuid       *uuid,
+                                   const FdspNodeRegPtr msg)
 {
+    fds_bool_t         add;
+    NodeAgent::pointer agent;
+
+    add   = false;
+    agent = NULL;
+    if (uuid != NULL) {
+        agent = om_node_info(uuid);
+    }
+    if (agent == NULL) {
+        add   = true;
+        agent = om_new_node();
+    }
+    agent->node_update_info(uuid, msg);
+    if (add == true) {
+        om_activate_node(agent->node_index());
+    }
 }
 
+// om_del_node_info
+// ----------------
+//
 void
-OM_NodeDomainMod::om_del_node_info(const ResourceUUID &uuid)
+OM_NodeDomainMod::om_del_node_info(const NodeUuid *uuid)
 {
+    NodeAgent::pointer agent;
+
+    agent = om_node_info(uuid);
+    if (agent != NULL) {
+        om_deactivate_node(agent->node_index());
+    }
 }
 
+// om_persist_node_info
+// --------------------
+//
 void
-OM_NodeDomainMod::om_persist_node_info(int idx)
+OM_NodeDomainMod::om_persist_node_info(fds_uint32_t idx)
 {
-}
-
-int
-OM_NodeDomainMod::om_avail_nodes()
-{
-    return 16;
-}
-
-NodeAgent::pointer
-OM_NodeDomainMod::om_node_info(int node_idx)
-{
-    return NULL;
-}
-
-NodeAgent::pointer
-OM_NodeDomainMod::om_node_info(const ResourceUUID &uuid)
-{
-    return NULL;
 }
 
 }  // namespace fds

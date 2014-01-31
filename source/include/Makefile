@@ -12,7 +12,7 @@ user_build_dir := \
     orch-mgr \
     util
 
-user_h         := $(wildcard *.h)
+user_hh        := $(wildcard *.h)
 user_hpp       := $(wildcard *.h)
 user_no_style  := \
 	cpplist.h             \
@@ -35,8 +35,8 @@ user_no_style  := \
 	TransJournal.h        \
 	tvclib.h              \
 	vvclib.h              \
-    fds_timer.h           \
-	NetSessRespSvr.h       \
+	fds_timer.h           \
+	NetSessRespSvr.h      \
 	NetSessRespClient.h  \
 	NetSession.h        \
         fds_counters.h	    \

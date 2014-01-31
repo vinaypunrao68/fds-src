@@ -21,6 +21,8 @@ class FdsMigrationSvc : public Module,
   virtual void mod_startup() override ;
   virtual void mod_shutdown() override ;
 
+ protected:
+
   /* RPC Overrides from FDSP_MigrationPathReqHandler  */
   void MigrateToken(const FDSP_MsgHdrType& fdsp_msg, 
                     const FDSP_MigrateTokenReq& migrate_req) override {
