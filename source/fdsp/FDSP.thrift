@@ -396,6 +396,10 @@ struct FDSP_AttachVolCmdType {
 }
 
 
+struct FDSP_RemoveNodeType {
+  1: string node_id, // Identifier of the node which should be removed from the system
+}
+
 struct FDSP_GetVolInfoReqType {
  1: string vol_name,
  2: i32 domain_id,
@@ -708,6 +712,7 @@ struct FDSP_MigrateTokenReq
 struct FDSP_MigrateObjectMetadata
 {
     1: FDSP_Token              token_id
+    2: FDS_ObjectIdType        object_id
 }
 
 /* Complete data (metadata included) for migration object */
@@ -816,6 +821,7 @@ service FDSP_ConfigPathReq {
   i32 GetDomainStats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetDomainStatsType get_stats_msg),  
   i32 applyTierPolicy(1: tier_pol_time_unit policy);
   i32 auditTierPolicy(1: tier_pol_audit audit);
+  i32 RemoveNode(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RemoveNodeType rm_node_req);
 }
 
 /* Not needed.  But created for symemtry */

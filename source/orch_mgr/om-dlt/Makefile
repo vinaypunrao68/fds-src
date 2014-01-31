@@ -6,6 +6,7 @@ user_incl_dir     := ../include
 user_hh           := $(wildcard *.h)
 user_cpp          := \
     OmResources.cpp \
+    OmNodeResources.cpp \
     OmDeploy.cpp \
     OmClusMap.cpp \
     OmDataPlacement.cpp \

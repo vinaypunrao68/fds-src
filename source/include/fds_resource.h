@@ -8,10 +8,14 @@
 
 namespace fds {
 
+// ----------------------------------------------------------------------------
+// Generic Resource Object
+// ----------------------------------------------------------------------------
 class Resource
 {
   public:
     typedef boost::intrusive_ptr<Resource> pointer;
+    typedef boost::intrusive_ptr<const Resource> const_ptr;
     Resource() : rs_refcnt(0) {}
     virtual ~Resource() {}
 
@@ -28,20 +32,52 @@ class Resource
     }
 };
 
+// ----------------------------------------------------------------------------
+// Generic Resource Container
+// ----------------------------------------------------------------------------
+class RsContainer
+{
+  public:
+    typedef boost::intrusive_ptr<RsContainer> pointer;
+    typedef boost::intrusive_ptr<const RsContainer> const_ptr;
+    RsContainer() : rs_refcnt(0) {}
+    virtual ~RsContainer() {}
+
+  private:
+    mutable boost::atomic<int>  rs_refcnt;
+    friend void intrusive_ptr_add_ref(const RsContainer *x) {
+        x->rs_refcnt.fetch_add(1, boost::memory_order_relaxed);
+    }
+    friend void intrusive_ptr_release(const RsContainer *x) {
+        if (x->rs_refcnt.fetch_sub(1, boost::memory_order_release) == 1) {
+            boost::atomic_thread_fence(boost::memory_order_acquire);
+            delete x;
+        }
+    }
+};
+
+// ----------------------------------------------------------------------------
+// Resource UUID
+// ----------------------------------------------------------------------------
 class ResourceUUID
 {
   public:
     ResourceUUID() : rs_uuid(0) {}
-    ResourceUUID(fds_uint64_t uuid) : rs_uuid(uuid) {}
+    ResourceUUID(fds_uint64_t uuid);
 
-    fds_uint64_t             rs_uuid;
+    inline fds_uint64_t uuid_get_val() const {
+        return rs_uuid;
+    }
+    inline void uuid_set_val(fds_uint64_t val) {
+        rs_uuid = val;
+    }
 
     bool operator==(const ResourceUUID& rhs) const {
         return (this->rs_uuid == rhs.rs_uuid);
     }
 
     bool operator!=(const ResourceUUID& rhs) const {
-      return !(*this == rhs);
+        return !(*this == rhs);
     }
 
     bool operator<(const ResourceUUID& rhs) const {
@@ -49,18 +85,24 @@ class ResourceUUID
     }
 
     ResourceUUID& operator=(const ResourceUUID& rhs) {
-      rs_uuid = rhs.rs_uuid;
-      return *this;
+        rs_uuid = rhs.rs_uuid;
+        return *this;
     }
+
+  protected:
+    fds_uint64_t             rs_uuid;
 };
 
 class UuidHash {
   public:
     fds_uint64_t operator()(const ResourceUUID& rs) const {
-        return rs.rs_uuid;
+        return rs.uuid_get_val();
     }
 };
 
+// ----------------------------------------------------------------------------
+// Generic Query list with embeded chain list.
+// ----------------------------------------------------------------------------
 class QueryMgr;
 
 class QueryIn
@@ -72,7 +114,7 @@ class QueryOut
 {
   public:
     QueryOut() : q_list() { q_list.chain_iter_init(&q_iter); }
-    ~QueryOut()
+    virtual ~QueryOut()
     {
         while (1) {
             T *elm = query_pop();
@@ -130,7 +172,7 @@ class QueryOut
 class QueryMgr
 {
   public:
-    ~QueryMgr();
+    virtual ~QueryMgr();
     QueryMgr();
 };
 

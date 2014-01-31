@@ -143,6 +143,7 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
             ("volume-id,i", po::value<int>(), "volume id")
             ("domain-id,k", po::value<int>(), "domain id")
             ("throttle-level,t", po::value<float>(), "throttle level")
+            ("remove-node,t", po::value<std::string>(), "remove node")
             ("iops-min,g", po::value<double>(), "minimum IOPS")
             ("iops-max,m", po::value<double>(), "maximum IOPS")
             ("rel-prio,r", po::value<int>(), "relative priority")
@@ -396,8 +397,16 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         domainData.domain_id = vm["domain-id"].as<int>();
 
         cfgPrx->CreateDomain(msg_hdr, domainData);
+    }  else if (vm.count("remove-node")) {
+        FDS_PLOG_SEV(cli_log, fds_log::notification)
+                << " Remove Node ";
+        FDS_PLOG_SEV(cli_log, fds_log::notification)
+                << vm["remove-node"].as<std::string>() << "- node name";
+        FDS_ProtocolInterface::FDSP_RemoveNodeType removeNodeData;
+        removeNodeData.node_id = vm["remove-node"].as<std::string>();
 
-    } else if (vm.count("domain-delete") && vm.count("domain-id")) {
+        cfgPrx->RemoveNode(msg_hdr, removeNodeData);
+    }  else if (vm.count("domain-delete") && vm.count("domain-id")) {
         FDS_PLOG_SEV(cli_log, fds_log::notification)
                 << " Domain Delete ";
         FDS_PLOG_SEV(cli_log, fds_log::notification)
