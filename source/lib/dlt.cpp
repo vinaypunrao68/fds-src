@@ -54,6 +54,26 @@ void
 DLT::mod_shutdown() {
 }
 
+fds_uint64_t
+DLT::getVersion() const {
+    return version;
+}
+
+fds_uint32_t
+DLT::getDepth() const {
+    return depth;
+}
+
+fds_uint32_t
+DLT::getWidth() const {
+    return width;
+}
+
+fds_uint32_t
+DLT::getNumTokens() const {
+    return numTokens;
+}
+
 fds_token_id
 DLT::getToken(const ObjectID& objId) const {
     fds_uint64_t token_bitmask = ((1 << width) - 1);

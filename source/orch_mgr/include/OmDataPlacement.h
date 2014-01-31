@@ -36,28 +36,28 @@ namespace fds {
             ConsistHash = 1,
         };
         virtual Error computeNewDlt(const ClusterMap *currMap,
-                                    const FdsDlt     *currDlt,
+                                    const DLT        *currDlt,
                                     fds_uint64_t      depth,
                                     fds_uint64_t      width,
-                                    FdsDlt           *newDlt) = 0;
+                                    DLT              *newDlt) = 0;
     };
 
     class RoundRobinAlgorithm : public PlacementAlgorithm {
   public:
         Error computeNewDlt(const ClusterMap *currMap,
-                            const FdsDlt     *currDlt,
+                            const DLT        *currDlt,
                             fds_uint64_t      depth,
                             fds_uint64_t      width,
-                            FdsDlt           *newDlt);
+                            DLT              *newDlt);
     };
 
     class ConsistHashAlgorithm : public PlacementAlgorithm {
   public:
         Error computeNewDlt(const ClusterMap *currMap,
-                            const FdsDlt     *currDlt,
+                            const DLT        *currDlt,
                             fds_uint64_t      depth,
                             fds_uint64_t      width,
-                            FdsDlt           *newDlt);
+                            DLT              *newDlt);
     };
 
     /**
@@ -71,7 +71,7 @@ namespace fds {
          * and use a smart pointer (since we pass the structure
          * around internall).
          */
-        FdsDlt *curDlt;
+        DLT *curDlt;
 
         /**
          * The DLT depth defines the maximum number of
@@ -115,7 +115,7 @@ namespace fds {
          * map and dlt.
          */
         static void computeWeightDist(const ClusterMap *cm,
-                                      const FdsDlt     *dlt,
+                                      const DLT        *dlt,
                                       WeightMap        *sortedWeights);
 
         /**
@@ -166,7 +166,7 @@ namespace fds {
         /**
          * Returns the current version of the DLT.
          */
-        const FdsDlt *getCurDlt() const;
+        const DLT *getCurDlt() const;
         /**
          * Returns the current version of the cluster map.
          */

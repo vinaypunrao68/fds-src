@@ -47,6 +47,10 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
     return;
 #endif /* FDS_TEST_SM_NOOP */
 
+    fds_uint64_t reqId;
+    reqId = std::atomic_fetch_add(&(objStorMgr->nextReqId), (fds_uint64_t)1);
+
+    if (putObj->dlt_version == objStorMgr->omClient->dlt_version ) {
     /*
      * Track the outstanding get request.
      * TODO: This is a total hack. We're overloading the msg_hdr's
@@ -56,14 +60,19 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
      * TODO: We should check if this value has rolled at some point.
      * Though it's big enough for us to not care right now.
      */
-    fds_uint64_t reqId;
-    reqId = std::atomic_fetch_add(&(objStorMgr->nextReqId), (fds_uint64_t)1);
-    msgHdr->msg_chksum = reqId;
-    objStorMgr->waitingReqMutex->lock();
-    objStorMgr->waitingReqs[reqId] = msgHdr;
-    objStorMgr->waitingReqMutex->unlock();
+        msgHdr->msg_chksum = reqId;
+        objStorMgr->waitingReqMutex->lock();
+        objStorMgr->waitingReqs[reqId] = msgHdr;
+        objStorMgr->waitingReqMutex->unlock();
 
-    objStorMgr->PutObject(msgHdr, putObj);
+      objStorMgr->PutObject(msgHdr, putObj);
+    }
+    else {
+	msgHdr->err_code = FDSP_ERR_DLT_CONFLICT; 			
+	msgHdr->result = FDSP_ERR_DLT_MISMATCH; 			
+	// send the dlt version of SM to AM 
+        putObj->dlt_version = objStorMgr->omClient->dlt_version; 
+    }
 
     /*
      * If we failed to enqueue the I/O return the error response
@@ -117,7 +126,6 @@ ObjectStorMgrI::GetObject(FDSP_MsgHdrTypePtr& msgHdr,
      * Submit the request to be enqueued
      */
     objStorMgr->GetObject(msgHdr, getObj);
-
     /*
      * If we failed to enqueue the I/O return the error response
      * now as there is no more processing to do.
@@ -128,6 +136,13 @@ ObjectStorMgrI::GetObject(FDSP_MsgHdrTypePtr& msgHdr,
         objStorMgr->waitingReqMutex->unlock();
 
         msgHdr->msg_code = FDSP_MSG_GET_OBJ_RSP;
+        if(getObj->dlt_version != objStorMgr->omClient->dlt_version) { 
+	   msgHdr->result = FDSP_ERR_DLT_MISMATCH; 
+	   msgHdr->err_code = FDSP_ERR_DLT_CONFLICT; 			
+	  // send the dlt version of SM to AM 
+          getObj->dlt_version = objStorMgr->omClient->dlt_version; 
+	}
+	
         objStorMgr->swapMgrId(msgHdr);
         objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->GetObjectResp(msgHdr, getObj);
 
@@ -161,12 +176,22 @@ ObjectStorMgrI::DeleteObject(FDSP_MsgHdrTypePtr& msgHdr,
      */
     fds_uint64_t reqId;
     reqId = std::atomic_fetch_add(&(objStorMgr->nextReqId), (fds_uint64_t)1);
-    msgHdr->msg_chksum = reqId;
-    objStorMgr->waitingReqMutex->lock();
-    objStorMgr->waitingReqs[reqId] = msgHdr;
-    objStorMgr->waitingReqMutex->unlock();
 
-    objStorMgr->DeleteObject(msgHdr, delObj);
+   if (delObj->dlt_version == objStorMgr->omClient->dlt_version ) {
+
+        msgHdr->msg_chksum = reqId;
+        objStorMgr->waitingReqMutex->lock();
+        objStorMgr->waitingReqs[reqId] = msgHdr;
+        objStorMgr->waitingReqMutex->unlock();
+
+        objStorMgr->DeleteObject(msgHdr, delObj);
+    }
+    else {
+	msgHdr->err_code = FDSP_ERR_DLT_CONFLICT; 			
+	msgHdr->result = FDSP_ERR_DLT_MISMATCH; 			
+	// send the dlt version of SM to AM 
+        delObj->dlt_version = objStorMgr->omClient->dlt_version; 
+    }
 
     /*
      * If we failed to enqueue the I/O return the error response
@@ -1410,6 +1435,7 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
     const ObjectID  &objId = getReq->getObjId();
     fds_volid_t volId      = getReq->getVolId();
     diskio::DataTier tierUsed = diskio::maxTier;
+    const FDSP_GetObjTypePtr& getObjReq = getReq->getGetObjReq();
     ObjBufPtrType objBufPtr = NULL;
 
     /*
@@ -1482,6 +1508,12 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
     }
     msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_GET_OBJ_RSP;
     swapMgrId(msgHdr);
+    if (getObjReq->dlt_version != objStorMgr->omClient->dlt_version ) {
+	msgHdr->err_code = FDSP_ERR_DLT_CONFLICT; 			
+	// msgHdr->result = FDSP_ERR_DLT_MISMATCH; 			
+	// send the dlt version of SM to AM 
+        getObj->dlt_version = objStorMgr->omClient->dlt_version; 
+    }
     fdspDataPathClient(msgHdr->session_uuid)->GetObjectResp(msgHdr, getObj);
     FDS_PLOG(objStorMgr->GetLog()) << "Sent async GetObj response after processing";
 
