@@ -393,6 +393,7 @@ class ObjectStorMgr :
     Error getObjectInternal(SmIoReq* getReq);
     Error putObjectInternal(SmIoReq* putReq);
     Error deleteObjectInternal(SmIoReq* delReq);
+    Error putTokenObjectsInternal(SmIoReq* ioReq);
     Error relocateObject(const ObjectID &objId,
             diskio::DataTier from_tier,
             diskio::DataTier to_tier);
@@ -408,10 +409,15 @@ class ObjectStorMgr :
             int vol_action,
             FDSP_ResultType resut);
 
-    Error iterateTokenObjects(const fds_token_id &token, 
+    Error enqueueMsg(fds_volid_t volId, SmIoReq* ioReq);
+
+    Error retrieveTokenObjects(const fds_token_id &token, 
                              const size_t &max_size, 
                              FDSP_MigrateObjectList &obj_list, 
                              SMTokenItr &itr);
+
+    Error putTokenObjects(const fds_token_id &token, 
+                          FDSP_MigrateObjectList &obj_list);
     void unitTest();
 
     const std::string getStorPrefix() {
@@ -422,6 +428,12 @@ class ObjectStorMgr :
         return objCache;
     }
 
+    virtual std::string log_string()
+    {
+        std::stringstream ret;
+        ret << " ObjectStorMgr"; 
+        return ret.str(); 
+    }
     /*
      * Declare the FDSP interface class as a friend so it can access
      * the internal request tracking members.
