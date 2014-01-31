@@ -85,14 +85,26 @@ void
 DataPlacement::computeDlt() {
     // Currently always create a new empty DLT.
     // Will change to be relative to the current.
+    fds_uint64_t version;
+    if (curDlt == NULL) {
+        version = 0;
+    } else {
+        version = curDlt->getVersion();
+    }
+    // If we have fewer members than total replicas
+    // use the number of members as the replica count
+    fds_uint32_t depth = curDltDepth;
+    if (curClusterMap->getNumMembers() < curDltDepth) {
+        depth = curClusterMap->getNumMembers();
+    }
     DLT *newDlt = new DLT(curDltWidth,
-                          curDltDepth,
-                          curDlt->getVersion(),
+                          depth,
+                          version,
                           true);
     placementMutex->lock();
     placeAlgo->computeNewDlt(curClusterMap,
                              curDlt,
-                             curDltDepth,
+                             depth,
                              curDltWidth,
                              newDlt);
 
