@@ -239,6 +239,18 @@ int OrchMgr::DeleteDomain(const FdspMsgHdrPtr& fdsp_msg,
     return 0;
 }
 
+int OrchMgr::RemoveNode(const FdspMsgHdrPtr& fdsp_msg,
+                        const FdspRmNodePtr& rm_node_req) {
+    FDS_PLOG_SEV(GetLog(), fds_log::normal)
+            << "Received RemoveNode Req : "
+            << rm_node_req->node_id;
+
+    std::cout << "Received RemoveNode Req : "
+              << rm_node_req->node_id;
+
+    return 0;
+}
+
 int OrchMgr::GetDomainStats(const FdspMsgHdrPtr& fdsp_msg,
                             const FdspGetDomStatsPtr& get_stats_req)
 {
