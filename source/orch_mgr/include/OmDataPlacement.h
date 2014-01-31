@@ -6,11 +6,9 @@
 #ifndef SOURCE_ORCH_MGR_INCLUDE_OMDATAPLACEMENT_H_
 #define SOURCE_ORCH_MGR_INCLUDE_OMDATAPLACEMENT_H_
 
-#include <unordered_map>
+#include <map>
 #include <string>
-#include <vector>
 #include <atomic>
-#include <list>
 
 #include <fds_types.h>
 #include <fds_err.h>
@@ -108,7 +106,16 @@ namespace fds {
          * distribution from each level in the DLT.
          */
         typedef double WeightDist;
-        std::list<WeightDist> curWeightDist;
+        typedef std::map<WeightDist, NodeUuid> WeightMap;
+        WeightMap curWeightDist;
+
+        /**
+         * Computes the weight distribution, given a cluster
+         * map and dlt.
+         */
+        static void computeWeightDist(const ClusterMap *cm,
+                                      const FdsDlt     *dlt,
+                                      WeightMap        *sortedWeights);
 
         /**
          * Current algorithm used to compute new DLTs.

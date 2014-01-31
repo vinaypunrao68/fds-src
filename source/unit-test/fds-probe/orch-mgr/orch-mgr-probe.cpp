@@ -140,11 +140,10 @@ UT_OM_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput 
             << ", name " << info->nd_node_name << std::endl;
 
         ResourceUUID r_uuid(info->nd_uuid);
-        NodeAgent::pointer na = new NodeAgent(r_uuid);
         if (info->add == true) {
-            newNodes.push_back(na);
+            newNodes.push_back(new NodeAgent(r_uuid));
         } else {
-            rmNodes.push_back(na);
+            rmNodes.push_back(new NodeAgent(r_uuid));
         }
     }
 
