@@ -156,9 +156,9 @@ UT_OM_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput 
 
     // Recompute the DLT
     dp->computeDlt();
-    const FdsDlt *dlt = dp->getCurDlt();
+    const DLT *dlt = dp->getCurDlt();
 
-    std::cout << "New DLT " << *dlt << std::endl;
+    // std::cout << "New DLT " << *dlt << std::endl;
     return this;  //  to free this obj
 }
 

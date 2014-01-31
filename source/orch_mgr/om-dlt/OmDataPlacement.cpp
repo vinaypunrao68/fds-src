@@ -13,7 +13,7 @@ namespace fds {
  **********/
 void
 DataPlacement::computeWeightDist(const ClusterMap *cm,
-                                 const FdsDlt     *dlt,
+                                 const DLT        *dlt,
                                  WeightMap        *sortedWeights) {
     // Count the weights for each node and the total
     fds_uint32_t totalWeight = 0;
@@ -83,13 +83,19 @@ DataPlacement::updateMembers(const NodeList &addNodes,
 
 void
 DataPlacement::computeDlt() {
-    FdsDlt *newDlt = new FdsDlt(curDltWidth, curDltDepth);
+    // Currently always create a new empty DLT.
+    // Will change to be relative to the current.
+    DLT *newDlt = new DLT(curDltWidth,
+                          curDltDepth,
+                          curDlt->getVersion(),
+                          true);
     placementMutex->lock();
     placeAlgo->computeNewDlt(curClusterMap,
                              curDlt,
                              curDltDepth,
                              curDltWidth,
                              newDlt);
+
     // TODO(Andrew): We should version the (now) old DLT
     // before we delete it and replace it with the
     // new DLT. We should also update the DLT's
@@ -99,7 +105,7 @@ DataPlacement::computeDlt() {
     placementMutex->unlock();
 }
 
-const FdsDlt*
+const DLT*
 DataPlacement::getCurDlt() const {
     return curDlt;
 }
