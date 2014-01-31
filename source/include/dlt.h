@@ -84,6 +84,7 @@ namespace fds {
             fds_uint64_t _version,
             bool fInit = false);
         DLT(const DLT& dlt);
+        ~DLT();
 
         /** get all the Nodes for a token/objid */
         DltTokenGroupPtr getNodes(fds_token_id token) const;

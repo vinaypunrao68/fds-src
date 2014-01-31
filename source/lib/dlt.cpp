@@ -21,6 +21,8 @@ DLT::DLT(fds_uint32_t _width,
           version(_version) {
     distList = boost::shared_ptr<std::vector<DltTokenGroupPtr> >
             (new std::vector<DltTokenGroupPtr>());
+    mapNodeTokens = boost::shared_ptr<NodeTokenMap>(
+        new NodeTokenMap());
 
     // Pre-allocate token groups for each token
     if (fInit) {
@@ -39,6 +41,9 @@ DLT::DLT(const DLT& dlt)
           version(dlt.version),
           distList(dlt.distList),
           mapNodeTokens(dlt.mapNodeTokens) {
+}
+
+DLT::~DLT() {
 }
 
 int
