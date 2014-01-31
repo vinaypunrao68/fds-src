@@ -152,9 +152,8 @@ void FdsProcess::setup_mod_vector(int argc, char *argv[], fds::Module **mod_vec)
     if (!mod_vec) {
         return;
     }
-
-    fds::ModuleVector mod_vec_obj(argc, argv, mod_vec);
-    mod_vec_obj.mod_execute();
+    mod_vectors_ = new ModuleVector(argc, argv, mod_vec);
+    mod_vectors_->mod_execute();
 }
 
 void FdsProcess::setup_cntrs_mgr()
