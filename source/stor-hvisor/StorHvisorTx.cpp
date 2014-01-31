@@ -171,6 +171,8 @@ int StorHvisorProcIoRd(void *_io)
   { 
     boost::shared_ptr<FDSP_DataPathReqClient> client =
             dynamic_cast<netDataPathClientSession *>(endPoint)->getClient();
+    netDataPathClientSession *sessionCtx =  static_cast<netDataPathClientSession *>(endPoint);
+    fdsp_msg_hdr->session_uuid = sessionCtx->getSessionId();
     client->GetObject(fdsp_msg_hdr, get_obj_req);
     FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Sent async GetObj req to SM";
   }
@@ -334,6 +336,8 @@ int StorHvisorProcIoWr(void *_io)
     if (endPoint) { 
         boost::shared_ptr<FDSP_DataPathReqClient> client =
                 dynamic_cast<netDataPathClientSession *>(endPoint)->getClient();
+      netDataPathClientSession *sessionCtx =  static_cast<netDataPathClientSession *>(endPoint);
+      fdsp_msg_hdr->session_uuid = sessionCtx->getSessionId();
       client->PutObject(fdsp_msg_hdr, put_obj_req);
       FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:"
                                      << trans_id << " volID:" << vol_id
@@ -379,6 +383,8 @@ int StorHvisorProcIoWr(void *_io)
     if (endPoint){
         boost::shared_ptr<FDSP_MetaDataPathReqClient> client =
                dynamic_cast<netMetaDataPathClientSession *>(endPoint)->getClient();
+      netMetaDataPathClientSession *sessionCtx =  static_cast<netMetaDataPathClientSession *>(endPoint);
+      fdsp_msg_hdr_dm->session_uuid = sessionCtx->getSessionId();
       client->UpdateCatalogObject(fdsp_msg_hdr_dm, upd_obj_req);
       FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:"
                                      << trans_id << " volID:" << vol_id

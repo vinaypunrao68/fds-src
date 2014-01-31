@@ -80,6 +80,10 @@ class ResourceUUID
         return !(*this == rhs);
     }
 
+    bool operator<(const ResourceUUID& rhs) const {
+        return rs_uuid<rhs.rs_uuid;
+    }
+
     ResourceUUID& operator=(const ResourceUUID& rhs) {
         rs_uuid = rhs.rs_uuid;
         return *this;

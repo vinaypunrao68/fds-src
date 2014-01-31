@@ -1609,6 +1609,28 @@ ObjectStorMgr::getObjectInternal(FDSP_GetObjTypePtr getObjReq,
   return err;
 }
 
+/**
+ * @brief Populates obj_list with objects that belong to a token.  Populating
+ * obj_list starts from value provided in itr parameter.  To iterate all the
+ * objects you invoke this function repeatedly with itr from last invocation. 
+ *
+ * @param token token id 
+ * @param max_size max_size to fill.  sum of the sizes all objects in obj_list
+ * shouldn't exceed max_size
+ * @param obj_list
+ * @param itr
+ *
+ * @return 
+ */
+Error ObjectStorMgr::iterateTokenObjects(const fds_token_id &token, 
+                                         const size_t &max_size, 
+                                         FDSP_MigrateObjectList &obj_list, 
+                                         SMTokenItr &itr)
+{
+    Error err;
+    return err;
+}
+
 inline void ObjectStorMgr::swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg) {
     FDSP_MgrIdType temp_id;
     long tmp_addr;

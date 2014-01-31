@@ -6,23 +6,21 @@
 #ifndef SOURCE_ORCH_MGR_INCLUDE_OMDATAPLACEMENT_H_
 #define SOURCE_ORCH_MGR_INCLUDE_OMDATAPLACEMENT_H_
 
-#include <unordered_map>
+#include <map>
 #include <string>
-#include <vector>
 #include <atomic>
-#include <list>
 
 #include <fds_types.h>
+#include <fds_typedefs.h>
 #include <fds_err.h>
 #include <fds_module.h>
 #include <fds_placement_table.h>
 #include <concurrency/Mutex.h>
-#include <OmTypes.h>
 #include <OmResources.h>
 #include <OmClusterMap.h>
+#include <dlt.h>
 
 namespace fds {
-
     /**
      * Abstract base class that defines the interface for a
      * data placement algorithm.
@@ -37,34 +35,29 @@ namespace fds {
             RoundRobin  = 0,
             ConsistHash = 1,
         };
-        virtual Error computeNewDlt(const ClusterMap &currMap,
-                                    const std::list<boost::shared_ptr<NodeAgent>>
-                                    &addNodes,
-                                    const std::list<boost::shared_ptr<NodeAgent>>
-                                    &rmNodes,
-                                    const FdsDlt &currDlt,
-                                    fds_uint64_t depth,
-                                    fds_uint64_t width) = 0;
+        virtual Error computeNewDlt(const ClusterMap *currMap,
+                                    const FdsDlt     *currDlt,
+                                    fds_uint64_t      depth,
+                                    fds_uint64_t      width,
+                                    FdsDlt           *newDlt) = 0;
     };
 
     class RoundRobinAlgorithm : public PlacementAlgorithm {
   public:
-        Error computeNewDlt(const ClusterMap &currMap,
-                            const std::list<boost::shared_ptr<NodeAgent>> &addNodes,
-                            const std::list<boost::shared_ptr<NodeAgent>> &rmNodes,
-                            const FdsDlt &currDlt,
-                            fds_uint64_t depth,
-                            fds_uint64_t width);
+        Error computeNewDlt(const ClusterMap *currMap,
+                            const FdsDlt     *currDlt,
+                            fds_uint64_t      depth,
+                            fds_uint64_t      width,
+                            FdsDlt           *newDlt);
     };
 
     class ConsistHashAlgorithm : public PlacementAlgorithm {
   public:
-        Error computeNewDlt(const ClusterMap &currMap,
-                            const std::list<boost::shared_ptr<NodeAgent>> &addNodes,
-                            const std::list<boost::shared_ptr<NodeAgent>> &rmNodes,
-                            const FdsDlt &currDlt,
-                            fds_uint64_t depth,
-                            fds_uint64_t width);
+        Error computeNewDlt(const ClusterMap *currMap,
+                            const FdsDlt     *currDlt,
+                            fds_uint64_t      depth,
+                            fds_uint64_t      width,
+                            FdsDlt           *newDlt);
     };
 
     /**
@@ -75,8 +68,10 @@ namespace fds {
         /**
          * Current DLT copy.
          * TODO: Move this over to our new DLT data structure
+         * and use a smart pointer (since we pass the structure
+         * around internall).
          */
-        boost::shared_ptr<FdsDlt> currDlt;
+        FdsDlt *curDlt;
 
         /**
          * The DLT depth defines the maximum number of
@@ -92,16 +87,15 @@ namespace fds {
         fds_uint64_t curDltWidth;
 
         /**
-         * Current token list. Maps the current
-         * list of nodes to their tokens.
+         * Need a data structure to maintain DLT histories.
          */
 
         /**
          * Current cluster membership. The data placement
-         * engine just stores a reference to the map.
-         * It should be managed/update externally.
+         * engine manages membership in conjunction with
+         * the placement of data.
          */
-        boost::shared_ptr<ClusterMap> currClusterMap;
+        ClusterMap *curClusterMap;
 
         /**
          * Weight distributions for the current DLT. This
@@ -113,12 +107,21 @@ namespace fds {
          * distribution from each level in the DLT.
          */
         typedef double WeightDist;
-        std::list<WeightDist> curWeightDist;
+        typedef std::map<WeightDist, NodeUuid> WeightMap;
+        WeightMap curWeightDist;
+
+        /**
+         * Computes the weight distribution, given a cluster
+         * map and dlt.
+         */
+        static void computeWeightDist(const ClusterMap *cm,
+                                      const FdsDlt     *dlt,
+                                      WeightMap        *sortedWeights);
 
         /**
          * Current algorithm used to compute new DLTs.
          */
-        boost::shared_ptr<PlacementAlgorithm> placeAlgo;
+        PlacementAlgorithm *placeAlgo;
         /**
          * Current algorithm type
          */
@@ -146,9 +149,29 @@ namespace fds {
          * Changes the algorithm being used to compute DLTs.
          */
         void setAlgorithm(PlacementAlgorithm::AlgorithmTypes type);
-    };
 
-    extern ClusterMap gl_OMClusMapMod;
+        /**
+         * Updates members of the cluster.
+         * In general, this should necessitate a DLT
+         * recomputation.
+         */
+        Error updateMembers(const NodeList &addNodes,
+                            const NodeList &rmNodes);
+
+        /**
+         * Reruns DLT computation.
+         */
+        void computeDlt();
+
+        /**
+         * Returns the current version of the DLT.
+         */
+        const FdsDlt *getCurDlt() const;
+        /**
+         * Returns the current version of the cluster map.
+         */
+        const ClusterMap *getCurClustMap() const;
+    };
 }  // namespace fds
 
 #endif  // SOURCE_ORCH_MGR_INCLUDE_OMDATAPLACEMENT_H_

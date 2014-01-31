@@ -7,12 +7,13 @@
 #include <vector>
 #include <list>
 #include <string>
+#include <list>
 #include <unordered_map>
+#include <fds_typedefs.h>
 #include <fds_module.h>
 #include <fds_resource.h>
 #include <fdsp/FDSP_types.h>
 #include <concurrency/Mutex.h>
-#include <OmTypes.h>
 
 namespace fds {
 
@@ -120,6 +121,7 @@ class NodeAgent : public NodeInventory
  * Type that maps a node's UUID to its agent object.
  */
 typedef std::unordered_map<NodeUuid, NodeAgent::pointer, UuidHash> NodeMap;
+
 typedef std::list<NodeAgent::pointer>      NodeList;
 typedef std::vector<NodeAgent::pointer>    NodeArray;
 

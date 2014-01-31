@@ -26,6 +26,9 @@ class OM_Module : public Module
     inline Module *om_clusmap_mod() {
         return om_clus_map;
     }
+    inline Module *om_dataplace_mod() {
+        return om_data_place;
+    }
     inline Module *om_dlt_mod() {
         return om_dlt;
     }
@@ -40,6 +43,7 @@ class OM_Module : public Module
     Module                  *om_node_domain;
     Module                  *om_clus_map;
     Module                  *om_dlt;
+    Module                  *om_data_place;
 };
 
 extern OM_Module             gl_OMModule;
