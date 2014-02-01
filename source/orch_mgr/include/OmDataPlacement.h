@@ -9,6 +9,7 @@
 #include <map>
 #include <string>
 #include <atomic>
+#include <vector>
 
 #include <fds_types.h>
 #include <fds_typedefs.h>
@@ -106,8 +107,8 @@ namespace fds {
          * primary assignments. We should have a weight
          * distribution from each level in the DLT.
          */
-        typedef double WeightDist;
-        typedef std::map<WeightDist, NodeUuid> WeightMap;
+        typedef double LoadRatio;
+        typedef std::map<LoadRatio, std::vector<NodeUuid>> WeightMap;
         WeightMap curWeightDist;
 
         /**
