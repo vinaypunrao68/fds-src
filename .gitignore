@@ -18,6 +18,7 @@
 cscope.*
 tags
 core
+*.orig
 
 # Built directories
 build.*

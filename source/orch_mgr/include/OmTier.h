@@ -1,8 +1,8 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
-#ifndef ORCH_MGR_OM_TIER_H_
-#define ORCH_MGR_OM_TIER_H_
+#ifndef SOURCE_ORCH_MGR_INCLUDE_OMTIER_H_
+#define SOURCE_ORCH_MGR_INCLUDE_OMTIER_H_
 
 #include <net-proxies/vol_policy.h>
 
@@ -25,6 +25,6 @@ class Orch_VolPolicyServ : public virtual VolPolicyServ
     serv_recvTierPolicyAuditReq(const fdp::FDSP_TierPolicyAuditPtr &tier);
 };
 
-} // namespace fds
+}  // namespace fds
 
-#endif /* ORCH_MGR_OM_TIER_H_ */
+#endif  // SOURCE_ORCH_MGR_INCLUDE_OMTIER_H_

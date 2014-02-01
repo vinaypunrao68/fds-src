@@ -1,6 +1,10 @@
-#ifndef INCLUDE_FDS_REQUEST_H_
-#define INCLUDE_FDS_REQUEST_H_
+/*
+ * Copyright 2014 Formation Data Systems, Inc.
+ */
+#ifndef SOURCE_INCLUDE_FDS_REQUEST_H_
+#define SOURCE_INCLUDE_FDS_REQUEST_H_
 
+#include <string>
 #include <boost/thread/condition.hpp>
 #include <cpplist.h>
 #include <concurrency/Mutex.h>
@@ -110,7 +114,7 @@ class RequestStatus
 class Request
 {
   public:
-    Request(bool block);
+    explicit Request(bool block);
     virtual ~Request();
 
     static const fds_uint32_t req_state_wait = 0x20000000;
@@ -185,6 +189,6 @@ class Request
     RequestStatus            req_res;
 };
 
-} // namespace fdsio
+}  // namespace fdsio
 
-#endif /* INCLUDE_FDS_REQUEST_H_ */
+#endif  // SOURCE_INCLUDE_FDS_REQUEST_H_

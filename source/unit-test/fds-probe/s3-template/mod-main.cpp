@@ -29,6 +29,8 @@ int main(int argc, char **argv)
         fds::gl_probeS3Eng.probe_add_adapter(
             fds::gl_XX_ProbeMod.pr_new_instance());
     }
+    fds::gl_XX_ProbeMod.mod_startup();
+
     /* Now run the S3 engine. */
     fds::gl_probeS3Eng.run_server(nullptr);
     return 0;

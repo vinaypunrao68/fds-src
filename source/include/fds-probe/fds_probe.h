@@ -393,6 +393,10 @@ class ProbeMod : public Module
     {
         return pr_objects;
     }
+    inline Module *pr_get_owner_module()
+    {
+        return pr_mod_owner;
+    }
 
   protected:
     friend class ProbeRequest;

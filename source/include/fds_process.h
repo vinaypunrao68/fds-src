@@ -108,6 +108,9 @@ class FdsProcess : public boost::noncopyable {
      * compiler directive DEV_BUILD (this isn't done yet)
      */
     boost::shared_ptr<GraphiteClient> graphitePtr_;
+
+    /* Module vectors. */
+    ModuleVector *mod_vectors_;
 };
 
 }  // namespace fds

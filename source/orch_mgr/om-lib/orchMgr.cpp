@@ -7,6 +7,7 @@
 #include <iostream>  // NOLINT(*)
 #include <string>
 #include <vector>
+#include <OmResources.h>
 
 namespace fds {
 
@@ -236,6 +237,18 @@ int OrchMgr::CreateDomain(const FdspMsgHdrPtr& fdsp_msg,
 int OrchMgr::DeleteDomain(const FdspMsgHdrPtr& fdsp_msg,
                           const FdspCrtDomPtr& del_dom_req) {
     /* TBD*/
+    return 0;
+}
+
+int OrchMgr::RemoveNode(const FdspMsgHdrPtr& fdsp_msg,
+                        const FdspRmNodePtr& rm_node_req) {
+    FDS_PLOG_SEV(GetLog(), fds_log::normal)
+            << "Received RemoveNode Req : "
+            << rm_node_req->node_id;
+
+    std::cout << "Received RemoveNode Req : "
+              << rm_node_req->node_id;
+
     return 0;
 }
 
@@ -796,6 +809,7 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
      * Build the node info structure and add it
      * to its map, based on type.
      */
+    OM_NodeDomainMod::om_local_domain()->om_reg_node_info(NULL, reg_node_req);
     fds::NodeInfo n_info(new_node_id,
                          reg_node_req->node_name,
                          reg_node_req->node_type,
@@ -1009,22 +1023,4 @@ void OrchMgr::defaultS3BucketPolicy()
 }
 
 OrchMgr *gl_orch_mgr;
-}  // namespace fds 
-
-int main(int argc, char *argv[]) {
-    fds::orchMgr = new fds::OrchMgr(argc, argv, "orch_mgr.conf", "fds.om.");
-
-    fds::gl_orch_mgr = fds::orchMgr;
-
-    fds::Module *omVec[] = {
-        fds::orchMgr,
-        nullptr};
-
-    fds::orchMgr->setup(argc, argv, omVec);
-    fds::orchMgr->run();
-
-    delete fds::orchMgr;
-
-    return 0;
-}
-
+}  // namespace fds

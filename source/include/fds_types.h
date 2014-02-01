@@ -46,6 +46,13 @@
 namespace fds {
 
   typedef fds_uint64_t fds_volid_t;
+  typedef fds_uint64_t VolumeId;
+
+  /**
+   * A token id identifies a particular token
+   * region in a DLT routing table.
+   */
+  typedef fds_uint32_t fds_token_id;
 
   class ObjectID {
  private:
@@ -238,6 +245,11 @@ namespace fds {
       }
   };
 
+  class Sha1Digest {
+public:
+      uint8_t data[20];
+  };
+
   inline fds_uint32_t str_to_ipv4_addr(std::string ip_str) {
     
     unsigned int n1, n2, n3, n4;
@@ -270,6 +282,7 @@ namespace fds {
    FDS_DELETE_BLOB,
    FDS_LIST_BUCKET,
    FDS_BUCKET_STATS,
+   FDS_SM_READ_TOKEN_OBJECTS,
    FDS_OP_INVALID
   } fds_io_op_t;
 
@@ -442,14 +455,12 @@ public:
 }  // namespace fds
 
 namespace std {
-template <>
-struct hash<fds::ObjectID>
-  {
-    std::size_t operator()(const fds::ObjectID oid) const
-    {
-    	return std::hash<std::string>()(oid.ToHex());
-    }
-  };
+    template <>
+    struct hash<fds::ObjectID> {
+        std::size_t operator()(const fds::ObjectID oid) const {
+            return std::hash<std::string>()(oid.ToHex());
+        }
+    };
 }
 
 #endif  // SOURCE_LIB_FDS_TYPES_H_
