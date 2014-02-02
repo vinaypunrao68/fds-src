@@ -17,6 +17,7 @@
 namespace fds {
     typedef std::string NodeStrName;
     typedef ResourceUUID NodeUuid;
+    typedef fds_uint64_t VersionNumber;
 
 }  // namespace fds
 

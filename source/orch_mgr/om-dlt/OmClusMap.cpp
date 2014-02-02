@@ -51,6 +51,17 @@ ClusterMap::getNumMembers() const {
     return currClustMap.size();
 }
 
+fds_uint64_t
+ClusterMap::getTotalStorWeight() const {
+    fds_uint64_t total_weight = 0;
+    for (const_iterator it = cbegin();
+         it != cend();
+         ++it) {
+        total_weight += ((*it).second)->node_stor_weight();
+    }
+    return total_weight;
+}
+
 Error
 ClusterMap::updateMap(const NodeList &addNodes,
                       const NodeList &rmNodes) {

@@ -20,43 +20,44 @@ namespace fds {
  */
 Error
 RoundRobinAlgorithm::computeNewDlt(const ClusterMap *curMap,
-                                   const FdsDlt *curDlt,
+                                   const DLT *curDlt,
                                    fds_uint64_t depth,
                                    fds_uint64_t width,
-                                   FdsDlt *newDlt) {
+                                   DLT *newDlt) {
     fds_verify(newDlt != NULL);
 
-    /*
-     * Iterate over each bucket/column and add
-     * a vector of size depth().
-     */
+
     Error err(ERR_OK);
-    std::vector<fds_nodeid_t> node_list;
     ClusterMap::const_iterator rr_it = curMap->cbegin();
 
     fds_uint32_t total_num_nodes = curMap->getNumMembers();
-    fds_uint32_t bucket_depth = newDlt->getMaxDepth();
-    if (bucket_depth > total_num_nodes) {
-        bucket_depth = total_num_nodes;
-    }
+    fds_uint32_t column_depth = depth;
+    // Ensure we have enough nodes to fill columns with
+    // unique nodes
+    fds_verify(column_depth <= total_num_nodes);
+    fds_uint64_t numTokens = pow(2, width);
+    DltTokenGroup tg(column_depth);
 
-    for (fds_uint32_t i = 0; i < newDlt->getNumBuckets(); i++) {
-        node_list.clear();
+    // Iterate over each token column and add
+    // a new tokengroup of size depth().
+    for (fds_token_id i = 0; i < numTokens; i++) {
+        // If we've reached the end of the cluster map's
+        // list, round robin back to the beginning
         ClusterMap::const_iterator nl_it = rr_it;
         if (nl_it == curMap->cend()) {
             continue;
         }
 
-        for (fds_uint32_t j = 0; j < bucket_depth; j++) {
+        // Iterate over the column and set the uuids
+        for (fds_uint32_t j = 0; j < column_depth; j++) {
             NodeUuid uuid = (nl_it->second)->get_uuid();
-            node_list.push_back(uuid.uuid_get_val());
+            tg.set(j, uuid);
             nl_it++;
             if (nl_it == curMap->cend()) {
                 nl_it = curMap->cbegin();
             }
         }
-        err = newDlt->insert(i, node_list);
-        assert(err == ERR_OK);
+        newDlt->setNodes(i, tg);
 
         // Move the starting point for the list
         // and reset it to the beginning if we've
@@ -76,10 +77,10 @@ RoundRobinAlgorithm::computeNewDlt(const ClusterMap *curMap,
  */
 Error
 ConsistHashAlgorithm::computeNewDlt(const ClusterMap *currMap,
-                                    const FdsDlt *currDlt,
+                                    const DLT *currDlt,
                                     fds_uint64_t depth,
                                     fds_uint64_t width,
-                                    FdsDlt *newDlt) {
+                                    DLT *newDlt) {
     Error err(ERR_OK);
     return err;
 }

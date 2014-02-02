@@ -46,7 +46,7 @@ class NodeInventory : public Resource
     /**
      * Return the storage weight of the node in normalized unit from 0...1000
      */
-    virtual int node_stor_weight() const;
+    virtual fds_uint32_t node_stor_weight() const;
 
     /**
      * Return the mutex protecting this object.

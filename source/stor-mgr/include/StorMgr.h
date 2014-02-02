@@ -28,6 +28,7 @@
 #include <iostream>
 #include <util/Log.h>
 #include "StorMgrVolumes.h"
+#include "SmObjDb.h"
 #include <persistent_layer/dm_service.h>
 #include <persistent_layer/dm_io.h>
 
@@ -139,10 +140,6 @@ class SMCounters : public FdsCounters
   LatencyCounter puts_latency;
 };
 
-// TODO:  Fill it up
-class SMTokenItr {
- public:
-};
 
 class ObjectStorMgr :
         public FdsProcess,
@@ -348,6 +345,7 @@ class ObjectStorMgr :
     fds_log* GetLog() {return sm_log;}
     fds_log *sm_log;
     TierEngine     *tierEngine;
+    SmObjDb        *smObjDb;
     /*
      * stats  class 
      */

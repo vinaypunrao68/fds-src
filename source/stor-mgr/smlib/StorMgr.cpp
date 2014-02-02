@@ -6,6 +6,7 @@
 #include <thread>
 #include <functional>
 
+#include "SmObjDb.h"
 #include <policy_rpc.h>
 #include <policy_tier.h>
 #include "StorMgr.h"
@@ -46,6 +47,10 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
     return;
 #endif /* FDS_TEST_SM_NOOP */
 
+    fds_uint64_t reqId;
+    reqId = std::atomic_fetch_add(&(objStorMgr->nextReqId), (fds_uint64_t)1);
+
+    if (putObj->dlt_version == objStorMgr->omClient->dlt_version ) {
     /*
      * Track the outstanding get request.
      * TODO: This is a total hack. We're overloading the msg_hdr's
@@ -55,14 +60,19 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
      * TODO: We should check if this value has rolled at some point.
      * Though it's big enough for us to not care right now.
      */
-    fds_uint64_t reqId;
-    reqId = std::atomic_fetch_add(&(objStorMgr->nextReqId), (fds_uint64_t)1);
-    msgHdr->msg_chksum = reqId;
-    objStorMgr->waitingReqMutex->lock();
-    objStorMgr->waitingReqs[reqId] = msgHdr;
-    objStorMgr->waitingReqMutex->unlock();
+        msgHdr->msg_chksum = reqId;
+        objStorMgr->waitingReqMutex->lock();
+        objStorMgr->waitingReqs[reqId] = msgHdr;
+        objStorMgr->waitingReqMutex->unlock();
 
-    objStorMgr->PutObject(msgHdr, putObj);
+      objStorMgr->PutObject(msgHdr, putObj);
+    }
+    else {
+	msgHdr->err_code = FDSP_ERR_DLT_CONFLICT; 			
+	msgHdr->result = FDSP_ERR_DLT_MISMATCH; 			
+	// send the dlt version of SM to AM 
+        putObj->dlt_version = objStorMgr->omClient->dlt_version; 
+    }
 
     /*
      * If we failed to enqueue the I/O return the error response
@@ -116,7 +126,6 @@ ObjectStorMgrI::GetObject(FDSP_MsgHdrTypePtr& msgHdr,
      * Submit the request to be enqueued
      */
     objStorMgr->GetObject(msgHdr, getObj);
-
     /*
      * If we failed to enqueue the I/O return the error response
      * now as there is no more processing to do.
@@ -127,6 +136,13 @@ ObjectStorMgrI::GetObject(FDSP_MsgHdrTypePtr& msgHdr,
         objStorMgr->waitingReqMutex->unlock();
 
         msgHdr->msg_code = FDSP_MSG_GET_OBJ_RSP;
+        if(getObj->dlt_version != objStorMgr->omClient->dlt_version) { 
+	   msgHdr->result = FDSP_ERR_DLT_MISMATCH; 
+	   msgHdr->err_code = FDSP_ERR_DLT_CONFLICT; 			
+	  // send the dlt version of SM to AM 
+          getObj->dlt_version = objStorMgr->omClient->dlt_version; 
+	}
+	
         objStorMgr->swapMgrId(msgHdr);
         objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->GetObjectResp(msgHdr, getObj);
 
@@ -160,12 +176,22 @@ ObjectStorMgrI::DeleteObject(FDSP_MsgHdrTypePtr& msgHdr,
      */
     fds_uint64_t reqId;
     reqId = std::atomic_fetch_add(&(objStorMgr->nextReqId), (fds_uint64_t)1);
-    msgHdr->msg_chksum = reqId;
-    objStorMgr->waitingReqMutex->lock();
-    objStorMgr->waitingReqs[reqId] = msgHdr;
-    objStorMgr->waitingReqMutex->unlock();
 
-    objStorMgr->DeleteObject(msgHdr, delObj);
+   if (delObj->dlt_version == objStorMgr->omClient->dlt_version ) {
+
+        msgHdr->msg_chksum = reqId;
+        objStorMgr->waitingReqMutex->lock();
+        objStorMgr->waitingReqs[reqId] = msgHdr;
+        objStorMgr->waitingReqMutex->unlock();
+
+        objStorMgr->DeleteObject(msgHdr, delObj);
+    }
+    else {
+	msgHdr->err_code = FDSP_ERR_DLT_CONFLICT; 			
+	msgHdr->result = FDSP_ERR_DLT_MISMATCH; 			
+	// send the dlt version of SM to AM 
+        delObj->dlt_version = objStorMgr->omClient->dlt_version; 
+    }
 
     /*
      * If we failed to enqueue the I/O return the error response
@@ -277,11 +303,7 @@ ObjectStorMgr::~ObjectStorMgr() {
     FDS_PLOG(objStorMgr->GetLog()) << " Destructing  the Storage  manager";
     shuttingDown = true;
 
-    if (objStorDB)
-        delete objStorDB;
-    if (objIndexDB)
-        delete objIndexDB;
-
+    delete smObjDb;
     /*
      * Clean up the QoS system. Need to wait for I/Os to
      * complete and deregister each volume. The volume info
@@ -341,10 +363,7 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
     std::string stor_prefix = conf_helper_.get<std::string>("prefix");
 
     // Create leveldb
-    std::string filename= stor_prefix + "SNodeObjRepository";
-    objStorDB  = new ObjectDB(filename);
-    filename= stor_prefix + "SNodeObjIndex";
-    objIndexDB  = new ObjectDB(filename);
+    smObjDb = new  SmObjDb(stor_prefix, objStorMgr->GetLog());
 
     /* Set up FDSP RPC endpoints */
     nst_ = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_MGR));
@@ -762,7 +781,7 @@ ObjectStorMgr::writeObjectLocation(const ObjectID& objId,
 
     objData.size = objMap.marshalledSize();
     objData.data = std::string(objMap.marshalling(), objMap.marshalledSize());
-    err = objStorDB->Put(objId, objData);
+    err = smObjDb->Put(objId, objData);
     if (err == ERR_OK) {
         FDS_PLOG(GetLog()) << "Updating object location for object "
                 << objId << " to " << objMap;
@@ -785,7 +804,7 @@ ObjectStorMgr::readObjectLocations(const ObjectID     &objId,
 
     objData.size = 0;
     objData.data = "";
-    err = objStorDB->Get(objId, objData);
+    err = smObjDb->Get(objId, objData);
     if (err == ERR_OK) {
         objData.size = objData.data.size();
         objMaps.unmarshalling(objData.data, objData.size);
@@ -802,7 +821,7 @@ ObjectStorMgr::readObjectLocations(const ObjectID &objId,
 
     objData.size = 0;
     objData.data = "";
-    err = objStorDB->Get(objId, objData);
+    err = smObjDb->Get(objId, objData);
     if (err == ERR_OK) {
         string_to_obj_map(objData.data, objMap);
         FDS_PLOG(GetLog()) << "Retrieving object location for object "
@@ -846,7 +865,7 @@ ObjectStorMgr::deleteObjectLocation(const ObjectID& objId) {
     obj_map->obj_refcnt = -1;
     objData.size = objMap.marshalledSize();
     objData.data = std::string(objMap.marshalling(), objMap.marshalledSize());
-    err = objStorDB->Put(objId, objData);
+    err = smObjDb->Put(objId, objData);
     if (err == ERR_OK) {
         FDS_PLOG(GetLog()) << "Setting the delete marker for object "
                 << objId << " to " << objMap;
@@ -1416,6 +1435,7 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
     const ObjectID  &objId = getReq->getObjId();
     fds_volid_t volId      = getReq->getVolId();
     diskio::DataTier tierUsed = diskio::maxTier;
+    const FDSP_GetObjTypePtr& getObjReq = getReq->getGetObjReq();
     ObjBufPtrType objBufPtr = NULL;
 
     /*
@@ -1488,6 +1508,12 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
     }
     msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_GET_OBJ_RSP;
     swapMgrId(msgHdr);
+    if (getObjReq->dlt_version != objStorMgr->omClient->dlt_version ) {
+	msgHdr->err_code = FDSP_ERR_DLT_CONFLICT; 			
+	// msgHdr->result = FDSP_ERR_DLT_MISMATCH; 			
+	// send the dlt version of SM to AM 
+        getObj->dlt_version = objStorMgr->omClient->dlt_version; 
+    }
     fdspDataPathClient(msgHdr->session_uuid)->GetObjectResp(msgHdr, getObj);
     FDS_PLOG(objStorMgr->GetLog()) << "Sent async GetObj response after processing";
 

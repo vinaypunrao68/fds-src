@@ -9,6 +9,7 @@
 #include <map>
 #include <string>
 #include <atomic>
+#include <vector>
 
 #include <fds_types.h>
 #include <fds_typedefs.h>
@@ -36,28 +37,28 @@ namespace fds {
             ConsistHash = 1,
         };
         virtual Error computeNewDlt(const ClusterMap *currMap,
-                                    const FdsDlt     *currDlt,
+                                    const DLT        *currDlt,
                                     fds_uint64_t      depth,
                                     fds_uint64_t      width,
-                                    FdsDlt           *newDlt) = 0;
+                                    DLT              *newDlt) = 0;
     };
 
     class RoundRobinAlgorithm : public PlacementAlgorithm {
   public:
         Error computeNewDlt(const ClusterMap *currMap,
-                            const FdsDlt     *currDlt,
+                            const DLT        *currDlt,
                             fds_uint64_t      depth,
                             fds_uint64_t      width,
-                            FdsDlt           *newDlt);
+                            DLT              *newDlt);
     };
 
     class ConsistHashAlgorithm : public PlacementAlgorithm {
   public:
         Error computeNewDlt(const ClusterMap *currMap,
-                            const FdsDlt     *currDlt,
+                            const DLT        *currDlt,
                             fds_uint64_t      depth,
                             fds_uint64_t      width,
-                            FdsDlt           *newDlt);
+                            DLT              *newDlt);
     };
 
     /**
@@ -71,7 +72,7 @@ namespace fds {
          * and use a smart pointer (since we pass the structure
          * around internall).
          */
-        FdsDlt *curDlt;
+        DLT *curDlt;
 
         /**
          * The DLT depth defines the maximum number of
@@ -106,8 +107,8 @@ namespace fds {
          * primary assignments. We should have a weight
          * distribution from each level in the DLT.
          */
-        typedef double WeightDist;
-        typedef std::map<WeightDist, NodeUuid> WeightMap;
+        typedef double LoadRatio;
+        typedef std::map<LoadRatio, std::vector<NodeUuid>> WeightMap;
         WeightMap curWeightDist;
 
         /**
@@ -115,7 +116,7 @@ namespace fds {
          * map and dlt.
          */
         static void computeWeightDist(const ClusterMap *cm,
-                                      const FdsDlt     *dlt,
+                                      const DLT        *dlt,
                                       WeightMap        *sortedWeights);
 
         /**
@@ -166,7 +167,7 @@ namespace fds {
         /**
          * Returns the current version of the DLT.
          */
-        const FdsDlt *getCurDlt() const;
+        const DLT *getCurDlt() const;
         /**
          * Returns the current version of the cluster map.
          */
