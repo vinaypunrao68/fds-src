@@ -590,7 +590,7 @@ struct FDSP_MsgHdrType {
 /* FDSP Result valid for response messages */
     22: FDSP_ResultType       result,
     23: string       	  err_msg,
-    24: FDSP_ErrType          err_code,
+    24: i32               err_code,
 
 /* Checksum of the entire message including the payload/objects */
     25: i32         req_cookie, 
