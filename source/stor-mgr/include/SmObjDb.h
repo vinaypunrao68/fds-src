@@ -45,7 +45,8 @@ using namespace osm;
 using namespace std;
 using namespace diskio;
 
-namespace fds { 
+namespace fds {
+extern ObjectStorMgr *objStorMgr;
 typedef fds_uint32_t fds_token_id;
 
 // TODO:  Fill it up
@@ -106,27 +107,6 @@ ObjectDB *objdb = NULL;
     return objdb;
 }
 
-#if 0
-void SmObjDb::ScanRecordRange(const leveldb::Slice& startSlice, const leveldb::Slice& endSlice)
-{
-    // Get a database iterator
-    shared_ptr<leveldb::Iterator> dbIter(_database->NewIterator(leveldb::ReadOptions()));
-
-    for(dbIter->Seek(startSlice); dbIter->Valid() && _options.comparator->Compare(dbIter->key(), endSlice)<=0 ;dbIter->Next())
-    {                
-        // Read the record
-        if( !dbIter->value().empty() )
-        {
-            leveldb::Slice keySlice(dbIter->key());
-            leveldb::Slice dataSlice(dbIter->data());
-            // TODO: process the key/data
-
-        }
-    }
-}
-
-#endif 
-
 fds::Error Get(const ObjectID& obj_id,
                          ObjectBuf& obj_buf) {
   fds_token_id tokId = obj_id.GetHigh() & SM_TOKEN_MASK;
@@ -155,12 +135,13 @@ fds::Error Put(const ObjectID& obj_id,
   return err;
 }
 
+fds_int32_t CompareKey(char *key, ObjectID obj_id);
+fds_int32_t  RangeCompareKey(ObjectID obj_id, ObjectID start_obj_id, ObjectID end_obj_id) ;
 void  iterRetrieveObjects(const fds_token_id &token, 
                                    const size_t &max_size, 
                                    FDSP_MigrateObjectList &obj_list, 
-                                   SMTokenItr &itr) {
-
-}
+                                   SMTokenItr &itr);
 };
+
 }
 #endif
