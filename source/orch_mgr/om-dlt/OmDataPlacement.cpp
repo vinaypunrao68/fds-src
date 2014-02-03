@@ -3,6 +3,7 @@
  */
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 #include <OmDataPlacement.h>
 
@@ -16,14 +17,62 @@ DataPlacement::computeWeightDist(const ClusterMap *cm,
                                  const DLT        *dlt,
                                  WeightMap        *sortedWeights) {
     // Count the weights for each node and the total
-    fds_uint32_t totalWeight = 0;
-    // Pairs each SMs weight and token count
+    double totalWeight = 0;
+    double tokenCount  = 0;
+
+    // Iterate the cluster map and compute the cluster's
+    // total weight, pairs each nodes weight and token count
+    // using the DLT's reverse map
     std::unordered_map<NodeUuid,
-                       std::pair<fds_uint32_t, fds_uint32_t>,
-                       UuidHash> smCounts;
+                       std::pair<double, double>,
+                       UuidHash> nodeCounts;
     for (ClusterMap::const_iterator it = cm->cbegin();
          it != cm->cend();
          it++) {
+        NodeUuid uuid = (*it).first;
+        // Ensure we haven't counted this node before
+        fds_verify(nodeCounts.count(uuid) == 0);
+
+        // Extract node's weight and token count
+        fds_uint32_t weight = ((*it).second)->node_stor_weight();
+        totalWeight += weight;
+        const TokenList tl = dlt->getTokens(uuid);
+        fds_uint32_t numTokens = tl.size();
+        tokenCount += numTokens;
+
+        // Cache the mapping
+        std::pair<double, double> info(weight, numTokens);
+        nodeCounts[uuid] = info;
+    }
+    // Make sure we counted every node
+    fds_verify(nodeCounts.size() == cm->getNumMembers());
+    // Make sure we counted every token
+    // We're assuming all tokens have equal depth
+    fds_verify(tokenCount == (dlt->getNumTokens() *
+                              dlt->getDepth()));
+
+    // Iterate the map, compute the ratios based on the
+    // pairs, and store the result in the weight map
+    for (std::unordered_map<NodeUuid,
+                       std::pair<double, double>,
+                            UuidHash>
+            ::const_iterator it = nodeCounts.cbegin();
+         it != nodeCounts.cend();
+         it++) {
+        NodeUuid uuid = (*it).first;
+        double weightRatio = ((*it).second).first / totalWeight;
+        double tokenRatio = ((*it).second).second / tokenCount;
+        LoadRatio lr = weightRatio / tokenRatio;
+
+        if (sortedWeights->count(lr) == 0) {
+            // Create a new list for this ratio
+            std::vector<NodeUuid> uuidList;
+            uuidList.push_back(uuid);
+            (*sortedWeights)[lr] = uuidList;
+        } else {
+            // Append to the list for this ratio
+            ((*sortedWeights)[lr]).push_back(uuid);
+        }
     }
 }
 
@@ -97,6 +146,8 @@ DataPlacement::computeDlt() {
     if (curClusterMap->getNumMembers() < curDltDepth) {
         depth = curClusterMap->getNumMembers();
     }
+
+    // Allocate and compute new DLT
     DLT *newDlt = new DLT(curDltWidth,
                           depth,
                           version,
@@ -104,9 +155,31 @@ DataPlacement::computeDlt() {
     placementMutex->lock();
     placeAlgo->computeNewDlt(curClusterMap,
                              curDlt,
-                             depth,
-                             curDltWidth,
+                             curWeightDist,
                              newDlt);
+
+    // Compute DLT's reverse node to token map
+    newDlt->generateNodeTokenMap();
+
+    // TODO(Andrew): Compute the DLT's weight distribution
+    WeightMap *newWeightMap = new WeightMap();
+    computeWeightDist(curClusterMap,
+                      newDlt,
+                      newWeightMap);
+
+    // TODO(Andrew): Remove this. Just printing for easy debugging.
+    for (WeightMap::const_iterator it = newWeightMap->cbegin();
+         it != newWeightMap->cend();
+         it++) {
+        const std::vector<NodeUuid> &uuidList = (*it).second;
+        for (std::vector<NodeUuid>::const_iterator jt = uuidList.cbegin();
+             jt != uuidList.cend();
+             jt++) {
+            std::cout << "Node 0x" << std::hex << (*jt).uuid_get_val()
+                      << " has load ratio " << std::dec
+                      << ((*it).first) << std::endl;
+        }
+    }
 
     // TODO(Andrew): We should version the (now) old DLT
     // before we delete it and replace it with the
@@ -114,6 +187,7 @@ DataPlacement::computeDlt() {
     // internal version.
     delete curDlt;
     curDlt = newDlt;
+    curWeightDist = newWeightMap;
     placementMutex->unlock();
 }
 

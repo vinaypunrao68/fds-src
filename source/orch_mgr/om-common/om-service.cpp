@@ -27,9 +27,10 @@ OM_Module::OM_Module(char const *const name)
         &gl_OMDltMod,
         NULL
     };
-    mod_intern = om_mods;
-
-    om_clus_map = &gl_OMClusMapMod;
+    mod_intern     = om_mods;
+    om_dlt         = &gl_OMDltMod;
+    om_clus_map    = &gl_OMClusMapMod;
+    om_node_domain = &gl_OMNodeDomainMod;
 }
 
 OM_Module::~OM_Module() {

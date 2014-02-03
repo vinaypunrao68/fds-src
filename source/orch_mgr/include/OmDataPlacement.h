@@ -9,6 +9,7 @@
 #include <map>
 #include <string>
 #include <atomic>
+#include <vector>
 
 #include <fds_types.h>
 #include <fds_typedefs.h>
@@ -21,6 +22,16 @@
 #include <dlt.h>
 
 namespace fds {
+
+    /**
+     * This type describes weight distributions for a DLT. This
+     * structure describes how well balanced our placement 
+     * assignment is. We expect this list to be sorted.
+     * be sorted.
+     */
+    typedef double LoadRatio;
+    typedef std::map<LoadRatio, std::vector<NodeUuid>> WeightMap;
+
     /**
      * Abstract base class that defines the interface for a
      * data placement algorithm.
@@ -37,8 +48,7 @@ namespace fds {
         };
         virtual Error computeNewDlt(const ClusterMap *currMap,
                                     const DLT        *currDlt,
-                                    fds_uint64_t      depth,
-                                    fds_uint64_t      width,
+                                    const WeightMap* curWeightMap,
                                     DLT              *newDlt) = 0;
     };
 
@@ -46,8 +56,7 @@ namespace fds {
   public:
         Error computeNewDlt(const ClusterMap *currMap,
                             const DLT        *currDlt,
-                            fds_uint64_t      depth,
-                            fds_uint64_t      width,
+                            const WeightMap* curWeightMap,
                             DLT              *newDlt);
     };
 
@@ -55,9 +64,15 @@ namespace fds {
   public:
         Error computeNewDlt(const ClusterMap *currMap,
                             const DLT        *currDlt,
-                            fds_uint64_t      depth,
-                            fds_uint64_t      width,
+                            const WeightMap* curWeightMap,
                             DLT              *newDlt);
+
+  private:
+        Error computeInitialDlt(const ClusterMap *curMap,
+                                DLT *newDLT);
+        Error updateReplicaRows(fds_uint32_t numNodes,
+                                fds_uint64_t numTokens,
+                                DLT *newDLT);
     };
 
     /**
@@ -106,9 +121,7 @@ namespace fds {
          * primary assignments. We should have a weight
          * distribution from each level in the DLT.
          */
-        typedef double WeightDist;
-        typedef std::map<WeightDist, NodeUuid> WeightMap;
-        WeightMap curWeightDist;
+        WeightMap *curWeightDist;
 
         /**
          * Computes the weight distribution, given a cluster
