@@ -29,6 +29,7 @@ namespace fds {
     "Out of memory"
   };
   
+  /* DO NOT change the order */
   typedef enum {
     ERR_OK                   = 0,
     ERR_DUPLICATE            = 1,
@@ -45,6 +46,13 @@ namespace fds {
     ERR_GET_DMT_FAILED       = 12,
     ERR_NOT_IMPLEMENTED      = 13,
     ERR_OUT_OF_MEMEORY       = 14,
+
+    /* Migration error range [1000-1500) */
+    ERR_MIGRATION_DUPLICATE_REQUEST = 1000,
+
+    /* FdsActor err range [1500-2000) */
+    ERR_FAR_INVALID_REQUEST = 1500,
+
     ERR_MAX
   } fds_errno_t;
   
