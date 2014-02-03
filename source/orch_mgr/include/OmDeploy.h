@@ -4,6 +4,7 @@
 #ifndef SOURCE_ORCH_MGR_INCLUDE_OMDEPLOY_H_
 #define SOURCE_ORCH_MGR_INCLUDE_OMDEPLOY_H_
 
+#include <vector>
 #include <OmResources.h>
 #include <boost/msm/back/state_machine.hpp>
 
@@ -17,39 +18,44 @@ typedef boost::msm::back::state_machine<DltDplyFSM> FSM_DplyDLT;
 /**
  * OM DLT deployment events.
  */
-struct DltCompEvt
+class DltCompEvt
 {
+  public:
     explicit DltCompEvt(DataPlacement *d)
         : ode_dp(d) {}
 
     DataPlacement            *ode_dp;
 };
 
-struct DltUpdateEvt
+class DltUpdateEvt
 {
+  public:
     explicit DltUpdateEvt(ClusterMap *m)
         : ode_clusmap(m) {}
 
     ClusterMap               *ode_clusmap;
 };
 
-struct DltUpdateOkEvt
+class DltUpdateOkEvt
 {
+  public:
     DltUpdateOkEvt() {}
 
     ClusterMap               *ode_clusmap;
     NodeAgent::pointer        ode_done_node;
 };
 
-struct DltCommitEvt
+class DltCommitEvt
 {
+  public:
     DltCommitEvt() {}
 
     ClusterMap               *ode_clusmap;
 };
 
-struct DltCommitOkEvt
+class DltCommitOkEvt
 {
+  public:
     DltCommitOkEvt() {}
 
     ClusterMap               *ode_clusmap;
@@ -66,13 +72,27 @@ class OM_DLTMod : public Module
     ~OM_DLTMod();
 
     /**
+     * Return the current state of the DLT deployment FSM.
+     */
+    char const *const dlt_deploy_curr_state();
+
+    /**
+     * Apply an event to DLT deploy state machine.
+     */
+    void dlt_deploy_event(DltCompEvt const &evt);
+    void dlt_deploy_event(DltUpdateEvt const &evt);
+    void dlt_deploy_event(DltUpdateOkEvt const &evt);
+    void dlt_deploy_event(DltCommitEvt const &evt);
+    void dlt_deploy_event(DltCommitOkEvt const &evt);
+
+    /**
      * Module methods
      */
     virtual int  mod_init(SysParams const *const param);
     virtual void mod_startup();
     virtual void mod_shutdown();
 
-  protected:
+  private:
     FSM_DplyDLT             *dlt_dply_fsm;
 };
 

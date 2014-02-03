@@ -8,6 +8,7 @@
 #include <string>
 #include <iostream>
 #include <orch-mgr/om-service.h>
+#include <OmDeploy.h>
 #include <OmDataPlacement.h>
 
 namespace fds {
@@ -107,6 +108,9 @@ OM_ProbeMod::mod_startup()
         mgr = pr_parent->pr_get_obj_mgr();
         svc = mgr->js_get_template("Run-Setup");
         svc->js_register_template(new UT_OMSetupTemplate(mgr));
+
+        svc = mgr->js_get_template("Run-Input");
+        svc->js_register_template(new UT_OMRuntimeTempl(mgr));
     }
 }
 
@@ -138,7 +142,7 @@ UT_OM_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput 
     for (i = 0; i < num; i++) {
         node = static_cast<UT_OM_NodeInfo *>((*parent)[i]);
         info = node->om_node_info();
-        std::cout << "Node uuid " << info->nd_uuid
+        std::cout << "Node uuid " << std::hex << info->nd_uuid
             << ", name " << info->nd_node_name << std::endl;
 
         ResourceUUID r_uuid(info->nd_uuid);
@@ -164,6 +168,53 @@ UT_OM_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput 
 
     // std::cout << "New DLT " << *dlt << std::endl;
     return this;  //  to free this obj
+}
+
+// -------------------------------------------------------------------------------------
+// OM Data Runtime Test API
+// -------------------------------------------------------------------------------------
+
+JsObject *
+UT_OM_DltFsm::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *out)
+{
+    int              i, num;
+    UT_OM_DltFsm    *inp;
+    ut_dlt_fsm_in_t *evt;
+
+    ProbeMod  *mod = out->js_get_context();
+    OM_Module *om  = static_cast<OM_Module *>(mod->pr_get_owner_module());
+    OM_DLTMod *dlt = static_cast<OM_DLTMod *>(om->om_dlt_mod());
+
+    num = parent->js_array_size();
+    for (i = 0; i < num; i++) {
+        inp = static_cast<UT_OM_DltFsm *>((*parent)[i]);
+        evt = inp->om_dlt_evt();
+
+        std::cout << "DLT Event " << evt->dlt_evt << std::endl;
+        switch (evt->dlt_evt) {
+        case DLT_EVT_COMPUTE:
+            dlt->dlt_deploy_event(DltCompEvt(NULL));
+            break;
+
+        case DLT_EVT_UPDATE:
+            dlt->dlt_deploy_event(DltUpdateEvt(NULL));
+            break;
+
+        case DLT_EVT_UPDATE_DONE:
+            dlt->dlt_deploy_event(DltUpdateOkEvt());
+            break;
+
+        case DLT_EVT_COMMIT:
+            dlt->dlt_deploy_event(DltCommitEvt());
+            break;
+
+        case DLT_EVT_COMMIT_DONE:
+            dlt->dlt_deploy_event(DltCommitOkEvt());
+            break;
+        }
+        std::cout << "-> " << dlt->dlt_deploy_curr_state() << std::endl;
+    }
+    return this;  // to free this obj.
 }
 
 }  // namespace fds

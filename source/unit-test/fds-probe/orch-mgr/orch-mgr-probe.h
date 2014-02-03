@@ -41,8 +41,9 @@ class OM_ProbeMod : public ProbeMod
 //
 extern OM_ProbeMod           gl_OM_ProbeMod;
 
-// Adapters to export OM API.
-//
+// ------------------------------------------------------------------------------------
+// Handle OM Unit Test Setup
+// ------------------------------------------------------------------------------------
 typedef struct ut_node_info ut_node_info_t;
 struct ut_node_info
 {
@@ -50,7 +51,6 @@ struct ut_node_info
     fds_uint64_t             nd_uuid;
     const char              *nd_node_name;
 };
-
 class UT_OM_NodeInfo : public JsObject
 {
   public:
@@ -99,6 +99,78 @@ class UT_OMSetupTemplate : public JsObjTemplate
     explicit UT_OMSetupTemplate(JsObjManager *mgr) : JsObjTemplate("om-setup", mgr)
     {
         js_decode["node-info"] = new UT_OM_NodeInfoTemplate(mgr);
+    }
+    virtual JsObject *js_new(json_t *in) {
+        return js_parse(new JsObject(), in, NULL);
+    }
+};
+
+// ------------------------------------------------------------------------------------
+// Handle OM Unit Test Runtime
+// ------------------------------------------------------------------------------------
+typedef enum
+{
+    DLT_EVT_COMPUTE        = 0,
+    DLT_EVT_UPDATE         = 1,
+    DLT_EVT_UPDATE_DONE    = 2,
+    DLT_EVT_COMMIT         = 3,
+    DLT_EVT_COMMIT_DONE    = 4,
+    DLT_EVT_MAX
+} dlt_fsm_evt_e;
+
+typedef struct ut_dlt_fsm_in ut_dlt_fsm_in_t;
+struct ut_dlt_fsm_in
+{
+    dlt_fsm_evt_e            dlt_evt;
+};
+
+class UT_OM_DltFsm : public JsObject
+{
+  public:
+    virtual JsObject *
+    js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *out);
+
+    inline ut_dlt_fsm_in_t *om_dlt_evt() {
+        return static_cast<ut_dlt_fsm_in_t *>(js_pod_object());
+    }
+};
+
+class UT_OM_DltFsmTempl : public JsObjTemplate
+{
+  public:
+    explicit UT_OM_DltFsmTempl(JsObjManager *mgr)
+        : JsObjTemplate("dlt-fsm", mgr) {}
+
+    virtual JsObject *js_new(json_t *in)
+    {
+        char            *evt;
+        ut_dlt_fsm_in_t *p = new ut_dlt_fsm_in_t;
+
+        if (json_unpack(in, "{s:s}", "input-event", &evt)) {
+            delete p;
+            return NULL;
+        }
+        if (strcmp(evt, "compute") == 0) {
+            p->dlt_evt = DLT_EVT_COMPUTE;
+        } else if (strcmp(evt, "update") == 0) {
+            p->dlt_evt = DLT_EVT_UPDATE;
+        } else if (strcmp(evt, "update-done") == 0) {
+            p->dlt_evt = DLT_EVT_UPDATE_DONE;
+        } else if (strcmp(evt, "commit") == 0) {
+            p->dlt_evt = DLT_EVT_COMMIT;
+        } else {
+            p->dlt_evt = DLT_EVT_COMMIT_DONE;
+        }
+        return js_parse(new UT_OM_DltFsm(), in, p);
+    }
+};
+
+class UT_OMRuntimeTempl : public JsObjTemplate
+{
+  public:
+    explicit UT_OMRuntimeTempl(JsObjManager *mgr) : JsObjTemplate("om-runtime", mgr)
+    {
+        js_decode["dlt-fsm"] = new UT_OM_DltFsmTempl(mgr);
     }
     virtual JsObject *js_new(json_t *in) {
         return js_parse(new JsObject(), in, NULL);
