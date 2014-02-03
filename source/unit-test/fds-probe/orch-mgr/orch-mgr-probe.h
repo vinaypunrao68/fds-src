@@ -49,6 +49,7 @@ struct ut_node_info
     fds_bool_t               add;
     fds_uint64_t             nd_uuid;
     const char              *nd_node_name;
+    fds_uint64_t             nd_weight;
 };
 
 class UT_OM_NodeInfo : public JsObject
@@ -81,6 +82,10 @@ class UT_OM_NodeInfoTemplate : public JsObjTemplate
             delete p;
             return NULL;
         }
+        p->nd_weight = 0;
+        json_unpack(in, "{s:i}",
+                    "node-weight", &p->nd_weight);
+
         if (strcmp(action, "add") == 0) {
             p->add = true;
         } else if (strcmp(action, "rm") == 0) {

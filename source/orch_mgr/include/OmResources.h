@@ -34,6 +34,9 @@ class NodeInventory : public Resource
     typedef boost::intrusive_ptr<NodeInventory> pointer;
     typedef boost::intrusive_ptr<const NodeInventory> const_ptr;
 
+    explicit NodeInventory(const NodeUuid &uuid);
+    virtual ~NodeInventory();
+
     void node_name(std::string *name) const {}
 
     /**
@@ -47,6 +50,11 @@ class NodeInventory : public Resource
      * Return the storage weight of the node in normalized unit from 0...1000
      */
     virtual int node_stor_weight() const;
+
+    /**
+     * Set the storage weight of the node
+     */
+    virtual void node_set_weight(fds_uint64_t weight);
 
     /**
      * Return the mutex protecting this object.
@@ -89,9 +97,6 @@ class NodeInventory : public Resource
     FdspNodeType             nd_node_type;
     FdspNodeState            nd_node_state;
 
-    explicit NodeInventory(const NodeUuid &uuid);
-    virtual ~NodeInventory();
-
     virtual int node_calc_stor_weight();
 };
 
@@ -110,6 +115,12 @@ class NodeAgent : public NodeInventory
     typedef boost::intrusive_ptr<const NodeAgent> const_ptr;
 
     explicit NodeAgent(const NodeUuid &uuid);
+    /**
+     * This constructor can probably be removed as it's
+     * only needed to for testing and will be generally
+     * unuseful in other scenarios.
+     */
+    NodeAgent(const NodeUuid &uuid, fds_uint64_t nd_weight);
     virtual ~NodeAgent();
 
   protected:
