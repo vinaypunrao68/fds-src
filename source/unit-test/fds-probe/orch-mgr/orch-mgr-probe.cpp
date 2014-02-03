@@ -314,11 +314,11 @@ UT_OM_DltFsm::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *o
             break;
 
         case DLT_EVT_UPDATE:
-            dlt->dlt_deploy_event(DltUpdateEvt(NULL));
+            dlt->dlt_deploy_event(DltRebalEvt(NULL));
             break;
 
         case DLT_EVT_UPDATE_DONE:
-            dlt->dlt_deploy_event(DltUpdateOkEvt());
+            dlt->dlt_deploy_event(DltRebalOkEvt());
             break;
 
         case DLT_EVT_COMMIT:
