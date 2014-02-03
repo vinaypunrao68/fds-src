@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <OmResources.h>
 #include <OmConstants.h>
+#include <fds_err.h>
 
 namespace fds {
 
@@ -120,6 +121,7 @@ OM_NodeContainer::om_new_node()
 {
     fds_uint32_t  idx;
     NodeAgent    *agent;
+    Error         err(ERR_OK);
 
     agent = new NodeAgent(NodeUuid(0));
     node_mtx.lock();
@@ -131,11 +133,11 @@ OM_NodeContainer::om_new_node()
         agent->nd_index = idx;
         node_inuse[idx] = agent;
     } else {
-        idx = -1;
+        err = ERR_INVALID_ARG;
     }
     node_mtx.unlock();
 
-    if (idx >= 0) {
+    if (err.OK()) {
         return agent;
     }
     return NULL;
