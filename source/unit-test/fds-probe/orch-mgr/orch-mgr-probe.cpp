@@ -148,10 +148,10 @@ UT_OM_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput 
         ResourceUUID r_uuid(info->nd_uuid);
         if (info->add == true) {
             newNodes.push_back(new NodeAgent(r_uuid, info->nd_weight));
+            OM_NodeDomainMod::om_local_domain()->om_reg_node_info(&r_uuid, ptr);
         } else {
             rmNodes.push_back(new NodeAgent(r_uuid, info->nd_weight));
         }
-        OM_NodeDomainMod::om_local_domain()->om_reg_node_info(&r_uuid, ptr);
     }
 
     // Update the cluster map

@@ -121,7 +121,6 @@ OM_NodeContainer::om_new_node()
 {
     fds_uint32_t  idx;
     NodeAgent    *agent;
-    Error         err(ERR_OK);
 
     agent = new NodeAgent(NodeUuid(0));
     node_mtx.lock();
@@ -133,14 +132,11 @@ OM_NodeContainer::om_new_node()
         agent->nd_index = idx;
         node_inuse[idx] = agent;
     } else {
-        err = ERR_INVALID_ARG;
+        delete agent;
+        agent = NULL;
     }
     node_mtx.unlock();
-
-    if (err.OK()) {
-        return agent;
-    }
-    return NULL;
+    return agent;
 }
 
 // om_activate_node
