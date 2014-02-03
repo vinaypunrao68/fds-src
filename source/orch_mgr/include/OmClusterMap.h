@@ -85,6 +85,10 @@ class ClusterMap : public Module {
      * Returns member info based on the nodes UUID.
      */
     const NodeAgent *om_member_info(const NodeUuid &uuid);
+    /**
+     * Returns total storage weight of all cluster members 
+     */
+    fds_uint64_t getTotalStorWeight() const;
 
     /**
      * Update the current cluster map.

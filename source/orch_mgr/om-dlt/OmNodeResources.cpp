@@ -21,10 +21,15 @@ NodeInventory::~NodeInventory() {}
 // node_stor_weight
 // ----------------
 //
-int
+fds_uint32_t
 NodeInventory::node_stor_weight() const
 {
-    return 200;
+    return nd_gbyte_cap;
+}
+
+void
+NodeInventory::node_set_weight(fds_uint64_t weight) {
+    nd_gbyte_cap = weight;
 }
 
 int
@@ -65,6 +70,13 @@ NodeInventory::node_update_info(const NodeUuid *uuid, const FdspNodeRegPtr msg)
 NodeAgent::NodeAgent(const NodeUuid &uuid)
     : NodeInventory(uuid)
 {
+}
+
+NodeAgent::NodeAgent(const NodeUuid &uuid,
+                     fds_uint64_t nd_weight)
+        : NodeInventory(uuid)
+{
+    nd_gbyte_cap = nd_weight;
 }
 
 NodeAgent::~NodeAgent()

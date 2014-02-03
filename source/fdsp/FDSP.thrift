@@ -592,7 +592,7 @@ struct FDSP_MsgHdrType {
 /* FDSP Result valid for response messages */
     22: FDSP_ResultType       result,
     23: string       	  err_msg,
-    24: FDSP_ErrType          err_code,
+    24: i32               err_code,
 
 /* Checksum of the entire message including the payload/objects */
     25: i32         req_cookie, 
@@ -698,8 +698,8 @@ typedef i32 FDSP_Token
 /* raw data for the object */
 typedef string FDSP_ObjectData
 
-/* Payload for MigrateToken RPC */
-struct FDSP_MigrateTokenReq
+/* Payload for CopyToken RPC */
+struct FDSP_CopyTokenReq
 {
     /* Token to be migrated */
     1: FDSP_Token              token_id
@@ -715,6 +715,7 @@ struct FDSP_MigrateObjectMetadata
 {
     1: FDSP_Token              token_id
     2: FDS_ObjectIdType        object_id
+    3: i32                     obj_len;
 }
 
 /* Complete data (metadata included) for migration object */
@@ -730,8 +731,8 @@ struct FDSP_MigrateObjectData
 /* Collection of FDSP_MigrateObjectData */
 typedef list<FDSP_MigrateObjectData> FDSP_MigrateObjectList
 
-/* Pay load for PutTokenObjects RPC */
-struct PutTokenObjectsReq
+/* Pay load for PushTokenObjects RPC */
+struct PushTokenObjectsReq
 {
     /* This is final put or not */
     1: bool complete
@@ -889,17 +890,17 @@ service FDSP_ControlPathResp {
 }
 
 service FDSP_MigrationPathReq {
-    oneway void MigrateToken(1:FDSP_MsgHdrType fdsp_msg, 
-                             2:FDSP_MigrateTokenReq migrate_req)
+    oneway void CopyToken(1:FDSP_MsgHdrType fdsp_msg, 
+                             2:FDSP_CopyTokenReq migrate_req)
 
-    oneway void PutTokenObjects(1:FDSP_MsgHdrType fdsp_msg, 
-				2:PutTokenObjectsReq mig_put_req)
+    oneway void PushTokenObjects(1:FDSP_MsgHdrType fdsp_msg, 
+				2:PushTokenObjectsReq mig_put_req)
 }
 
 service FDSP_MigrationPathResp {
-    oneway void MigrateTokenResp(1:FDSP_MsgHdrType fdsp_msg)
+    oneway void CopyTokenResp(1:FDSP_MsgHdrType fdsp_msg)
 
-    oneway void PutTokenObjectsResp(1:FDSP_MsgHdrType fdsp_msg)
+    oneway void PushTokenObjectsResp(1:FDSP_MsgHdrType fdsp_msg)
 }
 
 #endif

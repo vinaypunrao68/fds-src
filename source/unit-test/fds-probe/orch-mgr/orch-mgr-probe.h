@@ -10,6 +10,7 @@
 #include <string>
 #include <fds-probe/js-object.h>
 #include <fds-probe/fds_probe.h>
+#include <dlt.h>
 
 namespace fds {
 
@@ -41,16 +42,17 @@ class OM_ProbeMod : public ProbeMod
 //
 extern OM_ProbeMod           gl_OM_ProbeMod;
 
-// Adapters to export OM API.
-//
+// ------------------------------------------------------------------------------------
+// Handle OM Unit Test Setup
+// ------------------------------------------------------------------------------------
 typedef struct ut_node_info ut_node_info_t;
 struct ut_node_info
 {
     fds_bool_t               add;
     fds_uint64_t             nd_uuid;
     const char              *nd_node_name;
+    fds_uint64_t             nd_weight;
 };
-
 class UT_OM_NodeInfo : public JsObject
 {
   public:
@@ -60,6 +62,18 @@ class UT_OM_NodeInfo : public JsObject
     inline ut_node_info_t *om_node_info() {
         return static_cast<ut_node_info_t *>(js_pod_object());
     }
+
+  private:
+    void print_dlt(const fds_uint64_t* tbl,
+                   fds_uint32_t depth,
+                   fds_uint32_t toks);
+    void compare_dlts(const fds_uint64_t* old_tbl,
+                      fds_uint32_t old_depth,
+                      fds_uint32_t old_toks,
+                      const fds_uint64_t* new_tbt,
+                      fds_uint32_t new_depth,
+                      fds_uint32_t new_toks);
+    fds_uint64_t* copy_dlt(const DLT* dlt);
 };
 
 class UT_OM_NodeInfoTemplate : public JsObjTemplate
@@ -81,6 +95,10 @@ class UT_OM_NodeInfoTemplate : public JsObjTemplate
             delete p;
             return NULL;
         }
+        p->nd_weight = 0;
+        json_unpack(in, "{s:i}",
+                    "node-weight", &p->nd_weight);
+
         if (strcmp(action, "add") == 0) {
             p->add = true;
         } else if (strcmp(action, "rm") == 0) {
@@ -99,6 +117,78 @@ class UT_OMSetupTemplate : public JsObjTemplate
     explicit UT_OMSetupTemplate(JsObjManager *mgr) : JsObjTemplate("om-setup", mgr)
     {
         js_decode["node-info"] = new UT_OM_NodeInfoTemplate(mgr);
+    }
+    virtual JsObject *js_new(json_t *in) {
+        return js_parse(new JsObject(), in, NULL);
+    }
+};
+
+// ------------------------------------------------------------------------------------
+// Handle OM Unit Test Runtime
+// ------------------------------------------------------------------------------------
+typedef enum
+{
+    DLT_EVT_COMPUTE        = 0,
+    DLT_EVT_UPDATE         = 1,
+    DLT_EVT_UPDATE_DONE    = 2,
+    DLT_EVT_COMMIT         = 3,
+    DLT_EVT_COMMIT_DONE    = 4,
+    DLT_EVT_MAX
+} dlt_fsm_evt_e;
+
+typedef struct ut_dlt_fsm_in ut_dlt_fsm_in_t;
+struct ut_dlt_fsm_in
+{
+    dlt_fsm_evt_e            dlt_evt;
+};
+
+class UT_OM_DltFsm : public JsObject
+{
+  public:
+    virtual JsObject *
+    js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *out);
+
+    inline ut_dlt_fsm_in_t *om_dlt_evt() {
+        return static_cast<ut_dlt_fsm_in_t *>(js_pod_object());
+    }
+};
+
+class UT_OM_DltFsmTempl : public JsObjTemplate
+{
+  public:
+    explicit UT_OM_DltFsmTempl(JsObjManager *mgr)
+        : JsObjTemplate("dlt-fsm", mgr) {}
+
+    virtual JsObject *js_new(json_t *in)
+    {
+        char            *evt;
+        ut_dlt_fsm_in_t *p = new ut_dlt_fsm_in_t;
+
+        if (json_unpack(in, "{s:s}", "input-event", &evt)) {
+            delete p;
+            return NULL;
+        }
+        if (strcmp(evt, "compute") == 0) {
+            p->dlt_evt = DLT_EVT_COMPUTE;
+        } else if (strcmp(evt, "update") == 0) {
+            p->dlt_evt = DLT_EVT_UPDATE;
+        } else if (strcmp(evt, "update-done") == 0) {
+            p->dlt_evt = DLT_EVT_UPDATE_DONE;
+        } else if (strcmp(evt, "commit") == 0) {
+            p->dlt_evt = DLT_EVT_COMMIT;
+        } else {
+            p->dlt_evt = DLT_EVT_COMMIT_DONE;
+        }
+        return js_parse(new UT_OM_DltFsm(), in, p);
+    }
+};
+
+class UT_OMRuntimeTempl : public JsObjTemplate
+{
+  public:
+    explicit UT_OMRuntimeTempl(JsObjManager *mgr) : JsObjTemplate("om-runtime", mgr)
+    {
+        js_decode["dlt-fsm"] = new UT_OM_DltFsmTempl(mgr);
     }
     virtual JsObject *js_new(json_t *in) {
         return js_parse(new JsObject(), in, NULL);
