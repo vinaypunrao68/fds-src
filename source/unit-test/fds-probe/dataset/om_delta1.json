@@ -11,7 +11,7 @@
 		    "node-action": "add",
                     "node-uuid":   "0xbeefdead",
                     "node-name":   "node1",
-		    "node-weight": "60"
+		    "node-weight": 60
                 },
                 {
 		    "node-action": "rm",
