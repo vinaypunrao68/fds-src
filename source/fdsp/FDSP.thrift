@@ -715,6 +715,7 @@ struct FDSP_MigrateObjectMetadata
 {
     1: FDSP_Token              token_id
     2: FDS_ObjectIdType        object_id
+    3: i32                     obj_len;
 }
 
 /* Complete data (metadata included) for migration object */

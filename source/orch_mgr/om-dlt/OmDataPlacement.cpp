@@ -112,7 +112,7 @@ DataPlacement::setAlgorithm(PlacementAlgorithm::AlgorithmTypes type) {
             break;
 
         default:
-            fds_panic("Received unknown data placement algorithm type",
+            fds_panic("Received unknown data placement algorithm type %u",
                       type);
     }
     algoType = type;

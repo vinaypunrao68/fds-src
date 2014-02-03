@@ -319,9 +319,6 @@ class ObjectStorMgr :
             diskio::DataTier tier);
     Error readObject(const ObjectID &objId,
             ObjectBuf      &objCompData);
-    Error readObject(const ObjectID   &objId,
-            ObjectBuf        &objCompData,
-            diskio::DataTier &tier);
  protected:
     void setup_datapath_server(const std::string &ip);
 
@@ -417,6 +414,9 @@ class ObjectStorMgr :
     Error putTokenObjects(const fds_token_id &token, 
                           FDSP_MigrateObjectList &obj_list);
     void unitTest();
+    Error readObject(const ObjectID   &objId,
+            ObjectBuf        &objCompData,
+            diskio::DataTier &tier);
 
     const std::string getStorPrefix() {
         return conf_helper_.get<std::string>("prefix");
