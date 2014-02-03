@@ -6,6 +6,7 @@
 #define INCLUDE_CONCURRENCY_THREADPOOL_H_
 
 #include <boost/bind.hpp>
+#include <boost/shared_ptr.hpp>
 #include <boost/function.hpp>
 #include <boost/thread/condition.hpp>
 
@@ -183,6 +184,9 @@ class fds_threadpool : boost::noncopyable
        schedule(new thpool_req(f, a, b, c, d, e));
     }
 };
+
+typedef boost::shared_ptr<fds_threadpool> fds_threadpoolPtr;
+
 }  // namespace fds
 
 #endif  // SOURCE_UTIL_CONCURRENCY_THREADPOOL_H_
