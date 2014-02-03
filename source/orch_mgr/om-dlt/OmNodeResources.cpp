@@ -21,7 +21,7 @@ NodeInventory::~NodeInventory() {}
 // node_stor_weight
 // ----------------
 //
-int
+fds_uint32_t
 NodeInventory::node_stor_weight() const
 {
     return nd_gbyte_cap;

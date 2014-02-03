@@ -10,6 +10,7 @@
 #include <string>
 #include <fds-probe/js-object.h>
 #include <fds-probe/fds_probe.h>
+#include <dlt.h>
 
 namespace fds {
 
@@ -61,6 +62,18 @@ class UT_OM_NodeInfo : public JsObject
     inline ut_node_info_t *om_node_info() {
         return static_cast<ut_node_info_t *>(js_pod_object());
     }
+
+  private:
+    void print_dlt(const fds_uint64_t* tbl,
+                   fds_uint32_t depth,
+                   fds_uint32_t toks);
+    void compare_dlts(const fds_uint64_t* old_tbl,
+                      fds_uint32_t old_depth,
+                      fds_uint32_t old_toks,
+                      const fds_uint64_t* new_tbt,
+                      fds_uint32_t new_depth,
+                      fds_uint32_t new_toks);
+    fds_uint64_t* copy_dlt(const DLT* dlt);
 };
 
 class UT_OM_NodeInfoTemplate : public JsObjTemplate
