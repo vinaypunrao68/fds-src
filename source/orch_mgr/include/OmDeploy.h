@@ -6,12 +6,12 @@
 
 #include <vector>
 #include <OmResources.h>
+#include <OmDataPlacement.h>
 #include <boost/msm/back/state_machine.hpp>
 
 namespace fds {
 
 class ClusterMap;
-class DataPlacement;
 struct DltDplyFSM;
 typedef boost::msm::back::state_machine<DltDplyFSM> FSM_DplyDLT;
 

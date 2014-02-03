@@ -158,6 +158,7 @@ UT_OM_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput 
     ProbeMod *mod  = out->js_get_context();
     OM_Module *om  = static_cast<OM_Module *>(mod->pr_get_owner_module());
     DataPlacement *dp = static_cast<DataPlacement *>(om->om_dataplace_mod());
+    dp->updateMembers(newNodes, rmNodes);
 
     fds_verify(om == &gl_OMModule);
     const DLT *oldDlt = dp->getCurDlt();
@@ -169,11 +170,12 @@ UT_OM_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput 
         old_tokens = oldDlt->getNumTokens();
     }
 
-    dp->updateMembers(newNodes, rmNodes);
+    // Drive cluster map update via state machine
+    OM_DLTMod *dltMod = static_cast<OM_DLTMod *>(om->om_dlt_mod());
+    DltCompEvt event(dp);
+    dltMod->dlt_deploy_event(event);
 
-    // Recompute the DLT
-    dp->computeDlt();
-
+    // Get new/old dlt states
     const DLT *dlt = dp->getCurDlt();
     fds_uint64_t new_depth = dlt->getDepth();
     fds_uint32_t new_tokens = dlt->getNumTokens();
@@ -185,6 +187,7 @@ UT_OM_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput 
     std::cout << "New DLT: " << std::endl;
     print_dlt(new_dlt_ptr, new_depth, new_tokens);
 
+    // Compare movement between two dlts
     compare_dlts(old_dlt_ptr, old_depth, old_tokens, new_dlt_ptr, new_depth, new_tokens);
 
     if (old_dlt_ptr)
