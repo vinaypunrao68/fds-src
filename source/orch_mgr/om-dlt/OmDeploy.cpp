@@ -42,7 +42,7 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
         template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
         template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
     };
-    struct DST_Update : public msm::front::state<>
+    struct DST_Rebal : public msm::front::state<>
     {
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
@@ -105,10 +105,10 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
     // +------------+----------------+------------+-----------------+-----------------+
     Row< DST_Idle   , DltCompEvt     , DST_Comp   , DACT_Compute    , none            >,
     // +------------+----------------+------------+-----------------+-----------------+
-    Row< DST_Comp   , DltUpdateEvt   , DST_Update , DACT_Update     , none            >,
+    Row< DST_Rebal  , DltUpdateEvt   , DST_Rebal  , DACT_Update     , none            >,
     // +------------+----------------+------------+-----------------+-----------------+
-    Row< DST_Update , DltUpdateOkEvt , DST_Update , none            , GRD_DltUpdate   >,
-    Row< DST_Update , DltCommitEvt   , DST_Commit , DACT_Commit     , none            >,
+    Row< DST_Rebal  , DltUpdateOkEvt , DST_Rebal  , none            , GRD_DltUpdate   >,
+    Row< DST_Rebal  , DltCommitEvt   , DST_Commit , DACT_Commit     , none            >,
     // +------------+----------------+------------+-----------------+-----------------+
     Row< DST_Commit , DltCommitOkEvt , DST_Idle   , none            , GRD_DltCommit   >
     // +------------+----------------+------------+-----------------+-----------------+
@@ -222,14 +222,23 @@ DltDplyFSM::no_transition(Evt const &evt, Fsm &fsm, int state)
     std::cout << "FSM no trans" << std::endl;
 }
 
-// DACT_Compute
-// ------------
-//
+/* DACT_Compute
+ * ------------
+ * DLT computation state. Computes and stores a new DLT
+ * based on the current cluster map.
+ */
 template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 DltDplyFSM::DACT_Compute::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     std::cout << "FSM DACT_Compute" << std::endl;
+    DltCompEvt dltEvt = (DltCompEvt)evt;
+    DataPlacement *dp = dltEvt.ode_dp;
+    fds_verify(dp != NULL);
+
+    // Recompute the DLT. Once complete, the data placement's
+    // current dlt will be updated to the new dlt version.
+    dp->computeDlt();
 }
 
 // DACT_Update
