@@ -155,8 +155,7 @@ DataPlacement::computeDlt() {
     placementMutex->lock();
     placeAlgo->computeNewDlt(curClusterMap,
                              curDlt,
-                             depth,
-                             curDltWidth,
+                             curWeightDist,
                              newDlt);
 
     // Compute DLT's reverse node to token map
@@ -188,6 +187,7 @@ DataPlacement::computeDlt() {
     // internal version.
     delete curDlt;
     curDlt = newDlt;
+    curWeightDist = newWeightMap;
     placementMutex->unlock();
 }
 

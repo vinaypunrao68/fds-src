@@ -10,6 +10,7 @@
 #include <string>
 #include <fds-probe/js-object.h>
 #include <fds-probe/fds_probe.h>
+#include <dlt.h>
 
 namespace fds {
 
@@ -50,6 +51,7 @@ struct ut_node_info
     fds_bool_t               add;
     fds_uint64_t             nd_uuid;
     const char              *nd_node_name;
+    fds_uint64_t             nd_weight;
 };
 class UT_OM_NodeInfo : public JsObject
 {
@@ -60,6 +62,18 @@ class UT_OM_NodeInfo : public JsObject
     inline ut_node_info_t *om_node_info() {
         return static_cast<ut_node_info_t *>(js_pod_object());
     }
+
+  private:
+    void print_dlt(const fds_uint64_t* tbl,
+                   fds_uint32_t depth,
+                   fds_uint32_t toks);
+    void compare_dlts(const fds_uint64_t* old_tbl,
+                      fds_uint32_t old_depth,
+                      fds_uint32_t old_toks,
+                      const fds_uint64_t* new_tbt,
+                      fds_uint32_t new_depth,
+                      fds_uint32_t new_toks);
+    fds_uint64_t* copy_dlt(const DLT* dlt);
 };
 
 class UT_OM_NodeInfoTemplate : public JsObjTemplate
@@ -81,6 +95,10 @@ class UT_OM_NodeInfoTemplate : public JsObjTemplate
             delete p;
             return NULL;
         }
+        p->nd_weight = 0;
+        json_unpack(in, "{s:i}",
+                    "node-weight", &p->nd_weight);
+
         if (strcmp(action, "add") == 0) {
             p->add = true;
         } else if (strcmp(action, "rm") == 0) {
