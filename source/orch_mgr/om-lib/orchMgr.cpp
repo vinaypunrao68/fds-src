@@ -809,7 +809,9 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
      * Build the node info structure and add it
      * to its map, based on type.
      */
-    OM_NodeDomainMod::om_local_domain()->om_reg_node_info(NULL, reg_node_req);
+    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+    domain->om_reg_node_info(NULL, reg_node_req);
+
     fds::NodeInfo n_info(new_node_id,
                          reg_node_req->node_name,
                          reg_node_req->node_type,

@@ -142,6 +142,7 @@ class OM_NodeContainer : public RsContainer
 {
   public:
     typedef boost::intrusive_ptr<OM_NodeContainer> pointer;
+    typedef NodeMap::const_iterator const_iterator;
 
     OM_NodeContainer();
     virtual ~OM_NodeContainer();
@@ -156,6 +157,20 @@ class OM_NodeContainer : public RsContainer
     NodeAgent::pointer om_node_info(fds_uint32_t node_idx);
     NodeAgent::pointer om_node_info(const NodeUuid *uuid);
 
+    /**
+     * Iterate through the list using standard container iterator.
+     */
+    inline const_iterator cbegin() const {
+        return node_map.cbegin();
+    }
+    inline const_iterator cend() const {
+        return node_map.cend();
+    }
+    /**
+     * Thread-safe version of the iterator.
+     */
+    const_iterator cend(const_iterator *it);
+
     virtual NodeAgent::pointer om_new_node();
     virtual void om_ref_node(NodeAgent::pointer node, fds_bool_t act = true);
     virtual void om_deref_node(NodeAgent::pointer node);
@@ -168,6 +183,9 @@ class OM_NodeContainer : public RsContainer
     NodeArray                node_inuse;
     NodeList                 node_list;
     fds_mutex                node_mtx;
+
+    NodeList                 node_up_pend;
+    NodeList                 node_down_pend;
 };
 
 /**
@@ -191,6 +209,7 @@ class OM_NodeDomainMod : public Module, OM_NodeContainer
 
     virtual void om_del_node_info(const NodeUuid *uuid);
     virtual void om_persist_node_info(fds_uint32_t node_idx);
+    virtual void om_update_cluster_map();
 
     /**
      * Module methods

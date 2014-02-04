@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <OmResources.h>
 #include <OmConstants.h>
+#include <fds_err.h>
 
 namespace fds {
 
@@ -65,6 +66,9 @@ NodeInventory::node_update_info(const NodeUuid *uuid, const FdspNodeRegPtr msg)
     nd_ssd_latency_min  = msg->disk_info.ssd_latency_min;
     nd_disk_type        = msg->disk_info.disk_type,
     nd_mtx.unlock();
+
+    // TODO(vy): fix the weight.
+    nd_gbyte_cap = nd_ssd_capacity;
 }
 
 NodeAgent::NodeAgent(const NodeUuid &uuid)
@@ -131,14 +135,11 @@ OM_NodeContainer::om_new_node()
         agent->nd_index = idx;
         node_inuse[idx] = agent;
     } else {
-        idx = -1;
+        delete agent;
+        agent = NULL;
     }
     node_mtx.unlock();
-
-    if (idx >= 0) {
-        return agent;
-    }
-    return NULL;
+    return agent;
 }
 
 // om_activate_node
@@ -155,9 +156,10 @@ OM_NodeContainer::om_activate_node(fds_uint32_t node_idx)
 
     node_mtx.lock();
     node_map[agent->nd_uuid] = agent;
+    node_up_pend.push_back(agent);
     node_mtx.unlock();
 
-    std::cout << "Actiate node " << node_idx << ", uuid "
+    std::cout << "Actiate node " << std::hex << node_idx << ", uuid "
         << agent->nd_uuid.uuid_get_val() << ", ptr " << agent << std::endl;
 }
 
@@ -173,8 +175,12 @@ OM_NodeContainer::om_deactivate_node(fds_uint32_t node_idx)
     fds_verify(agent != NULL);
     fds_verify(agent->nd_uuid.uuid_get_val() != 0);
 
+    std::cout << "Deactivate node " << std::hex << node_idx << ", uuid "
+        << agent->nd_uuid.uuid_get_val() << ", ptr " << agent << std::endl;
+
     node_mtx.lock();
     node_map.erase(agent->nd_uuid);
+    node_down_pend.push_back(agent);
     node_mtx.unlock();
 }
 

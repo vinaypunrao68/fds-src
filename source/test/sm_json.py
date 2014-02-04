@@ -37,6 +37,7 @@ from gen_json_spec import JSonKeyValTriRetrive
 #                         pretty print json spec [0|1], def 0.
 #   --dryrun DRYRUN       do not make http/curl call to server [0|1], def 0
 cmd_line = JSonTestCmdLine()
+cmd_line.parse()
 
 # Define test spec using JSonVal and JSonValRandom
 #
@@ -124,7 +125,7 @@ sm_cmd_list3        = [sm_del_cmd, sm_obj_id_data_saved2, sm_obj_id_data_saved2]
                       # XXX: list currently copy by reference, not by value.
                       #      sm_cmd_list3 will not work.
 
-list_sm_cmd   = gen_json_spec.create_list_of_lists(
+list_sm_cmd   = gen_json_spec.create_list_from_list(
     [sm_cmd_list1, sm_cmd_list2],
     9, False)
 

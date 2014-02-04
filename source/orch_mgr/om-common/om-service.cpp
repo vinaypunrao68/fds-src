@@ -7,8 +7,6 @@
 
 namespace fds {
 
-OM_Module                    gl_OMModule("OM");
-
 OM_Module::OM_Module(char const *const name)
     : Module(name)
 {
