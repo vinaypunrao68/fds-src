@@ -136,8 +136,8 @@ namespace fds {
         fds_uint32_t getNumBitsForToken() const;  /**< Gets num bits used */
         fds_uint32_t getNumTokens() const;  /** Gets total num of tokens */
 
-        uint32_t virtual write(serialize::Serializer*  serializer   );
-        uint32_t virtual read (serialize::Deserializer* deserializer);
+        uint32_t virtual write(serialize::Serializer*  s);
+        uint32_t virtual read(serialize::Deserializer* d);
 
         /*
          * Module members
