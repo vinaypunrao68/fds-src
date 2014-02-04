@@ -10,8 +10,7 @@ user_non_fds_libs :=                                                          \
     leveldb thrift rt config++
 
 user_cpp          :=                   \
-    dlt_unit_test.cpp                   \
-    serialize_ut.cpp
+    dlt_unit_test.cpp
 
 user_no_style     := $(user_cpp) $(user_cc)
 user_bin_exe      := dlt_unit_test

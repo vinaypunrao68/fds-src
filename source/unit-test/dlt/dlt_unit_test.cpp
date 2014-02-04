@@ -143,6 +143,8 @@ TEST_CASE ("DLT Serialize") {
     
     uint32_t bytesRead = dlt1.read(d);
     cout<<"bytesRead:"<<bytesRead<<endl;
+
+    REQUIRE( bytesWritten == bytesRead);
     //printDlt(&dlt1);
     verifyDltNodes(&dlt1,10);
     REQUIRE (dlt1.getVersion() == 1);
