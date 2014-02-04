@@ -80,6 +80,13 @@ NodeAgent::NodeAgent(const NodeUuid &uuid,
     nd_gbyte_cap = nd_weight;
 }
 
+NodeAgent::NodeAgent(const NodeUuid &uuid,
+                     const FDSP_ControlPathReqClientPtr &client)
+        : NodeInventory(uuid)
+{
+    ndCpClient = client;
+}
+
 NodeAgent::~NodeAgent()
 {
 }

@@ -177,6 +177,15 @@ namespace fds {
         void computeDlt();
 
         /**
+         * Commits the current DLT as an 'official'
+         * copy. The commit stores the DLT to the
+         * permanent DLT history and async notifies
+         * others nodes in the cluster about the
+         * new version.
+         */
+        Error commitDlt();
+
+        /**
          * Returns the current version of the DLT.
          */
         const DLT *getCurDlt() const;

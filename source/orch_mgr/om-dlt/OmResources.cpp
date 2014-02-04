@@ -9,11 +9,17 @@ namespace fds {
 OM_NodeDomainMod             gl_OMNodeDomainMod("OM-Node");
 
 OM_NodeDomainMod::OM_NodeDomainMod(char const *const name)
-    : Module(name)
+        : Module(name)
 {
+    omcpSessTbl = boost::shared_ptr<netSessionTbl>(
+        new netSessionTbl(FDSP_ORCH_MGR));
+    ctrlRspHndlr = boost::shared_ptr<OM_ControlRespHandler>(
+        new OM_ControlRespHandler());
 }
 
-OM_NodeDomainMod::~OM_NodeDomainMod() {}
+OM_NodeDomainMod::~OM_NodeDomainMod() {
+    omcpSessTbl->endAllSessions();
+}
 
 int
 OM_NodeDomainMod::mod_init(SysParams const *const param)
@@ -88,6 +94,129 @@ OM_NodeDomainMod::om_del_node_info(const NodeUuid *uuid)
 void
 OM_NodeDomainMod::om_persist_node_info(fds_uint32_t idx)
 {
+}
+
+/**
+ * Constructor for OM control path response handling
+ */
+OM_ControlRespHandler::OM_ControlRespHandler() {
+}
+
+void
+OM_ControlRespHandler::NotifyAddVolResp(
+    const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+    const FDS_ProtocolInterface::FDSP_NotifyVolType& not_add_vol_resp) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+}
+
+void
+OM_ControlRespHandler::NotifyAddVolResp(
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+    FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_add_vol_resp) {
+}
+
+void
+OM_ControlRespHandler::NotifyRmVolResp(
+    const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+    const FDS_ProtocolInterface::FDSP_NotifyVolType& not_rm_vol_resp) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+}
+
+void
+OM_ControlRespHandler::NotifyRmVolResp(
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+    FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_rm_vol_resp) {
+}
+
+void
+OM_ControlRespHandler::NotifyModVolResp(
+    const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+    const FDS_ProtocolInterface::FDSP_NotifyVolType& not_mod_vol_resp) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+}
+
+void
+OM_ControlRespHandler::NotifyModVolResp(
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+    FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_mod_vol_resp) {
+}
+
+void
+OM_ControlRespHandler::AttachVolResp(
+    const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+    const FDS_ProtocolInterface::FDSP_AttachVolType& atc_vol_resp) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+}
+
+void
+OM_ControlRespHandler::AttachVolResp(
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+    FDS_ProtocolInterface::FDSP_AttachVolTypePtr& atc_vol_resp) {
+}
+
+void
+OM_ControlRespHandler::DetachVolResp(
+    const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+    const FDS_ProtocolInterface::FDSP_AttachVolType& dtc_vol_resp) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+}
+
+void
+OM_ControlRespHandler::DetachVolResp(
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+    FDS_ProtocolInterface::FDSP_AttachVolTypePtr& dtc_vol_resp) {
+}
+
+void
+OM_ControlRespHandler::NotifyNodeAddResp(
+    const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+    const FDS_ProtocolInterface::FDSP_Node_Info_Type& node_info_resp) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+}
+
+void
+OM_ControlRespHandler::NotifyNodeAddResp(
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+    FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp) {
+}
+
+void
+OM_ControlRespHandler::NotifyNodeRmvResp(
+    const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+    const FDS_ProtocolInterface::FDSP_Node_Info_Type& node_info_resp) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+}
+
+void
+OM_ControlRespHandler::NotifyNodeRmvResp(
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+    FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp) {
+}
+
+void
+OM_ControlRespHandler::NotifyDLTUpdateResp(
+    const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+    const FDS_ProtocolInterface::FDSP_DLT_Type& dlt_info_resp) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+}
+
+void
+OM_ControlRespHandler::NotifyDLTUpdateResp(
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+    FDS_ProtocolInterface::FDSP_DLT_TypePtr& dlt_info_resp) {
+}
+
+void
+OM_ControlRespHandler::NotifyDMTUpdateResp(
+    const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+    const FDS_ProtocolInterface::FDSP_DMT_Type& dmt_info_resp) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+}
+
+void
+OM_ControlRespHandler::NotifyDMTUpdateResp(
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+    FDS_ProtocolInterface::FDSP_DMT_TypePtr& dmt_info_resp) {
 }
 
 }  // namespace fds

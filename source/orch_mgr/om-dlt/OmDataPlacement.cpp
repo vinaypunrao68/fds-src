@@ -191,6 +191,35 @@ DataPlacement::computeDlt() {
     placementMutex->unlock();
 }
 
+/**
+ * Commits the current DLT as an 'official'
+ * copy. The commit stores the DLT to the
+ * permanent DLT history and async notifies
+ * others nodes in the cluster about the
+ * new version.
+ */
+Error
+DataPlacement::commitDlt() {
+    Error err(ERR_OK);
+
+    placementMutex->lock();
+
+    // Commit the current DLT to the
+    // official DLT history
+
+    // Async notify other nodes of the new
+    // DLT
+    for (ClusterMap::const_iterator it = curClusterMap->cbegin();
+         it != curClusterMap->cend();
+         it++) {
+        NodeAgent::pointer na = it->second;
+    }
+
+    placementMutex->unlock();
+
+    return err;
+}
+
 const DLT*
 DataPlacement::getCurDlt() const {
     return curDlt;

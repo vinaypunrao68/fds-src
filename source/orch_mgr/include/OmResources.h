@@ -11,13 +11,14 @@
 #include <fds_typedefs.h>
 #include <fds_module.h>
 #include <fds_resource.h>
-#include <fdsp/FDSP_types.h>
 #include <concurrency/Mutex.h>
+#include <NetSession.h>
 
 namespace fds {
 
 class OM_NodeContainer;
 class OM_ClusDomainMod;
+class OM_ControlRespHandler;
 
 typedef FDS_ProtocolInterface::FDSP_RegisterNodeType     FdspNodeReg;
 typedef FDS_ProtocolInterface::FDSP_RegisterNodeTypePtr  FdspNodeRegPtr;
@@ -100,6 +101,9 @@ class NodeInventory : public Resource
     virtual int node_calc_stor_weight();
 };
 
+typedef boost::shared_ptr<FDS_ProtocolInterface::FDSP_ControlPathReqClient>
+    FDSP_ControlPathReqClientPtr;
+
 /**
  * Agent interface to communicate with the remote node.  This is the communication
  * end-point to the node.
@@ -121,10 +125,13 @@ class NodeAgent : public NodeInventory
      * unuseful in other scenarios.
      */
     NodeAgent(const NodeUuid &uuid, fds_uint64_t nd_weight);
+    NodeAgent(const NodeUuid &uuid, const FDSP_ControlPathReqClientPtr &client);
     virtual ~NodeAgent();
 
   protected:
-    friend class OM_NodeContainer;
+    friend class                 OM_NodeContainer;
+    FDSP_ControlPathReqClientPtr ndCpClient;
+    std::string                  ndSessionId;
 };
 
 /**
@@ -215,7 +222,83 @@ class OM_NodeDomainMod : public Module, OM_NodeContainer
     virtual void mod_shutdown();
 
   protected:
+    boost::shared_ptr<OM_ControlRespHandler> ctrlRspHndlr;
+    boost::shared_ptr<netSessionTbl> omcpSessTbl;
 };
+
+/**
+ * control response handler
+ */
+class OM_ControlRespHandler : public FDS_ProtocolInterface::
+FDSP_ControlPathRespIf {
+  public:
+    explicit OM_ControlRespHandler();
+
+    void NotifyAddVolResp(
+        const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+        const FDS_ProtocolInterface::FDSP_NotifyVolType& not_add_vol_resp);
+    void NotifyAddVolResp(
+        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+        FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_add_vol_resp);
+
+    void NotifyRmVolResp(
+        const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+        const FDS_ProtocolInterface::FDSP_NotifyVolType& not_rm_vol_resp);
+        void NotifyRmVolResp(
+            FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_rm_vol_resp);
+
+        void NotifyModVolResp(
+            const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const FDS_ProtocolInterface::FDSP_NotifyVolType& not_mod_vol_resp);
+        void NotifyModVolResp(
+            FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_mod_vol_resp);
+
+        void AttachVolResp(
+            const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const FDS_ProtocolInterface::FDSP_AttachVolType& atc_vol_resp);
+        void AttachVolResp(
+            FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            FDS_ProtocolInterface::FDSP_AttachVolTypePtr& atc_vol_resp);
+
+        void DetachVolResp(
+            const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const FDS_ProtocolInterface::FDSP_AttachVolType& dtc_vol_resp);
+        void DetachVolResp(
+            FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            FDS_ProtocolInterface::FDSP_AttachVolTypePtr& dtc_vol_resp);
+
+        void NotifyNodeAddResp(
+            const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const FDS_ProtocolInterface::FDSP_Node_Info_Type& node_info_resp);
+        void NotifyNodeAddResp(
+            FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp);
+
+        void NotifyNodeRmvResp(
+            const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const FDS_ProtocolInterface::FDSP_Node_Info_Type& node_info_resp);
+        void NotifyNodeRmvResp(
+            FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp);
+
+        void NotifyDLTUpdateResp(
+            const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const FDS_ProtocolInterface::FDSP_DLT_Type& dlt_info_resp);
+        void NotifyDLTUpdateResp(
+            FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            FDS_ProtocolInterface::FDSP_DLT_TypePtr& dlt_info_resp);
+
+        void NotifyDMTUpdateResp(
+            const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const FDS_ProtocolInterface::FDSP_DMT_Type& dmt_info_resp);
+        void NotifyDMTUpdateResp(
+            FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            FDS_ProtocolInterface::FDSP_DMT_TypePtr& dmt_info_resp);
+  private:
+        // TODO(Andrew): Add ptr back to resource manager.
+    };
 
 extern OM_NodeDomainMod      gl_OMNodeDomainMod;
 
