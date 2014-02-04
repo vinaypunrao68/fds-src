@@ -5,7 +5,9 @@
 #define CATCH_CONFIG_MAIN
 #include "../catch/catch.hpp"
 #include "dlt_helper_funcs.h"
+#include <serialize.h>
 using namespace fds;
+using namespace fds::serialize;
 
 TEST_CASE ("TokenGroup") {
     DltTokenGroup tokenGroup(4);
@@ -91,4 +93,60 @@ TEST_CASE("Tokens") {
     fds_token_id token=dlt.getToken(objId);
     
     REQUIRE(token == 7);
+}
+
+TEST_CASE ("Mem Serialize") {
+    Serializer * ser = getMemSerializer();
+    int num=20;
+    ser->writeI32(num);
+    std::string name="testtest";
+    ser->writeString(name);
+    num=32;
+    ser->writeI32(num);
+
+    std::string buffer=ser->getBufferAsString();
+
+    Deserializer* des= getMemDeserializer(buffer);
+
+    num=10;
+
+    des->readI32(num);
+    REQUIRE(20 == num);
+
+    std::string newName;
+    des->readString(newName);
+    REQUIRE(newName == "testtest");
+
+    des->readI32(num);
+    REQUIRE(32 == num);
+}
+
+TEST_CASE ("DLT Serialize") {
+    Serializer *s = getMemSerializer();
+
+    DLT dlt(3,4,1,true);
+    CAPTURE(dlt.getNumBitsForToken());
+    CAPTURE(dlt.getDepth());
+    CAPTURE( dlt.getNumTokens() );
+
+    fillDltNodes(&dlt,10);
+        
+    uint32_t bytesWritten = dlt.write(s);
+
+    cout<<"byteswritten:"<<bytesWritten<<endl;
+
+    std::string buffer = s->getBufferAsString();
+
+    DLT dlt1(0,0,0,false);
+    
+    Deserializer *d = getMemDeserializer(buffer);
+    
+    uint32_t bytesRead = dlt1.read(d);
+    cout<<"bytesRead:"<<bytesRead<<endl;
+    //printDlt(&dlt1);
+    verifyDltNodes(&dlt1,10);
+    REQUIRE (dlt1.getVersion() == 1);
+    REQUIRE (dlt1.getNumTokens() == 8);
+    REQUIRE (dlt1.getDepth() == 4);
+    
 }

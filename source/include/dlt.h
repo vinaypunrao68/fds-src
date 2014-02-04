@@ -13,6 +13,7 @@
 #include <fds_typedefs.h>
 #include <fds_defines.h>
 #include <fds_module.h>
+#include <serialize.h>
 
 namespace fds {
     /**
@@ -72,7 +73,7 @@ namespace fds {
      * During lookup , an objid is converted to a token ..
      * Always generated the token using the getToken func.
      */
-    class DLT : public Module {
+    class DLT : public serialize::Serializable , public Module {
   public :
         /**
          * Return the token ID for a given Object based on
@@ -134,6 +135,9 @@ namespace fds {
         fds_uint32_t getWidth() const;  /**< Gets num bits used */
         fds_uint32_t getNumBitsForToken() const;  /**< Gets num bits used */
         fds_uint32_t getNumTokens() const;  /** Gets total num of tokens */
+
+        uint32_t virtual write(serialize::Serializer*  serializer   );
+        uint32_t virtual read (serialize::Deserializer* deserializer);
 
         /*
          * Module members

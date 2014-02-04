@@ -11,10 +11,13 @@ user_non_fds_libs :=                                                          \
 
 user_cpp          :=                   \
     dlt_unit_test.cpp                   \
+    serialize_ut.cpp
 
 user_no_style     := $(user_cpp) $(user_cc)
 user_bin_exe      := dlt_unit_test
 dlt_unit_test      := dlt_unit_test.cpp
+#serialize_unit_test := serialize_ut.cpp
+#tt := testthrift.cpp
 
 
 include $(topdir)/Makefile.incl

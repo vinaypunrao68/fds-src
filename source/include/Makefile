@@ -41,6 +41,7 @@ user_no_style  := \
 	NetSession.h        \
         fds_counters.h	    \
 	fds_stopwatch.h     \
-	graphite_client.h
+	graphite_client.h   \
+	serialize.h
 
 include $(topdir)/Makefile.incl
