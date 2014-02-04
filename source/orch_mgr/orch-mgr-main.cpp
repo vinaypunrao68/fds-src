@@ -3,13 +3,22 @@
  */
 
 #include <orchMgr.h>
-
 #include <iostream>  // NOLINT(*)
 #include <string>
 #include <vector>
+#include <orch-mgr/om-service.h>
 
 namespace fds {
+
 extern OrchMgr *orchMgr;
+OM_Module       gl_OMModule("OM");
+
+OM_Module *
+OM_Module::om_singleton()
+{
+    return &gl_OMModule;
+}
+
 }  // namespace fds
 
 int main(int argc, char *argv[]) {

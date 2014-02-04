@@ -183,6 +183,9 @@ class OM_NodeContainer : public RsContainer
     NodeArray                node_inuse;
     NodeList                 node_list;
     fds_mutex                node_mtx;
+
+    NodeList                 node_up_pend;
+    NodeList                 node_down_pend;
 };
 
 /**
@@ -206,6 +209,7 @@ class OM_NodeDomainMod : public Module, OM_NodeContainer
 
     virtual void om_del_node_info(const NodeUuid *uuid);
     virtual void om_persist_node_info(fds_uint32_t node_idx);
+    virtual void om_update_cluster_map();
 
     /**
      * Module methods
