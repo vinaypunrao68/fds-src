@@ -9,6 +9,7 @@ user_build_dir :=      \
     util               \
     data-mgr           \
     stor-mgr	       \
+    dlt                \
 #    stor_mgr           \
 #    stor_hvisor_ice    \
 
