@@ -6,7 +6,7 @@
 
 namespace fds {
 
-const int OM_MAX_CONNECTED_NODES       = 1024;
+const int OM_MAX_CONNECTED_NODES       = 1024 * 10;
 
 }  // namespace fds
 
