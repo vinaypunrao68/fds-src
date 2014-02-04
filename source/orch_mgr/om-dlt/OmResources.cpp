@@ -61,6 +61,7 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid       *uuid,
         add   = true;
         agent = om_new_node();
     }
+    fds_verify(agent != NULL);
     agent->node_update_info(uuid, msg);
     if (add == true) {
         om_activate_node(agent->node_index());

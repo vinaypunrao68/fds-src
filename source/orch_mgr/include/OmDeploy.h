@@ -6,12 +6,12 @@
 
 #include <vector>
 #include <OmResources.h>
+#include <OmDataPlacement.h>
 #include <boost/msm/back/state_machine.hpp>
 
 namespace fds {
 
 class ClusterMap;
-class DataPlacement;
 struct DltDplyFSM;
 typedef boost::msm::back::state_machine<DltDplyFSM> FSM_DplyDLT;
 
@@ -27,19 +27,19 @@ class DltCompEvt
     DataPlacement            *ode_dp;
 };
 
-class DltUpdateEvt
+class DltRebalEvt
 {
   public:
-    explicit DltUpdateEvt(ClusterMap *m)
+    explicit DltRebalEvt(ClusterMap *m)
         : ode_clusmap(m) {}
 
     ClusterMap               *ode_clusmap;
 };
 
-class DltUpdateOkEvt
+class DltRebalOkEvt
 {
   public:
-    DltUpdateOkEvt() {}
+    DltRebalOkEvt() {}
 
     ClusterMap               *ode_clusmap;
     NodeAgent::pointer        ode_done_node;
@@ -80,8 +80,8 @@ class OM_DLTMod : public Module
      * Apply an event to DLT deploy state machine.
      */
     void dlt_deploy_event(DltCompEvt const &evt);
-    void dlt_deploy_event(DltUpdateEvt const &evt);
-    void dlt_deploy_event(DltUpdateOkEvt const &evt);
+    void dlt_deploy_event(DltRebalEvt const &evt);
+    void dlt_deploy_event(DltRebalOkEvt const &evt);
     void dlt_deploy_event(DltCommitEvt const &evt);
     void dlt_deploy_event(DltCommitOkEvt const &evt);
 

@@ -23,11 +23,11 @@ import os
 import string
 import time
 
-def create_list_of_lists(template_lists, count, rand):
+def create_list_from_list(template_list, count, rand):
     i = 0
-    res_lists = []
+    res_list = []
     list_cur = 0
-    list_len = len(template_lists)
+    list_len = len(template_list)
     while i < count:
         if rand == True:
             idx = random.randint(0, list_len - 1)
@@ -36,11 +36,18 @@ def create_list_of_lists(template_lists, count, rand):
             list_cur += 1
             if list_cur == list_len:
                 list_cur = 0
-        res_lists.append(template_lists[idx])
+        res_list.append(template_list[idx])
 
         i += 1
-    return res_lists
+    return res_list
 
+def create_list_from_struct(template_struct, count):
+    i = 0
+    res_list = []
+    while i < count:
+        res_list.append(template_struct)
+        i += 1
+    return res_list
 
 def generate_random_string(length=8):
     res = ''
@@ -53,14 +60,32 @@ def generate_mmh3_4k_random_data(data_size, check_value):
         rand_str_data = generate_random_string(data_size)
     else:
         rand_str_data = check_value
-    mmh3_val      = mmh3.hash128(rand_str_data)
-#   print "========================================================="
-#   foo = hex(mmh3_val)
-#   foo = foo[:-1]
-#   print foo
-#   print rand_str_data
-#   print "========================================================="
+    mmh3_val = mmh3.hash128(rand_str_data)
+    mmh3_val = "{0:#0{1}x}".format(mmh3_val, 34)
+    mmh3_val.format(34)
     return (mmh3_val, rand_str_data)
+
+def generate_uuid(data_size, check_value):
+
+    while True:
+        if check_value == None:
+            rand_str_data = 'node_' + generate_random_string(8)
+        else:
+            rand_str_data = check_value
+        mmh3_val      = mmh3.hash(rand_str_data)
+        mmh3_val      = mmh3_val & 0xFFFFFFFF
+        mmh3_val = "{0:#0{1}x}".format(mmh3_val, 10)
+        mmh3_val.format(10)
+
+        if check_value == None:
+            if mmh3_val not in generate_uuid_dict:
+                generate_uuid_dict[mmh3_val] = rand_str_data
+                break
+        else:
+            break
+
+    return (mmh3_val, rand_str_data)
+generate_uuid_dict = { }
 
 class JSonVal(object):
     def __init__(self, values):
@@ -97,8 +122,9 @@ class JSonKeyVal(JSonVal):
     def to_json(self):
         if self.count == 0:
             self.count = 1
-            (key, val) = self.generator_function(self.generator_arg, None)
-            key_hex_str = "{0:#0{1}x}".format(key, 34)
+            (key_hex_str, val) = self.generator_function(self.generator_arg, None)
+#(key, val) = self.generator_function(self.generator_arg, None)
+#key_hex_str = "{0:#0{1}x}".format(key, 34)
 
             self.cur_key_hex_str = key_hex_str
             self.cur_value = val
@@ -107,8 +133,8 @@ class JSonKeyVal(JSonVal):
         else:
             self.count = 0
             (tkey, tval) = self.generator_function(self.generator_arg, self.cur_value)
-            tkey = "{0:#0{1}x}".format(tkey, 34)
-            tkey.format(34)
+#tkey = "{0:#0{1}x}".format(tkey, 34)
+#tkey.format(34)
             assert tkey == self.cur_key_hex_str
             return self.cur_value
     def get_values(self):
@@ -260,24 +286,27 @@ class JSonTestCmdLine(object):
 
     def __init__(self):
         # parse command line arguments
-        parser = argparse.ArgumentParser()
-        parser.add_argument("--client_id",
+        self.parser = argparse.ArgumentParser()
+        self.parser.add_argument("--client_id",
                             help="unique client test ID, def 0")
-        parser.add_argument("--config",
+        self.parser.add_argument("--config",
                             help="test case configuration file.")
-        parser.add_argument("--spec_cnt", \
+        self.parser.add_argument("--spec_cnt", \
                             help="generate n number of unique json spec, def all.")
-        parser.add_argument("--sort_keys", \
+        self.parser.add_argument("--sort_keys", \
                             help="sort json keys in json spec [0|1], def 0.")
-        parser.add_argument("--print_pretty",
+        self.parser.add_argument("--print_pretty",
                             help="pretty print json spec [0|1], def 0.")
-        parser.add_argument("--dryrun",
+        self.parser.add_argument("--dryrun",
                             help="do not make http/curl call to server [0|1], def 0")
-        parser.add_argument("--verbose",
+        self.parser.add_argument("--verbose",
                             help="print json spec and curl commands, def 0")
-        parser.add_argument("--seed",
+        self.parser.add_argument("--seed",
                             help="seed number for random generator, def time()")
-        args = parser.parse_args()
+        self.parser.add_argument("--node_per_call",
+                            help="Number of node per call to adapter, def 1")
+    def parse(self):
+        args = self.parser.parse_args()
 
         if args.client_id:
             self.cmd_client_id = JSonTestID([int(args.client_id)])
@@ -318,6 +347,15 @@ class JSonTestCmdLine(object):
             self.cmd_seed = int(args.seed)
         else:
             self.cmd_seed = time.time()
+
+        if args.node_per_call:
+            self.node_per_call = int(args.node_per_call)
+        else:
+            self.node_per_call = 1
+        self.parser_args = args
+
+    def get_args(self):
+        return self.parser_args
 
     def get_client_id(self):
         return self.cmd_client_id
@@ -478,6 +516,7 @@ class JSonTestClient(object):
 # The test for the test.
 
 cmd_line = JSonTestCmdLine()
+cmd_line.parse()
 
 syscall_cmd         = JSonVal(['open', 'close', 'read', 'write'])
 syscall_path        = JSonVal(['/dev/null', '/tmp/foo', '/tmp/foo2'])
@@ -496,7 +535,7 @@ math_cmd_list2      = [math_cmd, math_operand_left]
 list_thpool_syscall = [[syscall_cmd, syscall_path, 'FOO', 'BAR'], \
                        [syscall_cmd, syscall_path, 'FOO', 'BAR']]
 list_thpool_boost   = [boost_cmd, boost_array_index0, boost_array_index1, boost_value]
-list_thpool_math    = create_list_of_lists([math_cmd_list1, math_cmd_list2], 4, True)
+list_thpool_math    = create_list_from_list([math_cmd_list1, math_cmd_list2], 4, True)
 
 dict_threadpool     = {'thpool-syscall' : list_thpool_syscall,
                        'thpool-boost'   : list_thpool_boost,

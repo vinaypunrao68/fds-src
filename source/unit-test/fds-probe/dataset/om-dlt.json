@@ -1,0 +1,23 @@
+{
+    "Run-Input": {
+        "om-runtime": {
+            "dlt-fsm": [
+                {
+                    "input-event": "compute"
+                },
+                {
+                    "input-event": "update"
+                },
+                {
+                    "input-event": "update-done"
+                },
+                {
+                    "input-event": "commit"
+                },
+                {
+                    "input-event": "commit-done"
+                }
+            ]
+        }
+    }
+}
