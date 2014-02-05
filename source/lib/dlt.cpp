@@ -209,14 +209,11 @@ uint32_t DLT::write(serialize::Serializer*  s   ) {
 uint32_t DLT::read(serialize::Deserializer* d) {
     uint32_t b = 0;
 
-    int32_t i32;
-    int64_t i64;
-
-    b += d->readI64(i64); version = i64;
+    b += d->readI64(version);
     // b += s->readI64(timestamp);
-    b += d->readI32(i32); numBitsForToken = i32;
-    b += d->readI32(i32); depth = i32;
-    b += d->readI32(i32); numTokens = i32;
+    b += d->readI32(numBitsForToken);
+    b += d->readI32(depth);
+    b += d->readI32(numTokens);
 
     fds_uint64_t uuid64;
     distList->clear();

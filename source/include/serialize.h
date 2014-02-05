@@ -3,7 +3,7 @@
 
 #include <netinet/in.h>
 #include <boost/shared_ptr.hpp>
-
+#include <fds_types.h>
 #include <thrift/protocol/TProtocol.h>
 #include <thrift/transport/TBufferTransports.h>
 
@@ -46,6 +46,13 @@ namespace fds {
             uint32_t readI64(int64_t& i64) ;
             uint32_t readDouble(double& dub);
             uint32_t readString(std::string& str) ;
+
+            // fds specific types
+            uint32_t readByte(fds_uint8_t& ubyte);
+            uint32_t readI16(fds_uint16_t& ui16);
+            uint32_t readI32(fds_uint32_t& ui32);
+            uint32_t readI64(fds_uint64_t& ui64);
+
           private:
             TProtocolPtr proto;
         };
