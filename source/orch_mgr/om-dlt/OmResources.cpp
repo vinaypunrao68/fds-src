@@ -126,9 +126,9 @@ OM_NodeDomainMod::om_update_cluster_map()
     node_mtx.unlock();
 
     om   = OM_Module::om_singleton();
-    dp   = static_cast<DataPlacement *>(om->om_dataplace_mod());
-    dlt  = static_cast<OM_DLTMod *>(om->om_dlt_mod());
-    clus = static_cast<ClusterMap *>(om->om_clusmap_mod());
+    dp   = om->om_dataplace_mod();
+    dlt  = om->om_dlt_mod();
+    clus = om->om_clusmap_mod();
 
     std::cout << "Call cluster update map" << std::endl;
 

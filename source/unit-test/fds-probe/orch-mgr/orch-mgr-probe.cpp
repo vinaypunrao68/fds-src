@@ -159,7 +159,7 @@ UT_OM_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput 
     // Update the cluster map
     ProbeMod *mod  = out->js_get_context();
     OM_Module *om  = static_cast<OM_Module *>(mod->pr_get_owner_module());
-    DataPlacement *dp = static_cast<DataPlacement *>(om->om_dataplace_mod());
+    DataPlacement *dp = om->om_dataplace_mod();
 
     fds_verify(om == &gl_OMModule);
     const DLT *oldDlt = dp->getCurDlt();
@@ -172,7 +172,7 @@ UT_OM_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput 
     }
 
     // Drive cluster map update via state machine
-    OM_DLTMod *dltMod = static_cast<OM_DLTMod *>(om->om_dlt_mod());
+    OM_DLTMod *dltMod = om->om_dlt_mod();
     DltCompEvt event(dp);
     dltMod->dlt_deploy_event(event);
 
