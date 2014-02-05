@@ -11,8 +11,8 @@ OM_Module::OM_Module(char const *const name)
     : Module(name)
 {
     om_data_place = new DataPlacement(PlacementAlgorithm::
-                                      AlgorithmTypes::RoundRobin,  // Use RR
-                                      3,   // width of 3 = 8 tokens
+                                      AlgorithmTypes::ConsistHash,  // Use RR
+                                      6,  // width of 6 = 64 tokens
                                       4);  // depth of 4 = 4 replicas
     /*
      * TODO: Let's use member variables rather than globals.
