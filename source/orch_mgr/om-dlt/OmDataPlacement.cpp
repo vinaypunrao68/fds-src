@@ -5,8 +5,10 @@
 #include <map>
 #include <utility>
 #include <vector>
+#include <string>
 
 #include <orch-mgr/om-service.h>
+#include <fds_process.h>
 #include <OmDataPlacement.h>
 
 namespace fds {
@@ -179,20 +181,12 @@ WeightMap::debug_print(fds_log* log) const {
  * Functions definitions for data
  * placement
  **********/
-DataPlacement::DataPlacement(PlacementAlgorithm::AlgorithmTypes type,
-                             fds_uint64_t width,
-                             fds_uint64_t depth)
+DataPlacement::DataPlacement()
         : Module("Data Placement Engine"),
           placeAlgo(NULL),
           curDlt(NULL),
           curWeightDist(NULL) {
     placementMutex = new fds_mutex("data placement mutex");
-
-    setAlgorithm(type);
-    curDltWidth = width;
-    curDltDepth = depth;
-
-    // curClusterMap = new ClusterMap();
 }
 
 DataPlacement::~DataPlacement() {
@@ -325,7 +319,33 @@ DataPlacement::getCurClustMap() const {
 int
 DataPlacement::mod_init(SysParams const *const param) {
     Module::mod_init(param);
+
+    FdsConfigAccessor conf_helper(g_fdsprocess->get_conf_helper());
+    std::string algo_type_str = conf_helper.get<std::string>("placement_algo");
+    curDltWidth = conf_helper.get<int>("token_factor");
+    curDltDepth = conf_helper.get<int>("replica_factor");
+
+    PlacementAlgorithm::AlgorithmTypes type =
+            PlacementAlgorithm::AlgorithmTypes::ConsistHash;
+    if (algo_type_str.compare("ConsistHash") == 0) {
+        type = PlacementAlgorithm::AlgorithmTypes::ConsistHash;
+    } else if (algo_type_str.compare("RoundRobin") == 0) {
+        type = PlacementAlgorithm::AlgorithmTypes::RoundRobin;
+    } else {
+        FDS_PLOG_SEV(g_fdslog, fds_log::warning)
+                <<"DataPlacement: unknown placement algorithm type in "
+                << "config file, will use Consistent Hashing algorith";
+    }
+
+    FDS_PLOG_SEV(g_fdslog, fds_log::notification)
+            << "DataPlacement: DLT width " << curDltWidth
+            << ", dlt depth " << curDltDepth
+            << ", algorithm " << algo_type_str;
+
+    setAlgorithm(type);
+
     curClusterMap = OM_Module::om_singleton()->om_clusmap_mod();
+
     return 0;
 }
 

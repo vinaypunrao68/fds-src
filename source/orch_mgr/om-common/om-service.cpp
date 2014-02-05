@@ -10,10 +10,7 @@ namespace fds {
 OM_Module::OM_Module(char const *const name)
     : Module(name)
 {
-    om_data_place = new DataPlacement(PlacementAlgorithm::
-                                      AlgorithmTypes::ConsistHash,  // Use RR
-                                      6,  // width of 6 = 64 tokens
-                                      4);  // depth of 4 = 4 replicas
+    om_data_place = new DataPlacement();
     /*
      * TODO: Let's use member variables rather than globals.
      * Members are a better OO-design.
@@ -39,7 +36,6 @@ int
 OM_Module::mod_init(SysParams const *const param)
 {
     Module::mod_init(param);
-
     return 0;
 }
 

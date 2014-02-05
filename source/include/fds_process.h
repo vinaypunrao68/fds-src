@@ -74,6 +74,11 @@ class FdsProcess : public boost::noncopyable {
      */
     virtual void interrupt_cb(int signum);
 
+    /**
+     * Returns the global fds config helper object
+     */
+    FdsConfigAccessor get_conf_helper() const;
+
  protected:
     // static members/methods
     static void* sig_handler(void* param);
