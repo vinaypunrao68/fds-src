@@ -132,8 +132,9 @@ TEST_CASE ("DLT Serialize") {
     fillDltNodes(&dlt,10);
         
     uint32_t bytesWritten = dlt.write(s);
+    CAPTURE(bytesWritten);
 
-    cout<<"byteswritten:"<<bytesWritten<<endl;
+    //cout<<"byteswritten:"<<bytesWritten<<endl;
 
     std::string buffer = s->getBufferAsString();
 
@@ -142,7 +143,8 @@ TEST_CASE ("DLT Serialize") {
     Deserializer *d = getMemDeserializer(buffer);
     
     uint32_t bytesRead = dlt1.read(d);
-    cout<<"bytesRead:"<<bytesRead<<endl;
+    CAPTURE(bytesRead);
+    //cout<<"bytesRead:"<<bytesRead<<endl;
 
     REQUIRE( bytesWritten == bytesRead);
     //printDlt(&dlt1);

@@ -81,6 +81,22 @@ uint32_t Deserializer::readString(std::string& str) {
     return proto->readString(str);
 }
 
+uint32_t Deserializer::readByte(fds_uint8_t& byte) {
+    return proto->readByte((int8_t&)byte);
+}
+
+uint32_t Deserializer::readI16(fds_uint16_t& ui16) {
+    return proto->readI16((int16_t&)ui16);
+}
+
+uint32_t Deserializer::readI32(fds_uint32_t& ui32) {
+    return proto->readI32((int32_t&)ui32);
+}
+
+uint32_t Deserializer::readI64(fds_uint64_t& ui64) {
+    return proto->readI64((int64_t&)ui64);
+}
+
 Serializer* getMemSerializer(uint sz) {
     if (0==sz) sz=1024;
     TMemoryBuffer* memBuffer=new TMemoryBuffer(sz);
