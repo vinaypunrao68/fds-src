@@ -48,7 +48,8 @@ class DltRebalOkEvt
 class DltCommitEvt
 {
   public:
-    DltCommitEvt() {}
+    explicit DltCommitEvt(DataPlacement *d)
+        : ode_dp(d) {}
 
     DataPlacement            *ode_dp;
 };

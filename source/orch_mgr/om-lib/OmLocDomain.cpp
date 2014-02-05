@@ -520,6 +520,29 @@ void FdsLocalDomain::sendAllVolumesToFdsMgrNode(NodeInfo node_info) {
     }
 }
 
+/**
+ * Sends registration result to a single node
+ */
+void
+FdsLocalDomain::sendRegRespToNode(NodeInfo node_info,
+                                  const Error &err) {
+    FdspMsgHdrPtr msg_hdr(new FDS_ProtocolInterface::FDSP_MsgHdrType);
+    FDS_ProtocolInterface::FDSP_RegisterNodeTypePtr reg_msg(
+        new FDS_ProtocolInterface::FDSP_RegisterNodeType());
+
+    initOMMsgHdr(msg_hdr);
+    msg_hdr->result       = FDS_ProtocolInterface::FDSP_ERR_OK;
+    msg_hdr->err_code     = err.GetErrno();
+    msg_hdr->session_uuid = node_info.getSessionId();
+
+    FDS_PLOG_SEV(parent_log, fds_log::notification)
+            << "Sending registration result to node "
+            << node_info.node_name;
+
+    // TODO(Andrew): OM needs an interface to respond to these messages
+    // node_info.getClient()->RegisterNodeResp(msg_hdr, reg_msg);
+}
+
 // Broadcast create vol ctrl message to all DM/SM Nodes
 void FdsLocalDomain::sendCreateVolToFdsNodes(VolumeInfo  *pVolInfo) {
     VolumeDesc* pVolDesc = (pVolInfo->properties);

@@ -269,6 +269,7 @@ DltDplyFSM::DACT_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST 
 
     // Send new DLT to each node in the cluster map
     err = dp->commitDlt();
+    fds_verify(err == ERR_OK);
 }
 
 // GRD_DltRebal

@@ -91,8 +91,15 @@ NodeAgent::~NodeAgent()
 void
 NodeAgent::setCpSession(NodeAgentCpSessionPtr session) {
     ndCpSession = session;
-    ndSessionId = ndCpSession->getSessionId();
-    ndCpClient = ndCpSession->getClient();
+    // TODO(Andrew): Need to return an error in non-test
+    // scenarios since we need to connection to the node.
+    if (ndCpSession != NULL) {
+        ndSessionId = ndCpSession->getSessionId();
+        ndCpClient = ndCpSession->getClient();
+    } else {
+        FDS_PLOG_SEV(g_fdslog, fds_log::error)
+                << "Unable to establish connection with node!";
+    }
 }
 
 NodeAgentCpReqClientPtr
