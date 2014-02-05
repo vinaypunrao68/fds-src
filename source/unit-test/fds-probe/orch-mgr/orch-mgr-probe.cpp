@@ -8,6 +8,7 @@
 #include <string>
 #include <iostream>
 #include <orch-mgr/om-service.h>
+#include <OmDeploy.h>
 #include <OmDataPlacement.h>
 
 namespace fds {
@@ -107,6 +108,9 @@ OM_ProbeMod::mod_startup()
         mgr = pr_parent->pr_get_obj_mgr();
         svc = mgr->js_get_template("Run-Setup");
         svc->js_register_template(new UT_OMSetupTemplate(mgr));
+
+        svc = mgr->js_get_template("Run-Input");
+        svc->js_register_template(new UT_OMRuntimeTempl(mgr));
     }
 }
 
@@ -125,29 +129,31 @@ OM_ProbeMod::mod_shutdown()
 JsObject *
 UT_OM_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *out)
 {
-    int              i, num;
-    FdspNodeRegPtr   ptr;
-    UT_OM_NodeInfo  *node;
-    ut_node_info_t  *info;
+    int               i, num;
+    FdspNodeRegPtr    ptr;
+    UT_OM_NodeInfo   *node;
+    ut_node_info_t   *info;
+    OM_NodeDomainMod *domain;
 
-    std::list<NodeAgent::pointer> newNodes;
-    std::list<NodeAgent::pointer> rmNodes;
-
+    domain = OM_NodeDomainMod::om_local_domain();
     ptr = FdspNodeRegPtr(new FdspNodeReg());
     num = parent->js_array_size();
+
     for (i = 0; i < num; i++) {
         node = static_cast<UT_OM_NodeInfo *>((*parent)[i]);
         info = node->om_node_info();
-        std::cout << "Node uuid " << info->nd_uuid
+        std::cout << "Node uuid " << std::hex << info->nd_uuid
             << ", name " << info->nd_node_name << std::endl;
 
+        // TODO(vy): encode this in json format
+        ptr->disk_info.ssd_capacity = info->nd_weight;
         ResourceUUID r_uuid(info->nd_uuid);
+
         if (info->add == true) {
-            newNodes.push_back(new NodeAgent(r_uuid));
+            domain->om_reg_node_info(&r_uuid, ptr);
         } else {
-            rmNodes.push_back(new NodeAgent(r_uuid));
+            domain->om_del_node_info(&r_uuid);
         }
-        OM_NodeDomainMod::om_local_domain()->om_reg_node_info(&r_uuid, ptr);
     }
 
     // Update the cluster map
@@ -165,11 +171,12 @@ UT_OM_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput 
         old_tokens = oldDlt->getNumTokens();
     }
 
-    dp->updateMembers(newNodes, rmNodes);
+    // Drive cluster map update via state machine
+    OM_DLTMod *dltMod = static_cast<OM_DLTMod *>(om->om_dlt_mod());
+    DltCompEvt event(dp);
+    dltMod->dlt_deploy_event(event);
 
-    // Recompute the DLT
-    dp->computeDlt();
-
+    // Get new/old dlt states
     const DLT *dlt = dp->getCurDlt();
     fds_uint64_t new_depth = dlt->getDepth();
     fds_uint32_t new_tokens = dlt->getNumTokens();
@@ -181,6 +188,7 @@ UT_OM_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput 
     std::cout << "New DLT: " << std::endl;
     print_dlt(new_dlt_ptr, new_depth, new_tokens);
 
+    // Compare movement between two dlts
     compare_dlts(old_dlt_ptr, old_depth, old_tokens, new_dlt_ptr, new_depth, new_tokens);
 
     if (old_dlt_ptr)
@@ -263,7 +271,6 @@ UT_OM_NodeInfo::compare_dlts(const fds_uint64_t* old_tbl,
     std::cout << "DLT changes: will migrate " << move_toks << " tokens" << std::endl;
 }
 
-
 void
 UT_OM_NodeInfo::print_dlt(const fds_uint64_t* tbl,
                           fds_uint32_t depth,
@@ -281,5 +288,51 @@ UT_OM_NodeInfo::print_dlt(const fds_uint64_t* tbl,
     }
 }
 
+// -------------------------------------------------------------------------------------
+// OM Data Runtime Test API
+// -------------------------------------------------------------------------------------
+
+JsObject *
+UT_OM_DltFsm::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *out)
+{
+    int              i, num;
+    UT_OM_DltFsm    *inp;
+    ut_dlt_fsm_in_t *evt;
+
+    ProbeMod  *mod = out->js_get_context();
+    OM_Module *om  = static_cast<OM_Module *>(mod->pr_get_owner_module());
+    OM_DLTMod *dlt = static_cast<OM_DLTMod *>(om->om_dlt_mod());
+
+    num = parent->js_array_size();
+    for (i = 0; i < num; i++) {
+        inp = static_cast<UT_OM_DltFsm *>((*parent)[i]);
+        evt = inp->om_dlt_evt();
+
+        std::cout << "DLT Event " << evt->dlt_evt << std::endl;
+        switch (evt->dlt_evt) {
+        case DLT_EVT_COMPUTE:
+            dlt->dlt_deploy_event(DltCompEvt(NULL));
+            break;
+
+        case DLT_EVT_UPDATE:
+            dlt->dlt_deploy_event(DltRebalEvt(NULL));
+            break;
+
+        case DLT_EVT_UPDATE_DONE:
+            dlt->dlt_deploy_event(DltRebalOkEvt());
+            break;
+
+        case DLT_EVT_COMMIT:
+            dlt->dlt_deploy_event(DltCommitEvt());
+            break;
+
+        case DLT_EVT_COMMIT_DONE:
+            dlt->dlt_deploy_event(DltCommitOkEvt());
+            break;
+        }
+        std::cout << "-> " << dlt->dlt_deploy_curr_state() << std::endl;
+    }
+    return this;  // to free this obj.
+}
 
 }  // namespace fds

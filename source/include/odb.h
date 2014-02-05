@@ -62,6 +62,15 @@ namespace osm {
       std::cout << "Microseconds per get op:" << std::endl
                 << histo_get.ToString() << std::endl;
     }
+    leveldb::DB *GetDB() { 
+       return db;
+    }
+    leveldb::ReadOptions GetReadOptions() { 
+        return read_options;
+    }
+    leveldb::Options GetOptions() { 
+       return options;
+    }
 
  private:
     std::string file;

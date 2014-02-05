@@ -439,6 +439,18 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
 
     // TODO: join this thread
     std::thread *stats_thread = new std::thread(log_ocache_stats);
+    
+
+    // Create a special queue for System (background) tasks
+    // and registe rwith QosCtrlr
+    sysTaskQueue = new SmVolQueue(FdsSysTaskQueueId,
+                                  50,
+                                  getSysTaskIopsMax(),
+                                  getSysTaskIopsMin(),
+                                  getSysTaskPri());
+
+    qosCtrl->registerVolume(FdsSysTaskQueueId,
+                            sysTaskQueue);
 
     /*
      * Register/boostrap from OM
@@ -550,6 +562,9 @@ void ObjectStorMgr::nodeEventOmHandler(int node_id,
     case FDS_Node_Rmvd:
         FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::notification) << " ObjectStorMgr - Node Down event NodeId :" << node_id << " node IP addr" << node_ip_addr ;
         break;
+//    case FDS_Start_Migration:
+//        FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::notification) << " ObjectStorMgr - Start Migration  event NodeId :" << node_id << " node IP addr" << node_ip_addr ;
+//        break;
     }
 }
 
@@ -1839,6 +1854,71 @@ void log_ocache_stats() {
         usleep(500000);
         objStorMgr->getObjCache()->log_stats_to_file("ocache_stats.dat");
     }
+
+}
+
+fds_int32_t SmObjDb::CompareKey(char *key, ObjectID obj_id)  { 
+      return memcmp(key, (char *)&obj_id, sizeof(ObjectID) );
+}
+
+
+fds_int32_t  SmObjDb::RangeCompareKey(ObjectID obj_id, ObjectID start_obj_id, ObjectID end_obj_id) { 
+   if (obj_id.GetHigh() >= start_obj_id.GetHigh()  && obj_id.GetHigh() <= end_obj_id.GetHigh() ) return 0;
+   return -1;
+}
+
+void  SmObjDb::iterRetrieveObjects(const fds_token_id &token, 
+                                   const size_t &max_size, 
+                                   FDSP_MigrateObjectList &obj_list, 
+                                   SMTokenItr &itr) {
+    fds_uint32_t tot_msg_len = 0;
+    fds_token_id tokId = token & SM_TOKEN_MASK;
+    diskio::DataTier tierUsed;
+    fds::Error err = ERR_OK;
+    ObjectID objId;
+    ObjectDB *odb = getObjectDB(tokId);
+    if (odb == NULL ) { 
+       itr.objId = 0;
+       return;
+    }
+    
+   ObjectID start_obj_id, end_obj_id;
+   start_obj_id.SetId(tokId | 0x0000000000000000, 0);
+   end_obj_id.SetId(tokId   | 0x0000ffffffffffff, 0xffffffffffffffff);
+
+    leveldb::Slice startSlice((const char *)&start_obj_id, sizeof(ObjectID));
+    leveldb::Slice endSlice((const char *)&end_obj_id, sizeof(ObjectID));
+      
+     boost::shared_ptr<leveldb::Iterator> dbIter(odb->GetDB()->NewIterator(odb->GetReadOptions()));
+     leveldb::Options options_ = odb->GetOptions();
+
+       for(dbIter->Seek(startSlice); dbIter->Valid() && (CompareKey((char *)dbIter->key().ToString().data(), end_obj_id) <= 0) ;dbIter->Next())
+       {                
+         ObjectBuf        objData;
+         // Read the record
+         memcpy(&objId , dbIter->key().data(), sizeof(ObjectID));
+
+         // TODO: process the key/data
+         if (RangeCompareKey(objId, start_obj_id, end_obj_id) == 0 ) {
+              // Get the object buffer 
+              err = objStorMgr->readObject(objId, objData, tierUsed);
+              if (err == ERR_OK ) { 
+                      if ((max_size - tot_msg_len) >= objData.size) { 
+                          FDSP_MigrateObjectData mig_obj;
+                          mig_obj.meta_data.token_id = token;
+                          mig_obj.meta_data.object_id.hash_high = objId.GetHigh();
+                          mig_obj.meta_data.object_id.hash_low = objId.GetLow();
+                          mig_obj.meta_data.obj_len = objData.size;
+		          mig_obj.data = objData.data;
+                          obj_list.push_back(mig_obj);
+                          tot_msg_len += objData.size;
+                      } else {
+                         itr.objId = objId;
+                         return;
+                      }
+               }
+          }
+       } // Enf of for loop
 
 }
 

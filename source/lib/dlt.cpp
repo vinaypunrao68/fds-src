@@ -11,14 +11,14 @@
  */
 namespace fds {
 
-DLT::DLT(fds_uint32_t _width,
-         fds_uint32_t _depth,
-         fds_uint64_t _version,
+DLT::DLT(fds_uint32_t numBitsForToken,
+         fds_uint32_t depth,
+         fds_uint64_t version,
          bool fInit)
         : Module("data placement table"),
-          width(_width), depth(_depth),
-          numTokens(pow(2, _width)),
-          version(_version) {
+          numBitsForToken(numBitsForToken), depth(depth),
+          numTokens(pow(2, numBitsForToken)),
+          version(version) {
     distList = boost::shared_ptr<std::vector<DltTokenGroupPtr> >
             (new std::vector<DltTokenGroupPtr>());
     mapNodeTokens = boost::shared_ptr<NodeTokenMap>(
@@ -36,8 +36,9 @@ DLT::DLT(fds_uint32_t _width,
 
 DLT::DLT(const DLT& dlt)
         : Module("data placement table"),
-          width(dlt.width),
+          numBitsForToken(dlt.numBitsForToken),
           depth(dlt.depth),
+          numTokens(dlt.numTokens),
           version(dlt.version),
           distList(dlt.distList),
           mapNodeTokens(dlt.mapNodeTokens) {
@@ -46,17 +47,19 @@ DLT::DLT(const DLT& dlt)
 DLT::~DLT() {
 }
 
-DLT& DLT::clone() {
-    DLT *pDlt = new DLT(numTokens, width, true);
+
+DLT* DLT::clone() const {
+    DLT *pDlt = new DLT(numBitsForToken, depth, version, true);
+
     pDlt->version = version;
     pDlt->timestamp = timestamp;
 
-    for (uint i = 0; i < numTokens; i) {
-        for (uint j = 0 ; j < width ; j) {
+    for (uint i = 0; i < numTokens; i++) {
+        for (uint j = 0 ; j < depth ; j++) {
             pDlt->distList->at(i)->set(j, distList->at(i)->get(j));
         }
     }
-    return *pDlt;
+    return pDlt;
 }
 
 int DLT::mod_init(SysParams const *const param) {
@@ -79,19 +82,22 @@ DLT::getDepth() const {
     return depth;
 }
 
-fds_uint32_t
-DLT::getWidth() const {
-    return width;
+fds_uint32_t DLT::getWidth() const {
+    return getNumBitsForToken();
 }
 
-fds_uint32_t
-DLT::getNumTokens() const {
+fds_uint32_t DLT::getNumBitsForToken() const {
+    return numBitsForToken;
+}
+
+
+fds_uint32_t DLT::getNumTokens() const {
     return numTokens;
 }
 
 fds_token_id DLT::getToken(const ObjectID& objId) const {
-    fds_uint64_t token_bitmask = ((1 << width) - 1);
-    fds_uint64_t bit_offset = (sizeof(objId.GetHigh()) - width);
+    fds_uint64_t token_bitmask = ((1 << numBitsForToken) - 1);
+    fds_uint64_t bit_offset = (sizeof(objId.GetHigh())*8 - numBitsForToken);
     return (fds_token_id)(token_bitmask & (objId.GetHigh() >> bit_offset));
 }
 
@@ -115,6 +121,15 @@ NodeUuid DLT::getPrimary(fds_token_id token) const {
 
 NodeUuid DLT::getPrimary(const ObjectID& objId) const {
     return getNodes(objId)->get(0);
+}
+
+NodeUuid DLT::getNode(fds_token_id token, uint index) const {
+    fds_verify(token < numTokens);
+    getNodes(token)->get(index);
+}
+
+NodeUuid DLT::getNode(const ObjectID& objId, uint index) const {
+    return getNodes(objId)->get(index);
 }
 
 void DLT::setNode(fds_token_id token, uint index, NodeUuid nodeuuid) {
@@ -154,6 +169,69 @@ const TokenList& DLT::getTokens(const NodeUuid &uid) const{
         // TODO(prem) : need to revisit this
         return emptyTokenList;
     }
+}
+
+// get the Tokens for a given Node at a specific index
+void DLT::getTokens(TokenList* tokenList, const NodeUuid &uid, uint index) const {
+    NodeTokenMap::const_iterator iter = mapNodeTokens->find(uid);
+    if (iter != mapNodeTokens->end()) {
+        TokenList::const_iterator tokenIter;
+        NodeUuid curNode;
+        const TokenList& tlist = iter->second;
+        for (tokenIter = tlist.begin(); tokenIter != tlist.end(); ++tokenIter) {
+            curNode = distList->at(*tokenIter)->get(index);
+            if (curNode == uid) {
+                tokenList->push_back(*tokenIter);
+            }
+        }
+    }
+}
+
+uint32_t DLT::write(serialize::Serializer*  s   ) {
+    uint32_t b = 0;
+
+    b += s->writeI64(version);
+    // b += s->writeI64(timestamp);
+    b += s->writeI32(numBitsForToken);
+    b += s->writeI32(depth);
+    b += s->writeI32(numTokens);
+
+    std::vector<DltTokenGroupPtr>::const_iterator iter;
+    for (iter = distList->begin(); iter != distList->end(); iter++) {
+        const DltTokenGroupPtr& nodeList= *iter;
+        for (uint i = 0; i < depth; i++) {
+            b += s->writeI64(nodeList->get(i).uuid_get_val());
+        }
+    }
+    return b;
+}
+
+uint32_t DLT::read(serialize::Deserializer* d) {
+    uint32_t b = 0;
+
+    int32_t i32;
+    int64_t i64;
+
+    b += d->readI64(i64); version = i64;
+    // b += s->readI64(timestamp);
+    b += d->readI32(i32); numBitsForToken = i32;
+    b += d->readI32(i32); depth = i32;
+    b += d->readI32(i32); numTokens = i32;
+
+    fds_uint64_t uuid64;
+    distList->clear();
+    distList->reserve(numTokens);
+    std::vector<DltTokenGroupPtr>::const_iterator iter;
+    for (uint i = 0; i < numTokens ; i++) {
+        DltTokenGroupPtr ptr = boost::shared_ptr<DltTokenGroup>(new DltTokenGroup(depth));
+        for (uint j = 0; j < depth; j++) {
+            b += d->readI64(i64);
+            ptr->set(j, i64);
+        }
+        distList->push_back(ptr);
+    }
+
+    return b;
 }
 
 //================================================================================
@@ -225,7 +303,7 @@ bool DLTManager::add(const DLT& _newDlt) {
             // There is the diff in pointer data
             // so check if there is a diff in actual data
             bool fSame = true;
-            for (uint j = 0 ; j < newDlt.width ; j++) {
+            for (uint j = 0 ; j < newDlt.depth ; j++) {
                 if (current.distList->at(i)->get(j) != newDlt.distList->at(i)->get(j)) {
                     fSame = false;
                     break;
@@ -251,13 +329,13 @@ bool DLTManager::add(const DLTDiff& dltDiff) {
     const DLT *baseDlt = dltDiff.baseDlt;
     if (!baseDlt) baseDlt=getDLT(dltDiff.baseVersion);
 
-    DLT *dlt = new DLT(baseDlt->numTokens, baseDlt->width, false);
+    DLT *dlt = new DLT(baseDlt->numBitsForToken, baseDlt->depth, false);
     dlt->distList->reserve(dlt->numTokens);
 
     DltTokenGroupPtr ptr;
     std::map<fds_token_id, DltTokenGroupPtr>::const_iterator iter;
 
-    for (uint i = 0; i < dlt->numTokens; i) {
+    for (uint i = 0; i < dlt->numTokens; i++) {
         ptr = baseDlt->distList->at(i);
 
         iter = dltDiff.mapTokenNodes.find(i);
@@ -265,7 +343,7 @@ bool DLTManager::add(const DLTDiff& dltDiff) {
 
         if (curPtr->distList->at(i) != ptr) {
             bool fSame = true;
-            for (uint j = 0 ; j < dlt->width ; j) {
+            for (uint j = 0 ; j < dlt->depth ; j++) {
                 if (curPtr->distList->at(i)->get(j) != ptr->get(j)) {
                     fSame = false;
                     break;
@@ -326,5 +404,4 @@ NodeUuid DLTManager::getPrimary(fds_token_id token) const {
 NodeUuid DLTManager::getPrimary(const ObjectID& objId) const {
     return getPrimary(objId);
 }
-
 }  // namespace fds

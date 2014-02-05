@@ -7,6 +7,10 @@
 #include <fds_module.h>
 
 namespace fds {
+class ClusterMap;
+class OM_DLTMod;
+class OM_NodeDomainMod;
+class DataPlacement;
 
 /**
  * Main OM module vector.
@@ -14,22 +18,24 @@ namespace fds {
 class OM_Module : public Module
 {
   public:
+    static OM_Module *om_singleton();
+
     explicit OM_Module(char const *const name);
     ~OM_Module();
 
     /**
      * Access to sub modules through the module singleton.
      */
-    inline Module *om_nodedomain_mod() {
+    inline OM_NodeDomainMod *om_nodedomain_mod() {
         return om_node_domain;
     }
-    inline Module *om_clusmap_mod() {
+    inline ClusterMap *om_clusmap_mod() {
         return om_clus_map;
     }
-    inline Module *om_dataplace_mod() {
+    inline DataPlacement *om_dataplace_mod() {
         return om_data_place;
     }
-    inline Module *om_dlt_mod() {
+    inline OM_DLTMod *om_dlt_mod() {
         return om_dlt;
     }
     /**
@@ -40,10 +46,10 @@ class OM_Module : public Module
     virtual void mod_shutdown();
 
   protected:
-    Module                  *om_node_domain;
-    Module                  *om_clus_map;
-    Module                  *om_dlt;
-    Module                  *om_data_place;
+    OM_NodeDomainMod        *om_node_domain;
+    ClusterMap              *om_clus_map;
+    OM_DLTMod               *om_dlt;
+    DataPlacement           *om_data_place;
 };
 
 extern OM_Module             gl_OMModule;

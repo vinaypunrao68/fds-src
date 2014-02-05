@@ -88,6 +88,9 @@ class ObjectStorMgrI;
 class TierEngine;
 class ObjectRankEngine;
 
+#define FdsSysTaskQueueId 0xefffffff
+#define FdsSysTaskPri 5
+
 class SmPlReq : public diskio::DiskRequest {
  public:
     /*
@@ -241,6 +244,8 @@ class ObjectStorMgr :
 
     SmQosCtrl  *qosCtrl;
 
+    SmVolQueue *sysTaskQueue;
+
     /*
      * Tiering related members
      */
@@ -318,9 +323,20 @@ class ObjectStorMgr :
             diskio::DataTier tier);
     Error readObject(const ObjectID &objId,
             ObjectBuf      &objCompData);
-    Error readObject(const ObjectID   &objId,
-            ObjectBuf        &objCompData,
-            diskio::DataTier &tier);
+
+    inline fds_uint32_t getSysTaskIopsMin() {
+        return totalRate/10; // 10% of total rate
+    }
+    
+    inline fds_uint32_t getSysTaskIopsMax() {
+        return totalRate/5; // 20% of total rate
+    }
+
+    inline fds_uint32_t getSysTaskPri() {
+        return FdsSysTaskPri;
+    }
+
+
  protected:
     void setup_datapath_server(const std::string &ip);
 
@@ -416,6 +432,9 @@ class ObjectStorMgr :
     Error putTokenObjects(const fds_token_id &token, 
                           FDSP_MigrateObjectList &obj_list);
     void unitTest();
+    Error readObject(const ObjectID   &objId,
+            ObjectBuf        &objCompData,
+            diskio::DataTier &tier);
 
     const std::string getStorPrefix() {
         return conf_helper_.get<std::string>("prefix");

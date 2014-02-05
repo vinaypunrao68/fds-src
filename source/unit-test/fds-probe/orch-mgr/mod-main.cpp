@@ -15,10 +15,17 @@
 namespace fds {
 
 extern OrchMgr *orchMgr;
+OM_Module       gl_OMModule("OM");
 
 static void run_om_server(OrchMgr *inst)
 {
     inst->run();   //  not return.
+}
+
+OM_Module *
+OM_Module::om_singleton()
+{
+    return &gl_OMModule;
 }
 
 }  // namespace fds

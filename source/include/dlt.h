@@ -13,6 +13,7 @@
 #include <fds_typedefs.h>
 #include <fds_defines.h>
 #include <fds_module.h>
+#include <serialize.h>
 
 namespace fds {
     /**
@@ -39,7 +40,7 @@ namespace fds {
             fds_verify(index <= length);
             p[index] = uid;
         }
-        NodeUuid get(uint index) const {
+        NodeUuid get(fds_uint32_t index) const {
             fds_verify(index <= length);
             return p[index];
         }
@@ -72,7 +73,7 @@ namespace fds {
      * During lookup , an objid is converted to a token ..
      * Always generated the token using the getToken func.
      */
-    class DLT : public Module {
+    class DLT : public serialize::Serializable , public Module {
   public :
         /**
          * Return the token ID for a given Object based on
@@ -84,9 +85,9 @@ namespace fds {
          * fInit(true) will setup a blank dlt for adding the token ring info..
          * fInit(false) should be used to get the DLT from the DLTManager
          */
-        DLT(fds_uint32_t _width,
-            fds_uint32_t _depth,
-            fds_uint64_t _version,
+        DLT(fds_uint32_t numBitsForToken,
+            fds_uint32_t depth,
+            fds_uint64_t version,
             bool fInit = false);
 
         // This is a shallow copy - just for convenience.
@@ -96,7 +97,7 @@ namespace fds {
         ~DLT();
 
         // Deep copy . Safe modifiable copy.
-        DLT& clone();
+        DLT* clone() const;
 
         /** get all the Nodes for a token/objid */
         DltTokenGroupPtr getNodes(fds_token_id token) const;
@@ -106,8 +107,13 @@ namespace fds {
         NodeUuid getPrimary(fds_token_id token) const;
         NodeUuid getPrimary(const ObjectID& objId) const;
 
+        /** get the node in the specified index*/
+        NodeUuid getNode(fds_token_id token, uint index) const;
+        NodeUuid getNode(const ObjectID& objId, uint index) const;
+
         /** get the Tokens for a given Node */
         const TokenList& getTokens(const NodeUuid &uid) const;
+        void getTokens(TokenList* tokenList, const NodeUuid &uid, uint index) const;
 
         /**
          * set the node for given token at a given index
@@ -127,7 +133,11 @@ namespace fds {
         fds_uint64_t getVersion() const;  /**< Gets version */
         fds_uint32_t getDepth() const;  /**< Gets num replicas per token */
         fds_uint32_t getWidth() const;  /**< Gets num bits used */
+        fds_uint32_t getNumBitsForToken() const;  /**< Gets num bits used */
         fds_uint32_t getNumTokens() const;  /** Gets total num of tokens */
+
+        uint32_t virtual write(serialize::Serializer*  s);
+        uint32_t virtual read(serialize::Deserializer* d);
 
         /*
          * Module members
@@ -150,7 +160,7 @@ namespace fds {
 
         fds_uint64_t version;    /**< OM DLT version */
         time_t       timestamp;  /**< Time OM created DLT */
-        fds_uint32_t width;      /**< Specified as 2^width */
+        fds_uint32_t numBitsForToken;      /**< numTokens = 2^numBitsForToken */
         fds_uint32_t numTokens;  /**< Expanded version of width */
         fds_uint32_t depth;      /**< Depth of each token group */
     };
@@ -200,7 +210,8 @@ namespace fds {
 
     class DLTManager {
   public :
-        DLTManager();
+        DLTManager() {
+        }
 
         bool add(const DLT& dlt);
         bool add(const DLTDiff& dltDiff);
@@ -222,7 +233,7 @@ namespace fds {
         NodeUuid getPrimary(const ObjectID& objId) const;
 
   private:
-        const DLT* curPtr;
+        const DLT* curPtr = NULL;
         std::vector<DLT> dltList;
     };
 }  // namespace fds

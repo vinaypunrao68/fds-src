@@ -1,6 +1,7 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
+#include <iostream>
 #include <vector>
 #include <boost/msm/front/state_machine_def.hpp>
 #include <boost/msm/front/functor_row.hpp>
@@ -27,23 +28,35 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
      */
     struct DST_Idle : public msm::front::state<>
     {
-        template <class Event, class FSM> void on_entry(Event const &, FSM &);
-        template <class Event, class FSM> void on_exit(Event const &, FSM &);
+        template <class Evt, class Fsm, class State>
+        void operator()(Evt const &, Fsm &, State &) {}
+
+        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
+        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
     };
     struct DST_Comp : public msm::front::state<>
     {
-        template <class Event, class FSM> void on_entry(Event const &, FSM &);
-        template <class Event, class FSM> void on_exit(Event const &, FSM &);
+        template <class Evt, class Fsm, class State>
+        void operator()(Evt const &, Fsm &, State &) {}
+
+        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
+        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
     };
-    struct DST_Update : public msm::front::state<>
+    struct DST_Rebal : public msm::front::state<>
     {
-        template <class Event, class FSM> void on_entry(Event const &, FSM &);
-        template <class Event, class FSM> void on_exit(Event const &, FSM &);
+        template <class Evt, class Fsm, class State>
+        void operator()(Evt const &, Fsm &, State &) {}
+
+        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
+        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
     };
     struct DST_Commit : public msm::front::state<>
     {
-        template <class Event, class FSM> void on_entry(Event const &, FSM &);
-        template <class Event, class FSM> void on_exit(Event const &, FSM &);
+        template <class Evt, class Fsm, class State>
+        void operator()(Evt const &, Fsm &, State &) {}
+
+        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
+        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
     };
 
     /**
@@ -59,7 +72,7 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
         template <class Evt, class Fsm, class SrcST, class TgtST>
         void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
     };
-    struct DACT_Update
+    struct DACT_Rebal
     {
         template <class Evt, class Fsm, class SrcST, class TgtST>
         void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
@@ -69,11 +82,10 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
         template <class Evt, class Fsm, class SrcST, class TgtST>
         void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
     };
-
     /**
      * Guard conditions.
      */
-    struct GRD_DltUpdate
+    struct GRD_DltRebal
     {
         template <class Evt, class Fsm, class SrcST, class TgtST>
         bool operator()(Evt const &, Fsm &, SrcST &, TgtST &);
@@ -93,19 +105,21 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
     // +------------+----------------+------------+-----------------+-----------------+
     Row< DST_Idle   , DltCompEvt     , DST_Comp   , DACT_Compute    , none            >,
     // +------------+----------------+------------+-----------------+-----------------+
-    Row< DST_Comp   , DltUpdateEvt   , DST_Update , DACT_Update     , none            >,
+    Row< DST_Comp   , DltRebalEvt   , DST_Rebal  , DACT_Rebal      , none            >,
     // +------------+----------------+------------+-----------------+-----------------+
-    Row< DST_Update , DltUpdateOkEvt , DST_Update , none            , GRD_DltUpdate   >,
-    Row< DST_Update , DltCommitEvt   , DST_Commit , DACT_Commit     , none            >,
+    Row< DST_Rebal  , DltRebalOkEvt  , DST_Rebal  , none            , GRD_DltRebal    >,
+    Row< DST_Rebal  , DltCommitEvt   , DST_Commit , DACT_Commit     , none            >,
     // +------------+----------------+------------+-----------------+-----------------+
     Row< DST_Commit , DltCommitOkEvt , DST_Idle   , none            , GRD_DltCommit   >
     // +------------+----------------+------------+-----------------+-----------------+
     >{};  // NOLINT
+
     template <class Event, class FSM> void no_transition(Event const &, FSM &, int);
 };
 
-// typedef msm::back::state_machine<DltDplyFSM> FSM_DplyDLT;
-
+// ------------------------------------------------------------------------------------
+// DLT Module Vector
+// ------------------------------------------------------------------------------------
 OM_DLTMod::OM_DLTMod(char const *const name)
     : Module(name)
 {
@@ -128,11 +142,57 @@ OM_DLTMod::mod_init(SysParams const *const param)
 void
 OM_DLTMod::mod_startup()
 {
+    dlt_dply_fsm->start();
 }
 
 void
 OM_DLTMod::mod_shutdown()
 {
+}
+
+// dlt_deploy_curr_state
+// ---------------------
+//
+char const *const
+OM_DLTMod::dlt_deploy_curr_state()
+{
+    static char const *const state_names[] = {
+        "Idle", "Compute", "Rebalance", "Commit"
+    };
+    return state_names[dlt_dply_fsm->current_state()[0]];
+}
+
+// dlt_deploy_event
+// ----------------
+//
+void
+OM_DLTMod::dlt_deploy_event(DltCompEvt const &evt)
+{
+    dlt_dply_fsm->process_event(evt);
+}
+
+void
+OM_DLTMod::dlt_deploy_event(DltRebalEvt const &evt)
+{
+    dlt_dply_fsm->process_event(evt);
+}
+
+void
+OM_DLTMod::dlt_deploy_event(DltRebalOkEvt const &evt)
+{
+    dlt_dply_fsm->process_event(evt);
+}
+
+void
+OM_DLTMod::dlt_deploy_event(DltCommitEvt const &evt)
+{
+    dlt_dply_fsm->process_event(evt);
+}
+
+void
+OM_DLTMod::dlt_deploy_event(DltCommitOkEvt const &evt)
+{
+    dlt_dply_fsm->process_event(evt);
 }
 
 // --------------------------------------------------------------------------------------
@@ -142,12 +202,14 @@ template <class Evt, class Fsm>
 void
 DltDplyFSM::on_entry(Evt const &evt, Fsm &fsm)
 {
+    std::cout << "FSM on entry" << std::endl;
 }
 
 template <class Evt, class Fsm>
 void
 DltDplyFSM::on_exit(Evt const &evt, Fsm &fsm)
 {
+    std::cout << "FSM on exit" << std::endl;
 }
 
 // no_transition
@@ -157,24 +219,36 @@ template <class Evt, class Fsm>
 void
 DltDplyFSM::no_transition(Evt const &evt, Fsm &fsm, int state)
 {
+    std::cout << "FSM no trans" << std::endl;
 }
 
-// DACT_Compute
-// ------------
-//
+/* DACT_Compute
+ * ------------
+ * DLT computation state. Computes and stores a new DLT
+ * based on the current cluster map.
+ */
 template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 DltDplyFSM::DACT_Compute::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
+    std::cout << "FSM DACT_Compute" << std::endl;
+    DltCompEvt dltEvt = (DltCompEvt)evt;
+    DataPlacement *dp = dltEvt.ode_dp;
+    fds_verify(dp != NULL);
+
+    // Recompute the DLT. Once complete, the data placement's
+    // current dlt will be updated to the new dlt version.
+    dp->computeDlt();
 }
 
-// DACT_Update
+// DACT_Rebal
 // -----------
 //
 template <class Evt, class Fsm, class SrcST, class TgtST>
 void
-DltDplyFSM::DACT_Update::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+DltDplyFSM::DACT_Rebal::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
+    std::cout << "FSM DACT_Rebalance" << std::endl;
 }
 
 // DACT_Commit
@@ -184,15 +258,27 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 DltDplyFSM::DACT_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
+    std::cout << "FSM DACT_Commit" << std::endl;
+    DltCommitEvt commitEvt = (DltCommitEvt)evt;
+    Error err(ERR_OK);
+
+    // TODO(Andrew): Commit DLT locally as an 'official' version
+    // in the data placement engine
+    DataPlacement *dp = commitEvt.ode_dp;
+    fds_verify(dp != NULL);
+
+    // Send new DLT to each node in the cluster map
+    err = dp->commitDlt();
 }
 
-// GRD_DltUpdate
+// GRD_DltRebal
 // -------------
 //
 template <class Evt, class Fsm, class SrcST, class TgtST>
 bool
-DltDplyFSM::GRD_DltUpdate::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+DltDplyFSM::GRD_DltRebal::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
+    std::cout << "FSM DLT rebalance guard" << std::endl;
     return true;
 }
 
@@ -203,6 +289,7 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 bool
 DltDplyFSM::GRD_DltCommit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
+    std::cout << "FSM DLT commit guard" << std::endl;
     return true;
 }
 

@@ -83,7 +83,7 @@ ClusterMap::updateMap(const NodeList &addNodes,
         // For now, assume it's incorrect to try and remove
         // a node that doesn't exist
         fds_verify(removed == 1);
-        removedNodes.push_back(uuid);
+        removedNodes.insert(uuid);
     }
 
     // Add nodes to the map
@@ -96,7 +96,7 @@ ClusterMap::updateMap(const NodeList &addNodes,
         fds_verify(currClustMap.count(uuid) == 0);
 
         currClustMap[uuid] = (*it);
-        addedNodes.push_back(uuid);
+        addedNodes.insert(uuid);
     }
 
     // Increase the version following the update
@@ -105,7 +105,7 @@ ClusterMap::updateMap(const NodeList &addNodes,
     return err;
 }
 
-std::list<NodeUuid>
+std::unordered_set<NodeUuid, UuidHash>
 ClusterMap::getAddedNodes() const {
     /*
      * TODO: We should ensure that we're not
@@ -116,7 +116,7 @@ ClusterMap::getAddedNodes() const {
     return addedNodes;
 }
 
-std::list<NodeUuid>
+std::unordered_set<NodeUuid, UuidHash>
 ClusterMap::getRemovedNodes() const {
     /*
      * TODO: We should ensure that we're not

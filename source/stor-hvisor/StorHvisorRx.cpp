@@ -450,7 +450,7 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
       fds_verify(getObjRsp->data_obj_len == blobReq->getDataLen());
       blobReq->setDataBuf(getObjRsp->data_obj.c_str());
 #endif      
-      blobReq->cbWithResult(0);  
+      blobReq->cbWithResult(-1);  
       journEntry->reset();
       delete blobReq;
       shvol->journal_tbl->releaseTransId(trans_id);
