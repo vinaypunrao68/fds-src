@@ -187,6 +187,7 @@ DataPlacement::DataPlacement()
           curDlt(NULL),
           curWeightDist(NULL) {
     placementMutex = new fds_mutex("data placement mutex");
+    curClusterMap = &gl_OMClusMapMod;
 }
 
 DataPlacement::~DataPlacement() {
@@ -293,12 +294,21 @@ DataPlacement::commitDlt() {
     // Commit the current DLT to the
     // official DLT history
 
-    // Async notify other nodes of the new
-    // DLT
+    // Async notify other nodes of the new DLT
     for (ClusterMap::const_iterator it = curClusterMap->cbegin();
          it != curClusterMap->cend();
          it++) {
         NodeAgent::pointer na = it->second;
+        NodeAgentCpReqClientPtr naClient = na->getCpClient();
+
+        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr(
+            new FDS_ProtocolInterface::FDSP_MsgHdrType());
+        FDS_ProtocolInterface::FDSP_DLT_TypePtr dltMsg(
+            new FDS_ProtocolInterface::FDSP_DLT_Type());
+        naClient->NotifyDLTUpdate(msgHdr, dltMsg);
+
+        FDS_PLOG_SEV(g_fdslog, fds_log::notification)
+                << "Sent DLT update to " << na->get_uuid().uuid_get_val();
     }
 
     placementMutex->unlock();

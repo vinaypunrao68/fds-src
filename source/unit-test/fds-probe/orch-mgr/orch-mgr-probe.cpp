@@ -365,7 +365,7 @@ UT_OM_DltFsm::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *o
             break;
 
         case DLT_EVT_COMMIT:
-            dlt->dlt_deploy_event(DltCommitEvt());
+            dlt->dlt_deploy_event(DltCommitEvt(NULL));
             break;
 
         case DLT_EVT_COMMIT_DONE:
