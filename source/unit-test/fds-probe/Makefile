@@ -5,6 +5,7 @@ user_build_dir    := s3 thrift pm sm \
     threadpool   \
     fds-net      \
     stor-mgr     \
-    orch-mgr
+    orch-mgr     \
+    mock-server
 
 include $(topdir)/Makefile.incl

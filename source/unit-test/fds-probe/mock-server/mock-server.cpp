@@ -1,14 +1,15 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  *
- * Template to write probe adapter.  Replace XX with your namespace.
+ * Template to write probe adapter.  Replace Mock with your namespace.
  */
-#include <template_probe.h>
+#include <mock-server.h>
 #include <string>
+#include <iostream>
 
 namespace fds {
 
-probe_mod_param_t XX_probe_param =
+probe_mod_param_t Mock_probe_param =
 {
     .pr_stat_cnt     = 0,
     .pr_inj_pts_cnt  = 0,
@@ -16,16 +17,16 @@ probe_mod_param_t XX_probe_param =
     .pr_max_sec_tout = 0
 };
 
-XX_ProbeMod gl_XX_ProbeMod("XX Probe Adapter",
-                           &XX_probe_param, nullptr);
+Mock_ProbeMod gl_Mock_ProbeMod("Mock Probe Adapter",
+                           &Mock_probe_param, nullptr);
 
 // pr_new_instance
 // ---------------
 //
 ProbeMod *
-XX_ProbeMod::pr_new_instance()
+Mock_ProbeMod::pr_new_instance()
 {
-    XX_ProbeMod *adapter = new XX_ProbeMod("XX Inst", &XX_probe_param, NULL);
+    Mock_ProbeMod *adapter = new Mock_ProbeMod("Mock Inst", &Mock_probe_param, NULL);
 
     adapter->mod_init(mod_params);
     adapter->mod_startup();
@@ -36,7 +37,7 @@ XX_ProbeMod::pr_new_instance()
 // --------------------
 //
 void
-XX_ProbeMod::pr_intercept_request(ProbeRequest *req)
+Mock_ProbeMod::pr_intercept_request(ProbeRequest *req)
 {
 }
 
@@ -44,7 +45,7 @@ XX_ProbeMod::pr_intercept_request(ProbeRequest *req)
 // ------
 //
 void
-XX_ProbeMod::pr_put(ProbeRequest *probe)
+Mock_ProbeMod::pr_put(ProbeRequest *probe)
 {
 }
 
@@ -52,7 +53,7 @@ XX_ProbeMod::pr_put(ProbeRequest *probe)
 // ------
 //
 void
-XX_ProbeMod::pr_get(ProbeRequest *req)
+Mock_ProbeMod::pr_get(ProbeRequest *req)
 {
 }
 
@@ -60,7 +61,7 @@ XX_ProbeMod::pr_get(ProbeRequest *req)
 // ---------
 //
 void
-XX_ProbeMod::pr_delete(ProbeRequest *req)
+Mock_ProbeMod::pr_delete(ProbeRequest *req)
 {
 }
 
@@ -68,7 +69,7 @@ XX_ProbeMod::pr_delete(ProbeRequest *req)
 // -----------------
 //
 void
-XX_ProbeMod::pr_verify_request(ProbeRequest *req)
+Mock_ProbeMod::pr_verify_request(ProbeRequest *req)
 {
 }
 
@@ -76,7 +77,7 @@ XX_ProbeMod::pr_verify_request(ProbeRequest *req)
 // -------------
 //
 void
-XX_ProbeMod::pr_gen_report(std::string *out)
+Mock_ProbeMod::pr_gen_report(std::string *out)
 {
 }
 
@@ -84,7 +85,7 @@ XX_ProbeMod::pr_gen_report(std::string *out)
 // --------
 //
 int
-XX_ProbeMod::mod_init(SysParams const *const param)
+Mock_ProbeMod::mod_init(SysParams const *const param)
 {
     Module::mod_init(param);
     return 0;
@@ -94,7 +95,7 @@ XX_ProbeMod::mod_init(SysParams const *const param)
 // -----------
 //
 void
-XX_ProbeMod::mod_startup()
+Mock_ProbeMod::mod_startup()
 {
     JsObjManager  *mgr;
     JsObjTemplate *svc;
@@ -113,7 +114,7 @@ XX_ProbeMod::mod_startup()
 // ------------
 //
 void
-XX_ProbeMod::mod_shutdown()
+Mock_ProbeMod::mod_shutdown()
 {
 }
 
@@ -123,6 +124,7 @@ XX_ProbeMod::mod_shutdown()
 JsObject *
 UT_ServSM::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *out)
 {
+    std::cout << "In SM setup" << std::endl;
     return this;
 }
 
@@ -132,6 +134,7 @@ UT_ServSM::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *out)
 JsObject *
 UT_RunSM::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *out)
 {
+    std::cout << "In SM Run" << std::endl;
     return this;
 }
 

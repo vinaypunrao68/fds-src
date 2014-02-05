@@ -1,23 +1,23 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
-#ifndef SOURCE_UNIT_TEST_FDS_PROBE_S3_TEMPLATE_TEMPLATE_PROBE_H_
-#define SOURCE_UNIT_TEST_FDS_PROBE_S3_TEMPLATE_TEMPLATE_PROBE_H_
+#ifndef SOURCE_UNIT_TEST_FDS_PROBE_MOCK_SERVER_MOCK_SERVER_H_
+#define SOURCE_UNIT_TEST_FDS_PROBE_MOCK_SERVER_MOCK_SERVER_H_
 
 /*
- * Header file template for probe adapter.  Replace XX with your probe name
+ * Header file template for probe adapter.  Replace Mock with your probe name
  */
 #include <string>
 #include <fds-probe/fds_probe.h>
 
 namespace fds {
 
-class XX_ProbeMod : public ProbeMod
+class Mock_ProbeMod : public ProbeMod
 {
   public:
-    XX_ProbeMod(char const *const name, probe_mod_param_t *param, Module *owner)
+    Mock_ProbeMod(char const *const name, probe_mod_param_t *param, Module *owner)
         : ProbeMod(name, param, owner) {}
-    virtual ~XX_ProbeMod() {}
+    virtual ~Mock_ProbeMod() {}
 
     ProbeMod *pr_new_instance();
     void pr_intercept_request(ProbeRequest *req);
@@ -34,9 +34,9 @@ class XX_ProbeMod : public ProbeMod
   private:
 };
 
-// XX Probe Adapter.
+// Mock Probe Adapter.
 //
-extern XX_ProbeMod           gl_XX_ProbeMod;
+extern Mock_ProbeMod           gl_Mock_ProbeMod;
 
 // ----------------------------------------------------------------------------------
 // Mock Server Setup
@@ -54,7 +54,7 @@ class UT_ServSMTempl : public JsObjTemplate
     explicit UT_ServSMTempl(JsObjManager *mgr) : JsObjTemplate("sm-setup", mgr) {}
 
     virtual JsObject *js_new(json_t *in) {
-        return js_parse(new UT_ServSM(), in, NULL);
+        return js_parse(new UT_ServSM(), in, new int(10));
     }
 };
 
@@ -86,7 +86,7 @@ class UT_RunSMTempl : public JsObjTemplate
     explicit UT_RunSMTempl(JsObjManager *mgr) : JsObjTemplate("sm-run", mgr) {}
 
     virtual JsObject *js_new(json_t *in) {
-        return js_parse(new UT_RunSM(), in, NULL);
+        return js_parse(new UT_RunSM(), in, new int(10));
     }
 };
 
@@ -104,4 +104,4 @@ class UT_RunServTempl : public JsObjTemplate
 
 }  // namespace fds
 
-#endif  // SOURCE_UNIT_TEST_FDS_PROBE_S3_TEMPLATE_TEMPLATE_PROBE_H_
+#endif  // SOURCE_UNIT_TEST_FDS_PROBE_MOCK_SERVER_MOCK_SERVER_H_
