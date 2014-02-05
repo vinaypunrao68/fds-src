@@ -259,6 +259,16 @@ void
 DltDplyFSM::DACT_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     std::cout << "FSM DACT_Commit" << std::endl;
+    DltCommitEvt commitEvt = (DltCommitEvt)evt;
+    Error err(ERR_OK);
+
+    // TODO(Andrew): Commit DLT locally as an 'official' version
+    // in the data placement engine
+    DataPlacement *dp = commitEvt.ode_dp;
+    fds_verify(dp != NULL);
+
+    // Send new DLT to each node in the cluster map
+    err = dp->commitDlt();
 }
 
 // GRD_DltRebal

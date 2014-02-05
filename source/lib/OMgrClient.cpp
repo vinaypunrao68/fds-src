@@ -73,6 +73,10 @@ void OMgrClientRPCI::NotifyDLTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
 				     FDSP_DLT_TypePtr& dlt_info) {
   om_client->recvDLTUpdate(dlt_info->DLT_version, dlt_info->DLT);
 }
+void OMgrClientRPCI::NotifyStartMigration(FDSP_MsgHdrTypePtr& msg_hdr,
+			 FDSP_DLT_Data_TypePtr& dlt_info) {
+
+}
 
 void OMgrClientRPCI::NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
 				     FDSP_DMT_TypePtr& dmt_info) {

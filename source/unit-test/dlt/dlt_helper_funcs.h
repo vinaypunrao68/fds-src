@@ -19,6 +19,9 @@ void fillDltNodes(DLT* dlt,int multiplier) {
 }
 
 void printDlt(const DLT* dlt) {
+    cout<<"NumBits:"<<dlt->getNumBitsForToken()<<endl;
+    cout<<"Depth:"<<dlt->getDepth()<<endl;
+    cout<<"NumTokens:"<<dlt->getNumTokens()<<endl;
     cout <<setw(6)<<"[pos]"<<":";
     for (uint j=0;j<dlt->getDepth();j++) {
         cout<<setw(10)<<j;

@@ -129,28 +129,30 @@ OM_ProbeMod::mod_shutdown()
 JsObject *
 UT_OM_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *out)
 {
-    int              i, num;
-    FdspNodeRegPtr   ptr;
-    UT_OM_NodeInfo  *node;
-    ut_node_info_t  *info;
+    int               i, num;
+    FdspNodeRegPtr    ptr;
+    UT_OM_NodeInfo   *node;
+    ut_node_info_t   *info;
+    OM_NodeDomainMod *domain;
 
-    std::list<NodeAgent::pointer> newNodes;
-    std::list<NodeAgent::pointer> rmNodes;
-
+    domain = OM_NodeDomainMod::om_local_domain();
     ptr = FdspNodeRegPtr(new FdspNodeReg());
     num = parent->js_array_size();
+
     for (i = 0; i < num; i++) {
         node = static_cast<UT_OM_NodeInfo *>((*parent)[i]);
         info = node->om_node_info();
         std::cout << "Node uuid " << std::hex << info->nd_uuid
             << ", name " << info->nd_node_name << std::endl;
 
+        // TODO(vy): encode this in json format
+        ptr->disk_info.ssd_capacity = info->nd_weight;
         ResourceUUID r_uuid(info->nd_uuid);
+
         if (info->add == true) {
-            newNodes.push_back(new NodeAgent(r_uuid, info->nd_weight));
-            OM_NodeDomainMod::om_local_domain()->om_reg_node_info(&r_uuid, ptr);
+            domain->om_reg_node_info(&r_uuid, ptr);
         } else {
-            rmNodes.push_back(new NodeAgent(r_uuid, info->nd_weight));
+            domain->om_del_node_info(&r_uuid);
         }
     }
 
@@ -158,7 +160,6 @@ UT_OM_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput 
     ProbeMod *mod  = out->js_get_context();
     OM_Module *om  = static_cast<OM_Module *>(mod->pr_get_owner_module());
     DataPlacement *dp = static_cast<DataPlacement *>(om->om_dataplace_mod());
-    dp->updateMembers(newNodes, rmNodes);
 
     fds_verify(om == &gl_OMModule);
     const DLT *oldDlt = dp->getCurDlt();

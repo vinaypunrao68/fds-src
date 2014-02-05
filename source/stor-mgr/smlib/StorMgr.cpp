@@ -439,6 +439,18 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
 
     // TODO: join this thread
     std::thread *stats_thread = new std::thread(log_ocache_stats);
+    
+
+    // Create a special queue for System (background) tasks
+    // and registe rwith QosCtrlr
+    sysTaskQueue = new SmVolQueue(FdsSysTaskQueueId,
+                                  50,
+                                  getSysTaskIopsMax(),
+                                  getSysTaskIopsMin(),
+                                  getSysTaskPri());
+
+    qosCtrl->registerVolume(FdsSysTaskQueueId,
+                            sysTaskQueue);
 
     /*
      * Register/boostrap from OM
@@ -550,6 +562,9 @@ void ObjectStorMgr::nodeEventOmHandler(int node_id,
     case FDS_Node_Rmvd:
         FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::notification) << " ObjectStorMgr - Node Down event NodeId :" << node_id << " node IP addr" << node_ip_addr ;
         break;
+//    case FDS_Start_Migration:
+//        FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::notification) << " ObjectStorMgr - Start Migration  event NodeId :" << node_id << " node IP addr" << node_ip_addr ;
+//        break;
     }
 }
 

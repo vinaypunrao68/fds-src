@@ -50,7 +50,7 @@ class DltCommitEvt
   public:
     DltCommitEvt() {}
 
-    ClusterMap               *ode_clusmap;
+    DataPlacement            *ode_dp;
 };
 
 class DltCommitOkEvt
