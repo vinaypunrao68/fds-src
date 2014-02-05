@@ -70,6 +70,14 @@ class NodeInventory : public Resource
         return nd_uuid;
     }
 
+    inline std::string get_ip_str() const {
+        return nd_ip_str;
+    }
+
+    inline fds_uint32_t get_ctrl_port() const {
+        return nd_ctrl_port;
+    }
+
   protected:
     friend class OM_NodeContainer;
 
@@ -81,6 +89,7 @@ class NodeInventory : public Resource
 
     /* TODO: (vy) just porting from NodeInfo now. */
     fds_uint32_t             nd_ip_addr;
+    std::string              nd_ip_str;
     fds_uint32_t             nd_data_port;
     fds_uint32_t             nd_ctrl_port;
     fds_uint32_t             nd_disk_iops_max;
@@ -102,7 +111,9 @@ class NodeInventory : public Resource
 };
 
 typedef boost::shared_ptr<FDS_ProtocolInterface::FDSP_ControlPathReqClient>
-    FDSP_ControlPathReqClientPtr;
+        NodeAgentCpReqClientPtr;
+typedef boost::shared_ptr<netControlPathClientSession>
+        NodeAgentCpSessionPtr;
 
 /**
  * Agent interface to communicate with the remote node.  This is the communication
@@ -125,13 +136,21 @@ class NodeAgent : public NodeInventory
      * unuseful in other scenarios.
      */
     NodeAgent(const NodeUuid &uuid, fds_uint64_t nd_weight);
-    NodeAgent(const NodeUuid &uuid, const FDSP_ControlPathReqClientPtr &client);
     virtual ~NodeAgent();
 
+    void setCpSession(NodeAgentCpSessionPtr session);
+    /**
+     * Returns the client end point for the node. The function
+     * is not constanct since the member pointer returned
+     * is mutable by the caller.
+     */
+    NodeAgentCpReqClientPtr getCpClient();
+
   protected:
-    friend class                 OM_NodeContainer;
-    FDSP_ControlPathReqClientPtr ndCpClient;
-    std::string                  ndSessionId;
+    friend class            OM_NodeContainer;
+    NodeAgentCpSessionPtr   ndCpSession;
+    std::string             ndSessionId;
+    NodeAgentCpReqClientPtr ndCpClient;
 };
 
 /**
@@ -190,6 +209,9 @@ class OM_NodeContainer : public RsContainer
     NodeArray                node_inuse;
     NodeList                 node_list;
     fds_mutex                node_mtx;
+
+    NodeList                 node_up_pend;
+    NodeList                 node_down_pend;
 };
 
 /**
@@ -213,6 +235,7 @@ class OM_NodeDomainMod : public Module, OM_NodeContainer
 
     virtual void om_del_node_info(const NodeUuid *uuid);
     virtual void om_persist_node_info(fds_uint32_t node_idx);
+    virtual void om_update_cluster_map();
 
     /**
      * Module methods

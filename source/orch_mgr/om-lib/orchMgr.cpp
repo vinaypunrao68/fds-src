@@ -743,8 +743,6 @@ void OrchMgr::TestBucket(const FdspMsgHdrPtr& fdsp_msg,
 
 void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
                            const FdspRegNodePtr &reg_node_req) {
-    std::string ip_addr_str;
-    std::ostringstream tcpProxyStr;
     localDomainInfo  *currentDom;
 
     FDS_PLOG_SEV(GetLog(), fds_log::notification)
@@ -777,18 +775,6 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
             ((reg_node_req->node_type == FDS_ProtocolInterface::FDSP_DATA_MGR) ?
              currentDom->domain_ptr->currentDmMap : currentDom->domain_ptr->currentShMap);
 
-    ip_addr_str = ipv4_addr_to_str(reg_node_req->ip_lo_addr);
-
-    // create a new  control  communication adaptor
-    if (test_mode == true) {
-        tcpProxyStr << "OrchMgrClient" << reg_node_req->control_port
-                    << ": tcp -h " << ip_addr_str
-                    << " -p  " << reg_node_req->control_port;
-    } else {
-        tcpProxyStr << "OrchMgrClient: tcp -h " << ip_addr_str
-                    << " -p  " << reg_node_req->control_port;
-    }
-
     om_mutex->lock();
 
     if (node_map.count(reg_node_req->node_name) > 0) {
@@ -800,16 +786,13 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
     fds_int32_t new_node_id =
             currentDom->domain_ptr->getFreeNodeId(reg_node_req->node_name);
 
-    FDS_PLOG_SEV(GetLog(), fds_log::notification)
-            << "Assigning node id " << new_node_id
-            << " to node " << reg_node_req->node_name
-            << ". Trying to connect at " << tcpProxyStr.str();
-
     /*
      * Build the node info structure and add it
      * to its map, based on type.
      */
-    OM_NodeDomainMod::om_local_domain()->om_reg_node_info(NULL, reg_node_req);
+    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+    domain->om_reg_node_info(NULL, reg_node_req);
+
     fds::NodeInfo n_info(new_node_id,
                          reg_node_req->node_name,
                          reg_node_req->node_type,

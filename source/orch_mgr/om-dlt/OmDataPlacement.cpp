@@ -5,6 +5,7 @@
 #include <utility>
 #include <vector>
 
+#include <orch-mgr/om-service.h>
 #include <OmDataPlacement.h>
 
 namespace fds {
@@ -88,12 +89,12 @@ DataPlacement::DataPlacement(PlacementAlgorithm::AlgorithmTypes type,
     curDltWidth = width;
     curDltDepth = depth;
 
-    curClusterMap = new ClusterMap();
+    // curClusterMap = new ClusterMap();
 }
 
 DataPlacement::~DataPlacement() {
     delete placementMutex;
-    delete curClusterMap;
+    // delete curClusterMap;
     if (curDlt != NULL) {
         delete curDlt;
     }
@@ -233,6 +234,8 @@ DataPlacement::getCurClustMap() const {
 int
 DataPlacement::mod_init(SysParams const *const param) {
     Module::mod_init(param);
+    curClusterMap = OM_Module::om_singleton()->om_clusmap_mod();
+    return 0;
 }
 
 void

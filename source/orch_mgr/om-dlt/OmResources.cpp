@@ -1,6 +1,9 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
+#include <iostream>
+#include <orch-mgr/om-service.h>
+#include <OmDeploy.h>
 #include <OmResources.h>
 #include <OmDataPlacement.h>
 
@@ -70,8 +73,37 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid       *uuid,
     fds_verify(agent != NULL);
     agent->node_update_info(uuid, msg);
     if (add == true) {
+        // Create an RPC endpoint to the node
+        NodeAgentCpSessionPtr session(
+            omcpSessTbl->startSession<netControlPathClientSession>(
+                agent->get_ip_str(),
+                agent->get_ctrl_port(),
+                FDSP_STOR_MGR,  // TODO(Andrew): Should be just a node
+                1,  // Just 1 channel for now...
+                ctrlRspHndlr));
+
+        // For now, ensure we can communicate to the node
+        // before proceeding
+        fds_verify(session != NULL);
+        agent->setCpSession(session);
+
+        // Add node the the node map
         om_activate_node(agent->node_index());
     }
+    /* XXX: TODO (vy), remove this code once we have node FSM */
+    OM_Module *om = OM_Module::om_singleton();
+    ClusterMap *clus = static_cast<ClusterMap *>(om->om_clusmap_mod());
+
+    if (clus->getNumMembers() == 0) {
+        static int node_up_cnt = 0;
+
+        node_up_cnt++;
+        if (node_up_cnt < 3) {
+            std::cout << "Batch up node up, cnt " << node_up_cnt << std::endl;
+            return;
+        }
+    }
+    om_update_cluster_map();
 }
 
 // om_del_node_info
@@ -86,6 +118,7 @@ OM_NodeDomainMod::om_del_node_info(const NodeUuid *uuid)
     if (agent != NULL) {
         om_deactivate_node(agent->node_index());
     }
+    om_update_cluster_map();
 }
 
 // om_persist_node_info
@@ -217,6 +250,34 @@ void
 OM_ControlRespHandler::NotifyDMTUpdateResp(
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     FDS_ProtocolInterface::FDSP_DMT_TypePtr& dmt_info_resp) {
+}
+
+// om_update_cluster_map
+// ---------------------
+//
+void
+OM_NodeDomainMod::om_update_cluster_map()
+{
+    NodeList       addNodes, rmNodes;
+    OM_Module     *om;
+    OM_DLTMod     *dlt;
+    ClusterMap    *clus;
+    DataPlacement *dp;
+
+    node_mtx.lock();
+    addNodes.splice(addNodes.begin(), node_up_pend);
+    rmNodes.splice(rmNodes.begin(), node_down_pend);
+    node_mtx.unlock();
+
+    om   = OM_Module::om_singleton();
+    dp   = static_cast<DataPlacement *>(om->om_dataplace_mod());
+    dlt  = static_cast<OM_DLTMod *>(om->om_dlt_mod());
+    clus = static_cast<ClusterMap *>(om->om_clusmap_mod());
+
+    std::cout << "Call cluster update map" << std::endl;
+
+    clus->updateMap(addNodes, rmNodes);
+    // dlt->dlt_deploy_event(DltCompEvt(dp));
 }
 
 }  // namespace fds

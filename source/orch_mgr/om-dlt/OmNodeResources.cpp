@@ -50,6 +50,7 @@ NodeInventory::node_update_info(const NodeUuid *uuid, const FdspNodeRegPtr msg)
     }
     nd_mtx.lock();
     nd_ip_addr          = msg->ip_lo_addr;
+    nd_ip_str           = netSession::ipAddr2String(nd_ip_addr);
     nd_data_port        = msg->data_port;
     nd_ctrl_port        = msg->control_port;
     nd_node_name        = msg->node_name;
@@ -66,6 +67,9 @@ NodeInventory::node_update_info(const NodeUuid *uuid, const FdspNodeRegPtr msg)
     nd_ssd_latency_min  = msg->disk_info.ssd_latency_min;
     nd_disk_type        = msg->disk_info.disk_type,
     nd_mtx.unlock();
+
+    // TODO(vy): fix the weight.
+    nd_gbyte_cap = nd_ssd_capacity;
 }
 
 NodeAgent::NodeAgent(const NodeUuid &uuid)
@@ -80,15 +84,20 @@ NodeAgent::NodeAgent(const NodeUuid &uuid,
     nd_gbyte_cap = nd_weight;
 }
 
-NodeAgent::NodeAgent(const NodeUuid &uuid,
-                     const FDSP_ControlPathReqClientPtr &client)
-        : NodeInventory(uuid)
-{
-    ndCpClient = client;
-}
-
 NodeAgent::~NodeAgent()
 {
+}
+
+void
+NodeAgent::setCpSession(NodeAgentCpSessionPtr session) {
+    ndCpSession = session;
+    ndSessionId = ndCpSession->getSessionId();
+    ndCpClient = ndCpSession->getClient();
+}
+
+NodeAgentCpReqClientPtr
+NodeAgent::getCpClient() {
+    return ndCpClient;
 }
 
 OM_NodeContainer::OM_NodeContainer()
@@ -160,9 +169,10 @@ OM_NodeContainer::om_activate_node(fds_uint32_t node_idx)
 
     node_mtx.lock();
     node_map[agent->nd_uuid] = agent;
+    node_up_pend.push_back(agent);
     node_mtx.unlock();
 
-    std::cout << "Actiate node " << node_idx << ", uuid "
+    std::cout << "Actiate node " << std::hex << node_idx << ", uuid "
         << agent->nd_uuid.uuid_get_val() << ", ptr " << agent << std::endl;
 }
 
@@ -178,8 +188,12 @@ OM_NodeContainer::om_deactivate_node(fds_uint32_t node_idx)
     fds_verify(agent != NULL);
     fds_verify(agent->nd_uuid.uuid_get_val() != 0);
 
+    std::cout << "Deactivate node " << std::hex << node_idx << ", uuid "
+        << agent->nd_uuid.uuid_get_val() << ", ptr " << agent << std::endl;
+
     node_mtx.lock();
     node_map.erase(agent->nd_uuid);
+    node_down_pend.push_back(agent);
     node_mtx.unlock();
 }
 
