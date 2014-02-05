@@ -160,6 +160,7 @@ WeightMap::updateHighestLowestWeightNode(fds_uint32_t new_tokens,
 void
 WeightMap::debug_print(fds_log* log) const {
     std::map<LoadRatio, std::vector<NodeUuid>>::const_iterator it;
+    FDS_PLOG_SEV(log, fds_log::debug) << "Placement Weight Map: ";
     for (it = weight_map.cbegin();
          it != weight_map.cend();
          it++) {
@@ -169,8 +170,7 @@ WeightMap::debug_print(fds_log* log) const {
              jt++) {
             FDS_PLOG_SEV(log, fds_log::debug)
                     << "Node 0x" << std::hex << (*jt).uuid_get_val()
-                    << " has load ratio " << std::dec
-                    << ((*it).first) << std::endl;
+                    << " has load ratio " << std::dec << ((*it).first);
         }
     }
 }
