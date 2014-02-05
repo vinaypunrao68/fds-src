@@ -215,15 +215,15 @@ uint32_t DLT::read(serialize::Deserializer* d) {
     b += d->readI32(depth);
     b += d->readI32(numTokens);
 
-    fds_uint64_t uuid64;
+    fds_uint64_t uuid;
     distList->clear();
     distList->reserve(numTokens);
     std::vector<DltTokenGroupPtr>::const_iterator iter;
     for (uint i = 0; i < numTokens ; i++) {
         DltTokenGroupPtr ptr = boost::shared_ptr<DltTokenGroup>(new DltTokenGroup(depth));
         for (uint j = 0; j < depth; j++) {
-            b += d->readI64(i64);
-            ptr->set(j, i64);
+            b += d->readI64(uuid);
+            ptr->set(j, uuid);
         }
         distList->push_back(ptr);
     }
