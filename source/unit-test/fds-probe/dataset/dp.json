@@ -1,0 +1,32 @@
+{
+    "Run-Setup": {
+        "om-setup": {
+            "dp-node-info": [
+                {
+                    "node-action": "add",
+                    "node-uuid":   "0x00000001",
+                    "node-name":   "node0",
+                    "node-weight": 40
+                },
+                {
+                    "node-action": "add",
+                    "node-uuid":   "0x00000002",
+                    "node-name":   "node1",
+                    "node-weight": 20
+                },
+                {
+                    "node-action": "add",
+                    "node-uuid":   "0x00000003",
+                    "node-name":   "node2",
+                    "node-weight": 20
+                },
+                {
+                    "node-action": "add",
+                    "node-uuid":   "0x00000004",
+                    "node-name":   "node3",
+                    "node-weight": 40
+                }
+            ]
+        }
+    }
+}
