@@ -1872,7 +1872,7 @@ void  SmObjDb::iterRetrieveObjects(const fds_token_id &token,
                                    FDSP_MigrateObjectList &obj_list, 
                                    SMTokenItr &itr) {
     fds_uint32_t tot_msg_len = 0;
-    fds_token_id tokId = token & SM_TOKEN_MASK;
+    fds_int64_t tokId = token  & SM_TOKEN_MASK;
     diskio::DataTier tierUsed;
     fds::Error err = ERR_OK;
     ObjectID objId;
@@ -1883,8 +1883,13 @@ void  SmObjDb::iterRetrieveObjects(const fds_token_id &token,
     }
     
    ObjectID start_obj_id, end_obj_id;
-   start_obj_id.SetId(tokId | 0x0000000000000000, 0);
-   end_obj_id.SetId(tokId   | 0x0000ffffffffffff, 0xffffffffffffffff);
+   // If the iterator is non-zero then use that as a sarting point for the scan else make up a start from token
+   if ( itr.objId.GetHigh() == 0 && itr.objId.GetLow() == 0) {  
+       start_obj_id.SetId((((fds_int64_t )token) << 32 )  | 0x0000000000000000, 0);
+   } else { 
+       start_obj_id = itr.objId;
+   }
+   end_obj_id.SetId((((fds_int64_t )token) << 32 )| 0x00ffffffffffffff, 0xffffffffffffffff);
 
     leveldb::Slice startSlice((const char *)&start_obj_id, sizeof(ObjectID));
     leveldb::Slice endSlice((const char *)&end_obj_id, sizeof(ObjectID));
@@ -1892,11 +1897,14 @@ void  SmObjDb::iterRetrieveObjects(const fds_token_id &token,
      boost::shared_ptr<leveldb::Iterator> dbIter(odb->GetDB()->NewIterator(odb->GetReadOptions()));
      leveldb::Options options_ = odb->GetOptions();
 
-       for(dbIter->Seek(startSlice); dbIter->Valid() && (CompareKey((char *)dbIter->key().ToString().data(), end_obj_id) <= 0) ;dbIter->Next())
+      memcpy(&objId , &start_obj_id, sizeof(ObjectID));
+      FDS_PLOG(objStorMgr->GetLog()) << "Start of the loop " << objId  << "ending obj" << end_obj_id;
+       for(dbIter->Seek(startSlice); dbIter->Valid() && (CompareKey((char *)&objId, end_obj_id) <= 0) ;dbIter->Next())
        {                
          ObjectBuf        objData;
          // Read the record
          memcpy(&objId , dbIter->key().data(), sizeof(ObjectID));
+         FDS_PLOG(objStorMgr->GetLog()) << "Checking an objectId for token range " << token << " into  objList" << objId ;
 
          // TODO: process the key/data
          if (RangeCompareKey(objId, start_obj_id, end_obj_id) == 0 ) {
@@ -1906,6 +1914,7 @@ void  SmObjDb::iterRetrieveObjects(const fds_token_id &token,
                       if ((max_size - tot_msg_len) >= objData.size) { 
                           FDSP_MigrateObjectData mig_obj;
                           mig_obj.meta_data.token_id = token;
+                          FDS_PLOG(objStorMgr->GetLog()) << "Adding a new objectId to objList" << objId;
                           mig_obj.meta_data.object_id.hash_high = objId.GetHigh();
                           mig_obj.meta_data.object_id.hash_low = objId.GetLow();
                           mig_obj.meta_data.obj_len = objData.size;
