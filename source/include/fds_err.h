@@ -45,7 +45,7 @@ namespace fds {
     ERR_GET_DLT_FAILED       = 11,
     ERR_GET_DMT_FAILED       = 12,
     ERR_NOT_IMPLEMENTED      = 13,
-    ERR_OUT_OF_MEMEORY       = 14,
+    ERR_OUT_OF_MEMORY        = 14,
 
     /* Migration error range [1000-1500) */
     ERR_MIGRATION_DUPLICATE_REQUEST = 1000,

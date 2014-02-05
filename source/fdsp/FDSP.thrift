@@ -701,13 +701,16 @@ typedef string FDSP_ObjectData
 /* Payload for CopyToken RPC */
 struct FDSP_CopyTokenReq
 {
+	/* Header */
+	1: FDSP_MsgHdrType            header;
+	
     /* Token to be migrated */
-    1: FDSP_Token              token_id
+    2: FDSP_Token              token_id
 
     /* Maximum size in bytes of FDSP_MigrateObjectData to 
      * send in a single respone 
      */
-    2: i32                     max_size_per_reply
+    3: i32                     max_size_per_reply
 }
 
 /* Meta data for migration object */
@@ -731,13 +734,16 @@ struct FDSP_MigrateObjectData
 typedef list<FDSP_MigrateObjectData> FDSP_MigrateObjectList
 
 /* Pay load for PushTokenObjects RPC */
-struct PushTokenObjectsReq
+struct FDSP_PushTokenObjectsReq
 {
+	/* Header */
+	1: FDSP_MsgHdrType            header;
+
     /* This is final put or not */
-    1: bool complete
+    2: bool complete
 
     /* List of objects */
-    2: FDSP_MigrateObjectList obj_list
+    3: FDSP_MigrateObjectList obj_list
 }
 
 service FDSP_SessionReq {
@@ -889,11 +895,9 @@ service FDSP_ControlPathResp {
 }
 
 service FDSP_MigrationPathReq {
-    oneway void CopyToken(1:FDSP_MsgHdrType fdsp_msg, 
-                             2:FDSP_CopyTokenReq migrate_req)
+    oneway void CopyToken(1:FDSP_CopyTokenReq migrate_req)
 
-    oneway void PushTokenObjects(1:FDSP_MsgHdrType fdsp_msg, 
-				2:PushTokenObjectsReq mig_put_req)
+    oneway void PushTokenObjects(1:FDSP_PushTokenObjectsReq mig_put_req)
 }
 
 service FDSP_MigrationPathResp {

@@ -313,7 +313,7 @@ namespace fds {
     /* Token id that objects belong to */
     fds_token_id token_id;
     /* List objects and their metadata */
-    FDSP_MigrateObjectListPtr obj_list; 
+    FDSP_MigrateObjectList obj_list;
     /* Response callback */
     std::function<void (const Error&)> response_cb; 
   };

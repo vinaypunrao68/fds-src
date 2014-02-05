@@ -16,12 +16,18 @@ public:
     virtual ~FdsActor() {}
     virtual Error send_actor_request(FdsActorRequestPtr req) = 0;
     virtual Error handle_actor_request(FdsActorRequestPtr req) = 0;
+    virtual std::string log_string() {
+        return "FdsActor";
+    }
 };
 
 class FdsRequestQueueActor : public FdsActor {
 public:
     FdsRequestQueueActor(fds_threadpoolPtr threadpool);
     virtual Error send_actor_request(FdsActorRequestPtr req) override;
+    virtual std::string log_string() {
+        return "FdsRequestQueueActor";
+    }
 
 protected:
     virtual void request_loop();

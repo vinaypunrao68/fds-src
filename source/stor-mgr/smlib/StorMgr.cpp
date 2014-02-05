@@ -1722,9 +1722,9 @@ ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq)
     Error err(ERR_OK);
     PutTokObjectsReq *putTokReq = static_cast<PutTokObjectsReq*>(putTokReq);
     fds_token_id token = putTokReq->token_id; 
-    FDSP_MigrateObjectListPtr objList = putTokReq->obj_list;
+    FDSP_MigrateObjectList &objList = putTokReq->obj_list;
     
-    for (auto obj : *objList) {
+    for (auto obj : objList) {
         ObjectID objId(obj.meta_data.object_id.hash_high,
                        obj.meta_data.object_id.hash_low);
         /* TODO: Update obj metadata */

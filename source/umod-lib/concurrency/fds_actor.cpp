@@ -2,6 +2,7 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 #include <concurrency/fds_actor.h>
+#include <fds_process.h>
 
 namespace fds {
 
@@ -37,7 +38,12 @@ void FdsRequestQueueActor::request_loop() {
             req = queue_.front();
             queue_.pop();
         }
-        this->handle_actor_request(req);
+
+        Error err = this->handle_actor_request(req);
+        if (err != ERR_OK) {
+            fds_verify(!"Request resulted in an error");
+            FDS_PLOG_WARN(g_fdslog) << " Request type: " << req->type << " error: " << err;
+        }
 
         // TODO(Rao): We may starve other threads when queue_ is busy. We should
         // put a limit on number of requests that we handle

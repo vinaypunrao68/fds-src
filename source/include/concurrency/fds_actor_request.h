@@ -13,9 +13,13 @@ namespace fds {
 /* Types.  These types are divided into ranges.  DO NOT change the order */
 enum FdsActorRequestType {
     /* Migration request range [1000-2000) */
-    FAR_COPY_TOKEN = 1000,
-    FAR_COPY_TOKEN_COMPLETE,
+    FAR_MIG_COPY_TOKEN = 1000,
+    FAR_MIG_COPY_TOKEN_COMPLETE,
+    FAR_MIG_PUSH_TOKEN_OBJECTS,
 
+    /* Object store request range [2000-3000)*/
+    FAR_OBJSTOR_TOKEN_OBJECTS_WRITTEN = 2000,
+    FAR_OBJSTOR_TOKEN_OBJECTS_READ,
     /* Last request */
     FAR_MAX
 };
@@ -26,10 +30,21 @@ class FdsRequestQueueActor;
 
 class FdsActorRequest {
 public:
-    FdsActorRequest() {
-        type = FAR_MAX;
+    FdsActorRequest()
+    : FdsActorRequest(FAR_MAX, nullptr)
+    {
+    }
+
+    FdsActorRequest(FdsActorRequestType type, boost::shared_ptr<void> payload) {
+        this->type = type;
         owner_ = nullptr;
         prev_owner_ = nullptr;
+        this->payload = payload;
+    }
+
+    template <class PayloadT>
+    boost::shared_ptr<PayloadT> get_payload() {
+        return boost::static_pointer_cast<PayloadT>(payload);
     }
 
 public:
