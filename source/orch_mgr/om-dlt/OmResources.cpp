@@ -6,6 +6,7 @@
 #include <OmDeploy.h>
 #include <OmResources.h>
 #include <OmDataPlacement.h>
+#include <fds_process.h>
 
 namespace fds {
 
@@ -28,6 +29,9 @@ int
 OM_NodeDomainMod::mod_init(SysParams const *const param)
 {
     Module::mod_init(param);
+
+    FdsConfigAccessor conf_helper(g_fdsprocess->get_conf_helper());
+    test_mode = conf_helper.get<bool>("test_mode");
 
     return 0;
 }
@@ -74,19 +78,20 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid       *uuid,
     agent->node_update_info(uuid, msg);
     if (add == true) {
         // Create an RPC endpoint to the node
-        NodeAgentCpSessionPtr session(
-            omcpSessTbl->startSession<netControlPathClientSession>(
-                agent->get_ip_str(),
-                agent->get_ctrl_port(),
-                FDSP_STOR_MGR,  // TODO(Andrew): Should be just a node
-                1,  // Just 1 channel for now...
-                ctrlRspHndlr));
+        if (!test_mode) {
+            NodeAgentCpSessionPtr session(
+                omcpSessTbl->startSession<netControlPathClientSession>(
+                    agent->get_ip_str(),
+                    agent->get_ctrl_port(),
+                    FDSP_STOR_MGR,  // TODO(Andrew): Should be just a node
+                    1,  // Just 1 channel for now...
+                    ctrlRspHndlr));
 
-        // For now, ensure we can communicate to the node
-        // before proceeding
-        fds_verify(session != NULL);
-        agent->setCpSession(session);
-
+            // For now, ensure we can communicate to the node
+            // before proceeding
+            fds_verify(session != NULL);
+            agent->setCpSession(session);
+        }
         // Add node the the node map
         om_activate_node(agent->node_index());
     }
