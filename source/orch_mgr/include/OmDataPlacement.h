@@ -10,6 +10,8 @@
 #include <string>
 #include <atomic>
 #include <vector>
+#include <list>
+#include <set>
 
 #include <fds_types.h>
 #include <fds_typedefs.h>
@@ -30,7 +32,66 @@ namespace fds {
      * be sorted.
      */
     typedef double LoadRatio;
-    typedef std::map<LoadRatio, std::vector<NodeUuid>> WeightMap;
+    class WeightMap {
+  private:
+        std::map<LoadRatio, std::vector<NodeUuid>> weight_map;
+
+  public:
+        /**
+         * Constructs sorted weight map from given cluster map
+         * and DLT
+         */
+        WeightMap(const ClusterMap *cm,
+                  const DLT *dlt);
+        ~WeightMap() {
+        }
+
+        /**
+         * Resets map completely and constructs from scratch from
+         * the given cluster map and DLT
+         */
+        void reset(const ClusterMap *cm,
+                   const DLT *dlt);
+
+        void addNode(NodeUuid node_uuid,
+                     LoadRatio placement_weight);
+
+        /**
+         * Returns uuid of the node with the highest weight and removes
+         * this node from the Map. Assumes map is not empty
+         */
+        NodeUuid getHighestWeightNode() const;
+        /**
+         * Returns uuid of the node with the lowest weight and removes
+         * this node from the Map. Assumes map is not empty
+         */
+        NodeUuid getLowestWeightNode() const;
+        /**
+         * Update weight of the node with highest weight 
+         * (if 'b_highest' == true) or lowest weight.
+         */
+        void updateHighestLowestWeightNode(fds_uint32_t new_tokens,
+                                           fds_uint32_t old_tokens,
+                                           fds_uint32_t total_tokens,
+                                           fds_bool_t b_highest);
+
+        /**
+         * Returns the size of sorted placement weight map
+         */
+        inline fds_uint32_t getSize() const { return weight_map.size(); }
+
+
+        void debug_print() const;
+
+  private:
+        /**
+         * Assumes map is clear. Constructs new weight map from
+         * given cluster map and DLT
+         */
+        void computeWeightDist(const ClusterMap *cm,
+                               const DLT *dlt);
+    };
+    typedef boost::shared_ptr<WeightMap> WeightMapPtr;
 
     /**
      * Abstract base class that defines the interface for a
@@ -48,7 +109,6 @@ namespace fds {
         };
         virtual Error computeNewDlt(const ClusterMap *currMap,
                                     const DLT        *currDlt,
-                                    const WeightMap* curWeightMap,
                                     DLT              *newDlt) = 0;
     };
 
@@ -56,7 +116,6 @@ namespace fds {
   public:
         Error computeNewDlt(const ClusterMap *currMap,
                             const DLT        *currDlt,
-                            const WeightMap* curWeightMap,
                             DLT              *newDlt);
     };
 
@@ -64,7 +123,6 @@ namespace fds {
   public:
         Error computeNewDlt(const ClusterMap *currMap,
                             const DLT        *currDlt,
-                            const WeightMap* curWeightMap,
                             DLT              *newDlt);
 
   private:
@@ -73,6 +131,17 @@ namespace fds {
         Error updateReplicaRows(fds_uint32_t numNodes,
                                 fds_uint64_t numTokens,
                                 DLT *newDLT);
+        Error handleNewNodesPrimary(const ClusterMap *curMap,
+                                    const DLT *curDlt,
+                                    DLT *newDlt,
+                                    const WeightMapPtr& weightMap);
+        Error handleRmNodesPrimary(const ClusterMap *curMap,
+                                   DLT *newDlt,
+                                   const WeightMapPtr& weightMap);
+        void getMatchedTokenPair(TokenList* target_list,
+                                 fds_token_id* ret_target_token,
+                                 std::set<fds_token_id>* candidate_list,
+                                 fds_token_id* ret_matched_token);
     };
 
     /**
@@ -122,14 +191,6 @@ namespace fds {
          * distribution from each level in the DLT.
          */
         WeightMap *curWeightDist;
-
-        /**
-         * Computes the weight distribution, given a cluster
-         * map and dlt.
-         */
-        static void computeWeightDist(const ClusterMap *cm,
-                                      const DLT        *dlt,
-                                      WeightMap        *sortedWeights);
 
         /**
          * Current algorithm used to compute new DLTs.
