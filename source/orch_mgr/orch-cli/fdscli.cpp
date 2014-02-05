@@ -403,7 +403,7 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         FDS_PLOG_SEV(cli_log, fds_log::notification)
                 << vm["remove-node"].as<std::string>() << "- node name";
         FDS_ProtocolInterface::FDSP_RemoveNodeType removeNodeData;
-        removeNodeData.node_id = vm["remove-node"].as<std::string>();
+        removeNodeData.node_name = vm["remove-node"].as<std::string>();
 
         cfgPrx->RemoveNode(msg_hdr, removeNodeData);
     }  else if (vm.count("domain-delete") && vm.count("domain-id")) {

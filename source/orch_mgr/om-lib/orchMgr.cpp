@@ -244,10 +244,7 @@ int OrchMgr::RemoveNode(const FdspMsgHdrPtr& fdsp_msg,
                         const FdspRmNodePtr& rm_node_req) {
     FDS_PLOG_SEV(GetLog(), fds_log::normal)
             << "Received RemoveNode Req : "
-            << rm_node_req->node_id;
-
-    std::cout << "Received RemoveNode Req : "
-              << rm_node_req->node_id;
+            << rm_node_req->node_name;
 
     return 0;
 }

@@ -405,7 +405,7 @@ struct FDSP_AttachVolCmdType {
 
 
 struct FDSP_RemoveNodeType {
-  1: string node_id, // Identifier of the node which should be removed from the system
+  1: string node_name, // Name of the node which should be removed from the system
 }
 
 struct FDSP_GetVolInfoReqType {
