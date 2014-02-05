@@ -91,7 +91,8 @@ void OrchMgr::setup(int argc, char* argv[],
         }
     }
 
-    GetLog()->setSeverityFilter((fds_log::severity_level) (mod_params->log_severity));
+    GetLog()->setSeverityFilter(
+        (fds_log::severity_level) (conf_helper_.get<int>("log_severity")));
 
     policy_mgr = new VolPolicyMgr(stor_prefix, om_log);
 
