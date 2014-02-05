@@ -253,6 +253,8 @@ class OM_NodeDomainMod : public Module, OM_NodeContainer
   protected:
     boost::shared_ptr<OM_ControlRespHandler> ctrlRspHndlr;
     boost::shared_ptr<netSessionTbl> omcpSessTbl;
+
+    fds_bool_t test_mode;
 };
 
 /**

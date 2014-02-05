@@ -124,7 +124,7 @@ TEST_CASE ("Mem Serialize") {
 TEST_CASE ("DLT Serialize") {
     Serializer *s = getMemSerializer();
 
-    DLT dlt(3,4,1,true);
+    DLT dlt(8,4,1,true);
     CAPTURE(dlt.getNumBitsForToken());
     CAPTURE(dlt.getDepth());
     CAPTURE( dlt.getNumTokens() );
@@ -132,8 +132,9 @@ TEST_CASE ("DLT Serialize") {
     fillDltNodes(&dlt,10);
         
     uint32_t bytesWritten = dlt.write(s);
+    CAPTURE(bytesWritten);
 
-    cout<<"byteswritten:"<<bytesWritten<<endl;
+    //cout<<"byteswritten:"<<bytesWritten<<endl;
 
     std::string buffer = s->getBufferAsString();
 
@@ -142,13 +143,14 @@ TEST_CASE ("DLT Serialize") {
     Deserializer *d = getMemDeserializer(buffer);
     
     uint32_t bytesRead = dlt1.read(d);
-    cout<<"bytesRead:"<<bytesRead<<endl;
+    CAPTURE(bytesRead);
+    //cout<<"bytesRead:"<<bytesRead<<endl;
 
     REQUIRE( bytesWritten == bytesRead);
     //printDlt(&dlt1);
     verifyDltNodes(&dlt1,10);
     REQUIRE (dlt1.getVersion() == 1);
-    REQUIRE (dlt1.getNumTokens() == 8);
+    REQUIRE (dlt1.getNumTokens() == pow(2,dlt1.getNumBitsForToken()));
     REQUIRE (dlt1.getDepth() == 4);
     
 }

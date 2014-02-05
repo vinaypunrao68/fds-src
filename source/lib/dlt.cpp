@@ -5,7 +5,7 @@
 #include <vector>
 #include <map>
 #include <dlt.h>
-
+#include <iostream>
 /**
  *  Implementationg for DLT ...
  */
@@ -196,11 +196,48 @@ uint32_t DLT::write(serialize::Serializer*  s   ) {
     b += s->writeI32(depth);
     b += s->writeI32(numTokens);
 
+    if (mapNodeTokens->empty()) generateNodeTokenMap();
+
+    uint32_t numuids = mapNodeTokens->size();
+
+    typedef std::map<fds_uint64_t, uint32_t> UniqueUUIDMap;
+    std::vector<fds_uint64_t> uuidList;
+    UniqueUUIDMap uuidmap;
+
+    NodeTokenMap::const_iterator tokenMapiter;
+
+    // build the unique uuid list
+    uint32_t count = 0;
+    fds_uint64_t uuid;
+    for (tokenMapiter = mapNodeTokens->begin(); tokenMapiter != mapNodeTokens->end(); ++tokenMapiter, ++count) { //NOLINT
+        uuid = tokenMapiter->first.uuid_get_val();
+        uuidmap[uuid] = count;
+        uuidList.push_back(uuid);
+    }
+    //std::cout<<"count:"<<count<<": listsize:" <<uuidList.size()<<std::endl; // NOLINT
+    // write the unique Node list
+    // size of the node list
+    b += s->writeI32(count);
+    for (auto uuid : uuidList) {
+        b += s->writeI64(uuid);
+    }
+
     std::vector<DltTokenGroupPtr>::const_iterator iter;
+    uint32_t lookupid;
+    // with a byte we can support 256  unique Nodes
+    // with 16-bit we can support 65536 unique Nodes
+    bool fByte = (count <= 256);
+
     for (iter = distList->begin(); iter != distList->end(); iter++) {
         const DltTokenGroupPtr& nodeList= *iter;
         for (uint i = 0; i < depth; i++) {
-            b += s->writeI64(nodeList->get(i).uuid_get_val());
+            uuid = nodeList->get(i).uuid_get_val();
+            lookupid = uuidmap[uuid];
+            if (fByte) {
+                b += s->writeByte(lookupid);
+            } else {
+                b += s->writeI16(lookupid);
+            }
         }
     }
     return b;
@@ -209,24 +246,42 @@ uint32_t DLT::write(serialize::Serializer*  s   ) {
 uint32_t DLT::read(serialize::Deserializer* d) {
     uint32_t b = 0;
 
-    int32_t i32;
-    int64_t i64;
-
-    b += d->readI64(i64); version = i64;
+    b += d->readI64(version);
     // b += s->readI64(timestamp);
-    b += d->readI32(i32); numBitsForToken = i32;
-    b += d->readI32(i32); depth = i32;
-    b += d->readI32(i32); numTokens = i32;
+    b += d->readI32(numBitsForToken);
+    b += d->readI32(depth);
+    b += d->readI32(numTokens);
 
-    fds_uint64_t uuid64;
+    fds_uint64_t uuid;
     distList->clear();
     distList->reserve(numTokens);
+
+    uint32_t count = 0;
+    std::vector<fds_uint64_t> uuidList;
+
+    // read the Unique Node List
+    b += d->readI32(count);
+    uuidList.reserve(count);
+    for (uint i = 0; i < count ; i++) {
+        b += d->readI64(uuid);
+        uuidList.push_back(uuid);
+    }
+
+    bool fByte = (count <= 256);
+    fds_uint8_t i8;
+    fds_uint16_t i16;
+
     std::vector<DltTokenGroupPtr>::const_iterator iter;
     for (uint i = 0; i < numTokens ; i++) {
         DltTokenGroupPtr ptr = boost::shared_ptr<DltTokenGroup>(new DltTokenGroup(depth));
         for (uint j = 0; j < depth; j++) {
-            b += d->readI64(i64);
-            ptr->set(j, i64);
+            if (fByte) {
+                b += d->readByte(i8);
+                ptr->set(j, uuidList.at(i8));
+            } else {
+                b += d->readI16(i16);
+                ptr->set(j, uuidList.at(i16));
+            }
         }
         distList->push_back(ptr);
     }

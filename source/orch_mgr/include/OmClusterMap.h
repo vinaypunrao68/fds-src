@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include <string>
 #include <atomic>
-#include <list>
+#include <unordered_set>
 
 #include <fds_types.h>
 #include <fds_typedefs.h>
@@ -35,15 +35,15 @@ class ClusterMap : public Module {
     NodeMap           currClustMap;  /**< Current storage nodes in cluster */
 
     /**
-     * Cached list of nodes added since the previous
+     * Cached set of nodes added since the previous
      * DLT to create the current cluster map.
      */
-    std::list<NodeUuid> addedNodes;
+    std::unordered_set<NodeUuid, UuidHash> addedNodes;
     /**
      * Cached list of nodes removed since the previous
      * DLT to create the current cluster map.
      */
-    std::list<NodeUuid> removedNodes;
+    std::unordered_set<NodeUuid, UuidHash> removedNodes;
 
     /**
      * Current version of the map.
@@ -100,12 +100,12 @@ class ClusterMap : public Module {
      * Returns a copy of the list of nodes added
      * since previous cluster map version.
      */
-    std::list<NodeUuid> getAddedNodes() const;
+    std::unordered_set<NodeUuid, UuidHash> getAddedNodes() const;
     /**
      * Returns a copy of the list of nodes removed
      * since previous cluster map version.
      */
-    std::list<NodeUuid> getRemovedNodes() const;
+    std::unordered_set<NodeUuid, UuidHash> getRemovedNodes() const;
 
     /**
      * Module methods.

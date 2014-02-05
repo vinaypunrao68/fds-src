@@ -13,7 +13,7 @@ using namespace fds;
 void fillDltNodes(DLT* dlt,int multiplier) {
     for (uint i=0;i<dlt->getNumTokens();i++) {
         for (uint j=0;j<dlt->getDepth();j++) {
-            dlt->setNode(i,j,i*multiplier+j);
+            dlt->setNode(i,j,(i%10)*multiplier+j);
         }
     }
 }
@@ -43,7 +43,7 @@ void verifyDltNodes(const DLT* dlt,int multiplier) {
     for (uint i=0;i<dlt->getNumTokens();i++) {
         DltTokenGroupPtr ptr=dlt->getNodes(i);
         for (uint j=0;j<dlt->getDepth();j++) {
-            REQUIRE(ptr->get(j).uuid_get_val()== i*multiplier+j);
+            REQUIRE(ptr->get(j).uuid_get_val()== (i%10)*multiplier+j);
         }
     }
 }
