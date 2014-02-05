@@ -439,6 +439,18 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
 
     // TODO: join this thread
     std::thread *stats_thread = new std::thread(log_ocache_stats);
+    
+
+    // Create a special queue for System (background) tasks
+    // and registe rwith QosCtrlr
+    sysTaskQueue = new SmVolQueue(FdsSysTaskQueueId,
+                                  50,
+                                  getSysTaskIopsMax(),
+                                  getSysTaskIopsMin(),
+                                  getSysTaskPri());
+
+    qosCtrl->registerVolume(FdsSysTaskQueueId,
+                            sysTaskQueue);
 
     /*
      * Register/boostrap from OM

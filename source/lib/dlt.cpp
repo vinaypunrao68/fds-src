@@ -187,6 +187,53 @@ void DLT::getTokens(TokenList* tokenList, const NodeUuid &uid, uint index) const
     }
 }
 
+uint32_t DLT::write(serialize::Serializer*  s   ) {
+    uint32_t b = 0;
+
+    b += s->writeI64(version);
+    // b += s->writeI64(timestamp);
+    b += s->writeI32(numBitsForToken);
+    b += s->writeI32(depth);
+    b += s->writeI32(numTokens);
+
+    std::vector<DltTokenGroupPtr>::const_iterator iter;
+    for (iter = distList->begin(); iter != distList->end(); iter++) {
+        const DltTokenGroupPtr& nodeList= *iter;
+        for (uint i = 0; i < depth; i++) {
+            b += s->writeI64(nodeList->get(i).uuid_get_val());
+        }
+    }
+    return b;
+}
+
+uint32_t DLT::read(serialize::Deserializer* d) {
+    uint32_t b = 0;
+
+    int32_t i32;
+    int64_t i64;
+
+    b += d->readI64(i64); version = i64;
+    // b += s->readI64(timestamp);
+    b += d->readI32(i32); numBitsForToken = i32;
+    b += d->readI32(i32); depth = i32;
+    b += d->readI32(i32); numTokens = i32;
+
+    fds_uint64_t uuid64;
+    distList->clear();
+    distList->reserve(numTokens);
+    std::vector<DltTokenGroupPtr>::const_iterator iter;
+    for (uint i = 0; i < numTokens ; i++) {
+        DltTokenGroupPtr ptr = boost::shared_ptr<DltTokenGroup>(new DltTokenGroup(depth));
+        for (uint j = 0; j < depth; j++) {
+            b += d->readI64(i64);
+            ptr->set(j, i64);
+        }
+        distList->push_back(ptr);
+    }
+
+    return b;
+}
+
 //================================================================================
 
 /**
@@ -357,5 +404,4 @@ NodeUuid DLTManager::getPrimary(fds_token_id token) const {
 NodeUuid DLTManager::getPrimary(const ObjectID& objId) const {
     return getPrimary(objId);
 }
-
 }  // namespace fds

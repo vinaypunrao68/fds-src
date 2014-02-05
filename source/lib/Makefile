@@ -17,7 +17,8 @@ user_cpp         :=      \
     jsoncpp.cpp          \
     fds_process.cpp      \
     NetSession.cpp       \
-    fds_counters.cpp
+    serialize.cpp        \
+    fds_counters.cpp     
 #    TransJournal.cpp     \
 
 user_incl_dir    := $(topdir)
@@ -32,6 +33,7 @@ user_no_style    := \
     TransJournal.cpp     \
     PerfStats.cpp        \
     jsoncpp.cpp          \
+    serialize.cpp        \
     $(wildcard *.h)
 
 # TODO: should change this directory and this lib to something more

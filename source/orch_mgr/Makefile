@@ -7,8 +7,8 @@ user_install_loc  := exe
 
 user_fds_so_libs  :=
 user_fds_ar_libs  := \
-    fds-om-lib \
     fds-om-common \
+    fds-om-lib \
     fds-om-dlt \
     fds-thread \
     fds-lib \
