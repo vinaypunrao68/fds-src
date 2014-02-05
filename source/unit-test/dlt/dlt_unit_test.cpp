@@ -124,7 +124,7 @@ TEST_CASE ("Mem Serialize") {
 TEST_CASE ("DLT Serialize") {
     Serializer *s = getMemSerializer();
 
-    DLT dlt(3,4,1,true);
+    DLT dlt(8,4,1,true);
     CAPTURE(dlt.getNumBitsForToken());
     CAPTURE(dlt.getDepth());
     CAPTURE( dlt.getNumTokens() );
@@ -150,7 +150,7 @@ TEST_CASE ("DLT Serialize") {
     //printDlt(&dlt1);
     verifyDltNodes(&dlt1,10);
     REQUIRE (dlt1.getVersion() == 1);
-    REQUIRE (dlt1.getNumTokens() == 8);
+    REQUIRE (dlt1.getNumTokens() == pow(2,dlt1.getNumBitsForToken()));
     REQUIRE (dlt1.getDepth() == 4);
     
 }
