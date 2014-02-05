@@ -50,6 +50,7 @@ NodeInventory::node_update_info(const NodeUuid *uuid, const FdspNodeRegPtr msg)
     }
     nd_mtx.lock();
     nd_ip_addr          = msg->ip_lo_addr;
+    nd_ip_str           = netSession::ipAddr2String(nd_ip_addr);
     nd_data_port        = msg->data_port;
     nd_ctrl_port        = msg->control_port;
     nd_node_name        = msg->node_name;
@@ -85,6 +86,18 @@ NodeAgent::NodeAgent(const NodeUuid &uuid,
 
 NodeAgent::~NodeAgent()
 {
+}
+
+void
+NodeAgent::setCpSession(NodeAgentCpSessionPtr session) {
+    ndCpSession = session;
+    ndSessionId = ndCpSession->getSessionId();
+    ndCpClient = ndCpSession->getClient();
+}
+
+NodeAgentCpReqClientPtr
+NodeAgent::getCpClient() {
+    return ndCpClient;
 }
 
 OM_NodeContainer::OM_NodeContainer()

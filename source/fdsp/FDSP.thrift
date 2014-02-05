@@ -244,7 +244,8 @@ struct FDSP_GetVolumeBlobListRespType {
 enum FDSP_NodeState {
      FDS_Node_Up,
      FDS_Node_Down,
-     FDS_Node_Rmvd
+     FDS_Node_Rmvd,
+     FDS_Start_Migration
 }
 
 struct FDSP_Node_Info_Type {
@@ -273,6 +274,11 @@ struct FDSP_DLT_Type {
 struct FDSP_DMT_Type {
       1: i32 DMT_version,
       2: Node_Table_Type DMT,
+}
+
+struct FDSP_DLT_Data_Type {
+	1: bool dlt_type, 
+    2: string dlt_data, 
 }
 
 
@@ -874,7 +880,8 @@ service FDSP_ControlPathReq {
   oneway void SetThrottleLevel(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ThrottleMsgType throttle_msg),
   oneway void TierPolicy(1:FDSP_TierPolicy tier),
   oneway void TierPolicyAudit(1:FDSP_TierPolicyAudit audit),
-  oneway void NotifyBucketStats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_BucketStatsRespType buck_stats_msg)
+  oneway void NotifyBucketStats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_BucketStatsRespType buck_stats_msg),
+  oneway void NotifyStartMigration(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DLT_Data_Type dlt_info)
 }
 
 service FDSP_ControlPathResp {
