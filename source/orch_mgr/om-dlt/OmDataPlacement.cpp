@@ -158,7 +158,7 @@ WeightMap::updateHighestLowestWeightNode(fds_uint32_t new_tokens,
 }
 
 void
-WeightMap::debug_print() const {
+WeightMap::debug_print(fds_log* log) const {
     std::map<LoadRatio, std::vector<NodeUuid>>::const_iterator it;
     for (it = weight_map.cbegin();
          it != weight_map.cend();
@@ -167,9 +167,10 @@ WeightMap::debug_print() const {
         for (std::vector<NodeUuid>::const_iterator jt = uuidList.cbegin();
              jt != uuidList.cend();
              jt++) {
-            std::cout << "Node 0x" << std::hex << (*jt).uuid_get_val()
-                      << " has load ratio " << std::dec
-                      << ((*it).first) << std::endl;
+            FDS_PLOG_SEV(log, fds_log::debug)
+                    << "Node 0x" << std::hex << (*jt).uuid_get_val()
+                    << " has load ratio " << std::dec
+                    << ((*it).first) << std::endl;
         }
     }
 }
@@ -271,7 +272,7 @@ DataPlacement::computeDlt() {
     }
 
     // TODO(Andrew): Remove this. Just printing for easy debugging.
-    curWeightDist->debug_print();
+    curWeightDist->debug_print(g_fdslog);
 
     // TODO(Andrew): We should version the (now) old DLT
     // before we delete it and replace it with the

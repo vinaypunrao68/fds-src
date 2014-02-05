@@ -81,7 +81,7 @@ namespace fds {
         inline fds_uint32_t getSize() const { return weight_map.size(); }
 
 
-        void debug_print() const;
+        void debug_print(fds_log* log) const;
 
   private:
         /**
@@ -102,6 +102,7 @@ namespace fds {
     class PlacementAlgorithm {
   private:
   protected:
+        inline fds_log* getLog() { return g_fdslog; }
   public:
         enum AlgorithmTypes {
             RoundRobin  = 0,

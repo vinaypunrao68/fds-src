@@ -88,8 +88,15 @@ ConsistHashAlgorithm::computeNewDlt(const ClusterMap *currMap,
 
     // Compute DLT from scratch if this is the first version
     if ((currDlt == NULL) || (total_nodes <= 2)) {
+        FDS_PLOG(getLog()) << "ConsistHashAlgorithm: compute new DLT";
         return computeInitialDlt(currMap, newDlt);
     }
+
+    FDS_PLOG(getLog()) << "ConsistHashAlgorithm: recompute new DLT for"
+                       << (currMap->getAddedNodes()).size()
+                       << " node additions and "
+                       << (currMap->getRemovedNodes()).size()
+                       << " node deletions";
 
     // TODO(Anna): we don't support changes in DLT width yet
     fds_verify(newDlt->getWidth() == currDlt->getWidth());
@@ -97,7 +104,7 @@ ConsistHashAlgorithm::computeNewDlt(const ClusterMap *currMap,
     // Calculate placement weight map from scratch because by
     // adding/removing nodes the relative placement weights changed as well
     WeightMapPtr weight_map(new WeightMap(currMap, currDlt));
-    weight_map->debug_print();
+    weight_map->debug_print(getLog());
 
     // Update the first row of the DLT to take into account
     // added nodes. Currently we assume that newDlt is completely
@@ -105,8 +112,9 @@ ConsistHashAlgorithm::computeNewDlt(const ClusterMap *currMap,
     // to newDlt. If no nodes were added to cluster map, the
     // function just copies the first row from currDlt to newDlt
     err = handleNewNodesPrimary(currMap, currDlt, newDlt, weight_map);
-    std::cout << "After node additions: " << std::endl;
-    weight_map->debug_print();
+    FDS_PLOG_SEV(getLog(), fds_log::debug)
+            << "ConsistHash: placement weight after node additions";
+    weight_map->debug_print(getLog());
 
     // update the first row of newDlt to take into account node removals
     err = handleRmNodesPrimary(currMap, newDlt, weight_map);
@@ -165,7 +173,7 @@ ConsistHashAlgorithm::handleNewNodesPrimary(const ClusterMap *curMap,
                                                  node_toks[uuid].size(),
                                                  numTokens,
                                                  true);
-        weightMap->debug_print();
+        weightMap->debug_print(getLog());
         std::set<fds_token_id>::iterator sit = node_toks[uuid].begin();
         fds_token_id stolen_token = *sit;
         (node_toks[uuid]).erase(sit);
@@ -208,7 +216,7 @@ ConsistHashAlgorithm::handleNewNodesPrimary(const ClusterMap *curMap,
                                                  node_toks[src_uuid].size(),
                                                  numTokens,
                                                  true);
-        weightMap->debug_print();
+        weightMap->debug_print(getLog());
 
         // for all tokens that belong to node with uuid 'src_uuid'
         // find token with the closest distance to one of the target tokens
@@ -297,7 +305,7 @@ ConsistHashAlgorithm::handleRmNodesPrimary(const ClusterMap *curMap,
             std::cout << "RM: node " << std::hex << uuid.uuid_get_val()
                       << " -> node " << new_uuid.uuid_get_val() << std::dec
                       << " token " << i << std::endl;
-            weightMap->debug_print();
+            weightMap->debug_print(getLog());
 
             newDlt->setNode(i, 0, new_uuid);
             ++node_toks[new_uuid];
@@ -451,8 +459,9 @@ ConsistHashAlgorithm::computeInitialDlt(const ClusterMap *curMap,
             fds_uint32_t next_token = start_token;
             // place node with 'cur_uuid" to 'toks' spots
             // in the first row of DLT table
-            std::cout << "Node " << cur_uuid.uuid_get_val()
-                      << " toks " << toks << std::endl;
+            FDS_PLOG_SEV(getLog(), fds_log::normal) << "ConsistHash: Node "
+                                                    << std::hex << cur_uuid.uuid_get_val()
+                                                    << " toks " << std::dec << toks;
             for (fds_uint32_t i = 0; i < toks; ++i) {
                 fds_uint32_t tok = next_token;
                 // if we are somewhere in the middle of assigning
