@@ -56,26 +56,43 @@ TEST_CASE ("Node Positions", "dlt") {
 TEST_CASE ("Dlt Manager") {    
     DLT dlt1(3,4,1,true);
     DLT dlt2(3,4,2,true);
+    DLT dlt3(3,4,3,true);
 
     fillDltNodes(&dlt1,10);        
     fillDltNodes(&dlt2,100);
+    fillDltNodes(&dlt3,20);
 
-    DLTManager dltMgr;
+    fds_uint8_t maxDlts=2;
+    DLTManager dltMgr(maxDlts);
     dltMgr.add(dlt1);
     dltMgr.add(dlt2);
-
+    
+    // check teh first DLT
     const DLT *ptr=dltMgr.getDLT(1);
-
     REQUIRE (ptr->getNumTokens() == 8);
     REQUIRE (ptr->getVersion() == 1);
 
+    // check the second DLT
     ptr=dltMgr.getDLT(2);
     REQUIRE (ptr->getVersion() == 2);
     verifyDltNodes(ptr,100);
 
+    // check cloning
     DLT* clone=const_cast<DLT*>(ptr)->clone();
     REQUIRE (clone->getVersion() == 2);
     verifyDltNodes(clone,100);
+
+    // check adding Serialized
+    std::string buffer;
+    dlt3.getSerialized(buffer);
+
+    dltMgr.addSerializedDLT(buffer);
+
+    ptr=dltMgr.getDLT(3);
+    REQUIRE (ptr->getVersion() == 3);
+    verifyDltNodes(ptr,20);
+
+    
 }
 
 TEST_CASE("Tokens") {

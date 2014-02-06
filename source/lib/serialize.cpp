@@ -13,7 +13,7 @@ using namespace apache::thrift::protocol;
 
 namespace fds { namespace serialize {
 
-Serializer::Serializer(TProtocolPtr proto,TMemoryBuffer *memBuffer) : proto(proto),memBuffer(memBuffer) {
+Serializer::Serializer(TProtocolPtr proto) : proto(proto) {
 }
 
 uint32_t Serializer::writeBool(const bool value) {
@@ -45,10 +45,14 @@ uint32_t Serializer::writeString(const std::string& str) {
 }
 
 std::string Serializer::getBufferAsString() {
+    TMemoryBuffer *memBuffer = dynamic_cast<TMemoryBuffer*>(proto->getTransport().get());
     if (!memBuffer) return "";
     return memBuffer->getBufferAsString();
 }
 
+Serializer::~Serializer() {
+    
+}
 
 Deserializer::Deserializer(TProtocolPtr proto) : proto(proto) {
 }
@@ -97,17 +101,21 @@ uint32_t Deserializer::readI64(fds_uint64_t& ui64) {
     return proto->readI64((int64_t&)ui64);
 }
 
+Deserializer::~Deserializer() {
+
+}
+
 Serializer* getMemSerializer(uint sz) {
     if (0==sz) sz=1024;
     TMemoryBuffer* memBuffer=new TMemoryBuffer(sz);
     boost::shared_ptr<TTransport> trans(memBuffer);
     TBinaryProtocol* proto = new TBinaryProtocol(trans);
-    return new Serializer(TProtocolPtr (new TBinaryProtocol(trans)),memBuffer);
+    return new Serializer(TProtocolPtr (new TBinaryProtocol(trans)));
 }
 
 Deserializer* getMemDeserializer(std::string& str) {
-    TMemoryBuffer *memBuffer = new TMemoryBuffer(0);
-    memBuffer->resetBuffer((uint8_t*)const_cast<char*> (str.data()), (uint32_t)str.length());
+    TMemoryBuffer *memBuffer = new TMemoryBuffer((uint8_t*)const_cast<char*> (str.data()), 
+                                                 (uint32_t)str.length());
     boost::shared_ptr<TTransport> trans(memBuffer);
     return new Deserializer(TProtocolPtr (new TBinaryProtocol(trans)));
 }

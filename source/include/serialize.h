@@ -15,7 +15,7 @@ namespace fds {
          * has only WRITE methods
          */
         struct Serializer {        
-            Serializer(TProtocolPtr proto,apache::thrift::transport::TMemoryBuffer *memBuffer=NULL);
+            Serializer(TProtocolPtr proto);
             
             uint32_t writeBool(const bool value);
             uint32_t writeByte(const int8_t byte);
@@ -25,10 +25,9 @@ namespace fds {
             uint32_t writeDouble(const double dub);
             uint32_t writeString(const std::string& str);
             std::string getBufferAsString();
-
+            virtual ~Serializer();
           private:
             TProtocolPtr proto;
-            apache::thrift::transport::TMemoryBuffer *memBuffer;
         };
 
         /**
@@ -53,6 +52,7 @@ namespace fds {
             uint32_t readI32(fds_uint32_t& ui32);
             uint32_t readI64(fds_uint64_t& ui64);
 
+            virtual ~Deserializer();
           private:
             TProtocolPtr proto;
         };

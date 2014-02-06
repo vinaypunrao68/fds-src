@@ -211,12 +211,11 @@ namespace fds {
      * Manages multiple DLTs ,maintains the current DLT
      * Generates the diff between dlts..
      */
-    typedef boost::shared_ptr<const DLT> DLTPtr;
+    typedef boost::shared_ptr<DLT> DLTPtr;
 
     class DLTManager {
   public :
-        DLTManager() {
-        }
+        explicit DLTManager(fds_uint8_t maxDlts = 2);
 
         bool add(const DLT& dlt);
         bool add(const DLTDiff& dltDiff);
@@ -240,7 +239,9 @@ namespace fds {
 
   private:
         const DLT* curPtr = NULL;
-        std::vector<DLT> dltList;
+        std::vector<DLT*> dltList;
+        void checkSize();
+        fds_uint8_t maxDlts;
     };
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_DLT_H_
