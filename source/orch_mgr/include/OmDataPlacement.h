@@ -29,7 +29,6 @@ namespace fds {
      * This type describes weight distributions for a DLT. This
      * structure describes how well balanced our placement 
      * assignment is. We expect this list to be sorted.
-     * be sorted.
      */
     typedef double LoadRatio;
     class WeightMap {
@@ -235,6 +234,13 @@ namespace fds {
          * Reruns DLT computation.
          */
         void computeDlt();
+
+        /**
+         * Begins token rebalance between nodes in the
+         * cluster map. We are async notified of completion
+         * at a later time.
+         */
+        Error beginRebalance();
 
         /**
          * Commits the current DLT as an 'official'

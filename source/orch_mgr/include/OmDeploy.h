@@ -30,10 +30,10 @@ class DltCompEvt
 class DltRebalEvt
 {
   public:
-    explicit DltRebalEvt(ClusterMap *m)
-        : ode_clusmap(m) {}
+    explicit DltRebalEvt(DataPlacement *d)
+        : ode_dp(d) {}
 
-    ClusterMap               *ode_clusmap;
+    DataPlacement            *ode_dp;
 };
 
 class DltRebalOkEvt

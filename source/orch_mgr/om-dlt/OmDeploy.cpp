@@ -231,7 +231,7 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 DltDplyFSM::DACT_Compute::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    std::cout << "FSM DACT_Compute" << std::endl;
+    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "FSM DACT_Compute";
     DltCompEvt dltEvt = (DltCompEvt)evt;
     DataPlacement *dp = dltEvt.ode_dp;
     fds_verify(dp != NULL);
@@ -248,7 +248,12 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 DltDplyFSM::DACT_Rebal::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    std::cout << "FSM DACT_Rebalance" << std::endl;
+    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "FSM DACT_Rebalance";
+
+    DltRebalEvt rebalanceEvt = (DltRebalEvt)evt;
+    DataPlacement *dp = rebalanceEvt.ode_dp;
+    Error err = dp->beginRebalance();
+    fds_verify(err == ERR_OK);
 }
 
 // DACT_Commit
@@ -258,7 +263,7 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 DltDplyFSM::DACT_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    std::cout << "FSM DACT_Commit" << std::endl;
+    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "FSM DACT_Commit";
     DltCommitEvt commitEvt = (DltCommitEvt)evt;
     Error err(ERR_OK);
 

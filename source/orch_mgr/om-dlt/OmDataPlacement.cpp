@@ -279,6 +279,40 @@ DataPlacement::computeDlt() {
 }
 
 /**
+ * Begins a rebalance command between the nodes affect
+ * in the current DLT change.
+ */
+Error
+DataPlacement::beginRebalance() {
+    Error err(ERR_OK);
+
+    placementMutex->lock();
+
+    // Async notify the nodes affected by the newest DLT change
+    // TODO(Andrew): We're sending to just the newly added nodes
+    // for now. Need to fix that.
+    for (ClusterMap::const_iterator it = curClusterMap->cbegin();
+         it != curClusterMap->cend();
+         it++) {
+        NodeAgent::pointer na = it->second;
+        NodeAgentCpReqClientPtr naClient = na->getCpClient();
+
+        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr(
+            new FDS_ProtocolInterface::FDSP_MsgHdrType());
+        FDS_ProtocolInterface::FDSP_DLT_TypePtr dltMsg(
+            new FDS_ProtocolInterface::FDSP_DLT_Type());
+        naClient->NotifyDLTUpdate(msgHdr, dltMsg);
+
+        FDS_PLOG_SEV(g_fdslog, fds_log::notification)
+                << "Sent DLT update to " << na->get_uuid().uuid_get_val();
+    }
+
+    placementMutex->unlock();
+
+    return err;
+}
+
+/**
  * Commits the current DLT as an 'official'
  * copy. The commit stores the DLT to the
  * permanent DLT history and async notifies
