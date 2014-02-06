@@ -6,6 +6,7 @@
 #include <OmDeploy.h>
 #include <OmResources.h>
 #include <OmDataPlacement.h>
+#include <fds_process.h>
 
 namespace fds {
 
@@ -28,6 +29,9 @@ int
 OM_NodeDomainMod::mod_init(SysParams const *const param)
 {
     Module::mod_init(param);
+
+    FdsConfigAccessor conf_helper(g_fdsprocess->get_conf_helper());
+    test_mode = conf_helper.get<bool>("test_mode");
 
     return 0;
 }
@@ -74,36 +78,77 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid       *uuid,
     agent->node_update_info(uuid, msg);
     if (add == true) {
         // Create an RPC endpoint to the node
-        NodeAgentCpSessionPtr session(
-            omcpSessTbl->startSession<netControlPathClientSession>(
-                agent->get_ip_str(),
-                agent->get_ctrl_port(),
-                FDSP_STOR_MGR,  // TODO(Andrew): Should be just a node
-                1,  // Just 1 channel for now...
-                ctrlRspHndlr));
+        if (!test_mode) {
+            NodeAgentCpSessionPtr session(
+                omcpSessTbl->startSession<netControlPathClientSession>(
+                    agent->get_ip_str(),
+                    agent->get_ctrl_port(),
+                    FDSP_STOR_MGR,  // TODO(Andrew): Should be just a node
+                    1,  // Just 1 channel for now...
+                    ctrlRspHndlr));
 
-        // For now, ensure we can communicate to the node
-        // before proceeding
-        fds_verify(session != NULL);
-        agent->setCpSession(session);
-
+            // For now, ensure we can communicate to the node
+            // before proceeding
+            fds_verify(session != NULL);
+            agent->setCpSession(session);
+        }
         // Add node the the node map
         om_activate_node(agent->node_index());
     }
     /* XXX: TODO (vy), remove this code once we have node FSM */
     OM_Module *om = OM_Module::om_singleton();
-    ClusterMap *clus = static_cast<ClusterMap *>(om->om_clusmap_mod());
+    ClusterMap *clus = om->om_clusmap_mod();
 
     if (clus->getNumMembers() == 0) {
         static int node_up_cnt = 0;
 
         node_up_cnt++;
-        if (node_up_cnt < 3) {
+        if (node_up_cnt < 1) {
             std::cout << "Batch up node up, cnt " << node_up_cnt << std::endl;
             return;
         }
     }
+
+    // TODO(Andrew): We should decouple registration from
+    // cluster map addition eventually. We may want to add
+    // the node to the inventory and then wait for a CLI
+    // cmd to make the node a member.
     om_update_cluster_map();
+}
+
+/**
+ * Drives the DLT deployment state machine.
+ */
+void
+OM_NodeDomainMod::om_update_cluster() {
+    OM_Module *om = OM_Module::om_singleton();
+    OM_DLTMod *dltMod = om->om_dlt_mod();
+    DataPlacement *dp = om->om_dataplace_mod();
+
+    // Recompute the DLT
+    DltCompEvt computeEvent(dp);
+    dltMod->dlt_deploy_event(computeEvent);
+
+    // Start rebalancing/syncing data to prepare
+    // for the new DLT
+    DltRebalEvt rebalEvent(NULL);
+    dltMod->dlt_deploy_event(rebalEvent);
+
+    // TODO(Andrew): This state transition should not
+    // be done here. It should be done when we receive
+    // notification that the rebalance is done.
+    dltMod->dlt_deploy_event(DltRebalOkEvt());
+
+    // TODO(Andrew): This state transition should not
+    // be done here. It should be done wherever we
+    // transition to rebalance OK and want to send DLTs
+    DltCommitEvt commitEvent(dp);
+    dltMod->dlt_deploy_event(commitEvent);
+
+    // TODO(Andrew): This state transition should not
+    // be done here. It should be done when we receive
+    // acks for the commit.
+    dltMod->dlt_deploy_event(DltCommitOkEvt());
 }
 
 // om_del_node_info
@@ -229,14 +274,14 @@ OM_ControlRespHandler::NotifyNodeRmvResp(
 void
 OM_ControlRespHandler::NotifyDLTUpdateResp(
     const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const FDS_ProtocolInterface::FDSP_DLT_Type& dlt_info_resp) {
+    const FDS_ProtocolInterface::FDSP_DLT_Data_Type& dlt_info_resp) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
 }
 
 void
 OM_ControlRespHandler::NotifyDLTUpdateResp(
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    FDS_ProtocolInterface::FDSP_DLT_TypePtr& dlt_info_resp) {
+    FDS_ProtocolInterface::FDSP_DLT_Data_TypePtr& dlt_info_resp) {
 }
 
 void

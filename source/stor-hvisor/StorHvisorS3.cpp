@@ -11,6 +11,7 @@
 #include <fds_process.h>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include "NetSession.h"
+#include <dlt.h>
 
 #define FDS_REPLICATION_FACTOR 2
 
@@ -195,11 +196,11 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
   /*
    * Get DLT node list.
    */
-  unsigned char dltKey = objId.GetHigh() >> 56;  // TODO: Just pass the objId
-  fds_int32_t numNodes = FDS_REPLICATION_FACTOR;  // TODO: Why 8? Look up vol/blob repl factor
-  fds_int32_t nodeIds[numNodes];  // TODO: Doesn't need to be signed
-  memset(nodeIds, 0x00, sizeof(fds_int32_t) * numNodes);
-  dataPlacementTbl->getDLTNodesForDoidKey(dltKey, nodeIds, &numNodes);
+  DltTokenGroupPtr dltPtr;
+  dltPtr = dataPlacementTbl->getDLTNodesForDoidKey(&objId);
+  fds_verify(dltPtr != NULL);
+
+  fds_int32_t numNodes = dltPtr->getLength();
   fds_verify(numNodes > 0);
 
   /*
@@ -210,7 +211,7 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
     fds_uint32_t node_port = 0;
     fds_int32_t node_state = -1;
 
-    dataPlacementTbl->getNodeInfo(nodeIds[i],
+    dataPlacementTbl->getNodeInfo(dltPtr->get(i).uuid_get_val(),
                                   &node_ip,
                                   &node_port,
                                   &node_state);
@@ -252,8 +253,9 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
 //  msgHdrDm->src_node_name  = my_node_name;
   msgHdrSm->src_node_name = storHvisor->myIp;
   msgHdrDm->src_port       = 0;
-  memset(nodeIds, 0x00, sizeof(fds_int32_t) * numNodes);
+  fds_int32_t nodeIds[numNodes];
   dataPlacementTbl->getDMTNodesForVolume(volId, nodeIds, &numNodes);
+  memset(nodeIds, 0x00, sizeof(fds_int32_t) * numNodes);
   fds_verify(numNodes > 0);
 
   /*
@@ -591,10 +593,12 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
   /*
    * Look up primary SM from DLT entries
    */
-  unsigned char dltKey = objId.GetHigh() >> 56;  // TODO: Just pass the objId
-  fds_int32_t numNodes = FDS_REPLICATION_FACTOR;  // TODO: Why 8? Look up vol/blob repl factor
-  fds_int32_t nodeIds[numNodes];  // TODO: Doesn't need to be signed
-  dataPlacementTbl->getDLTNodesForDoidKey(dltKey, nodeIds, &numNodes);
+
+  boost::shared_ptr<DltTokenGroup> dltPtr;
+  dltPtr = dataPlacementTbl->getDLTNodesForDoidKey(&objId);
+  fds_verify(dltPtr != NULL);
+
+  fds_int32_t numNodes = dltPtr->getLength();
   fds_verify(numNodes > 0);
 
   fds_uint32_t node_ip   = 0;
@@ -605,7 +609,7 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
    * TODO: We're just assuming it's the first in the list!
    * We should be verifying this somehow.
    */
-  dataPlacementTbl->getNodeInfo(nodeIds[0],
+  dataPlacementTbl->getNodeInfo(dltPtr->get(0).uuid_get_val(),
                                 &node_ip,
                                 &node_port,
                                 &node_state);
@@ -819,9 +823,6 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << transId << " volID:" << vol_id << " - object ID: " << oid.GetHigh() <<  ":" << oid.GetLow()									 << "  ObjLen:" << journEntry->data_obj_len;
   
   // We have a Cache HIT *$###
-  //
-  uint64_t doid_dlt = oid.GetHigh();
-  doid_dlt_key = (doid_dlt >> 56);
   
   fdsp_msg_hdr->glob_volume_id = vol_id;;
   fdsp_msg_hdr->req_cookie = transId;
@@ -840,14 +841,20 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   journEntry->data_obj_id.hash_low = oid.GetLow();;
   
   // Lookup the Primary SM node-id/ip-address to send the DeleteObject to
-  storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(doid_dlt_key, node_ids, &num_nodes);
-  if(num_nodes == 0) {
+
+
+  boost::shared_ptr<DltTokenGroup> dltPtr;
+  dltPtr = dataPlacementTbl->getDLTNodesForDoidKey(&oid);
+  fds_verify(dltPtr != NULL);
+
+  fds_int32_t numNodes = dltPtr->getLength();
+  if(numNodes == 0) {
     FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << transId << " volID:" << vol_id << " -  DLT Nodes  NOT  confiigured. Check on OM Manager. Completing request with ERROR(-1)";
     shVol->readUnlock();
     blobReq->cbWithResult(-1);
     return ERR_GET_DLT_FAILED;
   }
-  storHvisor->dataPlacementTbl->getNodeInfo(node_ids[0],
+  storHvisor->dataPlacementTbl->getNodeInfo(dltPtr->get(0).uuid_get_val(),
                                             &node_ip,
                                             &node_port,
                                             &node_state);

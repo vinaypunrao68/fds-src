@@ -91,8 +91,11 @@ NodeAgent::~NodeAgent()
 void
 NodeAgent::setCpSession(NodeAgentCpSessionPtr session) {
     ndCpSession = session;
+
     ndSessionId = ndCpSession->getSessionId();
     ndCpClient = ndCpSession->getClient();
+        FDS_PLOG_SEV(g_fdslog, fds_log::error)
+                << "Established connection with new node";
 }
 
 NodeAgentCpReqClientPtr

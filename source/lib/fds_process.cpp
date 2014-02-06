@@ -89,6 +89,10 @@ void FdsProcess::setup_config(int argc, char *argv[],
     conf_helper_.init(config, base_path);
 }
 
+FdsConfigAccessor FdsProcess::get_conf_helper() const {
+    return conf_helper_;
+}
+
 void*
 FdsProcess::sig_handler(void* param)
 {

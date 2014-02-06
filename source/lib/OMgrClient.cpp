@@ -7,6 +7,7 @@
 #include <thrift/transport/TSocket.h>
 #include <thrift/transport/TTransportUtils.h>
 #include <thrift/transport/TBufferTransports.h>
+#include <dlt.h>
 
 #include <thread>
 
@@ -70,8 +71,8 @@ void OMgrClientRPCI::NotifyNodeRmv(FDSP_MsgHdrTypePtr& msg_hdr,
 }
 
 void OMgrClientRPCI::NotifyDLTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
-				     FDSP_DLT_TypePtr& dlt_info) {
-  om_client->recvDLTUpdate(dlt_info->DLT_version, dlt_info->DLT);
+				     FDSP_DLT_Data_TypePtr& dlt_info) {
+  om_client->recvDLTUpdate(dlt_info->dlt_type, dlt_info->dlt_data);
 }
 void OMgrClientRPCI::NotifyStartMigration(FDSP_MsgHdrTypePtr& msg_hdr,
 			 FDSP_DLT_Data_TypePtr& dlt_info) {
@@ -633,15 +634,16 @@ int OMgrClient::recvVolAttachState(fds_volid_t vol_id,
 }
 
 
-int OMgrClient::recvDLTUpdate(int dlt_vrsn, const Node_Table_Type& dlt_table) {
+int OMgrClient::recvDLTUpdate(bool dlt_type, std::string& dlt_data) {
 
-  FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received new DLT version  " << dlt_vrsn;
+  FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received new DLT version  " << dlt_type;
 
+
+  DLT dltTmp(0,0,0,false);
+  fds::serialize::Deserializer *d = fds::serialize::getMemDeserializer(dlt_data);
+  dltTmp.read(d);
   omc_lock.write_lock();
-
-  this->dlt_version = dlt_vrsn;
-  this->dlt = dlt_table;
-
+  dltMgr.add(dltTmp);
   omc_lock.write_unlock();
 
   return (0);
@@ -687,7 +689,7 @@ int OMgrClient::recvBucketStats(const FDSP_MsgHdrTypePtr& msg_hdr,
   return 0;
 }
 
-int OMgrClient::getNodeInfo(int node_id,
+int OMgrClient::getNodeInfo(fds_uint64_t node_id,
                             unsigned int *node_ip_addr,
                             fds_uint32_t *node_port,
                             int *node_state) {
@@ -712,9 +714,13 @@ int OMgrClient::getNodeInfo(int node_id,
   return 0;
 } 
 
-int OMgrClient::getDLTNodesForDoidKey(unsigned char doid_key,
-                                      fds_int32_t *node_ids,
-                                      fds_int32_t *n_nodes) {
+DltTokenGroupPtr OMgrClient::getDLTNodesForDoidKey(ObjectID *objId) {
+ return dltMgr.getDLT()->getNodes(*objId);
+
+}
+
+#if 0
+int OMgrClient::getDLTNodesForDoidKey(ObjectID objId) {
   
   omc_lock.read_lock();
 
@@ -732,6 +738,7 @@ int OMgrClient::getDLTNodesForDoidKey(unsigned char doid_key,
 
   return 0;
 }
+#endif
 
 int OMgrClient::getDMTNodesForVolume(int vol_id, int *node_ids, int *n_nodes) {
 

@@ -238,7 +238,7 @@ namespace fds {
         fds_uint64_t curDmtVer;
         fds_uint32_t dmtWidth;
         fds_uint32_t dmtDepth;
-        FdsDlt *curDlt;
+        DLT *curDlt;
         FdsDmt *curDmt;
         Catalog *dltCatalog;
         Catalog *dmtCatalog;
@@ -271,6 +271,11 @@ namespace fds {
         void sendNodeEventToFdsNodes(const NodeInfo& nodeInfo,
                                      FDS_ProtocolInterface::FDSP_NodeState
                                      node_state);
+        /**
+         * Sends registration result to a single node
+         */
+        void sendRegRespToNode(NodeInfo node_info,
+                               const Error &err);
         /*
          * Broadcast create vol ctrl message to all DM/SM Nodes
          */

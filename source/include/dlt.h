@@ -14,6 +14,7 @@
 #include <fds_defines.h>
 #include <fds_module.h>
 #include <serialize.h>
+#include <string>
 
 namespace fds {
     /**
@@ -139,6 +140,10 @@ namespace fds {
         uint32_t virtual write(serialize::Serializer*  s);
         uint32_t virtual read(serialize::Deserializer* d);
 
+        /** Load/get serialized data */
+        bool loadSerialized(std::string& serializedData);  // NOLINT
+        void getSerialized(std::string& serializedData);  // NOLINT
+
         /*
          * Module members
          */
@@ -215,6 +220,7 @@ namespace fds {
 
         bool add(const DLT& dlt);
         bool add(const DLTDiff& dltDiff);
+        bool addSerializedDLT(std::string& serializedData, bool fFull = true);  // NOLINT
 
         // By default the get the current one(0) or the specific version
         const DLT* getDLT(fds_uint64_t version = 0);
