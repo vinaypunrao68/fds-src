@@ -3,24 +3,48 @@
 
 namespace fds {
 
+/* Global migration service singleton */
+class FdsMigrationSvc;
+extern FdsMigrationSvc *g_migrationSvc;
+
+/**
+ * Base migrator class
+ */
 class FdsMigrator {
 public:
-    FdsMigrator() {
+    FdsMigrator(const std::string &migration_id) {
+        migration_id_ = migration_id;
     }
+
     virtual ~FdsMigrator() {
     }
+
+    std::string get_migration_id() {
+        return migration_id_;
+    }
+protected:
+    /* Migration identifier */
+    std::string migration_id_;
 };
 
+/**
+ * Base class for sender side of migration
+ */
 class MigrationSender : public FdsMigrator {
 public:
-    MigrationSender()
+    MigrationSender(const std::string &migration_id)
+    : FdsMigrator(migration_id)
     {
     }
 };
 
+/**
+ * Base class for receiver side of migration
+ */
 class MigrationReceiver : public FdsMigrator {
 public:
-    MigrationReceiver()
+    MigrationReceiver(const std::string &migration_id)
+    : FdsMigrator(migration_id)
     {
     }
 };

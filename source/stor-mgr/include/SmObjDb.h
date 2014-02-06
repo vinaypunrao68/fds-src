@@ -49,15 +49,6 @@ namespace fds {
 extern ObjectStorMgr *objStorMgr;
 typedef fds_uint32_t fds_token_id;
 
-// TODO:  Fill it up
-class SMTokenItr {
- public:
-  ObjectID  objId;
-  SMTokenItr() {
-  }
-  ~SMTokenItr() {
-  }
-};
 
 
 

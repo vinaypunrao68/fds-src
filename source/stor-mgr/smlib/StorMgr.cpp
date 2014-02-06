@@ -1735,7 +1735,7 @@ Error
 ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq) 
 {
     Error err(ERR_OK);
-    PutTokObjectsReq *putTokReq = static_cast<PutTokObjectsReq*>(putTokReq);
+    SmIoPutTokObjectsReq *putTokReq = static_cast<SmIoPutTokObjectsReq*>(putTokReq);
     fds_token_id token = putTokReq->token_id; 
     FDSP_MigrateObjectList &objList = putTokReq->obj_list;
     
@@ -1782,6 +1782,23 @@ ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq)
     putTokReq->response_cb(err);
 
     delete putTokReq;
+}
+
+Error
+ObjectStorMgr::getTokenObjectsInternal(SmIoReq* ioReq)
+{
+    Error err(ERR_OK);
+    SmIoGetTokObjectsReq *getTokReq = static_cast<SmIoGetTokObjectsReq*>(ioReq);
+    smObjDb->iterRetrieveObjects(getTokReq->token_id,
+            getTokReq->max_size, getTokReq->obj_list, getTokReq->itr);
+
+    /* Mark the request as complete */
+    qosCtrl->markIODone(*getTokReq,
+            DataTier::diskTier);
+
+    getTokReq->response_cb(err, getTokReq);
+    /* NOTE: We expect the caller to free up ioReq */
+    return err;
 }
 
 inline void ObjectStorMgr::swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg) {
@@ -1835,9 +1852,13 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a put request";
             threadPool->schedule(delObjectExt,io);
             break;
+        case FDS_SM_WRITE_TOKEN_OBJECTS:
+            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a write token ibjects";
+            threadPool->schedule(&ObjectStorMgr::putTokenObjectsInternal, objStorMgr, io);
+            break;
         case FDS_SM_READ_TOKEN_OBJECTS:
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a read token objects";
-            threadPool->schedule(&ObjectStorMgr::putTokenObjectsInternal, objStorMgr, io);
+            threadPool->schedule(&ObjectStorMgr::getTokenObjectsInternal, objStorMgr, io);
             break;
         default:
             fds_assert(!"Unknown message");

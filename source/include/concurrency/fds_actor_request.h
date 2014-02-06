@@ -13,9 +13,13 @@ namespace fds {
 /* Types.  These types are divided into ranges.  DO NOT change the order */
 enum FdsActorRequestType {
     /* Migration request range [1000-2000) */
-    FAR_MIG_COPY_TOKEN = 1000,
-    FAR_MIG_COPY_TOKEN_COMPLETE,
-    FAR_MIG_PUSH_TOKEN_OBJECTS,
+    FAR_MIGSVC_COPY_TOKEN = 1000,
+    FAR_MIGSVC_MIGRATION_COMPLETE,
+    FAR_MIG_TCS_DATA_READ_DONE,
+    /* Migration RPC */
+    FAR_MIG_COPY_TOKEN_RPC,
+    FAR_MIG_COPY_TOKEN_COMPLETE_RPC,
+    FAR_MIG_PUSH_TOKEN_OBJECTS_RPC,
 
     /* Object store request range [2000-3000)*/
     FAR_OBJSTOR_TOKEN_OBJECTS_WRITTEN = 2000,

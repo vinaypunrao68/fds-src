@@ -7,6 +7,7 @@
 
 #include <string>
 #include <vector>
+#include <memory>
 #include <boost/msm/back/state_machine.hpp>
 
 #include <fds_assert.h>
@@ -28,10 +29,12 @@ typedef boost::msm::back::state_machine<TokenCopyReceiverFSM_> TokenCopyReceiver
 class TokenCopyReceiver : public MigrationReceiver,
                           public FdsRequestQueueActor {
 public:
-    TokenCopyReceiver(fds_threadpoolPtr threadpool,
-            fds_logPtr log,
-            netMigrationPathClientSession *sender_session,
-            const std::vector<fds_token_id> &tokens);
+    TokenCopyReceiver(const std::string &migration_id,
+            fds_threadpoolPtr threadpool,
+            fds_logPtr log, netSessionTblPtr nst,
+            const std::string &sender_ip,
+            const std::set<fds_token_id> &tokens,
+            boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler);
     virtual ~TokenCopyReceiver();
 
     fds_log* get_log() {
@@ -43,13 +46,13 @@ public:
         return "TokenCopyReceiver";
     }
 
+    virtual void start();
+
     /* Overrides from FdsRequestQueueActor */
     virtual Error handle_actor_request(FdsActorRequestPtr req) override;
 
-
-
 private:
-    TokenCopyReceiverFSM *sm_;
+    std::unique_ptr<TokenCopyReceiverFSM> sm_;
     fds_logPtr log_;
 };
 

@@ -2,8 +2,11 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 #include <string>
+#include <set>
+#include <utility>
 #include <fds_migration.h>
 #include <fds_err.h>
+#include <fds_uuid.h>
 
 namespace fds {
 
@@ -17,7 +20,7 @@ FDSP_MigrationPathRpc(FdsMigrationSvc &mig_svc, fds_logPtr log) // NOLINT
 void FDSP_MigrationPathRpc::
 CopyToken(boost::shared_ptr<FDSP_CopyTokenReq>& copy_req) // NOLINT
 {
-    FdsActorRequestPtr copy_far(new FdsActorRequest(FAR_MIG_COPY_TOKEN, copy_req));
+    FdsActorRequestPtr copy_far(new FdsActorRequest(FAR_MIG_COPY_TOKEN_RPC, copy_req));
     if (copy_far == nullptr) {
         FDS_PLOG_ERR(get_log()) << "Failed to allocate memory";
         return;
@@ -29,7 +32,7 @@ void FDSP_MigrationPathRpc::
 PushTokenObjects(boost::shared_ptr<FDSP_PushTokenObjectsReq>& push_req) // NOLINT
 {
     FdsActorRequestPtr push_far(
-            new FdsActorRequest(FAR_MIG_PUSH_TOKEN_OBJECTS, push_req));
+            new FdsActorRequest(FAR_MIG_PUSH_TOKEN_OBJECTS_RPC, push_req));
     if (push_far == nullptr) {
         FDS_PLOG_ERR(get_log()) << "Failed to allocate memory";
         return;
@@ -86,35 +89,99 @@ Error FdsMigrationSvc::handle_actor_request(FdsActorRequestPtr req)
 {
     Error err = ERR_OK;
     switch (req->type) {
-    case FAR_MIG_COPY_TOKEN:
+    case FAR_MIGSVC_COPY_TOKEN:
     {
-        // TODO(rao) : Handle the case when there is an existing TokenCopySender
-        fds_assert(tok_sender_ == nullptr);
-        tok_sender_.reset(new TokenCopySender(threadpool_, log_));
-        if (tok_sender_ == nullptr) {
-            err = ERR_OUT_OF_MEMORY;
-        }
-        /* Send a response back.  NOTE: Ideally we should schedule this on threadpool as it can
-         * block.
-         */
-        auto rcvr_rpc_ep = ack_copy_token_req(req);
-        // tok_sender_->set_rcvr_rpc_ep(rcvr_rpc_ep);
-        tok_sender_->handle_actor_request(req);
+        handle_migsvc_copy_token(req);
         break;
     }
-    case FAR_MIG_PUSH_TOKEN_OBJECTS:
+    case FAR_MIG_COPY_TOKEN_RPC:
+    {
+        handle_migsvc_copy_token_rpc(req);
+        break;
+    }
+    case FAR_MIG_PUSH_TOKEN_OBJECTS_RPC:
+#if 0
         if (tok_receiver_ == nullptr) {
             fds_assert(!"tok_receiver is null");
             FDS_PLOG_WARN(get_log()) << "Token receiver deleted";
             break;
         }
         tok_receiver_->handle_actor_request(req);
+#endif
         break;
     default:
         err = ERR_FAR_INVALID_REQUEST;
         break;
     }
     return err;
+}
+
+/**
+ * Handles FAR_MIGSVC_COPY_TOKEN.  Creates TokenCopyReceiver and starts
+ * the state machine for it
+ */
+void FdsMigrationSvc::handle_migsvc_copy_token(FdsActorRequestPtr req)
+{
+    fds_assert(req->type == FAR_MIGSVC_COPY_TOKEN);
+    auto copy_payload = req->get_payload<MigSvcCopyTokensReq>();
+    IpTokenTable token_tbl = get_ip_token_tbl(copy_payload->tokens);
+
+    /* Create TokenCopyReceiver endpoint for each ip */
+    for (auto  itr = token_tbl.begin(); itr != token_tbl.end();  itr++) {
+        std::string migration_id = fds::get_uuid();
+        std::string ip = itr->first;
+        std::unique_ptr<TokenCopyReceiver> copy_rcvr(
+                new TokenCopyReceiver(migration_id, threadpool_, log_,
+                        nst_, ip, itr->second, migpath_handler_));
+        FDS_PLOG_INFO(get_log()) << " New receiver for ip : " << ip;
+        pending_mig_actors_[ip] = std::move(copy_rcvr);
+        copy_rcvr->start();
+    }
+}
+
+/**
+ * Handles FAR_MIGSVC_COPY_TOKEN_RPC.  Creates TokenCopySender and starts
+ * the state machine for it
+ */
+void FdsMigrationSvc::handle_migsvc_copy_token_rpc(FdsActorRequestPtr req)
+{
+    fds_assert(req->type == FAR_MIGSVC_COPY_TOKEN_RPC);
+
+    /* First acknowledge/accept the copy request */
+    if (ack_copy_token_req(req) != ERR_OK) {
+        FDS_PLOG_WARN(get_log()) << "Dropping Copy token request";
+    }
+
+    /* Start off the TokenCopySender state machine */
+    auto copy_payload = req->get_payload<FDSP_CopyTokenReq>();
+    std::string &migration_id = copy_payload->header.migration_id;
+    std::string &ip = copy_payload->header.base_header.src_node_name;
+    std::set<fds_token_id> tokens(
+            copy_payload->tokens.begin(), copy_payload->tokens.begin());
+    fds_assert(migration_id.size() > 0);
+    fds_assert(ip.size() > 0);
+    fds_assert(tokens.size() > 0);
+
+    std::unique_ptr<TokenCopySender> copy_sender(
+            new TokenCopySender(migration_id, threadpool_, log_,
+                    ip, tokens, migpath_handler_));
+    pending_mig_actors_[ip] = std::move(copy_sender);
+
+    copy_sender->start();
+    FDS_PLOG_INFO(get_log()) << " New sender for ip : " << ip;
+}
+
+/**
+ * Returns mapping between primary source ip->tokens
+ * @param tokens
+ * @return
+ */
+FdsMigrationSvc::IpTokenTable
+FdsMigrationSvc::get_ip_token_tbl(const std::set<fds_token_id>& tokens)
+{
+    IpTokenTable tbl;
+    // TODO(rao): Implement this
+    return tbl;
 }
 
 /**
@@ -138,29 +205,42 @@ void FdsMigrationSvc::setup_migpath_server()
 }
 
 /**
- * Acknowledge FAR_MIG_COPY_TOKEN request.  Create rpc client session from
- * sender to receiver
+ * Acknowledge FAR_MIG_COPY_TOKEN_RPC request.
  * @param req
  */
-netMigrationPathClientSession*
+Error
 FdsMigrationSvc::ack_copy_token_req(FdsActorRequestPtr req)
 {
+    Error err(ERR_OK);
+
     fds_assert(req->type == FAR_MIG_COPY_TOKEN);
     auto copy_token = req->get_payload<FDSP_CopyTokenReq>();
 
     /* Send a respones back acking request.  In future we can do more things here */
     FDSP_MsgHdrTypePtr response(new FDSP_MsgHdrType());
-    migpath_resp_client(copy_token->header.session_uuid)->CopyTokenResp(response);
+    std::string &session_id = copy_token->header.base_header.session_uuid;
+    migpath_resp_client(session_id)->CopyTokenResp(response);
 
+    return err;
+}
+
+/**
+ * Acknowledge FAR_MIG_COPY_TOKEN request.  Create rpc client session from
+ * sender to receiver
+ * @param req
+ */
+netMigrationPathClientSession*
+FdsMigrationSvc::get_migration_client(const std::string &ip)
+{
     /* Create a client rpc session from src to dst */
-    netMigrationPathClientSession* rcvr_rpc_session =
+    netMigrationPathClientSession* rpc_session =
             nst_->startSession<netMigrationPathClientSession>(
-                    conf_helper_.get<std::string>("ip"),
+                    ip,
                     conf_helper_.get<int>("migration_port"),
                     FDSP_MIGRATION_MGR,
                     1, /* number of channels */
                     migpath_handler_);
-    return rcvr_rpc_session;
+    return rpc_session;
 }
 
 #if 0

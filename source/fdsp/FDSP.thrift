@@ -1,4 +1,5 @@
 #ifndef __FDSP_H__
+
 #define __FDSP_H__
 namespace c_glib FDS_ProtocolInterface
 namespace cpp FDS_ProtocolInterface
@@ -70,7 +71,8 @@ enum FDSP_MgrIdType {
     FDSP_STOR_HVISOR,
     FDSP_ORCH_MGR,
     FDSP_CLI_MGR, 
-    FDSP_OMCLIENT_MGR
+    FDSP_OMCLIENT_MGR,
+    FDSP_MIGRATION_MGR
 }
 
 enum FDSP_ResultType {
@@ -704,14 +706,23 @@ typedef i32 FDSP_Token
 /* raw data for the object */
 typedef string FDSP_ObjectData
 
+struct FDSP_MigMsgHdrType
+{
+	/* Header */
+	1: FDSP_MsgHdrType            base_header
+
+	/* Id to identify unique migration between sender and receiver */
+	2: string                     migration_id
+}
+
 /* Payload for CopyToken RPC */
 struct FDSP_CopyTokenReq
 {
 	/* Header */
-	1: FDSP_MsgHdrType            header;
+	1: FDSP_MigMsgHdrType         header
 	
-    /* Token to be migrated */
-    2: FDSP_Token              token_id
+    /* Tokens to be migrated */
+    2: list<FDSP_Token>			  tokens
 
     /* Maximum size in bytes of FDSP_MigrateObjectData to 
      * send in a single respone 
@@ -744,7 +755,7 @@ typedef list<FDSP_MigrateObjectData> FDSP_MigrateObjectList
 struct FDSP_PushTokenObjectsReq
 {
 	/* Header */
-	1: FDSP_MsgHdrType            header;
+	1: FDSP_MigMsgHdrType         header
 
     /* This is final put or not */
     2: bool complete

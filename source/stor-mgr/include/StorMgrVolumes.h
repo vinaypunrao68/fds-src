@@ -11,6 +11,8 @@
 #include <list>
 #include <unordered_map>
 #include <functional>
+#include <boost/shared_ptr.hpp>
+#include <memory>
 
 #include <fdsp/FDSP_types.h>
 #include <fds_err.h>
@@ -301,7 +303,9 @@ namespace fds {
   /**
    * @brief Putting token objects request
    */
-  class PutTokObjectsReq : public SmIoReq {
+  class SmIoPutTokObjectsReq : public SmIoReq {
+   public:
+      typedef std::function<void (const Error&)> CbType;
    public:
     virtual std::string log_string() override 
     {
@@ -315,8 +319,51 @@ namespace fds {
     /* List objects and their metadata */
     FDSP_MigrateObjectList obj_list;
     /* Response callback */
-    std::function<void (const Error&)> response_cb; 
+    CbType response_cb;
   };
+
+  /**
+   * Token iterator
+   */
+  class SMTokenItr {
+  public:
+      ObjectID  objId;
+
+      SMTokenItr() {
+      }
+      ~SMTokenItr() {
+      }
+
+      bool isDone() {return objId == NullObjectID;}
+  };
+
+  /**
+   * @brief Getting token objects request
+   */
+  class SmIoGetTokObjectsReq : public SmIoReq {
+   public:
+    typedef std::function<void (const Error&, SmIoGetTokObjectsReq *resp)> CbType;
+   public:
+    virtual std::string log_string() override
+    {
+        std::stringstream ret;
+        ret << " SmIoGetTokObjectsReq Token id: " << token_id;
+        return ret.str();
+    }
+
+    /* In: Token id that objects belong to */
+    fds_token_id token_id;
+    /* Out: List objects and their metadata */
+    FDSP_MigrateObjectList obj_list;
+    /* In/Out: Iterator to keep track of where we were */
+    SMTokenItr itr;
+    /* In: Maximum size to populate */
+    size_t max_size;
+    /* Response callback */
+    CbType response_cb;
+  };
+  typedef boost::shared_ptr<SmIoGetTokObjectsReq> SmIoGetTokObjectReqSPtr;
+  typedef std::unique_ptr<SmIoGetTokObjectsReq> SmIoGetTokObjectsReqUPtr;
 }  // namespace fds
 
 #endif  // SOURCE_STOR_MGR_STORMGRVOLUMES_H_

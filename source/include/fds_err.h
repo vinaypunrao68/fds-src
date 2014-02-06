@@ -118,19 +118,19 @@ namespace fds {
       return *this;
     }
 
-    bool operator==(const Error& rhs) {
+    bool operator==(const Error& rhs) const {
       return (this->_errno == rhs._errno);
     }
 
-    bool operator==(const fds_errno_t& rhs) {
+    bool operator==(const fds_errno_t& rhs) const {
       return (this->_errno == rhs);
     }
 
-    bool operator!=(const Error& rhs) {
+    bool operator!=(const Error& rhs) const {
       return (this->_errno != rhs._errno);
     }
 
-    bool operator!=(const fds_errno_t& rhs) {
+    bool operator!=(const fds_errno_t& rhs) const {
       return (this->_errno != rhs);
     }
 

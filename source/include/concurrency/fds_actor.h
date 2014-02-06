@@ -5,6 +5,8 @@
 #ifndef SOURCE_UTIL_ACTOR_H_
 #define SOURCE_UTIL_ACTOR_H_
 
+#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <fds_err.h>
 #include <concurrency/fds_actor_request.h>
 #include <concurrency/ThreadPool.h>
@@ -20,6 +22,8 @@ public:
         return "FdsActor";
     }
 };
+typedef boost::shared_ptr<FdsActor> FdsActorPtr;
+typedef std::unique_ptr<FdsActor> FdsActorUPtr;
 
 class FdsRequestQueueActor : public FdsActor {
 public:
@@ -35,6 +39,7 @@ protected:
     fds_threadpoolPtr threadpool_;
     fds_spinlock lock_;
     bool scheduled_;
+    // TODO(rao):  Change to lockfree queue
     FdsActorRequestQueue queue_;
 };
 }  // namespace fds

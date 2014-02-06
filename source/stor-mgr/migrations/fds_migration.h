@@ -4,6 +4,7 @@
 #include <string>
 #include <memory>
 #include <unordered_map>
+#include <set>
 #include <fds_module.h>
 #include <fdsp/FDSP_MigrationPathReq.h>
 #include <fdsp/FDSP_MigrationPathResp.h>
@@ -131,10 +132,33 @@ private:
 };
 #endif
 
-/* Service for migrating objects */
-class FdsMigrationSvc : public Module,
-public FdsRequestQueueActor
+/**
+ * Send this message to FdsMigrationSvc for copying tokens
+ */
+class MigSvcCopyTokensReq
 {
+public:
+    std::set<fds_token_id> tokens;
+    std::function<void (const Error&)> response_cb;
+};
+typedef boost::shared_ptr<MigSvcCopyTokensReq> MigSvcCopyTokensReqPtr;
+
+/**
+ * Send this message to migration is complete
+ */
+class MigSvcMigrationComplete
+{
+public:
+    std::string migration_id;
+};
+typedef boost::shared_ptr<MigSvcMigrationComplete> MigSvcMigrationCompletePtr;
+
+/* Service for migrating objects */
+class FdsMigrationSvc : public Module, public FdsRequestQueueActor
+{
+public:
+    typedef std::unordered_map<std::string, std::set<fds_token_id> > IpTokenTable;
+
 public:
     FdsMigrationSvc(fds_threadpoolPtr threadpool,
             const FdsConfigAccessor &conf_helper,
@@ -155,9 +179,15 @@ public:
     /* Overrides from FdsRequestQueueActor */
     virtual Error handle_actor_request(FdsActorRequestPtr req) override;
 
+    netMigrationPathClientSession*
+    get_migration_client(const std::string &ip);
+
 private:
+    void handle_migsvc_copy_token(FdsActorRequestPtr req);
+    void handle_migsvc_copy_token_rpc(FdsActorRequestPtr req);
+    IpTokenTable get_ip_token_tbl(const std::set<fds_token_id> &tokens);
     void setup_migpath_server();
-    netMigrationPathClientSession* ack_copy_token_req(FdsActorRequestPtr req);
+    Error ack_copy_token_req(FdsActorRequestPtr req);
 
     inline boost::shared_ptr<FDSP_MigrationPathRespClient>
     migpath_resp_client(const std::string session_uuid) {
@@ -175,9 +205,14 @@ private:
     boost::shared_ptr<FDSP_MigrationPathRpc> migpath_handler_;
     netMigrationPathServerSession *migpath_session_;
 
-    // TODO (rao):  We should maintain a table of in progress migrations
-    std::unique_ptr<TokenCopySender> tok_sender_;
-    std::unique_ptr<TokenCopySender> tok_receiver_;
+    /* All of the migrations pending start of migration.  Once migrations
+     * start they will go into inprogress_mig_actors_;
+     * NOTE: Key for this table is IP.  Ideally it should be some sort of a
+     * stream id
+     */
+    std::unordered_map<std::string, FdsActorUPtr> pending_mig_actors_;
+    /* Migrations that are in progress */
+    std::unordered_map<std::string, FdsActorUPtr> inprogress_mig_actors_;
 }; 
 
 class FDSP_MigrationPathRpc : virtual public FDSP_MigrationPathReqIf ,
