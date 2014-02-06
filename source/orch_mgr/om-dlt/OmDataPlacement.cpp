@@ -301,7 +301,8 @@ DataPlacement::beginRebalance() {
             new FDS_ProtocolInterface::FDSP_MsgHdrType());
         FDS_ProtocolInterface::FDSP_DLT_TypePtr dltMsg(
             new FDS_ProtocolInterface::FDSP_DLT_Type());
-        naClient->NotifyDLTUpdate(msgHdr, dltMsg);
+        // TODO(Andrew): Move this to the new DLT RPC
+        // naClient->NotifyDLTUpdate(msgHdr, dltMsg);
 
         FDS_PLOG_SEV(g_fdslog, fds_log::notification)
                 << "Sent DLT update to " << na->get_uuid().uuid_get_val();
