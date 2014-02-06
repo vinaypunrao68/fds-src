@@ -8,7 +8,7 @@
 #include <boost/program_options.hpp>
 #include <fds_module.h>
 #include <net-proxies/vol_policy.h>
-#include <NetSession.h>
+#include <fdsp/FDSP_ConfigPathReq.h>
 
 namespace fds {
 class CliComponent
