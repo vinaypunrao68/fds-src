@@ -131,7 +131,7 @@ OM_NodeDomainMod::om_update_cluster() {
 
     // Start rebalancing/syncing data to prepare
     // for the new DLT
-    DltRebalEvt rebalEvent(NULL);
+    DltRebalEvt rebalEvent(dp);
     dltMod->dlt_deploy_event(rebalEvent);
 
     // TODO(Andrew): This state transition should not
