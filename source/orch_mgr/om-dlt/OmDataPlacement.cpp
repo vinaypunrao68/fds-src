@@ -5,8 +5,10 @@
 #include <map>
 #include <utility>
 #include <vector>
+#include <string>
 
 #include <orch-mgr/om-service.h>
+#include <fds_process.h>
 #include <OmDataPlacement.h>
 
 namespace fds {
@@ -160,6 +162,7 @@ WeightMap::updateHighestLowestWeightNode(fds_uint32_t new_tokens,
 void
 WeightMap::debug_print(fds_log* log) const {
     std::map<LoadRatio, std::vector<NodeUuid>>::const_iterator it;
+    FDS_PLOG_SEV(log, fds_log::debug) << "Placement Weight Map: ";
     for (it = weight_map.cbegin();
          it != weight_map.cend();
          it++) {
@@ -169,8 +172,7 @@ WeightMap::debug_print(fds_log* log) const {
              jt++) {
             FDS_PLOG_SEV(log, fds_log::debug)
                     << "Node 0x" << std::hex << (*jt).uuid_get_val()
-                    << " has load ratio " << std::dec
-                    << ((*it).first) << std::endl;
+                    << " has load ratio " << std::dec << ((*it).first);
         }
     }
 }
@@ -179,20 +181,13 @@ WeightMap::debug_print(fds_log* log) const {
  * Functions definitions for data
  * placement
  **********/
-DataPlacement::DataPlacement(PlacementAlgorithm::AlgorithmTypes type,
-                             fds_uint64_t width,
-                             fds_uint64_t depth)
+DataPlacement::DataPlacement()
         : Module("Data Placement Engine"),
           placeAlgo(NULL),
           curDlt(NULL),
           curWeightDist(NULL) {
     placementMutex = new fds_mutex("data placement mutex");
-
-    setAlgorithm(type);
-    curDltWidth = width;
-    curDltDepth = depth;
-
-    // curClusterMap = new ClusterMap();
+    curClusterMap = &gl_OMClusMapMod;
 }
 
 DataPlacement::~DataPlacement() {
@@ -299,12 +294,21 @@ DataPlacement::commitDlt() {
     // Commit the current DLT to the
     // official DLT history
 
-    // Async notify other nodes of the new
-    // DLT
+    // Async notify other nodes of the new DLT
     for (ClusterMap::const_iterator it = curClusterMap->cbegin();
          it != curClusterMap->cend();
          it++) {
         NodeAgent::pointer na = it->second;
+        NodeAgentCpReqClientPtr naClient = na->getCpClient();
+
+        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr(
+            new FDS_ProtocolInterface::FDSP_MsgHdrType());
+        FDS_ProtocolInterface::FDSP_DLT_Data_TypePtr dltMsg(
+            new FDS_ProtocolInterface::FDSP_DLT_Data_Type());
+        naClient->NotifyDLTUpdate(msgHdr, dltMsg);
+
+        FDS_PLOG_SEV(g_fdslog, fds_log::notification)
+                << "Sent DLT update to " << na->get_uuid().uuid_get_val();
     }
 
     placementMutex->unlock();
@@ -325,7 +329,33 @@ DataPlacement::getCurClustMap() const {
 int
 DataPlacement::mod_init(SysParams const *const param) {
     Module::mod_init(param);
+
+    FdsConfigAccessor conf_helper(g_fdsprocess->get_conf_helper());
+    std::string algo_type_str = conf_helper.get<std::string>("placement_algo");
+    curDltWidth = conf_helper.get<int>("token_factor");
+    curDltDepth = conf_helper.get<int>("replica_factor");
+
+    PlacementAlgorithm::AlgorithmTypes type =
+            PlacementAlgorithm::AlgorithmTypes::ConsistHash;
+    if (algo_type_str.compare("ConsistHash") == 0) {
+        type = PlacementAlgorithm::AlgorithmTypes::ConsistHash;
+    } else if (algo_type_str.compare("RoundRobin") == 0) {
+        type = PlacementAlgorithm::AlgorithmTypes::RoundRobin;
+    } else {
+        FDS_PLOG_SEV(g_fdslog, fds_log::warning)
+                <<"DataPlacement: unknown placement algorithm type in "
+                << "config file, will use Consistent Hashing algorith";
+    }
+
+    FDS_PLOG_SEV(g_fdslog, fds_log::notification)
+            << "DataPlacement: DLT width " << curDltWidth
+            << ", dlt depth " << curDltDepth
+            << ", algorithm " << algo_type_str;
+
+    setAlgorithm(type);
+
     curClusterMap = OM_Module::om_singleton()->om_clusmap_mod();
+
     return 0;
 }
 

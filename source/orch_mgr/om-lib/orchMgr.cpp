@@ -91,7 +91,8 @@ void OrchMgr::setup(int argc, char* argv[],
         }
     }
 
-    GetLog()->setSeverityFilter((fds_log::severity_level) (mod_params->log_severity));
+    GetLog()->setSeverityFilter(
+        (fds_log::severity_level) (conf_helper_.get<int>("log_severity")));
 
     policy_mgr = new VolPolicyMgr(stor_prefix, om_log);
 
@@ -244,10 +245,7 @@ int OrchMgr::RemoveNode(const FdspMsgHdrPtr& fdsp_msg,
                         const FdspRmNodePtr& rm_node_req) {
     FDS_PLOG_SEV(GetLog(), fds_log::normal)
             << "Received RemoveNode Req : "
-            << rm_node_req->node_id;
-
-    std::cout << "Received RemoveNode Req : "
-              << rm_node_req->node_id;
+            << rm_node_req->node_name;
 
     return 0;
 }
@@ -825,6 +823,8 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
     }
 
     // Let this new node know about the existing node list
+    // TODO(Andrew): This should change into dissemination of
+    // the current cluster map
     currentDom->domain_ptr->sendMgrNodeListToFdsNode(n_info);
 
     // Let this new node know about the existing volumes.
@@ -837,17 +837,15 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
 
     om_mutex->unlock();
 
-    /*
-     * Recompute the DLT/DMT. This reacquires
-     * the om_lock internally.
-     */
-    currentDom->domain_ptr->updateTables();
+    // TODO(Andrew): Return registration success
+    // This is replying on the OM's global config interface,
+    // not the per-node channel that's established during
+    // registration/bootstrap
+    currentDom->domain_ptr->sendRegRespToNode(n_info, ERR_OK);
 
-    /*
-     * Send the DLT/DMT to the other nodes
-     */
-    currentDom->domain_ptr->sendNodeTableToFdsNodes(table_type_dlt);
-    currentDom->domain_ptr->sendNodeTableToFdsNodes(table_type_dmt);
+    // TODO(Andrew): For now, let's start the cluster update process
+    // now. This should eventually be decoupled from registration.
+    domain->om_update_cluster();
 }
 
 void OrchMgr::SetThrottleLevelForDomain(int domain_id, float throttle_level) {

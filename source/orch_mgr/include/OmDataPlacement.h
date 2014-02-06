@@ -208,9 +208,7 @@ namespace fds {
         fds_mutex *placementMutex;
 
   public:
-        DataPlacement(PlacementAlgorithm::AlgorithmTypes type,
-                      fds_uint64_t width,
-                      fds_uint64_t depth);
+        DataPlacement();
         ~DataPlacement();
 
         /*

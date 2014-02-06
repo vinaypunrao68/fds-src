@@ -43,7 +43,11 @@ public:
                       OMgrClient *omc);
   ~StorHvDataPlacement();
   
-  void  getDLTNodesForDoidKey(unsigned char doid_key, int *node_ids, int *n_nodes) {
+  DltTokenGroupPtr  getDLTNodesForDoidKey( ObjectID *objId) {
+      return parent_omc->getDLTNodesForDoidKey(objId);
+  }
+#if 0
+  void  getDLTNodesForDoidKey( ObjectID *objId) {
     if (mode == DP_NO_OM_MODE) {
       /*
        * TODO: Set up some stock response here.
@@ -53,9 +57,11 @@ public:
       (*n_nodes) = 1;
       node_ids[(*n_nodes) - 1] = 0;
     } else {
-      parent_omc->getDLTNodesForDoidKey(doid_key, node_ids, n_nodes);
+      parent_omc->getDLTNodesForDoidKey(objId);
     }
   }
+#endif
+
   void  getDMTNodesForVolume(int volid, int *node_ids, int *n_nodes ) {
     if (mode == DP_NO_OM_MODE) {
       /*
@@ -71,7 +77,7 @@ public:
     }
   }
 
-  Error getNodeInfo(int node_id,
+  Error getNodeInfo(fds_uint64_t node_id,
                     fds_uint32_t *node_ip_addr,
                     fds_uint32_t *node_port,
                     int *node_state) {

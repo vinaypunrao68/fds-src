@@ -40,7 +40,7 @@ FdsLocalDomain::FdsLocalDomain(const std::string& om_prefix,
     dltDepth = 4;  /* Max 4 total SM replicas */
     dmtDepth = 4;  /* Max 4 total DM replicas */
 
-    curDlt = new FdsDlt(dltWidth, dltDepth);
+//    curDlt = new FdsDlt(dltWidth, dltDepth);
     curDmt = new FdsDmt(dmtWidth, dmtDepth);
 
     next_free_vol_id = 2;
@@ -134,9 +134,9 @@ void FdsLocalDomain::updateDltLocked() {
      * TODO: For now just call a round robin.
      */
     FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Updating DLT";
-    roundRobinDlt(static_cast<fds_placement_table *>(curDlt),
-                  currentSmMap,
-                  parent_log);
+// SAN    roundRobinDlt(static_cast<fds_placement_table *>(curDlt),
+//                  currentSmMap,
+//                  parent_log);
 }
 
 /*
@@ -446,13 +446,13 @@ void FdsLocalDomain::sendNodeTableToFdsNodes(int table_type) {
     msg_hdr_ptr->tennant_id = 1;
     msg_hdr_ptr->local_domain_id = 1;
 
-    FDS_ProtocolInterface::FDSP_DLT_TypePtr dlt_info_ptr;
+    FDS_ProtocolInterface::FDSP_DLT_Data_TypePtr dlt_info_ptr;
     FDS_ProtocolInterface::FDSP_DMT_TypePtr dmt_info_ptr;
     if (table_type == table_type_dlt) {
         // dlt_info_ptr = new FDS_ProtocolInterface::FDSP_DLT_Type;
         // dlt_info_ptr->DLT_version = current_dlt_version;
         // dlt_info_ptr->DLT = current_dlt_table;
-        dlt_info_ptr = curDlt->toFdsp();
+//SAN         dlt_info_ptr = curDlt->toFdsp();
     } else {
         // dmt_info_ptr = new FDS_ProtocolInterface::FDSP_DMT_Type;
         // dmt_info_ptr->DMT_version = current_dmt_version;
@@ -518,6 +518,29 @@ void FdsLocalDomain::sendAllVolumesToFdsMgrNode(NodeInfo node_info) {
 
         node_info.getClient()->NotifyAddVol(msg_hdr, vol_msg);
     }
+}
+
+/**
+ * Sends registration result to a single node
+ */
+void
+FdsLocalDomain::sendRegRespToNode(NodeInfo node_info,
+                                  const Error &err) {
+    FdspMsgHdrPtr msg_hdr(new FDS_ProtocolInterface::FDSP_MsgHdrType);
+    FDS_ProtocolInterface::FDSP_RegisterNodeTypePtr reg_msg(
+        new FDS_ProtocolInterface::FDSP_RegisterNodeType());
+
+    initOMMsgHdr(msg_hdr);
+    msg_hdr->result       = FDS_ProtocolInterface::FDSP_ERR_OK;
+    msg_hdr->err_code     = err.GetErrno();
+    msg_hdr->session_uuid = node_info.getSessionId();
+
+    FDS_PLOG_SEV(parent_log, fds_log::notification)
+            << "Sending registration result to node "
+            << node_info.node_name;
+
+    // TODO(Andrew): OM needs an interface to respond to these messages
+    // node_info.getClient()->RegisterNodeResp(msg_hdr, reg_msg);
 }
 
 // Broadcast create vol ctrl message to all DM/SM Nodes

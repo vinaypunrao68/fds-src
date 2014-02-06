@@ -38,7 +38,8 @@
 #include <unordered_map>
 #include <include/TransJournal.h>
 #include <ObjStats.h>
-#define SM_TOKEN_MASK 0xff000000;
+#define SM_TOKEN_MASK 0xff000000
+#define SM_TOKEN_MASK_64 0xff00000000000000
 using namespace FDS_ProtocolInterface;
 using namespace fds;
 using namespace osm;
@@ -100,7 +101,7 @@ ObjectDB *objdb = NULL;
 
 fds::Error Get(const ObjectID& obj_id,
                          ObjectBuf& obj_buf) {
-  fds_token_id tokId = obj_id.GetHigh() & SM_TOKEN_MASK;
+  fds_token_id tokId = (obj_id.GetHigh() & SM_TOKEN_MASK_64) >> 32;
   fds::Error err = ERR_OK;
   ObjectDB *odb = getObjectDB(tokId);
   if (odb) { 
@@ -114,11 +115,11 @@ fds::Error Get(const ObjectID& obj_id,
 
 fds::Error Put(const ObjectID& obj_id,
                          ObjectBuf& obj_buf) {
-  fds_token_id tokId = obj_id.GetHigh() & SM_TOKEN_MASK;
+  fds_token_id tokId = (obj_id.GetHigh() & SM_TOKEN_MASK_64) >> 32;
   fds::Error err = ERR_OK;
   ObjectDB *odb = getObjectDB(tokId);
   if (odb) { 
-     err =  odb->Get(obj_id, obj_buf);
+     err =  odb->Put(obj_id, obj_buf);
   } else {
     odb = openObjectDB(tokId);
     err = fds::Error(fds::ERR_DISK_WRITE_FAILED);

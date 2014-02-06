@@ -88,7 +88,8 @@ ConsistHashAlgorithm::computeNewDlt(const ClusterMap *currMap,
 
     // Compute DLT from scratch if this is the first version
     if ((currDlt == NULL) || (total_nodes <= 2)) {
-        FDS_PLOG(getLog()) << "ConsistHashAlgorithm: compute new DLT";
+        FDS_PLOG(getLog()) << "ConsistHashAlgorithm: compute new DLT for "
+                           << total_nodes << " nodes";
         return computeInitialDlt(currMap, newDlt);
     }
 
@@ -179,11 +180,12 @@ ConsistHashAlgorithm::handleNewNodesPrimary(const ClusterMap *curMap,
         (node_toks[uuid]).erase(sit);
         new_node_toks[*cit].insert(stolen_token);
 
-        std::cout << "Node " << (*cit).uuid_get_val()
-                  << " will steal " << toks << " tokens" << std::endl;
-        std::cout << "Steal first token " << stolen_token
-                  << " from node " << std::hex << uuid.uuid_get_val()
-                  << std::dec << std::endl;
+        FDS_PLOG_SEV(getLog(), fds_log::debug)
+                << "Node " << (*cit).uuid_get_val()
+                << " will steal " << toks << " tokens" << std::endl
+                << "Steal first token " << stolen_token
+                << " from node " << std::hex << uuid.uuid_get_val()
+                << std::dec;
 
         // calculate 'ideal' tokens for this new node
         // including the first stolen token
@@ -192,16 +194,13 @@ ConsistHashAlgorithm::handleNewNodesPrimary(const ClusterMap *curMap,
         fds_uint32_t end_token = (stolen_token > 0) ?
                 stolen_token - 1 : (numTokens - 1);
 
-        std::cout << "Ideal remaining tokens ";
         while (i < toks) {
             next_token += ((numTokens - next_token - 1) / (toks - i));
             next_token = next_token % numTokens;
-            std::cout << next_token << " ";
             target_tokens.push_back(next_token);
             ttok_nodes[next_token].insert(*cit);
             ++i;
         }
-        std::cout << std::endl;
     }
 
     // steal the remaining tokens
@@ -234,10 +233,11 @@ ConsistHashAlgorithm::handleNewNodesPrimary(const ClusterMap *curMap,
         std::unordered_set<NodeUuid, UuidHash>::iterator it =
                 (ttok_nodes[target_token]).begin();
 
-        std::cout << "Steal from node " << std::hex << src_uuid.uuid_get_val()
-                  << std::dec << " token " << stolen_token
-                  << " to node " << std::hex << (*it).uuid_get_val() << std::dec
-                  << " (ideal token " << target_token << ")" << std::endl;
+        FDS_PLOG_SEV(getLog(), fds_log::debug)
+                << "Steal from node " << std::hex << src_uuid.uuid_get_val()
+                << std::dec << " token " << stolen_token
+                << " to node " << std::hex << (*it).uuid_get_val() << std::dec
+                << " (ideal token " << target_token << ")";
 
         ttok_nodes[target_token].erase(*it);
         fds_verify((new_node_toks[*it]).count(stolen_token) == 0);
@@ -302,9 +302,10 @@ ConsistHashAlgorithm::handleRmNodesPrimary(const ClusterMap *curMap,
                                                      node_toks[new_uuid],
                                                      numTokens,
                                                      false);  // update lowest weight
-            std::cout << "RM: node " << std::hex << uuid.uuid_get_val()
-                      << " -> node " << new_uuid.uuid_get_val() << std::dec
-                      << " token " << i << std::endl;
+            FDS_PLOG_SEV(getLog(), fds_log::debug)
+                    << "RM: node " << std::hex << uuid.uuid_get_val()
+                    << " -> node " << new_uuid.uuid_get_val() << std::dec
+                    << " token " << i;
             weightMap->debug_print(getLog());
 
             newDlt->setNode(i, 0, new_uuid);
@@ -355,23 +356,20 @@ ConsistHashAlgorithm::getMatchedTokenPair(TokenList* target_list,
     }
 
     // TEMP
-    std::cout << "candidate list: " << std::endl;
+    FDS_PLOG_SEV(getLog(), fds_log::debug) << "candidate list: ";
     for (std::set<fds_token_id>::iterator c_it = candidate_set->begin();
          c_it != candidate_set->end();
          ++c_it) {
-        std::cout << *c_it << " ";
+        FDS_PLOG_SEV(getLog(), fds_log::debug) << *c_it << " ";
     }
-    std::cout << std::endl;
-    std::cout << "target list: " << std::endl;
+    FDS_PLOG_SEV(getLog(), fds_log::debug) << "target list: ";
     for (TokenList::iterator t_it = target_list->begin();
          t_it != target_list->end();
          ++t_it) {
-        std::cout << *t_it << " ";
+        FDS_PLOG_SEV(getLog(), fds_log::debug) << *t_it << " ";
     }
-    std::cout << std::endl;
-    std::cout << "Match: target " << *tgt_it
-              << " selected candidate " << *candidate_it
-              << std::endl;
+    FDS_PLOG_SEV(getLog(), fds_log::debug) << "Match: target " << *tgt_it
+                                           << " selected candidate " << *candidate_it;
 
     // matched tokens we return
     *ret_target_token = *tgt_it;

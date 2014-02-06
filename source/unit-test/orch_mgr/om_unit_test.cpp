@@ -140,12 +140,13 @@ class ControlPathReq : public FDS_ProtocolInterface::FDSP_ControlPathReqIf {
     }
     
     void NotifyDLTUpdate(const FDSP_MsgHdrType& fdsp_msg,
-                         const FDSP_DLT_Type& dlt_info) {
+                         const FDSP_DLT_Data_Type& dlt_info) {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
 
     void NotifyDLTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
-			 FDSP_DLT_TypePtr& dlt_info) {
+			 FDSP_DLT_Data_TypePtr& dlt_info) {
+#if 0 //SAN 
         FDS_PLOG(test_log) << "Received a DLT update" << std::endl;
         for (fds_uint32_t i = 0; i < dlt_info->DLT.size(); i++) {
             for (fds_uint32_t j = 0; j < dlt_info->DLT[i].size(); j++) {
@@ -153,6 +154,7 @@ class ControlPathReq : public FDS_ProtocolInterface::FDSP_ControlPathReqIf {
                                    << " value " << dlt_info->DLT[i][j] << std::endl;
             }
         }
+#endif
     }
 
     void NotifyDMTUpdate(const FDSP_MsgHdrType& msg_hdr,

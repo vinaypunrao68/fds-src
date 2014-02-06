@@ -159,47 +159,89 @@ UT_OM_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput 
     // Update the cluster map
     ProbeMod *mod  = out->js_get_context();
     OM_Module *om  = static_cast<OM_Module *>(mod->pr_get_owner_module());
-    DataPlacement *dp = static_cast<DataPlacement *>(om->om_dataplace_mod());
+    DataPlacement *dp = om->om_dataplace_mod();
+    boost::shared_ptr<UT_DLT_EvalHelper> eval_helper(new UT_DLT_EvalHelper);
 
     fds_verify(om == &gl_OMModule);
     const DLT *oldDlt = dp->getCurDlt();
-    fds_uint32_t old_depth = 0;
-    fds_uint32_t old_tokens = 0;
-    fds_uint64_t* old_dlt_ptr = copy_dlt(oldDlt);
-    if (oldDlt != NULL) {
-        old_depth = oldDlt->getDepth();
-        old_tokens = oldDlt->getNumTokens();
-    }
+    eval_helper->setOldDlt(oldDlt);
 
     // Drive cluster map update via state machine
-    OM_DLTMod *dltMod = static_cast<OM_DLTMod *>(om->om_dlt_mod());
+    OM_DLTMod *dltMod = om->om_dlt_mod();
     DltCompEvt event(dp);
     dltMod->dlt_deploy_event(event);
 
     // Get new/old dlt states
     const DLT *dlt = dp->getCurDlt();
-    fds_uint64_t new_depth = dlt->getDepth();
-    fds_uint32_t new_tokens = dlt->getNumTokens();
-    fds_uint64_t* new_dlt_ptr = copy_dlt(dlt);
+    eval_helper->setNewDlt(dlt);
 
-    // Print the DLT
-    std::cout << "Old DLT: " << std::endl;
-    print_dlt(old_dlt_ptr, old_depth, old_tokens);
-    std::cout << "New DLT: " << std::endl;
-    print_dlt(new_dlt_ptr, new_depth, new_tokens);
-
-    // Compare movement between two dlts
-    compare_dlts(old_dlt_ptr, old_depth, old_tokens, new_dlt_ptr, new_depth, new_tokens);
-
-    if (old_dlt_ptr)
-        delete[] old_dlt_ptr;
-    delete[] new_dlt_ptr;
+    // Print the DLTs and compare them
+    eval_helper->printAndCompareDlts();
 
     return this;  //  to free this obj
 }
 
+JsObject *
+UT_DP_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *out)
+{
+    int               i, num;
+    FdspNodeRegPtr    ptr;
+    UT_OM_NodeInfo   *node;
+    ut_node_info_t   *info;
+    OM_NodeDomainMod *domain;
+
+    std::list<NodeAgent::pointer> newNodes;
+    std::list<NodeAgent::pointer> rmNodes;
+
+    domain = OM_NodeDomainMod::om_local_domain();
+    ptr = FdspNodeRegPtr(new FdspNodeReg());
+    num = parent->js_array_size();
+
+    for (i = 0; i < num; i++) {
+        node = static_cast<UT_OM_NodeInfo *>((*parent)[i]);
+        info = node->om_node_info();
+        std::cout << "Node uuid " << std::hex << info->nd_uuid
+                  << ", name " << info->nd_node_name
+                  << ", weight " << std::dec << info->nd_weight << std::endl;
+
+        // TODO(vy): encode this in json format
+        ptr->disk_info.ssd_capacity = info->nd_weight;
+        ResourceUUID r_uuid(info->nd_uuid);
+
+        if (info->add == true) {
+            newNodes.push_back(new NodeAgent(r_uuid, info->nd_weight));
+        } else {
+            rmNodes.push_back(new NodeAgent(r_uuid, info->nd_weight));
+        }
+    }
+
+    // Get modules and print current DLT
+    ProbeMod *mod  = out->js_get_context();
+    OM_Module *om  = static_cast<OM_Module *>(mod->pr_get_owner_module());
+    DataPlacement *dp = om->om_dataplace_mod();
+    boost::shared_ptr<UT_DLT_EvalHelper> eval_helper(new UT_DLT_EvalHelper);
+
+    fds_verify(om == &gl_OMModule);
+    const DLT *oldDlt = dp->getCurDlt();
+    eval_helper->setOldDlt(oldDlt);
+
+    // Update cluster map and recompute the DLT
+    dp->updateMembers(newNodes, rmNodes);
+    dp->computeDlt();
+
+    // Get new dlt states
+    const DLT *dlt = dp->getCurDlt();
+    eval_helper->setNewDlt(dlt);
+
+    // Print the DLTs and compare
+    eval_helper->printAndCompareDlts();
+
+    return this;  //  to free this obj
+}
+
+
 fds_uint64_t*
-UT_OM_NodeInfo::copy_dlt(const DLT* dlt)
+UT_DLT_EvalHelper::copy_dlt(const DLT* dlt)
 {
     if (dlt == NULL)
         return NULL;
@@ -225,12 +267,12 @@ UT_OM_NodeInfo::copy_dlt(const DLT* dlt)
 // in old DLT, and calculate the some of these.
 //
 void
-UT_OM_NodeInfo::compare_dlts(const fds_uint64_t* old_tbl,
-                             fds_uint32_t old_depth,
-                             fds_uint32_t old_toks,
-                             const fds_uint64_t* new_tbl,
-                             fds_uint32_t new_depth,
-                             fds_uint32_t new_toks) {
+UT_DLT_EvalHelper::compare_dlts(const fds_uint64_t* old_tbl,
+                                 fds_uint32_t old_depth,
+                                 fds_uint32_t old_toks,
+                                 const fds_uint64_t* new_tbl,
+                                 fds_uint32_t new_depth,
+                                 fds_uint32_t new_toks) {
     fds_uint32_t move_toks = 0;
     fds_uint32_t min_depth = old_depth;
     if (min_depth > new_depth) {
@@ -272,9 +314,9 @@ UT_OM_NodeInfo::compare_dlts(const fds_uint64_t* old_tbl,
 }
 
 void
-UT_OM_NodeInfo::print_dlt(const fds_uint64_t* tbl,
-                          fds_uint32_t depth,
-                          fds_uint32_t toks)
+UT_DLT_EvalHelper::print_dlt(const fds_uint64_t* tbl,
+                             fds_uint32_t depth,
+                             fds_uint32_t toks)
 {
     if (tbl == NULL) {
         std::cout << "NULL" << std::endl;
@@ -323,7 +365,7 @@ UT_OM_DltFsm::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *o
             break;
 
         case DLT_EVT_COMMIT:
-            dlt->dlt_deploy_event(DltCommitEvt());
+            dlt->dlt_deploy_event(DltCommitEvt(NULL));
             break;
 
         case DLT_EVT_COMMIT_DONE:
