@@ -6,6 +6,8 @@
 #include <map>
 #include <dlt.h>
 #include <iostream>
+#include <string>
+
 /**
  *  Implementationg for DLT ...
  */
@@ -289,6 +291,18 @@ uint32_t DLT::read(serialize::Deserializer* d) {
     return b;
 }
 
+void DLT::getSerialized(std::string& serializedData) { // NOLINT
+    serialize::Serializer *s = serialize::getMemSerializer();
+    uint32_t bytesWritten = this->write(s);
+    serializedData.append(s->getBufferAsString());
+}
+
+bool DLT::loadSerialized(std::string& serializedData) { // NOLINT
+    serialize::Deserializer *d = serialize::getMemDeserializer(serializedData);
+    this->read(d);
+    return true;
+}
+
 //================================================================================
 
 /**
@@ -378,6 +392,12 @@ bool DLTManager::add(const DLT& _newDlt) {
     curPtr = &newDlt;
 
     return true;
+}
+
+bool DLTManager::addSerializedDLT(std::string& serializedData, bool fFull) { //NOLINT
+    DLT dlt(0, 0, 0, false);
+    dlt.loadSerialized(serializedData);
+    return add(dlt);
 }
 
 bool DLTManager::add(const DLTDiff& dltDiff) {
