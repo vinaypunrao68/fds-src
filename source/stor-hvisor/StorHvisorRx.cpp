@@ -466,11 +466,13 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
     
 
     
-    doid_high = cat_obj_info.data_obj_id.hash_high;
-    doid_dlt_key = doid_high >> 56;
-    
     // Lookup the Primary SM node-id/ip-address to send the GetObject to
-    storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(doid_dlt_key, node_ids, &num_nodes);
+    boost::shared_ptr<DltTokenGroup> dltPtr;
+    dltPtr = storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(&obj_id);
+    fds_verify(dltPtr != NULL);
+
+     num_nodes = dltPtr->getLength();
+    // storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(doid_dlt_key, node_ids, &num_nodes);
     if(num_nodes == 0) {
       FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error) << " StorHvisorRx:" << "IO-XID:" << trans_id 
 							      << " volID:" << vol_id << " - DataPlace Error : no nodes in DLT :Jrnl Entry" << fdsp_msg_hdr->req_cookie <<  "QueryCatalogObjResp ";
@@ -484,7 +486,7 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
       return;
     }
 
-    storHvisor->dataPlacementTbl->getNodeInfo(node_ids[0],
+    storHvisor->dataPlacementTbl->getNodeInfo(dltPtr->get(0).uuid_get_val(),
                                               &node_ip,
                                               &node_port,
                                               &node_state);

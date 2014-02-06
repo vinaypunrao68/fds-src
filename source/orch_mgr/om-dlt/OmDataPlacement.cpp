@@ -337,8 +337,8 @@ DataPlacement::commitDlt() {
 
         FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr(
             new FDS_ProtocolInterface::FDSP_MsgHdrType());
-        FDS_ProtocolInterface::FDSP_DLT_TypePtr dltMsg(
-            new FDS_ProtocolInterface::FDSP_DLT_Type());
+        FDS_ProtocolInterface::FDSP_DLT_Data_TypePtr dltMsg(
+            new FDS_ProtocolInterface::FDSP_DLT_Data_Type());
         naClient->NotifyDLTUpdate(msgHdr, dltMsg);
 
         FDS_PLOG_SEV(g_fdslog, fds_log::notification)

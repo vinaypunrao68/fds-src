@@ -91,7 +91,8 @@ void OrchMgr::setup(int argc, char* argv[],
         }
     }
 
-    GetLog()->setSeverityFilter((fds_log::severity_level) (mod_params->log_severity));
+    GetLog()->setSeverityFilter(
+        (fds_log::severity_level) (conf_helper_.get<int>("log_severity")));
 
     policy_mgr = new VolPolicyMgr(stor_prefix, om_log);
 
@@ -244,10 +245,7 @@ int OrchMgr::RemoveNode(const FdspMsgHdrPtr& fdsp_msg,
                         const FdspRmNodePtr& rm_node_req) {
     FDS_PLOG_SEV(GetLog(), fds_log::normal)
             << "Received RemoveNode Req : "
-            << rm_node_req->node_id;
-
-    std::cout << "Received RemoveNode Req : "
-              << rm_node_req->node_id;
+            << rm_node_req->node_name;
 
     return 0;
 }

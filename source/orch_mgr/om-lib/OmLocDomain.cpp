@@ -40,7 +40,7 @@ FdsLocalDomain::FdsLocalDomain(const std::string& om_prefix,
     dltDepth = 4;  /* Max 4 total SM replicas */
     dmtDepth = 4;  /* Max 4 total DM replicas */
 
-    curDlt = new FdsDlt(dltWidth, dltDepth);
+//    curDlt = new FdsDlt(dltWidth, dltDepth);
     curDmt = new FdsDmt(dmtWidth, dmtDepth);
 
     next_free_vol_id = 2;
@@ -134,9 +134,9 @@ void FdsLocalDomain::updateDltLocked() {
      * TODO: For now just call a round robin.
      */
     FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Updating DLT";
-    roundRobinDlt(static_cast<fds_placement_table *>(curDlt),
-                  currentSmMap,
-                  parent_log);
+// SAN    roundRobinDlt(static_cast<fds_placement_table *>(curDlt),
+//                  currentSmMap,
+//                  parent_log);
 }
 
 /*
@@ -446,13 +446,13 @@ void FdsLocalDomain::sendNodeTableToFdsNodes(int table_type) {
     msg_hdr_ptr->tennant_id = 1;
     msg_hdr_ptr->local_domain_id = 1;
 
-    FDS_ProtocolInterface::FDSP_DLT_TypePtr dlt_info_ptr;
+    FDS_ProtocolInterface::FDSP_DLT_Data_TypePtr dlt_info_ptr;
     FDS_ProtocolInterface::FDSP_DMT_TypePtr dmt_info_ptr;
     if (table_type == table_type_dlt) {
         // dlt_info_ptr = new FDS_ProtocolInterface::FDSP_DLT_Type;
         // dlt_info_ptr->DLT_version = current_dlt_version;
         // dlt_info_ptr->DLT = current_dlt_table;
-        dlt_info_ptr = curDlt->toFdsp();
+//SAN         dlt_info_ptr = curDlt->toFdsp();
     } else {
         // dmt_info_ptr = new FDS_ProtocolInterface::FDSP_DMT_Type;
         // dmt_info_ptr->DMT_version = current_dmt_version;

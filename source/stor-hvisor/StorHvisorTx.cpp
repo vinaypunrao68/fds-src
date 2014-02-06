@@ -146,13 +146,18 @@ int StorHvisorProcIoRd(void *_io)
   journEntry->data_obj_id.hash_low = oid.GetLow();;
   
   // Lookup the Primary SM node-id/ip-address to send the GetObject to
-  storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(doid_dlt_key, node_ids, &num_nodes);
+  boost::shared_ptr<DltTokenGroup> dltPtr;
+  dltPtr = storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(&oid);
+  fds_verify(dltPtr != NULL);
+
+  num_nodes = dltPtr->getLength();
+//  storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(doid_dlt_key, node_ids, &num_nodes);
   if(num_nodes == 0) {
     FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " -  DLT Nodes  NOT  confiigured. Check on OM Manager. Completing request with ERROR(-1)";
     (*req->cb_request)(arg1, arg2, req, -1);
     return -1;
   }
-  storHvisor->dataPlacementTbl->getNodeInfo(node_ids[0],
+  storHvisor->dataPlacementTbl->getNodeInfo(dltPtr->get(0).uuid_get_val(),
                                             &node_ip,
                                             &node_port,
                                             &node_state);
@@ -312,9 +317,14 @@ int StorHvisorProcIoWr(void *_io)
   
   
   // DLT lookup from the dataplacement object
-  num_nodes = 8;
-  storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(doid_dlt_key, node_ids, &num_nodes);
-  for (i = 0; i < num_nodes; i++) {
+//  num_nodes = 8;
+  boost::shared_ptr<DltTokenGroup> dltPtr;
+  dltPtr = storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(&objID);
+  fds_verify(dltPtr != NULL);
+
+  fds_int32_t numNodes = dltPtr->getLength();
+//  storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(doid_dlt_key, node_ids, &num_nodes);
+  for (i = 0; i < numNodes; i++) {
     node_ip = 0;
     node_port = 0;
     node_state = -1;
@@ -328,7 +338,7 @@ int StorHvisorProcIoWr(void *_io)
     fdsp_msg_hdr->dst_ip_lo_addr = node_ip;
     fdsp_msg_hdr->dst_port = node_port;
     journEntry->sm_ack[i].ack_status = FDS_CLS_ACK;
-    journEntry->num_sm_nodes = num_nodes;
+    journEntry->num_sm_nodes = numNodes;
 
     // Call Put object RPC to SM
     endPoint = storHvisor->rpcSessionTbl->getSession

@@ -238,7 +238,7 @@ namespace fds {
         fds_uint64_t curDmtVer;
         fds_uint32_t dmtWidth;
         fds_uint32_t dmtDepth;
-        FdsDlt *curDlt;
+        DLT *curDlt;
         FdsDmt *curDmt;
         Catalog *dltCatalog;
         Catalog *dmtCatalog;

@@ -20,6 +20,7 @@
 #include <concurrency/RwLock.h>
 #include <net-proxies/vol_policy.h>
 #include <NetSession.h>
+#include <dlt.h>
 
 using namespace FDS_ProtocolInterface;
 
@@ -81,7 +82,8 @@ namespace fds {
     fds_uint32_t my_control_port;
     fds_uint32_t my_data_port;
     node_map_t node_map;
-    Node_Table_Type dlt;
+    const DLT *dlt;
+    DLTManager dltMgr;
     int dmt_version;
     Node_Table_Type dmt;
     float current_throttle_level;
@@ -151,13 +153,16 @@ namespace fds {
 			     const FDS_ProtocolInterface::FDSP_VolumeDescTypePtr& vol_desc);
     int pushGetBucketStatsToOM(fds_uint32_t req_cookie);
 
-    int getNodeInfo(int node_id,
+    int getNodeInfo(fds_uint64_t node_id,
                     unsigned int *node_ip_addr,
                     fds_uint32_t *node_port,
                     int *node_state);
-    int getDLTNodesForDoidKey(unsigned char doid_key,
+     DltTokenGroupPtr getDLTNodesForDoidKey(ObjectID *objId);
+#if 0
+    int  getDLTNodesForDoidKey(unsigned char doid_key,
                               fds_int32_t *node_ids,
                               fds_int32_t *n_nodes);
+#endif
     int getDMTNodesForVolume(int vol_id, int *node_ids, int *n_nodes);
     int pushPerfstatsToOM(const std::string& start_ts,
 			  int stat_slot_len, 
@@ -169,7 +174,7 @@ namespace fds {
 		   const std::string& secretAccessKey);
 
     int recvNodeEvent(int node_id, FDSP_MgrIdType node_type, unsigned int node_ip, int node_state, const FDSP_Node_Info_TypePtr& node_info);
-    int recvDLTUpdate(int dlt_version, const Node_Table_Type& dlt_table);
+    int recvDLTUpdate(bool dlt_type, std::string& dlt_data);
     int recvDMTUpdate(int dmt_version, const Node_Table_Type& dmt_table);
 
     int recvNotifyVol(fds_volid_t vol_id,
@@ -252,12 +257,12 @@ namespace fds {
 		       FDSP_Node_Info_TypePtr& node_info);
 
     void NotifyDLTUpdate(const FDSP_MsgHdrType& fdsp_msg,
-                         const FDSP_DLT_Type& dlt_info) {
+                         const FDSP_DLT_Data_Type& dlt_info) {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
 
     void NotifyDLTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
-			 FDSP_DLT_TypePtr& dlt_info);
+			 FDSP_DLT_Data_TypePtr& dlt_info);
 
     void NotifyDMTUpdate(const FDSP_MsgHdrType& msg_hdr,
 			 const FDSP_DMT_Type& dmt_info) {

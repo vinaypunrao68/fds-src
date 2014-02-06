@@ -102,13 +102,13 @@ void OrchMgr::FDSP_ControlPathRespHandler::NotifyNodeRmvResp(
 
 void OrchMgr::FDSP_ControlPathRespHandler::NotifyDLTUpdateResp(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const ::FDS_ProtocolInterface::FDSP_DLT_Type& dlt_info_resp) {
+    const ::FDS_ProtocolInterface::FDSP_DLT_Data_Type& dlt_info_resp) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
 }
 
 void OrchMgr::FDSP_ControlPathRespHandler::NotifyDLTUpdateResp(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    ::FDS_ProtocolInterface::FDSP_DLT_TypePtr& dlt_info_resp) {
+    ::FDS_ProtocolInterface::FDSP_DLT_Data_TypePtr& dlt_info_resp) {
     FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::notification)
             << "OrchMgr: received response for NotifyDLTUpdate";
 }

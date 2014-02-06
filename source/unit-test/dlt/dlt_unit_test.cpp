@@ -154,3 +154,25 @@ TEST_CASE ("DLT Serialize") {
     REQUIRE (dlt1.getDepth() == 4);
     
 }
+
+TEST_CASE ("DLT Serialize2") {
+    DLT dlt(8,4,1,true);
+    CAPTURE(dlt.getNumBitsForToken());
+    CAPTURE(dlt.getDepth());
+    CAPTURE(dlt.getNumTokens());
+
+    fillDltNodes(&dlt,10);
+        
+    std::string buffer;
+    dlt.getSerialized(buffer);
+
+    DLT dlt1(0,0,0,false);
+    
+    dlt1.loadSerialized(buffer);
+    //printDlt(&dlt1);
+    verifyDltNodes(&dlt1,10);
+    REQUIRE (dlt1.getVersion() == 1);
+    REQUIRE (dlt1.getNumTokens() == pow(2,dlt1.getNumBitsForToken()));
+    REQUIRE (dlt1.getDepth() == 4);
+    
+}
