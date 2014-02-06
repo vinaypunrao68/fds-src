@@ -292,14 +292,16 @@ uint32_t DLT::read(serialize::Deserializer* d) {
 }
 
 void DLT::getSerialized(std::string& serializedData) { // NOLINT
-    serialize::Serializer *s = serialize::getMemSerializer();
+    serialize::Serializer *s = serialize::getMemSerializer(512*KB);
     uint32_t bytesWritten = this->write(s);
     serializedData.append(s->getBufferAsString());
+    delete s;
 }
 
 bool DLT::loadSerialized(std::string& serializedData) { // NOLINT
     serialize::Deserializer *d = serialize::getMemDeserializer(serializedData);
     this->read(d);
+    delete d;
     return true;
 }
 
@@ -355,13 +357,30 @@ void DLTDiff::setNode(fds_token_id token, uint index, NodeUuid nodeuuid) {
 /**
  *  Implementation for DLT Manager
  */
+DLTManager::DLTManager(fds_uint8_t maxDlts) : maxDlts(maxDlts) {
+}
+
+void DLTManager::checkSize() {
+    // check if the no.of dlts stored are within limits
+    if (dltList.size() > maxDlts) {
+        DLT* pDlt = dltList.front();
+        // make sure the top one is not the current One
+        if (pDlt != curPtr) {
+            // OK go ahead remove & delete
+            dltList.erase(dltList.begin());
+            delete pDlt;
+        }
+    }
+}
+
 bool DLTManager::add(const DLT& _newDlt) {
     DLT* pNewDlt = new DLT(_newDlt);
     DLT& newDlt = *pNewDlt;
 
     if (dltList.empty()) {
-        dltList.push_back(newDlt);
+        dltList.push_back(pNewDlt);
         curPtr = pNewDlt;
+        // TODO(prem): checkSize();
         return true;
     }
 
@@ -386,7 +405,8 @@ bool DLTManager::add(const DLT& _newDlt) {
             }
         }
     }
-    dltList.push_back(newDlt);
+    dltList.push_back(&newDlt);
+    // TODO(prem): checkSize();
 
     // switch this to current ???
     curPtr = &newDlt;
@@ -431,7 +451,7 @@ bool DLTManager::add(const DLTDiff& dltDiff) {
         dlt->distList->push_back(ptr);
     }
 
-    dltList.push_back(*dlt);
+    dltList.push_back(dlt);
 
     return true;
 }
@@ -441,25 +461,19 @@ const DLT* DLTManager::getDLT(const fds_uint64_t version) {
     if (0 == version) {
         return curPtr;
     }
-    std::vector<DLT>::const_iterator iter;
+    std::vector<DLT*>::const_iterator iter;
     for (iter = dltList.begin(); iter != dltList.end(); iter++) {
-        if (version == iter->version) {
-            return &(*iter);
+        if (version == (*iter)->version) {
+            return *iter;
         }
     }
 
     return NULL;
 }
 
-
 void DLTManager::setCurrent(fds_uint64_t version) {
-    std::vector<DLT>::const_iterator iter;
-    for (iter = dltList.begin(); iter != dltList.end(); iter++) {
-        if (version == iter->version) {
-            curPtr= &(*iter);
-            break;
-        }
-    }
+    const DLT* pdlt = getDLT(version);
+    curPtr = pdlt;
 }
 
 DltTokenGroupPtr DLTManager::getNodes(fds_token_id token) const {
