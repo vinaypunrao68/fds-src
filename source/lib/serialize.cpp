@@ -120,5 +120,15 @@ Deserializer* getMemDeserializer(std::string& str) {
     return new Deserializer(TProtocolPtr (new TBinaryProtocol(trans)));
 }
 
+Serializer* getFileSerializer(const std::string& filename) {
+    boost::shared_ptr<TTransport> trans(new TSimpleFileTransport(filename, false, true));
+    return new Serializer(TProtocolPtr(new TBinaryProtocol(trans)));
+}
+
+Deserializer* getFileDeserializer(const std::string& filename) {
+    boost::shared_ptr<TTransport> trans(new TSimpleFileTransport(filename, true, false));
+    return new Deserializer(TProtocolPtr(new TBinaryProtocol(trans)));
+}
+
 } // namespace serialize
 } // namespace fds

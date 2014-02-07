@@ -95,7 +95,6 @@ fds_uint32_t DLT::getNumBitsForToken() const {
     return numBitsForToken;
 }
 
-
 fds_uint32_t DLT::getNumTokens() const {
     return numTokens;
 }
@@ -505,4 +504,73 @@ NodeUuid DLTManager::getPrimary(fds_token_id token) const {
 NodeUuid DLTManager::getPrimary(const ObjectID& objId) const {
     return getPrimary(objId);
 }
+
+uint32_t DLTManager::write(serialize::Serializer*  s) {
+    LOGTRACE << " serializing dltmgr  ";
+    uint32_t bytes = 0;
+    // current version number
+    bytes += s->writeI64(curPtr->version);
+
+    // max no.of dlts
+    bytes += s->writeByte(maxDlts);
+
+    // number of dlts
+    bytes += s->writeByte(dltList.size());
+
+    // write the individual dlts
+    std::vector<DLT*>::const_iterator iter;
+    for (iter = dltList.begin(); iter != dltList.end(); iter++) {
+        bytes += (*iter)->write(s);
+    }
+
+    return bytes;
+}
+
+uint32_t DLTManager::read(serialize::Deserializer* d) {
+    LOGTRACE << " deserializing dltmgr  ";
+    uint32_t bytes = 0;
+    fds_uint64_t version;
+    // current version number
+    bytes += d->readI64(version);
+
+    // max no.of dlts
+    bytes += d->readByte(maxDlts);
+
+    fds_uint8_t numDlts = 0;
+    // number of dlts
+    bytes += d->readByte(numDlts);
+
+    // first clear the current dlts
+    dltList.clear();
+
+    // the individual dlts
+    for (uint i = 0; i < numDlts ; i++) {
+        DLT dlt(0, 0, 0, false);
+        bytes += dlt.read(d);
+        this->add(dlt);
+    }
+
+    // now set the current version
+    setCurrent(version);
+
+    return bytes;
+}
+
+bool DLTManager::loadFromFile(std::string filename) {
+    LOGNOTIFY << "loading dltmgr from file : " << filename;
+    serialize::Deserializer *d= serialize::getFileDeserializer(filename);
+    read(d);
+    delete d;
+    return true;
+}
+
+bool DLTManager::storeToFile(std::string filename) {
+    LOGNOTIFY << "storing dltmgr to file : " << filename;
+    serialize::Serializer *s= serialize::getFileSerializer(filename);
+    write(s);
+    delete s;
+    return true;
+}
+
+
 }  // namespace fds
