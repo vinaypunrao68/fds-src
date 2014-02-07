@@ -146,13 +146,14 @@ UT_OM_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput 
             << ", name " << info->nd_node_name << std::endl;
 
         // TODO(vy): encode this in json format
+        ptr->node_name = info->nd_node_name;
         ptr->disk_info.ssd_capacity = info->nd_weight;
         ResourceUUID r_uuid(info->nd_uuid);
 
         if (info->add == true) {
-            domain->om_reg_node_info(&r_uuid, ptr);
+            domain->om_reg_node_info(r_uuid, ptr);
         } else {
-            domain->om_del_node_info(&r_uuid);
+            domain->om_del_node_info(r_uuid, info->nd_node_name);
         }
     }
 

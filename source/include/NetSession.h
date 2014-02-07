@@ -20,6 +20,8 @@
 #include <fdsp/FDSP_MetaDataPathResp.h>
 #include <fdsp/FDSP_ConfigPathReq.h>
 #include <fdsp/FDSP_ConfigPathResp.h>
+#include <fdsp/FDSP_MigrationPathReq.h>
+#include <fdsp/FDSP_MigrationPathResp.h>
 #include <fdsp/FDSP_Service.h>
 #include <fds_globals.h>
 #include <NetSessRespClient.h>
@@ -290,6 +292,8 @@ typedef netClientSessionEx<FDSP_OMControlPathReqClient,
         FDSP_OMControlPathRespProcessor,FDSP_OMControlPathRespIf> netOMControlPathClientSession;
 typedef netClientSessionEx<FDSP_ConfigPathReqClient,
         FDSP_ConfigPathRespProcessor, FDSP_ConfigPathRespIf> netConfigPathClientSession;
+typedef netClientSessionEx<FDSP_MigrationPathReqClient,
+        FDSP_MigrationPathRespProcessor, FDSP_MigrationPathRespIf> netMigrationPathClientSession;
 
 /**
  * @brief Encapsulates functionality for fds server sessions.  Responsibilities
@@ -541,6 +545,8 @@ typedef netServerSessionEx<FDSP_OMControlPathReqProcessor,
         FDSP_OMControlPathReqIf, FDSP_OMControlPathRespClient> netOMControlPathServerSession;
 typedef netServerSessionEx<FDSP_ConfigPathReqProcessor, 
         FDSP_ConfigPathReqIf, FDSP_ConfigPathRespClient> netConfigPathServerSession;
+typedef netServerSessionEx<FDSP_MigrationPathReqProcessor,
+        FDSP_MigrationPathReqIf, FDSP_MigrationPathRespClient> netMigrationPathServerSession;
 
 
 inline std::ostream& operator<<(std::ostream& out, const netSession& ep) {
@@ -700,6 +706,8 @@ int num_threads;
 boost::shared_ptr<ThreadManager> threadManager;
 boost::shared_ptr<PosixThreadFactory> threadFactory;
 };
+
+typedef boost::shared_ptr<netSessionTbl> netSessionTblPtr;
 
 
 #endif
