@@ -53,20 +53,20 @@ NodeInventory::node_update_info(const FdspNodeRegPtr msg)
     nd_node_name        = msg->node_name;
     nd_node_type        = msg->node_type;
     nd_node_state       = FDS_ProtocolInterface::FDS_Node_Up;
-    nd_disk_iops_max    = msg->disk_info.disk_iops_max;
-    nd_disk_iops_min    = msg->disk_info.disk_iops_min;
-    nd_disk_latency_max = msg->disk_info.disk_latency_max;
-    nd_disk_latency_min = msg->disk_info.disk_latency_min;
-    nd_ssd_iops_max     = msg->disk_info.ssd_iops_max;
-    nd_ssd_iops_min     = msg->disk_info.ssd_iops_min;
-    nd_ssd_capacity     = msg->disk_info.ssd_capacity;
-    nd_ssd_latency_max  = msg->disk_info.ssd_latency_max;
-    nd_ssd_latency_min  = msg->disk_info.ssd_latency_min;
+    nd_capability.disk_iops_max    = msg->disk_info.disk_iops_max;
+    nd_capability.disk_iops_min    = msg->disk_info.disk_iops_min;
+    nd_capability.disk_latency_max = msg->disk_info.disk_latency_max;
+    nd_capability.disk_latency_min = msg->disk_info.disk_latency_min;
+    nd_capability.ssd_iops_max     = msg->disk_info.ssd_iops_max;
+    nd_capability.ssd_iops_min     = msg->disk_info.ssd_iops_min;
+    nd_capability.ssd_capacity     = msg->disk_info.ssd_capacity;
+    nd_capability.ssd_latency_max  = msg->disk_info.ssd_latency_max;
+    nd_capability.ssd_latency_min  = msg->disk_info.ssd_latency_min;
     nd_disk_type        = msg->disk_info.disk_type,
     nd_mtx.unlock();
 
     // TODO(vy): fix the weight.
-    nd_gbyte_cap = nd_ssd_capacity;
+    nd_gbyte_cap = nd_capability.ssd_capacity;
 }
 
 NodeAgent::NodeAgent(const NodeUuid &uuid)

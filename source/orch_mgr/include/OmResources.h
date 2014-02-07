@@ -27,6 +27,18 @@ typedef FDS_ProtocolInterface::FDSP_NodeState            FdspNodeState;
 typedef FDS_ProtocolInterface::FDSP_MgrIdType            FdspNodeType;
 typedef std::string                                      FdspNodeName;
 
+typedef struct _node_capability_t {
+    fds_uint32_t   disk_iops_max;
+    fds_uint32_t   disk_iops_min;
+    fds_uint32_t   disk_latency_max;
+    fds_uint32_t   disk_latency_min;
+    fds_uint32_t   ssd_iops_max;
+    fds_uint32_t   ssd_iops_min;
+    fds_uint32_t   ssd_capacity;
+    fds_uint32_t   ssd_latency_max;
+    fds_uint32_t   ssd_latency_min;
+} node_capability_t;
+
 /**
  * Replacement for NodeInfo object.
  */
@@ -82,6 +94,10 @@ class NodeInventory : public Resource
         return nd_ctrl_port;
     }
 
+    inline const node_capability_t& node_capability() const {
+        return nd_capability;
+    }
+
   protected:
     friend class OM_NodeContainer;
 
@@ -96,17 +112,9 @@ class NodeInventory : public Resource
     std::string              nd_ip_str;
     fds_uint32_t             nd_data_port;
     fds_uint32_t             nd_ctrl_port;
-    fds_uint32_t             nd_disk_iops_max;
-    fds_uint32_t             nd_disk_iops_min;
-    fds_uint32_t             nd_disk_latency_max;
-    fds_uint32_t             nd_disk_latency_min;
-    fds_uint32_t             nd_ssd_iops_max;
-    fds_uint32_t             nd_ssd_iops_min;
-    fds_uint32_t             nd_ssd_capacity;
-    fds_uint32_t             nd_ssd_latency_max;
-    fds_uint32_t             nd_ssd_latency_min;
-    fds_uint32_t             nd_disk_type;
 
+    node_capability_t        nd_capability;
+    fds_uint32_t             nd_disk_type;
     FdspNodeName             nd_node_name;
     FdspNodeType             nd_node_type;
     FdspNodeState            nd_node_state;
