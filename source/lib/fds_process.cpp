@@ -191,4 +191,17 @@ void FdsProcess::interrupt_cb(int signum)
     exit(signum);
 }
 
+fds_log* HasLogger::GetLog() const {
+    if (logptr != NULL) return logptr;
+    if (g_fdslog) return g_fdslog;
+    logptr = new fds_log("log");
+    return logptr;
+}
+
+fds_log* HasLogger::SetLog(fds_log* logptr) const {
+    fds_log* oldlogptr = this->logptr;
+    this->logptr = logptr;
+}
+
+
 }  // namespace fds

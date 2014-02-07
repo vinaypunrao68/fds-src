@@ -10,7 +10,7 @@
 #include <boost/log/attributes/current_process_id.hpp>
 
 #include <util/Log.h>
-
+#include <fds_globals.h>
 namespace fds {
 
 /*
@@ -106,6 +106,7 @@ void fds_log::init(const std::string& logfile,
    * Set the format
    */
   sink->set_formatter(boost::log::expressions::stream
+                      << "["
                       << boost::log::expressions::format_date_time< boost::posix_time::ptime >("TimeStamp", "%d.%m.%Y %H:%M:%S.%f")
                       << "] [" << boost::log::expressions::attr< severity_level >("Severity")
                       << "] ["

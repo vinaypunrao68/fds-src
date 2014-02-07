@@ -40,14 +40,19 @@
 #define LOGGERPTR  GetLog()
 //incase your current logger is different fom GetLog(), 
 //redefine macro [LOGGERPTR] at the top of your cpp file
+#ifndef DONTLOGLINE
+#define _ATLINE_ <<"[" __FILE__ << ":" << __LINE__ << ":" << __FUNCTION__ << "] - "
+#else
+#define _ATLINE_
+#endif
 
-#define LOGTRACE    FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::trace)
-#define LOGDEBUG    FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::debug)
-#define LOGNORMAL   FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::normal)
-#define LOGNOTIFY   FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::notification)
-#define LOGWARN	    FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::warning)
-#define LOGERROR    FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::error)
-#define LOGCRITICAL FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::critical)
+#define LOGTRACE    FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::trace) _ATLINE_
+#define LOGDEBUG    FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::debug) _ATLINE_
+#define LOGNORMAL   FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::normal) _ATLINE_
+#define LOGNOTIFY   FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::notification) _ATLINE_
+#define LOGWARN	    FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::warning) _ATLINE_
+#define LOGERROR    FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::error) _ATLINE_
+#define LOGCRITICAL FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::critical) _ATLINE_
 
 namespace fds {
 
@@ -114,6 +119,16 @@ namespace fds {
     void setSeverityFilter(const severity_level &level);
 
     boost::log::sources::severity_logger_mt<severity_level>& get_slog() { return slg; }
+  };
+
+  struct HasLogger {
+      // get the class logger
+      fds_log* GetLog() const;
+
+      // set a new logger & return the old one.
+      fds_log* SetLog(fds_log* logptr) const ;
+    private:
+      mutable fds_log* logptr=NULL;
   };
 
   typedef boost::shared_ptr<fds_log> fds_logPtr;

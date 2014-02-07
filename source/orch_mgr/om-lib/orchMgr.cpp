@@ -274,8 +274,8 @@ int OrchMgr::RemoveNode(const FdspMsgHdrPtr& fdsp_msg,
     if (!err.ok()) {
         FDS_PLOG_SEV(GetLog(), fds_log::error)
                 << "RemoveNode: remove node info from local domain failed for node " 
-                << rm_node_req->node_name << ", result: "
-                << err.GetErrstr();
+                << rm_node_req->node_name << ", uuid " << std::hex << rm_node_uuid.uuid_get_val()
+                << std::dec << ", result: " << err.GetErrstr();
         om_mutex->unlock();
         return -1;
     }
