@@ -32,7 +32,10 @@ inline std::string get_uuid()
 inline fds_uint64_t fds_get_uuid64(const std::string& str) {
     fds_uint64_t ret_val = 0;
     fds_uint64_t v64 = 0;
-    boost::uuids::uuid namespace_uuid;
+    // just making up some random namespace uuid
+    boost::uuids::uuid namespace_uuid =
+            {0x2b, 0x39, 0x94, 0xde, 0xfa, 0x11, 0x00, 0x00,
+             0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xcd, 0xef};
     boost::uuids::name_generator gen(namespace_uuid);
     boost::uuids::uuid u = gen(str);
 
