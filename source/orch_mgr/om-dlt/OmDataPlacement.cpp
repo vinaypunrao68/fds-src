@@ -286,28 +286,39 @@ Error
 DataPlacement::beginRebalance() {
     Error err(ERR_OK);
 
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr(
+            new FDS_ProtocolInterface::FDSP_MsgHdrType());
+    FDS_ProtocolInterface::FDSP_DLT_Data_TypePtr dltMsg(
+            new FDS_ProtocolInterface::FDSP_DLT_Data_Type());
+
+    std::string dltBuf;
     placementMutex->lock();
 
-    // Async notify the nodes affected by the newest DLT change
-    // TODO(Andrew): We're sending to just the newly added nodes
-    // for now. Need to fix that.
-    for (ClusterMap::const_iterator it = curClusterMap->cbegin();
-         it != curClusterMap->cend();
-         it++) {
-        NodeAgent::pointer na = it->second;
+    // get the newly added nodes from the cluster MAP
+    std::unordered_set<NodeUuid, UuidHash> addedNodes = curClusterMap->getAddedNodes();
+
+    // loop through the  new node lists  and send the  notifyMigration  to  the new nodes
+
+    for (std::unordered_set<NodeUuid, UuidHash>::const_iterator cit = addedNodes.cbegin();
+         cit != addedNodes.cend();
+         ++cit) {
+        NodeUuid  uuid = *cit;
+    //    const NodeAgent *na = curClusterMap->om_member_info(uuid);
+        NodeAgent::const_ptr na = OM_NodeDomainMod::om_local_domain()->om_node_info(uuid);
         NodeAgentCpReqClientPtr naClient = na->getCpClient();
+    // populate  msg header
+        na->init_msg_hdr(msgHdr);
+        msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_NOTIFY_MIGRATION;
+        msgHdr->src_id = FDS_ProtocolInterface::FDSP_ORCH_MGR;
+        msgHdr->dst_id = FDS_ProtocolInterface::FDSP_STOR_MGR;
 
-        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr(
-            new FDS_ProtocolInterface::FDSP_MsgHdrType());
-        FDS_ProtocolInterface::FDSP_DLT_TypePtr dltMsg(
-            new FDS_ProtocolInterface::FDSP_DLT_Type());
-        // TODO(Andrew): Move this to the new DLT RPC
-        // naClient->NotifyDLTUpdate(msgHdr, dltMsg);
+    // populate the dlt  class
+       dltMsg->dlt_type= true;
+       curDlt->getSerialized(dltMsg->dlt_data);
 
-        FDS_PLOG_SEV(g_fdslog, fds_log::notification)
-                << "Sent DLT update to " << na->get_uuid().uuid_get_val();
-    }
-
+    // invoke the RPC
+       naClient->NotifyStartMigration(msgHdr, dltMsg);
+     }
     placementMutex->unlock();
 
     return err;

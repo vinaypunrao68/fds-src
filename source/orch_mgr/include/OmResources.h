@@ -50,6 +50,7 @@ class NodeInventory : public Resource
 
     explicit NodeInventory(const NodeUuid &uuid);
     virtual ~NodeInventory();
+    void init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr)const;
 
     void node_name(std::string *name) const {}
 
@@ -156,7 +157,7 @@ class NodeAgent : public NodeInventory
      * is not constanct since the member pointer returned
      * is mutable by the caller.
      */
-    NodeAgentCpReqClientPtr getCpClient();
+    NodeAgentCpReqClientPtr getCpClient() const;
 
   protected:
     friend class            OM_NodeContainer;
@@ -230,7 +231,7 @@ class OM_NodeContainer : public RsContainer
  * Cluster domain manager.  Manage all nodes connected and known to the domain.
  * These nodes may not be in ClusterMap membership.
  */
-class OM_NodeDomainMod : public Module, OM_NodeContainer
+class OM_NodeDomainMod : public Module, public OM_NodeContainer
 {
   public:
     explicit OM_NodeDomainMod(char const *const name);
@@ -254,6 +255,7 @@ class OM_NodeDomainMod : public Module, OM_NodeContainer
      * DLT
      */
     virtual void om_update_cluster();
+
 
     virtual Error om_del_node_info(const NodeUuid& uuid,
                                    const std::string& node_name);
