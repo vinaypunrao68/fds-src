@@ -241,4 +241,7 @@ TEST_CASE ("DLT Manager Serialize" ,"[dlt][serialize][mgr]") {
     REQUIRE (ptr->getVersion() == 3);
     verifyDltNodes(ptr,20);
 
+    const_cast<DLT*>(ptr)->generateNodeTokenMap();
+    ptr->dump(true);
+
 }
