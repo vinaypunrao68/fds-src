@@ -266,10 +266,6 @@ int OrchMgr::RemoveNode(const FdspMsgHdrPtr& fdsp_msg,
 
         om_mutex->unlock();
         return -1;
-    } else {
-        // TODO(Anna) supporting old path
-        // remove node from sm_map
-        sm_map.erase(rm_node_req->node_name);
     }
 
     // remove node from local domain map
@@ -284,7 +280,17 @@ int OrchMgr::RemoveNode(const FdspMsgHdrPtr& fdsp_msg,
         return -1;
     }
 
-    // TODO(Anna) send notifications to other nodes
+    // TODO(Anna) Fix this using new domain struct and node info
+    sm_map[rm_node_req->node_name].node_state = FDS_ProtocolInterface::FDS_Node_Rmvd;
+    // If this is a SM or a DM, let existing nodes know about this node removal
+    if (sm_map[rm_node_req->node_name].node_type != FDS_ProtocolInterface::FDSP_STOR_HVISOR) {
+        currentDom->domain_ptr->sendNodeEventToFdsNodes(sm_map[rm_node_req->node_name],
+                                                        sm_map[rm_node_req->node_name].node_state);
+
+        /* update the disk capabilities */
+        currentDom->domain_ptr->admin_ctrl->removeDiskCapacity(sm_map[rm_node_req->node_name]);
+    }
+    sm_map.erase(rm_node_req->node_name);
 
     om_mutex->unlock();
 
