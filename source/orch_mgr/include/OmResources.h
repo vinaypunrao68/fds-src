@@ -38,7 +38,7 @@ class NodeInventory : public Resource
     explicit NodeInventory(const NodeUuid &uuid);
     virtual ~NodeInventory();
 
-    void node_name(std::string *name) const {}
+    inline void node_name(std::string *name) const {}
 
     /**
      * Update the node inventory with new info.
@@ -57,23 +57,12 @@ class NodeInventory : public Resource
      */
     virtual void node_set_weight(fds_uint64_t weight);
 
-    /**
-     * Return the mutex protecting this object.
-     */
-    inline fds_mutex *node_mutex() {
-        return &nd_mtx;
-    }
-    inline fds_uint32_t node_index() const {
-        return nd_index;
-    }
     inline NodeUuid get_uuid() const {
-        return nd_uuid;
+        return rs_get_uuid();
     }
-
     inline std::string get_ip_str() const {
         return nd_ip_str;
     }
-
     inline fds_uint32_t get_ctrl_port() const {
         return nd_ctrl_port;
     }
@@ -82,10 +71,7 @@ class NodeInventory : public Resource
     friend class OM_NodeContainer;
 
     Sha1Digest               nd_checksum;
-    NodeUuid                 nd_uuid;
-    fds_uint32_t             nd_index;           /**< idx in container.   */
     fds_uint64_t             nd_gbyte_cap;       /**< capacity in GB unit */
-    fds_mutex                nd_mtx;             /**< protecting mutex.   */
 
     /* TODO: (vy) just porting from NodeInfo now. */
     fds_uint32_t             nd_ip_addr;
@@ -138,6 +124,9 @@ class NodeAgent : public NodeInventory
     NodeAgent(const NodeUuid &uuid, fds_uint64_t nd_weight);
     virtual ~NodeAgent();
 
+    static inline NodeAgent::pointer agt_cast_ptr(Resource::pointer ptr) {
+        return static_cast<NodeAgent *>(get_pointer(ptr));
+    }
     void setCpSession(NodeAgentCpSessionPtr session);
     /**
      * Returns the client end point for the node. The function
@@ -157,7 +146,6 @@ class NodeAgent : public NodeInventory
  * Type that maps a node's UUID to its agent object.
  */
 typedef std::unordered_map<NodeUuid, NodeAgent::pointer, UuidHash> NodeMap;
-
 typedef std::list<NodeAgent::pointer>      NodeList;
 typedef std::vector<NodeAgent::pointer>    NodeArray;
 
@@ -173,45 +161,24 @@ class OM_NodeContainer : public RsContainer
     OM_NodeContainer();
     virtual ~OM_NodeContainer();
 
-    /**
-     * Iterate through the list of nodes by index 0...n to retrieve their
-     * agent objects.
-     */
-    inline int om_avail_nodes() {
-        return node_cur_idx;
+    inline NodeAgent::pointer om_node_info(fds_uint32_t node_idx) {
+        if (node_idx < rs_cur_idx) {
+            return NodeAgent::agt_cast_ptr(rs_array[node_idx]);
+        }
+        return NULL;
     }
-    NodeAgent::pointer om_node_info(fds_uint32_t node_idx);
-    NodeAgent::pointer om_node_info(const NodeUuid *uuid);
+    inline NodeAgent::pointer om_node_info(const NodeUuid *uuid) {
+        return NodeAgent::agt_cast_ptr(rs_get_resource(uuid));
+    }
 
-    /**
-     * Iterate through the list using standard container iterator.
-     */
-    inline const_iterator cbegin() const {
-        return node_map.cbegin();
-    }
-    inline const_iterator cend() const {
-        return node_map.cend();
-    }
-    /**
-     * Thread-safe version of the iterator.
-     */
-    const_iterator cend(const_iterator *it);
-
-    virtual NodeAgent::pointer om_new_node();
-    virtual void om_ref_node(NodeAgent::pointer node, fds_bool_t act = true);
-    virtual void om_deref_node(NodeAgent::pointer node);
     virtual void om_activate_node(fds_uint32_t node_idx);
     virtual void om_deactivate_node(fds_uint32_t node_idx);
 
   protected:
-    NodeMap                  node_map;
-    fds_uint32_t             node_cur_idx;
-    NodeArray                node_inuse;
-    NodeList                 node_list;
-    fds_mutex                node_mtx;
-
     NodeList                 node_up_pend;
     NodeList                 node_down_pend;
+
+    Resource *rs_new();
 };
 
 /**

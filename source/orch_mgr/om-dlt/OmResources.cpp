@@ -72,7 +72,7 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid       *uuid,
     }
     if (agent == NULL) {
         add   = true;
-        agent = om_new_node();
+        agent = NodeAgent::agt_cast_ptr(rs_alloc_new());
     }
     fds_verify(agent != NULL);
     agent->node_update_info(uuid, msg);
@@ -93,7 +93,7 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid       *uuid,
             agent->setCpSession(session);
         }
         // Add node the the node map
-        om_activate_node(agent->node_index());
+        om_activate_node(agent->rs_my_index());
     }
     /* XXX: TODO (vy), remove this code once we have node FSM */
     OM_Module *om = OM_Module::om_singleton();
@@ -157,11 +157,11 @@ OM_NodeDomainMod::om_update_cluster() {
 void
 OM_NodeDomainMod::om_del_node_info(const NodeUuid *uuid)
 {
-    NodeAgent::pointer agent;
+    Resource::pointer agent;
 
-    agent = om_node_info(uuid);
+    agent = rs_get_resource(uuid);
     if (agent != NULL) {
-        om_deactivate_node(agent->node_index());
+        om_deactivate_node(agent->rs_my_index());
     }
     om_update_cluster_map();
 }
@@ -309,10 +309,10 @@ OM_NodeDomainMod::om_update_cluster_map()
     ClusterMap    *clus;
     DataPlacement *dp;
 
-    node_mtx.lock();
+    rs_mtx.lock();
     addNodes.splice(addNodes.begin(), node_up_pend);
     rmNodes.splice(rmNodes.begin(), node_down_pend);
-    node_mtx.unlock();
+    rs_mtx.unlock();
 
     om   = OM_Module::om_singleton();
     dp   = om->om_dataplace_mod();

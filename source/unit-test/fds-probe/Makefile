@@ -5,6 +5,7 @@ user_build_dir    := s3 thrift pm sm \
     threadpool   \
     fds-net      \
     stor-mgr     \
+    stor-mgr-full\
     orch-mgr     \
     mock-server
 

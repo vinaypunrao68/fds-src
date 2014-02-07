@@ -8,8 +8,7 @@
 
 namespace fds {
 
-NodeInventory::NodeInventory(const NodeUuid &uuid)
-    : nd_uuid(uuid), nd_mtx("node mtx")
+NodeInventory::NodeInventory(const NodeUuid &uuid) : Resource(uuid)
 {
     nd_gbyte_cap   = 0;
     nd_ip_addr     = 0;
@@ -43,12 +42,13 @@ void
 NodeInventory::node_update_info(const NodeUuid *uuid, const FdspNodeRegPtr msg)
 {
     if (uuid != NULL) {
-        nd_uuid = *uuid;
+        rs_uuid = *uuid;
     } else {
-        fds_verify(nd_uuid.uuid_get_val() == 0);
-        nd_uuid.uuid_set_val(random());
+        // FIXME: (vy) change this to real uuid.
+        fds_verify(rs_uuid.uuid_get_val() == 0);
+        rs_uuid.uuid_set_val(random());
     }
-    nd_mtx.lock();
+    rs_mtx.lock();
     nd_ip_addr          = msg->ip_lo_addr;
     nd_ip_str           = netSession::ipAddr2String(nd_ip_addr);
     nd_data_port        = msg->data_port;
@@ -65,8 +65,9 @@ NodeInventory::node_update_info(const NodeUuid *uuid, const FdspNodeRegPtr msg)
     nd_ssd_capacity     = msg->disk_info.ssd_capacity;
     nd_ssd_latency_max  = msg->disk_info.ssd_latency_max;
     nd_ssd_latency_min  = msg->disk_info.ssd_latency_min;
-    nd_disk_type        = msg->disk_info.disk_type,
-    nd_mtx.unlock();
+    nd_disk_type        = msg->disk_info.disk_type;
+    strncpy(rs_name, nd_ip_str.c_str(), RS_NAME_MAX - 1);
+    rs_mtx.unlock();
 
     // TODO(vy): fix the weight.
     nd_gbyte_cap = nd_ssd_capacity;
@@ -103,59 +104,19 @@ NodeAgent::getCpClient() {
     return ndCpClient;
 }
 
-OM_NodeContainer::OM_NodeContainer()
-    : RsContainer(), node_inuse(OM_MAX_CONNECTED_NODES), node_mtx("container")
-{
-    node_cur_idx = 0;
-}
+// ---------------------------------------------------------------------------------
+// OM Node Container
+// ---------------------------------------------------------------------------------
+OM_NodeContainer::OM_NodeContainer() : RsContainer() {}
+OM_NodeContainer::~OM_NodeContainer() {}
 
-OM_NodeContainer::~OM_NodeContainer()
-{
-}
-
-// om_node_info
-// ------------
+// rs_new
+// ------
 //
-NodeAgent::pointer
-OM_NodeContainer::om_node_info(fds_uint32_t node_idx)
+Resource *
+OM_NodeContainer::rs_new()
 {
-    if (node_idx < node_cur_idx) {
-        return node_inuse[node_idx];
-    }
-    return NULL;
-}
-
-NodeAgent::pointer
-OM_NodeContainer::om_node_info(const NodeUuid *uuid)
-{
-    // Key lookup should be thread-safe.
-    return node_map[*uuid];
-}
-
-// om_new_node
-// -----------
-//
-NodeAgent::pointer
-OM_NodeContainer::om_new_node()
-{
-    fds_uint32_t  idx;
-    NodeAgent    *agent;
-
-    agent = new NodeAgent(NodeUuid(0));
-    node_mtx.lock();
-    idx = node_cur_idx;
-    if (idx < OM_MAX_CONNECTED_NODES) {
-        fds_verify(node_inuse[idx] == NULL);
-
-        node_cur_idx++;
-        agent->nd_index = idx;
-        node_inuse[idx] = agent;
-    } else {
-        delete agent;
-        agent = NULL;
-    }
-    node_mtx.unlock();
-    return agent;
+    return new NodeAgent(NodeUuid(0));
 }
 
 // om_activate_node
@@ -168,15 +129,14 @@ OM_NodeContainer::om_activate_node(fds_uint32_t node_idx)
 
     agent = om_node_info(node_idx);
     fds_verify(agent != NULL);
-    fds_verify(agent->nd_uuid.uuid_get_val() != 0);
 
-    node_mtx.lock();
-    node_map[agent->nd_uuid] = agent;
+    rs_mtx.lock();
+    rs_register_mtx(agent);
     node_up_pend.push_back(agent);
-    node_mtx.unlock();
+    rs_mtx.unlock();
 
     std::cout << "Actiate node " << std::hex << node_idx << ", uuid "
-        << agent->nd_uuid.uuid_get_val() << ", ptr " << agent << std::endl;
+        << agent->rs_uuid.uuid_get_val() << ", ptr " << agent << std::endl;
 }
 
 // om_deactivate_node
@@ -189,45 +149,14 @@ OM_NodeContainer::om_deactivate_node(fds_uint32_t node_idx)
 
     agent = om_node_info(node_idx);
     fds_verify(agent != NULL);
-    fds_verify(agent->nd_uuid.uuid_get_val() != 0);
 
     std::cout << "Deactivate node " << std::hex << node_idx << ", uuid "
-        << agent->nd_uuid.uuid_get_val() << ", ptr " << agent << std::endl;
+        << agent->rs_uuid.uuid_get_val() << ", ptr " << agent << std::endl;
 
-    node_mtx.lock();
-    node_map.erase(agent->nd_uuid);
+    rs_mtx.lock();
+    rs_unregister_mtx(agent);
     node_down_pend.push_back(agent);
-    node_mtx.unlock();
-}
-
-// om_ref_node
-// -----------
-//
-void
-OM_NodeContainer::om_ref_node(NodeAgent::pointer node, fds_bool_t act)
-{
-    node_mtx.lock();
-    fds_verify(node_inuse[node->node_index()] == NULL);
-
-    node_inuse[node->node_index()] = node;
-    if (act == true) {
-        node_map[node->nd_uuid.uuid_get_val()] = node;
-    }
-    node_mtx.unlock();
-}
-
-// om_deref_node
-// -------------
-//
-void
-OM_NodeContainer::om_deref_node(NodeAgent::pointer node)
-{
-    node_mtx.lock();
-    fds_verify(node_inuse[node->node_index()] == node);
-
-    node_inuse[node->node_index()] = NULL;
-    node_map[node->nd_uuid.uuid_get_val()] = NULL;
-    node_mtx.unlock();
+    rs_mtx.unlock();
 }
 
 }  // namespace fds
