@@ -20,7 +20,7 @@ FDSP_MigrationPathRpc(FdsMigrationSvc &mig_svc, fds_logPtr log) // NOLINT
 void FDSP_MigrationPathRpc::
 CopyToken(boost::shared_ptr<FDSP_CopyTokenReq>& copy_req) // NOLINT
 {
-    FdsActorRequestPtr copy_far(new FdsActorRequest(FAR_MIG_COPY_TOKEN_RPC, copy_req));
+    FdsActorRequestPtr copy_far(new FdsActorRequest(FAR_ID(FDSP_CopyTokenReq), copy_req));
     if (copy_far == nullptr) {
         FDS_PLOG_ERR(get_log()) << "Failed to allocate memory";
         return;
@@ -32,7 +32,7 @@ void FDSP_MigrationPathRpc::
 PushTokenObjects(boost::shared_ptr<FDSP_PushTokenObjectsReq>& push_req) // NOLINT
 {
     FdsActorRequestPtr push_far(
-            new FdsActorRequest(FAR_MIG_PUSH_TOKEN_OBJECTS_RPC, push_req));
+            new FdsActorRequest(FAR_ID(FDSP_PushTokenObjectsReq), push_req));
     if (push_far == nullptr) {
         FDS_PLOG_ERR(get_log()) << "Failed to allocate memory";
         return;
@@ -41,10 +41,10 @@ PushTokenObjects(boost::shared_ptr<FDSP_PushTokenObjectsReq>& push_req) // NOLIN
 }
 
 void FDSP_MigrationPathRpc::
-CopyTokenResp(boost::shared_ptr<FDSP_MigMsgHdrType>& copytok_resp) // NOLINT
+CopyTokenResp(boost::shared_ptr<FDSP_CopyTokenResp>& copytok_resp) // NOLINT
 {
     FdsActorRequestPtr copy_far(
-            new FdsActorRequest(FAR_MIG_COPY_TOKEN_RESP_RPC, copytok_resp));
+            new FdsActorRequest(FAR_ID(FDSP_CopyTokenResp), copytok_resp));
     if (copy_far == nullptr) {
         FDS_PLOG_ERR(get_log()) << "Failed to allocate memory";
         return;
@@ -53,10 +53,10 @@ CopyTokenResp(boost::shared_ptr<FDSP_MigMsgHdrType>& copytok_resp) // NOLINT
 }
 
 void FDSP_MigrationPathRpc::
-PushTokenObjectsResp(boost::shared_ptr<FDSP_MigMsgHdrType>& pushtok_resp)  // NOLINT
+PushTokenObjectsResp(boost::shared_ptr<FDSP_PushTokenObjectsResp>& pushtok_resp)  // NOLINT
 {
     FdsActorRequestPtr push_far(
-            new FdsActorRequest(FAR_MIG_PUSH_TOKEN_OBJECTS_RESP_RPC, pushtok_resp));
+            new FdsActorRequest(FAR_ID(FDSP_PushTokenObjectsResp), pushtok_resp));
     if (push_far == nullptr) {
         FDS_PLOG_ERR(get_log()) << "Failed to allocate memory";
         return;
@@ -108,24 +108,24 @@ Error FdsMigrationSvc::handle_actor_request(FdsActorRequestPtr req)
 {
     Error err = ERR_OK;
     switch (req->type) {
-    case FAR_MIGSVC_COPY_TOKEN:
+    case FAR_ID(MigSvcCopyTokens):
     {
         handle_migsvc_copy_token(req);
         break;
     }
-    case FAR_MIG_COPY_TOKEN_RPC:
+    case FAR_ID(FDSP_CopyTokenReq):
     {
         handle_migsvc_copy_token_rpc(req);
         break;
     }
-    case FAR_MIG_PUSH_TOKEN_OBJECTS_RPC:
-    case FAR_MIG_COPY_TOKEN_RESP_RPC:
-    case FAR_MIG_PUSH_TOKEN_OBJECTS_RESP_RPC:
+    case FAR_ID(FDSP_PushTokenObjectsReq):
+    case FAR_ID(FDSP_CopyTokenResp):
+    case FAR_ID(FDSP_PushTokenObjectsResp):
     {
         route_to_mig_actor(req);
         break;
     }
-    case FAR_MIGSVC_MIGRATION_COMPLETE:
+    case FAR_ID(MigSvcMigrationComplete):
     {
         handle_migsvc_migration_complete(req);
         break;
@@ -157,14 +157,14 @@ void FdsMigrationSvc::route_to_mig_actor(FdsActorRequestPtr req)
 }
 
 /**
- * Handles FAR_MIGSVC_COPY_TOKEN.  Creates TokenCopyReceiver and starts
+ * Handles FAR_ID(MigSvcCopyTokens).  Creates TokenCopyReceiver and starts
  * the state machine for it
  * This request is typically result of local entity such as om client
  * prompting migraton service to copy tokens
  */
 void FdsMigrationSvc::handle_migsvc_copy_token(FdsActorRequestPtr req)
 {
-    fds_assert(req->type == FAR_MIGSVC_COPY_TOKEN);
+    fds_assert(req->type == FAR_ID(MigSvcCopyTokens));
     auto copy_payload = req->get_payload<MigSvcCopyTokensReq>();
     /* Map of sender node ip -> tokens to request from sender */
     IpTokenTable token_tbl = get_ip_token_tbl(copy_payload->tokens);
@@ -184,13 +184,13 @@ void FdsMigrationSvc::handle_migsvc_copy_token(FdsActorRequestPtr req)
 }
 
 /**
- * Handles FAR_MIGSVC_COPY_TOKEN_RPC.  Creates TokenCopySender and starts
+ * Handles FAR_ID(MigSvcCopyTokens)_RPC.  Creates TokenCopySender and starts
  * the state machine for it
  * This is initiated by receiver requesting copy of tokens.
  */
 void FdsMigrationSvc::handle_migsvc_copy_token_rpc(FdsActorRequestPtr req)
 {
-    fds_assert(req->type == FAR_MIGSVC_COPY_TOKEN_RPC);
+    fds_assert(req->type == FAR_ID(MigSvcCopyTokens)_RPC);
 
     /* First acknowledge/accept the copy request */
     if (ack_copy_token_req(req) != ERR_OK) {
@@ -272,7 +272,7 @@ void FdsMigrationSvc::setup_migpath_server()
 }
 
 /**
- * Acknowledge FAR_MIG_COPY_TOKEN_RPC request.
+ * Acknowledge FAR_ID(FDSP_CopyTokenReq) request.
  * @param req
  */
 Error
@@ -280,11 +280,11 @@ FdsMigrationSvc::ack_copy_token_req(FdsActorRequestPtr req)
 {
     Error err(ERR_OK);
 
-    fds_assert(req->type == FAR_MIG_COPY_TOKEN_RPC);
+    fds_assert(req->type == FAR_ID(FDSP_CopyTokenReq));
     auto copy_req = req->get_payload<FDSP_CopyTokenReq>();
 
     /* Send a respones back acking request.  In future we can do more things here */
-    FDSP_MigMsgHdrTypePtr response(new FDSP_MigMsgHdrType());
+    boost::shared_ptr<FDSP_CopyTokenResp> response(new FDSP_CopyTokenResp());
     std::string &session_id = copy_req->header.base_header.session_uuid;
     response->base_header.err_code = ERR_OK;
     response->base_header.src_node_name = get_ip();
@@ -326,93 +326,4 @@ std::string FdsMigrationSvc::get_ip()
     return conf_helper_.get<std::string>("migration_ip");
 }
 
-#if 0
-void FdsMigrationSvc::sync_all_tokens()
-{
-    std::list<fds_token_id> tokens = dlt.get_my_tokens(); // NOLINT
-
-    /* For now we expect the token migration table to be empty */
-    fds_verify(get_tok_table_.size() == 0);
-
-    for (auto tok : tokens) {
-        get_tok_table_.add_token(tok);
-
-        FDSP_MigrationPathReqClientPtr client = get_migration_endpoint(tok, 0);
-        FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType());
-        FDSP_MigrateTokenReqPtr migrate_req(new FDSP_MigrateTokenReq());
-
-        // TODO(rao): Fill up the message
-
-        Error err = client->MigrateToken(fdsp_msg, migrate_req);
-        // TODO(rao): Handle the error by trying against a replica
-        if (err != ERR_OK)
-            fds_assert(!"Failed to issue migrate");
-            FDS_PLOG_WARN(get_log()) << "Issuing migrate token failed.  Error: "
-                    << err << " Req: " << migrate_req->log_string();
-        }
-        get_tok_table_.update_token_state(tok, TokenMigrationState::MIGRATE_ISSUED);
-    }
-}  // NOLINT
-
-FDSP_MigrationPathReqClientPtr FdsMigrationSvc::
-get_migration_endpoint(const fds_toke_id &tok_id, const int &idx)
-{
-    // TODO(rao): returnt the endpoint associated with idx
-    return nullptr;
-}
-
-void FdsMigrationSvc::InitiateGetTokenObjects(
-        boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,  // NOLINT
-        boost::shared_ptr<FDSP_MigrateTokenReq>& get_req)  // NOLINT
-{
-    /* Check token id doens't exist */
-    if (put_tok_handlers_.get_handler(get_req->token_id) != nullptr) {
-        fdsp_msg->err_code = ERR_MIGRATION_DUPLICATE_REQUEST;
-        FDS_PLOG_WARN(get_log()) << " Token id: " << token_id << " Duplicate request";
-    } else {
-        PutTokenHandlerPtr handler(new PutTokenHandler(get_req->token_id, threadpool_));
-        put_tok_table.add_token(get_req->toke_id, handler);
-        fdsp_msg->err_code = handler->start();
-        FDS_PLOG(get_log()) << " Token id: " << token_id;
-    }
-
-    if (fdsp_msg->err_code != ERR_OK) {
-        FDS_PLOG_WARN(get_log()) << " Token id: " << token_id
-                << " Erros: " << fdsp_msg->err_code;
-    }
-
-    resp_client(fdsp_msg->session_uuid)->InitiateGetTokenObjectsResp(fdsp_msg);
-}
-
-void FdsMigrationSvc::PutTokenObjects(
-        boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,  // NOLINT
-        boost::shared_ptr<PutTokenObjectsReq>& mig_put_req)  // NOLINT
-{
-    auto handler = get_tok_handlers_.get_handler(fdsp_msg->token_id);
-    if (handler == nullptr) {
-        fdsp_msg->err_code = ERR_MIGRATION_NO_HANDLER;
-    } else {
-        fdsp_msg->err_code = handler->put_token_objects();
-    }
-
-    if (fdsp_msg->err_code != ERR_OK) {
-        FDS_PLOG_WARN(get_log()) << " Token id: " << token_id
-                << " Erros: " << fdsp_msg->err_code;
-    }
-    resp_client(fdsp_msg->session_uuid)->PutTokenObjects(fdsp_msg);
-}
-
-void FdsMigrationSvc::
-InitiateGetTokenObjectsResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg)  // NOLINT
-{
-    /* TODO: Handle errors */
-}
-
-void FdsMigrationSvc::
-PutTokenObjectsResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg)  // NOLINT
-{
-    /* TODO: Handle any errors */
-    /* Here source may tell us to throttle how much we are asking */
-}
-#endif
 }  // namespace fds

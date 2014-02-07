@@ -234,7 +234,7 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
             MigSvcMigrationCompletePtr mig_complete(new MigSvcMigrationComplete());
             mig_complete->migration_id = fsm.parent_->get_migration_id();
             FdsActorRequestPtr far(new FdsActorRequest(
-                    FAR_MIGSVC_MIGRATION_COMPLETE, mig_complete));
+                    FAR_ID(MigSvcMigrationComplete), mig_complete));
 
             Error err = g_migrationSvc->send_actor_request(far);
             if (err != ERR_OK) {
@@ -302,7 +302,7 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
         }
         parent_->send_actor_request(
                 FdsActorRequestPtr(
-                        new FdsActorRequest(FAR_MIG_TCR_DATA_WRITE_DONE, nullptr)));
+                        new FdsActorRequest(FAR_ID(TcrDataWriteDone), nullptr)));
     }
 
     protected:
@@ -379,14 +379,14 @@ Error TokenCopyReceiver::handle_actor_request(FdsActorRequestPtr req)
     FDSP_CopyTokenReqPtr copy_tok_req;
 
     switch (req->type) {
-    case FAR_MIG_COPY_TOKEN_RESP_RPC:
+    case FAR_ID(FDSP_CopyTokenResp):
         sm_->process_event(ConnectRespEvt());
         break;
-    case FAR_MIG_PUSH_TOKEN_OBJECTS_RPC:
+    case FAR_ID(FDSP_PushTokenObjectsReq):
         /* Posting TokRecvdEvt */
         sm_->process_event(*req->get_payload<FDSP_PushTokenObjectsReq>());
         break;
-    case FAR_MIG_TCR_DATA_WRITE_DONE:
+    case FAR_ID(TcrDataWriteDone):
         /* Notification event from obeject store that write is complete */
         sm_->process_event(TokWrittenEvt());
         break;

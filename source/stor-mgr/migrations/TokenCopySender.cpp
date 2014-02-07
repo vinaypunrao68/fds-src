@@ -259,7 +259,7 @@ struct TokenCopySenderFSM_
             MigSvcMigrationCompletePtr mig_complete(new MigSvcMigrationComplete());
             mig_complete->migration_id = fsm.parent_->get_migration_id();
             FdsActorRequestPtr far(new FdsActorRequest(
-                    FAR_MIGSVC_MIGRATION_COMPLETE, mig_complete));
+                    FAR_ID(MigSvcMigrationComplete), mig_complete));
 
             Error err = g_migrationSvc->send_actor_request(far);
             if (err != ERR_OK) {
@@ -327,7 +327,7 @@ struct TokenCopySenderFSM_
         }
         parent_->send_actor_request(
                 FdsActorRequestPtr(
-                        new FdsActorRequest(FAR_MIG_TCS_DATA_READ_DONE, nullptr)));
+                        new FdsActorRequest(FAR_ID(TcsDataReadDone), nullptr)));
     }
     protected:
     /* Parent */
@@ -389,11 +389,11 @@ Error TokenCopySender::handle_actor_request(FdsActorRequestPtr req)
     Error err = ERR_OK;
 
     switch (req->type) {
-    case FAR_MIG_PUSH_TOKEN_OBJECTS_RESP_RPC:
+    case FAR_ID(FDSP_PushTokenObjectsResp):
         /* Posting TokSentEvt */
         sm_->process_event(TokSentEvt());
         break;
-    case FAR_MIG_TCS_DATA_READ_DONE:
+    case FAR_ID(TcsDataReadDone):
         /* Notification from datastore that token data has been read */
         sm_->process_event(TokReadEvt());
         break;

@@ -730,6 +730,9 @@ struct FDSP_CopyTokenReq
     3: i32                     max_size_per_reply
 }
 
+/* Payload for CopyToken reponse path */
+typedef FDSP_MigMsgHdrType FDSP_CopyTokenResp
+
 /* Meta data for migration object */
 struct FDSP_MigrateObjectMetadata
 {
@@ -766,6 +769,9 @@ struct FDSP_PushTokenObjectsReq
     /* List of objects */
     4: FDSP_MigrateObjectList obj_list
 }
+
+/* Payload for PushTokenObjects response path */
+typedef FDSP_MigMsgHdrType FDSP_PushTokenObjectsResp
 
 service FDSP_SessionReq {
     oneway void AssociateRespCallback(1:string src_node_name) // Associate Response callback with DM/SM for this source node.
@@ -923,9 +929,9 @@ service FDSP_MigrationPathReq {
 }
 
 service FDSP_MigrationPathResp {
-    oneway void CopyTokenResp(1:FDSP_MigMsgHdrType copytok_resp)
+    oneway void CopyTokenResp(1:FDSP_CopyTokenResp copytok_resp)
 
-    oneway void PushTokenObjectsResp(1:FDSP_MigMsgHdrType pushtok_resp)
+    oneway void PushTokenObjectsResp(1:FDSP_PushTokenObjectsResp pushtok_resp)
 }
 
 #endif

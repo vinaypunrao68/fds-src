@@ -19,7 +19,7 @@ public:
     void copy_token(FdsActorRequestPtr req)
     {
         FdsActorRequestPtr rep(new FdsActorRequest());
-        rep->type = FAR_MIGSVC_MIGRATION_COMPLETE;
+        rep->type = FAR_ID(MigSvcMigrationComplete);
         this->send_actor_request(rep);
     }
     
@@ -27,10 +27,10 @@ public:
     {
         Error err(ERR_OK);
         switch (req->type) {
-        case FAR_MIGSVC_COPY_TOKEN:
+        case FAR_ID(MigSvcCopyTokens):
             threadpool_->schedule(&FdsActorTest::copy_token, this, req);
             break;
-        case FAR_MIGSVC_MIGRATION_COMPLETE:
+        case FAR_ID(MigSvcMigrationComplete):
             copy_complete_cnt++;
             break;
         default:
@@ -48,7 +48,7 @@ void test_send_actor_request()
 {
     fds_threadpoolPtr threadpool(new fds_threadpool());
     FdsActorRequestPtr r(new FdsActorRequest());
-    r->type = FAR_MIGSVC_COPY_TOKEN;
+    r->type = FAR_ID(MigSvcCopyTokens);
 
     FdsActorTest t(threadpool);
     t.send_actor_request(r);
