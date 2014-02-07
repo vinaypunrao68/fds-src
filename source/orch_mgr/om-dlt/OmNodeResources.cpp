@@ -132,27 +132,6 @@ OM_NodeContainer::om_node_info(const NodeUuid& uuid)
     return NULL;
 }
 
-Error
-OM_NodeContainer::check_node_exists(const NodeUuid& uuid,
-                                    const std::string& node_name) {
-    Error err(ERR_OK);
-    if (node_map.count(uuid) == 0) {
-        err = Error(ERR_NOT_FOUND);
-        return err;
-    }
-
-    NodeAgent::pointer agent = node_map[uuid];
-    if (node_name.compare(agent->get_node_name()) != 0) {
-        // node with same uuid exists but names don't match!
-        // probably hash collision
-        err = Error(ERR_DUPLICATE_UUID);
-        return err;
-    }
-
-    return err;
-}
-
-
 // om_new_node
 // -----------
 //

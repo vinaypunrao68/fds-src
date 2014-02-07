@@ -23,7 +23,9 @@ user_cpp          := $(orch_mgr_cpp)
 
 user_no_style     := \
     orchMgr.h                          \
-    $(user_cpp)
+    orchMgr.cpp                        \
+    OmLocDomain.cpp		       \
+    OmAdminCtrl.cpp                    
 
 user_ar_libs      := fds-om-lib
 fds-om-lib        := $(orch_mgr_cpp)

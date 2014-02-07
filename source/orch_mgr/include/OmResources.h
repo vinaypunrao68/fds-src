@@ -187,16 +187,6 @@ class OM_NodeContainer : public RsContainer
     NodeAgent::pointer om_node_info(fds_uint32_t node_idx);
     NodeAgent::pointer om_node_info(const NodeUuid& uuid);
 
-    /*
-     * Checks if node is in the container already.
-     * @return ERR_OK if node already in the container.
-     * ERR_NOT_FOUND if the node is not in the container.
-     * ERR_DUPLICATE_UUID if the node with the same uuid is in the
-     * container but names do not match, most likely another
-     * node name produced the same node uuid, so need to pick a new name
-     */
-    Error check_node_exists(const NodeUuid& uuid,
-                            const std::string& node_name);
     /**
      * Iterate through the list using standard container iterator.
      */
