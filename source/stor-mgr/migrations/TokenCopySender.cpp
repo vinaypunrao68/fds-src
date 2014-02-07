@@ -52,8 +52,9 @@ struct TokenCopySenderFSM_
         rcvr_ip_ = rcvr_ip;
         pending_tokens_ = tokens;
         client_resp_handler_ = client_resp_handler;
-        read_cb_ = std::bind(&TokenCopySenderFSM_::data_read_cb, this,
-                std::placeholders::_1, std::placeholders::_2);
+        objstor_read_req_.response_cb = std::bind(
+            &TokenCopySenderFSM_::data_read_cb, this,
+            std::placeholders::_1, std::placeholders::_2);
     }
     // To improve performance --- if no message queue needed
     // message queue not needed if no action will itself generate
@@ -192,7 +193,6 @@ struct TokenCopySenderFSM_
                 fsm.pending_tokens_.erase(first);
                 // TODO(rao) : Dont hardcode
                 fsm.objstor_read_req_.max_size = 2 << 20;
-                fsm.objstor_read_req_.response_cb = fsm.read_cb_;
 
             } else if (fsm.objstor_read_req_.itr.isDone()) {
                 /* We are done reading objects for current token */
@@ -214,6 +214,10 @@ struct TokenCopySenderFSM_
         {
             Error err(ERR_OK);
 
+            /* Recyle objstor_read_req_ message */
+            fds_assert(fsm.objstor_read_req_.response_cb);
+            fsm.objstor_read_req_.obj_list.clear();
+
             err = fsm.obj_store_->enqueueMsg(FdsSysTaskQueueId, &fsm.objstor_read_req_);
             if (err != fds::ERR_OK) {
                 fds_assert(!"Hit an error in enqueing");
@@ -230,10 +234,13 @@ struct TokenCopySenderFSM_
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
             /* Prepare FDSP_PushTokenObjectsReq */
+            fsm.push_tok_req_.header.base_header.err_code = ERR_OK;
+            fsm.push_tok_req_.header.base_header.src_node_name = g_migrationSvc->get_ip();
             fsm.push_tok_req_.header.base_header.session_uuid =
                     fsm.rcvr_session_->getSessionId();
             fsm.push_tok_req_.header.migration_id = fsm.parent_->get_migration_id();
             fsm.push_tok_req_.obj_list.clear();
+            fsm.push_tok_req_.token_id = fsm.objstor_read_req_.token_id;
             // TODO(rao): We should std::move here
             fsm.push_tok_req_.obj_list = fsm.objstor_read_req_.obj_list;
             fsm.push_tok_req_.complete = fsm.objstor_read_req_.itr.isDone();
@@ -348,9 +355,6 @@ struct TokenCopySenderFSM_
     /* Tracks the current read request with obj_store_ */
     SmIoGetTokObjectsReq objstor_read_req_;
 
-    /* This callback is invoked when data is available */
-    SmIoGetTokObjectsReq::CbType read_cb_;
-
     /* Sender session endpoint */
     netMigrationPathClientSession *rcvr_session_;
 };  /* struct TokenCopySenderFSM_ */
@@ -383,7 +387,12 @@ Error TokenCopySender::handle_actor_request(FdsActorRequestPtr req)
     Error err = ERR_OK;
 
     switch (req->type) {
+    case FAR_MIG_PUSH_TOKEN_OBJECTS_RESP_RPC:
+        /* Posting TokSentEvt */
+        sm_->process_event(TokSentEvt());
+        break;
     case FAR_MIG_TCS_DATA_READ_DONE:
+        /* Notification from datastore that token data has been read */
         sm_->process_event(TokReadEvt());
         break;
     default:

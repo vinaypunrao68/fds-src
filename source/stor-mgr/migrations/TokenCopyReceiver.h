@@ -31,7 +31,7 @@ class TokenCopyReceiver : public MigrationReceiver,
 public:
     TokenCopyReceiver(const std::string &migration_id,
             fds_threadpoolPtr threadpool,
-            fds_logPtr log, netSessionTblPtr nst,
+            fds_logPtr log,
             const std::string &sender_ip,
             const std::set<fds_token_id> &tokens,
             boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler);

@@ -305,16 +305,16 @@ namespace fds {
    */
   class SmIoPutTokObjectsReq : public SmIoReq {
    public:
-      typedef std::function<void (const Error&)> CbType;
+      typedef std::function<void (const Error&, SmIoPutTokObjectsReq *resp)> CbType;
    public:
     virtual std::string log_string() override 
     {
         std::stringstream ret;
-        ret << " PutTokObjectsReq Token id: " << token_id;
+        ret << " SmIoPutTokObjectsReq";
         return ret.str(); 
     }
 
-    /* Token id that objects belong to */
+    /* In: Token id that objects belong to */
     fds_token_id token_id;
     /* List objects and their metadata */
     FDSP_MigrateObjectList obj_list;

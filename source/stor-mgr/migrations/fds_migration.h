@@ -182,9 +182,13 @@ public:
     netMigrationPathClientSession*
     get_migration_client(const std::string &ip);
 
+    std::string get_ip();
+
 private:
+    void route_to_mig_actor(FdsActorRequestPtr req);
     void handle_migsvc_copy_token(FdsActorRequestPtr req);
     void handle_migsvc_copy_token_rpc(FdsActorRequestPtr req);
+    void handle_migsvc_migration_complete(FdsActorRequestPtr req);
     IpTokenTable get_ip_token_tbl(const std::set<fds_token_id> &tokens);
     void setup_migpath_server();
     Error ack_copy_token_req(FdsActorRequestPtr req);
@@ -205,14 +209,8 @@ private:
     boost::shared_ptr<FDSP_MigrationPathRpc> migpath_handler_;
     netMigrationPathServerSession *migpath_session_;
 
-    /* All of the migrations pending start of migration.  Once migrations
-     * start they will go into inprogress_mig_actors_;
-     * NOTE: Key for this table is IP.  Ideally it should be some sort of a
-     * stream id
-     */
-    std::unordered_map<std::string, FdsActorUPtr> pending_mig_actors_;
-    /* Migrations that are in progress */
-    std::unordered_map<std::string, FdsActorUPtr> inprogress_mig_actors_;
+    /* Migrations that are in progress.  Keyed by migration id */
+    std::unordered_map<std::string, FdsActorUPtr> mig_actors_;
 }; 
 
 class FDSP_MigrationPathRpc : virtual public FDSP_MigrationPathReqIf ,
@@ -229,28 +227,23 @@ public:
     }
 
     void CopyToken(const FDSP_CopyTokenReq& migrate_req) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
+        fds_assert(!"Invalid");
     }
-
-    void CopyToken(boost::shared_ptr<FDSP_CopyTokenReq>& migrate_req);
-
     void PushTokenObjects(const FDSP_PushTokenObjectsReq& mig_put_req) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
+        fds_assert(!"Invalid");
     }
-
+    void CopyToken(boost::shared_ptr<FDSP_CopyTokenReq>& migrate_req);
     void PushTokenObjects(boost::shared_ptr<FDSP_PushTokenObjectsReq>& mig_put_req);
 
-    void CopyTokenResp(const FDSP_MsgHdrType& fdsp_msg) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
+
+    void CopyTokenResp(const FDSP_MigMsgHdrType& copytok_resp) {
+        fds_assert(!"Invalid");
     }
-
-    void CopyTokenResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg);
-
-    void PushTokenObjectsResp(const FDSP_MsgHdrType& fdsp_msg) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
+    void PushTokenObjectsResp(const FDSP_MigMsgHdrType& pushtok_resp) {
+        fds_assert(!"Invalid");
     }
-
-    void PushTokenObjectsResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg);
+    void CopyTokenResp(boost::shared_ptr<FDSP_MigMsgHdrType>& copytok_resp);
+    void PushTokenObjectsResp(boost::shared_ptr<FDSP_MigMsgHdrType>& pushtok_resp);
 
 protected:
     FdsMigrationSvc &mig_svc_;

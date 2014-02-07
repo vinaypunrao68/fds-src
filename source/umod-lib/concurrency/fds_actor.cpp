@@ -13,7 +13,8 @@ FdsRequestQueueActor::FdsRequestQueueActor(fds_threadpoolPtr threadpool)
 {
 }
 
-Error FdsRequestQueueActor::send_actor_request(FdsActorRequestPtr req) {
+Error FdsRequestQueueActor::send_actor_request(FdsActorRequestPtr req)
+{
     lock_.lock();
     queue_.push(req);
     if (!scheduled_) {
@@ -23,6 +24,8 @@ Error FdsRequestQueueActor::send_actor_request(FdsActorRequestPtr req) {
         threadpool_->schedule(&FdsRequestQueueActor::request_loop, this);
     }
     lock_.unlock();
+
+    return ERR_OK;
 }
 
 void FdsRequestQueueActor::request_loop() {
@@ -42,11 +45,9 @@ void FdsRequestQueueActor::request_loop() {
         Error err = this->handle_actor_request(req);
         if (err != ERR_OK) {
             fds_verify(!"Request resulted in an error");
-            FDS_PLOG_WARN(g_fdslog) << " Request type: " << req->type << " error: " << err;
+            FDS_PLOG_WARN(g_fdslog) << " Request type: " << req->type
+                    << " error: " << err;
         }
-
-        // TODO(Rao): We may starve other threads when queue_ is busy. We should
-        // put a limit on number of requests that we handle
     }
 }
 

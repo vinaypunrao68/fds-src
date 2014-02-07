@@ -757,11 +757,14 @@ struct FDSP_PushTokenObjectsReq
 	/* Header */
 	1: FDSP_MigMsgHdrType         header
 
+	/* Token id */
+    2: FDSP_Token                 token_id
+
     /* This is final put or not */
-    2: bool complete
+    3: bool complete
 
     /* List of objects */
-    3: FDSP_MigrateObjectList obj_list
+    4: FDSP_MigrateObjectList obj_list
 }
 
 service FDSP_SessionReq {
@@ -920,9 +923,9 @@ service FDSP_MigrationPathReq {
 }
 
 service FDSP_MigrationPathResp {
-    oneway void CopyTokenResp(1:FDSP_MsgHdrType fdsp_msg)
+    oneway void CopyTokenResp(1:FDSP_MigMsgHdrType copytok_resp)
 
-    oneway void PushTokenObjectsResp(1:FDSP_MsgHdrType fdsp_msg)
+    oneway void PushTokenObjectsResp(1:FDSP_MigMsgHdrType pushtok_resp)
 }
 
 #endif

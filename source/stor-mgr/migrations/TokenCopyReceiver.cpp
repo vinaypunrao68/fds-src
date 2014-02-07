@@ -3,6 +3,7 @@
  */
 #include <string>
 #include <set>
+#include <list>
 #include <boost/msm/front/state_machine_def.hpp>
 #include <boost/msm/front/functor_row.hpp>
 #include <boost/msm/front/euml/common.hpp>
@@ -11,6 +12,7 @@
 #include <vector>
 #include <StorMgr.h>
 #include <fdsp/FDSP_types.h>
+#include <fds_migration.h>
 #include <TokenCopyReceiver.h>
 
 
@@ -24,18 +26,37 @@ using namespace msm::front;         // NOLINT
 using namespace msm::front::euml;   // NOLINT
 typedef msm::front::none msm_none;
 
+/* For logging purpose */
+static inline fds_log* get_log() {
+    return g_migrationSvc->get_log();
+}
+static inline std::string log_string()
+{
+    return "TokenCopySender";
+}
+
+/* Statemachine events */
+/* Triggered once response for copy tokens request is received */
+struct ConnectRespEvt {};
+/* Triggered when token data is received */
+typedef FDSP_PushTokenObjectsReq TokRecvdEvt;
+/* Triggered when token data has been committed data store */
+struct TokWrittenEvt {};
+
 /* State machine */
 struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
-    void init(netSessionTblPtr nst,
+    void init(TokenCopyReceiver *parent,
             const std::string &sender_ip,
             const std::set<fds_token_id> &tokens,
             boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler)
     {
-        nst_ = nst;
+        parent_ = parent;
         sender_ip_ = sender_ip;
         pending_tokens_ = tokens;
         client_resp_handler_ = client_resp_handler;
-        cur_token_complete_ = false;
+        objstor_write_req_.response_cb = std::bind(
+            &TokenCopyReceiverFSM_::data_written_cb, this,
+            std::placeholders::_1, std::placeholders::_2);
     }
 
     // Disable exceptions to improve performance
@@ -52,17 +73,7 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
         // FDS_PLOG(get_log()) << "TokenCopyReceiver SM";
     }
 
-    std::string log_string()
-    {
-        return "TokenCopyReceiver Statemachine";
-    }
-
-    /* Events */
-    typedef FDS_ProtocolInterface::FDSP_PushTokenObjectsReq DataReceivedEvt;
-    struct DataWrittenEvt {};
-
     /* The list of state machine states */
-
     struct Init : public msm::front::state<>
     {
         template <class Event, class FSM>
@@ -76,7 +87,19 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
             // FDS_PLOG(get_log()) << "Init State";
         }
     };
-
+    struct Connecting: public msm::front::state<>
+    {
+        template <class Event, class FSM>
+        void on_entry(Event const& , FSM&)
+        {
+            // FDS_PLOG(get_log()) << "Connecting State";
+        }
+        template <class Event, class FSM>
+        void on_exit(Event const&, FSM&)
+        {
+            // FDS_PLOG(get_log()) << "Connecting State";
+        }
+    };
     struct Receiving : public msm::front::state<>
     {
         template <class Event, class FSM>
@@ -90,11 +113,8 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
             // FDS_PLOG(get_log()) << "Receiving State";
         }
     };
-
     struct Writing : public msm::front::state<>
     {
-        typedef mpl::vector<DataReceivedEvt> deferred_events;
-
         template <class Event, class FSM>
         void on_entry(Event const& , FSM&)
         {
@@ -106,7 +126,19 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
             // FDS_PLOG(get_log()) << "Writing State";
         }
     };
-
+    struct UpdatingTok : public msm::front::state<>
+    {
+        template <class Event, class FSM>
+        void on_entry(Event const& , FSM&)
+        {
+            // FDS_PLOG(get_log()) << "UpdatingTok";
+        }
+        template <class Event, class FSM>
+        void on_exit(Event const&, FSM&)
+        {
+            // FDS_PLOG(get_log()) << "UpdatingTok";
+        }
+    };
     struct Complete : public msm::front::state<>
     {
         template <class Event, class FSM>
@@ -121,17 +153,30 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
         }
     };
 
+
     /* Actions */
-    struct issue_copy_token
+    struct connect
     {
+        /* Connect to the receiver and issue Copy Tokens request */
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
+            /* First connect */
+            fsm.sender_session_ = g_migrationSvc->get_migration_client(fsm.sender_ip_);
+            if (fsm.sender_session_ == nullptr) {
+                fds_assert(!"Null session");
+                // TODO(rao:) Go into error state
+                // FDS_PLOG_ERR(get_log()) << "sender_session is null";
+                return;
+            }
+
+            /* Issue copy tokens request */
             FDSP_CopyTokenReq copy_req;
-            // TODO(rao): populate heaer with other necessary fields
+            copy_req.header.base_header.err_code = ERR_OK;
+            copy_req.header.base_header.src_node_name = g_migrationSvc->get_ip();
             copy_req.header.base_header.session_uuid =
                     fsm.sender_session_->getSessionId();
-            copy_req.header.base_header.err_code = ERR_OK;
+            copy_req.header.migration_id = fsm.parent_->get_migration_id();
             copy_req.tokens.assign(
                     fsm.pending_tokens_.begin(), fsm.pending_tokens_.end());
             // TODO(rao): Do not hard code
@@ -139,85 +184,102 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
             fsm.sender_session_->getClient()->CopyToken(copy_req);
         }
     };
-    struct write
+    struct update_tok
     {
+        /* Prepare objstor_write_req_ for next read request */
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-#if 0
+            fds_assert(pending_tokens_.size() > 0);
+            if (fsm.write_tok_complete_) {
+                fsm.pending_tokens_.erase(fsm.write_token_id_);
+                fsm.completed_tokens_.push_back(fsm.write_token_id_);
+            }
+        }
+    };
+    struct write_tok
+    {
+        /* Issues write request to ObjectStore */
+        template <class EVT, class FSM, class SourceState, class TargetState>
+        void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
+        {
             Error err(ERR_OK);
 
-            SmIoPutTokObjectsReq *ioReq = new SmIoPutTokObjectsReq();
-            ioReq->token_id = fsm.tokens_[fsm.cur_token_];
-            // TODO(rao): We should std::move the object list here
-            ioReq->obj_list = evt.obj_list;
+            /* Book keeping */
+            fsm.write_tok_complete_ = evt.complete;
+            fsm.write_token_id_ = evt.token_id;
 
-            err = fsm.obj_store_->enqueueMsg(0/* TODO(rao): FdsSysTaskQueueId*/, ioReq);
+            /* Recycle objstor_write_req_ */
+            fds_assert(fsm.objstor_write_req_.response_cb);
+            fsm.objstor_write_req_.token_id = evt.token_id;
+            // TODO(rao): We should std::move the object list here
+            fsm.objstor_write_req_.obj_list = evt.obj_list;
+
+            err = fsm.obj_store_->enqueueMsg(FdsSysTaskQueueId, &fsm.objstor_write_req_);
             if (err != fds::ERR_OK) {
                 fds_assert(!"Hit an error in enqueing");
                 // TODO(rao): Put your selft in an error state
+                FDS_PLOG_ERR(get_log()) << "Failed to enqueue to StorMgr.  Error: "
+                        << err;
             }
+        }
+    };
+    struct teardown
+    {
+        /* Tears down.  Notify parent we are done */
+        template <class EVT, class FSM, class SourceState, class TargetState>
+        void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
+        {
+            MigSvcMigrationCompletePtr mig_complete(new MigSvcMigrationComplete());
+            mig_complete->migration_id = fsm.parent_->get_migration_id();
+            FdsActorRequestPtr far(new FdsActorRequest(
+                    FAR_MIGSVC_MIGRATION_COMPLETE, mig_complete));
 
-            fsm.cur_token_complete_ = evt.complete;
-#endif
-        }
-    };
-    struct incr_cur_token
-    {
-#if 0
-        template <class EVT, class FSM, class SourceState, class TargetState>
-        void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
-        {
-            fsm.cur_token_++;
-            fds_assert(fsm.cur_token_ <= fsm.tokens_size()-1);
-        }
-#endif
-    };
-    struct tear_down
-    {
-        template <class EVT, class FSM, class SourceState, class TargetState>
-        void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
-        {
-            // TODO(rao): Notify completion migration svc
+            Error err = g_migrationSvc->send_actor_request(far);
+            if (err != ERR_OK) {
+                fds_assert(!"Failed to send message");
+                FDS_PLOG_ERR(get_log()) << "Failed to send actor message.  Error: "
+                        << err;
+            }
         }
     };
 
     /* Guards */
-    struct cur_token_complete
+    struct more_toks
     {
+        /* Returns true if there are token remaining to be received */
         template <class EVT, class FSM, class SourceState, class TargetState>
         bool operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-#if 0
-            return fsm.cur_token_complete_;
-#endif
+            return (fsm.pending_tokens_.size() > 0);
         }
     };
-    struct more_tokens_left
-    {
-        template <class EVT, class FSM, class SourceState, class TargetState>
-        bool operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
-        {
-#if 0
-            return fsm.cur_token_ < fsm.tokens_.size()-1;
-#endif
-        }
-    };
-
-    /* transition table */
+    /* Statemachine transition table.  Roughly the statemachine is
+     * 1. request objects for bunch of token
+     * 2. Recive data for a token
+     * 3. Write the data for the received token
+     * 4. Once all the token data is received, move on to receivng another
+     *    token until no tokens are left.
+     */
     struct transition_table : mpl::vector< // NOLINT
-    //   Start       Event              Next            Action                      Guard
-    Row <Init,       msm_none,          Receiving,      issue_copy_token,           msm_none>, // NOLINT
-    Row <Receiving,  DataReceivedEvt,   Writing,        write,                      msm_none >, // NOLINT
-    Row <Writing,    DataWrittenEvt,    Receiving,      msm_none,                   Not_<cur_token_complete> >, // NOLINT
-    Row <Writing,    DataWrittenEvt,    Receiving,      ActionSequence_<
-                                                            mpl::vector<
-                                                            incr_cur_token,
-                                                            issue_copy_token> >,    And_<cur_token_complete, more_tokens_left> >, // NOLINT
-    Row <Writing,    DataWrittenEvt,    Complete,       tear_down,                  Not_<more_tokens_left> > // NOLINT
+    // +------------+----------------+------------+-----------------+------------------+
+    // | Start      | Event          | Next       | Action          | Guard            |
+    // +------------+----------------+------------+-----------------+------------------+
+    Row< Init       , msm_none       , Connecting , connect         , msm_none         >,
+    // +------------+----------------+------------+-----------------+------------------+
+    Row< Connecting , ConnectRespEvt , Receiving  , msm_none        , msm_none         >,
+    // +------------+----------------+------------+-----------------+------------------+
+    Row< Receiving  , TokRecvdEvt    , Writing    , write_tok       , msm_none         >,
+    // +------------+----------------+------------+-----------------+------------------+
+    Row< Writing    , TokWrittenEvt  , UpdatingTok, update_tok      , msm_none         >,
+    // +------------+----------------+------------+-----------------+------------------+
+    Row< UpdatingTok, msm_none       , Receiving  , msm_none        , more_toks        >,
+    Row< UpdatingTok, msm_none       , Complete   , teardown        , Not_<more_toks > >
+    // +------------+----------------+------------+-----------------+------------------+
     >
     {
     };
+
 
     /* Replaces the default no-transition response */
     template <class FSM, class Event>
@@ -229,29 +291,48 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
     /* the initial state of the player SM. Must be defined */
     typedef Init initial_state;
 
+    /* Callback invoked once data's been read from Object store */
+    void data_written_cb(const Error &e, SmIoPutTokObjectsReq *resp)
+    {
+        if (e != ERR_OK) {
+            fds_assert(!"Error in reading");
+            FDS_PLOG_ERR(get_log()) << "Error: " << e;
+            return;
+        }
+        parent_->send_actor_request(
+                FdsActorRequestPtr(
+                        new FdsActorRequest(FAR_MIG_TCR_DATA_WRITE_DONE, nullptr)));
+    }
+
     protected:
-    /* Net session table */
-    netSessionTblPtr nst_;
+    /* Parent */
+    TokenCopyReceiver *parent_;
 
     /* Sender ip */
     std::string sender_ip_;
-
-    /* Tokens that are pending copy request */
-    std::set<fds_token_id> pending_tokens_;
-
-    /* Current token that we are receiving */
-    int cur_token_;
-
-    /* Data for the current token is completely received or not */
-    bool cur_token_complete_;
 
     /* RPC handler for responses.  NOTE: We don't really use it.  It's just here so
      * it can be passed as a parameter when we create a netClientSession
      */
     boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler_;
 
+    /* Tokens that are pending to be received */
+    std::set<fds_token_id> pending_tokens_;
+
+    /* Tokens for which receive is complete */
+    std::list<fds_token_id> completed_tokens_;
+
+    /* Write token */
+    fds_token_id write_token_id_;
+
+    /* Current token written is complete or not */
+    bool write_tok_complete_;
+
     /* Object store reference */
     ObjectStorMgr *obj_store_;
+
+    /* Object store write request */
+    SmIoPutTokObjectsReq objstor_write_req_;
 
     /* Sender session endpoint */
     netMigrationPathClientSession *sender_session_;
@@ -260,7 +341,6 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
 TokenCopyReceiver::TokenCopyReceiver(const std::string &migration_id,
         fds_threadpoolPtr threadpool,
         fds_logPtr log,
-        netSessionTblPtr nst,
         const std::string &sender_ip,
         const std::set<fds_token_id> &tokens,
         boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler)
@@ -269,7 +349,7 @@ TokenCopyReceiver::TokenCopyReceiver(const std::string &migration_id,
       log_(log)
 {
     sm_.reset(new TokenCopyReceiverFSM());
-    sm_->init(nst, sender_ip, tokens, client_resp_handler);
+    sm_->init(this, sender_ip, tokens, client_resp_handler);
 }
 
 TokenCopyReceiver::~TokenCopyReceiver() {
@@ -294,17 +374,20 @@ void TokenCopyReceiver::start()
 Error TokenCopyReceiver::handle_actor_request(FdsActorRequestPtr req)
 {
     Error err = ERR_OK;
-    FDSP_PushTokenObjectsReqPtr push_tok_req;
+    FDSP_CopyTokenReqPtr copy_tok_req;
 
     switch (req->type) {
-#if 0
-    case FAR_MIG_PUSH_TOKEN_OBJECTS:
-        push_tok_req = boost::static_pointer_cast<FDSP_PushTokenObjectsReq>(req->payload);
-        sm_->process_event(*push_tok_req);
+    case FAR_MIG_COPY_TOKEN_RESP_RPC:
+        sm_->process_event(ConnectRespEvt());
         break;
-#endif
-    case FAR_OBJSTOR_TOKEN_OBJECTS_WRITTEN:
-        // TODO(rao) : Implement this
+    case FAR_MIG_PUSH_TOKEN_OBJECTS_RPC:
+        /* Posting TokRecvdEvt */
+        sm_->process_event(*req->get_payload<FDSP_PushTokenObjectsReq>());
+        break;
+    case FAR_MIG_TCR_DATA_WRITE_DONE:
+        /* Notification event from obeject store that write is complete */
+        sm_->process_event(TokWrittenEvt());
+        break;
     default:
         err = ERR_FAR_INVALID_REQUEST;
         break;

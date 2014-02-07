@@ -1736,7 +1736,6 @@ ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq)
 {
     Error err(ERR_OK);
     SmIoPutTokObjectsReq *putTokReq = static_cast<SmIoPutTokObjectsReq*>(putTokReq);
-    fds_token_id token = putTokReq->token_id; 
     FDSP_MigrateObjectList &objList = putTokReq->obj_list;
     
     for (auto obj : objList) {
@@ -1769,8 +1768,7 @@ ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq)
 
         err = writeObject(objId, objData, DataTier::diskTier);
         if (err != ERR_OK) {
-            FDS_PLOG_ERR(GetLog()) << "Failed to write the object: " << objId << " Token: "
-               << token;
+            FDS_PLOG_ERR(GetLog()) << "Failed to write the object: " << objId;
            break; 
         }
     }
@@ -1779,9 +1777,7 @@ ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq)
     qosCtrl->markIODone(*putTokReq,
             DataTier::diskTier);
 
-    putTokReq->response_cb(err);
-
-    delete putTokReq;
+    putTokReq->response_cb(err, putTokReq);
 }
 
 Error

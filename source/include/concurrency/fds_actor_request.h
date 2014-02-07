@@ -12,19 +12,26 @@ namespace fds {
 
 /* Types.  These types are divided into ranges.  DO NOT change the order */
 enum FdsActorRequestType {
-    /* Migration request range [1000-2000) */
+    /*----------------- Migration request range [1000-2000) -------------------*/
+    /* Migration service message to initiate token copy */
     FAR_MIGSVC_COPY_TOKEN = 1000,
+    /* Migration service message that a migration is complete */
     FAR_MIGSVC_MIGRATION_COMPLETE,
+    /* TockenCopySender message that token data has been read */
     FAR_MIG_TCS_DATA_READ_DONE,
-    /* Migration RPC */
+    /* TockenCopyReceiver message that token data has been written */
+    FAR_MIG_TCR_DATA_WRITE_DONE,
+    /*----------------- Migration RPC -----------------------------------------*/
+    /* RPC from receiver->sender to start token copy */
     FAR_MIG_COPY_TOKEN_RPC,
-    FAR_MIG_COPY_TOKEN_COMPLETE_RPC,
+    /* RPC token copy response ack from sender->receiver */
+    FAR_MIG_COPY_TOKEN_RESP_RPC,
+    /* RPC from sender->receiver with token object data */
     FAR_MIG_PUSH_TOKEN_OBJECTS_RPC,
+    /* RPC ack response from receiver->sender of token object data */
+    FAR_MIG_PUSH_TOKEN_OBJECTS_RESP_RPC,
 
-    /* Object store request range [2000-3000)*/
-    FAR_OBJSTOR_TOKEN_OBJECTS_WRITTEN = 2000,
-    FAR_OBJSTOR_TOKEN_OBJECTS_READ,
-    /* Last request */
+    /*----------------- Last Request ------------------------------------------*/
     FAR_MAX
 };
 
