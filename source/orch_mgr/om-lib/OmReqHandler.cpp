@@ -535,5 +535,25 @@ void OrchMgr::FDSP_OMControlPathReqHandler::GetDomainStats(
     }
 }
 
+void OrchMgr::FDSP_OMControlPathReqHandler::NotifyMigrationDone(
+    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+    const ::FDS_ProtocolInterface::FDSP_MigrationStatusType& status_msg) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+}
+
+void OrchMgr::FDSP_OMControlPathReqHandler::NotifyMigrationDone(
+    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+    ::FDS_ProtocolInterface::FDSP_MigrationStatusTypePtr& status_msg) {
+
+    try {
+        orchMgr->NotifyMigrationDone(fdsp_msg, status_msg);
+    }
+    catch(...) {
+        FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
+                << "Orch Mgr encountered exception while "
+                << "processing migration done request";
+    }
+}
+
 }  // namespace fds
 

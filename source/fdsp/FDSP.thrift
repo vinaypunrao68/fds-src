@@ -283,6 +283,10 @@ struct FDSP_DLT_Data_Type {
     2: string dlt_data, 
 }
 
+struct FDSP_MigrationStatusType {
+  1: i32 DLT_version,
+  2: i32 context
+}
 
 struct FDSP_VolumeInfoType {
 
@@ -876,6 +880,7 @@ service FDSP_OMControlPathReq {
   oneway void NotifyPerfstats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PerfstatsType perf_stats_msg),
   oneway void TestBucket(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_TestBucket test_buck_msg),
   oneway void GetDomainStats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetDomainStatsType get_stats_msg),  
+  oneway void NotifyMigrationDone(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_MigrationStatusType status_msg)
 }
 
 service FDSP_OMControlPathResp {
@@ -886,8 +891,9 @@ service FDSP_OMControlPathResp {
   oneway void RegisterNodeResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RegisterNodeType reg_node_rsp),
   oneway void NotifyQueueFullResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyQueueStateType queue_state_rsp),
   oneway void NotifyPerfstatsResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PerfstatsType perf_stats_rsp),
-  oneway void TestBucketResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_TestBucket test_buck_rsp)
-  oneway void GetDomainStatsResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetDomainStatsType get_stats_rsp),  
+  oneway void TestBucketResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_TestBucket test_buck_rsp),
+  oneway void GetDomainStatsResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetDomainStatsType get_stats_rsp),
+  oneway void MigrationDoneResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_MigrationStatusType status_resp)
 }
 
 service FDSP_ControlPathReq {

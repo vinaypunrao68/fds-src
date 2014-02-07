@@ -335,6 +335,14 @@ int OrchMgr::GetDomainStats(const FdspMsgHdrPtr& fdsp_msg,
     return 0;
 }
 
+int OrchMgr::NotifyMigrationDone(const FdspMsgHdrPtr& fdsp_msg,
+                                 const FdspMigrationStatusPtr& status_req) {
+    FDS_PLOG_SEV(GetLog(), fds_log::notification)
+            << "Received migration done notification from node "
+            << fdsp_msg->src_node_name;
+    return 0;
+}
+
 int OrchMgr::ApplyTierPolicy(::FDS_ProtocolInterface::tier_pol_time_unitPtr& policy) {
     om_policy_srv->serv_recvTierPolicyReq(policy);
     return 0;
