@@ -7,7 +7,6 @@
 #include <iostream>
 #include <orchMgr.h>
 
-using namespace std;
 namespace fds {
 
 void
@@ -17,7 +16,7 @@ Orch_VolPolicyServ::serv_recvTierPolicyReq(const fdp::tier_pol_time_unitPtr &tie
         new FDS_ProtocolInterface::FDSP_TierPolicy);
     localDomainInfo *dom = gl_orch_mgr->om_GetDomainInfo(DEFAULT_LOC_DOMAIN_ID);
 
-    cout << "Receive tier policy" << endl;
+    FDS_PLOG_SEV(g_fdslog, fds_log::normal) << "OrchMgr: Receive tier policy";
 
     sm_data->tier_vol_uuid      = tier->tier_vol_uuid;
     sm_data->tier_domain_uuid   = tier->tier_domain_uuid;
@@ -50,11 +49,13 @@ Orch_VolPolicyServ::serv_recvTierPolicyReq(const fdp::tier_pol_time_unitPtr &tie
             sm_data->tier_vol_uuid = vol_ids.front();
             vol_ids.pop();
 
-            cout << "Appling tier polity to vol "
-                << sm_data->tier_vol_uuid << endl;
+            FDS_PLOG_SEV(g_fdslog, fds_log::normal)
+                    << "Appling tier polity to vol " << sm_data->tier_vol_uuid;
+
             dom->domain_ptr->sendTierPolicyToSMNodes(sm_data);
         }
-        cout << "Applied tier policy to " << vol_cnt << " volumes." << endl;
+        FDS_PLOG_SEV(g_fdslog, fds_log::normal)
+                << "Applied tier policy to " << vol_cnt << " volumes.";
     }
 }
 
@@ -83,4 +84,4 @@ serv_recvTierPolicyAuditReq(const fdp::FDSP_TierPolicyAuditPtr &tier)
 {
 }
 
-} // namespace fds
+}  // namespace fds

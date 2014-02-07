@@ -2,6 +2,7 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 #include <iostream>
+#include <string>
 #include <orch-mgr/om-service.h>
 #include <OmDeploy.h>
 #include <OmResources.h>
@@ -58,24 +59,33 @@ OM_NodeDomainMod::om_local_domain()
 // om_reg_node_info
 // ----------------
 //
-void
-OM_NodeDomainMod::om_reg_node_info(const NodeUuid       *uuid,
+Error
+OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
                                    const FdspNodeRegPtr msg)
 {
+    Error err(ERR_OK);
     fds_bool_t         add;
     NodeAgent::pointer agent;
+    std::string node_name = msg->node_name;
 
     add   = false;
-    agent = NULL;
-    if (uuid != NULL) {
-        agent = om_node_info(uuid);
-    }
+    agent = om_node_info(uuid);
+
     if (agent == NULL) {
+        // this is a new node
         add   = true;
         agent = NodeAgent::agt_cast_ptr(rs_alloc_new());
+    } else {
+        if (node_name.compare(agent->get_node_name()) != 0) {
+            // looks like this node name produces same uuid as
+            // another existing nodes' name, return error so the
+            // client can pick another name
+            err = Error(ERR_DUPLICATE_UUID);
+            return err;
+        }
+        // node exists
     }
-    fds_verify(agent != NULL);
-    agent->node_update_info(uuid, msg);
+    agent->node_update_info(msg);
     if (add == true) {
         // Create an RPC endpoint to the node
         if (!test_mode) {
@@ -105,7 +115,7 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid       *uuid,
         node_up_cnt++;
         if (node_up_cnt < 1) {
             std::cout << "Batch up node up, cnt " << node_up_cnt << std::endl;
-            return;
+            return err;
         }
     }
 
@@ -114,6 +124,8 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid       *uuid,
     // the node to the inventory and then wait for a CLI
     // cmd to make the node a member.
     om_update_cluster_map();
+
+    return err;
 }
 
 /**
@@ -131,7 +143,7 @@ OM_NodeDomainMod::om_update_cluster() {
 
     // Start rebalancing/syncing data to prepare
     // for the new DLT
-    DltRebalEvt rebalEvent(NULL);
+    DltRebalEvt rebalEvent(dp);
     dltMod->dlt_deploy_event(rebalEvent);
 
     // TODO(Andrew): This state transition should not
@@ -154,16 +166,22 @@ OM_NodeDomainMod::om_update_cluster() {
 // om_del_node_info
 // ----------------
 //
-void
-OM_NodeDomainMod::om_del_node_info(const NodeUuid *uuid)
+Error
+OM_NodeDomainMod::om_del_node_info(const NodeUuid& uuid,
+                                   const std::string& node_name)
 {
-    Resource::pointer agent;
+    Error err(ERR_OK);
+    NodeAgent::pointer agent;
 
-    agent = rs_get_resource(uuid);
-    if (agent != NULL) {
-        om_deactivate_node(agent->rs_my_index());
+    agent = om_node_info(uuid);
+    if ((agent == NULL) ||
+        (node_name.compare(agent->get_node_name()) != 0)) {
+        err = Error(ERR_NOT_FOUND);
+        return err;
     }
+    om_deactivate_node(agent->rs_my_index());
     om_update_cluster_map();
+    return err;
 }
 
 // om_persist_node_info

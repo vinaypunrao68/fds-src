@@ -6,10 +6,11 @@
 #include "../catch/catch.hpp"
 #include "dlt_helper_funcs.h"
 #include <serialize.h>
+#include <unistd.h>
 using namespace fds;
 using namespace fds::serialize;
 
-TEST_CASE ("TokenGroup") {
+TEST_CASE ("TokenGroup" , "[token]") {
     DltTokenGroup tokenGroup(4);
     tokenGroup[0]=10;
     tokenGroup[1]=20;
@@ -22,7 +23,7 @@ TEST_CASE ("TokenGroup") {
     }
 }
 
-TEST_CASE ("Assigning values", "dlt" ) {
+TEST_CASE ("Assigning values", "[dlt]" ) {
     DLT dlt(3,4,1,true);
     CAPTURE(dlt.getNumBitsForToken());
     CAPTURE(dlt.getDepth());
@@ -32,7 +33,7 @@ TEST_CASE ("Assigning values", "dlt" ) {
     verifyDltNodes(&dlt,10);
 }
 
-TEST_CASE ("Node Positions", "dlt") {
+TEST_CASE ("Node Positions", "[dlt]") {
     DLT dlt(3,4,1,true);
     
     CAPTURE(dlt.getNumBitsForToken());
@@ -53,32 +54,49 @@ TEST_CASE ("Node Positions", "dlt") {
     REQUIRE(tokenList[0] == 4);
 }
 
-TEST_CASE ("Dlt Manager") {    
+TEST_CASE ("Dlt Manager" , "[mgr]") {
     DLT dlt1(3,4,1,true);
     DLT dlt2(3,4,2,true);
+    DLT dlt3(3,4,3,true);
 
     fillDltNodes(&dlt1,10);        
     fillDltNodes(&dlt2,100);
+    fillDltNodes(&dlt3,20);
 
-    DLTManager dltMgr;
+    fds_uint8_t maxDlts=2;
+    DLTManager dltMgr(maxDlts);
     dltMgr.add(dlt1);
     dltMgr.add(dlt2);
-
+    
+    // check teh first DLT
     const DLT *ptr=dltMgr.getDLT(1);
-
     REQUIRE (ptr->getNumTokens() == 8);
     REQUIRE (ptr->getVersion() == 1);
 
+    // check the second DLT
     ptr=dltMgr.getDLT(2);
     REQUIRE (ptr->getVersion() == 2);
     verifyDltNodes(ptr,100);
 
+    // check cloning
     DLT* clone=const_cast<DLT*>(ptr)->clone();
     REQUIRE (clone->getVersion() == 2);
     verifyDltNodes(clone,100);
+
+    // check adding Serialized
+    std::string buffer;
+    dlt3.getSerialized(buffer);
+
+    dltMgr.addSerializedDLT(buffer);
+
+    ptr=dltMgr.getDLT(3);
+    REQUIRE (ptr->getVersion() == 3);
+    verifyDltNodes(ptr,20);
+
+    
 }
 
-TEST_CASE("Tokens") {
+TEST_CASE("Tokens" , "[token]") {
     fds_uint32_t numBitsForToken=16;
     fds_uint32_t dltDepth=4;
     fds_uint32_t hashsize=sizeof(fds_uint64_t)*8;
@@ -95,7 +113,7 @@ TEST_CASE("Tokens") {
     REQUIRE(token == 7);
 }
 
-TEST_CASE ("Mem Serialize") {
+TEST_CASE ("Mem Serialize" ,"[serialize]") {
     Serializer * ser = getMemSerializer();
     int num=20;
     ser->writeI32(num);
@@ -121,7 +139,7 @@ TEST_CASE ("Mem Serialize") {
     REQUIRE(32 == num);
 }
 
-TEST_CASE ("DLT Serialize") {
+TEST_CASE ("DLT Serialize" , "[dlt][serialize]") {
     Serializer *s = getMemSerializer();
 
     DLT dlt(8,4,1,true);
@@ -155,7 +173,7 @@ TEST_CASE ("DLT Serialize") {
     
 }
 
-TEST_CASE ("DLT Serialize2") {
+TEST_CASE ("DLT Serialize2","[dlt][serialize]") {
     DLT dlt(8,4,1,true);
     CAPTURE(dlt.getNumBitsForToken());
     CAPTURE(dlt.getDepth());
@@ -174,5 +192,53 @@ TEST_CASE ("DLT Serialize2") {
     REQUIRE (dlt1.getVersion() == 1);
     REQUIRE (dlt1.getNumTokens() == pow(2,dlt1.getNumBitsForToken()));
     REQUIRE (dlt1.getDepth() == 4);
-    
+}
+
+TEST_CASE ("DLT Manager Serialize" ,"[dlt][serialize][mgr]") {
+    DLT dlt1(3,4,1,true);
+    DLT dlt2(3,4,2,true);
+    DLT dlt3(3,4,3,true);
+
+    fillDltNodes(&dlt1,10);
+    fillDltNodes(&dlt2,100);
+    fillDltNodes(&dlt3,20);
+
+    fds_uint8_t maxDlts=2;
+    DLTManager* dltMgr = new DLTManager(maxDlts);
+    dltMgr->add(dlt1);
+    dltMgr->add(dlt2);
+    dltMgr->add(dlt3);
+
+    SECTION ("serialize") {
+        Serializer *s = serialize::getMemSerializer();
+        uint32_t bytesWritten = dltMgr->write(s);
+        std::string buffer= s->getBufferAsString();
+        
+        Deserializer *d = serialize::getMemDeserializer(buffer);
+        uint32_t bytesRead = dltMgr->read(d);
+        REQUIRE( bytesWritten == bytesRead );
+    }
+
+    SECTION ("load/store on file") {
+        std::string filename="/tmp/dlt.mgr.data";
+        unlink(filename.c_str());
+        dltMgr->storeToFile(filename);
+        dltMgr = new DLTManager();
+        dltMgr->loadFromFile(filename);
+    }
+
+    const DLT* ptr;
+
+    ptr=dltMgr->getDLT(1);
+    REQUIRE (ptr->getVersion() == 1);
+    verifyDltNodes(ptr,10);
+
+    ptr=dltMgr->getDLT(2);
+    REQUIRE (ptr->getVersion() == 2);
+    verifyDltNodes(ptr,100);
+
+    ptr=dltMgr->getDLT(3);
+    REQUIRE (ptr->getVersion() == 3);
+    verifyDltNodes(ptr,20);
+
 }

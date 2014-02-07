@@ -15,6 +15,7 @@
 #include <fds_module.h>
 #include <serialize.h>
 #include <string>
+#include <util/Log.h>
 
 namespace fds {
     /**
@@ -74,7 +75,7 @@ namespace fds {
      * During lookup , an objid is converted to a token ..
      * Always generated the token using the getToken func.
      */
-    class DLT : public serialize::Serializable , public Module {
+    struct DLT :  serialize::Serializable , public Module , HasLogger {
   public :
         /**
          * Return the token ID for a given Object based on
@@ -177,8 +178,7 @@ namespace fds {
      * DLTManager to be stored as a new DLT. Hopefully only the DLTDiff
      * will be transmitted across.
      */
-    class DLTDiff {
-  public:
+    struct DLTDiff {
         // dlt : is the base dlt relative to which diffs will be maintained
         // version : is the new version number of the dltdiff. if version is 0
         // the version will be set as dlt.version1
@@ -211,12 +211,10 @@ namespace fds {
      * Manages multiple DLTs ,maintains the current DLT
      * Generates the diff between dlts..
      */
-    typedef boost::shared_ptr<const DLT> DLTPtr;
+    typedef boost::shared_ptr<DLT> DLTPtr;
 
-    class DLTManager {
-  public :
-        DLTManager() {
-        }
+    struct DLTManager :  HasLogger, serialize::Serializable {
+        explicit DLTManager(fds_uint8_t maxDlts = 2);
 
         bool add(const DLT& dlt);
         bool add(const DLTDiff& dltDiff);
@@ -238,9 +236,17 @@ namespace fds {
         NodeUuid getPrimary(fds_token_id token) const;
         NodeUuid getPrimary(const ObjectID& objId) const;
 
+        uint32_t virtual write(serialize::Serializer*  s);
+        uint32_t virtual read(serialize::Deserializer* d);
+
+        bool loadFromFile(std::string filename);
+        bool storeToFile(std::string filename);
+
   private:
         const DLT* curPtr = NULL;
-        std::vector<DLT> dltList;
+        std::vector<DLT*> dltList;
+        void checkSize();
+        fds_uint8_t maxDlts;
     };
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_DLT_H_

@@ -1,4 +1,5 @@
 #ifndef __FDSP_H__
+
 #define __FDSP_H__
 namespace c_glib FDS_ProtocolInterface
 namespace cpp FDS_ProtocolInterface
@@ -70,7 +71,8 @@ enum FDSP_MgrIdType {
     FDSP_STOR_HVISOR,
     FDSP_ORCH_MGR,
     FDSP_CLI_MGR, 
-    FDSP_OMCLIENT_MGR
+    FDSP_OMCLIENT_MGR,
+    FDSP_MIGRATION_MGR
 }
 
 enum FDSP_ResultType {
@@ -704,17 +706,32 @@ typedef i32 FDSP_Token
 /* raw data for the object */
 typedef string FDSP_ObjectData
 
+struct FDSP_MigMsgHdrType
+{
+	/* Header */
+	1: FDSP_MsgHdrType            base_header
+
+	/* Id to identify unique migration between sender and receiver */
+	2: string                     migration_id
+}
+
 /* Payload for CopyToken RPC */
 struct FDSP_CopyTokenReq
 {
-    /* Token to be migrated */
-    1: FDSP_Token              token_id
+	/* Header */
+	1: FDSP_MigMsgHdrType         header
+	
+    /* Tokens to be migrated */
+    2: list<FDSP_Token>			  tokens
 
     /* Maximum size in bytes of FDSP_MigrateObjectData to 
      * send in a single respone 
      */
-    2: i32                     max_size_per_reply
+    3: i32                     max_size_per_reply
 }
+
+/* Payload for CopyToken reponse path */
+typedef FDSP_MigMsgHdrType FDSP_CopyTokenResp
 
 /* Meta data for migration object */
 struct FDSP_MigrateObjectMetadata
@@ -738,14 +755,23 @@ struct FDSP_MigrateObjectData
 typedef list<FDSP_MigrateObjectData> FDSP_MigrateObjectList
 
 /* Pay load for PushTokenObjects RPC */
-struct PushTokenObjectsReq
+struct FDSP_PushTokenObjectsReq
 {
+	/* Header */
+	1: FDSP_MigMsgHdrType         header
+
+	/* Token id */
+    2: FDSP_Token                 token_id
+
     /* This is final put or not */
-    1: bool complete
+    3: bool complete
 
     /* List of objects */
-    2: FDSP_MigrateObjectList obj_list
+    4: FDSP_MigrateObjectList obj_list
 }
+
+/* Payload for PushTokenObjects response path */
+typedef FDSP_MigMsgHdrType FDSP_PushTokenObjectsResp
 
 service FDSP_SessionReq {
     oneway void AssociateRespCallback(1:string src_node_name) // Associate Response callback with DM/SM for this source node.
@@ -897,17 +923,15 @@ service FDSP_ControlPathResp {
 }
 
 service FDSP_MigrationPathReq {
-    oneway void CopyToken(1:FDSP_MsgHdrType fdsp_msg, 
-                             2:FDSP_CopyTokenReq migrate_req)
+    oneway void CopyToken(1:FDSP_CopyTokenReq migrate_req)
 
-    oneway void PushTokenObjects(1:FDSP_MsgHdrType fdsp_msg, 
-				2:PushTokenObjectsReq mig_put_req)
+    oneway void PushTokenObjects(1:FDSP_PushTokenObjectsReq mig_put_req)
 }
 
 service FDSP_MigrationPathResp {
-    oneway void CopyTokenResp(1:FDSP_MsgHdrType fdsp_msg)
+    oneway void CopyTokenResp(1:FDSP_CopyTokenResp copytok_resp)
 
-    oneway void PushTokenObjectsResp(1:FDSP_MsgHdrType fdsp_msg)
+    oneway void PushTokenObjectsResp(1:FDSP_PushTokenObjectsResp pushtok_resp)
 }
 
 #endif

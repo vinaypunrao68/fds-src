@@ -2,6 +2,7 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 #include <stdlib.h>
+#include <string>
 #include <OmResources.h>
 #include <OmConstants.h>
 #include <fds_err.h>
@@ -39,7 +40,7 @@ NodeInventory::node_calc_stor_weight()
 }
 
 void
-NodeInventory::node_update_info(const NodeUuid *uuid, const FdspNodeRegPtr msg)
+NodeInventory::node_update_info(const FdspNodeRegPtr msg)
 {
     if (uuid != NULL) {
         rs_uuid = *uuid;

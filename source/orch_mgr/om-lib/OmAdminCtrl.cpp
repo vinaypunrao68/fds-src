@@ -58,6 +58,42 @@ namespace fds {
 
    }
 
+   void FdsAdminCtrl::removeDiskCapacity(const NodeInfo& n_info) {
+   	total_disk_iops_max -= n_info.disk_iops_max;
+   	total_disk_iops_min -= n_info.disk_iops_min;
+   	total_disk_capacity -= n_info.disk_capacity;
+   	disk_latency_max = n_info.disk_latency_max;
+   	disk_latency_min = n_info.disk_latency_min;
+   	total_ssd_iops_max -= n_info.ssd_iops_max;
+   	total_ssd_iops_min -= n_info.ssd_iops_min;
+   	total_ssd_capacity -= n_info.ssd_capacity;
+   	ssd_latency_max = n_info.ssd_latency_max;
+   	ssd_latency_min = n_info.ssd_latency_min;
+
+   	avail_disk_iops_max -= n_info.disk_iops_max;
+   	avail_disk_iops_min -= n_info.disk_iops_min;
+   	avail_disk_capacity -= n_info.disk_capacity;
+   	avail_ssd_iops_max -= n_info.ssd_iops_max;
+   	avail_ssd_iops_min -= n_info.ssd_iops_min;
+   	avail_ssd_capacity -= n_info.ssd_capacity;
+     
+	FDS_PLOG_SEV(parent_log, fds::fds_log::notification) << "Total Disk Resources "
+                     << "  Total Disk iops Max : " << total_disk_iops_max
+                     << "  Total Disk iops Min : " << total_disk_iops_min
+                     << "  Total Disk capacity : " << total_disk_capacity
+                     << "  Disk latency Max: " << disk_latency_max
+                     << "  Disk latency Min: " << disk_latency_min
+                     << "  Total Ssd iops Max : " << total_ssd_iops_max
+                     << "  Total Ssd iops Min: " << total_ssd_iops_min
+                     << "  Total Ssd capacity : " << total_ssd_capacity
+                     << "  Ssd latency Max: " << ssd_latency_max
+                     << "  Ssd latency Min : " << ssd_latency_min
+                     << "  Avail Disk capacity : " << avail_disk_capacity
+                     << "  Avail Disk  iops max : " << avail_disk_iops_max
+                     << "  Avail Disk  iops min : " << avail_disk_iops_min;
+
+   }
+
    void FdsAdminCtrl::getAvailableDiskCapacity(FdspVolInfoPtr&  pVolInfo ) {  
 
    }

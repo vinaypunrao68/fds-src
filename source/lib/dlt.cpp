@@ -7,7 +7,7 @@
 #include <dlt.h>
 #include <iostream>
 #include <string>
-
+#include <util/Log.h>
 /**
  *  Implementationg for DLT ...
  */
@@ -26,6 +26,8 @@ DLT::DLT(fds_uint32_t numBitsForToken,
     mapNodeTokens = boost::shared_ptr<NodeTokenMap>(
         new NodeTokenMap());
 
+    LOGDEBUG << "dlt.init : " << "numbits:" << numBitsForToken
+             << " depth:" << depth << " version:" << version;
     // Pre-allocate token groups for each token
     if (fInit) {
         distList->reserve(numTokens);
@@ -51,6 +53,7 @@ DLT::~DLT() {
 
 
 DLT* DLT::clone() const {
+    LOGTRACE << "cloning";
     DLT *pDlt = new DLT(numBitsForToken, depth, version, true);
 
     pDlt->version = version;
@@ -91,7 +94,6 @@ fds_uint32_t DLT::getWidth() const {
 fds_uint32_t DLT::getNumBitsForToken() const {
     return numBitsForToken;
 }
-
 
 fds_uint32_t DLT::getNumTokens() const {
     return numTokens;
@@ -148,6 +150,7 @@ void DLT::setNodes(fds_token_id token, const DltTokenGroup& nodes) {
 }
 
 void DLT::generateNodeTokenMap() {
+    LOGNORMAL << "generating node-token map";
     std::vector<DltTokenGroupPtr>::const_iterator iter;
     mapNodeTokens->clear();
     uint i;
@@ -190,6 +193,7 @@ void DLT::getTokens(TokenList* tokenList, const NodeUuid &uid, uint index) const
 }
 
 uint32_t DLT::write(serialize::Serializer*  s   ) {
+    LOGNORMAL << "serializing dlt";
     uint32_t b = 0;
 
     b += s->writeI64(version);
@@ -246,6 +250,7 @@ uint32_t DLT::write(serialize::Serializer*  s   ) {
 }
 
 uint32_t DLT::read(serialize::Deserializer* d) {
+    LOGNORMAL << "de serializing dlt";
     uint32_t b = 0;
 
     b += d->readI64(version);
@@ -292,14 +297,18 @@ uint32_t DLT::read(serialize::Deserializer* d) {
 }
 
 void DLT::getSerialized(std::string& serializedData) { // NOLINT
-    serialize::Serializer *s = serialize::getMemSerializer();
+    serialize::Serializer *s = serialize::getMemSerializer(512*KB);
     uint32_t bytesWritten = this->write(s);
+    LOGCRITICAL << "dlt.getSerialized : byteswritten : " << bytesWritten;
     serializedData.append(s->getBufferAsString());
+    delete s;
 }
 
 bool DLT::loadSerialized(std::string& serializedData) { // NOLINT
     serialize::Deserializer *d = serialize::getMemDeserializer(serializedData);
-    this->read(d);
+    uint32_t bytesRead =this->read(d);
+    LOGNORMAL << "dlt.loadSerialized : byteswritten : " <<bytesRead;
+    delete d;
     return true;
 }
 
@@ -355,13 +364,30 @@ void DLTDiff::setNode(fds_token_id token, uint index, NodeUuid nodeuuid) {
 /**
  *  Implementation for DLT Manager
  */
+DLTManager::DLTManager(fds_uint8_t maxDlts) : maxDlts(maxDlts) {
+}
+
+void DLTManager::checkSize() {
+    // check if the no.of dlts stored are within limits
+    if (dltList.size() > maxDlts) {
+        DLT* pDlt = dltList.front();
+        // make sure the top one is not the current One
+        if (pDlt != curPtr) {
+            // OK go ahead remove & delete
+            dltList.erase(dltList.begin());
+            delete pDlt;
+        }
+    }
+}
+
 bool DLTManager::add(const DLT& _newDlt) {
     DLT* pNewDlt = new DLT(_newDlt);
     DLT& newDlt = *pNewDlt;
 
     if (dltList.empty()) {
-        dltList.push_back(newDlt);
+        dltList.push_back(pNewDlt);
         curPtr = pNewDlt;
+        // TODO(prem): checkSize();
         return true;
     }
 
@@ -386,7 +412,8 @@ bool DLTManager::add(const DLT& _newDlt) {
             }
         }
     }
-    dltList.push_back(newDlt);
+    dltList.push_back(&newDlt);
+    // TODO(prem): checkSize();
 
     // switch this to current ???
     curPtr = &newDlt;
@@ -403,8 +430,10 @@ bool DLTManager::addSerializedDLT(std::string& serializedData, bool fFull) { //N
 bool DLTManager::add(const DLTDiff& dltDiff) {
     const DLT *baseDlt = dltDiff.baseDlt;
     if (!baseDlt) baseDlt=getDLT(dltDiff.baseVersion);
+    LOGNOTIFY << "adding a diff - base:" << dltDiff.baseVersion
+              << " version:" << dltDiff.version;
 
-    DLT *dlt = new DLT(baseDlt->numBitsForToken, baseDlt->depth, false);
+    DLT *dlt = new DLT(baseDlt->numBitsForToken, baseDlt->depth, dltDiff.version, false);
     dlt->distList->reserve(dlt->numTokens);
 
     DltTokenGroupPtr ptr;
@@ -431,7 +460,7 @@ bool DLTManager::add(const DLTDiff& dltDiff) {
         dlt->distList->push_back(ptr);
     }
 
-    dltList.push_back(*dlt);
+    dltList.push_back(dlt);
 
     return true;
 }
@@ -441,25 +470,21 @@ const DLT* DLTManager::getDLT(const fds_uint64_t version) {
     if (0 == version) {
         return curPtr;
     }
-    std::vector<DLT>::const_iterator iter;
+    std::vector<DLT*>::const_iterator iter;
     for (iter = dltList.begin(); iter != dltList.end(); iter++) {
-        if (version == iter->version) {
-            return &(*iter);
+        if (version == (*iter)->version) {
+            return *iter;
         }
     }
 
     return NULL;
 }
 
-
 void DLTManager::setCurrent(fds_uint64_t version) {
-    std::vector<DLT>::const_iterator iter;
-    for (iter = dltList.begin(); iter != dltList.end(); iter++) {
-        if (version == iter->version) {
-            curPtr= &(*iter);
-            break;
-        }
-    }
+    LOGNOTIFY <<" setting the current dlt to version: " <<version;
+    const DLT* pdlt = getDLT(version);
+    fds_verify(pdlt != NULL);
+    curPtr = pdlt;
 }
 
 DltTokenGroupPtr DLTManager::getNodes(fds_token_id token) const {
@@ -479,4 +504,73 @@ NodeUuid DLTManager::getPrimary(fds_token_id token) const {
 NodeUuid DLTManager::getPrimary(const ObjectID& objId) const {
     return getPrimary(objId);
 }
+
+uint32_t DLTManager::write(serialize::Serializer*  s) {
+    LOGTRACE << " serializing dltmgr  ";
+    uint32_t bytes = 0;
+    // current version number
+    bytes += s->writeI64(curPtr->version);
+
+    // max no.of dlts
+    bytes += s->writeByte(maxDlts);
+
+    // number of dlts
+    bytes += s->writeByte(dltList.size());
+
+    // write the individual dlts
+    std::vector<DLT*>::const_iterator iter;
+    for (iter = dltList.begin(); iter != dltList.end(); iter++) {
+        bytes += (*iter)->write(s);
+    }
+
+    return bytes;
+}
+
+uint32_t DLTManager::read(serialize::Deserializer* d) {
+    LOGTRACE << " deserializing dltmgr  ";
+    uint32_t bytes = 0;
+    fds_uint64_t version;
+    // current version number
+    bytes += d->readI64(version);
+
+    // max no.of dlts
+    bytes += d->readByte(maxDlts);
+
+    fds_uint8_t numDlts = 0;
+    // number of dlts
+    bytes += d->readByte(numDlts);
+
+    // first clear the current dlts
+    dltList.clear();
+
+    // the individual dlts
+    for (uint i = 0; i < numDlts ; i++) {
+        DLT dlt(0, 0, 0, false);
+        bytes += dlt.read(d);
+        this->add(dlt);
+    }
+
+    // now set the current version
+    setCurrent(version);
+
+    return bytes;
+}
+
+bool DLTManager::loadFromFile(std::string filename) {
+    LOGNOTIFY << "loading dltmgr from file : " << filename;
+    serialize::Deserializer *d= serialize::getFileDeserializer(filename);
+    read(d);
+    delete d;
+    return true;
+}
+
+bool DLTManager::storeToFile(std::string filename) {
+    LOGNOTIFY << "storing dltmgr to file : " << filename;
+    serialize::Serializer *s= serialize::getFileSerializer(filename);
+    write(s);
+    delete s;
+    return true;
+}
+
+
 }  // namespace fds

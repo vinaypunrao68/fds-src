@@ -247,7 +247,59 @@ int OrchMgr::RemoveNode(const FdspMsgHdrPtr& fdsp_msg,
             << "Received RemoveNode Req : "
             << rm_node_req->node_name;
 
+    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+
+    // TODO(Anna) remove this local domain
+    localDomainInfo  *currentDom = locDomMap[DEFAULT_LOC_DOMAIN_ID];
+
+    om_mutex->lock();
+
+    // TODO(Anna) Still using old code before we completely move to new NodeAgent, etc.
+    fds::FdsLocalDomain::node_map_t& sm_map = currentDom->domain_ptr->currentSmMap;
+
+    // TODO(Anna) Only allow to remove SM node for now, add DM removal after
+    // we move to new code
+    if (sm_map.count(rm_node_req->node_name) == 0) {
+        FDS_PLOG_SEV(GetLog(), fds_log::notification)
+                << "Remove node request for non-SM node " 
+                << rm_node_req->node_name << ". Not implemented!.";
+
+        om_mutex->unlock();
+        return -1;
+    }
+
+    // remove node from local domain map
+    NodeUuid rm_node_uuid(fds_get_uuid64(rm_node_req->node_name));
+    Error err = domain->om_del_node_info(rm_node_uuid, rm_node_req->node_name);
+    if (!err.ok()) {
+        FDS_PLOG_SEV(GetLog(), fds_log::error)
+                << "RemoveNode: remove node info from local domain failed for node " 
+                << rm_node_req->node_name << ", uuid " << std::hex << rm_node_uuid.uuid_get_val()
+                << std::dec << ", result: " << err.GetErrstr();
+        om_mutex->unlock();
+        return -1;
+    }
+
+    // TODO(Anna) Fix this using new domain struct and node info
+    sm_map[rm_node_req->node_name].node_state = FDS_ProtocolInterface::FDS_Node_Rmvd;
+    // If this is a SM or a DM, let existing nodes know about this node removal
+    if (sm_map[rm_node_req->node_name].node_type != FDS_ProtocolInterface::FDSP_STOR_HVISOR) {
+        currentDom->domain_ptr->sendNodeEventToFdsNodes(sm_map[rm_node_req->node_name],
+                                                        sm_map[rm_node_req->node_name].node_state);
+
+        /* update the disk capabilities */
+        currentDom->domain_ptr->admin_ctrl->removeDiskCapacity(sm_map[rm_node_req->node_name]);
+    }
+    sm_map.erase(rm_node_req->node_name);
+
+    om_mutex->unlock();
+
+    // TODO(Anna): For now, let's start the cluster update process
+    // now. This should eventually be decoupled from removal
+    domain->om_update_cluster();
+
     return 0;
+
 }
 
 int OrchMgr::GetDomainStats(const FdspMsgHdrPtr& fdsp_msg,
@@ -789,7 +841,15 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
      * to its map, based on type.
      */
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
-    domain->om_reg_node_info(NULL, reg_node_req);
+    NodeUuid new_node_uuid(fds_get_uuid64(reg_node_req->node_name));
+    Error err = domain->om_reg_node_info(new_node_uuid, reg_node_req);
+    if (!err.ok()) {
+        FDS_PLOG_SEV(GetLog(), fds_log::error)
+                << "Node Registration failed for "
+                << reg_node_req->node_name << ", result: "
+                << err.GetErrstr();
+        return;
+    }
 
     fds::NodeInfo n_info(new_node_id,
                          reg_node_req->node_name,

@@ -9,6 +9,7 @@
 #include <list>
 #include <unordered_map>
 #include <fds_typedefs.h>
+#include <fds_err.h>
 #include <fds_module.h>
 #include <fds_resource.h>
 #include <concurrency/Mutex.h>
@@ -41,11 +42,11 @@ class NodeInventory : public Resource
     inline void node_name(std::string *name) const {}
 
     /**
-     * Update the node inventory with new info.
-     * @param uuid - (i) null if the node already has a valid uuid.
+     * Update the node inventory with new info. Node must have
+     * a valid uuid (passed in constructor)
      */
     virtual void
-    node_update_info(const NodeUuid *uuid, const FdspNodeRegPtr msg);
+    node_update_info(const FdspNodeRegPtr msg);
 
     /**
      * Return the storage weight of the node in normalized unit from 0...1000
@@ -59,6 +60,9 @@ class NodeInventory : public Resource
 
     inline NodeUuid get_uuid() const {
         return rs_get_uuid();
+    }
+    inline std::string get_node_name() const {
+        return nd_node_name;
     }
     inline std::string get_ip_str() const {
         return nd_ip_str;
@@ -195,9 +199,13 @@ class OM_NodeDomainMod : public Module, OM_NodeContainer
 
     /**
      * Register node info to the domain manager.
+     * @return ERR_OK if success, ERR_DUPLICATE if node already
+     * registered; ERR_UUID_EXISTS if this is a new node, but 
+     * its name produces UUID that already mapped to an existing node
+     * name (should ask the user to pick another node name).
      */
-    virtual void
-    om_reg_node_info(const NodeUuid       *uuid,
+    virtual Error
+    om_reg_node_info(const NodeUuid&      uuid,
                      const FdspNodeRegPtr msg);
 
     /**
@@ -206,7 +214,8 @@ class OM_NodeDomainMod : public Module, OM_NodeContainer
      */
     virtual void om_update_cluster();
 
-    virtual void om_del_node_info(const NodeUuid *uuid);
+    virtual Error om_del_node_info(const NodeUuid& uuid,
+                                   const std::string& node_name);
     virtual void om_persist_node_info(fds_uint32_t node_idx);
     virtual void om_update_cluster_map();
 

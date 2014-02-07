@@ -7954,7 +7954,9 @@ namespace Catch {
 #ifndef __OBJC__
 
 // Standard C/C++ main entry point
+#include<fds_process.h>
 int main (int argc, char * const argv[]) {
+    fds::init_process_globals("unittest");
     return Catch::Session().run( argc, argv );
 }
 

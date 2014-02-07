@@ -8,16 +8,49 @@
 #include <queue>
 #include <boost/shared_ptr.hpp>
 
+/* DO NOT use this macro outside.  Use FAR_ID() instead */
+#define FAR_ENUM(type) type##_far_enum
+
+/* Maps the input class/struct type to FdsActorRequestType.
+ * Externally use this macro
+ */
+#define FAR_ID(type) FAR_ENUM(type)
+
 namespace fds {
 
-/* Types.  These types are divided into ranges.  DO NOT change the order */
+/* Enum ids for identifying FdsActorRequest payload types.
+ * NOTE: The ids are named such that they match the payload type.  When
+ * you rename the payload type don't forget to update here
+ */
 enum FdsActorRequestType {
-    /* Migration request range [1000-2000) */
-    FAR_COPY_TOKEN = 1000,
-    FAR_COPY_TOKEN_COMPLETE,
+    /*----------------- Migration request range [1000-2000) -------------------*/
+    /* Migration service message to initiate token copy */
+    FAR_ENUM(MigSvcCopyTokens) = 1000,
 
-    /* Last request */
-    FAR_MAX
+    /* Migration service message that a migration is complete */
+    FAR_ENUM(MigSvcMigrationComplete),
+
+    /* TokenCopySender message that token data has been read */
+    FAR_ENUM(TcsDataReadDone),
+
+    /* TokenCopyReceiver message that token data has been written */
+    FAR_ENUM(TcrDataWriteDone),
+
+    /*----------------- Migration RPC -----------------------------------------*/
+    /* RPC from receiver->sender to start token copy */
+    FAR_ENUM(FDSP_CopyTokenReq),
+
+    /* RPC token copy response ack from sender->receiver */
+    FAR_ENUM(FDSP_CopyTokenResp),
+
+    /* RPC from sender->receiver with token object data */
+    FAR_ENUM(FDSP_PushTokenObjectsReq),
+
+    /* RPC ack response from receiver->sender of token object data */
+    FAR_ENUM(FDSP_PushTokenObjectsResp),
+
+    /*----------------- Last Request ------------------------------------------*/
+    FAR_ENUM(Max)
 };
 
 /* Forward declarations */
@@ -26,10 +59,21 @@ class FdsRequestQueueActor;
 
 class FdsActorRequest {
 public:
-    FdsActorRequest() {
-        type = FAR_MAX;
+    FdsActorRequest()
+    : FdsActorRequest(FAR_ID(Max), nullptr)
+    {
+    }
+
+    FdsActorRequest(FdsActorRequestType type, boost::shared_ptr<void> payload) {
+        this->type = type;
         owner_ = nullptr;
         prev_owner_ = nullptr;
+        this->payload = payload;
+    }
+
+    template <class PayloadT>
+    boost::shared_ptr<PayloadT> get_payload() {
+        return boost::static_pointer_cast<PayloadT>(payload);
     }
 
 public:

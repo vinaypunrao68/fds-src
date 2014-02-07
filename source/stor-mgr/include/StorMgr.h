@@ -88,8 +88,6 @@ class ObjectStorMgrI;
 class TierEngine;
 class ObjectRankEngine;
 
-#define FdsSysTaskQueueId 0xefffffff
-#define FdsSysTaskPri 5
 
 class SmPlReq : public diskio::DiskRequest {
  public:
@@ -146,6 +144,7 @@ class SMCounters : public FdsCounters
 
 class ObjectStorMgr :
         public FdsProcess,
+        public SmIoReqHandler,
         public Module // todo: We shouldn't be deriving module here.  ObjectStorMgr is
                       // an FDSProcess, it contains Modules
         {
@@ -183,10 +182,9 @@ class ObjectStorMgr :
 
     /* Helper for accessing datapth response client */
     inline boost::shared_ptr<FDS_ProtocolInterface::FDSP_DataPathRespClient> 
-    fdspDataPathClient(const std::string& src_node_name)
+    fdspDataPathClient(const std::string& session_uuid)
     {
-        // TODO: change 2nd param to correct value 
-        return datapath_session_->getRespClient(src_node_name);
+        return datapath_session_->getRespClient(session_uuid);
     }
     /*
      * TODO: this one should be the singleton by itself.  Need to make it
@@ -408,6 +406,7 @@ class ObjectStorMgr :
     Error putObjectInternal(SmIoReq* putReq);
     Error deleteObjectInternal(SmIoReq* delReq);
     Error putTokenObjectsInternal(SmIoReq* ioReq);
+    Error getTokenObjectsInternal(SmIoReq* ioReq);
     Error relocateObject(const ObjectID &objId,
             diskio::DataTier from_tier,
             diskio::DataTier to_tier);
@@ -423,7 +422,7 @@ class ObjectStorMgr :
             int vol_action,
             FDSP_ResultType resut);
 
-    Error enqueueMsg(fds_volid_t volId, SmIoReq* ioReq);
+    virtual Error enqueueMsg(fds_volid_t volId, SmIoReq* ioReq);
 
     Error retrieveTokenObjects(const fds_token_id &token, 
                              const size_t &max_size, 
