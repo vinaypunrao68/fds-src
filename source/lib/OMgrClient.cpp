@@ -578,6 +578,9 @@ int OMgrClient::recvNodeEvent(int node_id,
   node.port = node_info->data_port;
   node.node_state = (FDSP_NodeState) node_state;
 
+  // Update local cluster map
+  clustMap.addNode(node);
+
   omc_lock.write_unlock();
 
   FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received node event for node " << node_id 

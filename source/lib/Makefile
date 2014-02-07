@@ -8,6 +8,7 @@ user_cpp         :=      \
     Catalog.cpp          \
     VolumeCatalog.cpp    \
     fds_timer.cpp        \
+    LocalClusterMap.cpp  \
     OMgrClient.cpp       \
     QoSWFQDispatcher.cpp \
     qos_htb.cpp          \
@@ -18,7 +19,7 @@ user_cpp         :=      \
     fds_process.cpp      \
     NetSession.cpp       \
     serialize.cpp        \
-    fds_counters.cpp     
+    fds_counters.cpp
 #    TransJournal.cpp     \
 
 user_incl_dir    := $(topdir)

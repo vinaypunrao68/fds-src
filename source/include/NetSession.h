@@ -20,6 +20,8 @@
 #include <fdsp/FDSP_MetaDataPathResp.h>
 #include <fdsp/FDSP_ConfigPathReq.h>
 #include <fdsp/FDSP_ConfigPathResp.h>
+#include <fdsp/FDSP_MigrationPathReq.h>
+#include <fdsp/FDSP_MigrationPathResp.h>
 #include <fdsp/FDSP_Service.h>
 #include <fds_globals.h>
 #include <NetSessRespClient.h>
