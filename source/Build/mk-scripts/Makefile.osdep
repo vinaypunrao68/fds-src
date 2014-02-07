@@ -24,13 +24,13 @@ endif
 
 # Modify some variables if want to do a debug or optimize build.
 #
-ifeq ($(BUILD), debug)
-    include $(incl_scripts)/Makefile.debug
-endif
+#ifeq ($(BUILD), debug)
+include $(incl_scripts)/Makefile.debug
+#endif
 
-ifeq ($(BUILD), release)
-    include $(incl_scripts)/Makefile.release
-endif
+#ifeq ($(BUILD), release)
+#    include $(incl_scripts)/Makefile.release
+#endif
 
 ifeq ($(user_rtime_env), kernel)
     osdep_cc_flags   += $(osdep_kern_cc_flags)
