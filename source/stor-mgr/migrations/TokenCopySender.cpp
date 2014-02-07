@@ -11,7 +11,6 @@
 #include <boost/msm/front/euml/common.hpp>
 #include <boost/msm/front/euml/operator.hpp>
 
-#include <StorMgr.h>
 #include <fds_migration.h>
 #include <TokenCopySender.h>
 
@@ -44,11 +43,13 @@ struct TokSentEvt{};
 struct TokenCopySenderFSM_
         : public msm::front::state_machine_def<TokenCopySenderFSM_> {
     void init(TokenCopySender *parent,
+            SmIoReqHandler *data_store,
             const std::string &rcvr_ip,
             const std::set<fds_token_id> &tokens,
             boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler)
     {
         parent_ = parent;
+        data_store_ = data_store;
         rcvr_ip_ = rcvr_ip;
         pending_tokens_ = tokens;
         client_resp_handler_ = client_resp_handler;
@@ -218,7 +219,7 @@ struct TokenCopySenderFSM_
             fds_assert(fsm.objstor_read_req_.response_cb);
             fsm.objstor_read_req_.obj_list.clear();
 
-            err = fsm.obj_store_->enqueueMsg(FdsSysTaskQueueId, &fsm.objstor_read_req_);
+            err = fsm.data_store_->enqueueMsg(FdsSysTaskQueueId, &fsm.objstor_read_req_);
             if (err != fds::ERR_OK) {
                 fds_assert(!"Hit an error in enqueing");
                 // TODO(rao): Put your selft in an error state
@@ -349,8 +350,8 @@ struct TokenCopySenderFSM_
     /* RPC request.  It's recycled for every push request */
     FDSP_PushTokenObjectsReq push_tok_req_;
 
-    /* Object store reference */
-    ObjectStorMgr *obj_store_;
+    /* Token data store reference */
+    SmIoReqHandler *data_store_;
 
     /* Tracks the current read request with obj_store_ */
     SmIoGetTokObjectsReq objstor_read_req_;
@@ -359,7 +360,8 @@ struct TokenCopySenderFSM_
     netMigrationPathClientSession *rcvr_session_;
 };  /* struct TokenCopySenderFSM_ */
 
-TokenCopySender::TokenCopySender(const std::string &migration_id,
+TokenCopySender::TokenCopySender(SmIoReqHandler *data_store,
+        const std::string &migration_id,
         fds_threadpoolPtr threadpool,
         fds_logPtr log,
         const std::string &rcvr_ip,
@@ -370,7 +372,7 @@ TokenCopySender::TokenCopySender(const std::string &migration_id,
       log_(log)
 {
     sm_.reset(new TokenCopySenderFSM());
-    sm_->init(this, rcvr_ip, tokens, client_resp_handler);
+    sm_->init(this, data_store, rcvr_ip, tokens, client_resp_handler);
 }
 
 TokenCopySender::~TokenCopySender()

@@ -71,11 +71,13 @@ PushTokenObjectsResp(boost::shared_ptr<FDSP_MigMsgHdrType>& pushtok_resp)  // NO
  * @param log
  * @param nst
  */
-FdsMigrationSvc::FdsMigrationSvc(fds_threadpoolPtr threadpool,
+FdsMigrationSvc::FdsMigrationSvc(SmIoReqHandler *data_store,
+        fds_threadpoolPtr threadpool,
         const FdsConfigAccessor &conf_helper,
         fds_logPtr log, netSessionTblPtr nst)
     : Module("FdsMigrationSvc"),
       FdsRequestQueueActor(threadpool),
+      data_store_(data_store),
       conf_helper_(conf_helper),
       log_(log),
       nst_(nst)
@@ -172,7 +174,7 @@ void FdsMigrationSvc::handle_migsvc_copy_token(FdsActorRequestPtr req)
         std::string migration_id = fds::get_uuid();
         std::string sender_ip = itr->first;
         std::unique_ptr<TokenCopyReceiver> copy_rcvr(
-                new TokenCopyReceiver(migration_id, threadpool_, log_,
+                new TokenCopyReceiver(data_store_, migration_id, threadpool_, log_,
                         sender_ip, itr->second, migpath_handler_));
         mig_actors_[migration_id] = std::move(copy_rcvr);
         copy_rcvr->start();
@@ -206,7 +208,7 @@ void FdsMigrationSvc::handle_migsvc_copy_token_rpc(FdsActorRequestPtr req)
     fds_assert(tokens.size() > 0);
 
     std::unique_ptr<TokenCopySender> copy_sender(
-            new TokenCopySender(migration_id, threadpool_, log_,
+            new TokenCopySender(data_store_, migration_id, threadpool_, log_,
                     rcvr_ip, tokens, migpath_handler_));
     mig_actors_[migration_id] = std::move(copy_sender);
 

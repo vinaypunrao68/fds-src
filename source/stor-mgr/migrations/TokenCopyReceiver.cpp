@@ -10,7 +10,6 @@
 // for And_ operator
 #include <boost/msm/front/euml/operator.hpp>
 #include <vector>
-#include <StorMgr.h>
 #include <fdsp/FDSP_types.h>
 #include <fds_migration.h>
 #include <TokenCopyReceiver.h>
@@ -46,11 +45,13 @@ struct TokWrittenEvt {};
 /* State machine */
 struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
     void init(TokenCopyReceiver *parent,
+            SmIoReqHandler *data_store,
             const std::string &sender_ip,
             const std::set<fds_token_id> &tokens,
             boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler)
     {
         parent_ = parent;
+        data_store_ = data_store;
         sender_ip_ = sender_ip;
         pending_tokens_ = tokens;
         client_resp_handler_ = client_resp_handler;
@@ -215,7 +216,7 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
             // TODO(rao): We should std::move the object list here
             fsm.objstor_write_req_.obj_list = evt.obj_list;
 
-            err = fsm.obj_store_->enqueueMsg(FdsSysTaskQueueId, &fsm.objstor_write_req_);
+            err = fsm.data_store_->enqueueMsg(FdsSysTaskQueueId, &fsm.objstor_write_req_);
             if (err != fds::ERR_OK) {
                 fds_assert(!"Hit an error in enqueing");
                 // TODO(rao): Put your selft in an error state
@@ -328,8 +329,8 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
     /* Current token written is complete or not */
     bool write_tok_complete_;
 
-    /* Object store reference */
-    ObjectStorMgr *obj_store_;
+    /* Token data store reference */
+    SmIoReqHandler *data_store_;
 
     /* Object store write request */
     SmIoPutTokObjectsReq objstor_write_req_;
@@ -338,7 +339,8 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
     netMigrationPathClientSession *sender_session_;
 };  /* struct TokenCopyReceiverFSM_ */
 
-TokenCopyReceiver::TokenCopyReceiver(const std::string &migration_id,
+TokenCopyReceiver::TokenCopyReceiver(SmIoReqHandler *data_store,
+        const std::string &migration_id,
         fds_threadpoolPtr threadpool,
         fds_logPtr log,
         const std::string &sender_ip,
@@ -349,7 +351,7 @@ TokenCopyReceiver::TokenCopyReceiver(const std::string &migration_id,
       log_(log)
 {
     sm_.reset(new TokenCopyReceiverFSM());
-    sm_->init(this, sender_ip, tokens, client_resp_handler);
+    sm_->init(this, data_store, sender_ip, tokens, client_resp_handler);
 }
 
 TokenCopyReceiver::~TokenCopyReceiver() {

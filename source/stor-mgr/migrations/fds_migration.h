@@ -160,7 +160,8 @@ public:
     typedef std::unordered_map<std::string, std::set<fds_token_id> > IpTokenTable;
 
 public:
-    FdsMigrationSvc(fds_threadpoolPtr threadpool,
+    FdsMigrationSvc(SmIoReqHandler *data_store,
+            fds_threadpoolPtr threadpool,
             const FdsConfigAccessor &conf_helper,
             fds_logPtr log,
             netSessionTblPtr nst);
@@ -197,6 +198,9 @@ private:
     migpath_resp_client(const std::string session_uuid) {
         return migpath_session_->getRespClient(session_uuid);
     }
+
+    /* Token data store */
+    SmIoReqHandler *data_store_;
 
     /* Config access helper */
     FdsConfigAccessor conf_helper_;

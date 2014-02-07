@@ -16,6 +16,7 @@
 #include <fds_base_migrators.h>
 #include <util/Log.h>
 #include <NetSession.h>
+#include <StorMgrVolumes.h>
 
 
 namespace fds {
@@ -29,7 +30,8 @@ typedef boost::msm::back::state_machine<TokenCopyReceiverFSM_> TokenCopyReceiver
 class TokenCopyReceiver : public MigrationReceiver,
                           public FdsRequestQueueActor {
 public:
-    TokenCopyReceiver(const std::string &migration_id,
+    TokenCopyReceiver(SmIoReqHandler *data_store,
+            const std::string &migration_id,
             fds_threadpoolPtr threadpool,
             fds_logPtr log,
             const std::string &sender_ip,

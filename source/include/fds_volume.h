@@ -25,6 +25,9 @@
 using namespace FDS_ProtocolInterface;
 using namespace boost;
 
+#define FdsSysTaskQueueId 0xefffffff
+#define FdsSysTaskPri 5
+
 namespace fds {
 
   // typedef fds_uint64_t fds_volid_t;
