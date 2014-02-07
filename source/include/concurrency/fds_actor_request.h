@@ -8,31 +8,49 @@
 #include <queue>
 #include <boost/shared_ptr.hpp>
 
+/* DO NOT use this macro outside.  Use FAR_ID() instead */
+#define FAR_ENUM(type) type##_far_enum
+
+/* Maps the input class/struct type to FdsActorRequestType.
+ * Externally use this macro
+ */
+#define FAR_ID(type) FAR_ENUM(type)
+
 namespace fds {
 
-/* Types.  These types are divided into ranges.  DO NOT change the order */
+/* Enum ids for identifying FdsActorRequest payload types.
+ * NOTE: The ids are named such that they match the payload type.  When
+ * you rename the payload type don't forget to update here
+ */
 enum FdsActorRequestType {
     /*----------------- Migration request range [1000-2000) -------------------*/
     /* Migration service message to initiate token copy */
-    FAR_MIGSVC_COPY_TOKEN = 1000,
+    FAR_ENUM(MigSvcCopyTokens) = 1000,
+
     /* Migration service message that a migration is complete */
-    FAR_MIGSVC_MIGRATION_COMPLETE,
-    /* TockenCopySender message that token data has been read */
-    FAR_MIG_TCS_DATA_READ_DONE,
-    /* TockenCopyReceiver message that token data has been written */
-    FAR_MIG_TCR_DATA_WRITE_DONE,
+    FAR_ENUM(MigSvcMigrationComplete),
+
+    /* TokenCopySender message that token data has been read */
+    FAR_ENUM(TcsDataReadDone),
+
+    /* TokenCopyReceiver message that token data has been written */
+    FAR_ENUM(TcrDataWriteDone),
+
     /*----------------- Migration RPC -----------------------------------------*/
     /* RPC from receiver->sender to start token copy */
-    FAR_MIG_COPY_TOKEN_RPC,
+    FAR_ENUM(FDSP_CopyTokenReq),
+
     /* RPC token copy response ack from sender->receiver */
-    FAR_MIG_COPY_TOKEN_RESP_RPC,
+    FAR_ENUM(FDSP_CopyTokenResp),
+
     /* RPC from sender->receiver with token object data */
-    FAR_MIG_PUSH_TOKEN_OBJECTS_RPC,
+    FAR_ENUM(FDSP_PushTokenObjectsReq),
+
     /* RPC ack response from receiver->sender of token object data */
-    FAR_MIG_PUSH_TOKEN_OBJECTS_RESP_RPC,
+    FAR_ENUM(FDSP_PushTokenObjectsResp),
 
     /*----------------- Last Request ------------------------------------------*/
-    FAR_MAX
+    FAR_ENUM(Max)
 };
 
 /* Forward declarations */
@@ -42,7 +60,7 @@ class FdsRequestQueueActor;
 class FdsActorRequest {
 public:
     FdsActorRequest()
-    : FdsActorRequest(FAR_MAX, nullptr)
+    : FdsActorRequest(FAR_ID(Max), nullptr)
     {
     }
 

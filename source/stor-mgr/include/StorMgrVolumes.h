@@ -299,6 +299,14 @@ namespace fds {
     }
   };
 
+  /**
+   * Handlers that process SmIoReq should derive from this
+   */
+  class SmIoReqHandler {
+  public:
+    virtual Error enqueueMsg(fds_volid_t volId, SmIoReq* ioReq) = 0;
+  };
+
   typedef boost::shared_ptr<FDSP_MigrateObjectList> FDSP_MigrateObjectListPtr; 
   /**
    * @brief Putting token objects request
