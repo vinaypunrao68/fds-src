@@ -330,6 +330,16 @@ class TestResp: public FDS_ProtocolInterface::FDSP_OMControlPathRespIf {
         // Your implementation goes here
         FDS_PLOG(test_log) << "GetDomainStatsResp\n";
     }
+
+    void MigrationDoneResp(const FDSP_MsgHdrType& fdsp_msg,
+                           const FDSP_MigrationStatusType& status_rsp) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+    void MigrationDoneResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
+                            boost::shared_ptr<FDSP_MigrationStatusType>& status_rsp) {
+        // Your implementation goes here
+        FDS_PLOG(test_log) << "MigrationDoneResp\n";
+    }
 };
 
 class OmUnitTest {

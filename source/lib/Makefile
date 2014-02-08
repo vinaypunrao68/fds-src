@@ -8,6 +8,7 @@ user_cpp         :=      \
     Catalog.cpp          \
     VolumeCatalog.cpp    \
     fds_timer.cpp        \
+    LocalClusterMap.cpp  \
     OMgrClient.cpp       \
     QoSWFQDispatcher.cpp \
     qos_htb.cpp          \

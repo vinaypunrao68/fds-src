@@ -335,6 +335,14 @@ int OrchMgr::GetDomainStats(const FdspMsgHdrPtr& fdsp_msg,
     return 0;
 }
 
+int OrchMgr::NotifyMigrationDone(const FdspMsgHdrPtr& fdsp_msg,
+                                 const FdspMigrationStatusPtr& status_req) {
+    FDS_PLOG_SEV(GetLog(), fds_log::notification)
+            << "Received migration done notification from node "
+            << fdsp_msg->src_node_name;
+    return 0;
+}
+
 int OrchMgr::ApplyTierPolicy(::FDS_ProtocolInterface::tier_pol_time_unitPtr& policy) {
     om_policy_srv->serv_recvTierPolicyReq(policy);
     return 0;
@@ -802,6 +810,7 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
             << "  Node Type:" << std::dec << reg_node_req->node_type
             << "  Control Port: " << reg_node_req->control_port
             << "  Data Port: " << reg_node_req->data_port
+            << "  Migration Port: " << reg_node_req->migration_port
             << "  Disk iops Max : " << (reg_node_req->disk_info).disk_iops_max
             << "  Disk iops Min: " << (reg_node_req->disk_info).disk_iops_min
             << "  Disk capacity : " << (reg_node_req->disk_info).disk_capacity
@@ -857,6 +866,7 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
                          reg_node_req->ip_lo_addr,
                          reg_node_req->control_port,
                          n_info.data_port = reg_node_req->data_port,
+                         reg_node_req->migration_port,
                          (reg_node_req->disk_info).disk_iops_max,
                          (reg_node_req->disk_info).disk_iops_min,
                          (reg_node_req->disk_info).disk_capacity,

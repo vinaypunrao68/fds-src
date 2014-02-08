@@ -130,11 +130,12 @@ namespace fds {
      * NOTE: AttVolCmd is the command in the config plane, received at OM from CLI/GUI.
      * AttVol is the attach vol message sent from the OM to the HVs in the control plane.
      */
-    typedef FDS_ProtocolInterface::FDSP_AttachVolTypePtr    FdspAttVolPtr;
-    typedef FDS_ProtocolInterface::FDSP_AttachVolCmdTypePtr FdspAttVolCmdPtr;
-    typedef FDS_ProtocolInterface::FDSP_RegisterNodeTypePtr FdspRegNodePtr;
-    typedef FDS_ProtocolInterface::FDSP_NotifyVolTypePtr    FdspNotVolPtr;
-    typedef FDS_ProtocolInterface::FDSP_TestBucketPtr       FdspTestBucketPtr;
+    typedef FDS_ProtocolInterface::FDSP_AttachVolTypePtr        FdspAttVolPtr;
+    typedef FDS_ProtocolInterface::FDSP_AttachVolCmdTypePtr     FdspAttVolCmdPtr;
+    typedef FDS_ProtocolInterface::FDSP_RegisterNodeTypePtr     FdspRegNodePtr;
+    typedef FDS_ProtocolInterface::FDSP_NotifyVolTypePtr        FdspNotVolPtr;
+    typedef FDS_ProtocolInterface::FDSP_TestBucketPtr           FdspTestBucketPtr;
+    typedef FDS_ProtocolInterface::FDSP_MigrationStatusTypePtr  FdspMigrationStatusPtr;
 
     typedef FDS_ProtocolInterface::FDSP_VolumeInfoTypePtr FdspVolInfoPtr;
     typedef FDS_ProtocolInterface::FDSP_PolicyInfoTypePtr FdspPolInfoPtr;
@@ -279,6 +280,9 @@ namespace fds {
 
     int GetDomainStats(const FdspMsgHdrPtr& fdsp_msg,
                        const FdspGetDomStatsPtr& get_stats_req);
+
+    int NotifyMigrationDone(const FdspMsgHdrPtr& fdsp_msg,
+                            const FdspMigrationStatusPtr& status_req);
 
     int ApplyTierPolicy(
         ::FDS_ProtocolInterface::tier_pol_time_unitPtr& policy);
@@ -476,6 +480,13 @@ namespace fds {
         void GetDomainStats(
             ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
             ::FDS_ProtocolInterface::FDSP_GetDomainStatsTypePtr& get_stats_msg);
+
+        void NotifyMigrationDone(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_MigrationStatusType& status_msg);
+        void NotifyMigrationDone(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_MigrationStatusTypePtr& status_msg);
   private:
         OrchMgr* orchMgr;
     };

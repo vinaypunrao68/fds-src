@@ -261,6 +261,7 @@ struct FDSP_Node_Info_Type {
   6: i64		 ip_lo_addr, /* IP V4 address of V6 low address of the node */
   7: i32		 control_port, /* Port number to contact for control messages */
   8: i32		 data_port, /* Port number to send datapath requests */
+  9: i32                 migration_port, /* Migration service port */
 }
 
 typedef list<FDSP_Node_Info_Type> Node_Info_List_Type
@@ -284,6 +285,10 @@ struct FDSP_DLT_Data_Type {
     2: string dlt_data, 
 }
 
+struct FDSP_MigrationStatusType {
+  1: i32 DLT_version,
+  2: i32 context
+}
 
 struct FDSP_VolumeInfoType {
 
@@ -470,7 +475,8 @@ struct FDSP_RegisterNodeType {
   5: i64		 ip_lo_addr, /* IP V4 address of V6 low address of the node */
   6: i32		 control_port, /* Port number to contact for control messages */
   7: i32		 data_port, /* Port number to send datapath requests */
-  8: FDSP_AnnounceDiskCapability  disk_info, /* Add node capacity and other relevant fields here */
+  8: i32                 migration_port, /*  Port for migration service */
+  9: FDSP_AnnounceDiskCapability  disk_info, /* Add node capacity and other relevant fields here */
 }
 
 struct FDSP_ThrottleMsgType {
@@ -877,6 +883,7 @@ service FDSP_OMControlPathReq {
   oneway void NotifyPerfstats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PerfstatsType perf_stats_msg),
   oneway void TestBucket(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_TestBucket test_buck_msg),
   oneway void GetDomainStats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetDomainStatsType get_stats_msg),  
+  oneway void NotifyMigrationDone(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_MigrationStatusType status_msg)
 }
 
 service FDSP_OMControlPathResp {
@@ -887,8 +894,9 @@ service FDSP_OMControlPathResp {
   oneway void RegisterNodeResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RegisterNodeType reg_node_rsp),
   oneway void NotifyQueueFullResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyQueueStateType queue_state_rsp),
   oneway void NotifyPerfstatsResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PerfstatsType perf_stats_rsp),
-  oneway void TestBucketResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_TestBucket test_buck_rsp)
-  oneway void GetDomainStatsResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetDomainStatsType get_stats_rsp),  
+  oneway void TestBucketResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_TestBucket test_buck_rsp),
+  oneway void GetDomainStatsResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetDomainStatsType get_stats_rsp),
+  oneway void MigrationDoneResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_MigrationStatusType status_resp)
 }
 
 service FDSP_ControlPathReq {
