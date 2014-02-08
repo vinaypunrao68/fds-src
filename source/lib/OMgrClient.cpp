@@ -77,6 +77,7 @@ void OMgrClientRPCI::NotifyDLTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
 void OMgrClientRPCI::NotifyStartMigration(FDSP_MsgHdrTypePtr& msg_hdr,
 			 FDSP_DLT_Data_TypePtr& dlt_info) {
 
+  om_client->recvDLTStartMigration(dlt_info->dlt_type, dlt_info->dlt_data);
 }
 
 void OMgrClientRPCI::NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
@@ -640,9 +641,23 @@ int OMgrClient::recvDLTUpdate(bool dlt_type, std::string& dlt_data) {
 
   omc_lock.write_lock();
   dltMgr.addSerializedDLT(dlt_data,dlt_type);
+  dltMgr.dump(true);
   omc_lock.write_unlock();
 
   return (0);
+}
+
+int OMgrClient::recvDLTStartMigration(bool dlt_type, std::string& dlt_data) {
+
+  FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received new Migration DLT version  " << dlt_type;
+
+  omc_lock.write_lock();
+  dltMgr.addSerializedDLT(dlt_data,dlt_type);
+  dltMgr.dump(true);
+  omc_lock.write_unlock();
+
+  return (0);
+
 }
 
 int OMgrClient::recvDMTUpdate(int dmt_vrsn, const Node_Table_Type& dmt_table) {

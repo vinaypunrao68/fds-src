@@ -175,6 +175,7 @@ namespace fds {
 
     int recvNodeEvent(int node_id, FDSP_MgrIdType node_type, unsigned int node_ip, int node_state, const FDSP_Node_Info_TypePtr& node_info);
     int recvDLTUpdate(bool dlt_type, std::string& dlt_data);
+    int recvDLTStartMigration(bool dlt_type, std::string& dlt_data);
     int recvDMTUpdate(int dmt_version, const Node_Table_Type& dmt_table);
 
     int recvNotifyVol(fds_volid_t vol_id,
