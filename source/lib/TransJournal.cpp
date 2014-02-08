@@ -1,11 +1,15 @@
 #include <stdexcept>
 
+#include <IceUtil/IceUtil.h>
+#include <Ice/Ice.h>
 
-#include <fdsp/FDSP_types.h>
+#include <fdsp/FDSP.h>
 #include <fds_err.h>
 #include <fds_types.h>
+#include <fds_assert.h>
 #include <TransJournal.h>
 
+using namespace IceUtil;
 
 namespace fds {
 
@@ -16,247 +20,198 @@ ObjectIdJrnlEntry::ObjectIdJrnlEntry()
 
 void ObjectIdJrnlEntry::init(unsigned int transid, TransJournal<ObjectID, ObjectIdJrnlEntry> *jrnlTbl)
 {
+  _transid = transid;
+  _jrnlTbl = jrnlTbl;
+
 	_active = false;
-	memset(&_key, sizeof(_key), 0);
-	_transid = transid;
-	_jrnlTbl = jrnlTbl;
+	memset(&_key, 0, sizeof(_key));
+	_fdsio = NULL;
 }
 
-void ObjectIdJrnlEntry::lock()
-{
-	_mutex.lock();
-}
-
-void ObjectIdJrnlEntry::unlock()
-{
-	_mutex.unlock();
-}
-
-fds_mutex* ObjectIdJrnlEntry::getLock()
-{
-	return &_mutex;
-}
-
-boost::condition* ObjectIdJrnlEntry::getCond()
-{
-	return &_condition;
-}
 
 void ObjectIdJrnlEntry::reset()
 {
-	memset(&_key, sizeof(_key), 0);
+	memset(&_key, 0, sizeof(_key));
 	_active = false;
+	_fdsio = NULL;
 }
 
-void ObjectIdJrnlEntry::setActive(bool active)
+void ObjectIdJrnlEntry::set_active(bool active)
 {
 	_active = active;
 }
 
-bool ObjectIdJrnlEntry::isActive()
+bool ObjectIdJrnlEntry::is_active()
 {
 	return _active;
 }
 
-void ObjectIdJrnlEntry::setJournalKey(const ObjectID &key)
+void ObjectIdJrnlEntry::set_key(const ObjectID &key)
 {
 	_key = key;
 }
 
 
-ObjectID ObjectIdJrnlEntry::getJournalKey()
+ObjectID ObjectIdJrnlEntry::get_key()
 {
 	return _key;
 }
 
-unsigned int ObjectIdJrnlEntry::getTransId()
+void ObjectIdJrnlEntry::set_fdsio(FDS_IOType *fdsio)
+{
+  _fdsio = fdsio;
+}
+
+
+FDS_IOType* ObjectIdJrnlEntry::get_fdsio()
+{
+  return _fdsio;
+}
+
+unsigned int ObjectIdJrnlEntry::get_transid()
 {
 	return _transid;
 }
 
-template <typename JEntryT>
-TransJournalEntryLock<JEntryT>::TransJournalEntryLock(JEntryT *jrnl_entry)
-{
-    jrnl_e = jrnl_entry;
-    jrnl_e->lock();
-}
-
-template <typename JEntryT>
-TransJournalEntryLock<JEntryT>::~ TransJournalEntryLock()
-{
-  jrnl_e->unlock();
-}
-
-
 template<typename KeyT, typename JEntryT>
-TransJournal<KeyT, JEntryT>::TransJournal(unsigned int max_jrnl_entries)
+TransJournal<KeyT, JEntryT>::TransJournal(unsigned int max_jrnl_entries, FDS_QoSControl *qos_controller, fds_log *log)
 //  : ioTimer(new IceUtil::Timer())
+: _qos_controller(qos_controller),
+  _log(log),
+  _pending_cnt(0),
+  _active_cnt(0)
 {
 	unsigned int i =0;
 
-	max_journal_entries = max_jrnl_entries;
+	_max_journal_entries = max_jrnl_entries;
 
-	rwlog_tbl = new JEntryT[max_journal_entries];
+	_rwlog_tbl = new JEntryT[_max_journal_entries];
 
-	for (i = 0; i < max_journal_entries; i++) {
-          rwlog_tbl[i].init(i, this);
-	  free_trans_ids.push(i);
+	for (i = 0; i < _max_journal_entries; i++) {
+          _rwlog_tbl[i].init(i, this);
+	  _free_trans_ids.push(i);
 	}
 
-	jrnl_tbl_mutex = new fds_mutex("Journal Table Mutex");
+	_jrnl_tbl_mutex = new fds_mutex("Journal Table Mutex");
 
-	ctime = boost::posix_time::microsec_clock::universal_time();
-	// printf("Created journal table lock %p for Journal Table %p \n", jrnl_tbl_mutex, this);
-
+	_ctime = boost::posix_time::microsec_clock::universal_time();
 	return;
 }
 
 template<typename KeyT, typename JEntryT>
-TransJournal<KeyT, JEntryT>::TransJournal()
-  : TransJournal(FDS_READ_WRITE_LOG_ENTRIES)
+TransJournal<KeyT, JEntryT>::TransJournal(FDS_QoSControl *qos_controller, fds_log *log)
+  : TransJournal(FDS_READ_WRITE_LOG_ENTRIES, qos_controller, log)
 {
 }
 
 template<typename KeyT, typename JEntryT>
 TransJournal<KeyT, JEntryT>::~TransJournal()
 {
-  delete jrnl_tbl_mutex;
+  delete _jrnl_tbl_mutex;
 //  ioTimer->destroy();
 }
 
 template<typename KeyT, typename JEntryT>
-void TransJournal<KeyT, JEntryT>::lock()
+Error TransJournal<KeyT, JEntryT>::
+_assign_transaction_to_key(const KeyT& key, FDS_IOType *io, TransJournalId &trans_id)
 {
-  // cout << "Acquiring journal table lock" << endl;
-  jrnl_tbl_mutex->lock();
-  // cout << "Acquired journal table lock" << endl;
-}
-
-template<typename KeyT, typename JEntryT>
-void TransJournal<KeyT, JEntryT>::unlock()
-{
-  jrnl_tbl_mutex->unlock();
-  // cout << "Released journal table lock"<< endl;
-}
-
-// Caller must have acquired the Journal Table Write Lock before invoking this.
-template<typename KeyT, typename JEntryT>
-unsigned int TransJournal<KeyT, JEntryT>::get_free_trans_id() {
-
-  unsigned int trans_id;
-
-  if (free_trans_ids.empty()) {
-    // Ideally we should block
-    throw "Too many outstanding transactions. Transaction table full";
+  if (_free_trans_ids.empty()) {
+    fds_assert(!"out of trans ids");
+    return ERR_TRANS_JOURNAL_OUT_OF_IDS;
   }
-  trans_id = free_trans_ids.front();
-  free_trans_ids.pop();
-  return (trans_id);
+  trans_id = _free_trans_ids.front();
+  _free_trans_ids.pop();
 
+  fds_assert(!_rwlog_tbl[trans_id].is_active());
+  _rwlog_tbl[trans_id].set_fdsio(io);
+  _rwlog_tbl[trans_id].set_key(key);
+  _rwlog_tbl[trans_id].set_active(true);
+
+  _key_to_transinfo_tbl[key].push_front(TransJournalKeyInfo(io, trans_id));
+
+  _active_cnt++;
+  return ERR_OK;
 }
 
-// Caller must have acquired the Journal Table Write Lock before invoking this.
 template<typename KeyT, typename JEntryT>
-void TransJournal<KeyT, JEntryT>::return_free_trans_id(unsigned int trans_id) {
-
-  free_trans_ids.push(trans_id);
-
-}
-
-// The function returns a new transaction id (that is currently unused) if one is not in use for the block offset.
-// If there is one for the passed offset, that trans_id is returned.
-// Caller must remember to acquire the lock for the journal entry after this call, before using it.
-template<typename KeyT, typename JEntryT>
-unsigned int TransJournal<KeyT, JEntryT>::get_trans_id_for_key(const KeyT &key)
+Error TransJournal<KeyT, JEntryT>::
+create_transaction(const KeyT& key, FDS_IOType *io, TransJournalId &trans_id)
 {
-  unsigned int trans_id;
+  fds_mutex::scoped_lock lock(*_jrnl_tbl_mutex);
 
-  lock();
-  try{
-    trans_id = key_to_jrnl_idx.at(key);
-    if (rwlog_tbl[trans_id].getJournalKey() != key) {
-      unlock();
-      throw "Corrupt journal table, block offsets do not match";
+  typename KeyToTransInfoTable::iterator itr = _key_to_transinfo_tbl.find(key);
+
+  if (itr == _key_to_transinfo_tbl.end()) {
+    /* No pending transactions for the given key */
+    Error e = _assign_transaction_to_key(key, io, trans_id);
+    return e;
+
+  } else if (itr->second.front().io == io) {
+    /* Request to create a transaction for existing <key,io> pair */
+    TransJournalKeyInfo& ki = itr->second.front();
+    fds_assert(_rwlog_tbl[ki.trans_id].is_active() &&
+        _rwlog_tbl[ki.trans_id].get_key() == key);
+    trans_id = ki.trans_id;
+    return ERR_OK;
+
+  } else {
+    /* There is already a pending transaction for this key.  Lets enqueue */
+    fds_assert(_key_to_transinfo_tbl[key].size() > 0);
+    _key_to_transinfo_tbl[key].push_back(TransJournalKeyInfo(io));
+    _pending_cnt++;
+    FDS_PLOG(_log) << "Adding to pending transactions.  key: " << key.ToString();
+    return ERR_TRANS_JOURNAL_REQUEST_QUEUED;
+  }
+}
+
+template<typename KeyT, typename JEntryT>
+JEntryT* TransJournal<KeyT, JEntryT>::
+get_transaction(const TransJournalId &trans_id)
+{
+  fds_mutex::scoped_lock lock(*_jrnl_tbl_mutex);
+  fds_assert(_rwlog_tbl[trans_id].is_active());
+  return &_rwlog_tbl[trans_id];
+}
+
+template<typename KeyT, typename JEntryT>
+void TransJournal<KeyT, JEntryT>::
+release_transaction(TransJournalId &trans_id)
+{
+  fds_mutex::scoped_lock lock(*_jrnl_tbl_mutex);
+  KeyT key = _rwlog_tbl[trans_id].get_key();
+  typename KeyToTransInfoTable::iterator pending_qitr = _key_to_transinfo_tbl.find(key);
+
+  /* Free up the transaction associated with trans_id */
+  fds_assert(_rwlog_tbl[trans_id].is_active() &&
+             _rwlog_tbl[trans_id].get_fdsio() == pending_q->front());
+  _rwlog_tbl[trans_id].reset();
+  _free_trans_ids.push(trans_id);
+  _active_cnt--;
+  pending_qitr->second.pop_front();
+
+  /* schedule any pending transactions for the key */
+  if (pending_qitr->second.size() > 0) {
+    Error e;
+    TransJournalId new_trans_id;
+    FDS_IOType *io = pending_qitr->second.front().io;
+    fds_assert(pending_qitr->second.front().trans_id == INVALID_TRANS_ID);
+    pending_qitr->second.pop_front();
+    _pending_cnt--;
+    FDS_PLOG(_log) << "Removing from pending transactions.  key: " << key.ToString();
+
+    e = _assign_transaction_to_key(key, io, new_trans_id);
+    fds_assert(e.ok());
+
+    // todo: It's a good idea to let go off _jrnl_tbl_mutex here.
+    e = _qos_controller->processIO(io);
+    if (!e.ok() ) {
+      fds_assert(!"Failed to process io");
     }
-    unlock();
   }
-  catch (const std::out_of_range& err) {
-    trans_id = get_free_trans_id();
-    key_to_jrnl_idx[key] = trans_id;
-    unlock();
-    TransJournalEntryLock<JEntryT> je_lock(&rwlog_tbl[trans_id]);
-    if (rwlog_tbl[trans_id].isActive()) {
-      throw "Corrupt journal table, allocated transaction is Active\n";
-    }
-    rwlog_tbl[trans_id].setJournalKey(key);
+
+  if (pending_qitr->second.size() == 0) {
+    _key_to_transinfo_tbl.erase(pending_qitr);
   }
-//   FDS_PLOG(storHvisor->GetLog()) << " TransJournal:" << "IO-XID:" << trans_id <<" - Assigned transaction id " << trans_id << " for block " << block_offset;
-  return trans_id;
-}
-
-
-// Caller should hold the lock to the transaction before calling this.
-// And then release the lock after returning from this call.
-template<typename KeyT, typename JEntryT>
-void TransJournal<KeyT, JEntryT>::release_trans_id(unsigned int trans_id)
-{
-
-  KeyT key;
-
-  key = rwlog_tbl[trans_id].getJournalKey();
-
-  lock();
-
-  key_to_jrnl_idx.erase(key);
-  rwlog_tbl[trans_id].reset();
-//  ioTimer->cancel(rwlog_tbl[trans_id].ioTimerTask);
-  return_free_trans_id(trans_id);
-
-  unlock();
-
-//   FDS_PLOG(storHvisor->GetLog()) << " TransJournal:" << "IO-XID:" << trans_id <<  " - Released transaction id  " << trans_id ;
-
-}
-
-template<typename KeyT, typename JEntryT>
-JEntryT *TransJournal<KeyT, JEntryT>::get_journal_entry(int trans_id) {
-
-  JEntryT *jrnl_e = &rwlog_tbl[trans_id];
-  return jrnl_e;
-
-}
-
-
-// Marks the journal entry identified by key to be in use and returns it.
-// If the journal entry is already is use the calling thread will wait until
-// journal entry is released.
-template<typename KeyT, typename JEntryT>
-JEntryT* TransJournal<KeyT, JEntryT>::get_journal_entry_for_key(const KeyT& key)
-{
-	/* Get transaction */
-	unsigned int trans_id = get_trans_id_for_key(key);
-	JEntryT *jrnl_e = &rwlog_tbl[trans_id];
-	jrnl_e->lock();
-	while (jrnl_e->isActive()) {
-		jrnl_e->getCond()->wait(*jrnl_e->getLock());
-	}
-	jrnl_e->setActive(true);
-	jrnl_e->unlock();
-
-	return jrnl_e;
-}
-
-// Releases the in use journal entry and notifies any waiting thread
-template<typename KeyT, typename JEntryT>
-void TransJournal<KeyT, JEntryT>::release_journal_entry_with_notify(JEntryT *jrnl_e)
-{
-	jrnl_e->lock();
-	assert(jrnl_e->isActive());
-	key_to_jrnl_idx.erase(jrnl_e->getJournalKey());
-	jrnl_e->reset();
-	return_free_trans_id(jrnl_e->getTransId());
-	jrnl_e->getCond()->notify_one();
-	jrnl_e->unlock();
 }
 
 template class TransJournal<ObjectID, ObjectIdJrnlEntry>;
