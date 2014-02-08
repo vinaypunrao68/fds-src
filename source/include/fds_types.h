@@ -210,6 +210,9 @@ namespace fds {
     }
   };
 
+  /* NullObjectID */
+  extern ObjectID NullObjectID;
+
   inline std::ostream& operator<<(std::ostream& out, const ObjectID& oid) {
     return out << "Object ID: " << ObjectID::ToHex(oid);
   }
@@ -283,6 +286,7 @@ public:
    FDS_LIST_BUCKET,
    FDS_BUCKET_STATS,
    FDS_SM_READ_TOKEN_OBJECTS,
+   FDS_SM_WRITE_TOKEN_OBJECTS,
    FDS_OP_INVALID
   } fds_io_op_t;
 

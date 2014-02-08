@@ -2,6 +2,7 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 #include <stdlib.h>
+#include <string>
 #include <OmResources.h>
 #include <OmConstants.h>
 #include <fds_err.h>
@@ -40,14 +41,10 @@ NodeInventory::node_calc_stor_weight()
 }
 
 void
-NodeInventory::node_update_info(const NodeUuid *uuid, const FdspNodeRegPtr msg)
+NodeInventory::node_update_info(const FdspNodeRegPtr msg)
 {
-    if (uuid != NULL) {
-        nd_uuid = *uuid;
-    } else {
-        fds_verify(nd_uuid.uuid_get_val() == 0);
-        nd_uuid.uuid_set_val(random());
-    }
+    fds_verify(nd_uuid.uuid_get_val() != 0);
+
     nd_mtx.lock();
     nd_ip_addr          = msg->ip_lo_addr;
     nd_ip_str           = netSession::ipAddr2String(nd_ip_addr);
@@ -126,22 +123,46 @@ OM_NodeContainer::om_node_info(fds_uint32_t node_idx)
 }
 
 NodeAgent::pointer
-OM_NodeContainer::om_node_info(const NodeUuid *uuid)
+OM_NodeContainer::om_node_info(const NodeUuid& uuid)
 {
     // Key lookup should be thread-safe.
-    return node_map[*uuid];
+    if (node_map.count(uuid) > 0)
+        return node_map[uuid];
+
+    return NULL;
 }
+
+Error
+OM_NodeContainer::check_node_exists(const NodeUuid& uuid,
+                                    const std::string& node_name) {
+    Error err(ERR_OK);
+    if (node_map.count(uuid) == 0) {
+        err = Error(ERR_NOT_FOUND);
+        return err;
+    }
+
+    NodeAgent::pointer agent = node_map[uuid];
+    if (node_name.compare(agent->get_node_name()) != 0) {
+        // node with same uuid exists but names don't match!
+        // probably hash collision
+        err = Error(ERR_DUPLICATE_UUID);
+        return err;
+    }
+
+    return err;
+}
+
 
 // om_new_node
 // -----------
 //
 NodeAgent::pointer
-OM_NodeContainer::om_new_node()
+OM_NodeContainer::om_new_node(const NodeUuid& uuid)
 {
     fds_uint32_t  idx;
     NodeAgent    *agent;
 
-    agent = new NodeAgent(NodeUuid(0));
+    agent = new NodeAgent(uuid);
     node_mtx.lock();
     idx = node_cur_idx;
     if (idx < OM_MAX_CONNECTED_NODES) {

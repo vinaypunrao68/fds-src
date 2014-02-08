@@ -9,6 +9,7 @@
 #include <list>
 #include <unordered_map>
 #include <fds_typedefs.h>
+#include <fds_err.h>
 #include <fds_module.h>
 #include <fds_resource.h>
 #include <concurrency/Mutex.h>
@@ -41,11 +42,11 @@ class NodeInventory : public Resource
     void node_name(std::string *name) const {}
 
     /**
-     * Update the node inventory with new info.
-     * @param uuid - (i) null if the node already has a valid uuid.
+     * Update the node inventory with new info. Node must have
+     * a valid uuid (passed in constructor)
      */
     virtual void
-    node_update_info(const NodeUuid *uuid, const FdspNodeRegPtr msg);
+    node_update_info(const FdspNodeRegPtr msg);
 
     /**
      * Return the storage weight of the node in normalized unit from 0...1000
@@ -68,6 +69,9 @@ class NodeInventory : public Resource
     }
     inline NodeUuid get_uuid() const {
         return nd_uuid;
+    }
+    inline std::string get_node_name() const {
+        return nd_node_name;
     }
 
     inline std::string get_ip_str() const {
@@ -181,8 +185,18 @@ class OM_NodeContainer : public RsContainer
         return node_cur_idx;
     }
     NodeAgent::pointer om_node_info(fds_uint32_t node_idx);
-    NodeAgent::pointer om_node_info(const NodeUuid *uuid);
+    NodeAgent::pointer om_node_info(const NodeUuid& uuid);
 
+    /*
+     * Checks if node is in the container already.
+     * @return ERR_OK if node already in the container.
+     * ERR_NOT_FOUND if the node is not in the container.
+     * ERR_DUPLICATE_UUID if the node with the same uuid is in the
+     * container but names do not match, most likely another
+     * node name produced the same node uuid, so need to pick a new name
+     */
+    Error check_node_exists(const NodeUuid& uuid,
+                            const std::string& node_name);
     /**
      * Iterate through the list using standard container iterator.
      */
@@ -197,7 +211,7 @@ class OM_NodeContainer : public RsContainer
      */
     const_iterator cend(const_iterator *it);
 
-    virtual NodeAgent::pointer om_new_node();
+    virtual NodeAgent::pointer om_new_node(const NodeUuid& uuid);
     virtual void om_ref_node(NodeAgent::pointer node, fds_bool_t act = true);
     virtual void om_deref_node(NodeAgent::pointer node);
     virtual void om_activate_node(fds_uint32_t node_idx);
@@ -228,9 +242,13 @@ class OM_NodeDomainMod : public Module, OM_NodeContainer
 
     /**
      * Register node info to the domain manager.
+     * @return ERR_OK if success, ERR_DUPLICATE if node already
+     * registered; ERR_UUID_EXISTS if this is a new node, but 
+     * its name produces UUID that already mapped to an existing node
+     * name (should ask the user to pick another node name).
      */
-    virtual void
-    om_reg_node_info(const NodeUuid       *uuid,
+    virtual Error
+    om_reg_node_info(const NodeUuid&      uuid,
                      const FdspNodeRegPtr msg);
 
     /**
@@ -239,7 +257,8 @@ class OM_NodeDomainMod : public Module, OM_NodeContainer
      */
     virtual void om_update_cluster();
 
-    virtual void om_del_node_info(const NodeUuid *uuid);
+    virtual Error om_del_node_info(const NodeUuid& uuid,
+                                   const std::string& node_name);
     virtual void om_persist_node_info(fds_uint32_t node_idx);
     virtual void om_update_cluster_map();
 

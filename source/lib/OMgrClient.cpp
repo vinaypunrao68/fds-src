@@ -641,12 +641,8 @@ int OMgrClient::recvDLTUpdate(bool dlt_type, std::string& dlt_data) {
 
   FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received new DLT version  " << dlt_type;
 
-
-  DLT dltTmp(0,0,0,false);
-  fds::serialize::Deserializer *d = fds::serialize::getMemDeserializer(dlt_data);
-  dltTmp.read(d);
   omc_lock.write_lock();
-  dltMgr.add(dltTmp);
+  dltMgr.addSerializedDLT(dlt_data,dlt_type);
   omc_lock.write_unlock();
 
   return (0);

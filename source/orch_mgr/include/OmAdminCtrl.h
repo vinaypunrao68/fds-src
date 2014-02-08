@@ -56,6 +56,7 @@ namespace fds {
         fds_uint64_t   total_vol_disk_cap;
 
         void addDiskCapacity(const NodeInfo& n_info);
+        void removeDiskCapacity(const NodeInfo& n_info);
         void getAvailableDiskCapacity(FdspVolInfoPtr&  pVolInfo);
         void updateAvailableDiskCapacity(FdspVolInfoPtr&  pVolInfo);
         Error volAdminControl(VolumeDesc  *pVolDesc);
