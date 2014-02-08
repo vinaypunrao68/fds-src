@@ -357,6 +357,7 @@ void FdsLocalDomain::sendMgrNodeListToFdsNode(const NodeInfo& n_info) {
             node_info_ptr->ip_lo_addr = next_node_info.node_ip_address;
             node_info_ptr->control_port = next_node_info.control_port;
             node_info_ptr->data_port = next_node_info.data_port;
+            node_info_ptr->migration_port = next_node_info.migration_port;
 
             FDS_PLOG_SEV(parent_log, fds_log::notification)
                     << "Sending node notification to node "
@@ -401,6 +402,7 @@ void FdsLocalDomain::sendNodeEventToFdsNodes(const NodeInfo& nodeInfo,
     node_info_ptr->ip_lo_addr = nodeInfo.node_ip_address;
     node_info_ptr->control_port = nodeInfo.control_port;
     node_info_ptr->data_port = nodeInfo.data_port;
+    node_info_ptr->migration_port = nodeInfo.migration_port;
 
     for (int i = 0; i < 3; i++) {
         node_map_t& node_map = (i == 0) ? currentDmMap :

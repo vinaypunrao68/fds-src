@@ -5,7 +5,9 @@
 #ifndef SOURCE_INCLUDE_LOCALCLUSTERMAP_H_
 #define SOURCE_INCLUDE_LOCALCLUSTERMAP_H_
 
+#include <string>
 #include <unordered_map>
+
 #include <fdsp/FDSP_types.h>
 #include <fds_typedefs.h>
 #include <fds_err.h>
@@ -17,8 +19,8 @@ namespace fds {
 
     typedef boost::shared_ptr<FDS_ProtocolInterface::FDSP_MigrationPathReqClient>
             NodeMigReqClientPtr;
-    // typedef boost::shared_ptr<netMigrationPathClientSession>
-    //     NodeAgentCpSessionPtr;
+    typedef boost::shared_ptr<netMigrationPathClientSession>
+            NodeMigSessionPtr;
 
     /**
      * Descriptor for a node in the cluster.
@@ -28,8 +30,11 @@ namespace fds {
         int node_id;
         unsigned int node_ip_address;
         fds_uint32_t port;
+        fds_uint32_t mig_port;  /**< Port for migration services */
         FDS_ProtocolInterface::FDSP_NodeState node_state;
-        NodeMigReqClientPtr nodeMigClient;
+        NodeMigSessionPtr   ndMigSession;
+        std::string         ndMigSessionId;
+        NodeMigReqClientPtr ndMigClient;
     } node_info_t;
 
     typedef std::unordered_map<int, node_info_t> node_map_t;
@@ -43,7 +48,8 @@ namespace fds {
      */
     class LocalClusterMap : public Module {
   public:
-        LocalClusterMap();
+        LocalClusterMap(boost::shared_ptr<FDS_ProtocolInterface::
+                        FDSP_MigrationPathRespIf> migRespHndlr);
         ~LocalClusterMap();
 
         /**
@@ -52,10 +58,18 @@ namespace fds {
         NodeUuid getNodeInfo() const;
 
         /**
-         * Updates (add, rm, mod) a node in the
-         * cluster map
+         * Return a migration interface client to the
+         * specific node.
          */
-        Error addNode(const node_info_t &node);
+        NodeMigReqClientPtr getMigClient(fds_uint64_t node_id);
+
+        /**
+         * Updates (add, rm, mod) a node in the
+         * cluster map.
+         * Creates an endpoint and stashes it in
+         * the node.
+         */
+        Error addNode(node_info_t *node);
 
         /**
          * Module methods.
@@ -70,6 +84,22 @@ namespace fds {
         Sha1Digest   checksum;
 
         node_map_t clusterMembers;
+
+        // TODO(Andrew): The netsession table probably doesn't
+        // belong in this class, but we can refactor later when
+        // we start locally versioning this info...
+        boost::shared_ptr<netSessionTbl> lcmSessTbl;
+
+        /**
+         * Local response handlers that are provided by the
+         * user of this class... They may be NULL if the
+         * owner doesn't want to handle an interface.
+         */
+        /**
+         * Provides SM to SM interface for migration
+         */
+        boost::shared_ptr<FDS_ProtocolInterface::
+                FDSP_MigrationPathRespIf> migRspHndlr;
     };
 
 }  // namespace fds

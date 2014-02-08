@@ -71,6 +71,7 @@ namespace fds {
     std::string hostIp;
     fds_uint32_t my_control_port;
     fds_uint32_t my_data_port;
+    fds_uint32_t my_migration_port;
     node_map_t node_map;
     const DLT *dlt;
     DLTManager dltMgr;
@@ -81,7 +82,7 @@ namespace fds {
     /**
      * Map of current cluster members
      */
-    LocalClusterMap clustMap;
+    LocalClusterMap *clustMap;
     
     fds_rwlock omc_lock; // to protect node_map
 
@@ -121,7 +122,6 @@ namespace fds {
 
   public:
 
-    OMgrClient();
     OMgrClient(FDSP_MgrIdType node_type,
                const std::string& _omIpStr,
                fds_uint32_t _omPort,
@@ -129,7 +129,10 @@ namespace fds {
                fds_uint32_t data_port,
                const std::string& node_name,
                fds_log *parent_log,
-               boost::shared_ptr<netSessionTbl> nst);
+               boost::shared_ptr<netSessionTbl> nst,
+               fds_uint32_t mig_port = 9876,
+               boost::shared_ptr<FDS_ProtocolInterface::
+               FDSP_MigrationPathRespIf> migRespIf = NULL);
     ~OMgrClient();
     int initialize();
     void start_omrpc_handler();
@@ -162,7 +165,9 @@ namespace fds {
                     unsigned int *node_ip_addr,
                     fds_uint32_t *node_port,
                     int *node_state);
-     DltTokenGroupPtr getDLTNodesForDoidKey(ObjectID *objId);
+    NodeMigReqClientPtr getMigClient(fds_uint64_t node_id);
+
+    DltTokenGroupPtr getDLTNodesForDoidKey(ObjectID *objId);
 #if 0
     int  getDLTNodesForDoidKey(unsigned char doid_key,
                               fds_int32_t *node_ids,

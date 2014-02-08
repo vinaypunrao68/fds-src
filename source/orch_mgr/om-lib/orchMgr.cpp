@@ -802,6 +802,7 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
             << "  Node Type:" << std::dec << reg_node_req->node_type
             << "  Control Port: " << reg_node_req->control_port
             << "  Data Port: " << reg_node_req->data_port
+            << "  Migration Port: " << reg_node_req->migration_port
             << "  Disk iops Max : " << (reg_node_req->disk_info).disk_iops_max
             << "  Disk iops Min: " << (reg_node_req->disk_info).disk_iops_min
             << "  Disk capacity : " << (reg_node_req->disk_info).disk_capacity
@@ -857,6 +858,7 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
                          reg_node_req->ip_lo_addr,
                          reg_node_req->control_port,
                          n_info.data_port = reg_node_req->data_port,
+                         reg_node_req->migration_port,
                          (reg_node_req->disk_info).disk_iops_max,
                          (reg_node_req->disk_info).disk_iops_min,
                          (reg_node_req->disk_info).disk_capacity,

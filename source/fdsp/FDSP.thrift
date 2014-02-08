@@ -260,6 +260,7 @@ struct FDSP_Node_Info_Type {
   6: i64		 ip_lo_addr, /* IP V4 address of V6 low address of the node */
   7: i32		 control_port, /* Port number to contact for control messages */
   8: i32		 data_port, /* Port number to send datapath requests */
+  9: i32                 migration_port, /* Migration service port */
 }
 
 typedef list<FDSP_Node_Info_Type> Node_Info_List_Type
@@ -469,7 +470,8 @@ struct FDSP_RegisterNodeType {
   5: i64		 ip_lo_addr, /* IP V4 address of V6 low address of the node */
   6: i32		 control_port, /* Port number to contact for control messages */
   7: i32		 data_port, /* Port number to send datapath requests */
-  8: FDSP_AnnounceDiskCapability  disk_info, /* Add node capacity and other relevant fields here */
+  8: i32                 migration_port, /*  Port for migration service */
+  9: FDSP_AnnounceDiskCapability  disk_info, /* Add node capacity and other relevant fields here */
 }
 
 struct FDSP_ThrottleMsgType {

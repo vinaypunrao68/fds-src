@@ -187,7 +187,7 @@ class OM_NodeContainer : public RsContainer
     NodeAgent::pointer om_node_info(fds_uint32_t node_idx);
     NodeAgent::pointer om_node_info(const NodeUuid& uuid);
 
-    /*
+    /**
      * Checks if node is in the container already.
      * @return ERR_OK if node already in the container.
      * ERR_NOT_FOUND if the node is not in the container.
