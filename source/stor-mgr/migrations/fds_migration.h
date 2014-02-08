@@ -76,6 +76,9 @@ public:
     netMigrationPathClientSession*
     get_migration_client(const std::string &ip);
 
+    boost::shared_ptr<FDSP_MigrationPathRespClient>
+    get_resp_client(const std::string &session_uuid);
+
     std::string get_ip();
 
 private:
@@ -109,6 +112,7 @@ private:
     /* Migrations that are in progress.  Keyed by migration id */
     std::unordered_map<std::string, FdsActorUPtr> mig_actors_;
 }; 
+typedef boost::shared_ptr<FdsMigrationSvc> FdsMigrationSvcPtr;
 
 class FDSP_MigrationPathRpc : virtual public FDSP_MigrationPathReqIf ,
                               virtual public FDSP_MigrationPathRespIf

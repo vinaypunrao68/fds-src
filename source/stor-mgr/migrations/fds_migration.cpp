@@ -174,7 +174,7 @@ void FdsMigrationSvc::handle_migsvc_copy_token(FdsActorRequestPtr req)
         std::string migration_id = fds::get_uuid();
         std::string sender_ip = itr->first;
         std::unique_ptr<TokenCopyReceiver> copy_rcvr(
-                new TokenCopyReceiver(data_store_, migration_id, threadpool_, log_,
+                new TokenCopyReceiver(this, data_store_, migration_id, threadpool_, log_,
                         sender_ip, itr->second, migpath_handler_));
         mig_actors_[migration_id] = std::move(copy_rcvr);
         copy_rcvr->start();
@@ -184,13 +184,13 @@ void FdsMigrationSvc::handle_migsvc_copy_token(FdsActorRequestPtr req)
 }
 
 /**
- * Handles FAR_ID(MigSvcCopyTokens)_RPC.  Creates TokenCopySender and starts
+ * Handles FAR_ID(FDSP_CopyTokenReq).  Creates TokenCopySender and starts
  * the state machine for it
  * This is initiated by receiver requesting copy of tokens.
  */
 void FdsMigrationSvc::handle_migsvc_copy_token_rpc(FdsActorRequestPtr req)
 {
-    fds_assert(req->type == FAR_ID(MigSvcCopyTokens)_RPC);
+    fds_assert(req->type == FAR_ID(FDSP_CopyTokenReq));
 
     /* First acknowledge/accept the copy request */
     if (ack_copy_token_req(req) != ERR_OK) {
@@ -208,7 +208,7 @@ void FdsMigrationSvc::handle_migsvc_copy_token_rpc(FdsActorRequestPtr req)
     fds_assert(tokens.size() > 0);
 
     std::unique_ptr<TokenCopySender> copy_sender(
-            new TokenCopySender(data_store_, migration_id, threadpool_, log_,
+            new TokenCopySender(this, data_store_, migration_id, threadpool_, log_,
                     rcvr_ip, tokens, migpath_handler_));
     mig_actors_[migration_id] = std::move(copy_sender);
 
@@ -255,8 +255,8 @@ void FdsMigrationSvc::setup_migpath_server()
 {
     migpath_handler_.reset(new FDSP_MigrationPathRpc(*this, log_));
 
-    std::string ip = conf_helper_.get<std::string>("migration_ip");
-    int port = conf_helper_.get<int>("migration_port");
+    std::string ip = conf_helper_.get<std::string>("ip");
+    int port = conf_helper_.get<int>("port");
     int myIpInt = netSession::ipString2Addr(ip);
     // TODO(rao): Do not hard code.  Get from config
     std::string node_name = "localhost-mig";
@@ -310,7 +310,7 @@ FdsMigrationSvc::get_migration_client(const std::string &ip)
     netMigrationPathClientSession* rpc_session =
             nst_->startSession<netMigrationPathClientSession>(
                     ip,
-                    conf_helper_.get<int>("migration_port"),
+                    conf_helper_.get<int>("port"),
                     FDSP_MIGRATION_MGR,
                     1, /* number of channels */
                     migpath_handler_);
@@ -318,12 +318,22 @@ FdsMigrationSvc::get_migration_client(const std::string &ip)
 }
 
 /**
+ * Return the response client associated with session_uuid
+ * @param session_uuid
+ * @return
+ */
+boost::shared_ptr<FDSP_MigrationPathRespClient>
+FdsMigrationSvc::get_resp_client(const std::string &session_uuid)
+{
+    return migpath_session_->getRespClient(session_uuid);
+}
+/**
  * return ip of migration service server
  * @return
  */
 std::string FdsMigrationSvc::get_ip()
 {
-    return conf_helper_.get<std::string>("migration_ip");
+    return conf_helper_.get<std::string>("ip");
 }
 
 }  // namespace fds

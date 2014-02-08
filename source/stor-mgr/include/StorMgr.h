@@ -42,7 +42,6 @@
 #include <utility>
 #include <atomic>
 #include <unordered_map>
-#include <include/TransJournal.h>
 #include <ObjStats.h>
 
 /*

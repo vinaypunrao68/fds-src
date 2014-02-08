@@ -133,6 +133,7 @@ private:
     /* Config object */
     libconfig::Config config_;
 };
+typedef boost::shared_ptr<FdsConfig> FdsConfigPtr;
 
 /**
  * Helper class for accessing config values from FdsConfig.  It essentially

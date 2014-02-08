@@ -25,8 +25,9 @@ using namespace msm::front::euml;   // NOLINT
 typedef msm::front::none msm_none;
 
 /* For logging purpose */
+extern fds_log* g_fdslog;
 static inline fds_log* get_log() {
-    return g_migrationSvc->get_log();
+    return g_fdslog;
 }
 static inline std::string log_string()
 {
@@ -42,12 +43,14 @@ struct TokSentEvt{};
 /* State machine */
 struct TokenCopySenderFSM_
         : public msm::front::state_machine_def<TokenCopySenderFSM_> {
-    void init(TokenCopySender *parent,
+    void init(FdsMigrationSvc *migrationSvc,
+            TokenCopySender *parent,
             SmIoReqHandler *data_store,
             const std::string &rcvr_ip,
             const std::set<fds_token_id> &tokens,
             boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler)
     {
+        migrationSvc_ = migrationSvc;
         parent_ = parent;
         data_store_ = data_store;
         rcvr_ip_ = rcvr_ip;
@@ -165,7 +168,7 @@ struct TokenCopySenderFSM_
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            fsm.rcvr_session_ = g_migrationSvc->get_migration_client(fsm.rcvr_ip_);
+            fsm.rcvr_session_ = fsm.migrationSvc_->get_migration_client(fsm.rcvr_ip_);
             if (fsm.rcvr_session_ == nullptr) {
                 fds_assert(!"Null session");
                 // TODO(rao:) Go into error state
@@ -236,7 +239,8 @@ struct TokenCopySenderFSM_
         {
             /* Prepare FDSP_PushTokenObjectsReq */
             fsm.push_tok_req_.header.base_header.err_code = ERR_OK;
-            fsm.push_tok_req_.header.base_header.src_node_name = g_migrationSvc->get_ip();
+            fsm.push_tok_req_.header.base_header.src_node_name =
+                    fsm.migrationSvc_->get_ip();
             fsm.push_tok_req_.header.base_header.session_uuid =
                     fsm.rcvr_session_->getSessionId();
             fsm.push_tok_req_.header.migration_id = fsm.parent_->get_migration_id();
@@ -261,7 +265,7 @@ struct TokenCopySenderFSM_
             FdsActorRequestPtr far(new FdsActorRequest(
                     FAR_ID(MigSvcMigrationComplete), mig_complete));
 
-            Error err = g_migrationSvc->send_actor_request(far);
+            Error err = fsm.migrationSvc_->send_actor_request(far);
             if (err != ERR_OK) {
                 fds_assert(!"Failed to send message");
                 FDS_PLOG_ERR(get_log()) << "Failed to send actor message.  Error: "
@@ -330,6 +334,9 @@ struct TokenCopySenderFSM_
                         new FdsActorRequest(FAR_ID(TcsDataReadDone), nullptr)));
     }
     protected:
+    /* Migration service reference */
+    FdsMigrationSvc *migrationSvc_;
+
     /* Parent */
     TokenCopySender *parent_;
 
@@ -360,7 +367,8 @@ struct TokenCopySenderFSM_
     netMigrationPathClientSession *rcvr_session_;
 };  /* struct TokenCopySenderFSM_ */
 
-TokenCopySender::TokenCopySender(SmIoReqHandler *data_store,
+TokenCopySender::TokenCopySender(FdsMigrationSvc *migrationSvc,
+        SmIoReqHandler *data_store,
         const std::string &migration_id,
         fds_threadpoolPtr threadpool,
         fds_logPtr log,
@@ -372,7 +380,8 @@ TokenCopySender::TokenCopySender(SmIoReqHandler *data_store,
       log_(log)
 {
     sm_.reset(new TokenCopySenderFSM());
-    sm_->init(this, data_store, rcvr_ip, tokens, client_resp_handler);
+    sm_->init(migrationSvc, this, data_store,
+            rcvr_ip, tokens, client_resp_handler);
 }
 
 TokenCopySender::~TokenCopySender()

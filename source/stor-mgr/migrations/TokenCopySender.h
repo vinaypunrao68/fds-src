@@ -20,13 +20,16 @@ namespace fds {
 
 using namespace  ::FDS_ProtocolInterface;
 
+/* Forward declarations */
+class FdsMigrationSvc;
 struct TokenCopySenderFSM_;
 typedef boost::msm::back::state_machine<TokenCopySenderFSM_> TokenCopySenderFSM;
 
 class TokenCopySender : public MigrationSender,
                         public FdsRequestQueueActor {
 public:
-    TokenCopySender(SmIoReqHandler *data_store,
+    TokenCopySender(FdsMigrationSvc *migrationSvc,
+            SmIoReqHandler *data_store,
             const std::string &migration_id,
             fds_threadpoolPtr threadpool,
             fds_logPtr log,

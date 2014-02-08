@@ -10,6 +10,7 @@ user_build_dir :=      \
     data-mgr           \
     stor-mgr	       \
     dlt                \
+    migrations         \
 #    stor_mgr           \
 #    stor_hvisor_ice    \
 
