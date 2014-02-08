@@ -8,6 +8,8 @@
 #include <iostream>
 #include <string>
 #include <util/Log.h>
+#include <sstream>
+#include <iomanip>
 /**
  *  Implementationg for DLT ...
  */
@@ -189,6 +191,65 @@ void DLT::getTokens(TokenList* tokenList, const NodeUuid &uid, uint index) const
                 tokenList->push_back(*tokenIter);
             }
         }
+    }
+}
+
+void DLT::dump(bool fFull) const {
+    LOGDEBUG << "Dlt ..............";
+    LOGDEBUG << "[version: " << version  << "]";
+    LOGDEBUG << "[timestamp: " << timestamp  << "]";
+    LOGDEBUG << "[depth: " << depth  << "]";
+    LOGDEBUG << "[num.Tokens: " << numTokens  << "]";
+    LOGDEBUG << "[num.Nodes: " << mapNodeTokens->size() << "]";
+    LOGDEBUG << "token groups : --- ";
+
+    if (!fFull) return;
+
+    // print the whole dlt
+    std::vector<DltTokenGroupPtr>::const_iterator iter;
+    std::ostringstream oss;
+    uint count = 0;
+    for (iter = distList->begin(); iter != distList->end(); iter++) {
+        const DltTokenGroupPtr& nodeList= *iter;
+        oss.str("");
+        oss<< std::setw(6) << count <<":";
+        for (uint i = 0; i < depth; i++) {
+            oss<< std::setw(8) << nodeList->get(i).uuid_get_val() << ",";
+        }
+        LOGDEBUG << oss.str();
+    }
+
+    LOGDEBUG  << "node token map : --- ";
+    NodeTokenMap::const_iterator tokenMapiter;
+
+    // build the unique uuid list
+    fds_uint64_t token = 0, prevToken = 0 , firstToken = 0;
+
+    for (tokenMapiter = mapNodeTokens->begin(); tokenMapiter != mapNodeTokens->end(); ++tokenMapiter) { // NOLINT
+        TokenList::const_iterator tokenIter;
+        const TokenList& tlist = tokenMapiter->second;
+        oss.str("");
+        oss << std::setw(8) << tokenMapiter->first.uuid_get_val() << ":";
+        prevToken = 0;
+        firstToken = 0;
+        for (tokenIter = tlist.begin(); tokenIter != tlist.end(); ++tokenIter) {
+            token = *tokenIter;
+            if (firstToken == 0) {
+                oss << token;
+                firstToken = token;
+            } else if (token == (prevToken + 1)) {
+                // do nothing .. this is a range
+            } else {
+                if (prevToken != firstToken) {
+                    // this is a range
+                    oss << " - " << prevToken;
+                }
+                oss << "," << token;
+                firstToken = token;
+            }
+            prevToken = token;
+        }
+        LOGDEBUG << oss.str();
     }
 }
 
@@ -572,5 +633,16 @@ bool DLTManager::storeToFile(std::string filename) {
     return true;
 }
 
+void DLTManager::dump(bool fFull) const {
+    LOGDEBUG << "Dlt Manager ...................";
+    LOGDEBUG << "[ num.dlts : " << dltList.size() << "]";
+    LOGDEBUG << "[ maxDlts  : " << maxDlts << "]";
+
+    std::vector<DLT*>::const_iterator iter;
+
+    for (iter = dltList.begin() ; iter != dltList.end() ; iter++) {
+        (*iter)->dump(fFull);
+    }
+}
 
 }  // namespace fds
