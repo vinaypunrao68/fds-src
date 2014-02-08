@@ -11,7 +11,6 @@
 #include <boost/msm/front/euml/common.hpp>
 #include <boost/msm/front/euml/operator.hpp>
 
-#include <StorMgr.h>
 #include <fds_migration.h>
 #include <TokenCopySender.h>
 
@@ -44,11 +43,13 @@ struct TokSentEvt{};
 struct TokenCopySenderFSM_
         : public msm::front::state_machine_def<TokenCopySenderFSM_> {
     void init(TokenCopySender *parent,
+            SmIoReqHandler *data_store,
             const std::string &rcvr_ip,
             const std::set<fds_token_id> &tokens,
             boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler)
     {
         parent_ = parent;
+        data_store_ = data_store;
         rcvr_ip_ = rcvr_ip;
         pending_tokens_ = tokens;
         client_resp_handler_ = client_resp_handler;
@@ -218,7 +219,7 @@ struct TokenCopySenderFSM_
             fds_assert(fsm.objstor_read_req_.response_cb);
             fsm.objstor_read_req_.obj_list.clear();
 
-            err = fsm.obj_store_->enqueueMsg(FdsSysTaskQueueId, &fsm.objstor_read_req_);
+            err = fsm.data_store_->enqueueMsg(FdsSysTaskQueueId, &fsm.objstor_read_req_);
             if (err != fds::ERR_OK) {
                 fds_assert(!"Hit an error in enqueing");
                 // TODO(rao): Put your selft in an error state
@@ -258,7 +259,7 @@ struct TokenCopySenderFSM_
             MigSvcMigrationCompletePtr mig_complete(new MigSvcMigrationComplete());
             mig_complete->migration_id = fsm.parent_->get_migration_id();
             FdsActorRequestPtr far(new FdsActorRequest(
-                    FAR_MIGSVC_MIGRATION_COMPLETE, mig_complete));
+                    FAR_ID(MigSvcMigrationComplete), mig_complete));
 
             Error err = g_migrationSvc->send_actor_request(far);
             if (err != ERR_OK) {
@@ -326,7 +327,7 @@ struct TokenCopySenderFSM_
         }
         parent_->send_actor_request(
                 FdsActorRequestPtr(
-                        new FdsActorRequest(FAR_MIG_TCS_DATA_READ_DONE, nullptr)));
+                        new FdsActorRequest(FAR_ID(TcsDataReadDone), nullptr)));
     }
     protected:
     /* Parent */
@@ -349,8 +350,8 @@ struct TokenCopySenderFSM_
     /* RPC request.  It's recycled for every push request */
     FDSP_PushTokenObjectsReq push_tok_req_;
 
-    /* Object store reference */
-    ObjectStorMgr *obj_store_;
+    /* Token data store reference */
+    SmIoReqHandler *data_store_;
 
     /* Tracks the current read request with obj_store_ */
     SmIoGetTokObjectsReq objstor_read_req_;
@@ -359,7 +360,8 @@ struct TokenCopySenderFSM_
     netMigrationPathClientSession *rcvr_session_;
 };  /* struct TokenCopySenderFSM_ */
 
-TokenCopySender::TokenCopySender(const std::string &migration_id,
+TokenCopySender::TokenCopySender(SmIoReqHandler *data_store,
+        const std::string &migration_id,
         fds_threadpoolPtr threadpool,
         fds_logPtr log,
         const std::string &rcvr_ip,
@@ -370,7 +372,7 @@ TokenCopySender::TokenCopySender(const std::string &migration_id,
       log_(log)
 {
     sm_.reset(new TokenCopySenderFSM());
-    sm_->init(this, rcvr_ip, tokens, client_resp_handler);
+    sm_->init(this, data_store, rcvr_ip, tokens, client_resp_handler);
 }
 
 TokenCopySender::~TokenCopySender()
@@ -387,11 +389,11 @@ Error TokenCopySender::handle_actor_request(FdsActorRequestPtr req)
     Error err = ERR_OK;
 
     switch (req->type) {
-    case FAR_MIG_PUSH_TOKEN_OBJECTS_RESP_RPC:
+    case FAR_ID(FDSP_PushTokenObjectsResp):
         /* Posting TokSentEvt */
         sm_->process_event(TokSentEvt());
         break;
-    case FAR_MIG_TCS_DATA_READ_DONE:
+    case FAR_ID(TcsDataReadDone):
         /* Notification from datastore that token data has been read */
         sm_->process_event(TokReadEvt());
         break;

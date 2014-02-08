@@ -27,6 +27,18 @@ typedef FDS_ProtocolInterface::FDSP_NodeState            FdspNodeState;
 typedef FDS_ProtocolInterface::FDSP_MgrIdType            FdspNodeType;
 typedef std::string                                      FdspNodeName;
 
+typedef struct _node_capability_t {
+    fds_uint32_t   disk_iops_max;
+    fds_uint32_t   disk_iops_min;
+    fds_uint32_t   disk_latency_max;
+    fds_uint32_t   disk_latency_min;
+    fds_uint32_t   ssd_iops_max;
+    fds_uint32_t   ssd_iops_min;
+    fds_uint32_t   ssd_capacity;
+    fds_uint32_t   ssd_latency_max;
+    fds_uint32_t   ssd_latency_min;
+} node_capability_t;
+
 /**
  * Replacement for NodeInfo object.
  */
@@ -38,6 +50,7 @@ class NodeInventory : public Resource
 
     explicit NodeInventory(const NodeUuid &uuid);
     virtual ~NodeInventory();
+    void init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr)const;
 
     void node_name(std::string *name) const {}
 
@@ -82,6 +95,10 @@ class NodeInventory : public Resource
         return nd_ctrl_port;
     }
 
+    inline const node_capability_t& node_capability() const {
+        return nd_capability;
+    }
+
   protected:
     friend class OM_NodeContainer;
 
@@ -96,17 +113,9 @@ class NodeInventory : public Resource
     std::string              nd_ip_str;
     fds_uint32_t             nd_data_port;
     fds_uint32_t             nd_ctrl_port;
-    fds_uint32_t             nd_disk_iops_max;
-    fds_uint32_t             nd_disk_iops_min;
-    fds_uint32_t             nd_disk_latency_max;
-    fds_uint32_t             nd_disk_latency_min;
-    fds_uint32_t             nd_ssd_iops_max;
-    fds_uint32_t             nd_ssd_iops_min;
-    fds_uint32_t             nd_ssd_capacity;
-    fds_uint32_t             nd_ssd_latency_max;
-    fds_uint32_t             nd_ssd_latency_min;
-    fds_uint32_t             nd_disk_type;
 
+    node_capability_t        nd_capability;
+    fds_uint32_t             nd_disk_type;
     FdspNodeName             nd_node_name;
     FdspNodeType             nd_node_type;
     FdspNodeState            nd_node_state;
@@ -148,7 +157,7 @@ class NodeAgent : public NodeInventory
      * is not constanct since the member pointer returned
      * is mutable by the caller.
      */
-    NodeAgentCpReqClientPtr getCpClient();
+    NodeAgentCpReqClientPtr getCpClient() const;
 
   protected:
     friend class            OM_NodeContainer;
@@ -188,16 +197,6 @@ class OM_NodeContainer : public RsContainer
     NodeAgent::pointer om_node_info(const NodeUuid& uuid);
 
     /**
-     * Checks if node is in the container already.
-     * @return ERR_OK if node already in the container.
-     * ERR_NOT_FOUND if the node is not in the container.
-     * ERR_DUPLICATE_UUID if the node with the same uuid is in the
-     * container but names do not match, most likely another
-     * node name produced the same node uuid, so need to pick a new name
-     */
-    Error check_node_exists(const NodeUuid& uuid,
-                            const std::string& node_name);
-    /**
      * Iterate through the list using standard container iterator.
      */
     inline const_iterator cbegin() const {
@@ -232,7 +231,7 @@ class OM_NodeContainer : public RsContainer
  * Cluster domain manager.  Manage all nodes connected and known to the domain.
  * These nodes may not be in ClusterMap membership.
  */
-class OM_NodeDomainMod : public Module, OM_NodeContainer
+class OM_NodeDomainMod : public Module, public OM_NodeContainer
 {
   public:
     explicit OM_NodeDomainMod(char const *const name);
@@ -256,6 +255,7 @@ class OM_NodeDomainMod : public Module, OM_NodeContainer
      * DLT
      */
     virtual void om_update_cluster();
+
 
     virtual Error om_del_node_info(const NodeUuid& uuid,
                                    const std::string& node_name);

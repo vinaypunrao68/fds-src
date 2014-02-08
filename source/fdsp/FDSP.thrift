@@ -61,7 +61,8 @@ enum FDSP_MsgCodeType {
    FDSP_MSG_NOTIFY_NODE_RMV,
    FDSP_MSG_DLT_UPDATE,
    FDSP_MSG_DMT_UPDATE,
-   FDSP_MSG_NODE_UPDATE
+   FDSP_MSG_NODE_UPDATE,
+   FDSP_MSG_NOTIFY_MIGRATION
 
 }
 
@@ -284,6 +285,10 @@ struct FDSP_DLT_Data_Type {
     2: string dlt_data, 
 }
 
+struct FDSP_MigrationStatusType {
+  1: i32 DLT_version,
+  2: i32 context
+}
 
 struct FDSP_VolumeInfoType {
 
@@ -732,6 +737,9 @@ struct FDSP_CopyTokenReq
     3: i32                     max_size_per_reply
 }
 
+/* Payload for CopyToken reponse path */
+typedef FDSP_MigMsgHdrType FDSP_CopyTokenResp
+
 /* Meta data for migration object */
 struct FDSP_MigrateObjectMetadata
 {
@@ -768,6 +776,9 @@ struct FDSP_PushTokenObjectsReq
     /* List of objects */
     4: FDSP_MigrateObjectList obj_list
 }
+
+/* Payload for PushTokenObjects response path */
+typedef FDSP_MigMsgHdrType FDSP_PushTokenObjectsResp
 
 service FDSP_SessionReq {
     oneway void AssociateRespCallback(1:string src_node_name) // Associate Response callback with DM/SM for this source node.
@@ -872,6 +883,7 @@ service FDSP_OMControlPathReq {
   oneway void NotifyPerfstats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PerfstatsType perf_stats_msg),
   oneway void TestBucket(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_TestBucket test_buck_msg),
   oneway void GetDomainStats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetDomainStatsType get_stats_msg),  
+  oneway void NotifyMigrationDone(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_MigrationStatusType status_msg)
 }
 
 service FDSP_OMControlPathResp {
@@ -882,8 +894,9 @@ service FDSP_OMControlPathResp {
   oneway void RegisterNodeResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RegisterNodeType reg_node_rsp),
   oneway void NotifyQueueFullResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyQueueStateType queue_state_rsp),
   oneway void NotifyPerfstatsResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PerfstatsType perf_stats_rsp),
-  oneway void TestBucketResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_TestBucket test_buck_rsp)
-  oneway void GetDomainStatsResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetDomainStatsType get_stats_rsp),  
+  oneway void TestBucketResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_TestBucket test_buck_rsp),
+  oneway void GetDomainStatsResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetDomainStatsType get_stats_rsp),
+  oneway void MigrationDoneResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_MigrationStatusType status_resp)
 }
 
 service FDSP_ControlPathReq {
@@ -925,9 +938,9 @@ service FDSP_MigrationPathReq {
 }
 
 service FDSP_MigrationPathResp {
-    oneway void CopyTokenResp(1:FDSP_MigMsgHdrType copytok_resp)
+    oneway void CopyTokenResp(1:FDSP_CopyTokenResp copytok_resp)
 
-    oneway void PushTokenObjectsResp(1:FDSP_MigMsgHdrType pushtok_resp)
+    oneway void PushTokenObjectsResp(1:FDSP_PushTokenObjectsResp pushtok_resp)
 }
 
 #endif

@@ -7954,7 +7954,10 @@ namespace Catch {
 #ifndef __OBJC__
 
 // Standard C/C++ main entry point
+#include<fds_process.h>
 int main (int argc, char * const argv[]) {
+    fds::init_process_globals("unittest");
+    fds::g_fdslog->setSeverityFilter(fds::fds_log::severity_level::debug);
     return Catch::Session().run( argc, argv );
 }
 

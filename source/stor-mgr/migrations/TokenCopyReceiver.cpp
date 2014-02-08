@@ -10,7 +10,6 @@
 // for And_ operator
 #include <boost/msm/front/euml/operator.hpp>
 #include <vector>
-#include <StorMgr.h>
 #include <fdsp/FDSP_types.h>
 #include <fds_migration.h>
 #include <TokenCopyReceiver.h>
@@ -46,11 +45,13 @@ struct TokWrittenEvt {};
 /* State machine */
 struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
     void init(TokenCopyReceiver *parent,
+            SmIoReqHandler *data_store,
             const std::string &sender_ip,
             const std::set<fds_token_id> &tokens,
             boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler)
     {
         parent_ = parent;
+        data_store_ = data_store;
         sender_ip_ = sender_ip;
         pending_tokens_ = tokens;
         client_resp_handler_ = client_resp_handler;
@@ -215,7 +216,7 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
             // TODO(rao): We should std::move the object list here
             fsm.objstor_write_req_.obj_list = evt.obj_list;
 
-            err = fsm.obj_store_->enqueueMsg(FdsSysTaskQueueId, &fsm.objstor_write_req_);
+            err = fsm.data_store_->enqueueMsg(FdsSysTaskQueueId, &fsm.objstor_write_req_);
             if (err != fds::ERR_OK) {
                 fds_assert(!"Hit an error in enqueing");
                 // TODO(rao): Put your selft in an error state
@@ -233,7 +234,7 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
             MigSvcMigrationCompletePtr mig_complete(new MigSvcMigrationComplete());
             mig_complete->migration_id = fsm.parent_->get_migration_id();
             FdsActorRequestPtr far(new FdsActorRequest(
-                    FAR_MIGSVC_MIGRATION_COMPLETE, mig_complete));
+                    FAR_ID(MigSvcMigrationComplete), mig_complete));
 
             Error err = g_migrationSvc->send_actor_request(far);
             if (err != ERR_OK) {
@@ -301,7 +302,7 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
         }
         parent_->send_actor_request(
                 FdsActorRequestPtr(
-                        new FdsActorRequest(FAR_MIG_TCR_DATA_WRITE_DONE, nullptr)));
+                        new FdsActorRequest(FAR_ID(TcrDataWriteDone), nullptr)));
     }
 
     protected:
@@ -328,8 +329,8 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
     /* Current token written is complete or not */
     bool write_tok_complete_;
 
-    /* Object store reference */
-    ObjectStorMgr *obj_store_;
+    /* Token data store reference */
+    SmIoReqHandler *data_store_;
 
     /* Object store write request */
     SmIoPutTokObjectsReq objstor_write_req_;
@@ -338,7 +339,8 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
     netMigrationPathClientSession *sender_session_;
 };  /* struct TokenCopyReceiverFSM_ */
 
-TokenCopyReceiver::TokenCopyReceiver(const std::string &migration_id,
+TokenCopyReceiver::TokenCopyReceiver(SmIoReqHandler *data_store,
+        const std::string &migration_id,
         fds_threadpoolPtr threadpool,
         fds_logPtr log,
         const std::string &sender_ip,
@@ -349,7 +351,7 @@ TokenCopyReceiver::TokenCopyReceiver(const std::string &migration_id,
       log_(log)
 {
     sm_.reset(new TokenCopyReceiverFSM());
-    sm_->init(this, sender_ip, tokens, client_resp_handler);
+    sm_->init(this, data_store, sender_ip, tokens, client_resp_handler);
 }
 
 TokenCopyReceiver::~TokenCopyReceiver() {
@@ -377,14 +379,14 @@ Error TokenCopyReceiver::handle_actor_request(FdsActorRequestPtr req)
     FDSP_CopyTokenReqPtr copy_tok_req;
 
     switch (req->type) {
-    case FAR_MIG_COPY_TOKEN_RESP_RPC:
+    case FAR_ID(FDSP_CopyTokenResp):
         sm_->process_event(ConnectRespEvt());
         break;
-    case FAR_MIG_PUSH_TOKEN_OBJECTS_RPC:
+    case FAR_ID(FDSP_PushTokenObjectsReq):
         /* Posting TokRecvdEvt */
         sm_->process_event(*req->get_payload<FDSP_PushTokenObjectsReq>());
         break;
-    case FAR_MIG_TCR_DATA_WRITE_DONE:
+    case FAR_ID(TcrDataWriteDone):
         /* Notification event from obeject store that write is complete */
         sm_->process_event(TokWrittenEvt());
         break;

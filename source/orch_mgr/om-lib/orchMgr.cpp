@@ -274,8 +274,8 @@ int OrchMgr::RemoveNode(const FdspMsgHdrPtr& fdsp_msg,
     if (!err.ok()) {
         FDS_PLOG_SEV(GetLog(), fds_log::error)
                 << "RemoveNode: remove node info from local domain failed for node " 
-                << rm_node_req->node_name << ", result: "
-                << err.GetErrstr();
+                << rm_node_req->node_name << ", uuid " << std::hex << rm_node_uuid.uuid_get_val()
+                << std::dec << ", result: " << err.GetErrstr();
         om_mutex->unlock();
         return -1;
     }
@@ -332,6 +332,14 @@ int OrchMgr::GetDomainStats(const FdspMsgHdrPtr& fdsp_msg,
         //    currentDom->domain_ptr->printStatsToJsonFile();
         om_mutex->unlock();
     }
+    return 0;
+}
+
+int OrchMgr::NotifyMigrationDone(const FdspMsgHdrPtr& fdsp_msg,
+                                 const FdspMigrationStatusPtr& status_req) {
+    FDS_PLOG_SEV(GetLog(), fds_log::notification)
+            << "Received migration done notification from node "
+            << fdsp_msg->src_node_name;
     return 0;
 }
 

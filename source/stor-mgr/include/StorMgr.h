@@ -88,8 +88,6 @@ class ObjectStorMgrI;
 class TierEngine;
 class ObjectRankEngine;
 
-#define FdsSysTaskQueueId 0xefffffff
-#define FdsSysTaskPri 5
 
 class SmPlReq : public diskio::DiskRequest {
  public:
@@ -146,6 +144,7 @@ class SMCounters : public FdsCounters
 
 class ObjectStorMgr :
         public FdsProcess,
+        public SmIoReqHandler,
         public Module // todo: We shouldn't be deriving module here.  ObjectStorMgr is
                       // an FDSProcess, it contains Modules
         {
@@ -423,7 +422,7 @@ class ObjectStorMgr :
             int vol_action,
             FDSP_ResultType resut);
 
-    Error enqueueMsg(fds_volid_t volId, SmIoReq* ioReq);
+    virtual Error enqueueMsg(fds_volid_t volId, SmIoReq* ioReq);
 
     Error retrieveTokenObjects(const fds_token_id &token, 
                              const size_t &max_size, 

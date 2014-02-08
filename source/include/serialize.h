@@ -71,6 +71,10 @@ namespace fds {
          */
         Serializer* getMemSerializer(uint sz=0);
         Deserializer* getMemDeserializer(std::string& str);
+
+        // File Based
+        Serializer* getFileSerializer(const std::string& filename);
+        Deserializer* getFileDeserializer(const std::string& filename);
     }
 }
 

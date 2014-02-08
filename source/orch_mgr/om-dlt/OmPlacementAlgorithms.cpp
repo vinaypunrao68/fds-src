@@ -83,7 +83,6 @@ ConsistHashAlgorithm::computeNewDlt(const ClusterMap *currMap,
                                     DLT *newDlt) {
     Error err(ERR_OK);
     fds_uint32_t total_nodes = currMap->getNumMembers();
-    fds_verify(total_nodes > 0);
     fds_verify(newDlt != NULL);
 
     // Compute DLT from scratch if this is the first version
@@ -390,6 +389,12 @@ ConsistHashAlgorithm::computeInitialDlt(const ClusterMap *curMap,
     fds_uint32_t col_depth = newDLT->getDepth();
     fds_uint64_t numTokens = pow(2, newDLT->getWidth());
     ClusterMap::const_iterator node_it = curMap->cbegin();
+
+    // we assume that newDLT is already initialized to 0s
+    // so nothing to do if total_nodes == 0
+    if (total_nodes == 0) {
+        return err;
+    }
 
     // For efficiency, if we have just one node, set the first
     // row of DLT to this node uuid and return
