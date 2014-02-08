@@ -20,6 +20,29 @@ NodeInventory::NodeInventory(const NodeUuid &uuid)
 
 NodeInventory::~NodeInventory() {}
 
+void NodeInventory::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
+{
+    msgHdr->minor_ver = 0;
+    msgHdr->msg_id =  1;
+
+    msgHdr->major_ver = 0xa5;
+    msgHdr->minor_ver = 0x5a;
+
+    msgHdr->num_objects = 1;
+    msgHdr->frag_len = 0;
+    msgHdr->frag_num = 0;
+
+    msgHdr->tennant_id = 0;
+    msgHdr->local_domain_id = 0;
+    msgHdr->src_node_name = "";
+
+    msgHdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_OK;
+}
+
+// node_stor_weight
+// ----------------
+
 // node_stor_weight
 // ----------------
 //
@@ -53,20 +76,20 @@ NodeInventory::node_update_info(const FdspNodeRegPtr msg)
     nd_node_name        = msg->node_name;
     nd_node_type        = msg->node_type;
     nd_node_state       = FDS_ProtocolInterface::FDS_Node_Up;
-    nd_disk_iops_max    = msg->disk_info.disk_iops_max;
-    nd_disk_iops_min    = msg->disk_info.disk_iops_min;
-    nd_disk_latency_max = msg->disk_info.disk_latency_max;
-    nd_disk_latency_min = msg->disk_info.disk_latency_min;
-    nd_ssd_iops_max     = msg->disk_info.ssd_iops_max;
-    nd_ssd_iops_min     = msg->disk_info.ssd_iops_min;
-    nd_ssd_capacity     = msg->disk_info.ssd_capacity;
-    nd_ssd_latency_max  = msg->disk_info.ssd_latency_max;
-    nd_ssd_latency_min  = msg->disk_info.ssd_latency_min;
+    nd_capability.disk_iops_max    = msg->disk_info.disk_iops_max;
+    nd_capability.disk_iops_min    = msg->disk_info.disk_iops_min;
+    nd_capability.disk_latency_max = msg->disk_info.disk_latency_max;
+    nd_capability.disk_latency_min = msg->disk_info.disk_latency_min;
+    nd_capability.ssd_iops_max     = msg->disk_info.ssd_iops_max;
+    nd_capability.ssd_iops_min     = msg->disk_info.ssd_iops_min;
+    nd_capability.ssd_capacity     = msg->disk_info.ssd_capacity;
+    nd_capability.ssd_latency_max  = msg->disk_info.ssd_latency_max;
+    nd_capability.ssd_latency_min  = msg->disk_info.ssd_latency_min;
     nd_disk_type        = msg->disk_info.disk_type,
     nd_mtx.unlock();
 
     // TODO(vy): fix the weight.
-    nd_gbyte_cap = nd_ssd_capacity;
+    nd_gbyte_cap = nd_capability.ssd_capacity;
 }
 
 NodeAgent::NodeAgent(const NodeUuid &uuid)
@@ -96,7 +119,7 @@ NodeAgent::setCpSession(NodeAgentCpSessionPtr session) {
 }
 
 NodeAgentCpReqClientPtr
-NodeAgent::getCpClient() {
+NodeAgent::getCpClient() const {
     return ndCpClient;
 }
 
@@ -131,27 +154,6 @@ OM_NodeContainer::om_node_info(const NodeUuid& uuid)
 
     return NULL;
 }
-
-Error
-OM_NodeContainer::check_node_exists(const NodeUuid& uuid,
-                                    const std::string& node_name) {
-    Error err(ERR_OK);
-    if (node_map.count(uuid) == 0) {
-        err = Error(ERR_NOT_FOUND);
-        return err;
-    }
-
-    NodeAgent::pointer agent = node_map[uuid];
-    if (node_name.compare(agent->get_node_name()) != 0) {
-        // node with same uuid exists but names don't match!
-        // probably hash collision
-        err = Error(ERR_DUPLICATE_UUID);
-        return err;
-    }
-
-    return err;
-}
-
 
 // om_new_node
 // -----------

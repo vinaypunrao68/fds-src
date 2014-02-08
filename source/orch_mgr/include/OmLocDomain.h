@@ -48,6 +48,7 @@ namespace fds {
         fds_uint32_t  node_ip_address;
         fds_uint32_t  control_port;
         fds_uint32_t  data_port;
+        fds_uint32_t  migration_port;
         fds_uint32_t  disk_iops_max;
         fds_uint32_t  disk_iops_min;
         double        disk_capacity;
@@ -70,6 +71,7 @@ namespace fds {
                  fds_uint32_t _ip,
                  fds_uint32_t _cp_port,
                  fds_uint32_t _d_port,
+                 fds_uint32_t _m_port,
                  fds_int32_t _disk_iops_max,
                  fds_int32_t _disk_iops_min,
                  double      _disk_capacity,
@@ -90,6 +92,7 @@ namespace fds {
                 node_ip_address(_ip),
                 control_port(_cp_port),
                 data_port(_d_port),
+                migration_port(_m_port),
                 disk_iops_max(_disk_iops_max),
                 disk_iops_min(_disk_iops_min),
                 disk_capacity(_disk_capacity),

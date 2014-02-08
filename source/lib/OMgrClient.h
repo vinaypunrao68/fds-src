@@ -21,6 +21,7 @@
 #include <net-proxies/vol_policy.h>
 #include <NetSession.h>
 #include <dlt.h>
+#include <LocalClusterMap.h>
 
 using namespace FDS_ProtocolInterface;
 
@@ -30,17 +31,6 @@ using namespace FDS_ProtocolInterface;
 #define FDS_VOL_ACTION_MODIFY 3
 #define FDS_VOL_ACTION_ATTACH 4
 #define FDS_VOL_ACTION_DETACH 5
-
-typedef struct _node_info_t {
-
-  int node_id;
-  unsigned int node_ip_address;
-  fds_uint32_t port;
-  FDSP_NodeState node_state;
-
-} node_info_t;
-
-typedef std::unordered_map<int,node_info_t> node_map_t;
 
 namespace fds {
 
@@ -81,12 +71,18 @@ namespace fds {
     std::string hostIp;
     fds_uint32_t my_control_port;
     fds_uint32_t my_data_port;
+    fds_uint32_t my_migration_port;
     node_map_t node_map;
     const DLT *dlt;
     DLTManager dltMgr;
     int dmt_version;
     Node_Table_Type dmt;
     float current_throttle_level;
+
+    /**
+     * Map of current cluster members
+     */
+    LocalClusterMap *clustMap;
     
     fds_rwlock omc_lock; // to protect node_map
 
@@ -97,17 +93,27 @@ namespace fds {
     tier_audit_cmd_handler_t tier_audit_cmd_hdlr;
     bucket_stats_cmd_handler_t bucket_stats_cmd_hdlr;
 
-    /* Session table for OM client */
+    /**
+     * Session table for OM client
+     */
     boost::shared_ptr<netSessionTbl> nst_;
 
-    /* RPC handler for request coming from OM */
+    /**
+     * RPC handler for request coming from OM
+     */
     boost::shared_ptr<FDS_ProtocolInterface::FDSP_ControlPathReqIf> omrpc_handler_;
-    /* Session associated with omrpc_handler_ */
+    /**
+     * Session associated with omrpc_handler_
+     */
     netControlPathServerSession *omrpc_handler_session_;
-    /* omrpc_handler_ server is run on this thread */
+    /**
+     * omrpc_handler_ server is run on this thread
+     */
     boost::shared_ptr<std::thread> omrpc_handler_thread_;
 
-    /* client for sending messages to OM */
+    /**
+     * client for sending messages to OM
+     */
     netOMControlPathClientSession* omclient_prx_session_;
     boost::shared_ptr<FDS_ProtocolInterface::FDSP_OMControlPathReqClient> om_client_prx;
 
@@ -116,7 +122,6 @@ namespace fds {
 
   public:
 
-    OMgrClient();
     OMgrClient(FDSP_MgrIdType node_type,
                const std::string& _omIpStr,
                fds_uint32_t _omPort,
@@ -124,7 +129,10 @@ namespace fds {
                fds_uint32_t data_port,
                const std::string& node_name,
                fds_log *parent_log,
-               boost::shared_ptr<netSessionTbl> nst);
+               boost::shared_ptr<netSessionTbl> nst,
+               fds_uint32_t mig_port = 9876,
+               boost::shared_ptr<FDS_ProtocolInterface::
+               FDSP_MigrationPathRespIf> migRespIf = NULL);
     ~OMgrClient();
     int initialize();
     void start_omrpc_handler();
@@ -157,7 +165,9 @@ namespace fds {
                     unsigned int *node_ip_addr,
                     fds_uint32_t *node_port,
                     int *node_state);
-     DltTokenGroupPtr getDLTNodesForDoidKey(ObjectID *objId);
+    NodeMigReqClientPtr getMigClient(fds_uint64_t node_id);
+
+    DltTokenGroupPtr getDLTNodesForDoidKey(ObjectID *objId);
 #if 0
     int  getDLTNodesForDoidKey(unsigned char doid_key,
                               fds_int32_t *node_ids,
@@ -175,6 +185,7 @@ namespace fds {
 
     int recvNodeEvent(int node_id, FDSP_MgrIdType node_type, unsigned int node_ip, int node_state, const FDSP_Node_Info_TypePtr& node_info);
     int recvDLTUpdate(bool dlt_type, std::string& dlt_data);
+    int recvDLTStartMigration(bool dlt_type, std::string& dlt_data);
     int recvDMTUpdate(int dmt_version, const Node_Table_Type& dmt_table);
 
     int recvNotifyVol(fds_volid_t vol_id,

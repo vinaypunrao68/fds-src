@@ -77,6 +77,7 @@ void OMgrClientRPCI::NotifyDLTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
 void OMgrClientRPCI::NotifyStartMigration(FDSP_MsgHdrTypePtr& msg_hdr,
 			 FDSP_DLT_Data_TypePtr& dlt_info) {
 
+  om_client->recvDLTStartMigration(dlt_info->dlt_type, dlt_info->dlt_data);
 }
 
 void OMgrClientRPCI::NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
@@ -125,12 +126,16 @@ OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
                        fds_uint32_t data_port,
                        const std::string& node_name,
                        fds_log *parent_log,
-                       boost::shared_ptr<netSessionTbl> nst) {
+                       boost::shared_ptr<netSessionTbl> nst,
+                       fds_uint32_t mig_port,
+                       boost::shared_ptr<FDS_ProtocolInterface::
+                        FDSP_MigrationPathRespIf> migRespIf) {
   my_node_type = node_type;
   omIpStr      = _omIpStr;
   omConfigPort = _omPort;
   hostIp       = _hostIp;
   my_data_port = data_port;
+  my_migration_port = mig_port;
   my_node_name = node_name;
   node_evt_hdlr = NULL;
   vol_evt_hdlr = NULL;
@@ -143,23 +148,18 @@ OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
   }
   nst_ = nst;
   initRPCComm();
+
+  clustMap = new LocalClusterMap(migRespIf);
 }
 
-OMgrClient::OMgrClient() {
-  my_node_type = FDSP_STOR_HVISOR;
-  my_node_name = "localhost-sh";
-  node_evt_hdlr = NULL;
-  vol_evt_hdlr = NULL;
-  throttle_cmd_hdlr = NULL;
-  bucket_stats_cmd_hdlr = NULL;
-  omc_log = new fds_log("omc", "logs");
-  initRPCComm();
-}
+
 
 OMgrClient::~OMgrClient()
 {
     omrpc_handler_session_->endSession();
     omrpc_handler_thread_->join();
+
+    delete clustMap;
 }
 
 int OMgrClient::initialize() {
@@ -355,6 +355,7 @@ int OMgrClient::registerNodeWithOM(const FDS_ProtocolInterface::FDSP_AnnounceDis
    reg_node_msg->ip_lo_addr = fds::str_to_ipv4_addr(hostIp); //my_address!
    reg_node_msg->control_port = my_control_port;
    reg_node_msg->data_port = my_data_port; // for now
+   reg_node_msg->migration_port = my_migration_port;  // TODO(Andrew): Move to SM specific
    /* init the disk info */
    
    reg_node_msg->disk_info.disk_iops_max =  dInfo->disk_iops_max;
@@ -578,6 +579,9 @@ int OMgrClient::recvNodeEvent(int node_id,
   node.port = node_info->data_port;
   node.node_state = (FDSP_NodeState) node_state;
 
+  // Update local cluster map
+  clustMap->addNode(&node);
+
   omc_lock.write_unlock();
 
   FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received node event for node " << node_id 
@@ -640,9 +644,23 @@ int OMgrClient::recvDLTUpdate(bool dlt_type, std::string& dlt_data) {
 
   omc_lock.write_lock();
   dltMgr.addSerializedDLT(dlt_data,dlt_type);
+  dltMgr.dump(true);
   omc_lock.write_unlock();
 
   return (0);
+}
+
+int OMgrClient::recvDLTStartMigration(bool dlt_type, std::string& dlt_data) {
+
+  FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received new Migration DLT version  " << dlt_type;
+
+  omc_lock.write_lock();
+  dltMgr.addSerializedDLT(dlt_data,dlt_type);
+  dltMgr.dump(true);
+  omc_lock.write_unlock();
+
+  return (0);
+
 }
 
 int OMgrClient::recvDMTUpdate(int dmt_vrsn, const Node_Table_Type& dmt_table) {
@@ -708,7 +726,12 @@ int OMgrClient::getNodeInfo(fds_uint64_t node_id,
   omc_lock.read_unlock();
   
   return 0;
-} 
+}
+
+NodeMigReqClientPtr
+OMgrClient::getMigClient(fds_uint64_t node_id) {
+    return clustMap->getMigClient(node_id);
+}
 
 DltTokenGroupPtr OMgrClient::getDLTNodesForDoidKey(ObjectID *objId) {
  return dltMgr.getDLT()->getNodes(*objId);

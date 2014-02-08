@@ -145,6 +145,9 @@ namespace fds {
         bool loadSerialized(std::string& serializedData);  // NOLINT
         void getSerialized(std::string& serializedData);  // NOLINT
 
+        // print the dlt to the logs
+        void dump(bool fFull = false) const;
+
         /*
          * Module members
          */
@@ -213,7 +216,7 @@ namespace fds {
      */
     typedef boost::shared_ptr<DLT> DLTPtr;
 
-    struct DLTManager :  HasLogger {
+    struct DLTManager :  HasLogger, serialize::Serializable {
         explicit DLTManager(fds_uint8_t maxDlts = 2);
 
         bool add(const DLT& dlt);
@@ -235,6 +238,15 @@ namespace fds {
         // NOTE:: from the current dlt!!!
         NodeUuid getPrimary(fds_token_id token) const;
         NodeUuid getPrimary(const ObjectID& objId) const;
+
+        uint32_t virtual write(serialize::Serializer*  s);
+        uint32_t virtual read(serialize::Deserializer* d);
+
+        bool loadFromFile(std::string filename);
+        bool storeToFile(std::string filename);
+
+        // print the dlt manager to the logs
+        void dump(bool fFull = false) const;
 
   private:
         const DLT* curPtr = NULL;
