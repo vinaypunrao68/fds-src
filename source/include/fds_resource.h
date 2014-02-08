@@ -83,11 +83,9 @@ class Resource
     char                     rs_name[RS_NAME_MAX];
     fds_mutex                rs_mtx;
 
-    Resource()
-        : rs_refcnt(0), rs_mtx("rs-mtx") {}
+    virtual ~Resource() {}
     Resource(const ResourceUUID &uuid)
         : rs_uuid(uuid), rs_refcnt(0), rs_mtx("rs-mtx") {}
-    virtual ~Resource() {}
 
   private:
     mutable boost::atomic<int>  rs_refcnt;
@@ -138,8 +136,8 @@ class RsContainer
     /**
      * Methods to allocate and reference the node.
      */
-    virtual Resource::pointer rs_alloc_new();
-    virtual Resource::pointer rs_get_resource(const ResourceUUID *uuid);
+    virtual Resource::pointer rs_alloc_new(const ResourceUUID &uuid);
+    virtual Resource::pointer rs_get_resource(const ResourceUUID &uuid);
     virtual Resource::pointer rs_get_resource(char const *const name);
     virtual void rs_register(Resource::pointer rs);
     virtual void rs_register_mtx(Resource::pointer rs);
@@ -157,7 +155,7 @@ class RsContainer
     /**
      * Factory method.
      */
-    virtual Resource *rs_new() = 0;
+    virtual Resource *rs_new(const ResourceUUID &uuid) = 0;
 
   private:
     mutable boost::atomic<int>  rs_refcnt;

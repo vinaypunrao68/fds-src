@@ -74,7 +74,7 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
     if (agent == NULL) {
         // this is a new node
         add   = true;
-        agent = NodeAgent::agt_cast_ptr(rs_alloc_new());
+        agent = NodeAgent::agt_cast_ptr(rs_alloc_new(uuid));
     } else {
         if (node_name.compare(agent->get_node_name()) != 0) {
             // looks like this node name produces same uuid as

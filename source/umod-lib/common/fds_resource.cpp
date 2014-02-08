@@ -20,9 +20,9 @@ RsContainer::~RsContainer() {}
 // ------------
 //
 Resource::pointer
-RsContainer::rs_alloc_new()
+RsContainer::rs_alloc_new(const ResourceUUID &uuid)
 {
-    Resource *rs = rs_new();
+    Resource *rs = rs_new(uuid);
 
     rs_mtx.lock();
     fds_verify(rs_array[rs_cur_idx] == NULL);
@@ -90,9 +90,9 @@ RsContainer::rs_unregister_mtx(Resource::pointer rs)
 // rs_get_resource
 // ---------------
 Resource::pointer
-RsContainer::rs_get_resource(const ResourceUUID *uuid)
+RsContainer::rs_get_resource(const ResourceUUID &uuid)
 {
-    return rs_uuid_map[*uuid];
+    return rs_uuid_map[uuid];
 }
 
 Resource::pointer

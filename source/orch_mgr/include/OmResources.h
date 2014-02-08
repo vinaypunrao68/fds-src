@@ -171,7 +171,7 @@ class OM_NodeContainer : public RsContainer
         }
         return NULL;
     }
-    inline NodeAgent::pointer om_node_info(const NodeUuid *uuid) {
+    inline NodeAgent::pointer om_node_info(const NodeUuid &uuid) {
         return NodeAgent::agt_cast_ptr(rs_get_resource(uuid));
     }
 
@@ -182,7 +182,7 @@ class OM_NodeContainer : public RsContainer
     NodeList                 node_up_pend;
     NodeList                 node_down_pend;
 
-    Resource *rs_new();
+    Resource *rs_new(const ResourceUUID &uuid);
 };
 
 /**

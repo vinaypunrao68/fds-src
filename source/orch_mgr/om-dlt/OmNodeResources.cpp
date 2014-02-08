@@ -42,13 +42,6 @@ NodeInventory::node_calc_stor_weight()
 void
 NodeInventory::node_update_info(const FdspNodeRegPtr msg)
 {
-    if (uuid != NULL) {
-        rs_uuid = *uuid;
-    } else {
-        // FIXME: (vy) change this to real uuid.
-        fds_verify(rs_uuid.uuid_get_val() == 0);
-        rs_uuid.uuid_set_val(random());
-    }
     rs_mtx.lock();
     nd_ip_addr          = msg->ip_lo_addr;
     nd_ip_str           = netSession::ipAddr2String(nd_ip_addr);
@@ -115,9 +108,9 @@ OM_NodeContainer::~OM_NodeContainer() {}
 // ------
 //
 Resource *
-OM_NodeContainer::rs_new()
+OM_NodeContainer::rs_new(const NodeUuid &uuid)
 {
-    return new NodeAgent(NodeUuid(0));
+    return new NodeAgent(uuid);
 }
 
 // om_activate_node
