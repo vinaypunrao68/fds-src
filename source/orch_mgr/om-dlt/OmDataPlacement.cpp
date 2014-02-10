@@ -317,7 +317,7 @@ DataPlacement::beginRebalance() {
        curDlt->getSerialized(dltMsg->dlt_data);
        FDS_PLOG_SEV(g_fdslog, fds_log::notification)
                 << "Sending the DLT to  Client " << dltMsg->dlt_type;
-       curDlt->dump(true);
+       curDlt->dump();
 
     // invoke the RPC
        naClient->NotifyStartMigration(msgHdr, dltMsg);

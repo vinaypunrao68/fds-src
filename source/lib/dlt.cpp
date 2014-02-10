@@ -10,10 +10,19 @@
 #include <util/Log.h>
 #include <sstream>
 #include <iomanip>
+#include <ostream>
 /**
  *  Implementationg for DLT ...
  */
 namespace fds {
+
+std::ostream& operator<< (std::ostream &out, const DltTokenGroup& tokenGroup) {
+    out << "TokenGroup : ";
+    for (uint i = 0; i < tokenGroup.length; i++) {
+        out << "[" << i << ":" << tokenGroup.get(i).uuid_get_val() <<"] ";
+    }
+    return out;
+}
 
 DLT::DLT(fds_uint32_t numBitsForToken,
          fds_uint32_t depth,
@@ -194,17 +203,19 @@ void DLT::getTokens(TokenList* tokenList, const NodeUuid &uid, uint index) const
     }
 }
 
-void DLT::dump(bool fFull) const {
-    LOGDEBUG << "Dlt ..............";
-    LOGDEBUG << "[version: " << version  << "]";
-    LOGDEBUG << "[timestamp: " << timestamp  << "]";
-    LOGDEBUG << "[depth: " << depth  << "]";
-    LOGDEBUG << "[num.Tokens: " << numTokens  << "]";
-    LOGDEBUG << "[num.Nodes: " << mapNodeTokens->size() << "]";
+void DLT::dump() const {
+    // go thru with the fn iff loglevel is debug or lesser.
+
+    LOGNORMAL<< "Dlt :"
+             << "[version: " << version  << "] "
+             << "[timestamp: " << timestamp  << "] "
+             << "[depth: " << depth  << "] "
+             << "[num.Tokens: " << numTokens  << "] "
+             << "[num.Nodes: " << mapNodeTokens->size() << "]";
+
+    LEVELCHECK(debug){} else return; // NOLINT
+
     LOGDEBUG << "token groups : --- ";
-
-    if (!fFull) return;
-
     // print the whole dlt
     std::vector<DltTokenGroupPtr>::const_iterator iter;
     std::ostringstream oss;
@@ -633,15 +644,15 @@ bool DLTManager::storeToFile(std::string filename) {
     return true;
 }
 
-void DLTManager::dump(bool fFull) const {
-    LOGDEBUG << "Dlt Manager ...................";
-    LOGDEBUG << "[ num.dlts : " << dltList.size() << "]";
-    LOGDEBUG << "[ maxDlts  : " << maxDlts << "]";
+void DLTManager::dump() const {
+    LOGNORMAL << "Dlt Manager : "
+              << "[num.dlts : " << dltList.size() << "] "
+              << "[maxDlts  : " << maxDlts << "]";
 
     std::vector<DLT*>::const_iterator iter;
 
     for (iter = dltList.begin() ; iter != dltList.end() ; iter++) {
-        (*iter)->dump(fFull);
+        (*iter)->dump();
     }
 }
 
