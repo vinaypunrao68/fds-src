@@ -26,12 +26,8 @@ typedef msm::front::none msm_none;
 
 /* For logging purpose */
 extern fds_log* g_fdslog;
-static inline fds_log* get_log() {
+static inline fds_log* GetLog() {
     return g_fdslog;
-}
-static inline std::string log_string()
-{
-    return "TokenCopySender";
 }
 
 /* Statemachine Events */
@@ -47,6 +43,7 @@ struct TokenCopySenderFSM_
             TokenCopySender *parent,
             SmIoReqHandler *data_store,
             const std::string &rcvr_ip,
+            const int &rcvr_port,
             const std::set<fds_token_id> &tokens,
             boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler)
     {
@@ -54,8 +51,11 @@ struct TokenCopySenderFSM_
         parent_ = parent;
         data_store_ = data_store;
         rcvr_ip_ = rcvr_ip;
+        rcvr_port_ = rcvr_port;
         pending_tokens_ = tokens;
         client_resp_handler_ = client_resp_handler;
+
+        objstor_read_req_.io_type = FDS_SM_READ_TOKEN_OBJECTS;
         objstor_read_req_.response_cb = std::bind(
             &TokenCopySenderFSM_::data_read_cb, this,
             std::placeholders::_1, std::placeholders::_2);
@@ -72,12 +72,12 @@ struct TokenCopySenderFSM_
     template <class Event, class FSM>
     void on_entry(Event const& , FSM&)
     {
-        // FDS_PLOG(get_log()) << "TokenCopySender SM";
+        LOGDEBUG << "TokenCopySender SM";
     }
     template <class Event, class FSM>
     void on_exit(Event const&, FSM&)
     {
-        // FDS_PLOG(get_log()) << "TokenCopySender SM";
+        LOGDEBUG << "TokenCopySender SM";
     }
 
     /* The list of state machine states */
@@ -86,12 +86,12 @@ struct TokenCopySenderFSM_
         template <class Event, class FSM>
         void on_entry(Event const& , FSM&)
         {
-            // FDS_PLOG(get_log()) << "Init State";
+            LOGDEBUG << "Init State";
         }
         template <class Event, class FSM>
         void on_exit(Event const&, FSM&)
         {
-            // FDS_PLOG(get_log()) << "Init State";
+//            LOGDEBUG << "Init State";
         }
     };
     struct Connecting: public msm::front::state<>
@@ -99,12 +99,12 @@ struct TokenCopySenderFSM_
         template <class Event, class FSM>
         void on_entry(Event const& , FSM&)
         {
-            // FDS_PLOG(get_log()) << "Connecting State";
+            LOGDEBUG << "Connecting State";
         }
         template <class Event, class FSM>
         void on_exit(Event const&, FSM&)
         {
-            // FDS_PLOG(get_log()) << "Connecting State";
+//            LOGDEBUG << "Connecting State";
         }
     };
     struct Reading : public msm::front::state<>
@@ -112,12 +112,12 @@ struct TokenCopySenderFSM_
         template <class Event, class FSM>
         void on_entry(Event const& , FSM&)
         {
-            // FDS_PLOG(get_log()) << "Reading State";
+            LOGDEBUG << "Reading State";
         }
         template <class Event, class FSM>
         void on_exit(Event const&, FSM&)
         {
-            // FDS_PLOG(get_log()) << "Reading State";
+//            LOGDEBUG << "Reading State";
         }
     };
     struct Sending : public msm::front::state<>
@@ -125,12 +125,12 @@ struct TokenCopySenderFSM_
         template <class Event, class FSM>
         void on_entry(Event const& , FSM&)
         {
-            // FDS_PLOG(get_log()) << "Sending State";
+            LOGDEBUG << "Sending State";
         }
         template <class Event, class FSM>
         void on_exit(Event const&, FSM&)
         {
-            // FDS_PLOG(get_log()) << "Sending State";
+//            LOGDEBUG << "Sending State";
         }
     };
     struct UpdatingTok : public msm::front::state<>
@@ -138,25 +138,25 @@ struct TokenCopySenderFSM_
         template <class Event, class FSM>
         void on_entry(Event const& , FSM&)
         {
-            // FDS_PLOG(get_log()) << "UpdatingTok";
+            LOGDEBUG << "UpdatingTok";
         }
         template <class Event, class FSM>
         void on_exit(Event const&, FSM&)
         {
-            // FDS_PLOG(get_log()) << "UpdatingTok";
+//            LOGDEBUG << "UpdatingTok";
         }
     };
     struct Complete : public msm::front::state<>
     {
         template <class Event, class FSM>
-        void on_entry(Event const& , FSM&)
+        void on_entry(Event const& e, FSM& fsm)
         {
-            // FDS_PLOG(get_log()) << "Complete State";
+            LOGDEBUG << "Complete State";
         }
         template <class Event, class FSM>
         void on_exit(Event const&, FSM&)
         {
-            // FDS_PLOG(get_log()) << "Complete State";
+//            LOGDEBUG << "Complete State";
         }
     };
 
@@ -168,11 +168,14 @@ struct TokenCopySenderFSM_
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            fsm.rcvr_session_ = fsm.migrationSvc_->get_migration_client(fsm.rcvr_ip_);
+            LOGDEBUG << "connect";
+
+            fsm.rcvr_session_ = fsm.migrationSvc_->get_migration_client(fsm.rcvr_ip_,
+                    fsm.rcvr_port_);
             if (fsm.rcvr_session_ == nullptr) {
                 fds_assert(!"Null session");
                 // TODO(rao:) Go into error state
-                FDS_PLOG_ERR(get_log()) << "rcvr_session is null";
+                LOGERROR << "rcvr_session is null";
                 return;
             }
         }
@@ -183,27 +186,31 @@ struct TokenCopySenderFSM_
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
+            LOGDEBUG << "update_tok";
+
             if (fsm.pending_tokens_.size() == 0 &&
-                fsm.objstor_read_req_.itr.isDone()) {
+                fsm.objstor_read_req_.itr.isEnd()) {
                 fds_assert(!"Invalid state action");
                 return;
             }
 
             if (fsm.completed_tokens_.size() == 0 &&
-                fsm.objstor_read_req_.itr.isDone()) {
+                fsm.objstor_read_req_.itr.isBegin()) {
                 /* First request */
-                auto first = fsm.pending_tokens_.begin();
-                fsm.objstor_read_req_.token_id = *first;
-                fsm.pending_tokens_.erase(first);
+                fsm.objstor_read_req_.token_id = *fsm.pending_tokens_.begin();
                 // TODO(rao) : Dont hardcode
                 fsm.objstor_read_req_.max_size = 2 << 20;
 
-            } else if (fsm.objstor_read_req_.itr.isDone()) {
+            } else if (fsm.objstor_read_req_.itr.isEnd()) {
+                LOGNORMAL << "Token: " << *fsm.pending_tokens_.begin()
+                        << " sent completely";
                 /* We are done reading objects for current token */
-                auto first = fsm.pending_tokens_.begin();
-                fsm.objstor_read_req_.token_id = *first;
-                fsm.completed_tokens_.push_back(*first);
-                fsm.pending_tokens_.erase(first);
+                fsm.completed_tokens_.push_back(*fsm.pending_tokens_.begin());
+                fsm.pending_tokens_.erase(fsm.pending_tokens_.begin());
+
+                if (fsm.pending_tokens_.size() > 0) {
+                    fsm.objstor_read_req_.token_id = *fsm.pending_tokens_.begin();
+                }
 
             } else {
                 /* Still processing the current token.  Nothing to do*/
@@ -218,6 +225,8 @@ struct TokenCopySenderFSM_
         {
             Error err(ERR_OK);
 
+            LOGDEBUG << "read_tok";
+
             /* Recyle objstor_read_req_ message */
             fds_assert(fsm.objstor_read_req_.response_cb);
             fsm.objstor_read_req_.obj_list.clear();
@@ -226,7 +235,7 @@ struct TokenCopySenderFSM_
             if (err != fds::ERR_OK) {
                 fds_assert(!"Hit an error in enqueing");
                 // TODO(rao): Put your selft in an error state
-                FDS_PLOG_ERR(get_log()) << "Failed to enqueue to StorMgr.  Error: "
+                LOGERROR << "Failed to enqueue to StorMgr.  Error: "
                         << err;
             }
         }
@@ -237,6 +246,8 @@ struct TokenCopySenderFSM_
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
+            LOGDEBUG << "send_tok";
+
             /* Prepare FDSP_PushTokenObjectsReq */
             fsm.push_tok_req_.header.base_header.err_code = ERR_OK;
             fsm.push_tok_req_.header.base_header.src_node_name =
@@ -248,7 +259,7 @@ struct TokenCopySenderFSM_
             fsm.push_tok_req_.token_id = fsm.objstor_read_req_.token_id;
             // TODO(rao): We should std::move here
             fsm.push_tok_req_.obj_list = fsm.objstor_read_req_.obj_list;
-            fsm.push_tok_req_.complete = fsm.objstor_read_req_.itr.isDone();
+            fsm.push_tok_req_.complete = fsm.objstor_read_req_.itr.isEnd();
 
             /* Push to receiver */
             fsm.rcvr_session_->getClient()->PushTokenObjects(fsm.push_tok_req_);
@@ -260,6 +271,8 @@ struct TokenCopySenderFSM_
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
+            LOGDEBUG << "teardown";
+
             MigSvcMigrationCompletePtr mig_complete(new MigSvcMigrationComplete());
             mig_complete->migration_id = fsm.parent_->get_migration_id();
             FdsActorRequestPtr far(new FdsActorRequest(
@@ -268,7 +281,7 @@ struct TokenCopySenderFSM_
             Error err = fsm.migrationSvc_->send_actor_request(far);
             if (err != ERR_OK) {
                 fds_assert(!"Failed to send message");
-                FDS_PLOG_ERR(get_log()) << "Failed to send actor message.  Error: "
+                LOGERROR << "Failed to send actor message.  Error: "
                         << err;
             }
         }
@@ -281,8 +294,7 @@ struct TokenCopySenderFSM_
         template <class EVT, class FSM, class SourceState, class TargetState>
         bool operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            return (fsm.pending_tokens_.size() > 0 ||
-                    !fsm.objstor_read_req_.itr.isDone());
+            return (fsm.pending_tokens_.size() > 0);
         }
     };
 
@@ -312,7 +324,7 @@ struct TokenCopySenderFSM_
 
     /* Replaces the default no-transition response */
     template <class FSM, class Event>
-    void no_transition(Event const& e, FSM&, int state)
+    void no_transition(Event const& e, FSM& fsm, int state)
     {
         fds_verify(!"Unexpected event");
     }
@@ -326,7 +338,7 @@ struct TokenCopySenderFSM_
     {
         if (e != ERR_OK) {
             fds_assert(!"Error in reading");
-            FDS_PLOG_ERR(get_log()) << "Error: " << e;
+            LOGERROR << "Error: " << e;
             return;
         }
         parent_->send_actor_request(
@@ -342,6 +354,9 @@ struct TokenCopySenderFSM_
 
     /* Receiver ip */
     std::string rcvr_ip_;
+
+    /* Receiver port */
+    int rcvr_port_;
 
     /* RPC handler for responses.  NOTE: We don't really use it.  It's just here so
      * it can be passed as a parameter when we create a netClientSession
@@ -373,6 +388,7 @@ TokenCopySender::TokenCopySender(FdsMigrationSvc *migrationSvc,
         fds_threadpoolPtr threadpool,
         fds_logPtr log,
         const std::string &rcvr_ip,
+        const int &rcvr_port,
         const std::set<fds_token_id> &tokens,
         boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler)
     : MigrationSender(migration_id),
@@ -381,7 +397,7 @@ TokenCopySender::TokenCopySender(FdsMigrationSvc *migrationSvc,
 {
     sm_.reset(new TokenCopySenderFSM());
     sm_->init(migrationSvc, this, data_store,
-            rcvr_ip, tokens, client_resp_handler);
+            rcvr_ip, rcvr_port, tokens, client_resp_handler);
 }
 
 TokenCopySender::~TokenCopySender()
@@ -391,6 +407,7 @@ TokenCopySender::~TokenCopySender()
 
 void TokenCopySender::start()
 {
+    sm_->start();
 }
 
 Error TokenCopySender::handle_actor_request(FdsActorRequestPtr req)

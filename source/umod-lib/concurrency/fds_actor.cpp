@@ -13,6 +13,12 @@ FdsRequestQueueActor::FdsRequestQueueActor(fds_threadpoolPtr threadpool)
 {
 }
 
+int FdsRequestQueueActor::get_queue_size()
+{
+    fds_spinlock::scoped_lock l(lock_);
+    return queue_.size();
+}
+
 Error FdsRequestQueueActor::send_actor_request(FdsActorRequestPtr req)
 {
     lock_.lock();

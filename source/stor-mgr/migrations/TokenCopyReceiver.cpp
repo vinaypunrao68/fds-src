@@ -27,12 +27,8 @@ typedef msm::front::none msm_none;
 
 /* For logging purpose */
 extern fds_log* g_fdslog;
-static inline fds_log* get_log() {
+static inline fds_log* GetLog() {
     return g_fdslog;
-}
-static inline std::string log_string()
-{
-    return "TokenCopyReceiver";
 }
 
 /* Statemachine events */
@@ -49,6 +45,7 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
             TokenCopyReceiver *parent,
             SmIoReqHandler *data_store,
             const std::string &sender_ip,
+            const int &sender_port,
             const std::set<fds_token_id> &tokens,
             boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler)
     {
@@ -56,8 +53,11 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
         parent_ = parent;
         data_store_ = data_store;
         sender_ip_ = sender_ip;
+        sender_port_= sender_port;
         pending_tokens_ = tokens;
         client_resp_handler_ = client_resp_handler;
+
+        objstor_write_req_.io_type = FDS_SM_WRITE_TOKEN_OBJECTS;
         objstor_write_req_.response_cb = std::bind(
             &TokenCopyReceiverFSM_::data_written_cb, this,
             std::placeholders::_1, std::placeholders::_2);
@@ -69,12 +69,12 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
     template <class Event, class FSM>
     void on_entry(Event const& , FSM&)
     {
-        // FDS_PLOG(get_log()) << "TokenCopyReceiver SM";
+        LOGDEBUG << "TokenCopyReceiver SM";
     }
     template <class Event, class FSM>
     void on_exit(Event const&, FSM&)
     {
-        // FDS_PLOG(get_log()) << "TokenCopyReceiver SM";
+        LOGDEBUG << "TokenCopyReceiver SM";
     }
 
     /* The list of state machine states */
@@ -83,12 +83,12 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
         template <class Event, class FSM>
         void on_entry(Event const& , FSM&)
         {
-            // FDS_PLOG(get_log()) << "Init State";
+            LOGDEBUG << "Init State";
         }
         template <class Event, class FSM>
         void on_exit(Event const&, FSM&)
         {
-            // FDS_PLOG(get_log()) << "Init State";
+//            LOGDEBUG << "Init State";
         }
     };
     struct Connecting: public msm::front::state<>
@@ -96,12 +96,12 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
         template <class Event, class FSM>
         void on_entry(Event const& , FSM&)
         {
-            // FDS_PLOG(get_log()) << "Connecting State";
+            LOGDEBUG << "Connecting State";
         }
         template <class Event, class FSM>
         void on_exit(Event const&, FSM&)
         {
-            // FDS_PLOG(get_log()) << "Connecting State";
+//            LOGDEBUG << "Connecting State";
         }
     };
     struct Receiving : public msm::front::state<>
@@ -109,12 +109,12 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
         template <class Event, class FSM>
         void on_entry(Event const& , FSM&)
         {
-            // FDS_PLOG(get_log()) << "Receiving State";
+            LOGDEBUG << "Receiving State";
         }
         template <class Event, class FSM>
         void on_exit(Event const&, FSM&)
         {
-            // FDS_PLOG(get_log()) << "Receiving State";
+//            LOGDEBUG << "Receiving State";
         }
     };
     struct Writing : public msm::front::state<>
@@ -122,12 +122,12 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
         template <class Event, class FSM>
         void on_entry(Event const& , FSM&)
         {
-            // FDS_PLOG(get_log()) << "Writing State";
+            LOGDEBUG << "Writing State";
         }
         template <class Event, class FSM>
         void on_exit(Event const&, FSM&)
         {
-            // FDS_PLOG(get_log()) << "Writing State";
+//            LOGDEBUG << "Writing State";
         }
     };
     struct UpdatingTok : public msm::front::state<>
@@ -135,12 +135,12 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
         template <class Event, class FSM>
         void on_entry(Event const& , FSM&)
         {
-            // FDS_PLOG(get_log()) << "UpdatingTok";
+            LOGDEBUG << "UpdatingTok";
         }
         template <class Event, class FSM>
         void on_exit(Event const&, FSM&)
         {
-            // FDS_PLOG(get_log()) << "UpdatingTok";
+//            LOGDEBUG << "UpdatingTok";
         }
     };
     struct Complete : public msm::front::state<>
@@ -148,12 +148,12 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
         template <class Event, class FSM>
         void on_entry(Event const& , FSM&)
         {
-            // FDS_PLOG(get_log()) << "Complete State";
+            LOGDEBUG << "Complete State";
         }
         template <class Event, class FSM>
         void on_exit(Event const&, FSM&)
         {
-            // FDS_PLOG(get_log()) << "Complete State";
+//            LOGDEBUG << "Complete State";
         }
     };
 
@@ -165,12 +165,15 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
+            LOGDEBUG << "connect";
+
             /* First connect */
-            fsm.sender_session_ = fsm.migrationSvc_->get_migration_client(fsm.sender_ip_);
+            fsm.sender_session_ = fsm.migrationSvc_->get_migration_client(fsm.sender_ip_,
+                    fsm.sender_port_);
             if (fsm.sender_session_ == nullptr) {
                 fds_assert(!"Null session");
                 // TODO(rao:) Go into error state
-                // FDS_PLOG_ERR(get_log()) << "sender_session is null";
+                // LOGERROR << "sender_session is null";
                 return;
             }
 
@@ -178,6 +181,7 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
             FDSP_CopyTokenReq copy_req;
             copy_req.header.base_header.err_code = ERR_OK;
             copy_req.header.base_header.src_node_name = fsm.migrationSvc_->get_ip();
+            copy_req.header.base_header.src_port = fsm.migrationSvc_->get_port();
             copy_req.header.base_header.session_uuid =
                     fsm.sender_session_->getSessionId();
             copy_req.header.migration_id = fsm.parent_->get_migration_id();
@@ -194,10 +198,14 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
+            LOGDEBUG << "update_tok";
+
             fds_assert(fsm.pending_tokens_.size() > 0);
             if (fsm.write_tok_complete_) {
                 fsm.pending_tokens_.erase(fsm.write_token_id_);
                 fsm.completed_tokens_.push_back(fsm.write_token_id_);
+
+                LOGNORMAL << "Token " << fsm.write_token_id_ << " received completely";
             }
         }
     };
@@ -207,6 +215,8 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
+            LOGDEBUG << "ack_tok";
+
             auto resp_client = fsm.migrationSvc_->get_resp_client(
                     evt.header.base_header.session_uuid);
             FDSP_PushTokenObjectsResp resp;
@@ -223,6 +233,8 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
         {
             Error err(ERR_OK);
 
+            LOGDEBUG << "write_tok";
+
             /* Book keeping */
             fsm.write_tok_complete_ = evt.complete;
             fsm.write_token_id_ = evt.token_id;
@@ -237,7 +249,7 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
             if (err != fds::ERR_OK) {
                 fds_assert(!"Hit an error in enqueing");
                 // TODO(rao): Put your selft in an error state
-                FDS_PLOG_ERR(get_log()) << "Failed to enqueue to StorMgr.  Error: "
+                LOGERROR << "Failed to enqueue to StorMgr.  Error: "
                         << err;
             }
         }
@@ -248,6 +260,8 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
+            LOGDEBUG << "teardown";
+
             MigSvcMigrationCompletePtr mig_complete(new MigSvcMigrationComplete());
             mig_complete->migration_id = fsm.parent_->get_migration_id();
             FdsActorRequestPtr far(new FdsActorRequest(
@@ -256,7 +270,7 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
             Error err = fsm.migrationSvc_->send_actor_request(far);
             if (err != ERR_OK) {
                 fds_assert(!"Failed to send message");
-                FDS_PLOG_ERR(get_log()) << "Failed to send actor message.  Error: "
+                LOGERROR << "Failed to send actor message.  Error: "
                         << err;
             }
         }
@@ -317,7 +331,7 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
     {
         if (e != ERR_OK) {
             fds_assert(!"Error in reading");
-            FDS_PLOG_ERR(get_log()) << "Error: " << e;
+            LOGERROR << "Error: " << e;
             return;
         }
         parent_->send_actor_request(
@@ -334,6 +348,9 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
 
     /* Sender ip */
     std::string sender_ip_;
+
+    /* Sender port */
+    int sender_port_;
 
     /* RPC handler for responses.  NOTE: We don't really use it.  It's just here so
      * it can be passed as a parameter when we create a netClientSession
@@ -368,6 +385,7 @@ TokenCopyReceiver::TokenCopyReceiver(FdsMigrationSvc *migrationSvc,
         fds_threadpoolPtr threadpool,
         fds_logPtr log,
         const std::string &sender_ip,
+        const int &sender_port,
         const std::set<fds_token_id> &tokens,
         boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler)
     : MigrationReceiver(migration_id),
@@ -376,7 +394,7 @@ TokenCopyReceiver::TokenCopyReceiver(FdsMigrationSvc *migrationSvc,
 {
     sm_.reset(new TokenCopyReceiverFSM());
     sm_->init(migrationSvc, this, data_store,
-            sender_ip, tokens, client_resp_handler);
+            sender_ip, sender_port, tokens, client_resp_handler);
 }
 
 TokenCopyReceiver::~TokenCopyReceiver() {
@@ -388,9 +406,6 @@ TokenCopyReceiver::~TokenCopyReceiver() {
 void TokenCopyReceiver::start()
 {
     sm_->start();
-#if 0
-    sm_->process_event(ConnectEvt);
-#endif
 }
 
 /**

@@ -18,6 +18,7 @@ public:
     virtual ~FdsActor() {}
     virtual Error send_actor_request(FdsActorRequestPtr req) = 0;
     virtual Error handle_actor_request(FdsActorRequestPtr req) = 0;
+    virtual int get_queue_size() = 0;
     virtual std::string log_string() {
         return "FdsActor";
     }
@@ -29,6 +30,7 @@ class FdsRequestQueueActor : public FdsActor {
 public:
     FdsRequestQueueActor(fds_threadpoolPtr threadpool);
     virtual Error send_actor_request(FdsActorRequestPtr req) override;
+    virtual int get_queue_size() override;
     virtual std::string log_string() {
         return "FdsRequestQueueActor";
     }

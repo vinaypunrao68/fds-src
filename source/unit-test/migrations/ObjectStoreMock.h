@@ -2,7 +2,6 @@
 #define OBJECT_STORE_MOCK_H
 
 #include <unordered_map>
-#include <thread>
 #include <fdsp/FDSP_types.h>
 #include <hash/MurmurHash3.h>
 
@@ -23,6 +22,7 @@
 #include <fds-probe/fds_probe.h>
 #include <StorMgrVolumes.h>
 #include <dlt.h>
+#include <concurrency/ThreadPool.h>
 
 using namespace FDS_ProtocolInterface;  // NOLINT
 namespace fds {
@@ -33,7 +33,7 @@ class MObjStore : public SmIoReqHandler {
      : lock_("MObjStoreMutex"),
        dlt_(8, 3, 1)
     {
-
+        threadpool_.reset(new fds_threadpool(2));
     }
     ~MObjStore() {
 
@@ -62,11 +62,11 @@ class MObjStore : public SmIoReqHandler {
          return true;
     }
 
-    std::vector<fds_token_id> getTokens() {
-        std::vector<fds_token_id> tokens;
+    std::set<fds_token_id> getTokens() {
+        std::set<fds_token_id> tokens;
         fds_mutex::scoped_lock l(lock_);
         for (auto itr : token_db_) {
-            tokens.push_back(itr.first);
+            tokens.insert(itr.first);
         }
         return tokens;
     }
@@ -90,7 +90,7 @@ class MObjStore : public SmIoReqHandler {
         Error err(ERR_OK);
         fds_mutex::scoped_lock l(lock_);
 
-        SmIoPutTokObjectsReq *putTokReq = static_cast<SmIoPutTokObjectsReq*>(putTokReq);
+        SmIoPutTokObjectsReq *putTokReq = static_cast<SmIoPutTokObjectsReq*>(ioReq);
         FDSP_MigrateObjectList &objList = putTokReq->obj_list;
 
         for (auto obj : objList) {
@@ -121,7 +121,7 @@ class MObjStore : public SmIoReqHandler {
             mig_obj.data = obj_data;
             getTokReq->obj_list.push_back(mig_obj);
         }
-        getTokReq->itr.objId = NullObjectID;
+        getTokReq->itr.objId = SMTokenItr::itr_end;
 
         getTokReq->response_cb(err, getTokReq);
     }
@@ -130,10 +130,10 @@ class MObjStore : public SmIoReqHandler {
     {
         switch (io->io_type) {
         case FDS_SM_WRITE_TOKEN_OBJECTS:
-            std::thread(&MObjStore::putTokenObjectsInternal, this, io);
+            threadpool_->schedule(&MObjStore::putTokenObjectsInternal, this, io);
             break;
         case FDS_SM_READ_TOKEN_OBJECTS:
-            std::thread(&MObjStore::getTokenObjectsInternal, this, io);
+            threadpool_->schedule(&MObjStore::getTokenObjectsInternal, this, io);
             break;
         default:
             fds_assert(!"Unknown message");
@@ -142,8 +142,14 @@ class MObjStore : public SmIoReqHandler {
         return ERR_OK;
     }
 
+    bool operator ==(const MObjStore &s) {
+        fds_mutex::scoped_lock l(lock_);
+        return (object_db_ == s.object_db_ &&
+                token_db_ == s.token_db_);
+    }
  private:
     fds_mutex  lock_;
+    fds_threadpoolPtr threadpool_;
     DLT dlt_;
     std::unordered_map<ObjectID, std::string, ObjectHash> object_db_;
     std::unordered_map<fds_token_id, std::set<ObjectID, ObjectLess> > token_db_;

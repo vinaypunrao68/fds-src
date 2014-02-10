@@ -25,14 +25,20 @@ namespace fds
 /* Forward declarations */
 class FDSP_MigrationPathRpc;
 
+typedef std::function<void (const Error&)> MigSvcCbType;
+
 /**
  * Send this message to FdsMigrationSvc for copying tokens
  */
 class MigSvcCopyTokensReq
 {
 public:
+
+public:
+    /* In: Tokens to copy */
     std::set<fds_token_id> tokens;
-    std::function<void (const Error&)> response_cb;
+    /* In: Callback to invoke after completion */
+    MigSvcCbType migsvc_resp_cb;
 };
 typedef boost::shared_ptr<MigSvcCopyTokensReq> MigSvcCopyTokensReqPtr;
 
@@ -51,6 +57,13 @@ class FdsMigrationSvc : public Module, public FdsRequestQueueActor
 {
 public:
     typedef std::unordered_map<std::string, std::set<fds_token_id> > IpTokenTable;
+    /* For tracking migrators */
+    class MigratorInfo {
+    public:
+        FdsActorUPtr migrator;
+        /* Callback to invoke after migrator completion */
+        MigSvcCbType migsvc_resp_cb;
+    };
 
 public:
     FdsMigrationSvc(SmIoReqHandler *data_store,
@@ -59,7 +72,7 @@ public:
             fds_logPtr log,
             netSessionTblPtr nst);
 
-    fds_log* get_log() {return log_.get();}
+    fds_log* GetLog() {return log_.get();}
 
     virtual std::string log_string() {
         return "FdsMigrationSvc";
@@ -74,15 +87,16 @@ public:
     virtual Error handle_actor_request(FdsActorRequestPtr req) override;
 
     netMigrationPathClientSession*
-    get_migration_client(const std::string &ip);
+    get_migration_client(const std::string &ip, const int &port);
 
     boost::shared_ptr<FDSP_MigrationPathRespClient>
     get_resp_client(const std::string &session_uuid);
 
     std::string get_ip();
+    int get_port();
 
 private:
-    void route_to_mig_actor(FdsActorRequestPtr req);
+    void route_to_mig_actor(const std::string &mig_id, FdsActorRequestPtr req);
     void handle_migsvc_copy_token(FdsActorRequestPtr req);
     void handle_migsvc_copy_token_rpc(FdsActorRequestPtr req);
     void handle_migsvc_migration_complete(FdsActorRequestPtr req);
@@ -110,7 +124,7 @@ private:
     netMigrationPathServerSession *migpath_session_;
 
     /* Migrations that are in progress.  Keyed by migration id */
-    std::unordered_map<std::string, FdsActorUPtr> mig_actors_;
+    std::unordered_map<std::string, MigratorInfo> mig_actors_;
 }; 
 typedef boost::shared_ptr<FdsMigrationSvc> FdsMigrationSvcPtr;
 
@@ -120,7 +134,7 @@ class FDSP_MigrationPathRpc : virtual public FDSP_MigrationPathReqIf ,
 public:
     FDSP_MigrationPathRpc(FdsMigrationSvc &mig_svc, fds_logPtr log);
 
-    fds_log* get_log() {
+    fds_log* GetLog() {
         return log_.get();
     }
     std::string log_string() {

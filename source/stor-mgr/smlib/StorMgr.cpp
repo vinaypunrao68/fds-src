@@ -1945,7 +1945,7 @@ void  SmObjDb::iterRetrieveObjects(const fds_token_id &token,
                }
           }
        } // Enf of for loop
-     itr.objId.SetId(0xffffffffffffffff, 0xffffffffffffffff);
+     itr.objId = SMTokenItr::itr_end;
 
 }
 
