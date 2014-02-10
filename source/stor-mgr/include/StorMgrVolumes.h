@@ -335,14 +335,17 @@ namespace fds {
    */
   class SMTokenItr {
   public:
+      static ObjectID itr_end;
       ObjectID  objId;
 
       SMTokenItr() {
+          objId = NullObjectID;
       }
       ~SMTokenItr() {
       }
 
-      bool isDone() {return objId == NullObjectID;}
+      bool isBegin() {return objId == NullObjectID;}
+      bool isEnd() {return objId == itr_end;}
   };
 
   /**

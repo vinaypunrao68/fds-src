@@ -1,7 +1,7 @@
 topdir            := ..
 user_target       := exe
 user_rtime_env    := user
-user_build_dir    := smlib policy include
+user_build_dir    := smlib policy include migrations
 user_install_loc  := exe
 user_install      := sm.conf 
 
@@ -23,7 +23,8 @@ user_fds_ar_libs  :=                   \
     fds-odb \
     fds-vpolicy \
     fds-netproxy \
-    fds-fdsp
+    fds-fdsp \
+    fds-migrations
 
 user_non_fds_libs :=                                                          \
     boost_log \

@@ -9,6 +9,8 @@ namespace fds {
 
 extern ObjectStorMgr *objStorMgr;
 
+ObjectID SMTokenItr::itr_end = ObjectID(0xffffffffffffffff, 0xffffffffffffffff);
+
 StorMgrVolume::StorMgrVolume(const VolumeDesc&  vdb,
                              ObjectStorMgr     *sm,
                              fds_log           *parent_log)

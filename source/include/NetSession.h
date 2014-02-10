@@ -28,6 +28,7 @@
 #include <NetSessRespSvr.h>
 #include <util/Log.h>
 #include <fds_assert.h>
+#include <fds_err.h>
 
 #include <fds_uuid.h>
 
@@ -367,11 +368,12 @@ class netServerSessionEx: public netSession {
       server_->serve();
   }
 
-  virtual int addRespClientSession(const std::string &session_id, TTransportPtr t)
+  virtual Error addRespClientSession(const std::string &session_id, TTransportPtr t)
   {
       boost::shared_ptr<TProtocol> protocol(new TBinaryProtocol(t));
       boost::shared_ptr<RespClientT> resp_cli( new RespClientT(protocol));
       respClients_[session_id] = resp_cli;
+      return ERR_OK;
   }
 
   boost::shared_ptr<RespClientT> getRespClient(const std::string& sid) 
@@ -419,7 +421,8 @@ class netServerSessionEx: public netSession {
         /*srvr_session_->addRespClientSession(fdsp_msg.src_node_name, 
           fdsp_msg.src_port, fds::get_uuid());*/
         _return.sid = fds::get_uuid();
-        _return.status = parent_.addRespClientSession(_return.sid, transport_); 
+        Error e = parent_.addRespClientSession(_return.sid, transport_);
+        _return.status = e.GetErrno();
     } 
 
     virtual void EstablishSession(FDSP_SessionReqResp& _return,
@@ -469,15 +472,6 @@ class netServerSessionEx: public netSession {
                                  boost::shared_ptr<TProtocol>output)
       {
           fds_mutex::scoped_lock l(parent_.lock_);
-          /*
-             TTransportPtr transport = input->getTransport();
-             std::string key = getTransportKey(transport);
-          /* Transport may or may not exist in auth_pending_transports_,
-           * we will remove anyways 
-           */
-          /*
-             parent_.auth_pending_transports_.erase(key);
-             FDS_PLOG(g_fdslog) << __FUNCTION__ << " key: " << key;*/
           // TODO: Cleaning up session.  We dont have ip+port->sid mapping.
           // We may have to extend auth_pending_transports_ to contain this
           // info along with state information
@@ -587,8 +581,8 @@ class netSessionTbl {
       }
   ~netSessionTbl();
 
-  int src_ipaddr;
   std::string src_node_name;
+  int src_ipaddr;
   int port;
   FDSP_MgrIdType localMgrId;
 
@@ -677,11 +671,13 @@ ServerSessionT* createServerSession(int local_ipaddr,
     sessionTbl[node_name_key] = session;
     sessionTblMutex->unlock();
 
+#if 0
     // TODO:  Why do we need this for every server session
     threadManager = ThreadManager::newSimpleThreadManager(num_threads);
     threadFactory = boost::shared_ptr<PosixThreadFactory>(new PosixThreadFactory());
     threadManager->threadFactory(threadFactory);
     threadManager->start();
+#endif
 
     return session;
 }
@@ -702,9 +698,11 @@ fds_mutex   *sessionTblMutex;
 
 int num_threads;
 
+#if 0
 // Server Side Local variables 
 boost::shared_ptr<ThreadManager> threadManager;
 boost::shared_ptr<PosixThreadFactory> threadFactory;
+#endif
 };
 
 typedef boost::shared_ptr<netSessionTbl> netSessionTblPtr;

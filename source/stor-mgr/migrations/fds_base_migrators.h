@@ -3,10 +3,6 @@
 
 namespace fds {
 
-/* Global migration service singleton */
-class FdsMigrationSvc;
-extern FdsMigrationSvc *g_migrationSvc;
-
 /**
  * Base migrator class
  */
