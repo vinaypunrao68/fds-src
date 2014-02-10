@@ -9,7 +9,8 @@ user_fds_so_libs  :=
 user_fds_ar_libs  := \
     fds-om-lib \
     fds-om-common \
-    fds-om-dlt
+    fds-om-dlt \
+	fds-plat-lib
 
 user_non_fds_libs := \
     leveldb

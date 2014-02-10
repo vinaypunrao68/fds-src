@@ -13,27 +13,26 @@ namespace fds {
 
 OM_NodeDomainMod             gl_OMNodeDomainMod("OM-Node");
 
-OM_NodeDomainMod::OM_NodeDomainMod(char const *const name)
-        : Module(name)
+OM_NodeDomainMod::OM_NodeDomainMod(char const *const name) : Module(name)
 {
-    omcpSessTbl = boost::shared_ptr<netSessionTbl>(
-        new netSessionTbl(FDSP_ORCH_MGR));
-    ctrlRspHndlr = boost::shared_ptr<OM_ControlRespHandler>(
-        new OM_ControlRespHandler());
+    om_locDomain = new OM_NodeContainer();
 }
 
-OM_NodeDomainMod::~OM_NodeDomainMod() {
-    omcpSessTbl->endAllSessions();
+OM_NodeDomainMod::~OM_NodeDomainMod()
+{
+    delete om_locDomain;
 }
 
+/**
+ * Module functions
+ */
 int
 OM_NodeDomainMod::mod_init(SysParams const *const param)
 {
     Module::mod_init(param);
 
     FdsConfigAccessor conf_helper(g_fdsprocess->get_conf_helper());
-    test_mode = conf_helper.get<bool>("test_mode");
-
+    om_test_mode = conf_helper.get<bool>("test_mode");
     return 0;
 }
 
@@ -63,47 +62,18 @@ Error
 OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
                                    const FdspNodeRegPtr msg)
 {
-    Error err(ERR_OK);
-    fds_bool_t         add;
-    NodeAgent::pointer agent;
-    std::string node_name = msg->node_name;
+    NodeAgent::pointer newNode;
+    Error err = om_locDomain->dc_register_node(uuid, msg, &newNode);
 
-    add   = false;
-    agent = om_node_info(uuid);
+    if (err == ERR_OK) {
+        // If this is a SM or DM, let existing nodes know about this node.
+        fds_verify(newNode != NULL);
+        om_locDomain->om_bcast_new_node(newNode, msg);
 
-    if (agent == NULL) {
-        // this is a new node
-        add   = true;
-        agent = NodeAgent::agt_cast_ptr(rs_alloc_new(uuid));
-    } else {
-        if (node_name.compare(agent->get_node_name()) != 0) {
-            // looks like this node name produces same uuid as
-            // another existing nodes' name, return error so the
-            // client can pick another name
-            err = Error(ERR_DUPLICATE_UUID);
-            return err;
-        }
-        // node exists
-    }
-    agent->node_update_info(msg);
-    if (add == true) {
-        // Create an RPC endpoint to the node
-        if (!test_mode) {
-            NodeAgentCpSessionPtr session(
-                omcpSessTbl->startSession<netControlPathClientSession>(
-                    agent->get_ip_str(),
-                    agent->get_ctrl_port(),
-                    FDSP_STOR_MGR,  // TODO(Andrew): Should be just a node
-                    1,  // Just 1 channel for now...
-                    ctrlRspHndlr));
-
-            // For now, ensure we can communicate to the node
-            // before proceeding
-            fds_verify(session != NULL);
-            agent->setCpSession(session);
-        }
-        // Add node the the node map
-        om_activate_node(agent->rs_my_index());
+        // Let this new node know about exisiting node list.
+        // TODO(Andrew): this should change into dissemination of the cur cluster map.
+        //
+        om_locDomain->om_update_node_list(newNode, msg);
     }
     /* XXX: TODO (vy), remove this code once we have node FSM */
     OM_Module *om = OM_Module::om_singleton();
@@ -118,14 +88,50 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
             return err;
         }
     }
-
     // TODO(Andrew): We should decouple registration from
     // cluster map addition eventually. We may want to add
     // the node to the inventory and then wait for a CLI
     // cmd to make the node a member.
     om_update_cluster_map();
-
     return err;
+}
+
+// om_del_node_info
+// ----------------
+//
+Error
+OM_NodeDomainMod::om_del_node_info(const NodeUuid& uuid,
+                                   const std::string& node_name)
+{
+    Error err = om_locDomain->dc_unregister_node(uuid, node_name);
+
+    om_update_cluster_map();
+    return err;
+}
+
+// om_update_cluster_map
+// ---------------------
+//
+void
+OM_NodeDomainMod::om_update_cluster_map()
+{
+    OM_SmContainer::pointer smNodes = om_locDomain->om_sm_nodes();
+    NodeList       addNodes, rmNodes;
+    OM_Module     *om;
+    OM_DLTMod     *dlt;
+    ClusterMap    *clus;
+    DataPlacement *dp;
+
+    om   = OM_Module::om_singleton();
+    dp   = om->om_dataplace_mod();
+    dlt  = om->om_dlt_mod();
+    clus = om->om_clusmap_mod();
+
+    std::cout << "Call cluster update map" << std::endl;
+
+    smNodes->om_splice_nodes_pend(&addNodes, &rmNodes);
+    clus->updateMap(addNodes, rmNodes);
+    // dlt->dlt_deploy_event(DltCompEvt(dp));
 }
 
 /**
@@ -161,27 +167,6 @@ OM_NodeDomainMod::om_update_cluster() {
     // be done here. It should be done when we receive
     // acks for the commit.
     dltMod->dlt_deploy_event(DltCommitOkEvt());
-}
-
-// om_del_node_info
-// ----------------
-//
-Error
-OM_NodeDomainMod::om_del_node_info(const NodeUuid& uuid,
-                                   const std::string& node_name)
-{
-    Error err(ERR_OK);
-    NodeAgent::pointer agent;
-
-    agent = om_node_info(uuid);
-    if ((agent == NULL) ||
-        (node_name.compare(agent->get_node_name()) != 0)) {
-        err = Error(ERR_NOT_FOUND);
-        return err;
-    }
-    om_deactivate_node(agent->rs_my_index());
-    om_update_cluster_map();
-    return err;
 }
 
 // om_persist_node_info
@@ -313,34 +298,6 @@ void
 OM_ControlRespHandler::NotifyDMTUpdateResp(
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     FDS_ProtocolInterface::FDSP_DMT_TypePtr& dmt_info_resp) {
-}
-
-// om_update_cluster_map
-// ---------------------
-//
-void
-OM_NodeDomainMod::om_update_cluster_map()
-{
-    NodeList       addNodes, rmNodes;
-    OM_Module     *om;
-    OM_DLTMod     *dlt;
-    ClusterMap    *clus;
-    DataPlacement *dp;
-
-    rs_mtx.lock();
-    addNodes.splice(addNodes.begin(), node_up_pend);
-    rmNodes.splice(rmNodes.begin(), node_down_pend);
-    rs_mtx.unlock();
-
-    om   = OM_Module::om_singleton();
-    dp   = om->om_dataplace_mod();
-    dlt  = om->om_dlt_mod();
-    clus = om->om_clusmap_mod();
-
-    std::cout << "Call cluster update map" << std::endl;
-
-    clus->updateMap(addNodes, rmNodes);
-    // dlt->dlt_deploy_event(DltCompEvt(dp));
 }
 
 }  // namespace fds

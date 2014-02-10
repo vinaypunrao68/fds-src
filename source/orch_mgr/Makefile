@@ -10,6 +10,7 @@ user_fds_ar_libs  := \
     fds-om-common \
     fds-om-lib \
     fds-om-dlt \
+	fds-plat-lib \
     fds-thread \
     fds-lib \
     fds-util \

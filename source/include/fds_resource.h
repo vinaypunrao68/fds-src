@@ -71,10 +71,10 @@ class Resource
     typedef boost::intrusive_ptr<Resource> pointer;
     typedef boost::intrusive_ptr<const Resource> const_ptr;
 
-    inline char const *const rs_get_name() const { return rs_name; }
+    inline char const *const  rs_get_name() const { return rs_name; }
     inline const ResourceUUID rs_get_uuid() const { return rs_uuid; }
-    inline fds_uint32_t rs_my_index() { return rs_index; }
-    inline fds_mutex *rs_mutex() { return &rs_mtx; }
+    inline fds_uint32_t       rs_my_index() { return rs_index; }
+    inline fds_mutex *        rs_mutex() { return &rs_mtx; }
 
   protected:
     friend class RsContainer;
@@ -85,7 +85,7 @@ class Resource
 
     virtual ~Resource() {}
     Resource(const ResourceUUID &uuid)
-        : rs_uuid(uuid), rs_refcnt(0), rs_mtx("rs-mtx") {}
+        : rs_uuid(uuid), rs_mtx("rs-mtx"), rs_refcnt(0) {}
 
   private:
     mutable boost::atomic<int>  rs_refcnt;
