@@ -71,6 +71,10 @@ class NodeInventory : public Resource
      */
     virtual void node_set_weight(fds_uint64_t weight);
 
+    inline void set_node_state(FdspNodeState state) {
+        nd_node_state = state;
+    }
+
     /**
      * Return the mutex protecting this object.
      */
@@ -97,6 +101,9 @@ class NodeInventory : public Resource
 
     inline const node_capability_t& node_capability() const {
         return nd_capability;
+    }
+    inline FdspNodeState node_state() const {
+        return nd_node_state;
     }
 
   protected:
@@ -256,6 +263,8 @@ class OM_NodeDomainMod : public Module, public OM_NodeContainer
      */
     virtual void om_update_cluster();
 
+    virtual Error om_recv_migration_done(const NodeUuid& uuid,
+                                         fds_uint64_t dlt_version);
 
     virtual Error om_del_node_info(const NodeUuid& uuid,
                                    const std::string& node_name);

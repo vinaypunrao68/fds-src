@@ -105,10 +105,9 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
     // +------------+----------------+------------+-----------------+-----------------+
     Row< DST_Idle   , DltCompEvt     , DST_Comp   , DACT_Compute    , none            >,
     // +------------+----------------+------------+-----------------+-----------------+
-    Row< DST_Comp   , DltRebalEvt   , DST_Rebal  , DACT_Rebal      , none            >,
+    Row< DST_Comp   , DltRebalEvt    , DST_Rebal  , DACT_Rebal      , none            >,
     // +------------+----------------+------------+-----------------+-----------------+
-    Row< DST_Rebal  , DltRebalOkEvt  , DST_Rebal  , none            , GRD_DltRebal    >,
-    Row< DST_Rebal  , DltCommitEvt   , DST_Commit , DACT_Commit     , none            >,
+    Row< DST_Rebal  , DltRebalOkEvt  , DST_Commit , DACT_Commit     , GRD_DltRebal    >,
     // +------------+----------------+------------+-----------------+-----------------+
     Row< DST_Commit , DltCommitOkEvt , DST_Idle   , none            , GRD_DltCommit   >
     // +------------+----------------+------------+-----------------+-----------------+
@@ -179,12 +178,6 @@ OM_DLTMod::dlt_deploy_event(DltRebalEvt const &evt)
 
 void
 OM_DLTMod::dlt_deploy_event(DltRebalOkEvt const &evt)
-{
-    dlt_dply_fsm->process_event(evt);
-}
-
-void
-OM_DLTMod::dlt_deploy_event(DltCommitEvt const &evt)
 {
     dlt_dply_fsm->process_event(evt);
 }
@@ -264,12 +257,12 @@ void
 DltDplyFSM::DACT_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "FSM DACT_Commit";
-    DltCommitEvt commitEvt = (DltCommitEvt)evt;
+    DltRebalOkEvt rebalOkEvt = (DltRebalOkEvt)evt;
     Error err(ERR_OK);
 
     // TODO(Andrew): Commit DLT locally as an 'official' version
     // in the data placement engine
-    DataPlacement *dp = commitEvt.ode_dp;
+    DataPlacement *dp = rebalOkEvt.ode_dp;
     fds_verify(dp != NULL);
 
     // Send new DLT to each node in the cluster map
@@ -284,8 +277,34 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 bool
 DltDplyFSM::GRD_DltRebal::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    std::cout << "FSM DLT rebalance guard" << std::endl;
-    return true;
+    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+    DltRebalOkEvt rebalOkEvt = (DltRebalOkEvt)evt;
+    ClusterMap* clusterMap = rebalOkEvt.ode_clusmap;
+    fds_verify(clusterMap != NULL);
+
+    // when all added nodes are in 'node up' state,
+    // we are getting out of this state
+    std::unordered_set<NodeUuid, UuidHash> addedNodes = clusterMap->getAddedNodes();
+    fds_bool_t all_up = true;
+    for (std::unordered_set<NodeUuid, UuidHash>::const_iterator cit = addedNodes.cbegin();
+         cit != addedNodes.cend();
+         ++cit) {
+        NodeAgent::pointer agent = domain->om_node_info(*cit);
+        fds_verify(agent != NULL);
+        FDS_PLOG_SEV(g_fdslog, fds_log::debug)
+                << "GRD_DltRebal: Added node " << agent->get_node_name()
+                << " state " << agent->node_state();
+        if (agent->node_state() != FDS_ProtocolInterface::FDS_Node_Up) {
+            all_up = false;
+            break;
+        }
+    }
+
+    FDS_PLOG_SEV(g_fdslog, fds_log::debug)
+            << "FSM GRD_DltRebal: was/is waiting for rebalance ok from "
+            << addedNodes.size() << " node(s), current result: " << all_up;
+
+    return all_up;
 }
 
 // GRD_DltCommit
@@ -295,7 +314,7 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 bool
 DltDplyFSM::GRD_DltCommit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    std::cout << "FSM DLT commit guard" << std::endl;
+    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "FSM DLT commit guard";
     return true;
 }
 
