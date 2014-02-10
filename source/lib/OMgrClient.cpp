@@ -644,7 +644,7 @@ int OMgrClient::recvDLTUpdate(bool dlt_type, std::string& dlt_data) {
 
   omc_lock.write_lock();
   dltMgr.addSerializedDLT(dlt_data,dlt_type);
-  dltMgr.dump(true);
+  dltMgr.dump();
   omc_lock.write_unlock();
 
   return (0);
@@ -656,7 +656,7 @@ int OMgrClient::recvDLTStartMigration(bool dlt_type, std::string& dlt_data) {
 
   omc_lock.write_lock();
   dltMgr.addSerializedDLT(dlt_data,dlt_type);
-  dltMgr.dump(true);
+  dltMgr.dump();
   omc_lock.write_unlock();
 
   return (0);

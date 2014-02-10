@@ -15,6 +15,7 @@
 #include <fds_module.h>
 #include <serialize.h>
 #include <string>
+#include <ostream>
 #include <util/Log.h>
 
 namespace fds {
@@ -59,6 +60,8 @@ namespace fds {
                 delete[] p;
             }
         }
+        friend std::ostream& operator<< (std::ostream &out,
+                                         const DltTokenGroup& tokenGroup);
 
   private:
         NodeUuid     *p;
@@ -146,7 +149,8 @@ namespace fds {
         void getSerialized(std::string& serializedData);  // NOLINT
 
         // print the dlt to the logs
-        void dump(bool fFull = false) const;
+        // will print full dlt if the loglevel is debug
+        void dump() const;
 
         /*
          * Module members
@@ -246,7 +250,8 @@ namespace fds {
         bool storeToFile(std::string filename);
 
         // print the dlt manager to the logs
-        void dump(bool fFull = false) const;
+        // will print full dlt if the loglevel is debug
+        void dump() const;
 
   private:
         const DLT* curPtr = NULL;

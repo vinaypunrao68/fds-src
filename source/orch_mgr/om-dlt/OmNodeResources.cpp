@@ -75,7 +75,7 @@ NodeInventory::node_update_info(const FdspNodeRegPtr msg)
     nd_ctrl_port        = msg->control_port;
     nd_node_name        = msg->node_name;
     nd_node_type        = msg->node_type;
-    nd_node_state       = FDS_ProtocolInterface::FDS_Node_Up;
+    nd_node_state       = FDS_ProtocolInterface::FDS_Start_Migration;
     nd_capability.disk_iops_max    = msg->disk_info.disk_iops_max;
     nd_capability.disk_iops_min    = msg->disk_info.disk_iops_min;
     nd_capability.disk_latency_max = msg->disk_info.disk_latency_max;

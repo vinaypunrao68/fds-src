@@ -25,12 +25,6 @@ using namespace msm::front;         // NOLINT
 using namespace msm::front::euml;   // NOLINT
 typedef msm::front::none msm_none;
 
-/* For logging purpose */
-extern fds_log* g_fdslog;
-static inline fds_log* GetLog() {
-    return g_fdslog;
-}
-
 /* Statemachine events */
 /* Triggered once response for copy tokens request is received */
 typedef FDSP_CopyTokenResp CopyTokRespEvt;

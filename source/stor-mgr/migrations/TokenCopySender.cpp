@@ -24,12 +24,6 @@ using namespace msm::front;  // NOLINT
 using namespace msm::front::euml;   // NOLINT
 typedef msm::front::none msm_none;
 
-/* For logging purpose */
-extern fds_log* g_fdslog;
-static inline fds_log* GetLog() {
-    return g_fdslog;
-}
-
 /* Statemachine Events */
 /* Triggered after token data has been read from object store */
 struct TokReadEvt{};

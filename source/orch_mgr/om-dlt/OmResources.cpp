@@ -146,22 +146,41 @@ OM_NodeDomainMod::om_update_cluster() {
     // for the new DLT
     DltRebalEvt rebalEvent(dp);
     dltMod->dlt_deploy_event(rebalEvent);
+}
 
-    // TODO(Andrew): This state transition should not
-    // be done here. It should be done when we receive
-    // notification that the rebalance is done.
-    dltMod->dlt_deploy_event(DltRebalOkEvt());
+// Called when OM receives notification that the rebalance is
+// done on node with uuid 'uuid'.
+Error
+OM_NodeDomainMod::om_recv_migration_done(const NodeUuid& uuid,
+                                         fds_uint64_t dlt_version) {
+    Error err(ERR_OK);
+    OM_Module *om = OM_Module::om_singleton();
+    OM_DLTMod *dltMod = om->om_dlt_mod();
+    DataPlacement *dp = om->om_dataplace_mod();
+    NodeAgent::pointer agent = om_node_info(uuid);
+    if (agent == NULL) {
+        FDS_PLOG_SEV(g_fdslog, fds_log::error)
+                << "OM: Received migration done event from unknown node "
+                << ": uuid " << uuid.uuid_get_val();
+        err = Error(ERR_NOT_FOUND);
+        return err;
+    }
 
-    // TODO(Andrew): This state transition should not
-    // be done here. It should be done wherever we
-    // transition to rebalance OK and want to send DLTs
-    DltCommitEvt commitEvent(dp);
-    dltMod->dlt_deploy_event(commitEvent);
+    // Set node's state to 'node_up'
+    agent->set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
+
+    // 'rebal ok' event, once all nodes sent migration done
+    // notification, the state machine will commit the DLT
+    // to other nodes.
+    ClusterMap* cm = om->om_clusmap_mod();
+    dltMod->dlt_deploy_event(DltRebalOkEvt(cm, dp));
 
     // TODO(Andrew): This state transition should not
     // be done here. It should be done when we receive
     // acks for the commit.
     dltMod->dlt_deploy_event(DltCommitOkEvt());
+
+    return err;
 }
 
 // om_del_node_info
