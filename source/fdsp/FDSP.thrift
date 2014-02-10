@@ -718,8 +718,11 @@ struct FDSP_MigMsgHdrType
 	/* Header */
 	1: FDSP_MsgHdrType            base_header
 
+	/* Id of the overall migration */
+	2: string                     mig_id
+
 	/* Id to identify unique migration between sender and receiver */
-	2: string                     migration_id
+	3: string                     mig_stream_id;
 }
 
 /* Payload for CopyToken RPC */

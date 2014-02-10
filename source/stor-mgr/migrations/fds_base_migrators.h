@@ -8,19 +8,19 @@ namespace fds {
  */
 class FdsMigrator {
 public:
-    FdsMigrator(const std::string &migration_id) {
-        migration_id_ = migration_id;
+    FdsMigrator(const std::string &mig_id) {
+        mig_id_ = mig_id;
     }
 
     virtual ~FdsMigrator() {
     }
 
-    std::string get_migration_id() {
-        return migration_id_;
+    std::string get_mig_id() {
+        return mig_id_;
     }
 protected:
     /* Migration identifier */
-    std::string migration_id_;
+    std::string mig_id_;
 };
 
 /**
@@ -28,8 +28,8 @@ protected:
  */
 class MigrationSender : public FdsMigrator {
 public:
-    MigrationSender(const std::string &migration_id)
-    : FdsMigrator(migration_id)
+    MigrationSender(const std::string &mig_id)
+    : FdsMigrator(mig_id)
     {
     }
 };
@@ -39,8 +39,8 @@ public:
  */
 class MigrationReceiver : public FdsMigrator {
 public:
-    MigrationReceiver(const std::string &migration_id)
-    : FdsMigrator(migration_id)
+    MigrationReceiver(const std::string &mig_id)
+    : FdsMigrator(mig_id)
     {
     }
 };
