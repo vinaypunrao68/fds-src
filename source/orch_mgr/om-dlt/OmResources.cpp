@@ -115,7 +115,8 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
 
         node_up_cnt++;
         if (node_up_cnt < 1) {
-            std::cout << "Batch up node up, cnt " << node_up_cnt << std::endl;
+            FDS_PLOG_SEV(g_fdslog, fds_log::normal)
+                    << "OM_NBodeDomainMod: Batch up node up, cnt " << node_up_cnt;
             return err;
         }
     }
@@ -358,7 +359,7 @@ OM_NodeDomainMod::om_update_cluster_map()
     dlt  = om->om_dlt_mod();
     clus = om->om_clusmap_mod();
 
-    std::cout << "Call cluster update map" << std::endl;
+    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "OM_NodeDomainMod: Call cluster update map";
 
     clus->updateMap(addNodes, rmNodes);
     // dlt->dlt_deploy_event(DltCompEvt(dp));

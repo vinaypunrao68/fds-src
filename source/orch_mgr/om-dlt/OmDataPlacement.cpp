@@ -338,26 +338,44 @@ Error
 DataPlacement::commitDlt() {
     Error err(ERR_OK);
 
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr(
+        new FDS_ProtocolInterface::FDSP_MsgHdrType());
+    FDS_ProtocolInterface::FDSP_DLT_Data_TypePtr dltMsg(
+        new FDS_ProtocolInterface::FDSP_DLT_Data_Type());
+
     placementMutex->lock();
 
     // Commit the current DLT to the
     // official DLT history
+    dltMsg->dlt_type= true;
+    FDS_PLOG_SEV(g_fdslog, fds_log::notification)
+            << "Commiting the DLT to existing nodes " << dltMsg->dlt_type
+            << " version " << curDlt->getVersion();
+    curDlt->getSerialized(dltMsg->dlt_data);
+    curDlt->dump(true);
 
     // Async notify other nodes of the new DLT
+    std::unordered_set<NodeUuid, UuidHash> addedNodes = curClusterMap->getAddedNodes();
+    FDS_PLOG(g_fdslog) << "commitDlt: added nodes " << addedNodes.size();
     for (ClusterMap::const_iterator it = curClusterMap->cbegin();
          it != curClusterMap->cend();
          it++) {
         NodeAgent::pointer na = it->second;
-        NodeAgentCpReqClientPtr naClient = na->getCpClient();
+        // notify nodes with 'node up' status that are not just added nodes
+        if ((na->node_state() == FDS_ProtocolInterface::FDS_Node_Up) &&
+            (addedNodes.count(na->get_uuid()) == 0)) {
+            NodeAgentCpReqClientPtr naClient = na->getCpClient();
+            na->init_msg_hdr(msgHdr);
+            msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_DLT_UPDATE;
+            msgHdr->src_id = FDS_ProtocolInterface::FDSP_ORCH_MGR;
+            msgHdr->dst_id = FDS_ProtocolInterface::FDSP_STOR_MGR;
 
-        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr(
-            new FDS_ProtocolInterface::FDSP_MsgHdrType());
-        FDS_ProtocolInterface::FDSP_DLT_Data_TypePtr dltMsg(
-            new FDS_ProtocolInterface::FDSP_DLT_Data_Type());
-        naClient->NotifyDLTUpdate(msgHdr, dltMsg);
+            naClient->NotifyDLTUpdate(msgHdr, dltMsg);
 
-        FDS_PLOG_SEV(g_fdslog, fds_log::notification)
-                << "Sent DLT update to " << na->get_uuid().uuid_get_val();
+            FDS_PLOG_SEV(g_fdslog, fds_log::notification)
+                    << "Sent DLT update to node " << std::hex
+                    << na->get_uuid().uuid_get_val() << std::dec;
+        }
     }
 
     placementMutex->unlock();

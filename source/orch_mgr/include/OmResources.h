@@ -50,7 +50,6 @@ class NodeInventory : public Resource
 
     explicit NodeInventory(const NodeUuid &uuid);
     virtual ~NodeInventory();
-    void init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr)const;
 
     void node_name(std::string *name) const {}
 
@@ -165,6 +164,8 @@ class NodeAgent : public NodeInventory
      * is mutable by the caller.
      */
     NodeAgentCpReqClientPtr getCpClient() const;
+
+    void init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const;
 
   protected:
     friend class            OM_NodeContainer;

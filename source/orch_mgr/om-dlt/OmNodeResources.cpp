@@ -20,26 +20,6 @@ NodeInventory::NodeInventory(const NodeUuid &uuid)
 
 NodeInventory::~NodeInventory() {}
 
-void NodeInventory::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
-{
-    msgHdr->minor_ver = 0;
-    msgHdr->msg_id =  1;
-
-    msgHdr->major_ver = 0xa5;
-    msgHdr->minor_ver = 0x5a;
-
-    msgHdr->num_objects = 1;
-    msgHdr->frag_len = 0;
-    msgHdr->frag_num = 0;
-
-    msgHdr->tennant_id = 0;
-    msgHdr->local_domain_id = 0;
-    msgHdr->src_node_name = "";
-
-    msgHdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
-    msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_OK;
-}
-
 // node_stor_weight
 // ----------------
 
@@ -123,6 +103,29 @@ NodeAgent::getCpClient() const {
     return ndCpClient;
 }
 
+void
+NodeAgent::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
+{
+    msgHdr->minor_ver = 0;
+    msgHdr->msg_id =  1;
+
+    msgHdr->major_ver = 0xa5;
+    msgHdr->minor_ver = 0x5a;
+
+    msgHdr->num_objects = 1;
+    msgHdr->frag_len = 0;
+    msgHdr->frag_num = 0;
+
+    msgHdr->tennant_id = 0;
+    msgHdr->local_domain_id = 0;
+    msgHdr->src_node_name = "";
+
+    msgHdr->session_uuid = ndSessionId;
+
+    msgHdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_OK;
+}
+
 OM_NodeContainer::OM_NodeContainer()
     : RsContainer(), node_inuse(OM_MAX_CONNECTED_NODES), node_mtx("container")
 {
@@ -198,8 +201,9 @@ OM_NodeContainer::om_activate_node(fds_uint32_t node_idx)
     node_up_pend.push_back(agent);
     node_mtx.unlock();
 
-    std::cout << "Actiate node " << std::hex << node_idx << ", uuid "
-        << agent->nd_uuid.uuid_get_val() << ", ptr " << agent << std::endl;
+    FDS_PLOG_SEV(g_fdslog, fds_log::notification)
+            << "Activate node " << std::hex << node_idx << ", uuid "
+            << agent->nd_uuid.uuid_get_val();
 }
 
 // om_deactivate_node
@@ -214,8 +218,9 @@ OM_NodeContainer::om_deactivate_node(fds_uint32_t node_idx)
     fds_verify(agent != NULL);
     fds_verify(agent->nd_uuid.uuid_get_val() != 0);
 
-    std::cout << "Deactivate node " << std::hex << node_idx << ", uuid "
-        << agent->nd_uuid.uuid_get_val() << ", ptr " << agent << std::endl;
+    FDS_PLOG_SEV(g_fdslog, fds_log::notification)
+            << "Deactivate node " << std::hex << node_idx << ", uuid "
+            << agent->nd_uuid.uuid_get_val();
 
     node_mtx.lock();
     node_map.erase(agent->nd_uuid);
