@@ -46,13 +46,15 @@
 #define _ATLINE_
 #endif
 
-#define LOGTRACE    FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::trace) _ATLINE_
-#define LOGDEBUG    FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::debug) _ATLINE_
-#define LOGNORMAL   FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::normal) _ATLINE_
-#define LOGNOTIFY   FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::notification) _ATLINE_
-#define LOGWARN	    FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::warning) _ATLINE_
-#define LOGERROR    FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::error) _ATLINE_
-#define LOGCRITICAL FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::critical) _ATLINE_
+#define LEVELCHECK(sev) if (LOGGERPTR->getSeverityLevel()<= fds::fds_log::sev)
+
+#define LOGTRACE    LEVELCHECK(trace)        FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::trace)        _ATLINE_
+#define LOGDEBUG    LEVELCHECK(debug)        FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::debug)        _ATLINE_
+#define LOGNORMAL   LEVELCHECK(normal)       FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::normal)       _ATLINE_
+#define LOGNOTIFY   LEVELCHECK(notification) FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::notification) _ATLINE_
+#define LOGWARN	    LEVELCHECK(warning)      FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::warning)      _ATLINE_
+#define LOGERROR    LEVELCHECK(error)        FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::error)        _ATLINE_
+#define LOGCRITICAL LEVELCHECK(critical)     FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::critical)     _ATLINE_
 
 namespace fds {
 
@@ -117,8 +119,11 @@ namespace fds {
     ~fds_log();
     
     void setSeverityFilter(const severity_level &level);
-
+    inline severity_level getSeverityLevel() { return severityLevel; }
     boost::log::sources::severity_logger_mt<severity_level>& get_slog() { return slg; }
+
+private :
+    severity_level severityLevel = normal;
   };
 
   struct HasLogger {
@@ -130,6 +135,9 @@ namespace fds {
     private:
       mutable fds_log* logptr=NULL;
   };
+
+  // get the global logger;
+  fds_log* GetLog();
 
   typedef boost::shared_ptr<fds_log> fds_logPtr;
 

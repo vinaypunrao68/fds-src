@@ -203,5 +203,13 @@ fds_log* HasLogger::SetLog(fds_log* logptr) const {
     this->logptr = logptr;
 }
 
+// get the global logger
+fds_log* GetLog() {
+    if (g_fdslog) return g_fdslog;
+    // this is a fallback.
+    // if the process did not explicity init ..
+    init_process_globals("fds");
+    return g_fdslog;
+}
 
 }  // namespace fds
