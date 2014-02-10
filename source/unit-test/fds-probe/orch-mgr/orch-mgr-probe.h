@@ -243,7 +243,6 @@ typedef enum
     DLT_EVT_COMPUTE        = 0,
     DLT_EVT_UPDATE         = 1,
     DLT_EVT_UPDATE_DONE    = 2,
-    DLT_EVT_COMMIT         = 3,
     DLT_EVT_COMMIT_DONE    = 4,
     DLT_EVT_MAX
 } dlt_fsm_evt_e;
@@ -286,8 +285,6 @@ class UT_OM_DltFsmTempl : public JsObjTemplate
             p->dlt_evt = DLT_EVT_UPDATE;
         } else if (strcmp(evt, "update-done") == 0) {
             p->dlt_evt = DLT_EVT_UPDATE_DONE;
-        } else if (strcmp(evt, "commit") == 0) {
-            p->dlt_evt = DLT_EVT_COMMIT;
         } else {
             p->dlt_evt = DLT_EVT_COMMIT_DONE;
         }
