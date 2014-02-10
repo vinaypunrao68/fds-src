@@ -30,7 +30,7 @@ class TokenCopySender : public MigrationSender,
 public:
     TokenCopySender(FdsMigrationSvc *migrationSvc,
             SmIoReqHandler *data_store,
-            const std::string &migration_id,
+            const std::string &mig_id,
             fds_threadpoolPtr threadpool,
             fds_logPtr log,
             const std::string &rcvr_ip,

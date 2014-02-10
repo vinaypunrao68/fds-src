@@ -48,7 +48,7 @@ typedef boost::shared_ptr<MigSvcCopyTokensReq> MigSvcCopyTokensReqPtr;
 class MigSvcMigrationComplete
 {
 public:
-    std::string migration_id;
+    std::string mig_id;
 };
 typedef boost::shared_ptr<MigSvcMigrationComplete> MigSvcMigrationCompletePtr;
 

@@ -254,7 +254,7 @@ struct TokenCopySenderFSM_
                     fsm.migrationSvc_->get_ip();
             fsm.push_tok_req_.header.base_header.session_uuid =
                     fsm.rcvr_session_->getSessionId();
-            fsm.push_tok_req_.header.migration_id = fsm.parent_->get_migration_id();
+            fsm.push_tok_req_.header.mig_id = fsm.parent_->get_mig_id();
             fsm.push_tok_req_.obj_list.clear();
             fsm.push_tok_req_.token_id = fsm.objstor_read_req_.token_id;
             // TODO(rao): We should std::move here
@@ -274,7 +274,7 @@ struct TokenCopySenderFSM_
             LOGDEBUG << "teardown";
 
             MigSvcMigrationCompletePtr mig_complete(new MigSvcMigrationComplete());
-            mig_complete->migration_id = fsm.parent_->get_migration_id();
+            mig_complete->mig_id = fsm.parent_->get_mig_id();
             FdsActorRequestPtr far(new FdsActorRequest(
                     FAR_ID(MigSvcMigrationComplete), mig_complete));
 
@@ -384,14 +384,14 @@ struct TokenCopySenderFSM_
 
 TokenCopySender::TokenCopySender(FdsMigrationSvc *migrationSvc,
         SmIoReqHandler *data_store,
-        const std::string &migration_id,
+        const std::string &mig_id,
         fds_threadpoolPtr threadpool,
         fds_logPtr log,
         const std::string &rcvr_ip,
         const int &rcvr_port,
         const std::set<fds_token_id> &tokens,
         boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler)
-    : MigrationSender(migration_id),
+    : MigrationSender(mig_id),
       FdsRequestQueueActor(threadpool),
       log_(log)
 {

@@ -572,19 +572,14 @@ class netSessionTbl {
       : src_node_name(_src_node_name),
       src_ipaddr(_src_ipaddr),
       port(_port),
-      num_threads(_num_threads),
-      localMgrId(myMgrId) {
+      localMgrId(myMgrId),
+      num_threads(_num_threads) {
           sessionTblMutex = new fds_mutex("RPC Tbl mutex");
       }
   netSessionTbl(FDSP_MgrIdType myMgrId)
       : netSessionTbl("", 0, 0, 50, myMgrId) {
       }
   ~netSessionTbl();
-
-  std::string src_node_name;
-  int src_ipaddr;
-  int port;
-  FDSP_MgrIdType localMgrId;
 
   static string ipAddr2String(int ipaddr);
   static int ipString2Addr(string ipaddr_str);
@@ -691,6 +686,11 @@ void              endServerSession(netSession *server_session );
 virtual std::string log_string() {
     return "NetSessionTable";
 }
+
+  std::string src_node_name;
+  int src_ipaddr;
+  int port;
+  FDSP_MgrIdType localMgrId;
 
 private: /* data */
 std::unordered_map<std::string, netSession*> sessionTbl;
