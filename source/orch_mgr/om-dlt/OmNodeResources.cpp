@@ -9,248 +9,229 @@
 
 namespace fds {
 
-NodeInventory::NodeInventory(const NodeUuid &uuid)
-    : nd_uuid(uuid), nd_mtx("node mtx")
-{
-    nd_gbyte_cap   = 0;
-    nd_ip_addr     = 0;
-    nd_data_port   = 0;
-    nd_ctrl_port   = 0;
-}
-
-NodeInventory::~NodeInventory() {}
-
-void NodeInventory::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
-{
-    msgHdr->minor_ver = 0;
-    msgHdr->msg_id =  1;
-
-    msgHdr->major_ver = 0xa5;
-    msgHdr->minor_ver = 0x5a;
-
-    msgHdr->num_objects = 1;
-    msgHdr->frag_len = 0;
-    msgHdr->frag_num = 0;
-
-    msgHdr->tennant_id = 0;
-    msgHdr->local_domain_id = 0;
-    msgHdr->src_node_name = "";
-
-    msgHdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
-    msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_OK;
-}
-
-// node_stor_weight
-// ----------------
-
-// node_stor_weight
-// ----------------
-//
-fds_uint32_t
-NodeInventory::node_stor_weight() const
-{
-    return nd_gbyte_cap;
-}
-
-void
-NodeInventory::node_set_weight(fds_uint64_t weight) {
-    nd_gbyte_cap = weight;
-}
+// ---------------------------------------------------------------------------------
+// OM SM NodeAgent
+// ---------------------------------------------------------------------------------
+OM_SmAgent::~OM_SmAgent() {}
+OM_SmAgent::OM_SmAgent(const NodeUuid &uuid) : SmAgent(uuid) {}
 
 int
-NodeInventory::node_calc_stor_weight()
+OM_SmAgent::node_calc_stor_weight()
 {
     return 0;
 }
 
 void
-NodeInventory::node_update_info(const FdspNodeRegPtr msg)
+OM_SmAgent::setCpSession(NodeAgentCpSessionPtr session)
 {
-    fds_verify(nd_uuid.uuid_get_val() != 0);
-
-    nd_mtx.lock();
-    nd_ip_addr          = msg->ip_lo_addr;
-    nd_ip_str           = netSession::ipAddr2String(nd_ip_addr);
-    nd_data_port        = msg->data_port;
-    nd_ctrl_port        = msg->control_port;
-    nd_node_name        = msg->node_name;
-    nd_node_type        = msg->node_type;
-    nd_node_state       = FDS_ProtocolInterface::FDS_Start_Migration;
-    nd_capability.disk_iops_max    = msg->disk_info.disk_iops_max;
-    nd_capability.disk_iops_min    = msg->disk_info.disk_iops_min;
-    nd_capability.disk_latency_max = msg->disk_info.disk_latency_max;
-    nd_capability.disk_latency_min = msg->disk_info.disk_latency_min;
-    nd_capability.ssd_iops_max     = msg->disk_info.ssd_iops_max;
-    nd_capability.ssd_iops_min     = msg->disk_info.ssd_iops_min;
-    nd_capability.ssd_capacity     = msg->disk_info.ssd_capacity;
-    nd_capability.ssd_latency_max  = msg->disk_info.ssd_latency_max;
-    nd_capability.ssd_latency_min  = msg->disk_info.ssd_latency_min;
-    nd_disk_type        = msg->disk_info.disk_type,
-    nd_mtx.unlock();
-
-    // TODO(vy): fix the weight.
-    nd_gbyte_cap = nd_capability.ssd_capacity;
-}
-
-NodeAgent::NodeAgent(const NodeUuid &uuid)
-    : NodeInventory(uuid)
-{
-}
-
-NodeAgent::NodeAgent(const NodeUuid &uuid,
-                     fds_uint64_t nd_weight)
-        : NodeInventory(uuid)
-{
-    nd_gbyte_cap = nd_weight;
-}
-
-NodeAgent::~NodeAgent()
-{
-}
-
-void
-NodeAgent::setCpSession(NodeAgentCpSessionPtr session) {
     ndCpSession = session;
-
     ndSessionId = ndCpSession->getSessionId();
-    ndCpClient = ndCpSession->getClient();
-        FDS_PLOG_SEV(g_fdslog, fds_log::error)
-                << "Established connection with new node";
+    ndCpClient  = ndCpSession->getClient();
+
+    FDS_PLOG_SEV(g_fdslog, fds_log::normal) << "Established connection with new node";
 }
 
 NodeAgentCpReqClientPtr
-NodeAgent::getCpClient() const {
+OM_SmAgent::getCpClient() const
+{
     return ndCpClient;
 }
 
-OM_NodeContainer::OM_NodeContainer()
-    : RsContainer(), node_inuse(OM_MAX_CONNECTED_NODES), node_mtx("container")
+// ---------------------------------------------------------------------------------
+// OM SM NodeAgent Container
+// ---------------------------------------------------------------------------------
+OM_SmContainer::OM_SmContainer() : SmContainer(FDSP_ORCH_MGR)
 {
-    node_cur_idx = 0;
+    ctrlRspHndlr = boost::shared_ptr<OM_ControlRespHandler>(new OM_ControlRespHandler());
 }
 
-OM_NodeContainer::~OM_NodeContainer()
+OM_SmContainer::~OM_SmContainer()
 {
 }
 
-// om_node_info
-// ------------
+// agent_activate
+// --------------
 //
-NodeAgent::pointer
-OM_NodeContainer::om_node_info(fds_uint32_t node_idx)
+void
+OM_SmContainer::agent_activate(NodeAgent::pointer agent)
 {
-    if (node_idx < node_cur_idx) {
-        return node_inuse[node_idx];
-    }
-    return NULL;
+    FDS_PLOG_SEV(g_fdslog, fds_log::normal)
+        << "Actiate node uuid "
+        << agent->get_uuid().uuid_get_val() << ", ptr " << agent << std::endl;
+
+    rs_mtx.lock();
+    rs_register_mtx(agent);
+    node_up_pend.push_back(OM_SmAgent::agt_cast_ptr(agent));
+    rs_mtx.unlock();
 }
 
-NodeAgent::pointer
-OM_NodeContainer::om_node_info(const NodeUuid& uuid)
-{
-    // Key lookup should be thread-safe.
-    if (node_map.count(uuid) > 0)
-        return node_map[uuid];
-
-    return NULL;
-}
-
-// om_new_node
-// -----------
-//
-NodeAgent::pointer
-OM_NodeContainer::om_new_node(const NodeUuid& uuid)
-{
-    fds_uint32_t  idx;
-    NodeAgent    *agent;
-
-    agent = new NodeAgent(uuid);
-    node_mtx.lock();
-    idx = node_cur_idx;
-    if (idx < OM_MAX_CONNECTED_NODES) {
-        fds_verify(node_inuse[idx] == NULL);
-
-        node_cur_idx++;
-        agent->nd_index = idx;
-        node_inuse[idx] = agent;
-    } else {
-        delete agent;
-        agent = NULL;
-    }
-    node_mtx.unlock();
-    return agent;
-}
-
-// om_activate_node
+// agent_deactivate
 // ----------------
 //
 void
-OM_NodeContainer::om_activate_node(fds_uint32_t node_idx)
+OM_SmContainer::agent_deactivate(NodeAgent::pointer agent)
 {
-    NodeAgent::pointer agent;
+    FDS_PLOG_SEV(g_fdslog, fds_log::normal)
+        << "Deactivate node uuid "
+        << agent->get_uuid().uuid_get_val() << ", ptr " << agent << std::endl;
 
-    agent = om_node_info(node_idx);
-    fds_verify(agent != NULL);
-    fds_verify(agent->nd_uuid.uuid_get_val() != 0);
-
-    node_mtx.lock();
-    node_map[agent->nd_uuid] = agent;
-    node_up_pend.push_back(agent);
-    node_mtx.unlock();
-
-    std::cout << "Actiate node " << std::hex << node_idx << ", uuid "
-        << agent->nd_uuid.uuid_get_val() << ", ptr " << agent << std::endl;
+    rs_mtx.lock();
+    rs_unregister_mtx(agent);
+    node_down_pend.push_back(OM_SmAgent::agt_cast_ptr(agent));
+    rs_mtx.unlock();
 }
 
-// om_deactivate_node
-// ------------------
+// om_splice_nodes_pend
+// --------------------
 //
 void
-OM_NodeContainer::om_deactivate_node(fds_uint32_t node_idx)
+OM_SmContainer::om_splice_nodes_pend(NodeList *addNodes, NodeList *rmNodes)
 {
-    NodeAgent::pointer agent;
-
-    agent = om_node_info(node_idx);
-    fds_verify(agent != NULL);
-    fds_verify(agent->nd_uuid.uuid_get_val() != 0);
-
-    std::cout << "Deactivate node " << std::hex << node_idx << ", uuid "
-        << agent->nd_uuid.uuid_get_val() << ", ptr " << agent << std::endl;
-
-    node_mtx.lock();
-    node_map.erase(agent->nd_uuid);
-    node_down_pend.push_back(agent);
-    node_mtx.unlock();
+    rs_mtx.lock();
+    addNodes->splice(addNodes->begin(), node_up_pend);
+    rmNodes->splice(rmNodes->begin(), node_down_pend);
+    rs_mtx.unlock();
 }
 
-// om_ref_node
-// -----------
+// agent_register
+// --------------
 //
-void
-OM_NodeContainer::om_ref_node(NodeAgent::pointer node, fds_bool_t act)
+Error
+OM_SmContainer::agent_register(const NodeUuid       &uuid,
+                               const FdspNodeRegPtr  msg,
+                               NodeAgent::pointer   *out)
 {
-    node_mtx.lock();
-    fds_verify(node_inuse[node->node_index()] == NULL);
+    Error err = AgentContainer::agent_register(uuid, msg, out);
 
-    node_inuse[node->node_index()] = node;
-    if (act == true) {
-        node_map[node->nd_uuid.uuid_get_val()] = node;
+    if (OM_NodeDomainMod::om_in_test_mode() || (err != ERR_OK)) {
+        return err;
     }
-    node_mtx.unlock();
+    OM_SmAgent::pointer agent = OM_SmAgent::agt_cast_ptr(*out);
+    NodeAgentCpSessionPtr session(
+            ac_cpSessTbl->startSession<netControlPathClientSession>(
+                agent->get_ip_str(),
+                agent->get_ctrl_port(),
+                FDSP_STOR_MGR,  // TODO(Andrew): should be just a node
+                1,              // just 1 channel for now...
+                ctrlRspHndlr));
+
+    fds_verify(agent != NULL);
+    fds_verify(session != NULL);
+    agent->setCpSession(session);
+    return err;
 }
 
-// om_deref_node
-// -------------
+// agent_unregister
+// ----------------
+//
+Error
+OM_SmContainer::agent_unregister(const NodeUuid &uuid, const std::string &name)
+{
+    Error err = AgentContainer::agent_unregister(uuid, name);
+
+    return err;
+}
+
+// ---------------------------------------------------------------------------------
+// OM DM NodeAgent Container
+// ---------------------------------------------------------------------------------
+OM_DmContainer::OM_DmContainer() : DmContainer(FDSP_ORCH_MGR)
+{
+    ctrlRspHndlr = boost::shared_ptr<OM_ControlRespHandler>(new OM_ControlRespHandler());
+}
+
+// agent_register
+// --------------
+//
+Error
+OM_DmContainer::agent_register(const NodeUuid       &uuid,
+                               const FdspNodeRegPtr  msg,
+                               NodeAgent::pointer   *out)
+{
+    Error err = AgentContainer::agent_register(uuid, msg, out);
+
+    if (OM_NodeDomainMod::om_in_test_mode() || (err != ERR_OK)) {
+        return err;
+    }
+    OM_DmAgent::pointer agent = OM_DmAgent::agt_cast_ptr(*out);
+    NodeAgentCpSessionPtr session(
+            ac_cpSessTbl->startSession<netControlPathClientSession>(
+                agent->get_ip_str(),
+                agent->get_ctrl_port(),
+                FDSP_DATA_MGR,  // TODO(Andrew): should be just a node
+                1,              // just 1 channel for now...
+                ctrlRspHndlr));
+
+    fds_verify(agent != NULL);
+    fds_verify(session != NULL);
+    agent->setCpSession(session);
+    return err;
+}
+
+// ---------------------------------------------------------------------------------
+// OM AM NodeAgent Container
+// ---------------------------------------------------------------------------------
+OM_AmContainer::OM_AmContainer() : AmContainer(FDSP_ORCH_MGR)
+{
+    ctrlRspHndlr = boost::shared_ptr<OM_ControlRespHandler>(new OM_ControlRespHandler());
+}
+
+// agent_register
+// --------------
+//
+Error
+OM_AmContainer::agent_register(const NodeUuid       &uuid,
+                               const FdspNodeRegPtr  msg,
+                               NodeAgent::pointer   *out)
+{
+    Error err = AgentContainer::agent_register(uuid, msg, out);
+
+    if (OM_NodeDomainMod::om_in_test_mode() || (err != ERR_OK)) {
+        return err;
+    }
+    OM_AmAgent::pointer agent = OM_AmAgent::agt_cast_ptr(*out);
+
+    NodeAgentCpSessionPtr session(
+            ac_cpSessTbl->startSession<netControlPathClientSession>(
+                agent->get_ip_str(),
+                agent->get_ctrl_port(),
+                FDSP_DATA_MGR,  // TODO(Andrew): should be just a node
+                1,              // just 1 channel for now...
+                ctrlRspHndlr));
+
+    fds_verify(agent != NULL);
+    fds_verify(session != NULL);
+    agent->setCpSession(session);
+    return err;
+}
+
+// ---------------------------------------------------------------------------------
+// OM Node Container
+// ---------------------------------------------------------------------------------
+OM_NodeContainer::~OM_NodeContainer() {}
+OM_NodeContainer::OM_NodeContainer()
+    : DomainContainer("OM-Domain",
+                      NULL,
+                      new OM_SmContainer(),
+                      new OM_DmContainer(),
+                      new OM_AmContainer(),
+                      new OmContainer(FDSP_ORCH_MGR),
+                      NULL) {}
+
+// om_bcast_new_node
+// -----------------
 //
 void
-OM_NodeContainer::om_deref_node(NodeAgent::pointer node)
+OM_NodeContainer::om_bcast_new_node(NodeAgent::pointer node, const FdspNodeRegPtr ref)
 {
-    node_mtx.lock();
-    fds_verify(node_inuse[node->node_index()] == node);
+}
 
-    node_inuse[node->node_index()] = NULL;
-    node_map[node->nd_uuid.uuid_get_val()] = NULL;
-    node_mtx.unlock();
+// om_update_node_list
+// -------------------
+//
+void
+OM_NodeContainer::om_update_node_list(NodeAgent::pointer node, const FdspNodeRegPtr ref)
+{
 }
 
 }  // namespace fds

@@ -7,6 +7,7 @@
 #define SOURCE_ORCH_MGR_INCLUDE_OMCLUSTERMAP_H_
 
 #include <unordered_map>
+#include <list>
 #include <string>
 #include <atomic>
 #include <unordered_set>
@@ -24,7 +25,8 @@ namespace fds {
 /**
  * Type that maps a Node's UUID to it's agent descriptor.
  */
-typedef std::atomic<fds_uint64_t> AtomicMapVersion;
+typedef std::atomic<fds_uint64_t>           AtomicMapVersion;
+typedef std::unordered_map<NodeUuid, OM_SmAgent::pointer, UuidHash> NodeMap;
 
 /**
  * Defines the current state of the cluster at given points in time.

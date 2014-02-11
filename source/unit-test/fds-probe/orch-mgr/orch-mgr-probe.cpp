@@ -186,13 +186,11 @@ JsObject *
 UT_DP_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *out)
 {
     int               i, num;
+    NodeList          newNodes, rmNodes;
     FdspNodeRegPtr    ptr;
     UT_OM_NodeInfo   *node;
     ut_node_info_t   *info;
     OM_NodeDomainMod *domain;
-
-    std::list<NodeAgent::pointer> newNodes;
-    std::list<NodeAgent::pointer> rmNodes;
 
     domain = OM_NodeDomainMod::om_local_domain();
     ptr = FdspNodeRegPtr(new FdspNodeReg());
@@ -210,9 +208,9 @@ UT_DP_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput 
         ResourceUUID r_uuid(info->nd_uuid);
 
         if (info->add == true) {
-            newNodes.push_back(new NodeAgent(r_uuid, info->nd_weight));
+            domain->om_reg_node_info(r_uuid, ptr);
         } else {
-            rmNodes.push_back(new NodeAgent(r_uuid, info->nd_weight));
+            domain->om_del_node_info(r_uuid, info->nd_node_name);
         }
     }
 
@@ -221,12 +219,13 @@ UT_DP_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput 
     OM_Module *om  = static_cast<OM_Module *>(mod->pr_get_owner_module());
     DataPlacement *dp = om->om_dataplace_mod();
     boost::shared_ptr<UT_DLT_EvalHelper> eval_helper(new UT_DLT_EvalHelper);
+    OM_SmContainer::pointer smNodes = domain->om_sm_nodes();
 
-    fds_verify(om == &gl_OMModule);
     const DLT *oldDlt = dp->getCurDlt();
     eval_helper->setOldDlt(oldDlt);
 
     // Update cluster map and recompute the DLT
+    smNodes->om_splice_nodes_pend(&newNodes, &rmNodes);
     dp->updateMembers(newNodes, rmNodes);
     dp->computeDlt();
 
