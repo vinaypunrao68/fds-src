@@ -505,6 +505,8 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
      * Kick off the writeback thread(s)
      */
     writeBackThreads->schedule(writeBackFunc, this);
+
+    setup_migration_svc();
 }
 
 void ObjectStorMgr::setup_datapath_server(const std::string &ip)
@@ -527,6 +529,16 @@ void ObjectStorMgr::setup_datapath_server(const std::string &ip)
         datapath_handler_);
 }
 
+void ObjectStorMgr::setup_migration_svc()
+{
+    migrationSvc_.reset(new FdsMigrationSvc(this,
+                FdsConfigAccessor(conf_helper_.get_fds_config(),
+                        conf_helper_.get_base_path() + "migration."),
+                GetLog(),
+                nst_));
+    migrationSvc_->mod_startup();
+}
+
 void ObjectStorMgr::run()
 {
     nst_->listenServer(datapath_session_);
@@ -534,6 +546,7 @@ void ObjectStorMgr::run()
 
 void ObjectStorMgr::interrupt_cb(int signum)
 {
+    migrationSvc_->mod_shutdown();
     nst_.reset(); 
 
     // todo: We shouldn't have to do this.  For some reason main thread
@@ -551,6 +564,14 @@ void ObjectStorMgr::mod_shutdown() {
 void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
 {
     FDS_PLOG(objStorMgr->GetLog()) << "ObjectStorMgr - Migration  event Handler " << dlt_type;
+
+//    MigSvcCopyTokensReqPtr copy_req(new MigSvcCopyTokensReq());
+//    copy_req->tokens = sender_store_->getTokens();
+//    copy_req->migsvc_resp_cb = std::bind(
+//            &MigrationTester::mig_svc_cb, this,std::placeholders::_1);
+//    FdsActorRequestPtr copy_far(new FdsActorRequest(FAR_ID(MigSvcCopyTokensReq), copy_req));
+//    rcvr_mig_svc_->send_actor_request(copy_far);
+
 }
 
 void ObjectStorMgr::nodeEventOmHandler(int node_id,

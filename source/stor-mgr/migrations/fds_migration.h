@@ -66,12 +66,11 @@ public:
 
 public:
     FdsMigrationSvc(SmIoReqHandler *data_store,
-            fds_threadpoolPtr threadpool,
             const FdsConfigAccessor &conf_helper,
-            fds_logPtr log,
+            fds_log *log,
             netSessionTblPtr nst);
 
-    fds_log* GetLog() {return log_.get();}
+    fds_log* GetLog() {return log_;}
 
     virtual std::string log_string() {
         return "FdsMigrationSvc";
@@ -114,7 +113,7 @@ private:
     FdsConfigAccessor conf_helper_;
 
     /* logger */
-    fds_logPtr log_;
+    fds_log *log_;
 
     /* Net session table */
     netSessionTblPtr nst_;
@@ -130,10 +129,10 @@ class FDSP_MigrationPathRpc : virtual public FDSP_MigrationPathReqIf ,
                               virtual public FDSP_MigrationPathRespIf
 {
 public:
-    FDSP_MigrationPathRpc(FdsMigrationSvc &mig_svc, fds_logPtr log);
+    FDSP_MigrationPathRpc(FdsMigrationSvc &mig_svc, fds_log *log);
 
     fds_log* GetLog() {
-        return log_.get();
+        return log_;
     }
     std::string log_string() {
         return "FDSP_MigrationPathRpc";
@@ -160,7 +159,7 @@ public:
 
 protected:
     FdsMigrationSvc &mig_svc_;
-    fds_logPtr log_;
+    fds_log *log_;
 };
 }  // namespace fds
 

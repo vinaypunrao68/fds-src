@@ -11,7 +11,7 @@
 namespace fds {
 
 FDSP_MigrationPathRpc::
-FDSP_MigrationPathRpc(FdsMigrationSvc &mig_svc, fds_logPtr log) // NOLINT
+FDSP_MigrationPathRpc(FdsMigrationSvc &mig_svc, fds_log *log) // NOLINT
     : mig_svc_(mig_svc),
       log_(log)
 {
@@ -72,11 +72,10 @@ PushTokenObjectsResp(boost::shared_ptr<FDSP_PushTokenObjectsResp>& pushtok_resp)
  * @param nst
  */
 FdsMigrationSvc::FdsMigrationSvc(SmIoReqHandler *data_store,
-        fds_threadpoolPtr threadpool,
         const FdsConfigAccessor &conf_helper,
-        fds_logPtr log, netSessionTblPtr nst)
+        fds_log *log, netSessionTblPtr nst)
     : Module("FdsMigrationSvc"),
-      FdsRequestQueueActor(threadpool),
+      FdsRequestQueueActor(),
       data_store_(data_store),
       conf_helper_(conf_helper),
       log_(log),
@@ -89,8 +88,13 @@ FdsMigrationSvc::FdsMigrationSvc(SmIoReqHandler *data_store,
  */
 void FdsMigrationSvc::mod_startup()
 {
+    fds_threadpoolPtr threadpool(
+            new fds_threadpool(conf_helper_.get<int>("thread_cnt")));
+    FdsRequestQueueActor::init(threadpool);
+
     setup_migpath_server();
-    migpath_session_->listenServer();
+
+    migpath_session_->listenServerNb();
 }
 
 /**

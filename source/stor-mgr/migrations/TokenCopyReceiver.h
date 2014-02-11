@@ -40,13 +40,13 @@ public:
             SmIoReqHandler *data_store,
             const std::string &mig_id,
             fds_threadpoolPtr threadpool,
-            fds_logPtr log,
+            fds_log *log,
             const std::set<fds_token_id> &tokens,
             boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler);
     virtual ~TokenCopyReceiver();
 
     fds_log* get_log() {
-        return log_.get();
+        return log_;
     }
 
     /* For logging */
@@ -69,7 +69,7 @@ protected:
     /* Table of receiver state machines.  Each is keyed by a migration stream id */
     std::unordered_map<std::string, std::unique_ptr<TokenCopyReceiverFSM> > rcvr_sms_;
     FdsMigrationSvc *migrationSvc_;
-    fds_logPtr log_;
+    fds_log *log_;
 };
 
 } /* namespace fds */

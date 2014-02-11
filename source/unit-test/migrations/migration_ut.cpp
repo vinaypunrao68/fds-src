@@ -20,14 +20,17 @@ public:
     MigrationTester() {
 
     }
+    ~MigrationTester() {
+        delete log_;
+    }
+
     void init()
     {
-        log_.reset(new fds_log("migration_ut.log"));
+        log_ = new fds_log("migration_ut.log");
         log_->setSeverityFilter(fds::fds_log::debug);
-        g_fdslog = log_.get();
+        g_fdslog = log_;
 
         nst_ = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_MGR));
-        threadpool_.reset(new fds_threadpool());
 
         sender_store_.reset(create_mock_obj_store());
         rcvr_store_.reset(create_mock_obj_store());
@@ -46,7 +49,6 @@ public:
     {
         FdsConfigPtr config(new FdsConfig(conf_file, 0, NULL));
         return new FdsMigrationSvc(obj_store,
-                threadpool_,
                 FdsConfigAccessor(config, "fds.migration."),
                 log_,
                 nst_);
@@ -60,8 +62,8 @@ public:
     void test1()
     {
         /* Start sender and receiver migration services */
-        std::thread t1(&FdsMigrationSvc::mod_startup, sender_mig_svc_.get());
-        std::thread t2(&FdsMigrationSvc::mod_startup, rcvr_mig_svc_.get());
+        sender_mig_svc_->mod_startup();
+        rcvr_mig_svc_->mod_startup();
 
         sleep(5);
 
@@ -103,8 +105,7 @@ public:
         exit(0);
     }
 
-    fds_threadpoolPtr threadpool_;
-    fds_logPtr log_;
+    fds_log *log_;
     netSessionTblPtr nst_;
     MObjStorePtr sender_store_;
     MObjStorePtr rcvr_store_;

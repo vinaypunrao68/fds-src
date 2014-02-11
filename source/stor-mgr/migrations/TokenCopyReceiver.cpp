@@ -398,7 +398,7 @@ TokenCopyReceiver::TokenCopyReceiver(FdsMigrationSvc *migrationSvc,
         SmIoReqHandler *data_store,
         const std::string &mig_id,
         fds_threadpoolPtr threadpool,
-        fds_logPtr log,
+        fds_log *log,
         const std::set<fds_token_id> &tokens,
         boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler)
     : MigrationReceiver(mig_id),

@@ -33,7 +33,7 @@ public:
             const std::string &mig_id,
             const std::string &mig_stream_id,
             fds_threadpoolPtr threadpool,
-            fds_logPtr log,
+            fds_log *log,
             const std::string &rcvr_ip,
             const int &rcvr_port,
             const std::set<fds_token_id> &tokens,
@@ -41,7 +41,7 @@ public:
     virtual ~TokenCopySender();
 
     fds_log* get_log() {
-        return log_.get();
+        return log_;
     }
 
     /* For logging */
@@ -56,7 +56,7 @@ public:
 
 private:
     std::unique_ptr<TokenCopySenderFSM> sm_;
-    fds_logPtr log_;
+    fds_log *log_;
 };
 
 } /* namespace fds */

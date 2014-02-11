@@ -31,6 +31,7 @@
 #include "SmObjDb.h"
 #include <persistent_layer/dm_service.h>
 #include <persistent_layer/dm_io.h>
+#include <fds_migration.h>
 
 #include <fds_qos.h>
 #include <qos_ctrl.h>
@@ -175,6 +176,9 @@ class ObjectStorMgr :
     boost::shared_ptr<netSessionTbl> nst_;
     boost::shared_ptr<FDSP_DataPathReqIf> datapath_handler_;
     netDataPathServerSession *datapath_session_;
+
+    /* Migrations related */
+    FdsMigrationSvcPtr migrationSvc_;
 
     /* Counters */
     SMCounters counters_;
@@ -337,6 +341,7 @@ class ObjectStorMgr :
 
  protected:
     void setup_datapath_server(const std::string &ip);
+    void setup_migration_svc();
 
  public:
 

@@ -7,11 +7,13 @@ user_install      := sm.conf
 
 # TODO: avoid include across components, put in include dir instead.
 #
-user_incl_dir     := $(topdir) include
+user_incl_dir     := $(topdir) include $(topdir)/stor-mgr/migrations
+
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  :=                   \
     fds-smlib \
+    fds-migrations \
     fds-StorHvisor \
     fds-lib \
     fds-odb \

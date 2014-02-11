@@ -6,11 +6,22 @@
 
 namespace fds {
 
+FdsRequestQueueActor::FdsRequestQueueActor()
+    : FdsRequestQueueActor(nullptr)
+{
+}
+
 FdsRequestQueueActor::FdsRequestQueueActor(fds_threadpoolPtr threadpool)
-    : threadpool_(threadpool),
-      lock_("FdsRequestQueueActor"),
+    : lock_("FdsRequestQueueActor"),
       scheduled_(false)
 {
+    init(threadpool);
+}
+
+void FdsRequestQueueActor::init(fds_threadpoolPtr threadpool)
+{
+    fds_assert(threadpool_ == nullptr);
+    threadpool_ = threadpool;
 }
 
 int FdsRequestQueueActor::get_queue_size()
