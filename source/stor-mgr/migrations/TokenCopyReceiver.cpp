@@ -423,7 +423,7 @@ TokenCopyReceiver::TokenCopyReceiver(FdsMigrationSvc *migrationSvc,
                     itr->second,
                     client_resp_handler);
 
-        LOGNORMAL << " New receiver SM.  Migration id: " << mig_id
+        LOGNORMAL << " New receiver stream.  Migration id: " << mig_id
                 << "Stream id: " << mig_stream_id << " sender ip : " << sender_ip;
     }
 }
@@ -473,21 +473,21 @@ Error TokenCopyReceiver::handle_actor_request(FdsActorRequestPtr req)
     case FAR_ID(FDSP_CopyTokenResp):
     {
         auto payload = req->get_payload<FDSP_CopyTokenResp>();
-        route_to_mig_actor(payload->mig_stream_id, *payload);
+        route_to_mig_stream(payload->mig_stream_id, *payload);
         break;
     }
     case FAR_ID(FDSP_PushTokenObjectsReq):
     {
         /* Posting TokRecvdEvt */
         auto payload = req->get_payload<FDSP_PushTokenObjectsReq>();
-        route_to_mig_actor(payload->header.mig_stream_id, *payload);
+        route_to_mig_stream(payload->header.mig_stream_id, *payload);
         break;
     }
     case FAR_ID(TcrWrittenEvt):
     {
         /* Notification event from obeject store that write is complete */
         auto payload = req->get_payload<TcrWrittenEvt>();
-        route_to_mig_actor(payload->mig_stream_id_, *payload);
+        route_to_mig_stream(payload->mig_stream_id_, *payload);
         break;
     }
     case FAR_ID(TcrDestroyEvt):
@@ -510,7 +510,7 @@ Error TokenCopyReceiver::handle_actor_request(FdsActorRequestPtr req)
  * @param event
  */
 template<class EventT>
-void TokenCopyReceiver::route_to_mig_actor(const std::string &mig_stream_id,
+void TokenCopyReceiver::route_to_mig_stream(const std::string &mig_stream_id,
         const EventT &event)
 {
     auto itr = rcvr_sms_.find(mig_stream_id);
