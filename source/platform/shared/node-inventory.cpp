@@ -32,7 +32,7 @@ NodeInventory::node_fill_inventory(const FdspNodeRegPtr msg)
     data->nd_ctrl_port        = msg->control_port;
     data->nd_node_name        = msg->node_name;
     data->nd_node_type        = msg->node_type;
-    data->nd_node_state       = FDS_ProtocolInterface::FDS_Node_Up;
+    data->nd_node_state       = FDS_ProtocolInterface::FDS_Start_Migration;
     data->nd_disk_iops_max    = msg->disk_info.disk_iops_max;
     data->nd_disk_iops_min    = msg->disk_info.disk_iops_min;
     data->nd_disk_latency_max = msg->disk_info.disk_latency_max;
@@ -56,30 +56,6 @@ NodeInventory::node_fill_inventory(const FdspNodeRegPtr msg)
 void
 NodeInventory::node_update_inventory(const FdspNodeRegPtr msg)
 {
-}
-
-// init_msg_hdr
-// ------------
-//
-void
-NodeInventory::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
-{
-    msgHdr->minor_ver = 0;
-    msgHdr->msg_id =  1;
-
-    msgHdr->major_ver = 0xa5;
-    msgHdr->minor_ver = 0x5a;
-
-    msgHdr->num_objects = 1;
-    msgHdr->frag_len = 0;
-    msgHdr->frag_num = 0;
-
-    msgHdr->tennant_id = 0;
-    msgHdr->local_domain_id = 0;
-    msgHdr->src_node_name = "";
-
-    msgHdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
-    msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_OK;
 }
 
 // set_node_state

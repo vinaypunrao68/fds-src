@@ -34,7 +34,7 @@ ClusterMap::cend() const {
 int
 ClusterMap::mod_init(SysParams const *const param) {
     Module::mod_init(param);
-    std::cout << "ClusterMap init is called " << std::endl;
+    FDS_PLOG_SEV(g_fdslog, fds_log::notification) << "ClusterMap init is called ";
     return 0;
 }
 

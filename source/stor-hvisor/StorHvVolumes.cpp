@@ -376,6 +376,20 @@ fds_bool_t StorHvVolumeTable::volumeExists(const std::string& vol_name)
   return (getVolumeUUID(vol_name) != invalid_vol_id);
 }
 
+StorHvVolVec
+StorHvVolumeTable::getVolumeIds() {
+    StorHvVolVec volIds;
+    map_rwlock.read_lock();
+    for (std::unordered_map<fds_volid_t, StorHvVolume*>::const_iterator it = volume_map.cbegin(); 
+         it != volume_map.cend(); 
+         ++it) {
+        volIds.push_back(it->first);
+    }
+    map_rwlock.read_unlock();
+
+    return volIds;
+}
+
 /* returns volume UUID if found in volume map, otherwise returns invalid_vol_id */
 fds_volid_t StorHvVolumeTable::getVolumeUUID(const std::string& vol_name)
 {

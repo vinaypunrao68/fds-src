@@ -50,7 +50,7 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
     fds_uint64_t reqId;
     reqId = std::atomic_fetch_add(&(objStorMgr->nextReqId), (fds_uint64_t)1);
 
-    if (putObj->dlt_version == objStorMgr->omClient->dlt_version ) {
+    if (putObj->dlt_version == objStorMgr->omClient->getDltVersion()) {
     /*
      * Track the outstanding get request.
      * TODO: This is a total hack. We're overloading the msg_hdr's
@@ -66,12 +66,11 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
         objStorMgr->waitingReqMutex->unlock();
 
       objStorMgr->PutObject(msgHdr, putObj);
-    }
-    else {
+    } else {
 	msgHdr->err_code = FDSP_ERR_DLT_CONFLICT; 			
 	msgHdr->result = FDSP_ERR_DLT_MISMATCH; 			
 	// send the dlt version of SM to AM 
-        putObj->dlt_version = objStorMgr->omClient->dlt_version; 
+        putObj->dlt_version = objStorMgr->omClient->getDltVersion();
     }
 
     /*
@@ -136,11 +135,11 @@ ObjectStorMgrI::GetObject(FDSP_MsgHdrTypePtr& msgHdr,
         objStorMgr->waitingReqMutex->unlock();
 
         msgHdr->msg_code = FDSP_MSG_GET_OBJ_RSP;
-        if(getObj->dlt_version != objStorMgr->omClient->dlt_version) { 
-	   msgHdr->result = FDSP_ERR_DLT_MISMATCH; 
-	   msgHdr->err_code = FDSP_ERR_DLT_CONFLICT; 			
-	  // send the dlt version of SM to AM 
-          getObj->dlt_version = objStorMgr->omClient->dlt_version; 
+        if(getObj->dlt_version != objStorMgr->omClient->getDltVersion()) {
+            msgHdr->result = FDSP_ERR_DLT_MISMATCH;
+	   msgHdr->err_code = FDSP_ERR_DLT_CONFLICT;
+	  // send the dlt version of SM to AM
+           getObj->dlt_version = objStorMgr->omClient->getDltVersion();
 	}
 	
         objStorMgr->swapMgrId(msgHdr);
@@ -177,7 +176,7 @@ ObjectStorMgrI::DeleteObject(FDSP_MsgHdrTypePtr& msgHdr,
     fds_uint64_t reqId;
     reqId = std::atomic_fetch_add(&(objStorMgr->nextReqId), (fds_uint64_t)1);
 
-   if (delObj->dlt_version == objStorMgr->omClient->dlt_version ) {
+    if (delObj->dlt_version == objStorMgr->omClient->getDltVersion()) {
 
         msgHdr->msg_chksum = reqId;
         objStorMgr->waitingReqMutex->lock();
@@ -185,12 +184,11 @@ ObjectStorMgrI::DeleteObject(FDSP_MsgHdrTypePtr& msgHdr,
         objStorMgr->waitingReqMutex->unlock();
 
         objStorMgr->DeleteObject(msgHdr, delObj);
-    }
-    else {
+    } else {
 	msgHdr->err_code = FDSP_ERR_DLT_CONFLICT; 			
 	msgHdr->result = FDSP_ERR_DLT_MISMATCH; 			
 	// send the dlt version of SM to AM 
-        delObj->dlt_version = objStorMgr->omClient->dlt_version; 
+        delObj->dlt_version = objStorMgr->omClient->getDltVersion();
     }
 
     /*
@@ -1551,11 +1549,11 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
     }
     msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_GET_OBJ_RSP;
     swapMgrId(msgHdr);
-    if (getObjReq->dlt_version != objStorMgr->omClient->dlt_version ) {
+    if (getObjReq->dlt_version != objStorMgr->omClient->getDltVersion()) {
 	msgHdr->err_code = FDSP_ERR_DLT_CONFLICT; 			
 	// msgHdr->result = FDSP_ERR_DLT_MISMATCH; 			
 	// send the dlt version of SM to AM 
-        getObj->dlt_version = objStorMgr->omClient->dlt_version; 
+        getObj->dlt_version = objStorMgr->omClient->getDltVersion();
     }
     fdspDataPathClient(msgHdr->session_uuid)->GetObjectResp(msgHdr, getObj);
     FDS_PLOG(objStorMgr->GetLog()) << "Sent async GetObj response after processing";

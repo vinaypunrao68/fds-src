@@ -21,6 +21,7 @@
 #define  FDS_TRANS_DEL_OBJ	        0x8
 #define  FDS_TRANS_GET_BUCKET           0x9
 #define  FDS_TRANS_BUCKET_STATS         0xA
+#define  FDS_TRANS_PENDING_DLT          0xB
 
 #define  FDS_MIN_ACK                    1
 #define  FDS_CLS_ACK                    0
@@ -126,6 +127,18 @@ public:
   FDS_IOType             *io;
   FDSP_MsgHdrTypePtr     sm_msg;
   FDSP_MsgHdrTypePtr     dm_msg;
+
+  /**
+   * Stashing the put/get/del requests
+   * here in case we need to resend them.
+   * Only the requests for the specific
+   * transaction type are valid. All others
+   * are NULL.
+   */
+  FDSP_PutObjTypePtr    putMsg;
+  FDSP_GetObjTypePtr    getMsg;
+  FDSP_DeleteObjTypePtr delMsg;
+
   int      lt_flag;
   int      st_flag;
   short    num_dm_nodes;
@@ -144,6 +157,9 @@ class  StorHvJournalEntryLock {
   ~ StorHvJournalEntryLock();
 
 };
+
+typedef std::queue<fds_uint32_t> PendingDltQueue;
+typedef std::set<fds_uint32_t> PendingDltSet;
 
 class StorHvJournal {
 
@@ -165,6 +181,21 @@ private:
 
   boost::posix_time::ptime ctime; /* time the journal was created */
 
+  /**
+   * Queue of transactions that are currently waiting for
+   * a new DLT version to be recieved before continuing
+   * processing.
+   * These requests had prior requests rejected because
+   * the local DLT version was not update to date.
+   */
+  PendingDltQueue transPendingDlt;
+  /**
+   * Set of unique transactions that are waiting
+   * for a new DLT. Helps ensure the queue does not
+   * contain duplicates.
+   */
+  PendingDltSet transDltSet;
+
 public:
  	StorHvJournal();
 	StorHvJournal(unsigned int max_jrnl_entries);
@@ -172,6 +203,9 @@ public:
 
 	void lock();
 	void unlock();
+
+        void pushPendingDltTrans(fds_uint32_t transId);
+        PendingDltQueue popAllDltTrans();
 
 	StorHvJournalEntry *get_journal_entry(fds_uint32_t trans_id);
 	fds_uint32_t get_trans_id_for_block(fds_uint64_t block_offset);  // Legacy block

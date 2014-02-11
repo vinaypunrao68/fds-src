@@ -103,7 +103,6 @@ class NodeInventory : public Resource
      */
     void node_fill_inventory(const FdspNodeRegPtr msg);
     void node_update_inventory(const FdspNodeRegPtr msg);
-    void init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const;
     void set_node_state(FdspNodeState state);
 
   protected:

@@ -138,7 +138,6 @@ namespace fds {
     ~OMgrClient();
     int initialize();
     void start_omrpc_handler();
-    int dlt_version;
 
     int registerEventHandlerForNodeEvents(node_event_handler_t node_event_hdlr);
     int registerEventHandlerForVolEvents(volume_event_handler_t vol_event_hdlr);
@@ -170,6 +169,7 @@ namespace fds {
                     int *node_state);
     NodeMigReqClientPtr getMigClient(fds_uint64_t node_id);
 
+    fds_uint64_t getDltVersion();
     DltTokenGroupPtr getDLTNodesForDoidKey(ObjectID *objId);
 #if 0
     int  getDLTNodesForDoidKey(unsigned char doid_key,
