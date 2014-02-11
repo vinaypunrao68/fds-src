@@ -18,6 +18,8 @@
 #include <util/Log.h>
 
 namespace fds {
+#define DLT_VER_INVALID 0  /**< Defines 0 as invalid DLT version */
+
     /**
      * Class to store an array of nodeuuids that are part of a
      * DLT's token group. Had to do this for shared_ptr.

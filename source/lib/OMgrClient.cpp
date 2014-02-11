@@ -728,6 +728,17 @@ int OMgrClient::getNodeInfo(fds_uint64_t node_id,
   return 0;
 }
 
+fds_uint64_t
+OMgrClient::getDltVersion() {
+    // TODO: Set to a macro'd invalid version
+    fds_uint64_t version = DLT_VER_INVALID;
+    omc_lock.read_lock();
+    version = dltMgr.getDLT()->getVersion();
+    omc_lock.read_unlock();
+
+    return version;
+}
+
 NodeMigReqClientPtr
 OMgrClient::getMigClient(fds_uint64_t node_id) {
     return clustMap->getMigClient(node_id);
@@ -737,27 +748,6 @@ DltTokenGroupPtr OMgrClient::getDLTNodesForDoidKey(ObjectID *objId) {
  return dltMgr.getDLT()->getNodes(*objId);
 
 }
-
-#if 0
-int OMgrClient::getDLTNodesForDoidKey(ObjectID objId) {
-  
-  omc_lock.read_lock();
-
-  int total_shards = this->dlt.size();
-  int lookup_key = doid_key % total_shards;
-  int total_nodes = this->dlt[lookup_key].size();
-  *n_nodes = (total_nodes < *n_nodes)? total_nodes:*n_nodes;
-  int i;
-  
-  for (i = 0; i < *n_nodes; i++) {
-    node_ids[i] = this->dlt[lookup_key][i];
-  } 
-
-  omc_lock.read_unlock();
-
-  return 0;
-}
-#endif
 
 int OMgrClient::getDMTNodesForVolume(int vol_id, int *node_ids, int *n_nodes) {
 

@@ -7,6 +7,7 @@
 
 #include <sstream>
 #include <string>
+#include <fds_types.h>
 #include <fdsp/FDSP_types.h>
 
 namespace fds {
@@ -49,6 +50,9 @@ namespace fds {
     ERR_OUT_OF_MEMEORY       = 14,
     ERR_DUPLICATE_UUID       = 15,
 
+    /* I/O error range */
+    ERR_IO_DLT_MISMATCH      = 100,
+
     /* Migration error range [1000-1500) */
     ERR_MIGRATION_DUPLICATE_REQUEST = 1000,
 
@@ -76,6 +80,14 @@ namespace fds {
     Error(fds_errno_t errno_arg)
         : _errno(errno_arg),
         errstr(fds_errstrs[errno_arg]) {
+    }
+
+    /**
+     * Maps FDSP error number back to fds_errno.
+     */
+    Error(fds_uint32_t errno_fdsp)
+            : _errno(static_cast<fds_errno_t>(errno_fdsp)) {
+        errstr = fds_errstrs[_errno];
     }
 
     Error(const Error& err)

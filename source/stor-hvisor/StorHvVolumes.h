@@ -74,6 +74,8 @@ private: /* data */
   bool is_valid;
 };
 
+typedef std::vector<fds_volid_t> StorHvVolVec;
+
 class StorHvVolumeLock 
 {
  public:
@@ -107,7 +109,7 @@ class StorHvVolumeTable
    */
   StorHvVolume* getLockedVolume(fds_volid_t vol_uuid);
 
-  /* 
+  /**
    * Returns volume but not thread-safe 
    * Use StorHvVolumeLock to lock the volume and check if volume
    * object is still valid via StorHvVolume::isValidLocked() 
@@ -116,15 +118,21 @@ class StorHvVolumeTable
    */
   StorHvVolume* getVolume(fds_volid_t vol_uuid);
 
-  /* returns volume uuid if found in volume map.
+  /**
+   * Returns list of volume ids currently in the table
+   */
+  StorHvVolVec getVolumeIds();
+
+  /**
+   * Returns volume uuid if found in volume map.
    * if volume does not exist, returns 'invalid_vol_id'  
    */
   fds_volid_t getVolumeUUID(const std::string& vol_name);
 
-  /* returns true if volume exists, otherwise retuns false */
+  /** returns true if volume exists, otherwise retuns false */
   fds_bool_t volumeExists(const std::string& vol_name);
 
-  /* add blob request to wait queue -- those are blobs that
+  /** add blob request to wait queue -- those are blobs that
    * are waiting for OM to attach buckets to AM; once 
    * vol table receives vol attach event, it will move 
    * all requests waiting in the queue for that bucket to

@@ -235,7 +235,7 @@ DataPlacement::computeDlt() {
     // Will change to be relative to the current.
     fds_uint64_t version;
     if (curDlt == NULL) {
-        version = 0;
+        version = DLT_VER_INVALID + 1;
     } else {
         version = curDlt->getVersion();
     }

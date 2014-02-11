@@ -27,6 +27,10 @@ StorHvJournalEntry::StorHvJournalEntry()
    comp_arg2 = 0;
    incarnation_number = 0;
 
+   putMsg = NULL;
+   getMsg = NULL;
+   delMsg = NULL;
+
    blobOffset = 0;
    blobName.clear();
 
@@ -61,6 +65,11 @@ void StorHvJournalEntry::reset()
    comp_arg1 = 0;
    comp_arg2 = 0;
    incarnation_number ++;
+
+   putMsg = NULL;
+   getMsg = NULL;
+   delMsg = NULL;
+
    // TODO: Free any pending timers here
    // And any other necessary cleanup
 }
@@ -144,7 +153,8 @@ int StorHvJournalEntry::fds_set_smack_status(int ipAddr,
        node < FDS_MAX_SM_NODES_PER_CLST;
        node++) {
     /*
-     * TODO: Check the port here also
+     * TODO: Use a request or node id here rather than
+     * ip/port.
      */
     if ((memcmp((void *)&sm_ack[node].ipAddr, (void *)&ipAddr, 4) == 0) &&
         (sm_ack[node].port == port)) {
@@ -272,6 +282,33 @@ fds_uint32_t StorHvJournal::get_trans_id_for_block(fds_uint64_t block_offset)
   }
    FDS_PLOG(storHvisor->GetLog()) << " StorHvJournal:" << "IO-XID:" << trans_id <<" - Assigned transaction id " << trans_id << " for block " << block_offset;
   return trans_id;
+}
+
+/**
+ * Pushes a transaction id onto the queue of transactions pending
+ * a newer DLT version.
+ */
+void
+StorHvJournal::pushPendingDltTrans(fds_uint32_t transId) {
+    lock();
+    if (transDltSet.count(transId) == 0) {
+        transPendingDlt.push(transId);
+    }
+    unlock();
+}
+
+/**
+ * Pops the current list of transactions that are pending
+ * a newer DLT version from the queue and returns them.
+ */
+PendingDltQueue
+StorHvJournal::popAllDltTrans() {
+    lock();
+    PendingDltQueue poppedTrans;
+    std::swap(poppedTrans, transPendingDlt);
+    transDltSet.clear();
+    unlock();
+    return poppedTrans;
 }
 
 fds_uint32_t StorHvJournal::get_trans_id_for_blob(const std::string& blobName,
