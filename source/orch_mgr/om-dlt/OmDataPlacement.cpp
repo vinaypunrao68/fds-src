@@ -352,7 +352,7 @@ DataPlacement::commitDlt() {
             << "Commiting the DLT to existing nodes " << dltMsg->dlt_type
             << " version " << curDlt->getVersion();
     curDlt->getSerialized(dltMsg->dlt_data);
-    curDlt->dump(true);
+    curDlt->dump();
 
     // Async notify other nodes of the new DLT
     std::unordered_set<NodeUuid, UuidHash> addedNodes = curClusterMap->getAddedNodes();
