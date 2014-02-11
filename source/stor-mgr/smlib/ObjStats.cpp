@@ -4,6 +4,7 @@
  * Object tracker statistics 
  */
 
+#include <fds_process.h>
 #include <ObjStats.h>
 
 namespace fds {
@@ -39,8 +40,12 @@ ObjStatsTracker::~ObjStatsTracker() {
 int
 ObjStatsTracker::mod_init(fds::SysParams const *const param) {
   Module::mod_init(param);
+  FdsConfigAccessor conf_helper(g_fdsprocess->get_conf_helper());
+
   root = param->fds_root;
-  root += "/objStats";
+  root += "/";
+  root += conf_helper.get<std::string>("prefix");
+  root += "_objStats";
 
   // Create leveldb
   leveldb::Options options;

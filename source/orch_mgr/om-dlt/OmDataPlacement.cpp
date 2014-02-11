@@ -303,14 +303,11 @@ DataPlacement::beginRebalance() {
          cit != addedNodes.cend();
          ++cit) {
         NodeUuid  uuid = *cit;
-    //    const NodeAgent *na = curClusterMap->om_member_info(uuid);
         OM_SmAgent::const_ptr na = OM_NodeDomainMod::om_local_domain()->om_sm_agent(uuid);
         NodeAgentCpReqClientPtr naClient = na->getCpClient();
     // populate  msg header
         na->init_msg_hdr(msgHdr);
         msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_NOTIFY_MIGRATION;
-        msgHdr->src_id = FDS_ProtocolInterface::FDSP_ORCH_MGR;
-        msgHdr->dst_id = FDS_ProtocolInterface::FDSP_STOR_MGR;
 
     // populate the dlt  class
        dltMsg->dlt_type= true;
@@ -338,26 +335,42 @@ Error
 DataPlacement::commitDlt() {
     Error err(ERR_OK);
 
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr(
+        new FDS_ProtocolInterface::FDSP_MsgHdrType());
+    FDS_ProtocolInterface::FDSP_DLT_Data_TypePtr dltMsg(
+        new FDS_ProtocolInterface::FDSP_DLT_Data_Type());
+
     placementMutex->lock();
 
     // Commit the current DLT to the
     // official DLT history
+    dltMsg->dlt_type= true;
+    FDS_PLOG_SEV(g_fdslog, fds_log::notification)
+            << "Commiting the DLT to existing nodes " << dltMsg->dlt_type
+            << " version " << curDlt->getVersion();
+    curDlt->getSerialized(dltMsg->dlt_data);
+    curDlt->dump();
 
     // Async notify other nodes of the new DLT
+    std::unordered_set<NodeUuid, UuidHash> addedNodes = curClusterMap->getAddedNodes();
+    FDS_PLOG(g_fdslog) << "commitDlt: added nodes " << addedNodes.size();
     for (ClusterMap::const_iterator it = curClusterMap->cbegin();
          it != curClusterMap->cend();
          it++) {
         OM_SmAgent::pointer na = it->second;
-        NodeAgentCpReqClientPtr naClient = na->getCpClient();
+        // notify nodes with 'node up' status that are not just added nodes
+        if ((na->node_state() == FDS_ProtocolInterface::FDS_Node_Up) &&
+            (addedNodes.count(na->get_uuid()) == 0)) {
+            NodeAgentCpReqClientPtr naClient = na->getCpClient();
+            na->init_msg_hdr(msgHdr);
+            msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_DLT_UPDATE;
 
-        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr(
-            new FDS_ProtocolInterface::FDSP_MsgHdrType());
-        FDS_ProtocolInterface::FDSP_DLT_Data_TypePtr dltMsg(
-            new FDS_ProtocolInterface::FDSP_DLT_Data_Type());
-        naClient->NotifyDLTUpdate(msgHdr, dltMsg);
+            naClient->NotifyDLTUpdate(msgHdr, dltMsg);
 
-        FDS_PLOG_SEV(g_fdslog, fds_log::notification)
-                << "Sent DLT update to " << na->get_uuid().uuid_get_val();
+            FDS_PLOG_SEV(g_fdslog, fds_log::notification)
+                    << "Sent DLT update to node " << std::hex
+                    << na->get_uuid().uuid_get_val() << std::dec;
+        }
     }
 
     placementMutex->unlock();
