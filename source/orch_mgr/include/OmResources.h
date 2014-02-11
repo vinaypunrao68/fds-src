@@ -54,6 +54,7 @@ class OM_SmAgent : public NodeAgent
      * Send this node agent info as an event to notify the peer node.
      */
     virtual void om_send_myinfo(NodeAgent::pointer peer);
+    virtual void init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const;
 
   protected:
     NodeAgentCpSessionPtr   ndCpSession;
@@ -114,6 +115,7 @@ class OM_DmContainer : public DmContainer
     static inline OM_DmContainer::pointer agt_cast_ptr(RsContainer::pointer ptr) {
         return static_cast<OM_DmContainer *>(get_pointer(ptr));
     }
+
   protected:
     boost::shared_ptr<OM_ControlRespHandler> ctrlRspHndlr;
 

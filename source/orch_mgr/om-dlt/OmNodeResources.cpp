@@ -67,6 +67,32 @@ OM_SmAgent::om_send_myinfo(NodeAgent::pointer peer)
         << " to " << peer->get_node_name() << std::endl;
 }
 
+void
+OM_SmAgent::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
+{
+    msgHdr->minor_ver = 0;
+    msgHdr->msg_id =  1;
+
+    msgHdr->major_ver = 0xa5;
+    msgHdr->minor_ver = 0x5a;
+
+    msgHdr->src_id = FDS_ProtocolInterface::FDSP_ORCH_MGR;
+    msgHdr->dst_id = FDS_ProtocolInterface::FDSP_STOR_MGR;
+
+    msgHdr->num_objects = 1;
+    msgHdr->frag_len = 0;
+    msgHdr->frag_num = 0;
+
+    msgHdr->tennant_id = 0;
+    msgHdr->local_domain_id = 0;
+    msgHdr->src_node_name = "";
+
+    msgHdr->session_uuid = ndSessionId;
+
+    msgHdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_OK;
+}
+
 // ---------------------------------------------------------------------------------
 // OM SM NodeAgent Container
 // ---------------------------------------------------------------------------------
@@ -86,8 +112,8 @@ void
 OM_SmContainer::agent_activate(NodeAgent::pointer agent)
 {
     FDS_PLOG_SEV(g_fdslog, fds_log::normal)
-        << "Actiate node uuid "
-        << agent->get_uuid().uuid_get_val() << ", ptr " << agent << std::endl;
+            << "Activate node uuid " << std::hex
+            << "0x" << agent->get_uuid().uuid_get_val() << std::dec;
 
     rs_mtx.lock();
     rs_register_mtx(agent);
@@ -102,8 +128,8 @@ void
 OM_SmContainer::agent_deactivate(NodeAgent::pointer agent)
 {
     FDS_PLOG_SEV(g_fdslog, fds_log::normal)
-        << "Deactivate node uuid "
-        << agent->get_uuid().uuid_get_val() << ", ptr " << agent << std::endl;
+            << "Deactivate node uuid " << std::hex
+            << "0x" << agent->get_uuid().uuid_get_val() << std::dec;
 
     rs_mtx.lock();
     rs_unregister_mtx(agent);

@@ -44,6 +44,7 @@ namespace fds {
     MAX
   } fds_vol_notify_t;
   
+  typedef void (*migration_event_handler_t)(bool dlt_type);
   typedef void (*node_event_handler_t)(int node_id,
                                        unsigned int node_ip_addr,
                                        int node_state,
@@ -88,6 +89,7 @@ namespace fds {
 
     node_event_handler_t node_evt_hdlr;
     volume_event_handler_t vol_evt_hdlr;
+    migration_event_handler_t migrate_evt_hdlr;
     throttle_cmd_handler_t throttle_cmd_hdlr;
     tier_cmd_handler_t       tier_cmd_hdlr;
     tier_audit_cmd_handler_t tier_audit_cmd_hdlr;
@@ -136,10 +138,10 @@ namespace fds {
     ~OMgrClient();
     int initialize();
     void start_omrpc_handler();
-    int dlt_version;
 
     int registerEventHandlerForNodeEvents(node_event_handler_t node_event_hdlr);
     int registerEventHandlerForVolEvents(volume_event_handler_t vol_event_hdlr);
+    int registerEventHandlerForMigrateEvents(migration_event_handler_t migrate_event_hdlr);
     int registerThrottleCmdHandler(throttle_cmd_handler_t throttle_cmd_hdlr);
     int registerBucketStatsCmdHandler(bucket_stats_cmd_handler_t cmd_hdlr);
 
@@ -167,6 +169,7 @@ namespace fds {
                     int *node_state);
     NodeMigReqClientPtr getMigClient(fds_uint64_t node_id);
 
+    fds_uint64_t getDltVersion();
     DltTokenGroupPtr getDLTNodesForDoidKey(ObjectID *objId);
 #if 0
     int  getDLTNodesForDoidKey(unsigned char doid_key,
@@ -184,6 +187,7 @@ namespace fds {
 		   const std::string& secretAccessKey);
 
     int recvNodeEvent(int node_id, FDSP_MgrIdType node_type, unsigned int node_ip, int node_state, const FDSP_Node_Info_TypePtr& node_info);
+    int recvMigrationEvent(bool dlt_type);
     int recvDLTUpdate(bool dlt_type, std::string& dlt_data);
     int recvDLTStartMigration(bool dlt_type, std::string& dlt_data);
     int recvDMTUpdate(int dmt_version, const Node_Table_Type& dmt_table);

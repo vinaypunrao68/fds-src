@@ -99,12 +99,12 @@ class NodeInventory : public Resource
     /**
      * Format the message header to default values.
      */
-    void init_msg_hdr(fpi::FDSP_MsgHdrTypePtr msgHdr) const;
+    virtual void init_msg_hdr(fpi::FDSP_MsgHdrTypePtr msgHdr) const;
 
     /**
      * Format the node info pkt with data from this agent obj.
      */
-    void init_node_info_pkt(fpi::FDSP_Node_Info_TypePtr pkt) const;
+    virtual void init_node_info_pkt(fpi::FDSP_Node_Info_TypePtr pkt) const;
 
   protected:
     const NodeInvData       *node_inv;

@@ -195,14 +195,14 @@ template <class Evt, class Fsm>
 void
 DltDplyFSM::on_entry(Evt const &evt, Fsm &fsm)
 {
-    std::cout << "FSM on entry" << std::endl;
+    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "DltDplyFSM on entry";
 }
 
 template <class Evt, class Fsm>
 void
 DltDplyFSM::on_exit(Evt const &evt, Fsm &fsm)
 {
-    std::cout << "FSM on exit" << std::endl;
+    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "DltDplyFSM on exit";
 }
 
 // no_transition
@@ -212,7 +212,7 @@ template <class Evt, class Fsm>
 void
 DltDplyFSM::no_transition(Evt const &evt, Fsm &fsm, int state)
 {
-    std::cout << "FSM no trans" << std::endl;
+    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "DltDplyFSM no trans";
 }
 
 /* DACT_Compute

@@ -420,6 +420,7 @@ class ObjectStorMgr :
             fds::VolumeDesc *vdb,
             int vol_action,
             FDSP_ResultType resut);
+    static void migrationEventOmHandler(bool dlt_type);
 
     virtual Error enqueueMsg(fds_volid_t volId, SmIoReq* ioReq);
 

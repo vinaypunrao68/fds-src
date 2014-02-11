@@ -223,6 +223,14 @@ public:
   boost::shared_ptr<FDSP_MetaDataPathRespCbackI> mPathRespCback;
 
 private:
+  void handleDltMismatch(StorHvVolume *vol,
+                         StorHvJournalEntry *journEntry);
+  void procNewDlt(fds_uint64_t newDltVer);
+
+  Error dispatchSmPutMsg(StorHvJournalEntry *journEntry);
+  Error dispatchSmGetMsg(StorHvJournalEntry *journEntry);
+  Error dispatchSmDelMsg(StorHvJournalEntry *journEntry);
+
   fds_log *sh_log;
   SysParams *sysParams;
   sh_comm_modes mode;
