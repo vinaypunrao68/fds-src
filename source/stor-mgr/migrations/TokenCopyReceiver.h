@@ -61,7 +61,7 @@ public:
 
 protected:
     template<class EventT>
-    void route_to_mig_actor(const std::string &mig_stream_id,
+    void route_to_mig_stream(const std::string &mig_stream_id,
             const EventT &event);
     void destroy_migration_stream(const std::string &mig_stream_id);
     IpTokenTable get_ip_token_tbl(const std::set<fds_token_id>& tokens);
