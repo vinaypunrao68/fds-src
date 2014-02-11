@@ -82,8 +82,8 @@ void
 OM_SmContainer::agent_activate(NodeAgent::pointer agent)
 {
     FDS_PLOG_SEV(g_fdslog, fds_log::normal)
-        << "Actiate node uuid "
-        << agent->get_uuid().uuid_get_val() << ", ptr " << agent << std::endl;
+            << "Activate node uuid " << std::hex
+            << "0x" << agent->get_uuid().uuid_get_val() << std::dec;
 
     rs_mtx.lock();
     rs_register_mtx(agent);
@@ -98,8 +98,8 @@ void
 OM_SmContainer::agent_deactivate(NodeAgent::pointer agent)
 {
     FDS_PLOG_SEV(g_fdslog, fds_log::normal)
-        << "Deactivate node uuid "
-        << agent->get_uuid().uuid_get_val() << ", ptr " << agent << std::endl;
+            << "Deactivate node uuid " << std::hex
+            << "0x" << agent->get_uuid().uuid_get_val() << std::dec;
 
     rs_mtx.lock();
     rs_unregister_mtx(agent);
