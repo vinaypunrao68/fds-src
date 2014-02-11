@@ -7,19 +7,18 @@
 #include <string>
 #include <boost/shared_ptr.hpp>
 #include <fds_err.h>
-#include <fds_typedefs.h>
 #include <fds_resource.h>
 #include <fds_typedefs.h>
-#include <NetSession.h>
 #include <fds_module.h>
 #include <NetSession.h>
 
 namespace fds {
 
-typedef FDS_ProtocolInterface::FDSP_RegisterNodeType     FdspNodeReg;
-typedef FDS_ProtocolInterface::FDSP_RegisterNodeTypePtr  FdspNodeRegPtr;
-typedef FDS_ProtocolInterface::FDSP_NodeState            FdspNodeState;
-typedef FDS_ProtocolInterface::FDSP_MgrIdType            FdspNodeType;
+namespace fpi = FDS_ProtocolInterface;
+typedef fpi::FDSP_RegisterNodeType     FdspNodeReg;
+typedef fpi::FDSP_RegisterNodeTypePtr  FdspNodeRegPtr;
+typedef fpi::FDSP_NodeState            FdspNodeState;
+typedef fpi::FDSP_MgrIdType            FdspNodeType;
 
 /**
  * POD types for common node inventory.
@@ -51,15 +50,7 @@ class NodeInvData
     std::string              nd_ip_str;
     fds_uint32_t             nd_data_port;
     fds_uint32_t             nd_ctrl_port;
-    fds_uint32_t             nd_disk_iops_max;
-    fds_uint32_t             nd_disk_iops_min;
-    fds_uint32_t             nd_disk_latency_max;
-    fds_uint32_t             nd_disk_latency_min;
-    fds_uint32_t             nd_ssd_iops_max;
-    fds_uint32_t             nd_ssd_iops_min;
-    fds_uint32_t             nd_ssd_capacity;
-    fds_uint32_t             nd_ssd_latency_max;
-    fds_uint32_t             nd_ssd_latency_min;
+    fds_uint32_t             nd_migration_port;
     fds_uint32_t             nd_disk_type;
     node_capability_t        nd_capability;
 
@@ -103,8 +94,17 @@ class NodeInventory : public Resource
      */
     void node_fill_inventory(const FdspNodeRegPtr msg);
     void node_update_inventory(const FdspNodeRegPtr msg);
-    void init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const;
     void set_node_state(FdspNodeState state);
+
+    /**
+     * Format the message header to default values.
+     */
+    void init_msg_hdr(fpi::FDSP_MsgHdrTypePtr msgHdr) const;
+
+    /**
+     * Format the node info pkt with data from this agent obj.
+     */
+    void init_node_info_pkt(fpi::FDSP_Node_Info_TypePtr pkt) const;
 
   protected:
     const NodeInvData       *node_inv;
@@ -115,12 +115,14 @@ class NodeInventory : public Resource
 };
 
 /**
+ * --------------------------------------------------------------------------------------
  * Agent interface to communicate with the remote node.  This is the communication
  * end-point to the node.
  *
  * It's normal that the node agent is there but the transport may not be availble.
  * We'll provide methods to establish the transport in the background and error
  * handling model when the transport is broken.
+ * --------------------------------------------------------------------------------------
  */
 class NodeAgent : public NodeInventory
 {
@@ -214,6 +216,13 @@ class AgentContainer : public RsContainer
     static inline NodeAgent::pointer agt_from_iter(RsContainer::const_iterator it) {
         return static_cast<NodeAgent *>(get_pointer(*it));
     }
+    template <typename T>
+    void agent_foreach(T arg, void (*fn)(T arg, NodeAgent::pointer elm)) {
+        for (const_iterator it = cbegin(); it != cend(); it++) {
+            (*fn)(arg, agt_from_iter(it));
+        }
+    }
+
     /**
      * Return the generic NodeAgent::pointer from index position or its uuid.
      */
@@ -226,6 +235,7 @@ class AgentContainer : public RsContainer
     inline NodeAgent::pointer agent_info(const NodeUuid &uuid) {
         return NodeAgent::agt_cast_ptr(rs_get_resource(uuid));
     }
+
     /**
      * Activate the agent obj so that it can be looked up by name or uuid.
      */
@@ -235,6 +245,7 @@ class AgentContainer : public RsContainer
     virtual void agent_deactivate(NodeAgent::pointer agent) {
         rs_unregister(agent);
     }
+
     /**
      * Register and unregister a node agent.
      */
@@ -247,14 +258,14 @@ class AgentContainer : public RsContainer
     boost::shared_ptr<netSessionTbl>   ac_cpSessTbl;
 
     virtual ~AgentContainer();
-    AgentContainer(FDSP_MgrIdType id);
+    AgentContainer(FdspNodeType id);
 };
 
 class SmContainer : public AgentContainer
 {
   public:
     typedef boost::intrusive_ptr<SmContainer> pointer;
-    SmContainer(FDSP_MgrIdType id) : AgentContainer(id) {}
+    SmContainer(FdspNodeType id) : AgentContainer(id) {}
 
     static inline SmAgent::pointer agt_from_iter(RsContainer::const_iterator it) {
         return static_cast<SmAgent *>(get_pointer(*it));
@@ -271,7 +282,7 @@ class DmContainer : public AgentContainer
 {
   public:
     typedef boost::intrusive_ptr<DmContainer> pointer;
-    DmContainer(FDSP_MgrIdType id) : AgentContainer(id) {}
+    DmContainer(FdspNodeType id) : AgentContainer(id) {}
 
     static inline DmAgent::pointer agt_from_iter(RsContainer::const_iterator it) {
         return static_cast<DmAgent *>(get_pointer(*it));
@@ -288,7 +299,7 @@ class AmContainer : public AgentContainer
 {
   public:
     typedef boost::intrusive_ptr<AmContainer> pointer;
-    AmContainer(FDSP_MgrIdType id) : AgentContainer(id) {}
+    AmContainer(FdspNodeType id) : AgentContainer(id) {}
 
     static inline AmAgent::pointer agt_from_iter(RsContainer::const_iterator it) {
         return static_cast<AmAgent *>(get_pointer(*it));
@@ -305,7 +316,7 @@ class OmContainer : public AgentContainer
 {
   public:
     typedef boost::intrusive_ptr<OmContainer> pointer;
-    OmContainer(FDSP_MgrIdType id) : AgentContainer(id) {}
+    OmContainer(FdspNodeType id) : AgentContainer(id) {}
 
     static inline OmAgent::pointer agt_from_iter(RsContainer::const_iterator it) {
         return static_cast<OmAgent *>(get_pointer(*it));

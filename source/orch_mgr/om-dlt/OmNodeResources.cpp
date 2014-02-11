@@ -13,7 +13,7 @@ namespace fds {
 // OM SM NodeAgent
 // ---------------------------------------------------------------------------------
 OM_SmAgent::~OM_SmAgent() {}
-OM_SmAgent::OM_SmAgent(const NodeUuid &uuid) : SmAgent(uuid) {}
+OM_SmAgent::OM_SmAgent(const NodeUuid &uuid) : NodeAgent(uuid) {}
 
 int
 OM_SmAgent::node_calc_stor_weight()
@@ -21,6 +21,9 @@ OM_SmAgent::node_calc_stor_weight()
     return 0;
 }
 
+// setCpSession
+// ------------
+//
 void
 OM_SmAgent::setCpSession(NodeAgentCpSessionPtr session)
 {
@@ -35,6 +38,33 @@ NodeAgentCpReqClientPtr
 OM_SmAgent::getCpClient() const
 {
     return ndCpClient;
+}
+
+// om_send_myinfo
+// --------------
+// Send a node event taken from the new node agent to a peer agent.
+//
+void
+OM_SmAgent::om_send_myinfo(NodeAgent::pointer peer)
+{
+    if (peer->get_node_name() == get_node_name()) {
+        return;
+    }
+    fpi::FDSP_MsgHdrTypePtr     m_hdr(new fpi::FDSP_MsgHdrType);
+    fpi::FDSP_Node_Info_TypePtr n_inf(new fpi::FDSP_Node_Info_Type);
+
+    this->init_msg_hdr(m_hdr);
+    this->init_node_info_pkt(n_inf);
+
+    m_hdr->msg_code        = fpi::FDSP_MSG_NOTIFY_NODE_ADD;
+    m_hdr->msg_id          = 0;
+    m_hdr->tennant_id      = 1;
+    m_hdr->local_domain_id = 1;
+    OM_SmAgent::agt_cast_ptr(peer)->ndCpClient->NotifyNodeAdd(m_hdr, n_inf);
+
+    FDS_PLOG_SEV(g_fdslog, fds_log::normal)
+        << "Send node info from " << get_node_name()
+        << " to " << peer->get_node_name() << std::endl;
 }
 
 // ---------------------------------------------------------------------------------
@@ -132,9 +162,9 @@ OM_SmContainer::agent_unregister(const NodeUuid &uuid, const std::string &name)
     return err;
 }
 
-// ---------------------------------------------------------------------------------
+// --------------------------------------------------------------------------------------
 // OM DM NodeAgent Container
-// ---------------------------------------------------------------------------------
+// --------------------------------------------------------------------------------------
 OM_DmContainer::OM_DmContainer() : DmContainer(FDSP_ORCH_MGR)
 {
     ctrlRspHndlr = boost::shared_ptr<OM_ControlRespHandler>(new OM_ControlRespHandler());
@@ -168,9 +198,9 @@ OM_DmContainer::agent_register(const NodeUuid       &uuid,
     return err;
 }
 
-// ---------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------
 // OM AM NodeAgent Container
-// ---------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------
 OM_AmContainer::OM_AmContainer() : AmContainer(FDSP_ORCH_MGR)
 {
     ctrlRspHndlr = boost::shared_ptr<OM_ControlRespHandler>(new OM_ControlRespHandler());
@@ -195,8 +225,8 @@ OM_AmContainer::agent_register(const NodeUuid       &uuid,
             ac_cpSessTbl->startSession<netControlPathClientSession>(
                 agent->get_ip_str(),
                 agent->get_ctrl_port(),
-                FDSP_DATA_MGR,  // TODO(Andrew): should be just a node
-                1,              // just 1 channel for now...
+                FDSP_STOR_HVISOR,  // TODO(Andrew): should be just a node
+                1,                 // just 1 channel for now...
                 ctrlRspHndlr));
 
     fds_verify(agent != NULL);
@@ -205,9 +235,9 @@ OM_AmContainer::agent_register(const NodeUuid       &uuid,
     return err;
 }
 
-// ---------------------------------------------------------------------------------
+// --------------------------------------------------------------------------------------
 // OM Node Container
-// ---------------------------------------------------------------------------------
+// --------------------------------------------------------------------------------------
 OM_NodeContainer::~OM_NodeContainer() {}
 OM_NodeContainer::OM_NodeContainer()
     : DomainContainer("OM-Domain",
@@ -218,12 +248,35 @@ OM_NodeContainer::OM_NodeContainer()
                       new OmContainer(FDSP_ORCH_MGR),
                       NULL) {}
 
+// om_send_my_info_to_peer
+// -----------------------
+//
+static void
+om_send_my_info_to_peer(NodeAgent::pointer me, NodeAgent::pointer peer)
+{
+    OM_SmAgent::agt_cast_ptr(me)->om_send_myinfo(peer);
+}
+
 // om_bcast_new_node
 // -----------------
 //
 void
 OM_NodeContainer::om_bcast_new_node(NodeAgent::pointer node, const FdspNodeRegPtr ref)
 {
+    if (ref->node_type == fpi::FDSP_STOR_HVISOR) {
+        return;
+    }
+    dc_sm_nodes->agent_foreach<NodeAgent::pointer>(node, om_send_my_info_to_peer);
+    dc_dm_nodes->agent_foreach<NodeAgent::pointer>(node, om_send_my_info_to_peer);
+}
+
+// om_send_peer_info_to_me
+// -----------------------
+//
+static void
+om_send_peer_info_to_me(NodeAgent::pointer me, NodeAgent::pointer peer)
+{
+    OM_SmAgent::agt_cast_ptr(peer)->om_send_myinfo(me);
 }
 
 // om_update_node_list
@@ -232,6 +285,9 @@ OM_NodeContainer::om_bcast_new_node(NodeAgent::pointer node, const FdspNodeRegPt
 void
 OM_NodeContainer::om_update_node_list(NodeAgent::pointer node, const FdspNodeRegPtr ref)
 {
+    dc_sm_nodes->agent_foreach<NodeAgent::pointer>(node, om_send_peer_info_to_me);
+    dc_dm_nodes->agent_foreach<NodeAgent::pointer>(node, om_send_peer_info_to_me);
+    dc_am_nodes->agent_foreach<NodeAgent::pointer>(node, om_send_peer_info_to_me);
 }
 
 }  // namespace fds

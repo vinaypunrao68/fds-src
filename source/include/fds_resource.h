@@ -131,7 +131,7 @@ class RsContainer
         return rs_array.cbegin();
     }
     inline const_iterator cend() const {
-        return rs_array.cend();
+        return rs_array.cbegin() + rs_cur_idx;
     }
     /**
      * Methods to allocate and reference the node.

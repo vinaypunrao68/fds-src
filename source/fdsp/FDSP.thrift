@@ -262,6 +262,7 @@ struct FDSP_Node_Info_Type {
   7: i32		 control_port, /* Port number to contact for control messages */
   8: i32		 data_port, /* Port number to send datapath requests */
   9: i32                 migration_port, /* Migration service port */
+  10: i64                node_uuid,      /* UUID of the node */
 }
 
 typedef list<FDSP_Node_Info_Type> Node_Info_List_Type
