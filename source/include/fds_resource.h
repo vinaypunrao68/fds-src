@@ -1,60 +1,17 @@
 #ifndef INCLUDE_FDS_RESOURCE_H_
 #define INCLUDE_FDS_RESOURCE_H_
 
+#include <list>
+#include <string>
+#include <vector>
+#include <unordered_map>
 #include <boost/atomic.hpp>
 #include <boost/intrusive_ptr.hpp>
-#include <shared/fds_types.h>
 #include <cpplist.h>
+#include <shared/fds_types.h>
+#include <concurrency/Mutex.h>
 
 namespace fds {
-
-// ----------------------------------------------------------------------------
-// Generic Resource Object
-// ----------------------------------------------------------------------------
-class Resource
-{
-  public:
-    typedef boost::intrusive_ptr<Resource> pointer;
-    typedef boost::intrusive_ptr<const Resource> const_ptr;
-    Resource() : rs_refcnt(0) {}
-    virtual ~Resource() {}
-
-  private:
-    mutable boost::atomic<int>  rs_refcnt;
-    friend void intrusive_ptr_add_ref(const Resource  *x) {
-        x->rs_refcnt.fetch_add(1, boost::memory_order_relaxed);
-    }
-    friend void intrusive_ptr_release(const Resource *x) {
-        if (x->rs_refcnt.fetch_sub(1, boost::memory_order_release) == 1) {
-            boost::atomic_thread_fence(boost::memory_order_acquire);
-            delete x;
-        }
-    }
-};
-
-// ----------------------------------------------------------------------------
-// Generic Resource Container
-// ----------------------------------------------------------------------------
-class RsContainer
-{
-  public:
-    typedef boost::intrusive_ptr<RsContainer> pointer;
-    typedef boost::intrusive_ptr<const RsContainer> const_ptr;
-    RsContainer() : rs_refcnt(0) {}
-    virtual ~RsContainer() {}
-
-  private:
-    mutable boost::atomic<int>  rs_refcnt;
-    friend void intrusive_ptr_add_ref(const RsContainer *x) {
-        x->rs_refcnt.fetch_add(1, boost::memory_order_relaxed);
-    }
-    friend void intrusive_ptr_release(const RsContainer *x) {
-        if (x->rs_refcnt.fetch_sub(1, boost::memory_order_release) == 1) {
-            boost::atomic_thread_fence(boost::memory_order_acquire);
-            delete x;
-        }
-    }
-};
 
 // ----------------------------------------------------------------------------
 // Resource UUID
@@ -97,6 +54,119 @@ class UuidHash {
   public:
     fds_uint64_t operator()(const ResourceUUID& rs) const {
         return rs.uuid_get_val();
+    }
+};
+
+const int RS_NAME_MAX           = 16;
+const int RS_DEFAULT_ELEM_CNT   = 64;
+
+class RsContainer;
+
+// ----------------------------------------------------------------------------
+// Generic Resource Object
+// ----------------------------------------------------------------------------
+class Resource
+{
+  public:
+    typedef boost::intrusive_ptr<Resource> pointer;
+    typedef boost::intrusive_ptr<const Resource> const_ptr;
+
+    inline char const *const  rs_get_name() const { return rs_name; }
+    inline const ResourceUUID rs_get_uuid() const { return rs_uuid; }
+    inline fds_uint32_t       rs_my_index() { return rs_index; }
+    inline fds_mutex *        rs_mutex() { return &rs_mtx; }
+
+  protected:
+    friend class RsContainer;
+    ResourceUUID             rs_uuid;
+    fds_uint32_t             rs_index;
+    char                     rs_name[RS_NAME_MAX];
+    fds_mutex                rs_mtx;
+
+    virtual ~Resource() {}
+    Resource(const ResourceUUID &uuid)
+        : rs_uuid(uuid), rs_mtx("rs-mtx"), rs_refcnt(0) {}
+
+  private:
+    mutable boost::atomic<int>  rs_refcnt;
+    friend void intrusive_ptr_add_ref(const Resource  *x) {
+        x->rs_refcnt.fetch_add(1, boost::memory_order_relaxed);
+    }
+    friend void intrusive_ptr_release(const Resource *x) {
+        if (x->rs_refcnt.fetch_sub(1, boost::memory_order_release) == 1) {
+            boost::atomic_thread_fence(boost::memory_order_acquire);
+            delete x;
+        }
+    }
+};
+
+typedef std::unordered_map<ResourceUUID, Resource::pointer, UuidHash> RsUuidMap;
+typedef std::unordered_map<std::string, Resource::pointer> RsNameMap;
+typedef std::list<Resource::pointer>   RsList;
+typedef std::vector<Resource::pointer> RsArray;
+
+// ----------------------------------------------------------------------------
+// Generic Resource Container
+// ----------------------------------------------------------------------------
+class RsContainer
+{
+  public:
+    typedef boost::intrusive_ptr<RsContainer> pointer;
+    typedef boost::intrusive_ptr<const RsContainer> const_ptr;
+    typedef RsArray::const_iterator const_iterator;
+
+    RsContainer();
+    virtual ~RsContainer();
+
+    /**
+     * Return the number of available elements in the container.
+     */
+    inline fds_uint32_t rs_available_elm() {
+        return rs_cur_idx;
+    }
+    /**
+     * Iterate through the array.  It's thread safe.
+     */
+    inline const_iterator cbegin() const {
+        return rs_array.cbegin();
+    }
+    inline const_iterator cend() const {
+        return rs_array.cend();
+    }
+    /**
+     * Methods to allocate and reference the node.
+     */
+    virtual Resource::pointer rs_alloc_new(const ResourceUUID &uuid);
+    virtual Resource::pointer rs_get_resource(const ResourceUUID &uuid);
+    virtual Resource::pointer rs_get_resource(char const *const name);
+    virtual void rs_register(Resource::pointer rs);
+    virtual void rs_register_mtx(Resource::pointer rs);
+    virtual void rs_unregister(Resource::pointer rs);
+    virtual void rs_unregister_mtx(Resource::pointer rs);
+
+  protected:
+    RsUuidMap                rs_uuid_map;
+    RsNameMap                rs_name_map;
+    RsArray                  rs_array;
+    RsList                   rs_elem;
+    fds_uint32_t             rs_cur_idx;
+    fds_mutex                rs_mtx;
+
+    /**
+     * Factory method.
+     */
+    virtual Resource *rs_new(const ResourceUUID &uuid) = 0;
+
+  private:
+    mutable boost::atomic<int>  rs_refcnt;
+    friend void intrusive_ptr_add_ref(const RsContainer *x) {
+        x->rs_refcnt.fetch_add(1, boost::memory_order_relaxed);
+    }
+    friend void intrusive_ptr_release(const RsContainer *x) {
+        if (x->rs_refcnt.fetch_sub(1, boost::memory_order_release) == 1) {
+            boost::atomic_thread_fence(boost::memory_order_acquire);
+            delete x;
+        }
     }
 };
 

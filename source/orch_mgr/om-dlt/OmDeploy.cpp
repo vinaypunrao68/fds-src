@@ -289,7 +289,7 @@ DltDplyFSM::GRD_DltRebal::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
     for (std::unordered_set<NodeUuid, UuidHash>::const_iterator cit = addedNodes.cbegin();
          cit != addedNodes.cend();
          ++cit) {
-        NodeAgent::pointer agent = domain->om_node_info(*cit);
+        NodeAgent::pointer agent = domain->om_sm_agent(*cit);
         fds_verify(agent != NULL);
         FDS_PLOG_SEV(g_fdslog, fds_log::debug)
                 << "GRD_DltRebal: Added node " << agent->get_node_name()

@@ -303,14 +303,11 @@ DataPlacement::beginRebalance() {
          cit != addedNodes.cend();
          ++cit) {
         NodeUuid  uuid = *cit;
-    //    const NodeAgent *na = curClusterMap->om_member_info(uuid);
-        NodeAgent::const_ptr na = OM_NodeDomainMod::om_local_domain()->om_node_info(uuid);
+        OM_SmAgent::const_ptr na = OM_NodeDomainMod::om_local_domain()->om_sm_agent(uuid);
         NodeAgentCpReqClientPtr naClient = na->getCpClient();
     // populate  msg header
         na->init_msg_hdr(msgHdr);
         msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_NOTIFY_MIGRATION;
-        msgHdr->src_id = FDS_ProtocolInterface::FDSP_ORCH_MGR;
-        msgHdr->dst_id = FDS_ProtocolInterface::FDSP_STOR_MGR;
 
     // populate the dlt  class
        dltMsg->dlt_type= true;
@@ -360,15 +357,13 @@ DataPlacement::commitDlt() {
     for (ClusterMap::const_iterator it = curClusterMap->cbegin();
          it != curClusterMap->cend();
          it++) {
-        NodeAgent::pointer na = it->second;
+        OM_SmAgent::pointer na = it->second;
         // notify nodes with 'node up' status that are not just added nodes
         if ((na->node_state() == FDS_ProtocolInterface::FDS_Node_Up) &&
             (addedNodes.count(na->get_uuid()) == 0)) {
             NodeAgentCpReqClientPtr naClient = na->getCpClient();
             na->init_msg_hdr(msgHdr);
             msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_DLT_UPDATE;
-            msgHdr->src_id = FDS_ProtocolInterface::FDSP_ORCH_MGR;
-            msgHdr->dst_id = FDS_ProtocolInterface::FDSP_STOR_MGR;
 
             naClient->NotifyDLTUpdate(msgHdr, dltMsg);
 
