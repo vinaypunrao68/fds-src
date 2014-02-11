@@ -426,6 +426,7 @@ class ObjectStorMgr :
             int vol_action,
             FDSP_ResultType resut);
     static void migrationEventOmHandler(bool dlt_type);
+    void migrationSvcResponseCb(const Error& err);
 
     virtual Error enqueueMsg(fds_volid_t volId, SmIoReq* ioReq);
 

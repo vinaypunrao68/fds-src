@@ -72,12 +72,12 @@ void OMgrClientRPCI::NotifyNodeRmv(FDSP_MsgHdrTypePtr& msg_hdr,
 
 void OMgrClientRPCI::NotifyDLTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
 				     FDSP_DLT_Data_TypePtr& dlt_info) {
-  om_client->recvDLTUpdate(dlt_info->dlt_type, dlt_info->dlt_data);
+    om_client->recvDLTUpdate(dlt_info, msg_hdr->session_uuid);
 }
 void OMgrClientRPCI::NotifyStartMigration(FDSP_MsgHdrTypePtr& msg_hdr,
 			 FDSP_DLT_Data_TypePtr& dlt_info) {
 
-  om_client->recvDLTStartMigration(dlt_info->dlt_type, dlt_info->dlt_data);
+  om_client->recvDLTStartMigration(dlt_info);
   om_client->recvMigrationEvent(dlt_info->dlt_type); 
 }
 
@@ -583,6 +583,29 @@ int OMgrClient::recvMigrationEvent(bool dlt_type)
 
 }
 
+int OMgrClient::sendMigrationStatusToOM(const Error& err) {
+    try {
+        FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
+        initOMMsgHdr(msg_hdr);
+        FDSP_MigrationStatusTypePtr migr_status_msg(new FDSP_MigrationStatusType());
+        migr_status_msg->DLT_version = getDltVersion();
+        migr_status_msg->context = 0;
+        om_client_prx->NotifyMigrationDone(msg_hdr, migr_status_msg);
+
+        FDS_PLOG_SEV(omc_log, fds::fds_log::notification)
+                << "OMClient sending migration done event to OM for DLT version "
+                << migr_status_msg->DLT_version;
+    }
+    catch (...) {
+        FDS_PLOG_SEV(omc_log, fds_log::error)
+                << "OMClient unable to send migration status to OM."
+                << " Check if OM is up and restart";
+        return -1;
+    }
+
+    return 0;
+}
+
 int OMgrClient::recvNodeEvent(int node_id, 
 			      FDSP_MgrIdType node_type, 
 			      unsigned int node_ip, 
@@ -656,30 +679,46 @@ int OMgrClient::recvVolAttachState(fds_volid_t vol_id,
   
 }
 
+int OMgrClient::recvDLTUpdate(FDSP_DLT_Data_TypePtr& dlt_info,
+                              const std::string& session_uuid) {
+    FDS_PLOG_SEV(omc_log, fds::fds_log::notification)
+            << "OMClient received new DLT version  " << dlt_info->dlt_type;
 
-int OMgrClient::recvDLTUpdate(bool dlt_type, std::string& dlt_data) {
+    omc_lock.write_lock();
+    dltMgr.addSerializedDLT(dlt_info->dlt_data, dlt_info->dlt_type);
+    dltMgr.dump();
+    omc_lock.write_unlock();
 
-  FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received new DLT version  " << dlt_type;
+    // send ack back to OM
+    boost::shared_ptr<FDS_ProtocolInterface::FDSP_ControlPathRespClient> resp_client_prx =
+            omrpc_handler_session_->getRespClient(session_uuid);
 
-  omc_lock.write_lock();
-  dltMgr.addSerializedDLT(dlt_data,dlt_type);
-  dltMgr.dump();
-  omc_lock.write_unlock();
+    try {
+        FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
+        initOMMsgHdr(msg_hdr);
+        FDSP_DLT_Resp_TypePtr dlt_resp(new FDSP_DLT_Resp_Type);
+        dlt_resp->DLT_version = getDltVersion();
+        resp_client_prx->NotifyDLTUpdateResp(msg_hdr, dlt_resp);
+        FDS_PLOG_SEV(omc_log, fds_log::notification)
+                << "OMClient sent response for DTL update to OM";
+    } catch (...) {
+        FDS_PLOG_SEV(omc_log, fds_log::error) << "OMClient failed to send response to OM";
+        return -1;
+    }
 
-  return (0);
+    return (0);
 }
 
-int OMgrClient::recvDLTStartMigration(bool dlt_type, std::string& dlt_data) {
-
-  FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received new Migration DLT version  " << dlt_type;
+int OMgrClient::recvDLTStartMigration(FDSP_DLT_Data_TypePtr& dlt_info) {
+  FDS_PLOG_SEV(omc_log, fds::fds_log::notification)
+          << "OMClient received new Migration DLT version  " << dlt_info->dlt_type;
 
   omc_lock.write_lock();
-  dltMgr.addSerializedDLT(dlt_data,dlt_type);
+  dltMgr.addSerializedDLT(dlt_info->dlt_data, dlt_info->dlt_type);
   dltMgr.dump();
   omc_lock.write_unlock();
 
   return (0);
-
 }
 
 int OMgrClient::recvDMTUpdate(int dmt_vrsn, const Node_Table_Type& dmt_table) {

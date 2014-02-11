@@ -297,14 +297,18 @@ OM_ControlRespHandler::NotifyNodeRmvResp(
 void
 OM_ControlRespHandler::NotifyDLTUpdateResp(
     const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const FDS_ProtocolInterface::FDSP_DLT_Data_Type& dlt_info_resp) {
+    const FDS_ProtocolInterface::FDSP_DLT_Resp_Type& dlt_resp) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
 }
 
 void
 OM_ControlRespHandler::NotifyDLTUpdateResp(
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    FDS_ProtocolInterface::FDSP_DLT_Data_TypePtr& dlt_info_resp) {
+    FDS_ProtocolInterface::FDSP_DLT_Resp_TypePtr& dlt_resp) {
+    FDS_PLOG_SEV(g_fdslog, fds_log::notification)
+            << "OM received response for NotifyDltUpdate from node "
+            << fdsp_msg->src_node_name
+            << " for DLT version " << dlt_resp->DLT_version;
 }
 
 void

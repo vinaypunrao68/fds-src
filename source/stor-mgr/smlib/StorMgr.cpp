@@ -566,10 +566,17 @@ void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
 //    MigSvcCopyTokensReqPtr copy_req(new MigSvcCopyTokensReq());
 //    copy_req->tokens = sender_store_->getTokens();
 //    copy_req->migsvc_resp_cb = std::bind(
-//            &MigrationTester::mig_svc_cb, this,std::placeholders::_1);
+//            &ObjectStorMgr::migrationSvcResponseCb, this,std::placeholders::_1);
 //    FdsActorRequestPtr copy_far(new FdsActorRequest(FAR_ID(MigSvcCopyTokensReq), copy_req));
 //    rcvr_mig_svc_->send_actor_request(copy_far);
 
+    // TODO(Anna) this is temporary to send migration done callback, 
+    // remove when code above is un-commented
+    objStorMgr->migrationSvcResponseCb(Error(ERR_OK));
+}
+
+void ObjectStorMgr::migrationSvcResponseCb(const Error& err) {
+    omClient->sendMigrationStatusToOM(err);
 }
 
 void ObjectStorMgr::nodeEventOmHandler(int node_id,
