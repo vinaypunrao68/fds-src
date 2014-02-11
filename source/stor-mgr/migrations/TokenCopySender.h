@@ -31,6 +31,7 @@ public:
     TokenCopySender(FdsMigrationSvc *migrationSvc,
             SmIoReqHandler *data_store,
             const std::string &mig_id,
+            const std::string &mig_stream_id,
             fds_threadpoolPtr threadpool,
             fds_logPtr log,
             const std::string &rcvr_ip,
