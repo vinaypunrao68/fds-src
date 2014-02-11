@@ -18,9 +18,9 @@ namespace fds {
 class OM_NodeDomainMod;
 class OM_ControlRespHandler;
 
-namespace fpi = FDS_ProtocolInterface;
 typedef boost::shared_ptr<fpi::FDSP_ControlPathReqClient> NodeAgentCpReqClientPtr;
 typedef boost::shared_ptr<netControlPathClientSession>    NodeAgentCpSessionPtr;
+
 /**
  * Agent interface to communicate with the remote node.  This is the communication
  * end-point to the node.
@@ -29,7 +29,7 @@ typedef boost::shared_ptr<netControlPathClientSession>    NodeAgentCpSessionPtr;
  * We'll provide methods to establish the transport in the background and error
  * handling model when the transport is broken.
  */
-class OM_SmAgent : public SmAgent
+class OM_SmAgent : public NodeAgent
 {
   public:
     typedef boost::intrusive_ptr<OM_SmAgent> pointer;
@@ -50,7 +50,11 @@ class OM_SmAgent : public SmAgent
      */
     NodeAgentCpReqClientPtr getCpClient() const;
 
-    void init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const;
+    /**
+     * Send this node agent info as an event to notify the peer node.
+     */
+    virtual void om_send_myinfo(NodeAgent::pointer peer);
+    virtual void init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const;
 
   protected:
     NodeAgentCpSessionPtr   ndCpSession;
