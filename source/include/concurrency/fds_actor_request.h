@@ -34,7 +34,10 @@ enum FdsActorRequestType {
     FAR_ENUM(TcsDataReadDone),
 
     /* TokenCopyReceiver message that token data has been written */
-    FAR_ENUM(TcrDataWriteDone),
+    FAR_ENUM(TcrWrittenEvt),
+
+    /* TokenCopyReceiver message that a copy stream is finished */
+    FAR_ENUM(TcrDestroyEvt),
 
     /*----------------- Migration RPC -----------------------------------------*/
     /* RPC from receiver->sender to start token copy */
