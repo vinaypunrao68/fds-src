@@ -17,7 +17,7 @@ extern void fds_panic(const char *fmt, ...) panic_attr;
                   #expr, __FILE__, __LINE__);                                \
     }
 
-#ifdef DEBUG_BUILD
+#ifdef DEBUG
 #define fds_assert(expr)                                                     \
     if (!(expr)) {                                                           \
         fds_panic("Assertion \"%s\" fails at %s, line %d\n",                 \

@@ -107,7 +107,6 @@ OM_SmContainer::agent_register(const NodeUuid       &uuid,
         return err;
     }
     OM_SmAgent::pointer agent = OM_SmAgent::agt_cast_ptr(*out);
-
     NodeAgentCpSessionPtr session(
             ac_cpSessTbl->startSession<netControlPathClientSession>(
                 agent->get_ip_str(),
@@ -155,7 +154,6 @@ OM_DmContainer::agent_register(const NodeUuid       &uuid,
         return err;
     }
     OM_DmAgent::pointer agent = OM_DmAgent::agt_cast_ptr(*out);
-
     NodeAgentCpSessionPtr session(
             ac_cpSessTbl->startSession<netControlPathClientSession>(
                 agent->get_ip_str(),

@@ -25,7 +25,7 @@ namespace fds {
 enum FdsActorRequestType {
     /*----------------- Migration request range [1000-2000) -------------------*/
     /* Migration service message to initiate token copy */
-    FAR_ENUM(MigSvcCopyTokens) = 1000,
+    FAR_ENUM(MigSvcCopyTokensReq) = 1000,
 
     /* Migration service message that a migration is complete */
     FAR_ENUM(MigSvcMigrationComplete),

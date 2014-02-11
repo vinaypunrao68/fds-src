@@ -6,6 +6,7 @@
 #include <concurrency/Mutex.h>
 #include <boost/thread/condition.hpp>
 #include "fds_types.h"
+#include <qos_ctrl.h>
 
 #define  FDS_READ_WRITE_LOG_ENTRIES 	10*1024
 
@@ -13,83 +14,91 @@
 using namespace FDS_ProtocolInterface;
 using namespace std;
 using namespace fds;
+using namespace Ice;
 
 namespace fds {
 
-template<typename KeyT, typename JEntryT>
-class TransJournal;
+using namespace IceUtil;
 
 
-template <typename JEntryT>
-class  TransJournalEntryLock {
-
- private:
-  JEntryT *jrnl_e;
-
- public:
-  TransJournalEntryLock(JEntryT *jrnl_entry);
-  ~ TransJournalEntryLock();
-
-};
+typedef unsigned int TransJournalId;
 
 template<typename KeyT, typename JEntryT>
 class TransJournal {
-private:
+public:
+  const static TransJournalId INVALID_TRANS_ID = (TransJournalId) -1;
 
-  fds_mutex *jrnl_tbl_mutex;
-  JEntryT  *rwlog_tbl;
-  std::unordered_map<KeyT, unsigned int> key_to_jrnl_idx;
-  std::queue<unsigned int> free_trans_ids;
-  unsigned int max_journal_entries;
+  struct TransJournalKeyInfo {
+    TransJournalKeyInfo(FDS_IOType *in_io, TransJournalId in_trans_id) {
+      io = in_io;
+      trans_id = in_trans_id;
+    }
+    TransJournalKeyInfo(FDS_IOType *in_io) {
+      io = in_io;
+      trans_id = INVALID_TRANS_ID;
+    }
 
-  unsigned int get_free_trans_id();
-  void return_free_trans_id(unsigned int trans_id);
+    FDS_IOType *io;
+    TransJournalId trans_id;
+  };
 
-  boost::posix_time::ptime ctime; /* time the journal was created */
-
-  unsigned int get_trans_id_for_key(const KeyT &key);
+  typedef std::unordered_map<KeyT, std::list<TransJournalKeyInfo> > KeyToTransInfoTable;
 
 public:
- 	TransJournal();
-	TransJournal(unsigned int max_jrnl_entries);
+ 	TransJournal(FDS_QoSControl *qos_controller, fds_log *log);
+	TransJournal(unsigned int max_jrnl_entries, FDS_QoSControl *qos_controller, fds_log *log);
  	~TransJournal();
 
-	void lock();
-	void unlock();
+ 	Error create_transaction(const KeyT& key, FDS_IOType *io, TransJournalId &trans_id);
+ 	JEntryT* get_transaction(const TransJournalId &trans_id);
+ 	void release_transaction(TransJournalId &trans_id);
 
-	JEntryT *get_journal_entry(int trans_id);
-	void release_trans_id(unsigned int trans_id);
-	long microsecSinceCtime(boost::posix_time::ptime timestamp) {
-	  boost::posix_time::time_duration elapsed = timestamp - ctime;
-	  return elapsed.total_microseconds();
-	}
+ 	uint32_t get_active_cnt() {return _active_cnt;}
+ 	uint32_t get_pending_cnt() {return _pending_cnt;}
 
-	JEntryT* get_journal_entry_for_key(const KeyT& key);
-	void release_journal_entry_with_notify(JEntryT *entry);
+private:
+ 	Error _assign_transaction_to_key(const KeyT& key,
+ 	    FDS_IOType *io, TransJournalId &trans_id);
+
+private:
+  fds_mutex *_jrnl_tbl_mutex;
+  JEntryT  *_rwlog_tbl;
+  KeyToTransInfoTable _key_to_transinfo_tbl;
+  std::queue<unsigned int> _free_trans_ids;
+  unsigned int _max_journal_entries;
+
+  FDS_QoSControl *_qos_controller;
+  fds_log *_log;
+  boost::posix_time::ptime _ctime; /* time the journal was created */
+
+  /* Counters */
+  uint32_t _active_cnt;
+  uint32_t _pending_cnt;
 };
 
 class ObjectIdJrnlEntry {
 public:
 	ObjectIdJrnlEntry();
 	void init(unsigned int transid, TransJournal<ObjectID, ObjectIdJrnlEntry> *jrnlTbl);
-	void lock();
-	void unlock();
-	fds_mutex* getLock();
-	boost::condition* getCond();
 	void reset();
-	void setActive(bool bActive);
-	bool isActive();
-	void setJournalKey(const ObjectID &key);
-	ObjectID getJournalKey();
-	unsigned int getTransId();
+
+	void set_active(bool bActive);
+	bool is_active();
+
+	void set_key(const ObjectID &key);
+	ObjectID get_key();
+
+	void set_fdsio(FDS_IOType *fdsio);
+	FDS_IOType* get_fdsio();
+
+	unsigned int get_transid();
 private:
-	ObjectID _key;
 	fds_mutex _mutex;
-	boost::condition _condition;
-	bool _active;
 	unsigned int _transid;
 	TransJournal<ObjectID, ObjectIdJrnlEntry> *_jrnlTbl;
-
+	ObjectID _key;
+	bool _active;
+	FDS_IOType *_fdsio;
 };
 
 } // namespace fds

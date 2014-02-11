@@ -21,7 +21,6 @@ class OM_ControlRespHandler;
 namespace fpi = FDS_ProtocolInterface;
 typedef boost::shared_ptr<fpi::FDSP_ControlPathReqClient> NodeAgentCpReqClientPtr;
 typedef boost::shared_ptr<netControlPathClientSession>    NodeAgentCpSessionPtr;
-
 /**
  * Agent interface to communicate with the remote node.  This is the communication
  * end-point to the node.
@@ -231,6 +230,9 @@ class OM_NodeDomainMod : public Module
      */
     virtual Error
     om_del_node_info(const NodeUuid& uuid, const std::string& node_name);
+
+    virtual Error
+    om_recv_migration_done(const NodeUuid& uuid, fds_uint64_t dlt_version);
 
     /**
      * Updates cluster map membership and does DLT

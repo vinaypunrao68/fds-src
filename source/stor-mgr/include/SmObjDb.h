@@ -36,7 +36,6 @@
 #include <utility>
 #include <atomic>
 #include <unordered_map>
-#include <include/TransJournal.h>
 #include <ObjStats.h>
 #define SM_TOKEN_MASK 0xff000000
 #define SM_TOKEN_MASK_64 0xff00000000000000

@@ -27,7 +27,7 @@ public:
     {
         Error err(ERR_OK);
         switch (req->type) {
-        case FAR_ID(MigSvcCopyTokens):
+        case FAR_ID(MigSvcCopyTokensReq):
             threadpool_->schedule(&FdsActorTest::copy_token, this, req);
             break;
         case FAR_ID(MigSvcMigrationComplete):
@@ -48,7 +48,7 @@ void test_send_actor_request()
 {
     fds_threadpoolPtr threadpool(new fds_threadpool());
     FdsActorRequestPtr r(new FdsActorRequest());
-    r->type = FAR_ID(MigSvcCopyTokens);
+    r->type = FAR_ID(MigSvcCopyTokensReq);
 
     FdsActorTest t(threadpool);
     t.send_actor_request(r);

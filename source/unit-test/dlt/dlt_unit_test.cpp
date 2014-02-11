@@ -7,6 +7,7 @@
 #include "dlt_helper_funcs.h"
 #include <serialize.h>
 #include <unistd.h>
+
 using namespace fds;
 using namespace fds::serialize;
 
@@ -17,7 +18,7 @@ TEST_CASE ("TokenGroup" , "[token]") {
     tokenGroup[2]=30;
     tokenGroup[3]=40;
     CAPTURE ( tokenGroup[2].uuid_get_val() );
-
+    //cout << tokenGroup ; 
     for (uint i=0;i<4;i++) {
         REQUIRE (tokenGroup[i].uuid_get_val() == (i+1)*10);
     }
@@ -242,6 +243,6 @@ TEST_CASE ("DLT Manager Serialize" ,"[dlt][serialize][mgr]") {
     verifyDltNodes(ptr,20);
 
     const_cast<DLT*>(ptr)->generateNodeTokenMap();
-    ptr->dump(true);
+    ptr->dump();
 
 }

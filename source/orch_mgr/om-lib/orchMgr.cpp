@@ -337,9 +337,24 @@ int OrchMgr::GetDomainStats(const FdspMsgHdrPtr& fdsp_msg,
 
 int OrchMgr::NotifyMigrationDone(const FdspMsgHdrPtr& fdsp_msg,
                                  const FdspMigrationStatusPtr& status_req) {
+    Error err(ERR_OK);
     FDS_PLOG_SEV(GetLog(), fds_log::notification)
             << "Received migration done notification from node "
             << fdsp_msg->src_node_name;
+
+    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+
+    // TODO(Anna) Should we use node names or node uuids directly in 
+    // fdsp messages? for now getting uuid from hashing the name
+    NodeUuid node_uuid(fds_get_uuid64(fdsp_msg->src_node_name));
+
+    om_mutex->lock();
+    err = domain->om_recv_migration_done(node_uuid, status_req->DLT_version);
+    om_mutex->unlock();
+
+    if (!err.ok()) {
+        return -1;
+    }
     return 0;
 }
 

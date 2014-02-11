@@ -84,6 +84,7 @@ void fds_log::init(const std::string& logfile,
    */
   sink->set_filter(
       boost::log::expressions::attr<severity_level>("Severity").or_default(normal) >= level);
+  severityLevel = level;
   
   /*
    * Setup the attributes
@@ -180,6 +181,7 @@ void fds_log::setSeverityFilter(const severity_level &level) {
 	sink->reset_filter();
 	sink->set_filter(
 	      boost::log::expressions::attr<severity_level>("Severity").or_default(normal) >= level);
+        severityLevel=level;
 }
 
 }  // namespace fds

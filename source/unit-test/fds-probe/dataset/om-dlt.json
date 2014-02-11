@@ -12,9 +12,6 @@
                     "input-event": "update-done"
                 },
                 {
-                    "input-event": "commit"
-                },
-                {
                     "input-event": "commit-done"
                 }
             ]

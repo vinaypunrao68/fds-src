@@ -39,19 +39,13 @@ class DltRebalEvt
 class DltRebalOkEvt
 {
   public:
-    DltRebalOkEvt() {}
+    DltRebalOkEvt(ClusterMap *cm,
+                  DataPlacement *d)
+             : ode_clusmap(cm),
+            ode_dp(d) {}
 
-    ClusterMap               *ode_clusmap;
-    NodeAgent::pointer        ode_done_node;
-};
-
-class DltCommitEvt
-{
-  public:
-    explicit DltCommitEvt(DataPlacement *d)
-        : ode_dp(d) {}
-
-    DataPlacement            *ode_dp;
+    ClusterMap            *ode_clusmap;
+    DataPlacement         *ode_dp;
 };
 
 class DltCommitOkEvt
@@ -83,7 +77,6 @@ class OM_DLTMod : public Module
     void dlt_deploy_event(DltCompEvt const &evt);
     void dlt_deploy_event(DltRebalEvt const &evt);
     void dlt_deploy_event(DltRebalOkEvt const &evt);
-    void dlt_deploy_event(DltCommitEvt const &evt);
     void dlt_deploy_event(DltCommitOkEvt const &evt);
 
     /**

@@ -82,6 +82,16 @@ NodeInventory::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
     msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_OK;
 }
 
+// set_node_state
+// --------------
+//
+void
+NodeInventory::set_node_state(FdspNodeState state)
+{
+    // TODO(Vy): do this in platform side.
+    const_cast<NodeInvData *>(node_inv)->nd_node_state = state;
+}
+
 // --------------------------------------------------------------------------------------
 // Node Agents
 // --------------------------------------------------------------------------------------
