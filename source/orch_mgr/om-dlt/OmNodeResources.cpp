@@ -28,7 +28,7 @@ OM_SmAgent::setCpSession(NodeAgentCpSessionPtr session)
     ndSessionId = ndCpSession->getSessionId();
     ndCpClient  = ndCpSession->getClient();
 
-    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "Established connection with new node";
+    FDS_PLOG_SEV(g_fdslog, fds_log::normal) << "Established connection with new node";
 }
 
 NodeAgentCpReqClientPtr
@@ -55,7 +55,7 @@ OM_SmContainer::~OM_SmContainer()
 void
 OM_SmContainer::agent_activate(NodeAgent::pointer agent)
 {
-    FDS_PLOG_SEV(g_fdslog, fds_log::debug)
+    FDS_PLOG_SEV(g_fdslog, fds_log::normal)
         << "Actiate node uuid "
         << agent->get_uuid().uuid_get_val() << ", ptr " << agent << std::endl;
 
@@ -71,7 +71,7 @@ OM_SmContainer::agent_activate(NodeAgent::pointer agent)
 void
 OM_SmContainer::agent_deactivate(NodeAgent::pointer agent)
 {
-    FDS_PLOG_SEV(g_fdslog, fds_log::debug)
+    FDS_PLOG_SEV(g_fdslog, fds_log::normal)
         << "Deactivate node uuid "
         << agent->get_uuid().uuid_get_val() << ", ptr " << agent << std::endl;
 
