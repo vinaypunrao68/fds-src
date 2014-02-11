@@ -115,6 +115,11 @@ Error FdsMigrationSvc::handle_actor_request(FdsActorRequestPtr req)
         handle_migsvc_copy_token(req);
         break;
     }
+    case FAR_ID(MigSvcMigrationComplete):
+    {
+        handle_migsvc_migration_complete(req);
+        break;
+    }
     case FAR_ID(FDSP_CopyTokenReq):
     {
         handle_migsvc_copy_token_rpc(req);
@@ -123,24 +128,19 @@ Error FdsMigrationSvc::handle_actor_request(FdsActorRequestPtr req)
     case FAR_ID(FDSP_PushTokenObjectsReq):
     {
         auto payload = req->get_payload<FDSP_PushTokenObjectsReq>();
-        route_to_mig_actor(payload->header.migration_id, req);
+        route_to_mig_actor(payload->header.mig_id, req);
         break;
     }
     case FAR_ID(FDSP_CopyTokenResp):
     {
         auto payload = req->get_payload<FDSP_CopyTokenResp>();
-        route_to_mig_actor(payload->migration_id, req);
+        route_to_mig_actor(payload->mig_id, req);
         break;
     }
     case FAR_ID(FDSP_PushTokenObjectsResp):
     {
         auto payload = req->get_payload<FDSP_PushTokenObjectsResp>();
-        route_to_mig_actor(payload->migration_id, req);
-        break;
-    }
-    case FAR_ID(MigSvcMigrationComplete):
-    {
-        handle_migsvc_migration_complete(req);
+        route_to_mig_actor(payload->mig_id, req);
         break;
     }
     default:
@@ -179,28 +179,22 @@ void FdsMigrationSvc::route_to_mig_actor(const std::string &mig_id,
 void FdsMigrationSvc::handle_migsvc_copy_token(FdsActorRequestPtr req)
 {
     fds_assert(req->type == FAR_ID(MigSvcCopyTokensReq));
+
     auto copy_payload = req->get_payload<MigSvcCopyTokensReq>();
-    /* Map of sender node ip -> tokens to request from sender */
-    IpTokenTable token_tbl = get_ip_token_tbl(copy_payload->tokens);
 
-    /* Create TokenCopyReceiver endpoint for each ip */
-    for (auto  itr = token_tbl.begin(); itr != token_tbl.end();  itr++) {
-        std::string migration_id = fds::get_uuid();
-        std::string sender_ip = itr->first;
-        // TODO(Rao): Don't hard code the port
-        int sender_port = 8500;
+    std::set<fds_token_id> tokens(copy_payload->tokens.begin(),
+            copy_payload->tokens.end());
+    std::string mig_id = fds::get_uuid();
 
-        TokenCopyReceiver* copy_rcvr =
-                new TokenCopyReceiver(this, data_store_, migration_id, threadpool_, log_,
-                        sender_ip, sender_port, itr->second, migpath_handler_);
-        mig_actors_[migration_id].migrator.reset(copy_rcvr);
-        mig_actors_[migration_id].migsvc_resp_cb = copy_payload->migsvc_resp_cb;
+    TokenCopyReceiver* copy_rcvr = new TokenCopyReceiver(this,
+            data_store_, mig_id,
+            threadpool_, log_, tokens, migpath_handler_);
+    mig_actors_[mig_id].migrator.reset(copy_rcvr);
+    mig_actors_[mig_id].migsvc_resp_cb = copy_payload->migsvc_resp_cb;
 
-        LOGNORMAL << " New receiver.  Migration id: " << migration_id
-                << " sender ip : " << sender_ip;
+    LOGNORMAL << " New TokenCopyReceiver.  Migration id: " << mig_id;
 
-        copy_rcvr->start();
-    }
+    copy_rcvr->start();
 }
 
 /**
@@ -215,25 +209,32 @@ void FdsMigrationSvc::handle_migsvc_copy_token_rpc(FdsActorRequestPtr req)
     /* First acknowledge/accept the copy request */
     if (ack_copy_token_req(req) != ERR_OK) {
         LOGWARN << "Dropping Copy token request";
+        return;
     }
 
     /* Start off the TokenCopySender state machine */
     auto copy_payload = req->get_payload<FDSP_CopyTokenReq>();
-    std::string &migration_id = copy_payload->header.migration_id;
+    std::string &mig_id = copy_payload->header.mig_id;
+    std::string &mig_stream_id = copy_payload->header.mig_stream_id;
     std::string &rcvr_ip = copy_payload->header.base_header.src_node_name;
     int rcvr_port = copy_payload->header.base_header.src_port;
     std::set<fds_token_id> tokens(
             copy_payload->tokens.begin(), copy_payload->tokens.end());
-    fds_assert(migration_id.size() > 0);
+    fds_assert(mig_id.size() > 0);
+    fds_assert(mig_stream_id.size() > 0);
     fds_assert(rcvr_ip.size() > 0);
     fds_assert(tokens.size() > 0);
 
     TokenCopySender *copy_sender =
-            new TokenCopySender(this, data_store_, migration_id, threadpool_, log_,
-                    rcvr_ip, rcvr_port, tokens, migpath_handler_);
-    mig_actors_[migration_id].migrator.reset(copy_sender);
+            new TokenCopySender(this, data_store_,
+                    mig_id, mig_stream_id,
+                    threadpool_, log_,
+                    rcvr_ip, rcvr_port,
+                    tokens, migpath_handler_);
+    mig_actors_[mig_id].migrator.reset(copy_sender);
 
-    LOGNORMAL << " New sender.  Migration id: " << migration_id
+    LOGNORMAL << " New sender.  Migration id: " << mig_id
+            << " stream id: " << mig_stream_id
             << " receiver ip : " << rcvr_ip;
 
     copy_sender->start();
@@ -246,12 +247,14 @@ void FdsMigrationSvc::handle_migsvc_copy_token_rpc(FdsActorRequestPtr req)
 void FdsMigrationSvc::
 handle_migsvc_migration_complete(FdsActorRequestPtr req)
 {
+    fds_assert(req->type == FAR_ID(MigSvcMigrationComplete));
+
     auto payload = req->get_payload<MigSvcMigrationComplete>();
-    auto itr = mig_actors_.find(payload->migration_id);
+    auto itr = mig_actors_.find(payload->mig_id);
     if (itr == mig_actors_.end()) {
         /* For testing.  Remove when not needed */
         fds_assert(!"Migration actor not found");
-        LOGWARN << "Migration actor id: " << payload->migration_id
+        LOGWARN << "Migration actor id: " << payload->mig_id
                 << " disappeared";
         return;
     }
@@ -260,26 +263,16 @@ handle_migsvc_migration_complete(FdsActorRequestPtr req)
 
     /* Remove and then issue the callback */
     auto migsvc_resp_cb = itr->second.migsvc_resp_cb;
-    mig_actors_.erase(itr);
+    // TODO(rao): We need to remove the migrator.  I am experiencing crash
+    // when I do this.  I suspect fds actor queue is still scheduled even
+    // after removing the migration actor
+    // mig_actors_.erase(itr);
 
     if (migsvc_resp_cb) {
         migsvc_resp_cb(ERR_OK);
     }
 
-    LOGNORMAL << " Migration id: " << payload->migration_id;
-}
-/**
- * Returns mapping between primary source ip->tokens
- * @param tokens
- * @return
- */
-FdsMigrationSvc::IpTokenTable
-FdsMigrationSvc::get_ip_token_tbl(const std::set<fds_token_id>& tokens)
-{
-    IpTokenTable tbl;
-    // TODO(rao): Implement this.  For now hardcode.
-    tbl["127.0.0.1"] = tokens;
-    return tbl;
+    LOGNORMAL << " Migration id: " << payload->mig_id;
 }
 
 /**
@@ -306,7 +299,8 @@ void FdsMigrationSvc::setup_migpath_server()
 }
 
 /**
- * Acknowledge FAR_ID(FDSP_CopyTokenReq) request.
+ * Acknowledge FAR_ID(FDSP_CopyTokenReq) request.  Ideally this should
+ * be part of TokenCopySender.  keeping it here for now.
  * @param req
  */
 Error
@@ -323,7 +317,8 @@ FdsMigrationSvc::ack_copy_token_req(FdsActorRequestPtr req)
     response->base_header.err_code = ERR_OK;
     response->base_header.src_node_name = get_ip();
     response->base_header.session_uuid = session_id;
-    response->migration_id = copy_req->header.migration_id;
+    response->mig_id = copy_req->header.mig_id;
+    response->mig_stream_id = copy_req->header.mig_stream_id;
 
     migpath_resp_client(session_id)->CopyTokenResp(response);
 

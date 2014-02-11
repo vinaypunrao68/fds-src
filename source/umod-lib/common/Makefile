@@ -8,9 +8,9 @@ user_cpp         := \
     fds_stat.cpp
 
 user_no_style    := \
-    fds_resource.cpp \
     fds_request.cpp \
     fds_stat.cpp
+
 user_ar_libs     := fds-umod
 fds-umod         := $(user_cpp)
 

@@ -10,124 +10,17 @@
 #include <unordered_map>
 #include <fds_typedefs.h>
 #include <fds_err.h>
-#include <fds_module.h>
-#include <fds_resource.h>
-#include <concurrency/Mutex.h>
 #include <NetSession.h>
+#include <platform/node-inventory.h>
 
 namespace fds {
 
-class OM_NodeContainer;
-class OM_ClusDomainMod;
+class OM_NodeDomainMod;
 class OM_ControlRespHandler;
 
-typedef FDS_ProtocolInterface::FDSP_RegisterNodeType     FdspNodeReg;
-typedef FDS_ProtocolInterface::FDSP_RegisterNodeTypePtr  FdspNodeRegPtr;
-typedef FDS_ProtocolInterface::FDSP_NodeState            FdspNodeState;
-typedef FDS_ProtocolInterface::FDSP_MgrIdType            FdspNodeType;
-typedef std::string                                      FdspNodeName;
-
-typedef struct _node_capability_t {
-    fds_uint32_t   disk_iops_max;
-    fds_uint32_t   disk_iops_min;
-    fds_uint32_t   disk_latency_max;
-    fds_uint32_t   disk_latency_min;
-    fds_uint32_t   ssd_iops_max;
-    fds_uint32_t   ssd_iops_min;
-    fds_uint32_t   ssd_capacity;
-    fds_uint32_t   ssd_latency_max;
-    fds_uint32_t   ssd_latency_min;
-} node_capability_t;
-
-/**
- * Replacement for NodeInfo object.
- */
-class NodeInventory : public Resource
-{
-  public:
-    typedef boost::intrusive_ptr<NodeInventory> pointer;
-    typedef boost::intrusive_ptr<const NodeInventory> const_ptr;
-
-    explicit NodeInventory(const NodeUuid &uuid);
-    virtual ~NodeInventory();
-    void init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr)const;
-
-    void node_name(std::string *name) const {}
-
-    /**
-     * Update the node inventory with new info. Node must have
-     * a valid uuid (passed in constructor)
-     */
-    virtual void
-    node_update_info(const FdspNodeRegPtr msg);
-
-    /**
-     * Return the storage weight of the node in normalized unit from 0...1000
-     */
-    virtual fds_uint32_t node_stor_weight() const;
-
-    /**
-     * Set the storage weight of the node
-     */
-    virtual void node_set_weight(fds_uint64_t weight);
-
-    /**
-     * Return the mutex protecting this object.
-     */
-    inline fds_mutex *node_mutex() {
-        return &nd_mtx;
-    }
-    inline fds_uint32_t node_index() const {
-        return nd_index;
-    }
-    inline NodeUuid get_uuid() const {
-        return nd_uuid;
-    }
-    inline std::string get_node_name() const {
-        return nd_node_name;
-    }
-
-    inline std::string get_ip_str() const {
-        return nd_ip_str;
-    }
-
-    inline fds_uint32_t get_ctrl_port() const {
-        return nd_ctrl_port;
-    }
-
-    inline const node_capability_t& node_capability() const {
-        return nd_capability;
-    }
-
-  protected:
-    friend class OM_NodeContainer;
-
-    Sha1Digest               nd_checksum;
-    NodeUuid                 nd_uuid;
-    fds_uint32_t             nd_index;           /**< idx in container.   */
-    fds_uint64_t             nd_gbyte_cap;       /**< capacity in GB unit */
-    fds_mutex                nd_mtx;             /**< protecting mutex.   */
-
-    /* TODO: (vy) just porting from NodeInfo now. */
-    fds_uint32_t             nd_ip_addr;
-    std::string              nd_ip_str;
-    fds_uint32_t             nd_data_port;
-    fds_uint32_t             nd_ctrl_port;
-
-    node_capability_t        nd_capability;
-    fds_uint32_t             nd_disk_type;
-    FdspNodeName             nd_node_name;
-    FdspNodeType             nd_node_type;
-    FdspNodeState            nd_node_state;
-
-    virtual int node_calc_stor_weight();
-};
-
-typedef boost::shared_ptr<FDS_ProtocolInterface::FDSP_ControlPathReqClient>
-        NodeAgentCpReqClientPtr;
-typedef boost::shared_ptr<netControlPathClientSession>
-        NodeAgentCpSessionPtr;
-
+namespace fpi = FDS_ProtocolInterface;
+typedef boost::shared_ptr<fpi::FDSP_ControlPathReqClient> NodeAgentCpReqClientPtr;
+typedef boost::shared_ptr<netControlPathClientSession>    NodeAgentCpSessionPtr;
 /**
  * Agent interface to communicate with the remote node.  This is the communication
  * end-point to the node.
@@ -136,22 +29,20 @@ typedef boost::shared_ptr<netControlPathClientSession>
  * We'll provide methods to establish the transport in the background and error
  * handling model when the transport is broken.
  */
-class NodeAgent : public NodeInventory
+class OM_SmAgent : public SmAgent
 {
   public:
-    typedef boost::intrusive_ptr<NodeAgent> pointer;
-    typedef boost::intrusive_ptr<const NodeAgent> const_ptr;
+    typedef boost::intrusive_ptr<OM_SmAgent> pointer;
+    typedef boost::intrusive_ptr<const OM_SmAgent> const_ptr;
 
-    explicit NodeAgent(const NodeUuid &uuid);
-    /**
-     * This constructor can probably be removed as it's
-     * only needed to for testing and will be generally
-     * unuseful in other scenarios.
-     */
-    NodeAgent(const NodeUuid &uuid, fds_uint64_t nd_weight);
-    virtual ~NodeAgent();
+    explicit OM_SmAgent(const NodeUuid &uuid);
+    virtual ~OM_SmAgent();
 
+    static inline OM_SmAgent::pointer agt_cast_ptr(Resource::pointer ptr) {
+        return static_cast<OM_SmAgent *>(get_pointer(ptr));
+    }
     void setCpSession(NodeAgentCpSessionPtr session);
+
     /**
      * Returns the client end point for the node. The function
      * is not constanct since the member pointer returned
@@ -160,84 +51,169 @@ class NodeAgent : public NodeInventory
     NodeAgentCpReqClientPtr getCpClient() const;
 
   protected:
-    friend class            OM_NodeContainer;
     NodeAgentCpSessionPtr   ndCpSession;
     std::string             ndSessionId;
     NodeAgentCpReqClientPtr ndCpClient;
+
+    virtual int node_calc_stor_weight();
 };
 
-/**
- * Type that maps a node's UUID to its agent object.
- */
-typedef std::unordered_map<NodeUuid, NodeAgent::pointer, UuidHash> NodeMap;
+typedef OM_SmAgent                      OM_DmAgent;
+typedef OM_SmAgent                      OM_AmAgent;
+typedef std::list<OM_SmAgent::pointer>  NodeList;
 
-typedef std::list<NodeAgent::pointer>      NodeList;
-typedef std::vector<NodeAgent::pointer>    NodeArray;
-
-// ----------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------
 // Common OM Node Container
-// ----------------------------------------------------------------------------
-class OM_NodeContainer : public RsContainer
+// -------------------------------------------------------------------------------------
+class OM_SmContainer : public SmContainer
 {
   public:
-    typedef boost::intrusive_ptr<OM_NodeContainer> pointer;
-    typedef NodeMap::const_iterator const_iterator;
+    typedef boost::intrusive_ptr<OM_SmContainer> pointer;
 
+    OM_SmContainer();
+    virtual ~OM_SmContainer();
+
+    void om_splice_nodes_pend(NodeList *addNodes, NodeList *rmNodes);
+
+    virtual void agent_activate(NodeAgent::pointer agent);
+    virtual void agent_deactivate(NodeAgent::pointer agent);
+
+    virtual Error agent_register(const NodeUuid       &uuid,
+                                 const FdspNodeRegPtr  msg,
+                                 NodeAgent::pointer   *out);
+    virtual Error agent_unregister(const NodeUuid &uuid, const std::string &name);
+
+    static inline OM_SmContainer::pointer agt_cast_ptr(RsContainer::pointer ptr) {
+        return static_cast<OM_SmContainer *>(get_pointer(ptr));
+    }
+  protected:
+    NodeList                                 node_up_pend;
+    NodeList                                 node_down_pend;
+    boost::shared_ptr<OM_ControlRespHandler> ctrlRspHndlr;
+
+    virtual Resource *rs_new(const ResourceUUID &uuid) {
+        return new OM_SmAgent(uuid);
+    }
+};
+
+class OM_DmContainer : public DmContainer
+{
+  public:
+    OM_DmContainer();
+    virtual ~OM_DmContainer() {}
+
+    virtual Error agent_register(const NodeUuid       &uuid,
+                                 const FdspNodeRegPtr  msg,
+                                 NodeAgent::pointer   *out);
+
+    static inline OM_DmContainer::pointer agt_cast_ptr(RsContainer::pointer ptr) {
+        return static_cast<OM_DmContainer *>(get_pointer(ptr));
+    }
+  protected:
+    boost::shared_ptr<OM_ControlRespHandler> ctrlRspHndlr;
+
+    virtual Resource *rs_new(const ResourceUUID &uuid) {
+        return new OM_DmAgent(uuid);
+    }
+};
+
+class OM_AmContainer : public AmContainer
+{
+  public:
+    OM_AmContainer();
+    virtual ~OM_AmContainer() {}
+
+    virtual Error agent_register(const NodeUuid       &uuid,
+                                 const FdspNodeRegPtr  msg,
+                                 NodeAgent::pointer   *out);
+
+    static inline OM_AmContainer::pointer agt_cast_ptr(RsContainer::pointer ptr) {
+        return static_cast<OM_AmContainer *>(get_pointer(ptr));
+    }
+  protected:
+    boost::shared_ptr<OM_ControlRespHandler> ctrlRspHndlr;
+
+    virtual Resource *rs_new(const ResourceUUID &uuid) {
+        return new OM_AmAgent(uuid);
+    }
+};
+
+class OM_NodeContainer : public DomainContainer
+{
+  public:
     OM_NodeContainer();
     virtual ~OM_NodeContainer();
 
     /**
-     * Iterate through the list of nodes by index 0...n to retrieve their
-     * agent objects.
+     * Return SM/DM/AM container or SM/DM/AM agent for the local domain.
      */
-    inline int om_avail_nodes() {
-        return node_cur_idx;
+    inline OM_SmContainer::pointer om_sm_nodes() {
+        return OM_SmContainer::agt_cast_ptr(dc_sm_nodes);
     }
-    NodeAgent::pointer om_node_info(fds_uint32_t node_idx);
-    NodeAgent::pointer om_node_info(const NodeUuid& uuid);
-
-    /**
-     * Iterate through the list using standard container iterator.
-     */
-    inline const_iterator cbegin() const {
-        return node_map.cbegin();
+    inline OM_AmContainer::pointer om_am_nodes() {
+        return OM_AmContainer::agt_cast_ptr(dc_am_nodes);
     }
-    inline const_iterator cend() const {
-        return node_map.cend();
+    inline OM_DmContainer::pointer om_dm_nodes() {
+        return OM_DmContainer::agt_cast_ptr(dc_dm_nodes);
     }
-    /**
-     * Thread-safe version of the iterator.
-     */
-    const_iterator cend(const_iterator *it);
+    inline OM_SmAgent::pointer om_sm_agent(const NodeUuid &uuid) {
+        return OM_SmAgent::agt_cast_ptr(dc_sm_nodes->agent_info(uuid));
+    }
+    inline OM_AmAgent::pointer om_am_agent(const NodeUuid &uuid) {
+        return OM_AmAgent::agt_cast_ptr(dc_am_nodes->agent_info(uuid));
+    }
+    inline OM_DmAgent::pointer om_dm_agent(const NodeUuid &uuid) {
+        return OM_DmAgent::agt_cast_ptr(dc_dm_nodes->agent_info(uuid));
+    }
 
-    virtual NodeAgent::pointer om_new_node(const NodeUuid& uuid);
-    virtual void om_ref_node(NodeAgent::pointer node, fds_bool_t act = true);
-    virtual void om_deref_node(NodeAgent::pointer node);
-    virtual void om_activate_node(fds_uint32_t node_idx);
-    virtual void om_deactivate_node(fds_uint32_t node_idx);
+  private:
+    friend class OM_NodeDomainMod;
 
-  protected:
-    NodeMap                  node_map;
-    fds_uint32_t             node_cur_idx;
-    NodeArray                node_inuse;
-    NodeList                 node_list;
-    fds_mutex                node_mtx;
-
-    NodeList                 node_up_pend;
-    NodeList                 node_down_pend;
+    virtual void om_bcast_new_node(NodeAgent::pointer node, const FdspNodeRegPtr ref);
+    virtual void om_update_node_list(NodeAgent::pointer node, const FdspNodeRegPtr ref);
 };
 
 /**
+ * -------------------------------------------------------------------------------------
  * Cluster domain manager.  Manage all nodes connected and known to the domain.
  * These nodes may not be in ClusterMap membership.
+ * -------------------------------------------------------------------------------------
  */
-class OM_NodeDomainMod : public Module, public OM_NodeContainer
+class OM_NodeDomainMod : public Module
 {
   public:
     explicit OM_NodeDomainMod(char const *const name);
     virtual ~OM_NodeDomainMod();
 
     static OM_NodeDomainMod *om_local_domain();
+    static inline fds_bool_t om_in_test_mode() {
+        return om_local_domain()->om_test_mode;
+    }
+    /**
+     * Accessor methods to retrive the local node domain.  Retyping it here to avoid
+     * using multiple inheritance for this class.
+     */
+    inline OM_NodeContainer *om_domain_ctrl() {
+        return om_locDomain;
+    }
+    inline OM_SmContainer::pointer om_sm_nodes() {
+        return om_locDomain->om_sm_nodes();
+    }
+    inline OM_DmContainer::pointer om_dm_nodes() {
+        return om_locDomain->om_dm_nodes();
+    }
+    inline OM_AmContainer::pointer om_am_nodes() {
+        return om_locDomain->om_am_nodes();
+    }
+    inline OM_SmAgent::pointer om_sm_agent(const NodeUuid &uuid) {
+        return om_locDomain->om_sm_agent(uuid);
+    }
+    inline OM_DmAgent::pointer om_dm_agent(const NodeUuid &uuid) {
+        return om_locDomain->om_dm_agent(uuid);
+    }
+    inline OM_AmAgent::pointer om_am_agent(const NodeUuid &uuid) {
+        return om_locDomain->om_am_agent(uuid);
+    }
 
     /**
      * Register node info to the domain manager.
@@ -247,18 +223,21 @@ class OM_NodeDomainMod : public Module, public OM_NodeContainer
      * name (should ask the user to pick another node name).
      */
     virtual Error
-    om_reg_node_info(const NodeUuid&      uuid,
-                     const FdspNodeRegPtr msg);
+    om_reg_node_info(const NodeUuid &uuid, const FdspNodeRegPtr msg);
 
     /**
-     * Updates cluster map membership and does
-     * DLT
+     * Unregister the node matching uuid from the domain manager.
+     */
+    virtual Error
+    om_del_node_info(const NodeUuid& uuid, const std::string& node_name);
+
+    virtual Error
+    om_recv_migration_done(const NodeUuid& uuid, fds_uint64_t dlt_version);
+
+    /**
+     * Updates cluster map membership and does DLT
      */
     virtual void om_update_cluster();
-
-
-    virtual Error om_del_node_info(const NodeUuid& uuid,
-                                   const std::string& node_name);
     virtual void om_persist_node_info(fds_uint32_t node_idx);
     virtual void om_update_cluster_map();
 
@@ -270,10 +249,8 @@ class OM_NodeDomainMod : public Module, public OM_NodeContainer
     virtual void mod_shutdown();
 
   protected:
-    boost::shared_ptr<OM_ControlRespHandler> ctrlRspHndlr;
-    boost::shared_ptr<netSessionTbl> omcpSessTbl;
-
-    fds_bool_t test_mode;
+    fds_bool_t                       om_test_mode;
+    OM_NodeContainer                *om_locDomain;
 };
 
 /**
@@ -348,7 +325,7 @@ FDSP_ControlPathRespIf {
         FDS_ProtocolInterface::FDSP_DMT_TypePtr& dmt_info_resp);
   private:
         // TODO(Andrew): Add ptr back to resource manager.
-    };
+};
 
 extern OM_NodeDomainMod      gl_OMNodeDomainMod;
 

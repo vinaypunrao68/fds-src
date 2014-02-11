@@ -304,7 +304,7 @@ DataPlacement::beginRebalance() {
          ++cit) {
         NodeUuid  uuid = *cit;
     //    const NodeAgent *na = curClusterMap->om_member_info(uuid);
-        NodeAgent::const_ptr na = OM_NodeDomainMod::om_local_domain()->om_node_info(uuid);
+        OM_SmAgent::const_ptr na = OM_NodeDomainMod::om_local_domain()->om_sm_agent(uuid);
         NodeAgentCpReqClientPtr naClient = na->getCpClient();
     // populate  msg header
         na->init_msg_hdr(msgHdr);
@@ -317,7 +317,7 @@ DataPlacement::beginRebalance() {
        curDlt->getSerialized(dltMsg->dlt_data);
        FDS_PLOG_SEV(g_fdslog, fds_log::notification)
                 << "Sending the DLT to  Client " << dltMsg->dlt_type;
-       curDlt->dump(true);
+       curDlt->dump();
 
     // invoke the RPC
        naClient->NotifyStartMigration(msgHdr, dltMsg);
@@ -347,7 +347,7 @@ DataPlacement::commitDlt() {
     for (ClusterMap::const_iterator it = curClusterMap->cbegin();
          it != curClusterMap->cend();
          it++) {
-        NodeAgent::pointer na = it->second;
+        OM_SmAgent::pointer na = it->second;
         NodeAgentCpReqClientPtr naClient = na->getCpClient();
 
         FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr(

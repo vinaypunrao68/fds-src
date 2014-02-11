@@ -78,6 +78,7 @@ void OMgrClientRPCI::NotifyStartMigration(FDSP_MsgHdrTypePtr& msg_hdr,
 			 FDSP_DLT_Data_TypePtr& dlt_info) {
 
   om_client->recvDLTStartMigration(dlt_info->dlt_type, dlt_info->dlt_data);
+  om_client->recvMigrationEvent(dlt_info->dlt_type); 
 }
 
 void OMgrClientRPCI::NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
@@ -164,6 +165,11 @@ OMgrClient::~OMgrClient()
 
 int OMgrClient::initialize() {
   return fds::ERR_OK;
+}
+
+int OMgrClient::registerEventHandlerForMigrateEvents(migration_event_handler_t migrate_event_hdlr) {
+  this->migrate_evt_hdlr = migrate_event_hdlr;
+  return 0;
 }
 
 int OMgrClient::registerEventHandlerForNodeEvents(node_event_handler_t node_event_hdlr) {
@@ -564,6 +570,19 @@ int OMgrClient::pushDeleteBucketToOM(const FDS_ProtocolInterface::FDSP_DeleteVol
   return 0;
 }
 
+
+int OMgrClient::recvMigrationEvent(bool dlt_type) 
+{
+
+  FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received Migration event for node " << dlt_type; 
+
+  if (this->migrate_evt_hdlr) {
+    this->migrate_evt_hdlr(dlt_type);
+  }
+  return (0);
+
+}
+
 int OMgrClient::recvNodeEvent(int node_id, 
 			      FDSP_MgrIdType node_type, 
 			      unsigned int node_ip, 
@@ -644,7 +663,7 @@ int OMgrClient::recvDLTUpdate(bool dlt_type, std::string& dlt_data) {
 
   omc_lock.write_lock();
   dltMgr.addSerializedDLT(dlt_data,dlt_type);
-  dltMgr.dump(true);
+  dltMgr.dump();
   omc_lock.write_unlock();
 
   return (0);
@@ -656,7 +675,7 @@ int OMgrClient::recvDLTStartMigration(bool dlt_type, std::string& dlt_data) {
 
   omc_lock.write_lock();
   dltMgr.addSerializedDLT(dlt_data,dlt_type);
-  dltMgr.dump(true);
+  dltMgr.dump();
   omc_lock.write_unlock();
 
   return (0);

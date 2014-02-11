@@ -456,6 +456,7 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
     omClient->initialize();
     omClient->registerEventHandlerForNodeEvents((node_event_handler_t)nodeEventOmHandler);
     omClient->registerEventHandlerForVolEvents((volume_event_handler_t)volEventOmHandler);
+    omClient->registerEventHandlerForMigrateEvents((migration_event_handler_t)migrationEventOmHandler);
     omClient->omc_srv_pol = &sg_SMVolPolicyServ;
     omClient->startAcceptingControlMessages(conf_helper_.get<int>("control_port"));
     omClient->registerNodeWithOM(dInfo);
@@ -544,6 +545,12 @@ void ObjectStorMgr::mod_startup() {
 void ObjectStorMgr::mod_shutdown() {
 }
 
+
+void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
+{
+    FDS_PLOG(objStorMgr->GetLog()) << "ObjectStorMgr - Migration  event Handler " << dlt_type;
+}
+
 void ObjectStorMgr::nodeEventOmHandler(int node_id,
         unsigned int node_ip_addr,
         int node_state,
@@ -562,7 +569,7 @@ void ObjectStorMgr::nodeEventOmHandler(int node_id,
         break;
     case FDS_Start_Migration:
         FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::notification) << " ObjectStorMgr - Start Migration  event NodeId :" << node_id << " node IP addr" << node_ip_addr ;
-//        break;
+        break;
     }
 }
 

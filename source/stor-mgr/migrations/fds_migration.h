@@ -48,7 +48,7 @@ typedef boost::shared_ptr<MigSvcCopyTokensReq> MigSvcCopyTokensReqPtr;
 class MigSvcMigrationComplete
 {
 public:
-    std::string migration_id;
+    std::string mig_id;
 };
 typedef boost::shared_ptr<MigSvcMigrationComplete> MigSvcMigrationCompletePtr;
 
@@ -56,7 +56,6 @@ typedef boost::shared_ptr<MigSvcMigrationComplete> MigSvcMigrationCompletePtr;
 class FdsMigrationSvc : public Module, public FdsRequestQueueActor
 {
 public:
-    typedef std::unordered_map<std::string, std::set<fds_token_id> > IpTokenTable;
     /* For tracking migrators */
     class MigratorInfo {
     public:
@@ -100,7 +99,6 @@ private:
     void handle_migsvc_copy_token(FdsActorRequestPtr req);
     void handle_migsvc_copy_token_rpc(FdsActorRequestPtr req);
     void handle_migsvc_migration_complete(FdsActorRequestPtr req);
-    IpTokenTable get_ip_token_tbl(const std::set<fds_token_id> &tokens);
     void setup_migpath_server();
     Error ack_copy_token_req(FdsActorRequestPtr req);
 
