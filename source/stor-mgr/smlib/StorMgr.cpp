@@ -553,6 +553,7 @@ void ObjectStorMgr::interrupt_cb(int signum)
     migrationSvc_->mod_shutdown();
     nst_->endAllSessions();
     nst_.reset(); 
+    exit(0);
 }
 
 void ObjectStorMgr::mod_startup() {    
