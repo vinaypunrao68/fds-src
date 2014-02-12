@@ -71,6 +71,8 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
 	msgHdr->result = FDSP_ERR_DLT_MISMATCH; 			
 	// send the dlt version of SM to AM 
         putObj->dlt_version = objStorMgr->omClient->getDltVersion();
+        // update the resp  with new DLT
+        objStorMgr->omClient->getLatestDlt(putObj->dlt_data);
     }
 
     /*
@@ -140,6 +142,8 @@ ObjectStorMgrI::GetObject(FDSP_MsgHdrTypePtr& msgHdr,
 	   msgHdr->err_code = FDSP_ERR_DLT_CONFLICT;
 	  // send the dlt version of SM to AM
            getObj->dlt_version = objStorMgr->omClient->getDltVersion();
+        // update the resp  with new DLT
+        objStorMgr->omClient->getLatestDlt(getObj->dlt_data);
 	}
 	
         objStorMgr->swapMgrId(msgHdr);
@@ -189,6 +193,8 @@ ObjectStorMgrI::DeleteObject(FDSP_MsgHdrTypePtr& msgHdr,
 	msgHdr->result = FDSP_ERR_DLT_MISMATCH; 			
 	// send the dlt version of SM to AM 
         delObj->dlt_version = objStorMgr->omClient->getDltVersion();
+        // update the resp  with new DLT
+        objStorMgr->omClient->getLatestDlt(delObj->dlt_data);
     }
 
     /*

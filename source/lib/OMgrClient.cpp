@@ -678,6 +678,17 @@ int OMgrClient::recvVolAttachState(fds_volid_t vol_id,
   return (0);
   
 }
+int OMgrClient::updateDlt(bool dlt_type, std::string& dlt_data) {
+
+  FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received new DLT version  " << dlt_type;
+
+  omc_lock.write_lock();
+  dltMgr.addSerializedDLT(dlt_data,dlt_type);
+  dltMgr.dump();
+  omc_lock.write_unlock();
+
+  return (0);
+}
 
 int OMgrClient::recvDLTUpdate(FDSP_DLT_Data_TypePtr& dlt_info,
                               const std::string& session_uuid) {
@@ -784,6 +795,16 @@ int OMgrClient::getNodeInfo(fds_uint64_t node_id,
   omc_lock.read_unlock();
   
   return 0;
+}
+
+fds_uint32_t
+OMgrClient::getLatestDlt(std::string& dlt_data) {
+    // TODO: Set to a macro'd invalid version
+    omc_lock.read_lock();
+    const_cast <DLT* > (dltMgr.getDLT())->getSerialized(dlt_data);
+    omc_lock.read_unlock();
+
+    return 0;
 }
 
 fds_uint64_t

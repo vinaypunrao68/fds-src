@@ -90,6 +90,7 @@ StorHvDataPlacement::StorHvDataPlacement(dp_mode _mode,
       mode(_mode), parent_omc(omc) {
   if (parent_omc) {
     parent_omc->registerEventHandlerForNodeEvents(nodeEventHandler);
+//    parent_omc->registerEventHandlerForMigrateEvents(nodeEventHandler);
   }
 }
 

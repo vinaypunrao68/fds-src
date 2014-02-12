@@ -171,6 +171,7 @@ namespace fds {
     NodeMigReqClientPtr getMigClient(fds_uint64_t node_id);
 
     fds_uint64_t getDltVersion();
+    fds_uint32_t getLatestDlt(std::string& dlt_data);
     DltTokenGroupPtr getDLTNodesForDoidKey(ObjectID *objId);
 #if 0
     int  getDLTNodesForDoidKey(unsigned char doid_key,
@@ -193,6 +194,7 @@ namespace fds {
                       int node_state,
                       const FDSP_Node_Info_TypePtr& node_info);
     int recvMigrationEvent(bool dlt_type);
+    int updateDlt(bool dlt_type, std::string& dlt_data);
     int recvDLTUpdate(FDSP_DLT_Data_TypePtr& dlt_info, const std::string& session_uuid);
     int recvDLTStartMigration(FDSP_DLT_Data_TypePtr& dlt_info);
     int recvDMTUpdate(int dmt_version, const Node_Table_Type& dmt_table);
