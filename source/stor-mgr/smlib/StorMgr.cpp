@@ -71,6 +71,8 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
 	msgHdr->result = FDSP_ERR_DLT_MISMATCH; 			
 	// send the dlt version of SM to AM 
         putObj->dlt_version = objStorMgr->omClient->getDltVersion();
+        // update the resp  with new DLT
+        objStorMgr->omClient->getLatestDlt(putObj->dlt_data);
     }
 
     /*
@@ -140,6 +142,8 @@ ObjectStorMgrI::GetObject(FDSP_MsgHdrTypePtr& msgHdr,
 	   msgHdr->err_code = FDSP_ERR_DLT_CONFLICT;
 	  // send the dlt version of SM to AM
            getObj->dlt_version = objStorMgr->omClient->getDltVersion();
+        // update the resp  with new DLT
+        objStorMgr->omClient->getLatestDlt(getObj->dlt_data);
 	}
 	
         objStorMgr->swapMgrId(msgHdr);
@@ -189,6 +193,8 @@ ObjectStorMgrI::DeleteObject(FDSP_MsgHdrTypePtr& msgHdr,
 	msgHdr->result = FDSP_ERR_DLT_MISMATCH; 			
 	// send the dlt version of SM to AM 
         delObj->dlt_version = objStorMgr->omClient->getDltVersion();
+        // update the resp  with new DLT
+        objStorMgr->omClient->getLatestDlt(delObj->dlt_data);
     }
 
     /*
@@ -563,10 +569,17 @@ void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
 //    MigSvcCopyTokensReqPtr copy_req(new MigSvcCopyTokensReq());
 //    copy_req->tokens = sender_store_->getTokens();
 //    copy_req->migsvc_resp_cb = std::bind(
-//            &MigrationTester::mig_svc_cb, this,std::placeholders::_1);
+//            &ObjectStorMgr::migrationSvcResponseCb, this,std::placeholders::_1);
 //    FdsActorRequestPtr copy_far(new FdsActorRequest(FAR_ID(MigSvcCopyTokensReq), copy_req));
 //    rcvr_mig_svc_->send_actor_request(copy_far);
 
+    // TODO(Anna) this is temporary to send migration done callback, 
+    // remove when code above is un-commented
+    objStorMgr->migrationSvcResponseCb(Error(ERR_OK));
+}
+
+void ObjectStorMgr::migrationSvcResponseCb(const Error& err) {
+    omClient->sendMigrationStatusToOM(err);
 }
 
 void ObjectStorMgr::nodeEventOmHandler(int node_id,

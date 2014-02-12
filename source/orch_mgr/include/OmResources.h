@@ -319,10 +319,10 @@ FDSP_ControlPathRespIf {
 
     void NotifyDLTUpdateResp(
         const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-        const FDS_ProtocolInterface::FDSP_DLT_Data_Type& dlt_info_resp);
+        const FDS_ProtocolInterface::FDSP_DLT_Resp_Type& dlt_resp);
     void NotifyDLTUpdateResp(
         FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-        FDS_ProtocolInterface::FDSP_DLT_Data_TypePtr& dlt_info_resp);
+        FDS_ProtocolInterface::FDSP_DLT_Resp_TypePtr& dlt_resp);
 
     void NotifyDMTUpdateResp(
         const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
