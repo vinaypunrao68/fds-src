@@ -42,6 +42,7 @@ user_no_style  := \
         fds_counters.h	    \
 	fds_stopwatch.h     \
 	graphite_client.h   \
+	debughelpers.h      \
 	serialize.h
 
 include $(topdir)/Makefile.incl

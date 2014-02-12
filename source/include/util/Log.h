@@ -122,6 +122,8 @@ namespace fds {
     inline severity_level getSeverityLevel() { return severityLevel; }
     boost::log::sources::severity_logger_mt<severity_level>& get_slog() { return slg; }
 
+    void flush() { sink->flush() ; }
+
 private :
     severity_level severityLevel = normal;
   };
