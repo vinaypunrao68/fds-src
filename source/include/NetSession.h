@@ -112,14 +112,24 @@ class netSession {
   FDS_ProtocolInterface::FDSP_MgrIdType getLocalMgrId() const {
       return localMgrId;
   }
+
   void setSessionRole(int role_){
       role = role_;
+  }
+
+  void setSessionTblKey(const std::string &key) {
+      session_tbl_key_ = key;
+  }
+
+  std::string getSessionTblKey() {
+      return session_tbl_key_;
   }
 
  private:
   int role; // Server or Client side binding
   FDS_ProtocolInterface::FDSP_MgrIdType localMgrId;
   FDS_ProtocolInterface::FDSP_MgrIdType remoteMgrId;
+  std::string session_tbl_key_;
 };
 
 /**
@@ -320,8 +330,8 @@ class netServerSessionEx: public netSession {
                      int num_threads,
                      boost::shared_ptr<ReqHandlerT> handler)
       : netSession(node_name, port, local_mgr_id, remote_mgr_id),
-      lock_("netServerSession lock"),
-      handler_(handler)
+      handler_(handler),
+      lock_("netServerSession lock")
     {
         /* Keeping these local here.  Expose them if needed */
         boost::shared_ptr<TServerTransport> serverTransport;
@@ -361,7 +371,40 @@ class netServerSessionEx: public netSession {
 
   virtual void endSession()
   {
+
+      std::set<TTransportPtr, LtTransports> temp_connections;
+      {
+          /*
+           * NOTE:  Below we will invoke close connection on all connections
+           * in connections_ member which invokes deleteContext which
+           * removes the connection from connections_.  To not cause a deadlock
+           * we will copy connection_ and invoke connection->close() without holding
+           * lock
+           */
+          fds_mutex::scoped_lock l(lock_);
+          temp_connections = connections_;
+      }
       server_->stop();
+
+      /* Close all the connections. */
+      for (auto itr : temp_connections) {
+          itr->close();
+      }
+
+      /* Wait a while for connections to close.  If we don't wait deleteContext may
+       * get invoked after netServerSessionEx object is destroyed.  If we must
+       * remove the wait below then ensure to destruct netServerSessionEx object
+       * after thrift server listen thread (in the blocking listen case it's
+       * the thread that invoked netServerSessionEx::listenServer) has joined
+       */
+      int slept_time = 0;
+      while (connections_.size() > 0 && 
+             slept_time < 1000) {
+          usleep(10);
+          slept_time += 10;
+      }
+      fds_assert(connections_.size() == 0);
+
       if (listen_thread_) {
           listen_thread_->join();
       }
@@ -382,6 +425,10 @@ class netServerSessionEx: public netSession {
       listen_thread_.reset(new std::thread(&TThreadedServer::serve, server_.get()));
   }
 
+  /**
+   * Associates transport t with response client
+   * NOTE: This is invoked under lock
+   */
   virtual Error addRespClientSession(const std::string &session_id, TTransportPtr t)
   {
       boost::shared_ptr<TProtocol> protocol(new TBinaryProtocol(t));
@@ -425,6 +472,7 @@ class netServerSessionEx: public netSession {
      *
      * @param _return
      * @param fdsp_msg
+     * NOTE: This is invoked under a lock
      */
     virtual void EstablishSession(FDSP_SessionReqResp& _return,
                                   const FDSP_MsgHdrType& fdsp_msg) override
@@ -432,8 +480,6 @@ class netServerSessionEx: public netSession {
         /* Generate a uuid and add a session.  Any further authentication can be
          * done here
          */
-        /*srvr_session_->addRespClientSession(fdsp_msg.src_node_name,
-          fdsp_msg.src_port, fds::get_uuid());*/
         _return.sid = fds::get_uuid();
         Error e = parent_.addRespClientSession(_return.sid, transport_);
         _return.status = e.GetErrno();
@@ -467,12 +513,23 @@ class netServerSessionEx: public netSession {
                                   boost::shared_ptr<TProtocol> output) override
       {
           fds_mutex::scoped_lock l(parent_.lock_);
+          /* Add the new connection */
           TTransportPtr transport = input->getTransport();
+          parent_.connections_.insert(transport); 
+
+          LOGDEBUG << "New connection request: " << getTransportKey(transport);
+
+          /* Process the connection request */
           boost::shared_ptr<FDSP_ServiceIf> iface(new FDSP_ConnectHandler(parent_, transport));
           FDSP_ServiceProcessor conn_processor(iface);
           bool ret = conn_processor.process(input, output, NULL);
           if (!ret) {
-              //FDS_PLOG(g_fdslog) << "Failed to process conn request ";
+              LOGWARN << "Processing incoming connection request failed."
+                "Closing the connection: " << getTransportKey(transport);
+              /* NOTE: not calling deleteContext explicitly here.  It will be
+               * invoked by the thrift server's Task::run()
+               */
+              transport->close();
           }
           return NULL;
       }
@@ -485,9 +542,9 @@ class netServerSessionEx: public netSession {
                                  boost::shared_ptr<TProtocol>output)
       {
           fds_mutex::scoped_lock l(parent_.lock_);
-          // TODO: Cleaning up session.  We dont have ip+port->sid mapping.
-          // We may have to extend auth_pending_transports_ to contain this
-          // info along with state information
+          parent_.connections_.erase(input->getTransport());
+
+          LOGDEBUG << "Removing connection: " << getTransportKey(input->getTransport());
       }
      private:
       netServerSessionEx<ReqProcessorT, ReqHandlerT, RespClientT> &parent_;
@@ -525,6 +582,15 @@ class netServerSessionEx: public netSession {
       return ret.str();
   }
 
+  /**
+   * Functor for comparing buffered transports
+   */
+  struct LtTransports {
+      bool operator() (const TTransportPtr &t1, const TTransportPtr &t2) {
+          return t1.get() < t2.get();
+      }
+  };
+
  protected:
   boost::shared_ptr<TThreadedServer> server_;
   boost::shared_ptr<ReqHandlerT> handler_;
@@ -532,9 +598,8 @@ class netServerSessionEx: public netSession {
   /* Lock to protect auth_pending_transports and respClients */
   fds_mutex lock_;
 
-  // TODO:  We need to keep track of connections with the server
-  /* Transports pending authorization */
-  //std::unordered_map<std::string, TTransportPtr> auth_pending_transports_;
+  /* Connected transports.  We assume the transports are buffered transports */
+  std::set<TTransportPtr, LtTransports> connections_;
 
   std::unordered_map<std::string, boost::shared_ptr<RespClientT> > respClients_;
 
@@ -633,6 +698,7 @@ ClientSessionT* startSession(const std::string& dst_node_name,
     }
 
     std::string node_name_key = getKey(dst_node_name, remote_mgr_id);
+    session->setSessionTblKey(node_name_key);
 
     sessionTblMutex->lock();
     sessionTbl[node_name_key] = session;
@@ -679,6 +745,7 @@ ServerSessionT* createServerSession(int local_ipaddr,
     }
     session->setSessionRole(NETSESS_SERVER);
     std::string node_name_key = getKey(local_node_name, remote_mgr_id);
+    session->setSessionTblKey(node_name_key);
 
     sessionTblMutex->lock();
     sessionTbl[node_name_key] = session;
@@ -695,11 +762,8 @@ ServerSessionT* createServerSession(int local_ipaddr,
     return session;
 }
 
-
 // Blocking call equivalent to .run or .serve
 void              listenServer(netSession* server_session);
-
-void              endServerSession(netSession *server_session );
 
 virtual std::string log_string() {
     return "NetSessionTable";

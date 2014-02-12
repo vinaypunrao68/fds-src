@@ -102,7 +102,7 @@ void FdsMigrationSvc::mod_startup()
  */
 void FdsMigrationSvc::mod_shutdown()
 {
-    migpath_session_->endSession();
+    nst_->endSession(migpath_session_);
 }
 
 /**

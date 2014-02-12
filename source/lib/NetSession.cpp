@@ -184,6 +184,19 @@ void netSessionTbl::endSession(int  dst_ip_addr, FDSP_MgrIdType mgr_id)
     session->endSession();
 }
 
+void netSessionTbl::endSession(netSession *session) {
+    sessionTblMutex->lock();
+    auto itr = sessionTbl.find(session->getSessionTblKey());
+    if (itr != sessionTbl.end()) {
+        session->endSession();
+        sessionTbl.erase(itr);
+    } else {
+        LOGWARN << "netSession " << session->getSessionTblKey() << " doesn't exist";
+        fds_assert(!"netSession disappered");
+    }
+    sessionTblMutex->unlock();
+}
+
 void netSessionTbl::endAllSessions() {
     sessionTblMutex->lock();
     for (std::unordered_map<std::string, netSession*>::iterator it = sessionTbl.begin();

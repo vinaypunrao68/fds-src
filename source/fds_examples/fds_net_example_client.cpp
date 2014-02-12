@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
             boost::shared_ptr<FDSP_PutObjType>(new FDSP_PutObjType());
     client->PutObject(fdspMsg, putObjReq);
     sleep(10);
-    exampleSessionA->endSession();
+    nstA->endSession(exampleSessionA);
     boost::shared_ptr<netSessionTbl> nstB =
             boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_HVISOR));
 

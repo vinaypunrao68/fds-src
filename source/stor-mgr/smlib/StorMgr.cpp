@@ -545,11 +545,8 @@ void ObjectStorMgr::run()
 void ObjectStorMgr::interrupt_cb(int signum)
 {
     migrationSvc_->mod_shutdown();
+    nst_->endAllSessions();
     nst_.reset(); 
-
-    // todo: We shouldn't have to do this.  For some reason main thread
-    // isn't giving up control
-    exit(0);
 }
 
 void ObjectStorMgr::mod_startup() {    
