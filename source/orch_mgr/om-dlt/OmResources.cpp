@@ -172,6 +172,12 @@ OM_NodeDomainMod::om_recv_migration_done(const NodeUuid& uuid,
         return err;
     }
 
+    // for now we shouldn't move to new dlt version until
+    // we are done with current cluster update, so
+    // expect to see migration done resp for current dlt version
+    fds_uint64_t cur_dlt_ver = (dp->getCurDlt())->getVersion();
+    fds_verify(cur_dlt_ver == dlt_version);
+
     // Set node's state to 'node_up'
     agent->set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
 
@@ -183,6 +189,13 @@ OM_NodeDomainMod::om_recv_migration_done(const NodeUuid& uuid,
     // to other nodes.
     ClusterMap* cm = om->om_clusmap_mod();
     dltMod->dlt_deploy_event(DltRebalOkEvt(cm, dp));
+
+    // in case no nodes need the new DLT (eg. we just added the
+    // first node and it already got the new DLT when we sent
+    // start migration event), the commit ok guard will check
+    // if all nodes already have new DLT and move to the next state
+    // otherwise, it will wait for dlt commit responses
+    dltMod->dlt_deploy_event(DltCommitOkEvt(cm, cur_dlt_ver));
 
     return err;
 }
