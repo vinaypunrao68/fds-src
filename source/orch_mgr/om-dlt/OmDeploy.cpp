@@ -314,8 +314,33 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 bool
 DltDplyFSM::GRD_DltCommit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "FSM DLT commit guard";
-    return true;
+    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+    DltCommitOkEvt commitOkEvt = (DltCommitOkEvt)evt;
+    ClusterMap* cm = commitOkEvt.ode_clusmap;
+    fds_verify(cm != NULL);
+
+    // when all 'up' nodes are on the latest dlt version
+    // we are getting out of this state
+    fds_bool_t b_ret = true;
+    fds_uint64_t cur_dlt_ver = commitOkEvt.cur_dlt_version;
+    for (ClusterMap::const_iterator it = cm->cbegin();
+         it != cm->cend();
+         ++it) {
+        FDS_PLOG_SEV(g_fdslog, fds_log::debug)
+                << "GRD_DltCommit: Node " << (it->second)->get_node_name()
+                << " state " << (it->second)->node_state()
+                << " dlt_version " << (it->second)->node_dlt_version()
+                << " (cur dlt ver " << cur_dlt_ver << ")";
+        if (((it->second)->node_state() == FDS_ProtocolInterface::FDS_Node_Up) &&
+            ((it->second)->node_dlt_version() != cur_dlt_ver)) {
+            b_ret = false;
+            break;
+        }
+    }
+    FDS_PLOG_SEV(g_fdslog, fds_log::debug)
+            << "FSM GRD_DltCommit: current result: " << b_ret;
+
+    return b_ret;
 }
 
 }  // namespace fds

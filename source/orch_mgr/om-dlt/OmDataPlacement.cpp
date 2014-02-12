@@ -358,9 +358,12 @@ DataPlacement::commitDlt() {
          it != curClusterMap->cend();
          it++) {
         OM_SmAgent::pointer na = it->second;
+        // TODO(anna) Sending to all nodes for now, so that state machine can
+        // move to correct state; will need to fix the state machine for the case
+        // when all nodes already have current DLT (e.g. first node added to cluster)
         // notify nodes with 'node up' status that are not just added nodes
-        if ((na->node_state() == FDS_ProtocolInterface::FDS_Node_Up) &&
-            (addedNodes.count(na->get_uuid()) == 0)) {
+        //        if ((na->node_state() == FDS_ProtocolInterface::FDS_Node_Up) &&
+        //    (addedNodes.count(na->get_uuid()) == 0)) {
             NodeAgentCpReqClientPtr naClient = na->getCpClient();
             na->init_msg_hdr(msgHdr);
             msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_DLT_UPDATE;
@@ -370,7 +373,7 @@ DataPlacement::commitDlt() {
             FDS_PLOG_SEV(g_fdslog, fds_log::notification)
                     << "Sent DLT update to node " << std::hex
                     << na->get_uuid().uuid_get_val() << std::dec;
-        }
+            //        }
     }
 
     placementMutex->unlock();

@@ -230,16 +230,27 @@ class OM_NodeDomainMod : public Module
      * name (should ask the user to pick another node name).
      */
     virtual Error
-    om_reg_node_info(const NodeUuid &uuid, const FdspNodeRegPtr msg);
+            om_reg_node_info(const NodeUuid &uuid, const FdspNodeRegPtr msg);
 
     /**
      * Unregister the node matching uuid from the domain manager.
      */
-    virtual Error
-    om_del_node_info(const NodeUuid& uuid, const std::string& node_name);
+    virtual Error om_del_node_info(const NodeUuid& uuid,
+                                   const std::string& node_name);
 
-    virtual Error
-    om_recv_migration_done(const NodeUuid& uuid, fds_uint64_t dlt_version);
+    /**
+     * Notification that OM received migration done message from
+     * node with uuid 'uuid' for dlt version 'dlt_version'
+     */
+    virtual Error om_recv_migration_done(const NodeUuid& uuid,
+                                         fds_uint64_t dlt_version);
+
+    /**
+     * Notification that OM received DLT update response from
+     * node with uuid 'uuid' for dlt version 'dlt_version'
+     */
+    virtual Error om_recv_dlt_commit_resp(const NodeUuid& uuid,
+                                          fds_uint64_t dlt_version);
 
     /**
      * Updates cluster map membership and does DLT

@@ -4,6 +4,7 @@
 #include <string>
 #include <stdlib.h>
 #include <platform/node-inventory.h>
+#include <dlt.h>
 
 namespace fds {
 
@@ -38,6 +39,7 @@ NodeInventory::node_fill_inventory(const FdspNodeRegPtr msg)
     data->nd_node_type      = msg->node_type;
     data->nd_node_state     = FDS_ProtocolInterface::FDS_Start_Migration;
     data->nd_disk_type      = msg->disk_info.disk_type;
+    data->nd_dlt_version    = DLT_VER_INVALID;
 
     ncap->disk_iops_max     = msg->disk_info.disk_iops_max;
     ncap->disk_iops_min     = msg->disk_info.disk_iops_min;
@@ -111,6 +113,13 @@ NodeInventory::set_node_state(FdspNodeState state)
 {
     // TODO(Vy): do this in platform side.
     const_cast<NodeInvData *>(node_inv)->nd_node_state = state;
+}
+
+void
+NodeInventory::set_node_dlt_version(fds_uint64_t dlt_version)
+{
+    // TODO(Vy): do this in platform side.
+    const_cast<NodeInvData *>(node_inv)->nd_dlt_version = dlt_version;
 }
 
 // --------------------------------------------------------------------------------------

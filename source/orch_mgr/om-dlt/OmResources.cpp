@@ -175,16 +175,50 @@ OM_NodeDomainMod::om_recv_migration_done(const NodeUuid& uuid,
     // Set node's state to 'node_up'
     agent->set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
 
+    // update node's dlt version so we don't send this dlt again
+    agent->set_node_dlt_version(dlt_version);
+
     // 'rebal ok' event, once all nodes sent migration done
     // notification, the state machine will commit the DLT
     // to other nodes.
     ClusterMap* cm = om->om_clusmap_mod();
     dltMod->dlt_deploy_event(DltRebalOkEvt(cm, dp));
 
-    // TODO(Andrew): This state transition should not
-    // be done here. It should be done when we receive
-    // acks for the commit.
-    dltMod->dlt_deploy_event(DltCommitOkEvt());
+    return err;
+}
+
+//
+// Called when OM receives response for DLT commit fron a node
+//
+Error
+OM_NodeDomainMod::om_recv_dlt_commit_resp(const NodeUuid& uuid,
+                                          fds_uint64_t dlt_version) {
+    Error err(ERR_OK);
+    OM_Module *om = OM_Module::om_singleton();
+    OM_DLTMod *dltMod = om->om_dlt_mod();
+    DataPlacement *dp = om->om_dataplace_mod();
+    OM_SmAgent::pointer agent = om_sm_agent(uuid);
+    if (agent == NULL) {
+        FDS_PLOG_SEV(g_fdslog, fds_log::error)
+                << "OM: Received DLT commit ack from unknown node "
+                << ": uuid " << uuid.uuid_get_val();
+        err = Error(ERR_NOT_FOUND);
+        return err;
+    }
+
+    // for now we shouldn't move to new dlt version until
+    // we are done with current cluster update, so
+    // expect to see dlt commit resp for current dlt version
+    fds_uint64_t cur_dlt_ver = (dp->getCurDlt())->getVersion();
+    fds_verify(cur_dlt_ver == dlt_version);
+
+    // set node's confirmed dlt version to this version
+    agent->set_node_dlt_version(dlt_version);
+
+    // commit ok event, will transition to next state when
+    // when all 'up' nodes acked this dlt commit
+    ClusterMap* cm = om->om_clusmap_mod();
+    dltMod->dlt_deploy_event(DltCommitOkEvt(cm, cur_dlt_ver));
 
     return err;
 }
@@ -309,6 +343,12 @@ OM_ControlRespHandler::NotifyDLTUpdateResp(
             << "OM received response for NotifyDltUpdate from node "
             << fdsp_msg->src_node_name
             << " for DLT version " << dlt_resp->DLT_version;
+
+    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+    // TODO(Anna) Should we use node names or node uuids directly in
+    // fdsp messages? for now getting uuid from hashing the name
+    NodeUuid node_uuid(fds_get_uuid64(fdsp_msg->src_node_name));
+    domain->om_recv_dlt_commit_resp(node_uuid, dlt_resp->DLT_version);
 }
 
 void
