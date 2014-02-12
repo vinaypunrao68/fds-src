@@ -267,6 +267,12 @@ DomainContainer::dc_register_node(const NodeUuid       &uuid,
     AgentContainer::pointer nodes;
 
     nodes = dc_container_frm_msg(msg->node_type);
+    // TODO(Andrew): TOTAL HACK! This sleep prevents a race
+    // where the node's control interface isn't initialized
+    // yet and we try and connect too early. The real fix
+    // should not register until its control interface is
+    // fully initialized.
+    sleep(2);
     return nodes->agent_register(uuid, msg, agent);
 }
 
