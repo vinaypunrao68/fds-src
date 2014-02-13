@@ -21,8 +21,8 @@ user_cpp         :=      \
     serialize.cpp        \
     fds_counters.cpp     \
     fds_types.cpp        \
-    ClusterCommMgr.cpp
-#    TransJournal.cpp     \
+    ClusterCommMgr.cpp   \
+    TransJournal.cpp    
 
 user_incl_dir    := $(topdir)
 user_no_style    := \
