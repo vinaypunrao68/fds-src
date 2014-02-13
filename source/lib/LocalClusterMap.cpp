@@ -70,6 +70,7 @@ LocalClusterMap::addNode(node_info_t *node,
     }
 
     // Create a migration endpoint to sm nodes
+    /*
     if ((myRole == FDS_ProtocolInterface::FDSP_STOR_MGR) &&
         (nodeRole == FDS_ProtocolInterface::FDSP_STOR_MGR)) {
         node->ndMigSession = static_cast<NodeMigSessionPtr>(
@@ -88,6 +89,7 @@ LocalClusterMap::addNode(node_info_t *node,
                     << "Create new endpoint to node " << node->node_id;
         }
     }
+    */
 
     clusterMembers[node->node_id] = (*node);
     lcmLock.write_unlock();
