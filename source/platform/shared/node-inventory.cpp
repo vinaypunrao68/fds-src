@@ -97,6 +97,8 @@ NodeInventory::init_node_info_pkt(fpi::FDSP_Node_Info_TypePtr pkt) const
 {
     pkt->node_id        = 0;
     pkt->node_uuid      = rs_uuid.uuid_get_val();
+    pkt->ip_hi_addr     = 0;
+    pkt->ip_lo_addr     = node_inv->nd_ip_addr;
     pkt->node_type      = node_inv->nd_node_type;
     pkt->node_name      = node_inv->nd_node_name;
     pkt->node_state     = node_inv->nd_node_state;
