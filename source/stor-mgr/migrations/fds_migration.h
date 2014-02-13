@@ -14,6 +14,7 @@
 #include <concurrency/fds_actor.h>
 #include <concurrency/fds_actor_request.h>
 #include <NetSession.h>
+#include <ClusterCommMgr.h>
 #include <TokenCopySender.h>
 #include <TokenCopyReceiver.h>
 
@@ -68,7 +69,8 @@ public:
     FdsMigrationSvc(SmIoReqHandler *data_store,
             const FdsConfigAccessor &conf_helper,
             fds_log *log,
-            netSessionTblPtr nst);
+            netSessionTblPtr nst,
+            ClusterCommMgrPtr clust_comm_mgr);
 
     fds_log* GetLog() {return log_;}
 
@@ -119,6 +121,9 @@ private:
     netSessionTblPtr nst_;
     boost::shared_ptr<FDSP_MigrationPathRpc> migpath_handler_;
     netMigrationPathServerSession *migpath_session_;
+
+    /* Communication manager */
+    ClusterCommMgrPtr clust_comm_mgr_;
 
     /* Migrations that are in progress.  Keyed by migration id */
     std::unordered_map<std::string, MigratorInfo> mig_actors_;

@@ -20,7 +20,8 @@ user_cpp         :=      \
     NetSession.cpp       \
     serialize.cpp        \
     fds_counters.cpp     \
-    fds_types.cpp
+    fds_types.cpp        \
+    ClusterCommMgr.cpp
 #    TransJournal.cpp     \
 
 user_incl_dir    := $(topdir)

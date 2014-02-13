@@ -177,6 +177,9 @@ class ObjectStorMgr :
     boost::shared_ptr<FDSP_DataPathReqIf> datapath_handler_;
     netDataPathServerSession *datapath_session_;
 
+    /* Cluster communication manager */
+    ClusterCommMgrPtr clust_comm_mgr_;
+
     /* Migrations related */
     FdsMigrationSvcPtr migrationSvc_;
 

@@ -14,6 +14,7 @@
 #include "fdsp/FDSP_types.h"
 #include "fdsp/FDSP_ControlPathReq.h"
 #include "fdsp/FDSP_OMControlPathReq.h"
+#include <fdsp/FDSP_types.h>
 #include <util/Log.h>
 
 #include <unordered_map>
@@ -173,6 +174,7 @@ namespace fds {
     fds_uint64_t getDltVersion();
     fds_uint32_t getLatestDlt(std::string& dlt_data);
     DltTokenGroupPtr getDLTNodesForDoidKey(ObjectID *objId);
+    const DLT* getCurrentDLT();
 #if 0
     int  getDLTNodesForDoidKey(unsigned char doid_key,
                               fds_int32_t *node_ids,

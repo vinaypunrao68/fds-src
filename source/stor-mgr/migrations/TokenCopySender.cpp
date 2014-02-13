@@ -392,10 +392,12 @@ TokenCopySender::TokenCopySender(FdsMigrationSvc *migrationSvc,
         const std::string &rcvr_ip,
         const int &rcvr_port,
         const std::set<fds_token_id> &tokens,
-        boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler)
+        boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler,
+        ClusterCommMgrPtr clust_comm_mgr)
     : MigrationSender(mig_id),
       FdsRequestQueueActor(threadpool),
-      log_(log)
+      log_(log),
+      clust_comm_mgr_(clust_comm_mgr)
 {
     sm_.reset(new TokenCopySenderFSM());
     sm_->init(mig_stream_id, migrationSvc, this, data_store,

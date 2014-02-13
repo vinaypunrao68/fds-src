@@ -467,6 +467,8 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
     omClient->startAcceptingControlMessages(conf_helper_.get<int>("control_port"));
     omClient->registerNodeWithOM(dInfo);
 
+    clust_comm_mgr_.reset(new ClusterCommMgr(omClient));
+
     /*
      * Create local variables for test mode
      */
@@ -539,7 +541,8 @@ void ObjectStorMgr::setup_migration_svc()
                 FdsConfigAccessor(conf_helper_.get_fds_config(),
                         conf_helper_.get_base_path() + "migration."),
                 GetLog(),
-                nst_));
+                nst_,
+                clust_comm_mgr_));
     migrationSvc_->mod_startup();
 }
 

@@ -4,7 +4,12 @@ user_rtime_env    := user
 user_install      := sender.conf receiver.conf
 user_install_loc  := test
 
-user_incl_dir     := $(topdir) $(topdir)/stor-mgr/include $(topdir)/stor-mgr/migrations
+user_incl_dir     := \
+	$(topdir) \
+	$(topdir)/stor-mgr/include \
+	$(topdir)/stor-mgr/migrations \
+	$(topdir)/lib
+
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  := \

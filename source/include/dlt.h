@@ -215,13 +215,12 @@ namespace fds {
         std::map<fds_token_id, DltTokenGroupPtr> mapTokenNodes;
         friend class DLTManager;
     };
+    typedef boost::shared_ptr<DLT> DLTPtr;
 
     /**
      * Manages multiple DLTs ,maintains the current DLT
      * Generates the diff between dlts..
      */
-    typedef boost::shared_ptr<DLT> DLTPtr;
-
     struct DLTManager :  HasLogger, serialize::Serializable {
         explicit DLTManager(fds_uint8_t maxDlts = 2);
 

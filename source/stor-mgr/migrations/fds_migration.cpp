@@ -73,13 +73,15 @@ PushTokenObjectsResp(boost::shared_ptr<FDSP_PushTokenObjectsResp>& pushtok_resp)
  */
 FdsMigrationSvc::FdsMigrationSvc(SmIoReqHandler *data_store,
         const FdsConfigAccessor &conf_helper,
-        fds_log *log, netSessionTblPtr nst)
+        fds_log *log, netSessionTblPtr nst,
+        ClusterCommMgrPtr clust_comm_mgr)
     : Module("FdsMigrationSvc"),
       FdsRequestQueueActor(),
       data_store_(data_store),
       conf_helper_(conf_helper),
       log_(log),
-      nst_(nst)
+      nst_(nst),
+      clust_comm_mgr_(clust_comm_mgr)
 {
 }
 
@@ -192,7 +194,8 @@ void FdsMigrationSvc::handle_migsvc_copy_token(FdsActorRequestPtr req)
 
     TokenCopyReceiver* copy_rcvr = new TokenCopyReceiver(this,
             data_store_, mig_id,
-            threadpool_, log_, tokens, migpath_handler_);
+            threadpool_, log_, tokens,
+            migpath_handler_, clust_comm_mgr_);
     mig_actors_[mig_id].migrator.reset(copy_rcvr);
     mig_actors_[mig_id].migsvc_resp_cb = copy_payload->migsvc_resp_cb;
 
@@ -234,7 +237,8 @@ void FdsMigrationSvc::handle_migsvc_copy_token_rpc(FdsActorRequestPtr req)
                     mig_id, mig_stream_id,
                     threadpool_, log_,
                     rcvr_ip, rcvr_port,
-                    tokens, migpath_handler_);
+                    tokens, migpath_handler_,
+                    clust_comm_mgr_);
     mig_actors_[mig_id].migrator.reset(copy_sender);
 
     LOGNORMAL << " New sender.  Migration id: " << mig_id

@@ -807,6 +807,14 @@ OMgrClient::getLatestDlt(std::string& dlt_data) {
     return 0;
 }
 
+const DLT* OMgrClient::getCurrentDLT() {
+    omc_lock.read_lock();
+    const DLT *dlt = dltMgr.getDLT();
+    omc_lock.read_unlock();
+
+    return dlt;
+}
+
 fds_uint64_t
 OMgrClient::getDltVersion() {
     // TODO: Set to a macro'd invalid version

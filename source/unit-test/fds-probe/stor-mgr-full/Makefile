@@ -7,7 +7,8 @@ user_install      := sm.conf
 user_incl_dir     := \
     $(local_topdir)/stor-mgr/include \
     $(local_topdir) \
-    $(local_topdir)/stor-mgr/migrations
+    $(local_topdir)/stor-mgr/migrations \
+    $(local_topdir)/lib
 
 user_cpp_flags    :=
 user_fds_so_libs  :=
