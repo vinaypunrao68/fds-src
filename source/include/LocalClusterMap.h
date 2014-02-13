@@ -27,7 +27,7 @@ namespace fds {
      * TODO(Andrew): Should use NodeAgent instead...
      */
     typedef struct _node_info_t {
-        int node_id;
+        fds_uint64_t node_id;
         unsigned int node_ip_address;
         fds_uint32_t port;
         fds_uint32_t mig_port;  /**< Port for migration services */
@@ -37,7 +37,7 @@ namespace fds {
         NodeMigReqClientPtr ndMigClient;
     } node_info_t;
 
-    typedef std::unordered_map<int, node_info_t> node_map_t;
+    typedef std::unordered_map<fds_uint64_t, node_info_t> node_map_t;
 
     /**
      * Defines the current state of members in the cluster

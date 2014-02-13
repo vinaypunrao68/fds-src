@@ -229,7 +229,7 @@ namespace fds {
         bool addSerializedDLT(std::string& serializedData, bool fFull = true);  // NOLINT
 
         // By default the get the current one(0) or the specific version
-        const DLT* getDLT(fds_uint64_t version = 0);
+        const DLT* getDLT(fds_uint64_t version = 0) const;
 
         // Make the specific version as the current
         void setCurrent(fds_uint64_t version);

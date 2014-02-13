@@ -50,6 +50,19 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
     fds_uint64_t reqId;
     reqId = std::atomic_fetch_add(&(objStorMgr->nextReqId), (fds_uint64_t)1);
 
+#if 0 // will enable this once  data-placement code is tested
+     // check the payload checksum  and return Error, if we run in to issues 
+    std:string new_checksum;
+    objStorMgr->chksumPtr->checksum_update(reinterpret_cast<unsigned char *>(putObj.get()),  sizeof(putObj));
+    objStorMgr->chksumPtr->checksum_update(reinterpret_cast<unsigned char *>(const_cast <char *>(putObj->data_obj.data())), putObj->data_obj_len);
+    objStorMgr->chksumPtr->get_checksum(new_checksum);
+    if (msgHdr->payload_chksum.compare(new_checksum) != 0) {
+	msgHdr->err_code = FDSP_ERR_CKSUM_MISMATCH; 			
+	msgHdr->result = FDSP_ERR_RPC_CKSUM; 			
+    }
+#endif
+
+
     if (putObj->dlt_version == objStorMgr->omClient->getDltVersion()) {
     /*
      * Track the outstanding get request.
@@ -368,6 +381,8 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
 
     // Create leveldb
     smObjDb = new  SmObjDb(stor_prefix, objStorMgr->GetLog());
+    // init the checksum verification class
+    chksumPtr =  new checksum_calc();
 
     /* Set up FDSP RPC endpoints */
     nst_ = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_MGR));
@@ -565,17 +580,40 @@ void ObjectStorMgr::mod_startup() {
 void ObjectStorMgr::mod_shutdown() {
 }
 
+const TokenList&
+ObjectStorMgr::getTokensForNode(const NodeUuid &uuid) const {
+    return omClient->getTokensForNode(uuid);
+}
+
+NodeUuid
+ObjectStorMgr::getUuid() const {
+    return omClient->getUuid();
+}
 
 void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
 {
     FDS_PLOG(objStorMgr->GetLog()) << "ObjectStorMgr - Migration  event Handler " << dlt_type;
 
-//    MigSvcCopyTokensReqPtr copy_req(new MigSvcCopyTokensReq());
-//    copy_req->tokens = sender_store_->getTokens();
-//    copy_req->migsvc_resp_cb = std::bind(
-//            &ObjectStorMgr::migrationSvcResponseCb, this,std::placeholders::_1);
-//    FdsActorRequestPtr copy_far(new FdsActorRequest(FAR_ID(MigSvcCopyTokensReq), copy_req));
-//    rcvr_mig_svc_->send_actor_request(copy_far);
+    // Add node's tokens to the request
+    MigSvcCopyTokensReqPtr copy_req(new MigSvcCopyTokensReq());
+    const TokenList &tokens = objStorMgr->getTokensForNode(
+        objStorMgr->getUuid());
+    for (TokenList::const_iterator it = tokens.cbegin();
+         it != tokens.cend();
+         it++) {
+        copy_req->tokens.insert(*it);
+    }
+
+    /*
+    // Send migration request to migration service
+    copy_req->migsvc_resp_cb = std::bind(
+        &ObjectStorMgr::migrationSvcResponseCb,
+        objStorMgr,
+        std::placeholders::_1);
+    FdsActorRequestPtr copy_far(new FdsActorRequest(
+        FAR_ID(MigSvcCopyTokensReq), copy_req));
+    objStorMgr->migrationSvc_->send_actor_request(copy_far);
+    */
 
     // TODO(Anna) this is temporary to send migration done callback, 
     // remove when code above is un-commented

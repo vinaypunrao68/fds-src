@@ -33,6 +33,7 @@
 #include <persistent_layer/dm_io.h>
 #include <fds_migration.h>
 #include <TransJournal.h>
+#include <hash/md5.h>
 
 #include <fds_qos.h>
 #include <qos_ctrl.h>
@@ -368,6 +369,7 @@ class ObjectStorMgr :
     fds_log *sm_log;
     TierEngine     *tierEngine;
     SmObjDb        *smObjDb; // Object Index DB <ObjId, Meta-data + data_loc>
+    checksum_calc   *chksumPtr;
     /*
      * stats  class 
      */
@@ -453,6 +455,10 @@ class ObjectStorMgr :
     FdsObjectCache *getObjCache() {
         return objCache;
     }
+
+    NodeUuid getUuid() const;
+
+    const TokenList& getTokensForNode(const NodeUuid &uuid) const;
 
     virtual std::string log_string()
     {

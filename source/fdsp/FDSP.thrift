@@ -81,12 +81,14 @@ enum FDSP_ResultType {
   FDSP_ERR_FAILED,
   FDSP_ERR_VOLUME_DOES_NOT_EXIST,
   FDSP_ERR_VOLUME_EXISTS,
-  FDSP_ERR_DLT_MISMATCH
+  FDSP_ERR_DLT_MISMATCH,
+  FDSP_ERR_CKSUM_MISMATCH
 }
 
 enum FDSP_ErrType {
   FDSP_ERR_SM_NO_SPACE,
-  FDSP_ERR_DLT_CONFLICT
+  FDSP_ERR_DLT_CONFLICT,
+  FDSP_ERR_RPC_CKSUM
 }
 
 enum FDSP_VolType {
@@ -622,8 +624,9 @@ struct FDSP_MsgHdrType {
 /* Checksum of the entire message including the payload/objects */
     25: i32         req_cookie, 
     26: i32         msg_chksum, 
+    27: string      payload_chksum, 
 
-    27: string      session_uuid
+    28: string      session_uuid
 }
 
 enum tier_prefetch_type_e

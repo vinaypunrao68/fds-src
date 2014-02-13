@@ -67,6 +67,7 @@ namespace fds {
     int tennant_id;
     int domain_id;
     FDSP_MgrIdType my_node_type;
+    NodeUuid myUuid;
     std::string my_node_name;
     std::string omIpStr;
     fds_uint32_t omConfigPort;
@@ -140,6 +141,8 @@ namespace fds {
     int initialize();
     void start_omrpc_handler();
 
+    NodeUuid getUuid() const;
+
     int registerEventHandlerForNodeEvents(node_event_handler_t node_event_hdlr);
     int registerEventHandlerForVolEvents(volume_event_handler_t vol_event_hdlr);
     int registerEventHandlerForMigrateEvents(migration_event_handler_t migrate_event_hdlr);
@@ -175,6 +178,7 @@ namespace fds {
     fds_uint32_t getLatestDlt(std::string& dlt_data);
     DltTokenGroupPtr getDLTNodesForDoidKey(ObjectID *objId);
     const DLT* getCurrentDLT();
+    const TokenList& getTokensForNode(const NodeUuid &uuid) const;
 #if 0
     int  getDLTNodesForDoidKey(unsigned char doid_key,
                               fds_int32_t *node_ids,

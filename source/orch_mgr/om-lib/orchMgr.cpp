@@ -907,11 +907,6 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
         currentDom->domain_ptr->admin_ctrl->addDiskCapacity(n_info);
     }
 
-    // Let this new node know about the existing node list
-    // TODO(Andrew): This should change into dissemination of
-    // the current cluster map
-    currentDom->domain_ptr->sendMgrNodeListToFdsNode(n_info);
-
     // Let this new node know about the existing volumes.
     // If it's a HV node, send only the volumes it need to attach
     if (reg_node_req->node_type == FDS_ProtocolInterface::FDSP_STOR_HVISOR) {
