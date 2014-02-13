@@ -1,6 +1,7 @@
 topdir           := ..
 user_target      := lib
 user_rtime_env   := user
+user_build_dir   := net
 user_cpp         :=      \
     dlt.cpp \
     NetSession.cpp       \
@@ -42,7 +43,7 @@ user_no_style    := \
 # TODO: should change this directory and this lib to something more
 # specific.
 #
-user_ar_libs     := fds-lib fds-thread 
+user_ar_libs     := fds-lib
 fds-lib          := $(user_cpp)
 
 include $(topdir)/Makefile.incl
