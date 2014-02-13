@@ -931,6 +931,11 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
     // TODO(Andrew): For now, let's start the cluster update process
     // now. This should eventually be decoupled from registration.
     domain->om_update_cluster();
+
+    // Old code to send the DMT to DMs.
+    currentDom->domain_ptr->updateTables();
+    currentDom->domain_ptr->sendNodeTableToFdsNodes(table_type_dmt);
+    
 }
 
 void OrchMgr::SetThrottleLevelForDomain(int domain_id, float throttle_level) {

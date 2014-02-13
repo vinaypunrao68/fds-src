@@ -622,7 +622,7 @@ int OMgrClient::recvNodeEvent(int node_id,
   node.node_state = (FDSP_NodeState) node_state;
 
   // Update local cluster map
-  clustMap->addNode(&node);
+  clustMap->addNode(&node, my_node_type, node_type);
 
   omc_lock.write_unlock();
 

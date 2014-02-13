@@ -68,6 +68,35 @@ OM_SmAgent::om_send_myinfo(NodeAgent::pointer peer)
 }
 
 void
+OM_SmAgent::om_send_dlt(const DLT *curDlt) {
+    if (curDlt == NULL) {
+        LOGNORMAL << "No current DLT to send to " << get_node_name();
+        return;
+    }
+
+    fpi::FDSP_MsgHdrTypePtr    m_hdr(new fpi::FDSP_MsgHdrType);
+    fpi::FDSP_DLT_Data_TypePtr d_msg(new fpi::FDSP_DLT_Data_Type());
+
+    this->init_msg_hdr(m_hdr);
+
+    m_hdr->msg_code        = fpi::FDSP_MSG_DLT_UPDATE;
+    m_hdr->msg_id          = 0;
+    m_hdr->tennant_id      = 1;
+    m_hdr->local_domain_id = 1;
+
+    d_msg->dlt_type        = true;
+    // TODO(Andrew): It's not safe to unconst this object.
+    // The serialization functions should all be const
+    // since they do not modify the object
+    const_cast<DLT*>(curDlt)->getSerialized(d_msg->dlt_data);
+
+    ndCpClient->NotifyDLTUpdate(m_hdr, d_msg);
+
+    curDlt->dump();
+    LOGNORMAL << "Send dlt info to " << get_node_name();
+}
+
+void
 OM_SmAgent::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
 {
     msgHdr->minor_ver = 0;

@@ -69,7 +69,9 @@ namespace fds {
          * Creates an endpoint and stashes it in
          * the node.
          */
-        Error addNode(node_info_t *node);
+        Error addNode(node_info_t *node,
+                      FDSP_MgrIdType myRole,
+                      FDSP_MgrIdType nodeRole);
 
         /**
          * Module methods.

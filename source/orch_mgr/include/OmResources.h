@@ -12,6 +12,7 @@
 #include <fds_err.h>
 #include <NetSession.h>
 #include <platform/node-inventory.h>
+#include <dlt.h>
 
 namespace fds {
 
@@ -54,6 +55,7 @@ class OM_SmAgent : public NodeAgent
      * Send this node agent info as an event to notify the peer node.
      */
     virtual void om_send_myinfo(NodeAgent::pointer peer);
+    virtual void om_send_dlt(const DLT *curDlt);
     virtual void init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const;
 
   protected:

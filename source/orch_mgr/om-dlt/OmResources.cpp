@@ -63,8 +63,10 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
                                    const FdspNodeRegPtr msg)
 {
     NodeAgent::pointer newNode;
-    Error err = om_locDomain->dc_register_node(uuid, msg, &newNode);
+    /* XXX: TODO (vy), remove this code once we have node FSM */
+    OM_Module *om = OM_Module::om_singleton();
 
+    Error err = om_locDomain->dc_register_node(uuid, msg, &newNode);
     if (err == ERR_OK) {
         // If this is a SM or DM, let existing nodes know about this node.
         fds_verify(newNode != NULL);
@@ -74,9 +76,12 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         // TODO(Andrew): this should change into dissemination of the cur cluster map.
         //
         om_locDomain->om_update_node_list(newNode, msg);
+
+        // Let this new know about existing dlt.
+        // TODO(Andrew): this should change into dissemination of the cur cluster map.
+        DataPlacement *dp = om->om_dataplace_mod();
+        OM_SmAgent::agt_cast_ptr(newNode)->om_send_dlt(dp->getCurDlt());
     }
-    /* XXX: TODO (vy), remove this code once we have node FSM */
-    OM_Module *om = OM_Module::om_singleton();
     ClusterMap *clus = om->om_clusmap_mod();
 
     if (clus->getNumMembers() == 0) {
@@ -89,11 +94,16 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
             return err;
         }
     }
+
+    // If this new node is an SM, update the DLT and bcast
     // TODO(Andrew): We should decouple registration from
     // cluster map addition eventually. We may want to add
     // the node to the inventory and then wait for a CLI
     // cmd to make the node a member.
+    // TODO(Andrew): Today, cluster map only knows SM. It
+    // should contain all members
     om_update_cluster_map();
+
     return err;
 }
 
