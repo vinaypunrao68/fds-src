@@ -1,5 +1,6 @@
 #include <memory.h>
 #include "Types.h"
+#include <string>
 
 // "Derived from the RSA Data Security, Inc. MD5 Message Digest Algorithm"
 
