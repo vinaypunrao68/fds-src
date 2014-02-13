@@ -7,19 +7,34 @@
 #include <vector>
 #include <string>
 #include <list>
+#include <fstream>
 #include <unordered_map>
 #include <fds_typedefs.h>
 #include <fds_err.h>
+#include <OmVolume.h>
 #include <NetSession.h>
-#include <platform/node-inventory.h>
+#include <fds_placement_table.h>
 
 namespace fds {
 
+class PerfStats;
+class FdsAdminCtrl;
 class OM_NodeDomainMod;
 class OM_ControlRespHandler;
 
 typedef boost::shared_ptr<fpi::FDSP_ControlPathReqClient> NodeAgentCpReqClientPtr;
 typedef boost::shared_ptr<netControlPathClientSession>    NodeAgentCpSessionPtr;
+
+/**
+ * TODO(Vy): temp. interface for now to define generic node message.
+ */
+typedef struct om_node_msg_s
+{
+    fpi::FDSP_MsgCodeType                nd_msg_code;
+    union {
+        const fpi::FDSP_ThrottleMsgType *nd_throttle;
+    } u;
+} om_node_msg_t;
 
 /**
  * Agent interface to communicate with the remote node.  This is the communication
@@ -44,16 +59,34 @@ class OM_SmAgent : public NodeAgent
     void setCpSession(NodeAgentCpSessionPtr session);
 
     /**
+     * TODO(Vy): see if we can move this to NodeAgent, which is generic to all processes.
      * Returns the client end point for the node. The function
      * is not constanct since the member pointer returned
      * is mutable by the caller.
      */
-    NodeAgentCpReqClientPtr getCpClient() const;
+    inline NodeAgentCpReqClientPtr getCpClient() const {
+        return ndCpClient;
+    }
+    inline NodeAgentCpReqClientPtr getCpClient(std::string *id) const {
+        *id = ndSessionId;
+        return ndCpClient;
+    }
 
     /**
      * Send this node agent info as an event to notify the peer node.
+     * TODO(Vy): it would be a cleaner interface to:
+     * - Formalized messages in inheritance tree.
+     * - API to format a message.
+     * - API to send a message.
      */
     virtual void om_send_myinfo(NodeAgent::pointer peer);
+    virtual void om_send_node_cmd(const om_node_msg_t &msg, fpi::FDSP_MgrIdType mgr_id);
+
+    virtual void om_send_reg_resp(const Error &err);
+    virtual void om_send_vol_cmd(VolumeInfo::pointer   vol,
+                                 fpi::FDSP_MgrIdType   mgr_id,
+                                 fpi::FDSP_MsgCodeType cmd_type);
+
     virtual void init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const;
 
   protected:
@@ -172,12 +205,76 @@ class OM_NodeContainer : public DomainContainer
     inline OM_DmAgent::pointer om_dm_agent(const NodeUuid &uuid) {
         return OM_DmAgent::agt_cast_ptr(dc_dm_nodes->agent_info(uuid));
     }
+    inline float om_get_cur_throttle_level() {
+        return om_cur_throttle_level;
+    }
+    inline FdsAdminCtrl *om_get_admin_ctrl() {
+        return om_admin_ctrl;
+    }
+    /**
+     * Volume proxy functions.
+     */
+    inline VolumeContainer::pointer om_vol_mgr() {
+        return om_volumes;
+    }
+    inline int om_create_vol(const FdspCrtVolPtr &creat_msg) {
+        return om_volumes->om_create_vol(creat_msg);
+    }
+    inline int om_delete_vol(const FdspDelVolPtr &del_msg) {
+        return om_volumes->om_delete_vol(del_msg);
+    }
+    inline int om_modify_vol(const FdspModVolPtr &mod_msg) {
+        return om_volumes->om_modify_vol(mod_msg);
+    }
+    inline int om_attach_vol(const FDSP_MsgHdrTypePtr &hdr,
+                             const FdspAttVolCmdPtr   &attach) {
+        return om_volumes->om_attach_vol(hdr, attach);
+    }
+    inline int om_detach_vol(const FDSP_MsgHdrTypePtr &hdr,
+                             const FdspAttVolCmdPtr   &detach) {
+        return om_volumes->om_detach_vol(hdr, detach);
+    }
+
+    virtual void om_set_throttle_lvl(float level);
+    virtual void om_send_bucket_stats(fds_uint32_t, std::string, fds_uint32_t);
+    virtual void om_handle_perfstats_from_am(const FDSP_VolPerfHistListType &list,
+                                             const std::string start_timestamp);
+
+    virtual void om_bcast_tier_policy(fpi::FDSP_TierPolicyPtr policy);
+    virtual void om_bcast_tier_audit(fpi::FDSP_TierPolicyAuditPtr audit);
+    virtual void om_bcast_vol_list(NodeAgent::pointer node);
+    virtual void om_bcast_vol_create(VolumeInfo::pointer vol);
+    virtual void om_bcast_vol_modify(VolumeInfo::pointer vol);
+    virtual void om_bcast_vol_delete(VolumeInfo::pointer vol);
+    virtual void om_bcast_vol_tier_policy(const FDSP_TierPolicyPtr &tier);
+    virtual void om_bcast_vol_tier_audit(const FDSP_TierPolicyAuditPtr &tier);
+    virtual void om_bcast_throttle_lvl(float throttle_level);
 
   private:
     friend class OM_NodeDomainMod;
 
     virtual void om_bcast_new_node(NodeAgent::pointer node, const FdspNodeRegPtr ref);
     virtual void om_update_node_list(NodeAgent::pointer node, const FdspNodeRegPtr ref);
+
+    FdsAdminCtrl             *om_admin_ctrl;
+    VolumeContainer::pointer  om_volumes;
+    float                     om_cur_throttle_level;
+
+    fds_uint64_t              om_dmt_ver;
+    fds_uint32_t              om_dmt_width;
+    fds_uint32_t              om_dmt_depth;
+    FdsDmt                   *om_curDmt;
+
+    /**
+     * Recent history of perf stats OM receives from AM nodes.
+     */
+    PerfStats                *am_stats;
+    /**
+     * TODO(Anna): this is temp JSON file, will remove as soon as we implement
+     * real stats polling from CLI.
+     */
+    std::ofstream             json_file;
+    void om_printStatsToJsonFile();
 };
 
 /**
@@ -196,13 +293,13 @@ class OM_NodeDomainMod : public Module
     static inline fds_bool_t om_in_test_mode() {
         return om_local_domain()->om_test_mode;
     }
+    static inline OM_NodeContainer *om_loc_domain_ctrl() {
+        return om_local_domain()->om_locDomain;
+    }
     /**
      * Accessor methods to retrive the local node domain.  Retyping it here to avoid
      * using multiple inheritance for this class.
      */
-    inline OM_NodeContainer *om_domain_ctrl() {
-        return om_locDomain;
-    }
     inline OM_SmContainer::pointer om_sm_nodes() {
         return om_locDomain->om_sm_nodes();
     }
@@ -247,6 +344,12 @@ class OM_NodeDomainMod : public Module
     virtual void om_update_cluster();
     virtual void om_persist_node_info(fds_uint32_t node_idx);
     virtual void om_update_cluster_map();
+
+    /**
+     * Domain support.
+     */
+    virtual int om_create_domain(const FdspCrtDomPtr &crt_domain);
+    virtual int om_delete_domain(const FdspCrtDomPtr &crt_domain);
 
     /**
      * Module methods

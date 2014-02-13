@@ -127,12 +127,39 @@ class RsContainer
     /**
      * Iterate through the array.  It's thread safe.
      */
-    inline const_iterator cbegin() const {
-        return rs_array.cbegin();
+    static inline Resource::pointer rs_from_iter(const_iterator it) {
+        return static_cast<Resource *>(get_pointer(*it));
     }
-    inline const_iterator cend() const {
-        return rs_array.cbegin() + rs_cur_idx;
+    /**
+     * Iterator plugins.
+     */
+    template <typename T>
+    void rs_foreach(T arg, void (*fn)(T, Resource::pointer elm)) {
+        for (const_iterator it = cbegin(); it != cend(); it++) {
+            (*fn)(arg, rs_from_iter(it));
+        }
     }
+    template <typename T1, typename T2>
+    void rs_foreach(T1 a1, T2 a2, void (*fn)(T1, T2, Resource::pointer elm)) {
+        for (const_iterator it = cbegin(); it != cend(); it++) {
+            (*fn)(a1, a2, rs_from_iter(it));
+        }
+    }
+    template <typename T1, typename T2, typename T3>
+    void rs_foreach(T1 a1, T2 a2, T3 a3,
+                    void (*fn)(T1, T2, T3, Resource::pointer elm)) {
+        for (const_iterator it = cbegin(); it != cend(); it++) {
+            (*fn)(a1, a2, a3, rs_from_iter(it));
+        }
+    }
+    template <typename T1, typename T2, typename T3, typename T4>
+    void rs_foreach(T1 a1, T2 a2, T3 a3, T4 a4,
+                    void (*fn)(T1, T2, T3, T4, Resource::pointer elm)) {
+        for (const_iterator it = cbegin(); it != cend(); it++) {
+            (*fn)(a1, a2, a3, a4, rs_from_iter(it));
+        }
+    }
+
     /**
      * Methods to allocate and reference the node.
      */
@@ -156,6 +183,16 @@ class RsContainer
      * Factory method.
      */
     virtual Resource *rs_new(const ResourceUUID &uuid) = 0;
+
+    /**
+     * Disable the use of cbegin(), cend() by clients.
+     */
+    inline const_iterator cbegin() const {
+        return rs_array.cbegin();
+    }
+    inline const_iterator cend() const {
+        return rs_array.cbegin() + rs_cur_idx;
+    }
 
   private:
     mutable boost::atomic<int>  rs_refcnt;

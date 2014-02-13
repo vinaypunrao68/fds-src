@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 #include <OmResources.h>
+#include <lib/Catalog.h>
+#include <lib/PerfStats.h>
 
 namespace fds {
 
@@ -24,7 +26,7 @@ OrchMgr::OrchMgr(int argc, char *argv[],
       omcp_req_handler(new FDSP_OMControlPathReqHandler(this)),
       cp_resp_handler(new FDSP_ControlPathRespHandler(this)),
       cfg_req_handler(new FDSP_ConfigPathReqHandler(this)) {
-    
+
     om_log  = g_fdslog;
     om_mutex = new fds_mutex("OrchMgrMutex");
 
@@ -52,8 +54,9 @@ OrchMgr::~OrchMgr() {
     cfgserver_thread->join();
 
     delete om_log;
-    if (policy_mgr)
+    if (policy_mgr) {
         delete policy_mgr;
+    }
 }
 
 int OrchMgr::mod_init(SysParams const *const param) {
@@ -95,7 +98,7 @@ void OrchMgr::setup(int argc, char* argv[],
         (fds_log::severity_level) (conf_helper_.get<int>("log_severity")));
 
     policy_mgr = new VolPolicyMgr(stor_prefix, om_log);
-
+#if 0
     /*
      * create a default domain. If the domains are NOT configured 
      * all the nodes will be in default domain
@@ -107,6 +110,7 @@ void OrchMgr::setup(int argc, char* argv[],
     default_domain_info->glb_dom_id = 1;
     default_domain_info->domain_ptr = default_domain;
     locDomMap[default_domain_info->loc_dom_id] = default_domain_info;
+#endif
 
     my_node_name = stor_prefix + std::string("OrchMgr");
 
@@ -137,16 +141,16 @@ void OrchMgr::setup(int argc, char* argv[],
         new netSessionTbl(my_node_name,
                           netSession::ipString2Addr(ip_address),
                           control_portnum,
-                          100,
+                          10,
                           FDS_ProtocolInterface::FDSP_ORCH_MGR));
-    
+
     omcp_session_tbl->createServerSession<netOMControlPathServerSession>(
         netSession::ipString2Addr(ip_address),
         control_portnum,
         my_node_name,
         FDS_ProtocolInterface::FDSP_OMCLIENT_MGR,
         omcp_req_handler);
-    
+
     /*
      * Setup server session to listen to config path messages from fdscli
      */
@@ -154,7 +158,7 @@ void OrchMgr::setup(int argc, char* argv[],
         new netSessionTbl(my_node_name,
                           netSession::ipString2Addr(ip_address),
                           config_portnum,
-                          100,
+                          10,
                           FDS_ProtocolInterface::FDSP_ORCH_MGR));
 
     cfg_session_tbl->createServerSession<netConfigPathServerSession>(
@@ -173,30 +177,31 @@ void OrchMgr::setup(int argc, char* argv[],
 
 void OrchMgr::run()
 {
-    // run server to listen for OMControl messages from 
+    // run server to listen for OMControl messages from
     // SM, DM and SH
     netSession* omc_server_session =
             omcp_session_tbl->getSession(my_node_name,
                                          FDS_ProtocolInterface::FDSP_OMCLIENT_MGR);
-    
-    if (omc_server_session)
+
+    if (omc_server_session) {
         omcp_session_tbl->listenServer(omc_server_session);
+    }
 }
 
 void OrchMgr::start_cfgpath_server()
 {
-    netSession* cfg_server_session = 
+    netSession* cfg_server_session =
             cfg_session_tbl->getSession(my_node_name,
                                         FDS_ProtocolInterface::FDSP_CLI_MGR);
-    
-    if (cfg_server_session)
+
+    if (cfg_server_session) {
         cfg_session_tbl->listenServer(cfg_server_session);
+    }
 }
 
 void OrchMgr::interrupt_cb(int signum)
 {
-    FDS_PLOG(orchMgr->GetLog())
-            << "OrchMgr: Shutting down communicator";
+    FDS_PLOG(orchMgr->GetLog()) << "OrchMgr: Shutting down communicator";
 
     omcp_session_tbl.reset();
     cfg_session_tbl.reset();
@@ -204,11 +209,28 @@ void OrchMgr::interrupt_cb(int signum)
 }
 
 fds_log* OrchMgr::GetLog() {
-    return g_fdslog; // om_log;
+    return g_fdslog;  // om_log;
 }
 
+VolPolicyMgr *
+OrchMgr::om_policy_mgr()
+{
+    return orchMgr->policy_mgr;
+}
+
+const std::string &
+OrchMgr::om_stor_prefix()
+{
+    return orchMgr->stor_prefix;
+}
+
+#if 0
 int OrchMgr::CreateDomain(const FdspMsgHdrPtr& fdsp_msg,
-                          const FdspCrtDomPtr& crt_dom_req) {
+                          const FdspCrtDomPtr& crt_dom_req)
+{
+    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+    return domain->om_create_domain(crt_dom_req);
+
     FDS_PLOG_SEV(GetLog(), fds_log::notification)
             << "Received CreateDomain Req : "
             << crt_dom_req->domain_name
@@ -240,15 +262,16 @@ int OrchMgr::DeleteDomain(const FdspMsgHdrPtr& fdsp_msg,
     /* TBD*/
     return 0;
 }
+#endif
 
 int OrchMgr::RemoveNode(const FdspMsgHdrPtr& fdsp_msg,
-                        const FdspRmNodePtr& rm_node_req) {
+                        const FdspRmNodePtr& rm_node_req)
+{
     FDS_PLOG_SEV(GetLog(), fds_log::normal)
             << "Received RemoveNode Req : "
             << rm_node_req->node_name;
 
-    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
-
+#if 0
     // TODO(Anna) remove this local domain
     localDomainInfo  *currentDom = locDomMap[DEFAULT_LOC_DOMAIN_ID];
 
@@ -261,67 +284,66 @@ int OrchMgr::RemoveNode(const FdspMsgHdrPtr& fdsp_msg,
     // we move to new code
     if (sm_map.count(rm_node_req->node_name) == 0) {
         FDS_PLOG_SEV(GetLog(), fds_log::notification)
-                << "Remove node request for non-SM node " 
+                << "Remove node request for non-SM node "
                 << rm_node_req->node_name << ". Not implemented!.";
 
         om_mutex->unlock();
         return -1;
     }
-
+#endif
     // remove node from local domain map
+    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
     NodeUuid rm_node_uuid(fds_get_uuid64(rm_node_req->node_name));
     Error err = domain->om_del_node_info(rm_node_uuid, rm_node_req->node_name);
+
     if (!err.ok()) {
         FDS_PLOG_SEV(GetLog(), fds_log::error)
-                << "RemoveNode: remove node info from local domain failed for node " 
-                << rm_node_req->node_name << ", uuid " << std::hex << rm_node_uuid.uuid_get_val()
+                << "RemoveNode: remove node info from local domain failed for node "
+                << rm_node_req->node_name << ", uuid "
+                << std::hex << rm_node_uuid.uuid_get_val()
                 << std::dec << ", result: " << err.GetErrstr();
-        om_mutex->unlock();
         return -1;
     }
-
+#if 0
     // TODO(Anna) Fix this using new domain struct and node info
     sm_map[rm_node_req->node_name].node_state = FDS_ProtocolInterface::FDS_Node_Rmvd;
     // If this is a SM or a DM, let existing nodes know about this node removal
-    if (sm_map[rm_node_req->node_name].node_type != FDS_ProtocolInterface::FDSP_STOR_HVISOR) {
+    if (sm_map[rm_node_req->node_name].node_type !=
+            FDS_ProtocolInterface::FDSP_STOR_HVISOR) {
         currentDom->domain_ptr->sendNodeEventToFdsNodes(sm_map[rm_node_req->node_name],
-                                                        sm_map[rm_node_req->node_name].node_state);
+                sm_map[rm_node_req->node_name].node_state);
 
         /* update the disk capabilities */
-        currentDom->domain_ptr->admin_ctrl->removeDiskCapacity(sm_map[rm_node_req->node_name]);
+        currentDom->domain_ptr->admin_ctrl->
+            removeDiskCapacity(sm_map[rm_node_req->node_name]);
     }
     sm_map.erase(rm_node_req->node_name);
-
     om_mutex->unlock();
+#endif
 
     // TODO(Anna): For now, let's start the cluster update process
     // now. This should eventually be decoupled from removal
     domain->om_update_cluster();
 
     return 0;
-
 }
 
+#if 0
 int OrchMgr::GetDomainStats(const FdspMsgHdrPtr& fdsp_msg,
                             const FdspGetDomStatsPtr& get_stats_req)
 {
     int domain_id = get_stats_req->domain_id;
-    localDomainInfo  *currentDom = NULL;
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
 
     FDS_PLOG_SEV(GetLog(), fds_log::normal)
-            << "Received GetDomainStats Req for domain "
-            << domain_id;
+            << "Received GetDomainStats Req for domain " << domain_id;
 
     /*
-     * Use default domain for now... 
+     * Use default domain for now...
      */
-    FDS_PLOG_SEV(GetLog(), fds_log::warning)
-            << "For now always returning stats of default domain. "
-            << "Domain id in the request is ignored";
+    local->om_send_bucket_stats(5, fdsp_msg->src_node_name, fdsp_msg->req_cookie);
+    return 0;
 
-    currentDom  = locDomMap[DEFAULT_LOC_DOMAIN_ID];
-
-    if (currentDom) {
         om_mutex->lock();
         currentDom->domain_ptr->sendBucketStats(
             5,
@@ -331,45 +353,48 @@ int OrchMgr::GetDomainStats(const FdspMsgHdrPtr& fdsp_msg,
         /* if need to test printing to json file, call this func instead .. */
         //    currentDom->domain_ptr->printStatsToJsonFile();
         om_mutex->unlock();
-    }
+
     return 0;
 }
 
 int OrchMgr::NotifyMigrationDone(const FdspMsgHdrPtr& fdsp_msg,
                                  const FdspMigrationStatusPtr& status_req) {
-    Error err(ERR_OK);
     FDS_PLOG_SEV(GetLog(), fds_log::notification)
             << "Received migration done notification from node "
             << fdsp_msg->src_node_name;
 
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
 
-    // TODO(Anna) Should we use node names or node uuids directly in 
+    // TODO(Anna) Should we use node names or node uuids directly in
     // fdsp messages? for now getting uuid from hashing the name
     NodeUuid node_uuid(fds_get_uuid64(fdsp_msg->src_node_name));
 
-    om_mutex->lock();
-    err = domain->om_recv_migration_done(node_uuid, status_req->DLT_version);
-    om_mutex->unlock();
-
+    Error err = domain->om_recv_migration_done(node_uuid, status_req->DLT_version);
     if (!err.ok()) {
         return -1;
     }
     return 0;
 }
 
-int OrchMgr::ApplyTierPolicy(::FDS_ProtocolInterface::tier_pol_time_unitPtr& policy) {
+#endif
+
+int OrchMgr::ApplyTierPolicy(::fpi::tier_pol_time_unitPtr& policy) {  // NOLINT
     om_policy_srv->serv_recvTierPolicyReq(policy);
     return 0;
 }
 
-int OrchMgr::AuditTierPolicy(::FDS_ProtocolInterface::tier_pol_auditPtr& audit) {
+int OrchMgr::AuditTierPolicy(::fpi::tier_pol_auditPtr& audit) {  // NOLINT
     om_policy_srv->serv_recvAuditTierPolicy(audit);
     return 0;
 }
 
+#if 0
 int OrchMgr::CreateVol(const FdspMsgHdrPtr& fdsp_msg,
-                       const FdspCrtVolPtr& crt_vol_req) {
+                       const FdspCrtVolPtr& crt_vol_req)
+{
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    return local->om_create_vol(crt_vol_req);
+
     Error err(ERR_OK);
     int  domain_id = (crt_vol_req->vol_info).localDomainId;
     std::string vol_name = (crt_vol_req->vol_info).vol_name;
@@ -435,9 +460,15 @@ int OrchMgr::CreateVol(const FdspMsgHdrPtr& fdsp_msg,
     om_mutex->unlock();
     return 0;
 }
+#endif
 
+#if 0
 int OrchMgr::DeleteVol(const FdspMsgHdrPtr& fdsp_msg,
-                        const FdspDelVolPtr& del_vol_req) {
+                        const FdspDelVolPtr& del_vol_req)
+{
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    return local->om_delete_vol(del_vol_req);
+
     std::string vol_name = del_vol_req->vol_name;
     VolumeInfo *cur_vol;
     localDomainInfo  *currentDom;
@@ -451,7 +482,6 @@ int OrchMgr::DeleteVol(const FdspMsgHdrPtr& fdsp_msg,
      * for now  use the default domain
      */
     currentDom  = locDomMap[DEFAULT_LOC_DOMAIN_ID];
-
     om_mutex->lock();
     if (currentDom->domain_ptr->volumeMap.count(vol_name) == 0) {
         FDS_PLOG_SEV(om_log, fds_log::warning)
@@ -485,10 +515,15 @@ int OrchMgr::DeleteVol(const FdspMsgHdrPtr& fdsp_msg,
     delete del_vol;
     return 0;
 }
+#endif
 
+#if 0
 int OrchMgr::ModifyVol(const FdspMsgHdrPtr& fdsp_msg,
                        const FdspModVolPtr& mod_vol_req)
 {
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    return local->om_modify_vol(mod_vol_req);
+
     Error err(ERR_OK);
     std::string vol_name = (mod_vol_req->vol_desc).vol_name;
     localDomainInfo  *currentDom = NULL;
@@ -583,9 +618,11 @@ int OrchMgr::ModifyVol(const FdspMsgHdrPtr& fdsp_msg,
     om_mutex->unlock();
     return 0;
 }
+#endif
 
 int OrchMgr::CreatePolicy(const FdspMsgHdrPtr& fdsp_msg,
-                           const FdspCrtPolPtr& crt_pol_req) {
+                           const FdspCrtPolPtr& crt_pol_req)
+{
     Error err(ERR_OK);
     int policy_id = (crt_pol_req->policy_info).policy_id;
 
@@ -601,7 +638,8 @@ int OrchMgr::CreatePolicy(const FdspMsgHdrPtr& fdsp_msg,
 }
 
 int OrchMgr::DeletePolicy(const FdspMsgHdrPtr& fdsp_msg,
-                           const FdspDelPolPtr& del_pol_req) {
+                           const FdspDelPolPtr& del_pol_req)
+{
     Error err(ERR_OK);
     int policy_id = del_pol_req->policy_id;
     std::string policy_name = del_pol_req->policy_name;
@@ -620,7 +658,8 @@ int OrchMgr::DeletePolicy(const FdspMsgHdrPtr& fdsp_msg,
 }
 
 int OrchMgr::ModifyPolicy(const FdspMsgHdrPtr& fdsp_msg,
-                          const FdspModPolPtr& mod_pol_req) {
+                          const FdspModPolPtr& mod_pol_req)
+{
     Error err(ERR_OK);
     int policy_id = (mod_pol_req->policy_info).policy_id;
     FDS_PLOG_SEV(GetLog(), fds_log::notification)
@@ -638,8 +677,13 @@ int OrchMgr::ModifyPolicy(const FdspMsgHdrPtr& fdsp_msg,
     return err.GetErrno();
 }
 
+#if 0
 int OrchMgr::AttachVol(const FdspMsgHdrPtr &fdsp_msg,
-                       const FdspAttVolCmdPtr &atc_vol_req) {
+                       const FdspAttVolCmdPtr &atc_vol_req)
+{
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    return local->om_attach_vol(atc_vol_req);
+
     std::string vol_name = atc_vol_req->vol_name;
     fds_node_name_t node_name = fdsp_msg->src_node_name;
     localDomainInfo  *currentDom;
@@ -664,14 +708,12 @@ int OrchMgr::AttachVol(const FdspMsgHdrPtr &fdsp_msg,
         return -1;
     }
     VolumeInfo *this_vol =  currentDom->domain_ptr->volumeMap[vol_name];
-#if 0
     // Let's actually allow this, as a means of provisioning before HV is online
     if (currentDom->domain_ptr->currentShMap.count(node_id) == 0) {
         FDS_PLOG(om_log) << "Received Attach Vol for non-existent node " << node_id;
         om_mutex->unlock();
         return -1;
     }
-#endif
 
     for (int i = 0; i < this_vol->hv_nodes.size(); i++) {
         if (this_vol->hv_nodes[i] == node_name) {
@@ -690,9 +732,15 @@ int OrchMgr::AttachVol(const FdspMsgHdrPtr &fdsp_msg,
     om_mutex->unlock();
     return 0;
 }
+#endif
 
+#if 0
 int OrchMgr::DetachVol(const FdspMsgHdrPtr    &fdsp_msg,
-                       const FdspAttVolCmdPtr &dtc_vol_req) {
+                       const FdspAttVolCmdPtr &dtc_vol_req)
+{
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    return local->om_detach_vol(dtc_vol_req);
+
     std::string vol_name = dtc_vol_req->vol_name;
     fds_node_name_t node_name = dtc_vol_req->node_id;
     fds_bool_t node_not_attached = true;
@@ -704,7 +752,6 @@ int OrchMgr::DetachVol(const FdspMsgHdrPtr    &fdsp_msg,
             << " at node " << node_name;
 
     currentDom  = locDomMap[DEFAULT_LOC_DOMAIN_ID];
-
     om_mutex->lock();
     if (currentDom->domain_ptr->volumeMap.count(vol_name) == 0) {
         FDS_PLOG_SEV(om_log, fds_log::warning)
@@ -714,13 +761,11 @@ int OrchMgr::DetachVol(const FdspMsgHdrPtr    &fdsp_msg,
         return -1;
     }
     VolumeInfo *this_vol =  currentDom->domain_ptr->volumeMap[vol_name];
-#if 0
     if (currentDom->domain_ptr->currentShMap.count(node_id) == 0) {
         FDS_PLOG(om_log) << "Received Detach Vol for non-existent node " << node_id;
         om_mutex->unlock();
         return -1;
     }
-#endif
 
     for (int i = 0; i < this_vol->hv_nodes.size(); i++) {
         if (this_vol->hv_nodes[i] == node_name) {
@@ -742,10 +787,12 @@ int OrchMgr::DetachVol(const FdspMsgHdrPtr    &fdsp_msg,
     om_mutex->unlock();
     return 0;
 }
+#endif
 
 void OrchMgr::TestBucket(const FdspMsgHdrPtr& fdsp_msg,
                          const FdspTestBucketPtr& test_buck_req)
 {
+#if 0
     localDomainInfo  *currentDom;
     std::string bucket_name = test_buck_req->bucket_name;
     std::string source_node_name = fdsp_msg->src_node_name;
@@ -812,12 +859,13 @@ void OrchMgr::TestBucket(const FdspMsgHdrPtr& fdsp_msg,
     }
 
     om_mutex->unlock();
+#endif
 }
 
 void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
-                           const FdspRegNodePtr &reg_node_req) {
-    localDomainInfo  *currentDom;
-
+                           const FdspRegNodePtr &reg_node_req)
+{
+    // localDomainInfo  *currentDom;
     FDS_PLOG_SEV(GetLog(), fds_log::notification)
             << "Received RegisterNode Msg"
             << "  Node name:" << reg_node_req->node_name
@@ -837,6 +885,7 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
             << "  Ssd latency Max : " << (reg_node_req->disk_info).ssd_latency_max
             << "  Ssd latency Min: " << (reg_node_req->disk_info).ssd_latency_min
             << "  Disk Type : " << (reg_node_req->disk_info).disk_type;
+#if 0
     /*
      * get the domain Id. If  Domain is not created  use  default domain 
      * for now use  default  domain 
@@ -864,9 +913,11 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
      * Build the node info structure and add it
      * to its map, based on type.
      */
+#endif
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
     NodeUuid new_node_uuid(fds_get_uuid64(reg_node_req->node_name));
     Error err = domain->om_reg_node_info(new_node_uuid, reg_node_req);
+
     if (!err.ok()) {
         FDS_PLOG_SEV(GetLog(), fds_log::error)
                 << "Node Registration failed for "
@@ -874,7 +925,7 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
                 << err.GetErrstr();
         return;
     }
-
+#if 0
     fds::NodeInfo n_info(new_node_id,
                          reg_node_req->node_name,
                          reg_node_req->node_type,
@@ -898,7 +949,6 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
                          cp_resp_handler);
 
     node_map[reg_node_req->node_name] = n_info;
-
     // If this is a SM or a DM, let existing nodes know about this node
     if (reg_node_req->node_type != FDS_ProtocolInterface::FDSP_STOR_HVISOR) {
         currentDom->domain_ptr->sendNodeEventToFdsNodes(n_info, n_info.node_state);
@@ -919,7 +969,6 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
     } else {
         currentDom->domain_ptr->sendAllVolumesToFdsMgrNode(n_info);
     }
-
     om_mutex->unlock();
 
     // TODO(Andrew): Return registration success
@@ -927,13 +976,16 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
     // not the per-node channel that's established during
     // registration/bootstrap
     currentDom->domain_ptr->sendRegRespToNode(n_info, ERR_OK);
+#endif
 
     // TODO(Andrew): For now, let's start the cluster update process
     // now. This should eventually be decoupled from registration.
     domain->om_update_cluster();
 }
 
-void OrchMgr::SetThrottleLevelForDomain(int domain_id, float throttle_level) {
+#if 0
+void OrchMgr::SetThrottleLevelForDomain(int domain_id, float throttle_level)
+{
     localDomainInfo  *currentDom;
 
     FDS_PLOG_SEV(GetLog(), fds_log::notification)
@@ -952,12 +1004,12 @@ void OrchMgr::SetThrottleLevelForDomain(int domain_id, float throttle_level) {
 
 int OrchMgr::SetThrottleLevel(const FDSP_MsgHdrTypePtr& fdsp_msg,
                               const FDSP_ThrottleMsgTypePtr& throttle_req) {
-    om_mutex->lock();
     assert((throttle_req->throttle_level >= -10) && (throttle_req->throttle_level <= 10));
-    SetThrottleLevelForDomain(throttle_req->domain_id, throttle_req->throttle_level);
-    om_mutex->unlock();
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    local->om_set_throttle_lvl(throttle_req->throttle_level);
     return 0;
 }
+#endif
 
 void OrchMgr::NotifyQueueFull(const FDSP_MsgHdrTypePtr& fdsp_msg,
                               const FDSP_NotifyQueueStateTypePtr& queue_state_req) {
@@ -987,24 +1039,23 @@ void OrchMgr::NotifyQueueFull(const FDSP_MsgHdrTypePtr& fdsp_msg,
     float throttle_level = static_cast<float>(min_priority) +
             static_cast<float>(1-min_p_q_depth)/0.5;
 
-    localDomainInfo  *currentDom = locDomMap[DEFAULT_LOC_DOMAIN_ID];
-
     // For now we will ignore if the calculated throttle level is greater than
     // the current throttle level. But it will have to be more complicated than this.
     // Every time we set a throttle level, we need to fire off a timer and
     // bring back to the normal throttle level (may be gradually) unless
     // we get more of these QueueFull messages, in which case, we will have to
     // extend the throttle period.
+    om_mutex->unlock();
 
-    if (throttle_level < currentDom->domain_ptr->current_throttle_level) {
-        SetThrottleLevelForDomain(DEFAULT_LOC_DOMAIN_ID, throttle_level);
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    if (throttle_level < local->om_get_cur_throttle_level()) {
+        local->om_set_throttle_lvl(throttle_level);
     } else {
         FDS_PLOG(GetLog()) << "Calculated throttle level " << throttle_level
                            << " less than current throttle level of "
-                           << currentDom->domain_ptr->current_throttle_level
+                           << local->om_get_cur_throttle_level()
                            << ". Ignoring.";
     }
-    om_mutex->unlock();
 }
 
 void OrchMgr::NotifyPerfstats(const FDSP_MsgHdrTypePtr& fdsp_msg,
@@ -1020,17 +1071,15 @@ void OrchMgr::NotifyPerfstats(const FDSP_MsgHdrTypePtr& fdsp_msg,
      * the stat slot length in AM and SM should be FDS_STAT_DEFAULT_SLOT_LENGTH */
     fds_verify(perf_stats_msg->slot_len_sec == FDS_STAT_DEFAULT_SLOT_LENGTH);
 
-    localDomainInfo *currentDomain = locDomMap[DEFAULT_LOC_DOMAIN_ID];
-
     if (perf_stats_msg->node_type == FDS_ProtocolInterface::FDSP_STOR_HVISOR) {
         FDS_PLOG(GetLog())
                 << "OM received perfstats from AM, start ts "
                 << perf_stats_msg->start_timestamp;
-        currentDomain->domain_ptr->handlePerfStatsFromAM(perf_stats_msg->vol_hist_list,
-                                                         perf_stats_msg->start_timestamp);
+        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+        local->om_handle_perfstats_from_am(perf_stats_msg->vol_hist_list,
+                                           perf_stats_msg->start_timestamp);
 
-        for (int i = 0; i < (perf_stats_msg->vol_hist_list).size(); ++i)
-        {
+        for (int i = 0; i < (perf_stats_msg->vol_hist_list).size(); ++i) {
             FDS_ProtocolInterface::FDSP_VolPerfHistType& vol_hist
                     = (perf_stats_msg->vol_hist_list)[i];
             FDS_PLOG(GetLog()) << "OM: received perfstat for vol " << vol_hist.vol_uuid;
@@ -1046,11 +1095,12 @@ void OrchMgr::NotifyPerfstats(const FDSP_MsgHdrTypePtr& fdsp_msg,
         FDS_PLOG(GetLog())
                 << "OM received perfstats from SM, start ts "
                 << perf_stats_msg->start_timestamp;
-        /* we need to decide whether we want to merge stats from multiple SMs from one volume
-         * or have them separate. Should just mostly follow the code of handling stats from AM 
-         * but for now output debug msg to the log */
-        for (int i = 0; i < (perf_stats_msg->vol_hist_list).size(); ++i)
-        {
+        /*
+         * We need to decide whether we want to merge stats from multiple SMs from one
+         * volume or have them separate. Should just mostly follow the code of handling
+         * stats from AM but for now output debug msg to the log
+         */
+        for (int i = 0; i < (perf_stats_msg->vol_hist_list).size(); ++i) {
             FDS_ProtocolInterface::FDSP_VolPerfHistType& vol_hist
                     = (perf_stats_msg->vol_hist_list)[i];
             FDS_PLOG(GetLog()) << "OM: received perfstat for vol " << vol_hist.vol_uuid;

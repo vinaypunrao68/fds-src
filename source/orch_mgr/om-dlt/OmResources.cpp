@@ -66,7 +66,6 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
     Error err = om_locDomain->dc_register_node(uuid, msg, &newNode);
 
     if (err == ERR_OK) {
-        // If this is a SM or DM, let existing nodes know about this node.
         fds_verify(newNode != NULL);
         om_locDomain->om_bcast_new_node(newNode, msg);
 
@@ -74,6 +73,7 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         // TODO(Andrew): this should change into dissemination of the cur cluster map.
         //
         om_locDomain->om_update_node_list(newNode, msg);
+        om_locDomain->om_bcast_vol_list(newNode);
     }
     /* XXX: TODO (vy), remove this code once we have node FSM */
     OM_Module *om = OM_Module::om_singleton();
@@ -108,6 +108,24 @@ OM_NodeDomainMod::om_del_node_info(const NodeUuid& uuid,
 
     om_update_cluster_map();
     return err;
+}
+
+// om_create_domain
+// ----------------
+//
+int
+OM_NodeDomainMod::om_create_domain(const FdspCrtDomPtr &crt_domain)
+{
+    return 0;
+}
+
+// om_delete_domain
+// ----------------
+//
+int
+OM_NodeDomainMod::om_delete_domain(const FdspCrtDomPtr &crt_domain)
+{
+    return 0;
 }
 
 // om_update_cluster_map
