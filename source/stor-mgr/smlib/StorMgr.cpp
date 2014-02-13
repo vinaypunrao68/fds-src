@@ -50,6 +50,19 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
     fds_uint64_t reqId;
     reqId = std::atomic_fetch_add(&(objStorMgr->nextReqId), (fds_uint64_t)1);
 
+#if 0 // will enable this once  data-placement code is tested
+     // check the payload checksum  and return Error, if we run in to issues 
+    std:string new_checksum;
+    objStorMgr->chksumPtr->checksum_update(reinterpret_cast<unsigned char *>(putObj.get()),  sizeof(putObj));
+    objStorMgr->chksumPtr->checksum_update(reinterpret_cast<unsigned char *>(const_cast <char *>(putObj->data_obj.data())), putObj->data_obj_len);
+    objStorMgr->chksumPtr->get_checksum(new_checksum);
+    if (msgHdr->payload_chksum.compare(new_checksum) != 0) {
+	msgHdr->err_code = FDSP_ERR_CKSUM_MISMATCH; 			
+	msgHdr->result = FDSP_ERR_RPC_CKSUM; 			
+    }
+#endif
+
+
     if (putObj->dlt_version == objStorMgr->omClient->getDltVersion()) {
     /*
      * Track the outstanding get request.
@@ -368,6 +381,8 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
 
     // Create leveldb
     smObjDb = new  SmObjDb(stor_prefix, objStorMgr->GetLog());
+    // init the checksum verification class
+    chksumPtr =  new checksum_calc();
 
     /* Set up FDSP RPC endpoints */
     nst_ = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_MGR));

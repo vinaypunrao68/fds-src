@@ -32,6 +32,7 @@
 #include <persistent_layer/dm_service.h>
 #include <persistent_layer/dm_io.h>
 #include <fds_migration.h>
+#include <hash/md5.h>
 
 #include <fds_qos.h>
 #include <qos_ctrl.h>
@@ -367,6 +368,7 @@ class ObjectStorMgr :
     fds_log *sm_log;
     TierEngine     *tierEngine;
     SmObjDb        *smObjDb;
+    checksum_calc   *chksumPtr;
     /*
      * stats  class 
      */

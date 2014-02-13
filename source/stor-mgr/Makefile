@@ -26,6 +26,7 @@ user_fds_ar_libs  :=                   \
     fds-vpolicy \
     fds-netproxy \
     fds-fdsp \
+    fds-hash \
     fds-migrations
 
 user_non_fds_libs :=                                                          \

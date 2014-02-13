@@ -21,6 +21,7 @@
 #include "qos_ctrl.h" 
 #include "fds_qos.h" 
 #include "StorHvQosCtrl.h" 
+#include <hash/md5.h>
 
 #include <fdsp/FDSP_DataPathReq.h>
 #include <fdsp/FDSP_DataPathResp.h>
@@ -172,6 +173,9 @@ public:
   ~StorHvCtrl();	
   hv_create_blkdev cr_blkdev;
   hv_delete_blkdev del_blkdev;
+
+  //imcremental checksum  for header and payload 
+  checksum_calc   *chksumPtr;
   
   // Data Members
   StorHvDataPlacement        *dataPlacementTbl;
