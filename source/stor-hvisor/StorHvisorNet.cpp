@@ -193,6 +193,7 @@ StorHvCtrl::StorHvCtrl(int argc,
    * in other parts of the system */
   vol_table = new StorHvVolumeTable(this, sh_log);  
 
+  chksumPtr =  new checksum_calc();
 
   /*
    * Set basic thread properties.
