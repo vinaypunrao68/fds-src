@@ -565,17 +565,40 @@ void ObjectStorMgr::mod_startup() {
 void ObjectStorMgr::mod_shutdown() {
 }
 
+const TokenList&
+ObjectStorMgr::getTokensForNode(const NodeUuid &uuid) const {
+    return omClient->getTokensForNode(uuid);
+}
+
+NodeUuid
+ObjectStorMgr::getUuid() const {
+    return omClient->getUuid();
+}
 
 void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
 {
     FDS_PLOG(objStorMgr->GetLog()) << "ObjectStorMgr - Migration  event Handler " << dlt_type;
 
-//    MigSvcCopyTokensReqPtr copy_req(new MigSvcCopyTokensReq());
-//    copy_req->tokens = sender_store_->getTokens();
-//    copy_req->migsvc_resp_cb = std::bind(
-//            &ObjectStorMgr::migrationSvcResponseCb, this,std::placeholders::_1);
-//    FdsActorRequestPtr copy_far(new FdsActorRequest(FAR_ID(MigSvcCopyTokensReq), copy_req));
-//    rcvr_mig_svc_->send_actor_request(copy_far);
+    // Add node's tokens to the request
+    MigSvcCopyTokensReqPtr copy_req(new MigSvcCopyTokensReq());
+    const TokenList &tokens = objStorMgr->getTokensForNode(
+        objStorMgr->getUuid());
+    for (TokenList::const_iterator it = tokens.cbegin();
+         it != tokens.cend();
+         it++) {
+        copy_req->tokens.insert(*it);
+    }
+
+    /*
+    // Send migration request to migration service
+    copy_req->migsvc_resp_cb = std::bind(
+        &ObjectStorMgr::migrationSvcResponseCb,
+        objStorMgr,
+        std::placeholders::_1);
+    FdsActorRequestPtr copy_far(new FdsActorRequest(
+        FAR_ID(MigSvcCopyTokensReq), copy_req));
+    objStorMgr->migrationSvc_->send_actor_request(copy_far);
+    */
 
     // TODO(Anna) this is temporary to send migration done callback, 
     // remove when code above is un-commented

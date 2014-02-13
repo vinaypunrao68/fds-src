@@ -453,6 +453,10 @@ class ObjectStorMgr :
         return objCache;
     }
 
+    NodeUuid getUuid() const;
+
+    const TokenList& getTokensForNode(const NodeUuid &uuid) const;
+
     virtual std::string log_string()
     {
         std::stringstream ret;
