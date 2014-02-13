@@ -47,9 +47,11 @@ OM_SmAgent::getCpClient() const
 void
 OM_SmAgent::om_send_myinfo(NodeAgent::pointer peer)
 {
-    if (peer->get_node_name() == get_node_name()) {
-        return;
-    }
+    // TODO(Andrew): Add this back when OM actually responds
+    // to node registrations
+    // if (peer->get_node_name() == get_node_name()) {
+    // return;
+    // }
     fpi::FDSP_MsgHdrTypePtr     m_hdr(new fpi::FDSP_MsgHdrType);
     fpi::FDSP_Node_Info_TypePtr n_inf(new fpi::FDSP_Node_Info_Type);
 

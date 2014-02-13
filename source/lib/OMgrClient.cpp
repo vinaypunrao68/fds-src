@@ -616,7 +616,7 @@ int OMgrClient::recvNodeEvent(int node_id,
 
   node_info_t& node = node_map[node_id];
 
-  node.node_id = node_id;
+  node.node_id = node_info->node_uuid;
   node.node_ip_address = node_ip;
   node.port = node_info->data_port;
   node.node_state = (FDSP_NodeState) node_state;
@@ -624,9 +624,18 @@ int OMgrClient::recvNodeEvent(int node_id,
   // Update local cluster map
   clustMap->addNode(&node, my_node_type, node_type);
 
+  // TODO(Andrew): Hack to figure out my own node uuid
+  // since the OM doesn't reply to my registration yet.
+  if ((node.node_ip_address == netSession::ipString2Addr(hostIp)) &&
+      (node.port == my_data_port)) {
+      myUuid.uuid_set_val(node_info->node_uuid);
+      LOGDEBUG << "Setting my UUID to " << myUuid.uuid_get_val();
+  }
+
   omc_lock.write_unlock();
 
-  FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received node event for node " << node_id 
+  FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received node event for node "
+                                                    << node_info->node_id 
 						    << ", type - " << node_info->node_type 
 						    << " with ip address " << node_ip 
 						    << " and state - " << node_state;
@@ -824,6 +833,16 @@ OMgrClient::getDltVersion() {
     omc_lock.read_unlock();
 
     return version;
+}
+
+NodeUuid
+OMgrClient::getUuid() const {
+    return myUuid;
+}
+
+const TokenList&
+OMgrClient::getTokensForNode(const NodeUuid &uuid) const {
+    return dltMgr.getDLT()->getTokens(uuid);
 }
 
 NodeMigReqClientPtr
