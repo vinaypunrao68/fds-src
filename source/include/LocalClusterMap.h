@@ -48,8 +48,7 @@ namespace fds {
      */
     class LocalClusterMap : public Module {
   public:
-        LocalClusterMap(boost::shared_ptr<FDS_ProtocolInterface::
-                        FDSP_MigrationPathRespIf> migRespHndlr);
+        LocalClusterMap();
         ~LocalClusterMap();
 
         /**
@@ -73,6 +72,8 @@ namespace fds {
                       FDSP_MgrIdType myRole,
                       FDSP_MgrIdType nodeRole);
 
+        fds_uint32_t getNodeMigPort(NodeUuid uuid);
+
         /**
          * Module methods.
          */
@@ -86,22 +87,6 @@ namespace fds {
         Sha1Digest   checksum;
 
         node_map_t clusterMembers;
-
-        // TODO(Andrew): The netsession table probably doesn't
-        // belong in this class, but we can refactor later when
-        // we start locally versioning this info...
-        boost::shared_ptr<netSessionTbl> lcmSessTbl;
-
-        /**
-         * Local response handlers that are provided by the
-         * user of this class... They may be NULL if the
-         * owner doesn't want to handle an interface.
-         */
-        /**
-         * Provides SM to SM interface for migration
-         */
-        boost::shared_ptr<FDS_ProtocolInterface::
-                FDSP_MigrationPathRespIf> migRspHndlr;
     };
 
 }  // namespace fds

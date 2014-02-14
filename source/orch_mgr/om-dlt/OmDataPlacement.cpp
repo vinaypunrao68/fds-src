@@ -237,7 +237,7 @@ DataPlacement::computeDlt() {
     if (curDlt == NULL) {
         version = DLT_VER_INVALID + 1;
     } else {
-        version = curDlt->getVersion();
+        version = curDlt->getVersion() + 1;
     }
     // If we have fewer members than total replicas
     // use the number of members as the replica count
