@@ -77,6 +77,7 @@ FdsMigrationSvc::FdsMigrationSvc(SmIoReqHandler *data_store,
         ClusterCommMgrPtr clust_comm_mgr)
     : Module("FdsMigrationSvc"),
       FdsRequestQueueActor(),
+      mig_cntrs("Migration", g_cntrs_mgr.get()),
       data_store_(data_store),
       conf_helper_(conf_helper),
       log_(log),
