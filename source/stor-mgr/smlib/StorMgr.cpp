@@ -47,8 +47,19 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
     return;
 #endif /* FDS_TEST_SM_NOOP */
 
-    fds_uint64_t reqId;
-    reqId = std::atomic_fetch_add(&(objStorMgr->nextReqId), (fds_uint64_t)1);
+
+#if 0 // will enable this once  data-placement code is tested
+     // check the payload checksum  and return Error, if we run in to issues 
+    std:string new_checksum;
+    objStorMgr->chksumPtr->checksum_update(reinterpret_cast<unsigned char *>(putObj.get()),  sizeof(putObj));
+    objStorMgr->chksumPtr->checksum_update(reinterpret_cast<unsigned char *>(const_cast <char *>(putObj->data_obj.data())), putObj->data_obj_len);
+    objStorMgr->chksumPtr->get_checksum(new_checksum);
+    if (msgHdr->payload_chksum.compare(new_checksum) != 0) {
+	msgHdr->err_code = FDSP_ERR_CKSUM_MISMATCH; 			
+	msgHdr->result = FDSP_ERR_RPC_CKSUM; 			
+    }
+#endif
+
 
     if (putObj->dlt_version == objStorMgr->omClient->getDltVersion()) {
     /*
@@ -60,11 +71,6 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
      * TODO: We should check if this value has rolled at some point.
      * Though it's big enough for us to not care right now.
      */
-        msgHdr->msg_chksum = reqId;
-        objStorMgr->waitingReqMutex->lock();
-        objStorMgr->waitingReqs[reqId] = msgHdr;
-        objStorMgr->waitingReqMutex->unlock();
-
       objStorMgr->PutObject(msgHdr, putObj);
     } else {
 	msgHdr->err_code = FDSP_ERR_DLT_CONFLICT; 			
@@ -80,10 +86,6 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
      * now as there is no more processing to do.
      */
     if (msgHdr->result != FDSP_ERR_OK) {
-        objStorMgr->waitingReqMutex->lock();
-        objStorMgr->waitingReqs.erase(reqId);
-        objStorMgr->waitingReqMutex->unlock();
-
         msgHdr->msg_code = FDSP_MSG_PUT_OBJ_RSP;
         objStorMgr->swapMgrId(msgHdr);
         objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->PutObjectResp(msgHdr, putObj);
@@ -116,12 +118,6 @@ ObjectStorMgrI::GetObject(FDSP_MsgHdrTypePtr& msgHdr,
      * TODO: We should check if this value has rolled at some point.
      * Though it's big enough for us to not care right now.
      */
-    fds_uint64_t reqId;
-    reqId = std::atomic_fetch_add(&(objStorMgr->nextReqId), (fds_uint64_t)1);
-    msgHdr->msg_chksum = reqId;
-    objStorMgr->waitingReqMutex->lock();
-    objStorMgr->waitingReqs[reqId] = msgHdr;
-    objStorMgr->waitingReqMutex->unlock();
 
     /*
      * Submit the request to be enqueued
@@ -132,9 +128,6 @@ ObjectStorMgrI::GetObject(FDSP_MsgHdrTypePtr& msgHdr,
      * now as there is no more processing to do.
      */
     if (msgHdr->result != FDSP_ERR_OK) {
-        objStorMgr->waitingReqMutex->lock();
-        objStorMgr->waitingReqs.erase(reqId);
-        objStorMgr->waitingReqMutex->unlock();
 
         msgHdr->msg_code = FDSP_MSG_GET_OBJ_RSP;
         if(getObj->dlt_version != objStorMgr->omClient->getDltVersion()) {
@@ -177,15 +170,7 @@ ObjectStorMgrI::DeleteObject(FDSP_MsgHdrTypePtr& msgHdr,
      * TODO: We should check if this value has rolled at some point.
      * Though it's big enough for us to not care right now.
      */
-    fds_uint64_t reqId;
-    reqId = std::atomic_fetch_add(&(objStorMgr->nextReqId), (fds_uint64_t)1);
-
     if (delObj->dlt_version == objStorMgr->omClient->getDltVersion()) {
-
-        msgHdr->msg_chksum = reqId;
-        objStorMgr->waitingReqMutex->lock();
-        objStorMgr->waitingReqs[reqId] = msgHdr;
-        objStorMgr->waitingReqMutex->unlock();
 
         objStorMgr->DeleteObject(msgHdr, delObj);
     } else {
@@ -202,9 +187,6 @@ ObjectStorMgrI::DeleteObject(FDSP_MsgHdrTypePtr& msgHdr,
      * now as there is no more processing to do.
      */
     if (msgHdr->result != FDSP_ERR_OK) {
-        objStorMgr->waitingReqMutex->lock();
-        objStorMgr->waitingReqs.erase(reqId);
-        objStorMgr->waitingReqMutex->unlock();
 
         msgHdr->msg_code = FDSP_MSG_DELETE_OBJ_RSP;
         objStorMgr->swapMgrId(msgHdr);
@@ -254,12 +236,6 @@ ObjectStorMgr::ObjectStorMgr(int argc, char *argv[],
     sm_log->setSeverityFilter((fds_log::severity_level) conf_helper_.get<int>("log_severity"));
     FDS_PLOG(sm_log) << "Constructing the Object Storage Manager";
     objStorMutex = new fds_mutex("Object Store Mutex");
-    waitingReqMutex = new fds_mutex("Object Store Mutex");
-
-    /*
-     * Init the outstanding request count to 0.
-     */
-    nextReqId = ATOMIC_VAR_INIT(0);
 
     /*
      * Will setup OM comm during run()
@@ -273,8 +249,6 @@ ObjectStorMgr::ObjectStorMgr(int argc, char *argv[],
     fds_verify(dirtyFlashObjs->is_lock_free() == true);
     writeBackThreads = new fds_threadpool(numWBThreads);
 
-    /* Set up the journal */
-    //omJrnl = new TransJournal<ObjectID, ObjectIdJrnlEntry>();
 
     /*
      * Setup QoS related members.
@@ -285,6 +259,8 @@ ObjectStorMgr::ObjectStorMgr(int argc, char *argv[],
             sm_log);
     qosCtrl->runScheduler();
 
+    /* Set up the journal */
+    omJrnl = new TransJournal<ObjectID, ObjectIdJrnlEntry>(qosCtrl, sm_log);
     /*
      * stats class init
      */
@@ -329,7 +305,6 @@ ObjectStorMgr::~ObjectStorMgr() {
      * TODO: Assert that the waiting req map is empty.
      */
 
-    delete waitingReqMutex;
     delete qosCtrl;
 
     delete writeBackThreads;
@@ -339,7 +314,7 @@ ObjectStorMgr::~ObjectStorMgr() {
 
     delete volTbl;
     delete objStorMutex;
-    //delete omJrnl;
+    delete omJrnl;
 }
 
 int ObjectStorMgr::mod_init(SysParams const *const param) {
@@ -368,6 +343,8 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
 
     // Create leveldb
     smObjDb = new  SmObjDb(stor_prefix, objStorMgr->GetLog());
+    // init the checksum verification class
+    chksumPtr =  new checksum_calc();
 
     /* Set up FDSP RPC endpoints */
     nst_ = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_MGR));
@@ -417,13 +394,14 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
      * Register this node with OM.
      */
     omClient = new OMgrClient(FDSP_STOR_MGR,
-            conf_helper_.get<std::string>("om_ip"),
-            conf_helper_.get<int>("om_port"),
-            myIp,
-            conf_helper_.get<int>("data_port"),
-            stor_prefix + "localhost-sm",
-            sm_log,
-            nst_);
+                              conf_helper_.get<std::string>("om_ip"),
+                              conf_helper_.get<int>("om_port"),
+                              myIp,
+                              conf_helper_.get<int>("data_port"),
+                              stor_prefix + "localhost-sm",
+                              sm_log,
+                              nst_,
+                              conf_helper_.get<int>("migration.port"));
 
     /*
      * Create local volume table. Create after omClient
@@ -565,21 +543,70 @@ void ObjectStorMgr::mod_startup() {
 void ObjectStorMgr::mod_shutdown() {
 }
 
+const TokenList&
+ObjectStorMgr::getTokensForNode(const NodeUuid &uuid) const {
+    return omClient->getTokensForNode(uuid);
+}
+
+void
+ObjectStorMgr::getTokensForNode(TokenList *tl,
+                                const NodeUuid &uuid,
+                                fds_uint32_t index) {
+    return omClient->getCurrentDLT()->getTokens(tl,
+                                                uuid,
+                                                index);
+}
+
+fds_uint32_t
+ObjectStorMgr::getTotalNumTokens() const {
+    return omClient->getCurrentDLT()->getNumTokens();
+}
+
+NodeUuid
+ObjectStorMgr::getUuid() const {
+    return omClient->getUuid();
+}
 
 void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
 {
     FDS_PLOG(objStorMgr->GetLog()) << "ObjectStorMgr - Migration  event Handler " << dlt_type;
 
-//    MigSvcCopyTokensReqPtr copy_req(new MigSvcCopyTokensReq());
-//    copy_req->tokens = sender_store_->getTokens();
-//    copy_req->migsvc_resp_cb = std::bind(
-//            &ObjectStorMgr::migrationSvcResponseCb, this,std::placeholders::_1);
-//    FdsActorRequestPtr copy_far(new FdsActorRequest(FAR_ID(MigSvcCopyTokensReq), copy_req));
-//    rcvr_mig_svc_->send_actor_request(copy_far);
+    // Determine our new tokens that we need to retrieve from
+    // by comparing with the previous DLT
+    // TODO(Andrew): For now, we're just getting all of the primary
+    // tokens in the current DLT
+    MigSvcCopyTokensReqPtr copy_req(new MigSvcCopyTokensReq());
+    TokenList tokens;
+    // const TokenList &tokens = objStorMgr->getTokensForNode(
+    // objStorMgr->getUuid());
+    objStorMgr->getTokensForNode(&tokens,
+                                 objStorMgr->getUuid(),
+                                 0);
+    for (TokenList::const_iterator it = tokens.cbegin();
+         it != tokens.cend();
+         it++) {
+        copy_req->tokens.insert(*it);
+    }
 
-    // TODO(Anna) this is temporary to send migration done callback, 
-    // remove when code above is un-commented
-    objStorMgr->migrationSvcResponseCb(Error(ERR_OK));
+    // TODO(Andrew): For now, we're assuming if the list of
+    // new tokens all of the tokens, then we must be the first
+    // SM entering the system and don't need to migration anything
+    // because nothing exists to migrate and no one to migrate from.
+    // Note: Since the above token list is *NOT* do a delta yet,
+    // this will skip migration scenarios where I'm the only node
+    // let in the cluster.
+    if (copy_req->tokens.size() < objStorMgr->getTotalNumTokens()) {
+        // Send migration request to migration service
+        copy_req->migsvc_resp_cb = std::bind(
+            &ObjectStorMgr::migrationSvcResponseCb,
+            objStorMgr,
+            std::placeholders::_1);
+        FdsActorRequestPtr copy_far(new FdsActorRequest(
+            FAR_ID(MigSvcCopyTokensReq), copy_req));
+        objStorMgr->migrationSvc_->send_actor_request(copy_far);
+    } else {
+        objStorMgr->migrationSvcResponseCb(Error(ERR_OK));
+    }
 }
 
 void ObjectStorMgr::migrationSvcResponseCb(const Error& err) {
@@ -776,7 +803,7 @@ void ObjectStorMgr::unitTest() {
      * Note: we're just adding a hard coded 0 for
      * the request ID.
      */
-    err = putObjectInternal(put_obj_req, vol_id, 0, num_objs);
+    err = enqPutObjectReq(put_obj_req, vol_id, 0, num_objs);
     if (err != ERR_OK) {
         FDS_PLOG(objStorMgr->GetLog()) << "Failed to put object ";
         // delete put_obj_req;
@@ -789,7 +816,7 @@ void ObjectStorMgr::unitTest() {
             0x00,
             sizeof(get_obj_req->data_obj_id));
     get_obj_req->data_obj_id.hash_low = 0x101;
-    err = getObjectInternal(get_obj_req, vol_id, 1, num_objs);
+    err = enqGetObjectReq(get_obj_req, vol_id, 1, num_objs);
     // delete get_obj_req;
 }
 
@@ -1146,7 +1173,7 @@ ObjectStorMgr::relocateObject(const ObjectID &objId,
     meta_obj_id_t   oid;
     vadr_set_inval(vio.vol_adr);
 
-    oid.oid_hash_hi = objId.GetHigh();
+    oid.oid_hash_lo = objId.GetLow();
     oid.oid_hash_lo = objId.GetLow();
 
     disk_req = new SmPlReq(vio, oid, (ObjectBuf *)&objGetData, true, to_tier);
@@ -1186,7 +1213,6 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
     const FDSP_PutObjTypePtr& putObjReq = putReq->getPutObjReq();
     bool new_buff_allocated = false;
 
-    //ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_journal_entry_for_key(objId);
     objStorMutex->lock();
 
     objBufPtr = objCache->object_retrieve(volId, objId);
@@ -1248,10 +1274,6 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
         if (err != fds::ERR_OK) {
             objCache->object_release(volId, objId, objBufPtr);
             objCache->object_delete(volId, objId);
-            objStorMutex->unlock();
-            FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::error) << "Failed to put object " << err;
-        } else {
-            objCache->object_add(volId, objId, objBufPtr, false);
             objCache->object_release(volId, objId, objBufPtr);
             objStorMutex->unlock();
             FDS_PLOG(objStorMgr->GetLog()) << "Successfully put object " << objId;
@@ -1278,18 +1300,14 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
          */
     }
 
-    //omJrnl->release_journal_entry_with_notify(jrnlEntry);
     qosCtrl->markIODone(*putReq,
             tierUsed);
 
     /*
      * Prepare a response to send back.
      */
-    waitingReqMutex->lock();
-    fds_verify(waitingReqs.count(putReq->io_req_id) > 0);
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr = waitingReqs[putReq->io_req_id];
-    waitingReqs.erase(putReq->io_req_id);
-    waitingReqMutex->unlock();
+    ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_transaction(putReq->getTransId());
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr = jrnlEntry->getMsgHdr();
 
     FDSP_PutObjTypePtr putObj(new FDSP_PutObjType());
     putObj->data_obj_id.hash_high = objId.GetHigh();
@@ -1305,6 +1323,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
     msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_PUT_OBJ_RSP;
     swapMgrId(msgHdr);
     fdspDataPathClient(msgHdr->session_uuid)->PutObjectResp(msgHdr, putObj);
+    omJrnl->release_transaction(putReq->getTransId());
     FDS_PLOG(objStorMgr->GetLog()) << "Sent async PutObj response after processing";
 
     /*
@@ -1318,11 +1337,12 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
 }
 
 Error
-ObjectStorMgr::putObjectInternal(FDSP_PutObjTypePtr putObjReq, 
+ObjectStorMgr::enqPutObjectReq(FDSP_PutObjTypePtr putObjReq, 
         fds_volid_t        volId,
         fds_uint32_t       transId,
         fds_uint32_t       numObjs) {
     fds::Error err(fds::ERR_OK);
+    TransJournalId trans_id;
     ObjectID obj_id(putObjReq->data_obj_id.hash_high,
             putObjReq->data_obj_id.hash_low);
 
@@ -1352,6 +1372,8 @@ ObjectStorMgr::putObjectInternal(FDSP_PutObjTypePtr putObjReq,
                     << transId;
             return err;
         }
+        err = omJrnl->create_transaction(obj_id, static_cast<FDS_IOType *>(ioReq), trans_id);
+        ioReq->setTransId(trans_id);
         FDS_PLOG(objStorMgr->GetLog()) << "Successfully enqueued putObject request "
                 << transId;
     }
@@ -1374,7 +1396,6 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
     }
 
 
-    //ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_journal_entry_for_key(objId);
     objStorMutex->lock();
     /*
      * Delete the object
@@ -1387,18 +1408,14 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
         FDS_PLOG(objStorMgr->GetLog()) << "Successfully delete object " << objId;
     }
 
-    //omJrnl->release_journal_entry_with_notify(jrnlEntry);
     qosCtrl->markIODone(*delReq,
             diskio::diskTier);
 
     /*
      * Prepare a response to send back.
      */
-    waitingReqMutex->lock();
-    fds_verify(waitingReqs.count(delReq->io_req_id) > 0);
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr = waitingReqs[delReq->io_req_id];
-    waitingReqs.erase(delReq->io_req_id);
-    waitingReqMutex->unlock();
+    ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_transaction(delReq->getTransId());
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr = jrnlEntry->getMsgHdr();
 
     FDSP_DeleteObjTypePtr delObj(new FDS_ProtocolInterface::FDSP_DeleteObjType());
     delObj->data_obj_id.hash_high = objId.GetHigh();
@@ -1414,6 +1431,7 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
     msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_DELETE_OBJ_RSP;
     swapMgrId(msgHdr);
     fdspDataPathClient(msgHdr->session_uuid)->DeleteObjectResp(msgHdr, delObj);
+    omJrnl->release_transaction(delReq->getTransId());
     FDS_PLOG(objStorMgr->GetLog()) << "Sent async DelObj response after processing";
 
     /*
@@ -1442,7 +1460,7 @@ ObjectStorMgr::PutObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
             << ", glob_vol_id: " << fdsp_msg->glob_volume_id
             << ", for request ID: " << fdsp_msg->msg_chksum
             << ", Num Objs: " << fdsp_msg->num_objects;
-    err = putObjectInternal(put_obj_req,
+    err = enqPutObjectReq(put_obj_req,
             fdsp_msg->glob_volume_id,
             fdsp_msg->msg_chksum,
             fdsp_msg->num_objects);
@@ -1469,11 +1487,11 @@ ObjectStorMgr::DeleteObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
     ObjectID oid(del_obj_req->data_obj_id.hash_high,
             del_obj_req->data_obj_id.hash_low);
 
-    FDS_PLOG(objStorMgr->GetLog()) << "PutObject Obj ID: " << oid
+    FDS_PLOG(objStorMgr->GetLog()) << "DeleteObject Obj ID: " << oid
             << ", glob_vol_id: " << fdsp_msg->glob_volume_id
             << ", for request ID: " << fdsp_msg->msg_chksum
             << ", Num Objs: " << fdsp_msg->num_objects;
-    err = deleteObjectInternal(del_obj_req,
+    err = enqDeleteObjectReq(del_obj_req,
             fdsp_msg->glob_volume_id,
             fdsp_msg->msg_chksum);
     if (err != ERR_OK) {
@@ -1500,7 +1518,6 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
      * memory for that size.
      */
 
-    //ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_journal_entry_for_key(objId);
     objStorMutex->lock();
     objBufPtr = objCache->object_retrieve(volId, objId);
 
@@ -1531,17 +1548,13 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
                 << " for request ID " << getReq->io_req_id;
     }
 
-    //omJrnl->release_journal_entry_with_notify(jrnlEntry);
     qosCtrl->markIODone(*getReq, tierUsed);
 
     /*
      * Prepare a response to send back.
      */
-    waitingReqMutex->lock();
-    fds_assert(waitingReqs.count(getReq->io_req_id) > 0);
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr = waitingReqs[getReq->io_req_id];
-    waitingReqs.erase(getReq->io_req_id);
-    waitingReqMutex->unlock();
+    ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_transaction(getReq->getTransId());
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr = jrnlEntry->getMsgHdr();
 
     /*
      * This does an additional object copy into the network buffer.
@@ -1571,6 +1584,7 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
     }
     fdspDataPathClient(msgHdr->session_uuid)->GetObjectResp(msgHdr, getObj);
     FDS_PLOG(objStorMgr->GetLog()) << "Sent async GetObj response after processing";
+    omJrnl->release_transaction(getReq->getTransId());
 
     objStats->updateIOpathStats(getReq->getVolId(), getReq->getObjId());
     volTbl->updateVolStats(getReq->getVolId());
@@ -1591,10 +1605,13 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
 }
 
 Error
-ObjectStorMgr::deleteObjectInternal(FDSP_DeleteObjTypePtr delObjReq, 
+ObjectStorMgr::enqDeleteObjectReq(FDSP_DeleteObjTypePtr delObjReq, 
         fds_volid_t        volId,
         fds_uint32_t       transId) {
     Error err(ERR_OK);
+    TransJournalId trans_id;
+    ObjectID obj_id(delObjReq->data_obj_id.hash_high,
+            delObjReq->data_obj_id.hash_low);
 
     /*
      * Allocate and enqueue an IO request. The request is freed
@@ -1608,6 +1625,7 @@ ObjectStorMgr::deleteObjectInternal(FDSP_DeleteObjTypePtr delObjReq,
             FDS_DELETE_BLOB,
             transId);
 
+    
     err = qosCtrl->enqueueIO(ioReq->getVolId(), static_cast<FDS_IOType*>(ioReq));
 
     if (err != fds::ERR_OK) {
@@ -1617,6 +1635,8 @@ ObjectStorMgr::deleteObjectInternal(FDSP_DeleteObjTypePtr delObjReq,
     }
     FDS_PLOG(objStorMgr->GetLog()) << "Successfully enqueued delObject request "
             << transId;
+    err =  omJrnl->create_transaction(obj_id, static_cast<FDS_IOType *>(ioReq), trans_id);
+    ioReq->setTransId(trans_id);
 
     return err;
 }
@@ -1643,7 +1663,7 @@ ObjectStorMgr::GetObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
             << ", glob_vol_id: " << fdsp_msg->glob_volume_id
             << ", Num Objs: " << fdsp_msg->num_objects;
 
-    err = getObjectInternal(get_obj_req,
+    err = enqGetObjectReq(get_obj_req,
             fdsp_msg->glob_volume_id,
             fdsp_msg->msg_chksum,
             fdsp_msg->num_objects);
@@ -1658,11 +1678,14 @@ ObjectStorMgr::GetObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
 }
 
 Error
-ObjectStorMgr::getObjectInternal(FDSP_GetObjTypePtr getObjReq, 
+ObjectStorMgr::enqGetObjectReq(FDSP_GetObjTypePtr getObjReq, 
                                  fds_volid_t        volId, 
                                  fds_uint32_t       transId, 
                                  fds_uint32_t       numObjs) {
   Error err(ERR_OK);
+  TransJournalId trans_id;
+  ObjectID obj_id(getObjReq->data_obj_id.hash_high,
+            getObjReq->data_obj_id.hash_low);
 
   /*
    * Allocate and enqueue an IO request. The request is freed
@@ -1685,6 +1708,8 @@ ObjectStorMgr::getObjectInternal(FDSP_GetObjTypePtr getObjReq,
     getObjReq->data_obj.assign("");
     return err;
   }
+  err =  omJrnl->create_transaction(obj_id, static_cast<FDS_IOType *>(ioReq), trans_id);
+  ioReq->setTransId(trans_id);
   FDS_PLOG(objStorMgr->GetLog()) << "Successfully enqueued getObject request "
                                  << transId;
 
@@ -1775,7 +1800,7 @@ Error
 ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq) 
 {
     Error err(ERR_OK);
-    SmIoPutTokObjectsReq *putTokReq = static_cast<SmIoPutTokObjectsReq*>(putTokReq);
+    SmIoPutTokObjectsReq *putTokReq = static_cast<SmIoPutTokObjectsReq*>(ioReq);
     FDSP_MigrateObjectList &objList = putTokReq->obj_list;
     
     for (auto obj : objList) {
@@ -1935,7 +1960,7 @@ void  SmObjDb::iterRetrieveObjects(const fds_token_id &token,
     ObjectID objId;
     ObjectDB *odb = getObjectDB(tokId);
     if (odb == NULL ) { 
-       itr.objId = 0;
+        itr.objId = SMTokenItr::itr_end;
        return;
     }
     

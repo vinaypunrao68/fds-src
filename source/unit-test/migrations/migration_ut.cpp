@@ -37,7 +37,7 @@ class MockClusterCommMgr : public ClusterCommMgr {
     }
 
     virtual bool
-    get_node_ip_port(const NodeUuid &node_id, uint32_t &ip, uint32_t &port) override
+    get_node_mig_ip_port(const NodeUuid &node_id, uint32_t &ip, uint32_t &port) override
     {
         std::string str_ip = sender_config_.get<std::string>("ip");
         ip = netSessionTbl::ipString2Addr(str_ip);

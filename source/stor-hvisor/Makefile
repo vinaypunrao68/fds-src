@@ -8,7 +8,7 @@ user_install      := fds.conf
 # TODO: remove the topdir path in the include search
 #
 user_incl_dir     := $(topdir) $(topdir)/fds_client/include $(topdir)/lib
-user_fds_ar_libs  := fds-umod 
+user_fds_ar_libs  := fds-umod fds-hash 
 StorHvisor_cpp    :=                   \
     StorHvisorNet.cpp                  \
     StorHvisorTest.cpp                  \

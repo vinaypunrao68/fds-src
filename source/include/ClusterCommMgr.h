@@ -25,7 +25,9 @@ class ClusterCommMgr {
 
     virtual NodeTokenTbl partition_tokens_by_node(const std::set<fds_token_id> &tokens);
 
-    virtual bool get_node_ip_port(const NodeUuid &node_id, uint32_t &ip, uint32_t &port);
+    virtual bool get_node_mig_ip_port(const NodeUuid &node_id,
+                                      uint32_t &ip,
+                                      uint32_t &port);
 
     // netMigrationPathClientSession* get_migration_session(const NodeUuid &node_id);
  protected:

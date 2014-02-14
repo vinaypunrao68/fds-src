@@ -6,20 +6,11 @@
 
 namespace fds {
 
-LocalClusterMap::LocalClusterMap(boost::shared_ptr<FDS_ProtocolInterface::
-                                                   FDSP_MigrationPathRespIf> migHndlr)
-        : Module("local cluster map"),
-          migRspHndlr(migHndlr) {
-    // TODO(Andrew): This should be a generic platform/node interface
-    // not one for each possible client OR the map should have one
-    // role (e.g., DM, SM, etc...) and use that. We're hard coding to
-    // the migration table for now.
-    lcmSessTbl = boost::shared_ptr<netSessionTbl>(
-        new netSessionTbl(FDSP_MIGRATION_MGR));
+LocalClusterMap::LocalClusterMap()
+        : Module("local cluster map") {
 }
 
 LocalClusterMap::~LocalClusterMap() {
-    lcmSessTbl->endAllSessions();
 }
 
 int
@@ -52,6 +43,17 @@ LocalClusterMap::getMigClient(fds_uint64_t node_id) {
     return client;
 }
 
+fds_uint32_t
+LocalClusterMap::getNodeMigPort(NodeUuid uuid) {
+    fds_uint32_t port;
+    lcmLock.read_lock();
+    fds_verify(clusterMembers.count(uuid.uuid_get_val()) != 0);
+    port = clusterMembers[uuid.uuid_get_val()].mig_port;
+    lcmLock.read_unlock();
+
+    return port;
+}
+
 Error
 LocalClusterMap::addNode(node_info_t *node,
                          FDSP_MgrIdType myRole,
@@ -70,6 +72,7 @@ LocalClusterMap::addNode(node_info_t *node,
     }
 
     // Create a migration endpoint to sm nodes
+    /*
     if ((myRole == FDS_ProtocolInterface::FDSP_STOR_MGR) &&
         (nodeRole == FDS_ProtocolInterface::FDSP_STOR_MGR)) {
         node->ndMigSession = static_cast<NodeMigSessionPtr>(
@@ -88,6 +91,7 @@ LocalClusterMap::addNode(node_info_t *node,
                     << "Create new endpoint to node " << node->node_id;
         }
     }
+    */
 
     clusterMembers[node->node_id] = (*node);
     lcmLock.write_unlock();

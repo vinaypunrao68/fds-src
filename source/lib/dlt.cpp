@@ -223,7 +223,7 @@ void DLT::dump() const {
     for (iter = distList->begin(); iter != distList->end(); iter++) {
         const DltTokenGroupPtr& nodeList= *iter;
         oss.str("");
-        oss<< std::setw(6) << count <<":";
+        oss<< std::setw(6) << count++ <<":";
         for (uint i = 0; i < depth; i++) {
             oss<< std::setw(8) << nodeList->get(i).uuid_get_val() << ",";
         }
@@ -495,7 +495,10 @@ bool DLTManager::add(const DLT& _newDlt) {
 
 bool DLTManager::addSerializedDLT(std::string& serializedData, bool fFull) { //NOLINT
     DLT dlt(0, 0, 0, false);
+    // Deserialize the DLT
     dlt.loadSerialized(serializedData);
+    // Recompute the node token map cache
+    dlt.generateNodeTokenMap();
     return add(dlt);
 }
 
@@ -538,7 +541,7 @@ bool DLTManager::add(const DLTDiff& dltDiff) {
 }
 
 
-const DLT* DLTManager::getDLT(const fds_uint64_t version) {
+const DLT* DLTManager::getDLT(const fds_uint64_t version) const {
     if (0 == version) {
         return curPtr;
     }

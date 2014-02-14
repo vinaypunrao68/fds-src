@@ -16,7 +16,6 @@
 #define FDS_REPLICATION_FACTOR 2
 
 extern StorHvCtrl *storHvisor;
-
 using namespace std;
 using namespace FDS_ProtocolInterface;
 
@@ -122,6 +121,11 @@ StorHvCtrl::dispatchSmPutMsg(StorHvJournalEntry *journEntry) {
         smMsgHdr->session_uuid = sessionCtx->getSessionId();
         journEntry->session_uuid = smMsgHdr->session_uuid;
 
+#if 0  // Will enable this once Data-placement code tested
+        storHvisor->chksumPtr->checksum_update(reinterpret_cast<unsigned char *>(putMsg.get()),  sizeof(putMsg));
+        storHvisor->chksumPtr->checksum_update(reinterpret_cast<unsigned char *>(const_cast <char *>(putMsg->data_obj.data())), putMsg->data_obj_len);
+        storHvisor->chksumPtr->get_checksum(smMsgHdr->payload_chksum);
+#endif
         client->PutObject(smMsgHdr, putMsg);
         FDS_PLOG_SEV(sh_log, fds::fds_log::normal) << "For transaction " << journEntry->trans_id
                                                    << " sent async PUT_OBJ_REQ to SM ip "
