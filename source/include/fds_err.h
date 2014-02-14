@@ -28,7 +28,9 @@ namespace fds {
     "Get DMT failed",
     "Feature not implemented",
     "Out of memory",
-    "Node name hashed to duplicate UUID"
+    "Node name hashed to duplicate UUID",
+    "Ran out of transaction ids",
+    "Transaction request is queued"
   };
   
   /* DO NOT change the order */
@@ -49,6 +51,8 @@ namespace fds {
     ERR_NOT_IMPLEMENTED      = 13,
     ERR_OUT_OF_MEMEORY       = 14,
     ERR_DUPLICATE_UUID       = 15,
+    ERR_TRANS_JOURNAL_OUT_OF_IDS = 14,
+    ERR_TRANS_JOURNAL_REQUEST_QUEUED = 15,
 
     /* I/O error range */
     ERR_IO_DLT_MISMATCH      = 100,

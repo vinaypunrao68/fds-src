@@ -24,9 +24,11 @@
 #include <fdsp/FDSP_MigrationPathReq.h>
 #include <fdsp/FDSP_MigrationPathResp.h>
 #include <fdsp/FDSP_Service.h>
+
 #include <fds_globals.h>
 #include <NetSessRespClient.h>
 #include <NetSessRespSvr.h>
+#include <net/fdssocket.h>
 #include <util/Log.h>
 #include <fds_assert.h>
 #include <fds_err.h>
@@ -146,35 +148,42 @@ class netSession {
  * @tparam RespHandlerT
  */
 template <class ReqClientT, class RespProcessorT, class RespHandlerT>
-class netClientSessionEx : public netSession { 
+class netClientSessionEx : public netSession , public net::SocketEventHandler { 
  public:
   netClientSessionEx(string node_name, int port, FDSP_MgrIdType local_mgr,
                      FDSP_MgrIdType remote_mgr,
                      boost::shared_ptr<RespHandlerT> resp_handler)
       : netSession(node_name, port, local_mgr, remote_mgr),
-      socket_(new apache::thrift::transport::TSocket(node_name, port)),
+            socket_(new fds::net::Socket(node_name, port)),
       transport_(new apache::thrift::transport::TBufferedTransport(
               boost::dynamic_pointer_cast<apache::thrift::transport::TTransport>(socket_))),
       protocol_(new TBinaryProtocol(transport_)),
       session_id_(""),
       resp_handler_(resp_handler)
     {
+        socket_->setEventHandler(this);
     }
+
+  void onSocketDisconnect() {
+      LOGCRITICAL << " Socket got disconnected";
+  }
 
   virtual bool start()
   {
       try {
-          /* First do a connection request to get a session id */
-          transport_->open();
-          while (!transport_->isOpen()) {
-              usleep(500);
+          if (!socket_->connect()) {
+              LOGCRITICAL << "unable to connect to server";
+              return false;
           }
+
+          LOGDEBUG << "establish session";
           establishSession();
 
           /* Create the interface for issuing requests */
           req_client_.reset(new ReqClientT(protocol_));
-
+          
           if (resp_handler_) {
+              LOGDEBUG << "starting the recv thread" ;
               /* Create the interface for receiving responses */
               resp_processor_.reset(new RespProcessorT(resp_handler_));
               recv_thread_.reset(new std::thread(
@@ -182,10 +191,10 @@ class netClientSessionEx : public netSession {
                       RespProcessorT, RespHandlerT>::run, this));
           }
       } catch (const std::exception &e) {
-          FDS_PLOG_WARN(g_fdslog) << e.what();
+          LOGWARN << e.what();
           return false;
       } catch (...) {
-          FDS_PLOG_WARN(g_fdslog) << "Exception";
+          LOGWARN << "Exception";
           return false;
       }
       return true;
@@ -193,26 +202,16 @@ class netClientSessionEx : public netSession {
 
   void run()
   {
-      /* wait for connection to be established */
-      /* for now just busy wait */
-      while (!protocol_->getTransport()->isOpen()) {
-          printf("fdspDataPathRespReceiver: waiting for transport...\n");
-          usleep(500);
-      }
-
+      LOGDEBUG << "run started" ;
       try {
-          for (;;) {
-              if (!resp_processor_->process(protocol_, protocol_, NULL) ||
-                  !protocol_->getTransport()->peek()) {
-                  break;
-              }
-          }
+          for (;socket_->peek() && resp_processor_->process(protocol_, protocol_, NULL);) ;
       }
       catch (TException& tx) {
-          FDS_PLOG_WARN(g_fdslog) << "Receiver exception" << tx.what();
+          LOGWARN << "Receiver exception" << tx.what();
       } catch (...) {
-          FDS_PLOG_WARN(g_fdslog) << "Uncaught exception ";
+          LOGWARN << "Uncaught exception ";
       }
+      LOGDEBUG << "run ended..";
   }
 
   virtual ~netClientSessionEx() {
@@ -272,10 +271,10 @@ class netClientSessionEx : public netSession {
       fds_verify(session_info.status == 0 && !session_info.sid.empty());
       session_id_ = session_info.sid;
 
-      FDS_PLOG(g_fdslog) << __FUNCTION__ << " sid: " << session_id_;
+      LOGDEBUG << __FUNCTION__ << " sid: " << session_id_;
   }
  protected:
-  boost::shared_ptr<apache::thrift::transport::TSocket> socket_;
+  boost::shared_ptr<fds::net::Socket> socket_;
   boost::shared_ptr<TTransport> transport_;
   boost::shared_ptr<TProtocol> protocol_;
   std::string session_id_;
@@ -693,7 +692,7 @@ ClientSessionT* startSession(const std::string& dst_node_name,
     bool ret = session->start();
     if (!ret) {
         delete session;
-        FDS_PLOG_WARN(g_fdslog) << "Failed to start session";
+        LOGWARN << "Failed to start session";
         return nullptr;
     }
 
