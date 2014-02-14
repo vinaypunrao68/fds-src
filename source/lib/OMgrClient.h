@@ -184,7 +184,7 @@ namespace fds {
                               fds_int32_t *node_ids,
                               fds_int32_t *n_nodes);
 #endif
-    int getDMTNodesForVolume(int vol_id, int *node_ids, int *n_nodes);
+    int getDMTNodesForVolume(int vol_id, fds_uint64_t *node_ids, int *n_nodes);
     int pushPerfstatsToOM(const std::string& start_ts,
 			  int stat_slot_len, 
 			  const FDS_ProtocolInterface::FDSP_VolPerfHistListType& hist_list);
