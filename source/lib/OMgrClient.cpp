@@ -640,7 +640,7 @@ int OMgrClient::recvNodeEvent(int node_id,
 						    << " and state - " << node_state;
 
   if (this->node_evt_hdlr) {
-    this->node_evt_hdlr(node_id,
+    this->node_evt_hdlr(node.node_id,
                         node_ip,
                         node_state,
                         node_info->data_port,
@@ -701,7 +701,8 @@ int OMgrClient::updateDlt(bool dlt_type, std::string& dlt_data) {
 int OMgrClient::recvDLTUpdate(FDSP_DLT_Data_TypePtr& dlt_info,
                               const std::string& session_uuid) {
     FDS_PLOG_SEV(omc_log, fds::fds_log::notification)
-            << "OMClient received new DLT version  " << dlt_info->dlt_type;
+            << "OMClient received new DLT commit version  "
+            << dlt_info->dlt_type;
 
     omc_lock.write_lock();
     dltMgr.addSerializedDLT(dlt_info->dlt_data, dlt_info->dlt_type);
@@ -869,7 +870,7 @@ DltTokenGroupPtr OMgrClient::getDLTNodesForDoidKey(ObjectID *objId) {
 
 }
 
-int OMgrClient::getDMTNodesForVolume(int vol_id, int *node_ids, int *n_nodes) {
+int OMgrClient::getDMTNodesForVolume(int vol_id, fds_uint64_t *node_ids, int *n_nodes) {
 
   omc_lock.read_lock();
 

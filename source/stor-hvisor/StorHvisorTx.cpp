@@ -206,7 +206,7 @@ int StorHvisorProcIoWr(void *_io)
   unsigned char doid_dlt_key;
   int num_nodes=8;
   netSession *endPoint = NULL;
-  int node_ids[8];
+  fds_uint64_t node_ids[8];
   fds_uint32_t node_ip = 0;
   fds_uint32_t node_port = 0;
   int node_state = -1;
