@@ -1,8 +1,7 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
-#include <am-engine/s3connector.h>
-#include <am-plugin.h>
+#include <am-engine/atmos-connector.h>
 
 #include <string>
 #include <fds_assert.h>
@@ -10,75 +9,75 @@
 
 namespace fds {
 
-AMEngine_S3 gl_AMEngineS3("AM S3 Engine");
+AMEngine_Atmos gl_AMEngineAtmos("AM Atmos Engine");
 
 // ---------------------------------------------------------------------------
 
-S3_GetObject::S3_GetObject(AMEngine *eng, AME_HttpReq *req)
+Atmos_GetObject::Atmos_GetObject(AMEngine *eng, AME_HttpReq *req)
     : Conn_GetObject(eng, req)
 {
 }
 
-S3_GetObject::~S3_GetObject()
+Atmos_GetObject::~Atmos_GetObject()
 {
 }
 
 int
-S3_GetObject::ame_format_response_hdr()
+Atmos_GetObject::ame_format_response_hdr()
 {
     return NGX_OK;
 }
 
-std::string S3_GetObject::get_bucket_id()
+std::string Atmos_GetObject::get_bucket_id()
 {
     return ame_http.getURIParts()[0];
 }
 
-std::string S3_GetObject::get_object_id()
+std::string Atmos_GetObject::get_object_id()
 {
     return ame_http.getURIParts()[1];
 }
 
 // ---------------------------------------------------------------------------
 
-S3_PutObject::S3_PutObject(AMEngine *eng, AME_HttpReq *req)
+Atmos_PutObject::Atmos_PutObject(AMEngine *eng, AME_HttpReq *req)
     : Conn_PutObject(eng, req)
 {
 }
 
-S3_PutObject::~S3_PutObject()
+Atmos_PutObject::~Atmos_PutObject()
 {
 }
 
 int
-S3_PutObject::ame_format_response_hdr()
+Atmos_PutObject::ame_format_response_hdr()
 {
     return NGX_OK;
 }
 
-std::string S3_PutObject::get_bucket_id()
+std::string Atmos_PutObject::get_bucket_id()
 {
     return ame_http.getURIParts()[0];
 }
 
-std::string S3_PutObject::get_object_id()
+std::string Atmos_PutObject::get_object_id()
 {
     return ame_http.getURIParts()[1];
 }
 
 // ---------------------------------------------------------------------------
 
-S3_DelObject::S3_DelObject(AMEngine *eng, AME_HttpReq *req)
+Atmos_DelObject::Atmos_DelObject(AMEngine *eng, AME_HttpReq *req)
     : Conn_DelObject(eng, req)
 {
 }
 
-S3_DelObject::~S3_DelObject()
+Atmos_DelObject::~Atmos_DelObject()
 {
 }
 
 int
-S3_DelObject::ame_format_response_hdr()
+Atmos_DelObject::ame_format_response_hdr()
 {
     if (ame_resp_status == NGX_HTTP_OK) {
         ame_set_std_resp(NGX_HTTP_NO_CONTENT,
@@ -87,72 +86,72 @@ S3_DelObject::ame_format_response_hdr()
     return NGX_OK;
 }
 
-std::string S3_DelObject::get_bucket_id()
+std::string Atmos_DelObject::get_bucket_id()
 {
     return ame_http.getURIParts()[0];
 }
 
-std::string S3_DelObject::get_object_id()
+std::string Atmos_DelObject::get_object_id()
 {
     return ame_http.getURIParts()[1];
 }
 
 // ---------------------------------------------------------------------------
 
-S3_GetBucket::S3_GetBucket(AMEngine *eng, AME_HttpReq *req)
+Atmos_GetBucket::Atmos_GetBucket(AMEngine *eng, AME_HttpReq *req)
     : Conn_GetBucket(eng, req)
 {
 }
 
-S3_GetBucket::~S3_GetBucket()
+Atmos_GetBucket::~Atmos_GetBucket()
 {
 }
 
 int
-S3_GetBucket::ame_format_response_hdr()
+Atmos_GetBucket::ame_format_response_hdr()
 {
     return NGX_OK;
 }
 
-std::string S3_GetBucket::get_bucket_id()
+std::string Atmos_GetBucket::get_bucket_id()
 {
     return ame_http.getURIParts()[0];
 }
 // ---------------------------------------------------------------------------
 
-S3_PutBucket::S3_PutBucket(AMEngine *eng, AME_HttpReq *req)
+Atmos_PutBucket::Atmos_PutBucket(AMEngine *eng, AME_HttpReq *req)
     : Conn_PutBucket(eng, req)
 {
 }
 
-S3_PutBucket::~S3_PutBucket()
+Atmos_PutBucket::~Atmos_PutBucket()
 {
 }
 
 int
-S3_PutBucket::ame_format_response_hdr()
+Atmos_PutBucket::ame_format_response_hdr()
 {
     return NGX_OK;
 }
 
-std::string S3_PutBucket::get_bucket_id()
+std::string Atmos_PutBucket::get_bucket_id()
 {
     return ame_http.getURIParts()[0];
 }
 
 // ---------------------------------------------------------------------------
 
-S3_DelBucket::S3_DelBucket(AMEngine *eng, AME_HttpReq *req)
+Atmos_DelBucket::Atmos_DelBucket(AMEngine *eng, AME_HttpReq *req)
     : Conn_DelBucket(eng, req)
 {
 }
 
-S3_DelBucket::~S3_DelBucket()
+Atmos_DelBucket::~Atmos_DelBucket()
 {
 }
 
 int
-S3_DelBucket::ame_format_response_hdr()
+Atmos_DelBucket::ame_format_response_hdr()
 {
     if (ame_resp_status == NGX_HTTP_OK) {
         ame_set_std_resp(NGX_HTTP_NO_CONTENT,
@@ -162,7 +161,7 @@ S3_DelBucket::ame_format_response_hdr()
 }
 
 std::string
-S3_DelBucket::get_bucket_id()
+Atmos_DelBucket::get_bucket_id()
 {
     return ame_http.getURIParts()[0];
 }

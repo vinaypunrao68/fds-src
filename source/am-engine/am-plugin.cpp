@@ -13,7 +13,7 @@
 #include <am-engine/http_utils.h>
 
 /* The factory creating objects to handle supported commands. */
-static fds::AMEngine  *sgt_ame_plugin;
+static fds::AMEngine  *sgt_ame_plugin[fds::FDS_NativeAPI::FDSN_CLIENT_TYPE_MAX];
 
 extern "C" {
 #include <ngx_config.h>
@@ -22,6 +22,9 @@ extern "C" {
 
 static char *
 ngx_http_fds_data_connector(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+
+static char *
+ngx_http_fds_data_connector_atmos(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
 static void *ngx_http_fds_data_create_loc_conf(ngx_conf_t *cf);
 
@@ -32,7 +35,9 @@ static std::vector<std::string>
 ngx_parse_uri_parts(ngx_http_request_t *r);
 
 static void ngx_http_fds_read_body(ngx_http_request_t *r);
+static void ngx_http_fds_read_body_atmos(ngx_http_request_t *r);
 static ngx_int_t ngx_http_fds_data_handler(ngx_http_request_t *r);
+static ngx_int_t ngx_http_fds_data_handler_atmos(ngx_http_request_t *r);
 static ngx_int_t ngx_http_fds_route_request(ngx_http_request_t *r);
 
 static ngx_command_t  ngx_http_fds_data_commands[] =
@@ -41,6 +46,14 @@ static ngx_command_t  ngx_http_fds_data_commands[] =
         .name   = ngx_string("fds_connector"),
         .type   = NGX_HTTP_LOC_CONF | NGX_HTTP_SRV_CONF | NGX_CONF_NOARGS,
         .set    = ngx_http_fds_data_connector,
+        .conf   = NGX_HTTP_LOC_CONF_OFFSET,
+        .offset = 0,
+        .post   = NULL
+    },
+    {
+        .name   = ngx_string("fds_connector_atmos"),
+        .type   = NGX_HTTP_LOC_CONF | NGX_HTTP_SRV_CONF | NGX_CONF_NOARGS,
+        .set    = ngx_http_fds_data_connector_atmos,
         .conf   = NGX_HTTP_LOC_CONF_OFFSET,
         .offset = 0,
         .post   = NULL
@@ -92,9 +105,10 @@ static ngx_http_fds_loc_conf_t *sgt_fds_data_cfg;
  * handle supported APIs.
  */
 void
-ngx_register_plugin(fds::AMEngine *engine)
+ngx_register_plugin(fds::FDS_NativeAPI::FDSN_ClientType clientType, fds::AMEngine *engine)
 {
-    sgt_ame_plugin = engine;
+    fds_assert(clientType < FDS_ARRAY_ELEM(sgt_ame_plugin));
+    sgt_ame_plugin[clientType] = engine;
 }
 
 /**
@@ -119,6 +133,7 @@ ngx_parse_uri_parts(ngx_http_request_t *r) {
 static void
 ngx_http_fds_read_body(ngx_http_request_t *r)
 {
+    fds::AMEngine            *ame_plugin;
     fds::AME_Ctx             *am_ctx;
     fds::AME_Request         *am_req;
     fds::HttpRequest          http_req(r);
@@ -127,41 +142,111 @@ ngx_http_fds_read_body(ngx_http_request_t *r)
     std::string               value;
     fds_bool_t                keyExists;
 
-    ame_http_parse_url(sgt_ame_plugin, r);
+    ame_plugin = sgt_ame_plugin[fds::FDS_NativeAPI::FDSN_AWS_S3];
+    fds_assert(ame_plugin);
+    ame_http_parse_url(ame_plugin, r);
     am_req = NULL;
     switch (r->method) {
     case NGX_HTTP_GET:
         if (uri_parts.size() == 1) {
-            am_req = sgt_ame_plugin->ame_getbucket_hdler(r);
+            am_req = ame_plugin->ame_getbucket_hdler(r);
         } else if (uri_parts.size() == 2) {
-            am_req = sgt_ame_plugin->ame_getobj_hdler(r);
+            am_req = ame_plugin->ame_getobj_hdler(r);
         } else if (uri_parts.size() == 0) {
           /*
            * We're assuming any host request with no URI
            * parts is a getStats request.
            */
-          am_req = sgt_ame_plugin->ame_getbucketstats_hdler(r);
+          am_req = ame_plugin->ame_getbucketstats_hdler(r);
         }
         break;
 
     case NGX_HTTP_POST:
     case NGX_HTTP_PUT:
         if (uri_parts.size() == 1) {
-          am_req = sgt_ame_plugin->ame_putbucket_hdler(r);
+          am_req = ame_plugin->ame_putbucket_hdler(r);
         } else if (uri_parts.size() == 2) {
           if (uri_parts[1] == "modPolicy") {
-            am_req = sgt_ame_plugin->ame_putbucketparams_hdler(r);
+            am_req = ame_plugin->ame_putbucketparams_hdler(r);
           } else {
-            am_req = sgt_ame_plugin->ame_putobj_hdler(r);
+            am_req = ame_plugin->ame_putobj_hdler(r);
           }
         }
         break;
 
     case NGX_HTTP_DELETE:
         if (uri_parts.size() == 1) {
-            am_req = sgt_ame_plugin->ame_delbucket_hdler(r);
+            am_req = ame_plugin->ame_delbucket_hdler(r);
         } else if (uri_parts.size() == 2) {
-            am_req = sgt_ame_plugin->ame_delobj_hdler(r);
+            am_req = ame_plugin->ame_delobj_hdler(r);
+        }
+        break;
+    }
+    if (am_req == NULL) {
+        ngx_http_finalize_request(r, NGX_HTTP_BAD_REQUEST);
+        return;
+    }
+    fdcf = reinterpret_cast<ngx_http_fds_loc_conf_t *>
+        (ngx_http_get_module_loc_conf(r, ngx_http_fds_data_module));
+
+    am_ctx = fdcf->fds_context->ame_get_ctx(am_req);
+    am_ctx->ame_register_ctx();
+    am_req->ame_add_context(am_ctx);
+    am_req->ame_request_handler();
+}
+
+/*
+ * ngx_http_fds_read_body_atmos
+ * ----------------------------
+ */
+static void
+ngx_http_fds_read_body_atmos(ngx_http_request_t *r)
+{
+    fds::AMEngine            *ame_plugin;
+    fds::AME_Ctx             *am_ctx;
+    fds::AME_Request         *am_req;
+    fds::HttpRequest          http_req(r);
+    std::vector<std::string>  uri_parts = http_req.getURIParts();
+    ngx_http_fds_loc_conf_t  *fdcf;
+    std::string               value;
+    fds_bool_t                keyExists;
+
+    ame_plugin = sgt_ame_plugin[fds::FDS_NativeAPI::FDSN_AWS_S3];  // XXX: FIX ME!
+    ame_http_parse_url(ame_plugin, r);
+    am_req = NULL;
+    switch (r->method) {
+    case NGX_HTTP_GET:
+        if (uri_parts.size() == 1) {
+            am_req = ame_plugin->ame_getbucket_hdler(r);
+        } else if (uri_parts.size() == 2) {
+            am_req = ame_plugin->ame_getobj_hdler(r);
+        } else if (uri_parts.size() == 0) {
+          /*
+           * We're assuming any host request with no URI
+           * parts is a getStats request.
+           */
+          am_req = ame_plugin->ame_getbucketstats_hdler(r);
+        }
+        break;
+
+    case NGX_HTTP_POST:
+    case NGX_HTTP_PUT:
+        if (uri_parts.size() == 1) {
+          am_req = ame_plugin->ame_putbucket_hdler(r);
+        } else if (uri_parts.size() == 2) {
+          if (uri_parts[1] == "modPolicy") {
+            am_req = ame_plugin->ame_putbucketparams_hdler(r);
+          } else {
+            am_req = ame_plugin->ame_putobj_hdler(r);
+          }
+        }
+        break;
+
+    case NGX_HTTP_DELETE:
+        if (uri_parts.size() == 1) {
+            am_req = ame_plugin->ame_delbucket_hdler(r);
+        } else if (uri_parts.size() == 2) {
+            am_req = ame_plugin->ame_delobj_hdler(r);
         }
         break;
     }
@@ -195,11 +280,47 @@ ngx_http_fds_data_handler(ngx_http_request_t *r)
 }
 
 /*
+ * ngx_http_fds_data_handler_atmos
+ * -------------------------------
+ */
+static ngx_int_t
+ngx_http_fds_data_handler_atmos(ngx_http_request_t *r)
+{
+    ngx_int_t rc;
+
+    rc = ngx_http_read_client_request_body(r, ngx_http_fds_read_body_atmos);
+    if (rc >= NGX_HTTP_SPECIAL_RESPONSE) {
+        return rc;
+    }
+    return NGX_DONE;
+}
+
+/*
  * ngx_http_fds_data_connector
  * ---------------------------
  */
 static char *
 ngx_http_fds_data_connector(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    ngx_http_core_loc_conf_t  *clcf;
+    ngx_http_fds_loc_conf_t   *fdscf;
+
+    clcf = reinterpret_cast<ngx_http_core_loc_conf_t *>
+        (ngx_http_conf_get_module_loc_conf(cf, ngx_http_core_module));
+    clcf->handler = ngx_http_fds_data_handler;
+
+    fdscf = reinterpret_cast<ngx_http_fds_loc_conf_t *>(conf);
+    fdscf->fds_enable = 1;
+
+    return NGX_CONF_OK;
+}
+
+/*
+ * ngx_http_fds_data_connector_atmos
+ * ---------------------------------
+ */
+static char *
+ngx_http_fds_data_connector_atmos(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
     ngx_http_core_loc_conf_t  *clcf;
     ngx_http_fds_loc_conf_t   *fdscf;

@@ -25,6 +25,7 @@ extern "C" {
 #include <util/fds_stat.h>
 #include <am-plugin.h>
 #include <native_api.h>
+#include <util/Log.h>
 
 namespace fds {
 
@@ -134,7 +135,12 @@ AMEngine::mod_init(SysParams const *const p)
 void
 AMEngine::mod_startup()
 {
-    gl_fds_stat.stat_reg_mod(STAT_NGX, stat_ngx_decode);
+    static int __reg = 0;
+    // FIXME: each engine type should have their own stat.
+    if (!__reg) {
+        __reg = 1;
+        gl_fds_stat.stat_reg_mod(STAT_NGX, stat_ngx_decode);
+    }
 }
 
 // make_nginix_dir
@@ -153,15 +159,13 @@ make_nginx_dir(char const *const path)
     }
 }
 
-// run_server
-// ----------
-//
 void
-AMEngine::run_server(FDS_NativeAPI *api)
+AMEngine::init_server(FDS_NativeAPI *api)
 {
     const std::string *fds_root;
     char path[NGINX_ARG_PARAM];
 
+    fds_assert(eng_api == NULL && api);
     eng_api = api;
     fds_root = &mod_params->fds_root;
     if (eng_signal != "") {
@@ -180,8 +184,23 @@ AMEngine::run_server(FDS_NativeAPI *api)
     snprintf(path, NGINX_ARG_PARAM, "%s/%s", nginx_prefix, eng_etc);
     ModuleVector::mod_mkdir(path);
 
-    ngx_register_plugin(this);
+    ngx_register_plugin(api->clientType, this);
     nginx_start_argv[0] = mod_params->p_argv[0];
+}
+
+// run_server
+// ----------
+//
+void
+AMEngine::run_server(fds::FDS_NativeAPI *api)
+{
+    init_server(api);
+    ngx_main(FDS_ARRAY_ELEM(nginx_start_argv), nginx_start_argv);
+}
+
+void
+AMEngine::run_all_servers()
+{
     ngx_main(FDS_ARRAY_ELEM(nginx_start_argv), nginx_start_argv);
 }
 

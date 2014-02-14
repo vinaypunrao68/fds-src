@@ -10,7 +10,8 @@
 extern "C" {
 #include <ngx_http.h>
 
-extern void ngx_register_plugin(fds::AMEngine *engine);
+extern void ngx_register_plugin(fds::FDS_NativeAPI::FDSN_ClientType clientType,
+                                fds::AMEngine *engine);
 extern int  ngx_main(int argc, char const **argv);
 extern void ngx_ame_handler(ngx_http_request_t *r);
 }

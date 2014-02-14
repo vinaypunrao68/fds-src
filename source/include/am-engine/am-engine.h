@@ -48,6 +48,10 @@ class AMEngine : public Module
     void mod_shutdown();
     void run_server(FDS_NativeAPI *api);
 
+    virtual void init_server(FDS_NativeAPI *api);
+
+    static void run_all_servers();
+
     // Factory methods to create objects handling required protocol.
     virtual Conn_GetObject *ame_getobj_hdler(AME_HttpReq *req) = 0;
     virtual Conn_PutObject *ame_putobj_hdler(AME_HttpReq *req) = 0;
