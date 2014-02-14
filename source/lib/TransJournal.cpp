@@ -1,15 +1,10 @@
 #include <stdexcept>
 
-#include <IceUtil/IceUtil.h>
-#include <Ice/Ice.h>
-
-#include <fdsp/FDSP.h>
 #include <fds_err.h>
 #include <fds_types.h>
 #include <fds_assert.h>
 #include <TransJournal.h>
 
-using namespace IceUtil;
 
 namespace fds {
 
@@ -183,7 +178,7 @@ release_transaction(TransJournalId &trans_id)
 
   /* Free up the transaction associated with trans_id */
   fds_assert(_rwlog_tbl[trans_id].is_active() &&
-             _rwlog_tbl[trans_id].get_fdsio() == pending_q->front());
+             _rwlog_tbl[trans_id].get_fdsio() == pending_qitr->second.front().io);
   _rwlog_tbl[trans_id].reset();
   _free_trans_ids.push(trans_id);
   _active_cnt--;

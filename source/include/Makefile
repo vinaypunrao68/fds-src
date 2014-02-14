@@ -43,6 +43,7 @@ user_no_style  := \
 	fds_stopwatch.h     \
 	graphite_client.h   \
 	debughelpers.h      \
+	net/socket.h        \
 	serialize.h
 
 include $(topdir)/Makefile.incl

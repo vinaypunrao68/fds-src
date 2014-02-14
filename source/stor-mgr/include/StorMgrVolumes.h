@@ -24,6 +24,7 @@
 #include <qos_ctrl.h>
 #include <util/counter.h>
 #include <ObjStats.h>
+#include <TransJournal.h>
 
 /* defaults */
 #define FDS_DEFAULT_VOL_UUID 1
@@ -183,6 +184,7 @@ namespace fds {
     // ObjectBuf    objData;
     fds_volid_t  volUuid;
     fds_uint64_t volOffset;
+    TransJournalId   transId;
     FDSP_PutObjTypePtr putObjReq;
     FDSP_GetObjTypePtr getObjReq;
     FDSP_DeleteObjTypePtr delObjReq;
@@ -290,6 +292,14 @@ namespace fds {
 
     fds_volid_t getVolId() const {
       return volUuid;
+    }
+
+    TransJournalId&  getTransId() { 
+       return transId;
+    }
+
+    void setTransId(TransJournalId trans_id) { 
+       transId = trans_id;
     }
     
     virtual std::string log_string() {

@@ -32,6 +32,7 @@
 #include <persistent_layer/dm_service.h>
 #include <persistent_layer/dm_io.h>
 #include <fds_migration.h>
+#include <TransJournal.h>
 #include <hash/md5.h>
 
 #include <fds_qos.h>
@@ -164,7 +165,7 @@ class ObjectStorMgr :
     /*
      * Local storage members
      */
-    // TransJournal<ObjectID, ObjectIdJrnlEntry> *omJrnl;
+    TransJournal<ObjectID, ObjectIdJrnlEntry> *omJrnl;
     fds_mutex *objStorMutex;
     ObjectDB  *objStorDB;
     ObjectDB  *objIndexDB;
@@ -279,7 +280,7 @@ class ObjectStorMgr :
      * layer should eventually handle this, not SM.
      */
     typedef std::unordered_map<fds_uint64_t,
-            FDS_ProtocolInterface::FDSP_MsgHdrTypePtr> WaitingReqMap;
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr> WaitingReqMap;
     WaitingReqMap              waitingReqs;
     std::atomic<fds_uint64_t>  nextReqId;
     fds_mutex                 *waitingReqMutex;
@@ -299,15 +300,15 @@ class ObjectStorMgr :
     /*
      * Private request processing members.
      */
-    Error getObjectInternal(FDSP_GetObjTypePtr getObjReq, 
+    Error enqGetObjectReq(FDSP_GetObjTypePtr getObjReq, 
             fds_volid_t        volId,
             fds_uint32_t       transId,
             fds_uint32_t       numObjs);
-    Error putObjectInternal(FDSP_PutObjTypePtr putObjReq, 
+    Error enqPutObjectReq(FDSP_PutObjTypePtr putObjReq, 
             fds_volid_t        volId,
             fds_uint32_t       transId,
             fds_uint32_t       numObjs);
-    Error deleteObjectInternal(FDSP_DeleteObjTypePtr delObjReq, 
+    Error enqDeleteObjectReq(FDSP_DeleteObjTypePtr delObjReq, 
             fds_volid_t        volId,
             fds_uint32_t       transId);
     Error checkDuplicate(const ObjectID  &objId,
@@ -367,7 +368,7 @@ class ObjectStorMgr :
     fds_log* GetLog() {return sm_log;}
     fds_log *sm_log;
     TierEngine     *tierEngine;
-    SmObjDb        *smObjDb;
+    SmObjDb        *smObjDb; // Object Index DB <ObjId, Meta-data + data_loc>
     checksum_calc   *chksumPtr;
     /*
      * stats  class 

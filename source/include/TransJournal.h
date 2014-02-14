@@ -14,11 +14,8 @@
 using namespace FDS_ProtocolInterface;
 using namespace std;
 using namespace fds;
-using namespace Ice;
 
 namespace fds {
-
-using namespace IceUtil;
 
 
 typedef unsigned int TransJournalId;

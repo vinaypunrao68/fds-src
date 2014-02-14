@@ -223,7 +223,7 @@ void DLT::dump() const {
     for (iter = distList->begin(); iter != distList->end(); iter++) {
         const DltTokenGroupPtr& nodeList= *iter;
         oss.str("");
-        oss<< std::setw(6) << count <<":";
+        oss<< std::setw(6) << count++ <<":";
         for (uint i = 0; i < depth; i++) {
             oss<< std::setw(8) << nodeList->get(i).uuid_get_val() << ",";
         }
