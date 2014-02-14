@@ -453,7 +453,7 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
 //  msgHdrDm->src_node_name  = my_node_name;
   msgHdrSm->src_node_name = storHvisor->myIp;
   msgHdrDm->src_port       = 0;
-  fds_int32_t nodeIds[numNodes];
+  fds_uint64_t nodeIds[numNodes];
   dataPlacementTbl->getDMTNodesForVolume(volId, nodeIds, &numNodes);
   memset(nodeIds, 0x00, sizeof(fds_int32_t) * numNodes);
   fds_verify(numNodes > 0);
@@ -1050,7 +1050,7 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   fds_uint32_t node_port = 0;
   unsigned int doid_dlt_key=0;
   int num_nodes = FDS_REPLICATION_FACTOR, i =0;
-  int node_ids[8];
+  fds_uint64_t  node_ids[8];
   int node_state = -1;
   fds::Error err(ERR_OK);
   ObjectID oid;
@@ -1328,7 +1328,7 @@ fds::Error StorHvCtrl::listBucket(fds::AmQosReq *qosReq) {
    * Setup msg header
    */
   fds_int32_t num_nodes = FDS_REPLICATION_FACTOR;  // TODO: Why 8? Look up vol/blob repl factor
-  fds_int32_t node_ids[num_nodes];  // TODO: Doesn't need to be signed
+  fds_uint64_t node_ids[num_nodes];  // TODO: Doesn't need to be signed
   memset(node_ids, 0x00, sizeof(fds_int32_t) * num_nodes);
 
   FDSP_MsgHdrTypePtr msgHdr(new FDSP_MsgHdrType);

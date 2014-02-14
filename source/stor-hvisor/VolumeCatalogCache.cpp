@@ -147,7 +147,7 @@ Error VolumeCatalogCache::queryDm(const std::string& blobName,
    * Locate a DM endpoint to try.
    */
   netSession *endPoint = NULL;
-  int node_ids[8];
+  fds_uint64_t node_ids[8];
   int num_nodes = 8;
   parent_sh->dataPlacementTbl->getDMTNodesForVolume(vol_id,
                                                     node_ids,

@@ -371,7 +371,7 @@ uint32_t DLT::read(serialize::Deserializer* d) {
 void DLT::getSerialized(std::string& serializedData) { // NOLINT
     serialize::Serializer *s = serialize::getMemSerializer(512*KB);
     uint32_t bytesWritten = this->write(s);
-    LOGCRITICAL << "dlt.getSerialized : byteswritten : " << bytesWritten;
+    LOGDEBUG << "dlt.getSerialized : byteswritten : " << bytesWritten;
     serializedData.append(s->getBufferAsString());
     delete s;
 }

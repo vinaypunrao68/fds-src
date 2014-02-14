@@ -331,7 +331,7 @@ FdsMigrationSvc::ack_copy_token_req(FdsActorRequestPtr req)
 
     migpath_resp_client(session_id)->CopyTokenResp(response);
 
-    LOGNORMAL;
+    LOGNORMAL << "Sent copy ack for mig " << response->mig_id;
 
     return err;
 }
