@@ -701,7 +701,8 @@ int OMgrClient::updateDlt(bool dlt_type, std::string& dlt_data) {
 int OMgrClient::recvDLTUpdate(FDSP_DLT_Data_TypePtr& dlt_info,
                               const std::string& session_uuid) {
     FDS_PLOG_SEV(omc_log, fds::fds_log::notification)
-            << "OMClient received new DLT version  " << dlt_info->dlt_type;
+            << "OMClient received new DLT commit version  "
+            << dlt_info->dlt_type;
 
     omc_lock.write_lock();
     dltMgr.addSerializedDLT(dlt_info->dlt_data, dlt_info->dlt_type);

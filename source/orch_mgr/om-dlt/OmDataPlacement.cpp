@@ -313,7 +313,8 @@ DataPlacement::beginRebalance() {
        dltMsg->dlt_type= true;
        curDlt->getSerialized(dltMsg->dlt_data);
        FDS_PLOG_SEV(g_fdslog, fds_log::notification)
-                << "Sending the DLT to  Client " << dltMsg->dlt_type;
+                << "Sending the DLT migration request to node "
+                << std::hex << uuid.uuid_get_val();
        curDlt->dump();
 
     // invoke the RPC
