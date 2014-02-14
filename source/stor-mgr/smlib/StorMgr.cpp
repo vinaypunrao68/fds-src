@@ -432,13 +432,14 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
      * Register this node with OM.
      */
     omClient = new OMgrClient(FDSP_STOR_MGR,
-            conf_helper_.get<std::string>("om_ip"),
-            conf_helper_.get<int>("om_port"),
-            myIp,
-            conf_helper_.get<int>("data_port"),
-            stor_prefix + "localhost-sm",
-            sm_log,
-            nst_);
+                              conf_helper_.get<std::string>("om_ip"),
+                              conf_helper_.get<int>("om_port"),
+                              myIp,
+                              conf_helper_.get<int>("data_port"),
+                              stor_prefix + "localhost-sm",
+                              sm_log,
+                              nst_,
+                              conf_helper_.get<int>("migration.port"));
 
     /*
      * Create local volume table. Create after omClient
@@ -585,6 +586,20 @@ ObjectStorMgr::getTokensForNode(const NodeUuid &uuid) const {
     return omClient->getTokensForNode(uuid);
 }
 
+void
+ObjectStorMgr::getTokensForNode(TokenList *tl,
+                                const NodeUuid &uuid,
+                                fds_uint32_t index) {
+    return omClient->getCurrentDLT()->getTokens(tl,
+                                                uuid,
+                                                index);
+}
+
+fds_uint32_t
+ObjectStorMgr::getTotalNumTokens() const {
+    return omClient->getCurrentDLT()->getNumTokens();
+}
+
 NodeUuid
 ObjectStorMgr::getUuid() const {
     return omClient->getUuid();
@@ -594,30 +609,42 @@ void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
 {
     FDS_PLOG(objStorMgr->GetLog()) << "ObjectStorMgr - Migration  event Handler " << dlt_type;
 
-    // Add node's tokens to the request
+    // Determine our new tokens that we need to retrieve from
+    // by comparing with the previous DLT
+    // TODO(Andrew): For now, we're just getting all of the primary
+    // tokens in the current DLT
     MigSvcCopyTokensReqPtr copy_req(new MigSvcCopyTokensReq());
-    const TokenList &tokens = objStorMgr->getTokensForNode(
-        objStorMgr->getUuid());
+    TokenList tokens;
+    // const TokenList &tokens = objStorMgr->getTokensForNode(
+    // objStorMgr->getUuid());
+    objStorMgr->getTokensForNode(&tokens,
+                                 objStorMgr->getUuid(),
+                                 0);
     for (TokenList::const_iterator it = tokens.cbegin();
          it != tokens.cend();
          it++) {
         copy_req->tokens.insert(*it);
     }
 
-    /*
-    // Send migration request to migration service
-    copy_req->migsvc_resp_cb = std::bind(
-        &ObjectStorMgr::migrationSvcResponseCb,
-        objStorMgr,
-        std::placeholders::_1);
-    FdsActorRequestPtr copy_far(new FdsActorRequest(
-        FAR_ID(MigSvcCopyTokensReq), copy_req));
-    objStorMgr->migrationSvc_->send_actor_request(copy_far);
-    */
-
-    // TODO(Anna) this is temporary to send migration done callback, 
-    // remove when code above is un-commented
-    objStorMgr->migrationSvcResponseCb(Error(ERR_OK));
+    // TODO(Andrew): For now, we're assuming if the list of
+    // new tokens all of the tokens, then we must be the first
+    // SM entering the system and don't need to migration anything
+    // because nothing exists to migrate and no one to migrate from.
+    // Note: Since the above token list is *NOT* do a delta yet,
+    // this will skip migration scenarios where I'm the only node
+    // let in the cluster.
+    if (copy_req->tokens.size() < objStorMgr->getTotalNumTokens()) {
+        // Send migration request to migration service
+        copy_req->migsvc_resp_cb = std::bind(
+            &ObjectStorMgr::migrationSvcResponseCb,
+            objStorMgr,
+            std::placeholders::_1);
+        FdsActorRequestPtr copy_far(new FdsActorRequest(
+            FAR_ID(MigSvcCopyTokensReq), copy_req));
+        objStorMgr->migrationSvc_->send_actor_request(copy_far);
+    } else {
+        objStorMgr->migrationSvcResponseCb(Error(ERR_OK));
+    }
 }
 
 void ObjectStorMgr::migrationSvcResponseCb(const Error& err) {
@@ -1813,7 +1840,7 @@ Error
 ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq) 
 {
     Error err(ERR_OK);
-    SmIoPutTokObjectsReq *putTokReq = static_cast<SmIoPutTokObjectsReq*>(putTokReq);
+    SmIoPutTokObjectsReq *putTokReq = static_cast<SmIoPutTokObjectsReq*>(ioReq);
     FDSP_MigrateObjectList &objList = putTokReq->obj_list;
     
     for (auto obj : objList) {
@@ -1973,7 +2000,7 @@ void  SmObjDb::iterRetrieveObjects(const fds_token_id &token,
     ObjectID objId;
     ObjectDB *odb = getObjectDB(tokId);
     if (odb == NULL ) { 
-       itr.objId = 0;
+        itr.objId = SMTokenItr::itr_end;
        return;
     }
     

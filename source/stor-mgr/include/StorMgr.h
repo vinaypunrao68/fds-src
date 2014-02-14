@@ -458,6 +458,10 @@ class ObjectStorMgr :
     NodeUuid getUuid() const;
 
     const TokenList& getTokensForNode(const NodeUuid &uuid) const;
+    void getTokensForNode(TokenList *tl,
+                          const NodeUuid &uuid,
+                          fds_uint32_t index);
+    fds_uint32_t getTotalNumTokens() const;
 
     virtual std::string log_string()
     {
