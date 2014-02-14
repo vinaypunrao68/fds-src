@@ -49,9 +49,13 @@ class DltRebalOkEvt
 class DltCommitOkEvt
 {
   public:
-    DltCommitOkEvt() {}
+    DltCommitOkEvt(ClusterMap *cm,
+                   fds_uint64_t dlt_ver)
+            : ode_clusmap(cm),
+            cur_dlt_version(dlt_ver) {}
 
-    ClusterMap               *ode_clusmap;
+    ClusterMap      *ode_clusmap;
+    fds_uint64_t    cur_dlt_version;
     NodeAgent::pointer        ode_done_node;
 };
 

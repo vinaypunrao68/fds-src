@@ -4,6 +4,7 @@
 #include <string>
 #include <stdlib.h>
 #include <platform/node-inventory.h>
+#include <dlt.h>
 
 namespace fds {
 
@@ -38,6 +39,7 @@ NodeInventory::node_fill_inventory(const FdspNodeRegPtr msg)
     data->nd_node_type      = msg->node_type;
     data->nd_node_state     = FDS_ProtocolInterface::FDS_Start_Migration;
     data->nd_disk_type      = msg->disk_info.disk_type;
+    data->nd_dlt_version    = DLT_VER_INVALID;
 
     ncap->disk_capacity     = msg->disk_info.disk_capacity;
     ncap->disk_iops_max     = msg->disk_info.disk_iops_max;
@@ -96,6 +98,8 @@ NodeInventory::init_node_info_pkt(fpi::FDSP_Node_Info_TypePtr pkt) const
 {
     pkt->node_id        = 0;
     pkt->node_uuid      = rs_uuid.uuid_get_val();
+    pkt->ip_hi_addr     = 0;
+    pkt->ip_lo_addr     = node_inv->nd_ip_addr;
     pkt->node_type      = node_inv->nd_node_type;
     pkt->node_name      = node_inv->nd_node_name;
     pkt->node_state     = node_inv->nd_node_state;
@@ -112,6 +116,13 @@ NodeInventory::set_node_state(FdspNodeState state)
 {
     // TODO(Vy): do this in platform side.
     const_cast<NodeInvData *>(node_inv)->nd_node_state = state;
+}
+
+void
+NodeInventory::set_node_dlt_version(fds_uint64_t dlt_version)
+{
+    // TODO(Vy): do this in platform side.
+    const_cast<NodeInvData *>(node_inv)->nd_dlt_version = dlt_version;
 }
 
 // --------------------------------------------------------------------------------------
@@ -259,6 +270,12 @@ DomainContainer::dc_register_node(const NodeUuid       &uuid,
     AgentContainer::pointer nodes;
 
     nodes = dc_container_frm_msg(msg->node_type);
+    // TODO(Andrew): TOTAL HACK! This sleep prevents a race
+    // where the node's control interface isn't initialized
+    // yet and we try and connect too early. The real fix
+    // should not register until its control interface is
+    // fully initialized.
+    sleep(2);
     return nodes->agent_register(uuid, msg, agent);
 }
 

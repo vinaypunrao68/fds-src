@@ -63,8 +63,10 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
                                    const FdspNodeRegPtr msg)
 {
     NodeAgent::pointer newNode;
-    Error err = om_locDomain->dc_register_node(uuid, msg, &newNode);
+    /* XXX: TODO (vy), remove this code once we have node FSM */
+    OM_Module *om = OM_Module::om_singleton();
 
+    Error err = om_locDomain->dc_register_node(uuid, msg, &newNode);
     if (err == ERR_OK) {
         fds_verify(newNode != NULL);
         om_locDomain->om_bcast_new_node(newNode, msg);
@@ -74,9 +76,16 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         //
         om_locDomain->om_update_node_list(newNode, msg);
         om_locDomain->om_bcast_vol_list(newNode);
+
+        // Let this new know about existing dlt.
+        // TODO(Andrew): this should change into dissemination of the cur cluster map.
+        DataPlacement *dp = om->om_dataplace_mod();
+        OM_SmAgent::agt_cast_ptr(newNode)->om_send_dlt(dp->getCurDlt());
+
+        // Send the DMT to DMs.
+        om_locDomain->om_round_robin_dmt();
+        om_locDomain->om_bcast_dmt_table();
     }
-    /* XXX: TODO (vy), remove this code once we have node FSM */
-    OM_Module *om = OM_Module::om_singleton();
     ClusterMap *clus = om->om_clusmap_mod();
 
     if (clus->getNumMembers() == 0) {
@@ -89,11 +98,16 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
             return err;
         }
     }
+
+    // If this new node is an SM, update the DLT and bcast
     // TODO(Andrew): We should decouple registration from
     // cluster map addition eventually. We may want to add
     // the node to the inventory and then wait for a CLI
     // cmd to make the node a member.
+    // TODO(Andrew): Today, cluster map only knows SM. It
+    // should contain all members
     om_update_cluster_map();
+
     return err;
 }
 
@@ -190,8 +204,17 @@ OM_NodeDomainMod::om_recv_migration_done(const NodeUuid& uuid,
         return err;
     }
 
+    // for now we shouldn't move to new dlt version until
+    // we are done with current cluster update, so
+    // expect to see migration done resp for current dlt version
+    fds_uint64_t cur_dlt_ver = (dp->getCurDlt())->getVersion();
+    fds_verify(cur_dlt_ver == dlt_version);
+
     // Set node's state to 'node_up'
     agent->set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
+
+    // update node's dlt version so we don't send this dlt again
+    agent->set_node_dlt_version(dlt_version);
 
     // 'rebal ok' event, once all nodes sent migration done
     // notification, the state machine will commit the DLT
@@ -199,10 +222,48 @@ OM_NodeDomainMod::om_recv_migration_done(const NodeUuid& uuid,
     ClusterMap* cm = om->om_clusmap_mod();
     dltMod->dlt_deploy_event(DltRebalOkEvt(cm, dp));
 
-    // TODO(Andrew): This state transition should not
-    // be done here. It should be done when we receive
-    // acks for the commit.
-    dltMod->dlt_deploy_event(DltCommitOkEvt());
+    // in case no nodes need the new DLT (eg. we just added the
+    // first node and it already got the new DLT when we sent
+    // start migration event), the commit ok guard will check
+    // if all nodes already have new DLT and move to the next state
+    // otherwise, it will wait for dlt commit responses
+    dltMod->dlt_deploy_event(DltCommitOkEvt(cm, cur_dlt_ver));
+
+    return err;
+}
+
+//
+// Called when OM receives response for DLT commit fron a node
+//
+Error
+OM_NodeDomainMod::om_recv_dlt_commit_resp(const NodeUuid& uuid,
+                                          fds_uint64_t dlt_version) {
+    Error err(ERR_OK);
+    OM_Module *om = OM_Module::om_singleton();
+    OM_DLTMod *dltMod = om->om_dlt_mod();
+    DataPlacement *dp = om->om_dataplace_mod();
+    OM_SmAgent::pointer agent = om_sm_agent(uuid);
+    if (agent == NULL) {
+        FDS_PLOG_SEV(g_fdslog, fds_log::error)
+                << "OM: Received DLT commit ack from unknown node "
+                << ": uuid " << uuid.uuid_get_val();
+        err = Error(ERR_NOT_FOUND);
+        return err;
+    }
+
+    // for now we shouldn't move to new dlt version until
+    // we are done with current cluster update, so
+    // expect to see dlt commit resp for current dlt version
+    fds_uint64_t cur_dlt_ver = (dp->getCurDlt())->getVersion();
+    fds_verify(cur_dlt_ver == dlt_version);
+
+    // set node's confirmed dlt version to this version
+    agent->set_node_dlt_version(dlt_version);
+
+    // commit ok event, will transition to next state when
+    // when all 'up' nodes acked this dlt commit
+    ClusterMap* cm = om->om_clusmap_mod();
+    dltMod->dlt_deploy_event(DltCommitOkEvt(cm, cur_dlt_ver));
 
     return err;
 }
@@ -315,14 +376,24 @@ OM_ControlRespHandler::NotifyNodeRmvResp(
 void
 OM_ControlRespHandler::NotifyDLTUpdateResp(
     const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const FDS_ProtocolInterface::FDSP_DLT_Data_Type& dlt_info_resp) {
+    const FDS_ProtocolInterface::FDSP_DLT_Resp_Type& dlt_resp) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
 }
 
 void
 OM_ControlRespHandler::NotifyDLTUpdateResp(
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    FDS_ProtocolInterface::FDSP_DLT_Data_TypePtr& dlt_info_resp) {
+    FDS_ProtocolInterface::FDSP_DLT_Resp_TypePtr& dlt_resp) {
+    FDS_PLOG_SEV(g_fdslog, fds_log::notification)
+            << "OM received response for NotifyDltUpdate from node "
+            << fdsp_msg->src_node_name
+            << " for DLT version " << dlt_resp->DLT_version;
+
+    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+    // TODO(Anna) Should we use node names or node uuids directly in
+    // fdsp messages? for now getting uuid from hashing the name
+    NodeUuid node_uuid(fds_get_uuid64(fdsp_msg->src_node_name));
+    domain->om_recv_dlt_commit_resp(node_uuid, dlt_resp->DLT_version);
 }
 
 void

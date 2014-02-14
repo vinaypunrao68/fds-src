@@ -28,7 +28,9 @@ typedef std::unique_ptr<FdsActor> FdsActorUPtr;
 
 class FdsRequestQueueActor : public FdsActor {
 public:
+    FdsRequestQueueActor();
     FdsRequestQueueActor(fds_threadpoolPtr threadpool);
+    void init(fds_threadpoolPtr threadpool);
     virtual Error send_actor_request(FdsActorRequestPtr req) override;
     virtual int get_queue_size() override;
     virtual std::string log_string() {

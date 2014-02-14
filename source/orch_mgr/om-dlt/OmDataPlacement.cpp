@@ -358,7 +358,6 @@ DataPlacement::commitDlt() {
          it != curClusterMap->cend();
          it++) {
         OM_SmAgent::pointer na = it->second;
-        // notify nodes with 'node up' status that are not just added nodes
         if ((na->node_state() == FDS_ProtocolInterface::FDS_Node_Up) &&
             (addedNodes.count(na->get_uuid()) == 0)) {
             NodeAgentCpReqClientPtr naClient = na->getCpClient();

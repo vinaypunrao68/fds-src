@@ -215,13 +215,12 @@ namespace fds {
         std::map<fds_token_id, DltTokenGroupPtr> mapTokenNodes;
         friend class DLTManager;
     };
+    typedef boost::shared_ptr<DLT> DLTPtr;
 
     /**
      * Manages multiple DLTs ,maintains the current DLT
      * Generates the diff between dlts..
      */
-    typedef boost::shared_ptr<DLT> DLTPtr;
-
     struct DLTManager :  HasLogger, serialize::Serializable {
         explicit DLTManager(fds_uint8_t maxDlts = 2);
 
@@ -230,7 +229,7 @@ namespace fds {
         bool addSerializedDLT(std::string& serializedData, bool fFull = true);  // NOLINT
 
         // By default the get the current one(0) or the specific version
-        const DLT* getDLT(fds_uint64_t version = 0);
+        const DLT* getDLT(fds_uint64_t version = 0) const;
 
         // Make the specific version as the current
         void setCurrent(fds_uint64_t version);

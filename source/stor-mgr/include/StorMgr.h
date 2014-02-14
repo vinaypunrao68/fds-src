@@ -31,6 +31,8 @@
 #include "SmObjDb.h"
 #include <persistent_layer/dm_service.h>
 #include <persistent_layer/dm_io.h>
+#include <fds_migration.h>
+#include <hash/md5.h>
 
 #include <fds_qos.h>
 #include <qos_ctrl.h>
@@ -175,6 +177,12 @@ class ObjectStorMgr :
     boost::shared_ptr<netSessionTbl> nst_;
     boost::shared_ptr<FDSP_DataPathReqIf> datapath_handler_;
     netDataPathServerSession *datapath_session_;
+
+    /* Cluster communication manager */
+    ClusterCommMgrPtr clust_comm_mgr_;
+
+    /* Migrations related */
+    FdsMigrationSvcPtr migrationSvc_;
 
     /* Counters */
     SMCounters counters_;
@@ -337,6 +345,7 @@ class ObjectStorMgr :
 
  protected:
     void setup_datapath_server(const std::string &ip);
+    void setup_migration_svc();
 
  public:
 
@@ -359,6 +368,7 @@ class ObjectStorMgr :
     fds_log *sm_log;
     TierEngine     *tierEngine;
     SmObjDb        *smObjDb;
+    checksum_calc   *chksumPtr;
     /*
      * stats  class 
      */
@@ -421,6 +431,7 @@ class ObjectStorMgr :
             int vol_action,
             FDSP_ResultType resut);
     static void migrationEventOmHandler(bool dlt_type);
+    void migrationSvcResponseCb(const Error& err);
 
     virtual Error enqueueMsg(fds_volid_t volId, SmIoReq* ioReq);
 
@@ -443,6 +454,10 @@ class ObjectStorMgr :
     FdsObjectCache *getObjCache() {
         return objCache;
     }
+
+    NodeUuid getUuid() const;
+
+    const TokenList& getTokensForNode(const NodeUuid &uuid) const;
 
     virtual std::string log_string()
     {

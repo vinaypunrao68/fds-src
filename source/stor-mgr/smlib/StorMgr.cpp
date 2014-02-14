@@ -50,6 +50,19 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
     fds_uint64_t reqId;
     reqId = std::atomic_fetch_add(&(objStorMgr->nextReqId), (fds_uint64_t)1);
 
+#if 0 // will enable this once  data-placement code is tested
+     // check the payload checksum  and return Error, if we run in to issues 
+    std:string new_checksum;
+    objStorMgr->chksumPtr->checksum_update(reinterpret_cast<unsigned char *>(putObj.get()),  sizeof(putObj));
+    objStorMgr->chksumPtr->checksum_update(reinterpret_cast<unsigned char *>(const_cast <char *>(putObj->data_obj.data())), putObj->data_obj_len);
+    objStorMgr->chksumPtr->get_checksum(new_checksum);
+    if (msgHdr->payload_chksum.compare(new_checksum) != 0) {
+	msgHdr->err_code = FDSP_ERR_CKSUM_MISMATCH; 			
+	msgHdr->result = FDSP_ERR_RPC_CKSUM; 			
+    }
+#endif
+
+
     if (putObj->dlt_version == objStorMgr->omClient->getDltVersion()) {
     /*
      * Track the outstanding get request.
@@ -71,6 +84,8 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
 	msgHdr->result = FDSP_ERR_DLT_MISMATCH; 			
 	// send the dlt version of SM to AM 
         putObj->dlt_version = objStorMgr->omClient->getDltVersion();
+        // update the resp  with new DLT
+        objStorMgr->omClient->getLatestDlt(putObj->dlt_data);
     }
 
     /*
@@ -140,6 +155,8 @@ ObjectStorMgrI::GetObject(FDSP_MsgHdrTypePtr& msgHdr,
 	   msgHdr->err_code = FDSP_ERR_DLT_CONFLICT;
 	  // send the dlt version of SM to AM
            getObj->dlt_version = objStorMgr->omClient->getDltVersion();
+        // update the resp  with new DLT
+        objStorMgr->omClient->getLatestDlt(getObj->dlt_data);
 	}
 	
         objStorMgr->swapMgrId(msgHdr);
@@ -189,6 +206,8 @@ ObjectStorMgrI::DeleteObject(FDSP_MsgHdrTypePtr& msgHdr,
 	msgHdr->result = FDSP_ERR_DLT_MISMATCH; 			
 	// send the dlt version of SM to AM 
         delObj->dlt_version = objStorMgr->omClient->getDltVersion();
+        // update the resp  with new DLT
+        objStorMgr->omClient->getLatestDlt(delObj->dlt_data);
     }
 
     /*
@@ -362,6 +381,8 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
 
     // Create leveldb
     smObjDb = new  SmObjDb(stor_prefix, objStorMgr->GetLog());
+    // init the checksum verification class
+    chksumPtr =  new checksum_calc();
 
     /* Set up FDSP RPC endpoints */
     nst_ = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_MGR));
@@ -461,6 +482,8 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
     omClient->startAcceptingControlMessages(conf_helper_.get<int>("control_port"));
     omClient->registerNodeWithOM(dInfo);
 
+    clust_comm_mgr_.reset(new ClusterCommMgr(omClient));
+
     /*
      * Create local variables for test mode
      */
@@ -503,6 +526,8 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
      * Kick off the writeback thread(s)
      */
     writeBackThreads->schedule(writeBackFunc, this);
+
+    setup_migration_svc();
 }
 
 void ObjectStorMgr::setup_datapath_server(const std::string &ip)
@@ -525,6 +550,17 @@ void ObjectStorMgr::setup_datapath_server(const std::string &ip)
         datapath_handler_);
 }
 
+void ObjectStorMgr::setup_migration_svc()
+{
+    migrationSvc_.reset(new FdsMigrationSvc(this,
+                FdsConfigAccessor(conf_helper_.get_fds_config(),
+                        conf_helper_.get_base_path() + "migration."),
+                GetLog(),
+                nst_,
+                clust_comm_mgr_));
+    migrationSvc_->mod_startup();
+}
+
 void ObjectStorMgr::run()
 {
     nst_->listenServer(datapath_session_);
@@ -532,10 +568,9 @@ void ObjectStorMgr::run()
 
 void ObjectStorMgr::interrupt_cb(int signum)
 {
+    migrationSvc_->mod_shutdown();
+    nst_->endAllSessions();
     nst_.reset(); 
-
-    // todo: We shouldn't have to do this.  For some reason main thread
-    // isn't giving up control
     exit(0);
 }
 
@@ -545,10 +580,48 @@ void ObjectStorMgr::mod_startup() {
 void ObjectStorMgr::mod_shutdown() {
 }
 
+const TokenList&
+ObjectStorMgr::getTokensForNode(const NodeUuid &uuid) const {
+    return omClient->getTokensForNode(uuid);
+}
+
+NodeUuid
+ObjectStorMgr::getUuid() const {
+    return omClient->getUuid();
+}
 
 void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
 {
     FDS_PLOG(objStorMgr->GetLog()) << "ObjectStorMgr - Migration  event Handler " << dlt_type;
+
+    // Add node's tokens to the request
+    MigSvcCopyTokensReqPtr copy_req(new MigSvcCopyTokensReq());
+    const TokenList &tokens = objStorMgr->getTokensForNode(
+        objStorMgr->getUuid());
+    for (TokenList::const_iterator it = tokens.cbegin();
+         it != tokens.cend();
+         it++) {
+        copy_req->tokens.insert(*it);
+    }
+
+    /*
+    // Send migration request to migration service
+    copy_req->migsvc_resp_cb = std::bind(
+        &ObjectStorMgr::migrationSvcResponseCb,
+        objStorMgr,
+        std::placeholders::_1);
+    FdsActorRequestPtr copy_far(new FdsActorRequest(
+        FAR_ID(MigSvcCopyTokensReq), copy_req));
+    objStorMgr->migrationSvc_->send_actor_request(copy_far);
+    */
+
+    // TODO(Anna) this is temporary to send migration done callback, 
+    // remove when code above is un-commented
+    objStorMgr->migrationSvcResponseCb(Error(ERR_OK));
+}
+
+void ObjectStorMgr::migrationSvcResponseCb(const Error& err) {
+    omClient->sendMigrationStatusToOM(err);
 }
 
 void ObjectStorMgr::nodeEventOmHandler(int node_id,

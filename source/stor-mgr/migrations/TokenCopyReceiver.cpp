@@ -398,23 +398,29 @@ TokenCopyReceiver::TokenCopyReceiver(FdsMigrationSvc *migrationSvc,
         SmIoReqHandler *data_store,
         const std::string &mig_id,
         fds_threadpoolPtr threadpool,
-        fds_logPtr log,
+        fds_log *log,
         const std::set<fds_token_id> &tokens,
-        boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler)
+        boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler,
+        ClusterCommMgrPtr clust_comm_mgr)
     : MigrationReceiver(mig_id),
       FdsRequestQueueActor(threadpool),
       migrationSvc_(migrationSvc),
-      log_(log)
+      log_(log),
+      clust_comm_mgr_(clust_comm_mgr)
 {
-    /* Map of sender node ip -> tokens to request from sender */
-    IpTokenTable token_tbl = get_ip_token_tbl(tokens);
+    /* Map of sender node -> tokens to request from sender */
+    auto token_tbl = clust_comm_mgr_->partition_tokens_by_node(tokens);
 
     /* Create TokenCopyReceiver endpoint for each ip */
-    for (auto  itr = token_tbl.begin(); itr != token_tbl.end();  itr++) {
+    for (auto  itr = token_tbl.begin(); itr != token_tbl.end();  itr++)
+    {
+        uint32_t int_ip;
+        uint32_t sender_port;
+        int ret = clust_comm_mgr_->get_node_ip_port(itr->first, int_ip, sender_port);
+        // TODO(Rao): Handle this error
+        fds_assert(ret == true);
+        std::string sender_ip = netSessionTbl::ipAddr2String(int_ip);
         std::string mig_stream_id = fds::get_uuid();
-        std::string sender_ip = itr->first;
-        // TODO(Rao): Don't hard code the port
-        int sender_port = 8500;
 
         rcvr_sms_[mig_stream_id].reset(new TokenCopyReceiverFSM());
         rcvr_sms_[mig_stream_id]->init(mig_stream_id,
@@ -432,20 +438,6 @@ TokenCopyReceiver::~TokenCopyReceiver() {
 }
 
 /**
- * Returns mapping between primary source ip->tokens
- * @param tokens
- * @return
- */
-TokenCopyReceiver::IpTokenTable
-TokenCopyReceiver::get_ip_token_tbl(const std::set<fds_token_id>& tokens)
-{
-    IpTokenTable tbl;
-    // TODO(rao): Implement this.  For now hardcode.
-    tbl["127.0.0.1"] = tokens;
-    return tbl;
-}
-
-/**
  * Start the statemachine for each stream in the statemachine
  */
 void TokenCopyReceiver::start()
@@ -454,10 +446,6 @@ void TokenCopyReceiver::start()
             itr != rcvr_sms_.end(); itr++) {
        itr->second->start();
     }
-    /*
-    for (auto itr : rcvr_sms_) {
-        itr->second->start();
-    }*/
 }
 
 /**

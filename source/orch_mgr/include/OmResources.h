@@ -14,6 +14,8 @@
 #include <OmVolume.h>
 #include <NetSession.h>
 #include <fds_placement_table.h>
+#include <platform/node-inventory.h>
+#include <dlt.h>
 
 namespace fds {
 
@@ -30,9 +32,10 @@ typedef boost::shared_ptr<netControlPathClientSession>    NodeAgentCpSessionPtr;
  */
 typedef struct om_node_msg_s
 {
-    fpi::FDSP_MsgCodeType                nd_msg_code;
+    fpi::FDSP_MsgCodeType             nd_msg_code;
     union {
-        const fpi::FDSP_ThrottleMsgType *nd_throttle;
+        fpi::FDSP_ThrottleMsgTypePtr *nd_throttle;
+        fpi::FDSP_DMT_TypePtr        *nd_dmt_tab;
     } u;
 } om_node_msg_t;
 
@@ -56,7 +59,7 @@ class OM_SmAgent : public NodeAgent
     static inline OM_SmAgent::pointer agt_cast_ptr(Resource::pointer ptr) {
         return static_cast<OM_SmAgent *>(get_pointer(ptr));
     }
-    void setCpSession(NodeAgentCpSessionPtr session);
+    void setCpSession(NodeAgentCpSessionPtr session, fpi::FDSP_MgrIdType myId);
 
     /**
      * TODO(Vy): see if we can move this to NodeAgent, which is generic to all processes.
@@ -80,18 +83,18 @@ class OM_SmAgent : public NodeAgent
      * - API to send a message.
      */
     virtual void om_send_myinfo(NodeAgent::pointer peer);
-    virtual void om_send_node_cmd(const om_node_msg_t &msg, fpi::FDSP_MgrIdType mgr_id);
+    virtual void om_send_node_cmd(const om_node_msg_t &msg);
 
     virtual void om_send_reg_resp(const Error &err);
-    virtual void om_send_vol_cmd(VolumeInfo::pointer   vol,
-                                 fpi::FDSP_MgrIdType   mgr_id,
-                                 fpi::FDSP_MsgCodeType cmd_type);
+    virtual void om_send_vol_cmd(VolumeInfo::pointer vol, fpi::FDSP_MsgCodeType cmd);
 
+    virtual void om_send_dlt(const DLT *curDlt);
     virtual void init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const;
 
   protected:
     NodeAgentCpSessionPtr   ndCpSession;
     std::string             ndSessionId;
+    fpi::FDSP_MgrIdType     ndMyServId;
     NodeAgentCpReqClientPtr ndCpClient;
 
     virtual int node_calc_stor_weight();
@@ -260,10 +263,17 @@ class OM_NodeContainer : public DomainContainer
     VolumeContainer::pointer  om_volumes;
     float                     om_cur_throttle_level;
 
+    /**
+     * TODO(Vy): move this to DMT class.
+     */
     fds_uint64_t              om_dmt_ver;
     fds_uint32_t              om_dmt_width;
     fds_uint32_t              om_dmt_depth;
     FdsDmt                   *om_curDmt;
+    fds_mutex                 om_dmt_mtx;
+
+    virtual void om_bcast_dmt_table();
+    virtual void om_round_robin_dmt();
 
     /**
      * Recent history of perf stats OM receives from AM nodes.
@@ -327,16 +337,27 @@ class OM_NodeDomainMod : public Module
      * name (should ask the user to pick another node name).
      */
     virtual Error
-    om_reg_node_info(const NodeUuid &uuid, const FdspNodeRegPtr msg);
+            om_reg_node_info(const NodeUuid &uuid, const FdspNodeRegPtr msg);
 
     /**
      * Unregister the node matching uuid from the domain manager.
      */
-    virtual Error
-    om_del_node_info(const NodeUuid& uuid, const std::string& node_name);
+    virtual Error om_del_node_info(const NodeUuid& uuid,
+                                   const std::string& node_name);
 
-    virtual Error
-    om_recv_migration_done(const NodeUuid& uuid, fds_uint64_t dlt_version);
+    /**
+     * Notification that OM received migration done message from
+     * node with uuid 'uuid' for dlt version 'dlt_version'
+     */
+    virtual Error om_recv_migration_done(const NodeUuid& uuid,
+                                         fds_uint64_t dlt_version);
+
+    /**
+     * Notification that OM received DLT update response from
+     * node with uuid 'uuid' for dlt version 'dlt_version'
+     */
+    virtual Error om_recv_dlt_commit_resp(const NodeUuid& uuid,
+                                          fds_uint64_t dlt_version);
 
     /**
      * Updates cluster map membership and does DLT
@@ -422,10 +443,10 @@ FDSP_ControlPathRespIf {
 
     void NotifyDLTUpdateResp(
         const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-        const FDS_ProtocolInterface::FDSP_DLT_Data_Type& dlt_info_resp);
+        const FDS_ProtocolInterface::FDSP_DLT_Resp_Type& dlt_resp);
     void NotifyDLTUpdateResp(
         FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-        FDS_ProtocolInterface::FDSP_DLT_Data_TypePtr& dlt_info_resp);
+        FDS_ProtocolInterface::FDSP_DLT_Resp_TypePtr& dlt_resp);
 
     void NotifyDMTUpdateResp(
         const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,

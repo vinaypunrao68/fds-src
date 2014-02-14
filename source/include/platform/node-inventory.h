@@ -59,6 +59,7 @@ class NodeInvData
     std::string              nd_node_name;
     FdspNodeType             nd_node_type;
     FdspNodeState            nd_node_state;
+    fds_uint64_t             nd_dlt_version;
 };
 
 /**
@@ -91,12 +92,16 @@ class NodeInventory : public Resource
     inline const node_capability_t &node_capability() const {
         return node_inv->nd_capability;
     }
+    inline const fds_uint64_t node_dlt_version() const {
+      return node_inv->nd_dlt_version;
+    }
     /**
      * Fill in the inventory for this agent based on data provided by the message.
      */
     void node_fill_inventory(const FdspNodeRegPtr msg);
     void node_update_inventory(const FdspNodeRegPtr msg);
     void set_node_state(FdspNodeState state);
+    void set_node_dlt_version(fds_uint64_t dlt_version);
 
     /**
      * Format the message header to default values.

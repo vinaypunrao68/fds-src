@@ -72,12 +72,12 @@ void OMgrClientRPCI::NotifyNodeRmv(FDSP_MsgHdrTypePtr& msg_hdr,
 
 void OMgrClientRPCI::NotifyDLTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
 				     FDSP_DLT_Data_TypePtr& dlt_info) {
-  om_client->recvDLTUpdate(dlt_info->dlt_type, dlt_info->dlt_data);
+    om_client->recvDLTUpdate(dlt_info, msg_hdr->session_uuid);
 }
 void OMgrClientRPCI::NotifyStartMigration(FDSP_MsgHdrTypePtr& msg_hdr,
 			 FDSP_DLT_Data_TypePtr& dlt_info) {
 
-  om_client->recvDLTStartMigration(dlt_info->dlt_type, dlt_info->dlt_data);
+  om_client->recvDLTStartMigration(dlt_info);
   om_client->recvMigrationEvent(dlt_info->dlt_type); 
 }
 
@@ -157,7 +157,7 @@ OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
 
 OMgrClient::~OMgrClient()
 {
-    omrpc_handler_session_->endSession();
+    nst_->endSession(omrpc_handler_session_);
     omrpc_handler_thread_->join();
 
     delete clustMap;
@@ -583,6 +583,29 @@ int OMgrClient::recvMigrationEvent(bool dlt_type)
 
 }
 
+int OMgrClient::sendMigrationStatusToOM(const Error& err) {
+    try {
+        FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
+        initOMMsgHdr(msg_hdr);
+        FDSP_MigrationStatusTypePtr migr_status_msg(new FDSP_MigrationStatusType());
+        migr_status_msg->DLT_version = getDltVersion();
+        migr_status_msg->context = 0;
+        om_client_prx->NotifyMigrationDone(msg_hdr, migr_status_msg);
+
+        FDS_PLOG_SEV(omc_log, fds::fds_log::notification)
+                << "OMClient sending migration done event to OM for DLT version "
+                << migr_status_msg->DLT_version;
+    }
+    catch (...) {
+        FDS_PLOG_SEV(omc_log, fds_log::error)
+                << "OMClient unable to send migration status to OM."
+                << " Check if OM is up and restart";
+        return -1;
+    }
+
+    return 0;
+}
+
 int OMgrClient::recvNodeEvent(int node_id, 
 			      FDSP_MgrIdType node_type, 
 			      unsigned int node_ip, 
@@ -593,17 +616,26 @@ int OMgrClient::recvNodeEvent(int node_id,
 
   node_info_t& node = node_map[node_id];
 
-  node.node_id = node_id;
+  node.node_id = node_info->node_uuid;
   node.node_ip_address = node_ip;
   node.port = node_info->data_port;
   node.node_state = (FDSP_NodeState) node_state;
 
   // Update local cluster map
-  clustMap->addNode(&node);
+  clustMap->addNode(&node, my_node_type, node_type);
+
+  // TODO(Andrew): Hack to figure out my own node uuid
+  // since the OM doesn't reply to my registration yet.
+  if ((node.node_ip_address == netSession::ipString2Addr(hostIp)) &&
+      (node.port == my_data_port)) {
+      myUuid.uuid_set_val(node_info->node_uuid);
+      LOGDEBUG << "Setting my UUID to " << myUuid.uuid_get_val();
+  }
 
   omc_lock.write_unlock();
 
-  FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received node event for node " << node_id 
+  FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received node event for node "
+                                                    << node_info->node_id 
 						    << ", type - " << node_info->node_type 
 						    << " with ip address " << node_ip 
 						    << " and state - " << node_state;
@@ -655,9 +687,7 @@ int OMgrClient::recvVolAttachState(fds_volid_t vol_id,
   return (0);
   
 }
-
-
-int OMgrClient::recvDLTUpdate(bool dlt_type, std::string& dlt_data) {
+int OMgrClient::updateDlt(bool dlt_type, std::string& dlt_data) {
 
   FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received new DLT version  " << dlt_type;
 
@@ -669,17 +699,46 @@ int OMgrClient::recvDLTUpdate(bool dlt_type, std::string& dlt_data) {
   return (0);
 }
 
-int OMgrClient::recvDLTStartMigration(bool dlt_type, std::string& dlt_data) {
+int OMgrClient::recvDLTUpdate(FDSP_DLT_Data_TypePtr& dlt_info,
+                              const std::string& session_uuid) {
+    FDS_PLOG_SEV(omc_log, fds::fds_log::notification)
+            << "OMClient received new DLT version  " << dlt_info->dlt_type;
 
-  FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received new Migration DLT version  " << dlt_type;
+    omc_lock.write_lock();
+    dltMgr.addSerializedDLT(dlt_info->dlt_data, dlt_info->dlt_type);
+    dltMgr.dump();
+    omc_lock.write_unlock();
+
+    // send ack back to OM
+    boost::shared_ptr<FDS_ProtocolInterface::FDSP_ControlPathRespClient> resp_client_prx =
+            omrpc_handler_session_->getRespClient(session_uuid);
+
+    try {
+        FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
+        initOMMsgHdr(msg_hdr);
+        FDSP_DLT_Resp_TypePtr dlt_resp(new FDSP_DLT_Resp_Type);
+        dlt_resp->DLT_version = getDltVersion();
+        resp_client_prx->NotifyDLTUpdateResp(msg_hdr, dlt_resp);
+        FDS_PLOG_SEV(omc_log, fds_log::notification)
+                << "OMClient sent response for DTL update to OM";
+    } catch (...) {
+        FDS_PLOG_SEV(omc_log, fds_log::error) << "OMClient failed to send response to OM";
+        return -1;
+    }
+
+    return (0);
+}
+
+int OMgrClient::recvDLTStartMigration(FDSP_DLT_Data_TypePtr& dlt_info) {
+  FDS_PLOG_SEV(omc_log, fds::fds_log::notification)
+          << "OMClient received new Migration DLT version  " << dlt_info->dlt_type;
 
   omc_lock.write_lock();
-  dltMgr.addSerializedDLT(dlt_data,dlt_type);
+  dltMgr.addSerializedDLT(dlt_info->dlt_data, dlt_info->dlt_type);
   dltMgr.dump();
   omc_lock.write_unlock();
 
   return (0);
-
 }
 
 int OMgrClient::recvDMTUpdate(int dmt_vrsn, const Node_Table_Type& dmt_table) {
@@ -747,6 +806,24 @@ int OMgrClient::getNodeInfo(fds_uint64_t node_id,
   return 0;
 }
 
+fds_uint32_t
+OMgrClient::getLatestDlt(std::string& dlt_data) {
+    // TODO: Set to a macro'd invalid version
+    omc_lock.read_lock();
+    const_cast <DLT* > (dltMgr.getDLT())->getSerialized(dlt_data);
+    omc_lock.read_unlock();
+
+    return 0;
+}
+
+const DLT* OMgrClient::getCurrentDLT() {
+    omc_lock.read_lock();
+    const DLT *dlt = dltMgr.getDLT();
+    omc_lock.read_unlock();
+
+    return dlt;
+}
+
 fds_uint64_t
 OMgrClient::getDltVersion() {
     // TODO: Set to a macro'd invalid version
@@ -756,6 +833,16 @@ OMgrClient::getDltVersion() {
     omc_lock.read_unlock();
 
     return version;
+}
+
+NodeUuid
+OMgrClient::getUuid() const {
+    return myUuid;
+}
+
+const TokenList&
+OMgrClient::getTokensForNode(const NodeUuid &uuid) const {
+    return dltMgr.getDLT()->getTokens(uuid);
 }
 
 NodeMigReqClientPtr

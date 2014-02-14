@@ -5,7 +5,7 @@ user_build_dir    :=
 
 # TODO: avoid include across components, put in include dir instead.
 #
-user_incl_dir     := $(topdir) ./ ../include
+user_incl_dir     := $(topdir) ./ ../include $(topdir)/lib
 user_cpp_flags    := -Wall
 user_cpp          :=                   \
     TokenCopyReceiver.cpp \

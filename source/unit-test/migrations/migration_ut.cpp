@@ -14,42 +14,92 @@
 #include <StorMgrVolumes.h>
 #include<ObjectStoreMock.h>
 
+/**
+ * In this mock version ClusterCommMgr node table just contains
+ * sender information.  We just require the sender config here.
+ */
+class MockClusterCommMgr : public ClusterCommMgr {
+public:
+    MockClusterCommMgr(FdsConfigAccessor sender_config)
+: ClusterCommMgr(nullptr),
+  sender_config_(sender_config)
+{
+}
+
+    virtual NodeTokenTbl
+    partition_tokens_by_node(const std::set<fds_token_id> &tokens) override
+    {
+        /* Some dummy id */
+        NodeUuid id(1);
+        NodeTokenTbl tbl;
+        tbl[id] = tokens;
+    }
+
+    virtual bool
+    get_node_ip_port(const NodeUuid &node_id, uint32_t &ip, uint32_t &port) override
+    {
+        std::string str_ip = sender_config_.get<std::string>("ip");
+        ip = netSessionTbl::ipString2Addr(str_ip);
+        port = sender_config_.get<int>("port");
+        return true;
+    }
+private:
+    FdsConfigAccessor sender_config_;
+};
+
 class MigrationTester
 {
 public:
     MigrationTester() {
 
     }
+    ~MigrationTester() {
+        delete log_;
+    }
+
     void init()
     {
-        log_.reset(new fds_log("migration_ut.log"));
+        log_ = new fds_log("migration_ut.log");
         log_->setSeverityFilter(fds::fds_log::debug);
-        g_fdslog = log_.get();
+        g_fdslog = log_;
 
         nst_ = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_MGR));
-        threadpool_.reset(new fds_threadpool());
 
         sender_store_.reset(create_mock_obj_store());
         rcvr_store_.reset(create_mock_obj_store());
-        sender_mig_svc_.reset(create_mig_svc("sender.conf", sender_store_.get()));
-        rcvr_mig_svc_.reset(create_mig_svc("receiver.conf", rcvr_store_.get()));
+
+        FdsConfigAccessor sender_config(
+                FdsConfigPtr(new FdsConfig("sender.conf", 0, NULL)),
+                "fds.migration.");
+        FdsConfigAccessor rcvr_config(
+                FdsConfigPtr(new FdsConfig("receiver.conf", 0, NULL)),
+                "fds.migration.");
+
+        clust_comm_mgr_.reset(new MockClusterCommMgr(sender_config));
+
+        sender_mig_svc_.reset(create_mig_svc(sender_config, clust_comm_mgr_, sender_store_.get()));
+        rcvr_mig_svc_.reset(create_mig_svc(rcvr_config, clust_comm_mgr_, rcvr_store_.get()));
 
         migration_complete_ = false;
     }
 
+    /**
+     * Mock object store for reading and writing token data (ex: simulates ObjectStore)
+     * @return
+     */
     MObjStore* create_mock_obj_store()
     {
         return new MObjStore();
     }
 
-    FdsMigrationSvc* create_mig_svc(const std::string &conf_file, MObjStore *obj_store)
+    FdsMigrationSvc* create_mig_svc(FdsConfigAccessor config_helper,
+            ClusterCommMgrPtr clust_comm_mgr_, MObjStore *obj_store)
     {
-        FdsConfigPtr config(new FdsConfig(conf_file, 0, NULL));
         return new FdsMigrationSvc(obj_store,
-                threadpool_,
-                FdsConfigAccessor(config, "fds.migration."),
+                config_helper,
                 log_,
-                nst_);
+                nst_,
+                clust_comm_mgr_);
     }
 
     void mig_svc_cb(const Error& e)
@@ -60,8 +110,8 @@ public:
     void test1()
     {
         /* Start sender and receiver migration services */
-        std::thread t1(&FdsMigrationSvc::mod_startup, sender_mig_svc_.get());
-        std::thread t2(&FdsMigrationSvc::mod_startup, rcvr_mig_svc_.get());
+        sender_mig_svc_->mod_startup();
+        rcvr_mig_svc_->mod_startup();
 
         sleep(5);
 
@@ -103,13 +153,13 @@ public:
         exit(0);
     }
 
-    fds_threadpoolPtr threadpool_;
-    fds_logPtr log_;
+    fds_log *log_;
     netSessionTblPtr nst_;
     MObjStorePtr sender_store_;
     MObjStorePtr rcvr_store_;
     FdsMigrationSvcPtr sender_mig_svc_;
     FdsMigrationSvcPtr rcvr_mig_svc_;
+    ClusterCommMgrPtr clust_comm_mgr_;
     bool migration_complete_;
 };
 

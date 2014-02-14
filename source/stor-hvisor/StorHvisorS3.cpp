@@ -16,7 +16,6 @@
 #define FDS_REPLICATION_FACTOR 2
 
 extern StorHvCtrl *storHvisor;
-
 using namespace std;
 using namespace FDS_ProtocolInterface;
 
@@ -122,6 +121,11 @@ StorHvCtrl::dispatchSmPutMsg(StorHvJournalEntry *journEntry) {
         smMsgHdr->session_uuid = sessionCtx->getSessionId();
         journEntry->session_uuid = smMsgHdr->session_uuid;
 
+#if 0  // Will enable this once Data-placement code tested
+        storHvisor->chksumPtr->checksum_update(reinterpret_cast<unsigned char *>(putMsg.get()),  sizeof(putMsg));
+        storHvisor->chksumPtr->checksum_update(reinterpret_cast<unsigned char *>(const_cast <char *>(putMsg->data_obj.data())), putMsg->data_obj_len);
+        storHvisor->chksumPtr->get_checksum(smMsgHdr->payload_chksum);
+#endif
         client->PutObject(smMsgHdr, putMsg);
         FDS_PLOG_SEV(sh_log, fds::fds_log::normal) << "For transaction " << journEntry->trans_id
                                                    << " sent async PUT_OBJ_REQ to SM ip "
@@ -609,10 +613,16 @@ fds::Error StorHvCtrl::putObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
                                              << om_client->getDltVersion()
                                              << ", but SM service expected "
                                              << putObjRsp->dlt_version;
-      handleDltMismatch(vol, txn);
+     // handleDltMismatch(vol, txn);
+       
+     // response message  has the  latest  DLT , update the local copy 
+     // and update the DLT version 
+       storHvisor->om_client->updateDlt(true, putObjRsp->dlt_data);
 
-      // Return here since we haven't received successful acks to
-      // move the state machine forward.
+     // resend the IO with latest DLT
+       storHvisor->dispatchSmPutMsg(txn);
+     // Return here since we haven't received successful acks to
+     // move the state machine forward.
       return err;
   }
 
@@ -951,6 +961,28 @@ fds::Error StorHvCtrl::getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
 
   StorHvJournalEntryLock je_lock(txn);
   fds_verify(txn->isActive() == true);  // Should not receive resp for inactive txn
+  // Check response code
+  Error msgRespErr(rxMsg->err_code);
+  if (msgRespErr == ERR_IO_DLT_MISMATCH) {
+      // Note: We're expecting the server to specify the version
+      // expected in the response field.
+      FDS_PLOG_SEV(g_fdslog, fds_log::error) << "For transaction " << transId
+                                             << " received DLT version mismatch, have "
+                                             << om_client->getDltVersion()
+                                             << ", but SM service expected "
+                                             << getObjRsp->dlt_version;
+      //handleDltMismatch(vol, txn);
+
+     // response message  has the  latest  DLT , update the local copy 
+     // and update the DLT version 
+       storHvisor->om_client->updateDlt(true, getObjRsp->dlt_data);
+
+     // resend the IO with latest DLT
+       storHvisor->dispatchSmGetMsg(txn);
+     // Return here since we haven't received successful acks to
+     // move the state machine forward.
+      return err;
+  }
   fds_verify(txn->trans_state == FDS_TRANS_GET_OBJ);
 
   /*

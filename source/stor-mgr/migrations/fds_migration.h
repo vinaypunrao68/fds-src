@@ -14,6 +14,7 @@
 #include <concurrency/fds_actor.h>
 #include <concurrency/fds_actor_request.h>
 #include <NetSession.h>
+#include <ClusterCommMgr.h>
 #include <TokenCopySender.h>
 #include <TokenCopyReceiver.h>
 
@@ -66,12 +67,12 @@ public:
 
 public:
     FdsMigrationSvc(SmIoReqHandler *data_store,
-            fds_threadpoolPtr threadpool,
             const FdsConfigAccessor &conf_helper,
-            fds_logPtr log,
-            netSessionTblPtr nst);
+            fds_log *log,
+            netSessionTblPtr nst,
+            ClusterCommMgrPtr clust_comm_mgr);
 
-    fds_log* GetLog() {return log_.get();}
+    fds_log* GetLog() {return log_;}
 
     virtual std::string log_string() {
         return "FdsMigrationSvc";
@@ -114,12 +115,15 @@ private:
     FdsConfigAccessor conf_helper_;
 
     /* logger */
-    fds_logPtr log_;
+    fds_log *log_;
 
     /* Net session table */
     netSessionTblPtr nst_;
     boost::shared_ptr<FDSP_MigrationPathRpc> migpath_handler_;
     netMigrationPathServerSession *migpath_session_;
+
+    /* Communication manager */
+    ClusterCommMgrPtr clust_comm_mgr_;
 
     /* Migrations that are in progress.  Keyed by migration id */
     std::unordered_map<std::string, MigratorInfo> mig_actors_;
@@ -130,10 +134,10 @@ class FDSP_MigrationPathRpc : virtual public FDSP_MigrationPathReqIf ,
                               virtual public FDSP_MigrationPathRespIf
 {
 public:
-    FDSP_MigrationPathRpc(FdsMigrationSvc &mig_svc, fds_logPtr log);
+    FDSP_MigrationPathRpc(FdsMigrationSvc &mig_svc, fds_log *log);
 
     fds_log* GetLog() {
-        return log_.get();
+        return log_;
     }
     std::string log_string() {
         return "FDSP_MigrationPathRpc";
@@ -160,7 +164,7 @@ public:
 
 protected:
     FdsMigrationSvc &mig_svc_;
-    fds_logPtr log_;
+    fds_log *log_;
 };
 }  // namespace fds
 

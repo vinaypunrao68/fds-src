@@ -82,12 +82,14 @@ enum FDSP_ResultType {
   FDSP_ERR_FAILED,
   FDSP_ERR_VOLUME_DOES_NOT_EXIST,
   FDSP_ERR_VOLUME_EXISTS,
-  FDSP_ERR_DLT_MISMATCH
+  FDSP_ERR_DLT_MISMATCH,
+  FDSP_ERR_CKSUM_MISMATCH
 }
 
 enum FDSP_ErrType {
   FDSP_ERR_SM_NO_SPACE,
-  FDSP_ERR_DLT_CONFLICT
+  FDSP_ERR_DLT_CONFLICT,
+  FDSP_ERR_RPC_CKSUM
 }
 
 enum FDSP_VolType {
@@ -128,20 +130,23 @@ struct FDSP_PutObjType {
   2: i32      data_obj_len,
   3: i32      volume_offset, /* Offset inside the volume where the object resides */
   4: i32      dlt_version, 
-  5: string data_obj
+  5: string data_obj,
+  6: string dlt_data
 }
 
 struct FDSP_GetObjType {
   1: FDS_ObjectIdType   data_obj_id,
   2: i32      data_obj_len,
   3: i32      dlt_version, 
-  4: string  data_obj
+  4: string  data_obj,
+  5: string  dlt_data
 }
 
 struct  FDSP_DeleteObjType { /* This is a SH-->SM msg to delete the objectId */
   1: FDS_ObjectIdType   data_obj_id,
   2: i32      dlt_version, 
   3: i32      data_obj_len,
+  4: string  dlt_data
 }
 
 
@@ -150,7 +155,8 @@ struct FDSP_OffsetWriteObjType {
   2: i32      data_obj_len,
   3: FDS_ObjectIdType   data_obj_id_new,
   4: i32      dlt_version, 
-  5: string  data_obj
+  5: string  data_obj,
+  6: string  dlt_data
 }
 
 
@@ -161,7 +167,8 @@ struct FDSP_RedirReadObjType {
   4: i32      data_obj_sublen,
   5: FDS_ObjectIdType   data_obj_id_new,
   6: i32      dlt_version, 
-  7: string   data_obj
+  7: string   data_obj,
+  8: string   dlt_data
 } 
 
 
@@ -288,8 +295,12 @@ struct FDSP_DLT_Data_Type {
 }
 
 struct FDSP_MigrationStatusType {
-  1: i32 DLT_version,
+  1: i64 DLT_version,
   2: i32 context
+}
+
+struct FDSP_DLT_Resp_Type {
+  1: i64 DLT_version
 }
 
 struct FDSP_VolumeInfoType {
@@ -614,8 +625,9 @@ struct FDSP_MsgHdrType {
 /* Checksum of the entire message including the payload/objects */
     25: i32         req_cookie, 
     26: i32         msg_chksum, 
+    27: string      payload_chksum, 
 
-    27: string      session_uuid
+    28: string      session_uuid
 }
 
 enum tier_prefetch_type_e
@@ -932,7 +944,7 @@ service FDSP_ControlPathResp {
   oneway void DetachVolResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolType dtc_vol_resp),
   oneway void NotifyNodeAddResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_Node_Info_Type node_info_resp),
   oneway void NotifyNodeRmvResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_Node_Info_Type node_info_resp),
-  oneway void NotifyDLTUpdateResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DLT_Data_Type dlt_info_resp),
+  oneway void NotifyDLTUpdateResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DLT_Resp_Type dlt_resp),
   oneway void NotifyDMTUpdateResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DMT_Type dmt_info_resp)
 }
 

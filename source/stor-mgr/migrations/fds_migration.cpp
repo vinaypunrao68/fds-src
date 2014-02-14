@@ -11,7 +11,7 @@
 namespace fds {
 
 FDSP_MigrationPathRpc::
-FDSP_MigrationPathRpc(FdsMigrationSvc &mig_svc, fds_logPtr log) // NOLINT
+FDSP_MigrationPathRpc(FdsMigrationSvc &mig_svc, fds_log *log) // NOLINT
     : mig_svc_(mig_svc),
       log_(log)
 {
@@ -72,15 +72,16 @@ PushTokenObjectsResp(boost::shared_ptr<FDSP_PushTokenObjectsResp>& pushtok_resp)
  * @param nst
  */
 FdsMigrationSvc::FdsMigrationSvc(SmIoReqHandler *data_store,
-        fds_threadpoolPtr threadpool,
         const FdsConfigAccessor &conf_helper,
-        fds_logPtr log, netSessionTblPtr nst)
+        fds_log *log, netSessionTblPtr nst,
+        ClusterCommMgrPtr clust_comm_mgr)
     : Module("FdsMigrationSvc"),
-      FdsRequestQueueActor(threadpool),
+      FdsRequestQueueActor(),
       data_store_(data_store),
       conf_helper_(conf_helper),
       log_(log),
-      nst_(nst)
+      nst_(nst),
+      clust_comm_mgr_(clust_comm_mgr)
 {
 }
 
@@ -89,8 +90,13 @@ FdsMigrationSvc::FdsMigrationSvc(SmIoReqHandler *data_store,
  */
 void FdsMigrationSvc::mod_startup()
 {
+    fds_threadpoolPtr threadpool(
+            new fds_threadpool(conf_helper_.get<int>("thread_cnt")));
+    FdsRequestQueueActor::init(threadpool);
+
     setup_migpath_server();
-    migpath_session_->listenServer();
+
+    migpath_session_->listenServerNb();
 }
 
 /**
@@ -98,7 +104,7 @@ void FdsMigrationSvc::mod_startup()
  */
 void FdsMigrationSvc::mod_shutdown()
 {
-    migpath_session_->endSession();
+    nst_->endSession(migpath_session_);
 }
 
 /**
@@ -188,7 +194,8 @@ void FdsMigrationSvc::handle_migsvc_copy_token(FdsActorRequestPtr req)
 
     TokenCopyReceiver* copy_rcvr = new TokenCopyReceiver(this,
             data_store_, mig_id,
-            threadpool_, log_, tokens, migpath_handler_);
+            threadpool_, log_, tokens,
+            migpath_handler_, clust_comm_mgr_);
     mig_actors_[mig_id].migrator.reset(copy_rcvr);
     mig_actors_[mig_id].migsvc_resp_cb = copy_payload->migsvc_resp_cb;
 
@@ -230,7 +237,8 @@ void FdsMigrationSvc::handle_migsvc_copy_token_rpc(FdsActorRequestPtr req)
                     mig_id, mig_stream_id,
                     threadpool_, log_,
                     rcvr_ip, rcvr_port,
-                    tokens, migpath_handler_);
+                    tokens, migpath_handler_,
+                    clust_comm_mgr_);
     mig_actors_[mig_id].migrator.reset(copy_sender);
 
     LOGNORMAL << " New sender.  Migration id: " << mig_id

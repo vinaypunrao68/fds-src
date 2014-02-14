@@ -14,6 +14,7 @@
 #include <fds_base_migrators.h>
 #include <util/Log.h>
 #include <NetSession.h>
+#include <ClusterCommMgr.h>
 #include <StorMgrVolumes.h>
 
 namespace fds {
@@ -33,15 +34,16 @@ public:
             const std::string &mig_id,
             const std::string &mig_stream_id,
             fds_threadpoolPtr threadpool,
-            fds_logPtr log,
+            fds_log *log,
             const std::string &rcvr_ip,
             const int &rcvr_port,
             const std::set<fds_token_id> &tokens,
-            boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler);
+            boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler,
+            ClusterCommMgrPtr clust_comm_mgr);
     virtual ~TokenCopySender();
 
     fds_log* get_log() {
-        return log_.get();
+        return log_;
     }
 
     /* For logging */
@@ -56,7 +58,10 @@ public:
 
 private:
     std::unique_ptr<TokenCopySenderFSM> sm_;
-    fds_logPtr log_;
+    fds_log *log_;
+
+    /* Reference to cluster communication manager */
+    ClusterCommMgrPtr clust_comm_mgr_;
 };
 
 } /* namespace fds */

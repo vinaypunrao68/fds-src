@@ -14,6 +14,7 @@
 #include "fdsp/FDSP_types.h"
 #include "fdsp/FDSP_ControlPathReq.h"
 #include "fdsp/FDSP_OMControlPathReq.h"
+#include <fdsp/FDSP_types.h>
 #include <util/Log.h>
 
 #include <unordered_map>
@@ -66,6 +67,7 @@ namespace fds {
     int tennant_id;
     int domain_id;
     FDSP_MgrIdType my_node_type;
+    NodeUuid myUuid;
     std::string my_node_name;
     std::string omIpStr;
     fds_uint32_t omConfigPort;
@@ -139,6 +141,8 @@ namespace fds {
     int initialize();
     void start_omrpc_handler();
 
+    NodeUuid getUuid() const;
+
     int registerEventHandlerForNodeEvents(node_event_handler_t node_event_hdlr);
     int registerEventHandlerForVolEvents(volume_event_handler_t vol_event_hdlr);
     int registerEventHandlerForMigrateEvents(migration_event_handler_t migrate_event_hdlr);
@@ -162,6 +166,7 @@ namespace fds {
     int pushModifyBucketToOM(const std::string& bucket_name,
 			     const FDS_ProtocolInterface::FDSP_VolumeDescTypePtr& vol_desc);
     int pushGetBucketStatsToOM(fds_uint32_t req_cookie);
+    int sendMigrationStatusToOM(const Error& err);
 
     int getNodeInfo(fds_uint64_t node_id,
                     unsigned int *node_ip_addr,
@@ -170,7 +175,10 @@ namespace fds {
     NodeMigReqClientPtr getMigClient(fds_uint64_t node_id);
 
     fds_uint64_t getDltVersion();
+    fds_uint32_t getLatestDlt(std::string& dlt_data);
     DltTokenGroupPtr getDLTNodesForDoidKey(ObjectID *objId);
+    const DLT* getCurrentDLT();
+    const TokenList& getTokensForNode(const NodeUuid &uuid) const;
 #if 0
     int  getDLTNodesForDoidKey(unsigned char doid_key,
                               fds_int32_t *node_ids,
@@ -186,10 +194,15 @@ namespace fds {
 		   const std::string& accessKeyId,
 		   const std::string& secretAccessKey);
 
-    int recvNodeEvent(int node_id, FDSP_MgrIdType node_type, unsigned int node_ip, int node_state, const FDSP_Node_Info_TypePtr& node_info);
+    int recvNodeEvent(int node_id,
+                      FDSP_MgrIdType node_type,
+                      unsigned int node_ip,
+                      int node_state,
+                      const FDSP_Node_Info_TypePtr& node_info);
     int recvMigrationEvent(bool dlt_type);
-    int recvDLTUpdate(bool dlt_type, std::string& dlt_data);
-    int recvDLTStartMigration(bool dlt_type, std::string& dlt_data);
+    int updateDlt(bool dlt_type, std::string& dlt_data);
+    int recvDLTUpdate(FDSP_DLT_Data_TypePtr& dlt_info, const std::string& session_uuid);
+    int recvDLTStartMigration(FDSP_DLT_Data_TypePtr& dlt_info);
     int recvDMTUpdate(int dmt_version, const Node_Table_Type& dmt_table);
 
     int recvNotifyVol(fds_volid_t vol_id,

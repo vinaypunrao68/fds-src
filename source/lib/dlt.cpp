@@ -538,7 +538,7 @@ bool DLTManager::add(const DLTDiff& dltDiff) {
 }
 
 
-const DLT* DLTManager::getDLT(const fds_uint64_t version) {
+const DLT* DLTManager::getDLT(const fds_uint64_t version) const {
     if (0 == version) {
         return curPtr;
     }

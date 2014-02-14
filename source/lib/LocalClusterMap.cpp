@@ -53,7 +53,9 @@ LocalClusterMap::getMigClient(fds_uint64_t node_id) {
 }
 
 Error
-LocalClusterMap::addNode(node_info_t *node) {
+LocalClusterMap::addNode(node_info_t *node,
+                         FDSP_MgrIdType myRole,
+                         FDSP_MgrIdType nodeRole) {
     Error err(ERR_OK);
 
     FDS_PLOG_SEV(g_fdslog, fds_log::debug)
@@ -67,22 +69,27 @@ LocalClusterMap::addNode(node_info_t *node) {
         return err;
     }
 
-    // Create a migration endpoint to the node
-    node->ndMigSession = static_cast<NodeMigSessionPtr>(
-        lcmSessTbl->startSession<netMigrationPathClientSession>(
-        node->node_ip_address,
-        node->mig_port,
-        FDSP_MIGRATION_MGR,
-        1,
-        migRspHndlr));
-    // TODO(Andrew): Handle scenarios where we can't establish
-    // connection with the existing node instead of ignoring them
-    if (node->ndMigSession != NULL) {
-        node->ndMigSessionId = node->ndMigSession->getSessionId();
-        node->ndMigClient = node->ndMigSession->getClient();
-        FDS_PLOG_SEV(g_fdslog, fds_log::debug)
-                << "Create new endpoint to node " << node->node_id;
+    // Create a migration endpoint to sm nodes
+    /*
+    if ((myRole == FDS_ProtocolInterface::FDSP_STOR_MGR) &&
+        (nodeRole == FDS_ProtocolInterface::FDSP_STOR_MGR)) {
+        node->ndMigSession = static_cast<NodeMigSessionPtr>(
+            lcmSessTbl->startSession<netMigrationPathClientSession>(
+                node->node_ip_address,
+                node->mig_port,
+                FDSP_MIGRATION_MGR,
+                1,
+                migRspHndlr));
+        // TODO(Andrew): Handle scenarios where we can't establish
+        // connection with the existing node instead of ignoring them
+        if (node->ndMigSession != NULL) {
+            node->ndMigSessionId = node->ndMigSession->getSessionId();
+            node->ndMigClient = node->ndMigSession->getClient();
+            FDS_PLOG_SEV(g_fdslog, fds_log::debug)
+                    << "Create new endpoint to node " << node->node_id;
+        }
     }
+    */
 
     clusterMembers[node->node_id] = (*node);
     lcmLock.write_unlock();

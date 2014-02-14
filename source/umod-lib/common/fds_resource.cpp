@@ -101,6 +101,35 @@ RsContainer::rs_get_resource(char const *const name)
     return rs_name_map[name];
 }
 
+// rs_container_snapshot
+// ---------------------
+// Take a snapshot of all elemnts in the array.
+//
+int
+RsContainer::rs_container_snapshot(RsArray *out)
+{
+    int ret;
+
+    ret = 0;
+    rs_mtx.lock();
+    for (auto it = cbegin(); it != cend(); it++) {
+        ret++;
+        out->push_back(*it);
+    }
+    fds_verify(ret == rs_cur_idx);
+    rs_mtx.unlock();
+
+    return ret;
+}
+
+// rs_free_resource
+// ----------------
+//
+void
+RsContainer::rs_free_resource(Resource::pointer rs)
+{
+}
+
 QueryMgr::QueryMgr()
 {
 }

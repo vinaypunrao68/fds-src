@@ -130,6 +130,8 @@ class RsContainer
     static inline Resource::pointer rs_from_iter(const_iterator it) {
         return static_cast<Resource *>(get_pointer(*it));
     }
+    virtual int rs_container_snapshot(RsArray *out);
+
     /**
      * Iterator plugins.
      */
@@ -170,6 +172,7 @@ class RsContainer
     virtual void rs_register_mtx(Resource::pointer rs);
     virtual void rs_unregister(Resource::pointer rs);
     virtual void rs_unregister_mtx(Resource::pointer rs);
+    virtual void rs_free_resource(Resource::pointer rs);
 
   protected:
     RsUuidMap                rs_uuid_map;
