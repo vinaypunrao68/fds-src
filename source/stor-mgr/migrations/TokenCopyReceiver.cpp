@@ -416,7 +416,9 @@ TokenCopyReceiver::TokenCopyReceiver(FdsMigrationSvc *migrationSvc,
     {
         uint32_t int_ip;
         uint32_t sender_port;
-        int ret = clust_comm_mgr_->get_node_ip_port(itr->first, int_ip, sender_port);
+        int ret = clust_comm_mgr_->get_node_mig_ip_port(itr->first,
+                                                        int_ip,
+                                                        sender_port);
         // TODO(Rao): Handle this error
         fds_assert(ret == true);
         std::string sender_ip = netSessionTbl::ipAddr2String(int_ip);

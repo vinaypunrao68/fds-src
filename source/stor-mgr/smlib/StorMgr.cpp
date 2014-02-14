@@ -47,8 +47,6 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
     return;
 #endif /* FDS_TEST_SM_NOOP */
 
-    fds_uint64_t reqId;
-    reqId = std::atomic_fetch_add(&(objStorMgr->nextReqId), (fds_uint64_t)1);
 
 #if 0 // will enable this once  data-placement code is tested
      // check the payload checksum  and return Error, if we run in to issues 
@@ -73,11 +71,6 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
      * TODO: We should check if this value has rolled at some point.
      * Though it's big enough for us to not care right now.
      */
-        msgHdr->msg_chksum = reqId;
-        objStorMgr->waitingReqMutex->lock();
-        objStorMgr->waitingReqs[reqId] = msgHdr;
-        objStorMgr->waitingReqMutex->unlock();
-
       objStorMgr->PutObject(msgHdr, putObj);
     } else {
 	msgHdr->err_code = FDSP_ERR_DLT_CONFLICT; 			
@@ -93,10 +86,6 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
      * now as there is no more processing to do.
      */
     if (msgHdr->result != FDSP_ERR_OK) {
-        objStorMgr->waitingReqMutex->lock();
-        objStorMgr->waitingReqs.erase(reqId);
-        objStorMgr->waitingReqMutex->unlock();
-
         msgHdr->msg_code = FDSP_MSG_PUT_OBJ_RSP;
         objStorMgr->swapMgrId(msgHdr);
         objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->PutObjectResp(msgHdr, putObj);
@@ -129,12 +118,6 @@ ObjectStorMgrI::GetObject(FDSP_MsgHdrTypePtr& msgHdr,
      * TODO: We should check if this value has rolled at some point.
      * Though it's big enough for us to not care right now.
      */
-    fds_uint64_t reqId;
-    reqId = std::atomic_fetch_add(&(objStorMgr->nextReqId), (fds_uint64_t)1);
-    msgHdr->msg_chksum = reqId;
-    objStorMgr->waitingReqMutex->lock();
-    objStorMgr->waitingReqs[reqId] = msgHdr;
-    objStorMgr->waitingReqMutex->unlock();
 
     /*
      * Submit the request to be enqueued
@@ -145,9 +128,6 @@ ObjectStorMgrI::GetObject(FDSP_MsgHdrTypePtr& msgHdr,
      * now as there is no more processing to do.
      */
     if (msgHdr->result != FDSP_ERR_OK) {
-        objStorMgr->waitingReqMutex->lock();
-        objStorMgr->waitingReqs.erase(reqId);
-        objStorMgr->waitingReqMutex->unlock();
 
         msgHdr->msg_code = FDSP_MSG_GET_OBJ_RSP;
         if(getObj->dlt_version != objStorMgr->omClient->getDltVersion()) {
@@ -190,15 +170,7 @@ ObjectStorMgrI::DeleteObject(FDSP_MsgHdrTypePtr& msgHdr,
      * TODO: We should check if this value has rolled at some point.
      * Though it's big enough for us to not care right now.
      */
-    fds_uint64_t reqId;
-    reqId = std::atomic_fetch_add(&(objStorMgr->nextReqId), (fds_uint64_t)1);
-
     if (delObj->dlt_version == objStorMgr->omClient->getDltVersion()) {
-
-        msgHdr->msg_chksum = reqId;
-        objStorMgr->waitingReqMutex->lock();
-        objStorMgr->waitingReqs[reqId] = msgHdr;
-        objStorMgr->waitingReqMutex->unlock();
 
         objStorMgr->DeleteObject(msgHdr, delObj);
     } else {
@@ -215,9 +187,6 @@ ObjectStorMgrI::DeleteObject(FDSP_MsgHdrTypePtr& msgHdr,
      * now as there is no more processing to do.
      */
     if (msgHdr->result != FDSP_ERR_OK) {
-        objStorMgr->waitingReqMutex->lock();
-        objStorMgr->waitingReqs.erase(reqId);
-        objStorMgr->waitingReqMutex->unlock();
 
         msgHdr->msg_code = FDSP_MSG_DELETE_OBJ_RSP;
         objStorMgr->swapMgrId(msgHdr);
@@ -267,12 +236,6 @@ ObjectStorMgr::ObjectStorMgr(int argc, char *argv[],
     sm_log->setSeverityFilter((fds_log::severity_level) conf_helper_.get<int>("log_severity"));
     FDS_PLOG(sm_log) << "Constructing the Object Storage Manager";
     objStorMutex = new fds_mutex("Object Store Mutex");
-    waitingReqMutex = new fds_mutex("Object Store Mutex");
-
-    /*
-     * Init the outstanding request count to 0.
-     */
-    nextReqId = ATOMIC_VAR_INIT(0);
 
     /*
      * Will setup OM comm during run()
@@ -342,7 +305,6 @@ ObjectStorMgr::~ObjectStorMgr() {
      * TODO: Assert that the waiting req map is empty.
      */
 
-    delete waitingReqMutex;
     delete qosCtrl;
 
     delete writeBackThreads;
@@ -432,13 +394,14 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
      * Register this node with OM.
      */
     omClient = new OMgrClient(FDSP_STOR_MGR,
-            conf_helper_.get<std::string>("om_ip"),
-            conf_helper_.get<int>("om_port"),
-            myIp,
-            conf_helper_.get<int>("data_port"),
-            stor_prefix + "localhost-sm",
-            sm_log,
-            nst_);
+                              conf_helper_.get<std::string>("om_ip"),
+                              conf_helper_.get<int>("om_port"),
+                              myIp,
+                              conf_helper_.get<int>("data_port"),
+                              stor_prefix + "localhost-sm",
+                              sm_log,
+                              nst_,
+                              conf_helper_.get<int>("migration.port"));
 
     /*
      * Create local volume table. Create after omClient
@@ -585,6 +548,20 @@ ObjectStorMgr::getTokensForNode(const NodeUuid &uuid) const {
     return omClient->getTokensForNode(uuid);
 }
 
+void
+ObjectStorMgr::getTokensForNode(TokenList *tl,
+                                const NodeUuid &uuid,
+                                fds_uint32_t index) {
+    return omClient->getCurrentDLT()->getTokens(tl,
+                                                uuid,
+                                                index);
+}
+
+fds_uint32_t
+ObjectStorMgr::getTotalNumTokens() const {
+    return omClient->getCurrentDLT()->getNumTokens();
+}
+
 NodeUuid
 ObjectStorMgr::getUuid() const {
     return omClient->getUuid();
@@ -594,30 +571,42 @@ void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
 {
     FDS_PLOG(objStorMgr->GetLog()) << "ObjectStorMgr - Migration  event Handler " << dlt_type;
 
-    // Add node's tokens to the request
+    // Determine our new tokens that we need to retrieve from
+    // by comparing with the previous DLT
+    // TODO(Andrew): For now, we're just getting all of the primary
+    // tokens in the current DLT
     MigSvcCopyTokensReqPtr copy_req(new MigSvcCopyTokensReq());
-    const TokenList &tokens = objStorMgr->getTokensForNode(
-        objStorMgr->getUuid());
+    TokenList tokens;
+    // const TokenList &tokens = objStorMgr->getTokensForNode(
+    // objStorMgr->getUuid());
+    objStorMgr->getTokensForNode(&tokens,
+                                 objStorMgr->getUuid(),
+                                 0);
     for (TokenList::const_iterator it = tokens.cbegin();
          it != tokens.cend();
          it++) {
         copy_req->tokens.insert(*it);
     }
 
-    /*
-    // Send migration request to migration service
-    copy_req->migsvc_resp_cb = std::bind(
-        &ObjectStorMgr::migrationSvcResponseCb,
-        objStorMgr,
-        std::placeholders::_1);
-    FdsActorRequestPtr copy_far(new FdsActorRequest(
-        FAR_ID(MigSvcCopyTokensReq), copy_req));
-    objStorMgr->migrationSvc_->send_actor_request(copy_far);
-    */
-
-    // TODO(Anna) this is temporary to send migration done callback, 
-    // remove when code above is un-commented
-    objStorMgr->migrationSvcResponseCb(Error(ERR_OK));
+    // TODO(Andrew): For now, we're assuming if the list of
+    // new tokens all of the tokens, then we must be the first
+    // SM entering the system and don't need to migration anything
+    // because nothing exists to migrate and no one to migrate from.
+    // Note: Since the above token list is *NOT* do a delta yet,
+    // this will skip migration scenarios where I'm the only node
+    // let in the cluster.
+    if (copy_req->tokens.size() < objStorMgr->getTotalNumTokens()) {
+        // Send migration request to migration service
+        copy_req->migsvc_resp_cb = std::bind(
+            &ObjectStorMgr::migrationSvcResponseCb,
+            objStorMgr,
+            std::placeholders::_1);
+        FdsActorRequestPtr copy_far(new FdsActorRequest(
+            FAR_ID(MigSvcCopyTokensReq), copy_req));
+        objStorMgr->migrationSvc_->send_actor_request(copy_far);
+    } else {
+        objStorMgr->migrationSvcResponseCb(Error(ERR_OK));
+    }
 }
 
 void ObjectStorMgr::migrationSvcResponseCb(const Error& err) {
@@ -1317,11 +1306,8 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
     /*
      * Prepare a response to send back.
      */
-    waitingReqMutex->lock();
-    fds_verify(waitingReqs.count(putReq->io_req_id) > 0);
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr = waitingReqs[putReq->io_req_id];
-    waitingReqs.erase(putReq->io_req_id);
-    waitingReqMutex->unlock();
+    ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_transaction(putReq->getTransId());
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr = jrnlEntry->getMsgHdr();
 
     FDSP_PutObjTypePtr putObj(new FDSP_PutObjType());
     putObj->data_obj_id.hash_high = objId.GetHigh();
@@ -1428,11 +1414,8 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
     /*
      * Prepare a response to send back.
      */
-    waitingReqMutex->lock();
-    fds_verify(waitingReqs.count(delReq->io_req_id) > 0);
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr = waitingReqs[delReq->io_req_id];
-    waitingReqs.erase(delReq->io_req_id);
-    waitingReqMutex->unlock();
+    ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_transaction(delReq->getTransId());
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr = jrnlEntry->getMsgHdr();
 
     FDSP_DeleteObjTypePtr delObj(new FDS_ProtocolInterface::FDSP_DeleteObjType());
     delObj->data_obj_id.hash_high = objId.GetHigh();
@@ -1535,7 +1518,6 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
      * memory for that size.
      */
 
-    ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_transaction(getReq->getTransId());
     objStorMutex->lock();
     objBufPtr = objCache->object_retrieve(volId, objId);
 
@@ -1571,11 +1553,8 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
     /*
      * Prepare a response to send back.
      */
-    waitingReqMutex->lock();
-    fds_assert(waitingReqs.count(getReq->io_req_id) > 0);
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr = waitingReqs[getReq->io_req_id];
-    waitingReqs.erase(getReq->io_req_id);
-    waitingReqMutex->unlock();
+    ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_transaction(getReq->getTransId());
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr = jrnlEntry->getMsgHdr();
 
     /*
      * This does an additional object copy into the network buffer.
@@ -1821,7 +1800,7 @@ Error
 ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq) 
 {
     Error err(ERR_OK);
-    SmIoPutTokObjectsReq *putTokReq = static_cast<SmIoPutTokObjectsReq*>(putTokReq);
+    SmIoPutTokObjectsReq *putTokReq = static_cast<SmIoPutTokObjectsReq*>(ioReq);
     FDSP_MigrateObjectList &objList = putTokReq->obj_list;
     
     for (auto obj : objList) {
@@ -1981,7 +1960,7 @@ void  SmObjDb::iterRetrieveObjects(const fds_token_id &token,
     ObjectID objId;
     ObjectDB *odb = getObjectDB(tokId);
     if (odb == NULL ) { 
-       itr.objId = 0;
+        itr.objId = SMTokenItr::itr_end;
        return;
     }
     

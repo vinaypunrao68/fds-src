@@ -495,7 +495,10 @@ bool DLTManager::add(const DLT& _newDlt) {
 
 bool DLTManager::addSerializedDLT(std::string& serializedData, bool fFull) { //NOLINT
     DLT dlt(0, 0, 0, false);
+    // Deserialize the DLT
     dlt.loadSerialized(serializedData);
+    // Recompute the node token map cache
+    dlt.generateNodeTokenMap();
     return add(dlt);
 }
 

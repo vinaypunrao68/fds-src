@@ -86,6 +86,9 @@ public:
 	ObjectID get_key();
 
 	void set_fdsio(FDS_IOType *fdsio);
+        FDSP_MsgHdrTypePtr& getMsgHdr() { 
+             return msg_hdr;
+        }
 	FDS_IOType* get_fdsio();
 
 	unsigned int get_transid();
@@ -96,6 +99,7 @@ private:
 	ObjectID _key;
 	bool _active;
 	FDS_IOType *_fdsio;
+        FDSP_MsgHdrTypePtr msg_hdr;
 };
 
 } // namespace fds
