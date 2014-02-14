@@ -19,13 +19,13 @@
  * sender information.  We just require the sender config here.
  */
 class MockClusterCommMgr : public ClusterCommMgr {
-public:
+  public:
     MockClusterCommMgr(FdsConfigAccessor sender_config)
-: ClusterCommMgr(nullptr),
-  sender_config_(sender_config)
-{
-}
-
+    : ClusterCommMgr(nullptr),
+      sender_config_(sender_config)
+    {
+    }
+    virtual ~MockClusterCommMgr() {}
     virtual NodeTokenTbl
     partition_tokens_by_node(const std::set<fds_token_id> &tokens) override
     {
@@ -33,6 +33,7 @@ public:
         NodeUuid id(1);
         NodeTokenTbl tbl;
         tbl[id] = tokens;
+        return tbl;
     }
 
     virtual bool
@@ -53,7 +54,7 @@ public:
     MigrationTester() {
 
     }
-    ~MigrationTester() {
+    virtual ~MigrationTester() {
         delete log_;
     }
 

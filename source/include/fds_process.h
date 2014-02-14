@@ -23,6 +23,7 @@ namespace fds {
 /* These are exposed to make it easy to access them */
 extern FdsProcess* g_fdsprocess;
 extern fds_log* g_fdslog;
+extern boost::shared_ptr<FdsCountersMgr> g_cntrs_mgr;
 
 /* Helper functions to init process globals. Only invoke these if you
  * aren't deriving from fds_process 

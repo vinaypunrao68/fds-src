@@ -222,6 +222,8 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
                 fsm.pending_tokens_.erase(fsm.write_token_id_);
                 fsm.completed_tokens_.push_back(fsm.write_token_id_);
 
+                fsm.migrationSvc_->mig_cntrs.tokens_rcvd.incr();
+
                 LOGNORMAL << "Token " << fsm.write_token_id_ << " received completely";
             }
         }
