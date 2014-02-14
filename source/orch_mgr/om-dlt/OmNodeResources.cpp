@@ -116,16 +116,19 @@ OM_SmAgent::om_send_vol_cmd(VolumeInfo::pointer vol, fpi::FDSP_MsgCodeType cmd_t
     const VolumeDesc          *desc;
     fpi::FDSP_MsgHdrTypePtr    m_hdr(new fpi::FDSP_MsgHdrType);
 
+    desc = NULL;
     this->init_msg_hdr(m_hdr);
-    desc                  = vol->vol_get_properties();
-    m_hdr->glob_volume_id = desc->volUUID;
-
+    if (vol != NULL) {
+        desc                  = vol->vol_get_properties();
+        m_hdr->glob_volume_id = desc->volUUID;
+    }
     switch (cmd_type) {
         case fpi::FDSP_MSG_DELETE_VOL:
         case fpi::FDSP_MSG_MODIFY_VOL:
         case fpi::FDSP_MSG_CREATE_VOL: {
             FdspNotVolPtr notif(new fpi::FDSP_NotifyVolType);
 
+            fds_verify(vol != NULL);
             vol->vol_fmt_desc_pkt(&notif->vol_desc);
             notif->vol_name = vol->vol_get_name();
             m_hdr->msg_code = cmd_type;
@@ -151,8 +154,16 @@ OM_SmAgent::om_send_vol_cmd(VolumeInfo::pointer vol, fpi::FDSP_MsgCodeType cmd_t
         case fpi::FDSP_MSG_DETACH_VOL_CTRL: {
             FdspAttVolPtr attach(new fpi::FDSP_AttachVolType);
 
-            vol->vol_fmt_desc_pkt(&attach->vol_desc);
-            attach->vol_name = vol->vol_get_name();
+            if (vol != NULL) {
+                vol->vol_fmt_desc_pkt(&attach->vol_desc);
+                attach->vol_name = vol->vol_get_name();
+                m_hdr->result    = FDSP_ERR_VOLUME_EXISTS;
+                m_hdr->err_msg   = "Bucket exists";
+            } else {
+                attach->vol_name = "";
+                m_hdr->result    = FDSP_ERR_VOLUME_DOES_NOT_EXIST;
+                m_hdr->err_msg   = "Bucket does not exist";
+            }
             m_hdr->msg_code  = cmd_type;
 
             if (cmd_type == fpi::FDSP_MSG_ATTACH_VOL_CTRL) {
@@ -168,8 +179,13 @@ OM_SmAgent::om_send_vol_cmd(VolumeInfo::pointer vol, fpi::FDSP_MsgCodeType cmd_t
             fds_panic("Unknown vol cmd type");
         }
     }
-    FDS_PLOG_SEV(g_fdslog, fds_log::normal)
-        << log << desc->volUUID << " to node " << get_node_name() << std::endl;
+    if (desc != NULL) {
+        FDS_PLOG_SEV(g_fdslog, fds_log::normal)
+            << log << desc->volUUID << " to node " << get_node_name() << std::endl;
+    } else {
+        FDS_PLOG_SEV(g_fdslog, fds_log::normal)
+            << log << ", no vol to node " << get_node_name() << std::endl;
+    }
 }
 
 // om_send_reg_resp
@@ -428,12 +444,25 @@ OM_NodeContainer::OM_NodeContainer()
                       NULL),
     om_dmt_mtx("DMT-Mtx")
 {
+    om_volumes    = new VolumeContainer();
+}
+
+OM_NodeContainer::~OM_NodeContainer()
+{
+    delete om_admin_ctrl;
+}
+
+// om_init_domain
+// --------------
+//
+void
+OM_NodeContainer::om_init_domain()
+{
     om_admin_ctrl = new FdsAdminCtrl(OrchMgr::om_stor_prefix(), g_fdslog);
     om_dmt_ver    = 0;
     om_dmt_width  = 3;  // can address 2^3  DMs.
     om_dmt_depth  = 4;  // max 4 total DM replicas.
     om_curDmt     = new FdsDmt(om_dmt_width, om_dmt_depth);
-    om_volumes    = new VolumeContainer();
 
     am_stats = new PerfStats(OrchMgr::om_stor_prefix() + "OM_from_AM",
                              5 * FDS_STAT_DEFAULT_HIST_SLOTS);
@@ -445,11 +474,6 @@ OM_NodeContainer::OM_NodeContainer()
                                     OrchMgr::om_stor_prefix() +
                                     "-example.json");
     json_file.open(fname.c_str(), std::ios::out | std::ios::app);
-}
-
-OM_NodeContainer::~OM_NodeContainer()
-{
-    delete om_admin_ctrl;
 }
 
 // om_send_my_info_to_peer
@@ -663,10 +687,7 @@ OM_NodeContainer::om_bcast_dmt_table()
 
     msg.nd_msg_code  = fpi::FDSP_MSG_DMT_UPDATE;
     msg.u.nd_dmt_tab = &dmt;
-
-    dc_sm_nodes->agent_foreach<const om_node_msg_t &>(msg, om_send_node_command);
     dc_dm_nodes->agent_foreach<const om_node_msg_t &>(msg, om_send_node_command);
-    dc_am_nodes->agent_foreach<const om_node_msg_t &>(msg, om_send_node_command);
 }
 
 // om_round_robin_dmt
@@ -693,7 +714,9 @@ OM_NodeContainer::om_round_robin_dmt()
         node_it = dm_it;
         node_list.clear();
 
-        fds_verify(node_it != total_num_nodes);
+        if (node_it != total_num_nodes) {
+            return;
+        }
         for (fds_uint32_t j = 0; j < bucket_depth; j++) {
             node_list.push_back(dmMap[node_it]->rs_get_uuid().uuid_get_val());
 

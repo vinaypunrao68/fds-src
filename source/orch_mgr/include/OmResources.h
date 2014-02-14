@@ -237,6 +237,10 @@ class OM_NodeContainer : public DomainContainer
                              const FdspAttVolCmdPtr   &detach) {
         return om_volumes->om_detach_vol(hdr, detach);
     }
+    inline void om_test_bucket(const FdspMsgHdrPtr     &hdr,
+                               const FdspTestBucketPtr &req) {
+        return om_volumes->om_test_bucket(hdr, req);
+    }
 
     virtual void om_set_throttle_lvl(float level);
     virtual void om_send_bucket_stats(fds_uint32_t, std::string, fds_uint32_t);
@@ -272,6 +276,7 @@ class OM_NodeContainer : public DomainContainer
     FdsDmt                   *om_curDmt;
     fds_mutex                 om_dmt_mtx;
 
+    void om_init_domain();
     virtual void om_bcast_dmt_table();
     virtual void om_round_robin_dmt();
 

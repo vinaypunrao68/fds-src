@@ -561,7 +561,8 @@ void OrchMgr::FDSP_OMControlPathReqHandler::TestBucket(
 void OrchMgr::FDSP_OMControlPathReqHandler::TestBucket(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_TestBucketPtr& test_buck_msg) {
-    orchMgr->TestBucket(fdsp_msg, test_buck_msg);
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    local->om_test_bucket(fdsp_msg, test_buck_msg);
 }
 
 void OrchMgr::FDSP_OMControlPathReqHandler::NotifyMigrationDone(

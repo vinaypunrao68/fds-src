@@ -33,6 +33,7 @@ OM_NodeDomainMod::mod_init(SysParams const *const param)
 
     FdsConfigAccessor conf_helper(g_fdsprocess->get_conf_helper());
     om_test_mode = conf_helper.get<bool>("test_mode");
+    om_locDomain->om_init_domain();
     return 0;
 }
 

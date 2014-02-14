@@ -38,8 +38,8 @@ int main(int argc, char **argv)
     fds::Module *probe_vec[] = {
         &fds::gl_fds_stat,
         &fds::gl_probeS3Eng,
-        &fds::gl_OMModule,
         fds::orchMgr,
+        &fds::gl_OMModule,
         &fds::gl_OM_ProbeMod,
         nullptr
     };

@@ -130,6 +130,8 @@ class VolumeContainer : public RsContainer
                               const FdspAttVolCmdPtr   &attach);
     virtual int om_detach_vol(const FDSP_MsgHdrTypePtr &hdr,
                               const FdspAttVolCmdPtr   &detach);
+    virtual void om_test_bucket(const FdspMsgHdrPtr     &hdr,
+                                const FdspTestBucketPtr &req);
 
   protected:
     virtual Resource *rs_new(const ResourceUUID &uuid) {

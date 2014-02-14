@@ -362,4 +362,49 @@ VolumeContainer::om_detach_vol(const FDSP_MsgHdrTypePtr &hdr,
     return 0;
 }
 
+// om_test_bucket
+// --------------
+//
+void
+VolumeContainer::om_test_bucket(const FdspMsgHdrPtr     &hdr,
+                                const FdspTestBucketPtr &req)
+{
+    OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    std::string         &vname = req->bucket_name;
+    std::string         &nname = hdr->src_node_name;
+    NodeUuid             n_uid(fds_get_uuid64(nname));
+    ResourceUUID         v_uid(fds_get_uuid64(vname));
+    VolumeInfo::pointer  vol;
+    OM_AmAgent::pointer  am;
+
+    FDS_PLOG_SEV(g_fdslog, fds_log::notification)
+        << "Received test bucket request " << vname
+        << "attach_vol_reqd " << req->attach_vol_reqd << std::endl;
+
+    am = local->om_am_agent(n_uid);
+    if (am == NULL) {
+        FDS_PLOG_SEV(g_fdslog, fds_log::notification)
+            << "OM does not know about node " << nname;
+    }
+    vol = VolumeInfo::vol_cast_ptr(rs_get_resource(v_uid));
+    if (vol == NULL) {
+        FDS_PLOG_SEV(g_fdslog, fds_log::notification)
+            << "Bucket " << vname << " does not exists, notify node " << nname;
+
+        if (am != NULL) {
+            am->om_send_vol_cmd(NULL, fpi::FDSP_MSG_ATTACH_VOL_CTRL);
+        }
+    } else if (req->attach_vol_reqd == false) {
+        // Didn't request OM to attach this volume.
+        FDS_PLOG_SEV(g_fdslog, fds_log::notification)
+            << "Bucket " << vname << " exists, notify node " << nname;
+
+        if (am != NULL) {
+            am->om_send_vol_cmd(vol, fpi::FDSP_MSG_ATTACH_VOL_CTRL);
+        }
+    } else {
+        vol->vol_attach_node(nname);
+    }
+}
+
 }  // namespace fds
