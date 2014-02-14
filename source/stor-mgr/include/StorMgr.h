@@ -274,18 +274,6 @@ class ObjectStorMgr :
     ObjQueue         *dirtyFlashObjs;    /* Flash's dirty list */
 
     /*
-     * Outstanding request tracking members.
-     * TODO: We should have a better overall mechanism than
-     * this. This is pretty slow and hackey. The networking
-     * layer should eventually handle this, not SM.
-     */
-    typedef std::unordered_map<fds_uint64_t,
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr> WaitingReqMap;
-    WaitingReqMap              waitingReqs;
-    std::atomic<fds_uint64_t>  nextReqId;
-    fds_mutex                 *waitingReqMutex;
-
-    /*
      * Local perf stat collection
      */
     enum perfMigOp {

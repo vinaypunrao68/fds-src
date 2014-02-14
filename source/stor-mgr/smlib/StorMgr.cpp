@@ -238,11 +238,6 @@ ObjectStorMgr::ObjectStorMgr(int argc, char *argv[],
     objStorMutex = new fds_mutex("Object Store Mutex");
 
     /*
-     * Init the outstanding request count to 0.
-     */
-    nextReqId = ATOMIC_VAR_INIT(0);
-
-    /*
      * Will setup OM comm during run()
      */
     omClient = NULL;
