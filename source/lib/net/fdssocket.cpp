@@ -51,8 +51,8 @@ void Socket::open() {
     att::TSocket::open();
     fConnected = true;
     if (eventHandler) eventHandler->onSocketConnect();
-    atc::Synchronized s(monitor);
-    monitor.notify();
+    // atc::Synchronized s(monitor);
+    // monitor.notify();
 }
 
 void Socket::write(const uint8_t* buf, uint32_t len) {
@@ -127,8 +127,8 @@ bool Socket::connect(int retryCount, int backoff) {
     }
     if (isOpen()) {
         if (eventHandler) eventHandler->onSocketConnect();
-        atc::Synchronized s(monitor);
-        monitor.notify();
+        // atc::Synchronized s(monitor);
+        // monitor.notify();
     }
 
     return isOpen();
@@ -137,11 +137,13 @@ bool Socket::connect(int retryCount, int backoff) {
 void Socket::shutDown() {
     fShutDown = true;
     close();
-    atc::Synchronized s(monitor);
-    monitor.notify();
+    // atc::Synchronized s(monitor);
+    // monitor.notify();
 }
 
 void Socket::checkConnection() {
+    LOGWARN << "Not running the check connection thread for now [WIN-92]";
+    return;
     LOGDEBUG << "in checkConnection";
     for (; !fShutDown ;) {
         LOGDEBUG << "about to wait";
