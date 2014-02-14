@@ -47,8 +47,6 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
     return;
 #endif /* FDS_TEST_SM_NOOP */
 
-    fds_uint64_t reqId;
-    reqId = std::atomic_fetch_add(&(objStorMgr->nextReqId), (fds_uint64_t)1);
 
 #if 0 // will enable this once  data-placement code is tested
      // check the payload checksum  and return Error, if we run in to issues 
@@ -73,11 +71,6 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
      * TODO: We should check if this value has rolled at some point.
      * Though it's big enough for us to not care right now.
      */
-        msgHdr->msg_chksum = reqId;
-        objStorMgr->waitingReqMutex->lock();
-        objStorMgr->waitingReqs[reqId] = msgHdr;
-        objStorMgr->waitingReqMutex->unlock();
-
       objStorMgr->PutObject(msgHdr, putObj);
     } else {
 	msgHdr->err_code = FDSP_ERR_DLT_CONFLICT; 			
@@ -93,10 +86,6 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
      * now as there is no more processing to do.
      */
     if (msgHdr->result != FDSP_ERR_OK) {
-        objStorMgr->waitingReqMutex->lock();
-        objStorMgr->waitingReqs.erase(reqId);
-        objStorMgr->waitingReqMutex->unlock();
-
         msgHdr->msg_code = FDSP_MSG_PUT_OBJ_RSP;
         objStorMgr->swapMgrId(msgHdr);
         objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->PutObjectResp(msgHdr, putObj);
@@ -129,12 +118,6 @@ ObjectStorMgrI::GetObject(FDSP_MsgHdrTypePtr& msgHdr,
      * TODO: We should check if this value has rolled at some point.
      * Though it's big enough for us to not care right now.
      */
-    fds_uint64_t reqId;
-    reqId = std::atomic_fetch_add(&(objStorMgr->nextReqId), (fds_uint64_t)1);
-    msgHdr->msg_chksum = reqId;
-    objStorMgr->waitingReqMutex->lock();
-    objStorMgr->waitingReqs[reqId] = msgHdr;
-    objStorMgr->waitingReqMutex->unlock();
 
     /*
      * Submit the request to be enqueued
@@ -145,9 +128,6 @@ ObjectStorMgrI::GetObject(FDSP_MsgHdrTypePtr& msgHdr,
      * now as there is no more processing to do.
      */
     if (msgHdr->result != FDSP_ERR_OK) {
-        objStorMgr->waitingReqMutex->lock();
-        objStorMgr->waitingReqs.erase(reqId);
-        objStorMgr->waitingReqMutex->unlock();
 
         msgHdr->msg_code = FDSP_MSG_GET_OBJ_RSP;
         if(getObj->dlt_version != objStorMgr->omClient->getDltVersion()) {
@@ -190,15 +170,7 @@ ObjectStorMgrI::DeleteObject(FDSP_MsgHdrTypePtr& msgHdr,
      * TODO: We should check if this value has rolled at some point.
      * Though it's big enough for us to not care right now.
      */
-    fds_uint64_t reqId;
-    reqId = std::atomic_fetch_add(&(objStorMgr->nextReqId), (fds_uint64_t)1);
-
     if (delObj->dlt_version == objStorMgr->omClient->getDltVersion()) {
-
-        msgHdr->msg_chksum = reqId;
-        objStorMgr->waitingReqMutex->lock();
-        objStorMgr->waitingReqs[reqId] = msgHdr;
-        objStorMgr->waitingReqMutex->unlock();
 
         objStorMgr->DeleteObject(msgHdr, delObj);
     } else {
@@ -215,9 +187,6 @@ ObjectStorMgrI::DeleteObject(FDSP_MsgHdrTypePtr& msgHdr,
      * now as there is no more processing to do.
      */
     if (msgHdr->result != FDSP_ERR_OK) {
-        objStorMgr->waitingReqMutex->lock();
-        objStorMgr->waitingReqs.erase(reqId);
-        objStorMgr->waitingReqMutex->unlock();
 
         msgHdr->msg_code = FDSP_MSG_DELETE_OBJ_RSP;
         objStorMgr->swapMgrId(msgHdr);
@@ -267,7 +236,6 @@ ObjectStorMgr::ObjectStorMgr(int argc, char *argv[],
     sm_log->setSeverityFilter((fds_log::severity_level) conf_helper_.get<int>("log_severity"));
     FDS_PLOG(sm_log) << "Constructing the Object Storage Manager";
     objStorMutex = new fds_mutex("Object Store Mutex");
-    waitingReqMutex = new fds_mutex("Object Store Mutex");
 
     /*
      * Init the outstanding request count to 0.
@@ -342,7 +310,6 @@ ObjectStorMgr::~ObjectStorMgr() {
      * TODO: Assert that the waiting req map is empty.
      */
 
-    delete waitingReqMutex;
     delete qosCtrl;
 
     delete writeBackThreads;
@@ -1317,11 +1284,8 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
     /*
      * Prepare a response to send back.
      */
-    waitingReqMutex->lock();
-    fds_verify(waitingReqs.count(putReq->io_req_id) > 0);
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr = waitingReqs[putReq->io_req_id];
-    waitingReqs.erase(putReq->io_req_id);
-    waitingReqMutex->unlock();
+    ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_transaction(putReq->getTransId());
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr = jrnlEntry->getMsgHdr();
 
     FDSP_PutObjTypePtr putObj(new FDSP_PutObjType());
     putObj->data_obj_id.hash_high = objId.GetHigh();
@@ -1428,11 +1392,8 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
     /*
      * Prepare a response to send back.
      */
-    waitingReqMutex->lock();
-    fds_verify(waitingReqs.count(delReq->io_req_id) > 0);
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr = waitingReqs[delReq->io_req_id];
-    waitingReqs.erase(delReq->io_req_id);
-    waitingReqMutex->unlock();
+    ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_transaction(delReq->getTransId());
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr = jrnlEntry->getMsgHdr();
 
     FDSP_DeleteObjTypePtr delObj(new FDS_ProtocolInterface::FDSP_DeleteObjType());
     delObj->data_obj_id.hash_high = objId.GetHigh();
@@ -1535,7 +1496,6 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
      * memory for that size.
      */
 
-    ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_transaction(getReq->getTransId());
     objStorMutex->lock();
     objBufPtr = objCache->object_retrieve(volId, objId);
 
@@ -1571,11 +1531,8 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
     /*
      * Prepare a response to send back.
      */
-    waitingReqMutex->lock();
-    fds_assert(waitingReqs.count(getReq->io_req_id) > 0);
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr = waitingReqs[getReq->io_req_id];
-    waitingReqs.erase(getReq->io_req_id);
-    waitingReqMutex->unlock();
+    ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_transaction(getReq->getTransId());
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr = jrnlEntry->getMsgHdr();
 
     /*
      * This does an additional object copy into the network buffer.
