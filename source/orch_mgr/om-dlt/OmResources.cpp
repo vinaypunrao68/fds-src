@@ -75,6 +75,7 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         // Let this new node know about exisiting node list.
         // TODO(Andrew): this should change into dissemination of the cur cluster map.
         //
+        om_locDomain->om_add_capacity(newNode);
         om_locDomain->om_update_node_list(newNode, msg);
         om_locDomain->om_bcast_vol_list(newNode);
 

@@ -752,6 +752,14 @@ int OMgrClient::recvDMTUpdate(int dmt_vrsn, const Node_Table_Type& dmt_table) {
 
   omc_lock.write_unlock();
 
+  int row = 0;
+  for (auto it = dmt_table.cbegin(); it != dmt_table.cend(); it++) {
+    for (auto jt = (*it).cbegin(); jt != (*it).cend(); jt++) {
+        FDS_PLOG_SEV(omc_log, fds::fds_log::notification)
+           << "[Col " << row << std::hex << "] " << *jt;
+    }
+    row++;
+  }
   return (0);
 }
 

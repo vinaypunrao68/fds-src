@@ -59,6 +59,9 @@ class OM_SmAgent : public NodeAgent
     static inline OM_SmAgent::pointer agt_cast_ptr(Resource::pointer ptr) {
         return static_cast<OM_SmAgent *>(get_pointer(ptr));
     }
+    inline fpi::FDSP_MgrIdType om_agent_type() {
+        return ndMyServId;
+    }
     void setCpSession(NodeAgentCpSessionPtr session, fpi::FDSP_MgrIdType myId);
 
     /**
@@ -260,6 +263,7 @@ class OM_NodeContainer : public DomainContainer
   private:
     friend class OM_NodeDomainMod;
 
+    virtual void om_add_capacity(NodeAgent::pointer node);
     virtual void om_bcast_new_node(NodeAgent::pointer node, const FdspNodeRegPtr ref);
     virtual void om_update_node_list(NodeAgent::pointer node, const FdspNodeRegPtr ref);
 

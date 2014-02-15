@@ -94,6 +94,7 @@ bool Socket::peek() {
                 fConnected = false;
             }
         }
+        return fHasData;
     } catch(const att::TTransportException& e) {
         if (e.getType() == att::TTransportException::TTransportExceptionType::NOT_OPEN ||
             e.getType() == att::TTransportException::TTransportExceptionType::UNKNOWN

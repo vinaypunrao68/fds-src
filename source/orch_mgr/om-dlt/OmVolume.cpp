@@ -26,6 +26,8 @@ void
 VolumeInfo::vol_mk_description(const fpi::FDSP_VolumeInfoType &info)
 {
     vol_properties = new VolumeDesc(info, rs_uuid.uuid_get_val());
+    strncpy(rs_name, info.vol_name.c_str(), RS_NAME_MAX);
+    rs_name[RS_NAME_MAX - 1] = '\0';
 }
 
 // vol_apply_description

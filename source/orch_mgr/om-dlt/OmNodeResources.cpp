@@ -66,6 +66,7 @@ OM_SmAgent::om_send_myinfo(NodeAgent::pointer peer)
     if (node_state() == fpi::FDS_Node_Down) {
         OM_SmAgent::agt_cast_ptr(peer)->ndCpClient->NotifyNodeRmv(m_hdr, n_inf);
     } else {
+        n_inf->node_state = fpi::FDS_Node_Up;
         OM_SmAgent::agt_cast_ptr(peer)->ndCpClient->NotifyNodeAdd(m_hdr, n_inf);
     }
     FDS_PLOG_SEV(g_fdslog, fds_log::normal)
@@ -157,14 +158,12 @@ OM_SmAgent::om_send_vol_cmd(VolumeInfo::pointer vol, fpi::FDSP_MsgCodeType cmd_t
             if (vol != NULL) {
                 vol->vol_fmt_desc_pkt(&attach->vol_desc);
                 attach->vol_name = vol->vol_get_name();
-                m_hdr->result    = FDSP_ERR_VOLUME_EXISTS;
-                m_hdr->err_msg   = "Bucket exists";
             } else {
                 attach->vol_name = "";
                 m_hdr->result    = FDSP_ERR_VOLUME_DOES_NOT_EXIST;
                 m_hdr->err_msg   = "Bucket does not exist";
             }
-            m_hdr->msg_code  = cmd_type;
+            m_hdr->msg_code = cmd_type;
 
             if (cmd_type == fpi::FDSP_MSG_ATTACH_VOL_CTRL) {
                 log = "Send attach volume ";
@@ -476,6 +475,20 @@ OM_NodeContainer::om_init_domain()
     json_file.open(fname.c_str(), std::ios::out | std::ios::app);
 }
 
+// om_update_capacity
+// ------------------
+//
+void
+OM_NodeContainer::om_add_capacity(NodeAgent::pointer node)
+{
+    OM_SmAgent::pointer agent;
+
+    agent = OM_SmAgent::agt_cast_ptr(node);
+    if (agent->om_agent_type() != fpi::FDSP_STOR_HVISOR) {
+        om_admin_ctrl->addDiskCapacity(node->node_capability());
+    }
+}
+
 // om_send_my_info_to_peer
 // -----------------------
 //
@@ -687,7 +700,7 @@ OM_NodeContainer::om_bcast_dmt_table()
 
     msg.nd_msg_code  = fpi::FDSP_MSG_DMT_UPDATE;
     msg.u.nd_dmt_tab = &dmt;
-    dc_dm_nodes->agent_foreach<const om_node_msg_t &>(msg, om_send_node_command);
+    dc_am_nodes->agent_foreach<const om_node_msg_t &>(msg, om_send_node_command);
 }
 
 // om_round_robin_dmt
@@ -714,8 +727,8 @@ OM_NodeContainer::om_round_robin_dmt()
         node_it = dm_it;
         node_list.clear();
 
-        if (node_it != total_num_nodes) {
-            return;
+        if (node_it == total_num_nodes) {
+            break;
         }
         for (fds_uint32_t j = 0; j < bucket_depth; j++) {
             node_list.push_back(dmMap[node_it]->rs_get_uuid().uuid_get_val());
