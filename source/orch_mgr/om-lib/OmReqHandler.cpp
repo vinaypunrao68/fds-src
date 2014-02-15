@@ -266,7 +266,22 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::RemoveNode(
 
     int err = 0;
     try {
-        err = orchMgr->RemoveNode(fdsp_msg, rm_node_req);
+         FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::normal)
+            << "Received remove node " << rm_node_req->node_name;
+
+        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+        NodeUuid rm_node_uuid(fds_get_uuid64(rm_node_req->node_name));
+        Error err = domain->om_del_node_info(rm_node_uuid, rm_node_req->node_name);
+
+        if (!err.ok()) {
+            FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
+                << "RemoveNode: remove node info from local domain failed for node "
+                << rm_node_req->node_name << ", uuid "
+                << std::hex << rm_node_uuid.uuid_get_val()
+                << std::dec << ", result: " << err.GetErrstr();
+            return -1;
+        }
+        domain->om_update_cluster();
     }
     catch(...) {
         FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
@@ -524,7 +539,25 @@ void OrchMgr::FDSP_OMControlPathReqHandler::RegisterNode(
 void OrchMgr::FDSP_OMControlPathReqHandler::RegisterNode(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_RegisterNodeTypePtr& reg_node_req) {
-    orchMgr->RegisterNode(fdsp_msg, reg_node_req);
+    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+    NodeUuid new_node_uuid(fds_get_uuid64(reg_node_req->node_name));
+    Error err = domain->om_reg_node_info(new_node_uuid, reg_node_req);
+
+    if (!err.ok()) {
+        FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
+            << "Node Registration failed for "
+            << reg_node_req->node_name << ", result: "
+            << err.GetErrstr();
+        return;
+    }
+    FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::normal)
+        << "Registered new node " << std::hex
+        << new_node_uuid.uuid_get_val() << std::dec;
+
+    // TODO(Andrew): for now, let's start the cluster update process now.
+    // This should eventually be decoupled from registration.
+    //
+    domain->om_update_cluster();
 }
 
 void OrchMgr::FDSP_OMControlPathReqHandler::NotifyQueueFull(
