@@ -1796,7 +1796,7 @@ Error ObjectStorMgr::putTokenObjectsInternal(const fds_token_id &token,
  * @param the request structure ptr
  * @return any associated error
  */
-Error
+void
 ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq) 
 {
     Error err(ERR_OK);
@@ -1822,14 +1822,12 @@ ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq)
          */
         err = ERR_OK;
 
-#ifdef DEBUG
-        std::string temp_data = obj.data;
-#endif
+        DBG(std::string temp_data = obj.data);
         ObjectBuf objData;
         objData.data = std::move(obj.data);
         objData.size = objData.data.size();
         fds_assert(temp_data == objData.data);
-
+        obj.data.clear();
 
         err = writeObject(objId, objData, DataTier::diskTier);
         if (err != ERR_OK) {
@@ -1843,9 +1841,10 @@ ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq)
             DataTier::diskTier);
 
     putTokReq->response_cb(err, putTokReq);
+    /* NOTE: We expect the caller to free up ioReq */
 }
 
-Error
+void
 ObjectStorMgr::getTokenObjectsInternal(SmIoReq* ioReq)
 {
     Error err(ERR_OK);
@@ -1859,7 +1858,6 @@ ObjectStorMgr::getTokenObjectsInternal(SmIoReq* ioReq)
 
     getTokReq->response_cb(err, getTokReq);
     /* NOTE: We expect the caller to free up ioReq */
-    return err;
 }
 
 inline void ObjectStorMgr::swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg) {
@@ -1914,9 +1912,13 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
             threadPool->schedule(delObjectExt,io);
             break;
         case FDS_SM_WRITE_TOKEN_OBJECTS:
+        {
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a write token ibjects";
+            // SmIoPutTokObjectsReq *putTokReq = static_cast<SmIoPutTokObjectsReq*>(io);
+            // putTokReq->response_cb(err, putTokReq);
             threadPool->schedule(&ObjectStorMgr::putTokenObjectsInternal, objStorMgr, io);
             break;
+        }
         case FDS_SM_READ_TOKEN_OBJECTS:
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a read token objects";
             threadPool->schedule(&ObjectStorMgr::getTokenObjectsInternal, objStorMgr, io);

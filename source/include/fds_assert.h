@@ -24,9 +24,20 @@ extern void fds_panic(const char *fmt, ...) panic_attr;
                   #expr, __FILE__, __LINE__);                                \
     }
 
-#else
+/* Statement that is only enabled in debug build */
+#define DBG(statement) statement
+
+#else  /* DEBUG */
+
 #define fds_assert(expr)
-#endif /* DEBUG_BUILD */
+
+#define DBG(statement)
+
+#endif /* DEBUG */
+
+#ifdef DEBUG
+#else
+#endif
 
 #ifdef __cplusplus
 }
