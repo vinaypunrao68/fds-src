@@ -270,7 +270,6 @@ int OrchMgr::RemoveNode(const FdspMsgHdrPtr& fdsp_msg,
     FDS_PLOG_SEV(GetLog(), fds_log::normal)
             << "Received RemoveNode Req : "
             << rm_node_req->node_name;
-
 #if 0
     // TODO(Anna) remove this local domain
     localDomainInfo  *currentDom = locDomMap[DEFAULT_LOC_DOMAIN_ID];
@@ -320,7 +319,6 @@ int OrchMgr::RemoveNode(const FdspMsgHdrPtr& fdsp_msg,
     sm_map.erase(rm_node_req->node_name);
     om_mutex->unlock();
 #endif
-
     // TODO(Anna): For now, let's start the cluster update process
     // now. This should eventually be decoupled from removal
     domain->om_update_cluster();
@@ -865,6 +863,7 @@ void OrchMgr::TestBucket(const FdspMsgHdrPtr& fdsp_msg,
 void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
                            const FdspRegNodePtr &reg_node_req)
 {
+#if 0
     // localDomainInfo  *currentDom;
     FDS_PLOG_SEV(GetLog(), fds_log::notification)
             << "Received RegisterNode Msg"
@@ -885,7 +884,6 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
             << "  Ssd latency Max : " << (reg_node_req->disk_info).ssd_latency_max
             << "  Ssd latency Min: " << (reg_node_req->disk_info).ssd_latency_min
             << "  Disk Type : " << (reg_node_req->disk_info).disk_type;
-#if 0
     /*
      * get the domain Id. If  Domain is not created  use  default domain 
      * for now use  default  domain 
@@ -908,12 +906,11 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
 
     fds_int32_t new_node_id =
             currentDom->domain_ptr->getFreeNodeId(reg_node_req->node_name);
-
+#endif
     /*
      * Build the node info structure and add it
      * to its map, based on type.
      */
-#endif
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
     NodeUuid new_node_uuid(fds_get_uuid64(reg_node_req->node_name));
     Error err = domain->om_reg_node_info(new_node_uuid, reg_node_req);
@@ -925,6 +922,8 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
                 << err.GetErrstr();
         return;
     }
+    LOGNORMAL << "Registered new node " << std::hex
+        << new_node_uuid.uuid_get_val() << std::dec;
 #if 0
     fds::NodeInfo n_info(new_node_id,
 
@@ -973,9 +972,7 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
     // not the per-node channel that's established during
     // registration/bootstrap
     currentDom->domain_ptr->sendRegRespToNode(n_info, ERR_OK);
-#endif
 
-    LOGNORMAL << "Registered new node " << n_info.node_id;
 
     // TODO(Andrew): For now, let's start the cluster update process
     // now. This should eventually be decoupled from registration.
@@ -984,6 +981,7 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
     // Old code to send the DMT to DMs.
     // currentDom->domain_ptr->updateTables();
     // currentDom->domain_ptr->sendNodeTableToFdsNodes(table_type_dmt);
+#endif
 }
 
 #if 0

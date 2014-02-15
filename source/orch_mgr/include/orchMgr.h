@@ -119,21 +119,18 @@ class OrchMgr: public FdsProcess, public Module {
                    const FdspAttVolCmdPtr& atc_vol_req);
     int DetachVol(const FdspMsgHdrPtr& fdsp_msg,
                    const FdspAttVolCmdPtr& dtc_vol_req);
-#endif
-    void RegisterNode(const FdspMsgHdrPtr& fdsp_msg,
-                      const FdspRegNodePtr& reg_node_req);
-#if 0
     int CreateDomain(const FdspMsgHdrPtr& fdsp_msg,
                      const FdspCrtDomPtr& crt_dom_req);
     int DeleteDomain(const FdspMsgHdrPtr& fdsp_msg,
                      const FdspCrtDomPtr& del_dom_req);
-#endif
-    int RemoveNode(const FdspMsgHdrPtr& fdsp_msg,
-                   const FdspRmNodePtr& rm_node_req);
-#if 0
     int SetThrottleLevel(const FDSP_MsgHdrTypePtr& fdsp_msg,
                          const FDSP_ThrottleMsgTypePtr& throttle_req);
 #endif
+    void RegisterNode(const FdspMsgHdrPtr& fdsp_msg,
+                      const FdspRegNodePtr& reg_node_req);
+    int RemoveNode(const FdspMsgHdrPtr& fdsp_msg,
+                   const FdspRmNodePtr& rm_node_req);
+
     void NotifyQueueFull(const FDSP_MsgHdrTypePtr& fdsp_msg,
                         const FDSP_NotifyQueueStateTypePtr& queue_state_req);
     void NotifyPerfstats(const FDSP_MsgHdrTypePtr& fdsp_msg,
