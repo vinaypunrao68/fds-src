@@ -454,8 +454,8 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
   msgHdrSm->src_node_name = storHvisor->myIp;
   msgHdrDm->src_port       = 0;
   fds_uint64_t nodeIds[numNodes];
-  dataPlacementTbl->getDMTNodesForVolume(volId, nodeIds, &numNodes);
   memset(nodeIds, 0x00, sizeof(fds_int32_t) * numNodes);
+  dataPlacementTbl->getDMTNodesForVolume(volId, nodeIds, &numNodes);
   fds_verify(numNodes > 0);
 
   /*
