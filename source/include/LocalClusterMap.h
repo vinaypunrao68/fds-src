@@ -53,8 +53,12 @@ namespace fds {
 
         /**
          * Returns node info
+         * TODO(Andrew): Use NodeUuid not uin64 directly
          */
-        NodeUuid getNodeInfo() const;
+        int getNodeInfo(fds_uint64_t nodeUuid,
+                        fds_uint32_t *nodeIpAddr,
+                        fds_uint32_t *nodePort,
+                        int *nodeState);
 
         /**
          * Return a migration interface client to the

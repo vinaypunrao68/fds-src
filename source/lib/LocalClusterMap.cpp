@@ -25,10 +25,27 @@ void
 LocalClusterMap::mod_shutdown() {
 }
 
-NodeUuid
-LocalClusterMap::getNodeInfo() const {
-    NodeUuid tmp;
-    return tmp;
+int
+LocalClusterMap::getNodeInfo(fds_uint64_t nodeUuid,
+                             fds_uint32_t *nodeIpAddr,
+                             fds_uint32_t *nodePort,
+                             int *nodeState) {
+    lcmLock.write_lock();
+    if (clusterMembers.count(nodeUuid) == 0) {
+        // Return error if the node isn't in the cluster
+        lcmLock.write_unlock();
+        return -1;
+    }
+
+    node_info_t node = clusterMembers[nodeUuid];
+    fds_verify(node.node_id == nodeUuid);
+
+    *nodeIpAddr = node.node_ip_address;
+    *nodePort   = node.port;
+    *nodeState  = node.node_state;
+    lcmLock.write_unlock();
+
+    return 0;
 }
 
 NodeMigReqClientPtr

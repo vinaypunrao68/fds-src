@@ -9,9 +9,11 @@
 #include <util/Log.h>
 
 /* TODO: move to include dir if this is the top level API header file. */
-#include <lib/Catalog.h>
+// #include <lib/Catalog.h>
 
 namespace fds {
+
+class Catalog;
 
 /* Volume policy catalog, etc  */
 class VolPolicyMgr {

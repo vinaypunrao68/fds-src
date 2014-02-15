@@ -1,5 +1,5 @@
-/*                                                                                                   
- * Copyright 2014 Formation Data Systems, Inc.                                                       
+/*
+ * Copyright 2014 Formation Data Systems, Inc.
  */
 
 /** Defines the classes within a single local domain */
@@ -17,13 +17,15 @@
 #include <fds_volume.h>
 #include <fdsp/FDSP_types.h>
 #include <util/Log.h>
-#include <orchMgr.h>
 #include <OmAdminCtrl.h>
-
-#define MAX_OM_NODES 512
+#include <NetSession.h>
 
 namespace fds {
 
+class DLT;
+class Catalog;
+class PerfStats;
+#if 0
     typedef std::string fds_node_name_t;
     typedef FDS_ProtocolInterface::FDSP_MgrIdType fds_node_type_t;
     typedef FDS_ProtocolInterface::FDSP_NodeState FdspNodeState;
@@ -182,7 +184,6 @@ namespace fds {
         boost::shared_ptr<netSessionTbl> net_session_tbl;
         netControlPathClientSession* ctrl_session; /* cached client session */
     };
-
     /**
      * Defines the parameters/settings for
      * volumes in the cluster.
@@ -194,7 +195,6 @@ namespace fds {
         VolumeDesc  *properties;
         std::vector<fds_node_name_t> hv_nodes;
     };
-
     class FdsAdminCtrl;
 
     /**
@@ -220,12 +220,14 @@ namespace fds {
         volume_map_t volumeMap;
 
         fds_mutex *dom_mutex;
+
         /*
          * Updates both DMT and DLT under a single lock.
          */
         static void roundRobinDlt(fds_placement_table* table,
                                   const node_map_t& nodeMap,
                                   fds_log* callerLog);
+
         void updateTables();
         void updateDltLocked();
         void updateDmtLocked();
@@ -256,7 +258,7 @@ namespace fds {
 
         float current_throttle_level;
 
-        void copyPropertiesToVolumeDesc(
+        static void copyPropertiesToVolumeDesc(
             FDS_ProtocolInterface::FDSP_VolumeDescType& v_desc,
             VolumeDesc *pVol);
 
@@ -283,10 +285,12 @@ namespace fds {
          * Broadcast create vol ctrl message to all DM/SM Nodes
          */
         void sendCreateVolToFdsNodes(VolumeInfo *pVol);
+
         /*
          * Broadcast modify vol ctrl message to all SH/DM/SM Nodes
          */
         void sendModifyVolToFdsNodes(VolumeInfo *pVol);
+
         /*
          * Broadcast delete vol ctrl message to all DM/SM Nodes
          */
@@ -308,6 +312,7 @@ namespace fds {
          * Dump all concerned volumes as a sequence of
          * attach vol ctrl messages to a HV node
          */
+
         void sendAllVolumesToHvNode(fds_node_name_t node_name);
         /*
          * Dump all existing SM/DM nodes info as a sequence
@@ -315,6 +320,7 @@ namespace fds {
          * node
          */
         void sendMgrNodeListToFdsNode(const NodeInfo& n_info);
+
         /*
          * Broadcast current DLT or DMT to all SM/DM/HV
          * nodes known to OM
@@ -377,7 +383,9 @@ namespace fds {
         fds_int32_t  glb_dom_id;
         FdsLocalDomain  *domain_ptr;
     };
+#endif
 
 }  // namespace fds
+
 
 #endif  // SOURCE_ORCH_MGR_INCLUDE_OMLOCDOMAIN_H_

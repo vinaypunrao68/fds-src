@@ -6,15 +6,15 @@
 #include <string>
 #include <iostream>
 #include <orchMgr.h>
+#include <OmResources.h>
 
 namespace fds {
 
 void
 Orch_VolPolicyServ::serv_recvTierPolicyReq(const fdp::tier_pol_time_unitPtr &tier)
 {
-    FDS_ProtocolInterface::FDSP_TierPolicyPtr sm_data(
-        new FDS_ProtocolInterface::FDSP_TierPolicy);
-    localDomainInfo *dom = gl_orch_mgr->om_GetDomainInfo(DEFAULT_LOC_DOMAIN_ID);
+    fpi::FDSP_TierPolicyPtr sm_data(new fpi::FDSP_TierPolicy);
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
 
     FDS_PLOG_SEV(g_fdslog, fds_log::normal) << "OrchMgr: Receive tier policy";
 
@@ -27,50 +27,25 @@ Orch_VolPolicyServ::serv_recvTierPolicyReq(const fdp::tier_pol_time_unitPtr &tie
     sm_data->tier_interval_sec  = tier->tier_period.ts_sec;
 
     if (tier->tier_domain_policy == false) {
-        dom->domain_ptr->sendTierPolicyToSMNodes(sm_data);
+        sm_data->tier_domain_policy = true;
     } else {
-        // Get all volumes in the domain and send out the command.
-        // Using this queue is overkill...
-        int vol_cnt;
-        std::queue<fds_uint64_t> vol_ids;
-        FdsLocalDomain *loc = dom->domain_ptr;
-
         sm_data->tier_domain_uuid   = 0;
         sm_data->tier_domain_policy = false;
-        loc->dom_mutex->lock();
-        for (auto it = loc->volumeMap.begin();
-             it != loc->volumeMap.end(); it++) {
-            VolumeInfo *vol = it->second;
-            vol_ids.push(vol->volUUID);
-        }
-        loc->dom_mutex->unlock();
-
-        for (vol_cnt = 0; !vol_ids.empty(); vol_cnt++) {
-            sm_data->tier_vol_uuid = vol_ids.front();
-            vol_ids.pop();
-
-            FDS_PLOG_SEV(g_fdslog, fds_log::normal)
-                    << "Appling tier polity to vol " << sm_data->tier_vol_uuid;
-
-            dom->domain_ptr->sendTierPolicyToSMNodes(sm_data);
-        }
-        FDS_PLOG_SEV(g_fdslog, fds_log::normal)
-                << "Applied tier policy to " << vol_cnt << " volumes.";
     }
+    local->om_bcast_tier_policy(sm_data);
 }
 
 void
 Orch_VolPolicyServ::serv_recvAuditTierPolicy(const fdp::tier_pol_auditPtr &audit)
 {
-    FDS_ProtocolInterface::FDSP_TierPolicyAuditPtr sm_data(
-        new FDS_ProtocolInterface::FDSP_TierPolicyAudit);
-    localDomainInfo *dom = gl_orch_mgr->om_GetDomainInfo(DEFAULT_LOC_DOMAIN_ID);
+    fpi::FDSP_TierPolicyAuditPtr sm_data(new fpi::FDSP_TierPolicyAudit);
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
 
     // We have no way to send back result to CLI
     //
     sm_data->tier_vol_uuid      = 0;
     sm_data->tier_stat_min_iops = 0;
-    dom->domain_ptr->sendTierAuditPolicyToSMNodes(sm_data);
+    local->om_bcast_tier_audit(sm_data);
 }
 
 void
