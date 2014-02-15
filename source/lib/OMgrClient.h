@@ -75,7 +75,6 @@ namespace fds {
     fds_uint32_t my_control_port;
     fds_uint32_t my_data_port;
     fds_uint32_t my_migration_port;
-    node_map_t node_map;
     const DLT *dlt;
     DLTManager dltMgr;
     int dmt_version;
@@ -140,6 +139,7 @@ namespace fds {
     void start_omrpc_handler();
 
     NodeUuid getUuid() const;
+    FDSP_MgrIdType getNodeType() const;
 
     int registerEventHandlerForNodeEvents(node_event_handler_t node_event_hdlr);
     int registerEventHandlerForVolEvents(volume_event_handler_t vol_event_hdlr);
