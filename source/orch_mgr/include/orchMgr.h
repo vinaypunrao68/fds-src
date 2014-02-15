@@ -100,56 +100,18 @@ class OrchMgr: public FdsProcess, public Module {
     static VolPolicyMgr      *om_policy_mgr();
     static const std::string &om_stor_prefix();
 
-#if 0
-    int CreateVol(const FdspMsgHdrPtr& fdsp_msg,
-                  const FdspCrtVolPtr& crt_vol_req);
-    int DeleteVol(const FdspMsgHdrPtr& fdsp_msg,
-                  const FdspDelVolPtr& del_vol_req);
-    int ModifyVol(const FdspMsgHdrPtr& fdsp_msg,
-                  const FdspModVolPtr& mod_vol_req);
-#endif
     int CreatePolicy(const FdspMsgHdrPtr& fdsp_msg,
                      const FdspCrtPolPtr& crt_pol_req);
     int DeletePolicy(const FdspMsgHdrPtr& fdsp_msg,
                      const FdspDelPolPtr& del_pol_req);
     int ModifyPolicy(const FdspMsgHdrPtr& fdsp_msg,
                      const FdspModPolPtr& mod_pol_req);
-#if 0
-    int AttachVol(const FdspMsgHdrPtr& fdsp_msg,
-                   const FdspAttVolCmdPtr& atc_vol_req);
-    int DetachVol(const FdspMsgHdrPtr& fdsp_msg,
-                   const FdspAttVolCmdPtr& dtc_vol_req);
-    int CreateDomain(const FdspMsgHdrPtr& fdsp_msg,
-                     const FdspCrtDomPtr& crt_dom_req);
-    int DeleteDomain(const FdspMsgHdrPtr& fdsp_msg,
-                     const FdspCrtDomPtr& del_dom_req);
-    int SetThrottleLevel(const FDSP_MsgHdrTypePtr& fdsp_msg,
-                         const FDSP_ThrottleMsgTypePtr& throttle_req);
-#endif
-    void RegisterNode(const FdspMsgHdrPtr& fdsp_msg,
-                      const FdspRegNodePtr& reg_node_req);
-    int RemoveNode(const FdspMsgHdrPtr& fdsp_msg,
-                   const FdspRmNodePtr& rm_node_req);
-
     void NotifyQueueFull(const FDSP_MsgHdrTypePtr& fdsp_msg,
                         const FDSP_NotifyQueueStateTypePtr& queue_state_req);
     void NotifyPerfstats(const FDSP_MsgHdrTypePtr& fdsp_msg,
                         const FDSP_PerfstatsTypePtr& perf_stats_msg);
-    void TestBucket(const FDSP_MsgHdrTypePtr& fdsp_msg,
-                    const FDSP_TestBucketPtr& test_buck_req);
-#if 0
-    int GetDomainStats(const FdspMsgHdrPtr& fdsp_msg,
-                       const FdspGetDomStatsPtr& get_stats_req);
-
-    int NotifyMigrationDone(const FdspMsgHdrPtr& fdsp_msg,
-                            const FdspMigrationStatusPtr& status_req);
-#endif
-    int ApplyTierPolicy(
-        ::FDS_ProtocolInterface::tier_pol_time_unitPtr& policy);
-
-    int AuditTierPolicy(
-        ::FDS_ProtocolInterface::tier_pol_auditPtr& audit);
-
+    int ApplyTierPolicy(::fpi::tier_pol_time_unitPtr& policy);  // NOLINT
+    int AuditTierPolicy(::fpi::tier_pol_auditPtr& audit);  // NOLINT
 
     /* config path: cli -> OM  */
     class FDSP_ConfigPathReqHandler : virtual public FDSP_ConfigPathReqIf {
