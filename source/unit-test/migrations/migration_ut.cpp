@@ -165,6 +165,7 @@ public:
 };
 
 int main() {
+    init_process_globals("temp.log");
     MigrationTester t;
     t.init();
     t.test1();

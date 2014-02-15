@@ -93,6 +93,7 @@ bool Socket::peek() {
                 if (eventHandler) eventHandler->onSocketDisconnect();
                 fConnected = false;
             }
+            return fHasData;
         }
         return fHasData;
     } catch(const att::TTransportException& e) {

@@ -101,13 +101,10 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         }
     }
 
-    // If this new node is an SM, update the DLT and bcast
     // TODO(Andrew): We should decouple registration from
     // cluster map addition eventually. We may want to add
     // the node to the inventory and then wait for a CLI
     // cmd to make the node a member.
-    // TODO(Andrew): Today, cluster map only knows SM. It
-    // should contain all members
     om_update_cluster_map();
 
     return err;

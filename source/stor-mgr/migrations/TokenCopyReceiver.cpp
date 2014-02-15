@@ -135,6 +135,8 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
     };
     struct Writing : public msm::front::state<>
     {
+        typedef mpl::vector<TokRecvdEvt> deferred_events;
+
         template <class Event, class FSM>
         void on_entry(Event const& , FSM&)
         {
@@ -148,6 +150,8 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
     };
     struct UpdatingTok : public msm::front::state<>
     {
+        typedef mpl::vector<TokRecvdEvt> deferred_events;
+
         template <class Event, class FSM>
         void on_entry(Event const& , FSM&)
         {

@@ -927,6 +927,8 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
     }
 #if 0
     fds::NodeInfo n_info(new_node_id,
+
+    fds::NodeInfo n_info(new_node_uuid.uuid_get_val(),
                          reg_node_req->node_name,
                          reg_node_req->node_type,
                          reg_node_req->ip_lo_addr,
@@ -973,9 +975,11 @@ void OrchMgr::RegisterNode(const FdspMsgHdrPtr  &fdsp_msg,
     currentDom->domain_ptr->sendRegRespToNode(n_info, ERR_OK);
 #endif
 
+    LOGNORMAL << "Registered new node " << n_info.node_id;
+
     // TODO(Andrew): For now, let's start the cluster update process
     // now. This should eventually be decoupled from registration.
-    domain->om_update_cluster();
+        domain->om_update_cluster();
 
     // Old code to send the DMT to DMs.
     // currentDom->domain_ptr->updateTables();
