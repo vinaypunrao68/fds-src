@@ -89,6 +89,9 @@ public:
         FDSP_MsgHdrTypePtr& getMsgHdr() { 
              return msg_hdr;
         }
+        void setMsgHdr(FDSP_MsgHdrTypePtr msghdr) { 
+             msg_hdr = msghdr;
+        }
 	FDS_IOType* get_fdsio();
 
 	unsigned int get_transid();

@@ -288,15 +288,18 @@ class ObjectStorMgr :
     /*
      * Private request processing members.
      */
-    Error enqGetObjectReq(FDSP_GetObjTypePtr getObjReq, 
+    Error enqGetObjectReq(FDSP_MsgHdrTypePtr msgHdr, 
+            FDSP_GetObjTypePtr getObjReq, 
             fds_volid_t        volId,
             fds_uint32_t       transId,
             fds_uint32_t       numObjs);
-    Error enqPutObjectReq(FDSP_PutObjTypePtr putObjReq, 
+    Error enqPutObjectReq(FDSP_MsgHdrTypePtr msgHdr, 
+            FDSP_PutObjTypePtr putObjReq, 
             fds_volid_t        volId,
             fds_uint32_t       transId,
             fds_uint32_t       numObjs);
-    Error enqDeleteObjectReq(FDSP_DeleteObjTypePtr delObjReq, 
+    Error enqDeleteObjectReq(FDSP_MsgHdrTypePtr msgHdr, 
+            FDSP_DeleteObjTypePtr delObjReq, 
             fds_volid_t        volId,
             fds_uint32_t       transId);
     Error checkDuplicate(const ObjectID  &objId,
