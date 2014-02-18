@@ -204,6 +204,7 @@ fds_log* HasLogger::GetLog() const {
 fds_log* HasLogger::SetLog(fds_log* logptr) const {
     fds_log* oldlogptr = this->logptr;
     this->logptr = logptr;
+    return oldlogptr;
 }
 
 // get the global logger

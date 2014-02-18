@@ -368,7 +368,7 @@ fds_uint32_t QoSHTBDispatcher::getNextQueueForDispatch()
   fds_uint32_t ret_qid = 0;
   TBQueueState *min_wma_qstate = NULL;
   double min_wma;  
-  int min_wma_hiprio;
+  uint min_wma_hiprio;
  
   while (1) {
 
@@ -391,7 +391,7 @@ fds_uint32_t QoSHTBDispatcher::getNextQueueForDispatch()
       it = qstate_map.begin();
     }
   
-    for (int i = 0; i < qstate_map.size(); ++i) {
+    for (uint i = 0; i < qstate_map.size(); ++i) {
       TBQueueState *qstate = it->second;
       assert(qstate != NULL);
 

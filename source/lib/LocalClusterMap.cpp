@@ -15,6 +15,7 @@ LocalClusterMap::~LocalClusterMap() {
 
 int
 LocalClusterMap::mod_init(SysParams const *const param) {
+    return 0;
 }
 
 void
