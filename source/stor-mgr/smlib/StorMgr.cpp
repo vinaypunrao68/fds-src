@@ -60,7 +60,18 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
     }
 #endif
 
+    /*
+     * Track the outstanding get request.
+     * TODO: This is a total hack. We're overloading the msg_hdr's
+     * msg_chksum field to track the outstanding request Id that
+     * we pass into the SM.
+     *
+     * TODO: We should check if this value has rolled at some point.
+     * Though it's big enough for us to not care right now.
+     */
+      objStorMgr->PutObject(msgHdr, putObj);
 
+#if 0 // SAN REMOVE CHECK for Integration 
     if (putObj->dlt_version == objStorMgr->omClient->getDltVersion()) {
     /*
      * Track the outstanding get request.
@@ -79,7 +90,9 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
         putObj->dlt_version = objStorMgr->omClient->getDltVersion();
         // update the resp  with new DLT
         objStorMgr->omClient->getLatestDlt(putObj->dlt_data);
+        FDS_PLOG(objStorMgr->GetLog()) << "DLT  version Conflict returning the latest"; 
     }
+#endif
 
     /*
      * If we failed to enqueue the I/O return the error response
@@ -1918,7 +1931,7 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
             threadPool->schedule(putObjectExt,io);
             break;
         case FDS_DELETE_BLOB:
-            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a put request";
+            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a Delete request";
             threadPool->schedule(delObjectExt,io);
             break;
         case FDS_SM_WRITE_TOKEN_OBJECTS:
