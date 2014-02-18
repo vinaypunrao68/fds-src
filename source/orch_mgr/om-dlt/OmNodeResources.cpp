@@ -234,7 +234,9 @@ OM_SmAgent::om_send_dlt(const DLT *curDlt) {
     ndCpClient->NotifyDLTUpdate(m_hdr, d_msg);
 
     curDlt->dump();
-    LOGNORMAL << "Send dlt info to " << get_node_name();
+    LOGNORMAL << "OM: Send dlt info (version " << curDlt->getVersion()
+              << ") to " << get_node_name() << " uuid 0x"
+              << std::hex << (get_uuid()).uuid_get_val() << std::dec;
 }
 
 void
@@ -704,6 +706,27 @@ OM_NodeContainer::om_bcast_dmt_table()
     msg.nd_msg_code  = fpi::FDSP_MSG_DMT_UPDATE;
     msg.u.nd_dmt_tab = &dmt;
     dc_am_nodes->agent_foreach<const om_node_msg_t &>(msg, om_send_node_command);
+}
+
+
+// om_send_dlt
+// -----------------------
+//
+static void
+om_send_dlt(const DLT* curDlt, NodeAgent::pointer agent)
+{
+    OM_SmAgent::agt_cast_ptr(agent)->om_send_dlt(curDlt);
+}
+
+// om_bcast_dlt
+// ------------
+//
+void
+OM_NodeContainer::om_bcast_dlt(const DLT* curDlt)
+{
+    dc_sm_nodes->agent_foreach<const DLT*>(curDlt, om_send_dlt);
+    dc_dm_nodes->agent_foreach<const DLT*>(curDlt, om_send_dlt);
+    dc_am_nodes->agent_foreach<const DLT*>(curDlt, om_send_dlt);
 }
 
 // om_round_robin_dmt
