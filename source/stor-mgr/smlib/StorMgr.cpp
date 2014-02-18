@@ -1822,6 +1822,7 @@ ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq)
          */
         err = ERR_OK;
 
+        /* Moving the data to not incur copy penalty */
         DBG(std::string temp_data = obj.data);
         ObjectBuf objData;
         objData.data = std::move(obj.data);

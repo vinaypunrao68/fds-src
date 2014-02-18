@@ -270,14 +270,12 @@ struct TokenCopySenderFSM_
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            LOGDEBUG << "teardown";
+            LOGDEBUG << "teardown ";
 
-            MigSvcMigrationCompletePtr mig_complete(new MigSvcMigrationComplete());
-            mig_complete->mig_id = fsm.parent_->get_mig_id();
             FdsActorRequestPtr far(new FdsActorRequest(
-                    FAR_ID(MigSvcMigrationComplete), mig_complete));
+                    FAR_ID(FdsActorShutdown), nullptr));
 
-            Error err = fsm.migrationSvc_->send_actor_request(far);
+            Error err = fsm.parent_->send_actor_request(far);
             if (err != ERR_OK) {
                 fds_assert(!"Failed to send message");
                 LOGERROR << "Failed to send actor message.  Error: "
@@ -396,7 +394,7 @@ TokenCopySender::TokenCopySender(FdsMigrationSvc *migrationSvc,
         boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler,
         ClusterCommMgrPtr clust_comm_mgr)
     : MigrationSender(mig_id),
-      FdsRequestQueueActor(threadpool),
+      FdsRequestQueueActor(mig_id, migrationSvc, threadpool),
       log_(log),
       clust_comm_mgr_(clust_comm_mgr)
 {

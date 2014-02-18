@@ -43,16 +43,6 @@ public:
 };
 typedef boost::shared_ptr<MigSvcCopyTokensReq> MigSvcCopyTokensReqPtr;
 
-/**
- * Send this message to migration is complete
- */
-class MigSvcMigrationComplete
-{
-public:
-    std::string mig_id;
-};
-typedef boost::shared_ptr<MigSvcMigrationComplete> MigSvcMigrationCompletePtr;
-
 /* Migration service counters */
 class MigrationCounters : public FdsCounters
 {
