@@ -60,7 +60,18 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
     }
 #endif
 
+    /*
+     * Track the outstanding get request.
+     * TODO: This is a total hack. We're overloading the msg_hdr's
+     * msg_chksum field to track the outstanding request Id that
+     * we pass into the SM.
+     *
+     * TODO: We should check if this value has rolled at some point.
+     * Though it's big enough for us to not care right now.
+     */
+      objStorMgr->PutObject(msgHdr, putObj);
 
+#if 0 // SAN REMOVE CHECK for Integration 
     if (putObj->dlt_version == objStorMgr->omClient->getDltVersion()) {
     /*
      * Track the outstanding get request.
@@ -79,7 +90,9 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
         putObj->dlt_version = objStorMgr->omClient->getDltVersion();
         // update the resp  with new DLT
         objStorMgr->omClient->getLatestDlt(putObj->dlt_data);
+        FDS_PLOG(objStorMgr->GetLog()) << "DLT  version Conflict returning the latest"; 
     }
+#endif
 
     /*
      * If we failed to enqueue the I/O return the error response
@@ -1212,7 +1225,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
     diskio::DataTier tierUsed = diskio::maxTier;
     ObjBufPtrType objBufPtr = NULL;
     const FDSP_PutObjTypePtr& putObjReq = putReq->getPutObjReq();
-    bool new_buff_allocated = false;
+    bool new_buff_allocated = false, added_cache = false;
 
     objStorMutex->lock();
 
@@ -1247,10 +1260,10 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
 
     if (err == ERR_DUPLICATE) {
         if (new_buff_allocated) {
+            added_cache = true;
             objCache->object_add(volId, objId, objBufPtr, false);
             objCache->object_release(volId, objId, objBufPtr);
         }
-        objStorMutex->unlock();
         FDS_PLOG(objStorMgr->GetLog()) << "Put dup:  " << err
                 << ", returning success";
         /*
@@ -1262,7 +1275,6 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
             objCache->object_release(volId, objId, objBufPtr);
             objCache->object_delete(volId, objId);
         }
-        objStorMutex->unlock();
         FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::error) << "Failed to check object duplicate status on put: "
                 << err;
     } else {
@@ -1276,7 +1288,6 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
             objCache->object_release(volId, objId, objBufPtr);
             objCache->object_delete(volId, objId);
             objCache->object_release(volId, objId, objBufPtr);
-            objStorMutex->unlock();
             FDS_PLOG(objStorMgr->GetLog()) << "Successfully put object " << objId;
             /* if we successfully put to flash -- notify ranking engine */
             if (tierUsed == diskio::flashTier) {
@@ -1284,6 +1295,8 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
                 fds_verify(vol);
                 rankEngine->rankAndInsertObject(objId, *(vol->voldesc));
             }
+        } else if (added_cache == false) {
+            objCache->object_add(volId, objId, objBufPtr, false);
         }
 
 
@@ -1300,6 +1313,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
       put_obj_req->data_obj_len);
          */
     }
+    objStorMutex->unlock();
 
     qosCtrl->markIODone(*putReq,
             tierUsed);
@@ -1918,7 +1932,7 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
             threadPool->schedule(putObjectExt,io);
             break;
         case FDS_DELETE_BLOB:
-            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a put request";
+            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a Delete request";
             threadPool->schedule(delObjectExt,io);
             break;
         case FDS_SM_WRITE_TOKEN_OBJECTS:
