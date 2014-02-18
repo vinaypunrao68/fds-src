@@ -60,7 +60,18 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
     }
 #endif
 
+    /*
+     * Track the outstanding get request.
+     * TODO: This is a total hack. We're overloading the msg_hdr's
+     * msg_chksum field to track the outstanding request Id that
+     * we pass into the SM.
+     *
+     * TODO: We should check if this value has rolled at some point.
+     * Though it's big enough for us to not care right now.
+     */
+      objStorMgr->PutObject(msgHdr, putObj);
 
+#if 0 // SAN REMOVE CHECK for Integration 
     if (putObj->dlt_version == objStorMgr->omClient->getDltVersion()) {
     /*
      * Track the outstanding get request.
@@ -79,7 +90,9 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
         putObj->dlt_version = objStorMgr->omClient->getDltVersion();
         // update the resp  with new DLT
         objStorMgr->omClient->getLatestDlt(putObj->dlt_data);
+        FDS_PLOG(objStorMgr->GetLog()) << "DLT  version Conflict returning the latest"; 
     }
+#endif
 
     /*
      * If we failed to enqueue the I/O return the error response
@@ -797,13 +810,14 @@ void ObjectStorMgr::unitTest() {
      */
     fds_uint64_t vol_id   = 0xbeef;
     fds_uint32_t num_objs = 1;
+    FDSP_MsgHdrTypePtr msgHdr = static_cast<FDSP_MsgHdrTypePtr>(new FDSP_MsgHdrType);
 
     /*
      * Write fake object.
      * Note: we're just adding a hard coded 0 for
      * the request ID.
      */
-    err = enqPutObjectReq(put_obj_req, vol_id, 0, num_objs);
+    err = enqPutObjectReq(msgHdr, put_obj_req, vol_id, 0, num_objs);
     if (err != ERR_OK) {
         FDS_PLOG(objStorMgr->GetLog()) << "Failed to put object ";
         // delete put_obj_req;
@@ -816,7 +830,7 @@ void ObjectStorMgr::unitTest() {
             0x00,
             sizeof(get_obj_req->data_obj_id));
     get_obj_req->data_obj_id.hash_low = 0x101;
-    err = enqGetObjectReq(get_obj_req, vol_id, 1, num_objs);
+    err = enqGetObjectReq(msgHdr, get_obj_req, vol_id, 1, num_objs);
     // delete get_obj_req;
 }
 
@@ -1337,7 +1351,8 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
 }
 
 Error
-ObjectStorMgr::enqPutObjectReq(FDSP_PutObjTypePtr putObjReq, 
+ObjectStorMgr::enqPutObjectReq(FDSP_MsgHdrTypePtr msgHdr, 
+        FDSP_PutObjTypePtr putObjReq, 
         fds_volid_t        volId,
         fds_uint32_t       transId,
         fds_uint32_t       numObjs) {
@@ -1374,6 +1389,8 @@ ObjectStorMgr::enqPutObjectReq(FDSP_PutObjTypePtr putObjReq,
         }
         err = omJrnl->create_transaction(obj_id, static_cast<FDS_IOType *>(ioReq), trans_id);
         ioReq->setTransId(trans_id);
+        ObjectIdJrnlEntry *jrnlEntry = omJrnl->get_transaction(trans_id);
+        jrnlEntry->setMsgHdr(msgHdr);
         FDS_PLOG(objStorMgr->GetLog()) << "Successfully enqueued putObject request "
                 << transId;
     }
@@ -1460,7 +1477,7 @@ ObjectStorMgr::PutObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
             << ", glob_vol_id: " << fdsp_msg->glob_volume_id
             << ", for request ID: " << fdsp_msg->msg_chksum
             << ", Num Objs: " << fdsp_msg->num_objects;
-    err = enqPutObjectReq(put_obj_req,
+    err = enqPutObjectReq(fdsp_msg, put_obj_req,
             fdsp_msg->glob_volume_id,
             fdsp_msg->msg_chksum,
             fdsp_msg->num_objects);
@@ -1491,7 +1508,7 @@ ObjectStorMgr::DeleteObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
             << ", glob_vol_id: " << fdsp_msg->glob_volume_id
             << ", for request ID: " << fdsp_msg->msg_chksum
             << ", Num Objs: " << fdsp_msg->num_objects;
-    err = enqDeleteObjectReq(del_obj_req,
+    err = enqDeleteObjectReq(fdsp_msg, del_obj_req,
             fdsp_msg->glob_volume_id,
             fdsp_msg->msg_chksum);
     if (err != ERR_OK) {
@@ -1605,9 +1622,10 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
 }
 
 Error
-ObjectStorMgr::enqDeleteObjectReq(FDSP_DeleteObjTypePtr delObjReq, 
-        fds_volid_t        volId,
-        fds_uint32_t       transId) {
+ObjectStorMgr::enqDeleteObjectReq(FDSP_MsgHdrTypePtr msgHdr, 
+                                  FDSP_DeleteObjTypePtr delObjReq, 
+                                  fds_volid_t        volId,
+                                  fds_uint32_t       transId) {
     Error err(ERR_OK);
     TransJournalId trans_id;
     ObjectID obj_id(delObjReq->data_obj_id.hash_high,
@@ -1636,6 +1654,8 @@ ObjectStorMgr::enqDeleteObjectReq(FDSP_DeleteObjTypePtr delObjReq,
     FDS_PLOG(objStorMgr->GetLog()) << "Successfully enqueued delObject request "
             << transId;
     err =  omJrnl->create_transaction(obj_id, static_cast<FDS_IOType *>(ioReq), trans_id);
+    ObjectIdJrnlEntry *jrnlEntry = omJrnl->get_transaction(trans_id);
+    jrnlEntry->setMsgHdr(msgHdr);
     ioReq->setTransId(trans_id);
 
     return err;
@@ -1663,7 +1683,7 @@ ObjectStorMgr::GetObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
             << ", glob_vol_id: " << fdsp_msg->glob_volume_id
             << ", Num Objs: " << fdsp_msg->num_objects;
 
-    err = enqGetObjectReq(get_obj_req,
+    err = enqGetObjectReq(fdsp_msg, get_obj_req,
             fdsp_msg->glob_volume_id,
             fdsp_msg->msg_chksum,
             fdsp_msg->num_objects);
@@ -1678,10 +1698,11 @@ ObjectStorMgr::GetObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
 }
 
 Error
-ObjectStorMgr::enqGetObjectReq(FDSP_GetObjTypePtr getObjReq, 
-                                 fds_volid_t        volId, 
-                                 fds_uint32_t       transId, 
-                                 fds_uint32_t       numObjs) {
+ObjectStorMgr::enqGetObjectReq(FDSP_MsgHdrTypePtr msgHdr, 
+                               FDSP_GetObjTypePtr getObjReq, 
+                               fds_volid_t        volId, 
+                               fds_uint32_t       transId, 
+                               fds_uint32_t       numObjs) {
   Error err(ERR_OK);
   TransJournalId trans_id;
   ObjectID obj_id(getObjReq->data_obj_id.hash_high,
@@ -1710,6 +1731,8 @@ ObjectStorMgr::enqGetObjectReq(FDSP_GetObjTypePtr getObjReq,
   }
   err =  omJrnl->create_transaction(obj_id, static_cast<FDS_IOType *>(ioReq), trans_id);
   ioReq->setTransId(trans_id);
+  ObjectIdJrnlEntry *jrnlEntry = omJrnl->get_transaction(trans_id);
+  jrnlEntry->setMsgHdr(msgHdr);
   FDS_PLOG(objStorMgr->GetLog()) << "Successfully enqueued getObject request "
                                  << transId;
 
@@ -1909,7 +1932,7 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
             threadPool->schedule(putObjectExt,io);
             break;
         case FDS_DELETE_BLOB:
-            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a put request";
+            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a Delete request";
             threadPool->schedule(delObjectExt,io);
             break;
         case FDS_SM_WRITE_TOKEN_OBJECTS:

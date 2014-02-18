@@ -74,6 +74,100 @@ VolumeInfo::vol_fmt_desc_pkt(FDSP_VolumeDescType *pkt) const
     pkt->appWorkload       = pVol->appWorkload;
 }
 
+// vol_fmt_message
+// ---------------
+//
+void
+VolumeInfo::vol_fmt_message(om_vol_msg_t *out)
+{
+    switch (out->vol_msg_code) {
+        case fpi::FDSP_MSG_GET_BUCKET_STATS_RSP: {
+            VolumeDesc          *desc = vol_properties;
+            FDSP_BucketStatType *stat = out->u.vol_stats;
+
+            fds_verify(stat != NULL);
+            stat->vol_name = vol_name;
+            stat->sla      = desc->iops_min;
+            stat->limit    = desc->iops_max;
+            stat->rel_prio = desc->relativePrio;
+            break;
+        }
+        case fpi::FDSP_MSG_DELETE_VOL:
+        case fpi::FDSP_MSG_MODIFY_VOL:
+        case fpi::FDSP_MSG_CREATE_VOL: {
+            FdspNotVolPtr notif = *out->u.vol_notif;
+
+            vol_fmt_desc_pkt(&notif->vol_desc);
+            notif->vol_name  = vol_get_name();
+            if (out->vol_msg_code == fpi::FDSP_MSG_CREATE_VOL) {
+                notif->type = fpi::FDSP_NOTIFY_ADD_VOL;
+            } else if (out->vol_msg_code == fpi::FDSP_MSG_MODIFY_VOL) {
+                notif->type = fpi::FDSP_NOTIFY_MOD_VOL;
+            } else {
+                notif->type = fpi::FDSP_NOTIFY_RM_VOL;
+            }
+            break;
+        }
+        case fpi::FDSP_MSG_ATTACH_VOL_CTRL:
+        case fpi::FDSP_MSG_DETACH_VOL_CTRL: {
+            FdspAttVolPtr attach = *out->u.vol_attach;
+
+            vol_fmt_desc_pkt(&attach->vol_desc);
+            attach->vol_name = vol_get_name();
+            break;
+        }
+        default: {
+            fds_panic("Unknown volume request code");
+            break;
+        }
+    }
+}
+
+// vol_send_message
+// ----------------
+//
+void
+VolumeInfo::vol_send_message(om_vol_msg_t *out, NodeAgent::pointer dest)
+{
+    fpi::FDSP_MsgHdrTypePtr  m_hdr;
+    NodeAgentCpReqClientPtr  clnt;
+
+    if (out->vol_msg_hdr == NULL) {
+        m_hdr = fpi::FDSP_MsgHdrTypePtr(new fpi::FDSP_MsgHdrType);
+        dest->init_msg_hdr(m_hdr);
+        m_hdr->msg_code       = out->vol_msg_code;
+        m_hdr->glob_volume_id = vol_properties->volUUID;
+    } else {
+        m_hdr = *(out->vol_msg_hdr);
+    }
+    clnt = OM_SmAgent::agt_cast_ptr(dest)->getCpClient(&m_hdr->session_uuid);
+    switch (out->vol_msg_code) {
+        case fpi::FDSP_MSG_DELETE_VOL:
+            clnt->NotifyRmVol(m_hdr, *out->u.vol_notif);
+            break;
+
+        case fpi::FDSP_MSG_MODIFY_VOL:
+            clnt->NotifyModVol(m_hdr, *out->u.vol_notif);
+            break;
+
+        case fpi::FDSP_MSG_CREATE_VOL:
+            clnt->NotifyAddVol(m_hdr, *out->u.vol_notif);
+            break;
+
+        case fpi::FDSP_MSG_ATTACH_VOL_CTRL:
+            clnt->AttachVol(m_hdr, *out->u.vol_attach);
+            break;
+
+        case fpi::FDSP_MSG_DETACH_VOL_CTRL:
+            clnt->DetachVol(m_hdr, *out->u.vol_attach);
+            break;
+
+        default:
+            fds_panic("Unknown volume request code");
+            break;
+    }
+}
+
 // vol_am_agent
 // ------------
 //
@@ -198,6 +292,7 @@ VolumeContainer::om_create_vol(const FdspCrtVolPtr &creat_msg)
         FDS_PLOG_SEV(g_fdslog, fds_log::error)
             << "Unable to create volume " << vname
             << " error: " << err.GetErrstr() << std::endl;
+        rs_free_resource(vol);
         return -1;
     }
     rs_register(vol);
@@ -237,8 +332,8 @@ VolumeContainer::om_delete_vol(const FdspDelVolPtr &del_msg)
     admin->updateAdminControlParams(vol->vol_get_properties());
     local->om_bcast_vol_delete(vol);
 
-    // TODO(Vy): delete the volume out of the container.
     rs_unregister(vol);
+    rs_free_resource(vol);
     return 0;
 }
 
