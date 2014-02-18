@@ -6,6 +6,8 @@
 
 namespace fds {
 
+const fds_uint32_t INVALID_INDEX = 0xffffffff;
+
 ResourceUUID::ResourceUUID(fds_uint64_t val)
     : rs_uuid(val)
 {
@@ -24,14 +26,7 @@ RsContainer::rs_alloc_new(const ResourceUUID &uuid)
 {
     Resource *rs = rs_new(uuid);
 
-    rs_mtx.lock();
-    fds_verify(rs_array[rs_cur_idx] == NULL);
-
-    rs_array[rs_cur_idx] = rs;
-    rs->rs_index = rs_cur_idx;
-    rs_cur_idx++;
-    rs_mtx.unlock();
-
+    rs->rs_index = INVALID_INDEX;
     return rs;
 }
 
@@ -53,12 +48,26 @@ RsContainer::rs_register(Resource::pointer rs)
 void
 RsContainer::rs_register_mtx(Resource::pointer rs)
 {
+    fds_uint32_t i;
+
     fds_verify(rs->rs_uuid.uuid_get_val() != 0);
     fds_verify(rs->rs_name[0] != '\0');
     rs->rs_name[RS_NAME_MAX - 1] = '\0';
 
     rs_uuid_map[rs->rs_uuid] = rs;
     rs_name_map[rs->rs_name] = rs;
+
+    for (i = 0; i < rs_cur_idx; i++) {
+        if (rs_array[i] == NULL) {
+            // Found an empty slot, use it.
+            rs_array[i] = rs;
+            return;
+        }
+    }
+    fds_verify(rs_array[rs_cur_idx] == NULL);
+    rs_array[rs_cur_idx] = rs;
+    rs->rs_index = rs_cur_idx;
+    rs_cur_idx++;
 }
 
 // rs_unregister
@@ -83,8 +92,8 @@ RsContainer::rs_unregister_mtx(Resource::pointer rs)
     fds_verify(rs->rs_name[0] != '\0');
     fds_verify(rs_array[rs->rs_index] == rs);
 
-    // The resource can still be looked up by UUID until we destroy it.
     rs_name_map.erase(rs->rs_name);
+    rs_uuid_map.erase(rs->rs_uuid);
 }
 
 // rs_get_resource
@@ -113,10 +122,12 @@ RsContainer::rs_container_snapshot(RsArray *out)
     ret = 0;
     rs_mtx.lock();
     for (auto it = cbegin(); it != cend(); it++) {
-        ret++;
-        out->push_back(*it);
+        if (*it != NULL) {
+            ret++;
+            out->push_back(*it);
+        }
     }
-    fds_verify(ret == rs_cur_idx);
+    fds_verify(ret <= rs_cur_idx);
     rs_mtx.unlock();
 
     return ret;
@@ -128,6 +139,14 @@ RsContainer::rs_container_snapshot(RsArray *out)
 void
 RsContainer::rs_free_resource(Resource::pointer rs)
 {
+    if (rs->rs_index != INVALID_INDEX) {
+        rs_mtx.lock();
+        fds_verify(rs_array[rs->rs_index] == rs);
+        rs_array[rs->rs_index] = NULL;
+        rs->rs_index = INVALID_INDEX;
+        rs_mtx.unlock();
+    }
+    // Don't need to do anything more.  The ptr will be freed when its refcnt is 0.
 }
 
 QueryMgr::QueryMgr()

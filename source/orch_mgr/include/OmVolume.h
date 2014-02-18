@@ -11,6 +11,23 @@
 
 namespace fds {
 
+/**
+ * TODO(Vy): temp. interface for now to define generic volume message.
+ */
+typedef struct om_vol_msg_s
+{
+    fpi::FDSP_MsgCodeType            vol_msg_code;
+    fpi::FDSP_MsgHdrTypePtr         *vol_msg_hdr;
+    union {
+        FDSP_BucketStatType         *vol_stats;
+        FdspNotVolPtr               *vol_notif;
+        FdspAttVolPtr               *vol_attach;
+    } u;
+} om_vol_msg_t;
+
+/**
+ * Volume Object.
+ */
 class VolumeInfo : public Resource
 {
   public:
@@ -25,6 +42,9 @@ class VolumeInfo : public Resource
 
     void vol_mk_description(const fpi::FDSP_VolumeInfoType &info);
     void vol_fmt_desc_pkt(FDSP_VolumeDescType *pkt) const;
+    void vol_fmt_message(om_vol_msg_t *out);
+    void vol_send_message(om_vol_msg_t *out, NodeAgent::pointer dest);
+
     void vol_apply_description(const VolumeDesc &desc);
     void vol_attach_node(const std::string &node_name);
     void vol_detach_node(const std::string &node_name);
@@ -108,15 +128,40 @@ class VolumeContainer : public RsContainer
     }
     template <typename T>
     void vol_foreach(T arg, void (*fn)(T arg, VolumeInfo::pointer elm)) {
-        for (const_iterator it = cbegin(); it != cend(); it++) {
-            (*fn)(arg, vol_from_iter(it));
+        for (fds_uint32_t i = 0; i < rs_cur_idx; i++) {
+            VolumeInfo::pointer vol = VolumeInfo::vol_cast_ptr(rs_array[i]);
+            if (rs_array[i] != NULL) {
+                (*fn)(arg, vol);
+            }
+        }
+    }
+    template <typename T1, typename T2>
+    void vol_foreach(T1 a1, T2 a2, void (*fn)(T1, T2, VolumeInfo::pointer elm)) {
+        for (fds_uint32_t i = 0; i < rs_cur_idx; i++) {
+            VolumeInfo::pointer vol = VolumeInfo::vol_cast_ptr(rs_array[i]);
+            if (rs_array[i] != NULL) {
+                (*fn)(a1, a2, vol);
+            }
+        }
+    }
+    template <typename T1, typename T2, typename T3>
+    void vol_foreach(T1 a1, T2 a2, T3 a3,
+                     void (*fn)(T1, T2, T3, VolumeInfo::pointer elm)) {
+        for (fds_uint32_t i = 0; i < rs_cur_idx; i++) {
+            VolumeInfo::pointer vol = VolumeInfo::vol_cast_ptr(rs_array[i]);
+            if (rs_array[i] != NULL) {
+                (*fn)(a1, a2, a3, vol);
+            }
         }
     }
     template <typename T1, typename T2, typename T3, typename T4>
     void vol_foreach(T1 a1, T2 a2, T3 a3, T4 a4,
                      void (*fn)(T1, T2, T3, T4, VolumeInfo::pointer elm)) {
-        for (const_iterator it = cbegin(); it != cend(); it++) {
-            (*fn)(a1, a2, a3, a4, vol_from_iter(it));
+        for (fds_uint32_t i = 0; i < rs_cur_idx; i++) {
+            VolumeInfo::pointer vol = VolumeInfo::vol_cast_ptr(rs_array[i]);
+            if (rs_array[i] != NULL) {
+                (*fn)(a1, a2, a3, a4, vol);
+            }
         }
     }
 
