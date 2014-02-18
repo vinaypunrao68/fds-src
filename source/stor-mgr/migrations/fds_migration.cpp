@@ -281,7 +281,7 @@ handle_migsvc_migration_complete(FdsActorRequestPtr req)
         migsvc_resp_cb(ERR_OK);
     }
 
-    LOGNORMAL << " Migration id: " << payload->mig_id;
+    LOGNORMAL << " Migration id: " << payload->far_id;
 }
 
 /**

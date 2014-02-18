@@ -7,7 +7,6 @@
 
 namespace fds {
 
-
 FdsActor::FdsActor(const std::string &id, FdsActor *parent)
 {
     id_ = id;
@@ -70,7 +69,7 @@ Error FdsRequestQueueActor::send_actor_request(FdsActorRequestPtr req)
         scheduled_ = true;
         req->prev_owner_ = req->owner_;
         req->owner_ = this;
-        // DBG(sched_cnt_++);
+        DBG(sched_cnt_++);
         threadpool_->schedule(&FdsRequestQueueActor::request_loop, this);
     }
 
@@ -78,7 +77,7 @@ Error FdsRequestQueueActor::send_actor_request(FdsActorRequestPtr req)
 }
 
 void FdsRequestQueueActor::request_loop() {
-    // DBG(sched_cnt_--);
+    DBG(sched_cnt_--);
     bool notify_shutdown = false;
 
     while (true) {
@@ -99,6 +98,7 @@ void FdsRequestQueueActor::request_loop() {
             if (req->type == FAR_ID(FdsActorShutdown)) {
                 LOGNORMAL << "Shutting down actor " << id_;
                 fds_assert(queue_.size() == 0);
+                scheduled_ = false;
                 notify_shutdown = true;
                 break;
             }
