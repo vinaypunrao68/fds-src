@@ -131,7 +131,7 @@ fds_uint32_t QoSMinPrioDispatcher::getNextQueueForDispatch()
   fds_uint32_t ret_qid = 0;
   TBQueueState *dispatch_qstate = NULL;
   double min_wma;
-  int min_wma_hiprio;
+  uint min_wma_hiprio;
 
   /* this is work-conserving dispatcher, since this function is called only when:
    * 1) we have at least one pending IO (in any queue); AND
@@ -150,7 +150,7 @@ fds_uint32_t QoSMinPrioDispatcher::getNextQueueForDispatch()
 
   last_dispatch_qid = it->second->queue_id;
 
-  for (int i = 0; i < qstate_map.size(); ++i) {
+  for (uint i = 0; i < qstate_map.size(); ++i) {
     TBQueueState *qstate = it->second;
     assert(qstate != NULL);
 

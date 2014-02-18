@@ -29,9 +29,10 @@ DLT::DLT(fds_uint32_t numBitsForToken,
          fds_uint64_t version,
          bool fInit)
         : Module("data placement table"),
-          numBitsForToken(numBitsForToken), depth(depth),
+          version(version) ,
+          numBitsForToken(numBitsForToken),
           numTokens(pow(2, numBitsForToken)),
-          version(version) {
+          depth(depth) {
     distList = boost::shared_ptr<std::vector<DltTokenGroupPtr> >
             (new std::vector<DltTokenGroupPtr>());
     mapNodeTokens = boost::shared_ptr<NodeTokenMap>(
@@ -80,6 +81,7 @@ DLT* DLT::clone() const {
 
 int DLT::mod_init(SysParams const *const param) {
     Module::mod_init(param);
+    return 0;
 }
 
 void DLT::mod_startup() {
@@ -140,7 +142,7 @@ NodeUuid DLT::getPrimary(const ObjectID& objId) const {
 
 NodeUuid DLT::getNode(fds_token_id token, uint index) const {
     fds_verify(token < numTokens);
-    getNodes(token)->get(index);
+    return getNodes(token)->get(index);
 }
 
 NodeUuid DLT::getNode(const ObjectID& objId, uint index) const {
@@ -275,8 +277,6 @@ uint32_t DLT::write(serialize::Serializer*  s   ) {
     b += s->writeI32(numTokens);
 
     if (mapNodeTokens->empty()) generateNodeTokenMap();
-
-    uint32_t numuids = mapNodeTokens->size();
 
     typedef std::map<fds_uint64_t, uint32_t> UniqueUUIDMap;
     std::vector<fds_uint64_t> uuidList;

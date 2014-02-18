@@ -197,8 +197,8 @@ int OMgrClient::registerBucketStatsCmdHandler(bucket_stats_cmd_handler_t cmd_hdl
 
 int OMgrClient::initRPCComm() {
 
-  int argc = 0;
-  char **argv = 0;
+    //int argc = 0;
+    //char **argv = 0;
 
   // TODO: Load config using libconfig
   //initData.properties->load("om_client.conf");
@@ -629,7 +629,7 @@ int OMgrClient::recvNodeEvent(int node_id,
 
   // TODO(Andrew): Hack to figure out my own node uuid
   // since the OM doesn't reply to my registration yet.
-  if ((node.node_ip_address == netSession::ipString2Addr(hostIp)) &&
+  if ((node.node_ip_address == (uint)netSession::ipString2Addr(hostIp)) &&
       (node.port == my_data_port)) {
       myUuid.uuid_set_val(node_info->node_uuid);
       LOGDEBUG << "Setting my UUID to " << myUuid.uuid_get_val();

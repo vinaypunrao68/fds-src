@@ -21,7 +21,7 @@ namespace fds {
     fds_uint32_t priority_based_weight;
 
     std::vector<fds_uint64_t> rate_based_rr_spots;
-    int num_priority_based_ios_dispatched; // number of ios dispatched in the current round of priority based WFQ;
+    fds_uint32_t num_priority_based_ios_dispatched; // number of ios dispatched in the current round of priority based WFQ;
     fds_uint32_t num_rate_based_credits;
     fds_uint32_t max_rate_based_credits;
 
