@@ -12,20 +12,15 @@ user_incl_dir     := $(topdir) ../include
 orch_mgr_cpp      :=                   \
     orchMgr.cpp                        \
     OmTier.cpp                         \
-    OmVolPolicy.cpp		       \
-    OmLocDomain.cpp		       \
+    OmVolPolicy.cpp   	               \
+    OmLocDomain.cpp	  	               \
     OmAdminCtrl.cpp                    \
     OmReqHandler.cpp                   \
-    OmRespHandler.cpp
+    OmRespHandler.cpp                  \
+    OmLocDomain.cpp
 
 user_hh           := $(wildcard *.h)
 user_cpp          := $(orch_mgr_cpp)
-
-user_no_style     := \
-    orchMgr.h                          \
-    orchMgr.cpp                        \
-    OmLocDomain.cpp		       \
-    OmAdminCtrl.cpp                    
 
 user_ar_libs      := fds-om-lib
 fds-om-lib        := $(orch_mgr_cpp)

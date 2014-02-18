@@ -5,9 +5,9 @@
 #define SOURCE_ORCH_MGR_INCLUDE_OMDEPLOY_H_
 
 #include <vector>
+#include <boost/msm/back/state_machine.hpp>
 #include <OmResources.h>
 #include <OmDataPlacement.h>
-#include <boost/msm/back/state_machine.hpp>
 
 namespace fds {
 
@@ -39,10 +39,8 @@ class DltRebalEvt
 class DltRebalOkEvt
 {
   public:
-    DltRebalOkEvt(ClusterMap *cm,
-                  DataPlacement *d)
-             : ode_clusmap(cm),
-            ode_dp(d) {}
+    DltRebalOkEvt(ClusterMap *cm, DataPlacement *d)
+        : ode_clusmap(cm), ode_dp(d) {}
 
     ClusterMap            *ode_clusmap;
     DataPlacement         *ode_dp;

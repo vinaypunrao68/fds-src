@@ -62,8 +62,7 @@ void StorHvDataPlacement::nodeEventHandler(int node_id,
                                 (fds_int32_t)node_port,
                                 FDS_ProtocolInterface::FDSP_STOR_MGR,0,
                                 storHvisor->dPathRespCback);
-         } else {
-           assert(node_type == FDS_ProtocolInterface::FDSP_DATA_MGR);
+         } else if (node_type == FDS_ProtocolInterface::FDSP_DATA_MGR) {
            FDS_PLOG(storHvisor->GetLog()) << "Adding DM RPC endpoint";
            storHvisor->rpcSessionTbl->
              startSession<netMetaDataPathClientSession>(node_ip_addr,

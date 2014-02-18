@@ -41,6 +41,7 @@ NodeInventory::node_fill_inventory(const FdspNodeRegPtr msg)
     data->nd_disk_type      = msg->disk_info.disk_type;
     data->nd_dlt_version    = DLT_VER_INVALID;
 
+    ncap->disk_capacity     = msg->disk_info.disk_capacity;
     ncap->disk_iops_max     = msg->disk_info.disk_iops_max;
     ncap->disk_iops_min     = msg->disk_info.disk_iops_min;
     ncap->disk_latency_max  = msg->disk_info.disk_latency_max;
@@ -89,8 +90,8 @@ NodeInventory::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
     msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_OK;
 }
 
-// init_hdr_as_dest
-// ----------------
+// init_node_info_pkt
+// ------------------
 //
 void
 NodeInventory::init_node_info_pkt(fpi::FDSP_Node_Info_TypePtr pkt) const

@@ -77,6 +77,12 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
         objstor_write_req_.response_cb = std::bind(
             &TokenCopyReceiverFSM_::data_written_cb, this,
             std::placeholders::_1, std::placeholders::_2);
+        DBG(write_in_progress_ = false);
+    }
+
+    virtual ~TokenCopyReceiverFSM_()
+    {
+        fds_assert(write_in_progress_ == false);
     }
 
     // Disable exceptions to improve performance
@@ -135,6 +141,8 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
     };
     struct Writing : public msm::front::state<>
     {
+        typedef mpl::vector<TokRecvdEvt> deferred_events;
+
         template <class Event, class FSM>
         void on_entry(Event const& , FSM&)
         {
@@ -148,6 +156,8 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
     };
     struct UpdatingTok : public msm::front::state<>
     {
+        typedef mpl::vector<TokRecvdEvt> deferred_events;
+
         template <class Event, class FSM>
         void on_entry(Event const& , FSM&)
         {
@@ -264,8 +274,10 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
             // TODO(rao): We should std::move the object list here
             fsm.objstor_write_req_.obj_list = evt.obj_list;
 
+            DBG(fsm.write_in_progress_ = true);
             err = fsm.data_store_->enqueueMsg(FdsSysTaskQueueId, &fsm.objstor_write_req_);
             if (err != fds::ERR_OK) {
+                DBG(fsm.write_in_progress_ = false);
                 fds_assert(!"Hit an error in enqueing");
                 // TODO(rao): Put your selft in an error state
                 LOGERROR << "Failed to enqueue to StorMgr.  Error: "
@@ -341,6 +353,7 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
     /* Callback invoked once data's been read from Object store */
     void data_written_cb(const Error &e, SmIoPutTokObjectsReq *resp)
     {
+        DBG(write_in_progress_ = false);
         if (e != ERR_OK) {
             fds_assert(!"Error in reading");
             LOGERROR << "Error: " << e;
@@ -391,6 +404,9 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
 
     /* Object store write request */
     SmIoPutTokObjectsReq objstor_write_req_;
+
+    /* Indicates whether write is in progress */
+    DBG(bool write_in_progress_);
 
     /* Sender session endpoint */
     netMigrationPathClientSession *sender_session_;

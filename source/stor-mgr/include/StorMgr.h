@@ -403,8 +403,8 @@ class ObjectStorMgr :
     Error getObjectInternal(SmIoReq* getReq);
     Error putObjectInternal(SmIoReq* putReq);
     Error deleteObjectInternal(SmIoReq* delReq);
-    Error putTokenObjectsInternal(SmIoReq* ioReq);
-    Error getTokenObjectsInternal(SmIoReq* ioReq);
+    void putTokenObjectsInternal(SmIoReq* ioReq);
+    void getTokenObjectsInternal(SmIoReq* ioReq);
     Error relocateObject(const ObjectID &objId,
             diskio::DataTier from_tier,
             diskio::DataTier to_tier);

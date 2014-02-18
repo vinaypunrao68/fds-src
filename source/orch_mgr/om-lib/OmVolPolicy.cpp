@@ -3,7 +3,8 @@
  */
 
 #include <string>
-#include "OmVolPolicy.hpp"
+#include <OmVolPolicy.hpp>
+#include <lib/Catalog.h>
 
 namespace fds {
 
