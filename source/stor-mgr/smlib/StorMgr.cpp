@@ -1225,7 +1225,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
     diskio::DataTier tierUsed = diskio::maxTier;
     ObjBufPtrType objBufPtr = NULL;
     const FDSP_PutObjTypePtr& putObjReq = putReq->getPutObjReq();
-    bool new_buff_allocated = false;
+    bool new_buff_allocated = false, added_cache = false;
 
     objStorMutex->lock();
 
@@ -1260,10 +1260,10 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
 
     if (err == ERR_DUPLICATE) {
         if (new_buff_allocated) {
+            added_cache = true;
             objCache->object_add(volId, objId, objBufPtr, false);
             objCache->object_release(volId, objId, objBufPtr);
         }
-        objStorMutex->unlock();
         FDS_PLOG(objStorMgr->GetLog()) << "Put dup:  " << err
                 << ", returning success";
         /*
@@ -1275,7 +1275,6 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
             objCache->object_release(volId, objId, objBufPtr);
             objCache->object_delete(volId, objId);
         }
-        objStorMutex->unlock();
         FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::error) << "Failed to check object duplicate status on put: "
                 << err;
     } else {
@@ -1289,7 +1288,6 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
             objCache->object_release(volId, objId, objBufPtr);
             objCache->object_delete(volId, objId);
             objCache->object_release(volId, objId, objBufPtr);
-            objStorMutex->unlock();
             FDS_PLOG(objStorMgr->GetLog()) << "Successfully put object " << objId;
             /* if we successfully put to flash -- notify ranking engine */
             if (tierUsed == diskio::flashTier) {
@@ -1297,6 +1295,8 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
                 fds_verify(vol);
                 rankEngine->rankAndInsertObject(objId, *(vol->voldesc));
             }
+        } else if (added_cache == false) {
+            objCache->object_add(volId, objId, objBufPtr, false);
         }
 
 
@@ -1313,6 +1313,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
       put_obj_req->data_obj_len);
          */
     }
+    objStorMutex->unlock();
 
     qosCtrl->markIODone(*putReq,
             tierUsed);
