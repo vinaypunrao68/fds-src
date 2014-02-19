@@ -11,16 +11,14 @@ namespace fds {
 class FdsActorTest : public FdsRequestQueueActor {
 public:
     FdsActorTest(fds_threadpoolPtr threadpool)
-    : FdsRequestQueueActor(threadpool)
+    : FdsRequestQueueActor("FdsActorTest", nullptr, threadpool)
     {
         copy_complete_cnt = 0;
         err_cnt = 0;
     }
     void copy_token(FdsActorRequestPtr req)
     {
-        FdsActorRequestPtr rep(new FdsActorRequest());
-        rep->type = FAR_ID(MigSvcMigrationComplete);
-        this->send_actor_request(rep);
+        copy_complete_cnt++;
     }
     
     virtual Error handle_actor_request(FdsActorRequestPtr req) override
@@ -29,9 +27,6 @@ public:
         switch (req->type) {
         case FAR_ID(MigSvcCopyTokensReq):
             threadpool_->schedule(&FdsActorTest::copy_token, this, req);
-            break;
-        case FAR_ID(MigSvcMigrationComplete):
-            copy_complete_cnt++;
             break;
         default:
             err_cnt++;

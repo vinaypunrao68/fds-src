@@ -134,13 +134,17 @@ class SMCounters : public FdsCounters
       : FdsCounters(id, mgr),
         put_reqs("put_reqs", this),
         get_reqs("get_reqs", this),
-        puts_latency("puts_latency", this)
+        puts_latency("puts_latency", this),
+        put_tok_objs("put_tok_objs", this),
+        get_tok_objs("get_tok_objs", this)
   {
   }
 
   NumericCounter put_reqs;
   NumericCounter get_reqs;
   LatencyCounter puts_latency;
+  NumericCounter put_tok_objs;
+  NumericCounter get_tok_objs;
 };
 
 
@@ -427,11 +431,6 @@ class ObjectStorMgr :
 
     virtual Error enqueueMsg(fds_volid_t volId, SmIoReq* ioReq);
 
-    Error retrieveTokenObjects(const fds_token_id &token, 
-                             const size_t &max_size, 
-                             FDSP_MigrateObjectList &obj_list, 
-                             SMTokenItr &itr);
-
     Error putTokenObjects(const fds_token_id &token, 
                           FDSP_MigrateObjectList &obj_list);
     void unitTest();
@@ -468,6 +467,7 @@ class ObjectStorMgr :
      * a separate class.
      */
     friend ObjectStorMgrI;
+    friend class SmObjDb;
 };
 
 class ObjectStorMgrI : virtual public FDSP_DataPathReqIf {

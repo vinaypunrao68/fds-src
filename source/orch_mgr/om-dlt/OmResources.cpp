@@ -79,14 +79,10 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         om_locDomain->om_update_node_list(newNode, msg);
         om_locDomain->om_bcast_vol_list(newNode);
 
-        // Let this new node know about existing dlt, if new node is not
-        // SM. If that's SM, it will receive new dlt after we compute it
-        // as part of rebalance state in DLT state machine
+        // Let this new node know about existing dlt
         // TODO(Andrew): this should change into dissemination of the cur cluster map.
-        if (msg->node_type != FDS_ProtocolInterface::FDSP_STOR_MGR) {
-            DataPlacement *dp = om->om_dataplace_mod();
-            OM_SmAgent::agt_cast_ptr(newNode)->om_send_dlt(dp->getCurDlt());
-        }
+        DataPlacement *dp = om->om_dataplace_mod();
+        OM_SmAgent::agt_cast_ptr(newNode)->om_send_dlt(dp->getCurDlt());
 
         // Send the DMT to DMs.
         om_locDomain->om_round_robin_dmt();
@@ -251,6 +247,9 @@ OM_NodeDomainMod::om_recv_sm_dlt_commit_resp(const NodeUuid& uuid,
     // we are done with current cluster update, so
     // expect to see dlt commit resp for current dlt version
     fds_uint64_t cur_dlt_ver = (dp->getCurDlt())->getVersion();
+    if (cur_dlt_ver > dlt_version) {
+        return err;
+    }
     fds_verify(cur_dlt_ver == dlt_version);
 
     // set node's confirmed dlt version to this version

@@ -62,6 +62,8 @@ namespace fds {
 
     /* FdsActor err range [1500-2000) */
     ERR_FAR_INVALID_REQUEST = 1500,
+    /* FDS actor is shutdown */
+    ERR_FAR_SHUTDOWN = 1501,
 
     ERR_MAX
   } fds_errno_t;

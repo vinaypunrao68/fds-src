@@ -75,6 +75,7 @@ protected:
 
     /* Cluster communication manager reference */
     ClusterCommMgrPtr clust_comm_mgr_;
+    DBG(bool destroy_sent_);
 };
 
 } /* namespace fds */
