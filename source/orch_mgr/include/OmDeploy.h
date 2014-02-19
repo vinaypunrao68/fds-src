@@ -21,10 +21,22 @@ typedef boost::msm::back::state_machine<DltDplyFSM> FSM_DplyDLT;
 class DltCompEvt
 {
   public:
-    explicit DltCompEvt(DataPlacement *d)
-        : ode_dp(d) {}
+    DltCompEvt(ClusterMap *c,
+               DataPlacement *d,
+               OM_SmContainer::pointer sm_nodes)
+            : ode_cm(c),
+            ode_dp(d),
+            ode_sm_nodes(sm_nodes) {}
 
+    ClusterMap               *ode_cm;
     DataPlacement            *ode_dp;
+    OM_SmContainer::pointer  ode_sm_nodes;
+};
+
+class DltNoChangeEvt
+{
+  public:
+    DltNoChangeEvt() {}
 };
 
 class DltRebalEvt
@@ -77,6 +89,7 @@ class OM_DLTMod : public Module
      * Apply an event to DLT deploy state machine.
      */
     void dlt_deploy_event(DltCompEvt const &evt);
+    void dlt_deploy_event(DltNoChangeEvt const &evt);
     void dlt_deploy_event(DltRebalEvt const &evt);
     void dlt_deploy_event(DltRebalOkEvt const &evt);
     void dlt_deploy_event(DltCommitOkEvt const &evt);

@@ -3,7 +3,9 @@
  */
 #include <cmath>
 #include <vector>
+#include <set>
 #include <map>
+#include <algorithm>
 #include <dlt.h>
 #include <iostream>
 #include <string>
@@ -384,6 +386,33 @@ bool DLT::loadSerialized(std::string& serializedData) { // NOLINT
     return true;
 }
 
+/**
+ *
+ * @param uid Node id
+ * @param new_dlt
+ * @param old_dlt
+ * @return difference between new_dlt and old_dlt.  Only entries that exist in
+ * new_dlt but don't exist in old_dlt are returned
+ */
+std::set<fds_token_id> DLT::token_diff(const NodeUuid &uid,
+                const DLT* new_dlt, const DLT* old_dlt)
+{
+    std::set<fds_token_id> ret_set;
+    if (old_dlt == nullptr) {
+        ret_set.insert(new_dlt->getTokens(uid).begin(),
+                new_dlt->getTokens(uid).end());
+        return ret_set;
+    }
+
+    std::set<fds_token_id> old_set(old_dlt->getTokens(uid).begin(),
+            old_dlt->getTokens(uid).end());
+    std::set<fds_token_id> new_set(new_dlt->getTokens(uid).begin(),
+                new_dlt->getTokens(uid).end());
+    std::set_difference(new_set.begin(), new_set.end(),
+            old_set.begin(), old_set.end(),
+            std::insert_iterator<std::set<fds_token_id> >(ret_set, ret_set.end()));
+    return ret_set;
+}
 //================================================================================
 
 /**

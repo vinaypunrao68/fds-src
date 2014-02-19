@@ -79,14 +79,10 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         om_locDomain->om_update_node_list(newNode, msg);
         om_locDomain->om_bcast_vol_list(newNode);
 
-        // Let this new node know about existing dlt, if new node is not
-        // SM. If that's SM, it will receive new dlt after we compute it
-        // as part of rebalance state in DLT state machine
+        // Let this new node know about existing dlt
         // TODO(Andrew): this should change into dissemination of the cur cluster map.
-        if (msg->node_type != FDS_ProtocolInterface::FDSP_STOR_MGR) {
-            DataPlacement *dp = om->om_dataplace_mod();
-            OM_SmAgent::agt_cast_ptr(newNode)->om_send_dlt(dp->getCurDlt());
-        }
+        DataPlacement *dp = om->om_dataplace_mod();
+        OM_SmAgent::agt_cast_ptr(newNode)->om_send_dlt(dp->getCurDlt());
 
         // Send the DMT to DMs.
         om_locDomain->om_round_robin_dmt();
@@ -109,7 +105,9 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
     // cluster map addition eventually. We may want to add
     // the node to the inventory and then wait for a CLI
     // cmd to make the node a member.
-    om_update_cluster_map();
+    // TODO(Anna): about above comment -- we can do that with
+    // node state and do not add to cluster map unless node in
+    // the right state
 
     return err;
 }
@@ -122,8 +120,6 @@ OM_NodeDomainMod::om_del_node_info(const NodeUuid& uuid,
                                    const std::string& node_name)
 {
     Error err = om_locDomain->dc_unregister_node(uuid, node_name);
-
-    om_update_cluster_map();
     return err;
 }
 
@@ -145,31 +141,6 @@ OM_NodeDomainMod::om_delete_domain(const FdspCrtDomPtr &crt_domain)
     return 0;
 }
 
-// om_update_cluster_map
-// ---------------------
-//
-void
-OM_NodeDomainMod::om_update_cluster_map()
-{
-    OM_SmContainer::pointer smNodes = om_locDomain->om_sm_nodes();
-    NodeList       addNodes, rmNodes;
-    OM_Module     *om;
-    OM_DLTMod     *dlt;
-    ClusterMap    *clus;
-    DataPlacement *dp;
-
-    om   = OM_Module::om_singleton();
-    dp   = om->om_dataplace_mod();
-    dlt  = om->om_dlt_mod();
-    clus = om->om_clusmap_mod();
-
-    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "OM_NodeDomainMod: Call cluster update map";
-
-    smNodes->om_splice_nodes_pend(&addNodes, &rmNodes);
-    clus->updateMap(addNodes, rmNodes);
-    // dlt->dlt_deploy_event(DltCompEvt(dp));
-}
-
 /**
  * Drives the DLT deployment state machine.
  */
@@ -179,18 +150,23 @@ OM_NodeDomainMod::om_update_cluster() {
     OM_DLTMod *dltMod = om->om_dlt_mod();
     DataPlacement *dp = om->om_dataplace_mod();
     ClusterMap* cm = om->om_clusmap_mod();
+    OM_SmContainer::pointer smNodes = om_locDomain->om_sm_nodes();
+
+    // Recompute the DLT
+    DltCompEvt computeEvent(cm, dp, smNodes);
+    dltMod->dlt_deploy_event(computeEvent);
 
     // ClusterMap only contains SM nodes.
     // Start update cluster if there are any newly added or
     // removed nodes in the cluster map
     if (((cm->getAddedNodes()).size() == 0) &&
         ((cm->getRemovedNodes()).size() == 0)) {
-        return;  // no changes in SM nodes
+        // no changes in SM nodes, so go back to idle state
+        FDS_PLOG_SEV(g_fdslog, fds_log::debug)
+                << "om_update_cluster: cluster map up to date";
+        dltMod->dlt_deploy_event(DltNoChangeEvt());
+        return;
     }
-
-    // Recompute the DLT
-    DltCompEvt computeEvent(dp);
-    dltMod->dlt_deploy_event(computeEvent);
 
     // Start rebalancing/syncing data to prepare
     // for the new DLT
@@ -241,6 +217,10 @@ OM_NodeDomainMod::om_recv_migration_done(const NodeUuid& uuid,
     // otherwise, it will wait for dlt commit responses
     dltMod->dlt_deploy_event(DltCommitOkEvt(cm, cur_dlt_ver));
 
+    // in case no-one need commit event, start the state machine
+    // to check if nodes were added/removed while we were updating
+    om_update_cluster();
+
     return err;
 }
 
@@ -267,6 +247,9 @@ OM_NodeDomainMod::om_recv_sm_dlt_commit_resp(const NodeUuid& uuid,
     // we are done with current cluster update, so
     // expect to see dlt commit resp for current dlt version
     fds_uint64_t cur_dlt_ver = (dp->getCurDlt())->getVersion();
+    if (cur_dlt_ver > dlt_version) {
+        return err;
+    }
     fds_verify(cur_dlt_ver == dlt_version);
 
     // set node's confirmed dlt version to this version
@@ -276,6 +259,10 @@ OM_NodeDomainMod::om_recv_sm_dlt_commit_resp(const NodeUuid& uuid,
     // when all 'up' nodes acked this dlt commit
     ClusterMap* cm = om->om_clusmap_mod();
     dltMod->dlt_deploy_event(DltCommitOkEvt(cm, cur_dlt_ver));
+
+    // if we got all commits, try to update cluster again
+    // to check if nodes were added/removed while we were updating
+    om_update_cluster();
 
     return err;
 }

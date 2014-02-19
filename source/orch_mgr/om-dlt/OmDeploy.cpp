@@ -106,6 +106,7 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
     msf::Row< DST_Idle   , DltCompEvt     , DST_Comp   , DACT_Compute , msf::none     >,
     // +-----------------+----------------+------------+--------------+---------------+
     msf::Row< DST_Comp   , DltRebalEvt    , DST_Rebal  , DACT_Rebal   , msf::none     >,
+    msf::Row< DST_Comp   , DltNoChangeEvt , DST_Idle   , msf::none    , msf::none     >,
     // +-----------------+----------------+------------+--------------+---------------+
     msf::Row< DST_Rebal  , DltRebalOkEvt  , DST_Commit , DACT_Commit  , GRD_DltRebal  >,
     // +-----------------+----------------+------------+--------------+---------------+
@@ -171,6 +172,12 @@ OM_DLTMod::dlt_deploy_event(DltCompEvt const &evt)
 }
 
 void
+OM_DLTMod::dlt_deploy_event(DltNoChangeEvt const &evt)
+{
+    dlt_dply_fsm->process_event(evt);
+}
+
+void
 OM_DLTMod::dlt_deploy_event(DltRebalEvt const &evt)
 {
     dlt_dply_fsm->process_event(evt);
@@ -217,7 +224,9 @@ DltDplyFSM::no_transition(Evt const &evt, Fsm &fsm, int state)
 
 /* DACT_Compute
  * ------------
- * DLT computation state. Computes and stores a new DLT
+ * DLT computation state. Updates cluster map based on
+ * pending added/removed SM nodes. If there are changes
+ * to cluster map, computes and stores a new DLT
  * based on the current cluster map.
  */
 template <class Evt, class Fsm, class SrcST, class TgtST>
@@ -227,11 +236,24 @@ DltDplyFSM::DACT_Compute::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
     FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "FSM DACT_Compute";
     DltCompEvt dltEvt = (DltCompEvt)evt;
     DataPlacement *dp = dltEvt.ode_dp;
+    ClusterMap *cm = dltEvt.ode_cm;
+    OM_SmContainer::pointer smNodes = dltEvt.ode_sm_nodes;
     fds_verify(dp != NULL);
+
+    // Get added and removed nodes from pending SM additions
+    // and removals. We are updating the cluster map only in this
+    // state, so that it couldn't be changed while in the process
+    // of updating the DLT
+    NodeList addNodes, rmNodes;
+    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "DACT_Compute: Call cluster update map";
+    smNodes->om_splice_nodes_pend(&addNodes, &rmNodes);
+    cm->updateMap(addNodes, rmNodes);
 
     // Recompute the DLT. Once complete, the data placement's
     // current dlt will be updated to the new dlt version.
-    dp->computeDlt();
+    if ((addNodes.size() != 0) || (rmNodes.size() != 0)) {
+        dp->computeDlt();
+    }
 }
 
 // DACT_Rebal

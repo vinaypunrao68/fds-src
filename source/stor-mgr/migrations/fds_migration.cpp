@@ -76,7 +76,7 @@ FdsMigrationSvc::FdsMigrationSvc(SmIoReqHandler *data_store,
         fds_log *log, netSessionTblPtr nst,
         ClusterCommMgrPtr clust_comm_mgr)
     : Module("FdsMigrationSvc"),
-      FdsRequestQueueActor(),
+      FdsRequestQueueActor("FdsMigrationSvc", nullptr),
       mig_cntrs("Migration", g_cntrs_mgr.get()),
       data_store_(data_store),
       conf_helper_(conf_helper),
@@ -122,7 +122,7 @@ Error FdsMigrationSvc::handle_actor_request(FdsActorRequestPtr req)
         handle_migsvc_copy_token(req);
         break;
     }
-    case FAR_ID(MigSvcMigrationComplete):
+    case FAR_ID(FdsActorShutdownComplete):
     {
         handle_migsvc_migration_complete(req);
         break;
@@ -256,14 +256,14 @@ void FdsMigrationSvc::handle_migsvc_copy_token_rpc(FdsActorRequestPtr req)
 void FdsMigrationSvc::
 handle_migsvc_migration_complete(FdsActorRequestPtr req)
 {
-    fds_assert(req->type == FAR_ID(MigSvcMigrationComplete));
+    fds_assert(req->type == FAR_ID(FdsActorShutdownComplete));
 
-    auto payload = req->get_payload<MigSvcMigrationComplete>();
-    auto itr = mig_actors_.find(payload->mig_id);
+    auto payload = req->get_payload<FdsActorShutdownComplete>();
+    auto itr = mig_actors_.find(payload->far_id);
     if (itr == mig_actors_.end()) {
         /* For testing.  Remove when not needed */
         fds_assert(!"Migration actor not found");
-        LOGWARN << "Migration actor id: " << payload->mig_id
+        LOGWARN << "Migration actor id: " << payload->far_id
                 << " disappeared";
         return;
     }
@@ -275,13 +275,13 @@ handle_migsvc_migration_complete(FdsActorRequestPtr req)
     // TODO(rao): We need to remove the migrator.  I am experiencing crash
     // when I do this.  I suspect fds actor queue is still scheduled even
     // after removing the migration actor
-    // mig_actors_.erase(itr);
+    mig_actors_.erase(itr);
 
     if (migsvc_resp_cb) {
         migsvc_resp_cb(ERR_OK);
     }
 
-    LOGNORMAL << " Migration id: " << payload->mig_id;
+    LOGNORMAL << " Migration id: " << payload->far_id;
 }
 
 /**

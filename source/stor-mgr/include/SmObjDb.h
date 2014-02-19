@@ -107,7 +107,7 @@ fds::Error Get(const ObjectID& obj_id,
      err =  odb->Get(obj_id, obj_buf);
   } else {
     odb = openObjectDB(tokId);
-    err = fds::Error(fds::ERR_DISK_READ_FAILED);
+    err =  odb->Get(obj_id, obj_buf);
   }
   return err;
 }
@@ -121,7 +121,7 @@ fds::Error Put(const ObjectID& obj_id,
      err =  odb->Put(obj_id, obj_buf);
   } else {
     odb = openObjectDB(tokId);
-    err = fds::Error(fds::ERR_DISK_WRITE_FAILED);
+    err =  odb->Put(obj_id, obj_buf);
   }
   return err;
 }

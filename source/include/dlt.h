@@ -7,6 +7,7 @@
 #include <vector>
 #include <map>
 #include <list>
+#include <set>
 
 #include <boost/shared_ptr.hpp>
 
@@ -160,6 +161,12 @@ namespace fds {
         int  mod_init(fds::SysParams const *const param);
         void mod_startup();
         void mod_shutdown();
+
+        /*
+         * Static methods
+         */
+        static std::set<fds_token_id> token_diff(const NodeUuid &uid,
+                const DLT* new_dlt, const DLT* old_dlt);
 
   private:
         /**

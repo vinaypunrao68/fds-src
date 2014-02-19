@@ -23,12 +23,15 @@ namespace fds {
  * you rename the payload type don't forget to update here
  */
 enum FdsActorRequestType {
+    /*------------------ Actor specific request -------------------------------*/
+    /* For shutting down fds actor */
+    FAR_ENUM(FdsActorShutdown),
+    /* Notification from FdsActor to it's parent that shutdown is complete */
+    FAR_ENUM(FdsActorShutdownComplete),
+
     /*----------------- Migration request range [1000-2000) -------------------*/
     /* Migration service message to initiate token copy */
     FAR_ENUM(MigSvcCopyTokensReq) = 1000,
-
-    /* Migration service message that a migration is complete */
-    FAR_ENUM(MigSvcMigrationComplete),
 
     /* TokenCopySender message that token data has been read */
     FAR_ENUM(TcsDataReadDone),
@@ -96,6 +99,19 @@ protected:
 
 typedef boost::shared_ptr<FdsActorRequest> FdsActorRequestPtr;
 typedef std::queue<FdsActorRequestPtr> FdsActorRequestQueue;
+
+/**
+ * Notification FdsActor to its parent that shutdown is complete
+ */
+class FdsActorShutdownComplete {
+public:
+    FdsActorShutdownComplete(const std::string &id)
+    : far_id(id)
+    {}
+
+    std::string far_id;
+};
+typedef boost::shared_ptr<FdsActorShutdownComplete> FdsActorShutdownCompletePtr;
 
 }  // namespace fds
 
