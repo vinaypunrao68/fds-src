@@ -584,6 +584,7 @@ void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
 {
     FDS_PLOG(objStorMgr->GetLog()) << "ObjectStorMgr - Migration  event Handler " << dlt_type;
 
+#if 0
     // Determine our new tokens that we need to retrieve from
     // by comparing with the previous DLT
     // TODO(Andrew): For now, we're just getting all of the primary
@@ -620,6 +621,27 @@ void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
     } else {
         objStorMgr->migrationSvcResponseCb(Error(ERR_OK));
     }
+#endif
+
+    std::set<fds_token_id> tokens = DLT::token_diff(objStorMgr->getUuid(),
+            objStorMgr->omClient->getCurrentDLT(), objStorMgr->omClient->getPreviousDLT());
+
+    if (tokens.size() > 0) {
+        MigSvcCopyTokensReqPtr copy_req(new MigSvcCopyTokensReq());
+        copy_req->tokens = tokens;
+        // Send migration request to migration service
+        copy_req->migsvc_resp_cb = std::bind(
+            &ObjectStorMgr::migrationSvcResponseCb,
+            objStorMgr,
+            std::placeholders::_1);
+        FdsActorRequestPtr copy_far(new FdsActorRequest(
+            FAR_ID(MigSvcCopyTokensReq), copy_req));
+        objStorMgr->migrationSvc_->send_actor_request(copy_far);
+    } else {
+        FDS_PLOG(objStorMgr->GetLog()) << "No tokens to copy";
+        objStorMgr->migrationSvcResponseCb(Error(ERR_OK));
+    }
+
 }
 
 void ObjectStorMgr::migrationSvcResponseCb(const Error& err) {
@@ -1741,29 +1763,6 @@ ObjectStorMgr::enqGetObjectReq(FDSP_MsgHdrTypePtr msgHdr,
 }
 
 /**
- * @brief Populates obj_list with objects that belong to a token.  Populating
- * obj_list starts from value provided in itr parameter.  To iterate all the
- * objects you invoke this function repeatedly with itr from last invocation. 
- *
- * @param token token id 
- * @param max_size max_size to fill.  sum of the sizes all objects in obj_list
- * shouldn't exceed max_size
- * @param obj_list
- * @param itr
- *
- * @return 
- */
-Error ObjectStorMgr::retrieveTokenObjects(const fds_token_id &token, 
-                                         const size_t &max_size, 
-                                         FDSP_MigrateObjectList &obj_list, 
-                                         SMTokenItr &itr)
-{
-    Error err;
-    return err;
-}
-
-
-/**
  * @brief Enqueues a message into storage manager for processing
  *
  * @param volId
@@ -1781,39 +1780,6 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
     }
     return err;
 }
-
-#if 0
-/**
- * @brief Does a bulk put of objects+metadata from obj_list
- *
- * @param token
- * @param volId
- * @param obj_list
- *
- * @return 
- */
-Error ObjectStorMgr::putTokenObjectsInternal(const fds_token_id &token, 
-                                     fds_volid_t        volId,
-                                     FDSP_MigrateObjectListPtr &objList)
-{
-    Error err(ERR_OK);
-    PutTokObjectsReq *ioReq = new PutTokObjectReq(token, objList);
-    if (req == nullptr) {
-        err = ERR_OUT_OF_MEMEORY;
-        return err;
-    }
-    err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
-
-    if (err != fds::ERR_OK) {
-        FDS_PLOG_ERR(GetLog()) << "Token: " << token << "VolId: " << volId << " " << err; 
-        return err;
-    }
-    FDS_PLOG(objStorMgr->GetLog()) << "Successfully enqueued putTokenObjects request token: "
-        << token;
-
-  return err;
-}
-#endif
 
 /**
  * @brief Does a bulk put of objects+metadata from obj_list
@@ -1859,6 +1825,8 @@ ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq)
             FDS_PLOG_ERR(GetLog()) << "Failed to write the object: " << objId;
            break; 
         }
+
+        counters_.put_tok_objs.incr();
     }
 
     /* Mark the request as complete */
@@ -1977,9 +1945,9 @@ fds_int32_t  SmObjDb::RangeCompareKey(ObjectID obj_id, ObjectID start_obj_id, Ob
 }
 
 void  SmObjDb::iterRetrieveObjects(const fds_token_id &token, 
-                                   const size_t &max_size, 
-                                   FDSP_MigrateObjectList &obj_list, 
-                                   SMTokenItr &itr) {
+        const size_t &max_size,
+        FDSP_MigrateObjectList &obj_list,
+        SMTokenItr &itr) {
     fds_uint32_t tot_msg_len = 0;
     fds_int64_t tokId = token  & SM_TOKEN_MASK;
     diskio::DataTier tierUsed;
@@ -1988,56 +1956,58 @@ void  SmObjDb::iterRetrieveObjects(const fds_token_id &token,
     ObjectDB *odb = getObjectDB(tokId);
     if (odb == NULL ) { 
         itr.objId = SMTokenItr::itr_end;
-       return;
+        return;
     }
-    
-   ObjectID start_obj_id, end_obj_id;
-   // If the iterator is non-zero then use that as a sarting point for the scan else make up a start from token
-   if ( itr.objId.GetHigh() == 0 && itr.objId.GetLow() == 0) {  
-       start_obj_id.SetId((((fds_int64_t )token) << 32 )  | 0x0000000000000000, 0);
-   } else { 
-       start_obj_id = itr.objId;
-   }
-   end_obj_id.SetId((((fds_int64_t )token) << 32 )| 0x00ffffffffffffff, 0xffffffffffffffff);
+
+    ObjectID start_obj_id, end_obj_id;
+    // If the iterator is non-zero then use that as a sarting point for the scan else make up a start from token
+    if ( itr.objId.GetHigh() == 0 && itr.objId.GetLow() == 0) {
+        start_obj_id.SetId((((fds_int64_t )token) << 32 )  | 0x0000000000000000, 0);
+    } else {
+        start_obj_id = itr.objId;
+    }
+    end_obj_id.SetId((((fds_int64_t )token) << 32 )| 0x00ffffffffffffff, 0xffffffffffffffff);
 
     leveldb::Slice startSlice((const char *)&start_obj_id, sizeof(ObjectID));
     leveldb::Slice endSlice((const char *)&end_obj_id, sizeof(ObjectID));
-      
-     boost::shared_ptr<leveldb::Iterator> dbIter(odb->GetDB()->NewIterator(odb->GetReadOptions()));
-     leveldb::Options options_ = odb->GetOptions();
 
-      memcpy(&objId , &start_obj_id, sizeof(ObjectID));
-      FDS_PLOG(objStorMgr->GetLog()) << "Start of the loop " << objId  << "ending obj" << end_obj_id;
-       for(dbIter->Seek(startSlice); dbIter->Valid() && (CompareKey((char *)&objId, end_obj_id) <= 0) ;dbIter->Next())
-       {                
-         ObjectBuf        objData;
-         // Read the record
-         memcpy(&objId , dbIter->key().data(), sizeof(ObjectID));
-         FDS_PLOG(objStorMgr->GetLog()) << "Checking an objectId for token range " << token << " into  objList" << objId ;
+    boost::shared_ptr<leveldb::Iterator> dbIter(odb->GetDB()->NewIterator(odb->GetReadOptions()));
+    leveldb::Options options_ = odb->GetOptions();
 
-         // TODO: process the key/data
-         if (RangeCompareKey(objId, start_obj_id, end_obj_id) == 0 ) {
-              // Get the object buffer 
-              err = objStorMgr->readObject(objId, objData, tierUsed);
-              if (err == ERR_OK ) { 
-                      if ((max_size - tot_msg_len) >= objData.size) { 
-                          FDSP_MigrateObjectData mig_obj;
-                          mig_obj.meta_data.token_id = token;
-                          FDS_PLOG(objStorMgr->GetLog()) << "Adding a new objectId to objList" << objId;
-                          mig_obj.meta_data.object_id.hash_high = objId.GetHigh();
-                          mig_obj.meta_data.object_id.hash_low = objId.GetLow();
-                          mig_obj.meta_data.obj_len = objData.size;
-		          mig_obj.data = objData.data;
-                          obj_list.push_back(mig_obj);
-                          tot_msg_len += objData.size;
-                      } else {
-                         itr.objId = objId;
-                         return;
-                      }
-               }
-          }
-       } // Enf of for loop
-     itr.objId = SMTokenItr::itr_end;
+    memcpy(&objId , &start_obj_id, sizeof(ObjectID));
+    FDS_PLOG(objStorMgr->GetLog()) << "Start of the loop " << objId  << "ending obj" << end_obj_id;
+    for(dbIter->Seek(startSlice); dbIter->Valid() && (CompareKey((char *)&objId, end_obj_id) <= 0) ;dbIter->Next())
+    {
+        ObjectBuf        objData;
+        // Read the record
+        memcpy(&objId , dbIter->key().data(), sizeof(ObjectID));
+        FDS_PLOG(objStorMgr->GetLog()) << "Checking an objectId for token range " << token << " into  objList" << objId ;
+
+        // TODO: process the key/data
+        if (RangeCompareKey(objId, start_obj_id, end_obj_id) == 0 ) {
+            // Get the object buffer
+            err = objStorMgr->readObject(objId, objData, tierUsed);
+            if (err == ERR_OK ) {
+                if ((max_size - tot_msg_len) >= objData.size) {
+                    FDSP_MigrateObjectData mig_obj;
+                    mig_obj.meta_data.token_id = token;
+                    FDS_PLOG(objStorMgr->GetLog()) << "Adding a new objectId to objList" << objId;
+                    mig_obj.meta_data.object_id.hash_high = objId.GetHigh();
+                    mig_obj.meta_data.object_id.hash_low = objId.GetLow();
+                    mig_obj.meta_data.obj_len = objData.size;
+                    mig_obj.data = objData.data;
+                    obj_list.push_back(mig_obj);
+                    tot_msg_len += objData.size;
+
+                    objStorMgr->counters_.get_tok_objs.incr();
+                } else {
+                    itr.objId = objId;
+                    return;
+                }
+            }
+        }
+    } // Enf of for loop
+    itr.objId = SMTokenItr::itr_end;
 
 }
 
