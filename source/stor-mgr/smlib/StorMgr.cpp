@@ -69,9 +69,7 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
      * TODO: We should check if this value has rolled at some point.
      * Though it's big enough for us to not care right now.
      */
-      objStorMgr->PutObject(msgHdr, putObj);
 
-#if 0 // SAN REMOVE CHECK for Integration 
     if (putObj->dlt_version == objStorMgr->omClient->getDltVersion()) {
     /*
      * Track the outstanding get request.
@@ -92,7 +90,6 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
         objStorMgr->omClient->getLatestDlt(putObj->dlt_data);
         FDS_PLOG(objStorMgr->GetLog()) << "DLT  version Conflict returning the latest"; 
     }
-#endif
 
     /*
      * If we failed to enqueue the I/O return the error response
