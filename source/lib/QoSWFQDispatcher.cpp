@@ -68,7 +68,7 @@ namespace fds {
     boost::posix_time::ptime current_time = boost::posix_time::microsec_clock::universal_time();
     boost::posix_time::time_duration elapsed_time = current_time - last_reset_time;
     fds_uint64_t elapsed_usecs = elapsed_time.total_microseconds();
-    float current_rate = ((float)num_ios_dispatched * 1000000)/ elapsed_usecs; // ios per second that we have been able to achieve since last reset time.
+    // float current_rate = ((float)num_ios_dispatched * 1000000)/ elapsed_usecs; // ios per second that we have been able to achieve since last reset time.
     float current_guaranteed_ios_rate = ((float)num_rate_based_slots_serviced * 1000000)/elapsed_usecs;
     float expected_guaranteed_ios_rate = total_rate_based_spots;
 
@@ -217,7 +217,7 @@ namespace fds {
       rate_based_qlist.clear();
       next_rate_based_spot = 0;
       total_rate_based_spots = 0;
-      for (int i = 0; i < total_capacity; i++) {
+      for (uint i = 0; i < total_capacity; i++) {
 	rate_based_qlist.push_back(0); // "0" is a special queue_id indicating this spot is assigned to no queue. Open to be used for priority based WFQ assignment
       }
       num_queues = 0;
@@ -258,7 +258,7 @@ namespace fds {
 
     Error err(ERR_OK);
 
-    FDS_VolumeQueue *queue = qd->queue;
+    // FDS_VolumeQueue *queue = qd->queue;
 
     for (fds_uint64_t i = 0; i < qd->queue_rate; i++) {
       fds_uint32_t next_rate_based_spot = qd->rate_based_rr_spots[i];
@@ -337,10 +337,10 @@ namespace fds {
     WFQQueueDesc *qd = queue_desc_map[queue_id];
 
     // Save the old parameters
-    fds_uint32_t old_rb_wt = qd->rate_based_weight;
-    fds_uint32_t old_queue_rate = qd->queue_rate;
-    fds_uint32_t old_pb_wt = qd->priority_based_weight;
-    fds_uint32_t old_max_rb_credits = qd->max_rate_based_credits;
+    // fds_uint32_t old_rb_wt = qd->rate_based_weight;
+    // fds_uint32_t old_queue_rate = qd->queue_rate;
+    // fds_uint32_t old_pb_wt = qd->priority_based_weight;
+    // fds_uint32_t old_max_rb_credits = qd->max_rate_based_credits;
 
     // First remove this queue from all the old spots allocated to it.
     revokeSpotsFromQueue(qd);
