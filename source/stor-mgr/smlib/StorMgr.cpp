@@ -1398,6 +1398,11 @@ ObjectStorMgr::enqPutObjectReq(FDSP_MsgHdrTypePtr msgHdr,
                 FDS_IO_WRITE,
                 transId);
 
+        err = omJrnl->create_transaction(obj_id, static_cast<FDS_IOType *>(ioReq), trans_id);
+        ioReq->setTransId(trans_id);
+        ObjectIdJrnlEntry *jrnlEntry = omJrnl->get_transaction(trans_id);
+        jrnlEntry->setMsgHdr(msgHdr);
+
         err = qosCtrl->enqueueIO(ioReq->getVolId(), static_cast<FDS_IOType*>(ioReq));
         if (err != ERR_OK) {
             /*
@@ -1410,10 +1415,6 @@ ObjectStorMgr::enqPutObjectReq(FDSP_MsgHdrTypePtr msgHdr,
                     << transId;
             return err;
         }
-        err = omJrnl->create_transaction(obj_id, static_cast<FDS_IOType *>(ioReq), trans_id);
-        ioReq->setTransId(trans_id);
-        ObjectIdJrnlEntry *jrnlEntry = omJrnl->get_transaction(trans_id);
-        jrnlEntry->setMsgHdr(msgHdr);
         FDS_PLOG(objStorMgr->GetLog()) << "Successfully enqueued putObject request "
                 << transId;
     }
@@ -1666,6 +1667,10 @@ ObjectStorMgr::enqDeleteObjectReq(FDSP_MsgHdrTypePtr msgHdr,
             FDS_DELETE_BLOB,
             transId);
 
+    err =  omJrnl->create_transaction(obj_id, static_cast<FDS_IOType *>(ioReq), trans_id);
+    ObjectIdJrnlEntry *jrnlEntry = omJrnl->get_transaction(trans_id);
+    jrnlEntry->setMsgHdr(msgHdr);
+    ioReq->setTransId(trans_id);
     
     err = qosCtrl->enqueueIO(ioReq->getVolId(), static_cast<FDS_IOType*>(ioReq));
 
@@ -1676,10 +1681,6 @@ ObjectStorMgr::enqDeleteObjectReq(FDSP_MsgHdrTypePtr msgHdr,
     }
     FDS_PLOG(objStorMgr->GetLog()) << "Successfully enqueued delObject request "
             << transId;
-    err =  omJrnl->create_transaction(obj_id, static_cast<FDS_IOType *>(ioReq), trans_id);
-    ObjectIdJrnlEntry *jrnlEntry = omJrnl->get_transaction(trans_id);
-    jrnlEntry->setMsgHdr(msgHdr);
-    ioReq->setTransId(trans_id);
 
     return err;
 }
@@ -1743,6 +1744,11 @@ ObjectStorMgr::enqGetObjectReq(FDSP_MsgHdrTypePtr msgHdr,
                                FDS_IO_READ,
                                transId);
 
+  err =  omJrnl->create_transaction(obj_id, static_cast<FDS_IOType *>(ioReq), trans_id);
+  ioReq->setTransId(trans_id);
+  ObjectIdJrnlEntry *jrnlEntry = omJrnl->get_transaction(trans_id);
+  jrnlEntry->setMsgHdr(msgHdr);
+
   err = qosCtrl->enqueueIO(ioReq->getVolId(), static_cast<FDS_IOType*>(ioReq));
 
   if (err != fds::ERR_OK) {
@@ -1752,10 +1758,6 @@ ObjectStorMgr::enqGetObjectReq(FDSP_MsgHdrTypePtr msgHdr,
     getObjReq->data_obj.assign("");
     return err;
   }
-  err =  omJrnl->create_transaction(obj_id, static_cast<FDS_IOType *>(ioReq), trans_id);
-  ioReq->setTransId(trans_id);
-  ObjectIdJrnlEntry *jrnlEntry = omJrnl->get_transaction(trans_id);
-  jrnlEntry->setMsgHdr(msgHdr);
   FDS_PLOG(objStorMgr->GetLog()) << "Successfully enqueued getObject request "
                                  << transId;
 
