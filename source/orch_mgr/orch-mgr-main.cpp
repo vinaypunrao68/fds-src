@@ -27,8 +27,8 @@ int main(int argc, char *argv[]) {
     fds::gl_orch_mgr = fds::orchMgr;
 
     fds::Module *omVec[] = {
-        &fds::gl_OMModule,
         fds::orchMgr,
+        &fds::gl_OMModule,
         nullptr};
 
     fds::orchMgr->setup(argc, argv, omVec);

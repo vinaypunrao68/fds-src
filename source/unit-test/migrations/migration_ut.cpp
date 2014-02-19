@@ -19,13 +19,13 @@
  * sender information.  We just require the sender config here.
  */
 class MockClusterCommMgr : public ClusterCommMgr {
-public:
+  public:
     MockClusterCommMgr(FdsConfigAccessor sender_config)
-: ClusterCommMgr(nullptr),
-  sender_config_(sender_config)
-{
-}
-
+    : ClusterCommMgr(nullptr),
+      sender_config_(sender_config)
+    {
+    }
+    virtual ~MockClusterCommMgr() {}
     virtual NodeTokenTbl
     partition_tokens_by_node(const std::set<fds_token_id> &tokens) override
     {
@@ -33,10 +33,11 @@ public:
         NodeUuid id(1);
         NodeTokenTbl tbl;
         tbl[id] = tokens;
+        return tbl;
     }
 
     virtual bool
-    get_node_ip_port(const NodeUuid &node_id, uint32_t &ip, uint32_t &port) override
+    get_node_mig_ip_port(const NodeUuid &node_id, uint32_t &ip, uint32_t &port) override
     {
         std::string str_ip = sender_config_.get<std::string>("ip");
         ip = netSessionTbl::ipString2Addr(str_ip);
@@ -53,7 +54,7 @@ public:
     MigrationTester() {
 
     }
-    ~MigrationTester() {
+    virtual ~MigrationTester() {
         delete log_;
     }
 
@@ -164,6 +165,7 @@ public:
 };
 
 int main() {
+    init_process_globals("temp.log");
     MigrationTester t;
     t.init();
     t.test1();

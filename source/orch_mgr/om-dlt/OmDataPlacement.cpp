@@ -237,7 +237,7 @@ DataPlacement::computeDlt() {
     if (curDlt == NULL) {
         version = DLT_VER_INVALID + 1;
     } else {
-        version = curDlt->getVersion();
+        version = curDlt->getVersion() + 1;
     }
     // If we have fewer members than total replicas
     // use the number of members as the replica count
@@ -313,7 +313,8 @@ DataPlacement::beginRebalance() {
        dltMsg->dlt_type= true;
        curDlt->getSerialized(dltMsg->dlt_data);
        FDS_PLOG_SEV(g_fdslog, fds_log::notification)
-                << "Sending the DLT to  Client " << dltMsg->dlt_type;
+                << "Sending the DLT migration request to node "
+                << std::hex << uuid.uuid_get_val();
        curDlt->dump();
 
     // invoke the RPC
@@ -327,53 +328,16 @@ DataPlacement::beginRebalance() {
 /**
  * Commits the current DLT as an 'official'
  * copy. The commit stores the DLT to the
- * permanent DLT history and async notifies
- * others nodes in the cluster about the
- * new version.
+ * permanent DLT history.
  */
 Error
 DataPlacement::commitDlt() {
     Error err(ERR_OK);
 
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr(
-        new FDS_ProtocolInterface::FDSP_MsgHdrType());
-    FDS_ProtocolInterface::FDSP_DLT_Data_TypePtr dltMsg(
-        new FDS_ProtocolInterface::FDSP_DLT_Data_Type());
-
-    placementMutex->lock();
-
-    // Commit the current DLT to the
-    // official DLT history
-    dltMsg->dlt_type= true;
-    FDS_PLOG_SEV(g_fdslog, fds_log::notification)
-            << "Commiting the DLT to existing nodes " << dltMsg->dlt_type
-            << " version " << curDlt->getVersion();
-    curDlt->getSerialized(dltMsg->dlt_data);
-    curDlt->dump();
-
-    // Async notify other nodes of the new DLT
-    std::unordered_set<NodeUuid, UuidHash> addedNodes = curClusterMap->getAddedNodes();
-    FDS_PLOG(g_fdslog) << "commitDlt: added nodes " << addedNodes.size();
-    for (ClusterMap::const_iterator it = curClusterMap->cbegin();
-         it != curClusterMap->cend();
-         it++) {
-        OM_SmAgent::pointer na = it->second;
-        if ((na->node_state() == FDS_ProtocolInterface::FDS_Node_Up) &&
-            (addedNodes.count(na->get_uuid()) == 0)) {
-            NodeAgentCpReqClientPtr naClient = na->getCpClient();
-            na->init_msg_hdr(msgHdr);
-            msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_DLT_UPDATE;
-
-            naClient->NotifyDLTUpdate(msgHdr, dltMsg);
-
-            FDS_PLOG_SEV(g_fdslog, fds_log::notification)
-                    << "Sent DLT update to node " << std::hex
-                    << na->get_uuid().uuid_get_val() << std::dec;
-        }
-    }
-
-    placementMutex->unlock();
-
+    // TODO(anna) -- what does it mean to commit the current
+    // DLT as an 'official' version in data placement?
+    // For now is empty method, the new dlt is broadcasted
+    // to all other nodes in commit event in dlt state machine
     return err;
 }
 

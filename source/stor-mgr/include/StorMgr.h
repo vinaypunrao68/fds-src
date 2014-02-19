@@ -274,18 +274,6 @@ class ObjectStorMgr :
     ObjQueue         *dirtyFlashObjs;    /* Flash's dirty list */
 
     /*
-     * Outstanding request tracking members.
-     * TODO: We should have a better overall mechanism than
-     * this. This is pretty slow and hackey. The networking
-     * layer should eventually handle this, not SM.
-     */
-    typedef std::unordered_map<fds_uint64_t,
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr> WaitingReqMap;
-    WaitingReqMap              waitingReqs;
-    std::atomic<fds_uint64_t>  nextReqId;
-    fds_mutex                 *waitingReqMutex;
-
-    /*
      * Local perf stat collection
      */
     enum perfMigOp {
@@ -300,15 +288,18 @@ class ObjectStorMgr :
     /*
      * Private request processing members.
      */
-    Error enqGetObjectReq(FDSP_GetObjTypePtr getObjReq, 
+    Error enqGetObjectReq(FDSP_MsgHdrTypePtr msgHdr, 
+            FDSP_GetObjTypePtr getObjReq, 
             fds_volid_t        volId,
             fds_uint32_t       transId,
             fds_uint32_t       numObjs);
-    Error enqPutObjectReq(FDSP_PutObjTypePtr putObjReq, 
+    Error enqPutObjectReq(FDSP_MsgHdrTypePtr msgHdr, 
+            FDSP_PutObjTypePtr putObjReq, 
             fds_volid_t        volId,
             fds_uint32_t       transId,
             fds_uint32_t       numObjs);
-    Error enqDeleteObjectReq(FDSP_DeleteObjTypePtr delObjReq, 
+    Error enqDeleteObjectReq(FDSP_MsgHdrTypePtr msgHdr, 
+            FDSP_DeleteObjTypePtr delObjReq, 
             fds_volid_t        volId,
             fds_uint32_t       transId);
     Error checkDuplicate(const ObjectID  &objId,
@@ -415,8 +406,8 @@ class ObjectStorMgr :
     Error getObjectInternal(SmIoReq* getReq);
     Error putObjectInternal(SmIoReq* putReq);
     Error deleteObjectInternal(SmIoReq* delReq);
-    Error putTokenObjectsInternal(SmIoReq* ioReq);
-    Error getTokenObjectsInternal(SmIoReq* ioReq);
+    void putTokenObjectsInternal(SmIoReq* ioReq);
+    void getTokenObjectsInternal(SmIoReq* ioReq);
     Error relocateObject(const ObjectID &objId,
             diskio::DataTier from_tier,
             diskio::DataTier to_tier);
@@ -459,6 +450,10 @@ class ObjectStorMgr :
     NodeUuid getUuid() const;
 
     const TokenList& getTokensForNode(const NodeUuid &uuid) const;
+    void getTokensForNode(TokenList *tl,
+                          const NodeUuid &uuid,
+                          fds_uint32_t index);
+    fds_uint32_t getTotalNumTokens() const;
 
     virtual std::string log_string()
     {

@@ -77,6 +77,7 @@ FdsMigrationSvc::FdsMigrationSvc(SmIoReqHandler *data_store,
         ClusterCommMgrPtr clust_comm_mgr)
     : Module("FdsMigrationSvc"),
       FdsRequestQueueActor(),
+      mig_cntrs("Migration", g_cntrs_mgr.get()),
       data_store_(data_store),
       conf_helper_(conf_helper),
       log_(log),
@@ -330,7 +331,7 @@ FdsMigrationSvc::ack_copy_token_req(FdsActorRequestPtr req)
 
     migpath_resp_client(session_id)->CopyTokenResp(response);
 
-    LOGNORMAL;
+    LOGNORMAL << "Sent copy ack for mig " << response->mig_id;
 
     return err;
 }

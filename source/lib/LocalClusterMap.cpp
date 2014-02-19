@@ -6,24 +6,16 @@
 
 namespace fds {
 
-LocalClusterMap::LocalClusterMap(boost::shared_ptr<FDS_ProtocolInterface::
-                                                   FDSP_MigrationPathRespIf> migHndlr)
-        : Module("local cluster map"),
-          migRspHndlr(migHndlr) {
-    // TODO(Andrew): This should be a generic platform/node interface
-    // not one for each possible client OR the map should have one
-    // role (e.g., DM, SM, etc...) and use that. We're hard coding to
-    // the migration table for now.
-    lcmSessTbl = boost::shared_ptr<netSessionTbl>(
-        new netSessionTbl(FDSP_MIGRATION_MGR));
+LocalClusterMap::LocalClusterMap()
+        : Module("local cluster map") {
 }
 
 LocalClusterMap::~LocalClusterMap() {
-    lcmSessTbl->endAllSessions();
 }
 
 int
 LocalClusterMap::mod_init(SysParams const *const param) {
+    return 0;
 }
 
 void
@@ -34,10 +26,27 @@ void
 LocalClusterMap::mod_shutdown() {
 }
 
-NodeUuid
-LocalClusterMap::getNodeInfo() const {
-    NodeUuid tmp;
-    return tmp;
+int
+LocalClusterMap::getNodeInfo(fds_uint64_t nodeUuid,
+                             fds_uint32_t *nodeIpAddr,
+                             fds_uint32_t *nodePort,
+                             int *nodeState) {
+    lcmLock.write_lock();
+    if (clusterMembers.count(nodeUuid) == 0) {
+        // Return error if the node isn't in the cluster
+        lcmLock.write_unlock();
+        return -1;
+    }
+
+    node_info_t node = clusterMembers[nodeUuid];
+    fds_verify(node.node_id == nodeUuid);
+
+    *nodeIpAddr = node.node_ip_address;
+    *nodePort   = node.port;
+    *nodeState  = node.node_state;
+    lcmLock.write_unlock();
+
+    return 0;
 }
 
 NodeMigReqClientPtr
@@ -50,6 +59,17 @@ LocalClusterMap::getMigClient(fds_uint64_t node_id) {
     lcmLock.write_unlock();
 
     return client;
+}
+
+fds_uint32_t
+LocalClusterMap::getNodeMigPort(NodeUuid uuid) {
+    fds_uint32_t port;
+    lcmLock.read_lock();
+    fds_verify(clusterMembers.count(uuid.uuid_get_val()) != 0);
+    port = clusterMembers[uuid.uuid_get_val()].mig_port;
+    lcmLock.read_unlock();
+
+    return port;
 }
 
 Error

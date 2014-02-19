@@ -135,6 +135,12 @@ netSessionTbl::getKey(std::string node_name, FDSP_MgrIdType remote_mgr_id) {
         case FDSP_CLI_MGR :
             node_name_key += "_CLI";
             break;
+        case FDSP_OMCLIENT_MGR :
+            node_name_key += "_OMCLI";
+            break;
+        case FDSP_MIGRATION_MGR :
+            node_name_key += "_MIG";
+            break;
     }
 
     switch ( remote_mgr_id ) {
@@ -152,6 +158,12 @@ netSessionTbl::getKey(std::string node_name, FDSP_MgrIdType remote_mgr_id) {
             break;
         case FDSP_CLI_MGR :
             node_name_key += "_CLI";
+            break;
+        case FDSP_OMCLIENT_MGR :
+            node_name_key += "_OMCLI";
+            break;
+        case FDSP_MIGRATION_MGR :
+            node_name_key += "_MIG";
             break;
     }
     return node_name_key;

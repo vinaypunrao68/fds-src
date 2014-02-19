@@ -11,6 +11,8 @@
 #include <concurrency/Mutex.h>
 #include <util/Log.h>
 #include <fds_config.hpp>
+#include <fds_counters.h>
+#include <fds_process.h>
 #include <concurrency/fds_actor.h>
 #include <concurrency/fds_actor_request.h>
 #include <NetSession.h>
@@ -34,8 +36,6 @@ typedef std::function<void (const Error&)> MigSvcCbType;
 class MigSvcCopyTokensReq
 {
 public:
-
-public:
     /* In: Tokens to copy */
     std::set<fds_token_id> tokens;
     /* In: Callback to invoke after completion */
@@ -52,6 +52,21 @@ public:
     std::string mig_id;
 };
 typedef boost::shared_ptr<MigSvcMigrationComplete> MigSvcMigrationCompletePtr;
+
+/* Migration service counters */
+class MigrationCounters : public FdsCounters
+{
+ public:
+  MigrationCounters(const std::string &id, FdsCountersMgr *mgr)
+      : FdsCounters(id, mgr),
+        tokens_sent("tokens_sent", this),
+        tokens_rcvd("tokens_rcvd", this)
+  {
+  }
+
+  NumericCounter tokens_sent; 
+  NumericCounter tokens_rcvd;
+};
 
 /* Service for migrating objects */
 class FdsMigrationSvc : public Module, public FdsRequestQueueActor
@@ -94,6 +109,10 @@ public:
 
     std::string get_ip();
     int get_port();
+
+public:
+    /* Migration counters */
+    MigrationCounters mig_cntrs;
 
 private:
     void route_to_mig_actor(const std::string &mig_id, FdsActorRequestPtr req);

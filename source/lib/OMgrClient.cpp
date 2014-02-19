@@ -76,9 +76,13 @@ void OMgrClientRPCI::NotifyDLTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
 }
 void OMgrClientRPCI::NotifyStartMigration(FDSP_MsgHdrTypePtr& msg_hdr,
 			 FDSP_DLT_Data_TypePtr& dlt_info) {
-
-  om_client->recvDLTStartMigration(dlt_info);
-  om_client->recvMigrationEvent(dlt_info->dlt_type); 
+    // Only SM needs to process these migrations
+    if (om_client->getNodeType() == FDS_ProtocolInterface::FDSP_STOR_MGR) {
+        om_client->recvDLTStartMigration(dlt_info);
+        om_client->recvMigrationEvent(dlt_info->dlt_type); 
+    } else {
+        om_client->sendMigrationStatusToOM(ERR_OK);
+    }
 }
 
 void OMgrClientRPCI::NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
@@ -128,9 +132,7 @@ OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
                        const std::string& node_name,
                        fds_log *parent_log,
                        boost::shared_ptr<netSessionTbl> nst,
-                       fds_uint32_t mig_port,
-                       boost::shared_ptr<FDS_ProtocolInterface::
-                        FDSP_MigrationPathRespIf> migRespIf) {
+                       fds_uint32_t mig_port) {
   my_node_type = node_type;
   omIpStr      = _omIpStr;
   omConfigPort = _omPort;
@@ -150,7 +152,7 @@ OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
   nst_ = nst;
   initRPCComm();
 
-  clustMap = new LocalClusterMap(migRespIf);
+  clustMap = new LocalClusterMap();
 }
 
 
@@ -195,8 +197,8 @@ int OMgrClient::registerBucketStatsCmdHandler(bucket_stats_cmd_handler_t cmd_hdl
 
 int OMgrClient::initRPCComm() {
 
-  int argc = 0;
-  char **argv = 0;
+    //int argc = 0;
+    //char **argv = 0;
 
   // TODO: Load config using libconfig
   //initData.properties->load("om_client.conf");
@@ -614,19 +616,20 @@ int OMgrClient::recvNodeEvent(int node_id,
 { 
   omc_lock.write_lock();
 
-  node_info_t& node = node_map[node_id];
+  node_info_t node;
 
   node.node_id = node_info->node_uuid;
   node.node_ip_address = node_ip;
   node.port = node_info->data_port;
   node.node_state = (FDSP_NodeState) node_state;
+  node.mig_port = node_info->migration_port;
 
   // Update local cluster map
   clustMap->addNode(&node, my_node_type, node_type);
 
   // TODO(Andrew): Hack to figure out my own node uuid
   // since the OM doesn't reply to my registration yet.
-  if ((node.node_ip_address == netSession::ipString2Addr(hostIp)) &&
+  if ((node.node_ip_address == (uint)netSession::ipString2Addr(hostIp)) &&
       (node.port == my_data_port)) {
       myUuid.uuid_set_val(node_info->node_uuid);
       LOGDEBUG << "Setting my UUID to " << myUuid.uuid_get_val();
@@ -635,13 +638,13 @@ int OMgrClient::recvNodeEvent(int node_id,
   omc_lock.write_unlock();
 
   FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received node event for node "
-                                                    << node_info->node_id 
+                                                    << node.node_id 
 						    << ", type - " << node_info->node_type 
 						    << " with ip address " << node_ip 
 						    << " and state - " << node_state;
 
   if (this->node_evt_hdlr) {
-    this->node_evt_hdlr(node_id,
+    this->node_evt_hdlr(node.node_id,
                         node_ip,
                         node_state,
                         node_info->data_port,
@@ -702,7 +705,8 @@ int OMgrClient::updateDlt(bool dlt_type, std::string& dlt_data) {
 int OMgrClient::recvDLTUpdate(FDSP_DLT_Data_TypePtr& dlt_info,
                               const std::string& session_uuid) {
     FDS_PLOG_SEV(omc_log, fds::fds_log::notification)
-            << "OMClient received new DLT version  " << dlt_info->dlt_type;
+            << "OMClient received new DLT commit version  "
+            << dlt_info->dlt_type;
 
     omc_lock.write_lock();
     dltMgr.addSerializedDLT(dlt_info->dlt_data, dlt_info->dlt_type);
@@ -720,7 +724,7 @@ int OMgrClient::recvDLTUpdate(FDSP_DLT_Data_TypePtr& dlt_info,
         dlt_resp->DLT_version = getDltVersion();
         resp_client_prx->NotifyDLTUpdateResp(msg_hdr, dlt_resp);
         FDS_PLOG_SEV(omc_log, fds_log::notification)
-                << "OMClient sent response for DTL update to OM";
+                << "OMClient sent response for DLT update to OM";
     } catch (...) {
         FDS_PLOG_SEV(omc_log, fds_log::error) << "OMClient failed to send response to OM";
         return -1;
@@ -735,7 +739,7 @@ int OMgrClient::recvDLTStartMigration(FDSP_DLT_Data_TypePtr& dlt_info) {
 
   omc_lock.write_lock();
   dltMgr.addSerializedDLT(dlt_info->dlt_data, dlt_info->dlt_type);
-  dltMgr.dump();
+  dltMgr.dump();  
   omc_lock.write_unlock();
 
   return (0);
@@ -752,6 +756,14 @@ int OMgrClient::recvDMTUpdate(int dmt_vrsn, const Node_Table_Type& dmt_table) {
 
   omc_lock.write_unlock();
 
+  int row = 0;
+  for (auto it = dmt_table.cbegin(); it != dmt_table.cend(); it++) {
+    for (auto jt = (*it).cbegin(); jt != (*it).cend(); jt++) {
+        FDS_PLOG_SEV(omc_log, fds::fds_log::notification)
+           << "[Col " << row << std::hex << "] " << *jt;
+    }
+    row++;
+  }
   return (0);
 }
 
@@ -781,29 +793,15 @@ int OMgrClient::recvBucketStats(const FDSP_MsgHdrTypePtr& msg_hdr,
   return 0;
 }
 
-int OMgrClient::getNodeInfo(fds_uint64_t node_id,
-                            unsigned int *node_ip_addr,
-                            fds_uint32_t *node_port,
-                            int *node_state) {
-  
-  omc_lock.read_lock();
-
-  if (node_map.count(node_id) <= 0) {
-    omc_lock.read_unlock();
-    return (-1);
-  }
-
-  node_info_t& node = node_map[node_id];
-
-  assert(node.node_id == node_id);
-
-  *node_ip_addr = node.node_ip_address;
-  *node_port = node.port;
-  *node_state = node.node_state;
-
-  omc_lock.read_unlock();
-  
-  return 0;
+int
+OMgrClient::getNodeInfo(fds_uint64_t node_id,
+                        unsigned int *node_ip_addr,
+                        fds_uint32_t *node_port,
+                        int *node_state) {
+    return clustMap->getNodeInfo(node_id,
+                                 node_ip_addr,
+                                 node_port,
+                                 node_state);
 }
 
 fds_uint32_t
@@ -819,6 +817,16 @@ OMgrClient::getLatestDlt(std::string& dlt_data) {
 const DLT* OMgrClient::getCurrentDLT() {
     omc_lock.read_lock();
     const DLT *dlt = dltMgr.getDLT();
+    omc_lock.read_unlock();
+
+    return dlt;
+}
+
+const DLT*
+OMgrClient::getPreviousDLT() {
+    omc_lock.read_lock();
+    fds_uint64_t version = (dltMgr.getDLT()->getVersion()) - 1;
+    const DLT *dlt = dltMgr.getDLT(version);
     omc_lock.read_unlock();
 
     return dlt;
@@ -840,9 +848,19 @@ OMgrClient::getUuid() const {
     return myUuid;
 }
 
+FDSP_MgrIdType
+OMgrClient::getNodeType() const {
+    return my_node_type;
+}
+
 const TokenList&
 OMgrClient::getTokensForNode(const NodeUuid &uuid) const {
     return dltMgr.getDLT()->getTokens(uuid);
+}
+
+fds_uint32_t
+OMgrClient::getNodeMigPort(NodeUuid uuid) {
+    return clustMap->getNodeMigPort(uuid);
 }
 
 NodeMigReqClientPtr
@@ -855,7 +873,7 @@ DltTokenGroupPtr OMgrClient::getDLTNodesForDoidKey(ObjectID *objId) {
 
 }
 
-int OMgrClient::getDMTNodesForVolume(int vol_id, int *node_ids, int *n_nodes) {
+int OMgrClient::getDMTNodesForVolume(int vol_id, fds_uint64_t *node_ids, int *n_nodes) {
 
   omc_lock.read_lock();
 

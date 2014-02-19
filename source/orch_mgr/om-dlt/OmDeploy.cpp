@@ -13,7 +13,7 @@ OM_DLTMod                    gl_OMDltMod("OM-DLT");
 
 namespace msm = boost::msm;
 namespace mpl = boost::mpl;
-using namespace msm::front;  // NOLINT
+namespace msf = msm::front;
 
 /**
  * OM DLT deployment FSM structure.
@@ -100,17 +100,17 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
      * Transition table for OM DLT deployment.
      */
     struct transition_table : mpl::vector<
-    // +------------+----------------+------------+-----------------+-----------------+
-    // | Start      | Event          | Next       | Action          | Guard           |
-    // +------------+----------------+------------+-----------------+-----------------+
-    Row< DST_Idle   , DltCompEvt     , DST_Comp   , DACT_Compute    , none            >,
-    // +------------+----------------+------------+-----------------+-----------------+
-    Row< DST_Comp   , DltRebalEvt    , DST_Rebal  , DACT_Rebal      , none            >,
-    // +------------+----------------+------------+-----------------+-----------------+
-    Row< DST_Rebal  , DltRebalOkEvt  , DST_Commit , DACT_Commit     , GRD_DltRebal    >,
-    // +------------+----------------+------------+-----------------+-----------------+
-    Row< DST_Commit , DltCommitOkEvt , DST_Idle   , none            , GRD_DltCommit   >
-    // +------------+----------------+------------+-----------------+-----------------+
+    // +-----------------+----------------+------------+--------------+---------------+
+    // | Start           | Event          | Next       | Action       | Guard         |
+    // +-----------------+----------------+------------+--------------+---------------+
+    msf::Row< DST_Idle   , DltCompEvt     , DST_Comp   , DACT_Compute , msf::none     >,
+    // +-----------------+----------------+------------+--------------+---------------+
+    msf::Row< DST_Comp   , DltRebalEvt    , DST_Rebal  , DACT_Rebal   , msf::none     >,
+    // +-----------------+----------------+------------+--------------+---------------+
+    msf::Row< DST_Rebal  , DltRebalOkEvt  , DST_Commit , DACT_Commit  , GRD_DltRebal  >,
+    // +-----------------+----------------+------------+--------------+---------------+
+    msf::Row< DST_Commit , DltCommitOkEvt , DST_Idle   , msf::none    , GRD_DltCommit >
+    // +-----------------+----------------+------------+--------------+---------------+
     >{};  // NOLINT
 
     template <class Event, class FSM> void no_transition(Event const &, FSM &, int);
@@ -259,15 +259,17 @@ DltDplyFSM::DACT_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST 
     FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "FSM DACT_Commit";
     DltRebalOkEvt rebalOkEvt = (DltRebalOkEvt)evt;
     Error err(ERR_OK);
-
-    // TODO(Andrew): Commit DLT locally as an 'official' version
-    // in the data placement engine
+    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+    OM_NodeContainer* dom_ctrl = domain->om_loc_domain_ctrl();
     DataPlacement *dp = rebalOkEvt.ode_dp;
     fds_verify(dp != NULL);
 
-    // Send new DLT to each node in the cluster map
+    // commit as an 'official' version in the data placement engine
     err = dp->commitDlt();
     fds_verify(err == ERR_OK);
+
+    // Send new DLT to each node in the cluster map
+    dom_ctrl->om_bcast_dlt(dp->getCurDlt());
 }
 
 // GRD_DltRebal

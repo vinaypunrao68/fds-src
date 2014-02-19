@@ -23,7 +23,9 @@ typedef fpi::FDSP_MgrIdType            FdspNodeType;
 /**
  * POD types for common node inventory.
  */
-typedef struct _node_capability_t {
+typedef struct _node_capability_t
+{
+    fds_uint64_t   disk_capacity;
     fds_uint32_t   disk_iops_max;
     fds_uint32_t   disk_iops_min;
     fds_uint32_t   disk_latency_max;
@@ -215,16 +217,43 @@ class AgentContainer : public RsContainer
 
     /**
      * Iter loop to extract NodeAgent ptr:
-     * const_iterator it = this->cbegin(); it != cend(); it++
-     * NodeAgent::pointer ptr = this->agt_from_iter(it);
      */
-    static inline NodeAgent::pointer agt_from_iter(RsContainer::const_iterator it) {
-        return static_cast<NodeAgent *>(get_pointer(*it));
-    }
     template <typename T>
     void agent_foreach(T arg, void (*fn)(T arg, NodeAgent::pointer elm)) {
-        for (const_iterator it = cbegin(); it != cend(); it++) {
-            (*fn)(arg, agt_from_iter(it));
+        for (fds_uint32_t i = 0; i < rs_cur_idx; i++) {
+            NodeAgent::pointer cur = NodeAgent::agt_cast_ptr(rs_array[i]);
+            if (rs_array[i] != NULL) {
+                (*fn)(arg, cur);
+            }
+        }
+    }
+    template <typename T1, typename T2>
+    void agent_foreach(T1 a1, T2 a2, void (*fn)(T1, T2, NodeAgent::pointer elm)) {
+        for (fds_uint32_t i = 0; i < rs_cur_idx; i++) {
+            NodeAgent::pointer cur = NodeAgent::agt_cast_ptr(rs_array[i]);
+            if (rs_array[i] != NULL) {
+                (*fn)(a1, a2, cur);
+            }
+        }
+    }
+    template <typename T1, typename T2, typename T3>
+    void agent_foreach(T1 a1, T2 a2, T3 a3,
+                       void (*fn)(T1, T2, T3, NodeAgent::pointer elm)) {
+        for (fds_uint32_t i = 0; i < rs_cur_idx; i++) {
+            NodeAgent::pointer cur = NodeAgent::agt_cast_ptr(rs_array[i]);
+            if (rs_array[i] != NULL) {
+                (*fn)(a1, a2, a3, cur);
+            }
+        }
+    }
+    template <typename T1, typename T2, typename T3, typename T4>
+    void agent_foreach(T1 a1, T2 a2, T3 a3, T4 a4,
+                       void (*fn)(T1, T2, T3, T4, NodeAgent::pointer elm)) {
+        for (fds_uint32_t i = 0; i < rs_cur_idx; i++) {
+            NodeAgent::pointer cur = NodeAgent::agt_cast_ptr(rs_array[i]);
+            if (rs_array[i] != NULL) {
+                (*fn)(a1, a2, a3, a4, cur);
+            }
         }
     }
 

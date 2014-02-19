@@ -202,12 +202,13 @@ struct TokenCopySenderFSM_
                         << " sent completely";
                 /* We are done reading objects for current token */
                 fsm.completed_tokens_.push_back(*fsm.pending_tokens_.begin());
-
                 fsm.pending_tokens_.erase(fsm.pending_tokens_.begin());
 
                 if (fsm.pending_tokens_.size() > 0) {
                     fsm.objstor_read_req_.token_id = *fsm.pending_tokens_.begin();
                 }
+
+                fsm.migrationSvc_->mig_cntrs.tokens_sent.incr();
 
             } else {
                 /* Still processing the current token.  Nothing to do*/

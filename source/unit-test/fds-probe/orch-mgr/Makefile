@@ -7,9 +7,9 @@ user_incl_dir     := \
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  := \
+    fds-om-dlt \
     fds-om-lib \
     fds-om-common \
-    fds-om-dlt \
 	fds-plat-lib
 
 user_non_fds_libs := \

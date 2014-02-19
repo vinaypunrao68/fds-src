@@ -62,8 +62,9 @@ enum FDSP_MsgCodeType {
    FDSP_MSG_DLT_UPDATE,
    FDSP_MSG_DMT_UPDATE,
    FDSP_MSG_NODE_UPDATE,
-   FDSP_MSG_NOTIFY_MIGRATION
+   FDSP_MSG_NOTIFY_MIGRATION,
 
+   FDSP_MSG_SET_THROTTLE
 }
 
 enum FDSP_MgrIdType {
@@ -274,7 +275,7 @@ struct FDSP_Node_Info_Type {
 
 typedef list<FDSP_Node_Info_Type> Node_Info_List_Type
 
-typedef list<i32> Node_List_Type
+typedef list<i64> Node_List_Type
 typedef list<Node_List_Type> Node_Table_Type
 
 

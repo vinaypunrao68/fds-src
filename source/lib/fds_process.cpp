@@ -13,17 +13,19 @@ namespace fds {
 /* Processwide globals from fds_process.h */
 FdsProcess *g_fdsprocess = NULL;
 fds_log *g_fdslog = NULL;
+boost::shared_ptr<FdsCountersMgr> g_cntrs_mgr;
 
 void init_process_globals(const std::string &log_name)
 {
-    fds_verify(g_fdslog == nullptr);
-    g_fdslog = new fds_log(log_name, "logs");
+    fds_log *temp_log = new fds_log(log_name, "logs");
+    init_process_globals(temp_log);
 }
 
 void init_process_globals(fds_log *log)
 {
     fds_verify(g_fdslog == nullptr);
     g_fdslog = log;
+    g_cntrs_mgr.reset(new FdsCountersMgr());
 }
 
 FdsProcess::FdsProcess(int argc, char *argv[],
@@ -164,6 +166,7 @@ void FdsProcess::setup_cntrs_mgr()
 {
     fds_verify(cntrs_mgrPtr_.get() == NULL);
     cntrs_mgrPtr_.reset(new FdsCountersMgr());
+    g_cntrs_mgr = cntrs_mgrPtr_;
 }
 
 void FdsProcess::setup_timer_service()
@@ -201,6 +204,7 @@ fds_log* HasLogger::GetLog() const {
 fds_log* HasLogger::SetLog(fds_log* logptr) const {
     fds_log* oldlogptr = this->logptr;
     this->logptr = logptr;
+    return oldlogptr;
 }
 
 // get the global logger

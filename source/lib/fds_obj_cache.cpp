@@ -107,6 +107,7 @@ namespace fds{
     // assign NULL to the passed in ptr reference, there by forcefully releasing the reference
     // held by the caller
     obj_data = NULL;
+    return 0;
   }
 
   // Simply allocate buffer, object will not be in any cache lookup until object add is done.
@@ -177,7 +178,7 @@ namespace fds{
     obj_cache_buf->io_in_progress = false;
     obj_cache_buf->copy_is_dirty = is_dirty;
     FDS_PLOG(oc_log) << "Added object " << objId << " in volume " << vol_id << " onto cache"
-		    << " with dirty flag " << (is_dirty)?"set":"cleared";
+                     << " with dirty flag " << (is_dirty?"set":"cleared");
     return 0;
   }
 
@@ -257,7 +258,7 @@ namespace fds{
   // and return buff to object pool.
   // Primarily for an external garbage collector to call.
   int FdsObjectCache::object_delete(fds_volid_t vol_id, ObjectID objId) {
-    int rc;
+      // int rc;
     
     ObjCacheBufPtrType objBuf = object_remove(vol_id, objId, /* ignore_in_progress= */true);
     if (objBuf == NULL) {
@@ -268,7 +269,7 @@ namespace fds{
     plcy_mgr->handle_object_delete(vol_id, objId, objBuf);
 
     slab_allocator->return_object_buf_to_pool(objBuf);
-    return rc;
+    return 0;
   }
 
   // This is similar to object_delete but does not call plcy_manager to notify about object deletion.

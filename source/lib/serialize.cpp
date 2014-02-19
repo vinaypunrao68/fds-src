@@ -109,7 +109,6 @@ Serializer* getMemSerializer(uint sz) {
     if (0==sz) sz=1024;
     TMemoryBuffer* memBuffer=new TMemoryBuffer(sz);
     boost::shared_ptr<TTransport> trans(memBuffer);
-    TBinaryProtocol* proto = new TBinaryProtocol(trans);
     return new Serializer(TProtocolPtr (new TBinaryProtocol(trans)));
 }
 

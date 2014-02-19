@@ -75,7 +75,6 @@ namespace fds {
     fds_uint32_t my_control_port;
     fds_uint32_t my_data_port;
     fds_uint32_t my_migration_port;
-    node_map_t node_map;
     const DLT *dlt;
     DLTManager dltMgr;
     int dmt_version;
@@ -134,14 +133,13 @@ namespace fds {
                const std::string& node_name,
                fds_log *parent_log,
                boost::shared_ptr<netSessionTbl> nst,
-               fds_uint32_t mig_port = 9876,
-               boost::shared_ptr<FDS_ProtocolInterface::
-               FDSP_MigrationPathRespIf> migRespIf = NULL);
+               fds_uint32_t mig_port = 9876);
     ~OMgrClient();
     int initialize();
     void start_omrpc_handler();
 
     NodeUuid getUuid() const;
+    FDSP_MgrIdType getNodeType() const;
 
     int registerEventHandlerForNodeEvents(node_event_handler_t node_event_hdlr);
     int registerEventHandlerForVolEvents(volume_event_handler_t vol_event_hdlr);
@@ -178,13 +176,15 @@ namespace fds {
     fds_uint32_t getLatestDlt(std::string& dlt_data);
     DltTokenGroupPtr getDLTNodesForDoidKey(ObjectID *objId);
     const DLT* getCurrentDLT();
+    const DLT* getPreviousDLT();
     const TokenList& getTokensForNode(const NodeUuid &uuid) const;
+    fds_uint32_t getNodeMigPort(NodeUuid uuid);
 #if 0
     int  getDLTNodesForDoidKey(unsigned char doid_key,
                               fds_int32_t *node_ids,
                               fds_int32_t *n_nodes);
 #endif
-    int getDMTNodesForVolume(int vol_id, int *node_ids, int *n_nodes);
+    int getDMTNodesForVolume(int vol_id, fds_uint64_t *node_ids, int *n_nodes);
     int pushPerfstatsToOM(const std::string& start_ts,
 			  int stat_slot_len, 
 			  const FDS_ProtocolInterface::FDSP_VolPerfHistListType& hist_list);

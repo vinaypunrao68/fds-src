@@ -15,7 +15,7 @@ NodeTokenTbl ClusterCommMgr::
 partition_tokens_by_node(const std::set<fds_token_id> &tokens)
 {
     NodeTokenTbl tbl;
-    const DLT* dlt = omClient_->getCurrentDLT();
+    const DLT* dlt = omClient_->getPreviousDLT();
     for (auto itr : tokens) {
         NodeUuid node_id = dlt->getPrimary(itr);
         tbl[node_id].insert(itr);
@@ -23,11 +23,13 @@ partition_tokens_by_node(const std::set<fds_token_id> &tokens)
     return tbl;
 }
 
-bool ClusterCommMgr::get_node_ip_port(const NodeUuid &node_id,
+bool ClusterCommMgr::get_node_mig_ip_port(const NodeUuid &node_id,
         uint32_t &ip, uint32_t &port)
 {
     int state;
-    omClient_->getNodeInfo(node_id.uuid_get_val(), &ip, &port, &state);
+    int result = omClient_->getNodeInfo(node_id.uuid_get_val(), &ip, &port, &state);
+    fds_verify(result == 0);
+    port = omClient_->getNodeMigPort(node_id);
     return true;
 }
 

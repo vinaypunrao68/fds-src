@@ -33,6 +33,7 @@ OM_NodeDomainMod::mod_init(SysParams const *const param)
 
     FdsConfigAccessor conf_helper(g_fdsprocess->get_conf_helper());
     om_test_mode = conf_helper.get<bool>("test_mode");
+    om_locDomain->om_init_domain();
     return 0;
 }
 
@@ -68,19 +69,28 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
 
     Error err = om_locDomain->dc_register_node(uuid, msg, &newNode);
     if (err == ERR_OK) {
-        // If this is a SM or DM, let existing nodes know about this node.
         fds_verify(newNode != NULL);
         om_locDomain->om_bcast_new_node(newNode, msg);
 
         // Let this new node know about exisiting node list.
         // TODO(Andrew): this should change into dissemination of the cur cluster map.
         //
+        om_locDomain->om_add_capacity(newNode);
         om_locDomain->om_update_node_list(newNode, msg);
+        om_locDomain->om_bcast_vol_list(newNode);
 
-        // Let this new know about existing dlt.
+        // Let this new node know about existing dlt, if new node is not
+        // SM. If that's SM, it will receive new dlt after we compute it
+        // as part of rebalance state in DLT state machine
         // TODO(Andrew): this should change into dissemination of the cur cluster map.
-        DataPlacement *dp = om->om_dataplace_mod();
-        OM_SmAgent::agt_cast_ptr(newNode)->om_send_dlt(dp->getCurDlt());
+        if (msg->node_type != FDS_ProtocolInterface::FDSP_STOR_MGR) {
+            DataPlacement *dp = om->om_dataplace_mod();
+            OM_SmAgent::agt_cast_ptr(newNode)->om_send_dlt(dp->getCurDlt());
+        }
+
+        // Send the DMT to DMs.
+        om_locDomain->om_round_robin_dmt();
+        om_locDomain->om_bcast_dmt_table();
     }
     ClusterMap *clus = om->om_clusmap_mod();
 
@@ -95,13 +105,10 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         }
     }
 
-    // If this new node is an SM, update the DLT and bcast
     // TODO(Andrew): We should decouple registration from
     // cluster map addition eventually. We may want to add
     // the node to the inventory and then wait for a CLI
     // cmd to make the node a member.
-    // TODO(Andrew): Today, cluster map only knows SM. It
-    // should contain all members
     om_update_cluster_map();
 
     return err;
@@ -118,6 +125,24 @@ OM_NodeDomainMod::om_del_node_info(const NodeUuid& uuid,
 
     om_update_cluster_map();
     return err;
+}
+
+// om_create_domain
+// ----------------
+//
+int
+OM_NodeDomainMod::om_create_domain(const FdspCrtDomPtr &crt_domain)
+{
+    return 0;
+}
+
+// om_delete_domain
+// ----------------
+//
+int
+OM_NodeDomainMod::om_delete_domain(const FdspCrtDomPtr &crt_domain)
+{
+    return 0;
 }
 
 // om_update_cluster_map
@@ -153,6 +178,15 @@ OM_NodeDomainMod::om_update_cluster() {
     OM_Module *om = OM_Module::om_singleton();
     OM_DLTMod *dltMod = om->om_dlt_mod();
     DataPlacement *dp = om->om_dataplace_mod();
+    ClusterMap* cm = om->om_clusmap_mod();
+
+    // ClusterMap only contains SM nodes.
+    // Start update cluster if there are any newly added or
+    // removed nodes in the cluster map
+    if (((cm->getAddedNodes()).size() == 0) &&
+        ((cm->getRemovedNodes()).size() == 0)) {
+        return;  // no changes in SM nodes
+    }
 
     // Recompute the DLT
     DltCompEvt computeEvent(dp);
@@ -211,11 +245,11 @@ OM_NodeDomainMod::om_recv_migration_done(const NodeUuid& uuid,
 }
 
 //
-// Called when OM receives response for DLT commit fron a node
+// Called when OM receives response for DLT commit from an SM node
 //
 Error
-OM_NodeDomainMod::om_recv_dlt_commit_resp(const NodeUuid& uuid,
-                                          fds_uint64_t dlt_version) {
+OM_NodeDomainMod::om_recv_sm_dlt_commit_resp(const NodeUuid& uuid,
+                                             fds_uint64_t dlt_version) {
     Error err(ERR_OK);
     OM_Module *om = OM_Module::om_singleton();
     OM_DLTMod *dltMod = om->om_dlt_mod();
@@ -223,7 +257,7 @@ OM_NodeDomainMod::om_recv_dlt_commit_resp(const NodeUuid& uuid,
     OM_SmAgent::pointer agent = om_sm_agent(uuid);
     if (agent == NULL) {
         FDS_PLOG_SEV(g_fdslog, fds_log::error)
-                << "OM: Received DLT commit ack from unknown node "
+                << "OM: Received DLT commit ack from unknown/or not SM node "
                 << ": uuid " << uuid.uuid_get_val();
         err = Error(ERR_NOT_FOUND);
         return err;
@@ -367,11 +401,17 @@ OM_ControlRespHandler::NotifyDLTUpdateResp(
             << fdsp_msg->src_node_name
             << " for DLT version " << dlt_resp->DLT_version;
 
+    // if we got response from non-SM node, nothing to do
+    if (fdsp_msg->src_id != FDSP_STOR_MGR) {
+        return;
+    }
+
+    // if this is from SM, notify DLT state machine
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
     // TODO(Anna) Should we use node names or node uuids directly in
     // fdsp messages? for now getting uuid from hashing the name
     NodeUuid node_uuid(fds_get_uuid64(fdsp_msg->src_node_name));
-    domain->om_recv_dlt_commit_resp(node_uuid, dlt_resp->DLT_version);
+    domain->om_recv_sm_dlt_commit_resp(node_uuid, dlt_resp->DLT_version);
 }
 
 void

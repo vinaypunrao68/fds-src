@@ -3,6 +3,7 @@
  */
 
 #include <orchMgr.h>
+#include <OmResources.h>
 
 namespace fds {
 
@@ -23,7 +24,8 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::CreateVol(
 
     int err = 0;
     try {
-        err = orchMgr->CreateVol(fdsp_msg, crt_vol_req);
+        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+        err = local->om_create_vol(crt_vol_req);
     }
     catch(...) {
         FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
@@ -48,7 +50,8 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::DeleteVol(
 
     int err = 0;
     try {
-        err = orchMgr->DeleteVol(fdsp_msg, del_vol_req);
+        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+        err = local->om_delete_vol(del_vol_req);
     }
     catch(...) {
         FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
@@ -73,7 +76,8 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::ModifyVol(
 
     int err = 0;
     try {
-        err = orchMgr->ModifyVol(fdsp_msg, mod_vol_req);
+        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+        err = local->om_modify_vol(mod_vol_req);
     }
     catch(...) {
         FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
@@ -173,7 +177,8 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::AttachVol(
 
     int err = 0;
     try {
-        err = orchMgr->AttachVol(fdsp_msg, atc_vol_req);
+        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+        err = local->om_attach_vol(fdsp_msg, atc_vol_req);
     }
     catch(...) {
         FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
@@ -198,7 +203,8 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::DetachVol(
 
     int err = 0;
     try {
-        err = orchMgr->DetachVol(fdsp_msg, dtc_vol_req);
+        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+        err = local->om_detach_vol(fdsp_msg, dtc_vol_req);
     }
     catch(...) {
         FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
@@ -234,7 +240,8 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::CreateDomain(
 
     int err = 0;
     try {
-        err = orchMgr->CreateDomain(fdsp_msg, crt_dom_req);
+        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+        err = domain->om_create_domain(crt_dom_req);
     }
     catch(...) {
         FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
@@ -259,7 +266,22 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::RemoveNode(
 
     int err = 0;
     try {
-        err = orchMgr->RemoveNode(fdsp_msg, rm_node_req);
+         FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::normal)
+            << "Received remove node " << rm_node_req->node_name;
+
+        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+        NodeUuid rm_node_uuid(fds_get_uuid64(rm_node_req->node_name));
+        Error err = domain->om_del_node_info(rm_node_uuid, rm_node_req->node_name);
+
+        if (!err.ok()) {
+            FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
+                << "RemoveNode: remove node info from local domain failed for node "
+                << rm_node_req->node_name << ", uuid "
+                << std::hex << rm_node_uuid.uuid_get_val()
+                << std::dec << ", result: " << err.GetErrstr();
+            return -1;
+        }
+        domain->om_update_cluster();
     }
     catch(...) {
         FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
@@ -284,7 +306,8 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::DeleteDomain(
 
     int err = 0;
     try {
-        err = orchMgr->DeleteDomain(fdsp_msg, del_dom_req);
+        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+        err = domain->om_delete_domain(del_dom_req);
     }
     catch(...) {
         FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
@@ -309,7 +332,10 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::SetThrottleLevel(
 
     int err = 0;
     try {
-        err = orchMgr->SetThrottleLevel(fdsp_msg, throttle_msg);
+        assert((throttle_msg->throttle_level >= -10) &&
+               (throttle_msg->throttle_level <= 10));
+        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+        local->om_set_throttle_lvl(throttle_msg->throttle_level);
     }
     catch(...) {
         FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
@@ -348,7 +374,14 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::GetDomainStats(
 
     int err = 0;
     try {
-        err = orchMgr->GetDomainStats(fdsp_msg, get_stats_msg);
+        int domain_id = get_stats_msg->domain_id;
+        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+
+        FDS_PLOG_SEV(g_fdslog, fds_log::normal)
+            << "Received GetDomainStats Req for domain " << domain_id;
+
+        /* Use default domain for now... */
+        local->om_send_bucket_stats(5, fdsp_msg->src_node_name, fdsp_msg->req_cookie);
     }
     catch(...) {
         FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
@@ -358,6 +391,33 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::GetDomainStats(
     }
 
     return err;
+}
+
+void OrchMgr::FDSP_OMControlPathReqHandler::GetDomainStats(
+    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+    const ::FDS_ProtocolInterface::FDSP_GetDomainStatsType& get_stats_msg) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+}
+
+void OrchMgr::FDSP_OMControlPathReqHandler::GetDomainStats(
+    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+    ::FDS_ProtocolInterface::FDSP_GetDomainStatsTypePtr& get_stats_msg) {
+
+    try {
+        int domain_id = get_stats_msg->domain_id;
+        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+
+        FDS_PLOG_SEV(g_fdslog, fds_log::normal)
+            << "Received GetDomainStats Req for domain " << domain_id;
+
+        /* Use default domain for now... */
+        local->om_send_bucket_stats(5, fdsp_msg->src_node_name, fdsp_msg->req_cookie);
+    }
+    catch(...) {
+        FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
+                << "Orch Mgr encountered exception while "
+                << "processing get domain stats";
+    }
 }
 
 int32_t OrchMgr::FDSP_ConfigPathReqHandler::applyTierPolicy(
@@ -421,7 +481,8 @@ void OrchMgr::FDSP_OMControlPathReqHandler::CreateBucket(
     ::FDS_ProtocolInterface::FDSP_CreateVolTypePtr& crt_buck_req) {
 
     try {
-        orchMgr->CreateVol(fdsp_msg, crt_buck_req);
+        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+        local->om_create_vol(crt_buck_req);
     }
     catch(...) {
         FDS_PLOG_SEV(orchMgr->GetLog(), fds::fds_log::error)
@@ -439,7 +500,8 @@ void OrchMgr::FDSP_OMControlPathReqHandler::DeleteBucket(
 void OrchMgr::FDSP_OMControlPathReqHandler::DeleteBucket(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_DeleteVolTypePtr& del_buck_req) {
-    orchMgr->DeleteVol(fdsp_msg, del_buck_req);
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    local->om_delete_vol(del_buck_req);
 }
 
 void OrchMgr::FDSP_OMControlPathReqHandler::ModifyBucket(
@@ -451,7 +513,8 @@ void OrchMgr::FDSP_OMControlPathReqHandler::ModifyBucket(
 void OrchMgr::FDSP_OMControlPathReqHandler::ModifyBucket(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_ModifyVolTypePtr& mod_buck_req) {
-    orchMgr->ModifyVol(fdsp_msg, mod_buck_req);
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    local->om_modify_vol(mod_buck_req);
 }
 
 void OrchMgr::FDSP_OMControlPathReqHandler::AttachBucket(
@@ -463,7 +526,8 @@ void OrchMgr::FDSP_OMControlPathReqHandler::AttachBucket(
 void OrchMgr::FDSP_OMControlPathReqHandler::AttachBucket(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_AttachVolCmdTypePtr& atc_buck_req) {
-    orchMgr->AttachVol(fdsp_msg, atc_buck_req);
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    local->om_attach_vol(fdsp_msg, atc_buck_req);
 }
 
 void OrchMgr::FDSP_OMControlPathReqHandler::RegisterNode(
@@ -475,7 +539,25 @@ void OrchMgr::FDSP_OMControlPathReqHandler::RegisterNode(
 void OrchMgr::FDSP_OMControlPathReqHandler::RegisterNode(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_RegisterNodeTypePtr& reg_node_req) {
-    orchMgr->RegisterNode(fdsp_msg, reg_node_req);
+    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+    NodeUuid new_node_uuid(fds_get_uuid64(reg_node_req->node_name));
+    Error err = domain->om_reg_node_info(new_node_uuid, reg_node_req);
+
+    if (!err.ok()) {
+        FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
+            << "Node Registration failed for "
+            << reg_node_req->node_name << ", result: "
+            << err.GetErrstr();
+        return;
+    }
+    FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::normal)
+        << "Registered new node " << std::hex
+        << new_node_uuid.uuid_get_val() << std::dec;
+
+    // TODO(Andrew): for now, let's start the cluster update process now.
+    // This should eventually be decoupled from registration.
+    //
+    domain->om_update_cluster();
 }
 
 void OrchMgr::FDSP_OMControlPathReqHandler::NotifyQueueFull(
@@ -512,27 +594,8 @@ void OrchMgr::FDSP_OMControlPathReqHandler::TestBucket(
 void OrchMgr::FDSP_OMControlPathReqHandler::TestBucket(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_TestBucketPtr& test_buck_msg) {
-    orchMgr->TestBucket(fdsp_msg, test_buck_msg);
-}
-
-void OrchMgr::FDSP_OMControlPathReqHandler::GetDomainStats(
-    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const ::FDS_ProtocolInterface::FDSP_GetDomainStatsType& get_stats_msg) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-}
-
-void OrchMgr::FDSP_OMControlPathReqHandler::GetDomainStats(
-    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    ::FDS_ProtocolInterface::FDSP_GetDomainStatsTypePtr& get_stats_msg) {
-
-    try {
-        orchMgr->GetDomainStats(fdsp_msg, get_stats_msg);
-    }
-    catch(...) {
-        FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
-                << "Orch Mgr encountered exception while "
-                << "processing get domain stats";
-    }
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    local->om_test_bucket(fdsp_msg, test_buck_msg);
 }
 
 void OrchMgr::FDSP_OMControlPathReqHandler::NotifyMigrationDone(
@@ -546,7 +609,16 @@ void OrchMgr::FDSP_OMControlPathReqHandler::NotifyMigrationDone(
     ::FDS_ProtocolInterface::FDSP_MigrationStatusTypePtr& status_msg) {
 
     try {
-        orchMgr->NotifyMigrationDone(fdsp_msg, status_msg);
+        FDS_PLOG_SEV(g_fdslog, fds_log::notification)
+            << "Received migration done notification from node "
+            << fdsp_msg->src_node_name;
+
+        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+
+        // TODO(Anna) Should we use node names or node uuids directly in
+        // fdsp messages? for now getting uuid from hashing the name
+        NodeUuid node_uuid(fds_get_uuid64(fdsp_msg->src_node_name));
+        Error err = domain->om_recv_migration_done(node_uuid, status_msg->DLT_version);
     }
     catch(...) {
         FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
