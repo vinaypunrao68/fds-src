@@ -347,7 +347,7 @@ class OM_NodeDomainMod : public Module
      * name (should ask the user to pick another node name).
      */
     virtual Error
-            om_reg_node_info(const NodeUuid &uuid, const FdspNodeRegPtr msg);
+    om_reg_node_info(const NodeUuid &uuid, const FdspNodeRegPtr msg);
 
     /**
      * Unregister the node matching uuid from the domain manager.

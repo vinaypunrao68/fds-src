@@ -5,6 +5,7 @@ user_rtime_env   := user
 user_cc          :=
 user_cpp         := \
     platform-lib.cpp \
+	platform-libmod.cpp \
 	node-inventory.cpp
 
 user_ar_libs     := fds-plat-lib
