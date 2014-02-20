@@ -70,7 +70,7 @@ namespace fds {
     }
   };
 
-  class StorMgrVolume : public FDS_Volume {
+  class StorMgrVolume : public FDS_Volume, public HasLogger {
  private:
     /*
      * Put SM specific volume info here.
@@ -121,7 +121,7 @@ namespace fds {
     // VolumeObjectCache *vol_obj_cache;
   };
 
-  class StorMgrVolumeTable {
+  class StorMgrVolumeTable : public HasLogger {
  public:
     /* A logger is created if not passed in */
     explicit StorMgrVolumeTable(ObjectStorMgr *sm);
@@ -174,7 +174,6 @@ namespace fds {
     /*
      * Pointer to logger to use 
      */
-    fds_log *vt_log;
     fds_bool_t created_log;
   };
   

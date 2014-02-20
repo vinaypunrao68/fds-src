@@ -151,6 +151,7 @@ class SMCounters : public FdsCounters
 class ObjectStorMgr :
         public FdsProcess,
         public SmIoReqHandler,
+        public HasLogger,
         public Module // todo: We shouldn't be deriving module here.  ObjectStorMgr is
                       // an FDSProcess, it contains Modules
         {
@@ -360,8 +361,6 @@ class ObjectStorMgr :
     void mod_startup();
     void mod_shutdown();
 
-    fds_log* GetLog() {return sm_log;}
-    fds_log *sm_log;
     TierEngine     *tierEngine;
     SmObjDb        *smObjDb; // Object Index DB <ObjId, Meta-data + data_loc>
     checksum_calc   *chksumPtr;
