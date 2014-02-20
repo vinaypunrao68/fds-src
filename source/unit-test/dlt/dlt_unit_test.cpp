@@ -72,16 +72,16 @@ TEST_CASE ("Dlt Manager" , "[mgr]") {
     // check teh first DLT
     const DLT *ptr=dltMgr.getDLT(1);
     REQUIRE (ptr->getNumTokens() == 8);
-    REQUIRE (ptr->getVersion() == 1);
+    REQUIRE (ptr->getVersion() == (fds_uint64_t) 1);
 
     // check the second DLT
     ptr=dltMgr.getDLT(2);
-    REQUIRE (ptr->getVersion() == 2);
+    REQUIRE (ptr->getVersion() == (fds_uint64_t) 2);
     verifyDltNodes(ptr,100);
 
     // check cloning
     DLT* clone=const_cast<DLT*>(ptr)->clone();
-    REQUIRE (clone->getVersion() == 2);
+    REQUIRE (clone->getVersion() == (fds_uint64_t) 2);
     verifyDltNodes(clone,100);
 
     // check adding Serialized
@@ -91,7 +91,7 @@ TEST_CASE ("Dlt Manager" , "[mgr]") {
     dltMgr.addSerializedDLT(buffer);
 
     ptr=dltMgr.getDLT(3);
-    REQUIRE (ptr->getVersion() == 3);
+    REQUIRE (ptr->getVersion() == (fds_uint64_t) 3);
     verifyDltNodes(ptr,20);
 
     
@@ -168,7 +168,7 @@ TEST_CASE ("DLT Serialize" , "[dlt][serialize]") {
     REQUIRE( bytesWritten == bytesRead);
     //printDlt(&dlt1);
     verifyDltNodes(&dlt1,10);
-    REQUIRE (dlt1.getVersion() == 1);
+    REQUIRE (dlt1.getVersion() == (fds_uint64_t) 1);
     REQUIRE (dlt1.getNumTokens() == pow(2,dlt1.getNumBitsForToken()));
     REQUIRE (dlt1.getDepth() == 4);
     
@@ -190,7 +190,7 @@ TEST_CASE ("DLT Serialize2","[dlt][serialize]") {
     dlt1.loadSerialized(buffer);
     //printDlt(&dlt1);
     verifyDltNodes(&dlt1,10);
-    REQUIRE (dlt1.getVersion() == 1);
+    REQUIRE (dlt1.getVersion() == (fds_uint64_t) 1);
     REQUIRE (dlt1.getNumTokens() == pow(2,dlt1.getNumBitsForToken()));
     REQUIRE (dlt1.getDepth() == 4);
 }
@@ -231,15 +231,15 @@ TEST_CASE ("DLT Manager Serialize" ,"[dlt][serialize][mgr]") {
     const DLT* ptr;
 
     ptr=dltMgr->getDLT(1);
-    REQUIRE (ptr->getVersion() == 1);
+    REQUIRE (ptr->getVersion() == (fds_uint64_t) 1);
     verifyDltNodes(ptr,10);
 
     ptr=dltMgr->getDLT(2);
-    REQUIRE (ptr->getVersion() == 2);
+    REQUIRE (ptr->getVersion() == (fds_uint64_t) 2);
     verifyDltNodes(ptr,100);
 
     ptr=dltMgr->getDLT(3);
-    REQUIRE (ptr->getVersion() == 3);
+    REQUIRE (ptr->getVersion() == (fds_uint64_t) 3);
     verifyDltNodes(ptr,20);
 
     const_cast<DLT*>(ptr)->generateNodeTokenMap();
