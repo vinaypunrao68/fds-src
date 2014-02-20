@@ -380,8 +380,8 @@ AME_Request::ame_set_resp_keyval(char *k, int klen, char *v, int vlen)
 int
 AME_Request::ame_set_std_resp(int status, int len)
 {
-    int                used;
-    char               *buf;
+    // int                used;
+    // char               *buf;
     ngx_http_request_t *r;
 
     r = ame_req;

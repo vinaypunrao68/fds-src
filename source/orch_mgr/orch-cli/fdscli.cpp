@@ -487,6 +487,7 @@ int FdsCli::run(int argc, char* argv[])
                           FDS_ProtocolInterface::FDSP_CLI_MGR));
 
     fdsCli->fdsCliParser(argc, argv);
+    return 0;
 }
 
 }  // namespace fds

@@ -239,7 +239,7 @@ void ObjStatsTracker::getHotObjectList(std::set<ObjectID, ObjectLess>& ret_list)
 Error ObjStatsTracker::queryDbStats(const ObjectID &oid,ioPathStats *qryStats)  {
 
 
-
+    return Error(ERR_OK);
 }
 
 
@@ -305,7 +305,7 @@ Error ObjStatsTracker::deleteDbStats(const ObjectID &oid,ioPathStats *delStats) 
 
 
 
-
+    return Error(ERR_OK);
 }
 
 } /* fds namespace */

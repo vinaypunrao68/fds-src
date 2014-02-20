@@ -301,10 +301,6 @@ class SmContainer : public AgentContainer
     typedef boost::intrusive_ptr<SmContainer> pointer;
     SmContainer(FdspNodeType id) : AgentContainer(id) {}
 
-    static inline SmAgent::pointer agt_from_iter(RsContainer::const_iterator it) {
-        return static_cast<SmAgent *>(get_pointer(*it));
-    }
-
   protected:
     virtual ~SmContainer() {}
     virtual Resource *rs_new(const ResourceUUID &uuid) {
@@ -317,10 +313,6 @@ class DmContainer : public AgentContainer
   public:
     typedef boost::intrusive_ptr<DmContainer> pointer;
     DmContainer(FdspNodeType id) : AgentContainer(id) {}
-
-    static inline DmAgent::pointer agt_from_iter(RsContainer::const_iterator it) {
-        return static_cast<DmAgent *>(get_pointer(*it));
-    }
 
   protected:
     virtual ~DmContainer() {}
@@ -335,10 +327,6 @@ class AmContainer : public AgentContainer
     typedef boost::intrusive_ptr<AmContainer> pointer;
     AmContainer(FdspNodeType id) : AgentContainer(id) {}
 
-    static inline AmAgent::pointer agt_from_iter(RsContainer::const_iterator it) {
-        return static_cast<AmAgent *>(get_pointer(*it));
-    }
-
   protected:
     virtual ~AmContainer() {}
     virtual Resource *rs_new(const ResourceUUID &uuid) {
@@ -351,10 +339,6 @@ class OmContainer : public AgentContainer
   public:
     typedef boost::intrusive_ptr<OmContainer> pointer;
     OmContainer(FdspNodeType id) : AgentContainer(id) {}
-
-    static inline OmAgent::pointer agt_from_iter(RsContainer::const_iterator it) {
-        return static_cast<OmAgent *>(get_pointer(*it));
-    }
 
   protected:
     virtual ~OmContainer() {}
@@ -369,6 +353,9 @@ class OmContainer : public AgentContainer
 class DomainContainer
 {
   public:
+    typedef boost::intrusive_ptr<DomainContainer> pointer;
+    typedef boost::intrusive_ptr<const DomainContainer> const_ptr;
+
     virtual ~DomainContainer();
     explicit DomainContainer(char const *const name);
     DomainContainer(char const *const       name,
@@ -430,6 +417,18 @@ class DomainContainer
     AgentContainer::pointer  dc_nodes;
 
     AgentContainer::pointer dc_container_frm_msg(FdspNodeType node_type);
+
+  private:
+    mutable boost::atomic<int>  rs_refcnt;
+    friend void intrusive_ptr_add_ref(const DomainContainer *x) {
+        x->rs_refcnt.fetch_add(1, boost::memory_order_relaxed);
+    }
+    friend void intrusive_ptr_release(const DomainContainer *x) {
+        if (x->rs_refcnt.fetch_sub(1, boost::memory_order_release) == 1) {
+            boost::atomic_thread_fence(boost::memory_order_acquire);
+            delete x;
+        }
+    }
 };
 
 }  // namespace fds

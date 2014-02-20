@@ -59,7 +59,7 @@ class MigrationCounters : public FdsCounters
 };
 
 /* Service for migrating objects */
-class FdsMigrationSvc : public Module, public FdsRequestQueueActor
+class FdsMigrationSvc : public Module, public FdsRequestQueueActor, public HasLogger
 {
 public:
     /* For tracking migrators */
@@ -76,8 +76,6 @@ public:
             fds_log *log,
             netSessionTblPtr nst,
             ClusterCommMgrPtr clust_comm_mgr);
-
-    fds_log* GetLog() {return log_;}
 
     virtual std::string log_string() {
         return "FdsMigrationSvc";
@@ -123,9 +121,6 @@ private:
     /* Config access helper */
     FdsConfigAccessor conf_helper_;
 
-    /* logger */
-    fds_log *log_;
-
     /* Net session table */
     netSessionTblPtr nst_;
     boost::shared_ptr<FDSP_MigrationPathRpc> migpath_handler_;
@@ -140,14 +135,11 @@ private:
 typedef boost::shared_ptr<FdsMigrationSvc> FdsMigrationSvcPtr;
 
 class FDSP_MigrationPathRpc : virtual public FDSP_MigrationPathReqIf ,
-                              virtual public FDSP_MigrationPathRespIf
+        virtual public FDSP_MigrationPathRespIf, public HasLogger
 {
 public:
     FDSP_MigrationPathRpc(FdsMigrationSvc &mig_svc, fds_log *log);
 
-    fds_log* GetLog() {
-        return log_;
-    }
     std::string log_string() {
         return "FDSP_MigrationPathRpc";
     }
@@ -173,7 +165,6 @@ public:
 
 protected:
     FdsMigrationSvc &mig_svc_;
-    fds_log *log_;
 };
 }  // namespace fds
 

@@ -200,7 +200,7 @@ VolumeInfo::vol_attach_node(const std::string &node_name)
     }
     // TODO(Vy): not thread safe here...
     //
-    for (int i = 0; i < vol_am_nodes.size(); i++) {
+    for (uint i = 0; i < vol_am_nodes.size(); i++) {
         if (vol_am_nodes[i] == node_name) {
             FDS_PLOG_SEV(g_fdslog, fds_log::normal)
                 << "Volume " << vol_name
@@ -231,7 +231,7 @@ VolumeInfo::vol_detach_node(const std::string &node_name)
     }
     // TODO(Vy): not thread safe here...
     //
-    for (int i = 0; i < vol_am_nodes.size(); i++) {
+    for (uint i = 0; i < vol_am_nodes.size(); i++) {
         if (vol_am_nodes[i] == node_name) {
             vol_am_nodes.erase(vol_am_nodes.begin() + i);
             am_agent->om_send_vol_cmd(this, fpi::FDSP_MSG_DETACH_VOL_CTRL);
@@ -253,7 +253,8 @@ VolumeContainer::VolumeContainer() : RsContainer() {}
 // -------------
 //
 int
-VolumeContainer::om_create_vol(const FdspCrtVolPtr &creat_msg)
+VolumeContainer::om_create_vol(const FdspMsgHdrPtr &hdr,
+                               const FdspCrtVolPtr &creat_msg)
 {
     OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     VolPolicyMgr        *v_pol = OrchMgr::om_policy_mgr();
@@ -298,6 +299,10 @@ VolumeContainer::om_create_vol(const FdspCrtVolPtr &creat_msg)
     }
     rs_register(vol);
     local->om_bcast_vol_create(vol);
+
+    // Attach the volume to the requester's AM.
+    //
+    vol->vol_attach_node(hdr->src_node_name);
     return 0;
 }
 

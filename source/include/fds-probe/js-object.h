@@ -275,7 +275,7 @@ class JsObjManager : public boost::noncopyable
 {
   public:
     JsObjManager();
-    ~JsObjManager();
+    virtual ~JsObjManager();
 
     /**
      * Main entry to exec data parsed in json format.

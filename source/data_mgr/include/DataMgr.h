@@ -197,7 +197,7 @@ public:
 	return err;
       }
 
-      ~dmQosCtrl() {
+      virtual ~dmQosCtrl() {
       }
 
     };

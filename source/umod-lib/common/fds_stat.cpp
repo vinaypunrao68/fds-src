@@ -114,7 +114,7 @@ StatModule::mod_shutdown()
 void
 StatModule::stat_reg_mod(stat_mod_e mod, const stat_decode_t decode[])
 {
-    int      i, points, size;
+    int      i;
     StatMod *stat;
 
     stat = &stat_mod[mod];
@@ -284,7 +284,7 @@ StatModule::stat_rec_out(StatMod *stat, int point, char **buf, int *len)
     int             i, save, cnt, req_sum, off;
     float           pct, pct_sum;
     StatRec        *rec;
-    stat_decode_t  *dcode;
+    // stat_decode_t  *dcode;
 
     req_sum = 0;
     pct_sum = 0;

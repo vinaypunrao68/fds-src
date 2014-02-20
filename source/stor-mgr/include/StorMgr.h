@@ -151,6 +151,7 @@ class SMCounters : public FdsCounters
 class ObjectStorMgr :
         public FdsProcess,
         public SmIoReqHandler,
+        public HasLogger,
         public Module // todo: We shouldn't be deriving module here.  ObjectStorMgr is
                       // an FDSProcess, it contains Modules
         {
@@ -230,7 +231,7 @@ class ObjectStorMgr :
             /* base class created stats, but they are disable by default */
             stats->enable();
         }
-        ~SmQosCtrl() {
+        virtual ~SmQosCtrl() {
             if (stats)
                 stats->disable();
         }
@@ -360,8 +361,6 @@ class ObjectStorMgr :
     void mod_startup();
     void mod_shutdown();
 
-    fds_log* GetLog() {return sm_log;}
-    fds_log *sm_log;
     TierEngine     *tierEngine;
     SmObjDb        *smObjDb; // Object Index DB <ObjId, Meta-data + data_loc>
     checksum_calc   *chksumPtr;
@@ -399,6 +398,10 @@ class ObjectStorMgr :
     //
     StorMgrVolumeTable *sm_getVolTables() {
         return volTbl;
+    }
+
+    const DLT* getDLT() {
+        return omClient->getCurrentDLT();
     }
 
     void PutObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
