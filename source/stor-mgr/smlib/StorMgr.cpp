@@ -1909,57 +1909,78 @@ void log_ocache_stats() {
 
 }
 
-fds_int32_t SmObjDb::CompareKey(char *key, ObjectID obj_id)  { 
-      return memcmp(key, (char *)&obj_id, sizeof(ObjectID) );
+fds::Error SmObjDb::Get(const ObjectID& obj_id, ObjectBuf& obj_buf) {
+    fds_token_id tokId = objStorMgr->getDLT()->getToken(obj_id);
+    fds::Error err = ERR_OK;
+    ObjectDB *odb = getObjectDB(tokId);
+    if (odb) {
+        err =  odb->Get(obj_id, obj_buf);
+    } else {
+        odb = openObjectDB(tokId);
+        err =  odb->Get(obj_id, obj_buf);
+    }
+    return err;
 }
 
-
-fds_int32_t  SmObjDb::RangeCompareKey(ObjectID obj_id, ObjectID start_obj_id, ObjectID end_obj_id) { 
-   if (obj_id.GetHigh() >= start_obj_id.GetHigh()  && obj_id.GetHigh() <= end_obj_id.GetHigh() ) return 0;
-   return -1;
+fds::Error SmObjDb::Put(const ObjectID& obj_id, ObjectBuf& obj_buf) {
+    fds_token_id tokId = objStorMgr->getDLT()->getToken(obj_id);
+    fds::Error err = ERR_OK;
+    ObjectDB *odb = getObjectDB(tokId);
+    if (odb) {
+        err =  odb->Put(obj_id, obj_buf);
+    } else {
+        odb = openObjectDB(tokId);
+        err =  odb->Put(obj_id, obj_buf);
+    }
+    DBG(LOGDEBUG << "token: " << tokId <<  " dbId: " << GetSmObjDbId(tokId)
+            << " Obj id: " << obj_id);
+    return err;
 }
 
-void  SmObjDb::iterRetrieveObjects(const fds_token_id &token, 
+void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
         const size_t &max_size,
         FDSP_MigrateObjectList &obj_list,
-        SMTokenItr &itr) {
+        SMTokenItr &itr)
+{
     fds_uint32_t tot_msg_len = 0;
-    fds_int64_t tokId = token  & SM_TOKEN_MASK;
     diskio::DataTier tierUsed;
     fds::Error err = ERR_OK;
     ObjectID objId;
-    ObjectDB *odb = getObjectDB(tokId);
+    ObjectLess id_less;
+    ObjectDB *odb = getObjectDB(token);
+
     if (odb == NULL ) { 
         itr.objId = SMTokenItr::itr_end;
         return;
     }
 
+    DBG(int obj_itr_cnt = 0);
+
     ObjectID start_obj_id, end_obj_id;
+    objStorMgr->getDLT()->getTokenObjectRange(token, start_obj_id, end_obj_id);
     // If the iterator is non-zero then use that as a sarting point for the scan else make up a start from token
-    if ( itr.objId.GetHigh() == 0 && itr.objId.GetLow() == 0) {
-        start_obj_id.SetId((((fds_int64_t )token) << 32 )  | 0x0000000000000000, 0);
-    } else {
+    if ( itr.objId != NullObjectID) {
         start_obj_id = itr.objId;
     }
-    end_obj_id.SetId((((fds_int64_t )token) << 32 )| 0x00ffffffffffffff, 0xffffffffffffffff);
+    DBG(LOGDEBUG << "token: " << token << " being: "
+            << start_obj_id << " end: " << end_obj_id);
 
     leveldb::Slice startSlice((const char *)&start_obj_id, sizeof(ObjectID));
-    leveldb::Slice endSlice((const char *)&end_obj_id, sizeof(ObjectID));
 
     boost::shared_ptr<leveldb::Iterator> dbIter(odb->GetDB()->NewIterator(odb->GetReadOptions()));
     leveldb::Options options_ = odb->GetOptions();
 
     memcpy(&objId , &start_obj_id, sizeof(ObjectID));
-    FDS_PLOG(objStorMgr->GetLog()) << "Start of the loop " << objId  << "ending obj" << end_obj_id;
-    for(dbIter->Seek(startSlice); dbIter->Valid() && (CompareKey((char *)&objId, end_obj_id) <= 0) ;dbIter->Next())
+    for(dbIter->Seek(startSlice); dbIter->Valid(); dbIter->Next())
     {
         ObjectBuf        objData;
         // Read the record
         memcpy(&objId , dbIter->key().data(), sizeof(ObjectID));
-        FDS_PLOG(objStorMgr->GetLog()) << "Checking an objectId for token range " << token << " into  objList" << objId ;
+        DBG(LOGDEBUG << "Checking objectId: " << objId << " for token range: " << token);
 
         // TODO: process the key/data
-        if (RangeCompareKey(objId, start_obj_id, end_obj_id) == 0 ) {
+        if ((objId == start_obj_id || id_less(start_obj_id, objId)) &&
+            (objId == end_obj_id || id_less(objId, end_obj_id))) {
             // Get the object buffer
             err = objStorMgr->readObject(objId, objData, tierUsed);
             if (err == ERR_OK ) {
@@ -1975,15 +1996,21 @@ void  SmObjDb::iterRetrieveObjects(const fds_token_id &token,
                     tot_msg_len += objData.size;
 
                     objStorMgr->counters_.get_tok_objs.incr();
+                    DBG(obj_itr_cnt++);
                 } else {
                     itr.objId = objId;
+                    DBG(LOGDEBUG << "token: " << token <<  " dbId: " << GetSmObjDbId(token)
+                            << " cnt: " << obj_itr_cnt);
                     return;
                 }
             }
         }
+
     } // Enf of for loop
     itr.objId = SMTokenItr::itr_end;
 
+    DBG(LOGDEBUG << "token: " << token <<  " dbId: " << GetSmObjDbId(token)
+            << " cnt: " << obj_itr_cnt);
 }
 
 }  // namespace fds

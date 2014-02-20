@@ -37,8 +37,9 @@
 #include <atomic>
 #include <unordered_map>
 #include <ObjStats.h>
-#define SM_TOKEN_MASK 0xff000000
-#define SM_TOKEN_MASK_64 0xff00000000000000
+
+#define SM_TOKEN_MASK 0x000000ff
+
 using namespace FDS_ProtocolInterface;
 using namespace fds;
 using namespace osm;
@@ -53,85 +54,67 @@ typedef fds_uint32_t fds_token_id;
 
 
 class SmObjDb { 
- public: 
+public:
 
-   SmObjDb(std::string stor_prefix_,
-              fds_log* _log) {
-     tokDbLog = _log;
-     stor_prefix = stor_prefix_;
-   }
-   ~SmObjDb() { 
-   }
+    SmObjDb(std::string stor_prefix_,
+            fds_log* _log) {
+        tokDbLog = _log;
+        stor_prefix = stor_prefix_;
+    }
+    ~SmObjDb() {
+    }
 
-   std::unordered_map<fds_token_id, ObjectDB *> tokenTbl;
-   fds_log *tokDbLog;
-   std::string stor_prefix;
+    inline fds_token_id GetSmObjDbId(const fds_token_id &tokId) const
+    {
+        return tokId & SM_TOKEN_MASK;
+    }
 
-  ObjectDB *openObjectDB(fds_token_id tokId) {
-    ObjectDB *objdb = NULL;
-     tokId &= SM_TOKEN_MASK;
-     if ( (objdb = tokenTbl[tokId]) == NULL ) { 
-      // Create leveldb
-      std::string filename= stor_prefix + "SNodeObjIndex_" + std::to_string(tokId);
-      objdb  = new ObjectDB(filename);
-      tokenTbl[tokId] = objdb;
-     } 
+    ObjectDB *openObjectDB(fds_token_id tokId) {
+        ObjectDB *objdb = NULL;
+        fds_token_id dbId = GetSmObjDbId(tokId);
 
-    return objdb;
-  }
+        if ( (objdb = tokenTbl[dbId]) == NULL ) {
+            // Create leveldb
+            std::string filename= stor_prefix + "SNodeObjIndex_" + std::to_string(dbId);
+            objdb  = new ObjectDB(filename);
+            tokenTbl[dbId] = objdb;
+        }
 
-void closeObjectDB(fds_token_id tokId) { 
-   tokId &= SM_TOKEN_MASK;
-   ObjectDB *objdb = NULL;
-   if ( (objdb = tokenTbl[tokId]) == NULL ) { 
-     return;
-   }
-   tokenTbl[tokId] = NULL;
-   delete objdb;
-}
+        return objdb;
+    }
+
+    void closeObjectDB(fds_token_id tokId) {
+        fds_token_id dbId = GetSmObjDbId(tokId);
+        ObjectDB *objdb = NULL;
+
+        if ( (objdb = tokenTbl[dbId]) == NULL ) {
+            return;
+        }
+        tokenTbl[dbId] = NULL;
+        delete objdb;
+    }
 
 
-ObjectDB *getObjectDB(fds_token_id tokId) { 
-ObjectDB *objdb = NULL;
-   tokId &= SM_TOKEN_MASK;
-    objdb = tokenTbl[tokId];
-    return objdb;
-}
+    ObjectDB *getObjectDB(fds_token_id tokId) {
+        ObjectDB *objdb = NULL;
+        fds_token_id dbId = GetSmObjDbId(tokId);
 
-fds::Error Get(const ObjectID& obj_id,
-                         ObjectBuf& obj_buf) {
-  fds_token_id tokId = (obj_id.GetHigh() & SM_TOKEN_MASK_64) >> 32;
-  fds::Error err = ERR_OK;
-  ObjectDB *odb = getObjectDB(tokId);
-  if (odb) { 
-     err =  odb->Get(obj_id, obj_buf);
-  } else {
-    odb = openObjectDB(tokId);
-    err =  odb->Get(obj_id, obj_buf);
-  }
-  return err;
-}
+        objdb = tokenTbl[dbId];
+        return objdb;
+    }
 
-fds::Error Put(const ObjectID& obj_id,
-                         ObjectBuf& obj_buf) {
-  fds_token_id tokId = (obj_id.GetHigh() & SM_TOKEN_MASK_64) >> 32;
-  fds::Error err = ERR_OK;
-  ObjectDB *odb = getObjectDB(tokId);
-  if (odb) { 
-     err =  odb->Put(obj_id, obj_buf);
-  } else {
-    odb = openObjectDB(tokId);
-    err =  odb->Put(obj_id, obj_buf);
-  }
-  return err;
-}
+    fds::Error Get(const ObjectID& obj_id, ObjectBuf& obj_buf);
 
-fds_int32_t CompareKey(char *key, ObjectID obj_id);
-fds_int32_t  RangeCompareKey(ObjectID obj_id, ObjectID start_obj_id, ObjectID end_obj_id) ;
-void  iterRetrieveObjects(const fds_token_id &token, 
-                                   const size_t &max_size, 
-                                   FDSP_MigrateObjectList &obj_list, 
-                                   SMTokenItr &itr);
+    fds::Error Put(const ObjectID& obj_id, ObjectBuf& obj_buf);
+
+    void  iterRetrieveObjects(const fds_token_id &token,
+            const size_t &max_size,
+            FDSP_MigrateObjectList &obj_list,
+            SMTokenItr &itr);
+private:
+    std::unordered_map<fds_token_id, ObjectDB *> tokenTbl;
+    fds_log *tokDbLog;
+    std::string stor_prefix;
 };
 
 }

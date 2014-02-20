@@ -401,6 +401,10 @@ class ObjectStorMgr :
         return volTbl;
     }
 
+    const DLT* getDLT() {
+        return omClient->getCurrentDLT();
+    }
+
     void PutObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
             const FDS_ProtocolInterface::FDSP_PutObjTypePtr& put_obj);
     void GetObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
