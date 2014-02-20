@@ -1,8 +1,7 @@
 topdir           := ..
 user_target      := lib
 user_rtime_env   := user
-user_build_dir   := net
-user_cpp_flags   := -Wall -Werror -Wno-reorder
+user_build_dir   := net concurrency
 user_cpp         :=      \
     dlt.cpp \
     NetSession.cpp       \

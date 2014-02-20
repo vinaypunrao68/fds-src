@@ -200,7 +200,7 @@ VolumeInfo::vol_attach_node(const std::string &node_name)
     }
     // TODO(Vy): not thread safe here...
     //
-    for (int i = 0; i < vol_am_nodes.size(); i++) {
+    for (uint i = 0; i < vol_am_nodes.size(); i++) {
         if (vol_am_nodes[i] == node_name) {
             FDS_PLOG_SEV(g_fdslog, fds_log::normal)
                 << "Volume " << vol_name
@@ -231,7 +231,7 @@ VolumeInfo::vol_detach_node(const std::string &node_name)
     }
     // TODO(Vy): not thread safe here...
     //
-    for (int i = 0; i < vol_am_nodes.size(); i++) {
+    for (uint i = 0; i < vol_am_nodes.size(); i++) {
         if (vol_am_nodes[i] == node_name) {
             vol_am_nodes.erase(vol_am_nodes.begin() + i);
             am_agent->om_send_vol_cmd(this, fpi::FDSP_MSG_DETACH_VOL_CTRL);

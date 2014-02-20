@@ -129,7 +129,7 @@ namespace fds {
     }
 
     const BlobObjectInfo& objectForOffset(const fds_uint64_t offset) const {
-      int i;
+      uint i;
       for (i = 0; 
 	   ((i < obj_list.size()) && (obj_list[i].offset < offset)); 
 	   i++)
@@ -147,7 +147,7 @@ namespace fds {
     }
 
     std::string ToString() const {
-      int i;
+      uint i;
 
       if (obj_list.size() == 0) {
 	return (open_seq + end_seq);
@@ -166,7 +166,7 @@ namespace fds {
 
       obj_list.clear();
 
-      int next_delim_pos = -1;
+      ulong next_delim_pos = std::string::npos;
       int next_start = open_seq.size();
       int next_end = 0;
       std::string next_sub_str = "";
@@ -199,7 +199,7 @@ namespace fds {
 
     void initFromFDSPObjList(FDS_ProtocolInterface::FDSP_BlobObjectList& blob_obj_list) {
       obj_list.clear();
-      for (int i = 0; i < blob_obj_list.size(); i++) {
+      for (uint i = 0; i < blob_obj_list.size(); i++) {
 	obj_list.push_back(blob_obj_list[i]);
       }
     }
@@ -211,7 +211,7 @@ namespace fds {
     void ToFDSPObjList(FDS_ProtocolInterface::FDSP_BlobObjectList& fdsp_obj_list) const {
 
       fdsp_obj_list.clear();
-      int i = 0;
+      uint i = 0;
       for (i = 0; i < obj_list.size(); i++) {
 	FDS_ProtocolInterface::FDSP_BlobObjectInfo obj_info;
 	obj_info.offset = obj_list[i].offset;
@@ -248,7 +248,7 @@ namespace fds {
     }
 
     std::string metaListToString() const {
-      int i;
+      uint i;
       if (meta_list.size() == 0) {
 	return "[]";
       }
@@ -266,7 +266,7 @@ namespace fds {
       meta_list.clear();
 
       int last_pos = 1;
-      int next_pos = 0;
+      ulong next_pos = 0;
       std::string next_sub_str = "";
       bool last_pair = false;
 
@@ -292,7 +292,7 @@ namespace fds {
     void initMetaListFromFDSPMetaList(FDS_ProtocolInterface::FDSP_MetaDataList& mlist) {
 
       meta_list.clear();
-      int i = 0;
+      uint i = 0;
       for (i = 0; i < mlist.size(); i++) {
 	meta_list.push_back(mlist[i]);
       }
@@ -300,7 +300,7 @@ namespace fds {
 
     void metaListToFDSPMetaList(FDS_ProtocolInterface::FDSP_MetaDataList& mlist) const {
       mlist.clear();
-      int i = 0;
+      uint i = 0;
       for (i = 0; i < meta_list.size(); i++) {
 	FDS_ProtocolInterface::FDSP_MetaDataPair mpair;
 	mpair.key = meta_list[i].key;
@@ -327,7 +327,7 @@ namespace fds {
 
       int next_start = 0;
       int next_end = 0;
-      int next_delim_pos = -1;
+      ulong next_delim_pos = -1;
       std::string next_sub_str = "";
       int field_idx = 0;
 

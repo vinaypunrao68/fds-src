@@ -59,7 +59,7 @@ IndexRequest::req_submit()
 bool
 IndexRequest::req_wait_cond()
 {
-    fdsio::Request::req_wait_cond();
+    return fdsio::Request::req_wait_cond();
 }
 
 // \IndexRequest::req_set_wakeup_cond

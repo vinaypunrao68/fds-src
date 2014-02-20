@@ -16,7 +16,7 @@ class StorHvQosCtrl : public FDS_QoSControl {
   QoSHTBDispatcher *htb_dispatcher;
 
   StorHvQosCtrl(uint32_t max_thrds, dispatchAlgoType algo, fds_log *log);
-  ~StorHvQosCtrl();
+  virtual ~StorHvQosCtrl();
   Error processIO(FDS_IOType *io) ;
   void runScheduler();
   Error markIODone(FDS_IOType *io);
