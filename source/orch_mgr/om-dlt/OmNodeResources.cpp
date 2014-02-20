@@ -118,7 +118,7 @@ OM_SmAgent::om_send_vol_cmd(VolumeInfo::pointer vol, fpi::FDSP_MsgCodeType cmd_t
 
 void
 OM_SmAgent::om_send_vol_cmd(VolumeInfo::pointer    vol,
-                            const std::string     &vname,
+                            std::string           *vname,
                             fpi::FDSP_MsgCodeType  cmd_type)
 {
     const char                *log;
@@ -169,8 +169,8 @@ OM_SmAgent::om_send_vol_cmd(VolumeInfo::pointer    vol,
             } else {
                 m_hdr->result    = FDSP_ERR_VOLUME_DOES_NOT_EXIST;
                 m_hdr->err_msg   = "Bucket does not exist";
-                attach->vol_name = vname;
-                attach->vol_desc.vol_name  = vname;
+                attach->vol_name = *vname;
+                attach->vol_desc.vol_name  = *vname;
                 attach->vol_desc.volUUID   = 9876;
                 attach->vol_desc.tennantId = 0;
                 attach->vol_desc.localDomainId = 0;

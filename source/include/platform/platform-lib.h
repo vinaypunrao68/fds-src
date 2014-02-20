@@ -52,9 +52,7 @@ class DomainResources
     typedef boost::intrusive_ptr<const DomainResources> const_ptr;
 
     virtual ~DomainResources();
-    DomainResources(char const *const         name,
-                    DomainNodeInv::pointer    node_inv,
-                    DomainClusterMap::pointer clus_map);
+    DomainResources(char const *const name);
 
   protected:
     ResourceUUID               drs_tent_id;
@@ -63,8 +61,6 @@ class DomainResources
     const DLT                 *drs_dlt;
     DLTManager                 drs_dltMgr;
     float                      drs_cur_throttle_lvl;
-    DomainNodeInv::pointer     drs_node_inv;
-    DomainClusterMap::pointer  drs_clus_map;
 
     // Will use new DMT
     int                        drs_dmt_version;
@@ -113,12 +109,24 @@ class PlatEvent
     }
 };
 
-class Platform;
-extern Platform *gl_PlatformSvc;
+class NodePlatEvent : public PlatEvent
+{
+  public:
+    typedef boost::intrusive_ptr<NodePlatEvent> pointer;
+    typedef boost::intrusive_ptr<const NodePlatEvent> const_ptr;
+
+    virtual ~NodePlatEvent() {}
+    NodePlatEvent() : PlatEvent("NodeEvent") {}
+
+    virtual void plat_evt_handler();
+};
 
 // -------------------------------------------------------------------------------------
 // Common Platform Services
 // -------------------------------------------------------------------------------------
+class Platform;
+extern Platform *gl_PlatformSvc;
+
 class Platform : public Module
 {
   public:
@@ -132,6 +140,9 @@ class Platform : public Module
     /**
      * Short cuts to retrieve important objects.
      */
+    static inline void platf_assign_singleton(Platform *ptr) {
+        gl_PlatformSvc = ptr;
+    }
     static inline Platform *platf_singleton() {
         return gl_PlatformSvc;
     }
