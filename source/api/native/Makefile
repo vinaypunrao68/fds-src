@@ -28,11 +28,11 @@ user_non_fds_libs := \
 
 user_ld_flags := -shared 
 
-user_cpp          := fds_java_bindings.cpp
+user_cpp          := fds_java_bindings.cpp 
 
 user_no_style     := $(user_cpp) 
 user_bin_exe      := fds_java_bindings
-fds_java_bindings	      := fds_java_bindings.cpp
+fds_java_bindings	      :=  $(user_cpp) #fds_java_bindings.cpp
 
 
 include $(topdir)/Makefile.incl

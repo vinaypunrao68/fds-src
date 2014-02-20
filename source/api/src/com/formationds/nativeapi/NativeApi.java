@@ -11,6 +11,6 @@ public class NativeApi {
         System.load(new File(absolutePath, "fds_java_bindings").getAbsolutePath());
     }
 
-    public native void init();
-    //public native void getBucketsStats(BucketStatsHandler handler);
+    public static native void init();
+    public static native void getBucketsStats(BucketStatsHandler handler);
 }
