@@ -153,25 +153,19 @@ OM_NodeDomainMod::om_update_cluster() {
     OM_SmContainer::pointer smNodes = om_locDomain->om_sm_nodes();
 
     // Recompute the DLT
-    DltCompEvt computeEvent(cm, dp, smNodes);
+    DltCompRebalEvt computeEvent(cm, dp, smNodes);
     dltMod->dlt_deploy_event(computeEvent);
 
     // ClusterMap only contains SM nodes.
-    // Start update cluster if there are any newly added or
-    // removed nodes in the cluster map
+    // If there are not changes in SM nodes, we did not start
+    // rebalance, so go back to idle state
     if (((cm->getAddedNodes()).size() == 0) &&
         ((cm->getRemovedNodes()).size() == 0)) {
-        // no changes in SM nodes, so go back to idle state
         FDS_PLOG_SEV(g_fdslog, fds_log::debug)
                 << "om_update_cluster: cluster map up to date";
-        dltMod->dlt_deploy_event(DltNoChangeEvt());
+        dltMod->dlt_deploy_event(DltNoRebalEvt());
         return;
     }
-
-    // Start rebalancing/syncing data to prepare
-    // for the new DLT
-    DltRebalEvt rebalEvent(dp);
-    dltMod->dlt_deploy_event(rebalEvent);
 }
 
 // Called when OM receives notification that the rebalance is
@@ -217,10 +211,6 @@ OM_NodeDomainMod::om_recv_migration_done(const NodeUuid& uuid,
     // otherwise, it will wait for dlt commit responses
     dltMod->dlt_deploy_event(DltCommitOkEvt(cm, cur_dlt_ver));
 
-    // in case no-one need commit event, start the state machine
-    // to check if nodes were added/removed while we were updating
-    om_update_cluster();
-
     return err;
 }
 
@@ -259,10 +249,6 @@ OM_NodeDomainMod::om_recv_sm_dlt_commit_resp(const NodeUuid& uuid,
     // when all 'up' nodes acked this dlt commit
     ClusterMap* cm = om->om_clusmap_mod();
     dltMod->dlt_deploy_event(DltCommitOkEvt(cm, cur_dlt_ver));
-
-    // if we got all commits, try to update cluster again
-    // to check if nodes were added/removed while we were updating
-    om_update_cluster();
 
     return err;
 }

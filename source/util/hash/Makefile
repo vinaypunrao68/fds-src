@@ -26,6 +26,7 @@ user_cpp         :=      \
     SpookyTest.cpp       \
     Stats.cpp            \
     SuperFastHash.cpp    \
+    base64.cpp           \
     Types.cpp
 
 user_cc          := PMurHash.c 

@@ -1,6 +1,7 @@
 #include <memory.h>
 #include "Types.h"
 #include "md5.h"
+#include "base64.h"
 
 // "Derived from the RSA Data Security, Inc. MD5 Message Digest Algorithm"
 
@@ -242,22 +243,33 @@ void checksum_calc::checksum_update(unsigned  char *buf, int length) {
 
 void checksum_calc::get_checksum(std::string& result) {
 
-    md5_finish( &ctx, (unsigned char *)(result.data()) );
+    unsigned char output[16];
+    md5_finish( &ctx, output );
+//    md5_finish( &ctx, (unsigned char *)(result.data()) );
+    result.clear();
+    base64EncodeDecode baseCtx;
+    char  ret[33];
+    baseCtx.Base64encode(ret,(const char *)output,16);
+    result.append((const char *)ret);
+    memset( &ctx, 0, sizeof( md5_context ) );
     return;
 }
 
 /*
  * output = MD5( input buffer )
  */
-void md5Str( std::string& input, int ilen, std::string& output )
+void md5Str( std::string& input, int ilen, std::string& result )
 {
     md5_context ctx;
+    unsigned char output[16];
 
     md5_starts( &ctx );
     md5_update( &ctx, (unsigned char *)(input.data()), ilen );
-    md5_finish( &ctx, (unsigned char *)(output.data()) );
+    md5_finish( &ctx, output );
+//    md5_finish( &ctx, (unsigned char *)(output.data()) );
+    result.clear();
+    result.append((const char *)output);
 
-    memset( &ctx, 0, sizeof( md5_context ) );
 }
 
 void md5( unsigned char *input, int ilen, unsigned char output[16] )

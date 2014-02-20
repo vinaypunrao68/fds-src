@@ -351,11 +351,7 @@ UT_OM_DltFsm::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *o
         std::cout << "DLT Event " << evt->dlt_evt << std::endl;
         switch (evt->dlt_evt) {
         case DLT_EVT_COMPUTE:
-            dlt->dlt_deploy_event(DltCompEvt(NULL, NULL, NULL));
-            break;
-
-        case DLT_EVT_UPDATE:
-            dlt->dlt_deploy_event(DltRebalEvt(NULL));
+            dlt->dlt_deploy_event(DltCompRebalEvt(NULL, NULL, NULL));
             break;
 
         case DLT_EVT_UPDATE_DONE:

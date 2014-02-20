@@ -110,6 +110,8 @@ class ClusterMap : public Module {
      */
     std::unordered_set<NodeUuid, UuidHash> getRemovedNodes() const;
 
+    void resetPendNodes();
+
     /**
      * Module methods.
      */
