@@ -34,7 +34,7 @@ class TestUnitBase
 {
   public:
     TestUnitBase(TestArgBase &args, const char *name);
-    ~TestUnitBase();
+    virtual ~TestUnitBase();
 
     void tu_rec_loop(void);
     virtual void tu_exec(void) = 0;

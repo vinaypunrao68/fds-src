@@ -144,6 +144,9 @@ namespace fds {
         fds_uint32_t getNumBitsForToken() const;  /**< Gets num bits used */
         fds_uint32_t getNumTokens() const;  /** Gets total num of tokens */
 
+        void getTokenObjectRange(const fds_token_id &token,
+                ObjectID &begin, ObjectID &end) const;
+
         uint32_t virtual write(serialize::Serializer*  s);
         uint32_t virtual read(serialize::Deserializer* d);
 

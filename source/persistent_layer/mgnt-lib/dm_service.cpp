@@ -79,6 +79,7 @@ DmQuery::dmq_hdd_info()
     info->di_max_iops     = 30000;
     info->di_min_latency  = 1000000 / info->di_max_iops;
     info->di_max_latency  = 1000000 / info->di_min_iops;
+    return info;
 }
 
 /*
@@ -97,6 +98,7 @@ DmQuery::dmq_ssd_info()
     info->di_max_iops     = 300000;
     info->di_min_latency  = 1000000 / info->di_max_iops;
     info->di_max_latency  = 1000000 / info->di_min_iops;
+    return info;
 }
 
 /*

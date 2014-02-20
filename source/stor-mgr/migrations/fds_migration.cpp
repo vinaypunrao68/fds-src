@@ -12,9 +12,8 @@ namespace fds {
 
 FDSP_MigrationPathRpc::
 FDSP_MigrationPathRpc(FdsMigrationSvc &mig_svc, fds_log *log) // NOLINT
-    : mig_svc_(mig_svc),
-      log_(log)
-{
+    : mig_svc_(mig_svc) {
+    SetLog(log);
 }
 
 void FDSP_MigrationPathRpc::
@@ -80,10 +79,10 @@ FdsMigrationSvc::FdsMigrationSvc(SmIoReqHandler *data_store,
       mig_cntrs("Migration", g_cntrs_mgr.get()),
       data_store_(data_store),
       conf_helper_(conf_helper),
-      log_(log),
       nst_(nst),
       clust_comm_mgr_(clust_comm_mgr)
 {
+    SetLog(log);
 }
 
 /**
@@ -195,7 +194,7 @@ void FdsMigrationSvc::handle_migsvc_copy_token(FdsActorRequestPtr req)
 
     TokenCopyReceiver* copy_rcvr = new TokenCopyReceiver(this,
             data_store_, mig_id,
-            threadpool_, log_, tokens,
+            threadpool_, GetLog(), tokens,
             migpath_handler_, clust_comm_mgr_);
     mig_actors_[mig_id].migrator.reset(copy_rcvr);
     mig_actors_[mig_id].migsvc_resp_cb = copy_payload->migsvc_resp_cb;
@@ -236,7 +235,7 @@ void FdsMigrationSvc::handle_migsvc_copy_token_rpc(FdsActorRequestPtr req)
     TokenCopySender *copy_sender =
             new TokenCopySender(this, data_store_,
                     mig_id, mig_stream_id,
-                    threadpool_, log_,
+                    threadpool_, GetLog(),
                     rcvr_ip, rcvr_port,
                     tokens, migpath_handler_,
                     clust_comm_mgr_);
@@ -289,7 +288,7 @@ handle_migsvc_migration_complete(FdsActorRequestPtr req)
  */
 void FdsMigrationSvc::setup_migpath_server()
 {
-    migpath_handler_.reset(new FDSP_MigrationPathRpc(*this, log_));
+    migpath_handler_.reset(new FDSP_MigrationPathRpc(*this, GetLog()));
 
     std::string ip = conf_helper_.get<std::string>("ip");
     int port = conf_helper_.get<int>("port");
@@ -304,7 +303,7 @@ void FdsMigrationSvc::setup_migpath_server()
         migpath_handler_);
 
     LOGNORMAL << "Migration path server setup ip: "
-            << ip << " port: " << port;
+              << ip << " port: " << port;
 }
 
 /**

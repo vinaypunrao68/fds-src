@@ -38,6 +38,8 @@
 
 //For classes that expose the GetLog() fn .
 #define LOGGERPTR  GetLog()
+// For static functions
+#define GLOGGERPTR  fds::GetLog()
 //incase your current logger is different fom GetLog(), 
 //redefine macro [LOGGERPTR] at the top of your cpp file
 #ifndef DONTLOGLINE
@@ -47,6 +49,7 @@
 #endif
 
 #define LEVELCHECK(sev) if (LOGGERPTR->getSeverityLevel()<= fds::fds_log::sev)
+#define GLEVELCHECK(sev) if (GLOGGERPTR->getSeverityLevel()<= fds::fds_log::sev)
 
 #define LOGTRACE    LEVELCHECK(trace)        FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::trace)        _ATLINE_
 #define LOGDEBUG    LEVELCHECK(debug)        FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::debug)        _ATLINE_
@@ -55,6 +58,16 @@
 #define LOGWARN	    LEVELCHECK(warning)      FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::warning)      _ATLINE_
 #define LOGERROR    LEVELCHECK(error)        FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::error)        _ATLINE_
 #define LOGCRITICAL LEVELCHECK(critical)     FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::critical)     _ATLINE_
+
+// for static functions inside classes
+#define GLOGTRACE    GLEVELCHECK(trace)        FDS_PLOG_SEV(GLOGGERPTR, fds::fds_log::trace)        _ATLINE_
+#define GLOGDEBUG    GLEVELCHECK(debug)        FDS_PLOG_SEV(GLOGGERPTR, fds::fds_log::debug)        _ATLINE_
+#define GLOGNORMAL   GLEVELCHECK(normal)       FDS_PLOG_SEV(GLOGGERPTR, fds::fds_log::normal)       _ATLINE_
+#define GLOGNOTIFY   GLEVELCHECK(notification) FDS_PLOG_SEV(GLOGGERPTR, fds::fds_log::notification) _ATLINE_
+#define GLOGWARN     GLEVELCHECK(warning)      FDS_PLOG_SEV(GLOGGERPTR, fds::fds_log::warning)      _ATLINE_
+#define GLOGERROR    GLEVELCHECK(error)        FDS_PLOG_SEV(GLOGGERPTR, fds::fds_log::error)        _ATLINE_
+#define GLOGCRITICAL GLEVELCHECK(critical)     FDS_PLOG_SEV(GLOGGERPTR, fds::fds_log::critical)     _ATLINE_
+
 
 namespace fds {
 
@@ -134,7 +147,7 @@ private :
 
       // set a new logger & return the old one.
       fds_log* SetLog(fds_log* logptr) const ;
-    private:
+    protected:
       mutable fds_log* logptr=NULL;
   };
 

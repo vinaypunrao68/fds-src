@@ -108,7 +108,7 @@ StorHvCtrl::StorHvCtrl(int argc,
    * some in ubd. We need to unify this.
    */
 
-  for (fds_uint32_t i = 1; i < argc; i++) {
+  for (int i = 1; i < argc; i++) {
     if (strncmp(argv[i], "--om_ip=", 8) == 0) {
       if (mode == NORMAL) {
         /*

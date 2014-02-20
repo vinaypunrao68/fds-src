@@ -114,7 +114,7 @@ JsObjTemplate::js_parse(JsObject *empty, json_t *in, void *bin)
     }
     return js_init(empty, in, NULL, comp, NULL);
 
- unknown:
+    // unknown:
     delete comp;
     return NULL;
 }
@@ -156,7 +156,7 @@ JsObjTemplate::js_register_template(JsObjTemplate *templ)
 void
 JsObjTemplate::js_exec(json_t *in, JsObjOutput *out)
 {
-    int           index;
+    uint           index;
     json_t       *val;
     JsObject     *obj;
 
@@ -180,6 +180,7 @@ JsObjTemplate::js_add_global(JsObject *obj, int opts)
     if (js_global != NULL) {
         return js_global->js_add_global(obj, opts);
     }
+    return NULL;
 }
 
 // ----------------------------------------------------------------------------
@@ -259,7 +260,7 @@ JsObject::js_array_size()
 JsObject *&
 JsObject::operator[](int idx)
 {
-    fds_verify(idx < js_array->size());
+    fds_verify((uint)idx < js_array->size());
     return (*js_array)[idx];
 }
 
@@ -401,7 +402,7 @@ JsObjManager::~JsObjManager()
 void
 JsObjManager::js_exec(json_t *root, JsObjOutput *out)
 {
-    int            idx;
+    uint            idx;
     json_t        *val;
     const char    *key;
     JsObjTemplate *decode;

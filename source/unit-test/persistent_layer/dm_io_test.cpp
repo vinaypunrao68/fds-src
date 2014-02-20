@@ -110,7 +110,7 @@ DiskReqTest::req_verify()
 
     s1 = dat_buf->data.begin();
     s2 = tst_verf.data.begin();
-    for (int i = 0; i < dat_buf->size; i++) {
+    for (uint i = 0; i < dat_buf->size; i++) {
         fds_verify(*s1 == *s2);
         s1++;
         s2++;
@@ -134,7 +134,7 @@ DiskReqTest::req_gen_pattern()
     s2 = tst_verf.data.begin();
 
     start = (idx_oid.oid_hash_hi % 2) ? 'A' : 'a';
-    for (int i = 0; i < dat_buf->size; i++) {
+    for (uint i = 0; i < dat_buf->size; i++) {
         if (*p != '\0') {
             *s1 = *p;
             *s2 = *p;

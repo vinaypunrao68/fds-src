@@ -84,7 +84,7 @@ StorHvCtrl::dispatchSmPutMsg(StorHvJournalEntry *journEntry) {
     dltPtr = dataPlacementTbl->getDLTNodesForDoidKey(&objId);
     fds_verify(dltPtr != NULL);
 
-    fds_int32_t numNodes = dltPtr->getLength();
+    fds_uint32_t numNodes = dltPtr->getLength();
     fds_verify(numNodes > 0);
 
     // Issue a put for each SM in the DLT list
@@ -443,7 +443,7 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
   /*
    * Setup DM messages
    */
-  fds_int32_t numNodes = FDS_REPLICATION_FACTOR;  // TODO: Why 8? Use vol/blob repl factor
+  fds_uint32_t numNodes = FDS_REPLICATION_FACTOR;  // TODO: Why 8? Use vol/blob repl factor
   InitDmMsgHdr(msgHdrDm);
   upd_obj_req->blob_name = blobReq->getBlobName();
   upd_obj_req->dm_transaction_id  = 1;  // TODO: Don't hard code
@@ -455,7 +455,7 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
   msgHdrDm->src_port       = 0;
   fds_uint64_t nodeIds[numNodes];
   memset(nodeIds, 0x00, sizeof(fds_int32_t) * numNodes);
-  dataPlacementTbl->getDMTNodesForVolume(volId, nodeIds, &numNodes);
+  dataPlacementTbl->getDMTNodesForVolume(volId, nodeIds, (int*)&numNodes);
   fds_verify(numNodes > 0);
 
   /*
@@ -1017,7 +1017,7 @@ fds::Error StorHvCtrl::getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
      * For now, just verify the existing buffer is big enough to hold
      * the data.
      */
-    fds_verify(getObjRsp->data_obj_len <= blobReq->getDataLen());
+    fds_verify((uint)(getObjRsp->data_obj_len) <= (blobReq->getDataLen()));
     blobReq->setDataLen(getObjRsp->data_obj_len);    
     blobReq->setDataBuf(getObjRsp->data_obj.c_str());
     blobReq->cbWithResult(0);
@@ -1450,7 +1450,7 @@ fds::Error StorHvCtrl::getBucketResp(const FDSP_MsgHdrTypePtr& rxMsg,
   if (rxMsg->result == FDSP_ERR_OK) {
     ListBucketContents* contents = new ListBucketContents[blobListResp->num_blobs_in_resp];
     fds_verify(contents != NULL);
-    fds_verify(blobListResp->num_blobs_in_resp == (blobListResp->blob_info_list).size());
+    fds_verify((uint)(blobListResp->num_blobs_in_resp) == (blobListResp->blob_info_list).size());
     for (int i = 0; i < blobListResp->num_blobs_in_resp; ++i)
       {
 	contents[i].set((blobListResp->blob_info_list)[i].blob_name,

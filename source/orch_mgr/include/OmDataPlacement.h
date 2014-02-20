@@ -110,6 +110,7 @@ namespace fds {
         virtual Error computeNewDlt(const ClusterMap *currMap,
                                     const DLT        *currDlt,
                                     DLT              *newDlt) = 0;
+        virtual ~PlacementAlgorithm() {}
     };
 
     class RoundRobinAlgorithm : public PlacementAlgorithm {

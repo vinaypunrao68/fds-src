@@ -168,7 +168,7 @@ class TierPolAction
     } tier_phase_e;
 
     TierPolAction(fds_uint64_t vol_uuid);
-    ~TierPolAction();
+    virtual ~TierPolAction();
 
     // Control path actions.
     //
@@ -228,7 +228,7 @@ class TierPolFuncSpec
 {
   public:
     TierPolFuncSpec(char const *const fn_name, fds_threadpool *pool);
-    ~TierPolFuncSpec();
+    virtual ~TierPolFuncSpec();
 
     // Given a timespec and action, carry on the tier policy schedule at the
     // right time.

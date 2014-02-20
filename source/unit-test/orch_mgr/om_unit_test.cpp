@@ -522,7 +522,7 @@ class OmUnitTest {
             delete tbl;
         }
         list.clear();
-        for (int i = 0; i < server_threads.size(); ++i) {
+        for (uint i = 0; i < server_threads.size(); ++i) {
             server_threads[i]->join();
         }
         while (server_threads.size() > 0) {

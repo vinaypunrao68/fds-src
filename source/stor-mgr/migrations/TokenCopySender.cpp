@@ -205,6 +205,7 @@ struct TokenCopySenderFSM_
                 fsm.pending_tokens_.erase(fsm.pending_tokens_.begin());
 
                 if (fsm.pending_tokens_.size() > 0) {
+                    fsm.objstor_read_req_.itr.objId = NullObjectID;
                     fsm.objstor_read_req_.token_id = *fsm.pending_tokens_.begin();
                 }
 

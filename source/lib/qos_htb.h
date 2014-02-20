@@ -181,7 +181,7 @@ namespace fds {
   class QoSHTBDispatcher: public FDS_QoSDispatcher {
   public:
     QoSHTBDispatcher(FDS_QoSControl* ctrl, fds_log *log, fds_uint64_t _total_rate);
-    ~QoSHTBDispatcher();
+    virtual ~QoSHTBDispatcher();
 
     /***** implementation of base class functions *****/
     /* handle notification that IO was just queued */
