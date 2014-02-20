@@ -168,13 +168,14 @@ class VolumeContainer : public RsContainer
     /**
      * Volume functions.
      */
-    virtual int om_create_vol(const FdspCrtVolPtr &creat_msg);
+    virtual int om_create_vol(const FDSP_MsgHdrTypePtr  &hdr,
+                              const FdspCrtVolPtr       &creat_msg);
     virtual int om_delete_vol(const FdspDelVolPtr &del_msg);
     virtual int om_modify_vol(const FdspModVolPtr &mod_msg);
-    virtual int om_attach_vol(const FDSP_MsgHdrTypePtr &hdr,
-                              const FdspAttVolCmdPtr   &attach);
-    virtual int om_detach_vol(const FDSP_MsgHdrTypePtr &hdr,
-                              const FdspAttVolCmdPtr   &detach);
+    virtual int om_attach_vol(const FDSP_MsgHdrTypePtr  &hdr,
+                              const FdspAttVolCmdPtr    &attach);
+    virtual int om_detach_vol(const FDSP_MsgHdrTypePtr  &hdr,
+                              const FdspAttVolCmdPtr    &detach);
     virtual void om_test_bucket(const FdspMsgHdrPtr     &hdr,
                                 const FdspTestBucketPtr &req);
 

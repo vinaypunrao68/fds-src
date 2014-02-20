@@ -223,8 +223,9 @@ class OM_NodeContainer : public DomainContainer
     inline VolumeContainer::pointer om_vol_mgr() {
         return om_volumes;
     }
-    inline int om_create_vol(const FdspCrtVolPtr &creat_msg) {
-        return om_volumes->om_create_vol(creat_msg);
+    inline int om_create_vol(const FDSP_MsgHdrTypePtr &hdr,
+                             const FdspCrtVolPtr      &creat_msg) {
+        return om_volumes->om_create_vol(hdr, creat_msg);
     }
     inline int om_delete_vol(const FdspDelVolPtr &del_msg) {
         return om_volumes->om_delete_vol(del_msg);
