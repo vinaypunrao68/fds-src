@@ -224,33 +224,47 @@ void md5_finish( md5_context *ctx, unsigned char output[16] )
 
 
 checksum_calc::checksum_calc() {
-
     md5_starts( &ctx );
-    return;
-
 }
-void checksum_calc::checksum_update(std::string& buf) {
 
+void checksum_calc::checksum_update(std::string& buf) {
     md5_update( &ctx, (unsigned char *)(buf.data()), buf.size());
-    return;
 }
 
 void checksum_calc::checksum_update(unsigned  char *buf, int length) {
-
     md5_update( &ctx, (unsigned char *)(buf), length);
-    return;
+}
+
+void checksum_calc::checksum_update(bool value) {
+    checksum_update((unsigned char *)&value,sizeof(value));
+}
+
+void checksum_calc::checksum_update(int8_t value) {
+    checksum_update((unsigned char *)&value,sizeof(value));
+}
+
+void checksum_calc::checksum_update(int16_t value) {
+    checksum_update((unsigned char *)&value,sizeof(value));
+}
+
+void checksum_calc::checksum_update(int32_t value) {
+    checksum_update((unsigned char *)&value,sizeof(value));
+}
+
+void checksum_calc::checksum_update(int64_t value) {
+    checksum_update((unsigned char *)&value,sizeof(value));
 }
 
 void checksum_calc::get_checksum(std::string& result) {
-
+    static const char * hex = "0123456789abcdef";
     unsigned char output[16];
     md5_finish( &ctx, output );
-//    md5_finish( &ctx, (unsigned char *)(result.data()) );
     result.clear();
-    base64EncodeDecode baseCtx;
-    char  ret[33];
-    baseCtx.Base64encode(ret,(const char *)output,16);
-    result.append((const char *)ret);
+    result.reserve(32);
+    for(uint i = 0; i < 16; i++ ) {
+        result.append(1,hex[(output[i] >> 4) & 0x0F]);
+        result.append(1,hex[output[i] & 0x0F]);
+    }
     memset( &ctx, 0, sizeof( md5_context ) );
     return;
 }
