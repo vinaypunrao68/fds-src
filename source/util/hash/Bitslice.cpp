@@ -91,8 +91,8 @@ void FactorSlices ( slice_vec & slices )
 
   while(changed)
   {
-    int bestA = -1;
-    int bestB = -1;
+    // int bestA = -1;
+    // int bestB = -1;
 
     for(int j = 0; j < (int)slices.size()-1; j++)
     {
@@ -104,8 +104,8 @@ void FactorSlices ( slice_vec & slices )
         {
           if(counts[i] < counts[j])
           {
-            bestA = j;
-            bestB = i;
+              // bestA = j;
+              // bestB = i;
           }
         }
         else if(d < counts[i])

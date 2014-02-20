@@ -70,7 +70,7 @@ Thrift_ProbeMod::pr_get(ProbeRequest *req)
     reqt.msg_len = io->pr_wr_size;
     rpc_client->probe_get(resp, reqt);
 
-    fds_verify(resp.msg_len == io->pr_wr_size);
+    fds_verify((uint)resp.msg_len == io->pr_wr_size);
 }
 
 // pr_delete

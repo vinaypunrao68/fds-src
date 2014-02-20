@@ -35,6 +35,7 @@ static int sh_test_put_callback(void* context, fds_uint64_t buf_size, char* buf,
 				FDSN_Status status, ErrorDetails* errDetaills)
 {
   FDS_PLOG(storHvisor->GetLog()) << "sh_test_put_callback is called with status " << status;
+  return 0;
 }
 
 static FDSN_Status sh_test_get_callback(void* context, fds_uint64_t buf_size, const char* buf, void *callback_data,
@@ -42,6 +43,7 @@ static FDSN_Status sh_test_get_callback(void* context, fds_uint64_t buf_size, co
 {
   FDS_PLOG(storHvisor->GetLog()) << "sh_test_get_callback is called with status " << status
 				 << " data length " << buf_size;
+  return status;
 }
 
 static void sh_test_delete_callback(FDSN_Status status, const ErrorDetails* errDetails, void* callback_data)

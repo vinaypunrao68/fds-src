@@ -4,7 +4,7 @@
 
 #include <string>
 
-#include "data_mgr/VolumeMeta.h"
+#include <VolumeMeta.h>
 
 namespace fds {
 

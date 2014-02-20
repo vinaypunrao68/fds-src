@@ -152,8 +152,8 @@ class FDSTrace:
         try :
             proc=subprocess.Popen(cmd,stdout=subprocess.PIPE)
             while True:
-                line=proc.stdout.readline()
-                if self.infoLine.match(line.strip()):
+                line=proc.stdout.readline().strip()
+                if self.infoLine.match(line):
                     pieces=line.split(' ')
                     (fromhost,fromport) = pieces[1].split(':')
                     (tohost,toport) = pieces[3].split(':')
@@ -166,7 +166,11 @@ class FDSTrace:
                     
                     print "[%s:%s ---> %s:%s]" % (fromproc,fromport,toproc,toport)
                 else:
-                    print(line.strip())
+                    if len(line)>2:
+                        print(re.sub(r'\.{7}\.*','....',line)),
+                    else:
+                        print line
+                        print
                 #print proc.stdout.closed
         except KeyboardInterrupt :
             #print "hi"

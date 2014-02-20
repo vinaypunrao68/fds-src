@@ -67,6 +67,7 @@ class TierEngine;
      */
     virtual diskio::DataTier selectTier(const ObjectID &oid,
                                         fds_volid_t     vol) = 0;
+    virtual ~TierPutAlgo(){}
   };
 
 const fds_uint32_t max_migration_threads =30;

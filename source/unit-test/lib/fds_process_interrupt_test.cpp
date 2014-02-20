@@ -43,7 +43,7 @@ class Sm_process : public FdsProcess {
     virtual void interrupt_cb(int signum) {
         std::cout << "interrupted" << std::endl;
         done_ = true;
-        for (int i = 0; i < children_.size(); i++) {
+        for (uint i = 0; i < children_.size(); i++) {
             std::cout << "Join finished: " << i <<  std::endl;
             children_[i].join();
         }

@@ -494,6 +494,8 @@ void FDS_NativeAPI::DoCallback(FdsBlobReq  *blob_req,
     fds_verify(!error.ok() || (result != 0));
     static_cast<BucketStatsReq*>(blob_req)->DoCallback("", 0, NULL, status, NULL);
     break;
+      default:
+          break;
   };
 }
 
