@@ -34,16 +34,10 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
         template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
         template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
     };
-    struct DST_Comp : public msm::front::state<>
-    {
-        template <class Evt, class Fsm, class State>
-        void operator()(Evt const &, Fsm &, State &) {}
-
-        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
-        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
-    };
     struct DST_Rebal : public msm::front::state<>
     {
+        typedef mpl::vector<DltCompRebalEvt> deferred_events;
+
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
@@ -52,6 +46,8 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
     };
     struct DST_Commit : public msm::front::state<>
     {
+        typedef mpl::vector<DltCompRebalEvt> deferred_events;
+
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
@@ -67,12 +63,7 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
     /**
      * Transition actions.
      */
-    struct DACT_Compute
-    {
-        template <class Evt, class Fsm, class SrcST, class TgtST>
-        void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
-    };
-    struct DACT_Rebal
+    struct DACT_CompRebal
     {
         template <class Evt, class Fsm, class SrcST, class TgtST>
         void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
@@ -100,18 +91,16 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
      * Transition table for OM DLT deployment.
      */
     struct transition_table : mpl::vector<
-    // +-----------------+----------------+------------+--------------+---------------+
-    // | Start           | Event          | Next       | Action       | Guard         |
-    // +-----------------+----------------+------------+--------------+---------------+
-    msf::Row< DST_Idle   , DltCompEvt     , DST_Comp   , DACT_Compute , msf::none     >,
-    // +-----------------+----------------+------------+--------------+---------------+
-    msf::Row< DST_Comp   , DltRebalEvt    , DST_Rebal  , DACT_Rebal   , msf::none     >,
-    msf::Row< DST_Comp   , DltNoChangeEvt , DST_Idle   , msf::none    , msf::none     >,
-    // +-----------------+----------------+------------+--------------+---------------+
-    msf::Row< DST_Rebal  , DltRebalOkEvt  , DST_Commit , DACT_Commit  , GRD_DltRebal  >,
-    // +-----------------+----------------+------------+--------------+---------------+
-    msf::Row< DST_Commit , DltCommitOkEvt , DST_Idle   , msf::none    , GRD_DltCommit >
-    // +-----------------+----------------+------------+--------------+---------------+
+    // +-----------------+----------------+------------+----------------+---------------+
+    // | Start           | Event          | Next       | Action         | Guard         |
+    // +-----------------+----------------+------------+----------------+---------------+
+    msf::Row< DST_Idle   , DltCompRebalEvt, DST_Rebal  , DACT_CompRebal , msf::none     >,
+    // +-----------------+----------------+------------+----------------+---------------+
+    msf::Row< DST_Rebal  , DltRebalOkEvt  , DST_Commit , DACT_Commit    , GRD_DltRebal  >,
+    msf::Row< DST_Rebal  , DltNoRebalEvt  , DST_Idle   , msf::none      , msf::none     >,
+    // +-----------------+----------------+------------+----------------+---------------+
+    msf::Row< DST_Commit , DltCommitOkEvt , DST_Idle   , msf::none      , GRD_DltCommit >
+    // +-----------------+----------------+------------+----------------+---------------+
     >{};  // NOLINT
 
     template <class Event, class FSM> void no_transition(Event const &, FSM &, int);
@@ -166,19 +155,13 @@ OM_DLTMod::dlt_deploy_curr_state()
 // ----------------
 //
 void
-OM_DLTMod::dlt_deploy_event(DltCompEvt const &evt)
+OM_DLTMod::dlt_deploy_event(DltCompRebalEvt const &evt)
 {
     dlt_dply_fsm->process_event(evt);
 }
 
 void
-OM_DLTMod::dlt_deploy_event(DltNoChangeEvt const &evt)
-{
-    dlt_dply_fsm->process_event(evt);
-}
-
-void
-OM_DLTMod::dlt_deploy_event(DltRebalEvt const &evt)
+OM_DLTMod::dlt_deploy_event(DltNoRebalEvt const &evt)
 {
     dlt_dply_fsm->process_event(evt);
 }
@@ -222,19 +205,19 @@ DltDplyFSM::no_transition(Evt const &evt, Fsm &fsm, int state)
     FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "DltDplyFSM no trans";
 }
 
-/* DACT_Compute
+/* DACT_CompRebal
  * ------------
- * DLT computation state. Updates cluster map based on
+ * DLT computation + rebalance state. Updates cluster map based on
  * pending added/removed SM nodes. If there are changes
  * to cluster map, computes and stores a new DLT
  * based on the current cluster map.
  */
 template <class Evt, class Fsm, class SrcST, class TgtST>
 void
-DltDplyFSM::DACT_Compute::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+DltDplyFSM::DACT_CompRebal::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "FSM DACT_Compute";
-    DltCompEvt dltEvt = (DltCompEvt)evt;
+    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "FSM DACT_CompRebal";
+    DltCompRebalEvt dltEvt = (DltCompRebalEvt)evt;
     DataPlacement *dp = dltEvt.ode_dp;
     ClusterMap *cm = dltEvt.ode_cm;
     OM_SmContainer::pointer smNodes = dltEvt.ode_sm_nodes;
@@ -245,30 +228,20 @@ DltDplyFSM::DACT_Compute::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
     // state, so that it couldn't be changed while in the process
     // of updating the DLT
     NodeList addNodes, rmNodes;
-    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "DACT_Compute: Call cluster update map";
+    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "DACT_CompRebal: Call cluster update map";
     smNodes->om_splice_nodes_pend(&addNodes, &rmNodes);
     cm->updateMap(addNodes, rmNodes);
 
     // Recompute the DLT. Once complete, the data placement's
     // current dlt will be updated to the new dlt version.
     if ((addNodes.size() != 0) || (rmNodes.size() != 0)) {
+        FDS_PLOG_SEV(g_fdslog, fds_log::debug)
+                << "DACT_CompRebal: compute DLT and rebalance";
         dp->computeDlt();
+        // start rebalance
+        Error err = dp->beginRebalance();
+        fds_verify(err == ERR_OK);
     }
-}
-
-// DACT_Rebal
-// -----------
-//
-template <class Evt, class Fsm, class SrcST, class TgtST>
-void
-DltDplyFSM::DACT_Rebal::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
-{
-    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "FSM DACT_Rebalance";
-
-    DltRebalEvt rebalanceEvt = (DltRebalEvt)evt;
-    DataPlacement *dp = rebalanceEvt.ode_dp;
-    Error err = dp->beginRebalance();
-    fds_verify(err == ERR_OK);
 }
 
 // DACT_Commit
@@ -284,11 +257,16 @@ DltDplyFSM::DACT_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST 
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
     OM_NodeContainer* dom_ctrl = domain->om_loc_domain_ctrl();
     DataPlacement *dp = rebalOkEvt.ode_dp;
-    fds_verify(dp != NULL);
+    ClusterMap* cm = rebalOkEvt.ode_clusmap;
+    fds_verify((dp != NULL) && (cm != NULL));
 
     // commit as an 'official' version in the data placement engine
     err = dp->commitDlt();
     fds_verify(err == ERR_OK);
+
+    // reset pending nodes in cluster map, since they are already
+    // present in the DLT
+    cm->resetPendNodes();
 
     // Send new DLT to each node in the cluster map
     dom_ctrl->om_bcast_dlt(dp->getCurDlt());
