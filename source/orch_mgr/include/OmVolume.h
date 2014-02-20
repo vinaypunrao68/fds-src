@@ -64,7 +64,7 @@ class VolumeInfo : public Resource
     template <typename T>
     void vol_foreach_am(T a, void (*fn)(T, VolumeInfo::pointer, NodeAgent::pointer)) {
         // TODO(Vy): not thread safe for now...
-        for (int i = 0; i < vol_am_nodes.size(); i++) {
+        for (uint32_t i = 0; i < vol_am_nodes.size(); i++) {
             NodeAgent::pointer am = vol_am_agent(vol_am_nodes[i]);
             if (am != NULL) {
                 (*fn)(a, this, am);
@@ -76,7 +76,7 @@ class VolumeInfo : public Resource
                         void (*fn)(T1, T2,
                                    VolumeInfo::pointer, NodeAgent::pointer)) {
         // TODO(Vy): not thread safe for now...
-        for (int i = 0; i < vol_am_nodes.size(); i++) {
+        for (uint32_t i = 0; i < vol_am_nodes.size(); i++) {
             NodeAgent::pointer am = vol_am_agent(vol_am_nodes[i]);
             if (am != NULL) {
                 (*fn)(a1, a2, this, am);
@@ -88,7 +88,7 @@ class VolumeInfo : public Resource
                         void (*fn)(T1, T2, T3,
                                    VolumeInfo::pointer, NodeAgent::pointer)) {
         // TODO(Vy): not thread safe for now...
-        for (int i = 0; i < vol_am_nodes.size(); i++) {
+        for (uint32_t i = 0; i < vol_am_nodes.size(); i++) {
             NodeAgent::pointer am = vol_am_agent(vol_am_nodes[i]);
             if (am != NULL) {
                 (*fn)(a1, a2, a3, this, am);
@@ -100,7 +100,7 @@ class VolumeInfo : public Resource
                         void (*fn)(T1, T2, T3, T4,
                                    VolumeInfo::pointer, NodeAgent::pointer)) {
         // TODO(Vy): not thread safe for now...
-        for (int i = 0; i < vol_am_nodes.size(); i++) {
+        for (uint32_t i = 0; i < vol_am_nodes.size(); i++) {
             NodeAgent::pointer am = vol_am_agent(vol_am_nodes[i]);
             if (am != NULL) {
                 (*fn)(a1, a2, a3, a4, this, am);
