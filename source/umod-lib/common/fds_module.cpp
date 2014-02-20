@@ -26,7 +26,7 @@ int
 Module::mod_init(SysParams const *const param)
 {
     int    i;
-    Module *intern;
+    // Module *intern;
 
     mod_params = param;
     if (mod_intern != nullptr) {
@@ -45,7 +45,7 @@ void
 Module::mod_startup()
 {
     int    i;
-    Module *intern;
+    // Module *intern;
 
     if (mod_intern != nullptr) {
         for (i = 0; mod_intern[i] != nullptr; i++) {
@@ -62,7 +62,7 @@ void
 Module::mod_lockstep_startup()
 {
     int    i;
-    Module *intern;
+    // Module *intern;
 
     if (mod_intern != nullptr) {
         for (i = 0; mod_intern[i] != nullptr; i++) {
@@ -81,7 +81,7 @@ void
 Module::mod_enable_service()
 {
     int    i;
-    Module *intern;
+    // Module *intern;
 
     if (mod_intern != nullptr) {
         for (i = 0; mod_intern[i] != nullptr; i++) {
@@ -98,7 +98,7 @@ void
 Module::mod_disable_service()
 {
     int    i;
-    Module *intern;
+    // Module *intern;
 
     if (mod_intern != nullptr) {
         fds_verify(mod_intern_cnt != 0);
@@ -116,7 +116,7 @@ void
 Module::mod_lockstep_shutdown()
 {
     int    i;
-    Module *intern;
+    // Module *intern;
 
     if (mod_intern != nullptr) {
         fds_verify(mod_intern_cnt != 0);
@@ -136,7 +136,7 @@ void
 Module::mod_shutdown()
 {
     int    i;
-    Module *intern;
+    // Module *intern;
 
     if (mod_intern != nullptr) {
         fds_verify(mod_intern_cnt != 0);

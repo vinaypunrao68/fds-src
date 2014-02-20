@@ -481,7 +481,7 @@ void StorHvVolumeTable::moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
 	err = ERR_INVALID_ARG;
       }
       if ( err.ok()) {
-	for (int i = 0; i < blobs.size(); ++i) {
+	for (uint i = 0; i < blobs.size(); ++i) {
 	  FDS_PLOG_SEV(vt_log, fds::fds_log::debug) << "VolumeTable - moving blob to qos queue of vol  " << vol_uuid
 						    << " vol_name " << vol_name;
 	  storHvisor->qos_ctrl->enqueueIO(vol_uuid, blobs[i]);
@@ -496,7 +496,7 @@ void StorHvVolumeTable::moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
     /* we haven't pushed requests to qos queue either because we already 
      * got 'error' parameter with !err.ok() or we couldn't find volume
      * so complete blobs in 'blobs' vector with error (if there are any) */
-    for (int i = 0; i < blobs.size(); ++i) {
+    for (uint i = 0; i < blobs.size(); ++i) {
       AmQosReq* qosReq = blobs[i];
       blobs[i] = NULL;
       FdsBlobReq* blobReq = qosReq->getBlobReqPtr();

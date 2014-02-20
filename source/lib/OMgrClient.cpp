@@ -512,20 +512,6 @@ int OMgrClient::pushCreateBucketToOM(const FDS_ProtocolInterface::FDSP_VolumeInf
     return -1;
   }
 
-   /* do attach volume for this bucket */
-  try {
-      FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
-      initOMMsgHdr(msg_hdr);
-
-      FDSP_AttachVolCmdTypePtr volData(new FDSP_AttachVolCmdType());
-
-      volData->vol_name = volInfo->vol_name; 
-      om_client_prx->AttachBucket(msg_hdr, volData);
-  } catch (...) {
-    FDS_PLOG_SEV(omc_log, fds::fds_log::error) << "OMClient unable to push  the attach  bucket to  OM. Check if OM is up and restart.";
-    return -1;
-  }
-
   return 0;
 }
 

@@ -117,7 +117,7 @@ RsContainer::rs_get_resource(char const *const name)
 int
 RsContainer::rs_container_snapshot(RsArray *out)
 {
-    int ret;
+    uint ret;
 
     ret = 0;
     rs_mtx.lock();

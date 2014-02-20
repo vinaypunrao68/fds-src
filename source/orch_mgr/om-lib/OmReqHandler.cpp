@@ -25,7 +25,7 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::CreateVol(
     int err = 0;
     try {
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-        err = local->om_create_vol(crt_vol_req);
+        err = local->om_create_vol(fdsp_msg, crt_vol_req);
     }
     catch(...) {
         FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
@@ -482,7 +482,7 @@ void OrchMgr::FDSP_OMControlPathReqHandler::CreateBucket(
 
     try {
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-        local->om_create_vol(crt_buck_req);
+        local->om_create_vol(fdsp_msg, crt_buck_req);
     }
     catch(...) {
         FDS_PLOG_SEV(orchMgr->GetLog(), fds::fds_log::error)
