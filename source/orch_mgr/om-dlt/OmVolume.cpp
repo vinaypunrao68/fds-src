@@ -495,7 +495,7 @@ VolumeContainer::om_test_bucket(const FdspMsgHdrPtr     &hdr,
             << "Bucket " << vname << " does not exists, notify node " << nname;
 
         if (am != NULL) {
-            am->om_send_vol_cmd(NULL, fpi::FDSP_MSG_ATTACH_VOL_CTRL);
+            am->om_send_vol_cmd(NULL, vname, fpi::FDSP_MSG_ATTACH_VOL_CTRL);
         }
     } else if (req->attach_vol_reqd == false) {
         // Didn't request OM to attach this volume.
