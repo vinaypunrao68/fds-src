@@ -35,6 +35,7 @@ int
 VolPolicyRPC::rpc_init_client()
 {
     // todo: init client.  Passin appropriate params
+    return -1;
 }
 
 int

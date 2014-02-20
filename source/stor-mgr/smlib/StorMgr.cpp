@@ -64,7 +64,7 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
      * Track the outstanding get request.
      */
 
-    if (putObj->dlt_version == objStorMgr->omClient->getDltVersion()) {
+    if ((uint)putObj->dlt_version == objStorMgr->omClient->getDltVersion()) {
     /*
      * Track the outstanding get request.
      */
@@ -109,7 +109,7 @@ ObjectStorMgrI::GetObject(FDSP_MsgHdrTypePtr& msgHdr,
 
     /*
      * Track the outstanding get request.
-
+     */
     /*
      * Submit the request to be enqueued
      */
@@ -121,7 +121,7 @@ ObjectStorMgrI::GetObject(FDSP_MsgHdrTypePtr& msgHdr,
     if (msgHdr->result != FDSP_ERR_OK) {
 
         msgHdr->msg_code = FDSP_MSG_GET_OBJ_RSP;
-        if(getObj->dlt_version != objStorMgr->omClient->getDltVersion()) {
+        if((uint)getObj->dlt_version != objStorMgr->omClient->getDltVersion()) {
             msgHdr->result = FDSP_ERR_DLT_MISMATCH;
 	   msgHdr->err_code = FDSP_ERR_DLT_CONFLICT;
 	  // send the dlt version of SM to AM
@@ -155,7 +155,7 @@ ObjectStorMgrI::DeleteObject(FDSP_MsgHdrTypePtr& msgHdr,
     /*
      * Track the outstanding get request.
      */
-    if (delObj->dlt_version == objStorMgr->omClient->getDltVersion()) {
+    if ((uint)delObj->dlt_version == objStorMgr->omClient->getDltVersion()) {
 
         objStorMgr->DeleteObject(msgHdr, delObj);
     } else {
@@ -442,7 +442,7 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
         VolumeDesc*  testVdb;
         std::string testVolName;
         int numTestVols = conf_helper_.get<int>("test_volume_cnt");
-        for (fds_uint32_t testVolId = 1; testVolId < numTestVols + 1; testVolId++) {
+        for (fds_int32_t testVolId = 1; testVolId < numTestVols + 1; testVolId++) {
             testVolName = "testVol" + std::to_string(testVolId);
             /*
              * We're using the ID as the min/max/priority
@@ -926,7 +926,8 @@ Error
 ObjectStorMgr::deleteObjectLocation(const ObjectID& objId) { 
 
     Error err(ERR_OK);
-    meta_obj_map_t *obj_map;
+    // NOTE !!!
+    meta_obj_map_t *obj_map = new meta_obj_map_t();
 
     diskio::MetaObjMap objMap;
     ObjectBuf          objData;
@@ -1589,7 +1590,7 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
     }
     msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_GET_OBJ_RSP;
     swapMgrId(msgHdr);
-    if (getObjReq->dlt_version != objStorMgr->omClient->getDltVersion()) {
+    if ((uint)getObjReq->dlt_version != objStorMgr->omClient->getDltVersion()) {
 	msgHdr->err_code = FDSP_ERR_DLT_CONFLICT; 			
 	// msgHdr->result = FDSP_ERR_DLT_MISMATCH; 			
 	// send the dlt version of SM to AM 

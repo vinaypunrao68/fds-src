@@ -230,7 +230,7 @@ class ObjectStorMgr :
             /* base class created stats, but they are disable by default */
             stats->enable();
         }
-        ~SmQosCtrl() {
+        virtual ~SmQosCtrl() {
             if (stats)
                 stats->disable();
         }

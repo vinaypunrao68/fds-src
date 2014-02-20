@@ -104,7 +104,7 @@ HttpRequest::toString() const
         << std::string(reinterpret_cast<char *>(_pReq->method_name.data),
                 _pReq->method_name.len) << "\nUri parts: ";
 
-    for (int i = 0; i < _uriParts.size(); i++) {
+    for (uint i = 0; i < _uriParts.size(); i++) {
         stream << _uriParts[i] << " ";
     }
     return stream.str();

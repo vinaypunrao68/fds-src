@@ -761,7 +761,7 @@ OM_NodeContainer::om_round_robin_dmt()
         if (node_it == total_num_nodes) {
             break;
         }
-        for (fds_uint32_t j = 0; j < bucket_depth; j++) {
+        for (fds_int32_t j = 0; j < bucket_depth; j++) {
             node_list.push_back(dmMap[node_it]->rs_get_uuid().uuid_get_val());
 
             node_it++;

@@ -163,7 +163,7 @@ DataDiscoveryModule::disk_make_label(std::string *base,
         fds_panic("Unknown tier label!");
     }
 
-    fds_verify(diskno < found);
+    fds_verify((uint)diskno < found);
     labeled[diskno] = *base + std::string(sgt_dt_file) + std::to_string(diskno);
 
     fd = open(labeled[diskno].c_str(), O_APPEND | O_CREAT, S_IRUSR | S_IWUSR);

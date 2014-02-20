@@ -35,7 +35,7 @@ void fds_mutex::unlock() {
 }
 
 bool fds_mutex::try_lock() {
-    _m->try_lock();
+    return _m->try_lock();
 }
 
 }  // namespace fds
