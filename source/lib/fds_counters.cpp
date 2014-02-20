@@ -6,8 +6,9 @@
 #include <ctime>
 namespace fds {
 
-FdsCountersMgr::FdsCountersMgr()
-    : lock_("Counters mutex")
+FdsCountersMgr::FdsCountersMgr(const std::string &id)
+    : id_(id),
+      lock_("Counters mutex")
 {
 }
 /**
@@ -49,7 +50,7 @@ std::string FdsCountersMgr::export_as_graphite()
     for (auto counters : exp_counters_) {
         std::string counters_id = counters->id();
         for (auto c : counters->exp_counters_) {
-            oss << counters_id << "." << c->id() << " " << c->value()
+            oss << id_ << "." << counters_id << "." << c->id() << " " << c->value()
                 << " " << ts << std::endl;
         }
     }
