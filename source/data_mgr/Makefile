@@ -1,16 +1,16 @@
 topdir            := ..
 user_target       := exe
 user_rtime_env    := user
-user_install      := dm.conf dm_test.conf om_client.conf
+user_install      := dm.conf
 user_install_loc  := exe
-user_build_dir    :=
+user_build_dir    := include dm-lib platform
 
-# TODO: remove this once we have correct placement of header API.
-#
-user_incl_dir     := $(topdir)
-user_cpp_flags    := -DDMGR_LIVE_DEBUG
+user_incl_dir     := include $(topdir)
+user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  := \
+	fds-dm-lib \
+	fds-dm-plat \
     fds-lib \
     fds-dsk-mgnt \
     fds-umod \
@@ -29,18 +29,8 @@ user_non_fds_libs := \
 	thrift \
 	config++
 
-
-data_mgr_cpp      :=                   \
-    DataMgr.cpp                        \
-    VolumeMeta.cpp			\
-	qos_ctrl.cpp			\
-
-
-user_cpp          :=                   \
-    $(data_mgr_cpp)
-
-user_no_style     := $(user_cpp) $(user_cc) $(wildcard *.h)
+user_cpp          := dm-main.cpp
 user_bin_exe      := DataMgr
-DataMgr           := $(data_mgr_cpp)
+DataMgr           := $(user_cpp)
 
 include $(topdir)/Makefile.incl

@@ -7,8 +7,7 @@
 #include "DataMgr.h"
 
 namespace fds {
-
-DataMgr *dataMgr;
+extern DataMgr *dataMgr;
 
 void DataMgr::vol_handler(fds_volid_t vol_uuid,
                           VolumeDesc *desc,
@@ -1349,21 +1348,3 @@ void DataMgr::InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
 
 
 }  // namespace fds
-
-int main(int argc, char *argv[]) {
-
-    fds::dataMgr = new fds::DataMgr(argc, argv, "dm.conf", "fds.dm.");
-
-    fds::Module *dmVec[] = {
-        fds::dataMgr,
-        nullptr
-    };
-
-    fds::dataMgr->setup(argc, argv, dmVec);
-    fds::dataMgr->run();
-
-    delete fds::dataMgr;
-
-    return 0;
-  
-}
