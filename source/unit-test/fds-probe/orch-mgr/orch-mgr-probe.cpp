@@ -168,9 +168,7 @@ UT_OM_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput 
     eval_helper->setOldDlt(oldDlt);
 
     // Drive cluster map update via state machine
-    OM_DLTMod *dltMod = om->om_dlt_mod();
-    DltCompEvt event(dp);
-    dltMod->dlt_deploy_event(event);
+    domain->om_update_cluster();
 
     // Get new/old dlt states
     const DLT *dlt = dp->getCurDlt();
@@ -353,7 +351,7 @@ UT_OM_DltFsm::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *o
         std::cout << "DLT Event " << evt->dlt_evt << std::endl;
         switch (evt->dlt_evt) {
         case DLT_EVT_COMPUTE:
-            dlt->dlt_deploy_event(DltCompEvt(NULL));
+            dlt->dlt_deploy_event(DltCompEvt(NULL, NULL, NULL));
             break;
 
         case DLT_EVT_UPDATE:

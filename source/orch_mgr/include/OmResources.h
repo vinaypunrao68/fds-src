@@ -374,7 +374,6 @@ class OM_NodeDomainMod : public Module
      */
     virtual void om_update_cluster();
     virtual void om_persist_node_info(fds_uint32_t node_idx);
-    virtual void om_update_cluster_map();
 
     /**
      * Domain support.
