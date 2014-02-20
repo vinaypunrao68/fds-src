@@ -253,7 +253,8 @@ VolumeContainer::VolumeContainer() : RsContainer() {}
 // -------------
 //
 int
-VolumeContainer::om_create_vol(const FdspCrtVolPtr &creat_msg)
+VolumeContainer::om_create_vol(const FdspMsgHdrPtr &hdr,
+                               const FdspCrtVolPtr &creat_msg)
 {
     OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     VolPolicyMgr        *v_pol = OrchMgr::om_policy_mgr();
@@ -298,6 +299,10 @@ VolumeContainer::om_create_vol(const FdspCrtVolPtr &creat_msg)
     }
     rs_register(vol);
     local->om_bcast_vol_create(vol);
+
+    // Attach the volume to the requester's AM.
+    //
+    vol->vol_attach_node(hdr->src_node_name);
     return 0;
 }
 
