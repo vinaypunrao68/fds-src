@@ -90,6 +90,9 @@ class OM_SmAgent : public NodeAgent
 
     virtual void om_send_reg_resp(const Error &err);
     virtual void om_send_vol_cmd(VolumeInfo::pointer vol, fpi::FDSP_MsgCodeType cmd);
+    virtual void om_send_vol_cmd(VolumeInfo::pointer    vol,
+                                 const std::string     &vname,
+                                 fpi::FDSP_MsgCodeType  cmd);
 
     virtual void om_send_dlt(const DLT *curDlt);
     virtual void init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const;
