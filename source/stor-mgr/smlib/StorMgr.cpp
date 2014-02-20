@@ -36,14 +36,14 @@ ObjectStorMgrI::~ObjectStorMgrI()
 void
 ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
         FDSP_PutObjTypePtr& putObj) {
-    FDS_PLOG(objStorMgr->GetLog()) << "Received a Putobject() network request";
+    LOGDEBUG << "Received a Putobject() network request";
 
 #ifdef FDS_TEST_SM_NOOP
     msgHdr->msg_code = FDSP_MSG_PUT_OBJ_RSP;
     msgHdr->result = FDSP_ERR_OK;
     objStorMgr->swapMgrId(msgHdr);
     objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->PutObjectResp(msgHdr, putObj);
-    FDS_PLOG(objStorMgr->GetLog()) << "FDS_TEST_SM_NOOP defined. Sent async PutObj response right after receiving req.";
+    LOGDEBUG << "FDS_TEST_SM_NOOP defined. Sent async PutObj response right after receiving req.";
     return;
 #endif /* FDS_TEST_SM_NOOP */
 
@@ -76,7 +76,7 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
         putObj->dlt_version = objStorMgr->omClient->getDltVersion();
         // update the resp  with new DLT
         objStorMgr->omClient->getLatestDlt(putObj->dlt_data);
-        FDS_PLOG(objStorMgr->GetLog()) << "DLT  version Conflict returning the latest"; 
+        LOGDEBUG << "DLT  version Conflict returning the latest"; 
     }
 
     /*
@@ -88,7 +88,7 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
         objStorMgr->swapMgrId(msgHdr);
         objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->PutObjectResp(msgHdr, putObj);
 
-        FDS_PLOG(objStorMgr->GetLog()) << "Sent async PutObj response after receiving";
+        LOGDEBUG << "Sent async PutObj response after receiving";
     }
 }
 
@@ -96,14 +96,14 @@ void
 ObjectStorMgrI::GetObject(FDSP_MsgHdrTypePtr& msgHdr,
         FDSP_GetObjTypePtr& getObj)
 {
-    FDS_PLOG(objStorMgr->GetLog()) << "Received a Getobject() network request";
+    LOGDEBUG << "Received a Getobject() network request";
 
 #ifdef FDS_TEST_SM_NOOP
     msgHdr->msg_code = FDSP_MSG_GET_OBJ_RSP;
     msgHdr->result = FDSP_ERR_OK;
     objStorMgr->swapMgrId(msgHdr);
     objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->GetObjectResp(msgHdr, getObj);
-    FDS_PLOG(objStorMgr->GetLog()) << "FDS_TEST_SM_NOOP defined. Sent async GetObj response right after receiving req.";
+    LOGDEBUG << "FDS_TEST_SM_NOOP defined. Sent async GetObj response right after receiving req.";
     return;
 #endif /* FDS_TEST_SM_NOOP */
 
@@ -133,7 +133,7 @@ ObjectStorMgrI::GetObject(FDSP_MsgHdrTypePtr& msgHdr,
         objStorMgr->swapMgrId(msgHdr);
         objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->GetObjectResp(msgHdr, getObj);
 
-        FDS_PLOG(objStorMgr->GetLog()) << "Sent async GetObj response after receiving";
+        LOGDEBUG << "Sent async GetObj response after receiving";
     }
 }
 
@@ -141,14 +141,14 @@ void
 ObjectStorMgrI::DeleteObject(FDSP_MsgHdrTypePtr& msgHdr,
         FDSP_DeleteObjTypePtr& delObj)
 {
-    FDS_PLOG(objStorMgr->GetLog()) << "Received a Deleteobject() network request";
+    LOGDEBUG << "Received a Deleteobject() network request";
 
 #ifdef FDS_TEST_SM_NOOP
     msgHdr->msg_code = FDSP_MSG_PUT_OBJ_RSP;
     msgHdr->result = FDSP_ERR_OK;
     objStorMgr->swapMgrId(msgHdr);
     objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->DeleteObjectResp(msgHdr, delObj);
-    FDS_PLOG(objStorMgr->GetLog()) << "FDS_TEST_SM_NOOP defined. Sent async DeleteObj response right after receiving req.";
+    LOGDEBUG << "FDS_TEST_SM_NOOP defined. Sent async DeleteObj response right after receiving req.";
     return;
 #endif /* FDS_TEST_SM_NOOP */
 
@@ -177,18 +177,18 @@ ObjectStorMgrI::DeleteObject(FDSP_MsgHdrTypePtr& msgHdr,
         objStorMgr->swapMgrId(msgHdr);
         objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->DeleteObjectResp(msgHdr, delObj);
 
-        FDS_PLOG(objStorMgr->GetLog()) << "Sent async DeleteObj response after receiving";
+        LOGDEBUG << "Sent async DeleteObj response after receiving";
     }
 }
 
 void
 ObjectStorMgrI::OffsetWriteObject(FDSP_MsgHdrTypePtr& msg_hdr, FDSP_OffsetWriteObjTypePtr& offset_write_obj) {
-  FDS_PLOG(objStorMgr->GetLog()) << "In the interface offsetwrite()";
+  LOGDEBUG << "In the interface offsetwrite()";
 }
 
 void
 ObjectStorMgrI::RedirReadObject(FDSP_MsgHdrTypePtr &msg_hdr, FDSP_RedirReadObjTypePtr& redir_read_obj) {
-  FDS_PLOG(objStorMgr->GetLog()) << "In the interface redirread()";
+  LOGDEBUG << "In the interface redirread()";
 }
 
 /**
@@ -217,9 +217,9 @@ ObjectStorMgr::ObjectStorMgr(int argc, char *argv[],
      */
 
     // Init  the log infra
-    sm_log = g_fdslog;
-    sm_log->setSeverityFilter((fds_log::severity_level) conf_helper_.get<int>("log_severity"));
-    FDS_PLOG(sm_log) << "Constructing the Object Storage Manager";
+
+    GetLog()->setSeverityFilter((fds_log::severity_level) conf_helper_.get<int>("log_severity"));
+    LOGDEBUG << "Constructing the Object Storage Manager";
     objStorMutex = new fds_mutex("Object Store Mutex");
 
     /*
@@ -241,15 +241,15 @@ ObjectStorMgr::ObjectStorMgr(int argc, char *argv[],
     qosCtrl = new SmQosCtrl(this,
             qosThrds,
             FDS_QoSControl::FDS_DISPATCH_WFQ,
-            sm_log);
+                            GetLog());
     qosCtrl->runScheduler();
 
     /* Set up the journal */
-    omJrnl = new TransJournal<ObjectID, ObjectIdJrnlEntry>(qosCtrl, sm_log);
+    omJrnl = new TransJournal<ObjectID, ObjectIdJrnlEntry>(qosCtrl, GetLog());
     /*
      * stats class init
      */
-    objStats =  new ObjStatsTracker(sm_log);
+    objStats =  new ObjStatsTracker(GetLog());
 
     /*
      * Performance stats recording
@@ -265,7 +265,7 @@ ObjectStorMgr::ObjectStorMgr(int argc, char *argv[],
 }
 
 ObjectStorMgr::~ObjectStorMgr() {
-    FDS_PLOG(objStorMgr->GetLog()) << " Destructing  the Storage  manager";
+    LOGDEBUG << " Destructing  the Storage  manager";
     shuttingDown = true;
 
     delete smObjDb;
@@ -347,7 +347,7 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
     while (1) {
         info = out.query_pop();
         if (info != nullptr) {
-            FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::notification) << "Max blks capacity: " << info->di_max_blks_cap
+            LOGNOTIFY << "Max blks capacity: " << info->di_max_blks_cap
                     << ", Disk type........: " << info->di_disk_type
                     << ", Max iops.........: " << info->di_max_iops
                     << ", Min iops.........: " << info->di_min_iops
@@ -367,7 +367,7 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
                 dInfo->ssd_latency_max = info->di_max_latency; /* in us second */
                 dInfo->ssd_latency_min = info->di_min_latency; /* in us second */
             } else
-                FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::warning) << "Unknown Disk Type " << info->di_disk_type;
+                LOGWARN << "Unknown Disk Type " << info->di_disk_type;
 
             delete info;
             continue;
@@ -384,7 +384,7 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
                               myIp,
                               conf_helper_.get<int>("data_port"),
                               stor_prefix + "localhost-sm",
-                              sm_log,
+                              GetLog(),
                               nst_,
                               conf_helper_.get<int>("migration.port"));
 
@@ -394,7 +394,7 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
      * omClient. Create before register with OM because
      * the OM vol event receivers depend on this table.
      */
-    volTbl = new StorMgrVolumeTable(this, sm_log);
+    volTbl = new StorMgrVolumeTable(this, GetLog());
 
     /* Create tier related classes -- has to be after volTbl is created */
     rankEngine = new ObjectRankEngine(stor_prefix, 100000, volTbl, objStats, objStorMgr->GetLog());
@@ -554,7 +554,7 @@ ObjectStorMgr::getUuid() const {
 
 void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
 {
-    FDS_PLOG(objStorMgr->GetLog()) << "ObjectStorMgr - Migration  event Handler " << dlt_type;
+    GLOGDEBUG << "ObjectStorMgr - Migration  event Handler " << dlt_type;
 
 #if 0
     // Determine our new tokens that we need to retrieve from
@@ -610,7 +610,7 @@ void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
             FAR_ID(MigSvcCopyTokensReq), copy_req));
         objStorMgr->migrationSvc_->send_actor_request(copy_far);
     } else {
-        FDS_PLOG(objStorMgr->GetLog()) << "No tokens to copy";
+        GLOGDEBUG << "No tokens to copy";
         objStorMgr->migrationSvcResponseCb(Error(ERR_OK));
     }
 
@@ -626,18 +626,18 @@ void ObjectStorMgr::nodeEventOmHandler(int node_id,
         fds_uint32_t node_port,
         FDS_ProtocolInterface::FDSP_MgrIdType node_type)
 {
-    FDS_PLOG(objStorMgr->GetLog()) << "ObjectStorMgr - Node event Handler " << node_id << " Node IP Address " <<  node_ip_addr;
+    GLOGDEBUG << "ObjectStorMgr - Node event Handler " << node_id << " Node IP Address " <<  node_ip_addr;
     switch(node_state) {
     case FDS_Node_Up :
-        FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::notification) << "ObjectStorMgr - Node UP event NodeId " << node_id << " Node IP Address " <<  node_ip_addr;
+        GLOGNOTIFY << "ObjectStorMgr - Node UP event NodeId " << node_id << " Node IP Address " <<  node_ip_addr;
         break;
 
     case FDS_Node_Down:
     case FDS_Node_Rmvd:
-        FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::notification) << " ObjectStorMgr - Node Down event NodeId :" << node_id << " node IP addr" << node_ip_addr ;
+        GLOGNOTIFY << " ObjectStorMgr - Node Down event NodeId :" << node_id << " node IP addr" << node_ip_addr ;
         break;
     case FDS_Start_Migration:
-        FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::notification) << " ObjectStorMgr - Start Migration  event NodeId :" << node_id << " node IP addr" << node_ip_addr ;
+        GLOGNOTIFY << " ObjectStorMgr - Start Migration  event NodeId :" << node_id << " node IP addr" << node_ip_addr ;
         break;
     }
 }
@@ -658,9 +658,9 @@ ObjectStorMgr::volEventOmHandler(fds_volid_t  volumeId,
 
     switch(action) {
     case FDS_VOL_ACTION_CREATE :
-        FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::notification) << "Received create for vol "
-        << "[" << volumeId << ", "
-        << vdb->getName() << "]";
+        GLOGNOTIFY << "Received create for vol "
+                   << "[" << volumeId << ", "
+                   << vdb->getName() << "]";
         /*
          * Needs to reference the global SM object
          * since this is a static function.
@@ -673,13 +673,13 @@ ObjectStorMgr::volEventOmHandler(fds_volid_t  volumeId,
         objStorMgr->objCache->vol_cache_create(volumeId, 1024 * 1024 * 8, 1024 * 1024 * 256);
         fds_assert(err == ERR_OK);
         if (err != ERR_OK) {
-            FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::error) << "registration failed for vol id " << volumeId << " error: "
+            GLOGERROR << "registration failed for vol id " << volumeId << " error: "
                     << err;
         }
         break;
 
     case FDS_VOL_ACTION_DELETE:
-        FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::notification) << "Received delete for vol "
+        GLOGNOTIFY << "Received delete for vol "
         << "[" << volumeId << ", "
         << vdb->getName() << "]";
         objStorMgr->qosCtrl->quieseceIOs(volumeId);
@@ -687,7 +687,7 @@ ObjectStorMgr::volEventOmHandler(fds_volid_t  volumeId,
         objStorMgr->volTbl->deregisterVolume(volumeId);
         break;
     case fds_notify_vol_mod:
-        FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::notification) << "Received modify for vol "
+        GLOGNOTIFY << "Received modify for vol "
         << "[" << volumeId << ", "
         << vdb->getName() << "]";
 
@@ -697,8 +697,8 @@ ObjectStorMgr::volEventOmHandler(fds_volid_t  volumeId,
         err = objStorMgr->qosCtrl->modifyVolumeQosParams(vol->getVolId(),
                 vdb->iops_min, vdb->iops_max, vdb->relativePrio);
         if ( !err.ok() )  {
-            FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::error) << "Modify volume policy failed for vol " << vdb->getName() << " error: "
-                    << err.GetErrstr();
+            GLOGERROR << "Modify volume policy failed for vol " << vdb->getName() << " error: "
+                      << err.GetErrstr();
         }
         break;
     default:
@@ -730,7 +730,7 @@ void ObjectStorMgr::writeBackFunc(ObjectStorMgr *parent) {
              * Note I have no idea if this is the
              * correct amount of time or not.
              */
-            FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::debug) << "Nothing dirty in flash, going to sleep...";
+            GLOGDEBUG << "Nothing dirty in flash, going to sleep...";
             sleep(5);
             continue;
         }
@@ -752,7 +752,7 @@ void ObjectStorMgr::writeBackFunc(ObjectStorMgr *parent) {
 Error ObjectStorMgr::writeBackObj(const ObjectID &objId) {
     Error err(ERR_OK);
 
-    FDS_PLOG(objStorMgr->GetLog()) << "Writing back object " << objId
+    LOGDEBUG << "Writing back object " << objId
             << " from flash to disk";
 
     /*
@@ -785,7 +785,7 @@ Error ObjectStorMgr::writeBackObj(const ObjectID &objId) {
 void ObjectStorMgr::unitTest() {
     Error err(ERR_OK);
 
-    FDS_PLOG(objStorMgr->GetLog()) << "Running unit test";
+    LOGDEBUG << "Running unit test";
 
     /*
      * Create fake objects
@@ -813,7 +813,7 @@ void ObjectStorMgr::unitTest() {
      */
     err = enqPutObjectReq(msgHdr, put_obj_req, vol_id, 0, num_objs);
     if (err != ERR_OK) {
-        FDS_PLOG(objStorMgr->GetLog()) << "Failed to put object ";
+        LOGDEBUG << "Failed to put object ";
         // delete put_obj_req;
         return;
     }
@@ -839,7 +839,7 @@ ObjectStorMgr::writeObjectLocation(const ObjectID& objId,
     ObjectBuf          objData;
 
     if (append == true) {
-        FDS_PLOG(objStorMgr->GetLog()) << "Appending new location for object " << objId;
+        LOGDEBUG << "Appending new location for object " << objId;
 
         /*
          * Get existing object locations
@@ -850,7 +850,7 @@ ObjectStorMgr::writeObjectLocation(const ObjectID& objId,
          */
         err = readObjectLocations(objId, objMap);
         if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
-            FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::error) << "Failed to read existing object locations"
+            LOGERROR << "Failed to read existing object locations"
                     << " during location write";
             return err;
         } else if (err == ERR_DISK_READ_FAILED) {
@@ -858,7 +858,7 @@ ObjectStorMgr::writeObjectLocation(const ObjectID& objId,
              * Assume this error means the key just did not exist.
              * TODO: Add an err to differention "no key" from "failed read".
              */
-            FDS_PLOG(objStorMgr->GetLog()) << "Not able to read existing object locations"
+            LOGDEBUG << "Not able to read existing object locations"
                     << ", assuming no prior entry existed";
             err = ERR_OK;
         }
@@ -873,10 +873,10 @@ ObjectStorMgr::writeObjectLocation(const ObjectID& objId,
     objData.data = std::string(objMap.marshalling(), objMap.marshalledSize());
     err = smObjDb->Put(objId, objData);
     if (err == ERR_OK) {
-        FDS_PLOG(GetLog()) << "Updating object location for object "
+        LOGDEBUG << "Updating object location for object "
                 << objId << " to " << objMap;
     } else {
-        FDS_PLOG_SEV(GetLog(), fds::fds_log::error) << "Failed to put object " << objId
+        LOGERROR << "Failed to put object " << objId
                 << " into odb with error " << err;
     }
 
@@ -914,10 +914,10 @@ ObjectStorMgr::readObjectLocations(const ObjectID &objId,
     err = smObjDb->Get(objId, objData);
     if (err == ERR_OK) {
         string_to_obj_map(objData.data, objMap);
-        FDS_PLOG(GetLog()) << "Retrieving object location for object "
+        LOGDEBUG << "Retrieving object location for object "
                 << objId << " as " << objData.data;
     } else {
-        FDS_PLOG(GetLog()) << "No object location found for object " << objId << " in index DB";
+        LOGDEBUG << "No object location found for object " << objId << " in index DB";
     }
     return err;
 }
@@ -937,7 +937,7 @@ ObjectStorMgr::deleteObjectLocation(const ObjectID& objId) {
      */
     err = readObjectLocations(objId, objMap);
     if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
-        FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::error) << "Failed to read existing object locations"
+        LOGERROR << "Failed to read existing object locations"
                 << " during location write";
         return err;
     } else if (err == ERR_DISK_READ_FAILED) {
@@ -945,7 +945,7 @@ ObjectStorMgr::deleteObjectLocation(const ObjectID& objId) {
          * Assume this error means the key just did not exist.
          * TODO: Add an err to differention "no key" from "failed read".
          */
-        FDS_PLOG(objStorMgr->GetLog()) << "Not able to read existing object locations"
+        LOGDEBUG << "Not able to read existing object locations"
                 << ", assuming no prior entry existed";
         err = ERR_OK;
     }
@@ -958,10 +958,10 @@ ObjectStorMgr::deleteObjectLocation(const ObjectID& objId) {
     objData.data = std::string(objMap.marshalling(), objMap.marshalledSize());
     err = smObjDb->Put(objId, objData);
     if (err == ERR_OK) {
-        FDS_PLOG(GetLog()) << "Setting the delete marker for object "
+        LOGDEBUG << "Setting the delete marker for object "
                 << objId << " to " << objMap;
     } else {
-        FDS_PLOG_SEV(GetLog(), fds::fds_log::error) << "Failed to put object " << objId
+        LOGERROR << "Failed to put object " << objId
                 << " into odb with error " << err;
     }
 
@@ -1034,7 +1034,7 @@ ObjectStorMgr::readObject(const ObjectID   &objId,
         disk_req->setTierFromMap();
         tierUsed = disk_req->getTier();
 
-        FDS_PLOG(objStorMgr->GetLog()) << "Reading object " << objId << " from "
+        LOGDEBUG << "Reading object " << objId << " from "
                 << ((disk_req->getTier() == diskio::diskTier) ? "disk" : "flash")
                 << " tier";
         objData.size = disk_req->req_get_vmap()->obj_size;
@@ -1143,7 +1143,7 @@ ObjectStorMgr::writeObject(const ObjectID  &objId,
     oid.oid_hash_hi = objId.GetHigh();
     oid.oid_hash_lo = objId.GetLow();
 
-    FDS_PLOG(objStorMgr->GetLog()) << "Writing object " << objId << " into the "
+    LOGDEBUG << "Writing object " << objId << " into the "
             << ((tier == diskio::diskTier) ? "disk" : "flash")
             << " tier";
     disk_req = new SmPlReq(vio, oid, (ObjectBuf *)&objData, true, tier); // blocking call
@@ -1195,7 +1195,7 @@ ObjectStorMgr::relocateObject(const ObjectID &objId,
         fds_verify(to_tier == diskio::flashTier);
         perfStats->recordIO(diskToFlash, 0, diskio::flashTier, FDS_IO_WRITE);
     }
-    FDS_PLOG(objStorMgr->GetLog()) << "relocateObject " << objId << " into the "
+    LOGDEBUG << "relocateObject " << objId << " into the "
             << ((to_tier == diskio::diskTier) ? "disk" : "flash")
             << " tier";
     delete disk_req;
@@ -1259,7 +1259,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
             objCache->object_add(volId, objId, objBufPtr, false);
             objCache->object_release(volId, objId, objBufPtr);
         }
-        FDS_PLOG(objStorMgr->GetLog()) << "Put dup:  " << err
+        LOGDEBUG << "Put dup:  " << err
                 << ", returning success";
         /*
          * Reset the err to OK to ack the metadata update.
@@ -1270,7 +1270,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
             objCache->object_release(volId, objId, objBufPtr);
             objCache->object_delete(volId, objId);
         }
-        FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::error) << "Failed to check object duplicate status on put: "
+        LOGERROR << "Failed to check object duplicate status on put: "
                 << err;
     } else {
 
@@ -1283,7 +1283,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
             objCache->object_release(volId, objId, objBufPtr);
             objCache->object_delete(volId, objId);
             objCache->object_release(volId, objId, objBufPtr);
-            FDS_PLOG(objStorMgr->GetLog()) << "Successfully put object " << objId;
+            LOGDEBUG << "Successfully put object " << objId;
             /* if we successfully put to flash -- notify ranking engine */
             if (tierUsed == diskio::flashTier) {
                 StorMgrVolume *vol = volTbl->getVolume(volId);
@@ -1334,7 +1334,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
     swapMgrId(msgHdr);
     fdspDataPathClient(msgHdr->session_uuid)->PutObjectResp(msgHdr, putObj);
     omJrnl->release_transaction(putReq->getTransId());
-    FDS_PLOG(objStorMgr->GetLog()) << "Sent async PutObj response after processing";
+    LOGDEBUG << "Sent async PutObj response after processing";
 
     /*
      * Free the IO request structure that
@@ -1384,11 +1384,11 @@ ObjectStorMgr::enqPutObjectReq(FDSP_MsgHdrTypePtr msgHdr,
              * we'll just stop at the first error we see to make sure it
              * doesn't get lost.
              */
-            FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::error) << "Unable to enqueue putObject request "
+            LOGERROR << "Unable to enqueue putObject request "
                     << am_transId << ":" << trans_id;
             return err;
         }
-        FDS_PLOG(objStorMgr->GetLog()) << "Successfully enqueued putObject request "
+        LOGDEBUG << "Successfully enqueued putObject request "
                 << am_transId << ":" << trans_id;
     }
 
@@ -1417,9 +1417,9 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
     err = deleteObjectLocation(objId);
     objStorMutex->unlock();
     if (err != fds::ERR_OK) {
-        FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::error) << "Failed to delete object " << err;
+        LOGERROR << "Failed to delete object " << err;
     } else {
-        FDS_PLOG(objStorMgr->GetLog()) << "Successfully delete object " << objId;
+        LOGDEBUG << "Successfully delete object " << objId;
     }
 
     qosCtrl->markIODone(*delReq,
@@ -1446,7 +1446,7 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
     swapMgrId(msgHdr);
     fdspDataPathClient(msgHdr->session_uuid)->DeleteObjectResp(msgHdr, delObj);
     omJrnl->release_transaction(delReq->getTransId());
-    FDS_PLOG(objStorMgr->GetLog()) << "Sent async DelObj response after processing";
+    LOGDEBUG << "Sent async DelObj response after processing";
 
     /*
      * Free the IO request structure that
@@ -1470,7 +1470,7 @@ ObjectStorMgr::PutObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
     ObjectID oid(put_obj_req->data_obj_id.hash_high,
             put_obj_req->data_obj_id.hash_low);
 
-    FDS_PLOG(objStorMgr->GetLog()) << "PutObject Obj ID: " << oid
+    LOGDEBUG << "PutObject Obj ID: " << oid
             << ", glob_vol_id: " << fdsp_msg->glob_volume_id
             << ", for request ID: " << fdsp_msg->req_cookie
             << ", Num Objs: " << fdsp_msg->num_objects;
@@ -1501,7 +1501,7 @@ ObjectStorMgr::DeleteObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
     ObjectID oid(del_obj_req->data_obj_id.hash_high,
             del_obj_req->data_obj_id.hash_low);
 
-    FDS_PLOG(objStorMgr->GetLog()) << "DeleteObject Obj ID: " << oid
+    LOGDEBUG << "DeleteObject Obj ID: " << oid
             << ", glob_vol_id: " << fdsp_msg->glob_volume_id
             << ", for request ID: " << fdsp_msg->req_cookie
             << ", Num Objs: " << fdsp_msg->num_objects;
@@ -1550,14 +1550,14 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
     objStorMutex->unlock();
 
     if (err != fds::ERR_OK) {
-        FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::error) << "Failed to get object " << objId
+        LOGERROR << "Failed to get object " << objId
                 << " with error " << err;
         /*
          * Set the data to empty so we don't return
          * garbage.
          */
     } else {
-        FDS_PLOG(objStorMgr->GetLog()) << "Successfully got object " << objId
+        LOGDEBUG << "Successfully got object " << objId
                 // << " and data " << objData.data
                 << " for request ID " << getReq->io_req_id;
     }
@@ -1597,7 +1597,7 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
         getObj->dlt_version = objStorMgr->omClient->getDltVersion();
     }
     fdspDataPathClient(msgHdr->session_uuid)->GetObjectResp(msgHdr, getObj);
-    FDS_PLOG(objStorMgr->GetLog()) << "Sent async GetObj response after processing";
+    LOGDEBUG << "Sent async GetObj response after processing";
     omJrnl->release_transaction(getReq->getTransId());
 
     objStats->updateIOpathStats(getReq->getVolId(), getReq->getObjId());
@@ -1648,11 +1648,11 @@ ObjectStorMgr::enqDeleteObjectReq(FDSP_MsgHdrTypePtr msgHdr,
     err = qosCtrl->enqueueIO(ioReq->getVolId(), static_cast<FDS_IOType*>(ioReq));
 
     if (err != fds::ERR_OK) {
-        FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::error) << "Unable to enqueue delObject request "
+        LOGERROR << "Unable to enqueue delObject request "
                 << am_transId << ":" << trans_id;
         return err;
     }
-    FDS_PLOG(objStorMgr->GetLog()) << "Successfully enqueued delObject request "
+    LOGDEBUG << "Successfully enqueued delObject request "
             << am_transId << ":" << trans_id;
 
     return err;
@@ -1675,7 +1675,7 @@ ObjectStorMgr::GetObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
     ObjectID oid(get_obj_req->data_obj_id.hash_high,
             get_obj_req->data_obj_id.hash_low);
 
-    FDS_PLOG(objStorMgr->GetLog()) << "GetObject XID: " << fdsp_msg->req_cookie
+    LOGDEBUG << "GetObject XID: " << fdsp_msg->req_cookie
             << ", Obj ID: " << oid
             << ", glob_vol_id: " << fdsp_msg->glob_volume_id
             << ", Num Objs: " << fdsp_msg->num_objects;
@@ -1725,13 +1725,13 @@ ObjectStorMgr::enqGetObjectReq(FDSP_MsgHdrTypePtr msgHdr,
   err = qosCtrl->enqueueIO(ioReq->getVolId(), static_cast<FDS_IOType*>(ioReq));
 
   if (err != fds::ERR_OK) {
-    FDS_PLOG_SEV(objStorMgr->GetLog(), fds::fds_log::error) << "Unable to enqueue getObject request "
+    LOGERROR << "Unable to enqueue getObject request "
                                    << am_transId << ":" << trans_id;
     getObjReq->data_obj_len = 0;
     getObjReq->data_obj.assign("");
     return err;
   }
-  FDS_PLOG(objStorMgr->GetLog()) << "Successfully enqueued getObject request "
+  LOGDEBUG << "Successfully enqueued getObject request "
                                  << am_transId << ":" << trans_id;
 
   return err;
@@ -1751,7 +1751,7 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
 
     err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
     if (err != fds::ERR_OK) {
-        FDS_PLOG_ERR(GetLog()) << "Failed to enqueue msg: " << ioReq->log_string();
+        LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
     }
     return err;
 }
@@ -1797,7 +1797,7 @@ ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq)
 
         err = writeObject(objId, objData, DataTier::diskTier);
         if (err != ERR_OK) {
-            FDS_PLOG_ERR(GetLog()) << "Failed to write the object: " << objId;
+            LOGERROR << "Failed to write the object: " << objId;
            break; 
         }
 
@@ -1987,7 +1987,7 @@ void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
                 if ((max_size - tot_msg_len) >= objData.size) {
                     FDSP_MigrateObjectData mig_obj;
                     mig_obj.meta_data.token_id = token;
-                    FDS_PLOG(objStorMgr->GetLog()) << "Adding a new objectId to objList" << objId;
+                    LOGDEBUG << "Adding a new objectId to objList" << objId;
                     mig_obj.meta_data.object_id.hash_high = objId.GetHigh();
                     mig_obj.meta_data.object_id.hash_low = objId.GetLow();
                     mig_obj.meta_data.obj_len = objData.size;

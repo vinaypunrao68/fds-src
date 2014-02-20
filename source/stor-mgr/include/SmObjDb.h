@@ -53,12 +53,12 @@ typedef fds_uint32_t fds_token_id;
 
 
 
-class SmObjDb { 
+class SmObjDb : public HasLogger { 
 public:
 
     SmObjDb(std::string stor_prefix_,
             fds_log* _log) {
-        tokDbLog = _log;
+        SetLog(_log);
         stor_prefix = stor_prefix_;
     }
     ~SmObjDb() {
@@ -113,7 +113,6 @@ public:
             SMTokenItr &itr);
 private:
     std::unordered_map<fds_token_id, ObjectDB *> tokenTbl;
-    fds_log *tokDbLog;
     std::string stor_prefix;
 };
 
