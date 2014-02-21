@@ -254,7 +254,6 @@ DltDplyFSM::DACT_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST 
 {
     FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "FSM DACT_Commit";
     DltRebalOkEvt rebalOkEvt = (DltRebalOkEvt)evt;
-    Error err(ERR_OK);
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
     OM_NodeContainer* dom_ctrl = domain->om_loc_domain_ctrl();
     DataPlacement *dp = rebalOkEvt.ode_dp;
@@ -262,15 +261,15 @@ DltDplyFSM::DACT_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST 
     fds_verify((dp != NULL) && (cm != NULL));
 
     // commit as an 'official' version in the data placement engine
-    err = dp->commitDlt();
-    fds_verify(err == ERR_OK);
+    dp->commitDlt();
 
     // reset pending nodes in cluster map, since they are already
     // present in the DLT
     cm->resetPendNodes();
 
     // Send new DLT to each node in the cluster map
-    dom_ctrl->om_bcast_dlt(dp->getCurDlt());
+    // the new DLT now is committed DLT
+    dom_ctrl->om_bcast_dlt(dp->getCommitedDlt());
 }
 
 // GRD_DltRebal
@@ -282,20 +281,20 @@ DltDplyFSM::GRD_DltRebal::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
 {
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
     DltRebalOkEvt rebalOkEvt = (DltRebalOkEvt)evt;
-    ClusterMap* clusterMap = rebalOkEvt.ode_clusmap;
-    fds_verify(clusterMap != NULL);
+    DataPlacement *dp = rebalOkEvt.ode_dp;
+    fds_verify(dp != NULL);
 
     // when all added nodes are in 'node up' state,
     // we are getting out of this state
-    std::unordered_set<NodeUuid, UuidHash> addedNodes = clusterMap->getAddedNodes();
+    NodeUuidSet rebalNodes = dp->getRebalanceNodes();
     fds_bool_t all_up = true;
-    for (std::unordered_set<NodeUuid, UuidHash>::const_iterator cit = addedNodes.cbegin();
-         cit != addedNodes.cend();
+    for (std::unordered_set<NodeUuid, UuidHash>::const_iterator cit = rebalNodes.cbegin();
+         cit != rebalNodes.cend();
          ++cit) {
         NodeAgent::pointer agent = domain->om_sm_agent(*cit);
         fds_verify(agent != NULL);
         FDS_PLOG_SEV(g_fdslog, fds_log::debug)
-                << "GRD_DltRebal: Added node " << agent->get_node_name()
+                << "GRD_DltRebal: Node " << agent->get_node_name()
                 << " state " << agent->node_state();
         if (agent->node_state() != FDS_ProtocolInterface::FDS_Node_Up) {
             all_up = false;
@@ -305,7 +304,7 @@ DltDplyFSM::GRD_DltRebal::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
 
     FDS_PLOG_SEV(g_fdslog, fds_log::debug)
             << "FSM GRD_DltRebal: was/is waiting for rebalance ok from "
-            << addedNodes.size() << " node(s), current result: " << all_up;
+            << rebalNodes.size() << " node(s), current result: " << all_up;
 
     return all_up;
 }
