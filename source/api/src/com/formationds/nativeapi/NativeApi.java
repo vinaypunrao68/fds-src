@@ -15,4 +15,5 @@ public class NativeApi {
 
     public static native void init();
     public static native void getBucketsStats(Consumer<Collection<BucketStatsContent>> consumer);
+    public static native void createBucket(String bucketName, Consumer<Integer> consumer);
 }

@@ -12,7 +12,9 @@ public class NativeApiTest extends TestCase {
 
     public void testGetBucketStats() throws Exception {
         NativeApi.init();
-        NativeApi.getBucketsStats(buckets -> System.out.println("Bucket count: " + buckets.size()));
-        Thread.sleep(4000);
+        NativeApi.createBucket("请收藏我们的网址", i -> System.out.println("bucket creation returned " + i));
+        Thread.sleep(5000);
+        NativeApi.getBucketsStats(buckets -> buckets.forEach(b -> System.out.println(b)));
+        Thread.sleep(5000);
     }
 }
