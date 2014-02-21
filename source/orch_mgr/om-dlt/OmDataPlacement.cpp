@@ -184,7 +184,8 @@ WeightMap::debug_print(fds_log* log) const {
 DataPlacement::DataPlacement()
         : Module("Data Placement Engine"),
           placeAlgo(NULL),
-          curDlt(NULL),
+          commitedDlt(NULL),
+          newDlt(NULL),
           curWeightDist(NULL) {
     placementMutex = new fds_mutex("data placement mutex");
     curClusterMap = &gl_OMClusMapMod;
@@ -193,8 +194,11 @@ DataPlacement::DataPlacement()
 DataPlacement::~DataPlacement() {
     delete placementMutex;
     // delete curClusterMap;
-    if (curDlt != NULL) {
-        delete curDlt;
+    if (commitedDlt != NULL) {
+        delete commitedDlt;
+    }
+    if (newDlt != NULL) {
+        delete newDlt;
     }
 }
 
@@ -234,10 +238,12 @@ DataPlacement::computeDlt() {
     // Currently always create a new empty DLT.
     // Will change to be relative to the current.
     fds_uint64_t version;
-    if (curDlt == NULL) {
+    fds_verify(newDlt == NULL);
+
+    if (commitedDlt == NULL) {
         version = DLT_VER_INVALID + 1;
     } else {
-        version = curDlt->getVersion() + 1;
+        version = commitedDlt->getVersion() + 1;
     }
     // If we have fewer members than total replicas
     // use the number of members as the replica count
@@ -247,13 +253,13 @@ DataPlacement::computeDlt() {
     }
 
     // Allocate and compute new DLT
-    DLT *newDlt = new DLT(curDltWidth,
-                          depth,
-                          version,
-                          true);
+    newDlt = new DLT(curDltWidth,
+                     depth,
+                     version,
+                     true);
     placementMutex->lock();
     placeAlgo->computeNewDlt(curClusterMap,
-                             curDlt,
+                             commitedDlt,
                              newDlt);
 
     // Compute DLT's reverse node to token map
@@ -273,8 +279,6 @@ DataPlacement::computeDlt() {
     // before we delete it and replace it with the
     // new DLT. We should also update the DLT's
     // internal version.
-    delete curDlt;
-    curDlt = newDlt;
     placementMutex->unlock();
 }
 
@@ -291,37 +295,63 @@ DataPlacement::beginRebalance() {
     FDS_ProtocolInterface::FDSP_DLT_Data_TypePtr dltMsg(
             new FDS_ProtocolInterface::FDSP_DLT_Data_Type());
 
-    std::string dltBuf;
     placementMutex->lock();
-
-    // get the newly added nodes from the cluster MAP
-    std::unordered_set<NodeUuid, UuidHash> addedNodes = curClusterMap->getAddedNodes();
-
-    // loop through the  new node lists  and send the  notifyMigration  to  the new nodes
-
-    for (std::unordered_set<NodeUuid, UuidHash>::const_iterator cit = addedNodes.cbegin();
-         cit != addedNodes.cend();
+    // find all nodes which need to do migration (=have new tokens)
+    rebalanceNodes.clear();
+    for (ClusterMap::const_iterator cit = curClusterMap->cbegin();
+         cit != curClusterMap->cend();
          ++cit) {
-        NodeUuid  uuid = *cit;
-        OM_SmAgent::const_ptr na = OM_NodeDomainMod::om_local_domain()->om_sm_agent(uuid);
+        TokenList new_toks, old_toks;
+        newDlt->getTokens(&new_toks, cit->first, 0);
+        if (commitedDlt) {
+            commitedDlt->getTokens(&old_toks, cit->first, 0);
+        }
+        // TODO(anna) TokenList should be a set so we can easily
+        // search rather than vector -- anyway we shouldn't have duplicate
+        // tokens in the TokenList
+        for (fds_uint32_t i = 0; i < new_toks.size(); ++i) {
+            fds_bool_t found = false;
+            for (fds_uint32_t j = 0; j < old_toks.size(); ++j) {
+                if (new_toks[i] == old_toks[j]) {
+                    found = true;
+                    break;
+                }
+            }
+            // at least one new token for this node
+            if (!found) {
+                rebalanceNodes.insert(cit->first);
+                break;
+            }
+        }
+    }
+
+    // pupulate dlt message -- same for all the nodes that need to migrate toks
+    dltMsg->dlt_type= true;
+    newDlt->getSerialized(dltMsg->dlt_data);
+
+    // send start migration message to all nodes that have new tokens
+    for (NodeUuidSet::const_iterator nit = rebalanceNodes.cbegin();
+         nit != rebalanceNodes.cend();
+         ++nit) {
+        NodeUuid  uuid = *nit;
+        OM_SmAgent::pointer na = OM_NodeDomainMod::om_local_domain()->om_sm_agent(uuid);
         NodeAgentCpReqClientPtr naClient = na->getCpClient();
-    // populate  msg header
+        na->set_node_state(FDS_ProtocolInterface::FDS_Start_Migration);
         na->init_msg_hdr(msgHdr);
         msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_NOTIFY_MIGRATION;
 
-    // populate the dlt  class
-       dltMsg->dlt_type= true;
-       curDlt->getSerialized(dltMsg->dlt_data);
-       FDS_PLOG_SEV(g_fdslog, fds_log::notification)
-                << "Sending the DLT migration request to node "
-                << std::hex << uuid.uuid_get_val();
-       curDlt->dump();
+        FDS_PLOG_SEV(g_fdslog, fds_log::notification)
+                << "Sending the DLT migration request to node 0x"
+                << std::hex << uuid.uuid_get_val() << std::dec;
 
-    // invoke the RPC
-       naClient->NotifyStartMigration(msgHdr, dltMsg);
-     }
+        // invoke the RPC
+        naClient->NotifyStartMigration(msgHdr, dltMsg);
+    }
     placementMutex->unlock();
 
+    FDS_PLOG_SEV(g_fdslog, fds_log::notification)
+            << "Sent DLT migration event to " << rebalanceNodes.size() << " nodes";
+    newDlt->dump();
     return err;
 }
 
@@ -330,25 +360,42 @@ DataPlacement::beginRebalance() {
  * copy. The commit stores the DLT to the
  * permanent DLT history.
  */
-Error
+void
 DataPlacement::commitDlt() {
-    Error err(ERR_OK);
-
-    // TODO(anna) -- what does it mean to commit the current
-    // DLT as an 'official' version in data placement?
-    // For now is empty method, the new dlt is broadcasted
-    // to all other nodes in commit event in dlt state machine
-    return err;
+    fds_verify(newDlt != NULL);
+    placementMutex->lock();
+    if (commitedDlt) {
+        delete commitedDlt;
+        commitedDlt = NULL;
+    }
+    commitedDlt = newDlt;
+    newDlt = NULL;
+    placementMutex->unlock();
 }
 
 const DLT*
-DataPlacement::getCurDlt() const {
-    return curDlt;
+DataPlacement::getCommitedDlt() const {
+    return commitedDlt;
+}
+
+fds_uint64_t
+DataPlacement::getLatestDltVersion() const {
+    if (newDlt) {
+        return newDlt->getVersion();
+    } else if (commitedDlt) {
+        return commitedDlt->getVersion();
+    }
+    return DLT_VER_INVALID;
 }
 
 const ClusterMap*
 DataPlacement::getCurClustMap() const {
     return curClusterMap;
+}
+
+NodeUuidSet
+DataPlacement::getRebalanceNodes() const {
+    return rebalanceNodes;
 }
 
 int

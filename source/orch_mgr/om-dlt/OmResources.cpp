@@ -79,10 +79,11 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         om_locDomain->om_update_node_list(newNode, msg);
         om_locDomain->om_bcast_vol_list(newNode);
 
-        // Let this new node know about existing dlt
+        // Let this new node know about existing dlt (if this is an SM, we are
+        // sending commited DLT first and then new DLT to start migration)
         // TODO(Andrew): this should change into dissemination of the cur cluster map.
         DataPlacement *dp = om->om_dataplace_mod();
-        OM_SmAgent::agt_cast_ptr(newNode)->om_send_dlt(dp->getCurDlt());
+        OM_SmAgent::agt_cast_ptr(newNode)->om_send_dlt(dp->getCommitedDlt());
 
         // Send the DMT to DMs.
         om_locDomain->om_round_robin_dmt();
@@ -189,7 +190,7 @@ OM_NodeDomainMod::om_recv_migration_done(const NodeUuid& uuid,
     // for now we shouldn't move to new dlt version until
     // we are done with current cluster update, so
     // expect to see migration done resp for current dlt version
-    fds_uint64_t cur_dlt_ver = (dp->getCurDlt())->getVersion();
+    fds_uint64_t cur_dlt_ver = dp->getLatestDltVersion();
     fds_verify(cur_dlt_ver == dlt_version);
 
     // Set node's state to 'node_up'
@@ -236,7 +237,7 @@ OM_NodeDomainMod::om_recv_sm_dlt_commit_resp(const NodeUuid& uuid,
     // for now we shouldn't move to new dlt version until
     // we are done with current cluster update, so
     // expect to see dlt commit resp for current dlt version
-    fds_uint64_t cur_dlt_ver = (dp->getCurDlt())->getVersion();
+    fds_uint64_t cur_dlt_ver = dp->getLatestDltVersion();
     if (cur_dlt_ver > dlt_version) {
         return err;
     }
