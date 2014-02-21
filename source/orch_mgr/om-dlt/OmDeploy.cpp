@@ -231,7 +231,8 @@ DltDplyFSM::DACT_CompRebal::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
     FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "DACT_CompRebal: Call cluster update map";
     smNodes->om_splice_nodes_pend(&addNodes, &rmNodes);
     cm->updateMap(addNodes, rmNodes);
-
+    LOGDEBUG << "Added Nodes size: " << addNodes.size()
+            << " rmNodes size: " << rmNodes.size();
     // Recompute the DLT. Once complete, the data placement's
     // current dlt will be updated to the new dlt version.
     if ((addNodes.size() != 0) || (rmNodes.size() != 0)) {

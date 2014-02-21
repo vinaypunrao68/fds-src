@@ -48,29 +48,29 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
 #endif /* FDS_TEST_SM_NOOP */
 
 
-#if 0
      // check the payload checksum  and return Error, if we run in to issues 
-    std:string new_checksum,Received_checksum;
+    std::string new_checksum;
 
-    Received_checksum = msgHdr->payload_chksum;
-    objStorMgr->chksumPtr->checksum_update(reinterpret_cast<unsigned char *>(putObj.get()), sizeof(*(putObj.get())));
-    objStorMgr->chksumPtr->checksum_update(reinterpret_cast<unsigned char *>(const_cast <char *>(putObj->data_obj.data())), putObj->data_obj_len);
+    objStorMgr->chksumPtr->checksum_update(putObj->data_obj_id.hash_high);
+    objStorMgr->chksumPtr->checksum_update(putObj->data_obj_id.hash_low);
+    objStorMgr->chksumPtr->checksum_update(putObj->data_obj_len);
+    objStorMgr->chksumPtr->checksum_update(putObj->volume_offset);
+    objStorMgr->chksumPtr->checksum_update(putObj->dlt_version);
+    objStorMgr->chksumPtr->checksum_update(putObj->data_obj);
+
     objStorMgr->chksumPtr->get_checksum(new_checksum);
-    FDS_PLOG(objStorMgr->GetLog()) << "RPC Checksum :" << new_checksum << " received checksum: " << Received_checksum; 
+    FDS_PLOG(objStorMgr->GetLog()) << "RPC Checksum :" << new_checksum << " received checksum: " << msgHdr->payload_chksum; 
+
     if (msgHdr->payload_chksum.compare(new_checksum) != 0) {
 	msgHdr->result = FDSP_ERR_CKSUM_MISMATCH; 			
 	msgHdr->err_code = FDSP_ERR_RPC_CKSUM; 			
         FDS_PLOG(objStorMgr->GetLog()) << "RPC Checksum Error "; 
 
-        /*
         msgHdr->msg_code = FDSP_MSG_PUT_OBJ_RSP;
         objStorMgr->swapMgrId(msgHdr);
         objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->PutObjectResp(msgHdr, putObj);
-        */
-
         FDS_PLOG(objStorMgr->GetLog()) << "Sent async PutObj response after receiving";
     }
-#endif
 
     /*
      * Track the outstanding get request.

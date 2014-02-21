@@ -7,6 +7,7 @@
 #include <fds_assert.h>
 #include <fds_process.h>
 #include <util/Log.h>
+#include <net/net_utils.h>
 
 namespace fds {
 
@@ -25,7 +26,7 @@ void init_process_globals(fds_log *log)
 {
     fds_verify(g_fdslog == nullptr);
     g_fdslog = log;
-    g_cntrs_mgr.reset(new FdsCountersMgr());
+    g_cntrs_mgr.reset(new FdsCountersMgr(net::get_my_hostname()+".unknown"));
 }
 
 FdsProcess::FdsProcess(int argc, char *argv[],
@@ -48,7 +49,11 @@ FdsProcess::FdsProcess(int argc, char *argv[],
     g_fdslog = new fds_log(conf_helper_.get<std::string>("logfile"), "logs");
 
     /* Process wide counters setup */
-    setup_cntrs_mgr();
+    std::string proc_id = argv[0];
+    if (conf_helper_.exists("id")) {
+        proc_id = conf_helper_.get<std::string>("id");
+    }
+    setup_cntrs_mgr(net::get_my_hostname() + "."  + proc_id);
 
     /* if graphite is enabled, setup graphite task to dump counters */
     if (conf_helper_.get<bool>("enable_graphite")) {
@@ -162,10 +167,10 @@ void FdsProcess::setup_mod_vector(int argc, char *argv[], fds::Module **mod_vec)
     mod_vectors_->mod_execute();
 }
 
-void FdsProcess::setup_cntrs_mgr()
+void FdsProcess::setup_cntrs_mgr(const std::string &mgr_id)
 {
     fds_verify(cntrs_mgrPtr_.get() == NULL);
-    cntrs_mgrPtr_.reset(new FdsCountersMgr());
+    cntrs_mgrPtr_.reset(new FdsCountersMgr(mgr_id));
     g_cntrs_mgr = cntrs_mgrPtr_;
 }
 

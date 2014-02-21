@@ -59,7 +59,7 @@ DataIOModule::mod_init(fds::SysParams const *const param)
         sgt_hddIO[i] =
             new FilePersisDataIO(dataDiscoveryMod.disk_hdd_path(i), i);
     }
-    for (fds_uint32_t i = 0; i < sgt_ssd_count; i++) {
+    for (int i = 0; i < sgt_ssd_count; i++) {
       sgt_ssdIO[i] =
           new FilePersisDataIO(dataDiscoveryMod.disk_ssd_path(i), i);
     }
