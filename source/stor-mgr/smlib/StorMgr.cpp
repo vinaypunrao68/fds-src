@@ -216,7 +216,7 @@ ObjectStorMgr::ObjectStorMgr(int argc, char *argv[],
                              const std::string &base_path) 
     : Module("StorMgr"),
     FdsProcess(argc, argv, default_config_path, base_path),
-    totalRate(2000),
+    totalRate(3000),
     qosThrds(10),
     shuttingDown(false),
     numWBThreads(1),
@@ -1384,6 +1384,11 @@ ObjectStorMgr::enqPutObjectReq(FDSP_MsgHdrTypePtr msgHdr,
                 am_transId);
 
         err = omJrnl->create_transaction(obj_id, static_cast<FDS_IOType *>(ioReq), trans_id);
+        if ( err == ERR_TRANS_JOURNAL_REQUEST_QUEUED) { 
+             // The Journal table has enqueued in its queue and will re-enqueue into the QOS-ctrller when the head IO is done
+             ioReq->setTransId(trans_id);
+             return ERR_OK;
+        }
         ioReq->setTransId(trans_id);
         ObjectIdJrnlEntry *jrnlEntry = omJrnl->get_transaction(trans_id);
         jrnlEntry->setMsgHdr(msgHdr);
@@ -1653,9 +1658,14 @@ ObjectStorMgr::enqDeleteObjectReq(FDSP_MsgHdrTypePtr msgHdr,
             msgHdr->req_cookie);
 
     err =  omJrnl->create_transaction(obj_id, static_cast<FDS_IOType *>(ioReq), trans_id);
+    if ( err == ERR_TRANS_JOURNAL_REQUEST_QUEUED) { 
+    // The Journal table has enqueued in its queue and will re-enqueue into the QOS-ctrller when the head IO is done
+         return ERR_OK;
+         ioReq->setTransId(trans_id);
+    }
+    ioReq->setTransId(trans_id);
     ObjectIdJrnlEntry *jrnlEntry = omJrnl->get_transaction(trans_id);
     jrnlEntry->setMsgHdr(msgHdr);
-    ioReq->setTransId(trans_id);
     
     err = qosCtrl->enqueueIO(ioReq->getVolId(), static_cast<FDS_IOType*>(ioReq));
 
@@ -1730,6 +1740,11 @@ ObjectStorMgr::enqGetObjectReq(FDSP_MsgHdrTypePtr msgHdr,
                                am_transId);
 
   err =  omJrnl->create_transaction(obj_id, static_cast<FDS_IOType *>(ioReq), trans_id);
+  if ( err == ERR_TRANS_JOURNAL_REQUEST_QUEUED) { 
+   // The Journal table has enqueued in its queue and will re-enqueue into the QOS-ctrller when the head IO is done
+       ioReq->setTransId(trans_id);
+       return ERR_OK;
+  }
   ioReq->setTransId(trans_id);
   ObjectIdJrnlEntry *jrnlEntry = omJrnl->get_transaction(trans_id);
   jrnlEntry->setMsgHdr(msgHdr);
