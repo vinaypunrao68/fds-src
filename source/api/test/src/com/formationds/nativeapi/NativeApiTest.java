@@ -2,8 +2,6 @@ package com.formationds.nativeapi;
 
 import junit.framework.TestCase;
 
-import java.util.Collection;
-
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
@@ -16,11 +14,12 @@ public class NativeApiTest extends TestCase {
         NativeApi.init();
         BucketStatsHandler handler = new BucketStatsHandler() {
             @Override
-            public void handle(String timestamp, Collection<BucketStatsContent> contents) {
-                System.out.println("Got " + contents + " buckets");
+            public void handle() {
+                System.out.println("It worked");
             }
         };
 
         NativeApi.getBucketsStats(handler);
+        Thread.sleep(4000);
     }
 }
