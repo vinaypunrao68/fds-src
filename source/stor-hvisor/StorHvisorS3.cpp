@@ -121,8 +121,15 @@ StorHvCtrl::dispatchSmPutMsg(StorHvJournalEntry *journEntry) {
         smMsgHdr->session_uuid = sessionCtx->getSessionId();
         journEntry->session_uuid = smMsgHdr->session_uuid;
 
-        storHvisor->chksumPtr->checksum_update(reinterpret_cast<unsigned char *>(putMsg.get()),sizeof(*(putMsg.get())) );
-        storHvisor->chksumPtr->checksum_update(reinterpret_cast<unsigned char *>(const_cast <char *>(putMsg->data_obj.data())), putMsg->data_obj_len);
+
+	// checksum calculation for putObj  class and the payload.  we may haveto bundle this
+        // into a function .
+        storHvisor->chksumPtr->checksum_update(putMsg->data_obj_id.hash_high);
+        storHvisor->chksumPtr->checksum_update(putMsg->data_obj_id.hash_low);
+        storHvisor->chksumPtr->checksum_update(putMsg->data_obj_len);
+        storHvisor->chksumPtr->checksum_update(putMsg->volume_offset);
+        storHvisor->chksumPtr->checksum_update(putMsg->dlt_version);
+        storHvisor->chksumPtr->checksum_update(putMsg->data_obj);
         storHvisor->chksumPtr->get_checksum(smMsgHdr->payload_chksum);
         FDS_PLOG_SEV(sh_log, fds::fds_log::normal) << "RPC Checksum:  " << smMsgHdr->payload_chksum<< "\n";
 

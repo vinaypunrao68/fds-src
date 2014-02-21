@@ -13,7 +13,15 @@ extern "C" {
  * Signature: ()V
  */
 JNIEXPORT void JNICALL Java_com_formationds_nativeapi_NativeApi_init
-  (JNIEnv *, jobject);
+  (JNIEnv *, jclass);
+
+/*
+ * Class:     com_formationds_nativeapi_NativeApi
+ * Method:    getBucketsStats
+ * Signature: (Lcom/formationds/nativeapi/BucketStatsHandler;)V
+ */
+JNIEXPORT void JNICALL Java_com_formationds_nativeapi_NativeApi_getBucketsStats
+  (JNIEnv *, jclass, jobject);
 
 #ifdef __cplusplus
 }

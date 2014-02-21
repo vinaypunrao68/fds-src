@@ -12,8 +12,8 @@ user_incl_dir     := $(topdir) \
 	$(java_home)/include/linux
 
 user_fds_so_libs  :=
+
 user_fds_ar_libs  := \
-    fds-am-engine \
     fds-StorHvisor \
     fds-lib \
     fds-umod \
@@ -26,18 +26,18 @@ user_non_fds_libs := \
     boost_log boost_system boost_thread boost_date_time boost_program_options boost_filesystem \
     leveldb thrift rt config++
 
-user_ld_flags := -shared 
+#user_ld_flags := -L/usr/java/jdk/jre/lib/amd64 -L/usr/java/jdk/jre/lib/amd64/server -ljvm
+user_ld_flags := -shared
 
-user_cpp          := fds_java_bindings.cpp
+user_cpp          := JavaContext.cpp fds_java_bindings.cpp 
 
 user_no_style     := $(user_cpp) 
 user_bin_exe      := fds_java_bindings
-fds_java_bindings	      := fds_java_bindings.cpp
+fds_java_bindings	      :=  $(user_cpp) #fds_java_bindings.cpp
 
 
 include $(topdir)/Makefile.incl
 
 jni_headers: 
 	javah -cp ../target/classes com.formationds.nativeapi.NativeApi
-
 

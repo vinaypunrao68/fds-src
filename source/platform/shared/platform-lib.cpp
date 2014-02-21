@@ -26,10 +26,8 @@ DomainClusterMap::DomainClusterMap(char const *const    name,
     : DomainNodeInv(name, master, sm, dm, am, om) {}
 
 DomainResources::~DomainResources() {}
-DomainResources::DomainResources(char const *const         name,
-                                 DomainNodeInv::pointer    node_inv,
-                                 DomainClusterMap::pointer clus_map)
-    : drs_dlt(NULL), drs_node_inv(node_inv), drs_clus_map(clus_map)
+DomainResources::DomainResources(char const *const name)
+    : drs_dlt(NULL)
 {
     drs_cur_throttle_lvl = 0;
     drs_dmt_version      = 0;
