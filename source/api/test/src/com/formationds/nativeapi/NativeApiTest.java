@@ -12,14 +12,9 @@ public class NativeApiTest extends TestCase {
 
     public void testGetBucketStats() throws Exception {
         NativeApi.init();
-        BucketStatsHandler handler = new BucketStatsHandler() {
-            @Override
-            public void handle() {
-                System.out.println("It worked");
-            }
-        };
-
-        NativeApi.getBucketsStats(handler);
-        Thread.sleep(4000);
+        NativeApi.createBucket("请收藏我们的网址", i -> System.out.println("bucket creation returned " + i));
+        Thread.sleep(5000);
+        NativeApi.getBucketsStats(buckets -> buckets.forEach(b -> System.out.println(b)));
+        Thread.sleep(5000);
     }
 }

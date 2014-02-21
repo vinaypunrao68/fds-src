@@ -25,6 +25,33 @@ namespace fds {
             this->javaVM->DetachCurrentThread();
         }
         
+        void JavaContext::invoke(JNIEnv *env, jobject o, char *methodName, char *signature, ...) {
+            va_list args;
+            va_start(args, signature);
+            jclass klass = env->GetObjectClass(o);
+            jmethodID method = env->GetMethodID(klass, methodName, signature);            
+	    env->CallObjectMethodV(o, method, args);
+            va_end(args);
+        }
+
+        jobject JavaContext::javaInstance(JNIEnv *env, char *className) {
+            return javaInstance(env, className, "()V");
+        }
+        
+        jobject JavaContext::javaInstance(JNIEnv *env, char *className, char *constructorSignature, ...) {
+            va_list args;
+            va_start(args, constructorSignature);
+            jclass klass = env->FindClass(className);
+            jmethodID constructor = env->GetMethodID(klass, "<init>", constructorSignature);
+            jobject o = env->NewObjectV(klass, constructor, args);
+            va_end(args);
+            return o;
+        }
+
+        jstring JavaContext::javaString(JNIEnv *env, std::string s) {
+            return env->NewStringUTF(s.c_str());
+        }
+
         JavaContext::~JavaContext() {
         }
     }

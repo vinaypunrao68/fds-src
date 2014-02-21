@@ -146,6 +146,10 @@ class FDSTrace:
                 portstr += " or "
             portstr += "port " + str(port)
 
+        if len(portstr) == 0:
+            print 'error: no ports to listen on !!!'
+            return
+
         cmd = ['ngrep','-l','-q','-d','any','',portstr]
         #print cmd
         
@@ -183,14 +187,14 @@ class FDSTrace:
         sys.stderr.flush()
         
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Trace fds network calls. Just do "sudo ./fdstrace"')
-    parser.add_argument('omport',default=8904 ,help='om port' , type=int, nargs='?')
-    parser.add_argument('omctrlport',default=8903 ,help='om ctrl port' , type=int, nargs='?')
-    parser.add_argument('amport',default=8000 ,help='am port' , type=int, nargs='?')
-    parser.add_argument('dmport',default=6902 ,help='dm port' , type=int, nargs='?')
-    parser.add_argument('dmctrlport',default=7902 ,help='dm ctrl port' , type=int, nargs='?')
-    parser.add_argument('smport',default=6901 ,help='sm port' , type=int, nargs='?')
-    parser.add_argument('smctrlport',default=7901 ,help='sm ctrl port' , type=int, nargs='?')
+    parser = argparse.ArgumentParser(description='Trace fds network calls. Just do "sudo ./fdstrace"',formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('--omport',default=8904 ,help='om port' , type=int, nargs='?')
+    parser.add_argument('--omctrlport',default=8903 ,help='om ctrl port' , type=int, nargs='?')
+    parser.add_argument('--amport',default=8000 ,help='am port' , type=int, nargs='?')
+    parser.add_argument('--dmport',default=6902 ,help='dm port' , type=int, nargs='?')
+    parser.add_argument('--dmctrlport',default=7902 ,help='dm ctrl port' , type=int, nargs='?')
+    parser.add_argument('--smport',default=6901 ,help='sm port' , type=int, nargs='?')
+    parser.add_argument('--smctrlport',default=7901 ,help='sm ctrl port' , type=int, nargs='?')
 
     parser.add_argument('--test',dest='test',action='store_true',default=False ,help="run test fn")
 
@@ -209,22 +213,34 @@ if __name__ == "__main__":
     parser.add_argument('--sm',dest='sm',action='store_true'   ,help='enable SM tracing')
     parser.add_argument('--nosm',dest='sm',action='store_false',help='disable SM tracing')
     parser.set_defaults(sm=True)
-    
-    args = parser.parse_args()
 
+    parser.add_argument('--nodefaults',dest='nodefaults',action='store_true',help='disable default ports')
+    parser.set_defaults(nodefaults=False)
+
+    parser.add_argument('ports', nargs=argparse.REMAINDER ,type=int ,help="other ports to be monitored")
+
+    args = parser.parse_args()
+    #print args
+    #sys.exit(0)
     f = FDSTrace()
 
-    if args.om:
+    if args.om and not args.nodefaults:
         f.addPort("omport", args.omport)
         f.addPort("omctrlport" , args.omctrlport)
-    if args.dm:
+    if args.dm and not args.nodefaults:
         f.addPort("dmport", args.dmport)
         f.addPort("dmctrlport" , args.dmctrlport)
-    if args.sm:
+    if args.sm and not args.nodefaults:
         f.addPort("smport", args.smport)
         f.addPort("smctrlport" , args.smctrlport)
-    if args.am:
+    if args.am and not args.nodefaults:
         f.addPort("amport", args.amport)
+
+    count=0
+    for port in args.ports:
+        f.addPort("port" + str(count), port)
+        count+=1
+        
     
     #print f.ports
         
