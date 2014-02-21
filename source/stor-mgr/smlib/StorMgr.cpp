@@ -485,7 +485,7 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
     /*
      * Kick off the writeback thread(s)
      */
-    writeBackThreads->schedule(writeBackFunc, this);
+//SAN    writeBackThreads->schedule(writeBackFunc, this);
 
     setup_migration_svc();
 }
@@ -1051,7 +1051,12 @@ ObjectStorMgr::readObject(const ObjectID   &objId,
                 << " tier";
         objData.size = disk_req->req_get_vmap()->obj_size;
         objData.data.resize(objData.size, 0);
-        dio_mgr.disk_read(disk_req);
+        err = dio_mgr.disk_read(disk_req);
+        if ( err != ERR_OK) {
+           LOGDEBUG << " Disk Read Err: " << err; 
+           delete disk_req;
+           return err;
+        }
     }
     delete disk_req;
     return err;
@@ -1159,7 +1164,12 @@ ObjectStorMgr::writeObject(const ObjectID  &objId,
             << ((tier == diskio::diskTier) ? "disk" : "flash")
             << " tier";
     disk_req = new SmPlReq(vio, oid, (ObjectBuf *)&objData, true, tier); // blocking call
-    dio_mgr.disk_write(disk_req);
+    err = dio_mgr.disk_write(disk_req);
+    if (err != ERR_OK) {
+       LOGDEBUG << " 1. Disk Write Err: " << err; 
+       delete disk_req;
+       return err;
+    }
     err = writeObjectLocation(objId, disk_req->req_get_vmap(), true);
     if ((err == ERR_OK) &&
             (tier == diskio::flashTier)) {
@@ -1198,7 +1208,12 @@ ObjectStorMgr::relocateObject(const ObjectID &objId,
     oid.oid_hash_lo = objId.GetLow();
 
     disk_req = new SmPlReq(vio, oid, (ObjectBuf *)&objGetData, true, to_tier);
-    dio_mgr.disk_write(disk_req);
+    err = dio_mgr.disk_write(disk_req);
+    if (err != ERR_OK) {
+       LOGDEBUG << " 2. Disk Write Err: " << err; 
+       delete disk_req;
+       return err;
+    }
     err = writeObjectLocation(objId, disk_req->req_get_vmap(), false);
 
     if (to_tier == diskio::diskTier) {

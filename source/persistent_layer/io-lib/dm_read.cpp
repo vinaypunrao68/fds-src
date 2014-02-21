@@ -5,13 +5,14 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <fds_assert.h>
+#include <fds_err.h>
 
 namespace diskio {
 
 // \disk_io_read
 // -------------
 //
-void
+int
 FilePersisDataIO::disk_do_read(DiskRequest *req)
 {
     ssize_t         len;
@@ -31,6 +32,11 @@ FilePersisDataIO::disk_do_read(DiskRequest *req)
     off = map->obj_stor_offset << DataIO::disk_io_blk_shift();
     len = pread64(fi_fd, (void *)buf->data.c_str(), buf->size, off);
     disk_read_done(req);
+    if ( len < 0 ) {
+	perror("read Error");
+	return fds::ERR_DISK_READ_FAILED;
+    }
+    return fds::ERR_OK; // ERR_OK
 }
 
 }  // namespace diskio
