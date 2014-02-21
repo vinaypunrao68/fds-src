@@ -110,7 +110,7 @@ main_cc_defs    := -D_REENTRANT -D_FILE_OFFSET_BITS=64
 main_cc_flags   :=
 main_cc_flags   += $(local_cc_common) $(main_cc_defs)
 
-main_cpp_flags  := -g2 -std=c++11 -Wall -Werror -Wno-reorder -Wno-unused-function -Wno-unused-value -Wno-unused-but-set-variable -Wno-unused-variable -Wno-write-strings
+main_cpp_flags  := -g2 -std=c++11
 main_cpp_flags  += $(local_cc_common) $(main_cc_defs)
 
 main_so_flags   := -shared
@@ -135,11 +135,14 @@ cpp_style       := $(incl_scripts)/cpplint.py
 
 # Common library that most modules need to link.
 #
-ifneq ($(user_ext_build), true)
+ifeq ($(user_ext_build), true)
     main_kern_dep_libs :=
-    main_exec_dep_libs := fds-osdep pthread
+    main_exec_dep_libs :=
     main_tool_dep_libs :=
     main_test_dep_libs :=
+else
+    main_cpp_flags  += -Wall -Werror -Wno-reorder -Wno-unused-function -Wno-unused-value -Wno-unused-but-set-variable -Wno-unused-variable -Wno-write-strings
+    main_cpp_flags  += $(local_cc_common) $(main_cc_defs)
 endif
 
 # ARCH and OSDep settings.
