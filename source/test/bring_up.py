@@ -162,16 +162,20 @@ class StorNode():
     name = None
     controlPort = 6900
     dataPort = 7900
+    migPort = 8600
     configPort = None
     omControlPort = None
     isOm = False
     logSeverity = 2
+    fdsRoot = "/fds"
     omBin = "orchMgr"
     dmBin = "DataMgr"
     smBin = "StorMgr"
+    logName = None
     
     def __init__(self, _name):
         self.name = _name
+        self.logName = self.name
 
     def setOm(self, _om):
         self.isOm = _om
@@ -186,13 +190,19 @@ class StorNode():
         self.dataPort = _dp
 
     def setConfPort(self, _cp):
-        self.configPort = _cp 
+        self.configPort = _cp
+
+    def setMigPort(self, _mp):
+        self.migPort = _mp
 
     def setOCPort(self, _cp):
         self.omControlPort = _cp 
     
     def setLogSeverity(self, _sev):
         self.logSeverity = _sev
+
+    def setFdsRoot(self, _root):
+        self.fdsRoot = _root
         
     def getOmCmd(self):
         return "%s --fds.om.config_port=%d --fds.om.control_port=%d --fds.om.prefix=%s_ --fds.om.log_severity=%d" % (self.omBin,
@@ -202,18 +212,22 @@ class StorNode():
                                               self.logSeverity)
 
     def getSmCmd(self):
-        return "%s --fds.sm.data_port=%d --fds.sm.control_port=%d --fds.sm.prefix=%s_ --fds.sm.test_mode=false --fds.sm.log_severity=%d" % (self.smBin,
-                                                          self.dataPort,
-                                                          self.controlPort,
-                                                          self.name,
-                                                          self.logSeverity)
+        return "%s --fds-root=%s --fds.sm.data_port=%d --fds.sm.control_port=%d --fds.sm.migration.port=%d --fds.sm.prefix=%s_ --fds.sm.test_mode=false --fds.sm.log_severity=%d --fds.sm.logfile=sm.%s" % (self.smBin,
+                                      self.fdsRoot,
+                                      self.dataPort,
+                                      self.controlPort,
+                                      self.migPort,
+                                      self.name,
+                                      self.logSeverity,
+                                      self.logName)
 
     def getDmCmd(self):
-        return "%s --fds.dm.port=%d --fds.dm.cp_port=%d --fds.dm.prefix=%s_ --fds.dm.log_severity=%d" % (self.dmBin,
+        return "%s --fds.dm.port=%d --fds.dm.cp_port=%d --fds.dm.prefix=%s_ --fds.dm.log_severity=%d  --fds.dm.logfile=dm.%s" % (self.dmBin,
                                                            self.dataPort + 1,
                                                            self.controlPort + 1,
                                                            self.name,
-                                                           self.logSeverity)
+                                                           self.logSeverity,
+                                                           self.logName)
 
     def getOmBin(self):
         return self.omBin
@@ -408,10 +422,14 @@ class TestBringUp():
                 node.setDp(int(value))
             elif key == "config_port":
                 node.setConfPort(int(value))
+            elif key == "migration_port":
+                node.setMigPort(int(value))
             elif key == "om_control_port":
                 node.setOCPort(int(value))
             elif key == "log_severity":
                 node.setLogSeverity(int(value))
+            elif key == "fds_root":
+                node.setFdsRoot(value)
             else:
                 print "Unknown item %s, %s in %s" % (key, value, name)
         
@@ -585,6 +603,7 @@ class TestBringUp():
                         break
                     line = stderr.readline()
 
+            time.sleep(1)
             stdin.close()
             stdout.close()
             stderr.close()
@@ -782,6 +801,7 @@ class TestBringUp():
                 pass
             return -1
 
+        time.sleep(5)
         return 0
 
     ##

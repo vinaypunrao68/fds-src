@@ -35,6 +35,7 @@ int
 VolPolicyRPC::rpc_init_client()
 {
     // todo: init client.  Passin appropriate params
+    return -1;
 }
 
 int
@@ -68,8 +69,8 @@ SM_VolPolicyServ::serv_recvTierPolicyReq(const fdp::FDSP_TierPolicyPtr &tier)
     if (vol == nullptr) {
         // TODO: No way to return the result back to caller.
         //
-        FDS_PLOG(objStorMgr->sm_log) << "Could not find volume uuid "
-            << tier->tier_vol_uuid;
+        FDS_PLOG(objStorMgr->GetLog()) << "Could not find volume uuid "
+                                       << tier->tier_vol_uuid;
         return;
     }
     VolumeDesc *desc = vol->voldesc;

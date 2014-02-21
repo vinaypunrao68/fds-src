@@ -38,7 +38,6 @@ class GraphiteClient : public boost::noncopyable
       void runTimerTask() override
       {
           std::string str = parentP_->cntrs_mgrPtr_->export_as_graphite();
-          std::cout << str << std::endl;
           try
           {
               parentP_->socket_.send_to(boost::asio::buffer(str), parentP_->receiver_endpoint_);

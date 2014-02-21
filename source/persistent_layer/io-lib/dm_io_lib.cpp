@@ -59,7 +59,7 @@ DataIOModule::mod_init(fds::SysParams const *const param)
         sgt_hddIO[i] =
             new FilePersisDataIO(dataDiscoveryMod.disk_hdd_path(i), i);
     }
-    for (fds_uint32_t i = 0; i < sgt_ssd_count; i++) {
+    for (int i = 0; i < sgt_ssd_count; i++) {
       sgt_ssdIO[i] =
           new FilePersisDataIO(dataDiscoveryMod.disk_ssd_path(i), i);
     }
@@ -163,7 +163,7 @@ DataDiscoveryModule::disk_make_label(std::string *base,
         fds_panic("Unknown tier label!");
     }
 
-    fds_verify(diskno < found);
+    fds_verify((uint)diskno < found);
     labeled[diskno] = *base + std::string(sgt_dt_file) + std::to_string(diskno);
 
     fd = open(labeled[diskno].c_str(), O_APPEND | O_CREAT, S_IRUSR | S_IWUSR);

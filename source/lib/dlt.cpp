@@ -120,6 +120,15 @@ fds_token_id DLT::getToken(const ObjectID& objId) const {
     return (fds_token_id)(token_bitmask & (objId.GetHigh() >> bit_offset));
 }
 
+void DLT::getTokenObjectRange(const fds_token_id &token,
+        ObjectID &begin, ObjectID &end) const
+{
+    fds_uint64_t max = ((fds_uint64_t) 0) - 1;
+    fds_uint64_t bit_offset = (sizeof(begin.GetHigh())*8 - numBitsForToken);
+    begin.SetId(((fds_uint64_t) token) << bit_offset, 0);
+    end.SetId(begin.GetHigh() | (max >> numBitsForToken), max);
+}
+
 // get all the Nodes for a token/objid
 DltTokenGroupPtr DLT::getNodes(fds_token_id token) const {
     fds_verify(token < numTokens);

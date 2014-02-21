@@ -25,13 +25,14 @@ class FdsCountersMgr;
  */
 class FdsCountersMgr : public boost::noncopyable {
  public:
-  FdsCountersMgr();
+  FdsCountersMgr(const std::string &id);
   void add_for_export(FdsCounters *counters);
   void remove_from_export(FdsCounters *counters);
 
   std::string export_as_graphite();
 
  protected:
+  std::string id_;
   /* Counter objects that are exported out */
   std::vector<FdsCounters*> exp_counters_;
   /* Lock for this object */
@@ -128,6 +129,7 @@ class NumericCounter : public FdsBaseCounter
   NumericCounter(const std::string &id, FdsCounters *export_parent)
       : FdsBaseCounter(id, export_parent)
   {
+      val_ = 0;
   }
 
   virtual uint64_t value() const override
@@ -149,6 +151,8 @@ class LatencyCounter : public FdsBaseCounter
   LatencyCounter(const std::string &id, FdsCounters *export_parent)
       : FdsBaseCounter(id, export_parent)
   {
+      total_latency_ = 0;
+      cnt_ = 0;
   }
 
   virtual uint64_t value() const override

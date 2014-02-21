@@ -66,7 +66,7 @@ void migrationJob(TierMigration *migrator, void *arg, fds_uint32_t count) {
  fds_uint32_t len = 100;
  std::pair<ObjectID, ObjectRankEngine::rankOperType> * chg_tbl = (std::pair<ObjectID, ObjectRankEngine::rankOperType> *) arg;
  ObjectID oid;
-      for (int i = 0; i < count; ++i)
+      for (uint i = 0; i < count; ++i)
       {
           if(migrator->stopMigrationFlag) return;
           oid = chg_tbl[i].first;

@@ -91,7 +91,7 @@ class FdsProcess : public boost::noncopyable {
                const std::string &base_path);
 
     virtual void setup_sig_handler();
-    virtual void setup_cntrs_mgr();
+    virtual void setup_cntrs_mgr(const std::string &mgr_id);
     virtual void setup_timer_service();
     virtual void setup_graphite();
     virtual void setup_mod_vector(int argc, char *argv[],

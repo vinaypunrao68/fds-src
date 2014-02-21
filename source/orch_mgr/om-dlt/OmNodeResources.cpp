@@ -113,6 +113,14 @@ OM_SmAgent::om_send_node_cmd(const om_node_msg_t &msg)
 void
 OM_SmAgent::om_send_vol_cmd(VolumeInfo::pointer vol, fpi::FDSP_MsgCodeType cmd_type)
 {
+    om_send_vol_cmd(vol, NULL, cmd_type);
+}
+
+void
+OM_SmAgent::om_send_vol_cmd(VolumeInfo::pointer    vol,
+                            const std::string     &vname,
+                            fpi::FDSP_MsgCodeType  cmd_type)
+{
     const char                *log;
     const VolumeDesc          *desc;
     fpi::FDSP_MsgHdrTypePtr    m_hdr(new fpi::FDSP_MsgHdrType);
@@ -159,14 +167,15 @@ OM_SmAgent::om_send_vol_cmd(VolumeInfo::pointer vol, fpi::FDSP_MsgCodeType cmd_t
                 vol->vol_fmt_desc_pkt(&attach->vol_desc);
                 attach->vol_name = vol->vol_get_name();
             } else {
-                attach->vol_name = "";
                 m_hdr->result    = FDSP_ERR_VOLUME_DOES_NOT_EXIST;
                 m_hdr->err_msg   = "Bucket does not exist";
-                attach->vol_desc.volUUID = 9876;
+                attach->vol_name = vname;
+                attach->vol_desc.vol_name  = vname;
+                attach->vol_desc.volUUID   = 9876;
                 attach->vol_desc.tennantId = 0;
                 attach->vol_desc.localDomainId = 0;
                 attach->vol_desc.capacity = 1000000;
-                attach->vol_desc.volType = FDS_ProtocolInterface::FDSP_VOL_S3_TYPE;
+                attach->vol_desc.volType  = FDS_ProtocolInterface::FDSP_VOL_S3_TYPE;
             }
             m_hdr->msg_code = cmd_type;
 
@@ -761,7 +770,7 @@ OM_NodeContainer::om_round_robin_dmt()
         if (node_it == total_num_nodes) {
             break;
         }
-        for (fds_uint32_t j = 0; j < bucket_depth; j++) {
+        for (fds_int32_t j = 0; j < bucket_depth; j++) {
             node_list.push_back(dmMap[node_it]->rs_get_uuid().uuid_get_val());
 
             node_it++;

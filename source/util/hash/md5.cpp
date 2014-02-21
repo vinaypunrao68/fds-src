@@ -1,6 +1,7 @@
 #include <memory.h>
 #include "Types.h"
 #include "md5.h"
+#include "base64.h"
 
 // "Derived from the RSA Data Security, Inc. MD5 Message Digest Algorithm"
 
@@ -223,41 +224,66 @@ void md5_finish( md5_context *ctx, unsigned char output[16] )
 
 
 checksum_calc::checksum_calc() {
-
     md5_starts( &ctx );
-    return;
-
 }
-void checksum_calc::checksum_update(std::string& buf) {
 
+void checksum_calc::checksum_update(std::string& buf) {
     md5_update( &ctx, (unsigned char *)(buf.data()), buf.size());
-    return;
 }
 
 void checksum_calc::checksum_update(unsigned  char *buf, int length) {
-
     md5_update( &ctx, (unsigned char *)(buf), length);
-    return;
+}
+
+void checksum_calc::checksum_update(bool value) {
+    checksum_update((unsigned char *)&value,sizeof(value));
+}
+
+void checksum_calc::checksum_update(int8_t value) {
+    checksum_update((unsigned char *)&value,sizeof(value));
+}
+
+void checksum_calc::checksum_update(int16_t value) {
+    checksum_update((unsigned char *)&value,sizeof(value));
+}
+
+void checksum_calc::checksum_update(int32_t value) {
+    checksum_update((unsigned char *)&value,sizeof(value));
+}
+
+void checksum_calc::checksum_update(int64_t value) {
+    checksum_update((unsigned char *)&value,sizeof(value));
 }
 
 void checksum_calc::get_checksum(std::string& result) {
-
-    md5_finish( &ctx, (unsigned char *)(result.data()) );
+    static const char * hex = "0123456789abcdef";
+    unsigned char output[16];
+    md5_finish( &ctx, output );
+    result.clear();
+    result.reserve(32);
+    for(uint i = 0; i < 16; i++ ) {
+        result.append(1,hex[(output[i] >> 4) & 0x0F]);
+        result.append(1,hex[output[i] & 0x0F]);
+    }
+    memset( &ctx, 0, sizeof( md5_context ) );
     return;
 }
 
 /*
  * output = MD5( input buffer )
  */
-void md5Str( std::string& input, int ilen, std::string& output )
+void md5Str( std::string& input, int ilen, std::string& result )
 {
     md5_context ctx;
+    unsigned char output[16];
 
     md5_starts( &ctx );
     md5_update( &ctx, (unsigned char *)(input.data()), ilen );
-    md5_finish( &ctx, (unsigned char *)(output.data()) );
+    md5_finish( &ctx, output );
+//    md5_finish( &ctx, (unsigned char *)(output.data()) );
+    result.clear();
+    result.append((const char *)output);
 
-    memset( &ctx, 0, sizeof( md5_context ) );
 }
 
 void md5( unsigned char *input, int ilen, unsigned char output[16] )
