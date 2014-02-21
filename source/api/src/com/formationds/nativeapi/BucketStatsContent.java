@@ -38,4 +38,15 @@ public class BucketStatsContent {
     public double getLimit() {
         return limit;
     }
+
+    @Override
+    public String toString() {
+        return "BucketStatsContent{" +
+                "bucketName='" + bucketName + '\'' +
+                ", priority=" + priority +
+                ", performance=" + performance +
+                ", sla=" + sla +
+                ", limit=" + limit +
+                '}';
+    }
 }

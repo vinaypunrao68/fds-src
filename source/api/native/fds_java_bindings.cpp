@@ -16,21 +16,36 @@ namespace fds {
 	fds::FDS_NativeAPI *api;
 	JavaVM *javaVM;
 	
-	static void
-	bucket_stats_cb(const std::string& timestamp,
-			int content_count,
-			const BucketStatsContent* contents,
-			void *req_context,
-			void *callback_data,
-			FDSN_Status status,
-			ErrorDetails *err_details) {   
+        jobject javaBucketStats(JavaContext *javaContext, JNIEnv *env, int count, const BucketStatsContent *bucketStats) {
+            jobject javaBuckets = javaContext->javaInstance(env, "java/util/ArrayList");
+            
+            for (int i = 0; i < count; i++) {
+                BucketStatsContent b = bucketStats[i];
+                jobject bucket = javaContext->javaInstance(env, 
+                                                           "com.formationds.nativeapi.BucketStatsContent", 
+                                                           "(Ljava/lang/String;IDDD)V",
+                                                           javaContext->javaString(env, b.bucket_name),
+                                                           (jint) b.priority,
+                                                           (jdouble) b.performance,
+                                                           (jdouble) b.sla,
+                                                           (jdouble) b.limit);
+                javaContext->invoke(env, javaBuckets, "add", "(Ljava/lang/Object;)Z", bucket);
+            }
+
+            return javaBuckets;
+        }
+
+	static void bucket_stats_cb(const std::string& timestamp,
+                                    int content_count,
+                                    const BucketStatsContent* contents,
+                                    void *req_context,
+                                    void *callback_data,
+                                    FDSN_Status status,
+                                    ErrorDetails *err_details) {   
 	    JavaContext *javaContext = static_cast<JavaContext *>(callback_data);    
 	    JNIEnv *env = javaContext->attachCurrentThread();
-	    
-	    jclass klass = env->GetObjectClass(javaContext->o);
-	    jmethodID method = env->GetMethodID(klass, "handle", "()V");
-	    env->CallObjectMethod(javaContext->o, method);
-	    
+            jobject buckets = javaBucketStats(javaContext, env, content_count, contents);
+            javaContext->invoke(env, javaContext->o, "accept", "(Ljava/lang/Object;)V", buckets);	    
 	    javaContext->detachCurrentThread();
 	}
     }
@@ -38,7 +53,7 @@ namespace fds {
 
 using namespace fds::java;
 
-// The JNI code needs to be in the global namespace
+// JNI code needs to be in the global namespace
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* aReserved)
 {
     javaVM = vm;

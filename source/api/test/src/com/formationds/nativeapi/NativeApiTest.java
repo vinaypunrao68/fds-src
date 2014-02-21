@@ -12,14 +12,7 @@ public class NativeApiTest extends TestCase {
 
     public void testGetBucketStats() throws Exception {
         NativeApi.init();
-        BucketStatsHandler handler = new BucketStatsHandler() {
-            @Override
-            public void handle() {
-                System.out.println("It worked");
-            }
-        };
-
-        NativeApi.getBucketsStats(handler);
+        NativeApi.getBucketsStats(buckets -> System.out.println("Bucket count: " + buckets.size()));
         Thread.sleep(4000);
     }
 }
