@@ -59,17 +59,18 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
     objStorMgr->chksumPtr->checksum_update(putObj->data_obj);
 
     objStorMgr->chksumPtr->get_checksum(new_checksum);
-    FDS_PLOG(objStorMgr->GetLog()) << "RPC Checksum :" << new_checksum << " received checksum: " << msgHdr->payload_chksum; 
+    LOGDEBUG << "RPC Checksum :" << new_checksum << " received checksum: " << msgHdr->payload_chksum; 
 
     if (msgHdr->payload_chksum.compare(new_checksum) != 0) {
 	msgHdr->result = FDSP_ERR_CKSUM_MISMATCH; 			
 	msgHdr->err_code = FDSP_ERR_RPC_CKSUM; 			
-        FDS_PLOG(objStorMgr->GetLog()) << "RPC Checksum Error "; 
+        LOGERROR << "RPC Checksum: " << new_checksum << " received checksum: " << msgHdr->payload_chksum; 
 
         msgHdr->msg_code = FDSP_MSG_PUT_OBJ_RSP;
         objStorMgr->swapMgrId(msgHdr);
         objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->PutObjectResp(msgHdr, putObj);
-        FDS_PLOG(objStorMgr->GetLog()) << "Sent async PutObj response after receiving";
+        LOGWARN << "Sent async PutObj response after checksum mismatch";
+        return;
     }
 
     /*
@@ -88,7 +89,7 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
         putObj->dlt_version = objStorMgr->omClient->getDltVersion();
         // update the resp  with new DLT
         objStorMgr->omClient->getLatestDlt(putObj->dlt_data);
-        LOGDEBUG << "DLT  version Conflict returning the latest"; 
+        LOGWARN << "DLT version Conflict returning the latest";
     }
 
     /*
@@ -100,7 +101,7 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
         objStorMgr->swapMgrId(msgHdr);
         objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->PutObjectResp(msgHdr, putObj);
 
-        LOGDEBUG << "Sent async PutObj response after receiving";
+        LOGERROR << "Sent async PutObj response after receiving";
     }
 }
 
