@@ -408,7 +408,7 @@ class GetConditions {
  *        0 to indicate the end of data, or > 0 to identify the number of
  *        bytes that were written into the buffer by this callback
  **/
-typedef int (*fdsnPutObjectHandler)(void *reqContext, fds_uint64_t bufferSize, char *buffer,
+typedef int (*fdsnPutObjectHandler)(void *reqContext, fds_uint64_t bufferSize, char *buffer, 
 				    void *callbackData, FDSN_Status status, ErrorDetails* errDetails);
 
 

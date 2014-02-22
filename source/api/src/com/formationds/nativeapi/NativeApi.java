@@ -1,6 +1,8 @@
 package com.formationds.nativeapi;
 
 import java.io.File;
+import java.util.Collection;
+import java.util.function.Consumer;
 
 /**
  * Created by fabrice on 2/19/14.
@@ -12,5 +14,6 @@ public class NativeApi {
     }
 
     public static native void init();
-    public static native void getBucketsStats(BucketStatsHandler handler);
+    public static native void getBucketsStats(Consumer<Collection<BucketStatsContent>> consumer);
+    public static native void createBucket(String bucketName, Consumer<Integer> consumer);
 }

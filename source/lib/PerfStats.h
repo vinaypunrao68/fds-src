@@ -41,18 +41,18 @@ class PerfStats
 
   /* Record IO in appropriate stats history. If we see statclass_id for the first time
    * will start a stat history for this statclass_id  */
-  void recordIO(fds_uint32_t class_id,
+  void recordIO(fds_volid_t class_id,
                 long microlat,
                 diskio::DataTier tier = diskio::maxTier,  /* Defaults to invalid tier */
                 fds_io_op_t opType = FDS_OP_INVALID);     /* Defaults to invalid op */
 
   /* For use on OM side to fill in stats that we receive from other nodes from the Ice message */
-  void setStatFromFdsp(fds_uint32_t class_id, 
+  void setStatFromFdsp(fds_volid_t class_id, 
                        const std::string& start_timestamp,
                        const FDS_ProtocolInterface::FDSP_PerfStatType& stat_msg);  
   
   /* get average IOPS for time interval [end_ts - interval_sec ... end_ts] */
-  long getAverageIOPS(fds_uint32_t class_id,
+  long getAverageIOPS(fds_volid_t class_id,
 		      const boost::posix_time::ptime end_ts,
 		      int interval_sec);
 
@@ -66,7 +66,7 @@ class PerfStats
   void pushToOM();
 
  private: /* methods */
-  StatHistory* getHistoryWithReadLockHeld(fds_uint32_t class_id);
+  StatHistory* getHistoryWithReadLockHeld(fds_volid_t class_id);
 
  private: /* data */
   std::atomic<bool> b_enabled;
@@ -76,7 +76,7 @@ class PerfStats
   int num_slots;
 
   /* class_id to stat history map */
-  std::unordered_map<fds_uint32_t, StatHistory*> histmap;
+  std::unordered_map<fds_volid_t, StatHistory*> histmap;
   /* read/write lock protecting histmap */
   fds_rwlock map_rwlock;
 

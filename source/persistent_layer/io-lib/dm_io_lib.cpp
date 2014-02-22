@@ -2,7 +2,6 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 #include <persistentdata.h>
-
 #include <string>
 #include <stdio.h>
 #include <dirent.h>
@@ -12,6 +11,8 @@
 
 #include <iostream>
 #include <persistent_layer/dm_io.h>
+#include <fds_process.h>
+
 
 namespace diskio {
 
@@ -59,7 +60,7 @@ DataIOModule::mod_init(fds::SysParams const *const param)
         sgt_hddIO[i] =
             new FilePersisDataIO(dataDiscoveryMod.disk_hdd_path(i), i);
     }
-    for (int i = 0; i < sgt_ssd_count; i++) {
+    for (int  i = 0; i < sgt_ssd_count; i++) {
       sgt_ssdIO[i] =
           new FilePersisDataIO(dataDiscoveryMod.disk_ssd_path(i), i);
     }
@@ -406,11 +407,12 @@ DataDiscoveryModule::mod_shutdown()
 // ---------------------------
 //
 PersisDataIO::PersisDataIO()
-    : pd_queue(2, 1000)
+    : pd_queue(2, 1000),
+    pd_counters_("PM", fds::g_cntrs_mgr.get())
 {
 }
 
-// \PersisDataIO::~PersisDataIO
+// \sersisDataIO::~PersisDataIO
 // ----------------------------
 //
 PersisDataIO::~PersisDataIO()
@@ -421,19 +423,23 @@ PersisDataIO::~PersisDataIO()
 // ------------------------
 // Handle all the queueing for persistent read IO.
 //
-void
+int
 PersisDataIO::disk_read(DiskRequest *req)
 {
+    int err;
     bool block = req->req_blocking_mode();
 
     pd_queue.rq_enqueue(req, pd_ioq_rd_pending);
-    disk_do_read(req);
+    err = disk_do_read(req);
 
     // In non-blocking mode, the request may already be freed when we're here.
     if (block == true) {
         // If the request was created with non-blocking option, this is no-op.
         req->req_wait();
     }
+    if (err)
+      pd_counters_.diskR_Err.incr();
+    return err;
 }
 
 // \PersisDataIO::disk_read_done
@@ -450,19 +456,24 @@ PersisDataIO::disk_read_done(DiskRequest *req)
 // \PersisDataIO::disk_write
 // -------------------------
 //
-void
+int
 PersisDataIO::disk_write(DiskRequest *req)
 {
+    int err;
     bool block = req->req_blocking_mode();
 
     pd_queue.rq_enqueue(req, pd_ioq_rd_pending);
-    disk_do_write(req);
+    err = disk_do_write(req);
 
     // In non-blocking mode, the request may already be freed when we're here.
     if (block == true) {
         // If the request was created with non-blocking option, this is no-op.
         req->req_wait();
     }
+    if (err)
+      pd_counters_.diskR_Err.incr();
+
+    return err;
 }
 
 // \PersisDataIO::disk_write_done
@@ -535,21 +546,21 @@ DataIO::disk_route_request(DiskRequest *req)
 // \DataIO::disk_read
 // ------------------
 //
-void
+int
 DataIO::disk_read(DiskRequest *req)
 {
     PersisDataIO *iop = disk_route_request(req);
-    iop->disk_read(req);
+    return iop->disk_read(req);
 }
 
 // \DataIO::disk_write
 // -------------------
 //
-void
+int
 DataIO::disk_write(DiskRequest *req)
 {
     PersisDataIO *iop = disk_route_request(req);
-    iop->disk_write(req);
+    return iop->disk_write(req);
 }
 
 // \DataIO::disk_remap_obj

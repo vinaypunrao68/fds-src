@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <fds_err.h>
 
 namespace diskio {
 
@@ -32,7 +33,7 @@ FilePersisDataIO::~FilePersisDataIO()
     close(fi_fd);
 }
 
-void
+int
 FilePersisDataIO::disk_do_write(DiskRequest *req)
 {
     ssize_t         len;
@@ -65,11 +66,13 @@ FilePersisDataIO::disk_do_write(DiskRequest *req)
                    buf->size, off_blk << shft);
     if (len < 0) {
         perror("Error: ");
+        return fds::ERR_DISK_WRITE_FAILED;
     }
     DataIndexProxy &index = DataIndexProxy::disk_index_singleton();
     index.disk_index_put(idx, map);
     delete idx;
     disk_write_done(req);
+    return fds::ERR_OK;
 }
 
 }  // namespace diskio
