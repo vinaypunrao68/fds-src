@@ -11,6 +11,8 @@
 #include "com_formationds_nativeapi_NativeApi.h"
 #include "JavaContext.h"
 
+#define BUFSIZE 4096
+
 namespace fds {
     namespace java {
 	fds::FDS_NativeAPI *api;
@@ -58,6 +60,10 @@ namespace fds {
             javaContext->invoke(env, javaContext->o, "accept", "(Ljava/lang/Object;)V", javaStatus);
             javaContext->detachCurrentThread();
         }
+
+        BucketContext *makeBucketContext(JNIEnv *env, JavaContext *javaContext, jstring bucketName) {
+            return new BucketContext("host", javaContext->ccString(env, bucketName), "", "");
+        }
     }
 }
 
@@ -102,10 +108,7 @@ JNIEXPORT void JNICALL Java_com_formationds_nativeapi_NativeApi_getBucketsStats
 JNIEXPORT void JNICALL Java_com_formationds_nativeapi_NativeApi_createBucket
 (JNIEnv *env, jclass klass, jstring bucketName, jobject javaConsumer) {
     JavaContext *javaContext = new JavaContext(javaVM, javaConsumer);
-    const char *buf = env->GetStringUTFChars(bucketName, NULL);
-    std::string name = std::string(buf);
-    env->ReleaseStringUTFChars(bucketName, buf);
-    BucketContext *bucketContext = new BucketContext("host", name, "", "");
+    BucketContext *bucketContext = makeBucketContext(env, javaContext, bucketName);
     
     api->CreateBucket(
         bucketContext,
@@ -114,6 +117,25 @@ JNIEXPORT void JNICALL Java_com_formationds_nativeapi_NativeApi_createBucket
         static_cast<fdsnResponseHandler>(&status_cb), 
         static_cast<void *>(javaContext));
 }
+
+JNIEXPORT void JNICALL Java_com_formationds_nativeapi_NativeApi_put
+(JNIEnv *env, jclass klass, jstring bucketName, jstring objectName, jobject inputStream, jobject javaConsumer) {
+    JavaContext *javaContext = new JavaContext(javaVM, javaConsumer);
+    BucketContext *bucketContext = makeBucketContext(env, javaContext, bucketName);
+    PutProperties *props = new PutProperties();
+    jbyteArray javaBuffer = env->NewByteArray(BUFSIZE);
+    int readBytes = (int) javaContext->invokeInt(env, inputStream, "read", "([B)I", javaBuffer);
+    char *buf = (char *)env->GetByteArrayElements(javaBuffer, JNI_FALSE);
+    api->PutObject(bucketContext, 
+                   javaContext->ccString(env, objectName),
+                   props,
+                   (void *)NULL,
+                   buf, 
+                   readBytes,
+                   static_cast<fdsnPutObjectHandler>(NULL),
+                   (void *)NULL);
+}
+
 
 int main(int argc, char *argv[]) {
     /*

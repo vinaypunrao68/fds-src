@@ -25,13 +25,24 @@ namespace fds {
             this->javaVM->DetachCurrentThread();
         }
         
-        void JavaContext::invoke(JNIEnv *env, jobject o, char *methodName, char *signature, ...) {
+        jobject JavaContext::invoke(JNIEnv *env, jobject o, char *methodName, char *signature, ...) {
             va_list args;
             va_start(args, signature);
             jclass klass = env->GetObjectClass(o);
             jmethodID method = env->GetMethodID(klass, methodName, signature);            
-	    env->CallObjectMethodV(o, method, args);
+	    jobject result = env->CallObjectMethodV(o, method, args);
             va_end(args);
+            return result;
+        }
+
+        jint JavaContext::invokeInt(JNIEnv *env, jobject o, char *methodName, char *signature, ...) {
+            va_list args;
+            va_start(args, signature);
+            jclass klass = env->GetObjectClass(o);
+            jmethodID method = env->GetMethodID(klass, methodName, signature);            
+	    jint result = env->CallIntMethodV(o, method, args);
+            va_end(args);
+            return result;            
         }
 
         jobject JavaContext::javaInstance(JNIEnv *env, char *className) {
@@ -50,6 +61,13 @@ namespace fds {
 
         jstring JavaContext::javaString(JNIEnv *env, std::string s) {
             return env->NewStringUTF(s.c_str());
+        }
+
+        std::string JavaContext::ccString(JNIEnv *env, jstring javaString) {
+            const char *buf = env->GetStringUTFChars(javaString, NULL);
+            std::string s = std::string(buf);
+            env->ReleaseStringUTFChars(javaString, buf);
+            return s;
         }
 
         JavaContext::~JavaContext() {
