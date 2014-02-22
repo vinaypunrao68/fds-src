@@ -156,6 +156,7 @@ class medium(unittest.TestCase):
         for n in range(0,100):
             r=self.f.createBucket('bucket_'+str(n))
             self.assertIn(r.status_code,[200,500])
+            print 'created bucket : ' , bucket
 
     # put 10 objects from 1KB to 10KB
     def testPutMediumObjects(self):
@@ -180,8 +181,10 @@ class medium(unittest.TestCase):
             r=self.f.createBucket(bucket)
             self.assertIn(r.status_code,[200,500])
 
+            print 'uploading [%s] to [bkt:%s] : %d ' %(objname,bucket,len(obj)),
             r=self.f.put(bucket,objname,obj)
             self.assertEqual(r.status_code,200)
+            print ' : done'
 
             time.sleep(2)
             text=self.f.get(bucket,objname)
