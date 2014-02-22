@@ -61,6 +61,7 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
     objStorMgr->chksumPtr->get_checksum(new_checksum);
     LOGDEBUG << "RPC Checksum :" << new_checksum << " received checksum: " << msgHdr->payload_chksum; 
 
+    /*
     if (msgHdr->payload_chksum.compare(new_checksum) != 0) {
 	msgHdr->result = FDSP_ERR_CKSUM_MISMATCH; 			
 	msgHdr->err_code = FDSP_ERR_RPC_CKSUM; 			
@@ -72,6 +73,7 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
         LOGWARN << "Sent async PutObj response after checksum mismatch";
         return;
     }
+    */
 
     /*
      * Track the outstanding get request.
