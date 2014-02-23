@@ -1552,9 +1552,11 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
         objData.size = 0;
         objData.data = "";
         err = readObject(objId, objData, tierUsed);
-        objBufPtr = objCache->object_alloc(volId, objId, objData.size);
-        memcpy((void *)objBufPtr->data.c_str(), (void *)objData.data.c_str(), objData.size);
-        objCache->object_add(volId, objId, objBufPtr, false); // read data is always clean
+        if (err == fds::ERR_OK) {
+            objBufPtr = objCache->object_alloc(volId, objId, objData.size);
+            memcpy((void *)objBufPtr->data.c_str(), (void *)objData.data.c_str(), objData.size);
+            objCache->object_add(volId, objId, objBufPtr, false); // read data is always clean
+        }
     } else {
         fds_verify(!(objCache->is_object_io_in_progress(volId, objId, objBufPtr)));
     }

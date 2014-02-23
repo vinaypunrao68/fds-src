@@ -1,12 +1,25 @@
 /*
+
  * Copyright 2014 Formation Data Systems, Inc.
  */
+#include <fds_assert.h>
 #include <concurrency/taskstatus.h>
+
 namespace atc = apache::thrift::concurrency;
 
 namespace fds { namespace concurrency {
 
-TaskStatus::TaskStatus(uint numTasks) : numTasks(numTasks), monitor(&mutex) {
+TaskStatus::TaskStatus(uint numTasks)
+    : monitor(&mutex)
+{
+    numTasks = 0;
+    reset(numTasks);
+}
+
+void TaskStatus::reset(uint numTasks) {
+    atc::Synchronized s(monitor);
+    fds_verify(this->numTasks == 0);
+    this->numTasks = numTasks;
 }
 
 TaskStatus::~TaskStatus() {
