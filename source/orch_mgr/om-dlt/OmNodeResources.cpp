@@ -194,10 +194,11 @@ OM_SmAgent::om_send_vol_cmd(VolumeInfo::pointer    vol,
     }
     if (desc != NULL) {
         FDS_PLOG_SEV(g_fdslog, fds_log::normal)
-            << log << desc->volUUID << " to node " << get_node_name() << std::endl;
+                << log << desc->volUUID << " " << desc->name
+                << " to node " << get_node_name();
     } else {
         FDS_PLOG_SEV(g_fdslog, fds_log::normal)
-            << log << ", no vol to node " << get_node_name() << std::endl;
+                << log << ", no vol to node " << get_node_name();
     }
 }
 
@@ -525,6 +526,7 @@ OM_NodeContainer::om_bcast_new_node(NodeAgent::pointer node, const FdspNodeRegPt
     }
     dc_sm_nodes->agent_foreach<NodeAgent::pointer>(node, om_send_my_info_to_peer);
     dc_dm_nodes->agent_foreach<NodeAgent::pointer>(node, om_send_my_info_to_peer);
+    dc_am_nodes->agent_foreach<NodeAgent::pointer>(node, om_send_my_info_to_peer);
 }
 
 // om_send_peer_info_to_me

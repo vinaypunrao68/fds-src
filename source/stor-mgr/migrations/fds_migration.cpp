@@ -290,7 +290,7 @@ void FdsMigrationSvc::setup_migpath_server()
 {
     migpath_handler_.reset(new FDSP_MigrationPathRpc(*this, GetLog()));
 
-    std::string ip = conf_helper_.get<std::string>("ip");
+    std::string ip = netSession::getLocalIp();
     int port = conf_helper_.get<int>("port");
     int myIpInt = netSession::ipString2Addr(ip);
     // TODO(rao): Do not hard code.  Get from config
@@ -370,7 +370,7 @@ FdsMigrationSvc::get_resp_client(const std::string &session_uuid)
  */
 std::string FdsMigrationSvc::get_ip()
 {
-    return conf_helper_.get<std::string>("ip");
+    return netSession::getLocalIp();
 }
 
 /**

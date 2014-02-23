@@ -203,7 +203,7 @@ release_transaction(TransJournalId &trans_id)
     fds_assert(e.ok());
 
     // todo: It's a good idea to let go off _jrnl_tbl_mutex here.
-    e = _qos_controller->processIO(io);
+    e = _qos_controller->enqueueIO(io->io_vol_id, io);
     if (!e.ok() ) {
       fds_assert(!"Failed to process io");
     }

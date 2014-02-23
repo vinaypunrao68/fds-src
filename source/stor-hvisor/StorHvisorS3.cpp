@@ -86,6 +86,20 @@ StorHvCtrl::dispatchSmPutMsg(StorHvJournalEntry *journEntry) {
 
     fds_uint32_t numNodes = dltPtr->getLength();
     fds_verify(numNodes > 0);
+    
+    putMsg->dlt_version = om_client->getDltVersion();
+    fds_verify(putMsg->dlt_version != DLT_VER_INVALID);
+
+    // checksum calculation for putObj  class and the payload.  we may haveto bundle this
+    // into a function .
+    storHvisor->chksumPtr->checksum_update(putMsg->data_obj_id.hash_high);
+    storHvisor->chksumPtr->checksum_update(putMsg->data_obj_id.hash_low);
+    storHvisor->chksumPtr->checksum_update(putMsg->data_obj_len);
+    storHvisor->chksumPtr->checksum_update(putMsg->volume_offset);
+    storHvisor->chksumPtr->checksum_update(putMsg->dlt_version);
+    storHvisor->chksumPtr->checksum_update(putMsg->data_obj);
+    storHvisor->chksumPtr->get_checksum(smMsgHdr->payload_chksum);
+    LOGDEBUG << "RPC Checksum: " << smMsgHdr->payload_chksum;
 
     // Issue a put for each SM in the DLT list
     for (fds_uint32_t i = 0; i < numNodes; i++) {
@@ -105,9 +119,6 @@ StorHvCtrl::dispatchSmPutMsg(StorHvJournalEntry *journEntry) {
         journEntry->sm_ack[i].ack_status = FDS_CLS_ACK;
         journEntry->num_sm_nodes     = numNodes;
 
-        putMsg->dlt_version = om_client->getDltVersion();
-        fds_verify(putMsg->dlt_version != DLT_VER_INVALID);
-
         // Call Put object RPC to SM
         netSession *endPoint = NULL;
         endPoint = rpcSessionTbl->getSession(node_ip,
@@ -120,18 +131,6 @@ StorHvCtrl::dispatchSmPutMsg(StorHvJournalEntry *journEntry) {
         netDataPathClientSession *sessionCtx =  static_cast<netDataPathClientSession *>(endPoint);
         smMsgHdr->session_uuid = sessionCtx->getSessionId();
         journEntry->session_uuid = smMsgHdr->session_uuid;
-
-
-	// checksum calculation for putObj  class and the payload.  we may haveto bundle this
-        // into a function .
-        storHvisor->chksumPtr->checksum_update(putMsg->data_obj_id.hash_high);
-        storHvisor->chksumPtr->checksum_update(putMsg->data_obj_id.hash_low);
-        storHvisor->chksumPtr->checksum_update(putMsg->data_obj_len);
-        storHvisor->chksumPtr->checksum_update(putMsg->volume_offset);
-        storHvisor->chksumPtr->checksum_update(putMsg->dlt_version);
-        storHvisor->chksumPtr->checksum_update(putMsg->data_obj);
-        storHvisor->chksumPtr->get_checksum(smMsgHdr->payload_chksum);
-        FDS_PLOG_SEV(sh_log, fds::fds_log::normal) << "RPC Checksum:  " << smMsgHdr->payload_chksum<< "\n";
 
         client->PutObject(smMsgHdr, putMsg);
         FDS_PLOG_SEV(sh_log, fds::fds_log::normal) << "For transaction " << journEntry->trans_id

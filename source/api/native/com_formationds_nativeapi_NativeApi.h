@@ -18,10 +18,18 @@ JNIEXPORT void JNICALL Java_com_formationds_nativeapi_NativeApi_init
 /*
  * Class:     com_formationds_nativeapi_NativeApi
  * Method:    getBucketsStats
- * Signature: (Lcom/formationds/nativeapi/BucketStatsHandler;)V
+ * Signature: (Ljava/util/function/Consumer;)V
  */
 JNIEXPORT void JNICALL Java_com_formationds_nativeapi_NativeApi_getBucketsStats
   (JNIEnv *, jclass, jobject);
+
+/*
+ * Class:     com_formationds_nativeapi_NativeApi
+ * Method:    createBucket
+ * Signature: (Ljava/lang/String;Ljava/util/function/Consumer;)V
+ */
+JNIEXPORT void JNICALL Java_com_formationds_nativeapi_NativeApi_createBucket
+  (JNIEnv *, jclass, jstring, jobject);
 
 #ifdef __cplusplus
 }
