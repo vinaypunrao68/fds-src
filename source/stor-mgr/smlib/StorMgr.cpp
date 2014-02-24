@@ -433,6 +433,8 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
 
     qosCtrl->registerVolume(FdsSysTaskQueueId,
                             sysTaskQueue);
+    // TODO(Rao): Size it appropriately
+    objCache->vol_cache_create(FdsSysTaskQueueId, 8, 256);
 
     /*
      * Register/boostrap from OM

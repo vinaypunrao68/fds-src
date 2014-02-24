@@ -70,9 +70,6 @@ class DatapathRespImpl : public FDS_ProtocolInterface::FDSP_DataPathRespIf {
          fds_verify(msg_hdr->result == FDS_ProtocolInterface::FDSP_ERR_OK);
          *get_obj_buf_ = get_req->data_obj;
          get_resp_monitor_->done();
-
-         get_obj_buf_ = nullptr;
-         get_resp_monitor_ = nullptr;
     }
 
  private:
@@ -208,6 +205,9 @@ bool FdsDataChecker::get_object(const NodeUuid& node_id,
     /* we will block until we get response */
     get_resp_monitor_.await();
 
+    dp_resp_handler_->get_obj_buf_ = nullptr;
+    dp_resp_handler_->get_resp_monitor_ = nullptr;
+
     return true;
 }
 
@@ -242,6 +242,9 @@ void FdsDataChecker::run()
             bool ret = get_object((*nodes)[i], oid, ret_obj_data);
             fds_verify(ret == true);
             fds_verify(ret_obj_data == obj_data);
+
+            LOGDEBUG << "oid: " << oid << " check passed against: "
+                    << std::hex << ((*nodes)[i]).uuid_get_val();
         }
     }
 }
