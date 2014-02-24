@@ -22,6 +22,7 @@ namespace fds {
         struct TaskStatus {
             // for more than 1 task pass it in ctor
             TaskStatus(uint numTasks=1);
+            void reset(uint numTasks);
             virtual ~TaskStatus();
 
             // wait for all tasks to be done w/o timeout

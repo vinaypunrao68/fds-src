@@ -61,6 +61,7 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
     objStorMgr->chksumPtr->get_checksum(new_checksum);
     LOGDEBUG << "RPC Checksum :" << new_checksum << " received checksum: " << msgHdr->payload_chksum; 
 
+    /*
     if (msgHdr->payload_chksum.compare(new_checksum) != 0) {
 	msgHdr->result = FDSP_ERR_CKSUM_MISMATCH; 			
 	msgHdr->err_code = FDSP_ERR_RPC_CKSUM; 			
@@ -72,6 +73,7 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
         LOGWARN << "Sent async PutObj response after checksum mismatch";
         return;
     }
+    */
 
     /*
      * Track the outstanding get request.
@@ -431,6 +433,8 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
 
     qosCtrl->registerVolume(FdsSysTaskQueueId,
                             sysTaskQueue);
+    // TODO(Rao): Size it appropriately
+    objCache->vol_cache_create(FdsSysTaskQueueId, 8, 256);
 
     /*
      * Register/boostrap from OM
@@ -1573,9 +1577,11 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
         objData.size = 0;
         objData.data = "";
         err = readObject(objId, objData, tierUsed);
-        objBufPtr = objCache->object_alloc(volId, objId, objData.size);
-        memcpy((void *)objBufPtr->data.c_str(), (void *)objData.data.c_str(), objData.size);
-        objCache->object_add(volId, objId, objBufPtr, false); // read data is always clean
+        if (err == fds::ERR_OK) {
+            objBufPtr = objCache->object_alloc(volId, objId, objData.size);
+            memcpy((void *)objBufPtr->data.c_str(), (void *)objData.data.c_str(), objData.size);
+            objCache->object_add(volId, objId, objBufPtr, false); // read data is always clean
+        }
     } else {
         fds_verify(!(objCache->is_object_io_in_progress(volId, objId, objBufPtr)));
     }

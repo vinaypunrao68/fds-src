@@ -176,7 +176,12 @@ netSessionTbl::getSession(const std::string& node_name, FDSP_MgrIdType mgr_id)
     std::string node_name_key = getKey(node_name, mgr_id);
 
     sessionTblMutex->lock();
-    session = sessionTbl[node_name_key];
+    auto itr = sessionTbl.find(node_name_key);
+    if (itr == sessionTbl.end()) {
+        sessionTblMutex->unlock();
+        return nullptr;
+    }
+    session = itr->second;
     sessionTblMutex->unlock();
     return session;
 }

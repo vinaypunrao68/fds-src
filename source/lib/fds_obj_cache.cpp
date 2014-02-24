@@ -79,7 +79,7 @@ namespace fds{
     volmap_rwlock.read_lock();
     VolObjectCache *vol_cache = NULL;
     if (vol_cache_map.count(vol_id) == 0) {
-      volmap_rwlock.write_unlock();
+      volmap_rwlock.read_unlock();
       return NULL;
     }
     vol_cache = vol_cache_map[vol_id];
@@ -122,7 +122,7 @@ namespace fds{
     volmap_rwlock.read_lock();
     VolObjectCache *vol_cache = NULL;
     if (vol_cache_map.count(vol_id) == 0) {
-      volmap_rwlock.write_unlock();
+      volmap_rwlock.read_unlock();
       return NULL;
     }
     vol_cache = vol_cache_map[vol_id];
