@@ -47,7 +47,7 @@ namespace fds {
 	    JavaContext *javaContext = static_cast<JavaContext *>(callback_data);    
 	    JNIEnv *env = javaContext->attachCurrentThread();
             jobject buckets = javaBucketStats(javaContext, env, content_count, contents);
-            javaContext->invoke(env, javaContext->o, "accept", "(Ljava/lang/Object;)V", buckets);	    
+            javaContext->invoke(env, javaContext->args[0], "accept", "(Ljava/lang/Object;)V", buckets);	    
 	    javaContext->detachCurrentThread();
 	}
 
@@ -57,10 +57,20 @@ namespace fds {
 	    JavaContext *javaContext = static_cast<JavaContext *>(callbackData);    
 	    JNIEnv *env = javaContext->attachCurrentThread();
             jobject javaStatus = javaContext->javaInstance(env, "java/lang/Integer", "(I)V", (jint) status);
-            javaContext->invoke(env, javaContext->o, "accept", "(Ljava/lang/Object;)V", javaStatus);
+            javaContext->invoke(env, javaContext->args[0], "accept", "(Ljava/lang/Object;)V", javaStatus);
             javaContext->detachCurrentThread();
         }
 
+        static int put_cb(void *reqContext, 
+                          fds_uint64_t bufferSize, 
+                          char *buffer,
+                          void *callbackData, 
+                          FDSN_Status status, 
+                          ErrorDetails* errDetails) {            
+            status_cb(status, errDetails, callbackData);
+            return 0;
+        }
+            
         BucketContext *makeBucketContext(JNIEnv *env, JavaContext *javaContext, jstring bucketName) {
             return new BucketContext("host", javaContext->ccString(env, bucketName), "", "");
         }
@@ -97,7 +107,8 @@ JNIEXPORT void JNICALL Java_com_formationds_nativeapi_NativeApi_init
  
 JNIEXPORT void JNICALL Java_com_formationds_nativeapi_NativeApi_getBucketsStats 
 (JNIEnv *env, jclass klass, jobject javaConsumer) {
-    JavaContext *javaContext = new JavaContext(javaVM, javaConsumer);
+    std::vector<jobject> args = std::vector<jobject>(1, javaConsumer);
+    JavaContext *javaContext = new JavaContext(javaVM, args);
 
     api->GetBucketStats(
         static_cast<void *>(NULL), 
@@ -107,7 +118,8 @@ JNIEXPORT void JNICALL Java_com_formationds_nativeapi_NativeApi_getBucketsStats
 
 JNIEXPORT void JNICALL Java_com_formationds_nativeapi_NativeApi_createBucket
 (JNIEnv *env, jclass klass, jstring bucketName, jobject javaConsumer) {
-    JavaContext *javaContext = new JavaContext(javaVM, javaConsumer);
+    std::vector<jobject> args = std::vector<jobject>(1, javaConsumer);
+    JavaContext *javaContext = new JavaContext(javaVM, args);
     BucketContext *bucketContext = makeBucketContext(env, javaContext, bucketName);
     
     api->CreateBucket(
@@ -119,33 +131,32 @@ JNIEXPORT void JNICALL Java_com_formationds_nativeapi_NativeApi_createBucket
 }
 
 JNIEXPORT void JNICALL Java_com_formationds_nativeapi_NativeApi_put
-(JNIEnv *env, jclass klass, jstring bucketName, jstring objectName, jobject inputStream, jobject javaConsumer) {
-    JavaContext *javaContext = new JavaContext(javaVM, javaConsumer);
+(JNIEnv *env, jclass klass, jstring bucketName, jstring objectName, jbyteArray bytes, jobject javaCallback) {
+    std::vector<jobject> args = std::vector<jobject>(1, javaCallback);
+    JavaContext *javaContext = new JavaContext(javaVM, args);
     BucketContext *bucketContext = makeBucketContext(env, javaContext, bucketName);
     PutProperties *props = new PutProperties();
-    jbyteArray javaBuffer = env->NewByteArray(BUFSIZE);
-    int readBytes = (int) javaContext->invokeInt(env, inputStream, "read", "([B)I", javaBuffer);
-    char *buf = (char *)env->GetByteArrayElements(javaBuffer, JNI_FALSE);
+    char *buf = (char *)env->GetByteArrayElements(bytes, JNI_FALSE);
+    int length = (int)env->GetArrayLength(bytes);
     api->PutObject(bucketContext, 
                    javaContext->ccString(env, objectName),
                    props,
                    (void *)NULL,
                    buf, 
-                   readBytes,
-                   static_cast<fdsnPutObjectHandler>(NULL),
-                   (void *)NULL);
+                   length,
+                   static_cast<fdsnPutObjectHandler>(put_cb),
+                   static_cast<void *>(javaContext));
 }
 
 
 int main(int argc, char *argv[]) {
-    /*
     Java_com_formationds_nativeapi_NativeApi_init(NULL, NULL);
     
     JNIEnv* env;
     JavaVMInitArgs args;
     JavaVMOption options[2];
     
-    args.version = JNI_VERSION_1_2;
+    args.version = JNI_VERSION_1_8;
     args.nOptions = 2;
     options[0].optionString = "-Djava.class.path=/home/fabrice/fds-src/source/api/target/classes/";
     options[1].optionString = "-verbose:jni";
@@ -154,12 +165,16 @@ int main(int argc, char *argv[]) {
     
     JNI_CreateJavaVM(&javaVM, (void **)&env, &args);
     
-    jclass cls = env->FindClass("com/formationds/nativeapi/SampleHandler");
+    jclass cls = env->FindClass("com/formationds/nativeapi/SampleConsumer");
     jmethodID constructor = env->GetMethodID(cls, "<init>", "()V");
-    jobject toyHandler = env->NewObject(cls, constructor);
-    Java_com_formationds_nativeapi_NativeApi_getBucketsStats(env, cls, toyHandler);
+    jobject consumer = env->NewObject(cls, constructor);
+    Java_com_formationds_nativeapi_NativeApi_put(env, 
+                                                 cls, 
+                                                 env->NewStringUTF("slimebucket"), 
+                                                 env->NewStringUTF("thebytes"),
+                                                 env->NewByteArray(64),
+                                                 consumer);
     printf("Fired API call\n");
     sleep(2000);
-    */
     return 0;
 }

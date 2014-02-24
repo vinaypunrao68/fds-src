@@ -477,12 +477,14 @@ class FDS_NativeAPI {
   // Create a bucket
   void CreateBucket(BucketContext *bucket_ctx, CannedAcl  canned_acl, 
                     void *req_ctxt, fdsnResponseHandler responseHandler, void *callback_data);
+
   // Get the bucket contents  or objets belonging to this bucket
   void GetBucket(BucketContext *bucket_ctxt,
                     std::string prefix, std::string marker,
                     std::string delimiter, fds_uint32_t maxkeys,
                     void *requestContext,
                     fdsnListBucketHandler handler, void *callbackData);
+
   void DeleteBucket(BucketContext *bucketCtxt,
                     void *requestContext,
                     fdsnResponseHandler handler, void *callbackData);
@@ -511,6 +513,7 @@ class FDS_NativeAPI {
                  fdsnGetObjectHandler getObjCallback,
                  void *callbackdata
                  );
+
   void PutObject(BucketContext *bucket_ctxt, 
                  std::string ObjKey, 
                  PutProperties *putproperties,
@@ -518,6 +521,7 @@ class FDS_NativeAPI {
                  char *buffer, fds_uint64_t buflen,
                  fdsnPutObjectHandler putObjHandler, 
                  void *callbackData);
+
   void DeleteObject(BucketContext *bucket_ctxt, 
                     std::string ObjKey,
                     void *reqcontext, 

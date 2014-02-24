@@ -6,15 +6,26 @@ import junit.framework.TestCase;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 public class NativeApiTest extends TestCase {
-    public void testInit() throws Exception {
-        NativeApi.init();
+    private Fds fds;
+
+    public void testListBuckets() throws Exception {
+        System.out.println("CreateBucket returned " + fds.createBucket("slimebucket").get());
+        Thread.sleep(1000);
+        fds.getBucketsStats().get().forEach(b -> System.out.println(b));
+        Thread.sleep(1000);
     }
 
-    public void testGetBucketStats() throws Exception {
-        NativeApi.init();
-        NativeApi.createBucket("slimebucket", i -> System.out.println("bucket creation returned " + i));
-        Thread.sleep(5000);
-        NativeApi.getBucketsStats(buckets -> buckets.forEach(b -> System.out.println(b)));
-        Thread.sleep(5000);
+    public void testPut() throws Exception {
+        String bucketName = "slimebucket";
+        System.out.println("CreateBucket returned " + fds.createBucket(bucketName).get());
+        Thread.sleep(1000);
+        byte[] bytes = {1, 2, 3, 4, 5};
+        System.out.println("Put bytes returned " + fds.put(bucketName, "thebytes", bytes).get());
+        Thread.sleep(1000);
+    }
+
+    @Override
+    protected void setUp() throws Exception {
+        fds = new NativeApi();
     }
 }

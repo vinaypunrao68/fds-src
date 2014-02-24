@@ -22,6 +22,11 @@
             <artifactId>aws-java-sdk</artifactId>
             <version>1.7.1</version>
         </dependency>
+        <dependency>
+            <groupId>baggage</groupId>
+            <artifactId>baggage</artifactId>
+            <version>1.0</version>
+        </dependency>
     </dependencies>
 
     <build>

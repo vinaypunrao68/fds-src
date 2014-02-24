@@ -5,15 +5,17 @@
 #ifndef _JAVA_CONTEXT_H
 #define _JAVA_CONTEXT_H
 
+#include <vector>
+
 namespace fds {
     namespace java {
         
         class JavaContext {
         public: 
             JavaVM *javaVM;
-            jobject o;
+            std::vector<jobject> args;
             
-            JavaContext(JavaVM *javaVM, jobject o);
+            JavaContext(JavaVM *javaVM, std::vector<jobject> args);
             JNIEnv *attachCurrentThread();
             void detachCurrentThread();
             jobject invoke(JNIEnv *env, jobject o, char *methodName, char *signature, ...);

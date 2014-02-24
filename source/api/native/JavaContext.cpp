@@ -8,9 +8,9 @@
 
 namespace fds {
     namespace java {
-        JavaContext::JavaContext(JavaVM *javaVM, jobject o) {
+        JavaContext::JavaContext(JavaVM *javaVM, std::vector<jobject> args) {
             this->javaVM = javaVM;
-            this->o = o;
+            this->args = args;
         }
         
         JNIEnv *JavaContext::attachCurrentThread() {
