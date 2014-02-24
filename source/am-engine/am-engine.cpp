@@ -228,12 +228,14 @@ Conn_GetBucketStats *AMEngine::ame_getbucketstats_hdler(AME_HttpReq *req) {
 ame_keytab_t sgt_AMEKey[] =
 {
     { { "Content-Length" },      0, RESP_CONTENT_LEN },
+    { { "Content-Type" },        0, RESP_CONTENT_TYPE },
     { { "Connection" },          0, RESP_CONNECTION },
     { { "open" },                0, RESP_CONNECTION_OPEN },
     { { "close" },               0, RESP_CONNECTION_CLOSE },
     { { "Etag" },                0, RESP_ETAG },
     { { "Date" },                0, RESP_DATE },
     { { "Server" },              0, RESP_SERVER },
+    { { "Location" },            0, RESP_LOCATION},
 
     // RESTBucketGET response keys
     { { "ListBucketResult" },    0, REST_LIST_BUCKET },
@@ -267,6 +269,8 @@ int AME_Request::ame_map_fdsn_status(FDSN_Status status)
 {
     if (status == FDSN_StatusOK) {
         return NGX_HTTP_OK;
+    } else if (status == FDSN_StatusCreated) {
+        return NGX_HTTP_CREATED;
     } else {
         // todo: do better mapping.  Log the error
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
@@ -315,6 +319,12 @@ AME_Request::ame_signal_resume(int status)
 
     // This will cause the event loop to run the request_resume() method.
     ame_ctx->ame_notify_handler();
+}
+
+void
+AME_Request::appendURIPart(const std::string &uri)
+{
+    ame_http.appendURIPart(uri);
 }
 
 // ame_reqt_iter_reset
@@ -426,7 +436,7 @@ AME_Request::ame_send_response_hdr()
     ame_format_response_hdr();
 
     if (ame_etag.size() > 0) {
-      ame_set_resp_keyval(sgt_AMEKey[REST_ETAG].u.kv_key_name,
+        ame_set_resp_keyval(sgt_AMEKey[REST_ETAG].u.kv_key_name,
               sgt_AMEKey[REST_ETAG].kv_keylen,
               const_cast<char *>(ame_etag.c_str()), ame_etag.size());
     }

@@ -90,6 +90,7 @@ class QosParams {
 typedef enum
 {
     FDSN_StatusOK                                              ,
+    FDSN_StatusCreated                                         ,
 
     /**
      * Errors that prevent the S3 request from being issued or response from

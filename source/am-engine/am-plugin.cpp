@@ -5,6 +5,7 @@
 #include <sys/eventfd.h>
 #include <string>
 #include <vector>
+#include <atomic>
 #include <boost/tokenizer.hpp>
 
 #include <fds_assert.h>
@@ -196,6 +197,13 @@ ngx_http_fds_read_body(ngx_http_request_t *r)
 }
 
 /*
+ * FIXME:
+ * This solution is temporary.  We will need change when SM/DM support returning
+ * object ID on create.
+ */
+std::atomic_int atmos_obj_id;
+
+/*
  * ngx_http_fds_read_body_atmos
  * ----------------------------
  */
@@ -207,45 +215,43 @@ ngx_http_fds_read_body_atmos(ngx_http_request_t *r)
     fds::AME_Request         *am_req;
     fds::HttpRequest          http_req(r);
     std::vector<std::string>  uri_parts = http_req.getURIParts();
+    std::string               obj_id;
+    char                      buf[45];
     ngx_http_fds_loc_conf_t  *fdcf;
     std::string               value;
     fds_bool_t                keyExists;
 
-    ame_plugin = sgt_ame_plugin[fds::FDS_NativeAPI::FDSN_AWS_S3];  // XXX: FIX ME!
+    ame_plugin = sgt_ame_plugin[fds::FDS_NativeAPI::FDSN_EMC_ATMOS];
+    fds_assert(ame_plugin);
     ame_http_parse_url(ame_plugin, r);
     am_req = NULL;
     switch (r->method) {
     case NGX_HTTP_GET:
-        if (uri_parts.size() == 1) {
-            am_req = ame_plugin->ame_getbucket_hdler(r);
-        } else if (uri_parts.size() == 2) {
+        if (uri_parts.size() == 3) {
+            // read object, obj_id is 3rd argument
             am_req = ame_plugin->ame_getobj_hdler(r);
-        } else if (uri_parts.size() == 0) {
-          /*
-           * We're assuming any host request with no URI
-           * parts is a getStats request.
-           */
-          am_req = ame_plugin->ame_getbucketstats_hdler(r);
         }
         break;
 
     case NGX_HTTP_POST:
     case NGX_HTTP_PUT:
-        if (uri_parts.size() == 1) {
-          am_req = ame_plugin->ame_putbucket_hdler(r);
-        } else if (uri_parts.size() == 2) {
-          if (uri_parts[1] == "modPolicy") {
-            am_req = ame_plugin->ame_putbucketparams_hdler(r);
-          } else {
+        if (uri_parts.size() == 2) {
+            // new object, object data in body, expect obj_id in response
+            snprintf(buf, FDS_ARRAY_ELEM(buf), "%044d", atmos_obj_id++);
+            obj_id = buf;
+
+            // http_req.appendURIPart(obj_id);
             am_req = ame_plugin->ame_putobj_hdler(r);
-          }
+            am_req->appendURIPart(obj_id);
+        } else if (uri_parts.size() == 3) {
+            // update object, object_id is 3rd argument
+            am_req = ame_plugin->ame_putobj_hdler(r);
         }
         break;
 
     case NGX_HTTP_DELETE:
-        if (uri_parts.size() == 1) {
-            am_req = ame_plugin->ame_delbucket_hdler(r);
-        } else if (uri_parts.size() == 2) {
+        if (uri_parts.size() == 3) {
+            // delete object, obj_id is 3rd argument
             am_req = ame_plugin->ame_delobj_hdler(r);
         }
         break;
@@ -327,7 +333,7 @@ ngx_http_fds_data_connector_atmos(ngx_conf_t *cf, ngx_command_t *cmd, void *conf
 
     clcf = reinterpret_cast<ngx_http_core_loc_conf_t *>
         (ngx_http_conf_get_module_loc_conf(cf, ngx_http_core_module));
-    clcf->handler = ngx_http_fds_data_handler;
+    clcf->handler = ngx_http_fds_data_handler_atmos;
 
     fdscf = reinterpret_cast<ngx_http_fds_loc_conf_t *>(conf);
     fdscf->fds_enable = 1;

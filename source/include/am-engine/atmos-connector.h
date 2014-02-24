@@ -52,6 +52,8 @@ class Atmos_PutObject : public Conn_PutObject
     //
     virtual int ame_format_response_hdr();
 
+    virtual void ame_request_handler();
+
   protected:
     // List of known key-values that we'll need to send the GET response.
     //

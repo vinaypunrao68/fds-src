@@ -55,6 +55,12 @@ HttpRequest::getURIParts() const
     return _uriParts;
 }
 
+void
+HttpRequest::appendURIPart(const std::string &uri)
+{
+    _uriParts.push_back(uri);
+}
+
 ngx_http_request_t *
 HttpRequest::getNginxReq() const
 {

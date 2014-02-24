@@ -91,37 +91,39 @@ typedef enum
 {
     // Common response keys
     RESP_CONTENT_LEN         = 0,
-    RESP_CONNECTION          = 1,
-    RESP_CONNECTION_OPEN     = 2,
-    RESP_CONNECTION_CLOSE    = 3,
-    RESP_ETAG                = 4,
-    RESP_DATE                = 5,
-    RESP_SERVER              = 6,
+    RESP_CONTENT_TYPE        = 1,
+    RESP_CONNECTION          = 2,
+    RESP_CONNECTION_OPEN     = 3,
+    RESP_CONNECTION_CLOSE    = 4,
+    RESP_ETAG                = 5,
+    RESP_DATE                = 6,
+    RESP_SERVER              = 7,
+    RESP_LOCATION            = 8,
 
     // RESTBucket response keys
-    REST_LIST_BUCKET         = 7,
-    REST_NAME                = 8,
-    REST_PREFIX              = 9,
-    REST_MARKER              = 10,
-    REST_MAX_KEYS            = 11,
-    REST_IS_TRUNCATED        = 12,
-    REST_CONTENTS            = 13,
-    REST_KEY                 = 14,
-    REST_ETAG                = 15,
-    REST_SIZE                = 16,
-    REST_STORAGE_CLASS       = 17,
-    REST_OWNER               = 18,
-    REST_ID                  = 19,
-    REST_DISPLAY_NAME        = 20,
+    REST_LIST_BUCKET         = 9,
+    REST_NAME                = 10,
+    REST_PREFIX              = 11,
+    REST_MARKER              = 12,
+    REST_MAX_KEYS            = 13,
+    REST_IS_TRUNCATED        = 14,
+    REST_CONTENTS            = 15,
+    REST_KEY                 = 16,
+    REST_ETAG                = 17,
+    REST_SIZE                = 18,
+    REST_STORAGE_CLASS       = 19,
+    REST_OWNER               = 20,
+    REST_ID                  = 21,
+    REST_DISPLAY_NAME        = 22,
 
     // Bucket Stats/Policy response keys -- our own
-    RESP_QOS_PRIORITY        = 21,
-    RESP_QOS_SLA             = 22,
-    RESP_QOS_LIMIT           = 23,
-    RESP_QOS_PERFORMANCE     = 24,
-    RESP_STATS_TIME          = 25,
-    RESP_STATS_VOLS          = 26,
-    RESP_STATS_ID            = 27,
+    RESP_QOS_PRIORITY        = 23,
+    RESP_QOS_SLA             = 24,
+    RESP_QOS_LIMIT           = 25,
+    RESP_QOS_PERFORMANCE     = 26,
+    RESP_STATS_TIME          = 27,
+    RESP_STATS_VOLS          = 28,
+    RESP_STATS_ID            = 29,
 
     AME_HDR_KEY_MAX
 } ame_hdr_key_e;
@@ -243,6 +245,8 @@ class AME_Request : public fdsio::Request
     // to cut short the stack with error status.
     //
     void ame_signal_resume(int status);
+
+    void appendURIPart(const std::string &uri);
 
     virtual void ame_request_handler() = 0;
     virtual int  ame_request_resume() = 0;
