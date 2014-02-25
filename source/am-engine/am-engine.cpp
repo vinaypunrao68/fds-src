@@ -25,6 +25,7 @@ extern "C" {
 #include <util/fds_stat.h>
 #include <am-plugin.h>
 #include <native_api.h>
+#include <util/Log.h>
 
 namespace fds {
 
@@ -134,7 +135,12 @@ AMEngine::mod_init(SysParams const *const p)
 void
 AMEngine::mod_startup()
 {
-    gl_fds_stat.stat_reg_mod(STAT_NGX, stat_ngx_decode);
+    static int __reg = 0;
+    // FIXME: each engine type should have their own stat.
+    if (!__reg) {
+        __reg = 1;
+        gl_fds_stat.stat_reg_mod(STAT_NGX, stat_ngx_decode);
+    }
 }
 
 // make_nginix_dir
@@ -153,15 +159,13 @@ make_nginx_dir(char const *const path)
     }
 }
 
-// run_server
-// ----------
-//
 void
-AMEngine::run_server(FDS_NativeAPI *api)
+AMEngine::init_server(FDS_NativeAPI *api)
 {
     const std::string *fds_root;
     char path[NGINX_ARG_PARAM];
 
+    fds_assert(eng_api == NULL && api);
     eng_api = api;
     fds_root = &mod_params->fds_root;
     if (eng_signal != "") {
@@ -180,8 +184,23 @@ AMEngine::run_server(FDS_NativeAPI *api)
     snprintf(path, NGINX_ARG_PARAM, "%s/%s", nginx_prefix, eng_etc);
     ModuleVector::mod_mkdir(path);
 
-    ngx_register_plugin(this);
+    ngx_register_plugin(api->clientType, this);
     nginx_start_argv[0] = mod_params->p_argv[0];
+}
+
+// run_server
+// ----------
+//
+void
+AMEngine::run_server(fds::FDS_NativeAPI *api)
+{
+    init_server(api);
+    ngx_main(FDS_ARRAY_ELEM(nginx_start_argv), nginx_start_argv);
+}
+
+void
+AMEngine::run_all_servers()
+{
     ngx_main(FDS_ARRAY_ELEM(nginx_start_argv), nginx_start_argv);
 }
 
@@ -209,12 +228,14 @@ Conn_GetBucketStats *AMEngine::ame_getbucketstats_hdler(AME_HttpReq *req) {
 ame_keytab_t sgt_AMEKey[] =
 {
     { { "Content-Length" },      0, RESP_CONTENT_LEN },
+    { { "Content-Type" },        0, RESP_CONTENT_TYPE },
     { { "Connection" },          0, RESP_CONNECTION },
     { { "open" },                0, RESP_CONNECTION_OPEN },
     { { "close" },               0, RESP_CONNECTION_CLOSE },
     { { "Etag" },                0, RESP_ETAG },
     { { "Date" },                0, RESP_DATE },
     { { "Server" },              0, RESP_SERVER },
+    { { "Location" },            0, RESP_LOCATION},
 
     // RESTBucketGET response keys
     { { "ListBucketResult" },    0, REST_LIST_BUCKET },
@@ -248,6 +269,8 @@ int AME_Request::ame_map_fdsn_status(FDSN_Status status)
 {
     if (status == FDSN_StatusOK) {
         return NGX_HTTP_OK;
+    } else if (status == FDSN_StatusCreated) {
+        return NGX_HTTP_CREATED;
     } else {
         // todo: do better mapping.  Log the error
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
@@ -296,6 +319,12 @@ AME_Request::ame_signal_resume(int status)
 
     // This will cause the event loop to run the request_resume() method.
     ame_ctx->ame_notify_handler();
+}
+
+void
+AME_Request::appendURIPart(const std::string &uri)
+{
+    ame_http.appendURIPart(uri);
 }
 
 // ame_reqt_iter_reset
@@ -407,7 +436,7 @@ AME_Request::ame_send_response_hdr()
     ame_format_response_hdr();
 
     if (ame_etag.size() > 0) {
-      ame_set_resp_keyval(sgt_AMEKey[REST_ETAG].u.kv_key_name,
+        ame_set_resp_keyval(sgt_AMEKey[REST_ETAG].u.kv_key_name,
               sgt_AMEKey[REST_ETAG].kv_keylen,
               const_cast<char *>(ame_etag.c_str()), ame_etag.size());
     }

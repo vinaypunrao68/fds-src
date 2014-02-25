@@ -3,7 +3,7 @@ kill -9 `pgrep AMAgent`
 kill -9 `pgrep StorMgr`
 kill -9 `pgrep DataMgr`
 kill -9 `pgrep orchMgr`
-cd Build/linux*/bin
+cd Build/linux-x86_64.debug/bin
 rm -rf *ldb
 rm -rf logs stats
 rm -f *.log
@@ -14,3 +14,4 @@ rm -f ocache_stats.dat
 rm -rf /fds/hdd
 rm -rf /fds/ssd
 rm -rf /fds/objStats
+rm -rf /fds/_objStats

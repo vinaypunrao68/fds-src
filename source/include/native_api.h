@@ -90,6 +90,7 @@ class QosParams {
 typedef enum
 {
     FDSN_StatusOK                                              ,
+    FDSN_StatusCreated                                         ,
 
     /**
      * Errors that prevent the S3 request from being issued or response from
@@ -464,7 +465,9 @@ class FDS_NativeAPI {
     FDSN_MSFT_AZURE,
     FDSN_OPEN_STACK_SWIFT,
     FDSN_NATIVE_OBJ_API,
-    FDSN_BLOCK_DEVICE
+    FDSN_BLOCK_DEVICE,
+    FDSN_EMC_ATMOS,
+    FDSN_CLIENT_TYPE_MAX
   };
   FDSN_ClientType clientType;
 
