@@ -316,14 +316,14 @@ class DataIO
     //   be called in this order: req_submit(), req_complete().
     // - Blocking: call req_wait() to block util the request is done.
     //
-    void disk_read(DiskRequest *req);
+    int disk_read(DiskRequest *req);
 
     // \disk_write
     // -----------
     // Write data to the buffer specified by oid or vio from the request.
     // Similar to the read method, the call can be blocking or non-blocking.
     //
-    void disk_write(DiskRequest *req);
+    int disk_write(DiskRequest *req);
 
     // \disk_remap_obj
     // ---------------

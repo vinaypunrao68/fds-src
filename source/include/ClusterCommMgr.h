@@ -22,18 +22,25 @@ typedef std::unordered_map<NodeUuid, std::set<fds_token_id>, UuidHash> NodeToken
 class ClusterCommMgr {
  public:
     explicit ClusterCommMgr(OMgrClient *omClient);
+    ClusterCommMgr(OMgrClient *omClient, netSessionTblPtr nst);
 
     virtual NodeTokenTbl partition_tokens_by_node(const std::set<fds_token_id> &tokens);
 
     virtual bool get_node_mig_ip_port(const NodeUuid &node_id,
                                       uint32_t &ip,
                                       uint32_t &port);
+    const DLT* get_dlt();
+
+    OMgrClient* get_om_client();
+
+    netSessionTblPtr get_nst();
 
     // netMigrationPathClientSession* get_migration_session(const NodeUuid &node_id);
  protected:
     // TODO(Rao): We shouldn't rely on omClient.  We should just have a
     // reference to DLT and Cluster map
-    OMgrClient         *omClient_;
+    OMgrClient         *om_client_;
+    netSessionTblPtr    nst_;
 };
 
 typedef boost::shared_ptr<ClusterCommMgr> ClusterCommMgrPtr;

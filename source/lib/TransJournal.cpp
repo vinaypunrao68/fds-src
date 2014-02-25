@@ -120,11 +120,9 @@ _assign_transaction_to_key(const KeyT& key, FDS_IOType *io, TransJournalId &tran
   fds_assert(!_rwlog_tbl[trans_id].is_active());
   _rwlog_tbl[trans_id].set_fdsio(io);
   _rwlog_tbl[trans_id].set_key(key);
-  _rwlog_tbl[trans_id].set_active(true);
 
-  _key_to_transinfo_tbl[key].push_front(TransJournalKeyInfo(io, trans_id));
+  _key_to_transinfo_tbl[key].push_back(TransJournalKeyInfo(io, trans_id));
 
-  _active_cnt++;
   return ERR_OK;
 }
 
@@ -135,28 +133,27 @@ create_transaction(const KeyT& key, FDS_IOType *io, TransJournalId &trans_id)
   fds_mutex::scoped_lock lock(*_jrnl_tbl_mutex);
 
   typename KeyToTransInfoTable::iterator itr = _key_to_transinfo_tbl.find(key);
-
-  if (itr == _key_to_transinfo_tbl.end()) {
-    /* No pending transactions for the given key */
-    Error e = _assign_transaction_to_key(key, io, trans_id);
-    return e;
-
-  } else if (itr->second.front().io == io) {
-    /* Request to create a transaction for existing <key,io> pair */
-    TransJournalKeyInfo& ki = itr->second.front();
-    fds_assert(_rwlog_tbl[ki.trans_id].is_active() &&
-        _rwlog_tbl[ki.trans_id].get_key() == key);
-    trans_id = ki.trans_id;
-    return ERR_OK;
-
-  } else {
-    /* There is already a pending transaction for this key.  Lets enqueue */
-    fds_assert(_key_to_transinfo_tbl[key].size() > 0);
-    _key_to_transinfo_tbl[key].push_back(TransJournalKeyInfo(io));
-    _pending_cnt++;
-    FDS_PLOG(_log) << "Adding to pending transactions.  key: " << key.ToString();
-    return ERR_TRANS_JOURNAL_REQUEST_QUEUED;
+  bool new_transaction = (itr == _key_to_transinfo_tbl.end());
+  Error e = _assign_transaction_to_key(key, io, trans_id);
+  if (e != ERR_OK) {
+      LOGERROR << "Error assigning a transaction id.  key : " <<  key.ToString()
+              << " active: " << _active_cnt << " pending: " << _pending_cnt;
+      return e;
   }
+
+  if (new_transaction) {
+      _rwlog_tbl[trans_id].set_active(true);
+      _active_cnt++;
+      LOGDEBUG << "New transaction.  key: " << key.ToString() << " id: " << trans_id
+              << " active: " << _active_cnt << " pending: " << _pending_cnt;
+  } else {
+      _rwlog_tbl[trans_id].set_active(false);
+      _pending_cnt++;
+      LOGDEBUG << "Queued transaction.  key: " << key.ToString() << " id: " << trans_id
+              << " active: " << _active_cnt << " pending: " << _pending_cnt;
+      e = ERR_TRANS_JOURNAL_REQUEST_QUEUED;
+  }
+  return e;
 }
 
 template<typename KeyT, typename JEntryT>
@@ -164,7 +161,6 @@ JEntryT* TransJournal<KeyT, JEntryT>::
 get_transaction(const TransJournalId &trans_id)
 {
   fds_mutex::scoped_lock lock(*_jrnl_tbl_mutex);
-  fds_assert(_rwlog_tbl[trans_id].is_active());
   return &_rwlog_tbl[trans_id];
 }
 
@@ -172,46 +168,56 @@ template<typename KeyT, typename JEntryT>
 void TransJournal<KeyT, JEntryT>::
 release_transaction(TransJournalId &trans_id)
 {
-  fds_mutex::scoped_lock lock(*_jrnl_tbl_mutex);
-  KeyT key = _rwlog_tbl[trans_id].get_key();
-  typename KeyToTransInfoTable::iterator pending_qitr = _key_to_transinfo_tbl.find(key);
+    _jrnl_tbl_mutex->lock();
+    KeyT key = _rwlog_tbl[trans_id].get_key();
+    typename KeyToTransInfoTable::iterator pending_qitr = _key_to_transinfo_tbl.find(key);
 
-  /* Free up the transaction associated with trans_id */
-  fds_assert(_rwlog_tbl[trans_id].is_active() &&
-             _rwlog_tbl[trans_id].get_fdsio() == pending_qitr->second.front().io);
-  _rwlog_tbl[trans_id].reset();
-  _free_trans_ids.push(trans_id);
-  _active_cnt--;
-  pending_qitr->second.pop_front();
+    /* Free up the transaction associated with trans_id */
+    fds_assert(_active_cnt > 0 &&
+            _rwlog_tbl[trans_id].is_active() &&
+            _rwlog_tbl[trans_id].get_fdsio() == pending_qitr->second.front().io);
 
-  /* schedule any pending transactions for the key */
-  if (pending_qitr->second.size() > 0) {
-    Error e;
-    TransJournalId new_trans_id;
-    FDS_IOType *io = pending_qitr->second.front().io;
-    fds_assert(pending_qitr->second.front().trans_id == INVALID_TRANS_ID);
+    _rwlog_tbl[trans_id].reset();
+    _free_trans_ids.push(trans_id);
+    _active_cnt--;
     pending_qitr->second.pop_front();
-    _pending_cnt--;
-    FDS_PLOG(_log) << "Removing from pending transactions.  key: " << key.ToString();
 
-    /* NOTE: Though we popped the latest pending io, we push it front
-     * in _assign_transaction_to_key and make it active.  Next time some
-     * one invokes create_transaction on the same <key,io> pair, we will
-     * return the transaction id created below
-     */
-    e = _assign_transaction_to_key(key, io, new_trans_id);
-    fds_assert(e.ok());
+    LOGDEBUG << "Release transaction.  key: " << key.ToString() << " id: " << trans_id
+            << " active: " << _active_cnt << " pending: " << _pending_cnt;
 
-    // todo: It's a good idea to let go off _jrnl_tbl_mutex here.
-    e = _qos_controller->processIO(io);
-    if (!e.ok() ) {
-      fds_assert(!"Failed to process io");
+    /* schedule any pending transactions for the key */
+    if (pending_qitr->second.size() > 0) {
+        Error e;
+        FDS_IOType *io = pending_qitr->second.front().io;
+        TransJournalId new_trans_id = pending_qitr->second.front().trans_id;
+        fds_assert(_pending_cnt > 0 &&
+                io != nullptr &&
+                new_trans_id != INVALID_TRANS_ID &&
+                !_rwlog_tbl[new_trans_id].is_active());
+        _active_cnt++;
+        _rwlog_tbl[new_trans_id].set_active(true);
+        _pending_cnt--;
+
+        LOGDEBUG << "Scheduling queued transaction.  key: " <<  key.ToString()
+                                  << " id: " << new_trans_id
+                                  << " active: " << _active_cnt << " pending: " << _pending_cnt;
+        /* Letting to off the lock before calling into enqueueIO */
+        _jrnl_tbl_mutex->unlock();
+
+        e = _qos_controller->enqueueIO(io->io_vol_id, io);
+        if (e != ERR_OK) {
+            /* NOTE: Here we are unable to reply back to the caller.  We expect
+             * the caller time out
+             */
+            LOGERROR << "Failed to enque io.  Type: " << io->io_type
+                    << " Req Id: " << io->io_req_id;
+            fds_assert(!"Failed to enqueue io");
+        }
+        return;
+    } else {
+        _key_to_transinfo_tbl.erase(pending_qitr);
     }
-  }
-
-  if (pending_qitr->second.size() == 0) {
-    _key_to_transinfo_tbl.erase(pending_qitr);
-  }
+    _jrnl_tbl_mutex->unlock();
 }
 
 template class TransJournal<ObjectID, ObjectIdJrnlEntry>;

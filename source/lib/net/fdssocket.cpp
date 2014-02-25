@@ -165,6 +165,7 @@ void Socket::checkConnection() {
 
 Socket::~Socket() {
     shutDown();
+    connChecker.join();
 }
 
 }  // namespace net

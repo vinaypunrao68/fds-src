@@ -119,11 +119,7 @@ namespace fds {
      * Returns a string representation.
      */
     std::string ToString() const {
-      char str[GetLen()];
-      memcpy(str, &hash_high, sizeof(fds_uint64_t));
-      memcpy(str + sizeof(fds_uint64_t), &hash_low, sizeof(fds_uint64_t));
-
-      return std::string(str, GetLen());
+        return ToHex();
     }
 
     /*

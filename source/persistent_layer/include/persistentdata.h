@@ -7,6 +7,24 @@
 #include <string>
 #include <persistent_layer/dm_io.h>
 #include <concurrency/Mutex.h>
+#include <fds_counters.h>
+
+namespace fds {
+
+class PMCounters : public FdsCounters
+{
+ public:
+     PMCounters(const std::string &id, FdsCountersMgr *mgr)
+        : FdsCounters(id, mgr),
+          diskR_Err("diskR_Err", this),
+          diskW_Err("diskW_Err", this)
+     {
+     }
+
+     NumericCounter diskR_Err;
+     NumericCounter diskW_Err;
+};
+}  // namespace fds
 
 namespace diskio {
 
@@ -72,27 +90,29 @@ class PersisDataIO
     const int pd_ioq_rd_pending = 0;
     const int pd_ioq_wr_pending = 1;
 
-    virtual void disk_read(DiskRequest *req);
-    virtual void disk_write(DiskRequest *req);
+    virtual int disk_read(DiskRequest *req);
+    virtual int disk_write(DiskRequest *req);
 
-    virtual void disk_do_read(DiskRequest *req) = 0;
-    virtual void disk_do_write(DiskRequest *req) = 0;
+    virtual int disk_do_read(DiskRequest *req) = 0;
+    virtual int disk_do_write(DiskRequest *req) = 0;
 
     virtual void disk_read_done(DiskRequest *req);
     virtual void disk_write_done(DiskRequest *req);
+
 
   protected:
     PersisDataIO();
     ~PersisDataIO();
 
+    fds::PMCounters          pd_counters_;
     fdsio::RequestQueue      pd_queue;
 };
 
 class FilePersisDataIO : public PersisDataIO
 {
   public:
-    void disk_do_read(DiskRequest *req);
-    void disk_do_write(DiskRequest *req);
+    int disk_do_read(DiskRequest *req);
+    int disk_do_write(DiskRequest *req);
 
     inline int disk_loc_id() { return fi_loc; }
 

@@ -9,6 +9,7 @@ user_cpp         :=               \
     am-engine.cpp \
     am-plugin.cpp \
     s3connector.cpp \
+    atmos-connector.cpp \
     http_utils.cpp \
     am-urls.cpp
 
