@@ -518,7 +518,8 @@ class FDS_NativeAPI {
                  std::string ObjKey, 
                  PutProperties *putproperties,
                  void *reqContext,
-                 char *buffer, fds_uint64_t buflen,
+                 char *buffer, 
+                 fds_uint64_t buflen,
                  fdsnPutObjectHandler putObjHandler, 
                  void *callbackData);
 
