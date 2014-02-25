@@ -164,16 +164,14 @@ UT_OM_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput 
     boost::shared_ptr<UT_DLT_EvalHelper> eval_helper(new UT_DLT_EvalHelper);
 
     fds_verify(om == &gl_OMModule);
-    const DLT *oldDlt = dp->getCurDlt();
+    const DLT *oldDlt = dp->getCommitedDlt();
     eval_helper->setOldDlt(oldDlt);
 
     // Drive cluster map update via state machine
-    OM_DLTMod *dltMod = om->om_dlt_mod();
-    DltCompEvt event(dp);
-    dltMod->dlt_deploy_event(event);
+    domain->om_update_cluster();
 
     // Get new/old dlt states
-    const DLT *dlt = dp->getCurDlt();
+    const DLT *dlt = dp->getCommitedDlt();
     eval_helper->setNewDlt(dlt);
 
     // Print the DLTs and compare them
@@ -186,11 +184,12 @@ JsObject *
 UT_DP_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *out)
 {
     int               i, num;
-    NodeList          newNodes, rmNodes;
     FdspNodeRegPtr    ptr;
     UT_OM_NodeInfo   *node;
     ut_node_info_t   *info;
     OM_NodeDomainMod *domain;
+
+    NodeList newNodes, rmNodes;
 
     domain = OM_NodeDomainMod::om_local_domain();
     ptr = FdspNodeRegPtr(new FdspNodeReg());
@@ -208,9 +207,15 @@ UT_DP_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput 
         ResourceUUID r_uuid(info->nd_uuid);
 
         if (info->add == true) {
-            domain->om_reg_node_info(r_uuid, ptr);
+            OM_SmAgent::pointer agent(new OM_SmAgent(r_uuid));
+            agent->node_fill_inventory(ptr);
+            agent->node_set_weight(info->nd_weight);
+            newNodes.push_back(agent);
         } else {
-            domain->om_del_node_info(r_uuid, info->nd_node_name);
+            OM_SmAgent::pointer agent(new OM_SmAgent(r_uuid));
+            agent->node_fill_inventory(ptr);
+            agent->node_set_weight(info->nd_weight);
+            rmNodes.push_back(agent);
         }
     }
 
@@ -219,18 +224,17 @@ UT_DP_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput 
     OM_Module *om  = static_cast<OM_Module *>(mod->pr_get_owner_module());
     DataPlacement *dp = om->om_dataplace_mod();
     boost::shared_ptr<UT_DLT_EvalHelper> eval_helper(new UT_DLT_EvalHelper);
-    OM_SmContainer::pointer smNodes = domain->om_sm_nodes();
 
-    const DLT *oldDlt = dp->getCurDlt();
+    const DLT *oldDlt = dp->getCommitedDlt();
     eval_helper->setOldDlt(oldDlt);
 
     // Update cluster map and recompute the DLT
-    smNodes->om_splice_nodes_pend(&newNodes, &rmNodes);
     dp->updateMembers(newNodes, rmNodes);
     dp->computeDlt();
+    dp->commitDlt();
 
     // Get new dlt states
-    const DLT *dlt = dp->getCurDlt();
+    const DLT *dlt = dp->getCommitedDlt();
     eval_helper->setNewDlt(dlt);
 
     // Print the DLTs and compare
@@ -353,11 +357,7 @@ UT_OM_DltFsm::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *o
         std::cout << "DLT Event " << evt->dlt_evt << std::endl;
         switch (evt->dlt_evt) {
         case DLT_EVT_COMPUTE:
-            dlt->dlt_deploy_event(DltCompEvt(NULL));
-            break;
-
-        case DLT_EVT_UPDATE:
-            dlt->dlt_deploy_event(DltRebalEvt(NULL));
+            dlt->dlt_deploy_event(DltCompRebalEvt(NULL, NULL, NULL));
             break;
 
         case DLT_EVT_UPDATE_DONE:
@@ -366,6 +366,8 @@ UT_OM_DltFsm::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *o
 
         case DLT_EVT_COMMIT_DONE:
             dlt->dlt_deploy_event(DltCommitOkEvt(NULL, 0));
+            break;
+        default:
             break;
         }
         std::cout << "-> " << dlt->dlt_deploy_curr_state() << std::endl;

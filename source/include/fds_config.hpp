@@ -235,6 +235,15 @@ public:
         return fds_config_->get<T>(key, default_value);
     }
 
+    /**
+     * Return true if key exists in the config
+     * @param key
+     */
+    bool exists(const std::string &key)
+    {
+        return fds_config_->exists(base_path_+key);
+    }
+
 private:
     boost::shared_ptr<FdsConfig> fds_config_;
     std::string base_path_;

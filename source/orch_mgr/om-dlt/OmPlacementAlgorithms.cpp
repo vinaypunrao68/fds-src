@@ -112,9 +112,6 @@ ConsistHashAlgorithm::computeNewDlt(const ClusterMap *currMap,
     // to newDlt. If no nodes were added to cluster map, the
     // function just copies the first row from currDlt to newDlt
     err = handleNewNodesPrimary(currMap, currDlt, newDlt, weight_map);
-    FDS_PLOG_SEV(getLog(), fds_log::debug)
-            << "ConsistHash: placement weight after node additions";
-    weight_map->debug_print(getLog());
 
     // update the first row of newDlt to take into account node removals
     err = handleRmNodesPrimary(currMap, newDlt, weight_map);
@@ -123,6 +120,8 @@ ConsistHashAlgorithm::computeNewDlt(const ClusterMap *currMap,
     if (err.ok())
         err = updateReplicaRows(total_nodes, newDlt->getNumTokens(), newDlt);
 
+    FDS_PLOG_SEV(getLog(), fds_log::debug)
+            << "ConsistHash: Finished updating DLT";
     return err;
 }
 
@@ -160,10 +159,12 @@ ConsistHashAlgorithm::handleNewNodesPrimary(const ClusterMap *curMap,
     for (std::unordered_set<NodeUuid, UuidHash>::const_iterator cit = addedNodes.cbegin();
          cit != addedNodes.cend();
          ++cit) {
-        // const NodeAgent* node_info = currMap->om_member_info(*cit);
+        OM_SmAgent::pointer agent =
+                OM_NodeDomainMod::om_local_domain()->om_sm_agent(*cit);
         double rel_weight =
-                /*node_info->node_stor_weight()*/20 / total_weight;
+                agent->node_stor_weight() / total_weight;
         fds_uint32_t toks = rel_weight * numTokens;  // rounded down
+        fds_verify(toks > 0);
 
         // get node uuid that is most over-subscribed
         NodeUuid uuid = weightMap->getHighestWeightNode();
@@ -180,7 +181,7 @@ ConsistHashAlgorithm::handleNewNodesPrimary(const ClusterMap *curMap,
         new_node_toks[*cit].insert(stolen_token);
 
         FDS_PLOG_SEV(getLog(), fds_log::debug)
-                << "Node " << (*cit).uuid_get_val()
+                << "Node 0x" << std::hex << (*cit).uuid_get_val() << std::dec
                 << " will steal " << toks << " tokens" << std::endl
                 << "Steal first token " << stolen_token
                 << " from node " << std::hex << uuid.uuid_get_val()
@@ -354,19 +355,6 @@ ConsistHashAlgorithm::getMatchedTokenPair(TokenList* target_list,
         }
     }
 
-    // TEMP
-    FDS_PLOG_SEV(getLog(), fds_log::debug) << "candidate list: ";
-    for (std::set<fds_token_id>::iterator c_it = candidate_set->begin();
-         c_it != candidate_set->end();
-         ++c_it) {
-        FDS_PLOG_SEV(getLog(), fds_log::debug) << *c_it << " ";
-    }
-    FDS_PLOG_SEV(getLog(), fds_log::debug) << "target list: ";
-    for (TokenList::iterator t_it = target_list->begin();
-         t_it != target_list->end();
-         ++t_it) {
-        FDS_PLOG_SEV(getLog(), fds_log::debug) << *t_it << " ";
-    }
     FDS_PLOG_SEV(getLog(), fds_log::debug) << "Match: target " << *tgt_it
                                            << " selected candidate " << *candidate_it;
 
@@ -511,6 +499,9 @@ ConsistHashAlgorithm::updateReplicaRows(fds_uint32_t numNodes,
 
     // We should not have more columns than nodes
     fds_verify(col_depth <= numNodes);
+    FDS_PLOG_SEV(getLog(), fds_log::debug)
+            << "ConsistHash::updateReplicaRows replica count "
+            << replica_count << " numNodes " << numNodes;
 
     std::unordered_set<NodeUuid, UuidHash> replica_set;
     std::unordered_set<NodeUuid, UuidHash>::const_iterator set_cit;

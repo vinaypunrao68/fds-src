@@ -27,6 +27,11 @@ public:
     ~checksum_calc();
     void checksum_update(std::string& buf);
     void checksum_update(unsigned  char *buf, int length);
+    void checksum_update(bool value);
+    void checksum_update(int8_t value);
+    void checksum_update(int16_t value);
+    void checksum_update(int32_t value);
+    void checksum_update(int64_t value);
     void get_checksum(std::string& result);
 };
 

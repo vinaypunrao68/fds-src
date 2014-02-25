@@ -1,0 +1,195 @@
+#!/usr/bin/env python
+import sys
+import os
+import unittest
+import time
+import json
+import random
+
+try:
+    import requests
+except ImportError:
+    print 'oops!! - I need the [requests] pkg. do: "sudo easy_install requests" OR "pip install requests"'
+    sys.exit(0)
+
+# from : http://tinyurl.com/kanklrj
+# remove unnecceasry unicode encoding
+def _decode_list(data):
+    rv = []
+    for item in data:
+        if isinstance(item, unicode):
+            item = item.encode('utf-8')
+        elif isinstance(item, list):
+            item = _decode_list(item)
+        elif isinstance(item, dict):
+            item = _decode_dict(item)
+        rv.append(item)
+    return rv
+
+def _decode_dict(data):
+    rv = {}
+    for key, value in data.iteritems():
+        if isinstance(key, unicode):
+            key = key.encode('utf-8')
+        if isinstance(value, unicode):
+            value = value.encode('utf-8')
+        elif isinstance(value, list):
+            value = _decode_list(value)
+        elif isinstance(value, dict):
+            value = _decode_dict(value)
+        rv[key] = value
+    return rv
+
+
+
+class Api:
+    def __init__(self):
+        self.host = 'localhost'
+        self.port = 8000
+        self.ua = 'fdstest/1.0'
+        self.postheaders={'content-type':'application/x-www-form-urlencoded','User-Agent':self.ua}
+        self.headers={'User-Agent':self.ua}
+        if 'testhost' in os.environ:
+            host=os.environ['testhost']
+            port=self.port
+            if ':' in host:
+                host,port = host.split(':')
+            self.host=host
+            self.port=port
+
+    def getUrl(self,bucket=None,objName=None):
+        if bucket == None:
+            return 'http://%s:%s' %(self.host,str(self.port))
+
+        if objName == None:
+            return 'http://%s:%s/%s' %(self.host,str(self.port), bucket)
+
+        return 'http://%s:%s/%s/%s' %(self.host,str(self.port), bucket, objName)
+
+    def getBucketList(self):
+        return json.loads(requests.get(self.getUrl(),headers=self.headers).text,object_hook=_decode_dict)
+
+    def createBucket(self,bucket):
+        return requests.post(self.getUrl(bucket),headers=self.headers)
+
+    def getBucket(self,bucket):
+        return requests.get(self.getUrl(bucket),headers=self.headers).text
+
+    def deleteBucket(self,bucket):
+        return requests.delete(self.getUrl(bucket),headers=self.headers)
+
+    def putFile(self,bucket,filepath,name=None):
+        name = name if name else os.path.basename(filepath)
+        return requests.post(self.getUrl(bucket,name),data=open(filepath,'rb'),headers=self.postheaders)
+
+    def put(self,bucket,objname,data):
+        return requests.post(self.getUrl(bucket,objname),data=data,headers=self.postheaders)
+
+    def get(self,bucket,objname):
+        return requests.get(self.getUrl(bucket,objname),headers=self.headers).text
+
+    def delete(self,bucket,objname):
+        return requests.delete(self.getUrl(bucket,objname),headers=self.headers)
+
+
+class basic(unittest.TestCase):
+    def setUp(self):
+        self.f=Api()
+        
+    def testCreateBucket(self):
+        bucket='bucket_%d' % (random.randint(201,301))
+        r=self.f.createBucket(bucket)
+        self.assertIn(r.status_code,[200,500])
+
+    def testPutObject(self):
+        obj = 'This is a test object'
+        
+        bucket='bucket_%d' % (random.randint(201,301))
+        objname='obj_%d' % (random.randint(201,301))
+
+        r=self.f.createBucket(bucket)
+        self.assertIn(r.status_code,[200,500])
+
+        r=self.f.put(bucket,objname,obj)
+        self.assertEqual(r.status_code,200)
+
+        time.sleep(2)
+        text=self.f.get(bucket,objname)
+        self.assertEqual(obj,text)
+
+class delete(unittest.TestCase):
+    def setUp(self):
+        self.f=Api()
+
+    def testDeleteBucket(self):
+        bucket='bucket_%d' % (random.randint(201,301))
+        r=self.f.createBucket(bucket)
+        self.assertIn(r.status_code,[200,500])
+
+        r=self.f.deleteBucket(bucket)
+        self.assertIn(r.status_code,[200])
+
+    def testDeleteObject(self):
+        obj = 'This is a test object'
+        bucket='bucket_%d' % (random.randint(201,301))
+        objname='obj_%d' % (random.randint(201,301))
+
+        r=self.f.createBucket(bucket)
+        self.assertIn(r.status_code,[200,500])
+
+        r=self.f.put(bucket,objname,obj)
+        self.assertEqual(r.status_code,200)
+        
+        time.sleep(2)
+        text=self.f.get(bucket,objname)
+        self.assertEqual(obj,text)
+
+        r=self.f.delete(bucket,objname)
+        self.assertIn(r.status_code,[200])
+
+class medium(unittest.TestCase):
+    def setUp(self):
+        self.f=Api()
+
+    # create 100 buckets
+    def testCreateMultipleBuckets(self):
+        for n in range(0,100):
+            r=self.f.createBucket('bucket_'+str(n))
+            self.assertIn(r.status_code,[200,500])
+            print 'created bucket : ' , bucket
+
+    # put 10 objects from 1KB to 10KB
+    def testPutMediumObjects(self):
+        bucket='bucket_%d' % (random.randint(201,301))
+        objname='obj_%d' % (random.randint(201,301))
+
+        alphastr = ''.join([chr(n+65) for n in range(0,26)])
+
+        # 1 KB Object
+        onekb=''
+        for n in range(0,39):
+            onekb += alphastr 
+            onekb += ','
+
+        obj=''
+        # test 1-10 kb
+        for n in range(0,10):
+            obj += onekb
+
+            bucket='bucket_%d' % (random.randint(201,205))
+            objname='obj_%d' % (random.randint(201,301))
+            r=self.f.createBucket(bucket)
+            self.assertIn(r.status_code,[200,500])
+
+            print 'uploading [%s] to [bkt:%s] : %d ' %(objname,bucket,len(obj)),
+            r=self.f.put(bucket,objname,obj)
+            self.assertEqual(r.status_code,200)
+            print ' : done'
+
+            time.sleep(2)
+            text=self.f.get(bucket,objname)
+            self.assertEqual(obj,text)
+    
+if __name__ == "__main__":
+    unittest.main(defaultTest='basic',verbosity=2)
+    

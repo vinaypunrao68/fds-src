@@ -84,8 +84,22 @@ StorHvCtrl::dispatchSmPutMsg(StorHvJournalEntry *journEntry) {
     dltPtr = dataPlacementTbl->getDLTNodesForDoidKey(&objId);
     fds_verify(dltPtr != NULL);
 
-    fds_int32_t numNodes = dltPtr->getLength();
+    fds_uint32_t numNodes = dltPtr->getLength();
     fds_verify(numNodes > 0);
+    
+    putMsg->dlt_version = om_client->getDltVersion();
+    fds_verify(putMsg->dlt_version != DLT_VER_INVALID);
+
+    // checksum calculation for putObj  class and the payload.  we may haveto bundle this
+    // into a function .
+    storHvisor->chksumPtr->checksum_update(putMsg->data_obj_id.hash_high);
+    storHvisor->chksumPtr->checksum_update(putMsg->data_obj_id.hash_low);
+    storHvisor->chksumPtr->checksum_update(putMsg->data_obj_len);
+    storHvisor->chksumPtr->checksum_update(putMsg->volume_offset);
+    storHvisor->chksumPtr->checksum_update(putMsg->dlt_version);
+    storHvisor->chksumPtr->checksum_update(putMsg->data_obj);
+    storHvisor->chksumPtr->get_checksum(smMsgHdr->payload_chksum);
+    LOGDEBUG << "RPC Checksum: " << smMsgHdr->payload_chksum;
 
     // Issue a put for each SM in the DLT list
     for (fds_uint32_t i = 0; i < numNodes; i++) {
@@ -105,9 +119,6 @@ StorHvCtrl::dispatchSmPutMsg(StorHvJournalEntry *journEntry) {
         journEntry->sm_ack[i].ack_status = FDS_CLS_ACK;
         journEntry->num_sm_nodes     = numNodes;
 
-        putMsg->dlt_version = om_client->getDltVersion();
-        fds_verify(putMsg->dlt_version != DLT_VER_INVALID);
-
         // Call Put object RPC to SM
         netSession *endPoint = NULL;
         endPoint = rpcSessionTbl->getSession(node_ip,
@@ -121,11 +132,6 @@ StorHvCtrl::dispatchSmPutMsg(StorHvJournalEntry *journEntry) {
         smMsgHdr->session_uuid = sessionCtx->getSessionId();
         journEntry->session_uuid = smMsgHdr->session_uuid;
 
-#if 0  // Will enable this once Data-placement code tested
-        storHvisor->chksumPtr->checksum_update(reinterpret_cast<unsigned char *>(putMsg.get()),  sizeof(putMsg));
-        storHvisor->chksumPtr->checksum_update(reinterpret_cast<unsigned char *>(const_cast <char *>(putMsg->data_obj.data())), putMsg->data_obj_len);
-        storHvisor->chksumPtr->get_checksum(smMsgHdr->payload_chksum);
-#endif
         client->PutObject(smMsgHdr, putMsg);
         FDS_PLOG_SEV(sh_log, fds::fds_log::normal) << "For transaction " << journEntry->trans_id
                                                    << " sent async PUT_OBJ_REQ to SM ip "
@@ -393,57 +399,11 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
 
   err = dispatchSmPutMsg(journEntry);
   fds_verify(err == ERR_OK);
-  /* Remove this stuff once dispatchSmPutMsg is tested
-  // Get DLT node list.
-  DltTokenGroupPtr dltPtr;
-  dltPtr = dataPlacementTbl->getDLTNodesForDoidKey(&objId);
-  fds_verify(dltPtr != NULL);
-
-  fds_int32_t numNodes = dltPtr->getLength();
-  fds_verify(numNodes > 0);
-
-  // Issue a put for each SM in the DLT list
-  for (fds_uint32_t i = 0; i < numNodes; i++) {
-    fds_uint32_t node_ip   = 0;
-    fds_uint32_t node_port = 0;
-    fds_int32_t node_state = -1;
-
-    dataPlacementTbl->getNodeInfo(dltPtr->get(i).uuid_get_val(),
-                                  &node_ip,
-                                  &node_port,
-                                  &node_state);
-    journEntry->sm_ack[i].ipAddr = node_ip;
-    journEntry->sm_ack[i].port   = node_port;
-    msgHdrSm->dst_ip_lo_addr     = node_ip;
-    msgHdrSm->dst_port           = node_port;
-    journEntry->sm_ack[i].ack_status = FDS_CLS_ACK;
-    journEntry->num_sm_nodes     = numNodes;
-
-    put_obj_req->dlt_version = storHvisor->om_client->getDltVersion();
-    fds_verify(put_obj_req->dlt_version != DLT_VER_INVALID);
-
-    // Call Put object RPC to SM
-    netSession *endPoint = NULL;
-    endPoint = storHvisor->rpcSessionTbl->getSession
-             (node_ip, FDS_ProtocolInterface::FDSP_STOR_MGR);
-    fds_verify(endPoint != NULL);
-
-    boost::shared_ptr<FDSP_DataPathReqClient> client =
-            dynamic_cast<netDataPathClientSession *>(endPoint)->getClient();
-    netDataPathClientSession *sessionCtx =  static_cast<netDataPathClientSession *>(endPoint);
-    msgHdrSm->session_uuid = sessionCtx->getSessionId();
-    journEntry->session_uuid = msgHdrSm->session_uuid;
-    client->PutObject(msgHdrSm, put_obj_req);
-    FDS_PLOG_SEV(sh_log, fds::fds_log::normal) << "For transaction " << transId
-					       << " sent async PUT_OBJ_REQ to SM ip "
-					       << node_ip << " port " << node_port;
-  }
-  */
 
   /*
    * Setup DM messages
    */
-  fds_int32_t numNodes = FDS_REPLICATION_FACTOR;  // TODO: Why 8? Use vol/blob repl factor
+  fds_uint32_t numNodes = FDS_REPLICATION_FACTOR;  // TODO: Why 8? Use vol/blob repl factor
   InitDmMsgHdr(msgHdrDm);
   upd_obj_req->blob_name = blobReq->getBlobName();
   upd_obj_req->dm_transaction_id  = 1;  // TODO: Don't hard code
@@ -455,7 +415,7 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
   msgHdrDm->src_port       = 0;
   fds_uint64_t nodeIds[numNodes];
   memset(nodeIds, 0x00, sizeof(fds_int32_t) * numNodes);
-  dataPlacementTbl->getDMTNodesForVolume(volId, nodeIds, &numNodes);
+  dataPlacementTbl->getDMTNodesForVolume(volId, nodeIds, (int*)&numNodes);
   fds_verify(numNodes > 0);
 
   /*
@@ -625,6 +585,7 @@ fds::Error StorHvCtrl::putObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
      // move the state machine forward.
       return err;
   }
+  fds_verify(msgRespErr == ERR_OK);
 
   result = txn->fds_set_smack_status(rxMsg->src_ip_lo_addr,
                                      rxMsg->src_port);
@@ -890,48 +851,6 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
                                                    << transId;
   err = dispatchSmGetMsg(journEntry);
   fds_verify(err == ERR_OK);
-  /* Remove this stuff once AM is tested
-  // Look up primary SM from DLT entries
-  boost::shared_ptr<DltTokenGroup> dltPtr;
-  dltPtr = dataPlacementTbl->getDLTNodesForDoidKey(&objId);
-  fds_verify(dltPtr != NULL);
-
-  fds_int32_t numNodes = dltPtr->getLength();
-  fds_verify(numNodes > 0);
-
-  fds_uint32_t node_ip   = 0;
-  fds_uint32_t node_port = 0;
-  fds_int32_t node_state = -1;
-
-  // Get primary SM's node info
-  // TODO: We're just assuming it's the first in the list!
-  // We should be verifying this somehow.
-  dataPlacementTbl->getNodeInfo(dltPtr->get(0).uuid_get_val(),
-                                &node_ip,
-                                &node_port,
-                                &node_state);
-  msgHdr->dst_ip_lo_addr = node_ip;
-  msgHdr->dst_port       = node_port;
-  
-  get_obj_req->dlt_version = storHvisor->om_client->getDltVersion();
-  fds_verify(get_obj_req->dlt_version != DLT_VER_INVALID);
-
-  netSession *endPoint = NULL;
-  endPoint = storHvisor->rpcSessionTbl->getSession
-           (node_ip, FDS_ProtocolInterface::FDSP_STOR_MGR);
-  fds_verify(endPoint != NULL);
-
-  boost::shared_ptr<FDSP_DataPathReqClient> client =
-          dynamic_cast<netDataPathClientSession *>(endPoint)->getClient();
-  netDataPathClientSession *sessionCtx =  static_cast<netDataPathClientSession *>(endPoint);
-  msgHdr->session_uuid = sessionCtx->getSessionId();
-  journEntry->session_uuid = msgHdr->session_uuid;
-  // RPC getObject to StorMgr
-  client->GetObject(msgHdr, get_obj_req);
-
-  FDS_PLOG_SEV(sh_log, fds::fds_log::normal) << "For trans " << transId
-					     << " sent async GetObj req to SM";
-  */
   
   // Schedule a timer here to track the responses and the original request
   shVol->journal_tbl->schedule(journEntry->ioTimerTask, std::chrono::seconds(FDS_IO_LONG_TIME));
@@ -1017,7 +936,7 @@ fds::Error StorHvCtrl::getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
      * For now, just verify the existing buffer is big enough to hold
      * the data.
      */
-    fds_verify(getObjRsp->data_obj_len <= blobReq->getDataLen());
+    fds_verify((uint)(getObjRsp->data_obj_len) <= (blobReq->getDataLen()));
     blobReq->setDataLen(getObjRsp->data_obj_len);    
     blobReq->setDataBuf(getObjRsp->data_obj.c_str());
     blobReq->cbWithResult(0);
@@ -1162,49 +1081,6 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   journEntry->data_obj_id.hash_high = oid.GetHigh();;
   journEntry->data_obj_id.hash_low = oid.GetLow();;
   journEntry->trans_state = FDS_TRANS_DEL_OBJ;
-  
-  /* Remove this stuff once AM is tested
-  // Lookup the Primary SM node-id/ip-address to send the DeleteObject to
-  boost::shared_ptr<DltTokenGroup> dltPtr;
-  dltPtr = dataPlacementTbl->getDLTNodesForDoidKey(&oid);
-  fds_verify(dltPtr != NULL);
-
-  fds_int32_t numNodes = dltPtr->getLength();
-  if(numNodes == 0) {
-    FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << transId << " volID:" << vol_id << " -  DLT Nodes  NOT  confiigured. Check on OM Manager. Completing request with ERROR(-1)";
-    shVol->readUnlock();
-    blobReq->cbWithResult(-1);
-    return ERR_GET_DLT_FAILED;
-  }
-  storHvisor->dataPlacementTbl->getNodeInfo(dltPtr->get(0).uuid_get_val(),
-                                            &node_ip,
-                                            &node_port,
-                                            &node_state);
-  
-  fdsp_msg_hdr->dst_ip_lo_addr = node_ip;
-  fdsp_msg_hdr->dst_port       = node_port;
-  
-  del_obj_req->dlt_version = storHvisor->om_client->getDltVersion();
-  fds_verify(del_obj_req->dlt_version != DLT_VER_INVALID);
-
-  // *****CAVEAT: Modification reqd
-  // ******  Need to find out which is the primary SM and send this out to that SM. ********
-    endPoint = storHvisor->rpcSessionTbl->getSession(node_ip,
-                                               FDSP_STOR_MGR);
-  
-  // RPC Call DeleteObject to StorMgr
-  journEntry->trans_state = FDS_TRANS_DEL_OBJ;
-  if (endPoint)
-  { 
-       boost::shared_ptr<FDSP_DataPathReqClient> client =
-             dynamic_cast<netDataPathClientSession *>(endPoint)->getClient();
-      netDataPathClientSession *sessionCtx =  static_cast<netDataPathClientSession *>(endPoint);
-      fdsp_msg_hdr->session_uuid = sessionCtx->getSessionId();
-      journEntry->session_uuid = fdsp_msg_hdr->session_uuid;
-      client->DeleteObject(fdsp_msg_hdr, del_obj_req);
-    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:" << transId << " volID:" << vol_id << " - Sent async DelObj req to SM";
-  }
-  */
   
   // RPC Call DeleteCatalogObject to DataMgr
   FDS_ProtocolInterface::FDSP_DeleteCatalogTypePtr del_cat_obj_req(new FDSP_DeleteCatalogType);
@@ -1450,7 +1326,7 @@ fds::Error StorHvCtrl::getBucketResp(const FDSP_MsgHdrTypePtr& rxMsg,
   if (rxMsg->result == FDSP_ERR_OK) {
     ListBucketContents* contents = new ListBucketContents[blobListResp->num_blobs_in_resp];
     fds_verify(contents != NULL);
-    fds_verify(blobListResp->num_blobs_in_resp == (blobListResp->blob_info_list).size());
+    fds_verify((uint)(blobListResp->num_blobs_in_resp) == (blobListResp->blob_info_list).size());
     for (int i = 0; i < blobListResp->num_blobs_in_resp; ++i)
       {
 	contents[i].set((blobListResp->blob_info_list)[i].blob_name,

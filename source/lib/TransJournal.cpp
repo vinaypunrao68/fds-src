@@ -194,11 +194,16 @@ release_transaction(TransJournalId &trans_id)
     _pending_cnt--;
     FDS_PLOG(_log) << "Removing from pending transactions.  key: " << key.ToString();
 
+    /* NOTE: Though we popped the latest pending io, we push it front
+     * in _assign_transaction_to_key and make it active.  Next time some
+     * one invokes create_transaction on the same <key,io> pair, we will
+     * return the transaction id created below
+     */
     e = _assign_transaction_to_key(key, io, new_trans_id);
     fds_assert(e.ok());
 
     // todo: It's a good idea to let go off _jrnl_tbl_mutex here.
-    e = _qos_controller->processIO(io);
+    e = _qos_controller->enqueueIO(io->io_vol_id, io);
     if (!e.ok() ) {
       fds_assert(!"Failed to process io");
     }

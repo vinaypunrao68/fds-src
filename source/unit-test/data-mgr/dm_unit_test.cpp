@@ -59,7 +59,7 @@ class DmUnitTest {
 
   fds_uint32_t num_updates;
   bool test_mode_perf;
-  int max_outstanding_ios;
+  uint max_outstanding_ios;
 
   /*
    * Unit test funtions
@@ -683,7 +683,7 @@ class TestResp : public FDS_ProtocolInterface::FDSP_MetaDataPathRespIf {
                  cat_obj_info.data_obj_id.hash_high !=
                  cat_obj_info.data_obj_id.hash_low)
                 || (strtoull(cat_obj_req->blob_name.c_str(), NULL, 0) !=
-                    cat_obj_info.data_obj_id.hash_high)) {
+                    uint64_t(cat_obj_info.data_obj_id.hash_high))) {
                 FDS_PLOG(test_log) << "****** Received object ID seems to be incorrect";
                 assert(0);
             }

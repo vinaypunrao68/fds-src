@@ -110,6 +110,7 @@ namespace fds {
         virtual Error computeNewDlt(const ClusterMap *currMap,
                                     const DLT        *currDlt,
                                     DLT              *newDlt) = 0;
+        virtual ~PlacementAlgorithm() {}
     };
 
     class RoundRobinAlgorithm : public PlacementAlgorithm {
@@ -150,12 +151,19 @@ namespace fds {
     class DataPlacement : public fds::Module {
   private:
         /**
-         * Current DLT copy.
+         * Committed DLT copy and new DLT (after we commit new
+         * DLT, new DLT is null and we only keep commited copy).
          * TODO: Move this over to our new DLT data structure
          * and use a smart pointer (since we pass the structure
          * around internall).
          */
-        DLT *curDlt;
+        DLT *commitedDlt;
+        DLT *newDlt;
+
+        /**
+         * Set of node uuids that are rebalancing 
+         */
+        NodeUuidSet rebalanceNodes;
 
         /**
          * The DLT depth defines the maximum number of
@@ -245,20 +253,34 @@ namespace fds {
         /**
          * Commits the current DLT as an 'official'
          * copy. The commit stores the DLT to the
-         * permanent DLT history and async notifies
-         * others nodes in the cluster about the
-         * new version.
+         * permanent DLT history
          */
-        Error commitDlt();
+        void commitDlt();
 
         /**
-         * Returns the current version of the DLT.
+         * Returns the current commited version of the DLT.
+         * So if we are in the process of computing/rebalancing
+         * nodes for new DLT, this method returns the previous DLT
+         * until the new DLT is commited.
          */
-        const DLT *getCurDlt() const;
+        const DLT *getCommitedDlt() const;
+
+        /**
+         * Get version of the most recent DLT -- either new DLT
+         * if we are in the process of computing/rebalancing
+         * or commited DLT
+         */
+        fds_uint64_t getLatestDltVersion() const;
+
         /**
          * Returns the current version of the cluster map.
          */
         const ClusterMap *getCurClustMap() const;
+
+        /**
+         * Returns set of nodes that we are rebalancing
+         */
+        NodeUuidSet getRebalanceNodes() const;
     };
 }  // namespace fds
 

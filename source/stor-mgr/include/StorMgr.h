@@ -134,19 +134,24 @@ class SMCounters : public FdsCounters
       : FdsCounters(id, mgr),
         put_reqs("put_reqs", this),
         get_reqs("get_reqs", this),
-        puts_latency("puts_latency", this)
+        puts_latency("puts_latency", this),
+        put_tok_objs("put_tok_objs", this),
+        get_tok_objs("get_tok_objs", this)
   {
   }
 
   NumericCounter put_reqs;
   NumericCounter get_reqs;
   LatencyCounter puts_latency;
+  NumericCounter put_tok_objs;
+  NumericCounter get_tok_objs;
 };
 
 
 class ObjectStorMgr :
         public FdsProcess,
         public SmIoReqHandler,
+        public HasLogger,
         public Module // todo: We shouldn't be deriving module here.  ObjectStorMgr is
                       // an FDSProcess, it contains Modules
         {
@@ -226,7 +231,7 @@ class ObjectStorMgr :
             /* base class created stats, but they are disable by default */
             stats->enable();
         }
-        ~SmQosCtrl() {
+        virtual ~SmQosCtrl() {
             if (stats)
                 stats->disable();
         }
@@ -356,8 +361,6 @@ class ObjectStorMgr :
     void mod_startup();
     void mod_shutdown();
 
-    fds_log* GetLog() {return sm_log;}
-    fds_log *sm_log;
     TierEngine     *tierEngine;
     SmObjDb        *smObjDb; // Object Index DB <ObjId, Meta-data + data_loc>
     checksum_calc   *chksumPtr;
@@ -397,6 +400,10 @@ class ObjectStorMgr :
         return volTbl;
     }
 
+    const DLT* getDLT() {
+        return omClient->getCurrentDLT();
+    }
+
     void PutObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
             const FDS_ProtocolInterface::FDSP_PutObjTypePtr& put_obj);
     void GetObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
@@ -426,11 +433,6 @@ class ObjectStorMgr :
     void migrationSvcResponseCb(const Error& err);
 
     virtual Error enqueueMsg(fds_volid_t volId, SmIoReq* ioReq);
-
-    Error retrieveTokenObjects(const fds_token_id &token, 
-                             const size_t &max_size, 
-                             FDSP_MigrateObjectList &obj_list, 
-                             SMTokenItr &itr);
 
     Error putTokenObjects(const fds_token_id &token, 
                           FDSP_MigrateObjectList &obj_list);
@@ -468,6 +470,7 @@ class ObjectStorMgr :
      * a separate class.
      */
     friend ObjectStorMgrI;
+    friend class SmObjDb;
 };
 
 class ObjectStorMgrI : virtual public FDSP_DataPathReqIf {

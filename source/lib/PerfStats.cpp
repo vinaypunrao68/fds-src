@@ -55,7 +55,7 @@ PerfStats::PerfStats(const std::string prefix, int slots, int slot_len_sec)
 PerfStats::~PerfStats()
 {
     statTimer->destroy();
-    for (std::unordered_map<fds_uint32_t, StatHistory*>::iterator it = histmap.begin();
+    for (std::unordered_map<fds_volid_t, StatHistory*>::iterator it = histmap.begin();
          it != histmap.end();
          ++it)
     {
@@ -99,7 +99,7 @@ void PerfStats::disable()
 }
 
 /* returns appropriate stat history, or creates one if it does not exist */
-StatHistory* PerfStats::getHistoryWithReadLockHeld(fds_uint32_t class_id)
+StatHistory* PerfStats::getHistoryWithReadLockHeld(fds_volid_t class_id)
 {
     StatHistory* hist = NULL;
     
@@ -122,7 +122,7 @@ StatHistory* PerfStats::getHistoryWithReadLockHeld(fds_uint32_t class_id)
     return hist;
 }
 
-void PerfStats::recordIO(fds_uint32_t     class_id,
+void PerfStats::recordIO(fds_volid_t     class_id,
                          long             microlat,
                          diskio::DataTier tier,
                          fds_io_op_t      opType) {
@@ -147,7 +147,7 @@ void PerfStats::print()
 
     map_rwlock.read_lock();
     boost::posix_time::ptime now_local = boost::posix_time::microsec_clock::local_time();
-    for (std::unordered_map<fds_uint32_t, StatHistory*>::iterator it = histmap.begin();
+    for (std::unordered_map<fds_volid_t, StatHistory*>::iterator it = histmap.begin();
 	 it != histmap.end();
 	 ++it)
       {
@@ -173,7 +173,7 @@ void PerfStats::pushToOM()
 
     FDS_ProtocolInterface::FDSP_VolPerfHistListType hist_list;
     map_rwlock.read_lock();
-    for (std::unordered_map<fds_uint32_t, StatHistory*>::iterator it = histmap.begin();
+    for (std::unordered_map<fds_volid_t, StatHistory*>::iterator it = histmap.begin();
 	 it != histmap.end();
 	 ++it)
     {
@@ -193,7 +193,7 @@ void PerfStats::pushToOM()
     }
   }
 
-void PerfStats::setStatFromFdsp(fds_uint32_t class_id, 
+void PerfStats::setStatFromFdsp(fds_volid_t class_id, 
                                 const std::string& start_timestamp,
                                 const FDS_ProtocolInterface::FDSP_PerfStatType& stat_msg)
 {
@@ -225,7 +225,7 @@ void PerfStats::setStatFromFdsp(fds_uint32_t class_id,
     map_rwlock.read_unlock();
   }
 
-long PerfStats::getAverageIOPS(fds_uint32_t class_id,
+long PerfStats::getAverageIOPS(fds_volid_t class_id,
                                const boost::posix_time::ptime end_ts,
                                int interval_sec)
 {

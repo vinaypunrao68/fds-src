@@ -661,7 +661,7 @@ class netSessionTbl {
   netSessionTbl(FDSP_MgrIdType myMgrId)
       : netSessionTbl("", 0, 0, 50, myMgrId) {
       }
-  ~netSessionTbl();
+  virtual ~netSessionTbl();
 
   static string ipAddr2String(int ipaddr);
   static int ipString2Addr(string ipaddr_str);

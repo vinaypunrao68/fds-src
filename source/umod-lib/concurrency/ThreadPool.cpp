@@ -247,7 +247,7 @@ fds_threadpool::fds_threadpool(int max_tsk, int spawn_thres,
       thp_spawning(0)
 {
     int            i;
-    dlist_t       *iter;
+    // dlist_t       *iter;
     thpool_worker *worker;
 
     fds_assert(min_thr <= max_thr);

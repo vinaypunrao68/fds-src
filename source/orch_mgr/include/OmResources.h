@@ -90,6 +90,9 @@ class OM_SmAgent : public NodeAgent
 
     virtual void om_send_reg_resp(const Error &err);
     virtual void om_send_vol_cmd(VolumeInfo::pointer vol, fpi::FDSP_MsgCodeType cmd);
+    virtual void om_send_vol_cmd(VolumeInfo::pointer    vol,
+                                 std::string           *vname,
+                                 fpi::FDSP_MsgCodeType  cmd);
 
     virtual void om_send_dlt(const DLT *curDlt);
     virtual void init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const;
@@ -223,8 +226,9 @@ class OM_NodeContainer : public DomainContainer
     inline VolumeContainer::pointer om_vol_mgr() {
         return om_volumes;
     }
-    inline int om_create_vol(const FdspCrtVolPtr &creat_msg) {
-        return om_volumes->om_create_vol(creat_msg);
+    inline int om_create_vol(const FDSP_MsgHdrTypePtr &hdr,
+                             const FdspCrtVolPtr      &creat_msg) {
+        return om_volumes->om_create_vol(hdr, creat_msg);
     }
     inline int om_delete_vol(const FdspDelVolPtr &del_msg) {
         return om_volumes->om_delete_vol(del_msg);
@@ -347,7 +351,7 @@ class OM_NodeDomainMod : public Module
      * name (should ask the user to pick another node name).
      */
     virtual Error
-            om_reg_node_info(const NodeUuid &uuid, const FdspNodeRegPtr msg);
+    om_reg_node_info(const NodeUuid &uuid, const FdspNodeRegPtr msg);
 
     /**
      * Unregister the node matching uuid from the domain manager.
@@ -374,7 +378,6 @@ class OM_NodeDomainMod : public Module
      */
     virtual void om_update_cluster();
     virtual void om_persist_node_info(fds_uint32_t node_idx);
-    virtual void om_update_cluster_map();
 
     /**
      * Domain support.

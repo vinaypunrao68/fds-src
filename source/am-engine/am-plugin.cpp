@@ -141,7 +141,7 @@ ngx_http_fds_read_body(ngx_http_request_t *r)
     std::vector<std::string>  uri_parts = http_req.getURIParts();
     ngx_http_fds_loc_conf_t  *fdcf;
     std::string               value;
-    fds_bool_t                keyExists;
+    // fds_bool_t                keyExists;
 
     ame_plugin = sgt_ame_plugin[fds::FDS_NativeAPI::FDSN_AWS_S3];
     fds_assert(ame_plugin);
@@ -371,11 +371,11 @@ ngx_http_fds_data_create_loc_conf(ngx_conf_t *cf)
 static char *
 ngx_http_fds_data_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 {
-    ngx_http_fds_loc_conf_t *prev;
-    ngx_http_fds_loc_conf_t *self;
+    // ngx_http_fds_loc_conf_t *prev;
+    // ngx_http_fds_loc_conf_t *self;
 
-    prev = static_cast<ngx_http_fds_loc_conf_t *>(parent);
-    self = static_cast<ngx_http_fds_loc_conf_t *>(child);
+    static_cast<ngx_http_fds_loc_conf_t *>(parent);
+    static_cast<ngx_http_fds_loc_conf_t *>(child);
     return NGX_CONF_OK;
 }
 

@@ -421,11 +421,12 @@ TokenCopyReceiver::TokenCopyReceiver(FdsMigrationSvc *migrationSvc,
         boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler,
         ClusterCommMgrPtr clust_comm_mgr)
     : MigrationReceiver(mig_id),
-      FdsRequestQueueActor(threadpool),
+      FdsRequestQueueActor(mig_id, migrationSvc, threadpool),
       migrationSvc_(migrationSvc),
       log_(log),
       clust_comm_mgr_(clust_comm_mgr)
 {
+    DBG(destroy_sent_ = false);
     /* Map of sender node -> tokens to request from sender */
     auto token_tbl = clust_comm_mgr_->partition_tokens_by_node(tokens);
 
@@ -545,19 +546,18 @@ void TokenCopyReceiver::destroy_migration_stream(const std::string &mig_stream_i
     fds_assert(itr != rcvr_sms_.end());
     rcvr_sms_.erase(itr);
 
-    /* If all streams are done notify migration service */
+    /* If all streams are done start the shutdown process */
     if (rcvr_sms_.size() == 0) {
-        MigSvcMigrationCompletePtr mig_complete(new MigSvcMigrationComplete());
-        mig_complete->mig_id = mig_id_;
         FdsActorRequestPtr far(new FdsActorRequest(
-                FAR_ID(MigSvcMigrationComplete), mig_complete));
+                FAR_ID(FdsActorShutdown), nullptr));
 
-        Error err = migrationSvc_->send_actor_request(far);
+        Error err = this->send_actor_request(far);
         if (err != ERR_OK) {
             fds_assert(!"Failed to send message");
             LOGERROR << "Failed to send actor message.  Error: "
                     << err;
         }
+        DBG(destroy_sent_ = true);
     }
 }
 } /* namespace fds */

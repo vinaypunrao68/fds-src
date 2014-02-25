@@ -3,7 +3,9 @@
  */
 #include <cmath>
 #include <vector>
+#include <set>
 #include <map>
+#include <algorithm>
 #include <dlt.h>
 #include <iostream>
 #include <string>
@@ -116,6 +118,15 @@ fds_token_id DLT::getToken(const ObjectID& objId) const {
     fds_uint64_t token_bitmask = ((1 << numBitsForToken) - 1);
     fds_uint64_t bit_offset = (sizeof(objId.GetHigh())*8 - numBitsForToken);
     return (fds_token_id)(token_bitmask & (objId.GetHigh() >> bit_offset));
+}
+
+void DLT::getTokenObjectRange(const fds_token_id &token,
+        ObjectID &begin, ObjectID &end) const
+{
+    fds_uint64_t max = ((fds_uint64_t) 0) - 1;
+    fds_uint64_t bit_offset = (sizeof(begin.GetHigh())*8 - numBitsForToken);
+    begin.SetId(((fds_uint64_t) token) << bit_offset, 0);
+    end.SetId(begin.GetHigh() | (max >> numBitsForToken), max);
 }
 
 // get all the Nodes for a token/objid
@@ -384,6 +395,33 @@ bool DLT::loadSerialized(std::string& serializedData) { // NOLINT
     return true;
 }
 
+/**
+ *
+ * @param uid Node id
+ * @param new_dlt
+ * @param old_dlt
+ * @return difference between new_dlt and old_dlt.  Only entries that exist in
+ * new_dlt but don't exist in old_dlt are returned
+ */
+std::set<fds_token_id> DLT::token_diff(const NodeUuid &uid,
+                const DLT* new_dlt, const DLT* old_dlt)
+{
+    std::set<fds_token_id> ret_set;
+    if (old_dlt == nullptr) {
+        ret_set.insert(new_dlt->getTokens(uid).begin(),
+                new_dlt->getTokens(uid).end());
+        return ret_set;
+    }
+
+    std::set<fds_token_id> old_set(old_dlt->getTokens(uid).begin(),
+            old_dlt->getTokens(uid).end());
+    std::set<fds_token_id> new_set(new_dlt->getTokens(uid).begin(),
+                new_dlt->getTokens(uid).end());
+    std::set_difference(new_set.begin(), new_set.end(),
+            old_set.begin(), old_set.end(),
+            std::insert_iterator<std::set<fds_token_id> >(ret_set, ret_set.end()));
+    return ret_set;
+}
 //================================================================================
 
 /**

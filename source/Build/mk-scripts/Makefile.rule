@@ -313,6 +313,14 @@ ctags:
 	@$(scpt_make_ctags)
 
 # -----------------------------------------------------------------------------
+# Precheckin rule
+#
+.PHONY: precheckin
+precheckin:
+	@echo Run primitive precheckin....
+	(cd $(topdir) && ./test/fds-primitive-smoke.py)
+
+# -----------------------------------------------------------------------------
 # Debug target to dump out Makefile variables
 #
 .PHONY: mk_debug

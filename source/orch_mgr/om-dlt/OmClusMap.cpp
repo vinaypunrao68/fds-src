@@ -62,6 +62,14 @@ ClusterMap::getTotalStorWeight() const {
     return total_weight;
 }
 
+void
+ClusterMap::resetPendNodes() {
+    mapMutex->lock();
+    addedNodes.clear();
+    removedNodes.clear();
+    mapMutex->unlock();
+}
+
 Error
 ClusterMap::updateMap(const NodeList &addNodes,
                       const NodeList &rmNodes) {

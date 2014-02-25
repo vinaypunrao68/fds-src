@@ -12,9 +12,8 @@ namespace fds {
 
 FDSP_MigrationPathRpc::
 FDSP_MigrationPathRpc(FdsMigrationSvc &mig_svc, fds_log *log) // NOLINT
-    : mig_svc_(mig_svc),
-      log_(log)
-{
+    : mig_svc_(mig_svc) {
+    SetLog(log);
 }
 
 void FDSP_MigrationPathRpc::
@@ -76,14 +75,14 @@ FdsMigrationSvc::FdsMigrationSvc(SmIoReqHandler *data_store,
         fds_log *log, netSessionTblPtr nst,
         ClusterCommMgrPtr clust_comm_mgr)
     : Module("FdsMigrationSvc"),
-      FdsRequestQueueActor(),
+      FdsRequestQueueActor("FdsMigrationSvc", nullptr),
       mig_cntrs("Migration", g_cntrs_mgr.get()),
       data_store_(data_store),
       conf_helper_(conf_helper),
-      log_(log),
       nst_(nst),
       clust_comm_mgr_(clust_comm_mgr)
 {
+    SetLog(log);
 }
 
 /**
@@ -122,7 +121,7 @@ Error FdsMigrationSvc::handle_actor_request(FdsActorRequestPtr req)
         handle_migsvc_copy_token(req);
         break;
     }
-    case FAR_ID(MigSvcMigrationComplete):
+    case FAR_ID(FdsActorShutdownComplete):
     {
         handle_migsvc_migration_complete(req);
         break;
@@ -195,7 +194,7 @@ void FdsMigrationSvc::handle_migsvc_copy_token(FdsActorRequestPtr req)
 
     TokenCopyReceiver* copy_rcvr = new TokenCopyReceiver(this,
             data_store_, mig_id,
-            threadpool_, log_, tokens,
+            threadpool_, GetLog(), tokens,
             migpath_handler_, clust_comm_mgr_);
     mig_actors_[mig_id].migrator.reset(copy_rcvr);
     mig_actors_[mig_id].migsvc_resp_cb = copy_payload->migsvc_resp_cb;
@@ -236,7 +235,7 @@ void FdsMigrationSvc::handle_migsvc_copy_token_rpc(FdsActorRequestPtr req)
     TokenCopySender *copy_sender =
             new TokenCopySender(this, data_store_,
                     mig_id, mig_stream_id,
-                    threadpool_, log_,
+                    threadpool_, GetLog(),
                     rcvr_ip, rcvr_port,
                     tokens, migpath_handler_,
                     clust_comm_mgr_);
@@ -256,14 +255,14 @@ void FdsMigrationSvc::handle_migsvc_copy_token_rpc(FdsActorRequestPtr req)
 void FdsMigrationSvc::
 handle_migsvc_migration_complete(FdsActorRequestPtr req)
 {
-    fds_assert(req->type == FAR_ID(MigSvcMigrationComplete));
+    fds_assert(req->type == FAR_ID(FdsActorShutdownComplete));
 
-    auto payload = req->get_payload<MigSvcMigrationComplete>();
-    auto itr = mig_actors_.find(payload->mig_id);
+    auto payload = req->get_payload<FdsActorShutdownComplete>();
+    auto itr = mig_actors_.find(payload->far_id);
     if (itr == mig_actors_.end()) {
         /* For testing.  Remove when not needed */
         fds_assert(!"Migration actor not found");
-        LOGWARN << "Migration actor id: " << payload->mig_id
+        LOGWARN << "Migration actor id: " << payload->far_id
                 << " disappeared";
         return;
     }
@@ -275,13 +274,13 @@ handle_migsvc_migration_complete(FdsActorRequestPtr req)
     // TODO(rao): We need to remove the migrator.  I am experiencing crash
     // when I do this.  I suspect fds actor queue is still scheduled even
     // after removing the migration actor
-    // mig_actors_.erase(itr);
+    mig_actors_.erase(itr);
 
     if (migsvc_resp_cb) {
         migsvc_resp_cb(ERR_OK);
     }
 
-    LOGNORMAL << " Migration id: " << payload->mig_id;
+    LOGNORMAL << " Migration id: " << payload->far_id;
 }
 
 /**
@@ -289,9 +288,9 @@ handle_migsvc_migration_complete(FdsActorRequestPtr req)
  */
 void FdsMigrationSvc::setup_migpath_server()
 {
-    migpath_handler_.reset(new FDSP_MigrationPathRpc(*this, log_));
+    migpath_handler_.reset(new FDSP_MigrationPathRpc(*this, GetLog()));
 
-    std::string ip = conf_helper_.get<std::string>("ip");
+    std::string ip = netSession::getLocalIp();
     int port = conf_helper_.get<int>("port");
     int myIpInt = netSession::ipString2Addr(ip);
     // TODO(rao): Do not hard code.  Get from config
@@ -304,7 +303,7 @@ void FdsMigrationSvc::setup_migpath_server()
         migpath_handler_);
 
     LOGNORMAL << "Migration path server setup ip: "
-            << ip << " port: " << port;
+              << ip << " port: " << port;
 }
 
 /**
@@ -371,7 +370,7 @@ FdsMigrationSvc::get_resp_client(const std::string &session_uuid)
  */
 std::string FdsMigrationSvc::get_ip()
 {
-    return conf_helper_.get<std::string>("ip");
+    return netSession::getLocalIp();
 }
 
 /**

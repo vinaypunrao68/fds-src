@@ -287,7 +287,7 @@ void OrchMgr::NotifyQueueFull(const FDSP_MsgHdrTypePtr& fdsp_msg,
     int min_priority = que_st_list[0].priority;
     int min_p_q_depth = que_st_list[0].queue_depth;
 
-    for (int i = 0; i < que_st_list.size(); i++) {
+    for (uint i = 0; i < que_st_list.size(); i++) {
         FDS_PLOG_SEV(GetLog(), fds_log::notification)
                 << "Received queue full for volume "
                 << que_st_list[i].vol_uuid
@@ -345,11 +345,11 @@ void OrchMgr::NotifyPerfstats(const FDSP_MsgHdrTypePtr& fdsp_msg,
         local->om_handle_perfstats_from_am(perf_stats_msg->vol_hist_list,
                                            perf_stats_msg->start_timestamp);
 
-        for (int i = 0; i < (perf_stats_msg->vol_hist_list).size(); ++i) {
+        for (uint i = 0; i < (perf_stats_msg->vol_hist_list).size(); ++i) {
             FDS_ProtocolInterface::FDSP_VolPerfHistType& vol_hist
                     = (perf_stats_msg->vol_hist_list)[i];
             FDS_PLOG(GetLog()) << "OM: received perfstat for vol " << vol_hist.vol_uuid;
-            for (int j = 0; j < (vol_hist.stat_list).size(); ++j) {
+            for (uint j = 0; j < (vol_hist.stat_list).size(); ++j) {
                 FDS_ProtocolInterface::FDSP_PerfStatType stat = (vol_hist.stat_list)[j];
                 FDS_PLOG_SEV(GetLog(), fds::fds_log::debug)
                         << "OM: --- stat_type " << stat.stat_type
@@ -366,11 +366,11 @@ void OrchMgr::NotifyPerfstats(const FDSP_MsgHdrTypePtr& fdsp_msg,
          * volume or have them separate. Should just mostly follow the code of handling
          * stats from AM but for now output debug msg to the log
          */
-        for (int i = 0; i < (perf_stats_msg->vol_hist_list).size(); ++i) {
+        for (uint i = 0; i < (perf_stats_msg->vol_hist_list).size(); ++i) {
             FDS_ProtocolInterface::FDSP_VolPerfHistType& vol_hist
                     = (perf_stats_msg->vol_hist_list)[i];
             FDS_PLOG(GetLog()) << "OM: received perfstat for vol " << vol_hist.vol_uuid;
-            for (int j = 0; j < (vol_hist.stat_list).size(); ++j) {
+            for (uint j = 0; j < (vol_hist.stat_list).size(); ++j) {
                 FDS_ProtocolInterface::FDSP_PerfStatType& stat = (vol_hist.stat_list)[j];
                 FDS_PLOG_SEV(GetLog(), fds_log::normal)
                         << "OM: --- stat_type " << stat.stat_type
