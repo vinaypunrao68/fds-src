@@ -400,8 +400,7 @@ class OM_NodeDomainMod : public Module
 /**
  * control response handler
  */
-class OM_ControlRespHandler : public FDS_ProtocolInterface::
-FDSP_ControlPathRespIf {
+class OM_ControlRespHandler : public fpi:: FDSP_ControlPathRespIf {
   public:
     explicit OM_ControlRespHandler();
 
@@ -467,6 +466,7 @@ FDSP_ControlPathRespIf {
     void NotifyDMTUpdateResp(
         FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
         FDS_ProtocolInterface::FDSP_DMT_TypePtr& dmt_info_resp);
+
   private:
         // TODO(Andrew): Add ptr back to resource manager.
 };

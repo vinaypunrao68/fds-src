@@ -9,9 +9,12 @@
 #include <fds_module.h>
 #include <fdsp/FDSP_types.h>
 #include <fdsp/FDSP_types.h>
+#include <NetSession.h>
 #include <platform/node-inventory.h>
 
 namespace fds {
+
+class PlatRpcReq;
 
 // -------------------------------------------------------------------------------------
 // Node Inventory and Cluster Map
@@ -89,12 +92,15 @@ class PlatEvent
     typedef boost::intrusive_ptr<const PlatEvent> const_ptr;
 
     virtual ~PlatEvent();
-    explicit PlatEvent(char const *const name);
-
-    virtual void plat_evt_handler() = 0;
+    PlatEvent(char const *const         name,
+              DomainResources::pointer  mgr,
+              DomainClusterMap::pointer clus);
+    virtual void plat_evt_handler(const FDSP_MsgHdrTypePtr &hdr) = 0;
 
   protected:
-    char const *const        pe_name;
+    char const *const          pe_name;
+    DomainResources::pointer   pe_resources;
+    DomainClusterMap::pointer  pe_clusmap;
 
   private:
     mutable boost::atomic<int>  rs_refcnt;
@@ -116,9 +122,57 @@ class NodePlatEvent : public PlatEvent
     typedef boost::intrusive_ptr<const NodePlatEvent> const_ptr;
 
     virtual ~NodePlatEvent() {}
-    NodePlatEvent() : PlatEvent("NodeEvent") {}
+    NodePlatEvent(DomainResources::pointer  mgr,
+                  DomainClusterMap::pointer clus)
+        : PlatEvent("NodeEvent", mgr, clus) {}
 
-    virtual void plat_evt_handler();
+    virtual void plat_evt_handler(const FDSP_MsgHdrTypePtr &hdr);
+
+  protected:
+    virtual int
+    plat_recvNodeEvent(const FDSP_MsgHdrTypePtr &hdr, const FDSP_Node_Info_Type &evt);
+
+    virtual int
+    plat_recvMigrationEvent(const FDSP_MsgHdrTypePtr &hdr, const FDSP_DLT_Data_Type &dlt);
+
+    virtual int
+    plat_recvDLTStartMigration(const FDSP_MsgHdrTypePtr    &hdr,
+                               const FDSP_DLT_Data_TypePtr &dlt);
+
+    virtual int
+    plat_recvDLTUpdate(const FDSP_MsgHdrTypePtr &hdr, const FDSP_DLT_Data_Type &dlt);
+
+    virtual int
+    plat_recvDMTUpdate(const FDSP_MsgHdrTypePtr &hdr, const FDSP_DMT_Type &dmt);
+};
+
+class VolPlatEvent : public PlatEvent
+{
+  public:
+    typedef boost::intrusive_ptr<NodePlatEvent> pointer;
+    typedef boost::intrusive_ptr<const NodePlatEvent> const_ptr;
+
+    virtual ~VolPlatEvent() {}
+    VolPlatEvent(DomainResources::pointer  mgr,
+                 DomainClusterMap::pointer clus)
+        : PlatEvent("VolEvent", mgr, clus) {}
+
+    virtual void plat_evt_handler(const FDSP_MsgHdrTypePtr &hdr);
+
+  protected:
+    virtual int
+    plat_set_throttle(const FDSP_MsgHdrTypePtr      &hdr,
+                      const FDSP_ThrottleMsgTypePtr &msg);
+
+    virtual int
+    plat_bucket_stat(const FDSP_MsgHdrTypePtr          &hdr,
+                     const FDSP_BucketStatsRespTypePtr &msg);
+
+    virtual int
+    plat_add_vol(const FDSP_MsgHdrTypePtr &hdr, const FDSP_NotifyVolTypePtr &add);
+
+    virtual int
+    plat_rm_vol(const FDSP_MsgHdrTypePtr &hdr, const FDSP_NotifyVolTypePtr &rm);
 };
 
 // -------------------------------------------------------------------------------------
@@ -132,6 +186,7 @@ class Platform : public Module
   public:
     virtual ~Platform();
     Platform(char const *const         name,
+             FDSP_MgrIdType            node_type,
              DomainNodeInv::pointer    node_inv,
              DomainClusterMap::pointer cluster,
              DomainResources::pointer  resources,
@@ -202,12 +257,13 @@ class Platform : public Module
     FDSP_MgrIdType             plf_node_type;
     NodeUuid                   plf_my_uuid;
     std::string                plf_my_node_name;
+    std::string                plf_my_ip;
     std::string                plf_om_ip_str;
-    std::string                plf_host_ip;
     fds_uint32_t               plf_om_conf_port;
     fds_uint32_t               plf_my_ctrl_port;
     fds_uint32_t               plf_my_data_port;
     fds_uint32_t               plf_my_migration_port;
+    fds_bool_t                 plf_test_mode;
 
     OmAgent::pointer           plf_master;
     DomainNodeInv::pointer     plf_node_inv;
@@ -223,8 +279,83 @@ class Platform : public Module
     PlatEvent::pointer         plf_migrate_evt;
     PlatEvent::pointer         plf_tier_evt;
     PlatEvent::pointer         plf_bucket_stats_evt;
+
+    boost::shared_ptr<netSessionTbl>  plf_net_sess;
+    boost::shared_ptr<PlatRpcReq>     plf_rpc_reqt;  /**< rpc handler for OM reqt.   */
+    boost::shared_ptr<std::thread>    plf_rpc_thrd;  /**< thread running rpc handler */
+    netControlPathServerSession      *plf_rpc_sess;  /**< associated session.        */
+
+    /**
+     * Required Factory method.
+     */
+    virtual PlatRpcReq *plat_creat_rpc_handler() = 0;
+
+  private:
+    void plf_rpc_server_thread();
 };
 
+class PlatRpcReq : public fpi::FDSP_ControlPathReqIf
+{
+  public:
+    PlatRpcReq();
+    virtual ~PlatRpcReq();
+
+    void NotifyAddVol(const FDSP_MsgHdrType &, const FDSP_NotifyVolType &);
+    virtual void NotifyAddVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
+                              fpi::FDSP_NotifyVolTypePtr &vol_msg);
+
+    void NotifyRmVol(const FDSP_MsgHdrType &, const FDSP_NotifyVolType &);
+    virtual void NotifyRmVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
+                             fpi::FDSP_NotifyVolTypePtr &vol_msg);
+
+    void NotifyModVol(const FDSP_MsgHdrType &, const FDSP_NotifyVolType &);
+    virtual void NotifyModVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
+                              fpi::FDSP_NotifyVolTypePtr &vol_msg);
+
+    void AttachVol(const FDSP_MsgHdrType &, const FDSP_AttachVolType &);
+    virtual void AttachVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
+                           fpi::FDSP_AttachVolTypePtr &vol_msg);
+
+    void DetachVol(const FDSP_MsgHdrType &, const FDSP_AttachVolType &);
+    virtual void DetachVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
+                           fpi::FDSP_AttachVolTypePtr &vol_msg);
+
+    void NotifyNodeAdd(const FDSP_MsgHdrType &, const FDSP_Node_Info_Type &);
+    void NotifyNodeAdd(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
+                       fpi::FDSP_Node_Info_TypePtr &node_info);
+
+    void NotifyNodeRmv(const FDSP_MsgHdrType &, const FDSP_Node_Info_Type &);
+    void NotifyNodeRmv(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
+                       fpi::FDSP_Node_Info_TypePtr &node_info);
+
+    void NotifyDLTUpdate(const FDSP_MsgHdrType &, const FDSP_DLT_Data_Type &);
+    void NotifyDLTUpdate(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
+                         fpi::FDSP_DLT_Data_TypePtr &dlt_info);
+
+    void NotifyDMTUpdate(const FDSP_MsgHdrType &, const FDSP_DMT_Type &);
+    void NotifyDMTUpdate(fpi::FDSP_MsgHdrTypePtr &msg_hdr,
+                         fpi::FDSP_DMT_TypePtr   &dmt_info);
+
+    void SetThrottleLevel(const FDSP_MsgHdrType &, const FDSP_ThrottleMsgType &);
+    void SetThrottleLevel(fpi::FDSP_MsgHdrTypePtr      &msg_hdr,
+                          fpi::FDSP_ThrottleMsgTypePtr &throttle_msg);
+
+    void TierPolicy(const FDSP_TierPolicy &tier);
+    void TierPolicy(fpi::FDSP_TierPolicyPtr &tier);
+
+    void TierPolicyAudit(const FDSP_TierPolicyAudit &audit);
+    void TierPolicyAudit(fpi::FDSP_TierPolicyAuditPtr &audit);
+
+    void NotifyBucketStats(const fpi::FDSP_MsgHdrType          &msg_hdr,
+                           const fpi::FDSP_BucketStatsRespType &buck_stats_msg);
+    void NotifyBucketStats(fpi::FDSP_MsgHdrTypePtr          &msg_hdr,
+                           fpi::FDSP_BucketStatsRespTypePtr &buck_stats_msg);
+
+    void NotifyStartMigration(const fpi::FDSP_MsgHdrType    &msg_hdr,
+                              const fpi::FDSP_DLT_Data_Type &dlt_info);
+    void NotifyStartMigration(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
+                              fpi::FDSP_DLT_Data_TypePtr &dlt_info);
+};
 
 };  // namespace fds
 
