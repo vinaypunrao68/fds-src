@@ -20,10 +20,13 @@ class FdsEnv:
             print "Can't determine FDS root from the current dir ", self.env_cdir
             sys.exit(1)
 
+    def shut_down(self):
+        subprocess.call(['pkill', '-9', 'AMAgent'])
+        subprocess.call(['pkill', '-9', 'Mgr'])
+
     def cleanup(self):
+        self.shut_down()
         os.chdir(self.env_fdsroot)
-        subprocess.call(['pkill', 'AMAgent'])
-        subprocess.call(['pkill', 'Mgr'])
         subprocess.call(['test/cleanup.sh'])
 
 class FdsSetupEnv:
@@ -40,6 +43,8 @@ class FdsRootCopy:
     def __init__(self, env):
         self.env      = env
         self.cpp_list = []
+        self.err_cnt  = 0
+        self.err_chk  = 0
 
         os.chdir(self.env.env_fdsroot)
         cpp_files = subprocess.Popen(
@@ -61,16 +66,18 @@ class FdsRootCopy:
 
         for put in self.cpp_list:
             cnt = cnt + 1
-            obj = os.path.basename(put)
-            ret = subprocess.call(['curl', '-X', 'POST', '--data-ascii',
+            obj = put.replace("/", "_")
+            ret = subprocess.call(['curl', '-X', 'POST', '--data-binary',
                     '@' + put, 'http://localhost:8000/abc/' + obj])
 
             if ret != 0:
+                print "curl error: " + put + ": " + obj
                 err = err + 1
             if (cnt % 10) == 0:
                 print "Put ", cnt, " objects... errors: [", err, "]"
 
         print "Put ", cnt, " objects... errors: [", err, "]"
+        self.err_cnt += err
 
     def GetTest(self):
         os.chdir(self.env.env_fdsroot)
@@ -78,23 +85,34 @@ class FdsRootCopy:
         err = 0
         chk = 0
         print self.cpp_list
+        print "\n"
         for get in self.cpp_list:
             cnt = cnt + 1
-            obj = os.path.basename(get)
+            obj = get.replace("/", "_");
             tmp = '/tmp/' + obj
-            ret = subprocess.call(['curl', 'http://localhost:8000/abc/' + obj, '-o', tmp])
+            ret = subprocess.call(['curl', '-s' '1' , 'http://localhost:8000/abc/' + obj, '-o', tmp])
             if ret != 0:
+                print "curl error: " + get + ": " + obj + " -> " + tmp
                 err = err + 1
 
             ret = subprocess.call(['diff', get, tmp])
             if ret != 0:
                 chk = chk + 1
+                print "Get ", get, " -> ", tmp, ": ", cnt, " objects... errors: [", err, "], verify failed [", chk, "]"
+            else:
+                subprocess.call(['rm', tmp])
             if (cnt % 10) == 0:
-                print "Get ", cnt, " objects... errors: [", err, "], verify [", chk, "]"
+                print "Get ", cnt, " objects... errors: [", err, "], verify failed [", chk, "]"
 
-            subprocess.call(['rm', tmp])
 
-        print "Get ", cnt, " objects... errors: [", err, "], verify [", chk, "]"
+        print "Get ", cnt, " objects... errors: [", err, "], verify failed [", chk, "]"
+        self.err_cnt += err
+        self.err_chk += chk
+
+    def exitOnError(self):
+        if self.err_cnt != 0 or self.err_chk != 0:
+            print "Test Failed: errors: [", self.err_cnt, "], verify failed [", self.err_chk, "]"
+            sys.exit(1)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Start FDS Processes...')
@@ -131,5 +149,10 @@ if __name__ == "__main__":
 
     smoke = FdsRootCopy(env)
     smoke.PutTest()
-    # smoke.GetTest()
+    smoke.GetTest()
+    smoke.exitOnError()
+
+    # do shut_down clients on cleanup test run
+    print "Test Passed, cleaning up..."
+    env.shut_down()
 
