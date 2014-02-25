@@ -7,6 +7,7 @@
 #include <iostream>
 #include <atomic>
 #include <vector>
+#include <ostream>
 #include <boost/noncopyable.hpp>
 #include <fds_assert.h>
 #include <concurrency/Mutex.h>
@@ -30,6 +31,8 @@ class FdsCountersMgr : public boost::noncopyable {
   void remove_from_export(FdsCounters *counters);
 
   std::string export_as_graphite();
+
+  void export_to_ostream(std::ostream &stream);
 
  protected:
   std::string id_;

@@ -57,4 +57,17 @@ std::string FdsCountersMgr::export_as_graphite()
     return oss.str();
 }
 
+void FdsCountersMgr::export_to_ostream(std::ostream &stream)  // NOLINT
+{
+    fds_mutex::scoped_lock lock(lock_);
+
+    for (auto counters : exp_counters_) {
+        std::string counters_id = counters->id();
+        for (auto c : counters->exp_counters_) {
+            stream << id_ << "." << counters_id << "." << c->id() << ":\t\t" << c->value()
+                    << std::endl;
+        }
+    }
+}
+
 }  // namespace fds

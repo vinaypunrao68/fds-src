@@ -75,31 +75,23 @@ class DatapathRespImpl : public FDS_ProtocolInterface::FDSP_DataPathRespIf {
  private:
     std::string *get_obj_buf_;
     concurrency::TaskStatus *get_resp_monitor_;
-    friend class FdsDataChecker;
+    friend class DirBasedChecker;
 };
 
-FdsDataChecker::FdsDataChecker(int argc, char *argv[],
-               const std::string &config_file,
-               const std::string &base_path)
-    : FdsProcess(argc, argv, config_file, base_path),
+DirBasedChecker::DirBasedChecker(const FdsConfigAccessor &conf_helper)
+    : BaseChecker("DirBasedChecker"),
+      conf_helper_(conf_helper),
       get_resp_monitor_(0),
       dp_resp_handler_(new DatapathRespImpl())
 {
-    g_fdslog->setSeverityFilter(
-            (fds_log::severity_level) conf_helper_.get<int>("log_severity"));
 }
 
-FdsDataChecker::~FdsDataChecker()
+DirBasedChecker::~DirBasedChecker()
 {
-    delete clust_comm_mgr_->get_om_client();
 }
 
-void FdsDataChecker::setup(int argc, char *argv[],
-                       fds::Module **mod_vec)
+void DirBasedChecker::mod_startup()
 {
-    FdsProcess::setup(argc, argv, mod_vec);
-
-
     /* set up nst */
     std::string myIp = netSession::getLocalIp();
     netSessionTblPtr nst(new netSessionTbl(FDSP_STOR_HVISOR));
@@ -141,8 +133,13 @@ void FdsDataChecker::setup(int argc, char *argv[],
     while (clust_comm_mgr_->get_dlt() == nullptr) {sleep(1);}
 }
 
+void DirBasedChecker::mod_shutdown()
+{
+    delete clust_comm_mgr_->get_om_client();
+}
+
 netDataPathClientSession*
-FdsDataChecker::get_datapath_session(const NodeUuid& node_id)
+DirBasedChecker::get_datapath_session(const NodeUuid& node_id)
 {
     unsigned int ip;
     fds_uint32_t port;
@@ -168,7 +165,7 @@ FdsDataChecker::get_datapath_session(const NodeUuid& node_id)
     return dp_session;
 }
 
-bool FdsDataChecker::read_file(const std::string &filename, std::string &content)
+bool DirBasedChecker::read_file(const std::string &filename, std::string &content)
 {
     std::ifstream ifs(filename);
     content.assign((std::istreambuf_iterator<char>(ifs)),
@@ -176,7 +173,7 @@ bool FdsDataChecker::read_file(const std::string &filename, std::string &content
     return true;
 }
 
-bool FdsDataChecker::get_object(const NodeUuid& node_id,
+bool DirBasedChecker::get_object(const NodeUuid& node_id,
         const ObjectID &oid, std::string &content)
 {
     auto dp_session = get_datapath_session(node_id);
@@ -213,7 +210,7 @@ bool FdsDataChecker::get_object(const NodeUuid& node_id,
     return true;
 }
 
-void FdsDataChecker::run()
+void DirBasedChecker::run_checker()
 {
     fs::path full_path = fs::system_complete(conf_helper_.get<std::string>("path"));
 
@@ -245,16 +242,47 @@ void FdsDataChecker::run()
             fds_verify(ret == true);
             fds_verify(ret_obj_data == obj_data);
 
+            cntrs_.obj_cnt.incr();
+
             LOGDEBUG << "oid: " << oid << " check passed against: "
                     << std::hex << ((*nodes)[i]).uuid_get_val();
         }
     }
 }
 
+FdsCheckerProc::FdsCheckerProc(int argc, char *argv[],
+               const std::string &config_file,
+               const std::string &base_path)
+    : FdsProcess(argc, argv, config_file, base_path)
+{
+    g_fdslog->setSeverityFilter(
+            (fds_log::severity_level) conf_helper_.get<int>("log_severity"));
+}
+
+FdsCheckerProc::~FdsCheckerProc()
+{
+    checker_->mod_shutdown();
+}
+
+void FdsCheckerProc::setup(int argc, char *argv[],
+                       fds::Module **mod_vec)
+{
+    FdsProcess::setup(argc, argv, mod_vec);
+
+    checker_.reset(new DirBasedChecker(conf_helper_));
+    checker_->mod_startup();
+}
+
+void FdsCheckerProc::run()
+{
+    checker_->run_checker();
+    g_cntrs_mgr->export_to_ostream(std::cout);
+}
+
 }  // namespace fds
 
 int main(int argc, char *argv[]) {
-    fds::FdsDataChecker *checker = new fds::FdsDataChecker(argc, argv,
+    fds::FdsCheckerProc *checker = new fds::FdsCheckerProc(argc, argv,
             "checker.conf", "fds.checker.");
     checker->setup(argc, argv, nullptr);
     checker->run();
