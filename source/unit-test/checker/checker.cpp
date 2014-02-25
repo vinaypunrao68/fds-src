@@ -85,6 +85,8 @@ FdsDataChecker::FdsDataChecker(int argc, char *argv[],
       get_resp_monitor_(0),
       dp_resp_handler_(new DatapathRespImpl())
 {
+    g_fdslog->setSeverityFilter(
+            (fds_log::severity_level) conf_helper_.get<int>("log_severity"));
 }
 
 FdsDataChecker::~FdsDataChecker()
