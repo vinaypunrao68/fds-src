@@ -8,7 +8,7 @@ import java.util.function.Consumer;
 /**
  * Copyright 2014 Formation Data Systems, Inc.
  */
-class NativeApi implements Fds {
+public class NativeApi implements Fds {
     static {
         String absolutePath = new File(".").getAbsolutePath();
         System.load(new File(absolutePath, "fds_java_bindings").getAbsolutePath());
@@ -17,7 +17,7 @@ class NativeApi implements Fds {
     static native void init();
     static native void getBucketsStats(Consumer<Collection<BucketStatsContent>> result);
     static native void createBucket(String bucketName, Consumer<Integer> result);
-    static native void put(String bucketName, String objectName, byte[] bytes, Consumer<Integer> result);
+    public static native void put(String bucketName, String objectName, byte[] bytes, Consumer<Integer> result);
 
     static {
         init();

@@ -8,15 +8,16 @@
 
 namespace fds {
     namespace java {
-        JavaContext::JavaContext(JavaVM *javaVM, std::vector<jobject> args) {
+        JavaContext::JavaContext(JavaVM *javaVM, jobject arg) {
             this->javaVM = javaVM;
-            this->args = args;
+            this->arg = arg;
         }
         
         JNIEnv *JavaContext::attachCurrentThread() {
             JNIEnv *env;
             if (this->javaVM->AttachCurrentThread((void **)(&env), NULL) != 0) {
-                std::cout << "Failed to attach" << std::endl;
+                printf("Failed to attach current thread!\n");
+                fflush(stdout);
             }
             return env;
         }
@@ -28,6 +29,7 @@ namespace fds {
         jobject JavaContext::invoke(JNIEnv *env, jobject o, char *methodName, char *signature, ...) {
             va_list args;
             va_start(args, signature);
+            fflush(stdout);
             jclass klass = env->GetObjectClass(o);
             jmethodID method = env->GetMethodID(klass, methodName, signature);            
 	    jobject result = env->CallObjectMethodV(o, method, args);

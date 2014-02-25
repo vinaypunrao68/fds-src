@@ -13,9 +13,9 @@ namespace fds {
         class JavaContext {
         public: 
             JavaVM *javaVM;
-            std::vector<jobject> args;
+            jobject arg;
             
-            JavaContext(JavaVM *javaVM, std::vector<jobject> args);
+            JavaContext(JavaVM *javaVM, jobject arg);
             JNIEnv *attachCurrentThread();
             void detachCurrentThread();
             jobject invoke(JNIEnv *env, jobject o, char *methodName, char *signature, ...);
