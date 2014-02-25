@@ -138,13 +138,13 @@ ObjectStorMgrI::GetObject(FDSP_MsgHdrTypePtr& msgHdr,
         msgHdr->msg_code = FDSP_MSG_GET_OBJ_RSP;
         if((uint)getObj->dlt_version != objStorMgr->omClient->getDltVersion()) {
             msgHdr->result = FDSP_ERR_DLT_MISMATCH;
-	   msgHdr->err_code = FDSP_ERR_DLT_CONFLICT;
-	  // send the dlt version of SM to AM
-           getObj->dlt_version = objStorMgr->omClient->getDltVersion();
-        // update the resp  with new DLT
-        objStorMgr->omClient->getLatestDlt(getObj->dlt_data);
-	}
-	
+            msgHdr->err_code = FDSP_ERR_DLT_CONFLICT;
+            // send the dlt version of SM to AM
+            getObj->dlt_version = objStorMgr->omClient->getDltVersion();
+            // update the resp  with new DLT
+            objStorMgr->omClient->getLatestDlt(getObj->dlt_data);
+        }
+
         objStorMgr->swapMgrId(msgHdr);
         objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->GetObjectResp(msgHdr, getObj);
 
@@ -1378,6 +1378,39 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
     return err;
 }
 
+/**
+ * Creates a transaction for obj_id.  If there is no pending transaction for
+ * obj_id then io is enqueued to qos scheduler.  If there is a pending
+ * transaction, io is queued in transaction journal and will be scheduled
+ * when the pending transaction is complete.
+ * @param obj_id
+ * @param ioReq
+ * @param trans_id
+ * @return
+ */
+Error
+ObjectStorMgr::enqTransactionIo(FDSP_MsgHdrTypePtr msgHdr,
+        const ObjectID& obj_id,
+        SmIoReq *ioReq, TransJournalId &trans_id)
+{
+    Error err = omJrnl->create_transaction(obj_id,
+            static_cast<FDS_IOType *>(ioReq), trans_id);
+    if (err != ERR_OK &&
+        err != ERR_TRANS_JOURNAL_REQUEST_QUEUED) {
+        return err;
+    }
+
+    ioReq->setTransId(trans_id);
+    ObjectIdJrnlEntry *jrnlEntry = omJrnl->get_transaction(trans_id);
+    jrnlEntry->setMsgHdr(msgHdr);
+
+    if (err == ERR_TRANS_JOURNAL_REQUEST_QUEUED) {
+        return ERR_OK;
+    }
+    err = qosCtrl->enqueueIO(ioReq->getVolId(), static_cast<FDS_IOType*>(ioReq));
+    return err;
+}
+
 Error
 ObjectStorMgr::enqPutObjectReq(FDSP_MsgHdrTypePtr msgHdr, 
         FDSP_PutObjTypePtr putObjReq, 
@@ -1403,17 +1436,7 @@ ObjectStorMgr::enqPutObjectReq(FDSP_MsgHdrTypePtr msgHdr,
                 FDS_IO_WRITE,
                 am_transId);
 
-        err = omJrnl->create_transaction(obj_id, static_cast<FDS_IOType *>(ioReq), trans_id);
-        if ( err == ERR_TRANS_JOURNAL_REQUEST_QUEUED) { 
-             // The Journal table has enqueued in its queue and will re-enqueue into the QOS-ctrller when the head IO is done
-             ioReq->setTransId(trans_id);
-             return ERR_OK;
-        }
-        ioReq->setTransId(trans_id);
-        ObjectIdJrnlEntry *jrnlEntry = omJrnl->get_transaction(trans_id);
-        jrnlEntry->setMsgHdr(msgHdr);
-
-        err = qosCtrl->enqueueIO(ioReq->getVolId(), static_cast<FDS_IOType*>(ioReq));
+        err = enqTransactionIo(msgHdr, obj_id, ioReq, trans_id);
         if (err != ERR_OK) {
             /*
              * Just return if we see an error. The way the function is setup
@@ -1679,18 +1702,8 @@ ObjectStorMgr::enqDeleteObjectReq(FDSP_MsgHdrTypePtr msgHdr,
             FDS_DELETE_BLOB,
             msgHdr->req_cookie);
 
-    err =  omJrnl->create_transaction(obj_id, static_cast<FDS_IOType *>(ioReq), trans_id);
-    if ( err == ERR_TRANS_JOURNAL_REQUEST_QUEUED) { 
-    // The Journal table has enqueued in its queue and will re-enqueue into the QOS-ctrller when the head IO is done
-         return ERR_OK;
-         ioReq->setTransId(trans_id);
-    }
-    ioReq->setTransId(trans_id);
-    ObjectIdJrnlEntry *jrnlEntry = omJrnl->get_transaction(trans_id);
-    jrnlEntry->setMsgHdr(msgHdr);
+    err =  enqTransactionIo(msgHdr, obj_id, ioReq, trans_id);
     
-    err = qosCtrl->enqueueIO(ioReq->getVolId(), static_cast<FDS_IOType*>(ioReq));
-
     if (err != fds::ERR_OK) {
         LOGERROR << "Unable to enqueue delObject request "
                 << am_transId << ":" << trans_id;
@@ -1756,22 +1769,12 @@ ObjectStorMgr::enqGetObjectReq(FDSP_MsgHdrTypePtr msgHdr,
   SmIoReq *ioReq = new SmIoReq(getObjReq->data_obj_id.hash_high,
                                getObjReq->data_obj_id.hash_low,
                                // "",
-			       getObjReq,
+                               getObjReq,
                                volId,
                                FDS_IO_READ,
                                am_transId);
 
-  err =  omJrnl->create_transaction(obj_id, static_cast<FDS_IOType *>(ioReq), trans_id);
-  if ( err == ERR_TRANS_JOURNAL_REQUEST_QUEUED) { 
-   // The Journal table has enqueued in its queue and will re-enqueue into the QOS-ctrller when the head IO is done
-       ioReq->setTransId(trans_id);
-       return ERR_OK;
-  }
-  ioReq->setTransId(trans_id);
-  ObjectIdJrnlEntry *jrnlEntry = omJrnl->get_transaction(trans_id);
-  jrnlEntry->setMsgHdr(msgHdr);
-
-  err = qosCtrl->enqueueIO(ioReq->getVolId(), static_cast<FDS_IOType*>(ioReq));
+  err =  enqTransactionIo(msgHdr, obj_id, ioReq, trans_id);
 
   if (err != fds::ERR_OK) {
     LOGERROR << "Unable to enqueue getObject request "

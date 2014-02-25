@@ -293,6 +293,9 @@ class ObjectStorMgr :
     /*
      * Private request processing members.
      */
+    Error enqTransactionIo(FDSP_MsgHdrTypePtr msgHdr,
+            const ObjectID& obj_id,
+            SmIoReq *ioReq, TransJournalId &trans_id);
     Error enqGetObjectReq(FDSP_MsgHdrTypePtr msgHdr, 
             FDSP_GetObjTypePtr getObjReq, 
             fds_volid_t        volId,
