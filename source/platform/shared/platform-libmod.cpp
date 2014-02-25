@@ -27,9 +27,22 @@ Platform::Platform(char const *const         name,
     plf_migrate_evt      = NULL;
     plf_tier_evt         = NULL;
     plf_bucket_stats_evt = NULL;
+
+    plf_rpc_thrd  = NULL;
+    plf_net_sess  = NULL;
+    plf_rpc_sess  = NULL;
+    plf_rpc_reqt  = NULL;
 }
 
-Platform::~Platform() {}
+Platform::~Platform()
+{
+    if (plf_rpc_sess != NULL) {
+        plf_net_sess->endSession(plf_rpc_sess);
+    }
+    if (plf_rpc_thrd != NULL) {
+        plf_rpc_thrd->join();
+    }
+}
 
 /**
  * Platform node/cluster methods.
