@@ -7,8 +7,9 @@ import pdb
 
 class FdsEnv:
     def __init__(self):
-        self.env_cdir     = os.getcwd()
-        self.env_fdsroot  = ''
+        self.env_cdir      = os.getcwd()
+        self.env_fdsroot   = ''
+        self.env_exitOnErr = True
 
         tmp_dir = self.env_cdir
         while tmp_dir != "/":
@@ -41,22 +42,27 @@ class FdsSetupEnv:
         subprocess.call(['cp', '-rf', env.env_fdsroot + '/config/etc', fds_data_path])
 
 class FdsDataSet:
-    def __init__(self, bucket='abc', data_dir='.', file_ext='*'):
+    def __init__(self, bucket='abc', data_dir='', file_ext='*', dest_dir='/tmp'):
         self.ds_bucket   = bucket
         self.ds_data_dir = data_dir
         self.ds_file_ext = file_ext
+        self.ds_dest_dir = dest_dir
 
         if not self.ds_data_dir or self.ds_data_dir == '':
-            self.ds_data_dir = '.'
+            self.ds_data_dir = os.getcwd()
 
+        if not self.ds_dest_dir or self.ds_dest_dir == '':
+            self.ds_dest_dir = '/tmp'
        
 class CopyS3Dir:
     def __init__(self, env, dataset):
         self.env        = env
         self.ds         = dataset
-        self.verbose    = True
+        self.verbose    = False
         self.bucket     = dataset.ds_bucket 
         self.files_list = []
+        self.cur_put    = 0
+        self.cur_get    = 0
         self.perr_cnt   = 0
         self.gerr_cnt   = 0
         self.gerr_chk   = 0
@@ -71,60 +77,94 @@ class CopyS3Dir:
             rec = rec.rstrip('\n')
             self.files_list.append(rec)
 
-    def PutTest(self):
-        os.chdir(self.ds.ds_data_dir)
+    def runTest(self, burst_cnt=0):
+        self.createBucket()
+        total = len(self.files_list)
+        if burst_cnt == 0 or burst_cnt > total:
+            burst_cnt = total
         cnt = 0
-        err = 0
+        while cnt < total:
+            self.putTest(burst_cnt)
+            self.getTest(burst_cnt)
+            cnt += burst_cnt
+
+    def createBucket(self):
         ret = subprocess.call(['curl', '-X' 'PUT', self.bucket_url])
         if ret != 0:
             print "Bucket create failed"
             sys.exit(1)
 
-        for put in self.files_list:
+    def printDebug(self, message="INFO: "):
+        if self.verbose:
+            print message
+
+    def putTest(self, burst=1):
+        os.chdir(self.ds.ds_data_dir)
+        cnt = 0
+        err = 0
+        if burst <= 0:
+            burst = len(self.files_list)
+        for put in self.files_list[self.cur_put:]:
             cnt = cnt + 1
             obj = put.replace("/", "_")
+            self.printDebug("curl POST: " + put + " -> " + obj)
             ret = subprocess.call(['curl', '-X', 'POST', '--data-binary',
                     '@' + put, self.bucket_url + '/' + obj])
-
             if ret != 0:
                 err = err + 1
                 print "curl error: " + put + ": " + obj
-            if (cnt % 10) == 0:
-                print "Put ", cnt, " objects... errors: [", err, "]"
+                if self.env.env_exitOnErr == True:
+                    sys.exit(1)
 
-        print "Put ", cnt, " objects... errors: [", err, "]"
+            if (cnt % 10) == 0:
+                print "Put ", cnt + self.cur_put , " objects... errors: [", err, "]"
+            if cnt == burst:
+                break
+
+        print "Put ", cnt + self.cur_put, " objects... errors: [", err, "]"
+        self.cur_put  += cnt
         self.perr_cnt += err
 
-    def GetTest(self):
+    def getTest(self, burst=0):
         os.chdir(self.ds.ds_data_dir)
         cnt = 0
         err = 0
         chk = 0
-        print self.files_list
-        print "\n"
-        for get in self.files_list:
+        # print self.files_list
+        # print "\n"
+        if burst <= 0:
+            burst = len(self.files_list)
+        for get in self.files_list[self.cur_get:]:
             cnt = cnt + 1
             obj = get.replace("/", "_");
-            tmp = '/tmp/' + obj
+            tmp = self.ds.ds_dest_dir + '/' + obj
+            self.printDebug("curl GET: " + obj + " -> " + tmp)
             ret = subprocess.call(['curl', '-s' '1' ,
                                    self.bucket_url + '/' + obj, '-o', tmp])
             if ret != 0:
                 err = err + 1
                 print "curl error: " + get + ": " + obj + " -> " + tmp
+                if self.env.env_exitOnErr == True:
+                    sys.exit(1)
 
             ret = subprocess.call(['diff', get, tmp])
             if ret != 0:
                 chk = chk + 1
-                print "Get ", get, " -> ", tmp, ": ", cnt, \
+                print "Get ", get, " -> ", tmp, ": ", cnt,  \
                       " objects... errors: [", err, "], verify failed [", chk, "]"
+                if self.env.env_exitOnErr == True:
+                    sys.exit(1)
             else:
                 subprocess.call(['rm', tmp])
             if (cnt % 10) == 0:
-                print "Get ", cnt, \
+                print "Get ", cnt + self.cur_get, \
                       " objects... errors: [", err, "], verify failed [", chk, "]"
+            if cnt == burst:
+                break
 
-
-        print "Get ", cnt, " objects... errors: [", err, "], verify failed [", chk, "]"
+        print "Get ", cnt + self.cur_get, " objects... errors: [", err, \
+              "], verify failed [", chk, "]"
+        self.cur_get  += cnt
         self.gerr_cnt += err
         self.gerr_chk += chk
 
@@ -134,6 +174,32 @@ class CopyS3Dir:
                   "], get errors: [", self.gerr_cnt,            \
                   "], verify failed [", self.err_chk, "]"
             sys.exit(1)
+
+        
+class CopyS3Dir_PatternRW(CopyS3Dir):
+    def runTest(self, write=1, read=1):
+        self.createBucket()
+        total = len(self.files_list)
+        if write == 0 or write > total:
+            write = total
+
+        if read == 0 or read > total:
+            read = total
+
+        wr_cnt = 0
+        rd_cnt = 0
+        while wr_cnt < total and rd_cnt < total:
+            self.putTest(write)
+            self.getTest(read)
+            wr_cnt += write
+            rd_cnt += read
+
+        if wr_cnt < total:
+            self.putTest()
+        if rd_cnt < total:
+            self.getTest()
+
+ 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Start FDS Processes...')
@@ -168,18 +234,45 @@ if __name__ == "__main__":
     subprocess.Popen(['./AMAgent'], stderr=subprocess.STDOUT)
     subprocess.call(['sleep', '3']);
 
-    # basic PUTs and GETs
-    dataset1 = FdsDataSet('abc', env.env_fdsroot, '*.cpp')
-    smoke = CopyS3Dir(env, dataset1)
-    smoke.PutTest()
-    smoke.GetTest()
+    data_set_dir='/home/bao_pham/temp/demo_data'
 
-    # write from ~/temp/demo_data folder
-    dataset2 = FdsDataSet('volume6', '/home/bao_pham/temp/demo_data', '*.jpg')
-    demo = CopyS3Dir(env, dataset2)
-    demo.PutTest()
-    demo.GetTest()
+# passed
+    # basic PUTs and GETs of fds-src cpp files
+#smoke_ds0 = FdsDataSet('smoke_vol0', env.env_fdsroot, '*.cpp')
+#    smoke0 = CopyS3Dir(env, smoke_ds0)
+#    smoke0.runTest()
 
+    # seq write, then seq read : XXX: must be a race condition!
+#    smoke_ds1 = FdsDataSet('smoke_vol1', data_set_dir, '*.jpg')
+#    smoke1 = CopyS3Dir(env, smoke_ds1)
+#    smoke1.runTest()
+
+# passed
+    # write from in burst of 10
+#smoke_ds2 = FdsDataSet('smoke_vol2', data_set_dir, '*.jpg')
+#    smoke2 = CopyS3Dir(env, smoke_ds2)
+#    smoke2.runTest(10)
+
+# passed
+    # write from in burst of 10-5 (W-R)
+#smoke_ds3 = FdsDataSet('smoke_vol3', data_set_dir, '*.jpg')
+#    smoke3 = CopyS3Dir_PatternRW(env, smoke_ds3)
+#    smoke3.runTest(10, 5)
+
+    # write from in burst of 10-3 (W-R)
+    smoke_ds4 = FdsDataSet('smoke_vol4', data_set_dir, '*.jpg')
+    smoke4 = CopyS3Dir_PatternRW(env, smoke_ds4)
+    smoke4.runTest(10, 3)
+
+    # write from in burst of 1-1 (W-R)
+    smoke_ds5 = FdsDataSet('smoke_vol5', data_set_dir, '*.jpg')
+    smoke5 = CopyS3Dir_PatternRW(env, smoke_ds5)
+    smoke5.runTest(1, 1)
+
+    # write from ~/temp/demo_data folder in burst of 10
+    demo_ds = FdsDataSet('volume6', data_set_dir, '*.jpg')
+    demo = CopyS3Dir(env, demo_ds)
+    demo.runTest()
 
 #    subprocess.call(['sleep', '200']);
 
