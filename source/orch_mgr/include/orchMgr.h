@@ -31,7 +31,7 @@
 
 namespace fds {
 
-class OrchMgr: public FdsProcess, public Module {
+class OrchMgr: public FdsProcess {
   private:
     fds_log *om_log;
     SysParams *sysParams;
@@ -74,22 +74,18 @@ class OrchMgr: public FdsProcess, public Module {
   public:
     OrchMgr(int argc, char *argv[],
             const std::string& default_config_path,
-            const std::string& base_path);
+            const std::string& base_path, fds::Module **mod_vec);
     ~OrchMgr();
     void start_cfgpath_server();
 
     /**** From FdsProcess ****/
-    virtual void setup(int argc, char *argv[], fds::Module **mod_vec) override;
+    virtual void setup();
     /*
      * Runs the orch manager server.
      * Does not return until the server is no longer running
      */
     virtual void run() override;
     virtual void interrupt_cb(int signum) override;
-
-    int  mod_init(SysParams const *const param);
-    void mod_startup();
-    void mod_shutdown();
 
     fds_log* GetLog();
     void defaultS3BucketPolicy();  // default  policy  desc  for s3 bucket

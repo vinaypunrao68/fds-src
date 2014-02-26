@@ -1,11 +1,39 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
+#include <string>
 #include <am-engine/s3connector.h>
 #include <am-engine/atmos-connector.h>
 #include <util/fds_stat.h>
 #include <native_api.h>
 #include <fds_process.h>
+
+namespace fds {
+
+class AM_Process : public FdsProcess
+{
+  public:
+    virtual ~AM_Process() {}
+    AM_Process(int argc, char **argv,
+               const std::string &def_cfg_file,
+               const std::string &base_path, Module **mod_vec)
+        : FdsProcess(argc, argv, def_cfg_file, base_path, mod_vec) {}
+
+    void setup() override
+    {
+        FDS_NativeAPI *api = new FDS_NativeAPI(FDS_NativeAPI::FDSN_AWS_S3);
+        FDS_NativeAPI *api_atmos = new FDS_NativeAPI(FDS_NativeAPI::FDSN_EMC_ATMOS);
+
+        FdsProcess::setup();
+        gl_AMEngineS3.init_server(api);
+        gl_AMEngineAtmos.init_server(api_atmos);
+    }
+    void run() override {
+        AMEngine::run_all_servers();
+    }
+};
+
+}  // namespace fds
 
 extern "C" {
   extern void CreateStorHvisorS3(int argc, char *argv[]);
@@ -13,27 +41,18 @@ extern "C" {
 
 int main(int argc, char **argv)
 {
-    fds::init_process_globals("am.log");
-    CreateStorHvisorS3(argc, argv);
-    fds::FDS_NativeAPI *api = new
-        fds::FDS_NativeAPI(fds::FDS_NativeAPI::FDSN_AWS_S3);
-    fds::FDS_NativeAPI *api_atmos = new
-        fds::FDS_NativeAPI(fds::FDS_NativeAPI::FDSN_EMC_ATMOS);
-
+    // fds::init_process_globals("am.log");
     fds::Module *am_mod_vec[] = {
         &fds::gl_fds_stat,
         &fds::gl_AMEngineS3,
         &fds::gl_AMEngineAtmos,
         nullptr
     };
-    fds::ModuleVector am_module(argc, argv, am_mod_vec);
+    fds::AM_Process am_process(argc, argv, "am.conf", "fds.am.", am_mod_vec);
+    CreateStorHvisorS3(argc, argv);
 
-    am_module.mod_execute();
-    fds::gl_AMEngineS3.init_server(api);
-    fds::gl_AMEngineAtmos.init_server(api_atmos);
-
-    fds::AMEngine::run_all_servers();
-
+    am_process.setup();
+    am_process.run();
     // not reached!
     return 0;
 }

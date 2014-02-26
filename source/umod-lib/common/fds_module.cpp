@@ -164,10 +164,12 @@ ModuleVector::ModuleVector(int argc, char **argv, Module **mods)
     : sys_mod_cnt(0), sys_argc(argc), sys_argv(argv), sys_mods(nullptr)
 {
     sys_mods = mods;
-    for (sys_mod_cnt = 0; mods[sys_mod_cnt] != nullptr; sys_mod_cnt++) {
-        /*
-         * Do some check for each module?
-         */
+    if (sys_mods != NULL) {
+        for (sys_mod_cnt = 0; mods[sys_mod_cnt] != nullptr; sys_mod_cnt++) {
+            /*
+             * Do some check for each module?
+             */
+        }
     }
     mod_mk_sysparams();
 }
@@ -269,7 +271,9 @@ ModuleVector::mod_execute()
     int     i, bailout;
     Module *mod;
 
-    fds_verify(sys_mod_cnt > 0);
+    if (sys_mod_cnt == 0) {
+        return;
+    }
     fds_verify(sys_mods != nullptr);
 
     bailout = 0;

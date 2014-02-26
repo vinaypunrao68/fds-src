@@ -21,17 +21,16 @@ OM_Module::om_singleton()
 
 }  // namespace fds
 
-int main(int argc, char *argv[]) {
-    fds::orchMgr = new fds::OrchMgr(argc, argv, "orch_mgr.conf", "fds.om.");
-
+int main(int argc, char *argv[])
+{
+    fds::Module *omVec[] = {
+        &fds::gl_OMModule,
+        NULL
+    };
+    fds::orchMgr = new fds::OrchMgr(argc, argv, "orch_mgr.conf", "fds.om.", omVec);
     fds::gl_orch_mgr = fds::orchMgr;
 
-    fds::Module *omVec[] = {
-        fds::orchMgr,
-        &fds::gl_OMModule,
-        nullptr};
-
-    fds::orchMgr->setup(argc, argv, omVec);
+    fds::orchMgr->setup();
     fds::orchMgr->run();
 
     delete fds::orchMgr;

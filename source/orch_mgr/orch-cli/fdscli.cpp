@@ -12,30 +12,21 @@
 namespace fds {
 FdsCli  *fdsCli;
 
-FdsCli::FdsCli(const boost::shared_ptr<FdsConfig>& omconf)
-        : Module("Fds Cli"),
-          om_config(omconf),
-          my_node_name("fdscli") {
-    cli_log = new fds_log("cli", "logs");
+FdsCli::FdsCli(int argc, char *argv[],
+               const std::string &def_cfg_file,
+               const std::string &base_path,
+               const std::string &def_log_file, Module **mod_vec)
+    : FdsProcess(argc, argv, def_cfg_file, base_path, def_log_file, mod_vec),
+      my_node_name("fdscli")
+{
+    cli_log = g_fdslog;
     cli_log->setSeverityFilter(
-        (fds_log::severity_level) om_config->get<int>("fds.om.log_severity"));
+        (fds_log::severity_level)conf_helper_.get<int>("log_severity"));
     FDS_PLOG(cli_log) << "Constructing the CLI";
 }
 
 FdsCli::~FdsCli() {
     FDS_PLOG(cli_log) << "Destructing the CLI";
-    delete cli_log;
-}
-
-int FdsCli::mod_init(SysParams const *const param) {
-    Module::mod_init(param);
-    return 0;
-}
-
-void FdsCli::mod_startup() {
-}
-
-void FdsCli::mod_shutdown() {
 }
 
 void FdsCli::InitCfgMsgHdr(FDS_ProtocolInterface::FDSP_MsgHdrType* msg_hdr)
@@ -469,10 +460,10 @@ int FdsCli::run(int argc, char* argv[])
      * Setup the network communication connection with orch Manager. 
      */
     if (omConfigPort == 0) {
-        omConfigPort = om_config->get<int>("fds.om.config_port");
+        omConfigPort = conf_helper_.get<int>("config_port");
     }
     if (omIpStr.empty() == true) {
-        omIpStr = om_config->get<std::string>("fds.om.ip_address");
+        omIpStr = conf_helper_.get<std::string>("ip_address");
     }
 
     /* remember port and ip for getting client later */
@@ -494,21 +485,15 @@ int FdsCli::run(int argc, char* argv[])
 
 int main(int argc, char* argv[])
 {
-    boost::shared_ptr<fds::FdsConfig> om_config(
-        new fds::FdsConfig("orch_mgr.conf", argc, argv));
-    fds::fdsCli = new fds::FdsCli(om_config);
-
     fds::Module *cliVec[] = {
         &fds::gl_OMCli,
-        fds::fdsCli,
         nullptr
     };
-    fds::ModuleVector fds_cli_vec(argc, argv, cliVec);
-    fds_cli_vec.mod_execute();
+    fds::fdsCli = new fds::FdsCli(argc, argv,
+                                  "orch_mgr.conf", "fds.om.", "cli.log", cliVec);
 
-    fds::init_process_globals("cli.log");
+    fds::fdsCli->setup();
     fds::fdsCli->run(argc, argv);
-
     delete fds::fdsCli;
     return 0;
 }

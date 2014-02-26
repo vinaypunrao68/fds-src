@@ -372,10 +372,8 @@ Error DataMgr::_process_delete(fds_volid_t vol_uuid,
 
 DataMgr::DataMgr(int argc, char *argv[],
              const std::string &default_config_path,
-             const std::string &base_path)
-    :
-        FdsProcess(argc, argv, default_config_path, base_path),
-    Module("Data Manager"),
+             const std::string &base_path, Module **mod_vec)
+    : FdsProcess(argc, argv, default_config_path, base_path, mod_vec),
     port_num(0),
     cp_port_num(0),
     omConfigPort(0),
@@ -463,17 +461,6 @@ std::string get_local_ip()
 }
 }
 
-int DataMgr::mod_init(SysParams const *const param) {
-    Module::mod_init(param);
-    return 0;
-}
-
-void DataMgr::mod_startup() {    
-}
-
-void DataMgr::mod_shutdown() {
-}
-
 //void DataMgr::runServer() {
   /*
    * TODO: Replace this when we pull ICE out.
@@ -514,8 +501,8 @@ void DataMgr::setup_metadatapath_server(const std::string &ip)
 }
 
 
-void DataMgr::setup(int argc, char* argv[], fds::Module **mod_vec) {
-
+void DataMgr::setup()
+{
   fds::DmDiskInfo     *info;
   fds::DmDiskQuery     in;
   fds::DmDiskQueryOut  out;
@@ -532,7 +519,7 @@ void DataMgr::setup(int argc, char* argv[], fds::Module **mod_vec) {
 
   runMode = NORMAL_MODE;
 
-  FdsProcess::setup(argc, argv, mod_vec);
+  FdsProcess::setup();
 
   port_num = conf_helper_.get_abs<int>("fds.dm.port");
   cp_port_num = conf_helper_.get_abs<int>("fds.dm.cp_port");

@@ -97,5 +97,5 @@ int
 main(int argc, char* argv[])
 {
     StorHvisorClient storHvisorClient;
-    return storHvisorClient.main(argc, argv, "fds.conf");
+    return storHvisorClient.main(argc, argv, "am.conf");
 }

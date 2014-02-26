@@ -216,9 +216,8 @@ ObjectStorMgrI::RedirReadObject(FDSP_MsgHdrTypePtr &msg_hdr, FDSP_RedirReadObjTy
  */
 ObjectStorMgr::ObjectStorMgr(int argc, char *argv[], 
                              const std::string &default_config_path,
-                             const std::string &base_path) 
-    : Module("StorMgr"),
-    FdsProcess(argc, argv, default_config_path, base_path),
+                             const std::string &base_path, Module **mod_vec)
+    : FdsProcess(argc, argv, default_config_path, base_path, mod_vec),
     totalRate(3000),
     qosThrds(10),
     shuttingDown(false),
@@ -264,7 +263,7 @@ ObjectStorMgr::ObjectStorMgr(int argc, char *argv[],
     /*
      * stats class init
      */
-    objStats =  new ObjStatsTracker(GetLog());
+    objStats = &gl_objStats;
 
     /*
      * Performance stats recording
@@ -317,18 +316,13 @@ ObjectStorMgr::~ObjectStorMgr() {
     delete omJrnl;
 }
 
-int ObjectStorMgr::mod_init(SysParams const *const param) {
-    Module::mod_init(param);
-    return 0;
-}
-
-void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
+void ObjectStorMgr::setup()
 {
     /*
      * Invoke FdsProcess setup so that it can setup the signal hander and
      * execute the module vector for us
      */
-    FdsProcess::setup(argc, argv, mod_vec);
+    FdsProcess::setup();
 
     /* Rest of the setup */
     // todo: clean up the code below.  It's doing too many things here.
@@ -537,12 +531,6 @@ void ObjectStorMgr::interrupt_cb(int signum)
     nst_->endAllSessions();
     nst_.reset(); 
     exit(0);
-}
-
-void ObjectStorMgr::mod_startup() {    
-}
-
-void ObjectStorMgr::mod_shutdown() {
 }
 
 const TokenList&

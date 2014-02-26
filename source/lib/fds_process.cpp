@@ -30,9 +30,12 @@ void init_process_globals(fds_log *log)
 }
 
 FdsProcess::FdsProcess(int argc, char *argv[],
-                       const std::string &config_path,
-                       const std::string &base_path)
+                       const std::string &def_cfg_file,
+                       const std::string &base_path,
+                       const std::string &def_log_file, fds::Module **mod_vec)
 {
+    std::string  fdsroot, logdir, cfgfile;
+
     fds_verify(g_fdsprocess == NULL);
 
     /* Initialize process wide globals */
@@ -40,25 +43,37 @@ FdsProcess::FdsProcess(int argc, char *argv[],
     /* Set up the signal handler.  We should do this before creating any threads */
     setup_sig_handler();
 
-    /* Setup config */
-    setup_config(argc, argv, config_path, base_path);
+    /* Setup module vectors and config */
+    mod_vectors_ = new ModuleVector(argc, argv, mod_vec);
+    fdsroot      = mod_vectors_->get_sys_params()->fds_root;
+    logdir       = fdsroot + "/logs/";
 
-    /* Create a global logger.  Logger is created here because we need the file
-     * name from config
-     */
-    g_fdslog = new fds_log(conf_helper_.get<std::string>("logfile"), "logs");
+    if (def_cfg_file != "") {
+        cfgfile = fdsroot + "/etc/" + def_cfg_file;
+        setup_config(argc, argv, cfgfile, base_path);
+        /*
+         * Create a global logger.  Logger is created here because we need the file
+         * name from config
+         */
+        if (def_log_file == "") {
+            g_fdslog = new fds_log(conf_helper_.get<std::string>("logfile"), logdir);
+        } else {
+            g_fdslog = new fds_log(def_log_file, logdir);
+        }
+        /* Process wide counters setup */
+        std::string proc_id = argv[0];
+        if (conf_helper_.exists("id")) {
+            proc_id = conf_helper_.get<std::string>("id");
+        }
+        setup_cntrs_mgr(net::get_my_hostname() + "."  + proc_id);
 
-    /* Process wide counters setup */
-    std::string proc_id = argv[0];
-    if (conf_helper_.exists("id")) {
-        proc_id = conf_helper_.get<std::string>("id");
-    }
-    setup_cntrs_mgr(net::get_my_hostname() + "."  + proc_id);
-
-    /* if graphite is enabled, setup graphite task to dump counters */
-    if (conf_helper_.get<bool>("enable_graphite")) {
-        /* NOTE: Timer service will be setup as well */
-        setup_graphite();
+        /* if graphite is enabled, setup graphite task to dump counters */
+        if (conf_helper_.get<bool>("enable_graphite")) {
+            /* NOTE: Timer service will be setup as well */
+            setup_graphite();
+        }
+    } else {
+        g_fdslog = new fds_log(def_log_file, logdir);
     }
 }
 
@@ -80,11 +95,10 @@ FdsProcess::~FdsProcess()
     fds_assert(rc == 0);
 }
 
-void FdsProcess::setup(int argc, char *argv[],
-                       fds::Module **mod_vec)
+void FdsProcess::setup()
 {
     /* Execute module vector */
-    setup_mod_vector(argc, argv, mod_vec);
+    mod_vectors_->mod_execute();
 }
 
 void FdsProcess::setup_config(int argc, char *argv[],
@@ -156,15 +170,6 @@ void FdsProcess::setup_sig_handler()
     // Joinable thread
     rc = pthread_create(&sig_tid_, 0, FdsProcess::sig_handler, 0);
     fds_assert(rc == 0);
-}
-
-void FdsProcess::setup_mod_vector(int argc, char *argv[], fds::Module **mod_vec)
-{
-    if (!mod_vec) {
-        return;
-    }
-    mod_vectors_ = new ModuleVector(argc, argv, mod_vec);
-    mod_vectors_->mod_execute();
 }
 
 void FdsProcess::setup_cntrs_mgr(const std::string &mgr_id)

@@ -2,8 +2,6 @@ topdir            := ..
 user_target       := exe
 user_rtime_env    := user
 user_build_dir    := orch-cli include om-dlt om-common om-lib
-user_install      := om_client.conf orch_mgr.conf
-user_install_loc  := exe
 
 user_fds_so_libs  :=
 user_fds_ar_libs  := \

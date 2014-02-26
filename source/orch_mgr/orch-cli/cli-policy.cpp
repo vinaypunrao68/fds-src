@@ -72,14 +72,14 @@ CliComponent::cli_init_connection()
 int
 CliComponent::cli_init_thrift_connection(int om_port)
 {
-    std::string           om_ip;
-    boost::shared_ptr<fds::FdsConfig> config(
-        new fds::FdsConfig("orch_mgr.conf", 0, NULL));
+    std::string        om_ip;
+    FdsConfigAccessor  config(g_fdsprocess->get_conf_helper());
 
+    config.set_base_path("");
     if (om_port == 0) {
-        om_port = config->get<int>("fds.om.config_port");
+        om_port = config.get<int>("fds.om.PortNumber");
     }
-    om_ip = config->get<std::string>("fds.om.ip_address");
+    om_ip = config.get<std::string>("fds.om.IPAddress");
 
     // cli_client = new Thrift_VolPolicyClnt(om_ip, om_port);
     return 0;

@@ -70,7 +70,7 @@ namespace fds {
      */
     leveldb::DB* db;
 
-    ObjStatsTracker(fds_log *parent_log);
+    ObjStatsTracker();
     ~ObjStatsTracker();
 
     boost::posix_time::ptime startTime; 
@@ -156,6 +156,8 @@ namespace fds {
 
     ioPathStatsObj_map_t  ioPathStatsObj_map;
   };
+
+extern ObjStatsTracker gl_objStats;
 
 } /* fds namespace */
 

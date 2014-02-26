@@ -11,11 +11,6 @@
 
 namespace fds {
 
-class UnitTestParams
-{
-  public:
-};
-
 class SimEnvParams
 {
   public:
@@ -36,7 +31,7 @@ class SimEnvParams
 class SysParams
 {
   public:
-    SysParams() : fds_sim(nullptr), fds_utp(nullptr) {}
+    SysParams() : fds_sim(nullptr) {}
     ~SysParams() {}
 
     int             sys_num_thr;
@@ -50,7 +45,6 @@ class SysParams
     std::string     hdd_root;      /**< Root directory for HDD devices */
     std::string     ssd_root;      /**< Root directory for SSD devices */
     SimEnvParams    *fds_sim;
-    UnitTestParams  *fds_utp;
 
     int             p_argc;
     char            **p_argv;
@@ -107,8 +101,15 @@ class ModuleVector
     void mod_execute();
     void mod_shutdown();
 
-    SysParams* get_sys_params() {return &sys_params;}
     static void mod_mkdir(char const *const path);
+
+    inline SysParams *get_sys_params() {
+        return &sys_params;
+    }
+    inline char **mod_argv(int *argc) {
+        *argc = sys_argc;
+        return sys_argv;
+    }
 
   private:
     virtual void mod_mk_sysparams();

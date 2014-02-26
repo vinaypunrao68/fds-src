@@ -15,16 +15,13 @@ user_build_dir := \
 user_hh        := $(wildcard *.h)
 user_hpp       := $(wildcard *.h)
 user_no_style  := \
-	cpplist.h             \
 	data_mgr.h            \
-	fds_assert.h          \
 	fds_commons_rm.h      \
 	fds_config.hpp        \
 	fds_err.h             \
 	fds_obj_cache.h       \
 	fds_placement_table.h \
 	fds_qos.h             \
-	fds_resource.h        \
 	fds_types.h           \
 	fds_volume.h          \
 	native_api.h          \
@@ -39,7 +36,7 @@ user_no_style  := \
 	NetSessRespSvr.h      \
 	NetSessRespClient.h  \
 	NetSession.h        \
-        fds_counters.h	    \
+    fds_counters.h	    \
 	fds_stopwatch.h     \
 	graphite_client.h   \
 	debughelpers.h      \

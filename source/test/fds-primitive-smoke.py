@@ -144,7 +144,8 @@ if __name__ == "__main__":
     subprocess.call(['sleep', '1']);
 
     print "Starting AM on node1...."
-    subprocess.Popen(['./AMAgent'], stderr=subprocess.STDOUT)
+    subprocess.Popen(['./AMAgent', '--fds-root', args.root + '/node1'],
+                     stderr=subprocess.STDOUT)
     subprocess.call(['sleep', '3']);
 
     smoke = FdsRootCopy(env)

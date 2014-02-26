@@ -43,12 +43,19 @@ class FdsProcess : public boost::noncopyable {
     /**
      * @param argc
      * @param argv
-     * @param default_config_file - default configuration file path
+     * @param def_cfg_file - default configuration file path
      * @param base_path - base path to stanza to describing the process config
+     * @param def_log_file - default log file path
+     * @param mod_vec - module vectors for the process.
      */
     FdsProcess(int argc, char *argv[],
-               const std::string &default_config_file,
-               const std::string &base_path);
+               const std::string &def_cfg_file,
+               const std::string &base_path,
+               const std::string &def_log_file,  Module **mod_vec);
+    FdsProcess(int argc, char *argv[],
+               const std::string &def_cfg_file,
+               const std::string &base_path, Module **mod_vec)
+        : FdsProcess(argc, argv, def_cfg_file, base_path, "", mod_vec) {}
 
     virtual ~FdsProcess();
 
@@ -61,8 +68,7 @@ class FdsProcess : public boost::noncopyable {
      * @param argv
      * @param mod_vec
      */
-    virtual void setup(int argc, char *argv[],
-                       fds::Module **mod_vec);
+    virtual void setup();
 
     /**
      * Main processing code goes here
@@ -94,8 +100,6 @@ class FdsProcess : public boost::noncopyable {
     virtual void setup_cntrs_mgr(const std::string &mgr_id);
     virtual void setup_timer_service();
     virtual void setup_graphite();
-    virtual void setup_mod_vector(int argc, char *argv[],
-                                  fds::Module **mod_vec);
 
     /* Signal handler thread */
     pthread_t sig_tid_;
