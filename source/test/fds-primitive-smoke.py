@@ -199,7 +199,64 @@ class CopyS3Dir_PatternRW(CopyS3Dir):
         if rd_cnt < total:
             self.getTest()
 
- 
+def preCommit(env):
+     # basic PUTs and GETs of fds-src cpp files
+    smoke_ds0 = FdsDataSet('smoke_vol0', env.env_fdsroot, '*.cpp')
+    smoke0 = CopyS3Dir(env, smoke_ds0)
+    smoke0.runTest()
+    smoke0.exitOnError()
+
+def stressIO(env):
+    data_set_dir='/home/bao_pham/temp/demo_data'
+
+    # seq write, then seq read
+    smoke_ds1 = FdsDataSet('smoke_vol1', data_set_dir, '*.jpg')
+    smoke1 = CopyS3Dir(env, smoke_ds1)
+    smoke1.runTest()
+    smoke1.exitOnError()
+
+    # write from in burst of 10
+    smoke_ds2 = FdsDataSet('smoke_vol2', data_set_dir, '*.jpg')
+    smoke2 = CopyS3Dir(env, smoke_ds2)
+    smoke2.runTest(10)
+    smoke2.exitOnError()
+
+    # write from in burst of 10-5 (W-R)
+    smoke_ds3 = FdsDataSet('smoke_vol3', data_set_dir, '*.jpg')
+    smoke3 = CopyS3Dir_PatternRW(env, smoke_ds3)
+    smoke3.runTest(10, 5)
+    smoke3.exitOnError()
+
+    # write from in burst of 10-3 (W-R)
+    smoke_ds4 = FdsDataSet('smoke_vol4', data_set_dir, '*.jpg')
+    smoke4 = CopyS3Dir_PatternRW(env, smoke_ds4)
+    smoke4.runTest(10, 3)
+    smoke4.exitOnError()
+
+    # write from in burst of 1-1 (W-R)
+    smoke_ds5 = FdsDataSet('smoke_vol5', data_set_dir, '*.jpg')
+    smoke5 = CopyS3Dir_PatternRW(env, smoke_ds5)
+    smoke5.runTest(1, 1)
+    smoke5.exitOnError()
+
+    # write from ~/temp/demo_data folder in burst of 10
+#    demo_ds = FdsDataSet('volume6', data_set_dir, '*.jpg')
+#    demo = CopyS3Dir(env, demo_ds)
+#    demo.runTest()
+
+#    subprocess.call(['sleep', '200']);
+
+def migration(env):
+    # testing migration
+    os.chdir(env.env_fdsroot + '/Build/linux-x86_64.debug/node2')
+    print "Starting SM on node2...."
+    subprocess.Popen(['./StorMgr', '--fds-root', args.root + '/node2', '--fds.sm.data_port=7911',
+                      '--fds.sm.control_port=6911', '--fds.sm.prefix=node2_', '--fds.sm.test_mode=false',
+                      '--fds.sm.log_severity=0', '--fds.sm.om_ip=127.0.0.1', '--fds.sm.migration.port=8610', '--fds.sm.id=sm2'],
+                     stderr=subprocess.STDOUT)
+    subprocess.call(['sleep', '1'])
+
+    # call checker
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Start FDS Processes...')
@@ -234,70 +291,17 @@ if __name__ == "__main__":
     subprocess.Popen(['./AMAgent'], stderr=subprocess.STDOUT)
     subprocess.call(['sleep', '3']);
 
-    data_set_dir='/home/bao_pham/temp/demo_data'
 
-# passed
     # basic PUTs and GETs of fds-src cpp files
-#smoke_ds0 = FdsDataSet('smoke_vol0', env.env_fdsroot, '*.cpp')
-#    smoke0 = CopyS3Dir(env, smoke_ds0)
-#    smoke0.runTest()
+    preCommit(env)
 
-    # seq write, then seq read : XXX: must be a race condition!
-#    smoke_ds1 = FdsDataSet('smoke_vol1', data_set_dir, '*.jpg')
-#    smoke1 = CopyS3Dir(env, smoke_ds1)
-#    smoke1.runTest()
+    # stress I/O
+    # stressIO(env)
 
-# passed
-    # write from in burst of 10
-#smoke_ds2 = FdsDataSet('smoke_vol2', data_set_dir, '*.jpg')
-#    smoke2 = CopyS3Dir(env, smoke_ds2)
-#    smoke2.runTest(10)
-
-# passed
-    # write from in burst of 10-5 (W-R)
-#smoke_ds3 = FdsDataSet('smoke_vol3', data_set_dir, '*.jpg')
-#    smoke3 = CopyS3Dir_PatternRW(env, smoke_ds3)
-#    smoke3.runTest(10, 5)
-
-    # write from in burst of 10-3 (W-R)
-    smoke_ds4 = FdsDataSet('smoke_vol4', data_set_dir, '*.jpg')
-    smoke4 = CopyS3Dir_PatternRW(env, smoke_ds4)
-    smoke4.runTest(10, 3)
-
-    # write from in burst of 1-1 (W-R)
-    smoke_ds5 = FdsDataSet('smoke_vol5', data_set_dir, '*.jpg')
-    smoke5 = CopyS3Dir_PatternRW(env, smoke_ds5)
-    smoke5.runTest(1, 1)
-
-    # write from ~/temp/demo_data folder in burst of 10
-    demo_ds = FdsDataSet('volume6', data_set_dir, '*.jpg')
-    demo = CopyS3Dir(env, demo_ds)
-    demo.runTest()
-
-#    subprocess.call(['sleep', '200']);
-
-
-    # testing migration
-#    os.chdir(env.env_fdsroot + '/Build/linux-x86_64.debug/node2')
-#    print "Starting SM on node2...."
-#    subprocess.Popen(['./StorMgr', '--fds-root', args.root + '/node2', '--fds.sm.data_port=7911',
-#                      '--fds.sm.control_port=6911', '--fds.sm.prefix=node2_', '--fds.sm.test_mode=false',
-#                      '--fds.sm.log_severity=0', '--fds.sm.om_ip=127.0.0.1', '--fds.sm.migration.port=8610', '--fds.sm.id=sm2'],
-#                     stderr=subprocess.STDOUT)
-#    subprocess.call(['sleep', '1'])
-
-
-#    smoke.exitOnError()
-
-
-    # add test cases from excell
-
-
-    # how to generate data
-
-
+    # migration test
+    # migration(env)
 
     # do shut_down clients on cleanup test run
     print "Test Passed, cleaning up..."
     #env.shut_down()
-
+    sys.exit(0)
