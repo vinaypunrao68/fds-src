@@ -153,8 +153,9 @@ class medium(unittest.TestCase):
 
     # create 100 buckets
     def testCreateMultipleBuckets(self):
-        for n in range(0,100):
-            r=self.f.createBucket('bucket_'+str(n))
+        for n in range(0,25):
+            bucket='bucket_'+str(n)
+            r=self.f.createBucket(bucket)
             self.assertIn(r.status_code,[200,500])
             print 'created bucket : ' , bucket
 

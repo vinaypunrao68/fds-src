@@ -8,15 +8,16 @@
 
 namespace fds {
     namespace java {
-        JavaContext::JavaContext(JavaVM *javaVM, jobject o) {
+        JavaContext::JavaContext(JavaVM *javaVM, jobject arg) {
             this->javaVM = javaVM;
-            this->o = o;
+            this->arg = arg;
         }
         
         JNIEnv *JavaContext::attachCurrentThread() {
             JNIEnv *env;
             if (this->javaVM->AttachCurrentThread((void **)(&env), NULL) != 0) {
-                std::cout << "Failed to attach" << std::endl;
+                printf("Failed to attach current thread!\n");
+                fflush(stdout);
             }
             return env;
         }
@@ -25,13 +26,25 @@ namespace fds {
             this->javaVM->DetachCurrentThread();
         }
         
-        void JavaContext::invoke(JNIEnv *env, jobject o, char *methodName, char *signature, ...) {
+        jobject JavaContext::invoke(JNIEnv *env, jobject o, char *methodName, char *signature, ...) {
+            va_list args;
+            va_start(args, signature);
+            fflush(stdout);
+            jclass klass = env->GetObjectClass(o);
+            jmethodID method = env->GetMethodID(klass, methodName, signature);            
+	    jobject result = env->CallObjectMethodV(o, method, args);
+            va_end(args);
+            return result;
+        }
+
+        jint JavaContext::invokeInt(JNIEnv *env, jobject o, char *methodName, char *signature, ...) {
             va_list args;
             va_start(args, signature);
             jclass klass = env->GetObjectClass(o);
             jmethodID method = env->GetMethodID(klass, methodName, signature);            
-	    env->CallObjectMethodV(o, method, args);
+	    jint result = env->CallIntMethodV(o, method, args);
             va_end(args);
+            return result;            
         }
 
         jobject JavaContext::javaInstance(JNIEnv *env, char *className) {
@@ -50,6 +63,13 @@ namespace fds {
 
         jstring JavaContext::javaString(JNIEnv *env, std::string s) {
             return env->NewStringUTF(s.c_str());
+        }
+
+        std::string JavaContext::ccString(JNIEnv *env, jstring javaString) {
+            const char *buf = env->GetStringUTFChars(javaString, NULL);
+            std::string s = std::string(buf);
+            env->ReleaseStringUTFChars(javaString, buf);
+            return s;
         }
 
         JavaContext::~JavaContext() {
