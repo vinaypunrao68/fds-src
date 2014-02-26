@@ -3,11 +3,12 @@
 import os, sys
 import argparse
 import subprocess
+import pdb
 
 class FdsEnv:
     def __init__(self):
-        self.env_cdir    = os.getcwd()
-        self.env_fdsroot = ''
+        self.env_cdir     = os.getcwd()
+        self.env_fdsroot  = ''
 
         tmp_dir = self.env_cdir
         while tmp_dir != "/":
@@ -38,80 +39,100 @@ class FdsSetupEnv:
         except:
             pass
         subprocess.call(['cp', '-rf', env.env_fdsroot + '/config/etc', fds_data_path])
-       
-class FdsRootCopy:
-    def __init__(self, env):
-        self.env      = env
-        self.cpp_list = []
-        self.err_cnt  = 0
-        self.err_chk  = 0
 
-        os.chdir(self.env.env_fdsroot)
-        cpp_files = subprocess.Popen(
-            ['find', '.', '-name', '*.cpp', '-print'],
+class FdsDataSet:
+    def __init__(self, bucket='abc', data_dir='.', file_ext='*'):
+        self.ds_bucket   = bucket
+        self.ds_data_dir = data_dir
+        self.ds_file_ext = file_ext
+
+        if not self.ds_data_dir or self.ds_data_dir == '':
+            self.ds_data_dir = '.'
+
+       
+class CopyS3Dir:
+    def __init__(self, env, dataset):
+        self.env        = env
+        self.ds         = dataset
+        self.verbose    = True
+        self.bucket     = dataset.ds_bucket 
+        self.files_list = []
+        self.perr_cnt   = 0
+        self.gerr_cnt   = 0
+        self.gerr_chk   = 0
+        self.bucket_url = 'http://localhost:8000/' + self.bucket
+
+        os.chdir(self.ds.ds_data_dir)
+        files = subprocess.Popen(
+            ['find', '.', '-name', self.ds.ds_file_ext, '-print'],
             stdout=subprocess.PIPE
         ).stdout
-        for rec in cpp_files:
+        for rec in files:
             rec = rec.rstrip('\n')
-            self.cpp_list.append(rec)
+            self.files_list.append(rec)
 
     def PutTest(self):
-        os.chdir(self.env.env_fdsroot)
+        os.chdir(self.ds.ds_data_dir)
         cnt = 0
         err = 0
-        ret = subprocess.call(['curl', '-X' 'PUT', 'http://localhost:8000/abc'])
+        ret = subprocess.call(['curl', '-X' 'PUT', self.bucket_url])
         if ret != 0:
             print "Bucket create failed"
             sys.exit(1)
 
-        for put in self.cpp_list:
+        for put in self.files_list:
             cnt = cnt + 1
             obj = put.replace("/", "_")
             ret = subprocess.call(['curl', '-X', 'POST', '--data-binary',
-                    '@' + put, 'http://localhost:8000/abc/' + obj])
+                    '@' + put, self.bucket_url + '/' + obj])
 
             if ret != 0:
-                print "curl error: " + put + ": " + obj
                 err = err + 1
+                print "curl error: " + put + ": " + obj
             if (cnt % 10) == 0:
                 print "Put ", cnt, " objects... errors: [", err, "]"
 
         print "Put ", cnt, " objects... errors: [", err, "]"
-        self.err_cnt += err
+        self.perr_cnt += err
 
     def GetTest(self):
-        os.chdir(self.env.env_fdsroot)
+        os.chdir(self.ds.ds_data_dir)
         cnt = 0
         err = 0
         chk = 0
-        print self.cpp_list
+        print self.files_list
         print "\n"
-        for get in self.cpp_list:
+        for get in self.files_list:
             cnt = cnt + 1
             obj = get.replace("/", "_");
             tmp = '/tmp/' + obj
-            ret = subprocess.call(['curl', '-s' '1' , 'http://localhost:8000/abc/' + obj, '-o', tmp])
+            ret = subprocess.call(['curl', '-s' '1' ,
+                                   self.bucket_url + '/' + obj, '-o', tmp])
             if ret != 0:
-                print "curl error: " + get + ": " + obj + " -> " + tmp
                 err = err + 1
+                print "curl error: " + get + ": " + obj + " -> " + tmp
 
             ret = subprocess.call(['diff', get, tmp])
             if ret != 0:
                 chk = chk + 1
-                print "Get ", get, " -> ", tmp, ": ", cnt, " objects... errors: [", err, "], verify failed [", chk, "]"
+                print "Get ", get, " -> ", tmp, ": ", cnt, \
+                      " objects... errors: [", err, "], verify failed [", chk, "]"
             else:
                 subprocess.call(['rm', tmp])
             if (cnt % 10) == 0:
-                print "Get ", cnt, " objects... errors: [", err, "], verify failed [", chk, "]"
+                print "Get ", cnt, \
+                      " objects... errors: [", err, "], verify failed [", chk, "]"
 
 
         print "Get ", cnt, " objects... errors: [", err, "], verify failed [", chk, "]"
-        self.err_cnt += err
-        self.err_chk += chk
+        self.gerr_cnt += err
+        self.gerr_chk += chk
 
     def exitOnError(self):
-        if self.err_cnt != 0 or self.err_chk != 0:
-            print "Test Failed: errors: [", self.err_cnt, "], verify failed [", self.err_chk, "]"
+        if self.perr_cnt != 0 or self.gerr_cnt != 0 or self.gerr_chk != 0:
+            print "Test Failed: put errors: [", self.perr_cnt,  \
+                  "], get errors: [", self.gerr_cnt,            \
+                  "], verify failed [", self.err_chk, "]"
             sys.exit(1)
 
 if __name__ == "__main__":
@@ -147,12 +168,43 @@ if __name__ == "__main__":
     subprocess.Popen(['./AMAgent'], stderr=subprocess.STDOUT)
     subprocess.call(['sleep', '3']);
 
-    smoke = FdsRootCopy(env)
+    # basic PUTs and GETs
+    dataset1 = FdsDataSet('abc', env.env_fdsroot, '*.cpp')
+    smoke = CopyS3Dir(env, dataset1)
     smoke.PutTest()
     smoke.GetTest()
-    smoke.exitOnError()
+
+    # write from ~/temp/demo_data folder
+    dataset2 = FdsDataSet('volume6', '/home/bao_pham/temp/demo_data', '*.jpg')
+    demo = CopyS3Dir(env, dataset2)
+    demo.PutTest()
+    demo.GetTest()
+
+
+#    subprocess.call(['sleep', '200']);
+
+
+    # testing migration
+#    os.chdir(env.env_fdsroot + '/Build/linux-x86_64.debug/node2')
+#    print "Starting SM on node2...."
+#    subprocess.Popen(['./StorMgr', '--fds-root', args.root + '/node2', '--fds.sm.data_port=7911',
+#                      '--fds.sm.control_port=6911', '--fds.sm.prefix=node2_', '--fds.sm.test_mode=false',
+#                      '--fds.sm.log_severity=0', '--fds.sm.om_ip=127.0.0.1', '--fds.sm.migration.port=8610', '--fds.sm.id=sm2'],
+#                     stderr=subprocess.STDOUT)
+#    subprocess.call(['sleep', '1'])
+
+
+#    smoke.exitOnError()
+
+
+    # add test cases from excell
+
+
+    # how to generate data
+
+
 
     # do shut_down clients on cleanup test run
     print "Test Passed, cleaning up..."
-    env.shut_down()
+    #env.shut_down()
 

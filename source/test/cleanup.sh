@@ -1,15 +1,31 @@
-#!/bin/sh
+#!/bin/bash
 
 # Run from the top level source dir
 #
-cd Build/linux-x86_64.debug/bin
-rm -rf *.ldb
-rm -rf logs stats
-rm -rf node?_*
-rm -rf SNodeVolIndex*
-rm -rf SNodeObjIndex*
-rm om.*.log
-rm am.*.log
-rm sm.*.log
+cleanup_bin_dir()
+{
+    pushd . > /dev/null
+    cd $1
+    echo "Cleanning up: `pwd`"
+
+    rm -rf *.ldb 2>  /dev/null
+    rm -rf logs stats 2> /dev/null
+    rm -rf *SNode* 2> /dev/null
+    rm -rf *ObjRankDB* 2> /dev/null
+    rm om.*.log 2> /dev/null
+    rm am.*.log 2> /dev/null
+    rm sm.*.log 2> /dev/null
+    rm -f ocache_stats.dat
+
+    popd > /dev/null
+}
+
+cleanup_bin_dir "Build/linux-x86_64.debug/bin"
+cleanup_bin_dir "Build/linux-x86_64.debug/node2"
+cleanup_bin_dir "Build/linux-x86_64.debug/node3"
+cleanup_bin_dir "Build/linux-x86_64.debug/node4"
+
+echo "Cleanning up data dir: /fds/*"
 rm -rf /fds/hdd/sd?
 rm -rf /fds/ssd/sd?
+rm -rf /fds/node?*
