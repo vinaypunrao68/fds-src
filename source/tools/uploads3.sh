@@ -7,7 +7,7 @@ files_dir=~/temp/skinet
 ip=127.0.0.1
 
 #Change to bucket name
-bucket=volume_1
+bucket=volume6
 
 # Get the first 80 files
 cd $files_dir
