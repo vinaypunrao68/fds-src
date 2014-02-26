@@ -51,6 +51,20 @@ bool ClusterCommMgr::get_node_mig_ip_port(const NodeUuid &node_id,
 }
 
 /**
+ *
+ * @param node_id
+ * @return
+ */
+template <class Type>
+boost::shared_ptr<Type> ClusterCommMgr::get_client_session(const NodeUuid &node_id)
+{
+//    int state;
+//    int result = om_client_->getNodeInfo(node_id.uuid_get_val(), &ip, &port, &state);
+//    nst_->
+    return nullptr;
+}
+
+/**
  * Returns the current dlt
  * @return
  */

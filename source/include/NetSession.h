@@ -646,144 +646,149 @@ inline std::ostream& operator<<(std::ostream& out, const netSession& ep) {
 
 class netSessionTbl {
  public:
-  netSessionTbl(std::string _src_node_name,
-                int _src_ipaddr,
-                int _port,
-                int _num_threads,
-                FDSP_MgrIdType myMgrId)
-      : src_node_name(_src_node_name),
-      src_ipaddr(_src_ipaddr),
-      port(_port),
-      localMgrId(myMgrId),
-      num_threads(_num_threads) {
-          sessionTblMutex = new fds_mutex("RPC Tbl mutex");
-      }
-  netSessionTbl(FDSP_MgrIdType myMgrId)
-      : netSessionTbl("", 0, 0, 50, myMgrId) {
-      }
-  virtual ~netSessionTbl();
+    static string ipAddr2String(int ipaddr);
+    static int ipString2Addr(string ipaddr_str);
 
-  static string ipAddr2String(int ipaddr);
-  static int ipString2Addr(string ipaddr_str);
-  std::string getKey(std::string node_name, FDSP_MgrIdType remote_mgr_id);
+ public:
+    netSessionTbl(std::string _src_node_name,
+            int _src_ipaddr,
+            int _port,
+            int _num_threads,
+            FDSP_MgrIdType myMgrId)
+     : src_node_name(_src_node_name),
+       src_ipaddr(_src_ipaddr),
+       port(_port),
+       localMgrId(myMgrId),
+       num_threads(_num_threads)
+     {
+        sessionTblMutex = new fds_mutex("RPC Tbl mutex");
+     }
 
-  // Client Procedures
-  // TODO: Change to return shared ptr
-  template <class ClientSessionT, class RespHandlerT>
-ClientSessionT* startSession(int  dst_ipaddr, int port,
-                             FDSP_MgrIdType remote_mgr_id, int num_channels,
-                             boost::shared_ptr<RespHandlerT>respHandler)
-{
-    std::string node_name = ipAddr2String(dst_ipaddr);
-    return startSession<ClientSessionT, RespHandlerT>(node_name,
-                                                      port, remote_mgr_id,
-                                                      num_channels, respHandler);
-}
-
-template <class ClientSessionT, class RespHandlerT>
-ClientSessionT* startSession(const std::string& dst_node_name,
-                             int port, FDSP_MgrIdType remote_mgr_id,
-                             int num_channels, boost::shared_ptr<RespHandlerT>respHandler)
-{
-    ClientSessionT* session = new ClientSessionT(dst_node_name, port, localMgrId, remote_mgr_id, respHandler);
-    if (session == nullptr) {
-        return nullptr;
+    netSessionTbl(FDSP_MgrIdType myMgrId)
+    : netSessionTbl("", 0, 0, 50, myMgrId) {
     }
-    bool ret = session->start();
-    if (!ret) {
-        delete session;
-        LOGWARN << "Failed to start session";
-        return nullptr;
+    virtual ~netSessionTbl();
+
+    // Client Procedures
+    // TODO: Change to return shared ptr
+    template <class ClientSessionT, class RespHandlerT>
+    ClientSessionT* startSession(int  dst_ipaddr, int port,
+            FDSP_MgrIdType remote_mgr_id, int num_channels,
+            boost::shared_ptr<RespHandlerT>respHandler)
+    {
+        std::string node_name = ipAddr2String(dst_ipaddr);
+        return startSession<ClientSessionT, RespHandlerT>(node_name,
+                port, remote_mgr_id,
+                num_channels, respHandler);
     }
 
-    std::string node_name_key = getKey(dst_node_name, remote_mgr_id);
-    session->setSessionTblKey(node_name_key);
+    template <class ClientSessionT, class RespHandlerT>
+    ClientSessionT* startSession(const std::string& dst_ip,
+            int port, FDSP_MgrIdType remote_mgr_id,
+            int num_channels, boost::shared_ptr<RespHandlerT>respHandler)
+    {
+        ClientSessionT* session = new ClientSessionT(dst_ip, port,
+                localMgrId, remote_mgr_id, respHandler);
+        if (session == nullptr) {
+            return nullptr;
+        }
+        bool ret = session->start();
+        if (!ret) {
+            delete session;
+            LOGWARN << "Failed to start session";
+            return nullptr;
+        }
 
-    sessionTblMutex->lock();
-    sessionTbl[node_name_key] = session;
-    sessionTblMutex->unlock();
+        std::string key = getClientSessionKey(dst_ip, port);
+        session->setSessionTblKey(key);
 
-    return session;
-}
+        sessionTblMutex->lock();
+        sessionTbl[key] = session;
+        sessionTblMutex->unlock();
 
-void 	      endSession(int  dst_ip_addr, FDSP_MgrIdType);
-
-void 	      endSession(const std::string& dst_node_name, FDSP_MgrIdType);
-
-void 	      endSession(netSession *);
-
-/* Ends all client and server sessions in this table */
-void endAllSessions();
-
-// client side getSession
-netSession*       getSession(int dst_ip_addr, FDSP_MgrIdType mgrId);
-
-netSession*       getSession(const std::string& dst_node_name, FDSP_MgrIdType mgrId);
-
-// Server side getSession
-netSession*       getServerSession(int dst_ip_addr, FDSP_MgrIdType mgrId);
-
-netSession*       getServerSession(const std::string& dst_node_name, FDSP_MgrIdType mgrId);
-
-// TODO: Make this interface return shared_ptr
-template <class ServerSessionT, class ReqHandlerT>
-ServerSessionT* createServerSession(int local_ipaddr,
-                                    int _port,
-                                    std::string local_node_name,
-                                    FDSP_MgrIdType remote_mgr_id,
-                                    boost::shared_ptr<ReqHandlerT> reqHandler) {
-    ServerSessionT* session;
-    src_ipaddr = local_ipaddr;
-    port = _port;
-    src_node_name = local_node_name;
-
-    session = new ServerSessionT(local_node_name, port, localMgrId,
-                                 remote_mgr_id, num_threads, reqHandler);
-    if ( session == nullptr ) {
-        return nullptr;
+        return session;
     }
-    session->setSessionRole(NETSESS_SERVER);
-    std::string node_name_key = getKey(local_node_name, remote_mgr_id);
-    session->setSessionTblKey(node_name_key);
 
-    sessionTblMutex->lock();
-    sessionTbl[node_name_key] = session;
-    sessionTblMutex->unlock();
+    // TODO: Make this interface return shared_ptr
+    template <class ServerSessionT, class ReqHandlerT>
+    ServerSessionT* createServerSession(int local_ipaddr,
+            int _port,
+            std::string local_node_name,
+            FDSP_MgrIdType remote_mgr_id,
+            boost::shared_ptr<ReqHandlerT> reqHandler)
+    {
+        ServerSessionT* session;
+        src_ipaddr = local_ipaddr;
+        port = _port;
+        src_node_name = local_node_name;
 
-#if 0
-    // TODO:  Why do we need this for every server session
-    threadManager = ThreadManager::newSimpleThreadManager(num_threads);
-    threadFactory = boost::shared_ptr<PosixThreadFactory>(new PosixThreadFactory());
-    threadManager->threadFactory(threadFactory);
-    threadManager->start();
-#endif
+        session = new ServerSessionT(local_node_name, port, localMgrId,
+                remote_mgr_id, num_threads, reqHandler);
+        if ( session == nullptr ) {
+            return nullptr;
+        }
+        session->setSessionRole(NETSESS_SERVER);
+        std::string key = getServerSessionKey(local_node_name, port);
+        session->setSessionTblKey(key);
 
-    return session;
-}
+        sessionTblMutex->lock();
+        sessionTbl[key] = session;
+        sessionTblMutex->unlock();
 
-// Blocking call equivalent to .run or .serve
-void              listenServer(netSession* server_session);
+        return session;
+    }
 
-virtual std::string log_string() {
-    return "NetSessionTable";
-}
+    template <class SessionT>
+    SessionT* getClientSession(const int &ip_addr, const int &port)
+    {
+        std::string ip_str = ipAddr2String(ip_addr);
+        return getClientSession<SessionT>(ip_str, port);
+    }
 
-std::string src_node_name;
-int src_ipaddr;
-int port;
-FDSP_MgrIdType localMgrId;
+    template <class SessionT>
+    SessionT* getClientSession(const std::string &ip, const int &port)
+    {
+        std::string key = getClientSessionKey(ip, port);
+        return static_cast<SessionT*>(getSession(key));
+    }
 
-private: /* data */
-std::unordered_map<std::string, netSession*> sessionTbl;
-fds_mutex   *sessionTblMutex;
+    bool clientSessionExists(const int &ip, const int &port);
 
-int num_threads;
+    template <class SessionT>
+    SessionT* getServerSession(const std::string &ip, const int &port)
+    {
+        std::string key = getServerSessionKey(ip, port);
+        return static_cast<SessionT>(getSession(key));
+    }
 
-#if 0
-// Server Side Local variables
-boost::shared_ptr<ThreadManager> threadManager;
-boost::shared_ptr<PosixThreadFactory> threadFactory;
-#endif
+    void endClientSession(const int  &ip, const int &port);
+
+    void endSession(const std::string& key);
+
+    /* Ends all client and server sessions in this table */
+    void endAllSessions();
+
+    // Blocking call equivalent to .run or .serve
+    void listenServer(netSession* server_session);
+
+    virtual std::string log_string() {
+        return "NetSessionTable";
+    }
+
+ private: /* data */
+    std::string getServerSessionKey(const std::string &ip, const int &port);
+    std::string getClientSessionKey(const std::string &ip, const int &port);
+    netSession* getSession(const std::string& key);
+
+    std::string src_node_name;
+    int src_ipaddr;
+    int port;
+    FDSP_MgrIdType localMgrId;
+    std::unordered_map<std::string, netSession*> sessionTbl;
+    fds_mutex   *sessionTblMutex;
+
+    int num_threads;
+
 };
 
 typedef boost::shared_ptr<netSessionTbl> netSessionTblPtr;

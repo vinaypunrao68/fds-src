@@ -34,8 +34,7 @@ void StorHvDataPlacement::nodeEventHandler(int node_id,
                                            FDS_ProtocolInterface::FDSP_MgrIdType node_type) {
  int storMgrPortNum = 6901;
  int dataMgrPortNum = 6900;
- netSession  *existing_ep;
- fds_int32_t       exists;
+ bool exists;
 
     switch(node_state) { 
        case FDS_ProtocolInterface::FDS_Node_Up : 
@@ -48,9 +47,9 @@ void StorHvDataPlacement::nodeEventHandler(int node_id,
           * Check if we know about this node already
           */
 
-         existing_ep = storHvisor->rpcSessionTbl->getSession
-             (node_ip_addr, node_type);
-         if (existing_ep != NULL) {
+         exists = storHvisor->rpcSessionTbl->\
+                 clientSessionExists(node_ip_addr, node_port);
+         if (!exists) {
            FDS_PLOG(storHvisor->GetLog()) << "Node already exists. No need to add.";
            return;
          }
@@ -76,10 +75,13 @@ void StorHvDataPlacement::nodeEventHandler(int node_id,
 
        case FDS_ProtocolInterface::FDS_Node_Down:
        case FDS_ProtocolInterface::FDS_Node_Rmvd:
-         FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTbl - Node Down event NodeId :" << node_id << " node IP addr" << node_ip_addr ;
-          storHvisor->rpcSessionTbl->endSession(node_ip_addr,  FDS_ProtocolInterface::FDSP_STOR_MGR);
-          storHvisor->rpcSessionTbl->endSession(node_ip_addr,  FDS_ProtocolInterface::FDSP_DATA_MGR);
-	break;
+         FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTbl - Node Down event NodeId :"
+         << node_id << " node IP addr" << node_ip_addr << " port " << node_port ;
+         storHvisor->rpcSessionTbl->endClientSession(node_ip_addr, node_port);
+         break;
+       default:
+         fds_verify("Unkown node state");
+         break;
     }
 }
 
