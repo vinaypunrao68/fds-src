@@ -39,6 +39,14 @@ JNIEXPORT void JNICALL Java_com_formationds_nativeapi_NativeApi_createBucket
 JNIEXPORT void JNICALL Java_com_formationds_nativeapi_NativeApi_put
   (JNIEnv *, jclass, jstring, jstring, jbyteArray, jobject);
 
+/*
+ * Class:     com_formationds_nativeapi_NativeApi
+ * Method:    get
+ * Signature: (Ljava/lang/String;Ljava/lang/String;[BLjava/util/function/Consumer;)V
+ */
+JNIEXPORT void JNICALL Java_com_formationds_nativeapi_NativeApi_get
+  (JNIEnv *, jclass, jstring, jstring, jbyteArray, jobject);
+
 #ifdef __cplusplus
 }
 #endif
