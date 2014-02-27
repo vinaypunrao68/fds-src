@@ -17,7 +17,8 @@ public class NativeApi implements Fds {
     static native void init();
     static native void getBucketsStats(Consumer<Collection<BucketStatsContent>> result);
     static native void createBucket(String bucketName, Consumer<Integer> result);
-    public static native void put(String bucketName, String objectName, byte[] bytes, Consumer<Integer> result);
+    static native void put(String bucketName, String objectName, byte[] bytes, Consumer<Integer> result);
+    static native void get(String bucketName, String objectName, byte[] buffer, Consumer<Integer> result);
 
     static {
         init();
@@ -41,6 +42,13 @@ public class NativeApi implements Fds {
     public Future<Integer> put(String bucketName, String objectName, byte[] bytes) {
         Acceptor<Integer> acceptor = new Acceptor<>();
         put(bucketName, objectName, bytes, acceptor);
+        return acceptor;
+    }
+
+    @Override
+    public Future<Integer> get(String bucketName, String objectName, byte[] bytes) {
+        Acceptor<Integer> acceptor = new Acceptor<>();
+        get(bucketName, objectName, bytes, acceptor);
         return acceptor;
     }
 }

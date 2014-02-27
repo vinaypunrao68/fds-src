@@ -74,7 +74,21 @@ namespace fds {
             javaContext->detachCurrentThread();
             return 0;
         }
-            
+
+        static FDSN_Status get_cb(void *reqContext, 
+                                  fds_uint64_t bufferSize, 
+                                  const char *buffer,
+                                  void *callbackData, 
+                                  FDSN_Status status, 
+                                  ErrorDetails *errDetails) {
+	    JavaContext *javaContext = static_cast<JavaContext *>(callbackData);    
+	    JNIEnv *env = javaContext->attachCurrentThread();
+            jobject javaStatus = javaContext->javaInstance(env, "java/lang/Integer", "(I)V", (jint) status);
+            javaContext->invoke(env, javaContext->arg, "accept", "(Ljava/lang/Object;)V", javaStatus);
+            javaContext->detachCurrentThread();
+            return status;
+        }
+        
         BucketContext *makeBucketContext(JNIEnv *env, JavaContext *javaContext, jstring bucketName) {
             return new BucketContext("host", javaContext->ccString(env, bucketName), "", "");
         }
@@ -111,7 +125,7 @@ JNIEXPORT void JNICALL Java_com_formationds_nativeapi_NativeApi_init
  
 JNIEXPORT void JNICALL Java_com_formationds_nativeapi_NativeApi_getBucketsStats 
 (JNIEnv *env, jclass klass, jobject javaConsumer) {
-    JavaContext *javaContext = new JavaContext(javaVM, javaConsumer);
+    JavaContext *javaContext = new JavaContext(javaVM, env, javaConsumer);
 
     api->GetBucketStats(
         static_cast<void *>(NULL), 
@@ -121,7 +135,7 @@ JNIEXPORT void JNICALL Java_com_formationds_nativeapi_NativeApi_getBucketsStats
 
 JNIEXPORT void JNICALL Java_com_formationds_nativeapi_NativeApi_createBucket
 (JNIEnv *env, jclass klass, jstring bucketName, jobject javaConsumer) {
-    JavaContext *javaContext = new JavaContext(javaVM, javaConsumer);
+    JavaContext *javaContext = new JavaContext(javaVM, env, javaConsumer);
     BucketContext *bucketContext = makeBucketContext(env, javaContext, bucketName);
     
     api->CreateBucket(
@@ -134,7 +148,7 @@ JNIEXPORT void JNICALL Java_com_formationds_nativeapi_NativeApi_createBucket
 
 JNIEXPORT void JNICALL Java_com_formationds_nativeapi_NativeApi_put
 (JNIEnv *env, jclass klass, jstring bucketName, jstring objectName, jbyteArray bytes, jobject javaCallback) {
-    JavaContext *javaContext = new JavaContext(javaVM, javaCallback);
+    JavaContext *javaContext = new JavaContext(javaVM, env, javaCallback);
     BucketContext *bucketContext = makeBucketContext(env, javaContext, bucketName);
     PutProperties *props = new PutProperties();
     char *buf = (char *)env->GetByteArrayElements(bytes, JNI_FALSE);
@@ -146,11 +160,31 @@ JNIEXPORT void JNICALL Java_com_formationds_nativeapi_NativeApi_put
                    (void *)NULL,
                    buf, 
                    length,
-                   static_cast<fdsnPutObjectHandler>(put_cb),
+                   static_cast<fdsnPutObjectHandler>(&put_cb),
                    static_cast<void *>(javaContext));
     
-    jobject javaStatus = javaContext->javaInstance(env, "java/lang/Integer", "(I)V", (jint)0);
-    javaContext->invoke(env, javaCallback, "accept", "(Ljava/lang/Object;)V", javaStatus);
+}
+
+JNIEXPORT void JNICALL Java_com_formationds_nativeapi_NativeApi_get
+(JNIEnv *env, jclass klass, jstring bucketName, jstring objectName, jbyteArray bytes, jobject javaCallback) {
+    JavaContext *javaContext = new JavaContext(javaVM, env, javaCallback);
+    BucketContext *bucketContext = makeBucketContext(env, javaContext, bucketName);
+    GetConditions *getConditions = new GetConditions();
+
+    char *buf = (char *)env->GetByteArrayElements(bytes, JNI_FALSE);
+    int length = (int)env->GetArrayLength(bytes);
+    
+    api->GetObject(bucketContext,
+                   javaContext->ccString(env, objectName),
+                   getConditions,
+                   0, 
+                   length,
+                   buf,
+                   length,
+                   static_cast<void *>(NULL),
+                   static_cast<fdsnGetObjectHandler>(&get_cb),
+                   static_cast<void *>(javaContext)
+        );
 }
 
 
