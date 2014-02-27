@@ -79,8 +79,6 @@ fds_int32_t netSessionTbl::ipString2Addr(string ipaddr_str) {
     return (ntohl(sa.sin_addr.s_addr));
 }
 
-
-
 /**
  * @return local ip
  */
@@ -117,98 +115,63 @@ std::string netSession::getLocalIp()
 }
 
 std::string
-netSessionTbl::getKey(std::string node_name, FDSP_MgrIdType remote_mgr_id) {
-    std::string node_name_key = node_name;
-    switch ( localMgrId ) {
-        case FDSP_STOR_MGR :
-            node_name_key  += "_SM";
-            break;
-        case FDSP_DATA_MGR :
-            node_name_key += "_DM";
-            break;
-        case FDSP_ORCH_MGR :
-            node_name_key += "_OM";
-            break;
-        case FDSP_STOR_HVISOR :
-            node_name_key += "_AM";
-            break;
-        case FDSP_CLI_MGR :
-            node_name_key += "_CLI";
-            break;
-        case FDSP_OMCLIENT_MGR :
-            node_name_key += "_OMCLI";
-            break;
-        case FDSP_MIGRATION_MGR :
-            node_name_key += "_MIG";
-            break;
-    }
-
-    switch ( remote_mgr_id ) {
-        case FDSP_STOR_MGR :
-            node_name_key  += "_SM";
-            break;
-        case FDSP_DATA_MGR :
-            node_name_key += "_DM";
-            break;
-        case FDSP_ORCH_MGR :
-            node_name_key += "_OM";
-            break;
-        case FDSP_STOR_HVISOR :
-            node_name_key += "_AM";
-            break;
-        case FDSP_CLI_MGR :
-            node_name_key += "_CLI";
-            break;
-        case FDSP_OMCLIENT_MGR :
-            node_name_key += "_OMCLI";
-            break;
-        case FDSP_MIGRATION_MGR :
-            node_name_key += "_MIG";
-            break;
-    }
-    return node_name_key;
+netSessionTbl::getServerSessionKey(const std::string &ip, const int &port)
+{
+    std::stringstream ss;
+    ss << "srvr_" << ip << ":" << port;
+    return ss.str();
+}
+std::string
+netSessionTbl::getClientSessionKey(const std::string &ip, const int &port)
+{
+    std::stringstream ss;
+    ss << "client_" << ip << ":" << port;
+    return ss.str();
 }
 
-netSession*
-netSessionTbl::getSession(const std::string& node_name, FDSP_MgrIdType mgr_id)
+bool netSessionTbl::clientSessionExists(const int &ip, const int &port)
 {
-    netSession* session = NULL;
-    std::string node_name_key = getKey(node_name, mgr_id);
+    std::string ip_str = ipAddr2String(ip);
+    std::string key = getClientSessionKey(ip_str, port);
 
     sessionTblMutex->lock();
-    auto itr = sessionTbl.find(node_name_key);
+    bool exists = (sessionTbl.find(key) != sessionTbl.end());
+    sessionTblMutex->unlock();
+
+    return exists;
+}
+
+netSession* netSessionTbl::getSession(const std::string& key)
+{
+    sessionTblMutex->lock();
+    auto itr = sessionTbl.find(key);
     if (itr == sessionTbl.end()) {
         sessionTblMutex->unlock();
+        /* NOTE: Remove if not needed */
+        fds_assert(!"Null session");
         return nullptr;
     }
-    session = itr->second;
+    netSession* session = itr->second;
     sessionTblMutex->unlock();
     return session;
 }
 
-netSession*
-netSessionTbl::getSession(int ip_addr, FDSP_MgrIdType mgr_id)
-{
-    std::string node_name = ipAddr2String(ip_addr);
-    return getSession(node_name, mgr_id);
-}
-
-void netSessionTbl::endSession(int  dst_ip_addr, FDSP_MgrIdType mgr_id)
+void netSessionTbl::endClientSession(const int  &ip, const int &port)
 {
     netSession* session = NULL;
-    std::string node_name = ipAddr2String(dst_ip_addr);
-    session = getSession(node_name, mgr_id);
-    session->endSession();
+    std::string ip_str = ipAddr2String(ip);
+    std::string key = getClientSessionKey(ip_str, port);
+    endSession(key);
 }
 
-void netSessionTbl::endSession(netSession *session) {
+void netSessionTbl::endSession(const std::string &key) {
     sessionTblMutex->lock();
-    auto itr = sessionTbl.find(session->getSessionTblKey());
+    auto itr = sessionTbl.find(key);
     if (itr != sessionTbl.end()) {
-        session->endSession();
+        itr->second->endSession();
         sessionTbl.erase(itr);
     } else {
-        LOGWARN << "netSession " << session->getSessionTblKey() << " doesn't exist";
+        LOGWARN << "netSession " << key << " doesn't exist";
         fds_assert(!"netSession disappered");
     }
     sessionTblMutex->unlock();

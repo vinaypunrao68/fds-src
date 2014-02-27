@@ -6,7 +6,7 @@ user_install_loc  :=
 
 user_fds_so_libs  :=
 user_fds_ar_libs  :=                                                          \
-    fds-thread fds-lib fds-util fds-netproxy fds-fdsp fds-umod
+    fds-thread fds-lib fds-util fds-netproxy fds-fdsp fds-umod 
 
 user_non_fds_libs :=                                                          \
     boost_log boost_system boost_thread boost_date_time boost_program_options \
