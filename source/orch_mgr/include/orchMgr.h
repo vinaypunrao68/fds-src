@@ -37,15 +37,18 @@ class OrchMgr: public FdsProcess {
     SysParams *sysParams;
     /* net session tbl for OM control path*/
     boost::shared_ptr<netSessionTbl> omcp_session_tbl;
+    netOMControlPathServerSession *omc_server_session;
     boost::shared_ptr<FDSP_OMControlPathReqIf> omcp_req_handler;
     boost::shared_ptr<FDSP_ControlPathRespIf> cp_resp_handler;
     std::string my_node_name;
 
     /* net session tbl for OM config path server */
     boost::shared_ptr<netSessionTbl> cfg_session_tbl;
+    netConfigPathServerSession *cfg_server_session;
     boost::shared_ptr<FDSP_ConfigPathReqIf> cfg_req_handler;
     /* config path server is run on this thread */
     boost::shared_ptr<std::thread> cfgserver_thread;
+
 
     int current_dlt_version;
     int current_dmt_version;
