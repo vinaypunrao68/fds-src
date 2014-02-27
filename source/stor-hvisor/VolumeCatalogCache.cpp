@@ -157,62 +157,35 @@ Error VolumeCatalogCache::queryDm(const std::string& blobName,
   int node_state;
   fds_bool_t located_ep = false;
   for (int i = 0; i < num_nodes; i++) {
-    err = parent_sh->dataPlacementTbl->getNodeInfo(node_ids[i],
-                                                   &node_ip,
-                                                   &node_port,
-                                                   &node_state);
-    if (!err.ok()) {
-      FDS_PLOG(vcc_log) << "VolumeCatalogCache - "
-                        << "Unable to get node info for node "
-                        << node_ids[i];
-      return err;
-    }
-
-    endPoint = storHvisor->rpcSessionTbl->getSession
-             (node_ip, FDS_ProtocolInterface::FDSP_DATA_MGR);
-    if (endPoint == NULL) {
-      FDS_PLOG(vcc_log) << "VolumeCatalogCache - "
-                        << "Unable to get RPC endpoint for "
-                        << node_ip;
-      err = ERR_CAT_QUERY_FAILED;
-      return err;
-    }
-
-    if (endPoint != NULL) {
-      located_ep = true;
-      /*
-       * We found a valid endpoint. Let's try it
-       */
-      try {
-         boost::shared_ptr<FDSP_MetaDataPathReqClient> client =
-               dynamic_cast<netMetaDataPathClientSession *>(endPoint)->getClient();
-         netMetaDataPathClientSession *sessionCtx =  static_cast<netMetaDataPathClientSession *>(endPoint);
-         msg_hdr->session_uuid = sessionCtx->getSessionId();
-        client->QueryCatalogObject(msg_hdr, query_req);
-        FDS_PLOG(vcc_log) << " VolumeCatalogCache - "
-                          << "Async query request sent to DM "
-                          << endPoint << " for volume " << vol_id
-                          << " and block id " << blobOffset;
-        /*
-         * Reset the error to PENDING since we set the message.
-         * This lets the caller know to wait for a response.
-         */
-        err = ERR_PENDING_RESP;
-      } catch(...) {
-        FDS_PLOG(vcc_log) << "VolumeCatalogCache - "
-                          << "Failed to query DM endpoint "
-                          << endPoint << " for volume "<< vol_id
-                          << " and block id " << blobOffset;
-        err = ERR_CAT_QUERY_FAILED;
+      err = parent_sh->dataPlacementTbl->getNodeInfo(node_ids[i],
+              &node_ip,
+              &node_port,
+              &node_state);
+      if (!err.ok()) {
+          FDS_PLOG(vcc_log) << "VolumeCatalogCache - "
+                  << "Unable to get node info for node "
+                  << node_ids[i];
+          return err;
       }
-      break;
-    }
+
+      netMetaDataPathClientSession *sessionCtx =
+              storHvisor->rpcSessionTbl->\
+              getClientSession<netMetaDataPathClientSession>(node_ip, node_port);
+      fds_verify(sessionCtx != NULL);
+      boost::shared_ptr<FDSP_MetaDataPathReqClient> client = sessionCtx->getClient();
+      msg_hdr->session_uuid = sessionCtx->getSessionId();
+      client->QueryCatalogObject(msg_hdr, query_req);
+      FDS_PLOG(vcc_log) << " VolumeCatalogCache - "
+              << "Async query request sent to DM "
+              << endPoint << " for volume " << vol_id
+              << " and block id " << blobOffset;
+      /*
+       * Reset the error to PENDING since we set the message.
+       * This lets the caller know to wait for a response.
+       */
+      err = ERR_PENDING_RESP;
   }
-  if (located_ep == false) {
-    FDS_PLOG(vcc_log) << " VolumeCatalogCache - "
-                      << "Could not locate a valid endpoint to query";
-    err = ERR_CAT_QUERY_FAILED;
-  }
+
 
   return err;
 }
