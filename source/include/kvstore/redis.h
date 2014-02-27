@@ -1,0 +1,148 @@
+/*
+ * Copyright 2014 Formation Data Systems, Inc.
+ */
+#ifndef SOURCE_INCLUDE_KVSTORE_REDIS_H_
+#define SOURCE_INCLUDE_KVSTORE_REDIS_H_
+#include <string>
+#include <hiredis.h>
+#include <queue>
+#include <vector>
+#include <thrift/concurrency/Monitor.h>
+
+namespace redis {
+    /**
+     * For redis specific exception
+     */
+    struct RedisException : public std::exception {
+        explicit RedisException(const char* cstr) {
+            reason = std::string(cstr);
+        }
+
+        explicit RedisException(const std::string& reason) {
+            this->reason = reason;
+        }
+
+        virtual ~RedisException() throw() {}
+
+        virtual const char* what() {
+            return reason.c_str();
+        }
+  private:
+        std::string reason;
+    };
+
+    /**
+     * Reply from redis server
+     */
+    struct Reply {
+        Reply(redisReply* r, bool fOwner = true);
+        Reply(void* v, bool fOwner = true);
+        Reply& operator=(const Reply& rhs);
+        virtual ~Reply();
+
+        bool isError() const;
+        bool isValid() const;
+
+        std::string getString() const;
+        long long getLong() const; // NOLINT
+        void checkError() const;
+        bool isNil() const;
+        std::string getStatus();
+        size_t getNumElements() const;
+
+        void toVector(std::vector<std::string>& vec); // NOLINT
+        void toVector(std::vector<long long>& vec); // NOLINT
+
+        void dump() const;
+
+      protected:
+        mutable bool fOwner = true;
+        mutable redisReply* r;
+    };
+
+    /**
+     * Connection to Redis
+     */
+    struct Connection {
+        Connection(const std::string& host = "localhost", uint port = 6379);
+        void connect();
+        Reply getReply();
+
+        ~Connection();
+        redisContext* ctx;
+        std::string host;
+        uint port;
+    };
+
+    /**
+     * Redis Connection Pool
+     */
+    struct ConnectionPool {
+        ConnectionPool(uint poolsize = 10,
+                       const std::string& host = "localhost",
+                       uint port = 6379);
+        ~ConnectionPool();
+
+        Connection* get();
+        void put(Connection* cxn);
+      protected:
+        std::queue<Connection*> connections;
+        apache::thrift::concurrency::Monitor monitor;
+        apache::thrift::concurrency::Mutex mutex;
+    };
+
+    /**
+     * RAII design for acquiring a connection from a pool 
+     * & releasing it back into pool automatically
+     */
+    struct ScopedConnection {
+        explicit ScopedConnection(ConnectionPool* pool);
+        Connection* operator->() const;
+        ~ScopedConnection();
+      protected:
+        ConnectionPool* pool = NULL;
+        Connection* cxn = NULL;
+    };
+
+    /**
+     * The actual interface to redis
+     * - maintains a connection pool internally
+     */
+
+    struct Redis {
+        static void encodeHex(const std::string& binary, std::string& hex);
+        static void decodeHex(const std::string& hex, std::string& binary);
+        Redis(const std::string& host = "localhost",
+              uint port = 6379, uint poolsize = 10);
+        ~Redis();
+
+        // send command
+        Reply sendCommand(const char* cmdfmt, ...);
+
+        // strings
+        Reply set(const std::string& key, const std::string& value);
+        Reply get(const std::string& key);
+        Reply append(const std::string& key, const std::string& value);
+        Reply incr(const std::string& key);
+        Reply incrby(const std::string& key,long increment); // NOLINT
+
+        // lists
+        Reply lrange(const std::string& key, long start = 0, long end = -1); // NOLINT
+        Reply llen(const std::string& key);
+        Reply lpush(const std::string& key, const std::string& value);
+        Reply rpush(const std::string& key, const std::string& value);
+
+        // hashes
+        Reply hset(const std::string& key, const std::string& field,
+                   const std::string& value);
+        Reply hget(const std::string& key, const std::string& field);
+        Reply hgetall(const std::string& key);
+        Reply hlen(const std::string& key);
+
+
+      protected:
+        ConnectionPool pool;
+    };
+}  // namespace redis
+
+#endif  // SOURCE_INCLUDE_KVSTORE_REDIS_H_
