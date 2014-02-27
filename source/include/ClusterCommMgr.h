@@ -35,6 +35,9 @@ class ClusterCommMgr {
 
     netSessionTblPtr get_nst();
 
+    template <class Type>
+    boost::shared_ptr<Type> get_client_session(const NodeUuid &node_id);
+
     // netMigrationPathClientSession* get_migration_session(const NodeUuid &node_id);
  protected:
     // TODO(Rao): We shouldn't rely on omClient.  We should just have a

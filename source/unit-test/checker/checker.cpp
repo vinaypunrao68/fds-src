@@ -150,15 +150,16 @@ DirBasedChecker::get_datapath_session(const NodeUuid& node_id)
     clust_comm_mgr_->get_om_client()->getNodeInfo(
             node_id.uuid_get_val(), &ip, &port, &state);
 
-    netSession* session = nst->getSession(ip, FDSP_STOR_MGR);
-    if (session == nullptr) {
+    if (!nst->clientSessionExists(ip, port)) {
       dp_session = nst->startSession<netDataPathClientSession>(static_cast<int>(ip),
               port,
               FDSP_STOR_MGR,
               1, /* number of channels */
               dp_resp_handler_);
     } else {
-        dp_session = static_cast<netDataPathClientSession*>(session);
+        dp_session = nst->getClientSession<netDataPathClientSession>(
+                static_cast<int>(ip),
+                port);
     }
 
     fds_verify(dp_session != nullptr);

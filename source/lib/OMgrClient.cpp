@@ -159,7 +159,7 @@ OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
 
 OMgrClient::~OMgrClient()
 {
-    nst_->endSession(omrpc_handler_session_);
+    nst_->endSession(omrpc_handler_session_->getSessionTblKey());
     omrpc_handler_thread_->join();
 
     delete clustMap;

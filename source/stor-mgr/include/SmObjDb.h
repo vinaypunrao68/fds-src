@@ -60,8 +60,10 @@ public:
             fds_log* _log) {
         SetLog(_log);
         stor_prefix = stor_prefix_;
+        smObjDbMutex = new fds_mutex("SmObjDb Mutex");
     }
     ~SmObjDb() {
+        delete smObjDbMutex;
     }
 
     inline fds_token_id GetSmObjDbId(const fds_token_id &tokId) const
@@ -73,12 +75,14 @@ public:
         ObjectDB *objdb = NULL;
         fds_token_id dbId = GetSmObjDbId(tokId);
 
+        smObjDbMutex->lock();
         if ( (objdb = tokenTbl[dbId]) == NULL ) {
             // Create leveldb
             std::string filename= stor_prefix + "SNodeObjIndex_" + std::to_string(dbId);
             objdb  = new ObjectDB(filename);
             tokenTbl[dbId] = objdb;
         }
+        smObjDbMutex->unlock();
 
         return objdb;
     }
@@ -87,10 +91,13 @@ public:
         fds_token_id dbId = GetSmObjDbId(tokId);
         ObjectDB *objdb = NULL;
 
+        smObjDbMutex->lock();
         if ( (objdb = tokenTbl[dbId]) == NULL ) {
+            smObjDbMutex->unlock();
             return;
         }
         tokenTbl[dbId] = NULL;
+        smObjDbMutex->unlock();
         delete objdb;
     }
 
@@ -99,7 +106,9 @@ public:
         ObjectDB *objdb = NULL;
         fds_token_id dbId = GetSmObjDbId(tokId);
 
+        smObjDbMutex->lock();
         objdb = tokenTbl[dbId];
+        smObjDbMutex->unlock();
         return objdb;
     }
 
@@ -114,6 +123,7 @@ public:
 private:
     std::unordered_map<fds_token_id, ObjectDB *> tokenTbl;
     std::string stor_prefix;
+    fds_mutex *smObjDbMutex;
 };
 
 }
