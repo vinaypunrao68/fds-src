@@ -24,6 +24,8 @@ int main(int argc, char **argv)
     fds::init_process_globals("sm-client-probe.log");
     fds::objStorMgr = new ObjectStorMgr(argc, argv, "sm.conf", "fds.sm.");
 
+    fds::FDS_NativeAPI *api = new
+                fds::FDS_NativeAPI(fds::FDS_NativeAPI::FDSN_AWS_S3);
     fds::Module *probe_vec[] = {
         &fds::gl_fds_stat,
         &fds::gl_probeS3Eng,
@@ -48,6 +50,6 @@ int main(int argc, char **argv)
 
     /* Now run the S3 engine. */
     pool->schedule(fds::run_sm_server, fds::objStorMgr);
-    fds::gl_probeS3Eng.run_server(nullptr);
+    fds::gl_probeS3Eng.run_server(api);
     return 0;
 }
