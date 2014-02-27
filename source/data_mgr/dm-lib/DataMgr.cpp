@@ -382,7 +382,7 @@ DataMgr::DataMgr(int argc, char *argv[],
     runMode(NORMAL_MODE),
     scheduleRate(4000),
     num_threads(DM_TP_THREADS) {
-  dm_log = new fds_log("dm", "logs");
+  dm_log = g_fdslog;
   vol_map_mtx = new fds_mutex("Volume map mutex");
 
   _tp = new fds_threadpool(num_threads);
@@ -420,7 +420,6 @@ DataMgr::~DataMgr() {
 
   delete omClient;
   delete vol_map_mtx;
-  delete dm_log;
   delete qosCtrl;
 }
 

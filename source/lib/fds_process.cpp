@@ -56,9 +56,10 @@ FdsProcess::FdsProcess(int argc, char *argv[],
          * name from config
          */
         if (def_log_file == "") {
-            g_fdslog = new fds_log(conf_helper_.get<std::string>("logfile"), logdir);
+            g_fdslog = new fds_log(logdir +
+                    conf_helper_.get<std::string>("logfile"), logdir);
         } else {
-            g_fdslog = new fds_log(def_log_file, logdir);
+            g_fdslog = new fds_log(logdir + def_log_file, logdir);
         }
         /* Process wide counters setup */
         std::string proc_id = argv[0];

@@ -53,8 +53,9 @@ class MigrationTester : public FdsProcess
 public:
     MigrationTester(int argc, char *argv[],
                     const std::string &def_cfg_file,
-                    const std::string &base_path, Module **mod_vec) :
-        FdsProcess(argc, argv, def_cfg_file, base_path, mod_vec) {
+                    const std::string &base_path,
+                    const std::string &def_log_file,  Module **mod_vec) :
+        FdsProcess(argc, argv, def_cfg_file, base_path, def_log_file, mod_vec) {
     }
     virtual ~MigrationTester() {
         delete log_;
@@ -169,12 +170,11 @@ public:
 };
 
 int main(int argc, char *argv[]) {
-    // init_process_globals("temp.log");
     fds::Module *smVec[] = {
         &fds::gl_objStats,
         NULL
     };
-    MigrationTester t(argc, argv, "", "temp.log", smVec);
+    MigrationTester t(argc, argv, "", "", "temp.log", smVec);
     t.init();
     t.test1();
     return 0;

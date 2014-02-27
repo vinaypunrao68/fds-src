@@ -230,21 +230,18 @@ ModuleVector::mod_mk_sysparams()
     po::store(po::command_line_parser(sys_argc, sys_argv).
               options(desc).allow_unregistered().run(), vm);
     po::notify(vm);
+    sys_params.fds_root  = vm["fds-root"].as<std::string>();
+    sys_params.fds_root += '/';
+
+    sys_params.hdd_root += vm["hdd-root"].as<std::string>();
+    sys_params.hdd_root += '/';
+
+    sys_params.ssd_root += vm["ssd-root"].as<std::string>();
+    sys_params.ssd_root += '/';
+
     if (vm.count("help")) {
         std::cout << desc << std::endl;
         return;
-    }
-    if (vm.count("fds-root")) {
-        sys_params.fds_root  = vm["fds-root"].as<std::string>();
-        sys_params.fds_root += '/';
-    }
-    if (vm.count("hdd-root")) {
-        sys_params.hdd_root += vm["hdd-root"].as<std::string>();
-        sys_params.hdd_root += '/';
-    }
-    if (vm.count("ssd-root")) {
-        sys_params.ssd_root += vm["ssd-root"].as<std::string>();
-        sys_params.ssd_root += '/';
     }
     if (vm.count("sim-prefix")) {
         SimEnvParams *sim  =

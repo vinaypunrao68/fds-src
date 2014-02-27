@@ -41,7 +41,6 @@ extern "C" {
 
 int main(int argc, char **argv)
 {
-    // fds::init_process_globals("am.log");
     fds::Module *am_mod_vec[] = {
         &fds::gl_fds_stat,
         &fds::gl_AMEngineS3,
