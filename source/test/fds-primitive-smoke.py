@@ -407,5 +407,5 @@ if __name__ == "__main__":
     print "Total PUTs: ", env.total_put
     print "Total GETs: ", env.total_get
     print "Test Passed, cleaning up..."
-    #env.shut_down()
+    # env.shut_down()
     sys.exit(0)
