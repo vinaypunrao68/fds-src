@@ -49,7 +49,7 @@ void StorHvDataPlacement::nodeEventHandler(int node_id,
 
          exists = storHvisor->rpcSessionTbl->\
                  clientSessionExists(node_ip_addr, node_port);
-         if (!exists) {
+         if (exists) {
            FDS_PLOG(storHvisor->GetLog()) << "Node already exists. No need to add.";
            return;
          }
