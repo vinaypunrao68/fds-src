@@ -333,10 +333,12 @@ void ObjectStorMgr::setup()
     DmDiskQuery     in;
     DmDiskQueryOut  out;
 
+    proc_root->fds_mkdir(proc_root->dir_user_objs().c_str());
     std::string stor_prefix = conf_helper_.get<std::string>("prefix");
+    std::string obj_dir = proc_root->dir_user_objs() + stor_prefix;
 
     // Create leveldb
-    smObjDb = new  SmObjDb(stor_prefix, objStorMgr->GetLog());
+    smObjDb = new  SmObjDb(obj_dir, objStorMgr->GetLog());
     // init the checksum verification class
     chksumPtr =  new checksum_calc();
 
@@ -406,8 +408,12 @@ void ObjectStorMgr::setup()
     volTbl = new StorMgrVolumeTable(this, GetLog());
 
     /* Create tier related classes -- has to be after volTbl is created */
-    rankEngine = new ObjectRankEngine(stor_prefix, 100000, volTbl, objStats, objStorMgr->GetLog());
-    tierEngine = new TierEngine(TierEngine::FDS_TIER_PUT_ALGO_BASIC_RANK, volTbl, rankEngine, objStorMgr->GetLog());
+    FdsRootDir::fds_mkdir(proc_root->dir_fds_var_stats().c_str());
+    std::string obj_stats_dir = proc_root->dir_fds_var_stats();
+    rankEngine = new ObjectRankEngine(obj_stats_dir, 100000, volTbl,
+                                      objStats, objStorMgr->GetLog());
+    tierEngine = new TierEngine(TierEngine::FDS_TIER_PUT_ALGO_BASIC_RANK,
+                                volTbl, rankEngine, objStorMgr->GetLog());
     objCache = new FdsObjectCache(1024 * 1024 * 256,
             slab_allocator_type_default,
             eviction_policy_type_default,
@@ -415,7 +421,6 @@ void ObjectStorMgr::setup()
 
     // TODO: join this thread
     std::thread *stats_thread = new std::thread(log_ocache_stats);
-    
 
     // Create a special queue for System (background) tasks
     // and registe rwith QosCtrlr
@@ -1941,12 +1946,16 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
 
 
 void log_ocache_stats() {
-
+    /*
+     *TODO(Vy): this is kind of bloated stat, the file grows quite big with redudant
+     *data, disable it.
+     */
+#if 0
     while(1) {
         usleep(500000);
         objStorMgr->getObjCache()->log_stats_to_file("ocache_stats.dat");
     }
-
+#endif
 }
 
 fds::Error SmObjDb::Get(const ObjectID& obj_id, ObjectBuf& obj_buf) {

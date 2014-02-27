@@ -38,9 +38,7 @@ class AMEngine : public Module
 {
   public:
     explicit AMEngine(char const *const name) :
-        Module(name), eng_signal(), eng_etc("etc"),
-        eng_logs("logs"), eng_conf("etc/fds.conf"),
-        ame_queue(1, 1000) {}
+        Module(name), eng_signal(), ame_queue(1, 1000) {}
     ~AMEngine() {}
 
     int  mod_init(SysParams const *const param);
@@ -71,9 +69,6 @@ class AMEngine : public Module
 
   private:
     std::string              eng_signal;
-    char const *const        eng_etc;
-    char const *const        eng_logs;
-    char const *const        eng_conf;
     FDS_NativeAPI            *eng_api;
     fdsio::RequestQueue      ame_queue;
 };

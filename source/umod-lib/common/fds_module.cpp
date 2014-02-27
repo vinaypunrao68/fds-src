@@ -2,14 +2,13 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 #include <stdlib.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <string>
 #include <iostream>
 #include <boost/program_options.hpp>
 #include <boost/program_options/parsers.hpp>
 #include <fds_assert.h>
 #include <fds_module.h>
+#include <fds_process.h>
 
 namespace fds {
 
@@ -256,7 +255,7 @@ ModuleVector::mod_mk_sysparams()
     sys_params.service_port = service_port;
 
     // Make the FDS root directory.
-    ModuleVector::mod_mkdir(sys_params.fds_root.c_str());
+    FdsRootDir::fds_mkdir(sys_params.fds_root.c_str());
 }
 
 // \ModuleVector::mod_execute
@@ -319,22 +318,6 @@ ModuleVector::mod_shutdown()
             mod = sys_mods[i];
             mod->mod_shutdown();
         }
-    }
-}
-
-// mod_mkdir
-// ---------
-// Make external directory as part of the init. to setup run-time env.
-//
-void
-ModuleVector::mod_mkdir(char const *const path)
-{
-    if (mkdir(path, 0755) != 0) {
-        if (errno == EACCES) {
-            std::cout << "Don't have permission to " << path << std::endl;
-            exit(1);
-        }
-        fds_verify(errno == EEXIST);
     }
 }
 

@@ -1,9 +1,11 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
-
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <string>
-
+#include <iostream>
 #include <fds_assert.h>
 #include <fds_process.h>
 #include <util/Log.h>
@@ -15,6 +17,7 @@ namespace fds {
 FdsProcess *g_fdsprocess = NULL;
 fds_log *g_fdslog = NULL;
 boost::shared_ptr<FdsCountersMgr> g_cntrs_mgr;
+const FdsRootDir                 *g_fdsroot;
 
 void init_process_globals(const std::string &log_name)
 {
@@ -34,7 +37,7 @@ FdsProcess::FdsProcess(int argc, char *argv[],
                        const std::string &base_path,
                        const std::string &def_log_file, fds::Module **mod_vec)
 {
-    std::string  fdsroot, logdir, cfgfile;
+    std::string  fdsroot, cfgfile;
 
     fds_verify(g_fdsprocess == NULL);
 
@@ -46,20 +49,22 @@ FdsProcess::FdsProcess(int argc, char *argv[],
     /* Setup module vectors and config */
     mod_vectors_ = new ModuleVector(argc, argv, mod_vec);
     fdsroot      = mod_vectors_->get_sys_params()->fds_root;
-    logdir       = fdsroot + "/logs/";
+    proc_root    = new FdsRootDir(fdsroot);
 
     if (def_cfg_file != "") {
-        cfgfile = fdsroot + "/etc/" + def_cfg_file;
+        cfgfile = proc_root->dir_fds_etc() + def_cfg_file;
         setup_config(argc, argv, cfgfile, base_path);
         /*
          * Create a global logger.  Logger is created here because we need the file
          * name from config
          */
         if (def_log_file == "") {
-            g_fdslog = new fds_log(logdir +
-                    conf_helper_.get<std::string>("logfile"), logdir);
+            g_fdslog = new fds_log(proc_root->dir_fds_logs() +
+                                   conf_helper_.get<std::string>("logfile"),
+                                   proc_root->dir_fds_logs());
         } else {
-            g_fdslog = new fds_log(logdir + def_log_file, logdir);
+            g_fdslog = new fds_log(proc_root->dir_fds_logs() + def_log_file,
+                                   proc_root->dir_fds_logs());
         }
         /* Process wide counters setup */
         std::string proc_id = argv[0];
@@ -74,7 +79,7 @@ FdsProcess::FdsProcess(int argc, char *argv[],
             setup_graphite();
         }
     } else {
-        g_fdslog = new fds_log(def_log_file, logdir);
+        g_fdslog = new fds_log(def_log_file, proc_root->dir_fds_logs());
     }
 }
 
@@ -225,6 +230,57 @@ fds_log* GetLog() {
     // if the process did not explicity init ..
     init_process_globals("fds");
     return g_fdslog;
+}
+
+// --------------------------------------------------------------------------------------
+// FDS root directory layout
+// --------------------------------------------------------------------------------------
+FdsRootDir::FdsRootDir(const std::string &root)
+    : d_fdsroot(root),
+      d_root_etc(root      + std::string("etc/")),
+      d_var_logs(root      + std::string("var/logs/")),
+      d_var_cores(root     + std::string("var/cores/")),
+      d_var_stats(root     + std::string("var/stats/")),
+      d_var_inventory(root + std::string("var/inventory/")),
+      d_var_tests(root     + std::string("var/tests/")),
+      d_var_tools(root     + std::string("var/tools/")),
+      d_hdd(root           + std::string("hdd/")),
+      d_ssd(root           + std::string("ssd/")),
+      d_user_repo(root     + std::string("user-repo/")),
+      d_user_objs(d_user_repo + std::string("objects/")),
+      d_user_dm(d_user_repo   + std::string("dm-names/")),
+      d_sys_repo(root      + std::string("sys-repo/")),
+      d_fds_repo(root      + std::string("fds-repo/")) {}
+
+/*
+ * C++ API to create a directory recursively.  Bail out w/out cleaning up when having
+ * errors other than EEXIST.
+ */
+void
+FdsRootDir::fds_mkdir(char const *const path)
+{
+    size_t len;
+    char   tmp[d_max_length], *p;
+
+    len = snprintf(tmp, sizeof(tmp), "%s", path);
+    if (tmp[len - 1] == '/') {
+        tmp[len - 1] = '\0';
+    }
+    umask(0);
+    for (p = tmp + 1; *p; p++) {
+        if (*p == '/') {
+            *p = '\0';
+            if (mkdir(tmp, S_IRWXU) != 0) {
+                if (errno == EACCES) {
+                    std::cout << "Don't have permission to create " << path << std::endl;
+                    exit(1);
+                }
+                fds_verify(errno == EEXIST);
+            }
+            *p = '/';
+        }
+    }
+    mkdir(tmp, S_IRWXU);
 }
 
 }  // namespace fds

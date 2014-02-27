@@ -33,6 +33,52 @@ void init_process_globals(const std::string &log_name);
 void init_process_globals(fds_log *log);
 
 /**
+ * FDS root directory tree structure, absolute path including fds-root
+ */
+class FdsRootDir
+{
+  public:
+    explicit FdsRootDir(const std::string &root);
+    virtual ~FdsRootDir() {}
+
+    inline const std::string &dir_fdsroot() const { return d_fdsroot; }
+    inline const std::string &dir_fds_etc() const { return d_root_etc; }
+    inline const std::string &dir_fds_logs() const { return d_var_logs; }
+    inline const std::string &dir_fds_var_stats() const { return d_var_stats; }
+    inline const std::string &dir_fds_var_inventory() const { return d_var_inventory; }
+    inline const std::string &dir_fds_var_cores() const { return d_var_cores; }
+    inline const std::string &dir_fds_var_tests() const { return d_var_tests; }
+    inline const std::string &dir_fds_var_tools() const { return d_var_tools; }
+    inline const std::string &dir_hdd() const { return d_hdd; }
+    inline const std::string &dir_ssd() const { return d_ssd; }
+    inline const std::string &dir_user_repo() const { return d_user_repo; }
+    inline const std::string &dir_user_objs() const { return d_user_objs; }
+    inline const std::string &dir_user_dm() const { return d_user_dm; }
+    inline const std::string &dir_sys_repo() const { return d_sys_repo; }
+    inline const std::string &dir_fds_repo() const { return d_fds_repo; }
+
+    static void fds_mkdir(char const *const path);
+
+  protected:
+    static const int         d_max_length = 256;
+    std::string              d_fdsroot;
+    std::string              d_root_etc;
+    std::string              d_var_logs;
+    std::string              d_var_cores;
+    std::string              d_var_stats;
+    std::string              d_var_inventory;
+    std::string              d_var_tests;
+    std::string              d_var_tools;
+    std::string              d_hdd;
+    std::string              d_ssd;
+    std::string              d_user_repo;
+    std::string              d_user_objs;
+    std::string              d_user_dm;
+    std::string              d_sys_repo;
+    std::string              d_fds_repo;
+};
+
+/**
  * Generic process class.  It provides the following capabilities
  * 1. Signal handling.  Can be overridden.
  * 2. Configuration from file and command line
@@ -64,9 +110,6 @@ class FdsProcess : public boost::noncopyable {
      * By default module vector based startup sequence is performed here.  
      * When you override make sure to invoke base class setup to ensure
      * module vector is executed.
-     * @param argc
-     * @param argv
-     * @param mod_vec
      */
     virtual void setup();
 
@@ -86,6 +129,13 @@ class FdsProcess : public boost::noncopyable {
      * Returns the global fds config helper object
      */
     FdsConfigAccessor get_conf_helper() const;
+
+    /**
+     * Return the fds root directory obj.
+     */
+    inline const FdsRootDir *proc_fdsroot() const {
+        return proc_root;
+    }
 
  protected:
     // static members/methods
@@ -122,6 +172,9 @@ class FdsProcess : public boost::noncopyable {
 
     /* Module vectors. */
     ModuleVector *mod_vectors_;
+
+    /* FdsRootDir globals. */
+    FdsRootDir   *proc_root;
 };
 
 }  // namespace fds
