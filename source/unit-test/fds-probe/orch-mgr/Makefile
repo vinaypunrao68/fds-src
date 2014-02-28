@@ -7,6 +7,8 @@ user_incl_dir     := \
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  := \
+    fds-StorHvisor \
+    fds-ubd \
     fds-om-dlt \
     fds-om-lib \
     fds-om-common \

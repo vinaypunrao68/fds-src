@@ -16,6 +16,7 @@ user_fds_ar_libs  := \
     fds-smlib \
     fds-migrations \
     fds-StorHvisor \
+    fds-ubd \
     fds-lib \
     fds-vpolicy \
     fds-dsk-mgnt \
