@@ -241,6 +241,8 @@ namespace fds {
         // By default the get the current one(0) or the specific version
         const DLT* getDLT(fds_uint64_t version = 0) const;
 
+        std::vector<fds_uint64_t> getDltVersions() const;
+
         // Make the specific version as the current
         void setCurrent(fds_uint64_t version);
 
