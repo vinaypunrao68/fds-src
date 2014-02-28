@@ -14,7 +14,7 @@ int StorHvCtrl::fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const
   // struct fbd_device *fbd;
 	fbd_request_t *req; 
 	int trans_id;
-        fds_uint32_t vol_id;
+        fds_volid_t vol_id;
         StorHvVolume* vol;
 //	int   data_size;
 //	int64_t data_offset;
@@ -25,8 +25,10 @@ int StorHvCtrl::fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const
         vol = vol_table->getVolume(vol_id);
         StorHvVolumeLock vol_lock(vol);    
         if (!vol || !vol->isValidLocked()) {  
-	  FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Error: GET_OBJ_RSP for an un-registered volume" ;
-           return (0);
+            FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error)
+                    << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID: 0x" << std::hex << vol_id << std::dec
+                    << " - Error: GET_OBJ_RSP for an un-registered volume" ;
+            return (0);
         }
 
         StorHvJournalEntry *txn = vol->journal_tbl->get_journal_entry(trans_id);
@@ -34,18 +36,25 @@ int StorHvCtrl::fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const
 	StorHvJournalEntryLock je_lock(txn);
 
 	if (!txn->isActive()) {
-	  FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Error: Journal Entry" << rd_msg->req_cookie <<  "  GET_OBJ_RS for an inactive transaction" ;
-	   return (0);
+            FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error)
+                    << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID: 0x" << std::hex << vol_id << std::dec
+                    << " - Error: Journal Entry" << rd_msg->req_cookie
+                    << "  GET_OBJ_RS for an inactive transaction" ;
+            return (0);
 	}
 
 	// TODO: check if incarnation number matches
 
 	if (txn->trans_state != FDS_TRANS_GET_OBJ) {
-	  FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Error: Journal Entry" << rd_msg->req_cookie <<  "  GET_OBJ_RSP for a transaction not in GetObjResp";
-	   return (0);
+            FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error)
+                    << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID: 0x" << std::hex << vol_id <<std::dec
+                    << " - Error: Journal Entry" << rd_msg->req_cookie <<  "  GET_OBJ_RSP for a transaction not in GetObjResp";
+            return (0);
 	}
 
-	FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - GET_OBJ_RSP Processing read response for trans  " <<  trans_id;
+	FDS_PLOG(storHvisor->GetLog())
+                << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID: 0x" <<std::hex << vol_id <<std::dec
+                << " - GET_OBJ_RSP Processing read response for trans  " <<  trans_id;
 	req = (fbd_request_t *)txn->write_ctx;
 	/*
 	  - how to handle the  length miss-match ( requested  length and  recived legth from SM
@@ -59,14 +68,18 @@ int StorHvCtrl::fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const
 	 - respond to the block device- data ready 
 	*/
 	
-	FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - GET_OBJ_RSP  responding to  the block :  " << req;
+	FDS_PLOG(storHvisor->GetLog())
+                << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID: 0x" << std::hex << vol_id << std::dec
+                << " - GET_OBJ_RSP  responding to  the block :  " << req;
 	if(req) {
-          qos_ctrl->markIODone(txn->io);
-          if (rd_msg->result == FDSP_ERR_OK) { 
-              memcpy(req->buf, get_obj_rsp->data_obj.c_str(), req->len);
-	      txn->fbd_complete_req(req, 0);
-          } else {
-	    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Error Reading the Data,   responding to  the block :  " << req;
+            qos_ctrl->markIODone(txn->io);
+            if (rd_msg->result == FDSP_ERR_OK) { 
+                memcpy(req->buf, get_obj_rsp->data_obj.c_str(), req->len);
+                txn->fbd_complete_req(req, 0);
+            } else {
+                FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error)
+                        << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID: 0x" <<std::hex << vol_id << std::dec
+                        << " - Error Reading the Data,   responding to  the block :  " << req;
 	      txn->fbd_complete_req(req, -1);
           }
 	}
@@ -80,11 +93,13 @@ int StorHvCtrl::fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const
 int StorHvCtrl::fds_process_put_obj_resp(const FDSP_MsgHdrTypePtr& rx_msg, const FDSP_PutObjTypePtr& put_obj_rsp )
 {
   int trans_id = rx_msg->req_cookie; 
-  fds_uint32_t vol_id = rx_msg->glob_volume_id;
+  fds_volid_t vol_id = rx_msg->glob_volume_id;
   StorHvVolume *vol =  vol_table->getVolume(vol_id);
   StorHvVolumeLock vol_lock(vol);
   if (!vol || !vol->isValidLocked()) {
-    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Error: PUT_OBJ_RSP for an un-registered volume";
+      FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error)
+              << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID: 0x" << std::hex << vol_id << std::dec
+              << " - Error: PUT_OBJ_RSP for an un-registered volume";
     return (0);
   }
 
@@ -95,9 +110,10 @@ int StorHvCtrl::fds_process_put_obj_resp(const FDSP_MsgHdrTypePtr& rx_msg, const
   // Check sanity here, if this transaction is valid and matches with the cookie we got from the message
 
   if (!(txn->isActive())) {
-    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error) << " StorHvisorRx:" << "IO-XID:" << trans_id 
-							    << " volID:" << vol_id << " - Error: Journal Entry" << rx_msg->req_cookie <<  "  PUT_OBJ_RSP for an inactive transaction";
-     return (0);
+      FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error)
+              << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID: 0x" << std::hex << vol_id << std::dec
+              << " - Error: Journal Entry" << rx_msg->req_cookie <<  "  PUT_OBJ_RSP for an inactive transaction";
+      return (0);
   }
 
 	if (rx_msg->msg_code == FDSP_MSG_PUT_OBJ_RSP) {
@@ -105,7 +121,7 @@ int StorHvCtrl::fds_process_put_obj_resp(const FDSP_MsgHdrTypePtr& rx_msg, const
 	    txn->fds_set_smack_status(rx_msg->src_ip_lo_addr,
                                       rx_msg->src_port);
 	    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:"
-                                           << trans_id << " volID:" << vol_id
+                                           << trans_id << " volID: 0x" << std::hex << vol_id << std::dec
                                            << " - Recvd SM PUT_OBJ_RSP RSP "
                                            << " ip " << rx_msg->src_ip_lo_addr
                                            << " port " << rx_msg->src_port;
@@ -121,15 +137,15 @@ int StorHvCtrl::fds_process_update_catalog_resp(const FDSP_MsgHdrTypePtr& rx_msg
 {
   
   int trans_id;
-  fds_uint32_t vol_id;
-
-  vol_id = rx_msg->glob_volume_id;
+  fds_volid_t vol_id = rx_msg->glob_volume_id;
   
   trans_id = rx_msg->req_cookie; 
   StorHvVolume *vol = vol_table->getVolume(vol_id);
   StorHvVolumeLock vol_lock(vol);
   if (!vol || !vol->isValidLocked()) {
-    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Error: UPDATE_CAT_OBJ_RSP for an un-registered volume";
+      FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error)
+              << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID: 0x" << std::hex << vol_id << std::dec
+              << " - Error: UPDATE_CAT_OBJ_RSP for an un-registered volume";
     return (0);
   }
 
@@ -137,12 +153,14 @@ int StorHvCtrl::fds_process_update_catalog_resp(const FDSP_MsgHdrTypePtr& rx_msg
   StorHvJournalEntryLock je_lock(txn);
   
   FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id
-                                 << " volID:" << vol_id
+                                 << " volID: 0x" << std::hex << vol_id << std::dec
                                  << " - Recvd DM UPDATE_CAT_OBJ_RSP RSP ";
   // Check sanity here, if this transaction is valid and matches with the cookie we got from the message
   
   if (!(txn->isActive()) || txn->trans_state == FDS_TRANS_EMPTY ) {
-    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Error: Journal Entry" << rx_msg->req_cookie <<  "  UPDATE_CAT_OBJ_RSP for an inactive transaction";
+      FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error)
+              << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID: 0x" << std::hex << vol_id << std::dec
+              << " - Error: Journal Entry" << rx_msg->req_cookie <<  "  UPDATE_CAT_OBJ_RSP for an inactive transaction";
     return (0);
   }
   
@@ -150,7 +168,7 @@ int StorHvCtrl::fds_process_update_catalog_resp(const FDSP_MsgHdrTypePtr& rx_msg
     txn->fds_set_dmack_status(rx_msg->src_ip_lo_addr,
                               rx_msg->src_port);
     FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id
-                                   << " volID:" << vol_id
+                                   << " volID: 0x" << std::hex << vol_id << std::dec
                                    << " -  Recvd DM TXN_STATUS_OPEN RSP "
                                    << " ip " << rx_msg->src_ip_lo_addr
                                    << " port " << rx_msg->src_port;
@@ -158,7 +176,7 @@ int StorHvCtrl::fds_process_update_catalog_resp(const FDSP_MsgHdrTypePtr& rx_msg
     txn->fds_set_dm_commit_status(rx_msg->src_ip_lo_addr,
                                   rx_msg->src_port);
     FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id
-                                   << " volID:" << vol_id
+                                   << " volID: 0x" << std::hex << vol_id << std::dec
                                    << " -  Recvd DM TXN_STATUS_COMMITED RSP "
                                    << " ip " << rx_msg->src_ip_lo_addr
                                    << " port " << rx_msg->src_port;
@@ -375,29 +393,34 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
     uint64_t doid_high;
     int trans_id = fdsp_msg_hdr->req_cookie;
     //fbd_request_t *req;
-    fds_uint32_t vol_id = fdsp_msg_hdr->glob_volume_id;
+    fds_volid_t vol_id = fdsp_msg_hdr->glob_volume_id;
 
-    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx: " << "IO_XID: " << trans_id << " - Volume " << vol_id 
-				   << " Received query catalog response" ;
+    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx: " << "IO_XID: " << trans_id << " - Volume 0x" << std::hex
+                                   << vol_id << std::dec << " Received query catalog response" ;
 
     StorHvVolume *shvol = storHvisor->vol_table->getVolume(vol_id);
     StorHvVolumeLock vol_lock(shvol);    
     if (!shvol || !shvol->isValidLocked()) {
-      FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error) << " StorHvisorRx:" << "IO-XID:" << trans_id << " - Volume " << vol_id <<  " not registered";
-      return;
+        FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error)
+                << " StorHvisorRx:" << "IO-XID:" << trans_id << " - Volume 0x"
+                << std::hex << vol_id << std::dec <<  " not registered";
+        return;
     }
 
     StorHvJournalEntry *journEntry = shvol->journal_tbl->get_journal_entry(trans_id);
     
     if (journEntry == NULL) {
-      FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::warning) << " StorHvisorRx:" << "IO-XID:" << trans_id << " - Journal Entry  " << trans_id <<  "QueryCatalogObjResp not found";
-      return;
+        FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::warning)
+                << " StorHvisorRx:" << "IO-XID:" << trans_id << " - Journal Entry  " << trans_id <<  "QueryCatalogObjResp not found";
+        return;
     }
     
     StorHvJournalEntryLock je_lock(journEntry);
     if (!journEntry->isActive()) {
-      FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Journal Entry is In-Active";
-      return;
+        FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error)
+                << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID: 0x"
+                << std::hex << vol_id << std::dec << " - Journal Entry is In-Active";
+        return;
     }
 
     fds::AmQosReq   *qosReq  = (AmQosReq *)journEntry->io;
@@ -406,33 +429,42 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
     fds_verify(blobReq != NULL);
     
     if (journEntry->op !=  FDS_IO_READ && journEntry->op != FDS_GET_BLOB && journEntry->op != FDS_DELETE_BLOB) { 
-      FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Journal Entry  " << fdsp_msg_hdr->req_cookie <<  "  QueryCatalogObjResp for a non IO_READ transaction" ;
-      journEntry->trans_state = FDS_TRANS_EMPTY;
-      journEntry->write_ctx = 0;
-      FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Responding to AM request with Error" ;
-      blobReq->cbWithResult(-1);
-      journEntry->reset();
-      delete blobReq;
-      shvol->journal_tbl->releaseTransId(trans_id);
-      return;
+        FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error)
+                << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID: 0x" << std::hex << vol_id << std::dec
+                << " - Journal Entry  " << fdsp_msg_hdr->req_cookie <<  "  QueryCatalogObjResp for a non IO_READ transaction" ;
+        journEntry->trans_state = FDS_TRANS_EMPTY;
+        journEntry->write_ctx = 0;
+        FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error)
+                << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Responding to AM request with Error" ;
+        blobReq->cbWithResult(-1);
+        journEntry->reset();
+        delete blobReq;
+        shvol->journal_tbl->releaseTransId(trans_id);
+        return;
     }
     
     if (journEntry->trans_state != FDS_TRANS_VCAT_QUERY_PENDING) {
-      FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Journal Entry  " << fdsp_msg_hdr->req_cookie <<  " QueryCatalogObjResp for a transaction node not in Query Pending " ;
-      journEntry->trans_state = FDS_TRANS_EMPTY;
-      journEntry->write_ctx = 0;
-      FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Responding to the block device with Error" ;
-      blobReq->cbWithResult(-1);      
-      journEntry->reset();
-      delete blobReq;
-      shvol->journal_tbl->releaseTransId(trans_id);
-      return;
+        FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error)
+                << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID: 0x" << std::hex << vol_id << std::dec
+                << " - Journal Entry  " << fdsp_msg_hdr->req_cookie
+                <<  " QueryCatalogObjResp for a transaction node not in Query Pending " ;
+        journEntry->trans_state = FDS_TRANS_EMPTY;
+        journEntry->write_ctx = 0;
+        FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error)
+                << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID: 0x" << std::hex << vol_id << std::dec
+                << " - Responding to the block device with Error" ;
+        blobReq->cbWithResult(-1);      
+        journEntry->reset();
+        delete blobReq;
+        shvol->journal_tbl->releaseTransId(trans_id);
+        return;
     }
     
     // If Data Mgr does not have an entry, simply return 0s.
     if (fdsp_msg_hdr->result != FDS_ProtocolInterface::FDSP_ERR_OK) {
-      FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error) << " StorHvisorRx:" << "IO-XID:" << trans_id 
-							      << " volID:" << vol_id << " - Journal Entry  " << fdsp_msg_hdr->req_cookie <<  ":  QueryCatalogObjResp returned error ";
+        FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error)
+                << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID: 0x" << std::hex << vol_id << std::dec
+                << " - Journal Entry  " << fdsp_msg_hdr->req_cookie <<  ":  QueryCatalogObjResp returned error ";
       storHvisor->qos_ctrl->markIODone(journEntry->io);
       journEntry->trans_state = FDS_TRANS_EMPTY;
       journEntry->write_ctx = 0;
@@ -459,7 +491,8 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
 
     fds_verify(cat_obj_req->obj_list.size() > 0);
     FDS_ProtocolInterface::FDSP_BlobObjectInfo& cat_obj_info = cat_obj_req->obj_list[0];
-    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - GOT A QUERY RESPONSE! Object ID :- " 
+    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID: 0x"
+                                   << std::hex << vol_id << std::dec << " - GOT A QUERY RESPONSE! Object ID :- " 
 				   << cat_obj_info.data_obj_id.hash_high << ":" << cat_obj_info.data_obj_id.hash_low ;
     //AmQosReq *qosReq = (AmQosReq *)journEntry->io;
     //FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
@@ -475,7 +508,8 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
     // storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(doid_dlt_key, node_ids, &num_nodes);
     if(num_nodes == 0) {
       FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error) << " StorHvisorRx:" << "IO-XID:" << trans_id 
-							      << " volID:" << vol_id << " - DataPlace Error : no nodes in DLT :Jrnl Entry" << fdsp_msg_hdr->req_cookie <<  "QueryCatalogObjResp ";
+							      << " volID: 0x" << std::hex << vol_id << std::dec
+                                                              << " - DataPlace Error : no nodes in DLT :Jrnl Entry" << fdsp_msg_hdr->req_cookie <<  "QueryCatalogObjResp ";
       storHvisor->qos_ctrl->markIODone(journEntry->io);
       journEntry->trans_state = FDS_TRANS_EMPTY;
       journEntry->write_ctx = 0;
@@ -514,7 +548,8 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
            netDataPathClientSession *sessionCtx =  static_cast<netDataPathClientSession *>(endPoint);
            fdsp_msg_hdr->session_uuid = sessionCtx->getSessionId();
            client->GetObject(fdsp_msg_hdr, get_obj_req);
-           FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Sent Async getObj req to SM at " << node_ip ;
+           FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID: 0x"
+                                          << std::hex << vol_id << std::dec << " - Sent Async getObj req to SM at " << node_ip ;
            journEntry->trans_state = FDS_TRANS_GET_OBJ;
          }
 
@@ -538,7 +573,8 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
            netDataPathClientSession *sessionCtx =  static_cast<netDataPathClientSession *>(endPoint);
            fdsp_msg_hdr->session_uuid = sessionCtx->getSessionId();
            client->DeleteObject(fdsp_msg_hdr, del_obj_req);
-           FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Sent Async deleteObj req to SM at " << node_ip ;
+           FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID: 0x"
+                                          << std::hex << vol_id << std::dec << " - Sent Async deleteObj req to SM at " << node_ip ;
            journEntry->trans_state = FDS_TRANS_DEL_OBJ;
          }
          // RPC Call DeleteCatalogObject to DataMgr
@@ -577,9 +613,9 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
              fdsp_msg_hdr_dm->session_uuid = sessionCtx->getSessionId();
              client->DeleteCatalogObject(fdsp_msg_hdr_dm, del_cat_obj_req);
              FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:"
-                                     << trans_id << " volID:" << vol_id
-                                     << " - Sent async DELETE_CAT_OBJ_REQ request to DM at "
-                                     <<  node_ip << " port " << node_port;
+                                            << trans_id << " volID: 0x" << std::hex << vol_id << std::dec
+                                            << " - Sent async DELETE_CAT_OBJ_REQ request to DM at "
+                                            <<  node_ip << " port " << node_port;
            }
          }
        }

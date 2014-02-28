@@ -25,7 +25,7 @@ OM_NodeContainer::om_handle_perfstats_from_am(const FDSP_VolPerfHistListType &hi
                     << "OM: handle perfstat from AM for volume "
                     << hist_list[i].vol_uuid;
 
-            am_stats->setStatFromFdsp((fds_uint32_t)hist_list[i].vol_uuid,
+            am_stats->setStatFromFdsp((fds_volid_t)hist_list[i].vol_uuid,
                                       start_timestamp,
                                       (hist_list[i].stat_list)[j]);
         }

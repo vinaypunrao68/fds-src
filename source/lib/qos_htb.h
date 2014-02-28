@@ -28,8 +28,8 @@
 namespace fds {
 
   class TBQueueState;
-  typedef std::unordered_map<fds_uint32_t, TBQueueState* > qstate_map_t;
-  typedef std::unordered_map<fds_uint32_t, TBQueueState*>::iterator qstate_map_it_t;
+  typedef std::unordered_map<fds_qid_t, TBQueueState* > qstate_map_t;
+  typedef std::unordered_map<fds_qid_t, TBQueueState*>::iterator qstate_map_it_t;
 
   /* Queue state that is controlled by two demand-driven token buckets: one that 
    * ensures minimum rate, and another ensures that tokens are never consumed 
@@ -65,7 +65,7 @@ namespace fds {
       TBQUEUE_STATE_OK                  /* otherwise */
     } tbStateType;
 
-    TBQueueState(fds_uint32_t _queue_id, 
+    TBQueueState(fds_qid_t _queue_id, 
                  fds_uint64_t _min_rate, 
                  fds_uint64_t _max_rate,
                  fds_uint32_t _priority,
@@ -126,7 +126,7 @@ namespace fds {
     }
 
   public: /* data */
-    fds_uint32_t queue_id;
+    fds_qid_t queue_id;
     /* Queue policy settings. 
      * The queue may operate at different max and min rates depending on throttle 
      * level (the effective min and max are setting of tb_min and tb_max token buckets */
@@ -185,25 +185,25 @@ namespace fds {
 
     /***** implementation of base class functions *****/
     /* handle notification that IO was just queued */
-    virtual void ioProcessForEnqueue(fds_uint32_t queue_id,
+    virtual void ioProcessForEnqueue(fds_qid_t queue_id,
 				     FDS_IOType *io);
 
     /* handle notification that IO will be dispatched */
-    virtual void ioProcessForDispatch(fds_uint32_t queue_id,
+    virtual void ioProcessForDispatch(fds_qid_t queue_id,
 				      FDS_IOType *io);				    
 
     /* returns queue is whose IO needs to be dispatched next 
      * this implementation consumes tokens required to dispatch IO */
-    virtual fds_uint32_t getNextQueueForDispatch();
+    virtual fds_qid_t getNextQueueForDispatch();
 
     /* this implementation calls based class registerQueue first */
-    virtual Error registerQueue(fds_uint32_t queue_id,
+    virtual Error registerQueue(fds_qid_t queue_id,
 				FDS_VolumeQueue *queue);
 
     /* this implementation calls base class deregisterQueue first */
-    virtual Error deregisterQueue(fds_uint32_t queue_id);
+    virtual Error deregisterQueue(fds_qid_t queue_id);
 
-    virtual Error modifyQueueQosParams(fds_uint32_t queue_id,
+    virtual Error modifyQueueQosParams(fds_qid_t queue_id,
 				       fds_uint64_t iops_min,
 				       fds_uint64_t iops_max,
 				       fds_uint32_t prio);
@@ -256,7 +256,7 @@ namespace fds {
     RecvTokenBucket avail_pool; /* pool of available tokens (non-guaranteed tokens + expired guaranteed tokens) */
     qstate_map_t qstate_map;  /* min and max rate control for each queue, and other queue state */  
 
-    fds_uint32_t last_dispatch_qid; /* queue id from which we dispatch last IO */
+    fds_qid_t last_dispatch_qid; /* queue id from which we dispatch last IO */
   };
 
 

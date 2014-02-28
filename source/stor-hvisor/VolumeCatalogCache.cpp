@@ -110,8 +110,8 @@ Error VolumeCatalogCache::queryDm(const std::string& blobName,
   /*
    * Not in the cache. Contact DM.
    */
-  FDS_PLOG(vcc_log) << "VolumeCatalogCache - Cache query for volume "
-                    << vol_id << " blob " << blobName
+  FDS_PLOG(vcc_log) << "VolumeCatalogCache - Cache query for volume 0x"
+                    << std::hex << vol_id << std::dec << " blob " << blobName
                     << " offset " << blobOffset
                     << " failed. Contacting DM.";
 
@@ -191,8 +191,8 @@ Error VolumeCatalogCache::queryDm(const std::string& blobName,
         client->QueryCatalogObject(msg_hdr, query_req);
         FDS_PLOG(vcc_log) << " VolumeCatalogCache - "
                           << "Async query request sent to DM "
-                          << endPoint << " for volume " << vol_id
-                          << " and block id " << blobOffset;
+                          << endPoint << " for volume 0x" << std::hex << vol_id
+                          << std::dec << " and block id " << blobOffset;
         /*
          * Reset the error to PENDING since we set the message.
          * This lets the caller know to wait for a response.
@@ -201,8 +201,8 @@ Error VolumeCatalogCache::queryDm(const std::string& blobName,
       } catch(...) {
         FDS_PLOG(vcc_log) << "VolumeCatalogCache - "
                           << "Failed to query DM endpoint "
-                          << endPoint << " for volume "<< vol_id
-                          << " and block id " << blobOffset;
+                          << endPoint << " for volume 0x"<< std::hex << vol_id
+                          << std::dec << " and block id " << blobOffset;
         err = ERR_CAT_QUERY_FAILED;
       }
       break;
@@ -281,18 +281,18 @@ Error VolumeCatalogCache::Update(const std::string& blobName,
      * that is already existed.
      */
     FDS_PLOG(vcc_log) << "VolumeCatalogCache - "
-                      << "Cache update successful for volume "
-                      << vol_id << " blob offset " << blobOffset
-                      << " was duplicate.";
+                      << "Cache update successful for volume 0x"
+                      << std::hex << vol_id << std::dec << " blob offset "
+                      << blobOffset << " was duplicate.";
     err = ERR_OK;
   } else if (err != ERR_OK) {
     FDS_PLOG(vcc_log) << "VolumeCatalogCache - "
-                      << "Cache update for volume " << vol_id
-                      << " blob offset " << blobOffset << " was failed!";
+                      << "Cache update for volume 0x" << std::hex << vol_id
+                      << std::dec << " blob offset " << blobOffset << " was failed!";
   } else {
     FDS_PLOG(vcc_log) << "VolumeCatalogCache - "
-                      << "Cache update successful for volume "
-                      << vol_id << " blob offset " << blobOffset;
+                      << "Cache update successful for volume 0x" << std::hex
+                      << vol_id << std::dec << " blob offset " << blobOffset;
   }
 
   FDS_PLOG(vcc_log) << " VolumeCatalogCache"
@@ -313,8 +313,8 @@ void VolumeCatalogCache::Clear() {
   }
   blobRwLock.read_unlock();
 
-  FDS_PLOG(vcc_log) << "VolumeCatalogCache - Cleared cache for volume "
-                    << vol_id;
+  FDS_PLOG(vcc_log) << "VolumeCatalogCache - Cleared cache for volume 0x"
+                    << std::hex << vol_id << std::dec;
 }
 
 }  // namespace fds

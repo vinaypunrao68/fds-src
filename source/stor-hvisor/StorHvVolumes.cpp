@@ -249,10 +249,11 @@ Error StorHvVolumeTable::registerVolume(const VolumeDesc& vdesc)
   map_rwlock.write_unlock();
 
 
-  FDS_PLOG_SEV(vt_log, fds::fds_log::notification) << "StorHvVolumeTable - Register new volume " << vol_uuid
-		   << ", policy " << vdesc.volPolicyId
-		   << " (iops_min=" << vdesc.iops_min << ",iops_max=" << vdesc.iops_max <<",prio=" << vdesc.relativePrio << ")"
-                   << " result: " << err.GetErrstr();  
+  FDS_PLOG_SEV(vt_log, fds::fds_log::notification)
+          << "StorHvVolumeTable - Register new volume "
+          << std::hex << vol_uuid << std::dec << ", policy " << vdesc.volPolicyId
+          << " (iops_min=" << vdesc.iops_min << ",iops_max=" << vdesc.iops_max <<",prio=" << vdesc.relativePrio << ")"
+          << " result: " << err.GetErrstr();  
 
   /* check if any blobs are waiting for volume to be registered, and if so,
    * move them to appropriate qos queue  */
@@ -520,7 +521,7 @@ void StorHvVolumeTable::volumeEventHandler(fds_volid_t vol_uuid,
   switch (vol_action) {
   case fds_notify_vol_attatch:
     FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification) << "StorHvVolumeTable - Received volume attach event from OM"
-                                   << " for volume " << vol_uuid;
+                                                                   << " for volume " << std::hex << vol_uuid << std::dec;
 
     if (result == FDS_ProtocolInterface::FDSP_ERR_OK) {
       storHvisor->vol_table->registerVolume(vdb ? *vdb : VolumeDesc("", vol_uuid));
@@ -537,7 +538,7 @@ void StorHvVolumeTable::volumeEventHandler(fds_volid_t vol_uuid,
     break;
   case fds_notify_vol_detach:
     FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification) << "StorHvVolumeTable - Received volume detach event from OM"
-                                   << " for volume " << vol_uuid;
+                                                                   << " for volume " << std::hex << vol_uuid << std::dec;
     storHvisor->vol_table->removeVolume(vol_uuid);
     break;
   case fds_notify_vol_mod:
@@ -548,7 +549,7 @@ void StorHvVolumeTable::volumeEventHandler(fds_volid_t vol_uuid,
     break;
   default:
     FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::warning) << "StorHvVolumeTable - Received unexpected volume event from OM"
-                                   << " for volume " << vol_uuid;
+                                                              << " for volume " << std::hex << vol_uuid << std::dec;
   } 
 }
 
@@ -599,7 +600,7 @@ END_C_DECLS
 BEGIN_C_DECLS
 int  pushVolQueue(void *req1)
 {
-  fds_uint32_t vol_id;
+  fds_volid_t vol_id;
   StorHvVolume *shvol;
   fbd_request_t *req = (fbd_request_t *)req1;
 
