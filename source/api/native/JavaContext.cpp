@@ -8,9 +8,9 @@
 
 namespace fds {
     namespace java {
-        JavaContext::JavaContext(JavaVM *javaVM, jobject arg) {
+        JavaContext::JavaContext(JavaVM *javaVM, JNIEnv *env, jobject arg) {
             this->javaVM = javaVM;
-            this->arg = arg;
+            this->arg = static_cast<jobject>(env->NewGlobalRef(arg));
         }
         
         JNIEnv *JavaContext::attachCurrentThread() {

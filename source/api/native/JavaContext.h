@@ -11,11 +11,14 @@ namespace fds {
     namespace java {
         
         class JavaContext {
+        private:
+            jclass klass;
+
         public: 
             JavaVM *javaVM;
             jobject arg;
-            
-            JavaContext(JavaVM *javaVM, jobject arg);
+
+            JavaContext(JavaVM *javaVM, JNIEnv *env, jobject arg);
             JNIEnv *attachCurrentThread();
             void detachCurrentThread();
             jobject invoke(JNIEnv *env, jobject o, char *methodName, char *signature, ...);

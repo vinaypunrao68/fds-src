@@ -1,7 +1,7 @@
 topdir           := ..
 user_target      := lib
 user_rtime_env   := user
-user_build_dir   := net concurrency
+user_build_dir   := net concurrency kvstore
 user_cpp         :=      \
     dlt.cpp \
     NetSession.cpp       \

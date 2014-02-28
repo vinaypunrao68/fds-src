@@ -510,8 +510,10 @@ class FDS_NativeAPI {
   void GetObject(BucketContext *bucketctxt, 
                  std::string ObjKey, 
                  GetConditions *get_cond, 
-                 fds_uint64_t startByte, fds_uint64_t byteCount,
-                 char *buffer, fds_uint64_t buflen,
+                 fds_uint64_t startByte, 
+                 fds_uint64_t byteCount,
+                 char *buffer, 
+                 fds_uint64_t buflen,
                  void *reqcontext,
                  fdsnGetObjectHandler getObjCallback,
                  void *callbackdata
