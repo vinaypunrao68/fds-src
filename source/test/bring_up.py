@@ -9,150 +9,10 @@ import re
 import pdb
 import traceback
 import time
+import ServiceMgr
 
 verbose = False
 debug = False
-
-## Defines a volume in the cluster
-#
-class StorVol():
-    name   = None
-    volId  = None
-    size   = None
-    policy = None
-    client = None
-    access = None
-    cliBin = "fdscli"
-
-    def __init__(self, _name):
-        self.name = _name
-
-    def setId(self, _id):
-        self.volId = _id
-
-    def setSize(self, _size):
-        self.size = _size
-
-    def setPolicy(self, _polId):
-        self.policy = _polId
-
-    def setClient(self, _clientName):
-        self.client = _clientName
-
-    def setAccess(self, _accessType):
-        self.access = _accessType
-
-    def getCrtCmd(self):
-        return "%s --volume-create %s -i %d -s %d -p %d -y %s" % (self.cliBin,
-                                                                  self.name,
-                                                                  self.volId,
-                                                                  self.size,
-                                                                  self.policy,
-                                                                  self.access)
-
-    def getAttCmd(self):
-        # The client name is hard coded for now because
-        # it is hard coded in the SH. As a result, the
-        # local client variable is ignored.
-        return "%s --volume-attach %s -i %d -n localhost-%s" % (self.cliBin,
-                                                                self.name,
-                                                                self.volId,
-                                                                self.client)
-
-
-##
-# Defines a policy in the cluster
-#
-class StorPol():
-    name     = None
-    polId    = None
-    iopsmin  = None
-    iopsmax  = None
-    priority = None
-    volType  = "disk"
-    cliBin = "fdscli"
-
-    def __init__(self, _name):
-        self.name = _name
-
-    def setId(self, _id):
-        self.polId = _id
-
-    def setIopsMin(self, _min):
-        self.iopsmin = _min
-
-    def setIopsMax(self, _max):
-        self.iopsmax = _max
-
-    def setPriority(self, _prio):
-        self.priority = _prio
-
-    def getCrtCmd(self):
-        return "%s --policy-create %s -p %d -g %d -m %d -r %d" % (self.cliBin,
-                                                                  self.name,
-                                                                  self.polId,
-                                                                  self.iopsmin,
-                                                                  self.iopsmax,
-                                                                  self.priority)
-
-    def getDelCmd(self):
-        return "%s --policy-delete %s -p %d" % (self.cliBin,
-                                                self.name,
-                                                self.polId)
-
-    def setVolType(self, _type):
-        if _type == "ssd" or _type == "disk" or _type == "hybrid" or _type == "hybrid_prefcap":
-            self.volType = _type
-        else:
-            print "Unknown volume type:", _type, ", set default to disk"
-            self.volType = "disk"
-
-    def getTierCmd(self, opt, vol_id):
-        return "%s --auto-tier=%s --vol-type=%s --volume-id=%d" % (
-            self.cliBin, opt, self.volType, vol_id
-        )
-
-##
-# Defines a client in the cluster
-#
-class StorClient():
-    ipStr = None
-    name  = None
-    isBlk = False
-    logSeverity = 2
-    amBin  = "AMAgent"
-    ubdBin = "ubd"
-    blkDir = "fds_client/blk_dev"
-    blkMod = "fbd.ko"
-
-    def __init__(self, _name):
-        self.name = _name
-
-    def setIp(self, _ip):
-        self.ipStr = _ip
-
-    def setBlk(self, _blk):
-        self.isBlk = _blk
-
-    def setLogSeverity(self, _sev):
-        self.logSeverity = _sev
-
-    def getBlkCmd(self, srcPath):
-        return "insmod %s/%s" % (srcPath + "/" + self.blkDir,
-                                 self.blkMod)
-
-    def getRmCmd(self, srcPath):
-        return "rmmod %s/%s" % (srcPath + "/" + self.blkDir,
-                                self.blkMod)
-
-    def getUbdCmd(self):
-        return self.ubdBin
-
-    def getAmCmd(self):
-        return self.amBin
-
-    def getLogSeverity(self):
-        return self.logSeverity 
 
 ##
 # Defines a node in the cluster
@@ -248,11 +108,11 @@ class TestBringUp():
     #
     # Config and cluster elements
     #
-    cfgFile = None
-    nodes   = []
-    clients = []
-    volumes = []
-    policies = []
+    cfgFile   = None
+    nodeIds   = []
+    clientIds = []
+    volumeIds = []
+    policyIds = []
 
     #
     # Prefixes for parsing the cfg file
@@ -298,9 +158,10 @@ class TestBringUp():
     ldLibPath    = "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
     iceHome      = "export ICE_HOME="
 
+    deployer = None
+
     def __init__(self, _cfg_file):
         self.cfgFile = _cfg_file
-        self.nodes = []
 
     ##
     # Sets up cluster path variables
@@ -323,125 +184,153 @@ class TestBringUp():
     # in the cfg file
     #
     def loadPolicy(self, name, items):
-        policy = StorPol(name)
+        polId    = None
+        iopsMin  = None
+        iopsMax  = None
+        priority = None
         for item in items:
             key   = item[0]
             value = item[1]
             if key == "id":
-                policy.setId(int(value))
+                polId = int(value)
             elif key == "iops_min":
-                policy.setIopsMin(int(value))
+                iopsMin = int(value)
             elif key == "iops_max":
-                policy.setIopsMax(int(value))
+                iopsMax = int(value)
             elif key == "priority":
-                policy.setPriority(int(value))
-            elif key == "vol_type":
-                policy.setVolType(value)
+                priority = int(value)
             else:
                 print "Unknown item %s, %s in %s" % (key, value, name)
 
-        self.policies.append(policy)
-
-    ##
-    # Get the policy config obj matching the policy id.
-    #
-    def getPolicy(self, pol_id):
-        for pol in self.policies:
-            if pol.polId == pol_id:
-                return pol
-
-        print "Can't find policy id ", pol_id
-        return None
+        # Add policy to the inventory
+        ident = self.deployer.volService.addPolicy(name, polId, iopsMin,
+                                                   iopsMax, priority)
+        # Keep a record of the policy's ID
+        self.policyIds.append(ident)
 
     ##
     # Loads a volume from items
     # in the cfg file
     #
     def loadVol(self, name, items):
-        volume = StorVol(name)
+        volId     = None
+        volSize   = None
+        volPol    = None
+        volClient = None
+        volConn   = None
         for item in items:
             key   = item[0]
             value = item[1]
             if key == "id":
-                volume.setId(int(value))
+                volId = int(value)
             elif key == "size":
-                volume.setSize(int(value))
+                volSize = int(value)
             elif key == "policy":
-                volume.setPolicy(int(value))
+                volPol = int(value)
             elif key == "client":
-                volume.setClient(value)
+                volClient = value
             elif key == "access":
-                volume.setAccess(value)
+                volConn = value
             else:
                 print "Unknown item %s, %s in %s" % (key, value, name)
 
-        self.volumes.append(volume)
+        # Add volume to the inventory
+        ident = self.deployer.volService.addVol(name, volId, volSize,
+                                                volPol, volClient, volConn)
+        # Keep a record of the volume's ID
+        self.volumeIds.append(ident)
 
     ##
     # Loads a client from items
     # in the cfg file
     #
     def loadClient(self, name, items):
-        client = StorClient(name)
+        clientIp  = None
+        clientBlk = None
+        clientLog = None
         for item in items:
             key   = item[0]
             value = item[1]
             if key == "ip":
-                client.setIp(value)
+                clientIp = value
             elif key == "blk":
                 if value == "true":
-                    client.setBlk(True)
+                    clientBlk = True
                 else:
-                    client.setBlk(False)
+                    clientBlk = False
             elif key == "log_severity":
-                client.setLogSeverity(int(value))
+                clientLog = int(value)
             else:
                 print "Unknown item %s, %s in %s" % (key, value, name)
 
-        self.clients.append(client)
+        # Add client to the inventory
+        ident = self.deployer.clientService.addClient(name, clientIp, clientBlk, clientLog)
+        # Keep a record of the client's ID
+        self.clientIds.append(ident)
 
     ##
     # Loads a node from items
     # in the cfg file
     #
     def loadNode(self, name, items):
-        node = StorNode(name)
+        isOm    = None
+        ip      = None
+        cp      = None
+        dp      = None
+        confP   = None
+        mp      = None
+        omCtrlP = None
+        log     = None
+        root    = None
         for item in items:
             key = item[0]
             value = item[1]
             if key == "om":
                 if value == "true":
-                    node.setOm(True)
+                    isOm = True
                 else:
-                    node.setOm(False)
+                    isOm = False
             elif key == "ip":
-                node.setIp(value)
+                ip = value
             elif key == "control_port":
-                node.setCp(int(value))
+                cp = int(value)
             elif key == "data_port":
-                node.setDp(int(value))
+                dp = int(value)
             elif key == "config_port":
-                node.setConfPort(int(value))
+                confP = int(value)
             elif key == "migration_port":
-                node.setMigPort(int(value))
+                mp = int(value)
             elif key == "om_control_port":
-                node.setOCPort(int(value))
+                omCtrlP = int(value)
             elif key == "log_severity":
-                node.setLogSeverity(int(value))
+                log = int(value)
             elif key == "fds_root":
-                node.setFdsRoot(value)
+                root = value
             else:
                 print "Unknown item %s, %s in %s" % (key, value, name)
         
-        if node.isOm == True:
-            self.omIpStr    = node.ipStr
-            self.omConfPort = node.configPort
-            self.omCtrlPort = node.omControlPort
+        if isOm == True:
+            self.omIpStr    = ip
+            self.omConfPort = confP
+            self.omCtrlPort = omCtrlP
             if (self.omIpStr == None) or (self.omConfPort == None) or (self.omCtrlPort == None):
                 print "Error: An OM port and IP must be specified"
                 return -1
 
-        self.nodes.append(node)
+            # Can create the deployer once we have all of the
+            # OM & SSH info
+            if self.deployer == None:
+                self.deployer = ServiceMgr.ServiceDeploy(self.srcPath, self.sshUser,
+                                                         self.sshPswd, self.sshPkey,
+                                                         self.omIpStr, self.omConfPort,
+                                                         self.omCtrlPort, verbose=verbose,
+                                                         debug=debug)
+
+        # Add node to the inventory
+        ident = self.deployer.nodeService.addNode(name, isOm, ip, cp, dp, confP,
+                                                  mp, omCtrlP, log, root)
+        # Keep a record of the node's ID
+        self.nodeIds.append(ident)
 
     ##
     # Parses the cfg file and populates
@@ -497,68 +386,6 @@ class TestBringUp():
         return cmd
 
     ##
-    # Builds the command to insert a kernel module
-    #
-    def buildModCmd(self, client):
-        cmd = client.getBlkCmd(self.srcPath)
-        return cmd
-
-    ##
-    # Builds the command to start SH UBD service
-    #
-    def buildUbdCmd(self, client):
-        cmd = self.ldLibPath + "; " + self.iceHome + "; " + " cd " + self.fdsBinDir + "; " + "ulimit -s 4096; " +  "ulimit -c unlimited;" + "./" + client.getUbdCmd() + " --om_ip=" + self.omIpStr + " --om_port=" + str(self.omCtrlPort) + " --node_name=localhost-" + client.name + " --log-severity=" + str(client.getLogSeverity())
-        return cmd
-
-    ##
-    # Builds the command to start SH AM service
-    #
-    def buildAmCmd(self, client):
-        cmd = self.ldLibPath + "; " + self.iceHome + "; " + " cd " + self.fdsBinDir + "; " + "ulimit -s 4096; " + "ulimit -c unlimited; " + "./" + client.getAmCmd() + " --om_ip=" + self.omIpStr + " --om_port=" + str(self.omCtrlPort) + " --node_name=localhost-" + client.name + " --log-severity=" + str(client.getLogSeverity())
-        return cmd
-
-    ##
-    # Builds the command to create a policy
-    #
-    def buildPolCrtCmd(self, policy):
-        cmd = self.ldLibPath + "; " + self.iceHome + "; " + " cd " + self.fdsBinDir + "; " + "./" + policy.getCrtCmd() + " --om_ip=" + self.omIpStr + " --om_port=" + str(self.omConfPort)
-        return cmd
-
-    ##
-    # Builds the command to delete a policy
-    #
-    def buildPolDelCmd(self, policy):
-        cmd = self.ldLibPath + "; " + self.iceHome + "; " + " cd " + self.fdsBinDir + "; " + "./" + policy.getDelCmd() + " --om_ip=" + self.omIpStr + " --om_port=" + str(self.omConfPort)
-        return cmd
-
-    ##
-    # Builds the command to create a volume
-    #
-    def buildVolCrtCmd(self, volume):
-        cmd = self.ldLibPath + "; " + self.iceHome + "; " + " cd " + self.fdsBinDir + "; " + "./" + volume.getCrtCmd() + " --om_ip=" + self.omIpStr + " --om_port=" + str(self.omConfPort)
-        return cmd
-
-    ##
-    # Builds the command to attach a volume
-    #
-    def buildVolAttCmd(self, volume):
-        cmd = self.ldLibPath + "; " + self.iceHome + "; " + " cd " + self.fdsBinDir + "; " + "./" + volume.getAttCmd() + " --om_ip=" + self.omIpStr + " --om_port=" + str(self.omConfPort)
-        return cmd
-
-    ##
-    # Builds the command to setup volume tier type.
-    #
-    def buildVolTierCmd(self, volume):
-        policy = self.getPolicy(volume.policy)
-        if policy is None:
-            return None
-        cmd = (self.ldLibPath + "; " + self.iceHome + "; " + "cd " +
-               self.fdsBinDir + "; ./" + policy.getTierCmd("on", volume.volId) +
-               " --om_ip=" + self.omIpStr + " --om_port=" +
-               str(self.omConfPort))
-        return cmd
-
-    ##
     # Builds the command to run a remote command
     #
     def runNodeCmd(self, node, cmd, checkStr = None, ipOver = None):
@@ -603,7 +430,7 @@ class TestBringUp():
                         break
                     line = stderr.readline()
 
-            time.sleep(1)
+            time.sleep(10)
             stdin.close()
             stdout.close()
             stderr.close()
@@ -622,88 +449,6 @@ class TestBringUp():
         if checkStr != None:
             return outputChecked
         return True
-
-
-    ##
-    # Create policy in the cluster
-    #
-    def polBringUp(self, policy):
-        #
-        # Runs this command on the OM IP
-        #
-        crtCmd = self.buildPolCrtCmd(policy)
-        result = self.runNodeCmd(policy, crtCmd, ipOver=self.omIpStr)
-        if result == True:
-            print "Created policy with OM on %s..." % (self.omIpStr)
-        else:
-            print "Failed to create policy"
-            return -1
-
-        return 0
-
-
-    ##
-    # Delete policy from the cluster
-    #
-    def polBringDown(self, policy):
-        #
-        # Runs this command on the OM IP
-        #
-        delCmd = self.buildPolDelCmd(policy)
-        result = self.runNodeCmd(policy, delCmd, ipOver=self.omIpStr)
-        if result == True:
-            print "Deleted policy with OM on %s..." % (self.omIpStr)
-        else:
-            print "Failed to delete policy"
-            return -1
-
-        return 0
-
-
-    ##
-    # Create and attach volume to cluster
-    #
-    def volBringUp(self, volume):
-        #
-        # Runs this command on the OM IP
-        #
-        crtCmd = self.buildVolCrtCmd(volume)
-        result = self.runNodeCmd(volume, crtCmd, ipOver=self.omIpStr)
-        if result == True:
-            print "Created volume with OM on %s..." % (self.omIpStr)
-        else:
-            print "Failed to create volume"
-            return -1
-
-        time.sleep(2)
-
-        #
-        # Runs this command on the OM IP
-        #
-        attCmd = self.buildVolAttCmd(volume)
-        result = self.runNodeCmd(volume, attCmd, ipOver=self.omIpStr)
-        if result == True:
-            print "Attached volume with OM on %s..." % (self.omIpStr)
-        else:
-            print "Failed to attach volume"
-            return -1
-
-        time.sleep(5)
-
-        #
-        # Run this tier policy command on the OM IP
-        #
-        #tierCmd = self.buildVolTierCmd(volume)
-        #if tierCmd is None:
-        #    return 0
-
-        #result = self.runNodeCmd(None, tierCmd, ipOver=self.omIpStr)
-        #if result == True:
-        #    print "Setup volume tier command with OM on %s..." % self.omIpStr
-        #else:
-        #    print "Failed to setup volume tier command"
-        #    return -1
-        return 0
 
     ##
     # Bring down all of the services associated
@@ -801,172 +546,62 @@ class TestBringUp():
                 pass
             return -1
 
-        time.sleep(5)
+        time.sleep(15)
         return 0
 
     ##
-    # Bring up client/SH services. This may
-    # bring up either block-based or object-based
-    # services
-    #
-    def clientBringUp(self, client):
-        try:
-            cmd = None
-            #
-            # Run remote cmd based on client type
-            #
-            if client.isBlk == True:
-                #
-                # Start blktap kernel module
-                #
-                cmd = self.buildModCmd(client)
-                started = self.runNodeCmd(client, cmd)
-                if started == True:
-                    print "Client blk module running on %s..." % (client.ipStr)
-                else:
-                    print "Failed to start blk module..."
-                    return -1
-
-                #
-                # Start UBD user space process
-                #
-                cmd = self.buildUbdCmd(client)
-                started = self.runNodeCmd(client, cmd, "Starting the server")
-                if started == True:
-                    print "Client UBD running on %s..." % (client.ipStr)
-                else:
-                    print "Failed to start UBD..."
-                    return -1
-            else:
-                #
-                # Start AM user space process
-                #
-                cmd = self.buildAmCmd(client)
-                started = self.runNodeCmd(client, cmd, "Starting the server")
-                if started == True:
-                    print "Client AM running on %s..." % (client.ipStr)
-                else:
-                    print "Failed to start AM..."
-                    return -1
-
-        except Exception, e:
-            print "*** Caught exception %s: %s" % (e.__class__, e)
-            traceback.print_exc()
-            try:
-                client.close()
-            except:
-                pass
-            return -1
-
-        return 0
-
-    ##
-    # Bring down client/SH services. This may
-    # bring down either block-based or object-based
-    # services
-    #
-    def clientBringDown(self, client):
-        try:
-            if client.isBlk == True:
-                #
-                # Bring down UBD user space process
-                #
-                ubdCmd = "pkill -9 " + client.getUbdCmd()
-                result = self.runNodeCmd(client, ubdCmd)
-                if result == True:
-                    print "Brought down UBD on %s..." % (client.ipStr)
-                else:
-                    print "Failed to bring down UBD"
-                    return -1
-
-                #
-                # Remove blktap kernel module
-                #
-                rmCmd  = client.getRmCmd(self.srcPath)
-                result = self.runNodeCmd(client, rmCmd)
-                if result == True:
-                    print "Removed kernel module on %s..." % (client.ipStr)
-                else:
-                    print "Failed to remove kernel module"
-                    return -1
-            else:
-                #
-                # Bring down AM user space process
-                #
-                amCmd = "pkill -9 " + client.getAmCmd()
-                result = self.runNodeCmd(client, amCmd)
-                if result == True:
-                    print "Brought down AM on %s..." % (client.ipStr)
-                else:
-                    print "Failed to bring down AM"
-                    return -1
-        
-        except Exception, e:
-            print "*** Caught exception %s: %s" % (e.__class__, e)
-            traceback.print_exc()
-            try:
-                client.close()
-            except:
-                pass
-            return -1
-
-        return 0
-
-
-    ##
-    # Bring up policies across a cluster
+    # Deploys all policies in the inventory
     #
     def bringUpPols(self):
-        for policy in self.policies:
-           result = self.polBringUp(policy)
+        for policyId in self.policyIds:
+           result = self.deployer.volService.deployPolicy(policyId)
            if result != 0:
                return result
-        
         return 0
 
     ##
-    # Bring down policies across a cluster
+    # Undeploys all policies in the invetory
     #
     def bringDownPols(self):
-        for policy in self.policies:
-           result = self.polBringDown(policy)
+        for policyId in self.policyIds:
+           result = self.deployer.volService.undeployPolicy(policyId)
            if result != 0:
                return result
-
         return 0
 
     ##
-    # Bring up volumes across a cluster
+    # Deploys all volumes in the inventory
     #
     def bringUpVols(self):
-        for volume in self.volumes:
-           result = self.volBringUp(volume)
-           if result != 0:
-               return result
-        
+        for volumeId in self.volumeIds:
+            result =  self.deployer.volService.deployVol(volumeId)
+            if result != 0:
+                return result        
         return 0
 
     ##
-    # Bring up services on all cluster nodes
+    # Bring up all services on all cluster nodes
     #
     def bringUpNodes(self):
         #
         # Bring up a node with OM service first
         #
-        for node in self.nodes:
-            if node.isOm == True:
-                result = self.nodeBringUp(node)
+        for nodeId in self.nodeIds:
+            if self.deployer.nodeService.isOM(nodeId):
+                #result = self.nodeBringUp(node)
+                result = self.deployer.nodeService.deployNode(nodeId)
                 if result != 0:
                     return result
-                upAlready = node
+                upAlready = nodeId
                 break
 
         #
         # Bring up other node services
         #
-        for node in self.nodes:
-            if node != upAlready:
-                result = self.nodeBringUp(node)
+        for nodeId in self.nodeIds:
+            if nodeId != upAlready:
+                #result = self.nodeBringUp(node)
+                result = self.deployer.nodeService.deployNode(nodeId)
                 if result != 0:
                     return result
         return 0
@@ -975,8 +610,9 @@ class TestBringUp():
     # Bring down services on all cluster nodes
     #
     def bringDownNodes(self):
-        for node in self.nodes:
-            result = self.nodeBringDown(node)
+        for nodeId in self.nodeIds:
+            #result = self.nodeBringDown(node)
+            result = self.deployer.nodeService.undeployNode(nodeId)
             if result != 0:
                 return result
         return 0
@@ -985,8 +621,8 @@ class TestBringUp():
     # Bring up services on all cluster clients
     #
     def bringUpClients(self):
-        for client in self.clients:
-            result = self.clientBringUp(client)
+        for clientId in self.clientIds:
+            result = self.deployer.clientService.deployClient(clientId)
             if result != 0:
                 return result
         return 0
@@ -995,8 +631,8 @@ class TestBringUp():
     # Bring down services on all cluster clients
     #
     def bringDownClients(self):
-        for client in self.clients:
-            result = self.clientBringDown(client)
+        for clientId in self.clientIds:
+            result = self.deployer.clientService.undeployClient(clientId)
             if result != 0:
                 return result
         return 0
@@ -1060,11 +696,6 @@ if __name__ == '__main__':
             print "Failed to bring down all clients"
         else :
             print "Brought down all clients"
-        result = bu.bringDownPols()
-        if result != 0:
-            print "Failed to delete all policies"
-        else:
-            print "Deleted all policies"
         result = bu.bringDownNodes()
         if result != 0:
             print "Failed to bring down all nodes"
