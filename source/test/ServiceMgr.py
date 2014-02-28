@@ -337,7 +337,8 @@ class DeployConfig():
 
             if checkStr != None:
                 line = stderr.readline()
-                print line
+                if self.verbose == True:
+                    print line
                 while line != "":
                     if self.verbose == True:
                         print line
@@ -576,10 +577,18 @@ class ClientService():
             " --log-severity=" + str(client.getLogSeverity())
         return cmd
 
+    ## Returns client object by ID
     def getClient(self, _id):        
         for client in self.clients:
             if client.clientId == _id:
                 return client
+        return None
+
+    ## Returns client ID corresponding to name
+    def getClientByName(self, _name):
+        for client in self.clients:
+            if client.name == _name:
+                return client.clientId
         return None
 
     ## Deploys a client from the inventory
@@ -629,6 +638,12 @@ class ClientService():
                         return -1
         return 0
 
+    ## Deploys a client based on name
+    #
+    def deployClientByName(self, _name):
+        clientId = self.getClientByName(_name)
+        return self.deployClient(clientId)
+
     ## Undeploys a client from the inventory
     #
     def undeployClient(self, _id):
@@ -671,6 +686,12 @@ class ClientService():
                 print "Failed to bring down AM"
                 return -1
         return 0
+
+    ## Undeploys a client based on name
+    #
+    def undeployClientByName(self, _name):
+        clientId = self.getClientByName(_name)
+        return self.undeployClient(clientId)
 
 ## Defines a node in the cluster
 #
@@ -911,6 +932,11 @@ class NodeService():
                 return node
         return None
 
+    def getNodeIdByName(self, _name):
+        for node in self.nodes:
+            if node.name == _name:
+                return node.nodeId
+
     ## Deploys SM service for a node
     #
     def deploySM(self, _id):
@@ -965,6 +991,12 @@ class NodeService():
 
         return 0
 
+    ## Deploys all service for a node based on name
+    #
+    def deployNodeByName(self, _name):
+        nodeId = self.getNodeIdByName(_name)
+        return self.deployNode(nodeId)
+
     ## Undeploys all services for a node
     #
     def undeployNode(self, _id):
@@ -988,6 +1020,12 @@ class NodeService():
                 return result
 
         return 0
+
+    ## Undeploys all service for a node based on name
+    #
+    def undeployNodeByName(self, _name):
+        nodeId = self.getNodeIdByName(_name)
+        return self.undeployNode(nodeId)
 
     ## Deploys a services for a node
     # from the inventory

@@ -8,6 +8,7 @@ import unittest
 import optparse
 import pdb
 import traceback
+import ServiceWkld
 
 verbose  = False
 debug    = False
