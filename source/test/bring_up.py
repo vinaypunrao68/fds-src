@@ -15,93 +15,6 @@ verbose = False
 debug = False
 
 ##
-# Defines a node in the cluster
-#
-class StorNode():
-    ipStr = "127.0.0.1"
-    name = None
-    controlPort = 6900
-    dataPort = 7900
-    migPort = 8600
-    configPort = None
-    omControlPort = None
-    isOm = False
-    logSeverity = 2
-    fdsRoot = "/fds"
-    omBin = "orchMgr"
-    dmBin = "DataMgr"
-    smBin = "StorMgr"
-    logName = None
-    
-    def __init__(self, _name):
-        self.name = _name
-        self.logName = self.name
-
-    def setOm(self, _om):
-        self.isOm = _om
-
-    def setIp(self, _ip):
-        self.ipStr = _ip
-
-    def setCp(self, _cp):
-        self.controlPort = _cp
-
-    def setDp(self, _dp):
-        self.dataPort = _dp
-
-    def setConfPort(self, _cp):
-        self.configPort = _cp
-
-    def setMigPort(self, _mp):
-        self.migPort = _mp
-
-    def setOCPort(self, _cp):
-        self.omControlPort = _cp 
-    
-    def setLogSeverity(self, _sev):
-        self.logSeverity = _sev
-
-    def setFdsRoot(self, _root):
-        self.fdsRoot = _root
-        
-    def getOmCmd(self):
-        return "%s --fds.om.config_port=%d --fds.om.control_port=%d --fds.om.prefix=%s_ --fds.om.log_severity=%d" % (self.omBin,
-                                              self.configPort,
-                                              self.omControlPort,
-                                              self.name,
-                                              self.logSeverity)
-
-    def getSmCmd(self):
-        return "%s --fds-root=%s --fds.sm.data_port=%d --fds.sm.control_port=%d --fds.sm.migration.port=%d --fds.sm.prefix=%s_ --fds.sm.test_mode=false --fds.sm.log_severity=%d --fds.sm.logfile=sm.%s" % (self.smBin,
-                                      self.fdsRoot,
-                                      self.dataPort,
-                                      self.controlPort,
-                                      self.migPort,
-                                      self.name,
-                                      self.logSeverity,
-                                      self.logName)
-
-    def getDmCmd(self):
-        return "%s --fds.dm.port=%d --fds.dm.cp_port=%d --fds.dm.prefix=%s_ --fds.dm.log_severity=%d  --fds.dm.logfile=dm.%s" % (self.dmBin,
-                                                           self.dataPort + 1,
-                                                           self.controlPort + 1,
-                                                           self.name,
-                                                           self.logSeverity,
-                                                           self.logName)
-
-    def getOmBin(self):
-        return self.omBin
-
-    def getSmBin(self):
-        return self.smBin
-
-    def getDmBin(self):
-        return self.dmBin
-
-    def getLogSeverity(self):
-        return self.logSeverity 
-
-##
 # Defines how to bring up a cluster
 #
 class TestBringUp():
@@ -125,59 +38,21 @@ class TestBringUp():
     vol_sec_prefix  = "volume"
     pol_sec_prefix  = "policy"
 
-    #
-    # The default IP of the OM that each
-    # node will boot off off. Each cluster
-    # bring up requires at least one OM.
-    #
-    omIpStr    = None
-    omConfPort = None
-    omCtrlPort = None
-
-    #
-    # SSH login params
-    #
+    # SSH login params that
+    # are needed to be passed to
+    # deployer
     sshUser = None
     sshPswd = None
     sshPort = 22
     sshPkey = None
-
-    #
-    # Relative path info on remote node
-    #
-    srcPath      = None
-    ldPath       = None
-    icePath      = None
-    fdsBinDir    = "Build/linux-*/bin"
-    fdsIceDir    = "../Ice-3.5.0"
-    fdsLdbLibDir = "../leveldb-1.12.0/"
-    fdsIceLibDir = "../Ice-3.5.0/cpp/lib/"
-    fdsBstLibDir = "/usr/local/lib"
-    fdsLibcfgLibDir = "../libconfig-1.4.9/lib/.libs"
-    fdsThriftLibDir = "../thrift-0.9.0"
-    ldLibPath    = "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
-    iceHome      = "export ICE_HOME="
+    # Src path needed to be passed
+    # to deployer
+    srcPath = None
 
     deployer = None
 
     def __init__(self, _cfg_file):
         self.cfgFile = _cfg_file
-
-    ##
-    # Sets up cluster path variables
-    #
-    def setPath(self, _path):
-        self.srcPath = _path
-        self.fdsIceDir = self.srcPath + "/" + self.fdsIceDir
-        self.fdsLdbLibDir = self.srcPath + "/" + self.fdsLdbLibDir
-        self.fdsIceLibDir = self.srcPath + "/" + self.fdsIceLibDir
-        self.fdsLibcfgLibDir = self.srcPath + "/" + self.fdsLibcfgLibDir
-        self.fdsThriftLibDir = self.srcPath + "/" + self.fdsThriftLibDir
-
-        self.fdsBinDir = self.srcPath + "/" + self.fdsBinDir
-        self.ldLibPath = self.ldLibPath + ":" + self.fdsLdbLibDir + ":" + self.fdsIceLibDir + ":" + self.fdsBstLibDir + ":" + self.fdsLibcfgLibDir + ":" + self.fdsThriftLibDir
-        self.iceHome = self.iceHome + self.srcPath + "/" + self.fdsIceDir
-
 
     ##
     # Loads a volume from items
@@ -310,10 +185,7 @@ class TestBringUp():
                 print "Unknown item %s, %s in %s" % (key, value, name)
         
         if isOm == True:
-            self.omIpStr    = ip
-            self.omConfPort = confP
-            self.omCtrlPort = omCtrlP
-            if (self.omIpStr == None) or (self.omConfPort == None) or (self.omCtrlPort == None):
+            if (ip == None) or (confP == None) or (omCtrlP == None):
                 print "Error: An OM port and IP must be specified"
                 return -1
 
@@ -322,9 +194,8 @@ class TestBringUp():
             if self.deployer == None:
                 self.deployer = ServiceMgr.ServiceDeploy(self.srcPath, self.sshUser,
                                                          self.sshPswd, self.sshPkey,
-                                                         self.omIpStr, self.omConfPort,
-                                                         self.omCtrlPort, verbose=verbose,
-                                                         debug=debug)
+                                                         ip, confP, omCtrlP,
+                                                         verbose=verbose, debug=debug)
 
         # Add node to the inventory
         ident = self.deployer.nodeService.addNode(name, isOm, ip, cp, dp, confP,
@@ -347,7 +218,7 @@ class TestBringUp():
             if re.match(self.node_sec_prefix, section) != None:
                 self.loadNode(section, self.config.items(section))
             elif re.match(self.src_sec_prefix, section) != None:
-                self.setPath(self.config.get(section, "path"))
+                self.srcPath = self.config.get(section, "path")
                 self.sshUser = self.config.get(section, "user")
                 self.sshPswd = self.config.get(section, "passwd")
                 if self.config.has_option(section, "privatekey") == True:
@@ -364,190 +235,6 @@ class TestBringUp():
             if verbose == True:
                 print "Parsed section %s with items %s" % (section,
                                                            self.config.items(section))
-
-    ##
-    # Builds the command to bring up a node service
-    #
-    def buildNodeCmd(self, node, nodeType = None):
-        cmd = self.ldLibPath + "; " + self.iceHome + "; " + "cd " + self.fdsBinDir + "; " + "ulimit -c unlimited;" + "./"
-        if nodeType == "SM":
-            cmd += node.getSmCmd()
-            cmd += " --fds.sm.om_ip=%s --fds.sm.om_port=%d" % (self.omIpStr,
-                                                 self.omCtrlPort)
-        elif nodeType == "DM":
-            cmd += node.getDmCmd()
-            cmd += " --fds.dm.om_ip=%s --fds.dm.om_port=%d" % (self.omIpStr,
-                                                 self.omCtrlPort)
-        elif node.isOm == True:
-            cmd += node.getOmCmd()
-        else:
-            assert(0)
-
-        return cmd
-
-    ##
-    # Builds the command to run a remote command
-    #
-    def runNodeCmd(self, node, cmd, checkStr = None, ipOver = None):
-        outputChecked = False
-        #
-        # If the ip wasn't overloaded via params
-        # use the node's IP
-        #
-        if ipOver == None:
-            ipOver = node.ipStr
-
-        try:
-            #
-            # Connect to remove host
-            #
-            client = paramiko.SSHClient()
-            client.load_system_host_keys()
-            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            if self.sshPkey == None:
-                client.connect(ipOver, self.sshPort, self.sshUser, self.sshPswd)
-            else:
-                key = paramiko.RSAKey.from_private_key_file(self.sshPkey)
-                client.connect(ipOver, port=self.sshPort, username=self.sshUser, pkey=key)
-
-            #
-            # Run remote cmd
-            #
-            if verbose == True:
-                print "Running remote command: %s" % (cmd)
-            if debug == True:
-                pdb.set_trace()
-            stdin, stdout, stderr = client.exec_command(cmd)
-
-            if checkStr != None:
-                line = stderr.readline()
-                print line
-                while line != "":
-                    if verbose == True:
-                        print line
-                    if re.search(checkStr, line):
-                        outputChecked = True
-                        break
-                    line = stderr.readline()
-
-            time.sleep(10)
-            stdin.close()
-            stdout.close()
-            stderr.close()
-
-            client.close()
-
-        except Exception, e:
-            print "*** Caught exception %s: %s" % (e.__class__, e)
-            traceback.print_exc()
-            try:
-                client.close()
-            except:
-                pass
-            return False
-
-        if checkStr != None:
-            return outputChecked
-        return True
-
-    ##
-    # Bring down all of the services associated
-    # with this node
-    #
-    def nodeBringDown(self, node):
-        #
-        # Forcefully brings down the processes
-        #
-        cmd = "pkill -9 "
-
-        #
-        # Bring down the SM and DM services first
-        #
-        smCmd = cmd + node.getSmBin()
-        result = self.runNodeCmd(node, smCmd)
-        if result == True:
-            print "Brought down SM on %s..." % (node.ipStr)
-        else:
-            print "Failed to bring down SM"
-            return -1
-
-        dmCmd = cmd + node.getDmBin()
-        result = self.runNodeCmd(node, dmCmd)
-        if result == True:
-            print "Brought down DM on %s..." % (node.ipStr)
-        else:
-            print "Failed to bring down DM"
-            return -1
-
-        #
-        # Bring down OM service if needed
-        #
-        if node.isOm == True:
-            omCmd = cmd + node.getOmBin()
-            result = self.runNodeCmd(node, omCmd)
-            if result == True:
-                print "Brought down OM on %s..." % (node.ipStr)
-            else:
-                print "Failed to bring down OM"
-                return -1
-
-
-
-        return 0
-
-    ##
-    # Bring ups all of the services associated with
-    # this node.
-    #
-    def nodeBringUp(self, node):
-        try:
-            cmd = None
-
-            #
-            # Bring up OM is this node runs OM
-            #
-            if node.isOm == True:
-                cmd = self.buildNodeCmd(node)
-                started = self.runNodeCmd(node, cmd, "Starting the server")
-                if started == True:
-                    print "Server OM running on %s..." % (node.ipStr)
-                else:
-                    print "Failed to start OM server..."
-                    return -1
-
-            #
-            # Bring up SM
-            #
-            cmd = self.buildNodeCmd(node, "SM")
-            started = self.runNodeCmd(node, cmd, "Starting the server")            
-            if started == True:
-                print "Server SM running on %s..." % (node.ipStr)
-            else:
-                print "Failed to start SM server..."
-                return -1
-
-            #
-            # Bring up DM
-            #
-            cmd = cmd = self.buildNodeCmd(node, "DM")
-            started = self.runNodeCmd(node, cmd, "Starting the server")            
-            if started == True:
-                print "Server DM running on %s..." % (node.ipStr)
-            else:
-                print "Failed to start DM server..."
-                return -1
-
-        except Exception, e:
-            print "*** Caught exception %s: %s" % (e.__class__, e)
-            traceback.print_exc()
-            try:
-                client.close()
-            except:
-                pass
-            return -1
-
-        time.sleep(15)
-        return 0
 
     ##
     # Deploys all policies in the inventory
@@ -588,7 +275,6 @@ class TestBringUp():
         #
         for nodeId in self.nodeIds:
             if self.deployer.nodeService.isOM(nodeId):
-                #result = self.nodeBringUp(node)
                 result = self.deployer.nodeService.deployNode(nodeId)
                 if result != 0:
                     return result
@@ -600,7 +286,6 @@ class TestBringUp():
         #
         for nodeId in self.nodeIds:
             if nodeId != upAlready:
-                #result = self.nodeBringUp(node)
                 result = self.deployer.nodeService.deployNode(nodeId)
                 if result != 0:
                     return result
@@ -611,7 +296,6 @@ class TestBringUp():
     #
     def bringDownNodes(self):
         for nodeId in self.nodeIds:
-            #result = self.nodeBringDown(node)
             result = self.deployer.nodeService.undeployNode(nodeId)
             if result != 0:
                 return result
