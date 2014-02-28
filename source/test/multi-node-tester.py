@@ -7,10 +7,17 @@ import pdb
 import ServiceMgr
 import ServiceConfig
 import ServiceWkld
+import os
+import binascii
 
 verbose = False
 debug   = False
 section = None
+
+numPuts    = 10
+numGets    = 10
+#maxObjSize = 4 * 1024 * 1024
+maxObjSize = 20
 
 if __name__ == '__main__':
     #
@@ -56,11 +63,29 @@ if __name__ == '__main__':
     s3workload.openConns()
 
     bucket = s3workload.createBucket(0, "multi-node-bucket")
-    result = s3workload.putObject(0, bucket, "object0", "Some Data")
-    if result != True:
-        print "Failed to put data"
-    else:
-        print "Put some test data"
+    for i in range(0, numPuts):
+        objName = "object%d" % (i)
+        data = binascii.b2a_hex(os.urandom(maxObjSize))
+        result = s3workload.putObject(0, bucket, objName, data)
+        if result != True:
+            print "Failed to put data"
+        else:
+            print "Put some test data"
+
+    # Bring up second node
+    secNode = "node2"
+    result = bu.bringUpSection(secNode)
+    if result != 0:
+        print "Failed to bring up %s" % (secNode)
+        
+    for i in range(numPuts + 1, numPuts * 2):
+        objName = "object%d" % (i)
+        data = binascii.b2a_hex(os.urandom(maxObjSize))
+        result = s3workload.putObject(0, bucket, objName, data)
+        if result != True:
+            print "Failed to put data"
+        else:
+            print "Put some test data"
 
     s3workload.closeConns()
 
@@ -68,6 +93,11 @@ if __name__ == '__main__':
     result = bu.bringDownSection(client)
     if result != 0:
         print "Failed to bring down %s" % (client)
+
+    # Bring down one node
+    result = bu.bringDownSection(secNode)
+    if result != 0:
+        print "Failed to bring down %s" % (secNode)
 
     # Bring down one node
     result = bu.bringDownSection(node)
