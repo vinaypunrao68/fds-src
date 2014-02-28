@@ -175,7 +175,7 @@ UT_OM_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput 
     eval_helper->setNewDlt(dlt);
 
     // Print the DLTs and compare them
-    eval_helper->printAndCompareDlts();
+    eval_helper->printAndCompareDlts(NULL);
 
     return this;  //  to free this obj
 }
@@ -238,7 +238,8 @@ UT_DP_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput 
     eval_helper->setNewDlt(dlt);
 
     // Print the DLTs and compare
-    eval_helper->printAndCompareDlts();
+    ClusterMap *cm = om->om_clusmap_mod();
+    eval_helper->printAndCompareDlts(cm);
 
     return this;  //  to free this obj
 }
@@ -278,6 +279,7 @@ UT_DLT_EvalHelper::compare_dlts(const fds_uint64_t* old_tbl,
                                  fds_uint32_t new_depth,
                                  fds_uint32_t new_toks) {
     fds_uint32_t move_toks = 0;
+    fds_uint32_t move_l1_toks = 0;
     fds_uint32_t min_depth = old_depth;
     if (min_depth > new_depth) {
         min_depth = new_depth;
@@ -310,17 +312,21 @@ UT_DLT_EvalHelper::compare_dlts(const fds_uint64_t* old_tbl,
                 }
                 if (!found) {
                     move_toks++;
+                    if (j == 0)
+                        move_l1_toks++;
                 }
             }
         }
     }
     std::cout << "DLT changes: will migrate " << move_toks << " tokens" << std::endl;
+    std::cout << "      --- " << move_l1_toks << " primary tokens" << std::endl;
 }
 
 void
 UT_DLT_EvalHelper::print_dlt(const fds_uint64_t* tbl,
                              fds_uint32_t depth,
-                             fds_uint32_t toks)
+                             fds_uint32_t toks,
+                             const ClusterMap *cm)
 {
     if (tbl == NULL) {
         std::cout << "NULL" << std::endl;
@@ -332,6 +338,145 @@ UT_DLT_EvalHelper::print_dlt(const fds_uint64_t* tbl,
         }
         std::cout << std::endl;
     }
+    if (cm == NULL) {
+        return;  // don't print optimal vs. actual
+    }
+
+    // primary tokens optimal vs. actual
+    PlacementMetricsPtr metricsPtr(new PlacementMetrics(cm, toks));
+    NodeUuidSet nodes;
+    for (ClusterMap::const_iterator cit = cm->cbegin();
+         cit != cm->cend();
+         ++cit) {
+        nodes.insert(cit->first);
+    }
+    NodeUuidSet::const_iterator sit, sit2, sit3;
+    for (sit = nodes.cbegin(); sit != nodes.cend(); ++sit) {
+        // calculate number of tokens
+        NodeUuid uuid = *sit;
+        int node_toks = 0;
+        int rounded_opt_toks = metricsPtr->tokens(uuid);
+        for (fds_uint32_t i = 0; i < toks; ++i) {
+            if (tbl[i] == uuid.uuid_get_val()) {
+                node_toks++;
+            }
+        }
+        std::cout << "Node " << std::hex << uuid.uuid_get_val() << std::dec
+                  << " -- tokens " << node_toks << " ; optimal "
+                  << metricsPtr->optimalTokens(uuid)
+                  << " ; integer optimal " << rounded_opt_toks
+                  << " (error " << node_toks - rounded_opt_toks << ")" << std::endl;
+        FDS_PLOG(g_fdslog)
+                << "UT: Node " << std::hex << uuid.uuid_get_val() << std::dec
+                << " -- tokens " << node_toks << "; optimal "
+                << metricsPtr->optimalTokens(uuid)
+                << "; round. opt. " << rounded_opt_toks
+                << " (err " << node_toks - rounded_opt_toks << ")";
+    }
+    // print secondary tokens if DLT depth is at least 2
+    if (depth < 2) return;
+    double total_positive_error = 0;
+    double positive_err_count = 0;
+    double total_neg_error = 0;
+    double negative_err_count = 0;
+    for (sit = nodes.cbegin(); sit != nodes.cend(); ++sit) {
+        NodeUuid l1_uuid = *sit;
+        for (sit2 = nodes.cbegin(); sit2 != nodes.cend(); ++sit2) {
+            NodeUuid l2_uuid = *sit2;
+            int l12_toks = 0;
+            if (l1_uuid == l2_uuid) continue;
+
+            // calculate number of tokens in group l1_uuid, l2_uuid
+            for (fds_uint32_t i = 0; i < toks; ++i) {
+                if ((tbl[i] == l1_uuid.uuid_get_val()) &&
+                    (tbl[toks + i] == l2_uuid.uuid_get_val())) {
+                    ++l12_toks;
+                }
+            }
+            double opt_toks = metricsPtr->optimalTokens(l1_uuid, l2_uuid);
+            int rounded_toks = metricsPtr->tokens(l1_uuid, l2_uuid);
+            int err = l12_toks - rounded_toks;
+            std::cout << "Node group (" << std::hex << l1_uuid.uuid_get_val()
+                      << ", " << l2_uuid.uuid_get_val() << std::dec
+                      << ") -- tokens " << l12_toks << "; optimal " << opt_toks
+                      << " ; rounded optimal " << rounded_toks
+                      << " (error " << err << ")" << std::endl;
+            FDS_PLOG(g_fdslog)
+                    << "Node group (" << std::hex << l1_uuid.uuid_get_val()
+                    << ", " << l2_uuid.uuid_get_val() << std::dec
+                    << ") -- tokens " << l12_toks << "; optimal " << opt_toks
+                    << "; round. opt. " << rounded_toks
+                    << " (err " << err << ")";
+            if (err > 0) {
+                total_positive_error += err;
+                positive_err_count++;
+            } else if (err < 0) {
+                total_neg_error -= err;
+                negative_err_count++;
+            }
+        }
+    }
+    double ave_err = (total_positive_error == 0) ?
+            0 : total_positive_error / positive_err_count;
+    std::cout << "Total L1-2 group positive err " << total_positive_error
+              << " (average " << ave_err << ")" << std::endl;
+    ave_err = (total_neg_error == 0) ?
+            0 : total_neg_error / negative_err_count;
+    std::cout << "Total L1-2 group negative err " << total_neg_error
+              << " (average " << ave_err << ")" << std::endl;
+
+    // print third level tokens if DLT depth is at least 3
+    if (depth < 3) return;
+    total_positive_error = 0;
+    total_neg_error = 0;
+    positive_err_count = 0;
+    negative_err_count = 0;
+    for (sit = nodes.cbegin(); sit != nodes.cend(); ++sit) {
+        NodeUuid l1_uuid = *sit;
+        for (sit2 = nodes.cbegin(); sit2 != nodes.cend(); ++sit2) {
+            NodeUuid l2_uuid = *sit2;
+            if (l1_uuid == l2_uuid) continue;
+            for (sit3 = nodes.cbegin(); sit3 != nodes.cend(); ++sit3) {
+                NodeUuid l3_uuid = *sit3;
+                int l123_toks = 0;
+                if ((l1_uuid == l3_uuid) || (l2_uuid == l3_uuid))
+                    continue;
+
+                // calculate number of tokens in group l1_uuid, l2_uuid, l3_uuid
+                for (fds_uint32_t i = 0; i < toks; ++i) {
+                    if ((tbl[i] == l1_uuid.uuid_get_val()) &&
+                        (tbl[toks + i] == l2_uuid.uuid_get_val()) &&
+                        (tbl[2*toks + i] == l3_uuid.uuid_get_val())) {
+                        ++l123_toks;
+                    }
+                }
+
+                double opt_123toks = metricsPtr->optimalTokens(l1_uuid, l2_uuid, l3_uuid);
+                double err = l123_toks - opt_123toks;
+                FDS_PLOG(g_fdslog)
+                        << "Node group (" << std::hex << l1_uuid.uuid_get_val()
+                        << ", " << l2_uuid.uuid_get_val() << ", "
+                        << l3_uuid.uuid_get_val() << std::dec
+                        << ") -- tokens " << l123_toks << "; optimal " << opt_123toks
+                        << " (err " << err << ")";
+                if (err > 0) {
+                    total_positive_error += err;
+                    positive_err_count++;
+                } else if (err < 0) {
+                    total_neg_error += err;
+                    negative_err_count++;
+                }
+            }
+        }
+    }
+    ave_err = (total_positive_error == 0) ?
+            0 : total_positive_error / positive_err_count;
+    std::cout << "Total L1-2-3 group positive err " << total_positive_error
+              << " (average " << ave_err << ")" << std::endl;
+    ave_err = (total_neg_error == 0) ?
+            0 : total_neg_error / negative_err_count;
+    std::cout << "Total L1-2-3 group negative err " << total_neg_error
+              << " (average " << ave_err << ")" << std::endl;
 }
 
 // -------------------------------------------------------------------------------------
@@ -374,5 +519,4 @@ UT_OM_DltFsm::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *o
     }
     return this;  // to free this obj.
 }
-
 }  // namespace fds

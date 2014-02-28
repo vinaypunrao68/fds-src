@@ -120,15 +120,13 @@ StorHvCtrl::dispatchSmPutMsg(StorHvJournalEntry *journEntry) {
         journEntry->num_sm_nodes     = numNodes;
 
         // Call Put object RPC to SM
-        netSession *endPoint = NULL;
-        endPoint = rpcSessionTbl->getSession(node_ip,
-                                             FDS_ProtocolInterface::FDSP_STOR_MGR);
-        fds_verify(endPoint != NULL);
+        netDataPathClientSession *sessionCtx =
+                rpcSessionTbl->\
+                getClientSession<netDataPathClientSession>(node_ip, node_port);
+        fds_verify(sessionCtx != NULL);
 
         // Set session UUID in journal and msg
-        boost::shared_ptr<FDSP_DataPathReqClient> client =
-                dynamic_cast<netDataPathClientSession *>(endPoint)->getClient();
-        netDataPathClientSession *sessionCtx =  static_cast<netDataPathClientSession *>(endPoint);
+        boost::shared_ptr<FDSP_DataPathReqClient> client = sessionCtx->getClient();
         smMsgHdr->session_uuid = sessionCtx->getSessionId();
         journEntry->session_uuid = smMsgHdr->session_uuid;
 
@@ -185,14 +183,12 @@ StorHvCtrl::dispatchSmGetMsg(StorHvJournalEntry *journEntry) {
     getMsg->dlt_version = om_client->getDltVersion();
     fds_verify(getMsg->dlt_version != DLT_VER_INVALID);
 
-    netSession *endPoint = NULL;
-    endPoint = rpcSessionTbl->getSession(node_ip,
-                                         FDS_ProtocolInterface::FDSP_STOR_MGR);
-    fds_verify(endPoint != NULL);
+    netDataPathClientSession *sessionCtx =
+            rpcSessionTbl->\
+            getClientSession<netDataPathClientSession>(node_ip, node_port);
+    fds_verify(sessionCtx != NULL);
 
-    boost::shared_ptr<FDSP_DataPathReqClient> client =
-            dynamic_cast<netDataPathClientSession *>(endPoint)->getClient();
-    netDataPathClientSession *sessionCtx =  static_cast<netDataPathClientSession *>(endPoint);
+    boost::shared_ptr<FDSP_DataPathReqClient> client = sessionCtx->getClient();
     smMsgHdr->session_uuid = sessionCtx->getSessionId();
     journEntry->session_uuid = smMsgHdr->session_uuid;
     // RPC getObject to StorMgr
@@ -248,13 +244,12 @@ StorHvCtrl::dispatchSmDelMsg(StorHvJournalEntry *journEntry) {
 
     // *****CAVEAT: Modification reqd
     // ******  Need to find out which is the primary SM and send this out to that SM. ********
-    netSession *endPoint = NULL;
-    endPoint = rpcSessionTbl->getSession(node_ip, FDSP_STOR_MGR);
-    fds_verify(endPoint != NULL);
+    netDataPathClientSession *sessionCtx =
+            rpcSessionTbl->\
+            getClientSession<netDataPathClientSession>(node_ip, node_port);
+    fds_verify(sessionCtx != NULL);
 
-    boost::shared_ptr<FDSP_DataPathReqClient> client =
-            dynamic_cast<netDataPathClientSession *>(endPoint)->getClient();
-    netDataPathClientSession *sessionCtx =  static_cast<netDataPathClientSession *>(endPoint);
+    boost::shared_ptr<FDSP_DataPathReqClient> client = sessionCtx->getClient();
     smMsgHdr->session_uuid = sessionCtx->getSessionId();
     journEntry->session_uuid = smMsgHdr->session_uuid;
     client->DeleteObject(smMsgHdr, delMsg);
@@ -439,14 +434,12 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
     journEntry->num_dm_nodes            = numNodes;
     
     // Call Update Catalog RPC call to DM
-    netSession *endPoint = NULL;
-    endPoint = storHvisor->rpcSessionTbl->getSession
-             (node_ip, FDS_ProtocolInterface::FDSP_DATA_MGR);
-    fds_verify(endPoint != NULL);
+    netMetaDataPathClientSession *sessionCtx =
+            storHvisor->rpcSessionTbl->\
+            getClientSession<netMetaDataPathClientSession>(node_ip, node_port);
+    fds_verify(sessionCtx != NULL);
 
-    boost::shared_ptr<FDSP_MetaDataPathReqClient> client =
-            dynamic_cast<netMetaDataPathClientSession *>(endPoint)->getClient();
-    netMetaDataPathClientSession *sessionCtx =  static_cast<netMetaDataPathClientSession *>(endPoint);
+    boost::shared_ptr<FDSP_MetaDataPathReqClient> client = sessionCtx->getClient();
     msgHdrDm->session_uuid = sessionCtx->getSessionId();
     journEntry->session_uuid = msgHdrDm->session_uuid;
     client->UpdateCatalogObject(msgHdrDm, upd_obj_req);
@@ -981,8 +974,8 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(vol_id);
   if ((shVol == NULL) || (shVol->isValidLocked() == false)) {
     shVol->readUnlock();
-    FDS_PLOG_SEV(sh_log, fds::fds_log::critical) << "deleteBlob failed to get volume for vol "
-                                                 << vol_id;
+    FDS_PLOG_SEV(sh_log, fds::fds_log::critical) << "deleteBlob failed to get volume for vol 0x"
+                                                 << std::hex << vol_id << std::dec;
     
     blobReq->cbWithResult(-1);
     err = ERR_DISK_WRITE_FAILED;
@@ -1002,8 +995,9 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   if ((trans_in_progress) || (journEntry->isActive())) {
     shVol->readUnlock();
 
-    FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << transId << " - Transaction  is already in ACTIVE state, completing request "
-				   << transId << " with ERROR(-2) ";
+    FDS_PLOG(storHvisor->GetLog())
+            <<" StorHvisorTx:" << "IO-XID:" << transId << " - Transaction  is already in ACTIVE state, completing request "
+            << transId << " with ERROR(-2) ";
     // There is an ongoing transaciton for this offset.
     // We should queue this up for later processing once that completes.
     
@@ -1016,7 +1010,9 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
 
   journEntry->setActive();
 
-  FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << transId << " volID:" << vol_id << " - Activated txn for req :" << transId;
+  FDS_PLOG(storHvisor->GetLog())
+          <<" StorHvisorTx:" << "IO-XID:" << transId << " volID: 0x" << std::hex
+          << vol_id << std::dec << " - Activated txn for req :" << transId;
   
   FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr(new FDSP_MsgHdrType);
   FDS_ProtocolInterface::FDSP_DeleteObjTypePtr del_obj_req(new FDSP_DeleteObjType);
@@ -1047,7 +1043,9 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   if (err.GetErrno() == ERR_PENDING_RESP) {
     shVol->readUnlock();
 
-    FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << transId << " volID:" << vol_id << " - Vol catalog Cache Query pending :" << err.GetErrno() << std::endl ;
+    FDS_PLOG(storHvisor->GetLog())
+            <<" StorHvisorTx:" << "IO-XID:" << transId << " volID: 0x" << std::hex
+            << vol_id << std::dec << " - Vol catalog Cache Query pending :" << err.GetErrno();
     journEntry->trans_state = FDS_TRANS_VCAT_QUERY_PENDING;
     return err.GetErrno();
   }
@@ -1056,12 +1054,17 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   {
     shVol->readUnlock();
 
-    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:" << transId << " volID:" << vol_id << " - Error reading the Vol catalog  Error code : " <<  err.GetErrno() << std::endl;
+    FDS_PLOG(storHvisor->GetLog())
+            << " StorHvisorTx:" << "IO-XID:" << transId << " volID: 0x" << std::hex
+            << vol_id << std::dec << " - Error reading the Vol catalog  Error code : " <<  err.GetErrno() << std::endl;
     blobReq->cbWithResult(err.GetErrno());
     return err.GetErrno();
   }
   
-  FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << transId << " volID:" << vol_id << " - object ID: " << oid.GetHigh() <<  ":" << oid.GetLow()									 << "  ObjLen:" << journEntry->data_obj_len;
+  FDS_PLOG(storHvisor->GetLog())
+          << " StorHvisorTx:" << "IO-XID:" << transId << " volID: 0x" << std::hex
+          << vol_id << std::dec << " - object ID: " << oid.GetHigh() <<  ":" << oid.GetLow()
+          << "  ObjLen:" << journEntry->data_obj_len;
   
   // We have a Cache HIT *$###
   
@@ -1117,20 +1120,21 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
     
 
     // Call Update Catalog RPC call to DM
-    endPoint = storHvisor->rpcSessionTbl->getSession(node_ip,
-                                               FDSP_DATA_MGR);
-    if (endPoint){
-       boost::shared_ptr<FDSP_MetaDataPathReqClient> client =
-             dynamic_cast<netMetaDataPathClientSession *>(endPoint)->getClient();
-      netMetaDataPathClientSession *sessionCtx =  static_cast<netMetaDataPathClientSession *>(endPoint);
-      fdsp_msg_hdr->session_uuid = sessionCtx->getSessionId();
-      journEntry->session_uuid = fdsp_msg_hdr->session_uuid;
-      client->DeleteCatalogObject(fdsp_msg_hdr_dm, del_cat_obj_req);
-      FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:"
-                                     << transId << " volID:" << vol_id
-                                     << " - Sent async DELETE_CAT_OBJ_REQ request to DM at "
-                                     <<  node_ip << " port " << node_port;
-    }
+    netMetaDataPathClientSession *sessionCtx =
+            storHvisor->rpcSessionTbl->\
+            getClientSession<netMetaDataPathClientSession>(node_ip, node_port);
+    fds_verify(sessionCtx != NULL);
+    boost::shared_ptr<FDSP_MetaDataPathReqClient> client =
+            sessionCtx->getClient();
+
+    fdsp_msg_hdr->session_uuid = sessionCtx->getSessionId();
+    journEntry->session_uuid = fdsp_msg_hdr->session_uuid;
+    client->DeleteCatalogObject(fdsp_msg_hdr_dm, del_cat_obj_req);
+    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:"
+            << transId << " volID:" << std::hex << vol_id << std::dec
+            << " - Sent async DELETE_CAT_OBJ_REQ request to DM at "
+            <<  node_ip << " port " << node_port;
+
   }
   // Schedule a timer here to track the responses and the original request
   shVol->journal_tbl->schedule(journEntry->ioTimerTask, std::chrono::seconds(FDS_IO_LONG_TIME));
@@ -1198,7 +1202,8 @@ fds::Error StorHvCtrl::listBucket(fds::AmQosReq *qosReq) {
 
   journEntry->setActive();
 
-  FDS_PLOG(GetLog()) <<" StorHvisorTx:" << "IO-XID:" << transId << " volID:" << volId << " - Activated txn for req :" << transId;
+  FDS_PLOG(GetLog()) << " StorHvisorTx:" << "IO-XID:" << transId << " volID: 0x"
+                     << std::hex << volId << std::dec << " - Activated txn for req :" << transId;
 
   /*
    * Setup msg header
@@ -1235,8 +1240,9 @@ fds::Error StorHvCtrl::listBucket(fds::AmQosReq *qosReq) {
   dataPlacementTbl->getDMTNodesForVolume(volId, node_ids, &num_nodes);
 
   if(num_nodes == 0) {
-    FDS_PLOG_SEV(GetLog(), fds::fds_log::error) <<" StorHvisorTx:" << "IO-XID:" << transId << " volID:" << volId 
-						<< " -  DMT Nodes  NOT  configured. Check on OM Manager. Completing request with ERROR(-1)";
+      FDS_PLOG_SEV(GetLog(), fds::fds_log::error)
+              <<" StorHvisorTx:" << "IO-XID:" << transId << " volID: 0x" << std::hex << volId << std::dec 
+              << " -  DMT Nodes  NOT  configured. Check on OM Manager. Completing request with ERROR(-1)";
     blobReq->cbWithResult(-1);
     err = ERR_GET_DMT_FAILED;
     delete qosReq;
@@ -1262,21 +1268,19 @@ fds::Error StorHvCtrl::listBucket(fds::AmQosReq *qosReq) {
   get_bucket_list_req->iterator_cookie = static_cast<ListBucketReq*>(blobReq)->iter_cookie;
 
   // Call Get Volume Blob List to DM
-  endPoint = storHvisor->rpcSessionTbl->getSession(node_ip,
-                                               FDSP_DATA_MGR);
+  netMetaDataPathClientSession *sessionCtx =
+          storHvisor->rpcSessionTbl->\
+          getClientSession<netMetaDataPathClientSession>(node_ip, node_port);
+  fds_verify(sessionCtx != NULL);
+  boost::shared_ptr<FDSP_MetaDataPathReqClient> client = sessionCtx->getClient();
 
-  fds_verify(endPoint != NULL);
-  boost::shared_ptr<FDSP_MetaDataPathReqClient> client =
-             dynamic_cast<netMetaDataPathClientSession *>(endPoint)->getClient();
-
-  netMetaDataPathClientSession *sessionCtx =  static_cast<netMetaDataPathClientSession *>(endPoint);
   msgHdr->session_uuid = sessionCtx->getSessionId();
   journEntry->session_uuid = msgHdr->session_uuid;
   client->GetVolumeBlobList(msgHdr, get_bucket_list_req);
   FDS_PLOG(GetLog()) << " StorHvisorTx:" << "IO-XID:"
-		     << transId << " volID:" << volId
-		     << " - Sent async GET_VOL_BLOB_LIST_REQ request to DM at "
-		     <<  node_ip << " port " << node_port;
+          << transId << " volID:" << std::hex << volId << std::dec
+          << " - Sent async GET_VOL_BLOB_LIST_REQ request to DM at "
+          <<  node_ip << " port " << node_port;
 
   // Schedule a timer here to track the responses and the original request
   shVol->journal_tbl->schedule(journEntry->ioTimerTask, std::chrono::seconds(FDS_IO_LONG_TIME));
@@ -1436,7 +1440,8 @@ fds::Error StorHvCtrl::getBucketStats(fds::AmQosReq *qosReq) {
 
   journEntry->setActive();
 
-  FDS_PLOG(GetLog()) <<" StorHvisorTx:" << "IO-XID:" << transId << " volID:" << admin_vol_id << " - Activated txn for req :" << transId;
+  FDS_PLOG(GetLog()) <<" StorHvisorTx:" << "IO-XID:" << transId << " volID: 0x"
+                     << std::hex << admin_vol_id << std::dec << " - Activated txn for req :" << transId;
  
   /*
    * Setup journal entry
@@ -1456,7 +1461,8 @@ fds::Error StorHvCtrl::getBucketStats(fds::AmQosReq *qosReq) {
   om_err = om_client->pushGetBucketStatsToOM(transId);
 
   if(om_err != 0) {
-    FDS_PLOG_SEV(GetLog(), fds::fds_log::error) <<" StorHvisorTx:" << "IO-XID:" << transId << " volID:" << admin_vol_id
+    FDS_PLOG_SEV(GetLog(), fds::fds_log::error) <<" StorHvisorTx:" << "IO-XID:" << transId << " volID: 0x"
+                                                << std::hex << admin_vol_id << std::dec
 						<< " -  Couldn't send get bucket stats to OM. Completing request with ERROR(-1)";
     blobReq->cbWithResult(-1);
     err = ERR_NOT_FOUND;

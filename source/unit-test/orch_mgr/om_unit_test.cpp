@@ -451,11 +451,9 @@ class OmUnitTest {
      * Helper functions to create and remember net sessions
      */
     FDSP_ConfigPathReqClientPtr getConfigClient() {
-        netSession* client_session =
-                net_session_tbl->getSession(om_ip,
-                                            FDS_ProtocolInterface::FDSP_ORCH_MGR);
-
-        return static_cast<netConfigPathClientSession*>(client_session)->getClient();
+        return net_session_tbl->\
+                getClientSession<netConfigPathClientSession>(om_ip, om_port_num)->\
+                getClient();
     }
 
     static void run_server_thread(netSessionTbl* session_tbl, netSession* server_session) {
@@ -1006,7 +1004,7 @@ class OmUnitTest {
     }
 
     ~OmUnitTest() {
-        net_session_tbl->endSession(om_ip, FDS_ProtocolInterface::FDSP_ORCH_MGR);
+        net_session_tbl->endClientSession(om_ip, om_port_num);
         delete test_log;
     }
     

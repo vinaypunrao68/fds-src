@@ -104,7 +104,7 @@ void FdsMigrationSvc::mod_startup()
  */
 void FdsMigrationSvc::mod_shutdown()
 {
-    nst_->endSession(migpath_session_);
+    nst_->endSession(migpath_session_->getSessionTblKey());
 }
 
 /**

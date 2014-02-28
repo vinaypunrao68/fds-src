@@ -7,6 +7,8 @@
 
 int main(int argc, char **argv)
 {
+    fds::FDS_NativeAPI *api = new
+                fds::FDS_NativeAPI(fds::FDS_NativeAPI::FDSN_AWS_S3);
     fds::Module *s3_thrift_probe_vec[] = {
         &fds::gl_fds_stat,
         &fds::gl_probeS3Eng,
@@ -21,6 +23,6 @@ int main(int argc, char **argv)
         fds::gl_probeS3Eng.probe_add_adapter(
             fds::gl_thriftProbeMod.pr_new_instance());
     }
-    fds::gl_probeS3Eng.run_server(nullptr);
+    fds::gl_probeS3Eng.run_server(api);
     return 0;
 }

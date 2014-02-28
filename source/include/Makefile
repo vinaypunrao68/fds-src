@@ -5,6 +5,7 @@ user_build_dir := \
     fdsp \
     am-engine \
     concurrency \
+    kvstore \
     fds-probe \
     hash \
     persistent_layer \

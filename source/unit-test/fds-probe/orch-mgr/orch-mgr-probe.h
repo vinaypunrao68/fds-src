@@ -11,6 +11,7 @@
 #include <fds-probe/js-object.h>
 #include <fds-probe/fds_probe.h>
 #include <dlt.h>
+#include <OmClusterMap.h>
 
 namespace fds {
 
@@ -92,11 +93,11 @@ class UT_DLT_EvalHelper
         new_depth = dlt->getDepth();
         new_tokens = dlt->getNumTokens();
     }
-    void printAndCompareDlts() {
+    void printAndCompareDlts(const ClusterMap *cm) {
         std::cout << "Old DLT: " << std::endl;
-        print_dlt(old_dlt_ptr, old_depth, old_tokens);
+        print_dlt(old_dlt_ptr, old_depth, old_tokens, NULL);
         std::cout << "New DLT: " << std::endl;
-        print_dlt(new_dlt_ptr, new_depth, new_tokens);
+        print_dlt(new_dlt_ptr, new_depth, new_tokens, cm);
 
         compare_dlts(old_dlt_ptr, old_depth, old_tokens,
                      new_dlt_ptr, new_depth, new_tokens);
@@ -105,7 +106,8 @@ class UT_DLT_EvalHelper
     // static funcs if need to print/compare many different DLTs
     static void print_dlt(const fds_uint64_t* tbl,
                           fds_uint32_t depth,
-                          fds_uint32_t toks);
+                          fds_uint32_t toks,
+                          const ClusterMap* cm);
     static void compare_dlts(const fds_uint64_t* old_tbl,
                              fds_uint32_t old_depth,
                              fds_uint32_t old_toks,

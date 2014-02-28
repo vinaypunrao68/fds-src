@@ -14,7 +14,7 @@ namespace fds {
 
   public:
 
-    fds_uint32_t queue_id;
+    fds_qid_t queue_id;
     fds_uint64_t queue_rate;
     fds_uint32_t queue_priority;
     fds_uint32_t rate_based_weight;
@@ -29,7 +29,7 @@ namespace fds {
     std::atomic<unsigned int> num_pending_ios;
     std::atomic<unsigned int> num_outstanding_ios;
 
-    WFQQueueDesc(fds_uint32_t q_id,
+    WFQQueueDesc(fds_qid_t q_id,
 		 FDS_VolumeQueue *que,
 		 fds_uint64_t q_rate,
 		 fds_uint32_t q_pri)
@@ -52,11 +52,11 @@ namespace fds {
 
     fds_uint64_t total_capacity;
     int num_queues;
-    std::map<fds_uint32_t, WFQQueueDesc *> queue_desc_map;
-    std::vector<fds_uint32_t> rate_based_qlist;
+    std::map<fds_qid_t, WFQQueueDesc *> queue_desc_map;
+    std::vector<fds_qid_t> rate_based_qlist;
     fds_uint64_t next_rate_based_spot;
     fds_uint64_t total_rate_based_spots; 
-    fds_uint32_t next_priority_based_queue;
+    fds_qid_t next_priority_based_queue;
 
     fds_uint64_t num_ios_dispatched;
     fds_uint64_t num_rate_based_slots_serviced;
@@ -71,7 +71,7 @@ namespace fds {
       
     }
 
-    fds_uint32_t getNextQueueInPriorityWFQList(fds_uint32_t queue_id) {
+    fds_qid_t getNextQueueInPriorityWFQList(fds_qid_t queue_id) {
       if (queue_desc_map.empty()) {
 	return 0;
       }
@@ -81,14 +81,14 @@ namespace fds {
 	if (it == queue_desc_map.end()) {
 	  it = queue_desc_map.begin();
 	}
-	fds_uint32_t next_queue = it->first;
+	fds_qid_t next_queue = it->first;
 	return next_queue;
     }
 
-    fds_uint32_t get_non_empty_queue_with_highest_credits();
-    void ioProcessForEnqueue(fds_uint32_t queue_id, FDS_IOType *io);
-    void ioProcessForDispatch(fds_uint32_t queue_id, FDS_IOType *io);
-    fds_uint32_t getNextQueueForDispatch();
+    fds_qid_t get_non_empty_queue_with_highest_credits();
+    void ioProcessForEnqueue(fds_qid_t queue_id, FDS_IOType *io);
+    void ioProcessForDispatch(fds_qid_t queue_id, FDS_IOType *io);
+    fds_qid_t getNextQueueForDispatch();
     void inc_num_ios_dispatched(unsigned int io_dispatch_type);
     Error assignSpotsToQueue(WFQQueueDesc *qd);
     Error revokeSpotsFromQueue(WFQQueueDesc *qd);
@@ -97,9 +97,9 @@ namespace fds {
 
     QoSWFQDispatcher(FDS_QoSControl *ctrlr, fds_uint64_t total_server_rate,
 		     fds_uint32_t maximum_outstanding_ios, fds_log *parent_log);
-    Error registerQueue(fds_uint32_t queue_id, FDS_VolumeQueue *queue);
-    Error deregisterQueue(fds_uint32_t queue_id);
-    Error modifyQueueQosParams(fds_uint32_t queue_id,
+    Error registerQueue(fds_qid_t queue_id, FDS_VolumeQueue *queue);
+    Error deregisterQueue(fds_qid_t queue_id);
+    Error modifyQueueQosParams(fds_qid_t queue_id,
 			       fds_uint64_t iops_min,
 			       fds_uint64_t iops_max,
 			       fds_uint32_t prio);

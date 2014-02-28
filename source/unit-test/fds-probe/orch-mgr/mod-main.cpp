@@ -35,6 +35,8 @@ int main(int argc, char **argv)
     fds::orchMgr     = new fds::OrchMgr(argc, argv, "orch_mgr.conf", "fds.om.");
     fds::gl_orch_mgr = fds::orchMgr;
 
+    fds::FDS_NativeAPI *api = new
+                fds::FDS_NativeAPI(fds::FDS_NativeAPI::FDSN_AWS_S3);
     fds::Module *probe_vec[] = {
         &fds::gl_fds_stat,
         &fds::gl_probeS3Eng,
@@ -57,6 +59,6 @@ int main(int argc, char **argv)
 
     /* Now run the S3 engine. */
     pool->schedule(fds::run_om_server, fds::orchMgr);
-    fds::gl_probeS3Eng.run_server(nullptr);
+    fds::gl_probeS3Eng.run_server(api);
     return 0;
 }

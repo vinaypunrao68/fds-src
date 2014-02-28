@@ -130,12 +130,13 @@ void OrchMgr::setup(int argc, char* argv[],
                           10,
                           FDS_ProtocolInterface::FDSP_ORCH_MGR));
 
-    omcp_session_tbl->createServerSession<netOMControlPathServerSession>(
-        netSession::ipString2Addr(ip_address),
-        control_portnum,
-        my_node_name,
-        FDS_ProtocolInterface::FDSP_OMCLIENT_MGR,
-        omcp_req_handler);
+    omc_server_session = omcp_session_tbl->\
+            createServerSession<netOMControlPathServerSession>(
+                    netSession::ipString2Addr(ip_address),
+                    control_portnum,
+                    my_node_name,
+                    FDS_ProtocolInterface::FDSP_OMCLIENT_MGR,
+                    omcp_req_handler);
 
     /*
      * Setup server session to listen to config path messages from fdscli
@@ -147,12 +148,13 @@ void OrchMgr::setup(int argc, char* argv[],
                           10,
                           FDS_ProtocolInterface::FDSP_ORCH_MGR));
 
-    cfg_session_tbl->createServerSession<netConfigPathServerSession>(
-        netSession::ipString2Addr(ip_address),
-        config_portnum,
-        my_node_name,
-        FDS_ProtocolInterface::FDSP_CLI_MGR,
-        cfg_req_handler);
+    cfg_server_session = cfg_session_tbl->\
+            createServerSession<netConfigPathServerSession>(
+                    netSession::ipString2Addr(ip_address),
+                    config_portnum,
+                    my_node_name,
+                    FDS_ProtocolInterface::FDSP_CLI_MGR,
+                    cfg_req_handler);
 
     cfgserver_thread.reset(new std::thread(&OrchMgr::start_cfgpath_server, this));
 
@@ -165,10 +167,6 @@ void OrchMgr::run()
 {
     // run server to listen for OMControl messages from
     // SM, DM and SH
-    netSession* omc_server_session =
-            omcp_session_tbl->getSession(my_node_name,
-                                         FDS_ProtocolInterface::FDSP_OMCLIENT_MGR);
-
     if (omc_server_session) {
         omcp_session_tbl->listenServer(omc_server_session);
     }
@@ -176,10 +174,6 @@ void OrchMgr::run()
 
 void OrchMgr::start_cfgpath_server()
 {
-    netSession* cfg_server_session =
-            cfg_session_tbl->getSession(my_node_name,
-                                        FDS_ProtocolInterface::FDSP_CLI_MGR);
-
     if (cfg_server_session) {
         cfg_session_tbl->listenServer(cfg_server_session);
     }

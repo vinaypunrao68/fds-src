@@ -159,7 +159,7 @@ OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
 
 OMgrClient::~OMgrClient()
 {
-    nst_->endSession(omrpc_handler_session_);
+    nst_->endSession(omrpc_handler_session_->getSessionTblKey());
     omrpc_handler_thread_->join();
 
     delete clustMap;
@@ -645,8 +645,8 @@ int OMgrClient::recvNotifyVol(fds_volid_t vol_id,
                               fds_vol_notify_t vol_action,
 			      FDSP_ResultType result) {
 
-  FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received volume event for volume " << vol_id 
-						    << " action - " << vol_action;
+  FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received volume event for volume 0x"
+                                                    << std::hex << vol_id <<std::dec << " action - " << vol_action;
 
   if (this->vol_evt_hdlr) {
     this->vol_evt_hdlr(vol_id, vdb, vol_action, result);
@@ -667,8 +667,9 @@ int OMgrClient::recvVolAttachState(fds_volid_t vol_id,
     type = fds_notify_vol_detach;
   }
 
-  FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received volume attach/detach request for volume " << vol_id 
-						    << " action - " << type;
+  FDS_PLOG_SEV(omc_log, fds::fds_log::notification)
+          << "OMClient received volume attach/detach request for volume 0x"
+          << std::hex << vol_id << std::dec << " action - " << type;
 
   if (this->vol_evt_hdlr) {
     this->vol_evt_hdlr(vol_id, vdb, type, result);
@@ -746,7 +747,7 @@ int OMgrClient::recvDMTUpdate(int dmt_vrsn, const Node_Table_Type& dmt_table) {
   for (auto it = dmt_table.cbegin(); it != dmt_table.cend(); it++) {
     for (auto jt = (*it).cbegin(); jt != (*it).cend(); jt++) {
         FDS_PLOG_SEV(omc_log, fds::fds_log::notification)
-           << "[Col " << row << std::hex << "] " << *jt;
+                << "[Col " << row << std::hex << "] " << *jt << std::dec;
     }
     row++;
   }
