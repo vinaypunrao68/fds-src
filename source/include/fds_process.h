@@ -52,9 +52,15 @@ class FdsRootDir
     inline const std::string &dir_hdd() const { return d_hdd; }
     inline const std::string &dir_ssd() const { return d_ssd; }
     inline const std::string &dir_user_repo() const { return d_user_repo; }
-    inline const std::string &dir_user_objs() const { return d_user_objs; }
-    inline const std::string &dir_user_dm() const { return d_user_dm; }
+    inline const std::string &dir_user_repo_objs() const { return d_user_repo_objs; }
+    inline const std::string &dir_user_repo_dm() const { return d_user_repo_dm; }
     inline const std::string &dir_sys_repo() const { return d_sys_repo; }
+    inline const std::string &dir_sys_repo_etc() const { return d_sys_repo_etc; }
+    inline const std::string &dir_sys_repo_domain() const { return d_sys_repo_domain; }
+    inline const std::string &dir_sys_repo_volume() const { return d_sys_repo_volume; }
+    inline const std::string &dir_sys_repo_inventory() const {
+        return d_sys_repo_inventory;
+    }
     inline const std::string &dir_fds_repo() const { return d_fds_repo; }
 
     static void fds_mkdir(char const *const path);
@@ -72,9 +78,13 @@ class FdsRootDir
     std::string              d_hdd;
     std::string              d_ssd;
     std::string              d_user_repo;
-    std::string              d_user_objs;
-    std::string              d_user_dm;
+    std::string              d_user_repo_objs;
+    std::string              d_user_repo_dm;
     std::string              d_sys_repo;
+    std::string              d_sys_repo_etc;
+    std::string              d_sys_repo_domain;
+    std::string              d_sys_repo_volume;
+    std::string              d_sys_repo_inventory;
     std::string              d_fds_repo;
 };
 

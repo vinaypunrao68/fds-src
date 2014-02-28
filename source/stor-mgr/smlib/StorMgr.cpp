@@ -333,9 +333,9 @@ void ObjectStorMgr::setup()
     DmDiskQuery     in;
     DmDiskQueryOut  out;
 
-    proc_root->fds_mkdir(proc_root->dir_user_objs().c_str());
+    proc_root->fds_mkdir(proc_root->dir_user_repo_objs().c_str());
     std::string stor_prefix = conf_helper_.get<std::string>("prefix");
-    std::string obj_dir = proc_root->dir_user_objs() + stor_prefix;
+    std::string obj_dir = proc_root->dir_user_repo_objs() + stor_prefix;
 
     // Create leveldb
     smObjDb = new  SmObjDb(obj_dir, objStorMgr->GetLog());

@@ -247,9 +247,14 @@ FdsRootDir::FdsRootDir(const std::string &root)
       d_hdd(root           + std::string("hdd/")),
       d_ssd(root           + std::string("ssd/")),
       d_user_repo(root     + std::string("user-repo/")),
-      d_user_objs(d_user_repo + std::string("objects/")),
-      d_user_dm(d_user_repo   + std::string("dm-names/")),
+      d_user_repo_objs(d_user_repo + std::string("objects/")),
+      d_user_repo_dm(d_user_repo   + std::string("dm-names/")),
+
       d_sys_repo(root      + std::string("sys-repo/")),
+      d_sys_repo_etc(d_sys_repo       + std::string("etc/")),
+      d_sys_repo_domain(d_sys_repo    + std::string("domain/")),
+      d_sys_repo_volume(d_sys_repo    + std::string("volume/")),
+      d_sys_repo_inventory(d_sys_repo + std::string("inventory/")),
       d_fds_repo(root      + std::string("fds-repo/")) {}
 
 /*

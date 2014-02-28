@@ -371,7 +371,8 @@ if __name__ == "__main__":
 
     os.chdir(env.env_fdsroot + '/Build/linux-x86_64.debug/bin')
     print "Starting OM...."
-    subprocess.Popen(['./orchMgr'], stderr=subprocess.STDOUT)
+    subprocess.Popen(['./orchMgr', '--fds-root', args.root + '/node1'],
+                     stderr=subprocess.STDOUT)
     subprocess.call(['sleep', '1'])
 
     print "Starting SM on node1...."
