@@ -1,5 +1,8 @@
-#ifndef INCLUDE_CPP_LIST_H_
-#define INCLUDE_CPP_LIST_H_
+/*
+ * Copyright 2014 by Formation Data Systems, Inc.
+ */
+#ifndef SOURCE_INCLUDE_CPPLIST_H_
+#define SOURCE_INCLUDE_CPPLIST_H_
 
 #include <shared/dlist.h>
 
@@ -11,14 +14,14 @@ class ChainList;
 class ChainLink
 {
   public:
-    ChainLink(void *obj) { dlist_obj_init(&lnk_chain, obj); }
+    explicit ChainLink(void *obj) { dlist_obj_init(&lnk_chain, obj); }
     ~ChainLink() {}
 
     /* ---------------------------------------------------------------------- */
     template <typename T>
     inline T *chain_get_obj()
     {
-        return (T *)lnk_chain.dl_obj;
+        return reinterpret_cast<T *>(lnk_chain.dl_obj);
     }
     inline void chain_rm()
     {
@@ -42,12 +45,12 @@ class ChainLink
     static inline T *chain_obj_frm_link(dlist_t *ptr)
     {
         dlist_obj_t *obj = fds_object_of(dlist_obj_t, dl_link, ptr);
-        return (T *)obj->dl_obj;
+        return reinterpret_cast<T *>(obj->dl_obj);
     }
     static inline ChainLink *chain_frm_link(dlist_t *ptr)
     {
         dlist_obj_t *obj = fds_object_of(dlist_obj_t, dl_link, ptr);
-        return (ChainLink *)obj;
+        return reinterpret_cast<ChainLink *>(obj);
     }
 
   private:
@@ -132,6 +135,6 @@ class ChainList
     dlist_t chain_head;
 };
 
-} // namespace fds
+}  // namespace fds
 
-#endif /* INCLUDE_CPP_LIST_H_ */
+#endif  // SOURCE_INCLUDE_CPPLIST_H_

@@ -1036,12 +1036,12 @@ hvisor_vbd_kick(td_vbd_t *vbd)
 		return 0;
 
 	vbd->kicked += n;
-	cppout("Vol %d - Pushing %d responses, rsp prod idx moving  from position %d to position %d\n", 
-	       (int) vbd->uuid, n, ring->fe_ring.sring->rsp_prod, ring->fe_ring.rsp_prod_pvt);
+	cppout("Vol 0x%llx - Pushing %d responses, rsp prod idx moving  from position %d to position %d\n", 
+	       vbd->uuid, n, ring->fe_ring.sring->rsp_prod, ring->fe_ring.rsp_prod_pvt);
 	RING_PUSH_RESPONSES(&ring->fe_ring);
 	ioctl(ring->fd, BLKTAP_IOCTL_KICK_FE, 0);
 
-	cppout("vol %llx minor %d - kicking %d: rec: 0x%08"PRIx64", ret: 0x%08"PRIx64", kicked: "
+	cppout("vol 0x%llx minor %d - kicking %d: rec: 0x%08"PRIx64", ret: 0x%08"PRIx64", kicked: "
 	       "0x%08"PRIx64"\n", vbd->uuid, vbd->minor, n, vbd->received, vbd->returned, vbd->kicked);
 
 	vbd->num_responses_in_ring = 0;

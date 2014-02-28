@@ -2,7 +2,6 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 #include <cstdlib>
-#include <fdsp/FDSP_types.h>
 #include <hash/MurmurHash3.h>
 
 #include <iostream>  // NOLINT(*)
@@ -22,13 +21,11 @@
 #include <concurrency/Mutex.h>
 #include <fds-probe/fds_probe.h>
 #include <NetSession.h>
-
+#include <ObjStats.h>
 
 namespace fds {
-
-typedef boost::shared_ptr<FDS_ProtocolInterface::FDSP_DataPathReqClient> 
+typedef boost::shared_ptr<FDS_ProtocolInterface::FDSP_DataPathReqClient>
     FDSP_DataPathReqClientPtr;
-
 
 #ifdef SM_PROBE_TEST
 /*
@@ -167,29 +164,29 @@ class SmUnitTest {
     ~TestResp() {
     }
 
-    void GetObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg, 
+    void GetObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
                        const FDS_ProtocolInterface::FDSP_GetObjType& get_obj_req) {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
 
-    void PutObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg, 
+    void PutObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
                        const FDS_ProtocolInterface::FDSP_PutObjType& put_obj_req) {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
 
-    void DeleteObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg, 
+    void DeleteObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
                           const FDS_ProtocolInterface::FDSP_DeleteObjType& del_obj_req) {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
 
 
-    void OffsetWriteObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg, 
+    void OffsetWriteObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
                                const FDS_ProtocolInterface::FDSP_OffsetWriteObjType& offset_write_obj_req) {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
 
 
-    void RedirReadObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg, 
+    void RedirReadObjectResp(const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
                              const FDS_ProtocolInterface::FDSP_RedirReadObjType& redir_write_obj_req) {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
@@ -305,7 +302,7 @@ class SmUnitTest {
 
   void updateAckedPuts() {
       ackedPuts++;
-      FDS_PLOG(g_fdslog) << "Receiver PutObj response for object cnt: " << ackedPuts; 
+      FDS_PLOG(g_fdslog) << "Receiver PutObj response for object cnt: " << ackedPuts;
   }
 
   void updatePutObj(const ObjectID& oid,
@@ -335,13 +332,13 @@ class SmUnitTest {
       FDS_ProtocolInterface::FDSP_PutObjTypePtr put_req(
           new FDS_ProtocolInterface::FDSP_PutObjType);
 
-      msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_PUT_OBJ_REQ;    
+      msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_PUT_OBJ_REQ;
       msg_hdr->src_id   = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
-      msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_STOR_MGR;    
+      msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_STOR_MGR;
       msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
       msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
-      msg_hdr->src_node_name = node_name_; 
-      msg_hdr->session_uuid = session_uuid_; 
+      msg_hdr->src_node_name = node_name_;
+      msg_hdr->session_uuid = session_uuid_;
       /*
        * TODO: Change this! We should reg a volume.
        */
@@ -397,13 +394,13 @@ class SmUnitTest {
       FDS_ProtocolInterface::FDSP_PutObjTypePtr put_req(
           new FDS_ProtocolInterface::FDSP_PutObjType);
 
-      msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_PUT_OBJ_REQ;    
+      msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_PUT_OBJ_REQ;
       msg_hdr->src_id   = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
-      msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_STOR_MGR;    
+      msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_STOR_MGR;
       msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
       msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
-      msg_hdr->src_node_name = node_name_; 
-      msg_hdr->session_uuid = session_uuid_; 
+      msg_hdr->src_node_name = node_name_;
+      msg_hdr->session_uuid = session_uuid_;
       /*
        * TODO: Change this! We should reg a volume.
        */
@@ -448,7 +445,7 @@ class SmUnitTest {
 
       /* Wait for puts to finish */
       while (ackedPuts.load() != num_updates) {sleep(1);}
-      std::cout << "Received responses for all " << num_updates 
+      std::cout << "Received responses for all " << num_updates
           << " Puts" << std::endl;
 
       ackedGets = 0;
@@ -513,13 +510,13 @@ class SmUnitTest {
       FDS_ProtocolInterface::FDSP_PutObjTypePtr put_req(
           new FDS_ProtocolInterface::FDSP_PutObjType);
 
-      msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_PUT_OBJ_REQ;    
+      msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_PUT_OBJ_REQ;
       msg_hdr->src_id   = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
-      msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_STOR_MGR;    
+      msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_STOR_MGR;
       msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
       msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
-      msg_hdr->src_node_name = node_name_; 
-      msg_hdr->session_uuid = session_uuid_; 
+      msg_hdr->src_node_name = node_name_;
+      msg_hdr->session_uuid = session_uuid_;
       /*
        * TODO: Change this! We should reg a volume.
        */
@@ -627,8 +624,8 @@ class SmUnitTest {
       msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_STOR_MGR;
       msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
       msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
-      msg_hdr->src_node_name = node_name_; 
-      msg_hdr->session_uuid = session_uuid_; 
+      msg_hdr->src_node_name = node_name_;
+      msg_hdr->session_uuid = session_uuid_;
 
       for (fds_uint32_t i = 0; i < num_updates; i++) {
           oid = ObjectID(i, i * i);
@@ -645,7 +642,7 @@ class SmUnitTest {
                   << " with object ID " << oid;
               return -1;
           }
-      }    
+      }
 
       FDS_PLOG(g_fdslog) << "Ending test: basic_query()";
 
@@ -663,15 +660,15 @@ class SmUnitTest {
       FDS_ProtocolInterface::FDSP_PutObjTypePtr put_req(
           new FDS_ProtocolInterface::FDSP_PutObjType);
 
-      msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_PUT_OBJ_REQ;    
+      msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_PUT_OBJ_REQ;
       msg_hdr->src_id   = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
-      msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_STOR_MGR;    
+      msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_STOR_MGR;
       msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
       msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
-      msg_hdr->src_node_name = node_name_; 
-      msg_hdr->session_uuid = session_uuid_; 
+      msg_hdr->src_node_name = node_name_;
+      msg_hdr->session_uuid = session_uuid_;
 
-      /* storMgr creates 10 volumes, and volume ids = 2, 5, 8 are hybrid 
+      /* storMgr creates 10 volumes, and volume ids = 2, 5, 8 are hybrid
        * so lets use those for this test; lower volume ids have higher prio  */
       int num_vols = 3;
       int vols[num_vols];
@@ -679,7 +676,7 @@ class SmUnitTest {
       for (int v = 0; v < num_vols; ++v) {
           vols[v] = volid;
           volid += 3;
-      } 
+      }
 
       /* step 1 --  populate all volumes with 'num_updates' objects */
       fds_uint32_t volume_offset;
@@ -737,8 +734,8 @@ class SmUnitTest {
       msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_STOR_MGR;
       msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
       msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
-      msg_hdr->src_node_name = node_name_; 
-      msg_hdr->session_uuid = session_uuid_; 
+      msg_hdr->src_node_name = node_name_;
+      msg_hdr->session_uuid = session_uuid_;
 
       int v = 2;
       msg_hdr->glob_volume_id = vols[v];
@@ -781,13 +778,13 @@ class SmUnitTest {
 
       /* step 3 -- we need to wait for at least 30 seconds to let
        * ranking engine to get the hot objects from the stat tracker.
-       * Ranking engine processes hot objects from the stat tracker on 
-       * repeating timer every 30 seconds (can change in ObjectRankEngine 
+       * Ranking engine processes hot objects from the stat tracker on
+       * repeating timer every 30 seconds (can change in ObjectRankEngine
        * constructor.  */
       sleep(40);
       // system("../bin/fdscli --auto-tier-migration off --domain-id 1");
 
-      /* step 4 -- can either start migrator or can hack ranking engine 
+      /* step 4 -- can either start migrator or can hack ranking engine
        * to call migrate as soon it promoted hot objs/ demotes existing objs
        * in the rank table. */
       //TODO
@@ -990,12 +987,12 @@ class SmUnitTest {
 /*
  * Ice request communication class.
  */
-class TestClient : public FdsProcess { 
+class TestClient : public FdsProcess {
  public:
   TestClient(int argc, char *argv[],
              const std::string &default_config_path,
-             const std::string &base_path) 
-      : FdsProcess(argc, argv, default_config_path, base_path)
+             const std::string &base_path, Module **mod_vec)
+      : FdsProcess(argc, argv, default_config_path, base_path, mod_vec)
   {
       result_ = 0;
   }
@@ -1030,10 +1027,13 @@ class TestClient : public FdsProcess {
 }  // namespace fds
 
 int main(int argc, char* argv[]) {
-    fds::TestClient sm_client(argc, argv, "sm_ut.conf", "fds.sm_ut.");
+    fds::Module *sm_testVec[] = {
+        &gl_objStats,
+        NULL
+    };
+    fds::TestClient sm_client(argc, argv, "sm_ut.conf", "fds.sm_ut.", sm_testVec);
 
-    sm_client.setup(argc, argv, NULL);
+    sm_client.setup();
     sm_client.run();
-
-    return sm_client.get_result(); 
+    return sm_client.get_result();
 }

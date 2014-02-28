@@ -13,7 +13,6 @@
 #include <persistent_layer/dm_io.h>
 #include <fds_process.h>
 
-
 namespace diskio {
 
 static const int  sgt_ssd_count = 2;
@@ -283,55 +282,24 @@ DataDiscoveryModule::mod_init(fds::SysParams const *const param)
 
     if (sim != nullptr) {
         std::string base(param->fds_root + param->hdd_root);
-        umask(0);
-        if (mkdir(base.c_str(), 0755) != 0) {
-            if (errno == EACCES) {
-                std::cout << "Don't have permission to fds root: "
-                    << param->fds_root << std::endl;
-                return 1;
-            }
-            fds_verify(errno == EEXIST);
-        }
+        fds::FdsRootDir::fds_mkdir(base.c_str());
+
         base += sim->sim_disk_prefix;
         for (char sd = 'a'; pd_hdd_found < pd_hdd_count; sd++) {
             std::string hdd = base + sd;
 
-            umask(0);
-            if (mkdir(hdd.c_str(), 0755) == 0) {
-                pd_hdd_raw[pd_hdd_found++] = hdd;
-                continue;
-            }
-            if ((errno == EACCES) || (sd == 'z')) {
-                std::cout << "Don't have permission to fds root: "
-                     << param->fds_root << std::endl;
-                return 1;
-            }
+            fds::FdsRootDir::fds_mkdir(hdd.c_str());
+            pd_hdd_raw[pd_hdd_found++] = hdd;
         }
-
         base = param->fds_root + param->ssd_root;
-        umask(0);
-        if (mkdir(base.c_str(), 0755) != 0) {
-            if (errno == EACCES) {
-                std::cout << "Don't have permission to fds root: "
-                    << param->fds_root << std::endl;
-                return 1;
-            }
-            fds_verify(errno == EEXIST);
-        }
+        fds::FdsRootDir::fds_mkdir(base.c_str());
+
         base += sim->sim_disk_prefix;
         for (char sd = 'a'; pd_ssd_found < pd_ssd_count; sd++) {
             std::string ssd = base + sd;
 
-            umask(0);
-            if (mkdir(ssd.c_str(), 0755) == 0) {
-                pd_ssd_raw[pd_ssd_found++] = ssd;
-                continue;
-            }
-            if ((errno == EACCES) || (sd == 'z')) {
-                std::cout << "Don't have permission to fds root: "
-                     << param->fds_root << std::endl;
-                exit(1);
-            }
+            fds::FdsRootDir::fds_mkdir(ssd.c_str());
+            pd_ssd_raw[pd_ssd_found++] = ssd;
         }
     }
     for (int i = 0; i < pd_hdd_found; i++) {

@@ -37,25 +37,23 @@ void start_jvm() {
     args.ignoreUnrecognized = JNI_FALSE;
     JNI_CreateJavaVM(&javaVM, reinterpret_cast<void **>(&env), &args);
     cout << "Started JVM" << endl;
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
 }
 
-int main(int argc, char *argv[]) {
-    fds::orchMgr = new fds::OrchMgr(argc, argv, "orch_mgr.conf", "fds.om.");
-
+int main(int argc, char *argv[])
+{
+    fds::Module *omVec[] = {
+        &fds::gl_OMModule,
+        NULL
+    };
+    fds::orchMgr = new fds::OrchMgr(argc, argv, "orch_mgr.conf", "fds.om.", omVec);
     fds::gl_orch_mgr = fds::orchMgr;
 
-    fds::Module *omVec[] = {
-        fds::orchMgr,
-        &fds::gl_OMModule,
-        nullptr};
-
-    fds::orchMgr->setup(argc, argv, omVec);
-
+    fds::orchMgr->setup();
     std::thread vmThread(start_jvm);
+
     fds::orchMgr->run();
-
     delete fds::orchMgr;
-
     return 0;
 }
 

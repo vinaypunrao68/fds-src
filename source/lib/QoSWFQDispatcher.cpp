@@ -3,7 +3,7 @@
 namespace fds {
 
   // Caller needs to hold the qda read lock
-  void QoSWFQDispatcher::ioProcessForEnqueue(fds_uint32_t queue_id, FDS_IOType *io)
+  void QoSWFQDispatcher::ioProcessForEnqueue(fds_qid_t queue_id, FDS_IOType *io)
   {
     FDS_QoSDispatcher::ioProcessForEnqueue(queue_id, io);
     WFQQueueDesc *qd = queue_desc_map[queue_id];
@@ -21,7 +21,7 @@ namespace fds {
   }
 
   // Caller needs to hold the qda read lock
-  void QoSWFQDispatcher::ioProcessForDispatch(fds_uint32_t queue_id, FDS_IOType *io)
+  void QoSWFQDispatcher::ioProcessForDispatch(fds_qid_t queue_id, FDS_IOType *io)
   {
     FDS_QoSDispatcher::ioProcessForDispatch(queue_id, io);
     WFQQueueDesc *qd = queue_desc_map[queue_id];
@@ -39,9 +39,9 @@ namespace fds {
     }
   }
 
-  fds_uint32_t QoSWFQDispatcher::get_non_empty_queue_with_highest_credits() {
-    fds_uint32_t next_queue = 0;
-    fds_uint32_t queue_with_highest_credits = 0;
+  fds_qid_t QoSWFQDispatcher::get_non_empty_queue_with_highest_credits() {
+    fds_qid_t next_queue = 0;
+    fds_qid_t queue_with_highest_credits = 0;
     WFQQueueDesc *next_qd = NULL;
     float highest_credits = 0;
     std::string credits_str = "";
@@ -63,7 +63,7 @@ namespace fds {
   }
 
   // Requires the caller to hold the qda read lock while calling this.
-  fds_uint32_t QoSWFQDispatcher::getNextQueueForDispatch() {
+  fds_qid_t QoSWFQDispatcher::getNextQueueForDispatch() {
       
     boost::posix_time::ptime current_time = boost::posix_time::microsec_clock::universal_time();
     boost::posix_time::time_duration elapsed_time = current_time - last_reset_time;
@@ -77,7 +77,7 @@ namespace fds {
 
     // If we are running ahead, let's treat this as an open slot. If we are running late, let's skip over open slots and serve only guaranteed slots
 
-    fds_uint32_t next_queue = 0; 
+    fds_qid_t next_queue = 0; 
       
 
     if (!running_ahead) {
@@ -270,7 +270,7 @@ namespace fds {
     return err;
   }
 
-  Error QoSWFQDispatcher::registerQueue(fds_uint32_t queue_id, FDS_VolumeQueue *queue) {
+  Error QoSWFQDispatcher::registerQueue(fds_qid_t queue_id, FDS_VolumeQueue *queue) {
 
       Error err(ERR_OK);
 
@@ -315,7 +315,7 @@ namespace fds {
 
   }
 
-  Error QoSWFQDispatcher::modifyQueueQosParams(fds_uint32_t queue_id,
+  Error QoSWFQDispatcher::modifyQueueQosParams(fds_qid_t queue_id,
 					       fds_uint64_t iops_min,
 					       fds_uint64_t iops_max,
 					       fds_uint32_t prio)
@@ -364,7 +364,7 @@ namespace fds {
     return err;
   }
 
-  Error QoSWFQDispatcher::deregisterQueue(fds_uint32_t queue_id) {
+  Error QoSWFQDispatcher::deregisterQueue(fds_qid_t queue_id) {
 
       Error err(ERR_OK);
 

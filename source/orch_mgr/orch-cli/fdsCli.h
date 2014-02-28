@@ -21,7 +21,7 @@
 #include <fds_config.hpp>
 #include <fds_err.h>
 #include <util/Log.h>
-#include <fds_module.h>
+#include <fds_process.h>
 #include <NetSession.h>
 
 namespace fds {
@@ -29,25 +29,22 @@ namespace fds {
     typedef boost::shared_ptr<FDS_ProtocolInterface::FDSP_ConfigPathReqClient>
             FDSP_ConfigPathReqClientPtr;
 
-    class FdsCli :
-    public Module {
+    class FdsCli : public FdsProcess {
   private:
         fds_log *cli_log;
-        boost::shared_ptr<FdsConfig> om_config;
         boost::shared_ptr<netSessionTbl> net_session_tbl;
         std::string my_node_name;
         fds_uint32_t om_cfg_port;
         fds_uint32_t om_ip;
 
   public:
-        explicit FdsCli(const boost::shared_ptr<FdsConfig>& omconf);
+        FdsCli(int argc, char *argv[],
+               const std::string &def_cfg_file,
+               const std::string &base_path,
+               const std::string &def_log_file,  Module **mod_vec);
         ~FdsCli();
-
-        int  mod_init(SysParams const *const param);
-        void mod_startup();
-        void mod_shutdown();
-
-        int run(int argc, char* argv[]);
+        void run() {}
+        int  run(int argc, char *argv[]);
 
         fds_log* GetLog();
         int fdsCliParser(int argc, char* argv[]);

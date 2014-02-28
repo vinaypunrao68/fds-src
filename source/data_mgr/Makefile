@@ -1,8 +1,6 @@
 topdir            := ..
 user_target       := exe
 user_rtime_env    := user
-user_install      := dm.conf
-user_install_loc  := exe
 user_build_dir    := include dm-lib platform
 
 user_incl_dir     := include $(topdir)
