@@ -90,6 +90,7 @@ class QosParams {
 typedef enum
 {
     FDSN_StatusOK                                              ,
+    FDSN_StatusCreated                                         ,
 
     /**
      * Errors that prevent the S3 request from being issued or response from
@@ -464,7 +465,9 @@ class FDS_NativeAPI {
     FDSN_MSFT_AZURE,
     FDSN_OPEN_STACK_SWIFT,
     FDSN_NATIVE_OBJ_API,
-    FDSN_BLOCK_DEVICE
+    FDSN_BLOCK_DEVICE,
+    FDSN_EMC_ATMOS,
+    FDSN_CLIENT_TYPE_MAX
   };
   FDSN_ClientType clientType;
 
@@ -477,12 +480,14 @@ class FDS_NativeAPI {
   // Create a bucket
   void CreateBucket(BucketContext *bucket_ctx, CannedAcl  canned_acl, 
                     void *req_ctxt, fdsnResponseHandler responseHandler, void *callback_data);
+
   // Get the bucket contents  or objets belonging to this bucket
   void GetBucket(BucketContext *bucket_ctxt,
                     std::string prefix, std::string marker,
                     std::string delimiter, fds_uint32_t maxkeys,
                     void *requestContext,
                     fdsnListBucketHandler handler, void *callbackData);
+
   void DeleteBucket(BucketContext *bucketCtxt,
                     void *requestContext,
                     fdsnResponseHandler handler, void *callbackData);
@@ -511,13 +516,16 @@ class FDS_NativeAPI {
                  fdsnGetObjectHandler getObjCallback,
                  void *callbackdata
                  );
+
   void PutObject(BucketContext *bucket_ctxt, 
                  std::string ObjKey, 
                  PutProperties *putproperties,
                  void *reqContext,
-                 char *buffer, fds_uint64_t buflen,
+                 char *buffer, 
+                 fds_uint64_t buflen,
                  fdsnPutObjectHandler putObjHandler, 
                  void *callbackData);
+
   void DeleteObject(BucketContext *bucket_ctxt, 
                     std::string ObjKey,
                     void *reqcontext, 

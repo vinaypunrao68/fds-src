@@ -23,6 +23,7 @@ class HttpRequest {
   public:
     explicit HttpRequest(ngx_http_request_t* ngx_req);
     std::vector<std::string>& getURIParts();
+    void appendURIPart(const std::string &uri);
     const std::vector<std::string>& getURIParts() const;
     uint32_t getMethod() const;
     ngx_http_request_t* getNginxReq() const;

@@ -11,10 +11,16 @@ extern StorHvCtrl *storHvisor;
 
 namespace fds {
 
+static int __reg;
+
 FDS_NativeAPI::FDS_NativeAPI(FDSN_ClientType type)
   : clientType(type) 
 {
-    fdsn_register_stat();
+    // FIXME: each client type should have a separate stat.
+    if (!__reg) {
+        __reg = 1;
+        fdsn_register_stat();
+    }
 }
 
 FDS_NativeAPI::~FDS_NativeAPI()

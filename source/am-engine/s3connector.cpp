@@ -2,6 +2,7 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 #include <am-engine/s3connector.h>
+#include <am-plugin.h>
 
 #include <string>
 #include <fds_assert.h>
@@ -160,7 +161,8 @@ S3_DelBucket::ame_format_response_hdr()
     return NGX_OK;
 }
 
-std::string S3_DelBucket::get_bucket_id()
+std::string
+S3_DelBucket::get_bucket_id()
 {
     return ame_http.getURIParts()[0];
 }
