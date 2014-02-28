@@ -4,11 +4,29 @@
 # Tests basic Amazon S3 functionality.
 import boto
 from boto.s3.connection import S3Connection, OrdinaryCallingFormat
+import random
+import os
+import binascii
 
+class GenObjectData():
+    maxDataSize = None
+    def __init__(self, maxDataSize):
+        self.maxDataSize = maxDataSize
+
+    ## Generates random data of a random size
+    #
+    # If no size is provided, size of data is random
+    # but limited to max size
+    def genRandData(self, size = None):
+        if size == None:
+            size = random.randrange(1, self.maxDataSize)
+
+        data = binascii.b2a_hex(os.urandom(size))
+        return data
 #
 # Describes s3 testing paramters
 #
-class S3Tester():
+class S3Wkld():
     s3Connections  = []
     numConnections = 1
     host           = "s3.amazonaws.com"
