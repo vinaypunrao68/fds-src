@@ -4,6 +4,7 @@
 #include "StorMgr.h"
 #include <odb.h>
 #include "StorMgrVolumes.h"
+#include <fds_process.h>
 
 namespace fds {
 
@@ -20,8 +21,11 @@ StorMgrVolume::StorMgrVolume(const VolumeDesc&  vdb,
    * Setup storage prefix.
    * All other values are default for now
    */
-  std::string filename;
-  filename= sm->getStorPrefix() + "SNodeVolIndex" + std::to_string(vdb.volUUID);
+  const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+  root->fds_mkdir(root->dir_sys_repo_volume().c_str());
+  std::string filename = root->dir_sys_repo_volume() +
+      "SNodeVolIndex" + std::to_string(vdb.volUUID);
+
   SetLog(parent_log);
   /*
    * Create volume queue with parameters based on

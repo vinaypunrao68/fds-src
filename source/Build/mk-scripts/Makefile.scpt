@@ -229,7 +229,10 @@ scpt_rm_file_list :=                                                         \
 #
 scpt_make_cscope :=                                                          \
     cd $(topdir);                                                            \
-    find -L . -name "*.[chx]" -print > cscope.files;                         \
+    find -L . -name "*.[chx]" -xtype f -print > cscope.files;                \
+    find -L . -name "*.cpp" -xtype f -print >> cscope.files;                 \
+    find -L . -name "*.cc" -xtype f -print >> cscope.files;                  \
+    find -L . -name "*.hpp" -xtype f -print >> cscope.files;                 \
     cat cscope.files | xargs ctags;                                          \
 	cscope -q
 

@@ -188,6 +188,9 @@ public:
     {
         return base_path_;
     }
+    inline void set_base_path(const std::string &base) {
+        base_path_ = base;
+    }
 
     /**
      * @see FdsConfig::get(const std::string &key)

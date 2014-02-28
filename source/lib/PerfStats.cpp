@@ -5,6 +5,7 @@
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/path.hpp>
 
+#include <fds_process.h>
 #include <PerfStats.h>
 
 namespace fds {
@@ -20,7 +21,10 @@ PerfStats::PerfStats(const std::string prefix, int slots, int slot_len_sec)
     /* name of file where we dump stats should contain current local time */
     boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
 
-    std::string dirname("stats");
+    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+    std::string dirname(root->dir_fds_var_stats() + "stats-data");
+    root->fds_mkdir(dirname.c_str());
+
     std::string nowstr = to_simple_string(now);
     std::size_t i = nowstr.find_first_of(" ");
     std::size_t k = nowstr.find_first_of(".");

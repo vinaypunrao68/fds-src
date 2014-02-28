@@ -2,8 +2,6 @@ topdir            := ..
 user_target       := exe
 user_rtime_env    := user
 user_build_dir    := unit-test
-user_install      := fds.conf om_client.conf
-user_install_loc  := exe
 
 user_incl_dir     := include $(topdir)/stor-hvisor lib
 user_cpp_flags    :=

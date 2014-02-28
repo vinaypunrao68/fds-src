@@ -2,8 +2,6 @@ topdir            := ../..
 user_target       := test
 user_rtime_env    := user
 user_build_dir    :=
-user_install      := ../om_client.conf ../fds.conf
-user_install_loc  := test
 
 user_incl_dir     := ../ ../include $(topdir)/stor_hvisor_ice
 user_cpp_flags    :=

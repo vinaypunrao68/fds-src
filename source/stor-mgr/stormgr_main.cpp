@@ -6,22 +6,19 @@
 #include <policy_tier.h>
 #include <fds_process.h>
 
-int main(int argc, char *argv[]) {
-    objStorMgr = new ObjectStorMgr(argc, argv, "sm.conf", "fds.sm.");
-
-    /* Instantiate a DiskManager Module instance */
+int main(int argc, char *argv[])
+{
     fds::Module *smVec[] = {
         &diskio::gl_dataIOMod,
         &fds::gl_tierPolicy,
-        fds::objStorMgr->objStats,
-        objStorMgr,
+        &fds::gl_objStats,
         nullptr
     };
-    objStorMgr->setup(argc, argv, smVec);
+    objStorMgr = new ObjectStorMgr(argc, argv, "sm.conf", "fds.sm.", smVec);
+    objStorMgr->setup();
     objStorMgr->run();
 
     delete objStorMgr;
-
     return 0;
 }
 

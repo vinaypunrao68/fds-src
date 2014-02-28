@@ -5,15 +5,19 @@
 #include <string>
 #include <OmVolPolicy.hpp>
 #include <lib/Catalog.h>
+#include <fds_process.h>
 
 namespace fds {
-
 
 VolPolicyMgr::VolPolicyMgr(const std::string& om_prefix,
                            fds_log* om_log)
         :parent_log(om_log)
 {
-    const std::string catname = om_prefix + std::string("_volpolicy_cat.ldb");
+    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+    root->fds_mkdir(root->dir_sys_repo_volume().c_str());
+
+    const std::string catname =
+       root->dir_sys_repo_volume() + std::string("_volpolicy_cat.ldb");
     policy_catalog = new Catalog(catname);
 }
 

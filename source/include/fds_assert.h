@@ -1,5 +1,8 @@
-#ifndef INCLUDE_FDS_ASSERT_H_
-#define INCLUDE_FDS_ASSERT_H_
+/*
+ * Copyright 2014 by Formation Data Systems, Inc.
+ */
+#ifndef SOURCE_INCLUDE_FDS_ASSERT_H_
+#define SOURCE_INCLUDE_FDS_ASSERT_H_
 
 /* OSDEP assert macros.  Don't include any header files here. */
 #ifdef __cplusplus
@@ -27,13 +30,13 @@ extern void fds_panic(const char *fmt, ...) panic_attr;
 /* Statement that is only enabled in debug build */
 #define DBG(statement) statement
 
-#else  /* DEBUG */
+#else   /* DEBUG */
 
 #define fds_assert(expr)
 
 #define DBG(statement)
 
-#endif /* DEBUG */
+#endif  /* DEBUG */
 
 #ifdef DEBUG
 #else
@@ -42,4 +45,4 @@ extern void fds_panic(const char *fmt, ...) panic_attr;
 #ifdef __cplusplus
 }
 #endif
-#endif /* INCLUDE_FDS_ASSERT_H_ */
+#endif  // SOURCE_INCLUDE_FDS_ASSERT_H_
