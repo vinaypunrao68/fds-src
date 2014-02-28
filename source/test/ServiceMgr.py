@@ -144,6 +144,8 @@ class Client():
     isBlk = False
     ## Client logging level
     logSeverity = 2
+    ## Fds root for client to use
+    root = None
     ## Binary of client AM
     amBin  = "AMAgent"
     ## Binary of client block
@@ -159,12 +161,14 @@ class Client():
                  _id,
                  _ip,
                  _blk,
-                 _log):
+                 _log,
+                 _root):
         self.setName(_name)
         self.setId(_id)
         self.setIp(_ip)
         self.setBlk(_blk)
         self.setLogSeverity(_log)
+        self.setRoot(_root)
 
     def setName(self, _name):
         self.name = _name
@@ -180,6 +184,9 @@ class Client():
 
     def setLogSeverity(self, _sev):
         self.logSeverity = _sev
+
+    def setRoot(self, _root):
+        self.root = _root
 
     def getBlkCmd(self, srcPath):
         return "insmod %s/%s" % (srcPath + "/" + self.blkDir,
@@ -214,6 +221,8 @@ class DeployConfig():
     fdsThriftLibDir = "../thrift-0.9.0"
     fdsBinDir       = "Build/linux-*/bin"
     fdsBstLibDir    = "/usr/local/lib"
+    fdsJavaLibDir   = "/usr/lib/jvm/java-8-oracle/jre/lib/amd64"
+    fdsJavaSrvDir   = "/usr/lib/jvm/java-8-oracle/jre/lib/amd64/server"
     ldLibPath       = "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
 
     #
@@ -262,7 +271,7 @@ class DeployConfig():
         self.fdsBinDir       = self.srcPath + "/" + self.fdsBinDir
 
         # Create the full LD library path
-        self.ldLibPath = self.ldLibPath + ":" + self.fdsLdbLibDir + ":" + self.fdsBstLibDir + ":" + self.fdsLibcfgLibDir + ":" + self.fdsThriftLibDir
+        self.ldLibPath = self.ldLibPath + ":" + self.fdsLdbLibDir + ":" + self.fdsBstLibDir + ":" + self.fdsLibcfgLibDir + ":" + self.fdsThriftLibDir + ":" + self.fdsJavaLibDir + ":" + self.fdsJavaSrvDir
 
     def setSshUser(self, _user):
         self.sshUser = _user
@@ -539,16 +548,18 @@ class ClientService():
     ## Adds a client to the inventory
     def addClient(self,
                   _name,
-                 _ip,
-                 _blk,
-                 _log):
+                  _ip,
+                  _blk,
+                  _log,
+                  _root):
         # Use current index as ID
         ident = len(self.clients)
         client = Client(_name,
                         ident,
                         _ip,
                         _blk,
-                        _log)
+                        _log,
+                        _root)
         self.clients.append(client)
         return client.clientId
 
@@ -572,7 +583,8 @@ class ClientService():
     # Builds the command to start SH AM service
     #
     def buildAmCmd(self, client):
-        cmd = "./" + client.getAmCmd() + " --om_ip=" + self.deployer.getOmIpStr() + \
+        cmd = "./" + client.getAmCmd() + " --fds-root=" + client.root + \
+            " --om_ip=" + self.deployer.getOmIpStr() + \
             " --om_port=" + str(self.deployer.getOmCtrlPort()) + " --node_name=localhost-" + client.name + \
             " --log-severity=" + str(client.getLogSeverity())
         return cmd
@@ -791,7 +803,8 @@ class Node():
         self.fdsRoot = _root
         
     def getOmCmd(self):
-        return "%s --fds.om.config_port=%d --fds.om.control_port=%d --fds.om.prefix=%s_ --fds.om.log_severity=%d" % (self.omBin,
+        return "%s --fds-root=%s --fds.om.config_port=%d --fds.om.control_port=%d --fds.om.prefix=%s_ --fds.om.log_severity=%d" % (self.omBin,
+                                              self.fdsRoot,
                                               self.configPort,
                                               self.omControlPort,
                                               self.name,
@@ -816,7 +829,8 @@ class Node():
     # The data and control ports are use +1 whatever the
     # base ports are
     def getDmCmd(self):
-        return "%s --fds.dm.port=%d --fds.dm.cp_port=%d --fds.dm.prefix=%s_ --fds.dm.log_severity=%d  --fds.dm.logfile=dm.%s" % (self.dmBin,
+        return "%s --fds-root=%s --fds.dm.port=%d --fds.dm.cp_port=%d --fds.dm.prefix=%s_ --fds.dm.log_severity=%d  --fds.dm.logfile=dm.%s" % (self.dmBin,
+                                                           self.fdsRoot,
                                                            self.dataPort + 1,
                                                            self.controlPort + 1,
                                                            self.name,

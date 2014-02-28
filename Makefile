@@ -7,6 +7,7 @@ user_build_dir := \
     nginx \
     libconfig-1.4.9 \
     jansson-2.5 \
+    hiredis \
     source
 
 include $(topdir)/Makefile.incl

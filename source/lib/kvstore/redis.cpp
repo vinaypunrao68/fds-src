@@ -48,6 +48,14 @@ bool Reply::isValid() const {
     return r != NULL;
 }
 
+bool Reply::isOk() const {
+    return (r->type == REDIS_REPLY_STATUS) && (getString() == "OK");
+}
+
+bool Reply::wasModified() const {
+    return (r->type == REDIS_REPLY_INTEGER) && (r->integer == 1);
+}
+
 std::string Reply::getString() const {
     return std::string(r->str, r->len);
 }
@@ -172,6 +180,23 @@ Reply Connection::getReply() {
     return Reply(r);
 }
 
+bool Connection::isConnected() {
+    if (ctx != 0) return false;
+    redisAppendCommand(ctx,"ping");
+    try {
+        Reply reply = getReply();
+        if (reply.getStatus() == "PONG") {
+            return true;
+        }
+        else {
+            GLOGWARN << "unknown status : " << reply.getStatus();
+        }
+    } catch (RedisException& e) {
+        GLOGWARN << "error checking connection : " << e.what();
+    }
+    return false;
+}
+
 Connection::~Connection() {
     if (ctx) {
         redisFree(ctx);
@@ -265,6 +290,11 @@ void Redis::decodeHex(const std::string& hex, std::string& binary) {
 
 Redis::Redis(const std::string& host, uint port,
              uint poolsize) : pool(poolsize, host, port) {
+}
+
+bool Redis::isConnected() {
+    SCOPEDCXN();
+    return cxn->isConnected();
 }
 
 Reply Redis::sendCommand(const char* cmdfmt, ...) {
