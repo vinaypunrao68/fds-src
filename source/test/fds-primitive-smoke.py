@@ -95,6 +95,7 @@ class CopyS3Dir:
         if ret != 0:
             print "Bucket create failed"
             sys.exit(1)
+        subprocess.call(['sleep', '3'])
 
     def printDebug(self, message="INFO: "):
         if self.verbose:
@@ -363,29 +364,29 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     env.cleanup()
-    print "Setting up private fds-root in ", args.root + '/node[1-4]'
+    print "\nSetting up private fds-root in ", args.root + '/node[1-4]'
     FdsSetupEnv(env, args.root + '/node1')
     FdsSetupEnv(env, args.root + '/node2')
     FdsSetupEnv(env, args.root + '/node3')
     FdsSetupEnv(env, args.root + '/node4')
 
     os.chdir(env.env_fdsroot + '/Build/linux-x86_64.debug/bin')
-    print "Starting OM...."
+    print "\n\nStarting OM...."
     subprocess.Popen(['./orchMgr', '--fds-root', args.root + '/node1'],
                      stderr=subprocess.STDOUT)
     subprocess.call(['sleep', '1'])
 
-    print "Starting SM on node1...."
+    print "\n\nStarting SM on node1...."
     subprocess.Popen(['./StorMgr', '--fds-root', args.root + '/node1'],
                      stderr=subprocess.STDOUT)
     subprocess.call(['sleep', '1'])
 
-    print "Starting DM on node1...."
+    print "\n\nStarting DM on node1...."
     subprocess.Popen(['./DataMgr', '--fds-root', args.root + '/node1'],
                      stderr=subprocess.STDOUT)
     subprocess.call(['sleep', '1']);
 
-    print "Starting AM on node1...."
+    print "\n\nStarting AM on node1...."
     subprocess.Popen(['./AMAgent', '--fds-root', args.root + '/node1'],
                      stderr=subprocess.STDOUT)
     subprocess.call(['sleep', '3']);
