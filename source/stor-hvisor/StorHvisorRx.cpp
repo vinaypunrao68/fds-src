@@ -19,7 +19,7 @@ int StorHvCtrl::fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const
 //	int64_t data_offset;
 //	char  *data_buf;
 	
-        vol_id = rd_msg->glob_volume_id;
+        fds_volid_t vol_id = rd_msg->glob_volume_id;
 	trans_id = rd_msg->req_cookie;
         vol = vol_table->getVolume(vol_id);
         StorHvVolumeLock vol_lock(vol);    
