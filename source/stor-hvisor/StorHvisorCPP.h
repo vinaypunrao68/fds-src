@@ -10,6 +10,8 @@
 BEGIN_C_DECLS
 typedef int (*hv_create_blkdev)(uint64_t voluuid, uint64_t capacity);
 typedef void  (*hv_delete_blkdev)(int minor);
+int hvisor_create_blkdev(uint64_t voluuid, uint64_t capacity);
+void  hvisor_delete_blkdev(int minor);
 void init_DPAPI();
 void integration_stub( void *buf,  int len);
 int StorHvisorProcIoRd(void *io);

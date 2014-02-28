@@ -1,7 +1,7 @@
 topdir            := ..
-user_target       := exe
+user_target       := lib
 user_rtime_env    := user
-user_build_dir    := unit-test
+user_install_loc  := exe
 
 user_incl_dir     := include $(topdir)/stor-hvisor lib
 user_cpp_flags    :=
@@ -28,9 +28,9 @@ user_non_fds_libs := \
 ubd_cc            :=                   \
     ubd.c
 
-user_cc           := $(ubd_cc)
-user_no_style     := $(user_cpp) $(user_cc)
-user_bin_exe      := ubd
-ubd               := $(ubd_cc)
+include $(topdir)/Makefile.incl
+
+user_ar_libs      := fds-ubd
+fds-ubd    := $(ubd_cc)
 
 include $(topdir)/Makefile.incl

@@ -8,6 +8,7 @@ user_fds_so_libs  :=
 user_fds_ar_libs  :=  \
     fds-am-engine \
     fds-StorHvisor \
+    fds-ubd \
     fds-lib \
     fds-umod \
     fds-util \
