@@ -276,7 +276,7 @@ void ctrlcHandler(int signal)
 }
 
 
-
+#if 0
 int main(int argc, char *argv[]) {
   
   int err;
@@ -445,6 +445,7 @@ int main(int argc, char *argv[]) {
   return (0);
 
 }
+#endif
 
 td_vbd_t*
 hvisor_vbd_create(uint64_t uuid, uint64_t capacity)
@@ -548,23 +549,23 @@ int  hvisor_create_blkdev(uint64_t vol_uuid, uint64_t capacity)
 #endif
   vbd = hvisor_vbd_create(vol_uuid, capacity);
   
-  cppout("create blkdev for volume : %llx  capacity : %lld \n", vol_uuid, capacity);
+  cppout("create blkdev for volume : %lx  capacity : %ld \n", vol_uuid, capacity);
   err = tap_ctl_allocate_device(&minor, &io_devname);
   if (err) {
-    cppout("Failed to create ring and io devices for volume : %llx", vol_uuid);
+    cppout("Failed to create ring and io devices for volume : %lx", vol_uuid);
     return (-1);
   }
   
   err = asprintf(&ring_devname, BLKTAP2_RING_DEVICE"%d", minor);
   if (err == -1) {
     err = -ENOMEM;
-    cppout("Failed constructing ring device name for volume %llx ", vol_uuid);
+    cppout("Failed constructing ring device name for volume %lx ", vol_uuid);
     return (-1);
   }
   
   err = hvisor_create_io_ring(vbd, ring_devname);
   if (err) {
-    cppout("Failed to create ring for volume %llx", vol_uuid);
+    cppout("Failed to create ring for volume %lx", vol_uuid);
     return (-1);
   }
 
@@ -713,7 +714,7 @@ hvisor_complete_td_request(void *arg1, void *arg2,
 
 	vbd->num_pending_req_segs --;
 
-	cppout("UBD: Recv completion callback with vbd - %p, vol- %llx, vreq - %p, fbd_req - %p, res - %d, pending_req_segs - %d\n",
+	cppout("UBD: Recv completion callback with vbd - %p, vol- %lx, vreq - %p, fbd_req - %p, res - %d, pending_req_segs - %d\n",
 	       vbd, vbd->uuid, vreq, freq, res, vbd->num_pending_req_segs);
 
 
@@ -774,7 +775,7 @@ void hvisor_queue_read(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq)
 	p_new_req->req_magic = FDS_UBD_IO_MAGIC_IN_USE;
 	
 
-	cppout("Received read request at offset %llx for %d bytes, buf - %p \n", offset, size, p_new_req->buf);
+	cppout("Received read request at offset %lx for %d bytes, buf - %p \n", offset, size, p_new_req->buf);
 
 #if BLKTAP_UNIT_TEST	
 	if (offset + size < sizeof(data_image)) {
@@ -787,7 +788,7 @@ void hvisor_queue_read(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq)
 	hvisor_complete_td_request((void *)vbd, (void *)vreq, p_new_req, rc);
 #else
 
-	cppout("UBD: Sending read req to hypervisor with vbd - %p, vol - %llx, vreq - %p, fbd_req - %p\n",
+	cppout("UBD: Sending read req to hypervisor with vbd - %p, vol - %lx, vreq - %p, fbd_req - %p\n",
 	       vbd, vbd->uuid, vreq, p_new_req);
 
 	/* queue the  request  to the per volume queue */
@@ -828,7 +829,7 @@ void hvisor_queue_write(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq
 	p_new_req->req_magic = FDS_UBD_IO_MAGIC_IN_USE;
 
 #if BLKTAP_UNIT_TEST 
-	cppout("Received write request at offset %llx for %d bytes, buf - %p : \n", offset, size, p_new_req->buf);
+	cppout("Received write request at offset %lx for %d bytes, buf - %p : \n", offset, size, p_new_req->buf);
 //	for (i = 0; i < size; i++) {
 //	  printf("%2x", treq.buf[i]);
 //	}
@@ -847,7 +848,7 @@ void hvisor_queue_write(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq
 	hvisor_complete_td_request((void *)vbd, (void *)vreq, p_new_req, rc);
 #else
 
-	cppout("UBD: Sending write req to hypervisor with vbd - %p, vol - %llx, vreq - %p, fbd_req - %p\n",
+	cppout("UBD: Sending write req to hypervisor with vbd - %p, vol - %lx, vreq - %p, fbd_req - %p\n",
 	       vbd, vbd->uuid, vreq, p_new_req);
 
 	/* queue the  request  to the per volume queue */
@@ -1036,12 +1037,12 @@ hvisor_vbd_kick(td_vbd_t *vbd)
 		return 0;
 
 	vbd->kicked += n;
-	cppout("Vol 0x%llx - Pushing %d responses, rsp prod idx moving  from position %d to position %d\n", 
+	cppout("Vol 0x%lx - Pushing %d responses, rsp prod idx moving  from position %d to position %d\n", 
 	       vbd->uuid, n, ring->fe_ring.sring->rsp_prod, ring->fe_ring.rsp_prod_pvt);
 	RING_PUSH_RESPONSES(&ring->fe_ring);
 	ioctl(ring->fd, BLKTAP_IOCTL_KICK_FE, 0);
 
-	cppout("vol 0x%llx minor %d - kicking %d: rec: 0x%08"PRIx64", ret: 0x%08"PRIx64", kicked: "
+	cppout("vol 0x%lx minor %d - kicking %d: rec: 0x%08"PRIx64", ret: 0x%08"PRIx64", kicked: "
 	       "0x%08"PRIx64"\n", vbd->uuid, vbd->minor, n, vbd->received, vbd->returned, vbd->kicked);
 
 	vbd->num_responses_in_ring = 0;
