@@ -17,6 +17,18 @@ namespace fds {
     namespace java {
 	fds::FDS_NativeAPI *api;
 	JavaVM *javaVM;
+
+        static void debug_buf(const char *msg, const char *buf, int size) {
+            printf("%s: [", msg);
+            for (int i = 0; i < size; i++) {
+                if (i != 0) {
+                    printf(" ");
+                }
+                printf("%d", buf[i]);
+            }
+            printf("]\n");
+            fflush(stdout);            
+        }
 	
         jobject javaBucketStats(JavaContext *javaContext, JNIEnv *env, int count, const BucketStatsContent *bucketStats) {
             jobject javaBuckets = javaContext->javaInstance(env, "java/util/ArrayList");
@@ -66,7 +78,8 @@ namespace fds {
                           char *buffer,
                           void *callbackData, 
                           FDSN_Status status, 
-                          ErrorDetails* errDetails) {            
+                          ErrorDetails* errDetails) {
+            debug_buf("put callback", buffer, (int)bufferSize);
 	    JavaContext *javaContext = static_cast<JavaContext *>(callbackData);    
 	    JNIEnv *env = javaContext->attachCurrentThread();
             jobject javaStatus = javaContext->javaInstance(env, "java/lang/Integer", "(I)V", (jint) status);
@@ -81,6 +94,7 @@ namespace fds {
                                   void *callbackData, 
                                   FDSN_Status status, 
                                   ErrorDetails *errDetails) {
+            debug_buf("get callback", buffer, (int)bufferSize);
 	    JavaContext *javaContext = static_cast<JavaContext *>(callbackData);    
 	    JNIEnv *env = javaContext->attachCurrentThread();
             jobject javaStatus = javaContext->javaInstance(env, "java/lang/Integer", "(I)V", (jint) status);
@@ -89,7 +103,7 @@ namespace fds {
             return status;
         }
         
-        BucketContext *makeBucketContext(JNIEnv *env, JavaContext *javaContext, jstring bucketName) {
+        static BucketContext *makeBucketContext(JNIEnv *env, JavaContext *javaContext, jstring bucketName) {
             return new BucketContext("host", javaContext->ccString(env, bucketName), "", "");
         }
     }
@@ -153,7 +167,7 @@ JNIEXPORT void JNICALL Java_com_formationds_nativeapi_NativeApi_put
     PutProperties *props = new PutProperties();
     char *buf = (char *)env->GetByteArrayElements(bytes, JNI_FALSE);
     int length = (int)env->GetArrayLength(bytes);
-    
+    debug_buf("before put", buf, length);
     api->PutObject(bucketContext, 
                    javaContext->ccString(env, objectName),
                    props,
@@ -174,6 +188,7 @@ JNIEXPORT void JNICALL Java_com_formationds_nativeapi_NativeApi_get
     char *buf = (char *)env->GetByteArrayElements(bytes, JNI_FALSE);
     int length = (int)env->GetArrayLength(bytes);
     
+    debug_buf("before get", buf, length);
     api->GetObject(bucketContext,
                    javaContext->ccString(env, objectName),
                    getConditions,
@@ -189,7 +204,7 @@ JNIEXPORT void JNICALL Java_com_formationds_nativeapi_NativeApi_get
 
 
 int main(int argc, char *argv[]) {
-/*
+
     Java_com_formationds_nativeapi_NativeApi_init(NULL, NULL);
     
     JNIEnv* env;
@@ -215,7 +230,7 @@ int main(int argc, char *argv[]) {
         env->NewStringUTF("slimebucket"), 
         consumer);
 
-    sleep(1);
+    sleep(10);
 
     
     if (javaVM->AttachCurrentThread((void **)(&env), NULL) != 0) {
@@ -231,6 +246,15 @@ int main(int argc, char *argv[]) {
                                                  consumer);
     printf("Fired API call\n");
     sleep(10);
-*/
+
+    Java_com_formationds_nativeapi_NativeApi_get(env, 
+                                                 cls, 
+                                                 env->NewStringUTF("slimebucket"), 
+                                                 env->NewStringUTF("thebytes"),
+                                                 env->NewByteArray(64),
+                                                 consumer);
+    printf("Fired API call\n");
+    sleep(10);
+
     return 0;
 }

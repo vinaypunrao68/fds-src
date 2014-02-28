@@ -2,14 +2,12 @@ topdir            := ../..
 user_target       := bin
 user_rtime_env    := user
 
-java_home = "/usr/java/jdk/"
-
 user_incl_dir     := $(topdir) \
 	$(topdir)/fds_client/include \
 	$(topdir)/lib \
 	$(topdir)/stor-hvisor \
-	$(java_home)/include \
-	$(java_home)/include/linux
+	$(JAVA_HOME)/include \
+	$(JAVA_HOME)/include/linux
 
 user_fds_so_libs  :=
 
@@ -26,8 +24,8 @@ user_non_fds_libs := \
     boost_log boost_system boost_thread boost_date_time boost_program_options boost_filesystem \
     leveldb thrift rt config++
 
-#user_ld_flags := -L/usr/java/jdk/jre/lib/amd64 -L/usr/java/jdk/jre/lib/amd64/server -ljvm
-user_ld_flags := -shared
+user_ld_flags := -L$(JAVA_HOME)/jre/lib/amd64 -L$(JAVA_HOME)/jre/lib/amd64/server -ljvm
+#user_ld_flags := -shared
 
 user_cpp          := JavaContext.cpp fds_java_bindings.cpp 
 

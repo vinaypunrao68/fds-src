@@ -38,6 +38,7 @@ public class ServerSetup {
                     e.printStackTrace();
                 }
             }).start();
+            Thread.sleep(200);
             return process;
         } catch (Exception e) {
             throw new RuntimeException(e);

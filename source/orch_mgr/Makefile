@@ -31,10 +31,14 @@ user_non_fds_libs := \
 
 # TODO: need to move Catalog.h to include, avoid cross module include ref.
 #
-user_incl_dir     := $(topdir) include
+user_incl_dir     := $(topdir) include \
+	$(JAVA_HOME)/include \
+	$(JAVA_HOME)/include/linux
 
 orch_mgr_cpp      :=                   \
     orch-mgr-main.cpp
+
+user_ld_flags := -L$(JAVA_HOME)/jre/lib/amd64 -L$(JAVA_HOME)/jre/lib/amd64/server -ljvm
 
 user_hh           := $(wildcard *.h)
 user_cpp          := $(orch_mgr_cpp)
