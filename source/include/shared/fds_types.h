@@ -60,4 +60,16 @@ typedef enum {
 
 c_decls_end
 
+/**
+ * NOTE!!! include only std typedefs here. Dont use any fds objects !!!!
+ */
+#include <string>
+#include <vector>
+
+namespace fds {
+    // new c++11 typedef convention - pretty cool !!!
+    using StringList  = std::vector<std::string> ;
+    using ConstString = const std::string& ;
+}  // namespace fds
+
 #endif /* INCLUDE_SHARED_FDS_TYPES_H_ */

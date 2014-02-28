@@ -10,7 +10,7 @@
 #include <cpplist.h>
 #include <shared/fds_types.h>
 #include <concurrency/Mutex.h>
-
+#include <ostream>
 namespace fds {
 
 // ----------------------------------------------------------------------------
@@ -295,6 +295,8 @@ class QueryMgr
     QueryMgr();
 };
 
+std::ostream& operator<< (std::ostream& os, const fds::ResourceUUID& uuid);
 } // namespace fds
+
 
 #endif /* INCLUDE_FDS_RESOURCE_H_ */

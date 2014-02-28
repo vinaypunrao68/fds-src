@@ -46,6 +46,7 @@ TEST_CASE ("get-set") {
     for ( uint i=0; i<10 ; i++ ) {
     Redis* r= new Redis();
     Reply reply = r->set("test-name","fds");
+    reply.dump();
     REQUIRE (reply.getStatus() == "OK" );
     reply = r->get("test-name");
 

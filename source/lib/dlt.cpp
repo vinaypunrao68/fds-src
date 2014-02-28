@@ -593,6 +593,15 @@ const DLT* DLTManager::getDLT(const fds_uint64_t version) const {
     return NULL;
 }
 
+std::vector<fds_uint64_t> DLTManager::getDltVersions() const{
+    std::vector<fds_uint64_t> vecVersions;
+    std::vector<DLT*>::const_iterator iter;
+    for (iter = dltList.begin(); iter != dltList.end(); iter++) {
+        vecVersions.push_back((*iter)->version);
+    }
+    return vecVersions;
+}
+
 void DLTManager::setCurrent(fds_uint64_t version) {
     LOGNOTIFY <<" setting the current dlt to version: " <<version;
     const DLT* pdlt = getDLT(version);
