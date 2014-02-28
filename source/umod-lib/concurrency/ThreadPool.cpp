@@ -289,7 +289,9 @@ fds_threadpool::fds_threadpool(int max_tsk, int spawn_thres,
  */
 fds_threadpool::~fds_threadpool()
 {
-    int i;
+    int            i;
+    dlist_t       *ptr;
+    thpool_worker *worker;
 
     thp_mutex.lock();
     thp_state = EXITING;
@@ -306,10 +308,16 @@ fds_threadpool::~fds_threadpool()
     fds_assert(dlist_empty(&thp_wk_idle));
 
     thp_state = TERM;
-    for (i = 0; i < thp_num_threads; i++) {
-        fds_assert(thp_workers[i] != nullptr);
-        delete thp_workers[i];
+    for (i = 0; !dlist_empty(&thp_wk_term); i++) {
+        ptr    = dlist_rm_front(&thp_wk_term);
+        worker = fds_object_of(thpool_worker, wk_link, ptr);
+
+        fds_assert(worker->wk_owner == this);
+        fds_assert(worker->wk_pool_idx < thp_num_threads);
+        fds_assert(thp_workers[worker->wk_pool_idx] == worker);
+        delete worker;
     }
+    fds_verify(i == thp_num_threads);
     thp_mutex.unlock();
 
     delete [] thp_workers;
