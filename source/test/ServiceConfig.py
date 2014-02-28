@@ -125,6 +125,7 @@ class TestBringUp():
         clientIp  = None
         clientBlk = None
         clientLog = None
+        root      = None
         for item in items:
             key   = item[0]
             value = item[1]
@@ -137,11 +138,13 @@ class TestBringUp():
                     clientBlk = False
             elif key == "log_severity":
                 clientLog = int(value)
+            elif key == "fds_root":
+                root = value
             else:
                 print "Unknown item %s, %s in %s" % (key, value, name)
 
         # Add client to the inventory
-        ident = self.deployer.clientService.addClient(name, clientIp, clientBlk, clientLog)
+        ident = self.deployer.clientService.addClient(name, clientIp, clientBlk, clientLog, root)
         # Keep a record of the client's ID
         self.clientIds.append(ident)
 

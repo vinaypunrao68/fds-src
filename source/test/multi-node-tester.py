@@ -14,10 +14,101 @@ verbose = False
 debug   = False
 section = None
 
-numPuts    = 10
-numGets    = 10
-#maxObjSize = 4 * 1024 * 1024
-maxObjSize = 20
+class MultiNodeTester():
+    # ServiceCfg variables
+    cfgFile    = None
+    verbose    = None
+    debug      = None
+
+    # Basic workload variables
+    numPuts    = None
+    numGets    = None
+    maxObjSize = None
+
+    # These can be depricated when wkld
+    # is cleaned up
+    numConns   = None
+    numBuckets = None
+    numObjs    = None
+
+    # Data generator
+    dataGen    = None
+
+    # S3 workload generator
+    s3wkld     = None
+    # Service config controller
+    srvCfg     = None
+
+    def __init__(self, cfgFile, verbose, debug):
+        self.numPuts    = 10
+        self.numGets    = 10
+        self.maxObjSize = 4 * 1024 * 1024
+
+        self.numConns   = 1
+        self.numBuckets = 1
+        self.numObjs    = 100
+
+        self.cfgFile    = cfgFile
+        self.verbose    = verbose
+        self.debug      = debug
+
+        #
+        # Load the configuration files
+        #
+        bu = ServiceConfig.TestBringUp(cfgFile, verbose, debug)
+        bu.loadCfg()
+
+        self.dataGen    = ServiceWkld.GenObjectData(self.maxObjSize)
+        # TODO: Currently hard coded host/port
+        # TODO: Move to when we know which AM we want to connect to
+        self.s3wkld     = ServiceWkld.S3Wkld("localhost", 8000,
+                                             self.numConns,
+                                             self.numBuckets,
+                                             self.numObjs)
+
+        #
+        # Load the configuration files
+        #
+        self.srvCfg = ServiceConfig.TestBringUp(self.cfgFile, verbose, debug)
+        self.srvCfg.loadCfg()
+
+    ## Deploys initial cluster nodes and config
+    #
+    # This is meant
+    def initialDeploy(self):
+        # Determine which node name host an OM
+        # and bring that node up
+        print "Init deploy"
+
+        # Bring up one node
+        node = "node1"
+        result = self.srvCfg.bringUpSection(node)
+        if result != 0:
+            print "Failed to bring up %s" % (node)
+
+        # Bring up one client
+        client = "sh1"
+        result = self.srvCfg.bringUpSection(client)
+        if result != 0:
+            print "Failed to bring up %s" % (client)
+
+    ## Complete undeploy
+    #
+    # Undeploys everything in the cluster
+    def fullUndeploy(self):
+        print "Init undeploy"
+
+        # Bring down one client
+        client = "sh1"
+        result = self.srvCfg.bringDownSection(client)
+        if result != 0:
+            print "Failed to bring down %s" % (client)
+
+        # Bring down one node
+        node = "node1"
+        result = self.srvCfg.bringDownSection(node)
+        if result != 0:
+            print "Failed to bring down %s" % (node)
 
 if __name__ == '__main__':
     #
@@ -35,73 +126,31 @@ if __name__ == '__main__':
     verbose = options.verbose
     debug = options.debug
 
-    #
-    # Load the configuration files
-    #
-    bu = ServiceConfig.TestBringUp(cfgFile, verbose, debug)
-    bu.loadCfg()
+    mnt = MultiNodeTester(cfgFile, verbose, debug)
 
-    # Bring up one node
-    node = "node1"
-    result = bu.bringUpSection(node)
-    if result != 0:
-        print "Failed to bring up %s" % (node)
-
-    # Bring up one client
-    client = "sh1"
-    result = bu.bringUpSection(client)
-    if result != 0:
-        print "Failed to bring up %s" % (client)
+    mnt.initialDeploy()
 
     # Create workload generator
-    numConns   = 1
-    numBuckets = 1
-    numObjs    = 10
-    s3workload = ServiceWkld.S3Tester("localhost", 8000,
-                                   numConns, numBuckets, numObjs)
+    #numConns   = 1
+    #numBuckets = 1
+    #numObjs    = 10
+    #s3workload = ServiceWkld.S3Wkld("localhost", 8000,
+    #                                numConns, numBuckets, numObjs)
 
-    s3workload.openConns()
+    #s3workload.openConns()
 
-    bucket = s3workload.createBucket(0, "multi-node-bucket")
-    for i in range(0, numPuts):
-        objName = "object%d" % (i)
-        data = binascii.b2a_hex(os.urandom(maxObjSize))
-        result = s3workload.putObject(0, bucket, objName, data)
-        if result != True:
-            print "Failed to put data"
-        else:
-            print "Put some test data"
+    #bucket = s3workload.createBucket(0, "multi-node-bucket")
+    #for i in range(0, numPuts):
+    #    objName = "object%d" % (i)
+    #    data = binascii.b2a_hex(os.urandom(maxObjSize))
+    #    result = s3workload.putObject(0, bucket, objName, data)
+    #    if result != True:
+    #        print "Failed to put data"
+    #    else:
+    #        print "Put some test data"
 
-    # Bring up second node
-    secNode = "node2"
-    result = bu.bringUpSection(secNode)
-    if result != 0:
-        print "Failed to bring up %s" % (secNode)
-        
-    for i in range(numPuts + 1, numPuts * 2):
-        objName = "object%d" % (i)
-        data = binascii.b2a_hex(os.urandom(maxObjSize))
-        result = s3workload.putObject(0, bucket, objName, data)
-        if result != True:
-            print "Failed to put data"
-        else:
-            print "Put some test data"
+    #s3workload.closeConns()
 
-    s3workload.closeConns()
-
-    # Bring down one client
-    result = bu.bringDownSection(client)
-    if result != 0:
-        print "Failed to bring down %s" % (client)
-
-    # Bring down one node
-    result = bu.bringDownSection(secNode)
-    if result != 0:
-        print "Failed to bring down %s" % (secNode)
-
-    # Bring down one node
-    result = bu.bringDownSection(node)
-    if result != 0:
-        print "Failed to bring down %s" % (node)
+    mnt.fullUndeploy()
 
     
