@@ -36,7 +36,7 @@ int StorHvisorProcIoRd(void *_io)
   int node_state = -1;
   fds::Error err(ERR_OK);
   ObjectID oid;
-  fds_uint32_t vol_id;
+  fds_volid_t vol_id;
   StorHvVolume *shvol;
 
   unsigned int      trans_id = 0;
@@ -111,19 +111,25 @@ int StorHvisorProcIoRd(void *_io)
   
   err  = shvol->vol_catalog_cache->Query(std::to_string(data_offset), data_offset, trans_id, &oid);
   if (err.GetErrno() == ERR_PENDING_RESP) {
-    FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Vol catalog Cache Query pending :" << err.GetErrno() << req;
+    FDS_PLOG(storHvisor->GetLog())
+            <<" StorHvisorTx:" << "IO-XID:" << trans_id << " volID: 0x"
+            << std::hex << vol_id << std::dec << " - Vol catalog Cache Query pending :" << err.GetErrno() << req;
     journEntry->trans_state = FDS_TRANS_VCAT_QUERY_PENDING;
     return 0;
   }
   
   if (err.GetErrno() == ERR_CAT_QUERY_FAILED)
   {
-    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Error reading the Vol catalog  Error code : " <<  err.GetErrno() << req;
+    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:" << trans_id
+                                   << " volID: 0x" << std::hex << vol_id << std::dec
+                                   << " - Error reading the Vol catalog  Error code : " <<  err.GetErrno() << req;
     (*req->cb_request)(arg1, arg2, req, err.GetErrno());
     return err.GetErrno();
   }
   
-  FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - object ID: " << oid.GetHigh() <<  ":" << oid.GetLow()									 << "  ObjLen:" << journEntry->data_obj_len;
+  FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " volID: 0x"
+                                 << std::hex << vol_id << std::dec << " - object ID: " << oid.GetHigh() <<  ":" << oid.GetLow()
+                                 << "  ObjLen:" << journEntry->data_obj_len;
   
   // We have a Cache HIT *$###
   //
@@ -213,7 +219,7 @@ int StorHvisorProcIoWr(void *_io)
   fds_uint32_t node_ip = 0;
   fds_uint32_t node_port = 0;
   int node_state = -1;
-  fds_uint32_t vol_id;
+  fds_volid_t vol_id;
   StorHvVolume *shvol;
 
 #ifdef FDS_TEST_SH_NOOP_DISPATCH 

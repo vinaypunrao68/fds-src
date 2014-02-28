@@ -47,23 +47,23 @@ public:
 
   /***** implementation of base class functions *****/
   /* handle notification that IO was just queued */
-  virtual void ioProcessForEnqueue(fds_uint32_t queue_id,
+  virtual void ioProcessForEnqueue(fds_qid_t queue_id,
 				   FDS_IOType *io);
 
   /* handle notification that IO will be dispatched */
-  virtual void ioProcessForDispatch(fds_uint32_t queue_id,
+  virtual void ioProcessForDispatch(fds_qid_t queue_id,
 				    FDS_IOType *io);			    
 
   /* returns queue is whose IO needs to be dispatched next 
    * this implementation consumes tokens required to dispatch IO */
-  virtual fds_uint32_t getNextQueueForDispatch();
+  virtual fds_qid_t getNextQueueForDispatch();
 
   /* this implementation calls based class registerQueue first */
-  virtual Error registerQueue(fds_uint32_t queue_id,
+  virtual Error registerQueue(fds_qid_t queue_id,
 			      FDS_VolumeQueue *queue);
 
   /* this implementation calls base class deregisterQueue first */
-  virtual Error deregisterQueue(fds_uint32_t queue_id);
+  virtual Error deregisterQueue(fds_qid_t queue_id);
 
   using FDS_QoSDispatcher::dispatchIOs;
 
@@ -80,7 +80,7 @@ private:
   /******** dynamic state **********/
   qstate_map_t qstate_map; /* min rate control and recent iops history for priority sharing */
 
-  fds_uint32_t last_dispatch_qid; /* queue id from which we dispatched last IO */
+  fds_qid_t last_dispatch_qid; /* queue id from which we dispatched last IO */
 };
 
 } // namespace fds
