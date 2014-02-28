@@ -298,6 +298,6 @@ class QueryMgr
 };
 
 std::ostream& operator<< (std::ostream& os, const fds::ResourceUUID& uuid);
-} // namespace fds
+}  // namespace fds
 
 #endif  // SOURCE_INCLUDE_FDS_RESOURCE_H_
