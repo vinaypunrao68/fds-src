@@ -20,11 +20,11 @@ public class NativeApiTest extends TestCase {
     public void testPut() throws Exception {
         String bucketName = "slimebucket";
         System.out.println("CreateBucket returned " + fds.createBucket(bucketName).get());
-        Thread.sleep(1000);
-        byte[] bytes = {1, 2, 3, 4, 5};
-        System.out.println("Put bytes returned " + fds.put(bucketName, "thebytes", bytes).get());
-        Thread.sleep(1000);
-        System.out.println("Get bytes returned " + fds.get(bucketName, "thebytes", bytes).get());
+        Thread.sleep(4000);
+        byte[] in = {1, 2, 3, 4};
+        System.out.println("Put bytes returned " + fds.put(bucketName, "thebytes", in).get());
+        byte[] out = {0, 0, 0, 0};
+        System.out.println("Get bytes returned " + fds.get(bucketName, "thebytes", out).get());
     }
 
     @Override

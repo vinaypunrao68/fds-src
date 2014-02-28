@@ -52,12 +52,10 @@ int scheduleQueryCatalog(void * _io);
 int scheduleDeleteCatObj(void * _io);
 int scheduleBlobList(void * _io);
 
-  class DataMgr : public FdsProcess,
-        public Module // todo: We shouldn't be deriving module here.  ObjectStorMgr is
-                      // an FDSProcess, it contains Modules
-        {
-public:
-  void InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
+class DataMgr : public FdsProcess
+{
+  public:
+    void InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
 
   class ReqHandler;
   
@@ -292,18 +290,13 @@ public:
   public:
     DataMgr(int argc, char *argv[],
              const std::string &default_config_path,
-             const std::string &base_path);
+             const std::string &base_path, Module **mod_vec);
     ~DataMgr();
 
   /* From FdsProcess */
-    virtual void setup(int argc, char *argv[], fds::Module **mod_vec) override;
+    virtual void setup() override;
     virtual void run() override;
     virtual void interrupt_cb(int signum) override;
-
-    /* From Module */
-    int  mod_init(SysParams const *const param);
-    void mod_startup();
-    void mod_shutdown();
 
     void swapMgrId(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg);
     fds_log* GetLog();

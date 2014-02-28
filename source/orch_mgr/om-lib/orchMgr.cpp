@@ -17,16 +17,15 @@ OrchMgr *orchMgr;
 
 OrchMgr::OrchMgr(int argc, char *argv[],
                  const std::string& default_config_path,
-                 const std::string& base_path)
-    : Module("Orch Manager"),
-      FdsProcess(argc, argv, default_config_path, base_path),
+                 const std::string& base_path, Module **mod_vec)
+    : FdsProcess(argc, argv, default_config_path, base_path, mod_vec),
       conf_port_num(0),
       ctrl_port_num(0),
       test_mode(false),
       omcp_req_handler(new FDSP_OMControlPathReqHandler(this)),
       cp_resp_handler(new FDSP_ControlPathRespHandler(this)),
-      cfg_req_handler(new FDSP_ConfigPathReqHandler(this)) {
-
+      cfg_req_handler(new FDSP_ConfigPathReqHandler(this))
+{
     om_log  = g_fdslog;
     om_mutex = new fds_mutex("OrchMgrMutex");
 
@@ -41,13 +40,11 @@ OrchMgr::OrchMgr(int argc, char *argv[],
     /*
      * Testing code for loading test info from disk.
      */
-    // loadNodesFromFile("dlt1.txt", "dmt1.txt");
-    // updateTables();
-
     FDS_PLOG(om_log) << "Constructing the Orchestration  Manager";
 }
 
-OrchMgr::~OrchMgr() {
+OrchMgr::~OrchMgr()
+{
     FDS_PLOG(om_log) << "Destructing the Orchestration  Manager";
 
     cfg_session_tbl->endAllSessions();
@@ -59,25 +56,17 @@ OrchMgr::~OrchMgr() {
     }
 }
 
-int OrchMgr::mod_init(SysParams const *const param) {
-    Module::mod_init(param);
-    return 0;
-}
-
-void OrchMgr::mod_startup() {
-}
-
-void OrchMgr::mod_shutdown() {
-}
-
-void OrchMgr::setup(int argc, char* argv[],
-                    fds::Module **mod_vec)
+void OrchMgr::setup()
 {
-    /* First invoke FdsProcess setup so that it
-     * sets up the signal handler and executes
+    int    argc;
+    char **argv;
+
+    /*
+     * First invoke FdsProcess setup so that it sets up the signal handler and executes
      * module vector
      */
-    FdsProcess::setup(argc, argv, mod_vec);
+    FdsProcess::setup();
+    argv = mod_vectors_->mod_argv(&argc);
 
     /*
      * Process the cmdline args.

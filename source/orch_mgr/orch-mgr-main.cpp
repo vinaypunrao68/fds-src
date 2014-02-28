@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 #include <orch-mgr/om-service.h>
+#include <thread>
+#include <jni.h>
 
 namespace fds {
 
@@ -21,21 +23,36 @@ OM_Module::om_singleton()
 
 }  // namespace fds
 
-int main(int argc, char *argv[]) {
-    fds::orchMgr = new fds::OrchMgr(argc, argv, "orch_mgr.conf", "fds.om.");
+void start_jvm() {
+    JavaVM *javaVM;
+    JNIEnv* env;
+    JavaVMInitArgs args;
+    JavaVMOption options[2];
 
+    args.version = JNI_VERSION_1_8;
+    args.nOptions = 1;
+    options[0].optionString = "-Djava.class.path=classes/";
+    // options[1].optionString = "-verbose:jni";
+    args.options = options;
+    args.ignoreUnrecognized = JNI_FALSE;
+    JNI_CreateJavaVM(&javaVM, reinterpret_cast<void **>(&env), &args);
+    cout << "Started JVM" << endl;
+}
+
+int main(int argc, char *argv[])
+{
+    fds::Module *omVec[] = {
+        &fds::gl_OMModule,
+        NULL
+    };
+    fds::orchMgr = new fds::OrchMgr(argc, argv, "orch_mgr.conf", "fds.om.", omVec);
     fds::gl_orch_mgr = fds::orchMgr;
 
-    fds::Module *omVec[] = {
-        fds::orchMgr,
-        &fds::gl_OMModule,
-        nullptr};
+    fds::orchMgr->setup();
+    std::thread vmThread(start_jvm);
 
-    fds::orchMgr->setup(argc, argv, omVec);
     fds::orchMgr->run();
-
     delete fds::orchMgr;
-
     return 0;
 }
 

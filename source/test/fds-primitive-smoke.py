@@ -10,6 +10,8 @@ class FdsEnv:
         self.env_cdir      = os.getcwd()
         self.env_fdsroot   = ''
         self.env_exitOnErr = True
+        self.total_put     = 0
+        self.total_get     = 0
 
         tmp_dir = self.env_cdir
         while tmp_dir != "/":
@@ -98,7 +100,7 @@ class CopyS3Dir:
         if self.verbose:
             print message
 
-    def putTest(self, burst=1):
+    def putTest(self, burst=0):
         os.chdir(self.ds.ds_data_dir)
         cnt = 0
         err = 0
@@ -124,6 +126,7 @@ class CopyS3Dir:
         print "Put ", cnt + self.cur_put, " objects... errors: [", err, "]"
         self.cur_put  += cnt
         self.perr_cnt += err
+        self.env.total_put += cnt
 
     def getTest(self, burst=0):
         os.chdir(self.ds.ds_data_dir)
@@ -167,6 +170,7 @@ class CopyS3Dir:
         self.cur_get  += cnt
         self.gerr_cnt += err
         self.gerr_chk += chk
+        self.env.total_get += cnt
 
     def exitOnError(self):
         if self.perr_cnt != 0 or self.gerr_cnt != 0 or self.gerr_chk != 0:
@@ -199,15 +203,89 @@ class CopyS3Dir_PatternRW(CopyS3Dir):
         if rd_cnt < total:
             self.getTest()
 
+class CopyS3Dir_Overwrite(CopyS3Dir):
+    def runTest(self):
+        CopyS3Dir.runTest(self)
+
+        self.putTest()
+        self.getTest()
+
+    def putTest(self, burst=0):
+        os.chdir(self.ds.ds_data_dir)
+        cnt = 0
+        err = 0
+        wr_file = self.files_list[0]
+        for put in self.files_list:
+            cnt = cnt + 1
+            obj = put.replace("/", "_")
+            self.printDebug("curl POST: " + put + " -> " + obj)
+            ret = subprocess.call(['curl', '-X', 'POST', '--data-binary',
+                    '@' + wr_file, self.bucket_url + '/' + obj])
+            if ret != 0:
+                err = err + 1
+                print "curl error: " + put + ": " + obj
+                if self.env.env_exitOnErr == True:
+                    sys.exit(1)
+
+            if (cnt % 10) == 0:
+                print "Put ", cnt + self.cur_put , " objects... errors: [", err, "]"
+
+        print "Put ", cnt + self.cur_put, " objects... errors: [", err, "]"
+        self.cur_put  += cnt
+        self.perr_cnt += err
+        self.env.total_put += cnt
+
+    def getTest(self, burst=0):
+        os.chdir(self.ds.ds_data_dir)
+        cnt = 0
+        err = 0
+        chk = 0
+        rd_file = self.files_list[0]
+        for get in self.files_list:
+            cnt = cnt + 1
+            obj = get.replace("/", "_");
+            tmp = self.ds.ds_dest_dir + '/' + obj
+            self.printDebug("curl GET: " + obj + " -> " + tmp)
+            ret = subprocess.call(['curl', '-s' '1' ,
+                                   self.bucket_url + '/' + obj, '-o', tmp])
+            if ret != 0:
+                err = err + 1
+                print "curl error: " + get + ": " + obj + " -> " + tmp
+                if self.env.env_exitOnErr == True:
+                    sys.exit(1)
+
+            ret = subprocess.call(['diff', rd_file, tmp])
+            if ret != 0:
+                chk = chk + 1
+                print "Get ", get, " -> ", tmp, ": ", cnt,  \
+                      " objects... errors: [", err, "], verify failed [", chk, "]"
+                if self.env.env_exitOnErr == True:
+                    sys.exit(1)
+            else:
+# print tmp, " : ", rd_file
+                subprocess.call(['rm', tmp])
+            if (cnt % 10) == 0:
+                print "Get ", cnt + self.cur_get, \
+                      " objects... errors: [", err, "], verify failed [", chk, "]"
+            if cnt == burst:
+                break
+
+        print "Get ", cnt + self.cur_get, " objects... errors: [", err, \
+              "], verify failed [", chk, "]"
+        self.cur_get  += cnt
+        self.gerr_cnt += err
+        self.gerr_chk += chk
+        self.env.total_get += cnt
+
+
 def preCommit(env):
-     # basic PUTs and GETs of fds-src cpp files
+    # basic PUTs and GETs of fds-src cpp files
     smoke_ds0 = FdsDataSet('smoke_vol0', env.env_fdsroot, '*.cpp')
     smoke0 = CopyS3Dir(env, smoke_ds0)
     smoke0.runTest()
     smoke0.exitOnError()
 
 def stressIO(env):
-    data_set_dir='/home/bao_pham/temp/demo_data'
 
     # seq write, then seq read
     smoke_ds1 = FdsDataSet('smoke_vol1', data_set_dir, '*.jpg')
@@ -247,6 +325,13 @@ def stressIO(env):
 #    subprocess.call(['sleep', '200']);
 
 def migration(env):
+
+    # seq write, then seq read
+    smoke_ds1 = FdsDataSet('checker', data_set_dir, '*.jpg')
+    smoke1 = CopyS3Dir(env, smoke_ds1)
+    smoke1.runTest()
+    smoke1.exitOnError()
+
     # testing migration
     os.chdir(env.env_fdsroot + '/Build/linux-x86_64.debug/node2')
     print "Starting SM on node2...."
@@ -254,13 +339,25 @@ def migration(env):
                       '--fds.sm.control_port=6911', '--fds.sm.prefix=node2_', '--fds.sm.test_mode=false',
                       '--fds.sm.log_severity=0', '--fds.sm.om_ip=127.0.0.1', '--fds.sm.migration.port=8610', '--fds.sm.id=sm2'],
                      stderr=subprocess.STDOUT)
-    subprocess.call(['sleep', '1'])
+    subprocess.call(['sleep', '60'])
 
     # call checker
+
+def blobOverwrite(env):
+
+    # seq write, then seq read
+    smoke_ds1 = FdsDataSet('smoke_vol1', data_set_dir, '*.jpg')
+    smoke1 = CopyS3Dir_Overwrite(env, smoke_ds1)
+    smoke1.runTest()
+    smoke1.exitOnError()
+
+data_set_dir = '/tmp/smoke_test'
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Start FDS Processes...')
     parser.add_argument('--root', default='/fds', help = 'Set FDS Root')
+    parser.add_argument('--smoke_test', default='false', help = 'Run full smoke test')
+    parser.add_argument('--data_set', default='/tmp/smoke_test', help = 'smoke test dataset')
 
     env  = FdsEnv()
     args = parser.parse_args()
@@ -274,7 +371,8 @@ if __name__ == "__main__":
 
     os.chdir(env.env_fdsroot + '/Build/linux-x86_64.debug/bin')
     print "Starting OM...."
-    subprocess.Popen(['./orchMgr'], stderr=subprocess.STDOUT)
+    subprocess.Popen(['./orchMgr', '--fds-root', args.root + '/node1'],
+                     stderr=subprocess.STDOUT)
     subprocess.call(['sleep', '1'])
 
     print "Starting SM on node1...."
@@ -288,20 +386,28 @@ if __name__ == "__main__":
     subprocess.call(['sleep', '1']);
 
     print "Starting AM on node1...."
-    subprocess.Popen(['./AMAgent'], stderr=subprocess.STDOUT)
+    subprocess.Popen(['./AMAgent', '--fds-root', args.root + '/node1'],
+                     stderr=subprocess.STDOUT)
     subprocess.call(['sleep', '3']);
 
+    data_set_dir = args.data_set
 
     # basic PUTs and GETs of fds-src cpp files
     preCommit(env)
 
-    # stress I/O
-    # stressIO(env)
+    if args.smoke_test == 'true':
+        # stress I/O
+        stressIO(env)
 
-    # migration test
-    # migration(env)
+        # migration test
+        # migration(env)
+
+        # blob over-write
+        blobOverwrite(env)
 
     # do shut_down clients on cleanup test run
+    print "Total PUTs: ", env.total_put
+    print "Total GETs: ", env.total_get
     print "Test Passed, cleaning up..."
-    #env.shut_down()
+    # env.shut_down()
     sys.exit(0)

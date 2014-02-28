@@ -2,8 +2,6 @@ topdir            := ..
 user_target       := exe
 user_rtime_env    := user
 user_build_dir    := smlib policy include migrations
-user_install_loc  := exe
-user_install      := sm.conf 
 
 # TODO: avoid include across components, put in include dir instead.
 #

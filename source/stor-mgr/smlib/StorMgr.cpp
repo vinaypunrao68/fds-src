@@ -216,9 +216,8 @@ ObjectStorMgrI::RedirReadObject(FDSP_MsgHdrTypePtr &msg_hdr, FDSP_RedirReadObjTy
  */
 ObjectStorMgr::ObjectStorMgr(int argc, char *argv[], 
                              const std::string &default_config_path,
-                             const std::string &base_path) 
-    : Module("StorMgr"),
-    FdsProcess(argc, argv, default_config_path, base_path),
+                             const std::string &base_path, Module **mod_vec)
+    : FdsProcess(argc, argv, default_config_path, base_path, mod_vec),
     totalRate(3000),
     qosThrds(10),
     shuttingDown(false),
@@ -264,7 +263,7 @@ ObjectStorMgr::ObjectStorMgr(int argc, char *argv[],
     /*
      * stats class init
      */
-    objStats =  new ObjStatsTracker(GetLog());
+    objStats = &gl_objStats;
 
     /*
      * Performance stats recording
@@ -317,18 +316,13 @@ ObjectStorMgr::~ObjectStorMgr() {
     delete omJrnl;
 }
 
-int ObjectStorMgr::mod_init(SysParams const *const param) {
-    Module::mod_init(param);
-    return 0;
-}
-
-void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
+void ObjectStorMgr::setup()
 {
     /*
      * Invoke FdsProcess setup so that it can setup the signal hander and
      * execute the module vector for us
      */
-    FdsProcess::setup(argc, argv, mod_vec);
+    FdsProcess::setup();
 
     /* Rest of the setup */
     // todo: clean up the code below.  It's doing too many things here.
@@ -339,10 +333,12 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
     DmDiskQuery     in;
     DmDiskQueryOut  out;
 
+    proc_root->fds_mkdir(proc_root->dir_user_repo_objs().c_str());
     std::string stor_prefix = conf_helper_.get<std::string>("prefix");
+    std::string obj_dir = proc_root->dir_user_repo_objs() + stor_prefix;
 
     // Create leveldb
-    smObjDb = new  SmObjDb(stor_prefix, objStorMgr->GetLog());
+    smObjDb = new  SmObjDb(obj_dir, objStorMgr->GetLog());
     // init the checksum verification class
     chksumPtr =  new checksum_calc();
 
@@ -412,8 +408,12 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
     volTbl = new StorMgrVolumeTable(this, GetLog());
 
     /* Create tier related classes -- has to be after volTbl is created */
-    rankEngine = new ObjectRankEngine(stor_prefix, 100000, volTbl, objStats, objStorMgr->GetLog());
-    tierEngine = new TierEngine(TierEngine::FDS_TIER_PUT_ALGO_BASIC_RANK, volTbl, rankEngine, objStorMgr->GetLog());
+    FdsRootDir::fds_mkdir(proc_root->dir_fds_var_stats().c_str());
+    std::string obj_stats_dir = proc_root->dir_fds_var_stats();
+    rankEngine = new ObjectRankEngine(obj_stats_dir, 100000, volTbl,
+                                      objStats, objStorMgr->GetLog());
+    tierEngine = new TierEngine(TierEngine::FDS_TIER_PUT_ALGO_BASIC_RANK,
+                                volTbl, rankEngine, objStorMgr->GetLog());
     objCache = new FdsObjectCache(1024 * 1024 * 256,
             slab_allocator_type_default,
             eviction_policy_type_default,
@@ -421,7 +421,6 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
 
     // TODO: join this thread
     std::thread *stats_thread = new std::thread(log_ocache_stats);
-    
 
     // Create a special queue for System (background) tasks
     // and registe rwith QosCtrlr
@@ -537,12 +536,6 @@ void ObjectStorMgr::interrupt_cb(int signum)
     nst_->endAllSessions();
     nst_.reset(); 
     exit(0);
-}
-
-void ObjectStorMgr::mod_startup() {    
-}
-
-void ObjectStorMgr::mod_shutdown() {
 }
 
 const TokenList&
@@ -1953,12 +1946,16 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
 
 
 void log_ocache_stats() {
-
+    /*
+     *TODO(Vy): this is kind of bloated stat, the file grows quite big with redudant
+     *data, disable it.
+     */
+#if 0
     while(1) {
         usleep(500000);
         objStorMgr->getObjCache()->log_stats_to_file("ocache_stats.dat");
     }
-
+#endif
 }
 
 fds::Error SmObjDb::Get(const ObjectID& obj_id, ObjectBuf& obj_buf) {

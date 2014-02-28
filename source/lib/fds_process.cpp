@@ -1,9 +1,11 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
-
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <string>
-
+#include <iostream>
 #include <fds_assert.h>
 #include <fds_process.h>
 #include <util/Log.h>
@@ -15,6 +17,7 @@ namespace fds {
 FdsProcess *g_fdsprocess = NULL;
 fds_log *g_fdslog = NULL;
 boost::shared_ptr<FdsCountersMgr> g_cntrs_mgr;
+const FdsRootDir                 *g_fdsroot;
 
 void init_process_globals(const std::string &log_name)
 {
@@ -30,9 +33,12 @@ void init_process_globals(fds_log *log)
 }
 
 FdsProcess::FdsProcess(int argc, char *argv[],
-                       const std::string &config_path,
-                       const std::string &base_path)
+                       const std::string &def_cfg_file,
+                       const std::string &base_path,
+                       const std::string &def_log_file, fds::Module **mod_vec)
 {
+    std::string  fdsroot, cfgfile;
+
     fds_verify(g_fdsprocess == NULL);
 
     /* Initialize process wide globals */
@@ -40,25 +46,40 @@ FdsProcess::FdsProcess(int argc, char *argv[],
     /* Set up the signal handler.  We should do this before creating any threads */
     setup_sig_handler();
 
-    /* Setup config */
-    setup_config(argc, argv, config_path, base_path);
+    /* Setup module vectors and config */
+    mod_vectors_ = new ModuleVector(argc, argv, mod_vec);
+    fdsroot      = mod_vectors_->get_sys_params()->fds_root;
+    proc_root    = new FdsRootDir(fdsroot);
 
-    /* Create a global logger.  Logger is created here because we need the file
-     * name from config
-     */
-    g_fdslog = new fds_log(conf_helper_.get<std::string>("logfile"), "logs");
+    if (def_cfg_file != "") {
+        cfgfile = proc_root->dir_fds_etc() + def_cfg_file;
+        setup_config(argc, argv, cfgfile, base_path);
+        /*
+         * Create a global logger.  Logger is created here because we need the file
+         * name from config
+         */
+        if (def_log_file == "") {
+            g_fdslog = new fds_log(proc_root->dir_fds_logs() +
+                                   conf_helper_.get<std::string>("logfile"),
+                                   proc_root->dir_fds_logs());
+        } else {
+            g_fdslog = new fds_log(proc_root->dir_fds_logs() + def_log_file,
+                                   proc_root->dir_fds_logs());
+        }
+        /* Process wide counters setup */
+        std::string proc_id = argv[0];
+        if (conf_helper_.exists("id")) {
+            proc_id = conf_helper_.get<std::string>("id");
+        }
+        setup_cntrs_mgr(net::get_my_hostname() + "."  + proc_id);
 
-    /* Process wide counters setup */
-    std::string proc_id = argv[0];
-    if (conf_helper_.exists("id")) {
-        proc_id = conf_helper_.get<std::string>("id");
-    }
-    setup_cntrs_mgr(net::get_my_hostname() + "."  + proc_id);
-
-    /* if graphite is enabled, setup graphite task to dump counters */
-    if (conf_helper_.get<bool>("enable_graphite")) {
-        /* NOTE: Timer service will be setup as well */
-        setup_graphite();
+        /* if graphite is enabled, setup graphite task to dump counters */
+        if (conf_helper_.get<bool>("enable_graphite")) {
+            /* NOTE: Timer service will be setup as well */
+            setup_graphite();
+        }
+    } else {
+        g_fdslog = new fds_log(def_log_file, proc_root->dir_fds_logs());
     }
 }
 
@@ -80,11 +101,10 @@ FdsProcess::~FdsProcess()
     fds_assert(rc == 0);
 }
 
-void FdsProcess::setup(int argc, char *argv[],
-                       fds::Module **mod_vec)
+void FdsProcess::setup()
 {
     /* Execute module vector */
-    setup_mod_vector(argc, argv, mod_vec);
+    mod_vectors_->mod_execute();
 }
 
 void FdsProcess::setup_config(int argc, char *argv[],
@@ -158,15 +178,6 @@ void FdsProcess::setup_sig_handler()
     fds_assert(rc == 0);
 }
 
-void FdsProcess::setup_mod_vector(int argc, char *argv[], fds::Module **mod_vec)
-{
-    if (!mod_vec) {
-        return;
-    }
-    mod_vectors_ = new ModuleVector(argc, argv, mod_vec);
-    mod_vectors_->mod_execute();
-}
-
 void FdsProcess::setup_cntrs_mgr(const std::string &mgr_id)
 {
     fds_verify(cntrs_mgrPtr_.get() == NULL);
@@ -219,6 +230,62 @@ fds_log* GetLog() {
     // if the process did not explicity init ..
     init_process_globals("fds");
     return g_fdslog;
+}
+
+// --------------------------------------------------------------------------------------
+// FDS root directory layout
+// --------------------------------------------------------------------------------------
+FdsRootDir::FdsRootDir(const std::string &root)
+    : d_fdsroot(root),
+      d_root_etc(root      + std::string("etc/")),
+      d_var_logs(root      + std::string("var/logs/")),
+      d_var_cores(root     + std::string("var/cores/")),
+      d_var_stats(root     + std::string("var/stats/")),
+      d_var_inventory(root + std::string("var/inventory/")),
+      d_var_tests(root     + std::string("var/tests/")),
+      d_var_tools(root     + std::string("var/tools/")),
+      d_hdd(root           + std::string("hdd/")),
+      d_ssd(root           + std::string("ssd/")),
+      d_user_repo(root     + std::string("user-repo/")),
+      d_user_repo_objs(d_user_repo + std::string("objects/")),
+      d_user_repo_dm(d_user_repo   + std::string("dm-names/")),
+
+      d_sys_repo(root      + std::string("sys-repo/")),
+      d_sys_repo_etc(d_sys_repo       + std::string("etc/")),
+      d_sys_repo_domain(d_sys_repo    + std::string("domain/")),
+      d_sys_repo_volume(d_sys_repo    + std::string("volume/")),
+      d_sys_repo_inventory(d_sys_repo + std::string("inventory/")),
+      d_fds_repo(root      + std::string("fds-repo/")) {}
+
+/*
+ * C++ API to create a directory recursively.  Bail out w/out cleaning up when having
+ * errors other than EEXIST.
+ */
+void
+FdsRootDir::fds_mkdir(char const *const path)
+{
+    size_t len;
+    char   tmp[d_max_length], *p;
+
+    len = snprintf(tmp, sizeof(tmp), "%s", path);
+    if (tmp[len - 1] == '/') {
+        tmp[len - 1] = '\0';
+    }
+    umask(0);
+    for (p = tmp + 1; *p; p++) {
+        if (*p == '/') {
+            *p = '\0';
+            if (mkdir(tmp, S_IRWXU) != 0) {
+                if (errno == EACCES) {
+                    std::cout << "Don't have permission to create " << path << std::endl;
+                    exit(1);
+                }
+                fds_verify(errno == EEXIST);
+            }
+            *p = '/';
+        }
+    }
+    mkdir(tmp, S_IRWXU);
 }
 
 }  // namespace fds

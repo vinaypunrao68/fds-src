@@ -15,8 +15,8 @@ using namespace fds;
 class Sm_process : public FdsProcess {
     public:
     Sm_process(int argc, char *argv[],
-               const std::string &config, const std::string &base_path)
-    : FdsProcess(argc, argv, config, base_path)
+               const std::string &config, const std::string &base_path, Module **vec)
+    : FdsProcess(argc, argv, config, base_path, vec)
     {
         join_done_ = false;
         done_ = false;
@@ -58,8 +58,8 @@ class Sm_process : public FdsProcess {
 };
 
 int main(int argc, char *argv[]) {
-    Sm_process p(argc, argv, "fds.conf", "fds.sm.");
-    p.setup(argc, argv, NULL);
+    Sm_process p(argc, argv, "fds.conf", "fds.sm.", NULL);
+    p.setup();
     p.run();
     std::cout << "Main finished" << std::endl;
     return 0;

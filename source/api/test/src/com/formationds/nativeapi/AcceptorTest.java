@@ -9,12 +9,12 @@ public class AcceptorTest extends TestCase {
     public void testBasic() throws Exception {
         Acceptor<Integer> acceptor = new Acceptor<>();
         Thread thread = new Thread(() -> {
-            sleep(100);
+            sleep(2000);
             acceptor.accept(42);
         });
         assertFalse(acceptor.isDone());
         thread.start();
-        assertEquals(42, (int) acceptor.get());
+        assertEquals(42, (int)acceptor.get());
         assertEquals(42, (int)acceptor.get());
         assertTrue(acceptor.isDone());
     }
