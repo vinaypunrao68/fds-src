@@ -29,7 +29,7 @@ QoSMinPrioDispatcher::~QoSMinPrioDispatcher()
   qda_lock.write_unlock();  
 }
 
-Error QoSMinPrioDispatcher::registerQueue(fds_uint32_t queue_id,
+Error QoSMinPrioDispatcher::registerQueue(fds_qid_t queue_id,
 					  FDS_VolumeQueue *queue)
 {
   Error err(ERR_OK);
@@ -72,7 +72,7 @@ Error QoSMinPrioDispatcher::registerQueue(fds_uint32_t queue_id,
   return err;
 }
 
-Error QoSMinPrioDispatcher::deregisterQueue(fds_uint32_t queue_id)
+Error QoSMinPrioDispatcher::deregisterQueue(fds_qid_t queue_id)
 {
   Error err(ERR_OK);
   TBQueueState *qstate = NULL;
@@ -100,7 +100,7 @@ Error QoSMinPrioDispatcher::deregisterQueue(fds_uint32_t queue_id)
   return err;
 }
 
-void QoSMinPrioDispatcher::ioProcessForEnqueue(fds_uint32_t queue_id, 
+void QoSMinPrioDispatcher::ioProcessForEnqueue(fds_qid_t queue_id, 
 					       FDS_IOType *io)
 {
   TBQueueState* qstate = qstate_map[queue_id];
@@ -109,7 +109,7 @@ void QoSMinPrioDispatcher::ioProcessForEnqueue(fds_uint32_t queue_id,
   qstate->handleIoEnqueue(io);
 }
 
-void QoSMinPrioDispatcher::ioProcessForDispatch(fds_uint32_t queue_id,
+void QoSMinPrioDispatcher::ioProcessForDispatch(fds_qid_t queue_id,
 						FDS_IOType *io)
 {
   TBQueueState* qstate = qstate_map[queue_id];
@@ -126,9 +126,9 @@ void QoSMinPrioDispatcher::ioProcessForDispatch(fds_uint32_t queue_id,
  * Assumption -- if this function is called, it means that 
  * current number of outstanding IOs is less than maximum,
  * AND there is at least one IO pending in at least one queue */
-fds_uint32_t QoSMinPrioDispatcher::getNextQueueForDispatch()
+fds_qid_t QoSMinPrioDispatcher::getNextQueueForDispatch()
 {
-  fds_uint32_t ret_qid = 0;
+  fds_qid_t ret_qid = 0;
   TBQueueState *dispatch_qstate = NULL;
   double min_wma;
   uint min_wma_hiprio;

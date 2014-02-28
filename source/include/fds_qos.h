@@ -14,7 +14,7 @@
 
 namespace fds {
 
-  typedef std::unordered_map<fds_uint32_t,FDS_VolumeQueue *> queue_map_t;
+  typedef std::unordered_map<fds_qid_t,FDS_VolumeQueue *> queue_map_t;
   class FDS_QoSControl;
 
   class FDS_QoSDispatcher {
@@ -47,7 +47,7 @@ namespace fds {
 
     std::atomic_bool shuttingDown;
 
-    virtual fds_uint32_t getNextQueueForDispatch() = 0;
+    virtual fds_qid_t getNextQueueForDispatch() = 0;
     
 
   FDS_QoSDispatcher() :
@@ -73,7 +73,7 @@ namespace fds {
       shuttingDown = true;
     }
 
-    Error registerQueueWithLockHeld(fds_uint32_t queue_id, FDS_VolumeQueue *queue) {
+    Error registerQueueWithLockHeld(fds_qid_t queue_id, FDS_VolumeQueue *queue) {
 
       Error err(ERR_OK);
       
@@ -83,16 +83,17 @@ namespace fds {
       }
       queue_map[queue_id] = queue;
 
-      FDS_PLOG_SEV(qda_log, fds::fds_log::notification) << "Dispatcher: registering queue - "
-			<< queue_id << " with min - "
-			<< queue->iops_min << ", max - " << queue->iops_max
-			<< ", priority - " << queue->priority
-			<< ", total server rate = " << total_svc_rate; 
+      FDS_PLOG_SEV(qda_log, fds::fds_log::notification)
+              << "Dispatcher: registering queue - 0x"
+              << std::hex << queue_id << std::dec << " with min - "
+              << queue->iops_min << ", max - " << queue->iops_max
+              << ", priority - " << queue->priority
+              << ", total server rate = " << total_svc_rate; 
 
       return err;
     }
 
-    virtual Error registerQueue(fds_uint32_t queue_id, FDS_VolumeQueue *queue ) {
+    virtual Error registerQueue(fds_qid_t queue_id, FDS_VolumeQueue *queue ) {
       Error err(ERR_OK);
       qda_lock.write_lock();
       err = registerQueueWithLockHeld(queue_id, queue);
@@ -101,7 +102,7 @@ namespace fds {
     }
 
 
-    virtual Error modifyQueueQosParams(fds_uint32_t queue_id,
+    virtual Error modifyQueueQosParams(fds_qid_t queue_id,
 				       fds_uint64_t iops_min,
 				       fds_uint64_t iops_max,
 				       fds_uint32_t prio)
@@ -113,7 +114,7 @@ namespace fds {
       return err;
     }
 
-    Error modifyQueueQosWithLockHeld(fds_uint32_t queue_id,
+    Error modifyQueueQosWithLockHeld(fds_qid_t queue_id,
 				     fds_uint64_t iops_min,
 				     fds_uint64_t iops_max,
 				     fds_uint32_t prio) 
@@ -125,17 +126,18 @@ namespace fds {
       }
       FDS_VolumeQueue *que = queue_map[queue_id];
 
-      FDS_PLOG_SEV(qda_log, fds::fds_log::notification) << "Dispatcher: modifying queue qos params- "
-			<< queue_id << " with min - "
-			<< iops_min << ", max - " << iops_max
-			<< ", priority - " << prio
-			<< ", total server rate = " << total_svc_rate; 
+      FDS_PLOG_SEV(qda_log, fds::fds_log::notification)
+              << "Dispatcher: modifying queue qos params- 0x"
+              << std::hex << queue_id << std::dec << " with min - "
+              << iops_min << ", max - " << iops_max
+              << ", priority - " << prio
+              << ", total server rate = " << total_svc_rate; 
 
       que->modifyQosParams(iops_min, iops_max, prio);
       return err;
     }
 
-    Error deregisterQueueWithLockHeld(fds_uint32_t queue_id) {
+    Error deregisterQueueWithLockHeld(fds_qid_t queue_id) {
       Error err(ERR_OK);
       if  (queue_map.count(queue_id) == 0) {
 	err = Error(ERR_INVALID_ARG);
@@ -147,7 +149,7 @@ namespace fds {
       return err;
     }
 
-    virtual Error deregisterQueue(fds_uint32_t queue_id) {
+    virtual Error deregisterQueue(fds_qid_t queue_id) {
       Error err(ERR_OK);      
       qda_lock.write_lock();
       err = deregisterQueueWithLockHeld(queue_id);
@@ -156,21 +158,22 @@ namespace fds {
     }
 
     // Assumes caller has the qda read lock
-    virtual void ioProcessForEnqueue(fds_uint32_t queue_id, FDS_IOType *io)
+    virtual void ioProcessForEnqueue(fds_qid_t queue_id, FDS_IOType *io)
     {
       // preprocess before enqueuing in the input queue
       FDS_PLOG(qda_log) << "Request " << io->io_req_id << " being enqueued at queue " << queue_id; 
     }
 
     // Assumes caller has the qda read lock
-    virtual void ioProcessForDispatch(fds_uint32_t queue_id, FDS_IOType *io)
+    virtual void ioProcessForDispatch(fds_qid_t queue_id, FDS_IOType *io)
     {
       // do necessary processing before dispatching the io
-      FDS_PLOG(qda_log) << "Dispatching " << io->io_req_id << " from queue " << queue_id; 
+      FDS_PLOG(qda_log) << "Dispatching " << io->io_req_id << " from queue "
+                        << std::hex << queue_id << std::dec; 
     }
 
     // Quiesce queued IOs on this queue & block any new IOs
-    virtual void quiesceIOs(fds_uint32_t queue_id)  {
+    virtual void quiesceIOs(fds_qid_t queue_id)  {
     Error err(ERR_OK);
       if (queue_map.count(queue_id) != 0) {	
 	return;
@@ -180,7 +183,7 @@ namespace fds {
 
     }
 
-    virtual void suspendQueue(fds_uint32_t queue_id) {
+    virtual void suspendQueue(fds_qid_t queue_id) {
       if (queue_map.count(queue_id) != 0) {	
 	return;
       }
@@ -189,7 +192,7 @@ namespace fds {
 
     }
 
-    virtual void resumeQueue(fds_uint32_t queue_id) {
+    virtual void resumeQueue(fds_qid_t queue_id) {
       if (queue_map.count(queue_id) != 0) {	
         return;
       }
@@ -204,7 +207,7 @@ namespace fds {
       FDS_PLOG(qda_log) << "Dispatcher adjusting current throttle level to " << throttle_level;
     }
 
-    virtual Error enqueueIO(fds_uint32_t queue_id, FDS_IOType *io) {
+    virtual Error enqueueIO(fds_qid_t queue_id, FDS_IOType *io) {
 
       Error err(ERR_OK);
 
@@ -219,7 +222,8 @@ namespace fds {
       
       fds_uint32_t n_pios;
       n_pios = atomic_fetch_add(&(num_pending_ios), (unsigned int)1);
-      FDS_PLOG(qda_log) << "Dispatcher: enqueueIO at queue - " << queue_id
+      FDS_PLOG(qda_log) << "Dispatcher: enqueueIO at queue - 0x"
+                        << std::hex << queue_id << std::dec
 			<<  " : # of pending ios = " << n_pios+1;
       assert(n_pios >= 0);
 
@@ -305,7 +309,7 @@ namespace fds {
 	
 	qda_lock.read_lock();
 
-	fds_uint32_t queue_id = getNextQueueForDispatch();
+	fds_qid_t queue_id = getNextQueueForDispatch();
 	FDS_VolumeQueue *que = queue_map[queue_id];
 
 	FDS_IOType *io = que->dequeueIO();
@@ -324,9 +328,10 @@ namespace fds {
 	n_oios = 0;
 	n_oios = atomic_fetch_add(&(num_outstanding_ios), (unsigned int)1);
 
-	FDS_PLOG(qda_log) << "Dispatcher: dispatchIO from queue " << queue_id
-			<< " : # of outstanding ios = " << n_oios+1
-			<< " : # of pending ios = " << n_pios-1;
+	FDS_PLOG(qda_log)
+                << "Dispatcher: dispatchIO from queue 0x" << std::hex << queue_id << std::dec
+                << " : # of outstanding ios = " << n_oios+1
+                << " : # of pending ios = " << n_pios-1;
 	// assert(n_oios >= 0);
 
 	parent_ctrlr->processIO(io);
@@ -404,7 +409,7 @@ namespace fds {
       io->io_total_time = total_duration.total_microseconds();
 
       FDS_PLOG(qda_log) << "Dispatcher: IO Request " << io->io_req_id 
-			<< " for vol id " << io->io_vol_id
+			<< " for vol id 0x" << std::hex << io->io_vol_id << std::dec
 			<< " completed in " << io->io_service_time
 			<< " usecs with a wait time of " << io->io_wait_time
 			<< " usecs. # of outstanding ios = " << n_oios-1;
