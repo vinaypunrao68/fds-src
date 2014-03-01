@@ -5,6 +5,7 @@
 #include <OmVolume.h>
 #include <OmResources.h>
 #include <orchMgr.h>
+#include <om-discovery.h>
 
 namespace fds {
 
@@ -298,6 +299,7 @@ VolumeContainer::om_create_vol(const FdspMsgHdrPtr &hdr,
         return -1;
     }
     rs_register(vol);
+    vol_disc_mgr->vol_persist(vol);
     local->om_bcast_vol_create(vol);
 
     // Attach the volume to the requester's AM.

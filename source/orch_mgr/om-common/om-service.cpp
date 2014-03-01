@@ -2,8 +2,10 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 #include <orch-mgr/om-service.h>
+#include <kvstore/configdbmodule.h>
 #include <OmDeploy.h>
 #include <OmDataPlacement.h>
+#include <om-discovery.h>
 
 namespace fds {
 
@@ -20,6 +22,8 @@ OM_Module::OM_Module(char const *const name)
         &gl_OMClusMapMod,
         om_data_place,
         &gl_OMDltMod,
+        &gl_configDB,
+        &gl_OmDiscoveryMod,
         NULL
     };
     mod_intern     = om_mods;
