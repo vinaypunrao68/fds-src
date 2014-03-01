@@ -182,16 +182,15 @@ Reply Connection::getReply() {
 
 bool Connection::isConnected() {
     if (ctx != 0) return false;
-    redisAppendCommand(ctx,"ping");
+    redisAppendCommand(ctx, "ping");
     try {
         Reply reply = getReply();
         if (reply.getStatus() == "PONG") {
             return true;
-        }
-        else {
+        } else {
             GLOGWARN << "unknown status : " << reply.getStatus();
         }
-    } catch (RedisException& e) {
+    } catch(RedisException& e) { // NOLINT
         GLOGWARN << "error checking connection : " << e.what();
     }
     return false;
