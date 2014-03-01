@@ -356,7 +356,7 @@ class DeployConfig():
                         break
                     line = stderr.readline()
 
-            time.sleep(10)
+            time.sleep(2)
             stdin.close()
             stdout.close()
             stderr.close()
@@ -648,6 +648,9 @@ class ClientService():
             else:
                         print "Failed to start AM..."
                         return -1
+
+        # Sleep to let client initialize
+        time.sleep(3)
         return 0
 
     ## Deploys a client based on name
@@ -895,9 +898,19 @@ class NodeService():
         return node.nodeId
 
     ## Returns true if node is meant to run OM service
-    def isOM(self, _id):
+    def isOm(self, _id):
         node = self.getNode(_id)
         return node.isOm
+
+    ## Returns true if node name is mean to run OM service
+    def isOmByName(self, _name):
+        nodeId = self.getNodeIdByName(_name)
+        return self.isOm(nodeId)
+
+    ## Returns node name
+    def getNodeName(self, _id):
+        node = self.getNode(_id)
+        return node.name
 
     ## Builds the command to deploy a node service
     # 
@@ -1010,6 +1023,12 @@ class NodeService():
     def deployNodeByName(self, _name):
         nodeId = self.getNodeIdByName(_name)
         return self.deployNode(nodeId)
+
+    ## Deploys a specific service for a node based on name
+    #
+    def deployNodeServiceByName(self, _name, _service):
+        nodeId = self.getNodeIdByName(_name)
+        return self.deployNodeService(nodeId, _service)
 
     ## Undeploys all services for a node
     #
