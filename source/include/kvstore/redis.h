@@ -68,7 +68,7 @@ namespace redis {
         Connection(const std::string& host = "localhost", uint port = 6379);
         void connect();
         Reply getReply();
-        bool isConnected() ;
+        bool isConnected();
         ~Connection();
         redisContext* ctx;
         std::string host;
@@ -117,7 +117,7 @@ namespace redis {
               uint port = 6379, uint poolsize = 10);
         ~Redis();
 
-        bool isConnected() ;
+        bool isConnected();
         // send command
         Reply sendCommand(const char* cmdfmt, ...);
 

@@ -630,7 +630,7 @@ class ClientService():
             #
             # Start UBD user space process
             #
-            cmd = self.buildUbdCmd(client)
+            cmd = self.buildAmCmd(client)
             started = self.deployer.runNodeCmd(client, cmd, "Starting the server")
             if started == True:
                 print "Client UBD running on %s..." % (client.ipStr)
