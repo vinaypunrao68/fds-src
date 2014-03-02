@@ -199,27 +199,27 @@ ModuleVector::mod_mk_sysparams()
 
     desc.add_options()
             ("help,h", "Show this help text")
-            ("fds-root,r", po::value<std::string>()->default_value("/fds"),
+            ("fds-root", po::value<std::string>()->default_value("/fds"),
              "Set the storage root directory")
-            ("hdd-root,H", po::value<std::string>()->default_value("hdd"),
+            ("hdd-root", po::value<std::string>()->default_value("hdd"),
              "Set the hdd storage root directory relative to root")
-            ("ssd-root,F", po::value<std::string>()->default_value("ssd"),
+            ("ssd-root", po::value<std::string>()->default_value("ssd"),
              "Set the ssd storage root directory relative to root")
-            ("threads,t", po::value<int>(&thr_cnt)->default_value(10),
+            ("threads", po::value<int>(&thr_cnt)->default_value(10),
              "Number of threads in system thread pool")
-            ("sim-prefix,s", po::value<std::string>()->default_value("sd"),
+            ("sim-prefix", po::value<std::string>()->default_value("sd"),
              "Prefix names for disk devices simulation")
-            ("hdd-count,d", po::value<int>(&hdd_cnt)->default_value(12),
+            ("hdd-count", po::value<int>(&hdd_cnt)->default_value(12),
              "Number of HDD disks")
-            ("hdd-capacity,c", po::value<int>(&hdd_cap)->default_value(100),
+            ("hdd-capacity", po::value<int>(&hdd_cap)->default_value(100),
              "HDD capacity in MB")
-            ("ssd-count,D", po::value<int>(&ssd_cnt)->default_value(2),
+            ("ssd-count", po::value<int>(&ssd_cnt)->default_value(2),
              "Number of SSD disks")
-            ("ssd-capacity,C", po::value<int>(&ssd_cap)->default_value(10),
+            ("ssd-capacity", po::value<int>(&ssd_cap)->default_value(10),
              "SSD capacity in MB")
-            ("log-severity,l", po::value<int>(&log_severity)->default_value(2),
+            ("log-severity", po::value<int>(&log_severity)->default_value(2),
              "Severity logging level")
-            ("port,p",
+            ("port",
              po::value<fds_uint32_t>(&service_port)->default_value(6900),
              "Service recieve port");
 
