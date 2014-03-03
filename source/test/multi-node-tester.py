@@ -129,9 +129,28 @@ class MultiNodeTester():
             if self.isNodeDeployed(section) == False:
                 result = self.srvCfg.bringUpSection(section, service)
                 if result != 0:
-                    print "Failed to bring up %s" % (section)
+                    print "Failed to deploy %s" % (section)
                     return result
                 return 0
+        # No more nodes to deploy
+        return -1
+
+    ## Undeploy a deployed node
+    #
+    # Chose next node to undeploy
+    def nextNodeUndeploy(self, service=None):
+        # Find non-OM node to undeploy
+        nodeSections = self.srvCfg.getNodeSections()
+        for section in nodeSections:
+            if self.isNodeDeployed(section) == True:
+                if self.isNodeSectionOm(section) == False:
+                    # result = self.srvCfg.bringUpSection(section, service)
+                    result = 0
+                    if result != 0:
+                        print "Failed to undeploy %s" % (section)
+                        return result
+                    return 0
+        # No non-OM nodes to undeploy
         return -1
 
     ## Complete undeploy
@@ -240,10 +259,13 @@ if __name__ == '__main__':
     mnt.startS3Workload()
 
     # Deploy another node
-    time.sleep(3)
+    time.sleep(4)
     result = mnt.nextNodeDeploy("SM")
     if result != 0:
         print "Failed to deploy next node"
+
+    # Undeploy node
+    # result = mnt.nextNodeUndeploy("SM")
 
     # Wait for all workloads to finish
     mnt.joinWorkloads()
