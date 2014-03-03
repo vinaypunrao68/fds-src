@@ -1,5 +1,7 @@
 package com.formationds.util;
 
+import com.formationds.web.om.Main;
+
 import java.io.File;
 import java.io.FileFilter;
 import java.net.URL;
@@ -25,6 +27,7 @@ public class Bootstrapper {
         }
         URLClassLoader newLoader = new URLClassLoader(urls.toArray(new URL[0]), currentLoader);
         Thread.currentThread().setContextClassLoader(newLoader);
+        new Main().main();
     }
 
     public static void main(String[] args) throws Exception {

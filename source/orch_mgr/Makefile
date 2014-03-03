@@ -1,12 +1,13 @@
 topdir            := ..
 user_target       := exe
 user_rtime_env    := user
-user_build_dir    := orch-cli include om-dlt om-common om-lib java
+user_build_dir    := orch-cli include om-dlt om-common om-lib om-glue # java
 user_install_loc  := exe
 
 user_fds_so_libs  :=
 user_fds_ar_libs  := \
     fds-om-common \
+    fds-om-glue \
     fds-om-dlt \
     fds-om-lib \
 	fds-plat-lib \
@@ -35,7 +36,7 @@ user_incl_dir     := $(topdir) include \
 	$(JAVA_HOME)/include/linux
 
 orch_mgr_cpp      :=                   \
-    orch-mgr-main.cpp JavaContext.cpp
+    orch-mgr-main.cpp
 
 user_ld_flags := -L$(JAVA_HOME)/jre/lib/amd64 -L$(JAVA_HOME)/jre/lib/amd64/server -ljvm
 

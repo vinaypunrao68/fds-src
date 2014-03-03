@@ -40,7 +40,7 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava-gwt</artifactId>
-            <version>11.0.2</version>
+            <version>16.0.1</version>
         </dependency>
         <dependency>
             <groupId>joda-time</groupId>
