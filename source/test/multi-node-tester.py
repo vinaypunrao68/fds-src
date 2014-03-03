@@ -51,7 +51,7 @@ class MultiNodeTester():
 
     def __init__(self, cfgFile, verbose, debug):
         self.numPuts    = 10
-        self.numGets    = 1000
+        self.numGets    = 3000
         self.maxObjSize = 4 * 1024 * 1024
 
         self.numConns   = 1
@@ -129,9 +129,29 @@ class MultiNodeTester():
             if self.isNodeDeployed(section) == False:
                 result = self.srvCfg.bringUpSection(section, service)
                 if result != 0:
-                    print "Failed to bring up %s" % (section)
+                    print "Failed to deploy %s" % (section)
                     return result
+                self.deployedNodeSections.append(section)
                 return 0
+        # No more nodes to deploy
+        return -1
+
+    ## Undeploy a deployed node
+    #
+    # Chose next node to undeploy
+    def nextNodeUndeploy(self, service=None):
+        # Find non-OM node to undeploy
+        nodeSections = self.srvCfg.getNodeSections()
+        for section in nodeSections:
+            if self.isNodeDeployed(section) == True:
+                if self.isNodeSectionOm(section) == False:
+                    # result = self.srvCfg.bringUpSection(section, service)
+                    result = 0
+                    if result != 0:
+                        print "Failed to undeploy %s" % (section)
+                        return result
+                    return 0
+        # No non-OM nodes to undeploy
         return -1
 
     ## Complete undeploy
@@ -178,7 +198,8 @@ class MultiNodeTester():
                 print "Failed to get correct data for object %s" % (objName)
                 assert(0)
 
-            print "Got %d bytes for object %s" % (len(data), objName)
+            if (i % 100) == 0:
+                print "Completed %d object gets()" % (i)
             
 
         self.s3wkld.closeConns()
@@ -240,10 +261,16 @@ if __name__ == '__main__':
     mnt.startS3Workload()
 
     # Deploy another node
-    time.sleep(3)
-    result = mnt.nextNodeDeploy("SM")
-    if result != 0:
-        print "Failed to deploy next node"
+    while result != -1:
+        time.sleep(4)
+        result = mnt.nextNodeDeploy("SM")
+        if (result != 0) and (result != -1):
+            print "Failed to deploy next node"
+        else:
+            print "Deployed next node"
+
+    # Undeploy node
+    # result = mnt.nextNodeUndeploy("SM")
 
     # Wait for all workloads to finish
     mnt.joinWorkloads()
