@@ -1,3 +1,4 @@
+# Hello emacs, this is a -*-Makefile-*-
 #
 # Makefile.scpt
 # -------------
@@ -49,10 +50,10 @@ endef
 define scpt_mk_dynamic_lib
 $(call comm_so_tgt,$(1)): $(call comm_src2obj,$($(1)))
 ifdef VERBOSE
-	$(ld) $(rule_so_flags) $$+ -o $$@
+	$(cpp) $(rule_so_flags) $$+ -o $$@
 else
 	@echo "    [LINK .so]    $$@"
-	@$(ld) $(rule_so_flags) $$+ -o $$@
+	@$(cpp) $(rule_so_flags) $$+ -o $$@
 endif
 endef
 
