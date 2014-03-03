@@ -1,9 +1,14 @@
+/*
+ * Copyright 2013 Formation Data Systems, Inc.
+ */
 #ifndef _TRANS_JOURNAL_H_
 #define _TRANS_JOURNAL_H_
 
 #include <queue>
+#include <deque>
 #include <unordered_map>
 #include <concurrency/Mutex.h>
+#include <boost/shared_ptr.hpp>
 #include <boost/thread/condition.hpp>
 #include "fds_types.h"
 #include <qos_ctrl.h>
@@ -17,12 +22,13 @@ using namespace fds;
 
 namespace fds {
 
-
+class TransJournalUt;
 typedef unsigned int TransJournalId;
 
 template<typename KeyT, typename JEntryT>
 class TransJournal {
 public:
+  friend class TransJournalUt;
   const static TransJournalId INVALID_TRANS_ID = (TransJournalId) -1;
 
   struct TransJournalKeyInfo {
@@ -61,7 +67,7 @@ private:
   fds_mutex *_jrnl_tbl_mutex;
   JEntryT  *_rwlog_tbl;
   KeyToTransInfoTable _key_to_transinfo_tbl;
-  std::queue<unsigned int> _free_trans_ids;
+  std::deque<unsigned int> _free_trans_ids;
   unsigned int _max_journal_entries;
 
   FDS_QoSControl *_qos_controller;
@@ -71,6 +77,7 @@ private:
   /* Counters */
   uint32_t _active_cnt;
   uint32_t _pending_cnt;
+  uint32_t _rescheduled_cnt;
 };
 
 class ObjectIdJrnlEntry {

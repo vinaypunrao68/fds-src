@@ -9,6 +9,9 @@ import ServiceConfig
 import ServiceWkld
 import os
 import binascii
+import threading
+import time
+import random
 
 verbose = False
 debug   = False
@@ -34,14 +37,21 @@ class MultiNodeTester():
     # Data generator
     dataGen    = None
 
-    # S3 workload generator
+    ## S3 workload generator
     s3wkld     = None
-    # Service config controller
+    ## Service config controller
     srvCfg     = None
+    ## Running workloads threads
+    workloads  = []
+    ## Data written during test
+    putData    = {}
+
+    ## Name of node sections already deployed
+    deployedNodeSections = []
 
     def __init__(self, cfgFile, verbose, debug):
         self.numPuts    = 10
-        self.numGets    = 10
+        self.numGets    = 1000
         self.maxObjSize = 4 * 1024 * 1024
 
         self.numConns   = 1
@@ -52,16 +62,11 @@ class MultiNodeTester():
         self.verbose    = verbose
         self.debug      = debug
 
-        #
-        # Load the configuration files
-        #
-        bu = ServiceConfig.TestBringUp(cfgFile, verbose, debug)
-        bu.loadCfg()
-
         self.dataGen    = ServiceWkld.GenObjectData(self.maxObjSize)
         # TODO: Currently hard coded host/port
         # TODO: Move to when we know which AM we want to connect to
         self.s3wkld     = ServiceWkld.S3Wkld("localhost", 8000,
+                                             False, False,
                                              self.numConns,
                                              self.numBuckets,
                                              self.numObjs)
@@ -69,7 +74,7 @@ class MultiNodeTester():
         #
         # Load the configuration files
         #
-        self.srvCfg = ServiceConfig.TestBringUp(self.cfgFile, verbose, debug)
+        self.srvCfg     = ServiceConfig.TestBringUp(self.cfgFile, verbose, debug)
         self.srvCfg.loadCfg()
 
     ## Deploys initial cluster nodes and config
@@ -78,37 +83,133 @@ class MultiNodeTester():
     def initialDeploy(self):
         # Determine which node name host an OM
         # and bring that node up
-        print "Init deploy"
-
-        # Bring up one node
-        node = "node1"
-        result = self.srvCfg.bringUpSection(node)
+        omSection = self.srvCfg.getOmNodeSection()
+        result = self.srvCfg.bringUpSection(omSection)
         if result != 0:
-            print "Failed to bring up %s" % (node)
+            print "Failed to bring up %s" % (omSection)
+            return result
+        self.deployedNodeSections.append(omSection)
 
-        # Bring up one client
-        client = "sh1"
-        result = self.srvCfg.bringUpSection(client)
+        # Bring up all clients
+        result = self.srvCfg.bringUpClients()
         if result != 0:
-            print "Failed to bring up %s" % (client)
+            print "Failed to bring up clients"
+            return result
+
+        # Bring up all volume policies
+        result = self.srvCfg.bringUpPols()
+        if result != 0:
+            print "Failed to bring up volume policies"
+            return result
+
+        # Bring up all volumes
+        result = self.srvCfg.bringUpVols()
+        if result != 0:
+            print "Failed to bring up volumes"
+            return result
+
+        return 0
+
+    ## Returns true if a node section is already deployed
+    #
+    def isNodeDeployed(self, nodeSection):
+        for deployedSection in self.deployedNodeSections:
+            if deployedSection == nodeSection:
+                return True
+        return False
+
+    ## Deploy an undeployed node
+    #
+    # Choose just the next undeployed node
+    # and deploys it
+    def nextNodeDeploy(self, service=None):
+        # Find the next undeployed node section
+        nodeSections = self.srvCfg.getNodeSections()
+        for section in nodeSections:
+            if self.isNodeDeployed(section) == False:
+                result = self.srvCfg.bringUpSection(section, service)
+                if result != 0:
+                    print "Failed to bring up %s" % (section)
+                    return result
+                return 0
+        return -1
 
     ## Complete undeploy
     #
     # Undeploys everything in the cluster
     def fullUndeploy(self):
-        print "Init undeploy"
-
-        # Bring down one client
-        client = "sh1"
-        result = self.srvCfg.bringDownSection(client)
+        # Bring up all clients
+        result = self.srvCfg.bringDownClients()
         if result != 0:
-            print "Failed to bring down %s" % (client)
+            print "Failed to bring down clients"
 
-        # Bring down one node
-        node = "node1"
-        result = self.srvCfg.bringDownSection(node)
+        # Bring down all nodes
+        result = self.srvCfg.bringDownNodes()
         if result != 0:
-            print "Failed to bring down %s" % (node)
+            print "Failed to bring down nodes"
+
+    ## S3 workload to run in background
+    #
+    def s3Workload(self):
+        print "Started s3 workload"
+        # Local cache of what was put, used to verify gets
+        self.putData = {}
+
+        self.s3wkld.openConns()
+
+        bucket = self.s3wkld.createBucket(0, "multi-node-bucket")
+        for i in range(0, self.numPuts):
+            objName = "object%d" % (i)
+            data    = self.dataGen.genRandData()
+            result  = self.s3wkld.putObject(0, bucket, objName, data)
+            if result != True:
+                print "Failed to put object %s" % (objName)
+                assert(0)
+            else:
+                print "Put object %s of size %d" % (objName, len(data))
+                self.putData[objName] = data
+
+        keys = self.putData.keys()
+        for i in range(0, self.numGets):
+            # Select a random object to read
+            objName = keys[random.randrange(0, len(keys))]
+            data    = self.s3wkld.getObject(0, bucket, objName)
+            if data != self.putData[objName]:
+                print "Failed to get correct data for object %s" % (objName)
+                assert(0)
+
+            print "Got %d bytes for object %s" % (len(data), objName)
+            
+
+        self.s3wkld.closeConns()
+        print "Finished s3 workload"
+
+    ## Incremental S3 workload to run in background
+    #
+    # This workload assumes an initial, possibly larger,
+    # workload has already populated the system.
+    def incS3Workload(self):
+        print "Started incremental s3 workload"
+
+    ## Starts an background s3 workload
+    #
+    def startS3Workload(self):
+        s3thread = threading.Thread(target=self.s3Workload,
+                                    name="s3 workload thread")
+        print "Forking %s workload thread" % (s3thread.name)
+        s3thread.start()
+        assert(s3thread.isAlive() == True)
+        self.workloads.append(s3thread)
+
+    ## Waits for workloads to finish
+    def joinWorkloads(self):
+        for workload in self.workloads:
+            workload.join()
+            if workload.isAlive() == True:
+                print "Failed to join() workload %s" % (workload.name)
+            else:
+                print "Joined %s" % (workload.name)
+        
 
 if __name__ == '__main__':
     #
@@ -126,31 +227,28 @@ if __name__ == '__main__':
     verbose = options.verbose
     debug = options.debug
 
+    # Setup test and config
     mnt = MultiNodeTester(cfgFile, verbose, debug)
 
-    mnt.initialDeploy()
+    # Deploy the initial cluster
+    result = mnt.initialDeploy()
+    if result != 0:
+        print "Failed to deploy initial config"
+        sys.exit()
 
-    # Create workload generator
-    #numConns   = 1
-    #numBuckets = 1
-    #numObjs    = 10
-    #s3workload = ServiceWkld.S3Wkld("localhost", 8000,
-    #                                numConns, numBuckets, numObjs)
+    # Start a background workload
+    mnt.startS3Workload()
 
-    #s3workload.openConns()
+    # Deploy another node
+    time.sleep(3)
+    result = mnt.nextNodeDeploy("SM")
+    if result != 0:
+        print "Failed to deploy next node"
 
-    #bucket = s3workload.createBucket(0, "multi-node-bucket")
-    #for i in range(0, numPuts):
-    #    objName = "object%d" % (i)
-    #    data = binascii.b2a_hex(os.urandom(maxObjSize))
-    #    result = s3workload.putObject(0, bucket, objName, data)
-    #    if result != True:
-    #        print "Failed to put data"
-    #    else:
-    #        print "Put some test data"
+    # Wait for all workloads to finish
+    mnt.joinWorkloads()
 
-    #s3workload.closeConns()
-
+    # Undeploy the entire cluster
     mnt.fullUndeploy()
 
     
