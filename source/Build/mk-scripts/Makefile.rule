@@ -119,7 +119,15 @@ base_objs: $(local_obj_files)
 .PHONY: base_dirs
 base_dirs:
 ifdef user_build_dir
-	@$(scpt_build_subdir)
+	@for f in $(user_build_dir); do                                          \
+		echo Making $(MAKECMDGOALS) in `pwd`/$$f;                            \
+		makearg="$(MAKECMDGOALS) --no-print-directory";                      \
+		if [ -e $$f/Makefile.fds ]; then                                     \
+			($(MAKE) -C $$f -f Makefile.fds $$makearg) || exit 1;            \
+		else                                                                 \
+			($(MAKE) -C $$f $$makearg) || exit 1;                            \
+		fi                                                                   \
+	done
 endif
 
 .PHONY: base_all

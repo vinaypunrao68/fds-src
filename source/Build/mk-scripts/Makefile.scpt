@@ -13,9 +13,9 @@ scpt_build_subdir =                                                          \
         echo Making $(MAKECMDGOALS) in `pwd`/$$f;                            \
         makearg="$(MAKECMDGOALS) --no-print-directory";                      \
         if [ -e $$f/Makefile.fds ]; then                                     \
-            (cd $$f && $(MAKE) -f Makefile.fds $$makearg) || exit 1;         \
+            ($(MAKE) -C $$f -f Makefile.fds $$makearg) || exit 1;            \
         else                                                                 \
-            (cd $$f && $(MAKE) $$makearg) || exit 1;                         \
+            ($(MAKE) -C $$f $$makearg) || exit 1;                            \
       fi                                                                     \
     done
 

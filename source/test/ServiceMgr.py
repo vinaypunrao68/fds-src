@@ -144,6 +144,8 @@ class Client():
     isBlk = False
     ## Client logging level
     logSeverity = 2
+    ## Fds root for client to use
+    root = None
     ## Binary of client AM
     amBin  = "AMAgent"
     ## Binary of client block
@@ -159,12 +161,14 @@ class Client():
                  _id,
                  _ip,
                  _blk,
-                 _log):
+                 _log,
+                 _root):
         self.setName(_name)
         self.setId(_id)
         self.setIp(_ip)
         self.setBlk(_blk)
         self.setLogSeverity(_log)
+        self.setRoot(_root)
 
     def setName(self, _name):
         self.name = _name
@@ -180,6 +184,9 @@ class Client():
 
     def setLogSeverity(self, _sev):
         self.logSeverity = _sev
+
+    def setRoot(self, _root):
+        self.root = _root
 
     def getBlkCmd(self, srcPath):
         return "insmod %s/%s" % (srcPath + "/" + self.blkDir,
@@ -214,6 +221,8 @@ class DeployConfig():
     fdsThriftLibDir = "../thrift-0.9.0"
     fdsBinDir       = "Build/linux-*/bin"
     fdsBstLibDir    = "/usr/local/lib"
+    fdsJavaLibDir   = "/usr/lib/jvm/java-8-oracle/jre/lib/amd64"
+    fdsJavaSrvDir   = "/usr/lib/jvm/java-8-oracle/jre/lib/amd64/server"
     ldLibPath       = "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
 
     #
@@ -262,7 +271,7 @@ class DeployConfig():
         self.fdsBinDir       = self.srcPath + "/" + self.fdsBinDir
 
         # Create the full LD library path
-        self.ldLibPath = self.ldLibPath + ":" + self.fdsLdbLibDir + ":" + self.fdsBstLibDir + ":" + self.fdsLibcfgLibDir + ":" + self.fdsThriftLibDir
+        self.ldLibPath = self.ldLibPath + ":" + self.fdsLdbLibDir + ":" + self.fdsBstLibDir + ":" + self.fdsLibcfgLibDir + ":" + self.fdsThriftLibDir + ":" + self.fdsJavaLibDir + ":" + self.fdsJavaSrvDir
 
     def setSshUser(self, _user):
         self.sshUser = _user
@@ -347,7 +356,7 @@ class DeployConfig():
                         break
                     line = stderr.readline()
 
-            time.sleep(10)
+            time.sleep(2)
             stdin.close()
             stdout.close()
             stderr.close()
@@ -539,16 +548,18 @@ class ClientService():
     ## Adds a client to the inventory
     def addClient(self,
                   _name,
-                 _ip,
-                 _blk,
-                 _log):
+                  _ip,
+                  _blk,
+                  _log,
+                  _root):
         # Use current index as ID
         ident = len(self.clients)
         client = Client(_name,
                         ident,
                         _ip,
                         _blk,
-                        _log)
+                        _log,
+                        _root)
         self.clients.append(client)
         return client.clientId
 
@@ -572,7 +583,8 @@ class ClientService():
     # Builds the command to start SH AM service
     #
     def buildAmCmd(self, client):
-        cmd = "./" + client.getAmCmd() + " --om_ip=" + self.deployer.getOmIpStr() + \
+        cmd = "./" + client.getAmCmd() + " --fds-root=" + client.root + \
+            " --om_ip=" + self.deployer.getOmIpStr() + \
             " --om_port=" + str(self.deployer.getOmCtrlPort()) + " --node_name=localhost-" + client.name + \
             " --log-severity=" + str(client.getLogSeverity())
         return cmd
@@ -618,7 +630,7 @@ class ClientService():
             #
             # Start UBD user space process
             #
-            cmd = self.buildUbdCmd(client)
+            cmd = self.buildAmCmd(client)
             started = self.deployer.runNodeCmd(client, cmd, "Starting the server")
             if started == True:
                 print "Client UBD running on %s..." % (client.ipStr)
@@ -636,6 +648,9 @@ class ClientService():
             else:
                         print "Failed to start AM..."
                         return -1
+
+        # Sleep to let client initialize
+        time.sleep(3)
         return 0
 
     ## Deploys a client based on name
@@ -731,6 +746,7 @@ class Node():
     dmBin         = "DataMgr"
     smBin         = "StorMgr"
     logName       = None
+    shutdownBin   = "fdscli"
     
     def __init__(self,
                  _name,
@@ -791,7 +807,8 @@ class Node():
         self.fdsRoot = _root
         
     def getOmCmd(self):
-        return "%s --fds.om.config_port=%d --fds.om.control_port=%d --fds.om.prefix=%s_ --fds.om.log_severity=%d" % (self.omBin,
+        return "%s --fds-root=%s --fds.om.config_port=%d --fds.om.control_port=%d --fds.om.prefix=%s_ --fds.om.log_severity=%d" % (self.omBin,
+                                              self.fdsRoot,
                                               self.configPort,
                                               self.omControlPort,
                                               self.name,
@@ -816,7 +833,8 @@ class Node():
     # The data and control ports are use +1 whatever the
     # base ports are
     def getDmCmd(self):
-        return "%s --fds.dm.port=%d --fds.dm.cp_port=%d --fds.dm.prefix=%s_ --fds.dm.log_severity=%d  --fds.dm.logfile=dm.%s" % (self.dmBin,
+        return "%s --fds-root=%s --fds.dm.port=%d --fds.dm.cp_port=%d --fds.dm.prefix=%s_ --fds.dm.log_severity=%d  --fds.dm.logfile=dm.%s" % (self.dmBin,
+                                                           self.fdsRoot,
                                                            self.dataPort + 1,
                                                            self.controlPort + 1,
                                                            self.name,
@@ -831,6 +849,9 @@ class Node():
 
     def getDmBin(self):
         return self.dmBin
+
+    def getShutdownBin(self):
+        return self.shutdownBin
 
     def getLogSeverity(self):
         return self.logSeverity
@@ -881,9 +902,19 @@ class NodeService():
         return node.nodeId
 
     ## Returns true if node is meant to run OM service
-    def isOM(self, _id):
+    def isOm(self, _id):
         node = self.getNode(_id)
         return node.isOm
+
+    ## Returns true if node name is mean to run OM service
+    def isOmByName(self, _name):
+        nodeId = self.getNodeIdByName(_name)
+        return self.isOm(nodeId)
+
+    ## Returns node name
+    def getNodeName(self, _id):
+        node = self.getNode(_id)
+        return node.name
 
     ## Builds the command to deploy a node service
     # 
@@ -907,6 +938,11 @@ class NodeService():
             assert(0)
 
         return cmd
+
+    ## Builds the command to gracefully shutdown a node service
+    #
+    def buildNodeShutdownCmd(self, node, nodeType = None):
+        cmd = "./" + node.shutdownBin + " --node-name=" + node.name + "_localhost-sm"
 
     ## Builds the command to undeploy a node service
     #
@@ -997,6 +1033,12 @@ class NodeService():
         nodeId = self.getNodeIdByName(_name)
         return self.deployNode(nodeId)
 
+    ## Deploys a specific service for a node based on name
+    #
+    def deployNodeServiceByName(self, _name, _service):
+        nodeId = self.getNodeIdByName(_name)
+        return self.deployNodeService(nodeId, _service)
+
     ## Undeploys all services for a node
     #
     def undeployNode(self, _id):
@@ -1057,14 +1099,32 @@ class NodeService():
             return -1
 
         cmd = self.buildNodeUndeployCmd(node, nodeType)
-        started = self.deployer.runNodeCmd(node, cmd)
-        if started == True:
-            print "Undeployed %s running on %s..." % (nodeType, node.ipStr)
+        stopped = self.deployer.runNodeCmd(node, cmd)
+        if stopped == True:
+            print "Undeployed %s on %s..." % (nodeType, node.ipStr)
         else:
             print "Failed to undeploy %s server on %s..." % (nodeType, node.ipStr)
             return -1
 
-        return 0        
+        return 0
+
+    ## Shuts down a service for a node
+    #
+    def shutdownNodeService(self, _id, nodeType):
+        # Locate node in inventory
+        node = self.getNode(_id)
+        if node == None:
+            return -1
+
+        cmd = self.buildNodeShutdownCmd(node, nodeType)
+        shutdown = self.deployer.runNodeCmd(node, cmd)
+        if shutdown == True:
+            print "Shutdown %s on %s..." % (nodeType, node.ipStr)
+        else:
+            print "Failed to shutdown %s on %s..." % (nodeType, node.ipStr)
+            return -1
+
+        return 0
 
 ## Class that manages services and their deployment
 #

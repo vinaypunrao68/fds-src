@@ -10,7 +10,7 @@
  */
 
 #include <string>
-
+#include <vector>
 #include <fds_types.h>
 #include <fds_resource.h>
 #include <fdsp/FDSP_types.h>

@@ -1,13 +1,21 @@
 topdir            := ..
 user_target       := exe
 user_rtime_env    := user
-user_build_dir    := orch-cli include om-dlt om-common om-lib om-glue # java
 user_install_loc  := exe
+user_build_dir    := \
+	orch-cli \
+	include \
+	om-dlt \
+	om-common \
+	om-lib \
+	om-discovery \
+	java
 
 user_fds_ar_libs  := \
     fds-om-common \
     fds-om-dlt \
     fds-om-lib \
+    fds-om-discovery \
     fds-plat-lib \
     fds-thread \
     fds-lib \
@@ -26,6 +34,7 @@ user_non_fds_libs := \
     boost_program_options \
     leveldb \
     config++ \
+	hiredis \
     thrift
 
 # TODO: need to move Catalog.h to include, avoid cross module include ref.

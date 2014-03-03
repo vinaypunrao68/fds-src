@@ -125,6 +125,7 @@ class TestBringUp():
         clientIp  = None
         clientBlk = None
         clientLog = None
+        root      = None
         for item in items:
             key   = item[0]
             value = item[1]
@@ -137,11 +138,13 @@ class TestBringUp():
                     clientBlk = False
             elif key == "log_severity":
                 clientLog = int(value)
+            elif key == "fds_root":
+                root = value
             else:
                 print "Unknown item %s, %s in %s" % (key, value, name)
 
         # Add client to the inventory
-        ident = self.deployer.clientService.addClient(name, clientIp, clientBlk, clientLog)
+        ident = self.deployer.clientService.addClient(name, clientIp, clientBlk, clientLog, root)
         # Keep a record of the client's ID
         self.clientIds.append(ident)
 
@@ -239,6 +242,29 @@ class TestBringUp():
                 print "Parsed section %s with items %s" % (section,
                                                            self.config.items(section))
 
+    ## Returns list of all node sections
+    #
+    def getNodeSections(self):
+        sections = []
+        for nodeId in self.nodeIds:
+            section = self.deployer.nodeService.getNodeName(nodeId)
+            sections.append(section)
+        return sections
+
+    ## Returns true if node section can run an OM
+    def isNodeSectionOm(self, _section):
+        return self.deployer.nodeService.isOmByName(_section)
+
+    ## Gets the first (usually only) node section
+    # that can run an OM, none if none exists
+    def getOmNodeSection(self):
+        sections = self.getNodeSections()
+        for section in sections:
+            isOm = self.isNodeSectionOm(section)
+            if isOm == True:
+                return section
+        return None
+
     ##
     # Deploys all policies in the inventory
     #
@@ -277,7 +303,7 @@ class TestBringUp():
         # Bring up a node with OM service first
         #
         for nodeId in self.nodeIds:
-            if self.deployer.nodeService.isOM(nodeId):
+            if self.deployer.nodeService.isOm(nodeId):
                 result = self.deployer.nodeService.deployNode(nodeId)
                 if result != 0:
                     return result
@@ -330,11 +356,18 @@ class TestBringUp():
     # from the section name passed in.
     # We're assuming that the section name matches the name of the
     # service/resource of that type
-    def bringUpSection(self, section):
+    def bringUpSection(self, section, service=None):
         if re.match(self.node_sec_prefix, section) != None:
-            result = self.deployer.nodeService.deployNodeByName(section)
-            if result != 0:
-                return result
+            # Deploy all services
+            if service == None:
+                result = self.deployer.nodeService.deployNodeByName(section)
+                if result != 0:
+                    return result
+            else:
+                # Deploy a specific service
+                result = self.deployer.nodeService.deployNodeServiceByName(section, service)
+                if result != 0:
+                    return result
         elif re.match(self.sh_sec_prefix, section) != None:
             result = self.deployer.clientService.deployClientByName(section)
         else:
@@ -357,4 +390,20 @@ class TestBringUp():
             result = self.deployer.clientService.undeployClientByName(section)
         else:
             assert(0)
+        return 0
+
+    ## Shuts down a specific section of the config file
+    #
+    # A shutdown is a clean undeployment path. A shutdown
+    # removes the section from the cluster but may not
+    # shutdown the process
+    def shutdownSection(self, section):
+        # Currently only handle node/SM sections
+        if re.match(self.node_sec_prefix, section) != None:
+            result = self.deployer.nodeService.shutdownNodeByName(section)
+            if result != 0:
+                return result
+        else:
+            assert(0)
+
         return 0

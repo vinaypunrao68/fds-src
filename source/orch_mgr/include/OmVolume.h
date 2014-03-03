@@ -11,6 +11,8 @@
 
 namespace fds {
 
+class OmDiscoveryMod;
+
 /**
  * TODO(Vy): temp. interface for now to define generic volume message.
  */
@@ -164,6 +166,12 @@ class VolumeContainer : public RsContainer
             }
         }
     }
+    /**
+     * Register the discovery manager for volume discovery tasks.
+     */
+    void vol_reg_disc_mgr(OmDiscoveryMod *disc_mgr) {
+        vol_disc_mgr = disc_mgr;
+    }
 
     /**
      * Volume functions.
@@ -180,6 +188,8 @@ class VolumeContainer : public RsContainer
                                 const FdspTestBucketPtr &req);
 
   protected:
+    OmDiscoveryMod           *vol_disc_mgr;
+
     virtual Resource *rs_new(const ResourceUUID &uuid) {
         return new VolumeInfo(uuid);
     }

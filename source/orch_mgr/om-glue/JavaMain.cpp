@@ -18,7 +18,7 @@ namespace fds {
         JavaContext *javaContext;
 
         args.version = JNI_VERSION_1_8;
-        args.nOptions = 5;
+        args.nOptions = 2;
         options[0].optionString = "-Djava.class.path=../lib/java/classes/";
         options[1].optionString = "-Dfile.encoding=UTF-8";
         options[2].optionString = "-verbose:jni";
