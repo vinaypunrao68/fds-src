@@ -10,7 +10,7 @@ namespace fds {
 int
 OmDiscoveryMod::vol_persist(VolumeInfo::pointer vol)
 {
-    om_cfg_mgr->addVolume(*vol->vol_get_properties());
+    // om_cfg_mgr->addVolume(*vol->vol_get_properties());
     return 0;
 }
 
