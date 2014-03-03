@@ -195,7 +195,7 @@ struct TokenCopySenderFSM_
                 /* First request */
                 fsm.objstor_read_req_.token_id = *fsm.pending_tokens_.begin();
                 // TODO(rao) : Dont hardcode
-                fsm.objstor_read_req_.max_size = 2 << 20;
+                fsm.objstor_read_req_.max_size = 16 * (2 << 20);
 
             } else if (fsm.objstor_read_req_.itr.isEnd()) {
                 LOGNORMAL << "Token: " << *fsm.pending_tokens_.begin()
@@ -213,6 +213,7 @@ struct TokenCopySenderFSM_
 
             } else {
                 /* Still processing the current token.  Nothing to do*/
+                LOGDEBUG << "Still processing token " << *fsm.pending_tokens_.begin();
             }
         }
     };
