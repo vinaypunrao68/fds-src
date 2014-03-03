@@ -37,7 +37,7 @@ Platform::Platform(char const *const         name,
 Platform::~Platform()
 {
     if (plf_rpc_sess != NULL) {
-        plf_net_sess->endSession(plf_rpc_sess);
+        plf_net_sess->endSession(plf_rpc_sess->getSessionTblKey());
     }
     if (plf_rpc_thrd != NULL) {
         plf_rpc_thrd->join();
@@ -97,7 +97,7 @@ Platform::mod_init(SysParams const *const param)
 {
     Module::mod_init(param);
 
-    plf_net_sess = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_DATA_MGR));
+    plf_net_sess = boost::shared_ptr<netSessionTbl>(new netSessionTbl(plf_node_type));
     plf_rpc_reqt = boost::shared_ptr<PlatRpcReq>(plat_creat_rpc_handler());
 
     return 0;

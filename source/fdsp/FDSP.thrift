@@ -74,7 +74,8 @@ enum FDSP_MgrIdType {
     FDSP_ORCH_MGR,
     FDSP_CLI_MGR, 
     FDSP_OMCLIENT_MGR,
-    FDSP_MIGRATION_MGR
+    FDSP_MIGRATION_MGR,
+    FDSP_PLATFORM
 }
 
 enum FDSP_ResultType {

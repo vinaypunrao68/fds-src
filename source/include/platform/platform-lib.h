@@ -15,6 +15,8 @@
 namespace fds {
 
 class PlatRpcReq;
+typedef boost::shared_ptr<fpi::FDSP_ControlPathReqClient>     NodeAgentCpSessPtr;
+typedef boost::shared_ptr<fpi::FDSP_OMControlPathReqClient>   NodeAgentCpOmClientPtr;
 
 // -------------------------------------------------------------------------------------
 // Node Inventory and Cluster Map
@@ -280,10 +282,16 @@ class Platform : public Module
     PlatEvent::pointer         plf_tier_evt;
     PlatEvent::pointer         plf_bucket_stats_evt;
 
+    /* Server variables. */
     boost::shared_ptr<netSessionTbl>  plf_net_sess;
     boost::shared_ptr<PlatRpcReq>     plf_rpc_reqt;  /**< rpc handler for OM reqt.   */
     boost::shared_ptr<std::thread>    plf_rpc_thrd;  /**< thread running rpc handler */
     netControlPathServerSession      *plf_rpc_sess;  /**< associated session.        */
+
+    /* Client variables. */
+    NodeAgentCpSessPtr                plf_clnt_sess; /**< client ctrl path session.  */
+    NodeAgentCpOmClientPtr            plf_client;    /**< client OM ctrl path.       */
+    std::string                       plf_client_id;
 
     /**
      * Required Factory method.
