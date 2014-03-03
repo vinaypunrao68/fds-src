@@ -1,4 +1,4 @@
-package com.formationds.web;
+package com.formationds.web.toolkit;
 
 import junit.framework.TestCase;
 

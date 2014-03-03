@@ -1,8 +1,6 @@
-package com.formationds.web;/*
+package com.formationds.web.toolkit;/*
  * Copyright 2014 Formation Data Systems, Inc.
  */
-
-import com.google.common.collect.Multimap;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -29,11 +27,6 @@ public class TextResource implements Resource {
     @Override
     public String getContentType() {
         return "text/plain; charset=UTF-8";
-    }
-
-    @Override
-    public Multimap<String, String> extraHeaders() {
-        return null;
     }
 
     @Override
