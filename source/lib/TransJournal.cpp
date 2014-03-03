@@ -1,3 +1,6 @@
+/*
+ * Copyright 2013 Formation Data Systems, Inc.
+ */
 #include <stdexcept>
 
 #include <fds_err.h>
@@ -84,7 +87,7 @@ TransJournal<KeyT, JEntryT>::TransJournal(unsigned int max_jrnl_entries, FDS_QoS
 
 	for (i = 0; i < _max_journal_entries; i++) {
           _rwlog_tbl[i].init(i, this);
-	  _free_trans_ids.push(i);
+	  _free_trans_ids.push_back(i);
 	}
 
 	_jrnl_tbl_mutex = new fds_mutex("Journal Table Mutex");
@@ -115,8 +118,9 @@ _assign_transaction_to_key(const KeyT& key, FDS_IOType *io, TransJournalId &tran
     return ERR_TRANS_JOURNAL_OUT_OF_IDS;
   }
   trans_id = _free_trans_ids.front();
-  _free_trans_ids.pop();
+  _free_trans_ids.pop_front();
 
+  fds_assert(trans_id < _max_journal_entries);
   fds_assert(!_rwlog_tbl[trans_id].is_active());
   _rwlog_tbl[trans_id].set_fdsio(io);
   _rwlog_tbl[trans_id].set_key(key);
@@ -176,9 +180,10 @@ release_transaction(TransJournalId &trans_id)
     fds_assert(_active_cnt > 0 &&
             _rwlog_tbl[trans_id].is_active() &&
             _rwlog_tbl[trans_id].get_fdsio() == pending_qitr->second.front().io);
+    fds_assert(trans_id < _max_journal_entries);
 
     _rwlog_tbl[trans_id].reset();
-    _free_trans_ids.push(trans_id);
+    _free_trans_ids.push_back(trans_id);
     _active_cnt--;
     pending_qitr->second.pop_front();
 
@@ -197,6 +202,7 @@ release_transaction(TransJournalId &trans_id)
         _active_cnt++;
         _rwlog_tbl[new_trans_id].set_active(true);
         _pending_cnt--;
+        _rescheduled_cnt++;
 
         LOGDEBUG << "Scheduling queued transaction.  key: " <<  key.ToString()
                                   << " id: " << new_trans_id
