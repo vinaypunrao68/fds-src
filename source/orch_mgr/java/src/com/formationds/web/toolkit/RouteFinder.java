@@ -1,7 +1,5 @@
 package com.formationds.web.toolkit;
 
-import org.apache.log4j.Logger;
-
 import javax.servlet.http.HttpServletRequest;
 import java.util.HashMap;
 import java.util.Map;
@@ -13,8 +11,6 @@ import java.util.function.Supplier;
 public class RouteFinder {
 
     private Map<Key, Supplier<RequestHandler>> map;
-
-    private Logger LOG = Logger.getLogger(RouteFinder.class);
 
     public RouteFinder() {
         map = new HashMap<>();
