@@ -51,7 +51,7 @@ class MultiNodeTester():
 
     def __init__(self, cfgFile, verbose, debug):
         self.numPuts    = 10
-        self.numGets    = 1000
+        self.numGets    = 3000
         self.maxObjSize = 4 * 1024 * 1024
 
         self.numConns   = 1
@@ -131,6 +131,7 @@ class MultiNodeTester():
                 if result != 0:
                     print "Failed to deploy %s" % (section)
                     return result
+                self.deployedNodeSections.append(section)
                 return 0
         # No more nodes to deploy
         return -1
@@ -197,7 +198,8 @@ class MultiNodeTester():
                 print "Failed to get correct data for object %s" % (objName)
                 assert(0)
 
-            print "Got %d bytes for object %s" % (len(data), objName)
+            if (i % 100) == 0:
+                print "Completed %d object gets()" % (i)
             
 
         self.s3wkld.closeConns()
@@ -259,10 +261,13 @@ if __name__ == '__main__':
     mnt.startS3Workload()
 
     # Deploy another node
-    time.sleep(4)
-    result = mnt.nextNodeDeploy("SM")
-    if result != 0:
-        print "Failed to deploy next node"
+    while result != -1:
+        time.sleep(4)
+        result = mnt.nextNodeDeploy("SM")
+        if (result != 0) and (result != -1):
+            print "Failed to deploy next node"
+        else:
+            print "Deployed next node"
 
     # Undeploy node
     # result = mnt.nextNodeUndeploy("SM")
