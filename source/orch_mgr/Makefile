@@ -35,7 +35,7 @@ user_incl_dir     := $(topdir) include \
 	$(JAVA_HOME)/include/linux
 
 orch_mgr_cpp      :=                   \
-    orch-mgr-main.cpp
+    orch-mgr-main.cpp JavaContext.cpp
 
 user_ld_flags := -L$(JAVA_HOME)/jre/lib/amd64 -L$(JAVA_HOME)/jre/lib/amd64/server -ljvm
 
