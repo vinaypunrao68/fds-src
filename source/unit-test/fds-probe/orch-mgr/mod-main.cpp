@@ -11,6 +11,8 @@
 #include <util/fds_stat.h>
 #include <fds-probe/s3-probe.h>
 #include <orch-mgr/om-service.h>
+#include <om-discovery.h>
+#include <kvstore/configdbmodule.h>
 
 namespace fds {
 
@@ -38,6 +40,8 @@ int main(int argc, char **argv)
         &fds::gl_probeS3Eng,
         &fds::gl_OMModule,
         &fds::gl_OM_ProbeMod,
+        &fds::gl_configDB,
+        &fds::gl_OmDiscoveryMod,
         nullptr
     };
     fds::orchMgr = new fds::OrchMgr(argc, argv, "orch_mgr.conf", "fds.om.", probe_vec);
