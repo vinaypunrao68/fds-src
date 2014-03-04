@@ -45,9 +45,9 @@
  */
 namespace fds {
 
-  typedef fds_int64_t fds_volid_t;
-  typedef fds_int64_t VolumeId;
-  typedef fds_int64_t fds_qid_t;  // type for queue id
+  typedef fds_uint64_t fds_volid_t;
+  typedef fds_uint64_t VolumeId;
+  typedef fds_uint64_t fds_qid_t;  // type for queue id
 
   /**
    * A token id identifies a particular token
