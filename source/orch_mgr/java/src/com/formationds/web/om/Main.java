@@ -12,7 +12,7 @@ import java.io.File;
 
 public class Main {
     public void main() throws Exception {
-        PropertyConfigurator.configure(new File("/fds/etc/log4j-console.properties").toURL());
+        PropertyConfigurator.configure(new File("/fds-root/etc/log4j-console.properties").toURL());
         WebApp webApp = new WebApp();
         webApp.route(HttpMethod.get, "", () -> new LandingPage());
         webApp.start(4242);
