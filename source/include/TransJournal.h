@@ -7,6 +7,7 @@
 #include <queue>
 #include <deque>
 #include <unordered_map>
+#include <functional>
 #include <concurrency/Mutex.h>
 #include <boost/shared_ptr.hpp>
 #include <boost/thread/condition.hpp>
@@ -52,9 +53,12 @@ public:
 	TransJournal(unsigned int max_jrnl_entries, FDS_QoSControl *qos_controller, fds_log *log);
  	~TransJournal();
 
- 	Error create_transaction(const KeyT& key, FDS_IOType *io, TransJournalId &trans_id);
+ 	Error create_transaction(const KeyT& key, FDS_IOType *io,
+ 	        TransJournalId &trans_id,
+ 	        std::function<void(TransJournalId)> cb);
+
  	JEntryT* get_transaction(const TransJournalId &trans_id);
- 	void release_transaction(TransJournalId &trans_id);
+ 	void release_transaction(const TransJournalId &trans_id);
 
  	uint32_t get_active_cnt() {return _active_cnt;}
  	uint32_t get_pending_cnt() {return _pending_cnt;}

@@ -294,6 +294,8 @@ class ObjectStorMgr :
     Error enqTransactionIo(FDSP_MsgHdrTypePtr msgHdr,
             const ObjectID& obj_id,
             SmIoReq *ioReq, TransJournalId &trans_id);
+    void create_transaction_cb(FDSP_MsgHdrTypePtr msgHdr,
+            SmIoReq *ioReq, TransJournalId trans_id);
     Error enqGetObjectReq(FDSP_MsgHdrTypePtr msgHdr, 
             FDSP_GetObjTypePtr getObjReq, 
             fds_volid_t        volId,

@@ -1,13 +1,18 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
+#include <stdlib.h>     /* srand, rand */
+#include <time.h>       /* time */
 #include <atomic>
 #include <thread>
+#include <sstream>
 #include <string>
+#include <functional>
 #include <qos_ctrl.h>
 #include <ThreadPool.h>
 #include <TransJournal.h>
 #include <hash/MurmurHash3.h>
+#include <fds_process.h>
 
 namespace fds {
 
@@ -40,8 +45,17 @@ public:
 
     }
 
-    void start(const std::string &content)
+    void create_transaction_cb(MockIo* ioReq, TransJournalId trans_id)
     {
+        ioReq->setTransId(trans_id);
+    }
+
+    void start()
+    {
+        std::stringstream ss;
+        ss << "hello" << rand() % 100;
+        std::string content = ss.str();
+
         ObjectID obj_id;
         int qd_cnt = 0;
         MurmurHash3_x64_128(content.c_str(),
@@ -49,17 +63,18 @@ public:
                        0,
                        &obj_id);
         for (int i = 0; i < io_cnt_; i++) {
+            fds_assert(obj_id != NullObjectID);
             TransJournalId trans_id;
             MockIo *ioReq = new MockIo();
             Error err = jrnl_->create_transaction(obj_id,
-                    static_cast<FDS_IOType *>(ioReq), trans_id);
+                    static_cast<FDS_IOType *>(ioReq), trans_id,
+                    std::bind(&ObjectIOGenerator::create_transaction_cb, this,
+                            ioReq, std::placeholders::_1));
             if (err != ERR_OK &&
                     err != ERR_TRANS_JOURNAL_REQUEST_QUEUED) {
                 fds_verify (!"error to create_transaction");
 
             }
-
-            ioReq->setTransId(trans_id);
 
             if (err == ERR_TRANS_JOURNAL_REQUEST_QUEUED) {
                 qd_cnt++;
@@ -74,7 +89,8 @@ public:
     void handle_io(FDS_IOType *io)
     {
         MockIo *ioReq = static_cast<MockIo *>(io);
-        usleep(10);
+        // usleep(1);
+        LOGDEBUG << "Invoking release of id: " << ioReq->trans_id_;
         jrnl_->release_transaction(ioReq->trans_id_);
         completed_io_cnt_++;
         delete ioReq;
@@ -126,18 +142,16 @@ public:
         fds_threadpoolPtr threadpool;
         TransJournalPtr jrnl;
         threadpool.reset(new fds_threadpool());
-        fds_log* log = new fds_log("~/temp/TransJournalUt.log");
-        // log->setSeverityFilter((fds_log::severity_level) 0);
+        g_fdslog->setSeverityFilter((fds_log::severity_level) 0);
         MockQosCtrlPtr qos_ctrl(new MockQosCtrl(threadpool));
-        jrnl.reset(new TransJournal<ObjectID, ObjectIdJrnlEntry>(io_cnt * thread_cnt, qos_ctrl.get(), log));
+        jrnl.reset(new TransJournal<ObjectID, ObjectIdJrnlEntry>(io_cnt * thread_cnt, qos_ctrl.get(), g_fdslog));
         ObjectIOGeneratorPtr io_generator(new ObjectIOGenerator(jrnl, threadpool, io_cnt));
         qos_ctrl->setIoGenerator(io_generator);
 
         std::vector<std::thread*> threads;
         for (int i = 0; i < thread_cnt; i++) {
             std::thread* t = new std::thread(&ObjectIOGenerator::start,
-                    io_generator.get(),
-                    "hello"+i);
+                    io_generator.get());
             threads.push_back(t);
         }
 
@@ -165,8 +179,6 @@ public:
             threads[i]->join();
             delete threads[i];
         }
-        log->flush();
-        delete log;
         return true;
     }
 
@@ -175,6 +187,8 @@ private:
 }  // namespace fds
 
 int main() {
+    init_process_globals("TransJournalUt.log");
+    srand (time(NULL));
     TransJournalUt ut;
     ut.test_concurrent_puts();
 }
