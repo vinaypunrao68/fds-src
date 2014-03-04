@@ -860,7 +860,7 @@ DltTokenGroupPtr OMgrClient::getDLTNodesForDoidKey(ObjectID *objId) {
 
 }
 
-int OMgrClient::getDMTNodesForVolume(int vol_id, fds_uint64_t *node_ids, int *n_nodes) {
+int OMgrClient::getDMTNodesForVolume(fds_volid_t vol_id, fds_uint64_t *node_ids, int *n_nodes) {
 
   omc_lock.read_lock();
 
