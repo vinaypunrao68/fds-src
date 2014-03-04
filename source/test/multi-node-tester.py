@@ -9,7 +9,7 @@ import ServiceConfig
 import ServiceWkld
 import os
 import binascii
-import threading
+import multiprocessing
 import time
 import random
 
@@ -34,17 +34,12 @@ class MultiNodeTester():
     numBuckets = None
     numObjs    = None
 
-    # Data generator
-    dataGen    = None
-
     ## S3 workload generator
     s3wkld     = None
     ## Service config controller
     srvCfg     = None
-    ## Running workloads threads
+    ## Running workloads processes
     workloads  = []
-    ## Data written during test
-    putData    = {}
 
     ## Name of node sections already deployed
     deployedNodeSections = []
@@ -61,15 +56,6 @@ class MultiNodeTester():
         self.cfgFile    = cfgFile
         self.verbose    = verbose
         self.debug      = debug
-
-        self.dataGen    = ServiceWkld.GenObjectData(self.maxObjSize)
-        # TODO: Currently hard coded host/port
-        # TODO: Move to when we know which AM we want to connect to
-        self.s3wkld     = ServiceWkld.S3Wkld("localhost", 8000,
-                                             False, False,
-                                             self.numConns,
-                                             self.numBuckets,
-                                             self.numObjs)
 
         #
         # Load the configuration files
@@ -184,39 +170,54 @@ class MultiNodeTester():
 
     ## S3 workload to run in background
     #
-    def s3Workload(self, bucketName):
+    @staticmethod
+    def s3Workload(bucketName,
+                   numConns,
+                   numBuckets,
+                   numObjs,
+                   numPuts,
+                   numGets,
+                   maxObjSize):
         print "Started s3 workload"
+
         # Local cache of what was put, used to verify gets
-        self.putData = {}
+        putData = {}
+        # Local random object data generator
+        dataGen = ServiceWkld.GenObjectData(maxObjSize)
+        # workload handler
+        s3wkld  = ServiceWkld.S3Wkld("localhost", 8000,
+                                     False, False,
+                                     numConns,
+                                     numBuckets,
+                                     numObjs)
 
-        self.s3wkld.openConns()
+        s3wkld.openConns()
 
-        bucket = self.s3wkld.createBucket(0, bucketName)
-        for i in range(0, self.numPuts):
+        bucket = s3wkld.createBucket(0, bucketName)
+        for i in range(0, numPuts):
             objName = "object%d" % (i)
-            data    = self.dataGen.genRandData()
-            result  = self.s3wkld.putObject(0, bucket, objName, data)
+            data    = dataGen.genRandData()
+            result  = s3wkld.putObject(0, bucket, objName, data)
             if result != True:
                 print "Failed to put object %s" % (objName)
                 assert(0)
             else:
                 print "Put object %s of size %d" % (objName, len(data))
-                self.putData[objName] = data
+                putData[objName] = data
 
-        keys = self.putData.keys()
-        for i in range(0, self.numGets):
+        keys = putData.keys()
+        for i in range(0, numGets):
             # Select a random object to read
             objName = keys[random.randrange(0, len(keys))]
-            data    = self.s3wkld.getObject(0, bucket, objName)
-            if data != self.putData[objName]:
+            data    = s3wkld.getObject(0, bucket, objName)
+            if data != putData[objName]:
                 print "Failed to get correct data for object %s" % (objName)
                 assert(0)
-
             if (i % 100) == 0:
                 print "Completed %d object gets()" % (i)
             
 
-        self.s3wkld.closeConns()
+        s3wkld.closeConns()
         print "Finished s3 workload"
 
     ## Incremental S3 workload to run in background
@@ -229,19 +230,22 @@ class MultiNodeTester():
     ## Starts an background s3 workload
     #
     def startS3Workload(self, bucketName):
-        s3thread = threading.Thread(target=self.s3Workload,
-                                    name="s3 workload thread %s" % (bucketName),
-                                    args=(bucketName,))
-        print "Forking %s workload thread" % (s3thread.name)
-        s3thread.start()
-        assert(s3thread.isAlive() == True)
-        self.workloads.append(s3thread)
+        s3process = multiprocessing.Process(target=self.s3Workload,
+                                            name="s3 workload process %s" % (bucketName),
+                                            args=(bucketName, self.numConns,
+                                                  self.numBuckets, self.numObjs,
+                                                  self.numPuts, self.numGets,
+                                                  self.maxObjSize))
+        print "Forking %s workload process" % (s3process.name)
+        s3process.start()
+        assert(s3process.is_alive() == True)
+        self.workloads.append(s3process)
 
     ## Waits for workloads to finish
     def joinWorkloads(self):
         for workload in self.workloads:
             workload.join()
-            if workload.isAlive() == True:
+            if workload.is_alive() == True:
                 print "Failed to join() workload %s" % (workload.name)
             else:
                 print "Joined %s" % (workload.name)
@@ -274,7 +278,7 @@ if __name__ == '__main__':
 
     # Start background workloads
     mnt.startS3Workload("volume4")
-    #mnt.startS3Workload("volume5")
+    mnt.startS3Workload("volume5")
 
     # Deploy another node
     result = 0
