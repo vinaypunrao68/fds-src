@@ -25,7 +25,7 @@ VolumeMeta::VolumeMeta()
 */
 
 VolumeMeta::VolumeMeta(const std::string& _name,
-                       fds_uint64_t _uuid,VolumeDesc* desc)
+                       fds_int64_t _uuid,VolumeDesc* desc)
     : dm_log(NULL)
 {
     const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
@@ -40,7 +40,7 @@ VolumeMeta::VolumeMeta(const std::string& _name,
 }
 
 VolumeMeta::VolumeMeta(const std::string& _name,
-                       fds_uint64_t _uuid,
+                       fds_int64_t _uuid,
                        fds_log* _dm_log,VolumeDesc* _desc)
     : VolumeMeta(_name, _uuid, _desc) {
 

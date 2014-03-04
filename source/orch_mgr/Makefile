@@ -1,6 +1,7 @@
 topdir            := ..
 user_target       := exe
 user_rtime_env    := user
+user_install_loc  := exe
 user_build_dir    := \
 	orch-cli \
 	include \
@@ -8,21 +9,22 @@ user_build_dir    := \
 	om-common \
 	om-lib \
 	om-discovery \
+	om-glue \
 	java
 
-user_fds_so_libs  :=
 user_fds_ar_libs  := \
     fds-om-common \
     fds-om-dlt \
     fds-om-lib \
-	fds-om-discovery \
-	fds-plat-lib \
+    fds-om-discovery \
+    fds-plat-lib \
     fds-thread \
     fds-lib \
     fds-util \
     fds-netproxy \
     fds-fdsp \
-    fds-umod
+    fds-umod \
+    fds-om-glue
 
 user_non_fds_libs := \
     boost_log \
@@ -42,8 +44,7 @@ user_incl_dir     := $(topdir) include \
 	$(JAVA_HOME)/include \
 	$(JAVA_HOME)/include/linux
 
-orch_mgr_cpp      :=                   \
-    orch-mgr-main.cpp
+orch_mgr_cpp      := orch-mgr-main.cpp
 
 user_ld_flags := -L$(JAVA_HOME)/jre/lib/amd64 -L$(JAVA_HOME)/jre/lib/amd64/server -ljvm
 

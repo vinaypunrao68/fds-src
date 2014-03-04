@@ -2027,7 +2027,7 @@ void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
     if ( itr.objId != NullObjectID) {
         start_obj_id = itr.objId;
     }
-    DBG(LOGDEBUG << "token: " << token << " being: "
+    DBG(LOGDEBUG << "token: " << token << " begin: "
             << start_obj_id << " end: " << end_obj_id);
 
     leveldb::Slice startSlice((const char *)&start_obj_id, sizeof(ObjectID));
@@ -2036,6 +2036,11 @@ void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
     leveldb::Options options_ = odb->GetOptions();
 
     memcpy(&objId , &start_obj_id, sizeof(ObjectID));
+    // TODO(Rao): This iterator is very inefficient. We're always
+    // iterating through all of the objects in this DB even if they
+    // are not part of the token we care about.
+    // Ideally, we can iterate sorted keys so that we can seek to
+    // the object id range we care about.
     for(dbIter->Seek(startSlice); dbIter->Valid(); dbIter->Next())
     {
         ObjectBuf        objData;
@@ -2065,17 +2070,19 @@ void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
                 } else {
                     itr.objId = objId;
                     DBG(LOGDEBUG << "token: " << token <<  " dbId: " << GetSmObjDbId(token)
-                            << " cnt: " << obj_itr_cnt);
+                        << " cnt: " << obj_itr_cnt) << " token retrieve not completly with "
+                        << " max size" << max_size << " and total msg len " << tot_msg_len;
                     return;
                 }
             }
+            fds_verify(err == ERR_OK);
         }
 
     } // Enf of for loop
     itr.objId = SMTokenItr::itr_end;
 
     DBG(LOGDEBUG << "token: " << token <<  " dbId: " << GetSmObjDbId(token)
-            << " cnt: " << obj_itr_cnt);
+        << " cnt: " << obj_itr_cnt) << " token retrieve complete";
 }
 
 }  // namespace fds

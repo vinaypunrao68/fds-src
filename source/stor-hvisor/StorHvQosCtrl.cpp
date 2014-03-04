@@ -80,7 +80,7 @@ Error StorHvQosCtrl::markIODone(FDS_IOType *io) {
     } 
   }
 
-Error   StorHvQosCtrl::registerVolume(fds_uint64_t  vol_uuid, FDS_VolumeQueue *volq) {
+Error   StorHvQosCtrl::registerVolume(fds_int64_t  vol_uuid, FDS_VolumeQueue *volq) {
 Error err(ERR_OK);
    err = htb_dispatcher->registerQueue(vol_uuid, volq);
    return err;
@@ -101,7 +101,7 @@ fds_uint32_t StorHvQosCtrl::waitForWorkers() {
   return 1;
 }
 
-Error   StorHvQosCtrl::deregisterVolume(fds_uint64_t vol_uuid) {
+Error   StorHvQosCtrl::deregisterVolume(fds_int64_t vol_uuid) {
 Error err(ERR_OK);
     err = htb_dispatcher->deregisterQueue(vol_uuid);
    return err;

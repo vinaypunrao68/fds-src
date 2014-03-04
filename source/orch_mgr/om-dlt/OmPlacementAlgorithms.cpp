@@ -886,6 +886,10 @@ ConsistHashAlgorithm::computeInitialDlt(const ClusterMap *curMap,
         for (fds_uint32_t rel_idx = 0; rel_idx < l1_toks; ++rel_idx) {
             newDLT->setNode(tok_idx+rel_idx, 0, l1_uuid);
         }
+        if (col_depth < 2) {
+            continue;
+        }
+
         // Fill in the second row when the primary is node 'uuid'
         // = columns [tok_idx ... tok_idx + toks)
         fds_uint32_t l2_idx = tok_idx;

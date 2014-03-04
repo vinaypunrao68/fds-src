@@ -391,3 +391,21 @@ class TestBringUp():
         else:
             assert(0)
         return 0
+
+    ## Shuts down a specific section of the config file
+    #
+    # A shutdown is a clean undeployment path. A shutdown
+    # removes the section from the cluster but may not
+    # shutdown the process
+    def shutdownSection(self, section, service=None):
+        # Currently only handle node/SM sections
+        if re.match(self.node_sec_prefix, section) != None:
+            # TODO: Don't just hard code to SM
+            assert(service == "SM")
+            result = self.deployer.nodeService.shutdownNodeServiceByName(section, service)
+            if result != 0:
+                return result
+        else:
+            assert(0)
+
+        return 0

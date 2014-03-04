@@ -19,13 +19,13 @@ OM_NodeContainer::om_handle_perfstats_from_am(const FDSP_VolPerfHistListType &hi
      * need to revisit if this is not the case anymore
      */
     for (uint i = 0; i < hist_list.size(); ++i) {
-        double vol_uuid = hist_list[i].vol_uuid;
+        fds_volid_t vol_uuid = hist_list[i].vol_uuid;
         for (uint j = 0; j < (hist_list[i].stat_list).size(); ++j) {
             FDS_PLOG_SEV(g_fdslog, fds_log::debug)
-                    << "OM: handle perfstat from AM for volume "
-                    << hist_list[i].vol_uuid;
+                    << "OM: handle perfstat from AM for volume 0x"
+                    << std::hex << vol_uuid << std::dec;
 
-            am_stats->setStatFromFdsp((fds_volid_t)hist_list[i].vol_uuid,
+            am_stats->setStatFromFdsp(vol_uuid,
                                       start_timestamp,
                                       (hist_list[i].stat_list)[j]);
         }
@@ -55,8 +55,9 @@ om_vol_get_stat(FDSP_BucketStatsRespTypePtr  resp,
     (resp->bucket_stats_list).push_back(stat);
 
     FDS_PLOG_SEV(g_fdslog, fds_log::notification)
-        << "sendBucketStats: will send stats for volume "
-        << vol->vol_get_name() << " perf " << stat.performance;
+            << "sendBucketStats: will send stats for volume " << vol->vol_get_name()
+            << ":0x" << std::hex << vol->rs_get_uuid().uuid_get_val() << std::dec
+            << " perf " << stat.performance;
 }
 
 /*

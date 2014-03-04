@@ -51,7 +51,7 @@ class MultiNodeTester():
 
     def __init__(self, cfgFile, verbose, debug):
         self.numPuts    = 10
-        self.numGets    = 1000
+        self.numGets    = 5000
         self.maxObjSize = 4 * 1024 * 1024
 
         self.numConns   = 1
@@ -129,9 +129,43 @@ class MultiNodeTester():
             if self.isNodeDeployed(section) == False:
                 result = self.srvCfg.bringUpSection(section, service)
                 if result != 0:
-                    print "Failed to bring up %s" % (section)
+                    print "Failed to deploy %s" % (section)
                     return result
+                self.deployedNodeSections.append(section)
                 return 0
+        # No more nodes to deploy
+        return -1
+
+    ## Remove node from deployed list
+    #
+    def removeDeployedNode(self, rmSection):
+        assert(self.deployedNodeSections.count(rmSection) == 1)
+        index = self.deployedNodeSections.index(rmSection)
+        self.deployedNodeSections.remove(rmSection)
+
+    ## Shutsdown a deployed node
+    #
+    # Chose next node to shutdown. A shutdown cleanly
+    # removes a node from the cluster, but does not undeploy
+    # it (i.e., process is still running)
+    # TODO: Only works for SMs today
+    def nextNodeShutdown(self, service=None):
+        # Find non-OM node to undeploy
+        nodeSections = self.srvCfg.getNodeSections()
+        for section in nodeSections:
+            if self.isNodeDeployed(section) == True:
+                if self.srvCfg.isNodeSectionOm(section) == False:
+                    result = self.srvCfg.shutdownSection(section, service)
+                    result = 0
+                    if result != 0:
+                        print "Failed to undeploy %s" % (section)
+                        return result
+                    # TODO: We leave the node in the deployed list since
+                    # we need to clean up the process and cant handle adding
+                    # it back anyways
+                    self.removeDeployedNode(section)
+                    return 0
+        # No non-OM nodes to undeploy
         return -1
 
     ## Complete undeploy
@@ -150,14 +184,14 @@ class MultiNodeTester():
 
     ## S3 workload to run in background
     #
-    def s3Workload(self):
+    def s3Workload(self, bucketName):
         print "Started s3 workload"
         # Local cache of what was put, used to verify gets
         self.putData = {}
 
         self.s3wkld.openConns()
 
-        bucket = self.s3wkld.createBucket(0, "multi-node-bucket")
+        bucket = self.s3wkld.createBucket(0, bucketName)
         for i in range(0, self.numPuts):
             objName = "object%d" % (i)
             data    = self.dataGen.genRandData()
@@ -178,7 +212,8 @@ class MultiNodeTester():
                 print "Failed to get correct data for object %s" % (objName)
                 assert(0)
 
-            print "Got %d bytes for object %s" % (len(data), objName)
+            if (i % 100) == 0:
+                print "Completed %d object gets()" % (i)
             
 
         self.s3wkld.closeConns()
@@ -193,9 +228,10 @@ class MultiNodeTester():
 
     ## Starts an background s3 workload
     #
-    def startS3Workload(self):
+    def startS3Workload(self, bucketName):
         s3thread = threading.Thread(target=self.s3Workload,
-                                    name="s3 workload thread")
+                                    name="s3 workload thread %s" % (bucketName),
+                                    args=(bucketName,))
         print "Forking %s workload thread" % (s3thread.name)
         s3thread.start()
         assert(s3thread.isAlive() == True)
@@ -236,14 +272,31 @@ if __name__ == '__main__':
         print "Failed to deploy initial config"
         sys.exit()
 
-    # Start a background workload
-    mnt.startS3Workload()
+    # Start background workloads
+    mnt.startS3Workload("volume4")
+    #mnt.startS3Workload("volume5")
 
     # Deploy another node
-    time.sleep(3)
-    result = mnt.nextNodeDeploy("SM")
-    if result != 0:
-        print "Failed to deploy next node"
+    result = 0
+    while result != -1:
+        time.sleep(4)
+        result = mnt.nextNodeDeploy("SM")
+        if (result != 0) and (result != -1):
+            print "Failed to deploy next node"
+            sys.exit()
+        else:
+            print "Deployed next node"
+
+    # Shutdown node
+    result = 0
+    while result != -1:
+        time.sleep(4)
+        result = mnt.nextNodeShutdown("SM")
+        if (result != 0) and (result != -1):
+            print "Failed to undeploy next node"
+            sys.exit()
+        else:
+            print "Undeployed next node"
 
     # Wait for all workloads to finish
     mnt.joinWorkloads()

@@ -274,7 +274,6 @@ namespace fds {
 
       Error err(ERR_OK);
 
-      assert(queue_id > 0);
 
       if (queue->iops_min == 0) {
 	queue->iops_min = 1;

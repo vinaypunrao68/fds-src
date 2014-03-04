@@ -33,8 +33,8 @@ class S3Wkld():
     port           = None
     bucketsPerConn = 2
     objectsPerConn = 5
-    namePrefix     = "fds-s3-tester-"
-    bucketPrefix   = "bucket-"
+    namePrefix     = "" #"fds-s3-tester-"
+    bucketPrefix   = "" #"bucket-"
     objectPrefix   = "object-"
     debug          = False
     verbose        = False

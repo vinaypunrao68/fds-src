@@ -746,6 +746,7 @@ class Node():
     dmBin         = "DataMgr"
     smBin         = "StorMgr"
     logName       = None
+    shutdownBin   = "fdscli"
     
     def __init__(self,
                  _name,
@@ -849,6 +850,12 @@ class Node():
     def getDmBin(self):
         return self.dmBin
 
+    def getShutdownBin(self):
+        return self.shutdownBin
+
+    def getShutdownCmd(self):
+        return "%s --remove-node %s_localhost-sm" % (self.getShutdownBin(), self.name)
+
     def getLogSeverity(self):
         return self.logSeverity
 
@@ -933,6 +940,13 @@ class NodeService():
         else:
             assert(0)
 
+        return cmd
+
+    ## Builds the command to gracefully shutdown a node service
+    #
+    def buildNodeShutdownCmd(self, node, nodeType = None):
+        cmd = "./" + node.getShutdownCmd() + " --om_ip=" + self.deployer.getOmIpStr() + \
+            " --om_port=" + str(self.deployer.getOmConfPort())
         return cmd
 
     ## Builds the command to undeploy a node service
@@ -1060,6 +1074,13 @@ class NodeService():
         nodeId = self.getNodeIdByName(_name)
         return self.undeployNode(nodeId)
 
+    ## Shuts down a service on a node by name
+    #
+    def shutdownNodeServiceByName(self, _name, nodeType):
+        nodeId = self.getNodeIdByName(_name)
+        return self.shutdownNodeService(nodeId, nodeType)
+        
+
     ## Deploys a services for a node
     # from the inventory
     #
@@ -1090,14 +1111,32 @@ class NodeService():
             return -1
 
         cmd = self.buildNodeUndeployCmd(node, nodeType)
-        started = self.deployer.runNodeCmd(node, cmd)
-        if started == True:
-            print "Undeployed %s running on %s..." % (nodeType, node.ipStr)
+        stopped = self.deployer.runNodeCmd(node, cmd)
+        if stopped == True:
+            print "Undeployed %s on %s..." % (nodeType, node.ipStr)
         else:
             print "Failed to undeploy %s server on %s..." % (nodeType, node.ipStr)
             return -1
 
-        return 0        
+        return 0
+
+    ## Shuts down a service for a node
+    #
+    def shutdownNodeService(self, _id, nodeType):
+        # Locate node in inventory
+        node = self.getNode(_id)
+        if node == None:
+            return -1
+
+        cmd = self.buildNodeShutdownCmd(node, nodeType)
+        shutdown = self.deployer.runNodeCmd(node, cmd)
+        if shutdown == True:
+            print "Shutdown %s on %s..." % (nodeType, node.ipStr)
+        else:
+            print "Failed to shutdown %s on %s..." % (nodeType, node.ipStr)
+            return -1
+
+        return 0
 
 ## Class that manages services and their deployment
 #
