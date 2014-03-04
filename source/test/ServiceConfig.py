@@ -241,6 +241,28 @@ class TestBringUp():
             if self.verbose == True:
                 print "Parsed section %s with items %s" % (section,
                                                            self.config.items(section))
+    def getSectionField(self, section, items, field):
+        for i in items:
+            if i[0] == field:
+                return i[1]
+        assert False
+        return "ERROR_NOT_FOUND"
+
+    def getCfgField(self, sectName, field):
+        self.config = ConfigParser.ConfigParser()
+        self.config.read(self.cfgFile)
+
+        #
+        # Iterate over each section
+        #
+        for section in self.config.sections():
+            if sectName == section:
+                if self.verbose == True:
+                    print "Parsed section %s with items %s" % (section,
+                                                               self.config.items(section))
+                return self.getSectionField(section, self.config.items(section), field)
+
+        return None
 
     ## Returns list of all node sections
     #

@@ -7,7 +7,7 @@ files_dir=~/temp/skinet
 ip=127.0.0.1
 
 #Change to bucket name
-bucket=volume6
+bucket=volume_smoke1
 
 # Get the first 80 files
 cd $files_dir
@@ -15,7 +15,7 @@ cd $files_dir
 flist=`ls`
 
 # Create bucket
-curl -v -X POST http://$ip:8000/$bucket
+# curl -v -X POST http://$ip:8000/$bucket
 
 # Post images
 for f in $flist; do

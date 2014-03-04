@@ -3,12 +3,15 @@
 import os, sys
 import argparse
 import subprocess
+import ServiceMgr
+import ServiceConfig
 import pdb
 
 class FdsEnv:
-    def __init__(self):
+    def __init__(self, _root):
         self.env_cdir      = os.getcwd()
-        self.env_fdsroot   = ''
+        self.env_fdsSrc    = ''
+        self.env_root      = _root
         self.env_exitOnErr = True
         self.total_put     = 0
         self.total_get     = 0
@@ -16,11 +19,11 @@ class FdsEnv:
         tmp_dir = self.env_cdir
         while tmp_dir != "/":
             if os.path.exists(tmp_dir + '/Build/mk-scripts'):
-                self.env_fdsroot = tmp_dir
+                self.env_fdsSrc = tmp_dir
                 break
             tmp_dir = os.path.dirname(tmp_dir)
 
-        if self.env_fdsroot == "":
+        if self.env_fdsSrc == "":
             print "Can't determine FDS root from the current dir ", self.env_cdir
             sys.exit(1)
 
@@ -30,18 +33,22 @@ class FdsEnv:
 
     def cleanup(self):
         self.shut_down()
-        os.chdir(self.env_fdsroot)
+        os.chdir(self.env_fdsSrc)
         subprocess.call(['test/cleanup.sh'])
 
-class FdsSetupEnv:
-    def __init__(self, env, fds_data_path):
+    def getRoot(self):
+        return self.env_root
+
+# Setup test environment, directories, etc
+class FdsSetupNode:
+    def __init__(self, fdsSrc, fds_data_path):
         try:
             os.mkdir(fds_data_path)
             os.mkdir(fds_data_path + '/hdd')
             os.mkdir(fds_data_path + '/ssd')
         except:
             pass
-        subprocess.call(['cp', '-rf', env.env_fdsroot + '/config/etc', fds_data_path])
+        subprocess.call(['cp', '-rf', fdsSrc + '/config/etc', fds_data_path])
 
 class FdsDataSet:
     def __init__(self, bucket='abc', data_dir='', file_ext='*', dest_dir='/tmp'):
@@ -78,6 +85,10 @@ class CopyS3Dir:
         for rec in files:
             rec = rec.rstrip('\n')
             self.files_list.append(rec)
+
+    def resetTest(self):
+        self.cur_put    = 0
+        self.cur_get    = 0
 
     def runTest(self, burst_cnt=0):
         self.createBucket()
@@ -281,9 +292,22 @@ class CopyS3Dir_Overwrite(CopyS3Dir):
 
 def preCommit(env):
     # basic PUTs and GETs of fds-src cpp files
-    smoke_ds0 = FdsDataSet('smoke_vol0', env.env_fdsroot, '*.cpp')
+    smoke_ds0 = FdsDataSet('smoke_vol0', env.env_fdsSrc, '*.cpp')
     smoke0 = CopyS3Dir(env, smoke_ds0)
+
     smoke0.runTest()
+#    smoke0.resetTest()
+#    smoke0.runTest()
+#    smoke0.resetTest()
+#    smoke0.runTest()
+#    smoke0.resetTest()
+#    smoke0.runTest()
+#    smoke0.resetTest()
+#    smoke0.runTest()
+#    smoke0.resetTest()
+#    smoke0.runTest()
+#    smoke0.resetTest()
+
     smoke0.exitOnError()
 
 def stressIO(env):
@@ -291,32 +315,43 @@ def stressIO(env):
     # seq write, then seq read
     smoke_ds1 = FdsDataSet('smoke_vol1', data_set_dir, '*.jpg')
     smoke1 = CopyS3Dir(env, smoke_ds1)
+
     smoke1.runTest()
+    smoke1.resetTest()
+    smoke1.runTest()
+    smoke1.resetTest()
+    smoke1.runTest()
+    smoke1.resetTest()
+    smoke1.runTest()
+    smoke1.resetTest()
+    smoke1.runTest()
+    smoke1.resetTest()
+
     smoke1.exitOnError()
 
     # write from in burst of 10
-    smoke_ds2 = FdsDataSet('smoke_vol2', data_set_dir, '*.jpg')
-    smoke2 = CopyS3Dir(env, smoke_ds2)
-    smoke2.runTest(10)
-    smoke2.exitOnError()
+#smoke_ds2 = FdsDataSet('smoke_vol2', data_set_dir, '*.jpg')
+#    smoke2 = CopyS3Dir(env, smoke_ds2)
+#    smoke2.runTest(10)
+#    smoke2.exitOnError()
 
     # write from in burst of 10-5 (W-R)
-    smoke_ds3 = FdsDataSet('smoke_vol3', data_set_dir, '*.jpg')
-    smoke3 = CopyS3Dir_PatternRW(env, smoke_ds3)
-    smoke3.runTest(10, 5)
-    smoke3.exitOnError()
+#    smoke_ds3 = FdsDataSet('smoke_vol3', data_set_dir, '*.jpg')
+#    smoke3 = CopyS3Dir_PatternRW(env, smoke_ds3)
+#    smoke3.runTest(10, 5)
+#    smoke3.exitOnError()
 
     # write from in burst of 10-3 (W-R)
-    smoke_ds4 = FdsDataSet('smoke_vol4', data_set_dir, '*.jpg')
-    smoke4 = CopyS3Dir_PatternRW(env, smoke_ds4)
-    smoke4.runTest(10, 3)
-    smoke4.exitOnError()
+#    smoke_ds4 = FdsDataSet('smoke_vol4', data_set_dir, '*.jpg')
+#    smoke4 = CopyS3Dir_PatternRW(env, smoke_ds4)
+#    smoke4.runTest(10, 3)
+#    smoke4.exitOnError()
 
     # write from in burst of 1-1 (W-R)
-    smoke_ds5 = FdsDataSet('smoke_vol5', data_set_dir, '*.jpg')
-    smoke5 = CopyS3Dir_PatternRW(env, smoke_ds5)
-    smoke5.runTest(1, 1)
-    smoke5.exitOnError()
+#    smoke_ds5 = FdsDataSet('smoke_vol5', data_set_dir, '*.jpg')
+#    smoke5 = CopyS3Dir_PatternRW(env, smoke_ds5)
+#    smoke5.runTest(1, 1)
+#    smoke5.exitOnError()
 
     # write from ~/temp/demo_data folder in burst of 10
 #    demo_ds = FdsDataSet('volume6', data_set_dir, '*.jpg')
@@ -327,22 +362,12 @@ def stressIO(env):
 
 def migration(env):
 
+    # testing migration
     # seq write, then seq read
     smoke_ds1 = FdsDataSet('checker', data_set_dir, '*.jpg')
     smoke1 = CopyS3Dir(env, smoke_ds1)
     smoke1.runTest()
     smoke1.exitOnError()
-
-    # testing migration
-    os.chdir(env.env_fdsroot + '/Build/linux-x86_64.debug/node2')
-    print "Starting SM on node2...."
-    subprocess.Popen(['./StorMgr', '--fds-root', args.root + '/node2', '--fds.sm.data_port=7911',
-                      '--fds.sm.control_port=6911', '--fds.sm.prefix=node2_', '--fds.sm.test_mode=false',
-                      '--fds.sm.log_severity=0', '--fds.sm.om_ip=127.0.0.1', '--fds.sm.migration.port=8610', '--fds.sm.id=sm2'],
-                     stderr=subprocess.STDOUT)
-    subprocess.call(['sleep', '60'])
-
-    # call checker
 
 def blobOverwrite(env):
 
@@ -352,47 +377,84 @@ def blobOverwrite(env):
     smoke1.runTest()
     smoke1.exitOnError()
 
-data_set_dir = '/tmp/smoke_test'
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Start FDS Processes...')
-    parser.add_argument('--root', default='/fds', help = 'Set FDS Root')
-    parser.add_argument('--smoke_test', default='false', help = 'Run full smoke test')
-    parser.add_argument('--data_set', default='/tmp/smoke_test', help = 'smoke test dataset')
-
-    env  = FdsEnv()
-    args = parser.parse_args()
-
+def bringupCluster(env, cfgFile, verbose, debug):
     env.cleanup()
-    print "\nSetting up private fds-root in ", args.root + '/node[1-4]'
-    FdsSetupEnv(env, args.root + '/node1')
-    FdsSetupEnv(env, args.root + '/node2')
-    FdsSetupEnv(env, args.root + '/node3')
-    FdsSetupEnv(env, args.root + '/node4')
+    print "\nSetting up private fds-root in " + bu.getCfgField('node1', 'fds_root') + '[1-4]'
+    root1 = bu.getCfgField('node1', 'fds_root')
+    root2 = bu.getCfgField('node2', 'fds_root')
+    root3 = bu.getCfgField('node3', 'fds_root')
+    root4 = bu.getCfgField('node4', 'fds_root')
+    FdsSetupNode(env.env_fdsSrc, root1)
+    FdsSetupNode(env.env_fdsSrc, root2)
+    FdsSetupNode(env.env_fdsSrc, root3)
+    FdsSetupNode(env.env_fdsSrc, root4)
 
-    os.chdir(env.env_fdsroot + '/Build/linux-x86_64.debug/bin')
+    os.chdir(env.env_fdsSrc + '/Build/linux-x86_64.debug/bin')
+
     print "\n\nStarting OM...."
-    subprocess.Popen(['./orchMgr', '--fds-root', args.root + '/node1'],
+    subprocess.Popen(['./orchMgr', '--fds-root', root1],
                      stderr=subprocess.STDOUT)
     subprocess.call(['sleep', '1'])
 
     print "\n\nStarting SM on node1...."
-    subprocess.Popen(['./StorMgr', '--fds-root', args.root + '/node1'],
+    subprocess.Popen(['./StorMgr', '--fds-root', root1],
                      stderr=subprocess.STDOUT)
     subprocess.call(['sleep', '1'])
 
     print "\n\nStarting DM on node1...."
-    subprocess.Popen(['./DataMgr', '--fds-root', args.root + '/node1'],
+    subprocess.Popen(['./DataMgr', '--fds-root', root1],
                      stderr=subprocess.STDOUT)
     subprocess.call(['sleep', '1']);
 
     print "\n\nStarting AM on node1...."
-    subprocess.Popen(['./AMAgent', '--fds-root', args.root + '/node1'],
+    subprocess.Popen(['./AMAgent', '--fds-root', root1],
                      stderr=subprocess.STDOUT)
     subprocess.call(['sleep', '3']);
 
-    data_set_dir = args.data_set
+    os.chdir(env.env_fdsSrc)
 
+def bringupClusterCLI(env, cfgFile, verbose, debug):
+    env.cleanup()
+    print "\nSetting up private fds-root in " + bu.getCfgField('node1', 'fds_root') + '[1-4]'
+    root1 = bu.getCfgField('node1', 'fds_root')
+    root2 = bu.getCfgField('node2', 'fds_root')
+    root3 = bu.getCfgField('node3', 'fds_root')
+    root4 = bu.getCfgField('node4', 'fds_root')
+    FdsSetupNode(env.env_fdsSrc, root1)
+    FdsSetupNode(env.env_fdsSrc, root2)
+    FdsSetupNode(env.env_fdsSrc, root3)
+    FdsSetupNode(env.env_fdsSrc, root4)
+
+    print "\n\nStarting Cluster on node1...."
+    subprocess.Popen(['test/bring_up.py', '--file', cfgFile, '--verbose', verbose, '--debug', debug, '--up'],
+                     stderr=subprocess.STDOUT)
+
+def startSM2(args):
+    print "\n\nStarting SM on node2...."
+    subprocess.Popen(['./StorMgr', '--fds-root', args.root + '/node2', '--fds.sm.data_port=7911',
+                      '--fds.sm.control_port=6911', '--fds.sm.prefix=node2_', '--fds.sm.test_mode=false',
+                      '--fds.sm.log_severity=0', '--fds.sm.om_ip=127.0.0.1', '--fds.sm.migration.port=8610', '--fds.sm.id=sm2'],
+                     stderr=subprocess.STDOUT)
+    subprocess.call(['sleep', '3'])
+
+def startSM3(args):
+    print "\n\nStarting SM on node3...."
+    subprocess.Popen(['./StorMgr', '--fds-root', args.root + '/node3', '--fds.sm.data_port=7921',
+                      '--fds.sm.control_port=6921', '--fds.sm.prefix=node3_', '--fds.sm.test_mode=false',
+                      '--fds.sm.log_severity=0', '--fds.sm.om_ip=127.0.0.1', '--fds.sm.migration.port=8620', '--fds.sm.id=sm3'],
+                     stderr=subprocess.STDOUT)
+    subprocess.call(['sleep', '3'])
+
+def startSM4(args):
+    print "\n\nStarting SM on node4...."
+    subprocess.Popen(['./StorMgr', '--fds-root', args.root + '/node4', '--fds.sm.data_port=7931',
+                      '--fds.sm.control_port=6931', '--fds.sm.prefix=node4_', '--fds.sm.test_mode=false',
+                      '--fds.sm.log_severity=0', '--fds.sm.om_ip=127.0.0.1', '--fds.sm.migration.port=8630', '--fds.sm.id=sm4'],
+                     stderr=subprocess.STDOUT)
+    subprocess.call(['sleep', '3'])
+
+
+def startIO(env, args):
     # basic PUTs and GETs of fds-src cpp files
     preCommit(env)
 
@@ -405,6 +467,57 @@ if __name__ == "__main__":
 
         # blob over-write
         blobOverwrite(env)
+
+data_set_dir = None
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Start FDS Processes...')
+    parser.add_argument('--cfg_file', default='./test/smoke_test.cfg', help='Set FDS Root')
+    parser.add_argument('--smoke_test', default='false', help='Run full smoke test')
+    parser.add_argument('--data_set', default='/smoke_test', help='smoke test dataset')
+    parser.add_argument('--verbose', default='false', help ='smoke test dataset')
+    parser.add_argument('--debug', default='false', help ='smoke test dataset')
+    args = parser.parse_args()
+
+    cfgFile = args.cfg_file
+    smokeTest = args.smoke_test
+    data_set_dir = args.data_set
+    verbose = args.verbose
+    debug = args.debug
+
+    #
+    # Load the configuration files
+    #
+    bu = ServiceConfig.TestBringUp(cfgFile, verbose, debug)
+    bu.loadCfg()
+    env = FdsEnv(bu.getCfgField('node1', 'fds_root'))
+
+    #
+    # Bring up the cluster
+    #
+    # bringupCluster(env, cfgFile, verbose, debug)
+    bringupClusterCLI(env, cfgFile, verbose, debug)
+
+    #
+    # Start sync-IO
+    #
+
+    #
+    # Start async-IO
+    #
+
+
+    # Bring up more node/delete node test
+
+
+
+
+
+    #startIO(env, args)
+#    startSM2(args);
+#startSM3(args);
+#startSM4(args);
+
 
     # do shut_down clients on cleanup test run
     print "Total PUTs: ", env.total_put

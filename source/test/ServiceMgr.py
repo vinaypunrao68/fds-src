@@ -163,6 +163,7 @@ class Client():
                  _blk,
                  _log,
                  _root):
+        assert(_name != None and _id != None and _ip != None or _root != None)
         self.setName(_name)
         self.setId(_id)
         self.setIp(_ip)
