@@ -1416,7 +1416,7 @@ void ObjectStorMgr::create_transaction_cb(FDSP_MsgHdrTypePtr msgHdr,
         SmIoReq *ioReq, TransJournalId trans_id)
 {
     ioReq->setTransId(trans_id);
-    ObjectIdJrnlEntry *jrnlEntry = omJrnl->get_transaction(trans_id);
+    ObjectIdJrnlEntry *jrnlEntry = omJrnl->get_transaction_nolock(trans_id);
     jrnlEntry->setMsgHdr(msgHdr);
 }
 

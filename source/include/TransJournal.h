@@ -58,6 +58,7 @@ public:
  	        std::function<void(TransJournalId)> cb);
 
  	JEntryT* get_transaction(const TransJournalId &trans_id);
+ 	JEntryT* get_transaction_nolock(const TransJournalId &trans_id);
  	void release_transaction(const TransJournalId &trans_id);
 
  	uint32_t get_active_cnt() {return _active_cnt;}
