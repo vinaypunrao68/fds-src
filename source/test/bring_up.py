@@ -26,6 +26,8 @@ if __name__ == '__main__':
                       dest="up", help="bring up cluster")
     parser.add_option("-d", "--down", action="store_true",
                       dest="down", help="bring down cluster")
+    parser.add_option("-c", "--clean-shutdown", action="store_true",
+                      dest="shutdown", help="clean shutdown cluster")
     parser.add_option("-s", "--section", dest="section",
                       help="specific section to bring up",
                       metavar="section name")
@@ -35,6 +37,7 @@ if __name__ == '__main__':
     debug = options.debug
     up = options.up
     down = options.down
+    shutdown = options.shutdown
     section = options.section
 
     #
@@ -86,3 +89,13 @@ if __name__ == '__main__':
             print "Failed to bring down all nodes"
         else:
             print "Brought down all nodes"
+
+    if shutdown == True:
+        # For now, require specific section to be given
+        assert(section != None)
+        # For now, only bring down the SM service
+        result = bu.shutdownSection(section, "SM")
+        if result != 0:
+            print "Failed to cleanly shutdown %s" % (section)
+        else:
+            print "Cleanly shutdown section %s" % (section)
