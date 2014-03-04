@@ -17,6 +17,7 @@ class TestBringUp():
     #
     cfgFile   = None
     nodeIds   = []
+    nodeIdsEnable = []
     clientIds = []
     volumeIds = []
     policyIds = []
@@ -162,6 +163,7 @@ class TestBringUp():
         omCtrlP = None
         log     = None
         root    = None
+        enable  = True
         for item in items:
             key = item[0]
             value = item[1]
@@ -186,6 +188,8 @@ class TestBringUp():
                 log = int(value)
             elif key == "fds_root":
                 root = value
+            elif key == "enable":
+                enable = value
             else:
                 print "Unknown item %s, %s in %s" % (key, value, name)
         
@@ -208,6 +212,7 @@ class TestBringUp():
                                                   mp, omCtrlP, log, root)
         # Keep a record of the node's ID
         self.nodeIds.append(ident)
+        self.nodeIdsEnable.append(enable)
 
     ##
     # Parses the cfg file and populates
@@ -245,7 +250,6 @@ class TestBringUp():
         for i in items:
             if i[0] == field:
                 return i[1]
-        assert False
         return "ERROR_NOT_FOUND"
 
     def getCfgField(self, sectName, field):
@@ -276,6 +280,10 @@ class TestBringUp():
     ## Returns true if node section can run an OM
     def isNodeSectionOm(self, _section):
         return self.deployer.nodeService.isOmByName(_section)
+
+    ## Returns true if a node section is enable
+    def isNodeIdEnable(self, nodeId):
+        return self.nodeIdsEnable[nodeId] == True
 
     ## Gets the first (usually only) node section
     # that can run an OM, none if none exists
@@ -325,21 +333,23 @@ class TestBringUp():
         # Bring up a node with OM service first
         #
         for nodeId in self.nodeIds:
-            if self.deployer.nodeService.isOm(nodeId):
-                result = self.deployer.nodeService.deployNode(nodeId)
-                if result != 0:
-                    return result
-                upAlready = nodeId
-                break
+            if self.isNodeIdEnable(nodeId):
+                if self.deployer.nodeService.isOm(nodeId):
+                    result = self.deployer.nodeService.deployNode(nodeId)
+                    if result != 0:
+                        return result
+                    upAlready = nodeId
+                    break
 
         #
         # Bring up other node services
         #
         for nodeId in self.nodeIds:
-            if nodeId != upAlready:
-                result = self.deployer.nodeService.deployNode(nodeId)
-                if result != 0:
-                    return result
+            if self.isNodeIdEnable(nodeId):
+                if nodeId != upAlready:
+                    result = self.deployer.nodeService.deployNode(nodeId)
+                    if result != 0:
+                        return result
         return 0
 
     ##
