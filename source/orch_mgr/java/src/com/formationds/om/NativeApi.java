@@ -3,6 +3,8 @@ package com.formationds.om;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.util.MutableAcceptor;
+
 import java.io.File;
 
 public class NativeApi {
@@ -12,6 +14,7 @@ public class NativeApi {
     }
 
     public static native void init();
+    public static native void listNodes(MutableAcceptor<String> acceptor);
 
     public static void startOm() {
         new Thread(() -> init()).start();

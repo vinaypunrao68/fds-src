@@ -12,7 +12,7 @@ namespace fds {
             this->javaVM = javaVM;
             this->arg = static_cast<jobject>(env->NewGlobalRef(arg));
         }
-        
+
         JNIEnv *JavaContext::attachCurrentThread() {
             JNIEnv *env;
             if (this->javaVM->AttachCurrentThread((void **)(&env), NULL) != 0) {
@@ -25,13 +25,13 @@ namespace fds {
         void JavaContext::detachCurrentThread() {
             this->javaVM->DetachCurrentThread();
         }
-        
+
         jobject JavaContext::invoke(JNIEnv *env, jobject o, char *methodName, char *signature, ...) {
             va_list args;
             va_start(args, signature);
             fflush(stdout);
             jclass klass = env->GetObjectClass(o);
-            jmethodID method = env->GetMethodID(klass, methodName, signature);            
+            jmethodID method = env->GetMethodID(klass, methodName, signature);
 	    jobject result = env->CallObjectMethodV(o, method, args);
             va_end(args);
             return result;
@@ -41,16 +41,16 @@ namespace fds {
             va_list args;
             va_start(args, signature);
             jclass klass = env->GetObjectClass(o);
-            jmethodID method = env->GetMethodID(klass, methodName, signature);            
+            jmethodID method = env->GetMethodID(klass, methodName, signature);
 	    jint result = env->CallIntMethodV(o, method, args);
             va_end(args);
-            return result;            
+            return result;
         }
 
         jobject JavaContext::javaInstance(JNIEnv *env, char *className) {
             return javaInstance(env, className, "()V");
         }
-        
+
         jobject JavaContext::javaInstance(JNIEnv *env, char *className, char *constructorSignature, ...) {
             va_list args;
             va_start(args, constructorSignature);

@@ -8,7 +8,11 @@ import junit.framework.TestCase;
 public class NativeApiTest extends TestCase {
     public void testInit() throws Exception {
         new NativeApi();
-        NativeApi.startOm();
-        Thread.sleep(1000);
+        NativeApi.init();
+        Thread.sleep(10000);
+        //MutableAcceptor<String> acceptor = new MutableAcceptor<>();
+        //NativeApi.listNodes(acceptor);
+        //System.out.println("Done listing nodes");
+        //Thread.sleep(1000);
     }
 }
