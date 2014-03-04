@@ -853,6 +853,9 @@ class Node():
     def getShutdownBin(self):
         return self.shutdownBin
 
+    def getShutdownCmd(self):
+        return "%s --remove-node %s_localhost-sm" % (self.getShutdownBin(), self.name)
+
     def getLogSeverity(self):
         return self.logSeverity
 
@@ -942,7 +945,9 @@ class NodeService():
     ## Builds the command to gracefully shutdown a node service
     #
     def buildNodeShutdownCmd(self, node, nodeType = None):
-        cmd = "./" + node.shutdownBin + " --node-name=" + node.name + "_localhost-sm"
+        cmd = "./" + node.getShutdownCmd() + " --om_ip=" + self.deployer.getOmIpStr() + \
+            " --om_port=" + str(self.deployer.getOmConfPort())
+        return cmd
 
     ## Builds the command to undeploy a node service
     #
@@ -1068,6 +1073,13 @@ class NodeService():
     def undeployNodeByName(self, _name):
         nodeId = self.getNodeIdByName(_name)
         return self.undeployNode(nodeId)
+
+    ## Shuts down a service on a node by name
+    #
+    def shutdownNodeServiceByName(self, _name, nodeType):
+        nodeId = self.getNodeIdByName(_name)
+        return self.shutdownNodeService(nodeId, nodeType)
+        
 
     ## Deploys a services for a node
     # from the inventory
