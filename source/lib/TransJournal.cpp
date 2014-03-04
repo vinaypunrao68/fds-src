@@ -172,6 +172,13 @@ get_transaction(const TransJournalId &trans_id)
 }
 
 template<typename KeyT, typename JEntryT>
+JEntryT* TransJournal<KeyT, JEntryT>::
+get_transaction_nolock(const TransJournalId &trans_id)
+{
+  return &_rwlog_tbl[trans_id];
+}
+
+template<typename KeyT, typename JEntryT>
 void TransJournal<KeyT, JEntryT>::
 release_transaction(const TransJournalId &trans_id)
 {
