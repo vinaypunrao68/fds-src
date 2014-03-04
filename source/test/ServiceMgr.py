@@ -642,6 +642,17 @@ class ClientService():
         if client == None:
             return -1
 
+        #
+        # Bring down AM user space process
+        #
+        amCmd = "pkill -9 " + client.getAmCmd()
+        result = self.deployer.runNodeCmd(client, amCmd)
+        if result == True:
+            print "Brought down AM on %s..." % (client.ipStr)
+        else:
+            print "Failed to bring down AM"
+            return -1
+
         if client.isBlk == True:
             #
             # Remove blktap kernel module
@@ -653,16 +664,6 @@ class ClientService():
             else:
                 print "Failed to remove kernel module"
                 return -1
-        #
-        # Bring down AM user space process
-        #
-        amCmd = "pkill -9 " + client.getAmCmd()
-        result = self.deployer.runNodeCmd(client, amCmd)
-        if result == True:
-            print "Brought down AM on %s..." % (client.ipStr)
-        else:
-            print "Failed to bring down AM"
-            return -1
 
         return 0
 
