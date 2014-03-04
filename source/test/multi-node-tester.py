@@ -202,7 +202,9 @@ class MultiNodeTester():
                 print "Failed to put object %s" % (objName)
                 assert(0)
             else:
-                print "Put object %s of size %d" % (objName, len(data))
+                print "Put object %s of size %d into %s" % (objName,
+                                                            len(data),
+                                                            bucketName)
                 putData[objName] = data
 
         keys = putData.keys()
@@ -214,7 +216,8 @@ class MultiNodeTester():
                 print "Failed to get correct data for object %s" % (objName)
                 assert(0)
             if (i % 100) == 0:
-                print "Completed %d object gets()" % (i)
+                print "Completed %d object gets() from %s" % (i,
+                                                              bucketName)
             
 
         s3wkld.closeConns()
