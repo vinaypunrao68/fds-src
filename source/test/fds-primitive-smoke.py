@@ -3,6 +3,7 @@
 import os, sys
 import argparse
 import subprocess
+from multiprocessing import Process
 import ServiceMgr
 import ServiceConfig
 import pdb
@@ -62,19 +63,25 @@ class FdsDataSet:
 
         if not self.ds_dest_dir or self.ds_dest_dir == '':
             self.ds_dest_dir = '/tmp'
+
+#########################################################################################
        
+
 class CopyS3Dir:
-    def __init__(self, env, dataset):
-        self.env        = env
+    global_obj_prefix = 0
+    def __init__(self, dataset):
         self.ds         = dataset
         self.verbose    = False
         self.bucket     = dataset.ds_bucket 
+        self.exitOnErr  = True
         self.files_list = []
         self.cur_put    = 0
         self.cur_get    = 0
         self.perr_cnt   = 0
         self.gerr_cnt   = 0
         self.gerr_chk   = 0
+        self.obj_prefix = str(CopyS3Dir.global_obj_prefix)
+        CopyS3Dir.global_obj_prefix += 1
         self.bucket_url = 'http://localhost:8000/' + self.bucket
 
         os.chdir(self.ds.ds_data_dir)
@@ -91,7 +98,7 @@ class CopyS3Dir:
         self.cur_get    = 0
 
     def runTest(self, burst_cnt=0):
-        self.createBucket()
+        # self.createBucket()
         total = len(self.files_list)
         if burst_cnt == 0 or burst_cnt > total:
             burst_cnt = total
@@ -120,14 +127,14 @@ class CopyS3Dir:
             burst = len(self.files_list)
         for put in self.files_list[self.cur_put:]:
             cnt = cnt + 1
-            obj = put.replace("/", "_")
+            obj = self.obj_prefix + put.replace("/", "_")
             self.printDebug("curl POST: " + put + " -> " + obj)
             ret = subprocess.call(['curl', '-X', 'POST', '--data-binary',
                     '@' + put, self.bucket_url + '/' + obj])
             if ret != 0:
                 err = err + 1
-                print "curl error: " + put + ": " + obj
-                if self.env.env_exitOnErr == True:
+                print "curl error PUT: " + put + ": " + obj
+                if self.exitOnErr == True:
                     sys.exit(1)
 
             if (cnt % 10) == 0:
@@ -138,28 +145,26 @@ class CopyS3Dir:
         print "Put ", cnt + self.cur_put, " objects... errors: [", err, "]"
         self.cur_put  += cnt
         self.perr_cnt += err
-        self.env.total_put += cnt
+        #self.env.total_put += cnt
 
     def getTest(self, burst=0):
         os.chdir(self.ds.ds_data_dir)
         cnt = 0
         err = 0
         chk = 0
-        # print self.files_list
-        # print "\n"
         if burst <= 0:
             burst = len(self.files_list)
         for get in self.files_list[self.cur_get:]:
             cnt = cnt + 1
-            obj = get.replace("/", "_");
+            obj = self.obj_prefix + get.replace("/", "_");
             tmp = self.ds.ds_dest_dir + '/' + obj
             self.printDebug("curl GET: " + obj + " -> " + tmp)
             ret = subprocess.call(['curl', '-s' '1' ,
                                    self.bucket_url + '/' + obj, '-o', tmp])
             if ret != 0:
                 err = err + 1
-                print "curl error: " + get + ": " + obj + " -> " + tmp
-                if self.env.env_exitOnErr == True:
+                print "curl error GET: " + get + ": " + obj + " -> " + tmp
+                if self.exitOnErr == True:
                     sys.exit(1)
 
             ret = subprocess.call(['diff', get, tmp])
@@ -167,7 +172,7 @@ class CopyS3Dir:
                 chk = chk + 1
                 print "Get ", get, " -> ", tmp, ": ", cnt,  \
                       " objects... errors: [", err, "], verify failed [", chk, "]"
-                if self.env.env_exitOnErr == True:
+                if self.exitOnErr == True:
                     sys.exit(1)
             else:
                 subprocess.call(['rm', tmp])
@@ -182,7 +187,7 @@ class CopyS3Dir:
         self.cur_get  += cnt
         self.gerr_cnt += err
         self.gerr_chk += chk
-        self.env.total_get += cnt
+        #self.env.total_get += cnt
 
     def exitOnError(self):
         if self.perr_cnt != 0 or self.gerr_cnt != 0 or self.gerr_chk != 0:
@@ -191,10 +196,49 @@ class CopyS3Dir:
                   "], verify failed [", self.err_chk, "]"
             sys.exit(1)
 
-        
+class CopyS3Dir_GET(CopyS3Dir):
+    def __init__(self, dataset):
+        CopyS3Dir.__init__(self, dataset)
+# CopyS3Dir.global_obj_prefix -= 1
+        self.obj_prefix = str(CopyS3Dir.global_obj_prefix)
+
+    def runTest(self, write=1, read=1):
+        total = len(self.files_list)
+        if read == 0 or read > total:
+            read = total
+
+        rd_cnt = 0
+        while rd_cnt < total:
+            self.getTest(read)
+            rd_cnt += read
+
+    def runTestAll(self):
+        self.runTest()
+
+        self.resetTest()
+        self.obj_prefix = str(2)
+        self.runTest()
+
+        self.resetTest()
+        self.obj_prefix = str(3)
+        self.runTest()
+
+        self.resetTest()
+        self.obj_prefix = str(4)
+        self.runTest()
+
+        self.resetTest()
+        self.obj_prefix = str(5)
+        self.runTest()
+
+        self.resetTest()
+        self.obj_prefix = str(6)
+        self.runTest()
+
+
 class CopyS3Dir_PatternRW(CopyS3Dir):
     def runTest(self, write=1, read=1):
-        self.createBucket()
+        #self.createBucket()
         total = len(self.files_list)
         if write == 0 or write > total:
             write = total
@@ -229,14 +273,14 @@ class CopyS3Dir_Overwrite(CopyS3Dir):
         wr_file = self.files_list[0]
         for put in self.files_list:
             cnt = cnt + 1
-            obj = put.replace("/", "_")
+            obj = self.obj_prefix + put.replace("/", "_")
             self.printDebug("curl POST: " + put + " -> " + obj)
             ret = subprocess.call(['curl', '-X', 'POST', '--data-binary',
                     '@' + wr_file, self.bucket_url + '/' + obj])
             if ret != 0:
                 err = err + 1
-                print "curl error: " + put + ": " + obj
-                if self.env.env_exitOnErr == True:
+                print "curl error PUT: " + put + ": " + obj
+                if self.exitOnErr == True:
                     sys.exit(1)
 
             if (cnt % 10) == 0:
@@ -245,7 +289,6 @@ class CopyS3Dir_Overwrite(CopyS3Dir):
         print "Put ", cnt + self.cur_put, " objects... errors: [", err, "]"
         self.cur_put  += cnt
         self.perr_cnt += err
-        self.env.total_put += cnt
 
     def getTest(self, burst=0):
         os.chdir(self.ds.ds_data_dir)
@@ -255,15 +298,15 @@ class CopyS3Dir_Overwrite(CopyS3Dir):
         rd_file = self.files_list[0]
         for get in self.files_list:
             cnt = cnt + 1
-            obj = get.replace("/", "_");
+            obj = self.obj_prefix + get.replace("/", "_");
             tmp = self.ds.ds_dest_dir + '/' + obj
             self.printDebug("curl GET: " + obj + " -> " + tmp)
             ret = subprocess.call(['curl', '-s' '1' ,
                                    self.bucket_url + '/' + obj, '-o', tmp])
             if ret != 0:
                 err = err + 1
-                print "curl error: " + get + ": " + obj + " -> " + tmp
-                if self.env.env_exitOnErr == True:
+                print "curl error GET: " + get + ": " + obj + " -> " + tmp
+                if self.exitOnErr == True:
                     sys.exit(1)
 
             ret = subprocess.call(['diff', rd_file, tmp])
@@ -271,10 +314,9 @@ class CopyS3Dir_Overwrite(CopyS3Dir):
                 chk = chk + 1
                 print "Get ", get, " -> ", tmp, ": ", cnt,  \
                       " objects... errors: [", err, "], verify failed [", chk, "]"
-                if self.env.env_exitOnErr == True:
+                if self.exitOnErr == True:
                     sys.exit(1)
             else:
-# print tmp, " : ", rd_file
                 subprocess.call(['rm', tmp])
             if (cnt % 10) == 0:
                 print "Get ", cnt + self.cur_get, \
@@ -287,97 +329,14 @@ class CopyS3Dir_Overwrite(CopyS3Dir):
         self.cur_get  += cnt
         self.gerr_cnt += err
         self.gerr_chk += chk
-        self.env.total_get += cnt
+#self.env.total_get += cnt
 
 
-def preCommit(env):
-    # basic PUTs and GETs of fds-src cpp files
-    smoke_ds0 = FdsDataSet('smoke_vol0', env.env_fdsSrc, '*.cpp')
-    smoke0 = CopyS3Dir(env, smoke_ds0)
 
-    smoke0.runTest()
-#    smoke0.resetTest()
-#    smoke0.runTest()
-#    smoke0.resetTest()
-#    smoke0.runTest()
-#    smoke0.resetTest()
-#    smoke0.runTest()
-#    smoke0.resetTest()
-#    smoke0.runTest()
-#    smoke0.resetTest()
-#    smoke0.runTest()
-#    smoke0.resetTest()
-
-    smoke0.exitOnError()
-
-def stressIO(env):
-
-    # seq write, then seq read
-    smoke_ds1 = FdsDataSet('smoke_vol1', data_set_dir, '*.jpg')
-    smoke1 = CopyS3Dir(env, smoke_ds1)
-
-    smoke1.runTest()
-    smoke1.resetTest()
-    smoke1.runTest()
-    smoke1.resetTest()
-    smoke1.runTest()
-    smoke1.resetTest()
-    smoke1.runTest()
-    smoke1.resetTest()
-    smoke1.runTest()
-    smoke1.resetTest()
-
-    smoke1.exitOnError()
-
-    # write from in burst of 10
-#smoke_ds2 = FdsDataSet('smoke_vol2', data_set_dir, '*.jpg')
-#    smoke2 = CopyS3Dir(env, smoke_ds2)
-#    smoke2.runTest(10)
-#    smoke2.exitOnError()
-
-    # write from in burst of 10-5 (W-R)
-#    smoke_ds3 = FdsDataSet('smoke_vol3', data_set_dir, '*.jpg')
-#    smoke3 = CopyS3Dir_PatternRW(env, smoke_ds3)
-#    smoke3.runTest(10, 5)
-#    smoke3.exitOnError()
-
-    # write from in burst of 10-3 (W-R)
-#    smoke_ds4 = FdsDataSet('smoke_vol4', data_set_dir, '*.jpg')
-#    smoke4 = CopyS3Dir_PatternRW(env, smoke_ds4)
-#    smoke4.runTest(10, 3)
-#    smoke4.exitOnError()
-
-    # write from in burst of 1-1 (W-R)
-#    smoke_ds5 = FdsDataSet('smoke_vol5', data_set_dir, '*.jpg')
-#    smoke5 = CopyS3Dir_PatternRW(env, smoke_ds5)
-#    smoke5.runTest(1, 1)
-#    smoke5.exitOnError()
-
-    # write from ~/temp/demo_data folder in burst of 10
-#    demo_ds = FdsDataSet('volume6', data_set_dir, '*.jpg')
-#    demo = CopyS3Dir(env, demo_ds)
-#    demo.runTest()
-
-#    subprocess.call(['sleep', '200']);
-
-def migration(env):
-
-    # testing migration
-    # seq write, then seq read
-    smoke_ds1 = FdsDataSet('checker', data_set_dir, '*.jpg')
-    smoke1 = CopyS3Dir(env, smoke_ds1)
-    smoke1.runTest()
-    smoke1.exitOnError()
-
-def blobOverwrite(env):
-
-    # seq write, then seq read
-    smoke_ds1 = FdsDataSet('smoke_vol1', data_set_dir, '*.jpg')
-    smoke1 = CopyS3Dir_Overwrite(env, smoke_ds1)
-    smoke1.runTest()
-    smoke1.exitOnError()
-
-def bringupCluster(env, cfgFile, verbose, debug):
+#########################################################################################
+## Cluster bring up
+## ----------------
+def bringupCluster(env, bu, cfgFile, verbose, debug):
     env.cleanup()
     print "\nSetting up private fds-root in " + bu.getCfgField('node1', 'fds_root') + '[1-4]'
     root1 = bu.getCfgField('node1', 'fds_root')
@@ -413,22 +372,6 @@ def bringupCluster(env, cfgFile, verbose, debug):
 
     os.chdir(env.env_fdsSrc)
 
-def bringupClusterCLI(env, cfgFile, verbose, debug):
-    env.cleanup()
-    print "\nSetting up private fds-root in " + bu.getCfgField('node1', 'fds_root') + '[1-4]'
-    root1 = bu.getCfgField('node1', 'fds_root')
-    root2 = bu.getCfgField('node2', 'fds_root')
-    root3 = bu.getCfgField('node3', 'fds_root')
-    root4 = bu.getCfgField('node4', 'fds_root')
-    FdsSetupNode(env.env_fdsSrc, root1)
-    FdsSetupNode(env.env_fdsSrc, root2)
-    FdsSetupNode(env.env_fdsSrc, root3)
-    FdsSetupNode(env.env_fdsSrc, root4)
-
-    print "\n\nStarting Cluster on node1...."
-    subprocess.Popen(['test/bring_up.py', '--file', cfgFile, '--verbose', verbose, '--debug', debug, '--up'],
-                     stderr=subprocess.STDOUT)
-
 def startSM2(args):
     print "\n\nStarting SM on node2...."
     subprocess.Popen(['./StorMgr', '--fds-root', args.root + '/node2', '--fds.sm.data_port=7911',
@@ -453,20 +396,172 @@ def startSM4(args):
                      stderr=subprocess.STDOUT)
     subprocess.call(['sleep', '3'])
 
+def bringupClusterCLI(env, bu, cfgFile, verbose, debug):
+    env.cleanup()
+    print "\nSetting up private fds-root in " + bu.getCfgField('node1', 'fds_root') + ' [1-4]'
+    root1 = bu.getCfgField('node1', 'fds_root')
+    root2 = bu.getCfgField('node2', 'fds_root')
+    root3 = bu.getCfgField('node3', 'fds_root')
+    root4 = bu.getCfgField('node4', 'fds_root')
+    FdsSetupNode(env.env_fdsSrc, root1)
+    FdsSetupNode(env.env_fdsSrc, root2)
+    FdsSetupNode(env.env_fdsSrc, root3)
+    FdsSetupNode(env.env_fdsSrc, root4)
 
-def startIO(env, args):
+    print "\n\nStarting Cluster on node1...."
+    p = subprocess.Popen(['test/bring_up.py', '--file', cfgFile, '--verbose', verbose, '--debug', debug, '--up'],
+                         stderr=subprocess.STDOUT)
+    p.wait()
+    print "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+
+def bringupNode(env, bu, cfgFile, verbose, debug, node):
+    root1 = bu.getCfgField('node1', 'fds_root')
+    root2 = bu.getCfgField('node2', 'fds_root')
+    root3 = bu.getCfgField('node3', 'fds_root')
+    root4 = bu.getCfgField('node4', 'fds_root')
+
+    print "\n\nBringup new node.... ", node
+    p = subprocess.Popen(['test/bring_up.py', '--file', cfgFile, '--verbose', verbose, '--debug', debug, '--up', '--section', node],
+                         stderr=subprocess.STDOUT)
+    p.wait()
+    print "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+
+
+
+#########################################################################################
+## I/O Load generation
+## -------------------
+def preCommit(volume_name, data_dir):
     # basic PUTs and GETs of fds-src cpp files
-    preCommit(env)
+    smoke_ds0 = FdsDataSet(volume_name, data_dir, '*.cpp')
+    smoke0 = CopyS3Dir(smoke_ds0)
 
-    if args.smoke_test == 'true':
+    smoke0.runTest()
+    smoke0.resetTest()
+
+    smoke0.exitOnError()
+
+def stressIO(volume_name, data_dir):
+
+    # seq write, then seq read
+    smoke_ds1 = FdsDataSet(volume_name, data_dir, '*.jpg')
+    smoke1 = CopyS3Dir(smoke_ds1)
+
+    smoke1.runTest()
+    smoke1.resetTest()
+
+    smoke1.exitOnError()
+
+    # write from in burst of 10
+    smoke_ds2 = FdsDataSet(volume_name, data_dir, '*.jpg')
+    smoke2 = CopyS3Dir(smoke_ds2)
+    smoke2.runTest(10)
+    smoke2.exitOnError()
+
+    # write from in burst of 10-5 (W-R)
+    smoke_ds3 = FdsDataSet(volume_name, data_dir, '*.jpg')
+    smoke3 = CopyS3Dir_PatternRW(smoke_ds3)
+    smoke3.runTest(10, 5)
+    smoke3.exitOnError()
+
+    # write from in burst of 10-3 (W-R)
+    smoke_ds4 = FdsDataSet(volume_name, data_dir, '*.jpg')
+    smoke4 = CopyS3Dir_PatternRW(smoke_ds4)
+    smoke4.runTest(10, 3)
+    smoke4.exitOnError()
+
+    # write from in burst of 1-1 (W-R)
+    smoke_ds5 = FdsDataSet(volume_name, data_dir, '*.jpg')
+    smoke5 = CopyS3Dir_PatternRW(smoke_ds5)
+    smoke5.runTest(1, 1)
+    smoke5.exitOnError()
+
+def blobOverwrite(volume_name, data_dir):
+
+    # seq write, then seq read
+    smoke_ds1 = FdsDataSet(volume_name, data_dir, '*.jpg')
+    smoke1 = CopyS3Dir_Overwrite(smoke_ds1)
+    smoke1.runTest()
+    smoke1.exitOnError()
+
+def stressIO_GET(volume_name, data_dir):
+    # seq write, then seq read
+    smoke_ds1 = FdsDataSet(volume_name, data_dir, '*.jpg')
+    smoke1 = CopyS3Dir_GET(smoke_ds1)
+
+    smoke1.runTestAll()
+    smoke1.resetTest()
+
+    smoke1.exitOnError()
+
+def startIOHelper(volume_name, data_set_dir, loop):
+    i = 0
+    while i < loop or loop == 0:
+        # basic PUTs and GETs of fds-src cpp files
+        preCommit(volume_name, data_set_dir)
+
         # stress I/O
-        stressIO(env)
-
-        # migration test
-        # migration(env)
+        stressIO(volume_name, data_set_dir)
 
         # blob over-write
-        blobOverwrite(env)
+        blobOverwrite(volume_name, data_set_dir)
+        i += 1
+
+def startIOHelperThrd(volume_name, data_set_dir, loop):
+    # sys.stdout = open('/tmp/smoke_io-' + str(os.getpid()) + ".out", "w")
+    sys.stdout = open('/tmp/smoke_io.out', "w")
+    startIOHelper(volume_name, data_set_dir, loop)
+
+def startIO(volume_name, data_set_dir, async, loop):
+    if async == True:
+        startIOProcess = Process(target=startIOHelperThrd, args=(volume_name, data_set_dir, loop))
+        startIOProcess.start()
+    else:
+        startIOHelper(volume_name, data_set_dir, loop)
+        startIOProcess = None
+    return startIOProcess
+
+# -------------------------------------------------------------------
+
+def startIO_GETHelper(volume_name, data_set_dir, loop):
+    i = 0
+    while i < loop or loop == 0:
+        # stress I/O
+        stressIO_GET(volume_name, data_set_dir)
+        i += 1
+
+def startIO_GETHelperThrd(volume_name, data_set_dir, loop):
+    # sys.stdout = open('/tmp/smoke_io-' + str(os.getpid()) + ".out", "w")
+    sys.stdout = open('/tmp/smoke_io.out', "w")
+    startIO_GETHelper(volume_name, data_set_dir, loop)
+
+def startIO_GET(volume_name, data_set_dir, async, loop):
+    if async == True:
+        startIOProcess = Process(target=startIO_GETHelperThrd, args=(volume_name, data_set_dir, loop))
+        startIOProcess.start()
+    else:
+        startIO_GETHelper(volume_name, data_set_dir, loop)
+        startIOProcess = None
+    return startIOProcess
+
+def waitIODone(p):
+    if p != None:
+        while p.is_alive():
+            print "Waiting for process to complete: "
+            p.join(60)
+        if p.exitcode != 0:
+            print "Process terminated with Failure: "
+            sys.exit(p.exitcode)
+        print "Async Process terminated: "
+    print "Sync Process terminated: "
+#########################################################################################
+
+def exitTest(env):
+    print "Total PUTs: ", env.total_put
+    print "Total GETs: ", env.total_get
+    print "Test Passed, cleaning up..."
+    # env.shut_down()
+    sys.exit(0)
 
 data_set_dir = None
 
@@ -484,6 +579,8 @@ if __name__ == "__main__":
     data_set_dir = args.data_set
     verbose = args.verbose
     debug = args.debug
+    async_io = True
+    loop = 1
 
     #
     # Load the configuration files
@@ -495,33 +592,31 @@ if __name__ == "__main__":
     #
     # Bring up the cluster
     #
-    # bringupCluster(env, cfgFile, verbose, debug)
-    bringupClusterCLI(env, cfgFile, verbose, debug)
+    # bringupCluster(env, bu, cfgFile, verbose, debug)
+    bringupClusterCLI(env, bu, cfgFile, verbose, debug)
+
+    if args.smoke_test == 'false':
+        preCommit('volume_smoke1', env.env_fdsSrc)
+        exitTest(env)
 
     #
+    # Start Smoke Test
     # Start sync-IO
-    #
-
-    #
     # Start async-IO
     #
+    p = startIO('volume_smoke1', data_set_dir, async_io, loop)
+# p = startIO_GET('volume_smoke1', data_set_dir, True, loop)
 
 
+    #
     # Bring up more node/delete node test
+    #
+    bringupNode(env, bu, cfgFile, verbose, debug, 'node2')
+    bringupNode(env, bu, cfgFile, verbose, debug, 'node3')
+    bringupNode(env, bu, cfgFile, verbose, debug, 'node4')
 
-
-
-
-
-    #startIO(env, args)
-#    startSM2(args);
-#startSM3(args);
-#startSM4(args);
-
-
-    # do shut_down clients on cleanup test run
-    print "Total PUTs: ", env.total_put
-    print "Total GETs: ", env.total_get
-    print "Test Passed, cleaning up..."
-    # env.shut_down()
-    sys.exit(0)
+    #
+    # Wait for async I/O to complete
+    #
+    waitIODone(p)
+    exitTest(env)
