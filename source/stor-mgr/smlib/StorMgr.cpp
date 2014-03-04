@@ -1386,22 +1386,38 @@ ObjectStorMgr::enqTransactionIo(FDSP_MsgHdrTypePtr msgHdr,
         const ObjectID& obj_id,
         SmIoReq *ioReq, TransJournalId &trans_id)
 {
+    // TODO(Rao): Refactor create_transaction so that it just takes key and cb as
+    // params
     Error err = omJrnl->create_transaction(obj_id,
-            static_cast<FDS_IOType *>(ioReq), trans_id);
+            static_cast<FDS_IOType *>(ioReq), trans_id,
+            std::bind(&ObjectStorMgr::create_transaction_cb, this,
+                    msgHdr, ioReq, std::placeholders::_1));
     if (err != ERR_OK &&
         err != ERR_TRANS_JOURNAL_REQUEST_QUEUED) {
         return err;
     }
-
-    ioReq->setTransId(trans_id);
-    ObjectIdJrnlEntry *jrnlEntry = omJrnl->get_transaction(trans_id);
-    jrnlEntry->setMsgHdr(msgHdr);
 
     if (err == ERR_TRANS_JOURNAL_REQUEST_QUEUED) {
         return ERR_OK;
     }
     err = qosCtrl->enqueueIO(ioReq->getVolId(), static_cast<FDS_IOType*>(ioReq));
     return err;
+}
+
+/**
+ * This callback is invoked after creating a trasaction.
+ * Though it's ugly, it's necessary so we can do the necessary work after
+ * creating transaction under lock
+ * @param msgHdr
+ * @param ioReq
+ * @param trans_id
+ */
+void ObjectStorMgr::create_transaction_cb(FDSP_MsgHdrTypePtr msgHdr,
+        SmIoReq *ioReq, TransJournalId trans_id)
+{
+    ioReq->setTransId(trans_id);
+    ObjectIdJrnlEntry *jrnlEntry = omJrnl->get_transaction_nolock(trans_id);
+    jrnlEntry->setMsgHdr(msgHdr);
 }
 
 Error

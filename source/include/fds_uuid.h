@@ -48,7 +48,10 @@ inline fds_uint64_t fds_get_uuid64(const std::string& str) {
         v64 = (*const_it++);
         ret_val |= (v64 << shift);
     }
-    return ret_val;
+    // TODO(Anna) since we are casting uint64 to int64 uuids at this
+    // moment, set the most significant bit to 0, so that
+    // we don't lose info when casting between signed and unsigned
+    return (ret_val & 0x7FFFFFFFFFFFFFFF);
 }
 
 }  // namespace fds
