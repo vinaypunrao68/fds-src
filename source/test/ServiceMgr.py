@@ -572,7 +572,7 @@ class ClientService():
         cmd = "./" + client.getAmCmd() + " --fds-root=" + client.root + \
             " --om_ip=" + self.deployer.getOmIpStr() + \
             " --om_port=" + str(self.deployer.getOmCtrlPort()) + " --node_name=localhost-" + client.name + \
-            " --log-severity=" + str(client.getLogSeverity())
+            " --fds.am.log_severity=" + str(client.getLogSeverity())
         return cmd
 
     ## Returns client object by ID
