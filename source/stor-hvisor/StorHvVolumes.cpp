@@ -345,8 +345,9 @@ StorHvVolume* StorHvVolumeTable::getVolume(fds_volid_t vol_uuid)
     ret_vol = volume_map[vol_uuid];
   }
   else {
-    FDS_PLOG_SEV(vt_log, fds::fds_log::warning) << "StorHvVolumeTable::getVolume - Volume " << vol_uuid
-                     << " does not exist";    
+    FDS_PLOG_SEV(vt_log, fds::fds_log::warning) << "StorHvVolumeTable::getVolume - Volume "
+						<< std::hex << vol_uuid << std::dec
+						<< " does not exist";    
   }
   map_rwlock.read_unlock();
 

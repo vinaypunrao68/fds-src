@@ -102,7 +102,7 @@
 #define td_flag_clear(word, flag)    ((word) &= ~(flag))
 #define td_flag_test(word, flag)     ((word) & (flag))
 
-typedef uint64_t                     td_uuid_t;
+typedef int64_t                      td_uuid_t;
 typedef uint32_t                     td_flag_t;
 typedef uint64_t                     td_sector_t;
 typedef struct td_disk_id            td_disk_id_t;
