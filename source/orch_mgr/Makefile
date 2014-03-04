@@ -9,7 +9,6 @@ user_build_dir    := \
 	om-common \
 	om-lib \
 	om-discovery \
-	om-glue \
 	java
 
 user_fds_ar_libs  := \
@@ -35,7 +34,7 @@ user_non_fds_libs := \
     boost_program_options \
     leveldb \
     config++ \
-	hiredis \
+    hiredis \
     thrift
 
 # TODO: need to move Catalog.h to include, avoid cross module include ref.
@@ -44,11 +43,12 @@ user_incl_dir     := $(topdir) include \
 	$(JAVA_HOME)/include \
 	$(JAVA_HOME)/include/linux
 
-orch_mgr_cpp      := orch-mgr-main.cpp
+orch_mgr_cpp      := $(wildcard *.cpp)
 
-user_ld_flags := -L$(JAVA_HOME)/jre/lib/amd64 -L$(JAVA_HOME)/jre/lib/amd64/server -ljvm
+user_ld_flags := -shared
 
 user_hh           := $(wildcard *.h)
+user_no_style     := $(wildcard com_*.h)
 user_cpp          := $(orch_mgr_cpp)
 user_bin_exe      := orchMgr
 orchMgr           := $(orch_mgr_cpp)

@@ -7,7 +7,6 @@
 #include <string>
 #include <vector>
 #include <orch-mgr/om-service.h>
-#include "./om-glue/JavaMain.h"
 
 namespace fds {
 
@@ -22,6 +21,7 @@ OM_Module::om_singleton()
 
 }  // namespace fds
 
+
 int main(int argc, char *argv[])
 {
     fds::Module *omVec[] = {
@@ -32,7 +32,7 @@ int main(int argc, char *argv[])
     fds::gl_orch_mgr = fds::orchMgr;
 
     fds::orchMgr->setup();
-    std::thread vmThread(fds::startOmJvm);
+    // std::thread vmThread(fds::startOmJvm);
 
     fds::orchMgr->run();
     delete fds::orchMgr;
