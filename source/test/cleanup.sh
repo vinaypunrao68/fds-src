@@ -22,7 +22,7 @@ cleanup_bin_dir()
 
 cleanup_bin_dir "Build/linux-x86_64.debug/bin"
 for f in `echo node2 node3 node4`; do
-    bin_dir=Build/linux-x86_64.debug/$f
+    bin_dir=../Build/linux-x86_64.debug/$f
     echo Cleaning up $bin_dir
     [ -d $bin_dir ] && cleanup_bin_dir $bin_dir
 done
@@ -33,4 +33,9 @@ done
 echo "Cleanning up data dir: /fds/*"
 rm -rf /fds/hdd/sd?
 rm -rf /fds/ssd/sd?
-rm -rf /fds/node?*
+rm -rf /fds-node?/hdd/sd?
+rm -rf /fds-node?/ssd/sd?
+rm -rf /fds-node?/var/*
+rm -rf /fds-am?/var/*
+rm -rf /fds-node?/sys-repo/*
+rm -rf /fds-node?/user-repo/*
