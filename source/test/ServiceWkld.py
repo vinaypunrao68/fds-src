@@ -4,24 +4,48 @@
 # Tests basic Amazon S3 functionality.
 import boto
 from boto.s3.connection import S3Connection, OrdinaryCallingFormat
+import random
+import os
+import binascii
 
+class GenObjectData():
+    maxDataSize = None
+    def __init__(self, maxDataSize):
+        self.maxDataSize = maxDataSize
+
+    ## Generates random data of a random size
+    #
+    # If no size is provided, size of data is random
+    # but limited to max size
+    def genRandData(self, size = None):
+        if size == None:
+            size = random.randrange(1, self.maxDataSize)
+
+        data = os.urandom(size)
+        return data
 #
 # Describes s3 testing paramters
 #
-class S3Tester():
+class S3Wkld():
     s3Connections  = []
     numConnections = 1
     host           = "s3.amazonaws.com"
     port           = None
     bucketsPerConn = 2
     objectsPerConn = 5
-    namePrefix     = "fds-s3-tester-"
-    bucketPrefix   = "bucket-"
+    namePrefix     = "" #"fds-s3-tester-"
+    bucketPrefix   = "" #"bucket-"
     objectPrefix   = "object-"
+    debug          = False
+    verbose        = False
+    aws_access_key = "AKIAIJO5J2DALN2WTEMA"
+    aws_secret_key = "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"
 
     def __init__(self,
                  _host  = None,
                  _port  = None,
+                 _verbose = None,
+                 _debug = None,
                  _conns = None,
                  _bucks = None,
                  _objs  = None):
@@ -29,6 +53,10 @@ class S3Tester():
             self.host = _host
         if _port != None:
             self.port = int(_port)
+        if _verbose == True:
+            self.verbose = _verbose
+        if _debug == True:
+            self.debug = _debug
         if _conns != None:
             self.numConnections = int(_conns)
         if _bucks != None:
@@ -40,6 +68,9 @@ class S3Tester():
     # Opens remote host connections
     #
     def openConns(self):
+        debugLevel = 0
+        if self.debug == True:
+            debugLevel = 2
         for i in range(0, self.numConnections):
             if self.port == None:
                 self.s3Connections.append(boto.connect_s3(host=self.host,
@@ -47,9 +78,12 @@ class S3Tester():
                                                           calling_format = OrdinaryCallingFormat(),
                                                           is_secure=False))
             else:
-                self.s3Connections.append(boto.connect_s3(host=self.host,
+                self.s3Connections.append(boto.connect_s3(aws_access_key_id=self.aws_access_key,
+                                                          aws_secret_access_key=self.aws_secret_key,
+                                                          host=self.host,
                                                           proxy=self.host,
                                                           proxy_port=self.port,
+                                                          debug=debugLevel,
                                                           calling_format = OrdinaryCallingFormat(),
                                                           is_secure=False))
             assert(self.s3Connections[i] != None)
@@ -88,7 +122,8 @@ class S3Tester():
         if s3Conn == None:
             return None
         buckets = s3Conn.get_all_buckets()
-        print "S3 connection", index , "has buckets", buckets
+        if self.verbose == True:
+            print "S3 connection", index , "has buckets", buckets
         return buckets
 
     #
@@ -101,7 +136,8 @@ class S3Tester():
             return None
         bucketName = self.namePrefix + self.bucketPrefix + name
         bucket = s3Conn.create_bucket(bucketName)
-        print "In S3 connection", index, "created bucket", bucket
+        if self.verbose == True:
+            print "In S3 connection", index, "created bucket", bucket
         return bucket
 
     #
@@ -129,7 +165,8 @@ class S3Tester():
         keyFactory = boto.s3.key.Key(bucket)
         keyFactory.key = name
         bytesPut = keyFactory.set_contents_from_string(data)
-        print "In S3 connection", index, "put", bytesPut, "bytes for data", data
+        if self.verbose == True:
+            print "In S3 connection", index, "put", bytesPut, "bytes for object", name
         keyFactory.close()
         return True
 
@@ -141,7 +178,8 @@ class S3Tester():
         keyFactory = boto.s3.key.Key(bucket)
         keyFactory.key = name
         data = keyFactory.get_contents_as_string()
-        print "In S3 connection", index, "got", data
+        if self.verbose == True:
+            print "In S3 connection", index, "got", len(data), "bytes for object", name
         keyFactory.close()
         return data
 
@@ -153,6 +191,7 @@ class S3Tester():
         keyFactory = boto.s3.key.Key(bucket)
         keyFactory.key = name
         keyFactory.delete()
-        print "In S3 connection", index, "deleted key", name
+        if self.verbose == True:
+            print "In S3 connection", index, "deleted key", name
         keyFactory.close()
         return True

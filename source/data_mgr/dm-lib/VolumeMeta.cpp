@@ -5,6 +5,7 @@
 #include <string>
 
 #include <VolumeMeta.h>
+#include <fds_process.h>
 
 namespace fds {
 
@@ -24,18 +25,22 @@ VolumeMeta::VolumeMeta()
 */
 
 VolumeMeta::VolumeMeta(const std::string& _name,
-                       fds_uint64_t _uuid,VolumeDesc* desc)
-    : dm_log(NULL) {
+                       fds_int64_t _uuid,VolumeDesc* desc)
+    : dm_log(NULL)
+{
+    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
 
-  vol_mtx = new fds_mutex("Volume Meta Mutex");
-  vol_desc = new VolumeDesc(_name, _uuid);
-  dmCopyVolumeDesc(vol_desc, desc);
-  vcat = new VolumeCatalog(_name + "_vcat.ldb");
-  tcat = new TimeCatalog(_name + "_tcat.ldb");
+    vol_mtx = new fds_mutex("Volume Meta Mutex");
+    vol_desc = new VolumeDesc(_name, _uuid);
+    dmCopyVolumeDesc(vol_desc, desc);
+
+    root->fds_mkdir(root->dir_user_repo_dm().c_str());
+    vcat = new VolumeCatalog(root->dir_user_repo_dm() + _name + "_vcat.ldb");
+    tcat = new TimeCatalog(root->dir_user_repo_dm() + _name + "_tcat.ldb");
 }
 
 VolumeMeta::VolumeMeta(const std::string& _name,
-                       fds_uint64_t _uuid,
+                       fds_int64_t _uuid,
                        fds_log* _dm_log,VolumeDesc* _desc)
     : VolumeMeta(_name, _uuid, _desc) {
 

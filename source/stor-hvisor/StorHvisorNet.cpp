@@ -55,7 +55,7 @@ void CreateSHMode(int argc,
 
   if (test_mode == true) {
     storHvisor = new StorHvCtrl(argc, argv, io_dm.get_sys_params(),
-        StorHvCtrl::TEST_BOTH, sm_port, dm_port,"fds.conf");
+        StorHvCtrl::TEST_BOTH, sm_port, dm_port);
   } else {
     storHvisor = new StorHvCtrl(argc, argv, io_dm.get_sys_params(),
         StorHvCtrl::NORMAL);
@@ -93,21 +93,24 @@ StorHvCtrl::StorHvCtrl(int argc,
                        SysParams *params,
                        sh_comm_modes _mode,
                        fds_uint32_t sm_port_num,
-                       fds_uint32_t dm_port_num,
-		       std::string config_path)
+                       fds_uint32_t dm_port_num)
   : mode(_mode) { 
   std::string  omIpStr;
   fds_uint32_t omConfigPort;
   std::string node_name = "localhost-sh";
   omConfigPort = 0;
-  boost::shared_ptr<FdsConfig> config (new FdsConfig(config_path,argc,argv));
-   
+  FdsConfigAccessor config(g_fdsprocess->get_conf_helper());
+
   /*
    * Parse out cmdline options here.
    * TODO: We're parsing some options here and
    * some in ubd. We need to unify this.
    */
-
+  config.set_base_path("");
+  if (mode == NORMAL) {
+    omIpStr = config.get<string>("fds.om.IPAddress");
+    omConfigPort = config.get<int>("fds.om.PortNumber");
+  }
   for (int i = 1; i < argc; i++) {
     if (strncmp(argv[i], "--om_ip=", 8) == 0) {
       if (mode == NORMAL) {
@@ -118,8 +121,8 @@ StorHvCtrl::StorHvCtrl(int argc,
         omIpStr = argv[i] + 8;
       }
     } else if (strncmp(argv[i], "--om_port=", 10) == 0) {
-      if (mode == NORMAL) 
-      	  omConfigPort = strtoul(argv[i] + 10, NULL, 0);
+      if (mode == NORMAL)
+        omConfigPort = strtoul(argv[i] + 10, NULL, 0);
     }  else if (strncmp(argv[i], "--node_name=", 12) == 0) {
       node_name = argv[i] + 12;
     } 
@@ -130,11 +133,6 @@ StorHvCtrl::StorHvCtrl(int argc,
      */
   }
   my_node_name = node_name;
-  
-  if ((mode == NORMAL) && (argc == 1)) {
-        omIpStr = config->get<string>("fds.om.IPAddress");
-      	 omConfigPort = config->get<int>("fds.om.PortNumber");
-  }
 
   sysParams = params;
 
@@ -166,7 +164,7 @@ StorHvCtrl::StorHvCtrl(int argc,
                              omIpStr,
                              omConfigPort,
                              myIp,
-                             config->get<int>("fds.om.DataPort"),
+                             config.get<int>("fds.om.DataPort"),
                              node_name,
                              sh_log,
                              rpcSessionTbl);
@@ -185,7 +183,7 @@ StorHvCtrl::StorHvCtrl(int argc,
   qos_ctrl = new StorHvQosCtrl(50, fds::FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET, sh_log);
   om_client->registerThrottleCmdHandler(StorHvQosCtrl::throttleCmdHandler);
   qos_ctrl->registerOmClient(om_client); /* so it will start periodically pushing perfstats to OM */
-  om_client->startAcceptingControlMessages(config->get<int>("fds.om.ControlPort"));
+  om_client->startAcceptingControlMessages(config.get<int>("fds.om.ControlPort"));
 
 
   /* TODO: for now StorHvVolumeTable constructor will create 
@@ -221,9 +219,9 @@ StorHvCtrl::StorHvCtrl(int argc,
     if (dm_port_num != 0) {
       dataMgrPortNum = dm_port_num;
     } else {
-      dataMgrPortNum = config->get<int>("fds.dm.PortNumber");
+      dataMgrPortNum = config.get<int>("fds.dm.PortNumber");
     }
-    dataMgrIPAddress = config->get<string>("fds.dm.IPAddress");
+    dataMgrIPAddress = config.get<string>("fds.dm.IPAddress");
     storHvisor->rpcSessionTbl->
             startSession<netMetaDataPathClientSession>(dataMgrIPAddress,
                   (fds_int32_t)dataMgrPortNum,
@@ -234,9 +232,9 @@ StorHvCtrl::StorHvCtrl(int argc,
     if (sm_port_num != 0) {
       storMgrPortNum = sm_port_num;
     } else {
-      storMgrPortNum  = config->get<int>("fds.sm.PortNumber");
+      storMgrPortNum  = config.get<int>("fds.sm.PortNumber");
     }
-    storMgrIPAddress  = config->get<string>("fds.sm.IPAddress");
+    storMgrIPAddress  = config.get<string>("fds.sm.IPAddress");
     storHvisor->rpcSessionTbl->
             startSession<netDataPathClientSession>(storMgrIPAddress,
                   (fds_int32_t)storMgrPortNum,
@@ -274,7 +272,7 @@ StorHvCtrl::StorHvCtrl(int argc,
  * Constructor uses comm with DM and SM if no mode provided.
  */
 StorHvCtrl::StorHvCtrl(int argc, char *argv[], SysParams *params)
-    : StorHvCtrl(argc, argv, params, NORMAL, 0, 0, "fds.conf") {
+    : StorHvCtrl(argc, argv, params, NORMAL, 0, 0) {
 
 }
 
@@ -282,7 +280,7 @@ StorHvCtrl::StorHvCtrl(int argc,
                        char *argv[],
                        SysParams *params,
                        sh_comm_modes _mode)
-    : StorHvCtrl(argc, argv, params, _mode, 0, 0, "fds.conf") {
+    : StorHvCtrl(argc, argv, params, _mode, 0, 0) {
 }
 
 StorHvCtrl::~StorHvCtrl()

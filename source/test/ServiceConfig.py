@@ -17,6 +17,7 @@ class TestBringUp():
     #
     cfgFile   = None
     nodeIds   = []
+    nodeIdsEnable = []
     clientIds = []
     volumeIds = []
     policyIds = []
@@ -125,6 +126,7 @@ class TestBringUp():
         clientIp  = None
         clientBlk = None
         clientLog = None
+        root      = None
         for item in items:
             key   = item[0]
             value = item[1]
@@ -137,11 +139,13 @@ class TestBringUp():
                     clientBlk = False
             elif key == "log_severity":
                 clientLog = int(value)
+            elif key == "fds_root":
+                root = value
             else:
                 print "Unknown item %s, %s in %s" % (key, value, name)
 
         # Add client to the inventory
-        ident = self.deployer.clientService.addClient(name, clientIp, clientBlk, clientLog)
+        ident = self.deployer.clientService.addClient(name, clientIp, clientBlk, clientLog, root)
         # Keep a record of the client's ID
         self.clientIds.append(ident)
 
@@ -159,6 +163,7 @@ class TestBringUp():
         omCtrlP = None
         log     = None
         root    = None
+        enable  = True
         for item in items:
             key = item[0]
             value = item[1]
@@ -183,6 +188,8 @@ class TestBringUp():
                 log = int(value)
             elif key == "fds_root":
                 root = value
+            elif key == "enable":
+                enable = value
             else:
                 print "Unknown item %s, %s in %s" % (key, value, name)
         
@@ -205,6 +212,7 @@ class TestBringUp():
                                                   mp, omCtrlP, log, root)
         # Keep a record of the node's ID
         self.nodeIds.append(ident)
+        self.nodeIdsEnable.append(enable)
 
     ##
     # Parses the cfg file and populates
@@ -238,6 +246,54 @@ class TestBringUp():
             if self.verbose == True:
                 print "Parsed section %s with items %s" % (section,
                                                            self.config.items(section))
+    def getSectionField(self, section, items, field):
+        for i in items:
+            if i[0] == field:
+                return i[1]
+        return "ERROR_NOT_FOUND"
+
+    def getCfgField(self, sectName, field):
+        self.config = ConfigParser.ConfigParser()
+        self.config.read(self.cfgFile)
+
+        #
+        # Iterate over each section
+        #
+        for section in self.config.sections():
+            if sectName == section:
+                if self.verbose == True:
+                    print "Parsed section %s with items %s" % (section,
+                                                               self.config.items(section))
+                return self.getSectionField(section, self.config.items(section), field)
+
+        return None
+
+    ## Returns list of all node sections
+    #
+    def getNodeSections(self):
+        sections = []
+        for nodeId in self.nodeIds:
+            section = self.deployer.nodeService.getNodeName(nodeId)
+            sections.append(section)
+        return sections
+
+    ## Returns true if node section can run an OM
+    def isNodeSectionOm(self, _section):
+        return self.deployer.nodeService.isOmByName(_section)
+
+    ## Returns true if a node section is enable
+    def isNodeIdEnable(self, nodeId):
+        return self.nodeIdsEnable[nodeId] == True
+
+    ## Gets the first (usually only) node section
+    # that can run an OM, none if none exists
+    def getOmNodeSection(self):
+        sections = self.getNodeSections()
+        for section in sections:
+            isOm = self.isNodeSectionOm(section)
+            if isOm == True:
+                return section
+        return None
 
     ##
     # Deploys all policies in the inventory
@@ -277,21 +333,23 @@ class TestBringUp():
         # Bring up a node with OM service first
         #
         for nodeId in self.nodeIds:
-            if self.deployer.nodeService.isOM(nodeId):
-                result = self.deployer.nodeService.deployNode(nodeId)
-                if result != 0:
-                    return result
-                upAlready = nodeId
-                break
+            if self.isNodeIdEnable(nodeId):
+                if self.deployer.nodeService.isOm(nodeId):
+                    result = self.deployer.nodeService.deployNode(nodeId)
+                    if result != 0:
+                        return result
+                    upAlready = nodeId
+                    break
 
         #
         # Bring up other node services
         #
         for nodeId in self.nodeIds:
-            if nodeId != upAlready:
-                result = self.deployer.nodeService.deployNode(nodeId)
-                if result != 0:
-                    return result
+            if self.isNodeIdEnable(nodeId):
+                if nodeId != upAlready:
+                    result = self.deployer.nodeService.deployNode(nodeId)
+                    if result != 0:
+                        return result
         return 0
 
     ##
@@ -330,11 +388,18 @@ class TestBringUp():
     # from the section name passed in.
     # We're assuming that the section name matches the name of the
     # service/resource of that type
-    def bringUpSection(self, section):
+    def bringUpSection(self, section, service=None):
         if re.match(self.node_sec_prefix, section) != None:
-            result = self.deployer.nodeService.deployNodeByName(section)
-            if result != 0:
-                return result
+            # Deploy all services
+            if service == None:
+                result = self.deployer.nodeService.deployNodeByName(section)
+                if result != 0:
+                    return result
+            else:
+                # Deploy a specific service
+                result = self.deployer.nodeService.deployNodeServiceByName(section, service)
+                if result != 0:
+                    return result
         elif re.match(self.sh_sec_prefix, section) != None:
             result = self.deployer.clientService.deployClientByName(section)
         else:
@@ -357,4 +422,22 @@ class TestBringUp():
             result = self.deployer.clientService.undeployClientByName(section)
         else:
             assert(0)
+        return 0
+
+    ## Shuts down a specific section of the config file
+    #
+    # A shutdown is a clean undeployment path. A shutdown
+    # removes the section from the cluster but may not
+    # shutdown the process
+    def shutdownSection(self, section, service=None):
+        # Currently only handle node/SM sections
+        if re.match(self.node_sec_prefix, section) != None:
+            # TODO: Don't just hard code to SM
+            assert(service == "SM")
+            result = self.deployer.nodeService.shutdownNodeServiceByName(section, service)
+            if result != 0:
+                return result
+        else:
+            assert(0)
+
         return 0

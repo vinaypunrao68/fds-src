@@ -4,5 +4,5 @@ user_rtime_env := user
 user_build_dir := 
 user_hh        := $(wildcard *.h)
 user_hpp       := $(wildcard *.h)
-user_no_style  := 
+user_no_style  := configdb.h
 include $(topdir)/Makefile.incl

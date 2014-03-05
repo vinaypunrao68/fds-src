@@ -1,9 +1,15 @@
+/*
+ * Copyright 2013 Formation Data Systems, Inc.
+ */
 #ifndef _TRANS_JOURNAL_H_
 #define _TRANS_JOURNAL_H_
 
 #include <queue>
+#include <deque>
 #include <unordered_map>
+#include <functional>
 #include <concurrency/Mutex.h>
+#include <boost/shared_ptr.hpp>
 #include <boost/thread/condition.hpp>
 #include "fds_types.h"
 #include <qos_ctrl.h>
@@ -17,12 +23,13 @@ using namespace fds;
 
 namespace fds {
 
-
+class TransJournalUt;
 typedef unsigned int TransJournalId;
 
 template<typename KeyT, typename JEntryT>
 class TransJournal {
 public:
+  friend class TransJournalUt;
   const static TransJournalId INVALID_TRANS_ID = (TransJournalId) -1;
 
   struct TransJournalKeyInfo {
@@ -46,9 +53,13 @@ public:
 	TransJournal(unsigned int max_jrnl_entries, FDS_QoSControl *qos_controller, fds_log *log);
  	~TransJournal();
 
- 	Error create_transaction(const KeyT& key, FDS_IOType *io, TransJournalId &trans_id);
+ 	Error create_transaction(const KeyT& key, FDS_IOType *io,
+ 	        TransJournalId &trans_id,
+ 	        std::function<void(TransJournalId)> cb);
+
  	JEntryT* get_transaction(const TransJournalId &trans_id);
- 	void release_transaction(TransJournalId &trans_id);
+ 	JEntryT* get_transaction_nolock(const TransJournalId &trans_id);
+ 	void release_transaction(const TransJournalId &trans_id);
 
  	uint32_t get_active_cnt() {return _active_cnt;}
  	uint32_t get_pending_cnt() {return _pending_cnt;}
@@ -61,7 +72,7 @@ private:
   fds_mutex *_jrnl_tbl_mutex;
   JEntryT  *_rwlog_tbl;
   KeyToTransInfoTable _key_to_transinfo_tbl;
-  std::queue<unsigned int> _free_trans_ids;
+  std::deque<unsigned int> _free_trans_ids;
   unsigned int _max_journal_entries;
 
   FDS_QoSControl *_qos_controller;
@@ -71,6 +82,7 @@ private:
   /* Counters */
   uint32_t _active_cnt;
   uint32_t _pending_cnt;
+  uint32_t _rescheduled_cnt;
 };
 
 class ObjectIdJrnlEntry {

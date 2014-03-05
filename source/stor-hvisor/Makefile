@@ -2,13 +2,11 @@ topdir            := ..
 user_target       := exe
 user_rtime_env    := user
 user_build_dir    :=
-user_install_loc  := exe
-user_install      := fds.conf
 
 # TODO: remove the topdir path in the include search
 #
 user_incl_dir     := $(topdir) $(topdir)/fds_client/include $(topdir)/lib
-user_fds_ar_libs  := fds-umod fds-hash 
+user_fds_ar_libs  := fds-umod fds-hash fds_ubd
 StorHvisor_cpp    :=                   \
     StorHvisorNet.cpp                  \
     StorHvisorTest.cpp                  \

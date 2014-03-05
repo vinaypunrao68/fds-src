@@ -97,8 +97,10 @@ Platform::mod_init(SysParams const *const param)
 {
     Module::mod_init(param);
 
-    plf_net_sess = boost::shared_ptr<netSessionTbl>(new netSessionTbl(plf_node_type));
-    plf_rpc_reqt = boost::shared_ptr<PlatRpcReq>(plat_creat_rpc_handler());
+    // NetSession requires localMgrId to be STOR_MGR to setup control path with OM.
+    //
+    plf_net_sess = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_MGR));
+    plf_rpc_reqt = boost::shared_ptr<PlatRpcReqt>(plat_creat_rpc_handler());
 
     return 0;
 }
@@ -132,145 +134,268 @@ Platform::plf_rpc_server_thread()
     plf_net_sess->listenServer(plf_rpc_sess);
 }
 
+// prf_rpc_om_handshake
+// --------------------
+// Perform the handshake connection with OM.
+//
+void
+Platform::plf_rpc_om_handshake()
+{
+    plf_clnt_reqt = boost::shared_ptr<PlatRpcReqt>(new PlatRpcReqt());
+    plf_clnt_resp = boost::shared_ptr<PlatRpcResp>(new PlatRpcResp());
+
+    NodeAgentCpOmClientPtr session(plf_net_sess->
+            startSession<netOMControlPathClientSession>(
+                plf_om_ip_str,
+                plf_om_conf_port,
+                FDSP_ORCH_MGR,
+                1,                /* just one channel for now */
+                plf_clnt_resp));
+}
+
 // --------------------------------------------------------------------------------------
-// RPC handlers
+// RPC request handlers
 // --------------------------------------------------------------------------------------
-PlatRpcReq::PlatRpcReq() {}
-PlatRpcReq::~PlatRpcReq() {}
+PlatRpcReqt::PlatRpcReqt() {}
+PlatRpcReqt::~PlatRpcReqt() {}
 
 void
-PlatRpcReq::NotifyAddVol(const FDSP_MsgHdrType    &fdsp_msg,
-                         const FDSP_NotifyVolType &not_add_vol_req) {}
+PlatRpcReqt::NotifyAddVol(const FDSP_MsgHdrType    &fdsp_msg,
+                          const FDSP_NotifyVolType &not_add_vol_req) {}
 
 void
-PlatRpcReq::NotifyAddVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
+PlatRpcReqt::NotifyAddVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
+                          fpi::FDSP_NotifyVolTypePtr &msg)
+{
+}
+
+void
+PlatRpcReqt::NotifyRmVol(const FDSP_MsgHdrType    &fdsp_msg,
+                         const FDSP_NotifyVolType &not_rm_vol_req) {}
+
+void
+PlatRpcReqt::NotifyRmVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
                          fpi::FDSP_NotifyVolTypePtr &msg)
 {
 }
 
 void
-PlatRpcReq::NotifyRmVol(const FDSP_MsgHdrType    &fdsp_msg,
-                        const FDSP_NotifyVolType &not_rm_vol_req) {}
+PlatRpcReqt::NotifyModVol(const FDSP_MsgHdrType    &fdsp_msg,
+                          const FDSP_NotifyVolType &not_mod_vol_req) {}
 
 void
-PlatRpcReq::NotifyRmVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                        fpi::FDSP_NotifyVolTypePtr &msg)
+PlatRpcReqt::NotifyModVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
+                          fpi::FDSP_NotifyVolTypePtr &msg)
 {
 }
 
 void
-PlatRpcReq::NotifyModVol(const FDSP_MsgHdrType    &fdsp_msg,
-                         const FDSP_NotifyVolType &not_mod_vol_req) {}
+PlatRpcReqt::AttachVol(const FDSP_MsgHdrType    &fdsp_msg,
+                       const FDSP_AttachVolType &atc_vol_req) {}
 
 void
-PlatRpcReq::NotifyModVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                         fpi::FDSP_NotifyVolTypePtr &msg)
+PlatRpcReqt::AttachVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
+                       fpi::FDSP_AttachVolTypePtr &vol_msg)
 {
 }
 
 void
-PlatRpcReq::AttachVol(const FDSP_MsgHdrType    &fdsp_msg,
-                      const FDSP_AttachVolType &atc_vol_req) {}
+PlatRpcReqt::DetachVol(const FDSP_MsgHdrType    &fdsp_msg,
+                       const FDSP_AttachVolType &dtc_vol_req) {}
 
 void
-PlatRpcReq::AttachVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
+PlatRpcReqt::DetachVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
                       fpi::FDSP_AttachVolTypePtr &vol_msg)
 {
 }
 
 void
-PlatRpcReq::DetachVol(const FDSP_MsgHdrType    &fdsp_msg,
-                      const FDSP_AttachVolType &dtc_vol_req) {}
+PlatRpcReqt::NotifyNodeAdd(const FDSP_MsgHdrType     &fdsp_msg,
+                           const FDSP_Node_Info_Type &node_info) {}
 
 void
-PlatRpcReq::DetachVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                      fpi::FDSP_AttachVolTypePtr &vol_msg)
+PlatRpcReqt::NotifyNodeAdd(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
+                           fpi::FDSP_Node_Info_TypePtr &node_info)
 {
 }
 
 void
-PlatRpcReq::NotifyNodeAdd(const FDSP_MsgHdrType     &fdsp_msg,
-                          const FDSP_Node_Info_Type &node_info) {}
+PlatRpcReqt::NotifyNodeRmv(const FDSP_MsgHdrType     &fdsp_msg,
+                           const FDSP_Node_Info_Type &node_info) {}
 
 void
-PlatRpcReq::NotifyNodeAdd(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
-                          fpi::FDSP_Node_Info_TypePtr &node_info)
+PlatRpcReqt::NotifyNodeRmv(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
+                           fpi::FDSP_Node_Info_TypePtr &node_info)
 {
 }
 
 void
-PlatRpcReq::NotifyNodeRmv(const FDSP_MsgHdrType     &fdsp_msg,
-                          const FDSP_Node_Info_Type &node_info) {}
+PlatRpcReqt::NotifyDLTUpdate(const FDSP_MsgHdrType    &fdsp_msg,
+                             const FDSP_DLT_Data_Type &dlt_info) {}
 
 void
-PlatRpcReq::NotifyNodeRmv(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
-                          fpi::FDSP_Node_Info_TypePtr &node_info)
+PlatRpcReqt::NotifyDLTUpdate(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
+                             fpi::FDSP_DLT_Data_TypePtr &dlt_info)
 {
 }
 
 void
-PlatRpcReq::NotifyDLTUpdate(const FDSP_MsgHdrType    &fdsp_msg,
-                            const FDSP_DLT_Data_Type &dlt_info) {}
+PlatRpcReqt::NotifyDMTUpdate(const FDSP_MsgHdrType &msg_hdr,
+                             const FDSP_DMT_Type   &dmt_info) {}
 
 void
-PlatRpcReq::NotifyDLTUpdate(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                            fpi::FDSP_DLT_Data_TypePtr &dlt_info)
+PlatRpcReqt::NotifyDMTUpdate(fpi::FDSP_MsgHdrTypePtr &msg_hdr,  // NOLINT
+                             fpi::FDSP_DMT_TypePtr   &dmt)
 {
 }
 
 void
-PlatRpcReq::NotifyDMTUpdate(const FDSP_MsgHdrType &msg_hdr,
-                            const FDSP_DMT_Type   &dmt_info) {}
+PlatRpcReqt::SetThrottleLevel(const FDSP_MsgHdrType      &msg_hdr,
+                              const FDSP_ThrottleMsgType &throttle_msg) {}
 
 void
-PlatRpcReq::NotifyDMTUpdate(fpi::FDSP_MsgHdrTypePtr &msg_hdr,  // NOLINT
-                            fpi::FDSP_DMT_TypePtr   &dmt)
+PlatRpcReqt::SetThrottleLevel(fpi::FDSP_MsgHdrTypePtr      &msg_hdr,
+                              fpi::FDSP_ThrottleMsgTypePtr &throttle_msg)
 {
 }
 
 void
-PlatRpcReq::SetThrottleLevel(const FDSP_MsgHdrType      &msg_hdr,
-                             const FDSP_ThrottleMsgType &throttle_msg) {}
+PlatRpcReqt::TierPolicy(const FDSP_TierPolicy &tier) {}
 
 void
-PlatRpcReq::SetThrottleLevel(fpi::FDSP_MsgHdrTypePtr      &msg_hdr,
-                             fpi::FDSP_ThrottleMsgTypePtr &throttle_msg)
+PlatRpcReqt::TierPolicy(fpi::FDSP_TierPolicyPtr &tier)  // NOLINT
 {
 }
 
 void
-PlatRpcReq::TierPolicy(const FDSP_TierPolicy &tier) {}
+PlatRpcReqt::TierPolicyAudit(const FDSP_TierPolicyAudit &audit) {}
 
 void
-PlatRpcReq::TierPolicy(fpi::FDSP_TierPolicyPtr &tier)  // NOLINT
+PlatRpcReqt::TierPolicyAudit(fpi::FDSP_TierPolicyAuditPtr &audit)  // NOLINT
 {
 }
 
 void
-PlatRpcReq::TierPolicyAudit(const FDSP_TierPolicyAudit &audit) {}
+PlatRpcReqt::NotifyBucketStats(const fpi::FDSP_MsgHdrType          &msg_hdr,
+                               const fpi::FDSP_BucketStatsRespType &buck_stats_msg) {}
 
 void
-PlatRpcReq::TierPolicyAudit(fpi::FDSP_TierPolicyAuditPtr &audit)  // NOLINT
+PlatRpcReqt::NotifyBucketStats(fpi::FDSP_MsgHdrTypePtr          &hdr,
+                               fpi::FDSP_BucketStatsRespTypePtr &msg)
 {
 }
 
 void
-PlatRpcReq::NotifyBucketStats(const fpi::FDSP_MsgHdrType          &msg_hdr,
-                              const fpi::FDSP_BucketStatsRespType &buck_stats_msg) {}
+PlatRpcReqt::NotifyStartMigration(const fpi::FDSP_MsgHdrType    &msg_hdr,
+                                  const fpi::FDSP_DLT_Data_Type &dlt_info) {}
 
 void
-PlatRpcReq::NotifyBucketStats(fpi::FDSP_MsgHdrTypePtr          &hdr,
-                              fpi::FDSP_BucketStatsRespTypePtr &msg)
+PlatRpcReqt::NotifyStartMigration(fpi::FDSP_MsgHdrTypePtr    &hdr,
+                                  fpi::FDSP_DLT_Data_TypePtr &dlt)
+{
+}
+
+// --------------------------------------------------------------------------------------
+// RPC response handlers
+// --------------------------------------------------------------------------------------
+PlatRpcResp::PlatRpcResp() : FDSP_OMControlPathRespIf() {}
+PlatRpcResp::~PlatRpcResp() {}
+
+void
+PlatRpcResp::CreateBucketResp(const FDSP_MsgHdrType      &fdsp_msg,
+                              const FDSP_CreateVolType   &crt_buck_rsp) {}
+
+void
+PlatRpcResp::CreateBucketResp(fpi::FDSP_MsgHdrTypePtr    &fdsp_msg,
+                              fpi::FDSP_CreateVolTypePtr &crt_buck_rsp)
 {
 }
 
 void
-PlatRpcReq::NotifyStartMigration(const fpi::FDSP_MsgHdrType    &msg_hdr,
-                                 const fpi::FDSP_DLT_Data_Type &dlt_info) {}
+PlatRpcResp::DeleteBucketResp(const FDSP_MsgHdrType      &fdsp_msg,
+                              const FDSP_DeleteVolType   &del_buck_rsp) {}
 
 void
-PlatRpcReq::NotifyStartMigration(fpi::FDSP_MsgHdrTypePtr    &hdr,
-                                 fpi::FDSP_DLT_Data_TypePtr &dlt)
+PlatRpcResp::DeleteBucketResp(fpi::FDSP_MsgHdrTypePtr    &fdsp_msg,
+                              fpi::FDSP_DeleteVolTypePtr &del_buck_rsp)
+{
+}
+
+void
+PlatRpcResp::ModifyBucketResp(const FDSP_MsgHdrType      &fdsp_msg,
+                              const FDSP_ModifyVolType   &mod_buck_rsp) {}
+
+void
+PlatRpcResp::ModifyBucketResp(fpi::FDSP_MsgHdrTypePtr    &fdsp_msg,
+                              fpi::FDSP_ModifyVolTypePtr &mod_buck_rsp)
+{
+}
+
+void
+PlatRpcResp::AttachBucketResp(const FDSP_MsgHdrType         &fdsp_msg,
+                              const FDSP_AttachVolCmdType   &atc_buck_req) {}
+
+void
+PlatRpcResp::AttachBucketResp(fpi::FDSP_MsgHdrTypePtr       &fdsp_msg,
+                              fpi::FDSP_AttachVolCmdTypePtr &atc_buck_req)
+{
+}
+
+void
+PlatRpcResp::RegisterNodeResp(const FDSP_MsgHdrType         &fdsp_msg,
+                              const FDSP_RegisterNodeType   &reg_node_rsp) {}
+
+void
+PlatRpcResp::RegisterNodeResp(fpi::FDSP_MsgHdrTypePtr       &fdsp_msg,
+                              fpi::FDSP_RegisterNodeTypePtr &reg_node_rsp) {}
+
+void
+PlatRpcResp::NotifyQueueFullResp(const FDSP_MsgHdrType           &fdsp_msg,
+                                 const FDSP_NotifyQueueStateType &queue_state_rsp)
+{
+}
+
+void
+PlatRpcResp::NotifyQueueFullResp(fpi::FDSP_MsgHdrTypePtr           &fdsp_msg,
+                                 fpi::FDSP_NotifyQueueStateTypePtr &queue_state_rsp) {}
+
+void
+PlatRpcResp::NotifyPerfstatsResp(const FDSP_MsgHdrType    &fdsp_msg,
+                                 const FDSP_PerfstatsType &perf_stats_rsp) {}
+
+void
+PlatRpcResp::NotifyPerfstatsResp(fpi::FDSP_MsgHdrTypePtr    &fdsp_msg,
+                                 fpi::FDSP_PerfstatsTypePtr &perf_stats_rsp)
+{
+}
+
+void
+PlatRpcResp::TestBucketResp(const FDSP_MsgHdrType    &fdsp_msg,
+                            const FDSP_TestBucket    &test_buck_rsp) {}
+
+void
+PlatRpcResp::TestBucketResp(fpi::FDSP_MsgHdrTypePtr  &fdsp_msg,
+                            fpi::FDSP_TestBucketPtr  &test_buck_rsp)
+{
+}
+
+void
+PlatRpcResp::GetDomainStatsResp(const FDSP_MsgHdrType           &fdsp_msg,
+                                const FDSP_GetDomainStatsType   &get_stats_rsp) {}
+
+void
+PlatRpcResp::GetDomainStatsResp(fpi::FDSP_MsgHdrTypePtr         &fdsp_msg,
+                                fpi::FDSP_GetDomainStatsTypePtr &get_stats_rsp)
+{
+}
+
+void
+PlatRpcResp::MigrationDoneResp(const FDSP_MsgHdrType            &fdsp_msg,
+                               const FDSP_MigrationStatusType   &status_resp) {}
+
+void
+PlatRpcResp::MigrationDoneResp(fpi::FDSP_MsgHdrTypePtr          &fdsp_msg,
+                               fpi::FDSP_MigrationStatusTypePtr &status_resp)
 {
 }
 

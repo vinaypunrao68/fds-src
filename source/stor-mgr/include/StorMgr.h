@@ -151,9 +151,7 @@ class SMCounters : public FdsCounters
 class ObjectStorMgr :
         public FdsProcess,
         public SmIoReqHandler,
-        public HasLogger,
-        public Module // todo: We shouldn't be deriving module here.  ObjectStorMgr is
-                      // an FDSProcess, it contains Modules
+        public HasLogger
         {
  private:
     typedef enum {
@@ -296,6 +294,8 @@ class ObjectStorMgr :
     Error enqTransactionIo(FDSP_MsgHdrTypePtr msgHdr,
             const ObjectID& obj_id,
             SmIoReq *ioReq, TransJournalId &trans_id);
+    void create_transaction_cb(FDSP_MsgHdrTypePtr msgHdr,
+            SmIoReq *ioReq, TransJournalId trans_id);
     Error enqGetObjectReq(FDSP_MsgHdrTypePtr msgHdr, 
             FDSP_GetObjTypePtr getObjReq, 
             fds_volid_t        volId,
@@ -351,18 +351,13 @@ class ObjectStorMgr :
 
     ObjectStorMgr(int argc, char *argv[],
                   const std::string &default_config_path,
-                  const std::string &base_path);
+                  const std::string &base_path, Module **mod_vec);
     ~ObjectStorMgr();
 
     /* From FdsProcess */
-    virtual void setup(int argc, char *argv[], fds::Module **mod_vec) override;
+    virtual void setup() override;
     virtual void run() override;
     virtual void interrupt_cb(int signum) override;
-
-    /* From Module */
-    int  mod_init(SysParams const *const param);
-    void mod_startup();
-    void mod_shutdown();
 
     TierEngine     *tierEngine;
     SmObjDb        *smObjDb; // Object Index DB <ObjId, Meta-data + data_loc>

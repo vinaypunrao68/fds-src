@@ -7,14 +7,14 @@
 #include <string>
 #include <dlt.h>
 #include <fds_module.h>
-#include <fdsp/FDSP_types.h>
-#include <fdsp/FDSP_types.h>
+#include <fds_typedefs.h>
 #include <NetSession.h>
 #include <platform/node-inventory.h>
 
 namespace fds {
 
-class PlatRpcReq;
+class PlatRpcReqt;
+class PlatRpcResp;
 typedef boost::shared_ptr<fpi::FDSP_ControlPathReqClient>     NodeAgentCpSessPtr;
 typedef boost::shared_ptr<fpi::FDSP_OMControlPathReqClient>   NodeAgentCpOmClientPtr;
 
@@ -282,31 +282,35 @@ class Platform : public Module
     PlatEvent::pointer         plf_tier_evt;
     PlatEvent::pointer         plf_bucket_stats_evt;
 
-    /* Server variables. */
+    /* Server attributes. */
     boost::shared_ptr<netSessionTbl>  plf_net_sess;
-    boost::shared_ptr<PlatRpcReq>     plf_rpc_reqt;  /**< rpc handler for OM reqt.   */
+    boost::shared_ptr<PlatRpcReqt>    plf_rpc_reqt;  /**< rpc handler for OM reqt.   */
     boost::shared_ptr<std::thread>    plf_rpc_thrd;  /**< thread running rpc handler */
     netControlPathServerSession      *plf_rpc_sess;  /**< associated session.        */
 
-    /* Client variables. */
+    /* Client attributes. */
     NodeAgentCpSessPtr                plf_clnt_sess; /**< client ctrl path session.  */
     NodeAgentCpOmClientPtr            plf_client;    /**< client OM ctrl path.       */
     std::string                       plf_client_id;
+    boost::shared_ptr<PlatRpcReqt>    plf_clnt_reqt; /**< RPC client request disp.   */
+    boost::shared_ptr<PlatRpcResp>    plf_clnt_resp; /**< RPC client response disp.  */
 
     /**
      * Required Factory method.
      */
-    virtual PlatRpcReq *plat_creat_rpc_handler() = 0;
+    virtual PlatRpcReqt *plat_creat_rpc_handler() = 0;
+    // virtual PlatRpcResp *plat_creat_rpc_resp_handler() = 0;
 
   private:
     void plf_rpc_server_thread();
+    void plf_rpc_om_handshake();
 };
 
-class PlatRpcReq : public fpi::FDSP_ControlPathReqIf
+class PlatRpcReqt : public fpi::FDSP_ControlPathReqIf
 {
   public:
-    PlatRpcReq();
-    virtual ~PlatRpcReq();
+    PlatRpcReqt();
+    virtual ~PlatRpcReqt();
 
     void NotifyAddVol(const FDSP_MsgHdrType &, const FDSP_NotifyVolType &);
     virtual void NotifyAddVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
@@ -363,6 +367,54 @@ class PlatRpcReq : public fpi::FDSP_ControlPathReqIf
                               const fpi::FDSP_DLT_Data_Type &dlt_info);
     void NotifyStartMigration(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
                               fpi::FDSP_DLT_Data_TypePtr &dlt_info);
+};
+
+class PlatRpcResp : public FDSP_OMControlPathRespIf
+{
+  public:
+    PlatRpcResp();
+    virtual ~PlatRpcResp();
+
+    void CreateBucketResp(const FDSP_MsgHdrType      &fdsp_msg,
+                          const FDSP_CreateVolType   &crt_buck_rsp);
+    void CreateBucketResp(fpi::FDSP_MsgHdrTypePtr    &fdsp_msg,
+                          fpi::FDSP_CreateVolTypePtr &crt_buck_rsp);
+    void DeleteBucketResp(const FDSP_MsgHdrType      &fdsp_msg,
+                          const FDSP_DeleteVolType   &del_buck_rsp);
+    void DeleteBucketResp(fpi::FDSP_MsgHdrTypePtr    &fdsp_msg,
+                          fpi::FDSP_DeleteVolTypePtr &del_buck_rsp);
+    void ModifyBucketResp(const FDSP_MsgHdrType      &fdsp_msg,
+                          const FDSP_ModifyVolType   &mod_buck_rsp);
+    void ModifyBucketResp(fpi::FDSP_MsgHdrTypePtr    &fdsp_msg,
+                          fpi::FDSP_ModifyVolTypePtr &mod_buck_rsp);
+    void AttachBucketResp(const FDSP_MsgHdrType         &fdsp_msg,
+                          const FDSP_AttachVolCmdType   &atc_buck_req);
+    void AttachBucketResp(fpi::FDSP_MsgHdrTypePtr       &fdsp_msg,
+                          fpi::FDSP_AttachVolCmdTypePtr &atc_buck_req);
+    void RegisterNodeResp(const FDSP_MsgHdrType         &fdsp_msg,
+                          const FDSP_RegisterNodeType   &reg_node_rsp);
+    void RegisterNodeResp(fpi::FDSP_MsgHdrTypePtr       &fdsp_msg,
+                          fpi::FDSP_RegisterNodeTypePtr &reg_node_rsp);
+    void NotifyQueueFullResp(const FDSP_MsgHdrType           &fdsp_msg,
+                             const FDSP_NotifyQueueStateType &queue_state_rsp);
+    void NotifyQueueFullResp(fpi::FDSP_MsgHdrTypePtr           &fdsp_msg,
+                             fpi::FDSP_NotifyQueueStateTypePtr &queue_state_rsp);
+    void NotifyPerfstatsResp(const FDSP_MsgHdrType    &fdsp_msg,
+                             const FDSP_PerfstatsType &perf_stats_rsp);
+    void NotifyPerfstatsResp(fpi::FDSP_MsgHdrTypePtr    &fdsp_msg,
+                             fpi::FDSP_PerfstatsTypePtr &perf_stats_rsp);
+    void TestBucketResp(const FDSP_MsgHdrType       &fdsp_msg,
+                        const FDSP_TestBucket       &test_buck_rsp);
+    void TestBucketResp(fpi::FDSP_MsgHdrTypePtr     &fdsp_msg,
+                        fpi::FDSP_TestBucketPtr     &test_buck_rsp);
+    void GetDomainStatsResp(const FDSP_MsgHdrType           &fdsp_msg,
+                            const FDSP_GetDomainStatsType   &get_stats_rsp);
+    void GetDomainStatsResp(fpi::FDSP_MsgHdrTypePtr         &fdsp_msg,
+                            fpi::FDSP_GetDomainStatsTypePtr &get_stats_rsp);
+    void MigrationDoneResp(const FDSP_MsgHdrType            &fdsp_msg,
+                           const FDSP_MigrationStatusType   &status_resp);
+    void MigrationDoneResp(fpi::FDSP_MsgHdrTypePtr          &fdsp_msg,
+                           fpi::FDSP_MigrationStatusTypePtr &status_resp);
 };
 
 };  // namespace fds

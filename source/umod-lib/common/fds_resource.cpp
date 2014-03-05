@@ -13,6 +13,11 @@ ResourceUUID::ResourceUUID(fds_uint64_t val)
 {
 }
 
+std::ostream& operator<< (std::ostream& os, const fds::ResourceUUID& uuid) {
+    os << uuid.uuid_get_val();
+    return os;
+}
+
 RsContainer::RsContainer()
     : rs_refcnt(0), rs_mtx("rs-container"), rs_array(RS_DEFAULT_ELEM_CNT) {}
 

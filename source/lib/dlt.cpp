@@ -347,14 +347,14 @@ uint32_t DLT::read(serialize::Deserializer* d) {
     distList->reserve(numTokens);
 
     uint32_t count = 0;
-    std::vector<fds_uint64_t> uuidList;
+    std::vector<NodeUuid> uuidList;
 
     // read the Unique Node List
     b += d->readI32(count);
     uuidList.reserve(count);
     for (uint i = 0; i < count ; i++) {
         b += d->readI64(uuid);
-        uuidList.push_back(uuid);
+        uuidList.push_back(NodeUuid(uuid));
     }
 
     bool fByte = (count <= 256);
@@ -591,6 +591,15 @@ const DLT* DLTManager::getDLT(const fds_uint64_t version) const {
     }
 
     return NULL;
+}
+
+std::vector<fds_uint64_t> DLTManager::getDltVersions() const{
+    std::vector<fds_uint64_t> vecVersions;
+    std::vector<DLT*>::const_iterator iter;
+    for (iter = dltList.begin(); iter != dltList.end(); iter++) {
+        vecVersions.push_back((*iter)->version);
+    }
+    return vecVersions;
 }
 
 void DLTManager::setCurrent(fds_uint64_t version) {

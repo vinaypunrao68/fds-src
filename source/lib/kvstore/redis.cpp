@@ -11,7 +11,7 @@
 namespace atc = apache::thrift::concurrency;
 
 namespace redis {
-
+using fds::GetLog;
 /******************************************************************************************
  *  Redis Reply structures 
  ******************************************************************************************/
@@ -46,6 +46,15 @@ bool Reply::isError() const {
 
 bool Reply::isValid() const {
     return r != NULL;
+}
+
+bool Reply::isOk() const {
+    return ((r->type == REDIS_REPLY_STATUS) && (getString() == "OK")) ||
+            ((r->type == REDIS_REPLY_INTEGER) && (r->integer == 1));
+}
+
+bool Reply::wasModified() const {
+    return (r->type == REDIS_REPLY_INTEGER) && (r->integer == 1);
 }
 
 std::string Reply::getString() const {
@@ -107,7 +116,7 @@ void Reply::toVector(std::vector<long long>& vec) { // NOLINT
 }
 
 void Reply::dump() const {
-    GLOGDEBUG << "redis reply ::: ";
+    LOGDEBUG << "redis reply ::: ";
     std::string strType="unknown";
     switch (r->type) {
         case REDIS_REPLY_STRING  : strType = "string"  ; break;
@@ -125,7 +134,7 @@ void Reply::dump() const {
                                       r->element[i]->len) << ") ";
     }
 
-    GLOGDEBUG << "[type:" << strType << "] "
+    LOGDEBUG << "[type:" << strType << "] "
              << "[intval:" << r->integer << "] "
              << "[str:" << getString() << "] "
              << "[numelements:" << r->elements << "] "
@@ -140,7 +149,7 @@ Connection::Connection(const std::string& host,
                        uint port) : host(host),
                                     port(port),
                                     ctx(0) {
-    GLOGDEBUG << "instantiating a connection to " << host << ":" << port;
+    LOGDEBUG << "instantiating a connection to " << host << ":" << port;
 }
 
 void Connection::connect() {
@@ -172,6 +181,22 @@ Reply Connection::getReply() {
     return Reply(r);
 }
 
+bool Connection::isConnected() {
+    if (ctx != 0) return false;
+    redisAppendCommand(ctx, "ping");
+    try {
+        Reply reply = getReply();
+        if (reply.getStatus() == "PONG") {
+            return true;
+        } else {
+            LOGWARN << "unknown status : " << reply.getStatus();
+        }
+    } catch(RedisException& e) { // NOLINT
+        LOGWARN << "error checking connection : " << e.what();
+    }
+    return false;
+}
+
 Connection::~Connection() {
     if (ctx) {
         redisFree(ctx);
@@ -185,7 +210,7 @@ Connection::~Connection() {
 ConnectionPool::ConnectionPool(uint poolsize,
                                const std::string& host,
                                uint port) : monitor(&mutex) {
-    GLOGDEBUG << "instantiating connection pool ["
+    LOGDEBUG << "instantiating connection pool ["
              << poolsize << "] to " << host << ":" << port;
     for (uint i = 0; i < poolsize; i++) {
         connections.push(new Connection(host, port));
@@ -194,7 +219,7 @@ ConnectionPool::ConnectionPool(uint poolsize,
 
 ConnectionPool::~ConnectionPool() {
     atc::Synchronized s(monitor);
-    GLOGDEBUG << "destroying connection pool [" << connections.size() << "]";
+    LOGDEBUG << "destroying connection pool [" << connections.size() << "]";
     while (!connections.empty()) {
         Connection* cxn = connections.front();
         connections.pop();
@@ -205,7 +230,7 @@ ConnectionPool::~ConnectionPool() {
 Connection* ConnectionPool::get() {
     atc::Synchronized s(monitor);
     while (connections.empty()) {
-        GLOGWARN << "waiting for a connection from the pool "
+        LOGWARN << "waiting for a connection from the pool "
                 << "- This should not happen often [mebbe increase poolsize??]!!!!!";
         monitor.wait();
     }
@@ -265,6 +290,11 @@ void Redis::decodeHex(const std::string& hex, std::string& binary) {
 
 Redis::Redis(const std::string& host, uint port,
              uint poolsize) : pool(poolsize, host, port) {
+}
+
+bool Redis::isConnected() {
+    SCOPEDCXN();
+    return cxn->isConnected();
 }
 
 Reply Redis::sendCommand(const char* cmdfmt, ...) {

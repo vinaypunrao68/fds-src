@@ -11,6 +11,8 @@
 #include <util/fds_stat.h>
 #include <fds-probe/s3-probe.h>
 #include <orch-mgr/om-service.h>
+#include <om-discovery.h>
+#include <kvstore/configdbmodule.h>
 
 namespace fds {
 
@@ -32,20 +34,20 @@ OM_Module::om_singleton()
 
 int main(int argc, char **argv)
 {
-    fds::orchMgr     = new fds::OrchMgr(argc, argv, "orch_mgr.conf", "fds.om.");
-    fds::gl_orch_mgr = fds::orchMgr;
-
-    fds::FDS_NativeAPI *api = new
-                fds::FDS_NativeAPI(fds::FDS_NativeAPI::FDSN_AWS_S3);
+    fds::FDS_NativeAPI *api = new fds::FDS_NativeAPI(fds::FDS_NativeAPI::FDSN_AWS_S3);
     fds::Module *probe_vec[] = {
         &fds::gl_fds_stat,
         &fds::gl_probeS3Eng,
-        fds::orchMgr,
         &fds::gl_OMModule,
         &fds::gl_OM_ProbeMod,
+        &fds::gl_configDB,
+        &fds::gl_OmDiscoveryMod,
         nullptr
     };
-    fds::orchMgr->setup(argc, argv, probe_vec);
+    fds::orchMgr = new fds::OrchMgr(argc, argv, "orch_mgr.conf", "fds.om.", probe_vec);
+    fds::gl_orch_mgr = fds::orchMgr;
+
+    fds::orchMgr->setup();
     fds::fds_threadpool *pool = fds::gl_probeS3Eng.probe_get_thrpool();
 
     /* Add your probe adapter(s) to S3 connector. */

@@ -2,14 +2,13 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 #include <stdlib.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <string>
 #include <iostream>
 #include <boost/program_options.hpp>
 #include <boost/program_options/parsers.hpp>
 #include <fds_assert.h>
 #include <fds_module.h>
+#include <fds_process.h>
 
 namespace fds {
 
@@ -164,10 +163,12 @@ ModuleVector::ModuleVector(int argc, char **argv, Module **mods)
     : sys_mod_cnt(0), sys_argc(argc), sys_argv(argv), sys_mods(nullptr)
 {
     sys_mods = mods;
-    for (sys_mod_cnt = 0; mods[sys_mod_cnt] != nullptr; sys_mod_cnt++) {
-        /*
-         * Do some check for each module?
-         */
+    if (sys_mods != NULL) {
+        for (sys_mod_cnt = 0; mods[sys_mod_cnt] != nullptr; sys_mod_cnt++) {
+            /*
+             * Do some check for each module?
+             */
+        }
     }
     mod_mk_sysparams();
 }
@@ -198,27 +199,27 @@ ModuleVector::mod_mk_sysparams()
 
     desc.add_options()
             ("help,h", "Show this help text")
-            ("fds-root,r", po::value<std::string>()->default_value("/fds"),
+            ("fds-root", po::value<std::string>()->default_value("/fds"),
              "Set the storage root directory")
-            ("hdd-root,H", po::value<std::string>()->default_value("hdd"),
+            ("hdd-root", po::value<std::string>()->default_value("hdd"),
              "Set the hdd storage root directory relative to root")
-            ("ssd-root,F", po::value<std::string>()->default_value("ssd"),
+            ("ssd-root", po::value<std::string>()->default_value("ssd"),
              "Set the ssd storage root directory relative to root")
-            ("threads,t", po::value<int>(&thr_cnt)->default_value(10),
+            ("threads", po::value<int>(&thr_cnt)->default_value(10),
              "Number of threads in system thread pool")
-            ("sim-prefix,s", po::value<std::string>()->default_value("sd"),
+            ("sim-prefix", po::value<std::string>()->default_value("sd"),
              "Prefix names for disk devices simulation")
-            ("hdd-count,d", po::value<int>(&hdd_cnt)->default_value(12),
+            ("hdd-count", po::value<int>(&hdd_cnt)->default_value(12),
              "Number of HDD disks")
-            ("hdd-capacity,c", po::value<int>(&hdd_cap)->default_value(100),
+            ("hdd-capacity", po::value<int>(&hdd_cap)->default_value(100),
              "HDD capacity in MB")
-            ("ssd-count,D", po::value<int>(&ssd_cnt)->default_value(2),
+            ("ssd-count", po::value<int>(&ssd_cnt)->default_value(2),
              "Number of SSD disks")
-            ("ssd-capacity,C", po::value<int>(&ssd_cap)->default_value(10),
+            ("ssd-capacity", po::value<int>(&ssd_cap)->default_value(10),
              "SSD capacity in MB")
-            ("log-severity,l", po::value<int>(&log_severity)->default_value(2),
+            ("log-severity", po::value<int>(&log_severity)->default_value(2),
              "Severity logging level")
-            ("port,p",
+            ("port",
              po::value<fds_uint32_t>(&service_port)->default_value(6900),
              "Service recieve port");
 
@@ -228,21 +229,18 @@ ModuleVector::mod_mk_sysparams()
     po::store(po::command_line_parser(sys_argc, sys_argv).
               options(desc).allow_unregistered().run(), vm);
     po::notify(vm);
+    sys_params.fds_root  = vm["fds-root"].as<std::string>();
+    sys_params.fds_root += '/';
+
+    sys_params.hdd_root += vm["hdd-root"].as<std::string>();
+    sys_params.hdd_root += '/';
+
+    sys_params.ssd_root += vm["ssd-root"].as<std::string>();
+    sys_params.ssd_root += '/';
+
     if (vm.count("help")) {
         std::cout << desc << std::endl;
         return;
-    }
-    if (vm.count("fds-root")) {
-        sys_params.fds_root  = vm["fds-root"].as<std::string>();
-        sys_params.fds_root += '/';
-    }
-    if (vm.count("hdd-root")) {
-        sys_params.hdd_root += vm["hdd-root"].as<std::string>();
-        sys_params.hdd_root += '/';
-    }
-    if (vm.count("ssd-root")) {
-        sys_params.ssd_root += vm["ssd-root"].as<std::string>();
-        sys_params.ssd_root += '/';
     }
     if (vm.count("sim-prefix")) {
         SimEnvParams *sim  =
@@ -257,7 +255,7 @@ ModuleVector::mod_mk_sysparams()
     sys_params.service_port = service_port;
 
     // Make the FDS root directory.
-    ModuleVector::mod_mkdir(sys_params.fds_root.c_str());
+    FdsRootDir::fds_mkdir(sys_params.fds_root.c_str());
 }
 
 // \ModuleVector::mod_execute
@@ -269,7 +267,9 @@ ModuleVector::mod_execute()
     int     i, bailout;
     Module *mod;
 
-    fds_verify(sys_mod_cnt > 0);
+    if (sys_mod_cnt == 0) {
+        return;
+    }
     fds_verify(sys_mods != nullptr);
 
     bailout = 0;
@@ -318,22 +318,6 @@ ModuleVector::mod_shutdown()
             mod = sys_mods[i];
             mod->mod_shutdown();
         }
-    }
-}
-
-// mod_mkdir
-// ---------
-// Make external directory as part of the init. to setup run-time env.
-//
-void
-ModuleVector::mod_mkdir(char const *const path)
-{
-    if (mkdir(path, 0755) != 0) {
-        if (errno == EACCES) {
-            std::cout << "Don't have permission to " << path << std::endl;
-            exit(1);
-        }
-        fds_verify(errno == EEXIST);
     }
 }
 

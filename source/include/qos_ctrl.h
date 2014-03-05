@@ -64,7 +64,7 @@ class FDS_QoSControl {
    void    runScheduler(); // Calls in the QosDispatcher's main dispatch routine
    virtual Error   processIO(FDS_IOType* io); // Schedule an IO on a thread from thrd pool
    fds_uint32_t     waitForWorkers(); // Blocks until there is a threshold num of workers in threadpool
-   Error   enqueueIO(fds_volid_t volUUID, FDS_IOType *io);
+   virtual Error   enqueueIO(fds_volid_t volUUID, FDS_IOType *io);
    void quieseceIOs(fds_volid_t volUUID);
 
    /* will register OM client with perfstats that will enable pushing

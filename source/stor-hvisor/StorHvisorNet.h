@@ -168,9 +168,8 @@ public:
              SysParams *params,
              sh_comm_modes _mode,
              fds_uint32_t sm_port_num,
-             fds_uint32_t dm_port_num,
-	     std::string config_path);
-  ~StorHvCtrl();	
+             fds_uint32_t dm_port_num);
+  ~StorHvCtrl();
   hv_create_blkdev cr_blkdev;
   hv_delete_blkdev del_blkdev;
 

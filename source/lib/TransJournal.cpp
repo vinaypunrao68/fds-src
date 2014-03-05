@@ -1,5 +1,7 @@
+/*
+ * Copyright 2013 Formation Data Systems, Inc.
+ */
 #include <stdexcept>
-
 #include <fds_err.h>
 #include <fds_types.h>
 #include <fds_assert.h>
@@ -69,12 +71,14 @@ unsigned int ObjectIdJrnlEntry::get_transid()
 }
 
 template<typename KeyT, typename JEntryT>
-TransJournal<KeyT, JEntryT>::TransJournal(unsigned int max_jrnl_entries, FDS_QoSControl *qos_controller, fds_log *log)
+TransJournal<KeyT, JEntryT>::TransJournal(unsigned int max_jrnl_entries,
+        FDS_QoSControl *qos_controller, fds_log *log)
 //  : ioTimer(new IceUtil::Timer())
 : _qos_controller(qos_controller),
   _log(log),
   _pending_cnt(0),
-  _active_cnt(0)
+  _active_cnt(0),
+  _rescheduled_cnt(0)
 {
 	unsigned int i =0;
 
@@ -84,7 +88,7 @@ TransJournal<KeyT, JEntryT>::TransJournal(unsigned int max_jrnl_entries, FDS_QoS
 
 	for (i = 0; i < _max_journal_entries; i++) {
           _rwlog_tbl[i].init(i, this);
-	  _free_trans_ids.push(i);
+	  _free_trans_ids.push_back(i);
 	}
 
 	_jrnl_tbl_mutex = new fds_mutex("Journal Table Mutex");
@@ -115,8 +119,9 @@ _assign_transaction_to_key(const KeyT& key, FDS_IOType *io, TransJournalId &tran
     return ERR_TRANS_JOURNAL_OUT_OF_IDS;
   }
   trans_id = _free_trans_ids.front();
-  _free_trans_ids.pop();
+  _free_trans_ids.pop_front();
 
+  fds_assert(trans_id < _max_journal_entries);
   fds_assert(!_rwlog_tbl[trans_id].is_active());
   _rwlog_tbl[trans_id].set_fdsio(io);
   _rwlog_tbl[trans_id].set_key(key);
@@ -128,7 +133,8 @@ _assign_transaction_to_key(const KeyT& key, FDS_IOType *io, TransJournalId &tran
 
 template<typename KeyT, typename JEntryT>
 Error TransJournal<KeyT, JEntryT>::
-create_transaction(const KeyT& key, FDS_IOType *io, TransJournalId &trans_id)
+create_transaction(const KeyT& key, FDS_IOType *io, TransJournalId &trans_id,
+        std::function<void(TransJournalId)> cb)
 {
   fds_mutex::scoped_lock lock(*_jrnl_tbl_mutex);
 
@@ -153,6 +159,7 @@ create_transaction(const KeyT& key, FDS_IOType *io, TransJournalId &trans_id)
               << " active: " << _active_cnt << " pending: " << _pending_cnt;
       e = ERR_TRANS_JOURNAL_REQUEST_QUEUED;
   }
+  cb(trans_id);
   return e;
 }
 
@@ -165,20 +172,30 @@ get_transaction(const TransJournalId &trans_id)
 }
 
 template<typename KeyT, typename JEntryT>
+JEntryT* TransJournal<KeyT, JEntryT>::
+get_transaction_nolock(const TransJournalId &trans_id)
+{
+  return &_rwlog_tbl[trans_id];
+}
+
+template<typename KeyT, typename JEntryT>
 void TransJournal<KeyT, JEntryT>::
-release_transaction(TransJournalId &trans_id)
+release_transaction(const TransJournalId &trans_id)
 {
     _jrnl_tbl_mutex->lock();
     KeyT key = _rwlog_tbl[trans_id].get_key();
+
     typename KeyToTransInfoTable::iterator pending_qitr = _key_to_transinfo_tbl.find(key);
 
     /* Free up the transaction associated with trans_id */
+    fds_assert(pending_qitr != _key_to_transinfo_tbl.end());
     fds_assert(_active_cnt > 0 &&
             _rwlog_tbl[trans_id].is_active() &&
             _rwlog_tbl[trans_id].get_fdsio() == pending_qitr->second.front().io);
+    fds_assert(trans_id < _max_journal_entries);
 
     _rwlog_tbl[trans_id].reset();
-    _free_trans_ids.push(trans_id);
+    _free_trans_ids.push_back(trans_id);
     _active_cnt--;
     pending_qitr->second.pop_front();
 
@@ -197,6 +214,7 @@ release_transaction(TransJournalId &trans_id)
         _active_cnt++;
         _rwlog_tbl[new_trans_id].set_active(true);
         _pending_cnt--;
+        _rescheduled_cnt++;
 
         LOGDEBUG << "Scheduling queued transaction.  key: " <<  key.ToString()
                                   << " id: " << new_trans_id

@@ -4,6 +4,8 @@ user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  := \
     fds-dsk-io \
+    fds-StorHvisor \
+    fds-ubd \
     fds-dsk-mgnt
 
 user_cc           := ngx_modules.c

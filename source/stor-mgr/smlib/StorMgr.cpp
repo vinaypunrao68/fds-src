@@ -216,9 +216,8 @@ ObjectStorMgrI::RedirReadObject(FDSP_MsgHdrTypePtr &msg_hdr, FDSP_RedirReadObjTy
  */
 ObjectStorMgr::ObjectStorMgr(int argc, char *argv[], 
                              const std::string &default_config_path,
-                             const std::string &base_path) 
-    : Module("StorMgr"),
-    FdsProcess(argc, argv, default_config_path, base_path),
+                             const std::string &base_path, Module **mod_vec)
+    : FdsProcess(argc, argv, default_config_path, base_path, mod_vec),
     totalRate(3000),
     qosThrds(10),
     shuttingDown(false),
@@ -264,7 +263,7 @@ ObjectStorMgr::ObjectStorMgr(int argc, char *argv[],
     /*
      * stats class init
      */
-    objStats =  new ObjStatsTracker(GetLog());
+    objStats = &gl_objStats;
 
     /*
      * Performance stats recording
@@ -317,18 +316,13 @@ ObjectStorMgr::~ObjectStorMgr() {
     delete omJrnl;
 }
 
-int ObjectStorMgr::mod_init(SysParams const *const param) {
-    Module::mod_init(param);
-    return 0;
-}
-
-void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
+void ObjectStorMgr::setup()
 {
     /*
      * Invoke FdsProcess setup so that it can setup the signal hander and
      * execute the module vector for us
      */
-    FdsProcess::setup(argc, argv, mod_vec);
+    FdsProcess::setup();
 
     /* Rest of the setup */
     // todo: clean up the code below.  It's doing too many things here.
@@ -339,10 +333,12 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
     DmDiskQuery     in;
     DmDiskQueryOut  out;
 
+    proc_root->fds_mkdir(proc_root->dir_user_repo_objs().c_str());
     std::string stor_prefix = conf_helper_.get<std::string>("prefix");
+    std::string obj_dir = proc_root->dir_user_repo_objs() + stor_prefix;
 
     // Create leveldb
-    smObjDb = new  SmObjDb(stor_prefix, objStorMgr->GetLog());
+    smObjDb = new  SmObjDb(obj_dir, objStorMgr->GetLog());
     // init the checksum verification class
     chksumPtr =  new checksum_calc();
 
@@ -412,8 +408,12 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
     volTbl = new StorMgrVolumeTable(this, GetLog());
 
     /* Create tier related classes -- has to be after volTbl is created */
-    rankEngine = new ObjectRankEngine(stor_prefix, 100000, volTbl, objStats, objStorMgr->GetLog());
-    tierEngine = new TierEngine(TierEngine::FDS_TIER_PUT_ALGO_BASIC_RANK, volTbl, rankEngine, objStorMgr->GetLog());
+    FdsRootDir::fds_mkdir(proc_root->dir_fds_var_stats().c_str());
+    std::string obj_stats_dir = proc_root->dir_fds_var_stats();
+    rankEngine = new ObjectRankEngine(obj_stats_dir, 100000, volTbl,
+                                      objStats, objStorMgr->GetLog());
+    tierEngine = new TierEngine(TierEngine::FDS_TIER_PUT_ALGO_BASIC_RANK,
+                                volTbl, rankEngine, objStorMgr->GetLog());
     objCache = new FdsObjectCache(1024 * 1024 * 256,
             slab_allocator_type_default,
             eviction_policy_type_default,
@@ -421,7 +421,6 @@ void ObjectStorMgr::setup(int argc, char *argv[], fds::Module **mod_vec)
 
     // TODO: join this thread
     std::thread *stats_thread = new std::thread(log_ocache_stats);
-    
 
     // Create a special queue for System (background) tasks
     // and registe rwith QosCtrlr
@@ -537,12 +536,6 @@ void ObjectStorMgr::interrupt_cb(int signum)
     nst_->endAllSessions();
     nst_.reset(); 
     exit(0);
-}
-
-void ObjectStorMgr::mod_startup() {    
-}
-
-void ObjectStorMgr::mod_shutdown() {
 }
 
 const TokenList&
@@ -1393,22 +1386,38 @@ ObjectStorMgr::enqTransactionIo(FDSP_MsgHdrTypePtr msgHdr,
         const ObjectID& obj_id,
         SmIoReq *ioReq, TransJournalId &trans_id)
 {
+    // TODO(Rao): Refactor create_transaction so that it just takes key and cb as
+    // params
     Error err = omJrnl->create_transaction(obj_id,
-            static_cast<FDS_IOType *>(ioReq), trans_id);
+            static_cast<FDS_IOType *>(ioReq), trans_id,
+            std::bind(&ObjectStorMgr::create_transaction_cb, this,
+                    msgHdr, ioReq, std::placeholders::_1));
     if (err != ERR_OK &&
         err != ERR_TRANS_JOURNAL_REQUEST_QUEUED) {
         return err;
     }
-
-    ioReq->setTransId(trans_id);
-    ObjectIdJrnlEntry *jrnlEntry = omJrnl->get_transaction(trans_id);
-    jrnlEntry->setMsgHdr(msgHdr);
 
     if (err == ERR_TRANS_JOURNAL_REQUEST_QUEUED) {
         return ERR_OK;
     }
     err = qosCtrl->enqueueIO(ioReq->getVolId(), static_cast<FDS_IOType*>(ioReq));
     return err;
+}
+
+/**
+ * This callback is invoked after creating a trasaction.
+ * Though it's ugly, it's necessary so we can do the necessary work after
+ * creating transaction under lock
+ * @param msgHdr
+ * @param ioReq
+ * @param trans_id
+ */
+void ObjectStorMgr::create_transaction_cb(FDSP_MsgHdrTypePtr msgHdr,
+        SmIoReq *ioReq, TransJournalId trans_id)
+{
+    ioReq->setTransId(trans_id);
+    ObjectIdJrnlEntry *jrnlEntry = omJrnl->get_transaction_nolock(trans_id);
+    jrnlEntry->setMsgHdr(msgHdr);
 }
 
 Error
@@ -1953,12 +1962,16 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
 
 
 void log_ocache_stats() {
-
+    /*
+     *TODO(Vy): this is kind of bloated stat, the file grows quite big with redudant
+     *data, disable it.
+     */
+#if 0
     while(1) {
         usleep(500000);
         objStorMgr->getObjCache()->log_stats_to_file("ocache_stats.dat");
     }
-
+#endif
 }
 
 fds::Error SmObjDb::Get(const ObjectID& obj_id, ObjectBuf& obj_buf) {
@@ -2014,7 +2027,7 @@ void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
     if ( itr.objId != NullObjectID) {
         start_obj_id = itr.objId;
     }
-    DBG(LOGDEBUG << "token: " << token << " being: "
+    DBG(LOGDEBUG << "token: " << token << " begin: "
             << start_obj_id << " end: " << end_obj_id);
 
     leveldb::Slice startSlice((const char *)&start_obj_id, sizeof(ObjectID));
@@ -2023,6 +2036,11 @@ void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
     leveldb::Options options_ = odb->GetOptions();
 
     memcpy(&objId , &start_obj_id, sizeof(ObjectID));
+    // TODO(Rao): This iterator is very inefficient. We're always
+    // iterating through all of the objects in this DB even if they
+    // are not part of the token we care about.
+    // Ideally, we can iterate sorted keys so that we can seek to
+    // the object id range we care about.
     for(dbIter->Seek(startSlice); dbIter->Valid(); dbIter->Next())
     {
         ObjectBuf        objData;
@@ -2052,17 +2070,19 @@ void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
                 } else {
                     itr.objId = objId;
                     DBG(LOGDEBUG << "token: " << token <<  " dbId: " << GetSmObjDbId(token)
-                            << " cnt: " << obj_itr_cnt);
+                        << " cnt: " << obj_itr_cnt) << " token retrieve not completly with "
+                        << " max size" << max_size << " and total msg len " << tot_msg_len;
                     return;
                 }
             }
+            fds_verify(err == ERR_OK);
         }
 
     } // Enf of for loop
     itr.objId = SMTokenItr::itr_end;
 
     DBG(LOGDEBUG << "token: " << token <<  " dbId: " << GetSmObjDbId(token)
-            << " cnt: " << obj_itr_cnt);
+        << " cnt: " << obj_itr_cnt) << " token retrieve complete";
 }
 
 }  // namespace fds

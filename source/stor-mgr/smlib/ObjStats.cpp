@@ -9,15 +9,15 @@
 
 namespace fds {
 
-ObjStatsTracker::ObjStatsTracker(fds_log *parent_log) :
+ObjStatsTracker gl_objStats;
+
+ObjStatsTracker::ObjStatsTracker() :
     Module("SM Obj Stats Track") {
 
   /*
    * init the  log 
    */
-  if (parent_log) {
-    stats_log = parent_log;
-  }
+  stats_log = NULL;
 
   objStatsMapLock = new fds_mutex("Added object Stats lock");
   fds_verify(objStatsMapLock != NULL);
@@ -26,7 +26,6 @@ ObjStatsTracker::ObjStatsTracker(fds_log *parent_log) :
    * get set the  start time 
    */
   startTime  = CounterHist8bit::getFirstSlotTimestamp();
-  FDS_PLOG(stats_log) << "STATS:Start TIME: " << startTime;
 
   hotObjThreshold  = 100;
   coldObjThreshold = 20;
@@ -39,20 +38,26 @@ ObjStatsTracker::~ObjStatsTracker() {
 
 int
 ObjStatsTracker::mod_init(fds::SysParams const *const param) {
-  Module::mod_init(param);
-  FdsConfigAccessor conf_helper(g_fdsprocess->get_conf_helper());
 
-  root = param->fds_root;
-  root += "/";
-  root += conf_helper.get<std::string>("prefix");
-  root += "_objStats";
+    Module::mod_init(param);
+    stats_log = g_fdslog;
+    fds_assert(stats_log != NULL);
+    FDS_PLOG(stats_log) << "STATS:Start TIME: " << startTime;
 
-  // Create leveldb
-  leveldb::Options options;
-  options.create_if_missing = true;
-  leveldb::Status status = leveldb::DB::Open(options, root, &db);
-  fds_verify(status.ok() == true);
-  return 0;
+    FdsConfigAccessor conf_helper(g_fdsprocess->get_conf_helper());
+    const FdsRootDir *fdsroot = g_fdsprocess->proc_fdsroot();
+
+    fdsroot->fds_mkdir(fdsroot->dir_fds_var_stats().c_str());
+    root  = fdsroot->dir_fds_var_stats();
+    root += conf_helper.get<std::string>("prefix");
+    root += "objStats";
+
+    // Create leveldb
+    leveldb::Options options;
+    options.create_if_missing = true;
+    leveldb::Status status = leveldb::DB::Open(options, root, &db);
+    fds_verify(status.ok() == true);
+    return 0;
 }
 
 void

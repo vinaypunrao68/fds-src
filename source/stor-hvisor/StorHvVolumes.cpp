@@ -23,7 +23,7 @@ StorHvVolume::StorHvVolume(const VolumeDesc& vdesc, StorHvCtrl *sh_ctrl, fds_log
   vol_catalog_cache = new VolumeCatalogCache(voldesc->volUUID, sh_ctrl, parent_log);  
 
   if ( voldesc->volType == FDSP_VOL_BLKDEV_TYPE && parent_sh->GetRunTimeMode() == StorHvCtrl::NORMAL) { 
-      blkdev_minor = (*parent_sh->cr_blkdev)(voldesc->volUUID, voldesc->capacity);
+      blkdev_minor = hvisor_create_blkdev(voldesc->volUUID, voldesc->capacity);
   }
 
   volQueue = new FDS_VolumeQueue(4096, vdesc.iops_max, vdesc.iops_min, vdesc.relativePrio);
@@ -56,7 +56,7 @@ void StorHvVolume::destroy()
   }
 
   if ( voldesc->volType == FDSP_VOL_BLKDEV_TYPE && parent_sh->GetRunTimeMode() == StorHvCtrl::NORMAL) { 
-     (*parent_sh->del_blkdev)(blkdev_minor);
+     hvisor_delete_blkdev(blkdev_minor);
   }
   /* destroy data */
   delete journal_tbl;
@@ -231,35 +231,40 @@ StorHvVolumeTable::~StorHvVolumeTable()
  */
 Error StorHvVolumeTable::registerVolume(const VolumeDesc& vdesc)
 {
-  Error err(ERR_OK);
-  fds_volid_t vol_uuid = vdesc.GetID();
+    Error err(ERR_OK);
+    fds_volid_t vol_uuid = vdesc.GetID();
 
-  map_rwlock.write_lock();
-  if (volume_map.count(vol_uuid) == 0) {
-    StorHvVolume *new_vol = new StorHvVolume(vdesc, parent_sh, vt_log);
-    if (new_vol) {
-      volume_map[vol_uuid] = new_vol;
-      // Register this volume queue with the QOS ctrl
-      parent_sh->qos_ctrl->registerVolume(vdesc.volUUID, new_vol->volQueue);
+    map_rwlock.write_lock();
+    if (volume_map.count(vol_uuid) == 0) {
+        StorHvVolume *new_vol = new StorHvVolume(vdesc, parent_sh, vt_log);
+        if (new_vol) {
+            // Register this volume queue with the QOS ctrl
+            err = parent_sh->qos_ctrl->registerVolume(vdesc.volUUID, new_vol->volQueue);
+            if (err.ok()) {
+                volume_map[vol_uuid] = new_vol;
+            } else {
+                new_vol->destroy();
+                delete new_vol;
+            }
+        }
+        else {
+            err = ERR_INVALID_ARG; // TODO: need more error types
+        }
     }
-    else {
-      err = ERR_INVALID_ARG; // TODO: need more error types
-    }
-  }
-  map_rwlock.write_unlock();
+    map_rwlock.write_unlock();
+    
+    FDS_PLOG_SEV(vt_log, fds::fds_log::notification)
+            << "StorHvVolumeTable - Register new volume "
+            << std::hex << vol_uuid << std::dec << ", policy " << vdesc.volPolicyId
+            << " (iops_min=" << vdesc.iops_min << ",iops_max=" << vdesc.iops_max <<",prio=" << vdesc.relativePrio << ")"
+            << " result: " << err.GetErrstr();  
+    
+    /* check if any blobs are waiting for volume to be registered, and if so,
+     * move them to appropriate qos queue  */
+    if (err.ok())
+        moveWaitBlobsToQosQueue(vol_uuid, vdesc.name, err);
 
-
-  FDS_PLOG_SEV(vt_log, fds::fds_log::notification)
-          << "StorHvVolumeTable - Register new volume "
-          << std::hex << vol_uuid << std::dec << ", policy " << vdesc.volPolicyId
-          << " (iops_min=" << vdesc.iops_min << ",iops_max=" << vdesc.iops_max <<",prio=" << vdesc.relativePrio << ")"
-          << " result: " << err.GetErrstr();  
-
-  /* check if any blobs are waiting for volume to be registered, and if so,
-   * move them to appropriate qos queue  */
-  moveWaitBlobsToQosQueue(vol_uuid, vdesc.name, err);
-  
-  return err;
+    return err;
 }
 
 Error StorHvVolumeTable::modifyVolumePolicy(fds_volid_t vol_uuid,
@@ -340,8 +345,9 @@ StorHvVolume* StorHvVolumeTable::getVolume(fds_volid_t vol_uuid)
     ret_vol = volume_map[vol_uuid];
   }
   else {
-    FDS_PLOG_SEV(vt_log, fds::fds_log::warning) << "StorHvVolumeTable::getVolume - Volume " << vol_uuid
-                     << " does not exist";    
+    FDS_PLOG_SEV(vt_log, fds::fds_log::warning) << "StorHvVolumeTable::getVolume - Volume "
+						<< std::hex << vol_uuid << std::dec
+						<< " does not exist";    
   }
   map_rwlock.read_unlock();
 
@@ -518,39 +524,48 @@ void StorHvVolumeTable::volumeEventHandler(fds_volid_t vol_uuid,
                                            fds_vol_notify_t vol_action,
 					   FDS_ProtocolInterface::FDSP_ResultType result)
 {
-  switch (vol_action) {
-  case fds_notify_vol_attatch:
-    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification) << "StorHvVolumeTable - Received volume attach event from OM"
-                                                                   << " for volume " << std::hex << vol_uuid << std::dec;
+    Error err(ERR_OK);
+    switch (vol_action) {
+        case fds_notify_vol_attatch:
+            FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification)
+                    << "StorHvVolumeTable - Received volume attach event from OM"
+                    << " for volume " << std::hex << vol_uuid << std::dec;
+            
+            if (result == FDS_ProtocolInterface::FDSP_ERR_OK) {
+                err = storHvisor->vol_table->registerVolume(vdb ? *vdb : VolumeDesc("", vol_uuid));
+            }
+            else if (result == FDS_ProtocolInterface::FDSP_ERR_VOLUME_DOES_NOT_EXIST) {
+                /* complete all requests that are waiting on bucket to attach with error */
+                if (vdb) {
+                    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification)
+                            << "StorHvVolumeTable - Volume " << vdb->name << "does not exist.";
+                    storHvisor->vol_table->moveWaitBlobsToQosQueue(vol_uuid, vdb->name, Error(ERR_NOT_FOUND));
+                }
+            }
+            break;
+        case fds_notify_vol_detach:
+            FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification)
+                    << "StorHvVolumeTable - Received volume detach event from OM"
+                    << " for volume " << std::hex << vol_uuid << std::dec;
+            err = storHvisor->vol_table->removeVolume(vol_uuid);
+            break;
+        case fds_notify_vol_mod:
+            fds_verify(vdb != NULL);
+            FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification)
+                    << "StorHvVolumeTable - Received volume modify  event from OM"
+                    << " for volume " << vdb->name << ":" << std::hex
+                    << vol_uuid << std::dec;
+            err = storHvisor->vol_table->modifyVolumePolicy(vol_uuid, *vdb);
+            break;
+        default:
+            FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::warning)
+                    << "StorHvVolumeTable - Received unexpected volume event from OM"
+                    << " for volume " << std::hex << vol_uuid << std::dec;
+    } 
 
-    if (result == FDS_ProtocolInterface::FDSP_ERR_OK) {
-      storHvisor->vol_table->registerVolume(vdb ? *vdb : VolumeDesc("", vol_uuid));
-    }
-    else if (result == FDS_ProtocolInterface::FDSP_ERR_VOLUME_DOES_NOT_EXIST) {
-      /* complete all requests that are waiting on bucket to attach with error */
-      if (vdb) {
-	FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification) << "StorHvVolumeTable - Volume " 
-								       << vdb->name << "does not exist.";
-	storHvisor->vol_table->moveWaitBlobsToQosQueue(vol_uuid, vdb->name, Error(ERR_NOT_FOUND));
-      }
-    }
-
-    break;
-  case fds_notify_vol_detach:
-    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification) << "StorHvVolumeTable - Received volume detach event from OM"
-                                                                   << " for volume " << std::hex << vol_uuid << std::dec;
-    storHvisor->vol_table->removeVolume(vol_uuid);
-    break;
-  case fds_notify_vol_mod:
-    fds_verify(vdb != NULL);
-    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification) << "StorHvVolumeTable - Received volume modify  event from OM"
-                                   << " for volume " << vdb->name;
-    storHvisor->vol_table->modifyVolumePolicy(vol_uuid, *vdb);
-    break;
-  default:
-    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::warning) << "StorHvVolumeTable - Received unexpected volume event from OM"
-                                                              << " for volume " << std::hex << vol_uuid << std::dec;
-  } 
+    // TODO(Anna) We have to respond to OM with error, but since we don't do it
+    // yet, we assert here on error for now
+    fds_verify(err.ok());
 }
 
 /* print detailed info into log */

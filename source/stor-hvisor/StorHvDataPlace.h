@@ -62,7 +62,7 @@ public:
   }
 #endif
 
-  void  getDMTNodesForVolume(int volid, fds_uint64_t *node_ids, int *n_nodes ) {
+  void  getDMTNodesForVolume(fds_volid_t volid, fds_uint64_t *node_ids, int *n_nodes ) {
     if (mode == DP_NO_OM_MODE) {
       /*
        * TODO: Set up some stock response here.

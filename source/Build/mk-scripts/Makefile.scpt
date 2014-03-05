@@ -1,3 +1,4 @@
+# Hello emacs, this is a -*-Makefile-*-
 #
 # Makefile.scpt
 # -------------
@@ -12,9 +13,9 @@ scpt_build_subdir =                                                          \
         echo Making $(MAKECMDGOALS) in `pwd`/$$f;                            \
         makearg="$(MAKECMDGOALS) --no-print-directory";                      \
         if [ -e $$f/Makefile.fds ]; then                                     \
-            (cd $$f && $(MAKE) -f Makefile.fds $$makearg) || exit 1;         \
+            ($(MAKE) -C $$f -f Makefile.fds $$makearg) || exit 1;            \
         else                                                                 \
-            (cd $$f && $(MAKE) $$makearg) || exit 1;                         \
+            ($(MAKE) -C $$f $$makearg) || exit 1;                            \
       fi                                                                     \
     done
 
@@ -49,10 +50,10 @@ endef
 define scpt_mk_dynamic_lib
 $(call comm_so_tgt,$(1)): $(call comm_src2obj,$($(1)))
 ifdef VERBOSE
-	$(ld) $(rule_so_flags) $$+ -o $$@
+	$(cpp) $(rule_so_flags) $$+ -o $$@
 else
 	@echo "    [LINK .so]    $$@"
-	@$(ld) $(rule_so_flags) $$+ -o $$@
+	@$(cpp) $(rule_so_flags) $$+ -o $$@
 endif
 endef
 
@@ -229,7 +230,10 @@ scpt_rm_file_list :=                                                         \
 #
 scpt_make_cscope :=                                                          \
     cd $(topdir);                                                            \
-    find -L . -name "*.[chx]" -print > cscope.files;                         \
+    find -L . -name "*.[chx]" -xtype f -print > cscope.files;                \
+    find -L . -name "*.cpp" -xtype f -print >> cscope.files;                 \
+    find -L . -name "*.cc" -xtype f -print >> cscope.files;                  \
+    find -L . -name "*.hpp" -xtype f -print >> cscope.files;                 \
     cat cscope.files | xargs ctags;                                          \
 	cscope -q
 

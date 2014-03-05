@@ -342,7 +342,7 @@ struct FDSP_VolumeDescType {
   2: i32 	 		 tennantId,  // Tennant id that owns the volume
   3: i32    		 localDomainId,  // Local domain id that owns vol
   4: i32	 		 globDomainId,
-  5: double	 	 volUUID,
+  5: i64	 	 volUUID,
 
 // Basic operational properties
 
@@ -408,13 +408,13 @@ struct FDSP_PolicyInfoType {
 
 struct FDSP_DeleteVolType {
   1: string 		 vol_name,  /* Name of the volume */
-  // double    		 vol_uuid,
+  // i64    		 vol_uuid,
   2: i32			 domain_id,
 }
 
 struct FDSP_ModifyVolType {
   1: string 		 vol_name,  /* Name of the volume */
-  2: double		 vol_uuid,
+  2: i64		 vol_uuid,
   3: FDSP_VolumeDescType	 vol_desc,  /* New updated volume descriptor */
 }
 
@@ -522,7 +522,7 @@ struct FDSP_PerfStatType {
 typedef list<FDSP_PerfStatType> FDSP_PerfStatListType
  
 struct FDSP_VolPerfHistType {
-  1: double vol_uuid,
+  1:  i64 vol_uuid,
   2:  FDSP_PerfStatListType  stat_list,  /* list of performance stats (one or more time slots) for this volume */
 }
 
@@ -553,14 +553,14 @@ struct FDSP_BucketStatsRespType {
 struct FDSP_QueueStateType {
 
   1: i32 domain_id,
-  2: double vol_uuid,
+  2: i64  vol_uuid,
   3: i32 priority,
   4: double queue_depth, //current queue depth as a fraction of the total queue size. 0.5 means 50% full.
   
 }
 
 struct FDSP_TierPolicy {
-    1: double          tier_vol_uuid,
+    1: i64           tier_vol_uuid,
     2: double          tier_domain_uuid,
     3: bool            tier_domain_policy,
     4: i32             tier_media,
@@ -570,7 +570,7 @@ struct FDSP_TierPolicy {
 }
 
 struct FDSP_TierPolicyAudit {
-    1: double          tier_vol_uuid,
+    1: i64          tier_vol_uuid,
     2: i64            tier_stat_min_iops,
     3: i64            tier_stat_max_iops,
     4: i64            tier_pct_ssd_iop,
@@ -602,7 +602,7 @@ struct FDSP_MsgHdrType {
 /* Volume entity idenfiers */
     9: i32        tennant_id,      /* Tennant owning the Local-domain and Storage hypervisor */
     10: i32        local_domain_id, /* Local domain the volume in question bei64s */
-    11: double        glob_volume_id,  /* Tennant owning the Local-domain and Storage hypervisor */
+    11: i64        glob_volume_id,  /* Tennant owning the Local-domain and Storage hypervisor */
     12: string       bucket_name,    /* Bucket Name or Container Name for S3 or Azure entities */
 		
     		/* Source and Destination Distributed s/w entities */
@@ -695,9 +695,9 @@ struct tier_time_spec
 
 struct tier_pol_time_unit
 {
-    1: double                   tier_vol_uuid;
+    1: i64                    tier_vol_uuid;
     2: bool                     tier_domain_policy;
-    3: double                   tier_domain_uuid;
+    3: i64                    tier_domain_uuid;
     4: tier_media_type_e        tier_media;
     5: tier_prefetch_type_e     tier_prefetch;
     6: i64                      tier_media_pct;

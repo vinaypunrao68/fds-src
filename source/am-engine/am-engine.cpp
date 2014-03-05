@@ -16,6 +16,7 @@ extern "C" {
 #include <sys/types.h>
 #include <shared/fds_types.h>
 #include <fds_assert.h>
+#include <fds_process.h>
 
 #include <boost/program_options.hpp>
 #include <boost/program_options/parsers.hpp>
@@ -143,22 +144,6 @@ AMEngine::mod_startup()
     }
 }
 
-// make_nginix_dir
-// ---------------
-// Make a directory that nginx server requies.
-//
-static void
-make_nginx_dir(char const *const path)
-{
-    if (mkdir(path, 0755) != 0) {
-        if (errno == EACCES) {
-            std::cout << "Don't have permission to " << path << std::endl;
-            exit(1);
-        }
-        fds_verify(errno == EEXIST);
-    }
-}
-
 void
 AMEngine::init_server(FDS_NativeAPI *api)
 {
@@ -174,15 +159,15 @@ AMEngine::init_server(FDS_NativeAPI *api)
         ngx_main(FDS_ARRAY_ELEM(nginx_signal_argv), nginx_signal_argv);
         return;
     }
-    strncpy(nginx_config, eng_conf, NGINX_ARG_PARAM);
-    snprintf(nginx_prefix, NGINX_ARG_PARAM, "%s", fds_root->c_str());
+    snprintf(nginx_config, NGINX_ARG_PARAM, "%s/etc/fds.conf", fds_root->c_str());
+    snprintf(nginx_prefix, NGINX_ARG_PARAM, "%s/nginx", fds_root->c_str());
 
     // Create all directories if they are not exists.
-    umask(0);
-    snprintf(path, NGINX_ARG_PARAM, "%s/%s", nginx_prefix, eng_logs);
-    ModuleVector::mod_mkdir(path);
-    snprintf(path, NGINX_ARG_PARAM, "%s/%s", nginx_prefix, eng_etc);
-    ModuleVector::mod_mkdir(path);
+    snprintf(path, NGINX_ARG_PARAM, "%s/logs", nginx_prefix);
+    FdsRootDir::fds_mkdir(path);
+
+    snprintf(path, NGINX_ARG_PARAM, "%s/etc", fds_root->c_str());
+    FdsRootDir::fds_mkdir(path);
 
     ngx_register_plugin(api->clientType, this);
     nginx_start_argv[0] = mod_params->p_argv[0];

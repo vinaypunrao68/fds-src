@@ -1,5 +1,8 @@
-#ifndef INCLUDE_FDS_RESOURCE_H_
-#define INCLUDE_FDS_RESOURCE_H_
+/*
+ * Copyright 2014 by Formation Data Systems, Inc.
+ */
+#ifndef SOURCE_INCLUDE_FDS_RESOURCE_H_
+#define SOURCE_INCLUDE_FDS_RESOURCE_H_
 
 #include <list>
 #include <string>
@@ -10,7 +13,7 @@
 #include <cpplist.h>
 #include <shared/fds_types.h>
 #include <concurrency/Mutex.h>
-
+#include <ostream>
 namespace fds {
 
 // ----------------------------------------------------------------------------
@@ -20,7 +23,7 @@ class ResourceUUID
 {
   public:
     ResourceUUID() : rs_uuid(0) {}
-    ResourceUUID(fds_uint64_t uuid);
+    ResourceUUID(fds_uint64_t uuid);  // NOLINT
 
     inline fds_uint64_t uuid_get_val() const {
         return rs_uuid;
@@ -28,7 +31,6 @@ class ResourceUUID
     inline void uuid_set_val(fds_uint64_t val) {
         rs_uuid = val;
     }
-
     bool operator==(const ResourceUUID& rhs) const {
         return (this->rs_uuid == rhs.rs_uuid);
     }
@@ -38,7 +40,7 @@ class ResourceUUID
     }
 
     bool operator<(const ResourceUUID& rhs) const {
-        return rs_uuid<rhs.rs_uuid;
+        return rs_uuid < rhs.rs_uuid;
     }
 
     ResourceUUID& operator=(const ResourceUUID& rhs) {
@@ -84,7 +86,7 @@ class Resource
     fds_mutex                rs_mtx;
 
     virtual ~Resource() {}
-    Resource(const ResourceUUID &uuid)
+    explicit Resource(const ResourceUUID &uuid)
         : rs_uuid(uuid), rs_mtx("rs-mtx"), rs_refcnt(0) {}
 
   private:
@@ -295,6 +297,7 @@ class QueryMgr
     QueryMgr();
 };
 
-} // namespace fds
+std::ostream& operator<< (std::ostream& os, const fds::ResourceUUID& uuid);
+}  // namespace fds
 
-#endif /* INCLUDE_FDS_RESOURCE_H_ */
+#endif  // SOURCE_INCLUDE_FDS_RESOURCE_H_
