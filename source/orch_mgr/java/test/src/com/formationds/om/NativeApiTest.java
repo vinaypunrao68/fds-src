@@ -3,16 +3,20 @@ package com.formationds.om;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.util.MutableAcceptor;
 import junit.framework.TestCase;
+
+import java.lang.management.ManagementFactory;
 
 public class NativeApiTest extends TestCase {
     public void testInit() throws Exception {
+        System.out.println(ManagementFactory.getRuntimeMXBean().getName());
         new NativeApi();
-        NativeApi.init();
+        NativeApi.startOm();
         Thread.sleep(10000);
-        //MutableAcceptor<String> acceptor = new MutableAcceptor<>();
-        //NativeApi.listNodes(acceptor);
-        //System.out.println("Done listing nodes");
-        //Thread.sleep(1000);
+        System.out.println("Listing nodes");
+        MutableAcceptor<String> acceptor = new MutableAcceptor<>();
+        NativeApi.listNodes(acceptor);
+        Thread.sleep(1000);
     }
 }

@@ -22,8 +22,7 @@ user_fds_ar_libs  := \
     fds-util \
     fds-netproxy \
     fds-fdsp \
-    fds-umod \
-    fds-om-glue
+    fds-umod
 
 user_non_fds_libs := \
     boost_log \
