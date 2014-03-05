@@ -9,6 +9,7 @@
 namespace fds {
 namespace hash {
 
+// SHA1 implementations
 Sha1::Sha1() {
 }
 
@@ -51,6 +52,50 @@ Sha1::restart() {
     myHash.Restart();
 }
 
+// SHA256 implementations
+Sha256::Sha256() {
+}
+
+Sha256::~Sha256() {
+}
+
+std::string
+Sha256::getAlgorithmName() const {
+    return "SHA256";
+}
+
+void
+Sha256::calculateDigest(byte *digest,
+                          const byte *input,
+                          size_t length) {
+    calcDigestStatic(digest, input, length);
+}
+
+void
+Sha256::calcDigestStatic(byte *digest,
+                           const byte *input,
+                           size_t length) {
+    CryptoPP::SHA256().CalculateDigest(digest,
+                                     input,
+                                     length);
+}
+
+void
+Sha256::update(const byte *input, size_t length) {
+    myHash.Update(input, length);
+}
+
+void
+Sha256::final(byte *digest) {
+    myHash.Final(digest);
+}
+
+void
+Sha256::restart() {
+    myHash.Restart();
+}
+
+// Murmur3 implementation
 Murmur3::Murmur3() {
 }
 

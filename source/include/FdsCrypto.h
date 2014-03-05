@@ -83,6 +83,29 @@ class Sha1 : FdsHashFunc {
     void restart();
 };
 
+class Sha256 : FdsHashFunc {
+  private:
+    CryptoPP::SHA256 myHash;
+  public:
+    Sha256();
+    ~Sha256();
+
+    static const fds_uint32_t numDigestBytes = CryptoPP::SHA256::DIGESTSIZE;
+    static const fds_uint32_t numDigestBits  = numDigestBytes * 8;
+
+    std::string getAlgorithmName() const;
+    void calculateDigest(byte *digest,
+                         const byte *input,
+                         size_t length);
+    static void calcDigestStatic(byte *digest,
+                                 const byte *input,
+                                 size_t length);
+
+    void update(const byte *input, size_t length);
+    void final(byte *digest);
+    void restart();
+};
+
 class Murmur3 : FdsHashFunc {
   public:
     Murmur3();
