@@ -865,7 +865,7 @@ int OMgrClient::getDMTNodesForVolume(fds_volid_t vol_id, fds_uint64_t *node_ids,
   omc_lock.read_lock();
 
   int total_shards = this->dmt.size();
-  int lookup_key = vol_id % total_shards;
+  int lookup_key = ((fds_uint64_t)vol_id) % total_shards;
   int total_nodes = this->dmt[lookup_key].size();
   *n_nodes = (total_nodes < *n_nodes)? total_nodes:*n_nodes;
   int i;

@@ -148,9 +148,6 @@ class Client():
     root = None
     ## Binary of client AM
     amBin  = "AMAgent"
-    ## Binary of client block
-    # We can remove this when ubd/AM combine
-    ubdBin = "ubd"
     ## Dir location of blk kernel mod
     blkDir = "fds_client/blk_dev"
     ## Name of blk kernel mod
@@ -196,9 +193,6 @@ class Client():
     def getRmCmd(self, srcPath):
         return "rmmod %s/%s" % (srcPath + "/" + self.blkDir,
                                 self.blkMod)
-
-    def getUbdCmd(self):
-        return self.ubdBin
 
     def getAmCmd(self):
         return self.amBin
@@ -572,22 +566,13 @@ class ClientService():
         return cmd
 
     ##
-    # Builds the command to start SH UBD service
-    #
-    def buildUbdCmd(self, client):
-        cmd = "./" + client.getUbdCmd() + " --om_ip=" + self.deployer.getOmIpStr() + \
-            " --om_port=" + str(self.deployer.getOmCtrlPort()) + " --node_name=localhost-" + client.name + \
-            " --log-severity=" + str(client.getLogSeverity())
-        return cmd
-
-    ##
     # Builds the command to start SH AM service
     #
     def buildAmCmd(self, client):
         cmd = "./" + client.getAmCmd() + " --fds-root=" + client.root + \
             " --om_ip=" + self.deployer.getOmIpStr() + \
             " --om_port=" + str(self.deployer.getOmCtrlPort()) + " --node_name=localhost-" + client.name + \
-            " --log-severity=" + str(client.getLogSeverity())
+            " --fds.am.log_severity=" + str(client.getLogSeverity())
         return cmd
 
     ## Returns client object by ID
@@ -628,27 +613,16 @@ class ClientService():
                 print "Failed to start blk module..."
                 return -1
 
-            #
-            # Start UBD user space process
-            #
-            cmd = self.buildAmCmd(client)
-            started = self.deployer.runNodeCmd(client, cmd, "Starting the server")
-            if started == True:
-                print "Client UBD running on %s..." % (client.ipStr)
-            else:
-                print "Failed to start UBD..."
-                return -1
+        #
+        # Start AM user space process
+        #
+        cmd = self.buildAmCmd(client)
+        started = self.deployer.runNodeCmd(client, cmd, "Starting the server")
+        if started == True:
+            print "Client AM running on %s..." % (client.ipStr)
         else:
-            #
-            # Start AM user space process
-            #
-            cmd = self.buildAmCmd(client)
-            started = self.deployer.runNodeCmd(client, cmd, "Starting the server")
-            if started == True:
-                print "Client AM running on %s..." % (client.ipStr)
-            else:
-                        print "Failed to start AM..."
-                        return -1
+            print "Failed to start AM..."
+            return -1
 
         # Sleep to let client initialize
         time.sleep(3)
@@ -668,18 +642,18 @@ class ClientService():
         if client == None:
             return -1
 
-        if client.isBlk == True:
-            #
-            # Bring down UBD user space process
-            #
-            ubdCmd = "pkill -9 " + client.getUbdCmd()
-            result = self.deployer.runNodeCmd(client, ubdCmd)
-            if result == True:
-                print "Brought down UBD on %s..." % (client.ipStr)
-            else:
-                print "Failed to bring down UBD"
-                return -1
+        #
+        # Bring down AM user space process
+        #
+        amCmd = "pkill -9 " + client.getAmCmd()
+        result = self.deployer.runNodeCmd(client, amCmd)
+        if result == True:
+            print "Brought down AM on %s..." % (client.ipStr)
+        else:
+            print "Failed to bring down AM"
+            return -1
 
+        if client.isBlk == True:
             #
             # Remove blktap kernel module
             #
@@ -690,17 +664,7 @@ class ClientService():
             else:
                 print "Failed to remove kernel module"
                 return -1
-        else:
-            #
-            # Bring down AM user space process
-            #
-            amCmd = "pkill -9 " + client.getAmCmd()
-            result = self.deployer.runNodeCmd(client, amCmd)
-            if result == True:
-                print "Brought down AM on %s..." % (client.ipStr)
-            else:
-                print "Failed to bring down AM"
-                return -1
+
         return 0
 
     ## Undeploys a client based on name
