@@ -8,6 +8,7 @@ user_build_dir := \
     libconfig-1.4.9 \
     jansson-2.5 \
     hiredis \
+    cryptopp \
     source
 
 include $(topdir)/Makefile.incl
