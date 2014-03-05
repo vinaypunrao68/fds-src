@@ -13,7 +13,7 @@ namespace fds {
 // Volume Info
 // --------------------------------------------------------------------------------------
 VolumeInfo::VolumeInfo(const ResourceUUID &uuid)
-    : Resource(uuid), vol_properties(NULL) {}
+        : Resource(uuid), vol_properties(NULL) {}
 
 VolumeInfo::~VolumeInfo()
 {
@@ -32,19 +32,19 @@ VolumeInfo::vol_mk_description(const fpi::FDSP_VolumeInfoType &info)
     vol_name.assign(rs_name);
 }
 
-// vol_apply_description
+// setDescription
 // ---------------------
 //
 void
-VolumeInfo::vol_apply_description(const VolumeDesc &desc)
+VolumeInfo::setDescription(const VolumeDesc &desc)
 {
-    VolumeDesc *mine;
-
-    mine = vol_properties;
-    mine->volPolicyId  = desc.volPolicyId;
-    mine->iops_min     = desc.iops_min;
-    mine->iops_max     = desc.iops_max;
-    mine->relativePrio = desc.relativePrio;
+    if (vol_properties == NULL) {
+        vol_properties = new VolumeDesc(desc);
+    } else {
+        (*vol_properties) = desc;
+    }
+    vol_name = desc.name;
+    volUUID = desc.volUUID;
 }
 
 // vol_fmt_desc_pkt
@@ -194,18 +194,16 @@ VolumeInfo::vol_attach_node(const std::string &node_name)
     if (am_agent == NULL) {
         // Provisioning vol before the AM is online.
         //
-        FDS_PLOG_SEV(g_fdslog, fds_log::normal)
-            << "Received attach vol " << vol_name
-            << ", am node " << node_name << std::endl;
+        LOGNORMAL << "Received attach vol " << vol_name
+                  << ", am node " << node_name;
         return;
     }
     // TODO(Vy): not thread safe here...
     //
     for (uint i = 0; i < vol_am_nodes.size(); i++) {
         if (vol_am_nodes[i] == node_name) {
-            FDS_PLOG_SEV(g_fdslog, fds_log::normal)
-                << "Volume " << vol_name
-                << " is already attached to node " << node_name << std::endl;
+            LOGNORMAL << "Volume " << vol_name
+                      << " is already attached to node " << node_name;
             return;
         }
     }
@@ -225,9 +223,8 @@ VolumeInfo::vol_detach_node(const std::string &node_name)
     if (am_agent == NULL) {
         // Provisioning vol before the AM is online.
         //
-        FDS_PLOG_SEV(g_fdslog, fds_log::normal)
-            << "Received attach vol " << vol_name
-            << ", am node " << node_name << std::endl;
+        LOGNORMAL << "Received attach vol " << vol_name
+                  << ", am node " << node_name;
         return;
     }
     // TODO(Vy): not thread safe here...
@@ -239,9 +236,8 @@ VolumeInfo::vol_detach_node(const std::string &node_name)
             return;
         }
     }
-    FDS_PLOG_SEV(g_fdslog, fds_log::normal)
-        << "Detach vol " << vol_name
-        << " didn't attached to " << node_name << std::endl;
+    LOGNORMAL << "Detach vol " << vol_name
+              << " didn't attached to " << node_name;
 }
 
 // --------------------------------------------------------------------------------------
@@ -266,8 +262,7 @@ VolumeContainer::om_create_vol(const FdspMsgHdrPtr &hdr,
 
     vol = VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
     if (vol != NULL) {
-        FDS_PLOG_SEV(g_fdslog, fds_log::warning)
-            << "Received CreateVol for existing volume " << vname << std::endl;
+        LOGWARN << "Received CreateVol for existing volume " << vname;
         return -1;
     }
     vol = VolumeInfo::vol_cast_ptr(rs_alloc_new(uuid));
@@ -278,28 +273,26 @@ VolumeContainer::om_create_vol(const FdspMsgHdrPtr &hdr,
         // TODO(xxx): policy not in the catalog.  Should we return error or use the
         // default policy?
         //
-        FDS_PLOG_SEV(g_fdslog, fds_log::warning)
-            << "Create volume " << vname
-            << " with unknown policy " << creat_msg->vol_info.volPolicyId << std::endl;
+        LOGWARN << "Create volume " << vname
+                << " with unknown policy "
+                << creat_msg->vol_info.volPolicyId;
     } else if (!err.ok()) {
         // TODO(xxx): for now ignoring error.
         //
-        FDS_PLOG_SEV(g_fdslog, fds_log::error)
-            << "Create volume " << vname
-            << ": failed to get policy info" << std::endl;
+        LOGERROR << "Create volume " << vname
+                 << ": failed to get policy info";
         return -1;
     }
     err = admin->volAdminControl(vol->vol_get_properties());
     if (!err.ok()) {
         // TODO(Vy): delete the volume here.
-        FDS_PLOG_SEV(g_fdslog, fds_log::error)
-            << "Unable to create volume " << vname
-            << " error: " << err.GetErrstr() << std::endl;
+        LOGERROR << "Unable to create volume " << vname
+                 << " error: " << err.GetErrstr();
         rs_free_resource(vol);
         return -1;
     }
     rs_register(vol);
-    vol_disc_mgr->vol_persist(vol);
+    // vol_disc_mgr->vol_persist(vol);
     local->om_bcast_vol_create(vol);
 
     // Attach the volume to the requester's AM.
@@ -322,15 +315,13 @@ VolumeContainer::om_delete_vol(const FdspDelVolPtr &del_msg)
 
     vol = VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
     if (vol == NULL) {
-        FDS_PLOG_SEV(g_fdslog, fds_log::warning)
-            << "Received DeleteVol for non-existing volume " << vname << std::endl;
+        LOGWARN << "Received DeleteVol for non-existing volume " << vname;
         return -1;
     }
     // TODO(Vy): abstraction in vol class for this
     // for (int i = 0; i < del_vol->hv_nodes.size(); i++)
     //     if (currentDom->domain_ptr->currentShMap.count(del_vol->hv_nodes[i]) == 0) {
-    //         FDS_PLOG_SEV(om_log, fds_log::error)
-    //             << "Inconsistent State Detected. "
+    //         LOGERROR //             << "Inconsistent State Detected. "
     //             << "HV node in volume's hvnode list but not in SH map";
     //         assert(0);
     //     }
@@ -360,8 +351,7 @@ VolumeContainer::om_modify_vol(const FdspModVolPtr &mod_msg)
 
     vol = VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
     if (vol == NULL) {
-        FDS_PLOG_SEV(g_fdslog, fds_log::warning)
-            << "Received ModifyVol for non-existing volume " << vname << std::endl;
+        LOGWARN << "Received ModifyVol for non-existing volume " << vname;
         return -1;
     }
     Error      err(ERR_OK);
@@ -376,15 +366,14 @@ VolumeContainer::om_modify_vol(const FdspModVolPtr &mod_msg)
         err = v_pol->fillVolumeDescPolicy(&new_desc);
         if (!err.ok()) {
             const char *msg = (err == ERR_CAT_ENTRY_NOT_FOUND) ?
-                " - requested unknown policy id " :
-                " - failed to get policy info id ";
+                    " - requested unknown policy id " :
+                    " - failed to get policy info id ";
 
             // Policy not in the catalog, revert to old policy id and return.
-            FDS_PLOG_SEV(g_fdslog, fds_log::error)
-                << "Modify volume " << vname << msg
-                << mod_msg->vol_desc.volPolicyId
-                << " keeping original policy "
-                << vol->vol_get_properties()->volPolicyId << std::endl;
+            LOGERROR << "Modify volume " << vname << msg
+                     << mod_msg->vol_desc.volPolicyId
+                     << " keeping original policy "
+                     << vol->vol_get_properties()->volPolicyId;
             return -1;
         }
     } else {
@@ -393,24 +382,22 @@ VolumeContainer::om_modify_vol(const FdspModVolPtr &mod_msg)
         new_desc.iops_min     = mod_msg->vol_desc.iops_min;
         new_desc.iops_max     = mod_msg->vol_desc.iops_max;
         new_desc.relativePrio = mod_msg->vol_desc.rel_prio;
-        FDS_PLOG_SEV(g_fdslog, fds_log::notification)
-            << "Modify volume " << vname
-            << " - keeps policy id " << vol->vol_get_properties()->volPolicyId
-            << " with new min iops " << new_desc.iops_min
-            << " max iops " << new_desc.iops_max
-            << " priority " << new_desc.relativePrio << std::endl;
+        LOGNOTIFY << "Modify volume " << vname
+                  << " - keeps policy id " << vol->vol_get_properties()->volPolicyId
+                  << " with new min iops " << new_desc.iops_min
+                  << " max iops " << new_desc.iops_max
+                  << " priority " << new_desc.relativePrio;
     }
     // Check if this volume can go through admission control with modified policy info
     //
     err = admin->checkVolModify(vol->vol_get_properties(), &new_desc);
     if (!err.ok()) {
-        FDS_PLOG_SEV(g_fdslog, fds_log::error)
-            << "Modify volume " << vname
-            << " -- cannot admit new policy info, keeping the old policy" << std::endl;
+        LOGERROR << "Modify volume " << vname
+                 << " -- cannot admit new policy info, keeping the old policy";
         return -1;
     }
     // We admitted modified policy.
-    vol->vol_apply_description(new_desc);
+    vol->setDescription(new_desc);
     local->om_bcast_vol_modify(vol);
     return 0;
 }
@@ -428,13 +415,11 @@ VolumeContainer::om_attach_vol(const FDSP_MsgHdrTypePtr &hdr,
     ResourceUUID         uuid(fds_get_uuid64(vname));
     VolumeInfo::pointer  vol;
 
-    FDS_PLOG_SEV(g_fdslog, fds_log::notification)
-        << "Received attach volume " << vname << " from " << nname << std::endl;
+    LOGNOTIFY << "Received attach volume " << vname << " from " << nname;
 
     vol = VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
     if (vol == NULL) {
-        FDS_PLOG_SEV(g_fdslog, fds_log::warning)
-            << "Received AttachVol for non-existing volume " << vname << std::endl;
+        LOGWARN << "Received AttachVol for non-existing volume " << vname;
         return -1;
     }
     vol->vol_attach_node(nname);
@@ -454,13 +439,11 @@ VolumeContainer::om_detach_vol(const FDSP_MsgHdrTypePtr &hdr,
     ResourceUUID         uuid(fds_get_uuid64(vname));
     VolumeInfo::pointer  vol;
 
-    FDS_PLOG_SEV(g_fdslog, fds_log::notification)
-        << "Received detach volume " << vname << " from " << nname << std::endl;
+    LOGNOTIFY << "Received detach volume " << vname << " from " << nname;
 
     vol = VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
     if (vol == NULL) {
-        FDS_PLOG_SEV(g_fdslog, fds_log::warning)
-            << "Received AttachVol for non-existing volume " << vname << std::endl;
+        LOGWARN << "Received AttachVol for non-existing volume " << vname;
         return -1;
     }
     vol->vol_detach_node(nname);
@@ -482,27 +465,23 @@ VolumeContainer::om_test_bucket(const FdspMsgHdrPtr     &hdr,
     VolumeInfo::pointer  vol;
     OM_AmAgent::pointer  am;
 
-    FDS_PLOG_SEV(g_fdslog, fds_log::notification)
-        << "Received test bucket request " << vname
-        << "attach_vol_reqd " << req->attach_vol_reqd << std::endl;
+    LOGNOTIFY << "Received test bucket request " << vname
+              << "attach_vol_reqd " << req->attach_vol_reqd;
 
     am = local->om_am_agent(n_uid);
     if (am == NULL) {
-        FDS_PLOG_SEV(g_fdslog, fds_log::notification)
-            << "OM does not know about node " << nname;
+        LOGNOTIFY << "OM does not know about node " << nname;
     }
     vol = VolumeInfo::vol_cast_ptr(rs_get_resource(v_uid));
     if (vol == NULL) {
-        FDS_PLOG_SEV(g_fdslog, fds_log::notification)
-            << "Bucket " << vname << " does not exists, notify node " << nname;
+        LOGNOTIFY << "Bucket " << vname << " does not exists, notify node " << nname;
 
         if (am != NULL) {
             am->om_send_vol_cmd(NULL, &vname, fpi::FDSP_MSG_ATTACH_VOL_CTRL);
         }
     } else if (req->attach_vol_reqd == false) {
         // Didn't request OM to attach this volume.
-        FDS_PLOG_SEV(g_fdslog, fds_log::notification)
-            << "Bucket " << vname << " exists, notify node " << nname;
+        LOGNOTIFY << "Bucket " << vname << " exists, notify node " << nname;
 
         if (am != NULL) {
             am->om_send_vol_cmd(vol, fpi::FDSP_MSG_ATTACH_VOL_CTRL);
@@ -510,6 +489,21 @@ VolumeContainer::om_test_bucket(const FdspMsgHdrPtr     &hdr,
     } else {
         vol->vol_attach_node(nname);
     }
+}
+
+bool VolumeContainer::addVolume(const VolumeDesc& volumeDesc) {
+    VolumeInfo::pointer  vol;
+    ResourceUUID         uuid = volumeDesc.volUUID;
+    vol = VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
+    if (vol != NULL) {
+        LOGWARN << "volume already exists : " << volumeDesc.name <<":" << uuid;
+        return false;
+    }
+
+    vol = VolumeInfo::vol_cast_ptr(rs_alloc_new(uuid));
+    vol->setDescription(volumeDesc);
+    rs_register(vol);
+    return true;
 }
 
 }  // namespace fds

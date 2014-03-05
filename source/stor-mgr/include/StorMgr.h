@@ -150,8 +150,7 @@ class SMCounters : public FdsCounters
 
 class ObjectStorMgr :
         public FdsProcess,
-        public SmIoReqHandler,
-        public HasLogger
+        public SmIoReqHandler
         {
  private:
     typedef enum {

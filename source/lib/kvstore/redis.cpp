@@ -182,7 +182,7 @@ Reply Connection::getReply() {
 }
 
 bool Connection::isConnected() {
-    if (ctx != 0) return false;
+    if (ctx == 0) return false;
     redisAppendCommand(ctx, "ping");
     try {
         Reply reply = getReply();

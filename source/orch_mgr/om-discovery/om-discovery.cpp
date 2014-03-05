@@ -12,7 +12,7 @@ OmDiscoveryMod               gl_OmDiscoveryMod("OM Discovery");
 
 OmDiscoveryMod::~OmDiscoveryMod() {}
 OmDiscoveryMod::OmDiscoveryMod(char const *const name)
-    : Module(name), om_cfg_mgr(NULL), om_vol_mgr(NULL) {}
+    : Module(name), om_vol_mgr(NULL) {}
 
 /**
  * Module methods.
@@ -23,11 +23,8 @@ OmDiscoveryMod::mod_init(SysParams const *const param)
     (void)Module::mod_init(param);
 
     om_vol_mgr = OM_NodeDomainMod::om_loc_domain_ctrl()->om_vol_mgr();
-    om_cfg_mgr = gl_configDB.get();
 
     fds_verify(om_vol_mgr != NULL);
-    fds_verify(om_cfg_mgr != NULL);
-
     om_vol_mgr->vol_reg_disc_mgr(this);
     return 0;
 }

@@ -6,7 +6,6 @@
 
 #include <fds_module.h>
 #include <OmVolume.h>
-#include <kvstore/configdb.h>
 
 namespace fds {
 
@@ -27,7 +26,6 @@ class OmDiscoveryMod : public Module
     virtual void mod_shutdown();
 
   protected:
-    kvstore::ConfigDB        *om_cfg_mgr;
     VolumeContainer::pointer  om_vol_mgr;
 };
 

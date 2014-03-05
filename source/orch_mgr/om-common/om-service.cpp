@@ -22,7 +22,6 @@ OM_Module::OM_Module(char const *const name)
         &gl_OMClusMapMod,
         om_data_place,
         &gl_OMDltMod,
-        &gl_configDB,
         &gl_OmDiscoveryMod,
         NULL
     };

@@ -47,7 +47,7 @@ class VolumeInfo : public Resource
     void vol_fmt_message(om_vol_msg_t *out);
     void vol_send_message(om_vol_msg_t *out, NodeAgent::pointer dest);
 
-    void vol_apply_description(const VolumeDesc &desc);
+    void setDescription(const VolumeDesc &desc);
     void vol_attach_node(const std::string &node_name);
     void vol_detach_node(const std::string &node_name);
 
@@ -186,6 +186,8 @@ class VolumeContainer : public RsContainer
                               const FdspAttVolCmdPtr    &detach);
     virtual void om_test_bucket(const FdspMsgHdrPtr     &hdr,
                                 const FdspTestBucketPtr &req);
+
+    bool addVolume(const VolumeDesc& volumeDesc);
 
   protected:
     OmDiscoveryMod           *vol_disc_mgr;
