@@ -22,7 +22,8 @@ namespace fds {
 // number of primary tokens for all nodes and secondary tokens for
 // all node pairs and saves in info in corresponding maps.
 PlacementMetrics::PlacementMetrics(const ClusterMap *cm,
-                                   fds_uint64_t tokens)
+                                   fds_uint64_t tokens,
+                                   fds_uint32_t dlt_depth)
         : numTokens(tokens),
           totalWeight(cm->getTotalStorWeight()) {
     ClusterMap::const_iterator node_it, it2;
@@ -54,7 +55,12 @@ PlacementMetrics::PlacementMetrics(const ClusterMap *cm,
         node_it++;
         token_count++;
     }
+
     // Calculate number of tokens for l1-l2 group and fill in the map
+    if ((cm->getNumMembers() < 2) || (dlt_depth < 2)) {
+        print();
+        return;  // no l1-2 groups, since less than 2 nodes
+    }
     for (node_it = cm->cbegin(); node_it != cm->cend(); ++node_it) {
         NodeUuid l1_uuid = (*node_it).first;
         l1_tok_count = std::get<1>(node_weight_toks[l1_uuid]);
@@ -158,10 +164,12 @@ PlacementDiff::PlacementDiff(const PlacementMetricsPtr& newPlacement,
 
         // fill in maps for L1-2 groups token transfers
         NodeTokCountMap l12_old_toks;
-        for (fds_uint32_t j = 0; j < node_l1_toks.size(); ++j) {
-            DltTokenGroupPtr grp = curDlt->getNodes(node_l1_toks[j]);
-            NodeUuid l2_uuid = grp->get(1);
-            l12_old_toks[l2_uuid]++;
+        if (curDlt->getDepth() >= 2) {
+            for (fds_uint32_t j = 0; j < node_l1_toks.size(); ++j) {
+                DltTokenGroupPtr grp = curDlt->getNodes(node_l1_toks[j]);
+                NodeUuid l2_uuid = grp->get(1);
+                l12_old_toks[l2_uuid]++;
+            }
         }
         for (cit2 = nodes.cbegin(); cit2 != nodes.cend(); ++cit2) {
             NodeUuid l2_uuid = *cit2;
@@ -411,18 +419,22 @@ PlacementDiff::transferL1Token(const NodeUuid& l1_uuid,
         l1_diff_toks.erase(l1_uuid);
     }
 
-    // we gave token to group new_l1_uuid, l2_uuid
-    fds_uint64_t old_nsid = nodeSetToId(l1_uuid, l2_uuid);
-    fds_uint64_t new_nsid = nodeSetToId(*new_l1_uuid, l2_uuid);
-    if (l12_diff_toks.count(new_nsid) > 0)
-        l12_diff_toks[new_nsid]--;
-    else
-        l12_diff_toks[new_nsid] = -1;
-    // we removed token from group l1_uuid, l2_uuid
-    if (l12_diff_toks.count(old_nsid) > 0)
-        l12_diff_toks[old_nsid]++;
-    else
-        l12_diff_toks[old_nsid] = 1;
+    // if we have secondary nodes, update l1-2 diff tokens
+    // for keeping track of dispersion
+    if (l2_uuid.uuid_get_val() != 0) {
+        // we gave token to group new_l1_uuid, l2_uuid
+        fds_uint64_t old_nsid = nodeSetToId(l1_uuid, l2_uuid);
+        fds_uint64_t new_nsid = nodeSetToId(*new_l1_uuid, l2_uuid);
+        if (l12_diff_toks.count(new_nsid) > 0)
+            l12_diff_toks[new_nsid]--;
+        else
+            l12_diff_toks[new_nsid] = -1;
+        // we removed token from group l1_uuid, l2_uuid
+        if (l12_diff_toks.count(old_nsid) > 0)
+            l12_diff_toks[old_nsid]++;
+        else
+            l12_diff_toks[old_nsid] = 1;
+    }
 
     FDS_PLOG_SEV(g_fdslog, fds_log::debug)
             << "DP: NON-optimal transfer L1 token from Node group (" << std::hex
@@ -725,7 +737,7 @@ ConsistHashAlgorithm::handleDltChange(const ClusterMap *curMap,
     // Calculate new optimal number of primary and secondary tokens
     // to give to each node (this is done in PlacementMetrics constructor)
     PlacementMetricsPtr metricsPtr(
-        new PlacementMetrics(curMap, numTokens));
+        new PlacementMetrics(curMap, numTokens, newDlt->getDepth()));
 
     // Calculate exact number of token transfers for L1 tokens and
     // L1-2 groups tokens
@@ -745,14 +757,17 @@ ConsistHashAlgorithm::handleDltChange(const ClusterMap *curMap,
 
         // Transfer L1 tokens from this node to other nodes maintaining optimal dispersion
         TokenList::iterator tok_it = node_l1_toks.begin();
-        while ((rm_tokens > 0) && (tok_it != node_l1_toks.end())) {
-            DltTokenGroupPtr column = curDlt->getNodes(*tok_it);
-            if (diffPtr->optimalTransferL1Token(*cit, column->get(1), &new_uuid)) {
-                newDlt->setNode(*tok_it, 0, new_uuid);
-                tok_it = node_l1_toks.erase(tok_it);
-                rm_tokens--;
-            } else {
-                ++tok_it;
+        // however, if there is only one row, there is no requirement for dispersion
+        if (newDlt->getDepth() > 1) {
+            while ((rm_tokens > 0) && (tok_it != node_l1_toks.end())) {
+                DltTokenGroupPtr column = curDlt->getNodes(*tok_it);
+                if (diffPtr->optimalTransferL1Token(*cit, column->get(1), &new_uuid)) {
+                    newDlt->setNode(*tok_it, 0, new_uuid);
+                    tok_it = node_l1_toks.erase(tok_it);
+                    rm_tokens--;
+                } else {
+                    ++tok_it;
+                }
             }
         }
 
@@ -762,17 +777,24 @@ ConsistHashAlgorithm::handleDltChange(const ClusterMap *curMap,
         for (fds_uint32_t i = 0; i < rm_tokens; ++i) {
             fds_verify(tok_it != node_l1_toks.end());
             DltTokenGroupPtr col = curDlt->getNodes(*tok_it);
-            bret = diffPtr->transferL1Token(col->get(0), col->get(1), &new_uuid);
+            bret = diffPtr->transferL1Token(
+                col->get(0),
+                (col->getLength() > 1) ? col->get(1) : NodeUuid(),
+                &new_uuid);
             fds_verify(bret == true);
             newDlt->setNode(*tok_it, 0, new_uuid);
             ++tok_it;
         }
     }
 
-    // make sure that token maps are up to date in new dlt
-    newDlt->generateNodeTokenMap();
+    // if only one row in DLT, nothing else to do
+    if (newDlt->getDepth() < 2) {
+        diffPtr->print(nodes);
+        return;
+    }
 
     // transfer L2 tokens
+    newDlt->generateNodeTokenMap();
     for (cit = nodes.cbegin(); cit != nodes.cend(); ++cit) {
         // get a list of all primary tokens of this node
         TokenList node_l1_toks;
@@ -870,9 +892,9 @@ ConsistHashAlgorithm::computeInitialDlt(const ClusterMap *curMap,
         }
         return;
     }
-// calculate number of primary tokens to give to each node
+    // calculate number of primary tokens to give to each node
     // this is done in PlacementMetrics constructor
-    PlacementMetricsPtr metricsPtr(new PlacementMetrics(curMap, numTokens));
+    PlacementMetricsPtr metricsPtr(new PlacementMetrics(curMap, numTokens, col_depth));
 
     // We assign actual tokens to nodes by assigning the first set tokens to
     // the first node, then second set of tokens to the second node and so on
@@ -887,9 +909,9 @@ ConsistHashAlgorithm::computeInitialDlt(const ClusterMap *curMap,
             newDLT->setNode(tok_idx+rel_idx, 0, l1_uuid);
         }
         if (col_depth < 2) {
+            tok_idx += l1_toks;
             continue;
         }
-
         // Fill in the second row when the primary is node 'uuid'
         // = columns [tok_idx ... tok_idx + toks)
         fds_uint32_t l2_idx = tok_idx;

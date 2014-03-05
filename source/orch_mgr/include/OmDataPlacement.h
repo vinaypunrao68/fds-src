@@ -65,7 +65,9 @@ namespace fds {
          * Constructs and caches optimal number of level 1 and level 2 tokens
          * based on the given cluster map 'cm' and number of primary tokens.
          */
-        PlacementMetrics(const ClusterMap *cm, fds_uint64_t tokens);
+        PlacementMetrics(const ClusterMap *cm,
+                         fds_uint64_t tokens,
+                         fds_uint32_t dlt_depth);
         ~PlacementMetrics() {}
 
         /**
