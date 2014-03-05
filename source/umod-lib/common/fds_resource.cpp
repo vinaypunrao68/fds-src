@@ -19,7 +19,8 @@ std::ostream& operator<< (std::ostream& os, const fds::ResourceUUID& uuid) {
 }
 
 RsContainer::RsContainer()
-    : rs_refcnt(0), rs_mtx("rs-container"), rs_array(RS_DEFAULT_ELEM_CNT) {}
+    : rs_refcnt(0), rs_mtx("rs-container"), rs_array(RS_DEFAULT_ELEM_CNT),
+      rs_cur_idx(0) {}
 
 RsContainer::~RsContainer() {}
 
