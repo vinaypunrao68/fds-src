@@ -328,7 +328,7 @@ class DeployConfig():
             #
             # Prefix command with env and lib goodies
             #
-            cmd  = self.ldLibPath + "; " + " cd " + self.fdsBinDir + "; " + "ulimit -c unlimited; " + cmd
+            cmd  = self.ldLibPath + "; " + " cd " + self.fdsBinDir + "; " + "ulimit -c unlimited; ulimit -n 12800; " + cmd
 
             #
             # Run remote cmd
