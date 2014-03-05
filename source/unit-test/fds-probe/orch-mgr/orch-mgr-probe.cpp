@@ -334,6 +334,7 @@ UT_DLT_EvalHelper::print_dlt(const fds_uint64_t* tbl,
     }
     for (fds_uint32_t j = 0; j < depth; ++j) {
         for (fds_uint32_t i = 0; i < toks; ++i) {
+            fds_verify(tbl[j*toks + i] != 0);
             std::cout << std::hex << tbl[j*toks + i] << std::dec << " ";
         }
         std::cout << std::endl;
@@ -341,9 +342,8 @@ UT_DLT_EvalHelper::print_dlt(const fds_uint64_t* tbl,
     if (cm == NULL) {
         return;  // don't print optimal vs. actual
     }
-
     // primary tokens optimal vs. actual
-    PlacementMetricsPtr metricsPtr(new PlacementMetrics(cm, toks));
+    PlacementMetricsPtr metricsPtr(new PlacementMetrics(cm, toks, depth));
     NodeUuidSet nodes;
     for (ClusterMap::const_iterator cit = cm->cbegin();
          cit != cm->cend();

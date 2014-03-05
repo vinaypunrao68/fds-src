@@ -43,11 +43,11 @@ namespace fds {
             }
         }
         void set(fds_uint32_t index, NodeUuid uid) {
-            fds_verify(index <= length);
+            fds_verify(index < length);
             p[index] = uid;
         }
         NodeUuid get(fds_uint32_t index) const {
-            fds_verify(index <= length);
+            fds_verify(index < length);
             return p[index];
         }
 
