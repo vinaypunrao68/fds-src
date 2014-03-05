@@ -58,6 +58,11 @@ toolchain_jansson_incl     := -I$(toolchain_jansson)/src
 toolchain_redis            := $(topdir)/../hiredis
 toolchain_redis_incl       := -I$(toolchain_redis)/
 
+## Cryptopp settings
+#
+toolchain_cryptopp         := $(topdir)/../cryptopp
+toolchain_cryptopp_incl    := -I$(toolchain_cryptopp)
+
 # Global scope variables tool chain to use with the final compiling/linking.
 #
 toolchain_incl_flags := -I$(toolchain_boost_incl)
@@ -67,6 +72,7 @@ toolchain_incl_flags += $(toolchain_nginx_incl)
 toolchain_incl_flags += $(toolchain_thrf_incl)
 toolchain_incl_flags += $(toolchain_jansson_incl)
 toolchain_incl_flags += $(toolchain_redis_incl)
+toolchain_incl_flags += $(toolchain_cryptopp_incl)
 
 toolchain_cc_flags   := $(toolchain_incl_flags)
 toolchain_cpp_flags  := $(toolchain_incl_flags)
