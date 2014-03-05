@@ -38,7 +38,9 @@ if __name__ == '__main__':
     i = 0
     while i < files_count:
         size = 'count=' + str(random.randint(min_size, max_size))
-        out_file = 'of=' + file_name + str(i)
+        num = str(i).zfill(4)
+        out_file = file_name + num
+        out_file = 'of=' + file_name + num
         print 'dd', 'if=/dev/urandom', out_file, 'bs=1', size
         subprocess.call(['dd', 'if=/dev/urandom', out_file, 'bs=1', size])
         i += 1

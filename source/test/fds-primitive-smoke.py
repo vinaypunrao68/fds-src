@@ -86,12 +86,14 @@ class CopyS3Dir:
 
         os.chdir(self.ds.ds_data_dir)
         files = subprocess.Popen(
-            ['find', '.', '-name', self.ds.ds_file_ext, '-print'],
+            ['find', '.', '-name', self.ds.ds_file_ext, '-type', 'f', '-print'],
             stdout=subprocess.PIPE
         ).stdout
         for rec in files:
             rec = rec.rstrip('\n')
             self.files_list.append(rec)
+        if len(self.files_list) == 0:
+            print "WARNING: Data directory is empty"
 
     def resetTest(self):
         self.cur_put    = 0
@@ -270,7 +272,8 @@ class CopyS3Dir_Overwrite(CopyS3Dir):
         os.chdir(self.ds.ds_data_dir)
         cnt = 0
         err = 0
-        wr_file = self.files_list[0]
+        if len(self.files_list) > 0:
+            wr_file = self.files_list[0]
         for put in self.files_list:
             cnt = cnt + 1
             obj = self.obj_prefix + put.replace("/", "_")
@@ -295,7 +298,8 @@ class CopyS3Dir_Overwrite(CopyS3Dir):
         cnt = 0
         err = 0
         chk = 0
-        rd_file = self.files_list[0]
+        if len(self.files_list):
+            rd_file = self.files_list[0]
         for get in self.files_list:
             cnt = cnt + 1
             obj = self.obj_prefix + get.replace("/", "_");
@@ -444,7 +448,7 @@ def preCommit(volume_name, data_dir):
 def stressIO(volume_name, data_dir):
 
     # seq write, then seq read
-    smoke_ds1 = FdsDataSet(volume_name, data_dir, '*.jpg')
+    smoke_ds1 = FdsDataSet(volume_name, data_dir, '*')
     smoke1 = CopyS3Dir(smoke_ds1)
 
     smoke1.runTest()
@@ -453,25 +457,25 @@ def stressIO(volume_name, data_dir):
     smoke1.exitOnError()
 
     # write from in burst of 10
-    smoke_ds2 = FdsDataSet(volume_name, data_dir, '*.jpg')
+    smoke_ds2 = FdsDataSet(volume_name, data_dir, '*')
     smoke2 = CopyS3Dir(smoke_ds2)
     smoke2.runTest(10)
     smoke2.exitOnError()
 
     # write from in burst of 10-5 (W-R)
-    smoke_ds3 = FdsDataSet(volume_name, data_dir, '*.jpg')
+    smoke_ds3 = FdsDataSet(volume_name, data_dir, '*')
     smoke3 = CopyS3Dir_PatternRW(smoke_ds3)
     smoke3.runTest(10, 5)
     smoke3.exitOnError()
 
     # write from in burst of 10-3 (W-R)
-    smoke_ds4 = FdsDataSet(volume_name, data_dir, '*.jpg')
+    smoke_ds4 = FdsDataSet(volume_name, data_dir, '*')
     smoke4 = CopyS3Dir_PatternRW(smoke_ds4)
     smoke4.runTest(10, 3)
     smoke4.exitOnError()
 
     # write from in burst of 1-1 (W-R)
-    smoke_ds5 = FdsDataSet(volume_name, data_dir, '*.jpg')
+    smoke_ds5 = FdsDataSet(volume_name, data_dir, '*')
     smoke5 = CopyS3Dir_PatternRW(smoke_ds5)
     smoke5.runTest(1, 1)
     smoke5.exitOnError()
@@ -479,14 +483,14 @@ def stressIO(volume_name, data_dir):
 def blobOverwrite(volume_name, data_dir):
 
     # seq write, then seq read
-    smoke_ds1 = FdsDataSet(volume_name, data_dir, '*.jpg')
+    smoke_ds1 = FdsDataSet(volume_name, data_dir, '*')
     smoke1 = CopyS3Dir_Overwrite(smoke_ds1)
     smoke1.runTest()
     smoke1.exitOnError()
 
 def stressIO_GET(volume_name, data_dir):
     # seq write, then seq read
-    smoke_ds1 = FdsDataSet(volume_name, data_dir, '*.jpg')
+    smoke_ds1 = FdsDataSet(volume_name, data_dir, '*')
     smoke1 = CopyS3Dir_GET(smoke_ds1)
 
     smoke1.runTestAll()
@@ -568,6 +572,7 @@ data_set_dir = None
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Start FDS Processes...')
     parser.add_argument('--cfg_file', default='./test/smoke_test.cfg', help='Set FDS Root')
+    parser.add_argument('--start_sys', default='true', help='Bringup cluster')
     parser.add_argument('--smoke_test', default='false', help='Run full smoke test')
     parser.add_argument('--data_set', default='/smoke_test', help='smoke test dataset')
     parser.add_argument('--verbose', default='false', help ='smoke test dataset')
@@ -579,7 +584,8 @@ if __name__ == "__main__":
     data_set_dir = args.data_set
     verbose = args.verbose
     debug = args.debug
-    async_io = True
+    start_sys = args.start_sys
+    async_io = False
     loop = 1
 
     #
@@ -593,7 +599,8 @@ if __name__ == "__main__":
     # Bring up the cluster
     #
     # bringupCluster(env, bu, cfgFile, verbose, debug)
-    bringupClusterCLI(env, bu, cfgFile, verbose, debug)
+    if start_sys == 'true':
+        bringupClusterCLI(env, bu, cfgFile, verbose, debug)
 
     if args.smoke_test == 'false':
         preCommit('volume_smoke1', env.env_fdsSrc)
@@ -611,9 +618,9 @@ if __name__ == "__main__":
     #
     # Bring up more node/delete node test
     #
-    bringupNode(env, bu, cfgFile, verbose, debug, 'node2')
-    bringupNode(env, bu, cfgFile, verbose, debug, 'node3')
-    bringupNode(env, bu, cfgFile, verbose, debug, 'node4')
+#bringupNode(env, bu, cfgFile, verbose, debug, 'node2')
+#    bringupNode(env, bu, cfgFile, verbose, debug, 'node3')
+#    bringupNode(env, bu, cfgFile, verbose, debug, 'node4')
 
     #
     # Wait for async I/O to complete
