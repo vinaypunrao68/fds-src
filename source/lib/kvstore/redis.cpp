@@ -293,8 +293,12 @@ Redis::Redis(const std::string& host, uint port,
 }
 
 bool Redis::isConnected() {
-    SCOPEDCXN();
-    return cxn->isConnected();
+    try {
+        SCOPEDCXN();
+        return cxn->isConnected();
+    } catch(const RedisException& e) {
+        return false;
+    }
 }
 
 Reply Redis::sendCommand(const char* cmdfmt, ...) {

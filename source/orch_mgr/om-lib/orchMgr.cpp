@@ -20,13 +20,13 @@ OrchMgr *orchMgr;
 OrchMgr::OrchMgr(int argc, char *argv[],
                  const std::string& default_config_path,
                  const std::string& base_path, Module **mod_vec)
-    : FdsProcess(argc, argv, default_config_path, base_path, mod_vec),
-      conf_port_num(0),
-      ctrl_port_num(0),
-      test_mode(false),
-      omcp_req_handler(new FDSP_OMControlPathReqHandler(this)),
-      cp_resp_handler(new FDSP_ControlPathRespHandler(this)),
-      cfg_req_handler(new FDSP_ConfigPathReqHandler(this))
+        : FdsProcess(argc, argv, default_config_path, base_path, mod_vec),
+          conf_port_num(0),
+          ctrl_port_num(0),
+          test_mode(false),
+          omcp_req_handler(new FDSP_OMControlPathReqHandler(this)),
+          cp_resp_handler(new FDSP_ControlPathRespHandler(this)),
+          cfg_req_handler(new FDSP_ConfigPathReqHandler(this))
 {
     om_mutex = new fds_mutex("OrchMgrMutex");
 
@@ -127,11 +127,11 @@ void OrchMgr::setup()
 
     omc_server_session = omcp_session_tbl->\
             createServerSession<netOMControlPathServerSession>(
-                    netSession::ipString2Addr(ip_address),
-                    control_portnum,
-                    my_node_name,
-                    FDS_ProtocolInterface::FDSP_OMCLIENT_MGR,
-                    omcp_req_handler);
+                netSession::ipString2Addr(ip_address),
+                control_portnum,
+                my_node_name,
+                FDS_ProtocolInterface::FDSP_OMCLIENT_MGR,
+                omcp_req_handler);
 
     /*
      * Setup server session to listen to config path messages from fdscli
@@ -145,11 +145,11 @@ void OrchMgr::setup()
 
     cfg_server_session = cfg_session_tbl->\
             createServerSession<netConfigPathServerSession>(
-                    netSession::ipString2Addr(ip_address),
-                    config_portnum,
-                    my_node_name,
-                    FDS_ProtocolInterface::FDSP_CLI_MGR,
-                    cfg_req_handler);
+                netSession::ipString2Addr(ip_address),
+                config_portnum,
+                my_node_name,
+                FDS_ProtocolInterface::FDSP_CLI_MGR,
+                cfg_req_handler);
 
     cfgserver_thread.reset(new std::thread(&OrchMgr::start_cfgpath_server, this));
 
@@ -206,7 +206,7 @@ int OrchMgr::AuditTierPolicy(::fpi::tier_pol_auditPtr& audit) {  // NOLINT
 }
 
 int OrchMgr::CreatePolicy(const FdspMsgHdrPtr& fdsp_msg,
-                           const FdspCrtPolPtr& crt_pol_req)
+                          const FdspCrtPolPtr& crt_pol_req)
 {
     Error err(ERR_OK);
     int policy_id = (crt_pol_req->policy_info).policy_id;
@@ -222,7 +222,7 @@ int OrchMgr::CreatePolicy(const FdspMsgHdrPtr& fdsp_msg,
 }
 
 int OrchMgr::DeletePolicy(const FdspMsgHdrPtr& fdsp_msg,
-                           const FdspDelPolPtr& del_pol_req)
+                          const FdspDelPolPtr& del_pol_req)
 {
     Error err(ERR_OK);
     int policy_id = del_pol_req->policy_id;
@@ -385,7 +385,7 @@ bool OrchMgr::loadFromConfigDB() {
 
     // check connection
     if (!configDB->isConnected()) {
-        LOGERROR << "unable to talk to config db ";
+        LOGCRITICAL << "unable to talk to config db ";
         return false;
     }
 
@@ -407,13 +407,19 @@ bool OrchMgr::loadFromConfigDB() {
         configDB->getLocalDomains(mapDomains);
     }
 
+    if (mapDomains.empty()) {
+        LOGCRITICAL << "something wrong with the configdb"
+                    << " -- not loading data.";
+        return false;
+    }
+
     std::vector<VolumeDesc> vecVolumes;
     std::vector<VolumeDesc>::const_iterator volumeIter;
     std::map<int, std::string>::const_iterator domainIter;
     for (domainIter = mapDomains.begin() ; domainIter != mapDomains.end() ; ++domainIter) { // NOLINT
         int domainId = domainIter->first;
         LOGNORMAL << "loading data for domain "
-                << "[" << domainId << ":" << domainIter->second << "]";
+                  << "[" << domainId << ":" << domainIter->second << "]";
 
         OM_NodeContainer *domainCtrl = OM_NodeDomainMod::om_loc_domain_ctrl();
 
@@ -425,7 +431,7 @@ bool OrchMgr::loadFromConfigDB() {
                     << "[" << domainId << ":" << domainIter->second << "]";
         } else {
             LOGNORMAL << vecVolumes.size() << " volumes found for domain "
-                    << "[" << domainId << ":" << domainIter->second << "]";
+                      << "[" << domainId << ":" << domainIter->second << "]";
         }
 
         for (volumeIter = vecVolumes.begin() ; volumeIter != vecVolumes.end() ; ++volumeIter) { //NOLINT
@@ -438,7 +444,6 @@ bool OrchMgr::loadFromConfigDB() {
             }
         }
     }
-
     return true;
 }
 
