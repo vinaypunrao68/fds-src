@@ -27,8 +27,7 @@ void
 VolumeInfo::vol_mk_description(const fpi::FDSP_VolumeInfoType &info)
 {
     vol_properties = new VolumeDesc(info, rs_uuid.uuid_get_val());
-    strncpy(rs_name, info.vol_name.c_str(), RS_NAME_MAX);
-    rs_name[RS_NAME_MAX - 1] = '\0';
+    setName(info.vol_name);
     vol_name.assign(rs_name);
 }
 
@@ -43,6 +42,7 @@ VolumeInfo::setDescription(const VolumeDesc &desc)
     } else {
         (*vol_properties) = desc;
     }
+    setName(desc.name);
     vol_name = desc.name;
     volUUID = desc.volUUID;
 }
@@ -283,6 +283,7 @@ VolumeContainer::om_create_vol(const FdspMsgHdrPtr &hdr,
                  << ": failed to get policy info";
         return -1;
     }
+
     err = admin->volAdminControl(vol->vol_get_properties());
     if (!err.ok()) {
         // TODO(Vy): delete the volume here.
@@ -292,7 +293,14 @@ VolumeContainer::om_create_vol(const FdspMsgHdrPtr &hdr,
         return -1;
     }
     rs_register(vol);
-    // vol_disc_mgr->vol_persist(vol);
+
+    const VolumeDesc& volumeDesc=*(vol->vol_get_properties());
+    // store it in config db..
+    if (!gl_orch_mgr->getConfigDB()->addVolume(volumeDesc)) {
+        LOGWARN << "unable to store volume info in to config db "
+                << "[" << volumeDesc.name << ":" <<volumeDesc.volUUID << "]";
+    }
+
     local->om_bcast_vol_create(vol);
 
     // Attach the volume to the requester's AM.
