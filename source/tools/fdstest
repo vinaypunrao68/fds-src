@@ -8,6 +8,7 @@ import random
 
 try:
     import requests
+    from requests import ConnectionError
 except ImportError:
     print 'oops!! - I need the [requests] pkg. do: "sudo easy_install requests" OR "pip install requests"'
     sys.exit(0)
@@ -67,29 +68,54 @@ class Api:
         return 'http://%s:%s/%s/%s' %(self.host,str(self.port), bucket, objName)
 
     def getBucketList(self):
-        return json.loads(requests.get(self.getUrl(),headers=self.headers).text,object_hook=_decode_dict)
+        try:
+            return json.loads(requests.get(self.getUrl(),headers=self.headers).text,object_hook=_decode_dict)
+        except ConnectionError:
+            print "unable to connect to [%s:%s]"  % (self.host,self.port)
+        return None
 
     def createBucket(self,bucket):
-        return requests.post(self.getUrl(bucket),headers=self.headers)
+        try:
+            return requests.post(self.getUrl(bucket),headers=self.headers)
+        except ConnectionError:
+            print "unable to connect to [%s:%s]"  % (self.host,self.port)
 
     def getBucket(self,bucket):
-        return requests.get(self.getUrl(bucket),headers=self.headers).text
+        try:
+            return requests.get(self.getUrl(bucket),headers=self.headers).text
+        except ConnectionError:
+            print "unable to connect to [%s:%s]"  % (self.host,self.port)
 
     def deleteBucket(self,bucket):
-        return requests.delete(self.getUrl(bucket),headers=self.headers)
+        try:
+            return requests.delete(self.getUrl(bucket),headers=self.headers)
+        except ConnectionError:
+            print "unable to connect to [%s:%s]"  % (self.host,self.port)
 
     def putFile(self,bucket,filepath,name=None):
-        name = name if name else os.path.basename(filepath)
-        return requests.post(self.getUrl(bucket,name),data=open(filepath,'rb'),headers=self.postheaders)
+        try:
+            name = name if name else os.path.basename(filepath)
+            return requests.post(self.getUrl(bucket,name),data=open(filepath,'rb'),headers=self.postheaders)
+        except ConnectionError:
+            print "unable to connect to [%s:%s]"  % (self.host,self.port)
 
     def put(self,bucket,objname,data):
-        return requests.post(self.getUrl(bucket,objname),data=data,headers=self.postheaders)
+        try:
+            return requests.post(self.getUrl(bucket,objname),data=data,headers=self.postheaders)
+        except ConnectionError:
+            print "unable to connect to [%s:%s]"  % (self.host,self.port)
 
     def get(self,bucket,objname):
-        return requests.get(self.getUrl(bucket,objname),headers=self.headers).text
-
+        try:
+            return requests.get(self.getUrl(bucket,objname),headers=self.headers).text
+        except ConnectionError:
+            print "unable to connect to [%s:%s]"  % (self.host,self.port)
+                
     def delete(self,bucket,objname):
-        return requests.delete(self.getUrl(bucket,objname),headers=self.headers)
+        try:
+            return requests.delete(self.getUrl(bucket,objname),headers=self.headers)
+        except ConnectionError:
+            print "unable to connect to [%s:%s]"  % (self.host,self.port)
 
 
 class basic(unittest.TestCase):
