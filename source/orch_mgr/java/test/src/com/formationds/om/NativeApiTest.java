@@ -12,7 +12,7 @@ public class NativeApiTest extends TestCase {
     public void testInit() throws Exception {
         System.out.println(ManagementFactory.getRuntimeMXBean().getName());
         new NativeApi();
-        NativeApi.startOm();
+        NativeApi.startOm(new String[0]);
         Thread.sleep(10000);
         System.out.println("Listing nodes");
         MutableAcceptor<String> acceptor = new MutableAcceptor<>();

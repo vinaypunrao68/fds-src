@@ -22,22 +22,30 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* aReserved)
     return JNI_VERSION_1_8;
 }
 
-extern int main(int argc, char *argv[]);
+extern int main(int argc, const char *argv[]);
 
 JNIEXPORT void JNICALL Java_com_formationds_om_NativeApi_init
-(JNIEnv *env, jclass klass) {
+(JNIEnv *env, jclass klass, jobjectArray javaArgs) {
+    JavaContext javaContext(javaVM);
+    int length = env->GetArrayLength(javaArgs);
+    const char *args[length + 1];
+    args[0] = "orchMgr";
+    for (int i = 0; i <length; i++) {
+        jstring arg = (jstring)env->GetObjectArrayElement(javaArgs, i);
+        std::string cString = javaContext.ccString(env, arg);
+        args[i + 1] = cString.c_str();
+    }
     printf("JNI init done\n");
-    char *args[] = {"orchMgr"};
-    main(1, args);
+    main(length + 1, args);
 }
 
 static void acceptNode(jobject acceptor,
                        const char *nodeType,
                        NodeAgent::pointer peer) {
-    JavaContext *javaContext = new JavaContext(javaVM);
-    JNIEnv *env = javaContext->attachCurrentThread();
-    jstring nodeName = javaContext->javaString(env, peer->get_node_name());
-    javaContext->invoke(env, acceptor, "accept", "(Ljava/lang/Object;)V", nodeName);
+    JavaContext javaContext(javaVM);
+    JNIEnv *env = javaContext.attachCurrentThread();
+    jstring nodeName = javaContext.javaString(env, peer->get_node_name());
+    javaContext.invoke(env, acceptor, "accept", "(Ljava/lang/Object;)V", nodeName);
     printf("Accepting one node\n");
     fflush(stdout);
 }
@@ -49,7 +57,6 @@ JNIEXPORT void JNICALL Java_com_formationds_om_NativeApi_listNodes
     SmContainer::pointer smNodes = nodeContainer->dc_get_sm_nodes();
     smNodes->agent_foreach<jobject>(acceptor, "sm", acceptNode);
 
-
-    JavaContext *javaContext = new JavaContext(javaVM);
-    javaContext->invoke(env, acceptor, "finish", "()V");
+    JavaContext javaContext(javaVM);
+    javaContext.invoke(env, acceptor, "finish", "()V");
 }

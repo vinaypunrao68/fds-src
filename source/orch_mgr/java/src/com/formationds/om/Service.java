@@ -39,4 +39,8 @@ public class Service {
     public ServiceState getServiceState() {
         return serviceState;
     }
+
+    public ServiceType getServiceType() {
+        return serviceType;
+    }
 }

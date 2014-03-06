@@ -9,7 +9,7 @@ user_build_dir    := \
 	om-common \
 	om-lib \
 	om-discovery \
-#	java
+	java
 
 user_fds_ar_libs  := \
     fds-om-common \
@@ -49,7 +49,7 @@ user_ld_flags := -shared
 user_hh           := $(wildcard *.h)
 user_no_style     := $(wildcard com_*.h)
 user_cpp          := $(orch_mgr_cpp)
-user_bin_exe      := orchMgr
-orchMgr           := $(orch_mgr_cpp)
+user_bin_exe      := liborchmgr.so
+liborchmgr.so     := $(orch_mgr_cpp)
 
 include $(topdir)/Makefile.incl

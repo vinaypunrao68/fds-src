@@ -78,7 +78,7 @@ namespace fds {
 
     std::string JavaContext::ccString(JNIEnv *env, jstring javaString) {
         const char *buf = env->GetStringUTFChars(javaString, NULL);
-        std::string s = std::string(buf);
+        std::string s(buf);
         env->ReleaseStringUTFChars(javaString, buf);
         return s;
     }

@@ -10,15 +10,15 @@ extern "C" {
 /*
  * Class:     com_formationds_om_NativeApi
  * Method:    init
- * Signature: ()V
+ * Signature: ([Ljava/lang/String;)V
  */
 JNIEXPORT void JNICALL Java_com_formationds_om_NativeApi_init
-  (JNIEnv *, jclass);
+  (JNIEnv *, jclass, jobjectArray);
 
 /*
  * Class:     com_formationds_om_NativeApi
  * Method:    listNodes
- * Signature: (Lcom/formationds/om/MutableAcceptor;)V
+ * Signature: (Lcom/formationds/util/MutableAcceptor;)V
  */
 JNIEXPORT void JNICALL Java_com_formationds_om_NativeApi_listNodes
   (JNIEnv *, jclass, jobject);

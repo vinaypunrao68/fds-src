@@ -9,14 +9,14 @@ import java.io.File;
 
 public class NativeApi {
     static {
-        String gluePath = new File("./orchMgr").getAbsolutePath();
+        String gluePath = new File("./liborchmgr.so").getAbsolutePath();
         System.load(gluePath);
     }
 
-    public static native void init();
+    public static native void init(String[] args);
     public static native void listNodes(MutableAcceptor<String> acceptor);
 
-    public static void startOm() {
-        new Thread(() -> init()).start();
+    public static void startOm(String[] args) {
+        new Thread(() -> init(args)).start();
     }
 }
