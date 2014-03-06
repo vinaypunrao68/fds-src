@@ -28,6 +28,7 @@ typedef short                fds_int16_t;
 typedef unsigned char        fds_uint8_t;
 typedef char                 fds_int8_t;
 typedef char                 fds_char_t;
+typedef fds_uint8_t          fds_byte_t;
 
 /* Get the offset of a field y inside struct X. */
 #define fds_offset_of(X, y)   ((unsigned long)((void *)&(((X *)0)->y)))

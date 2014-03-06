@@ -7,6 +7,7 @@ user_build_dir    :=
 #
 user_incl_dir     := $(topdir) $(topdir)/fds_client/include $(topdir)/lib
 user_fds_ar_libs  := fds-umod fds-hash fds_ubd
+user_non_fds_libs := cryptopp
 StorHvisor_cpp    :=                   \
     StorHvisorNet.cpp                  \
     StorHvisorTest.cpp                  \

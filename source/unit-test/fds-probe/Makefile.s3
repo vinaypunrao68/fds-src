@@ -42,7 +42,8 @@ user_non_fds_libs +=  \
     jansson \
     config++ \
     rt \
-	hiredis \
+    hiredis \
+    cryptopp \
     $(local_nginx_libs)
 
 include $(topdir)/Makefile.incl

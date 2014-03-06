@@ -88,7 +88,7 @@ namespace fds {
   private:
         fds_rwlock   lcmLock;
         fds_uint64_t version;
-        Sha1Digest   checksum;
+        // TODO(Andrew): Add a checksum field
 
         node_map_t clusterMembers;
     };

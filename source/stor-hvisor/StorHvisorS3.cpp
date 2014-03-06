@@ -12,6 +12,7 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include "NetSession.h"
 #include <dlt.h>
+#include <ObjectId.h>
 
 #define FDS_REPLICATION_FACTOR 2
 
@@ -334,6 +335,14 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
                       0,
                       &objId);
   blobReq->setObjId(objId);
+
+  /*
+   * Test code to see if generating new object
+   * ids and interface works.
+   * TODO(Sanjay): Remove me
+   */
+  ObjectID testId = ObjIdGen::genObjectId(blobReq->getDataBuf(),
+                                          blobReq->getDataLen());
 
   FDSP_MsgHdrTypePtr msgHdrSm(new FDSP_MsgHdrType);
   FDSP_MsgHdrTypePtr msgHdrDm(new FDSP_MsgHdrType);

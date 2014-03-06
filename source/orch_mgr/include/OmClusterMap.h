@@ -54,7 +54,8 @@ class ClusterMap : public Module {
      * increasing.
      */
     AtomicMapVersion  version;
-    Sha1Digest        checksum;   /**< Content Checksum */
+    // TODO(Andrew): Add back a better checksum library
+    // Sha1Digest        checksum;   /**< Content Checksum */
     fds_mutex         *mapMutex;  /**< Protects the map */
 
  public:

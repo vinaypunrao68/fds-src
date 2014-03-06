@@ -35,6 +35,7 @@ user_non_fds_libs :=  \
     boost_filesystem \
     thrift \
     config++ \
+    cryptopp \
     $(user_nginx_libs)
 
 user_cc           :=  \
