@@ -12,8 +12,9 @@ DomainNodeInv::DomainNodeInv(char const *const    name,
                              SmContainer::pointer sm,
                              DmContainer::pointer dm,
                              AmContainer::pointer am,
+                             PmContainer::pointer pm,
                              OmContainer::pointer om)
-    : DomainContainer(name, master, sm, dm, am, om, NULL) {}
+        : DomainContainer(name, master, sm, dm, am, pm, om, NULL) {}
 
 DomainClusterMap::~DomainClusterMap() {}
 DomainClusterMap::DomainClusterMap(char const *const name) : DomainNodeInv(name) {}
@@ -22,8 +23,9 @@ DomainClusterMap::DomainClusterMap(char const *const    name,
                                    SmContainer::pointer sm,
                                    DmContainer::pointer dm,
                                    AmContainer::pointer am,
+                                   PmContainer::pointer pm,
                                    OmContainer::pointer om)
-    : DomainNodeInv(name, master, sm, dm, am, om) {}
+        : DomainNodeInv(name, master, sm, dm, am, pm, om) {}
 
 DomainResources::~DomainResources() {}
 DomainResources::DomainResources(char const *const name)

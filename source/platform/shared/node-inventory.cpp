@@ -307,17 +307,20 @@ AgentContainer::agent_unregister(const NodeUuid &uuid, const std::string &name)
 DomainContainer::~DomainContainer() {}
 DomainContainer::DomainContainer(char const *const name)
     : dc_om_master(NULL), dc_om_nodes(NULL),
-      dc_sm_nodes(NULL), dc_dm_nodes(NULL), dc_am_nodes(NULL), dc_nodes(NULL) {}
+      dc_sm_nodes(NULL), dc_dm_nodes(NULL),
+      dc_am_nodes(NULL), dc_pm_nodes(NULL), dc_nodes(NULL) {}
 
 DomainContainer::DomainContainer(char const *const       name,
                                  OmAgent::pointer        master,
                                  SmContainer::pointer    sm,
                                  DmContainer::pointer    dm,
                                  AmContainer::pointer    am,
+                                 PmContainer::pointer    pm,
                                  OmContainer::pointer    om,
                                  AgentContainer::pointer node)
     : dc_om_master(master), dc_om_nodes(om),
-      dc_sm_nodes(sm), dc_dm_nodes(dm), dc_am_nodes(am), dc_nodes(node) {}
+      dc_sm_nodes(sm), dc_dm_nodes(dm), dc_am_nodes(am),
+      dc_pm_nodes(pm), dc_nodes(node) {}
 
 // dc_container_frm_msg
 // --------------------
@@ -329,23 +332,25 @@ DomainContainer::dc_container_frm_msg(FdspNodeType node_type)
     AgentContainer::pointer nodes;
 
     switch (node_type) {
-    case fpi::FDSP_STOR_MGR:
-    case fpi::FDSP_PLATFORM:
-        /* TODO(Vy): fixme for platform case. */
-        nodes = dc_sm_nodes;
-        break;
+        case FDS_ProtocolInterface::FDSP_STOR_MGR:
+            nodes = dc_sm_nodes;
+            break;
 
-    case fpi::FDSP_DATA_MGR:
-        nodes = dc_dm_nodes;
-        break;
+        case FDS_ProtocolInterface::FDSP_DATA_MGR:
+            nodes = dc_dm_nodes;
+            break;
 
-    case fpi::FDSP_STOR_HVISOR:
-        nodes = dc_am_nodes;
-        break;
+        case FDS_ProtocolInterface::FDSP_STOR_HVISOR:
+            nodes = dc_am_nodes;
+            break;
 
-    default:
-        nodes = dc_om_nodes;
-        break;
+        case FDS_ProtocolInterface::FDSP_PLATFORM:
+            nodes = dc_pm_nodes;
+            break;
+
+        default:
+            nodes = dc_om_nodes;
+            break;
     }
     fds_verify(nodes != NULL);
     return nodes;

@@ -59,10 +59,17 @@ class OM_SmAgent : public NodeAgent
     static inline OM_SmAgent::pointer agt_cast_ptr(Resource::pointer ptr) {
         return static_cast<OM_SmAgent *>(get_pointer(ptr));
     }
-    inline fpi::FDSP_MgrIdType om_agent_type() {
+    inline fpi::FDSP_MgrIdType om_agent_type() const {
         return ndMyServId;
     }
     void setCpSession(NodeAgentCpSessionPtr session, fpi::FDSP_MgrIdType myId);
+
+    /**
+     * Returns uuid of the node running this service
+     */
+    inline NodeUuid get_parent_uuid() const {
+        return parentUuid;
+    }
 
     /**
      * TODO(Vy): see if we can move this to NodeAgent, which is generic to all processes.
@@ -103,6 +110,8 @@ class OM_SmAgent : public NodeAgent
     fpi::FDSP_MgrIdType     ndMyServId;
     NodeAgentCpReqClientPtr ndCpClient;
 
+    NodeUuid                parentUuid;  // Uuid of the node running the service
+
     virtual int node_calc_stor_weight();
 };
 
@@ -110,9 +119,72 @@ typedef OM_SmAgent                      OM_DmAgent;
 typedef OM_SmAgent                      OM_AmAgent;
 typedef std::list<OM_SmAgent::pointer>  NodeList;
 
+
+/**
+ * Agent interface to communicate with the platform service on the remote node.
+ * This is the communication end-point to the node.
+ */
+class OM_PmAgent : public NodeAgent
+{
+  public:
+    typedef boost::intrusive_ptr<OM_PmAgent> pointer;
+    typedef boost::intrusive_ptr<const OM_PmAgent> const_ptr;
+
+    explicit OM_PmAgent(const NodeUuid &uuid);
+    virtual ~OM_PmAgent();
+
+    static inline OM_PmAgent::pointer agt_cast_ptr(Resource::pointer ptr) {
+        return static_cast<OM_PmAgent *>(get_pointer(ptr));
+    }
+    void setCpSession(NodeAgentCpSessionPtr session);
+
+    /**
+     * TODO(Vy): see if we can move this to NodeAgent, which is generic to all processes.
+     * Returns the client end point for the node. The function
+     * is not constanct since the member pointer returned
+     * is mutable by the caller.
+     */
+    inline NodeAgentCpReqClientPtr getCpClient() const {
+        return ndCpClient;
+    }
+    inline NodeAgentCpReqClientPtr getCpClient(std::string *id) const {
+        *id = ndSessionId;
+        return ndCpClient;
+    }
+
+    virtual void init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const;
+
+  protected:
+    NodeAgentCpSessionPtr   ndCpSession;
+    std::string             ndSessionId;
+    NodeAgentCpReqClientPtr ndCpClient;
+};
+
 // -------------------------------------------------------------------------------------
 // Common OM Node Container
 // -------------------------------------------------------------------------------------
+class OM_PmContainer : public PmContainer
+{
+  public:
+    OM_PmContainer();
+    virtual ~OM_PmContainer() {}
+
+    virtual Error agent_register(const NodeUuid       &uuid,
+                                 const FdspNodeRegPtr  msg,
+                                 NodeAgent::pointer   *out);
+
+    static inline OM_PmContainer::pointer agt_cast_ptr(RsContainer::pointer ptr) {
+        return static_cast<OM_PmContainer *>(get_pointer(ptr));
+    }
+
+  protected:
+    boost::shared_ptr<OM_ControlRespHandler> ctrlRspHndlr;
+
+    virtual Resource *rs_new(const ResourceUUID &uuid) {
+        return new OM_PmAgent(uuid);
+    }
+};
+
 class OM_SmContainer : public SmContainer
 {
   public:
@@ -205,6 +277,9 @@ class OM_NodeContainer : public DomainContainer
     inline OM_DmContainer::pointer om_dm_nodes() {
         return OM_DmContainer::agt_cast_ptr(dc_dm_nodes);
     }
+    inline OM_PmContainer::pointer om_pm_nodes() {
+        return OM_PmContainer::agt_cast_ptr(dc_pm_nodes);
+    }
     inline OM_SmAgent::pointer om_sm_agent(const NodeUuid &uuid) {
         return OM_SmAgent::agt_cast_ptr(dc_sm_nodes->agent_info(uuid));
     }
@@ -213,6 +288,9 @@ class OM_NodeContainer : public DomainContainer
     }
     inline OM_DmAgent::pointer om_dm_agent(const NodeUuid &uuid) {
         return OM_DmAgent::agt_cast_ptr(dc_dm_nodes->agent_info(uuid));
+    }
+    inline OM_PmAgent::pointer om_pm_agent(const NodeUuid &uuid) {
+        return OM_PmAgent::agt_cast_ptr(dc_pm_nodes->agent_info(uuid));
     }
     inline float om_get_cur_throttle_level() {
         return om_cur_throttle_level;

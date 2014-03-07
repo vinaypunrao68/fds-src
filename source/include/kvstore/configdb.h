@@ -3,7 +3,7 @@
  */
 #ifndef SOURCE_INCLUDE_KVSTORE_CONFIGDB_H_
 #define SOURCE_INCLUDE_KVSTORE_CONFIGDB_H_
-#include <kvstore/redis.h>
+#include <kvstore/kvstore.h>
 #include <platform/node-inventory.h>
 #include <fds_volume.h>
 #include <dlt.h>
@@ -13,10 +13,9 @@ namespace fds {
     namespace kvstore {        
         using PolicyInfo = fpi::FDSP_PolicyInfoType;
         
-        struct ConfigDB {
+        struct ConfigDB : KVStore {
             ConfigDB(const std::string& host = "localhost", uint port = 6379, uint poolsize = 10);
-            ~ConfigDB();
-            bool isConnected() ;
+            virtual ~ConfigDB();
             
             // domains
             std::string getGlobalDomain();
@@ -35,7 +34,11 @@ namespace fds {
             bool getVolume(fds_volid_t volumeId, VolumeDesc& volumeDesc);
 
             // dlt
-            bool storeDlt(const DLT& dlt, int localDomain = 0);
+            // to store different types of dlt [current,new,old,target]
+            fds_uint64_t getDltVersionForType(const std::string type, int localDomain = 0);
+            bool setDltType(fds_uint64_t version, const std::string type, int localDomain = 0);
+
+            bool storeDlt(const DLT& dlt, const std::string type = "" , int localDomain = 0);
             bool getDlt(DLT& dlt, fds_uint64_t version, int localDomain = 0);
             bool loadDlts (DLTManager& dltMgr, int localDomain = 0);
             bool storeDlts(DLTManager& dltMgr, int localDomain = 0);
@@ -53,8 +56,6 @@ namespace fds {
             bool updatePolicy(const PolicyInfo& policyInfo, int localDomain = 0);
             bool deletePolicy(const PolicyInfo& policyInfo, int localDomain = 0);
             bool getPolicies(std::vector<PolicyInfo>& policies, int localDomain = 0);
-          protected:
-            redis::Redis r;
         };
     }  // namespace kvstore
 
