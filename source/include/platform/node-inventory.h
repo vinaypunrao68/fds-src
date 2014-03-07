@@ -152,6 +152,20 @@ class NodeAgent : public NodeInventory
     explicit NodeAgent(const NodeUuid &uuid) : NodeInventory(uuid) {}
 };
 
+class PmAgent : public NodeAgent
+{
+  public:
+    typedef boost::intrusive_ptr<PmAgent> pointer;
+    typedef boost::intrusive_ptr<const PmAgent> const_ptr;
+
+    PmAgent(const NodeUuid &uuid) : NodeAgent(uuid) {}
+    virtual ~PmAgent() {}
+
+    static inline PmAgent::pointer agt_cast_ptr(NodeAgent::pointer ptr) {
+        return static_cast<PmAgent *>(get_pointer(ptr));
+    }
+};
+
 class SmAgent : public NodeAgent
 {
   public:
@@ -296,6 +310,19 @@ class AgentContainer : public RsContainer
     AgentContainer(FdspNodeType id);
 };
 
+class PmContainer : public AgentContainer
+{
+  public:
+    typedef boost::intrusive_ptr<PmContainer> pointer;
+    PmContainer(FdspNodeType id) : AgentContainer(id) {}
+
+  protected:
+    virtual ~PmContainer() {}
+    virtual Resource *rs_new(const ResourceUUID &uuid) {
+        return new PmAgent(uuid);
+    }
+};
+
 class SmContainer : public AgentContainer
 {
   public:
@@ -364,6 +391,7 @@ class DomainContainer
                     SmContainer::pointer    sm,
                     DmContainer::pointer    dm,
                     AmContainer::pointer    am,
+                    PmContainer::pointer    pm,
                     OmContainer::pointer    om,
                     AgentContainer::pointer node);
 
@@ -401,6 +429,14 @@ class DomainContainer
         dc_am_nodes = am;
     }
 
+    inline PmContainer::pointer dc_get_pm_nodes() {
+        return dc_pm_nodes;
+    }
+    inline void dc_set_pm_nodes(PmContainer::pointer pm) {
+        fds_assert(dc_pm_nodes == NULL);
+        dc_pm_nodes = pm;
+    }
+
     inline OmContainer::pointer dc_get_om_nodes() {
         return dc_om_nodes;
     }
@@ -415,6 +451,7 @@ class DomainContainer
     SmContainer::pointer     dc_sm_nodes;
     DmContainer::pointer     dc_dm_nodes;
     AmContainer::pointer     dc_am_nodes;
+    PmContainer::pointer     dc_pm_nodes;
     AgentContainer::pointer  dc_nodes;
 
     AgentContainer::pointer dc_container_frm_msg(FdspNodeType node_type);
