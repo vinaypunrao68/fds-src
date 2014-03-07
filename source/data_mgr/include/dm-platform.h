@@ -15,8 +15,9 @@ class DmVolEvent : public VolPlatEvent
     typedef boost::intrusive_ptr<const DmVolEvent> const_ptr;
 
     virtual ~DmVolEvent() {}
-    DmVolEvent(DomainResources::pointer  mgr,
-               DomainClusterMap::pointer clus) : VolPlatEvent(mgr, clus) {}
+    DmVolEvent(DomainResources::pointer   mgr,
+               DomainClusterMap::pointer  clus,
+               const Platform            *plf) : VolPlatEvent(mgr, clus, plf) {}
 
     virtual void plat_evt_handler(const FDSP_MsgHdrTypePtr &hdr);
 };
@@ -45,7 +46,7 @@ class DmPlatform : public Platform
 class DmRpcReq : public PlatRpcReqt
 {
   public:
-    DmRpcReq();
+    explicit DmRpcReq(const Platform *plf);
     void NotifyAddVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
                       fpi::FDSP_NotifyVolTypePtr &vol_msg);
 

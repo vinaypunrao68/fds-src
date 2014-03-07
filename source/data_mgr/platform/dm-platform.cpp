@@ -98,8 +98,8 @@ DmPlatform::mod_init(SysParams const *const param)
 
     plf_my_migration_port = 0;
 
-    plf_vol_evt  = new DmVolEvent(plf_resources, plf_clus_map);
-    plf_node_evt = new NodePlatEvent(plf_resources, plf_clus_map);
+    plf_vol_evt  = new DmVolEvent(plf_resources, plf_clus_map, this);
+    plf_node_evt = new NodePlatEvent(plf_resources, plf_clus_map, this);
 
     return 0;
 }
@@ -117,19 +117,19 @@ DmPlatform::mod_shutdown()
 PlatRpcReqt *
 DmPlatform::plat_creat_reqt_disp()
 {
-    return new DmRpcReq();
+    return new DmRpcReq(this);
 }
 
 PlatRpcResp *
 DmPlatform::plat_creat_resp_disp()
 {
-    return new PlatRpcResp();
+    return new PlatRpcResp(this);
 }
 
 // --------------------------------------------------------------------------------------
 // RPC handlers
 // --------------------------------------------------------------------------------------
-DmRpcReq::DmRpcReq() {}
+DmRpcReq::DmRpcReq(const Platform *plf) : PlatRpcReqt(plf) {}
 DmRpcReq::~DmRpcReq() {}
 
 void

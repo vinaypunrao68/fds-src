@@ -276,6 +276,14 @@ namespace fds {
     void NotifyNodeAdd(FDSP_MsgHdrTypePtr& msg_hdr, 
 		       FDSP_Node_Info_TypePtr& node_info);
 
+    void NotifyNodeActive(const FDSP_MsgHdrType& fdsp_msg,
+                          const FDSP_Node_Info_Type& node_info) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
+    void NotifyNodeActive(FDSP_MsgHdrTypePtr& msg_hdr, 
+		                  FDSP_Node_Info_TypePtr& node_info) {}
+
     void NotifyNodeRmv(const FDSP_MsgHdrType& fdsp_msg,
                        const FDSP_Node_Info_Type& node_info) {
         // Don't do anything here. This stub is just to keep cpp compiler happy

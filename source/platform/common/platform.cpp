@@ -70,6 +70,9 @@ NodePlatform::NodePlatform()
                new DomainResources("Node-Resources"),
                NULL)
 {
+    plf_node_evt = new NodePlatEvent(plf_resources, plf_clus_map, this);
+    plf_vol_evt  = new VolPlatEvent(plf_resources, plf_clus_map, this);
+
     Platform::platf_assign_singleton(&gl_NodePlatform);
 }
 
@@ -104,22 +107,25 @@ NodePlatform::mod_shutdown()
     Platform::mod_shutdown();
 }
 
+/**
+ * Required factory methods.
+ */
 PlatRpcReqt *
 NodePlatform::plat_creat_reqt_disp()
 {
-    return new PlatformRpcReqt();
+    return new PlatformRpcReqt(this);
 }
 
 PlatRpcResp *
 NodePlatform::plat_creat_resp_disp()
 {
-    return new PlatformRpcResp();
+    return new PlatformRpcResp(this);
 }
 
 // --------------------------------------------------------------------------------------
 // RPC handlers
 // --------------------------------------------------------------------------------------
-PlatformRpcReqt::PlatformRpcReqt() {}
+PlatformRpcReqt::PlatformRpcReqt(const Platform *plf) : PlatRpcReqt(plf) {}
 PlatformRpcReqt::~PlatformRpcReqt() {}
 
 void
@@ -135,7 +141,7 @@ PlatformRpcReqt::NotifyNodeRmv(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
 {
 }
 
-PlatformRpcResp::PlatformRpcResp() {}
+PlatformRpcResp::PlatformRpcResp(const Platform *plf) : PlatRpcResp(plf) {}
 PlatformRpcResp::~PlatformRpcResp() {}
 
 void

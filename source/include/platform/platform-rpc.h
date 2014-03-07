@@ -10,12 +10,13 @@
 
 namespace fds {
 
+class Platform;
 namespace fpi = FDS_ProtocolInterface;
 
 class PlatRpcReqt : public fpi::FDSP_ControlPathReqIf
 {
   public:
-    PlatRpcReqt();
+    explicit PlatRpcReqt(const Platform *plat);
     virtual ~PlatRpcReqt();
 
     void NotifyAddVol(const FDSP_MsgHdrType &, const FDSP_NotifyVolType &);
@@ -41,6 +42,10 @@ class PlatRpcReqt : public fpi::FDSP_ControlPathReqIf
     void NotifyNodeAdd(const FDSP_MsgHdrType &, const FDSP_Node_Info_Type &);
     void NotifyNodeAdd(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
                        fpi::FDSP_Node_Info_TypePtr &node_info);
+
+    void NotifyNodeActive(const FDSP_MsgHdrType &, const FDSP_Node_Info_Type &);
+    void NotifyNodeActive(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
+                          fpi::FDSP_Node_Info_TypePtr &node_info);
 
     void NotifyNodeRmv(const FDSP_MsgHdrType &, const FDSP_Node_Info_Type &);
     void NotifyNodeRmv(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
@@ -73,12 +78,15 @@ class PlatRpcReqt : public fpi::FDSP_ControlPathReqIf
                               const fpi::FDSP_DLT_Data_Type &dlt_info);
     void NotifyStartMigration(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
                               fpi::FDSP_DLT_Data_TypePtr &dlt_info);
+
+  protected:
+    const Platform   *plf_mgr;
 };
 
 class PlatRpcResp : public FDSP_OMControlPathRespIf
 {
   public:
-    PlatRpcResp();
+    explicit PlatRpcResp(const Platform *mgr);
     virtual ~PlatRpcResp();
 
     void CreateBucketResp(const FDSP_MsgHdrType      &fdsp_msg,
@@ -121,6 +129,9 @@ class PlatRpcResp : public FDSP_OMControlPathRespIf
                            const FDSP_MigrationStatusType   &status_resp);
     void MigrationDoneResp(fpi::FDSP_MsgHdrTypePtr          &fdsp_msg,
                            fpi::FDSP_MigrationStatusTypePtr &status_resp);
+
+  protected:
+    const Platform   *plf_mgr;
 };
 
 };  // namespace fds

@@ -12,8 +12,7 @@
 
 namespace fds {
 
-class PlatRpcReqt;
-class PlatRpcResp;
+class Platform;
 
 // -------------------------------------------------------------------------------------
 // Node Inventory and Cluster Map
@@ -91,15 +90,18 @@ class PlatEvent
     typedef boost::intrusive_ptr<const PlatEvent> const_ptr;
 
     virtual ~PlatEvent();
-    PlatEvent(char const *const         name,
-              DomainResources::pointer  mgr,
-              DomainClusterMap::pointer clus);
+    PlatEvent(char const *const          name,
+              DomainResources::pointer   mgr,
+              DomainClusterMap::pointer  clus,
+              const Platform            *plat);
+
     virtual void plat_evt_handler(const FDSP_MsgHdrTypePtr &hdr) = 0;
 
   protected:
     char const *const          pe_name;
     DomainResources::pointer   pe_resources;
     DomainClusterMap::pointer  pe_clusmap;
+    const Platform            *pe_platform;
 
   private:
     mutable boost::atomic<int>  rs_refcnt;
@@ -121,13 +123,13 @@ class NodePlatEvent : public PlatEvent
     typedef boost::intrusive_ptr<const NodePlatEvent> const_ptr;
 
     virtual ~NodePlatEvent() {}
-    NodePlatEvent(DomainResources::pointer  mgr,
-                  DomainClusterMap::pointer clus)
-        : PlatEvent("NodeEvent", mgr, clus) {}
+    NodePlatEvent(DomainResources::pointer   mgr,
+                  DomainClusterMap::pointer  clus,
+                  const Platform            *plat)
+        : PlatEvent("NodeEvent", mgr, clus, plat) {}
 
     virtual void plat_evt_handler(const FDSP_MsgHdrTypePtr &hdr);
 
-  protected:
     virtual int
     plat_recvNodeEvent(const FDSP_MsgHdrTypePtr &hdr, const FDSP_Node_Info_Type &evt);
 
@@ -148,17 +150,17 @@ class NodePlatEvent : public PlatEvent
 class VolPlatEvent : public PlatEvent
 {
   public:
-    typedef boost::intrusive_ptr<NodePlatEvent> pointer;
-    typedef boost::intrusive_ptr<const NodePlatEvent> const_ptr;
+    typedef boost::intrusive_ptr<VolPlatEvent> pointer;
+    typedef boost::intrusive_ptr<const VolPlatEvent> const_ptr;
 
     virtual ~VolPlatEvent() {}
-    VolPlatEvent(DomainResources::pointer  mgr,
-                 DomainClusterMap::pointer clus)
-        : PlatEvent("VolEvent", mgr, clus) {}
+    VolPlatEvent(DomainResources::pointer   mgr,
+                 DomainClusterMap::pointer  clus,
+                 const Platform            *plat)
+        : PlatEvent("VolEvent", mgr, clus, plat) {}
 
     virtual void plat_evt_handler(const FDSP_MsgHdrTypePtr &hdr);
 
-  protected:
     virtual int
     plat_set_throttle(const FDSP_MsgHdrTypePtr      &hdr,
                       const FDSP_ThrottleMsgTypePtr &msg);
@@ -177,7 +179,6 @@ class VolPlatEvent : public PlatEvent
 // -------------------------------------------------------------------------------------
 // Common Platform Services
 // -------------------------------------------------------------------------------------
-class Platform;
 extern Platform *gl_PlatformSvc;
 
 class Platform : public Module
@@ -261,6 +262,9 @@ class Platform : public Module
     inline NodeUuid const *const    plf_get_my_uuid() const { return &plf_my_uuid; }
 
   protected:
+    friend class PlatRpcReqt;
+    friend class PlatRpcResp;
+
     FDSP_MgrIdType             plf_node_type;
     NodeUuid                   plf_my_uuid;
     std::string                plf_my_node_name;
@@ -280,8 +284,8 @@ class Platform : public Module
     /**
      * Specific platform event handlers.
      */
-    PlatEvent::pointer         plf_node_evt;
-    PlatEvent::pointer         plf_vol_evt;
+    NodePlatEvent::pointer     plf_node_evt;
+    VolPlatEvent::pointer      plf_vol_evt;
     PlatEvent::pointer         plf_throttle_evt;
     PlatEvent::pointer         plf_migrate_evt;
     PlatEvent::pointer         plf_tier_evt;
@@ -294,13 +298,8 @@ class Platform : public Module
     OmRespDispatchPtr                 plf_om_resp;   /**< RPC client response disp.  */
     netControlPathServerSession      *plf_my_sess;
 
-    /* Client attributes. */
-    // netOMControlPathClientSession    *plf_om_sess;   /**< client ctrl path session.  */
-    // NodeAgentCpOmClientPtr            plf_om_reqt;   /**< send request to OM.        */
-    // std::string                       plf_client_id;
-
     /**
-     * Required Factory method.
+     * Required Factory methods.
      */
     virtual PlatRpcReqt *plat_creat_reqt_disp() = 0;
     virtual PlatRpcResp *plat_creat_resp_disp() = 0;

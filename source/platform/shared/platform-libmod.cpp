@@ -45,9 +45,9 @@ Platform::~Platform()
     }
 }
 
-/**
- * Platform node/cluster methods.
- */
+// -----------------------------------------------------------------------------------
+// Platform node/cluster methods.
+// -----------------------------------------------------------------------------------
 
 // plf_reg_node_info
 // -----------------
@@ -90,9 +90,9 @@ Platform::plf_persist_inventory(const NodeUuid &uuid)
 {
 }
 
-/**
- * Module methods.
- */
+// -----------------------------------------------------------------------------------
+// Module methods.
+// -----------------------------------------------------------------------------------
 int
 Platform::mod_init(SysParams const *const param)
 {
@@ -117,6 +117,10 @@ void
 Platform::mod_shutdown()
 {
 }
+
+// -----------------------------------------------------------------------------------
+// RPC endpoints
+// -----------------------------------------------------------------------------------
 
 // plf_rpc_server_thread
 // ---------------------
@@ -158,7 +162,7 @@ Platform::plf_rpc_om_handshake()
 // --------------------------------------------------------------------------------------
 // RPC request handlers
 // --------------------------------------------------------------------------------------
-PlatRpcReqt::PlatRpcReqt() {}
+PlatRpcReqt::PlatRpcReqt(const Platform *mgr) : plf_mgr(mgr) {}
 PlatRpcReqt::~PlatRpcReqt() {}
 
 void
@@ -169,7 +173,9 @@ void
 PlatRpcReqt::NotifyAddVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
                           fpi::FDSP_NotifyVolTypePtr &msg)
 {
-    fds_verify(0);
+    if (plf_mgr->plf_vol_evt != NULL) {
+        plf_mgr->plf_vol_evt->plat_add_vol(msg_hdr, msg);
+    }
 }
 
 void
@@ -180,7 +186,9 @@ void
 PlatRpcReqt::NotifyRmVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
                          fpi::FDSP_NotifyVolTypePtr &msg)
 {
-    fds_verify(0);
+    if (plf_mgr->plf_vol_evt != NULL) {
+        plf_mgr->plf_vol_evt->plat_rm_vol(msg_hdr, msg);
+    }
 }
 
 void
@@ -223,6 +231,17 @@ PlatRpcReqt::NotifyNodeAdd(const FDSP_MsgHdrType     &fdsp_msg,
 void
 PlatRpcReqt::NotifyNodeAdd(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
                            fpi::FDSP_Node_Info_TypePtr &node_info)
+{
+    fds_verify(0);
+}
+
+void
+PlatRpcReqt::NotifyNodeActive(const FDSP_MsgHdrType     &fdsp_msg,
+                              const FDSP_Node_Info_Type &node_info) {}
+
+void
+PlatRpcReqt::NotifyNodeActive(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
+                              fpi::FDSP_Node_Info_TypePtr &node_info)
 {
     fds_verify(0);
 }
@@ -314,7 +333,7 @@ PlatRpcReqt::NotifyStartMigration(fpi::FDSP_MsgHdrTypePtr    &hdr,
 // --------------------------------------------------------------------------------------
 // RPC response handlers
 // --------------------------------------------------------------------------------------
-PlatRpcResp::PlatRpcResp() : FDSP_OMControlPathRespIf() {}
+PlatRpcResp::PlatRpcResp(const Platform *mgr) : plf_mgr(mgr) {}
 PlatRpcResp::~PlatRpcResp() {}
 
 void
