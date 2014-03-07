@@ -17,6 +17,7 @@
 #include <fds_counters.h>
 #include <graphite_client.h>
 #include <util/Log.h>
+#include <concurrency/ThreadPool.h>
 
 namespace fds {
 
@@ -143,9 +144,8 @@ class FdsProcess : public boost::noncopyable, public HasLogger {
     /**
      * Return the fds root directory obj.
      */
-    inline const FdsRootDir *proc_fdsroot() const {
-        return proc_root;
-    }
+    inline const FdsRootDir *proc_fdsroot() const { return proc_root; }
+    inline fds_threadpool *proc_thrpool() { return proc_thrp; }
 
  protected:
     // static members/methods
@@ -171,7 +171,7 @@ class FdsProcess : public boost::noncopyable, public HasLogger {
     boost::shared_ptr<FdsCountersMgr> cntrs_mgrPtr_;
 
     /* Process wide timer service.  Not enabled by default.  It needs
-     * to be explicitly enabled 
+     * to be explicitly enabled
      */
     boost::shared_ptr<FdsTimer> timer_servicePtr_;
 
@@ -185,6 +185,9 @@ class FdsProcess : public boost::noncopyable, public HasLogger {
 
     /* FdsRootDir globals. */
     FdsRootDir   *proc_root;
+
+    /* Process wide thread pool. */
+    fds_threadpool *proc_thrp;
 };
 
 }  // namespace fds

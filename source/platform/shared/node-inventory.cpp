@@ -202,7 +202,12 @@ OmAgent::init_msg_hdr(fpi::FDSP_MsgHdrTypePtr hdr) const
 void
 OmAgent::init_node_reg_pkt(fpi::FDSP_RegisterNodeTypePtr pkt) const
 {
+    Platform::ptr plat = Platform::platf_const_singleton();
+
     NodeInventory::init_node_reg_pkt(pkt);
+    if (plat != NULL) {
+        pkt->node_type = plat->plf_get_node_type();
+    }
 }
 
 // om_register_node

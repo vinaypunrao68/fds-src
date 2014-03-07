@@ -31,6 +31,7 @@ class FdsEnv:
     def shut_down(self):
         subprocess.call(['pkill', '-9', 'AMAgent'])
         subprocess.call(['pkill', '-9', 'Mgr'])
+        subprocess.call(['pkill', '-9', 'java'])
 
     def cleanup(self):
         self.shut_down()

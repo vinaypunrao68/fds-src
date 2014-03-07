@@ -17,12 +17,12 @@ user_fds_ar_libs  := \
     fds-om-lib \
     fds-om-discovery \
     fds-plat-lib \
-    fds-thread \
     fds-lib \
     fds-util \
     fds-netproxy \
     fds-fdsp \
-    fds-umod
+    fds-umod \
+    fds-thread
 
 user_non_fds_libs := \
     boost_log \

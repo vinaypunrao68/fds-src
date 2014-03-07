@@ -228,6 +228,19 @@ class Platform : public Module
     static inline const NodeUuid &plf_my_node_uuid() {
         return platf_singleton()->plf_my_uuid;
     }
+    static inline fds_uint32_t plf_ctrl_port(fds_uint32_t base) { return base; }
+    static inline fds_uint32_t plf_conf_port(fds_uint32_t base) { return base + 1; }
+    static inline fds_uint32_t plf_data_port(fds_uint32_t base) { return base + 2; }
+    static inline fds_uint32_t plf_migration_port(fds_uint32_t base) { return base + 3; }
+
+    /**
+     * Platform methods.
+     */
+    void plf_run_server(bool spawn_thr = false);
+    void plf_rpc_om_handshake();
+    void plf_change_info(const NodeUuid    &my_uuid,
+                         const std::string &my_name,
+                         fds_uint32_t       base_port);
 
     /**
      * Platform node/cluster inventory methods.
@@ -256,8 +269,11 @@ class Platform : public Module
     inline FDSP_MgrIdType plf_get_node_type() const { return plf_node_type; }
     inline fds_uint32_t   plf_get_om_cfg_port() const { return plf_om_conf_port; }
     inline fds_uint32_t   plf_get_my_ctrl_port() const { return plf_my_ctrl_port; }
+    inline fds_uint32_t   plf_get_my_conf_port() const { return plf_my_conf_port; }
     inline fds_uint32_t   plf_get_my_data_port() const { return plf_my_data_port; }
-
+    inline fds_uint32_t   plf_get_my_migration_port() const {
+        return plf_my_migration_port;
+    }
     inline std::string const *const plf_get_my_name() const { return &plf_my_node_name; }
     inline std::string const *const plf_get_my_ip() const { return &plf_my_ip; }
     inline std::string const *const plf_get_om_ip() const { return &plf_om_ip_str; }
@@ -274,6 +290,7 @@ class Platform : public Module
     std::string                plf_om_ip_str;
     fds_uint32_t               plf_om_conf_port;
     fds_uint32_t               plf_my_ctrl_port;
+    fds_uint32_t               plf_my_conf_port;
     fds_uint32_t               plf_my_data_port;
     fds_uint32_t               plf_my_migration_port;
     fds_bool_t                 plf_test_mode;
@@ -308,7 +325,6 @@ class Platform : public Module
 
   private:
     void plf_rpc_server_thread();
-    void plf_rpc_om_handshake();
 };
 
 };  // namespace fds
