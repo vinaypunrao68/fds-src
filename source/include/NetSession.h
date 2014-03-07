@@ -402,7 +402,7 @@ class netServerSessionEx: public netSession {
           usleep(10);
           slept_time += 10;
       }
-      fds_assert(connections_.size() == 0);
+      // TODO(vy): this assertion is wrong fds_assert(connections_.size() == 0);
 
       if (listen_thread_) {
           listen_thread_->join();

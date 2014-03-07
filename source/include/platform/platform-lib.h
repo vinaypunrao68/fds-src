@@ -7,11 +7,13 @@
 #include <string>
 #include <dlt.h>
 #include <fds_module.h>
-#include <fdsp/FDSP_types.h>
-#include <fdsp/FDSP_types.h>
+#include <fds_typedefs.h>
 #include <platform/node-inventory.h>
 
 namespace fds {
+
+class PlatRpcReqt;
+class PlatRpcResp;
 
 // -------------------------------------------------------------------------------------
 // Node Inventory and Cluster Map
@@ -89,12 +91,15 @@ class PlatEvent
     typedef boost::intrusive_ptr<const PlatEvent> const_ptr;
 
     virtual ~PlatEvent();
-    explicit PlatEvent(char const *const name);
-
-    virtual void plat_evt_handler() = 0;
+    PlatEvent(char const *const         name,
+              DomainResources::pointer  mgr,
+              DomainClusterMap::pointer clus);
+    virtual void plat_evt_handler(const FDSP_MsgHdrTypePtr &hdr) = 0;
 
   protected:
-    char const *const        pe_name;
+    char const *const          pe_name;
+    DomainResources::pointer   pe_resources;
+    DomainClusterMap::pointer  pe_clusmap;
 
   private:
     mutable boost::atomic<int>  rs_refcnt;
@@ -116,9 +121,57 @@ class NodePlatEvent : public PlatEvent
     typedef boost::intrusive_ptr<const NodePlatEvent> const_ptr;
 
     virtual ~NodePlatEvent() {}
-    NodePlatEvent() : PlatEvent("NodeEvent") {}
+    NodePlatEvent(DomainResources::pointer  mgr,
+                  DomainClusterMap::pointer clus)
+        : PlatEvent("NodeEvent", mgr, clus) {}
 
-    virtual void plat_evt_handler();
+    virtual void plat_evt_handler(const FDSP_MsgHdrTypePtr &hdr);
+
+  protected:
+    virtual int
+    plat_recvNodeEvent(const FDSP_MsgHdrTypePtr &hdr, const FDSP_Node_Info_Type &evt);
+
+    virtual int
+    plat_recvMigrationEvent(const FDSP_MsgHdrTypePtr &hdr, const FDSP_DLT_Data_Type &dlt);
+
+    virtual int
+    plat_recvDLTStartMigration(const FDSP_MsgHdrTypePtr    &hdr,
+                               const FDSP_DLT_Data_TypePtr &dlt);
+
+    virtual int
+    plat_recvDLTUpdate(const FDSP_MsgHdrTypePtr &hdr, const FDSP_DLT_Data_Type &dlt);
+
+    virtual int
+    plat_recvDMTUpdate(const FDSP_MsgHdrTypePtr &hdr, const FDSP_DMT_Type &dmt);
+};
+
+class VolPlatEvent : public PlatEvent
+{
+  public:
+    typedef boost::intrusive_ptr<NodePlatEvent> pointer;
+    typedef boost::intrusive_ptr<const NodePlatEvent> const_ptr;
+
+    virtual ~VolPlatEvent() {}
+    VolPlatEvent(DomainResources::pointer  mgr,
+                 DomainClusterMap::pointer clus)
+        : PlatEvent("VolEvent", mgr, clus) {}
+
+    virtual void plat_evt_handler(const FDSP_MsgHdrTypePtr &hdr);
+
+  protected:
+    virtual int
+    plat_set_throttle(const FDSP_MsgHdrTypePtr      &hdr,
+                      const FDSP_ThrottleMsgTypePtr &msg);
+
+    virtual int
+    plat_bucket_stat(const FDSP_MsgHdrTypePtr          &hdr,
+                     const FDSP_BucketStatsRespTypePtr &msg);
+
+    virtual int
+    plat_add_vol(const FDSP_MsgHdrTypePtr &hdr, const FDSP_NotifyVolTypePtr &add);
+
+    virtual int
+    plat_rm_vol(const FDSP_MsgHdrTypePtr &hdr, const FDSP_NotifyVolTypePtr &rm);
 };
 
 // -------------------------------------------------------------------------------------
@@ -130,8 +183,11 @@ extern Platform *gl_PlatformSvc;
 class Platform : public Module
 {
   public:
+    typedef Platform const *const      ptr;
+
     virtual ~Platform();
     Platform(char const *const         name,
+             FDSP_MgrIdType            node_type,
              DomainNodeInv::pointer    node_inv,
              DomainClusterMap::pointer cluster,
              DomainResources::pointer  resources,
@@ -140,12 +196,14 @@ class Platform : public Module
     /**
      * Short cuts to retrieve important objects.
      */
-    static inline void platf_assign_singleton(Platform *ptr) {
-        gl_PlatformSvc = ptr;
-    }
-    static inline Platform *platf_singleton() {
-        return gl_PlatformSvc;
-    }
+    static inline void platf_assign_singleton(Platform *ptr) { gl_PlatformSvc = ptr; }
+    static inline Platform     *platf_singleton() { return gl_PlatformSvc; }
+    static inline Platform::ptr platf_const_singleton() { return gl_PlatformSvc; }
+
+    inline DomainNodeInv::pointer    plf_node_inventory() { return plf_node_inv; }
+    inline DomainClusterMap::pointer plf_cluster_map() { return plf_clus_map; }
+    inline DomainResources::pointer  plf_node_resoures() { return plf_resources; }
+
     static inline SmContainer::pointer plf_sm_nodes() {
         return platf_singleton()->plf_node_inv->dc_get_sm_nodes();
     }
@@ -166,15 +224,6 @@ class Platform : public Module
     }
     static inline const NodeUuid &plf_my_node_uuid() {
         return platf_singleton()->plf_my_uuid;
-    }
-    inline DomainNodeInv::pointer plf_node_inventory() {
-        return plf_node_inv;
-    }
-    inline DomainClusterMap::pointer plf_cluster_map() {
-        return plf_clus_map;
-    }
-    inline DomainResources::pointer plf_node_resoures() {
-        return plf_resources;
     }
 
     /**
@@ -198,16 +247,30 @@ class Platform : public Module
     virtual void mod_startup();
     virtual void mod_shutdown();
 
+    /**
+     * Pull out common platform data.
+     */
+    inline FDSP_MgrIdType plf_get_node_type() const { return plf_node_type; }
+    inline fds_uint32_t   plf_get_om_cfg_port() const { return plf_om_conf_port; }
+    inline fds_uint32_t   plf_get_my_ctrl_port() const { return plf_my_ctrl_port; }
+    inline fds_uint32_t   plf_get_my_data_port() const { return plf_my_data_port; }
+
+    inline std::string const *const plf_get_my_name() const { return &plf_my_node_name; }
+    inline std::string const *const plf_get_my_ip() const { return &plf_my_ip; }
+    inline std::string const *const plf_get_om_ip() const { return &plf_om_ip_str; }
+    inline NodeUuid const *const    plf_get_my_uuid() const { return &plf_my_uuid; }
+
   protected:
     FDSP_MgrIdType             plf_node_type;
     NodeUuid                   plf_my_uuid;
     std::string                plf_my_node_name;
+    std::string                plf_my_ip;
     std::string                plf_om_ip_str;
-    std::string                plf_host_ip;
     fds_uint32_t               plf_om_conf_port;
     fds_uint32_t               plf_my_ctrl_port;
     fds_uint32_t               plf_my_data_port;
     fds_uint32_t               plf_my_migration_port;
+    fds_bool_t                 plf_test_mode;
 
     OmAgent::pointer           plf_master;
     DomainNodeInv::pointer     plf_node_inv;
@@ -223,8 +286,29 @@ class Platform : public Module
     PlatEvent::pointer         plf_migrate_evt;
     PlatEvent::pointer         plf_tier_evt;
     PlatEvent::pointer         plf_bucket_stats_evt;
-};
 
+    /* Server attributes. */
+    boost::shared_ptr<netSessionTbl>  plf_net_sess;
+    boost::shared_ptr<PlatRpcReqt>    plf_rpc_reqt;  /**< rpc handler for OM reqt.   */
+    boost::shared_ptr<std::thread>    plf_rpc_thrd;  /**< thread running rpc handler */
+    OmRespDispatchPtr                 plf_om_resp;   /**< RPC client response disp.  */
+    netControlPathServerSession      *plf_my_sess;
+
+    /* Client attributes. */
+    // netOMControlPathClientSession    *plf_om_sess;   /**< client ctrl path session.  */
+    // NodeAgentCpOmClientPtr            plf_om_reqt;   /**< send request to OM.        */
+    // std::string                       plf_client_id;
+
+    /**
+     * Required Factory method.
+     */
+    virtual PlatRpcReqt *plat_creat_reqt_disp() = 0;
+    virtual PlatRpcResp *plat_creat_resp_disp() = 0;
+
+  private:
+    void plf_rpc_server_thread();
+    void plf_rpc_om_handshake();
+};
 
 };  // namespace fds
 

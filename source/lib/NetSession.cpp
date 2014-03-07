@@ -193,6 +193,7 @@ void netSessionTbl::endAllSessions() {
 void netSessionTbl::listenServer(netSession* server_session) {
     switch (localMgrId) {
         case FDSP_STOR_MGR:
+        case FDSP_PLATFORM:
             if (server_session->getRemoteMgrId() == FDSP_ORCH_MGR) {
                 netControlPathServerSession *servSession =
                     reinterpret_cast<netControlPathServerSession *>(server_session);

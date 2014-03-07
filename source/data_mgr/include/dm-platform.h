@@ -8,16 +8,17 @@
 
 namespace fds {
 
-class DmVolEvent : public PlatEvent
+class DmVolEvent : public VolPlatEvent
 {
   public:
     typedef boost::intrusive_ptr<DmVolEvent> pointer;
     typedef boost::intrusive_ptr<const DmVolEvent> const_ptr;
 
     virtual ~DmVolEvent() {}
-    DmVolEvent() : PlatEvent("DM-VolEvent") {}
+    DmVolEvent(DomainResources::pointer  mgr,
+               DomainClusterMap::pointer clus) : VolPlatEvent(mgr, clus) {}
 
-    virtual void plat_evt_handler();
+    virtual void plat_evt_handler(const FDSP_MsgHdrTypePtr &hdr);
 };
 
 class DmPlatform : public Platform
@@ -32,6 +33,51 @@ class DmPlatform : public Platform
     virtual int  mod_init(SysParams const *const param);
     virtual void mod_startup();
     virtual void mod_shutdown();
+
+  protected:
+    virtual PlatRpcReqt *plat_creat_reqt_disp();
+    virtual PlatRpcResp *plat_creat_resp_disp();
+};
+
+/**
+ * Data Manager RPC handlers.  Only overwrite what's specific to DM.
+ */
+class DmRpcReq : public PlatRpcReqt
+{
+  public:
+    DmRpcReq();
+    void NotifyAddVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
+                      fpi::FDSP_NotifyVolTypePtr &vol_msg);
+
+    void NotifyRmVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
+                     fpi::FDSP_NotifyVolTypePtr &vol_msg);
+
+    void NotifyModVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
+                      fpi::FDSP_NotifyVolTypePtr &vol_msg);
+
+    void AttachVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
+                   fpi::FDSP_AttachVolTypePtr &vol_msg);
+
+    void DetachVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
+                   fpi::FDSP_AttachVolTypePtr &vol_msg);
+
+    void NotifyNodeAdd(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
+                       fpi::FDSP_Node_Info_TypePtr &node_info);
+
+    void NotifyNodeRmv(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
+                       fpi::FDSP_Node_Info_TypePtr &node_info);
+
+    void NotifyDLTUpdate(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
+                         fpi::FDSP_DLT_Data_TypePtr &dlt_info);
+
+    void NotifyDMTUpdate(fpi::FDSP_MsgHdrTypePtr &msg_hdr,
+                         fpi::FDSP_DMT_TypePtr   &dmt_info);
+
+    void NotifyStartMigration(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
+                              fpi::FDSP_DLT_Data_TypePtr &dlt_info);
+
+  protected:
+    virtual ~DmRpcReq();
 };
 
 extern DmPlatform gl_DmPlatform;
