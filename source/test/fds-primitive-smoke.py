@@ -401,6 +401,9 @@ def startSM4(args):
                      stderr=subprocess.STDOUT)
     subprocess.call(['sleep', '3'])
 
+USER_NAME = 'bao_pham'
+USER_SSH_KEY = '/tmp/lab.rsa'
+
 def bringupClusterCLI(env, bu, cfgFile, verbose, debug):
     env.cleanup()
     print "\nSetting up private fds-root in " + bu.getCfgField('node1', 'fds_root') + ' [1-4]'
@@ -414,7 +417,8 @@ def bringupClusterCLI(env, bu, cfgFile, verbose, debug):
     FdsSetupNode(env.env_fdsSrc, root4)
 
     print "\n\nStarting Cluster on node1...."
-    p = subprocess.Popen(['test/bring_up.py', '--file', cfgFile, '--verbose', verbose, '--debug', debug, '--up'],
+    p = subprocess.Popen(['test/bring_up.py', '--file', cfgFile, '--verbose', verbose, '--debug', debug, '--up', '--ssh_user', USER_NAME, '--ssh_passwd', 'passwd', '--ssh_key', USER_SSH_KEY],
+#    p = subprocess.Popen(['test/bring_up.py', '--file', cfgFile, '--verbose', verbose, '--debug', debug, '--up'],
                          stderr=subprocess.STDOUT)
     p.wait()
     print "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
@@ -592,6 +596,11 @@ if __name__ == "__main__":
     else:
         async_io = False
     loop = 1
+
+    #
+    # Setup lab key access
+    #
+    subprocess.call(['test/copy_key.sh'])
 
     #
     # Load the configuration files
