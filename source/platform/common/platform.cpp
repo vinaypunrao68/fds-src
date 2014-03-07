@@ -7,12 +7,12 @@
 #include <netinet/in.h>
 #include <ifaddrs.h>
 #include <arpa/inet.h>
-#include <dm-platform.h>
+#include <platform.h>
 #include <fds_process.h>
 
 namespace fds {
 
-DmPlatform gl_DmPlatform;
+NodePlatform gl_NodePlatform;
 
 namespace util {
 /**
@@ -50,148 +50,107 @@ static std::string get_local_ip()
 }  // namespace util
 
 // -------------------------------------------------------------------------------------
-// DM Platform Event Handler
+// Node Specific Platform
 // -------------------------------------------------------------------------------------
-void
-DmVolEvent::plat_evt_handler(const FDSP_MsgHdrTypePtr &hdr)
-{
-}
-
-// -------------------------------------------------------------------------------------
-// DM Specific Platform
-// -------------------------------------------------------------------------------------
-DmPlatform::DmPlatform()
-    : Platform("DM-Platform",
-               FDSP_DATA_MGR,
-               new DomainNodeInv("DM-Platform-NodeInv",
+NodePlatform::NodePlatform()
+    : Platform("Node-Platform",
+               FDSP_PLATFORM,
+               new DomainNodeInv("Node-Platform-NodeInv",
                                  NULL,
                                  new SmContainer(FDSP_DATA_MGR),
                                  new DmContainer(FDSP_DATA_MGR),
                                  new AmContainer(FDSP_DATA_MGR),
                                  new PmContainer(FDSP_DATA_MGR),
                                  new OmContainer(FDSP_DATA_MGR)),
-               new DomainClusterMap("DM-Platform-ClusMap",
+               new DomainClusterMap("Node-Platform-ClusMap",
                                  NULL,
                                  new SmContainer(FDSP_DATA_MGR),
                                  new DmContainer(FDSP_DATA_MGR),
                                  new AmContainer(FDSP_DATA_MGR),
                                  new PmContainer(FDSP_DATA_MGR),
                                  new OmContainer(FDSP_DATA_MGR)),
-               new DomainResources("DM-Resources"),
+               new DomainResources("Node-Resources"),
                NULL)
 {
-    Platform::platf_assign_singleton(&gl_DmPlatform);
+    plf_node_evt = new NodePlatEvent(plf_resources, plf_clus_map, this);
+    plf_vol_evt  = new VolPlatEvent(plf_resources, plf_clus_map, this);
+
+    Platform::platf_assign_singleton(&gl_NodePlatform);
 }
 
 int
-DmPlatform::mod_init(SysParams const *const param)
+NodePlatform::mod_init(SysParams const *const param)
 {
     FdsConfigAccessor conf(g_fdsprocess->get_conf_helper());
 
     Platform::mod_init(param);
 
     plf_node_type    = FDSP_DATA_MGR;
-    plf_om_ip_str    = conf.get_abs<std::string>("fds.dm.om_ip");
-    plf_om_conf_port = conf.get_abs<int>("fds.dm.om_port");
-    plf_my_ctrl_port = conf.get_abs<int>("fds.dm.cp_port");
-    plf_my_data_port = conf.get_abs<int>("fds.dm.port");
+    plf_om_ip_str    = conf.get_abs<std::string>("fds.plat.om_ip");
+    plf_om_conf_port = conf.get_abs<int>("fds.plat.om_port");
+    plf_my_ctrl_port = conf.get_abs<int>("fds.plat.control_port");
+    plf_my_data_port = 0;
     plf_my_ip        = util::get_local_ip();
-    plf_my_node_name = conf.get<std::string>("prefix") + "_DM_" + plf_my_ip;
+    plf_my_node_name = plf_my_ip;
 
     plf_my_migration_port = 0;
-
-    plf_vol_evt  = new DmVolEvent(plf_resources, plf_clus_map, this);
-    plf_node_evt = new NodePlatEvent(plf_resources, plf_clus_map, this);
-
     return 0;
 }
 
 void
-DmPlatform::mod_startup()
+NodePlatform::mod_startup()
 {
+    Platform::mod_startup();
 }
 
 void
-DmPlatform::mod_shutdown()
+NodePlatform::mod_shutdown()
 {
+    Platform::mod_shutdown();
 }
 
+/**
+ * Required factory methods.
+ */
 PlatRpcReqt *
-DmPlatform::plat_creat_reqt_disp()
+NodePlatform::plat_creat_reqt_disp()
 {
-    return new DmRpcReq(this);
+    return new PlatformRpcReqt(this);
 }
 
 PlatRpcResp *
-DmPlatform::plat_creat_resp_disp()
+NodePlatform::plat_creat_resp_disp()
 {
-    return new PlatRpcResp(this);
+    return new PlatformRpcResp(this);
 }
 
 // --------------------------------------------------------------------------------------
 // RPC handlers
 // --------------------------------------------------------------------------------------
-DmRpcReq::DmRpcReq(const Platform *plf) : PlatRpcReqt(plf) {}
-DmRpcReq::~DmRpcReq() {}
+PlatformRpcReqt::PlatformRpcReqt(const Platform *plf) : PlatRpcReqt(plf) {}
+PlatformRpcReqt::~PlatformRpcReqt() {}
 
 void
-DmRpcReq::NotifyAddVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                       fpi::FDSP_NotifyVolTypePtr &msg)
+PlatformRpcReqt::NotifyNodeAdd(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
+                               fpi::FDSP_Node_Info_TypePtr &node_info)
 {
+    std::cout << "Got it!" << std::endl;
 }
 
 void
-DmRpcReq::NotifyRmVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                      fpi::FDSP_NotifyVolTypePtr &msg)
+PlatformRpcReqt::NotifyNodeRmv(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
+                               fpi::FDSP_Node_Info_TypePtr &node_info)
 {
 }
 
-void
-DmRpcReq::NotifyModVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                       fpi::FDSP_NotifyVolTypePtr &msg)
-{
-}
+PlatformRpcResp::PlatformRpcResp(const Platform *plf) : PlatRpcResp(plf) {}
+PlatformRpcResp::~PlatformRpcResp() {}
 
 void
-DmRpcReq::AttachVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                    fpi::FDSP_AttachVolTypePtr &vol_msg)
+PlatformRpcResp::RegisterNodeResp(fpi::FDSP_MsgHdrTypePtr       &hdr,
+                                  fpi::FDSP_RegisterNodeTypePtr &node)
 {
-}
-
-void
-DmRpcReq::DetachVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                    fpi::FDSP_AttachVolTypePtr &vol_msg)
-{
-}
-
-void
-DmRpcReq::NotifyNodeAdd(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
-                        fpi::FDSP_Node_Info_TypePtr &node_info)
-{
-}
-
-void
-DmRpcReq::NotifyNodeRmv(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
-                        fpi::FDSP_Node_Info_TypePtr &node_info)
-{
-}
-
-void
-DmRpcReq::NotifyDLTUpdate(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                          fpi::FDSP_DLT_Data_TypePtr &dlt_info)
-{
-}
-
-void
-DmRpcReq::NotifyDMTUpdate(fpi::FDSP_MsgHdrTypePtr &msg_hdr,  // NOLINT
-                          fpi::FDSP_DMT_TypePtr   &dmt)
-{
-}
-
-void
-DmRpcReq::NotifyStartMigration(fpi::FDSP_MsgHdrTypePtr    &hdr,
-                               fpi::FDSP_DLT_Data_TypePtr &dlt)
-{
+    std::cout << "Got it resp!" << std::endl;
 }
 
 }  // namespace fds
