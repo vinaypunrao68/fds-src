@@ -39,7 +39,7 @@ namespace fds {
 
         jstring javaString(JNIEnv *env, std::string s);
 
-        std::string ccString(JNIEnv *env, jstring javaString);
+        std::string *ccString(JNIEnv *env, jstring javaString);
 
         ~JavaContext();
     };

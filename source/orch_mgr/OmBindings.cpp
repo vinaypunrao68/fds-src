@@ -20,6 +20,8 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* aReserved)
 
     javaVM = vm;
     return JNI_VERSION_1_8;
+
+    // this->arg = static_cast<jobject>(env->NewGlobalRef(arg));
 }
 
 extern int main(int argc, const char *argv[]);
@@ -32,9 +34,10 @@ JNIEXPORT void JNICALL Java_com_formationds_om_NativeApi_init
     args[0] = "orchMgr";
     for (int i = 0; i <length; i++) {
         jstring arg = (jstring)env->GetObjectArrayElement(javaArgs, i);
-        std::string cString = javaContext.ccString(env, arg);
-        args[i + 1] = cString.c_str();
+        std::string *cString = javaContext.ccString(env, arg);
+        args[i + 1] = cString->c_str();
     }
+
     printf("JNI init done\n");
     main(length + 1, args);
 }
