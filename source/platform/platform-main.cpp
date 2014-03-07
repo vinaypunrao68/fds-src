@@ -4,8 +4,8 @@
 #include <stdlib.h>
 #include <platform.h>
 
-PlatformProcess::PlatformProcess(int argc, char **argv)
-    : FdsProcess(argc, argv, "dm.conf", "fds.dm.") {}
+PlatformProcess::PlatformProcess(int argc, char **argv, Module **vec)
+    : FdsProcess(argc, argv, "platform.conf", "fds.plat.", "platform.log", vec) {}
 
 void
 PlatformProcess::run()
@@ -21,9 +21,9 @@ int main(int argc, char **argv)
         &fds::gl_NodePlatform,
         NULL
     };
-    PlatformProcess plat(argc, argv);
+    PlatformProcess plat(argc, argv, plat_vec);
 
-    plat.setup(argc, argv, plat_vec);
+    plat.setup();
     plat.run();
     return 0;
 }

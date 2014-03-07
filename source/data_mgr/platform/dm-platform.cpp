@@ -114,22 +114,23 @@ DmPlatform::mod_shutdown()
 {
 }
 
-PlatRpcReq *
-DmPlatform::plat_creat_rpc_handler()
+PlatRpcReqt *
+DmPlatform::plat_creat_reqt_disp()
 {
     return new DmRpcReq();
+}
+
+PlatRpcResp *
+DmPlatform::plat_creat_resp_disp()
+{
+    return new PlatRpcResp();
 }
 
 // --------------------------------------------------------------------------------------
 // RPC handlers
 // --------------------------------------------------------------------------------------
-DmRpcReq::DmRpcReq()
-{
-}
-
-DmRpcReq::~DmRpcReq()
-{
-}
+DmRpcReq::DmRpcReq() {}
+DmRpcReq::~DmRpcReq() {}
 
 void
 DmRpcReq::NotifyAddVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,

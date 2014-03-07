@@ -54,7 +54,7 @@ static std::string get_local_ip()
 // -------------------------------------------------------------------------------------
 NodePlatform::NodePlatform()
     : Platform("Node-Platform",
-               FDSP_DATA_MGR,
+               FDSP_PLATFORM,
                new DomainNodeInv("Node-Platform-NodeInv",
                                  NULL,
                                  new SmContainer(FDSP_DATA_MGR),
@@ -81,12 +81,12 @@ NodePlatform::mod_init(SysParams const *const param)
     Platform::mod_init(param);
 
     plf_node_type    = FDSP_DATA_MGR;
-    plf_om_ip_str    = conf.get_abs<std::string>("fds.dm.om_ip");
-    plf_om_conf_port = conf.get_abs<int>("fds.dm.om_port");
-    plf_my_ctrl_port = conf.get_abs<int>("fds.dm.cp_port");
-    plf_my_data_port = conf.get_abs<int>("fds.dm.port");
+    plf_om_ip_str    = conf.get_abs<std::string>("fds.plat.om_ip");
+    plf_om_conf_port = conf.get_abs<int>("fds.plat.om_port");
+    plf_my_ctrl_port = conf.get_abs<int>("fds.plat.control_port");
+    plf_my_data_port = 0;
     plf_my_ip        = util::get_local_ip();
-    plf_my_node_name = conf.get<std::string>("prefix") + "_DM_" + plf_my_ip;
+    plf_my_node_name = plf_my_ip;
 
     plf_my_migration_port = 0;
     return 0;
@@ -104,33 +104,45 @@ NodePlatform::mod_shutdown()
     Platform::mod_shutdown();
 }
 
-PlatRpcReq *
-NodePlatform::plat_creat_rpc_handler()
+PlatRpcReqt *
+NodePlatform::plat_creat_reqt_disp()
 {
-    return new PlatformRpcReq();
+    return new PlatformRpcReqt();
+}
+
+PlatRpcResp *
+NodePlatform::plat_creat_resp_disp()
+{
+    return new PlatformRpcResp();
 }
 
 // --------------------------------------------------------------------------------------
 // RPC handlers
 // --------------------------------------------------------------------------------------
-PlatformRpcReq::PlatformRpcReq()
-{
-}
+PlatformRpcReqt::PlatformRpcReqt() {}
+PlatformRpcReqt::~PlatformRpcReqt() {}
 
-PlatformRpcReq::~PlatformRpcReq()
+void
+PlatformRpcReqt::NotifyNodeAdd(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
+                               fpi::FDSP_Node_Info_TypePtr &node_info)
 {
+    std::cout << "Got it!" << std::endl;
 }
 
 void
-PlatformRpcReq::NotifyNodeAdd(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
-                              fpi::FDSP_Node_Info_TypePtr &node_info)
+PlatformRpcReqt::NotifyNodeRmv(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
+                               fpi::FDSP_Node_Info_TypePtr &node_info)
 {
 }
 
+PlatformRpcResp::PlatformRpcResp() {}
+PlatformRpcResp::~PlatformRpcResp() {}
+
 void
-PlatformRpcReq::NotifyNodeRmv(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
-                              fpi::FDSP_Node_Info_TypePtr &node_info)
+PlatformRpcResp::RegisterNodeResp(fpi::FDSP_MsgHdrTypePtr       &hdr,
+                                  fpi::FDSP_RegisterNodeTypePtr &node)
 {
+    std::cout << "Got it resp!" << std::endl;
 }
 
 }  // namespace fds

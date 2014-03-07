@@ -35,13 +35,14 @@ class DmPlatform : public Platform
     virtual void mod_shutdown();
 
   protected:
-    virtual PlatRpcReq *plat_creat_rpc_handler();
+    virtual PlatRpcReqt *plat_creat_reqt_disp();
+    virtual PlatRpcResp *plat_creat_resp_disp();
 };
 
 /**
  * Data Manager RPC handlers.  Only overwrite what's specific to DM.
  */
-class DmRpcReq : public PlatRpcReq
+class DmRpcReq : public PlatRpcReqt
 {
   public:
     DmRpcReq();

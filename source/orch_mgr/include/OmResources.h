@@ -25,7 +25,7 @@ class OM_NodeDomainMod;
 class OM_ControlRespHandler;
 
 typedef boost::shared_ptr<fpi::FDSP_ControlPathReqClient> NodeAgentCpReqClientPtr;
-typedef boost::shared_ptr<netControlPathClientSession>    NodeAgentCpSessionPtr;
+typedef netControlPathClientSession *                     NodeAgentCpSessionPtr;
 
 /**
  * TODO(Vy): temp. interface for now to define generic node message.

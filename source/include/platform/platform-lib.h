@@ -8,15 +8,12 @@
 #include <dlt.h>
 #include <fds_module.h>
 #include <fds_typedefs.h>
-#include <NetSession.h>
 #include <platform/node-inventory.h>
 
 namespace fds {
 
 class PlatRpcReqt;
 class PlatRpcResp;
-typedef boost::shared_ptr<fpi::FDSP_ControlPathReqClient>     NodeAgentCpSessPtr;
-typedef boost::shared_ptr<fpi::FDSP_OMControlPathReqClient>   NodeAgentCpOmClientPtr;
 
 // -------------------------------------------------------------------------------------
 // Node Inventory and Cluster Map
@@ -186,6 +183,8 @@ extern Platform *gl_PlatformSvc;
 class Platform : public Module
 {
   public:
+    typedef Platform const *const      ptr;
+
     virtual ~Platform();
     Platform(char const *const         name,
              FDSP_MgrIdType            node_type,
@@ -197,12 +196,14 @@ class Platform : public Module
     /**
      * Short cuts to retrieve important objects.
      */
-    static inline void platf_assign_singleton(Platform *ptr) {
-        gl_PlatformSvc = ptr;
-    }
-    static inline Platform *platf_singleton() {
-        return gl_PlatformSvc;
-    }
+    static inline void platf_assign_singleton(Platform *ptr) { gl_PlatformSvc = ptr; }
+    static inline Platform     *platf_singleton() { return gl_PlatformSvc; }
+    static inline Platform::ptr platf_const_singleton() { return gl_PlatformSvc; }
+
+    inline DomainNodeInv::pointer    plf_node_inventory() { return plf_node_inv; }
+    inline DomainClusterMap::pointer plf_cluster_map() { return plf_clus_map; }
+    inline DomainResources::pointer  plf_node_resoures() { return plf_resources; }
+
     static inline SmContainer::pointer plf_sm_nodes() {
         return platf_singleton()->plf_node_inv->dc_get_sm_nodes();
     }
@@ -223,15 +224,6 @@ class Platform : public Module
     }
     static inline const NodeUuid &plf_my_node_uuid() {
         return platf_singleton()->plf_my_uuid;
-    }
-    inline DomainNodeInv::pointer plf_node_inventory() {
-        return plf_node_inv;
-    }
-    inline DomainClusterMap::pointer plf_cluster_map() {
-        return plf_clus_map;
-    }
-    inline DomainResources::pointer plf_node_resoures() {
-        return plf_resources;
     }
 
     /**
@@ -254,6 +246,19 @@ class Platform : public Module
     virtual int  mod_init(SysParams const *const param);
     virtual void mod_startup();
     virtual void mod_shutdown();
+
+    /**
+     * Pull out common platform data.
+     */
+    inline FDSP_MgrIdType plf_get_node_type() const { return plf_node_type; }
+    inline fds_uint32_t   plf_get_om_cfg_port() const { return plf_om_conf_port; }
+    inline fds_uint32_t   plf_get_my_ctrl_port() const { return plf_my_ctrl_port; }
+    inline fds_uint32_t   plf_get_my_data_port() const { return plf_my_data_port; }
+
+    inline std::string const *const plf_get_my_name() const { return &plf_my_node_name; }
+    inline std::string const *const plf_get_my_ip() const { return &plf_my_ip; }
+    inline std::string const *const plf_get_om_ip() const { return &plf_om_ip_str; }
+    inline NodeUuid const *const    plf_get_my_uuid() const { return &plf_my_uuid; }
 
   protected:
     FDSP_MgrIdType             plf_node_type;
@@ -286,135 +291,23 @@ class Platform : public Module
     boost::shared_ptr<netSessionTbl>  plf_net_sess;
     boost::shared_ptr<PlatRpcReqt>    plf_rpc_reqt;  /**< rpc handler for OM reqt.   */
     boost::shared_ptr<std::thread>    plf_rpc_thrd;  /**< thread running rpc handler */
-    netControlPathServerSession      *plf_rpc_sess;  /**< associated session.        */
+    OmRespDispatchPtr                 plf_om_resp;   /**< RPC client response disp.  */
+    netControlPathServerSession      *plf_my_sess;
 
     /* Client attributes. */
-    NodeAgentCpSessPtr                plf_clnt_sess; /**< client ctrl path session.  */
-    NodeAgentCpOmClientPtr            plf_client;    /**< client OM ctrl path.       */
-    std::string                       plf_client_id;
-    boost::shared_ptr<PlatRpcReqt>    plf_clnt_reqt; /**< RPC client request disp.   */
-    boost::shared_ptr<PlatRpcResp>    plf_clnt_resp; /**< RPC client response disp.  */
+    // netOMControlPathClientSession    *plf_om_sess;   /**< client ctrl path session.  */
+    // NodeAgentCpOmClientPtr            plf_om_reqt;   /**< send request to OM.        */
+    // std::string                       plf_client_id;
 
     /**
      * Required Factory method.
      */
-    virtual PlatRpcReqt *plat_creat_rpc_handler() = 0;
-    // virtual PlatRpcResp *plat_creat_rpc_resp_handler() = 0;
+    virtual PlatRpcReqt *plat_creat_reqt_disp() = 0;
+    virtual PlatRpcResp *plat_creat_resp_disp() = 0;
 
   private:
     void plf_rpc_server_thread();
     void plf_rpc_om_handshake();
-};
-
-class PlatRpcReqt : public fpi::FDSP_ControlPathReqIf
-{
-  public:
-    PlatRpcReqt();
-    virtual ~PlatRpcReqt();
-
-    void NotifyAddVol(const FDSP_MsgHdrType &, const FDSP_NotifyVolType &);
-    virtual void NotifyAddVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                              fpi::FDSP_NotifyVolTypePtr &vol_msg);
-
-    void NotifyRmVol(const FDSP_MsgHdrType &, const FDSP_NotifyVolType &);
-    virtual void NotifyRmVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                             fpi::FDSP_NotifyVolTypePtr &vol_msg);
-
-    void NotifyModVol(const FDSP_MsgHdrType &, const FDSP_NotifyVolType &);
-    virtual void NotifyModVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                              fpi::FDSP_NotifyVolTypePtr &vol_msg);
-
-    void AttachVol(const FDSP_MsgHdrType &, const FDSP_AttachVolType &);
-    virtual void AttachVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                           fpi::FDSP_AttachVolTypePtr &vol_msg);
-
-    void DetachVol(const FDSP_MsgHdrType &, const FDSP_AttachVolType &);
-    virtual void DetachVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                           fpi::FDSP_AttachVolTypePtr &vol_msg);
-
-    void NotifyNodeAdd(const FDSP_MsgHdrType &, const FDSP_Node_Info_Type &);
-    void NotifyNodeAdd(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
-                       fpi::FDSP_Node_Info_TypePtr &node_info);
-
-    void NotifyNodeRmv(const FDSP_MsgHdrType &, const FDSP_Node_Info_Type &);
-    void NotifyNodeRmv(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
-                       fpi::FDSP_Node_Info_TypePtr &node_info);
-
-    void NotifyDLTUpdate(const FDSP_MsgHdrType &, const FDSP_DLT_Data_Type &);
-    void NotifyDLTUpdate(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                         fpi::FDSP_DLT_Data_TypePtr &dlt_info);
-
-    void NotifyDMTUpdate(const FDSP_MsgHdrType &, const FDSP_DMT_Type &);
-    void NotifyDMTUpdate(fpi::FDSP_MsgHdrTypePtr &msg_hdr,
-                         fpi::FDSP_DMT_TypePtr   &dmt_info);
-
-    void SetThrottleLevel(const FDSP_MsgHdrType &, const FDSP_ThrottleMsgType &);
-    void SetThrottleLevel(fpi::FDSP_MsgHdrTypePtr      &msg_hdr,
-                          fpi::FDSP_ThrottleMsgTypePtr &throttle_msg);
-
-    void TierPolicy(const FDSP_TierPolicy &tier);
-    void TierPolicy(fpi::FDSP_TierPolicyPtr &tier);
-
-    void TierPolicyAudit(const FDSP_TierPolicyAudit &audit);
-    void TierPolicyAudit(fpi::FDSP_TierPolicyAuditPtr &audit);
-
-    void NotifyBucketStats(const fpi::FDSP_MsgHdrType          &msg_hdr,
-                           const fpi::FDSP_BucketStatsRespType &buck_stats_msg);
-    void NotifyBucketStats(fpi::FDSP_MsgHdrTypePtr          &msg_hdr,
-                           fpi::FDSP_BucketStatsRespTypePtr &buck_stats_msg);
-
-    void NotifyStartMigration(const fpi::FDSP_MsgHdrType    &msg_hdr,
-                              const fpi::FDSP_DLT_Data_Type &dlt_info);
-    void NotifyStartMigration(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                              fpi::FDSP_DLT_Data_TypePtr &dlt_info);
-};
-
-class PlatRpcResp : public FDSP_OMControlPathRespIf
-{
-  public:
-    PlatRpcResp();
-    virtual ~PlatRpcResp();
-
-    void CreateBucketResp(const FDSP_MsgHdrType      &fdsp_msg,
-                          const FDSP_CreateVolType   &crt_buck_rsp);
-    void CreateBucketResp(fpi::FDSP_MsgHdrTypePtr    &fdsp_msg,
-                          fpi::FDSP_CreateVolTypePtr &crt_buck_rsp);
-    void DeleteBucketResp(const FDSP_MsgHdrType      &fdsp_msg,
-                          const FDSP_DeleteVolType   &del_buck_rsp);
-    void DeleteBucketResp(fpi::FDSP_MsgHdrTypePtr    &fdsp_msg,
-                          fpi::FDSP_DeleteVolTypePtr &del_buck_rsp);
-    void ModifyBucketResp(const FDSP_MsgHdrType      &fdsp_msg,
-                          const FDSP_ModifyVolType   &mod_buck_rsp);
-    void ModifyBucketResp(fpi::FDSP_MsgHdrTypePtr    &fdsp_msg,
-                          fpi::FDSP_ModifyVolTypePtr &mod_buck_rsp);
-    void AttachBucketResp(const FDSP_MsgHdrType         &fdsp_msg,
-                          const FDSP_AttachVolCmdType   &atc_buck_req);
-    void AttachBucketResp(fpi::FDSP_MsgHdrTypePtr       &fdsp_msg,
-                          fpi::FDSP_AttachVolCmdTypePtr &atc_buck_req);
-    void RegisterNodeResp(const FDSP_MsgHdrType         &fdsp_msg,
-                          const FDSP_RegisterNodeType   &reg_node_rsp);
-    void RegisterNodeResp(fpi::FDSP_MsgHdrTypePtr       &fdsp_msg,
-                          fpi::FDSP_RegisterNodeTypePtr &reg_node_rsp);
-    void NotifyQueueFullResp(const FDSP_MsgHdrType           &fdsp_msg,
-                             const FDSP_NotifyQueueStateType &queue_state_rsp);
-    void NotifyQueueFullResp(fpi::FDSP_MsgHdrTypePtr           &fdsp_msg,
-                             fpi::FDSP_NotifyQueueStateTypePtr &queue_state_rsp);
-    void NotifyPerfstatsResp(const FDSP_MsgHdrType    &fdsp_msg,
-                             const FDSP_PerfstatsType &perf_stats_rsp);
-    void NotifyPerfstatsResp(fpi::FDSP_MsgHdrTypePtr    &fdsp_msg,
-                             fpi::FDSP_PerfstatsTypePtr &perf_stats_rsp);
-    void TestBucketResp(const FDSP_MsgHdrType       &fdsp_msg,
-                        const FDSP_TestBucket       &test_buck_rsp);
-    void TestBucketResp(fpi::FDSP_MsgHdrTypePtr     &fdsp_msg,
-                        fpi::FDSP_TestBucketPtr     &test_buck_rsp);
-    void GetDomainStatsResp(const FDSP_MsgHdrType           &fdsp_msg,
-                            const FDSP_GetDomainStatsType   &get_stats_rsp);
-    void GetDomainStatsResp(fpi::FDSP_MsgHdrTypePtr         &fdsp_msg,
-                            fpi::FDSP_GetDomainStatsTypePtr &get_stats_rsp);
-    void MigrationDoneResp(const FDSP_MsgHdrType            &fdsp_msg,
-                           const FDSP_MigrationStatusType   &status_resp);
-    void MigrationDoneResp(fpi::FDSP_MsgHdrTypePtr          &fdsp_msg,
-                           fpi::FDSP_MigrationStatusTypePtr &status_resp);
 };
 
 };  // namespace fds

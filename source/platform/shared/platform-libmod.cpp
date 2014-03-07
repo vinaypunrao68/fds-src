@@ -30,14 +30,15 @@ Platform::Platform(char const *const         name,
 
     plf_rpc_thrd  = NULL;
     plf_net_sess  = NULL;
-    plf_rpc_sess  = NULL;
     plf_rpc_reqt  = NULL;
+    plf_my_sess   = NULL;
+    plf_om_resp   = NULL;
 }
 
 Platform::~Platform()
 {
-    if (plf_rpc_sess != NULL) {
-        plf_net_sess->endSession(plf_rpc_sess->getSessionTblKey());
+    if (plf_my_sess != NULL) {
+        plf_net_sess->endSession(plf_my_sess->getSessionTblKey());
     }
     if (plf_rpc_thrd != NULL) {
         plf_rpc_thrd->join();
@@ -97,10 +98,8 @@ Platform::mod_init(SysParams const *const param)
 {
     Module::mod_init(param);
 
-    // NetSession requires localMgrId to be STOR_MGR to setup control path with OM.
-    //
-    plf_net_sess = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_MGR));
-    plf_rpc_reqt = boost::shared_ptr<PlatRpcReqt>(plat_creat_rpc_handler());
+    plf_net_sess = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_PLATFORM));
+    plf_rpc_reqt = boost::shared_ptr<PlatRpcReqt>(plat_creat_reqt_disp());
 
     return 0;
 }
@@ -110,6 +109,8 @@ Platform::mod_startup()
 {
     plf_rpc_thrd = boost::shared_ptr<std::thread>(
             new std::thread(&Platform::plf_rpc_server_thread, this));
+
+    plf_rpc_om_handshake();
 }
 
 void
@@ -126,12 +127,12 @@ Platform::plf_rpc_server_thread()
     // TODO(Rao): Ideally createServerSession should take a shared pointer for
     // plf_rpc_sess.  Make sure that happens; otherwise you end up with a pointer leak.
     //
-    plf_rpc_sess = plf_net_sess->createServerSession<netControlPathServerSession>(
+    plf_my_sess = plf_net_sess->createServerSession<netControlPathServerSession>(
             netSession::ipString2Addr(netSession::getLocalIp()),
             plf_my_ctrl_port, plf_my_node_name,
             FDSP_ORCH_MGR, plf_rpc_reqt);
 
-    plf_net_sess->listenServer(plf_rpc_sess);
+    plf_net_sess->listenServer(plf_my_sess);
 }
 
 // prf_rpc_om_handshake
@@ -141,16 +142,17 @@ Platform::plf_rpc_server_thread()
 void
 Platform::plf_rpc_om_handshake()
 {
-    plf_clnt_reqt = boost::shared_ptr<PlatRpcReqt>(new PlatRpcReqt());
-    plf_clnt_resp = boost::shared_ptr<PlatRpcResp>(new PlatRpcResp());
+    if (plf_master == NULL) {
+        fds_verify(plf_om_resp == NULL);
 
-    NodeAgentCpOmClientPtr session(plf_net_sess->
-            startSession<netOMControlPathClientSession>(
-                plf_om_ip_str,
-                plf_om_conf_port,
-                FDSP_ORCH_MGR,
-                1,                /* just one channel for now */
-                plf_clnt_resp));
+        plf_master  = new OmAgent(0);
+        plf_om_resp = boost::shared_ptr<PlatRpcResp>(plat_creat_resp_disp());
+        plf_master->om_handshake(plf_net_sess, plf_om_resp,
+                                 plf_om_ip_str, plf_om_conf_port);
+    }
+    FDSP_RegisterNodeTypePtr reg(new FDSP_RegisterNodeType);
+    plf_master->init_node_reg_pkt(reg);
+    plf_master->om_register_node(reg);
 }
 
 // --------------------------------------------------------------------------------------
@@ -167,6 +169,7 @@ void
 PlatRpcReqt::NotifyAddVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
                           fpi::FDSP_NotifyVolTypePtr &msg)
 {
+    fds_verify(0);
 }
 
 void
@@ -177,6 +180,7 @@ void
 PlatRpcReqt::NotifyRmVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
                          fpi::FDSP_NotifyVolTypePtr &msg)
 {
+    fds_verify(0);
 }
 
 void
@@ -187,6 +191,7 @@ void
 PlatRpcReqt::NotifyModVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
                           fpi::FDSP_NotifyVolTypePtr &msg)
 {
+    fds_verify(0);
 }
 
 void
@@ -197,6 +202,7 @@ void
 PlatRpcReqt::AttachVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
                        fpi::FDSP_AttachVolTypePtr &vol_msg)
 {
+    fds_verify(0);
 }
 
 void
@@ -207,6 +213,7 @@ void
 PlatRpcReqt::DetachVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
                       fpi::FDSP_AttachVolTypePtr &vol_msg)
 {
+    fds_verify(0);
 }
 
 void
@@ -217,6 +224,7 @@ void
 PlatRpcReqt::NotifyNodeAdd(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
                            fpi::FDSP_Node_Info_TypePtr &node_info)
 {
+    fds_verify(0);
 }
 
 void
@@ -227,6 +235,7 @@ void
 PlatRpcReqt::NotifyNodeRmv(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
                            fpi::FDSP_Node_Info_TypePtr &node_info)
 {
+    fds_verify(0);
 }
 
 void
@@ -237,6 +246,7 @@ void
 PlatRpcReqt::NotifyDLTUpdate(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
                              fpi::FDSP_DLT_Data_TypePtr &dlt_info)
 {
+    fds_verify(0);
 }
 
 void
@@ -247,6 +257,7 @@ void
 PlatRpcReqt::NotifyDMTUpdate(fpi::FDSP_MsgHdrTypePtr &msg_hdr,  // NOLINT
                              fpi::FDSP_DMT_TypePtr   &dmt)
 {
+    fds_verify(0);
 }
 
 void
@@ -257,6 +268,7 @@ void
 PlatRpcReqt::SetThrottleLevel(fpi::FDSP_MsgHdrTypePtr      &msg_hdr,
                               fpi::FDSP_ThrottleMsgTypePtr &throttle_msg)
 {
+    fds_verify(0);
 }
 
 void
@@ -265,6 +277,7 @@ PlatRpcReqt::TierPolicy(const FDSP_TierPolicy &tier) {}
 void
 PlatRpcReqt::TierPolicy(fpi::FDSP_TierPolicyPtr &tier)  // NOLINT
 {
+    fds_verify(0);
 }
 
 void
@@ -273,6 +286,7 @@ PlatRpcReqt::TierPolicyAudit(const FDSP_TierPolicyAudit &audit) {}
 void
 PlatRpcReqt::TierPolicyAudit(fpi::FDSP_TierPolicyAuditPtr &audit)  // NOLINT
 {
+    fds_verify(0);
 }
 
 void
@@ -283,6 +297,7 @@ void
 PlatRpcReqt::NotifyBucketStats(fpi::FDSP_MsgHdrTypePtr          &hdr,
                                fpi::FDSP_BucketStatsRespTypePtr &msg)
 {
+    fds_verify(0);
 }
 
 void
@@ -293,6 +308,7 @@ void
 PlatRpcReqt::NotifyStartMigration(fpi::FDSP_MsgHdrTypePtr    &hdr,
                                   fpi::FDSP_DLT_Data_TypePtr &dlt)
 {
+    fds_verify(0);
 }
 
 // --------------------------------------------------------------------------------------
@@ -309,6 +325,7 @@ void
 PlatRpcResp::CreateBucketResp(fpi::FDSP_MsgHdrTypePtr    &fdsp_msg,
                               fpi::FDSP_CreateVolTypePtr &crt_buck_rsp)
 {
+    fds_verify(0);
 }
 
 void
@@ -319,6 +336,7 @@ void
 PlatRpcResp::DeleteBucketResp(fpi::FDSP_MsgHdrTypePtr    &fdsp_msg,
                               fpi::FDSP_DeleteVolTypePtr &del_buck_rsp)
 {
+    fds_verify(0);
 }
 
 void
@@ -329,6 +347,7 @@ void
 PlatRpcResp::ModifyBucketResp(fpi::FDSP_MsgHdrTypePtr    &fdsp_msg,
                               fpi::FDSP_ModifyVolTypePtr &mod_buck_rsp)
 {
+    fds_verify(0);
 }
 
 void
@@ -339,6 +358,7 @@ void
 PlatRpcResp::AttachBucketResp(fpi::FDSP_MsgHdrTypePtr       &fdsp_msg,
                               fpi::FDSP_AttachVolCmdTypePtr &atc_buck_req)
 {
+    fds_verify(0);
 }
 
 void
@@ -347,17 +367,21 @@ PlatRpcResp::RegisterNodeResp(const FDSP_MsgHdrType         &fdsp_msg,
 
 void
 PlatRpcResp::RegisterNodeResp(fpi::FDSP_MsgHdrTypePtr       &fdsp_msg,
-                              fpi::FDSP_RegisterNodeTypePtr &reg_node_rsp) {}
-
-void
-PlatRpcResp::NotifyQueueFullResp(const FDSP_MsgHdrType           &fdsp_msg,
-                                 const FDSP_NotifyQueueStateType &queue_state_rsp)
+                              fpi::FDSP_RegisterNodeTypePtr &reg_node_rsp)
 {
+    fds_verify(0);
 }
 
 void
+PlatRpcResp::NotifyQueueFullResp(const FDSP_MsgHdrType           &fdsp_msg,
+                                 const FDSP_NotifyQueueStateType &queue_state_rsp) {}
+
+void
 PlatRpcResp::NotifyQueueFullResp(fpi::FDSP_MsgHdrTypePtr           &fdsp_msg,
-                                 fpi::FDSP_NotifyQueueStateTypePtr &queue_state_rsp) {}
+                                 fpi::FDSP_NotifyQueueStateTypePtr &queue_state_rsp)
+{
+    fds_verify(0);
+}
 
 void
 PlatRpcResp::NotifyPerfstatsResp(const FDSP_MsgHdrType    &fdsp_msg,
@@ -367,6 +391,7 @@ void
 PlatRpcResp::NotifyPerfstatsResp(fpi::FDSP_MsgHdrTypePtr    &fdsp_msg,
                                  fpi::FDSP_PerfstatsTypePtr &perf_stats_rsp)
 {
+    fds_verify(0);
 }
 
 void
@@ -377,6 +402,7 @@ void
 PlatRpcResp::TestBucketResp(fpi::FDSP_MsgHdrTypePtr  &fdsp_msg,
                             fpi::FDSP_TestBucketPtr  &test_buck_rsp)
 {
+    fds_verify(0);
 }
 
 void
@@ -387,6 +413,7 @@ void
 PlatRpcResp::GetDomainStatsResp(fpi::FDSP_MsgHdrTypePtr         &fdsp_msg,
                                 fpi::FDSP_GetDomainStatsTypePtr &get_stats_rsp)
 {
+    fds_verify(0);
 }
 
 void
@@ -397,6 +424,7 @@ void
 PlatRpcResp::MigrationDoneResp(fpi::FDSP_MsgHdrTypePtr          &fdsp_msg,
                                fpi::FDSP_MigrationStatusTypePtr &status_resp)
 {
+    fds_verify(0);
 }
 
 }  // namespace fds
