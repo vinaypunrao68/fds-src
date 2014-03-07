@@ -25,7 +25,7 @@ class OM_NodeDomainMod;
 class OM_ControlRespHandler;
 
 typedef boost::shared_ptr<fpi::FDSP_ControlPathReqClient> NodeAgentCpReqClientPtr;
-typedef boost::shared_ptr<netControlPathClientSession>    NodeAgentCpSessionPtr;
+typedef netControlPathClientSession *                     NodeAgentCpSessionPtr;
 
 /**
  * TODO(Vy): temp. interface for now to define generic node message.
@@ -404,8 +404,7 @@ class OM_NodeDomainMod : public Module
 /**
  * control response handler
  */
-class OM_ControlRespHandler : public FDS_ProtocolInterface::
-FDSP_ControlPathRespIf {
+class OM_ControlRespHandler : public fpi:: FDSP_ControlPathRespIf {
   public:
     explicit OM_ControlRespHandler();
 
@@ -471,6 +470,7 @@ FDSP_ControlPathRespIf {
     void NotifyDMTUpdateResp(
         FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
         FDS_ProtocolInterface::FDSP_DMT_TypePtr& dmt_info_resp);
+
   private:
         // TODO(Andrew): Add ptr back to resource manager.
 };

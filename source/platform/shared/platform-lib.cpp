@@ -34,11 +34,22 @@ DomainResources::DomainResources(char const *const name)
 }
 
 PlatEvent::~PlatEvent() {}
-PlatEvent::PlatEvent(char const *const name) : pe_name(name) {}
+PlatEvent::PlatEvent(char const *const         name,
+                     DomainResources::pointer  mgr,
+                     DomainClusterMap::pointer clus)
+    : pe_name(name), pe_resources(mgr), pe_clusmap(clus) {}
 
 // -------------------------------------------------------------------------------------
 // Common Platform Functions
 // -------------------------------------------------------------------------------------
+void
+Platform::plf_create_domain(const FdspCrtDomPtr &msg)
+{
+}
 
+void
+Platform::plf_delete_domain(const FdspCrtDomPtr &msg)
+{
+}
 
 }  // namespace fds

@@ -3,8 +3,8 @@
  */
 #include <string>
 #include <stdlib.h>
-#include <platform/node-inventory.h>
 #include <dlt.h>
+#include <platform/platform-lib.h>
 
 namespace fds {
 
@@ -72,22 +72,29 @@ NodeInventory::node_update_inventory(const FdspNodeRegPtr msg)
 void
 NodeInventory::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
 {
-    msgHdr->minor_ver = 0;
-    msgHdr->msg_id =  1;
+    Platform::ptr plat = Platform::platf_const_singleton();
 
+    msgHdr->minor_ver = 0;
+    msgHdr->msg_id    = 1;
     msgHdr->major_ver = 0xa5;
     msgHdr->minor_ver = 0x5a;
 
     msgHdr->num_objects = 1;
-    msgHdr->frag_len = 0;
-    msgHdr->frag_num = 0;
+    msgHdr->frag_len    = 0;
+    msgHdr->frag_num    = 0;
 
-    msgHdr->tennant_id = 0;
+    msgHdr->tennant_id      = 0;
     msgHdr->local_domain_id = 0;
-    msgHdr->src_node_name = "";
+    msgHdr->err_code        = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msgHdr->result          = FDS_ProtocolInterface::FDSP_ERR_OK;
 
-    msgHdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
-    msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_OK;
+    if (plat != NULL) {
+        msgHdr->src_id        = plat->plf_get_node_type();
+        msgHdr->src_node_name = *plat->plf_get_my_name();
+    } else {
+        msgHdr->src_id        = FDSP_PLATFORM;
+        msgHdr->src_node_name = "";
+    }
 }
 
 // init_node_info_pkt
@@ -106,6 +113,20 @@ NodeInventory::init_node_info_pkt(fpi::FDSP_Node_Info_TypePtr pkt) const
     pkt->control_port   = node_inv->nd_ctrl_port;
     pkt->data_port      = node_inv->nd_data_port;
     pkt->migration_port = node_inv->nd_migration_port;
+}
+
+// init_node_reg_pkt
+// -----------------
+//
+void
+NodeInventory::init_node_reg_pkt(fpi::FDSP_RegisterNodeTypePtr pkt) const
+{
+    Platform::ptr plat = Platform::platf_const_singleton();
+    pkt->node_type     = plat->plf_get_node_type();
+    pkt->node_name     = *plat->plf_get_my_name();
+    pkt->ip_hi_addr    = 0;
+    pkt->ip_lo_addr    = str_to_ipv4_addr(*plat->plf_get_my_ip());
+    pkt->control_port  = plat->plf_get_my_ctrl_port();
 }
 
 // set_node_state
@@ -152,6 +173,70 @@ AgentContainer::AgentContainer(FdspNodeType id) : RsContainer()
     ac_cpSessTbl = boost::shared_ptr<netSessionTbl>(new netSessionTbl(id));
 }
 
+// --------------------------------------------------------------------------------------
+// OM Agent
+// --------------------------------------------------------------------------------------
+OmAgent::OmAgent(const NodeUuid &uuid)
+    : NodeAgent(uuid), om_sess(NULL), om_reqt(NULL) {}
+
+OmAgent::~OmAgent()
+{
+    /* TODO(Vy): shutdown netsession and cleanup stuffs here */
+}
+
+// init_msg_hdr
+// ------------
+//
+void
+OmAgent::init_msg_hdr(fpi::FDSP_MsgHdrTypePtr hdr) const
+{
+    NodeInventory::init_msg_hdr(hdr);
+    hdr->msg_code     = FDSP_MSG_PUT_OBJ_REQ;  // TODO(Vy): cleanup these codes.
+    hdr->dst_id       = FDSP_ORCH_MGR;
+    hdr->session_uuid = om_sess_id;
+}
+
+// init_node_reg_pkt
+// -----------------
+//
+void
+OmAgent::init_node_reg_pkt(fpi::FDSP_RegisterNodeTypePtr pkt) const
+{
+    NodeInventory::init_node_reg_pkt(pkt);
+}
+
+// om_register_node
+// ----------------
+//
+void
+OmAgent::om_register_node(fpi::FDSP_RegisterNodeTypePtr reg)
+{
+    fpi::FDSP_MsgHdrTypePtr hdr(new FDSP_MsgHdrType);
+
+    fds_verify(om_reqt != NULL);
+    init_msg_hdr(hdr);
+    om_reqt->RegisterNode(hdr, reg);
+}
+
+// om_handshake
+// ------------
+//
+/* virtual */ void
+OmAgent::om_handshake(boost::shared_ptr<netSessionTbl> net,
+                      OmRespDispatchPtr                om_dispatch,
+                      std::string                      om_ip,
+                      fds_uint32_t                     om_port)
+{
+    om_sess = net->startSession<netOMControlPathClientSession>(
+            om_ip, om_port, FDSP_ORCH_MGR, 1 /* just 1 channel for now */, om_dispatch);
+
+    om_reqt    = om_sess->getClient();
+    om_sess_id = om_sess->getSessionId();
+}
+
+// --------------------------------------------------------------------------------------
+// AgentContainer
+// --------------------------------------------------------------------------------------
 AgentContainer::~AgentContainer()
 {
     ac_cpSessTbl->endAllSessions();
@@ -239,15 +324,17 @@ DomainContainer::dc_container_frm_msg(FdspNodeType node_type)
     AgentContainer::pointer nodes;
 
     switch (node_type) {
-    case FDS_ProtocolInterface::FDSP_STOR_MGR:
+    case fpi::FDSP_STOR_MGR:
+    case fpi::FDSP_PLATFORM:
+        /* TODO(Vy): fixme for platform case. */
         nodes = dc_sm_nodes;
         break;
 
-    case FDS_ProtocolInterface::FDSP_DATA_MGR:
+    case fpi::FDSP_DATA_MGR:
         nodes = dc_dm_nodes;
         break;
 
-    case FDS_ProtocolInterface::FDSP_STOR_HVISOR:
+    case fpi::FDSP_STOR_HVISOR:
         nodes = dc_am_nodes;
         break;
 
@@ -288,10 +375,10 @@ DomainContainer::dc_unregister_node(const NodeUuid &uuid, const std::string &nam
     AgentContainer::pointer nodes;
     NodeAgent::pointer      agent;
     FdspNodeType            svc[] = {
-        FDS_ProtocolInterface::FDSP_STOR_MGR,
-        FDS_ProtocolInterface::FDSP_DATA_MGR,
-        FDS_ProtocolInterface::FDSP_STOR_HVISOR,
-        FDS_ProtocolInterface::FDSP_ORCH_MGR
+        fpi::FDSP_STOR_MGR,
+        fpi::FDSP_DATA_MGR,
+        fpi::FDSP_STOR_HVISOR,
+        fpi::FDSP_ORCH_MGR
     };
 
     for (int i = 0; svc[i] != FDS_ProtocolInterface::FDSP_ORCH_MGR; i++) {
