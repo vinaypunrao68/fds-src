@@ -90,55 +90,6 @@ Platform::plf_persist_inventory(const NodeUuid &uuid)
 {
 }
 
-// -----------------------------------------------------------------------------------
-// Module methods.
-// -----------------------------------------------------------------------------------
-int
-Platform::mod_init(SysParams const *const param)
-{
-    Module::mod_init(param);
-
-    plf_net_sess = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_PLATFORM));
-    plf_rpc_reqt = boost::shared_ptr<PlatRpcReqt>(plat_creat_reqt_disp());
-
-    return 0;
-}
-
-void
-Platform::mod_startup()
-{
-    plf_rpc_thrd = boost::shared_ptr<std::thread>(
-            new std::thread(&Platform::plf_rpc_server_thread, this));
-
-    plf_rpc_om_handshake();
-}
-
-void
-Platform::mod_shutdown()
-{
-}
-
-// -----------------------------------------------------------------------------------
-// RPC endpoints
-// -----------------------------------------------------------------------------------
-
-// plf_rpc_server_thread
-// ---------------------
-//
-void
-Platform::plf_rpc_server_thread()
-{
-    // TODO(Rao): Ideally createServerSession should take a shared pointer for
-    // plf_rpc_sess.  Make sure that happens; otherwise you end up with a pointer leak.
-    //
-    plf_my_sess = plf_net_sess->createServerSession<netControlPathServerSession>(
-            netSession::ipString2Addr(netSession::getLocalIp()),
-            plf_my_ctrl_port, plf_my_node_name,
-            FDSP_ORCH_MGR, plf_rpc_reqt);
-
-    plf_net_sess->listenServer(plf_my_sess);
-}
-
 // prf_rpc_om_handshake
 // --------------------
 // Perform the handshake connection with OM.
@@ -157,6 +108,76 @@ Platform::plf_rpc_om_handshake()
     FDSP_RegisterNodeTypePtr reg(new FDSP_RegisterNodeType);
     plf_master->init_node_reg_pkt(reg);
     plf_master->om_register_node(reg);
+}
+
+// plf_run_server
+// --------------
+//
+void
+Platform::plf_run_server(bool spawn_thr)
+{
+    if (spawn_thr == true) {
+        plf_rpc_thrd = boost::shared_ptr<std::thread>(
+               new std::thread(&Platform::plf_rpc_server_thread, this));
+    } else {
+        plf_rpc_thrd = NULL;
+        plf_rpc_server_thread();
+    }
+}
+
+// plf_rpc_server_thread
+// ---------------------
+//
+void
+Platform::plf_rpc_server_thread()
+{
+    // TODO(Rao): Ideally createServerSession should take a shared pointer for
+    // plf_rpc_sess.  Make sure that happens; otherwise you end up with a pointer leak.
+    //
+    plf_my_sess = plf_net_sess->createServerSession<netControlPathServerSession>(
+            netSession::ipString2Addr(netSession::getLocalIp()),
+            plf_my_ctrl_port, plf_my_node_name,
+            FDSP_ORCH_MGR, plf_rpc_reqt);
+
+    plf_net_sess->listenServer(plf_my_sess);
+}
+
+// plf_change_info
+// ---------------
+//
+void
+Platform::plf_change_info(const NodeUuid    &uuid,
+                          const std::string &name, fds_uint32_t base)
+{
+    plf_my_uuid      = uuid;
+    plf_my_node_name = name;
+    plf_my_ctrl_port = plf_ctrl_port(base);
+    plf_my_conf_port = plf_conf_port(base);
+    plf_my_data_port = plf_data_port(base);
+    plf_my_migration_port = plf_migration_port(base);
+}
+
+// -----------------------------------------------------------------------------------
+// Module methods.
+// -----------------------------------------------------------------------------------
+int
+Platform::mod_init(SysParams const *const param)
+{
+    Module::mod_init(param);
+
+    plf_net_sess = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_PLATFORM));
+    plf_rpc_reqt = boost::shared_ptr<PlatRpcReqt>(plat_creat_reqt_disp());
+    return 0;
+}
+
+void
+Platform::mod_startup()
+{
+}
+
+void
+Platform::mod_shutdown()
+{
 }
 
 // --------------------------------------------------------------------------------------

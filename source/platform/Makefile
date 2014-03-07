@@ -21,7 +21,8 @@ user_non_fds_libs := \
 	boost_program_options \
 	boost_filesystem \
 	thrift \
-	config++
+	config++ \
+	hiredis
 
 user_cpp         := platform-main.cpp
 user_bin_exe     := platformd
