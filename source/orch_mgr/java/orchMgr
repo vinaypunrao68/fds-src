@@ -1,0 +1,9 @@
+#!/bin/bash
+
+for i in ../lib/java/* ; do {
+    CLASSPATH=$CLASSPATH:$i ;
+} done
+
+java -Dlog4j.configuration=file:///fds-root/etc/log4j-console.properties \
+     -classpath $CLASSPATH \
+     com.formationds.web.om.Main $*

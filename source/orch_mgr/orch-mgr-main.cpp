@@ -7,20 +7,20 @@
 #include <string>
 #include <vector>
 #include <orch-mgr/om-service.h>
-#include "./om-glue/JavaMain.h"
+#include <OmResources.h>
 
 namespace fds {
 
 extern OrchMgr *orchMgr;
 OM_Module       gl_OMModule("OM");
 
-OM_Module *
-OM_Module::om_singleton()
+OM_Module *OM_Module::om_singleton()
 {
     return &gl_OMModule;
 }
 
 }  // namespace fds
+
 
 int main(int argc, char *argv[])
 {
@@ -32,7 +32,6 @@ int main(int argc, char *argv[])
     fds::gl_orch_mgr = fds::orchMgr;
 
     fds::orchMgr->setup();
-    std::thread vmThread(fds::startOmJvm);
 
     fds::orchMgr->run();
     delete fds::orchMgr;

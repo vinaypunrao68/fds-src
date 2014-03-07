@@ -2,8 +2,8 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_ORCH_MGR_OM_GLUE_JAVACONTEXT_H_
-#define SOURCE_ORCH_MGR_OM_GLUE_JAVACONTEXT_H_
+#ifndef SOURCE_ORCH_MGR_JAVACONTEXT_H_
+#define SOURCE_ORCH_MGR_JAVACONTEXT_H_
 
 #include <vector>
 #include <string>
@@ -45,4 +45,4 @@ namespace fds {
     };
 }  // namespace fds
 
-#endif  // SOURCE_ORCH_MGR_OM_GLUE_JAVACONTEXT_H_
+#endif  // SOURCE_ORCH_MGR_JAVACONTEXT_H_

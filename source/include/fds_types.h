@@ -376,6 +376,9 @@ namespace fds {
     fds_volid_t getVolId() const {
       return volId;
     }
+    void setVolId(fds_volid_t vol_id) {
+      volId = vol_id;
+    }
     fds_io_op_t  getIoType() const {
       return ioType;
     }
