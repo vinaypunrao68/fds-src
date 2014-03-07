@@ -33,7 +33,7 @@ class NodePlatform : public Platform
 class PlatformRpcReqt : public PlatRpcReqt
 {
   public:
-    PlatformRpcReqt();
+    explicit PlatformRpcReqt(const Platform *plf);
     virtual ~PlatformRpcReqt();
 
     void NotifyNodeAdd(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
@@ -49,7 +49,7 @@ class PlatformRpcReqt : public PlatRpcReqt
 class PlatformRpcResp : public PlatRpcResp
 {
   public:
-    PlatformRpcResp();
+    explicit PlatformRpcResp(const Platform *plf);
     virtual ~PlatformRpcResp();
 
     void RegisterNodeResp(fpi::FDSP_MsgHdrTypePtr       &hdr,
