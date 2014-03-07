@@ -136,6 +136,7 @@ void Reply::dump() const {
 
     LOGDEBUG << "[type:" << strType << "] "
              << "[intval:" << r->integer << "] "
+             << "[len:" << r->len << "]"
              << "[str:" << getString() << "] "
              << "[numelements:" << r->elements << "] "
              << "[elements:" << oss.str() << "] ";
@@ -314,7 +315,9 @@ Reply Redis::sendCommand(const char* cmdfmt, ...) {
 
 Reply Redis::set(const std::string& key, const std::string& value) {
     SCOPEDCXN();
-    return Reply(redisCommand(cxn->ctx, "set %s %s", key.c_str(), value.c_str()));
+    return Reply(redisCommand(cxn->ctx, "set %s %b", key.c_str(),
+                              value.data(),
+                              value.length()));
 }
 
 Reply Redis::get(const std::string& key) {
