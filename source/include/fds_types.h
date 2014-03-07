@@ -2,10 +2,6 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 
-/*
- * Object database class. The object database is a key-value store
- * that provides local objec storage.
- */
 #ifndef SOURCE_LIB_FDS_TYPES_H_
 #define SOURCE_LIB_FDS_TYPES_H_
 
@@ -59,6 +55,8 @@ namespace fds {
  private:
     fds_uint64_t hash_high;
     fds_uint64_t hash_low;
+
+    fds_byte_t digest[20];
 
  public:
     ObjectID()
@@ -205,6 +203,7 @@ namespace fds {
 
       return hash_oss.str();
     }
+    friend class ObjIdGen;
   };
 
   /* NullObjectID */
@@ -243,11 +242,6 @@ namespace fds {
       : size(0), data("")
       {
       }
-  };
-
-  class Sha1Digest {
-public:
-      uint8_t data[20];
   };
 
   inline fds_uint32_t str_to_ipv4_addr(std::string ip_str) {
@@ -381,6 +375,9 @@ public:
     }
     fds_volid_t getVolId() const {
       return volId;
+    }
+    void setVolId(fds_volid_t vol_id) {
+      volId = vol_id;
     }
     fds_io_op_t  getIoType() const {
       return ioType;

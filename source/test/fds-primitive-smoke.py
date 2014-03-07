@@ -52,7 +52,7 @@ class FdsSetupNode:
         subprocess.call(['cp', '-rf', fdsSrc + '/config/etc', fds_data_path])
 
 class FdsDataSet:
-    def __init__(self, bucket='abc', data_dir='', file_ext='*', dest_dir='/tmp'):
+    def __init__(self, bucket='abc', data_dir='', dest_dir='/tmp', file_ext='*'):
         self.ds_bucket   = bucket
         self.ds_data_dir = data_dir
         self.ds_file_ext = file_ext
@@ -63,6 +63,7 @@ class FdsDataSet:
 
         if not self.ds_dest_dir or self.ds_dest_dir == '':
             self.ds_dest_dir = '/tmp'
+        ret = subprocess.call(['mkdir', '-p', self.ds_dest_dir])
 
 #########################################################################################
        
@@ -400,6 +401,9 @@ def startSM4(args):
                      stderr=subprocess.STDOUT)
     subprocess.call(['sleep', '3'])
 
+USER_NAME = 'bao_pham'
+USER_SSH_KEY = '/tmp/lab.rsa'
+
 def bringupClusterCLI(env, bu, cfgFile, verbose, debug):
     env.cleanup()
     print "\nSetting up private fds-root in " + bu.getCfgField('node1', 'fds_root') + ' [1-4]'
@@ -413,7 +417,8 @@ def bringupClusterCLI(env, bu, cfgFile, verbose, debug):
     FdsSetupNode(env.env_fdsSrc, root4)
 
     print "\n\nStarting Cluster on node1...."
-    p = subprocess.Popen(['test/bring_up.py', '--file', cfgFile, '--verbose', verbose, '--debug', debug, '--up'],
+    p = subprocess.Popen(['test/bring_up.py', '--file', cfgFile, '--verbose', verbose, '--debug', debug, '--up', '--ssh_user', USER_NAME, '--ssh_passwd', 'passwd', '--ssh_key', USER_SSH_KEY],
+#    p = subprocess.Popen(['test/bring_up.py', '--file', cfgFile, '--verbose', verbose, '--debug', debug, '--up'],
                          stderr=subprocess.STDOUT)
     p.wait()
     print "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
@@ -435,9 +440,9 @@ def bringupNode(env, bu, cfgFile, verbose, debug, node):
 #########################################################################################
 ## I/O Load generation
 ## -------------------
-def preCommit(volume_name, data_dir):
+def preCommit(volume_name, data_dir, res_dir):
     # basic PUTs and GETs of fds-src cpp files
-    smoke_ds0 = FdsDataSet(volume_name, data_dir, '*.cpp')
+    smoke_ds0 = FdsDataSet(volume_name, data_dir, res_dir, '*.cpp')
     smoke0 = CopyS3Dir(smoke_ds0)
 
     smoke0.runTest()
@@ -445,10 +450,10 @@ def preCommit(volume_name, data_dir):
 
     smoke0.exitOnError()
 
-def stressIO(volume_name, data_dir):
+def stressIO(volume_name, data_dir, res_dir):
 
     # seq write, then seq read
-    smoke_ds1 = FdsDataSet(volume_name, data_dir, '*')
+    smoke_ds1 = FdsDataSet(volume_name, data_dir, res_dir, '*')
     smoke1 = CopyS3Dir(smoke_ds1)
 
     smoke1.runTest()
@@ -457,40 +462,40 @@ def stressIO(volume_name, data_dir):
     smoke1.exitOnError()
 
     # write from in burst of 10
-    smoke_ds2 = FdsDataSet(volume_name, data_dir, '*')
+    smoke_ds2 = FdsDataSet(volume_name, data_dir, res_dir, '*')
     smoke2 = CopyS3Dir(smoke_ds2)
     smoke2.runTest(10)
     smoke2.exitOnError()
 
     # write from in burst of 10-5 (W-R)
-    smoke_ds3 = FdsDataSet(volume_name, data_dir, '*')
+    smoke_ds3 = FdsDataSet(volume_name, data_dir, res_dir, '*')
     smoke3 = CopyS3Dir_PatternRW(smoke_ds3)
     smoke3.runTest(10, 5)
     smoke3.exitOnError()
 
     # write from in burst of 10-3 (W-R)
-    smoke_ds4 = FdsDataSet(volume_name, data_dir, '*')
+    smoke_ds4 = FdsDataSet(volume_name, data_dir, res_dir, '*')
     smoke4 = CopyS3Dir_PatternRW(smoke_ds4)
     smoke4.runTest(10, 3)
     smoke4.exitOnError()
 
     # write from in burst of 1-1 (W-R)
-    smoke_ds5 = FdsDataSet(volume_name, data_dir, '*')
+    smoke_ds5 = FdsDataSet(volume_name, data_dir, res_dir, '*')
     smoke5 = CopyS3Dir_PatternRW(smoke_ds5)
     smoke5.runTest(1, 1)
     smoke5.exitOnError()
 
-def blobOverwrite(volume_name, data_dir):
+def blobOverwrite(volume_name, data_dir, res_dir):
 
     # seq write, then seq read
-    smoke_ds1 = FdsDataSet(volume_name, data_dir, '*')
+    smoke_ds1 = FdsDataSet(volume_name, data_dir, res_dir, '*')
     smoke1 = CopyS3Dir_Overwrite(smoke_ds1)
     smoke1.runTest()
     smoke1.exitOnError()
 
-def stressIO_GET(volume_name, data_dir):
+def stressIO_GET(volume_name, data_dir, res_dir):
     # seq write, then seq read
-    smoke_ds1 = FdsDataSet(volume_name, data_dir, '*')
+    smoke_ds1 = FdsDataSet(volume_name, data_dir, res_dir, '*')
     smoke1 = CopyS3Dir_GET(smoke_ds1)
 
     smoke1.runTestAll()
@@ -498,53 +503,53 @@ def stressIO_GET(volume_name, data_dir):
 
     smoke1.exitOnError()
 
-def startIOHelper(volume_name, data_set_dir, loop):
+def startIOHelper(volume_name, data_set_dir, res_dir, loop):
     i = 0
     while i < loop or loop == 0:
         # basic PUTs and GETs of fds-src cpp files
-        preCommit(volume_name, data_set_dir)
+        preCommit(volume_name, data_set_dir, res_dir)
 
         # stress I/O
-        stressIO(volume_name, data_set_dir)
+        stressIO(volume_name, data_set_dir, res_dir)
 
         # blob over-write
-        blobOverwrite(volume_name, data_set_dir)
+        blobOverwrite(volume_name, data_set_dir, res_dir)
         i += 1
 
-def startIOHelperThrd(volume_name, data_set_dir, loop):
-    # sys.stdout = open('/tmp/smoke_io-' + str(os.getpid()) + ".out", "w")
-    sys.stdout = open('/tmp/smoke_io.out', "w")
-    startIOHelper(volume_name, data_set_dir, loop)
+def startIOHelperThrd(volume_name, data_set_dir, res_dir, loop):
+    sys.stdout = open('/tmp/smoke_io-' + str(os.getpid()) + ".out", "w")
+    # sys.stdout = open('/tmp/smoke_io.out', "w")
+    startIOHelper(volume_name, data_set_dir, res_dir, loop)
 
-def startIO(volume_name, data_set_dir, async, loop):
+def startIO(volume_name, data_set_dir, res_dir, async, loop):
     if async == True:
-        startIOProcess = Process(target=startIOHelperThrd, args=(volume_name, data_set_dir, loop))
+        startIOProcess = Process(target=startIOHelperThrd, args=(volume_name, data_set_dir, res_dir, loop))
         startIOProcess.start()
     else:
-        startIOHelper(volume_name, data_set_dir, loop)
+        startIOHelper(volume_name, data_set_dir, res_dir, loop)
         startIOProcess = None
     return startIOProcess
 
 # -------------------------------------------------------------------
 
-def startIO_GETHelper(volume_name, data_set_dir, loop):
+def startIO_GETHelper(volume_name, data_set_dir, res_dir, loop):
     i = 0
     while i < loop or loop == 0:
         # stress I/O
-        stressIO_GET(volume_name, data_set_dir)
+        stressIO_GET(volume_name, data_set_dir, res_dir)
         i += 1
 
-def startIO_GETHelperThrd(volume_name, data_set_dir, loop):
+def startIO_GETHelperThrd(volume_name, data_set_dir, res_dir, loop):
     # sys.stdout = open('/tmp/smoke_io-' + str(os.getpid()) + ".out", "w")
     sys.stdout = open('/tmp/smoke_io.out', "w")
-    startIO_GETHelper(volume_name, data_set_dir, loop)
+    startIO_GETHelper(volume_name, data_set_dir, res_dir, loop)
 
-def startIO_GET(volume_name, data_set_dir, async, loop):
+def startIO_GET(volume_name, data_set_dir, res_dir, async, loop):
     if async == True:
         startIOProcess = Process(target=startIO_GETHelperThrd, args=(volume_name, data_set_dir, loop))
         startIOProcess.start()
     else:
-        startIO_GETHelper(volume_name, data_set_dir, loop)
+        startIO_GETHelper(volume_name, data_set_dir, res_dir, loop)
         startIOProcess = None
     return startIOProcess
 
@@ -576,6 +581,7 @@ if __name__ == "__main__":
     parser.add_argument('--smoke_test', default='false', help='Run full smoke test')
     parser.add_argument('--data_set', default='/smoke_test', help='smoke test dataset')
     parser.add_argument('--verbose', default='false', help ='smoke test dataset')
+    parser.add_argument('--async', default='true', help ='Run I/O Async')
     parser.add_argument('--debug', default='false', help ='smoke test dataset')
     args = parser.parse_args()
 
@@ -585,8 +591,16 @@ if __name__ == "__main__":
     verbose = args.verbose
     debug = args.debug
     start_sys = args.start_sys
-    async_io = False
+    if args.async == 'true':
+        async_io = True
+    else:
+        async_io = False
     loop = 1
+
+    #
+    # Setup lab key access
+    #
+    subprocess.call(['test/copy_key.sh'])
 
     #
     # Load the configuration files
@@ -603,7 +617,7 @@ if __name__ == "__main__":
         bringupClusterCLI(env, bu, cfgFile, verbose, debug)
 
     if args.smoke_test == 'false':
-        preCommit('volume_smoke1', env.env_fdsSrc)
+        preCommit('volume_smoke1', env.env_fdsSrc, '/tmp/pre_commit')
         exitTest(env)
 
     #
@@ -611,19 +625,25 @@ if __name__ == "__main__":
     # Start sync-IO
     # Start async-IO
     #
-    p = startIO('volume_smoke1', data_set_dir, async_io, loop)
-# p = startIO_GET('volume_smoke1', data_set_dir, True, loop)
+    p1 = startIO('volume_smoke1', data_set_dir, '/tmp/res1', async_io, loop)
+    p2 = startIO('volume_smoke2', data_set_dir, '/tmp/res2', async_io, loop)
+    p3 = startIO('volume_smoke3', data_set_dir, '/tmp/res3', async_io, loop)
+    p4 = startIO('volume_smoke4', data_set_dir, '/tmp/res4', async_io, loop)
+    # p = startIO_GET('volume_smoke1', data_set_dir, True, loop)
 
 
     #
     # Bring up more node/delete node test
     #
-#bringupNode(env, bu, cfgFile, verbose, debug, 'node2')
-#    bringupNode(env, bu, cfgFile, verbose, debug, 'node3')
-#    bringupNode(env, bu, cfgFile, verbose, debug, 'node4')
+    bringupNode(env, bu, cfgFile, verbose, debug, 'node2')
+    bringupNode(env, bu, cfgFile, verbose, debug, 'node3')
+    bringupNode(env, bu, cfgFile, verbose, debug, 'node4')
 
     #
     # Wait for async I/O to complete
     #
-    waitIODone(p)
+    waitIODone(p1)
+    waitIODone(p2)
+    waitIODone(p3)
+    waitIODone(p4)
     exitTest(env)

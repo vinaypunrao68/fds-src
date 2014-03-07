@@ -125,4 +125,51 @@ Murmur3::calcDigestStatic(byte *digest,
 }
 
 }  // namespace hash
+
+namespace checksum {
+
+// SHA256 implementations
+Crc32::Crc32() {
+}
+
+Crc32::~Crc32() {
+}
+
+std::string
+Crc32::getAlgorithmName() const {
+    return "CRC32";
+}
+
+void
+Crc32::calculateDigest(byte *digest,
+                       const byte *input,
+                       size_t length) {
+    calcDigestStatic(digest, input, length);
+}
+
+void
+Crc32::calcDigestStatic(byte *digest,
+                        const byte *input,
+                        size_t length) {
+    CryptoPP::CRC32().CalculateDigest(digest,
+                                      input,
+                                      length);
+}
+
+void
+Crc32::update(const byte *input, size_t length) {
+    myHash.Update(input, length);
+}
+
+void
+Crc32::final(byte *digest) {
+    myHash.Final(digest);
+}
+
+void
+Crc32::restart() {
+    myHash.Restart();
+}
+}  // namespace checksum
+
 }  // namespace fds

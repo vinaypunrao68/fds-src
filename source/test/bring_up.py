@@ -31,6 +31,14 @@ if __name__ == '__main__':
     parser.add_option("-s", "--section", dest="section",
                       help="specific section to bring up",
                       metavar="section name")
+    parser.add_option("-i", "--ssh_user", default=None, dest="ssh_user",
+                      help="ssh user name")
+    parser.add_option("-p", "--ssh_passwd", default=None, dest="ssh_passwd",
+                      help="ssh password")
+    parser.add_option("-k", "--ssh_key", default=None, dest="ssh_key",
+                      help="ssh key file")
+    parser.add_option("-S", "--source_path", default=None, dest="source_path",
+                      help="path to source")
     (options, args) = parser.parse_args()
     cfgFile = options.config_file
     verbose = options.verbose
@@ -39,12 +47,16 @@ if __name__ == '__main__':
     down = options.down
     shutdown = options.shutdown
     section = options.section
+    userName = options.ssh_user
+    userPasswd = options.ssh_passwd
+    sshKey = options.ssh_key
+    sourcePath = options.source_path
 
     #
     # Load the configuration files
     #
     bu = ServiceConfig.TestBringUp(cfgFile, verbose, debug)
-    bu.loadCfg()
+    bu.loadCfg(userName, userPasswd, sshKey)
 
     #
     # Bring up all the services

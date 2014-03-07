@@ -2,8 +2,8 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_ORCH_MGR_OM_GLUE_JAVACONTEXT_H_
-#define SOURCE_ORCH_MGR_OM_GLUE_JAVACONTEXT_H_
+#ifndef SOURCE_ORCH_MGR_JAVACONTEXT_H_
+#define SOURCE_ORCH_MGR_JAVACONTEXT_H_
 
 #include <vector>
 #include <string>
@@ -39,10 +39,10 @@ namespace fds {
 
         jstring javaString(JNIEnv *env, std::string s);
 
-        std::string ccString(JNIEnv *env, jstring javaString);
+        std::string *ccString(JNIEnv *env, jstring javaString);
 
         ~JavaContext();
     };
 }  // namespace fds
 
-#endif  // SOURCE_ORCH_MGR_OM_GLUE_JAVACONTEXT_H_
+#endif  // SOURCE_ORCH_MGR_JAVACONTEXT_H_

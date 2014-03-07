@@ -78,6 +78,11 @@ class Resource
     inline fds_uint32_t       rs_my_index() { return rs_index; }
     inline fds_mutex *        rs_mutex() { return &rs_mtx; }
 
+    void setName(std::string name) {
+        strncpy(rs_name, name.c_str(), RS_NAME_MAX);
+        rs_name[RS_NAME_MAX - 1] = '\0';
+    }
+
   protected:
     friend class RsContainer;
     ResourceUUID             rs_uuid;

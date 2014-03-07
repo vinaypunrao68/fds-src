@@ -257,7 +257,7 @@ namespace fds {
       return !(*this == rhs);
     }
 
-    bool operator=(VolumeDesc &volinfo) {
+    VolumeDesc & operator=(const VolumeDesc& volinfo) {
       this->name = volinfo.name;
       this->tennantId = volinfo.tennantId;  
       this->localDomainId = volinfo.localDomainId;  
@@ -275,7 +275,7 @@ namespace fds {
       this->placementPolicy = volinfo.placementPolicy;  
       this->appWorkload = volinfo.appWorkload;
       this->backupVolume = volinfo.backupVolume;
-      return true;
+      return *this;
     }
   };
 

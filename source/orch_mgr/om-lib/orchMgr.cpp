@@ -10,6 +10,8 @@
 #include <OmResources.h>
 #include <lib/Catalog.h>
 #include <lib/PerfStats.h>
+#include <map>
+#include <util/Log.h>
 
 namespace fds {
 
@@ -18,15 +20,14 @@ OrchMgr *orchMgr;
 OrchMgr::OrchMgr(int argc, char *argv[],
                  const std::string& default_config_path,
                  const std::string& base_path, Module **mod_vec)
-    : FdsProcess(argc, argv, default_config_path, base_path, mod_vec),
-      conf_port_num(0),
-      ctrl_port_num(0),
-      test_mode(false),
-      omcp_req_handler(new FDSP_OMControlPathReqHandler(this)),
-      cp_resp_handler(new FDSP_ControlPathRespHandler(this)),
-      cfg_req_handler(new FDSP_ConfigPathReqHandler(this))
+        : FdsProcess(argc, argv, default_config_path, base_path, mod_vec),
+          conf_port_num(0),
+          ctrl_port_num(0),
+          test_mode(false),
+          omcp_req_handler(new FDSP_OMControlPathReqHandler(this)),
+          cp_resp_handler(new FDSP_ControlPathRespHandler(this)),
+          cfg_req_handler(new FDSP_ConfigPathReqHandler(this))
 {
-    om_log  = g_fdslog;
     om_mutex = new fds_mutex("OrchMgrMutex");
 
     for (int i = 0; i < MAX_OM_NODES; i++) {
@@ -40,17 +41,16 @@ OrchMgr::OrchMgr(int argc, char *argv[],
     /*
      * Testing code for loading test info from disk.
      */
-    FDS_PLOG(om_log) << "Constructing the Orchestration  Manager";
+    LOGNORMAL << "Constructing the Orchestration  Manager";
 }
 
 OrchMgr::~OrchMgr()
 {
-    FDS_PLOG(om_log) << "Destructing the Orchestration  Manager";
+    LOGNORMAL << "Destructing the Orchestration  Manager";
 
     cfg_session_tbl->endAllSessions();
     cfgserver_thread->join();
 
-    delete om_log;
     if (policy_mgr) {
         delete policy_mgr;
     }
@@ -86,7 +86,7 @@ void OrchMgr::setup()
     GetLog()->setSeverityFilter(
         (fds_log::severity_level) (conf_helper_.get<int>("log_severity")));
 
-    policy_mgr = new VolPolicyMgr(stor_prefix, om_log);
+    policy_mgr = new VolPolicyMgr(stor_prefix, GetLog());
     my_node_name = stor_prefix + std::string("OrchMgr");
 
     std::string ip_address;
@@ -104,9 +104,15 @@ void OrchMgr::setup()
     }
     ip_address = conf_helper_.get<std::string>("ip_address");
 
-    FDS_PLOG_SEV(om_log, fds_log::notification)
-            << "Orchestration Manager using config port " << config_portnum
-            << " control port " << control_portnum;
+    LOGNOTIFY << "Orchestration Manager using config port " << config_portnum
+              << " control port " << control_portnum;
+
+    configDB = new kvstore::ConfigDB(
+        conf_helper_.get<std::string>("configdb.host", "localhost"),
+        conf_helper_.get<int>("configdb.port", 6379),
+        conf_helper_.get<int>("configdb.poolsize", 10));
+
+    loadFromConfigDB();
 
     /*
      * Setup server session to listen to OMControl path messages from
@@ -121,11 +127,11 @@ void OrchMgr::setup()
 
     omc_server_session = omcp_session_tbl->\
             createServerSession<netOMControlPathServerSession>(
-                    netSession::ipString2Addr(ip_address),
-                    control_portnum,
-                    my_node_name,
-                    FDS_ProtocolInterface::FDSP_OMCLIENT_MGR,
-                    omcp_req_handler);
+                netSession::ipString2Addr(ip_address),
+                control_portnum,
+                my_node_name,
+                FDS_ProtocolInterface::FDSP_OMCLIENT_MGR,
+                omcp_req_handler);
 
     /*
      * Setup server session to listen to config path messages from fdscli
@@ -139,11 +145,11 @@ void OrchMgr::setup()
 
     cfg_server_session = cfg_session_tbl->\
             createServerSession<netConfigPathServerSession>(
-                    netSession::ipString2Addr(ip_address),
-                    config_portnum,
-                    my_node_name,
-                    FDS_ProtocolInterface::FDSP_CLI_MGR,
-                    cfg_req_handler);
+                netSession::ipString2Addr(ip_address),
+                config_portnum,
+                my_node_name,
+                FDS_ProtocolInterface::FDSP_CLI_MGR,
+                cfg_req_handler);
 
     cfgserver_thread.reset(new std::thread(&OrchMgr::start_cfgpath_server, this));
 
@@ -170,15 +176,11 @@ void OrchMgr::start_cfgpath_server()
 
 void OrchMgr::interrupt_cb(int signum)
 {
-    FDS_PLOG(orchMgr->GetLog()) << "OrchMgr: Shutting down communicator";
+    LOGNORMAL << "OrchMgr: Shutting down communicator";
 
     omcp_session_tbl.reset();
     cfg_session_tbl.reset();
     exit(0);
-}
-
-fds_log* OrchMgr::GetLog() {
-    return g_fdslog;  // om_log;
 }
 
 VolPolicyMgr *
@@ -204,15 +206,14 @@ int OrchMgr::AuditTierPolicy(::fpi::tier_pol_auditPtr& audit) {  // NOLINT
 }
 
 int OrchMgr::CreatePolicy(const FdspMsgHdrPtr& fdsp_msg,
-                           const FdspCrtPolPtr& crt_pol_req)
+                          const FdspCrtPolPtr& crt_pol_req)
 {
     Error err(ERR_OK);
     int policy_id = (crt_pol_req->policy_info).policy_id;
 
-    FDS_PLOG_SEV(GetLog(), fds_log::notification)
-            << "Received CreatePolicy  Msg for policy "
-            << (crt_pol_req->policy_info).policy_name
-            << ", id" << policy_id;
+    LOGNOTIFY << "Received CreatePolicy  Msg for policy "
+              << (crt_pol_req->policy_info).policy_name
+              << ", id" << policy_id;
 
     om_mutex->lock();
     err = policy_mgr->createPolicy(crt_pol_req->policy_info);
@@ -221,14 +222,13 @@ int OrchMgr::CreatePolicy(const FdspMsgHdrPtr& fdsp_msg,
 }
 
 int OrchMgr::DeletePolicy(const FdspMsgHdrPtr& fdsp_msg,
-                           const FdspDelPolPtr& del_pol_req)
+                          const FdspDelPolPtr& del_pol_req)
 {
     Error err(ERR_OK);
     int policy_id = del_pol_req->policy_id;
     std::string policy_name = del_pol_req->policy_name;
-    FDS_PLOG_SEV(GetLog(), fds::fds_log::notification)
-            << "Received DeletePolicy  Msg for policy "
-            << policy_name << ", id " << policy_id;
+    LOGNOTIFY << "Received DeletePolicy  Msg for policy "
+              << policy_name << ", id " << policy_id;
 
     om_mutex->lock();
     err = policy_mgr->deletePolicy(policy_id, policy_name);
@@ -245,7 +245,7 @@ int OrchMgr::ModifyPolicy(const FdspMsgHdrPtr& fdsp_msg,
 {
     Error err(ERR_OK);
     int policy_id = (mod_pol_req->policy_info).policy_id;
-    FDS_PLOG_SEV(GetLog(), fds_log::notification)
+    LOGNOTIFY
             << "Received ModifyPolicy  Msg for policy "
             << (mod_pol_req->policy_info).policy_name
             << ", id " << policy_id;
@@ -271,11 +271,10 @@ void OrchMgr::NotifyQueueFull(const FDSP_MsgHdrTypePtr& fdsp_msg,
     int min_p_q_depth = que_st_list[0].queue_depth;
 
     for (uint i = 0; i < que_st_list.size(); i++) {
-        FDS_PLOG_SEV(GetLog(), fds_log::notification)
-                << "Received queue full for volume "
-                << que_st_list[i].vol_uuid
-                << ", priority - " << que_st_list[i].priority
-                << " queue_depth - " << que_st_list[i].queue_depth;
+        LOGNOTIFY << "Received queue full for volume "
+                  << que_st_list[i].vol_uuid
+                  << ", priority - " << que_st_list[i].priority
+                  << " queue_depth - " << que_st_list[i].queue_depth;
 
         assert((que_st_list[i].priority >= 0) && (que_st_list[i].priority <= 10));
         assert((que_st_list[i].queue_depth >= 0.5) && (que_st_list[i].queue_depth <= 1));
@@ -300,30 +299,28 @@ void OrchMgr::NotifyQueueFull(const FDSP_MsgHdrTypePtr& fdsp_msg,
     if (throttle_level < local->om_get_cur_throttle_level()) {
         local->om_set_throttle_lvl(throttle_level);
     } else {
-        FDS_PLOG(GetLog()) << "Calculated throttle level " << throttle_level
-                           << " less than current throttle level of "
-                           << local->om_get_cur_throttle_level()
-                           << ". Ignoring.";
+        LOGNORMAL << "Calculated throttle level " << throttle_level
+                  << " less than current throttle level of "
+                  << local->om_get_cur_throttle_level()
+                  << ". Ignoring.";
     }
 }
 
 void OrchMgr::NotifyPerfstats(const FDSP_MsgHdrTypePtr& fdsp_msg,
                               const FDSP_PerfstatsTypePtr& perf_stats_msg)
 {
-    FDS_PLOG(GetLog())
-            << "OM received perfstats from node of type: "
-            << perf_stats_msg->node_type
-            << " start ts "
-            <<  perf_stats_msg->start_timestamp;
+    LOGNORMAL << "OM received perfstats from node of type: "
+              << perf_stats_msg->node_type
+              << " start ts "
+              <<  perf_stats_msg->start_timestamp;
 
     /* Since we do not negotiate yet (should we?) the slot length of stats with AM and SM
      * the stat slot length in AM and SM should be FDS_STAT_DEFAULT_SLOT_LENGTH */
     fds_verify(perf_stats_msg->slot_len_sec == FDS_STAT_DEFAULT_SLOT_LENGTH);
 
     if (perf_stats_msg->node_type == FDS_ProtocolInterface::FDSP_STOR_HVISOR) {
-        FDS_PLOG(GetLog())
-                << "OM received perfstats from AM, start ts "
-                << perf_stats_msg->start_timestamp;
+        LOGNORMAL << "OM received perfstats from AM, start ts "
+                  << perf_stats_msg->start_timestamp;
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         local->om_handle_perfstats_from_am(perf_stats_msg->vol_hist_list,
                                            perf_stats_msg->start_timestamp);
@@ -331,19 +328,17 @@ void OrchMgr::NotifyPerfstats(const FDSP_MsgHdrTypePtr& fdsp_msg,
         for (uint i = 0; i < (perf_stats_msg->vol_hist_list).size(); ++i) {
             FDS_ProtocolInterface::FDSP_VolPerfHistType& vol_hist
                     = (perf_stats_msg->vol_hist_list)[i];
-            FDS_PLOG(GetLog()) << "OM: received perfstat for vol " << vol_hist.vol_uuid;
+            LOGNORMAL << "OM: received perfstat for vol " << vol_hist.vol_uuid;
             for (uint j = 0; j < (vol_hist.stat_list).size(); ++j) {
                 FDS_ProtocolInterface::FDSP_PerfStatType stat = (vol_hist.stat_list)[j];
-                FDS_PLOG_SEV(GetLog(), fds::fds_log::debug)
-                        << "OM: --- stat_type " << stat.stat_type
-                        << " rel_secs " << stat.rel_seconds
-                        << " iops " << stat.nios << " lat " << stat.ave_lat;
+                LOGDEBUG << "OM: --- stat_type " << stat.stat_type
+                         << " rel_secs " << stat.rel_seconds
+                         << " iops " << stat.nios << " lat " << stat.ave_lat;
             }
         }
     } else if (perf_stats_msg->node_type == FDS_ProtocolInterface::FDSP_STOR_MGR) {
-        FDS_PLOG(GetLog())
-                << "OM received perfstats from SM, start ts "
-                << perf_stats_msg->start_timestamp;
+        LOGNORMAL << "OM received perfstats from SM, start ts "
+                  << perf_stats_msg->start_timestamp;
         /*
          * We need to decide whether we want to merge stats from multiple SMs from one
          * volume or have them separate. Should just mostly follow the code of handling
@@ -352,18 +347,16 @@ void OrchMgr::NotifyPerfstats(const FDSP_MsgHdrTypePtr& fdsp_msg,
         for (uint i = 0; i < (perf_stats_msg->vol_hist_list).size(); ++i) {
             FDS_ProtocolInterface::FDSP_VolPerfHistType& vol_hist
                     = (perf_stats_msg->vol_hist_list)[i];
-            FDS_PLOG(GetLog()) << "OM: received perfstat for vol " << vol_hist.vol_uuid;
+            LOGNORMAL << "OM: received perfstat for vol " << vol_hist.vol_uuid;
             for (uint j = 0; j < (vol_hist.stat_list).size(); ++j) {
                 FDS_ProtocolInterface::FDSP_PerfStatType& stat = (vol_hist.stat_list)[j];
-                FDS_PLOG_SEV(GetLog(), fds_log::normal)
-                        << "OM: --- stat_type " << stat.stat_type
-                        << " rel_secs " << stat.rel_seconds
-                        << " iops " << stat.nios << " lat " << stat.ave_lat;
+                LOGNORMAL << "OM: --- stat_type " << stat.stat_type
+                          << " rel_secs " << stat.rel_seconds
+                          << " iops " << stat.nios << " lat " << stat.ave_lat;
             }
         }
     } else {
-        FDS_PLOG_SEV(GetLog(), fds_log::warning)
-                << "OM received perfstats from node of type "
+        LOGWARN << "OM received perfstats from node of type "
                 << perf_stats_msg->node_type
                 << " which we don't need stats from (or we do now?)";
     }
@@ -384,7 +377,78 @@ void OrchMgr::defaultS3BucketPolicy()
     err = orchMgr->policy_mgr->createPolicy(policy_info);
     orchMgr->om_mutex->unlock();
 
-    FDS_PLOG_SEV(GetLog(), fds_log::normal) << "Created  default S3 policy ";
+    LOGNORMAL << "Created  default S3 policy ";
+}
+
+bool OrchMgr::loadFromConfigDB() {
+    LOGNORMAL << "loading data from configdb...";
+
+    // check connection
+    if (!configDB->isConnected()) {
+        LOGCRITICAL << "unable to talk to config db ";
+        return false;
+    }
+
+    // get global domain info
+    std::string globalDomain = configDB->getGlobalDomain();
+    if (globalDomain.empty()) {
+        LOGWARN << "global.domain not configured.. setting a default [fds]";
+        configDB->setGlobalDomain("fds");
+    }
+
+    // get local domains
+    std::map<int, std::string> mapDomains;
+    configDB->getLocalDomains(mapDomains);
+
+    if (mapDomains.empty())  {
+        LOGWARN << "no local domains stored in the system .."
+                << "setting a default local domain";
+        configDB->addLocalDomain("local", 0);
+        configDB->getLocalDomains(mapDomains);
+    }
+
+    if (mapDomains.empty()) {
+        LOGCRITICAL << "something wrong with the configdb"
+                    << " -- not loading data.";
+        return false;
+    }
+
+    std::vector<VolumeDesc> vecVolumes;
+    std::vector<VolumeDesc>::const_iterator volumeIter;
+    std::map<int, std::string>::const_iterator domainIter;
+    for (domainIter = mapDomains.begin() ; domainIter != mapDomains.end() ; ++domainIter) { // NOLINT
+        int domainId = domainIter->first;
+        LOGNORMAL << "loading data for domain "
+                  << "[" << domainId << ":" << domainIter->second << "]";
+
+        OM_NodeContainer *domainCtrl = OM_NodeDomainMod::om_loc_domain_ctrl();
+
+        vecVolumes.clear();
+        configDB->getVolumes(vecVolumes, domainId);
+
+        if (vecVolumes.empty()) {
+            LOGWARN << "no volumes found for domain "
+                    << "[" << domainId << ":" << domainIter->second << "]";
+        } else {
+            LOGNORMAL << vecVolumes.size() << " volumes found for domain "
+                      << "[" << domainId << ":" << domainIter->second << "]";
+        }
+
+        for (volumeIter = vecVolumes.begin() ; volumeIter != vecVolumes.end() ; ++volumeIter) { //NOLINT
+            LOGDEBUG << "processing volume "
+                     << "[" << volumeIter->volUUID << ":" << volumeIter->name << "]";
+
+            if (!domainCtrl->addVolume(*volumeIter)) {
+                LOGERROR << "unable to add volume "
+                         << "[" << volumeIter->volUUID << ":" << volumeIter->name << "]";
+            }
+        }
+    }
+    return true;
+}
+
+kvstore::ConfigDB* OrchMgr::getConfigDB() {
+    return configDB;
 }
 
 OrchMgr *gl_orch_mgr;

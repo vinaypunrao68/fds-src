@@ -218,9 +218,13 @@ class TestBringUp():
     # Parses the cfg file and populates
     # cluster info.
     #
-    def loadCfg(self):
+    def loadCfg(self, _user=None, _passwd=None, _passPkey=None):
         self.config = ConfigParser.ConfigParser()
         self.config.read(self.cfgFile)
+
+        self.sshUser = _user
+        self.sshPswd = _passwd
+        self.sshPkey = _passPkey
 
         #
         # Iterate over each section
@@ -229,10 +233,15 @@ class TestBringUp():
             if re.match(self.node_sec_prefix, section) != None:
                 self.loadNode(section, self.config.items(section))
             elif re.match(self.src_sec_prefix, section) != None:
+
                 self.srcPath = self.config.get(section, "path")
-                self.sshUser = self.config.get(section, "user")
-                self.sshPswd = self.config.get(section, "passwd")
-                if self.config.has_option(section, "privatekey") == True:
+
+                if _user == None:
+                    self.sshUser = self.config.get(section, "user")
+                if _passwd == None:
+                    self.sshPswd = self.config.get(section, "passwd")
+                if self.config.has_option(section, "privatekey") == True and \
+                   _passPkey == None:
                     self.sshPkey = self.config.get(section, "privatekey")
             elif re.match(self.sh_sec_prefix, section) != None:
                 self.loadClient(section, self.config.items(section))
@@ -246,6 +255,15 @@ class TestBringUp():
             if self.verbose == True:
                 print "Parsed section %s with items %s" % (section,
                                                            self.config.items(section))
+    def setCfgUser(self, _user):
+        self.sshUser = _user
+
+    def setCfgPasswd(self, _passwd):
+        self.sshPswd = _passwd
+
+    def setCfgSshPKey(self, _sshKey):
+        self.sshPkey = _sshKey
+
     def getSectionField(self, section, items, field):
         for i in items:
             if i[0] == field:

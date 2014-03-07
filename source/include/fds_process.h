@@ -94,7 +94,7 @@ class FdsRootDir
  * 2. Configuration from file and command line
  * 3. Module vector based initialization
  */
-class FdsProcess : public boost::noncopyable {
+class FdsProcess : public boost::noncopyable, public HasLogger {
  public:
     /**
      * @param argc

@@ -41,68 +41,77 @@ bool ConfigDB::addLocalDomain (ConstString name, int localDomain, int globalDoma
 }
 
 bool ConfigDB::getLocalDomains(std::map<int,std::string>& mapDomains, int globalDomain) {
-    Reply reply = r.sendCommand("smembers %d:domains",globalDomain);
-    std::vector<long long> vec;
-    reply.toVector(vec);
+    try {
+        Reply reply = r.sendCommand("smembers %d:domains",globalDomain);
+        std::vector<long long> vec;
+        reply.toVector(vec);
 
-    for (uint i = 0; i < vec.size() ; i++ ) {
-        reply = r.sendCommand("hget domain:%d name",(int)vec[i]);
-        mapDomains[(int)vec[i]] = reply.getString();
+        for (uint i = 0; i < vec.size() ; i++ ) {
+            reply = r.sendCommand("hget domain:%d name",(int)vec[i]);
+            mapDomains[(int)vec[i]] = reply.getString();
+        }
+        return true;
+    } catch(const RedisException& e) {
+        LOGERROR << e.what();
     }
-    return true;
+    return false;
 }
             
 // volumes
 bool ConfigDB::addVolume(const VolumeDesc& vol) {
     // add the volume to the volume list for the domain
-    Reply reply = r.sendCommand("sadd %d:volumes %ld", vol.localDomainId, vol.volUUID);
-    if (!reply.wasModified()) {
-        LOGWARN << "volume [" << vol.volUUID << "] already exists for domain [" << vol.localDomainId << "]";
-    }
+    try {
+        Reply reply = r.sendCommand("sadd %d:volumes %ld", vol.localDomainId, vol.volUUID);
+        if (!reply.wasModified()) {
+            LOGWARN << "volume [" << vol.volUUID << "] already exists for domain [" << vol.localDomainId << "]";
+        }
 
-    // add the volume data
-    reply = r.sendCommand("hmset vol:%ld uuid %ld"
-                          " name %s"
-                          " tennant.id %d"
-                          " local.domain.id %d"
-                          " global.domain.id %d"
-                          " type %d"
-                          " capacity %.3f"
-                          " quota.max %.2f"
-                          " replica.count %d"
-                          " write.quorum %d"
-                          " read.quorum %d"
-                          " conistency.protocol %d"
-                          " volume.policy.id %d"
-                          " archive.policy.id %d"
-                          " placement.policy.id %d"
-                          " app.workload %d"
-                          " backup.vol.id %ld"
-                          " iops.min %.3f"
-                          " iops.max %.3f"
-                          " relative.priority %d",
-                          vol.volUUID, vol.volUUID,
-                          vol.name.c_str(),
-                          vol.tennantId,
-                          vol.localDomainId,
-                          vol.globDomainId,
-                          vol.volType,
-                          vol.capacity,
-                          vol.maxQuota,
-                          vol.replicaCnt,
-                          vol.writeQuorum,
-                          vol.readQuorum,
-                          vol.consisProtocol,
-                          vol.volPolicyId,
-                          vol.archivePolicyId,
-                          vol.placementPolicy,
-                          vol.appWorkload,
-                          vol.backupVolume,
-                          vol.iops_min,
-                          vol.iops_max,
-                          vol.relativePrio);
-    if (reply.isOk()) return true;
-    LOGWARN << "msg: " << reply.getString();
+        // add the volume data
+        reply = r.sendCommand("hmset vol:%ld uuid %ld"
+                              " name %s"
+                              " tennant.id %d"
+                              " local.domain.id %d"
+                              " global.domain.id %d"
+                              " type %d"
+                              " capacity %.3f"
+                              " quota.max %.2f"
+                              " replica.count %d"
+                              " write.quorum %d"
+                              " read.quorum %d"
+                              " conistency.protocol %d"
+                              " volume.policy.id %d"
+                              " archive.policy.id %d"
+                              " placement.policy.id %d"
+                              " app.workload %d"
+                              " backup.vol.id %ld"
+                              " iops.min %.3f"
+                              " iops.max %.3f"
+                              " relative.priority %d",
+                              vol.volUUID, vol.volUUID,
+                              vol.name.c_str(),
+                              vol.tennantId,
+                              vol.localDomainId,
+                              vol.globDomainId,
+                              vol.volType,
+                              vol.capacity,
+                              vol.maxQuota,
+                              vol.replicaCnt,
+                              vol.writeQuorum,
+                              vol.readQuorum,
+                              vol.consisProtocol,
+                              vol.volPolicyId,
+                              vol.archivePolicyId,
+                              vol.placementPolicy,
+                              vol.appWorkload,
+                              vol.backupVolume,
+                              vol.iops_min,
+                              vol.iops_max,
+                              vol.relativePrio);
+        if (reply.isOk()) return true;
+        LOGWARN << "msg: " << reply.getString();
+    } catch(RedisException& e) {
+        LOGERROR << e.what();
+    }
     return false;
 }
 

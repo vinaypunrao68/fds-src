@@ -249,6 +249,10 @@ class OM_NodeContainer : public DomainContainer
         return om_volumes->om_test_bucket(hdr, req);
     }
 
+    inline bool addVolume(const VolumeDesc& desc) {
+        return om_volumes->addVolume(desc);
+    }
+
     virtual void om_set_throttle_lvl(float level);
     virtual void om_send_bucket_stats(fds_uint32_t, std::string, fds_uint32_t);
     virtual void om_handle_perfstats_from_am(const FDSP_VolPerfHistListType &list,

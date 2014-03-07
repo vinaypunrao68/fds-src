@@ -24,6 +24,7 @@
 #include <OmTier.h>
 #include <OmVolPolicy.hpp>
 #include <OmAdminCtrl.h>
+#include <kvstore/configdb.h>
 
 #define MAX_OM_NODES            (512)
 #define DEFAULT_LOC_DOMAIN_ID   (1)
@@ -71,6 +72,7 @@ class OrchMgr: public FdsProcess {
     VolPolicyMgr           *policy_mgr;
     Thrift_VolPolicyServ   *om_ice_proxy;
     Orch_VolPolicyServ     *om_policy_srv;
+    kvstore::ConfigDB      *configDB;
 
     void SetThrottleLevelForDomain(int domain_id, float throttle_level);
 
@@ -87,14 +89,14 @@ class OrchMgr: public FdsProcess {
      * Runs the orch manager server.
      * Does not return until the server is no longer running
      */
+
+    bool loadFromConfigDB();
     virtual void run() override;
     virtual void interrupt_cb(int signum) override;
 
-    fds_log* GetLog();
     void defaultS3BucketPolicy();  // default  policy  desc  for s3 bucket
 
-    void om_BigLock() { om_mutex->lock(); }
-    void om_BigUnlock() { om_mutex->unlock(); }
+    kvstore::ConfigDB* getConfigDB();
 
     static VolPolicyMgr      *om_policy_mgr();
     static const std::string &om_stor_prefix();

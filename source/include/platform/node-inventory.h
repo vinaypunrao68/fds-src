@@ -45,7 +45,8 @@ class NodeInvData
     typedef boost::shared_ptr<NodeInvData>       pointer;
     typedef boost::shared_ptr<const NodeInvData> const_ptr;
 
-    Sha1Digest               nd_checksum;
+    // TODO(Andrew): Add back a better checksum library
+    // Sha1Digest               nd_checksum;
     NodeUuid                 nd_uuid;
     fds_uint64_t             nd_gbyte_cap;       /**< capacity in GB unit */
 

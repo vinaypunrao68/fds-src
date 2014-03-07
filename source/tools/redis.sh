@@ -3,14 +3,7 @@ source ./loghelper.sh
 
 CONFDIR=../config/etc
 PORTS=()
-
-# load ports from configs
-function initPorts() {
-    for instance in 1 2 3 4 ; do
-        PORTS[$instance]=$(getPort ${instance})
-    done
-}
-
+versinfo=()
 
 function usage() {
     log "usage: $(basename $0) [cmd] [instance]"
@@ -34,9 +27,21 @@ function makeRedisDirs() {
         mkdir -p /fds/var/run/redis
     fi
     
-    if [[ ! /fds/logs/redis ]] ; then
+    if [[ ! -f /fds/logs/redis ]] ; then
         mkdir -p /fds/logs/redis
     fi
+}
+
+# load ports from configs
+function init() {
+    for instance in 1 2 3 4 ; do
+        PORTS[$instance]=$(getPort ${instance})
+    done
+    makeRedisDirs
+
+    # get the redis version
+    versinfo=($(redis-server -v | awk '{print $3}' |cut -b 3-|sed -e 's/\./ /g'))
+    #echo ${versinfo[@]}
 }
 
 
@@ -52,12 +57,16 @@ function getPort() {
 
 function getPid() {
     local instance="$1"
-    echo $(ps aux | grep "redis-server .*:${PORTS[${instance}]}" | grep -v grep | awk '{print $2}')
+    if [[ ${versinfo[0]} == 2 ]] && [[ ${versinfo[1]} -ge 8 ]]; then
+        echo $(ps aux | grep "redis-server .*:${PORTS[${instance}]}" | grep -v grep | awk '{print $2}')
+    else
+        echo $(ps aux | grep "redis-server $(getConfigFile $instance)" | grep -v grep | awk '{print $2}')
+    fi
 }
 
 function isRunning() {
     local instance="$1"
-    local pid=$(ps aux | grep "redis-server .*:${PORTS[${instance}]}" | grep -v grep | awk '{print $2}')
+    local pid=$(getPid $instance)
     
     if [[ -n $pid ]] ; then return 0 ; else return 1 ; fi
 }
@@ -150,8 +159,7 @@ if [[ $APP == "all" ]]; then
     APP="1 2 3 4"
 fi
 
-makeRedisDirs
-initPorts
+init
 
 case "${CMD}" in
     start) start "$APP" ;;

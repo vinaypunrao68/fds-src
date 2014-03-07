@@ -417,7 +417,10 @@ public:
   FdsBlobReq* getBlobReqPtr() {
     return blobReq;
   }
- 
+  void setVolId(fds_volid_t volid) {
+    io_vol_id = volid;
+    blobReq->setVolId(volid);
+  } 
 };
 
 } // namespace fds

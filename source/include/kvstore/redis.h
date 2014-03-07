@@ -24,7 +24,7 @@ namespace redis {
 
         virtual ~RedisException() throw() {}
 
-        virtual const char* what() {
+        virtual const char* what() const throw() {
             return reason.c_str();
         }
   private:

@@ -39,3 +39,5 @@ rm -rf /fds-node?/var/*
 rm -rf /fds-am?/var/*
 rm -rf /fds-node?/sys-repo/*
 rm -rf /fds-node?/user-repo/*
+rm -rf /fds/var/logs/*
+rm -rf /fds/node?/*

@@ -489,10 +489,15 @@ void StorHvVolumeTable::moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
       }
       if ( err.ok()) {
 	for (uint i = 0; i < blobs.size(); ++i) {
-	  FDS_PLOG_SEV(vt_log, fds::fds_log::debug) << "VolumeTable - moving blob to qos queue of vol  " << vol_uuid
-						    << " vol_name " << vol_name;
-	  storHvisor->qos_ctrl->enqueueIO(vol_uuid, blobs[i]);
-
+	  FDS_PLOG_SEV(vt_log, fds::fds_log::debug)
+                  << "VolumeTable - moving blob to qos queue of vol  " << std::hex
+                  << vol_uuid << std::dec << " vol_name " << vol_name;
+          // since we did not know the volume id before, volid for this io is set to 0
+          // so set its volume id now to actual volume id
+          AmQosReq* req = blobs[i];
+          fds_verify(req != NULL);
+          req->setVolId(vol_uuid);
+	  storHvisor->qos_ctrl->enqueueIO(vol_uuid, req);
 	}
 	blobs.clear();
       }

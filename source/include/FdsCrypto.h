@@ -11,6 +11,7 @@
 #include <string>
 #include <cryptlib.h>
 #include <sha.h>
+#include <crc.h>
 #include <hash/MurmurHash3.h>
 
 #include <fds_types.h>
@@ -130,8 +131,34 @@ class Murmur3 : FdsHashFunc {
     void final(byte *digest) {}
     void restart() {}
 };
-
 }  // namespace hash
+
+namespace checksum {
+
+class Crc32 : FdsHashFunc {
+  private:
+    CryptoPP::CRC32 myHash;
+  public:
+    Crc32();
+    ~Crc32();
+
+    static const fds_uint32_t numDigestBytes = CryptoPP::CRC32::DIGESTSIZE;
+    static const fds_uint32_t numDigestBits  = numDigestBytes * 8;
+
+    std::string getAlgorithmName() const;
+    void calculateDigest(byte *digest,
+                         const byte *input,
+                         size_t length);
+    static void calcDigestStatic(byte *digest,
+                                 const byte *input,
+                                 size_t length);
+
+    void update(const byte *input, size_t length);
+    void final(byte *digest);
+    void restart();
+};
+}  // namespace checksum
+
 }  // namespace fds
 
 #endif  // SOURCE_INCLUDE_FDSCRYPTO_H_
