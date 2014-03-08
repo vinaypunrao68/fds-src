@@ -14,7 +14,7 @@ int main(int argc, char *argv[])
         &fds::gl_objStats,
         nullptr
     };
-    objStorMgr = new ObjectStorMgr(argc, argv, "sm.conf", "fds.sm.", smVec);
+    objStorMgr = new ObjectStorMgr(argc, argv, "platform.conf", "fds.sm.", smVec);
     objStorMgr->setup();
     objStorMgr->run();
 

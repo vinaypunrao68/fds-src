@@ -1,6 +1,7 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
+#include <string>
 #include <platform/platform-lib.h>
 
 namespace fds {
@@ -41,6 +42,75 @@ PlatEvent::PlatEvent(char const *const          name,
                      DomainClusterMap::pointer  clus,
                      const Platform            *plat)
     : pe_name(name), pe_resources(mgr), pe_clusmap(clus), pe_platform(plat) {}
+
+// -------------------------------------------------------------------------------------
+// FDS Platform Process
+// -------------------------------------------------------------------------------------
+PlatformProcess::PlatformProcess(int argc, char **argv,
+                                 const std::string  &cfg,
+                                 Platform           *platform,
+                                 Module            **vec)
+    : FdsProcess(argc, argv, "platform.conf", cfg, "platform.log", vec),
+      plf_mgr(platform), plf_db(NULL)
+{
+    memset(&plf_node_data, 0, sizeof(plf_node_data));
+}
+
+PlatformProcess::~PlatformProcess()
+{
+    delete plf_db;
+}
+
+// plf_load_node_data
+// ------------------
+//
+void
+PlatformProcess::plf_load_node_data()
+{
+    if (plf_test_mode == true) {
+        return;
+    }
+    if (plf_db->isConnected() == false) {
+        std::cout << "Sorry, you must start redis server manually & try again"
+                  << std::endl;
+        exit(1);
+    }
+    std::string val = plf_db->get("NodeUUID");
+    if (val == "") {
+        plf_node_data.node_uuid = fds_get_uuid64(get_uuid());
+        std::cout << "No uuid, generate one " << std::hex
+                  << plf_node_data.node_uuid << std::endl;
+    } else {
+        memcpy(&plf_node_data, val.data(), sizeof(plf_node_data));
+    }
+}
+
+// plf_apply_node_data
+// -------------------
+//
+void
+PlatformProcess::plf_apply_node_data()
+{
+    char         name[64];
+    NodeUuid     my_uuid(plf_node_data.node_uuid);
+
+    if (plf_node_data.node_magic != 0) {
+        snprintf(name, sizeof(name), "node-%u", plf_node_data.node_number);
+        plf_mgr->plf_change_info(my_uuid, std::string(name), 0);
+    } else {
+        plf_mgr->plf_change_info(my_uuid, std::string(""), 0);
+    }
+}
+
+void
+PlatformProcess::setup()
+{
+    FdsProcess::setup();
+    plf_db = new kvstore::PlatformDB();
+
+    plf_load_node_data();
+    plf_apply_node_data();
+}
 
 // -------------------------------------------------------------------------------------
 // Node Event Handlers

@@ -1,6 +1,11 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <ifaddrs.h>
+#include <arpa/inet.h>
 #include <string>
 #include <platform/platform-lib.h>
 #include <NetSession.h>
@@ -27,6 +32,12 @@ Platform::Platform(char const *const         name,
     plf_migrate_evt      = NULL;
     plf_tier_evt         = NULL;
     plf_bucket_stats_evt = NULL;
+
+    plf_om_conf_port     = 0;
+    plf_my_ctrl_port     = 0;
+    plf_my_conf_port     = 0;
+    plf_my_data_port     = 0;
+    plf_my_migr_port     = 0;
 
     plf_rpc_thrd  = NULL;
     plf_net_sess  = NULL;
@@ -79,14 +90,6 @@ Platform::plf_del_node_info(const NodeUuid &uuid, const std::string &name)
 //
 void
 Platform::plf_update_cluster()
-{
-}
-
-// plf_persist_inventory
-// ---------------------
-//
-void
-Platform::plf_persist_inventory(const NodeUuid &uuid)
 {
 }
 
@@ -149,12 +152,16 @@ void
 Platform::plf_change_info(const NodeUuid    &uuid,
                           const std::string &name, fds_uint32_t base)
 {
-    plf_my_uuid      = uuid;
-    plf_my_node_name = name;
-    plf_my_ctrl_port = plf_ctrl_port(base);
-    plf_my_conf_port = plf_conf_port(base);
-    plf_my_data_port = plf_data_port(base);
-    plf_my_migration_port = plf_migration_port(base);
+    plf_my_uuid = uuid;
+    if (name != "") {
+        plf_my_node_name = name;
+    }
+    if (base != 0) {
+        plf_my_ctrl_port = plf_ctrl_port(base);
+        plf_my_conf_port = plf_conf_port(base);
+        plf_my_data_port = plf_data_port(base);
+        plf_my_migr_port = plf_migration_port(base);
+    }
 }
 
 // -----------------------------------------------------------------------------------
@@ -467,4 +474,39 @@ PlatRpcResp::MigrationDoneResp(fpi::FDSP_MsgHdrTypePtr          &fdsp_msg,
     fds_verify(0);
 }
 
+namespace util {
+/**
+ * @return local ip
+ */
+std::string get_local_ip()
+{
+    struct ifaddrs *ifAddrStruct = NULL;
+    struct ifaddrs *ifa          = NULL;
+    void   *tmpAddrPtr           = NULL;
+    std::string myIp;
+
+    /*
+     * Get the local IP of the host.  This is needed by the OM.
+     */
+    getifaddrs(&ifAddrStruct);
+    for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
+        if (ifa->ifa_addr->sa_family == AF_INET) {  // IPv4
+            if (strncmp(ifa->ifa_name, "lo", 2) != 0) {
+                tmpAddrPtr = &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;  // NOLINT
+                char addrBuf[INET_ADDRSTRLEN];
+                inet_ntop(AF_INET, tmpAddrPtr, addrBuf, INET_ADDRSTRLEN);
+                myIp = std::string(addrBuf);
+                if (myIp.find("10.1") != std::string::npos) {
+                    break; /*  TODO: more dynamic */
+                }
+            }
+        }
+    }
+    if (ifAddrStruct != NULL) {
+        freeifaddrs(ifAddrStruct);
+    }
+    return myIp;
+}
+
+}  // namespace util
 }  // namespace fds

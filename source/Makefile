@@ -12,10 +12,10 @@ user_build_dir :=                       \
     umod-lib                            \
     util                                \
     lib                                 \
-	platform                            \
     am-engine                           \
     fds-probe                           \
     persistent_layer                    \
+    platform                            \
     stor-hvisor                         \
     orch_mgr                            \
     data_mgr                            \

@@ -6,7 +6,7 @@ user_incl_dir    := ../include
 user_cpp         := \
     platform.cpp
 
-user_ar_libs     := fds-plat-common
-fds-plat-common  := $(user_cpp)
+user_ar_libs     := fds-plat-daemon
+fds-plat-daemon  := $(user_cpp)
 
 include $(topdir)/Makefile.incl

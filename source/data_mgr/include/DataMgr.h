@@ -9,20 +9,10 @@
 #ifndef SOURCE_DATA_MGR_DATAMGR_H_
 #define SOURCE_DATA_MGR_DATAMGR_H_
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <ifaddrs.h>
-#include <arpa/inet.h>
-#include <stdlib.h>
-
-#include <fdsp/FDSP_MetaDataPathReq.h>
-#include <fdsp/FDSP_MetaDataPathResp.h>
-
 #include <fds_err.h>
 #include <fds_types.h>
 #include <fds_volume.h>
-#include <fds_process.h>
+#include <dm-platform.h>
 
 /* TODO: avoid cross module include, move API header file to include dir. */
 #include <lib/OMgrClient.h>
@@ -30,7 +20,6 @@
 #include <util/Log.h>
 #include <VolumeMeta.h>
 #include <concurrency/ThreadPool.h>
-#include <concurrency/Mutex.h>
 
 #include <include/fds_qos.h>
 #include <include/qos_ctrl.h>
@@ -52,7 +41,7 @@ int scheduleQueryCatalog(void * _io);
 int scheduleDeleteCatObj(void * _io);
 int scheduleBlobList(void * _io);
 
-class DataMgr : public FdsProcess
+class DataMgr : public PlatformProcess
 {
   public:
     void InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
@@ -288,9 +277,7 @@ class DataMgr : public FdsProcess
     void setup_metadatapath_server(const std::string &ip);
 
   public:
-    DataMgr(int argc, char *argv[],
-             const std::string &default_config_path,
-             const std::string &base_path, Module **mod_vec);
+    DataMgr(int argc, char *argv[], Platform *platform, Module **mod_vec);
     ~DataMgr();
 
   /* From FdsProcess */
