@@ -74,7 +74,8 @@ enum FDSP_MgrIdType {
     FDSP_ORCH_MGR,
     FDSP_CLI_MGR, 
     FDSP_OMCLIENT_MGR,
-    FDSP_MIGRATION_MGR
+    FDSP_MIGRATION_MGR,
+    FDSP_PLATFORM
 }
 
 enum FDSP_ResultType {
@@ -389,6 +390,10 @@ struct FDSP_CreateVolType {
 
 }
 
+struct FDSP_Uuid {
+  1: i64          uuid,
+}
+
 struct FDSP_TestBucket {
   1: string 		 bucket_name,
   2: FDSP_VolumeInfoType 	 vol_info, /* Bucket properties and attributes */
@@ -424,9 +429,9 @@ struct FDSP_AttachVolCmdType {
   3: i32			 domain_id,
 }
 
-
 struct FDSP_RemoveNodeType {
   1: string node_name, // Name of the node which should be removed from the system
+  2: FDSP_Uuid   node_uuid,
 }
 
 struct FDSP_GetVolInfoReqType {
@@ -481,15 +486,17 @@ struct FDSP_AnnounceDiskCapability {
 }
 
 struct FDSP_RegisterNodeType {
-  1: FDSP_MgrIdType node_type, /* Type of node - SM/DM/HV */
-  2: string 	 node_name,    /* node indetifier - string */
-  3: i32 	     domain_id,    /* domain indetifier */
-  4: i64		 ip_hi_addr, /* IP V6 high address */
-  5: i64		 ip_lo_addr, /* IP V4 address of V6 low address of the node */
-  6: i32		 control_port, /* Port number to contact for control messages */
-  7: i32		 data_port, /* Port number to send datapath requests */
-  8: i32                 migration_port, /*  Port for migration service */
-  9: FDSP_AnnounceDiskCapability  disk_info, /* Add node capacity and other relevant fields here */
+  1: FDSP_MgrIdType node_type,   /* Type of node - SM/DM/HV */
+  2: string 	 node_name,      /* node indetifier - string */
+  3: i32 	     domain_id,      /* domain indetifier */
+  4: i64		 ip_hi_addr,     /* IP V6 high address */
+  5: i64		 ip_lo_addr,     /* IP V4 address of V6 low address of the node */
+  6: i32		 control_port,   /* Port number to contact for control messages */
+  7: i32		 data_port,      /* Port number to send datapath requests */
+  8: i32         migration_port, /*  Port for migration service */
+  9: FDSP_Uuid   node_uuid;
+  10: FDSP_Uuid  service_uuid;
+  11: FDSP_AnnounceDiskCapability  disk_info, /* Add node capacity and other relevant fields here */
 }
 
 struct FDSP_ThrottleMsgType {
@@ -926,6 +933,7 @@ service FDSP_ControlPathReq {
   oneway void AttachVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolType atc_vol_req),
   oneway void DetachVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolType dtc_vol_req),
   oneway void NotifyNodeAdd(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_Node_Info_Type node_info),
+  oneway void NotifyNodeActive(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_Node_Info_Type node_info),
   oneway void NotifyNodeRmv(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_Node_Info_Type node_info),
   oneway void NotifyDLTUpdate(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DLT_Data_Type dlt_info),
   oneway void NotifyDMTUpdate(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DMT_Type dmt_info),

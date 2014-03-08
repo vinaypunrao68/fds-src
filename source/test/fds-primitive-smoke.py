@@ -31,6 +31,7 @@ class FdsEnv:
     def shut_down(self):
         subprocess.call(['pkill', '-9', 'AMAgent'])
         subprocess.call(['pkill', '-9', 'Mgr'])
+        subprocess.call(['pkill', '-9', 'java'])
 
     def cleanup(self):
         self.shut_down()
@@ -101,7 +102,7 @@ class CopyS3Dir:
         self.cur_get    = 0
 
     def runTest(self, burst_cnt=0):
-        # self.createBucket()
+        self.createBucket()
         total = len(self.files_list)
         if burst_cnt == 0 or burst_cnt > total:
             burst_cnt = total
@@ -241,7 +242,7 @@ class CopyS3Dir_GET(CopyS3Dir):
 
 class CopyS3Dir_PatternRW(CopyS3Dir):
     def runTest(self, write=1, read=1):
-        #self.createBucket()
+        self.createBucket()
         total = len(self.files_list)
         if write == 0 or write > total:
             write = total
@@ -614,7 +615,8 @@ if __name__ == "__main__":
     #
     # bringupCluster(env, bu, cfgFile, verbose, debug)
     if start_sys == 'true':
-        bringupClusterCLI(env, bu, cfgFile, verbose, debug)
+        bringupCluster(env, bu, cfgFile, verbose, debug)
+# bringupClusterCLI(env, bu, cfgFile, verbose, debug)
 
     if args.smoke_test == 'false':
         preCommit('volume_smoke1', env.env_fdsSrc, '/tmp/pre_commit')

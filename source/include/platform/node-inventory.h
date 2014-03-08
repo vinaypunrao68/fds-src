@@ -8,17 +8,19 @@
 #include <boost/shared_ptr.hpp>
 #include <fds_err.h>
 #include <fds_resource.h>
-#include <fds_typedefs.h>
 #include <fds_module.h>
-#include <NetSession.h>
+#include <platform/platform-rpc.h>
 
 namespace fds {
 
-namespace fpi = FDS_ProtocolInterface;
 typedef fpi::FDSP_RegisterNodeType     FdspNodeReg;
 typedef fpi::FDSP_RegisterNodeTypePtr  FdspNodeRegPtr;
 typedef fpi::FDSP_NodeState            FdspNodeState;
 typedef fpi::FDSP_MgrIdType            FdspNodeType;
+
+typedef boost::shared_ptr<fpi::FDSP_ControlPathReqClient>     NodeAgentCpReqtSessPtr;
+typedef boost::shared_ptr<fpi::FDSP_OMControlPathReqClient>   NodeAgentCpOmClientPtr;
+typedef boost::shared_ptr<PlatRpcResp>                        OmRespDispatchPtr;
 
 /**
  * POD types for common node inventory.
@@ -96,6 +98,7 @@ class NodeInventory : public Resource
     inline const fds_uint64_t node_dlt_version() const {
       return node_inv->nd_dlt_version;
     }
+
     /**
      * Fill in the inventory for this agent based on data provided by the message.
      */
@@ -105,14 +108,11 @@ class NodeInventory : public Resource
     void set_node_dlt_version(fds_uint64_t dlt_version);
 
     /**
-     * Format the message header to default values.
-     */
-    virtual void init_msg_hdr(fpi::FDSP_MsgHdrTypePtr msgHdr) const;
-
-    /**
      * Format the node info pkt with data from this agent obj.
      */
+    virtual void init_msg_hdr(fpi::FDSP_MsgHdrTypePtr msgHdr) const;
     virtual void init_node_info_pkt(fpi::FDSP_Node_Info_TypePtr pkt) const;
+    virtual void init_node_reg_pkt(fpi::FDSP_RegisterNodeTypePtr pkt) const;
 
   protected:
     const NodeInvData       *node_inv;
@@ -150,6 +150,20 @@ class NodeAgent : public NodeInventory
   protected:
     virtual ~NodeAgent() {}
     explicit NodeAgent(const NodeUuid &uuid) : NodeInventory(uuid) {}
+};
+
+class PmAgent : public NodeAgent
+{
+  public:
+    typedef boost::intrusive_ptr<PmAgent> pointer;
+    typedef boost::intrusive_ptr<const PmAgent> const_ptr;
+
+    PmAgent(const NodeUuid &uuid) : NodeAgent(uuid) {}
+    virtual ~PmAgent() {}
+
+    static inline PmAgent::pointer agt_cast_ptr(NodeAgent::pointer ptr) {
+        return static_cast<PmAgent *>(get_pointer(ptr));
+    }
 };
 
 class SmAgent : public NodeAgent
@@ -200,12 +214,29 @@ class OmAgent : public NodeAgent
     typedef boost::intrusive_ptr<OmAgent> pointer;
     typedef boost::intrusive_ptr<const OmAgent> const_ptr;
 
-    OmAgent(const NodeUuid &uuid) : NodeAgent(uuid) {}
-    virtual ~OmAgent() {}
+    OmAgent(const NodeUuid &uuid);
+    virtual ~OmAgent();
 
     static inline OmAgent::pointer agt_cast_ptr(NodeAgent::pointer ptr) {
         return static_cast<OmAgent *>(get_pointer(ptr));
     }
+    /**
+     * Packet format functions.
+     */
+    void init_msg_hdr(fpi::FDSP_MsgHdrTypePtr msgHdr) const;
+    void init_node_reg_pkt(fpi::FDSP_RegisterNodeTypePtr pkt) const;
+    void om_register_node(fpi::FDSP_RegisterNodeTypePtr);
+
+    virtual void
+    om_handshake(boost::shared_ptr<netSessionTbl> net,
+                 OmRespDispatchPtr                om_disp,
+                 std::string                      om_ip,
+                 fds_uint32_t                     om_port);
+
+  protected:
+    netOMControlPathClientSession *om_sess;        /** the rpc session to OM.  */
+    NodeAgentCpOmClientPtr         om_reqt;        /**< handle to send reqt to OM.  */
+    std::string                    om_sess_id;
 };
 
 // -------------------------------------------------------------------------------------
@@ -296,6 +327,19 @@ class AgentContainer : public RsContainer
     AgentContainer(FdspNodeType id);
 };
 
+class PmContainer : public AgentContainer
+{
+  public:
+    typedef boost::intrusive_ptr<PmContainer> pointer;
+    PmContainer(FdspNodeType id) : AgentContainer(id) {}
+
+  protected:
+    virtual ~PmContainer() {}
+    virtual Resource *rs_new(const ResourceUUID &uuid) {
+        return new PmAgent(uuid);
+    }
+};
+
 class SmContainer : public AgentContainer
 {
   public:
@@ -364,6 +408,7 @@ class DomainContainer
                     SmContainer::pointer    sm,
                     DmContainer::pointer    dm,
                     AmContainer::pointer    am,
+                    PmContainer::pointer    pm,
                     OmContainer::pointer    om,
                     AgentContainer::pointer node);
 
@@ -401,6 +446,14 @@ class DomainContainer
         dc_am_nodes = am;
     }
 
+    inline PmContainer::pointer dc_get_pm_nodes() {
+        return dc_pm_nodes;
+    }
+    inline void dc_set_pm_nodes(PmContainer::pointer pm) {
+        fds_assert(dc_pm_nodes == NULL);
+        dc_pm_nodes = pm;
+    }
+
     inline OmContainer::pointer dc_get_om_nodes() {
         return dc_om_nodes;
     }
@@ -415,6 +468,7 @@ class DomainContainer
     SmContainer::pointer     dc_sm_nodes;
     DmContainer::pointer     dc_dm_nodes;
     AmContainer::pointer     dc_am_nodes;
+    PmContainer::pointer     dc_pm_nodes;
     AgentContainer::pointer  dc_nodes;
 
     AgentContainer::pointer dc_container_frm_msg(FdspNodeType node_type);

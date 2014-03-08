@@ -78,7 +78,7 @@ TEST_CASE("dlt") {
 
     fillDltNodes(&dlt,10);
 
-    cfg.storeDlt(dlt,localDomain);
+    cfg.storeDlt(dlt,"",localDomain);
     cfg.getDlt(dlt1,1,localDomain);
     verifyDltNodes(&dlt1,10);
 }

@@ -129,6 +129,17 @@ class ControlPathReq : public FDS_ProtocolInterface::FDSP_ControlPathReqIf {
                             << " for node " << node_info->node_name;
     }
 
+    void NotifyNodeActive(const FDSP_MsgHdrType& fdsp_msg,
+                          const FDSP_Node_Info_Type& node_info) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
+    void NotifyNodeActive(FDSP_MsgHdrTypePtr& msg_hdr, 
+		       FDSP_Node_Info_TypePtr& node_info) {
+         FDS_PLOG(test_log) << "NotifyNodeAdd recvd"
+                            << " for node " << node_info->node_name;
+    }
+
     void NotifyNodeRmv(const FDSP_MsgHdrType& fdsp_msg,
                        const FDSP_Node_Info_Type& node_info) {
         // Don't do anything here. This stub is just to keep cpp compiler happy
