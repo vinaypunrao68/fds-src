@@ -391,7 +391,7 @@ struct FDSP_CreateVolType {
 }
 
 struct FDSP_Uuid {
-  1: string          uuid,
+  1: i64          uuid,
 }
 
 struct FDSP_TestBucket {
@@ -429,9 +429,9 @@ struct FDSP_AttachVolCmdType {
   3: i32			 domain_id,
 }
 
-
 struct FDSP_RemoveNodeType {
   1: string node_name, // Name of the node which should be removed from the system
+  2: FDSP_Uuid   node_uuid,
 }
 
 struct FDSP_GetVolInfoReqType {
