@@ -152,6 +152,11 @@ class OM_PmAgent : public NodeAgent
         return ndCpClient;
     }
 
+    /**
+     * Allowing only one type of service per Platform
+     */
+    fds_bool_t service_exists(FDS_ProtocolInterface::FDSP_MgrIdType svc_type) const;
+
     virtual void init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const;
 
   protected:
@@ -166,12 +171,22 @@ class OM_PmAgent : public NodeAgent
 class OM_PmContainer : public PmContainer
 {
   public:
+    typedef boost::intrusive_ptr<OM_PmContainer> pointer;
+
     OM_PmContainer();
     virtual ~OM_PmContainer() {}
 
     virtual Error agent_register(const NodeUuid       &uuid,
                                  const FdspNodeRegPtr  msg,
                                  NodeAgent::pointer   *out);
+
+    /**
+     * Returns true if this node can accept new service.
+     * Node (Platform) that will run the service must be discovered
+     * and set to active state
+     */
+    fds_bool_t check_new_service(const NodeUuid &pm_uuid,
+                                 FDS_ProtocolInterface::FDSP_MgrIdType svc_role);
 
     static inline OM_PmContainer::pointer agt_cast_ptr(RsContainer::pointer ptr) {
         return static_cast<OM_PmContainer *>(get_pointer(ptr));
@@ -440,6 +455,13 @@ class OM_NodeDomainMod : public Module
      */
     virtual Error om_del_node_info(const NodeUuid& uuid,
                                    const std::string& node_name);
+
+    /**
+     * Commision the node
+     * Platform manager must be already registered with OM, otherwise
+     * returns error.
+     */
+    virtual Error om_activate_node(const FdspNodeActivatePtr msg);
 
     /**
      * Notification that OM received migration done message from

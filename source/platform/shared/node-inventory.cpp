@@ -37,7 +37,7 @@ NodeInventory::node_fill_inventory(const FdspNodeRegPtr msg)
     data->nd_migration_port = msg->migration_port;
     data->nd_node_name      = msg->node_name;
     data->nd_node_type      = msg->node_type;
-    data->nd_node_state     = FDS_ProtocolInterface::FDS_Start_Migration;
+    data->nd_node_state     = FDS_ProtocolInterface::FDS_Node_Discovered;
     data->nd_disk_type      = msg->disk_info.disk_type;
     data->nd_dlt_version    = DLT_VER_INVALID;
 

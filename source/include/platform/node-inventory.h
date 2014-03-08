@@ -17,6 +17,7 @@ typedef fpi::FDSP_RegisterNodeType     FdspNodeReg;
 typedef fpi::FDSP_RegisterNodeTypePtr  FdspNodeRegPtr;
 typedef fpi::FDSP_NodeState            FdspNodeState;
 typedef fpi::FDSP_MgrIdType            FdspNodeType;
+typedef fpi::FDSP_ActivateNodeTypePtr  FdspNodeActivatePtr;
 
 typedef boost::shared_ptr<fpi::FDSP_ControlPathReqClient>     NodeAgentCpReqtSessPtr;
 typedef boost::shared_ptr<fpi::FDSP_OMControlPathReqClient>   NodeAgentCpOmClientPtr;
