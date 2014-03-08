@@ -12,6 +12,8 @@
 #include <lib/PerfStats.h>
 #include <map>
 #include <util/Log.h>
+#include <OmDataPlacement.h>
+#include <orch-mgr/om-service.h>
 
 namespace fds {
 
@@ -383,6 +385,9 @@ void OrchMgr::defaultS3BucketPolicy()
 bool OrchMgr::loadFromConfigDB() {
     LOGNORMAL << "loading data from configdb...";
 
+    DataPlacement *dp = OM_Module::om_singleton()->om_dataplace_mod();
+    dp->setConfigDB(configDB);
+
     // check connection
     if (!configDB->isConnected()) {
         LOGCRITICAL << "unable to talk to config db ";
@@ -443,6 +448,11 @@ bool OrchMgr::loadFromConfigDB() {
                          << "[" << volumeIter->volUUID << ":" << volumeIter->name << "]";
             }
         }
+    }
+
+    // load the dlts
+    if (!dp->loadDltsFromConfigDB()) {
+        LOGWARN << "errors during loading dlts";
     }
     return true;
 }

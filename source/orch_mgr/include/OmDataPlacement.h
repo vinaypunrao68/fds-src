@@ -23,6 +23,7 @@
 #include <OmResources.h>
 #include <OmClusterMap.h>
 #include <dlt.h>
+#include <kvstore/configdb.h>
 
 namespace fds {
 
@@ -421,6 +422,11 @@ namespace fds {
          */
         fds_mutex *placementMutex;
 
+        /**
+         * Config db object
+         */
+        kvstore::ConfigDB* configDB = NULL;
+
   public:
         DataPlacement();
         ~DataPlacement();
@@ -488,6 +494,17 @@ namespace fds {
          * Returns set of nodes that we are rebalancing
          */
         NodeUuidSet getRebalanceNodes() const;
+
+        /**
+         * will load the supplied dlt into proper variables
+         * this fn will be called by configdb load
+         */
+        bool loadDltsFromConfigDB();
+
+        /**
+         * set the config db from orchmgr
+         */
+        void setConfigDB(kvstore::ConfigDB* configDB);
     };
 }  // namespace fds
 

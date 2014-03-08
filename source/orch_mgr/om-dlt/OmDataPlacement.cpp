@@ -100,6 +100,13 @@ DataPlacement::computeDlt() {
     // Compute DLT's reverse node to token map
     newDlt->generateNodeTokenMap();
 
+    // store the dlt to config db
+    fds_verify(configDB != NULL);
+    if (!configDB->storeDlt(*newDlt, "next")) {
+        GLOGWARN << "unable to store dlt to config db "
+                << "[" << newDlt->getVersion() << "]";
+    }
+
     // TODO(Andrew): We should version the (now) old DLT
     // before we delete it and replace it with the
     // new DLT. We should also update the DLT's
@@ -189,10 +196,29 @@ void
 DataPlacement::commitDlt() {
     fds_verify(newDlt != NULL);
     placementMutex->lock();
+    fds_uint64_t oldVersion = -1;
     if (commitedDlt) {
+        oldVersion = commitedDlt->getVersion();
         delete commitedDlt;
         commitedDlt = NULL;
     }
+
+    // both the new & the old dlts should already be in the config db
+    // just set their types
+
+    if (!configDB->setDltType(newDlt->getVersion(), "current")) {
+        LOGWARN << "unable to store dlt type to config db "
+                << "[" << newDlt->getVersion() << "]";
+    }
+
+    if (!configDB->setDltType(0, "next")) {
+        LOGWARN << "unable to store dlt type to config db "
+                << "[" << newDlt->getVersion() << "]";
+    }
+
+    // TODO(prem) do we need to remove the old dlt from the config db ??
+    // oldVersion ?
+
     commitedDlt = newDlt;
     newDlt = NULL;
     placementMutex->unlock();
@@ -263,4 +289,56 @@ DataPlacement::mod_startup() {
 void
 DataPlacement::mod_shutdown() {
 }
+
+bool DataPlacement::loadDltsFromConfigDB() {
+    // this function should be called only during init..
+
+    fds_verify(commitedDlt == NULL);
+    fds_verify(newDlt == NULL);
+
+    bool fSuccess = true;
+
+    fds_uint64_t currentVersion = configDB->getDltVersionForType("current");
+    if (currentVersion > 0) {
+        DLT* dlt = new DLT(0, 0, 0, false);
+        if (!configDB->getDlt(*dlt, currentVersion)) {
+            LOGCRITICAL << "unable to get (current) dlt version "
+                        <<"["<< currentVersion << "]";
+            delete dlt;
+            fSuccess = false;
+        } else {
+            // set the current dlt
+            commitedDlt = dlt;
+        }
+    } else {
+        LOGWARN << "no current dlt set";
+    }
+
+    // next dlt
+    fds_uint64_t nextVersion = configDB->getDltVersionForType("next");
+    if (nextVersion > 0 && nextVersion != currentVersion) {
+        DLT* dlt = new DLT(0, 0, 0, false);
+        if (!configDB->getDlt(*dlt, nextVersion)) {
+            LOGCRITICAL << "unable to get (next) dlt version [" << currentVersion << "]";
+            fSuccess = false;
+            delete dlt;
+        } else {
+            // set the next dlt
+            newDlt = dlt;
+        }
+    } else {
+        if (0 == nextVersion) {
+            LOGWARN << "no next dlt set";
+        } else {
+            LOGWARN << "both current and next are of same version : " << nextVersion;
+        }
+    }
+
+    return fSuccess;
+}
+
+void DataPlacement::setConfigDB(kvstore::ConfigDB* configDB) {
+    this->configDB = configDB;
+}
+
 }  // namespace fds
