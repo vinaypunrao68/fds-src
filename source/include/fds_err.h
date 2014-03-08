@@ -30,7 +30,8 @@ namespace fds {
     "Out of memory",
     "Node name hashed to duplicate UUID",
     "Ran out of transaction ids",
-    "Transaction request is queued"
+    "Transaction request is queued",
+    "Node is not in active state"
   };
   
   /* DO NOT change the order */
@@ -51,8 +52,9 @@ namespace fds {
     ERR_NOT_IMPLEMENTED      = 13,
     ERR_OUT_OF_MEMEORY       = 14,
     ERR_DUPLICATE_UUID       = 15,
-    ERR_TRANS_JOURNAL_OUT_OF_IDS = 14,
-    ERR_TRANS_JOURNAL_REQUEST_QUEUED = 15,
+    ERR_TRANS_JOURNAL_OUT_OF_IDS = 16,
+    ERR_TRANS_JOURNAL_REQUEST_QUEUED = 17,
+    ERR_NODE_NOT_ACTIVE      = 18,
 
     /* I/O error range */
     ERR_IO_DLT_MISMATCH      = 100,

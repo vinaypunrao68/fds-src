@@ -63,12 +63,28 @@ Error
 OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
                                    const FdspNodeRegPtr msg)
 {
+    Error err(ERR_OK);
     NodeAgent::pointer newNode;
     /* XXX: TODO (vy), remove this code once we have node FSM */
     OM_Module *om = OM_Module::om_singleton();
-
-    Error err = om_locDomain->dc_register_node(uuid, msg, &newNode);
-    if (err == ERR_OK) {
+    /*
+    if (msg->node_type != FDS_ProtocolInterface::FDSP_PLATFORM) {
+        // we must have a node (platform) that runs any service
+        // registered with OM and node must be in active state
+        OM_PmContainer::pointer pmNodes = om_locDomain->om_pm_nodes();
+        if (!pmNodes->check_new_service((msg->node_uuid).uuid, msg->node_type)) {
+            FDS_PLOG_SEV(g_fdslog, fds_log::error)
+                    << "Error: cannot register service " << msg->node_name
+                    << " on node with uuid " << std::hex << (msg->node_uuid).uuid
+                    << std::dec << "; Check if Platform daemon is running";
+            return Error(ERR_NODE_NOT_ACTIVE);
+        }
+    }
+    */
+    err = om_locDomain->dc_register_node(uuid, msg, &newNode);
+    if (err.ok() && (msg->node_type == FDS_ProtocolInterface::FDSP_PLATFORM)) {
+        FDS_PLOG(g_fdslog) << "om_reg_node: Registered Platform";
+    } else if (err.ok()) {
         fds_verify(newNode != NULL);
         om_locDomain->om_bcast_new_node(newNode, msg);
 
@@ -89,29 +105,21 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         om_locDomain->om_round_robin_dmt();
         om_locDomain->om_bcast_dmt_table();
     }
-    ClusterMap *clus = om->om_clusmap_mod();
-
-    if (clus->getNumMembers() == 0) {
-        static int node_up_cnt = 0;
-
-        node_up_cnt++;
-        if (node_up_cnt < 1) {
-            FDS_PLOG_SEV(g_fdslog, fds_log::normal)
-                    << "OM_NBodeDomainMod: Batch up node up, cnt " << node_up_cnt;
-            return err;
-        }
-    }
-
-    // TODO(Andrew): We should decouple registration from
-    // cluster map addition eventually. We may want to add
-    // the node to the inventory and then wait for a CLI
-    // cmd to make the node a member.
-    // TODO(Anna): about above comment -- we can do that with
-    // node state and do not add to cluster map unless node in
-    // the right state
 
     return err;
 }
+
+// om_activate_node
+// ----------------
+//
+Error
+OM_NodeDomainMod::om_activate_node(const FdspNodeActivatePtr msg)
+{
+    Error err(ERR_OK);
+    // TODO(anna) implement
+    return err;
+}
+
 
 // om_del_node_info
 // ----------------

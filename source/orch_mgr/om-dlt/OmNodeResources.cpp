@@ -293,6 +293,16 @@ OM_PmAgent::setCpSession(NodeAgentCpSessionPtr session)
             << "PMAgent: Established connection with new node";
 }
 
+// service_exists
+// --------------
+//
+fds_bool_t
+OM_PmAgent::service_exists(FDS_ProtocolInterface::FDSP_MgrIdType svc_type) const
+{
+    // TODO(anna) implement
+    return false;
+}
+
 // ---------------------------------------------------------------------------------
 // OM Platform NodeAgent Container
 // ---------------------------------------------------------------------------------
@@ -329,6 +339,24 @@ OM_PmContainer::agent_register(const NodeUuid       &uuid,
     agent->setCpSession(session);
     return err;
 }
+
+// check_new_service
+// -----------------
+//
+fds_bool_t
+OM_PmContainer::check_new_service(const NodeUuid &pm_uuid,
+                                  FDS_ProtocolInterface::FDSP_MgrIdType svc_role) {
+    NodeAgent::pointer agent = agent_info(pm_uuid);
+    if (agent == NULL) {
+        return false;  // we must have pm node
+    } else if (agent->node_state() != FDS_ProtocolInterface::FDS_Node_Up) {
+        // TODO(anna) for now using NodeUp state as active, review states
+        return false;  // must be in active state
+    }
+
+    return (OM_PmAgent::agt_cast_ptr(agent)->service_exists(svc_role) == false);
+}
+
 
 // ---------------------------------------------------------------------------------
 // OM SM NodeAgent Container
