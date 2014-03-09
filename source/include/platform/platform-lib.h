@@ -15,6 +15,24 @@ namespace fds {
 
 class Platform;
 
+/**
+ * On disk format: POD type to persist the node's inventory.
+ */
+typedef struct plat_node_data
+{
+    fds_uint32_t              nd_chksum;
+    fds_uint32_t              nd_has_data;        /**< true/false if has valid data.  */
+    fds_uint32_t              nd_magic;
+    fds_uint64_t              nd_node_uuid;
+    fds_uint32_t              nd_node_number;
+    fds_uint32_t              nd_plat_port;
+    fds_uint32_t              nd_om_port;
+    fds_uint32_t              nd_flag_run_sm;
+    fds_uint32_t              nd_flag_run_dm;
+    fds_uint32_t              nd_flag_run_am;
+    fds_uint32_t              nd_flag_run_om;
+} plat_node_data_t;
+
 // -------------------------------------------------------------------------------------
 // Node Inventory and Cluster Map
 // -------------------------------------------------------------------------------------
@@ -239,9 +257,7 @@ class Platform : public Module
      */
     void plf_run_server(bool spawn_thr = false);
     void plf_rpc_om_handshake();
-    void plf_change_info(const NodeUuid    &my_uuid,
-                         const std::string &my_name,
-                         fds_uint32_t       base_port);
+    void plf_change_info(const plat_node_data_t *ndata);
 
     /**
      * Platform node/cluster inventory methods.
@@ -267,7 +283,7 @@ class Platform : public Module
      * Pull out common platform data.
      */
     inline FDSP_MgrIdType plf_get_node_type() const { return plf_node_type; }
-    inline fds_uint32_t   plf_get_om_cfg_port() const { return plf_om_conf_port; }
+    inline fds_uint32_t   plf_get_om_ctrl_port() const { return plf_om_ctrl_port; }
     inline fds_uint32_t   plf_get_my_ctrl_port() const { return plf_my_ctrl_port; }
     inline fds_uint32_t   plf_get_my_conf_port() const { return plf_my_conf_port; }
     inline fds_uint32_t   plf_get_my_data_port() const { return plf_my_data_port; }
@@ -286,7 +302,7 @@ class Platform : public Module
     std::string                plf_my_node_name;
     std::string                plf_my_ip;
     std::string                plf_om_ip_str;
-    fds_uint32_t               plf_om_conf_port;
+    fds_uint32_t               plf_om_ctrl_port;
     fds_uint32_t               plf_my_ctrl_port;
     fds_uint32_t               plf_my_conf_port;
     fds_uint32_t               plf_my_data_port;
@@ -325,21 +341,6 @@ class Platform : public Module
 };
 
 /**
- * POD type to persist the node's inventory.
- */
-typedef struct plat_node_data
-{
-    fds_uint32_t              node_chksum;
-    fds_uint32_t              node_magic;
-    fds_uint64_t              node_uuid;
-    fds_uint32_t              node_number;
-    fds_uint32_t              node_run_sm;
-    fds_uint32_t              node_run_dm;
-    fds_uint32_t              node_run_am;
-    fds_uint32_t              node_run_om;
-} plat_pod_data_t;
-
-/**
  * FDS Platform daemon process.
  */
 class PlatformProcess : public FdsProcess
@@ -352,13 +353,29 @@ class PlatformProcess : public FdsProcess
 
     virtual void setup();
 
+    /**
+     * Derrive ports for different node services from a common base.
+     */
+    static inline fds_uint32_t
+    plf_get_platform_port(fds_uint32_t base, fds_uint32_t node) {
+        return base + (node * 100);
+    }
+    /**
+     * The base port for all services is the platform daemon.  Other services such as
+     * SM/DM/AM base ports are derrived from the platform port.
+     */
+    static inline fds_uint32_t plf_get_sm_port(fds_uint32_t plat) { return plat + 10; }
+    static inline fds_uint32_t plf_get_dm_port(fds_uint32_t plat) { return plat + 20; }
+    static inline fds_uint32_t plf_get_am_port(fds_uint32_t plat) { return plat + 30; }
+
   protected:
     Platform                 *plf_mgr;
     kvstore::PlatformDB      *plf_db;
 
     fds_bool_t                plf_test_mode;
     fds_bool_t                plf_stand_alone;
-    plat_pod_data_t           plf_node_data;
+    std::string               plf_db_key;
+    plat_node_data_t          plf_node_data;
 
     virtual void plf_load_node_data();
     virtual void plf_apply_node_data();

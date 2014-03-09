@@ -33,7 +33,7 @@ Platform::Platform(char const *const         name,
     plf_tier_evt         = NULL;
     plf_bucket_stats_evt = NULL;
 
-    plf_om_conf_port     = 0;
+    plf_om_ctrl_port     = 0;
     plf_my_ctrl_port     = 0;
     plf_my_conf_port     = 0;
     plf_my_data_port     = 0;
@@ -106,7 +106,7 @@ Platform::plf_rpc_om_handshake()
         plf_master  = new OmAgent(0);
         plf_om_resp = boost::shared_ptr<PlatRpcResp>(plat_creat_resp_disp());
         plf_master->om_handshake(plf_net_sess, plf_om_resp,
-                                 plf_om_ip_str, plf_om_conf_port);
+                                 plf_om_ip_str, plf_om_ctrl_port);
     }
     FDSP_RegisterNodeTypePtr reg(new FDSP_RegisterNodeType);
     plf_master->init_node_reg_pkt(reg);
@@ -149,19 +149,53 @@ Platform::plf_rpc_server_thread()
 // ---------------
 //
 void
-Platform::plf_change_info(const NodeUuid    &uuid,
-                          const std::string &name, fds_uint32_t base)
+Platform::plf_change_info(const plat_node_data_t *ndata)
 {
+    char         name[64];
+    NodeUuid     uuid(ndata->nd_node_uuid);
+    fds_uint32_t base;
+
     plf_my_uuid = uuid;
-    if (name != "") {
-        plf_my_node_name = name;
+    snprintf(name, sizeof(name), "node-%u", ndata->nd_node_number);
+    plf_my_node_name.assign(name);
+
+    base = PlatformProcess::
+        plf_get_platform_port(ndata->nd_plat_port, ndata->nd_node_number);
+
+    if (base == 0) {
+        return;
     }
-    if (base != 0) {
-        plf_my_ctrl_port = plf_ctrl_port(base);
-        plf_my_conf_port = plf_conf_port(base);
-        plf_my_data_port = plf_data_port(base);
-        plf_my_migr_port = plf_migration_port(base);
+    switch (plf_node_type) {
+        case FDSP_STOR_MGR:
+            base = PlatformProcess::plf_get_sm_port(base);
+            break;
+
+        case FDSP_DATA_MGR:
+            base = PlatformProcess::plf_get_dm_port(base);
+            break;
+
+        case FDSP_STOR_HVISOR:
+            base = PlatformProcess::plf_get_am_port(base);
+            break;
+
+        case FDSP_ORCH_MGR:
+            return;
+
+        default:
+            break;
     }
+    plf_om_ctrl_port = ndata->nd_om_port;
+    plf_my_ctrl_port = plf_ctrl_port(base);
+    plf_my_conf_port = plf_conf_port(base);
+    plf_my_data_port = plf_data_port(base);
+    plf_my_migr_port = plf_migration_port(base);
+
+    std::cout << "My ctrl port " << std::dec << plf_my_ctrl_port << std::endl
+              << "My conf port " << plf_my_conf_port << std::endl
+              << "My data port " << plf_my_data_port << std::endl
+              << "My OM port   " << plf_om_ctrl_port << std::endl
+              << "My OM IP     " << plf_om_ip_str << std::endl
+              << "My migr port " << plf_my_migr_port << std::endl;
 }
 
 // -----------------------------------------------------------------------------------

@@ -46,14 +46,20 @@ PlatEvent::PlatEvent(char const *const          name,
 // -------------------------------------------------------------------------------------
 // FDS Platform Process
 // -------------------------------------------------------------------------------------
+
+// Table of keys used to access the persistent storage DB.
+//
+
 PlatformProcess::PlatformProcess(int argc, char **argv,
                                  const std::string  &cfg,
                                  Platform           *platform,
                                  Module            **vec)
     : FdsProcess(argc, argv, "platform.conf", cfg, "platform.log", vec),
-      plf_mgr(platform), plf_db(NULL)
+      plf_mgr(platform), plf_db(NULL),
+      plf_test_mode(false), plf_stand_alone(false)
 {
     memset(&plf_node_data, 0, sizeof(plf_node_data));
+    plf_db_key = proc_root->dir_fdsroot() + "node-root";
 }
 
 PlatformProcess::~PlatformProcess()
@@ -75,14 +81,15 @@ PlatformProcess::plf_load_node_data()
                   << std::endl;
         exit(1);
     }
-    std::string val = plf_db->get("NodeUUID");
+    std::string val = plf_db->get(plf_db_key);
     if (val == "") {
-        plf_node_data.node_uuid = fds_get_uuid64(get_uuid());
-        std::cout << "No uuid, generate one " << std::hex
-                  << plf_node_data.node_uuid << std::endl;
-    } else {
-        memcpy(&plf_node_data, val.data(), sizeof(plf_node_data));
+        // The caller will have to deal with it.
+        return;
     }
+    memcpy(&plf_node_data, val.data(), sizeof(plf_node_data));
+
+    // TODO(Vy): consistency check on the data read.
+    //
 }
 
 // plf_apply_node_data
@@ -91,15 +98,7 @@ PlatformProcess::plf_load_node_data()
 void
 PlatformProcess::plf_apply_node_data()
 {
-    char         name[64];
-    NodeUuid     my_uuid(plf_node_data.node_uuid);
-
-    if (plf_node_data.node_magic != 0) {
-        snprintf(name, sizeof(name), "node-%u", plf_node_data.node_number);
-        plf_mgr->plf_change_info(my_uuid, std::string(name), 0);
-    } else {
-        plf_mgr->plf_change_info(my_uuid, std::string(""), 0);
-    }
+    plf_mgr->plf_change_info(&plf_node_data);
 }
 
 void

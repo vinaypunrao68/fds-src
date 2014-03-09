@@ -438,8 +438,7 @@ void DataMgr::setup_metadatapath_server(const std::string &ip)
     metadatapath_handler.reset(new ReqHandler());
 
     int myIpInt = netSession::ipString2Addr(ip);
-    std::string node_name = 
-        conf_helper_.get<std::string>("prefix") + "_DM_" + ip;
+    std::string node_name = "_DM_" + ip;
     // TODO: Ideally createServerSession should take a shared pointer
     // for datapath_handler.  Make sure that happens.  Otherwise you
     // end up with a pointer leak.
@@ -455,64 +454,50 @@ void DataMgr::setup_metadatapath_server(const std::string &ip)
 
 void DataMgr::setup()
 {
-  fds::DmDiskInfo     *info;
-  fds::DmDiskQuery     in;
-  fds::DmDiskQueryOut  out;
-  fds_bool_t      useTestMode = false;
+    fds::DmDiskInfo     *info;
+    fds::DmDiskQuery     in;
+    fds::DmDiskQueryOut  out;
+    fds_bool_t      useTestMode = false;
 
-  /*
-   * Invoke FdsProcess setup so that it can setup the signal hander and
-   * execute the module vector for us
-   */
-
-  runMode = NORMAL_MODE;
-
-  PlatformProcess::setup();
-
-  port_num = conf_helper_.get_abs<int>("fds.dm.port");
-  cp_port_num = conf_helper_.get_abs<int>("fds.dm.cp_port");
-  stor_prefix = conf_helper_.get_abs<std::string>("fds.dm.prefix");
-  use_om = !(conf_helper_.get_abs<bool>("fds.dm.no_om"));
-  omIpStr = conf_helper_.get_abs<std::string>("fds.dm.om_ip");
-  omConfigPort = conf_helper_.get_abs<int>("fds.dm.om_port");
-  useTestMode = conf_helper_.get_abs<bool>("fds.dm.test_mode");
-  int sev_level = conf_helper_.get_abs<int>("fds.dm.log_severity");
-  
-  GetLog()->setSeverityFilter(( fds_log::severity_level)sev_level);
-  if (useTestMode == true) {
-    runMode = TEST_MODE;
-  }
-
-  if (port_num == 0) {
-      /* set default port */
-      port_num = 7902;
-  }
-  FDS_PLOG(dm_log) << "Data Manager using port " << port_num;
-
-  FDS_PLOG(dm_log) << "Data Manager using storage prefix "
-                   << stor_prefix;
-
-  if (cp_port_num == 0) {
     /*
-      set default port
+     * Invoke FdsProcess setup so that it can setup the signal hander and
+     * execute the module vector for us
      */
-    cp_port_num = 7903;
-  }
-  FDS_PLOG(dm_log) << "Data Manager using control port "
-                   << cp_port_num;
 
+    runMode = NORMAL_MODE;
 
-  /* Set up FDSP RPC endpoints */
-  nstable = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_DATA_MGR));
-  myIp = util::get_local_ip();
-  assert(myIp.empty() == false);
-  std::string node_name = 
-          conf_helper_.get<std::string>("prefix") + "_DM_" + myIp;
+    PlatformProcess::setup();
 
-  FDS_PLOG(dm_log) << "Data Manager using IP:"
-                   << myIp << " and node name "
-                   << node_name;
-  
+    // Get config values from that platform lib.
+    //
+    cp_port_num  = plf_mgr->plf_get_my_ctrl_port();
+    port_num     = plf_mgr->plf_get_my_data_port();
+    omConfigPort = plf_mgr->plf_get_om_ctrl_port();
+    // omIpStr      = *plf_mgr->plf_get_om_ip();
+
+    use_om = !(conf_helper_.get_abs<bool>("fds.dm.no_om", false));
+    omIpStr = conf_helper_.get_abs<std::string>("fds.dm.om_ip");
+
+    useTestMode = conf_helper_.get_abs<bool>("fds.dm.test_mode", false);
+    int sev_level = conf_helper_.get_abs<int>("fds.dm.log_severity", 0);
+
+    GetLog()->setSeverityFilter(( fds_log::severity_level)sev_level);
+    if (useTestMode == true) {
+        runMode = TEST_MODE;
+    }
+    fds_assert((port_num != 0) && (cp_port_num != 0));
+    FDS_PLOG(dm_log) << "Data Manager using port " << port_num
+                     << "Data Manager using control port " << cp_port_num;
+
+    /* Set up FDSP RPC endpoints */
+    nstable = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_DATA_MGR));
+    myIp = util::get_local_ip();
+    assert(myIp.empty() == false);
+    std::string node_name = "_DM_" + myIp;
+
+    FDS_PLOG(dm_log) << "Data Manager using IP:"
+                     << myIp << " and node name " << node_name;
+
   setup_metadatapath_server(myIp);
 
   /*

@@ -31,6 +31,7 @@ class FdsEnv:
     def shut_down(self):
         subprocess.call(['pkill', '-9', 'AMAgent'])
         subprocess.call(['pkill', '-9', 'Mgr'])
+        subprocess.call(['pkill', '-9', 'platformd'])
         subprocess.call(['pkill', '-9', 'java'])
 
     def cleanup(self):
@@ -358,6 +359,11 @@ def bringupCluster(env, bu, cfgFile, verbose, debug):
 
     print "\n\nStarting OM...."
     subprocess.Popen(['./orchMgr', '--fds-root', root1],
+                     stderr=subprocess.STDOUT)
+    subprocess.call(['sleep', '1'])
+
+    print "\n\nStarting Platform Daemon on node1..."
+    subprocess.Popen(['./platformd', '--fds-root', root1],
                      stderr=subprocess.STDOUT)
     subprocess.call(['sleep', '1'])
 

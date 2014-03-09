@@ -67,6 +67,10 @@ class NodePlatformProc : public PlatformProcess
 
     void setup();
     void run();
+
+  protected:
+    void plf_load_node_data();
+
   private:
     void plf_start_node_services();
 };
