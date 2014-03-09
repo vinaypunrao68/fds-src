@@ -10,7 +10,7 @@
 #include <fds-probe/s3-probe.h>
 #include <policy_tier.h>
 #include <StorMgr.h>
-#include <fds_process.h>
+#include <sm-platform.h>
 
 namespace fds {
 
@@ -28,12 +28,13 @@ int main(int argc, char **argv)
         &fds::gl_fds_stat,
         &fds::gl_probeS3Eng,
         &diskio::gl_dataIOMod,
+        &fds::gl_SmPlatform,
         &fds::gl_tierPolicy,
         &fds::gl_objStats,
         &fds::gl_Sm_ProbeMod,
         nullptr
     };
-    fds::objStorMgr = new ObjectStorMgr(argc, argv, "sm.conf", "fds.sm.", probe_vec);
+    fds::objStorMgr = new ObjectStorMgr(argc, argv, &fds::gl_SmPlatform, probe_vec);
     fds::objStorMgr->setup();
     fds::fds_threadpool *pool = fds::gl_probeS3Eng.probe_get_thrpool();
 

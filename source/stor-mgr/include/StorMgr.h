@@ -63,7 +63,7 @@
 #include <ObjRank.h>
 
 #include <fds_module.h>
-#include <fds_process.h>
+#include <platform/platform-lib.h>
 
 #include <NetSession.h>
 
@@ -149,7 +149,7 @@ class SMCounters : public FdsCounters
 
 
 class ObjectStorMgr :
-        public FdsProcess,
+        public PlatformProcess,
         public SmIoReqHandler
         {
  private:
@@ -349,8 +349,7 @@ class ObjectStorMgr :
  public:
 
     ObjectStorMgr(int argc, char *argv[],
-                  const std::string &default_config_path,
-                  const std::string &base_path, Module **mod_vec);
+                  Platform *platform, Module **mod_vec);
     ~ObjectStorMgr();
 
     /* From FdsProcess */

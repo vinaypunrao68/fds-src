@@ -46,7 +46,7 @@ class DomainNodeInv : public DomainContainer
                   SmContainer::pointer    sm,
                   DmContainer::pointer    dm,
                   AmContainer::pointer    am,
-		  PmContainer::pointer    pm,
+                  PmContainer::pointer    pm,
                   OmContainer::pointer    om);
 };
 
@@ -60,7 +60,7 @@ class DomainClusterMap : public DomainNodeInv
                      SmContainer::pointer    sm,
                      DmContainer::pointer    dm,
                      AmContainer::pointer    am,
-		     PmContainer::pointer    pm,
+                     PmContainer::pointer    pm,
                      OmContainer::pointer    om);
 };
 
