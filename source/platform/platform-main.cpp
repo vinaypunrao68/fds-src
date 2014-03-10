@@ -3,70 +3,102 @@
  */
 #include <stdlib.h>
 #include <string>
+#include <iostream>  // NOLINT
 #include <platform.h>
-#include <kvstore/configdbmodule.h>
+#include <platform/fds-osdep.h>
 
-PlatformProcess::PlatformProcess(int argc, char **argv,
-                                 const std::string  &cfg,
-                                 Module            **vec)
-    : FdsProcess(argc, argv, "platform.conf", cfg, "platform.log", vec)
+namespace fds {
+
+NodePlatformProc::NodePlatformProc(int argc, char **argv, Module **vec)
+    : PlatformProcess(argc, argv, "fds.plat.", &gl_NodePlatform, vec) {}
+
+// plf_load_node_data
+// ------------------
+//
+void
+NodePlatformProc::plf_load_node_data()
 {
-    memset(&plf_node_data, 0, sizeof(plf_node_data));
+    PlatformProcess::plf_load_node_data();
+    if (plf_node_data.nd_has_data == 0) {
+        plf_node_data.nd_node_uuid = fds_get_uuid64(get_uuid());
+        std::cout << "NO UUID, generate one " << std::hex
+                  << plf_node_data.nd_node_uuid << std::endl;
+    }
+    // Make up some values for now.
+    //
+    plf_node_data.nd_has_data    = 1;
+    plf_node_data.nd_magic       = 0xcafecaaf;
+    plf_node_data.nd_node_number = 0;
+    plf_node_data.nd_plat_port   = plf_mgr->plf_get_my_ctrl_port();
+    plf_node_data.nd_om_port     = plf_mgr->plf_get_om_ctrl_port();
+    plf_node_data.nd_flag_run_sm = 1;
+    plf_node_data.nd_flag_run_dm = 1;
+    plf_node_data.nd_flag_run_am = 1;
+    plf_node_data.nd_flag_run_om = 1;
+
+    // TODO(Vy): deal with error here.
+    //
+    plf_db->set(plf_db_key,
+                std::string((const char *)&plf_node_data, sizeof(plf_node_data)));
+}
+
+// plf_start_node_services
+// -----------------------
+//
+void
+NodePlatformProc::plf_start_node_services()
+{
+    pid_t             pid;
+    bool              auto_start;
+    FdsConfigAccessor conf(get_conf_helper());
+
+    auto_start = conf.get<bool>("auto_start_services", true);
+    if (auto_start == true) {
+        if (plf_node_data.nd_flag_run_sm) {
+            pid = fds_spawn_service("StorMgr", proc_root->dir_fdsroot().c_str());
+            LOGNOTIFY << "Spawn SM with pid " << pid;
+        }
+        if (plf_node_data.nd_flag_run_dm) {
+            pid = fds_spawn_service("DataMgr", proc_root->dir_fdsroot().c_str());
+            LOGNOTIFY << "Spawn DM with pid " << pid;
+        }
+        if (plf_node_data.nd_flag_run_am) {
+            pid = fds_spawn_service("AMAgent", proc_root->dir_fdsroot().c_str());
+            LOGNOTIFY << "Spawn AM with pid " << pid;
+        }
+    } else {
+        LOGNOTIFY << "Auto start services is off, wait for manual start...";
+        std::cout << "Auto start services is off, wait for manual start..." << std::endl;
+    }
 }
 
 void
-PlatformProcess::plf_load_node_data()
+NodePlatformProc::setup()
 {
+    PlatformProcess::setup();
 }
 
 void
-PlatformProcess::plf_apply_node_data()
-{
-    char         name[64];
-    fds_uint32_t base_port;
-    std::string  my_name;
-    NodeUuid     my_uuid(plf_node_data.node_uuid);
-
-    base_port = plf_mgr->plf_get_my_ctrl_port() + (plf_node_data.node_number * 1000);
-    snprintf(name, sizeof(name), "node-%u", plf_node_data.node_number);
-    plf_mgr->plf_change_info(my_uuid, std::string(name), base_port);
-}
-
-void
-PlatformProcess::plf_start_node_services()
-{
-}
-
-void
-PlatformProcess::setup()
-{
-    FdsProcess::setup();
-    plf_mgr = &fds::gl_NodePlatform;
-    plf_db  = fds::gl_configDB.get();
-
-    plf_load_node_data();
-    plf_apply_node_data();
-}
-
-void
-PlatformProcess::run()
+NodePlatformProc::run()
 {
     plf_mgr->plf_run_server(true);
     plf_mgr->plf_rpc_om_handshake();
 
+    plf_start_node_services();
     while (1) {
         sleep(1000);   /* we'll do hotplug uevent thread in here */
     }
 }
 
+}  // namespace fds
+
 int main(int argc, char **argv)
 {
     fds::Module *plat_vec[] = {
-        &fds::gl_configDB,
         &fds::gl_NodePlatform,
         NULL
     };
-    PlatformProcess plat(argc, argv, "fds.plat.", plat_vec);
+    fds::NodePlatformProc plat(argc, argv, plat_vec);
 
     plat.setup();
     plat.run();

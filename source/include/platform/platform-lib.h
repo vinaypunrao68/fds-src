@@ -6,13 +6,32 @@
 
 #include <string>
 #include <dlt.h>
-#include <fds_module.h>
+#include <fds_process.h>
 #include <fds_typedefs.h>
+#include <kvstore/platformdb.h>
 #include <platform/node-inventory.h>
 
 namespace fds {
 
 class Platform;
+
+/**
+ * On disk format: POD type to persist the node's inventory.
+ */
+typedef struct plat_node_data
+{
+    fds_uint32_t              nd_chksum;
+    fds_uint32_t              nd_has_data;        /**< true/false if has valid data.  */
+    fds_uint32_t              nd_magic;
+    fds_uint64_t              nd_node_uuid;
+    fds_uint32_t              nd_node_number;
+    fds_uint32_t              nd_plat_port;
+    fds_uint32_t              nd_om_port;
+    fds_uint32_t              nd_flag_run_sm;
+    fds_uint32_t              nd_flag_run_dm;
+    fds_uint32_t              nd_flag_run_am;
+    fds_uint32_t              nd_flag_run_om;
+} plat_node_data_t;
 
 // -------------------------------------------------------------------------------------
 // Node Inventory and Cluster Map
@@ -27,7 +46,7 @@ class DomainNodeInv : public DomainContainer
                   SmContainer::pointer    sm,
                   DmContainer::pointer    dm,
                   AmContainer::pointer    am,
-		  PmContainer::pointer    pm,
+                  PmContainer::pointer    pm,
                   OmContainer::pointer    om);
 };
 
@@ -41,7 +60,7 @@ class DomainClusterMap : public DomainNodeInv
                      SmContainer::pointer    sm,
                      DmContainer::pointer    dm,
                      AmContainer::pointer    am,
-		     PmContainer::pointer    pm,
+                     PmContainer::pointer    pm,
                      OmContainer::pointer    om);
 };
 
@@ -238,9 +257,7 @@ class Platform : public Module
      */
     void plf_run_server(bool spawn_thr = false);
     void plf_rpc_om_handshake();
-    void plf_change_info(const NodeUuid    &my_uuid,
-                         const std::string &my_name,
-                         fds_uint32_t       base_port);
+    void plf_change_info(const plat_node_data_t *ndata);
 
     /**
      * Platform node/cluster inventory methods.
@@ -248,7 +265,6 @@ class Platform : public Module
     virtual void plf_reg_node_info(const NodeUuid &uuid, const FdspNodeRegPtr msg);
     virtual void plf_del_node_info(const NodeUuid &uuid, const std::string &name);
     virtual void plf_update_cluster();
-    virtual void plf_persist_inventory(const NodeUuid &uuid);
 
     /**
      * Resource inventory methods.
@@ -267,13 +283,11 @@ class Platform : public Module
      * Pull out common platform data.
      */
     inline FDSP_MgrIdType plf_get_node_type() const { return plf_node_type; }
-    inline fds_uint32_t   plf_get_om_cfg_port() const { return plf_om_conf_port; }
+    inline fds_uint32_t   plf_get_om_ctrl_port() const { return plf_om_ctrl_port; }
     inline fds_uint32_t   plf_get_my_ctrl_port() const { return plf_my_ctrl_port; }
     inline fds_uint32_t   plf_get_my_conf_port() const { return plf_my_conf_port; }
     inline fds_uint32_t   plf_get_my_data_port() const { return plf_my_data_port; }
-    inline fds_uint32_t   plf_get_my_migration_port() const {
-        return plf_my_migration_port;
-    }
+    inline fds_uint32_t   plf_get_my_migration_port() const { return plf_my_migr_port; }
     inline std::string const *const plf_get_my_name() const { return &plf_my_node_name; }
     inline std::string const *const plf_get_my_ip() const { return &plf_my_ip; }
     inline std::string const *const plf_get_om_ip() const { return &plf_om_ip_str; }
@@ -288,12 +302,11 @@ class Platform : public Module
     std::string                plf_my_node_name;
     std::string                plf_my_ip;
     std::string                plf_om_ip_str;
-    fds_uint32_t               plf_om_conf_port;
+    fds_uint32_t               plf_om_ctrl_port;
     fds_uint32_t               plf_my_ctrl_port;
     fds_uint32_t               plf_my_conf_port;
     fds_uint32_t               plf_my_data_port;
-    fds_uint32_t               plf_my_migration_port;
-    fds_bool_t                 plf_test_mode;
+    fds_uint32_t               plf_my_migr_port;
 
     OmAgent::pointer           plf_master;
     DomainNodeInv::pointer     plf_node_inv;
@@ -327,6 +340,50 @@ class Platform : public Module
     void plf_rpc_server_thread();
 };
 
-};  // namespace fds
+/**
+ * FDS Platform daemon process.
+ */
+class PlatformProcess : public FdsProcess
+{
+  public:
+    virtual ~PlatformProcess();
+    PlatformProcess(int argc, char *argv[],
+                    const std::string &cfg_path,
+                    Platform *platform, Module **vec);
+
+    virtual void setup();
+
+    /**
+     * Derrive ports for different node services from a common base.
+     */
+    static inline fds_uint32_t
+    plf_get_platform_port(fds_uint32_t base, fds_uint32_t node) {
+        return base + (node * 100);
+    }
+    /**
+     * The base port for all services is the platform daemon.  Other services such as
+     * SM/DM/AM base ports are derrived from the platform port.
+     */
+    static inline fds_uint32_t plf_get_sm_port(fds_uint32_t plat) { return plat + 10; }
+    static inline fds_uint32_t plf_get_dm_port(fds_uint32_t plat) { return plat + 20; }
+    static inline fds_uint32_t plf_get_am_port(fds_uint32_t plat) { return plat + 30; }
+
+  protected:
+    Platform                 *plf_mgr;
+    kvstore::PlatformDB      *plf_db;
+
+    fds_bool_t                plf_test_mode;
+    fds_bool_t                plf_stand_alone;
+    std::string               plf_db_key;
+    plat_node_data_t          plf_node_data;
+
+    virtual void plf_load_node_data();
+    virtual void plf_apply_node_data();
+};
+
+/* TODO(Vy): need to remove this code. */
+namespace util { extern std::string get_local_ip(); }
+
+}  // namespace fds
 
 #endif  // SOURCE_INCLUDE_PLATFORM_PLATFORM_LIB_H_

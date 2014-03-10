@@ -214,10 +214,9 @@ ObjectStorMgrI::RedirReadObject(FDSP_MsgHdrTypePtr &msg_hdr, FDSP_RedirReadObjTy
  * are being hard coded in the initializer
  * list below.
  */
-ObjectStorMgr::ObjectStorMgr(int argc, char *argv[], 
-                             const std::string &default_config_path,
-                             const std::string &base_path, Module **mod_vec)
-    : FdsProcess(argc, argv, default_config_path, base_path, mod_vec),
+ObjectStorMgr::ObjectStorMgr(int argc, char *argv[],
+                             Platform *platform, Module **mod_vec)
+    : PlatformProcess(argc, argv, "fds.sm.", platform, mod_vec),
     totalRate(3000),
     qosThrds(10),
     shuttingDown(false),
@@ -322,7 +321,7 @@ void ObjectStorMgr::setup()
      * Invoke FdsProcess setup so that it can setup the signal hander and
      * execute the module vector for us
      */
-    FdsProcess::setup();
+    PlatformProcess::setup();
 
     /* Rest of the setup */
     // todo: clean up the code below.  It's doing too many things here.
@@ -334,8 +333,7 @@ void ObjectStorMgr::setup()
     DmDiskQueryOut  out;
 
     proc_root->fds_mkdir(proc_root->dir_user_repo_objs().c_str());
-    std::string stor_prefix = conf_helper_.get<std::string>("prefix");
-    std::string obj_dir = proc_root->dir_user_repo_objs() + stor_prefix;
+    std::string obj_dir = proc_root->dir_user_repo_objs();
 
     // Create leveldb
     smObjDb = new  SmObjDb(obj_dir, objStorMgr->GetLog());
@@ -390,14 +388,14 @@ void ObjectStorMgr::setup()
      * Register this node with OM.
      */
     omClient = new OMgrClient(FDSP_STOR_MGR,
-                              conf_helper_.get<std::string>("om_ip"),
-                              conf_helper_.get<int>("om_port"),
+                              *plf_mgr->plf_get_om_ip(),
+                              plf_mgr->plf_get_om_ctrl_port(),
                               myIp,
-                              conf_helper_.get<int>("data_port"),
-                              stor_prefix + "localhost-sm",
+                              plf_mgr->plf_get_my_data_port(),
+                              "localhost-sm",
                               GetLog(),
                               nst_,
-                              conf_helper_.get<int>("migration.port"));
+                              plf_mgr->plf_get_my_migration_port());
 
     /*
      * Create local volume table. Create after omClient
@@ -500,15 +498,14 @@ void ObjectStorMgr::setup_datapath_server(const std::string &ip)
     datapath_handler_.reset(osmi);
 
     int myIpInt = netSession::ipString2Addr(ip);
-    std::string node_name = 
-        conf_helper_.get<std::string>("prefix") + "_SM";
+    std::string node_name = "_SM";
     // TODO: Ideally createServerSession should take a shared pointer
     // for datapath_handler.  Make sure that happens.  Otherwise you
     // end up with a pointer leak.
     // TODO: Figure out who cleans up datapath_session_
     datapath_session_ = nst_->createServerSession<netDataPathServerSession>(
         myIpInt,
-        conf_helper_.get<int>("data_port"),
+        plf_mgr->plf_get_my_data_port(),
         node_name,
         FDSP_STOR_HVISOR,
         datapath_handler_);

@@ -6,7 +6,7 @@
 
 #include <string>
 #include <fds_process.h>
-#include <kvstore/configdb.h>
+#include <kvstore/platformdb.h>
 #include <platform/platform-lib.h>
 
 namespace fds {
@@ -60,49 +60,18 @@ class PlatformRpcResp : public PlatRpcResp
 
 extern NodePlatform gl_NodePlatform;
 
-/**
- * POD type to persist the node's inventory.
- */
-typedef struct plat_node_data
-{
-    fds_uint32_t              node_chksum;
-    fds_uint32_t              node_magic;
-    fds_uint64_t              node_uuid;
-    fds_uint32_t              node_number;
-    fds_uint32_t              node_run_sm;
-    fds_uint32_t              node_run_dm;
-    fds_uint32_t              node_run_am;
-    fds_uint32_t              node_run_om;
-} plat_pod_data_t;
-
-/**
- * FDS Platform daemon process.
- */
-class PlatformProcess : public FdsProcess
+class NodePlatformProc : public PlatformProcess
 {
   public:
-    PlatformProcess(int argc, char *argv[], const std::string &cfg, Module **vec);
-    virtual void run();
-    virtual void setup();
+    NodePlatformProc(int argc, char **argv, Module **vec);
 
-    inline fds_uint32_t plf_sm_base_port() {
-        return plf_mgr->plf_get_my_ctrl_port() + 10;
-    }
-    inline fds_uint32_t plf_dm_base_port() {
-        return plf_mgr->plf_get_my_ctrl_port() + 20;
-    }
-    inline fds_uint32_t plf_am_base_port() {
-        return plf_mgr->plf_get_my_ctrl_port() + 30;
-    }
+    void setup();
+    void run();
 
   protected:
-    Platform                 *plf_mgr;
-    kvstore::ConfigDB        *plf_db;
-    plat_pod_data_t           plf_node_data;
+    void plf_load_node_data();
 
   private:
-    void plf_load_node_data();
-    void plf_apply_node_data();
     void plf_start_node_services();
 };
 

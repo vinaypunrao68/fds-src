@@ -31,6 +31,7 @@ class FdsEnv:
     def shut_down(self):
         subprocess.call(['pkill', '-9', 'AMAgent'])
         subprocess.call(['pkill', '-9', 'Mgr'])
+        subprocess.call(['pkill', '-9', 'platformd'])
         subprocess.call(['pkill', '-9', '-f', 'com.formationds.web.om.Main'])
 
     def cleanup(self):
@@ -361,20 +362,25 @@ def bringupCluster(env, bu, cfgFile, verbose, debug):
                      stderr=subprocess.STDOUT)
     subprocess.call(['sleep', '1'])
 
-    print "\n\nStarting SM on node1...."
-    subprocess.Popen(['./StorMgr', '--fds-root', root1],
+    print "\n\nStarting Platform Daemon on node1..."
+    subprocess.Popen(['./platformd', '--fds-root', root1],
                      stderr=subprocess.STDOUT)
     subprocess.call(['sleep', '1'])
 
-    print "\n\nStarting DM on node1...."
-    subprocess.Popen(['./DataMgr', '--fds-root', root1],
-                     stderr=subprocess.STDOUT)
-    subprocess.call(['sleep', '1']);
+    # print "\n\nStarting SM on node1...."
+    # subprocess.Popen(['./StorMgr', '--fds-root', root1],
+    #                  stderr=subprocess.STDOUT)
+    # subprocess.call(['sleep', '1'])
 
-    print "\n\nStarting AM on node1...."
-    subprocess.Popen(['./AMAgent', '--fds-root', root1],
-                     stderr=subprocess.STDOUT)
-    subprocess.call(['sleep', '3']);
+    # print "\n\nStarting DM on node1...."
+    # subprocess.Popen(['./DataMgr', '--fds-root', root1],
+    #                  stderr=subprocess.STDOUT)
+    # subprocess.call(['sleep', '1']);
+
+    # print "\n\nStarting AM on node1...."
+    # subprocess.Popen(['./AMAgent', '--fds-root', root1],
+    #                  stderr=subprocess.STDOUT)
+    # subprocess.call(['sleep', '3']);
 
     os.chdir(env.env_fdsSrc)
 

@@ -1,7 +1,7 @@
 topdir            := ..
 user_target       := exe
 user_rtime_env    := user
-user_build_dir    := smlib policy include migrations
+user_build_dir    := smlib policy include migrations platform
 
 # TODO: avoid include across components, put in include dir instead.
 #
@@ -13,9 +13,11 @@ user_fds_ar_libs  :=                   \
     fds-smlib \
     fds-migrations \
     fds-StorHvisor \
-    fds-lib \
     fds-odb \
     fds-dsk-mgnt \
+	fds-sm-plat \
+	fds-plat-lib \
+    fds-lib \
     fds-umod \
     fds-dsk-io \
     fds-thread \
@@ -40,7 +42,8 @@ user_non_fds_libs :=                                                          \
     crypto \
     leveldb \
     config++ \
-    thrift
+    thrift \
+    hiredis
 
 stor_mgr_cpp      := stormgr_main.cpp
 user_cpp          :=                   \
