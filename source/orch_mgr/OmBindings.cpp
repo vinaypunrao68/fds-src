@@ -60,6 +60,12 @@ JNIEXPORT void JNICALL Java_com_formationds_om_NativeApi_listNodes
     SmContainer::pointer smNodes = nodeContainer->dc_get_sm_nodes();
     smNodes->agent_foreach<jobject>(acceptor, "sm", acceptNode);
 
+    AmContainer::pointer amNodes = nodeContainer->dc_get_am_nodes();
+    smNodes->agent_foreach<jobject>(acceptor, "am", acceptNode);
+
+    DmContainer::pointer dmNodes = nodeContainer->dc_get_dm_nodes();
+    smNodes->agent_foreach<jobject>(acceptor, "dm", acceptNode);
+
     JavaContext javaContext(javaVM);
     javaContext.invoke(env, acceptor, "finish", "()V");
 }
