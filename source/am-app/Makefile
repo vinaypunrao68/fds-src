@@ -1,14 +1,16 @@
 topdir            := ..
 user_target       := exe
 user_rtime_env    := user
-
-user_incl_dir     :=
+user_build_dir    := include platform
+user_incl_dir     := include
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  :=  \
     fds-am-engine \
     fds-StorHvisor \
     fds-ubd \
+	fds-am-plat \
+	fds-plat-lib \
     fds-lib \
     fds-umod \
     fds-util \
@@ -36,6 +38,7 @@ user_non_fds_libs :=  \
     thrift \
     config++ \
     cryptopp \
+	hiredis \
     $(user_nginx_libs)
 
 user_cc           :=  \
@@ -44,7 +47,7 @@ user_cc           :=  \
 user_cpp          :=  \
     am-main.cpp
 
-user_no_style     := $(user_cpp) $(user_cc)
+user_no_style     := $(user_cc)
 user_bin_exe      := AMAgent
 AMAgent           := $(user_cpp) $(user_cc)
 

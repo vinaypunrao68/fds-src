@@ -6,25 +6,24 @@
 #include <am-engine/atmos-connector.h>
 #include <util/fds_stat.h>
 #include <native_api.h>
-#include <fds_process.h>
+#include <am-platform.h>
 
 namespace fds {
 
-class AM_Process : public FdsProcess
+class AM_Process : public PlatformProcess
 {
   public:
     virtual ~AM_Process() {}
     AM_Process(int argc, char **argv,
-               const std::string &def_cfg_file,
-               const std::string &base_path, Module **mod_vec)
-        : FdsProcess(argc, argv, def_cfg_file, base_path, mod_vec) {}
+               Platform *platform, Module **mod_vec)
+        : PlatformProcess(argc, argv, "fds.am.", platform, mod_vec) {}
 
     void setup() override
     {
         FDS_NativeAPI *api = new FDS_NativeAPI(FDS_NativeAPI::FDSN_AWS_S3);
         FDS_NativeAPI *api_atmos = new FDS_NativeAPI(FDS_NativeAPI::FDSN_EMC_ATMOS);
 
-        FdsProcess::setup();
+        PlatformProcess::setup();
         gl_AMEngineS3.init_server(api);
         gl_AMEngineAtmos.init_server(api_atmos);
     }
@@ -36,18 +35,19 @@ class AM_Process : public FdsProcess
 }  // namespace fds
 
 extern "C" {
-  extern void CreateStorHvisorS3(int argc, char *argv[]);
+    extern void CreateStorHvisorS3(int argc, char *argv[]);
 }
 
 int main(int argc, char **argv)
 {
     fds::Module *am_mod_vec[] = {
         &fds::gl_fds_stat,
+        &fds::gl_AmPlatform,
         &fds::gl_AMEngineS3,
         &fds::gl_AMEngineAtmos,
         nullptr
     };
-    fds::AM_Process am_process(argc, argv, "am.conf", "fds.am.", am_mod_vec);
+    fds::AM_Process am_process(argc, argv, &fds::gl_AmPlatform, am_mod_vec);
     CreateStorHvisorS3(argc, argv);
 
     am_process.setup();

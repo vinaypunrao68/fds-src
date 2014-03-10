@@ -17,6 +17,8 @@ user_fds_ar_libs  := \
     fds-migrations \
     fds-StorHvisor \
     fds-ubd \
+    fds-sm-plat \
+    fds-plat-lib \
     fds-lib \
     fds-vpolicy \
     fds-dsk-mgnt \
@@ -24,7 +26,8 @@ user_fds_ar_libs  := \
     fds-odb
 
 user_non_fds_libs := \
-    leveldb
+    leveldb \
+    hiredis
 
 user_hh           := $(wildcard *.h)
 user_cc           := ngx_modules.c

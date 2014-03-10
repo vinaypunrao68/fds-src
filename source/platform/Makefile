@@ -7,24 +7,24 @@ user_rtime_env   := user
 
 user_incl_dir    := include
 user_fds_ar_libs := \
-	fds-plat-common \
-	fds-plat-lib \
-	fds-lib \
-	fds-umod \
-	fds-util \
-	fds-fdsp \
-	fds-thread
+    fds-plat-daemon \
+    fds-plat-lib \
+    fds-lib \
+    fds-umod \
+    fds-util \
+    fds-fdsp \
+    fds-thread
 
 user_non_fds_libs := \
-	boost_log \
-	boost_system \
-	boost_thread \
-	boost_date_time \
-	boost_program_options \
-	boost_filesystem \
-	thrift \
-	config++ \
-	hiredis
+    boost_log \
+    boost_system \
+    boost_thread \
+    boost_date_time \
+    boost_program_options \
+    boost_filesystem \
+    thrift \
+    config++ \
+    hiredis
 
 user_cpp         := platform-main.cpp
 user_bin_exe     := platformd
