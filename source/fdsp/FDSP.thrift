@@ -252,6 +252,9 @@ struct FDSP_GetVolumeBlobListRespType {
   4: BlobInfoListType blob_info_list, // list of blob_info structures.  
 }
 
+struct FDSP_Uuid {
+  1: i64          uuid,
+}
 
 enum FDSP_NodeState {
      FDS_Node_Up,
@@ -261,12 +264,16 @@ enum FDSP_NodeState {
      FDS_Start_Migration
 }
 
+struct FDSP_ActivateAllNodesType {
+  1: i32  domain_id
+}
+
 struct FDSP_ActivateNodeType {
-  1: string node_name,
-  2: bool has_sm_service,     /* true if node runs sm service */
-  3: bool has_dm_service,     /* true if node runs dm service */
-  4: bool has_om_service,     /* true if node runs om service */
-  5: bool has_am_service      /* true if node runs am service */
+  1: FDSP_Uuid  node_uuid,
+  2: bool       has_sm_service,     /* true if node runs sm service */
+  3: bool       has_dm_service,     /* true if node runs dm service */
+  4: bool       has_om_service,     /* true if node runs om service */
+  5: bool       has_am_service      /* true if node runs am service */
 }
 
 struct FDSP_Node_Info_Type {
@@ -396,10 +403,6 @@ struct FDSP_CreateVolType {
   1: string 		 vol_name,
   2: FDSP_VolumeInfoType 	 vol_info, /* Volume properties and attributes */
 
-}
-
-struct FDSP_Uuid {
-  1: i64          uuid,
 }
 
 struct FDSP_TestBucket {
@@ -893,9 +896,10 @@ service FDSP_ConfigPathReq {
   i32 SetThrottleLevel(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ThrottleMsgType throttle_msg),	
   i32 GetVolInfo(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetVolInfoReqType vol_info_req),
   i32 GetDomainStats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetDomainStatsType get_stats_msg),  
-  i32 applyTierPolicy(1: tier_pol_time_unit policy);
-  i32 auditTierPolicy(1: tier_pol_audit audit);
-  i32 RemoveNode(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RemoveNodeType rm_node_req);
+  i32 applyTierPolicy(1: tier_pol_time_unit policy),
+  i32 auditTierPolicy(1: tier_pol_audit audit),
+  i32 RemoveNode(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RemoveNodeType rm_node_req),
+  i32 ActivateAllNodes(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ActivateAllNodesType act_node_req)
 }
 
 /* Not needed.  But created for symemtry */
