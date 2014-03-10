@@ -70,6 +70,7 @@
                 <configuration>
                     <source>1.8</source>
                     <target>1.8</target>
+                    <encoding>UTF-8</encoding>
                 </configuration>
             </plugin>
 
@@ -86,7 +87,7 @@
                         </goals>
                         <configuration>
                             <sources>
-                                <source>gen/src/gen-java</source>
+                                <source>gen-java</source>
                             </sources>
                         </configuration>
                     </execution>

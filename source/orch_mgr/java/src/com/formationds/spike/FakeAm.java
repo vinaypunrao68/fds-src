@@ -76,6 +76,11 @@ public class FakeAm {
         }
 
         @Override
+        public void NotifyNodeActive(FDSP_MsgHdrType fdsp_msg, FDSP_Node_Info_Type node_info) throws TException {
+            System.out.println(node_info);
+        }
+
+        @Override
         public void NotifyNodeRmv(FDSP_MsgHdrType fdsp_msg, FDSP_Node_Info_Type node_info) throws TException {
             System.out.println(node_info);
         }
