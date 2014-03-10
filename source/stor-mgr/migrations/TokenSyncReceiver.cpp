@@ -32,11 +32,12 @@ private:
 
 /* Statemachine Events */
 struct StartEvt {};
-struct SnapDnEvt {};
-struct BldSyncLogDnEvt {};
-struct SendDnEvt {};
-struct IoClosedEvt {};
-struct SyncDnAckEvt {};
+struct TokMetaDataEvt {};
+struct NeedPullEvt {};
+struct SyncDnEvt {};
+struct PullDnEvt {};
+struct ResolveEvt {};
+struct ResolveDnEvt {};
 
 /* State machine */
 struct TokenSyncSenderFSM_
@@ -93,44 +94,20 @@ struct TokenSyncSenderFSM_
             LOGDEBUG << "Init State";
         }
     };
-    struct Snapshot: public msm::front::state<>
+    struct Receiving: public msm::front::state<>
     {
         template <class Event, class FSM>
         void on_entry(Event const& , FSM&)
         {
-            LOGDEBUG << "Snapshot State";
+            LOGDEBUG << "Receiving State";
         }
     };
-    struct BldSyncLog : public msm::front::state<>
+    struct Resolving : public msm::front::state<>
     {
         template <class Event, class FSM>
         void on_entry(Event const& , FSM&)
         {
-            LOGDEBUG << "BldSyncLog State";
-        }
-    };
-    struct Sending : public msm::front::state<>
-    {
-        template <class Event, class FSM>
-        void on_entry(Event const& , FSM&)
-        {
-            LOGDEBUG << "Sending State";
-        }
-    };
-    struct WaitForClose : public msm::front::state<>
-    {
-        template <class Event, class FSM>
-        void on_entry(Event const& , FSM&)
-        {
-            LOGDEBUG << "WaitForClose";
-        }
-    };
-    struct FiniSync : public msm::front::state<>
-    {
-        template <class Event, class FSM>
-        void on_entry(Event const& , FSM&)
-        {
-            LOGDEBUG << "FiniSync";
+            LOGDEBUG << "Resolving State";
         }
     };
     struct Complete : public msm::front::state<>
@@ -144,46 +121,71 @@ struct TokenSyncSenderFSM_
 
 
     /* Actions */
-    struct take_snap
+    struct ack_tok_md
     {
-        /* Connect to the receiver so we can push tokens */
+        /* Acknowledge to sender that token metadata is received */
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            LOGDEBUG << "take_snap";
-            // TODO(Rao): Send a message to take a leveldb snapshot
+            LOGDEBUG << "ack_tok_md";
+            // TODO(Rao):
         }
     };
 
-    struct build_sync_log
+    struct apply_tok_md
     {
-        /* Prepare objstor_read_req_ for next read request */
+        /* applies token metadata to ObjectStorMgr */
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            LOGDEBUG << "build_sync_log";
-            // TODO(Rao): Compute sync range.  Build a sync log
+            LOGDEBUG << "apply_tok_md";
+            // TODO(Rao):
         }
     };
-    struct send_sync_log
+    struct req_for_pull
     {
-        /* Issues read request to ObjectStore */
+        /* Send a request to pull state machine for pull */
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
             Error err(ERR_OK);
-            LOGDEBUG << "send_sync_log";
+            LOGDEBUG << "req_for_pull";
+            // TODO(Rao):
         }
     };
-    struct finish_sync
+    struct mark_sync_dn
     {
-        /* Pushes the token data to receiver */
+        /* Mark sync is complete */
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            LOGDEBUG << "finish_sync";
+            LOGDEBUG << "mark_sync_dn";
+            // TODO(Rao):  If sync is done and pull is done throw
+            // SyncDnEvt
         }
     };
+    struct mark_pull_dn
+    {
+        /* Mark pull is complete */
+        template <class EVT, class FSM, class SourceState, class TargetState>
+        void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
+        {
+            LOGDEBUG << "mark_pull_dn";
+            // TODO(Rao):  If sync is done and pull is done throw
+            // SyncDnEvt
+        }
+    };
+    struct start_resolve
+    {
+        /* starts resolve process for resolving client io entries with sync entries */
+        template <class EVT, class FSM, class SourceState, class TargetState>
+        void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
+        {
+            LOGDEBUG << "start_resolve";
+            // TODO(Rao):
+        }
+    };
+
     struct teardown
     {
         /* Tears down.  Notify parent we are done */
@@ -234,28 +236,34 @@ struct TokenSyncSenderFSM_
         }
     };
 
-    /* Statemachine transition table.  Roughly the statemachine is read objects for
-     * a token and send those objects.  Once a full token is pushed move to the next
-     * token.  Repeat this process until there aren't any tokens left.
+    /* Receiver state machine for sync.  It's roughly as follows
+     * while (syn_not_complete) {
+     *  recv_tok_metadata()
+     *  apply_tok_metadata()
+     *  pull_missing_objects()
+     * }
+     * resolve_sync_entries_with_client_io()
      */
     struct transition_table : mpl::vector< // NOLINT
     // +------------+----------------+------------+-----------------+------------------+
     // | Start      | Event          | Next       | Action          | Guard            |
     // +------------+----------------+------------+-----------------+------------------+
-    Row< Init       , StartEvt       , Snapshot   , take_snap       , msm_none         >,
+    Row< Init       , StartEvt       , Receiving  , msm_none        , msm_none         >,
     // +------------+----------------+------------+-----------------+------------------+
-    Row< Snapshot   , SnapDnEvt      , BldSyncLog , build_sync_log  , msm_none         >,
+    Row< Receiving  , TokMetaDataEvt , Receiving  , ActionSequence_
+                                                    <mpl::vector<
+                                                    ack_tok_md,
+                                                    apply_tok_md> > , msm_none         >,
+
+    Row< Receiving  , NeedPullEvt    , Receiving  , req_for_pull    , msm_none         >,
+
+    Row< Receiving  , SyncDnEvt      , Receiving  , mark_sync_dn    , msm_none         >,
+
+    Row< Receiving  , PullDnEvt      , Receiving  , mark_pull_dn    , msm_none         >,
+
+    Row< Receiving  , ResolveEvt     , Resolving  , start_resolve   , msm_none         >,
     // +------------+----------------+------------+-----------------+------------------+
-    Row< BldSyncLog , BldSyncLogDnEvt, Sending    , send_sync_log   , msm_none         >,
-    // +------------+----------------+------------+-----------------+------------------+
-    Row< Sending    , SendDnEvt      , Sending    , send_sync_log   , Not_<sync_log_dn>>,
-    Row< Sending    , SendDnEvt      ,WaitForClose, msm_none        , Not_<sync_closed> >,
-    Row< Sending    , SendDnEvt      , Snapshot   , take_snap       , Not_<sync_dn>    >,
-    Row< Sending    , SendDnEvt      , FiniSync   , finish_sync     , msm_none         >,
-    // +------------+----------------+------------+-----------------+------------------+
-    Row< WaitForClose, IoClosedEvt   , Snapshot   , take_snap       , msm_none         >,
-    // +------------+----------------+------------+-----------------+------------------+
-    Row< FiniSync   , SyncDnAckEvt   , Complete   , teardown        , msm_none         >
+    Row< Resolving  , ResolveDnEvt   , Complete   , teardown        , msm_none         >
     // +------------+----------------+------------+-----------------+------------------+
     >
     {
@@ -307,15 +315,15 @@ struct TokenSyncSenderFSM_
 
 };  /* struct TokenSyncSenderFSM_ */
 
-/* PullSenderFSM events */
+/* PullReceiverFSM events */
 struct PullReqEvt {};
-struct DataReadDnEvt {};
-struct DataSendDnEvt {};
+struct StopPullReqsEvt {};
+struct DataPullDnEvt {};
 struct PullFiniEvt {};
 
 /* State machine for Pull sender */
-struct PullSenderFSM_
-        : public msm::front::state_machine_def<PullSenderFSM_> {
+struct PullReceiverFSM_
+        : public msm::front::state_machine_def<PullReceiverFSM_> {
     void init(const std::string &mig_stream_id,
             FdsMigrationSvc *migrationSvc,
             TokenCopySender *parent,
@@ -336,7 +344,7 @@ struct PullSenderFSM_
 
         objstor_read_req_.io_type = FDS_SM_READ_TOKEN_OBJECTS;
         objstor_read_req_.response_cb = std::bind(
-            &PullSenderFSM_::data_read_cb, this,
+            &PullReceiverFSM_::data_read_cb, this,
             std::placeholders::_1, std::placeholders::_2);
     }
     // To improve performance --- if no message queue needed
@@ -351,12 +359,12 @@ struct PullSenderFSM_
     template <class Event, class FSM>
     void on_entry(Event const& , FSM&)
     {
-        LOGDEBUG << "PullSenderFSM_";
+        LOGDEBUG << "PullReceiverFSM_";
     }
     template <class Event, class FSM>
     void on_exit(Event const&, FSM&)
     {
-        LOGDEBUG << "PullSenderFSM_";
+        LOGDEBUG << "PullReceiverFSM_";
     }
 
     /* The list of state machine states */
@@ -368,12 +376,12 @@ struct PullSenderFSM_
             LOGDEBUG << "Init State";
         }
     };
-    struct Sending: public msm::front::state<>
+    struct Pulling: public msm::front::state<>
     {
         template <class Event, class FSM>
         void on_entry(Event const& , FSM&)
         {
-            LOGDEBUG << "Sending State";
+            LOGDEBUG << "Pulling State";
         }
     };
     struct Complete : public msm::front::state<>
@@ -397,37 +405,59 @@ struct PullSenderFSM_
         }
     };
 
-    struct issue_reads
+    struct issue_pull
     {
-        /* Out of to be read objects, picks a few, and issues read */
+        /* Out of to be pulled objects, picks a few, and issues pulls */
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            LOGDEBUG << "issue_reads";
-            // TODO(Rao): issue_reads. Only if there are objects to be read
+            LOGDEBUG << "issue_pull";
+            // TODO(Rao):  Issue only if there are pulls to be done
         }
     };
-    struct send_data
+    struct mark_pull_stop
     {
-        /* send the read data */
+        /* Marker to indicate that client will not issue pull requests */
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
             Error err(ERR_OK);
-            // TODO(Rao): Send the read data
-            LOGDEBUG << "send_data";
+            // TODO(Rao):
+            LOGDEBUG << "mark_pull_stop";
         }
     };
-    struct update_sent_data
+    struct chk_cmpletion
     {
-        /* Mark the read data as sent */
+        /* Checks if pull is complete.  If complete throws PullFiniEvt */
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            // TODO(Rao): Mark the read data as sent
-            LOGDEBUG << "update_sent_data";
+            // TODO(Rao):
+            LOGDEBUG << "chk_cmpletion";
         }
     };
+    struct notify_cl_pulled
+    {
+        /* Notifies client of the data that has been pulled */
+        template <class EVT, class FSM, class SourceState, class TargetState>
+        void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
+        {
+            // TODO(Rao):
+            LOGDEBUG << "notify_cl_pulldn";
+        }
+    };
+
+    struct notify_cl_pulldn
+    {
+        /* Notifies client that pull is complete */
+        template <class EVT, class FSM, class SourceState, class TargetState>
+        void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
+        {
+            // TODO(Rao):
+            LOGDEBUG << "notify_cl_pulldn";
+        }
+    };
+
     struct teardown
     {
         /* Tears down.  Notify parent we are done */
@@ -450,30 +480,37 @@ struct PullSenderFSM_
 
     /* Statemachine transition table.  Roughly the statemachine is
      * while (object_left_to_pull) {
-     *  read();
-     *  send();
-     *  update_read_objects();
+     *  pull_from_remote();
+     *  notify_client_of_pulledata();
+     *  update_for_next_pull();
      * }
      */
     struct transition_table : mpl::vector< // NOLINT
     // +------------+----------------+------------+-----------------+------------------+
     // | Start      | Event          | Next       | Action          | Guard            |
     // +------------+----------------+------------+-----------------+------------------+
-    Row< Init       , msm_none       , Sending    , msm_none        , msm_none         >,
+    Row< Init       , msm_none       , Pulling    , msm_none        , msm_none         >,
     // +------------+----------------+------------+-----------------+------------------+
-    Row< Sending    , PullReqEvt     , Sending    , ActionSequence_
+    Row< Pulling    , PullReqEvt     , Pulling    , ActionSequence_
                                                     <mpl::vector<
                                                     add_for_pull,
-                                                    issue_reads> >  , msm_none         >,
+                                                    issue_pull> >   , msm_none         >,
 
-    Row< Sending    , DataReadDnEvt  , Sending    , send_data       , msm_none         >,
-
-    Row< Sending    , DataSendDnEvt  , Sending    , ActionSequence_
+    Row< Pulling    , StopPullReqsEvt, Pulling    , ActionSequence_
                                                     <mpl::vector<
-                                                    update_sent_data,
-                                                    issue_reads> >  , msm_none         >,
+                                                    mark_pull_stop,
+                                                    chk_cmpletion> >, msm_none         >,
 
-    Row< Sending    , PullFiniEvt    , Complete   , teardown        , msm_none         >
+    Row< Pulling    , DataPullDnEvt  , Pulling    , ActionSequence_
+                                                    <mpl::vector<
+                                                    notify_cl_pulled,
+                                                    issue_pull,
+                                                    chk_cmpletion> >, msm_none         >,
+
+    Row< Pulling    , PullFiniEvt    , Complete   , ActionSequence_
+                                                    <mpl::vector<
+                                                    notify_cl_pulldn,
+                                                    teardown> >     , msm_none         >
     // +------------+----------------+------------+-----------------+------------------+
     >
     {
@@ -523,7 +560,7 @@ struct PullSenderFSM_
      * cur_sync_range_high_ */
     uint64_t sync_closed_time_;
 
-};  /* struct PullSenderFSM_ */
+};  /* struct PullReceiverFSM_ */
 
 //TokenCopySender::TokenCopySender(FdsMigrationSvc *migrationSvc,
 //        SmIoReqHandler *data_store,
