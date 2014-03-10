@@ -265,6 +265,100 @@ OM_SmAgent::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
 }
 
 // ---------------------------------------------------------------------------------
+// OM PM NodeAgent
+// ---------------------------------------------------------------------------------
+OM_PmAgent::~OM_PmAgent() {}
+OM_PmAgent::OM_PmAgent(const NodeUuid &uuid) : NodeAgent(uuid) {}
+
+void
+OM_PmAgent::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
+{
+    init_msg_hdr(msgHdr);
+    msgHdr->src_id = FDS_ProtocolInterface::FDSP_ORCH_MGR;
+    msgHdr->dst_id = FDS_ProtocolInterface::FDSP_PLATFORM;
+    msgHdr->session_uuid = ndSessionId;
+}
+
+// setCpSession
+// ------------
+//
+void
+OM_PmAgent::setCpSession(NodeAgentCpSessionPtr session)
+{
+    ndCpSession = session;
+    ndSessionId = ndCpSession->getSessionId();
+    ndCpClient  = ndCpSession->getClient();
+
+    FDS_PLOG_SEV(g_fdslog, fds_log::normal)
+            << "PMAgent: Established connection with new node";
+}
+
+// service_exists
+// --------------
+//
+fds_bool_t
+OM_PmAgent::service_exists(FDS_ProtocolInterface::FDSP_MgrIdType svc_type) const
+{
+    // TODO(anna) implement
+    return false;
+}
+
+// ---------------------------------------------------------------------------------
+// OM Platform NodeAgent Container
+// ---------------------------------------------------------------------------------
+OM_PmContainer::OM_PmContainer() : PmContainer(FDSP_ORCH_MGR)
+{
+    ctrlRspHndlr = boost::shared_ptr<OM_ControlRespHandler>(new OM_ControlRespHandler());
+}
+
+
+// agent_register
+// --------------
+//
+Error
+OM_PmContainer::agent_register(const NodeUuid       &uuid,
+                               const FdspNodeRegPtr  msg,
+                               NodeAgent::pointer   *out)
+{
+    Error err = AgentContainer::agent_register(uuid, msg, out);
+
+    if (OM_NodeDomainMod::om_in_test_mode() || (err != ERR_OK)) {
+        return err;
+    }
+    OM_PmAgent::pointer agent = OM_PmAgent::agt_cast_ptr(*out);
+    NodeAgentCpSessionPtr session(
+        ac_cpSessTbl->startSession<netControlPathClientSession>(
+            agent->get_ip_str(),
+            agent->get_ctrl_port(),
+            FDSP_PLATFORM,  // TODO(Andrew): should be just a node
+            1,              // just 1 channel for now...
+            ctrlRspHndlr));
+
+    fds_verify(agent != NULL);
+    fds_verify(session != NULL);
+    agent->setCpSession(session);
+    return err;
+}
+
+// check_new_service
+// -----------------
+//
+fds_bool_t
+OM_PmContainer::check_new_service(const NodeUuid &pm_uuid,
+                                  FDS_ProtocolInterface::FDSP_MgrIdType svc_role) {
+    NodeAgent::pointer agent = agent_info(pm_uuid);
+    if (agent == NULL) {
+        return false;  // we must have pm node
+    } else if (agent->node_state() != FDS_ProtocolInterface::FDS_Node_Up) {
+        // TODO(anna) for now using NodeUp state as active, review states
+        return false;  // must be in active state
+    }
+
+    return (OM_PmAgent::agt_cast_ptr(agent)->service_exists(svc_role) == false);
+}
+
+
+// ---------------------------------------------------------------------------------
 // OM SM NodeAgent Container
 // ---------------------------------------------------------------------------------
 OM_SmContainer::OM_SmContainer() : SmContainer(FDSP_ORCH_MGR)
@@ -441,6 +535,7 @@ OM_NodeContainer::OM_NodeContainer()
                       new OM_SmContainer(),
                       new OM_DmContainer(),
                       new OM_AmContainer(),
+                      new OM_PmContainer(),
                       new OmContainer(FDSP_ORCH_MGR),
                       NULL),
     om_dmt_mtx("DMT-Mtx")

@@ -37,7 +37,7 @@ NodeInventory::node_fill_inventory(const FdspNodeRegPtr msg)
     data->nd_migration_port = msg->migration_port;
     data->nd_node_name      = msg->node_name;
     data->nd_node_type      = msg->node_type;
-    data->nd_node_state     = FDS_ProtocolInterface::FDS_Start_Migration;
+    data->nd_node_state     = FDS_ProtocolInterface::FDS_Node_Discovered;
     data->nd_disk_type      = msg->disk_info.disk_type;
     data->nd_dlt_version    = DLT_VER_INVALID;
 
@@ -202,7 +202,12 @@ OmAgent::init_msg_hdr(fpi::FDSP_MsgHdrTypePtr hdr) const
 void
 OmAgent::init_node_reg_pkt(fpi::FDSP_RegisterNodeTypePtr pkt) const
 {
+    Platform::ptr plat = Platform::platf_const_singleton();
+
     NodeInventory::init_node_reg_pkt(pkt);
+    if (plat != NULL) {
+        pkt->node_type = plat->plf_get_node_type();
+    }
 }
 
 // om_register_node
@@ -302,17 +307,20 @@ AgentContainer::agent_unregister(const NodeUuid &uuid, const std::string &name)
 DomainContainer::~DomainContainer() {}
 DomainContainer::DomainContainer(char const *const name)
     : dc_om_master(NULL), dc_om_nodes(NULL),
-      dc_sm_nodes(NULL), dc_dm_nodes(NULL), dc_am_nodes(NULL), dc_nodes(NULL) {}
+      dc_sm_nodes(NULL), dc_dm_nodes(NULL),
+      dc_am_nodes(NULL), dc_pm_nodes(NULL), dc_nodes(NULL) {}
 
 DomainContainer::DomainContainer(char const *const       name,
                                  OmAgent::pointer        master,
                                  SmContainer::pointer    sm,
                                  DmContainer::pointer    dm,
                                  AmContainer::pointer    am,
+                                 PmContainer::pointer    pm,
                                  OmContainer::pointer    om,
                                  AgentContainer::pointer node)
     : dc_om_master(master), dc_om_nodes(om),
-      dc_sm_nodes(sm), dc_dm_nodes(dm), dc_am_nodes(am), dc_nodes(node) {}
+      dc_sm_nodes(sm), dc_dm_nodes(dm), dc_am_nodes(am),
+      dc_pm_nodes(pm), dc_nodes(node) {}
 
 // dc_container_frm_msg
 // --------------------
@@ -324,23 +332,25 @@ DomainContainer::dc_container_frm_msg(FdspNodeType node_type)
     AgentContainer::pointer nodes;
 
     switch (node_type) {
-    case fpi::FDSP_STOR_MGR:
-    case fpi::FDSP_PLATFORM:
-        /* TODO(Vy): fixme for platform case. */
-        nodes = dc_sm_nodes;
-        break;
+        case FDS_ProtocolInterface::FDSP_STOR_MGR:
+            nodes = dc_sm_nodes;
+            break;
 
-    case fpi::FDSP_DATA_MGR:
-        nodes = dc_dm_nodes;
-        break;
+        case FDS_ProtocolInterface::FDSP_DATA_MGR:
+            nodes = dc_dm_nodes;
+            break;
 
-    case fpi::FDSP_STOR_HVISOR:
-        nodes = dc_am_nodes;
-        break;
+        case FDS_ProtocolInterface::FDSP_STOR_HVISOR:
+            nodes = dc_am_nodes;
+            break;
 
-    default:
-        nodes = dc_om_nodes;
-        break;
+        case FDS_ProtocolInterface::FDSP_PLATFORM:
+            nodes = dc_pm_nodes;
+            break;
+
+        default:
+            nodes = dc_om_nodes;
+            break;
     }
     fds_verify(nodes != NULL);
     return nodes;

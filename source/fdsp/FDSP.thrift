@@ -257,7 +257,16 @@ enum FDSP_NodeState {
      FDS_Node_Up,
      FDS_Node_Down,
      FDS_Node_Rmvd,
+     FDS_Node_Discovered,
      FDS_Start_Migration
+}
+
+struct FDSP_ActivateNodeType {
+  1: string node_name,
+  2: bool has_sm_service,     /* true if node runs sm service */
+  3: bool has_dm_service,     /* true if node runs dm service */
+  4: bool has_om_service,     /* true if node runs om service */
+  5: bool has_am_service      /* true if node runs am service */
 }
 
 struct FDSP_Node_Info_Type {
@@ -278,7 +287,6 @@ typedef list<FDSP_Node_Info_Type> Node_Info_List_Type
 
 typedef list<i64> Node_List_Type
 typedef list<Node_List_Type> Node_Table_Type
-
 
 struct FDSP_DLT_Type {
       1: i32 DLT_version,
@@ -391,7 +399,7 @@ struct FDSP_CreateVolType {
 }
 
 struct FDSP_Uuid {
-  1: string          uuid,
+  1: i64          uuid,
 }
 
 struct FDSP_TestBucket {
@@ -429,9 +437,9 @@ struct FDSP_AttachVolCmdType {
   3: i32			 domain_id,
 }
 
-
 struct FDSP_RemoveNodeType {
   1: string node_name, // Name of the node which should be removed from the system
+  2: FDSP_Uuid   node_uuid,
 }
 
 struct FDSP_GetVolInfoReqType {

@@ -4,7 +4,8 @@
 
 #include <orchMgr.h>
 #include <OmResources.h>
-
+#undef LOGGERPTR
+#define LOGGERPTR orchMgr->GetLog()
 namespace fds {
 
 OrchMgr::FDSP_ConfigPathReqHandler::FDSP_ConfigPathReqHandler(OrchMgr *oMgr) {
@@ -28,9 +29,8 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::CreateVol(
         err = local->om_create_vol(fdsp_msg, crt_vol_req);
     }
     catch(...) {
-        FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
-                << "Orch Mgr encountered exception while "
-                << "processing create volume";
+        LOGERROR << "Orch Mgr encountered exception while "
+                 << "processing create volume";
         return -1;
     }
 
@@ -54,9 +54,8 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::DeleteVol(
         err = local->om_delete_vol(del_vol_req);
     }
     catch(...) {
-        FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
-                << "Orch Mgr encountered exception while "
-                << "processing delete volume";
+        LOGERROR << "Orch Mgr encountered exception while "
+                 << "processing delete volume";
         return -1;
     }
 
@@ -80,9 +79,8 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::ModifyVol(
         err = local->om_modify_vol(mod_vol_req);
     }
     catch(...) {
-        FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
-                << "Orch Mgr encountered exception while "
-                << "processing modify volume";
+        LOGERROR << "Orch Mgr encountered exception while "
+                 << "processing modify volume";
         return -1;
     }
 
@@ -105,9 +103,8 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::CreatePolicy(
         err = orchMgr->CreatePolicy(fdsp_msg, crt_pol_req);
     }
     catch(...) {
-        FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
-                << "Orch Mgr encountered exception while "
-                << "processing create policy";
+        LOGERROR << "Orch Mgr encountered exception while "
+                 << "processing create policy";
         return -1;
     }
 
@@ -130,9 +127,8 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::DeletePolicy(
         err = orchMgr->DeletePolicy(fdsp_msg, del_pol_req);
     }
     catch(...) {
-        FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
-                << "Orch Mgr encountered exception while "
-                << "processing delete policy";
+        LOGERROR << "Orch Mgr encountered exception while "
+                 << "processing delete policy";
         return -1;
     }
 
@@ -155,9 +151,8 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::ModifyPolicy(
         err = orchMgr->ModifyPolicy(fdsp_msg, mod_pol_req);
     }
     catch(...) {
-        FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
-                << "Orch Mgr encountered exception while "
-                << "processing modify policy";
+        LOGERROR << "Orch Mgr encountered exception while "
+                 << "processing modify policy";
         return -1;
     }
 
@@ -181,9 +176,8 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::AttachVol(
         err = local->om_attach_vol(fdsp_msg, atc_vol_req);
     }
     catch(...) {
-        FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
-                << "Orch Mgr encountered exception while "
-                << "processing attach volume";
+        LOGERROR << "Orch Mgr encountered exception while "
+                 << "processing attach volume";
         return -1;
     }
 
@@ -207,9 +201,8 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::DetachVol(
         err = local->om_detach_vol(fdsp_msg, dtc_vol_req);
     }
     catch(...) {
-        FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
-                << "Orch Mgr encountered exception while "
-                << "processing detach volume";
+        LOGERROR << "Orch Mgr encountered exception while "
+                 << "processing detach volume";
         return -1;
     }
 
@@ -244,9 +237,8 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::CreateDomain(
         err = domain->om_create_domain(crt_dom_req);
     }
     catch(...) {
-        FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
-                << "Orch Mgr encountered exception while "
-                << "processing create domain";
+        LOGERROR << "Orch Mgr encountered exception while "
+                 << "processing create domain";
         return -1;
     }
 
@@ -266,27 +258,31 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::RemoveNode(
 
     int err = 0;
     try {
-         FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::normal)
-            << "Received remove node " << rm_node_req->node_name;
+        LOGNORMAL << "Received remove node " << rm_node_req->node_name;
 
         OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
-        NodeUuid rm_node_uuid(fds_get_uuid64(rm_node_req->node_name));
+        NodeUuid rm_node_uuid;
+
+        if (rm_node_req->node_uuid.uuid > 0) {
+            rm_node_uuid = rm_node_req->node_uuid.uuid;
+        } else {
+            rm_node_uuid = fds_get_uuid64(rm_node_req->node_name);
+        }
+
         Error err = domain->om_del_node_info(rm_node_uuid, rm_node_req->node_name);
 
         if (!err.ok()) {
-            FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
-                << "RemoveNode: remove node info from local domain failed for node "
-                << rm_node_req->node_name << ", uuid "
-                << std::hex << rm_node_uuid.uuid_get_val()
-                << std::dec << ", result: " << err.GetErrstr();
+            LOGERROR << "RemoveNode: remove node info from local domain failed for node "
+                     << rm_node_req->node_name << ", uuid "
+                     << std::hex << rm_node_uuid.uuid_get_val()
+                     << std::dec << ", result: " << err.GetErrstr();
             return -1;
         }
         domain->om_update_cluster();
     }
     catch(...) {
-        FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
-                << "Orch Mgr encountered exception while "
-                << "processing rmv node";
+        LOGERROR << "Orch Mgr encountered exception while "
+                 << "processing rmv node";
         return -1;
     }
 
@@ -310,9 +306,8 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::DeleteDomain(
         err = domain->om_delete_domain(del_dom_req);
     }
     catch(...) {
-        FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
-                << "Orch Mgr encountered exception while "
-                << "processing create domain";
+        LOGERROR << "Orch Mgr encountered exception while "
+                 << "processing create domain";
         return -1;
     }
 
@@ -338,9 +333,8 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::SetThrottleLevel(
         local->om_set_throttle_lvl(throttle_msg->throttle_level);
     }
     catch(...) {
-        FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
-                << "Orch Mgr encountered exception while "
-                << "processing set throttle level";
+        LOGERROR << "Orch Mgr encountered exception while "
+                 << "processing set throttle level";
         return -1;
     }
 
@@ -377,16 +371,14 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::GetDomainStats(
         int domain_id = get_stats_msg->domain_id;
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
 
-        FDS_PLOG_SEV(g_fdslog, fds_log::normal)
-            << "Received GetDomainStats Req for domain " << domain_id;
+        LOGNORMAL << "Received GetDomainStats Req for domain " << domain_id;
 
         /* Use default domain for now... */
         local->om_send_bucket_stats(5, fdsp_msg->src_node_name, fdsp_msg->req_cookie);
     }
     catch(...) {
-        FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
-                << "Orch Mgr encountered exception while "
-                << "processing get domain stats";
+        LOGERROR << "Orch Mgr encountered exception while "
+                 << "processing get domain stats";
         return -1;
     }
 
@@ -407,16 +399,14 @@ void OrchMgr::FDSP_OMControlPathReqHandler::GetDomainStats(
         int domain_id = get_stats_msg->domain_id;
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
 
-        FDS_PLOG_SEV(g_fdslog, fds_log::normal)
-            << "Received GetDomainStats Req for domain " << domain_id;
+        LOGNORMAL << "Received GetDomainStats Req for domain " << domain_id;
 
         /* Use default domain for now... */
         local->om_send_bucket_stats(5, fdsp_msg->src_node_name, fdsp_msg->req_cookie);
     }
     catch(...) {
-        FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
-                << "Orch Mgr encountered exception while "
-                << "processing get domain stats";
+        LOGERROR << "Orch Mgr encountered exception while "
+                 << "processing get domain stats";
     }
 }
 
@@ -433,9 +423,8 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::applyTierPolicy(
         err = orchMgr->ApplyTierPolicy(policy);
     }
     catch(...) {
-        FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
-                << "Orch Mgr encountered exception while "
-                << "processing apply tier policy";
+        LOGERROR << "Orch Mgr encountered exception while "
+                 << "processing apply tier policy";
         return -1;
     }
 
@@ -455,9 +444,8 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::auditTierPolicy(
         err = orchMgr->AuditTierPolicy(audit);
     }
     catch(...) {
-        FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
-                << "Orch Mgr encountered exception while "
-                << "processing audit tier policy";
+        LOGERROR << "Orch Mgr encountered exception while "
+                 << "processing audit tier policy";
         return -1;
     }
 
@@ -485,9 +473,8 @@ void OrchMgr::FDSP_OMControlPathReqHandler::CreateBucket(
         local->om_create_vol(fdsp_msg, crt_buck_req);
     }
     catch(...) {
-        FDS_PLOG_SEV(orchMgr->GetLog(), fds::fds_log::error)
-                << "Orch Mgr encountered exception while "
-                << "processing create bucket";
+        LOGERROR << "Orch Mgr encountered exception while "
+                 << "processing create bucket";
     }
 }
 
@@ -540,19 +527,25 @@ void OrchMgr::FDSP_OMControlPathReqHandler::RegisterNode(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_RegisterNodeTypePtr& reg_node_req) {
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
-    NodeUuid new_node_uuid(fds_get_uuid64(reg_node_req->node_name));
+    NodeUuid new_node_uuid;
+
+    if (reg_node_req->node_uuid.uuid > 0) {
+        new_node_uuid = reg_node_req->node_uuid.uuid;
+    } else {
+        new_node_uuid = (fds_get_uuid64(reg_node_req->node_name));
+    }
+
     Error err = domain->om_reg_node_info(new_node_uuid, reg_node_req);
 
     if (!err.ok()) {
-        FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
-            << "Node Registration failed for "
-            << reg_node_req->node_name << ", result: "
-            << err.GetErrstr();
+        LOGERROR << "Node Registration failed for "
+                 << reg_node_req->node_name << ":" << new_node_uuid
+                 << ", result: "
+                 << err.GetErrstr();
         return;
     }
-    FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::normal)
-        << "Registered new node " << std::hex
-        << new_node_uuid.uuid_get_val() << std::dec;
+    LOGNORMAL << "Registered new node "
+              << new_node_uuid << std::dec;
 
     // TODO(Andrew): for now, let's start the cluster update process now.
     // This should eventually be decoupled from registration.
@@ -609,9 +602,8 @@ void OrchMgr::FDSP_OMControlPathReqHandler::NotifyMigrationDone(
     ::FDS_ProtocolInterface::FDSP_MigrationStatusTypePtr& status_msg) {
 
     try {
-        FDS_PLOG_SEV(g_fdslog, fds_log::notification)
-            << "Received migration done notification from node "
-            << fdsp_msg->src_node_name;
+        LOGNOTIFY << "Received migration done notification from node "
+                  << fdsp_msg->src_node_name;
 
         OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
 
@@ -621,9 +613,8 @@ void OrchMgr::FDSP_OMControlPathReqHandler::NotifyMigrationDone(
         Error err = domain->om_recv_migration_done(node_uuid, status_msg->DLT_version);
     }
     catch(...) {
-        FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::error)
-                << "Orch Mgr encountered exception while "
-                << "processing migration done request";
+        LOGERROR << "Orch Mgr encountered exception while "
+                 << "processing migration done request";
     }
 }
 

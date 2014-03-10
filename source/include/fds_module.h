@@ -94,7 +94,7 @@ class ModuleVector
 {
   public:
     ModuleVector(int argc, char **argv, Module **mods);
-    ~ModuleVector();
+    virtual ~ModuleVector();
 
     virtual void mod_timer_fn();
 

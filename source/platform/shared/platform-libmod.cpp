@@ -1,6 +1,11 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <ifaddrs.h>
+#include <arpa/inet.h>
 #include <string>
 #include <platform/platform-lib.h>
 #include <NetSession.h>
@@ -27,6 +32,12 @@ Platform::Platform(char const *const         name,
     plf_migrate_evt      = NULL;
     plf_tier_evt         = NULL;
     plf_bucket_stats_evt = NULL;
+
+    plf_om_ctrl_port     = 0;
+    plf_my_ctrl_port     = 0;
+    plf_my_conf_port     = 0;
+    plf_my_data_port     = 0;
+    plf_my_migr_port     = 0;
 
     plf_rpc_thrd  = NULL;
     plf_net_sess  = NULL;
@@ -82,45 +93,40 @@ Platform::plf_update_cluster()
 {
 }
 
-// plf_persist_inventory
-// ---------------------
+// prf_rpc_om_handshake
+// --------------------
+// Perform the handshake connection with OM.
 //
 void
-Platform::plf_persist_inventory(const NodeUuid &uuid)
+Platform::plf_rpc_om_handshake()
 {
+    if (plf_master == NULL) {
+        fds_verify(plf_om_resp == NULL);
+
+        plf_master  = new OmAgent(0);
+        plf_om_resp = boost::shared_ptr<PlatRpcResp>(plat_creat_resp_disp());
+        plf_master->om_handshake(plf_net_sess, plf_om_resp,
+                                 plf_om_ip_str, plf_om_ctrl_port);
+    }
+    FDSP_RegisterNodeTypePtr reg(new FDSP_RegisterNodeType);
+    plf_master->init_node_reg_pkt(reg);
+    plf_master->om_register_node(reg);
 }
 
-// -----------------------------------------------------------------------------------
-// Module methods.
-// -----------------------------------------------------------------------------------
-int
-Platform::mod_init(SysParams const *const param)
-{
-    Module::mod_init(param);
-
-    plf_net_sess = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_PLATFORM));
-    plf_rpc_reqt = boost::shared_ptr<PlatRpcReqt>(plat_creat_reqt_disp());
-
-    return 0;
-}
-
+// plf_run_server
+// --------------
+//
 void
-Platform::mod_startup()
+Platform::plf_run_server(bool spawn_thr)
 {
-    plf_rpc_thrd = boost::shared_ptr<std::thread>(
-            new std::thread(&Platform::plf_rpc_server_thread, this));
-
-    plf_rpc_om_handshake();
+    if (spawn_thr == true) {
+        plf_rpc_thrd = boost::shared_ptr<std::thread>(
+               new std::thread(&Platform::plf_rpc_server_thread, this));
+    } else {
+        plf_rpc_thrd = NULL;
+        plf_rpc_server_thread();
+    }
 }
-
-void
-Platform::mod_shutdown()
-{
-}
-
-// -----------------------------------------------------------------------------------
-// RPC endpoints
-// -----------------------------------------------------------------------------------
 
 // plf_rpc_server_thread
 // ---------------------
@@ -139,24 +145,80 @@ Platform::plf_rpc_server_thread()
     plf_net_sess->listenServer(plf_my_sess);
 }
 
-// prf_rpc_om_handshake
-// --------------------
-// Perform the handshake connection with OM.
+// plf_change_info
+// ---------------
 //
 void
-Platform::plf_rpc_om_handshake()
+Platform::plf_change_info(const plat_node_data_t *ndata)
 {
-    if (plf_master == NULL) {
-        fds_verify(plf_om_resp == NULL);
+    char         name[64];
+    NodeUuid     uuid(ndata->nd_node_uuid);
+    fds_uint32_t base;
 
-        plf_master  = new OmAgent(0);
-        plf_om_resp = boost::shared_ptr<PlatRpcResp>(plat_creat_resp_disp());
-        plf_master->om_handshake(plf_net_sess, plf_om_resp,
-                                 plf_om_ip_str, plf_om_conf_port);
+    plf_my_uuid = uuid;
+    snprintf(name, sizeof(name), "node-%u", ndata->nd_node_number);
+    plf_my_node_name.assign(name);
+
+    base = PlatformProcess::
+        plf_get_platform_port(ndata->nd_plat_port, ndata->nd_node_number);
+
+    if (base == 0) {
+        return;
     }
-    FDSP_RegisterNodeTypePtr reg(new FDSP_RegisterNodeType);
-    plf_master->init_node_reg_pkt(reg);
-    plf_master->om_register_node(reg);
+    switch (plf_node_type) {
+        case FDSP_STOR_MGR:
+            base = PlatformProcess::plf_get_sm_port(base);
+            break;
+
+        case FDSP_DATA_MGR:
+            base = PlatformProcess::plf_get_dm_port(base);
+            break;
+
+        case FDSP_STOR_HVISOR:
+            base = PlatformProcess::plf_get_am_port(base);
+            break;
+
+        case FDSP_ORCH_MGR:
+            return;
+
+        default:
+            break;
+    }
+    plf_om_ctrl_port = ndata->nd_om_port;
+    plf_my_ctrl_port = plf_ctrl_port(base);
+    plf_my_conf_port = plf_conf_port(base);
+    plf_my_data_port = plf_data_port(base);
+    plf_my_migr_port = plf_migration_port(base);
+
+    std::cout << "My ctrl port " << std::dec << plf_my_ctrl_port << std::endl
+              << "My conf port " << plf_my_conf_port << std::endl
+              << "My data port " << plf_my_data_port << std::endl
+              << "My OM port   " << plf_om_ctrl_port << std::endl
+              << "My OM IP     " << plf_om_ip_str << std::endl
+              << "My migr port " << plf_my_migr_port << std::endl;
+}
+
+// -----------------------------------------------------------------------------------
+// Module methods.
+// -----------------------------------------------------------------------------------
+int
+Platform::mod_init(SysParams const *const param)
+{
+    Module::mod_init(param);
+
+    plf_net_sess = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_PLATFORM));
+    plf_rpc_reqt = boost::shared_ptr<PlatRpcReqt>(plat_creat_reqt_disp());
+    return 0;
+}
+
+void
+Platform::mod_startup()
+{
+}
+
+void
+Platform::mod_shutdown()
+{
 }
 
 // --------------------------------------------------------------------------------------
@@ -446,4 +508,39 @@ PlatRpcResp::MigrationDoneResp(fpi::FDSP_MsgHdrTypePtr          &fdsp_msg,
     fds_verify(0);
 }
 
+namespace util {
+/**
+ * @return local ip
+ */
+std::string get_local_ip()
+{
+    struct ifaddrs *ifAddrStruct = NULL;
+    struct ifaddrs *ifa          = NULL;
+    void   *tmpAddrPtr           = NULL;
+    std::string myIp;
+
+    /*
+     * Get the local IP of the host.  This is needed by the OM.
+     */
+    getifaddrs(&ifAddrStruct);
+    for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
+        if (ifa->ifa_addr->sa_family == AF_INET) {  // IPv4
+            if (strncmp(ifa->ifa_name, "lo", 2) != 0) {
+                tmpAddrPtr = &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;  // NOLINT
+                char addrBuf[INET_ADDRSTRLEN];
+                inet_ntop(AF_INET, tmpAddrPtr, addrBuf, INET_ADDRSTRLEN);
+                myIp = std::string(addrBuf);
+                if (myIp.find("10.1") != std::string::npos) {
+                    break; /*  TODO: more dynamic */
+                }
+            }
+        }
+    }
+    if (ifAddrStruct != NULL) {
+        freeifaddrs(ifAddrStruct);
+    }
+    return myIp;
+}
+
+}  // namespace util
 }  // namespace fds

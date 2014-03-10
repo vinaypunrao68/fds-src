@@ -370,113 +370,67 @@ Error DataMgr::_process_delete(fds_volid_t vol_uuid,
   return err;
 }
 
-DataMgr::DataMgr(int argc, char *argv[],
-             const std::string &default_config_path,
-             const std::string &base_path, Module **mod_vec)
-    : FdsProcess(argc, argv, default_config_path, base_path, mod_vec),
-    port_num(0),
-    cp_port_num(0),
-    omConfigPort(0),
-    use_om(true),
-    numTestVols(10),
-    runMode(NORMAL_MODE),
-    scheduleRate(4000),
-    num_threads(DM_TP_THREADS) {
-  dm_log = g_fdslog;
-  vol_map_mtx = new fds_mutex("Volume map mutex");
-
-  _tp = new fds_threadpool(num_threads);
-
-  /*
-   * Comm with OM will be setup during run()
-   */
-  omClient = NULL;
-
-  /*
-   *  init Data Manager  QOS class.
-   */
-  qosCtrl = new dmQosCtrl(this, 20, FDS_QoSControl::FDS_DISPATCH_WFQ, dm_log);
-  qosCtrl->runScheduler();
-
-  FDS_PLOG(dm_log) << "Constructing the Data Manager";
-}
-
-DataMgr::~DataMgr() {
-  FDS_PLOG(dm_log) << "Destructing the Data Manager";
-
-  /*
-   * This will wait for all current threads to
-   * complete.
-   */
-  delete _tp;
-
-  for (std::unordered_map<fds_uint64_t, VolumeMeta*>::iterator
-           it = vol_meta_map.begin();
-       it != vol_meta_map.end();
-       it++) {
-    delete it->second;
-  }
-  vol_meta_map.clear();
-
-  delete omClient;
-  delete vol_map_mtx;
-  delete qosCtrl;
-}
-
-namespace util {
-/**
- * @return local ip
- */
-std::string get_local_ip()
+DataMgr::DataMgr(int argc, char *argv[], Platform *platform, Module **vec)
+    : PlatformProcess(argc, argv, "fds.dm.", platform, vec),
+      port_num(0),
+      cp_port_num(0),
+      omConfigPort(0),
+      use_om(true),
+      numTestVols(10),
+      runMode(NORMAL_MODE),
+      scheduleRate(4000),
+      num_threads(DM_TP_THREADS)
 {
-    struct ifaddrs *ifAddrStruct = NULL;
-    struct ifaddrs *ifa          = NULL;
-    void   *tmpAddrPtr           = NULL;
-    std::string myIp;
+    dm_log = g_fdslog;
+    vol_map_mtx = new fds_mutex("Volume map mutex");
+
+    _tp = new fds_threadpool(num_threads);
 
     /*
-     * Get the local IP of the host.
-     * This is needed by the OM.
+     * Comm with OM will be setup during run()
      */
-    getifaddrs(&ifAddrStruct);
-    for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
-        if (ifa->ifa_addr->sa_family == AF_INET) { // IPv4
-            if (strncmp(ifa->ifa_name, "lo", 2) != 0) {
-                tmpAddrPtr = &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
-                char addrBuf[INET_ADDRSTRLEN];
-                inet_ntop(AF_INET, tmpAddrPtr, addrBuf, INET_ADDRSTRLEN);
-                myIp = std::string(addrBuf);
-                if (myIp.find("10.1") != std::string::npos)
-                    break; /* TODO: more dynamic */
-            }
-        }
-    }
+    omClient = NULL;
 
-    if (ifAddrStruct != NULL) {
-        freeifaddrs(ifAddrStruct);
-    }
+    /*
+     *  init Data Manager  QOS class.
+     */
+    qosCtrl = new dmQosCtrl(this, 20, FDS_QoSControl::FDS_DISPATCH_WFQ, dm_log);
+    qosCtrl->runScheduler();
 
-    return myIp;
-}
+    FDS_PLOG(dm_log) << "Constructing the Data Manager";
 }
 
-//void DataMgr::runServer() {
-  /*
-   * TODO: Replace this when we pull ICE out.
-   */
-  //  this->main(mod_params->p_argc, mod_params->p_argv, "dm_test.conf");
-    //  this->run(mod_params->p_argc, mod_params->p_argv);
+DataMgr::~DataMgr()
+{
+    FDS_PLOG(dm_log) << "Destructing the Data Manager";
 
-//}
+    /*
+     * This will wait for all current threads to
+     * complete.
+     */
+    delete _tp;
+
+    for (std::unordered_map<fds_uint64_t, VolumeMeta*>::iterator
+             it = vol_meta_map.begin();
+         it != vol_meta_map.end();
+         it++) {
+      delete it->second;
+    }
+    vol_meta_map.clear();
+
+    delete omClient;
+    delete vol_map_mtx;
+    delete qosCtrl;
+}
 
 void DataMgr::run()
 {
-  try {
-      nstable->listenServer(metadatapath_session);
-  } 
-  catch (...) {
-      std::cout << "starting server threw an exception" << std::endl;
-  }
+    try {
+        nstable->listenServer(metadatapath_session);
+    }
+    catch (...) {
+        std::cout << "starting server threw an exception" << std::endl;
+    }
 }
 
 void DataMgr::setup_metadatapath_server(const std::string &ip)
@@ -484,8 +438,7 @@ void DataMgr::setup_metadatapath_server(const std::string &ip)
     metadatapath_handler.reset(new ReqHandler());
 
     int myIpInt = netSession::ipString2Addr(ip);
-    std::string node_name = 
-        conf_helper_.get<std::string>("prefix") + "_DM_" + ip;
+    std::string node_name = "_DM_" + ip;
     // TODO: Ideally createServerSession should take a shared pointer
     // for datapath_handler.  Make sure that happens.  Otherwise you
     // end up with a pointer leak.
@@ -499,71 +452,52 @@ void DataMgr::setup_metadatapath_server(const std::string &ip)
                                metadatapath_handler);
 }
 
-
 void DataMgr::setup()
 {
-  fds::DmDiskInfo     *info;
-  fds::DmDiskQuery     in;
-  fds::DmDiskQueryOut  out;
-  fds_bool_t      useTestMode = false;
+    fds::DmDiskInfo     *info;
+    fds::DmDiskQuery     in;
+    fds::DmDiskQueryOut  out;
+    fds_bool_t      useTestMode = false;
 
-  /*
-   * Process the cmdline args.
-   */
-
-  /*
-   * Invoke FdsProcess setup so that it can setup the signal hander and
-   * execute the module vector for us
-   */
-
-  runMode = NORMAL_MODE;
-
-  FdsProcess::setup();
-
-  port_num = conf_helper_.get_abs<int>("fds.dm.port");
-  cp_port_num = conf_helper_.get_abs<int>("fds.dm.cp_port");
-  stor_prefix = conf_helper_.get_abs<std::string>("fds.dm.prefix");
-  use_om = !(conf_helper_.get_abs<bool>("fds.dm.no_om"));
-  omIpStr = conf_helper_.get_abs<std::string>("fds.dm.om_ip");
-  omConfigPort = conf_helper_.get_abs<int>("fds.dm.om_port");
-  useTestMode = conf_helper_.get_abs<bool>("fds.dm.test_mode");
-  int sev_level = conf_helper_.get_abs<int>("fds.dm.log_severity");
-  
-  GetLog()->setSeverityFilter(( fds_log::severity_level)sev_level);
-  if (useTestMode == true) {
-    runMode = TEST_MODE;
-  }
-
-  if (port_num == 0) {
-      /* set default port */
-      port_num = 7902;
-  }
-  FDS_PLOG(dm_log) << "Data Manager using port " << port_num;
-
-  FDS_PLOG(dm_log) << "Data Manager using storage prefix "
-                   << stor_prefix;
-
-  if (cp_port_num == 0) {
     /*
-      set default port
+     * Invoke FdsProcess setup so that it can setup the signal hander and
+     * execute the module vector for us
      */
-    cp_port_num = 7903;
-  }
-  FDS_PLOG(dm_log) << "Data Manager using control port "
-                   << cp_port_num;
 
+    runMode = NORMAL_MODE;
 
-  /* Set up FDSP RPC endpoints */
-  nstable = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_DATA_MGR));
-  myIp = util::get_local_ip();
-  assert(myIp.empty() == false);
-  std::string node_name = 
-          conf_helper_.get<std::string>("prefix") + "_DM_" + myIp;
+    PlatformProcess::setup();
 
-  FDS_PLOG(dm_log) << "Data Manager using IP:"
-                   << myIp << " and node name "
-                   << node_name;
-  
+    // Get config values from that platform lib.
+    //
+    cp_port_num  = plf_mgr->plf_get_my_ctrl_port();
+    port_num     = plf_mgr->plf_get_my_data_port();
+    omConfigPort = plf_mgr->plf_get_om_ctrl_port();
+    // omIpStr      = *plf_mgr->plf_get_om_ip();
+
+    use_om = !(conf_helper_.get_abs<bool>("fds.dm.no_om", false));
+    omIpStr = conf_helper_.get_abs<std::string>("fds.dm.om_ip");
+
+    useTestMode = conf_helper_.get_abs<bool>("fds.dm.test_mode", false);
+    int sev_level = conf_helper_.get_abs<int>("fds.dm.log_severity", 0);
+
+    GetLog()->setSeverityFilter(( fds_log::severity_level)sev_level);
+    if (useTestMode == true) {
+        runMode = TEST_MODE;
+    }
+    fds_assert((port_num != 0) && (cp_port_num != 0));
+    FDS_PLOG(dm_log) << "Data Manager using port " << port_num
+                     << "Data Manager using control port " << cp_port_num;
+
+    /* Set up FDSP RPC endpoints */
+    nstable = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_DATA_MGR));
+    myIp = util::get_local_ip();
+    assert(myIp.empty() == false);
+    std::string node_name = "_DM_" + myIp;
+
+    FDS_PLOG(dm_log) << "Data Manager using IP:"
+                     << myIp << " and node name " << node_name;
+
   setup_metadatapath_server(myIp);
 
   /*

@@ -11,16 +11,12 @@ using redis::RedisException;
 
 ConfigDB::ConfigDB(const std::string& host,
                    uint port,
-                   uint poolsize) : r(host, port, poolsize) {
+                   uint poolsize) : KVStore(host, port, poolsize) {
     LOGNORMAL << "instantiating configdb";
 }
 
 ConfigDB::~ConfigDB() {
     LOGNORMAL << "destroying configdb";
-}
-
-bool ConfigDB::isConnected() {
-    return r.isConnected();
 }
 
 // domains
@@ -195,7 +191,33 @@ bool ConfigDB::getVolume(fds_volid_t volumeId, VolumeDesc& vol) {
 }
 
 // dlt
-bool ConfigDB::storeDlt(const DLT& dlt, int localDomain) { 
+
+fds_uint64_t ConfigDB::getDltVersionForType(const std::string type, int localDomain) {
+    try {
+        Reply reply = r.sendCommand("get %d:dlt:%s", localDomain, type.c_str());
+        if (!reply.isNil()) {
+            return reply.getLong();
+        } else {
+            LOGNORMAL << "no dlt set for type:" << type;
+        }
+    } catch (const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+    return 0;
+}
+
+bool ConfigDB::setDltType(fds_uint64_t version, const std::string type, int localDomain) {
+    try {
+        Reply reply = r.sendCommand("set %d:dlt:%s %ld", localDomain, type.c_str(), version);
+        return reply.isOk();
+    } catch (const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+    return false;
+}
+
+bool ConfigDB::storeDlt(const DLT& dlt, const std::string type, int localDomain) {
+    try {
     //fds_uint64_t version dlt.getVersion();
     Reply reply = r.sendCommand("sadd %d:dlts %ld",localDomain,dlt.getVersion());
     if (!reply.wasModified()) {
@@ -207,7 +229,20 @@ bool ConfigDB::storeDlt(const DLT& dlt, int localDomain) {
     r.encodeHex(serializedData,hexCoded);
 
     reply = r.sendCommand("set %d:dlt:%ld %s", localDomain, dlt.getVersion(), hexCoded.c_str());
-    return reply.isOk();
+    bool fSuccess = reply.isOk();
+
+    if (fSuccess && !type.empty()) {
+        reply = r.sendCommand("set %d:dlt:%s %ld", localDomain, type.c_str(), dlt.getVersion());
+        if (!reply.isOk()) {
+            LOGWARN << "error setting type " << dlt.getVersion() << ":" << type;
+        }
+    }
+    return fSuccess;
+
+    } catch (const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+    return false;
 }
 
 bool ConfigDB::getDlt(DLT& dlt, fds_uint64_t version, int localDomain) {
@@ -244,7 +279,7 @@ bool ConfigDB::storeDlts(DLTManager& dltMgr, int localDomain) {
     
     for (uint i = 0; i < vecVersions.size() ; i++) {
         const DLT* dlt = dltMgr.getDLT(vecVersions.size());
-        if (!storeDlt(*dlt, localDomain)) {
+        if (!storeDlt(*dlt, "",  localDomain)) {
             LOGERROR << "unable to store dlt : [" << dlt->getVersion() << "] for domain ["<< localDomain <<"]";
         }
     }

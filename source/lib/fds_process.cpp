@@ -8,7 +8,6 @@
 #include <iostream>
 #include <fds_assert.h>
 #include <fds_process.h>
-#include <util/Log.h>
 #include <net/net_utils.h>
 
 namespace fds {
@@ -50,6 +49,7 @@ FdsProcess::FdsProcess(int argc, char *argv[],
     mod_vectors_ = new ModuleVector(argc, argv, mod_vec);
     fdsroot      = mod_vectors_->get_sys_params()->fds_root;
     proc_root    = new FdsRootDir(fdsroot);
+    proc_thrp    = NULL;
 
     if (def_cfg_file != "") {
         cfgfile = proc_root->dir_fds_etc() + def_cfg_file;
@@ -78,8 +78,20 @@ FdsProcess::FdsProcess(int argc, char *argv[],
             /* NOTE: Timer service will be setup as well */
             setup_graphite();
         }
+        /* If threadpool option is specified, create one. */
+        if (conf_helper_.exists("threadpool")) {
+            int max_task, spawn_thres, idle_sec, min_thr, max_thr;
+
+            max_task    = conf_helper_.get<int>("threadpool.max_task", 10);
+            spawn_thres = conf_helper_.get<int>("threadpool.spawn_thres", 5);
+            idle_sec    = conf_helper_.get<int>("threadpool.idle_sec", 3);
+            min_thr     = conf_helper_.get<int>("threadpool.min_thread", 3);
+            max_thr     = conf_helper_.get<int>("threadpool.max_thread", 8);
+            proc_thrp   = new fds_threadpool(max_task, spawn_thres,
+                                             idle_sec, min_thr, max_thr);
+        }
     } else {
-        g_fdslog = new fds_log(def_log_file, proc_root->dir_fds_logs());
+        g_fdslog  = new fds_log(def_log_file, proc_root->dir_fds_logs());
     }
 }
 
@@ -89,7 +101,6 @@ FdsProcess::~FdsProcess()
     if (timer_servicePtr_) {
         timer_servicePtr_->destroy();
     }
-
     /* cleanup process wide globals */
     g_fdsprocess = NULL;
     delete g_fdslog;
@@ -99,6 +110,12 @@ FdsProcess::~FdsProcess()
     fds_assert(rc == 0);
     rc = pthread_join(sig_tid_, NULL);
     fds_assert(rc == 0);
+
+    if (proc_thrp != NULL) {
+        delete proc_thrp;
+    }
+    delete proc_root;
+    delete mod_vectors_;
 }
 
 void FdsProcess::setup()

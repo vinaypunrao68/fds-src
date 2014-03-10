@@ -4,7 +4,9 @@
 #ifndef SOURCE_PLATFORM_INCLUDE_PLATFORM_H_
 #define SOURCE_PLATFORM_INCLUDE_PLATFORM_H_
 
+#include <string>
 #include <fds_process.h>
+#include <kvstore/platformdb.h>
 #include <platform/platform-lib.h>
 
 namespace fds {
@@ -58,14 +60,19 @@ class PlatformRpcResp : public PlatRpcResp
 
 extern NodePlatform gl_NodePlatform;
 
-/**
- * FDS Platform daemon process.
- */
-class PlatformProcess : public FdsProcess
+class NodePlatformProc : public PlatformProcess
 {
   public:
-    PlatformProcess(int argc, char *argv[], Module **vec);
+    NodePlatformProc(int argc, char **argv, Module **vec);
+
+    void setup();
     void run();
+
+  protected:
+    void plf_load_node_data();
+
+  private:
+    void plf_start_node_services();
 };
 
 }  // namespace fds

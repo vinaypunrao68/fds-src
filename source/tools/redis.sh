@@ -1,7 +1,9 @@
 #!/bin/bash
 source ./loghelper.sh
 
-CONFDIR=../config/etc
+FDSSRC=${FDSSRC:-..}
+
+CONFDIR=${FDSSRC}/config/etc
 PORTS=()
 versinfo=()
 
@@ -24,7 +26,7 @@ function makeRedisDirs() {
     fi
 
     if [[ ! -f /fds/var/run/redis ]] ; then
-        mkdir -p /fds/var/run/redis
+        mkdir -p /fds/var/redis/run
     fi
     
     if [[ ! -f /fds/logs/redis ]] ; then
