@@ -367,20 +367,20 @@ def bringupCluster(env, bu, cfgFile, verbose, debug):
                      stderr=subprocess.STDOUT)
     subprocess.call(['sleep', '1'])
 
-    print "\n\nStarting SM on node1...."
-    subprocess.Popen(['./StorMgr', '--fds-root', root1],
-                     stderr=subprocess.STDOUT)
-    subprocess.call(['sleep', '1'])
+    # print "\n\nStarting SM on node1...."
+    # subprocess.Popen(['./StorMgr', '--fds-root', root1],
+    #                  stderr=subprocess.STDOUT)
+    # subprocess.call(['sleep', '1'])
 
-    print "\n\nStarting DM on node1...."
-    subprocess.Popen(['./DataMgr', '--fds-root', root1],
-                     stderr=subprocess.STDOUT)
-    subprocess.call(['sleep', '1']);
+    # print "\n\nStarting DM on node1...."
+    # subprocess.Popen(['./DataMgr', '--fds-root', root1],
+    #                  stderr=subprocess.STDOUT)
+    # subprocess.call(['sleep', '1']);
 
-    print "\n\nStarting AM on node1...."
-    subprocess.Popen(['./AMAgent', '--fds-root', root1],
-                     stderr=subprocess.STDOUT)
-    subprocess.call(['sleep', '3']);
+    # print "\n\nStarting AM on node1...."
+    # subprocess.Popen(['./AMAgent', '--fds-root', root1],
+    #                  stderr=subprocess.STDOUT)
+    # subprocess.call(['sleep', '3']);
 
     os.chdir(env.env_fdsSrc)
 
