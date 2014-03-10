@@ -220,6 +220,13 @@ class OrchMgr: public FdsProcess {
             ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
             ::FDS_ProtocolInterface::FDSP_GetDomainStatsTypePtr& get_stats_msg);
 
+        int32_t ActivateAllNodes(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_ActivateAllNodesType& act_node_msg);
+        int32_t ActivateAllNodes(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_ActivateAllNodesTypePtr& act_node_msg);
+
         int32_t applyTierPolicy(
             const ::FDS_ProtocolInterface::tier_pol_time_unit& policy);
         int32_t applyTierPolicy(

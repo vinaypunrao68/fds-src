@@ -1,6 +1,8 @@
 topdir           := ../
 user_build_dir   := include shared common
 user_target      := exe
+user_install     := disk_type.py
+user_install_loc := exe
 user_rtime_env   := user
 
 user_incl_dir    := include
