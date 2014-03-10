@@ -9,7 +9,7 @@ user_build_dir    := \
 	om-common \
 	om-lib \
 	om-discovery \
-	java
+#	java
 
 user_fds_ar_libs  := \
     fds-om-common \
