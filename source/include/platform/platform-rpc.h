@@ -43,9 +43,9 @@ class PlatRpcReqt : public fpi::FDSP_ControlPathReqIf
     void NotifyNodeAdd(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
                        fpi::FDSP_Node_Info_TypePtr &node_info);
 
-    void NotifyNodeActive(const FDSP_MsgHdrType &, const FDSP_Node_Info_Type &);
+    void NotifyNodeActive(const FDSP_MsgHdrType &, const FDSP_ActivateNodeType &);
     void NotifyNodeActive(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
-                          fpi::FDSP_Node_Info_TypePtr &node_info);
+                          fpi::FDSP_ActivateNodeTypePtr &act_node_req);
 
     void NotifyNodeRmv(const FDSP_MsgHdrType &, const FDSP_Node_Info_Type &);
     void NotifyNodeRmv(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,

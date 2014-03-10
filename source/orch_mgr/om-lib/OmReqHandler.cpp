@@ -424,12 +424,13 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::ActivateAllNodes(
     try {
         int domain_id = act_node_msg->domain_id;
         // use default domain for now
-        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
 
         LOGNORMAL << "Received Activate All Nodes Req for domain " << domain_id;
 
-        Error error = domain->om_activate_nodes();
-        if (!error.ok()) err = -1;
+        // for now we will acticate SM and DM
+        // AM will be activated separately
+        local->om_cond_bcast_activate_services(true, true, false);
     }
     catch(...) {
         LOGERROR << "Orch Mgr encountered exception while "

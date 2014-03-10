@@ -156,6 +156,12 @@ class OM_PmAgent : public NodeAgent
      * Allowing only one type of service per Platform
      */
     fds_bool_t service_exists(FDS_ProtocolInterface::FDSP_MgrIdType svc_type) const;
+    /**
+     * Send 'activate services' message to Platform
+     */
+    void send_activate_services(fds_bool_t activate_sm,
+                                fds_bool_t activate_dm,
+                                fds_bool_t activate_am);
 
     virtual void init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const;
 
@@ -361,6 +367,14 @@ class OM_NodeContainer : public DomainContainer
     virtual void om_bcast_vol_tier_audit(const FDSP_TierPolicyAuditPtr &tier);
     virtual void om_bcast_throttle_lvl(float throttle_level);
     virtual void om_bcast_dlt(const DLT* curDlt);
+    /**
+     * conditional broadcast to platform (nodes) to
+     * activate SM and DM services on those nodes, but only
+     * to those nodes which are in discovered state
+     */
+    virtual void om_cond_bcast_activate_services(fds_bool_t activate_sm,
+                                                 fds_bool_t activate_dm,
+                                                 fds_bool_t activate_am);
 
   private:
     friend class OM_NodeDomainMod;
@@ -457,12 +471,6 @@ class OM_NodeDomainMod : public Module
                                    const std::string& node_name);
 
     /**
-     * Commision all the nodes that are discovered but not active yet
-     * Will tell platform to start DM and SM services on those nodes
-     */
-    virtual Error om_activate_nodes();
-
-    /**
      * Notification that OM received migration done message from
      * node with uuid 'uuid' for dlt version 'dlt_version'
      */
@@ -553,6 +561,13 @@ class OM_ControlRespHandler : public fpi:: FDSP_ControlPathRespIf {
         const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
         const FDS_ProtocolInterface::FDSP_Node_Info_Type& node_info_resp);
     void NotifyNodeRmvResp(
+        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+        FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp);
+
+    void NotifyNodeActiveResp(
+        const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+        const FDS_ProtocolInterface::FDSP_Node_Info_Type& node_info_resp);
+    void NotifyNodeActiveResp(
         FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
         FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp);
 

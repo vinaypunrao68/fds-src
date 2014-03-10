@@ -258,11 +258,11 @@ PlatRpcReqt::NotifyNodeAdd(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
 
 void
 PlatRpcReqt::NotifyNodeActive(const FDSP_MsgHdrType     &fdsp_msg,
-                              const FDSP_Node_Info_Type &node_info) {}
+                              const FDSP_ActivateNodeType &act_node_req) {}
 
 void
 PlatRpcReqt::NotifyNodeActive(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
-                              fpi::FDSP_Node_Info_TypePtr &node_info)
+                              fpi::FDSP_ActivateNodeTypePtr &act_node_req)
 {
     fds_verify(0);
 }

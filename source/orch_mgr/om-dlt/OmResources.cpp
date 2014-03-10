@@ -109,18 +109,6 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
     return err;
 }
 
-// om_activate_node
-// ----------------
-//
-Error
-OM_NodeDomainMod::om_activate_nodes()
-{
-    Error err(ERR_OK);
-    // TODO(anna) implement
-    return err;
-}
-
-
 // om_del_node_info
 // ----------------
 //
@@ -365,6 +353,22 @@ void
 OM_ControlRespHandler::NotifyNodeRmvResp(
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp) {
+}
+
+void
+OM_ControlRespHandler::NotifyNodeActiveResp(
+    const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+    const FDS_ProtocolInterface::FDSP_Node_Info_Type& node_info_resp) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+}
+
+void
+OM_ControlRespHandler::NotifyNodeActiveResp(
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+    FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp) {
+    FDS_PLOG_SEV(g_fdslog, fds_log::notification)
+            << "OM received response for NotifyNodeActive from node "
+            << fdsp_msg->src_node_name;
 }
 
 void

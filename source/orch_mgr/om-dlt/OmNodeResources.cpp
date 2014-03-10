@@ -273,7 +273,7 @@ OM_PmAgent::OM_PmAgent(const NodeUuid &uuid) : NodeAgent(uuid) {}
 void
 OM_PmAgent::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
 {
-    init_msg_hdr(msgHdr);
+    NodeInventory::init_msg_hdr(msgHdr);
     msgHdr->src_id = FDS_ProtocolInterface::FDSP_ORCH_MGR;
     msgHdr->dst_id = FDS_ProtocolInterface::FDSP_PLATFORM;
     msgHdr->session_uuid = ndSessionId;
@@ -301,6 +301,46 @@ OM_PmAgent::service_exists(FDS_ProtocolInterface::FDSP_MgrIdType svc_type) const
 {
     // TODO(anna) implement
     return false;
+}
+
+// start_activate_services
+// -----------------------
+//
+void
+OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
+                                   fds_bool_t activate_dm,
+                                   fds_bool_t activate_am)
+{
+    // we only activate services from 'discovered' state
+    if (node_state() != FDS_ProtocolInterface::FDS_Node_Discovered) {
+        return;
+    }
+    FDS_PLOG_SEV(g_fdslog, fds_log::normal)
+            << "OM_PmAgent: will send node activate message to " << get_node_name()
+            << "; activate sm: " << activate_sm << "; activate dm: "<< activate_dm
+            << "; activate am: " << activate_am;
+
+    // TODO(anna) we should set node active state when we get a response
+    // for node activate, but for now assume always success and set active state here
+    set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
+
+    fpi::FDSP_MsgHdrTypePtr    m_hdr(new fpi::FDSP_MsgHdrType);
+    fpi::FDSP_ActivateNodeTypePtr node_msg(new fpi::FDSP_ActivateNodeType());
+
+    init_msg_hdr(m_hdr);
+    m_hdr->msg_code        = fpi::FDSP_MSG_NOTIFY_NODE_ACTIVE;
+    m_hdr->msg_id          = 0;
+    m_hdr->tennant_id      = 1;
+    m_hdr->local_domain_id = 1;
+
+    (node_msg->node_uuid).uuid = get_uuid().uuid_get_val();
+    node_msg->node_name = get_node_name();
+    node_msg->has_sm_service = activate_sm;
+    node_msg->has_dm_service = activate_dm;
+    node_msg->has_am_service = activate_am;
+    node_msg->has_om_service = false;
+
+    ndCpClient->NotifyNodeActive(m_hdr, node_msg);
 }
 
 // ---------------------------------------------------------------------------------
@@ -627,6 +667,32 @@ OM_NodeContainer::om_update_node_list(NodeAgent::pointer node, const FdspNodeReg
     dc_sm_nodes->agent_foreach<NodeAgent::pointer>(node, om_send_peer_info_to_me);
     dc_dm_nodes->agent_foreach<NodeAgent::pointer>(node, om_send_peer_info_to_me);
     dc_am_nodes->agent_foreach<NodeAgent::pointer>(node, om_send_peer_info_to_me);
+}
+
+// om_activate_service
+// -------------------
+//
+static void
+om_activate_services(fds_bool_t activate_sm,
+                     fds_bool_t activate_dm,
+                     fds_bool_t activate_am,
+                     NodeAgent::pointer node)
+{
+    OM_PmAgent::agt_cast_ptr(node)->send_activate_services(activate_sm,
+                                                           activate_dm,
+                                                           activate_am);
+}
+
+// om_activate_services
+//
+//
+void
+OM_NodeContainer::om_cond_bcast_activate_services(fds_bool_t activate_sm,
+                                                  fds_bool_t activate_dm,
+                                                  fds_bool_t activate_am)
+{
+    dc_pm_nodes->agent_foreach<fds_bool_t, fds_bool_t, fds_bool_t>
+            (activate_sm, activate_dm, activate_am, om_activate_services);
 }
 
 // om_send_vol_info
