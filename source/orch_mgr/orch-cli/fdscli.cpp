@@ -126,6 +126,8 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
             ("domain-delete", po::value<std::string>(),
              "Delete domain: domain-delete <domain name> -k <domain-id>")
             ("domain-stats", "Get domain stats: domain-stats -k <domain-id>")
+            ("activate-nodes", po::value<std::string>(),
+             "Activate discovered nodes: activate-nodes <domain name> -k <domain-id>")
             ("throttle", "Throttle traffic: throttle -t <throttle_level> ")
             ("policy-show", po::value<std::string>(), "Show policy")
             ("volume-size,s", po::value<double>(), "volume capacity")
@@ -397,6 +399,15 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         removeNodeData.node_name = vm["remove-node"].as<std::string>();
 
         cfgPrx->RemoveNode(msg_hdr, removeNodeData);
+    }  else if (vm.count("activate-nodes")) {
+        FDS_PLOG_SEV(cli_log, fds_log::notification)
+                << " Activate Nodes: domain name "
+                << vm["activate-nodes"].as<std::string>()
+                << " (domain name ignored for now, using default domain)";
+        FDS_ProtocolInterface::FDSP_ActivateAllNodesType activateNodesData;
+        activateNodesData.domain_id = vm["domain-id"].as<int>();
+
+        cfgPrx->ActivateAllNodes(msg_hdr, activateNodesData);
     }  else if (vm.count("domain-delete") && vm.count("domain-id")) {
         FDS_PLOG_SEV(cli_log, fds_log::notification)
                 << " Domain Delete ";

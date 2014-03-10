@@ -457,11 +457,10 @@ class OM_NodeDomainMod : public Module
                                    const std::string& node_name);
 
     /**
-     * Commision the node
-     * Platform manager must be already registered with OM, otherwise
-     * returns error.
+     * Commision all the nodes that are discovered but not active yet
+     * Will tell platform to start DM and SM services on those nodes
      */
-    virtual Error om_activate_node(const FdspNodeActivatePtr msg);
+    virtual Error om_activate_nodes();
 
     /**
      * Notification that OM received migration done message from

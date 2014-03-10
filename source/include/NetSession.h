@@ -46,7 +46,7 @@ using namespace fds;
 #define NETSESS_SERVER 1
 #define NETSESS_CLIENT 0
 
-typedef void  (*sessionErrorCallback)(string ip_addr, 
+typedef void  (*sessionErrorCallback)(string ip_addr,
                                       FDSP_MgrIdType mgrId,
                                       int channel, int errno,
                                       std::string errMsg);
@@ -136,7 +136,7 @@ class netSession {
 
 /**
  * @brief netClientSession encapsualtes client reqeust/response
- * handling interfaces.  It's responsible for 
+ * handling interfaces.  It's responsible for
  * -establising a connection with the server (This involes a handshake).
  * -Running a a thread to handle respsonses from the server.
  * NOTE:  Communication between client and the server is done over
@@ -148,7 +148,7 @@ class netSession {
  * @tparam RespHandlerT
  */
 template <class ReqClientT, class RespProcessorT, class RespHandlerT>
-class netClientSessionEx : public netSession , public net::SocketEventHandler { 
+class netClientSessionEx : public netSession , public net::SocketEventHandler {
  public:
   netClientSessionEx(string node_name, int port, FDSP_MgrIdType local_mgr,
                      FDSP_MgrIdType remote_mgr,
@@ -181,7 +181,7 @@ class netClientSessionEx : public netSession , public net::SocketEventHandler {
 
           /* Create the interface for issuing requests */
           req_client_.reset(new ReqClientT(protocol_));
-          
+
           if (resp_handler_) {
               LOGDEBUG << "starting the recv thread" ;
               /* Create the interface for receiving responses */
@@ -311,8 +311,8 @@ typedef netClientSessionEx<FDSP_MigrationPathReqClient,
  * -Running a server for handling incoming requests.  Request Handler needs to
  *  be provided as input.
  * -Managing lifecycle of incoming connections (not implemented yet).
- * -Managing response clients.  For each incoming connection request a response 
- *  client is created.  Response client handles sending responses.  The idea is 
+ * -Managing response clients.  For each incoming connection request a response
+ *  client is created.  Response client handles sending responses.  The idea is
  *  to share the same socket for both request and response.
  *
  * @tparam ReqProcessorT
@@ -320,7 +320,7 @@ typedef netClientSessionEx<FDSP_MigrationPathReqClient,
  * @tparam RespClientT
  */
 template <class ReqProcessorT, class ReqHandlerT, class RespClientT>
-class netServerSessionEx: public netSession { 
+class netServerSessionEx: public netSession {
  public :
   netServerSessionEx(string node_name,
                      int port,
@@ -397,7 +397,7 @@ class netServerSessionEx: public netSession {
        * the thread that invoked netServerSessionEx::listenServer) has joined
        */
       int slept_time = 0;
-      while (connections_.size() > 0 && 
+      while (connections_.size() > 0 &&
              slept_time < 1000) {
           usleep(10);
           slept_time += 10;
@@ -514,7 +514,7 @@ class netServerSessionEx: public netSession {
           fds_mutex::scoped_lock l(parent_.lock_);
           /* Add the new connection */
           TTransportPtr transport = input->getTransport();
-          parent_.connections_.insert(transport); 
+          parent_.connections_.insert(transport);
 
           LOGDEBUG << "New connection request: " << getTransportKey(transport);
 
@@ -611,15 +611,15 @@ class netServerSessionEx: public netSession {
   boost::shared_ptr<std::thread> listen_thread_;
 };
 
-typedef netServerSessionEx<FDSP_DataPathReqProcessor, 
+typedef netServerSessionEx<FDSP_DataPathReqProcessor,
         FDSP_DataPathReqIf, FDSP_DataPathRespClient> netDataPathServerSession;
-typedef netServerSessionEx<FDSP_MetaDataPathReqProcessor, 
+typedef netServerSessionEx<FDSP_MetaDataPathReqProcessor,
         FDSP_MetaDataPathReqIf, FDSP_MetaDataPathRespClient> netMetaDataPathServerSession;
-typedef netServerSessionEx<FDSP_ControlPathReqProcessor, 
+typedef netServerSessionEx<FDSP_ControlPathReqProcessor,
         FDSP_ControlPathReqIf, FDSP_ControlPathRespClient> netControlPathServerSession;
-typedef netServerSessionEx<FDSP_OMControlPathReqProcessor, 
+typedef netServerSessionEx<FDSP_OMControlPathReqProcessor,
         FDSP_OMControlPathReqIf, FDSP_OMControlPathRespClient> netOMControlPathServerSession;
-typedef netServerSessionEx<FDSP_ConfigPathReqProcessor, 
+typedef netServerSessionEx<FDSP_ConfigPathReqProcessor,
         FDSP_ConfigPathReqIf, FDSP_ConfigPathRespClient> netConfigPathServerSession;
 typedef netServerSessionEx<FDSP_MigrationPathReqProcessor,
         FDSP_MigrationPathReqIf, FDSP_MigrationPathRespClient> netMigrationPathServerSession;

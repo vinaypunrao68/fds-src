@@ -25,7 +25,7 @@
         <dependency>
             <groupId>org.eclipse.jetty</groupId>
             <artifactId>jetty-servlet</artifactId>
-            <version>8.1.8.v20121106</version>
+            <version>9.1.3.v20140225</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
@@ -50,7 +50,7 @@
         <dependency>
             <groupId>org.apache.thrift</groupId>
             <artifactId>libthrift</artifactId>
-            <version>0.9.1</version>
+            <version>0.9.0</version>
         </dependency>
     </dependencies>
 
@@ -65,6 +65,7 @@
                 <configuration>
                     <source>1.8</source>
                     <target>1.8</target>
+                    <encoding>UTF-8</encoding>
                 </configuration>
             </plugin>
 
@@ -81,7 +82,7 @@
                         </goals>
                         <configuration>
                             <sources>
-                                <source>gen/src/gen-java</source>
+                                <source>gen-java</source>
                             </sources>
                         </configuration>
                     </execution>

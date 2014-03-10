@@ -32,7 +32,7 @@ class FdsEnv:
         subprocess.call(['pkill', '-9', 'AMAgent'])
         subprocess.call(['pkill', '-9', 'Mgr'])
         subprocess.call(['pkill', '-9', 'platformd'])
-        subprocess.call(['pkill', '-9', 'java'])
+        subprocess.call(['pkill', '-9', '-f', 'com.formationds.web.om.Main'])
 
     def cleanup(self):
         self.shut_down()
@@ -68,14 +68,14 @@ class FdsDataSet:
         ret = subprocess.call(['mkdir', '-p', self.ds_dest_dir])
 
 #########################################################################################
-       
+
 
 class CopyS3Dir:
     global_obj_prefix = 0
     def __init__(self, dataset):
         self.ds         = dataset
         self.verbose    = False
-        self.bucket     = dataset.ds_bucket 
+        self.bucket     = dataset.ds_bucket
         self.exitOnErr  = True
         self.files_list = []
         self.cur_put    = 0
@@ -576,7 +576,7 @@ def exitTest(env):
     print "Total PUTs: ", env.total_put
     print "Total GETs: ", env.total_get
     print "Test Passed, cleaning up..."
-    # env.shut_down()
+    env.cleanup()
     sys.exit(0)
 
 data_set_dir = None

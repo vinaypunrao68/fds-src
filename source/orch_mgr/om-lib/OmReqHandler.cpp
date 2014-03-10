@@ -410,6 +410,36 @@ void OrchMgr::FDSP_OMControlPathReqHandler::GetDomainStats(
     }
 }
 
+int32_t OrchMgr::FDSP_ConfigPathReqHandler::ActivateAllNodes(
+    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+    const ::FDS_ProtocolInterface::FDSP_ActivateAllNodesType& act_node_msg) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+    return 0;
+}
+
+int32_t OrchMgr::FDSP_ConfigPathReqHandler::ActivateAllNodes(
+    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+    ::FDS_ProtocolInterface::FDSP_ActivateAllNodesTypePtr& act_node_msg) {
+    int err = 0;
+    try {
+        int domain_id = act_node_msg->domain_id;
+        // use default domain for now
+        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+
+        LOGNORMAL << "Received Activate All Nodes Req for domain " << domain_id;
+
+        Error error = domain->om_activate_nodes();
+        if (!error.ok()) err = -1;
+    }
+    catch(...) {
+        LOGERROR << "Orch Mgr encountered exception while "
+                 << "processing activate all nodes";
+        return -1;
+    }
+
+    return err;
+}
+
 int32_t OrchMgr::FDSP_ConfigPathReqHandler::applyTierPolicy(
     const ::FDS_ProtocolInterface::tier_pol_time_unit& policy) {
     // Don't do anything here. This stub is just to keep cpp compiler happy

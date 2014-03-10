@@ -473,11 +473,9 @@ void DataMgr::setup()
     cp_port_num  = plf_mgr->plf_get_my_ctrl_port();
     port_num     = plf_mgr->plf_get_my_data_port();
     omConfigPort = plf_mgr->plf_get_om_ctrl_port();
-    // omIpStr      = *plf_mgr->plf_get_om_ip();
+    omIpStr      = *plf_mgr->plf_get_om_ip();
 
     use_om = !(conf_helper_.get_abs<bool>("fds.dm.no_om", false));
-    omIpStr = conf_helper_.get_abs<std::string>("fds.dm.om_ip");
-
     useTestMode = conf_helper_.get_abs<bool>("fds.dm.test_mode", false);
     int sev_level = conf_helper_.get_abs<int>("fds.dm.log_severity", 0);
 

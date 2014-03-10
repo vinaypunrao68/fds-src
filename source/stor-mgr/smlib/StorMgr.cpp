@@ -388,7 +388,7 @@ void ObjectStorMgr::setup()
      * Register this node with OM.
      */
     omClient = new OMgrClient(FDSP_STOR_MGR,
-                              conf_helper_.get<std::string>("om_ip"),
+                              *plf_mgr->plf_get_om_ip(),
                               plf_mgr->plf_get_om_ctrl_port(),
                               myIp,
                               plf_mgr->plf_get_my_data_port(),

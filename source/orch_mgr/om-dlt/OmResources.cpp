@@ -113,7 +113,7 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
 // ----------------
 //
 Error
-OM_NodeDomainMod::om_activate_node(const FdspNodeActivatePtr msg)
+OM_NodeDomainMod::om_activate_nodes()
 {
     Error err(ERR_OK);
     // TODO(anna) implement
