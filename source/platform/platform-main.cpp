@@ -52,7 +52,7 @@ NodePlatformProc::plf_start_node_services()
     bool              auto_start;
     FdsConfigAccessor conf(get_conf_helper());
 
-    auto_start = conf.get_abs<bool>("auto_start_services", true);
+    auto_start = conf.get<bool>("auto_start_services", true);
     if (auto_start == true) {
         if (plf_node_data.nd_flag_run_sm) {
             pid = fds_spawn_service("StorMgr", proc_root->dir_fdsroot().c_str());
