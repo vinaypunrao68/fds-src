@@ -16,6 +16,8 @@ user_fds_ar_libs  := \
     fds-migrations\
     fds-smlib\
     fds-StorHvisor \
+    fds-sm-plat \
+    fds-plat-lib \
     fds-lib \
     fds-dsk-mgnt \
     fds-umod \
@@ -25,10 +27,7 @@ user_fds_ar_libs  := \
     fds-odb \
     fds-vpolicy \
     fds-fdsp \
-    fds-hash \
-    fds-probe-adapters \
-    fds-probe-blk \
-    fds-probe \
+    fds-hash
 
 user_non_fds_libs := \
     boost_log \
@@ -43,7 +42,8 @@ user_non_fds_libs := \
     leveldb \
     fuse \
     config++ \
-    thrift
+    thrift \
+    hiredis
 
 user_cpp          := migration_ut.cpp 
 user_no_style     := $(user_cpp) $(user_cc)
