@@ -190,12 +190,12 @@ Platform::plf_change_info(const plat_node_data_t *ndata)
     plf_my_data_port = plf_data_port(base);
     plf_my_migr_port = plf_migration_port(base);
 
-    std::cout << "My ctrl port " << std::dec << plf_my_ctrl_port << std::endl
+    LOGNOTIFY << "My ctrl port " << std::dec << plf_my_ctrl_port << std::endl
               << "My conf port " << plf_my_conf_port << std::endl
               << "My data port " << plf_my_data_port << std::endl
+              << "My migr port " << plf_my_migr_port << std::endl
               << "My OM port   " << plf_om_ctrl_port << std::endl
-              << "My OM IP     " << plf_om_ip_str << std::endl
-              << "My migr port " << plf_my_migr_port << std::endl;
+              << "My OM IP     " << plf_om_ip_str << std::endl;
 }
 
 // -----------------------------------------------------------------------------------

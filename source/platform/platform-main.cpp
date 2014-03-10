@@ -5,6 +5,7 @@
 #include <string>
 #include <iostream>  // NOLINT
 #include <platform.h>
+#include <platform/fds-osdep.h>
 
 namespace fds {
 
@@ -47,6 +48,28 @@ NodePlatformProc::plf_load_node_data()
 void
 NodePlatformProc::plf_start_node_services()
 {
+    pid_t             pid;
+    bool              auto_start;
+    FdsConfigAccessor conf(get_conf_helper());
+
+    auto_start = conf.get_abs<bool>("auto_start_services", true);
+    if (auto_start == true) {
+        if (plf_node_data.nd_flag_run_sm) {
+            pid = fds_spawn_service("StorMgr", proc_root->dir_fdsroot().c_str());
+            LOGNOTIFY << "Spawn SM with pid " << pid;
+        }
+        if (plf_node_data.nd_flag_run_dm) {
+            pid = fds_spawn_service("DataMgr", proc_root->dir_fdsroot().c_str());
+            LOGNOTIFY << "Spawn DM with pid " << pid;
+        }
+        if (plf_node_data.nd_flag_run_am) {
+            pid = fds_spawn_service("AMAgent", proc_root->dir_fdsroot().c_str());
+            LOGNOTIFY << "Spawn AM with pid " << pid;
+        }
+    } else {
+        LOGNOTIFY << "Auto start services is off, wait for manual start...";
+        std::cout << "Auto start services is off, wait for manual start..." << std::endl;
+    }
 }
 
 void
@@ -61,6 +84,7 @@ NodePlatformProc::run()
     plf_mgr->plf_run_server(true);
     plf_mgr->plf_rpc_om_handshake();
 
+    plf_start_node_services();
     while (1) {
         sleep(1000);   /* we'll do hotplug uevent thread in here */
     }

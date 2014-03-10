@@ -73,10 +73,12 @@ PlatformProcess::~PlatformProcess()
 void
 PlatformProcess::plf_load_node_data()
 {
-    if (plf_test_mode == true) {
+    if ((plf_test_mode == true) || (plf_stand_alone == true)) {
         return;
     }
     if (plf_db->isConnected() == false) {
+        // TODO(Vy): platform daemon should start redis server here...
+        //
         std::cout << "Sorry, you must start redis server manually & try again"
                   << std::endl;
         exit(1);
