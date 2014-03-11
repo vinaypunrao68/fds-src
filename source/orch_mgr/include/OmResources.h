@@ -241,6 +241,7 @@ class OM_PmContainer : public PmContainer
     }
 
   protected:
+    uint nodeNameCounter = 0;
     boost::shared_ptr<OM_ControlRespHandler> ctrlRspHndlr;
 
     virtual Resource *rs_new(const ResourceUUID &uuid) {

@@ -2,6 +2,7 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 #include <stdlib.h>
+#include <stdio.h>
 #include <vector>
 #include <string>
 #include <fds_err.h>
@@ -441,6 +442,29 @@ OM_PmContainer::agent_register(const NodeUuid       &uuid,
                                const FdspNodeRegPtr  msg,
                                NodeAgent::pointer   *out)
 {
+    // check if this is a known Node
+    NodeInvData node;
+    kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
+    if (configDB->getNode(uuid, node)) {
+        // this is a known node
+        msg->node_name = node.nd_node_name;
+    } else {
+        // do this only if the node name is empty.
+        if (msg->node_name.empty()) {
+            uint cfgNameCounter = configDB->getNodeNameCounter();
+            if (cfgNameCounter > 0) {
+                nodeNameCounter = cfgNameCounter;
+            } else {
+                nodeNameCounter++;
+            }
+            msg->node_name.clear();
+            char buf[20];
+            snprintf(buf, sizeof(buf), "Node-%d", nodeNameCounter);
+            msg->node_name.append(buf);
+            LOGNORMAL << "autonamed node : " << msg->node_name;
+        }
+    }
+
     Error err = AgentContainer::agent_register(uuid, msg, out);
 
     if (OM_NodeDomainMod::om_in_test_mode() || (err != ERR_OK)) {

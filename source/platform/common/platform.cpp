@@ -66,6 +66,12 @@ NodePlatform::mod_shutdown()
     Platform::mod_shutdown();
 }
 
+void
+NodePlatform::plf_start_node_services(const fpi::FDSP_ActivateNodeTypePtr &msg)
+{
+    plf_process->plf_start_node_services(msg);
+}
+
 /**
  * Required factory methods.
  */
@@ -92,6 +98,16 @@ PlatformRpcReqt::NotifyNodeAdd(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
                                fpi::FDSP_Node_Info_TypePtr &node_info)
 {
     std::cout << "Got it!" << std::endl;
+}
+
+void
+PlatformRpcReqt::NotifyNodeActive(fpi::FDSP_MsgHdrTypePtr       &hdr,
+                                  fpi::FDSP_ActivateNodeTypePtr &info)
+{
+    std::cout << "Received message to activate node" << std::endl;
+    Platform     *plat = const_cast<Platform *>(plf_mgr);
+    NodePlatform *node = static_cast<NodePlatform *>(plat);
+    node->plf_start_node_services(info);
 }
 
 void

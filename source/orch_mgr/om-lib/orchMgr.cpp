@@ -458,9 +458,12 @@ bool OrchMgr::loadFromConfigDB() {
     }
 
     // load the dlts
+    /**
+       TODO(prem): Disabling load dlts for now... till we decide on how it should work..
     if (!dp->loadDltsFromConfigDB()) {
         LOGWARN << "errors during loading dlts";
     }
+    */
     return true;
 }
 
