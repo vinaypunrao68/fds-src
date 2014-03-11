@@ -1,7 +1,7 @@
 topdir            := ../..
 user_target       := test
 user_rtime_env    := user
-#user_install      := python_bind_ut.py
+user_install      := python_bind_ut.py
 user_install_loc  := test
 
 user_python       := true
