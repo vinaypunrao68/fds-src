@@ -156,8 +156,8 @@ Platform::plf_change_info(const plat_node_data_t *ndata)
     fds_uint32_t base;
 
     plf_my_uuid = uuid;
-    snprintf(name, sizeof(name), "node-%u", ndata->nd_node_number);
-    plf_my_node_name.assign(name);
+    // snprintf(name, sizeof(name), "node-%u", ndata->nd_node_number);
+    // plf_my_node_name.assign(name);
 
     base = PlatformProcess::
         plf_get_platform_port(ndata->nd_plat_port, ndata->nd_node_number);
