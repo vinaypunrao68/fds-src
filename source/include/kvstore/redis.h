@@ -53,8 +53,8 @@ namespace redis {
 
         void toVector(std::vector<std::string>& vec); // NOLINT
         void toVector(std::vector<long long>& vec); // NOLINT
-        void toVector(std::vector<uint>& vec);
-        void toVector(std::vector<uint64_t>& vec);
+        void toVector(std::vector<uint>& vec); // NOLINT
+        void toVector(std::vector<uint64_t>& vec); //NOLINT
 
         void dump() const;
 
