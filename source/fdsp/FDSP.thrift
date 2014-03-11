@@ -266,7 +266,10 @@ enum FDSP_NodeState {
 }
 
 struct FDSP_ActivateAllNodesType {
-  1: i32  domain_id
+  1: i32  domain_id,
+  2: bool activate_sm,
+  3: bool activate_dm,
+  4: bool activate_am
 }
 
 struct FDSP_ActivateNodeType {
