@@ -78,8 +78,10 @@ Sm_ProbeMod::sendPut(const PutParams &putReq)
     boost::shared_ptr<FDSP_PutObjType> putObjReq =
             boost::shared_ptr<FDSP_PutObjType>(new FDSP_PutObjType());
     putObjReq->volume_offset         = 0;  // Put() doesn't need this...
-    putObjReq->data_obj_id.hash_high = putReq.objId.GetHigh();
-    putObjReq->data_obj_id.hash_low  = putReq.objId.GetLow();
+    putObjReq->data_obj_id.digest =
+      std::string((const char *)putReq.objId.GetId(), (size_t)putReq.objId.GetLen());
+//    putObjReq->data_obj_id.hash_high = putReq.objId.GetHigh();
+//    putObjReq->data_obj_id.hash_low  = putReq.objId.GetLow();
     putObjReq->data_obj_len          = putReq.dataLen;
     putObjReq->data_obj              = putReq.objData;
 
@@ -112,8 +114,10 @@ Sm_ProbeMod::sendGet(const GetParams &getReq)
 
     FDS_ProtocolInterface::FDSP_GetObjTypePtr getObjReq(
           new FDS_ProtocolInterface::FDSP_GetObjType);
-    getObjReq->data_obj_id.hash_high = getReq.objId.GetHigh();
-    getObjReq->data_obj_id.hash_low  = getReq.objId.GetLow();
+    getObjReq->data_obj_id.digest =
+       std::string((const char *)getReq.objId.GetId(), (size_t)getReq.objId.GetLen());
+//    getObjReq->data_obj_id.hash_high = getReq.objId.GetHigh();
+//    getObjReq->data_obj_id.hash_low  = getReq.objId.GetLow();
     getObjReq->data_obj_len          = 0;  // Get() doesn't need this...
 
     dpClient->GetObject(fdspMsg, getObjReq);
@@ -144,8 +148,10 @@ Sm_ProbeMod::sendDelete(const DeleteParams &delReq)
 
     FDS_ProtocolInterface::FDSP_DeleteObjTypePtr delObjReq(
           new FDS_ProtocolInterface::FDSP_DeleteObjType);
-    delObjReq->data_obj_id.hash_high = delReq.objId.GetHigh();
-    delObjReq->data_obj_id.hash_low  = delReq.objId.GetLow();
+    delObjReq->data_obj_id.digest =
+         std::string((const char *)delReq.objId.GetId(), (size_t)delReq.objId.GetLen());
+//    delObjReq->data_obj_id.hash_high = delReq.objId.GetHigh();
+//    delObjReq->data_obj_id.hash_low  = delReq.objId.GetLow();
     delObjReq->data_obj_len          = 0;  // Delete() doesn't need this...
 
     dpClient->DeleteObject(fdspMsg, delObjReq);

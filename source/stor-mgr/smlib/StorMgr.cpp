@@ -51,8 +51,9 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
      // check the payload checksum  and return Error, if we run in to issues 
     std::string new_checksum;
 
-    objStorMgr->chksumPtr->checksum_update(putObj->data_obj_id.hash_high);
-    objStorMgr->chksumPtr->checksum_update(putObj->data_obj_id.hash_low);
+//    objStorMgr->chksumPtr->checksum_update(putObj->data_obj_id.hash_high);
+//    objStorMgr->chksumPtr->checksum_update(putObj->data_obj_id.hash_low);
+    objStorMgr->chksumPtr->checksum_update(putObj->data_obj_id.digest);
     objStorMgr->chksumPtr->checksum_update(putObj->data_obj_len);
     objStorMgr->chksumPtr->checksum_update(putObj->volume_offset);
     objStorMgr->chksumPtr->checksum_update(putObj->dlt_version);
@@ -487,7 +488,7 @@ void ObjectStorMgr::setup()
     /*
      * Kick off the writeback thread(s)
      */
-//SAN    writeBackThreads->schedule(writeBackFunc, this);
+    writeBackThreads->schedule(writeBackFunc, this);
 
     setup_migration_svc();
 }
@@ -801,8 +802,10 @@ void ObjectStorMgr::unitTest() {
     FDSP_PutObjTypePtr put_obj_req(new FDSP_PutObjType());
 
     put_obj_req->volume_offset = 0;
-    put_obj_req->data_obj_id.hash_high = 0x00;
-    put_obj_req->data_obj_id.hash_low = 0x101;
+    put_obj_req->data_obj_id.digest[0] = 0x11;
+    put_obj_req->data_obj_id.digest[1] = 0x12;
+    put_obj_req->data_obj_id.digest[2] = 0x13;
+    put_obj_req->data_obj_id.digest[3] = 0x14;
     put_obj_req->data_obj_len = object_data.length() + 1;
     put_obj_req->data_obj = object_data;
 
@@ -830,7 +833,10 @@ void ObjectStorMgr::unitTest() {
     memset((char *)&(get_obj_req->data_obj_id),
             0x00,
             sizeof(get_obj_req->data_obj_id));
-    get_obj_req->data_obj_id.hash_low = 0x101;
+    get_obj_req->data_obj_id.digest[0] = 0x21;
+    get_obj_req->data_obj_id.digest[1] = 0x22;
+    get_obj_req->data_obj_id.digest[2] = 0x23;
+    get_obj_req->data_obj_id.digest[3] = 0x24;
     err = enqGetObjectReq(msgHdr, get_obj_req, vol_id, 1, num_objs);
     // delete get_obj_req;
 }
@@ -1005,8 +1011,9 @@ ObjectStorMgr::readObject(const ObjectID   &objId,
      * TODO: Why to we create another oid structure here?
      * Just pass a ref to objId?
      */
-    oid.oid_hash_hi = objId.GetHigh();
-    oid.oid_hash_lo = objId.GetLow();
+    memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
+//    oid.oid_hash_hi = objId.GetHigh();
+//    oid.oid_hash_lo = objId.GetLow();
 
     // create a blocking request object
     disk_req = new SmPlReq(vio, oid, (ObjectBuf *)&objData, true);
@@ -1152,8 +1159,9 @@ ObjectStorMgr::writeObject(const ObjectID  &objId,
      * TODO: Why to we create another oid structure here?
      * Just pass a ref to objId?
      */
-    oid.oid_hash_hi = objId.GetHigh();
-    oid.oid_hash_lo = objId.GetLow();
+    memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
+//    oid.oid_hash_hi = objId.GetHigh();
+//    oid.oid_hash_lo = objId.GetLow();
 
     LOGDEBUG << "Writing object " << objId << " into the "
             << ((tier == diskio::diskTier) ? "disk" : "flash")
@@ -1199,8 +1207,9 @@ ObjectStorMgr::relocateObject(const ObjectID &objId,
     meta_obj_id_t   oid;
     vadr_set_inval(vio.vol_adr);
 
-    oid.oid_hash_lo = objId.GetLow();
-    oid.oid_hash_lo = objId.GetLow();
+    memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
+//    oid.oid_hash_lo = objId.GetLow();
+//    oid.oid_hash_lo = objId.GetLow();
 
     disk_req = new SmPlReq(vio, oid, (ObjectBuf *)&objGetData, true, to_tier);
     err = dio_mgr.disk_write(disk_req);
@@ -1342,8 +1351,9 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr = jrnlEntry->getMsgHdr();
 
     FDSP_PutObjTypePtr putObj(new FDSP_PutObjType());
-    putObj->data_obj_id.hash_high = objId.GetHigh();
-    putObj->data_obj_id.hash_low  = objId.GetLow();
+    putObj->data_obj_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
+//    putObj->data_obj_id.hash_high = objId.GetHigh();
+//    putObj->data_obj_id.hash_low  = objId.GetLow();
     putObj->data_obj_len          = putObjReq->data_obj_len;
 
     if (err == ERR_OK) {
@@ -1425,8 +1435,7 @@ ObjectStorMgr::enqPutObjectReq(FDSP_MsgHdrTypePtr msgHdr,
         fds_uint32_t       numObjs) {
     fds::Error err(fds::ERR_OK);
     TransJournalId trans_id;
-    ObjectID obj_id(putObjReq->data_obj_id.hash_high,
-            putObjReq->data_obj_id.hash_low);
+    ObjectID obj_id(putObjReq->data_obj_id.digest);
 
     for(fds_uint32_t obj_num = 0; obj_num < numObjs; obj_num++) {
 
@@ -1434,8 +1443,7 @@ ObjectStorMgr::enqPutObjectReq(FDSP_MsgHdrTypePtr msgHdr,
          * Allocate the ioReq structure. The pointer will get copied
          * into the queue and freed later once the IO completes.
          */
-        SmIoReq *ioReq = new SmIoReq(putObjReq->data_obj_id.hash_high,
-                putObjReq->data_obj_id.hash_low,
+        SmIoReq *ioReq = new SmIoReq(putObjReq->data_obj_id.digest,
                 // putObjReq->data_obj,
                 putObjReq,
                 volId,
@@ -1498,8 +1506,9 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr = jrnlEntry->getMsgHdr();
 
     FDSP_DeleteObjTypePtr delObj(new FDS_ProtocolInterface::FDSP_DeleteObjType());
-    delObj->data_obj_id.hash_high = objId.GetHigh();
-    delObj->data_obj_id.hash_low  = objId.GetLow();
+    delObj->data_obj_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
+//    delObj->data_obj_id.hash_high = objId.GetHigh();
+//    delObj->data_obj_id.hash_low  = objId.GetLow();
     delObj->data_obj_len          = delObjReq->data_obj_len;
 
     if (err == ERR_OK) {
@@ -1533,8 +1542,7 @@ ObjectStorMgr::PutObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
     //
     // stor_mgr_verify_msg(fdsp_msg);
     //
-    ObjectID oid(put_obj_req->data_obj_id.hash_high,
-            put_obj_req->data_obj_id.hash_low);
+    ObjectID oid(put_obj_req->data_obj_id.digest);
 
     LOGDEBUG << "PutObject Obj ID: " << oid
             << ", glob_vol_id: " << fdsp_msg->glob_volume_id
@@ -1564,8 +1572,7 @@ ObjectStorMgr::DeleteObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
     //
     // stor_mgr_verify_msg(fdsp_msg);
     //
-    ObjectID oid(del_obj_req->data_obj_id.hash_high,
-            del_obj_req->data_obj_id.hash_low);
+    ObjectID oid(del_obj_req->data_obj_id.digest);
 
     LOGDEBUG << "DeleteObject Obj ID: " << oid
             << ", glob_vol_id: " << fdsp_msg->glob_volume_id
@@ -1644,10 +1651,11 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
     FDS_ProtocolInterface::FDSP_GetObjTypePtr
         getObj(new FDS_ProtocolInterface::FDSP_GetObjType());
 
-    fds_uint64_t oidHigh = objId.GetHigh();
-    fds_uint64_t oidLow = objId.GetLow();
-    getObj->data_obj_id.hash_high    = objId.GetHigh();
-    getObj->data_obj_id.hash_low     = objId.GetLow();
+//    fds_uint64_t oidHigh = objId.GetHigh();
+//    fds_uint64_t oidLow = objId.GetLow();
+    getObj->data_obj_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
+//    getObj->data_obj_id.hash_high    = objId.GetHigh();
+//    getObj->data_obj_id.hash_low     = objId.GetLow();
     getObj->data_obj                 = (err == ERR_OK)? objBufPtr->data:"";
     getObj->data_obj_len             = (err == ERR_OK)? objBufPtr->size:0;
 
@@ -1693,15 +1701,13 @@ ObjectStorMgr::enqDeleteObjectReq(FDSP_MsgHdrTypePtr msgHdr,
                                   fds_uint32_t       am_transId) {
     Error err(ERR_OK);
     TransJournalId trans_id;
-    ObjectID obj_id(delObjReq->data_obj_id.hash_high,
-            delObjReq->data_obj_id.hash_low);
+    ObjectID obj_id(delObjReq->data_obj_id.digest);
 
     /*
      * Allocate and enqueue an IO request. The request is freed
      * when the IO completes.
      */
-    SmIoReq *ioReq = new SmIoReq(delObjReq->data_obj_id.hash_high,
-            delObjReq->data_obj_id.hash_low,
+    SmIoReq *ioReq = new SmIoReq(delObjReq->data_obj_id.digest,
             // "",
             delObjReq,
             volId,
@@ -1735,8 +1741,7 @@ ObjectStorMgr::GetObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
     // stor_mgr_verify_msg(fdsp_msg);
     //
     Error err(ERR_OK);
-    ObjectID oid(get_obj_req->data_obj_id.hash_high,
-            get_obj_req->data_obj_id.hash_low);
+    ObjectID oid(get_obj_req->data_obj_id.digest);
 
     LOGDEBUG << "GetObject XID: " << fdsp_msg->req_cookie
             << ", Obj ID: " << oid
@@ -1765,15 +1770,13 @@ ObjectStorMgr::enqGetObjectReq(FDSP_MsgHdrTypePtr msgHdr,
                                fds_uint32_t       numObjs) {
   Error err(ERR_OK);
   TransJournalId trans_id;
-  ObjectID obj_id(getObjReq->data_obj_id.hash_high,
-            getObjReq->data_obj_id.hash_low);
+  ObjectID obj_id(getObjReq->data_obj_id.digest);
 
   /*
    * Allocate and enqueue an IO request. The request is freed
    * when the IO completes.
    */
-  SmIoReq *ioReq = new SmIoReq(getObjReq->data_obj_id.hash_high,
-                               getObjReq->data_obj_id.hash_low,
+  SmIoReq *ioReq = new SmIoReq(getObjReq->data_obj_id.digest,
                                // "",
                                getObjReq,
                                volId,
@@ -1827,8 +1830,7 @@ ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq)
     FDSP_MigrateObjectList &objList = putTokReq->obj_list;
     
     for (auto obj : objList) {
-        ObjectID objId(obj.meta_data.object_id.hash_high,
-                       obj.meta_data.object_id.hash_low);
+        ObjectID objId(obj.meta_data.object_id.digest);
         /* TODO: Update obj metadata */
 
         /* Doing a look up before a commit a write */
@@ -2027,12 +2029,12 @@ void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
     DBG(LOGDEBUG << "token: " << token << " begin: "
             << start_obj_id << " end: " << end_obj_id);
 
-    leveldb::Slice startSlice((const char *)&start_obj_id, sizeof(ObjectID));
+    leveldb::Slice startSlice((const char *)&start_obj_id, start_obj_id.GetLen());
 
     boost::shared_ptr<leveldb::Iterator> dbIter(odb->GetDB()->NewIterator(odb->GetReadOptions()));
     leveldb::Options options_ = odb->GetOptions();
 
-    memcpy(&objId , &start_obj_id, sizeof(ObjectID));
+    memcpy(&objId , &start_obj_id, start_obj_id.GetLen());
     // TODO(Rao): This iterator is very inefficient. We're always
     // iterating through all of the objects in this DB even if they
     // are not part of the token we care about.
@@ -2042,7 +2044,7 @@ void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
     {
         ObjectBuf        objData;
         // Read the record
-        memcpy(&objId , dbIter->key().data(), sizeof(ObjectID));
+        memcpy(&objId , dbIter->key().data(), objId.GetLen());
         DBG(LOGDEBUG << "Checking objectId: " << objId << " for token range: " << token);
 
         // TODO: process the key/data
@@ -2055,8 +2057,9 @@ void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
                     FDSP_MigrateObjectData mig_obj;
                     mig_obj.meta_data.token_id = token;
                     LOGDEBUG << "Adding a new objectId to objList" << objId;
-                    mig_obj.meta_data.object_id.hash_high = objId.GetHigh();
-                    mig_obj.meta_data.object_id.hash_low = objId.GetLow();
+                    mig_obj.meta_data.object_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
+//                    mig_obj.meta_data.object_id.hash_high = objId.GetHigh();
+//                    mig_obj.meta_data.object_id.hash_low = objId.GetLow();
                     mig_obj.meta_data.obj_len = objData.size;
                     mig_obj.data = objData.data;
                     obj_list.push_back(mig_obj);

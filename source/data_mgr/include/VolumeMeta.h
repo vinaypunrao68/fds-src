@@ -66,7 +66,7 @@ namespace fds {
 
     BlobObjectInfo(FDS_ProtocolInterface::FDSP_BlobObjectInfo& blob_obj_info) {
       offset = blob_obj_info.offset;
-      data_obj_id.SetId(blob_obj_info.data_obj_id.hash_high, blob_obj_info.data_obj_id.hash_low);
+      data_obj_id.SetId((const char *)blob_obj_info.data_obj_id.digest.c_str(), blob_obj_info.data_obj_id.digest.length());
       size = blob_obj_info.size;
     }
 
@@ -79,12 +79,14 @@ namespace fds {
 	      + std::to_string(size)
 	      + end_seq);
 #endif
+#if 0  //  SAN 
       char *out_str = (char *)malloc(sizeof(char) * 512);
       sprintf(out_str, "{%llu:%llx:%llx:%llu}", 
 	      offset, data_obj_id.GetHigh(), data_obj_id.GetLow(), size);
       std::string ret_str(out_str);
       free(out_str);
-      return ret_str;
+#endif
+      return data_obj_id.ToHex(data_obj_id);
     }
 
     void initFromString(std::string& str) {
@@ -98,10 +100,13 @@ namespace fds {
       data_obj_id.SetId(hash_hi, hash_lo);
       size = strtoull(str.substr(pos3+1, str.size()-1-pos3-end_seq.size()).c_str(), NULL, 0);
 #endif
+#if 0  //  SAN
       fds_uint64_t hash_hi, hash_lo;
       sscanf(str.c_str(), "{%llu:%llx:%llx:%llu}",
 	     &offset, &hash_hi, &hash_lo, &size);
       data_obj_id.SetId(hash_hi, hash_lo);
+#endif 
+      data_obj_id.SetId((const char*)str.c_str(),str.length());
       
     }
  
@@ -216,8 +221,8 @@ namespace fds {
 	FDS_ProtocolInterface::FDSP_BlobObjectInfo obj_info;
 	obj_info.offset = obj_list[i].offset;
 	obj_info.size = obj_list[i].size;
-	obj_info.data_obj_id.hash_high = obj_list[i].data_obj_id.GetHigh();
-	obj_info.data_obj_id.hash_low = obj_list[i].data_obj_id.GetLow();
+	obj_info.data_obj_id.digest = std::string((const char *)(obj_list[i].data_obj_id.GetId()), (size_t)obj_list[i].data_obj_id.GetLen());
+//	obj_info.data_obj_id.hash_low = obj_list[i].data_obj_id.GetLow();
 	fdsp_obj_list.push_back(obj_info);
       }
     }

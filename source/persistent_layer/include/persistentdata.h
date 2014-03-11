@@ -7,6 +7,7 @@
 #include <string>
 #include <persistent_layer/dm_io.h>
 #include <concurrency/Mutex.h>
+#include <fds_err.h>
 #include <fds_counters.h>
 
 namespace fds {
@@ -90,11 +91,11 @@ class PersisDataIO
     const int pd_ioq_rd_pending = 0;
     const int pd_ioq_wr_pending = 1;
 
-    virtual int disk_read(DiskRequest *req);
-    virtual int disk_write(DiskRequest *req);
+    virtual fds::Error  disk_read(DiskRequest *req);
+    virtual fds::Error  disk_write(DiskRequest *req);
 
-    virtual int disk_do_read(DiskRequest *req) = 0;
-    virtual int disk_do_write(DiskRequest *req) = 0;
+    virtual fds::Error  disk_do_read(DiskRequest *req) = 0;
+    virtual fds::Error  disk_do_write(DiskRequest *req) = 0;
 
     virtual void disk_read_done(DiskRequest *req);
     virtual void disk_write_done(DiskRequest *req);
@@ -111,8 +112,8 @@ class PersisDataIO
 class FilePersisDataIO : public PersisDataIO
 {
   public:
-    int disk_do_read(DiskRequest *req);
-    int disk_do_write(DiskRequest *req);
+    fds::Error disk_do_read(DiskRequest *req);
+    fds::Error disk_do_write(DiskRequest *req);
 
     inline int disk_loc_id() { return fi_loc; }
 

@@ -1,12 +1,18 @@
 #!/bin/bash
 
-# Run from the top level source dir
-#
-cleanup_bin_dir()
-{
+##########################################################################################
+# script to cleanup fds objects
+##########################################################################################
+
+
+# set the correct dirs
+DIR="$(cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+FDSBINDIR="${DIR}/../Build/linux-x86_64.debug/bin"
+
+function cleanBinDir() {
     pushd . > /dev/null
     cd $1
-    echo "Cleanning up: `pwd`"
+    echo "cleaning up: `pwd`"
 
     rm -rf *.ldb 2>  /dev/null
     rm -rf logs stats 2> /dev/null
@@ -20,21 +26,38 @@ cleanup_bin_dir()
     popd > /dev/null
 }
 
-cleanup_bin_dir "Build/linux-x86_64.debug/bin"
-for f in `echo node2 node3 node4`; do
-    bin_dir=./Build/linux-x86_64.debug/$f
-    echo Cleaning up $bin_dir
-    [ -d $bin_dir ] && cleanup_bin_dir $bin_dir
+function cleanFdsRoot() {
+    echo "cleaning fds root /fds ..."
+    rm -rf /fds/hdd/sd?
+    rm -rf /fds/ssd/sd?
+    rm -rf /fds/sys-repo/*
+    rm -rf /fds/nginx/logs/*
+    rm -rf /fds/user-repo/*
+    rm -rf /fds-node?/hdd/sd?
+    rm -rf /fds-node?/ssd/sd?
+    rm -rf /fds-node?/var/*
+    rm -rf /fds-am?/var/*
+    rm -rf /fds-node?/sys-repo/*
+    rm -rf /fds-node?/user-repo/*
+    rm -rf /fds/node?/*
+    
+    # redis stuff
+    echo "FLUSHALL" | redis-cli  >/dev/null 2>&1
+    echo "BGREWRITEAOF" | redis-cli  >/dev/null 2>&1
+    rm -rf $(find /fds/var/logs/* -not -name redis 2>/dev/null)
+    rm -rf $(find /fds/var/* -not -name logs -not -name redis 2>/dev/null)
+    rm -rf $(find /fds/logs/* -not -name redis 2>/dev/null) 
+}
+
+##########################################################################################
+# Main module
+##########################################################################################
+
+cleanBinDir ${FDSBINDIR}
+
+for node in node2 node3 node4; do
+    bin_dir=../Build/linux-x86_64.debug/${node}
+    [ -d $bin_dir ] && cleanBinDir ${bin_dir}
 done
 
-echo "Cleanning up data dir: /fds/*"
-rm -rf /fds/hdd/sd?
-rm -rf /fds/ssd/sd?
-rm -rf /fds-node?/hdd/sd?
-rm -rf /fds-node?/ssd/sd?
-rm -rf /fds-node?/var/*
-rm -rf /fds-am?/var/*
-rm -rf /fds-node?/sys-repo/*
-rm -rf /fds-node?/user-repo/*
-rm -rf /fds/var/logs/*
-rm -rf /fds/node?/*
+cleanFdsRoot

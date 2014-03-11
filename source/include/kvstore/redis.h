@@ -53,6 +53,8 @@ namespace redis {
 
         void toVector(std::vector<std::string>& vec); // NOLINT
         void toVector(std::vector<long long>& vec); // NOLINT
+        void toVector(std::vector<uint>& vec); // NOLINT
+        void toVector(std::vector<uint64_t>& vec); //NOLINT
 
         void dump() const;
 
@@ -70,9 +72,12 @@ namespace redis {
         Reply getReply();
         bool isConnected();
         ~Connection();
+        bool setDB(uint db);
+
         redisContext* ctx;
         std::string host;
-        uint port;
+        uint port = 6379;
+        uint db = 0;
     };
 
     /**
@@ -86,10 +91,12 @@ namespace redis {
 
         Connection* get();
         void put(Connection* cxn);
+        bool setDB(uint db);
       protected:
         std::queue<Connection*> connections;
         apache::thrift::concurrency::Monitor monitor;
         apache::thrift::concurrency::Mutex mutex;
+        friend struct Redis;
     };
 
     /**
@@ -118,6 +125,9 @@ namespace redis {
         ~Redis();
 
         bool isConnected();
+
+        bool setDB(uint db);
+
         // send command
         Reply sendCommand(const char* cmdfmt, ...);
 

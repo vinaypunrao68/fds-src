@@ -29,7 +29,7 @@ Catalog::Catalog(const std::string& _file)
 
     leveldb::Status status = leveldb::DB::Open(options, backing_file, &db);
     /* Open has to succeed */
-    assert(status.ok());
+//    assert(status.ok());
 }
 
 /** The default destructor

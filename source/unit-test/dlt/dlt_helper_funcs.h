@@ -53,6 +53,7 @@ void printBits(std::string name,fds_uint64_t num) {
     cout<<setw(10)<<name<<":"<<bits<<endl;
 }
 
+#if 0  //  SAN
 //ignore this ...
 void testTokens() {
     //16/32/48/64
@@ -77,4 +78,5 @@ void testTokens() {
     printBits("bitmsk",((1 << 16) - 1));
 
 }
+#endif
 #endif

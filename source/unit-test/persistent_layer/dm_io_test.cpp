@@ -46,8 +46,10 @@ pdio_write(fds_threadpool *wr, fds_threadpool *rd, DiskReqTest *cur)
         vadr_set_inval(vio.vol_adr);
         vio.vol_rsvd    = 0;
         vio.vol_blk_len = 0;
-        oid.oid_hash_hi = random();
-        oid.oid_hash_lo = random();
+//        oid.oid_hash_hi = random();
+//        oid.oid_hash_lo = random();
+        for (unsigned  int i = 0; i < sizeof(oid); i++)
+               oid.metaDigest[i] = random();
 
         buf = new ObjectBuf;
         buf->size = 8 << diskio::DataIO::disk_io_blk_shift();
@@ -57,11 +59,11 @@ pdio_write(fds_threadpool *wr, fds_threadpool *rd, DiskReqTest *cur)
          * Randomly pick a tier
          */
         tier = diskio::diskTier;
-        if ((oid.oid_hash_hi % 2) == 0) {
+        if ((oid.metaDigest[1] % 2) == 0) {
           tier = diskio::flashTier;
         }
 
-        req = new DiskReqTest(wr, rd, vio, oid, buf, oid.oid_hash_hi % 2, tier);
+        req = new DiskReqTest(wr, rd, vio, oid, buf, oid.metaDigest[1] % 2, tier);
         req->req_gen_pattern();
     } else {
         req = cur;
@@ -127,13 +129,15 @@ DiskReqTest::req_gen_pattern()
     std::string::iterator s1, s2;
 
     fds_verify(dat_buf->size == tst_verf.size);
-    snprintf(save, sizeof(save), "[0x%p] - 0x%llx 0x%llx", this,
-             idx_oid.oid_hash_hi, idx_oid.oid_hash_lo);
+//    snprintf(save, sizeof(save), "[0x%p] - 0x%llx 0x%llx", this,
+//             idx_oid.oid_hash_hi, idx_oid.oid_hash_lo);
+    // not sure  can memcpy  -- SAN 
+    memcpy(save, idx_oid.metaDigest, sizeof(idx_oid));
     p  = save;
     s1 = dat_buf->data.begin();
     s2 = tst_verf.data.begin();
 
-    start = (idx_oid.oid_hash_hi % 2) ? 'A' : 'a';
+    start = (idx_oid.metaDigest[1] % 2) ? 'A' : 'a';
     for (uint i = 0; i < dat_buf->size; i++) {
         if (*p != '\0') {
             *s1 = *p;

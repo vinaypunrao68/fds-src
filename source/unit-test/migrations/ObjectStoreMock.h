@@ -94,8 +94,7 @@ class MObjStore : public SmIoReqHandler {
         FDSP_MigrateObjectList &objList = putTokReq->obj_list;
 
         for (auto obj : objList) {
-            ObjectID objId(obj.meta_data.object_id.hash_high,
-                    obj.meta_data.object_id.hash_low);
+            ObjectID objId(obj.meta_data.object_id.digest);
 
             object_db_[objId] = obj.data;
             token_db_[putTokReq->token_id].insert(objId);
@@ -115,8 +114,9 @@ class MObjStore : public SmIoReqHandler {
             std::string obj_data = object_db_[obj_id];
             FDSP_MigrateObjectData mig_obj;
             mig_obj.meta_data.token_id = token_id;
-            mig_obj.meta_data.object_id.hash_high = obj_id.GetHigh();
-            mig_obj.meta_data.object_id.hash_low = obj_id.GetLow();
+            mig_obj.meta_data.object_id.digest = std::string((const char *)obj_id.GetId(), (size_t)obj_id.GetLen());
+//            mig_obj.meta_data.object_id.hash_high = obj_id.GetHigh();
+//            mig_obj.meta_data.object_id.hash_low = obj_id.GetLow();
             mig_obj.meta_data.obj_len = obj_data.size();
             mig_obj.data = obj_data;
             getTokReq->obj_list.push_back(mig_obj);
