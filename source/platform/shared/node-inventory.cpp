@@ -88,8 +88,14 @@ NodeInventory::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
     msgHdr->err_code        = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
     msgHdr->result          = FDS_ProtocolInterface::FDSP_ERR_OK;
 
-    msgHdr->src_id        = plat->plf_get_node_type();
-    msgHdr->src_node_name = *plat->plf_get_my_name();
+    if (plat == NULL) {
+        /* We'll get here if this is OM */
+        msgHdr->src_id        = FDSP_ORCH_MGR;
+        msgHdr->src_node_name = "";
+    } else {
+        msgHdr->src_id        = plat->plf_get_node_type();
+        msgHdr->src_node_name = *plat->plf_get_my_name();
+    }
 }
 
 // init_node_info_pkt
