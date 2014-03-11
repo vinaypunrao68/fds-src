@@ -3,30 +3,59 @@ package com.formationds.spike;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import FDS_ProtocolInterface.FDSP_MsgHdrType;
-import FDS_ProtocolInterface.FDSP_Service;
-import FDS_ProtocolInterface.FDSP_SessionReqResp;
+import FDS_ProtocolInterface.*;
 import org.apache.thrift.TException;
-import org.apache.thrift.server.TServer;
-import org.apache.thrift.server.TThreadPoolServer;
-import org.apache.thrift.transport.TServerSocket;
-import org.apache.thrift.transport.TServerTransport;
-import org.apache.thrift.transport.TTransportException;
 
 public class FakeOm {
-    static class FakeSessionService implements FDSP_Service.Iface {
+    public static class Om implements FDSP_OMControlPathReq.Iface {
         @Override
-        public FDSP_SessionReqResp EstablishSession(FDSP_MsgHdrType fdsp_msg) throws TException {
-            System.out.println(fdsp_msg);
-            return new FDSP_SessionReqResp(0, "poop");
-        }
-    }
+        public void CreateBucket(FDSP_MsgHdrType fdsp_msg, FDSP_CreateVolType crt_buck_req) throws TException {
 
-    public static void main(String[] args) throws Exception {
-        TServerTransport channel = new TServerSocket(8904);
-        FDSP_Service.Processor<FakeSessionService> processor = new FDSP_Service.Processor<>(new FakeSessionService());
-        TThreadPoolServer.Args serverArgs = new TThreadPoolServer.Args(channel).processor(processor);
-        TServer server = new TThreadPoolServer(serverArgs);
-        server.serve();
+        }
+
+        @Override
+        public void DeleteBucket(FDSP_MsgHdrType fdsp_msg, FDSP_DeleteVolType del_buck_req) throws TException {
+
+        }
+
+        @Override
+        public void ModifyBucket(FDSP_MsgHdrType fdsp_msg, FDSP_ModifyVolType mod_buck_req) throws TException {
+
+        }
+
+        @Override
+        public void AttachBucket(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolCmdType atc_buck_req) throws TException {
+
+        }
+
+        @Override
+        public void RegisterNode(FDSP_MsgHdrType fdsp_msg, FDSP_RegisterNodeType reg_node_req) throws TException {
+            System.out.println("I am an OM and I was asked to register a node " + reg_node_req);
+        }
+
+        @Override
+        public void NotifyQueueFull(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyQueueStateType queue_state_info) throws TException {
+
+        }
+
+        @Override
+        public void NotifyPerfstats(FDSP_MsgHdrType fdsp_msg, FDSP_PerfstatsType perf_stats_msg) throws TException {
+
+        }
+
+        @Override
+        public void TestBucket(FDSP_MsgHdrType fdsp_msg, FDSP_TestBucket test_buck_msg) throws TException {
+
+        }
+
+        @Override
+        public void GetDomainStats(FDSP_MsgHdrType fdsp_msg, FDSP_GetDomainStatsType get_stats_msg) throws TException {
+
+        }
+
+        @Override
+        public void NotifyMigrationDone(FDSP_MsgHdrType fdsp_msg, FDSP_MigrationStatusType status_msg) throws TException {
+
+        }
     }
 }

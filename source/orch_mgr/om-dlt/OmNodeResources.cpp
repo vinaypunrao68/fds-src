@@ -300,8 +300,89 @@ OM_PmAgent::setCpSession(NodeAgentCpSessionPtr session)
 fds_bool_t
 OM_PmAgent::service_exists(FDS_ProtocolInterface::FDSP_MgrIdType svc_type) const
 {
-    // TODO(anna) implement
+    switch (svc_type) {
+        case FDS_ProtocolInterface::FDSP_STOR_MGR:
+            if (activeSmAgent != NULL)
+                return true;
+            break;
+        case FDS_ProtocolInterface::FDSP_DATA_MGR:
+            if (activeDmAgent != NULL)
+                return true;
+            break;
+        case FDS_ProtocolInterface::FDSP_STOR_HVISOR:
+            if (activeAmAgent != NULL)
+                return true;
+            break;
+        default:
+            break;
+    };
     return false;
+}
+
+// register_service
+// ----------------
+//
+Error
+OM_PmAgent::handle_register_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_type,
+                                    NodeAgent::pointer svc_agent)
+{
+    Error err(ERR_OK);
+    // Platform must be in active state
+    fds_verify(node_state() == FDS_ProtocolInterface::FDS_Node_Up);
+
+    // we cannot register more than one service of the same type
+    // with the same node (platform)
+    if (service_exists(svc_type)) {
+        return Error(ERR_DUPLICATE);
+    }
+    switch (svc_type) {
+        case FDS_ProtocolInterface::FDSP_STOR_MGR:
+            activeSmAgent = OM_SmAgent::agt_cast_ptr(svc_agent);
+            break;
+        case FDS_ProtocolInterface::FDSP_DATA_MGR:
+            activeDmAgent = OM_DmAgent::agt_cast_ptr(svc_agent);
+            break;
+        case FDS_ProtocolInterface::FDSP_STOR_HVISOR:
+            activeAmAgent = OM_AmAgent::agt_cast_ptr(svc_agent);
+            break;
+        default:
+            fds_verify(false);
+    };
+
+    return err;
+}
+
+// unregister_service
+// ------------------
+//
+void
+OM_PmAgent::handle_unregister_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_type)
+{
+    switch (svc_type) {
+        case FDS_ProtocolInterface::FDSP_STOR_MGR:
+            activeSmAgent = NULL;
+            break;
+        case FDS_ProtocolInterface::FDSP_DATA_MGR:
+            activeDmAgent = NULL;
+            break;
+        case FDS_ProtocolInterface::FDSP_STOR_HVISOR:
+            activeAmAgent = NULL;
+            break;
+        default:
+            fds_verify(false);
+    };
+}
+
+void
+OM_PmAgent::handle_unregister_service(const NodeUuid& uuid)
+{
+    if (activeSmAgent->get_uuid() == uuid) {
+        activeSmAgent = NULL;
+    } else if (activeDmAgent->get_uuid() == uuid) {
+        activeDmAgent = NULL;
+    } else if (activeAmAgent->get_uuid() == uuid) {
+        activeAmAgent = NULL;
+    }
 }
 
 // start_activate_services
@@ -421,6 +502,35 @@ OM_PmContainer::check_new_service(const NodeUuid &pm_uuid,
     return (OM_PmAgent::agt_cast_ptr(agent)->service_exists(svc_role) == false);
 }
 
+// handle_register_service
+// -----------------------
+//
+Error
+OM_PmContainer::handle_register_service(const NodeUuid &pm_uuid,
+                                        FDS_ProtocolInterface::FDSP_MgrIdType svc_role,
+                                        NodeAgent::pointer svc_agent)
+{
+    Error err(ERR_OK);
+    NodeAgent::pointer pm_agt = agent_info(pm_uuid);
+    if (pm_agt != NULL) {
+        return Error(ERR_NODE_NOT_ACTIVE);
+    }
+    return OM_PmAgent::agt_cast_ptr(pm_agt)->handle_register_service(svc_role, svc_agent);
+}
+
+static void
+handle_unregister_svc(const NodeUuid& svc_uuid, NodeAgent::pointer node) {
+    OM_PmAgent::agt_cast_ptr(node)->handle_unregister_service(svc_uuid);
+}
+
+// handle_unregister_service
+// -------------------------
+//
+void
+OM_PmContainer::handle_unregister_service(const NodeUuid& svc_uuid)
+{
+    agent_foreach<const NodeUuid&>(svc_uuid, handle_unregister_svc);
+}
 
 // ---------------------------------------------------------------------------------
 // OM SM NodeAgent Container

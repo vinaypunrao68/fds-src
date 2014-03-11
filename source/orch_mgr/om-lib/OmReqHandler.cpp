@@ -560,7 +560,7 @@ void OrchMgr::FDSP_OMControlPathReqHandler::RegisterNode(
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
     NodeUuid new_node_uuid;
 
-    if (reg_node_req->node_uuid.uuid > 0) {
+    if (reg_node_req->node_uuid.uuid != 0) {
         new_node_uuid = reg_node_req->node_uuid.uuid;
     } else {
         new_node_uuid = (fds_get_uuid64(reg_node_req->node_name));

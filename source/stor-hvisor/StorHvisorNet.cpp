@@ -27,7 +27,7 @@ void CreateStorHvisorS3(int argc, char *argv[])
 
 void CreateStorHvisorBlk(int argc,
                   char *argv[],
-                  hv_create_blkdev cr_blkdev, 
+                  hv_create_blkdev cr_blkdev,
                   hv_delete_blkdev del_blkdev,
                   fds_bool_t test_mode,
                   fds_uint32_t sm_port,
@@ -40,7 +40,7 @@ void CreateStorHvisorBlk(int argc,
 
 void CreateSHMode(int argc,
                   char *argv[],
-                  hv_create_blkdev cr_blkdev, 
+                  hv_create_blkdev cr_blkdev,
                   hv_delete_blkdev del_blkdev,
                   fds_bool_t test_mode,
                   fds_uint32_t sm_port,
@@ -64,9 +64,9 @@ void CreateSHMode(int argc,
   storHvisor->cr_blkdev = cr_blkdev;
   storHvisor->del_blkdev = del_blkdev;
 
-  /* 
-   * Start listening for OM control messages 
-   * Appropriate callbacks were setup by data placement and volume table objects  
+  /*
+   * Start listening for OM control messages
+   * Appropriate callbacks were setup by data placement and volume table objects
    */
   storHvisor->StartOmClient();
   storHvisor->qos_ctrl->runScheduler();
@@ -94,7 +94,7 @@ StorHvCtrl::StorHvCtrl(int argc,
                        sh_comm_modes _mode,
                        fds_uint32_t sm_port_num,
                        fds_uint32_t dm_port_num)
-  : mode(_mode) { 
+  : mode(_mode) {
   std::string  omIpStr;
   fds_uint32_t omConfigPort;
   std::string node_name = "localhost-sh";
@@ -124,7 +124,7 @@ StorHvCtrl::StorHvCtrl(int argc,
         omConfigPort = strtoul(argv[i] + 10, NULL, 0);
     }  else if (strncmp(argv[i], "--node_name=", 12) == 0) {
       node_name = argv[i] + 12;
-    } 
+    }
     /*
      * We don't complain here about other args because
      * they may have been processed already but not
@@ -158,7 +158,7 @@ StorHvCtrl::StorHvCtrl(int argc,
    * Pass 0 as the data path port since the SH is not
    * listening on that port.
    */
-  cout << " om config port : " << omConfigPort << "om IP " << omIpStr << "\n";
+  cout << " om config port : " << omConfigPort << ", om IP " << omIpStr << "\n";
   om_client = new OMgrClient(FDSP_STOR_HVISOR,
                              omIpStr,
                              omConfigPort,
@@ -178,17 +178,17 @@ StorHvCtrl::StorHvCtrl(int argc,
   /* register handlers for receiving responses to admin requests */
   om_client->registerBucketStatsCmdHandler(bucketStatsRespHandler);
 
-  /*  Create the QOS Controller object */ 
+  /*  Create the QOS Controller object */
   qos_ctrl = new StorHvQosCtrl(50, fds::FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET, sh_log);
   om_client->registerThrottleCmdHandler(StorHvQosCtrl::throttleCmdHandler);
   qos_ctrl->registerOmClient(om_client); /* so it will start periodically pushing perfstats to OM */
   om_client->startAcceptingControlMessages(config.get<int>("om_control_port"));
 
 
-  /* TODO: for now StorHvVolumeTable constructor will create 
+  /* TODO: for now StorHvVolumeTable constructor will create
    * volume 1, revisit this soon when we add multi-volume support
    * in other parts of the system */
-  vol_table = new StorHvVolumeTable(this, sh_log);  
+  vol_table = new StorHvVolumeTable(this, sh_log);
 
   chksumPtr =  new checksum_calc();
 
@@ -197,7 +197,7 @@ StorHvCtrl::StorHvCtrl(int argc,
    */
 
   FDS_PLOG(sh_log) << "StorHvisorNet - StorHvCtrl basic infra init successfull ";
-  
+
   /*
    * Parse options out of config file
    */
@@ -284,7 +284,7 @@ StorHvCtrl::StorHvCtrl(int argc,
 
 StorHvCtrl::~StorHvCtrl()
 {
-  delete vol_table; 
+  delete vol_table;
   delete dataPlacementTbl;
   if (om_client)
     delete om_client;
@@ -302,9 +302,9 @@ SysParams* StorHvCtrl::getSysParams() {
 
 void StorHvCtrl::StartOmClient() {
 
-  /* 
-   * Start listening for OM control messages 
-   * Appropriate callbacks were setup by data placement and volume table objects  
+  /*
+   * Start listening for OM control messages
+   * Appropriate callbacks were setup by data placement and volume table objects
    */
   if (om_client) {
     FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "StorHvisorNet - Started accepting control messages from OM";
@@ -328,9 +328,9 @@ void StorHvCtrl::StartOmClient() {
 
 BEGIN_C_DECLS
 void cppOut( char *format, ... ) {
-  va_list argptr;             
- 
-  va_start( argptr, format );          
+  va_list argptr;
+
+  va_start( argptr, format );
   if( *format != '\0' ) {
    	if( *format == 's' ) {
        		char* s = va_arg( argptr, char * );
