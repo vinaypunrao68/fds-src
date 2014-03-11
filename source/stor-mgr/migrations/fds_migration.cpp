@@ -364,6 +364,16 @@ FdsMigrationSvc::get_resp_client(const std::string &session_uuid)
 {
     return migpath_session_->getRespClient(session_uuid);
 }
+
+/**
+ *
+ * @return
+ */
+ClusterCommMgrPtr FdsMigrationSvc::get_cluster_comm_mgr()
+{
+    return clust_comm_mgr_;
+}
+
 /**
  * return ip of migration service server
  * @return

@@ -385,6 +385,22 @@ namespace fds {
   };
   typedef boost::shared_ptr<SmIoGetTokObjectsReq> SmIoGetTokObjectReqSPtr;
   typedef std::unique_ptr<SmIoGetTokObjectsReq> SmIoGetTokObjectsReqUPtr;
+
+  /**
+   * @brief Takes snapshot of object db
+   */
+  class SmIoSnapshotObjectDB : public SmIoReq {
+  public:
+    typedef std::function<void (const Error&, leveldb::ReadOptions& options,
+            leveldb::DB* db)> CbType;
+  public:
+      SmIoSnapshotObjectDB();
+
+      /* In: Token to take snapshot of*/
+      fds_token_id token_id;
+      /* Response callback */
+      CbType smio_snap_resp_cb;
+  };
 }  // namespace fds
 
 #endif  // SOURCE_STOR_MGR_STORMGRVOLUMES_H_

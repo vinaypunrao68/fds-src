@@ -270,6 +270,11 @@ namespace fds {
       : size(0), data("")
       {
       }
+    explicit ObjectBuf(const std::string &str)
+    : data(str)
+    {
+        size = str.length();
+    }
   };
 
 
@@ -307,6 +312,7 @@ namespace fds {
    FDS_BUCKET_STATS,
    FDS_SM_READ_TOKEN_OBJECTS,
    FDS_SM_WRITE_TOKEN_OBJECTS,
+   FDS_SM_SNAPSHOT_TOKEN,
    FDS_OP_INVALID
   } fds_io_op_t;
 

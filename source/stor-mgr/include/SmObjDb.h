@@ -51,7 +51,49 @@ extern ObjectStorMgr *objStorMgr;
 typedef fds_uint32_t fds_token_id;
 
 
+/* Metadata that is persisted on disk */
+// TODO: Currently deriving from objectBuf.  For perf reasons we should
+// refactor to either hold a shared pointer to ObjectBuf or unmarshall and
+// have our own private data
+class SmObjMetadata : public ObjectBuf
+{
+public:
+    SmObjMetadata()
+    {
+        modification_ts_ = 0;
+    }
+    explicit SmObjMetadata(const std::string &str)
+    : ObjectBuf(str) {
+        modification_ts_ = 0;
+    }
+    explicit SmObjMetadata(const ObjectBuf& buf)
+    : ObjectBuf(buf)
+    {
+        modification_ts_ = 0;
+    }
+    virtual ~SmObjMetadata()
+    {
+    }
 
+    uint64_t get_modification_ts() const;
+
+    void unmarshall() {
+        // TODO(Rao): Impl
+        fds_assert(!"Not impl");
+    }
+
+    const char* buf() const {
+        return data.data();
+    }
+
+    size_t len() const {
+        return data.length();
+    }
+
+protected:
+    /* Unmarshalled fields */
+    uint64_t modification_ts_;
+};
 
 class SmObjDb : public HasLogger { 
 public:

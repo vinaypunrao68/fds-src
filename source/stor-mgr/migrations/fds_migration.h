@@ -95,6 +95,8 @@ public:
     boost::shared_ptr<FDSP_MigrationPathRespClient>
     get_resp_client(const std::string &session_uuid);
 
+    ClusterCommMgrPtr get_cluster_comm_mgr();
+
     std::string get_ip();
     int get_port();
 
