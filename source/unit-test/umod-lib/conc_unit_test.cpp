@@ -326,7 +326,7 @@ class ConcUnitTest {
   }
   
   void Run(const std::string& testname) {
-    int result;
+    int result = -1;
     std::cout << "Running unit test \"" << testname << "\"" << std::endl;
     
     if (testname == "basic_mutex") {
