@@ -68,6 +68,10 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
     /* XXX: TODO (vy), remove this code once we have node FSM */
     OM_Module *om = OM_Module::om_singleton();
 
+    // TODO(anna) the below code would not work yet, because
+    // register node message from SM/DM does not contain node
+    // (platform) uuid yet.
+    /*
     if ((msg->node_type == FDS_ProtocolInterface::FDSP_STOR_MGR) ||
         (msg->node_type == FDS_ProtocolInterface::FDSP_DATA_MGR)) {
         // we must have a node (platform) that runs any service
@@ -81,6 +85,7 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
             return Error(ERR_NODE_NOT_ACTIVE);
         }
     }
+    */
 
     err = om_locDomain->dc_register_node(uuid, msg, &newNode);
     if (err.ok() && (msg->node_type == FDS_ProtocolInterface::FDSP_PLATFORM)) {
@@ -89,11 +94,14 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         fds_verify(newNode != NULL);
 
         // tell parent PM Agent about its new service
-        OM_PmContainer::pointer pmNodes = om_locDomain->om_pm_nodes();
         newNode->set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
-        err = pmNodes->handle_register_service((msg->node_uuid).uuid,
-                                               msg->node_type,
-                                               newNode);
+        if ((msg->node_uuid).uuid != 0) {
+            OM_PmContainer::pointer pmNodes = om_locDomain->om_pm_nodes();
+            err = pmNodes->handle_register_service((msg->node_uuid).uuid,
+                                                   msg->node_type,
+                                                   newNode);
+        }
+
         // since we already checked above that we could add service, verify error ok
         fds_verify(err.ok());
 
