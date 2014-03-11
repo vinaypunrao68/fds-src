@@ -2,7 +2,7 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 #include <kvstore/redis.h>
-#include <stdlib.h>
+// #include <stdlib.h>
 #include <iostream>
 #include <queue>
 #include <string>
@@ -110,8 +110,22 @@ void Reply::toVector(std::vector<std::string>& vec) { // NOLINT
 
 void Reply::toVector(std::vector<long long>& vec) { // NOLINT
     for (size_t i = 0; i < r->elements ; ++i) {
-        vec.push_back(strtoll(std::string(r->element[i]->str,
-                                          r->element[i]->len).c_str(), NULL, 10));
+        vec.push_back(std::stoll(std::string(r->element[i]->str,
+                                          r->element[i]->len), NULL, 10));
+    }
+}
+
+void Reply::toVector(std::vector<uint>& vec) { // NOLINT
+    for (size_t i = 0; i < r->elements ; ++i) {
+        vec.push_back(std::stoi(std::string(r->element[i]->str,
+                                            r->element[i]->len), NULL, 10));
+    }
+}
+
+void Reply::toVector(std::vector<uint64_t>& vec) { // NOLINT
+    for (size_t i = 0; i < r->elements ; ++i) {
+        vec.push_back(std::stoll(std::string(r->element[i]->str,
+                                          r->element[i]->len), NULL, 10));
     }
 }
 
@@ -163,10 +177,29 @@ void Connection::connect() {
         oss << "connect to " << host << ":"<< port << " failed - ["
             << ctx->err <<"] - " << ctx->errstr;
         RedisException e(oss.str());
-        // redisFree(ctx);
-        // ctx = 0;
+        redisFree(ctx);
+        ctx = 0;
         throw e;
+    } else {
+        setDB(db);
     }
+}
+
+bool Connection::setDB(uint db) {
+    if (db > 0) {
+        redisAppendCommand(ctx, "selectdb %d", db);
+        try {
+            Reply reply = getReply();
+            reply.checkError();
+            this->db = db;
+        } catch(RedisException& e) { // NOLINT
+            LOGWARN << "error setting db to " << db << " : " << e.what();
+            redisFree(ctx);
+            ctx = 0;
+            throw e;
+        }
+    }
+    return true;
 }
 
 Reply Connection::getReply() {
@@ -248,6 +281,26 @@ void ConnectionPool::put(Connection* cxn) {
     }
 }
 
+bool ConnectionPool::setDB(uint db) {
+    atc::Synchronized s(monitor);
+    uint poolsize = connections.size();
+    for (uint i = 0 ; i < poolsize ; i++) {
+        Connection* cxn = connections.front();
+
+        if (cxn->isConnected()) {
+            cxn->setDB(db);
+        } else {
+            // if it is not connected yet, just
+            // set the variable, it will be set
+            // later on connect.
+            cxn->db = db;
+        }
+        connections.pop();
+        connections.push(cxn);
+    }
+    return true;
+}
+
 ScopedConnection::ScopedConnection(ConnectionPool* pool) : pool(pool) {
     cxn = pool->get();
     cxn->connect();
@@ -291,6 +344,10 @@ void Redis::decodeHex(const std::string& hex, std::string& binary) {
 
 Redis::Redis(const std::string& host, uint port,
              uint poolsize) : pool(poolsize, host, port) {
+}
+
+bool Redis::setDB(uint db) {
+    return pool.setDB(db);
 }
 
 bool Redis::isConnected() {
