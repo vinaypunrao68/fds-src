@@ -4,44 +4,33 @@ package com.formationds.spike;
  */
 
 import FDS_ProtocolInterface.*;
+import com.google.common.net.InetAddresses;
 import org.apache.thrift.TException;
-import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.protocol.TProtocol;
-import org.apache.thrift.server.TServer;
-import org.apache.thrift.server.TThreadPoolServer;
-import org.apache.thrift.transport.TServerSocket;
-import org.apache.thrift.transport.TServerTransport;
-import org.apache.thrift.transport.TSocket;
-import org.apache.thrift.transport.TTransportException;
+
 
 public class FakeAm {
     // I am a control server
     // I have an OM session client
 
     public static void main(String[] args) throws Exception {
-        new Thread(() -> {
-            try {
-                TServerTransport channel = new TServerSocket(6666);
-                FDSP_ControlPathReq.Processor<Am> processor = new FDSP_ControlPathReq.Processor<>(new Am());
-                TThreadPoolServer.Args serverArgs = new TThreadPoolServer.Args(channel).processor(processor);
-                TServer server = new TThreadPoolServer(serverArgs);
-                server.serve();
-            } catch (TTransportException e) {
-                e.printStackTrace();
-            }
-        }).start();
-        Thread.sleep(1000);
-        TSocket socket = new TSocket("localhost", 8904);
-        socket.open();
-        TProtocol protocol = new TBinaryProtocol(socket);
-        FDSP_Service.Client client = new FDSP_Service.Client(protocol);
-        FDSP_MsgHdrType msg = new FDSP_MsgHdrType();
-        msg.setSrc_node_name("h4xx0r-sm");
-        msg.setMsg_code(FDSP_MsgCodeType.FDSP_MSG_REG_NODE);
-        msg.setSrc_id(FDSP_MgrIdType.FDSP_STOR_HVISOR);
-        msg.setSrc_port(6666);
-        FDSP_SessionReqResp response = client.EstablishSession(msg);
-        System.out.println(response);
+        int myControlPort = 6666;
+        Thread thread = new Thread(() -> {
+            FDSP_ControlPathReq.Processor processor = new FDSP_ControlPathReq.Processor(new Am());
+            new FdspServer<FDSP_ControlPathReq.Processor>().start(myControlPort, processor);
+        });
+        thread.start();
+        TProtocol protocol = new FdspClient().handshake("localhost", 8904);
+
+        FDSP_OMControlPathReq.Client client = new FDSP_OMControlPathReq.Client(protocol);
+        FDSP_RegisterNodeType nodeMesg = new FDSP_RegisterNodeType();
+        nodeMesg.setNode_type(FDSP_MgrIdType.FDSP_STOR_HVISOR);
+        nodeMesg.setNode_name("h4xx0r-am");
+        int ipInt = InetAddresses.coerceToInteger(InetAddresses.forString("127.0.0.1"));
+        nodeMesg.setIp_lo_addr(ipInt);
+        nodeMesg.setControl_port(myControlPort);
+        client.send_RegisterNode(new FDSP_MsgHdrType(), nodeMesg);
+        thread.join();
     }
 
     public static class Am implements FDSP_ControlPathReq.Iface {
@@ -76,8 +65,8 @@ public class FakeAm {
         }
 
         @Override
-        public void NotifyNodeActive(FDSP_MsgHdrType fdsp_msg, FDSP_Node_Info_Type node_info) throws TException {
-            System.out.println(node_info);
+        public void NotifyNodeActive(FDSP_MsgHdrType fdsp_msg, FDSP_ActivateNodeType act_node_req) throws TException {
+            System.out.println(act_node_req);
         }
 
         @Override

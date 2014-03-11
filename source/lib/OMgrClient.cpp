@@ -322,79 +322,79 @@ void OMgrClient::initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
 }
 
 // Use this to register the local node with OM as a client. Should be called after calling starting subscription endpoint and control path endpoint.
-int OMgrClient::registerNodeWithOM(const FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr& 
-                                   dInfo) {
+int OMgrClient::registerNodeWithOM(Platform *plat,
+        const fpi::FDSP_AnnounceDiskCapabilityPtr &dInfo)
+{
+    try {
+        omclient_prx_session_ = nst_->startSession<netOMControlPathClientSession>(
+                omIpStr, omConfigPort, FDSP_ORCH_MGR, 1, /* number of channels */
+                boost::shared_ptr<FDSP_OMControlPathRespIf>());
+        /* TODO:  pass in response path server pointer */
+        // Just return if the om ptr is NULL because
+        // FDS-net doesn't throw the exception we're
+        // trying to catch. We should probably return
+        // an error and let the caller decide what to do.
+        // fds_verify(omclient_prx_session_ != nullptr);
+        if (omclient_prx_session_ == NULL) {
+            FDS_PLOG_SEV(omc_log, fds::fds_log::critical)
+                << "OMClient unable to register node with OrchMgr. "
+                   "Please check if OrchMgr is up and restart.";
+            return 0;
+        }
+        om_client_prx = omclient_prx_session_->getClient();  // NOLINT
 
-  try {
-      omclient_prx_session_ = nst_->startSession<netOMControlPathClientSession>(omIpStr,
-                                    omConfigPort,
-                                    FDSP_ORCH_MGR,
-                                    1, /* number of channels */
-                                   boost::shared_ptr<FDSP_OMControlPathRespIf>()/* TODO:  pass in response path server pointer */); 
-      
-      // Just return if the om ptr is NULL because
-      // FDS-net doesn't throw the exception we're
-      // trying to catch. We should probably return
-      // an error and let the caller decide what to do.
-      // fds_verify(omclient_prx_session_ != nullptr);
-      if (omclient_prx_session_ == NULL) {
-          FDS_PLOG_SEV(omc_log, fds::fds_log::critical) << "OMClient unable to register node with OrchMgr. Please check if OrchMgr is up and restart.";
-          return 0;
-      }
-      om_client_prx = omclient_prx_session_->getClient();  // NOLINT
-#if 0
-   boost::shared_ptr<apache::thrift::transport::TTransport>
-           socket(new apache::thrift::transport::TSocket(omIpStr, omConfigPort));
-   boost::shared_ptr<apache::thrift::transport::TTransport>
-           transport(new apache::thrift::transport::TBufferedTransport(socket));
-   boost::shared_ptr<apache::thrift::protocol::TProtocol>
-           protocol(new apache::thrift::protocol::TBinaryProtocol(transport));
-  
-   om_client_prx = new FDS_ProtocolInterface::FDSP_OMControlPathReqClient(protocol);
-   transport->open();
-#endif
-      
-   FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
-   initOMMsgHdr(msg_hdr);
-   FDSP_RegisterNodeTypePtr reg_node_msg(new FDSP_RegisterNodeType);
-   reg_node_msg->node_type = my_node_type;
-   reg_node_msg->node_name = my_node_name;
-   reg_node_msg->ip_hi_addr = 0;
-   reg_node_msg->ip_lo_addr = fds::str_to_ipv4_addr(hostIp); //my_address!
-   reg_node_msg->control_port = my_control_port;
-   reg_node_msg->data_port = my_data_port; // for now
-   reg_node_msg->migration_port = my_migration_port;  // TODO(Andrew): Move to SM specific
-   /* init the disk info */
-   
-   reg_node_msg->disk_info.disk_iops_max =  dInfo->disk_iops_max;
-   reg_node_msg->disk_info.disk_iops_min =  dInfo->disk_iops_min;
-   reg_node_msg->disk_info.disk_capacity = dInfo->disk_capacity;
-   reg_node_msg->disk_info.disk_latency_max = dInfo->disk_latency_max;
-   reg_node_msg->disk_info.disk_latency_min = dInfo->disk_latency_min;
-   reg_node_msg->disk_info.ssd_iops_max =  dInfo->ssd_iops_max;
-   reg_node_msg->disk_info.ssd_iops_min =  dInfo->ssd_iops_min;
-   reg_node_msg->disk_info.ssd_capacity = dInfo->ssd_capacity;
-   reg_node_msg->disk_info.ssd_latency_max = dInfo->ssd_latency_min;
-   reg_node_msg->disk_info.ssd_latency_min = dInfo->ssd_latency_min;
-   reg_node_msg->disk_info.disk_type = dInfo->disk_type;
+        FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
+        initOMMsgHdr(msg_hdr);
 
-   FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient registering local node " 
-						     << fds::ipv4_addr_to_str(reg_node_msg->ip_lo_addr) 
-						     << " control port:" << reg_node_msg->control_port 
-						     << " data port:" << reg_node_msg->data_port
-						     << " with Orchaestration Manager at "
-                                                     << omIpStr << ":" << omConfigPort;
+        FDSP_RegisterNodeTypePtr reg_node_msg(new FDSP_RegisterNodeType);
+        reg_node_msg->node_type    = my_node_type; // plat->plf_get_node_type();
+        reg_node_msg->node_name    = my_node_name;
+        reg_node_msg->ip_hi_addr   = 0;
+        // reg_node_msg->ip_lo_addr   = fds::str_to_ipv4_addr(*plat->plf_get_my_ip());
+        reg_node_msg->ip_lo_addr   = fds::str_to_ipv4_addr(hostIp); //my_address!
+        reg_node_msg->control_port = my_control_port; // plat->plf_get_my_ctrl_port();
+        reg_node_msg->data_port    = my_data_port; // plat->plf_get_my_data_port();
 
-  om_client_prx->RegisterNode(msg_hdr, reg_node_msg);
+        // TODO(Andrew): Move to SM specific
+        reg_node_msg->migration_port = my_migration_port; // plat->plf_get_my_migration_port();
 
-  FDS_PLOG_SEV(omc_log, fds::fds_log::debug) << "OMClient completed node registration with OM";
+        // TODO(Vy): simple service uuid from node uuid.
+        reg_node_msg->node_uuid.uuid = plat->plf_get_my_uuid()->uuid_get_val();
+        if (reg_node_msg->node_uuid.uuid != 0) {
+            reg_node_msg->service_uuid.uuid =
+                reg_node_msg->node_uuid.uuid + reg_node_msg->node_type + 1;
+        }
+        /* init the disk info */
+        reg_node_msg->disk_info.disk_iops_max =  dInfo->disk_iops_max;
+        reg_node_msg->disk_info.disk_iops_min =  dInfo->disk_iops_min;
+        reg_node_msg->disk_info.disk_capacity = dInfo->disk_capacity;
+        reg_node_msg->disk_info.disk_latency_max = dInfo->disk_latency_max;
+        reg_node_msg->disk_info.disk_latency_min = dInfo->disk_latency_min;
+        reg_node_msg->disk_info.ssd_iops_max =  dInfo->ssd_iops_max;
+        reg_node_msg->disk_info.ssd_iops_min =  dInfo->ssd_iops_min;
+        reg_node_msg->disk_info.ssd_capacity = dInfo->ssd_capacity;
+        reg_node_msg->disk_info.ssd_latency_max = dInfo->ssd_latency_min;
+        reg_node_msg->disk_info.ssd_latency_min = dInfo->ssd_latency_min;
+        reg_node_msg->disk_info.disk_type = dInfo->disk_type;
 
-  }
-  catch(...) {
-    FDS_PLOG_SEV(omc_log, fds::fds_log::critical) << "OMClient unable to register node with OrchMgr. Please check if OrchMgr is up and restart.";
-  }
+        FDS_PLOG_SEV(omc_log, fds::fds_log::notification)
+            << "OMClient registering local node "
+            << fds::ipv4_addr_to_str(reg_node_msg->ip_lo_addr)
+            << " control port:" << reg_node_msg->control_port
+            << " data port:" << reg_node_msg->data_port
+            << " with Orchaestration Manager at "
+            << omIpStr << ":" << omConfigPort;
 
-  return (0);
+        om_client_prx->RegisterNode(msg_hdr, reg_node_msg);
+        FDS_PLOG_SEV(omc_log, fds::fds_log::debug)
+            << "OMClient completed node registration with OM";
+    }
+    catch(...) {
+        FDS_PLOG_SEV(omc_log, fds::fds_log::critical)
+            << "OMClient unable to register node with OrchMgr. "
+               "Please check if OrchMgr is up and restart.";
+    }
+    return (0);
 }
 
 int OMgrClient::pushPerfstatsToOM(const std::string& start_ts,

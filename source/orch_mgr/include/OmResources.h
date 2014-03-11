@@ -156,6 +156,38 @@ class OM_PmAgent : public NodeAgent
      * Allowing only one type of service per Platform
      */
     fds_bool_t service_exists(FDS_ProtocolInterface::FDSP_MgrIdType svc_type) const;
+    /**
+     * Send 'activate services' message to Platform
+     */
+    void send_activate_services(fds_bool_t activate_sm,
+                                fds_bool_t activate_dm,
+                                fds_bool_t activate_am);
+
+    /**
+     * Tell platform Agent about new active service
+     * Platform Agent keeps a pointer to active services node agents
+     * These functions just set/reset pointers to appropriate service
+     * agents and do not actually register or deregister node agents
+     */
+    Error handle_register_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_type,
+                                  NodeAgent::pointer svc_agent);
+    void handle_unregister_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_type);
+
+    /**
+     * If any service running on this node matches given 'svc_uuid'
+     * handle its deregister
+     */
+    void handle_unregister_service(const NodeUuid& svc_uuid);
+
+    inline OM_SmAgent::pointer get_sm_service() {
+        return activeSmAgent;
+    }
+    inline OM_DmAgent::pointer get_dm_service() {
+        return activeDmAgent;
+    }
+    inline OM_AmAgent::pointer get_am_service() {
+        return activeAmAgent;
+    }
 
     virtual void init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const;
 
@@ -163,6 +195,10 @@ class OM_PmAgent : public NodeAgent
     NodeAgentCpSessionPtr   ndCpSession;
     std::string             ndSessionId;
     NodeAgentCpReqClientPtr ndCpClient;
+
+    OM_SmAgent::pointer     activeSmAgent;  // pointer to active SM service or NULL
+    OM_DmAgent::pointer     activeDmAgent;  // pointer to active DM service or NULL
+    OM_AmAgent::pointer     activeAmAgent;  // pointer to active AM service or NULL
 };
 
 // -------------------------------------------------------------------------------------
@@ -185,14 +221,27 @@ class OM_PmContainer : public PmContainer
      * Node (Platform) that will run the service must be discovered
      * and set to active state
      */
-    fds_bool_t check_new_service(const NodeUuid &pm_uuid,
+    fds_bool_t check_new_service(const NodeUuid& pm_uuid,
                                  FDS_ProtocolInterface::FDSP_MgrIdType svc_role);
+
+    /**
+     * Tell platform agent with uuid 'pm_uuid' about new service registered
+     */
+    Error handle_register_service(const NodeUuid& pm_uuid,
+                                  FDS_ProtocolInterface::FDSP_MgrIdType svc_role,
+                                  NodeAgent::pointer svc_agent);
+    /**
+     * Makes sure Platform agents do not point on unregistered services
+     * Will search all Platform agents for a service with uuid 'uuid'
+     */
+    void handle_unregister_service(const NodeUuid& svc_uuid);
 
     static inline OM_PmContainer::pointer agt_cast_ptr(RsContainer::pointer ptr) {
         return static_cast<OM_PmContainer *>(get_pointer(ptr));
     }
 
   protected:
+    uint nodeNameCounter = 0;
     boost::shared_ptr<OM_ControlRespHandler> ctrlRspHndlr;
 
     virtual Resource *rs_new(const ResourceUUID &uuid) {
@@ -361,6 +410,14 @@ class OM_NodeContainer : public DomainContainer
     virtual void om_bcast_vol_tier_audit(const FDSP_TierPolicyAuditPtr &tier);
     virtual void om_bcast_throttle_lvl(float throttle_level);
     virtual void om_bcast_dlt(const DLT* curDlt);
+    /**
+     * conditional broadcast to platform (nodes) to
+     * activate SM and DM services on those nodes, but only
+     * to those nodes which are in discovered state
+     */
+    virtual void om_cond_bcast_activate_services(fds_bool_t activate_sm,
+                                                 fds_bool_t activate_dm,
+                                                 fds_bool_t activate_am);
 
   private:
     friend class OM_NodeDomainMod;
@@ -457,12 +514,6 @@ class OM_NodeDomainMod : public Module
                                    const std::string& node_name);
 
     /**
-     * Commision all the nodes that are discovered but not active yet
-     * Will tell platform to start DM and SM services on those nodes
-     */
-    virtual Error om_activate_nodes();
-
-    /**
      * Notification that OM received migration done message from
      * node with uuid 'uuid' for dlt version 'dlt_version'
      */
@@ -553,6 +604,13 @@ class OM_ControlRespHandler : public fpi:: FDSP_ControlPathRespIf {
         const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
         const FDS_ProtocolInterface::FDSP_Node_Info_Type& node_info_resp);
     void NotifyNodeRmvResp(
+        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+        FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp);
+
+    void NotifyNodeActiveResp(
+        const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+        const FDS_ProtocolInterface::FDSP_Node_Info_Type& node_info_resp);
+    void NotifyNodeActiveResp(
         FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
         FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp);
 

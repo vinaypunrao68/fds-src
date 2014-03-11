@@ -424,12 +424,13 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::ActivateAllNodes(
     try {
         int domain_id = act_node_msg->domain_id;
         // use default domain for now
-        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
 
         LOGNORMAL << "Received Activate All Nodes Req for domain " << domain_id;
 
-        Error error = domain->om_activate_nodes();
-        if (!error.ok()) err = -1;
+        local->om_cond_bcast_activate_services(act_node_msg->activate_sm,
+                                               act_node_msg->activate_dm,
+                                               act_node_msg->activate_am);
     }
     catch(...) {
         LOGERROR << "Orch Mgr encountered exception while "
@@ -559,11 +560,16 @@ void OrchMgr::FDSP_OMControlPathReqHandler::RegisterNode(
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
     NodeUuid new_node_uuid;
 
-    if (reg_node_req->node_uuid.uuid > 0) {
-        new_node_uuid = reg_node_req->node_uuid.uuid;
+    if (reg_node_req->service_uuid.uuid != 0) {
+        new_node_uuid = reg_node_req->service_uuid.uuid;
     } else {
         new_node_uuid = (fds_get_uuid64(reg_node_req->node_name));
     }
+    LOGNORMAL << "Begin Registered new node " << reg_node_req->node_name
+              << std::hex << new_node_uuid << " svc uuid "
+              << " pkt svc uuid " << reg_node_req->service_uuid.uuid
+              << " node uuid " << reg_node_req->node_uuid.uuid
+              << reg_node_req->service_uuid.uuid << std::dec;
 
     Error err = domain->om_reg_node_info(new_node_uuid, reg_node_req);
 
@@ -574,8 +580,10 @@ void OrchMgr::FDSP_OMControlPathReqHandler::RegisterNode(
                  << err.GetErrstr();
         return;
     }
-    LOGNORMAL << "Registered new node "
-              << new_node_uuid << std::dec;
+    LOGNORMAL << "End Registered new node " << reg_node_req->node_name
+              << std::hex << new_node_uuid << " svc uuid "
+              << " node uuid " << reg_node_req->node_uuid.uuid
+              << reg_node_req->service_uuid.uuid << std::dec;
 
     // TODO(Andrew): for now, let's start the cluster update process now.
     // This should eventually be decoupled from registration.

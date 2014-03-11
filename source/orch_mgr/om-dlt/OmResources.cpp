@@ -67,8 +67,13 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
     NodeAgent::pointer newNode;
     /* XXX: TODO (vy), remove this code once we have node FSM */
     OM_Module *om = OM_Module::om_singleton();
+
+    // TODO(anna) the below code would not work yet, because
+    // register node message from SM/DM does not contain node
+    // (platform) uuid yet.
     /*
-    if (msg->node_type != FDS_ProtocolInterface::FDSP_PLATFORM) {
+    if ((msg->node_type == FDS_ProtocolInterface::FDSP_STOR_MGR) ||
+        (msg->node_type == FDS_ProtocolInterface::FDSP_DATA_MGR)) {
         // we must have a node (platform) that runs any service
         // registered with OM and node must be in active state
         OM_PmContainer::pointer pmNodes = om_locDomain->om_pm_nodes();
@@ -81,11 +86,32 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         }
     }
     */
+
     err = om_locDomain->dc_register_node(uuid, msg, &newNode);
     if (err.ok() && (msg->node_type == FDS_ProtocolInterface::FDSP_PLATFORM)) {
         FDS_PLOG(g_fdslog) << "om_reg_node: Registered Platform";
     } else if (err.ok()) {
         fds_verify(newNode != NULL);
+
+        // tell parent PM Agent about its new service
+        newNode->set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
+
+        // TODO(Vy): integrate this code...
+#if 0
+        if ((msg->node_uuid).uuid != 0) {
+            OM_PmContainer::pointer pmNodes = om_locDomain->om_pm_nodes();
+            err = pmNodes->handle_register_service((msg->node_uuid).uuid,
+                                                   msg->node_type,
+                                                   newNode);
+        }
+#endif
+        FDS_PLOG(g_fdslog) << "OM recv reg node uuid " << std::hex
+            << msg->node_uuid.uuid << ", svc uuid " << msg->service_uuid.uuid
+            << std::dec << ", type " << msg->node_type;
+
+        // since we already checked above that we could add service, verify error ok
+        fds_verify(err.ok());
+
         om_locDomain->om_bcast_new_node(newNode, msg);
 
         // Let this new node know about exisiting node list.
@@ -109,18 +135,6 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
     return err;
 }
 
-// om_activate_node
-// ----------------
-//
-Error
-OM_NodeDomainMod::om_activate_nodes()
-{
-    Error err(ERR_OK);
-    // TODO(anna) implement
-    return err;
-}
-
-
 // om_del_node_info
 // ----------------
 //
@@ -129,6 +143,9 @@ OM_NodeDomainMod::om_del_node_info(const NodeUuid& uuid,
                                    const std::string& node_name)
 {
     Error err = om_locDomain->dc_unregister_node(uuid, node_name);
+    OM_PmContainer::pointer pmNodes = om_locDomain->om_pm_nodes();
+    // make sure that platform agents do not hold references to this node
+    pmNodes->handle_unregister_service(uuid);
     return err;
 }
 
@@ -365,6 +382,22 @@ void
 OM_ControlRespHandler::NotifyNodeRmvResp(
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp) {
+}
+
+void
+OM_ControlRespHandler::NotifyNodeActiveResp(
+    const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+    const FDS_ProtocolInterface::FDSP_Node_Info_Type& node_info_resp) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+}
+
+void
+OM_ControlRespHandler::NotifyNodeActiveResp(
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+    FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp) {
+    FDS_PLOG_SEV(g_fdslog, fds_log::notification)
+            << "OM received response for NotifyNodeActive from node "
+            << fdsp_msg->src_node_name;
 }
 
 void

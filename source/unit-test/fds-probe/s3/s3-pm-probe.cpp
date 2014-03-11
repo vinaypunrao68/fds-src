@@ -5,6 +5,7 @@
 #include <util/fds_stat.h>
 #include <fds-probe/s3-probe.h>
 #include <persistent_layer/dm_io.h>
+#include <am-platform.h>
 
 int main(int argc, char **argv)
 {
@@ -13,6 +14,7 @@ int main(int argc, char **argv)
     fds::Module *s3_pm_probe_vec[] = {
         &fds::gl_fds_stat,
         &fds::gl_probeS3Eng,
+        &fds::gl_AmPlatform,
         &fds::gl_PM_ProbeMod,
         &diskio::gl_dataIOMod,
         nullptr

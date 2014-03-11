@@ -357,7 +357,7 @@ def bringupCluster(env, bu, cfgFile, verbose, debug):
 
     os.chdir(env.env_fdsSrc + '/Build/linux-x86_64.debug/bin')
 
-    print "\n\nStarting OM...."
+    print "\n\nStarting OM in ", root1
     subprocess.Popen(['./orchMgr', '--fds-root', root1],
                      stderr=subprocess.STDOUT)
     subprocess.call(['sleep', '1'])
@@ -365,7 +365,16 @@ def bringupCluster(env, bu, cfgFile, verbose, debug):
     print "\n\nStarting Platform Daemon on node1..."
     subprocess.Popen(['./platformd', '--fds-root', root1],
                      stderr=subprocess.STDOUT)
-    subprocess.call(['sleep', '1'])
+    # wait for platformd to come up before issue command
+    subprocess.call(['sleep', '5'])
+
+    # Start CLI to ask OM to commision the node.
+    #
+    print "\n\nAsking OM to accept all discovered nodes..."
+    subprocess.Popen(['./fdscli', '--fds-root', root1,
+                      '--activate-nodes', 'abc', '-k', '1'],
+                     stderr=subprocess.STDOUT)
+    subprocess.call(['sleep', '5'])
 
     # print "\n\nStarting SM on node1...."
     # subprocess.Popen(['./StorMgr', '--fds-root', root1],

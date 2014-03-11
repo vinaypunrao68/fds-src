@@ -10,6 +10,7 @@
 #include <platform/platform-lib.h>
 
 namespace fds {
+class NodePlatformProc;
 
 class NodePlatform : public Platform
 {
@@ -24,7 +25,12 @@ class NodePlatform : public Platform
     virtual void mod_startup();
     virtual void mod_shutdown();
 
+    void        plf_start_node_services(const fpi::FDSP_ActivateNodeTypePtr &msg);
+    inline void plf_bind_process(NodePlatformProc *ptr) { plf_process = ptr; }
+
   protected:
+    NodePlatformProc    *plf_process;
+
     virtual PlatRpcReqt *plat_creat_reqt_disp();
     virtual PlatRpcResp *plat_creat_resp_disp();
 };
@@ -43,6 +49,9 @@ class PlatformRpcReqt : public PlatRpcReqt
 
     void NotifyNodeRmv(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
                        fpi::FDSP_Node_Info_TypePtr &node_info);
+
+    void NotifyNodeActive(fpi::FDSP_MsgHdrTypePtr       &hdr,
+                          fpi::FDSP_ActivateNodeTypePtr &info);
 };
 
 /**
@@ -69,10 +78,10 @@ class NodePlatformProc : public PlatformProcess
     void run();
 
   protected:
-    void plf_load_node_data();
+    friend class NodePlatform;
 
-  private:
-    void plf_start_node_services();
+    void plf_load_node_data();
+    void plf_start_node_services(const fpi::FDSP_ActivateNodeTypePtr &msg);
 };
 
 }  // namespace fds

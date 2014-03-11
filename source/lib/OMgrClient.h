@@ -3,6 +3,7 @@
 #include <fds_err.h>
 #include <fds_volume.h>
 
+#if 0
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -10,11 +11,11 @@
 #include <arpa/inet.h>
 #include <stdlib.h>
 #include <thread>
+#endif
 
 #include "fdsp/FDSP_types.h"
 #include "fdsp/FDSP_ControlPathReq.h"
 #include "fdsp/FDSP_OMControlPathReq.h"
-#include <fdsp/FDSP_types.h>
 #include <util/Log.h>
 
 #include <unordered_map>
@@ -23,6 +24,7 @@
 #include <NetSession.h>
 #include <dlt.h>
 #include <LocalClusterMap.h>
+#include <platform/platform-lib.h>
 
 using namespace FDS_ProtocolInterface;
 
@@ -158,7 +160,7 @@ namespace fds {
     //    int subscribeToOmEvents(unsigned int om_ip_addr, int tennant_id, int domain_id, int omc_port_num=0);
     int startAcceptingControlMessages();
     int startAcceptingControlMessages(fds_uint32_t port_num);
-    int registerNodeWithOM(const FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr& diskInfo);
+    int registerNodeWithOM(Platform *plat, const FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr& diskInfo);
     int pushCreateBucketToOM(const FDS_ProtocolInterface::FDSP_VolumeInfoTypePtr& volInfo);
     int pushDeleteBucketToOM(const FDS_ProtocolInterface::FDSP_DeleteVolTypePtr& volInfo);
     int pushModifyBucketToOM(const std::string& bucket_name,
@@ -277,12 +279,12 @@ namespace fds {
 		       FDSP_Node_Info_TypePtr& node_info);
 
     void NotifyNodeActive(const FDSP_MsgHdrType& fdsp_msg,
-                          const FDSP_Node_Info_Type& node_info) {
+                          const FDSP_ActivateNodeType& act_node_req) {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
 
     void NotifyNodeActive(FDSP_MsgHdrTypePtr& msg_hdr, 
-		                  FDSP_Node_Info_TypePtr& node_info) {}
+		                  FDSP_ActivateNodeTypePtr& act_node_req) {}
 
     void NotifyNodeRmv(const FDSP_MsgHdrType& fdsp_msg,
                        const FDSP_Node_Info_Type& node_info) {

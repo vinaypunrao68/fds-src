@@ -194,7 +194,8 @@ Platform::plf_change_info(const plat_node_data_t *ndata)
               << "My conf port " << plf_my_conf_port << std::endl
               << "My data port " << plf_my_data_port << std::endl
               << "My migr port " << plf_my_migr_port << std::endl
-              << "My OM port   " << plf_om_ctrl_port << std::endl
+              << "My node uuid " << std::hex << plf_my_uuid.uuid_get_val() << std::endl
+              << "My OM port   " << std::dec << plf_om_ctrl_port << std::endl
               << "My OM IP     " << plf_om_ip_str << std::endl;
 }
 
@@ -299,11 +300,11 @@ PlatRpcReqt::NotifyNodeAdd(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
 
 void
 PlatRpcReqt::NotifyNodeActive(const FDSP_MsgHdrType     &fdsp_msg,
-                              const FDSP_Node_Info_Type &node_info) {}
+                              const FDSP_ActivateNodeType &act_node_req) {}
 
 void
 PlatRpcReqt::NotifyNodeActive(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
-                              fpi::FDSP_Node_Info_TypePtr &node_info)
+                              fpi::FDSP_ActivateNodeTypePtr &act_node_req)
 {
     fds_verify(0);
 }

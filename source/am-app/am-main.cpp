@@ -16,7 +16,7 @@ class AM_Process : public PlatformProcess
     virtual ~AM_Process() {}
     AM_Process(int argc, char **argv,
                Platform *platform, Module **mod_vec)
-        : PlatformProcess(argc, argv, "fds.am.", platform, mod_vec) {}
+        : PlatformProcess(argc, argv, "fds.am.", "am.log", platform, mod_vec) {}
 
     void setup() override
     {

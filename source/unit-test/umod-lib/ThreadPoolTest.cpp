@@ -26,8 +26,8 @@ class TestArgBase
 
   private:
     friend class             TestUnitBase;
-    int                      _targ_num_cpus;
     int                      _targ_loop;
+    int                      _targ_num_cpus;
 };
 
 class TestUnitBase

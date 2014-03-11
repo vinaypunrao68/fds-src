@@ -14,12 +14,14 @@ user_fds_ar_libs  +=  \
     fds-probe \
     fds-am-engine \
     fds-StorHvisor \
+    fds-am-plat \
+    fds-plat-lib \
     fds-lib \
     fds-umod \
     fds-util \
     fds-hash \
     fds-fdsp \
-    fds-thread \
+    fds-thread
 
 local_nginx_libs   :=  \
     ngx-http-module \

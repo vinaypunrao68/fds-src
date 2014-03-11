@@ -100,6 +100,19 @@ void OrchMgr::FDSP_ControlPathRespHandler::NotifyNodeRmvResp(
             << "OrchMgr: received response for NotifyNodeRmv";
 }
 
+void OrchMgr::FDSP_ControlPathRespHandler::NotifyNodeActiveResp(
+    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+    const ::FDS_ProtocolInterface::FDSP_Node_Info_Type& node_info_resp) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+}
+
+void OrchMgr::FDSP_ControlPathRespHandler::NotifyNodeActiveResp(
+    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+    ::FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp) {
+    FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::notification)
+            << "OrchMgr: received response for NotifyNodeActive";
+}
+
 void OrchMgr::FDSP_ControlPathRespHandler::NotifyDLTUpdateResp(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_DLT_Resp_Type& dlt_info_resp) {

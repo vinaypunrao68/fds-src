@@ -367,6 +367,13 @@ class OrchMgr: public FdsProcess {
             ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
             ::FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp);
 
+        void NotifyNodeActiveResp(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_Node_Info_Type& node_info_resp);
+        void NotifyNodeActiveResp(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp);
+
         void NotifyNodeRmvResp(
             const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
             const ::FDS_ProtocolInterface::FDSP_Node_Info_Type& node_info_resp);
