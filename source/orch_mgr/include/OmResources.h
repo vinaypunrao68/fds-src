@@ -163,12 +163,42 @@ class OM_PmAgent : public NodeAgent
                                 fds_bool_t activate_dm,
                                 fds_bool_t activate_am);
 
+    /**
+     * Tell platform Agent about new active service
+     * Platform Agent keeps a pointer to active services node agents
+     * These functions just set/reset pointers to appropriate service
+     * agents and do not actually register or deregister node agents
+     */
+    Error handle_register_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_type,
+                                  NodeAgent::pointer svc_agent);
+    void handle_unregister_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_type);
+
+    /**
+     * If any service running on this node matches given 'svc_uuid'
+     * handle its deregister
+     */
+    void handle_unregister_service(const NodeUuid& svc_uuid);
+
+    inline OM_SmAgent::pointer get_sm_service() {
+        return activeSmAgent;
+    }
+    inline OM_DmAgent::pointer get_dm_service() {
+        return activeDmAgent;
+    }
+    inline OM_AmAgent::pointer get_am_service() {
+        return activeAmAgent;
+    }
+
     virtual void init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const;
 
   protected:
     NodeAgentCpSessionPtr   ndCpSession;
     std::string             ndSessionId;
     NodeAgentCpReqClientPtr ndCpClient;
+
+    OM_SmAgent::pointer     activeSmAgent;  // pointer to active SM service or NULL
+    OM_DmAgent::pointer     activeDmAgent;  // pointer to active DM service or NULL
+    OM_AmAgent::pointer     activeAmAgent;  // pointer to active AM service or NULL
 };
 
 // -------------------------------------------------------------------------------------
@@ -191,8 +221,20 @@ class OM_PmContainer : public PmContainer
      * Node (Platform) that will run the service must be discovered
      * and set to active state
      */
-    fds_bool_t check_new_service(const NodeUuid &pm_uuid,
+    fds_bool_t check_new_service(const NodeUuid& pm_uuid,
                                  FDS_ProtocolInterface::FDSP_MgrIdType svc_role);
+
+    /**
+     * Tell platform agent with uuid 'pm_uuid' about new service registered
+     */
+    Error handle_register_service(const NodeUuid& pm_uuid,
+                                  FDS_ProtocolInterface::FDSP_MgrIdType svc_role,
+                                  NodeAgent::pointer svc_agent);
+    /**
+     * Makes sure Platform agents do not point on unregistered services
+     * Will search all Platform agents for a service with uuid 'uuid'
+     */
+    void handle_unregister_service(const NodeUuid& svc_uuid);
 
     static inline OM_PmContainer::pointer agt_cast_ptr(RsContainer::pointer ptr) {
         return static_cast<OM_PmContainer *>(get_pointer(ptr));

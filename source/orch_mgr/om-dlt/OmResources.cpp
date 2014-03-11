@@ -67,8 +67,9 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
     NodeAgent::pointer newNode;
     /* XXX: TODO (vy), remove this code once we have node FSM */
     OM_Module *om = OM_Module::om_singleton();
-    /*
-    if (msg->node_type != FDS_ProtocolInterface::FDSP_PLATFORM) {
+
+    if ((msg->node_type == FDS_ProtocolInterface::FDSP_STOR_MGR) ||
+        (msg->node_type == FDS_ProtocolInterface::FDSP_DATA_MGR)) {
         // we must have a node (platform) that runs any service
         // registered with OM and node must be in active state
         OM_PmContainer::pointer pmNodes = om_locDomain->om_pm_nodes();
@@ -80,12 +81,22 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
             return Error(ERR_NODE_NOT_ACTIVE);
         }
     }
-    */
+
     err = om_locDomain->dc_register_node(uuid, msg, &newNode);
     if (err.ok() && (msg->node_type == FDS_ProtocolInterface::FDSP_PLATFORM)) {
         FDS_PLOG(g_fdslog) << "om_reg_node: Registered Platform";
     } else if (err.ok()) {
         fds_verify(newNode != NULL);
+
+        // tell parent PM Agent about its new service
+        OM_PmContainer::pointer pmNodes = om_locDomain->om_pm_nodes();
+        newNode->set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
+        err = pmNodes->handle_register_service((msg->node_uuid).uuid,
+                                               msg->node_type,
+                                               newNode);
+        // since we already checked above that we could add service, verify error ok
+        fds_verify(err.ok());
+
         om_locDomain->om_bcast_new_node(newNode, msg);
 
         // Let this new node know about exisiting node list.
@@ -117,6 +128,9 @@ OM_NodeDomainMod::om_del_node_info(const NodeUuid& uuid,
                                    const std::string& node_name)
 {
     Error err = om_locDomain->dc_unregister_node(uuid, node_name);
+    OM_PmContainer::pointer pmNodes = om_locDomain->om_pm_nodes();
+    // make sure that platform agents do not hold references to this node
+    pmNodes->handle_unregister_service(uuid);
     return err;
 }
 
