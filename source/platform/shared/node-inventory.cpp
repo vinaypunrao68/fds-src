@@ -206,7 +206,15 @@ OmAgent::init_node_reg_pkt(fpi::FDSP_RegisterNodeTypePtr pkt) const
 
     NodeInventory::init_node_reg_pkt(pkt);
     if (plat != NULL) {
-        pkt->node_type = plat->plf_get_node_type();
+        pkt->node_type         = plat->plf_get_node_type();
+        pkt->node_uuid.uuid    = plat->plf_get_my_uuid()->uuid_get_val();
+        pkt->service_uuid.uuid = pkt->node_uuid.uuid + 1 + pkt->node_type;
+        pkt->node_name         = *plat->plf_get_my_name();
+        pkt->ip_hi_addr        = 0;
+        pkt->ip_lo_addr        = fds::str_to_ipv4_addr(*plat->plf_get_my_ip());
+        pkt->control_port      = plat->plf_get_my_ctrl_port();
+        pkt->data_port         = plat->plf_get_my_data_port();
+        pkt->migration_port    = plat->plf_get_my_migration_port();
     }
 }
 

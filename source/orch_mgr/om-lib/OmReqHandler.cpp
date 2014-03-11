@@ -428,9 +428,9 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::ActivateAllNodes(
 
         LOGNORMAL << "Received Activate All Nodes Req for domain " << domain_id;
 
-        local->om_cond_bcast_activate_services(act_node_msg->activate_sm,
-                                               act_node_msg->activate_dm,
-                                               act_node_msg->activate_am);
+        // for now we will acticate SM and DM
+        // AM will be activated separately
+        local->om_cond_bcast_activate_services(true, true, false);
     }
     catch(...) {
         LOGERROR << "Orch Mgr encountered exception while "
@@ -562,6 +562,8 @@ void OrchMgr::FDSP_OMControlPathReqHandler::RegisterNode(
 
     if (reg_node_req->service_uuid.uuid != 0) {
         new_node_uuid = reg_node_req->service_uuid.uuid;
+    } else if (reg_node_req->node_uuid.uuid != 0) {
+        new_node_uuid = reg_node_req->node_uuid.uuid;
     } else {
         new_node_uuid = (fds_get_uuid64(reg_node_req->node_name));
     }
@@ -569,6 +571,7 @@ void OrchMgr::FDSP_OMControlPathReqHandler::RegisterNode(
               << std::hex << new_node_uuid << " svc uuid "
               << " pkt svc uuid " << reg_node_req->service_uuid.uuid
               << " node uuid " << reg_node_req->node_uuid.uuid
+              << " node type " << reg_node_req->node_type
               << reg_node_req->service_uuid.uuid << std::dec;
 
     Error err = domain->om_reg_node_info(new_node_uuid, reg_node_req);
