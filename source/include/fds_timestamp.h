@@ -20,5 +20,5 @@ inline uint64_t get_fds_timestamp_ms()
      static ptime const epoch(date(1970, 1, 1));
      return (microsec_clock::universal_time() - epoch).total_milliseconds();
 }
-}
-#endif
+}  // namespace fds
+#endif  // SOURCE_INCLUDE_FDS_TIMESTAMP_H_
