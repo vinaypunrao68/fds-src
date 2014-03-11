@@ -194,14 +194,15 @@ namespace fds {
      * write since it accepts a putObjReq Ptr.
      * TODO: Wrap this up in a clear interface.
      */
-    SmIoReq(fds_uint64_t       _objIdHigh,
-            fds_uint64_t       _objIdLow,
+    SmIoReq(const std::string& objID,
             // const std::string& _dataStr,
 	    FDSP_PutObjTypePtr& putObjReq,
             fds_volid_t        _volUuid,
             fds_io_op_t        _ioType,
 	    fds_uint32_t       _ioReqId) {
-      objId = ObjectID(_objIdHigh, _objIdLow);
+//      objId = ObjectID(_objIdHigh, _objIdLow);
+       objId = ObjectID(objID);
+      //  memcpy(objId.digest, objID.digest, objId.GetLen());
       // objData.size        = _dataStr.size();
       // objData.data        = _dataStr;
       volUuid             = _volUuid;
@@ -219,14 +220,14 @@ namespace fds {
      * read, it takes a getObjReq Ptr.
      * TODO: Wrap this up in a clear interface.
      */
-    SmIoReq(fds_uint64_t       _objIdHigh,
-            fds_uint64_t       _objIdLow,
+    SmIoReq( const std:: string& objID,
             // const std::string& _dataStr,
 	    FDSP_GetObjTypePtr& getObjReq,
             fds_volid_t        _volUuid,
             fds_io_op_t        _ioType,
             fds_uint32_t       _ioReqId) {
-      objId = ObjectID(_objIdHigh, _objIdLow);
+       objId = ObjectID(objID);
+      // memcpy(objId.digest, objID.digest, objId.GetLen());
       // objData.size        = _dataStr.size();
       // objData.data        = _dataStr;
       volUuid             = _volUuid;
@@ -250,14 +251,14 @@ namespace fds {
      * write since it accepts a deleteObjReq Ptr.
      * TODO: Wrap this up in a clear interface.
      */
-    SmIoReq(fds_uint64_t       _objIdHigh,
-            fds_uint64_t       _objIdLow,
+    SmIoReq(const std::string& objID,
             // const std::string& _dataStr,
 	    FDSP_DeleteObjTypePtr& delObjReq,
             fds_volid_t        _volUuid,
             fds_io_op_t        _ioType,
 	    fds_uint32_t       _ioReqId) {
-      objId = ObjectID(_objIdHigh, _objIdLow);
+       objId = ObjectID(objID);
+      // memcpy(objId.digest, objID.digest, objId.GetLen());
       // objData.size        = _dataStr.size();
       // objData.data        = _dataStr;
       volUuid             = _volUuid;

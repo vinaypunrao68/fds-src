@@ -33,8 +33,8 @@ FilePersisDataIO::~FilePersisDataIO()
     close(fi_fd);
 }
 
-int
-FilePersisDataIO::disk_do_write(DiskRequest *req)
+fds::Error
+diskio::FilePersisDataIO::disk_do_write(DiskRequest *req)
 {
     ssize_t         len;
     fds_blk_t       off_blk, blk, shft;

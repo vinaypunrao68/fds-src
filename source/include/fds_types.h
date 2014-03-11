@@ -2,10 +2,15 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 
+/*
+ * Object database class. The object database is a key-value store
+ * that provides local objec storage.
+ */
 #ifndef SOURCE_LIB_FDS_TYPES_H_
 #define SOURCE_LIB_FDS_TYPES_H_
 
 #include <stdint.h>
+#include <stdio.h>
 
 #include <sstream>
 #include <iostream>  // NOLINT(*)
@@ -41,6 +46,7 @@
  */
 namespace fds {
 
+  const int bitMaskLookup[64] = {0x0, 0x1, 0x3, 0x7, 0xF, 0x1F, 0x3F, 0x7F, 0xFF, 0x1FF, 0x3FF, 0x7FF, 0xFFF, 0x1FFF, 0x3FFF, 0x7FFF, 0xFFFF };
   typedef fds_int64_t fds_volid_t;
   typedef fds_int64_t VolumeId;
   typedef fds_int64_t fds_qid_t;  // type for queue id
@@ -53,65 +59,83 @@ namespace fds {
 
   class ObjectID {
  private:
-    fds_uint64_t hash_high;
-    fds_uint64_t hash_low;
-
-    fds_byte_t digest[20];
+    uint8_t  digest[20];
 
  public:
-    ObjectID()
-        : hash_high(0),
-        hash_low(0) {
+    ObjectID() {
+        memset(digest, 0x00, sizeof(digest));
     }
 
-    ObjectID(fds_uint64_t high, fds_uint64_t low)
-        : hash_high(high),
-        hash_low(low) {
+    ObjectID(uint32_t dataSet) {
+        memset(digest, dataSet, sizeof(digest));
     }
 
-    ObjectID(const ObjectID& rhs)
-        : hash_high(rhs.hash_high),
-        hash_low(rhs.hash_low) {
+    ObjectID(uint8_t *objId) {
+        memcpy(digest, objId, sizeof(digest));
+    }
+
+    ObjectID(uint8_t  *objId, uint32_t length) {
+        memcpy(digest, objId, length);
+    }
+
+
+    ObjectID(const ObjectID& rhs) {
+        memcpy(digest, rhs.digest, sizeof(digest));
     }
 
     explicit ObjectID(const std::string& oid) {
-      memcpy(&hash_high,
-             oid.c_str(),
-             sizeof(fds_uint64_t));
-      memcpy(&hash_low,
-             oid.c_str() + sizeof(fds_uint64_t),
-             sizeof(fds_uint64_t));
+        fds_verify(oid.size() == sizeof(digest));
+        memcpy(digest, oid.c_str(), sizeof(digest));
     }
 
     ~ObjectID() { }
 
-    fds_uint64_t GetHigh() const {
-      return hash_high;
-    }
 
-    fds_uint64_t GetLow() const {
-      return hash_low;
-    }
-
-    void SetId(fds_uint64_t _high, fds_uint64_t _low) {
-      hash_high = _high;
-      hash_low  = _low;
-    }
 
     /*
      * Assumes the length of the data is 2 * hash size.
      * The caller needs to ensure this is the case.
      */
-    void SetId(const char* data) {
-      memcpy(&hash_high, data, sizeof(fds_uint64_t));
-      memcpy(&hash_low, data + sizeof(fds_uint64_t), sizeof(fds_uint64_t));
+    void SetId(const char*data, fds_uint32_t len) {
+      memcpy(digest, data, len);
     }
     
+    void SetId(uint8_t  *data, fds_uint32_t  length) {
+        memcpy(digest, data, length);
+    }
+
+    const uint8_t* GetId()  const {
+	return digest;
+    }
+
+   /*
+    * bit mask. this will help to boost the performance 
+    */
+
+     fds_uint64_t getTokenBits(fds_uint32_t numBits) const {
+           fds_uint64_t tokenBits; 	
+           int offset = 0;  //   pass this as argument 
+           int byteIndex = offset / 8;
+           int bitIndex = offset % 8;
+           int val;
+
+           if ((bitIndex + numBits) > 16) {
+              tokenBits = ((digest[byteIndex] << 16 | digest[byteIndex + 1] << 8 | digest[byteIndex + 2])
+                           >> (24 - bitIndex - numBits)) & fds::bitMaskLookup[numBits];
+            } else if ((offset + numBits) > 8) {
+              tokenBits = ((digest[byteIndex] << 8 | digest[byteIndex + 1])
+                           >> (16 - bitIndex - numBits)) & fds::bitMaskLookup[numBits];
+           }else {
+              tokenBits = (digest[byteIndex] >> (8 - offset - numBits)) & fds::bitMaskLookup[numBits];
+         }
+
+     return tokenBits;
+   }
     /*
      * Returns the size of the OID in bytes.
      */
     fds_uint32_t GetLen() const {
-      return sizeof(hash_high) + sizeof(hash_low);
+      return sizeof(digest);
     }
 
     /*
@@ -125,17 +149,15 @@ namespace fds {
      * Operators
      */
     bool operator==(const ObjectID& rhs) const {
-      return ((this->hash_high == rhs.hash_high) &&
-              (this->hash_low == rhs.hash_low));
+	return (memcmp(digest, rhs.digest, sizeof(digest)) == 0);
     }
 
     bool operator!=(const ObjectID& rhs) const {
-      return !(*this == rhs);
+	return (! operator==(rhs));
     }
 
     ObjectID& operator=(const ObjectID& rhs) {
-      hash_high = rhs.hash_high;
-      hash_low = rhs.hash_low;
+      memcpy(digest, rhs.digest, sizeof(digest));
       return *this;
     }
 
@@ -148,10 +170,13 @@ namespace fds {
     ObjectID& operator=(const std::string& hexStr) {
         fds_verify(hexStr.compare(0, 2, "0x") == 0);  // Require 0x prefix
         fds_verify(hexStr.size() == (32 + 2));  // Account for 0x
-
-        hash_high = std::strtoull(hexStr.substr(0, 18).c_str(), NULL, 16);
-        hash_low  = std::strtoull(hexStr.substr(18).c_str(), NULL, 16);
-
+        char a, b;
+        uint j = 0;
+        for (uint i = 0; i < hexStr.length(); i += 2,j++) {
+           a = hexStr[i];   if (a > 57) a -= 87; else a -= 48; // NOLINT
+           b = hexStr[i+1]; if (b > 57) b -= 87; else b -= 48; // NOLINT
+           digest[j] =  (a << 4 & 0xF0) + b;
+        }
         return *this;
     }
 
@@ -163,20 +188,33 @@ namespace fds {
      * Static members for transforming ObjectIDs.
      * Just utility functions.
      */
+
     static std::string ToHex(const ObjectID& oid) {
       std::ostringstream hash_oss;
 
-      hash_oss << ToHex(&(oid.hash_high), 1) << ToHex(&(oid.hash_low), 1);
+//      hash_oss << ToHex((const char *)oid.digest,oid.GetLen());
+      hash_oss << ToHex((const uint8_t *)oid.digest,oid.GetLen());
 
       return hash_oss.str();
     }
 
-    static std::string ToHex(const fds_uint64_t *key, fds_uint32_t len) {
+    static std::string ToHex(const uint8_t *key, fds_uint32_t len) {
       std::ostringstream hash_oss;
 
       hash_oss << std::hex << std::setfill('0') << std::nouppercase;
       for (std::string::size_type i = 0; i < len; ++i) {
-        hash_oss << std::setw(16) << key[i];
+        hash_oss << std::setw(2) << (uint16_t)key[i];
+      }
+
+      return hash_oss.str();
+    }
+
+    static std::string ToHex(const char *key, fds_uint32_t len) {
+      std::ostringstream hash_oss;
+
+      hash_oss << std::hex << std::setfill('0') << std::nouppercase;
+      for (std::string::size_type i = 0; i < len; ++i) {
+        hash_oss << std::setw(2) << (uint16_t)key[i];
       }
 
       return hash_oss.str();
@@ -193,16 +231,7 @@ namespace fds {
       return hash_oss.str();
     }
 
-    static std::string ToHex(const std::string& key) {
-      std::ostringstream hash_oss;
-
-      hash_oss << std::hex << std::setfill('0') << std::nouppercase;
-      for (std::string::size_type i = 0; i < key.size(); ++i) {
-        hash_oss << std::setw(2) << static_cast<int>(key[i]);
-      }
-
-      return hash_oss.str();
-    }
+    friend class ObjectLess;
     friend class ObjIdGen;
   };
 
@@ -223,8 +252,7 @@ namespace fds {
   class ObjectLess {
   public:
     bool operator() (const ObjectID& oid1, const ObjectID& oid2) {
-      return ( (oid1.GetHigh() < oid2.GetHigh()) ||
-	       ((oid1.GetHigh() == oid2.GetHigh()) && (oid1.GetLow() < oid2.GetLow())) );
+      return  memcmp(oid1.digest, oid2.digest, oid1.GetLen()) < 0 ;
     }
   };
 
@@ -243,6 +271,7 @@ namespace fds {
       {
       }
   };
+
 
   inline fds_uint32_t str_to_ipv4_addr(std::string ip_str) {
     
@@ -376,11 +405,11 @@ namespace fds {
     fds_volid_t getVolId() const {
       return volId;
     }
-    void setVolId(fds_volid_t vol_id) {
-      volId = vol_id;
-    }
     fds_io_op_t  getIoType() const {
       return ioType;
+    }
+    void setVolId(fds_volid_t vol_id) {
+    volId = vol_id;
     }
     void cbWithResult(int result) {
       return callback(result);

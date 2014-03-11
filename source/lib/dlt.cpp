@@ -116,17 +116,34 @@ fds_uint32_t DLT::getNumTokens() const {
 
 fds_token_id DLT::getToken(const ObjectID& objId) const {
     fds_uint64_t token_bitmask = ((1 << numBitsForToken) - 1);
+//    fds_uint64_t bit_offset =
+//        (sizeof(objId.getTokenBits(numBitsForToken))*8 - numBitsForToken);
+    LOGNORMAL << "token bits:" << objId.getTokenBits(numBitsForToken)
+                      << " numBits: " << numBitsForToken;
+    return
+     (fds_token_id)(token_bitmask & (objId.getTokenBits(numBitsForToken)));
+#if 0
+    fds_uint64_t token_bitmask = ((1 << numBitsForToken) - 1);
     fds_uint64_t bit_offset = (sizeof(objId.GetHigh())*8 - numBitsForToken);
     return (fds_token_id)(token_bitmask & (objId.GetHigh() >> bit_offset));
+#endif
 }
 
 void DLT::getTokenObjectRange(const fds_token_id &token,
         ObjectID &begin, ObjectID &end) const
 {
+#if 0  // SAN, Rao is going to change this code
     fds_uint64_t max = ((fds_uint64_t) 0) - 1;
     fds_uint64_t bit_offset = (sizeof(begin.GetHigh())*8 - numBitsForToken);
     begin.SetId(((fds_uint64_t) token) << bit_offset, 0);
     end.SetId(begin.GetHigh() | (max >> numBitsForToken), max);
+#endif
+#if 0
+    fds_uint64_t max = ((fds_uint64_t) 0) - 1;
+    fds_uint64_t bit_offset = (begin.GetLen())*8 - numBitsForToken);
+    begin.SetId(((fds_uint64_t) token) << bit_offset, 0);
+    end.SetId(begin.GetHigh() | (max >> numBitsForToken), max);
+#endif
 }
 
 // get all the Nodes for a token/objid

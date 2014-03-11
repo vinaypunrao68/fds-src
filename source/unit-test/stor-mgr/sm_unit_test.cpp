@@ -22,6 +22,7 @@
 #include <fds-probe/fds_probe.h>
 #include <NetSession.h>
 #include <ObjStats.h>
+#include <ObjectId.h>
 
 namespace fds {
 typedef boost::shared_ptr<FDS_ProtocolInterface::FDSP_DataPathReqClient>
@@ -75,8 +76,10 @@ class SmUtProbe : public ProbeMod {
                           putReq->data_obj_len,
                           0,
                           &ioReq.pr_oid);
-      putReq->data_obj_id.hash_high = ioReq.pr_oid.GetHigh();
-      putReq->data_obj_id.hash_low  = ioReq.pr_oid.GetLow();
+      putReq->data_obj_id.digest =
+              std::string((const char *)ioReq.pr_oid.GetId(), (size_t)ioReq.pr_oid.GetLen());
+//      putReq->data_obj_id.hash_high = ioReq.pr_oid.GetHigh();
+//      putReq->data_obj_id.hash_low  = ioReq.pr_oid.GetLow();
 
       putHdr->req_cookie = parentUt->addPending(ioReq);
 
@@ -119,8 +122,10 @@ class SmUtProbe : public ProbeMod {
       offMapMtx->lock();
       ioReq.pr_oid = offsetMap[ioReq.pr_voff];
       offMapMtx->unlock();
-      getReq->data_obj_id.hash_high = ioReq.pr_oid.GetHigh();
-      getReq->data_obj_id.hash_low = ioReq.pr_oid.GetLow();
+      getReq->data_obj_id.digest =
+              std::string((const char *)ioReq.pr_oid.GetId(), (size_t)ioReq.pr_oid.GetLen());
+//      getReq->data_obj_id.hash_high = ioReq.pr_oid.GetHigh();
+//      getReq->data_obj_id.hash_low = ioReq.pr_oid.GetLow();
 
       size_t reqSize;
       const char* buf_ptr = ioReq.pr_rd_buf(&reqSize);
@@ -198,8 +203,7 @@ class SmUnitTest {
          */
         fds_verify(msg_hdr->result == FDS_ProtocolInterface::FDSP_ERR_OK);
 
-        ObjectID oid(get_req->data_obj_id.hash_high,
-                     get_req->data_obj_id.hash_low);
+        ObjectID oid(get_req->data_obj_id.digest);
         std::string objData = get_req->data_obj;
         fds_verify(parentUt->checkGetObj(oid, objData) == true);
 
@@ -348,14 +352,17 @@ class SmUnitTest {
       ObjectID oid;
       for (fds_uint32_t i = 1; i < num_updates + 1; i++) {
           volume_offset = i;
-          oid = ObjectID(i, i * i);
+//          oid = ObjectID(i, i * i);
+          oid = ObjectID(0x5a5a);
           std::ostringstream convert;
           convert << i;
           std::string object_data = "I am object number " + convert.str();
 
           put_req->volume_offset         = volume_offset;
-          put_req->data_obj_id.hash_high = oid.GetHigh();
-          put_req->data_obj_id.hash_low  = oid.GetLow();
+          put_req->data_obj_id.digest =
+              std::string((const char *)oid.GetId(), (size_t)oid.GetLen());
+//          put_req->data_obj_id.hash_high = oid.GetHigh();
+//          put_req->data_obj_id.hash_low  = oid.GetLow();
           put_req->data_obj_len          = object_data.size();
           put_req->data_obj              = object_data;
           msg_hdr->num_objects           = 1;
@@ -413,15 +420,17 @@ class SmUnitTest {
           std::ostringstream convert;
           convert << i;
           std::string object_data = "I am object number " + convert.str();
-          ObjectID oid;
-          MurmurHash3_x64_128(object_data.c_str(),
-                              object_data.size() + 1,
-                              0,
-                              &oid);
+         /*
+          * Hash the data to obtain the ID
+          */
+          ObjectID oid = ObjIdGen::genObjectId(object_data.c_str(),
+                                          object_data.size() + 1);
 
           put_req->volume_offset         = volume_offset;
-          put_req->data_obj_id.hash_high = oid.GetHigh();
-          put_req->data_obj_id.hash_low  = oid.GetLow();
+          put_req->data_obj_id.digest =
+              std::string((const char *)oid.GetId(), (size_t)oid.GetLen());
+//          put_req->data_obj_id.hash_high = oid.GetHigh();
+//          put_req->data_obj_id.hash_low  = oid.GetLow();
           put_req->data_obj_len          = object_data.size();
           put_req->data_obj              = object_data;
           msg_hdr->num_objects           = 1;
@@ -465,8 +474,10 @@ class SmUnitTest {
       ObjectID oid;
       for (fds_uint32_t i = 0; i < objIdsPut.size(); i++) {
           oid = objIdsPut.front();
-          get_req->data_obj_id.hash_high = oid.GetHigh();
-          get_req->data_obj_id.hash_low  = oid.GetLow();
+          get_req->data_obj_id.digest =
+              std::string((const char *)oid.GetId(), (size_t)oid.GetLen());
+//          get_req->data_obj_id.hash_high = oid.GetHigh();
+//          get_req->data_obj_id.hash_low  = oid.GetLow();
           get_req->data_obj_len          = 0;
 
           try {
@@ -526,14 +537,16 @@ class SmUnitTest {
       ObjectID oid;
       for (fds_uint32_t i = 1; i < num_updates + 1; i++) {
           volume_offset = i;
-          oid = ObjectID(i, i * i);
+          oid = ObjectID(0x5a5a);
           std::ostringstream convert;
           convert << i;
           std::string object_data = "I am object number " + convert.str();
 
           put_req->volume_offset         = volume_offset;
-          put_req->data_obj_id.hash_high = oid.GetHigh();
-          put_req->data_obj_id.hash_low  = oid.GetLow();
+          put_req->data_obj_id.digest =
+              std::string((const char *)oid.GetId(), (size_t)oid.GetLen());
+//          put_req->data_obj_id.hash_high = oid.GetHigh();
+//          put_req->data_obj_id.hash_low  = oid.GetLow();
           put_req->data_obj_len          = object_data.size();
           put_req->data_obj              = object_data;
           msg_hdr->num_objects           = 1;
@@ -571,9 +584,11 @@ class SmUnitTest {
       msg_hdr->glob_volume_id = 5;
 
       for (fds_uint32_t i = 1; i < num_updates + 1; i++) {
-          oid = ObjectID(i, i * i);
-          get_req->data_obj_id.hash_high = oid.GetHigh();
-          get_req->data_obj_id.hash_low  = oid.GetLow();
+          oid = ObjectID(0x5a5a);
+          get_req->data_obj_id.digest =
+              std::string((const char *)oid.GetId(), (size_t)oid.GetLen());
+//          get_req->data_obj_id.hash_high = oid.GetHigh();
+//          get_req->data_obj_id.hash_low  = oid.GetLow();
           get_req->data_obj_len          = 0;
 
           try {
@@ -628,9 +643,11 @@ class SmUnitTest {
       msg_hdr->session_uuid = session_uuid_;
 
       for (fds_uint32_t i = 0; i < num_updates; i++) {
-          oid = ObjectID(i, i * i);
-          get_req->data_obj_id.hash_high = oid.GetHigh();
-          get_req->data_obj_id.hash_low  = oid.GetLow();
+          oid = ObjectID(0x5a5a);
+          get_req->data_obj_id.digest =
+              std::string((const char *)oid.GetId(), (size_t)oid.GetLen());
+//          get_req->data_obj_id.hash_high = oid.GetHigh();
+//          get_req->data_obj_id.hash_low  = oid.GetLow();
           get_req->data_obj_len          = 0;
 
           try {
@@ -688,14 +705,16 @@ class SmUnitTest {
           for (fds_uint32_t i = 1; i < num_updates + 1; i++) {
               volume_offset = i;
               id = i+v*(num_updates+1);
-              oid = ObjectID(id, id * id);
+              oid = ObjectID(0x5a5a+id);
               std::ostringstream convert;
               convert << i;
               std::string object_data = "I am object number " + convert.str();
 
               put_req->volume_offset         = volume_offset;
-              put_req->data_obj_id.hash_high = oid.GetHigh();
-              put_req->data_obj_id.hash_low  = oid.GetLow();
+              put_req->data_obj_id.digest =
+                  std::string((const char *)oid.GetId(), (size_t)oid.GetLen());
+//              put_req->data_obj_id.hash_high = oid.GetHigh();
+//              put_req->data_obj_id.hash_low  = oid.GetLow();
               put_req->data_obj_len          = object_data.size();
               put_req->data_obj              = object_data;
               msg_hdr->num_objects           = 1;
@@ -744,9 +763,11 @@ class SmUnitTest {
           for (fds_uint32_t i = 1; i < (num_updates+1); i++) {
               id = i+v*(num_updates+1);
 
-              oid = ObjectID(id, id * id);
-              get_req->data_obj_id.hash_high = oid.GetHigh();
-              get_req->data_obj_id.hash_low  = oid.GetLow();
+              oid = ObjectID(0x5a5a+id);
+              get_req->data_obj_id.digest =
+                  std::string((const char *)oid.GetId(), (size_t)oid.GetLen());
+//              get_req->data_obj_id.hash_high = oid.GetHigh();
+//              get_req->data_obj_id.hash_low  = oid.GetLow();
               get_req->data_obj_len          = 0;
 
               try {
@@ -797,9 +818,11 @@ class SmUnitTest {
           for (fds_uint32_t i = 1; i < (num_updates+1); i++) {
               id = i+v*(num_updates+1);
 
-              oid = ObjectID(id, id * id);
-              get_req->data_obj_id.hash_high = oid.GetHigh();
-              get_req->data_obj_id.hash_low  = oid.GetLow();
+              oid = ObjectID(0x5a5a+id);
+              get_req->data_obj_id.digest =
+                  std::string((const char *)oid.GetId(), (size_t)oid.GetLen());
+//              get_req->data_obj_id.hash_high = oid.GetHigh();
+//              get_req->data_obj_id.hash_low  = oid.GetLow();
               get_req->data_obj_len          = 0;
 
               try {

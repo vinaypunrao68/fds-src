@@ -534,7 +534,6 @@ def startIOHelper(volume_name, data_set_dir, res_dir, loop):
 
 def startIOHelperThrd(volume_name, data_set_dir, res_dir, loop):
     sys.stdout = open('/tmp/smoke_io-' + str(os.getpid()) + ".out", "w")
-    # sys.stdout = open('/tmp/smoke_io.out', "w")
     startIOHelper(volume_name, data_set_dir, res_dir, loop)
 
 def startIO(volume_name, data_set_dir, res_dir, async, loop):
@@ -556,8 +555,7 @@ def startIO_GETHelper(volume_name, data_set_dir, res_dir, loop):
         i += 1
 
 def startIO_GETHelperThrd(volume_name, data_set_dir, res_dir, loop):
-    # sys.stdout = open('/tmp/smoke_io-' + str(os.getpid()) + ".out", "w")
-    sys.stdout = open('/tmp/smoke_io.out', "w")
+    sys.stdout = open('/tmp/smoke_io-' + str(os.getpid()) + ".out", "w")
     startIO_GETHelper(volume_name, data_set_dir, res_dir, loop)
 
 def startIO_GET(volume_name, data_set_dir, res_dir, async, loop):
@@ -581,24 +579,26 @@ def waitIODone(p):
     print "Sync Process terminated: "
 #########################################################################################
 
-def exitTest(env):
+def exitTest(env, shutdown):
     print "Total PUTs: ", env.total_put
     print "Total GETs: ", env.total_get
     print "Test Passed, cleaning up..."
-    env.cleanup()
+    if shutdown:
+        env.cleanup()
     sys.exit(0)
 
 data_set_dir = None
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Start FDS Processes...')
-    parser.add_argument('--cfg_file', default='./test/smoke_test.cfg', help='Set FDS Root')
-    parser.add_argument('--start_sys', default='true', help='Bringup cluster')
-    parser.add_argument('--smoke_test', default='false', help='Run full smoke test')
-    parser.add_argument('--data_set', default='/smoke_test', help='smoke test dataset')
-    parser.add_argument('--verbose', default='false', help ='smoke test dataset')
-    parser.add_argument('--async', default='true', help ='Run I/O Async')
-    parser.add_argument('--debug', default='false', help ='smoke test dataset')
+    parser.add_argument('--cfg_file', default='./test/smoke_test.cfg', help='Set FDS test cfg')
+    parser.add_argument('--start_sys', default='true', help='Bringup cluster [true]')
+    parser.add_argument('--smoke_test', default='false', help='Run full smoke test [false]')
+    parser.add_argument('--data_set', default='/smoke_test', help='Smoke test dataset [/smoke_test]')
+    parser.add_argument('--verbose', default='false', help ='Print verbose [false]')
+    parser.add_argument('--async', default='true', help ='Run I/O Async [true]')
+    parser.add_argument('--debug', default='false', help ='pdb debug on [false]')
+    parser.add_argument('--shutdown', default='false', help ='Shutdown/cleanup system after test [false]')
     args = parser.parse_args()
 
     cfgFile = args.cfg_file
@@ -613,10 +613,15 @@ if __name__ == "__main__":
         async_io = False
     loop = 1
 
+    if args.shutdown == 'true':
+        shutdown = True
+    else:
+        shutdown = False
+
     #
     # Setup lab key access
     #
-    subprocess.call(['test/copy_key.sh'])
+    # subprocess.call(['test/copy_key.sh'])
 
     #
     # Load the configuration files
@@ -631,11 +636,11 @@ if __name__ == "__main__":
     # bringupCluster(env, bu, cfgFile, verbose, debug)
     if start_sys == 'true':
         bringupCluster(env, bu, cfgFile, verbose, debug)
-# bringupClusterCLI(env, bu, cfgFile, verbose, debug)
+    # bringupClusterCLI(env, bu, cfgFile, verbose, debug)
 
     if args.smoke_test == 'false':
         preCommit('volume_smoke1', env.env_fdsSrc, '/tmp/pre_commit')
-        exitTest(env)
+        exitTest(env, shutdown)
 
     #
     # Start Smoke Test
@@ -652,9 +657,9 @@ if __name__ == "__main__":
     #
     # Bring up more node/delete node test
     #
-    bringupNode(env, bu, cfgFile, verbose, debug, 'node2')
-    bringupNode(env, bu, cfgFile, verbose, debug, 'node3')
-    bringupNode(env, bu, cfgFile, verbose, debug, 'node4')
+# bringupNode(env, bu, cfgFile, verbose, debug, 'node2')
+#    bringupNode(env, bu, cfgFile, verbose, debug, 'node3')
+#    bringupNode(env, bu, cfgFile, verbose, debug, 'node4')
 
     #
     # Wait for async I/O to complete
@@ -663,4 +668,4 @@ if __name__ == "__main__":
     waitIODone(p2)
     waitIODone(p3)
     waitIODone(p4)
-    exitTest(env)
+    exitTest(env, shutdown)

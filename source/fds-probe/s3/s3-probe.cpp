@@ -120,7 +120,7 @@ Probe_GetObject::ame_request_handler()
 {
     int             len;
     fds_uint64_t    vid;
-    ObjectID        oid(len, (fds_uint64_t)&len);
+    ObjectID        oid(reinterpret_cast<uint8_t *> (&len));
     char           *buf;
     ame_buf_t      *cookie;
     ProbeMod       *probe;
@@ -208,7 +208,7 @@ Probe_PutObject::ame_request_handler()
     int            len;
     char           *buf;
     fds_uint64_t   vid;
-    ObjectID       oid(len, (fds_uint64_t)&len);
+    ObjectID        oid(reinterpret_cast<uint8_t *> (&len));
     ProbeMod       *probe;
     ProbeS3Eng     *s3eng;
     ProbeIORequest *preq;

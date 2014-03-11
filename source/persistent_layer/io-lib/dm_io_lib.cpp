@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <fcntl.h>
+#include <fds_err.h>
 
 #include <iostream>
 #include <persistent_layer/dm_io.h>
@@ -391,10 +392,10 @@ PersisDataIO::~PersisDataIO()
 // ------------------------
 // Handle all the queueing for persistent read IO.
 //
-int
-PersisDataIO::disk_read(DiskRequest *req)
+fds::Error
+diskio::PersisDataIO::disk_read(DiskRequest *req)
 {
-    int err;
+    fds::Error  err(fds::ERR_OK);
     bool block = req->req_blocking_mode();
 
     pd_queue.rq_enqueue(req, pd_ioq_rd_pending);
@@ -405,7 +406,7 @@ PersisDataIO::disk_read(DiskRequest *req)
         // If the request was created with non-blocking option, this is no-op.
         req->req_wait();
     }
-    if (err)
+    if (err != fds::ERR_OK)
       pd_counters_.diskR_Err.incr();
     return err;
 }
@@ -424,10 +425,10 @@ PersisDataIO::disk_read_done(DiskRequest *req)
 // \PersisDataIO::disk_write
 // -------------------------
 //
-int
-PersisDataIO::disk_write(DiskRequest *req)
+fds::Error
+diskio::PersisDataIO::disk_write(DiskRequest *req)
 {
-    int err;
+    fds::Error  err(fds::ERR_OK);
     bool block = req->req_blocking_mode();
 
     pd_queue.rq_enqueue(req, pd_ioq_rd_pending);
@@ -438,7 +439,7 @@ PersisDataIO::disk_write(DiskRequest *req)
         // If the request was created with non-blocking option, this is no-op.
         req->req_wait();
     }
-    if (err)
+    if (err != fds::ERR_OK)
       pd_counters_.diskR_Err.incr();
 
     return err;
@@ -493,8 +494,11 @@ DataIO::disk_route_request(DiskRequest *req)
       fds_verify(req->getTier() == diskTier);
     }
 
+    //  we will have to revisit this  schema  -- SAN
     if (obj_id_is_valid(oid)) {
-        idx = (oid->oid_hash_hi + oid->oid_hash_lo) % dev_count;
+        memcpy(&idx, oid->metaDigest, 4);
+        idx = idx % dev_count;
+    //   idx = (oid->metaoid_hash_hi + oid->oid_hash_lo) % dev_count;
     } else {
         meta_vol_io_t const *const vio = req->req_get_vio();
 
@@ -514,8 +518,8 @@ DataIO::disk_route_request(DiskRequest *req)
 // \DataIO::disk_read
 // ------------------
 //
-int
-DataIO::disk_read(DiskRequest *req)
+fds::Error
+diskio::DataIO::disk_read(DiskRequest *req)
 {
     PersisDataIO *iop = disk_route_request(req);
     return iop->disk_read(req);
@@ -524,8 +528,8 @@ DataIO::disk_read(DiskRequest *req)
 // \DataIO::disk_write
 // -------------------
 //
-int
-DataIO::disk_write(DiskRequest *req)
+fds::Error
+diskio::DataIO::disk_write(DiskRequest *req)
 {
     PersisDataIO *iop = disk_route_request(req);
     return iop->disk_write(req);

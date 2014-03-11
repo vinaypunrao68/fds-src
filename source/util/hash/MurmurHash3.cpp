@@ -17,8 +17,8 @@
 #if defined(_MSC_VER)
 
 #define FORCE_INLINE	__forceinline
-
 #include <stdlib.h>
+
 
 #define ROTL32(x,y)	_rotl(x,y)
 #define ROTL64(x,y)	_rotl64(x,y)
@@ -327,6 +327,16 @@ void MurmurHash3_x64_128 ( const void * key, const int len,
   h1 += h2;
   h2 += h1;
 
+#if 0
+  for (int i =0; i < 8; i++)
+  {
+      ((uint8_t*)out)[7 - i] = (h2 >> (i * 8));
+//      printf(" byteH: %d  ",((uint8_t*)out)[7 - i]);
+      ((uint8_t*)out)[(7 - i)+8] = (h1 >> (i * 8));
+//      printf(" byteL: %d "((uint8_t*)out)[7 - i]);
+
+  }
+#endif
   ((uint64_t*)out)[0] = h1;
   ((uint64_t*)out)[1] = h2;
 }

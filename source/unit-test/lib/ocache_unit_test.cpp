@@ -215,7 +215,7 @@ void write_objects(int thread_id) {
 
   for (int i = 0; i < 1000; i++) {
 
-    ObjectID obj_id(thread_id, i);
+    ObjectID obj_id((uint8_t *)&thread_id, 1);
     std::string obj_data = std::string("This is object ") + obj_id.ToString();
     if (i%2 == 0) {
       simulate_sync_write_io(my_vol_id, obj_id, obj_data);
@@ -241,7 +241,7 @@ void read_objects(int thread_id) {
 
       //      fds_uint64_t obj_id_low = working_set_start + obj_id_distribution(rgen2);
       fds_uint64_t obj_id_low = working_set_start + j%40; 
-      ObjectID obj_id(thread_id, obj_id_low);
+      ObjectID obj_id((uint8_t *)&thread_id, 1);
       simulate_read_io(my_vol_id, obj_id);
 
     }

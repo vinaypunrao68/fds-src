@@ -221,8 +221,7 @@ class probeDataPathRespIf : public FDS_ProtocolInterface::FDSP_DataPathRespIf {
          */
         fds_verify(msgHdr->result == FDS_ProtocolInterface::FDSP_ERR_OK);
 
-        ObjectID oid(getReq->data_obj_id.hash_high,
-                     getReq->data_obj_id.hash_low);
+        ObjectID oid(getReq->data_obj_id.digest);
         std::string objData = getReq->data_obj;
         fds_verify(gl_Sm_ProbeMod.checkGetObj(oid, objData) == true);
     }

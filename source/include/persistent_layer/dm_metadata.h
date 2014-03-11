@@ -12,8 +12,7 @@
 typedef struct meta_obj_id         meta_obj_id_t;
 struct __attribute__((__packed__)) meta_obj_id
 {
-    fds_uint64_t         oid_hash_hi;
-    fds_uint64_t         oid_hash_lo;
+    uint8_t metaDigest[20];  // looks like  we have Obj Structure scattered  across. sizing the array is a issue??.
 };
 
 /*
@@ -24,7 +23,8 @@ struct __attribute__((__packed__)) meta_obj_id
 static inline void
 obj_id_set_inval(meta_obj_id_t *oid)
 {
-    oid->oid_hash_hi = oid->oid_hash_lo = 0;
+    memset(oid->metaDigest, 0 , sizeof(oid));
+//    oid->oid_hash_hi = oid->oid_hash_lo = 0;
 }
 
 /*
@@ -35,7 +35,10 @@ obj_id_set_inval(meta_obj_id_t *oid)
 static inline bool
 obj_id_is_valid(meta_obj_id_t const *const oid)
 {
-    return (oid->oid_hash_hi != 0) && (oid->oid_hash_lo != 0);
+     uint8_t tmpObjId[20]; 
+    memset(tmpObjId, 0 , sizeof(tmpObjId));
+//    return (oid->oid_hash_hi != 0) && (oid->oid_hash_lo != 0);
+      return (!(memcmp((const char *)oid->metaDigest, tmpObjId, sizeof(oid)) == 0 ));
 }
 
 /*
