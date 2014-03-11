@@ -1,17 +1,11 @@
 #!/bin/bash
-kill -9 `pgrep AMAgent`
-kill -9 `pgrep StorMgr`
-kill -9 `pgrep DataMgr`
-kill -9 `pgrep orchMgr`
-cd Build/linux-x86_64.debug/bin
-rm -rf *ldb
-rm -rf logs stats
-rm -f *.log
-rm -rf SNode*
-rm -rf ObjRankDB
-rm -f ocache_stats.dat
+pkill -9 AMAgent
+pkill -9 Mgr
+pkill -9 platformd
+pkill -9 -f com.formationds.web.om.Main
 
-rm -rf /fds/hdd
-rm -rf /fds/ssd
-rm -rf /fds/objStats
-rm -rf /fds/_objStats
+if [ -e test/cleanup.sh ]; then
+    test/cleanup.sh
+elif [ -e cleanup.sh ]; then
+    cleanup.sh
+fi
