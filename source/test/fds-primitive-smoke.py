@@ -365,7 +365,8 @@ def bringupCluster(env, bu, cfgFile, verbose, debug):
     print "\n\nStarting Platform Daemon on node1..."
     subprocess.Popen(['./platformd', '--fds-root', root1],
                      stderr=subprocess.STDOUT)
-    subprocess.call(['sleep', '1'])
+    # wait for platformd to come up before issue command
+    subprocess.call(['sleep', '5'])
 
     # Start CLI to ask OM to commision the node.
     #
@@ -373,7 +374,7 @@ def bringupCluster(env, bu, cfgFile, verbose, debug):
     subprocess.Popen(['./fdscli', '--fds-root', root1,
                       '--activate-nodes', 'abc', '-k', '1'],
                      stderr=subprocess.STDOUT)
-    subprocess.call(['sleep', '3'])
+    subprocess.call(['sleep', '1'])
 
     # print "\n\nStarting SM on node1...."
     # subprocess.Popen(['./StorMgr', '--fds-root', root1],
