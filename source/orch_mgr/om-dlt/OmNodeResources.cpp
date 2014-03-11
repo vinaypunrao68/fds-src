@@ -512,7 +512,8 @@ OM_PmContainer::handle_register_service(const NodeUuid &pm_uuid,
 {
     Error err(ERR_OK);
     NodeAgent::pointer pm_agt = agent_info(pm_uuid);
-    if (pm_agt != NULL) {
+
+    if (pm_agt == NULL) {
         return Error(ERR_NODE_NOT_ACTIVE);
     }
     return OM_PmAgent::agt_cast_ptr(pm_agt)->handle_register_service(svc_role, svc_agent);
@@ -776,6 +777,7 @@ void
 OM_NodeContainer::om_bcast_new_node(NodeAgent::pointer node, const FdspNodeRegPtr ref)
 {
     if (ref->node_type == fpi::FDSP_STOR_HVISOR) {
+        std::cout << "Skiping node type uuid " << ref->node_uuid.uuid << std::endl;
         return;
     }
     dc_sm_nodes->agent_foreach<NodeAgent::pointer>(node, om_send_my_info_to_peer);

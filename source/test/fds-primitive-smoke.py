@@ -374,7 +374,7 @@ def bringupCluster(env, bu, cfgFile, verbose, debug):
     subprocess.Popen(['./fdscli', '--fds-root', root1,
                       '--activate-nodes', 'abc', '-k', '1'],
                      stderr=subprocess.STDOUT)
-    subprocess.call(['sleep', '1'])
+    subprocess.call(['sleep', '5'])
 
     # print "\n\nStarting SM on node1...."
     # subprocess.Popen(['./StorMgr', '--fds-root', root1],

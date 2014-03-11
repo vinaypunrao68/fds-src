@@ -95,12 +95,19 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
 
         // tell parent PM Agent about its new service
         newNode->set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
+
+        // TODO(Vy): integrate this code...
+#if 0
         if ((msg->node_uuid).uuid != 0) {
             OM_PmContainer::pointer pmNodes = om_locDomain->om_pm_nodes();
             err = pmNodes->handle_register_service((msg->node_uuid).uuid,
                                                    msg->node_type,
                                                    newNode);
         }
+#endif
+        FDS_PLOG(g_fdslog) << "OM recv reg node uuid " << std::hex
+            << msg->node_uuid.uuid << ", svc uuid " << msg->service_uuid.uuid
+            << std::dec << ", type " << msg->node_type;
 
         // since we already checked above that we could add service, verify error ok
         fds_verify(err.ok());

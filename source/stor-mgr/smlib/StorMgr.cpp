@@ -216,7 +216,7 @@ ObjectStorMgrI::RedirReadObject(FDSP_MsgHdrTypePtr &msg_hdr, FDSP_RedirReadObjTy
  */
 ObjectStorMgr::ObjectStorMgr(int argc, char *argv[],
                              Platform *platform, Module **mod_vec)
-    : PlatformProcess(argc, argv, "fds.sm.", platform, mod_vec),
+    : PlatformProcess(argc, argv, "fds.sm.", "sm.log", platform, mod_vec),
     totalRate(3000),
     qosThrds(10),
     shuttingDown(false),
@@ -442,7 +442,7 @@ void ObjectStorMgr::setup()
     omClient->registerEventHandlerForMigrateEvents((migration_event_handler_t)migrationEventOmHandler);
     omClient->omc_srv_pol = &sg_SMVolPolicyServ;
     omClient->startAcceptingControlMessages(conf_helper_.get<int>("control_port"));
-    omClient->registerNodeWithOM(dInfo);
+    omClient->registerNodeWithOM(plf_mgr, dInfo);
 
     clust_comm_mgr_.reset(new ClusterCommMgr(omClient));
 

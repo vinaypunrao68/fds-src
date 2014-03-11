@@ -349,6 +349,7 @@ class PlatformProcess : public FdsProcess
     virtual ~PlatformProcess();
     PlatformProcess(int argc, char *argv[],
                     const std::string &cfg_path,
+                    const std::string &log_file,
                     Platform *platform, Module **vec);
 
     virtual void setup();
