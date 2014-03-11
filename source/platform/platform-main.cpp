@@ -46,7 +46,7 @@ NodePlatformProc::plf_load_node_data()
 // -----------------------
 //
 void
-NodePlatformProc::plf_start_node_services()
+NodePlatformProc::plf_start_node_services(const fpi::FDSP_ActivateNodeTypePtr &msg)
 {
     pid_t             pid;
     bool              auto_start;
@@ -76,6 +76,8 @@ void
 NodePlatformProc::setup()
 {
     PlatformProcess::setup();
+    NodePlatform *plat = static_cast<NodePlatform *>(plf_mgr);
+    plat->plf_bind_process(this);
 }
 
 void
@@ -84,7 +86,6 @@ NodePlatformProc::run()
     plf_mgr->plf_run_server(true);
     plf_mgr->plf_rpc_om_handshake();
 
-    plf_start_node_services();
     while (1) {
         sleep(1000);   /* we'll do hotplug uevent thread in here */
     }
