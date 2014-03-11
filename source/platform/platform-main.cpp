@@ -64,12 +64,11 @@ NodePlatformProc::plf_start_node_services(const fpi::FDSP_ActivateNodeTypePtr &m
         if (plf_node_data.nd_flag_run_dm) {
             pid = fds_spawn_service("DataMgr", proc_root->dir_fdsroot().c_str());
             LOGNOTIFY << "Spawn DM with pid " << pid;
-            sleep(1);
         }
         if (plf_node_data.nd_flag_run_am) {
+            sleep(5);
             pid = fds_spawn_service("AMAgent", proc_root->dir_fdsroot().c_str());
             LOGNOTIFY << "Spawn AM with pid " << pid;
-            sleep(1);
         }
     } else {
         LOGNOTIFY << "Auto start services is off, wait for manual start...";

@@ -32,8 +32,9 @@ NodePlatform::NodePlatform()
                new DomainResources("Node-Resources"),
                NULL)
 {
-    plf_node_evt = new NodePlatEvent(plf_resources, plf_clus_map, this);
-    plf_vol_evt  = new VolPlatEvent(plf_resources, plf_clus_map, this);
+    plf_node_evt  = new NodePlatEvent(plf_resources, plf_clus_map, this);
+    plf_vol_evt   = new VolPlatEvent(plf_resources, plf_clus_map, this);
+    plf_node_type = FDSP_PLATFORM;
 
     Platform::platf_assign_singleton(&gl_NodePlatform);
 }
@@ -45,7 +46,6 @@ NodePlatform::mod_init(SysParams const *const param)
 
     Platform::mod_init(param);
 
-    plf_node_type    = FDSP_PLATFORM;
     plf_om_ip_str    = conf.get_abs<std::string>("fds.plat.om_ip");
     plf_om_ctrl_port = conf.get_abs<int>("fds.plat.om_port");
     plf_my_ctrl_port = conf.get_abs<int>("fds.plat.control_port");
