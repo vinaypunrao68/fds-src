@@ -218,26 +218,26 @@ bool ConfigDB::setDltType(fds_uint64_t version, const std::string type, int loca
 
 bool ConfigDB::storeDlt(const DLT& dlt, const std::string type, int localDomain) {
     try {
-    //fds_uint64_t version dlt.getVersion();
-    Reply reply = r.sendCommand("sadd %d:dlts %ld",localDomain,dlt.getVersion());
-    if (!reply.wasModified()) {
-        LOGWARN << "dlt [" << dlt.getVersion() << "] is already in for domain [" << localDomain << "]";
-    }
-
-    std::string serializedData, hexCoded;
-    const_cast<DLT&>(dlt).getSerialized(serializedData);
-    r.encodeHex(serializedData,hexCoded);
-
-    reply = r.sendCommand("set %d:dlt:%ld %s", localDomain, dlt.getVersion(), hexCoded.c_str());
-    bool fSuccess = reply.isOk();
-
-    if (fSuccess && !type.empty()) {
-        reply = r.sendCommand("set %d:dlt:%s %ld", localDomain, type.c_str(), dlt.getVersion());
-        if (!reply.isOk()) {
-            LOGWARN << "error setting type " << dlt.getVersion() << ":" << type;
+        //fds_uint64_t version dlt.getVersion();
+        Reply reply = r.sendCommand("sadd %d:dlts %ld",localDomain,dlt.getVersion());
+        if (!reply.wasModified()) {
+            LOGWARN << "dlt [" << dlt.getVersion() << "] is already in for domain [" << localDomain << "]";
         }
-    }
-    return fSuccess;
+
+        std::string serializedData, hexCoded;
+        const_cast<DLT&>(dlt).getSerialized(serializedData);
+        r.encodeHex(serializedData,hexCoded);
+
+        reply = r.sendCommand("set %d:dlt:%ld %s", localDomain, dlt.getVersion(), hexCoded.c_str());
+        bool fSuccess = reply.isOk();
+
+        if (fSuccess && !type.empty()) {
+            reply = r.sendCommand("set %d:dlt:%s %ld", localDomain, type.c_str(), dlt.getVersion());
+            if (!reply.isOk()) {
+                LOGWARN << "error setting type " << dlt.getVersion() << ":" << type;
+            }
+        }
+        return fSuccess;
 
     } catch (const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
@@ -362,47 +362,52 @@ bool ConfigDB::removeNode(const NodeUuid& uuid) {
     return reply.isOk();
 }
 
-bool ConfigDB::getNode(const NodeUuid& uuid, NodeInvData& node) { 
-    Reply reply = r.sendCommand("hgetall node:%ld", uuid);
-    StringList strings;
-    reply.toVector(strings);
+bool ConfigDB::getNode(const NodeUuid& uuid, NodeInvData& node) {
+    try {
+        Reply reply = r.sendCommand("hgetall node:%ld", uuid);
+        StringList strings;
+        reply.toVector(strings);
 
-    if (strings.empty()) {
-        LOGWARN << "unable to find node [" << uuid <<"]";
-        return false;
-    }
+        if (strings.empty()) {
+            LOGWARN << "unable to find node [" << uuid <<"]";
+            return false;
+        }
 
-    for ( uint i = 0; i < strings.size() ; i+=2 ) {
-        std::string& key = strings[i];
-        std::string& value = strings[i+1];
-        node_capability_t& cap = node.nd_capability;
-        if (key == "uuid") { node.nd_uuid = strtoull(value.c_str(),NULL,10); }
-        else if (key == "capacity") { node.nd_gbyte_cap  = atol(value.c_str()); }
-        else if (key == "ipnum") { node.nd_ip_addr = atoi(value.c_str()); }
-        else if (key == "ip") { node.nd_ip_str = value; }
-        else if (key == "data.port") { node.nd_data_port = atoi(value.c_str()); }
-        else if (key == "ctrl.port") { node.nd_ctrl_port = atoi(value.c_str()); }
-        else if (key == "migration.port") { node.nd_migration_port  = atoi(value.c_str()); }
-        else if (key == "disk.type") { node.nd_disk_type = atoi(value.c_str()); }
-        else if (key == "name") { node.nd_node_name = value; }
-        else if (key == "type") { node.nd_node_type = (fpi::FDSP_MgrIdType) atoi(value.c_str()); }
-        else if (key == "state") { node.nd_node_state  = (fpi::FDSP_NodeState) atoi(value.c_str()); }
-        else if (key == "dlt.version") { node.nd_dlt_version  = atol(value.c_str()); }
-        else if (key == "disk.capacity") { cap.disk_capacity = atol(value.c_str()); }
-        else if (key == "disk.iops.max") { cap.disk_iops_max  = atoi(value.c_str()); }
-        else if (key == "disk.iops.min") { cap.disk_iops_min = atoi(value.c_str()); }
-        else if (key == "disk.latency.max") { cap.disk_latency_max  = atoi(value.c_str()); }
-        else if (key == "disk.latency.min") { cap.disk_latency_min = atoi(value.c_str()); }
-        else if (key == "ssd.iops.max") { cap.ssd_iops_max = atoi(value.c_str()); }
-        else if (key == "ssd.iops.min") { cap.ssd_iops_min = atoi(value.c_str()); }
-        else if (key == "ssd.capacity") { cap.ssd_capacity = atoi(value.c_str()); }
-        else if (key == "ssd.latency.max") { cap.ssd_latency_max = atoi(value.c_str()); }
-        else if (key == "ssd.latency.min") { cap.ssd_latency_min = atoi(value.c_str()); }
-        else {
-            LOGWARN << "unknown key [" << key << "] for node [" << uuid << "]";
-        }        
+        for ( uint i = 0; i < strings.size() ; i+=2 ) {
+            std::string& key = strings[i];
+            std::string& value = strings[i+1];
+            node_capability_t& cap = node.nd_capability;
+            if (key == "uuid") { node.nd_uuid = strtoull(value.c_str(),NULL,10); }
+            else if (key == "capacity") { node.nd_gbyte_cap  = atol(value.c_str()); }
+            else if (key == "ipnum") { node.nd_ip_addr = atoi(value.c_str()); }
+            else if (key == "ip") { node.nd_ip_str = value; }
+            else if (key == "data.port") { node.nd_data_port = atoi(value.c_str()); }
+            else if (key == "ctrl.port") { node.nd_ctrl_port = atoi(value.c_str()); }
+            else if (key == "migration.port") { node.nd_migration_port  = atoi(value.c_str()); }
+            else if (key == "disk.type") { node.nd_disk_type = atoi(value.c_str()); }
+            else if (key == "name") { node.nd_node_name = value; }
+            else if (key == "type") { node.nd_node_type = (fpi::FDSP_MgrIdType) atoi(value.c_str()); }
+            else if (key == "state") { node.nd_node_state  = (fpi::FDSP_NodeState) atoi(value.c_str()); }
+            else if (key == "dlt.version") { node.nd_dlt_version  = atol(value.c_str()); }
+            else if (key == "disk.capacity") { cap.disk_capacity = atol(value.c_str()); }
+            else if (key == "disk.iops.max") { cap.disk_iops_max  = atoi(value.c_str()); }
+            else if (key == "disk.iops.min") { cap.disk_iops_min = atoi(value.c_str()); }
+            else if (key == "disk.latency.max") { cap.disk_latency_max  = atoi(value.c_str()); }
+            else if (key == "disk.latency.min") { cap.disk_latency_min = atoi(value.c_str()); }
+            else if (key == "ssd.iops.max") { cap.ssd_iops_max = atoi(value.c_str()); }
+            else if (key == "ssd.iops.min") { cap.ssd_iops_min = atoi(value.c_str()); }
+            else if (key == "ssd.capacity") { cap.ssd_capacity = atoi(value.c_str()); }
+            else if (key == "ssd.latency.max") { cap.ssd_latency_max = atoi(value.c_str()); }
+            else if (key == "ssd.latency.min") { cap.ssd_latency_min = atoi(value.c_str()); }
+            else {
+                LOGWARN << "unknown key [" << key << "] for node [" << uuid << "]";
+            }        
+        }
+        return true;
+    } catch (const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
     }
-    return true;
+    return false;
 }
 
 bool ConfigDB::nodeExists(const NodeUuid& uuid) { 
@@ -411,6 +416,26 @@ bool ConfigDB::nodeExists(const NodeUuid& uuid) {
 }
 
 bool ConfigDB::getAllNodes(std::vector<NodeInvData>& nodes, int localDomain){ return false; }
+
+std::string ConfigDB::getNodeName(const NodeUuid& uuid) {
+    try {
+        Reply reply = r.sendCommand("hget node:%ld name", uuid);
+        return reply.getString();
+    } catch (const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+    return "";    
+}
+
+uint ConfigDB::getNodeNameCounter() {
+    try{
+        Reply reply = r.sendCommand("incr node:name.counter");
+        return reply.getLong();
+    } catch (const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+    return 0;
+}
             
 // volume policies
 bool ConfigDB::addPolicy(const PolicyInfo& policyInfo, int localDomain){ return false; }
