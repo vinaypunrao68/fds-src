@@ -20,7 +20,7 @@ import org.apache.thrift.transport.TTransportException;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-class FdspServer<T extends TProcessor> {
+public class FdspServer<T extends TProcessor> {
     static class Handshake implements FDSP_Service.Iface {
         @Override
         public FDSP_SessionReqResp EstablishSession(FDSP_MsgHdrType fdsp_msg) throws TException {

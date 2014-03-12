@@ -9,42 +9,31 @@
 namespace fds {
 extern DataMgr *dataMgr;
 
-void DataMgr::vol_handler(fds_volid_t vol_uuid,
-                          VolumeDesc *desc,
-                          fds_vol_notify_t vol_action,
-			  FDS_ProtocolInterface::FDSP_ResultType result) {
-  Error err(ERR_OK);
-  FDS_PLOG(dataMgr->GetLog()) << "Received vol notif from OM for "
-                              << vol_uuid <<  desc->getName();
-
-  /*
-   * TODO: Check the vol action to see whether to add
-   * or rm the vol
-   */
-  if (vol_action == fds_notify_vol_add) {
-    /*
-     * TODO: Actually take a volume string name, not
-     * just the volume number.
-     */
-    err = dataMgr->_process_add_vol(dataMgr->getPrefix() +
-                                    std::to_string(vol_uuid),
-                                    vol_uuid,desc);
-  } else if (vol_action == fds_notify_vol_rm) {
-    err = dataMgr->_process_rm_vol(vol_uuid);
-  }
-  else if (vol_action == fds_notify_vol_mod) {
-    FDS_PLOG(dataMgr->GetLog()) << "Received vol modify from OM for "
-				<< std::to_string(vol_uuid);
-    err = dataMgr->_process_mod_vol(vol_uuid, *desc);
- 
-  } else {
-    assert(0);
-  }
-
-  /*
-   * TODO: We're dropping the error at the moment.
-   * We should respond with the error code to OM.
-   */
+Error DataMgr::vol_handler(fds_volid_t vol_uuid,
+                           VolumeDesc *desc,
+                           fds_vol_notify_t vol_action,
+                           FDS_ProtocolInterface::FDSP_ResultType result) {
+    Error err(ERR_OK);
+    FDS_PLOG(dataMgr->GetLog()) << "Received vol notif from OM for "
+                                << desc->getName() << ":"
+                                << std::hex << vol_uuid << std::dec;
+    
+    if (vol_action == fds_notify_vol_add) {
+        /*
+         * TODO: Actually take a volume string name, not
+         * just the volume number.
+         */
+        err = dataMgr->_process_add_vol(dataMgr->getPrefix() +
+                                        std::to_string(vol_uuid),
+                                        vol_uuid, desc);
+    } else if (vol_action == fds_notify_vol_rm) {
+        err = dataMgr->_process_rm_vol(vol_uuid);
+    } else if (vol_action == fds_notify_vol_mod) {
+        err = dataMgr->_process_mod_vol(vol_uuid, *desc);
+    } else {
+        assert(0);
+    }
+    return err;
 }
 
 void DataMgr::node_handler(fds_int32_t  node_id,
@@ -105,27 +94,25 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
 }
 
 Error DataMgr::_process_add_vol(const std::string& vol_name,
-                                fds_volid_t vol_uuid,VolumeDesc *desc) {
-  Error err(ERR_OK);
+                                fds_volid_t vol_uuid,
+                                VolumeDesc *desc) {
+    Error err(ERR_OK);
 
-  /*
-   * Verify that we don't already know about this volume
-   */
-  vol_map_mtx->lock();
-  if (volExistsLocked(vol_uuid) == true) {
-    FDS_PLOG(dataMgr->GetLog()) << "Received add request for existing vol uuid "
-                                << vol_uuid;
-    err = ERR_DUPLICATE;
+    /*
+     * Verify that we don't already know about this volume
+     */
+    vol_map_mtx->lock();
+    if (volExistsLocked(vol_uuid) == true) {
+        err = Error(ERR_DUPLICATE);
+        vol_map_mtx->unlock();
+        FDS_PLOG(dataMgr->GetLog()) << "Received add request for existing vol uuid "
+                                    << std::hex << vol_uuid << std::dec;
+        return err;
+    }
     vol_map_mtx->unlock();
+
+    err = _add_vol_locked(vol_name, vol_uuid,desc);
     return err;
-  }
-
-  vol_map_mtx->unlock();
-
-  err = _add_vol_locked(vol_name, vol_uuid,desc);
-
-
-  return err;
 }
 
 Error DataMgr::_process_mod_vol(fds_volid_t vol_uuid, const VolumeDesc& voldesc)

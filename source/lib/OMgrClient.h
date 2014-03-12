@@ -53,10 +53,10 @@ namespace fds {
                                        int node_state,
                                        fds_uint32_t node_port,
                                        FDSP_MgrIdType node_type);
-  typedef void (*volume_event_handler_t)(fds::fds_volid_t volume_id, 
-					 fds::VolumeDesc *vdb, 
-					 fds_vol_notify_t vol_action,
-					 const FDSP_ResultType result);
+  typedef Error (*volume_event_handler_t)(fds::fds_volid_t volume_id, 
+                                          fds::VolumeDesc *vdb, 
+                                          fds_vol_notify_t vol_action,
+                                          const FDSP_ResultType result);
   typedef void (*throttle_cmd_handler_t)(const float throttle_level);
   typedef void (*tier_cmd_handler_t)(const FDSP_TierPolicyPtr &tier);
   typedef void (*tier_audit_cmd_handler_t)(const FDSP_TierPolicyAuditPtr &tier);

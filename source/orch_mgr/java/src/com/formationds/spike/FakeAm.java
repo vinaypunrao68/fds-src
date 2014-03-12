@@ -77,6 +77,13 @@ public class FakeAm {
         @Override
         public void NotifyDLTUpdate(FDSP_MsgHdrType fdsp_msg, FDSP_DLT_Data_Type dlt_info) throws TException {
             System.out.println(dlt_info);
+            byte[] bytes = dlt_info.getDlt_data();
+            System.out.println("{");
+            for (int i = 0; i < bytes.length; i++) {
+                byte aByte = bytes[i];
+                System.out.println(aByte + ",");
+            }
+            System.out.println("};");
         }
 
         @Override

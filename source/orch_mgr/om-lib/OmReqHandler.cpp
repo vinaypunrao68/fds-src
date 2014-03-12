@@ -25,6 +25,8 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::CreateVol(
 
     int err = 0;
     try {
+        LOGNOTIFY << "Received create volume " << crt_vol_req->vol_name;
+
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         err = local->om_create_vol(fdsp_msg, crt_vol_req);
     }
@@ -500,6 +502,8 @@ void OrchMgr::FDSP_OMControlPathReqHandler::CreateBucket(
     ::FDS_ProtocolInterface::FDSP_CreateVolTypePtr& crt_buck_req) {
 
     try {
+        LOGNOTIFY << "Received create bucket " << crt_buck_req->vol_name;
+
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         local->om_create_vol(fdsp_msg, crt_buck_req);
     }
