@@ -454,13 +454,17 @@ OM_PmContainer::agent_register(const NodeUuid       &uuid,
                                NodeAgent::pointer   *out)
 {
     // check if this is a known Node
+    bool        known;
     NodeInvData node;
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
+
     if (configDB->getNode(uuid, node)) {
         // this is a known node
+        known = true;
         msg->node_name = node.nd_node_name;
     } else {
         // do this only if the node name is empty.
+        known = false;
         if (msg->node_name.empty()) {
             uint cfgNameCounter = configDB->getNodeNameCounter();
             if (cfgNameCounter > 0) {
@@ -493,6 +497,14 @@ OM_PmContainer::agent_register(const NodeUuid       &uuid,
     fds_verify(agent != NULL);
     fds_verify(session != NULL);
     agent->setCpSession(session);
+
+    if (known == true) {
+        LOGNORMAL << "Known node uuid " << agent->get_uuid().uuid_get_val()
+            << ", name " << agent->get_node_name() << ", start all services";
+
+        // TODO(Vy): must save service cfg in db or better node provisioning.
+        agent->send_activate_services(true, true, true);
+    }
     return err;
 }
 

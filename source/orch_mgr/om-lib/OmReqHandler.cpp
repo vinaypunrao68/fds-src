@@ -579,7 +579,7 @@ void OrchMgr::FDSP_OMControlPathReqHandler::RegisterNode(
                  << ", result: " << err.GetErrstr();
         return;
     }
-    LOGNORMAL << "End Registered new node " << reg_node_req->node_name << std::hex
+    LOGNORMAL << "Done Registered new node " << reg_node_req->node_name << std::hex
               << ", node uuid " << reg_node_req->node_uuid.uuid
               << ", node type " << reg_node_req->node_type
               << ", service uuid " << new_node_uuid.uuid_get_val() << std::dec;
