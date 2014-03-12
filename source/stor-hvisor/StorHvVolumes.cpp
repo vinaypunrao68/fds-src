@@ -254,7 +254,7 @@ Error StorHvVolumeTable::registerVolume(const VolumeDesc& vdesc)
     map_rwlock.write_unlock();
     
     FDS_PLOG_SEV(vt_log, fds::fds_log::notification)
-            << "StorHvVolumeTable - Register new volume "
+            << "StorHvVolumeTable - Register new volume " << vdesc.name << " "
             << std::hex << vol_uuid << std::dec << ", policy " << vdesc.volPolicyId
             << " (iops_min=" << vdesc.iops_min << ",iops_max=" << vdesc.iops_max <<",prio=" << vdesc.relativePrio << ")"
             << " result: " << err.GetErrstr();  

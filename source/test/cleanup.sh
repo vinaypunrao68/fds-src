@@ -58,6 +58,10 @@ cleanBinDir ${FDSBINDIR}
 for node in node2 node3 node4; do
     bin_dir=../Build/linux-x86_64.debug/${node}
     [ -d $bin_dir ] && cleanBinDir ${bin_dir}
+
+    # so we can run this from smoke test, at source dir
+    bin_dir=./Build/linux-x86_64.debug/${node}
+    [ -d $bin_dir ] && cleanBinDir ${bin_dir}
 done
 
 cleanFdsRoot

@@ -44,7 +44,7 @@ class Disk:
 ##
     # Parse the disk information
     #
-    def __init__(self, path):
+    def __init__(self, path, fake):
         assert path != None
         assert re.match(Disk.dsk_prefix, path)
 
@@ -54,20 +54,12 @@ class Disk:
         self.dsk_parts = { }
         self.dsk_formatted = 'Unknown'
 
-        self.__parse_with_hdparm(path)
-        # Parse Disk parition type
-        part_info = subprocess.Popen(['parted', '-m', path, 'print'],
-                                     stdout=subprocess.PIPE).stdout
-
-        for rec in part_info:
-            ma = Disk.p_part.match(rec)
-            if ma:
-                # Partition
-                dbg_print('Partition Found: ' + ma.group(1) + ':' + ma.group(5))
-                self.dsk_parts[ma.group(1)] = ma.group(5)
+        # parse disk information
+        self.__parse_with_hdparm(path, fake)
+        self.__parse_with_parted(path, fake)
 
         # check if disk is formatted
-        self.__read_fds_hdr()
+        self.__read_fds_hdr(fake)
 
     # test for dev is root device
     #
@@ -205,11 +197,11 @@ class Disk:
     # get all Disk objects in the system, excluding boot device
     # 
     @staticmethod
-    def sys_disks():
+    def sys_disks(fake):
         dev_list  = []
-        path_list = Disk.__get_sys_disks_path()
+        path_list = Disk.__get_sys_disks_path(fake)
         for path in path_list:
-            disk = Disk(path)
+            disk = Disk(path, fake)
             if not disk.is_boot_dev():
                 dev_list.append(disk)
             else:
@@ -219,10 +211,13 @@ class Disk:
 ## Private member functions
 ## ------------------------
 ##
-    def __parse_with_hdparm(self, path):
+    def __parse_with_hdparm(self, path, fake):
         # Parse for Disk type, capacity
-        disk_info = subprocess.Popen(['hdparm', '-I', path],
-                                     stdout=subprocess.PIPE).stdout
+        if fake == True:
+            disk_info = self.__fake_hdparm(path)
+        else:
+            disk_info = subprocess.Popen(['hdparm', '-I', path],
+                                         stdout=subprocess.PIPE).stdout
         found = 0
         total_rec = 2
         for rec in disk_info:
@@ -252,9 +247,80 @@ class Disk:
                       Disk.dsk_typ_hdd)
             self.dsk_typ = Disk.dsk_typ_hdd
 
+    def __parse_with_parted(self, path, fake):
+        # Parse Disk parition type
+        part_info = self.__get_disk_partition_type(path, fake)
+
+        for rec in part_info:
+            ma = Disk.p_part.match(rec)
+            if ma:
+                # Partition
+                dbg_print('Partition Found: ' + ma.group(1) + ':' + ma.group(5))
+                self.dsk_parts[ma.group(1)] = ma.group(5)
+
+    def __fake_parted(self, path):
+        res = ["BYT;\n",
+                path + ":2199GB:scsi:512:512:gpt:ATA VBOX HARDDISK;\n",
+                "1:17.4kB:100MB:100MB:xfs:primary:;\n",
+                "2:100MB:32.0GB:31.9GB:xfs:primary:;\n",
+                "3:32.0GB:2199GB:2167GB:xfs:primary:;\n"]
+        return res
+        
+    def __fake_hdparm(self, path):
+        res = ["\n" + path + ":\n\n",
+            "ATA device, with non-removable media\n",
+            "        Model Number:       VBOX HARDDISK\n",
+            "        Serial Number:      VB6059e596-e3e22b0a\n",
+            "        Firmware Revision:  1.0\n",
+            "Standards:\n",
+            "        Used: ATA/ATAPI-6 published, ANSI INCITS 361-2002\n",
+            "        Supported: 6 5 4 \n",
+            "Configuration:\n",
+            "        Logical         max     current\n",
+            "        cylinders       16383   16383\n",
+            "        heads           16      16\n",
+            "        sectors/track   63      63\n",
+            "        --\n",
+            "        CHS current addressable sectors:   16514064\n",
+            "        LBA    user addressable sectors:  268435455\n",
+            "        LBA48  user addressable sectors: 4294965248\n",
+            "        Logical/Physical Sector size:           512 bytes\n",
+            "        device size with M = 1024*1024:     2097151 MBytes\n",
+            "        device size with M = 1000*1000:     2199022 MBytes (2199 GB)\n",
+            "        cache/buffer size  = 256 KBytes (type=DualPortCache)\n",
+            "Capabilities:\n",
+            "      LBA, IORDY(cannot be disabled)\n",
+            "      Queue depth: 32\n",
+            "      Standby timer values: spec'd by Vendor, no device specific minimum\n",
+            "      R/W multiple sector transfer: Max = 128 Current = 128\n",
+            "      DMA: mdma0 mdma1 mdma2 udma0 udma1 udma2 udma3 udma4 udma5 *udma6 \n",
+            "            Cycle time: min=120ns recommended=120ns\n",
+            "       PIO: pio0 pio1 pio2 pio3 pio4 \n",
+            "            Cycle time: no flow control=120ns  IORDY flow control=120ns\n",
+            "Commands/features:\n",
+            "       Enabled Supported:\n",
+            "          *    Power Management feature set\n",
+            "          *    Write cache\n",
+            "          *    Look-ahead\n",
+            "          *    48-bit Address feature set\n",
+            "          *    Mandatory FLUSH_CACHE\n",
+            "          *    FLUSH_CACHE_EXT\n",
+            "          *    Gen2 signaling speed (3.0Gb/s)\n",
+            "          *    Native Command Queueing (NCQ)\n",
+            "Checksum: correct\n"]
+        return res
+
+    def __get_disk_partition_type(self, path, fake):
+        if fake == True:
+            out =self. __fake_parted(path)
+        else:
+            out = subprocess.Popen(['parted', '-m', path, 'print'],
+                                         stdout=subprocess.PIPE).stdout
+        return out
+
     # Cannot parse disk not partitioned with gpart
     #
-    def __parse_with_parted(self, path):
+    def __parse_with_parted_type_cap(self, path):
         # Parse Disk parition type
         part_info = subprocess.Popen(['parted', '-m', path, 'print'],
                                      stdout=subprocess.PIPE).stdout
@@ -276,7 +342,11 @@ class Disk:
                 dbg_print('Capacity Found: ' + ma.group(2))
 
     # read header, set formatted field if header is found
-    def __read_fds_hdr(self):
+    def __read_fds_hdr(self, fake):
+        if fake == True:
+            self.dsk_formatted = True
+            return
+
         fp = open(self.dsk_path, 'rb')
         hdr_info = fp.read(Disk.dsk_hdr_size)
         fp.close()
@@ -302,10 +372,20 @@ class Disk:
         fp.write(hdr_val)
 
         fp.close()
-        self.__read_fds_hdr()
+        self.__read_fds_hdr(False)
 
     @staticmethod
-    def __get_sys_disks_path():
+    def __get_fake_sys_disk_path():
+        res = ['/dev/fake1', '/dev/fake2', '/dev/fake3', '/dev/fake4',
+               '/dev/fake5', '/dev/fake6', '/dev/fake7', '/dev/fake8',
+               '/dev/fake9', '/dev/fake10', '/dev/fake11', '/dev/fake12']
+        return res
+
+    @staticmethod
+    def __get_sys_disks_path(fake):
+        if fake == True:
+            return Disk.__get_fake_sys_disk_path()
+
         path_info = subprocess.Popen(['ls', Disk.dsk_prefix],
                                      stdout=subprocess.PIPE).stdout
         path_list = []
@@ -348,6 +428,7 @@ if __name__ == "__main__":
     parser.add_argument('--format', help='create partition and format')
     parser.add_argument('--clear_fmt', help='clear formatted partition')
     parser.add_argument('--debug', help='turn on debugging')
+    parser.add_argument('--fake', help='Fake dev for testing')
 
 
     args = parser.parse_args()
@@ -368,15 +449,20 @@ if __name__ == "__main__":
     else:
         clear_fmt = False
 
+    if args.fake == 'true':
+        fake = True
+    else:
+        fake = False
+
     if fmt and clear_fmt:
         print 'Cannot use format and clear_fmt at the same time'
         sys.exit(1)
 
     if dev_path != None:
-        disk = Disk(dev_path)
+        disk = Disk(dev_path, fake)
         disk_helper(disk, fmt, clear_fmt)
         sys.exit(0)
 
-    dev_list = Disk.sys_disks()
+    dev_list = Disk.sys_disks(fake)
     for disk in dev_list:
         disk_helper(disk, fmt, clear_fmt)
