@@ -598,7 +598,7 @@ if __name__ == "__main__":
     parser.add_argument('--verbose', default='false', help ='Print verbose [false]')
     parser.add_argument('--async', default='true', help ='Run I/O Async [true]')
     parser.add_argument('--debug', default='false', help ='pdb debug on [false]')
-    parser.add_argument('--shutdown', default='false', help ='Shutdown/cleanup system after test [false]')
+    parser.add_argument('--shutdown', default='true', help ='Shutdown/cleanup system after test passed [true]')
     args = parser.parse_args()
 
     cfgFile = args.cfg_file
