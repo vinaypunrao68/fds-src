@@ -15,9 +15,6 @@ public class OmConfigPath implements FDSP_ConfigPathReq.Iface {
     public OmConfigPath(ServiceDirectory serviceDirectory, Function<FDSP_RegisterNodeType, FDSP_ControlPathReq.Iface> controlClientFactory) {
         this.serviceDirectory = serviceDirectory;
         this.controlClientFactory = controlClientFactory;
-
-        FDSP_ActivateNodeType msg = new FDSP_ActivateNodeType();
-        msg.setHas_am_service(true);
     }
 
     @Override
