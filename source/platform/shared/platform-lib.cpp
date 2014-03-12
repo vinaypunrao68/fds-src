@@ -52,9 +52,10 @@ PlatEvent::PlatEvent(char const *const          name,
 
 PlatformProcess::PlatformProcess(int argc, char **argv,
                                  const std::string  &cfg,
+                                 const std::string  &log,
                                  Platform           *platform,
                                  Module            **vec)
-    : FdsProcess(argc, argv, "platform.conf", cfg, "platform.log", vec),
+    : FdsProcess(argc, argv, "platform.conf", cfg, log, vec),
       plf_mgr(platform), plf_db(NULL),
       plf_test_mode(false), plf_stand_alone(false)
 {

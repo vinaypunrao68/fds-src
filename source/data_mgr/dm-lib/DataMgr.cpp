@@ -371,7 +371,7 @@ Error DataMgr::_process_delete(fds_volid_t vol_uuid,
 }
 
 DataMgr::DataMgr(int argc, char *argv[], Platform *platform, Module **vec)
-    : PlatformProcess(argc, argv, "fds.dm.", platform, vec),
+    : PlatformProcess(argc, argv, "fds.dm.", "dm.log", platform, vec),
       port_num(0),
       cp_port_num(0),
       omConfigPort(0),
@@ -496,7 +496,7 @@ void DataMgr::setup()
     FDS_PLOG(dm_log) << "Data Manager using IP:"
                      << myIp << " and node name " << node_name;
 
-  setup_metadatapath_server(myIp);
+    setup_metadatapath_server(myIp);
 
   /*
    * Query  Disk Manager  for disk parameter details 
@@ -509,7 +509,7 @@ void DataMgr::setup()
   while (1) {
         info = out.query_pop();
         if (info != nullptr) {
-  	    FDS_PLOG(dm_log) << "Max blks capacity: " << info->di_max_blks_cap
+            FDS_PLOG(dm_log) << "Max blks capacity: " << info->di_max_blks_cap
             << "Disk type........: " << info->di_disk_type
             << "Max iops.........: " << info->di_max_iops
             << "Min iops.........: " << info->di_min_iops
@@ -530,7 +530,6 @@ void DataMgr::setup()
             	dInfo->ssd_latency_min = info->di_min_latency; /* in us second */
 	    } else 
   	       FDS_PLOG(dm_log) << "Unknown Disk Type " << info->di_disk_type;
-			
             delete info;
             continue;
         }
@@ -564,7 +563,7 @@ void DataMgr::setup()
        * Registers the DM with the OM. Uses OM for bootstrapping
        * on start. Requires the OM to be up and running prior.
        */
-      omClient->registerNodeWithOM(dInfo);
+      omClient->registerNodeWithOM(plf_mgr, dInfo);
   }
   
   if (runMode == TEST_MODE) {

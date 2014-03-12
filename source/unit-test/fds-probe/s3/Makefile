@@ -1,5 +1,8 @@
 probe_topdir      := ..
 
+user_incl_dir     := \
+    $(probe_topdir)/../../am-app/include
+
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  := \

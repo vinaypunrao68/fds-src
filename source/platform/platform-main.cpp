@@ -10,7 +10,7 @@
 namespace fds {
 
 NodePlatformProc::NodePlatformProc(int argc, char **argv, Module **vec)
-    : PlatformProcess(argc, argv, "fds.plat.", &gl_NodePlatform, vec) {}
+    : PlatformProcess(argc, argv, "fds.plat.", "platform.log", &gl_NodePlatform, vec) {}
 
 // plf_load_node_data
 // ------------------
@@ -53,16 +53,26 @@ NodePlatformProc::plf_start_node_services(const fpi::FDSP_ActivateNodeTypePtr &m
     FdsConfigAccessor conf(get_conf_helper());
 
     auto_start = conf.get<bool>("auto_start_services", true);
+    plf_node_data.nd_flag_run_sm = msg->has_sm_service;
+    plf_node_data.nd_flag_run_dm = msg->has_dm_service;
+    plf_node_data.nd_flag_run_am = msg->has_am_service;
+    plf_db->set(plf_db_key,
+                std::string((const char *)&plf_node_data, sizeof(plf_node_data)));
+
     if (auto_start == true) {
-        if (plf_node_data.nd_flag_run_sm) {
+        if (msg->has_sm_service) {
             pid = fds_spawn_service("StorMgr", proc_root->dir_fdsroot().c_str());
             LOGNOTIFY << "Spawn SM with pid " << pid;
+
+            // TODO(Vy): must fix the transport stuff!
+            sleep(1);
         }
-        if (plf_node_data.nd_flag_run_dm) {
+        if (msg->has_dm_service) {
             pid = fds_spawn_service("DataMgr", proc_root->dir_fdsroot().c_str());
             LOGNOTIFY << "Spawn DM with pid " << pid;
         }
-        if (plf_node_data.nd_flag_run_am) {
+        if (msg->has_am_service) {
+            sleep(5);
             pid = fds_spawn_service("AMAgent", proc_root->dir_fdsroot().c_str());
             LOGNOTIFY << "Spawn AM with pid " << pid;
         }

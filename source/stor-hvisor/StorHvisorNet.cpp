@@ -11,6 +11,7 @@
 #include <fds_process.h>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include "NetSession.h"
+#include <am-platform.h>
 
 #define FDS_REPLICATION_FACTOR 2
 
@@ -321,7 +322,7 @@ void StorHvCtrl::StartOmClient() {
     dInfo->ssd_latency_max = 100; /* in milli second */
     dInfo->ssd_latency_min = 3; /* in milli second */
     dInfo->disk_type =  FDS_DISK_SATA;
-    om_client->registerNodeWithOM(dInfo);
+    om_client->registerNodeWithOM(&gl_AmPlatform, dInfo);
   }
 
 }

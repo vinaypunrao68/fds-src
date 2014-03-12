@@ -48,10 +48,10 @@ class VolumeInfo : public Resource
     void vol_send_message(om_vol_msg_t *out, NodeAgent::pointer dest);
 
     void setDescription(const VolumeDesc &desc);
-    void vol_attach_node(const std::string &node_name);
-    void vol_detach_node(const std::string &node_name);
+    void vol_attach_node(const NodeUuid &node_uuid);
+    void vol_detach_node(const NodeUuid &node_uuid);
 
-    NodeAgent::pointer vol_am_agent(const std::string &am_node);
+    NodeAgent::pointer vol_am_agent(const NodeUuid &am_node);
 
     inline std::string &vol_get_name() {
         return vol_properties->name;
@@ -114,7 +114,7 @@ class VolumeInfo : public Resource
     std::string               vol_name;
     fds_volid_t               volUUID;
     VolumeDesc               *vol_properties;
-    std::vector<std::string>  vol_am_nodes;
+    std::vector<NodeUuid>     vol_am_nodes;
 };
 
 class VolumeContainer : public RsContainer

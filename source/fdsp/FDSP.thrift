@@ -651,6 +651,7 @@ struct FDSP_MsgHdrType {
     27: string      payload_chksum,
 
     28: string      session_uuid
+    29: FDSP_Uuid   src_service_uuid    /* uuid of service that sent this request */
 }
 
 enum tier_prefetch_type_e

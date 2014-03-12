@@ -253,6 +253,11 @@ class Platform : public Module
     static inline fds_uint32_t plf_migration_port(fds_uint32_t base) { return base + 3; }
 
     /**
+     * Return service uuid from node uuid and service type.
+     */
+    static void plf_svc_uuid_from_node(const NodeUuid &node, NodeUuid *, FDSP_MgrIdType);
+
+    /**
      * Platform methods.
      */
     void plf_run_server(bool spawn_thr = false);
@@ -288,10 +293,13 @@ class Platform : public Module
     inline fds_uint32_t   plf_get_my_conf_port() const { return plf_my_conf_port; }
     inline fds_uint32_t   plf_get_my_data_port() const { return plf_my_data_port; }
     inline fds_uint32_t   plf_get_my_migration_port() const { return plf_my_migr_port; }
+
     inline std::string const *const plf_get_my_name() const { return &plf_my_node_name; }
     inline std::string const *const plf_get_my_ip() const { return &plf_my_ip; }
     inline std::string const *const plf_get_om_ip() const { return &plf_om_ip_str; }
-    inline NodeUuid const *const    plf_get_my_uuid() const { return &plf_my_uuid; }
+
+    inline NodeUuid const *const plf_get_my_uuid() const { return &plf_my_uuid; }
+    inline NodeUuid const *const plf_get_my_svc_uuid() const { return &plf_my_svc_uuid; }
 
   protected:
     friend class PlatRpcReqt;
@@ -299,6 +307,7 @@ class Platform : public Module
 
     FDSP_MgrIdType             plf_node_type;
     NodeUuid                   plf_my_uuid;
+    NodeUuid                   plf_my_svc_uuid;
     std::string                plf_my_node_name;
     std::string                plf_my_ip;
     std::string                plf_om_ip_str;
@@ -349,6 +358,7 @@ class PlatformProcess : public FdsProcess
     virtual ~PlatformProcess();
     PlatformProcess(int argc, char *argv[],
                     const std::string &cfg_path,
+                    const std::string &log_file,
                     Platform *platform, Module **vec);
 
     virtual void setup();

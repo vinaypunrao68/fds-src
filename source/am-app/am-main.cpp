@@ -16,7 +16,7 @@ class AM_Process : public PlatformProcess
     virtual ~AM_Process() {}
     AM_Process(int argc, char **argv,
                Platform *platform, Module **mod_vec)
-        : PlatformProcess(argc, argv, "fds.am.", platform, mod_vec) {}
+        : PlatformProcess(argc, argv, "fds.am.", "am.log", platform, mod_vec) {}
 
     void setup() override
     {
@@ -48,9 +48,9 @@ int main(int argc, char **argv)
         nullptr
     };
     fds::AM_Process am_process(argc, argv, &fds::gl_AmPlatform, am_mod_vec);
-    CreateStorHvisorS3(argc, argv);
-
     am_process.setup();
+
+    CreateStorHvisorS3(argc, argv);
     am_process.run();
     // not reached!
     return 0;
