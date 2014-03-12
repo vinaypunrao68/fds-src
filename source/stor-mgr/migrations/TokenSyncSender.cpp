@@ -287,7 +287,7 @@ struct TokenSyncSenderFSM_
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            LOGDEBUG << "take_snap";
+            LOGDEBUG << "take_snap token: " << fsm.token_id_;
 
             if (sync_closed_) {
                 cur_sync_range_high_ = sync_closed_time_;
@@ -316,7 +316,7 @@ struct TokenSyncSenderFSM_
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            LOGDEBUG << "build_sync_log";
+            LOGDEBUG << "build_sync_log token: " << fsm.token_id_;
             std::string log_name = "TokenSyncLog_" + fsm.token_id_ +
                     "_" + cur_sync_range_high_ + "_" + cur_sync_range_low_;
             fsm.sync_log_.reset(new TokenSyncLog(log_name));
@@ -362,7 +362,7 @@ struct TokenSyncSenderFSM_
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            LOGDEBUG << "send_sync_log";
+            LOGDEBUG << "send_sync_log token: " << fsm.token_id_;
 
             Error err(ERR_OK);
 
@@ -401,6 +401,8 @@ struct TokenSyncSenderFSM_
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
+            LOGDEBUG << "finish_sync token: " << fsm.token_id_;
+
             FDSP_NotifyTokenSyncComplete sync_compl;
             sync_compl.token_id = fsm.token_id_;
             fsm.rcvr_session_->getClient()->NotifyTokenSyncComplete(sync_compl);
@@ -412,7 +414,7 @@ struct TokenSyncSenderFSM_
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            LOGERROR << "Error state";
+            LOGERROR << "Error state token: " << fsm.token_id_;
             fds_assert(!"error");
         }
     };
@@ -423,7 +425,7 @@ struct TokenSyncSenderFSM_
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            LOGDEBUG << "teardown ";
+            LOGDEBUG << "teardown token: " << fsm.token_id_;
 
             FdsActorRequestPtr far(new FdsActorRequest(
                     FAR_ID(FdsActorShutdown), nullptr));
@@ -507,6 +509,7 @@ struct TokenSyncSenderFSM_
     // the initial state of the SM. Must be defined
     typedef mpl::vector<Init, AllOk> initial_state;
 
+    /* Callback from object store that metadata snapshot is complete */
     void snap_done_cb(const Error& e,
             leveldb::ReadOptions& options, leveldb::DB* db)
     {

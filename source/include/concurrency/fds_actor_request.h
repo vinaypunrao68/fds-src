@@ -45,6 +45,11 @@ enum FdsActorRequestType {
     /* Token sync snapshot is complete notification event */
     FAR_ENUM(TSSnapDnEvt),
 
+    /* Token sync transfer is complete */
+    FAR_ENUM(TSXferDnEvt),
+
+    /* Token sync resolve is complete */
+    FAR_ENUM(TSResolveDnEvt),
     /*----------------- Migration RPC -----------------------------------------*/
     /* RPC from receiver->sender to start token copy */
     FAR_ENUM(FDSP_CopyTokenReq),

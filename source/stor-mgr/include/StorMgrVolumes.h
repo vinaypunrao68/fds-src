@@ -394,12 +394,48 @@ namespace fds {
     typedef std::function<void (const Error&, leveldb::ReadOptions& options,
             leveldb::DB* db)> CbType;
   public:
-      SmIoSnapshotObjectDB();
+      SmIoSnapshotObjectDB() {
+          token_id = 0;
+      }
 
       /* In: Token to take snapshot of*/
       fds_token_id token_id;
       /* Response callback */
       CbType smio_snap_resp_cb;
+  };
+
+  /**
+   * @brief Applies meta data transferred as part of sync
+   */
+  class SmIoApplySyncMetadata : public SmIoReq {
+  public:
+      typedef std::function<void (const Error&,
+              const std::set<ObjectID>& missing_objs)> CbType;
+  public:
+      SmIoApplySyncMetadata() {
+      }
+
+      /* In: Sync metadata list */
+      FDSP_MigrateObjectMetadataList md_list;
+      /* Response callback */
+      CbType smio_sync_md_resp_cb;
+  };
+
+  /**
+   * @brief Applies meta data transferred as part of sync
+   */
+  class SmIoResolveSyncEntries : public SmIoReq {
+  public:
+      typedef std::function<void (const Error&)> CbType;
+  public:
+      SmIoResolveSyncEntries() {
+          token_id = 0;
+      }
+
+      /* In: Sync metadata list */
+      fds_token_id token_id;
+      /* Response callback */
+      CbType smio_resolve_resp_cb;
   };
 }  // namespace fds
 
