@@ -1012,8 +1012,6 @@ ObjectStorMgr::readObject(const ObjectID   &objId,
      * Just pass a ref to objId?
      */
     memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
-//    oid.oid_hash_hi = objId.GetHigh();
-//    oid.oid_hash_lo = objId.GetLow();
 
     // create a blocking request object
     disk_req = new SmPlReq(vio, oid, (ObjectBuf *)&objData, true);
@@ -1160,8 +1158,6 @@ ObjectStorMgr::writeObject(const ObjectID  &objId,
      * Just pass a ref to objId?
      */
     memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
-//    oid.oid_hash_hi = objId.GetHigh();
-//    oid.oid_hash_lo = objId.GetLow();
 
     LOGDEBUG << "Writing object " << objId << " into the "
             << ((tier == diskio::diskTier) ? "disk" : "flash")
@@ -1352,8 +1348,6 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
 
     FDSP_PutObjTypePtr putObj(new FDSP_PutObjType());
     putObj->data_obj_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
-//    putObj->data_obj_id.hash_high = objId.GetHigh();
-//    putObj->data_obj_id.hash_low  = objId.GetLow();
     putObj->data_obj_len          = putObjReq->data_obj_len;
 
     if (err == ERR_OK) {
@@ -1507,8 +1501,6 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
 
     FDSP_DeleteObjTypePtr delObj(new FDS_ProtocolInterface::FDSP_DeleteObjType());
     delObj->data_obj_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
-//    delObj->data_obj_id.hash_high = objId.GetHigh();
-//    delObj->data_obj_id.hash_low  = objId.GetLow();
     delObj->data_obj_len          = delObjReq->data_obj_len;
 
     if (err == ERR_OK) {
@@ -1651,11 +1643,7 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
     FDS_ProtocolInterface::FDSP_GetObjTypePtr
         getObj(new FDS_ProtocolInterface::FDSP_GetObjType());
 
-//    fds_uint64_t oidHigh = objId.GetHigh();
-//    fds_uint64_t oidLow = objId.GetLow();
     getObj->data_obj_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
-//    getObj->data_obj_id.hash_high    = objId.GetHigh();
-//    getObj->data_obj_id.hash_low     = objId.GetLow();
     getObj->data_obj                 = (err == ERR_OK)? objBufPtr->data:"";
     getObj->data_obj_len             = (err == ERR_OK)? objBufPtr->size:0;
 
@@ -2058,8 +2046,6 @@ void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
                     mig_obj.meta_data.token_id = token;
                     LOGDEBUG << "Adding a new objectId to objList" << objId;
                     mig_obj.meta_data.object_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
-//                    mig_obj.meta_data.object_id.hash_high = objId.GetHigh();
-//                    mig_obj.meta_data.object_id.hash_low = objId.GetLow();
                     mig_obj.meta_data.obj_len = objData.size;
                     mig_obj.data = objData.data;
                     obj_list.push_back(mig_obj);
