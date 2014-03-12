@@ -314,11 +314,10 @@ void OMgrClient::initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
         msg_hdr->src_id = my_node_type;
         msg_hdr->dst_id = FDSP_ORCH_MGR;
 	msg_hdr->src_node_name = my_node_name;
+        msg_hdr->src_service_uuid.uuid = myUuid.uuid_get_val();
 
         msg_hdr->err_code=FDSP_ERR_SM_NO_SPACE;
         msg_hdr->result=FDSP_ERR_OK;
-
-
 }
 
 // Use this to register the local node with OM as a client. Should be called after calling starting subscription endpoint and control path endpoint.
@@ -361,9 +360,18 @@ int OMgrClient::registerNodeWithOM(Platform *plat,
         // TODO(Vy): simple service uuid from node uuid.
         reg_node_msg->node_uuid.uuid = plat->plf_get_my_uuid()->uuid_get_val();
         if (reg_node_msg->node_uuid.uuid != 0) {
-            reg_node_msg->service_uuid.uuid =
-                reg_node_msg->node_uuid.uuid + reg_node_msg->node_type + 1;
+            if (my_node_type == FDS_ProtocolInterface::FDSP_PLATFORM) {
+                // service uuid for platform is the same as node uuid
+                // (that's how OM deals with it right now)
+                reg_node_msg->service_uuid.uuid = reg_node_msg->node_uuid.uuid;
+                myUuid.uuid_set_val(plat->plf_get_my_uuid()->uuid_get_val());
+            } else {
+                reg_node_msg->service_uuid.uuid =
+                        reg_node_msg->node_uuid.uuid + reg_node_msg->node_type + 1;
+                myUuid.uuid_set_val(reg_node_msg->service_uuid.uuid);
+            }
         }
+
         /* init the disk info */
         reg_node_msg->disk_info.disk_iops_max =  dInfo->disk_iops_max;
         reg_node_msg->disk_info.disk_iops_min =  dInfo->disk_iops_min;
@@ -616,7 +624,8 @@ int OMgrClient::recvNodeEvent(int node_id,
   // TODO(Andrew): Hack to figure out my own node uuid
   // since the OM doesn't reply to my registration yet.
   if ((node.node_ip_address == (uint)netSession::ipString2Addr(hostIp)) &&
-      (node.port == my_data_port)) {
+      (node.port == my_data_port) &&
+      (myUuid.uuid_get_val() == 0)) {
       myUuid.uuid_set_val(node_info->node_uuid);
       LOGDEBUG << "Setting my UUID to " << myUuid.uuid_get_val();
   }
