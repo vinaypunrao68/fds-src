@@ -4,10 +4,10 @@ user_rtime_env    := user
 user_install      :=
 user_install_loc  := test
 
-user_incl_dir     := ..
+user_incl_dir     := .. $(topdir)/lib
 user_cpp_flags    :=
 user_fds_so_libs  :=
-user_fds_ar_libs  := fds-odb fds-thread fds-fdsp fds-hash
+user_fds_ar_libs  := fds-odb fds-thread fds-fdsp fds-hash fds-lib
 user_non_fds_libs :=                                                          \
     boost_thread boost_date_time boost_program_options leveldb                \
 
