@@ -70,7 +70,6 @@ PM_ProbeMod::pr_intercept_request(ProbeRequest *req)
 void
 PM_ProbeMod::pr_put(ProbeRequest *probe)
 {
-    static int hash_hi = 1, hash_lo = 1;
     DiskReqTest    *req;
     meta_vol_io_t  vio;
     meta_obj_id_t  oid;
@@ -81,12 +80,14 @@ PM_ProbeMod::pr_put(ProbeRequest *probe)
     vadr_set_inval(vio.vol_adr);
     vio.vol_rsvd    = 0;
     vio.vol_blk_len = 0;
-    oid.oid_hash_hi = hash_hi++;
-    oid.oid_hash_lo = hash_lo++;
+//    oid.oid_hash_hi = hash_hi++;
+//    oid.oid_hash_lo = hash_lo++;
     buf = new ObjectBuf;
     buf->size = io->pr_wr_size << diskio::DataIO::disk_io_blk_shift();
     buf->data.assign(io->pr_wr_buf, io->pr_wr_size);
 
+    for (unsigned int i = 0; i < sizeof(oid); i++)
+       oid.metaDigest[i] = random()%10 + 1;
     req = new DiskReqTest(vio, oid, buf, true, diskio::diskTier);
     pio.disk_write(req);
     delete req;

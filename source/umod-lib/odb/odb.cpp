@@ -173,6 +173,7 @@ fds::Error ObjectDB::Get(const DiskLoc& disk_location,
   timer_update_get_histo();
   if (!status.ok()) {
     err = fds::Error(fds::ERR_DISK_READ_FAILED);
+    return err;
   }
 
   obj_buf.data = value;

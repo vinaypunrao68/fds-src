@@ -102,8 +102,7 @@ int StorHvisorProcIoRd(void *_io)
   journEntry->sm_ack_cnt = 0;
   journEntry->dm_ack_cnt = 0;
   journEntry->op = FDS_IO_READ;
-  journEntry->data_obj_id.hash_high = 0;
-  journEntry->data_obj_id.hash_low = 0;
+  journEntry->data_obj_id.digest.clear(); 
   journEntry->data_obj_len = req->len;
   journEntry->io = io;
   
@@ -128,13 +127,11 @@ int StorHvisorProcIoRd(void *_io)
   }
   
   FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id << " volID: 0x"
-                                 << std::hex << vol_id << std::dec << " - object ID: " << oid.GetHigh() <<  ":" << oid.GetLow()
+                                 << std::hex << vol_id << std::dec << " - object ID: " << oid.ToHex(oid)
                                  << "  ObjLen:" << journEntry->data_obj_len;
   
   // We have a Cache HIT *$###
-  //
-  uint64_t doid_dlt = oid.GetHigh();
-  doid_dlt_key = (doid_dlt >> 56);
+  doid_dlt_key = oid.getTokenBits(4); // using 4 bits to  for now 
   
   fdsp_msg_hdr->glob_volume_id = vol_id;;
   fdsp_msg_hdr->req_cookie = trans_id;
@@ -143,13 +140,11 @@ int StorHvisorProcIoRd(void *_io)
   fdsp_msg_hdr->src_ip_lo_addr = SRC_IP;
   fdsp_msg_hdr->src_port = 0;
   fdsp_msg_hdr->src_node_name = storHvisor->my_node_name;
-  get_obj_req->data_obj_id.hash_high = oid.GetHigh();
-  get_obj_req->data_obj_id.hash_low = oid.GetLow();
+  get_obj_req->data_obj_id.digest = std::string((const char *)oid.GetId(), (size_t)oid.GetLen());
   get_obj_req->data_obj_len = req->len;
   
   journEntry->op = FDS_IO_READ;
-  journEntry->data_obj_id.hash_high = oid.GetHigh();;
-  journEntry->data_obj_id.hash_low = oid.GetLow();;
+  journEntry->data_obj_id.digest = std::string((const char *)oid.GetId(), (size_t)oid.GetLen());
   
   // Lookup the Primary SM node-id/ip-address to send the GetObject to
   boost::shared_ptr<DltTokenGroup> dltPtr;
@@ -285,8 +280,8 @@ int StorHvisorProcIoWr(void *_io)
   upd_obj_info.offset = 0;
   upd_obj_info.size = data_size;
   
-  put_obj_req->data_obj_id.hash_high = upd_obj_info.data_obj_id.hash_high = objID.GetHigh();
-  put_obj_req->data_obj_id.hash_low = upd_obj_info.data_obj_id.hash_low = objID.GetLow();
+  put_obj_req->data_obj_id.digest = std::string((const char *)objID.GetId(), (size_t)objID.GetLen());
+  upd_obj_info.data_obj_id.digest = std::string((const char *)objID.GetId(), (size_t)objID.GetLen());
   
   upd_obj_req->obj_list.push_back(upd_obj_info);
   upd_obj_req->meta_list.clear();
@@ -296,9 +291,9 @@ int StorHvisorProcIoWr(void *_io)
   fdsp_msg_hdr->glob_volume_id    = vol_id;
   fdsp_msg_hdr_dm->glob_volume_id = vol_id;
   
-  doid_dlt_key = objID.GetHigh() >> 56;
+  doid_dlt_key = objID.getTokenBits(4);
   
-  FDS_PLOG(storHvisor->GetLog())<< " StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Object ID:"<< objID.GetHigh()<< ":" << objID.GetLow() \
+  FDS_PLOG(storHvisor->GetLog())<< " StorHvisorTx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Object ID:"<< objID.ToHex(objID) \
                                  << "  ObjLen:" << put_obj_req->data_obj_len << "  volID:" << fdsp_msg_hdr->glob_volume_id;
   
   // *** Initialize the journEntry with a open txn
@@ -315,8 +310,7 @@ int StorHvisorProcIoWr(void *_io)
   journEntry->dm_ack_cnt = 0;
   journEntry->dm_commit_cnt = 0;
   journEntry->op = FDS_IO_WRITE;
-  journEntry->data_obj_id.hash_high = objID.GetHigh();
-  journEntry->data_obj_id.hash_low = objID.GetLow();
+  journEntry->data_obj_id.digest = std::string((const char *)objID.GetId(), (size_t)objID.GetLen());
   journEntry->data_obj_len= data_size;;
   
   fdsp_msg_hdr->src_ip_lo_addr = SRC_IP;

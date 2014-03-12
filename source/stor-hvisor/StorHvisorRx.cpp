@@ -248,7 +248,7 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
         vol->vol_catalog_cache->Update(
             blobReq->getBlobName(),
             blobReq->getBlobOffset(),
-            ObjectID(txn->data_obj_id.hash_high, txn->data_obj_id.hash_low));
+            ObjectID(txn->data_obj_id.digest));
         
         /*
          * Mark the IO complete, clean up txn, and callback
@@ -288,8 +288,7 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
      */
     FDS_ProtocolInterface::FDSP_BlobObjectInfo upd_obj_info;
     upd_obj_info.offset = txn->blobOffset;  // May want to revert to 0 for blocks?
-    upd_obj_info.data_obj_id.hash_high = txn->data_obj_id.hash_high;
-    upd_obj_info.data_obj_id.hash_low =  txn->data_obj_id.hash_low;
+    upd_obj_info.data_obj_id.digest = txn->data_obj_id.digest;
     upd_obj_info.size = 0; // TODO: fix this.
 
     FDSP_UpdateCatalogTypePtr upd_obj_req(new FDSP_UpdateCatalogType);
@@ -387,7 +386,6 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
     ObjectID obj_id;
     int doid_dlt_key;
     netSession *endPoint = NULL;
-    uint64_t doid_high;
     int trans_id = fdsp_msg_hdr->req_cookie;
     //fbd_request_t *req;
     fds_volid_t vol_id = fdsp_msg_hdr->glob_volume_id;
@@ -490,7 +488,7 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
     FDS_ProtocolInterface::FDSP_BlobObjectInfo& cat_obj_info = cat_obj_req->obj_list[0];
     FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID: 0x"
                                    << std::hex << vol_id << std::dec << " - GOT A QUERY RESPONSE! Object ID :- " 
-				   << cat_obj_info.data_obj_id.hash_high << ":" << cat_obj_info.data_obj_id.hash_low ;
+				   << cat_obj_info.data_obj_id.digest;
     //AmQosReq *qosReq = (AmQosReq *)journEntry->io;
     //FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
     
@@ -537,8 +535,8 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
     fdsp_msg_hdr->src_node_name = storHvisor->my_node_name;
     if ( journEntry->io->io_type == FDS_IO_READ || journEntry->io->io_type == FDS_GET_BLOB) {
         FDS_ProtocolInterface::FDSP_GetObjTypePtr get_obj_req(new FDSP_GetObjType);
-        get_obj_req->data_obj_id.hash_high = cat_obj_info.data_obj_id.hash_high;
-        get_obj_req->data_obj_id.hash_low = cat_obj_info.data_obj_id.hash_low;
+        get_obj_req->data_obj_id.digest = cat_obj_info.data_obj_id.digest;
+//        get_obj_req->data_obj_id.hash_low = cat_obj_info.data_obj_id.hash_low;
         get_obj_req->data_obj_len = journEntry->data_obj_len;
 
 
@@ -549,7 +547,7 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
         journEntry->trans_state = FDS_TRANS_GET_OBJ;
 
 
-        obj_id.SetId( cat_obj_info.data_obj_id.hash_high,cat_obj_info.data_obj_id.hash_low);
+        obj_id.SetId( (const char *)cat_obj_info.data_obj_id.digest.c_str(), cat_obj_info.data_obj_id.digest.length());
         /*
          * TODO: Don't just grab the hard coded first catalog object in the list.
          * Actually loop here.
@@ -560,8 +558,8 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
                 obj_id);
     } else if (journEntry->io->io_type == FDS_DELETE_BLOB) {
         FDS_ProtocolInterface::FDSP_DeleteObjTypePtr del_obj_req(new FDSP_DeleteObjType);
-        del_obj_req->data_obj_id.hash_high = cat_obj_info.data_obj_id.hash_high;
-        del_obj_req->data_obj_id.hash_low = cat_obj_info.data_obj_id.hash_low;
+        del_obj_req->data_obj_id.digest = cat_obj_info.data_obj_id.digest;
+//        del_obj_req->data_obj_id.hash_low = cat_obj_info.data_obj_id.hash_low;
         del_obj_req->data_obj_len = journEntry->data_obj_len;
         if (endPoint) {
             boost::shared_ptr<FDSP_DataPathReqClient> client =

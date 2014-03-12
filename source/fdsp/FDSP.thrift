@@ -7,9 +7,8 @@ namespace * FDS_ProtocolInterface
 
 
 struct FDS_ObjectIdType {
-  1: i64   hash_high,
-  2: i64   hash_low,
-  3: byte    conflict_id
+  1: string  digest,
+  2: byte    conflict_id
 }
 
 enum fds_dmgr_txn_state {
@@ -181,8 +180,9 @@ struct FDSP_VerifyObjType {
 }
 
 struct FDSP_BlobDigestType {
-  1: i64 low,
-  2: i64 high
+#  1: i64 low,
+#  2: i64 high
+  1: string  digest
 }
 
 struct FDSP_BlobObjectInfo {

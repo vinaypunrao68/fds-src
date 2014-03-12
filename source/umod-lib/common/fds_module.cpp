@@ -13,8 +13,8 @@
 namespace fds {
 
 Module::Module(char const *const name)
-    : mod_name(name), mod_lstp_cnt(0), mod_lockstep(nullptr),
-      mod_intern_cnt(0), mod_intern(nullptr), mod_params(nullptr) {}
+    : mod_lstp_cnt(0), mod_intern_cnt(0), mod_lockstep(nullptr), mod_intern(nullptr),
+      mod_name(name), mod_params(nullptr) {}
 
 Module::~Module() {}
 

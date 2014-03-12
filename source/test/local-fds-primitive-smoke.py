@@ -365,22 +365,16 @@ def bringupCluster(env, bu, cfgFile, verbose, debug):
     print "\n\nStarting Platform Daemon on node1..."
     subprocess.Popen(['./platformd', '--fds-root', root1],
                      stderr=subprocess.STDOUT)
-    # Wait for platformd to come up before issue command
+    # wait for platformd to come up before issue command
     subprocess.call(['sleep', '5'])
 
     # Start CLI to ask OM to commision the node.
     #
     print "\n\nAsking OM to accept all discovered nodes..."
     subprocess.Popen(['./fdscli', '--fds-root', root1,
-                      '--activate-nodes', 'abc', '-k', '1', '-e', 'am,dm,sm'],
+                      '--activate-nodes', 'abc', '-k', '1'],
                      stderr=subprocess.STDOUT)
-    subprocess.call(['sleep', '10'])
-
-    # Start AM separately.
-    # print "\n\nStarting AM service on node1..."
-    # subprocess.Popen(['./AMAgent', '--fds-root', root1],
-    #                  stderr=subprocess.STDOUT)
-    # subprocess.call(['sleep', '5'])
+    subprocess.call(['sleep', '1'])
 
     # print "\n\nStarting SM on node1...."
     # subprocess.Popen(['./StorMgr', '--fds-root', root1],
@@ -604,7 +598,7 @@ if __name__ == "__main__":
     parser.add_argument('--verbose', default='false', help ='Print verbose [false]')
     parser.add_argument('--async', default='true', help ='Run I/O Async [true]')
     parser.add_argument('--debug', default='false', help ='pdb debug on [false]')
-    parser.add_argument('--shutdown', default='true', help ='Shutdown/cleanup system after test passed [true]')
+    parser.add_argument('--shutdown', default='false', help ='Shutdown/cleanup system after test [false]')
     args = parser.parse_args()
 
     cfgFile = args.cfg_file

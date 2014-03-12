@@ -10,7 +10,7 @@ namespace fds {
 
 extern ObjectStorMgr *objStorMgr;
 
-ObjectID SMTokenItr::itr_end = ObjectID(0xffffffffffffffff, 0xffffffffffffffff);
+ObjectID SMTokenItr::itr_end = ObjectID(0xffffffff);
 
 StorMgrVolume::StorMgrVolume(const VolumeDesc&  vdb,
                              ObjectStorMgr     *sm,
@@ -65,11 +65,10 @@ Error StorMgrVolume::createVolIndexEntry(fds_volid_t      vol_uuid,
   diskloc.vol_id = vol_uuid;
   diskloc.file_id = 0;
   diskloc.offset = vol_offset;
-  ObjectID oid(objId.hash_high,
-               objId.hash_low);
+  ObjectID oid(objId.digest);
 
-  LOGDEBUG << "createVolIndexEntry Obj ID:" << objId.hash_high
-                                 << ":"<< objId.hash_low  << "glob_vol_id:"
+  LOGDEBUG << "createVolIndexEntry Obj ID:" << oid.ToHex(oid)
+                                 << "glob_vol_id:"
                                  << vol_uuid << "offset" << vol_offset;
 
    err = volumeIndexDB->Put(diskloc, oid);
@@ -86,10 +85,9 @@ Error err(ERR_OK);
   diskloc.vol_id = vol_uuid;
   diskloc.file_id = 0;
   diskloc.offset = vol_offset;
-  ObjectID oid(objId.hash_high,
-               objId.hash_low);
+  ObjectID oid(objId.digest);
 
-  LOGDEBUG << "deleteVolIndexEntry Obj ID:" << objId.hash_high << ":" << objId.hash_low << "glob_vol_id:" << vol_uuid << "offset" << vol_offset;
+  LOGDEBUG << "deleteVolIndexEntry Obj ID:" << oid.ToHex(oid) << "glob_vol_id:" << vol_uuid << "offset" << vol_offset;
    err = volumeIndexDB->Delete(diskloc);
    return err;
 }

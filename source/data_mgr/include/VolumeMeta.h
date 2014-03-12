@@ -66,43 +66,16 @@ namespace fds {
 
     BlobObjectInfo(FDS_ProtocolInterface::FDSP_BlobObjectInfo& blob_obj_info) {
       offset = blob_obj_info.offset;
-      data_obj_id.SetId(blob_obj_info.data_obj_id.hash_high, blob_obj_info.data_obj_id.hash_low);
+      data_obj_id.SetId((const char *)blob_obj_info.data_obj_id.digest.c_str(), blob_obj_info.data_obj_id.digest.length());
       size = blob_obj_info.size;
     }
 
     std::string ToString() const {
-#if 0
-      return (open_seq 
-	      + std::to_string(offset) + delim
-	      + std::to_string(data_obj_id.GetHigh()) + delim
-	      + std::to_string(data_obj_id.GetLow()) + delim
-	      + std::to_string(size)
-	      + end_seq);
-#endif
-      char *out_str = (char *)malloc(sizeof(char) * 512);
-      sprintf(out_str, "{%llu:%llx:%llx:%llu}", 
-	      offset, data_obj_id.GetHigh(), data_obj_id.GetLow(), size);
-      std::string ret_str(out_str);
-      free(out_str);
-      return ret_str;
+      return data_obj_id.ToHex(data_obj_id);
     }
 
     void initFromString(std::string& str) {
-#if 0
-      size_t pos1 = str.find(delim);
-      offset = strtoull(str.substr(open_seq.size(), pos1).c_str(), NULL, 0);
-      size_t pos2 = str.find(delim, pos1+1);
-      fds_uint64_t hash_hi = strtoull(str.substr((pos1+1,pos2-pos1-1)).c_str(), NULL, 0);
-      size_t pos3 = str.find(delim, pos2+1);
-      fds_uint64_t hash_lo = strtoull(str.substr((pos2+1,pos3-pos2-1)).c_str(), NULL, 0);
-      data_obj_id.SetId(hash_hi, hash_lo);
-      size = strtoull(str.substr(pos3+1, str.size()-1-pos3-end_seq.size()).c_str(), NULL, 0);
-#endif
-      fds_uint64_t hash_hi, hash_lo;
-      sscanf(str.c_str(), "{%llu:%llx:%llx:%llu}",
-	     &offset, &hash_hi, &hash_lo, &size);
-      data_obj_id.SetId(hash_hi, hash_lo);
-      
+      data_obj_id.SetId((const char*)str.c_str(),str.length());
     }
  
     BlobObjectInfo(std::string& str) {
@@ -216,8 +189,8 @@ namespace fds {
 	FDS_ProtocolInterface::FDSP_BlobObjectInfo obj_info;
 	obj_info.offset = obj_list[i].offset;
 	obj_info.size = obj_list[i].size;
-	obj_info.data_obj_id.hash_high = obj_list[i].data_obj_id.GetHigh();
-	obj_info.data_obj_id.hash_low = obj_list[i].data_obj_id.GetLow();
+	obj_info.data_obj_id.digest = std::string((const char *)(obj_list[i].data_obj_id.GetId()), (size_t)obj_list[i].data_obj_id.GetLen());
+//	obj_info.data_obj_id.hash_low = obj_list[i].data_obj_id.GetLow();
 	fdsp_obj_list.push_back(obj_info);
       }
     }

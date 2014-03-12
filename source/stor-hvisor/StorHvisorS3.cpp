@@ -19,6 +19,7 @@
 extern StorHvCtrl *storHvisor;
 using namespace std;
 using namespace FDS_ProtocolInterface;
+typedef fds::hash::Sha1 GeneratorHash;
 
 std::atomic_uint nextIoReqId;
 
@@ -77,8 +78,7 @@ StorHvCtrl::dispatchSmPutMsg(StorHvJournalEntry *journEntry) {
     FDSP_PutObjTypePtr putMsg = journEntry->putMsg;
     fds_verify(putMsg != NULL);
 
-    ObjectID objId(putMsg->data_obj_id.hash_high,
-                   putMsg->data_obj_id.hash_low);
+    ObjectID objId(putMsg->data_obj_id.digest);
 
     // Get DLT node list from dlt
     DltTokenGroupPtr dltPtr;
@@ -93,8 +93,7 @@ StorHvCtrl::dispatchSmPutMsg(StorHvJournalEntry *journEntry) {
 
     // checksum calculation for putObj  class and the payload.  we may haveto bundle this
     // into a function .
-    storHvisor->chksumPtr->checksum_update(putMsg->data_obj_id.hash_high);
-    storHvisor->chksumPtr->checksum_update(putMsg->data_obj_id.hash_low);
+    storHvisor->chksumPtr->checksum_update(putMsg->data_obj_id.digest);
     storHvisor->chksumPtr->checksum_update(putMsg->data_obj_len);
     storHvisor->chksumPtr->checksum_update(putMsg->volume_offset);
     storHvisor->chksumPtr->checksum_update(putMsg->dlt_version);
@@ -156,8 +155,7 @@ StorHvCtrl::dispatchSmGetMsg(StorHvJournalEntry *journEntry) {
     FDSP_GetObjTypePtr getMsg = journEntry->getMsg;
     fds_verify(getMsg != NULL);
 
-    ObjectID objId(getMsg->data_obj_id.hash_high,
-                   getMsg->data_obj_id.hash_low);
+    ObjectID objId(getMsg->data_obj_id.digest);
 
     // Look up primary SM from DLT entries
     boost::shared_ptr<DltTokenGroup> dltPtr;
@@ -217,8 +215,7 @@ StorHvCtrl::dispatchSmDelMsg(StorHvJournalEntry *journEntry) {
     FDSP_DeleteObjTypePtr delMsg = journEntry->delMsg;
     fds_verify(delMsg != NULL);
 
-    ObjectID objId(delMsg->data_obj_id.hash_high,
-                   delMsg->data_obj_id.hash_low);
+    ObjectID objId(delMsg->data_obj_id.digest);
 
     // Lookup the Primary SM node-id/ip-address to send the DeleteObject to
     // TODO(Andrew): Send to all nodes...not just primary
@@ -329,20 +326,10 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
   /*
    * Hash the data to obtain the ID
    */
-  ObjectID objId;
-  MurmurHash3_x64_128(blobReq->getDataBuf(),
-                      blobReq->getDataLen(),
-                      0,
-                      &objId);
-  blobReq->setObjId(objId);
-
-  /*
-   * Test code to see if generating new object
-   * ids and interface works.
-   * TODO(Sanjay): Remove me
-   */
-  ObjectID testId = ObjIdGen::genObjectId(blobReq->getDataBuf(),
+  ObjectID objId = ObjIdGen::genObjectId(blobReq->getDataBuf(),
                                           blobReq->getDataLen());
+
+  blobReq->setObjId(objId);
 
   FDSP_MsgHdrTypePtr msgHdrSm(new FDSP_MsgHdrType);
   FDSP_MsgHdrTypePtr msgHdrDm(new FDSP_MsgHdrType);
@@ -364,8 +351,8 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
   upd_obj_info.offset = blobReq->getBlobOffset();  // May need to change to 0 for now?
   upd_obj_info.size = blobReq->getDataLen();
 
-  put_obj_req->data_obj_id.hash_high = upd_obj_info.data_obj_id.hash_high = objId.GetHigh();
-  put_obj_req->data_obj_id.hash_low = upd_obj_info.data_obj_id.hash_low = objId.GetLow();
+  put_obj_req->data_obj_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
+  upd_obj_info.data_obj_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
 
   upd_obj_req->obj_list.push_back(upd_obj_info);
   upd_obj_req->meta_list.clear();
@@ -384,8 +371,7 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
   journEntry->dm_ack_cnt = 0;
   journEntry->dm_commit_cnt = 0;
   journEntry->op = FDS_IO_WRITE;
-  journEntry->data_obj_id.hash_high = objId.GetHigh();
-  journEntry->data_obj_id.hash_low = objId.GetLow();
+  journEntry->data_obj_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
   journEntry->data_obj_len = blobReq->getDataLen();
   journEntry->putMsg = put_obj_req;
 
@@ -812,8 +798,7 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
   journEntry->sm_ack_cnt = 0;
   journEntry->dm_ack_cnt = 0;
   journEntry->op = FDS_IO_READ;
-  journEntry->data_obj_id.hash_high = 0;
-  journEntry->data_obj_id.hash_low = 0;
+  journEntry->data_obj_id.digest.clear(); 
   journEntry->data_obj_len = blobReq->getDataLen();
   journEntry->io = qosReq;
   journEntry->trans_state = FDS_TRANS_GET_OBJ;
@@ -837,12 +822,10 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
   }
 
   fds_verify(err == ERR_OK);
-  journEntry->data_obj_id.hash_high = objId.GetHigh();
-  journEntry->data_obj_id.hash_low  = objId.GetLow();
+  journEntry->data_obj_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
 
   FDSP_GetObjTypePtr get_obj_req(new FDSP_GetObjType);
-  get_obj_req->data_obj_id.hash_high = objId.GetHigh();
-  get_obj_req->data_obj_id.hash_low  = objId.GetLow();
+  get_obj_req->data_obj_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
   get_obj_req->data_obj_len          = blobReq->getDataLen();
 
   journEntry->getMsg = get_obj_req;
@@ -1037,8 +1020,7 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   journEntry->sm_ack_cnt = 0;
   journEntry->dm_ack_cnt = 0;
   journEntry->op = FDS_DELETE_BLOB;
-  journEntry->data_obj_id.hash_high = 0;
-  journEntry->data_obj_id.hash_low = 0;
+  journEntry->data_obj_id.digest.clear(); 
   journEntry->data_obj_len = blobReq->getDataLen();
   journEntry->io = qosReq;
   journEntry->delMsg = del_obj_req;
@@ -1072,7 +1054,7 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   
   FDS_PLOG(storHvisor->GetLog())
           << " StorHvisorTx:" << "IO-XID:" << transId << " volID: 0x" << std::hex
-          << vol_id << std::dec << " - object ID: " << oid.GetHigh() <<  ":" << oid.GetLow()
+          << vol_id << std::dec << " - object ID: " << oid.ToHex(oid)
           << "  ObjLen:" << journEntry->data_obj_len;
   
   // We have a Cache HIT *$###
@@ -1085,13 +1067,11 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   fdsp_msg_hdr->src_port = 0;
 //  fdsp_msg_hdr->src_node_name = storHvisor->my_node_name;
   fdsp_msg_hdr->src_node_name = storHvisor->myIp;
-  del_obj_req->data_obj_id.hash_high = oid.GetHigh();
-  del_obj_req->data_obj_id.hash_low = oid.GetLow();
+  del_obj_req->data_obj_id.digest = std::string((const char *)oid.GetId(), (size_t)oid.GetLen());
   del_obj_req->data_obj_len = blobReq->getDataLen();
   
   journEntry->op = FDS_DELETE_BLOB;
-  journEntry->data_obj_id.hash_high = oid.GetHigh();;
-  journEntry->data_obj_id.hash_low = oid.GetLow();;
+  journEntry->data_obj_id.digest = std::string((const char *)oid.GetId(), (size_t)oid.GetLen());
   journEntry->trans_state = FDS_TRANS_DEL_OBJ;
   
   // RPC Call DeleteCatalogObject to DataMgr
@@ -1242,8 +1222,7 @@ fds::Error StorHvCtrl::listBucket(fds::AmQosReq *qosReq) {
   journEntry->sm_ack_cnt = 0;
   journEntry->dm_ack_cnt = 0;
   journEntry->op = FDS_LIST_BUCKET;
-  journEntry->data_obj_id.hash_high = 0;
-  journEntry->data_obj_id.hash_low = 0;
+  journEntry->data_obj_id.digest.clear(); 
   journEntry->data_obj_len = 0;
   journEntry->io = qosReq;
   dataPlacementTbl->getDMTNodesForVolume(volId, node_ids, &num_nodes);
@@ -1461,8 +1440,7 @@ fds::Error StorHvCtrl::getBucketStats(fds::AmQosReq *qosReq) {
   journEntry->sm_ack_cnt = 0;
   journEntry->dm_ack_cnt = 0;
   journEntry->op = FDS_BUCKET_STATS;
-  journEntry->data_obj_id.hash_high = 0;
-  journEntry->data_obj_id.hash_low = 0;
+  journEntry->data_obj_id.digest.clear(); 
   journEntry->data_obj_len = 0;
   journEntry->io = qosReq;
   
