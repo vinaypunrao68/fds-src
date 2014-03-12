@@ -55,7 +55,7 @@ public class Dlt {
     }
 
     public Collection<FDSP_Uuid> getTokenPlacement(int tokenId) {
-        return null;
+        return placement.get(tokenId);
     }
 }
 
