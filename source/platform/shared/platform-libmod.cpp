@@ -155,7 +155,17 @@ Platform::plf_change_info(const plat_node_data_t *ndata)
     NodeUuid     uuid(ndata->nd_node_uuid);
     fds_uint32_t base;
 
-    plf_my_uuid = uuid;
+    if (ndata->nd_node_uuid == 0) {
+        // TODO(Vy): we need to think about if AM needs to persist its own node/service
+        // uuid or can it generate only the fly during its bootstrap process.
+        // When we're here and we don't have uuid, this must be AM.
+        ///
+        fds_verify(plf_node_type == FDSP_STOR_HVISOR);
+        plf_my_uuid = NodeUuid(fds_get_uuid64(get_uuid()));
+    } else {
+        plf_my_uuid = uuid;
+    }
+    Platform::plf_svc_uuid_from_node(plf_my_uuid, &plf_my_svc_uuid, plf_node_type);
     // snprintf(name, sizeof(name), "node-%u", ndata->nd_node_number);
     // plf_my_node_name.assign(name);
 
@@ -197,6 +207,22 @@ Platform::plf_change_info(const plat_node_data_t *ndata)
               << "My node uuid " << std::hex << plf_my_uuid.uuid_get_val() << std::endl
               << "My OM port   " << std::dec << plf_om_ctrl_port << std::endl
               << "My OM IP     " << plf_om_ip_str << std::endl;
+}
+
+// plf_svc_uuid_from_node
+// ----------------------
+// Simple formula to derrive service uuid from node uuid.
+//
+void
+Platform::plf_svc_uuid_from_node(const NodeUuid &node,
+                                 NodeUuid       *svc,
+                                 FDSP_MgrIdType  type)
+{
+    if (type == FDSP_PLATFORM) {
+        svc->uuid_set_val(node.uuid_get_val());
+    } else {
+        svc->uuid_set_val(node.uuid_get_val() + 1 + type);
+    }
 }
 
 // -----------------------------------------------------------------------------------

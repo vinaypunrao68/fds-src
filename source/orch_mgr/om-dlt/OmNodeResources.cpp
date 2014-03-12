@@ -788,7 +788,6 @@ void
 OM_NodeContainer::om_bcast_new_node(NodeAgent::pointer node, const FdspNodeRegPtr ref)
 {
     if (ref->node_type == fpi::FDSP_STOR_HVISOR) {
-        std::cout << "Skiping node type uuid " << ref->node_uuid.uuid << std::endl;
         return;
     }
     dc_sm_nodes->agent_foreach<NodeAgent::pointer>(node, om_send_my_info_to_peer);

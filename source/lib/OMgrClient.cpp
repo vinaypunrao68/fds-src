@@ -313,7 +313,7 @@ void OMgrClient::initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
 
         msg_hdr->src_id = my_node_type;
         msg_hdr->dst_id = FDSP_ORCH_MGR;
-	msg_hdr->src_node_name = my_node_name;
+        msg_hdr->src_node_name = my_node_name;
         msg_hdr->src_service_uuid.uuid = myUuid.uuid_get_val();
 
         msg_hdr->err_code=FDSP_ERR_SM_NO_SPACE;
@@ -346,8 +346,8 @@ int OMgrClient::registerNodeWithOM(Platform *plat,
         initOMMsgHdr(msg_hdr);
 
         FDSP_RegisterNodeTypePtr reg_node_msg(new FDSP_RegisterNodeType);
-        reg_node_msg->node_type    = my_node_type; // plat->plf_get_node_type();
-        reg_node_msg->node_name    = my_node_name;
+        reg_node_msg->node_type    = plat->plf_get_node_type();
+        reg_node_msg->node_name    = *plat->plf_get_my_name();
         reg_node_msg->ip_hi_addr   = 0;
         // reg_node_msg->ip_lo_addr   = fds::str_to_ipv4_addr(*plat->plf_get_my_ip());
         reg_node_msg->ip_lo_addr   = fds::str_to_ipv4_addr(hostIp); //my_address!
@@ -358,19 +358,9 @@ int OMgrClient::registerNodeWithOM(Platform *plat,
         reg_node_msg->migration_port = my_migration_port; // plat->plf_get_my_migration_port();
 
         // TODO(Vy): simple service uuid from node uuid.
-        reg_node_msg->node_uuid.uuid = plat->plf_get_my_uuid()->uuid_get_val();
-        if (reg_node_msg->node_uuid.uuid != 0) {
-            if (my_node_type == FDS_ProtocolInterface::FDSP_PLATFORM) {
-                // service uuid for platform is the same as node uuid
-                // (that's how OM deals with it right now)
-                reg_node_msg->service_uuid.uuid = reg_node_msg->node_uuid.uuid;
-                myUuid.uuid_set_val(plat->plf_get_my_uuid()->uuid_get_val());
-            } else {
-                reg_node_msg->service_uuid.uuid =
-                        reg_node_msg->node_uuid.uuid + reg_node_msg->node_type + 1;
-                myUuid.uuid_set_val(reg_node_msg->service_uuid.uuid);
-            }
-        }
+        reg_node_msg->node_uuid.uuid    = plat->plf_get_my_uuid()->uuid_get_val();
+        reg_node_msg->service_uuid.uuid = plat->plf_get_my_svc_uuid()->uuid_get_val();
+        myUuid.uuid_set_val(plat->plf_get_my_svc_uuid()->uuid_get_val());
 
         /* init the disk info */
         reg_node_msg->disk_info.disk_iops_max =  dInfo->disk_iops_max;
