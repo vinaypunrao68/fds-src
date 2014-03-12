@@ -165,6 +165,21 @@ public:
     void CopyTokenResp(boost::shared_ptr<FDSP_CopyTokenResp>& copytok_resp);
     void PushTokenObjectsResp(boost::shared_ptr<FDSP_PushTokenObjectsResp>& pushtok_resp);
 
+    void PushTokenMetadata(boost::shared_ptr<FDSP_PushTokenMetadataReq>& push_md_req);
+    void PushTokenMetadata(const FDSP_PushTokenMetadataReq& push_md_req) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
+    void NotifyTokenSyncComplete(boost::shared_ptr<FDSP_NotifyTokenSyncComplete>& sync_complete);
+    void NotifyTokenSyncComplete(const FDSP_NotifyTokenSyncComplete& sync_complete) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
+    void PushTokenMetadataResp(boost::shared_ptr<FDSP_PushTokenMetadataResp>& push_md_resp);
+    void PushTokenMetadataResp(const FDSP_PushTokenMetadataResp& push_md_resp) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
 protected:
     FdsMigrationSvc &mig_svc_;
 };

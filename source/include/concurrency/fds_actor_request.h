@@ -63,6 +63,8 @@ enum FdsActorRequestType {
     /* RPC ack response from receiver->sender of token object data */
     FAR_ENUM(FDSP_PushTokenObjectsResp),
 
+    /* RPC ack response from receiver->sender of token metadata */
+    FAR_ENUM(FDSP_PushTokenMetadataResp),
     /*----------------- Last Request ------------------------------------------*/
     FAR_ENUM(Max)
 };

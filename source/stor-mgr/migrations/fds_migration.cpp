@@ -63,6 +63,23 @@ PushTokenObjectsResp(boost::shared_ptr<FDSP_PushTokenObjectsResp>& pushtok_resp)
     mig_svc_.send_actor_request(push_far);
 }
 
+void FDSP_MigrationPathRpc::
+PushTokenMetadata(boost::shared_ptr<FDSP_PushTokenMetadataReq>& push_md_req) // NOLINT
+{
+    fds_assert(false);
+}
+
+void FDSP_MigrationPathRpc::
+NotifyTokenSyncComplete(boost::shared_ptr<FDSP_NotifyTokenSyncComplete>& sync_complete) // NOLINT
+{
+    fds_assert(false);
+}
+
+void FDSP_MigrationPathRpc::
+PushTokenMetadataResp(boost::shared_ptr<FDSP_PushTokenMetadataResp>& push_md_resp) // NOLINT
+{
+    fds_assert(false);
+}
 /**
  * Constructor
  * @param threadpool

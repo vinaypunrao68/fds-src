@@ -3,6 +3,7 @@
  */
 #include <string>
 #include <list>
+#include <vector>
 #include <set>
 #include <functional>
 
@@ -12,8 +13,10 @@
 #include <boost/msm/front/euml/operator.hpp>
 
 #include <leveldb/db.h>
+#include <leveldb/comparator.h>
 #include <leveldb/env.h>
 
+#include <SmObjDb.h>
 #include <fds_timestamp.h>
 #include <fds_migration.h>
 #include <TokenCopySender.h>
@@ -34,7 +37,7 @@ typedef msm::front::none msm_none;
  * via inheritance
  */
 class TokenSyncLog {
-public:
+ public:
     /* Modificatin timestamp comparator */
     class ModTSComparator : public leveldb::Comparator {
        public:
@@ -51,21 +54,16 @@ public:
           } else if (ts1 > ts2) {
               return 1;
           }
-          ObjectLess  less;
-          if (less(id1, id2)) {
-              return -1;
-          } else if (less(id2, id1)) {
-              return 1;
-          }
-          return 0;
+          return ObjectID::compare(id1, id2);
         }
         // Ignore the following methods for now:
         const char* Name() { return "TwoPartComparator"; }
         void FindShortestSeparator(std::string*, const leveldb::Slice&) const { }
         void FindShortSuccessor(std::string*) const { }
       };
-public:
-    TokenSyncLog(const std::string& name) {
+
+ public:
+    explicit TokenSyncLog(const std::string& name) {
         name_ = name;
         leveldb::Options options;
         options.create_if_missing = true;
@@ -98,6 +96,7 @@ public:
         return db_->NewIterator(leveldb::ReadOptions());
     }
 
+    /* Extracts objectid and entry from the iterator */
     static void parse_iterator(leveldb::Iterator* itr,
             ObjectID &id, SmObjMetadata &entry) {
         uint64_t ts;
@@ -105,7 +104,8 @@ public:
         SmObjMetadata temp_entry(itr->value().ToString());
         entry = temp_entry;
     }
-private:
+
+ private:
     static std::string create_key(const ObjectID& id, const SmObjMetadata &entry)
     {
         std::ostringstream oss;
@@ -114,8 +114,11 @@ private:
     }
 
     static void parse_key(const leveldb::Slice& s, uint64_t &ts, ObjectID& id) {
-        istringstream iss(s);
-        iss >> ts >> id;
+        // TODO(Rao): Make this more efficient to remove unncessary data copying
+        istringstream iss(s.ToString());
+        std::string id_str;
+        iss >> ts >> id_str;
+        id.SetId(id_str.data(), id_str.length());
     }
 
     std::string name_;
@@ -129,7 +132,7 @@ struct StartEvt {};
 
 /* Snapshot is complete notification event */
 struct TSSnapDnEvt {
-    TSSnapDnEvt(leveldb::ReadOptions& options, leveldb::DB* db)
+    TSSnapDnEvt(const leveldb::ReadOptions& options, leveldb::DB* db)
     {
         this->options = options;
         this->db = db;
@@ -137,7 +140,7 @@ struct TSSnapDnEvt {
     leveldb::ReadOptions options;
     leveldb::DB* db;
 };
-boost::shared_ptr<TSSnapDnEvt> TSSnapDnEvtPtr;
+typedef boost::shared_ptr<TSSnapDnEvt> TSSnapDnEvtPtr;
 
 struct BldSyncLogDnEvt {};
 struct SendDnEvt {};
@@ -163,7 +166,6 @@ struct TokenSyncSenderFSM_
         data_store_ = data_store;
         rcvr_ip_ = rcvr_ip;
         rcvr_port_ = rcvr_port;
-        pending_tokens_ = tokens;
         client_resp_handler_ = client_resp_handler;
 
         token_id_ = token_id;
@@ -209,18 +211,18 @@ struct TokenSyncSenderFSM_
     /* The list of state machine states */
     struct AllOk : public msm::front::state<>
     {
-        template <class Event,class FSM>
-        void on_entry(Event const&,FSM& ) {LOGDEBUG << "starting: AllOk";}
-        template <class Event,class FSM>
-        void on_exit(Event const&,FSM& ) {LOGDEBUG << "finishing: AllOk";}
+        template <class Event, class FSM>
+        void on_entry(Event const&, FSM& ) {LOGDEBUG << "starting: AllOk";}
+        template <class Event, class FSM>
+        void on_exit(Event const&, FSM& ) {LOGDEBUG << "finishing: AllOk";}
     };
     /* this state is made terminal so that all the events are blocked */
     struct ErrorMode :  public msm::front::terminate_state<>
     {
-        template <class Event,class FSM>
-        void on_entry(Event const&,FSM& ) {LOGDEBUG << "starting: ErrorMode";}
-        template <class Event,class FSM>
-        void on_exit(Event const&,FSM& ) {LOGDEBUG << "finishing: ErrorMode";}
+        template <class Event, class FSM>
+        void on_entry(Event const&, FSM& ) {LOGDEBUG << "starting: ErrorMode";}
+        template <class Event, class FSM>
+        void on_exit(Event const&, FSM& ) {LOGDEBUG << "finishing: ErrorMode";}
     };
     struct Init : public msm::front::state<>
     {
@@ -366,7 +368,7 @@ struct TokenSyncSenderFSM_
 
             Error err(ERR_OK);
 
-            FDSP_MigrateObjectMetadataList &md_list = push_md_req_.md_list;
+            FDSP_MigrateObjectMetadataList &md_list = fsm.push_md_req_.md_list;
             md_list.clear();
             for (; fsm.sync_log_itr_->Valid() &&
                    md_list.size() < fsm.max_entries_per_send_;
@@ -375,7 +377,10 @@ struct TokenSyncSenderFSM_
                 SmObjMetadata entry;
 
                 md.token_id = fsm.token_id_;
-                TokenSyncLog::parse_iterator(fsm.sync_log_itr_, md.object_id, entry);
+                ObjectID obj_id;
+                TokenSyncLog::parse_iterator(fsm.sync_log_itr_, obj_id, entry);
+                md.object_id.digest.assign(reinterpret_cast<const char*>(obj_id.GetId()),
+                        obj_id.GetLen());
                 md.obj_len = entry.len();
                 md.modification_ts = entry.get_modification_ts();
 
@@ -388,10 +393,12 @@ struct TokenSyncSenderFSM_
                 /* When there is nothing to send we simulate an ack from network
                  * to make the statemachine transitioning easy
                  */
-                FDSP_PushTokenMetadataRespPtr send_dn_evt(new FDSP_PushTokenMetadataResp());
-                parent_->send_actor_request(FdsActorRequestPtr(
-                        new FdsActorRequest(FAR_ID(FDSP_PushTokenMetadataResp), send_dn_evt)));
-                LOGDEBUG << "send_sync_log: Nothing to send for token: " << token_id_;
+                FDSP_PushTokenMetadataRespPtr send_dn_evt(
+                        new FDSP_PushTokenMetadataResp());
+                fsm.parent_->send_actor_request(FdsActorRequestPtr(
+                        new FdsActorRequest(FAR_ID(FDSP_PushTokenMetadataResp),
+                                send_dn_evt)));
+                LOGDEBUG << "send_sync_log: Nothing to send for token: " << fsm.token_id_;
             }
         }
     };
@@ -482,8 +489,8 @@ struct TokenSyncSenderFSM_
     // +------------+----------------+------------+-----------------+------------------+
     Row< BldSyncLog , msm_none       , Sending    , send_sync_log   , msm_none         >,
     // +------------+----------------+------------+-----------------+------------------+
-    Row< Sending    , SendDnEvt      , Sending    , send_sync_log   , Not_<sync_log_dn>>,
-    Row< Sending    , SendDnEvt      ,WaitForClose, msm_none        , Not_<sync_closed> >,
+    Row< Sending    , SendDnEvt      , msm_none   , send_sync_log   , Not_<sync_log_dn>>,
+    Row< Sending    , SendDnEvt      ,WaitForClose, msm_none        , Not_<sync_closed> >,  // NOLINT
     Row< Sending    , SendDnEvt      , Snapshot   , take_snap       , Not_<sync_dn>    >,
     Row< Sending    , SendDnEvt      , FiniSync   , finish_sync     , msm_none         >,
     // +------------+----------------+------------+-----------------+------------------+
@@ -515,14 +522,15 @@ struct TokenSyncSenderFSM_
     {
         if (!e.ok()) {
             LOGERROR << "Error: " << e;
-            this->process_event(ErrorEvt());
+            msm::back::state_machine<TokenSyncSenderFSM_> &fsm =
+                    static_cast<msm::back::state_machine<TokenSyncSenderFSM_> &>(*this);
+            fsm.process_event(ErrorEvt());
             return;
         }
         TSSnapDnEvtPtr snap_dn_evt(new TSSnapDnEvt(options, db));
         parent_->send_actor_request(
                 FdsActorRequestPtr(
                         new FdsActorRequest(FAR_ID(TSSnapDnEvt), snap_dn_evt)));
-
     }
 
     protected:
@@ -546,7 +554,14 @@ struct TokenSyncSenderFSM_
      */
     boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler_;
 
+    /* Sender session endpoint */
+    netMigrationPathClientSession *rcvr_session_;
+
+    /* Current token id we are syncing */
     fds::fds_token_id token_id_;
+
+    /* Token data store reference */
+    SmIoReqHandler *data_store_;
 
     /* Current sync range lower bound */
     uint64_t cur_sync_range_low_;
@@ -574,7 +589,6 @@ struct TokenSyncSenderFSM_
 
     /* Max sync log entries to send per rpc */
     uint32_t max_entries_per_send_;
-
 };  /* struct TokenSyncSenderFSM_ */
 
 /* PullSenderFSM events */
@@ -601,13 +615,7 @@ struct PullSenderFSM_
         data_store_ = data_store;
         rcvr_ip_ = rcvr_ip;
         rcvr_port_ = rcvr_port;
-        pending_tokens_ = tokens;
         client_resp_handler_ = client_resp_handler;
-
-        objstor_read_req_.io_type = FDS_SM_READ_TOKEN_OBJECTS;
-        objstor_read_req_.response_cb = std::bind(
-            &PullSenderFSM_::data_read_cb, this,
-            std::placeholders::_1, std::placeholders::_2);
     }
     // To improve performance --- if no message queue needed
     // message queue not needed if no action will itself generate
@@ -731,14 +739,14 @@ struct PullSenderFSM_
     // +------------+----------------+------------+-----------------+------------------+
     Row< Init       , msm_none       , Sending    , msm_none        , msm_none         >,
     // +------------+----------------+------------+-----------------+------------------+
-    Row< Sending    , PullReqEvt     , Sending    , ActionSequence_
+    Row< Sending    , PullReqEvt     , msm_none   , ActionSequence_
                                                     <mpl::vector<
                                                     add_for_pull,
                                                     issue_reads> >  , msm_none         >,
 
-    Row< Sending    , DataReadDnEvt  , Sending    , send_data       , msm_none         >,
+    Row< Sending    , DataReadDnEvt  , msm_none   , send_data       , msm_none         >,
 
-    Row< Sending    , DataSendDnEvt  , Sending    , ActionSequence_
+    Row< Sending    , DataSendDnEvt  , msm_none   , ActionSequence_
                                                     <mpl::vector<
                                                     update_sent_data,
                                                     issue_reads> >  , msm_none         >,
@@ -780,69 +788,8 @@ struct PullSenderFSM_
      */
     boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler_;
 
-    /* Current sync range lower bound */
-    uint64_t cur_sync_range_low_;
-
-    /* Current sync range upper bound */
-    uint64_t cur_sync_range_high_;
-
-    /* Whether uppper bound on the sync range has been closed or not*/
-    bool sync_closed_;
-
-    /* Time at which sync was closed.  Once sync is closed this time becomes
-     * cur_sync_range_high_ */
-    uint64_t sync_closed_time_;
-
+    /* Token data store reference */
+    SmIoReqHandler *data_store_;
 };  /* struct PullSenderFSM_ */
 
-//TokenCopySender::TokenCopySender(FdsMigrationSvc *migrationSvc,
-//        SmIoReqHandler *data_store,
-//        const std::string &mig_id,
-//        const std::string &mig_stream_id,
-//        fds_threadpoolPtr threadpool,
-//        fds_log *log,
-//        const std::string &rcvr_ip,
-//        const int &rcvr_port,
-//        const std::set<fds_token_id> &tokens,
-//        boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler,
-//        ClusterCommMgrPtr clust_comm_mgr)
-//    : MigrationSender(mig_id),
-//      FdsRequestQueueActor(mig_id, migrationSvc, threadpool),
-//      log_(log),
-//      clust_comm_mgr_(clust_comm_mgr)
-//{
-//    sm_.reset(new TokenCopySenderFSM());
-//    sm_->init(mig_stream_id, migrationSvc, this, data_store,
-//            rcvr_ip, rcvr_port, tokens, client_resp_handler);
-//}
-//
-//TokenCopySender::~TokenCopySender()
-//{
-//}
-//
-//
-//void TokenCopySender::start()
-//{
-//    sm_->start();
-//}
-//
-//Error TokenCopySender::handle_actor_request(FdsActorRequestPtr req)
-//{
-//    Error err = ERR_OK;
-//
-//    switch (req->type) {
-//    case FAR_ID(FDSP_PushTokenObjectsResp):
-//        /* Posting TokSentEvt */
-//        sm_->process_event(TokSentEvt());
-//        break;
-//    case FAR_ID(TcsDataReadDone):
-//        /* Notification from datastore that token data has been read */
-//        sm_->process_event(TokReadEvt());
-//        break;
-//    default:
-//        err = ERR_FAR_INVALID_REQUEST;
-//        break;
-//    }
-//    return err;
-//}
 } /* namespace fds */

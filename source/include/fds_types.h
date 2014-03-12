@@ -149,11 +149,19 @@ namespace fds {
      * Operators
      */
     bool operator==(const ObjectID& rhs) const {
-	return (memcmp(digest, rhs.digest, sizeof(digest)) == 0);
+	return (compare(*this, rhs) == 0);
     }
 
     bool operator!=(const ObjectID& rhs) const {
 	return (! operator==(rhs));
+    }
+
+    bool operator < (const ObjectID& rhs) const {
+     return  compare(*this, rhs) < 0 ;
+    }
+
+    bool operator > (const ObjectID& rhs) const {
+        return  compare(*this, rhs) > 0 ;
     }
 
     ObjectID& operator=(const ObjectID& rhs) {
@@ -231,6 +239,10 @@ namespace fds {
       return hash_oss.str();
     }
 
+    inline static int compare(const ObjectID &lhs, const ObjectID &rhs) {
+        return  memcmp(lhs.digest, rhs.digest, sizeof(lhs.digest));
+    }
+
     friend class ObjectLess;
     friend class ObjIdGen;
   };
@@ -252,7 +264,7 @@ namespace fds {
   class ObjectLess {
   public:
     bool operator() (const ObjectID& oid1, const ObjectID& oid2) {
-      return  memcmp(oid1.digest, oid2.digest, oid1.GetLen()) < 0 ;
+      return oid1 < oid2;
     }
   };
 
