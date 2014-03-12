@@ -289,8 +289,6 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
     FDS_ProtocolInterface::FDSP_BlobObjectInfo upd_obj_info;
     upd_obj_info.offset = txn->blobOffset;  // May want to revert to 0 for blocks?
     upd_obj_info.data_obj_id.digest = txn->data_obj_id.digest;
-//    upd_obj_info.data_obj_id.hash_high = txn->data_obj_id.hash_high;
-//    upd_obj_info.data_obj_id.hash_low =  txn->data_obj_id.hash_low;
     upd_obj_info.size = 0; // TODO: fix this.
 
     FDSP_UpdateCatalogTypePtr upd_obj_req(new FDSP_UpdateCatalogType);
@@ -388,7 +386,6 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
     ObjectID obj_id;
     int doid_dlt_key;
     netSession *endPoint = NULL;
-    uint64_t doid_high;
     int trans_id = fdsp_msg_hdr->req_cookie;
     //fbd_request_t *req;
     fds_volid_t vol_id = fdsp_msg_hdr->glob_volume_id;
