@@ -174,9 +174,8 @@ VolumeInfo::vol_send_message(om_vol_msg_t *out, NodeAgent::pointer dest)
 // ------------
 //
 NodeAgent::pointer
-VolumeInfo::vol_am_agent(const std::string &am_node)
+VolumeInfo::vol_am_agent(const NodeUuid &am_uuid)
 {
-    NodeUuid           am_uuid(fds_get_uuid64(am_node));
     OM_NodeContainer  *local = OM_NodeDomainMod::om_loc_domain_ctrl();
 
     return local->om_am_agent(am_uuid);
@@ -186,28 +185,28 @@ VolumeInfo::vol_am_agent(const std::string &am_node)
 // ---------------
 //
 void
-VolumeInfo::vol_attach_node(const std::string &node_name)
+VolumeInfo::vol_attach_node(const NodeUuid &node_uuid)
 {
     OM_AmAgent::pointer  am_agent;
 
-    am_agent = OM_AmAgent::agt_cast_ptr(vol_am_agent(node_name));
+    am_agent = OM_AmAgent::agt_cast_ptr(vol_am_agent(node_uuid));
     if (am_agent == NULL) {
         // Provisioning vol before the AM is online.
         //
         LOGNORMAL << "Received attach vol " << vol_name
-                  << ", am node " << node_name;
+                  << ", am node uuid " << std::hex << node_uuid << std::dec;
         return;
     }
     // TODO(Vy): not thread safe here...
     //
     for (uint i = 0; i < vol_am_nodes.size(); i++) {
-        if (vol_am_nodes[i] == node_name) {
-            LOGNORMAL << "Volume " << vol_name
-                      << " is already attached to node " << node_name;
+        if (vol_am_nodes[i] == node_uuid) {
+            LOGNORMAL << "Volume " << vol_name << " is already attached to node "
+                      << std::hex << node_uuid << std::dec;
             return;
         }
     }
-    vol_am_nodes.push_back(node_name);
+    vol_am_nodes.push_back(node_uuid);
     am_agent->om_send_vol_cmd(this, fpi::FDSP_MSG_ATTACH_VOL_CTRL);
 }
 
@@ -215,29 +214,29 @@ VolumeInfo::vol_attach_node(const std::string &node_name)
 // ---------------
 //
 void
-VolumeInfo::vol_detach_node(const std::string &node_name)
+VolumeInfo::vol_detach_node(const NodeUuid &node_uuid)
 {
     OM_AmAgent::pointer  am_agent;
 
-    am_agent = OM_AmAgent::agt_cast_ptr(vol_am_agent(node_name));
+    am_agent = OM_AmAgent::agt_cast_ptr(vol_am_agent(node_uuid));
     if (am_agent == NULL) {
         // Provisioning vol before the AM is online.
         //
         LOGNORMAL << "Received attach vol " << vol_name
-                  << ", am node " << node_name;
+                  << ", am node " << std::hex << node_uuid << std::dec;
         return;
     }
     // TODO(Vy): not thread safe here...
     //
     for (uint i = 0; i < vol_am_nodes.size(); i++) {
-        if (vol_am_nodes[i] == node_name) {
+        if (vol_am_nodes[i] == node_uuid) {
             vol_am_nodes.erase(vol_am_nodes.begin() + i);
             am_agent->om_send_vol_cmd(this, fpi::FDSP_MSG_DETACH_VOL_CTRL);
             return;
         }
     }
     LOGNORMAL << "Detach vol " << vol_name
-              << " didn't attached to " << node_name;
+              << " didn't attached to " << std::hex << node_uuid << std::dec;
 }
 
 // --------------------------------------------------------------------------------------
@@ -305,7 +304,7 @@ VolumeContainer::om_create_vol(const FdspMsgHdrPtr &hdr,
 
     // Attach the volume to the requester's AM.
     //
-    vol->vol_attach_node(hdr->src_node_name);
+    vol->vol_attach_node(NodeUuid(hdr->src_service_uuid.uuid));
     return 0;
 }
 
@@ -419,18 +418,18 @@ VolumeContainer::om_attach_vol(const FDSP_MsgHdrTypePtr &hdr,
 {
     OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     std::string         &vname = attach->vol_name;
-    std::string         &nname = hdr->src_node_name;
     ResourceUUID         uuid(fds_get_uuid64(vname));
     VolumeInfo::pointer  vol;
 
-    LOGNOTIFY << "Received attach volume " << vname << " from " << nname;
+    LOGNOTIFY << "Received attach volume " << vname << " from "
+              << hdr->src_node_name;
 
     vol = VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
     if (vol == NULL) {
         LOGWARN << "Received AttachVol for non-existing volume " << vname;
         return -1;
     }
-    vol->vol_attach_node(nname);
+    vol->vol_attach_node(NodeUuid(hdr->src_service_uuid.uuid));
     return 0;
 }
 
@@ -443,18 +442,18 @@ VolumeContainer::om_detach_vol(const FDSP_MsgHdrTypePtr &hdr,
 {
     OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     std::string         &vname = detach->vol_name;
-    std::string         &nname = hdr->src_node_name;
     ResourceUUID         uuid(fds_get_uuid64(vname));
     VolumeInfo::pointer  vol;
 
-    LOGNOTIFY << "Received detach volume " << vname << " from " << nname;
+    LOGNOTIFY << "Received detach volume " << vname << " from "
+              << hdr->src_node_name;
 
     vol = VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
     if (vol == NULL) {
         LOGWARN << "Received AttachVol for non-existing volume " << vname;
         return -1;
     }
-    vol->vol_detach_node(nname);
+    vol->vol_detach_node(NodeUuid(hdr->src_service_uuid.uuid));
     return 0;
 }
 
@@ -467,8 +466,7 @@ VolumeContainer::om_test_bucket(const FdspMsgHdrPtr     &hdr,
 {
     OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     std::string         &vname = req->bucket_name;
-    std::string         &nname = hdr->src_node_name;
-    NodeUuid             n_uid(fds_get_uuid64(nname));
+    NodeUuid             n_uid(hdr->src_service_uuid.uuid);
     ResourceUUID         v_uid(fds_get_uuid64(vname));
     VolumeInfo::pointer  vol;
     OM_AmAgent::pointer  am;
@@ -478,24 +476,26 @@ VolumeContainer::om_test_bucket(const FdspMsgHdrPtr     &hdr,
 
     am = local->om_am_agent(n_uid);
     if (am == NULL) {
-        LOGNOTIFY << "OM does not know about node " << nname;
+        LOGNOTIFY << "OM does not know about node " << hdr->src_node_name;
     }
     vol = VolumeInfo::vol_cast_ptr(rs_get_resource(v_uid));
     if (vol == NULL) {
-        LOGNOTIFY << "Bucket " << vname << " does not exists, notify node " << nname;
+        LOGNOTIFY << "Bucket " << vname << " does not exists, notify node "
+                  << hdr->src_node_name;
 
         if (am != NULL) {
             am->om_send_vol_cmd(NULL, &vname, fpi::FDSP_MSG_ATTACH_VOL_CTRL);
         }
     } else if (req->attach_vol_reqd == false) {
         // Didn't request OM to attach this volume.
-        LOGNOTIFY << "Bucket " << vname << " exists, notify node " << nname;
+        LOGNOTIFY << "Bucket " << vname << " exists, notify node "
+                  << hdr->src_node_name;
 
         if (am != NULL) {
             am->om_send_vol_cmd(vol, fpi::FDSP_MSG_ATTACH_VOL_CTRL);
         }
     } else {
-        vol->vol_attach_node(nname);
+        vol->vol_attach_node(n_uid);
     }
 }
 

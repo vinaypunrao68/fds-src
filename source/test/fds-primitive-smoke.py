@@ -372,15 +372,15 @@ def bringupCluster(env, bu, cfgFile, verbose, debug):
     #
     print "\n\nAsking OM to accept all discovered nodes..."
     subprocess.Popen(['./fdscli', '--fds-root', root1,
-                      '--activate-nodes', 'abc', '-k', '1'],
+                      '--activate-nodes', 'abc', '-k', '1', '-e', 'am,dm,sm'],
                      stderr=subprocess.STDOUT)
-    subprocess.call(['sleep', '5'])
+    subprocess.call(['sleep', '10'])
 
     # Start AM separately.
-    print "\n\nStarting AM service on node1..."
-    subprocess.Popen(['./AMAgent', '--fds-root', root1],
-                     stderr=subprocess.STDOUT)
-    subprocess.call(['sleep', '5'])
+    # print "\n\nStarting AM service on node1..."
+    # subprocess.Popen(['./AMAgent', '--fds-root', root1],
+    #                  stderr=subprocess.STDOUT)
+    # subprocess.call(['sleep', '5'])
 
     # print "\n\nStarting SM on node1...."
     # subprocess.Popen(['./StorMgr', '--fds-root', root1],
