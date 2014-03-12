@@ -413,7 +413,8 @@ OM_ControlRespHandler::NotifyDLTUpdateResp(
     FDS_ProtocolInterface::FDSP_DLT_Resp_TypePtr& dlt_resp) {
     FDS_PLOG_SEV(g_fdslog, fds_log::notification)
             << "OM received response for NotifyDltUpdate from node "
-            << fdsp_msg->src_node_name
+            << fdsp_msg->src_node_name << ":"
+            << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec
             << " for DLT version " << dlt_resp->DLT_version;
 
     // if we got response from non-SM node, nothing to do
@@ -423,9 +424,7 @@ OM_ControlRespHandler::NotifyDLTUpdateResp(
 
     // if this is from SM, notify DLT state machine
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
-    // TODO(Anna) Should we use node names or node uuids directly in
-    // fdsp messages? for now getting uuid from hashing the name
-    NodeUuid node_uuid(fds_get_uuid64(fdsp_msg->src_node_name));
+    NodeUuid node_uuid((fdsp_msg->src_service_uuid).uuid);
     domain->om_recv_sm_dlt_commit_resp(node_uuid, dlt_resp->DLT_version);
 }
 
