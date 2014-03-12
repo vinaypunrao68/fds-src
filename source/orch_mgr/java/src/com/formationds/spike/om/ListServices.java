@@ -21,8 +21,8 @@ public class ListServices implements RequestHandler {
     public Resource handle(HttpServletRequest request) throws Exception {
         String[] nodeDescriptions = serviceDirectory
                 .allNodes()
-                .map(n -> n.getNode_name() + ":" + n.getNode_uuid().toString() + ":" + n.getNode_type())
+                .map(n -> "    {name: '" + n.getNode_name() + "', uuid:'" + n.getNode_uuid().toString() + "', type:'" + n.getNode_type() + "'}")
                 .toArray(i -> new String[i]);
-        return new TextResource(Joiner.on("\n").join(nodeDescriptions));
+        return new TextResource("[\n" + Joiner.on(",\n").join(nodeDescriptions) + "\n]");
     }
 }
