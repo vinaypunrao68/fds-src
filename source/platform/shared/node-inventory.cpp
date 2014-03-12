@@ -30,6 +30,7 @@ NodeInventory::node_fill_inventory(const FdspNodeRegPtr msg)
     data = new NodeInvData();
     ncap = &data->nd_capability;
 
+    data->nd_uuid           = NodeUuid(rs_uuid);
     data->nd_ip_addr        = msg->ip_lo_addr;
     data->nd_ip_str         = netSession::ipAddr2String(data->nd_ip_addr);
     data->nd_data_port      = msg->data_port;
