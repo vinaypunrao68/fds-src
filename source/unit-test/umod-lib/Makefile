@@ -28,8 +28,8 @@ user_non_fds_libs := boost_log \
     pthread \
     dl \
     util \
-    m 
-#    python2.7
+    m \
+    python2.7
 
 user_cpp          := \
     ThreadPoolTest.cpp \
