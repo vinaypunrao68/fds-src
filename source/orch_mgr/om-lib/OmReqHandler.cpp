@@ -428,9 +428,9 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::ActivateAllNodes(
 
         LOGNORMAL << "Received Activate All Nodes Req for domain " << domain_id;
 
-        // for now we will acticate SM and DM
-        // AM will be activated separately
-        local->om_cond_bcast_activate_services(true, true, false);
+        local->om_cond_bcast_activate_services(act_node_msg->activate_sm,
+                                               act_node_msg->activate_dm,
+                                               act_node_msg->activate_am);
     }
     catch(...) {
         LOGERROR << "Orch Mgr encountered exception while "
@@ -574,15 +574,15 @@ void OrchMgr::FDSP_OMControlPathReqHandler::RegisterNode(
     Error err = domain->om_reg_node_info(new_node_uuid, reg_node_req);
     if (!err.ok()) {
         LOGERROR << "Node Registration failed for "
-                 << reg_node_req->node_name << ":" << new_node_uuid
-                 << ", result: "
-                 << err.GetErrstr();
+                 << reg_node_req->node_name << ":" << std::hex
+                 << new_node_uuid.uuid_get_val() << std::dec
+                 << ", result: " << err.GetErrstr();
         return;
     }
     LOGNORMAL << "End Registered new node " << reg_node_req->node_name << std::hex
               << ", node uuid " << reg_node_req->node_uuid.uuid
               << ", node type " << reg_node_req->node_type
-              << ", service uuid " << reg_node_req->service_uuid.uuid << std::dec;
+              << ", service uuid " << new_node_uuid.uuid_get_val() << std::dec;
 
     // TODO(Andrew): for now, let's start the cluster update process now.
     // This should eventually be decoupled from registration.

@@ -71,7 +71,6 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
     // TODO(anna) the below code would not work yet, because
     // register node message from SM/DM does not contain node
     // (platform) uuid yet.
-    /*
     if ((msg->node_type == FDS_ProtocolInterface::FDSP_STOR_MGR) ||
         (msg->node_type == FDS_ProtocolInterface::FDSP_DATA_MGR)) {
         // we must have a node (platform) that runs any service
@@ -85,7 +84,6 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
             return Error(ERR_NODE_NOT_ACTIVE);
         }
     }
-    */
 
     err = om_locDomain->dc_register_node(uuid, msg, &newNode);
     if (err.ok() && (msg->node_type == FDS_ProtocolInterface::FDSP_PLATFORM)) {
@@ -96,18 +94,16 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         // tell parent PM Agent about its new service
         newNode->set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
 
-        // TODO(Vy): integrate this code...
-#if 0
         if ((msg->node_uuid).uuid != 0) {
             OM_PmContainer::pointer pmNodes = om_locDomain->om_pm_nodes();
             err = pmNodes->handle_register_service((msg->node_uuid).uuid,
                                                    msg->node_type,
                                                    newNode);
         }
-#endif
+
         FDS_PLOG(g_fdslog) << "OM recv reg node uuid " << std::hex
-            << msg->node_uuid.uuid << ", svc uuid " << msg->service_uuid.uuid
-            << std::dec << ", type " << msg->node_type;
+                           << msg->node_uuid.uuid << ", svc uuid " << uuid.uuid_get_val()
+                           << std::dec << ", type " << msg->node_type;
 
         // since we already checked above that we could add service, verify error ok
         fds_verify(err.ok());

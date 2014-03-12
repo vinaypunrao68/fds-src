@@ -422,10 +422,13 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         for (const auto& t : tokens) {
             if (t.compare("am") == 0) {
                 activateNodesData.activate_am = true;
+                FDS_PLOG(cli_log) << "   -- activate AM";
             } else if (t.compare("sm") == 0) {
                 activateNodesData.activate_sm = true;
+                FDS_PLOG(cli_log) << "   -- activate SM";
             } else if (t.compare("dm") == 0) {
                 activateNodesData.activate_dm = true;
+                FDS_PLOG(cli_log) << "   -- activate DM";
             } else {
                 cout << "Unknown service " << t << ", will ignore" << std::endl;
                 FDS_PLOG_SEV(cli_log, fds_log::warning)
