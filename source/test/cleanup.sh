@@ -53,10 +53,8 @@ function cleanFdsRoot() {
 # Main module
 ##########################################################################################
 
-cleanBinDir ${FDSBINDIR}
-
-for node in node2 node3 node4; do
-    bin_dir=../Build/linux-x86_64.debug/${node}
+for node in bin node2 node3 node4; do
+    bin_dir=${DIR}/../Build/linux-x86_64.debug/${node}
     [ -d $bin_dir ] && cleanBinDir ${bin_dir}
 done
 
