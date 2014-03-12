@@ -421,10 +421,10 @@ class ObjectStorMgr :
             int node_state,
             fds_uint32_t node_port,
             FDS_ProtocolInterface::FDSP_MgrIdType node_type);
-    static void volEventOmHandler(fds::fds_volid_t volume_id,
-            fds::VolumeDesc *vdb,
-            int vol_action,
-            FDSP_ResultType resut);
+    static Error volEventOmHandler(fds::fds_volid_t volume_id,
+                                   fds::VolumeDesc *vdb,
+                                   int vol_action,
+                                   FDSP_ResultType resut);
     static void migrationEventOmHandler(bool dlt_type);
     void migrationSvcResponseCb(const Error& err);
 
