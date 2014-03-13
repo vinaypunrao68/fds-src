@@ -300,6 +300,11 @@ void
 OM_ControlRespHandler::NotifyAddVolResp(
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_add_vol_resp) {
+    LOGNOTIFY << "OM received response for NotifyAddVol from node "
+              << fdsp_msg->src_node_name << " for volume "
+              << "[" << not_add_vol_resp->vol_name << ":"
+              << std::hex << not_add_vol_resp->vol_desc.volUUID << std::dec
+              << "] Result: " << fdsp_msg->err_code;
 }
 
 void
@@ -313,6 +318,11 @@ void
 OM_ControlRespHandler::NotifyRmVolResp(
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_rm_vol_resp) {
+    LOGNOTIFY << "OM received response for NotifyRmVol from node "
+              << fdsp_msg->src_node_name << " for volume "
+              << "[" << not_rm_vol_resp->vol_name << ":"
+              << std::hex << not_rm_vol_resp->vol_desc.volUUID << std::dec
+              << "] Result: " << fdsp_msg->err_code;
 }
 
 void
@@ -326,6 +336,11 @@ void
 OM_ControlRespHandler::NotifyModVolResp(
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_mod_vol_resp) {
+    LOGNOTIFY << "OM received response for NotifyModVol from node "
+              << fdsp_msg->src_node_name << " for volume "
+              << "[" << not_mod_vol_resp->vol_name << ":"
+              << std::hex << not_mod_vol_resp->vol_desc.volUUID << std::dec
+              << "] Result: " << fdsp_msg->err_code;
 }
 
 void

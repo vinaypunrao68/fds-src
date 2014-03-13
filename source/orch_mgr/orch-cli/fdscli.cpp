@@ -56,7 +56,7 @@ void FdsCli::InitCfgMsgHdr(FDS_ProtocolInterface::FDSP_MsgHdrType* msg_hdr)
     msg_hdr->src_port = 0;
     msg_hdr->dst_port = 0;
 
-    msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msg_hdr->err_code = ERR_OK;
     msg_hdr->result = FDS_ProtocolInterface::FDSP_ERR_OK;
     msg_hdr->err_msg = "";
 

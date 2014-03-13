@@ -21,28 +21,26 @@ OMgrClientRPCI::OMgrClientRPCI(OMgrClient *omc) {
 
 void OMgrClientRPCI::NotifyAddVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
                                   FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg) {
-  assert(vol_msg->type == FDS_ProtocolInterface::FDSP_NOTIFY_ADD_VOL);
-  fds_vol_notify_t type = fds_notify_vol_add;
-  fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-  om_client->recvNotifyVol(vol_msg->vol_desc.volUUID, vdb, type, msg_hdr->result);
-
+    assert(vol_msg->type == FDS_ProtocolInterface::FDSP_NOTIFY_ADD_VOL);
+    fds_vol_notify_t type = fds_notify_vol_add;
+    fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
+    om_client->recvNotifyVol(vdb, type, msg_hdr->result, msg_hdr->session_uuid);
 }
 
 void OMgrClientRPCI::NotifyModVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
                                   FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg) {
-  assert(vol_msg->type == FDS_ProtocolInterface::FDSP_NOTIFY_MOD_VOL);
-  fds_vol_notify_t type = fds_notify_vol_mod;
-  fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-  om_client->recvNotifyVol(vol_msg->vol_desc.volUUID, vdb, type, msg_hdr->result);
+    assert(vol_msg->type == FDS_ProtocolInterface::FDSP_NOTIFY_MOD_VOL);
+    fds_vol_notify_t type = fds_notify_vol_mod;
+    fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
+    om_client->recvNotifyVol(vdb, type, msg_hdr->result, msg_hdr->session_uuid);
 }
 
 void OMgrClientRPCI::NotifyRmVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
                                  FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg) {
-  assert(vol_msg->type == FDS_ProtocolInterface::FDSP_NOTIFY_RM_VOL);
-  fds_vol_notify_t type = fds_notify_vol_rm;
-  fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-  om_client->recvNotifyVol(vol_msg->vol_desc.volUUID, vdb, type, msg_hdr->result);
-
+    assert(vol_msg->type == FDS_ProtocolInterface::FDSP_NOTIFY_RM_VOL);
+    fds_vol_notify_t type = fds_notify_vol_rm;
+    fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
+    om_client->recvNotifyVol(vdb, type, msg_hdr->result, msg_hdr->session_uuid);
 }
       
 void OMgrClientRPCI::AttachVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
@@ -316,8 +314,8 @@ void OMgrClient::initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
         msg_hdr->src_node_name = my_node_name;
         msg_hdr->src_service_uuid.uuid = myUuid.uuid_get_val();
 
-        msg_hdr->err_code=FDSP_ERR_SM_NO_SPACE;
-        msg_hdr->result=FDSP_ERR_OK;
+        msg_hdr->err_code = ERR_OK;
+        msg_hdr->result = FDSP_ERR_OK;
 }
 
 // Use this to register the local node with OM as a client. Should be called after calling starting subscription endpoint and control path endpoint.
@@ -639,19 +637,58 @@ int OMgrClient::recvNodeEvent(int node_id,
   
 }
 
-int OMgrClient::recvNotifyVol(fds_volid_t vol_id,
-                              VolumeDesc *vdb,
+int OMgrClient::recvNotifyVol(VolumeDesc *vdb,
                               fds_vol_notify_t vol_action,
-			      FDSP_ResultType result) {
+			      FDSP_ResultType result,
+                              const std::string& session_uuid) {
+    Error err(ERR_OK);
+    fds_volid_t vol_id = vdb->volUUID;
+    FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received volume event for volume 0x"
+                                                      << std::hex << vol_id <<std::dec << " action - " << vol_action;
+    
+    if (this->vol_evt_hdlr) {
+        err = this->vol_evt_hdlr(vol_id, vdb, vol_action, result);
+    }
 
-  FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received volume event for volume 0x"
-                                                    << std::hex << vol_id <<std::dec << " action - " << vol_action;
+    // send response back to OM
+    boost::shared_ptr<FDS_ProtocolInterface::FDSP_ControlPathRespClient> resp_client_prx =
+            omrpc_handler_session_->getRespClient(session_uuid);
 
-  if (this->vol_evt_hdlr) {
-    this->vol_evt_hdlr(vol_id, vdb, vol_action, result);
-  }
-  return (0);
-  
+    try {
+        FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
+        initOMMsgHdr(msg_hdr);
+        FDSP_NotifyVolTypePtr vol_resp(new FDSP_NotifyVolType());
+        msg_hdr->err_code = err.GetErrno();
+        if (!err.ok()) {
+            msg_hdr->result = FDSP_ERR_FAILED;
+        }
+        vol_resp->vol_name = vdb->getName();
+        vol_resp->vol_desc.vol_name = vdb->getName();
+        vol_resp->vol_desc.volUUID = vol_id;
+        switch (vol_action) {
+            case fds_notify_vol_add:
+                vol_resp->type = FDSP_NOTIFY_ADD_VOL;
+                resp_client_prx->NotifyAddVolResp(msg_hdr, vol_resp);
+                break;
+            case fds_notify_vol_rm:
+                vol_resp->type = FDSP_NOTIFY_RM_VOL;
+                resp_client_prx->NotifyRmVolResp(msg_hdr, vol_resp);
+                break;
+            case fds_notify_vol_mod:
+                vol_resp->type = FDSP_NOTIFY_MOD_VOL;
+                resp_client_prx->NotifyModVolResp(msg_hdr, vol_resp);
+                break;
+            default:
+                fds_panic("Unknown (corrupt?) volume event");
+        }
+        FDS_PLOG_SEV(omc_log, fds_log::notification)
+                << "OMClient sent response to OM for Volume Notify of type " << vol_action
+		<< "; volume " << vdb->getName();
+    } catch (...) {
+        FDS_PLOG_SEV(omc_log, fds_log::error) << "OMClient failed to send response to OM";
+        return -1;
+    }
+    return 0;
 }
 
 int OMgrClient::recvVolAttachState(fds_volid_t vol_id,

@@ -79,7 +79,7 @@ class DmUnitTest {
     msg_hdr->src_id   = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
     msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_DATA_MGR;
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
-    msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msg_hdr->err_code = ERR_OK;
     msg_hdr->src_node_name = TEST_NODE_NAME;
     msg_hdr->session_uuid = session_uuid;
     msg_hdr->glob_volume_id = 1; /* TODO: Don't hard code to 1 */
@@ -201,7 +201,7 @@ class DmUnitTest {
     msg_hdr->src_id   = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
     msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_DATA_MGR;
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
-    msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msg_hdr->err_code = ERR_OK;
     msg_hdr->src_node_name = TEST_NODE_NAME;
     msg_hdr->session_uuid = session_uuid;
     msg_hdr->glob_volume_id = 1; /* TODO: Don't hard code to 1 */
@@ -336,7 +336,7 @@ class DmUnitTest {
     msg_hdr->src_id   = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
     msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_DATA_MGR;
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
-    msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msg_hdr->err_code = ERR_OK;
     msg_hdr->src_node_name = TEST_NODE_NAME;
     msg_hdr->session_uuid = session_uuid;
     msg_hdr->glob_volume_id = 2; /* TODO: Don't hard code to 1 */
@@ -377,7 +377,7 @@ class DmUnitTest {
     msg_hdr->src_id   = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
     msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_DATA_MGR;
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
-    msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msg_hdr->err_code = ERR_OK;
     msg_hdr->src_node_name = TEST_NODE_NAME;
     msg_hdr->session_uuid = session_uuid;
     msg_hdr->glob_volume_id = 1; /* TODO: Don't hard code to 1 */
@@ -457,7 +457,7 @@ class DmUnitTest {
     msg_hdr->src_id   = FDS_ProtocolInterface::FDSP_ORCH_MGR;
     msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_DATA_MGR;
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
-    msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msg_hdr->err_code = ERR_OK;
     msg_hdr->src_node_name = TEST_NODE_NAME;
     msg_hdr->session_uuid = session_uuid;
 

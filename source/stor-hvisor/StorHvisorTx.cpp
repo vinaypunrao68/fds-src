@@ -415,52 +415,49 @@ END_C_DECLS
 
 void StorHvCtrl::InitSmMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
 {
-	msg_hdr->minor_ver = 0;
-	msg_hdr->msg_code = FDSP_MSG_PUT_OBJ_REQ;
-        msg_hdr->msg_id =  1;
-
-        msg_hdr->major_ver = 0xa5;
-        msg_hdr->minor_ver = 0x5a;
-
-        msg_hdr->num_objects = 1;
-        msg_hdr->frag_len = 0;
-        msg_hdr->frag_num = 0;
-
-        msg_hdr->tennant_id = 0;
-        msg_hdr->local_domain_id = 0;
-
-        msg_hdr->src_id = FDSP_STOR_HVISOR;
-        msg_hdr->dst_id = FDSP_STOR_MGR;
-
-	msg_hdr->src_node_name = this->my_node_name;
-
-        msg_hdr->err_code=FDSP_ERR_SM_NO_SPACE;
-        msg_hdr->result=FDSP_ERR_OK;
-
-
+    msg_hdr->minor_ver = 0;
+    msg_hdr->msg_code = FDSP_MSG_PUT_OBJ_REQ;
+    msg_hdr->msg_id =  1;
+    
+    msg_hdr->major_ver = 0xa5;
+    msg_hdr->minor_ver = 0x5a;
+    
+    msg_hdr->num_objects = 1;
+    msg_hdr->frag_len = 0;
+    msg_hdr->frag_num = 0;
+    
+    msg_hdr->tennant_id = 0;
+    msg_hdr->local_domain_id = 0;
+    
+    msg_hdr->src_id = FDSP_STOR_HVISOR;
+    msg_hdr->dst_id = FDSP_STOR_MGR;
+    
+    msg_hdr->src_node_name = this->my_node_name;
+    
+    msg_hdr->err_code = ERR_OK;
+    msg_hdr->result = FDSP_ERR_OK;
 }
 
 void StorHvCtrl::InitDmMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
 {
- 	msg_hdr->msg_code = FDSP_MSG_UPDATE_CAT_OBJ_REQ;
-        msg_hdr->msg_id =  1;
+    msg_hdr->msg_code = FDSP_MSG_UPDATE_CAT_OBJ_REQ;
+    msg_hdr->msg_id =  1;
 
-        msg_hdr->major_ver = 0xa5;
-        msg_hdr->minor_ver = 0x5a;
+    msg_hdr->major_ver = 0xa5;
+    msg_hdr->minor_ver = 0x5a;
 
-        msg_hdr->num_objects = 1;
-        msg_hdr->frag_len = 0;
-        msg_hdr->frag_num = 0;
+    msg_hdr->num_objects = 1;
+    msg_hdr->frag_len = 0;
+    msg_hdr->frag_num = 0;
 
-        msg_hdr->tennant_id = 0;
-        msg_hdr->local_domain_id = 0;
+    msg_hdr->tennant_id = 0;
+    msg_hdr->local_domain_id = 0;
 
-        msg_hdr->src_id = FDSP_STOR_HVISOR;
-        msg_hdr->dst_id = FDSP_DATA_MGR;
+    msg_hdr->src_id = FDSP_STOR_HVISOR;
+    msg_hdr->dst_id = FDSP_DATA_MGR;
 
-	msg_hdr->src_node_name = this->my_node_name;
+    msg_hdr->src_node_name = this->my_node_name;
 
-	msg_hdr->err_code=FDSP_ERR_SM_NO_SPACE;
-        msg_hdr->result=FDSP_ERR_OK;
-
+    msg_hdr->err_code = ERR_OK;
+    msg_hdr->result = FDSP_ERR_OK;
 }
