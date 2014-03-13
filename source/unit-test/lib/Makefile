@@ -5,7 +5,15 @@ user_install      := conf_test.conf
 user_install_loc  := test
 
 user_fds_so_libs  :=
-user_fds_ar_libs  := fds-StorHvisor fds-hash fds-lib fds-util fds-fdsp fds-thread fds-odb fds-umod \
+user_fds_ar_libs  := \
+    fds-StorHvisor \
+    fds-hash \
+    fds-lib \
+    fds-util \
+    fds-fdsp \
+    fds-thread \
+    fds-odb \
+    fds-umod
 	
 user_non_fds_libs :=                                                          \
     boost_log \
@@ -18,8 +26,13 @@ user_non_fds_libs :=                                                          \
     config++ \
 	thrift
 
-user_incl_dir     := $(topdir) $(topdir)/lib $(topdir)/include $(topdir)/util \
-	$(topdir)/include/concurrency
+user_incl_dir     := \
+    $(topdir) \
+    $(topdir)/lib \
+    $(topdir)/include \
+    $(topdir)/util \
+    $(topdir)/include/concurrency
+
 user_cpp_flags    := 
 user_cpp          :=                       \
     fds_timer_test.cpp \
@@ -30,8 +43,6 @@ user_cpp          :=                       \
     fds_process_interrupt_test.cpp \
     counters_test.cpp \
     trans_journal_ut.cpp \
-    #om_client_unit_test.cpp \
-#    tb_unit_test.cpp \
 #    qos_dispatcher_unit_test.cpp \
 
 user_cc           :=
@@ -48,8 +59,6 @@ user_bin_exe      := \
     trans_journal_ut \
 
 catalog_test      := catalog_unit_test.cpp
-#om_client_test    := om_client_unit_test.cpp
-#tb_unit_test      := tb_unit_test.cpp
 #qos_dispatcher_unit_test	:= qos_dispatcher_unit_test.cpp
 ocache_unit_test	:= ocache_unit_test.cpp
 perfstat_unit_test      := perfstat_unit_test.cpp

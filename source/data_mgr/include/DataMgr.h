@@ -290,7 +290,6 @@ class DataMgr : public PlatformProcess
 
     std::string getPrefix() const;
     fds_bool_t volExists(fds_volid_t vol_uuid) const;
-    FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr dInfo;
 
     inline RespHandlerPrx respHandleCli(const string& session_uuid) {
         return metadatapath_session->getRespClient(session_uuid);
