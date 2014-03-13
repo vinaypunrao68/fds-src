@@ -347,45 +347,6 @@ void ObjectStorMgr::setup()
     setup_datapath_server(myIp);
 
     /*
-     * Query persistent layer for disk parameter details
-     */
-    fds::DmQuery &query = fds::DmQuery::dm_query();
-    in.dmq_mask = fds::dmq_disk_info;
-    query.dm_disk_query(in, &out);
-    /* we should be bundling multiple disk parameters into one message to OM TBD */
-    FDSP_AnnounceDiskCapabilityPtr dInfo(new FDSP_AnnounceDiskCapability());
-    while (1) {
-        info = out.query_pop();
-        if (info != nullptr) {
-            LOGNOTIFY << "Max blks capacity: " << info->di_max_blks_cap
-                    << ", Disk type........: " << info->di_disk_type
-                    << ", Max iops.........: " << info->di_max_iops
-                    << ", Min iops.........: " << info->di_min_iops
-                    << ", Max latency (us).: " << info->di_max_latency
-                    << ", Min latency (us).: " << info->di_min_latency;
-
-            if ( info->di_disk_type == FDS_DISK_SATA) {
-                dInfo->disk_iops_max =  info->di_max_iops; /*  max avarage IOPS */
-                dInfo->disk_iops_min =  info->di_min_iops; /* min avarage IOPS */
-                dInfo->disk_capacity = info->di_max_blks_cap;  /* size in blocks */
-                dInfo->disk_latency_max = info->di_max_latency; /* in us second */
-                dInfo->disk_latency_min = info->di_min_latency; /* in us second */
-            } else if (info->di_disk_type == FDS_DISK_SSD) {
-                dInfo->ssd_iops_max =  info->di_max_iops; /*  max avarage IOPS */
-                dInfo->ssd_iops_min =  info->di_min_iops; /* min avarage IOPS */
-                dInfo->ssd_capacity = info->di_max_blks_cap;  /* size in blocks */
-                dInfo->ssd_latency_max = info->di_max_latency; /* in us second */
-                dInfo->ssd_latency_min = info->di_min_latency; /* in us second */
-            } else
-                LOGWARN << "Unknown Disk Type " << info->di_disk_type;
-
-            delete info;
-            continue;
-        }
-        break;
-    }
-
-    /*
      * Register this node with OM.
      */
     omClient = new OMgrClient(FDSP_STOR_MGR,
@@ -443,7 +404,7 @@ void ObjectStorMgr::setup()
     omClient->registerEventHandlerForMigrateEvents((migration_event_handler_t)migrationEventOmHandler);
     omClient->omc_srv_pol = &sg_SMVolPolicyServ;
     omClient->startAcceptingControlMessages(conf_helper_.get<int>("control_port"));
-    omClient->registerNodeWithOM(plf_mgr, dInfo);
+    omClient->registerNodeWithOM(plf_mgr);
 
     clust_comm_mgr_.reset(new ClusterCommMgr(omClient));
 
@@ -654,64 +615,67 @@ void ObjectStorMgr::nodeEventOmHandler(int node_id,
  * Note this function is generally run in the context
  * of an Ice thread.
  */
-void
+Error
 ObjectStorMgr::volEventOmHandler(fds_volid_t  volumeId,
-        VolumeDesc  *vdb,
-        int          action,
-        FDSP_ResultType result) {
+                                 VolumeDesc  *vdb,
+                                 int          action,
+                                 FDSP_ResultType result) {
     StorMgrVolume* vol = NULL;
-    Error err = ERR_OK;
-
+    Error err(ERR_OK);
     fds_assert(vdb != NULL);
 
     switch(action) {
-    case FDS_VOL_ACTION_CREATE :
-        GLOGNOTIFY << "Received create for vol "
-                   << "[" << volumeId << ", "
-                   << vdb->getName() << "]";
-        /*
-         * Needs to reference the global SM object
-         * since this is a static function.
-         */
-        objStorMgr->volTbl->registerVolume(*vdb);
-        vol = objStorMgr->volTbl->getVolume(volumeId);
-        fds_assert(vol != NULL);
-        err = objStorMgr->qosCtrl->registerVolume(vol->getVolId(),
-                dynamic_cast<FDS_VolumeQueue*>(vol->getQueue()));
-        objStorMgr->objCache->vol_cache_create(volumeId, 1024 * 1024 * 8, 1024 * 1024 * 256);
-        fds_assert(err == ERR_OK);
-        if (err != ERR_OK) {
-            GLOGERROR << "registration failed for vol id " << volumeId << " error: "
-                    << err;
-        }
-        break;
-
-    case FDS_VOL_ACTION_DELETE:
-        GLOGNOTIFY << "Received delete for vol "
-        << "[" << volumeId << ", "
-        << vdb->getName() << "]";
-        objStorMgr->qosCtrl->quieseceIOs(volumeId);
-        objStorMgr->qosCtrl->deregisterVolume(volumeId);
-        objStorMgr->volTbl->deregisterVolume(volumeId);
-        break;
-    case fds_notify_vol_mod:
-        GLOGNOTIFY << "Received modify for vol "
-        << "[" << volumeId << ", "
-        << vdb->getName() << "]";
-
-        vol = objStorMgr->volTbl->getVolume(volumeId);
-        fds_assert(vol != NULL);
-        vol->voldesc->modifyPolicyInfo(vdb->iops_min, vdb->iops_max, vdb->relativePrio);
-        err = objStorMgr->qosCtrl->modifyVolumeQosParams(vol->getVolId(),
-                vdb->iops_min, vdb->iops_max, vdb->relativePrio);
-        if ( !err.ok() )  {
-            GLOGERROR << "Modify volume policy failed for vol " << vdb->getName() << " error: "
-                      << err.GetErrstr();
-        }
-        break;
-    default:
-        fds_panic("Unknown (corrupt?) volume event recieved!");
+        case FDS_VOL_ACTION_CREATE :
+            GLOGNOTIFY << "Received create for vol "
+                       << "[" << std::hex << volumeId << std::dec << ", "
+                       << vdb->getName() << "]";
+            /*
+             * Needs to reference the global SM object
+             * since this is a static function.
+             */
+            err = objStorMgr->volTbl->registerVolume(*vdb);
+            if (err.ok()) {
+                vol = objStorMgr->volTbl->getVolume(volumeId);
+                fds_assert(vol != NULL);
+                err = objStorMgr->qosCtrl->registerVolume(vol->getVolId(),
+                                                          dynamic_cast<FDS_VolumeQueue*>(vol->getQueue()));
+                objStorMgr->objCache->vol_cache_create(volumeId, 1024 * 1024 * 8, 1024 * 1024 * 256);
+                fds_assert(err == ERR_OK);
+            }
+            if (!err.ok()) {
+                GLOGERROR << "Registration failed for vol id " << std::hex << volumeId
+                          << std::dec << " error: " << err.GetErrstr();
+            }
+            break;
+        case FDS_VOL_ACTION_DELETE:
+            GLOGNOTIFY << "Received delete for vol "
+                       << "[" << std::hex << volumeId << std::dec << ", "
+                       << vdb->getName() << "]";
+            objStorMgr->qosCtrl->quieseceIOs(volumeId);
+            objStorMgr->qosCtrl->deregisterVolume(volumeId);
+            objStorMgr->volTbl->deregisterVolume(volumeId);
+            break;
+        case fds_notify_vol_mod:
+            GLOGNOTIFY << "Received modify for vol "
+                       << "[" << std::hex << volumeId << std::dec << ", "
+                       << vdb->getName() << "]";
+            
+            vol = objStorMgr->volTbl->getVolume(volumeId);
+            fds_assert(vol != NULL);
+            vol->voldesc->modifyPolicyInfo(vdb->iops_min, vdb->iops_max, vdb->relativePrio);
+            err = objStorMgr->qosCtrl->modifyVolumeQosParams(vol->getVolId(),
+                                                             vdb->iops_min, vdb->iops_max, vdb->relativePrio);
+            if ( !err.ok() )  {
+                GLOGERROR << "Modify volume policy failed for vol " << vdb->getName()
+                          << std::hex << volumeId << std::dec << " error: "
+                          << err.GetErrstr();
+            }
+            break;
+        default:
+            fds_panic("Unknown (corrupt?) volume event recieved!");
     }
+    
+    return err;
 }
 
 void ObjectStorMgr::writeBackFunc(ObjectStorMgr *parent) {

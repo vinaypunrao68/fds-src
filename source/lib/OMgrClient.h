@@ -53,10 +53,10 @@ namespace fds {
                                        int node_state,
                                        fds_uint32_t node_port,
                                        FDSP_MgrIdType node_type);
-  typedef void (*volume_event_handler_t)(fds::fds_volid_t volume_id, 
-					 fds::VolumeDesc *vdb, 
-					 fds_vol_notify_t vol_action,
-					 const FDSP_ResultType result);
+  typedef Error (*volume_event_handler_t)(fds::fds_volid_t volume_id, 
+                                          fds::VolumeDesc *vdb, 
+                                          fds_vol_notify_t vol_action,
+                                          const FDSP_ResultType result);
   typedef void (*throttle_cmd_handler_t)(const float throttle_level);
   typedef void (*tier_cmd_handler_t)(const FDSP_TierPolicyPtr &tier);
   typedef void (*tier_audit_cmd_handler_t)(const FDSP_TierPolicyAuditPtr &tier);
@@ -160,7 +160,7 @@ namespace fds {
     //    int subscribeToOmEvents(unsigned int om_ip_addr, int tennant_id, int domain_id, int omc_port_num=0);
     int startAcceptingControlMessages();
     int startAcceptingControlMessages(fds_uint32_t port_num);
-    int registerNodeWithOM(Platform *plat, const FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr& diskInfo);
+    int registerNodeWithOM(Platform *plat);
     int pushCreateBucketToOM(const FDS_ProtocolInterface::FDSP_VolumeInfoTypePtr& volInfo);
     int pushDeleteBucketToOM(const FDS_ProtocolInterface::FDSP_DeleteVolTypePtr& volInfo);
     int pushModifyBucketToOM(const std::string& bucket_name,
@@ -207,11 +207,12 @@ namespace fds {
     int recvDLTStartMigration(FDSP_DLT_Data_TypePtr& dlt_info);
     int recvDMTUpdate(int dmt_version, const Node_Table_Type& dmt_table);
 
-    int recvNotifyVol(fds_volid_t vol_id,
-                      VolumeDesc *vdb,
+    int recvNotifyVol(VolumeDesc *vdb,
                       fds_vol_notify_t vol_action,
-		      FDSP_ResultType);
-    int recvVolAttachState(fds_volid_t vol_id, VolumeDesc *vdb, int vol_action, FDSP_ResultType);
+		      FDSP_ResultType,
+                      const std::string& session_uuid);
+    int recvVolAttachState(VolumeDesc *vdb, fds_vol_notify_t vol_action,
+                           FDSP_ResultType result, const std::string& session_uuid);
     int recvSetThrottleLevel(const float throttle_level);
     int recvTierPolicy(const FDSP_TierPolicyPtr &tier);
     int recvTierPolicyAudit(const FDSP_TierPolicyAuditPtr &audit);

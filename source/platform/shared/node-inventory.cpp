@@ -30,6 +30,7 @@ NodeInventory::node_fill_inventory(const FdspNodeRegPtr msg)
     data = new NodeInvData();
     ncap = &data->nd_capability;
 
+    data->nd_uuid           = NodeUuid(rs_uuid);
     data->nd_ip_addr        = msg->ip_lo_addr;
     data->nd_ip_str         = netSession::ipAddr2String(data->nd_ip_addr);
     data->nd_data_port      = msg->data_port;
@@ -85,7 +86,7 @@ NodeInventory::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
 
     msgHdr->tennant_id      = 0;
     msgHdr->local_domain_id = 0;
-    msgHdr->err_code        = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msgHdr->err_code        = ERR_OK;
     msgHdr->result          = FDS_ProtocolInterface::FDSP_ERR_OK;
 
     if (plat == NULL) {

@@ -411,6 +411,8 @@ namespace fds {
     VolumeMeta& operator=(const VolumeMeta rhs);
 
  public:
+
+    VolumeCatalog *getVcat();
     VolumeDesc *vol_desc;
     /*
      * Default constructor should NOT be called

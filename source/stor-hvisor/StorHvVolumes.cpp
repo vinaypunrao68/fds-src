@@ -254,7 +254,7 @@ Error StorHvVolumeTable::registerVolume(const VolumeDesc& vdesc)
     map_rwlock.write_unlock();
     
     FDS_PLOG_SEV(vt_log, fds::fds_log::notification)
-            << "StorHvVolumeTable - Register new volume "
+            << "StorHvVolumeTable - Register new volume " << vdesc.name << " "
             << std::hex << vol_uuid << std::dec << ", policy " << vdesc.volPolicyId
             << " (iops_min=" << vdesc.iops_min << ",iops_max=" << vdesc.iops_max <<",prio=" << vdesc.relativePrio << ")"
             << " result: " << err.GetErrstr();  
@@ -524,7 +524,7 @@ void StorHvVolumeTable::moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
 /*
  * Handler for volume-related control message from OM
  */
-void StorHvVolumeTable::volumeEventHandler(fds_volid_t vol_uuid,
+Error StorHvVolumeTable::volumeEventHandler(fds_volid_t vol_uuid,
                                            VolumeDesc *vdb,
                                            fds_vol_notify_t vol_action,
 					   FDS_ProtocolInterface::FDSP_ResultType result)
@@ -538,6 +538,9 @@ void StorHvVolumeTable::volumeEventHandler(fds_volid_t vol_uuid,
             
             if (result == FDS_ProtocolInterface::FDSP_ERR_OK) {
                 err = storHvisor->vol_table->registerVolume(vdb ? *vdb : VolumeDesc("", vol_uuid));
+                // TODO(Anna) remove this assert when we implement response handling in AM
+                // for crete bucket, if err not ok, it is most likely QOS admission control issue
+                fds_verify(err.ok());
             }
             else if (result == FDS_ProtocolInterface::FDSP_ERR_VOLUME_DOES_NOT_EXIST) {
                 /* complete all requests that are waiting on bucket to attach with error */
@@ -567,10 +570,7 @@ void StorHvVolumeTable::volumeEventHandler(fds_volid_t vol_uuid,
                     << "StorHvVolumeTable - Received unexpected volume event from OM"
                     << " for volume " << std::hex << vol_uuid << std::dec;
     } 
-
-    // TODO(Anna) We have to respond to OM with error, but since we don't do it
-    // yet, we assert here on error for now
-    fds_verify(err.ok());
+    return err;
 }
 
 /* print detailed info into log */

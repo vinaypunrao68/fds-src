@@ -8,6 +8,8 @@ import com.google.common.net.InetAddresses;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TProtocol;
 
+import java.util.UUID;
+
 
 public class FakeAm {
     // I am a control server
@@ -26,6 +28,7 @@ public class FakeAm {
         FDSP_RegisterNodeType nodeMesg = new FDSP_RegisterNodeType();
         nodeMesg.setNode_type(FDSP_MgrIdType.FDSP_STOR_HVISOR);
         nodeMesg.setNode_name("h4xx0r-am");
+        nodeMesg.setService_uuid(new FDSP_Uuid(UUID.randomUUID().getMostSignificantBits()));
         int ipInt = InetAddresses.coerceToInteger(InetAddresses.forString("127.0.0.1"));
         nodeMesg.setIp_lo_addr(ipInt);
         nodeMesg.setControl_port(myControlPort);
@@ -77,6 +80,13 @@ public class FakeAm {
         @Override
         public void NotifyDLTUpdate(FDSP_MsgHdrType fdsp_msg, FDSP_DLT_Data_Type dlt_info) throws TException {
             System.out.println(dlt_info);
+            byte[] bytes = dlt_info.getDlt_data();
+            System.out.println("{");
+            for (int i = 0; i < bytes.length; i++) {
+                byte aByte = bytes[i];
+                System.out.println(aByte + ",");
+            }
+            System.out.println("};");
         }
 
         @Override

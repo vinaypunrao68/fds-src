@@ -1,9 +1,22 @@
 #!/bin/bash
-source ./loghelper.sh
 
-FDSSRC=${FDSSRC:-..}
 
-CONFDIR=${FDSSRC}/config/etc
+########################################################################
+# setup correct dirs
+SOURCE="${BASH_SOURCE[0]}"
+# resolve $SOURCE until the file is no longer a symlink
+while [ -h "$SOURCE" ]; do
+  DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+
+TOOLSDIR="$(cd -P "$( dirname "${SOURCE}" )" && pwd )"
+SOURCEDIR="$( cd ${TOOLSDIR}/.. && pwd)"
+CONFDIR=${SOURCEDIR}/config/etc
+########################################################################
+source ${TOOLSDIR}/loghelper.sh
+
 PORTS=()
 versinfo=()
 

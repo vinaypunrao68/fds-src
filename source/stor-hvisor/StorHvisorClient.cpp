@@ -79,8 +79,8 @@ StorHvisorClient::run(int argc, char* argv[])
         fdsp_msg_hdr->src_id = FDSP_STOR_HVISOR;
         fdsp_msg_hdr->dst_id = FDSP_STOR_MGR;
 
-        fdsp_msg_hdr->err_code=FDSP_ERR_SM_NO_SPACE;
-        fdsp_msg_hdr->result=FDSP_ERR_OK;
+        fdsp_msg_hdr->err_code = ERR_OK;
+        fdsp_msg_hdr->result = FDSP_ERR_OK;
 
         fdspDPAPI->PutObject(fdsp_msg_hdr, put_obj_req);
     } catch (const Ice::Exception& ex) {

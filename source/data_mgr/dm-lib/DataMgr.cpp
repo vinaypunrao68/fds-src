@@ -9,42 +9,31 @@
 namespace fds {
 extern DataMgr *dataMgr;
 
-void DataMgr::vol_handler(fds_volid_t vol_uuid,
-                          VolumeDesc *desc,
-                          fds_vol_notify_t vol_action,
-			  FDS_ProtocolInterface::FDSP_ResultType result) {
-  Error err(ERR_OK);
-  FDS_PLOG(dataMgr->GetLog()) << "Received vol notif from OM for "
-                              << vol_uuid <<  desc->getName();
-
-  /*
-   * TODO: Check the vol action to see whether to add
-   * or rm the vol
-   */
-  if (vol_action == fds_notify_vol_add) {
-    /*
-     * TODO: Actually take a volume string name, not
-     * just the volume number.
-     */
-    err = dataMgr->_process_add_vol(dataMgr->getPrefix() +
-                                    std::to_string(vol_uuid),
-                                    vol_uuid,desc);
-  } else if (vol_action == fds_notify_vol_rm) {
-    err = dataMgr->_process_rm_vol(vol_uuid);
-  }
-  else if (vol_action == fds_notify_vol_mod) {
-    FDS_PLOG(dataMgr->GetLog()) << "Received vol modify from OM for "
-				<< std::to_string(vol_uuid);
-    err = dataMgr->_process_mod_vol(vol_uuid, *desc);
- 
-  } else {
-    assert(0);
-  }
-
-  /*
-   * TODO: We're dropping the error at the moment.
-   * We should respond with the error code to OM.
-   */
+Error DataMgr::vol_handler(fds_volid_t vol_uuid,
+                           VolumeDesc *desc,
+                           fds_vol_notify_t vol_action,
+                           FDS_ProtocolInterface::FDSP_ResultType result) {
+    Error err(ERR_OK);
+    FDS_PLOG(dataMgr->GetLog()) << "Received vol notif from OM for "
+                                << desc->getName() << ":"
+                                << std::hex << vol_uuid << std::dec;
+    
+    if (vol_action == fds_notify_vol_add) {
+        /*
+         * TODO: Actually take a volume string name, not
+         * just the volume number.
+         */
+        err = dataMgr->_process_add_vol(dataMgr->getPrefix() +
+                                        std::to_string(vol_uuid),
+                                        vol_uuid, desc);
+    } else if (vol_action == fds_notify_vol_rm) {
+        err = dataMgr->_process_rm_vol(vol_uuid);
+    } else if (vol_action == fds_notify_vol_mod) {
+        err = dataMgr->_process_mod_vol(vol_uuid, *desc);
+    } else {
+        assert(0);
+    }
+    return err;
 }
 
 void DataMgr::node_handler(fds_int32_t  node_id,
@@ -105,27 +94,25 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
 }
 
 Error DataMgr::_process_add_vol(const std::string& vol_name,
-                                fds_volid_t vol_uuid,VolumeDesc *desc) {
-  Error err(ERR_OK);
+                                fds_volid_t vol_uuid,
+                                VolumeDesc *desc) {
+    Error err(ERR_OK);
 
-  /*
-   * Verify that we don't already know about this volume
-   */
-  vol_map_mtx->lock();
-  if (volExistsLocked(vol_uuid) == true) {
-    FDS_PLOG(dataMgr->GetLog()) << "Received add request for existing vol uuid "
-                                << vol_uuid;
-    err = ERR_DUPLICATE;
+    /*
+     * Verify that we don't already know about this volume
+     */
+    vol_map_mtx->lock();
+    if (volExistsLocked(vol_uuid) == true) {
+        err = Error(ERR_DUPLICATE);
+        vol_map_mtx->unlock();
+        FDS_PLOG(dataMgr->GetLog()) << "Received add request for existing vol uuid "
+                                    << std::hex << vol_uuid << std::dec;
+        return err;
+    }
     vol_map_mtx->unlock();
+
+    err = _add_vol_locked(vol_name, vol_uuid,desc);
     return err;
-  }
-
-  vol_map_mtx->unlock();
-
-  err = _add_vol_locked(vol_name, vol_uuid,desc);
-
-
-  return err;
 }
 
 Error DataMgr::_process_mod_vol(fds_volid_t vol_uuid, const VolumeDesc& voldesc)
@@ -161,14 +148,21 @@ Error DataMgr::_process_rm_vol(fds_volid_t vol_uuid) {
    */
   vol_map_mtx->lock();
   if (volExistsLocked(vol_uuid) == false) {
-    FDS_PLOG(dataMgr->GetLog()) << "Received add request for "
-                                << "non-existant vol uuid " << vol_uuid;
+    FDS_PLOG(dataMgr->GetLog()) << "Received Delete request for " << vol_uuid;
     err = ERR_INVALID_ARG;
     vol_map_mtx->unlock();
     return err;
   }
 
   VolumeMeta *vm = vol_meta_map[vol_uuid];
+
+  if (vm->getVcat()->DbEmpty() == true) {
+    FDS_PLOG(dataMgr->GetLog()) << "Volume is NOT Empty" << vol_uuid;
+    err = ERR_VOL_NOT_EMPTY;
+    vol_map_mtx->unlock();
+    return err;
+  }
+
   vol_meta_map.erase(vol_uuid);
   dataMgr->qosCtrl->deregisterVolume(vol_uuid);
   delete vm->dmVolQueue;
@@ -495,45 +489,6 @@ void DataMgr::setup()
 
     setup_metadatapath_server(myIp);
 
-  /*
-   * Query  Disk Manager  for disk parameter details 
-   */
-  fds::DmQuery        &query = fds::DmQuery::dm_query();
-  in.dmq_mask = fds::dmq_disk_info;
-  query.dm_disk_query(in, &out);
-  /* we should be bundling multiple disk  parameters  into one message to OM TBD */ 
-  dInfo.reset(new FDSP_AnnounceDiskCapability());
-  while (1) {
-        info = out.query_pop();
-        if (info != nullptr) {
-            FDS_PLOG(dm_log) << "Max blks capacity: " << info->di_max_blks_cap
-            << "Disk type........: " << info->di_disk_type
-            << "Max iops.........: " << info->di_max_iops
-            << "Min iops.........: " << info->di_min_iops
-            << "Max latency (us).: " << info->di_max_latency
-            << "Min latency (us).: " << info->di_min_latency;
-
-            if ( info->di_disk_type == FDS_DISK_SATA) {
-            	dInfo->disk_iops_max =  info->di_max_iops; /*  max avarage IOPS */
-            	dInfo->disk_iops_min =  info->di_min_iops; /* min avarage IOPS */
-            	dInfo->disk_capacity = info->di_max_blks_cap;  /* size in blocks */
-            	dInfo->disk_latency_max = info->di_max_latency; /* in us second */
-            	dInfo->disk_latency_min = info->di_min_latency; /* in us second */
-  	    } else if (info->di_disk_type == FDS_DISK_SSD) {
-            	dInfo->ssd_iops_max =  info->di_max_iops; /*  max avarage IOPS */
-            	dInfo->ssd_iops_min =  info->di_min_iops; /* min avarage IOPS */
-            	dInfo->ssd_capacity = info->di_max_blks_cap;  /* size in blocks */
-            	dInfo->ssd_latency_max = info->di_max_latency; /* in us second */
-            	dInfo->ssd_latency_min = info->di_min_latency; /* in us second */
-	    } else 
-  	       FDS_PLOG(dm_log) << "Unknown Disk Type " << info->di_disk_type;
-            delete info;
-            continue;
-        }
-        break;
-  }
-
-
   if (use_om) {
       FDS_PLOG(dm_log) << " Initialising the OM client ";
       /*
@@ -560,7 +515,7 @@ void DataMgr::setup()
        * Registers the DM with the OM. Uses OM for bootstrapping
        * on start. Requires the OM to be up and running prior.
        */
-      omClient->registerNodeWithOM(plf_mgr, dInfo);
+      omClient->registerNodeWithOM(plf_mgr);
   }
   
   if (runMode == TEST_MODE) {
@@ -663,7 +618,7 @@ void DataMgr::ReqHandler::GetVolumeBlobList(FDSP_MsgHdrTypePtr& msg_hdr,
     FDS_PLOG(dataMgr->GetLog()) << "Error Queueing the blob list request to per volume Queue";
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_FAILED;
     msg_hdr->err_msg  = "Something hit the fan...";
-    msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msg_hdr->err_code = err.GetErrno();
 
     /*
      * Reverse the msg direction and send the response.
@@ -747,7 +702,7 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
   } else {
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_FAILED;
     msg_hdr->err_msg  = "Something hit the fan...";
-    msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msg_hdr->err_code = err.GetErrno();
   }
 
   msg_hdr->src_ip_lo_addr =  updCatReq->dstIp;
@@ -868,7 +823,7 @@ void DataMgr::ReqHandler::UpdateCatalogObject(FDS_ProtocolInterface::
     FDS_PLOG(dataMgr->GetLog()) << "Error Queueing the update Catalog request to Per volume Queue";
     		msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_FAILED;
     		msg_hdr->err_msg  = "Something hit the fan...";
-    		msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    		msg_hdr->err_code = err.GetErrno();
 
   		/*
    		 * Reverse the msg direction and send the response.
@@ -919,7 +874,7 @@ DataMgr::blobListBackend(dmCatReq *listBlobReq) {
   } else {
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_FAILED;
     msg_hdr->err_msg  = "Something hit the fan...";
-    msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msg_hdr->err_code = err.GetErrno();
   }
 
   msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_GET_VOL_BLOB_LIST_RSP;
@@ -979,7 +934,7 @@ DataMgr::queryCatalogBackend(dmCatReq  *qryCatReq) {
   } else {
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_FAILED;
     msg_hdr->err_msg  = "Something hit the fan...";
-    msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msg_hdr->err_code = err.GetErrno();
   }
 
   if (bnode) {
@@ -1098,7 +1053,7 @@ void DataMgr::ReqHandler::QueryCatalogObject(FDS_ProtocolInterface::
   	if (!err.ok()) {
     		msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_FAILED;
     		msg_hdr->err_msg  = "Something hit the fan...";
-    		msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    		msg_hdr->err_code = err.GetErrno();
 
   		/*
    		* Reverse the msg direction and send the response.
@@ -1140,7 +1095,7 @@ DataMgr::deleteCatObjBackend(dmCatReq  *delCatReq) {
   } else {
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_FAILED;
     msg_hdr->err_msg  = "Something hit the fan...";
-    msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msg_hdr->err_code = err.GetErrno();
   }
 
   if (bnode) {
@@ -1218,7 +1173,7 @@ void DataMgr::ReqHandler::DeleteCatalogObject(FDS_ProtocolInterface::
   	if (!err.ok()) {
     		msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_FAILED;
     		msg_hdr->err_msg  = "Error Enqueue delete Cat request";
-    		msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    		msg_hdr->err_code = err.GetErrno();
 
   		/*
    		* Reverse the msg direction and send the response.
@@ -1267,29 +1222,27 @@ int scheduleBlobList(void * _io) {
 
 void DataMgr::InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
 {
-        msg_hdr->minor_ver = 0;
-        msg_hdr->msg_code = FDSP_MSG_PUT_OBJ_REQ;
-        msg_hdr->msg_id =  1;
+    msg_hdr->minor_ver = 0;
+    msg_hdr->msg_code = FDSP_MSG_PUT_OBJ_REQ;
+    msg_hdr->msg_id =  1;
 
-        msg_hdr->major_ver = 0xa5;
-        msg_hdr->minor_ver = 0x5a;
+    msg_hdr->major_ver = 0xa5;
+    msg_hdr->minor_ver = 0x5a;
 
-        msg_hdr->num_objects = 1;
-        msg_hdr->frag_len = 0;
-        msg_hdr->frag_num = 0;
+    msg_hdr->num_objects = 1;
+    msg_hdr->frag_len = 0;
+    msg_hdr->frag_num = 0;
 
-        msg_hdr->tennant_id = 0;
-        msg_hdr->local_domain_id = 0;
+    msg_hdr->tennant_id = 0;
+    msg_hdr->local_domain_id = 0;
 
-        msg_hdr->src_id = FDSP_DATA_MGR;
-        msg_hdr->dst_id = FDSP_STOR_MGR;
+    msg_hdr->src_id = FDSP_DATA_MGR;
+    msg_hdr->dst_id = FDSP_STOR_MGR;
 
-	msg_hdr->src_node_name = "";
+    msg_hdr->src_node_name = "";
 
-        msg_hdr->err_code=FDSP_ERR_SM_NO_SPACE;
-        msg_hdr->result=FDSP_ERR_OK;
-
-
+    msg_hdr->err_code = ERR_OK;
+    msg_hdr->result = FDSP_ERR_OK;
 }
 
 

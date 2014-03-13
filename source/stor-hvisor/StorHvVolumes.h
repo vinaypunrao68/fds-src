@@ -143,11 +143,11 @@ class StorHvVolumeTable
  private: /* methods */ 
 
   /* handler for volume-related control message from OM */
-  static void volumeEventHandler(fds_volid_t vol_uuid, 
-                                 VolumeDesc *vdb,
-                                 fds_vol_notify_t vol_action,
-				 FDS_ProtocolInterface::FDSP_ResultType);
-
+  static Error volumeEventHandler(fds_volid_t vol_uuid, 
+                                  VolumeDesc *vdb,
+                                  fds_vol_notify_t vol_action,
+                                  FDS_ProtocolInterface::FDSP_ResultType);
+  
   Error modifyVolumePolicy(fds_volid_t vol_uuid,
 			  const VolumeDesc& vdesc);
  

@@ -98,7 +98,7 @@ Platform::plf_update_cluster()
 // Perform the handshake connection with OM.
 //
 void
-Platform::plf_rpc_om_handshake()
+Platform::plf_rpc_om_handshake(fpi::FDSP_RegisterNodeTypePtr reg)
 {
     if (plf_master == NULL) {
         fds_verify(plf_om_resp == NULL);
@@ -108,7 +108,6 @@ Platform::plf_rpc_om_handshake()
         plf_master->om_handshake(plf_net_sess, plf_om_resp,
                                  plf_om_ip_str, plf_om_ctrl_port);
     }
-    FDSP_RegisterNodeTypePtr reg(new FDSP_RegisterNodeType);
     plf_master->init_node_reg_pkt(reg);
     plf_master->om_register_node(reg);
 }

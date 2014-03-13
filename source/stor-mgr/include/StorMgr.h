@@ -4,7 +4,7 @@
 
 #ifndef SOURCE_STOR_MGR_STORMGR_H_
 #define SOURCE_STOR_MGR_STORMGR_H_
-
+#if 0
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,9 +15,10 @@
 #include <ifaddrs.h>
 #include <arpa/inet.h>
 #include <pthread.h>
+#endif
 #include <fdsp/FDSP_types.h>
-#include <fdsp/FDSP_DataPathReq.h>
-#include <fdsp/FDSP_DataPathResp.h>
+// #include <fdsp/FDSP_DataPathReq.h>
+// #include <fdsp/FDSP_DataPathResp.h>
 #include "stor_mgr_err.h"
 #include <fds_volume.h>
 #include <fds_types.h>
@@ -421,10 +422,10 @@ class ObjectStorMgr :
             int node_state,
             fds_uint32_t node_port,
             FDS_ProtocolInterface::FDSP_MgrIdType node_type);
-    static void volEventOmHandler(fds::fds_volid_t volume_id,
-            fds::VolumeDesc *vdb,
-            int vol_action,
-            FDSP_ResultType resut);
+    static Error volEventOmHandler(fds::fds_volid_t volume_id,
+                                   fds::VolumeDesc *vdb,
+                                   int vol_action,
+                                   FDSP_ResultType resut);
     static void migrationEventOmHandler(bool dlt_type);
     void migrationSvcResponseCb(const Error& err);
 

@@ -388,7 +388,7 @@ class OmUnitTest {
         msg_hdr->src_id = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
         msg_hdr->dst_id = FDS_ProtocolInterface::FDSP_ORCH_MGR;
         
-        msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+        msg_hdr->err_code = ERR_OK;
         msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
     }
     

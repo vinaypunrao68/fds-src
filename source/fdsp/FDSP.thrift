@@ -88,6 +88,7 @@ enum FDSP_ResultType {
 }
 
 enum FDSP_ErrType {
+  FDSP_ERR_OKOK,            /* not to conflict with result type, and protect when using fds_errno_t in msg_hdr.err_code */
   FDSP_ERR_SM_NO_SPACE,
   FDSP_ERR_DLT_CONFLICT,
   FDSP_ERR_RPC_CKSUM
@@ -313,7 +314,7 @@ struct FDSP_DMT_Type {
 
 struct FDSP_DLT_Data_Type {
 	1: bool dlt_type,
-    2: string dlt_data,
+    2: binary dlt_data,
 }
 
 struct FDSP_MigrationStatusType {
@@ -643,8 +644,8 @@ struct FDSP_MsgHdrType {
 
 /* FDSP Result valid for response messages */
     22: FDSP_ResultType       result,
-    23: string       	  err_msg,
-    24: i32               err_code,
+    23: string       	      err_msg,
+    24: i32                   err_code,
 
 /* Checksum of the entire message including the payload/objects */
     25: i32         req_cookie,
@@ -902,7 +903,7 @@ service FDSP_ConfigPathReq {
   i32 DeleteDomain(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreateDomainType del_dom_req),
   i32 SetThrottleLevel(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ThrottleMsgType throttle_msg),
   i32 GetVolInfo(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetVolInfoReqType vol_info_req),
-  i32 GetDomainStats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetDomainStatsType get_stats_msg),  
+  i32 GetDomainStats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetDomainStatsType get_stats_msg),
   i32 applyTierPolicy(1: tier_pol_time_unit policy),
   i32 auditTierPolicy(1: tier_pol_audit audit),
   i32 RemoveNode(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RemoveNodeType rm_node_req),

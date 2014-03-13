@@ -129,7 +129,7 @@ Error VolumeCatalogCache::queryDm(const std::string& blobName,
   msg_hdr->src_node_name = storHvisor->my_node_name;
   msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_DATA_MGR;
   msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
-  msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+  msg_hdr->err_code = ERR_OK;
   msg_hdr->req_cookie = trans_id;
 
   /*

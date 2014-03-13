@@ -31,7 +31,8 @@ namespace fds {
     "Node name hashed to duplicate UUID",
     "Ran out of transaction ids",
     "Transaction request is queued",
-    "Node is not in active state"
+    "Node is not in active state",
+    "Volume is not  Empty"
   };
   
   /* DO NOT change the order */
@@ -55,6 +56,7 @@ namespace fds {
     ERR_TRANS_JOURNAL_OUT_OF_IDS = 16,
     ERR_TRANS_JOURNAL_REQUEST_QUEUED = 17,
     ERR_NODE_NOT_ACTIVE      = 18,
+    ERR_VOL_NOT_EMPTY      = 19,
 
     /* I/O error range */
     ERR_IO_DLT_MISMATCH      = 100,
@@ -121,11 +123,17 @@ namespace fds {
 
     FDS_ProtocolInterface::FDSP_ErrType getFdspErr() const
     {
-        /* 
-         * TODO:  We only return code since it's the only code available to
-         * return.
-         */
-        return FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE; 
+        switch (_errno) {
+            case ERR_OK:
+                return FDS_ProtocolInterface::FDSP_ERR_OKOK;
+            case ERR_IO_DLT_MISMATCH:
+                return FDS_ProtocolInterface::FDSP_ERR_DLT_CONFLICT;
+            default:
+                if (!OK()) {
+		  return FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+                }
+        }
+        return FDS_ProtocolInterface::FDSP_ERR_OKOK;
     }
 
     Error& operator=(const Error& rhs) {

@@ -63,62 +63,6 @@ DmQuery::dm_iops(const DmDiskQuery &query, int *min, int *max)
     *max  = 4000;
 }
 
-/*
- * dmq_hdd_info
- * ------------
- */
-DmDiskInfo *
-DmQuery::dmq_hdd_info()
-{
-    DmDiskInfo *info = new DmDiskInfo;
-
-    info->di_max_blks_cap = 0x80000000;
-    info->di_used_blks    = 0x0;
-    info->di_disk_type    = FDS_DISK_SATA;
-    info->di_min_iops     = 100;
-    info->di_max_iops     = 30000;
-    info->di_min_latency  = 1000000 / info->di_max_iops;
-    info->di_max_latency  = 1000000 / info->di_min_iops;
-    return info;
-}
-
-/*
- * dmq_ssd_info
- * ------------
- */
-DmDiskInfo *
-DmQuery::dmq_ssd_info()
-{
-    DmDiskInfo *info = new DmDiskInfo;
-
-    info->di_max_blks_cap = 0x10000000;
-    info->di_used_blks    = 0x0;
-    info->di_disk_type    = FDS_DISK_SSD;
-    info->di_min_iops     = 1000;
-    info->di_max_iops     = 300000;
-    info->di_min_latency  = 1000000 / info->di_max_iops;
-    info->di_max_latency  = 1000000 / info->di_min_iops;
-    return info;
-}
-
-/*
- * dm_disk_query
- * -------------
- */
-bool
-DmQuery::dm_disk_query(const DmDiskQuery &query, DmDiskQueryOut *out)
-{
-    if (query.dmq_mask & fds::dmq_disk_info) {
-        DmDiskInfo *hdd = dmq_hdd_info();
-        DmDiskInfo *ssd = dmq_ssd_info();
-
-        out->query_push(&hdd->di_chain);
-        out->query_push(&ssd->di_chain);
-        return true;
-    }
-    return false;
-}
-
 bool
 DmQuery::dm_get_disk_params(const DmDiskQuery &query, DmDiskParams *p)
 {
