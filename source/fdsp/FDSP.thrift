@@ -313,7 +313,7 @@ struct FDSP_DMT_Type {
 
 struct FDSP_DLT_Data_Type {
 	1: bool dlt_type,
-    2: string dlt_data,
+    2: binary dlt_data,
 }
 
 struct FDSP_MigrationStatusType {
@@ -902,7 +902,7 @@ service FDSP_ConfigPathReq {
   i32 DeleteDomain(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreateDomainType del_dom_req),
   i32 SetThrottleLevel(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ThrottleMsgType throttle_msg),
   i32 GetVolInfo(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetVolInfoReqType vol_info_req),
-  i32 GetDomainStats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetDomainStatsType get_stats_msg),  
+  i32 GetDomainStats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetDomainStatsType get_stats_msg),
   i32 applyTierPolicy(1: tier_pol_time_unit policy),
   i32 auditTierPolicy(1: tier_pol_audit audit),
   i32 RemoveNode(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RemoveNodeType rm_node_req),
