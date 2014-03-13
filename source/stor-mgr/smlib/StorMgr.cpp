@@ -1423,8 +1423,10 @@ void ObjectStorMgr::create_transaction_cb(FDSP_MsgHdrTypePtr msgHdr,
         SmIoReq *ioReq, TransJournalId trans_id)
 {
     ioReq->setTransId(trans_id);
-    ObjectIdJrnlEntry *jrnlEntry = omJrnl->get_transaction_nolock(trans_id);
-    jrnlEntry->setMsgHdr(msgHdr);
+    if (msgHdr.get()) {
+        ObjectIdJrnlEntry *jrnlEntry = omJrnl->get_transaction_nolock(trans_id);
+        jrnlEntry->setMsgHdr(msgHdr);
+    }
 }
 
 Error
@@ -1809,13 +1811,31 @@ ObjectStorMgr::enqGetObjectReq(FDSP_MsgHdrTypePtr msgHdr,
 Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
 {
     Error err(ERR_OK);
+    ObjectID objectId;
+    TransJournalId trans_id;
 
-    err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
-    if (err != fds::ERR_OK) {
-        LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
+    switch (ioReq->io_type) {
+    case FDS_SM_WRITE_TOKEN_OBJECTS:
+    case FDS_SM_READ_TOKEN_OBJECTS:
+        err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
+        if (err != fds::ERR_OK) {
+            LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
+        }
+        break;
+    case FDS_SM_SYNC_APPLY_METADATA:
+        objectId.setId(static_cast<SmIoApplySyncMetadata*>(ioReq)->md.object_id);
+        err =  enqTransactionIo(nullptr, objectId, ioReq, trans_id);
+        if (err != fds::ERR_OK) {
+            LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
+        }
+        break;
+    default:
+        fds_assert(!"Unknown message");
+        LOGERROR << "Unknown message: " << ioReq-io_type;
     }
     return err;
 }
+
 
 /**
  * @brief Does a bulk put of objects+metadata from obj_list
@@ -1951,6 +1971,24 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a read token objects";
             threadPool->schedule(&ObjectStorMgr::getTokenObjectsInternal, objStorMgr, io);
             break;
+        case FDS_SM_SNAPSHOT_TOKEN:
+        {
+            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a read token objects";
+            // threadPool->schedule(&ObjectStorMgr::snapshotTokenInternal, objStorMgr, io);
+            break;
+        }
+        case FDS_SM_SYNC_APPLY_METADATA:
+        {
+            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a read token objects";
+            threadPool->schedule(&ObjectStorMgr::applySyncMetadataInternal, objStorMgr, io);
+            break;
+        }
+        case FDS_SM_SYNC_RESOLVE_SYNC_ENTRIES:
+        {
+            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a read token objects";
+            // threadPool->schedule(&ObjectStorMgr::resolveSyncEntriesInternal, objStorMgr, io);
+            break;
+        }
         default:
             fds_assert(!"Unknown message");
             break;

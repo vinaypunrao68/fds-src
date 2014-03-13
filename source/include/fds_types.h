@@ -104,6 +104,11 @@ namespace fds {
         memcpy(digest, data, length);
     }
 
+    void SetId(const std::string &data) {
+        fds_assert(data.length() <= sizeof(digest));
+        memcpy(digest, data.data(), data.length());
+    }
+
     const uint8_t* GetId()  const {
 	return digest;
     }

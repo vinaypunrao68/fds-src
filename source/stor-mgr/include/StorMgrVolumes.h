@@ -414,9 +414,15 @@ namespace fds {
   public:
       SmIoApplySyncMetadata() {
       }
+      virtual std::string log_string() override
+      {
+          std::stringstream ret;
+          ret << " SmIoApplySyncMetadata object id: " << md.object_id.digest;
+          return ret.str();
+      }
 
       /* In: Sync metadata list */
-      FDSP_MigrateObjectMetadataList md_list;
+      FDSP_MigrateObjectMetadata md;
       /* Response callback */
       CbType smio_sync_md_resp_cb;
   };
