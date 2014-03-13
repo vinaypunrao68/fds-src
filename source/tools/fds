@@ -64,6 +64,8 @@ function setupFdsDirs() {
 
 
 function activate() {
+    # Bao: wait for platformd before activate
+    sleep 5
     logwarn "asking OM to accept all discovered nodes..."
     (cd ${BINDIR}; ./fdscli --fds-root ${FDSROOT} --activate-nodes abc -k 1 -e am,dm,sm > cli.out) 2>/dev/null
     loginfo "$(boldblue fdscli) : console out : ${BINDIR}/cli.out"
