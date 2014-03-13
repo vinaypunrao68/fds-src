@@ -5,8 +5,12 @@ package com.formationds.spike.om;
 
 import FDS_ProtocolInterface.FDSP_MgrIdType;
 import com.formationds.BaseTestCase;
+import org.junit.Test;
+
+import static org.junit.Assert.assertEquals;
 
 public class ServiceDirectoryTest extends BaseTestCase {
+    @Test
     public void testTraverse() {
         ServiceDirectory serviceDirectory = new ServiceDirectory();
         serviceDirectory.add(makeEndpoint("foo", FDSP_MgrIdType.FDSP_STOR_HVISOR));

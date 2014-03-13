@@ -4,22 +4,24 @@ package com.formationds.spike;
  */
 
 import FDS_ProtocolInterface.FDSP_Uuid;
-import junit.framework.TestCase;
+import com.google.common.collect.Lists;
+import org.junit.Test;
 
 import java.util.Collection;
-import java.util.List;
 
-public class DltTest extends TestCase {
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+
+public class DltTest {
+    long uuid = 1680041476237363857l;
+
+    @Test
     public void testDeserialize() throws Exception {
-        Dlt dlt = new DltSerializer().deserialize(frame);
+        Dlt dlt = new Dlt(frame);
         assertEquals(1, dlt.getVersion());
         assertEquals(8, dlt.getNumBitsForToken());
         assertEquals(1, dlt.getDepth());
         assertEquals(256, dlt.getNumTokens());
-        List<FDSP_Uuid> uuids = dlt.getUuids();
-        assertEquals(1, uuids.size());
-        long uuid = 1680041476237363857l;
-        assertEquals(uuid, uuids.get(0).getUuid());
         for (int i = 0; i < dlt.getNumTokens(); i++) {
             Collection<FDSP_Uuid> tokenPlacement = dlt.getTokenPlacement(0);
             assertEquals(1, tokenPlacement.size());
@@ -27,6 +29,15 @@ public class DltTest extends TestCase {
         }
     }
 
+    @Test
+    public void testSerialize() throws Exception {
+        Dlt dlt = new Dlt(1, 8, 1, 256, Lists.newArrayList(new FDSP_Uuid(uuid)));
+        for (int i = 0; i < dlt.getNumTokens(); i++) {
+            dlt.placeToken(i, 0, 0);
+        }
+        byte[] frozen = dlt.serialize();
+        assertArrayEquals(frame, frozen);
+    }
 
     byte[] frame = new byte[] {0,0,0,0,0,0,0,1,0,0,0,8,0,0,0,1,0,0,1,0,0,0,0,1,23,80,-76,-46,71,13,10,-111,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 

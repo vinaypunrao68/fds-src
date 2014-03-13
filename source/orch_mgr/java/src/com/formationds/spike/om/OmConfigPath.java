@@ -104,29 +104,29 @@ public class OmConfigPath implements FDSP_ConfigPathReq.Iface {
 
     @Override
     public int ActivateAllNodes(FDSP_MsgHdrType fdsp_msg, FDSP_ActivateAllNodesType act_node_req) throws TException {
-//        return (int) serviceDirectory
-//                .allNodes()
-//                .parallel()
-//                .filter(n -> {
-//                    try {
-//                        FDSP_ActivateNodeType activateMsg = new FDSP_ActivateNodeType(
-//                                n.service_uuid,
-//                                n.getNode_name(),
-//                                n.getNode_type().equals(FDSP_MgrIdType.FDSP_STOR_MGR),
-//                                n.getNode_type().equals(FDSP_MgrIdType.FDSP_DATA_MGR),
-//                                n.getNode_type().equals(FDSP_MgrIdType.FDSP_ORCH_MGR),
-//                                n.getNode_type().equals(FDSP_MgrIdType.FDSP_STOR_HVISOR));
-//
-//                        FDSP_MsgHdrType msg = new FDSP_MsgHdrType();
-//                        msg.setMsg_code(FDSP_MsgCodeType.FDSP_MSG_NOTIFY_NODE_ACTIVE);
-//                        controlClientFactory.apply(n).NotifyNodeActive(msg, activateMsg);
-//                        return true;
-//                    } catch (TException e) {
-//                        // This service is dead
-//                        return false;
-//                    }
-//                })
-//                .count();
-        return 0;
+        return (int) serviceDirectory
+                .allNodes()
+                .filter(n -> n.getNode_type().equals(FDSP_MgrIdType.FDSP_PLATFORM))
+                .parallel()
+                .filter(n -> {
+                    try {
+                        FDSP_ActivateNodeType activateMsg = new FDSP_ActivateNodeType(
+                                n.service_uuid,
+                                n.getNode_name(),
+                                true,
+                                true,
+                                false,
+                                true);
+
+                        FDSP_MsgHdrType msg = new FDSP_MsgHdrType();
+                        msg.setMsg_code(FDSP_MsgCodeType.FDSP_MSG_NOTIFY_NODE_ACTIVE);
+                        controlClientFactory.apply(n).NotifyNodeActive(msg, activateMsg);
+                        return true;
+                    } catch (TException e) {
+                        // This service is dead
+                        return false;
+                    }
+                })
+                .count();
     }
 }
