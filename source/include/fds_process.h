@@ -147,6 +147,8 @@ class FdsProcess : public boost::noncopyable, public HasLogger {
     inline const FdsRootDir *proc_fdsroot() const { return proc_root; }
     inline fds_threadpool *proc_thrpool() { return proc_thrp; }
 
+    void daemonize();
+
  protected:
     // static members/methods
     static void* sig_handler(void* param);

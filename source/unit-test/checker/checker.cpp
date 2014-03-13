@@ -189,7 +189,7 @@ bool DirBasedChecker::get_object(const NodeUuid& node_id,
     msg_hdr->dst_id   = FDS_ProtocolInterface::FDSP_STOR_MGR;
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
     msg_hdr->glob_volume_id = FdsSysTaskQueueId;
-    msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msg_hdr->err_code = ERR_OK;
 
     get_req->data_obj_id.hash_high = oid.GetHigh();
     get_req->data_obj_id.hash_low  = oid.GetLow();

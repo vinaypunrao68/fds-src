@@ -8,6 +8,8 @@ import com.google.common.net.InetAddresses;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TProtocol;
 
+import java.util.UUID;
+
 
 public class FakeAm {
     // I am a control server
@@ -26,6 +28,7 @@ public class FakeAm {
         FDSP_RegisterNodeType nodeMesg = new FDSP_RegisterNodeType();
         nodeMesg.setNode_type(FDSP_MgrIdType.FDSP_STOR_HVISOR);
         nodeMesg.setNode_name("h4xx0r-am");
+        nodeMesg.setService_uuid(new FDSP_Uuid(UUID.randomUUID().getMostSignificantBits()));
         int ipInt = InetAddresses.coerceToInteger(InetAddresses.forString("127.0.0.1"));
         nodeMesg.setIp_lo_addr(ipInt);
         nodeMesg.setControl_port(myControlPort);

@@ -207,10 +207,10 @@ namespace fds {
     int recvDLTStartMigration(FDSP_DLT_Data_TypePtr& dlt_info);
     int recvDMTUpdate(int dmt_version, const Node_Table_Type& dmt_table);
 
-    int recvNotifyVol(fds_volid_t vol_id,
-                      VolumeDesc *vdb,
+    int recvNotifyVol(VolumeDesc *vdb,
                       fds_vol_notify_t vol_action,
-		      FDSP_ResultType);
+		      FDSP_ResultType,
+                      const std::string& session_uuid);
     int recvVolAttachState(fds_volid_t vol_id, VolumeDesc *vdb, int vol_action, FDSP_ResultType);
     int recvSetThrottleLevel(const float throttle_level);
     int recvTierPolicy(const FDSP_TierPolicyPtr &tier);

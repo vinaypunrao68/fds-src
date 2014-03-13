@@ -37,7 +37,7 @@ class FdsEnv:
     def cleanup(self):
         self.shut_down()
         os.chdir(self.env_fdsSrc)
-        subprocess.call(['test/cleanup.sh'])
+        subprocess.call(['tools/fds','clean'])
 
     def getRoot(self):
         return self.env_root

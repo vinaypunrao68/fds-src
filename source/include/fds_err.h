@@ -121,11 +121,17 @@ namespace fds {
 
     FDS_ProtocolInterface::FDSP_ErrType getFdspErr() const
     {
-        /* 
-         * TODO:  We only return code since it's the only code available to
-         * return.
-         */
-        return FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE; 
+        switch (_errno) {
+            case ERR_OK:
+                return FDS_ProtocolInterface::FDSP_ERR_OKOK;
+            case ERR_IO_DLT_MISMATCH:
+                return FDS_ProtocolInterface::FDSP_ERR_DLT_CONFLICT;
+            default:
+                if (!OK()) {
+		  return FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+                }
+        }
+        return FDS_ProtocolInterface::FDSP_ERR_OKOK;
     }
 
     Error& operator=(const Error& rhs) {

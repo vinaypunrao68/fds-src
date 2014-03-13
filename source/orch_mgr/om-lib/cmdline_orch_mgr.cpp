@@ -220,10 +220,8 @@ void InitOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
         msg_hdr->src_id = FDSP_ORCH_MGR;
         msg_hdr->dst_id = FDSP_STOR_HVISOR;
 
-        msg_hdr->err_code=FDSP_ERR_SM_NO_SPACE;
-        msg_hdr->result=FDSP_ERR_OK;
-
-
+        msg_hdr->err_code = ERR_OK;
+        msg_hdr->result = FDSP_ERR_OK;
 }
 
 void handle_create_volume(Ice::CommunicatorPtr& comm, int vol_id, const node_map_t& node_map) {

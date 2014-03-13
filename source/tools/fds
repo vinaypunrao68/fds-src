@@ -1,0 +1,250 @@
+#!/bin/bash
+########################################################################
+#  fds control script. to start stop services on a dev machine
+#  usage : fds -h
+#  symlink this script to ~/bin & add it to your PATH for convenience
+########################################################################
+
+########################################################################
+# setup correct dirs
+SOURCE="${BASH_SOURCE[0]}"
+# resolve $SOURCE until the file is no longer a symlink
+while [ -h "$SOURCE" ]; do 
+  DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE" 
+done
+
+TOOLSDIR="$(cd -P "$( dirname "${SOURCE}" )" && pwd )"
+SOURCEDIR="$( cd ${TOOLSDIR}/.. && pwd)"
+BINDIR="${SOURCEDIR}/Build/linux-x86_64.debug/bin"
+FDSROOT=/fds-root
+
+########################################################################
+
+source ${TOOLSDIR}/loghelper.sh
+
+# Variables
+applist="om pm dm sm am"
+declare -A apps
+
+apps["om"]="orchMgr"
+apps["am"]="AMAgent"
+apps["sm"]="StorMgr"
+apps["dm"]="DataMgr"
+apps["pm"]="platformd"
+
+
+function usage() {
+    log "$(yellow usage: $(basename $0) [cmd] [app] [options])"
+    log " cmd : "
+    log "   - $(yellow start)   : start the app " 
+    log "   - $(yellow stop)    : stop  the app " 
+    log "   - $(yellow restart) : stop & start  the app " 
+    log "   - $(yellow status)  : print status of the apps"
+    log "   - $(yellow clogs)   : remove the logs"
+    log "   - $(yellow clean)   : remove the data"
+    log " options :"
+    log "   : --fds-root rootdir"
+    log " app : om/pm/sm/am/dm/all"
+    exit 0
+}
+
+function activate() {
+    logwarn "asking OM to accept all discovered nodes..."
+    (cd ${BINDIR}; ./fdscli --fds-root ${FDSROOT} --activate-nodes abc -k 1 -e am,dm,sm)    
+}
+
+function startApp() {
+    local appname=$1
+
+    local justapps="${applist}"
+    
+    if [[ $appname == "all" ]]; then
+        justapps="om pm"
+    fi
+
+    for name in $justapps ; do
+        if [[ $appname == ${name} ]] || [[ $appname == "all" ]] ; then
+            pid=$(pgrep ${apps[$name]})
+            if [[ -z $pid ]] ; then
+                echo "$(blue ${name}) $(yellow starting ..)"
+                (cd ${BINDIR}; ./${apps[$name]} --fds-root ${FDSROOT} > ${name}.out 2>&1 &)
+		sleep 2s
+            else
+                echo "$(blue ${name}) $(red .. already running)"
+            fi
+        fi
+    done
+
+    activate
+}
+
+function stopApp() {
+    local appname=$1
+
+    for name in $applist ; do
+        if [[ $appname == ${name} ]] || [[ $appname == "all" ]] ; then
+            pid=$(pgrep ${apps[$name]})
+            if [[ $name == "om" ]]; then
+                pid=$(ps aux | grep "java .*com.formationds.web.om.Main" | grep -v grep | awk '{print $2}')
+            fi
+            if [[ -z $pid ]] ; then
+                echo "$(blue ${name}) : Not running"
+            else
+                echo "$(yellow stopping ${name}..)"
+                kill -9 ${pid}
+            fi
+        fi
+    done
+}
+
+function statusApp() {
+    # the header
+    echo "$(yellow app: $(ps u --pid 1000000 | awk '{for(i=1;i<12;i++) printf("\t%s",$i) }'))" 
+
+    local appname=$1
+
+    for name in $applist ; do
+        if [[ $appname == ${name} ]] || [[ $appname == "all" ]] ; then
+            pid=$(pgrep ${apps[$name]})
+            if [[ $name == "om" ]]; then
+                pid=$(ps aux | grep "java .*com.formationds.web.om.Main" | grep -v grep | awk '{print $2}')
+            fi
+            if [[ -z $pid ]] ; then
+                echo "$(boldblue ${name}) : $(yellow Not running)"
+            else
+                echo "$(boldblue ${name}) : $(green $(ps u --pid $pid| tail -n1 | awk '{for(i=1;i<12;i++) printf("\t%s",$i) }' | sed -e 's|/home/.*/||g' ))"
+            fi
+        fi
+    done
+}
+
+function restartApp() {
+    stopApp "$@"
+    startApp "$@"    
+}
+
+function cleanBinDirs() {
+    for node in bin node2 node3 node4; do
+        bin_dir=${SOURCEDIR}/Build/linux-x86_64.debug/${node}
+        if [[ -d $bin_dir ]] ; then
+            (
+                cd ${bin_dir}
+                echo "cleaning up: `pwd`"
+                
+                rm -rf *.ldb 2>  /dev/null
+                rm -rf logs stats 2> /dev/null
+                rm -rf *SNode* 2> /dev/null
+                rm -rf *ObjRankDB* 2> /dev/null
+                rm om.*.log 2> /dev/null
+                rm am.*.log 2> /dev/null
+                rm sm.*.log 2> /dev/null
+                rm -f ocache_stats.dat
+                rm -f *.out 
+                rm -f core*
+            )
+        fi
+    done
+}
+
+
+function clean() {
+    (
+        rm -rf /fds/hdd/sd?
+        rm -rf /fds/ssd/sd?
+        rm -rf /fds/sys-repo/*
+        rm -rf /fds/nginx/logs/*
+        rm -rf /fds/user-repo/*
+        rm -rf /fds-node?/hdd/sd?
+        rm -rf /fds-node?/ssd/sd?
+        rm -rf /fds-node?/var/*
+        rm -rf /fds-am?/var/*
+        rm -rf /fds-node?/sys-repo/*
+        rm -rf /fds-node?/user-repo/*
+        rm -rf /fds/node?/*
+        # redis stuff
+        echo "FLUSHALL" | redis-cli  >/dev/null
+        echo "BGREWRITEAOF" | redis-cli  >/dev/null
+        rm -rf $(find /fds/var/logs/* -not -name redis)
+        rm -rf $(find /fds/var/* -not -name logs -not -name redis)
+        rm -rf $(find /fds/logs/* -not -name redis)
+    ) 2>/dev/null
+
+    cleanBinDirs
+}
+
+function cleanlogs() {
+    (
+        rm -rf $(find /fds/var/logs/* -not -name redis)
+        rm -rf $(find /fds/var/* -not -name logs -not -name redis)
+        rm -rf $(find /fds/logs/* -not -name redis)
+    ) 2>/dev/null
+}
+
+########################################################################
+# Main Program
+########################################################################
+
+# parse input
+# parse out the options & leave the rest is saved
+saved=( "$@" )
+n=0
+num=$#
+for ((n=0; num>0 && n<num; n++ ))
+do
+    #echo "$n, $#, $num"
+    opt=${saved[$n]}
+    case $opt in
+        -f|--fds-root)
+            k=$((n+1))
+            FDSROOT=${saved[${k}]}
+            unset saved[${n}]
+            unset saved[${k}]
+            (( n-=2 ))
+            (( num-=2 ))
+            ;;
+    esac
+done
+
+CMD=${saved[0]}
+APP=${saved[1]}
+
+CMD=${CMD:="status"}
+APP=${APP:="all"}
+
+FDSROOT=${FDSROOT:=/fds-root}
+#echo ${saved[@]}
+
+#echo "CMD=${CMD} APP=${APP} ROOT=${FDSROOT} SOURCEDIR=${SOURCEDIR}"
+
+#exit 0
+
+case "${CMD}" in
+    start) ;;
+    stop) ;;
+    restart) ;;
+    status) ;;
+    clean) ;;
+    clogs) ;;
+    *) usage ;;
+esac
+
+case "${APP}" in
+    om) ;;
+    am) ;;
+    dm) ;;
+    sm) ;;
+    all) ;;
+    *) usage ;;
+esac
+
+case "${CMD}" in
+    start) startApp $APP ;;
+    stop) stopApp  $APP;;
+    status) statusApp $APP;;
+    clean) clean ;;
+    clogs) cleanlogs ;;
+    restart) restartApp $APP ;;
+    *) usage ;;
+esac

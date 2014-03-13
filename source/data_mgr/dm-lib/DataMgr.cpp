@@ -653,7 +653,7 @@ void DataMgr::ReqHandler::GetVolumeBlobList(FDSP_MsgHdrTypePtr& msg_hdr,
     FDS_PLOG(dataMgr->GetLog()) << "Error Queueing the blob list request to per volume Queue";
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_FAILED;
     msg_hdr->err_msg  = "Something hit the fan...";
-    msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msg_hdr->err_code = err.GetErrno();
 
     /*
      * Reverse the msg direction and send the response.
@@ -724,7 +724,7 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
   } else {
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_FAILED;
     msg_hdr->err_msg  = "Something hit the fan...";
-    msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msg_hdr->err_code = err.GetErrno();
   }
 
   msg_hdr->src_ip_lo_addr =  updCatReq->dstIp;
@@ -838,7 +838,7 @@ void DataMgr::ReqHandler::UpdateCatalogObject(FDS_ProtocolInterface::
     FDS_PLOG(dataMgr->GetLog()) << "Error Queueing the update Catalog request to Per volume Queue";
     		msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_FAILED;
     		msg_hdr->err_msg  = "Something hit the fan...";
-    		msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    		msg_hdr->err_code = err.GetErrno();
 
   		/*
    		 * Reverse the msg direction and send the response.
@@ -889,7 +889,7 @@ DataMgr::blobListBackend(dmCatReq *listBlobReq) {
   } else {
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_FAILED;
     msg_hdr->err_msg  = "Something hit the fan...";
-    msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msg_hdr->err_code = err.GetErrno();
   }
 
   msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_GET_VOL_BLOB_LIST_RSP;
@@ -946,7 +946,7 @@ DataMgr::queryCatalogBackend(dmCatReq  *qryCatReq) {
   } else {
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_FAILED;
     msg_hdr->err_msg  = "Something hit the fan...";
-    msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msg_hdr->err_code = err.GetErrno();
   }
 
   if (bnode) {
@@ -1056,7 +1056,7 @@ void DataMgr::ReqHandler::QueryCatalogObject(FDS_ProtocolInterface::
   	if (!err.ok()) {
     		msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_FAILED;
     		msg_hdr->err_msg  = "Something hit the fan...";
-    		msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    		msg_hdr->err_code = err.GetErrno();
 
   		/*
    		* Reverse the msg direction and send the response.
@@ -1098,7 +1098,7 @@ DataMgr::deleteCatObjBackend(dmCatReq  *delCatReq) {
   } else {
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_FAILED;
     msg_hdr->err_msg  = "Something hit the fan...";
-    msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msg_hdr->err_code = err.GetErrno();
   }
 
   if (bnode) {
@@ -1176,7 +1176,7 @@ void DataMgr::ReqHandler::DeleteCatalogObject(FDS_ProtocolInterface::
   	if (!err.ok()) {
     		msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_FAILED;
     		msg_hdr->err_msg  = "Error Enqueue delete Cat request";
-    		msg_hdr->err_code = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    		msg_hdr->err_code = err.GetErrno();
 
   		/*
    		* Reverse the msg direction and send the response.
@@ -1225,29 +1225,27 @@ int scheduleBlobList(void * _io) {
 
 void DataMgr::InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
 {
-        msg_hdr->minor_ver = 0;
-        msg_hdr->msg_code = FDSP_MSG_PUT_OBJ_REQ;
-        msg_hdr->msg_id =  1;
+    msg_hdr->minor_ver = 0;
+    msg_hdr->msg_code = FDSP_MSG_PUT_OBJ_REQ;
+    msg_hdr->msg_id =  1;
 
-        msg_hdr->major_ver = 0xa5;
-        msg_hdr->minor_ver = 0x5a;
+    msg_hdr->major_ver = 0xa5;
+    msg_hdr->minor_ver = 0x5a;
 
-        msg_hdr->num_objects = 1;
-        msg_hdr->frag_len = 0;
-        msg_hdr->frag_num = 0;
+    msg_hdr->num_objects = 1;
+    msg_hdr->frag_len = 0;
+    msg_hdr->frag_num = 0;
 
-        msg_hdr->tennant_id = 0;
-        msg_hdr->local_domain_id = 0;
+    msg_hdr->tennant_id = 0;
+    msg_hdr->local_domain_id = 0;
 
-        msg_hdr->src_id = FDSP_DATA_MGR;
-        msg_hdr->dst_id = FDSP_STOR_MGR;
+    msg_hdr->src_id = FDSP_DATA_MGR;
+    msg_hdr->dst_id = FDSP_STOR_MGR;
 
-	msg_hdr->src_node_name = "";
+    msg_hdr->src_node_name = "";
 
-        msg_hdr->err_code=FDSP_ERR_SM_NO_SPACE;
-        msg_hdr->result=FDSP_ERR_OK;
-
-
+    msg_hdr->err_code = ERR_OK;
+    msg_hdr->result = FDSP_ERR_OK;
 }
 
 
