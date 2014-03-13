@@ -201,28 +201,29 @@ struct FDSP_MetaDataPair {
 typedef list <FDSP_MetaDataPair> FDSP_MetaDataList
 
 struct FDSP_UpdateCatalogType {
-  1: string   blob_name,       /* User visible name of the blob*/
-  2: i64 blob_size,
-  3: i32 blob_mime_type,
-  4: FDSP_BlobDigestType digest,
-  5: FDSP_BlobObjectList   obj_list,         /* List of object ids of the objects that this blob is being mapped to */
-  6: FDSP_MetaDataList meta_list, /* sequence of arbitrary key/value pairs */
-
-  7: i32      dm_transaction_id,  /* Transaction id */
-  8: i32      dm_operation,       /* Transaction type = OPEN, COMMIT, CANCEL */
+  1: string blob_name, /* User visible name of the blob */
+  2: i64 blob_version, /* Version of the blob. Only used in response! */
+  3: i64 blob_size, /* Size of blob. Only use in  response! */
+  4: i32 blob_mime_type, /* Encoding type of blob contents. */
+  5: FDSP_BlobDigestType digest, /* Not sure...? */
+  6: FDSP_BlobObjectList obj_list, /* List of object ids of the objects that this blob is being mapped to */
+  7: FDSP_MetaDataList meta_list, /* sequence of arbitrary key/value pairs */
+  8: i32 dm_transaction_id,   /* Transaction id */
+  9: i32 dm_operation,        /* Transaction type = OPEN, COMMIT, CANCEL */
 }
 
 struct FDSP_QueryCatalogType {
 
-  1: string   blob_name,       /* User visible name of the blob*/
-  2: i64 blob_size,
-  3: i32 blob_mime_type,
-  4: FDSP_BlobDigestType digest,
-  5: FDSP_BlobObjectList   obj_list,         /* List of object ids of the objects that this blob is being mapped to */
-  6: FDSP_MetaDataList meta_list, /* sequence of arbitrary key/value pairs */
+  1: string   blob_name,           /* User visible name of the blob*/
+  2: i64 blob_version,             /* Version of the blob to query */
+  3: i64 blob_size,
+  4: i32 blob_mime_type,
+  5: FDSP_BlobDigestType digest,
+  6: FDSP_BlobObjectList obj_list, /* List of object ids of the objects that this blob is being mapped to */
+  7: FDSP_MetaDataList meta_list,  /* sequence of arbitrary key/value pairs */
 
-  7: i32      dm_transaction_id,  /* Transaction id */
-  8: i32      dm_operation,       /* Transaction type = OPEN, COMMIT, CANCEL */
+  8: i32      dm_transaction_id,   /* Transaction id */
+  9: i32      dm_operation,        /* Transaction type = OPEN, COMMIT, CANCEL */
 }
 
 struct  FDSP_DeleteCatalogType { /* This is a SH-->SM msg to delete the objectId */
