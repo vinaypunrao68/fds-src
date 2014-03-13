@@ -5,6 +5,7 @@ package com.formationds.spike.om;
 
 import FDS_ProtocolInterface.*;
 import com.formationds.BaseTestCase;
+import com.formationds.spike.ServiceDirectory;
 import org.junit.Test;
 
 import java.util.Arrays;

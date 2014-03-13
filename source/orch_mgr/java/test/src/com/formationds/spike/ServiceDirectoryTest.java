@@ -1,4 +1,4 @@
-package com.formationds.spike.om;
+package com.formationds.spike;
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */

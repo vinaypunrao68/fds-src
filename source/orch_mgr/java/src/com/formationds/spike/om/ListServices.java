@@ -3,6 +3,7 @@ package com.formationds.spike.om;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.spike.ServiceDirectory;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;

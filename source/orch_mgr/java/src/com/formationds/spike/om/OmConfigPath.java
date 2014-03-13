@@ -4,6 +4,7 @@ package com.formationds.spike.om;
  */
 
 import FDS_ProtocolInterface.*;
+import com.formationds.spike.ServiceDirectory;
 import org.apache.thrift.TException;
 
 import java.util.function.Function;
