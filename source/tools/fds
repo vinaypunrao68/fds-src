@@ -50,15 +50,30 @@ function usage() {
     exit 0
 }
 
+function setupFdsDirs() {
+    loginfo "setting up: ${FDSROOT} "
+    if [[ ! -d ${FDSROOT} ]] ; then mkdir -p ${FDSROOT} ; fi
+    if [[ ! -d ${FDSROOT}/hdd ]] ; then mkdir -p ${FDSROOT}/hdd ; fi
+    if [[ ! -d ${FDSROOT}/ssd ]] ; then mkdir -p ${FDSROOT}/ssd ; fi
+    
+    loginfo "setting up: ${FDSROOT}/etc "
+    if [[ $(readlink ${FDSROOT}/etc) != "${SOURCEDIR}/config/etc" ]] ; then
+        cp -rf ${SOURCEDIR}/config/etc ${FDSROOT}
+    fi
+}
+
+
 function activate() {
     logwarn "asking OM to accept all discovered nodes..."
-    (cd ${BINDIR}; ./fdscli --fds-root ${FDSROOT} --activate-nodes abc -k 1 -e am,dm,sm)    
+    (cd ${BINDIR}; ./fdscli --fds-root ${FDSROOT} --activate-nodes abc -k 1 -e am,dm,sm > cli.out) 2>/dev/null
+    loginfo "$(boldblue fdscli) : console out : ${BINDIR}/cli.out"
 }
 
 function startApp() {
     local appname=$1
-
     local justapps="${applist}"
+
+    setupFdsDirs
     
     if [[ $appname == "all" ]]; then
         justapps="om pm"
@@ -73,22 +88,24 @@ function startApp() {
 
     for name in $justapps ; do
         if [[ $appname == ${name} ]] || [[ $appname == "all" ]] ; then
-            pid=$(pgrep ${apps[$name]})
+            pid=$(getAppPid $name)
             if [[ -z $pid ]] ; then
-                echo "$(blue ${name}) $(yellow starting ..)"
+                loginfo "$(boldblue ${name}) $(yellow starting ..)"
                 (cd ${BINDIR}; ./${apps[$name]} --fds-root ${FDSROOT} > ${name}.out 2>&1 &)
-		sleep 2s
+                loginfo "$(boldblue ${name}) : console out : ${BINDIR}/${name}.out"
+                loginfo "... waiting for $(boldblue ${name}) to initialize"
+		sleep 5s
             else
-                echo "$(blue ${name}) $(red .. already running)"
+                logwarn "$(boldblue ${name}) ... already running"
             fi
         fi
     done
 
-     case "$appname" in
-         om|pm|all)
-             activate
-             ;;
-     esac
+    case "$appname" in
+        om|pm|all)             
+            activate
+            ;;
+    esac
 }
 
 function stopApp() {
@@ -100,14 +117,11 @@ function stopApp() {
 
     for name in $applist ; do
         if [[ $appname == ${name} ]] || [[ $appname == "all" ]] ; then
-            pid=$(pgrep ${apps[$name]})
-            if [[ $name == "om" ]]; then
-                pid=$(ps aux | grep "java .*com.formationds.web.om.Main" | grep -v grep | awk '{print $2}')
-            fi
+            pid=$(getAppPid $name)
             if [[ -z $pid ]] ; then
-                echo "$(blue ${name}) : Not running"
+                loginfo "$(boldblue ${name}) : Not running"
             else
-                echo "$(yellow stopping ${name}..)"
+                logwarn "$(yellow stopping ${name}..)"
                 kill -9 ${pid}
             fi
         fi
@@ -124,10 +138,7 @@ function statusApp() {
 
     for name in $applist ; do
         if [[ $appname == ${name} ]] || [[ $appname == "all" ]] ; then
-            pid=$(pgrep ${apps[$name]})
-            if [[ $name == "om" ]]; then
-                pid=$(ps aux | grep "java .*com.formationds.web.om.Main" | grep -v grep | awk '{print $2}')
-            fi
+            pid=$(getAppPid $name)
             if [[ -z $pid ]] ; then
                 echo "$(boldblue ${name}) : $(yellow Not running)"
             else
@@ -135,11 +146,42 @@ function statusApp() {
             fi
         fi
     done
-
+    
     # redis status
     if [[ $appname == "all" ]] || [[ $appname == "redis" ]] ; then
         ${TOOLSDIR}/redis.sh status 1
     fi
+}
+
+function getAppPid() {
+    local name=$1
+    local pid
+    
+    if [[ $name == "om" ]]; then
+        pid=$(ps aux | grep "java .*com.formationds.web.om.Main" | grep -v grep | awk '{print $2}')
+    else
+        pid=$(pgrep ${apps[$name]})
+    fi
+    echo -n $pid
+}
+
+function waitForAll() {
+    local lpid=""
+    local maxcount=20
+    local count=0
+    echo -n "... waiting for system to come up: "
+    for name in $applist ; do
+        lpid=""
+        while [[ -z $lpid ]] && [[ $count -lt $maxcount ]] ; do
+            echo -n "."
+            lpid=$(getAppPid $name)
+            if [[ -z $lpid ]]; then 
+                (( count++ ))
+                sleep 1s ;
+            fi
+        done
+    done
+    echo
 }
 
 function cleanBinDirs() {
@@ -148,7 +190,7 @@ function cleanBinDirs() {
         if [[ -d $bin_dir ]] ; then
             (
                 cd ${bin_dir}
-                echo "cleaning up: $(pwd)"
+                loginfo "cleaning up: $(pwd)"
                 
                 rm -rf *.ldb 2>  /dev/null
                 rm -rf logs stats 2> /dev/null
@@ -167,6 +209,7 @@ function cleanBinDirs() {
 
 
 function clean() {
+    loginfo "cleaning up: /fds"
     (
         rm -rf /fds/hdd/sd?
         rm -rf /fds/ssd/sd?
@@ -181,11 +224,8 @@ function clean() {
         rm -rf /fds-node?/user-repo/*
         rm -rf /fds/node?/*
         # redis stuff
-        echo "FLUSHALL" | redis-cli  >/dev/null
-        echo "BGREWRITEAOF" | redis-cli  >/dev/null
-        rm -rf $(find /fds/var/logs/* -not -name redis)
-        rm -rf $(find /fds/var/* -not -name logs -not -name redis)
-        rm -rf $(find /fds/logs/* -not -name redis)
+        ${TOOLSDIR}/redis.sh clean 1
+        cleanlogs
     ) 2>/dev/null
 
     cleanBinDirs
@@ -193,9 +233,8 @@ function clean() {
 
 function cleanlogs() {
     (
-        rm -rf $(find /fds/var/logs/* -not -name redis)
-        rm -rf $(find /fds/var/* -not -name logs -not -name redis)
-        rm -rf $(find /fds/logs/* -not -name redis)
+        rm -f $(find /fds/var/ -type f | grep -v redis)
+        rm -f $(find /fds/logs -type f | grep -v redis)
     ) 2>/dev/null
 }
 
@@ -248,7 +287,10 @@ case "${APP}" in
 esac
 
 case "${CMD}" in
-    start) startApp $APP ;;
+    start) startApp $APP 
+        waitForAll
+        statusApp $APP
+        ;;
     stop) stopApp  $APP;;
     status) statusApp $APP;;
     clean) clean ;;
@@ -256,6 +298,8 @@ case "${CMD}" in
     restart) 
             stopApp $APP
             startApp $APP
+            waitForAll
+            statusApp $APP
             ;;
     *) usage ;;
 esac
