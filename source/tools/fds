@@ -18,7 +18,7 @@ done
 TOOLSDIR="$(cd -P "$( dirname "${SOURCE}" )" && pwd )"
 SOURCEDIR="$( cd ${TOOLSDIR}/.. && pwd)"
 BINDIR="${SOURCEDIR}/Build/linux-x86_64.debug/bin"
-FDSROOT=/fds-root
+FDSROOT=/fds
 
 ########################################################################
 
@@ -64,6 +64,13 @@ function startApp() {
         justapps="om pm"
     fi
 
+    # start redis if needed
+    case "$appname" in
+        om|pm|all|redis) 
+            ${TOOLSDIR}/redis.sh start 1
+            ;;
+    esac
+
     for name in $justapps ; do
         if [[ $appname == ${name} ]] || [[ $appname == "all" ]] ; then
             pid=$(pgrep ${apps[$name]})
@@ -77,11 +84,19 @@ function startApp() {
         fi
     done
 
-    activate
+     case "$appname" in
+         om|pm|all)
+             activate
+             ;;
+     esac
 }
 
 function stopApp() {
     local appname=$1
+    
+    if [[ $appname == "redis" ]] ; then
+        ${TOOLSDIR}/redis.sh stop 1
+    fi
 
     for name in $applist ; do
         if [[ $appname == ${name} ]] || [[ $appname == "all" ]] ; then
@@ -97,6 +112,8 @@ function stopApp() {
             fi
         fi
     done
+    
+    # Not stopping redis for now
 }
 
 function statusApp() {
@@ -118,11 +135,11 @@ function statusApp() {
             fi
         fi
     done
-}
 
-function restartApp() {
-    stopApp "$@"
-    startApp "$@"    
+    # redis status
+    if [[ $appname == "all" ]] || [[ $appname == "redis" ]] ; then
+        ${TOOLSDIR}/redis.sh status 1
+    fi
 }
 
 function cleanBinDirs() {
@@ -131,7 +148,7 @@ function cleanBinDirs() {
         if [[ -d $bin_dir ]] ; then
             (
                 cd ${bin_dir}
-                echo "cleaning up: `pwd`"
+                echo "cleaning up: $(pwd)"
                 
                 rm -rf *.ldb 2>  /dev/null
                 rm -rf logs stats 2> /dev/null
@@ -213,7 +230,7 @@ APP=${saved[1]}
 CMD=${CMD:="status"}
 APP=${APP:="all"}
 
-FDSROOT=${FDSROOT:=/fds-root}
+FDSROOT=${FDSROOT:=/fds}
 #echo ${saved[@]}
 
 #echo "CMD=${CMD} APP=${APP} ROOT=${FDSROOT} SOURCEDIR=${SOURCEDIR}"
@@ -221,21 +238,12 @@ FDSROOT=${FDSROOT:=/fds-root}
 #exit 0
 
 case "${CMD}" in
-    start) ;;
-    stop) ;;
-    restart) ;;
-    status) ;;
-    clean) ;;
-    clogs) ;;
+    start|stop|restart|status|clean|clogs) ;;
     *) usage ;;
 esac
 
 case "${APP}" in
-    om) ;;
-    am) ;;
-    dm) ;;
-    sm) ;;
-    all) ;;
+    om|am|dm|sm|all|redis) ;;
     *) usage ;;
 esac
 
@@ -245,6 +253,9 @@ case "${CMD}" in
     status) statusApp $APP;;
     clean) clean ;;
     clogs) cleanlogs ;;
-    restart) restartApp $APP ;;
+    restart) 
+            stopApp $APP
+            startApp $APP
+            ;;
     *) usage ;;
 esac
