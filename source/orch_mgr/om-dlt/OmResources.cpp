@@ -88,6 +88,7 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
     err = om_locDomain->dc_register_node(uuid, msg, &newNode);
     if (err.ok() && (msg->node_type == FDS_ProtocolInterface::FDSP_PLATFORM)) {
         FDS_PLOG(g_fdslog) << "om_reg_node: Registered Platform";
+        om_locDomain->om_add_capacity(newNode);
     } else if (err.ok()) {
         fds_verify(newNode != NULL);
 
@@ -354,6 +355,11 @@ void
 OM_ControlRespHandler::AttachVolResp(
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     FDS_ProtocolInterface::FDSP_AttachVolTypePtr& atc_vol_resp) {
+    LOGNOTIFY << "OM received response for AttachVol from node "
+              << fdsp_msg->src_node_name << " for volume "
+              << "[" << atc_vol_resp->vol_name << ":"
+              << std::hex << atc_vol_resp->vol_desc.volUUID << std::dec
+              << "] Result: " << fdsp_msg->err_code;
 }
 
 void
@@ -367,6 +373,11 @@ void
 OM_ControlRespHandler::DetachVolResp(
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     FDS_ProtocolInterface::FDSP_AttachVolTypePtr& dtc_vol_resp) {
+    LOGNOTIFY << "OM received response for DetachVol from node "
+              << fdsp_msg->src_node_name << " for volume "
+              << "[" << dtc_vol_resp->vol_name << ":"
+              << std::hex << dtc_vol_resp->vol_desc.volUUID << std::dec
+              << "] Result: " << fdsp_msg->err_code;
 }
 
 void

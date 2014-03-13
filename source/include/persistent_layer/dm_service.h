@@ -122,24 +122,7 @@ class DmQuery : protected QueryMgr
 {
   public:
     ~DmQuery();
-
-    /*
-     * Sample usage:
-     * const DmQuery &dm = DmQuery::dm_query();
-     * dm.dm_iops(&min, &max);
-     *
-     * DmDiskQuery    q_in;
-     * DmDiskQueryOut q_out;
-     *
-     * ... specify the query in q_in
-     * dm.dm_disk_query(q_in, &q_out);
-     *
-     * DmDiskInfo *info;
-     * while ((info = q_out.query_pop()) != NULL) {
-     *    ... use the info
-     *    delete info;
-     * }
-     */
+    DmQuery();
     static DmQuery &dm_query();
 
     static const int dm_blk_shift = 9;
@@ -149,7 +132,6 @@ class DmQuery : protected QueryMgr
     void dm_iops(int *min, int *max);
     void dm_iops(const DmDiskQuery &query, int *min, int *max);
 
-    bool dm_disk_query(const DmDiskQuery &query, DmDiskQueryOut *result);
     bool dm_get_disk_params(const DmDiskQuery &query, DmDiskParams *p);
     bool dm_set_disk_params(const DmDiskQuery &query, const DmDiskParams &p);
 
@@ -160,13 +142,6 @@ class DmQuery : protected QueryMgr
     bool dm_mod_query(const DmModQuery &query, DmModQueryOut *result);
     bool dm_get_mod_params(const DmModQuery &query, DmModParams *p);
     bool dm_set_mod_params(const DmModQuery &query, const DmModParams &p);
-
-  // private: not yet
-    DmQuery();
-
-  private:
-    DmDiskInfo *dmq_hdd_info();
-    DmDiskInfo *dmq_ssd_info();
 };
 
 } // namespace fds
