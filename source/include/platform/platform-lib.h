@@ -261,7 +261,7 @@ class Platform : public Module
      * Platform methods.
      */
     void plf_run_server(bool spawn_thr = false);
-    void plf_rpc_om_handshake();
+    void plf_rpc_om_handshake(fpi::FDSP_RegisterNodeTypePtr pkt);
     void plf_change_info(const plat_node_data_t *ndata);
 
     /**

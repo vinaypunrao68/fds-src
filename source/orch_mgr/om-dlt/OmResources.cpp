@@ -88,6 +88,7 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
     err = om_locDomain->dc_register_node(uuid, msg, &newNode);
     if (err.ok() && (msg->node_type == FDS_ProtocolInterface::FDSP_PLATFORM)) {
         FDS_PLOG(g_fdslog) << "om_reg_node: Registered Platform";
+        om_locDomain->om_add_capacity(newNode);
     } else if (err.ok()) {
         fds_verify(newNode != NULL);
 

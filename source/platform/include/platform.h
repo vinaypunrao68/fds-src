@@ -77,10 +77,13 @@ class NodePlatformProc : public PlatformProcess
     void setup();
     void run();
 
+    void plf_fill_disk_capacity_pkt(fpi::FDSP_RegisterNodeTypePtr pkt);
+
   protected:
     friend class NodePlatform;
 
     void plf_load_node_data();
+    void plf_scan_hw_inventory();
     void plf_start_node_services(const fpi::FDSP_ActivateNodeTypePtr &msg);
 };
 

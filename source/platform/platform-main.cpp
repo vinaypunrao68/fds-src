@@ -82,6 +82,25 @@ NodePlatformProc::plf_start_node_services(const fpi::FDSP_ActivateNodeTypePtr &m
     }
 }
 
+// plf_fill_disk_capacity
+// ----------------------
+//
+void
+NodePlatformProc::plf_fill_disk_capacity_pkt(fpi::FDSP_RegisterNodeTypePtr pkt)
+{
+    pkt->disk_info.disk_iops_max    = 3000;
+    pkt->disk_info.disk_iops_min    = 100;
+    pkt->disk_info.disk_capacity    = 0x8000000000;
+    pkt->disk_info.disk_latency_max = 1000000 / pkt->disk_info.disk_iops_min;
+    pkt->disk_info.disk_latency_min = 1000000 / pkt->disk_info.disk_iops_max;
+    pkt->disk_info.ssd_iops_max     = 300000;
+    pkt->disk_info.ssd_iops_min     = 1000;
+    pkt->disk_info.ssd_capacity     = 0x1000000000;
+    pkt->disk_info.ssd_latency_max  = 1000000 / pkt->disk_info.ssd_iops_min;
+    pkt->disk_info.ssd_latency_min  = 1000000 / pkt->disk_info.ssd_iops_max;
+    pkt->disk_info.disk_type        = FDS_DISK_SATA;
+}
+
 void
 NodePlatformProc::setup()
 {
@@ -93,8 +112,12 @@ NodePlatformProc::setup()
 void
 NodePlatformProc::run()
 {
+    fpi::FDSP_RegisterNodeTypePtr pkt(new FDSP_RegisterNodeType);
+
     plf_mgr->plf_run_server(true);
-    plf_mgr->plf_rpc_om_handshake();
+
+    plf_fill_disk_capacity_pkt(pkt);
+    plf_mgr->plf_rpc_om_handshake(pkt);
 
     while (1) {
         sleep(1000);   /* we'll do hotplug uevent thread in here */

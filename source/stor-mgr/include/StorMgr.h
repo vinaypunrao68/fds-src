@@ -4,7 +4,7 @@
 
 #ifndef SOURCE_STOR_MGR_STORMGR_H_
 #define SOURCE_STOR_MGR_STORMGR_H_
-
+#if 0
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,9 +15,10 @@
 #include <ifaddrs.h>
 #include <arpa/inet.h>
 #include <pthread.h>
+#endif
 #include <fdsp/FDSP_types.h>
-#include <fdsp/FDSP_DataPathReq.h>
-#include <fdsp/FDSP_DataPathResp.h>
+// #include <fdsp/FDSP_DataPathReq.h>
+// #include <fdsp/FDSP_DataPathResp.h>
 #include "stor_mgr_err.h"
 #include <fds_volume.h>
 #include <fds_types.h>

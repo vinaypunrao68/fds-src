@@ -347,45 +347,6 @@ void ObjectStorMgr::setup()
     setup_datapath_server(myIp);
 
     /*
-     * Query persistent layer for disk parameter details
-     */
-    fds::DmQuery &query = fds::DmQuery::dm_query();
-    in.dmq_mask = fds::dmq_disk_info;
-    query.dm_disk_query(in, &out);
-    /* we should be bundling multiple disk parameters into one message to OM TBD */
-    FDSP_AnnounceDiskCapabilityPtr dInfo(new FDSP_AnnounceDiskCapability());
-    while (1) {
-        info = out.query_pop();
-        if (info != nullptr) {
-            LOGNOTIFY << "Max blks capacity: " << info->di_max_blks_cap
-                    << ", Disk type........: " << info->di_disk_type
-                    << ", Max iops.........: " << info->di_max_iops
-                    << ", Min iops.........: " << info->di_min_iops
-                    << ", Max latency (us).: " << info->di_max_latency
-                    << ", Min latency (us).: " << info->di_min_latency;
-
-            if ( info->di_disk_type == FDS_DISK_SATA) {
-                dInfo->disk_iops_max =  info->di_max_iops; /*  max avarage IOPS */
-                dInfo->disk_iops_min =  info->di_min_iops; /* min avarage IOPS */
-                dInfo->disk_capacity = info->di_max_blks_cap;  /* size in blocks */
-                dInfo->disk_latency_max = info->di_max_latency; /* in us second */
-                dInfo->disk_latency_min = info->di_min_latency; /* in us second */
-            } else if (info->di_disk_type == FDS_DISK_SSD) {
-                dInfo->ssd_iops_max =  info->di_max_iops; /*  max avarage IOPS */
-                dInfo->ssd_iops_min =  info->di_min_iops; /* min avarage IOPS */
-                dInfo->ssd_capacity = info->di_max_blks_cap;  /* size in blocks */
-                dInfo->ssd_latency_max = info->di_max_latency; /* in us second */
-                dInfo->ssd_latency_min = info->di_min_latency; /* in us second */
-            } else
-                LOGWARN << "Unknown Disk Type " << info->di_disk_type;
-
-            delete info;
-            continue;
-        }
-        break;
-    }
-
-    /*
      * Register this node with OM.
      */
     omClient = new OMgrClient(FDSP_STOR_MGR,
@@ -443,7 +404,7 @@ void ObjectStorMgr::setup()
     omClient->registerEventHandlerForMigrateEvents((migration_event_handler_t)migrationEventOmHandler);
     omClient->omc_srv_pol = &sg_SMVolPolicyServ;
     omClient->startAcceptingControlMessages(conf_helper_.get<int>("control_port"));
-    omClient->registerNodeWithOM(plf_mgr, dInfo);
+    omClient->registerNodeWithOM(plf_mgr);
 
     clust_comm_mgr_.reset(new ClusterCommMgr(omClient));
 
