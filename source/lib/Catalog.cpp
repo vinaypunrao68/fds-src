@@ -29,7 +29,7 @@ Catalog::Catalog(const std::string& _file)
 
     leveldb::Status status = leveldb::DB::Open(options, backing_file, &db);
     /* Open has to succeed */
-//    assert(status.ok());
+    assert(status.ok());
 }
 
 /** The default destructor
@@ -95,6 +95,19 @@ Catalog::Delete(const Record& key) {
     return err;
 }
 
+/*
+ * browse through the  DB and  if the db is valid  data return 
+ * False( non Empty) else return true ( empty)
+ */
+
+bool
+Catalog::DbEmpty() {
+Catalog::catalog_iterator_t *db_it = NewIterator();
+    for (db_it->SeekToFirst(); db_it->Valid(); db_it->Next()) {
+       return false;
+    }
+    return true;
+}
 /** Gets backing file name
  * @return Copy of backing file name
  */

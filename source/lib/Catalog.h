@@ -5,6 +5,8 @@
 #define SOURCE_LIB_CATALOG_H_
 
 #include <string>
+#include <stdint.h>
+#include <stdio.h>
 
 #include <fds_types.h>
 #include <fds_err.h>
@@ -62,6 +64,7 @@ namespace fds {
     fds::Error Update(const Record& key, const Record& val);
     fds::Error Query(const Record& key, std::string* val);
     fds::Error Delete(const Record& key);
+    bool DbEmpty();
 
     std::string GetFile() const;
   };

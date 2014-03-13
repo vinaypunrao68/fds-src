@@ -148,14 +148,21 @@ Error DataMgr::_process_rm_vol(fds_volid_t vol_uuid) {
    */
   vol_map_mtx->lock();
   if (volExistsLocked(vol_uuid) == false) {
-    FDS_PLOG(dataMgr->GetLog()) << "Received add request for "
-                                << "non-existant vol uuid " << vol_uuid;
+    FDS_PLOG(dataMgr->GetLog()) << "Received Delete request for " << vol_uuid;
     err = ERR_INVALID_ARG;
     vol_map_mtx->unlock();
     return err;
   }
 
   VolumeMeta *vm = vol_meta_map[vol_uuid];
+
+  if (vm->getVcat()->DbEmpty() == true) {
+    FDS_PLOG(dataMgr->GetLog()) << "Volume is NOT Empty" << vol_uuid;
+    err = ERR_VOL_NOT_EMPTY;
+    vol_map_mtx->unlock();
+    return err;
+  }
+
   vol_meta_map.erase(vol_uuid);
   dataMgr->qosCtrl->deregisterVolume(vol_uuid);
   delete vm->dmVolQueue;

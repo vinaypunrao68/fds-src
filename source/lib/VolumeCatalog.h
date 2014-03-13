@@ -25,6 +25,7 @@ namespace fds {
     using Catalog::Query;
     using Catalog::Update;
     using Catalog::GetFile;
+    using Catalog::DbEmpty;
   };
 
   class TimeCatalog : public Catalog {
