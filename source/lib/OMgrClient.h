@@ -211,7 +211,8 @@ namespace fds {
                       fds_vol_notify_t vol_action,
 		      FDSP_ResultType,
                       const std::string& session_uuid);
-    int recvVolAttachState(fds_volid_t vol_id, VolumeDesc *vdb, int vol_action, FDSP_ResultType);
+    int recvVolAttachState(VolumeDesc *vdb, fds_vol_notify_t vol_action,
+                           FDSP_ResultType result, const std::string& session_uuid);
     int recvSetThrottleLevel(const float throttle_level);
     int recvTierPolicy(const FDSP_TierPolicyPtr &tier);
     int recvTierPolicyAudit(const FDSP_TierPolicyAuditPtr &audit);

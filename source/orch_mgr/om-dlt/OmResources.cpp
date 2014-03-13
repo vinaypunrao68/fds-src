@@ -354,6 +354,11 @@ void
 OM_ControlRespHandler::AttachVolResp(
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     FDS_ProtocolInterface::FDSP_AttachVolTypePtr& atc_vol_resp) {
+    LOGNOTIFY << "OM received response for AttachVol from node "
+              << fdsp_msg->src_node_name << " for volume "
+              << "[" << atc_vol_resp->vol_name << ":"
+              << std::hex << atc_vol_resp->vol_desc.volUUID << std::dec
+              << "] Result: " << fdsp_msg->err_code;
 }
 
 void
@@ -367,6 +372,11 @@ void
 OM_ControlRespHandler::DetachVolResp(
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     FDS_ProtocolInterface::FDSP_AttachVolTypePtr& dtc_vol_resp) {
+    LOGNOTIFY << "OM received response for DetachVol from node "
+              << fdsp_msg->src_node_name << " for volume "
+              << "[" << dtc_vol_resp->vol_name << ":"
+              << std::hex << dtc_vol_resp->vol_desc.volUUID << std::dec
+              << "] Result: " << fdsp_msg->err_code;
 }
 
 void
