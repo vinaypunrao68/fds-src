@@ -303,6 +303,8 @@ class DataMgr : public PlatformProcess
     }
 
     void updateCatalogBackend(dmCatReq  *updCatReq);
+    Error updateCatalogProcess(const dmCatReq  *updCatReq, BlobNode **bnode);
+    Error updateCatalogResponse();
     void queryCatalogBackend(dmCatReq  *qryCatReq);
     void deleteCatObjBackend(dmCatReq  *delCatReq);
     void blobListBackend(dmCatReq *listBlobReq);

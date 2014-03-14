@@ -206,12 +206,6 @@ class FdsRmtEnv(FdsEnv):
             print "Running remote command ", cmd_exec
 
         stdin, stdout, stderr = self.env_ssh_clnt.exec_command(cmd_exec)
-        line = stdout.readline()
-        while line != "":
-            if self.env_verbose:
-                print line
-            line = stderr.readline()
-
         stdin.close()
         stdout.close()
         stderr.close()
@@ -276,12 +270,15 @@ class FdsPackage:
     ###
     # Install the tar ball to a remote node using default user/passwd from env obj.
     #
-    def package_install(self, rmt_ssh):
+    def package_install(self, rmt_ssh, local_path = None):
         print "Copying the tar ball package to %s at: %s" % (
             rmt_ssh.get_host_name(), self.p_env.get_fds_root())
 
+        if local_path is None:
+            local_path = self.p_env.get_pkg_tar()
+
         rmt_ssh.ssh_exec('mkdir -p ' + self.p_env.get_fds_root())
-        rmt_ssh.scp_copy(self.p_env.get_pkg_tar(), self.p_env.get_fds_root())
+        rmt_ssh.scp_copy(local_path, self.p_env.get_fds_root())
 
         print "Unpacking the tar ball package to ", rmt_ssh.get_host_name()
         rmt_ssh.ssh_exec('cd ' + self.p_env.get_fds_root() + '; tar xf ' +

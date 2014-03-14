@@ -166,7 +166,7 @@ namespace fds {
      */
     ObjectID& ObjectID::operator=(const std::string& hexStr) {
         fds_verify(hexStr.compare(0, 2, "0x") == 0);  // Require 0x prefix
-        fds_verify(hexStr.size() == (32 + 2));  // Account for 0x
+        fds_verify(hexStr.size() == (40 + 2));  // Account for 0x
         char a, b;
         uint j = 0;
         for (uint i = 0; i < hexStr.length(); i += 2, j++) {
