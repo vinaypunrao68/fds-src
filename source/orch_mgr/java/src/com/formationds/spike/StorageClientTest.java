@@ -5,20 +5,21 @@ package com.formationds.spike;
 
 import FDS_ProtocolInterface.*;
 import org.apache.thrift.TException;
-import org.apache.thrift.protocol.TProtocol;
 
 import java.nio.ByteBuffer;
 
 public class StorageClientTest {
     public static void main(String[] args) throws Exception {
         int port = 6666;
-        new FdspServer().start(port, new FDSP_DataPathResp.Processor<>(new DataResponseHandler()));
+        ServerFactory serverFactory = new ServerFactory();
+        ClientFactory clientFactory = new ClientFactory();
+        serverFactory.startDataPathRespServer(new DataResponseHandler(), port);
 
-        TProtocol protocol = new FdspClient().handshake("localhost", 8904);
         Mutable<Dlt> dltCache = new Mutable<>();
 
-        FDSP_DataPathReq.Client dataClient = new FDSP_DataPathReq.Client(protocol);
-        FDSP_MetaDataPathReq.Client metadataClient = new FDSP_MetaDataPathReq.Client(protocol);
+        FDSP_DataPathReq.Iface dataClient = clientFactory.dataPathClient("foo", 4242);
+        FDSP_MetaDataPathReq.Iface metadataClient = clientFactory.metadataPathClient("foo", 4242);
+
         metadataClient.UpdateCatalogObject(new FDSP_MsgHdrType(), new FDSP_UpdateCatalogType());
 
         FDS_ObjectIdType objectId = new FDS_ObjectIdType("poop", (byte) 0);
@@ -26,6 +27,7 @@ public class StorageClientTest {
         dataClient.PutObject(new FDSP_MsgHdrType(), new FDSP_PutObjType(objectId, 4, 0, (int) dlt.getVersion(), ByteBuffer.wrap(new byte[]{0, 1, 2, 3}), ByteBuffer.wrap(dlt.serialize())));
     }
 }
+
 
 class MetadataResponseHandler implements FDSP_MetaDataPathReq.Iface {
     @Override
