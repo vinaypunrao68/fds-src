@@ -183,7 +183,7 @@ class RsContainer
      */
     virtual Resource::pointer rs_alloc_new(const ResourceUUID &uuid);
     virtual Resource::pointer rs_get_resource(const ResourceUUID &uuid);
-    virtual Resource::pointer rs_get_resource(char const *const name);
+    virtual Resource::pointer rs_get_resource(const char *name);
     virtual void rs_register(Resource::pointer rs);
     virtual void rs_register_mtx(Resource::pointer rs);
     virtual void rs_unregister(Resource::pointer rs);

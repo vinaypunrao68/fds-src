@@ -53,7 +53,7 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::DeleteVol(
     int err = 0;
     try {
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-        err = local->om_delete_vol(del_vol_req);
+        err = local->om_delete_vol(fdsp_msg, del_vol_req);
     }
     catch(...) {
         LOGERROR << "Orch Mgr encountered exception while "
@@ -523,7 +523,7 @@ void OrchMgr::FDSP_OMControlPathReqHandler::DeleteBucket(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_DeleteVolTypePtr& del_buck_req) {
     OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-    local->om_delete_vol(del_buck_req);
+    local->om_delete_vol(fdsp_msg, del_buck_req);
 }
 
 void OrchMgr::FDSP_OMControlPathReqHandler::ModifyBucket(
