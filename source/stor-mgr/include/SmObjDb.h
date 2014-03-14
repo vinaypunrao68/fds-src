@@ -216,6 +216,20 @@ public:
  */
 class SmObjDb : public HasLogger { 
 public:
+    /* Signifies the view of metadata to operate on */
+    enum View {
+        /* Metadata served is not merged with sync entry.
+         * We typically want this view for modification style (Put, Delete)
+         * requests
+         */
+        NON_SYNC_MERGED,
+
+        /* The metadata served is merged with sync entry.
+         * We typically want this view for Get object type requests
+         */
+        SYNC_MERGED
+    };
+public:
 
     SmObjDb(ObjectStorMgr *storMgr,
             std::string stor_prefix_,
@@ -227,16 +241,24 @@ public:
     ObjectDB *openObjectDB(fds_token_id tokId);
 
     void closeObjectDB(fds_token_id tokId);
+
     ObjectDB *getObjectDB(fds_token_id tokId);
+
     fds::Error Get(const ObjectID& obj_id, ObjectBuf& obj_buf);
 
     fds::Error Put(const ObjectID& obj_id, ObjectBuf& obj_buf);
 
-    fds::Error get(const ObjectID& obj_id, SmObjMetadata& obj_buf);
+    Error get(const View &view,
+            const ObjectID& obj_id, SmObjMetadata& obj_buf);
+    Error readObjectLocations(const View &view, const ObjectID &objId,
+            diskio::MetaObjMap &objMaps);
 
-    fds::Error put(const ObjectID& obj_id, const SmObjMetadata& obj_buf);
-
-    fds::Error putSyncEntry(const ObjectID& obj_id,
+    Error put(const ObjectID& obj_id, const SmObjMetadata& obj_buf);
+    Error writeObjectLocation(const ObjectID& objId,
+            meta_obj_map_t *obj_map,
+            fds_bool_t      append);
+    Error deleteObjectLocation(const ObjectID& objId);
+    Error putSyncEntry(const ObjectID& obj_id,
             const SmObjMetadata& obj_buf);
 
     void  iterRetrieveObjects(const fds_token_id &token,

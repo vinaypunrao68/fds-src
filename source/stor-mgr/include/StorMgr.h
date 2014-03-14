@@ -312,14 +312,6 @@ class ObjectStorMgr :
             fds_uint32_t       transId);
     Error checkDuplicate(const ObjectID  &objId,
             const ObjectBuf &objCompData);
-    Error writeObjectLocation(const ObjectID &objId, 
-            meta_obj_map_t *obj_map,
-            fds_bool_t      append);
-    Error readObjectLocations(const ObjectID &objId, 
-            meta_obj_map_t *objMaps);
-    Error readObjectLocations(const ObjectID     &objId,
-            diskio::MetaObjMap &objMaps);
-    Error deleteObjectLocation(const ObjectID     &objId);
     Error writeObject(const ObjectID   &objId,
             const ObjectBuf  &objCompData,
             fds_volid_t       volId,
@@ -327,7 +319,8 @@ class ObjectStorMgr :
     Error writeObject(const ObjectID  &objId, 
             const ObjectBuf &objData,
             diskio::DataTier tier);
-    Error readObject(const ObjectID &objId,
+    Error readObject(const SmObjDb::View& view,
+            const ObjectID &objId,
             ObjectBuf      &objCompData);
 
     inline fds_uint32_t getSysTaskIopsMin() {
@@ -442,7 +435,8 @@ class ObjectStorMgr :
     Error putTokenObjects(const fds_token_id &token, 
                           FDSP_MigrateObjectList &obj_list);
     void unitTest();
-    Error readObject(const ObjectID   &objId,
+    Error readObject(const SmObjDb::View& view,
+            const ObjectID   &objId,
             ObjectBuf        &objCompData,
             diskio::DataTier &tier);
 

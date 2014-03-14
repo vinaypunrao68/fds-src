@@ -91,10 +91,12 @@ fds::Error SmObjDb::Put(const ObjectID& obj_id, ObjectBuf& obj_buf) {
     return err;
 }
 
-fds::Error SmObjDb::get(const ObjectID& obj_id, SmObjMetadata& md)
+fds::Error SmObjDb::get(const View &view,
+        const ObjectID& obj_id, SmObjMetadata& md)
 {
     Error err = ERR_OK;
 
+    // TODO(Rao): Take the view into account
     fds_token_id tokId = objStorMgr->getDLT()->getToken(obj_id);
     ObjectDB *odb = getObjectDB(tokId);
     if (!odb) {
@@ -192,7 +194,7 @@ fds::Error SmObjDb::putSyncEntry(const ObjectID& obj_id,
         odb = openObjectDB(tokId);
     }
 
-    /* TODO: Version handling */
+    /* TODO: version handling */
     OnDiskSmObjMetadata disk_md;
     ObjectBuf buf;
     err = odb->Get(obj_id, buf);
@@ -215,6 +217,127 @@ fds::Error SmObjDb::putSyncEntry(const ObjectID& obj_id,
     return err;
 }
 
+Error
+SmObjDb::writeObjectLocation(const ObjectID& objId,
+        meta_obj_map_t *obj_map,
+        fds_bool_t      append) {
+
+    Error err(ERR_OK);
+
+    diskio::MetaObjMap objMap;
+    ObjectBuf          objData;
+
+    if (append == true) {
+        LOGDEBUG << "Appending new location for object " << objId;
+
+        /*
+         * Get existing object locations
+         * TODO: We need a better way to update this
+         * location DB with a new location. This requires
+         * reading the existing locations, updating the entry,
+         * and re-writing it. We often just want to append.
+         */
+        err = readObjectLocations(NON_SYNC_MERGED, objId, objMap);
+        if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
+            LOGERROR << "Failed to read existing object locations"
+                    << " during location write";
+            return err;
+        } else if (err == ERR_DISK_READ_FAILED) {
+            /*
+             * Assume this error means the key just did not exist.
+             * TODO: Add an err to differention "no key" from "failed read".
+             */
+            LOGDEBUG << "Not able to read existing object locations"
+                    << ", assuming no prior entry existed";
+            err = ERR_OK;
+        }
+    }
+
+    /*
+     * Add new location to existing locations
+     */
+    objMap.updateMap(*obj_map);
+
+    objData.size = objMap.marshalledSize();
+    objData.data = std::string(objMap.marshalling(), objMap.marshalledSize());
+    err = Put(objId, objData);
+    if (err == ERR_OK) {
+        LOGDEBUG << "Updating object location for object "
+                << objId << " to " << objMap;
+    } else {
+        LOGERROR << "Failed to put object " << objId
+                << " into odb with error " << err;
+    }
+
+    return err;
+}
+
+/*
+ * Reads all object locations
+ */
+Error
+SmObjDb::readObjectLocations(const View &view,
+        const ObjectID     &objId,
+        diskio::MetaObjMap &objMaps) {
+    Error     err(ERR_OK);
+    ObjectBuf objData;
+    // TODO(Rao): Take the view in to account
+    objData.size = 0;
+    objData.data = "";
+    err = Get(objId, objData);
+    if (err == ERR_OK) {
+        objData.size = objData.data.size();
+        objMaps.unmarshalling(objData.data, objData.size);
+    }
+
+    return err;
+}
+
+Error
+SmObjDb::deleteObjectLocation(const ObjectID& objId) {
+
+    Error err(ERR_OK);
+    // NOTE !!!
+    meta_obj_map_t *obj_map = new meta_obj_map_t();
+
+    diskio::MetaObjMap objMap;
+    ObjectBuf          objData;
+
+    /*
+     * Get existing object locations
+     */
+    err = readObjectLocations(NON_SYNC_MERGED, objId, objMap);
+    if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
+        LOGERROR << "Failed to read existing object locations"
+                << " during location write";
+        return err;
+    } else if (err == ERR_DISK_READ_FAILED) {
+        /*
+         * Assume this error means the key just did not exist.
+         * TODO: Add an err to differention "no key" from "failed read".
+         */
+        LOGDEBUG << "Not able to read existing object locations"
+                << ", assuming no prior entry existed";
+        err = ERR_OK;
+    }
+
+    /*
+     * Set the ref_cnt to 0, which will be the delete marker for this object and Garbage collector feeds on these objects
+     */
+    obj_map->obj_refcnt = -1;
+    objData.size = objMap.marshalledSize();
+    objData.data = std::string(objMap.marshalling(), objMap.marshalledSize());
+    err = Put(objId, objData);
+    if (err == ERR_OK) {
+        LOGDEBUG << "Setting the delete marker for object "
+                << objId << " to " << objMap;
+    } else {
+        LOGERROR << "Failed to put object " << objId
+                << " into odb with error " << err;
+    }
+
+    return err;
+}
 void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
         const size_t &max_size,
         FDSP_MigrateObjectList &obj_list,
@@ -265,7 +388,7 @@ void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
         if ((objId == start_obj_id || id_less(start_obj_id, objId)) &&
             (objId == end_obj_id || id_less(objId, end_obj_id))) {
             // Get the object buffer
-            err = objStorMgr->readObject(objId, objData, tierUsed);
+            err = objStorMgr->readObject(NON_SYNC_MERGED, objId, objData, tierUsed);
             if (err == ERR_OK ) {
                 if ((max_size - tot_msg_len) >= objData.size) {
                     FDSP_MigrateObjectData mig_obj;

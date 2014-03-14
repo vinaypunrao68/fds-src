@@ -734,7 +734,7 @@ Error ObjectStorMgr::writeBackObj(const ObjectID &objId) {
      * than flash.
      */
     ObjectBuf objData;
-    err = readObject(objId, objData);
+    err = readObject(SmObjDb::NON_SYNC_MERGED, objId, objData);
     if (err != ERR_OK) {
         return err;
     }
@@ -806,150 +806,11 @@ void ObjectStorMgr::unitTest() {
 }
 
 Error
-ObjectStorMgr::writeObjectLocation(const ObjectID& objId,
-        meta_obj_map_t *obj_map,
-        fds_bool_t      append) {
-
-    Error err(ERR_OK);
-
-    diskio::MetaObjMap objMap;
-    ObjectBuf          objData;
-
-    if (append == true) {
-        LOGDEBUG << "Appending new location for object " << objId;
-
-        /*
-         * Get existing object locations
-         * TODO: We need a better way to update this
-         * location DB with a new location. This requires
-         * reading the existing locations, updating the entry,
-         * and re-writing it. We often just want to append.
-         */
-        err = readObjectLocations(objId, objMap);
-        if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
-            LOGERROR << "Failed to read existing object locations"
-                    << " during location write";
-            return err;
-        } else if (err == ERR_DISK_READ_FAILED) {
-            /*
-             * Assume this error means the key just did not exist.
-             * TODO: Add an err to differention "no key" from "failed read".
-             */
-            LOGDEBUG << "Not able to read existing object locations"
-                    << ", assuming no prior entry existed";
-            err = ERR_OK;
-        }
-    }
-
-    /*
-     * Add new location to existing locations
-     */
-    objMap.updateMap(*obj_map);
-
-    objData.size = objMap.marshalledSize();
-    objData.data = std::string(objMap.marshalling(), objMap.marshalledSize());
-    err = smObjDb->Put(objId, objData);
-    if (err == ERR_OK) {
-        LOGDEBUG << "Updating object location for object "
-                << objId << " to " << objMap;
-    } else {
-        LOGERROR << "Failed to put object " << objId
-                << " into odb with error " << err;
-    }
-
-    return err;
-}
-
-/*
- * Reads all object locations
- */
-Error
-ObjectStorMgr::readObjectLocations(const ObjectID     &objId,
-        diskio::MetaObjMap &objMaps) {
-    Error     err(ERR_OK);
-    ObjectBuf objData;
-
-    objData.size = 0;
-    objData.data = "";
-    err = smObjDb->Get(objId, objData);
-    if (err == ERR_OK) {
-        objData.size = objData.data.size();
-        objMaps.unmarshalling(objData.data, objData.size);
-    }
-
-    return err;
-}
-
-Error
-ObjectStorMgr::readObjectLocations(const ObjectID &objId,
-        meta_obj_map_t *objMap) {
-    Error err(ERR_OK);
-    ObjectBuf objData;
-
-    objData.size = 0;
-    objData.data = "";
-    err = smObjDb->Get(objId, objData);
-    if (err == ERR_OK) {
-        string_to_obj_map(objData.data, objMap);
-        LOGDEBUG << "Retrieving object location for object "
-                << objId << " as " << objData.data;
-    } else {
-        LOGDEBUG << "No object location found for object " << objId << " in index DB";
-    }
-    return err;
-}
-
-Error
-ObjectStorMgr::deleteObjectLocation(const ObjectID& objId) { 
-
-    Error err(ERR_OK);
-    // NOTE !!!
-    meta_obj_map_t *obj_map = new meta_obj_map_t();
-
-    diskio::MetaObjMap objMap;
-    ObjectBuf          objData;
-
-    /*
-     * Get existing object locations
-     */
-    err = readObjectLocations(objId, objMap);
-    if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
-        LOGERROR << "Failed to read existing object locations"
-                << " during location write";
-        return err;
-    } else if (err == ERR_DISK_READ_FAILED) {
-        /*
-         * Assume this error means the key just did not exist.
-         * TODO: Add an err to differention "no key" from "failed read".
-         */
-        LOGDEBUG << "Not able to read existing object locations"
-                << ", assuming no prior entry existed";
-        err = ERR_OK;
-    }
-
-    /*
-     * Set the ref_cnt to 0, which will be the delete marker for this object and Garbage collector feeds on these objects
-     */
-    obj_map->obj_refcnt = -1;
-    objData.size = objMap.marshalledSize();
-    objData.data = std::string(objMap.marshalling(), objMap.marshalledSize());
-    err = smObjDb->Put(objId, objData);
-    if (err == ERR_OK) {
-        LOGDEBUG << "Setting the delete marker for object "
-                << objId << " to " << objMap;
-    } else {
-        LOGERROR << "Failed to put object " << objId
-                << " into odb with error " << err;
-    }
-
-    return err;
-}
-
-Error
-ObjectStorMgr::readObject(const ObjectID& objId,
+ObjectStorMgr::readObject(const SmObjDb::View& view,
+        const ObjectID& objId,
         ObjectBuf& objData) {
     diskio::DataTier tier;
-    return readObject(objId, objData, tier);
+    return readObject(view, objId, objData, tier);
 }
 
 /*
@@ -960,7 +821,8 @@ ObjectStorMgr::readObject(const ObjectID& objId,
  * is returned
  */
 Error 
-ObjectStorMgr::readObject(const ObjectID   &objId,
+ObjectStorMgr::readObject(const SmObjDb::View& view,
+        const ObjectID   &objId,
         ObjectBuf        &objData,
         diskio::DataTier &tierUsed) {
     Error err(ERR_OK);
@@ -984,7 +846,7 @@ ObjectStorMgr::readObject(const ObjectID   &objId,
      * Read all of the object's locations
      */
     diskio::MetaObjMap objMap;
-    err = readObjectLocations(objId, objMap);
+    err = smObjDb->readObjectLocations(view, objId, objMap);
     if (err == ERR_OK) {
         /*
          * Read obj from flash if we can
@@ -1052,7 +914,7 @@ ObjectStorMgr::checkDuplicate(const ObjectID&  objId,
     objGetData.size = 0;
     objGetData.data = "";
 
-    err = readObject(objId, objGetData);
+    err = readObject(SmObjDb::NON_SYNC_MERGED, objId, objGetData);
 
     if (err == ERR_OK) {
         /*
@@ -1133,7 +995,7 @@ ObjectStorMgr::writeObject(const ObjectID  &objId,
        delete disk_req;
        return err;
     }
-    err = writeObjectLocation(objId, disk_req->req_get_vmap(), true);
+    err = smObjDb->writeObjectLocation(objId, disk_req->req_get_vmap(), true);
     if ((err == ERR_OK) &&
             (tier == diskio::flashTier)) {
         /*
@@ -1159,7 +1021,7 @@ ObjectStorMgr::relocateObject(const ObjectID &objId,
     objGetData.size = 0;
     objGetData.data = "";
 
-    err = readObject(objId, objGetData);
+    err = readObject(SmObjDb::NON_SYNC_MERGED, objId, objGetData);
 
     diskio::DataIO& dio_mgr = diskio::DataIO::disk_singleton();
     SmPlReq     *disk_req;
@@ -1178,7 +1040,7 @@ ObjectStorMgr::relocateObject(const ObjectID &objId,
        delete disk_req;
        return err;
     }
-    err = writeObjectLocation(objId, disk_req->req_get_vmap(), false);
+    err = smObjDb->writeObjectLocation(objId, disk_req->req_get_vmap(), false);
 
     if (to_tier == diskio::diskTier) {
         perfStats->recordIO(flashToDisk, 0, diskio::diskTier, FDS_IO_WRITE);
@@ -1448,7 +1310,7 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
     /*
      * Delete the object
      */
-    err = deleteObjectLocation(objId);
+    err = smObjDb->deleteObjectLocation(objId);
     objStorMutex->unlock();
     if (err != fds::ERR_OK) {
         LOGERROR << "Failed to delete object " << err;
@@ -1570,7 +1432,7 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
         ObjectBuf objData;
         objData.size = 0;
         objData.data = "";
-        err = readObject(objId, objData, tierUsed);
+        err = readObject(SmObjDb::SYNC_MERGED, objId, objData, tierUsed);
         if (err == fds::ERR_OK) {
             objBufPtr = objCache->object_alloc(volId, objId, objData.size);
             memcpy((void *)objBufPtr->data.c_str(), (void *)objData.data.c_str(), objData.size);
@@ -1810,7 +1672,7 @@ ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq)
          * write we don't need this check
          */ 
         diskio::MetaObjMap objMap;
-        err = readObjectLocations(objId, objMap);
+        err = smObjDb->readObjectLocations(SmObjDb::NON_SYNC_MERGED, objId, objMap);
         if (err == ERR_OK) {
             continue;
         }
