@@ -56,6 +56,20 @@ namespace fds {
    */
   typedef fds_uint32_t fds_token_id;
 
+  /**
+   * A blob version identifies a unique
+   * version instance of a blob.
+   */
+  typedef fds_uint64_t blob_version_t;
+
+  /**
+   * Blob versions cannot be 0. That value will represent
+   * either a null or uninitialized version.
+   * The first valid version is 1.
+   */
+  static const blob_version_t blob_version_invalid = 0;
+  static const blob_version_t blob_version_initial = 1;
+
   class ObjectID {
  private:
     uint8_t  digest[20];

@@ -222,7 +222,7 @@ VolumeInfo::vol_detach_node(const NodeUuid &node_uuid)
     if (am_agent == NULL) {
         // Provisioning vol before the AM is online.
         //
-        LOGNORMAL << "Received attach vol " << vol_name
+        LOGNORMAL << "Received Detach vol " << vol_name
                   << ", am node " << std::hex << node_uuid << std::dec;
         return;
     }
@@ -312,7 +312,8 @@ VolumeContainer::om_create_vol(const FdspMsgHdrPtr &hdr,
 // -------------
 //
 int
-VolumeContainer::om_delete_vol(const FdspDelVolPtr &del_msg)
+VolumeContainer::om_delete_vol(const FdspMsgHdrPtr &hdr,
+                               const FdspDelVolPtr &del_msg)
 {
     OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     FdsAdminCtrl        *admin = local->om_get_admin_ctrl();
@@ -338,6 +339,7 @@ VolumeContainer::om_delete_vol(const FdspDelVolPtr &del_msg)
     admin->updateAdminControlParams(vol->vol_get_properties());
     local->om_bcast_vol_delete(vol);
 
+    vol->vol_detach_node(NodeUuid(hdr->src_service_uuid.uuid));
     rs_unregister(vol);
     rs_free_resource(vol);
     return 0;
@@ -422,14 +424,29 @@ VolumeContainer::om_attach_vol(const FDSP_MsgHdrTypePtr &hdr,
     VolumeInfo::pointer  vol;
 
     LOGNOTIFY << "Received attach volume " << vname << " from "
-              << hdr->src_node_name;
+              << hdr->src_node_name  << "node uuid: "
+              << hdr->src_service_uuid.uuid;
 
     vol = VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
     if (vol == NULL) {
         LOGWARN << "Received AttachVol for non-existing volume " << vname;
         return -1;
     }
-    vol->vol_attach_node(NodeUuid(hdr->src_service_uuid.uuid));
+    if (hdr->src_service_uuid.uuid == 0) {
+        /* Don't have uuid, only have the name. */
+        OM_AmContainer::pointer am_nodes = local->om_am_nodes();
+        OM_AmAgent::pointer am =
+            OM_AmAgent::agt_cast_ptr(am_nodes->
+                 rs_get_resource(hdr->src_node_name.c_str()));
+
+        if (am != NULL) {
+           vol->vol_attach_node(am->rs_get_uuid());
+           LOGNOTIFY << "uuid for  the node:" << hdr->src_node_name
+            << ": " << am->rs_get_uuid();
+        }
+    } else {
+        vol->vol_attach_node(NodeUuid(hdr->src_service_uuid.uuid));
+    }
     return 0;
 }
 
@@ -450,10 +467,25 @@ VolumeContainer::om_detach_vol(const FDSP_MsgHdrTypePtr &hdr,
 
     vol = VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
     if (vol == NULL) {
-        LOGWARN << "Received AttachVol for non-existing volume " << vname;
+        LOGWARN << "Received detach Vol for non-existing volume " << vname;
         return -1;
     }
-    vol->vol_detach_node(NodeUuid(hdr->src_service_uuid.uuid));
+
+    if (hdr->src_service_uuid.uuid == 0) {
+        /* Don't have uuid, only have the name. */
+        OM_AmContainer::pointer am_nodes = local->om_am_nodes();
+        OM_AmAgent::pointer am =
+            OM_AmAgent::agt_cast_ptr(am_nodes->
+                 rs_get_resource(hdr->src_node_name.c_str()));
+
+        if (am != NULL) {
+           vol->vol_detach_node(am->rs_get_uuid());
+           LOGNOTIFY << "uuid for  the node:" << hdr->src_node_name
+            << ": " << am->rs_get_uuid();
+        }
+    } else {
+        vol->vol_detach_node(NodeUuid(hdr->src_service_uuid.uuid));
+    }
     return 0;
 }
 
@@ -500,16 +532,30 @@ VolumeContainer::om_test_bucket(const FdspMsgHdrPtr     &hdr,
 }
 
 bool VolumeContainer::addVolume(const VolumeDesc& volumeDesc) {
+    VolPolicyMgr        *v_pol = OrchMgr::om_policy_mgr();
+    OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    FdsAdminCtrl        *admin = local->om_get_admin_ctrl();
     VolumeInfo::pointer  vol;
     ResourceUUID         uuid = volumeDesc.volUUID;
+    Error  err(ERR_OK);
+
     vol = VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
     if (vol != NULL) {
         LOGWARN << "volume already exists : " << volumeDesc.name <<":" << uuid;
         return false;
     }
 
-    vol = VolumeInfo::vol_cast_ptr(rs_alloc_new(uuid));
     vol->setDescription(volumeDesc);
+
+#if 0
+    err = admin->volAdminControl(vol->vol_get_properties());
+    if (!err.ok()) {
+        // TODO(Vy): delete the volume here.
+        LOGERROR << "Unable to create volume " << " error: " << err.GetErrstr();
+        rs_free_resource(vol);
+        return false;
+    }
+#endif
     rs_register(vol);
     return true;
 }

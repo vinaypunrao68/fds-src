@@ -924,8 +924,10 @@ OM_NodeContainer::om_bcast_vol_delete(VolumeInfo::pointer vol)
     dc_dm_nodes->agent_foreach<fpi::FDSP_MsgCodeType, VolumeInfo::pointer>
         (fpi::FDSP_MSG_DELETE_VOL, vol, om_send_vol_command);
 
+#if 0
     dc_am_nodes->agent_foreach<fpi::FDSP_MsgCodeType, VolumeInfo::pointer>
         (fpi::FDSP_MSG_DELETE_VOL, vol, om_send_vol_command);
+#endif
 }
 
 // om_send_node_command

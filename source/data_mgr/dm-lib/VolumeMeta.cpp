@@ -23,6 +23,10 @@ VolumeMeta::VolumeMeta()
   vol_desc = new VolumeDesc(0);
 }
 */
+VolumeCatalog* VolumeMeta::getVcat()
+{
+      return vcat;
+}
 
 VolumeMeta::VolumeMeta(const std::string& _name,
                        fds_int64_t _uuid,VolumeDesc* desc)

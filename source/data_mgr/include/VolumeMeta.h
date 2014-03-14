@@ -23,8 +23,6 @@
 
 namespace fds {
 
-  typedef int blob_version_t;
-
   class MetadataPair {
   public:
     std::string key;
@@ -198,6 +196,10 @@ namespace fds {
 
   };
 
+  /**
+   * Metadata that describes the blob. Analagous to
+   * a file inode in a file system.
+   */
   class BlobNode {
   public:
     std::string blob_name;
@@ -209,7 +211,7 @@ namespace fds {
     fds_uint32_t writeQuorum;
     fds_uint32_t readQuorum;
     fds_uint32_t consisProtocol;
-    MetaList meta_list;
+    MetaList meta_list; /// List of metadata key-value pairs
     BlobObjectList obj_list;
     const char delim = ';';
     const std::string open_seq = "";
@@ -217,7 +219,9 @@ namespace fds {
 
 
     BlobNode() {
-      meta_list.clear();
+        // Init the new blob to its initial version
+        current_version = blob_version_initial;
+        meta_list.clear();
     }
 
     std::string metaListToString() const {
@@ -293,7 +297,7 @@ namespace fds {
 
     void initFromString(std::string& str) {
 
-      current_version = 0;
+      current_version = blob_version_initial;
       blob_mime_type = 0;
       replicaCnt = writeQuorum = readQuorum = 0;
       consisProtocol = 0;
@@ -346,7 +350,7 @@ namespace fds {
 
     void initFromFDSPPayload(FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr& cat_msg, fds_volid_t _vol_id) {
 
-      current_version = 0;
+      current_version = blob_version_initial;
       blob_mime_type = 0;
       replicaCnt = writeQuorum = readQuorum = 0;
       consisProtocol = 0;
@@ -361,13 +365,15 @@ namespace fds {
 
     }
 
-    BlobNode(FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr cat_msg, fds_volid_t _vol_id) {
+    BlobNode(FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr cat_msg, fds_volid_t _vol_id)
+            : BlobNode() {
       initFromFDSPPayload(cat_msg, _vol_id);
     }
 
     void ToFdspPayload(FDS_ProtocolInterface::FDSP_QueryCatalogTypePtr& query_msg) const {
       query_msg->blob_name = blob_name;
       query_msg->blob_size = blob_size;
+      query_msg->blob_version = current_version;
       metaListToFDSPMetaList(query_msg->meta_list);
       obj_list.ToFDSPObjList(query_msg->obj_list);
     }
@@ -405,6 +411,8 @@ namespace fds {
     VolumeMeta& operator=(const VolumeMeta rhs);
 
  public:
+
+    VolumeCatalog *getVcat();
     VolumeDesc *vol_desc;
     /*
      * Default constructor should NOT be called

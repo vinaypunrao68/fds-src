@@ -20,7 +20,7 @@ source ${TOOLSDIR}/loghelper.sh
 PORTS=()
 versinfo=()
 
-function usage() {
+function usageRedis() {
     log "usage: $(basename $0) [cmd] [instance]"
     log " cmd : "
     log "   - start   : start the app " 
@@ -50,7 +50,7 @@ function makeRedisDirs() {
 # load ports from configs
 function init() {
     for instance in 1 2 3 4 ; do
-        PORTS[$instance]=$(getPort ${instance})
+        PORTS[$instance]=$(getRedisPort ${instance})
     done
     makeRedisDirs
 
@@ -60,53 +60,55 @@ function init() {
 }
 
 
-function getConfigFile() {
+function getRedisConfigFile() {
     local instance="$1"
     echo -n ${CONFDIR}/redis${instance}.conf
 }
 
-function getPort() {
+function getRedisPort() {
     local instance="$1"
-    echo -n $(grep port $(getConfigFile ${instance}) | awk '{print $2}')
+    echo -n $(grep port $(getRedisConfigFile ${instance}) | awk '{print $2}')
 }
 
-function getPid() {
+function getRedisPid() {
     local instance="$1"
-    if [[ ${versinfo[0]} == 2 ]] && [[ ${versinfo[1]} -ge 8 ]]; then
-        echo $(ps aux | grep "redis-server .*:${PORTS[${instance}]}" | grep -v grep | awk '{print $2}')
-    else
-        echo $(ps aux | grep "redis-server $(getConfigFile $instance)" | grep -v grep | awk '{print $2}')
+    local pid
+    pid=$(ps aux | grep "redis-server $(getRedisConfigFile $instance)" | grep -v grep | awk '{print $2}')
+    if [[ -z $pid ]] ; then 
+        pid=$(ps aux | grep "redis-server.*:${PORTS[${instance}]}" | grep -v grep | awk '{print $2}')
     fi
+    
+    echo $pid    
 }
 
 function isRunning() {
     local instance="$1"
-    local pid=$(getPid $instance)
+    local pid=$(getRedisPid $instance)
     
     if [[ -n $pid ]] ; then return 0 ; else return 1 ; fi
 }
 
-function start() {
+function startRedis() {
     local instances="$1"
     local instance;
     for instance in ${instances} ; do
         local port=${PORTS[${instance}]}
         if (isRunning ${instance}) ; then
-            local pid=$(getPid ${instance})
+            local pid=$(getRedisPid ${instance})
             logwarn "redis [${instance}:pid=$pid] is already running @ [port:${PORTS[${instance}]}]"
         else
             loginfo "starting redis [${instance}] @ [port:${PORTS[${instance}]}]"
-            redis-server $(getConfigFile ${instance})
+            redis-server $(getRedisConfigFile ${instance})
         fi
     done
 }
 
-function status() {
+function statusRedis() {
     local instances="$1"
     for instance in ${instances} ; do
         if (isRunning ${instance}) ; then
             local port=${PORTS[${instance}]}
-            local pid=$(getPid ${instance})
+            local pid=$(getRedisPid ${instance})
             loginfo "redis [${instance}:pid=$pid] running @ [port:${PORTS[${instance}]}]"
         else
             logwarn "redis [${instance}] is NOT running @ [port:${PORTS[${instance}]}]"
@@ -114,12 +116,12 @@ function status() {
     done
 }
 
-function stop() {
+function stopRedis() {
     local instances="$1"
 
     for instance in ${instances} ; do
         if (isRunning ${instance}) ; then            
-            local pid=$(getPid ${instance})
+            local pid=$(getRedisPid ${instance})
             loginfo "shutting down redis [${instance}:pid=$pid] @ [port:${PORTS[${instance}]}]"
             echo "shutdown" | redis-cli -p ${PORTS[${instance}]}
         else
@@ -128,7 +130,7 @@ function stop() {
     done
 }
 
-function clean() {
+function cleanRedis() {
     local instances="$1"
     for instance in ${instances} ; do
         if (isRunning ${instance}) ; then
@@ -158,7 +160,7 @@ case "${CMD}" in
     status) ;;
     clean) ;;
     restart) ;;
-    *) usage ;;
+    *) usageRedis ;;
 esac
 
 case "${APP}" in
@@ -167,7 +169,7 @@ case "${APP}" in
     3) ;;
     4) ;;
     all) ;;
-    *) usage ;;
+    *) usageRedis ;;
 esac
 
 if [[ $APP == "all" ]]; then
@@ -177,11 +179,11 @@ fi
 init
 
 case "${CMD}" in
-    start) start "$APP" ;;
-    stop) stop  "$APP";;
-    status) status "$APP" ;;
-    clean) clean "$APP";;
-    restart) stop "$APP"
-        start "$APP";;
-    *) usage ;;
+    start) startRedis "$APP" ;;
+    stop) stopRedis  "$APP";;
+    status) statusRedis "$APP" ;;
+    clean) cleanRedis "$APP";;
+    restart) stopRedis "$APP"
+        startRedis "$APP";;
+    *) usageRedis ;;
 esac

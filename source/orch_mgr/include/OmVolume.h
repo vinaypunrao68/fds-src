@@ -178,7 +178,8 @@ class VolumeContainer : public RsContainer
      */
     virtual int om_create_vol(const FDSP_MsgHdrTypePtr  &hdr,
                               const FdspCrtVolPtr       &creat_msg);
-    virtual int om_delete_vol(const FdspDelVolPtr &del_msg);
+    virtual int om_delete_vol(const FDSP_MsgHdrTypePtr  &hdr,
+                              const FdspDelVolPtr &del_msg);
     virtual int om_modify_vol(const FdspModVolPtr &mod_msg);
     virtual int om_attach_vol(const FDSP_MsgHdrTypePtr  &hdr,
                               const FdspAttVolCmdPtr    &attach);

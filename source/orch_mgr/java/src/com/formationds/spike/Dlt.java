@@ -4,38 +4,53 @@ package com.formationds.spike;
  */
 
 import FDS_ProtocolInterface.FDSP_Uuid;
-import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.Multimap;
-import org.joda.time.DateTime;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class Dlt {
     private long version;
-    private DateTime timestamp;
     private int numBitsForToken;
-    private int numTokens;
     private int depth;
-    private List<FDSP_Uuid> uuids;
-    private Multimap<Integer, FDSP_Uuid> placement;
+    private int numTokens;
+    private FDSP_Uuid[] uuids;
+    private int[][] tokenLocations;
 
-    public Dlt(long version, int numBitsForToken, int depth, int numTokens, List<FDSP_Uuid> uuids) {
+    public Dlt(long version, int numBitsForToken, int depth, int numTokens, FDSP_Uuid[] uuids) {
         this.version = version;
         this.numBitsForToken = numBitsForToken;
         this.depth = depth;
         this.numTokens = numTokens;
         this.uuids = uuids;
-        placement = ArrayListMultimap.create();
+        tokenLocations = new int[numTokens][depth];
     }
 
-    public void addPlacement(int token, int uuidOffset) {
-        FDSP_Uuid uuid = uuids.get(uuidOffset);
-        placement.put(token, uuid);
-    }
+    public Dlt(byte[] frame) throws Exception {
+        DataInputStream protocol = new DataInputStream(new ByteArrayInputStream(frame));
+        this.version = protocol.readLong();
+        this.numBitsForToken = protocol.readInt();
+        this.depth = protocol.readInt();
+        this.numTokens = protocol.readInt();
+        int uuidCount = protocol.readInt();
+        this.uuids = new FDSP_Uuid[uuidCount];
+        for (int i = 0; i < uuidCount; i++) {
+            uuids[i] = new FDSP_Uuid(protocol.readLong());
+        }
 
-    public long getVersion() {
-        return version;
+        tokenLocations = new int[numTokens][depth];
+        boolean useByte = uuidCount <= 256;
+
+        for (int i = 0; i < numTokens; i++) {
+            for (int j = 0; j < depth; j++) {
+                tokenLocations[i][j] = (int) (useByte ? protocol.readByte() : protocol.readUnsignedShort());
+            }
+        }
     }
 
     public int getNumBitsForToken() {
@@ -46,16 +61,50 @@ public class Dlt {
         return depth;
     }
 
+    public long getVersion() {
+        return version;
+    }
+
     public int getNumTokens() {
         return numTokens;
     }
 
-    public List<FDSP_Uuid> getUuids() {
-        return uuids;
+    public Collection<FDSP_Uuid> getTokenPlacement(int tokenId) {
+         return Arrays.stream(tokenLocations[tokenId])
+                .mapToObj(i -> uuids[i])
+                .collect(Collectors.toList());
     }
 
-    public Collection<FDSP_Uuid> getTokenPlacement(int tokenId) {
-        return placement.get(tokenId);
+    public byte[] serialize() throws Exception {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        DataOutputStream daos = new DataOutputStream(baos);
+        daos.writeLong(version);
+        daos.writeInt(numBitsForToken);
+        daos.writeInt(depth);
+        daos.writeInt(numTokens);
+        daos.writeInt(uuids.length);
+
+        for (FDSP_Uuid uuid : uuids) {
+            daos.writeLong(uuid.getUuid());
+        }
+
+        boolean useByte = uuids.length <= 256;
+        for (int i = 0; i < numTokens; i++) {
+            for (int j = 0; j < depth; j++) {
+                if (useByte) {
+                    daos.writeByte(tokenLocations[i][j]);
+                } else {
+                    daos.writeShort(tokenLocations[i][j]);
+                }
+            }
+        }
+
+        daos.flush();
+        return baos.toByteArray();
+    }
+
+    public void placeToken(int tokenId, int position, int uuidOffset) {
+        tokenLocations[tokenId][position] = uuidOffset;
     }
 }
 
