@@ -25,6 +25,8 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::CreateVol(
 
     int err = 0;
     try {
+        LOGNOTIFY << "Received create volume " << crt_vol_req->vol_name;
+
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         err = local->om_create_vol(fdsp_msg, crt_vol_req);
     }
@@ -500,6 +502,8 @@ void OrchMgr::FDSP_OMControlPathReqHandler::CreateBucket(
     ::FDS_ProtocolInterface::FDSP_CreateVolTypePtr& crt_buck_req) {
 
     try {
+        LOGNOTIFY << "Received create bucket " << crt_buck_req->vol_name;
+
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         local->om_create_vol(fdsp_msg, crt_buck_req);
     }
@@ -560,23 +564,29 @@ void OrchMgr::FDSP_OMControlPathReqHandler::RegisterNode(
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
     NodeUuid new_node_uuid;
 
-    if (reg_node_req->node_uuid.uuid != 0) {
-        new_node_uuid = reg_node_req->node_uuid.uuid;
+    if (reg_node_req->node_type == FDSP_PLATFORM) {
+        new_node_uuid = NodeUuid(reg_node_req->node_uuid.uuid);
     } else {
-        new_node_uuid = (fds_get_uuid64(reg_node_req->node_name));
+        new_node_uuid = NodeUuid(reg_node_req->service_uuid.uuid);
+    }
+    if (new_node_uuid.uuid_get_val() == 0) {
+        LOGERROR << "Refuse to register a node without valid uuid: node_type "
+            << reg_node_req->node_type << ", name " << reg_node_req->node_name;
+        return;
     }
 
     Error err = domain->om_reg_node_info(new_node_uuid, reg_node_req);
-
     if (!err.ok()) {
         LOGERROR << "Node Registration failed for "
-                 << reg_node_req->node_name << ":" << new_node_uuid
-                 << ", result: "
-                 << err.GetErrstr();
+                 << reg_node_req->node_name << ":" << std::hex
+                 << new_node_uuid.uuid_get_val() << std::dec
+                 << ", result: " << err.GetErrstr();
         return;
     }
-    LOGNORMAL << "Registered new node "
-              << new_node_uuid << std::dec;
+    LOGNORMAL << "Done Registered new node " << reg_node_req->node_name << std::hex
+              << ", node uuid " << reg_node_req->node_uuid.uuid
+              << ", node type " << reg_node_req->node_type
+              << ", service uuid " << new_node_uuid.uuid_get_val() << std::dec;
 
     // TODO(Andrew): for now, let's start the cluster update process now.
     // This should eventually be decoupled from registration.
@@ -634,13 +644,14 @@ void OrchMgr::FDSP_OMControlPathReqHandler::NotifyMigrationDone(
 
     try {
         LOGNOTIFY << "Received migration done notification from node "
-                  << fdsp_msg->src_node_name;
+                  << fdsp_msg->src_node_name << ":"
+                  << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec;
 
         OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
 
         // TODO(Anna) Should we use node names or node uuids directly in
         // fdsp messages? for now getting uuid from hashing the name
-        NodeUuid node_uuid(fds_get_uuid64(fdsp_msg->src_node_name));
+        NodeUuid node_uuid(fdsp_msg->src_service_uuid.uuid);
         Error err = domain->om_recv_migration_done(node_uuid, status_msg->DLT_version);
     }
     catch(...) {

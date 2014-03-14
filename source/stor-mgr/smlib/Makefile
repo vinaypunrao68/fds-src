@@ -14,7 +14,8 @@ user_cpp          :=                   \
     ObjRank.cpp                        \
     ObjStats.cpp                       \
     TierEngine.cpp                     \
-    TierPutAlgorithms.cpp
+    TierPutAlgorithms.cpp              \
+    SmObjDb.cpp
 
 user_no_style     := $(user_cpp) $(user_cc)
 user_ar_libs      := fds-smlib

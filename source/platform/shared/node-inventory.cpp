@@ -30,6 +30,7 @@ NodeInventory::node_fill_inventory(const FdspNodeRegPtr msg)
     data = new NodeInvData();
     ncap = &data->nd_capability;
 
+    data->nd_uuid           = NodeUuid(rs_uuid);
     data->nd_ip_addr        = msg->ip_lo_addr;
     data->nd_ip_str         = netSession::ipAddr2String(data->nd_ip_addr);
     data->nd_data_port      = msg->data_port;
@@ -85,15 +86,16 @@ NodeInventory::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
 
     msgHdr->tennant_id      = 0;
     msgHdr->local_domain_id = 0;
-    msgHdr->err_code        = FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
+    msgHdr->err_code        = ERR_OK;
     msgHdr->result          = FDS_ProtocolInterface::FDSP_ERR_OK;
 
-    if (plat != NULL) {
+    if (plat == NULL) {
+        /* We'll get here if this is OM */
+        msgHdr->src_id        = FDSP_ORCH_MGR;
+        msgHdr->src_node_name = "";
+    } else {
         msgHdr->src_id        = plat->plf_get_node_type();
         msgHdr->src_node_name = *plat->plf_get_my_name();
-    } else {
-        msgHdr->src_id        = FDSP_PLATFORM;
-        msgHdr->src_node_name = "";
     }
 }
 
@@ -205,9 +207,15 @@ OmAgent::init_node_reg_pkt(fpi::FDSP_RegisterNodeTypePtr pkt) const
     Platform::ptr plat = Platform::platf_const_singleton();
 
     NodeInventory::init_node_reg_pkt(pkt);
-    if (plat != NULL) {
-        pkt->node_type = plat->plf_get_node_type();
-    }
+    pkt->node_type         = plat->plf_get_node_type();
+    pkt->node_uuid.uuid    = plat->plf_get_my_uuid()->uuid_get_val();
+    pkt->service_uuid.uuid = pkt->node_uuid.uuid + 1 + pkt->node_type;
+    pkt->node_name         = *plat->plf_get_my_name();
+    pkt->ip_hi_addr        = 0;
+    pkt->ip_lo_addr        = fds::str_to_ipv4_addr(*plat->plf_get_my_ip());
+    pkt->control_port      = plat->plf_get_my_ctrl_port();
+    pkt->data_port         = plat->plf_get_my_data_port();
+    pkt->migration_port    = plat->plf_get_my_migration_port();
 }
 
 // om_register_node

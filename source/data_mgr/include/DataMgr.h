@@ -262,10 +262,10 @@ class DataMgr : public PlatformProcess
 
     fds_bool_t volExistsLocked(fds_volid_t vol_uuid) const;
 
-    static void vol_handler(fds_volid_t vol_uuid,
-                            VolumeDesc* desc,
-                            fds_vol_notify_t vol_action,
-			    FDS_ProtocolInterface::FDSP_ResultType result);
+    static Error vol_handler(fds_volid_t vol_uuid,
+                             VolumeDesc* desc,
+                             fds_vol_notify_t vol_action,
+                             FDS_ProtocolInterface::FDSP_ResultType result);
 
     static void node_handler(fds_int32_t  node_id,
                              fds_uint32_t node_ip,
@@ -290,7 +290,6 @@ class DataMgr : public PlatformProcess
 
     std::string getPrefix() const;
     fds_bool_t volExists(fds_volid_t vol_uuid) const;
-    FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr dInfo;
 
     inline RespHandlerPrx respHandleCli(const string& session_uuid) {
         return metadatapath_session->getRespClient(session_uuid);

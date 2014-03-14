@@ -79,9 +79,15 @@ class TokenSyncLog {
 
     Error add(const ObjectID& id, const SmObjMetadata &entry) {
         fds::Error err(fds::ERR_OK);
+
+        ObjectBuf buf;
+        buf.resize(entry.marshalledSize());
+        size_t sz = entry.marshall(const_cast<char*>(buf.data.data()), buf.data.size());
+        fds_assert(sz == buf.data.size());
+
         std::string k = create_key(id, entry);
         leveldb::Slice key(k);
-        leveldb::Slice value(entry.buf(), entry.len());
+        leveldb::Slice value(buf.data.data(), buf.data.length());
         leveldb::Status status = db_->Put(write_options_, key, value);
 
         if (!status.ok()) {
@@ -101,8 +107,9 @@ class TokenSyncLog {
             ObjectID &id, SmObjMetadata &entry) {
         uint64_t ts;
         parse_key(itr->key(), ts, id);
-        SmObjMetadata temp_entry(itr->value().ToString());
-        entry = temp_entry;
+        size_t sz = entry.unmarshall(const_cast<char*>(itr->value().data()),
+                                     itr->value().size());
+        fds_assert(sz == itr->value().size());
     }
 
  private:
@@ -381,7 +388,8 @@ struct TokenSyncSenderFSM_
                 TokenSyncLog::parse_iterator(fsm.sync_log_itr_, obj_id, entry);
                 md.object_id.digest.assign(reinterpret_cast<const char*>(obj_id.GetId()),
                         obj_id.GetLen());
-                md.obj_len = entry.len();
+                // TODO(Rao): Set the size
+                // md.obj_len = entry.len();
                 md.modification_ts = entry.get_modification_ts();
 
                 md_list.push_back(md);

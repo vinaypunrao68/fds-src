@@ -217,7 +217,7 @@ ObjectStorMgrI::RedirReadObject(FDSP_MsgHdrTypePtr &msg_hdr, FDSP_RedirReadObjTy
  */
 ObjectStorMgr::ObjectStorMgr(int argc, char *argv[],
                              Platform *platform, Module **mod_vec)
-    : PlatformProcess(argc, argv, "fds.sm.", platform, mod_vec),
+    : PlatformProcess(argc, argv, "fds.sm.", "sm.log", platform, mod_vec),
     totalRate(3000),
     qosThrds(10),
     shuttingDown(false),
@@ -337,7 +337,7 @@ void ObjectStorMgr::setup()
     std::string obj_dir = proc_root->dir_user_repo_objs();
 
     // Create leveldb
-    smObjDb = new  SmObjDb(obj_dir, objStorMgr->GetLog());
+    smObjDb = new  SmObjDb(this, obj_dir, objStorMgr->GetLog());
     // init the checksum verification class
     chksumPtr =  new checksum_calc();
 
@@ -345,45 +345,6 @@ void ObjectStorMgr::setup()
     nst_ = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_MGR));
     myIp = netSession::getLocalIp();
     setup_datapath_server(myIp);
-
-    /*
-     * Query persistent layer for disk parameter details
-     */
-    fds::DmQuery &query = fds::DmQuery::dm_query();
-    in.dmq_mask = fds::dmq_disk_info;
-    query.dm_disk_query(in, &out);
-    /* we should be bundling multiple disk parameters into one message to OM TBD */
-    FDSP_AnnounceDiskCapabilityPtr dInfo(new FDSP_AnnounceDiskCapability());
-    while (1) {
-        info = out.query_pop();
-        if (info != nullptr) {
-            LOGNOTIFY << "Max blks capacity: " << info->di_max_blks_cap
-                    << ", Disk type........: " << info->di_disk_type
-                    << ", Max iops.........: " << info->di_max_iops
-                    << ", Min iops.........: " << info->di_min_iops
-                    << ", Max latency (us).: " << info->di_max_latency
-                    << ", Min latency (us).: " << info->di_min_latency;
-
-            if ( info->di_disk_type == FDS_DISK_SATA) {
-                dInfo->disk_iops_max =  info->di_max_iops; /*  max avarage IOPS */
-                dInfo->disk_iops_min =  info->di_min_iops; /* min avarage IOPS */
-                dInfo->disk_capacity = info->di_max_blks_cap;  /* size in blocks */
-                dInfo->disk_latency_max = info->di_max_latency; /* in us second */
-                dInfo->disk_latency_min = info->di_min_latency; /* in us second */
-            } else if (info->di_disk_type == FDS_DISK_SSD) {
-                dInfo->ssd_iops_max =  info->di_max_iops; /*  max avarage IOPS */
-                dInfo->ssd_iops_min =  info->di_min_iops; /* min avarage IOPS */
-                dInfo->ssd_capacity = info->di_max_blks_cap;  /* size in blocks */
-                dInfo->ssd_latency_max = info->di_max_latency; /* in us second */
-                dInfo->ssd_latency_min = info->di_min_latency; /* in us second */
-            } else
-                LOGWARN << "Unknown Disk Type " << info->di_disk_type;
-
-            delete info;
-            continue;
-        }
-        break;
-    }
 
     /*
      * Register this node with OM.
@@ -443,7 +404,7 @@ void ObjectStorMgr::setup()
     omClient->registerEventHandlerForMigrateEvents((migration_event_handler_t)migrationEventOmHandler);
     omClient->omc_srv_pol = &sg_SMVolPolicyServ;
     omClient->startAcceptingControlMessages(conf_helper_.get<int>("control_port"));
-    omClient->registerNodeWithOM(dInfo);
+    omClient->registerNodeWithOM(plf_mgr);
 
     clust_comm_mgr_.reset(new ClusterCommMgr(omClient));
 
@@ -654,64 +615,67 @@ void ObjectStorMgr::nodeEventOmHandler(int node_id,
  * Note this function is generally run in the context
  * of an Ice thread.
  */
-void
+Error
 ObjectStorMgr::volEventOmHandler(fds_volid_t  volumeId,
-        VolumeDesc  *vdb,
-        int          action,
-        FDSP_ResultType result) {
+                                 VolumeDesc  *vdb,
+                                 int          action,
+                                 FDSP_ResultType result) {
     StorMgrVolume* vol = NULL;
-    Error err = ERR_OK;
-
+    Error err(ERR_OK);
     fds_assert(vdb != NULL);
 
     switch(action) {
-    case FDS_VOL_ACTION_CREATE :
-        GLOGNOTIFY << "Received create for vol "
-                   << "[" << volumeId << ", "
-                   << vdb->getName() << "]";
-        /*
-         * Needs to reference the global SM object
-         * since this is a static function.
-         */
-        objStorMgr->volTbl->registerVolume(*vdb);
-        vol = objStorMgr->volTbl->getVolume(volumeId);
-        fds_assert(vol != NULL);
-        err = objStorMgr->qosCtrl->registerVolume(vol->getVolId(),
-                dynamic_cast<FDS_VolumeQueue*>(vol->getQueue()));
-        objStorMgr->objCache->vol_cache_create(volumeId, 1024 * 1024 * 8, 1024 * 1024 * 256);
-        fds_assert(err == ERR_OK);
-        if (err != ERR_OK) {
-            GLOGERROR << "registration failed for vol id " << volumeId << " error: "
-                    << err;
-        }
-        break;
-
-    case FDS_VOL_ACTION_DELETE:
-        GLOGNOTIFY << "Received delete for vol "
-        << "[" << volumeId << ", "
-        << vdb->getName() << "]";
-        objStorMgr->qosCtrl->quieseceIOs(volumeId);
-        objStorMgr->qosCtrl->deregisterVolume(volumeId);
-        objStorMgr->volTbl->deregisterVolume(volumeId);
-        break;
-    case fds_notify_vol_mod:
-        GLOGNOTIFY << "Received modify for vol "
-        << "[" << volumeId << ", "
-        << vdb->getName() << "]";
-
-        vol = objStorMgr->volTbl->getVolume(volumeId);
-        fds_assert(vol != NULL);
-        vol->voldesc->modifyPolicyInfo(vdb->iops_min, vdb->iops_max, vdb->relativePrio);
-        err = objStorMgr->qosCtrl->modifyVolumeQosParams(vol->getVolId(),
-                vdb->iops_min, vdb->iops_max, vdb->relativePrio);
-        if ( !err.ok() )  {
-            GLOGERROR << "Modify volume policy failed for vol " << vdb->getName() << " error: "
-                      << err.GetErrstr();
-        }
-        break;
-    default:
-        fds_panic("Unknown (corrupt?) volume event recieved!");
+        case FDS_VOL_ACTION_CREATE :
+            GLOGNOTIFY << "Received create for vol "
+                       << "[" << std::hex << volumeId << std::dec << ", "
+                       << vdb->getName() << "]";
+            /*
+             * Needs to reference the global SM object
+             * since this is a static function.
+             */
+            err = objStorMgr->volTbl->registerVolume(*vdb);
+            if (err.ok()) {
+                vol = objStorMgr->volTbl->getVolume(volumeId);
+                fds_assert(vol != NULL);
+                err = objStorMgr->qosCtrl->registerVolume(vol->getVolId(),
+                                                          dynamic_cast<FDS_VolumeQueue*>(vol->getQueue()));
+                objStorMgr->objCache->vol_cache_create(volumeId, 1024 * 1024 * 8, 1024 * 1024 * 256);
+                fds_assert(err == ERR_OK);
+            }
+            if (!err.ok()) {
+                GLOGERROR << "Registration failed for vol id " << std::hex << volumeId
+                          << std::dec << " error: " << err.GetErrstr();
+            }
+            break;
+        case FDS_VOL_ACTION_DELETE:
+            GLOGNOTIFY << "Received delete for vol "
+                       << "[" << std::hex << volumeId << std::dec << ", "
+                       << vdb->getName() << "]";
+            objStorMgr->qosCtrl->quieseceIOs(volumeId);
+            objStorMgr->qosCtrl->deregisterVolume(volumeId);
+            objStorMgr->volTbl->deregisterVolume(volumeId);
+            break;
+        case fds_notify_vol_mod:
+            GLOGNOTIFY << "Received modify for vol "
+                       << "[" << std::hex << volumeId << std::dec << ", "
+                       << vdb->getName() << "]";
+            
+            vol = objStorMgr->volTbl->getVolume(volumeId);
+            fds_assert(vol != NULL);
+            vol->voldesc->modifyPolicyInfo(vdb->iops_min, vdb->iops_max, vdb->relativePrio);
+            err = objStorMgr->qosCtrl->modifyVolumeQosParams(vol->getVolId(),
+                                                             vdb->iops_min, vdb->iops_max, vdb->relativePrio);
+            if ( !err.ok() )  {
+                GLOGERROR << "Modify volume policy failed for vol " << vdb->getName()
+                          << std::hex << volumeId << std::dec << " error: "
+                          << err.GetErrstr();
+            }
+            break;
+        default:
+            fds_panic("Unknown (corrupt?) volume event recieved!");
     }
+    
+    return err;
 }
 
 void ObjectStorMgr::writeBackFunc(ObjectStorMgr *parent) {
@@ -1012,8 +976,6 @@ ObjectStorMgr::readObject(const ObjectID   &objId,
      * Just pass a ref to objId?
      */
     memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
-//    oid.oid_hash_hi = objId.GetHigh();
-//    oid.oid_hash_lo = objId.GetLow();
 
     // create a blocking request object
     disk_req = new SmPlReq(vio, oid, (ObjectBuf *)&objData, true);
@@ -1160,8 +1122,6 @@ ObjectStorMgr::writeObject(const ObjectID  &objId,
      * Just pass a ref to objId?
      */
     memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
-//    oid.oid_hash_hi = objId.GetHigh();
-//    oid.oid_hash_lo = objId.GetLow();
 
     LOGDEBUG << "Writing object " << objId << " into the "
             << ((tier == diskio::diskTier) ? "disk" : "flash")
@@ -1352,8 +1312,6 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
 
     FDSP_PutObjTypePtr putObj(new FDSP_PutObjType());
     putObj->data_obj_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
-//    putObj->data_obj_id.hash_high = objId.GetHigh();
-//    putObj->data_obj_id.hash_low  = objId.GetLow();
     putObj->data_obj_len          = putObjReq->data_obj_len;
 
     if (err == ERR_OK) {
@@ -1509,8 +1467,6 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
 
     FDSP_DeleteObjTypePtr delObj(new FDS_ProtocolInterface::FDSP_DeleteObjType());
     delObj->data_obj_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
-//    delObj->data_obj_id.hash_high = objId.GetHigh();
-//    delObj->data_obj_id.hash_low  = objId.GetLow();
     delObj->data_obj_len          = delObjReq->data_obj_len;
 
     if (err == ERR_OK) {
@@ -1653,11 +1609,7 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
     FDS_ProtocolInterface::FDSP_GetObjTypePtr
         getObj(new FDS_ProtocolInterface::FDSP_GetObjType());
 
-//    fds_uint64_t oidHigh = objId.GetHigh();
-//    fds_uint64_t oidLow = objId.GetLow();
     getObj->data_obj_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
-//    getObj->data_obj_id.hash_high    = objId.GetHigh();
-//    getObj->data_obj_id.hash_low     = objId.GetLow();
     getObj->data_obj                 = (err == ERR_OK)? objBufPtr->data:"";
     getObj->data_obj_len             = (err == ERR_OK)? objBufPtr->size:0;
 
@@ -1823,7 +1775,7 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
         }
         break;
     case FDS_SM_SYNC_APPLY_METADATA:
-        objectId.setId(static_cast<SmIoApplySyncMetadata*>(ioReq)->md.object_id);
+        objectId.SetId(static_cast<SmIoApplySyncMetadata*>(ioReq)->md.object_id.digest);
         err =  enqTransactionIo(nullptr, objectId, ioReq, trans_id);
         if (err != fds::ERR_OK) {
             LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
@@ -1831,7 +1783,7 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
         break;
     default:
         fds_assert(!"Unknown message");
-        LOGERROR << "Unknown message: " << ioReq-io_type;
+        LOGERROR << "Unknown message: " << ioReq->io_type;
     }
     return err;
 }
@@ -1980,7 +1932,7 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
         case FDS_SM_SYNC_APPLY_METADATA:
         {
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a read token objects";
-            threadPool->schedule(&ObjectStorMgr::applySyncMetadataInternal, objStorMgr, io);
+            // threadPool->schedule(&ObjectStorMgr::applySyncMetadataInternal, objStorMgr, io);
             break;
         }
         case FDS_SM_SYNC_RESOLVE_SYNC_ENTRIES:
@@ -2011,117 +1963,6 @@ void log_ocache_stats() {
 #endif
 }
 
-fds::Error SmObjDb::Get(const ObjectID& obj_id, ObjectBuf& obj_buf) {
-    fds_token_id tokId = objStorMgr->getDLT()->getToken(obj_id);
-    fds::Error err = ERR_OK;
-    ObjectDB *odb = getObjectDB(tokId);
-    if (odb) {
-        err =  odb->Get(obj_id, obj_buf);
-    } else {
-        odb = openObjectDB(tokId);
-        err =  odb->Get(obj_id, obj_buf);
-    }
-    return err;
-}
-
-fds::Error SmObjDb::Put(const ObjectID& obj_id, ObjectBuf& obj_buf) {
-    fds_token_id tokId = objStorMgr->getDLT()->getToken(obj_id);
-    fds::Error err = ERR_OK;
-    ObjectDB *odb = getObjectDB(tokId);
-    if (odb) {
-        err =  odb->Put(obj_id, obj_buf);
-    } else {
-        odb = openObjectDB(tokId);
-        err =  odb->Put(obj_id, obj_buf);
-    }
-    DBG(LOGDEBUG << "token: " << tokId <<  " dbId: " << GetSmObjDbId(tokId)
-            << " Obj id: " << obj_id);
-    return err;
-}
-
-void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
-        const size_t &max_size,
-        FDSP_MigrateObjectList &obj_list,
-        SMTokenItr &itr)
-{
-    fds_uint32_t tot_msg_len = 0;
-    diskio::DataTier tierUsed;
-    fds::Error err = ERR_OK;
-    ObjectID objId;
-    ObjectLess id_less;
-    ObjectDB *odb = getObjectDB(token);
-
-    if (odb == NULL ) { 
-        itr.objId = SMTokenItr::itr_end;
-        return;
-    }
-
-    DBG(int obj_itr_cnt = 0);
-
-    ObjectID start_obj_id, end_obj_id;
-    objStorMgr->getDLT()->getTokenObjectRange(token, start_obj_id, end_obj_id);
-    // If the iterator is non-zero then use that as a sarting point for the scan else make up a start from token
-    if ( itr.objId != NullObjectID) {
-        start_obj_id = itr.objId;
-    }
-    DBG(LOGDEBUG << "token: " << token << " begin: "
-            << start_obj_id << " end: " << end_obj_id);
-
-    leveldb::Slice startSlice((const char *)&start_obj_id, start_obj_id.GetLen());
-
-    boost::shared_ptr<leveldb::Iterator> dbIter(odb->GetDB()->NewIterator(odb->GetReadOptions()));
-    leveldb::Options options_ = odb->GetOptions();
-
-    memcpy(&objId , &start_obj_id, start_obj_id.GetLen());
-    // TODO(Rao): This iterator is very inefficient. We're always
-    // iterating through all of the objects in this DB even if they
-    // are not part of the token we care about.
-    // Ideally, we can iterate sorted keys so that we can seek to
-    // the object id range we care about.
-    for(dbIter->Seek(startSlice); dbIter->Valid(); dbIter->Next())
-    {
-        ObjectBuf        objData;
-        // Read the record
-        memcpy(&objId , dbIter->key().data(), objId.GetLen());
-        DBG(LOGDEBUG << "Checking objectId: " << objId << " for token range: " << token);
-
-        // TODO: process the key/data
-        if ((objId == start_obj_id || id_less(start_obj_id, objId)) &&
-            (objId == end_obj_id || id_less(objId, end_obj_id))) {
-            // Get the object buffer
-            err = objStorMgr->readObject(objId, objData, tierUsed);
-            if (err == ERR_OK ) {
-                if ((max_size - tot_msg_len) >= objData.size) {
-                    FDSP_MigrateObjectData mig_obj;
-                    mig_obj.meta_data.token_id = token;
-                    LOGDEBUG << "Adding a new objectId to objList" << objId;
-                    mig_obj.meta_data.object_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
-//                    mig_obj.meta_data.object_id.hash_high = objId.GetHigh();
-//                    mig_obj.meta_data.object_id.hash_low = objId.GetLow();
-                    mig_obj.meta_data.obj_len = objData.size;
-                    mig_obj.data = objData.data;
-                    obj_list.push_back(mig_obj);
-                    tot_msg_len += objData.size;
-
-                    objStorMgr->counters_.get_tok_objs.incr();
-                    DBG(obj_itr_cnt++);
-                } else {
-                    itr.objId = objId;
-                    DBG(LOGDEBUG << "token: " << token <<  " dbId: " << GetSmObjDbId(token)
-                        << " cnt: " << obj_itr_cnt) << " token retrieve not completly with "
-                        << " max size" << max_size << " and total msg len " << tot_msg_len;
-                    return;
-                }
-            }
-            fds_verify(err == ERR_OK);
-        }
-
-    } // Enf of for loop
-    itr.objId = SMTokenItr::itr_end;
-
-    DBG(LOGDEBUG << "token: " << token <<  " dbId: " << GetSmObjDbId(token)
-        << " cnt: " << obj_itr_cnt) << " token retrieve complete";
-}
 
 }  // namespace fds
 

@@ -31,9 +31,6 @@ PythonBind::py_initialize(void)
     setenv("PYTHONPATH", ".", 0);
 
     Py_Initialize();
-    PyRun_SimpleString("import sys; "
-    "sys.path.append('/home/bao_pham/proj/fds-src/source/"
-    "Build/linux-x86_64.debug/tests')\n");
 }
 
 void

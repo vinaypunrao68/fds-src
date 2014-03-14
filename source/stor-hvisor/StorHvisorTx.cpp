@@ -103,8 +103,6 @@ int StorHvisorProcIoRd(void *_io)
   journEntry->dm_ack_cnt = 0;
   journEntry->op = FDS_IO_READ;
   journEntry->data_obj_id.digest.clear(); 
-//  journEntry->data_obj_id.hash_high = 0;
-//  journEntry->data_obj_id.hash_low = 0;
   journEntry->data_obj_len = req->len;
   journEntry->io = io;
   
@@ -133,9 +131,6 @@ int StorHvisorProcIoRd(void *_io)
                                  << "  ObjLen:" << journEntry->data_obj_len;
   
   // We have a Cache HIT *$###
-  //
-//  uint64_t doid_dlt = oid.GetHigh();
-//  doid_dlt_key = (doid_dlt >> 56);
   doid_dlt_key = oid.getTokenBits(4); // using 4 bits to  for now 
   
   fdsp_msg_hdr->glob_volume_id = vol_id;;
@@ -146,14 +141,10 @@ int StorHvisorProcIoRd(void *_io)
   fdsp_msg_hdr->src_port = 0;
   fdsp_msg_hdr->src_node_name = storHvisor->my_node_name;
   get_obj_req->data_obj_id.digest = std::string((const char *)oid.GetId(), (size_t)oid.GetLen());
-//  get_obj_req->data_obj_id.hash_high = oid.GetHigh();
-//  get_obj_req->data_obj_id.hash_low = oid.GetLow();
   get_obj_req->data_obj_len = req->len;
   
   journEntry->op = FDS_IO_READ;
   journEntry->data_obj_id.digest = std::string((const char *)oid.GetId(), (size_t)oid.GetLen());
-//  journEntry->data_obj_id.hash_high = oid.GetHigh();;
-//  journEntry->data_obj_id.hash_low = oid.GetLow();;
   
   // Lookup the Primary SM node-id/ip-address to send the GetObject to
   boost::shared_ptr<DltTokenGroup> dltPtr;
@@ -291,8 +282,6 @@ int StorHvisorProcIoWr(void *_io)
   
   put_obj_req->data_obj_id.digest = std::string((const char *)objID.GetId(), (size_t)objID.GetLen());
   upd_obj_info.data_obj_id.digest = std::string((const char *)objID.GetId(), (size_t)objID.GetLen());
-//  put_obj_req->data_obj_id.hash_high = upd_obj_info.data_obj_id.hash_high = objID.GetHigh();
-//  put_obj_req->data_obj_id.hash_low = upd_obj_info.data_obj_id.hash_low = objID.GetLow();
   
   upd_obj_req->obj_list.push_back(upd_obj_info);
   upd_obj_req->meta_list.clear();
@@ -322,8 +311,6 @@ int StorHvisorProcIoWr(void *_io)
   journEntry->dm_commit_cnt = 0;
   journEntry->op = FDS_IO_WRITE;
   journEntry->data_obj_id.digest = std::string((const char *)objID.GetId(), (size_t)objID.GetLen());
-//  journEntry->data_obj_id.hash_high = objID.GetHigh();
-//  journEntry->data_obj_id.hash_low = objID.GetLow();
   journEntry->data_obj_len= data_size;;
   
   fdsp_msg_hdr->src_ip_lo_addr = SRC_IP;
@@ -428,52 +415,49 @@ END_C_DECLS
 
 void StorHvCtrl::InitSmMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
 {
-	msg_hdr->minor_ver = 0;
-	msg_hdr->msg_code = FDSP_MSG_PUT_OBJ_REQ;
-        msg_hdr->msg_id =  1;
-
-        msg_hdr->major_ver = 0xa5;
-        msg_hdr->minor_ver = 0x5a;
-
-        msg_hdr->num_objects = 1;
-        msg_hdr->frag_len = 0;
-        msg_hdr->frag_num = 0;
-
-        msg_hdr->tennant_id = 0;
-        msg_hdr->local_domain_id = 0;
-
-        msg_hdr->src_id = FDSP_STOR_HVISOR;
-        msg_hdr->dst_id = FDSP_STOR_MGR;
-
-	msg_hdr->src_node_name = this->my_node_name;
-
-        msg_hdr->err_code=FDSP_ERR_SM_NO_SPACE;
-        msg_hdr->result=FDSP_ERR_OK;
-
-
+    msg_hdr->minor_ver = 0;
+    msg_hdr->msg_code = FDSP_MSG_PUT_OBJ_REQ;
+    msg_hdr->msg_id =  1;
+    
+    msg_hdr->major_ver = 0xa5;
+    msg_hdr->minor_ver = 0x5a;
+    
+    msg_hdr->num_objects = 1;
+    msg_hdr->frag_len = 0;
+    msg_hdr->frag_num = 0;
+    
+    msg_hdr->tennant_id = 0;
+    msg_hdr->local_domain_id = 0;
+    
+    msg_hdr->src_id = FDSP_STOR_HVISOR;
+    msg_hdr->dst_id = FDSP_STOR_MGR;
+    
+    msg_hdr->src_node_name = this->my_node_name;
+    
+    msg_hdr->err_code = ERR_OK;
+    msg_hdr->result = FDSP_ERR_OK;
 }
 
 void StorHvCtrl::InitDmMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
 {
- 	msg_hdr->msg_code = FDSP_MSG_UPDATE_CAT_OBJ_REQ;
-        msg_hdr->msg_id =  1;
+    msg_hdr->msg_code = FDSP_MSG_UPDATE_CAT_OBJ_REQ;
+    msg_hdr->msg_id =  1;
 
-        msg_hdr->major_ver = 0xa5;
-        msg_hdr->minor_ver = 0x5a;
+    msg_hdr->major_ver = 0xa5;
+    msg_hdr->minor_ver = 0x5a;
 
-        msg_hdr->num_objects = 1;
-        msg_hdr->frag_len = 0;
-        msg_hdr->frag_num = 0;
+    msg_hdr->num_objects = 1;
+    msg_hdr->frag_len = 0;
+    msg_hdr->frag_num = 0;
 
-        msg_hdr->tennant_id = 0;
-        msg_hdr->local_domain_id = 0;
+    msg_hdr->tennant_id = 0;
+    msg_hdr->local_domain_id = 0;
 
-        msg_hdr->src_id = FDSP_STOR_HVISOR;
-        msg_hdr->dst_id = FDSP_DATA_MGR;
+    msg_hdr->src_id = FDSP_STOR_HVISOR;
+    msg_hdr->dst_id = FDSP_DATA_MGR;
 
-	msg_hdr->src_node_name = this->my_node_name;
+    msg_hdr->src_node_name = this->my_node_name;
 
-	msg_hdr->err_code=FDSP_ERR_SM_NO_SPACE;
-        msg_hdr->result=FDSP_ERR_OK;
-
+    msg_hdr->err_code = ERR_OK;
+    msg_hdr->result = FDSP_ERR_OK;
 }

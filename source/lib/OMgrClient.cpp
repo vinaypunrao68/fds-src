@@ -21,41 +21,38 @@ OMgrClientRPCI::OMgrClientRPCI(OMgrClient *omc) {
 
 void OMgrClientRPCI::NotifyAddVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
                                   FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg) {
-  assert(vol_msg->type == FDS_ProtocolInterface::FDSP_NOTIFY_ADD_VOL);
-  fds_vol_notify_t type = fds_notify_vol_add;
-  fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-  om_client->recvNotifyVol(vol_msg->vol_desc.volUUID, vdb, type, msg_hdr->result);
-
+    assert(vol_msg->type == FDS_ProtocolInterface::FDSP_NOTIFY_ADD_VOL);
+    fds_vol_notify_t type = fds_notify_vol_add;
+    fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
+    om_client->recvNotifyVol(vdb, type, msg_hdr->result, msg_hdr->session_uuid);
 }
 
 void OMgrClientRPCI::NotifyModVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
                                   FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg) {
-  assert(vol_msg->type == FDS_ProtocolInterface::FDSP_NOTIFY_MOD_VOL);
-  fds_vol_notify_t type = fds_notify_vol_mod;
-  fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-  om_client->recvNotifyVol(vol_msg->vol_desc.volUUID, vdb, type, msg_hdr->result);
+    assert(vol_msg->type == FDS_ProtocolInterface::FDSP_NOTIFY_MOD_VOL);
+    fds_vol_notify_t type = fds_notify_vol_mod;
+    fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
+    om_client->recvNotifyVol(vdb, type, msg_hdr->result, msg_hdr->session_uuid);
 }
 
 void OMgrClientRPCI::NotifyRmVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
                                  FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg) {
-  assert(vol_msg->type == FDS_ProtocolInterface::FDSP_NOTIFY_RM_VOL);
-  fds_vol_notify_t type = fds_notify_vol_rm;
-  fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-  om_client->recvNotifyVol(vol_msg->vol_desc.volUUID, vdb, type, msg_hdr->result);
-
+    assert(vol_msg->type == FDS_ProtocolInterface::FDSP_NOTIFY_RM_VOL);
+    fds_vol_notify_t type = fds_notify_vol_rm;
+    fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
+    om_client->recvNotifyVol(vdb, type, msg_hdr->result, msg_hdr->session_uuid);
 }
       
 void OMgrClientRPCI::AttachVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
 			       FDS_ProtocolInterface::FDSP_AttachVolTypePtr& vol_msg) {
-  fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-  om_client->recvVolAttachState(vol_msg->vol_desc.volUUID, vdb, FDS_VOL_ACTION_ATTACH, msg_hdr->result);
+    fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
+    om_client->recvVolAttachState(vdb, fds_notify_vol_attatch, msg_hdr->result, msg_hdr->session_uuid);
 }
-
 
 void OMgrClientRPCI::DetachVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
 			       FDS_ProtocolInterface::FDSP_AttachVolTypePtr& vol_msg) {
-  fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-  om_client->recvVolAttachState(vol_msg->vol_desc.volUUID, vdb, FDS_VOL_ACTION_DETACH, msg_hdr->result);
+    fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
+    om_client->recvVolAttachState(vdb, fds_notify_vol_detach, msg_hdr->result, msg_hdr->session_uuid);
 }
 
 void OMgrClientRPCI::NotifyNodeAdd(FDSP_MsgHdrTypePtr& msg_hdr, 
@@ -313,88 +310,72 @@ void OMgrClient::initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
 
         msg_hdr->src_id = my_node_type;
         msg_hdr->dst_id = FDSP_ORCH_MGR;
-	msg_hdr->src_node_name = my_node_name;
+        msg_hdr->src_node_name = my_node_name;
+        msg_hdr->src_service_uuid.uuid = myUuid.uuid_get_val();
 
-        msg_hdr->err_code=FDSP_ERR_SM_NO_SPACE;
-        msg_hdr->result=FDSP_ERR_OK;
-
-
+        msg_hdr->err_code = ERR_OK;
+        msg_hdr->result = FDSP_ERR_OK;
 }
 
 // Use this to register the local node with OM as a client. Should be called after calling starting subscription endpoint and control path endpoint.
-int OMgrClient::registerNodeWithOM(const FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr& 
-                                   dInfo) {
+int OMgrClient::registerNodeWithOM(Platform *plat)
+{
+    try {
+        omclient_prx_session_ = nst_->startSession<netOMControlPathClientSession>(
+                omIpStr, omConfigPort, FDSP_ORCH_MGR, 1, /* number of channels */
+                boost::shared_ptr<FDSP_OMControlPathRespIf>());
+        /* TODO:  pass in response path server pointer */
+        // Just return if the om ptr is NULL because
+        // FDS-net doesn't throw the exception we're
+        // trying to catch. We should probably return
+        // an error and let the caller decide what to do.
+        // fds_verify(omclient_prx_session_ != nullptr);
+        if (omclient_prx_session_ == NULL) {
+            FDS_PLOG_SEV(omc_log, fds::fds_log::critical)
+                << "OMClient unable to register node with OrchMgr. "
+                   "Please check if OrchMgr is up and restart.";
+            return 0;
+        }
+        om_client_prx = omclient_prx_session_->getClient();  // NOLINT
 
-  try {
-      omclient_prx_session_ = nst_->startSession<netOMControlPathClientSession>(omIpStr,
-                                    omConfigPort,
-                                    FDSP_ORCH_MGR,
-                                    1, /* number of channels */
-                                   boost::shared_ptr<FDSP_OMControlPathRespIf>()/* TODO:  pass in response path server pointer */); 
-      
-      // Just return if the om ptr is NULL because
-      // FDS-net doesn't throw the exception we're
-      // trying to catch. We should probably return
-      // an error and let the caller decide what to do.
-      // fds_verify(omclient_prx_session_ != nullptr);
-      if (omclient_prx_session_ == NULL) {
-          FDS_PLOG_SEV(omc_log, fds::fds_log::critical) << "OMClient unable to register node with OrchMgr. Please check if OrchMgr is up and restart.";
-          return 0;
-      }
-      om_client_prx = omclient_prx_session_->getClient();  // NOLINT
-#if 0
-   boost::shared_ptr<apache::thrift::transport::TTransport>
-           socket(new apache::thrift::transport::TSocket(omIpStr, omConfigPort));
-   boost::shared_ptr<apache::thrift::transport::TTransport>
-           transport(new apache::thrift::transport::TBufferedTransport(socket));
-   boost::shared_ptr<apache::thrift::protocol::TProtocol>
-           protocol(new apache::thrift::protocol::TBinaryProtocol(transport));
-  
-   om_client_prx = new FDS_ProtocolInterface::FDSP_OMControlPathReqClient(protocol);
-   transport->open();
-#endif
-      
-   FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
-   initOMMsgHdr(msg_hdr);
-   FDSP_RegisterNodeTypePtr reg_node_msg(new FDSP_RegisterNodeType);
-   reg_node_msg->node_type = my_node_type;
-   reg_node_msg->node_name = my_node_name;
-   reg_node_msg->ip_hi_addr = 0;
-   reg_node_msg->ip_lo_addr = fds::str_to_ipv4_addr(hostIp); //my_address!
-   reg_node_msg->control_port = my_control_port;
-   reg_node_msg->data_port = my_data_port; // for now
-   reg_node_msg->migration_port = my_migration_port;  // TODO(Andrew): Move to SM specific
-   /* init the disk info */
-   
-   reg_node_msg->disk_info.disk_iops_max =  dInfo->disk_iops_max;
-   reg_node_msg->disk_info.disk_iops_min =  dInfo->disk_iops_min;
-   reg_node_msg->disk_info.disk_capacity = dInfo->disk_capacity;
-   reg_node_msg->disk_info.disk_latency_max = dInfo->disk_latency_max;
-   reg_node_msg->disk_info.disk_latency_min = dInfo->disk_latency_min;
-   reg_node_msg->disk_info.ssd_iops_max =  dInfo->ssd_iops_max;
-   reg_node_msg->disk_info.ssd_iops_min =  dInfo->ssd_iops_min;
-   reg_node_msg->disk_info.ssd_capacity = dInfo->ssd_capacity;
-   reg_node_msg->disk_info.ssd_latency_max = dInfo->ssd_latency_min;
-   reg_node_msg->disk_info.ssd_latency_min = dInfo->ssd_latency_min;
-   reg_node_msg->disk_info.disk_type = dInfo->disk_type;
+        FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
+        initOMMsgHdr(msg_hdr);
 
-   FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient registering local node " 
-						     << fds::ipv4_addr_to_str(reg_node_msg->ip_lo_addr) 
-						     << " control port:" << reg_node_msg->control_port 
-						     << " data port:" << reg_node_msg->data_port
-						     << " with Orchaestration Manager at "
-                                                     << omIpStr << ":" << omConfigPort;
+        FDSP_RegisterNodeTypePtr reg_node_msg(new FDSP_RegisterNodeType);
+        reg_node_msg->node_type    = plat->plf_get_node_type();
+        reg_node_msg->node_name    = *plat->plf_get_my_name();
+        reg_node_msg->ip_hi_addr   = 0;
+        // reg_node_msg->ip_lo_addr   = fds::str_to_ipv4_addr(*plat->plf_get_my_ip());
+        reg_node_msg->ip_lo_addr   = fds::str_to_ipv4_addr(hostIp); //my_address!
+        reg_node_msg->control_port = my_control_port; // plat->plf_get_my_ctrl_port();
+        reg_node_msg->data_port    = my_data_port; // plat->plf_get_my_data_port();
 
-  om_client_prx->RegisterNode(msg_hdr, reg_node_msg);
+        // TODO(Andrew): Move to SM specific
+        reg_node_msg->migration_port = my_migration_port; // plat->plf_get_my_migration_port();
 
-  FDS_PLOG_SEV(omc_log, fds::fds_log::debug) << "OMClient completed node registration with OM";
+        // TODO(Vy): simple service uuid from node uuid.
+        reg_node_msg->node_uuid.uuid    = plat->plf_get_my_uuid()->uuid_get_val();
+        reg_node_msg->service_uuid.uuid = plat->plf_get_my_svc_uuid()->uuid_get_val();
+        myUuid.uuid_set_val(plat->plf_get_my_svc_uuid()->uuid_get_val());
 
-  }
-  catch(...) {
-    FDS_PLOG_SEV(omc_log, fds::fds_log::critical) << "OMClient unable to register node with OrchMgr. Please check if OrchMgr is up and restart.";
-  }
+        FDS_PLOG_SEV(omc_log, fds::fds_log::notification)
+            << "OMClient registering local node "
+            << fds::ipv4_addr_to_str(reg_node_msg->ip_lo_addr)
+            << " control port:" << reg_node_msg->control_port
+            << " data port:" << reg_node_msg->data_port
+            << " with Orchaestration Manager at "
+            << omIpStr << ":" << omConfigPort;
 
-  return (0);
+        om_client_prx->RegisterNode(msg_hdr, reg_node_msg);
+        FDS_PLOG_SEV(omc_log, fds::fds_log::debug)
+            << "OMClient completed node registration with OM";
+    }
+    catch(...) {
+        FDS_PLOG_SEV(omc_log, fds::fds_log::critical)
+            << "OMClient unable to register node with OrchMgr. "
+               "Please check if OrchMgr is up and restart.";
+    }
+    return (0);
 }
 
 int OMgrClient::pushPerfstatsToOM(const std::string& start_ts,
@@ -616,7 +597,8 @@ int OMgrClient::recvNodeEvent(int node_id,
   // TODO(Andrew): Hack to figure out my own node uuid
   // since the OM doesn't reply to my registration yet.
   if ((node.node_ip_address == (uint)netSession::ipString2Addr(hostIp)) &&
-      (node.port == my_data_port)) {
+      (node.port == my_data_port) &&
+      (myUuid.uuid_get_val() == 0)) {
       myUuid.uuid_set_val(node_info->node_uuid);
       LOGDEBUG << "Setting my UUID to " << myUuid.uuid_get_val();
   }
@@ -640,43 +622,111 @@ int OMgrClient::recvNodeEvent(int node_id,
   
 }
 
-int OMgrClient::recvNotifyVol(fds_volid_t vol_id,
-                              VolumeDesc *vdb,
+int OMgrClient::recvNotifyVol(VolumeDesc *vdb,
                               fds_vol_notify_t vol_action,
-			      FDSP_ResultType result) {
+			      FDSP_ResultType result,
+                              const std::string& session_uuid) {
+    Error err(ERR_OK);
+    fds_volid_t vol_id = vdb->volUUID;
+    FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received volume event for volume 0x"
+                                                      << std::hex << vol_id <<std::dec << " action - " << vol_action;
+    
+    if (this->vol_evt_hdlr) {
+        err = this->vol_evt_hdlr(vol_id, vdb, vol_action, result);
+    }
 
-  FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received volume event for volume 0x"
-                                                    << std::hex << vol_id <<std::dec << " action - " << vol_action;
+    // send response back to OM
+    boost::shared_ptr<FDS_ProtocolInterface::FDSP_ControlPathRespClient> resp_client_prx =
+            omrpc_handler_session_->getRespClient(session_uuid);
 
-  if (this->vol_evt_hdlr) {
-    this->vol_evt_hdlr(vol_id, vdb, vol_action, result);
-  }
-  return (0);
-  
+    try {
+        FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
+        initOMMsgHdr(msg_hdr);
+        FDSP_NotifyVolTypePtr vol_resp(new FDSP_NotifyVolType());
+        msg_hdr->err_code = err.GetErrno();
+        if (!err.ok()) {
+            msg_hdr->result = FDSP_ERR_FAILED;
+        }
+        vol_resp->vol_name = vdb->getName();
+        vol_resp->vol_desc.vol_name = vdb->getName();
+        vol_resp->vol_desc.volUUID = vol_id;
+        switch (vol_action) {
+            case fds_notify_vol_add:
+                vol_resp->type = FDSP_NOTIFY_ADD_VOL;
+                resp_client_prx->NotifyAddVolResp(msg_hdr, vol_resp);
+                break;
+            case fds_notify_vol_rm:
+                vol_resp->type = FDSP_NOTIFY_RM_VOL;
+                resp_client_prx->NotifyRmVolResp(msg_hdr, vol_resp);
+                break;
+            case fds_notify_vol_mod:
+                vol_resp->type = FDSP_NOTIFY_MOD_VOL;
+                resp_client_prx->NotifyModVolResp(msg_hdr, vol_resp);
+                break;
+            default:
+                fds_panic("Unknown (corrupt?) volume event");
+        }
+        FDS_PLOG_SEV(omc_log, fds_log::notification)
+                << "OMClient sent response to OM for Volume Notify of type " << vol_action
+		<< "; volume " << vdb->getName();
+    } catch (...) {
+        FDS_PLOG_SEV(omc_log, fds_log::error) << "OMClient failed to send response to OM";
+        return -1;
+    }
+    return 0;
 }
 
-int OMgrClient::recvVolAttachState(fds_volid_t vol_id,
-                                   VolumeDesc *vdb,
-                                   int vol_action,
-				   FDSP_ResultType result) {
+int OMgrClient::recvVolAttachState(VolumeDesc *vdb,
+                                   fds_vol_notify_t vol_action,
+				   FDSP_ResultType result,
+                                   const std::string& session_uuid) {
+    assert((vol_action == fds_notify_vol_attatch) || (vol_action == fds_notify_vol_detach));
+    Error err(ERR_OK);
+    fds_volid_t vol_id = vdb->volUUID;
 
-  assert((vol_action == FDS_VOL_ACTION_ATTACH) || (vol_action == FDS_VOL_ACTION_DETACH));
+    FDS_PLOG_SEV(omc_log, fds::fds_log::notification)
+            << "OMClient received volume attach/detach request for volume 0x"
+            << std::hex << vol_id << std::dec << " action - " << vol_action;
+    
+    if (this->vol_evt_hdlr) {
+        err = this->vol_evt_hdlr(vol_id, vdb, vol_action, result);
+    }
+    // send response back to OM
+    boost::shared_ptr<FDS_ProtocolInterface::FDSP_ControlPathRespClient> resp_client_prx =
+            omrpc_handler_session_->getRespClient(session_uuid);
 
-  fds_vol_notify_t type = fds_notify_vol_attatch;
-  if (vol_action == FDS_VOL_ACTION_DETACH) {
-    type = fds_notify_vol_detach;
-  }
+    try {
+        FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
+        initOMMsgHdr(msg_hdr);
+        FDSP_AttachVolTypePtr vol_resp(new FDSP_AttachVolType());
+        msg_hdr->err_code = err.GetErrno();
+        if (!err.ok()) {
+            msg_hdr->result = FDSP_ERR_FAILED;
+        }
+        vol_resp->vol_name = vdb->getName();
+        vol_resp->vol_desc.vol_name = vdb->getName();
+        vol_resp->vol_desc.volUUID = vol_id;
+        switch (vol_action) {
+            case fds_notify_vol_attatch:
+                resp_client_prx->AttachVolResp(msg_hdr, vol_resp);
+                break;
+            case fds_notify_vol_detach:
+                resp_client_prx->DetachVolResp(msg_hdr, vol_resp);
+                break;
+            default:
+                fds_panic("Unknown (corrupt?) volume event");
+        }
+        FDS_PLOG_SEV(omc_log, fds_log::notification)
+                << "OMClient sent response to OM for Volume Attach/detach (type " << vol_action
+		<< "); volume " << vdb->getName();
+    } catch (...) {
+        FDS_PLOG_SEV(omc_log, fds_log::error) << "OMClient failed to send response to OM";
+        return -1;
+    }
 
-  FDS_PLOG_SEV(omc_log, fds::fds_log::notification)
-          << "OMClient received volume attach/detach request for volume 0x"
-          << std::hex << vol_id << std::dec << " action - " << type;
-
-  if (this->vol_evt_hdlr) {
-    this->vol_evt_hdlr(vol_id, vdb, type, result);
-  }
-  return (0);
-  
+    return 0;
 }
+
 int OMgrClient::updateDlt(bool dlt_type, std::string& dlt_data) {
 
   FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received new DLT version  " << dlt_type;

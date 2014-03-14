@@ -290,58 +290,62 @@ bool ConfigDB::storeDlts(DLTManager& dltMgr, int localDomain) {
 bool ConfigDB::addNode(const NodeInvData& node) {
     // add the volume to the volume list for the domain
     int domainId = 0 ; // TODO(prem)
-    Reply reply = r.sendCommand("sadd %d:cluster:nodes %ld", domainId, node.nd_uuid);
-
-    if (!reply.wasModified()) {
-        LOGWARN << "node [" << node.nd_uuid << "] already exists for domain [" << domainId << "]";
+    try {
+        Reply reply = r.sendCommand("sadd %d:cluster:nodes %ld", domainId, node.nd_uuid);
+        
+        if (!reply.wasModified()) {
+            LOGWARN << "node [" << node.nd_uuid << "] already exists for domain [" << domainId << "]";
+        }
+        
+        reply = r.sendCommand("hmset node:%ld uuid %ld"
+                              " capacity %ld"
+                              " ipnum %ld"
+                              " ip %s"
+                              " data.port %d"
+                              " ctrl.port %d"
+                              " migration.port %d"
+                              " disk.type %d"
+                              " name %s"
+                              " type %d"
+                              " state %d"
+                              " dlt.version %ld"
+                              " disk.capacity %ld"
+                              " disk.iops.max %d"
+                              " disk.iops.min %d"
+                              " disk.latency.max %d"
+                              " disk.latency.min %d"
+                              " ssd.iops.max %d"
+                              " ssd.iops.min %d"
+                              " ssd.capacity %d"
+                              " ssd.latency.max %d"
+                              " ssd.latency.min %d",
+                              node.nd_uuid,node.nd_uuid,
+                              node.nd_gbyte_cap,
+                              node.nd_ip_addr,
+                              node.nd_ip_str.c_str(),
+                              node.nd_data_port,
+                              node.nd_ctrl_port,
+                              node.nd_migration_port,
+                              node.nd_disk_type,
+                              node.nd_node_name.c_str(),
+                              node.nd_node_type,
+                              node.nd_node_state,
+                              node.nd_dlt_version,
+                              node.nd_capability.disk_capacity,
+                              node.nd_capability.disk_iops_max,
+                              node.nd_capability.disk_iops_min,
+                              node.nd_capability.disk_latency_max,
+                              node.nd_capability.disk_latency_min,
+                              node.nd_capability.ssd_iops_max,
+                              node.nd_capability.ssd_iops_min,
+                              node.nd_capability.ssd_capacity,
+                              node.nd_capability.ssd_latency_max,
+                              node.nd_capability.ssd_latency_min);
+        if (reply.isOk()) return true;
+        LOGWARN << "msg: " << reply.getString();
+    } catch (const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
     }
-
-    reply = r.sendCommand("hmset node:%ld uuid %ld"
-                          " capacity %ld"
-                          " ipnum %ld"
-                          " ip %s"
-                          " data.port %d"
-                          " ctrl.port %d"
-                          " migration.port %d"
-                          " disk.type %d"
-                          " name %s"
-                          " type %d"
-                          " state %d"
-                          " dlt.version %ld"
-                          " disk.capacity %ld"
-                          " disk.iops.max %d"
-                          " disk.iops.min %d"
-                          " disk.latency.max %d"
-                          " disk.latency.min %d"
-                          " ssd.iops.max %d"
-                          " ssd.iops.min %d"
-                          " ssd.capacity %d"
-                          " ssd.latency.max %d"
-                          " ssd.latency.min %d",
-                          node.nd_uuid,node.nd_uuid,
-                          node.nd_gbyte_cap,
-                          node.nd_ip_addr,
-                          node.nd_ip_str.c_str(),
-                          node.nd_data_port,
-                          node.nd_ctrl_port,
-                          node.nd_migration_port,
-                          node.nd_disk_type,
-                          node.nd_node_name.c_str(),
-                          node.nd_node_type,
-                          node.nd_node_state,
-                          node.nd_dlt_version,
-                          node.nd_capability.disk_capacity,
-                          node.nd_capability.disk_iops_max,
-                          node.nd_capability.disk_iops_min,
-                          node.nd_capability.disk_latency_max,
-                          node.nd_capability.disk_latency_min,
-                          node.nd_capability.ssd_iops_max,
-                          node.nd_capability.ssd_iops_min,
-                          node.nd_capability.ssd_capacity,
-                          node.nd_capability.ssd_latency_max,
-                          node.nd_capability.ssd_latency_min);
-    if (reply.isOk()) return true;
-    LOGWARN << "msg: " << reply.getString();
     return false;
 }
 

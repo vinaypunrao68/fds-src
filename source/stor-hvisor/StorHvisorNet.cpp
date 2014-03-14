@@ -11,6 +11,7 @@
 #include <fds_process.h>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include "NetSession.h"
+#include <am-platform.h>
 
 #define FDS_REPLICATION_FACTOR 2
 
@@ -308,20 +309,7 @@ void StorHvCtrl::StartOmClient() {
    */
   if (om_client) {
     FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "StorHvisorNet - Started accepting control messages from OM";
-//    dInfo = new  FDSP_AnnounceDiskCapability();
-    dInfo.reset(new FDSP_AnnounceDiskCapability());
-    dInfo->disk_iops_max =  10000; /* avarage IOPS */
-    dInfo->disk_iops_min =  100; /* avarage IOPS */
-    dInfo->disk_capacity = 100;  /* size in GB */
-    dInfo->disk_latency_max = 100; /* in milli second */
-    dInfo->disk_latency_min = 10; /* in milli second */
-    dInfo->ssd_iops_max =  100000; /* avarage IOPS */
-    dInfo->ssd_iops_min =  1000; /* avarage IOPS */
-    dInfo->ssd_capacity = 100;  /* size in GB */
-    dInfo->ssd_latency_max = 100; /* in milli second */
-    dInfo->ssd_latency_min = 3; /* in milli second */
-    dInfo->disk_type =  FDS_DISK_SATA;
-    om_client->registerNodeWithOM(dInfo);
+    om_client->registerNodeWithOM(&gl_AmPlatform);
   }
 
 }

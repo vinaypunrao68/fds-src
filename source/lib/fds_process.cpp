@@ -227,6 +227,36 @@ void FdsProcess::interrupt_cb(int signum)
     exit(signum);
 }
 
+void FdsProcess::daemonize() {
+    // adapted from http://www.enderunix.org/docs/eng/daemon.php
+
+    if (getppid() == 1) return; /* already a daemon */
+    int childpid = fork();
+    if (childpid < 0) {
+        LOGERROR << "error forking for daemonize : " << errno;
+        exit(1);
+    }
+    if (childpid > 0) {
+        LOGNORMAL << "forked successfully : child pid : " << childpid;
+        exit(0);
+    }
+
+    // The actual daemon .
+
+    /* obtain a new process group */
+    setsid();
+    int i;
+    for (i = getdtablesize(); i >= 0 ; --i) close(i); /* close all descriptors */
+    i = open("/dev/null", O_RDWR); dup(i); dup(i); /* handle standart I/O */
+    // umask(027); /* set newly created file permissions */
+    // ignore tty signals
+    signal(SIGTSTP, SIG_IGN);
+    signal(SIGTTOU, SIG_IGN);
+    signal(SIGTTIN, SIG_IGN);
+    signal(SIGHUP , SIG_IGN);
+    // signal(SIGTERM,signal_handler);
+}
+
 fds_log* HasLogger::GetLog() const {
     if (logptr != NULL) return logptr;
     if (g_fdslog) return g_fdslog;

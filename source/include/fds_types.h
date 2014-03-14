@@ -46,7 +46,6 @@
  */
 namespace fds {
 
-  const int bitMaskLookup[64] = {0x0, 0x1, 0x3, 0x7, 0xF, 0x1F, 0x3F, 0x7F, 0xFF, 0x1FF, 0x3FF, 0x7FF, 0xFFF, 0x1FFF, 0x3FFF, 0x7FFF, 0xFFFF };
   typedef fds_int64_t fds_volid_t;
   typedef fds_int64_t VolumeId;
   typedef fds_int64_t fds_qid_t;  // type for queue id
@@ -62,191 +61,45 @@ namespace fds {
     uint8_t  digest[20];
 
  public:
-    ObjectID() {
-        memset(digest, 0x00, sizeof(digest));
-    }
-
-    ObjectID(uint32_t dataSet) {
-        memset(digest, dataSet, sizeof(digest));
-    }
-
-    ObjectID(uint8_t *objId) {
-        memcpy(digest, objId, sizeof(digest));
-    }
-
-    ObjectID(uint8_t  *objId, uint32_t length) {
-        memcpy(digest, objId, length);
-    }
-
-
-    ObjectID(const ObjectID& rhs) {
-        memcpy(digest, rhs.digest, sizeof(digest));
-    }
-
-    explicit ObjectID(const std::string& oid) {
-        fds_verify(oid.size() == sizeof(digest));
-        memcpy(digest, oid.c_str(), sizeof(digest));
-    }
-
-    ~ObjectID() { }
-
-
+    ObjectID();
+    ObjectID(uint32_t dataSet);
+    ObjectID(uint8_t *objId);
+    ObjectID(uint8_t  *objId, uint32_t length);
+    ObjectID(const ObjectID& rhs);
+    explicit ObjectID(const std::string& oid);
+    ~ObjectID();
 
     /*
      * Assumes the length of the data is 2 * hash size.
      * The caller needs to ensure this is the case.
      */
-    void SetId(const char*data, fds_uint32_t len) {
-      memcpy(digest, data, len);
-    }
-    
-    void SetId(uint8_t  *data, fds_uint32_t  length) {
-        memcpy(digest, data, length);
-    }
-
+    void SetId(const char*data, fds_uint32_t len);
+    void SetId(uint8_t  *data, fds_uint32_t  length);
     void SetId(const std::string &data) {
         fds_assert(data.length() <= sizeof(digest));
         memcpy(digest, data.data(), data.length());
     }
-
-    const uint8_t* GetId()  const {
-	return digest;
-    }
+    const uint8_t* GetId() const;
 
    /*
     * bit mask. this will help to boost the performance 
     */
 
-     fds_uint64_t getTokenBits(fds_uint32_t numBits) const {
-           fds_uint64_t tokenBits; 	
-           int offset = 0;  //   pass this as argument 
-           int byteIndex = offset / 8;
-           int bitIndex = offset % 8;
-           int val;
-
-           if ((bitIndex + numBits) > 16) {
-              tokenBits = ((digest[byteIndex] << 16 | digest[byteIndex + 1] << 8 | digest[byteIndex + 2])
-                           >> (24 - bitIndex - numBits)) & fds::bitMaskLookup[numBits];
-            } else if ((offset + numBits) > 8) {
-              tokenBits = ((digest[byteIndex] << 8 | digest[byteIndex + 1])
-                           >> (16 - bitIndex - numBits)) & fds::bitMaskLookup[numBits];
-           }else {
-              tokenBits = (digest[byteIndex] >> (8 - offset - numBits)) & fds::bitMaskLookup[numBits];
-         }
-
-     return tokenBits;
-   }
-    /*
-     * Returns the size of the OID in bytes.
-     */
-    fds_uint32_t GetLen() const {
-      return sizeof(digest);
-    }
-
-    /*
-     * Returns a string representation.
-     */
-    std::string ToString() const {
-        return ToHex();
-    }
-
-    /*
-     * Operators
-     */
-    bool operator==(const ObjectID& rhs) const {
-	return (compare(*this, rhs) == 0);
-    }
-
-    bool operator!=(const ObjectID& rhs) const {
-	return (! operator==(rhs));
-    }
-
-    bool operator < (const ObjectID& rhs) const {
-     return  compare(*this, rhs) < 0 ;
-    }
-
-    bool operator > (const ObjectID& rhs) const {
-        return  compare(*this, rhs) > 0 ;
-    }
-
-    ObjectID& operator=(const ObjectID& rhs) {
-      memcpy(digest, rhs.digest, sizeof(digest));
-      return *this;
-    }
-
-    /**
-     * Sets the object id based on a hex string
-     * @param hexStr (i) Hex string
-     *
-     * Verifies the hex string and its format
-     */
-    ObjectID& operator=(const std::string& hexStr) {
-        fds_verify(hexStr.compare(0, 2, "0x") == 0);  // Require 0x prefix
-        fds_verify(hexStr.size() == (32 + 2));  // Account for 0x
-        char a, b;
-        uint j = 0;
-        for (uint i = 0; i < hexStr.length(); i += 2,j++) {
-           a = hexStr[i];   if (a > 57) a -= 87; else a -= 48; // NOLINT
-           b = hexStr[i+1]; if (b > 57) b -= 87; else b -= 48; // NOLINT
-           digest[j] =  (a << 4 & 0xF0) + b;
-        }
-        return *this;
-    }
-
-    std::string ToHex() const {
-      return ToHex(*this);
-    }
-
-    /*
-     * Static members for transforming ObjectIDs.
-     * Just utility functions.
-     */
-
-    static std::string ToHex(const ObjectID& oid) {
-      std::ostringstream hash_oss;
-
-//      hash_oss << ToHex((const char *)oid.digest,oid.GetLen());
-      hash_oss << ToHex((const uint8_t *)oid.digest,oid.GetLen());
-
-      return hash_oss.str();
-    }
-
-    static std::string ToHex(const uint8_t *key, fds_uint32_t len) {
-      std::ostringstream hash_oss;
-
-      hash_oss << std::hex << std::setfill('0') << std::nouppercase;
-      for (std::string::size_type i = 0; i < len; ++i) {
-        hash_oss << std::setw(2) << (uint16_t)key[i];
-      }
-
-      return hash_oss.str();
-    }
-
-    static std::string ToHex(const char *key, fds_uint32_t len) {
-      std::ostringstream hash_oss;
-
-      hash_oss << std::hex << std::setfill('0') << std::nouppercase;
-      for (std::string::size_type i = 0; i < len; ++i) {
-        hash_oss << std::setw(2) << (uint16_t)key[i];
-      }
-
-      return hash_oss.str();
-    }
-
-    static std::string ToHex(const fds_uint32_t *key, fds_uint32_t len) {
-      std::ostringstream hash_oss;
-
-      hash_oss << std::hex << std::setfill('0') << std::nouppercase;
-      for (std::string::size_type i = 0; i < len; ++i) {
-        hash_oss << std::setw(8) << key[i];
-      }
-
-      return hash_oss.str();
-    }
-
-    inline static int compare(const ObjectID &lhs, const ObjectID &rhs) {
-        return  memcmp(lhs.digest, rhs.digest, sizeof(lhs.digest));
-    }
+    fds_uint64_t getTokenBits(fds_uint32_t numBits) const; 
+    fds_uint32_t GetLen() const;
+    std::string ToString() const;
+    bool operator==(const ObjectID& rhs) const;
+    bool operator!=(const ObjectID& rhs) const;
+    bool operator < (const ObjectID& rhs) const;
+    bool operator > (const ObjectID& rhs) const;
+    ObjectID& operator=(const ObjectID& rhs) ;
+    ObjectID& operator=(const std::string& hexStr);
+    std::string ToHex() const;
+    static std::string ToHex(const ObjectID& oid);
+    static std::string ToHex(const uint8_t *key, fds_uint32_t len);
+    static std::string ToHex(const char *key, fds_uint32_t len);
+    static std::string ToHex(const fds_uint32_t *key, fds_uint32_t len);
+    static int compare(const ObjectID &lhs, const ObjectID &rhs);
 
     friend class ObjectLess;
     friend class ObjIdGen;
@@ -254,11 +107,8 @@ namespace fds {
 
   /* NullObjectID */
   extern ObjectID NullObjectID;
+  std::ostream& operator<<(std::ostream& out, const ObjectID& oid);
 
-  inline std::ostream& operator<<(std::ostream& out, const ObjectID& oid) {
-    return out << "Object ID: " << ObjectID::ToHex(oid);
-  }
-  
   class ObjectHash {
   public:
     size_t operator()(const ObjectID& oid) const {
@@ -292,26 +142,16 @@ namespace fds {
     {
         size = str.length();
     }
+    void resize(const size_t &sz)
+    {
+        size = sz;
+        data.resize(sz);
+    }
   };
 
 
-  inline fds_uint32_t str_to_ipv4_addr(std::string ip_str) {
-    
-    unsigned int n1, n2, n3, n4;
-    fds_uint32_t ip;
-    sscanf(ip_str.c_str(), "%d.%d.%d.%d", &n1, &n2, &n3, &n4);
-    ip = n1 << 24 | n2 << 16 | n3 << 8 | n4;
-    return (ip);
-  }
-
-  inline std::string ipv4_addr_to_str(fds_uint32_t ip) {
-    
-    char tmp_ip[32];
-    memset(tmp_ip, 0x00, sizeof(char) * 32);
-    sprintf(tmp_ip, "%u.%u.%u.%u", (ip >> 24), (ip >> 16) & 0xff, (ip >> 8) & 0xff, ip & 0xff);
-    return (std::string(tmp_ip, strlen(tmp_ip)));
-
-  }
+  fds_uint32_t str_to_ipv4_addr(std::string ip_str);
+  std::string ipv4_addr_to_str(fds_uint32_t ip);
 
   typedef void (*blkdev_complete_req_cb_t)(void *arg1, void *arg2, void *treq, int res);
   typedef enum {
@@ -424,49 +264,19 @@ namespace fds {
       magic = FDS_SH_IO_MAGIC_NOT_IN_USE;
     }
 
-    fds_bool_t magicInUse() const {
-      return (magic == FDS_SH_IO_MAGIC_IN_USE);
-    }
-    fds_volid_t getVolId() const {
-      return volId;
-    }
-    fds_io_op_t  getIoType() const {
-      return ioType;
-    }
-    void setVolId(fds_volid_t vol_id) {
-    volId = vol_id;
-    }
-    void cbWithResult(int result) {
-      return callback(result);
-    }
-    const std::string& getBlobName() const {
-      return blobName;
-    }
-    fds_uint64_t getBlobOffset() const {
-      return blobOffset;
-    }
-    const char *getDataBuf() const {
-      return dataBuf;
-    }
-    fds_uint64_t getDataLen() const {
-      return dataLen;
-    }
-    void setDataLen(fds_uint64_t len) {
-      dataLen = len;
-    }
-    void setDataBuf(const char* _buf) {
-      /*
-       * TODO: For now we're assuming the buffer is preallocated
-       * by the owner and the length has been set already.
-       */
-      memcpy(dataBuf, _buf, dataLen);
-    }
-    void setObjId(const ObjectID& _oid) {
-      objId = _oid;
-    }
-    void setQueuedUsec(fds_uint64_t _usec) {
-      queuedUsec = _usec;
-    }
+    fds_bool_t magicInUse() const;
+    fds_volid_t getVolId() const;
+    fds_io_op_t  getIoType() const;
+    void setVolId(fds_volid_t vol_id);
+    void cbWithResult(int result);
+    const std::string& getBlobName() const;
+    fds_uint64_t getBlobOffset() const;
+    const char *getDataBuf() const;
+    fds_uint64_t getDataLen() const;
+    void setDataLen(fds_uint64_t len);
+    void setDataBuf(const char* _buf);
+    void setObjId(const ObjectID& _oid);
+    void setQueuedUsec(fds_uint64_t _usec);
   };
 
   class FDS_IOType {

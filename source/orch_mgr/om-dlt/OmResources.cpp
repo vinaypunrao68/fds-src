@@ -71,7 +71,6 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
     // TODO(anna) the below code would not work yet, because
     // register node message from SM/DM does not contain node
     // (platform) uuid yet.
-    /*
     if ((msg->node_type == FDS_ProtocolInterface::FDSP_STOR_MGR) ||
         (msg->node_type == FDS_ProtocolInterface::FDSP_DATA_MGR)) {
         // we must have a node (platform) that runs any service
@@ -85,22 +84,27 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
             return Error(ERR_NODE_NOT_ACTIVE);
         }
     }
-    */
 
     err = om_locDomain->dc_register_node(uuid, msg, &newNode);
     if (err.ok() && (msg->node_type == FDS_ProtocolInterface::FDSP_PLATFORM)) {
         FDS_PLOG(g_fdslog) << "om_reg_node: Registered Platform";
+        om_locDomain->om_add_capacity(newNode);
     } else if (err.ok()) {
         fds_verify(newNode != NULL);
 
         // tell parent PM Agent about its new service
         newNode->set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
+
         if ((msg->node_uuid).uuid != 0) {
             OM_PmContainer::pointer pmNodes = om_locDomain->om_pm_nodes();
             err = pmNodes->handle_register_service((msg->node_uuid).uuid,
                                                    msg->node_type,
                                                    newNode);
         }
+
+        FDS_PLOG(g_fdslog) << "OM recv reg node uuid " << std::hex
+                           << msg->node_uuid.uuid << ", svc uuid " << uuid.uuid_get_val()
+                           << std::dec << ", type " << msg->node_type;
 
         // since we already checked above that we could add service, verify error ok
         fds_verify(err.ok());
@@ -297,6 +301,11 @@ void
 OM_ControlRespHandler::NotifyAddVolResp(
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_add_vol_resp) {
+    LOGNOTIFY << "OM received response for NotifyAddVol from node "
+              << fdsp_msg->src_node_name << " for volume "
+              << "[" << not_add_vol_resp->vol_name << ":"
+              << std::hex << not_add_vol_resp->vol_desc.volUUID << std::dec
+              << "] Result: " << fdsp_msg->err_code;
 }
 
 void
@@ -310,6 +319,11 @@ void
 OM_ControlRespHandler::NotifyRmVolResp(
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_rm_vol_resp) {
+    LOGNOTIFY << "OM received response for NotifyRmVol from node "
+              << fdsp_msg->src_node_name << " for volume "
+              << "[" << not_rm_vol_resp->vol_name << ":"
+              << std::hex << not_rm_vol_resp->vol_desc.volUUID << std::dec
+              << "] Result: " << fdsp_msg->err_code;
 }
 
 void
@@ -323,6 +337,11 @@ void
 OM_ControlRespHandler::NotifyModVolResp(
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_mod_vol_resp) {
+    LOGNOTIFY << "OM received response for NotifyModVol from node "
+              << fdsp_msg->src_node_name << " for volume "
+              << "[" << not_mod_vol_resp->vol_name << ":"
+              << std::hex << not_mod_vol_resp->vol_desc.volUUID << std::dec
+              << "] Result: " << fdsp_msg->err_code;
 }
 
 void
@@ -336,6 +355,11 @@ void
 OM_ControlRespHandler::AttachVolResp(
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     FDS_ProtocolInterface::FDSP_AttachVolTypePtr& atc_vol_resp) {
+    LOGNOTIFY << "OM received response for AttachVol from node "
+              << fdsp_msg->src_node_name << " for volume "
+              << "[" << atc_vol_resp->vol_name << ":"
+              << std::hex << atc_vol_resp->vol_desc.volUUID << std::dec
+              << "] Result: " << fdsp_msg->err_code;
 }
 
 void
@@ -349,6 +373,11 @@ void
 OM_ControlRespHandler::DetachVolResp(
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     FDS_ProtocolInterface::FDSP_AttachVolTypePtr& dtc_vol_resp) {
+    LOGNOTIFY << "OM received response for DetachVol from node "
+              << fdsp_msg->src_node_name << " for volume "
+              << "[" << dtc_vol_resp->vol_name << ":"
+              << std::hex << dtc_vol_resp->vol_desc.volUUID << std::dec
+              << "] Result: " << fdsp_msg->err_code;
 }
 
 void
@@ -406,7 +435,8 @@ OM_ControlRespHandler::NotifyDLTUpdateResp(
     FDS_ProtocolInterface::FDSP_DLT_Resp_TypePtr& dlt_resp) {
     FDS_PLOG_SEV(g_fdslog, fds_log::notification)
             << "OM received response for NotifyDltUpdate from node "
-            << fdsp_msg->src_node_name
+            << fdsp_msg->src_node_name << ":"
+            << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec
             << " for DLT version " << dlt_resp->DLT_version;
 
     // if we got response from non-SM node, nothing to do
@@ -416,9 +446,7 @@ OM_ControlRespHandler::NotifyDLTUpdateResp(
 
     // if this is from SM, notify DLT state machine
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
-    // TODO(Anna) Should we use node names or node uuids directly in
-    // fdsp messages? for now getting uuid from hashing the name
-    NodeUuid node_uuid(fds_get_uuid64(fdsp_msg->src_node_name));
+    NodeUuid node_uuid((fdsp_msg->src_service_uuid).uuid);
     domain->om_recv_sm_dlt_commit_resp(node_uuid, dlt_resp->DLT_version);
 }
 

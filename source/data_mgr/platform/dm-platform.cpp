@@ -46,6 +46,7 @@ DmPlatform::DmPlatform()
                NULL)
 {
     Platform::platf_assign_singleton(&gl_DmPlatform);
+    plf_node_type = FDSP_DATA_MGR;
 }
 
 int
@@ -55,7 +56,6 @@ DmPlatform::mod_init(SysParams const *const param)
 
     Platform::mod_init(param);
 
-    plf_node_type    = FDSP_DATA_MGR;
     plf_om_ip_str    = conf.get_abs<std::string>("fds.dm.om_ip");
 //    plf_om_conf_port = conf.get_abs<int>("fds.dm.om_port");
 //    plf_my_ctrl_port = conf.get_abs<int>("fds.dm.cp_port");

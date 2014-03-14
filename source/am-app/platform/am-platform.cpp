@@ -40,6 +40,7 @@ AmPlatform::AmPlatform()
                NULL)
 {
     Platform::platf_assign_singleton(&gl_AmPlatform);
+    plf_node_type = FDSP_STOR_HVISOR;
 }
 
 int
@@ -49,7 +50,6 @@ AmPlatform::mod_init(SysParams const *const param)
 
     Platform::mod_init(param);
 
-    plf_node_type    = FDSP_DATA_MGR;
     plf_om_ip_str    = conf.get_abs<std::string>("fds.am.om_ip");
     plf_my_ip        = util::get_local_ip();
     plf_my_node_name = plf_my_ip;

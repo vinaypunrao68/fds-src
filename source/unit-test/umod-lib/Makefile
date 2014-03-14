@@ -28,21 +28,20 @@ user_non_fds_libs := boost_log \
     pthread \
     dl \
     util \
-    m 
-#    python2.7
+    m \
+    python2.7
 
 user_cpp          := \
     ThreadPoolTest.cpp \
     conc_unit_test.cpp \
     fds_actor_ut.cpp \
-#    python_bind_ut.cpp
+    python_bind_ut.cpp
 
 user_no_style     := $(user_cpp) $(user_cc)
 user_bin_exe      := threadtest conc_test fds_actor_ut python_bind_ut
 threadtest        := ThreadPoolTest.cpp
 conc_test         := conc_unit_test.cpp
 fds_actor_ut      := fds_actor_ut.cpp
-python_bind_ut    := fds_actor_ut.cpp
-#python_bind_ut    := python_bind_ut.cpp
+python_bind_ut    := python_bind_ut.cpp
 
 include $(topdir)/Makefile.incl

@@ -7,7 +7,7 @@ user_cpp         := \
     fds_request.cpp \
     fds_module.cpp \
     fds_stat.cpp \
-#    fds_python_bind.cpp
+    fds_python_bind.cpp
 
 user_no_style    := \
     fds_request.cpp \

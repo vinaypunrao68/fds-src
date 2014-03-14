@@ -403,8 +403,19 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
             << "; activate am: " << activate_am;
 
     // TODO(anna) we should set node active state when we get a response
-    // for node activate, but for now assume always success and set active state here
+    // for node activate + update config DB with node info
+    // but for now assume always success and set active state here
     set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
+    kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
+    NodeInvData node_data;
+    if (!configDB->getNode(get_uuid(), node_data)) {
+        // for now store only if the node was not known to DB
+        configDB->addNode(*node_inv);
+        FDS_PLOG_SEV(g_fdslog, fds_log::notification)
+                << "Adding node info for " << get_node_name() << ":"
+                << std::hex << get_uuid().uuid_get_val() << std::dec
+                << " in configDB";
+    }
 
     fpi::FDSP_MsgHdrTypePtr    m_hdr(new fpi::FDSP_MsgHdrType);
     fpi::FDSP_ActivateNodeTypePtr node_msg(new fpi::FDSP_ActivateNodeType());
@@ -443,13 +454,17 @@ OM_PmContainer::agent_register(const NodeUuid       &uuid,
                                NodeAgent::pointer   *out)
 {
     // check if this is a known Node
+    bool        known;
     NodeInvData node;
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
+
     if (configDB->getNode(uuid, node)) {
         // this is a known node
+        known = true;
         msg->node_name = node.nd_node_name;
     } else {
         // do this only if the node name is empty.
+        known = false;
         if (msg->node_name.empty()) {
             uint cfgNameCounter = configDB->getNodeNameCounter();
             if (cfgNameCounter > 0) {
@@ -482,6 +497,14 @@ OM_PmContainer::agent_register(const NodeUuid       &uuid,
     fds_verify(agent != NULL);
     fds_verify(session != NULL);
     agent->setCpSession(session);
+
+    if (known == true) {
+        LOGNORMAL << "Known node uuid " << agent->get_uuid().uuid_get_val()
+            << ", name " << agent->get_node_name() << ", start all services";
+
+        // TODO(Vy): must save service cfg in db or better node provisioning.
+        agent->send_activate_services(true, true, true);
+    }
     return err;
 }
 
@@ -512,7 +535,8 @@ OM_PmContainer::handle_register_service(const NodeUuid &pm_uuid,
 {
     Error err(ERR_OK);
     NodeAgent::pointer pm_agt = agent_info(pm_uuid);
-    if (pm_agt != NULL) {
+
+    if (pm_agt == NULL) {
         return Error(ERR_NODE_NOT_ACTIVE);
     }
     return OM_PmAgent::agt_cast_ptr(pm_agt)->handle_register_service(svc_role, svc_agent);

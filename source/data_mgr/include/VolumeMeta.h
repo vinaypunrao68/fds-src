@@ -71,43 +71,11 @@ namespace fds {
     }
 
     std::string ToString() const {
-#if 0
-      return (open_seq 
-	      + std::to_string(offset) + delim
-	      + std::to_string(data_obj_id.GetHigh()) + delim
-	      + std::to_string(data_obj_id.GetLow()) + delim
-	      + std::to_string(size)
-	      + end_seq);
-#endif
-#if 0  //  SAN 
-      char *out_str = (char *)malloc(sizeof(char) * 512);
-      sprintf(out_str, "{%llu:%llx:%llx:%llu}", 
-	      offset, data_obj_id.GetHigh(), data_obj_id.GetLow(), size);
-      std::string ret_str(out_str);
-      free(out_str);
-#endif
       return data_obj_id.ToHex(data_obj_id);
     }
 
     void initFromString(std::string& str) {
-#if 0
-      size_t pos1 = str.find(delim);
-      offset = strtoull(str.substr(open_seq.size(), pos1).c_str(), NULL, 0);
-      size_t pos2 = str.find(delim, pos1+1);
-      fds_uint64_t hash_hi = strtoull(str.substr((pos1+1,pos2-pos1-1)).c_str(), NULL, 0);
-      size_t pos3 = str.find(delim, pos2+1);
-      fds_uint64_t hash_lo = strtoull(str.substr((pos2+1,pos3-pos2-1)).c_str(), NULL, 0);
-      data_obj_id.SetId(hash_hi, hash_lo);
-      size = strtoull(str.substr(pos3+1, str.size()-1-pos3-end_seq.size()).c_str(), NULL, 0);
-#endif
-#if 0  //  SAN
-      fds_uint64_t hash_hi, hash_lo;
-      sscanf(str.c_str(), "{%llu:%llx:%llx:%llu}",
-	     &offset, &hash_hi, &hash_lo, &size);
-      data_obj_id.SetId(hash_hi, hash_lo);
-#endif 
       data_obj_id.SetId((const char*)str.c_str(),str.length());
-      
     }
  
     BlobObjectInfo(std::string& str) {
