@@ -111,7 +111,7 @@ RsContainer::rs_get_resource(const ResourceUUID &uuid)
 }
 
 Resource::pointer
-RsContainer::rs_get_resource(char const *const name)
+RsContainer::rs_get_resource(const char *name)
 {
     return rs_name_map[name];
 }

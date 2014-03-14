@@ -105,9 +105,18 @@ void FdsAdminCtrl::updateAvailableDiskCapacity(const FdspVolInfoPtr pVolInfo)
 void FdsAdminCtrl::updateAdminControlParams(VolumeDesc  *pVolDesc)
 {
     /* release  the resources since volume is deleted */
+
+     FDS_PLOG_SEV(parent_log, fds::fds_log::error)
+            << "desc iops_min: " << pVolDesc->iops_min
+            << "desc iops_max: " << pVolDesc->iops_max
+            << "desc capacity: " << pVolDesc->capacity
+            << "total iops min : " << total_vol_iops_min
+            << "total iops max: " << total_vol_iops_max
+            << "total capacity : " << total_vol_disk_cap;
     fds_verify(pVolDesc->iops_min <= total_vol_iops_min);
     fds_verify(pVolDesc->iops_max <= total_vol_iops_max);
     fds_verify(pVolDesc->capacity <= total_vol_disk_cap);
+
     total_vol_iops_min -= pVolDesc->iops_min;
     total_vol_iops_max -= pVolDesc->iops_max;
     total_vol_disk_cap -= pVolDesc->capacity;
@@ -135,7 +144,10 @@ Error FdsAdminCtrl::volAdminControl(VolumeDesc  *pVolDesc)
     }
 
     FDS_PLOG(parent_log) << " inside   admin control iopc sub cluster: "
-                         << iopc_subcluster  << "\n";
+                         << iopc_subcluster
+                         << " iops_max: " << total_vol_iops_max
+                         << " iops_min: " << total_vol_iops_min
+                         << "\n";
 
     /* check the resource availability, if not return Error  */
     if (((total_vol_iops_min + pVolDesc->iops_min) <= (iopc_subcluster * LOAD_FACTOR)) &&

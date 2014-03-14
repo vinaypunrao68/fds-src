@@ -219,8 +219,9 @@ namespace fds {
 
 
     BlobNode() {
-        // Init the new blob to its initial version
-        current_version = blob_version_initial;
+        // Init the new blob to an invalid version
+        // until someone actually inits valid data.
+        current_version = blob_version_invalid;
         meta_list.clear();
     }
 
@@ -296,8 +297,10 @@ namespace fds {
     }
 
     void initFromString(std::string& str) {
-
-      current_version = blob_version_initial;
+      // Since we're updaing the blob's contents,
+      // bumps its version.
+      // TODO(Andrew): This should be based on the vols versioning
+      current_version++;
       blob_mime_type = 0;
       replicaCnt = writeQuorum = readQuorum = 0;
       consisProtocol = 0;
@@ -348,21 +351,30 @@ namespace fds {
       initFromString(str);
     }
 
-    void initFromFDSPPayload(FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr& cat_msg, fds_volid_t _vol_id) {
+    void initFromFDSPPayload(const FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr cat_msg,
+                             fds_volid_t _vol_id) {
+        // Since we're updaing the blob's contents,
+        // bumps its version.
+        // TODO(Andrew): This should be based on the vols versioning
+        current_version++;
+        blob_mime_type = 0;
+        replicaCnt = writeQuorum = readQuorum = 0;
+        consisProtocol = 0;
 
-      current_version = blob_version_initial;
-      blob_mime_type = 0;
-      replicaCnt = writeQuorum = readQuorum = 0;
-      consisProtocol = 0;
+        vol_id = _vol_id;
 
-      vol_id = _vol_id;
-
-      blob_name = cat_msg->blob_name;
-      blob_size = cat_msg->blob_size;
+        blob_name = cat_msg->blob_name;
  
-      initMetaListFromFDSPMetaList(cat_msg->meta_list);
-      obj_list.initFromFDSPObjList(cat_msg->obj_list);
-
+        initMetaListFromFDSPMetaList(cat_msg->meta_list);
+        obj_list.initFromFDSPObjList(cat_msg->obj_list);
+      
+        // TODO(Andrew): This calculation assumes that we're
+        // setting the entire blobs contents. This needs to
+        // change when we allow partial updates or sparse blobs.
+        blob_size = 0;
+        for (fds_uint32_t i = 0; i < obj_list.size(); i++) {
+            blob_size += (obj_list[i]).size;
+        }
     }
 
     BlobNode(FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr cat_msg, fds_volid_t _vol_id)
