@@ -639,54 +639,85 @@ void DataMgr::ReqHandler::GetVolumeBlobList(FDSP_MsgHdrTypePtr& msg_hdr,
   }  
 }
 
+/**
+ * Processes a catalog update.
+ * The blob node is allocated inside of this function and returned
+ * to the caller via a parameter. The bnode is only expected to be
+ * allocated if ERR_OK is returned.
+ *
+ * @param[in]  updCatReq catalog update request
+ * @param[out] bnode the blob node that was processed
+ * @return The result of the processing
+ */
+Error
+DataMgr::updateCatalogProcess(const dmCatReq  *updCatReq, BlobNode **bnode) {
+    Error err(ERR_OK);
+    
+    LOGNORMAL << "Processing update catalog request with "
+              << "volume id: " << updCatReq->volId
+              << ", blob name: "
+              << updCatReq->blob_name
+              << ", Trans ID "
+              << updCatReq->transId
+              << ", OP ID " << updCatReq->transOp
+              << ", journ TXID " << updCatReq->reqCookie;
+
+    // Check if this blob exists already and what its current version is.
+    *bnode = NULL;
+    err = _process_query(updCatReq->volId,
+                         updCatReq->blob_name,
+                         *bnode);
+    if (err == ERR_CAT_ENTRY_NOT_FOUND) {
+        // If this blob doesn't already exist, allocate a new one
+        *bnode = new BlobNode();
+        fds_verify(bnode != NULL);
+        err = ERR_OK;
+    } else {
+        fds_verify(*bnode != NULL);
+        // TODO(Andrew): For now, we're just increasing the version by one.
+        // What we should do is check the volume's versioning
+        fds_verify((*bnode)->current_version != blob_version_invalid);
+        (*bnode)->current_version++;
+    }
+    fds_verify(err == ERR_OK);
+
+    // Re-init the blob's data from the update request.
+    // TODO(Andrew): Don't always just re-init the entire
+    // blob, but allow partial updates.
+    (*bnode)->initFromFDSPPayload(updCatReq->fdspUpdCatReqPtr, updCatReq->volId);
+
+    /*
+     * For now, just treat this as an open
+     */
+    if (updCatReq->transOp ==
+        FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_OPEN) {
+        // Currently, this processes the entire blob at once.
+        // Any modifications to it need to be made before hand.
+        err = dataMgr->_process_open((fds_volid_t)updCatReq->volId,
+                                     updCatReq->blob_name,
+                                     updCatReq->transId,
+                                     (const BlobNode *&)(*bnode));
+    } else if (updCatReq->transOp ==
+               FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_COMMITED) {
+        err = dataMgr->_process_commit(updCatReq->volId,
+                                       updCatReq->blob_name,
+                                       updCatReq->transId,
+                                       (const BlobNode *&)*bnode);
+    } else {
+        err = ERR_CAT_QUERY_FAILED;
+    }
+
+    return err;
+}
+
 void
 DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
   Error err(ERR_OK);
 
-  FDS_PLOG(dataMgr->GetLog()) << "Processing update catalog request with "
-                              << "volume id: " << updCatReq->volId
-                              << ", blob name: "
-                              << updCatReq->blob_name
-			      << ", Trans ID "
-                              << updCatReq->transId
-                              << ", OP ID " << updCatReq->transOp
-                              << ", journ TXID " << updCatReq->reqCookie;
-
-  // Check if this blob exists already and what its current version is.
   BlobNode *bnode = NULL;
-  err = _process_query(updCatReq->volId,
-                       updCatReq->blob_name,
-                       bnode);
-  if (err == ERR_CAT_ENTRY_NOT_FOUND) {
-      // If this blob doesn't already exist, allocate a new one
-      bnode = new BlobNode(updCatReq->fdspUpdCatReqPtr, updCatReq->volId);
-      err = ERR_OK;
-  }
-  fds_verify(err == ERR_OK);
-  fds_verify(bnode != NULL);
-
-  // TODO(Andrew): For now, we're just increasing the version by one.
-  // What we should do is check the volume's versioning
-  fds_verify(bnode->current_version != blob_version_invalid);
-  bnode->current_version++;
-
-  /*
-   * For now, just treat this as an open
-   */
-  if (updCatReq->transOp ==
-      FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_OPEN) {
-    err = dataMgr->_process_open((fds_volid_t)updCatReq->volId,
-                                 updCatReq->blob_name,
-                                 updCatReq->transId,
-                                 (const BlobNode *&)bnode);
-  } else if (updCatReq->transOp ==
-             FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_COMMITED) {
-    err = dataMgr->_process_commit(updCatReq->volId,
-                                   updCatReq->blob_name,
-                                   updCatReq->transId,
-                                   (const BlobNode *&)bnode);
-  } else {
-    err = ERR_CAT_QUERY_FAILED;
+  err = updateCatalogProcess(updCatReq, &bnode);
+  if (err == ERR_OK) {
+      fds_verify(bnode != NULL);
   }
 
   FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
@@ -714,7 +745,13 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
 
   update_catalog->blob_name = updCatReq->blob_name;
   // Return the now current version of the blob
-  update_catalog->blob_version = bnode->current_version;
+  if (bnode != NULL) {
+      // The bnode may be NULL if didn't successfully modifiy
+      // it and are returning error.
+      update_catalog->blob_version = bnode->current_version;
+  } else {
+      update_catalog->blob_version = blob_version_invalid;
+  }
   update_catalog->dm_transaction_id = updCatReq->transId;
   update_catalog->dm_operation = updCatReq->transOp;
   /*
@@ -746,8 +783,9 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
         << "End:Sent update response for trans commit request";
   }
   
-  if (bnode)
+  if (bnode != NULL) {
       delete bnode;
+  }
 
   qosCtrl->markIODone(*updCatReq);
   delete updCatReq;

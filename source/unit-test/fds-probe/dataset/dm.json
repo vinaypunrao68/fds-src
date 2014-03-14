@@ -1,0 +1,31 @@
+{
+    "Run-Input": {
+        "dm-workload": {
+            "dm-ops": [
+                {
+		    "blob-op":   "update",
+		    "volume-id": 2,
+                    "blob-name": "blob-a",
+		    "blob-off":  0,
+                    "object-id": "0x2aae6c35c94fcfb415dbe95f408b9ce91ee846ed",
+		    "object-len": 3145728
+                },
+                {
+		    "blob-op":   "query",
+		    "volume-id": 2,
+                    "blob-name": "blob-a",
+    		    "blob-off":  0,
+		    "blob-ver":  1
+                },
+		{
+		    "blob-op":   "update",
+		    "volume-id": 2,
+                    "blob-name": "blob-a",
+		    "blob-off":  0,
+                    "object-id": "0x2aae6c35c94fcfb415dbe95f408b9ce91ee846ed",
+		    "object-len": 4194304
+                }
+            ]
+        }
+    }
+}
