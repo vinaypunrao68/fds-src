@@ -33,7 +33,7 @@ if __name__ == '__main__':
             print "You need to pass hostname to --host option"
             sys.exit(1)
 
-        print "Installing to %s at %s" % (options.host, options.fds_root)
+        print "Installing to %s at: %s" % (options.host, options.fds_root)
         rmt = inst.FdsRmtEnv(options.fds_root)
         rmt.ssh_connect(options.host)
         pkg.package_install(rmt)

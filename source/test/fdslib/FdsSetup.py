@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+# Copyright 2014 by Formation Data Systems, Inc.
+#
 import os, errno, sys
 import subprocess, pdb
 import paramiko
@@ -29,7 +31,7 @@ def mkdir_p(path):
 
 # --------------------------------------------------------------------------------------
 ###
-# FDS environment relative to the closet FDS source tree or FDS Root run time.
+# FDS environment data derrived from the closet FDS source tree or FDS Root run time.
 #
 class FdsEnv(object):
     def __init__(self, _root):
@@ -41,7 +43,9 @@ class FdsEnv(object):
         self.env_password  = 'passwd'
         self.env_fdsDict   = {
             'debug-base': 'Build/linux-x86_64.debug/',
-            'package'   : 'fds.tar'
+            'package'   : 'fds.tar',
+            'pkg-sbin'  : 'test',
+            'root-sbin' : 'sbin'
         }
 
         tmp_dir = self.env_cdir
@@ -191,7 +195,7 @@ class FdsRmtEnv(FdsEnv):
     ###
     # Execute command to a remote node through ssh client.
     #
-    def ssh_exec(self, cmd, fds_bin = True):
+    def ssh_exec(self, cmd, fds_bin = False):
         if fds_bin:
             cmd_exec = self.env_ldLibPath + \
                 '; cd ' + self.get_fds_root() + 'bin; ./' + cmd
@@ -211,6 +215,12 @@ class FdsRmtEnv(FdsEnv):
         stdin.close()
         stdout.close()
         stderr.close()
+
+    ###
+    # Execute command from $fds_root/bin directory.  Prefix with needed stuffs.
+    #
+    def ssh_exec_fds(self, cmd):
+        self.ssh_exec(cmd, True)
 
     def ssh_close(self):
         env_ssh_clnt.close()
@@ -267,13 +277,19 @@ class FdsPackage:
     # Install the tar ball to a remote node using default user/passwd from env obj.
     #
     def package_install(self, rmt_ssh):
-        print "Copying the tar ball package to ", rmt_ssh.get_host_name()
+        print "Copying the tar ball package to %s at: %s" % (
+            rmt_ssh.get_host_name(), self.p_env.get_fds_root())
+
+        rmt_ssh.ssh_exec('mkdir -p ' + self.p_env.get_fds_root())
         rmt_ssh.scp_copy(self.p_env.get_pkg_tar(), self.p_env.get_fds_root())
 
         print "Unpacking the tar ball package to ", rmt_ssh.get_host_name()
-        rmt_ssh.ssh_exec('mkdir -p ' + self.p_env.get_fds_root())
         rmt_ssh.ssh_exec('cd ' + self.p_env.get_fds_root() + '; tar xf ' +
-                         self.p_env.env_fdsDict['package'], False)
+                         self.p_env.env_fdsDict['package'])
 
-        rmt_ssh.ssh_exec('rm ' + self.p_env.get_fds_root() +
-                         self.p_env.env_fdsDict['package'], False)
+        # Cleanup and rename to match with fds-root directory convention.
+        #
+        rmt_ssh.ssh_exec('cd ' + self.p_env.get_fds_root() + '; rm ' +
+                         self.p_env.env_fdsDict['package'] + '; mv ' +
+                         self.p_env.env_fdsDict['pkg-sbin'] + ' ' +
+                         self.p_env.env_fdsDict['root-sbin'])
