@@ -59,6 +59,7 @@ class DataMgr : public PlatformProcess
  public:
     fds_volid_t  volId;
     std::string blob_name;
+    blob_version_t blob_version;
     fds_uint32_t transId;
     fds_uint32_t transOp;
     long 	 srcIp;
@@ -82,6 +83,7 @@ class DataMgr : public PlatformProcess
         reqCookie(_reqCookie), fdspUpdCatReqPtr(NULL) {
       io_type = _ioType;
       io_vol_id = _volId;
+      blob_version = blob_version_invalid;
     }
 
     dmCatReq(fds_volid_t        _volId,
@@ -98,6 +100,7 @@ class DataMgr : public PlatformProcess
 	     FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr _updCatReq) {
          volId             = _volId;
       	 blob_name         = _blob_name;
+         blob_version      = blob_version_invalid;
          transId           = _transId;
          transOp           = _transOp;
          srcIp 	           = _srcIp;
@@ -120,6 +123,10 @@ class DataMgr : public PlatformProcess
 
       ~dmCatReq() {
 	fdspUpdCatReqPtr = NULL;
+      }
+
+      void setBlobVersion(blob_version_t version) {
+          blob_version = version;          
       }
     };
 

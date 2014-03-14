@@ -188,7 +188,6 @@ Error DataMgr::_process_open(fds_volid_t vol_uuid,
   VolumeMeta *vol_meta = vol_meta_map[vol_uuid];
   vol_map_mtx->unlock();
 
-
   /*
    * Check the map to see if we know about the volume
    * and just add it if we don't.
@@ -206,7 +205,6 @@ Error DataMgr::_process_open(fds_volid_t vol_uuid,
 
     return err;
   }
-
 
   err = vol_meta->OpenTransaction(blob_name, bnode, vol_meta->vol_desc);
 
@@ -338,7 +336,6 @@ Error DataMgr::_process_query(fds_volid_t vol_uuid,
 
   return err;
 }
-
 
 Error DataMgr::_process_delete(fds_volid_t vol_uuid,
                               std::string blob_name) {
@@ -655,7 +652,23 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
                               << ", OP ID " << updCatReq->transOp
                               << ", journ TXID " << updCatReq->reqCookie;
 
-  BlobNode *bnode = new BlobNode(updCatReq->fdspUpdCatReqPtr, updCatReq->volId);
+  // Check if this blob exists already and what its current version is.
+  BlobNode *bnode = NULL;
+  err = _process_query(updCatReq->volId,
+                       updCatReq->blob_name,
+                       bnode);
+  if (err == ERR_CAT_ENTRY_NOT_FOUND) {
+      // If this blob doesn't already exist, allocate a new one
+      bnode = new BlobNode(updCatReq->fdspUpdCatReqPtr, updCatReq->volId);
+      err = ERR_OK;
+  }
+  fds_verify(err == ERR_OK);
+  fds_verify(bnode != NULL);
+
+  // TODO(Andrew): For now, we're just increasing the version by one.
+  // What we should do is check the volume's versioning
+  fds_verify(bnode->current_version != blob_version_invalid);
+  bnode->current_version++;
 
   /*
    * For now, just treat this as an open
@@ -675,9 +688,6 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
   } else {
     err = ERR_CAT_QUERY_FAILED;
   }
-
-  if (bnode)
-    delete bnode;
 
   FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
   FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr
@@ -703,6 +713,8 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
   msg_hdr->req_cookie =  updCatReq->reqCookie;
 
   update_catalog->blob_name = updCatReq->blob_name;
+  // Return the now current version of the blob
+  update_catalog->blob_version = bnode->current_version;
   update_catalog->dm_transaction_id = updCatReq->transId;
   update_catalog->dm_operation = updCatReq->transOp;
   /*
@@ -718,6 +730,8 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
                               << "volume id: " << msg_hdr->glob_volume_id
                               << ", blob name: "
                               << update_catalog->blob_name
+                              << ", blob version: "
+                              << update_catalog->blob_version
                               << ", Trans ID "
                               << update_catalog->dm_transaction_id
                               << ", OP ID " << update_catalog->dm_operation;
@@ -731,6 +745,9 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
     FDS_PLOG(dataMgr->GetLog())
         << "End:Sent update response for trans commit request";
   }
+  
+  if (bnode)
+      delete bnode;
 
   qosCtrl->markIODone(*updCatReq);
   delete updCatReq;
@@ -906,11 +923,14 @@ DataMgr::queryCatalogBackend(dmCatReq  *qryCatReq) {
   DataMgr::InitMsgHdr(msg_hdr);
   query_catalog->obj_list.clear();
   query_catalog->meta_list.clear();
-
-  if (err.ok()) {
-    bnode->ToFdspPayload(query_catalog);
-    msg_hdr->result  = FDS_ProtocolInterface::FDSP_ERR_OK;
-    msg_hdr->err_msg = "Dude, you're good to go!";
+  
+  // Check if blob version we have matches the specific
+  // version requested or if no version was specified
+  if ((err.ok()) && ((qryCatReq->blob_version == blob_version_invalid) ||
+                     (qryCatReq->blob_version == bnode->current_version))) {
+      bnode->ToFdspPayload(query_catalog);
+      msg_hdr->result  = FDS_ProtocolInterface::FDSP_ERR_OK;
+      msg_hdr->err_msg = "Dude, you're good to go!";
   } else {
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_FAILED;
     msg_hdr->err_msg  = "Something hit the fan...";
@@ -941,6 +961,8 @@ DataMgr::queryCatalogBackend(dmCatReq  *qryCatReq) {
                               << "volume id: " << msg_hdr->glob_volume_id
                               << ", blob name: "
                               << query_catalog->blob_name
+                              << ", version: "
+                              << query_catalog->blob_version
                               << ", Trans ID "
                               << query_catalog->dm_transaction_id
                               << ", OP ID " << query_catalog->dm_operation;
@@ -974,17 +996,24 @@ DataMgr::blobListInternal(const FDSP_GetVolumeBlobListReqTypePtr& blob_list_req,
 
 Error
 DataMgr::queryCatalogInternal(FDSP_QueryCatalogTypePtr qryCatReq, 
-                                 fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
-			      fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie) {
-  fds::Error err(fds::ERR_OK);
-
+                              fds_volid_t volId, long srcIp,
+                              long dstIp, fds_uint32_t srcPort,
+			      fds_uint32_t dstPort, std::string session_uuid,
+                              fds_uint32_t reqCookie) {
+    fds::Error err(fds::ERR_OK);
     
     /*
      * allocate a new query cat log  class and  queue  to per volume queue.
      */
-  dmCatReq *dmQryReq = new DataMgr::dmCatReq(volId, qryCatReq->blob_name,
-					     qryCatReq->dm_transaction_id, qryCatReq->dm_operation,srcIp,
-					     dstIp, srcPort,dstPort,session_uuid, reqCookie, FDS_CAT_QRY, NULL); 
+    dmCatReq *dmQryReq = new DataMgr::dmCatReq(volId, qryCatReq->blob_name,
+                                               qryCatReq->dm_transaction_id,
+                                               qryCatReq->dm_operation,srcIp,
+                                               dstIp, srcPort,dstPort,session_uuid,
+                                               reqCookie, FDS_CAT_QRY, NULL);
+    // Set the version
+    // TODO(Andrew): Have a better constructor so that I can
+    // set it that way.
+    dmQryReq->setBlobVersion(qryCatReq->blob_version);
 
     err = qosCtrl->enqueueIO(dmQryReq->getVolId(), static_cast<FDS_IOType*>(dmQryReq));
     if (err != ERR_OK) {

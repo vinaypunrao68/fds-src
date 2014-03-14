@@ -137,6 +137,8 @@ Error VolumeCatalogCache::queryDm(const std::string& blobName,
    * we want...all objects won't work well for large blobs.
    */
   query_req->blob_name             = blobName;
+  // We don't currently specify a version
+  query_req->blob_version          = blob_version_invalid;
   query_req->dm_transaction_id     = 1;
   query_req->dm_operation          =
       FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_OPEN;

@@ -7,11 +7,10 @@ import FDS_ProtocolInterface.FDSP_AnnounceDiskCapability;
 import FDS_ProtocolInterface.FDSP_MgrIdType;
 import FDS_ProtocolInterface.FDSP_RegisterNodeType;
 import FDS_ProtocolInterface.FDSP_Uuid;
-import junit.framework.TestCase;
 
 import java.util.UUID;
 
-public abstract class BaseTestCase extends TestCase {
+public abstract class BaseTestCase {
     protected FDSP_RegisterNodeType makeEndpoint(String name, FDSP_MgrIdType nodeType) {
         FDSP_RegisterNodeType node = new FDSP_RegisterNodeType(nodeType,
                 name,

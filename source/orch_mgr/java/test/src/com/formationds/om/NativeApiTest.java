@@ -4,12 +4,17 @@ package com.formationds.om;
  */
 
 import com.formationds.util.MutableAcceptor;
-import junit.framework.TestCase;
+import org.junit.Test;
 
 import java.lang.management.ManagementFactory;
 
-public class NativeApiTest extends TestCase {
-    public void _testInit() throws Exception {
+public class NativeApiTest {
+    @Test
+    public void JunitIsSilly() {
+
+    }
+
+    public void testInit() throws Exception {
         System.out.println(ManagementFactory.getRuntimeMXBean().getName());
         new NativeApi();
         NativeApi.startOm(new String[0]);
@@ -18,9 +23,5 @@ public class NativeApiTest extends TestCase {
         MutableAcceptor<String> acceptor = new MutableAcceptor<>();
         NativeApi.listNodes(acceptor);
         Thread.sleep(1000);
-    }
-
-    public void testKeepJunitHappy() {
-        assertTrue(true);
     }
 }

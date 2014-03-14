@@ -5,9 +5,12 @@ package com.formationds.util;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.Lists;
-import junit.framework.TestCase;
+import org.junit.Test;
 
-public class MutableAcceptorTest extends TestCase {
+import static org.junit.Assert.*;
+
+public class MutableAcceptorTest {
+    @Test
     public void testAccept() {
         MutableAcceptor<Integer> acceptor = new MutableAcceptor<>();
         assertFalse(acceptor.isDone());

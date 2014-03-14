@@ -1,13 +1,16 @@
 package com.formationds.web.toolkit;
 
-import junit.framework.TestCase;
+import org.junit.Test;
 
 import javax.servlet.http.HttpServletRequest;
+
+import static org.junit.Assert.assertEquals;
 
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
-public class RouteFinderTest extends TestCase {
+public class RouteFinderTest {
+    @Test
     public void testResolve() throws Exception {
         RouteFinder routeFinder = new RouteFinder();
         routeFinder.route(HttpMethod.get, "/hello/foo", () -> new Foo());
