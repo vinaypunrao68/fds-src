@@ -12,6 +12,8 @@
 #include <fdsp/FDSP_types.h>
 #include <hash/MurmurHash3.h>
 #include <checker.h>
+#include <FdsCrypto.h>
+#include <ObjectId.h>
 
 namespace fs = boost::filesystem;
 
@@ -67,7 +69,8 @@ class DatapathRespImpl : public FDS_ProtocolInterface::FDSP_DataPathRespIf {
 
     void GetObjectResp(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,  // NOLINT
             FDS_ProtocolInterface::FDSP_GetObjTypePtr& get_req) {  // NOLINT
-         fds_verify(msg_hdr->result == FDS_ProtocolInterface::FDSP_ERR_OK);
+         fds_verify(msg_hdr->result == FDS_ProtocolInterface::FDSP_ERR_OK ||
+                    !"object ID not exist on SM");
          *get_obj_buf_ = get_req->data_obj;
          get_resp_monitor_->done();
     }
@@ -81,6 +84,13 @@ class DatapathRespImpl : public FDS_ProtocolInterface::FDSP_DataPathRespIf {
 DirBasedChecker::DirBasedChecker(const FdsConfigAccessor &conf_helper)
     : BaseChecker("DirBasedChecker"),
       conf_helper_(conf_helper),
+      get_resp_monitor_(0),
+      dp_resp_handler_(new DatapathRespImpl())
+{
+}
+
+DirBasedChecker::DirBasedChecker()
+    : BaseChecker("DirBasedChecker"),
       get_resp_monitor_(0),
       dp_resp_handler_(new DatapathRespImpl())
 {
@@ -110,6 +120,7 @@ void DirBasedChecker::mod_startup()
 
     om_client->initialize();
 
+#if 0
     FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr dInfo;
     dInfo.reset(new FDSP_AnnounceDiskCapability());
     dInfo->disk_iops_max =  10000; /* avarage IOPS */
@@ -123,8 +134,11 @@ void DirBasedChecker::mod_startup()
     dInfo->ssd_latency_max = 100; /* in milli second */
     dInfo->ssd_latency_min = 3; /* in milli second */
     dInfo->disk_type =  FDS_DISK_SATA;
-    om_client->startAcceptingControlMessages(conf_helper_.get<int>("control_port"));
-    om_client->registerNodeWithOM(dInfo);
+#endif
+    int ctrl_port = conf_helper_.get<int>("control_port");
+    om_client->startAcceptingControlMessages(ctrl_port);
+
+    om_client->registerNodeWithOM(this);
 
     /* Set up cluster comm manager */
     clust_comm_mgr_.reset(new ClusterCommMgr(om_client, nst));
@@ -191,9 +205,10 @@ bool DirBasedChecker::get_object(const NodeUuid& node_id,
     msg_hdr->glob_volume_id = FdsSysTaskQueueId;
     msg_hdr->err_code = ERR_OK;
 
-    get_req->data_obj_id.hash_high = oid.GetHigh();
-    get_req->data_obj_id.hash_low  = oid.GetLow();
-    get_req->data_obj_len          = 0;
+    get_req->data_obj_id.digest = std::string((const char *)oid.GetId(),
+                                              (size_t)oid.GetLen());
+    get_req->data_obj_len       = 0;
+    get_req->dlt_version        = 1;
 
     /* response buffer */
     get_resp_monitor_.reset(1);
@@ -209,6 +224,18 @@ bool DirBasedChecker::get_object(const NodeUuid& node_id,
     dp_resp_handler_->get_resp_monitor_ = nullptr;
 
     return true;
+}
+
+PlatRpcReqt *DirBasedChecker::plat_creat_reqt_disp()
+{
+    fds_assert(0);
+    return nullptr;
+}
+
+PlatRpcResp *DirBasedChecker::plat_creat_resp_disp()
+{
+    fds_assert(0);
+    return nullptr;
 }
 
 void DirBasedChecker::run_checker()
@@ -227,35 +254,37 @@ void DirBasedChecker::run_checker()
         }
         /* Read the file data */
         std::string obj_data;
-        ObjectID oid;
         bool ret = read_file(dir_itr->path().native(), obj_data);
         fds_verify(ret == true);
-        MurmurHash3_x64_128(obj_data.c_str(),
-                obj_data.size(),
-                0,
-                &oid);
+
+        /* Hash the data to object the ID */
+        ObjectID objId = ObjIdGen::genObjectId(obj_data.c_str(), obj_data.size());
 
         /* Issue gets from SMs */
-        auto nodes = clust_comm_mgr_->get_dlt()->getNodes(oid);
+        auto nodes = clust_comm_mgr_->get_dlt()->getNodes(objId);
         for (uint32_t i = 0; i < nodes->getLength(); i++) {
             std::string ret_obj_data;
-            bool ret = get_object((*nodes)[i], oid, ret_obj_data);
+            bool ret = get_object((*nodes)[i], objId, ret_obj_data);
             fds_verify(ret == true);
             fds_verify(ret_obj_data == obj_data);
 
             cntrs_.obj_cnt.incr();
 
-            LOGDEBUG << "oid: " << oid << " check passed against: "
+            LOGDEBUG << "oid: " << objId<< " check passed against: "
                     << std::hex << ((*nodes)[i]).uuid_get_val();
         }
     }
+    LOGNORMAL << "Checker run done!" << std::endl;
 }
 
 FdsCheckerProc::FdsCheckerProc(int argc, char *argv[],
                const std::string &config_file,
-               const std::string &base_path)
-    : FdsProcess(argc, argv, config_file, base_path)
+               const std::string &base_path,
+               Platform *platform, Module **mod_vec)
+    : PlatformProcess(argc, argv, config_file, base_path, platform, mod_vec)
 {
+    reinterpret_cast<DirBasedChecker *>(platform)->set_cfg_accessor(conf_helper_);
+    checker_.reset(reinterpret_cast<DirBasedChecker *>(platform));
     g_fdslog->setSeverityFilter(
             (fds_log::severity_level) conf_helper_.get<int>("log_severity"));
 }
@@ -265,12 +294,10 @@ FdsCheckerProc::~FdsCheckerProc()
     checker_->mod_shutdown();
 }
 
-void FdsCheckerProc::setup(int argc, char *argv[],
-                       fds::Module **mod_vec)
+void FdsCheckerProc::setup()
 {
-    FdsProcess::setup(argc, argv, mod_vec);
+    PlatformProcess::setup();
 
-    checker_.reset(new DirBasedChecker(conf_helper_));
     checker_->mod_startup();
 }
 
@@ -280,14 +307,47 @@ void FdsCheckerProc::run()
     g_cntrs_mgr->export_to_ostream(std::cout);
 }
 
+void FdsCheckerProc::plf_load_node_data()
+{
+    PlatformProcess::plf_load_node_data();
+    if (plf_node_data.nd_has_data == 0) {
+        plf_node_data.nd_node_uuid = fds_get_uuid64(get_uuid());
+        std::cout << "NO UUID, generate one " << std::hex
+                  << plf_node_data.nd_node_uuid << std::endl;
+    }
+    plf_node_data.nd_node_uuid = fds_get_uuid64(get_uuid());
+    std::cout << "UUID, generate for checker " << std::hex
+              << plf_node_data.nd_node_uuid << std::endl;
+    // Make up some values for now.
+    //
+    plf_node_data.nd_has_data    = 1;
+    plf_node_data.nd_magic       = 0xcafebabe;
+    plf_node_data.nd_node_number = 0;
+    plf_node_data.nd_plat_port   = plf_mgr->plf_get_my_ctrl_port();
+    plf_node_data.nd_om_port     = plf_mgr->plf_get_om_ctrl_port();
+    plf_node_data.nd_flag_run_sm = 0;
+    plf_node_data.nd_flag_run_dm = 1;
+    plf_node_data.nd_flag_run_am = 2;
+    plf_node_data.nd_flag_run_om = 3;
+
+    // TODO(Vy): deal with error here.
+    //
+    plf_db->set(plf_db_key,
+                std::string((const char *)&plf_node_data, sizeof(plf_node_data)));
+}
+
 }  // namespace fds
 
 int main(int argc, char *argv[]) {
+    DirBasedChecker *plt = new DirBasedChecker;
+
+    /* platform cannot be on the stack */
     fds::FdsCheckerProc *checker = new fds::FdsCheckerProc(argc, argv,
-            "checker.conf", "fds.checker.");
-    checker->setup(argc, argv, nullptr);
+            "fds.checker.", "checker.log", plt, nullptr);
+    checker->setup();
     checker->run();
 
     delete checker;
-}
 
+    return (0);
+}

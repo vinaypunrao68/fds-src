@@ -378,7 +378,7 @@ void OrchMgr::defaultS3BucketPolicy()
     FDS_ProtocolInterface::FDSP_PolicyInfoType policy_info;
     policy_info.policy_name = std::string("S3-Bucket_policy");
     policy_info.policy_id = 50;
-    policy_info.iops_min = 400;
+    policy_info.iops_min = 10;
     policy_info.iops_max = 600;
     policy_info.rel_prio = 1;
 

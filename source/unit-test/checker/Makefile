@@ -14,9 +14,11 @@ user_incl_dir     := \
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  := \
-    fds-migrations\
     fds-smlib\
+    fds-migrations\
     fds-StorHvisor \
+    fds-am-plat \
+    fds-plat-lib \
     fds-lib \
     fds-dsk-mgnt \
     fds-umod \
@@ -38,13 +40,15 @@ user_non_fds_libs := \
     boost_thread \
     boost_date_time \
     boost_program_options \
+    boost_timer \
     leveldb \
     ssl \
-    crypto \
+    cryptopp \
     leveldb \
     fuse \
     config++ \
-    thrift
+    thrift \
+    hiredis \
 
 user_cpp          := checker.cpp 
 

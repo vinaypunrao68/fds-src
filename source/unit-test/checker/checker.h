@@ -6,6 +6,7 @@
 
 #include <fds_module.h>
 #include <fds_process.h>
+#include <platform/platform-lib.h>
 #include <ClusterCommMgr.h>
 #include <NetSession.h>
 #include <concurrency/taskstatus.h>
@@ -37,10 +38,10 @@ class CheckerCntrs : public FdsCounters
 /**
  * Base checker class
  */
-class BaseChecker : public Module {
+class BaseChecker : public Platform {
  public:
     BaseChecker(char const *const name)
-     : Module(name),
+     : Platform("Checker-Platform", FDSP_STOR_HVISOR, NULL, NULL, NULL, NULL),
        cntrs_("Checker", g_cntrs_mgr.get())
      {}
     virtual ~BaseChecker() {}
@@ -64,6 +65,7 @@ typedef boost::shared_ptr<BaseChecker> BaseCheckerPtr;
 class DirBasedChecker : public BaseChecker {
  public:
     DirBasedChecker(const FdsConfigAccessor &conf_helper);
+    DirBasedChecker();
     virtual ~DirBasedChecker();
 
     /* Module overrides */
@@ -74,12 +76,16 @@ class DirBasedChecker : public BaseChecker {
     virtual void run_checker() override;
 
     fds_log* GetLog() { return g_fdslog;}
+    void set_cfg_accessor(const FdsConfigAccessor &cfg_ac) { conf_helper_ = cfg_ac; }
 
  protected:
     bool read_file(const std::string &filename, std::string &content);
     bool get_object(const NodeUuid& node_id,
             const ObjectID &oid, std::string &content);
     netDataPathClientSession* get_datapath_session(const NodeUuid& node_id);
+
+    virtual PlatRpcReqt *plat_creat_reqt_disp();
+    virtual PlatRpcResp *plat_creat_resp_disp();
 
     FdsConfigAccessor conf_helper_;
     ClusterCommMgrPtr clust_comm_mgr_;
@@ -90,15 +96,17 @@ class DirBasedChecker : public BaseChecker {
 /**
  * Checker process
  */
-class FdsCheckerProc : public FdsProcess {
+class FdsCheckerProc : public PlatformProcess {
  public:
     FdsCheckerProc(int argc, char *argv[],
                    const std::string &config_file,
-                   const std::string &base_path);
+                   const std::string &base_path,
+                   Platform *platform,
+                   Module **mod_vec);
     virtual ~FdsCheckerProc();
-    virtual void setup(int argc, char *argv[],
-                       fds::Module **mod_vec) override;
+    virtual void setup(void) override;
     void run() override;
+    void plf_load_node_data();
  private:
     BaseCheckerPtr checker_;
 };

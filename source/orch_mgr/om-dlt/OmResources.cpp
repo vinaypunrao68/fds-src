@@ -100,6 +100,11 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
             err = pmNodes->handle_register_service((msg->node_uuid).uuid,
                                                    msg->node_type,
                                                    newNode);
+
+            /* XXX: TODO: (bao) ignore err ERR_NODE_NOT_ACTIVE for now, for checker */
+            if (err == ERR_NODE_NOT_ACTIVE) {
+                err = ERR_OK;
+            }
         }
 
         FDS_PLOG(g_fdslog) << "OM recv reg node uuid " << std::hex

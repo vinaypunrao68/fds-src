@@ -11,6 +11,7 @@ user_build_dir :=      \
     stor-mgr	       \
     dlt                \
     migrations         \
+    checker            \
 #    stor_mgr           \
 #    stor_hvisor_ice    \
 
