@@ -22,12 +22,12 @@ public class Dlt {
     private FDSP_Uuid[] uuids;
     private int[][] tokenLocations;
 
-    public Dlt(long version, int numBitsForToken, int depth, int numTokens, List<FDSP_Uuid> uuids) {
+    public Dlt(long version, int numBitsForToken, int depth, int numTokens, FDSP_Uuid[] uuids) {
         this.version = version;
         this.numBitsForToken = numBitsForToken;
         this.depth = depth;
         this.numTokens = numTokens;
-        this.uuids = uuids.toArray(new FDSP_Uuid[uuids.size()]);
+        this.uuids = uuids;
         tokenLocations = new int[numTokens][depth];
     }
 

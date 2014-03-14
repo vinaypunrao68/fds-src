@@ -31,7 +31,7 @@ public class DltTest {
 
     @Test
     public void testSerialize() throws Exception {
-        Dlt dlt = new Dlt(1, 8, 1, 256, Lists.newArrayList(new FDSP_Uuid(uuid)));
+        Dlt dlt = new Dlt(1, 8, 1, 256, new FDSP_Uuid[] {new FDSP_Uuid(uuid)});
         for (int i = 0; i < dlt.getNumTokens(); i++) {
             dlt.placeToken(i, 0, 0);
         }

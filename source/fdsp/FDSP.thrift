@@ -127,7 +127,7 @@ enum FDSP_AppWorkload {
     FDSP_APP_AZURE_OBJS,  // Azure style objects workload
 }
 
-struct FDSPPutObjType {
+struct FDSP_PutObjType {
   1: FDS_ObjectIdType   data_obj_id,
   2: i32      data_obj_len,
   3: i32      volume_offset, /* Offset inside the volume where the object resides */
