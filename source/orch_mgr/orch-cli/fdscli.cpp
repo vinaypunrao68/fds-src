@@ -204,7 +204,7 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
 
         if ((return_code = cfgPrx->CreateVol(msg_hdr, volData)) !=0) {
             std::system("clear");
-            cout << "Error: Creating the Volume, Running out of Disk  resources \n";
+            cout << "Error: Creating the Volume \n";
         }
 
     } else if (vm.count("volume-modify") && vm.count("volume-size")) {

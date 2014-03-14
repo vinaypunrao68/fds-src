@@ -1,11 +1,10 @@
-package com.formationds.spike.om;
+package com.formationds.spike;
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
 import FDS_ProtocolInterface.FDSP_ControlPathReq;
 import FDS_ProtocolInterface.FDSP_RegisterNodeType;
-import com.formationds.spike.FdspClient;
 import com.google.common.net.InetAddresses;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TProtocol;

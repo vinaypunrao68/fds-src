@@ -5,7 +5,9 @@ package com.formationds.spike.om;
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import FDS_ProtocolInterface.FDSP_OMControlPathReq;
+import com.formationds.spike.ControlPathClientFactory;
 import com.formationds.spike.FdspServer;
+import com.formationds.spike.ServiceDirectory;
 import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.WebApp;
 import org.apache.log4j.Logger;

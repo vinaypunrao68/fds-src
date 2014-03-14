@@ -1,43 +1,40 @@
 #!/usr/bin/env python
 
 import os, sys
+import inspect
 import argparse
 import subprocess
 from multiprocessing import Process
 import ServiceMgr
 import ServiceConfig
 import pdb
+import time
 
 class FdsEnv:
     def __init__(self, _root):
         self.env_cdir      = os.getcwd()
-        self.env_fdsSrc    = ''
+        self.srcdir    = ''
         self.env_root      = _root
         self.env_exitOnErr = True
         self.total_put     = 0
         self.total_get     = 0
+        
+        # assuming that this script is located in the test dir
+        self.testdir=os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+        self.srcdir=os.path.abspath(self.testdir + "/..")
+        self.toolsdir = os.path.abspath(self.srcdir + "/tools")
+        self.fdsctrl  = self.toolsdir + "/fds"
 
-        tmp_dir = self.env_cdir
-        while tmp_dir != "/":
-            if os.path.exists(tmp_dir + '/Build/mk-scripts'):
-                self.env_fdsSrc = tmp_dir
-                break
-            tmp_dir = os.path.dirname(tmp_dir)
-
-        if self.env_fdsSrc == "":
+        if self.srcdir == "":
             print "Can't determine FDS root from the current dir ", self.env_cdir
             sys.exit(1)
 
     def shut_down(self):
-        subprocess.call(['pkill', '-9', 'AMAgent'])
-        subprocess.call(['pkill', '-9', 'Mgr'])
-        subprocess.call(['pkill', '-9', 'platformd'])
-        subprocess.call(['pkill', '-9', '-f', 'com.formationds.web.om.Main'])
+         subprocess.call([self.fdsctrl,'stop'])
 
     def cleanup(self):
         self.shut_down()
-        os.chdir(self.env_fdsSrc)
-        subprocess.call(['tools/fds','clean'])
+        #subprocess.call([self.fdsctrl,'clean'])
 
     def getRoot(self):
         return self.env_root
@@ -350,54 +347,16 @@ def bringupCluster(env, bu, cfgFile, verbose, debug):
     root2 = bu.getCfgField('node2', 'fds_root')
     root3 = bu.getCfgField('node3', 'fds_root')
     root4 = bu.getCfgField('node4', 'fds_root')
-    FdsSetupNode(env.env_fdsSrc, root1)
-    FdsSetupNode(env.env_fdsSrc, root2)
-    FdsSetupNode(env.env_fdsSrc, root3)
-    FdsSetupNode(env.env_fdsSrc, root4)
+    FdsSetupNode(env.srcdir, root1)
+    FdsSetupNode(env.srcdir, root2)
+    FdsSetupNode(env.srcdir, root3)
+    FdsSetupNode(env.srcdir, root4)
+    
+    os.chdir(env.srcdir + '/Build/linux-x86_64.debug/bin')
 
-    os.chdir(env.env_fdsSrc + '/Build/linux-x86_64.debug/bin')
-
-    print "\n\nStarting OM in ", root1
-    subprocess.Popen(['./orchMgr', '--fds-root', root1],
-                     stderr=subprocess.STDOUT)
-    subprocess.call(['sleep', '1'])
-
-    print "\n\nStarting Platform Daemon on node1..."
-    subprocess.Popen(['./platformd', '--fds-root', root1],
-                     stderr=subprocess.STDOUT)
-    # Wait for platformd to come up before issue command
-    subprocess.call(['sleep', '5'])
-
-    # Start CLI to ask OM to commision the node.
-    #
-    print "\n\nAsking OM to accept all discovered nodes..."
-    subprocess.Popen(['./fdscli', '--fds-root', root1,
-                      '--activate-nodes', 'abc', '-k', '1', '-e', 'am,dm,sm'],
-                     stderr=subprocess.STDOUT)
-    subprocess.call(['sleep', '10'])
-
-    # Start AM separately.
-    # print "\n\nStarting AM service on node1..."
-    # subprocess.Popen(['./AMAgent', '--fds-root', root1],
-    #                  stderr=subprocess.STDOUT)
-    # subprocess.call(['sleep', '5'])
-
-    # print "\n\nStarting SM on node1...."
-    # subprocess.Popen(['./StorMgr', '--fds-root', root1],
-    #                  stderr=subprocess.STDOUT)
-    # subprocess.call(['sleep', '1'])
-
-    # print "\n\nStarting DM on node1...."
-    # subprocess.Popen(['./DataMgr', '--fds-root', root1],
-    #                  stderr=subprocess.STDOUT)
-    # subprocess.call(['sleep', '1']);
-
-    # print "\n\nStarting AM on node1...."
-    # subprocess.Popen(['./AMAgent', '--fds-root', root1],
-    #                  stderr=subprocess.STDOUT)
-    # subprocess.call(['sleep', '3']);
-
-    os.chdir(env.env_fdsSrc)
+    print "\n\nStarting fds on ", root1
+    subprocess.call([env.fdsctrl,'start'])
+    os.chdir(env.srcdir)
 
 def startSM2(args):
     print "\n\nStarting SM on node2...."
@@ -433,10 +392,10 @@ def bringupClusterCLI(env, bu, cfgFile, verbose, debug):
     root2 = bu.getCfgField('node2', 'fds_root')
     root3 = bu.getCfgField('node3', 'fds_root')
     root4 = bu.getCfgField('node4', 'fds_root')
-    FdsSetupNode(env.env_fdsSrc, root1)
-    FdsSetupNode(env.env_fdsSrc, root2)
-    FdsSetupNode(env.env_fdsSrc, root3)
-    FdsSetupNode(env.env_fdsSrc, root4)
+    FdsSetupNode(env.srcdir, root1)
+    FdsSetupNode(env.srcdir, root2)
+    FdsSetupNode(env.srcdir, root3)
+    FdsSetupNode(env.srcdir, root4)
 
     print "\n\nStarting Cluster on node1...."
     p = subprocess.Popen(['test/bring_up.py', '--file', cfgFile, '--verbose', verbose, '--debug', debug, '--up', '--ssh_user', USER_NAME, '--ssh_passwd', 'passwd', '--ssh_key', USER_SSH_KEY],
@@ -642,10 +601,11 @@ if __name__ == "__main__":
     # bringupCluster(env, bu, cfgFile, verbose, debug)
     if start_sys == 'true':
         bringupCluster(env, bu, cfgFile, verbose, debug)
+        time.sleep(2)
     # bringupClusterCLI(env, bu, cfgFile, verbose, debug)
 
     if args.smoke_test == 'false':
-        preCommit('volume_smoke1', env.env_fdsSrc, '/tmp/pre_commit')
+        preCommit('volume_smoke1', env.srcdir, '/tmp/pre_commit')
         exitTest(env, shutdown)
 
     #

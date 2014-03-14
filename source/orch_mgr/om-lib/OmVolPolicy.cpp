@@ -125,7 +125,8 @@ Error VolPolicyMgr::fillVolumeDescPolicy(VolumeDesc* voldesc)
     Error err(ERR_OK);
     FDS_VolumePolicy policy;
 
-    FDS_PLOG(parent_log) << "VolPolicyMgr::fillVolimeDescPolicy: start";
+    FDS_PLOG(parent_log) << "VolPolicyMgr::fillVolumeDescPolicy:"
+                                " start policy ID:" << voldesc->volPolicyId;
 
     assert(voldesc);
     err = queryPolicy(voldesc->volPolicyId, &policy);
@@ -133,6 +134,8 @@ Error VolPolicyMgr::fillVolumeDescPolicy(VolumeDesc* voldesc)
         voldesc->iops_min = policy.iops_min;
         voldesc->iops_max = policy.iops_max;
         voldesc->relativePrio = policy.relativePrio;
+        FDS_PLOG(parent_log) << "voldesc->iops_min:" << voldesc->iops_min
+                             << "voldesc->iops_max:" << voldesc->iops_max;
     }
 
     return err;
