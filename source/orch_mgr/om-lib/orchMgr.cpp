@@ -88,7 +88,6 @@ void OrchMgr::setup()
     GetLog()->setSeverityFilter(
         (fds_log::severity_level) (conf_helper_.get<int>("log_severity")));
 
-    policy_mgr = new VolPolicyMgr(stor_prefix, GetLog());
     my_node_name = stor_prefix + std::string("OrchMgr");
 
     std::string ip_address;
@@ -120,6 +119,10 @@ void OrchMgr::setup()
         conf_helper_.get<std::string>("configdb.host", "localhost"),
         conf_helper_.get<int>("configdb.port", 0),
         conf_helper_.get<int>("configdb.poolsize", 10));
+
+    policy_mgr = new VolPolicyMgr(configDB, GetLog());
+
+    defaultS3BucketPolicy();
 
     loadFromConfigDB();
 
@@ -161,10 +164,7 @@ void OrchMgr::setup()
                 cfg_req_handler);
 
     cfgserver_thread.reset(new std::thread(&OrchMgr::start_cfgpath_server, this));
-
     om_policy_srv = new Orch_VolPolicyServ();
-
-    defaultS3BucketPolicy();
 }
 
 void OrchMgr::run()

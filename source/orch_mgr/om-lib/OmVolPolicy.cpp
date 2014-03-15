@@ -4,31 +4,24 @@
 
 #include <string>
 #include <OmVolPolicy.hpp>
-#include <lib/Catalog.h>
 #include <fds_process.h>
 
 namespace fds {
 
-VolPolicyMgr::VolPolicyMgr(const std::string& om_prefix,
-                           fds_log* om_log)
-        :parent_log(om_log)
-{
-    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
-    root->fds_mkdir(root->dir_sys_repo_volume().c_str());
-
-    const std::string catname =
-       root->dir_sys_repo_volume() + std::string("_volpolicy_cat.ldb");
-    policy_catalog = new Catalog(catname);
+VolPolicyMgr::VolPolicyMgr(kvstore::ConfigDB* configDB, fds_log* om_log) {
+    SetLog(om_log);
+    this->configDB = configDB;
+    if (!configDB->isConnected()) {
+        LOGWARN << "unable to talk to configdb";
+    }
 }
 
-VolPolicyMgr::~VolPolicyMgr()
-{
-    delete policy_catalog;
+VolPolicyMgr::~VolPolicyMgr() {
 }
 
 void VolPolicyMgr::copyPolInfoToFdsPolicy(
     FDS_VolumePolicy& fdsPolicy,
-    const FDS_ProtocolInterface::FDSP_PolicyInfoType& pol_info)
+    const fpi::FDSP_PolicyInfoType& pol_info)
 {
     fdsPolicy.volPolicyId = pol_info.policy_id;
     fdsPolicy.volPolicyName = pol_info.policy_name;
@@ -40,82 +33,53 @@ void VolPolicyMgr::copyPolInfoToFdsPolicy(
 
 Error VolPolicyMgr::updateCatalog(
     int policy_id,
-    const FDS_ProtocolInterface::FDSP_PolicyInfoType& pol_info)
+    const fpi::FDSP_PolicyInfoType& pol_info)
 {
     Error err(ERR_OK);
-    Record key((const char *)&policy_id, sizeof(policy_id));
-
     FDS_VolumePolicy policy;
     copyPolInfoToFdsPolicy(policy, pol_info);
-    std::string policy_string = policy.toString();
-    Record val(policy_string);
 
-    err = policy_catalog->Update(key, val);
+    if (!configDB->addPolicy(policy)) {
+        err = ERR_CAT_QUERY_FAILED;
+    }
 
     return err;
 }
 
 
-Error VolPolicyMgr::createPolicy(
-    const FDS_ProtocolInterface::FDSP_PolicyInfoType& pol_info)
-{
+Error VolPolicyMgr::createPolicy(const fpi::FDSP_PolicyInfoType& pol_info) {
     Error err(ERR_OK);
     int polid = pol_info.policy_id;
-    std::string val;
 
-    FDS_PLOG(parent_log)
-            << "VolPolicyMgr::createPolicy -- will add policy to the catalog ";
+    LOGNORMAL << "VolPolicyMgr::createPolicy -- will add policy to the catalog ";
 
     /* check if we already have this policy in the catalog */
-    Record key((const char *)&polid, sizeof(polid));
-    err = policy_catalog->Query(key, &val);
-    if (err == ERR_CAT_ENTRY_NOT_FOUND) {
+    FDS_VolumePolicy volPolicy;
+    err = queryPolicy(pol_info.policy_id, &volPolicy);
+    if (err == ERR_NOT_FOUND) {
         /* write new policy to catalog */
         err = updateCatalog(polid, pol_info);
-        FDS_PLOG(parent_log)
-                << "VolPolicyMgr::createPolicy -- added policy "
-                << polid << " to policy catalog";
+        LOGNORMAL << "added policy [" << polid << "] to policy catalog";
     } else if (err.ok()) {
-        FDS_PLOG_SEV(parent_log, fds_log::warning)
-                << "VolPolicyMgr::createPolicy -- policy "
-                << polid << " already exists";
+        LOGWARN << "policy [" << polid << "] already exists";
     } else {
-        FDS_PLOG_SEV(parent_log, fds_log::error)
-                << "VolPolicyMgt::createPolicy -- "
-                << "failed to access policy catalog to add policy " << polid;
+        LOGERROR << "failed to access policy catalog to add policy " << polid;
     }
 
     return err;
 }
 
-Error VolPolicyMgr::queryPolicy(
-    int policy_id,
-    FDS_VolumePolicy *ret_policy)
-{
+Error VolPolicyMgr::queryPolicy(int policy_id, FDS_VolumePolicy *volPolicy) {
     Error err(ERR_OK);
-    std::string val;
-    Record key((const char *)&policy_id, sizeof(policy_id));
-
-    assert(ret_policy);
+    assert(volPolicy);
 
     /* query policy from the catalog */
-    err = policy_catalog->Query(key, &val);
-    if ( err.ok())
-    {
-        err = ret_policy->setPolicy(val.c_str(), val.length());
-        if (err.ok()) {
-            FDS_PLOG(parent_log) << "VolPolicyMgr::queryPolicy -- "
-                                 << "policy id " << policy_id
-                                 << "; name " << ret_policy->volPolicyName
-                                 << "; iops_min " << ret_policy->iops_min
-                                 << "; iops_max " << ret_policy->iops_max
-                                 << "; rel_prio " << ret_policy->relativePrio;
-        }
+    if (configDB->getPolicy(policy_id, *volPolicy)) {
+        LOGNORMAL << *volPolicy;
+    } else {
+        LOGWARN << "policy not found : " << policy_id;
+        err = ERR_NOT_FOUND;
     }
-
-    FDS_PLOG(parent_log)
-            << "VolPolicyMgr::queryPolicy -- policy "
-            << policy_id << "; result: " << err.GetErrstr();
 
     return err;
 }
@@ -125,8 +89,7 @@ Error VolPolicyMgr::fillVolumeDescPolicy(VolumeDesc* voldesc)
     Error err(ERR_OK);
     FDS_VolumePolicy policy;
 
-    FDS_PLOG(parent_log) << "VolPolicyMgr::fillVolumeDescPolicy:"
-                                " start policy ID:" << voldesc->volPolicyId;
+    LOGNORMAL << "VolPolicyMgr::fillVolimeDescPolicy: start";
 
     assert(voldesc);
     err = queryPolicy(voldesc->volPolicyId, &policy);
@@ -134,54 +97,42 @@ Error VolPolicyMgr::fillVolumeDescPolicy(VolumeDesc* voldesc)
         voldesc->iops_min = policy.iops_min;
         voldesc->iops_max = policy.iops_max;
         voldesc->relativePrio = policy.relativePrio;
-        FDS_PLOG(parent_log) << "voldesc->iops_min:" << voldesc->iops_min
-                             << "voldesc->iops_max:" << voldesc->iops_max;
     }
 
     return err;
 }
 
-Error VolPolicyMgr::modifyPolicy(
-    const FDS_ProtocolInterface::FDSP_PolicyInfoType& pol_info)
-{
+Error VolPolicyMgr::modifyPolicy(const fpi::FDSP_PolicyInfoType& pol_info) {
     Error err(ERR_OK);
-    int polid = pol_info.policy_id;
-    Record key((const char *)&polid, sizeof(polid));
-    std::string val;
+    FDS_VolumePolicy volPolicy;
 
     /* first get policy record to see if it exists */
-    err = policy_catalog->Query(key, &val);
-    if (err.ok())
-    {
+    if (configDB->getPolicy(pol_info.policy_id, volPolicy)) {
         /* we will just over-write the policy record with pol_info */
-        err = updateCatalog(polid, pol_info);
+        err = updateCatalog(pol_info.policy_id, pol_info);
     }
 
     if (err.ok()) {
-        FDS_PLOG(parent_log)
-                << "VolPolicyMgr::modifyPolicy -- Modified policy "
-                << polid;
+        LOGNORMAL << "VolPolicyMgr::modifyPolicy -- Modified policy "
+                  << pol_info.policy_id;
     } else {
-        FDS_PLOG(parent_log)
-                << "VolPolicyMgr::modifyPolicy -- did not modify policy "
-                << polid << "; error: " << err.GetErrstr();
+        LOGNORMAL << "VolPolicyMgr::modifyPolicy -- did not modify policy "
+                  << pol_info.policy_id << "; error: " << err.GetErrstr();
     }
 
     return err;
 }
 
-/* Removes policy from policy catalog 
- * If policy does not exist in the policy catalog, no error */
+/* Removes policy from policy catalog */
 Error VolPolicyMgr::deletePolicy(int policy_id,
                                  const std::string& policy_name)
 {
     Error err(ERR_OK);
-    Record key((const char *)&policy_id, sizeof(policy_id));
 
-    err = policy_catalog->Delete(key);
-
-    FDS_PLOG(parent_log) << "VolPolicyMgr::deletePolicy -- policy " << policy_id
-                         << ", result " << err.GetErrstr();
+    if (!configDB->deletePolicy(policy_id)) {
+        LOGERROR << "unable to delete policy [" << policy_id <<"]";
+        err = ERR_INVALID_ARG;
+    }
 
     return err;
 }

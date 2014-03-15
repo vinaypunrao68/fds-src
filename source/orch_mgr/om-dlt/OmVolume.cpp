@@ -547,7 +547,6 @@ bool VolumeContainer::addVolume(const VolumeDesc& volumeDesc) {
 
     vol->setDescription(volumeDesc);
 
-#if 0
     err = admin->volAdminControl(vol->vol_get_properties());
     if (!err.ok()) {
         // TODO(Vy): delete the volume here.
@@ -555,7 +554,6 @@ bool VolumeContainer::addVolume(const VolumeDesc& volumeDesc) {
         rs_free_resource(vol);
         return false;
     }
-#endif
     rs_register(vol);
     return true;
 }
