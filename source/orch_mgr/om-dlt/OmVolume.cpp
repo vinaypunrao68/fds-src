@@ -2,6 +2,9 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 #include <string>
+#include <vector>
+#include <boost/msm/front/state_machine_def.hpp>
+#include <boost/msm/front/functor_row.hpp>
 #include <OmVolume.h>
 #include <OmResources.h>
 #include <orchMgr.h>
@@ -10,13 +13,206 @@
 namespace fds {
 
 // --------------------------------------------------------------------------------------
+// Volume state machine
+// --------------------------------------------------------------------------------------
+namespace msm = boost::msm;
+namespace mpl = boost::mpl;
+namespace msf = msm::front;
+
+/**
+ * OM Volume State Machine structure
+ */
+struct VolumeFSM: public msm::front::state_machine_def<VolumeFSM>
+{
+    template <class Event, class FSM> void on_entry(Event const &, FSM &);
+    template <class Event, class FSM> void on_exit(Event const &, FSM &);
+
+    /**
+     * OM Volume states
+     */
+    struct VST_Inactive: public msm::front::state<>
+    {
+        typedef mpl::vector<VolOpEvt> deferred_events;
+
+        template <class Evt, class Fsm, class State>
+        void operator()(Evt const &, Fsm &, State &) {}
+
+        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
+        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
+    };
+    struct VST_Active: public msm::front::state<>
+    {
+        template <class Evt, class Fsm, class State>
+        void operator()(Evt const &, Fsm &, State &) {}
+
+        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
+        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
+    };
+    struct VST_Waiting: public msm::front::state<>
+    {
+        typedef mpl::vector<VolOpEvt> deferred_events;
+
+        template <class Evt, class Fsm, class State>
+        void operator()(Evt const &, Fsm &, State &) {}
+
+        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
+        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
+    };
+
+    /**
+     * Initial state
+     */
+    typedef VST_Inactive initial_state;
+
+    /**
+     * Transition actions
+     */
+    struct VACT_CrtDone
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
+    struct VACT_VolOp
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
+    struct VACT_OpResp
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
+
+    /**
+     * Guard conditions
+     */
+    struct GRD_VolCrt
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        bool operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
+    struct GRD_OpResp
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        bool operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
+
+    /**
+     * Transition table for OM Volume life cycle
+     */
+    struct transition_table : mpl::vector<
+        // +------------------+--------------+------------+---------------+-------------+
+        // | Start            | Event        | Next       | Action        | Guard       |
+        // +------------------+--------------+------------+---------------+-------------+
+        msf::Row< VST_Inactive, VolCrtOkEvt  , VST_Active , VACT_CrtDone  , GRD_VolCrt  >,
+        // +------------------+--------------+------------+---------------+-------------+
+        msf::Row< VST_Active  , VolOpEvt     , VST_Waiting, VACT_VolOp    , msf::none   >,
+        // +------------------+--------------+------------+---------------+-------------+
+        msf::Row< VST_Waiting , VolOpRespEvt , VST_Active , VACT_OpResp   , GRD_OpResp  >
+        // +------------------+--------------+------------+---------------+-------------+
+        >{};  // NOLINT                                                                                                                                   
+
+template <class Event, class FSM> void no_transition(Event const &, FSM &, int);
+};
+
+template <class Event, class Fsm>
+void VolumeFSM::on_entry(Event const &evt, Fsm &fsm)
+{
+    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "VolumeFSM on entry";
+}
+
+template <class Event, class Fsm>
+void VolumeFSM::on_exit(Event const &evt, Fsm &fsm)
+{
+    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "VolumeFSM on entry";
+}
+
+template <class Event, class Fsm>
+void VolumeFSM::no_transition(Event const &evt, Fsm &fsm, int state)
+{
+    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "VolumeFSM no transition";
+}
+
+/**
+ * GRD_VolCrt
+ * ------------
+ * returns true if we received quarum number of acks for volume create.
+ */
+template <class Evt, class Fsm, class SrcST, class TgtST>
+bool VolumeFSM::GRD_VolCrt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "VolumeFSM GRD_VolCrt";
+    return true;
+}
+
+/**
+ * VACT_CrtDone
+ * ------------
+ * Action when we received quorum number of acks for Volume Create
+ */
+template <class Evt, class Fsm, class SrcST, class TgtST>
+void VolumeFSM::VACT_CrtDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "VolumeFSM VACT_CrtDone";
+}
+
+/**
+ * VACT_VolOp
+ * ------------
+ * Operation on volume: attach, detach, modify
+ * When we receive attach, detach, modify messages for a
+ * volume, we just queue them by using deferred events in state machine
+ * We are handling each one of them in this method.
+ */
+template <class Evt, class Fsm, class SrcST, class TgtST>
+void VolumeFSM::VACT_VolOp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "VolumeFSM VACT_VolOp";
+    // tell volume to perform given operation, which may result in
+    // sending messages to other nodes.
+}
+
+/**
+ * GRD_OpResp
+ * ------------
+ * We received a responses for a current operation (attach, detach, modify)
+ * Returns true if the quorum number of responses is received, otherwise
+ * returns false
+ */
+template <class Evt, class Fsm, class SrcST, class TgtST>
+bool VolumeFSM::GRD_OpResp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "VolumeFSM GRD_OpResp";
+    // check if we received the number of responses we need
+    return true;
+}
+
+/**
+ * VACT_OpResp
+ * ------------
+ * We received quorum number of responses for one of the following operations
+ * on volume: attach, detach, modify. Send response for this operation back
+ * to requesting source.
+ */
+template <class Evt, class Fsm, class SrcST, class TgtST>
+void VolumeFSM::VACT_OpResp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "VolumeFSM VACT_OpResp";
+    // send reponse back to node that initiated the operation
+}
+
+
+// --------------------------------------------------------------------------------------
 // Volume Info
 // --------------------------------------------------------------------------------------
 VolumeInfo::VolumeInfo(const ResourceUUID &uuid)
-        : Resource(uuid), vol_properties(NULL) {}
+        : Resource(uuid), vol_properties(NULL) {
+    volume_fsm = new FSM_Volume();
+}
 
 VolumeInfo::~VolumeInfo()
 {
+    delete volume_fsm;
     delete vol_properties;
 }
 
@@ -29,6 +225,8 @@ VolumeInfo::vol_mk_description(const fpi::FDSP_VolumeInfoType &info)
     vol_properties = new VolumeDesc(info, rs_uuid.uuid_get_val());
     setName(info.vol_name);
     vol_name.assign(rs_name);
+
+    volume_fsm->start();
 }
 
 // setDescription
@@ -239,6 +437,16 @@ VolumeInfo::vol_detach_node(const NodeUuid &node_uuid)
               << " didn't attached to " << std::hex << node_uuid << std::dec;
 }
 
+char const *const
+VolumeInfo::vol_current_state()
+{
+    static char const *const state_names[] = {
+        "Inactive", "Active"
+    };
+    //    return state_names[volume_fsm->current_state()[0]];
+    return state_names[0];
+}
+
 // --------------------------------------------------------------------------------------
 // Volume Container
 // --------------------------------------------------------------------------------------
@@ -345,6 +553,16 @@ VolumeContainer::om_delete_vol(const FdspMsgHdrPtr &hdr,
     return 0;
 }
 
+// get_volume
+// ---------
+//
+VolumeInfo::pointer
+VolumeContainer::get_volume(const std::string& vol_name)
+{
+    ResourceUUID uuid(fds_get_uuid64(vol_name));
+    return VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
+}
+
 // om_modify_vol
 // -------------
 //
@@ -355,10 +573,8 @@ VolumeContainer::om_modify_vol(const FdspModVolPtr &mod_msg)
     VolPolicyMgr        *v_pol = OrchMgr::om_policy_mgr();
     FdsAdminCtrl        *admin = local->om_get_admin_ctrl();
     std::string         &vname = (mod_msg->vol_desc).vol_name;
-    ResourceUUID         uuid(fds_get_uuid64(vname));
-    VolumeInfo::pointer  vol;
 
-    vol = VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
+    VolumeInfo::pointer  vol = get_volume(vname);
     if (vol == NULL) {
         LOGWARN << "Received ModifyVol for non-existing volume " << vname;
         return -1;
@@ -423,9 +639,8 @@ VolumeContainer::om_attach_vol(const FDSP_MsgHdrTypePtr &hdr,
     ResourceUUID         uuid(fds_get_uuid64(vname));
     VolumeInfo::pointer  vol;
 
-    LOGNOTIFY << "Received attach volume " << vname << " from "
-              << hdr->src_node_name  << "node uuid: "
-              << hdr->src_service_uuid.uuid;
+    LOGNOTIFY << "Processing attach volume " << vname << " from "
+              << hdr->src_node_name;
 
     vol = VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
     if (vol == NULL) {
@@ -462,7 +677,7 @@ VolumeContainer::om_detach_vol(const FDSP_MsgHdrTypePtr &hdr,
     ResourceUUID         uuid(fds_get_uuid64(vname));
     VolumeInfo::pointer  vol;
 
-    LOGNOTIFY << "Received detach volume " << vname << " from "
+    LOGNOTIFY << "Processing detach volume " << vname << " from "
               << hdr->src_node_name;
 
     vol = VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));

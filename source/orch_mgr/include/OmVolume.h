@@ -6,12 +6,36 @@
 
 #include <string>
 #include <vector>
+#include <boost/msm/back/state_machine.hpp>
 #include <fds_volume.h>
 #include <platform/node-inventory.h>
 
 namespace fds {
 
 class OmDiscoveryMod;
+struct VolumeFSM;
+typedef boost::msm::back::state_machine<VolumeFSM> FSM_Volume;
+
+/**
+ * OM Volume life cycle events
+ */
+class VolCrtOkEvt
+{
+ public:
+    VolCrtOkEvt() {}
+};
+
+class VolOpEvt
+{
+ public:
+    VolOpEvt() {}
+};
+
+class VolOpRespEvt
+{
+ public:
+    VolOpRespEvt() {}
+};
 
 /**
  * TODO(Vy): temp. interface for now to define generic volume message.
@@ -59,6 +83,18 @@ class VolumeInfo : public Resource
     inline VolumeDesc *vol_get_properties() {
         return vol_properties;
     }
+
+    /**
+     * Return the string containing current state of the volume
+     */
+    char const *const vol_current_state();
+
+    /**
+     * Apply an event to volume lifecycle state machine
+     */
+    void vol_event(VolCrtOkEvt const &evt);
+    void vol_event(VolOpEvt const &evt);
+    void vol_event(VolOpRespEvt const &evt);
 
     /**
      * Iter plugin to apply the function through each NodeAgent in the vol.
@@ -115,6 +151,8 @@ class VolumeInfo : public Resource
     fds_volid_t               volUUID;
     VolumeDesc               *vol_properties;
     std::vector<NodeUuid>     vol_am_nodes;
+
+    FSM_Volume *volume_fsm;
 };
 
 class VolumeContainer : public RsContainer
@@ -176,6 +214,7 @@ class VolumeContainer : public RsContainer
     /**
      * Volume functions.
      */
+    virtual VolumeInfo::pointer get_volume(const std::string& vol_name);
     virtual int om_create_vol(const FDSP_MsgHdrTypePtr  &hdr,
                               const FdspCrtVolPtr       &creat_msg);
     virtual int om_delete_vol(const FDSP_MsgHdrTypePtr  &hdr,
