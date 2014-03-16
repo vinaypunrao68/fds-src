@@ -91,130 +91,79 @@ fds::Error SmObjDb::Put(const ObjectID& obj_id, ObjectBuf& obj_buf) {
     return err;
 }
 
-fds::Error SmObjDb::get(const View &view,
-        const ObjectID& obj_id, SmObjMetadata& md)
+fds::Error SmObjDb::get_(const View &view,
+        const ObjectID& objId, OnDiskSmObjMetadata& md)
 {
     Error err = ERR_OK;
 
-    // TODO(Rao): Take the view into account
-    fds_token_id tokId = objStorMgr->getDLT()->getToken(obj_id);
-    ObjectDB *odb = getObjectDB(tokId);
-    if (!odb) {
-        odb = openObjectDB(tokId);
-    }
-
-    OnDiskSmObjMetadata disk_md;
+    fds_token_id tokId = getTokenId_(objId);
+    ObjectDB *odb = getObjectDB_(tokId);
     ObjectBuf buf;
-    err = odb->Get(obj_id, buf);
+    err = odb->Get(objId, buf);
     if (err != ERR_OK) {
         /* Object not found. Return. */
+        return ERR_SM_OBJ_METADATA_NOT_FOUND;
+    }
+
+    md.unmarshall(const_cast<char*>(buf.data.data()), buf.data.size());
+
+    if (isTokenInSyncMode_(tokId)) {
+        md.checkAndDemoteUnsyncedData(objStorMgr->getTokenSyncTimeStamp(tokId));
+        if (view == SYNC_MERGED) {
+            md.mergeNewAndUnsyncedData();
+        }
+    }
+    return err;
+}
+
+fds::Error SmObjDb::put_(const ObjectID& objId, const OnDiskSmObjMetadata& md)
+{
+    Error err = ERR_OK;
+
+    fds_token_id tokId = getTokenId_(objId);
+    ObjectDB *odb = getObjectDB_(tokId);
+
+    /* Store the data back */
+    ObjectBuf buf;
+    buf.resize(md.marshalledSize());
+    size_t sz = md.marshall(const_cast<char*>(buf.data.data()), buf.data.size());
+    fds_assert(sz == buf.data.size());
+    err = odb->Put(objId, buf);
+
+    return err;
+}
+inline fds_token_id SmObjDb::getTokenId_(const ObjectID& objId)
+{
+    return objStorMgr->getDLT()->getToken(objId);
+}
+
+inline ObjectDB* SmObjDb::getObjectDB_(const fds_token_id& tokId)
+{
+    ObjectDB *odb = getObjectDB(tokId);
+    if (!odb) {
+        odb = openObjectDB(tokId);
+    }
+    return odb;
+}
+
+inline bool SmObjDb::isTokenInSyncMode_(const fds_token_id& tokId)
+{
+    return objStorMgr->isTokenInSyncMode(tokId);
+}
+
+fds::Error SmObjDb::putSyncEntry(const ObjectID& objId,
+        const FDSP_MigrateObjectMetadata& data)
+{
+    OnDiskSmObjMetadata md;
+    Error err = get_(NON_SYNC_MERGED, objId, md);
+
+    if (err != ERR_OK && err != ERR_SM_OBJ_METADATA_NOT_FOUND) {
+        LOGERROR << "Error while applying sync entry.  objId: " << objId;
         return err;
     }
+    md.applySyncData(data);
 
-    disk_md.unmarshall(const_cast<char*>(buf.data.data()), buf.data.size());
-
-    if (objStorMgr->isTokenInSyncMode(tokId)) {
-        if (disk_md.metadataExists() &&
-            disk_md.metadataOlderThan(objStorMgr->getTokenSyncTimeStamp(tokId))) {
-            /* Existing entry is older than sync time stamp.  Demote it
-             * as sync entry
-             */
-            disk_md.setSyncMetaData(disk_md.getMetaData());
-            disk_md.removeMetaData();
-
-            /* Store the data back */
-            buf.resize(disk_md.marshalledSize());
-            size_t sz = disk_md.marshall(const_cast<char*>(buf.data.data()), buf.data.size());
-            fds_assert(sz == buf.data.size());
-            // TODO(Rao): Return merge of metadata and sync metadata.  For now returning
-            // object not found
-            err = ERR_SM_OBJ_METADATA_NOT_FOUND;
-        } else if (disk_md.metadataExists()) {
-            md = disk_md.getMetaData();
-        } else {
-            err = ERR_SM_OBJ_METADATA_NOT_FOUND;
-        }
-    }  else {
-        fds_assert(disk_md.metadataExists() &&
-                !disk_md.syncMetadataExists());
-        md = disk_md.getMetaData();
-    }
-    return err;
-}
-
-fds::Error SmObjDb::put(const ObjectID& obj_id, const SmObjMetadata& md)
-{
-    Error err = ERR_OK;
-
-    fds_token_id tokId = objStorMgr->getDLT()->getToken(obj_id);
-    ObjectDB *odb = getObjectDB(tokId);
-    if (!odb) {
-        odb = openObjectDB(tokId);
-    }
-
-    OnDiskSmObjMetadata disk_md;
-    ObjectBuf buf;
-    if (objStorMgr->isTokenInSyncMode(tokId)) {
-        err = odb->Get(obj_id, buf);
-        if (err == ERR_OK) {
-            disk_md.unmarshall(const_cast<char*>(buf.data.data()), buf.data.size());
-            if (disk_md.metadataExists() &&
-                disk_md.metadataOlderThan(objStorMgr->getTokenSyncTimeStamp(tokId))) {
-                /* Existing entry is older than sync time stamp.  Demote it
-                 * as sync entry
-                 */
-                disk_md.setSyncMetaData(disk_md.getMetaData());
-                disk_md.removeMetaData();
-            }
-        }
-    }
-    disk_md.setMetaData(md);
-
-    /* Store the data back */
-    buf.resize(disk_md.marshalledSize());
-    size_t sz = disk_md.marshall(const_cast<char*>(buf.data.data()), buf.data.size());
-    fds_assert(sz == buf.data.size());
-    err = odb->Put(obj_id, buf);
-    return err;
-}
-
-fds::Error SmObjDb::putSyncEntry(const ObjectID& obj_id,
-        const SmObjMetadata& md)
-{
-    Error err = ERR_OK;
-    fds_token_id tokId = objStorMgr->getDLT()->getToken(obj_id);
-    if (!objStorMgr->isTokenInSyncMode(tokId)) {
-        LOGERROR << "Failed.  Not in sync mode.  id: " << obj_id;
-        fds_assert(!"Not in sync mode");
-        return ERR_SM_NOT_IN_SYNC_MODE;
-    }
-
-    ObjectDB *odb = getObjectDB(tokId);
-    if (!odb) {
-        odb = openObjectDB(tokId);
-    }
-
-    /* TODO: version handling */
-    OnDiskSmObjMetadata disk_md;
-    ObjectBuf buf;
-    err = odb->Get(obj_id, buf);
-    if (err == ERR_OK) {
-        disk_md.unmarshall(const_cast<char*>(buf.data.data()), buf.data.size());
-        if (disk_md.metadataExists() &&
-            disk_md.metadataOlderThan(md.get_modification_ts())) {
-            /* Existing entry is outdated.  Purge it */
-            disk_md.removeMetaData();
-        }
-    }
-    /* Add sync entry */
-    disk_md.setSyncMetaData(md);
-
-    /* Store the data back */
-    buf.resize(disk_md.marshalledSize());
-    size_t sz = disk_md.marshall(const_cast<char*>(buf.data.data()), buf.data.size());
-    fds_assert(sz == buf.data.size());
-    err = odb->Put(obj_id, buf);
-    return err;
+    return put_(objId, md);
 }
 
 Error

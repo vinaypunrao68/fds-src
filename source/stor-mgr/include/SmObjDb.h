@@ -56,28 +56,27 @@ class SmObjMetadata
 public:
     SmObjMetadata()
     {
-        modification_ts_ = 0;
+        clearAll();
     }
 
     virtual ~SmObjMetadata()
     {
     }
 
-    uint64_t get_modification_ts() const
-    {
-        return  modification_ts_;
+    void clearAll() {
+        modificationTs = 0;
+        locMap.clear();
     }
-
 
     size_t marshall(char *buf, const size_t &buf_sz) const
     {
         size_t copied_sz = 0;
 
-        memcpy(&buf[copied_sz], &modification_ts_, sizeof(modification_ts_));
-        copied_sz += sizeof(modification_ts_);
+        memcpy(&buf[copied_sz], &modificationTs, sizeof(modificationTs));
+        copied_sz += sizeof(modificationTs);
 
-        const char *loc_map_buf = loc_map_.marshalling();
-        size_t loc_map_buf_sz = loc_map_.marshalledSize();
+        const char *loc_map_buf = locMap.marshalling();
+        size_t loc_map_buf_sz = locMap.marshalledSize();
         memcpy(&buf[copied_sz], loc_map_buf, loc_map_buf_sz);
         copied_sz += loc_map_buf_sz;
 
@@ -88,29 +87,28 @@ public:
     {
         size_t idx = 0;
 
-        modification_ts_ = *(reinterpret_cast<uint64_t*>(&buf[idx]));
-        idx += sizeof(modification_ts_);
+        modificationTs = *(reinterpret_cast<uint64_t*>(&buf[idx]));
+        idx += sizeof(modificationTs);
 
-        loc_map_.unmarshalling(&buf[idx], buf_sz-idx);
+        locMap.unmarshalling(&buf[idx], buf_sz-idx);
         // NOTE: Ideally, unmarshalling() returns # of bytes unmarshalled
-        idx += loc_map_.marshalledSize();
+        idx += locMap.marshalledSize();
 
         return idx;
     }
 
     size_t marshalledSize() const
     {
-        return sizeof(modification_ts_) + loc_map_.marshalledSize();
+        return sizeof(modificationTs) + locMap.marshalledSize();
     }
 
-protected:
     /* NOTE: If you change the type here, it affects marshalling/unmarshalling code */
-    uint64_t modification_ts_;
-    diskio::MetaObjMap loc_map_;
+    uint64_t modificationTs;
+    diskio::MetaObjMap locMap;
 };
 
-#define SMOBJ_METADATA_MASK             0x1
-#define SMOBJ_SYNC_METADATA_MASK        0x2
+
+#define SMOBJ_SYNC_METADATA_MASK        0x1
 
 /*
  * Object meta data that is persisted on disk
@@ -122,41 +120,34 @@ public:
         memset(this, 0, sizeof(OnDiskSmObjMetadata));
         version = 1;
     }
-    SmObjMetadata getMetaData() {
-        return meta_data;
+    SmObjMetadata* getSyncMetaDataP() {
+            return &sync_meta_data;
     }
-    SmObjMetadata getSyncMetaData() {
-            return sync_meta_data;
-    }
-    void setMetaData(const SmObjMetadata& md) {
-        data_mask |= SMOBJ_METADATA_MASK;
-        meta_data = md;
+    void applySyncData(const FDSP_MigrateObjectMetadata& data) {
+        // TODO(Rao):
     }
     void setSyncMetaData(const SmObjMetadata& md) {
         data_mask |= SMOBJ_SYNC_METADATA_MASK;
         sync_meta_data = md;
     }
-    void removeMetaData() {
-        data_mask &= ~SMOBJ_METADATA_MASK;
-        DBG(memset(&meta_data, 0, sizeof(meta_data)));
-    }
     void removeSyncMetaData() {
         data_mask &= ~SMOBJ_SYNC_METADATA_MASK;
         DBG(memset(&sync_meta_data, 0, sizeof(sync_meta_data)));
     }
-    bool metadataExists() {
-        return (data_mask & SMOBJ_METADATA_MASK) > 0;
-    }
     bool syncMetadataExists() {
         return (data_mask & SMOBJ_SYNC_METADATA_MASK) > 0;
     }
-    bool metadataOlderThan(const uint64_t &ts) {
-        return ts >= meta_data.get_modification_ts();
+    void checkAndDemoteUnsyncedData(const uint64_t &syncTs) {
+        if (!syncMetadataExists() &&
+            meta_data.modificationTs != 0 &&
+            meta_data.modificationTs < syncTs) {
+            setSyncMetaData(meta_data);
+            meta_data.clearAll();
+            meta_data.locMap = sync_meta_data.locMap;
+        }
     }
-    void demoteMetadataToSyncMetadata() {
-        fds_assert(!syncMetadataExists());
-        setSyncMetaData(meta_data);
-        removeMetaData();
+    void mergeNewAndUnsyncedData() {
+        // TODO(Rao):
     }
 
     size_t marshall(char *buf, const size_t &buf_sz) const
@@ -248,24 +239,30 @@ public:
 
     fds::Error Put(const ObjectID& obj_id, ObjectBuf& obj_buf);
 
-    Error get(const View &view,
-            const ObjectID& obj_id, SmObjMetadata& obj_buf);
     Error readObjectLocations(const View &view, const ObjectID &objId,
             diskio::MetaObjMap &objMaps);
 
-    Error put(const ObjectID& obj_id, const SmObjMetadata& obj_buf);
     Error writeObjectLocation(const ObjectID& objId,
             meta_obj_map_t *obj_map,
             fds_bool_t      append);
+
     Error deleteObjectLocation(const ObjectID& objId);
+
     Error putSyncEntry(const ObjectID& obj_id,
-            const SmObjMetadata& obj_buf);
+            const FDSP_MigrateObjectMetadata& data);
 
     void  iterRetrieveObjects(const fds_token_id &token,
             const size_t &max_size,
             FDSP_MigrateObjectList &obj_list,
             SMTokenItr &itr);
 private:
+    Error get_(const View &view,
+            const ObjectID& objId, OnDiskSmObjMetadata& md);
+    Error put_(const ObjectID& objId, const OnDiskSmObjMetadata& md);
+    inline fds_token_id getTokenId_(const ObjectID& objId);
+    inline ObjectDB* getObjectDB_(const fds_token_id& tokId);
+    inline bool isTokenInSyncMode_(const fds_token_id& tokId);
+
     std::unordered_map<fds_token_id, ObjectDB *> tokenTbl;
     std::string stor_prefix;
     fds_mutex *smObjDbMutex;

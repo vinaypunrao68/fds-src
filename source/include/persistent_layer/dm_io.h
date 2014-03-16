@@ -418,6 +418,9 @@ class MetaObjMap : public PersistentClass {
     MetaObjMap(const MetaObjPod& pod) {
         pods.push_back(pod);
     }
+    void clear() {
+        pods.clear();
+    }
     fds_uint32_t marshalledSize() const {
         return pods.size() * sizeof(MetaObjPod);
     }

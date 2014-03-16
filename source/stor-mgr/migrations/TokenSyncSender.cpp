@@ -116,7 +116,7 @@ class TokenSyncLog {
     static std::string create_key(const ObjectID& id, const SmObjMetadata &entry)
     {
         std::ostringstream oss;
-        oss << entry.get_modification_ts() << "\n" << id;
+        oss << entry.modificationTs << "\n" << id;
         return oss.str();
     }
 
@@ -390,7 +390,7 @@ struct TokenSyncSenderFSM_
                         obj_id.GetLen());
                 // TODO(Rao): Set the size
                 // md.obj_len = entry.len();
-                md.modification_ts = entry.get_modification_ts();
+                md.modification_ts = entry.modificationTs;
 
                 md_list.push_back(md);
             }
