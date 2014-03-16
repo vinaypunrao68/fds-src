@@ -7,29 +7,27 @@
 #include <fds_volume.h>
 #include <fdsp/FDSP_types.h>
 #include <util/Log.h>
-
+#include <kvstore/configdb.h>
 /* TODO: move to include dir if this is the top level API header file. */
 // #include <lib/Catalog.h>
 
+namespace fpi = FDS_ProtocolInterface;
+
 namespace fds {
 
-class Catalog;
-
 /* Volume policy catalog, etc  */
-class VolPolicyMgr {
+class VolPolicyMgr : public HasLogger {
   public:
-    VolPolicyMgr(const std::string& om_prefix, fds_log* om_log);
+    VolPolicyMgr(kvstore::ConfigDB* configDB,fds_log* om_log);
     ~VolPolicyMgr();
 
     /* create new policy
      * returns 'invalid argument' error if policy already exists */
-    Error createPolicy(
-        const FDS_ProtocolInterface::FDSP_PolicyInfoType& pol_info);
+    Error createPolicy(const fpi::FDSP_PolicyInfoType& pol_info);
 
     /* modify existing policy 
      * returns 'invalid argument' error if policy does not exist */
-    Error modifyPolicy(
-        const FDS_ProtocolInterface::FDSP_PolicyInfoType& pol_info);
+    Error modifyPolicy(const fpi::FDSP_PolicyInfoType& pol_info);
 
     /* delete policy if policy exists 
      * no error if policy does not exist  */
@@ -43,21 +41,11 @@ class VolPolicyMgr {
     Error fillVolumeDescPolicy(VolumeDesc* voldesc);
 
   private: /* methods */
-    void copyPolInfoToFdsPolicy(
-        FDS_VolumePolicy& fdsPolicy,
-        const FDS_ProtocolInterface::FDSP_PolicyInfoType& pol_info);
-    Error updateCatalog(
-        int policy_id,
-        const FDS_ProtocolInterface::FDSP_PolicyInfoType& pol_info);
+    void copyPolInfoToFdsPolicy(FDS_VolumePolicy& fdsPolicy, const fpi::FDSP_PolicyInfoType& pol_info); //NOLINT
+    Error updateCatalog(int policy_id, const fpi::FDSP_PolicyInfoType& pol_info); //NOLINT
 
   private:
-    Catalog* policy_catalog;
- 
-    /* no locks here for now, assumes that OrchMgr holds om_mutex lock
-     *  when any of the methods accessing/modifying policy_map are called */
-
-    /* parent log */
-    fds_log* parent_log;
+    kvstore::ConfigDB* configDB;
 };
 
 

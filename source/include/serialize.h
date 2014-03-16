@@ -62,15 +62,18 @@ namespace fds {
          * serialize/deserialize .
          */
         struct Serializable {            
-            uint32_t virtual write(Serializer*  serializer  ) = 0;
+            uint32_t virtual write(Serializer*  serializer  ) const = 0;
             uint32_t virtual read(Deserializer* deserializer) = 0;
+            uint32_t virtual getEstimatedSize() const; 
+            bool virtual getSerialized(std::string& serializedData) const; //NOLINT
+            bool virtual loadSerialized(const std::string& serializedData);
         };
         
         /**
          * In Memory 
          */
         Serializer* getMemSerializer(uint sz=0);
-        Deserializer* getMemDeserializer(std::string& str);
+        Deserializer* getMemDeserializer(const std::string& str);
 
         // File Based
         Serializer* getFileSerializer(const std::string& filename);
