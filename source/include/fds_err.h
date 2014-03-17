@@ -61,6 +61,9 @@ namespace fds {
     /* I/O error range */
     ERR_IO_DLT_MISMATCH      = 100,
 
+    /* Metadata error range */
+    ERR_BLOB_OFFSET_INVALID  = 500,
+
     /* Migration error range [1000-1500) */
     ERR_MIGRATION_DUPLICATE_REQUEST = 1000,
 
