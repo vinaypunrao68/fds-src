@@ -256,7 +256,7 @@ class BlobObjectList {
   class BlobNode {
   public:
     std::string blob_name;
-    blob_version_t current_version;
+    blob_version_t version;
     fds_volid_t vol_id;
     fds_uint64_t blob_size;
     fds_uint32_t blob_mime_type;
@@ -274,7 +274,7 @@ class BlobObjectList {
     BlobNode() {
         // Init the new blob to an invalid version
         // until someone actually inits valid data.
-        current_version = blob_version_invalid;
+        version = blob_version_invalid;
         blob_size = 0;
         meta_list.clear();
     }
@@ -345,7 +345,7 @@ class BlobObjectList {
  
       std::ostringstream bnode_oss;
       bnode_oss << blob_name << delim << vol_id << delim
-		<< current_version << delim << blob_size << delim
+		<< version << delim << blob_size << delim
 		<< metaListToString() << delim << obj_list.ToString();
       return bnode_oss.str();
     }
@@ -354,7 +354,7 @@ class BlobObjectList {
       // Since we're updaing the blob's contents,
       // bumps its version.
       // TODO(Andrew): This should be based on the vols versioning
-      current_version++;
+      version++;
       blob_mime_type = 0;
       replicaCnt = writeQuorum = readQuorum = 0;
       consisProtocol = 0;
@@ -382,7 +382,7 @@ class BlobObjectList {
 	  vol_id = strtoull(next_sub_str.c_str(), NULL, 0);
 	  break;
 	case 2:
-	  current_version = strtoul(next_sub_str.c_str(), NULL, 0);
+	  version = strtoul(next_sub_str.c_str(), NULL, 0);
 	  break;
 	case 3:
 	  blob_size = strtoull(next_sub_str.c_str(), NULL, 0);
@@ -410,7 +410,7 @@ class BlobObjectList {
         // Since we're updaing the blob's contents,
         // bumps its version.
         // TODO(Andrew): This should be based on the vols versioning
-        current_version++;
+        version++;
         blob_mime_type = 0;
         replicaCnt = writeQuorum = readQuorum = 0;
         consisProtocol = 0;
@@ -439,7 +439,7 @@ class BlobObjectList {
     void ToFdspPayload(FDS_ProtocolInterface::FDSP_QueryCatalogTypePtr& query_msg) const {
       query_msg->blob_name = blob_name;
       query_msg->blob_size = blob_size;
-      query_msg->blob_version = current_version;
+      query_msg->blob_version = version;
       metaListToFDSPMetaList(query_msg->meta_list);
       obj_list.ToFDSPObjList(query_msg->obj_list);
     }

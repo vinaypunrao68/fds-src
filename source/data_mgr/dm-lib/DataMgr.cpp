@@ -750,7 +750,7 @@ DataMgr::applyBlobUpdate(const BlobObjectList &offsetList, BlobNode *bnode) {
     // Bump the version since we modified the blob node
     // TODO(Andrew): We should actually be checking the
     // volume's versioning before we bump
-    bnode->current_version++;
+    bnode->version++;
 
     return err;
 }
@@ -793,7 +793,7 @@ DataMgr::updateCatalogProcess(const dmCatReq  *updCatReq, BlobNode **bnode) {
     } else {
         LOGDEBUG << "Located existing blob " << updCatReq->blob_name;
         fds_verify(*bnode != NULL);
-        fds_verify((*bnode)->current_version != blob_version_invalid);
+        fds_verify((*bnode)->version != blob_version_invalid);
     }
     fds_verify(err == ERR_OK);
 
@@ -864,7 +864,7 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
   if (bnode != NULL) {
       // The bnode may be NULL if didn't successfully modifiy
       // it and are returning error.
-      update_catalog->blob_version = bnode->current_version;
+      update_catalog->blob_version = bnode->version;
   } else {
       update_catalog->blob_version = blob_version_invalid;
   }
@@ -1081,7 +1081,7 @@ DataMgr::queryCatalogBackend(dmCatReq  *qryCatReq) {
   // Check if blob version we have matches the specific
   // version requested or if no version was specified
   if ((err.ok()) && ((qryCatReq->blob_version == blob_version_invalid) ||
-                     (qryCatReq->blob_version == bnode->current_version))) {
+                     (qryCatReq->blob_version == bnode->version))) {
       bnode->ToFdspPayload(query_catalog);
       msg_hdr->result  = FDS_ProtocolInterface::FDSP_ERR_OK;
       msg_hdr->err_msg = "Dude, you're good to go!";
