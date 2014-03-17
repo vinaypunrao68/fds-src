@@ -10,6 +10,8 @@
 #include <fds_process.h>
 #include <net/net_utils.h>
 
+#include <unistd.h>
+
 namespace fds {
 
 /* Processwide globals from fds_process.h */
@@ -228,6 +230,7 @@ void FdsProcess::interrupt_cb(int signum)
 }
 
 void FdsProcess::daemonize() {
+#if 1
     // adapted from http://www.enderunix.org/docs/eng/daemon.php
 
     if (getppid() == 1) return; /* already a daemon */
@@ -255,6 +258,16 @@ void FdsProcess::daemonize() {
     signal(SIGTTIN, SIG_IGN);
     signal(SIGHUP , SIG_IGN);
     // signal(SIGTERM,signal_handler);
+#else
+    // TODO(bao): should use daemon() instead of brewing our own.
+    // int res = daemon(0, 1);
+    int res = 0;
+    if (res != 0) {
+        std::cout << "Error while making process as daemon: " << errno << std::endl;
+        fds_assert(0);
+    }
+    std::cout << "Creating child daemon: " << std::endl;
+#endif
 }
 
 fds_log* HasLogger::GetLog() const {

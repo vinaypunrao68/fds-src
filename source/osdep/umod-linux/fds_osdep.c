@@ -41,14 +41,33 @@ fds_panic(const char *fmt, ...)
  * ---------
  */
 pid_t
-fds_spawn(char *const argv[])
+fds_spawn(char *const argv[], int daemonize)
 {
-    pid_t child_pid;
+    int     res;
+    pid_t   child_pid;
+    pid_t   res_pid;
 
     child_pid = fork();
     if (child_pid != 0) {
-        return (child_pid);
+        if (daemonize) {
+            res_pid = waitpid(child_pid, NULL, 0);
+            // TODO(bao): check for 0 and -1
+            fds_assert(res_pid == child_pid);
+            return (0);
+        } else {
+            return (child_pid);
+        }
     }
+
+    if (daemonize) {
+        res = daemon(0, 1);
+        if (res != 0) {
+            printf("Fatal error, can't daemonize %s\n", argv[0]);
+            abort();
+        }
+    }
+
+    /* actual child process */
     execvp(argv[0], argv);
     printf("Fatal error, can't spawn %s\n", argv[0]);
     abort();
@@ -59,7 +78,7 @@ fds_spawn(char *const argv[])
  * -----------------
  */
 pid_t
-fds_spawn_service(const char *prog, const char *fds_root)
+fds_spawn_service(const char *prog, const char *fds_root, int daemonize)
 {
     size_t len, ret;
     char   exec[1024];
@@ -89,5 +108,5 @@ fds_spawn_service(const char *prog, const char *fds_root)
     root[ret + 1] = '\0';
 
     printf("Spawn %s %s\n", exec, root);
-    return (fds_spawn(argv));
+    return (fds_spawn(argv, daemonize));
 }
