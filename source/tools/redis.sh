@@ -77,6 +77,9 @@ function getRedisPid() {
     if [[ -z $pid ]] ; then 
         pid=$(ps aux | grep "redis-server.*:${PORTS[${instance}]}" | grep -v grep | awk '{print $2}')
     fi
+    if [[ -z $pid && $instance == 1 ]] ; then 
+        pid=$(pgrep redis-server)
+    fi
     
     echo $pid    
 }
