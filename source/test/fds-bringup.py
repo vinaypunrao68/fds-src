@@ -16,6 +16,8 @@ if __name__ == '__main__':
                       help = 'package fds tar ball')
     parser.add_option('-i', '--install', action = 'store_true', dest = 'clus_inst',
                       help = 'install fds package to remote machines')
+    parser.add_option('-m', '--manual', action = 'store_true', dest = 'manual',
+                      help = 'Only run OM and platform, admit nodes manually')
     parser.add_option('-u', '--up', action = 'store_true', dest = 'clus_up',
                       help = 'bring up cluster')
     parser.add_option('-d', '--down', action = 'store_true', dest = 'clus_down',
@@ -65,6 +67,10 @@ if __name__ == '__main__':
 
     for n in nodes:
         n.nd_start_platform()
+
+    if options.manual:
+        print('You need to run fdscli --activate-nodes manually.')
+        sys.exit(0)
 
     cli = cfg.config_cli()
     cli.run_cli('--activate-nodes abc -k 1 -e am,sm,dm')
