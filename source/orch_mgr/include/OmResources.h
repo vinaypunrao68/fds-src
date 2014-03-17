@@ -369,8 +369,9 @@ class OM_NodeContainer : public DomainContainer
         return om_volumes;
     }
     inline int om_create_vol(const FDSP_MsgHdrTypePtr &hdr,
-                             const FdspCrtVolPtr      &creat_msg) {
-        return om_volumes->om_create_vol(hdr, creat_msg);
+                             const FdspCrtVolPtr      &creat_msg,
+                             fds_bool_t from_omcontrol_path) {
+        return om_volumes->om_create_vol(hdr, creat_msg, from_omcontrol_path);
     }
     inline int om_delete_vol(const FDSP_MsgHdrTypePtr &hdr,
                              const FdspDelVolPtr &del_msg) {
@@ -404,7 +405,7 @@ class OM_NodeContainer : public DomainContainer
     virtual void om_bcast_tier_policy(fpi::FDSP_TierPolicyPtr policy);
     virtual void om_bcast_tier_audit(fpi::FDSP_TierPolicyAuditPtr audit);
     virtual void om_bcast_vol_list(NodeAgent::pointer node);
-    virtual void om_bcast_vol_create(VolumeInfo::pointer vol);
+    virtual fds_uint32_t om_bcast_vol_create(VolumeInfo::pointer vol);
     virtual void om_bcast_vol_modify(VolumeInfo::pointer vol);
     virtual void om_bcast_vol_delete(VolumeInfo::pointer vol);
     virtual void om_bcast_vol_tier_policy(const FDSP_TierPolicyPtr &tier);

@@ -22,13 +22,14 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::CreateVol(
 int32_t OrchMgr::FDSP_ConfigPathReqHandler::CreateVol(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_CreateVolTypePtr& crt_vol_req) {
-
     int err = 0;
-    try {
-        LOGNOTIFY << "Received create volume " << crt_vol_req->vol_name;
+    LOGNOTIFY << "Received create volume " << crt_vol_req->vol_name
+              << " from " << fdsp_msg->src_node_name  << " node uuid: "
+              << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec;
 
+    try {
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-        err = local->om_create_vol(fdsp_msg, crt_vol_req);
+        err = local->om_create_vol(fdsp_msg, crt_vol_req, false);
     }
     catch(...) {
         LOGERROR << "Orch Mgr encountered exception while "
@@ -508,12 +509,13 @@ void OrchMgr::FDSP_OMControlPathReqHandler::CreateBucket(
 void OrchMgr::FDSP_OMControlPathReqHandler::CreateBucket(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_CreateVolTypePtr& crt_buck_req) {
+    LOGNOTIFY << "Received create bucket " << crt_buck_req->vol_name
+              << " from " << fdsp_msg->src_node_name  << " node uuid: "
+              << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec;
 
     try {
-        LOGNOTIFY << "Received create bucket " << crt_buck_req->vol_name;
-
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-        local->om_create_vol(fdsp_msg, crt_buck_req);
+        local->om_create_vol(fdsp_msg, crt_buck_req, true);
     }
     catch(...) {
         LOGERROR << "Orch Mgr encountered exception while "

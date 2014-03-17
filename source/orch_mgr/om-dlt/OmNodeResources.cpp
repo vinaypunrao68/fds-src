@@ -886,7 +886,7 @@ om_send_vol_command(fpi::FDSP_MsgCodeType cmd_type,
 // om_bcast_vol_create
 // -------------------
 //
-void
+fds_uint32_t
 OM_NodeContainer::om_bcast_vol_create(VolumeInfo::pointer vol)
 {
     dc_sm_nodes->agent_foreach<fpi::FDSP_MsgCodeType, VolumeInfo::pointer>
@@ -894,6 +894,8 @@ OM_NodeContainer::om_bcast_vol_create(VolumeInfo::pointer vol)
 
     dc_dm_nodes->agent_foreach<fpi::FDSP_MsgCodeType, VolumeInfo::pointer>
         (fpi::FDSP_MSG_CREATE_VOL, vol, om_send_vol_command);
+
+    return dc_sm_nodes->rs_available_elm() + dc_dm_nodes->rs_available_elm();
 }
 
 // om_bcast_vol_modify

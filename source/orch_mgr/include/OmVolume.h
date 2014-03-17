@@ -14,7 +14,18 @@ namespace fds {
 
 class OmDiscoveryMod;
 struct VolumeFSM;
+class VolumeInfo;
 typedef boost::msm::back::state_machine<VolumeFSM> FSM_Volume;
+
+typedef enum {
+    om_notify_vol_default = 0,
+    om_notify_vol_add     = 1,
+    om_notify_vol_rm      = 2,
+    om_notify_vol_mod     = 3,
+    om_notify_vol_attach  = 4,
+    om_notify_vol_detach  = 5,
+    om_notify_vol_max
+} om_vol_notify_t;
 
 /**
  * OM Volume life cycle events
@@ -22,20 +33,59 @@ typedef boost::msm::back::state_machine<VolumeFSM> FSM_Volume;
 class VolCrtOkEvt
 {
  public:
-    VolCrtOkEvt() {}
+    explicit VolCrtOkEvt(fds_uint32_t ack_w = 0)
+            : acks_to_wait(ack_w) {}
+
+    fds_uint32_t acks_to_wait;
 };
 
 class VolOpEvt
 {
  public:
-    VolOpEvt() {}
+    VolOpEvt(VolumeInfo* vol,
+             FDS_ProtocolInterface::FDSP_MsgCodeType type,
+             const NodeUuid& uuid)
+            : vol_ptr(vol), op_type(type), tgt_uuid(uuid) {}
+
+    VolOpEvt(VolumeInfo* vol,
+             FDS_ProtocolInterface::FDSP_MsgCodeType type,
+             boost::shared_ptr<VolumeDesc> vdesc)
+            : vol_ptr(vol), op_type(type), vdesc_ptr(vdesc) {}
+
+    VolumeInfo* vol_ptr;
+    FDS_ProtocolInterface::FDSP_MsgCodeType op_type;
+    NodeUuid tgt_uuid;
+    boost::shared_ptr<VolumeDesc> vdesc_ptr;
 };
 
 class VolOpRespEvt
 {
  public:
-    VolOpRespEvt() {}
+    VolOpRespEvt(om_vol_notify_t type, Error err)
+            : resp_type(type), op_err(err) {}
+
+    om_vol_notify_t resp_type;
+    Error op_err;
 };
+
+class VolDeleteEvt
+{
+ public:
+    VolDeleteEvt() {}
+};
+
+class DetachRespEvt
+{
+ public:
+    DetachRespEvt() {}
+};
+
+class VolDelRespEvt
+{
+ public:
+    VolDelRespEvt() {}
+};
+
 
 /**
  * TODO(Vy): temp. interface for now to define generic volume message.
@@ -72,8 +122,9 @@ class VolumeInfo : public Resource
     void vol_send_message(om_vol_msg_t *out, NodeAgent::pointer dest);
 
     void setDescription(const VolumeDesc &desc);
-    void vol_attach_node(const NodeUuid &node_uuid);
-    void vol_detach_node(const NodeUuid &node_uuid);
+    Error vol_attach_node(const NodeUuid &node_uuid);
+    Error vol_detach_node(const NodeUuid &node_uuid);
+    Error vol_modify(const boost::shared_ptr<VolumeDesc>& vdesc_ptr);
 
     NodeAgent::pointer vol_am_agent(const NodeUuid &am_node);
 
@@ -95,6 +146,9 @@ class VolumeInfo : public Resource
     void vol_event(VolCrtOkEvt const &evt);
     void vol_event(VolOpEvt const &evt);
     void vol_event(VolOpRespEvt const &evt);
+    void vol_event(VolDeleteEvt const &evt);
+    void vol_event(DetachRespEvt const &evt);
+    void vol_event(VolDelRespEvt const &evt);
 
     /**
      * Iter plugin to apply the function through each NodeAgent in the vol.
@@ -216,7 +270,8 @@ class VolumeContainer : public RsContainer
      */
     virtual VolumeInfo::pointer get_volume(const std::string& vol_name);
     virtual int om_create_vol(const FDSP_MsgHdrTypePtr  &hdr,
-                              const FdspCrtVolPtr       &creat_msg);
+                              const FdspCrtVolPtr       &creat_msg,
+                              fds_bool_t from_omcontrol_path);
     virtual int om_delete_vol(const FDSP_MsgHdrTypePtr  &hdr,
                               const FdspDelVolPtr &del_msg);
     virtual int om_modify_vol(const FdspModVolPtr &mod_msg);
@@ -226,6 +281,14 @@ class VolumeContainer : public RsContainer
                               const FdspAttVolCmdPtr    &detach);
     virtual void om_test_bucket(const FdspMsgHdrPtr     &hdr,
                                 const FdspTestBucketPtr &req);
+
+    /**
+     * Handling responses for volume events
+     */
+    virtual void om_notify_vol_resp(om_vol_notify_t type,
+                                    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+                                    const std::string& vol_name,
+                                    const ResourceUUID& vol_uuid);
 
     bool addVolume(const VolumeDesc& volumeDesc);
 
