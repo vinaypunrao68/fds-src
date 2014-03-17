@@ -287,16 +287,15 @@ class FdsPackage:
         if local_path is None:
             local_path = self.p_env.get_pkg_tar()
 
+        print "Installing the package from:", local_path
         rmt_ssh.ssh_exec('mkdir -p ' + self.p_env.get_fds_root())
         rmt_ssh.scp_copy(local_path, self.p_env.get_fds_root())
 
         print "Unpacking the tar ball package to ", rmt_ssh.get_host_name()
-        rmt_ssh.ssh_exec('cd ' + self.p_env.get_fds_root() + '; tar xf ' +
-                         self.p_env.env_fdsDict['package'])
-
-        # Cleanup and rename to match with fds-root directory convention.
-        #
-        rmt_ssh.ssh_exec('cd ' + self.p_env.get_fds_root() + '; rm ' +
-                         self.p_env.env_fdsDict['package'] + '; mv ' +
-                         self.p_env.env_fdsDict['pkg-sbin'] + ' ' +
-                         self.p_env.env_fdsDict['root-sbin'] +'; mkdir -p var/logs')
+        rmt_ssh.ssh_exec('cd ' + self.p_env.get_fds_root() +
+                         '; tar xf ' + self.p_env.env_fdsDict['package'] +
+                         '; cd ' + self.p_env.get_fds_root() +
+                         '; rm ' + self.p_env.env_fdsDict['package'] +
+                         '; mv ' + self.p_env.env_fdsDict['pkg-sbin'] + ' ' +
+                                   self.p_env.env_fdsDict['root-sbin'] +
+                         '; mkdir -p var/logs')
