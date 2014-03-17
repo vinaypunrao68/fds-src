@@ -7,6 +7,9 @@ import FdsSetup as inst
 import re, sys
 import pdb, time
 
+###
+# Base config class, which is key/value dictionary.
+#
 class FdsConfig(object):
     def __init__(self, items, verbose):
         self.nd_verbose   = verbose
@@ -33,6 +36,10 @@ class FdsNodeConfig(FdsConfig):
         self.nd_package   = None
         self.nd_local_env = None
 
+    ###
+    # Establish ssh connection with the remote node.  After this call, the obj
+    # can use nd_rmt_host to send ssh commands to the remote node.
+    #
     def nd_connect_rmt_agent(self, env):
         if 'fds_root' in self.nd_conf_dict:
             root = self.nd_conf_dict['fds_root']
@@ -50,9 +57,18 @@ class FdsNodeConfig(FdsConfig):
 
         self.nd_local_env = env
         self.nd_rmt_host  = self.nd_conf_dict['ip']
+
+        print "Making ssh connection to", self.nd_host_name()
         self.nd_rmt_agent.ssh_connect(self.nd_rmt_host)
 
+    ###
+    # Install the tar ball package at local location to the remote node.
+    #
     def nd_install_rmt_pkg(self):
+        if self.nd_rmt_agent is None:
+            print "You need to call nd_connect_rmt_agent() first"
+            sys.exit(0)
+
         print "Installing FDS package to:", self.nd_host_name()
         pkg = inst.FdsPackage(self.nd_rmt_agent)
         pkg.package_install(self.nd_rmt_agent, self.nd_local_env.get_pkg_tar())
@@ -71,9 +87,16 @@ class FdsNodeConfig(FdsConfig):
     ###
     # We only start OM if the node is configured to run OM.
     #
-    def nd_start_om(self, count):
-        if self.nd_run_om() and count == 0:
+    def nd_start_om(self):
+        if self.nd_run_om():
+            if self.nd_rmt_agent is None:
+                print "You need to call nd_connect_rmt_agent() first"
+                sys.exit(0)
+
             print "Start OM in", self.nd_host_name()
+            self.nd_rmt_agent.ssh_exec_fds(
+                "orchMgr --fds-root=%s" % self.nd_conf_dict['fds_root'])
+            time.sleep(2)
             return 1
         return 0
 
@@ -81,10 +104,23 @@ class FdsNodeConfig(FdsConfig):
     # Start platform services in all nodes.
     #
     def nd_start_platform(self):
-        port_arg = ''
+        port_arg = '--fds-root=%s' % self.nd_conf_dict['fds_root']
         if 'fds_port' in self.nd_conf_dict:
             port = self.nd_conf_dict['fds_port']
-            port_arg = ' --fds.plat.control_port=%s' % port
+            port_arg = port_arg + (' --fds.plat.control_port=%s' % port)
+
+        print "Start platform daemon in", self.nd_host_name()
+        self.nd_rmt_agent.ssh_exec_fds('platformd ' + port_arg + ' >> /tmp/foo')
+        time.sleep(4)
+
+    ###
+    # Kill all fds daemons and cleanup any cores.
+    #
+    def nd_cleanup_daemons(self):
+        bin_dir = self.nd_conf_dict['fds_root'] + '/bin'
+        print("Cleanup running processes in: %s, %s" % (self.nd_host_name(), bin_dir))
+        self.nd_rmt_agent.ssh_exec('pkill -9 java; pkill -9 Mgr; pkill -9 AMAgent; '
+            'cd %s; rm core *.core' % bin_dir)
 
 ###
 # Handle AM config section
@@ -92,7 +128,36 @@ class FdsNodeConfig(FdsConfig):
 class FdsAMConfig(FdsConfig):
     def __init__(self, name, items, verbose):
         super(FdsAMConfig, self).__init__(items, verbose)
+        self.nd_am_node = None
         self.nd_conf_dict['am-name'] = name
+
+    ###
+    # Connect the association between AM section to the matching node that would run
+    # AM there.  From the node, we can send ssh commands to start the AM.
+    #
+    def am_connect_node(self, nodes):
+        if 'fds_node' not in self.nd_conf_dict:
+            print('sh section must have "fds-node" keyword')
+            sys.exit(1)
+
+        name = self.nd_conf_dict['fds_node']
+        for n in nodes:
+            if n.nd_conf_dict['node-name'] == name:
+                self.nd_am_node = n
+                return
+
+        print('Can not find matching fds_node in %s sections' % name)
+        sys.exit(1)
+
+    ###
+    # Required am_connect_node()
+    #
+    def am_start_service(self):
+        cmd = (' --fds-root=%s --node-name=%s' %
+               (self.nd_am_node.nd_conf_dict['fds_root'],
+                self.nd_conf_dict['am-name']))
+
+        self.nd_am_node.nd_rmt_agent.ssh_exec_fds('AMAgent' + cmd)
 
 ###
 # Handle Volume config section
@@ -100,7 +165,61 @@ class FdsAMConfig(FdsConfig):
 class FdsVolConfig(FdsConfig):
     def __init__(self, name, items, verbose):
         super(FdsVolConfig, self).__init__(items, verbose)
+        self.nd_am_conf = None
+        self.nd_am_node = None
         self.nd_conf_dict['vol-name'] = name
+
+    def vol_connect_to_am(self, am_nodes):
+        if 'client' not in self.nd_conf_dict:
+            print('volume section must have "client" keyword')
+            sys.exit(1)
+
+        client = self.nd_conf_dict['client']
+        for am in am_nodes:
+            if am.nd_conf_dict['am-name'] == client:
+                self.nd_am_conf = am
+                self.nd_am_node = am.nd_am_node
+                return
+
+        print('Can not find matcing AM node in %s' % self.nd_conf_dict['vol-name'])
+        sys.exit(1)
+
+    def vol_create(self, cli):
+        cmd = (' --volume-create %s' % self.nd_conf_dict['vol-name'])
+        if 'id' not in self.nd_conf_dict:
+            print('Volume section must have "id" keyword')
+            sys.exit(1)
+
+        cmd = cmd + (' -i %s' % self.nd_conf_dict['id'])
+        if 'size' not in self.nd_conf_dict:
+            print('Volume section must have "size" keyword')
+            sys.exit(1)
+
+        cmd = cmd + (' -s %s' % self.nd_conf_dict['size'])
+        if 'policy' not in self.nd_conf_dict:
+            print('Volume section must have "policy" keyword')
+            sys.exit(1)
+
+        cmd = cmd + (' -p %s' % self.nd_conf_dict['policy'])
+        if 'access' not in self.nd_conf_dict:
+            access = 's3'
+        else:
+            access = self.nd_conf_dict['access']
+
+        cmd = cmd + (' -y %s' % access)
+        cli.run_cli(cmd)
+
+    def vol_attach(self, cli):
+        cmd = (' --volume-attach %s -i %s -n %s' %
+               (self.nd_conf_dict['vol-name'],
+                self.nd_conf_dict['id'],
+                self.nd_am_conf.nd_conf_dict['am-name']))
+        cli.run_cli(cmd)
+
+    def vol_apply_cfg(self, cli):
+        self.vol_create(cli)
+        time.sleep(1)
+        self.vol_attach(cli)
 
 ###
 # Handle Volume Policy Config
@@ -109,6 +228,25 @@ class FdsVolPolicyConfig(FdsConfig):
     def __init__(self, name, items, verbose):
         super(FdsVolPolicyConfig, self).__init__(items, verbose)
         self.nd_conf_dict['pol-name'] = name
+
+    def policy_apply_cfg(self, cli):
+        if 'id' not in self.nd_conf_dict:
+            print('Policy section must have an id')
+            sys.exit(1)
+
+        pol = self.nd_conf_dict['id']
+        cmd = (' --policy-create policy_%s -p %s' % (pol, pol))
+
+        if 'iops_min' in self.nd_conf_dict:
+            cmd = cmd + (' -g %s' % self.nd_conf_dict['iops_min'])
+
+        if 'iops_max' in self.nd_conf_dict:
+            cmd = cmd + (' -m %s' % self.nd_conf_dict['iops_max'])
+
+        if 'priority' in self.nd_conf_dict:
+            cmd = cmd + (' -r %s' % self.nd_conf_dict['priority'])
+
+        cli.run_cli(cmd)
 
 ###
 # Handler user setup
@@ -125,6 +263,9 @@ class FdsCliConfig(FdsConfig):
         super(FdsCliConfig, self).__init__(items, verbose)
         self.nd_om_node = None
 
+    ###
+    # Find the OM node that we'll run this CLI from that node.
+    #
     def bind_to_om(self, nodes):
         for n in nodes:
             if n.nd_run_om() == True:
@@ -172,7 +313,11 @@ class FdsConfig(object):
                 self.cfg_user.append(FdsUserConfig('user', items, verbose))
 
             elif re.match('node', section) != None:
-                self.cfg_nodes.append(FdsNodeConfig(section, items, verbose))
+                if 'enable' in items:
+                    if items['enable'] == 'true':
+                        self.cfg_nodes.append(FdsNodeConfig(section, items, verbose))
+                else:
+                    self.cfg_nodes.append(FdsNodeConfig(section, items, verbose))
 
             elif re.match('sh', section) != None:
                 self.cfg_am.append(FdsAMConfig(section, items, verbose))
@@ -189,6 +334,16 @@ class FdsConfig(object):
             self.cfg_cli = FdsCliConfig("fds-cli", None, verbose)
             self.cfg_cli.bind_to_om(self.cfg_nodes)
 
+        for am in self.cfg_am:
+            am.am_connect_node(self.cfg_nodes)
+
+        for vol in self.cfg_volumes:
+            vol.vol_connect_to_am(self.cfg_am)
+
+    # TODO(Vy): actually we don't need these C++ style accessor functions.
+    # In Python, we can always use decorator to intercept get/set and all member
+    # data are public anyway.
+    #
     def config_nodes(self):
         return self.cfg_nodes
 
