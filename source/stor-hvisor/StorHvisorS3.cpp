@@ -635,7 +635,7 @@ fds::Error StorHvCtrl::deleteCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
                                      const FDSP_DeleteCatalogTypePtr& delCatRsp) {
   fds::Error err(ERR_OK);
 
-  fds_verify(rxMsg->msg_code == FDSP_MSG_DELETE_CAT_OBJ_RSP);
+  fds_verify(rxMsg->msg_code == FDSP_MSG_DELETE_BLOB_RSP);
 
   fds_uint32_t transId = rxMsg->req_cookie;
   fds_volid_t  volId   = rxMsg->glob_volume_id;
@@ -1079,7 +1079,7 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   num_nodes = FDS_REPLICATION_FACTOR;
   FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr_dm(new FDSP_MsgHdrType);
   storHvisor->InitDmMsgHdr(fdsp_msg_hdr_dm);
-  fdsp_msg_hdr_dm->msg_code = FDSP_MSG_DELETE_CAT_OBJ_REQ;
+  fdsp_msg_hdr_dm->msg_code = FDSP_MSG_DELETE_BLOB_REQ;
   fdsp_msg_hdr_dm->glob_volume_id = vol_id;
   fdsp_msg_hdr_dm->req_cookie = transId;
   fdsp_msg_hdr_dm->src_ip_lo_addr = SRC_IP;
@@ -1121,7 +1121,7 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
     client->DeleteCatalogObject(fdsp_msg_hdr_dm, del_cat_obj_req);
     FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:"
             << transId << " volID:" << std::hex << vol_id << std::dec
-            << " - Sent async DELETE_CAT_OBJ_REQ request to DM at "
+            << " - Sent async DELETE_BLOB_REQ request to DM at "
             <<  node_ip << " port " << node_port;
 
   }

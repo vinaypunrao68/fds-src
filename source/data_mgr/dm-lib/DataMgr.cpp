@@ -1251,7 +1251,7 @@ DataMgr::deleteCatObjBackend(dmCatReq  *delCatReq) {
   msg_hdr->dst_port =  delCatReq->srcPort;
   msg_hdr->glob_volume_id =  delCatReq->volId;
   msg_hdr->req_cookie =  delCatReq->reqCookie;
-  msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_DELETE_CAT_OBJ_RSP;
+  msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_DELETE_BLOB_RSP;
 
 
   delete_catalog->blob_name = delCatReq->blob_name;
@@ -1321,7 +1321,7 @@ void DataMgr::ReqHandler::DeleteCatalogObject(FDS_ProtocolInterface::
   		/*
    		* Reverse the msg direction and send the response.
    		*/
-  		msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_DELETE_CAT_OBJ_RSP;
+  		msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_DELETE_BLOB_RSP;
   		dataMgr->swapMgrId(msg_hdr);
                 dataMgr->respMapMtx.read_lock();
   		dataMgr->respHandleCli(msg_hdr->session_uuid)->DeleteCatalogObjectResp(*msg_hdr, 
