@@ -4,7 +4,7 @@
 #
 import os, errno, sys
 import subprocess, pdb
-import paramiko
+import paramiko, time
 from scp import SCPClient
 from multiprocessing import Process
 from contextlib import contextmanager
@@ -147,10 +147,10 @@ class FdsRmtEnv(FdsEnv):
         self.env_fdsSrc    = root
         self.env_install   = True
 
-        self.env_ldLibPath = "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:" + \
-                self.get_fds_root() + 'lib:' + \
-                '/usr/local/lib:' + \
-                '/usr/lib/jvm/java-8-oracle/jre/lib/amd64'
+        self.env_ldLibPath = ("export LD_LIBRARY_PATH=" +
+                self.get_fds_root() + 'lib:'
+                '/usr/local/lib:/usr/lib/jvm/java-8-oracle/jre/lib/amd64; '
+                'export PATH=$PATH:' + self.get_fds_root() + 'bin; ')
 
     ###
     # Open ssh connection to the remote node.
@@ -197,15 +197,16 @@ class FdsRmtEnv(FdsEnv):
     #
     def ssh_exec(self, cmd, fds_bin = False):
         if fds_bin:
-            cmd_exec = self.env_ldLibPath + \
-                '; cd ' + self.get_fds_root() + 'bin; ./' + cmd
+            cmd_exec = (self.env_ldLibPath + 'cd ' + self.get_fds_root() +
+                        'bin; ulimit -c unlimited; ulimit -n 12800; ./' + cmd)
         else:
             cmd_exec = cmd
 
         if self.env_verbose:
-            print "Running remote command ", cmd_exec
+            print "Running remote command:", cmd_exec
 
         stdin, stdout, stderr = self.env_ssh_clnt.exec_command(cmd_exec)
+
         stdin.close()
         stdout.close()
         stderr.close()
@@ -221,6 +222,14 @@ class FdsRmtEnv(FdsEnv):
 
     def get_host_name(self):
         return "" if self.env_rmt_host is None else self.env_rmt_host
+
+    ###
+    # Setup core files and other stuffs.
+    #
+    def ssh_setup_env(self, cmd):
+        self.ssh_exec(cmd +
+            '; echo "%e-%p.core" | sudo tee /proc/sys/kernel/core_pattern; ' +
+            'sudo sysctl -w "kernel.core_pattern=%e-%p.core"')
 
 ###
 # Package FDS tar ball and unpackage it to a remote host
@@ -254,6 +263,7 @@ class FdsPackage:
                 subprocess.call(['tar', 'rf', tar_ball, 'test'])
 
             with pushd(self.p_env.get_build_dir(debug, fds_bin = False)):
+                subprocess.call(['cp', '../../leveldb-1.12.0/libleveldb.so.1', 'lib'])
                 subprocess.call(['tar', 'rf', tar_ball, 'lib'])
 
             sys.stdout.write('..\n')
@@ -289,4 +299,4 @@ class FdsPackage:
         rmt_ssh.ssh_exec('cd ' + self.p_env.get_fds_root() + '; rm ' +
                          self.p_env.env_fdsDict['package'] + '; mv ' +
                          self.p_env.env_fdsDict['pkg-sbin'] + ' ' +
-                         self.p_env.env_fdsDict['root-sbin'])
+                         self.p_env.env_fdsDict['root-sbin'] +'; mkdir -p var/logs')

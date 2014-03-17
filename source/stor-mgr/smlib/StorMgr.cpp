@@ -229,10 +229,10 @@ ObjectStorMgr::ObjectStorMgr(int argc, char *argv[],
      * TODO: Fix the totalRate above to not
      * be hard coded.
      */
-
     // Init  the log infra
 
     GetLog()->setSeverityFilter((fds_log::severity_level) conf_helper_.get<int>("log_severity"));
+    daemonize();
     LOGDEBUG << "Constructing the Object Storage Manager";
     objStorMutex = new fds_mutex("Object Store Mutex");
 
