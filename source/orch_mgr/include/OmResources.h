@@ -502,7 +502,7 @@ class OM_NodeDomainMod : public Module
     /**
      * Register node info to the domain manager.
      * @return ERR_OK if success, ERR_DUPLICATE if node already
-     * registered; ERR_UUID_EXISTS if this is a new node, but 
+     * registered; ERR_UUID_EXISTS if this is a new node, but
      * its name produces UUID that already mapped to an existing node
      * name (should ask the user to pick another node name).
      */

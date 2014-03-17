@@ -4,6 +4,7 @@ package com.formationds.spike;
  */
 
 import FDS_ProtocolInterface.*;
+import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 import org.apache.thrift.TProcessor;
 import org.apache.thrift.TProcessorFactory;
@@ -19,6 +20,8 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ServerFactory {
+    private static Logger LOG = Logger.getLogger(ServerFactory.class);
+
     private ConcurrentHashMap<TTransport, TProcessor> set;
 
     public ServerFactory() {
@@ -31,9 +34,15 @@ public class ServerFactory {
         }).start();
     }
 
-    public void startOmControlPathServer(FDSP_OMControlPathReq.Iface handler, int port) {
+    public void startOmControlPathReq(FDSP_OMControlPathReq.Iface handler, int port) {
         new Thread(() -> {
             start(port, new FDSP_OMControlPathReq.Processor(handler));
+        }).start();
+    }
+
+    public void startOmControlPathResp(FDSP_OMControlPathResp.Iface handler, int port) {
+        new Thread(() -> {
+            start(port, new FDSP_OMControlPathResp.Processor(handler));
         }).start();
     }
 
@@ -72,6 +81,7 @@ public class ServerFactory {
                         }
                     });
             TServer server = new TThreadPoolServer(serverArgs);
+            LOG.info(String.format("Starting %s on port %d", processor.getClass().getName(), port));
             server.serve();
         } catch (TTransportException e) {
             throw new RuntimeException(e);

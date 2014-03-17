@@ -1,4 +1,4 @@
-package com.formationds.spike;
+package com.formationds.fdsp;
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
@@ -47,6 +47,10 @@ public class ClientFactory {
 
     public FDSP_ConfigPathReq.Iface configPathClient(FDSP_RegisterNodeType node) throws TException {
         return new FDSP_ConfigPathReq.Client(hanshake(node, node.getControl_port()));
+    }
+
+    public FDSP_ConfigPathReq.Iface configPathClient(String host, int port) throws TException {
+        return new FDSP_ConfigPathReq.Client(handshake(host, port));
     }
 
     private TProtocol hanshake(FDSP_RegisterNodeType node, int port) throws TException {

@@ -49,6 +49,7 @@ class NodeInvData
     // TODO(Andrew): Add back a better checksum library
     // Sha1Digest               nd_checksum;
     NodeUuid                 nd_uuid;
+    NodeUuid                 nd_service_uuid;
     fds_uint64_t             nd_gbyte_cap;       /**< capacity in GB unit */
 
     /* TODO: (vy) just porting from NodeInfo now. */

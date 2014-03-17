@@ -2,6 +2,7 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 
+#include <vector>
 #include <orchMgr.h>
 #include <OmResources.h>
 #undef LOGGERPTR
@@ -452,6 +453,39 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::ActivateAllNodes(
     return err;
 }
 
+void OrchMgr::FDSP_ConfigPathReqHandler::ListServices(
+    std::vector<FDSP_Node_Info_Type> & ret,
+    const FDSP_MsgHdrType& fdsp_msg) {
+    // Do nothing
+}
+
+static void add_to_vector(std::vector<FDSP_Node_Info_Type> &vec,  // NOLINT
+                          NodeAgent::pointer ptr) {
+    NodeInvData::const_ptr nodeData = ptr->get_inventory_data();
+    NodeUuid uuid = nodeData->nd_uuid;
+    FDSP_Node_Info_Type nodeInfo = FDSP_Node_Info_Type();
+    nodeInfo.node_uuid = nodeData->nd_uuid.uuid_get_val();
+    nodeInfo.service_uuid = nodeData->nd_service_uuid.uuid_get_val();
+    nodeInfo.node_name = nodeData->nd_node_name;
+    vec.push_back(nodeInfo);
+}
+
+void OrchMgr::FDSP_ConfigPathReqHandler::ListServices(
+    std::vector<FDSP_Node_Info_Type> &vec,
+    boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg) {
+
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+
+    local->om_sm_nodes()->
+        agent_foreach<std::vector<FDSP_Node_Info_Type> &>(vec, add_to_vector);
+    local->om_am_nodes()->
+        agent_foreach<std::vector<FDSP_Node_Info_Type> &>(vec, add_to_vector);
+    local->om_dm_nodes()->
+        agent_foreach<std::vector<FDSP_Node_Info_Type> &>(vec, add_to_vector);
+    local->om_pm_nodes()->
+        agent_foreach<std::vector<FDSP_Node_Info_Type> &>(vec, add_to_vector);
+}
+
 int32_t OrchMgr::FDSP_ConfigPathReqHandler::applyTierPolicy(
     const ::FDS_ProtocolInterface::tier_pol_time_unit& policy) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
@@ -679,4 +713,3 @@ void OrchMgr::FDSP_OMControlPathReqHandler::NotifyMigrationDone(
 }
 
 }  // namespace fds
-

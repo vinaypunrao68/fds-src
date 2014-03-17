@@ -1,12 +1,12 @@
 package com.formationds.web.om;
 
+import com.formationds.fdsp.ClientFactory;
 import com.formationds.om.NativeApi;
 import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.WebApp;
 import org.apache.log4j.Logger;
-import org.apache.log4j.PropertyConfigurator;
+import org.apache.thrift.TException;
 
-import java.io.File;
 import java.lang.management.ManagementFactory;
 
 /*
@@ -17,12 +17,19 @@ public class Main {
     private static Logger LOG = Logger.getLogger(Main.class);
 
     public void start(String[] args) throws Exception {
+        ClientFactory clientFactory = new ClientFactory();
         new NativeApi();
         NativeApi.startOm(args);
         LOG.info("Process info: " + ManagementFactory.getRuntimeMXBean().getName());
         WebApp webApp = new WebApp();
         webApp.route(HttpMethod.get, "", () -> new LandingPage());
-        webApp.route(HttpMethod.get, "nodes", () -> new ListNodes());
+        webApp.route(HttpMethod.get, "nodes", () -> {
+            try {
+                return new ListNodes(clientFactory.configPathClient("localhost", 8904));
+            } catch (TException e) {
+                throw new RuntimeException(e);
+            }
+        });
         webApp.start(4242);
     }
 

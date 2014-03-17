@@ -3,7 +3,7 @@ package com.formationds.spike.om;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.spike.ClientFactory;
+import com.formationds.fdsp.ClientFactory;
 import com.formationds.spike.ServerFactory;
 import com.formationds.spike.ServiceDirectory;
 import com.formationds.web.toolkit.HttpMethod;
@@ -25,7 +25,7 @@ public class Om {
         OmControlPath controlPath = new OmControlPath(serviceDirectory);
         OmConfigPath configPath = new OmConfigPath(serviceDirectory, clientFactory);
 
-        serverFactory.startOmControlPathServer(controlPath, omControlPort);
+        serverFactory.startOmControlPathReq(controlPath, omControlPort);
         serverFactory.startConfigPathServer(configPath, omConfigPort);
 
         WebApp webApp = new WebApp();

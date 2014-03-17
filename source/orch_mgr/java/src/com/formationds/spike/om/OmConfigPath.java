@@ -4,9 +4,11 @@ package com.formationds.spike.om;
  */
 
 import FDS_ProtocolInterface.*;
-import com.formationds.spike.ClientFactory;
+import com.formationds.fdsp.ClientFactory;
 import com.formationds.spike.ServiceDirectory;
 import org.apache.thrift.TException;
+
+import java.util.List;
 
 public class OmConfigPath implements FDSP_ConfigPathReq.Iface {
     private ServiceDirectory serviceDirectory;
@@ -128,5 +130,10 @@ public class OmConfigPath implements FDSP_ConfigPathReq.Iface {
                     }
                 })
                 .count();
+    }
+
+    @Override
+    public List<FDSP_Node_Info_Type> ListServices(FDSP_MsgHdrType fdsp_msg) throws TException {
+        return null;
     }
 }

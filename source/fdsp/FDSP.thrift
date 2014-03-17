@@ -284,7 +284,6 @@ struct FDSP_ActivateNodeType {
 }
 
 struct FDSP_Node_Info_Type {
-
   1: i32      node_id,
   2: FDSP_NodeState     node_state,
   3: FDSP_MgrIdType node_type, /* Type of node - SM/DM/HV */
@@ -295,6 +294,7 @@ struct FDSP_Node_Info_Type {
   8: i32		 data_port, /* Port number to send datapath requests */
   9: i32                 migration_port, /* Migration service port */
   10: i64                node_uuid,      /* UUID of the node */
+  11: i64                service_uuid,      /* UUID of the service */
 }
 
 typedef list<FDSP_Node_Info_Type> Node_Info_List_Type
@@ -904,7 +904,8 @@ service FDSP_ConfigPathReq {
   i32 applyTierPolicy(1: tier_pol_time_unit policy),
   i32 auditTierPolicy(1: tier_pol_audit audit),
   i32 RemoveNode(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RemoveNodeType rm_node_req),
-  i32 ActivateAllNodes(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ActivateAllNodesType act_node_req)
+  i32 ActivateAllNodes(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ActivateAllNodesType act_node_req),
+  list<FDSP_Node_Info_Type> ListServices(1:FDSP_MsgHdrType fdsp_msg)
 }
 
 /* Not needed.  But created for symemtry */

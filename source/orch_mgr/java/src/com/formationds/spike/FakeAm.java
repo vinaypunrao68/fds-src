@@ -4,6 +4,7 @@ package com.formationds.spike;
  */
 
 import FDS_ProtocolInterface.*;
+import com.formationds.fdsp.ClientFactory;
 import com.google.common.net.InetAddresses;
 import org.apache.thrift.TException;
 
