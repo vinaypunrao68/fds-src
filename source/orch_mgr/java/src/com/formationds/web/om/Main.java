@@ -1,5 +1,7 @@
 package com.formationds.web.om;
 
+import FDS_ProtocolInterface.FDSP_ActivateAllNodesType;
+import FDS_ProtocolInterface.FDSP_MsgHdrType;
 import com.formationds.fdsp.ClientFactory;
 import com.formationds.om.NativeApi;
 import com.formationds.web.toolkit.HttpMethod;
@@ -25,7 +27,7 @@ public class Main {
         webApp.route(HttpMethod.get, "", () -> new LandingPage());
         webApp.route(HttpMethod.get, "nodes", () -> {
             try {
-                return new ListNodes(clientFactory.configPathClient("localhost", 8904));
+                return new ListNodes(clientFactory.configPathClient("localhost", 8903));
             } catch (TException e) {
                 throw new RuntimeException(e);
             }
@@ -34,7 +36,7 @@ public class Main {
     }
 
     public static void main(String[] args) throws Exception {
-        new Main().start(args);
+            new Main().start(args);
     }
 }
 

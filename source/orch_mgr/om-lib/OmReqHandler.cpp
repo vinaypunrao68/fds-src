@@ -461,12 +461,18 @@ void OrchMgr::FDSP_ConfigPathReqHandler::ListServices(
 
 static void add_to_vector(std::vector<FDSP_Node_Info_Type> &vec,  // NOLINT
                           NodeAgent::pointer ptr) {
-    NodeInvData::const_ptr nodeData = ptr->get_inventory_data();
+    const NodeInvData *nodeData = ptr->get_inventory_data();
     NodeUuid uuid = nodeData->nd_uuid;
     FDSP_Node_Info_Type nodeInfo = FDSP_Node_Info_Type();
     nodeInfo.node_uuid = nodeData->nd_uuid.uuid_get_val();
     nodeInfo.service_uuid = nodeData->nd_service_uuid.uuid_get_val();
     nodeInfo.node_name = nodeData->nd_node_name;
+    nodeInfo.node_type = nodeData->nd_node_type;
+    nodeInfo.node_state = nodeData->nd_node_state;
+    nodeInfo.ip_lo_addr = nodeData->nd_ip_addr;
+    nodeInfo.control_port = nodeData->nd_data_port;
+    nodeInfo.data_port = nodeData->nd_data_port;
+    nodeInfo.migration_port = nodeData->nd_migration_port;
     vec.push_back(nodeInfo);
 }
 
