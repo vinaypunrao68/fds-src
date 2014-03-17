@@ -372,6 +372,7 @@ DataMgr::DataMgr(int argc, char *argv[], Platform *platform, Module **vec)
       scheduleRate(4000),
       num_threads(DM_TP_THREADS)
 {
+    daemonize();
     dm_log = g_fdslog;
     vol_map_mtx = new fds_mutex("Volume map mutex");
 

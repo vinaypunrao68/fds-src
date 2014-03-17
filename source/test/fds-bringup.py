@@ -4,7 +4,7 @@
 #
 import fdslib.FdsSetup as inst
 import fdslib.BringUpCfg as fdscfg
-import optparse, sys
+import optparse, sys, time
 
 if __name__ == '__main__':
     parser = optparse.OptionParser("usage: %prog [options]")
@@ -32,6 +32,10 @@ if __name__ == '__main__':
         if options.config_file is None:
             sys.exit(0)
 
+    if options.config_file is None:
+        print "You need to pass config file"
+        sys.exit(1)
+
     cfg = fdscfg.FdsConfig(options.config_file, options.verbose)
     cfg.config_parse()
     user = cfg.config_user()
@@ -43,22 +47,36 @@ if __name__ == '__main__':
     nodes = cfg.config_nodes()
     for n in nodes:
         n.nd_connect_rmt_agent(env)
+        n.nd_rmt_agent.ssh_setup_env('')
         if options.clus_inst:
             n.nd_install_rmt_pkg() 
 
-    cnt = 0
+    if options.clus_down:
+        for n in nodes:
+            n.nd_cleanup_daemons()
+
+    if options.clus_up is None:
+        sys.exit(0)
+
+    time.sleep(2)
     for n in nodes:
-        if cnt == 0:
-            cnt = cnt + n.nd_start_om(cnt)
+        if n.nd_start_om() != 0:
+            break
 
     for n in nodes:
-        print "Start platform in", n.nd_host_name()
         n.nd_start_platform()
 
     cli = cfg.config_cli()
-    if options.clus_up:
-        cli.run_cli('--activate-nodes abc -k 1 -e am,sm,dm')
+    cli.run_cli('--activate-nodes abc -k 1 -e am,sm,dm')
+
+    for am in cfg.config_am():
+        am.am_start_service()
+
+    time.sleep(5)
+    pols = cfg.config_vol_policy()
+    for p in pols:
+        p.policy_apply_cfg(cli)
 
     vols = cfg.config_volumes()
     for v in vols:
-        v.debug_print()
+        v.vol_apply_cfg(cli)
