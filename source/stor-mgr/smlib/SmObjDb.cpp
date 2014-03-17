@@ -207,8 +207,10 @@ SmObjDb::writeObjectLocation(const ObjectID& objId,
      */
     objMap.updateMap(*obj_map);
 
-    objData.size = objMap.marshalledSize();
-    objData.data = std::string(objMap.marshalling(), objMap.marshalledSize());
+    objData.resize(objMap.marshalledSize());
+    size_t sz = objMap.marshall(const_cast<char*>(objData.data.data()), objData.data.size());
+    fds_assert(sz == objData.data.size());
+
     err = Put(objId, objData);
     if (err == ERR_OK) {
         LOGDEBUG << "Updating object location for object "
@@ -236,7 +238,7 @@ SmObjDb::readObjectLocations(const View &view,
     err = Get(objId, objData);
     if (err == ERR_OK) {
         objData.size = objData.data.size();
-        objMaps.unmarshalling(objData.data, objData.size);
+        objMaps.unmarshall(const_cast<char*>(objData.data.data()), objData.data.size());
     }
 
     return err;
@@ -274,8 +276,11 @@ SmObjDb::deleteObjectLocation(const ObjectID& objId) {
      * Set the ref_cnt to 0, which will be the delete marker for this object and Garbage collector feeds on these objects
      */
     obj_map->obj_refcnt = -1;
-    objData.size = objMap.marshalledSize();
-    objData.data = std::string(objMap.marshalling(), objMap.marshalledSize());
+
+    objData.resize(objMap.marshalledSize());
+    size_t sz = objMap.marshall(const_cast<char*>(objData.data.data()), objData.data.size());
+    fds_assert(sz == objData.data.size());
+
     err = Put(objId, objData);
     if (err == ERR_OK) {
         LOGDEBUG << "Setting the delete marker for object "

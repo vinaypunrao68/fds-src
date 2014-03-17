@@ -75,10 +75,7 @@ public:
         memcpy(&buf[copied_sz], &modificationTs, sizeof(modificationTs));
         copied_sz += sizeof(modificationTs);
 
-        const char *loc_map_buf = locMap.marshalling();
-        size_t loc_map_buf_sz = locMap.marshalledSize();
-        memcpy(&buf[copied_sz], loc_map_buf, loc_map_buf_sz);
-        copied_sz += loc_map_buf_sz;
+        copied_sz += locMap.marshall(&buf[copied_sz], buf_sz-copied_sz);
 
         return copied_sz;
     }
@@ -90,9 +87,7 @@ public:
         modificationTs = *(reinterpret_cast<uint64_t*>(&buf[idx]));
         idx += sizeof(modificationTs);
 
-        locMap.unmarshalling(&buf[idx], buf_sz-idx);
-        // NOTE: Ideally, unmarshalling() returns # of bytes unmarshalled
-        idx += locMap.marshalledSize();
+        idx += locMap.unmarshall(&buf[idx], buf_sz - idx);
 
         return idx;
     }
@@ -188,7 +183,8 @@ public:
     {
         return sizeof(version) + sizeof(data_mask) +
                 meta_data.marshalledSize() + sync_meta_data.marshalledSize();
-}
+    }
+
 public:
     /* NOTE: If you change the type here, it affects marshalling/unmarshalling code */
     /* Current version */

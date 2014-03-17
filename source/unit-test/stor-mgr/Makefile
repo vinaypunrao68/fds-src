@@ -31,11 +31,19 @@ user_non_fds_libs := \
     leveldb \
     fuse \
     config++ \
-    thrift
+    thrift \
+    gmock
 
-user_cpp          := sm_unit_test.cpp 
-user_no_style     := $(user_cpp)
-user_bin_exe      := sm_unit_test 
+user_cpp          := \
+	sm_unit_test.cpp \
+	SmObjDb_ut.cpp \
+
+user_no_style     := sm_unit_test.cpp
+user_bin_exe      := \
+	sm_unit_test \
+	SmObjDb_ut \
+
 sm_unit_test      := sm_unit_test.cpp
+SmObjDb_ut	  := SmObjDb_ut.cpp
 
 include $(topdir)/Makefile.incl
