@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # change this to the directory containing images
-files_dir=~/temp/skinet
+files_dir=~/temp/skinet2
 
 #change to ip of the node to upload
 ip=127.0.0.1
@@ -15,7 +15,7 @@ cd $files_dir
 flist=`ls`
 
 # Create bucket
-# curl -v -X POST http://$ip:8000/$bucket
+curl -v -X POST http://$ip:8000/$bucket
 
 # Post images
 for f in $flist; do

@@ -7,6 +7,8 @@
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <unistd.h>
 #include <thrift/transport/TBufferTransports.h>
+#include <fds_defines.h>
+#include <util/Log.h>
 
 using namespace apache::thrift::transport;
 using namespace apache::thrift::protocol;
@@ -105,6 +107,27 @@ Deserializer::~Deserializer() {
 
 }
 
+uint32_t Serializable::getEstimatedSize() const {
+    return 1*KB;
+}
+
+bool Serializable::getSerialized(std::string& serializedData) const {
+    serialize::Serializer *s = serialize::getMemSerializer(getEstimatedSize());
+    uint32_t bytesWritten = write(s);
+    LOGDEBUG << "byteswritten : " << bytesWritten;
+    serializedData.append(s->getBufferAsString());
+    delete s;
+    return bytesWritten > 0;
+}
+
+bool Serializable::loadSerialized(const std::string& serializedData) {
+    serialize::Deserializer *d = serialize::getMemDeserializer(serializedData);
+    uint32_t bytesRead = read(d);
+    LOGNORMAL << "bytesread : " <<bytesRead;
+    delete d;
+    return bytesRead > 0;
+}
+
 Serializer* getMemSerializer(uint sz) {
     if (0==sz) sz=1024;
     TMemoryBuffer* memBuffer=new TMemoryBuffer(sz);
@@ -112,7 +135,7 @@ Serializer* getMemSerializer(uint sz) {
     return new Serializer(TProtocolPtr (new TBinaryProtocol(trans)));
 }
 
-Deserializer* getMemDeserializer(std::string& str) {
+Deserializer* getMemDeserializer(const std::string& str) {
     TMemoryBuffer *memBuffer = new TMemoryBuffer((uint8_t*)const_cast<char*> (str.data()), 
                                                  (uint32_t)str.length());
     boost::shared_ptr<TTransport> trans(memBuffer);

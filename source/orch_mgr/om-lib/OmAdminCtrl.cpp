@@ -12,7 +12,7 @@
 namespace fds {
 
 FdsAdminCtrl::FdsAdminCtrl(const std::string& om_prefix, fds_log* om_log)
-    : parent_log(om_log) {
+        : parent_log(om_log) {
     /* init the disk  resource  variable */
     initDiskCapabilities();
 }
@@ -40,21 +40,20 @@ void FdsAdminCtrl::addDiskCapacity(const node_capability_t &n_info)
     avail_ssd_iops_min  += n_info.ssd_iops_min;
     avail_ssd_capacity  += n_info.ssd_capacity;
 
-    FDS_PLOG_SEV(parent_log, fds::fds_log::notification)
-        << "Total Disk Resources "
-        << "\n  Total Disk iops Max : " << total_disk_iops_max
-        << "\n  Total Disk iops Min : " << total_disk_iops_min
-        << "\n  Total Disk capacity : " << total_disk_capacity
-        << "\n  Disk latency Max: " << disk_latency_max
-        << "\n  Disk latency Min: " << disk_latency_min
-        << "\n  Total Ssd iops Max : " << total_ssd_iops_max
-        << "\n  Total Ssd iops Min: " << total_ssd_iops_min
-        << "\n  Total Ssd capacity : " << total_ssd_capacity
-        << "\n  Ssd latency Max: " << ssd_latency_max
-        << "\n  Ssd latency Min : " << ssd_latency_min
-        << "\n  Avail Disk capacity : " << avail_disk_capacity
-        << "\n  Avail Disk  iops max : " << avail_disk_iops_max
-        << "\n  Avail Disk  iops min : " << avail_disk_iops_min;
+    LOGNOTIFY << "Total Disk Resources "
+              << "\n  Total Disk iops Max : " << total_disk_iops_max
+              << "\n  Total Disk iops Min : " << total_disk_iops_min
+              << "\n  Total Disk capacity : " << total_disk_capacity
+              << "\n  Disk latency Max: " << disk_latency_max
+              << "\n  Disk latency Min: " << disk_latency_min
+              << "\n  Total Ssd iops Max : " << total_ssd_iops_max
+              << "\n  Total Ssd iops Min: " << total_ssd_iops_min
+              << "\n  Total Ssd capacity : " << total_ssd_capacity
+              << "\n  Ssd latency Max: " << ssd_latency_max
+              << "\n  Ssd latency Min : " << ssd_latency_min
+              << "\n  Avail Disk capacity : " << avail_disk_capacity
+              << "\n  Avail Disk  iops max : " << avail_disk_iops_max
+              << "\n  Avail Disk  iops min : " << avail_disk_iops_min;
 }
 
 void FdsAdminCtrl::removeDiskCapacity(const node_capability_t &n_info)
@@ -77,21 +76,20 @@ void FdsAdminCtrl::removeDiskCapacity(const node_capability_t &n_info)
     avail_ssd_iops_min  -= n_info.ssd_iops_min;
     avail_ssd_capacity  -= n_info.ssd_capacity;
 
-    FDS_PLOG_SEV(parent_log, fds::fds_log::notification)
-        << "Total Disk Resources "
-        << "\n  Total Disk iops Max : " << total_disk_iops_max
-        << "\n  Total Disk iops Min : " << total_disk_iops_min
-        << "\n  Total Disk capacity : " << total_disk_capacity
-        << "\n  Disk latency Max: " << disk_latency_max
-        << "\n  Disk latency Min: " << disk_latency_min
-        << "\n  Total Ssd iops Max : " << total_ssd_iops_max
-        << "\n  Total Ssd iops Min: " << total_ssd_iops_min
-        << "\n  Total Ssd capacity : " << total_ssd_capacity
-        << "\n  Ssd latency Max: " << ssd_latency_max
-        << "\n  Ssd latency Min : " << ssd_latency_min
-        << "\n  Avail Disk capacity : " << avail_disk_capacity
-        << "\n  Avail Disk  iops max : " << avail_disk_iops_max
-        << "\n  Avail Disk  iops min : " << avail_disk_iops_min;
+    LOGNOTIFY << "Total Disk Resources "
+              << "\n  Total Disk iops Max : " << total_disk_iops_max
+              << "\n  Total Disk iops Min : " << total_disk_iops_min
+              << "\n  Total Disk capacity : " << total_disk_capacity
+              << "\n  Disk latency Max: " << disk_latency_max
+              << "\n  Disk latency Min: " << disk_latency_min
+              << "\n  Total Ssd iops Max : " << total_ssd_iops_max
+              << "\n  Total Ssd iops Min: " << total_ssd_iops_min
+              << "\n  Total Ssd capacity : " << total_ssd_capacity
+              << "\n  Ssd latency Max: " << ssd_latency_max
+              << "\n  Ssd latency Min : " << ssd_latency_min
+              << "\n  Avail Disk capacity : " << avail_disk_capacity
+              << "\n  Avail Disk  iops max : " << avail_disk_iops_max
+              << "\n  Avail Disk  iops min : " << avail_disk_iops_min;
 }
 
 void FdsAdminCtrl::getAvailableDiskCapacity(const FdspVolInfoPtr pVolInfo)
@@ -106,13 +104,12 @@ void FdsAdminCtrl::updateAdminControlParams(VolumeDesc  *pVolDesc)
 {
     /* release  the resources since volume is deleted */
 
-     FDS_PLOG_SEV(parent_log, fds::fds_log::error)
-            << "desc iops_min: " << pVolDesc->iops_min
-            << "desc iops_max: " << pVolDesc->iops_max
-            << "desc capacity: " << pVolDesc->capacity
-            << "total iops min : " << total_vol_iops_min
-            << "total iops max: " << total_vol_iops_max
-            << "total capacity : " << total_vol_disk_cap;
+    LOGERROR << "desc iops_min: " << pVolDesc->iops_min
+             << "desc iops_max: " << pVolDesc->iops_max
+             << "desc capacity: " << pVolDesc->capacity
+             << "total iops min : " << total_vol_iops_min
+             << "total iops max: " << total_vol_iops_max
+             << "total capacity : " << total_vol_disk_cap;
     fds_verify(pVolDesc->iops_min <= total_vol_iops_min);
     fds_verify(pVolDesc->iops_max <= total_vol_iops_max);
     fds_verify(pVolDesc->capacity <= total_vol_disk_cap);
@@ -129,51 +126,48 @@ Error FdsAdminCtrl::volAdminControl(VolumeDesc  *pVolDesc)
     double iopc_subcluster_result = 0;
 
     if (pVolDesc->iops_min > pVolDesc->iops_max) {
-        FDS_PLOG_SEV(parent_log, fds::fds_log::error)
-            << " Cannot admit volume " << pVolDesc->name
-            << " -- iops_min must be below iops_max";
+        LOGERROR << " Cannot admit volume " << pVolDesc->name
+                 << " -- iops_min must be below iops_max";
         return Error(ERR_VOL_ADMISSION_FAILED);
     }
     iopc_subcluster = (avail_disk_iops_max/REPLICATION_FACTOR);
 
     if ((total_vol_disk_cap + pVolDesc->capacity) > avail_disk_capacity) {
-        FDS_PLOG_SEV(parent_log, fds::fds_log::error)
-            << " Cluster is running out of disk capacity \n"
-            << "total volume disk  capacity:" << total_vol_disk_cap;
+        LOGERROR << " Cluster is running out of disk capacity \n"
+                 << "total volume disk  capacity:" << total_vol_disk_cap;
         return Error(ERR_VOL_ADMISSION_FAILED);
     }
 
-    FDS_PLOG(parent_log) << " inside   admin control iopc sub cluster: "
-                         << iopc_subcluster
-                         << " iops_max: " << total_vol_iops_max
-                         << " iops_min: " << total_vol_iops_min
-                         << "\n";
+    LOGNORMAL << *pVolDesc;
+    LOGNORMAL << " iopc_subcluster:" << iopc_subcluster
+              << " iops_max: " << total_vol_iops_max
+              << " iops_min: " << total_vol_iops_min
+              << " loadfactor: " << LOAD_FACTOR
+              << " BURST_FACTOR: " << BURST_FACTOR;
 
     /* check the resource availability, if not return Error  */
     if (((total_vol_iops_min + pVolDesc->iops_min) <= (iopc_subcluster * LOAD_FACTOR)) &&
         ((((total_vol_iops_min) +
            ((total_vol_iops_max - total_vol_iops_min) * BURST_FACTOR))) + \
-            (pVolDesc->iops_min +
-             ((pVolDesc->iops_max - pVolDesc->iops_min) * BURST_FACTOR)) <= \
+         (pVolDesc->iops_min +
+          ((pVolDesc->iops_max - pVolDesc->iops_min) * BURST_FACTOR)) <= \
          iopc_subcluster)) {
         total_vol_iops_min += pVolDesc->iops_min;
         total_vol_iops_max += pVolDesc->iops_max;
         total_vol_disk_cap += pVolDesc->capacity;
 
-        FDS_PLOG_SEV(parent_log, fds::fds_log::notification)
-            << "updated disk params disk-cap:"
-            << avail_disk_capacity << ":: min:"
-            << total_vol_iops_min << ":: max:"
-            << total_vol_iops_max << "\n";
-        FDS_PLOG(parent_log) << " admin control successful \n";
+        LOGNOTIFY << "updated disk params disk-cap:"
+                  << avail_disk_capacity << ":: min:"
+                  << total_vol_iops_min << ":: max:"
+                  << total_vol_iops_max << "\n";
+        LOGNORMAL << " admin control successful \n";
         return Error(ERR_OK);
     } else  {
-        FDS_PLOG_SEV(parent_log, fds::fds_log::error)
-            << " Unable to create Volume,Running out of IOPS \n ";
-        FDS_PLOG_SEV(parent_log, fds::fds_log::error) << "Available disk Capacity:"
-            << avail_disk_capacity << "::Total min IOPS:"
-            <<  total_vol_iops_min << ":: Total max IOPS:"
-            << total_vol_iops_max << "\n";
+        LOGERROR << " Unable to create Volume,Running out of IOPS";
+        LOGERROR << "Available disk Capacity:"
+                 << avail_disk_capacity << "::Total min IOPS:"
+                 <<  total_vol_iops_min << ":: Total max IOPS:"
+                 << total_vol_iops_max;
         return Error(ERR_VOL_ADMISSION_FAILED);
     }
     return err;
