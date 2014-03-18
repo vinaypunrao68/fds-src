@@ -1,13 +1,49 @@
+#include <sstream>
+#include <iomanip>
 #include "configdbtool.h"
 
 #define LINE cout << "  " 
 #define ERRORLINE LINE << Color::Red    << "[error] : " << Color::End 
 #define WARNLINE  LINE << Color::Yellow << "[warn ] : " << Color::End 
 #define REGISTERCMD(c,fn) registerCommand(c, (CmdCallBack)&ConfigDBTool::cmd##fn);
+using PAIR = std::pair<std::string,std::string>;
+
+#define PRINTSTREAM(x) { \
+    std::ostringstream oss; \
+    oss << x; \
+    printData(oss.str()); }
+
+
+void printData(std::string data) {
+    size_t pos;
+    pos = data.find('['); if (pos != std::string::npos) data[pos]=' ';
+    pos = data.find(']'); if (pos != std::string::npos) data[pos]=' ';
+
+    std::istringstream f(data);
+    std::string s;
+    std::vector<std::pair<std::string,std::string> > nameValues;
+    while (std::getline(f, s, ' ')) {
+        pos = s.find(':');
+        if (pos != std::string::npos) {
+            nameValues.push_back(std::pair<std::string,std::string> (s.substr(0,pos), s.substr(pos+1)));
+        } else {
+            if (!s.empty()) {
+                nameValues.push_back(std::pair<std::string,std::string>(s,""));
+            }
+        }
+    }
+
+    std::string name,value;
+    for (uint i = 0 ; i < nameValues.size() ; i++ ) {
+        LINE << std::setw(20) << nameValues[i].first <<  " : " << nameValues[i].second << "\n";
+    }
+    
+}
 
 ConfigDBTool::ConfigDBTool(std::string host, int port) {
     db = new kvstore::ConfigDB(host,port,1);
 
+    setHistoryFile("~/.confidbtool.hist");
     if (!db->isConnected()) {
         ERRORLINE << "unable to connect to db @ [" << host << ":" << port << "]\n";
         exit(1);
@@ -68,7 +104,9 @@ void ConfigDBTool::cmdListPolicies(std::vector <std::string>& args) {
     LINE << Color::BoldWhite << "Num Policies : " << Color::End << policies.size() << "\n";
 
     for (uint i=0 ; i < policies.size() ; i++) {
-        LINE << (i+1) << " : " << policies[i] << "\n";
+        LINE << (i+1) << " : \n" ;
+        PRINTSTREAM(policies[i] );
+        cout << "\n";
     }
 }
 
@@ -85,7 +123,8 @@ void ConfigDBTool::cmdVolume(std::vector <std::string>& args) {
         if (!db->getVolume(volumeId,volumeDesc)) {
             WARNLINE << "could not find volume info for uuid : " << volumeId << "\n";
         } else {
-            LINE << Color::BoldWhite << volumeId << Color::End << " : " << volumeDesc ; 
+            LINE << Color::BoldWhite << volumeId << Color::End << "\n";
+            PRINTSTREAM(volumeDesc);
             cout << "\n";
         }    
     }
