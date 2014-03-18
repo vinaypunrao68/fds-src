@@ -136,4 +136,10 @@ public class OmConfigPath implements FDSP_ConfigPathReq.Iface {
     public List<FDSP_Node_Info_Type> ListServices(FDSP_MsgHdrType fdsp_msg) throws TException {
         return null;
     }
+
+    @Override
+    public List<FDSP_VolumeDescType> ListVolumes(FDSP_MsgHdrType fdsp_msg) throws TException {
+        return null;
+    }
+
 }
