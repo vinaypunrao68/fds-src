@@ -28,7 +28,7 @@ public class Om {
         serverFactory.startOmControlPathReq(controlPath, omControlPort);
         serverFactory.startConfigPathServer(configPath, omConfigPort);
 
-        WebApp webApp = new WebApp();
+        WebApp webApp = new WebApp("");
         webApp.route(HttpMethod.get, "services", () -> new ListServices(serviceDirectory));
         webApp.start(omHttpPort);
     }

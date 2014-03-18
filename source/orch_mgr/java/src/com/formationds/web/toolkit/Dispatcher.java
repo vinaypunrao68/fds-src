@@ -9,7 +9,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.function.Supplier;
 
 /*
  * Copyright 2014 Formation Data Systems, Inc.
@@ -18,15 +17,23 @@ public class Dispatcher extends HttpServlet {
     private static final Logger LOG = Logger.getLogger(Dispatcher.class);
 
     private RouteFinder routeFinder;
+    private String webDir;
 
-    public Dispatcher(RouteFinder routeFinder) {
+    public Dispatcher(RouteFinder routeFinder, String webDir) {
         this.routeFinder = routeFinder;
+        this.webDir = webDir;
     }
 
 
     protected void service(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        Supplier<RequestHandler> f = routeFinder.resolve(request);
-        RequestHandler requestHandler = f.get();
+        RequestHandler requestHandler;
+
+        if (isStaticAsset(request)) {
+            requestHandler = new StaticFileHandler(webDir);
+        } else {
+            requestHandler = routeFinder.resolve(request).get();
+        }
+
         Resource resource = new FourOhFour();
         try {
             resource = requestHandler.handle(request);
@@ -54,4 +61,11 @@ public class Dispatcher extends HttpServlet {
         outputStream.doCloseForReal();
     }
 
+    private boolean isStaticAsset(HttpServletRequest request) {
+        String path = request.getRequestURI()
+                .replaceAll("^" + request.getServletPath() + "/", "")
+                .replaceAll("^/", "");
+
+        return path.matches(".*\\..+");
+    }
 }
