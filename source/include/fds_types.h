@@ -92,6 +92,10 @@ namespace fds {
      */
     void SetId(const char*data, fds_uint32_t len);
     void SetId(uint8_t  *data, fds_uint32_t  length);
+    void SetId(const std::string &data) {
+        fds_assert(data.length() <= sizeof(digest));
+        memcpy(digest, data.data(), data.length());
+    }
     const uint8_t* GetId() const;
 
    /*
@@ -103,6 +107,8 @@ namespace fds {
     std::string ToString() const;
     bool operator==(const ObjectID& rhs) const;
     bool operator!=(const ObjectID& rhs) const;
+    bool operator < (const ObjectID& rhs) const;
+    bool operator > (const ObjectID& rhs) const;
     ObjectID& operator=(const ObjectID& rhs) ;
     ObjectID& operator=(const std::string& hexStr);
     std::string ToHex() const;
@@ -110,6 +116,8 @@ namespace fds {
     static std::string ToHex(const uint8_t *key, fds_uint32_t len);
     static std::string ToHex(const char *key, fds_uint32_t len);
     static std::string ToHex(const fds_uint32_t *key, fds_uint32_t len);
+    static int compare(const ObjectID &lhs, const ObjectID &rhs);
+
     friend class ObjectLess;
     friend class ObjIdGen;
   };
@@ -128,7 +136,7 @@ namespace fds {
   class ObjectLess {
   public:
     bool operator() (const ObjectID& oid1, const ObjectID& oid2) {
-      return  memcmp(oid1.digest, oid2.digest, oid1.GetLen()) < 0 ;
+      return oid1 < oid2;
     }
   };
 
@@ -146,6 +154,16 @@ namespace fds {
       : size(0), data("")
       {
       }
+    explicit ObjectBuf(const std::string &str)
+    : data(str)
+    {
+        size = str.length();
+    }
+    void resize(const size_t &sz)
+    {
+        size = sz;
+        data.resize(sz);
+    }
   };
 
 
@@ -168,6 +186,9 @@ namespace fds {
    FDS_BUCKET_STATS,
    FDS_SM_READ_TOKEN_OBJECTS,
    FDS_SM_WRITE_TOKEN_OBJECTS,
+   FDS_SM_SNAPSHOT_TOKEN,
+   FDS_SM_SYNC_APPLY_METADATA,
+   FDS_SM_SYNC_RESOLVE_SYNC_ENTRIES,
    FDS_OP_INVALID
   } fds_io_op_t;
 
