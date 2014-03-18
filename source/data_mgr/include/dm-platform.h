@@ -28,6 +28,8 @@ class DmPlatform : public Platform
     DmPlatform();
     virtual ~DmPlatform() {}
 
+    virtual void plf_reg_node_info(const NodeUuid &uuid, const FdspNodeRegPtr msg);
+
     /**
      * Module methods
      */

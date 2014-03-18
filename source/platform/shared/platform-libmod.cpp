@@ -75,8 +75,6 @@ Platform::plf_reg_node_info(const NodeUuid &uuid, const FdspNodeRegPtr msg)
     if (err != ERR_OK) {
         fds_verify(0);
     }
-    AgentContainer::pointer svc = local->dc_container_frm_msg(msg->node_type);
-    svc->agent_handshake(plf_net_sess, plf_dpath_resp, new_node);
 }
 
 // plf_del_node_info

@@ -78,6 +78,24 @@ DmPlatform::mod_shutdown()
 {
 }
 
+// plf_reg_node_info
+// -----------------
+//
+void
+DmPlatform::plf_reg_node_info(const NodeUuid &uuid, const FdspNodeRegPtr msg)
+{
+    NodeAgent::pointer     new_node;
+    DomainNodeInv::pointer local;
+
+    local = plf_node_inventory();
+    Error err = local->dc_register_node(uuid, msg, &new_node);
+    if (err != ERR_OK) {
+        fds_verify(0);
+    }
+    AgentContainer::pointer svc = local->dc_container_frm_msg(msg->node_type);
+    svc->agent_handshake(plf_net_sess, plf_dpath_resp, new_node);
+}
+
 // Factory methods required for DM RPC.
 //
 PlatRpcReqt *
