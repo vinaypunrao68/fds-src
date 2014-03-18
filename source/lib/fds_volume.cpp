@@ -212,7 +212,7 @@ VolumeDesc& VolumeDesc::operator=(const VolumeDesc& volinfo) {
 
 std::ostream& operator<<(std::ostream& os, const VolumeDesc& vol) {
     return os << "["
-              << " uuid: " << vol.volUUID
+              << " uuid:" << vol.volUUID
               << " name:" << vol.name
               << " tenant:" << vol.tennantId
               << " localdomain:" <<vol.localDomainId
@@ -225,7 +225,7 @@ std::ostream& operator<<(std::ostream& os, const VolumeDesc& vol) {
               << " read.quorum:" << vol.readQuorum
               << " consis.proto:" << vol.consisProtocol
               << " vol.policy.id:" << vol.volPolicyId
-              << " archive.policy.id" << vol.archivePolicyId
+              << " archive.policy.id:" << vol.archivePolicyId
               << " placement.policy:" << vol.placementPolicy
               << " app.workload:" << vol.appWorkload
               << " backup.vol:" << vol.backupVolume
@@ -290,8 +290,8 @@ std::ostream& operator<<(std::ostream& os, const FDS_VolumePolicy& policy) {
        << " name:" << policy.volPolicyName
        << " iops.max:" << policy.iops_max
        << " iops.min:" << policy.iops_min
-       << " thruput" << policy.thruput
-       << " relative.prio" << policy.relativePrio
+       << " thruput:" << policy.thruput
+       << " relative.prio:" << policy.relativePrio
        << " ]";
     return os;
 }
