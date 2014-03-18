@@ -135,6 +135,7 @@ Dm_ProbeMod::sendUpdate(const OpParams &updateParams)
     fds_verify(bnode != NULL);
 
     delete bnode;
+    delete dmUpdReq;
 }
 
 // pr_get
@@ -156,6 +157,36 @@ Dm_ProbeMod::sendQuery(const OpParams &queryParams)
 void
 Dm_ProbeMod::pr_delete(ProbeRequest *req)
 {
+}
+
+void
+Dm_ProbeMod::sendDelete(const OpParams &deleteParams)
+{
+    std::cout << "Doing a delete" << std::endl;
+
+    // Allocate a dm request using the fdsp message
+    DataMgr::dmCatReq *dmDelReq = new DataMgr::dmCatReq(
+        deleteParams.volId,
+        deleteParams.blobName,
+        0,  // Dm trans id is 0
+        0,  // Dm op id is 0
+        0,  // Source IP is 0
+        0,  // Dst IP is 0
+        0,  // Source port is 0
+        0,  // Dst port is 0
+        "0",  // Session UUID is 0
+        0,  // Request cookie is 0
+        FDS_DELETE_BLOB,
+        NULL);
+    dmDelReq->setBlobVersion(deleteParams.blobVersion);
+
+    BlobNode *bnode = NULL;
+    Error err = dataMgr->deleteBlobProcess(dmDelReq, &bnode);
+    fds_verify(err == ERR_OK);
+    fds_verify(bnode != NULL);
+
+    delete bnode;
+    delete dmDelReq;
 }
 
 // pr_verify_request
@@ -227,6 +258,8 @@ UT_ObjectOp::js_exec_obj(JsObject *parent,
 
         if (info->op == "update") {
             gl_Dm_ProbeMod.sendUpdate(*info);
+        } else if (info->op == "delete") {
+            gl_Dm_ProbeMod.sendDelete(*info);
         }
     }
 

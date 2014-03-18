@@ -249,11 +249,11 @@ class BlobObjectList {
     }
   };
 
-  /**
-   * Metadata that describes the blob. Analagous to
-   * a file inode in a file system.
-   */
-  class BlobNode {
+/**
+ * Metadata that describes the blob. Analagous to
+ * a file inode in a file system.
+ */
+class BlobNode {
   public:
     std::string blob_name;
     blob_version_t version;
@@ -266,10 +266,10 @@ class BlobObjectList {
     fds_uint32_t consisProtocol;
     MetaList meta_list; /// List of metadata key-value pairs
     BlobObjectList obj_list;
+      
     const char delim = ';';
     const std::string open_seq = "";
     const std::string end_seq = "";
-
 
     BlobNode() {
         // Init the new blob to an invalid version
@@ -280,129 +280,126 @@ class BlobObjectList {
     }
 
     std::string metaListToString() const {
-      uint i;
-      if (meta_list.size() == 0) {
-	return "[]";
-      }
-      std::string ret_str = "[";
-      for (i = 0; i < meta_list.size()-1; i++) {
-	ret_str += meta_list[i].ToString() + ",";
-      }
-      ret_str += meta_list[i].ToString();
-      ret_str += "]";
-      return ret_str;
+        uint i;
+        if (meta_list.size() == 0) {
+            return "[]";
+        }
+        std::string ret_str = "[";
+        for (i = 0; i < meta_list.size()-1; i++) {
+            ret_str += meta_list[i].ToString() + ",";
+        }
+        ret_str += meta_list[i].ToString();
+        ret_str += "]";
+        return ret_str;
     }
 
     void initMetaListFromString(std::string& str) {
+        meta_list.clear();
 
-      meta_list.clear();
+        int last_pos = 1;
+        ulong next_pos = 0;
+        std::string next_sub_str = "";
+        bool last_pair = false;
 
-      int last_pos = 1;
-      ulong next_pos = 0;
-      std::string next_sub_str = "";
-      bool last_pair = false;
+        if (str == "[]") {
+            return;
+        }
 
-      if (str == "[]") {
-	return;
-      }
-
-      while (!last_pair) {
-	next_pos = str.find(',', last_pos+1);
-	if (next_pos == std::string::npos) {
-	  next_pos = str.size()- 1;
-	  last_pair = true;
-	}
-	next_sub_str = str.substr(last_pos+1, next_pos-last_pos-1);
-	if (next_sub_str != "") {
-	  MetadataPair mpair(next_sub_str);
-	  meta_list.push_back(mpair);
-	}
-	last_pos = next_pos;
-      }
+        while (!last_pair) {
+            next_pos = str.find(',', last_pos+1);
+            if (next_pos == std::string::npos) {
+                next_pos = str.size()- 1;
+                last_pair = true;
+            }
+            next_sub_str = str.substr(last_pos+1, next_pos-last_pos-1);
+            if (next_sub_str != "") {
+                MetadataPair mpair(next_sub_str);
+                meta_list.push_back(mpair);
+            }
+            last_pos = next_pos;
+        }
     }
 
     void initMetaListFromFDSPMetaList(FDS_ProtocolInterface::FDSP_MetaDataList& mlist) {
-
-      meta_list.clear();
-      uint i = 0;
-      for (i = 0; i < mlist.size(); i++) {
-	meta_list.push_back(mlist[i]);
-      }
+        meta_list.clear();
+        uint i = 0;
+        for (i = 0; i < mlist.size(); i++) {
+            meta_list.push_back(mlist[i]);
+        }
     }
 
     void metaListToFDSPMetaList(FDS_ProtocolInterface::FDSP_MetaDataList& mlist) const {
-      mlist.clear();
-      uint i = 0;
-      for (i = 0; i < meta_list.size(); i++) {
-	FDS_ProtocolInterface::FDSP_MetaDataPair mpair;
-	mpair.key = meta_list[i].key;
-	mpair.value = meta_list[i].value;
-	mlist.push_back(mpair);
-      }
+        mlist.clear();
+        uint i = 0;
+        for (i = 0; i < meta_list.size(); i++) {
+            FDS_ProtocolInterface::FDSP_MetaDataPair mpair;
+            mpair.key = meta_list[i].key;
+            mpair.value = meta_list[i].value;
+            mlist.push_back(mpair);
+        }
     }
 
-    std::string ToString() const {
- 
-      std::ostringstream bnode_oss;
-      bnode_oss << blob_name << delim << vol_id << delim
-		<< version << delim << blob_size << delim
-		<< metaListToString() << delim << obj_list.ToString();
-      return bnode_oss.str();
+    std::string ToString() const { 
+        std::ostringstream bnode_oss;
+        bnode_oss << blob_name << delim << vol_id << delim
+                  << version << delim << blob_size << delim
+                  << metaListToString() << delim << obj_list.ToString();
+        return bnode_oss.str();
     }
 
     void initFromString(std::string& str) {
-      // Since we're updaing the blob's contents,
-      // bumps its version.
-      // TODO(Andrew): This should be based on the vols versioning
-      version++;
-      blob_mime_type = 0;
-      replicaCnt = writeQuorum = readQuorum = 0;
-      consisProtocol = 0;
+        // Since we're updaing the blob's contents,
+        // bumps its version.
+        // TODO(Andrew): This should be based on the vols versioning
+        version++;
+        blob_mime_type = 0;
+        replicaCnt = writeQuorum = readQuorum = 0;
+        consisProtocol = 0;
 
-      int next_start = 0;
-      int next_end = 0;
-      ulong next_delim_pos = -1;
-      std::string next_sub_str = "";
-      int field_idx = 0;
+        int next_start = 0;
+        int next_end = 0;
+        ulong next_delim_pos = -1;
+        std::string next_sub_str = "";
+        int field_idx = 0;
 
-      while (field_idx < 6) {
-	next_delim_pos = str.find(delim, next_start);
-	if (next_delim_pos == std::string::npos) {
-	  fds_verify(field_idx == 5);
-	  next_end = str.size()-1;
-	} else {
-	  next_end = next_delim_pos-1; 
-	}
-	next_sub_str = str.substr(next_start, next_end-next_start+1);
-	switch (field_idx) {
-	case 0:
-	  blob_name = next_sub_str;
-	  break;
-	case 1:
-	  vol_id = strtoull(next_sub_str.c_str(), NULL, 0);
-	  break;
-	case 2:
-	  version = strtoul(next_sub_str.c_str(), NULL, 0);
-	  break;
-	case 3:
-	  blob_size = strtoull(next_sub_str.c_str(), NULL, 0);
-	  break;
-	case 4:
-	  initMetaListFromString(next_sub_str);
-	  break;
-	case 5:
-	  obj_list.initFromString(next_sub_str);
-	  break;
-	default:
-	  fds_verify(0);
-	}
-	next_start = next_end+2;
-	field_idx++;
-      }
+        while (field_idx < 6) {
+            next_delim_pos = str.find(delim, next_start);
+            if (next_delim_pos == std::string::npos) {
+                fds_verify(field_idx == 5);
+                next_end = str.size()-1;
+            } else {
+                next_end = next_delim_pos-1; 
+            }
+            next_sub_str = str.substr(next_start, next_end-next_start+1);
+            switch (field_idx) {
+                case 0:
+                    blob_name = next_sub_str;
+                    break;
+                case 1:
+                    vol_id = strtoull(next_sub_str.c_str(), NULL, 0);
+                    break;
+                case 2:
+                    version = strtoul(next_sub_str.c_str(), NULL, 0);
+                    break;
+                case 3:
+                    blob_size = strtoull(next_sub_str.c_str(), NULL, 0);
+                    break;
+                case 4:
+                    initMetaListFromString(next_sub_str);
+                    break;
+                case 5:
+                    obj_list.initFromString(next_sub_str);
+                    break;
+                default:
+                    fds_verify(0);
+            }
+            next_start = next_end+2;
+            field_idx++;
+        }
     }
 
     BlobNode(std::string& str) {
-      initFromString(str);
+        initFromString(str);
     }
 
     void initFromFDSPPayload(const FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr cat_msg,
@@ -433,18 +430,17 @@ class BlobObjectList {
 
     BlobNode(FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr cat_msg, fds_volid_t _vol_id)
             : BlobNode() {
-      initFromFDSPPayload(cat_msg, _vol_id);
+        initFromFDSPPayload(cat_msg, _vol_id);
     }
 
     void ToFdspPayload(FDS_ProtocolInterface::FDSP_QueryCatalogTypePtr& query_msg) const {
-      query_msg->blob_name = blob_name;
-      query_msg->blob_size = blob_size;
-      query_msg->blob_version = version;
-      metaListToFDSPMetaList(query_msg->meta_list);
-      obj_list.ToFDSPObjList(query_msg->obj_list);
+        query_msg->blob_name = blob_name;
+        query_msg->blob_size = blob_size;
+        query_msg->blob_version = version;
+        metaListToFDSPMetaList(query_msg->meta_list);
+        obj_list.ToFDSPObjList(query_msg->obj_list);
     }
-
-  };
+};
 
 
   class VolumeMeta {
