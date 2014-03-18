@@ -10,6 +10,7 @@ user_build_dir := \
     hiredis \
     cryptopp \
     gmock-1.7.0 \
+    cmdconsole \
     source
 
 include $(topdir)/Makefile.incl
