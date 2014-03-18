@@ -9,6 +9,7 @@ user_build_dir := \
     jansson-2.5 \
     hiredis \
     cryptopp \
+    cmdconsole \
     source
 
 include $(topdir)/Makefile.incl
