@@ -38,6 +38,7 @@ class DmPlatform : public Platform
   protected:
     virtual PlatRpcReqt *plat_creat_reqt_disp();
     virtual PlatRpcResp *plat_creat_resp_disp();
+    virtual PlatDataPathResp *plat_creat_dpath_resp();
 };
 
 /**

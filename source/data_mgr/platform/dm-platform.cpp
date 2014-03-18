@@ -57,9 +57,6 @@ DmPlatform::mod_init(SysParams const *const param)
     Platform::mod_init(param);
 
     plf_om_ip_str    = conf.get_abs<std::string>("fds.dm.om_ip");
-//    plf_om_conf_port = conf.get_abs<int>("fds.dm.om_port");
-//    plf_my_ctrl_port = conf.get_abs<int>("fds.dm.cp_port");
-//    plf_my_data_port = conf.get_abs<int>("fds.dm.port");
     plf_my_ip        = util::get_local_ip();
     plf_my_node_name = plf_my_ip;
 
@@ -79,6 +76,8 @@ DmPlatform::mod_shutdown()
 {
 }
 
+// Factory methods required for DM RPC.
+//
 PlatRpcReqt *
 DmPlatform::plat_creat_reqt_disp()
 {
@@ -89,6 +88,12 @@ PlatRpcResp *
 DmPlatform::plat_creat_resp_disp()
 {
     return new PlatRpcResp(this);
+}
+
+PlatDataPathResp *
+DmPlatform::plat_creat_dpath_resp()
+{
+    return new PlatDataPathResp(this);
 }
 
 // --------------------------------------------------------------------------------------

@@ -107,7 +107,8 @@ void
 NodeInventory::init_node_info_pkt(fpi::FDSP_Node_Info_TypePtr pkt) const
 {
     pkt->node_id        = 0;
-    pkt->node_uuid      = rs_uuid.uuid_get_val();
+    pkt->node_uuid      = node_inv->nd_uuid.uuid_get_val();
+    pkt->service_uuid   = node_inv->nd_service_uuid.uuid_get_val();
     pkt->ip_hi_addr     = 0;
     pkt->ip_lo_addr     = node_inv->nd_ip_addr;
     pkt->node_type      = node_inv->nd_node_type;
@@ -174,6 +175,58 @@ NodeAgent::node_set_weight(fds_uint64_t weight)
 AgentContainer::AgentContainer(FdspNodeType id) : RsContainer()
 {
     ac_cpSessTbl = boost::shared_ptr<netSessionTbl>(new netSessionTbl(id));
+}
+
+// agent_handshake
+// ---------------
+//
+void
+AgentContainer::agent_handshake(boost::shared_ptr<netSessionTbl> net,
+                                NodeAgentDpRespPtr               resp,
+                                NodeAgent::pointer               agent)
+{
+}
+
+// --------------------------------------------------------------------------------------
+// SM Agent
+// --------------------------------------------------------------------------------------
+SmAgent::SmAgent(const NodeUuid &uuid)
+    : NodeAgent(uuid), sm_sess(NULL), sm_reqt(NULL) {}
+
+SmAgent::~SmAgent()
+{
+    /* TODO(Vy): shutdown netsession and cleanup stuffs here */
+}
+
+// sm_handshake
+// ------------
+//
+/* virtual */ void
+SmAgent::sm_handshake(boost::shared_ptr<netSessionTbl> net, NodeAgentDpRespPtr sm_resp)
+{
+    sm_sess = net->startSession<netDataPathClientSession>(
+            node_inv->nd_ip_str, node_inv->nd_data_port,
+            FDSP_STOR_MGR, 1 /* just 1 channel */, sm_resp);
+
+    sm_reqt    = sm_sess->getClient();
+    sm_sess_id = sm_sess->getSessionId();
+
+    FDS_PLOG(g_fdslog) << "Handshake with SM: " << node_inv->nd_ip_str
+        << ", port " << node_inv->nd_data_port << ", sess id " << sm_sess_id;
+}
+
+SmContainer::SmContainer(FdspNodeType id) : AgentContainer(id) {}
+
+// agent_handshake
+// ---------------
+//
+void
+SmContainer::agent_handshake(boost::shared_ptr<netSessionTbl> net,
+                             NodeAgentDpRespPtr               sm_resp,
+                             NodeAgent::pointer               agent)
+{
+    SmAgent::pointer sm = SmAgent::agt_cast_ptr(agent);
+    sm->sm_handshake(net, sm_resp);
 }
 
 // --------------------------------------------------------------------------------------
@@ -374,6 +427,10 @@ DomainContainer::dc_register_node(const NodeUuid       &uuid,
                                   NodeAgent::pointer   *agent)
 {
     AgentContainer::pointer nodes;
+
+    FDS_PLOG(g_fdslog) << "Domain register uuid " << std::hex
+        << msg->node_uuid.uuid << ", svc uuid " << msg->service_uuid.uuid
+        << ", node type " << std::dec << msg->node_type;
 
     nodes = dc_container_frm_msg(msg->node_type);
     // TODO(Andrew): TOTAL HACK! This sleep prevents a race

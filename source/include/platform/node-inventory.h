@@ -23,6 +23,9 @@ typedef boost::shared_ptr<fpi::FDSP_ControlPathReqClient>     NodeAgentCpReqtSes
 typedef boost::shared_ptr<fpi::FDSP_OMControlPathReqClient>   NodeAgentCpOmClientPtr;
 typedef boost::shared_ptr<PlatRpcResp>                        OmRespDispatchPtr;
 
+typedef boost::shared_ptr<fpi::FDSP_DataPathReqClient>        NodeAgentDpClientPtr;
+typedef boost::shared_ptr<PlatDataPathResp>                   NodeAgentDpRespPtr;
+
 /**
  * POD types for common node inventory.
  */
@@ -174,12 +177,20 @@ class SmAgent : public NodeAgent
     typedef boost::intrusive_ptr<SmAgent> pointer;
     typedef boost::intrusive_ptr<const SmAgent> const_ptr;
 
-    SmAgent(const NodeUuid &uuid) : NodeAgent(uuid) {}
-    virtual ~SmAgent() {}
+    SmAgent(const NodeUuid &uuid);
+    virtual ~SmAgent();
 
     static inline SmAgent::pointer agt_cast_ptr(NodeAgent::pointer ptr) {
         return static_cast<SmAgent *>(get_pointer(ptr));
     }
+
+    virtual void
+    sm_handshake(boost::shared_ptr<netSessionTbl> net, NodeAgentDpRespPtr sm_resp);
+
+  protected:
+    netDataPathClientSession  *sm_sess;
+    NodeAgentDpClientPtr       sm_reqt;
+    std::string                sm_sess_id;
 };
 
 class DmAgent : public NodeAgent
@@ -322,6 +333,14 @@ class AgentContainer : public RsContainer
                                  NodeAgent::pointer   *out);
     virtual Error agent_unregister(const NodeUuid &uuid, const std::string &name);
 
+    /**
+     * Establish RPC connection with the remte agent.
+     */
+    virtual void
+    agent_handshake(boost::shared_ptr<netSessionTbl> net,
+                    NodeAgentDpRespPtr               resp,
+                    NodeAgent::pointer               agent);
+
   protected:
     boost::shared_ptr<netSessionTbl>   ac_cpSessTbl;
 
@@ -346,7 +365,12 @@ class SmContainer : public AgentContainer
 {
   public:
     typedef boost::intrusive_ptr<SmContainer> pointer;
-    SmContainer(FdspNodeType id) : AgentContainer(id) {}
+    SmContainer(FdspNodeType id);
+
+    virtual void
+    agent_handshake(boost::shared_ptr<netSessionTbl> net,
+                    NodeAgentDpRespPtr               resp,
+                    NodeAgent::pointer               agent);
 
   protected:
     virtual ~SmContainer() {}
@@ -422,6 +446,11 @@ class DomainContainer
     virtual Error dc_unregister_agent(const NodeUuid &uuid, FdspNodeType type);
 
     /**
+     * Return the agent container matching with the node type.
+     */
+    AgentContainer::pointer dc_container_frm_msg(FdspNodeType node_type);
+
+    /**
      * Get/set methods for different containers.
      */
     inline SmContainer::pointer dc_get_sm_nodes() {
@@ -472,8 +501,6 @@ class DomainContainer
     AmContainer::pointer     dc_am_nodes;
     PmContainer::pointer     dc_pm_nodes;
     AgentContainer::pointer  dc_nodes;
-
-    AgentContainer::pointer dc_container_frm_msg(FdspNodeType node_type);
 
   private:
     mutable boost::atomic<int>  rs_refcnt;

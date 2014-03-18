@@ -337,13 +337,15 @@ class Platform : public Module
     boost::shared_ptr<PlatRpcReqt>    plf_rpc_reqt;  /**< rpc handler for OM reqt.   */
     boost::shared_ptr<std::thread>    plf_rpc_thrd;  /**< thread running rpc handler */
     OmRespDispatchPtr                 plf_om_resp;   /**< RPC client response disp.  */
+    NodeAgentDpRespPtr                plf_dpath_resp;
     netControlPathServerSession      *plf_my_sess;
 
     /**
      * Required Factory methods.
      */
-    virtual PlatRpcReqt *plat_creat_reqt_disp() = 0;
-    virtual PlatRpcResp *plat_creat_resp_disp() = 0;
+    virtual PlatRpcReqt      *plat_creat_reqt_disp() = 0;
+    virtual PlatRpcResp      *plat_creat_resp_disp() = 0;
+    virtual PlatDataPathResp *plat_creat_dpath_resp() { return NULL; }
 
   private:
     void plf_rpc_server_thread();
@@ -379,6 +381,13 @@ class PlatformProcess : public FdsProcess
     static inline fds_uint32_t plf_get_sm_port(fds_uint32_t plat) { return plat + 10; }
     static inline fds_uint32_t plf_get_dm_port(fds_uint32_t plat) { return plat + 20; }
     static inline fds_uint32_t plf_get_am_port(fds_uint32_t plat) { return plat + 30; }
+
+    /**
+     * Return platform manager from the global singleton.
+     */
+    static inline Platform *plf_manager() {
+        return static_cast<PlatformProcess *>(g_fdsprocess)->plf_mgr;
+    }
 
   protected:
     Platform                 *plf_mgr;
