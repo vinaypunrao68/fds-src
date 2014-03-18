@@ -16,8 +16,10 @@ import java.util.function.Supplier;
 
 public class WebApp {
     private RouteFinder routeFinder;
+    private String webDir;
 
-    public WebApp() {
+    public WebApp(String webDir) {
+        this.webDir = webDir;
         this.routeFinder = new RouteFinder();
     }
 
@@ -39,7 +41,7 @@ public class WebApp {
         contextHandler.setContextPath("/");
         server.setHandler(contextHandler);
 
-        Dispatcher dispatcher = new Dispatcher(routeFinder);
+        Dispatcher dispatcher = new Dispatcher(routeFinder, webDir);
         contextHandler.addServlet(new ServletHolder(dispatcher), "/");
         server.setHandler(contextHandler);
 

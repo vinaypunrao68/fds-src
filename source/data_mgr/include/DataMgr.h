@@ -309,6 +309,7 @@ class DataMgr : public PlatformProcess
     Error updateCatalogProcess(const dmCatReq  *updCatReq, BlobNode **bnode);
     void queryCatalogBackend(dmCatReq  *qryCatReq);
     void deleteCatObjBackend(dmCatReq  *delCatReq);
+    Error deleteBlobProcess(const dmCatReq  *delCatReq, BlobNode **bnode);
     void blobListBackend(dmCatReq *listBlobReq);
 
     /* 

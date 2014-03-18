@@ -70,6 +70,7 @@ namespace fds {
 
     /* Metadata error range */
     ERR_BLOB_OFFSET_INVALID  = 500,
+    ERR_BLOB_NOT_FOUND       = 501,
 
     /* Migration error range [1000-1500) */
     ERR_MIGRATION_DUPLICATE_REQUEST = 1000,

@@ -48,6 +48,15 @@
 		    "blob-off":  6291456,
                     "object-id": "0xaaaadeadc94fcfb415dbe95f408b9ce9beefaaaa",
 		    "object-len": 3145728
+                },
+		{
+		    "blob-op":   "delete",
+		    "volume-id": 2,
+                    "blob-name": "blob-a",
+		    "blob-off":  0,
+		    "blob-version": 0,
+                    "object-id": "0xaaaadeadc94fcfb415dbe95f408b9ce9beefaaaa",
+		    "object-len": 3145728
                 }
             ]
         }

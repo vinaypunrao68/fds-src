@@ -67,6 +67,7 @@ class Dm_ProbeMod : public ProbeMod
     };
     void sendUpdate(const OpParams &updateParams);
     void sendQuery(const OpParams &queryParams);
+    void sendDelete(const OpParams &deleteParams);
 
     int  mod_init(SysParams const *const param);
     void mod_startup();

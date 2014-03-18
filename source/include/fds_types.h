@@ -11,6 +11,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <limits>
 
 #include <sstream>
 #include <iostream>  // NOLINT(*)
@@ -69,6 +70,8 @@ namespace fds {
    */
   static const blob_version_t blob_version_invalid = 0;
   static const blob_version_t blob_version_initial = 1;
+  static const blob_version_t blob_version_deleted =
+          std::numeric_limits<unsigned long long>::max();
 
   class ObjectID {
  private:

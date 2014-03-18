@@ -3,6 +3,8 @@ topdir            := ../..
 compile: thrift
 	mvn -DskipTests clean assembly:directory
 	mkdir -p $(main_dir_lib)/java/
+	mkdir -p $(main_dir_lib)/admin-webapp/
+	cp -rv ../../../baboon/app/* $(main_dir_lib)/admin-webapp/
 	cp -rv target/classes $(main_dir_lib)/java/
 	cp -rv target/om-1.0-bin/om-1.0/* $(main_dir_lib)/java/
 	cp orchMgr $(main_dir_bin)
@@ -17,5 +19,6 @@ java_clean:
 	rm -rvf target/
 	rm -rvf gen-java/
 	rm -rvf $(main_dir_lib)/java
+	rm -rvf $(main_dir_lib)/admin-webapp/
 
 include $(topdir)/Makefile.incl

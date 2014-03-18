@@ -1,0 +1,91 @@
+$nav_left_padding: 28px;
+nav#nav {
+  position: fixed;
+  top: 0;
+	left: -100px;
+	bottom: 0;
+	display: block;
+	float: left;
+	width: 100%;
+	max-width: $nav_width;
+	height: 100%;
+  @include transition(all, 300ms);
+
+  a#logo {
+    display: block;
+    color: #333333;
+    text-transform: uppercase;
+    font-size: .85em;
+    padding: 1em 0 0 $nav_left_padding;
+  }
+
+	ul {
+		display: block;
+		padding: 0;
+		opacity: 0.5;
+
+    @include transition(all, 300ms);
+
+		li {
+      display: inline;
+      a {
+        display: block;
+        position: relative;
+  			padding: .6em 1em .6em $nav_left_padding;
+  			cursor: pointer;
+        font-size: 1.2em;
+        font-weight: 500;
+  			color: #dfe5eb;
+
+        span {
+          position: absolute;
+          right: .5em;
+          opacity: .6;
+        }
+  			&:hover, &.current {
+          background-color: #0080FD;
+          color: #fff;
+        }
+      }
+		}
+  }
+}
+
+body.menu-active nav#nav { left: 0px; }
+body.menu-active nav#nav ul { left: 0px; opacity: 1; }
+
+div#wrap {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	overflow: scroll;
+	background: $base_bg_color;
+
+  @include transition(all, 300ms);
+
+	a.menu-trigger {
+    display: inline-block;
+		width: 36px;
+		height: 36px;
+    text-align: center;
+    padding-top: 8px;
+		cursor: pointer;
+		border-radius: 5px;
+
+		@include transition(all, 300ms);
+		&:hover { background: #dfe5eb; }
+	}
+  #header {
+    max-width: $stage_width;
+    position: relative;
+    #connection {
+      position: absolute;
+      right: 1em;
+      top: 1em;
+    }
+  }
+}
+
+body.menu-active div#wrap { left: $nav_width; width: calc(100% - 115px);  }

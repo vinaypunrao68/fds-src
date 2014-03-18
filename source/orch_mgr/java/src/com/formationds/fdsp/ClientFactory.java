@@ -49,22 +49,26 @@ public class ClientFactory {
         return new FDSP_ConfigPathReq.Client(hanshake(node, node.getControl_port()));
     }
 
-    public FDSP_ConfigPathReq.Iface configPathClient(String host, int port) throws TException {
+    public FDSP_ConfigPathReq.Iface configPathClient(String host, int port) {
         return new FDSP_ConfigPathReq.Client(handshake(host, port));
     }
 
-    private TProtocol hanshake(FDSP_RegisterNodeType node, int port) throws TException {
+    private TProtocol hanshake(FDSP_RegisterNodeType node, int port) {
         Inet4Address inet4Address = InetAddresses.fromInteger((int) node.getIp_lo_addr());
         return handshake(inet4Address.getHostAddress(), port);
     }
 
-    private TProtocol handshake(String host, int port) throws TException {
-        TSocket socket = new TSocket(host, port);
-        socket.open();
-        TProtocol protocol = new TBinaryProtocol(socket);
-        FDSP_Service.Client client = new FDSP_Service.Client(protocol);
-        FDSP_MsgHdrType msg = new FDSP_MsgHdrType();
-        FDSP_SessionReqResp response = client.EstablishSession(msg);
-        return protocol;
+    private TProtocol handshake(String host, int port)  {
+        try {
+            TSocket socket = new TSocket(host, port);
+            socket.open();
+            TProtocol protocol = new TBinaryProtocol(socket);
+            FDSP_Service.Client client = new FDSP_Service.Client(protocol);
+            FDSP_MsgHdrType msg = new FDSP_MsgHdrType();
+            FDSP_SessionReqResp response = client.EstablishSession(msg);
+            return protocol;
+        } catch (TException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
