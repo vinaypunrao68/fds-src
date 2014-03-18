@@ -104,9 +104,9 @@ bool
 Catalog::DbEmpty() {
 Catalog::catalog_iterator_t *db_it = NewIterator();
     for (db_it->SeekToFirst(); db_it->Valid(); db_it->Next()) {
-       return false;
+       return true;
     }
-    return true;
+    return false;
 }
 /** Gets backing file name
  * @return Copy of backing file name

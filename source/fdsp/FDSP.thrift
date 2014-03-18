@@ -229,6 +229,7 @@ struct FDSP_QueryCatalogType {
 
 struct  FDSP_DeleteCatalogType { /* This is a SH-->SM msg to delete the objectId */
   1: string   blob_name,       /* User visible name of the blob*/
+  2: i64 blob_version, /* Version of the blob.  */
 }
 
 struct FDSP_BlobInfoType{

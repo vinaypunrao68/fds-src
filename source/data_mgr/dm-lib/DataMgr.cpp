@@ -149,7 +149,8 @@ Error DataMgr::_process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
    */
   vol_map_mtx->lock();
   if (volExistsLocked(vol_uuid) == false) {
-    FDS_PLOG(dataMgr->GetLog()) << "Received Delete request for " << vol_uuid;
+    FDS_PLOG(dataMgr->GetLog()) << "Received Delete request for:"
+                                << std::hex << vol_uuid << std::dec;
     err = ERR_INVALID_ARG;
     vol_map_mtx->unlock();
     return err;
@@ -158,7 +159,8 @@ Error DataMgr::_process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
   VolumeMeta *vm = vol_meta_map[vol_uuid];
 
   if (vm->getVcat()->DbEmpty() == true) {
-    FDS_PLOG(dataMgr->GetLog()) << "Volume is NOT Empty" << vol_uuid;
+    FDS_PLOG(dataMgr->GetLog()) << "Volume is NOT Empty:"
+                                << std::hex << vol_uuid << std::dec;
     err = ERR_VOL_NOT_EMPTY;
     vol_map_mtx->unlock();
     return err;

@@ -355,9 +355,74 @@ void FDSP_MetaDataPathRespCbackI::UpdateCatalogObjectResp(FDSP_MsgHdrTypePtr& fd
                                                       FDSP_UpdateCatalogTypePtr& update_cat) {
   FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::debug) << "Received updCatObjResp for txn "
                                                           <<  fdsp_msg->req_cookie; 
-  // storHvisor->fds_process_update_catalog_resp(fdsp_msg, update_cat);
   fds::Error err = storHvisor->upCatResp(fdsp_msg, update_cat);
   fds_verify(err == ERR_OK);
+}
+
+int StorHvCtrl::fds_move_del_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
+  fds_int32_t  result  = 0;
+  fds_uint32_t transId = rxMsg->req_cookie; 
+  fds_volid_t  volId   = rxMsg->glob_volume_id;
+
+  StorHvVolume* vol = vol_table->getVolume(volId);
+  fds_verify(vol != NULL);
+  StorHvVolumeLock vol_lock(vol);
+  fds_verify(vol->isValidLocked() == true);
+
+  StorHvJournalEntry *txn = vol->journal_tbl->get_journal_entry(transId);
+  fds_verify(txn != NULL);
+  switch(txn->trans_state)  {
+    case FDS_TRANS_OPEN:
+  
+      if (txn->dm_ack_cnt < FDS_MIN_ACK) {
+        break;
+      }
+      FDS_PLOG_SEV(sh_log, fds::fds_log::normal) << "Move trans " << transId
+                                                       << " to FDS_TRANS_OPENED:"
+                                                       << " received min DM/SM acks";
+    
+      /* we have received min acks, fall through the next state */
+      txn->trans_state = FDS_TRANS_COMMITTED;
+
+    case FDS_TRANS_COMMITTED:
+        FDS_PLOG_SEV(sh_log, fds::fds_log::normal) << "Move trans " << transId
+                                                         << " to FDS_TRANS_COMMITTED:"
+                                                         << " received min DM acks";
+        fds::AmQosReq *qosReq  = static_cast<fds::AmQosReq *>(txn->io);
+        fds_verify(qosReq != NULL);
+        fds::FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
+        fds_verify(blobReq != NULL);
+        fds_verify(blobReq->getIoType() == FDS_DELETE_BLOB);
+        FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "Responding to deleteBlob trans " << transId
+                                                   <<" for blob " << blobReq->getBlobName()
+                                                   << " with result " << rxMsg->result;
+
+       /*
+        * Mark the IO complete, clean up txn, and callback
+        */
+       qos_ctrl->markIODone(txn->io);
+       if (rxMsg->result == FDSP_ERR_OK) {
+       blobReq->cbWithResult(0);
+       } else {
+       /*
+        * We received an error from SM
+        */
+        blobReq->cbWithResult(-1);
+       }
+
+      txn->reset();
+      vol->journal_tbl->releaseTransId(transId);
+
+     /*
+      * TODO: We're deleting the request structure. This assumes
+      * that the caller got everything they needed when the callback
+      * was invoked.
+      */
+      delete blobReq;
+
+
+   }
+  return 0;
 }
 
 void FDSP_MetaDataPathRespCbackI::DeleteCatalogObjectResp(
@@ -559,7 +624,6 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
     } else if (journEntry->io->io_type == FDS_DELETE_BLOB) {
         FDS_ProtocolInterface::FDSP_DeleteObjTypePtr del_obj_req(new FDSP_DeleteObjType);
         del_obj_req->data_obj_id.digest = cat_obj_info.data_obj_id.digest;
-//        del_obj_req->data_obj_id.hash_low = cat_obj_info.data_obj_id.hash_low;
         del_obj_req->data_obj_len = journEntry->data_obj_len;
         if (endPoint) {
             boost::shared_ptr<FDSP_DataPathReqClient> client =
@@ -572,7 +636,7 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
         }
         // RPC Call DeleteCatalogObject to DataMgr
         FDS_ProtocolInterface::FDSP_DeleteCatalogTypePtr del_cat_obj_req(new FDSP_DeleteCatalogType);
-        num_nodes = 8;
+        num_nodes = FDS_REPLICATION_FACTOR;
         FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr_dm(new FDSP_MsgHdrType);
         storHvisor->InitDmMsgHdr(fdsp_msg_hdr_dm);
         fdsp_msg_hdr_dm->msg_code = FDSP_MSG_DELETE_BLOB_REQ;

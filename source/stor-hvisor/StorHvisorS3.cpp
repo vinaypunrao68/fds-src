@@ -14,7 +14,6 @@
 #include <dlt.h>
 #include <ObjectId.h>
 
-#define FDS_REPLICATION_FACTOR 2
 
 extern StorHvCtrl *storHvisor;
 using namespace std;
@@ -634,6 +633,7 @@ fds::Error StorHvCtrl::upCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
 fds::Error StorHvCtrl::deleteCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
                                      const FDSP_DeleteCatalogTypePtr& delCatRsp) {
   fds::Error err(ERR_OK);
+  fds_int32_t result = 0;
 
   fds_verify(rxMsg->msg_code == FDSP_MSG_DELETE_BLOB_RSP);
 
@@ -671,6 +671,29 @@ fds::Error StorHvCtrl::deleteCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
    * only the resonse from a single DM. We need to finish this transaction by
    * tracking all of the responses from all SMs/DMs in the journal.
    */
+
+   /*
+    *  check the version of the object, return if the version is NULL
+    */
+
+  /*
+   * start accumulating the ack from  DM and  check for the min ack
+   */
+
+  if (rxMsg->msg_code == FDSP_MSG_DELETE_OBJ_RSP) {
+     txn->fds_set_dmack_status(rxMsg->src_ip_lo_addr,
+                              rxMsg->src_port);
+     FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << transId
+                                   << " volID: 0x" << std::hex << volId << std::dec
+                                   << " -  Recvd DM TXN_STATUS_OPEN RSP "
+                                   << " ip " << rxMsg->src_ip_lo_addr
+                                   << " port " << rxMsg->src_port;
+   result = fds_move_del_req_state_machine(rxMsg);
+   fds_verify(result == 0);
+   return err;
+  }
+
+#if 0
   fds::AmQosReq *qosReq  = static_cast<fds::AmQosReq *>(txn->io);
   fds_verify(qosReq != NULL);
   fds::FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
@@ -702,6 +725,7 @@ fds::Error StorHvCtrl::deleteCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
    * was invoked.
    */
   delete blobReq;
+#endif
 
   return err;
 }
@@ -1056,6 +1080,8 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
           << " StorHvisorTx:" << "IO-XID:" << transId << " volID: 0x" << std::hex
           << vol_id << std::dec << " - object ID: " << oid.ToHex(oid)
           << "  ObjLen:" << journEntry->data_obj_len;
+
+   // SAN- check the  version of the object. If the object version NULL ( object deleted) return
   
   // We have a Cache HIT *$###
   

@@ -168,6 +168,7 @@ void FDS_NativeAPI::DeleteBucket(BucketContext* bucketCtxt,
 				 void *callbackData)
 {
     fds_volid_t ret_id; 
+   FDS_PLOG(storHvisor->GetLog()) << "FDS_NativeAPI:DeleteBucket for bucket " << bucketCtxt->bucketName;
    // check the bucket is already attached. 
    ret_id = storHvisor->vol_table->getVolumeUUID(bucketCtxt->bucketName);
    if (ret_id == invalid_vol_id) {
@@ -357,6 +358,7 @@ void FDS_NativeAPI::PutObject(BucketContext *bucket_ctxt,
 			      PutProperties *put_properties,
 			      void *req_context,
 			      char *buffer,
+                              fds_uint64_t startByte, 
 			      fds_uint64_t buflen,
 			      fdsnPutObjectHandler putObjHandler, 
 			      void *callback_data)
