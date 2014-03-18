@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Compiled Object files
 *.slo
 *.lo
@@ -53,5 +54,3 @@ linux-*
 /source/stor_hvisor/?odule*
 /source/stor_hvisor/*.mod.*
 
-# gmock
-gmock-1.7.0/gmock_test
