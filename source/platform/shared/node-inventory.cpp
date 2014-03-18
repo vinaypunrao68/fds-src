@@ -177,6 +177,31 @@ AgentContainer::AgentContainer(FdspNodeType id) : RsContainer()
 }
 
 // --------------------------------------------------------------------------------------
+// SM Agent
+// --------------------------------------------------------------------------------------
+SmAgent::SmAgent(const NodeUuid &uuid)
+    : NodeAgent(uuid), sm_sess(NULL), sm_reqt(NULL) {}
+
+SmAgent::~SmAgent()
+{
+    /* TODO(Vy): shutdown netsession and cleanup stuffs here */
+}
+
+// sm_handshake
+// ------------
+//
+/* virtual */ void
+SmAgent::sm_handshake(boost::shared_ptr<netSessionTbl> net, NodeAgentDpRespPtr sm_resp)
+{
+    sm_sess = net->startSession<netDataPathClientSession>(
+            node_inv->nd_ip_str, node_inv->nd_data_port,
+            FDSP_STOR_MGR, 1 /* just 1 channel */, sm_resp);
+
+    sm_reqt    = sm_sess->getClient();
+    sm_sess_id = sm_sess->getSessionId();
+}
+
+// --------------------------------------------------------------------------------------
 // OM Agent
 // --------------------------------------------------------------------------------------
 OmAgent::OmAgent(const NodeUuid &uuid)
