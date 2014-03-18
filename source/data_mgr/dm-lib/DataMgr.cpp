@@ -1314,8 +1314,11 @@ DataMgr::deleteCatObjBackend(dmCatReq  *delCatReq) {
     Error err(ERR_OK);
 
     BlobNode *bnode = NULL;
-    err = dataMgr->_process_delete(delCatReq->volId,
-                                   delCatReq->blob_name);
+    // Process the delete blob. The deleted or modified
+    // bnode will be allocated and returned on success
+    err = deleteBlobProcess(delCatReq, &bnode);
+    // err = dataMgr->_process_delete(delCatReq->volId,
+    //                            delCatReq->blob_name);
 
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
     FDS_ProtocolInterface::FDSP_DeleteCatalogTypePtr delete_catalog(new FDSP_DeleteCatalogType);
