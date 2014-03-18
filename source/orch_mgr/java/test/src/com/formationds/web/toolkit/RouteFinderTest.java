@@ -1,9 +1,8 @@
 package com.formationds.web.toolkit;
 
+import org.eclipse.jetty.http.HttpMethod;
 import org.eclipse.jetty.server.Request;
 import org.junit.Test;
-
-import javax.servlet.http.HttpServletRequest;
 
 import static org.junit.Assert.assertEquals;
 
@@ -14,13 +13,27 @@ public class RouteFinderTest {
     @Test
     public void testResolve() throws Exception {
         RouteFinder routeFinder = new RouteFinder();
-        routeFinder.route(HttpMethod.get, "/hello/foo", () -> new Foo());
-        routeFinder.route(HttpMethod.post, "/hello/bar", () -> new Bar());
-        assertEquals(200, routeFinder.resolve(HttpMethod.get, "/hello/foo").get().handle(null).getHttpStatus());
-        assertEquals(404, routeFinder.resolve(HttpMethod.post, "/hello/foo").get().handle(null).getHttpStatus());
-        assertEquals(200, routeFinder.resolve(HttpMethod.post, "/hello/bar").get().handle(null).getHttpStatus());
-        assertEquals(404, routeFinder.resolve(HttpMethod.head, "/hello/bar").get().handle(null).getHttpStatus());
-        assertEquals(404, routeFinder.resolve(HttpMethod.get, "/").get().handle(null).getHttpStatus());
+        routeFinder.route(HttpMethod.GET, "/hello/foo", () -> new Foo());
+        routeFinder.route(HttpMethod.POST, "/hello/bar", () -> new Bar());
+
+        Route route = resolve(HttpMethod.GET, routeFinder, "/hello/foo");
+        assertEquals(200, route.getHandler().get().handle(route.getRequest()).getHttpStatus());
+
+        route = resolve(HttpMethod.POST, routeFinder, "/hello/bar");
+        assertEquals(200, route.getHandler().get().handle(route.getRequest()).getHttpStatus());
+
+        route = resolve(HttpMethod.POST, routeFinder, "/hello/foo");
+        assertEquals(404, route.getHandler().get().handle(route.getRequest()).getHttpStatus());
+
+        route = resolve(HttpMethod.POST, routeFinder, "poop");
+        assertEquals(404, route.getHandler().get().handle(route.getRequest()).getHttpStatus());
+    }
+
+    private Route resolve(HttpMethod httpMethod, RouteFinder routeFinder, String q) {
+        Request request = new Request(null, null);
+        request.setMethod(httpMethod, httpMethod.asString());
+        request.setRequestURI(q);
+        return routeFinder.resolve(request);
     }
 
     class Foo extends TextResource implements RequestHandler {

@@ -1,6 +1,8 @@
 package com.formationds.web.toolkit;
 
-import javax.servlet.http.HttpServletRequest;
+import org.eclipse.jetty.http.HttpMethod;
+import org.eclipse.jetty.server.Request;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -9,7 +11,6 @@ import java.util.function.Supplier;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 public class RouteFinder {
-
     private Map<Key, Supplier<RequestHandler>> map;
 
     public RouteFinder() {
@@ -17,19 +18,17 @@ public class RouteFinder {
     }
 
     public void route(HttpMethod method, String name, Supplier<RequestHandler> handler) {
+        name = name.replaceAll("^/", "");
         map.put(new Key(method, name), handler);
     }
 
-    public Supplier<RequestHandler> resolve(HttpServletRequest request) {
+    public Route resolve(Request request) {
         String path = request.getRequestURI()
                 .replaceAll("^" + request.getServletPath() + "/", "")
                 .replaceAll("^/", "");
-        HttpMethod method = HttpMethod.valueOf(request.getMethod().toLowerCase());
-        return resolve(method, path);
-    }
-
-    public Supplier<RequestHandler> resolve(HttpMethod method, String path) {
-        return map.computeIfAbsent(new Key(method, path), k -> () -> new FourOhFour());
+        HttpMethod method = HttpMethod.valueOf(request.getMethod().toUpperCase());
+        Supplier<RequestHandler> supplier = map.computeIfAbsent(new Key(method, path), k -> () -> new FourOhFour());
+        return new Route(request, supplier);
     }
 
     private class Key {

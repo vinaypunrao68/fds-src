@@ -1,11 +1,10 @@
 package com.formationds.web.toolkit;
 
+import org.eclipse.jetty.http.HttpMethod;
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.server.nio.NetworkTrafficSelectChannelConnector;
-import org.eclipse.jetty.servlet.ServletContextHandler;
-import org.eclipse.jetty.servlet.ServletHolder;
 
 import java.util.function.Supplier;
 

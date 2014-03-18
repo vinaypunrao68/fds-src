@@ -6,7 +6,6 @@ import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.handler.AbstractHandler;
 
 import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -33,7 +32,9 @@ public class Dispatcher extends AbstractHandler {
         if (isStaticAsset(request)) {
             requestHandler = new StaticFileHandler(webDir);
         } else {
-            requestHandler = routeFinder.resolve(request).get();
+            Route route = routeFinder.resolve(request);
+            requestHandler = route.getHandler().get();
+            request = route.getRequest();
         }
 
         Resource resource = new FourOhFour();

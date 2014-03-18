@@ -2,9 +2,9 @@ package com.formationds.web.om;
 
 import com.formationds.fdsp.ClientFactory;
 import com.formationds.om.NativeApi;
-import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.WebApp;
 import org.apache.log4j.Logger;
+import org.eclipse.jetty.http.HttpMethod;
 
 import java.lang.management.ManagementFactory;
 
@@ -22,8 +22,8 @@ public class Main {
         LOG.info("Process info: " + ManagementFactory.getRuntimeMXBean().getName());
         WebApp webApp = new WebApp("../lib/admin-webapp/");
 
-        webApp.route(HttpMethod.get, "", () -> new LandingPage());
-        webApp.route(HttpMethod.get, "nodes", () -> new ListNodes(clientFactory.configPathClient("localhost", 8903)));
+        webApp.route(HttpMethod.GET, "", () -> new LandingPage());
+        webApp.route(HttpMethod.GET, "nodes", () -> new ListNodes(clientFactory.configPathClient("localhost", 8903)));
         webApp.start(4242);
     }
 
