@@ -290,14 +290,15 @@ ObjectStorMgr::~ObjectStorMgr() {
      * TODO: We should prevent further volume registration and
      * accepting network I/Os while shutting down.
      */
-    std::list<fds_volid_t> volIds = volTbl->getVolList();
-    for (std::list<fds_volid_t>::iterator vit = volIds.begin();
-            vit != volIds.end();
-            vit++) {
-        qosCtrl->quieseceIOs((*vit));
-        qosCtrl->deregisterVolume((*vit));
+    if (volTbl) {
+        std::list<fds_volid_t> volIds = volTbl->getVolList();
+        for (std::list<fds_volid_t>::iterator vit = volIds.begin();
+                vit != volIds.end();
+                vit++) {
+            qosCtrl->quieseceIOs((*vit));
+            qosCtrl->deregisterVolume((*vit));
+        }
     }
-
     delete perfStats;
 
     /*
@@ -337,7 +338,7 @@ void ObjectStorMgr::setup()
     std::string obj_dir = proc_root->dir_user_repo_objs();
 
     // Create leveldb
-    smObjDb = new  SmObjDb(obj_dir, objStorMgr->GetLog());
+    smObjDb = new  SmObjDb(this, obj_dir, objStorMgr->GetLog());
     // init the checksum verification class
     chksumPtr =  new checksum_calc();
 
@@ -736,7 +737,7 @@ Error ObjectStorMgr::writeBackObj(const ObjectID &objId) {
      * than flash.
      */
     ObjectBuf objData;
-    err = readObject(objId, objData);
+    err = readObject(SmObjDb::NON_SYNC_MERGED, objId, objData);
     if (err != ERR_OK) {
         return err;
     }
@@ -808,150 +809,11 @@ void ObjectStorMgr::unitTest() {
 }
 
 Error
-ObjectStorMgr::writeObjectLocation(const ObjectID& objId,
-        meta_obj_map_t *obj_map,
-        fds_bool_t      append) {
-
-    Error err(ERR_OK);
-
-    diskio::MetaObjMap objMap;
-    ObjectBuf          objData;
-
-    if (append == true) {
-        LOGDEBUG << "Appending new location for object " << objId;
-
-        /*
-         * Get existing object locations
-         * TODO: We need a better way to update this
-         * location DB with a new location. This requires
-         * reading the existing locations, updating the entry,
-         * and re-writing it. We often just want to append.
-         */
-        err = readObjectLocations(objId, objMap);
-        if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
-            LOGERROR << "Failed to read existing object locations"
-                    << " during location write";
-            return err;
-        } else if (err == ERR_DISK_READ_FAILED) {
-            /*
-             * Assume this error means the key just did not exist.
-             * TODO: Add an err to differention "no key" from "failed read".
-             */
-            LOGDEBUG << "Not able to read existing object locations"
-                    << ", assuming no prior entry existed";
-            err = ERR_OK;
-        }
-    }
-
-    /*
-     * Add new location to existing locations
-     */
-    objMap.updateMap(*obj_map);
-
-    objData.size = objMap.marshalledSize();
-    objData.data = std::string(objMap.marshalling(), objMap.marshalledSize());
-    err = smObjDb->Put(objId, objData);
-    if (err == ERR_OK) {
-        LOGDEBUG << "Updating object location for object "
-                << objId << " to " << objMap;
-    } else {
-        LOGERROR << "Failed to put object " << objId
-                << " into odb with error " << err;
-    }
-
-    return err;
-}
-
-/*
- * Reads all object locations
- */
-Error
-ObjectStorMgr::readObjectLocations(const ObjectID     &objId,
-        diskio::MetaObjMap &objMaps) {
-    Error     err(ERR_OK);
-    ObjectBuf objData;
-
-    objData.size = 0;
-    objData.data = "";
-    err = smObjDb->Get(objId, objData);
-    if (err == ERR_OK) {
-        objData.size = objData.data.size();
-        objMaps.unmarshalling(objData.data, objData.size);
-    }
-
-    return err;
-}
-
-Error
-ObjectStorMgr::readObjectLocations(const ObjectID &objId,
-        meta_obj_map_t *objMap) {
-    Error err(ERR_OK);
-    ObjectBuf objData;
-
-    objData.size = 0;
-    objData.data = "";
-    err = smObjDb->Get(objId, objData);
-    if (err == ERR_OK) {
-        string_to_obj_map(objData.data, objMap);
-        LOGDEBUG << "Retrieving object location for object "
-                << objId << " as " << objData.data;
-    } else {
-        LOGDEBUG << "No object location found for object " << objId << " in index DB";
-    }
-    return err;
-}
-
-Error
-ObjectStorMgr::deleteObjectLocation(const ObjectID& objId) { 
-
-    Error err(ERR_OK);
-    // NOTE !!!
-    meta_obj_map_t *obj_map = new meta_obj_map_t();
-
-    diskio::MetaObjMap objMap;
-    ObjectBuf          objData;
-
-    /*
-     * Get existing object locations
-     */
-    err = readObjectLocations(objId, objMap);
-    if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
-        LOGERROR << "Failed to read existing object locations"
-                << " during location write";
-        return err;
-    } else if (err == ERR_DISK_READ_FAILED) {
-        /*
-         * Assume this error means the key just did not exist.
-         * TODO: Add an err to differention "no key" from "failed read".
-         */
-        LOGDEBUG << "Not able to read existing object locations"
-                << ", assuming no prior entry existed";
-        err = ERR_OK;
-    }
-
-    /*
-     * Set the ref_cnt to 0, which will be the delete marker for this object and Garbage collector feeds on these objects
-     */
-    obj_map->obj_refcnt = -1;
-    objData.size = objMap.marshalledSize();
-    objData.data = std::string(objMap.marshalling(), objMap.marshalledSize());
-    err = smObjDb->Put(objId, objData);
-    if (err == ERR_OK) {
-        LOGDEBUG << "Setting the delete marker for object "
-                << objId << " to " << objMap;
-    } else {
-        LOGERROR << "Failed to put object " << objId
-                << " into odb with error " << err;
-    }
-
-    return err;
-}
-
-Error
-ObjectStorMgr::readObject(const ObjectID& objId,
+ObjectStorMgr::readObject(const SmObjDb::View& view,
+        const ObjectID& objId,
         ObjectBuf& objData) {
     diskio::DataTier tier;
-    return readObject(objId, objData, tier);
+    return readObject(view, objId, objData, tier);
 }
 
 /*
@@ -962,7 +824,8 @@ ObjectStorMgr::readObject(const ObjectID& objId,
  * is returned
  */
 Error 
-ObjectStorMgr::readObject(const ObjectID   &objId,
+ObjectStorMgr::readObject(const SmObjDb::View& view,
+        const ObjectID   &objId,
         ObjectBuf        &objData,
         diskio::DataTier &tierUsed) {
     Error err(ERR_OK);
@@ -986,7 +849,7 @@ ObjectStorMgr::readObject(const ObjectID   &objId,
      * Read all of the object's locations
      */
     diskio::MetaObjMap objMap;
-    err = readObjectLocations(objId, objMap);
+    err = smObjDb->readObjectLocations(view, objId, objMap);
     if (err == ERR_OK) {
         /*
          * Read obj from flash if we can
@@ -1054,7 +917,7 @@ ObjectStorMgr::checkDuplicate(const ObjectID&  objId,
     objGetData.size = 0;
     objGetData.data = "";
 
-    err = readObject(objId, objGetData);
+    err = readObject(SmObjDb::NON_SYNC_MERGED, objId, objGetData);
 
     if (err == ERR_OK) {
         /*
@@ -1073,7 +936,7 @@ ObjectStorMgr::checkDuplicate(const ObjectID&  objId,
             fds_panic("Encountered a hash collision checking object %s. Bailing out now!",
                     objId.ToHex().c_str());
         }
-    } else if (err == ERR_DISK_READ_FAILED) {
+    } else if (err == ERR_SM_OBJ_METADATA_NOT_FOUND) {
         /*
          * This error indicates the DB entry was empty
          * so we can reset the error to OK.
@@ -1135,7 +998,7 @@ ObjectStorMgr::writeObject(const ObjectID  &objId,
        delete disk_req;
        return err;
     }
-    err = writeObjectLocation(objId, disk_req->req_get_vmap(), true);
+    err = smObjDb->writeObjectLocation(objId, disk_req->req_get_vmap(), true);
     if ((err == ERR_OK) &&
             (tier == diskio::flashTier)) {
         /*
@@ -1161,7 +1024,7 @@ ObjectStorMgr::relocateObject(const ObjectID &objId,
     objGetData.size = 0;
     objGetData.data = "";
 
-    err = readObject(objId, objGetData);
+    err = readObject(SmObjDb::NON_SYNC_MERGED, objId, objGetData);
 
     diskio::DataIO& dio_mgr = diskio::DataIO::disk_singleton();
     SmPlReq     *disk_req;
@@ -1180,7 +1043,7 @@ ObjectStorMgr::relocateObject(const ObjectID &objId,
        delete disk_req;
        return err;
     }
-    err = writeObjectLocation(objId, disk_req->req_get_vmap(), false);
+    err = smObjDb->writeObjectLocation(objId, disk_req->req_get_vmap(), false);
 
     if (to_tier == diskio::diskTier) {
         perfStats->recordIO(flashToDisk, 0, diskio::diskTier, FDS_IO_WRITE);
@@ -1383,8 +1246,10 @@ void ObjectStorMgr::create_transaction_cb(FDSP_MsgHdrTypePtr msgHdr,
         SmIoReq *ioReq, TransJournalId trans_id)
 {
     ioReq->setTransId(trans_id);
-    ObjectIdJrnlEntry *jrnlEntry = omJrnl->get_transaction_nolock(trans_id);
-    jrnlEntry->setMsgHdr(msgHdr);
+    if (msgHdr.get()) {
+        ObjectIdJrnlEntry *jrnlEntry = omJrnl->get_transaction_nolock(trans_id);
+        jrnlEntry->setMsgHdr(msgHdr);
+    }
 }
 
 Error
@@ -1448,7 +1313,7 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
     /*
      * Delete the object
      */
-    err = deleteObjectLocation(objId);
+    err = smObjDb->deleteObjectLocation(objId);
     objStorMutex->unlock();
     if (err != fds::ERR_OK) {
         LOGERROR << "Failed to delete object " << err;
@@ -1570,7 +1435,7 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
         ObjectBuf objData;
         objData.size = 0;
         objData.data = "";
-        err = readObject(objId, objData, tierUsed);
+        err = readObject(SmObjDb::SYNC_MERGED, objId, objData, tierUsed);
         if (err == fds::ERR_OK) {
             objBufPtr = objCache->object_alloc(volId, objId, objData.size);
             memcpy((void *)objBufPtr->data.c_str(), (void *)objData.data.c_str(), objData.size);
@@ -1763,13 +1628,31 @@ ObjectStorMgr::enqGetObjectReq(FDSP_MsgHdrTypePtr msgHdr,
 Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
 {
     Error err(ERR_OK);
+    ObjectID objectId;
+    TransJournalId trans_id;
 
-    err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
-    if (err != fds::ERR_OK) {
-        LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
+    switch (ioReq->io_type) {
+    case FDS_SM_WRITE_TOKEN_OBJECTS:
+    case FDS_SM_READ_TOKEN_OBJECTS:
+        err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
+        if (err != fds::ERR_OK) {
+            LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
+        }
+        break;
+    case FDS_SM_SYNC_APPLY_METADATA:
+        objectId.SetId(static_cast<SmIoApplySyncMetadata*>(ioReq)->md.object_id.digest);
+        err =  enqTransactionIo(nullptr, objectId, ioReq, trans_id);
+        if (err != fds::ERR_OK) {
+            LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
+        }
+        break;
+    default:
+        fds_assert(!"Unknown message");
+        LOGERROR << "Unknown message: " << ioReq->io_type;
     }
     return err;
 }
+
 
 /**
  * @brief Does a bulk put of objects+metadata from obj_list
@@ -1792,7 +1675,7 @@ ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq)
          * write we don't need this check
          */ 
         diskio::MetaObjMap objMap;
-        err = readObjectLocations(objId, objMap);
+        err = smObjDb->readObjectLocations(SmObjDb::NON_SYNC_MERGED, objId, objMap);
         if (err == ERR_OK) {
             continue;
         }
@@ -1840,6 +1723,20 @@ ObjectStorMgr::getTokenObjectsInternal(SmIoReq* ioReq)
 
     getTokReq->response_cb(err, getTokReq);
     /* NOTE: We expect the caller to free up ioReq */
+}
+
+void
+ObjectStorMgr::applySyncMetadataInternal(SmIoReq* ioReq)
+{
+    SmIoApplySyncMetadata *applyMdReq =  static_cast<SmIoApplySyncMetadata*>(ioReq);
+    Error e = smObjDb->putSyncEntry(ObjectID(applyMdReq->md.object_id.digest),
+            applyMdReq->md);
+    if (e != ERR_OK) {
+        fds_assert(!"error");
+        LOGERROR << "Error in applying sync metadata.  Object Id: "
+                << applyMdReq->md.object_id.digest;
+        return;
+    }
 }
 
 inline void ObjectStorMgr::swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg) {
@@ -1905,6 +1802,24 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a read token objects";
             threadPool->schedule(&ObjectStorMgr::getTokenObjectsInternal, objStorMgr, io);
             break;
+        case FDS_SM_SNAPSHOT_TOKEN:
+        {
+            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a read token objects";
+            // threadPool->schedule(&ObjectStorMgr::snapshotTokenInternal, objStorMgr, io);
+            break;
+        }
+        case FDS_SM_SYNC_APPLY_METADATA:
+        {
+            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a read token objects";
+            threadPool->schedule(&ObjectStorMgr::applySyncMetadataInternal, objStorMgr, io);
+            break;
+        }
+        case FDS_SM_SYNC_RESOLVE_SYNC_ENTRIES:
+        {
+            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a read token objects";
+            // threadPool->schedule(&ObjectStorMgr::resolveSyncEntriesInternal, objStorMgr, io);
+            break;
+        }
         default:
             fds_assert(!"Unknown message");
             break;
@@ -1927,115 +1842,6 @@ void log_ocache_stats() {
 #endif
 }
 
-fds::Error SmObjDb::Get(const ObjectID& obj_id, ObjectBuf& obj_buf) {
-    fds_token_id tokId = objStorMgr->getDLT()->getToken(obj_id);
-    fds::Error err = ERR_OK;
-    ObjectDB *odb = getObjectDB(tokId);
-    if (odb) {
-        err =  odb->Get(obj_id, obj_buf);
-    } else {
-        odb = openObjectDB(tokId);
-        err =  odb->Get(obj_id, obj_buf);
-    }
-    return err;
-}
-
-fds::Error SmObjDb::Put(const ObjectID& obj_id, ObjectBuf& obj_buf) {
-    fds_token_id tokId = objStorMgr->getDLT()->getToken(obj_id);
-    fds::Error err = ERR_OK;
-    ObjectDB *odb = getObjectDB(tokId);
-    if (odb) {
-        err =  odb->Put(obj_id, obj_buf);
-    } else {
-        odb = openObjectDB(tokId);
-        err =  odb->Put(obj_id, obj_buf);
-    }
-    DBG(LOGDEBUG << "token: " << tokId <<  " dbId: " << GetSmObjDbId(tokId)
-            << " Obj id: " << obj_id);
-    return err;
-}
-
-void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
-        const size_t &max_size,
-        FDSP_MigrateObjectList &obj_list,
-        SMTokenItr &itr)
-{
-    fds_uint32_t tot_msg_len = 0;
-    diskio::DataTier tierUsed;
-    fds::Error err = ERR_OK;
-    ObjectID objId;
-    ObjectLess id_less;
-    ObjectDB *odb = getObjectDB(token);
-
-    if (odb == NULL ) { 
-        itr.objId = SMTokenItr::itr_end;
-        return;
-    }
-
-    DBG(int obj_itr_cnt = 0);
-
-    ObjectID start_obj_id, end_obj_id;
-    objStorMgr->getDLT()->getTokenObjectRange(token, start_obj_id, end_obj_id);
-    // If the iterator is non-zero then use that as a sarting point for the scan else make up a start from token
-    if ( itr.objId != NullObjectID) {
-        start_obj_id = itr.objId;
-    }
-    DBG(LOGDEBUG << "token: " << token << " begin: "
-            << start_obj_id << " end: " << end_obj_id);
-
-    leveldb::Slice startSlice((const char *)&start_obj_id, start_obj_id.GetLen());
-
-    boost::shared_ptr<leveldb::Iterator> dbIter(odb->GetDB()->NewIterator(odb->GetReadOptions()));
-    leveldb::Options options_ = odb->GetOptions();
-
-    memcpy(&objId , &start_obj_id, start_obj_id.GetLen());
-    // TODO(Rao): This iterator is very inefficient. We're always
-    // iterating through all of the objects in this DB even if they
-    // are not part of the token we care about.
-    // Ideally, we can iterate sorted keys so that we can seek to
-    // the object id range we care about.
-    for(dbIter->Seek(startSlice); dbIter->Valid(); dbIter->Next())
-    {
-        ObjectBuf        objData;
-        // Read the record
-        memcpy(&objId , dbIter->key().data(), objId.GetLen());
-        DBG(LOGDEBUG << "Checking objectId: " << objId << " for token range: " << token);
-
-        // TODO: process the key/data
-        if ((objId == start_obj_id || id_less(start_obj_id, objId)) &&
-            (objId == end_obj_id || id_less(objId, end_obj_id))) {
-            // Get the object buffer
-            err = objStorMgr->readObject(objId, objData, tierUsed);
-            if (err == ERR_OK ) {
-                if ((max_size - tot_msg_len) >= objData.size) {
-                    FDSP_MigrateObjectData mig_obj;
-                    mig_obj.meta_data.token_id = token;
-                    LOGDEBUG << "Adding a new objectId to objList" << objId;
-                    mig_obj.meta_data.object_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
-                    mig_obj.meta_data.obj_len = objData.size;
-                    mig_obj.data = objData.data;
-                    obj_list.push_back(mig_obj);
-                    tot_msg_len += objData.size;
-
-                    objStorMgr->counters_.get_tok_objs.incr();
-                    DBG(obj_itr_cnt++);
-                } else {
-                    itr.objId = objId;
-                    DBG(LOGDEBUG << "token: " << token <<  " dbId: " << GetSmObjDbId(token)
-                        << " cnt: " << obj_itr_cnt) << " token retrieve not completly with "
-                        << " max size" << max_size << " and total msg len " << tot_msg_len;
-                    return;
-                }
-            }
-            fds_verify(err == ERR_OK);
-        }
-
-    } // Enf of for loop
-    itr.objId = SMTokenItr::itr_end;
-
-    DBG(LOGDEBUG << "token: " << token <<  " dbId: " << GetSmObjDbId(token)
-        << " cnt: " << obj_itr_cnt) << " token retrieve complete";
-}
 
 }  // namespace fds
 

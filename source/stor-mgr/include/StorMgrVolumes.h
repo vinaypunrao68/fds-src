@@ -127,6 +127,8 @@ namespace fds {
     explicit StorMgrVolumeTable(ObjectStorMgr *sm);
     /* Use logger that passed in to the constructor */
     StorMgrVolumeTable(ObjectStorMgr *sm, fds_log *parent_log);
+    /* Exposed for mock testing */
+    StorMgrVolumeTable();
     ~StorMgrVolumeTable();
     Error updateVolStats(fds_volid_t vol_uuid);
     fds_uint32_t getVolAccessStats(fds_volid_t vol_uuid);
@@ -385,6 +387,65 @@ namespace fds {
   };
   typedef boost::shared_ptr<SmIoGetTokObjectsReq> SmIoGetTokObjectReqSPtr;
   typedef std::unique_ptr<SmIoGetTokObjectsReq> SmIoGetTokObjectsReqUPtr;
+
+  /**
+   * @brief Takes snapshot of object db
+   */
+  class SmIoSnapshotObjectDB : public SmIoReq {
+  public:
+    typedef std::function<void (const Error&, leveldb::ReadOptions& options,
+            leveldb::DB* db)> CbType;
+  public:
+      SmIoSnapshotObjectDB() {
+          token_id = 0;
+      }
+
+      /* In: Token to take snapshot of*/
+      fds_token_id token_id;
+      /* Response callback */
+      CbType smio_snap_resp_cb;
+  };
+
+  /**
+   * @brief Applies meta data transferred as part of sync
+   */
+  class SmIoApplySyncMetadata : public SmIoReq {
+  public:
+      typedef std::function<void (const Error&,
+              SmIoApplySyncMetadata *sync_md,
+              const std::set<ObjectID>& missing_objs)> CbType;
+  public:
+      SmIoApplySyncMetadata() {
+      }
+      virtual std::string log_string() override
+      {
+          std::stringstream ret;
+          ret << " SmIoApplySyncMetadata object id: " << md.object_id.digest;
+          return ret.str();
+      }
+
+      /* In: Sync metadata list */
+      FDSP_MigrateObjectMetadata md;
+      /* Response callback */
+      CbType smio_sync_md_resp_cb;
+  };
+
+  /**
+   * @brief Applies meta data transferred as part of sync
+   */
+  class SmIoResolveSyncEntries : public SmIoReq {
+  public:
+      typedef std::function<void (const Error&)> CbType;
+  public:
+      SmIoResolveSyncEntries() {
+          token_id = 0;
+      }
+
+      /* In: Sync metadata list */
+      fds_token_id token_id;
+      /* Response callback */
+      CbType smio_resolve_resp_cb;
+  };
 }  // namespace fds
 
 #endif  // SOURCE_STOR_MGR_STORMGRVOLUMES_H_

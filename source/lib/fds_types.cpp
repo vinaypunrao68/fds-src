@@ -138,11 +138,19 @@ namespace fds {
      * Operators
      */
     bool ObjectID::operator==(const ObjectID& rhs) const {
-        return (memcmp(digest, rhs.digest, sizeof(digest)) == 0);
+        return (compare(*this, rhs) == 0);
     }
 
     bool ObjectID::operator!=(const ObjectID& rhs) const {
         return (!operator==(rhs));
+    }
+
+    bool ObjectID::operator < (const ObjectID& rhs) const {
+        return  compare(*this, rhs) < 0;
+    }
+
+    bool ObjectID::operator > (const ObjectID& rhs) const {
+        return  compare(*this, rhs) > 0;
     }
 
     ObjectID& ObjectID::operator=(const ObjectID& rhs) {
@@ -216,6 +224,9 @@ namespace fds {
       return hash_oss.str();
     }
 
+    int ObjectID::compare(const ObjectID &lhs, const ObjectID &rhs) {
+        return  memcmp(lhs.digest, rhs.digest, sizeof(lhs.digest));
+    }
 
     /* NullObjectID */
     extern ObjectID NullObjectID;

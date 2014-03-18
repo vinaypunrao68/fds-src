@@ -360,6 +360,8 @@ class PlatformProcess : public FdsProcess
                     const std::string &cfg_path,
                     const std::string &log_file,
                     Platform *platform, Module **vec);
+    /* Exposed for mock testing */
+    PlatformProcess() {}
 
     virtual void setup();
 

@@ -113,6 +113,8 @@ class FdsProcess : public boost::noncopyable, public HasLogger {
                const std::string &def_cfg_file,
                const std::string &base_path, Module **mod_vec)
         : FdsProcess(argc, argv, def_cfg_file, base_path, "", mod_vec) {}
+    /* Exposed for mock testing */
+    FdsProcess() {}
 
     virtual ~FdsProcess();
 

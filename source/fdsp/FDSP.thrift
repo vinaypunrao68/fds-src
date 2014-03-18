@@ -787,6 +787,7 @@ struct FDSP_MigrateObjectMetadata
     1: FDSP_Token              token_id
     2: FDS_ObjectIdType        object_id
     3: i32                     obj_len;
+    4: i64                     modification_ts;
 }
 
 /* Complete data (metadata included) for migration object */
@@ -798,6 +799,9 @@ struct FDSP_MigrateObjectData
     /* Object data */
     2: FDSP_ObjectData            data
 }
+
+/* Collection of FDSP_MigrateObjectMetadata*/
+typedef list<FDSP_MigrateObjectMetadata> FDSP_MigrateObjectMetadataList
 
 /* Collection of FDSP_MigrateObjectData */
 typedef list<FDSP_MigrateObjectData> FDSP_MigrateObjectList
@@ -820,6 +824,34 @@ struct FDSP_PushTokenObjectsReq
 
 /* Payload for PushTokenObjects response path */
 typedef FDSP_MigMsgHdrType FDSP_PushTokenObjectsResp
+
+/* Pay load for PushTokenMetadata RPC */
+struct FDSP_PushTokenMetadataReq
+{
+	/* Header */
+	1: FDSP_MigMsgHdrType         header
+
+    /* List of object metadata */
+    2: FDSP_MigrateObjectMetadataList md_list
+}
+
+/* Payload for PushTokenMetadata response path */
+struct FDSP_PushTokenMetadataResp
+{
+	/* Header */
+	1: FDSP_MigMsgHdrType         header;
+} 
+
+/* Payload for NotifyTokenSyncComplete */
+struct FDSP_NotifyTokenSyncComplete
+{
+	/* Header */
+	1: FDSP_MigMsgHdrType         header;
+	
+	/* Token id */
+	2: FDSP_Token                 token_id;
+} 
+
 
 service FDSP_SessionReq {
     oneway void AssociateRespCallback(1:string src_node_name) // Associate Response callback with DM/SM for this source node.
@@ -981,12 +1013,15 @@ service FDSP_MigrationPathReq {
     oneway void CopyToken(1:FDSP_CopyTokenReq migrate_req)
 
     oneway void PushTokenObjects(1:FDSP_PushTokenObjectsReq mig_put_req)
+    oneway void PushTokenMetadata(1:FDSP_PushTokenMetadataReq push_md_req)
+    oneway void NotifyTokenSyncComplete(1:FDSP_NotifyTokenSyncComplete sync_complete)
 }
 
 service FDSP_MigrationPathResp {
     oneway void CopyTokenResp(1:FDSP_CopyTokenResp copytok_resp)
 
     oneway void PushTokenObjectsResp(1:FDSP_PushTokenObjectsResp pushtok_resp)
+    oneway void PushTokenMetadataResp(1:FDSP_PushTokenMetadataResp push_md_resp)
 }
 
 #endif

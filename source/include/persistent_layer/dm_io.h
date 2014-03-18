@@ -1,6 +1,8 @@
 #ifndef INCLUDE_DISK_MGR_DM_IO_H_
 #define INCLUDE_DISK_MGR_DM_IO_H_
 
+#include <gtest/gtest_prod.h>
+
 #include <cpplist.h>
 #include <fds_err.h>
 #include <fds_types.h>
@@ -418,8 +420,11 @@ class MetaObjMap : public PersistentClass {
     MetaObjMap(const MetaObjPod& pod) {
         pods.push_back(pod);
     }
+    void clear() {
+        pods.clear();
+    }
     fds_uint32_t marshalledSize() const {
-        return pods.size() * sizeof(MetaObjPod);
+        return sizeof(size_t) + (pods.size() * sizeof(MetaObjPod));
     }
     const char* marshalling() const {
         return reinterpret_cast<const char*>(pods.data());
@@ -436,6 +441,35 @@ class MetaObjMap : public PersistentClass {
         fds_verify(persistBuf.size() == bufSize);
         unmarshalling(persistBuf.c_str(), bufSize);
     }
+
+    size_t marshall(char *buf, const size_t &buf_sz) const
+    {
+        size_t copied_sz = 0;
+
+        size_t locMapLen = pods.size();
+        memcpy(&buf[copied_sz], &locMapLen, sizeof(locMapLen));
+        copied_sz += sizeof(locMapLen);
+
+        memcpy(&buf[copied_sz], pods.data(), locMapLen * sizeof(meta_obj_map_t));
+        copied_sz += locMapLen * sizeof(meta_obj_map_t);
+
+        return copied_sz;
+    }
+
+    size_t unmarshall(char *buf, const size_t &buf_sz)
+    {
+        size_t idx = 0;
+
+        size_t locMapLen = *(reinterpret_cast<size_t*>(&buf[idx]));
+        idx += sizeof(size_t);
+
+        meta_obj_map_t* podsBuf = reinterpret_cast<meta_obj_map_t*>(&buf[idx]);
+        pods.assign(podsBuf, podsBuf + locMapLen);
+        idx += (locMapLen * sizeof(meta_obj_map_t));
+
+        return idx;
+    }
+
     fds_bool_t hasFlashMap() const {
         return hasTier(flashTier);
     }
@@ -458,6 +492,14 @@ class MetaObjMap : public PersistentClass {
         }
         pods.push_back(pod);
     }
+
+    std::vector<MetaObjPod>* getPodsP() {
+        return &pods;
+    }
+    /*bool operator==(const MetaObjMap& map) const {
+        return pods == map.pods;
+    }*/
+
     friend std::ostream& operator<<(std::ostream& out, const MetaObjMap& objMap);
 };
 

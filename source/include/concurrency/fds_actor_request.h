@@ -42,6 +42,17 @@ enum FdsActorRequestType {
     /* TokenCopyReceiver message that a copy stream is finished */
     FAR_ENUM(TcrDestroyEvt),
 
+    /* Token sync snapshot is complete notification event */
+    FAR_ENUM(TSSnapDnEvt),
+
+    /* Token sync transfer is complete */
+    FAR_ENUM(TSXferDnEvt),
+
+    /* Token sync resolve is complete */
+    FAR_ENUM(TSResolveDnEvt),
+
+    /* Token sync meta data is applied to Object store */
+    FAR_ENUM(TSMdAppldEvt),
     /*----------------- Migration RPC -----------------------------------------*/
     /* RPC from receiver->sender to start token copy */
     FAR_ENUM(FDSP_CopyTokenReq),
@@ -55,6 +66,8 @@ enum FdsActorRequestType {
     /* RPC ack response from receiver->sender of token object data */
     FAR_ENUM(FDSP_PushTokenObjectsResp),
 
+    /* RPC ack response from receiver->sender of token metadata */
+    FAR_ENUM(FDSP_PushTokenMetadataResp),
     /*----------------- Last Request ------------------------------------------*/
     FAR_ENUM(Max)
 };

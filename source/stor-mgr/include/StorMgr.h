@@ -140,6 +140,8 @@ class SMCounters : public FdsCounters
         get_tok_objs("get_tok_objs", this)
   {
   }
+  /* Exposed for counters */
+  SMCounters() {}
 
   NumericCounter put_reqs;
   NumericCounter get_reqs;
@@ -312,14 +314,6 @@ class ObjectStorMgr :
             fds_uint32_t       transId);
     Error checkDuplicate(const ObjectID  &objId,
             const ObjectBuf &objCompData);
-    Error writeObjectLocation(const ObjectID &objId, 
-            meta_obj_map_t *obj_map,
-            fds_bool_t      append);
-    Error readObjectLocations(const ObjectID &objId, 
-            meta_obj_map_t *objMaps);
-    Error readObjectLocations(const ObjectID     &objId,
-            diskio::MetaObjMap &objMaps);
-    Error deleteObjectLocation(const ObjectID     &objId);
     Error writeObject(const ObjectID   &objId,
             const ObjectBuf  &objCompData,
             fds_volid_t       volId,
@@ -327,7 +321,8 @@ class ObjectStorMgr :
     Error writeObject(const ObjectID  &objId, 
             const ObjectBuf &objData,
             diskio::DataTier tier);
-    Error readObject(const ObjectID &objId,
+    Error readObject(const SmObjDb::View& view,
+            const ObjectID &objId,
             ObjectBuf      &objCompData);
 
     inline fds_uint32_t getSysTaskIopsMin() {
@@ -351,6 +346,20 @@ class ObjectStorMgr :
 
     ObjectStorMgr(int argc, char *argv[],
                   Platform *platform, Module **mod_vec);
+    /* This constructor is exposed for mock testing */
+    ObjectStorMgr() {
+        smObjDb = nullptr;
+        perfStats = nullptr;
+        qosCtrl = nullptr;
+        writeBackThreads = nullptr;
+        dirtyFlashObjs = nullptr;
+        tierEngine = nullptr;
+        rankEngine = nullptr;
+        volTbl = nullptr;
+        objStorMutex = nullptr;
+        omJrnl = nullptr;
+    }
+
     ~ObjectStorMgr();
 
     /* From FdsProcess */
@@ -401,6 +410,7 @@ class ObjectStorMgr :
         return omClient->getCurrentDLT();
     }
 
+
     void PutObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
             const FDS_ProtocolInterface::FDSP_PutObjTypePtr& put_obj);
     void GetObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
@@ -412,6 +422,7 @@ class ObjectStorMgr :
     Error deleteObjectInternal(SmIoReq* delReq);
     void putTokenObjectsInternal(SmIoReq* ioReq);
     void getTokenObjectsInternal(SmIoReq* ioReq);
+    void applySyncMetadataInternal(SmIoReq* ioReq);
     Error relocateObject(const ObjectID &objId,
             diskio::DataTier from_tier,
             diskio::DataTier to_tier);
@@ -432,10 +443,24 @@ class ObjectStorMgr :
 
     virtual Error enqueueMsg(fds_volid_t volId, SmIoReq* ioReq);
 
+    /* Made virtual for google mock */
+    TVIRTUAL fds_token_id getTokenId(const ObjectID& objId) {
+        return omClient->getCurrentDLT()->getToken(objId);
+    }
+    TVIRTUAL bool isTokenInSyncMode(const fds_token_id &tokId) {
+        fds_assert(!"not implemented");
+        return false;
+    }
+    TVIRTUAL uint64_t getTokenSyncTimeStamp(const fds_token_id &tokId) {
+        fds_assert(!"not implemented");
+        return 0;
+    }
+
     Error putTokenObjects(const fds_token_id &token, 
                           FDSP_MigrateObjectList &obj_list);
     void unitTest();
-    Error readObject(const ObjectID   &objId,
+    Error readObject(const SmObjDb::View& view,
+            const ObjectID   &objId,
             ObjectBuf        &objCompData,
             diskio::DataTier &tier);
 

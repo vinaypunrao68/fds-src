@@ -68,6 +68,12 @@ toolchain_cmdconsole_incl       := -I$(toolchain_cmdconsole)/
 toolchain_cryptopp         := $(topdir)/../cryptopp
 toolchain_cryptopp_incl    := -I$(toolchain_cryptopp)
 
+## gmock settings
+#
+toolchain_gmock            := $(topdir)/../gmock-1.7.0
+toolchain_gmock_incl       := -I$(toolchain_gmock)/gtest/include -I$(toolchain_gmock)/include
+toolchain_gmock_lib        := -L$(toolchain_gmock)
+
 ## Python binding settings
 #
 ifdef user_python
@@ -90,6 +96,7 @@ toolchain_incl_flags += $(toolchain_hiredis_incl)
 toolchain_incl_flags += $(toolchain_cmdconsole_incl)
 toolchain_incl_flags += $(toolchain_cryptopp_incl)
 toolchain_incl_flags += $(toolchain_python_bind_incl)
+toolchain_incl_flags += $(toolchain_gmock_incl)
 
 toolchain_cc_flags   := $(toolchain_incl_flags)
 toolchain_cpp_flags  := $(toolchain_incl_flags)
@@ -97,6 +104,7 @@ toolchain_cpp_flags  := $(toolchain_incl_flags)
 toolchain_ld_flags   := -L$(toolchain_boost_lib)
 toolchain_ld_flags   += -L$(toolchain_ldb_lib) -L$(toolchain_lib)
 toolchain_ld_flags   += $(toolchain_python_bind_lib)
+toolchain_ld_flags   += $(toolchain_gmock_lib)
 
 toolchain_so_flags   :=
 toolchain_ar_flags   :=

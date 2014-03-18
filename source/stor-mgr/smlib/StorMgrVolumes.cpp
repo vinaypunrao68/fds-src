@@ -95,6 +95,11 @@ Error err(ERR_OK);
 
 /***** StorMgrVolumeTable methods ******/
 
+StorMgrVolumeTable::StorMgrVolumeTable()
+{
+    created_log = false;
+}
+
 /* creates its own logger */
 StorMgrVolumeTable::StorMgrVolumeTable(ObjectStorMgr *sm, fds_log *parent_log)
   : parent_sm(sm) {
