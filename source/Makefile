@@ -22,6 +22,7 @@ user_build_dir :=                       \
     stor-mgr                            \
     fds_client                          \
     am-app                              \
+    tools                               \
     unit-test
 
 include $(topdir)/Makefile.incl
