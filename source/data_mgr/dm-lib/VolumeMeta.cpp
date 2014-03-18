@@ -95,8 +95,7 @@ Error VolumeMeta::listBlobs(std::list<BlobNode>& bNodeList) {
     std::string value(dbIt->value().ToString());
 
     FDS_PLOG_SEV(dm_log, fds::fds_log::normal) << "List blobs iterating over key "
-                                               << key.ToString() << " and value "
-                     << value;
+                                               << key.ToString();
     bNodeList.push_back(BlobNode(value));
   }
   vol_mtx->unlock();
@@ -132,9 +131,6 @@ Error VolumeMeta::QueryVcat(const std::string blob_name,
   } 
 
   bnode = new BlobNode(val);
-
-  FDS_PLOG(dm_log) << "Query for " << blob_name << " returned string: " << val
-		   << " .  Constructed bnode: " << bnode->ToString();
 
   return err;
 }

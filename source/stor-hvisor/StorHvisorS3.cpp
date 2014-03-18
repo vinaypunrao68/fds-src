@@ -1132,7 +1132,9 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
     journEntry->dm_ack[i].commit_status = FDS_CLS_ACK;
     journEntry->num_dm_nodes = num_nodes;
     del_cat_obj_req->blob_name = blobReq->getBlobName();
-    
+    // TODO(Andrew): Set to a specific version rather than
+    // always just the current
+    del_cat_obj_req->blob_version = blob_version_invalid;
 
     // Call Update Catalog RPC call to DM
     netMetaDataPathClientSession *sessionCtx =

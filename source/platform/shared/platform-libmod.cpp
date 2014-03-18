@@ -163,9 +163,8 @@ Platform::plf_change_info(const plat_node_data_t *ndata)
     if (ndata->nd_node_uuid == 0) {
         // TODO(Vy): we need to think about if AM needs to persist its own node/service
         // uuid or can it generate only the fly during its bootstrap process.
-        // When we're here and we don't have uuid, this must be AM.
-        ///
-        fds_verify(plf_node_type == FDSP_STOR_HVISOR);
+        // When we're here and we don't have uuid, this must be AM or running
+        // in a test mode where there's no OM/platform.
         plf_my_uuid = NodeUuid(fds_get_uuid64(get_uuid()));
     } else {
         plf_my_uuid = uuid;

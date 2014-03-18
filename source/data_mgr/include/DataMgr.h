@@ -252,11 +252,11 @@ class DataMgr : public PlatformProcess
     Error _process_open(fds_volid_t vol_uuid,
                         std::string blob_name,
                         fds_uint32_t trans_id,
-                        const BlobNode*& bnode);
+                        const BlobNode* bnode);
     Error _process_commit(fds_volid_t vol_uuid,
                           std::string blob_name,
                           fds_uint32_t trans_id,
-                          const BlobNode*& bnode);
+                          const BlobNode* bnode);
     Error _process_abort();
 
     Error _process_query(fds_volid_t vol_uuid,
@@ -308,6 +308,7 @@ class DataMgr : public PlatformProcess
     void updateCatalogBackend(dmCatReq  *updCatReq);
     Error updateCatalogProcess(const dmCatReq  *updCatReq, BlobNode **bnode);
     void queryCatalogBackend(dmCatReq  *qryCatReq);
+    Error queryCatalogProcess(dmCatReq  *qryCatReq, BlobNode **bnode);
     void deleteCatObjBackend(dmCatReq  *delCatReq);
     Error deleteBlobProcess(const dmCatReq  *delCatReq, BlobNode **bnode);
     void blobListBackend(dmCatReq *listBlobReq);
