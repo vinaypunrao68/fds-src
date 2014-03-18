@@ -6,12 +6,100 @@
 
 #include <string>
 #include <vector>
+#include <boost/msm/back/state_machine.hpp>
 #include <fds_volume.h>
 #include <platform/node-inventory.h>
 
 namespace fds {
 
 class OmDiscoveryMod;
+struct VolumeFSM;
+class VolumeInfo;
+typedef boost::msm::back::state_machine<VolumeFSM> FSM_Volume;
+
+typedef enum {
+    om_notify_vol_default = 0,
+    om_notify_vol_add     = 1,
+    om_notify_vol_rm      = 2,
+    om_notify_vol_rm_chk  = 3,
+    om_notify_vol_mod     = 4,
+    om_notify_vol_attach  = 5,
+    om_notify_vol_detach  = 6,
+    om_notify_vol_max
+} om_vol_notify_t;
+
+/**
+ * OM Volume life cycle events
+ */
+class VolCrtOkEvt
+{
+ public:
+    explicit VolCrtOkEvt(fds_uint32_t ack_w = 0)
+            : acks_to_wait(ack_w) {}
+
+    fds_uint32_t acks_to_wait;
+};
+
+class VolOpEvt
+{
+ public:
+    VolOpEvt(VolumeInfo* vol,
+             FDS_ProtocolInterface::FDSP_MsgCodeType type,
+             const NodeUuid& uuid)
+            : vol_ptr(vol), op_type(type), tgt_uuid(uuid) {}
+
+    VolOpEvt(VolumeInfo* vol,
+             FDS_ProtocolInterface::FDSP_MsgCodeType type,
+             boost::shared_ptr<VolumeDesc> vdesc)
+            : vol_ptr(vol), op_type(type), vdesc_ptr(vdesc) {}
+
+    VolumeInfo* vol_ptr;
+    FDS_ProtocolInterface::FDSP_MsgCodeType op_type;
+    NodeUuid tgt_uuid;
+    boost::shared_ptr<VolumeDesc> vdesc_ptr;
+};
+
+class VolOpRespEvt
+{
+ public:
+    VolOpRespEvt(const ResourceUUID& uuid,
+                 om_vol_notify_t type,
+                 Error err)
+            : vol_uuid(uuid), resp_type(type), op_err(err) {}
+
+    ResourceUUID vol_uuid;
+    om_vol_notify_t resp_type;
+    Error op_err;
+};
+
+class VolDelChkEvt
+{
+ public:
+    VolDelChkEvt(VolumeInfo* vol,
+                 Error err,
+                 fds_uint32_t ack_w = 0)
+            : vol_ptr(vol), chk_err(err), acks_to_wait(ack_w) {}
+
+    VolumeInfo* vol_ptr;
+    Error chk_err;
+    fds_uint32_t acks_to_wait;
+};
+
+class DetachAllEvt
+{
+ public:
+    DetachAllEvt() {}
+};
+
+class DelNotifEvt
+{
+ public:
+    explicit DelNotifEvt(VolumeInfo* vol)
+            : vol_ptr(vol) {}
+
+    VolumeInfo* vol_ptr;
+};
+
 
 /**
  * TODO(Vy): temp. interface for now to define generic volume message.
@@ -48,8 +136,16 @@ class VolumeInfo : public Resource
     void vol_send_message(om_vol_msg_t *out, NodeAgent::pointer dest);
 
     void setDescription(const VolumeDesc &desc);
-    void vol_attach_node(const NodeUuid &node_uuid);
-    void vol_detach_node(const NodeUuid &node_uuid);
+    Error vol_attach_node(const NodeUuid &node_uuid);
+    Error vol_detach_node(const NodeUuid &node_uuid);
+    Error vol_modify(const boost::shared_ptr<VolumeDesc>& vdesc_ptr);
+
+    /**
+     * Start volume delete process -- update admission control
+     * and send volume detach to all AMs that have this vol attached
+     * @return number of AMs we sent vol detach message
+     */
+    fds_uint32_t vol_start_delete();
 
     NodeAgent::pointer vol_am_agent(const NodeUuid &am_node);
 
@@ -59,55 +155,86 @@ class VolumeInfo : public Resource
     inline VolumeDesc *vol_get_properties() {
         return vol_properties;
     }
+    inline fds_bool_t is_delete_pending() const {
+        return delete_pending;
+    }
+
+    /**
+     * Return the string containing current state of the volume
+     */
+    char const *const vol_current_state();
+
+    /**
+     * Apply an event to volume lifecycle state machine
+     */
+    void vol_event(VolCrtOkEvt const &evt);
+    void vol_event(VolOpEvt const &evt);
+    void vol_event(VolOpRespEvt const &evt);
+    void vol_event(VolDelChkEvt const &evt);
+    void vol_event(DetachAllEvt const &evt);
+    void vol_event(DelNotifEvt const &evt);
 
     /**
      * Iter plugin to apply the function through each NodeAgent in the vol.
      */
     template <typename T>
-    void vol_foreach_am(T a, void (*fn)(T, VolumeInfo::pointer, NodeAgent::pointer)) {
+    fds_uint32_t vol_foreach_am(T a,
+                                void (*fn)(T, VolumeInfo::pointer, NodeAgent::pointer)) {
         // TODO(Vy): not thread safe for now...
+        fds_uint32_t count = 0;
         for (uint32_t i = 0; i < vol_am_nodes.size(); i++) {
             NodeAgent::pointer am = vol_am_agent(vol_am_nodes[i]);
             if (am != NULL) {
                 (*fn)(a, this, am);
+                ++count;
             }
         }
+        return count;
     }
     template <typename T1, typename T2>
-    void vol_foreach_am(T1 a1, T2 a2,
-                        void (*fn)(T1, T2,
-                                   VolumeInfo::pointer, NodeAgent::pointer)) {
+    fds_uint32_t vol_foreach_am(T1 a1, T2 a2,
+                                void (*fn)(T1, T2,
+                                           VolumeInfo::pointer, NodeAgent::pointer)) {
         // TODO(Vy): not thread safe for now...
+        fds_uint32_t count = 0;
         for (uint32_t i = 0; i < vol_am_nodes.size(); i++) {
             NodeAgent::pointer am = vol_am_agent(vol_am_nodes[i]);
             if (am != NULL) {
                 (*fn)(a1, a2, this, am);
+                ++count;
             }
         }
+        return count;
     }
     template <typename T1, typename T2, typename T3>
-    void vol_foreach_am(T1 a1, T2 a2, T3 a3,
-                        void (*fn)(T1, T2, T3,
-                                   VolumeInfo::pointer, NodeAgent::pointer)) {
+    fds_uint32_t vol_foreach_am(T1 a1, T2 a2, T3 a3,
+                                void (*fn)(T1, T2, T3,
+                                           VolumeInfo::pointer, NodeAgent::pointer)) {
         // TODO(Vy): not thread safe for now...
+        fds_uint32_t count = 0;
         for (uint32_t i = 0; i < vol_am_nodes.size(); i++) {
             NodeAgent::pointer am = vol_am_agent(vol_am_nodes[i]);
             if (am != NULL) {
                 (*fn)(a1, a2, a3, this, am);
+                ++count;
             }
         }
+        return count;
     }
     template <typename T1, typename T2, typename T3, typename T4>
-    void vol_foreach_am(T1 a1, T2 a2, T3 a3, T4 a4,
-                        void (*fn)(T1, T2, T3, T4,
-                                   VolumeInfo::pointer, NodeAgent::pointer)) {
+    fds_uint32_t vol_foreach_am(T1 a1, T2 a2, T3 a3, T4 a4,
+                                void (*fn)(T1, T2, T3, T4,
+                                           VolumeInfo::pointer, NodeAgent::pointer)) {
         // TODO(Vy): not thread safe for now...
+        fds_uint32_t count = 0;
         for (uint32_t i = 0; i < vol_am_nodes.size(); i++) {
             NodeAgent::pointer am = vol_am_agent(vol_am_nodes[i]);
             if (am != NULL) {
                 (*fn)(a1, a2, a3, a4, this, am);
+                ++count;
             }
         }
+        return count;
     }
 
   protected:
@@ -115,6 +242,10 @@ class VolumeInfo : public Resource
     fds_volid_t               volUUID;
     VolumeDesc               *vol_properties;
     std::vector<NodeUuid>     vol_am_nodes;
+
+    fds_bool_t delete_pending;
+
+    FSM_Volume *volume_fsm;
 };
 
 class VolumeContainer : public RsContainer
@@ -176,8 +307,10 @@ class VolumeContainer : public RsContainer
     /**
      * Volume functions.
      */
+    virtual VolumeInfo::pointer get_volume(const std::string& vol_name);
     virtual int om_create_vol(const FDSP_MsgHdrTypePtr  &hdr,
-                              const FdspCrtVolPtr       &creat_msg);
+                              const FdspCrtVolPtr       &creat_msg,
+                              fds_bool_t from_omcontrol_path);
     virtual int om_delete_vol(const FDSP_MsgHdrTypePtr  &hdr,
                               const FdspDelVolPtr &del_msg);
     virtual int om_modify_vol(const FdspModVolPtr &mod_msg);
@@ -187,6 +320,19 @@ class VolumeContainer : public RsContainer
                               const FdspAttVolCmdPtr    &detach);
     virtual void om_test_bucket(const FdspMsgHdrPtr     &hdr,
                                 const FdspTestBucketPtr &req);
+
+    /**
+     * Handling responses for volume events
+     */
+    virtual void om_notify_vol_resp(om_vol_notify_t type,
+                                    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+                                    const std::string& vol_name,
+                                    const ResourceUUID& vol_uuid);
+
+    /**
+     * Handle final deletion of the volume
+     */
+    virtual void om_cleanup_vol(const ResourceUUID& vol_uuid);
 
     bool addVolume(const VolumeDesc& volumeDesc);
 

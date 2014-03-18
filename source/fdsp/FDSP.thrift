@@ -24,7 +24,7 @@ enum FDSP_MsgCodeType {
    FDSP_MSG_DELETE_OBJ_REQ,
    FDSP_MSG_VERIFY_OBJ_REQ,
    FDSP_MSG_UPDATE_CAT_OBJ_REQ,
-   FDSP_MSG_DELETE_CAT_OBJ_REQ,
+   FDSP_MSG_DELETE_BLOB_REQ,
    FDSP_MSG_QUERY_CAT_OBJ_REQ,
    FDSP_MSG_GET_VOL_BLOB_LIST_REQ,
    FDSP_MSG_OFFSET_WRITE_OBJ_REQ,
@@ -35,7 +35,7 @@ enum FDSP_MsgCodeType {
    FDSP_MSG_DELETE_OBJ_RSP,
    FDSP_MSG_VERIFY_OBJ_RSP,
    FDSP_MSG_UPDATE_CAT_OBJ_RSP,
-   FDSP_MSG_DELETE_CAT_OBJ_RSP,
+   FDSP_MSG_DELETE_BLOB_RSP,
    FDSP_MSG_QUERY_CAT_OBJ_RSP,
    FDSP_MSG_GET_VOL_BLOB_LIST_RSP,
    FDSP_MSG_OFFSET_WRITE_OBJ_RSP,
@@ -128,27 +128,27 @@ enum FDSP_AppWorkload {
 }
 
 struct FDSP_PutObjType {
-  1: FDS_ObjectIdType   data_obj_id,
-  2: i32      data_obj_len,
-  3: i32      volume_offset, /* Offset inside the volume where the object resides */
-  4: i32      dlt_version,
-  5: binary data_obj,
-  6: binary dlt_data
+ 1: FDS_ObjectIdType data_obj_id,
+ 2: i32              data_obj_len,
+ 3: i32              volume_offset, /* Offset inside the volume where the object resides */
+ 4: i32              dlt_version,
+ 5: binary           data_obj,
+ 6: binary           dlt_data,
 }
 
 struct FDSP_GetObjType {
-  1: FDS_ObjectIdType   data_obj_id,
-  2: i32      data_obj_len,
-  3: i32      dlt_version,
-  4: binary  data_obj,
-  5: binary  dlt_data
+ 1: FDS_ObjectIdType data_obj_id,
+ 2: i32              data_obj_len,
+ 3: i32              dlt_version,
+ 4: binary           data_obj,
+ 5: binary           dlt_data,
 }
 
 struct  FDSP_DeleteObjType { /* This is a SH-->SM msg to delete the objectId */
-  1: FDS_ObjectIdType   data_obj_id,
-  2: i32      dlt_version,
-  3: i32      data_obj_len,
-  4: binary  dlt_data
+ 1: FDS_ObjectIdType data_obj_id,
+ 2: i32              dlt_version,
+ 3: i32              data_obj_len,
+ 4: binary           dlt_data,
 }
 
 
@@ -284,7 +284,6 @@ struct FDSP_ActivateNodeType {
 }
 
 struct FDSP_Node_Info_Type {
-
   1: i32      node_id,
   2: FDSP_NodeState     node_state,
   3: FDSP_MgrIdType node_type, /* Type of node - SM/DM/HV */
@@ -295,6 +294,7 @@ struct FDSP_Node_Info_Type {
   8: i32		 data_port, /* Port number to send datapath requests */
   9: i32                 migration_port, /* Migration service port */
   10: i64                node_uuid,      /* UUID of the node */
+  11: i64                service_uuid,      /* UUID of the service */
 }
 
 typedef list<FDSP_Node_Info_Type> Node_Info_List_Type
@@ -466,6 +466,7 @@ struct FDSP_NotifyVolType {
   1: FDSP_VolNotifyType 	 type,       /* Type of notify */
   2: string             	 vol_name,   /* Name of the volume */
   3: FDSP_VolumeDescType	 vol_desc,   /* Volume properties and attributes */
+  4: bool                        check_only  /* for delete vol -- only check if objects in volume */
 }
 
 struct FDSP_AttachVolType {
@@ -611,49 +612,46 @@ struct FDSP_NotifyQueueStateType {
 }
 
 struct FDSP_MsgHdrType {
-    1: FDSP_MsgCodeType     msg_code,
+  1: FDSP_MsgCodeType     msg_code,
 
-   /* Message versioning for compatibility check, functionality changes*/
-    2: i32        major_ver,  /* Major version number of this message */
-    3: i32        minor_ver,  /* Minor version number of this message */
-    4: i32        msg_id,     /* Message id to discard duplicate request & mai32ain causal order */
+   // Message versioning for compatibility check, functionality changes
+  2: i32 major_ver,   /* Major version number of this message */
+  3: i32 minor_ver,   /* Minor version number of this message */
+  4: i32 msg_id,      /* Message id to discard duplicate request & mai32ain causal order */
+  5: i32 payload_len,
+  6: i32 num_objects, /* Payload could contain more than one object */
+  7: i32 frag_len,    /* Fragment Length  */
+  8: i32 frag_num,    /* Fragment number for partial transfer */
 
-    5: i32        payload_len,
-    6: i32        num_objects,  /* Payload could contain more than one object */
-    7: i32        frag_len,     /* Fragment Length */
-    8: i32        frag_num,     /* Fragment number for partial transfer */
+  // Volume entity idenfiers 
+  9:  i32    tennant_id,      /* Tennant owning the Local-domain and  Storage  hypervisor */
+  10: i32    local_domain_id, /* Local domain the volume in question bei64s */
+  11: i64    glob_volume_id, /* Tennant owning the Local-domain and Storage hypervisor */
+  12: string bucket_name, /* Bucket Name or Container Name for S3 or Azure entities */
 
-/* Volume entity idenfiers */
-    9: i32        tennant_id,      /* Tennant owning the Local-domain and Storage hypervisor */
-    10: i32        local_domain_id, /* Local domain the volume in question bei64s */
-    11: i64        glob_volume_id,  /* Tennant owning the Local-domain and Storage hypervisor */
-    12: string       bucket_name,    /* Bucket Name or Container Name for S3 or Azure entities */
+ // Source and Destination Distributed s/w entities 
+  13: FDSP_MgrIdType  src_id,
+  14: FDSP_MgrIdType  dst_id,
+  15: i64             src_ip_hi_addr, /* IPv4 or IPv6 Address */
+  16: i64             src_ip_lo_addr, /* IPv4 or IPv6 Address */
+  17: i64             dst_ip_hi_addr, /* IPv4 or IPv6 address */
+  18: i64             dst_ip_lo_addr, /* IPv4 or IPv6 address */
+  19: i32             src_port,
+  20: i32             dst_port,
+  21: string          src_node_name, /* string identifying the source node that sent this request */
 
-    		/* Source and Destination Distributed s/w entities */
-    13: FDSP_MgrIdType       src_id,
-    14: FDSP_MgrIdType       dst_id,
+  // FDSP Result valid for response messages 
+  22: FDSP_ResultType result,
+  23: string          err_msg,
+  24: i32             err_code,
 
-    15: i64       		src_ip_hi_addr, /* IPv4 or IPv6 Address */
-    16: i64       		src_ip_lo_addr, /* IPv4 or IPv6 Address */
-    17: i64       		dst_ip_hi_addr, /* IPv4 or IPv6 address */
-    18: i64       		dst_ip_lo_addr, /* IPv4 or IPv6 address */
-
-    19: i32	src_port,
-    20: i32 dst_port,
-    21: string	src_node_name, /* string identifying the source node that sent this request */
-
-/* FDSP Result valid for response messages */
-    22: FDSP_ResultType       result,
-    23: string       	      err_msg,
-    24: i32                   err_code,
-
-/* Checksum of the entire message including the payload/objects */
-    25: i32         req_cookie,
-    26: i32         msg_chksum,
-    27: string      payload_chksum,
-
-    28: string      session_uuid
-    29: FDSP_Uuid   src_service_uuid    /* uuid of service that sent this request */
+  // Checksum of the entire message including the payload/objects 
+  25: i32         req_cookie,
+  26: i32         msg_chksum,
+  27: string      payload_chksum,
+  28: string      session_uuid,
+  29: FDSP_Uuid   src_service_uuid,    /* uuid of service that sent this request */
+  30: i64         origin_timestamp,
 }
 
 enum tier_prefetch_type_e
@@ -939,7 +937,8 @@ service FDSP_ConfigPathReq {
   i32 applyTierPolicy(1: tier_pol_time_unit policy),
   i32 auditTierPolicy(1: tier_pol_audit audit),
   i32 RemoveNode(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RemoveNodeType rm_node_req),
-  i32 ActivateAllNodes(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ActivateAllNodesType act_node_req)
+  i32 ActivateAllNodes(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ActivateAllNodesType act_node_req),
+  list<FDSP_Node_Info_Type> ListServices(1:FDSP_MsgHdrType fdsp_msg)
 }
 
 /* Not needed.  But created for symemtry */

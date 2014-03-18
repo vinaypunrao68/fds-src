@@ -190,7 +190,7 @@ void DLT::setNodes(fds_token_id token, const DltTokenGroup& nodes) {
     }
 }
 
-void DLT::generateNodeTokenMap() {
+void DLT::generateNodeTokenMap() const {
     LOGNORMAL << "generating node-token map";
     std::vector<DltTokenGroupPtr>::const_iterator iter;
     mapNodeTokens->clear();
@@ -294,7 +294,7 @@ void DLT::dump() const {
     }
 }
 
-uint32_t DLT::write(serialize::Serializer*  s   ) {
+uint32_t DLT::write(serialize::Serializer*  s) const {
     LOGNORMAL << "serializing dlt";
     uint32_t b = 0;
 
@@ -396,20 +396,8 @@ uint32_t DLT::read(serialize::Deserializer* d) {
     return b;
 }
 
-void DLT::getSerialized(std::string& serializedData) { // NOLINT
-    serialize::Serializer *s = serialize::getMemSerializer(512*KB);
-    uint32_t bytesWritten = this->write(s);
-    LOGDEBUG << "dlt.getSerialized : byteswritten : " << bytesWritten;
-    serializedData.append(s->getBufferAsString());
-    delete s;
-}
-
-bool DLT::loadSerialized(std::string& serializedData) { // NOLINT
-    serialize::Deserializer *d = serialize::getMemDeserializer(serializedData);
-    uint32_t bytesRead =this->read(d);
-    LOGNORMAL << "dlt.loadSerialized : byteswritten : " <<bytesRead;
-    delete d;
-    return true;
+uint32_t DLT::getEstimatedSize() const {
+    return 512*KB;
 }
 
 /**
@@ -644,7 +632,7 @@ NodeUuid DLTManager::getPrimary(const ObjectID& objId) const {
     return getPrimary(objId);
 }
 
-uint32_t DLTManager::write(serialize::Serializer*  s) {
+uint32_t DLTManager::write(serialize::Serializer*  s) const {
     LOGTRACE << " serializing dltmgr  ";
     uint32_t bytes = 0;
     // current version number

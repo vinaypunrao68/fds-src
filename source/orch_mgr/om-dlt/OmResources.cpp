@@ -100,6 +100,11 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
             err = pmNodes->handle_register_service((msg->node_uuid).uuid,
                                                    msg->node_type,
                                                    newNode);
+
+            /* XXX: TODO: (bao) ignore err ERR_NODE_NOT_ACTIVE for now, for checker */
+            if (err == ERR_NODE_NOT_ACTIVE) {
+                err = ERR_OK;
+            }
         }
 
         FDS_PLOG(g_fdslog) << "OM recv reg node uuid " << std::hex
@@ -306,6 +311,13 @@ OM_ControlRespHandler::NotifyAddVolResp(
               << "[" << not_add_vol_resp->vol_name << ":"
               << std::hex << not_add_vol_resp->vol_desc.volUUID << std::dec
               << "] Result: " << fdsp_msg->err_code;
+
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    VolumeContainer::pointer volumes = local->om_vol_mgr();
+    volumes->om_notify_vol_resp(om_notify_vol_add,
+                                fdsp_msg,
+                                not_add_vol_resp->vol_name,
+                                not_add_vol_resp->vol_desc.volUUID);
 }
 
 void
@@ -319,11 +331,22 @@ void
 OM_ControlRespHandler::NotifyRmVolResp(
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_rm_vol_resp) {
-    LOGNOTIFY << "OM received response for NotifyRmVol from node "
+    LOGNOTIFY << "OM received response for NotifyRmVol (check only "
+              << not_rm_vol_resp->check_only << ") from node "
               << fdsp_msg->src_node_name << " for volume "
               << "[" << not_rm_vol_resp->vol_name << ":"
               << std::hex << not_rm_vol_resp->vol_desc.volUUID << std::dec
               << "] Result: " << fdsp_msg->err_code;
+
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    VolumeContainer::pointer volumes = local->om_vol_mgr();
+    om_vol_notify_t type = om_notify_vol_rm;
+    if (not_rm_vol_resp->check_only)
+        type = om_notify_vol_rm_chk;
+    volumes->om_notify_vol_resp(type,
+                                fdsp_msg,
+                                not_rm_vol_resp->vol_name,
+                                not_rm_vol_resp->vol_desc.volUUID);
 }
 
 void
@@ -342,6 +365,13 @@ OM_ControlRespHandler::NotifyModVolResp(
               << "[" << not_mod_vol_resp->vol_name << ":"
               << std::hex << not_mod_vol_resp->vol_desc.volUUID << std::dec
               << "] Result: " << fdsp_msg->err_code;
+
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    VolumeContainer::pointer volumes = local->om_vol_mgr();
+    volumes->om_notify_vol_resp(om_notify_vol_mod,
+                                fdsp_msg,
+                                not_mod_vol_resp->vol_name,
+                                not_mod_vol_resp->vol_desc.volUUID);
 }
 
 void
@@ -360,6 +390,13 @@ OM_ControlRespHandler::AttachVolResp(
               << "[" << atc_vol_resp->vol_name << ":"
               << std::hex << atc_vol_resp->vol_desc.volUUID << std::dec
               << "] Result: " << fdsp_msg->err_code;
+
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    VolumeContainer::pointer volumes = local->om_vol_mgr();
+    volumes->om_notify_vol_resp(om_notify_vol_attach,
+                                fdsp_msg,
+                                atc_vol_resp->vol_name,
+                                atc_vol_resp->vol_desc.volUUID);
 }
 
 void
@@ -378,6 +415,13 @@ OM_ControlRespHandler::DetachVolResp(
               << "[" << dtc_vol_resp->vol_name << ":"
               << std::hex << dtc_vol_resp->vol_desc.volUUID << std::dec
               << "] Result: " << fdsp_msg->err_code;
+
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    VolumeContainer::pointer volumes = local->om_vol_mgr();
+    volumes->om_notify_vol_resp(om_notify_vol_detach,
+                                fdsp_msg,
+                                dtc_vol_resp->vol_name,
+                                dtc_vol_resp->vol_desc.volUUID);
 }
 
 void

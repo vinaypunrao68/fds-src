@@ -12,6 +12,7 @@ extern DataMgr *dataMgr;
 Error DataMgr::vol_handler(fds_volid_t vol_uuid,
                            VolumeDesc *desc,
                            fds_vol_notify_t vol_action,
+                           fds_bool_t check_only,
                            FDS_ProtocolInterface::FDSP_ResultType result) {
     Error err(ERR_OK);
     FDS_PLOG(dataMgr->GetLog()) << "Received vol notif from OM for "
@@ -27,7 +28,7 @@ Error DataMgr::vol_handler(fds_volid_t vol_uuid,
                                         std::to_string(vol_uuid),
                                         vol_uuid, desc);
     } else if (vol_action == fds_notify_vol_rm) {
-        err = dataMgr->_process_rm_vol(vol_uuid);
+        err = dataMgr->_process_rm_vol(vol_uuid, check_only);
     } else if (vol_action == fds_notify_vol_mod) {
         err = dataMgr->_process_mod_vol(vol_uuid, *desc);
     } else {
@@ -140,7 +141,7 @@ Error DataMgr::_process_mod_vol(fds_volid_t vol_uuid, const VolumeDesc& voldesc)
   return err;
 }
 
-Error DataMgr::_process_rm_vol(fds_volid_t vol_uuid) {
+Error DataMgr::_process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
   Error err(ERR_OK);
 
   /*
@@ -163,13 +164,23 @@ Error DataMgr::_process_rm_vol(fds_volid_t vol_uuid) {
     return err;
   }
 
-  vol_meta_map.erase(vol_uuid);
-  dataMgr->qosCtrl->deregisterVolume(vol_uuid);
-  delete vm->dmVolQueue;
-  delete vm;
+  // if notify delete asked to only check if deleting volume
+  // was ok; so we return with success here; DM will get 
+  // another notify volume delete with check_only ==false to
+  // actually cleanup all other datastructures for this volume
+  if (!check_only) {
+      vol_meta_map.erase(vol_uuid);
+      dataMgr->qosCtrl->deregisterVolume(vol_uuid);
+      delete vm->dmVolQueue;
+      delete vm;
+      FDS_PLOG(dataMgr->GetLog()) << "Removed vol meta for vol uuid "
+                                  << vol_uuid;
+  } else {
+      FDS_PLOG(dataMgr->GetLog()) << "Notify volume rm check only, did not "
+                                  << " remove vol meta for vol " << std::hex
+                                  << vol_uuid << std::dec;
+  }
 
-  FDS_PLOG(dataMgr->GetLog()) << "Removed vol meta for vol uuid "
-                              << vol_uuid;
   vol_map_mtx->unlock();
 
   return err;
@@ -372,6 +383,7 @@ DataMgr::DataMgr(int argc, char *argv[], Platform *platform, Module **vec)
       scheduleRate(4000),
       num_threads(DM_TP_THREADS)
 {
+    daemonize();
     dm_log = g_fdslog;
     vol_map_mtx = new fds_mutex("Volume map mutex");
 
@@ -536,7 +548,7 @@ void DataMgr::setup()
                                    testVolId * 2,
                                    testVolId);
           fds_assert(testVdb != NULL);
-          vol_handler(testVolId, testVdb, fds_notify_vol_add, FDS_ProtocolInterface::FDSP_ERR_OK); 
+          vol_handler(testVolId, testVdb, fds_notify_vol_add, false, FDS_ProtocolInterface::FDSP_ERR_OK); 
           
           delete testVdb;
       }
@@ -640,6 +652,110 @@ void DataMgr::ReqHandler::GetVolumeBlobList(FDSP_MsgHdrTypePtr& msg_hdr,
 }
 
 /**
+ * Applies a list of offset/objectId changes to an existing blob.
+ * This checks that the change either modifies existing offsets
+ * or appends to the blob. No sparse blobs allowed yet.
+ * It also ensures that each object size, with the exception of
+ * the last object, is the same.
+ *
+ * @param[in]  List of modified offsets
+ * @param[out] The blob node to modify
+ * @return The result of the application
+ */
+Error
+DataMgr::applyBlobUpdate(const BlobObjectList &offsetList, BlobNode *bnode) {
+    Error err(ERR_OK);
+    fds_verify(offsetList.size() != 0);
+
+    // Iterate over each offset.
+    // For now, we're requiring that the list
+    // be sorted
+    for (fds_uint32_t i = 0; i < offsetList.size(); i++) {
+        // Check that the offset doesn't make the blob sparse.
+        // The offset should either be less than the existing
+        // blob size or extend only from the end.
+        fds_uint64_t offset = offsetList[i].offset;
+        fds_verify(bnode->blob_size >= offset);
+
+        fds_uint64_t size = offsetList[i].size;
+        fds_verify(size > 0);
+
+        // Check if we're appending or not
+        if (offset == bnode->blob_size) {
+            // We're appending. In order to append, the
+            // previous offset's object must be complete
+            // (i.e., at the max object size)
+            // otherwise it'd be a sparse blob.
+            if (bnode->blob_size > 0) {
+                // Check that tail object's size matches
+                // the head object's size.
+                // TODO(Andrew): We're assuming the first
+                // object fixes the object size for the
+                // blob. This should actually be based on
+                // the volume defined max object size.
+                fds_verify(bnode->obj_list[0].size ==
+                           (bnode->obj_list.back()).size);
+
+                // Check that the new object's size is
+                // not larger than the existing object's size.
+                fds_verify(size <= bnode->obj_list[0].size);
+            }
+
+            // Append to the end
+            bnode->obj_list.pushBack(offsetList[i]);
+            bnode->blob_size += size;
+        } else {
+            fds_uint32_t maxBlobSize = 0;
+            fds_uint32_t blobOffsetIndex = 0;
+
+            // We should already have at least one entry
+            fds_verify(bnode->blob_size > 0);
+
+            // Check the size of the new object update.
+            // TODO(Andrew): We're assuming when the first
+            // object is written, that fixes the max object
+            // size for the blob. This should actually be
+            // based on volume defined max obejct size.
+            // TODO(Andrew): Verify that the size is equal
+            // to the max blob size, unless we're overwriting
+            // the last object, in which case, it must be at
+            // least as large as that object.
+            maxBlobSize = bnode->obj_list[0].size;
+            fds_verify(size <= maxBlobSize);
+
+            // Determine the offset's index into the BlobObjectList
+            // vector.
+            // TODO(Andrew): Handle unaligned offset updates. For
+            // now, just assert of offset is aligned.
+            fds_verify((offset % maxBlobSize) == 0);
+            blobOffsetIndex = offset / maxBlobSize;
+
+            // Update blob in place. Get old object id and
+            // then overwrite it
+            BlobObjectInfo oldBlobObj = bnode->obj_list[blobOffsetIndex];
+            bnode->obj_list[blobOffsetIndex] = offsetList[i];
+            if (blobOffsetIndex == (bnode->obj_list.size() - 1)) {
+                // We're modifying the last index, so we may need to bump the size
+                fds_verify(size >= oldBlobObj.size);
+                if (size > oldBlobObj.size) {
+                    bnode->blob_size += (size - oldBlobObj.size);
+                }
+            }
+
+            // Delete ref to old object at offset.
+            // TODO(Andrew): Intergrate with SM-agent data path
+            // interface.
+        }
+    }
+    // Bump the version since we modified the blob node
+    // TODO(Andrew): We should actually be checking the
+    // volume's versioning before we bump
+    bnode->current_version++;
+
+    return err;
+}
+
+/**
  * Processes a catalog update.
  * The blob node is allocated inside of this function and returned
  * to the caller via a parameter. The bnode is only expected to be
@@ -669,22 +785,22 @@ DataMgr::updateCatalogProcess(const dmCatReq  *updCatReq, BlobNode **bnode) {
                          *bnode);
     if (err == ERR_CAT_ENTRY_NOT_FOUND) {
         // If this blob doesn't already exist, allocate a new one
+        LOGDEBUG << "No blob found with name " << updCatReq->blob_name
+                 << ", so allocating a new one";
         *bnode = new BlobNode();
         fds_verify(bnode != NULL);
         err = ERR_OK;
     } else {
+        LOGDEBUG << "Located existing blob " << updCatReq->blob_name;
         fds_verify(*bnode != NULL);
-        // TODO(Andrew): For now, we're just increasing the version by one.
-        // What we should do is check the volume's versioning
         fds_verify((*bnode)->current_version != blob_version_invalid);
-        (*bnode)->current_version++;
     }
     fds_verify(err == ERR_OK);
 
-    // Re-init the blob's data from the update request.
-    // TODO(Andrew): Don't always just re-init the entire
-    // blob, but allow partial updates.
-    (*bnode)->initFromFDSPPayload(updCatReq->fdspUpdCatReqPtr, updCatReq->volId);
+    // Apply the updates to the blob
+    BlobObjectList offsetList(updCatReq->fdspUpdCatReqPtr->obj_list);
+    err = applyBlobUpdate(offsetList, (*bnode));
+    fds_verify(err == ERR_OK);
 
     /*
      * For now, just treat this as an open
@@ -1146,7 +1262,7 @@ DataMgr::deleteCatObjBackend(dmCatReq  *delCatReq) {
   msg_hdr->dst_port =  delCatReq->srcPort;
   msg_hdr->glob_volume_id =  delCatReq->volId;
   msg_hdr->req_cookie =  delCatReq->reqCookie;
-  msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_DELETE_CAT_OBJ_RSP;
+  msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_DELETE_BLOB_RSP;
 
 
   delete_catalog->blob_name = delCatReq->blob_name;
@@ -1216,7 +1332,7 @@ void DataMgr::ReqHandler::DeleteCatalogObject(FDS_ProtocolInterface::
   		/*
    		* Reverse the msg direction and send the response.
    		*/
-  		msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_DELETE_CAT_OBJ_RSP;
+  		msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_DELETE_BLOB_RSP;
   		dataMgr->swapMgrId(msg_hdr);
                 dataMgr->respMapMtx.read_lock();
   		dataMgr->respHandleCli(msg_hdr->session_uuid)->DeleteCatalogObjectResp(*msg_hdr, 

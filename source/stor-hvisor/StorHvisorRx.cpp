@@ -575,7 +575,7 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
         num_nodes = 8;
         FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr_dm(new FDSP_MsgHdrType);
         storHvisor->InitDmMsgHdr(fdsp_msg_hdr_dm);
-        fdsp_msg_hdr_dm->msg_code = FDSP_MSG_DELETE_CAT_OBJ_REQ;
+        fdsp_msg_hdr_dm->msg_code = FDSP_MSG_DELETE_BLOB_REQ;
         fdsp_msg_hdr_dm->req_cookie = trans_id;
         fdsp_msg_hdr_dm->src_ip_lo_addr = SRC_IP;
         fdsp_msg_hdr_dm->src_node_name = storHvisor->my_node_name;
@@ -607,7 +607,7 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
             client->DeleteCatalogObject(fdsp_msg_hdr_dm, del_cat_obj_req);
             FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:"
                     << trans_id << " volID:" << std::hex << vol_id << std::dec
-                    << " - Sent async DELETE_CAT_OBJ_REQ request to DM at "
+                    << " - Sent async DELETE_BLOB_REQ request to DM at "
                     <<  node_ip << " port " << node_port;
 
         }

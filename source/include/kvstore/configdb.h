@@ -53,11 +53,13 @@ namespace fds {
             std::string getNodeName(const NodeUuid& uuid);
             uint getNodeNameCounter();
             
-            // volume policies
-            bool addPolicy(const PolicyInfo& policyInfo, int localDomain = 0);
-            bool updatePolicy(const PolicyInfo& policyInfo, int localDomain = 0);
-            bool deletePolicy(const PolicyInfo& policyInfo, int localDomain = 0);
-            bool getPolicies(std::vector<PolicyInfo>& policies, int localDomain = 0);
+            // volume policies            
+            bool getPolicy(fds_uint32_t volPolicyId, FDS_VolumePolicy& volumePolicy, int localDomain = 0); //NOLINT
+            bool addPolicy(const FDS_VolumePolicy& volumePolicy, int localDomain = 0);
+            bool updatePolicy(const FDS_VolumePolicy& volumePolicy, int localDomain = 0);
+            bool deletePolicy(fds_uint32_t volPolicyId, int localDomain = 0);
+            bool getPolicies(std::vector<FDS_VolumePolicy>& policies, int localDomain = 0);
+            
         };
     }  // namespace kvstore
 

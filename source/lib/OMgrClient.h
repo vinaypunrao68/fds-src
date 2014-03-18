@@ -56,6 +56,7 @@ namespace fds {
   typedef Error (*volume_event_handler_t)(fds::fds_volid_t volume_id, 
                                           fds::VolumeDesc *vdb, 
                                           fds_vol_notify_t vol_action,
+                                          fds_bool_t check_only,
                                           const FDSP_ResultType result);
   typedef void (*throttle_cmd_handler_t)(const float throttle_level);
   typedef void (*tier_cmd_handler_t)(const FDSP_TierPolicyPtr &tier);
@@ -209,6 +210,7 @@ namespace fds {
 
     int recvNotifyVol(VolumeDesc *vdb,
                       fds_vol_notify_t vol_action,
+                      fds_bool_t check_only,
 		      FDSP_ResultType,
                       const std::string& session_uuid);
     int recvVolAttachState(VolumeDesc *vdb, fds_vol_notify_t vol_action,

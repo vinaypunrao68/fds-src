@@ -237,6 +237,11 @@ class OrchMgr: public FdsProcess {
         int32_t auditTierPolicy(
             ::FDS_ProtocolInterface::tier_pol_auditPtr& audit);
 
+        void ListServices(std::vector<FDSP_Node_Info_Type> & ret,
+                          const FDSP_MsgHdrType& fdsp_msg);
+        void ListServices(std::vector<FDSP_Node_Info_Type> & ret,
+                          boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg);
+
   private:
         OrchMgr *orchMgr;
     };

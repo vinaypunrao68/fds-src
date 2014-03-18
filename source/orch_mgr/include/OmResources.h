@@ -96,10 +96,13 @@ class OM_SmAgent : public NodeAgent
     virtual void om_send_node_cmd(const om_node_msg_t &msg);
 
     virtual void om_send_reg_resp(const Error &err);
-    virtual void om_send_vol_cmd(VolumeInfo::pointer vol, fpi::FDSP_MsgCodeType cmd);
+    virtual void om_send_vol_cmd(VolumeInfo::pointer vol,
+                                 fpi::FDSP_MsgCodeType cmd,
+                                 fds_bool_t check_only = false);
     virtual void om_send_vol_cmd(VolumeInfo::pointer    vol,
                                  std::string           *vname,
-                                 fpi::FDSP_MsgCodeType  cmd);
+                                 fpi::FDSP_MsgCodeType  cmd,
+                                 fds_bool_t check_only = false);
 
     virtual void om_send_dlt(const DLT *curDlt);
     virtual void init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const;
@@ -369,8 +372,9 @@ class OM_NodeContainer : public DomainContainer
         return om_volumes;
     }
     inline int om_create_vol(const FDSP_MsgHdrTypePtr &hdr,
-                             const FdspCrtVolPtr      &creat_msg) {
-        return om_volumes->om_create_vol(hdr, creat_msg);
+                             const FdspCrtVolPtr      &creat_msg,
+                             fds_bool_t from_omcontrol_path) {
+        return om_volumes->om_create_vol(hdr, creat_msg, from_omcontrol_path);
     }
     inline int om_delete_vol(const FDSP_MsgHdrTypePtr &hdr,
                              const FdspDelVolPtr &del_msg) {
@@ -404,9 +408,11 @@ class OM_NodeContainer : public DomainContainer
     virtual void om_bcast_tier_policy(fpi::FDSP_TierPolicyPtr policy);
     virtual void om_bcast_tier_audit(fpi::FDSP_TierPolicyAuditPtr audit);
     virtual void om_bcast_vol_list(NodeAgent::pointer node);
-    virtual void om_bcast_vol_create(VolumeInfo::pointer vol);
+    virtual fds_uint32_t om_bcast_vol_create(VolumeInfo::pointer vol);
     virtual void om_bcast_vol_modify(VolumeInfo::pointer vol);
-    virtual void om_bcast_vol_delete(VolumeInfo::pointer vol);
+    virtual fds_uint32_t om_bcast_vol_delete(VolumeInfo::pointer vol,
+                                             fds_bool_t check_only);
+    virtual fds_uint32_t om_bcast_vol_detach(VolumeInfo::pointer vol);
     virtual void om_bcast_vol_tier_policy(const FDSP_TierPolicyPtr &tier);
     virtual void om_bcast_vol_tier_audit(const FDSP_TierPolicyAuditPtr &tier);
     virtual void om_bcast_throttle_lvl(float throttle_level);
@@ -501,7 +507,7 @@ class OM_NodeDomainMod : public Module
     /**
      * Register node info to the domain manager.
      * @return ERR_OK if success, ERR_DUPLICATE if node already
-     * registered; ERR_UUID_EXISTS if this is a new node, but 
+     * registered; ERR_UUID_EXISTS if this is a new node, but
      * its name produces UUID that already mapped to an existing node
      * name (should ask the user to pick another node name).
      */

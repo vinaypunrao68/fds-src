@@ -22,8 +22,32 @@
 		    "volume-id": 2,
                     "blob-name": "blob-a",
 		    "blob-off":  0,
-                    "object-id": "0x2aae6c35c94fcfb415dbe95f408b9ce91ee846ed",
-		    "object-len": 4194304
+                    "object-id": "0xdeadbeefc94fcfb415dbe95f408b9ce9deadbeef",
+		    "object-len": 3145728
+                },
+		{
+		    "blob-op":   "update",
+		    "volume-id": 2,
+                    "blob-name": "blob-a",
+		    "blob-off":  3145728,
+                    "object-id": "0xbeefdeadc94fcfb415dbe95f408b9ce9beefdead",
+		    "object-len": 3072
+                },
+		{
+		    "blob-op":   "update",
+		    "volume-id": 2,
+                    "blob-name": "blob-a",
+		    "blob-off":  3145728,
+                    "object-id": "0xffffdeadc94fcfb415dbe95f408b9ce9beefffff",
+		    "object-len": 3145728
+                },
+		{
+		    "blob-op":   "update",
+		    "volume-id": 2,
+                    "blob-name": "blob-a",
+		    "blob-off":  6291456,
+                    "object-id": "0xaaaadeadc94fcfb415dbe95f408b9ce9beefaaaa",
+		    "object-len": 3145728
                 }
             ]
         }

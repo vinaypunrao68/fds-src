@@ -2,6 +2,7 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 
+#include <vector>
 #include <orchMgr.h>
 #include <OmResources.h>
 #undef LOGGERPTR
@@ -22,13 +23,14 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::CreateVol(
 int32_t OrchMgr::FDSP_ConfigPathReqHandler::CreateVol(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_CreateVolTypePtr& crt_vol_req) {
-
     int err = 0;
-    try {
-        LOGNOTIFY << "Received create volume " << crt_vol_req->vol_name;
+    LOGNOTIFY << "Received create volume " << crt_vol_req->vol_name
+              << " from " << fdsp_msg->src_node_name  << " node uuid: "
+              << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec;
 
+    try {
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-        err = local->om_create_vol(fdsp_msg, crt_vol_req);
+        err = local->om_create_vol(fdsp_msg, crt_vol_req, false);
     }
     catch(...) {
         LOGERROR << "Orch Mgr encountered exception while "
@@ -74,8 +76,11 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::ModifyVol(
 int32_t OrchMgr::FDSP_ConfigPathReqHandler::ModifyVol(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_ModifyVolTypePtr& mod_vol_req) {
-
     int err = 0;
+    LOGNOTIFY << "Received modify volume " << (mod_vol_req->vol_desc).vol_name
+              << " from " << fdsp_msg->src_node_name  << " node uuid: "
+              << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec;
+
     try {
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         err = local->om_modify_vol(mod_vol_req);
@@ -171,8 +176,11 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::AttachVol(
 int32_t OrchMgr::FDSP_ConfigPathReqHandler::AttachVol(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_AttachVolCmdTypePtr& atc_vol_req) {
-
     int err = 0;
+    LOGNOTIFY << "Received attach volume " << atc_vol_req->vol_name
+              << " from " << fdsp_msg->src_node_name  << " node uuid: "
+              << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec;
+
     try {
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         err = local->om_attach_vol(fdsp_msg, atc_vol_req);
@@ -196,8 +204,10 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::DetachVol(
 int32_t OrchMgr::FDSP_ConfigPathReqHandler::DetachVol(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_AttachVolCmdTypePtr& dtc_vol_req) {
-
     int err = 0;
+    LOGNOTIFY << "Received detach volume " << dtc_vol_req->vol_name
+              << " from " << fdsp_msg->src_node_name << " node uuid: "
+              << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec;
     try {
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         err = local->om_detach_vol(fdsp_msg, dtc_vol_req);
@@ -443,6 +453,45 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::ActivateAllNodes(
     return err;
 }
 
+void OrchMgr::FDSP_ConfigPathReqHandler::ListServices(
+    std::vector<FDSP_Node_Info_Type> & ret,
+    const FDSP_MsgHdrType& fdsp_msg) {
+    // Do nothing
+}
+
+static void add_to_vector(std::vector<FDSP_Node_Info_Type> &vec,  // NOLINT
+                          NodeAgent::pointer ptr) {
+    const NodeInvData *nodeData = ptr->get_inventory_data();
+    NodeUuid uuid = nodeData->nd_uuid;
+    FDSP_Node_Info_Type nodeInfo = FDSP_Node_Info_Type();
+    nodeInfo.node_uuid = nodeData->nd_uuid.uuid_get_val();
+    nodeInfo.service_uuid = nodeData->nd_service_uuid.uuid_get_val();
+    nodeInfo.node_name = nodeData->nd_node_name;
+    nodeInfo.node_type = nodeData->nd_node_type;
+    nodeInfo.node_state = nodeData->nd_node_state;
+    nodeInfo.ip_lo_addr = nodeData->nd_ip_addr;
+    nodeInfo.control_port = nodeData->nd_data_port;
+    nodeInfo.data_port = nodeData->nd_data_port;
+    nodeInfo.migration_port = nodeData->nd_migration_port;
+    vec.push_back(nodeInfo);
+}
+
+void OrchMgr::FDSP_ConfigPathReqHandler::ListServices(
+    std::vector<FDSP_Node_Info_Type> &vec,
+    boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg) {
+
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+
+    local->om_sm_nodes()->
+        agent_foreach<std::vector<FDSP_Node_Info_Type> &>(vec, add_to_vector);
+    local->om_am_nodes()->
+        agent_foreach<std::vector<FDSP_Node_Info_Type> &>(vec, add_to_vector);
+    local->om_dm_nodes()->
+        agent_foreach<std::vector<FDSP_Node_Info_Type> &>(vec, add_to_vector);
+    local->om_pm_nodes()->
+        agent_foreach<std::vector<FDSP_Node_Info_Type> &>(vec, add_to_vector);
+}
+
 int32_t OrchMgr::FDSP_ConfigPathReqHandler::applyTierPolicy(
     const ::FDS_ProtocolInterface::tier_pol_time_unit& policy) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
@@ -500,12 +549,13 @@ void OrchMgr::FDSP_OMControlPathReqHandler::CreateBucket(
 void OrchMgr::FDSP_OMControlPathReqHandler::CreateBucket(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_CreateVolTypePtr& crt_buck_req) {
+    LOGNOTIFY << "Received create bucket " << crt_buck_req->vol_name
+              << " from " << fdsp_msg->src_node_name  << " node uuid: "
+              << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec;
 
     try {
-        LOGNOTIFY << "Received create bucket " << crt_buck_req->vol_name;
-
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-        local->om_create_vol(fdsp_msg, crt_buck_req);
+        local->om_create_vol(fdsp_msg, crt_buck_req, true);
     }
     catch(...) {
         LOGERROR << "Orch Mgr encountered exception while "
@@ -535,6 +585,10 @@ void OrchMgr::FDSP_OMControlPathReqHandler::ModifyBucket(
 void OrchMgr::FDSP_OMControlPathReqHandler::ModifyBucket(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_ModifyVolTypePtr& mod_buck_req) {
+    LOGNOTIFY << "Received modify bucket " << (mod_buck_req->vol_desc).vol_name
+              << " from " << fdsp_msg->src_node_name  << " node uuid: "
+              << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec;
+
     OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     local->om_modify_vol(mod_buck_req);
 }
@@ -548,6 +602,10 @@ void OrchMgr::FDSP_OMControlPathReqHandler::AttachBucket(
 void OrchMgr::FDSP_OMControlPathReqHandler::AttachBucket(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_AttachVolCmdTypePtr& atc_buck_req) {
+    LOGNOTIFY << "Received attach bucket " << atc_buck_req->vol_name
+              << " from " << fdsp_msg->src_node_name  << " node uuid: "
+              << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec;
+
     OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     local->om_attach_vol(fdsp_msg, atc_buck_req);
 }
@@ -661,4 +719,3 @@ void OrchMgr::FDSP_OMControlPathReqHandler::NotifyMigrationDone(
 }
 
 }  // namespace fds
-

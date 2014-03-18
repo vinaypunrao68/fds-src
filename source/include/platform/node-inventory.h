@@ -43,12 +43,13 @@ typedef struct _node_capability_t
 class NodeInvData
 {
   public:
-    typedef boost::shared_ptr<NodeInvData>       pointer;
-    typedef boost::shared_ptr<const NodeInvData> const_ptr;
+    // typedef boost::shared_ptr<NodeInvData>       pointer;
+    // typedef boost::shared_ptr<const NodeInvData> const_ptr;
 
     // TODO(Andrew): Add back a better checksum library
     // Sha1Digest               nd_checksum;
     NodeUuid                 nd_uuid;
+    NodeUuid                 nd_service_uuid;
     fds_uint64_t             nd_gbyte_cap;       /**< capacity in GB unit */
 
     /* TODO: (vy) just porting from NodeInfo now. */
@@ -87,8 +88,8 @@ class NodeInventory : public Resource
     inline fds_uint32_t get_ctrl_port() const {
         return node_inv->nd_ctrl_port;
     }
-    inline NodeInvData::const_ptr get_inventory_data() const {
-        return NodeInvData::const_ptr(node_inv);
+    inline const NodeInvData *get_inventory_data() const {
+        return node_inv;
     }
     inline FdspNodeState node_state() const {
         return node_inv->nd_node_state;

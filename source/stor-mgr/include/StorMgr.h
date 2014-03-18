@@ -436,6 +436,7 @@ class ObjectStorMgr :
     static Error volEventOmHandler(fds::fds_volid_t volume_id,
                                    fds::VolumeDesc *vdb,
                                    int vol_action,
+                                   fds_bool_t check_only,
                                    FDSP_ResultType resut);
     static void migrationEventOmHandler(bool dlt_type);
     void migrationSvcResponseCb(const Error& err);

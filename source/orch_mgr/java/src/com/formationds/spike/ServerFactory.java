@@ -3,9 +3,8 @@ package com.formationds.spike;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import FDS_ProtocolInterface.FDSP_MsgHdrType;
-import FDS_ProtocolInterface.FDSP_Service;
-import FDS_ProtocolInterface.FDSP_SessionReqResp;
+import FDS_ProtocolInterface.*;
+import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 import org.apache.thrift.TProcessor;
 import org.apache.thrift.TProcessorFactory;
@@ -20,21 +19,46 @@ import org.apache.thrift.transport.TTransportException;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class FdspServer<T extends TProcessor> {
-    static class Handshake implements FDSP_Service.Iface {
-        @Override
-        public FDSP_SessionReqResp EstablishSession(FDSP_MsgHdrType fdsp_msg) throws TException {
-            return new FDSP_SessionReqResp(0, UUID.randomUUID().toString());
-        }
-    }
+public class ServerFactory {
+    private static Logger LOG = Logger.getLogger(ServerFactory.class);
 
     private ConcurrentHashMap<TTransport, TProcessor> set;
 
-    public FdspServer() {
+    public ServerFactory() {
         set = new ConcurrentHashMap<>();
     }
 
-    public void start(int port, T processor) {
+    public void startControlPathServer(FDSP_ControlPathReq.Iface handler, int port) {
+        new Thread(() -> {
+            start(port, new FDSP_ControlPathReq.Processor(handler));
+        }).start();
+    }
+
+    public void startOmControlPathReq(FDSP_OMControlPathReq.Iface handler, int port) {
+        new Thread(() -> {
+            start(port, new FDSP_OMControlPathReq.Processor(handler));
+        }).start();
+    }
+
+    public void startOmControlPathResp(FDSP_OMControlPathResp.Iface handler, int port) {
+        new Thread(() -> {
+            start(port, new FDSP_OMControlPathResp.Processor(handler));
+        }).start();
+    }
+
+    public void startConfigPathServer(FDSP_ConfigPathReq.Iface handler, int port) {
+        new Thread(() -> {
+            start(port, new FDSP_ConfigPathReq.Processor(handler));
+        }).start();
+    }
+
+    public void startDataPathRespServer(FDSP_DataPathResp.Iface handler, int port) {
+        new Thread(() -> {
+            start(port, new FDSP_DataPathResp.Processor(handler));
+        }).start();
+    }
+
+    private void start(int port, TProcessor processor) {
         try {
             TServerTransport channel = new TServerSocket(port);
             FDSP_Service.Processor<Handshake> serviceProcessor = new FDSP_Service.Processor<Handshake>(new Handshake());
@@ -57,9 +81,18 @@ public class FdspServer<T extends TProcessor> {
                         }
                     });
             TServer server = new TThreadPoolServer(serverArgs);
+            LOG.info(String.format("Starting %s on port %d", processor.getClass().getName(), port));
             server.serve();
         } catch (TTransportException e) {
             throw new RuntimeException(e);
         }
     }
+
+    static class Handshake implements FDSP_Service.Iface {
+        @Override
+        public FDSP_SessionReqResp EstablishSession(FDSP_MsgHdrType fdsp_msg) throws TException {
+            return new FDSP_SessionReqResp(0, UUID.randomUUID().toString());
+        }
+    }
+
 }

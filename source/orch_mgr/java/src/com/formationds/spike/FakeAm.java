@@ -4,9 +4,9 @@ package com.formationds.spike;
  */
 
 import FDS_ProtocolInterface.*;
+import com.formationds.fdsp.ClientFactory;
 import com.google.common.net.InetAddresses;
 import org.apache.thrift.TException;
-import org.apache.thrift.protocol.TProtocol;
 
 import java.util.UUID;
 
@@ -17,14 +17,8 @@ public class FakeAm {
 
     public static void main(String[] args) throws Exception {
         int myControlPort = 6666;
-        Thread thread = new Thread(() -> {
-            FDSP_ControlPathReq.Processor processor = new FDSP_ControlPathReq.Processor(new Am());
-            new FdspServer<FDSP_ControlPathReq.Processor>().start(myControlPort, processor);
-        });
-        thread.start();
-        TProtocol protocol = new FdspClient().handshake("localhost", 8904);
-
-        FDSP_OMControlPathReq.Client client = new FDSP_OMControlPathReq.Client(protocol);
+        new ServerFactory().startControlPathServer(new Am(), 6666);
+        FDSP_OMControlPathReq.Iface client = new ClientFactory().omControlPathClient("localhost", 8904);
         FDSP_RegisterNodeType nodeMesg = new FDSP_RegisterNodeType();
         nodeMesg.setNode_type(FDSP_MgrIdType.FDSP_STOR_HVISOR);
         nodeMesg.setNode_name("h4xx0r-am");
@@ -32,8 +26,7 @@ public class FakeAm {
         int ipInt = InetAddresses.coerceToInteger(InetAddresses.forString("127.0.0.1"));
         nodeMesg.setIp_lo_addr(ipInt);
         nodeMesg.setControl_port(myControlPort);
-        client.send_RegisterNode(new FDSP_MsgHdrType(), nodeMesg);
-        thread.join();
+        client.RegisterNode(new FDSP_MsgHdrType(), nodeMesg);
     }
 
     public static class Am implements FDSP_ControlPathReq.Iface {

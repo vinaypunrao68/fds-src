@@ -36,7 +36,7 @@ namespace fds {
             virtual int getNumTasks() const ;
   
           protected:
-            uint numTasks;
+            uint numTasks = 0;
             apache::thrift::concurrency::Monitor monitor;
             apache::thrift::concurrency::Mutex mutex;
 

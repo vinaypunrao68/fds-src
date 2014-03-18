@@ -23,6 +23,7 @@ user_cpp         :=      \
     fds_counters.cpp     \
     fds_types.cpp        \
     ClusterCommMgr.cpp   \
+    fds_volume.cpp       \
     TransJournal.cpp
 
 user_incl_dir    := $(topdir)

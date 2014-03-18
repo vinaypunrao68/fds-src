@@ -61,6 +61,7 @@ PlatformProcess::PlatformProcess(int argc, char **argv,
 {
     memset(&plf_node_data, 0, sizeof(plf_node_data));
     plf_db_key = proc_root->dir_fdsroot() + "node-root";
+    // TODO(Bao): daemonize();  make each platform process a daemon to get core.
 }
 
 PlatformProcess::~PlatformProcess()

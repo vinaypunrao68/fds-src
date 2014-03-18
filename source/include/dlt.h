@@ -136,7 +136,7 @@ namespace fds {
          * Need to be called only when the DLT is created from scratch .
          * after the data is loaded..
          */
-        void generateNodeTokenMap();
+        void generateNodeTokenMap() const;
 
         fds_uint64_t getVersion() const;  /**< Gets version */
         fds_uint32_t getDepth() const;  /**< Gets num replicas per token */
@@ -147,12 +147,10 @@ namespace fds {
         void getTokenObjectRange(const fds_token_id &token,
                 ObjectID &begin, ObjectID &end) const;
 
-        uint32_t virtual write(serialize::Serializer*  s);
+        uint32_t virtual write(serialize::Serializer*  s) const;
         uint32_t virtual read(serialize::Deserializer* d);
 
-        /** Load/get serialized data */
-        bool loadSerialized(std::string& serializedData);  // NOLINT
-        void getSerialized(std::string& serializedData);  // NOLINT
+        uint32_t getEstimatedSize() const;
 
         // print the dlt to the logs
         // will print full dlt if the loglevel is debug
@@ -179,7 +177,7 @@ namespace fds {
         DistributionList distList;
 
         /** Cached reverse map from node to its token ids */
-        boost::shared_ptr<NodeTokenMap> mapNodeTokens;
+        mutable boost::shared_ptr<NodeTokenMap> mapNodeTokens;
         friend class DLTManager;
         friend class DLTDiff;
 
@@ -256,7 +254,7 @@ namespace fds {
         NodeUuid getPrimary(fds_token_id token) const;
         NodeUuid getPrimary(const ObjectID& objId) const;
 
-        uint32_t virtual write(serialize::Serializer*  s);
+        uint32_t virtual write(serialize::Serializer*  s) const;
         uint32_t virtual read(serialize::Deserializer* d);
 
         bool loadFromFile(std::string filename);

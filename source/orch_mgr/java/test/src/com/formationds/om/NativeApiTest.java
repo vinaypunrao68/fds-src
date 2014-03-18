@@ -21,7 +21,6 @@ public class NativeApiTest {
         Thread.sleep(10000);
         System.out.println("Listing nodes");
         MutableAcceptor<String> acceptor = new MutableAcceptor<>();
-        NativeApi.listNodes(acceptor);
         Thread.sleep(1000);
     }
 }

@@ -4,18 +4,19 @@ package com.formationds.spike.om;
  */
 
 import FDS_ProtocolInterface.*;
+import com.formationds.fdsp.ClientFactory;
 import com.formationds.spike.ServiceDirectory;
 import org.apache.thrift.TException;
 
-import java.util.function.Function;
+import java.util.List;
 
 public class OmConfigPath implements FDSP_ConfigPathReq.Iface {
     private ServiceDirectory serviceDirectory;
-    private Function<FDSP_RegisterNodeType, FDSP_ControlPathReq.Iface> controlClientFactory;
+    private ClientFactory controlClientFactory;
 
-    public OmConfigPath(ServiceDirectory serviceDirectory, Function<FDSP_RegisterNodeType, FDSP_ControlPathReq.Iface> controlClientFactory) {
+    public OmConfigPath(ServiceDirectory serviceDirectory, ClientFactory clientFactory) {
         this.serviceDirectory = serviceDirectory;
-        this.controlClientFactory = controlClientFactory;
+        this.controlClientFactory = clientFactory;
     }
 
     @Override
@@ -121,7 +122,7 @@ public class OmConfigPath implements FDSP_ConfigPathReq.Iface {
 
                         FDSP_MsgHdrType msg = new FDSP_MsgHdrType();
                         msg.setMsg_code(FDSP_MsgCodeType.FDSP_MSG_NOTIFY_NODE_ACTIVE);
-                        controlClientFactory.apply(n).NotifyNodeActive(msg, activateMsg);
+                        controlClientFactory.controlPathClient(n).NotifyNodeActive(msg, activateMsg);
                         return true;
                     } catch (TException e) {
                         // This service is dead
@@ -129,5 +130,10 @@ public class OmConfigPath implements FDSP_ConfigPathReq.Iface {
                     }
                 })
                 .count();
+    }
+
+    @Override
+    public List<FDSP_Node_Info_Type> ListServices(FDSP_MsgHdrType fdsp_msg) throws TException {
+        return null;
     }
 }

@@ -20,6 +20,7 @@
 #include <lib/VolumeCatalog.h>
 #include <concurrency/Mutex.h>
 #include <fds_volume.h>
+#include <ObjectId.h>
 
 namespace fds {
 
@@ -53,7 +54,7 @@ namespace fds {
 
   typedef std::vector<MetadataPair> MetaList;
 
-  class BlobObjectInfo {
+class BlobObjectInfo {
   public:
     fds_uint64_t offset;
     ObjectID data_obj_id;
@@ -63,25 +64,64 @@ namespace fds {
     const std::string end_seq = "}";
 
     BlobObjectInfo(FDS_ProtocolInterface::FDSP_BlobObjectInfo& blob_obj_info) {
-      offset = blob_obj_info.offset;
-      data_obj_id.SetId((const char *)blob_obj_info.data_obj_id.digest.c_str(), blob_obj_info.data_obj_id.digest.length());
-      size = blob_obj_info.size;
+        offset = blob_obj_info.offset;
+        data_obj_id.SetId((const char *)blob_obj_info.data_obj_id.digest.c_str(), blob_obj_info.data_obj_id.digest.length());
+        size = blob_obj_info.size;
     }
 
+    BlobObjectInfo(const BlobObjectInfo &rhs) {
+        *this = rhs;
+    }
+
+    /**
+     * Serializes the blob object info into a string.
+     * TODO(Andrew): This can just return a char * and
+     * avoid the extra copy into a string.
+     */
     std::string ToString() const {
-      return data_obj_id.ToHex(data_obj_id);
+        size_t serialSize = sizeof(offset) + ObjIdGen::getIdLength() + sizeof(size);
+        size_t pos = 0;
+        unsigned char serialBuf[serialSize];
+        memcpy(serialBuf + pos, (const void *)&offset, sizeof(offset));
+        pos += sizeof(offset);
+        memcpy(serialBuf + pos, (const void *)data_obj_id.GetId(), ObjIdGen::getIdLength());
+        pos += ObjIdGen::getIdLength();
+        memcpy(serialBuf + pos, (const void *)&size, sizeof(size));
+
+        std::string serialStr((const char *)serialBuf, serialSize);
+        return serialStr;
     }
 
+    /**
+     * Deserializes the blob object info from a string.
+     * TODO(Andrew): This can just take a char * and
+     * avoid the extra copy into a string.
+     */
     void initFromString(std::string& str) {
-      data_obj_id.SetId((const char*)str.c_str(),str.length());
+        size_t pos = 0;
+        const char *serialBuf = str.c_str();
+        offset = *((const fds_uint64_t *)serialBuf);
+        pos += sizeof(offset);
+
+        data_obj_id.SetId(serialBuf + pos, ObjIdGen::getIdLength());
+        pos += ObjIdGen::getIdLength();
+
+        size = *((const fds_uint64_t *)(serialBuf + pos));
     }
  
     BlobObjectInfo(std::string& str) {
-      initFromString(str);
+        initFromString(str);
     }
-  };
 
-  class BlobObjectList {
+    BlobObjectInfo& operator=(const BlobObjectInfo &rhs) {
+        offset      = rhs.offset;
+        data_obj_id = rhs.data_obj_id;
+        size        = rhs.size;
+        return *this;
+    }
+};
+
+class BlobObjectList {
 
   private:
     std::vector<BlobObjectInfo> obj_list;
@@ -92,108 +132,121 @@ namespace fds {
     const std::string end_seq = "]";
 
     BlobObjectList() {
-      obj_list.clear();
+        obj_list.clear();
     }
 
     const BlobObjectInfo& operator[](const int index) const {
-      return obj_list[index];
+        return obj_list[index];
+    }
+
+    BlobObjectInfo& operator[](const int index) {
+        return obj_list[index];
+    }
+
+    void pushBack(const BlobObjectInfo &bInfo) {
+        obj_list.push_back(bInfo);
+    }
+
+    BlobObjectList& operator=(const BlobObjectList &rhs) {
+        obj_list = rhs.obj_list;
+        return *this;
+    }
+
+    const BlobObjectInfo& back() const {
+        return obj_list.back();
     }
 
     const BlobObjectInfo& objectForOffset(const fds_uint64_t offset) const {
-      uint i;
-      for (i = 0; 
-	   ((i < obj_list.size()) && (obj_list[i].offset < offset)); 
-	   i++)
-	;
-      if (i == obj_list.size()) {
-	throw "Offset out of bound";
-      }
-      if (obj_list[i].offset == offset)
-	return obj_list[i];
-      return obj_list[i-1];
+        uint i;
+        for (i = 0; 
+             ((i < obj_list.size()) && (obj_list[i].offset < offset)); 
+             i++)
+            ;
+        if (i == obj_list.size()) {
+            throw "Offset out of bound";
+        }
+        if (obj_list[i].offset == offset)
+            return obj_list[i];
+        return obj_list[i-1];
     }
 
     fds_uint32_t size() const {
-      return obj_list.size();
+        return obj_list.size();
     }
 
     std::string ToString() const {
-      uint i;
-
-      if (obj_list.size() == 0) {
-	return (open_seq + end_seq);
-      }
+        uint i;
+        
+        if (obj_list.size() == 0) {
+            return (open_seq + end_seq);
+        }
       
-      std::string ret_str = open_seq;
-      for (i = 0; i < obj_list.size()-1; i++) {
-	ret_str += obj_list[i].ToString() + delim;
-      }
-      ret_str += obj_list[i].ToString();
-      ret_str += end_seq;
-      return ret_str;
+        std::string ret_str = open_seq;
+        for (i = 0; i < obj_list.size()-1; i++) {
+            ret_str += obj_list[i].ToString() + delim;
+        }
+        ret_str += obj_list[i].ToString();
+        ret_str += end_seq;
+        return ret_str;
     }
 
     void initFromString(std::string& str) {
+        obj_list.clear();
 
-      obj_list.clear();
+        ulong next_delim_pos = std::string::npos;
+        int next_start = open_seq.size();
+        int next_end = 0;
+        std::string next_sub_str = "";
+        bool last_obj = false;
 
-      ulong next_delim_pos = std::string::npos;
-      int next_start = open_seq.size();
-      int next_end = 0;
-      std::string next_sub_str = "";
-      bool last_obj = false;
+        if (str == open_seq + end_seq) {
+            return;
+        }
 
-      if (str == open_seq + end_seq) {
-	return;
-      }
-
-      while (!last_obj) {
-	next_delim_pos = str.find(delim, next_start);
-	if (next_delim_pos == std::string::npos) {
-	  next_end = str.size()- 1- end_seq.size();
-	  last_obj = true;
-	} else {
-	  next_end = next_delim_pos-1;
-	}
-	next_sub_str = str.substr(next_start, next_end-next_start+1);
-	if (next_sub_str != "") {
-	  BlobObjectInfo obj_info(next_sub_str);
-	  obj_list.push_back(obj_info);
-	}
-	next_start = next_end+2;
-      }
+        while (!last_obj) {
+            next_delim_pos = str.find(delim, next_start);
+            if (next_delim_pos == std::string::npos) {
+                next_end = str.size()- 1- end_seq.size();
+                last_obj = true;
+            } else {
+                next_end = next_delim_pos-1;
+            }
+            next_sub_str = str.substr(next_start, next_end-next_start+1);
+            if (next_sub_str != "") {
+                BlobObjectInfo obj_info(next_sub_str);
+                obj_list.push_back(obj_info);
+            }
+            next_start = next_end+2;
+        }
     }
 
     BlobObjectList(std::string& str) {
-      initFromString(str);
+        initFromString(str);
     }
 
     void initFromFDSPObjList(FDS_ProtocolInterface::FDSP_BlobObjectList& blob_obj_list) {
-      obj_list.clear();
-      for (uint i = 0; i < blob_obj_list.size(); i++) {
-	obj_list.push_back(blob_obj_list[i]);
-      }
+        obj_list.clear();
+        for (uint i = 0; i < blob_obj_list.size(); i++) {
+            obj_list.push_back(blob_obj_list[i]);
+        }
     }
     
     BlobObjectList(FDS_ProtocolInterface::FDSP_BlobObjectList& blob_obj_list) {
-      initFromFDSPObjList(blob_obj_list);
+        initFromFDSPObjList(blob_obj_list);
     }
 
     void ToFDSPObjList(FDS_ProtocolInterface::FDSP_BlobObjectList& fdsp_obj_list) const {
-
-      fdsp_obj_list.clear();
-      uint i = 0;
-      for (i = 0; i < obj_list.size(); i++) {
-	FDS_ProtocolInterface::FDSP_BlobObjectInfo obj_info;
-	obj_info.offset = obj_list[i].offset;
-	obj_info.size = obj_list[i].size;
-	obj_info.data_obj_id.digest = std::string((const char *)(obj_list[i].data_obj_id.GetId()), (size_t)obj_list[i].data_obj_id.GetLen());
-//	obj_info.data_obj_id.hash_low = obj_list[i].data_obj_id.GetLow();
-	fdsp_obj_list.push_back(obj_info);
-      }
+        fdsp_obj_list.clear();
+        uint i = 0;
+        for (i = 0; i < obj_list.size(); i++) {
+            FDS_ProtocolInterface::FDSP_BlobObjectInfo obj_info;
+            obj_info.offset = obj_list[i].offset;
+            obj_info.size = obj_list[i].size;
+            obj_info.data_obj_id.digest = std::string((const char *)(obj_list[i].data_obj_id.GetId()), (size_t)obj_list[i].data_obj_id.GetLen());
+            //	obj_info.data_obj_id.hash_low = obj_list[i].data_obj_id.GetLow();
+            fdsp_obj_list.push_back(obj_info);
+        }
     }
-      
-
   };
 
   /**
@@ -222,6 +275,7 @@ namespace fds {
         // Init the new blob to an invalid version
         // until someone actually inits valid data.
         current_version = blob_version_invalid;
+        blob_size = 0;
         meta_list.clear();
     }
 

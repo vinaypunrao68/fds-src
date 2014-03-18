@@ -312,6 +312,7 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         FDS_ProtocolInterface::FDSP_AttachVolCmdType volData;
         volData.vol_name = vm["volume-detach"].as<std::string>();
         volData.node_id = vm["node-id"].as<std::string>();
+        msg_hdr.src_node_name = vm["node-id"].as<std::string>();
 
         cfgPrx->DetachVol(msg_hdr, volData);
 

@@ -64,6 +64,8 @@ function setupFdsDirs() {
 
 
 function activate() {
+    # Bao: wait for platformd before activate
+    sleep 5
     logwarn "asking OM to accept all discovered nodes..."
     (cd ${BINDIR}; ./fdscli --fds-root ${FDSROOT} --activate-nodes abc -k 1 -e am,dm,sm > cli.out) 2>/dev/null
     loginfo "$(boldblue fdscli) : console out : ${BINDIR}/cli.out"
@@ -93,8 +95,11 @@ function startApp() {
                 loginfo "$(boldblue ${name}) $(yellow starting ..)"
                 (cd ${BINDIR}; ./${apps[$name]} --fds-root ${FDSROOT} > ${name}.out 2>&1 &)
                 loginfo "$(boldblue ${name}) : console out : ${BINDIR}/${name}.out"
-                loginfo "... waiting for $(boldblue ${name}) to initialize"
-		sleep 5s
+                sleep 2s
+		if ! (waitForApp $name) ; then
+                    logerror "oops!! something wrong.. [$(boldblue $name)] is $(red not) showing up."
+                fi
+                sleep 1s
             else
                 logwarn "$(boldblue ${name}) ... already running"
             fi
@@ -142,7 +147,7 @@ function statusApp() {
             if [[ -z $pid ]] ; then
                 echo "$(boldblue ${name}) : $(yellow Not running)"
             else
-                echo "$(boldblue ${name}) : $(green $(ps u --pid $pid| tail -n1 | awk '{for(i=1;i<12;i++) printf("\t%s",$i) }' | sed -e 's|/home/.*/||g' ))"
+                echo "$(boldblue ${name}) : $(green $(ps u --pid $pid| tail -n1 | awk '{for(i=1;i<13;i++) printf("\t%s",$i) }'))"
             fi
         fi
     done
@@ -182,6 +187,33 @@ function waitForAll() {
         done
     done
     echo
+}
+
+function waitForApp() {
+    local name=$1
+    local lpid=""
+    local maxcount=20
+    if [[ $# -eq 2 ]] ; then
+        maxcount=$2
+    fi
+    local count=0
+    echo -n "... waiting for [$(boldblue $name)] to come up: "
+    lpid=""
+    while [[ -z $lpid ]] && [[ $count -lt $maxcount ]] ; do
+        echo -n "."
+        lpid=$(getAppPid $name)
+        if [[ -z $lpid ]]; then
+            (( count++ ))
+            sleep 1s ;
+        fi
+    done
+    echo
+
+    if [[ -z $lpid ]]; then
+        return 1
+    else
+        return 0
+    fi
 }
 
 function cleanBinDirs() {

@@ -169,7 +169,8 @@ namespace fds {
         fds_verify(hexStr.size() == (40 + 2));  // Account for 0x
         char a, b;
         uint j = 0;
-        for (uint i = 0; i < hexStr.length(); i += 2, j++) {
+        // Start the offset at 2 to account of 0x
+        for (uint i = 2; i < hexStr.length(); i += 2, j++) {
            a = hexStr[i];   if (a > 57) a -= 87; else a -= 48; // NOLINT
            b = hexStr[i+1]; if (b > 57) b -= 87; else b -= 48; // NOLINT
            digest[j] =  (a << 4 & 0xF0) + b;
