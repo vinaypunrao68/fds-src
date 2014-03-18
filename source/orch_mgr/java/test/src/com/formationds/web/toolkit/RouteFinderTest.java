@@ -29,6 +29,17 @@ public class RouteFinderTest {
         assertEquals(404, route.getHandler().get().handle(route.getRequest()).getHttpStatus());
     }
 
+    @Test
+    public void testExpandArgs() throws Exception {
+        RouteFinder routeFinder = new RouteFinder();
+        routeFinder.route(HttpMethod.GET, "/hello/:foo/something/:bar/panda", () -> new Foo());
+
+        Route route = resolve(HttpMethod.GET, routeFinder, "/hello/leftValue/something/rightValue/panda");
+        assertEquals(200, route.getHandler().get().handle(route.getRequest()).getHttpStatus());
+        assertEquals("leftValue", route.getRequest().getParameter("foo"));
+        assertEquals("rightValue", route.getRequest().getParameter("bar"));
+    }
+
     private Route resolve(HttpMethod httpMethod, RouteFinder routeFinder, String q) {
         Request request = new Request(null, null);
         request.setMethod(httpMethod, httpMethod.asString());
