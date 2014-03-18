@@ -5,10 +5,7 @@ package com.formationds.spike;
 
 import FDS_ProtocolInterface.FDSP_Uuid;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
+import java.io.*;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -31,25 +28,29 @@ public class Dlt {
         tokenLocations = new int[numTokens][depth];
     }
 
-    public Dlt(byte[] frame) throws Exception {
-        DataInputStream protocol = new DataInputStream(new ByteArrayInputStream(frame));
-        this.version = protocol.readLong();
-        this.numBitsForToken = protocol.readInt();
-        this.depth = protocol.readInt();
-        this.numTokens = protocol.readInt();
-        int uuidCount = protocol.readInt();
-        this.uuids = new FDSP_Uuid[uuidCount];
-        for (int i = 0; i < uuidCount; i++) {
-            uuids[i] = new FDSP_Uuid(protocol.readLong());
-        }
-
-        tokenLocations = new int[numTokens][depth];
-        boolean useByte = uuidCount <= 256;
-
-        for (int i = 0; i < numTokens; i++) {
-            for (int j = 0; j < depth; j++) {
-                tokenLocations[i][j] = (int) (useByte ? protocol.readByte() : protocol.readUnsignedShort());
+    public Dlt(byte[] frame) {
+        try {
+            DataInputStream protocol = new DataInputStream(new ByteArrayInputStream(frame));
+            this.version = protocol.readLong();
+            this.numBitsForToken = protocol.readInt();
+            this.depth = protocol.readInt();
+            this.numTokens = protocol.readInt();
+            int uuidCount = protocol.readInt();
+            this.uuids = new FDSP_Uuid[uuidCount];
+            for (int i = 0; i < uuidCount; i++) {
+                uuids[i] = new FDSP_Uuid(protocol.readLong());
             }
+
+            tokenLocations = new int[numTokens][depth];
+            boolean useByte = uuidCount <= 256;
+
+            for (int i = 0; i < numTokens; i++) {
+                for (int j = 0; j < depth; j++) {
+                    tokenLocations[i][j] = (int) (useByte ? protocol.readByte() : protocol.readUnsignedShort());
+                }
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 
