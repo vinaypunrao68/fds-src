@@ -100,6 +100,7 @@ RsContainer::rs_unregister_mtx(Resource::pointer rs)
 
     rs_name_map.erase(rs->rs_name);
     rs_uuid_map.erase(rs->rs_uuid);
+    rs_array[rs->rs_index] = NULL;
 }
 
 // rs_get_resource

@@ -602,7 +602,7 @@ int OMgrClient::recvNodeEvent(int node_id,
 
   node_info_t node;
 
-  node.node_id = node_info->node_uuid;
+  node.node_id = node_info->service_uuid;
   node.node_ip_address = node_ip;
   node.port = node_info->data_port;
   node.node_state = (FDSP_NodeState) node_state;
