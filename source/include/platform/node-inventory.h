@@ -38,7 +38,7 @@ typedef struct _node_capability_t
     fds_uint32_t   disk_latency_min;
     fds_uint32_t   ssd_iops_max;
     fds_uint32_t   ssd_iops_min;
-    fds_uint32_t   ssd_capacity;
+    fds_uint64_t   ssd_capacity;
     fds_uint32_t   ssd_latency_max;
     fds_uint32_t   ssd_latency_min;
 } node_capability_t;
@@ -147,9 +147,9 @@ class NodeAgent : public NodeInventory
         return static_cast<NodeAgent *>(get_pointer(ptr));
     }
     /**
-     * Return the storage weight of the node in normalized unit from 0...1000
+     * Return the storage weight -- currently capacity in GB / 10
      */
-    virtual fds_uint32_t node_stor_weight() const;
+    virtual fds_uint64_t node_stor_weight() const;
     virtual void         node_set_weight(fds_uint64_t weight);
 
   protected:

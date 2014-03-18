@@ -157,10 +157,15 @@ NodeInventory::set_node_dlt_version(fds_uint64_t dlt_version)
 // node_stor_weight
 // ----------------
 //
-fds_uint32_t
+fds_uint64_t
 NodeAgent::node_stor_weight() const
 {
-    return node_inv->nd_gbyte_cap;
+    // lets normalize = nodes have same weight if their
+    // capacity is within 10GB diff
+    fds_uint64_t weight = node_inv->nd_gbyte_cap / 10;
+    if (weight < 1)
+        weight = 1;
+    return weight;
 }
 
 // node_set_weight

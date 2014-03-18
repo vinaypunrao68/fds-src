@@ -90,12 +90,12 @@ NodePlatformProc::plf_fill_disk_capacity_pkt(fpi::FDSP_RegisterNodeTypePtr pkt)
 {
     pkt->disk_info.disk_iops_max    = 3000;
     pkt->disk_info.disk_iops_min    = 100;
-    pkt->disk_info.disk_capacity    = 0x8000000000;
+    pkt->disk_info.disk_capacity    = 0x7ffff;
     pkt->disk_info.disk_latency_max = 1000000 / pkt->disk_info.disk_iops_min;
     pkt->disk_info.disk_latency_min = 1000000 / pkt->disk_info.disk_iops_max;
     pkt->disk_info.ssd_iops_max     = 300000;
     pkt->disk_info.ssd_iops_min     = 1000;
-    pkt->disk_info.ssd_capacity     = 0x1000000000;
+    pkt->disk_info.ssd_capacity     = 0x10000;
     pkt->disk_info.ssd_latency_max  = 1000000 / pkt->disk_info.ssd_iops_min;
     pkt->disk_info.ssd_latency_min  = 1000000 / pkt->disk_info.ssd_iops_max;
     pkt->disk_info.disk_type        = FDS_DISK_SATA;
