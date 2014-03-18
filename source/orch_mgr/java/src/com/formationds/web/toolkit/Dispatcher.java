@@ -2,6 +2,8 @@ package com.formationds.web.toolkit;
 
 import com.google.common.collect.Multimap;
 import org.apache.log4j.Logger;
+import org.eclipse.jetty.server.Request;
+import org.eclipse.jetty.server.handler.AbstractHandler;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -13,7 +15,7 @@ import java.util.Arrays;
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
-public class Dispatcher extends HttpServlet {
+public class Dispatcher extends AbstractHandler {
     private static final Logger LOG = Logger.getLogger(Dispatcher.class);
 
     private RouteFinder routeFinder;
@@ -24,8 +26,8 @@ public class Dispatcher extends HttpServlet {
         this.webDir = webDir;
     }
 
-
-    protected void service(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    @Override
+    public void handle(String target, Request request, HttpServletRequest httpServletRequest, HttpServletResponse response) throws IOException, ServletException {
         RequestHandler requestHandler;
 
         if (isStaticAsset(request)) {

@@ -37,13 +37,8 @@ public class WebApp {
                 connector,
         });
 
-        ServletContextHandler contextHandler = new ServletContextHandler();
-        contextHandler.setContextPath("/");
-        server.setHandler(contextHandler);
-
         Dispatcher dispatcher = new Dispatcher(routeFinder, webDir);
-        contextHandler.addServlet(new ServletHolder(dispatcher), "/");
-        server.setHandler(contextHandler);
+        server.setHandler(dispatcher);
 
         try {
             server.start();

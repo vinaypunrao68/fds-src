@@ -3,6 +3,8 @@ package com.formationds.web.toolkit;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import org.eclipse.jetty.server.Request;
+
 import javax.servlet.http.HttpServletRequest;
 import java.io.File;
 import java.io.FileInputStream;
@@ -46,7 +48,7 @@ public class StaticFileHandler implements RequestHandler {
 
 
     @Override
-    public Resource handle(HttpServletRequest request) throws FileNotFoundException {
+    public Resource handle(Request request) throws FileNotFoundException {
         String resource = request.getRequestURI();
         String mimeType = MIME_TYPES.getOrDefault(getExtension(resource), "application/octet-stream");
 

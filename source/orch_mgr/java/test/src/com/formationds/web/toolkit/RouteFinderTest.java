@@ -1,5 +1,6 @@
 package com.formationds.web.toolkit;
 
+import org.eclipse.jetty.server.Request;
 import org.junit.Test;
 
 import javax.servlet.http.HttpServletRequest;
@@ -28,7 +29,7 @@ public class RouteFinderTest {
         }
 
         @Override
-        public Resource handle(HttpServletRequest request) throws Exception {
+        public Resource handle(Request request) throws Exception {
             return new TextResource("foo");
         }
     }
@@ -39,7 +40,7 @@ public class RouteFinderTest {
         }
 
         @Override
-        public Resource handle(HttpServletRequest request) throws Exception {
+        public Resource handle(Request request) throws Exception {
             return new TextResource("foo");
         }
     }

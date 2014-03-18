@@ -3,6 +3,7 @@ package com.formationds.web.om;
 import com.formationds.web.toolkit.HttpRedirect;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
+import org.eclipse.jetty.server.Request;
 
 import javax.servlet.http.HttpServletRequest;
 
@@ -11,7 +12,7 @@ import javax.servlet.http.HttpServletRequest;
  */
 public class LandingPage implements RequestHandler {
     @Override
-    public Resource handle(HttpServletRequest request) throws Exception {
+    public Resource handle(Request request) throws Exception {
         return new HttpRedirect("index.html");
     }
 }
