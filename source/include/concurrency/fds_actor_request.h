@@ -39,8 +39,8 @@ enum FdsActorRequestType {
     /* TokenCopyReceiver message that token data has been written */
     FAR_ENUM(TcrWrittenEvt),
 
-    /* TokenCopyReceiver message that a copy stream is finished */
-    FAR_ENUM(TcrDestroyEvt),
+    /* Token copy done event */
+    FAR_ENUM(TSCopyDnEvt),
 
     /* Token sync snapshot is complete notification event */
     FAR_ENUM(TSSnapDnEvt),

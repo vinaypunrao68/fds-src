@@ -43,14 +43,14 @@ struct TcrWrittenEvt {
 typedef boost::shared_ptr<TcrWrittenEvt> TcrWrittenEvtPtr;
 
 /* Triggered when migration stream needs to be destroyed */
-struct TcrDestroyEvt {
-    explicit TcrDestroyEvt(const std::string &mig_stream_id)
+struct TSCopyDnEvt {
+    explicit TSCopyDnEvt(const std::string &mig_stream_id)
     : mig_stream_id_(mig_stream_id)
     {}
 
     std::string mig_stream_id_;
 };
-typedef boost::shared_ptr<TcrDestroyEvt> TcrDestroyEvtPtr;
+typedef boost::shared_ptr<TSCopyDnEvt> TSCopyDnEvtPtr;
 
 /* State machine */
 struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
@@ -293,10 +293,10 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
         {
             LOGDEBUG << "teardown " << fsm.mig_stream_id_;
 
-            TcrDestroyEvtPtr destroy_evt(new TcrDestroyEvt(fsm.mig_stream_id_));
+            TSCopyDnEvtPtr destroy_evt(new TSCopyDnEvt(fsm.mig_stream_id_));
             fsm.parent_->send_actor_request(
                     FdsActorRequestPtr(
-                            new FdsActorRequest(FAR_ID(TcrDestroyEvt), destroy_evt)));
+                            new FdsActorRequest(FAR_ID(TSCopyDnEvt), destroy_evt)));
         }
     };
 
@@ -499,10 +499,10 @@ Error TokenCopyReceiver::handle_actor_request(FdsActorRequestPtr req)
         route_to_mig_stream(payload->mig_stream_id_, *payload);
         break;
     }
-    case FAR_ID(TcrDestroyEvt):
+    case FAR_ID(TSCopyDnEvt):
     {
         /* Notification event that a copy stream is done */
-        auto payload = req->get_payload<TcrDestroyEvt>();
+        auto payload = req->get_payload<TSCopyDnEvt>();
         destroy_migration_stream(payload->mig_stream_id_);
         break;
     }

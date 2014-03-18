@@ -64,6 +64,18 @@ PushTokenObjectsResp(boost::shared_ptr<FDSP_PushTokenObjectsResp>& pushtok_resp)
 }
 
 void FDSP_MigrationPathRpc::
+SyncToken(boost::shared_ptr<FDSP_SyncTokenReq>& sync_req) // NOLINT
+{
+    fds_assert(!"Not impl");
+}
+
+void FDSP_MigrationPathRpc::
+SyncTokenResp(boost::shared_ptr<FDSP_SyncTokenResp>& synctok_resp) // NOLINT
+{
+    fds_assert(!"Not impl");
+}
+
+void FDSP_MigrationPathRpc::
 PushTokenMetadata(boost::shared_ptr<FDSP_PushTokenMetadataReq>& push_md_req) // NOLINT
 {
     fds_assert(false);

@@ -14,6 +14,7 @@
 
 #include <fds_migration.h>
 #include <TokenCopySender.h>
+#include <TokenSyncReceiver.h>
 
 namespace fds {
 
@@ -25,16 +26,6 @@ using namespace msm::front;  // NOLINT
 using namespace msm::front::euml;   // NOLINT
 typedef msm::front::none msm_none;
 
-/* Statemachine Events */
-struct ErrorEvt {};
-struct StartEvt {};
-struct TokMdEvt {};
-struct TSMdAppldEvt {};
-struct NeedPullEvt {};
-struct TSXferDnEvt {};
-struct PullDnEvt {};
-struct ResolveEvt {};
-struct TSResolveDnEvt {};
 
 /* State machine */
 struct TokenSyncReceiverFSM_
@@ -108,6 +99,14 @@ struct TokenSyncReceiverFSM_
             LOGDEBUG << "Init State";
         }
     };
+    struct Starting : public msm::front::state<>
+    {
+        template <class Event, class FSM>
+        void on_entry(Event const& , FSM&)
+        {
+            LOGDEBUG << "Starting State";
+        }
+    };
     struct Receiving: public msm::front::state<>
     {
         template <class Event, class FSM>
@@ -135,6 +134,31 @@ struct TokenSyncReceiverFSM_
 
 
     /* Actions */
+    struct send_sync_req
+    {
+        /* Acknowledge to sender that token metadata is received */
+        template <class EVT, class FSM, class SourceState, class TargetState>
+        void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
+        {
+            LOGDEBUG << "send_sync_req. token: " << fsm.token_id_;
+
+            /* Issue copy tokens request */
+            FDSP_SyncTokenReq sync_req;
+            sync_req.header.base_header.err_code = ERR_OK;
+            sync_req.header.base_header.src_node_name = fsm.migrationSvc_->get_ip();
+            sync_req.header.base_header.src_port = fsm.migrationSvc_->get_port();
+            sync_req.header.base_header.session_uuid =
+                    fsm.sender_session_->getSessionId();
+            sync_req.header.mig_id = fsm.parent_->get_mig_id();
+            sync_req.header.mig_stream_id = fsm.mig_stream_id_;
+
+            sync_req.token = fsm.token_id_;
+            // TODO(rao): Do not hard code
+            sync_req.max_entries_per_reply = 1024;
+            fsm.sender_session_->getClient()->SyncToken(sync_req);
+        }
+    };
+
     struct ack_tok_md
     {
         /* Acknowledge to sender that token metadata is received */
@@ -308,7 +332,9 @@ struct TokenSyncReceiverFSM_
     // +------------+----------------+------------+-----------------+------------------+
     // | Start      | Event          | Next       | Action          | Guard            |
     // +------------+----------------+------------+-----------------+------------------+
-    Row< Init       , StartEvt       , Receiving  , msm_none        , msm_none         >,
+    Row< Init       , StartEvt       , Starting   , send_sync_req   , msm_none         >,
+    // +------------+----------------+------------+-----------------+------------------+
+    Row< Starting   , SyncAckdEvt    , Receiving  , msm_none        , msm_none         >,
     // +------------+----------------+------------+-----------------+------------------+
     Row< Receiving  , TokMdEvt       , msm_none   , apply_tok_md    , msm_none         >,
 
@@ -422,12 +448,6 @@ struct TokenSyncReceiverFSM_
     /* Whether pull is complete */
     bool pull_done_;
 };  /* struct TokenSyncReceiverFSM_ */
-
-/* PullReceiverFSM events */
-struct PullReqEvt {};
-struct StopPullReqsEvt {};
-struct DataPullDnEvt {};
-struct PullFiniEvt {};
 
 /* State machine for Pull sender */
 struct PullReceiverFSM_
@@ -652,4 +672,22 @@ struct PullReceiverFSM_
     /* Token data store reference */
     SmIoReqHandler *data_store_;
 };  /* struct PullReceiverFSM_ */
+
+void TokenSyncReceiver::init(const std::string &mig_stream_id,
+            FdsMigrationSvc *migrationSvc,
+            TokenCopySender *parent,
+            SmIoReqHandler *data_store,
+            const std::string &rcvr_ip,
+            const int &rcvr_port,
+            const fds_token_id &token_id,
+            boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler) {
+    fsm_.reset(new TokenSyncReceiverFSM());
+    fsm_->init(mig_stream_id, migrationSvc,
+            parent,
+            data_store,
+            rcvr_ip,
+            rcvr_port,
+            token_id,
+            client_resp_handler);
+}
 } /* namespace fds */

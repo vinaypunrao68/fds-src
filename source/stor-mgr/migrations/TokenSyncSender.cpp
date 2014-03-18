@@ -20,6 +20,7 @@
 #include <fds_timestamp.h>
 #include <fds_migration.h>
 #include <TokenCopySender.h>
+#include <TokenSyncSender.h>
 
 namespace fds {
 
@@ -133,27 +134,6 @@ class TokenSyncLog {
     leveldb::DB* db_;
 };
 typedef boost::shared_ptr<TokenSyncLog> TokenSyncLogPtr;
-
-/* Statemachine Events */
-struct StartEvt {};
-
-/* Snapshot is complete notification event */
-struct TSSnapDnEvt {
-    TSSnapDnEvt(const leveldb::ReadOptions& options, leveldb::DB* db)
-    {
-        this->options = options;
-        this->db = db;
-    }
-    leveldb::ReadOptions options;
-    leveldb::DB* db;
-};
-typedef boost::shared_ptr<TSSnapDnEvt> TSSnapDnEvtPtr;
-
-struct BldSyncLogDnEvt {};
-struct SendDnEvt {};
-struct IoClosedEvt {};
-struct SyncDnAckEvt {};
-struct ErrorEvt {};
 
 /* State machine */
 struct TokenSyncSenderFSM_
@@ -290,6 +270,15 @@ struct TokenSyncSenderFSM_
 
 
     /* Actions */
+    struct ack_sync_req
+    {
+        /* Acknowledge sync request */
+        template <class EVT, class FSM, class SourceState, class TargetState>
+        void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
+        {
+            LOGDEBUG << "ack_sync_req token: " << fsm.token_id_;
+        }
+    };
     struct take_snap
     {
         /* Connect to the receiver so we can push tokens */
@@ -318,7 +307,6 @@ struct TokenSyncSenderFSM_
             }
         }
     };
-
     struct build_sync_log
     {
         /* Prepare objstor_read_req_ for next read request */
@@ -491,7 +479,10 @@ struct TokenSyncSenderFSM_
     // +------------+----------------+------------+-----------------+------------------+
     // | Start      | Event          | Next       | Action          | Guard            |
     // +------------+----------------+------------+-----------------+------------------+
-    Row< Init       , StartEvt       , Snapshot   , take_snap       , msm_none         >,
+    Row< Init       , SyncReqEvt     , Snapshot   , ActionSequence_
+                                                    <mpl::vector<
+                                                    ack_sync_req,
+                                                    take_snap> >    , msm_none         >,
     // +------------+----------------+------------+-----------------+------------------+
     Row< Snapshot   , TSSnapDnEvt    , BldSyncLog , build_sync_log  , msm_none         >,
     // +------------+----------------+------------+-----------------+------------------+
@@ -799,5 +790,19 @@ struct PullSenderFSM_
     /* Token data store reference */
     SmIoReqHandler *data_store_;
 };  /* struct PullSenderFSM_ */
+
+void TokenSyncSender::init(const std::string &mig_stream_id,
+            FdsMigrationSvc *migrationSvc,
+            TokenCopySender *parent,
+            SmIoReqHandler *data_store,
+            const std::string &rcvr_ip,
+            const int &rcvr_port,
+            fds_token_id token_id,
+            boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler)
+{
+    fsm_.reset(new TokenSyncSenderFSM());
+    fsm_->init(mig_stream_id, migrationSvc, parent, data_store, rcvr_ip,
+            rcvr_port, token_id, client_resp_handler);
+}
 
 } /* namespace fds */

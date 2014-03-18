@@ -165,6 +165,12 @@ public:
     void CopyTokenResp(boost::shared_ptr<FDSP_CopyTokenResp>& copytok_resp);
     void PushTokenObjectsResp(boost::shared_ptr<FDSP_PushTokenObjectsResp>& pushtok_resp);
 
+    void SyncToken(const FDSP_SyncTokenReq& sync_req) {}
+    void SyncToken(boost::shared_ptr<FDSP_SyncTokenReq>& sync_req);
+
+    void SyncTokenResp(const FDSP_SyncTokenResp& synctok_resp) {}
+    void SyncTokenResp(boost::shared_ptr<FDSP_SyncTokenResp>& synctok_resp);
+
     void PushTokenMetadata(boost::shared_ptr<FDSP_PushTokenMetadataReq>& push_md_req);
     void PushTokenMetadata(const FDSP_PushTokenMetadataReq& push_md_req) {
         // Don't do anything here. This stub is just to keep cpp compiler happy

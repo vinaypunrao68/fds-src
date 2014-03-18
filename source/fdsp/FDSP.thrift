@@ -781,6 +781,29 @@ struct FDSP_CopyTokenReq
 /* Payload for CopyToken reponse path */
 typedef FDSP_MigMsgHdrType FDSP_CopyTokenResp
 
+/* Payload for CopyToken reponse path */
+typedef FDSP_MigMsgHdrType FDSP_CopyTokenResp
+
+/* Payload for SyncToken RPC */
+struct FDSP_SyncTokenReq
+{
+	/* Header */
+	1: FDSP_MigMsgHdrType         header
+
+    /* Token to sync*/
+    2: FDSP_Token			      token
+
+    /* Maximum sync metadata entries to send per reply */
+    3: i32                     max_entries_per_reply
+}
+
+/* Payload for SyncToken response path */
+struct FDSP_SyncTokenResp
+{
+	/* Header */
+	1: FDSP_MigMsgHdrType         header;
+} 
+
 /* Meta data for migration object */
 struct FDSP_MigrateObjectMetadata
 {
@@ -1011,6 +1034,7 @@ service FDSP_ControlPathResp {
 
 service FDSP_MigrationPathReq {
     oneway void CopyToken(1:FDSP_CopyTokenReq migrate_req)
+    oneway void SyncToken(1:FDSP_SyncTokenReq sync_req)
 
     oneway void PushTokenObjects(1:FDSP_PushTokenObjectsReq mig_put_req)
     oneway void PushTokenMetadata(1:FDSP_PushTokenMetadataReq push_md_req)
@@ -1019,6 +1043,7 @@ service FDSP_MigrationPathReq {
 
 service FDSP_MigrationPathResp {
     oneway void CopyTokenResp(1:FDSP_CopyTokenResp copytok_resp)
+    oneway void SyncTokenResp(1:FDSP_SyncTokenResp synctok_resp)
 
     oneway void PushTokenObjectsResp(1:FDSP_PushTokenObjectsResp pushtok_resp)
     oneway void PushTokenMetadataResp(1:FDSP_PushTokenMetadataResp push_md_resp)

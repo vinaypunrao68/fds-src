@@ -29,6 +29,7 @@ using namespace  ::FDS_ProtocolInterface;
 class FdsMigrationSvc;
 
 struct TokenCopyReceiverFSM_;
+
 /* back-end */
 typedef boost::msm::back::state_machine<TokenCopyReceiverFSM_> TokenCopyReceiverFSM;
 
