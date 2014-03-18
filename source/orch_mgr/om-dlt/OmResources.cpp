@@ -331,7 +331,8 @@ void
 OM_ControlRespHandler::NotifyRmVolResp(
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_rm_vol_resp) {
-    LOGNOTIFY << "OM received response for NotifyRmVol from node "
+    LOGNOTIFY << "OM received response for NotifyRmVol (check only "
+              << not_rm_vol_resp->check_only << ") from node "
               << fdsp_msg->src_node_name << " for volume "
               << "[" << not_rm_vol_resp->vol_name << ":"
               << std::hex << not_rm_vol_resp->vol_desc.volUUID << std::dec
@@ -339,7 +340,10 @@ OM_ControlRespHandler::NotifyRmVolResp(
 
     OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     VolumeContainer::pointer volumes = local->om_vol_mgr();
-    volumes->om_notify_vol_resp(om_notify_vol_rm,
+    om_vol_notify_t type = om_notify_vol_rm;
+    if (not_rm_vol_resp->check_only)
+        type = om_notify_vol_rm_chk;
+    volumes->om_notify_vol_resp(type,
                                 fdsp_msg,
                                 not_rm_vol_resp->vol_name,
                                 not_rm_vol_resp->vol_desc.volUUID);

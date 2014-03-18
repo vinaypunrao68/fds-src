@@ -12,6 +12,7 @@ extern DataMgr *dataMgr;
 Error DataMgr::vol_handler(fds_volid_t vol_uuid,
                            VolumeDesc *desc,
                            fds_vol_notify_t vol_action,
+                           fds_bool_t check_only,
                            FDS_ProtocolInterface::FDSP_ResultType result) {
     Error err(ERR_OK);
     FDS_PLOG(dataMgr->GetLog()) << "Received vol notif from OM for "
@@ -27,7 +28,7 @@ Error DataMgr::vol_handler(fds_volid_t vol_uuid,
                                         std::to_string(vol_uuid),
                                         vol_uuid, desc);
     } else if (vol_action == fds_notify_vol_rm) {
-        err = dataMgr->_process_rm_vol(vol_uuid);
+        err = dataMgr->_process_rm_vol(vol_uuid, check_only);
     } else if (vol_action == fds_notify_vol_mod) {
         err = dataMgr->_process_mod_vol(vol_uuid, *desc);
     } else {
@@ -140,7 +141,7 @@ Error DataMgr::_process_mod_vol(fds_volid_t vol_uuid, const VolumeDesc& voldesc)
   return err;
 }
 
-Error DataMgr::_process_rm_vol(fds_volid_t vol_uuid) {
+Error DataMgr::_process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
   Error err(ERR_OK);
 
   /*
@@ -163,13 +164,23 @@ Error DataMgr::_process_rm_vol(fds_volid_t vol_uuid) {
     return err;
   }
 
-  vol_meta_map.erase(vol_uuid);
-  dataMgr->qosCtrl->deregisterVolume(vol_uuid);
-  delete vm->dmVolQueue;
-  delete vm;
+  // if notify delete asked to only check if deleting volume
+  // was ok; so we return with success here; DM will get 
+  // another notify volume delete with check_only ==false to
+  // actually cleanup all other datastructures for this volume
+  if (!check_only) {
+      vol_meta_map.erase(vol_uuid);
+      dataMgr->qosCtrl->deregisterVolume(vol_uuid);
+      delete vm->dmVolQueue;
+      delete vm;
+      FDS_PLOG(dataMgr->GetLog()) << "Removed vol meta for vol uuid "
+                                  << vol_uuid;
+  } else {
+      FDS_PLOG(dataMgr->GetLog()) << "Notify volume rm check only, did not "
+                                  << " remove vol meta for vol " << std::hex
+                                  << vol_uuid << std::dec;
+  }
 
-  FDS_PLOG(dataMgr->GetLog()) << "Removed vol meta for vol uuid "
-                              << vol_uuid;
   vol_map_mtx->unlock();
 
   return err;
@@ -537,7 +548,7 @@ void DataMgr::setup()
                                    testVolId * 2,
                                    testVolId);
           fds_assert(testVdb != NULL);
-          vol_handler(testVolId, testVdb, fds_notify_vol_add, FDS_ProtocolInterface::FDSP_ERR_OK); 
+          vol_handler(testVolId, testVdb, fds_notify_vol_add, false, FDS_ProtocolInterface::FDSP_ERR_OK); 
           
           delete testVdb;
       }

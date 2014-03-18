@@ -245,7 +245,7 @@ class DataMgr : public PlatformProcess
                           fds_volid_t vol_uuid,VolumeDesc* desc);
     Error _process_add_vol(const std::string& vol_name,
                            fds_volid_t vol_uuid,VolumeDesc* desc);
-    Error _process_rm_vol(fds_volid_t vol_uuid);
+    Error _process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only);
     Error _process_mod_vol(fds_volid_t vol_uuid,
 			   const VolumeDesc& voldesc);
 
@@ -274,6 +274,7 @@ class DataMgr : public PlatformProcess
     static Error vol_handler(fds_volid_t vol_uuid,
                              VolumeDesc* desc,
                              fds_vol_notify_t vol_action,
+                             fds_bool_t check_only,
                              FDS_ProtocolInterface::FDSP_ResultType result);
 
     static void node_handler(fds_int32_t  node_id,

@@ -466,6 +466,7 @@ struct FDSP_NotifyVolType {
   1: FDSP_VolNotifyType 	 type,       /* Type of notify */
   2: string             	 vol_name,   /* Name of the volume */
   3: FDSP_VolumeDescType	 vol_desc,   /* Volume properties and attributes */
+  4: bool                        check_only  /* for delete vol -- only check if objects in volume */
 }
 
 struct FDSP_AttachVolType {

@@ -438,9 +438,10 @@ void ObjectStorMgr::setup()
                 testVdb->volType = FDSP_VOL_BLKDEV_HYBRID_TYPE;
 
             volEventOmHandler(testVolId,
-                    testVdb,
-                    FDS_VOL_ACTION_CREATE,
-                    FDS_ProtocolInterface::FDSP_ERR_OK);
+                              testVdb,
+                              FDS_VOL_ACTION_CREATE,
+                              false,
+                              FDS_ProtocolInterface::FDSP_ERR_OK);
 
             delete testVdb;
         }
@@ -619,6 +620,7 @@ Error
 ObjectStorMgr::volEventOmHandler(fds_volid_t  volumeId,
                                  VolumeDesc  *vdb,
                                  int          action,
+                                 fds_bool_t check_only,
                                  FDSP_ResultType result) {
     StorMgrVolume* vol = NULL;
     Error err(ERR_OK);

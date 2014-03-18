@@ -67,6 +67,44 @@ struct VolumeFSM: public msm::front::state_machine_def<VolumeFSM>
     };
     struct VST_DelPend: public msm::front::state<>
     {
+        VST_DelPend() : del_chk_ack_wait(-1), detach_ack_wait(0) {}
+
+        template <class Evt, class Fsm, class State>
+        void operator()(Evt const &, Fsm &, State &) {}
+
+        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
+        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
+
+        int del_chk_ack_wait;
+        int detach_ack_wait;
+    };
+
+    struct VST_DetAllPend: public msm::front::state<>
+    {
+        typedef mpl::vector<DelNotifEvt> deferred_events;
+
+        template <class Evt, class Fsm, class State>
+        void operator()(Evt const &, Fsm &, State &) {}
+
+        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
+        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
+    };
+
+    struct VST_DelNotPend: public msm::front::state<>
+    {
+        VST_DelNotPend() : del_notify_ack_wait(0) {}
+
+        template <class Evt, class Fsm, class State>
+        void operator()(Evt const &, Fsm &, State &) {}
+
+        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
+        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
+
+        int del_notify_ack_wait;
+    };
+
+    struct VST_DelDone: public msm::front::state<>
+    {
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
@@ -151,18 +189,21 @@ struct VolumeFSM: public msm::front::state_machine_def<VolumeFSM>
      * Transition table for OM Volume life cycle
      */
     struct transition_table : mpl::vector<
-        // +------------------+--------------+------------+---------------+-------------+
-        // | Start            | Event        | Next       | Action        | Guard       |
-        // +------------------+--------------+------------+---------------+-------------+
-        msf::Row< VST_Inactive, VolCrtOkEvt  , VST_Active , VACT_CrtDone  , GRD_VolCrt  >,
-        // +------------------+--------------+------------+---------------+-------------+
-        msf::Row< VST_Active  , VolOpEvt     , VST_Waiting, VACT_VolOp    , GRD_VolOp   >,
-        msf::Row< VST_Active  , VolDeleteEvt , VST_DelPend, VACT_DelStart , GRD_VolDel  >,
-        // +------------------+--------------+------------+---------------+-------------+
-        msf::Row< VST_Waiting , VolOpRespEvt , VST_Active , VACT_OpResp   , GRD_OpResp  >,
-        // +------------------+--------------+------------+---------------+-------------+
-        msf::Row< VST_DelPend , DetachRespEvt, VST_DelPend, VACT_DelNotify, GRD_DetResp >,
-        msf::Row< VST_DelPend , VolDelRespEvt, VST_Inactive, VACT_DelDone  , GRD_DelDone >
+        // +-------------------+--------------+------------+---------------+------------+
+        // | Start             | Event        | Next       | Action        | Guard      |
+        // +-------------------+--------------+------------+---------------+------------+
+        msf::Row< VST_Inactive , VolCrtOkEvt  , VST_Active , VACT_CrtDone  , GRD_VolCrt >,
+        // +-------------------+--------------+------------+---------------+------------+
+        msf::Row< VST_Active   , VolOpEvt     , VST_Waiting, VACT_VolOp    , GRD_VolOp  >,
+        msf::Row< VST_Active   , VolDelChkEvt , VST_DelPend, VACT_DelStart , GRD_VolDel >,
+        // +-------------------+--------------+------------+---------------+------------+
+        msf::Row< VST_Waiting  , VolOpRespEvt , VST_Active , VACT_OpResp   , GRD_OpResp >,
+        // +-------------------+--------------+------------+---------------+------------+
+        msf::Row< VST_DelPend  , DetachAllEvt , VST_DetAllPend, msf::none  , msf::none  >,
+        msf::Row< VST_DelPend  , DelNotifEvt , VST_DelNotPend, VACT_DelNotify, msf::none>,
+        // +-------------------+--------------+------------+---------------+------------+
+        msf::Row< VST_DetAllPend, VolOpRespEvt, VST_DelPend, msf::none    , GRD_DetResp >,
+        msf::Row< VST_DelNotPend, VolOpRespEvt, VST_DelDone, VACT_DelDone , GRD_DelDone >
         // +------------------+--------------+------------+---------------+-------------+
         >{};  // NOLINT                                                                                                                                   
 
@@ -259,7 +300,7 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void VolumeFSM::VACT_VolOp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     Error err(ERR_OK);
-    VolumeInfo::pointer vol = evt.vol_ptr;
+    VolumeInfo* vol = evt.vol_ptr;
     switch (evt.op_type) {
         case FDS_ProtocolInterface::FDSP_MSG_ATTACH_VOL_CMD:
             FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "VACT_VolOp: attach volume";
@@ -267,7 +308,9 @@ void VolumeFSM::VACT_VolOp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
             err = vol->vol_attach_node(evt.tgt_uuid);
             if (err.GetErrno() == ERR_DUPLICATE) {
                 // that's ok, nothing else to do
-                fsm.process_event(VolOpRespEvt(om_notify_vol_attach, Error(ERR_OK)));
+                fsm.process_event(VolOpRespEvt(vol->rs_get_uuid(),
+                                               om_notify_vol_attach,
+                                               Error(ERR_OK)));
             }
             break;
         case FDS_ProtocolInterface::FDSP_MSG_DETACH_VOL_CMD:
@@ -287,7 +330,7 @@ void VolumeFSM::VACT_VolOp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
     /* if error happened before we sent msg to remote node, finish op now*/
     if (!err.ok()) {
         // err happened before we sent msg to remote node, so finish op now
-        fsm.process_event(VolOpRespEvt(dst.wait_for_type, err));
+        fsm.process_event(VolOpRespEvt(vol->rs_get_uuid(), dst.wait_for_type, err));
     }
 }
 
@@ -334,8 +377,32 @@ void VolumeFSM::VACT_OpResp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
 template <class Evt, class Fsm, class SrcST, class TgtST>
 bool VolumeFSM::GRD_VolDel::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    LOGDEBUG << "VolumeFSM GRD_VolDel ";
-    return true;
+    bool ret = false;
+    LOGDEBUG << "VolumeFSM GRD_VolDel result : " << evt.chk_err.GetErrstr();
+
+    if (dst.del_chk_ack_wait < 0) {
+        // when we initiate delete process evt.acks_to_wait must be > 0
+        if (evt.acks_to_wait != 0) {
+            dst.del_chk_ack_wait = evt.acks_to_wait;
+        } else {
+            // otherwise some stray delete notify response, ignoring
+            LOGDEBUG << "GRD_VolDel: unexpected delete notify, ignoring...";
+            return ret;
+        }
+    }
+    dst.del_chk_ack_wait--;
+
+    // if we got an error -- go back to active state and send response
+    // that delete volume failed, all subsequent delete notify from other DMs
+    // will be ignored
+    if (!evt.chk_err.ok()) {
+        dst.del_chk_ack_wait = -1;
+    } else if (dst.del_chk_ack_wait == 0) {
+        ret = true;
+    }
+
+    LOGDEBUG << "GRD_VolDel: acks to wait " << dst.del_chk_ack_wait << " return " << ret;
+    return ret;
 }
 
 /**
@@ -348,8 +415,20 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 VolumeFSM::VACT_DelStart::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
+    VolumeInfo* vol = evt.vol_ptr;
     LOGDEBUG << "VolumeFSM VACT_DelStart";
-    // send reponse back to node that initiated the operation
+
+    // start delete volume process
+    fds_uint32_t detach_count = vol->vol_start_delete();
+    if (detach_count > 0) {
+        // wait for detach acks from AMs
+        fsm.process_event(DetachAllEvt());
+        dst.detach_ack_wait = detach_count;
+    }
+    // notify all nodes about volume delete
+    // if we sent detach acks, this event will be waiting in queue
+    // untill we receive all the acks
+    fsm.process_event(DelNotifEvt(vol));
 }
 
 /**
@@ -362,8 +441,14 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 bool
 VolumeFSM::GRD_DetResp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    LOGDEBUG << "VolumeFSM GRD_DetResp ";
-    return true;
+    fds_verify(dst.detach_ack_wait > 0);
+    dst.detach_ack_wait--;
+    bool ret = (dst.detach_ack_wait == 0);
+
+    LOGDEBUG << "VolumeFSM GRD_DetResp: acks to wait " << dst.detach_ack_wait
+             << " return " << ret;
+
+    return ret;
 }
 
 /**
@@ -375,10 +460,14 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 VolumeFSM::VACT_DelNotify::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
+    VolumeInfo *vol = evt.vol_ptr;
     LOGDEBUG << "VolumeFSM VACT_DelNotify";
-    // broadcast delete volume notification to all DMs/SMs
-}
 
+    // broadcast delete volume notification to all DMs/SMs
+    OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    dst.del_notify_ack_wait = local->om_bcast_vol_delete(vol, false) + 1;
+    fsm.process_event(VolOpRespEvt(vol->rs_get_uuid(), om_notify_vol_rm, Error(ERR_OK)));
+}
 
 /**
  * GRD_DelDone
@@ -389,8 +478,13 @@ VolumeFSM::VACT_DelNotify::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
 template <class Evt, class Fsm, class SrcST, class TgtST>
 bool VolumeFSM::GRD_DelDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    LOGDEBUG << "VolumeFSM GRD_DelDone ";
-    return true;
+    fds_verify(src.del_notify_ack_wait > 0);
+    src.del_notify_ack_wait--;
+    bool ret = (src.del_notify_ack_wait == 0);
+
+    LOGDEBUG << "VolumeFSM GRD_DelDone: acks to wait " << src.del_notify_ack_wait
+             << " return " << ret;
+    return ret;
 }
 
 /**
@@ -401,9 +495,15 @@ bool VolumeFSM::GRD_DelDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
 template <class Evt, class Fsm, class SrcST, class TgtST>
 void VolumeFSM::VACT_DelDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    VolumeContainer::pointer volumes = local->om_vol_mgr();
+
     LOGDEBUG << "VolumeFSM VACT_DelDone";
-    // send response to delete volume msg
-    // we should actuallt delete volume struct
+    // TODO(anna) Send response to delete volume msg
+
+    // do final cleanup
+    volumes->om_cleanup_vol(evt.vol_uuid);
+    // DO NOT WRITE ANY CODE IN THIS METHOD BELOW THIS LINE
 }
 
 
@@ -411,7 +511,7 @@ void VolumeFSM::VACT_DelDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
 // Volume Info
 // --------------------------------------------------------------------------------------
 VolumeInfo::VolumeInfo(const ResourceUUID &uuid)
-        : Resource(uuid), vol_properties(NULL) {
+        : Resource(uuid), vol_properties(NULL), delete_pending(false) {
     volume_fsm = new FSM_Volume();
 }
 
@@ -668,6 +768,28 @@ VolumeInfo::vol_modify(const boost::shared_ptr<VolumeDesc>& vdesc_ptr)
     return err;
 }
 
+fds_uint32_t
+VolumeInfo::vol_start_delete()
+{
+    fds_uint32_t count = 0;
+    OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    FdsAdminCtrl        *admin = local->om_get_admin_ctrl();
+
+    LOGNOTIFY << "Start delete volume process for volume " << vol_name;
+    delete_pending = true;
+
+    // tell admission control we are deleting this volume
+    admin->updateAdminControlParams(vol_get_properties());
+
+    // send detach msg to all AMs that have this volume attached
+    // note, that if this is a block volume, there shouldn't be any
+    // AMs that have this volume attached, because we will not start
+    // delete process in that case
+    count = local->om_bcast_vol_detach(this);
+
+    return count;
+}
+
 char const *const
 VolumeInfo::vol_current_state()
 {
@@ -686,13 +808,13 @@ void VolumeInfo::vol_event(VolOpEvt const &evt) {
 void VolumeInfo::vol_event(VolOpRespEvt const &evt) {
     volume_fsm->process_event(evt);
 }
-void VolumeInfo::vol_event(VolDeleteEvt const &evt) {
+void VolumeInfo::vol_event(VolDelChkEvt const &evt) {
     volume_fsm->process_event(evt);
 }
-void VolumeInfo::vol_event(DetachRespEvt const &evt) {
+void VolumeInfo::vol_event(DetachAllEvt const &evt) {
     volume_fsm->process_event(evt);
 }
-void VolumeInfo::vol_event(VolDelRespEvt const &evt) {
+void VolumeInfo::vol_event(DelNotifEvt const &evt) {
     volume_fsm->process_event(evt);
 }
 
@@ -800,16 +922,26 @@ VolumeContainer::om_delete_vol(const FdspMsgHdrPtr &hdr,
     //         assert(0);
     //     }
 
-    // Update admission control to reflect the deleted volume.
-    //
-    admin->updateAdminControlParams(vol->vol_get_properties());
-    local->om_bcast_vol_delete(vol);
+    // send notify vol delete to DMs only with check_only flag on
+    // so that DMs check if there are any objects in this bucket
+    fds_uint32_t count = local->om_bcast_vol_delete(vol, true);
+    vol->vol_event(VolDelChkEvt(vol.get(), Error(ERR_OK), count+1));
 
-    vol->vol_detach_node(NodeUuid(hdr->src_service_uuid.uuid));
-    rs_unregister(vol);
-    rs_free_resource(vol);
     return 0;
 }
+
+// om_cleanup_vol
+// -------------
+//
+void
+VolumeContainer::om_cleanup_vol(const ResourceUUID& vol_uuid)
+{
+    VolumeInfo::pointer  vol = VolumeInfo::vol_cast_ptr(rs_get_resource(vol_uuid));
+    fds_verify(vol != NULL);
+    rs_unregister(vol);
+    rs_free_resource(vol);
+}
+
 
 // get_volume
 // ---------
@@ -836,7 +968,12 @@ VolumeContainer::om_modify_vol(const FdspModVolPtr &mod_msg)
     if (vol == NULL) {
         LOGWARN << "Received ModifyVol for non-existing volume " << vname;
         return -1;
+    } else if (vol->is_delete_pending()) {
+        LOGWARN << "Received ModifyVol for volume " << vname
+                << " for which delete is pending";
+        return -1;
     }
+
     Error      err(ERR_OK);
     boost::shared_ptr<VolumeDesc> new_desc(new VolumeDesc(*(vol->vol_get_properties())));
 
@@ -889,7 +1026,12 @@ VolumeContainer::om_attach_vol(const FDSP_MsgHdrTypePtr &hdr,
     if (vol == NULL) {
         LOGWARN << "Received AttachVol for non-existing volume " << attach->vol_name;
         return -1;
+    } else if (vol->is_delete_pending()) {
+        LOGWARN << "Received AttachVol for volume " << attach->vol_name
+                << " for which delete is pending";
+        return -1;
     }
+
     NodeUuid node_uuid(hdr->src_service_uuid.uuid);
     if (hdr->src_service_uuid.uuid == 0) {
         /* Don't have uuid, only have the name. */
@@ -930,6 +1072,10 @@ VolumeContainer::om_detach_vol(const FDSP_MsgHdrTypePtr &hdr,
     vol = get_volume(vname);
     if (vol == NULL) {
         LOGWARN << "Received detach Vol for non-existing volume " << vname;
+        return -1;
+    } else if (vol->is_delete_pending()) {
+        LOGWARN << "Received detach Vol for volume " << vname
+                << " in delete pending state";
         return -1;
     }
 
@@ -978,8 +1124,9 @@ VolumeContainer::om_test_bucket(const FdspMsgHdrPtr     &hdr,
         LOGNOTIFY << "OM does not know about node " << hdr->src_node_name;
     }
     vol = get_volume(req->bucket_name);
-    if (vol == NULL) {
-        LOGNOTIFY << "Bucket " << vname << " does not exists, notify node "
+    if ((vol == NULL) || (vol->is_delete_pending())) {
+        LOGNOTIFY << "Bucket " << vname << " does not exist (delete pending? "
+                  << vol->is_delete_pending() << "), notify node "
                   << hdr->src_node_name;
 
         if (am != NULL) {
@@ -1015,12 +1162,16 @@ VolumeContainer::om_notify_vol_resp(om_vol_notify_t type,
             vol->vol_event(VolCrtOkEvt());
             break;
         case om_notify_vol_attach:
-        case om_notify_vol_detach:
         case om_notify_vol_mod:
-            vol->vol_event(VolOpRespEvt(type, Error(fdsp_msg->err_code)));
+        case om_notify_vol_detach:
+        case om_notify_vol_rm:
+            vol->vol_event(VolOpRespEvt(vol_uuid, type, Error(fdsp_msg->err_code)));
+            break;
+        case om_notify_vol_rm_chk:
+            vol->vol_event(VolDelChkEvt(vol.get(), Error(fdsp_msg->err_code)));
             break;
         default:
-            LOGWARN << "Not handling responses for RM/MOD volumes yet";
+            LOGWARN << "Not handling responses for RM volume yet";
     };
 }
 
@@ -1038,9 +1189,8 @@ bool VolumeContainer::addVolume(const VolumeDesc& volumeDesc) {
         LOGWARN << "volume already exists : " << volumeDesc.name <<":" << uuid;
         return false;
     }
-
+    vol = VolumeInfo::vol_cast_ptr(rs_alloc_new(uuid));
     vol->setDescription(volumeDesc);
-
     err = admin->volAdminControl(vol->vol_get_properties());
     if (!err.ok()) {
         // TODO(Vy): delete the volume here.
@@ -1049,6 +1199,14 @@ bool VolumeContainer::addVolume(const VolumeDesc& volumeDesc) {
         return false;
     }
     rs_register(vol);
+
+    fds_uint32_t ncount = local->om_bcast_vol_create(vol);
+    // lets say quorum is majority
+    if (ncount > 2) {
+        ncount = (ncount / 2) + 1;
+    }
+    vol->vol_event(VolCrtOkEvt(ncount + 1));
+
     return true;
 }
 

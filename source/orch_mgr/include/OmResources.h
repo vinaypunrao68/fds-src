@@ -96,10 +96,13 @@ class OM_SmAgent : public NodeAgent
     virtual void om_send_node_cmd(const om_node_msg_t &msg);
 
     virtual void om_send_reg_resp(const Error &err);
-    virtual void om_send_vol_cmd(VolumeInfo::pointer vol, fpi::FDSP_MsgCodeType cmd);
+    virtual void om_send_vol_cmd(VolumeInfo::pointer vol,
+                                 fpi::FDSP_MsgCodeType cmd,
+                                 fds_bool_t check_only = false);
     virtual void om_send_vol_cmd(VolumeInfo::pointer    vol,
                                  std::string           *vname,
-                                 fpi::FDSP_MsgCodeType  cmd);
+                                 fpi::FDSP_MsgCodeType  cmd,
+                                 fds_bool_t check_only = false);
 
     virtual void om_send_dlt(const DLT *curDlt);
     virtual void init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const;
@@ -407,7 +410,9 @@ class OM_NodeContainer : public DomainContainer
     virtual void om_bcast_vol_list(NodeAgent::pointer node);
     virtual fds_uint32_t om_bcast_vol_create(VolumeInfo::pointer vol);
     virtual void om_bcast_vol_modify(VolumeInfo::pointer vol);
-    virtual void om_bcast_vol_delete(VolumeInfo::pointer vol);
+    virtual fds_uint32_t om_bcast_vol_delete(VolumeInfo::pointer vol,
+                                             fds_bool_t check_only);
+    virtual fds_uint32_t om_bcast_vol_detach(VolumeInfo::pointer vol);
     virtual void om_bcast_vol_tier_policy(const FDSP_TierPolicyPtr &tier);
     virtual void om_bcast_vol_tier_audit(const FDSP_TierPolicyAuditPtr &tier);
     virtual void om_bcast_throttle_lvl(float throttle_level);

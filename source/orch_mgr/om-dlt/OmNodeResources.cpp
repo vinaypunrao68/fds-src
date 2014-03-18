@@ -112,15 +112,18 @@ OM_SmAgent::om_send_node_cmd(const om_node_msg_t &msg)
 // TODO(Vy): have 2 separate APIs, 1 to format the packet and 1 to send it.
 //
 void
-OM_SmAgent::om_send_vol_cmd(VolumeInfo::pointer vol, fpi::FDSP_MsgCodeType cmd_type)
+OM_SmAgent::om_send_vol_cmd(VolumeInfo::pointer vol,
+                            fpi::FDSP_MsgCodeType cmd_type,
+                            fds_bool_t check_only)
 {
-    om_send_vol_cmd(vol, NULL, cmd_type);
+    om_send_vol_cmd(vol, NULL, cmd_type, check_only);
 }
 
 void
 OM_SmAgent::om_send_vol_cmd(VolumeInfo::pointer    vol,
                             std::string           *vname,
-                            fpi::FDSP_MsgCodeType  cmd_type)
+                            fpi::FDSP_MsgCodeType  cmd_type,
+                            fds_bool_t check_only)
 {
     const char                *log;
     const VolumeDesc          *desc;
@@ -141,6 +144,7 @@ OM_SmAgent::om_send_vol_cmd(VolumeInfo::pointer    vol,
             fds_verify(vol != NULL);
             vol->vol_fmt_desc_pkt(&notif->vol_desc);
             notif->vol_name = vol->vol_get_name();
+            notif->check_only = check_only;
             m_hdr->msg_code = cmd_type;
 
             if (cmd_type == fpi::FDSP_MSG_CREATE_VOL) {
@@ -516,9 +520,11 @@ OM_PmContainer::check_new_service(const NodeUuid &pm_uuid,
                                   FDS_ProtocolInterface::FDSP_MgrIdType svc_role) {
     NodeAgent::pointer agent = agent_info(pm_uuid);
     if (agent == NULL) {
+        LOGDEBUG << "WARNING: agent for PM node does not exit";
         return false;  // we must have pm node
     } else if (agent->node_state() != FDS_ProtocolInterface::FDS_Node_Up) {
         // TODO(anna) for now using NodeUp state as active, review states
+        LOGDEBUG << "WARNING: PM agent not in Node_Up state";
         return false;  // must be in active state
     }
 
@@ -877,10 +883,11 @@ OM_NodeContainer::om_bcast_vol_list(NodeAgent::pointer node)
 //
 static void
 om_send_vol_command(fpi::FDSP_MsgCodeType cmd_type,
+                    fds_bool_t check_only,
                     VolumeInfo::pointer   vol,
                     NodeAgent::pointer    agent)
 {
-    OM_SmAgent::agt_cast_ptr(agent)->om_send_vol_cmd(vol, cmd_type);
+    OM_SmAgent::agt_cast_ptr(agent)->om_send_vol_cmd(vol, cmd_type, check_only);
 }
 
 // om_bcast_vol_create
@@ -889,11 +896,11 @@ om_send_vol_command(fpi::FDSP_MsgCodeType cmd_type,
 fds_uint32_t
 OM_NodeContainer::om_bcast_vol_create(VolumeInfo::pointer vol)
 {
-    dc_sm_nodes->agent_foreach<fpi::FDSP_MsgCodeType, VolumeInfo::pointer>
-        (fpi::FDSP_MSG_CREATE_VOL, vol, om_send_vol_command);
+    dc_sm_nodes->agent_foreach<fpi::FDSP_MsgCodeType, fds_bool_t, VolumeInfo::pointer>
+            (fpi::FDSP_MSG_CREATE_VOL, false, vol, om_send_vol_command);
 
-    dc_dm_nodes->agent_foreach<fpi::FDSP_MsgCodeType, VolumeInfo::pointer>
-        (fpi::FDSP_MSG_CREATE_VOL, vol, om_send_vol_command);
+    dc_dm_nodes->agent_foreach<fpi::FDSP_MsgCodeType, fds_bool_t, VolumeInfo::pointer>
+            (fpi::FDSP_MSG_CREATE_VOL, false, vol, om_send_vol_command);
 
     return dc_sm_nodes->rs_available_elm() + dc_dm_nodes->rs_available_elm();
 }
@@ -904,32 +911,45 @@ OM_NodeContainer::om_bcast_vol_create(VolumeInfo::pointer vol)
 void
 OM_NodeContainer::om_bcast_vol_modify(VolumeInfo::pointer vol)
 {
-    dc_sm_nodes->agent_foreach<fpi::FDSP_MsgCodeType, VolumeInfo::pointer>
-        (fpi::FDSP_MSG_MODIFY_VOL, vol, om_send_vol_command);
+    dc_sm_nodes->agent_foreach<fpi::FDSP_MsgCodeType, fds_bool_t, VolumeInfo::pointer>
+            (fpi::FDSP_MSG_MODIFY_VOL, false, vol, om_send_vol_command);
 
-    dc_dm_nodes->agent_foreach<fpi::FDSP_MsgCodeType, VolumeInfo::pointer>
-        (fpi::FDSP_MSG_MODIFY_VOL, vol, om_send_vol_command);
+    dc_dm_nodes->agent_foreach<fpi::FDSP_MsgCodeType, fds_bool_t, VolumeInfo::pointer>
+            (fpi::FDSP_MSG_MODIFY_VOL, false, vol, om_send_vol_command);
 
-    vol->vol_foreach_am<fpi::FDSP_MsgCodeType>
-        (fpi::FDSP_MSG_MODIFY_VOL, om_send_vol_command);
+    vol->vol_foreach_am<fpi::FDSP_MsgCodeType, fds_bool_t>
+            (fpi::FDSP_MSG_MODIFY_VOL, false, om_send_vol_command);
 }
+
+// om_bcast_vol_detach
+// -------------------
+//
+fds_uint32_t
+OM_NodeContainer::om_bcast_vol_detach(VolumeInfo::pointer vol)
+{
+    return vol->vol_foreach_am<fpi::FDSP_MsgCodeType, fds_bool_t>
+            (fpi::FDSP_MSG_DETACH_VOL_CTRL, false, om_send_vol_command);
+}
+
 
 // om_bcast_vol_delete
 // -------------------
 //
-void
-OM_NodeContainer::om_bcast_vol_delete(VolumeInfo::pointer vol)
+fds_uint32_t
+OM_NodeContainer::om_bcast_vol_delete(VolumeInfo::pointer vol, fds_bool_t check_only)
 {
-    dc_sm_nodes->agent_foreach<fpi::FDSP_MsgCodeType, VolumeInfo::pointer>
-        (fpi::FDSP_MSG_DELETE_VOL, vol, om_send_vol_command);
+    fds_uint32_t count = 0;
+    if (!check_only) {
+        dc_sm_nodes->agent_foreach<fpi::FDSP_MsgCodeType, fds_bool_t, VolumeInfo::pointer>
+                (fpi::FDSP_MSG_DELETE_VOL, check_only, vol, om_send_vol_command);
+        count += dc_sm_nodes->rs_available_elm();
+    }
 
-    dc_dm_nodes->agent_foreach<fpi::FDSP_MsgCodeType, VolumeInfo::pointer>
-        (fpi::FDSP_MSG_DELETE_VOL, vol, om_send_vol_command);
+    dc_dm_nodes->agent_foreach<fpi::FDSP_MsgCodeType, fds_bool_t, VolumeInfo::pointer>
+            (fpi::FDSP_MSG_DELETE_VOL, check_only, vol, om_send_vol_command);
+    count += dc_dm_nodes->rs_available_elm();
 
-#if 0
-    dc_am_nodes->agent_foreach<fpi::FDSP_MsgCodeType, VolumeInfo::pointer>
-        (fpi::FDSP_MSG_DELETE_VOL, vol, om_send_vol_command);
-#endif
+    return count;
 }
 
 // om_send_node_command

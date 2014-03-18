@@ -24,7 +24,7 @@ void OMgrClientRPCI::NotifyAddVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg
     assert(vol_msg->type == FDS_ProtocolInterface::FDSP_NOTIFY_ADD_VOL);
     fds_vol_notify_t type = fds_notify_vol_add;
     fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-    om_client->recvNotifyVol(vdb, type, msg_hdr->result, msg_hdr->session_uuid);
+    om_client->recvNotifyVol(vdb, type, vol_msg->check_only, msg_hdr->result, msg_hdr->session_uuid);
 }
 
 void OMgrClientRPCI::NotifyModVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
@@ -32,7 +32,7 @@ void OMgrClientRPCI::NotifyModVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg
     assert(vol_msg->type == FDS_ProtocolInterface::FDSP_NOTIFY_MOD_VOL);
     fds_vol_notify_t type = fds_notify_vol_mod;
     fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-    om_client->recvNotifyVol(vdb, type, msg_hdr->result, msg_hdr->session_uuid);
+    om_client->recvNotifyVol(vdb, type, vol_msg->check_only, msg_hdr->result, msg_hdr->session_uuid);
 }
 
 void OMgrClientRPCI::NotifyRmVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
@@ -40,7 +40,7 @@ void OMgrClientRPCI::NotifyRmVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_
     assert(vol_msg->type == FDS_ProtocolInterface::FDSP_NOTIFY_RM_VOL);
     fds_vol_notify_t type = fds_notify_vol_rm;
     fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-    om_client->recvNotifyVol(vdb, type, msg_hdr->result, msg_hdr->session_uuid);
+    om_client->recvNotifyVol(vdb, type, vol_msg->check_only, msg_hdr->result, msg_hdr->session_uuid);
 }
       
 void OMgrClientRPCI::AttachVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
@@ -624,6 +624,7 @@ int OMgrClient::recvNodeEvent(int node_id,
 
 int OMgrClient::recvNotifyVol(VolumeDesc *vdb,
                               fds_vol_notify_t vol_action,
+                              fds_bool_t check_only,
 			      FDSP_ResultType result,
                               const std::string& session_uuid) {
     Error err(ERR_OK);
@@ -632,7 +633,7 @@ int OMgrClient::recvNotifyVol(VolumeDesc *vdb,
                                                       << std::hex << vol_id <<std::dec << " action - " << vol_action;
     
     if (this->vol_evt_hdlr) {
-        err = this->vol_evt_hdlr(vol_id, vdb, vol_action, result);
+        err = this->vol_evt_hdlr(vol_id, vdb, vol_action, check_only, result);
     }
 
     // send response back to OM
@@ -648,6 +649,7 @@ int OMgrClient::recvNotifyVol(VolumeDesc *vdb,
             msg_hdr->result = FDSP_ERR_FAILED;
         }
         vol_resp->vol_name = vdb->getName();
+        vol_resp->check_only = check_only;
         vol_resp->vol_desc.vol_name = vdb->getName();
         vol_resp->vol_desc.volUUID = vol_id;
         switch (vol_action) {
@@ -689,7 +691,7 @@ int OMgrClient::recvVolAttachState(VolumeDesc *vdb,
             << std::hex << vol_id << std::dec << " action - " << vol_action;
     
     if (this->vol_evt_hdlr) {
-        err = this->vol_evt_hdlr(vol_id, vdb, vol_action, result);
+        err = this->vol_evt_hdlr(vol_id, vdb, vol_action, false, result);
     }
     // send response back to OM
     boost::shared_ptr<FDS_ProtocolInterface::FDSP_ControlPathRespClient> resp_client_prx =
