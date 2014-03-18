@@ -48,7 +48,6 @@ int main(int argc, char **argv)
         nullptr
     };
     fds::AM_Process am_process(argc, argv, &fds::gl_AmPlatform, am_mod_vec);
-    am_process.daemonize();
     am_process.setup();
 
     CreateStorHvisorS3(argc, argv);

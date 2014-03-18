@@ -66,11 +66,17 @@ Platform::~Platform()
 void
 Platform::plf_reg_node_info(const NodeUuid &uuid, const FdspNodeRegPtr msg)
 {
-    NodeAgent::pointer     newNode;
+    NodeAgent::pointer     new_node;
     DomainNodeInv::pointer local;
 
     local = plf_node_inventory();
-    Error err = local->dc_register_node(uuid, msg, &newNode);
+    Error err = local->dc_register_node(uuid, msg, &new_node);
+
+    if (err != ERR_OK) {
+        fds_verify(0);
+    }
+    AgentContainer::pointer svc = local->dc_container_frm_msg(msg->node_type);
+    svc->agent_handshake(plf_net_sess, plf_dpath_resp, new_node);
 }
 
 // plf_del_node_info
@@ -234,6 +240,8 @@ Platform::mod_init(SysParams const *const param)
 
     plf_net_sess = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_PLATFORM));
     plf_rpc_reqt = boost::shared_ptr<PlatRpcReqt>(plat_creat_reqt_disp());
+
+    plf_dpath_resp = NodeAgentDpRespPtr(plat_creat_dpath_resp());
     return 0;
 }
 

@@ -176,6 +176,16 @@ AgentContainer::AgentContainer(FdspNodeType id) : RsContainer()
     ac_cpSessTbl = boost::shared_ptr<netSessionTbl>(new netSessionTbl(id));
 }
 
+// agent_handshake
+// ---------------
+//
+void
+AgentContainer::agent_handshake(boost::shared_ptr<netSessionTbl> net,
+                                NodeAgentDpRespPtr               resp,
+                                NodeAgent::pointer               agent)
+{
+}
+
 // --------------------------------------------------------------------------------------
 // SM Agent
 // --------------------------------------------------------------------------------------
@@ -199,6 +209,20 @@ SmAgent::sm_handshake(boost::shared_ptr<netSessionTbl> net, NodeAgentDpRespPtr s
 
     sm_reqt    = sm_sess->getClient();
     sm_sess_id = sm_sess->getSessionId();
+}
+
+SmContainer::SmContainer(FdspNodeType id) : AgentContainer(id) {}
+
+// agent_handshake
+// ---------------
+//
+void
+SmContainer::agent_handshake(boost::shared_ptr<netSessionTbl> net,
+                             NodeAgentDpRespPtr               sm_resp,
+                             NodeAgent::pointer               agent)
+{
+    SmAgent::pointer sm = SmAgent::agt_cast_ptr(agent);
+    sm->sm_handshake(net, sm_resp);
 }
 
 // --------------------------------------------------------------------------------------
