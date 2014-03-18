@@ -127,6 +127,8 @@ namespace fds {
     explicit StorMgrVolumeTable(ObjectStorMgr *sm);
     /* Use logger that passed in to the constructor */
     StorMgrVolumeTable(ObjectStorMgr *sm, fds_log *parent_log);
+    /* Exposed for mock testing */
+    StorMgrVolumeTable();
     ~StorMgrVolumeTable();
     Error updateVolStats(fds_volid_t vol_uuid);
     fds_uint32_t getVolAccessStats(fds_volid_t vol_uuid);
@@ -410,6 +412,7 @@ namespace fds {
   class SmIoApplySyncMetadata : public SmIoReq {
   public:
       typedef std::function<void (const Error&,
+              SmIoApplySyncMetadata *sync_md,
               const std::set<ObjectID>& missing_objs)> CbType;
   public:
       SmIoApplySyncMetadata() {

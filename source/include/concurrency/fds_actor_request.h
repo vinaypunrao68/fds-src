@@ -50,6 +50,9 @@ enum FdsActorRequestType {
 
     /* Token sync resolve is complete */
     FAR_ENUM(TSResolveDnEvt),
+
+    /* Token sync meta data is applied to Object store */
+    FAR_ENUM(TSMdAppldEvt),
     /*----------------- Migration RPC -----------------------------------------*/
     /* RPC from receiver->sender to start token copy */
     FAR_ENUM(FDSP_CopyTokenReq),

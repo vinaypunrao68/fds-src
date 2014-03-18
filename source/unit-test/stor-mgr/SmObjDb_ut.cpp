@@ -5,12 +5,11 @@
 #define GTEST_USE_OWN_TR1_TUPLE 0
 
 #include <SmObjDb.h>
+#include <StorMgr.h>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-
-using ::testing::AtLeast;                     // #1
 
 #if 0
 class Turtle {
@@ -49,6 +48,20 @@ TEST(PainterTest, CanDrawSomething) {
 }                                             // #5
 #endif
 
+using ::testing::AtLeast;
+using ::testing::Return;
+using namespace fds;  // NOLINT
+
+namespace fds_test {
+
+class MockObjectStore : public ObjectStorMgr {
+ public:
+    MockObjectStore() {}
+    MOCK_METHOD1(getTokenId, fds_token_id(const ObjectID& objId));
+    MOCK_METHOD1(isTokenInSyncMode, bool(const fds_token_id &tokId));
+    MOCK_METHOD1(getTokenSyncTimeStamp, uint64_t(const fds_token_id &tokId));
+};
+
 TEST(OnDiskSmObjMetadata, marshall_unmarshall) {
     OnDiskSmObjMetadata diskMd1;
     meta_obj_map_t objMap;
@@ -70,8 +83,38 @@ TEST(OnDiskSmObjMetadata, marshall_unmarshall) {
 
     EXPECT_EQ(sz1, sz2);
     EXPECT_EQ(diskMd1.marshalledSize(), diskMd2.marshalledSize());
-    // EXPECT_EQ(diskMd1, diskMd2);
+    EXPECT_TRUE(diskMd1 == diskMd2);
 }
+
+TEST(OnDiskSmObjMetadata, readLocations) {
+    /* Setup mock */
+    MockObjectStore mockObjStor;
+    EXPECT_CALL(mockObjStor, getTokenId(::testing::_))
+        .WillRepeatedly(Return(1));
+    EXPECT_CALL(mockObjStor, isTokenInSyncMode(1))
+        .WillRepeatedly(Return(false));
+
+    fds_log log("SmObjDb_ut.log");
+    SmObjDb db(&mockObjStor, "sm", &log);
+
+    OnDiskSmObjMetadata diskMd1;
+    meta_obj_map_t loc1;
+    ObjectID objId("01234567890123456789");
+
+    /* Write a location */
+    loc1.obj_refcnt = 1;
+    loc1.obj_size = 16;
+    loc1.obj_tier = DataTier::diskTier;
+    db.writeObjectLocation(objId, &loc1, false);
+
+    /* Read the locations back */
+    diskio::MetaObjMap objMaps;
+    db.readObjectLocations(SmObjDb::NON_SYNC_MERGED, objId, objMaps);
+
+    /* Compare */
+    EXPECT_EQ(objMaps.getPodsP()->size(), (size_t)1);
+}
+}  // namespace fds_test
 
 int main(int argc, char** argv) {
     // The following line must be executed to initialize Google Mock

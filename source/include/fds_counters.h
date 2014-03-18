@@ -55,6 +55,8 @@ class FdsCounters : public boost::noncopyable {
           mgr->add_for_export(this);
       }
   }
+  /* Exposed for mock testing */
+  FdsCounters() {}
   
   std::string id() const
   {
@@ -111,6 +113,8 @@ class FdsBaseCounter : public boost::noncopyable {
           export_parent->add_for_export(this);
       }
   }
+  /* Exposed for testing */
+  FdsBaseCounter() {}
 
   virtual uint64_t value() const = 0;
   virtual std::string id() const
@@ -134,6 +138,8 @@ class NumericCounter : public FdsBaseCounter
   {
       val_ = 0;
   }
+  /* Exposed for testing */
+  NumericCounter() {}
 
   virtual uint64_t value() const override
   {
@@ -157,6 +163,8 @@ class LatencyCounter : public FdsBaseCounter
       total_latency_ = 0;
       cnt_ = 0;
   }
+  /* Exposed for testing */
+  LatencyCounter() {}
 
   virtual uint64_t value() const override
   {

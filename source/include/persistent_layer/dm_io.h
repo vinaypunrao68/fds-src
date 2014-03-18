@@ -1,6 +1,8 @@
 #ifndef INCLUDE_DISK_MGR_DM_IO_H_
 #define INCLUDE_DISK_MGR_DM_IO_H_
 
+#include <gtest/gtest_prod.h>
+
 #include <cpplist.h>
 #include <fds_err.h>
 #include <fds_types.h>
@@ -490,6 +492,14 @@ class MetaObjMap : public PersistentClass {
         }
         pods.push_back(pod);
     }
+
+    std::vector<MetaObjPod>* getPodsP() {
+        return &pods;
+    }
+    /*bool operator==(const MetaObjMap& map) const {
+        return pods == map.pods;
+    }*/
+
     friend std::ostream& operator<<(std::ostream& out, const MetaObjMap& objMap);
 };
 

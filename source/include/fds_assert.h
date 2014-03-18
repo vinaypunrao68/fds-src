@@ -42,6 +42,10 @@ extern void fds_panic(const char *fmt, ...) panic_attr;
 #else
 #endif
 
+/* For marking certain functions virtual only in test builds */
+// TODO(Rao): Create a TEST define and ifdef TVIRTUAL around that
+#define TVIRTUAL virtual
+
 #ifdef __cplusplus
 }
 #endif

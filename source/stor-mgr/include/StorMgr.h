@@ -140,6 +140,8 @@ class SMCounters : public FdsCounters
         get_tok_objs("get_tok_objs", this)
   {
   }
+  /* Exposed for counters */
+  SMCounters() {}
 
   NumericCounter put_reqs;
   NumericCounter get_reqs;
@@ -344,6 +346,20 @@ class ObjectStorMgr :
 
     ObjectStorMgr(int argc, char *argv[],
                   Platform *platform, Module **mod_vec);
+    /* This constructor is exposed for mock testing */
+    ObjectStorMgr() {
+        smObjDb = nullptr;
+        perfStats = nullptr;
+        qosCtrl = nullptr;
+        writeBackThreads = nullptr;
+        dirtyFlashObjs = nullptr;
+        tierEngine = nullptr;
+        rankEngine = nullptr;
+        volTbl = nullptr;
+        objStorMutex = nullptr;
+        omJrnl = nullptr;
+    }
+
     ~ObjectStorMgr();
 
     /* From FdsProcess */
@@ -394,6 +410,7 @@ class ObjectStorMgr :
         return omClient->getCurrentDLT();
     }
 
+
     void PutObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
             const FDS_ProtocolInterface::FDSP_PutObjTypePtr& put_obj);
     void GetObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
@@ -405,6 +422,7 @@ class ObjectStorMgr :
     Error deleteObjectInternal(SmIoReq* delReq);
     void putTokenObjectsInternal(SmIoReq* ioReq);
     void getTokenObjectsInternal(SmIoReq* ioReq);
+    void applySyncMetadataInternal(SmIoReq* ioReq);
     Error relocateObject(const ObjectID &objId,
             diskio::DataTier from_tier,
             diskio::DataTier to_tier);
@@ -423,11 +441,16 @@ class ObjectStorMgr :
     void migrationSvcResponseCb(const Error& err);
 
     virtual Error enqueueMsg(fds_volid_t volId, SmIoReq* ioReq);
-    bool isTokenInSyncMode(const fds_token_id &tokId) {
+
+    /* Made virtual for google mock */
+    TVIRTUAL fds_token_id getTokenId(const ObjectID& objId) {
+        return omClient->getCurrentDLT()->getToken(objId);
+    }
+    TVIRTUAL bool isTokenInSyncMode(const fds_token_id &tokId) {
         fds_assert(!"not implemented");
         return false;
     }
-    uint64_t getTokenSyncTimeStamp(const fds_token_id &tokId) {
+    TVIRTUAL uint64_t getTokenSyncTimeStamp(const fds_token_id &tokId) {
         fds_assert(!"not implemented");
         return 0;
     }

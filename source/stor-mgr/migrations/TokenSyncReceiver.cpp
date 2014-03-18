@@ -28,7 +28,8 @@ typedef msm::front::none msm_none;
 /* Statemachine Events */
 struct ErrorEvt {};
 struct StartEvt {};
-struct TokMetaDataEvt {};
+struct TokMdEvt {};
+struct TSMdAppldEvt {};
 struct NeedPullEvt {};
 struct TSXferDnEvt {};
 struct PullDnEvt {};
@@ -56,10 +57,9 @@ struct TokenSyncReceiverFSM_
         token_id_ = token_id;
         client_resp_handler_ = client_resp_handler;
 
-        apply_md_msg_.io_type = FDS_SM_SYNC_APPLY_METADATA;
-        apply_md_msg_.smio_sync_md_resp_cb = std::bind(
+        smio_sync_md_resp_cb_ = std::bind(
             &TokenSyncReceiverFSM_::sync_apply_md_resp_cb, this,
-            std::placeholders::_1, std::placeholders::_2);
+            std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 
         sync_stream_done_ = false;
         pull_done_ = false;
@@ -158,20 +158,21 @@ struct TokenSyncReceiverFSM_
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
             LOGDEBUG << "apply_tok_md token: " << fsm.token_id_;
-            /* Recyle apply_md_msg_ message */
-            fds_assert(fsm.apply_md_msg_.smio_sync_md_resp_cb);
 
-            fsm.apply_md_msg_.md_list.clear();
-            fsm.apply_md_msg_.md_list = std::move(evt.md_list);
-            evt.md_list.clear();
-            Error err = fsm.data_store_->enqueueMsg(FdsSysTaskQueueId,
-                    &fsm.apply_md_msg_);
-            if (err != fds::ERR_OK) {
-                fds_assert(!"Hit an error in enqueing");
-                LOGERROR << "Failed to enqueue to snap_msg_ to StorMgr.  Error: "
-                        << err;
-                fsm.process_event(ErrorEvt());
-                return;
+            for (auto itr : evt.md_list) {
+                auto apply_md_msg = new SmIoApplySyncMetadata();
+                apply_md_msg->io_type = FDS_SM_SYNC_APPLY_METADATA;
+                apply_md_msg->md = *itr;
+                apply_md_msg->smio_sync_md_resp_cb = fsm.smio_sync_md_resp_cb_;
+
+                Error err = data_store_->enqueueMsg(FdsSysTaskQueueId, apply_md_msg);
+                if (err != fds::ERR_OK) {
+                    fds_assert(!"Hit an error in enqueing");
+                    LOGERROR << "Failed to enqueue to snap_msg_ to StorMgr.  Error: "
+                            << err;
+                    fsm.process_event(ErrorEvt());
+                    return;
+                }
             }
         }
     };
@@ -309,10 +310,9 @@ struct TokenSyncReceiverFSM_
     // +------------+----------------+------------+-----------------+------------------+
     Row< Init       , StartEvt       , Receiving  , msm_none        , msm_none         >,
     // +------------+----------------+------------+-----------------+------------------+
-    Row< Receiving  , TokMetaDataEvt , msm_none   , ActionSequence_
-                                                    <mpl::vector<
-                                                    ack_tok_md,
-                                                    apply_tok_md> > , msm_none         >,
+    Row< Receiving  , TokMdEvt       , msm_none   , apply_tok_md    , msm_none         >,
+
+    Row< Receiving  , TSMdAppldEvt   , msm_none   , ack_tok_md      , msm_none         >,
 
     Row< Receiving  , NeedPullEvt    , msm_none   , req_for_pull    , msm_none         >,
 
@@ -344,8 +344,26 @@ struct TokenSyncReceiverFSM_
 
     /* Callback from object store that apply sync metadata is complete */
     void sync_apply_md_resp_cb(const Error& e,
+            SmIoApplySyncMetadata *sync_md,
             const std::set<ObjectID>& missing_objs)
     {
+        fds_assert(pending_sync_md_msgs > 0);
+
+        delete sync_md;
+
+        pending_sync_md_msgs--;
+        if (pending_sync_md_msgs == 0) {
+            LOGDEBUG << "Applied a batch of token sync metadata";
+            FdsActorRequestPtr far(new FdsActorRequest(
+                    FAR_ID(TSMdAppldEvt), nullptr));
+
+            Error err = parent_->send_actor_request(far);
+            if (err != ERR_OK) {
+                fds_assert(!"Failed to send message");
+                LOGERROR << "Failed to send actor message.  Error: "
+                        << err;
+            }
+        }
         // TODO(Rao): Throw pull event if missing_objs exist
     }
 
@@ -392,8 +410,11 @@ struct TokenSyncReceiverFSM_
     /* Token id we are syncing */
     fds_token_id token_id_;
 
-    /* Apply sync metadata message to object store.  This message is recycled */
-    SmIoApplySyncMetadata apply_md_msg_;
+    /* Current outstanding SmIoApplySyncMetadata messages issued against data_store_ */
+    uint32_t pending_sync_md_msgs;
+
+    /* Apply sync metadata callback */
+    SmIoApplySyncMetadata::CbType smio_sync_md_resp_cb_;
 
     /* Whether is sync stream is complete */
     bool sync_stream_done_;

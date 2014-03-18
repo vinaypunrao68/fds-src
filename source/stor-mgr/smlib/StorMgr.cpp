@@ -290,14 +290,15 @@ ObjectStorMgr::~ObjectStorMgr() {
      * TODO: We should prevent further volume registration and
      * accepting network I/Os while shutting down.
      */
-    std::list<fds_volid_t> volIds = volTbl->getVolList();
-    for (std::list<fds_volid_t>::iterator vit = volIds.begin();
-            vit != volIds.end();
-            vit++) {
-        qosCtrl->quieseceIOs((*vit));
-        qosCtrl->deregisterVolume((*vit));
+    if (volTbl) {
+        std::list<fds_volid_t> volIds = volTbl->getVolList();
+        for (std::list<fds_volid_t>::iterator vit = volIds.begin();
+                vit != volIds.end();
+                vit++) {
+            qosCtrl->quieseceIOs((*vit));
+            qosCtrl->deregisterVolume((*vit));
+        }
     }
-
     delete perfStats;
 
     /*
@@ -1722,6 +1723,20 @@ ObjectStorMgr::getTokenObjectsInternal(SmIoReq* ioReq)
     /* NOTE: We expect the caller to free up ioReq */
 }
 
+void
+ObjectStorMgr::applySyncMetadataInternal(SmIoReq* ioReq)
+{
+    SmIoApplySyncMetadata *applyMdReq =  static_cast<SmIoApplySyncMetadata*>(ioReq);
+    Error e = smObjDb->putSyncEntry(ObjectID(applyMdReq->md.object_id.digest),
+            applyMdReq->md);
+    if (e != ERR_OK) {
+        fds_assert(!"error");
+        LOGERROR << "Error in applying sync metadata.  Object Id: "
+                << applyMdReq->md.object_id.digest;
+        return;
+    }
+}
+
 inline void ObjectStorMgr::swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg) {
     FDSP_MgrIdType temp_id;
     long tmp_addr;
@@ -1794,7 +1809,7 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
         case FDS_SM_SYNC_APPLY_METADATA:
         {
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a read token objects";
-            // threadPool->schedule(&ObjectStorMgr::applySyncMetadataInternal, objStorMgr, io);
+            threadPool->schedule(&ObjectStorMgr::applySyncMetadataInternal, objStorMgr, io);
             break;
         }
         case FDS_SM_SYNC_RESOLVE_SYNC_ENTRIES:

@@ -96,6 +96,10 @@ public:
     {
         return sizeof(modificationTs) + locMap.marshalledSize();
     }
+    /*bool operator==(const SmObjMetadata& md) const
+    {
+        return modificationTs == md.modificationTs && locMap == md.locMap;
+    }*/
 
     /* NOTE: If you change the type here, it affects marshalling/unmarshalling code */
     uint64_t modificationTs;
@@ -115,23 +119,48 @@ public:
         memset(this, 0, sizeof(OnDiskSmObjMetadata));
         version = 1;
     }
+
+    void writeObjectLocation(bool append, meta_obj_map_t *obj_map)
+    {
+        if (append == true) {
+            meta_data.locMap.updateMap(*obj_map);
+        } else {
+            meta_data.locMap.clear();
+            meta_data.locMap.updateMap(*obj_map);
+        }
+    }
+
+    void readObjectLocations(diskio::MetaObjMap &objMaps)
+    {
+        objMaps = meta_data.locMap;
+    }
+
+    void deleteObjectLocation() {
+        // TODO(Rao):  Implement this
+    }
+
     SmObjMetadata* getSyncMetaDataP() {
             return &sync_meta_data;
     }
+
     void applySyncData(const FDSP_MigrateObjectMetadata& data) {
         // TODO(Rao):
     }
+
     void setSyncMetaData(const SmObjMetadata& md) {
         data_mask |= SMOBJ_SYNC_METADATA_MASK;
         sync_meta_data = md;
     }
+
     void removeSyncMetaData() {
         data_mask &= ~SMOBJ_SYNC_METADATA_MASK;
         DBG(memset(&sync_meta_data, 0, sizeof(sync_meta_data)));
     }
-    bool syncMetadataExists() {
+
+    bool syncMetadataExists() const {
         return (data_mask & SMOBJ_SYNC_METADATA_MASK) > 0;
     }
+
     void checkAndDemoteUnsyncedData(const uint64_t &syncTs) {
         if (!syncMetadataExists() &&
             meta_data.modificationTs != 0 &&
@@ -141,6 +170,7 @@ public:
             meta_data.locMap = sync_meta_data.locMap;
         }
     }
+
     void mergeNewAndUnsyncedData() {
         // TODO(Rao):
     }
@@ -183,6 +213,14 @@ public:
     {
         return sizeof(version) + sizeof(data_mask) +
                 meta_data.marshalledSize() + sync_meta_data.marshalledSize();
+    }
+
+    bool operator==(const OnDiskSmObjMetadata& md) const
+    {
+        return (version == md.version &&
+                data_mask == md.data_mask/* &&
+                meta_data == md.meta_data &&
+                (!syncMetadataExists() || (sync_meta_data == md.sync_meta_data)) */);
     }
 
 public:
@@ -251,10 +289,12 @@ public:
             const size_t &max_size,
             FDSP_MigrateObjectList &obj_list,
             SMTokenItr &itr);
-private:
+
+    // TODO(Rao:) Make these private.  Exposed for mock testing
     Error get_(const View &view,
             const ObjectID& objId, OnDiskSmObjMetadata& md);
     Error put_(const ObjectID& objId, const OnDiskSmObjMetadata& md);
+private:
     inline fds_token_id getTokenId_(const ObjectID& objId);
     inline ObjectDB* getObjectDB_(const fds_token_id& tokId);
     inline bool isTokenInSyncMode_(const fds_token_id& tokId);
