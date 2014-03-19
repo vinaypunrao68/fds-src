@@ -12,8 +12,9 @@
 #include <vector>
 #include <fdsp/FDSP_types.h>
 #include <fds_migration.h>
+#include <fds_timestamp.h>
 #include <TokenCopyReceiver.h>
-
+#include <TokenSyncReceiver.h>
 
 namespace fds {
 
@@ -60,7 +61,8 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
             SmIoReqHandler *data_store,
             const std::string &sender_ip,
             const int &sender_port,
-            const std::set<fds_token_id> &tokens,
+            const fds_token_id &token,
+            netMigrationPathClientSession *sender_session,
             boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler)
     {
         mig_stream_id_ = mig_stream_id;
@@ -69,7 +71,8 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
         data_store_ = data_store;
         sender_ip_ = sender_ip;
         sender_port_= sender_port;
-        pending_tokens_ = tokens;
+        pending_tokens_.insert(token);
+        sender_session_ = sender_session;
         client_resp_handler_ = client_resp_handler;
 
         /* Setting up the common properties of object store write request */
@@ -192,16 +195,6 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
             LOGDEBUG << "connect " << fsm.mig_stream_id_;
-
-            /* First connect */
-            fsm.sender_session_ = fsm.migrationSvc_->get_migration_client(fsm.sender_ip_,
-                    fsm.sender_port_);
-            if (fsm.sender_session_ == nullptr) {
-                fds_assert(!"Null session");
-                // TODO(rao:) Go into error state
-                // LOGERROR << "sender_session is null";
-                return;
-            }
 
             /* Issue copy tokens request */
             FDSP_CopyTokenReq copy_req;
@@ -366,7 +359,6 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
                         new FdsActorRequest(FAR_ID(TcrWrittenEvt), written_evt)));
     }
 
-    protected:
     /* Migration stream id */
     std::string mig_stream_id_;
 
@@ -388,6 +380,8 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
     boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler_;
 
     /* Tokens that are pending to be received */
+    // TODO(Rao):  We don't receive tokens in bulk any more.  Shouldn't be set
+    // anymore
     std::set<fds_token_id> pending_tokens_;
 
     /* Tokens for which receive is complete */
@@ -417,7 +411,7 @@ TokenCopyReceiver::TokenCopyReceiver(FdsMigrationSvc *migrationSvc,
         const std::string &mig_id,
         fds_threadpoolPtr threadpool,
         fds_log *log,
-        const std::set<fds_token_id> &tokens,
+        const fds_token_id &token,
         boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler,
         ClusterCommMgrPtr clust_comm_mgr)
     : MigrationReceiver(mig_id),
@@ -427,35 +421,53 @@ TokenCopyReceiver::TokenCopyReceiver(FdsMigrationSvc *migrationSvc,
       clust_comm_mgr_(clust_comm_mgr)
 {
     DBG(destroy_sent_ = false);
-    /* Map of sender node -> tokens to request from sender */
-    auto token_tbl = clust_comm_mgr_->partition_tokens_by_node(tokens);
 
-    /* Create TokenCopyReceiver endpoint for each ip */
-    for (auto  itr = token_tbl.begin(); itr != token_tbl.end();  itr++)
-    {
-        uint32_t int_ip;
-        uint32_t sender_port;
-        int ret = clust_comm_mgr_->get_node_mig_ip_port(itr->first,
-                                                        int_ip,
-                                                        sender_port);
-        // TODO(Rao): Handle this error
-        fds_assert(ret == true);
-        std::string sender_ip = netSessionTbl::ipAddr2String(int_ip);
-        std::string mig_stream_id = fds::get_uuid();
+    uint32_t int_ip;
+    uint32_t sender_port;
+    int ret = clust_comm_mgr_->get_node_mig_ip_port(token,
+                                                    int_ip,
+                                                    sender_port);
+    // TODO(Rao): Handle this error
+    fds_assert(ret == true);
+    std::string sender_ip = netSessionTbl::ipAddr2String(int_ip);
 
-        rcvr_sms_[mig_stream_id].reset(new TokenCopyReceiverFSM());
-        rcvr_sms_[mig_stream_id]->init(mig_stream_id,
-                    migrationSvc, this, data_store,
-                    sender_ip, sender_port,
-                    itr->second,
-                    client_resp_handler);
+    // TODO(Rao): Don't need mig_stream_id anymore remove it
+    std::string mig_stream_id = "" + token;
 
-        LOGNORMAL << " New receiver stream.  Migration id: " << mig_id
-                << "Stream id: " << mig_stream_id << " sender ip : " << sender_ip;
+    auto sender_session = migrationSvc->get_migration_client(
+            sender_ip,
+            sender_port);
+    if (sender_session == nullptr) {
+        LOGERROR << "Failed to connect to " << sender_ip << " port: " << sender_port;
+        fds_assert(!"Null session");
+        // TODO(Rao): return an error back to parent
+        return;
     }
+
+    copy_fsm_.reset(new TokenCopyReceiverFSM());
+    copy_fsm_->init(mig_stream_id,
+                migrationSvc, this, data_store,
+                sender_ip, sender_port,
+                token,
+                sender_session,
+                client_resp_handler);
+
+    sync_fsm_ = new TokenSyncReceiver();
+    sync_fsm_->init(mig_stream_id,
+                migrationSvc, this, data_store,
+                sender_ip, sender_port,
+                token,
+                sender_session,
+                client_resp_handler);
+
+    LOGNORMAL << " New receiver stream.  Migration id: " << mig_id
+            << "Stream id: " << mig_stream_id << " sender ip : " << sender_ip;
 }
 
 TokenCopyReceiver::~TokenCopyReceiver() {
+    if (sync_fsm_) {
+        delete sync_fsm_;
+    }
 }
 
 /**
@@ -463,10 +475,7 @@ TokenCopyReceiver::~TokenCopyReceiver() {
  */
 void TokenCopyReceiver::start()
 {
-    for (auto itr = rcvr_sms_.begin();
-            itr != rcvr_sms_.end(); itr++) {
-       itr->second->start();
-    }
+    copy_fsm_->start();
 }
 
 /**
@@ -482,28 +491,28 @@ Error TokenCopyReceiver::handle_actor_request(FdsActorRequestPtr req)
     case FAR_ID(FDSP_CopyTokenResp):
     {
         auto payload = req->get_payload<FDSP_CopyTokenResp>();
-        route_to_mig_stream(payload->mig_stream_id, *payload);
+        copy_fsm_->process_event(*payload);
         break;
     }
     case FAR_ID(FDSP_PushTokenObjectsReq):
     {
         /* Posting TokRecvdEvt */
         auto payload = req->get_payload<FDSP_PushTokenObjectsReq>();
-        route_to_mig_stream(payload->header.mig_stream_id, *payload);
+        copy_fsm_->process_event(*payload);
         break;
     }
     case FAR_ID(TcrWrittenEvt):
     {
         /* Notification event from obeject store that write is complete */
         auto payload = req->get_payload<TcrWrittenEvt>();
-        route_to_mig_stream(payload->mig_stream_id_, *payload);
+        copy_fsm_->process_event(*payload);
         break;
     }
     case FAR_ID(TSCopyDnEvt):
     {
-        /* Notification event that a copy stream is done */
-        auto payload = req->get_payload<TSCopyDnEvt>();
-        destroy_migration_stream(payload->mig_stream_id_);
+        /* Starting token sync statemachine */
+        // TODO(Rao): Get the sync start time from config db
+        sync_fsm_->process_event(TSStartEvt(get_fds_timestamp_ms(), 0));
         break;
     }
     default:
@@ -513,51 +522,24 @@ Error TokenCopyReceiver::handle_actor_request(FdsActorRequestPtr req)
     return err;
 }
 
-/**
- * Routes the request to appropriate stream statemachine.
- * @param mig_stream_id
- * @param event
- */
-template<class EventT>
-void TokenCopyReceiver::route_to_mig_stream(const std::string &mig_stream_id,
-        const EventT &event)
-{
-    auto itr = rcvr_sms_.find(mig_stream_id);
-    if (itr == rcvr_sms_.end()) {
-        /* For testing.  Remove when not needed */
-        fds_assert(!"Migration stream not found");
-        LOGWARN << "Migration stream id: " << mig_stream_id
-                << " disappeared";
-        return;
-    }
-    itr->second->process_event(event);
-}
 
 /**
- * Destroy the stream.  When all streams are destroyed notify migration service.
+ * Send notification to parent to destroy this
  * @param mig_stream_id
  */
 void TokenCopyReceiver::destroy_migration_stream(const std::string &mig_stream_id)
 {
     LOGNORMAL << " mig_id: " << mig_id_ << " mig_stream_id: " << mig_stream_id;
 
-    /* Remove migration stream */
-    auto itr = rcvr_sms_.find(mig_stream_id);
-    fds_assert(itr != rcvr_sms_.end());
-    rcvr_sms_.erase(itr);
+    FdsActorRequestPtr far(new FdsActorRequest(
+            FAR_ID(FdsActorShutdown), nullptr));
 
-    /* If all streams are done start the shutdown process */
-    if (rcvr_sms_.size() == 0) {
-        FdsActorRequestPtr far(new FdsActorRequest(
-                FAR_ID(FdsActorShutdown), nullptr));
-
-        Error err = this->send_actor_request(far);
-        if (err != ERR_OK) {
-            fds_assert(!"Failed to send message");
-            LOGERROR << "Failed to send actor message.  Error: "
-                    << err;
-        }
-        DBG(destroy_sent_ = true);
+    Error err = this->send_actor_request(far);
+    if (err != ERR_OK) {
+        fds_assert(!"Failed to send message");
+        LOGERROR << "Failed to send actor message.  Error: "
+                << err;
     }
+    DBG(destroy_sent_ = true);
 }
 } /* namespace fds */

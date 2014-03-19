@@ -527,50 +527,11 @@ void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
 {
     GLOGDEBUG << "ObjectStorMgr - Migration  event Handler " << dlt_type;
 
-#if 0
-    // Determine our new tokens that we need to retrieve from
-    // by comparing with the previous DLT
-    // TODO(Andrew): For now, we're just getting all of the primary
-    // tokens in the current DLT
-    MigSvcCopyTokensReqPtr copy_req(new MigSvcCopyTokensReq());
-    TokenList tokens;
-    // const TokenList &tokens = objStorMgr->getTokensForNode(
-    // objStorMgr->getUuid());
-    objStorMgr->getTokensForNode(&tokens,
-                                 objStorMgr->getUuid(),
-                                 0);
-    for (TokenList::const_iterator it = tokens.cbegin();
-         it != tokens.cend();
-         it++) {
-        copy_req->tokens.insert(*it);
-    }
-
-    // TODO(Andrew): For now, we're assuming if the list of
-    // new tokens all of the tokens, then we must be the first
-    // SM entering the system and don't need to migration anything
-    // because nothing exists to migrate and no one to migrate from.
-    // Note: Since the above token list is *NOT* do a delta yet,
-    // this will skip migration scenarios where I'm the only node
-    // let in the cluster.
-    if (copy_req->tokens.size() < objStorMgr->getTotalNumTokens()) {
-        // Send migration request to migration service
-        copy_req->migsvc_resp_cb = std::bind(
-            &ObjectStorMgr::migrationSvcResponseCb,
-            objStorMgr,
-            std::placeholders::_1);
-        FdsActorRequestPtr copy_far(new FdsActorRequest(
-            FAR_ID(MigSvcCopyTokensReq), copy_req));
-        objStorMgr->migrationSvc_->send_actor_request(copy_far);
-    } else {
-        objStorMgr->migrationSvcResponseCb(Error(ERR_OK));
-    }
-#endif
-
     std::set<fds_token_id> tokens = DLT::token_diff(objStorMgr->getUuid(),
             objStorMgr->omClient->getCurrentDLT(), objStorMgr->omClient->getPreviousDLT());
 
     if (tokens.size() > 0) {
-        MigSvcCopyTokensReqPtr copy_req(new MigSvcCopyTokensReq());
+        MigSvcBulkCopyTokensReqPtr copy_req(new MigSvcBulkCopyTokensReq());
         copy_req->tokens = tokens;
         // Send migration request to migration service
         copy_req->migsvc_resp_cb = std::bind(
@@ -578,7 +539,7 @@ void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
             objStorMgr,
             std::placeholders::_1);
         FdsActorRequestPtr copy_far(new FdsActorRequest(
-            FAR_ID(MigSvcCopyTokensReq), copy_req));
+            FAR_ID(MigSvcBulkCopyTokensReq), copy_req));
         objStorMgr->migrationSvc_->send_actor_request(copy_far);
     } else {
         GLOGDEBUG << "No tokens to copy";

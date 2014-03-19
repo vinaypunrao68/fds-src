@@ -33,6 +33,9 @@ enum FdsActorRequestType {
     /* Migration service message to initiate token copy */
     FAR_ENUM(MigSvcCopyTokensReq) = 1000,
 
+    /* Migration service message to initiate token copy */
+    FAR_ENUM(MigSvcBulkCopyTokensReq),
+
     /* TokenCopySender message that token data has been read */
     FAR_ENUM(TcsDataReadDone),
 

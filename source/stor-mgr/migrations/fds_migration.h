@@ -31,13 +31,27 @@ class FDSP_MigrationPathRpc;
 typedef std::function<void (const Error&)> MigSvcCbType;
 
 /**
+ * Send this message to FdsMigrationSvc for bulk copying tokens
+ * NOTE: This is temporary.  It should go away
+ */
+class MigSvcBulkCopyTokensReq
+{
+public:
+    /* In: Tokens to copy */
+    std::set<fds_token_id> tokens;
+    /* In: Callback to invoke after completion */
+    MigSvcCbType migsvc_resp_cb;
+};
+typedef boost::shared_ptr<MigSvcBulkCopyTokensReq> MigSvcBulkCopyTokensReqPtr;
+
+/**
  * Send this message to FdsMigrationSvc for copying tokens
  */
 class MigSvcCopyTokensReq
 {
 public:
-    /* In: Tokens to copy */
-    std::set<fds_token_id> tokens;
+    /* In: Token to copy */
+    fds_token_id token;
     /* In: Callback to invoke after completion */
     MigSvcCbType migsvc_resp_cb;
 };
@@ -56,6 +70,26 @@ class MigrationCounters : public FdsCounters
 
   NumericCounter tokens_sent; 
   NumericCounter tokens_rcvd;
+};
+
+/**
+ * Token copy tracker for copying multiple tokens.  This is temporary and should
+ * go away once OM starts doing granulat token migrations
+ */
+class TokenCopyTracker {
+ public:
+    TokenCopyTracker(FdsMigrationSvc *migrationSvc,
+            std::set<fds_token_id> tokens, MigSvcCbType cb);
+    void start();
+    void token_complet_cb(const Error& e);
+
+ private:
+    void issue_copy_req();
+
+    FdsMigrationSvc *migrationSvc_;
+    std::set<fds_token_id> tokens_;
+    std::set<fds_token_id>::iterator cur_itr_;
+    MigSvcCbType cb_;
 };
 
 /* Service for migrating objects */
@@ -133,6 +167,9 @@ private:
 
     /* Migrations that are in progress.  Keyed by migration id */
     std::unordered_map<std::string, MigratorInfo> mig_actors_;
+
+    /* For tracking bulk token copy */
+    std::unique_ptr<TokenCopyTracker> copy_tracker_;
 }; 
 typedef boost::shared_ptr<FdsMigrationSvc> FdsMigrationSvcPtr;
 

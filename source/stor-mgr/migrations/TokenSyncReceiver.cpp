@@ -13,7 +13,7 @@
 #include <boost/msm/front/euml/operator.hpp>
 
 #include <fds_migration.h>
-#include <TokenCopySender.h>
+#include <TokenCopyReceiver.h>
 #include <TokenSyncReceiver.h>
 
 namespace fds {
@@ -26,17 +26,24 @@ using namespace msm::front;  // NOLINT
 using namespace msm::front::euml;   // NOLINT
 typedef msm::front::none msm_none;
 
+/* Statemachine internal events */
+/* PullReceiverFSM events */
+struct PullReqEvt {};
+struct StopPullReqsEvt {};
+struct DataPullDnEvt {};
+struct PullFiniEvt {};
 
 /* State machine */
 struct TokenSyncReceiverFSM_
         : public msm::front::state_machine_def<TokenSyncReceiverFSM_> {
     void init(const std::string &mig_stream_id,
             FdsMigrationSvc *migrationSvc,
-            TokenCopySender *parent,
+            TokenCopyReceiver *parent,
             SmIoReqHandler *data_store,
             const std::string &rcvr_ip,
             const int &rcvr_port,
             const fds_token_id &token_id,
+            netMigrationPathClientSession *sender_session,
             boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler)
     {
         mig_stream_id_ = mig_stream_id;
@@ -46,6 +53,7 @@ struct TokenSyncReceiverFSM_
         rcvr_ip_ = rcvr_ip;
         rcvr_port_ = rcvr_port;
         token_id_ = token_id;
+        sender_session_ = sender_session;
         client_resp_handler_ = client_resp_handler;
 
         smio_sync_md_resp_cb_ = std::bind(
@@ -153,6 +161,8 @@ struct TokenSyncReceiverFSM_
             sync_req.header.mig_stream_id = fsm.mig_stream_id_;
 
             sync_req.token = fsm.token_id_;
+            sync_req.start_time = evt.start_time;
+            sync_req.end_time = evt.end_time;
             // TODO(rao): Do not hard code
             sync_req.max_entries_per_reply = 1024;
             fsm.sender_session_->getClient()->SyncToken(sync_req);
@@ -332,7 +342,7 @@ struct TokenSyncReceiverFSM_
     // +------------+----------------+------------+-----------------+------------------+
     // | Start      | Event          | Next       | Action          | Guard            |
     // +------------+----------------+------------+-----------------+------------------+
-    Row< Init       , StartEvt       , Starting   , send_sync_req   , msm_none         >,
+    Row< Init       , TSStartEvt     , Starting   , send_sync_req   , msm_none         >,
     // +------------+----------------+------------+-----------------+------------------+
     Row< Starting   , SyncAckdEvt    , Receiving  , msm_none        , msm_none         >,
     // +------------+----------------+------------+-----------------+------------------+
@@ -417,13 +427,16 @@ struct TokenSyncReceiverFSM_
     FdsMigrationSvc *migrationSvc_;
 
     /* Parent */
-    TokenCopySender *parent_;
+    TokenCopyReceiver *parent_;
 
     /* Receiver ip */
     std::string rcvr_ip_;
 
     /* Receiver port */
     int rcvr_port_;
+
+    /* Sender session */
+    netMigrationPathClientSession *sender_session_;
 
     /* RPC handler for responses.  NOTE: We don't really use it.  It's just here so
      * it can be passed as a parameter when we create a netClientSession
@@ -454,9 +467,10 @@ struct PullReceiverFSM_
         : public msm::front::state_machine_def<PullReceiverFSM_> {
     void init(const std::string &mig_stream_id,
             FdsMigrationSvc *migrationSvc,
-            TokenCopySender *parent,
+            TokenCopyReceiver *parent,
             SmIoReqHandler *data_store,
             const std::string &rcvr_ip,
+
             const int &rcvr_port,
             const std::set<fds_token_id> &tokens,
             boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler)
@@ -656,7 +670,7 @@ struct PullReceiverFSM_
     FdsMigrationSvc *migrationSvc_;
 
     /* Parent */
-    TokenCopySender *parent_;
+    TokenCopyReceiver *parent_;
 
     /* Receiver ip */
     std::string rcvr_ip_;
@@ -673,21 +687,38 @@ struct PullReceiverFSM_
     SmIoReqHandler *data_store_;
 };  /* struct PullReceiverFSM_ */
 
+
+TokenSyncReceiver::TokenSyncReceiver()
+{
+    fsm_ = nullptr;
+}
+
+TokenSyncReceiver::~TokenSyncReceiver()
+{
+    delete fsm_;
+}
+
 void TokenSyncReceiver::init(const std::string &mig_stream_id,
             FdsMigrationSvc *migrationSvc,
-            TokenCopySender *parent,
+            TokenCopyReceiver *parent,
             SmIoReqHandler *data_store,
             const std::string &rcvr_ip,
             const int &rcvr_port,
             const fds_token_id &token_id,
+            netMigrationPathClientSession *sender_session,
             boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler) {
-    fsm_.reset(new TokenSyncReceiverFSM());
+    fsm_ = new TokenSyncReceiverFSM();
     fsm_->init(mig_stream_id, migrationSvc,
             parent,
             data_store,
             rcvr_ip,
             rcvr_port,
             token_id,
+            sender_session,
             client_resp_handler);
+}
+
+void TokenSyncReceiver::process_event(const TSStartEvt& evt) {
+    fsm_->process_event(evt);
 }
 } /* namespace fds */

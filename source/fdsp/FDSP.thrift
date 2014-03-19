@@ -792,9 +792,17 @@ struct FDSP_SyncTokenReq
 
     /* Token to sync*/
     2: FDSP_Token			      token
+    
+    /* Sync start time */
+    3: i64                        start_time;
+    
+    /* Sync end time.  zero means unspecified and upperbound is left for sender/om
+     * to decide
+     */
+    4: i64                        end_time;
 
     /* Maximum sync metadata entries to send per reply */
-    3: i32                     max_entries_per_reply
+    5: i32                     max_entries_per_reply
 }
 
 /* Payload for SyncToken response path */

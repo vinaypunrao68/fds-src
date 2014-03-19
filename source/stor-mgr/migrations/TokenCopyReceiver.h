@@ -20,17 +20,15 @@
 #include <ClusterCommMgr.h>
 #include <StorMgrVolumes.h>
 
-
 namespace fds {
 
 using namespace  ::FDS_ProtocolInterface;
 
 /* Forward declarations */
 class FdsMigrationSvc;
+struct TokenSyncReceiver;
 
 struct TokenCopyReceiverFSM_;
-
-/* back-end */
 typedef boost::msm::back::state_machine<TokenCopyReceiverFSM_> TokenCopyReceiverFSM;
 
 class TokenCopyReceiver : public MigrationReceiver,
@@ -41,7 +39,7 @@ public:
             const std::string &mig_id,
             fds_threadpoolPtr threadpool,
             fds_log *log,
-            const std::set<fds_token_id> &tokens,
+            const fds_token_id &token,
             boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler,
             ClusterCommMgrPtr clust_comm_mgr);
     virtual ~TokenCopyReceiver();
@@ -61,13 +59,13 @@ public:
     virtual Error handle_actor_request(FdsActorRequestPtr req) override;
 
 protected:
-    template<class EventT>
-    void route_to_mig_stream(const std::string &mig_stream_id,
-            const EventT &event);
     void destroy_migration_stream(const std::string &mig_stream_id);
 
-    /* Table of receiver state machines.  Each is keyed by a migration stream id */
-    std::unordered_map<std::string, std::unique_ptr<TokenCopyReceiverFSM> > rcvr_sms_;
+    std::unique_ptr<TokenCopyReceiverFSM> copy_fsm_;
+    /* sync state machine.  Couldn't make it unique_ptr.  I was getting compiler
+     * errors that I couldn't figure out
+     */
+    TokenSyncReceiver *sync_fsm_;
 
     /* Migration service reference */
     FdsMigrationSvc *migrationSvc_;

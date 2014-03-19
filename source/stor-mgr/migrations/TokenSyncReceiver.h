@@ -24,6 +24,9 @@ namespace fds {
 
 using namespace  ::FDS_ProtocolInterface;
 
+/* Forward declarations */
+class TokenCopyReceiver;
+
 /* Statemachine Events */
 struct TokMdEvt {};
 struct SyncAckdEvt{};
@@ -34,26 +37,41 @@ struct PullDnEvt {};
 struct ResolveEvt {};
 struct TSResolveDnEvt {};
 
-/* PullReceiverFSM events */
-struct PullReqEvt {};
-struct StopPullReqsEvt {};
-struct DataPullDnEvt {};
-struct PullFiniEvt {};
-
 struct TokenSyncReceiverFSM_;
 /* back-end */
 typedef boost::msm::back::state_machine<TokenSyncReceiverFSM_> TokenSyncReceiverFSM;
+
+/**
+ * Token sync start event
+ */
+struct TSStartEvt {
+    TSStartEvt(const uint64_t &start, const uint64_t &end) {
+        start_time = start;
+        end_time = end;
+    }
+    /* start time */
+    uint64_t start_time;
+    /* End time.  zero means end time isn't specified */
+    uint64_t end_time;
+};
+
 struct TokenSyncReceiver {
+public:
+    TokenSyncReceiver();
+    virtual ~TokenSyncReceiver();
+
     void init(const std::string &mig_stream_id,
             FdsMigrationSvc *migrationSvc,
-            TokenCopySender *parent,
+            TokenCopyReceiver *parent,
             SmIoReqHandler *data_store,
             const std::string &rcvr_ip,
             const int &rcvr_port,
             const fds_token_id &token_id,
+            netMigrationPathClientSession *sender_session,
             boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler);
-private:
-    std::unique_ptr<TokenSyncReceiverFSM> fsm_;
+    void process_event(const TSStartEvt& evt);
+ private:
+    TokenSyncReceiverFSM *fsm_;
 };
 }  // namespace fds
 

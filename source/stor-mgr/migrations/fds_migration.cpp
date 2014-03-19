@@ -92,6 +92,45 @@ PushTokenMetadataResp(boost::shared_ptr<FDSP_PushTokenMetadataResp>& push_md_res
 {
     fds_assert(false);
 }
+
+TokenCopyTracker::TokenCopyTracker(FdsMigrationSvc *migrationSvc,
+        std::set<fds_token_id> tokens, MigSvcCbType cb) {
+    migrationSvc_ = migrationSvc;
+    tokens_ = tokens;
+    cur_itr_ = tokens.begin();
+    cb_ = cb;
+}
+
+void TokenCopyTracker::start() {
+    if (cur_itr_ != tokens_.end()) {
+        issue_copy_req();
+    }
+}
+
+void TokenCopyTracker::token_complet_cb(const Error& e) {
+    fds_assert(e == ERR_OK);
+    cur_itr_++;
+    if (cur_itr_ != tokens_.end()) {
+        issue_copy_req();
+    } else {
+        cb_(ERR_OK);
+    }
+}
+
+void TokenCopyTracker::issue_copy_req() {
+    LOGDEBUG << "token id: " << *cur_itr_;
+    MigSvcCopyTokensReqPtr copy_req(new MigSvcCopyTokensReq());
+    copy_req->token = *cur_itr_;
+    // Send migration request to migration service
+    copy_req->migsvc_resp_cb = std::bind(
+            &TokenCopyTracker::token_complet_cb,
+            this,
+            std::placeholders::_1);
+    FdsActorRequestPtr copy_far(new FdsActorRequest(
+            FAR_ID(MigSvcCopyTokensReq), copy_req));
+    migrationSvc_->send_actor_request(copy_far);
+}
+
 /**
  * Constructor
  * @param threadpool
@@ -148,6 +187,15 @@ Error FdsMigrationSvc::handle_actor_request(FdsActorRequestPtr req)
     case FAR_ID(MigSvcCopyTokensReq):
     {
         handle_migsvc_copy_token(req);
+        break;
+    }
+    case FAR_ID(MigSvcBulkCopyTokensReq):
+    {
+        fds_assert(copy_tracker_ == nullptr);
+        auto payload = req->get_payload<MigSvcBulkCopyTokensReq>();
+        copy_tracker_.reset(new TokenCopyTracker(this,
+                payload->tokens, payload->migsvc_resp_cb));
+        copy_tracker_->start();
         break;
     }
     case FAR_ID(FdsActorShutdownComplete):
@@ -217,13 +265,11 @@ void FdsMigrationSvc::handle_migsvc_copy_token(FdsActorRequestPtr req)
 
     auto copy_payload = req->get_payload<MigSvcCopyTokensReq>();
 
-    std::set<fds_token_id> tokens(copy_payload->tokens.begin(),
-            copy_payload->tokens.end());
     std::string mig_id = fds::get_uuid();
 
     TokenCopyReceiver* copy_rcvr = new TokenCopyReceiver(this,
             data_store_, mig_id,
-            threadpool_, GetLog(), tokens,
+            threadpool_, GetLog(), copy_payload->token,
             migpath_handler_, clust_comm_mgr_);
     mig_actors_[mig_id].migrator.reset(copy_rcvr);
     mig_actors_[mig_id].migsvc_resp_cb = copy_payload->migsvc_resp_cb;
