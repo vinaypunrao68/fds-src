@@ -9,28 +9,27 @@ import java.util.HashMap;
 import java.util.Map;
 
 public abstract class LexicalTrie<T> {
-    protected Map<Char, LexicalTrie<T>> children;
+    protected Map<Character, LexicalTrie<T>> children;
 
     protected LexicalTrie() {
-        children = new HashMap<>();
-    }
-
-    public abstract QueryResult<T> find(String s, Map<String, String> captured);
-
-    public abstract LexicalTrie<T> put(String s, T t);
-}
-
-class Root<T> extends LexicalTrie<T> {
-    private Map<Character, Char<T>> children;
-    private Capture<T> capture;
-
-    Root() {
         children = new HashMap<>();
     }
 
     public QueryResult<T> find(String s) {
         return find(s, new HashMap<String, String>());
     }
+
+    protected  abstract QueryResult<T> find(String s, Map<String, String> captured);
+
+    public abstract LexicalTrie<T> put(String s, T t);
+
+    public static <T> LexicalTrie<T> newTrie() {
+        return new Root<T>();
+    }
+}
+
+class Root<T> extends LexicalTrie<T> {
+    private Capture<T> capture;
 
     @Override
     public QueryResult<T> find(String s, Map<String, String> captured) {
@@ -54,7 +53,7 @@ class Root<T> extends LexicalTrie<T> {
             }
             capture = new Capture<T>().put(s.substring(1), t);
         } else {
-            Char<T> child = children.getOrDefault(s.charAt(0), new Char<T>(s.charAt(0)));
+            LexicalTrie<T> child = children.getOrDefault(s.charAt(0), new Char<T>(s.charAt(0)));
             children.put(s.charAt(0), child.put(s.substring(1), t));
         }
         return this;
@@ -68,12 +67,7 @@ class Root<T> extends LexicalTrie<T> {
 
 class Capture<T> extends LexicalTrie<T> {
     private String binding;
-    private Map<Character, Char<T>> children;
     private T t;
-
-    Capture() {
-        this.children = new HashMap<>();
-    }
 
     @Override
     public QueryResult<T> find(String s, Map<String, String> captured) {
@@ -111,7 +105,7 @@ class Capture<T> extends LexicalTrie<T> {
         binding = bindingName.toString();
         s = s.substring(i);
         if (s.length() > 0) {
-            Char<T> child = children.getOrDefault(s.charAt(0), new Char<T>(s.charAt(0)));
+            LexicalTrie<T> child = children.getOrDefault(s.charAt(0), new Char<T>(s.charAt(0)));
             children.put(s.charAt(0), child.put(s.substring(1), t));
         } else {
             this.t = t;
@@ -128,12 +122,10 @@ class Capture<T> extends LexicalTrie<T> {
 class Char<T> extends LexicalTrie<T> {
     private char c;
     private T t;
-    private Map<Character, Char<T>> children;
     private Capture<T> capture;
 
     Char(char c) {
         this.c = c;
-        children = new HashMap<>();
     }
 
     @Override
@@ -168,7 +160,7 @@ class Char<T> extends LexicalTrie<T> {
             if (next == ':') {
                 capture = new Capture<T>().put(s.substring(1), t);
             } else {
-                Char<T> child = children.getOrDefault(next, new Char(next));
+                LexicalTrie<T> child = children.getOrDefault(next, new Char(next));
                 children.put(next, child.put(s.substring(1), t));
             }
         }

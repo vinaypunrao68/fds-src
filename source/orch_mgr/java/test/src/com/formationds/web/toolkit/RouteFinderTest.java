@@ -32,12 +32,12 @@ public class RouteFinderTest {
     @Test
     public void testExpandArgs() throws Exception {
         RouteFinder routeFinder = new RouteFinder();
-        routeFinder.route(HttpMethod.GET, "/hello/:foo/something/:bar/panda", () -> new Foo());
+        routeFinder.route(HttpMethod.GET, "/a/:color/b/:metal", () -> new Foo());
 
-        Route route = resolve(HttpMethod.GET, routeFinder, "/hello/leftValue/something/rightValue/panda");
+        Route route = resolve(HttpMethod.GET, routeFinder, "/a/blue/b/iron");
         assertEquals(200, route.getHandler().get().handle(route.getRequest()).getHttpStatus());
-        assertEquals("leftValue", route.getRequest().getParameter("foo"));
-        assertEquals("rightValue", route.getRequest().getParameter("bar"));
+        assertEquals("blue", route.getRequest().getParameter("color"));
+        assertEquals("iron", route.getRequest().getParameter("metal"));
     }
 
     private Route resolve(HttpMethod httpMethod, RouteFinder routeFinder, String q) {

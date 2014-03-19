@@ -12,7 +12,7 @@ import static org.junit.Assert.*;
 public class LexicalTrieTest {
     @Test
     public void testSimpleMatch() {
-        Root<Integer> trie = new Root<>();
+        LexicalTrie<Object> trie = LexicalTrie.newTrie();
         trie.put("a", 42);
         trie.put("aba", 44);
         trie.put("abb", 45);
