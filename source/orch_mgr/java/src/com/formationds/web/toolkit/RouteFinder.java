@@ -2,7 +2,6 @@ package com.formationds.web.toolkit;
 
 import com.formationds.web.toolkit.route.LexicalTrie;
 import com.formationds.web.toolkit.route.QueryResult;
-import org.eclipse.jetty.http.HttpMethod;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.util.MultiMap;
 

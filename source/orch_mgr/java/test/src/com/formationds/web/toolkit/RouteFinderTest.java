@@ -1,6 +1,5 @@
 package com.formationds.web.toolkit;
 
-import org.eclipse.jetty.http.HttpMethod;
 import org.eclipse.jetty.server.Request;
 import org.junit.Test;
 
@@ -41,8 +40,8 @@ public class RouteFinderTest {
     }
 
     private Route resolve(HttpMethod httpMethod, RouteFinder routeFinder, String q) {
-        Request request = new Request(null, null);
-        request.setMethod(httpMethod, httpMethod.asString());
+        Request request = new Request();
+        request.setMethod(httpMethod.toString());
         request.setRequestURI(q);
         return routeFinder.resolve(request);
     }

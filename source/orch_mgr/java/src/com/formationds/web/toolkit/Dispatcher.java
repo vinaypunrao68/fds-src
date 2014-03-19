@@ -3,9 +3,9 @@ package com.formationds.web.toolkit;
 import com.google.common.collect.Multimap;
 import org.apache.log4j.Logger;
 import org.eclipse.jetty.server.Request;
-import org.eclipse.jetty.server.handler.AbstractHandler;
 
 import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -14,7 +14,7 @@ import java.util.Arrays;
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
-public class Dispatcher extends AbstractHandler {
+public class Dispatcher extends HttpServlet {
     private static final Logger LOG = Logger.getLogger(Dispatcher.class);
 
     private RouteFinder routeFinder;
@@ -25,8 +25,30 @@ public class Dispatcher extends AbstractHandler {
         this.webDir = webDir;
     }
 
+
     @Override
-    public void handle(String target, Request request, HttpServletRequest httpServletRequest, HttpServletResponse response) throws IOException, ServletException {
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        service(req, resp);
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        service(req, resp);
+    }
+
+    @Override
+    protected void doPut(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        service(req, resp);
+    }
+
+    @Override
+    protected void doDelete(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        service(req, resp);
+    }
+
+    @Override
+    public void service(HttpServletRequest httpServletRequest, HttpServletResponse response) throws IOException, ServletException {
+        Request request = (Request) httpServletRequest;
         RequestHandler requestHandler;
 
         if (isStaticAsset(request)) {
