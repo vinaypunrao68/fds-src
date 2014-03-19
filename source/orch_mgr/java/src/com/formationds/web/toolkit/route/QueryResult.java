@@ -9,8 +9,16 @@ public class QueryResult<T> {
     private Map<String, String> matches;
     private T value;
 
+    public QueryResult() {
+    }
+
+    public QueryResult(Map<String, String> matches, T value) {
+        this.matches = matches;
+        this.value = value;
+    }
+
     public boolean found() {
-        return false;
+        return value != null;
     }
 
     public Map<String, String> getMatches() {

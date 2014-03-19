@@ -7,27 +7,46 @@ import org.junit.Test;
 
 import java.util.Map;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 public class LexicalTrieTest {
     @Test
+    public void testSimpleMatch() {
+        Root<Integer> trie = new Root<>();
+        trie.put("a", 42);
+        trie.put("aba", 44);
+        trie.put("abb", 45);
+        assertTrue(trie.find("a").found());
+        assertFalse(trie.find("ab").found());
+        assertTrue(trie.find("aba").found());
+        assertTrue(trie.find("abb").found());
+        assertFalse(trie.find("ccc").found());
+        assertEquals(42, (int) trie.find("a").getValue());
+        assertEquals(44, (int) trie.find("aba").getValue());
+        assertEquals(45, (int) trie.find("abb").getValue());
+    }
+    @Test
     public void testIndex() {
-        LexicalTrie<Integer> trie = new Root<Integer>().put("/foo/:panda/hello/:human", 42);
-        QueryResult result = trie.find("/foo/42/hello/43");
+        Root<Integer> trie = new Root<Integer>().put("/foo/:panda/hello/:human", 42);
+        QueryResult result = trie.find("/foo/henry/hello/bob");
         assertTrue(result.found());
         Map<String, String> matches = result.getMatches();
-        assertEquals("42", matches.get("panda"));
-        assertEquals("43", matches.get("human"));
+        assertEquals("42", matches.get("henry"));
+        assertEquals("43", matches.get("bob"));
         assertEquals(42, result.getValue());
     }
-    @Test(expected= RuntimeException.class)
+
+    @Test(expected = RuntimeException.class)
     public void testMultiplePatterns() {
-        new Root<Integer>().put(":panda:poop", 42);
+        new Root<Integer>().put(":panda:hello", 42);
     }
 
-    @Test(expected= RuntimeException.class)
+    @Test(expected = RuntimeException.class)
     public void testIncompletePattern() {
         new Root<Integer>().put(":", 42);
+    }
+
+    @Test(expected = RuntimeException.class)
+    public void testAmbiguousPatterns() {
     }
 }

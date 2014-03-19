@@ -24,7 +24,8 @@ public class Main {
 
         webApp.route(HttpMethod.GET, "", () -> new LandingPage());
         webApp.route(HttpMethod.GET, "nodes", () -> new ListNodes(clientFactory.configPathClient("localhost", 8903)));
-        webApp.start(4242);
+        webApp.route(HttpMethod.GET, "/config/volumes", () -> new MockListVolumes());
+        webApp.start(7777);
     }
 
     public static void main(String[] args) throws Exception {
