@@ -27,12 +27,13 @@ public class LexicalTrieTest {
     }
     @Test
     public void testIndex() {
-        Root<Integer> trie = new Root<Integer>().put("/foo/:panda/hello/:human", 42);
-        QueryResult result = trie.find("/foo/henry/hello/bob");
+        Root<Integer> trie = new Root<Integer>().put("/a/:panda/b/:human", 42);
+        System.out.println(trie);
+        QueryResult result = trie.find("/a/henry/b/bob");
         assertTrue(result.found());
         Map<String, String> matches = result.getMatches();
-        assertEquals("42", matches.get("henry"));
-        assertEquals("43", matches.get("bob"));
+        assertEquals("henry", matches.get("panda"));
+        assertEquals("bob", matches.get("human"));
         assertEquals(42, result.getValue());
     }
 
@@ -48,5 +49,18 @@ public class LexicalTrieTest {
 
     @Test(expected = RuntimeException.class)
     public void testAmbiguousPatterns() {
+        Root<Integer> trie = new Root<Integer>()
+                .put("/a/:color/b/:metal", 42)
+                .put("/a/:color", 43);
+        QueryResult<Integer> goldResult = trie.find("/a/blue/b/gold");
+        assertEquals(42, (int)goldResult.getValue());
+        Map<String, String> matches = goldResult.getMatches();
+        assertEquals("blue", matches.get("color"));
+        assertEquals("gold", matches.get("metal"));
+
+        QueryResult<Integer> redResult = trie.find("/a/red");
+        assertEquals(43, (int)redResult.getValue());
+        assertEquals("red", redResult.getMatches().get("color"));
+
     }
 }

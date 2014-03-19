@@ -62,23 +62,38 @@ class Root<T> extends LexicalTrie<T> {
 
     @Override
     public String toString() {
-        return "(root: " + Joiner.on(", ").join(children.values()) + ")";
+        return "(root " + Joiner.on(", ").join(children.values()) + ")";
     }
 }
 
 class Capture<T> extends LexicalTrie<T> {
     private String binding;
-    private LexicalTrie<T> child;
+    private Map<Character, Char<T>> children;
     private T t;
+
+    Capture() {
+        this.children = new HashMap<>();
+    }
 
     @Override
     public QueryResult<T> find(String s, Map<String, String> captured) {
         StringBuffer value = new StringBuffer();
-        for (int i = 0; i < s.length() || s.charAt(i) != '/'; i++) {
+        int i = 0;
+        for (; i < s.length() && s.charAt(i) != '/'; i++) {
             value.append(s.charAt(i));
         }
+        captured.put(binding, value.toString());
+        s = s.substring(i);
 
-        return null;
+        if (s.length() > 0) {
+            if (children.containsKey(s.charAt(0))) {
+                return children.get(s.charAt(0)).find(s, captured);
+            }
+        } else if (t != null) {
+            return new QueryResult<>(captured, t);
+        }
+
+        return new QueryResult<>();
 
     }
 
@@ -87,19 +102,26 @@ class Capture<T> extends LexicalTrie<T> {
     public Capture<T> put(String s, T t) {
         StringBuffer bindingName = new StringBuffer();
         int i = 0;
-        for (; i < s.length() || s.charAt(i) != '/'; i++) {
+        for (; i < s.length() && s.charAt(i) != '/'; i++) {
             if (s.charAt(i) == ':') {
                 throw new RuntimeException("Malformed pattern");
             }
             bindingName.append(s.charAt(i));
         }
         binding = bindingName.toString();
+        s = s.substring(i);
         if (s.length() > 0) {
-            child = new Char<T>(s.charAt(i)).put(s.substring(i), t);
+            Char<T> child = children.getOrDefault(s.charAt(0), new Char<T>(s.charAt(0)));
+            children.put(s.charAt(0), child.put(s.substring(1), t));
         } else {
             this.t = t;
         }
         return this;
+    }
+
+    @Override
+    public String toString() {
+        return "(capture@" + binding + " " + Joiner.on(", ").join(children.values()) + ")";
     }
 }
 
@@ -116,20 +138,25 @@ class Char<T> extends LexicalTrie<T> {
 
     @Override
     public QueryResult<T> find(String s, Map<String, String> captured) {
-        if (s.charAt(0) == c) {
-            if (s.length() == 1) {
-                if (t == null) {
-                    return new QueryResult<>();
-                } else {
-                    return new QueryResult<T>(captured, t);
-                }
-            } else {
-                if (children.containsKey(s.charAt(1))) {
-                    return children.get(s.charAt(1)).find(s.substring(1), captured);
-                }
-            }
+        if (s.charAt(0) != c) {
+            return new QueryResult<>();
         }
-        return new QueryResult<>();
+
+        if (s.length() == 1) {
+            if (t != null) {
+                return new QueryResult<T>(captured, t);
+            } else {
+                return new QueryResult<>();
+            }
+        } else {
+            s = s.substring(1);
+            if (children.containsKey(s.charAt(0))) {
+                return children.get(s.charAt(0)).find(s, captured);
+            } else if (capture != null && s.length() > 0) {
+                return capture.find(s.substring(0), captured);
+            }
+            return new QueryResult<>();
+        }
     }
 
     @Override
@@ -151,6 +178,10 @@ class Char<T> extends LexicalTrie<T> {
 
     @Override
     public String toString() {
-        return "(" + c + ": " + Joiner.on(", ").join(children.values()) + ")";
+        return "(" + c + " " + Joiner.on(", ").join(children.values()) + displayCapture() + ")";
+    }
+
+    private String displayCapture() {
+        return capture == null ? "" : capture.toString();
     }
 }
