@@ -1,0 +1,27 @@
+<td>
+  <%= volume.get('tenant')%>
+</td>
+<td class="name">
+  <%= volume.get('name')%>
+</td>
+<td class="consume">
+  <%= volume.get('consumption') + "M" %>
+</td>
+<td class="usage">
+  <svg>
+  </svg>
+  <span>
+    <%= volume.get('usage') %>
+  </span>
+</td>
+<td class="status">
+</td>
+<td class="priority">
+  <em>
+    <%= volume.get('priority') %>
+  </em>
+</td>
+<td class="action">
+  <i class="icons-disclose">
+  </i>
+</td>
