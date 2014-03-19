@@ -193,6 +193,7 @@ struct VolumeFSM: public msm::front::state_machine_def<VolumeFSM>
         // | Start             | Event        | Next       | Action        | Guard      |
         // +-------------------+--------------+------------+---------------+------------+
         msf::Row< VST_Inactive , VolCrtOkEvt  , VST_Active , VACT_CrtDone  , GRD_VolCrt >,
+        msf::Row< VST_Inactive , VolDelChkEvt , VST_DelPend, VACT_DelStart , msf::none  >,
         // +-------------------+--------------+------------+---------------+------------+
         msf::Row< VST_Active   , VolOpEvt     , VST_Waiting, VACT_VolOp    , GRD_VolOp  >,
         msf::Row< VST_Active   , VolDelChkEvt , VST_DelPend, VACT_DelStart , GRD_VolDel >,
@@ -1154,27 +1155,41 @@ VolumeContainer::om_notify_vol_resp(om_vol_notify_t type,
                                     const ResourceUUID& vol_uuid)
 {
     VolumeInfo::pointer vol = VolumeInfo::vol_cast_ptr(rs_get_resource(vol_uuid));
-    fds_verify(vol != NULL);  // we currently never delete a volume
+    if (vol == NULL) {
+        // we probably deleted a volume, just print a warning
+        LOGWARN << "Received volume notify response for volume "
+                << vol_name << " but volume does not exist anymore; "
+                << "it was probably just deleted";
+        return;
+    }
+    Error resp_err(fdsp_msg->err_code);
 
     switch (type) {
         case om_notify_vol_add:
-            // TODO(anna) handle response with error (remove volume?)
-            vol->vol_event(VolCrtOkEvt());
+            if (resp_err.ok()) {
+                vol->vol_event(VolCrtOkEvt());
+            } else {
+                // TODO(anna) send response to volume create here with error
+
+                // start remove volume process (here we don't need to check
+                // with DMs if there are any objects, since volume was never
+                // attached to any AMs at this point)
+                vol->vol_event(VolDelChkEvt(vol.get(), Error(ERR_OK)));
+            }
             break;
         case om_notify_vol_attach:
         case om_notify_vol_mod:
         case om_notify_vol_detach:
         case om_notify_vol_rm:
-            vol->vol_event(VolOpRespEvt(vol_uuid, type, Error(fdsp_msg->err_code)));
+            vol->vol_event(VolOpRespEvt(vol_uuid, type, resp_err));
             break;
         case om_notify_vol_rm_chk:
-            vol->vol_event(VolDelChkEvt(vol.get(), Error(fdsp_msg->err_code)));
+            vol->vol_event(VolDelChkEvt(vol.get(), resp_err));
             break;
         default:
-            LOGWARN << "Not handling responses for RM volume yet";
+            fds_verify(false);  // if there is a new vol notify type, add handling
     };
 }
-
 
 bool VolumeContainer::addVolume(const VolumeDesc& volumeDesc) {
     VolPolicyMgr        *v_pol = OrchMgr::om_policy_mgr();
