@@ -924,8 +924,8 @@ OMgrClient::getMigClient(fds_uint64_t node_id) {
     return clustMap->getMigClient(node_id);
 }
 
-DltTokenGroupPtr OMgrClient::getDLTNodesForDoidKey(ObjectID *objId) {
- return dltMgr.getDLT()->getNodes(*objId);
+DltTokenGroupPtr OMgrClient::getDLTNodesForDoidKey(const ObjectID &objId) {
+ return dltMgr.getDLT()->getNodes(objId);
 
 }
 

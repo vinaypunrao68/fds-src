@@ -561,7 +561,7 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
     
     // Lookup the Primary SM node-id/ip-address to send the GetObject to
     boost::shared_ptr<DltTokenGroup> dltPtr;
-    dltPtr = storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(&obj_id);
+    dltPtr = storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(obj_id);
     fds_verify(dltPtr != NULL);
 
      num_nodes = dltPtr->getLength();

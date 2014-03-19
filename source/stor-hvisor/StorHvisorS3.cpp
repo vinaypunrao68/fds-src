@@ -81,7 +81,7 @@ StorHvCtrl::dispatchSmPutMsg(StorHvJournalEntry *journEntry) {
 
     // Get DLT node list from dlt
     DltTokenGroupPtr dltPtr;
-    dltPtr = dataPlacementTbl->getDLTNodesForDoidKey(&objId);
+    dltPtr = dataPlacementTbl->getDLTNodesForDoidKey(objId);
     fds_verify(dltPtr != NULL);
 
     fds_uint32_t numNodes = dltPtr->getLength();
@@ -158,7 +158,7 @@ StorHvCtrl::dispatchSmGetMsg(StorHvJournalEntry *journEntry) {
 
     // Look up primary SM from DLT entries
     boost::shared_ptr<DltTokenGroup> dltPtr;
-    dltPtr = dataPlacementTbl->getDLTNodesForDoidKey(&objId);
+    dltPtr = dataPlacementTbl->getDLTNodesForDoidKey(objId);
     fds_verify(dltPtr != NULL);
 
     fds_int32_t numNodes = dltPtr->getLength();
@@ -219,7 +219,7 @@ StorHvCtrl::dispatchSmDelMsg(StorHvJournalEntry *journEntry) {
     // Lookup the Primary SM node-id/ip-address to send the DeleteObject to
     // TODO(Andrew): Send to all nodes...not just primary
     boost::shared_ptr<DltTokenGroup> dltPtr;
-    dltPtr = dataPlacementTbl->getDLTNodesForDoidKey(&objId);
+    dltPtr = dataPlacementTbl->getDLTNodesForDoidKey(objId);
     fds_verify(dltPtr != NULL);
 
     fds_int32_t numNodes = dltPtr->getLength();
@@ -1030,16 +1030,10 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
           <<" StorHvisorTx:" << "IO-XID:" << transId << " volID: 0x" << std::hex
           << vol_id << std::dec << " - Activated txn for req :" << transId;
   
-  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr(new FDSP_MsgHdrType);
   FDS_ProtocolInterface::FDSP_DeleteObjTypePtr del_obj_req(new FDSP_DeleteObjType);
   
-  storHvisor->InitSmMsgHdr(fdsp_msg_hdr);
-  fdsp_msg_hdr->msg_code = FDSP_MSG_DELETE_OBJ_REQ;
-  fdsp_msg_hdr->msg_id =  1;
-  
-  
   journEntry->trans_state = FDS_TRANS_OPEN;
-  journEntry->sm_msg = fdsp_msg_hdr; 
+  journEntry->sm_msg = NULL; 
   journEntry->dm_msg = NULL;
   journEntry->sm_ack_cnt = 0;
   journEntry->dm_ack_cnt = 0;
@@ -1048,8 +1042,6 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   journEntry->data_obj_len = blobReq->getDataLen();
   journEntry->io = qosReq;
   journEntry->delMsg = del_obj_req;
-  
-  fdsp_msg_hdr->req_cookie = transId;
   
   err = shVol->vol_catalog_cache->Query(blobReq->getBlobName(),
                                         blobReq->getBlobOffset(),
@@ -1085,14 +1077,6 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   
   // We have a Cache HIT *$###
   
-  fdsp_msg_hdr->glob_volume_id = vol_id;;
-  fdsp_msg_hdr->req_cookie = transId;
-  fdsp_msg_hdr->msg_code = FDSP_MSG_DELETE_OBJ_REQ;
-  fdsp_msg_hdr->msg_id =  1;
-  fdsp_msg_hdr->src_ip_lo_addr = SRC_IP;
-  fdsp_msg_hdr->src_port = 0;
-//  fdsp_msg_hdr->src_node_name = storHvisor->my_node_name;
-  fdsp_msg_hdr->src_node_name = storHvisor->myIp;
   del_obj_req->data_obj_id.digest = std::string((const char *)oid.GetId(), (size_t)oid.GetLen());
   del_obj_req->data_obj_len = blobReq->getDataLen();
   
@@ -1110,9 +1094,10 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   fdsp_msg_hdr_dm->req_cookie = transId;
   fdsp_msg_hdr_dm->src_ip_lo_addr = SRC_IP;
 //  fdsp_msg_hdr_dm->src_node_name = storHvisor->my_node_name;
-  fdsp_msg_hdr->src_node_name = storHvisor->myIp;
+  fdsp_msg_hdr_dm->src_node_name = storHvisor->myIp;
   fdsp_msg_hdr_dm->src_port = 0;
   fdsp_msg_hdr_dm->dst_port = node_port;
+  journEntry->dm_msg = fdsp_msg_hdr_dm;
   storHvisor->dataPlacementTbl->getDMTNodesForVolume(vol_id, node_ids, &num_nodes);
   
   for (i = 0; i < num_nodes; i++) {
@@ -1144,8 +1129,8 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
     boost::shared_ptr<FDSP_MetaDataPathReqClient> client =
             sessionCtx->getClient();
 
-    fdsp_msg_hdr->session_uuid = sessionCtx->getSessionId();
-    journEntry->session_uuid = fdsp_msg_hdr->session_uuid;
+    fdsp_msg_hdr_dm->session_uuid = sessionCtx->getSessionId();
+    journEntry->session_uuid = fdsp_msg_hdr_dm->session_uuid;
     client->DeleteCatalogObject(fdsp_msg_hdr_dm, del_cat_obj_req);
     FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:"
             << transId << " volID:" << std::hex << vol_id << std::dec

@@ -187,6 +187,9 @@ class SmAgent : public NodeAgent
     virtual void
     sm_handshake(boost::shared_ptr<netSessionTbl> net, NodeAgentDpRespPtr sm_resp);
 
+    NodeAgentDpClientPtr get_sm_client();
+    std::string get_sm_sess_id();
+
   protected:
     netDataPathClientSession  *sm_sess;
     NodeAgentDpClientPtr       sm_reqt;

@@ -43,7 +43,7 @@ public:
                       OMgrClient *omc);
   ~StorHvDataPlacement();
   
-  DltTokenGroupPtr  getDLTNodesForDoidKey( ObjectID *objId) {
+  DltTokenGroupPtr  getDLTNodesForDoidKey(const ObjectID &objId) {
       return parent_omc->getDLTNodesForDoidKey(objId);
   }
 #if 0

@@ -150,7 +150,7 @@ int StorHvisorProcIoRd(void *_io)
   
   // Lookup the Primary SM node-id/ip-address to send the GetObject to
   boost::shared_ptr<DltTokenGroup> dltPtr;
-  dltPtr = storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(&oid);
+  dltPtr = storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(oid);
   fds_verify(dltPtr != NULL);
 
   num_nodes = dltPtr->getLength();
@@ -327,7 +327,7 @@ int StorHvisorProcIoWr(void *_io)
   // DLT lookup from the dataplacement object
 //  num_nodes = 8;
   boost::shared_ptr<DltTokenGroup> dltPtr;
-  dltPtr = storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(&objID);
+  dltPtr = storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(objID);
   fds_verify(dltPtr != NULL);
 
   fds_int32_t numNodes = dltPtr->getLength();

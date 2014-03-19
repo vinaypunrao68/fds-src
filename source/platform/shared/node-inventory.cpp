@@ -220,6 +220,14 @@ SmAgent::sm_handshake(boost::shared_ptr<netSessionTbl> net, NodeAgentDpRespPtr s
         << ", port " << node_inv->nd_data_port << ", sess id " << sm_sess_id;
 }
 
+NodeAgentDpClientPtr SmAgent::get_sm_client() {
+    return sm_reqt;
+}
+
+std::string SmAgent::get_sm_sess_id() {
+    return sm_sess_id;
+}
+
 SmContainer::SmContainer(FdspNodeType id) : AgentContainer(id) {}
 
 // agent_handshake
