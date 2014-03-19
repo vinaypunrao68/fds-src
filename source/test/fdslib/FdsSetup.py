@@ -228,8 +228,8 @@ class FdsRmtEnv(FdsEnv):
     #
     def ssh_setup_env(self, cmd):
         self.ssh_exec(cmd +
-            '; echo "%e-%p.core" | sudo tee /proc/sys/kernel/core_pattern; ' +
-            'sudo sysctl -w "kernel.core_pattern=%e-%p.core"')
+            '; echo "%e-%p.core" | sudo tee /proc/sys/kernel/core_pattern ' +
+            '; sudo sysctl -w "kernel.core_pattern=%e-%p.core"')
 
 ###
 # Package FDS tar ball and unpackage it to a remote host

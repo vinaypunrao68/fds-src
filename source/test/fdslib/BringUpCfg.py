@@ -120,7 +120,7 @@ class FdsNodeConfig(FdsConfig):
         bin_dir = self.nd_conf_dict['fds_root'] + '/bin'
         print("Cleanup running processes in: %s, %s" % (self.nd_host_name(), bin_dir))
         self.nd_rmt_agent.ssh_exec('pkill -9 java; pkill -9 Mgr; pkill -9 AMAgent; '
-            'cd %s; rm core *.core' % bin_dir)
+            'pkill -9 platformd; cd %s; rm core *.core' % bin_dir)
 
 ###
 # Handle AM config section
