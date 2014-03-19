@@ -5,6 +5,7 @@
 #include <cli-policy.h>
 #include <fds_assert.h>
 #include <string>
+#include <vector>
 #include <boost/program_options.hpp>
 #include <boost/program_options/parsers.hpp>
 #include <boost/tokenizer.hpp>
@@ -115,6 +116,8 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
             ("volume-detach", po::value<std::string>(),
              "Detach volume: volume-detach <vol name> -i <volume-id> -n <node-id>")
             ("volume-show", po::value<std::string>(), "Show volume")
+            ("list-volumes", po::value<std::string>(),
+             "List volumes: list-volumes <domain_name> (domain name ignored for now")
             ("policy-create", po::value<std::string>(),
              "Create Policy: policy-create <policy name> "
              "-p <policy-id> -g <iops-min> -m <iops-max> -r <rel-prio> ")
@@ -315,7 +318,20 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         msg_hdr.src_node_name = vm["node-id"].as<std::string>();
 
         cfgPrx->DetachVol(msg_hdr, volData);
+    } else if (vm.count("list-volumes")) {
+        FDS_PLOG_SEV(cli_log, fds_log::notification)
+                << "List volumes";
 
+        std::vector<FDS_ProtocolInterface::FDSP_VolumeDescType> vec;
+        cfgPrx->ListVolumes(vec, msg_hdr);
+
+        for (fds_uint32_t i = 0; i < vec.size(); ++i) {
+            cout << "Volume " << vec[i].vol_name << ":"
+                 << std::hex << vec[i].volUUID << std::dec << std::endl
+                 << "     iops_min " << vec[i].iops_min
+                 << ", iops_max " << vec[i].iops_max
+                 << ", priority " << vec[i].rel_prio << std::endl;
+        }
     } else if ( vm.count("policy-create") && vm.count("volume-policy") && \
                 vm.count("iops-max") && vm.count("iops-max") && vm.count("rel-prio")) {
         FDS_PLOG_SEV(cli_log, fds_log::notification)
