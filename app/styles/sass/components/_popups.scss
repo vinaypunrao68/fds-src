@@ -1,0 +1,13 @@
+.mfp-content {
+  position: relative;
+  background: #eff0f2;
+  padding: 20px;
+  width: auto;
+  max-width: $stage_width;
+  margin: 20px auto;
+  overflow: auto;
+}
+
+.mfp-close {
+  display: none!important;
+}

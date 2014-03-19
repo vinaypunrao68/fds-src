@@ -1,0 +1,50 @@
+<div class="block_4">
+  <h3>Priority</h3>
+  <div class="widget tapper priority" data-field="priority">
+    <% current = +volume.get('priority') %>
+    <ol>
+      <% values = [10,9,8,7,6,5,4,3,2,1] %>
+      <% for (var i=0; i < values.length; i++) { %>
+        <% value = values[i] %>
+        <li data-val="<%= value %>" class="<%= value === current ? 'current' : ''%>"><%= value %></li>
+      <% } %>
+    </ol>
+    <label class="low">Lowest</label>
+    <label class="high">Highest</label>
+  </div>
+</div>
+
+<div class="block_4">
+  <h3>SLA Guarantee</h3>
+  <div class="widget tapper sla" data-field="sla">
+    <% current = +volume.get('sla') %>
+    <ol>
+      <li data-val="0" class="<%= 0 === current ? 'current' : ''%>">None</li>
+      <% values = [1,2,3,4,5,6,7,8,9] %>
+      <% for (var i = 0; i < values.length; i++) { %>
+        <% value = values[i] * 10 %>
+        <li data-val="<%= value %>" class="<%= value === current ? 'current' : ''%>"><%= value %></li>
+      <% } %>
+      <li data-val="100" class="<%= 100 === current ? 'current' : '' %>">100%</li>
+    </ol>
+    <label>Percentage of available capacity</label>
+  </div>
+</div>
+
+<div class="block_4">
+  <h3>Limit</h3>
+  <div class="widget tapper limit" data-field="limit">
+    <% current = +volume.get('limit') %>
+    <ol>
+      <li data-val="10" class="<%= 10 === current ? 'current' : ''%>">10%</li>
+      <% values = [2,3,4,5,6,7,8,9] %>
+      <% for (var i=0; i < values.length; i++) { %>
+        <% value = values[i] * 10 %>
+        <li data-val="<%= value %>" class="<%= value === current ? 'current' : ''%>"><%= value %></li>
+      <% } %>
+      <li data-val="100" class="<%= 100 === current ? 'wide current' : 'wide' %>">Unlimited</li>
+    </ol>
+    <label> Percentage of IOPs volume is allowed ot consume</label>
+  </div>
+</div>
+
