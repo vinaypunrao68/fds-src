@@ -16,10 +16,10 @@ public abstract class LexicalTrie<T> {
     }
 
     public QueryResult<T> find(String s) {
-        return find(s, new HashMap<String, String>());
+        return find(s, new HashMap<>());
     }
 
-    protected  abstract QueryResult<T> find(String s, Map<String, String> captured);
+    protected abstract QueryResult<T> find(String s, Map<String, String> captured);
 
     public abstract LexicalTrie<T> put(String s, T t);
 
@@ -88,7 +88,6 @@ class Capture<T> extends LexicalTrie<T> {
         }
 
         return new QueryResult<>();
-
     }
 
 
