@@ -34,7 +34,8 @@ class FdsEnv:
 
     def cleanup(self):
         self.shut_down()
-        #subprocess.call([self.fdsctrl,'clean'])
+        subprocess.call([self.fdsctrl,'clean'])
+        subprocess.call([self.fdsctrl,'clogs'])
 
     def getRoot(self):
         return self.env_root
