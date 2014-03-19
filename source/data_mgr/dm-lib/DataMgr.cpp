@@ -749,9 +749,13 @@ DataMgr::applyBlobUpdate(const BlobObjectList &offsetList, BlobNode *bnode) {
                 }
             }
 
-            // Delete ref to old object at offset.
-            // TODO(Andrew): Intergrate with SM-agent data path
-            // interface.
+            // Expunge the old object id
+            // TODO(Andrew): We shouldn't actually expunge until the
+            // a specific version is garbage collected or if there is
+            // no versioning for the volume. For now we expunge since
+            // there's no GC and don't want to leak the object.
+            err = expungeObject(bnode->vol_id, oldBlobObj.data_obj_id);
+            fds_verify(err == ERR_OK);
         }
     }
     // Bump the version since we modified the blob node
@@ -1465,6 +1469,8 @@ DataMgr::deleteBlobProcess(const dmCatReq  *delCatReq, BlobNode **bnode) {
         // marker is just a place holder marking the
         // blob is deleted. It doesn't actually point
         // to any offsets or object ids.
+        // Blobs with delete markers may have older versions
+        // garbage collected after some time.
         BlobNode *deleteMarker = new BlobNode(delCatReq->volId,
                                               delCatReq->blob_name);
         fds_verify(deleteMarker != NULL);
@@ -1479,10 +1485,6 @@ DataMgr::deleteBlobProcess(const dmCatReq  *delCatReq, BlobNode **bnode) {
                             deleteMarker);
         fds_verify(err == ERR_OK);
 
-        // TODO(Andrew): THIS IS TEST CODE!!!
-        // err = expungeBlob((*bnode));
-        // fds_verify(err == ERR_OK);
-
         // We can delete the bnode we received from our
         // query since we're going to create new blob
         // node to represent to delete marker and return that
@@ -1492,13 +1494,19 @@ DataMgr::deleteBlobProcess(const dmCatReq  *delCatReq, BlobNode **bnode) {
         // We're explicity deleting this version.
         // We don't use a delete marker and instead
         // just delete this particular version
-        
-        // TODO(Andrew): We can dereference count
-        // the objects in the blob here prior to
-        // freeing the structure (should get persistently
-        // marked a deleted while waiting for all obj deletes).
+
+        // We dereference count the objects in the blob here
+        // prior to freeing the structure.
+        // TODO(Andrew): We should persistently mark the blob
+        // as being deleted so that we know to clean it up
+        // after a crash. We may also need to persist deref
+        // state so we don't double dereference an object.
+        err = expungeBlob((*bnode));
+        fds_verify(err == ERR_OK);
+
+        // Remove the blob node structure
         err = _process_delete(delCatReq->volId,
-                            delCatReq->blob_name);
+                              delCatReq->blob_name);
         fds_verify(err == ERR_OK);
     }
 
