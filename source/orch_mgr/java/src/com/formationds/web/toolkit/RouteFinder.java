@@ -18,17 +18,20 @@ public class RouteFinder {
     }
 
     public void route(HttpMethod method, String name, Supplier<RequestHandler> handler) {
-        name = method.toString() + name.replaceAll("^/", "");
+        name = method.toString() + name
+                .replaceAll("^/", "")
+                .replaceAll("$/", "");
         map.put(name, handler);
     }
 
     public Route resolve(Request request) {
         String path = request.getMethod().toString() + request.getRequestURI()
                 .replaceAll("^" + request.getServletPath() + "/", "")
-                .replaceAll("^/", "");
+                .replaceAll("^/", "")
+                .replaceAll("/$", "");
         QueryResult<Supplier<RequestHandler>> result = map.find(path);
-        if (result.found()) {
             MultiMap<String> parameters = request.getParameters() == null ? new MultiMap<>() : request.getParameters();
+        if (result.found()) {
             result.getMatches().forEach((k, v) -> parameters.add(k, v));
             request.setParameters(parameters);
             return new Route(request, result.getValue());

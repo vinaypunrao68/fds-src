@@ -26,11 +26,12 @@ public class Main {
 
         webApp.route(HttpMethod.GET, "", () -> new LandingPage());
         webApp.route(HttpMethod.GET, "/config/nodes", () -> new ListNodes(clientFactory.configPathClient(OM_HOST, OM_PORT)));
-        //webApp.route(HttpMethod.GET, "/config/volumes", () -> new MockListVolumes());
+
         webApp.route(HttpMethod.GET, "/config/volumes", () -> new ListTheVolumes(clientFactory.configPathClient(OM_HOST, OM_PORT)));
         webApp.route(HttpMethod.POST, "/config/volumes/:name", () -> new CreateVolume(clientFactory.configPathClient(OM_HOST, OM_PORT)));
+        webApp.route(HttpMethod.DELETE, "/config/volumes/:name", () -> new DeleteVolume(clientFactory.configPathClient(OM_HOST, OM_PORT)));
+
         webApp.route(HttpMethod.GET, "/config/globaldomain", () -> new ShowGlobalDomain());
-        //webApp.route(HttpMethod.GET, "/config/volume/:uuid", () -> new Foo());
         webApp.start(7777);
     }
 
