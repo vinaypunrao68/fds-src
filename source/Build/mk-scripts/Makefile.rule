@@ -180,9 +180,15 @@ clean:
 	@$(scpt_make_clean)
 ifdef user_clean
 	@for f in $(user_clean); do                                               \
-		[ -f $$f ] && rm $$f;                                                 \
-        [ -d $$f ] && (cd $$f; make clean);                                   \
-	done; exit 0
+        [ -f $$f ] && rm $$f;                                                 \
+        if [ -d $$f ]; then                                                   \
+            if [ -e $$f/Makefile ]; then                                      \
+                (cd $$f; make clean);                                         \
+            else                                                              \
+                rm -rf $$f;                                                   \
+            fi                                                                \
+        fi                                                                    \
+    done; exit 0
 endif
 ifdef user_build_dir
 	@for f in $(user_build_dir); do                                           \
