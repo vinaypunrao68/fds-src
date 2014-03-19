@@ -25,6 +25,7 @@ public class Main {
         webApp.route(HttpMethod.GET, "", () -> new LandingPage());
         webApp.route(HttpMethod.GET, "nodes", () -> new ListNodes(clientFactory.configPathClient("localhost", 8903)));
         webApp.route(HttpMethod.GET, "/config/volumes", () -> new MockListVolumes());
+        webApp.route(HttpMethod.GET, "/config/globaldomain", () -> new ShowGlobalDomain());
         //webApp.route(HttpMethod.GET, "/config/volume/:uuid", () -> new Foo());
         webApp.start(7777);
     }
