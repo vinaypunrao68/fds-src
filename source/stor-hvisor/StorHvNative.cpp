@@ -34,7 +34,8 @@ void FDS_NativeAPI::initVolInfo(FDSP_VolumeInfoTypePtr vol_info, const std::stri
   vol_info->localDomainId = 0;
   vol_info->globDomainId = 0;
 
-  vol_info->capacity = (1024*1024*100);
+  // Volume capacity is in MB
+  vol_info->capacity = (1024*10);  // for now presetting to 10GB
   vol_info->maxQuota = 0;
   vol_info->volType = FDSP_VOL_S3_TYPE;
 
@@ -56,7 +57,8 @@ void FDS_NativeAPI::initVolDesc(FDSP_VolumeDescTypePtr vol_desc, const std::stri
   vol_desc->localDomainId = 0;
   vol_desc->globDomainId = 0;
 
-  vol_desc->capacity = (1024*1024*100);
+  // Volume capacity is in MB
+  vol_desc->capacity = (1024*10);  // for now presetting to 10GB
   vol_desc->maxQuota = 0;
   vol_desc->volType = FDSP_VOL_S3_TYPE;
 

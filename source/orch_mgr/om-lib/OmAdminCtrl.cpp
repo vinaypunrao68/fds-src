@@ -104,19 +104,23 @@ void FdsAdminCtrl::updateAdminControlParams(VolumeDesc  *pVolDesc)
 {
     /* release  the resources since volume is deleted */
 
+    // remember that volume descriptor has capacity in MB
+    // but disk and ssd capacity is in GB
+    double vol_capacity_GB = pVolDesc->capacity / 1024;
+
     LOGERROR << "desc iops_min: " << pVolDesc->iops_min
              << "desc iops_max: " << pVolDesc->iops_max
-             << "desc capacity: " << pVolDesc->capacity
+             << "desc capacity (MB): " << pVolDesc->capacity
              << "total iops min : " << total_vol_iops_min
              << "total iops max: " << total_vol_iops_max
-             << "total capacity : " << total_vol_disk_cap;
+             << "total capacity (GB): " << total_vol_disk_cap;
     fds_verify(pVolDesc->iops_min <= total_vol_iops_min);
     fds_verify(pVolDesc->iops_max <= total_vol_iops_max);
-    fds_verify(pVolDesc->capacity <= total_vol_disk_cap);
+    fds_verify(vol_capacity_GB <= total_vol_disk_cap);
 
     total_vol_iops_min -= pVolDesc->iops_min;
     total_vol_iops_max -= pVolDesc->iops_max;
-    total_vol_disk_cap -= pVolDesc->capacity;
+    total_vol_disk_cap -= vol_capacity_GB;
 }
 
 Error FdsAdminCtrl::volAdminControl(VolumeDesc  *pVolDesc)
@@ -124,6 +128,9 @@ Error FdsAdminCtrl::volAdminControl(VolumeDesc  *pVolDesc)
     Error err(ERR_OK);
     double iopc_subcluster = 0;
     double iopc_subcluster_result = 0;
+    // remember that volume descriptor has capacity in MB
+    // but disk and ssd capacity is in GB
+    double vol_capacity_GB = pVolDesc->capacity / 1024;
 
     if (pVolDesc->iops_min > pVolDesc->iops_max) {
         LOGERROR << " Cannot admit volume " << pVolDesc->name
@@ -132,9 +139,10 @@ Error FdsAdminCtrl::volAdminControl(VolumeDesc  *pVolDesc)
     }
     iopc_subcluster = (avail_disk_iops_max/REPLICATION_FACTOR);
 
-    if ((total_vol_disk_cap + pVolDesc->capacity) > avail_disk_capacity) {
+    if ((total_vol_disk_cap + vol_capacity_GB) > avail_disk_capacity) {
         LOGERROR << " Cluster is running out of disk capacity \n"
-                 << "total volume disk  capacity:" << total_vol_disk_cap;
+                 << " Volume's capacity (GB) " << vol_capacity_GB
+                 << "total volume disk  capacity (GB):" << total_vol_disk_cap;
         return Error(ERR_VOL_ADMISSION_FAILED);
     }
 
@@ -154,7 +162,7 @@ Error FdsAdminCtrl::volAdminControl(VolumeDesc  *pVolDesc)
          iopc_subcluster)) {
         total_vol_iops_min += pVolDesc->iops_min;
         total_vol_iops_max += pVolDesc->iops_max;
-        total_vol_disk_cap += pVolDesc->capacity;
+        total_vol_disk_cap += vol_capacity_GB;
 
         LOGNOTIFY << "updated disk params disk-cap:"
                   << avail_disk_capacity << ":: min:"

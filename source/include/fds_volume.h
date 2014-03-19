@@ -54,7 +54,7 @@ namespace fds {
         fds_volid_t            volUUID;
 
         FDSP_VolType           volType;
-        double                 capacity;
+        double                 capacity;  // Volume capacity is in MB
         double                 maxQuota;  // Quota % of capacity tho should alert
         int                    replicaCnt;  // Number of replicas reqd for this volume
         int                    writeQuorum;  // Quorum number of writes for success
