@@ -328,7 +328,8 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         for (fds_uint32_t i = 0; i < vec.size(); ++i) {
             cout << "Volume " << vec[i].vol_name << ":"
                  << std::hex << vec[i].volUUID << std::dec << std::endl
-                 << "     iops_min " << vec[i].iops_min
+                 << "     capacity " << vec[i].capacity << " MB"
+                 << ", iops_min " << vec[i].iops_min
                  << ", iops_max " << vec[i].iops_max
                  << ", priority " << vec[i].rel_prio << std::endl;
         }
