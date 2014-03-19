@@ -81,6 +81,7 @@
 
     <!--mvn -f distrib.xml -DskipTests clean assembly:directory-->
     <build>
+        <directory>${build.dir}</directory>
         <sourceDirectory>./src/</sourceDirectory>
         <testSourceDirectory>./test/src/</testSourceDirectory>
         <plugins>

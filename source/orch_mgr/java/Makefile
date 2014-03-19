@@ -1,7 +1,7 @@
 topdir            := ../..
 user_target       := lib
 user_rtime_env    := user
-user_build_dir    := admin-webapp
+user_build_dir    :=
 user_predep       := gen-java/FDS_ProtocolInterface/FDSP_MsgHdrType.java
 user_postdep      := compile
 user_install      := orchMgr
@@ -11,10 +11,12 @@ user_clean        := target gen-java $(comm_dir_lib)/java $(comm_dir_lib)/admin-
 include $(topdir)/Makefile.incl
 
 compile:
-	mvn -DskipTests clean assembly:directory -P$(comm_dir_lib)/java
 	mkdir -p $(comm_dir_lib)/java/
-	cp -rv target/classes $(comm_dir_lib)/java/
-	cp -rv target/om-1.0-bin/om-1.0/* $(comm_dir_lib)/java/
+	mvn -DskipTests clean assembly:directory -Dbuild.dir=$(comm_dir_lib)/java
+	cp -rv admin-webapp $(comm_dir_lib)
+
+#cp -rv target/classes $(comm_dir_lib)/java/
+#	cp -rv target/om-1.0-bin/om-1.0/* $(comm_dir_lib)/java/
 
 local_thrift_flags := -r --gen java
 
