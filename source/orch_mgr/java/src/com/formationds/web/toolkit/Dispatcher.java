@@ -48,7 +48,7 @@ public class Dispatcher extends AbstractHandler {
         }
 
         Arrays.stream(resource.cookies()).forEach(c -> response.addCookie(c));
-
+        response.addHeader("Access-Control-Allow-Origin", "*");
         response.setContentType(resource.getContentType());
         response.setStatus(resource.getHttpStatus());
         Multimap<String, String> extraHeaders = resource.extraHeaders();
