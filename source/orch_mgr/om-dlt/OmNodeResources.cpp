@@ -925,10 +925,16 @@ OM_NodeContainer::om_activate_node_services(const NodeUuid& node_uuid,
                                             fds_bool_t activate_dm,
                                             fds_bool_t activate_am) {
     OM_PmAgent::pointer agent = om_pm_agent(node_uuid);
-    Error err = agent->send_activate_services(activate_sm,
-                                              activate_dm,
-                                              activate_am);
-    return err;
+    if (agent == NULL) {
+        LOGERROR << "activate node services: platform service is not "
+                 << "running (or node uuid is not correct) on node "
+                 << std::hex << node_uuid.uuid_get_val() << std::dec;
+        return Error(ERR_NOT_FOUND);
+    }
+
+    return agent->send_activate_services(activate_sm,
+                                         activate_dm,
+                                         activate_am);
 }
 
 // om_send_vol_info
