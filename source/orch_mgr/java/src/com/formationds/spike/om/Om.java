@@ -6,10 +6,10 @@ package com.formationds.spike.om;
 import com.formationds.fdsp.ClientFactory;
 import com.formationds.spike.ServerFactory;
 import com.formationds.spike.ServiceDirectory;
+import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.WebApp;
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
-import org.eclipse.jetty.http.HttpMethod;
 
 public class Om {
     private static Logger LOG = Logger.getLogger(Om.class);

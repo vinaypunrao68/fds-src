@@ -205,6 +205,7 @@ namespace fds {
     int recvMigrationEvent(bool dlt_type);
     int updateDlt(bool dlt_type, std::string& dlt_data);
     int recvDLTUpdate(FDSP_DLT_Data_TypePtr& dlt_info, const std::string& session_uuid);
+    int recvDLTClose(FDSP_DltCloseTypePtr& close_info, const std::string& session_uuid);
     int recvDLTStartMigration(FDSP_DLT_Data_TypePtr& dlt_info);
     int recvDMTUpdate(int dmt_version, const Node_Table_Type& dmt_table);
 
@@ -304,6 +305,14 @@ namespace fds {
 
     void NotifyDLTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
 			 FDSP_DLT_Data_TypePtr& dlt_info);
+
+    void NotifyDLTClose(const FDSP_MsgHdrType& fdsp_msg,
+                        const FDSP_DltCloseType& dlt_close) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
+    void NotifyDLTClose(FDSP_MsgHdrTypePtr& fdsp_msg,
+                        FDSP_DltCloseTypePtr& dlt_close);
 
     void NotifyDMTUpdate(const FDSP_MsgHdrType& msg_hdr,
 			 const FDSP_DMT_Type& dmt_info) {

@@ -96,7 +96,10 @@ Error VolumeMeta::listBlobs(std::list<BlobNode>& bNodeList) {
 
     FDS_PLOG_SEV(dm_log, fds::fds_log::normal) << "List blobs iterating over key "
                                                << key.ToString();
-    bNodeList.push_back(BlobNode(value));
+    BlobNode bnode(value);
+    if (bnode.version != blob_version_deleted) {
+        bNodeList.push_back(bnode);
+    }
   }
   vol_mtx->unlock();
 

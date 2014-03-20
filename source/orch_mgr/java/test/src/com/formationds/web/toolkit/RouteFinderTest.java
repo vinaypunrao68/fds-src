@@ -1,7 +1,7 @@
 package com.formationds.web.toolkit;
 
-import org.eclipse.jetty.http.HttpMethod;
 import org.eclipse.jetty.server.Request;
+import org.eclipse.jetty.util.MultiMap;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -17,6 +17,9 @@ public class RouteFinderTest {
         routeFinder.route(HttpMethod.POST, "/hello/bar", () -> new Bar());
 
         Route route = resolve(HttpMethod.GET, routeFinder, "/hello/foo");
+        assertEquals(200, route.getHandler().get().handle(route.getRequest()).getHttpStatus());
+
+        route = resolve(HttpMethod.GET, routeFinder, "/hello/foo/");
         assertEquals(200, route.getHandler().get().handle(route.getRequest()).getHttpStatus());
 
         route = resolve(HttpMethod.POST, routeFinder, "/hello/bar");
@@ -41,12 +44,41 @@ public class RouteFinderTest {
     }
 
     private Route resolve(HttpMethod httpMethod, RouteFinder routeFinder, String q) {
-        Request request = new Request(null, null);
-        request.setMethod(httpMethod, httpMethod.asString());
-        request.setRequestURI(q);
+        Request request = new MockRequest(httpMethod.toString(), q, new MultiMap<>());
         return routeFinder.resolve(request);
     }
 
+    class MockRequest extends Request {
+        private String httpMethod;
+        private String requestUri;
+        private MultiMap<String> parameters;
+
+        MockRequest(String httpMethod, String requestUri, MultiMap<String> parameters) {
+            this.httpMethod = httpMethod;
+            this.requestUri = requestUri;
+            this.parameters = parameters;
+        }
+
+        @Override
+        public String getMethod() {
+            return httpMethod;
+        }
+
+        @Override
+        public String getRequestURI() {
+            return requestUri;
+        }
+
+        @Override
+        public void setParameters(MultiMap<String> parameters) {
+            this.parameters = parameters;
+        }
+
+        @Override
+        public String getParameter(String name) {
+            return (String) parameters.getValue(name, 0);
+        }
+    }
     class Foo extends TextResource implements RequestHandler {
         public Foo() {
             super("foo");

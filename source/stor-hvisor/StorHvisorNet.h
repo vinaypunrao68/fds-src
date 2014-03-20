@@ -44,7 +44,7 @@
 
 
 
-#define FDS_REPLICATION_FACTOR          2
+#define FDS_REPLICATION_FACTOR          1
 
 #define  FDS_NODE_OFFLINE               0
 #define  FDS_NODE_ONLINE                1
@@ -203,6 +203,8 @@ public:
                            const FDSP_DeleteCatalogTypePtr& delCatRsp);
   fds::Error getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
                         const FDSP_GetObjTypePtr& getObjRsp);
+  fds::Error deleteObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
+                        const FDSP_DeleteObjTypePtr& cat_obj_req);
   fds::Error getBucketResp(const FDSP_MsgHdrTypePtr& rxMsg,
 			   const FDSP_GetVolumeBlobListRespTypePtr& blobListResp);
 

@@ -150,14 +150,25 @@ Error DataMgr::_process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
   vol_map_mtx->lock();
   if (volExistsLocked(vol_uuid) == false) {
     FDS_PLOG(dataMgr->GetLog()) << "Received Delete request for:"
-                                << std::hex << vol_uuid << std::dec;
+                                << std::hex << vol_uuid << std::dec
+                                << " that doesn't exist.";
     err = ERR_INVALID_ARG;
     vol_map_mtx->unlock();
     return err;
   }
+  vol_map_mtx->unlock();
 
+  std::list<BlobNode> bNodeList;
+  err = _process_list(vol_uuid, bNodeList);
+  fds_verify(err == ERR_OK);
+  if (bNodeList.size() != 0) {
+      LOGERROR << "Volume is NOT Empty:"
+               << std::hex << vol_uuid << std::dec;
+      err = ERR_VOL_NOT_EMPTY;
+      return err;
+  }
+  /*
   VolumeMeta *vm = vol_meta_map[vol_uuid];
-
   if (vm->getVcat()->DbEmpty() == true) {
     FDS_PLOG(dataMgr->GetLog()) << "Volume is NOT Empty:"
                                 << std::hex << vol_uuid << std::dec;
@@ -165,16 +176,19 @@ Error DataMgr::_process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
     vol_map_mtx->unlock();
     return err;
   }
+  */
 
   // if notify delete asked to only check if deleting volume
   // was ok; so we return with success here; DM will get 
   // another notify volume delete with check_only ==false to
   // actually cleanup all other datastructures for this volume
   if (!check_only) {
-      vol_meta_map.erase(vol_uuid);
+      // TODO(Andrew): Here we want to delete each blob in the
+      // volume and then mark the volume as deleted.
+      // vol_meta_map.erase(vol_uuid);
       dataMgr->qosCtrl->deregisterVolume(vol_uuid);
-      delete vm->dmVolQueue;
-      delete vm;
+      // delete vm->dmVolQueue;
+      // delete vm;
       FDS_PLOG(dataMgr->GetLog()) << "Removed vol meta for vol uuid "
                                   << vol_uuid;
   } else {

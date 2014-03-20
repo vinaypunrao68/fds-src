@@ -32,7 +32,8 @@ namespace fds {
     "Ran out of transaction ids",
     "Transaction request is queued",
     "Node is not in active state",
-    "Volume is not  Empty",
+    "Volume is not empty",
+    "Blob does not exist",
     "Dlt mismatch",
     "Invalid blob offset",
     "Duplicate migration request",
@@ -63,14 +64,14 @@ namespace fds {
     ERR_TRANS_JOURNAL_OUT_OF_IDS = 16,
     ERR_TRANS_JOURNAL_REQUEST_QUEUED = 17,
     ERR_NODE_NOT_ACTIVE      = 18,
-    ERR_VOL_NOT_EMPTY      = 19,
+    ERR_VOL_NOT_EMPTY        = 19,
+    ERR_BLOB_NOT_FOUND       = 20,
 
     /* I/O error range */
     ERR_IO_DLT_MISMATCH      = 100,
 
     /* Metadata error range */
     ERR_BLOB_OFFSET_INVALID  = 500,
-    ERR_BLOB_NOT_FOUND       = 501,
 
     /* Migration error range [1000-1500) */
     ERR_MIGRATION_DUPLICATE_REQUEST = 1000,

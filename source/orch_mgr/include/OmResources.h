@@ -105,6 +105,7 @@ class OM_SmAgent : public NodeAgent
                                  fds_bool_t check_only = false);
 
     virtual void om_send_dlt(const DLT *curDlt);
+    virtual void om_send_dlt_close(fds_uint64_t cur_dlt_version);
     virtual void init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const;
 
   protected:
@@ -416,7 +417,8 @@ class OM_NodeContainer : public DomainContainer
     virtual void om_bcast_vol_tier_policy(const FDSP_TierPolicyPtr &tier);
     virtual void om_bcast_vol_tier_audit(const FDSP_TierPolicyAuditPtr &tier);
     virtual void om_bcast_throttle_lvl(float throttle_level);
-    virtual void om_bcast_dlt(const DLT* curDlt);
+    virtual fds_uint32_t om_bcast_dlt(const DLT* curDlt);
+    virtual fds_uint32_t om_bcast_dlt_close(fds_uint64_t cur_dlt_version);
     /**
      * conditional broadcast to platform (nodes) to
      * activate SM and DM services on those nodes, but only
@@ -531,8 +533,16 @@ class OM_NodeDomainMod : public Module
      * Notification that OM received DLT update response from
      * node with uuid 'uuid' for dlt version 'dlt_version'
      */
-    virtual Error om_recv_sm_dlt_commit_resp(const NodeUuid& uuid,
-                                             fds_uint64_t dlt_version);
+    virtual Error om_recv_dlt_commit_resp(FdspNodeType node_type,
+                                          const NodeUuid& uuid,
+                                          fds_uint64_t dlt_version);
+
+    /**
+     * Notification that OM received DLT close response from
+     * node with uuid 'uuid' for dlt version 'dlt_version'
+     */
+    virtual Error om_recv_dlt_close_resp(const NodeUuid& uuid,
+                                         fds_uint64_t dlt_version);
 
     /**
      * Updates cluster map membership and does DLT
@@ -625,6 +635,13 @@ class OM_ControlRespHandler : public fpi:: FDSP_ControlPathRespIf {
         const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
         const FDS_ProtocolInterface::FDSP_DLT_Resp_Type& dlt_resp);
     void NotifyDLTUpdateResp(
+        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+        FDS_ProtocolInterface::FDSP_DLT_Resp_TypePtr& dlt_resp);
+
+    void NotifyDLTCloseResp(
+        const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+        const FDS_ProtocolInterface::FDSP_DLT_Resp_Type& dlt_resp);
+    void NotifyDLTCloseResp(
         FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
         FDS_ProtocolInterface::FDSP_DLT_Resp_TypePtr& dlt_resp);
 

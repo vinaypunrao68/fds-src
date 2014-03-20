@@ -29,6 +29,7 @@ public class JsonResource implements Resource {
     public void render(OutputStream outputStream) throws IOException {
         OutputStreamWriter writer = new OutputStreamWriter(outputStream);
         writer.write(o.toString());
+        writer.write('\n');
         writer.flush();
     }
 }

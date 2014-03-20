@@ -260,6 +260,26 @@ OM_SmAgent::om_send_dlt(const DLT *curDlt) {
 }
 
 void
+OM_SmAgent::om_send_dlt_close(fds_uint64_t cur_dlt_version) {
+    fpi::FDSP_MsgHdrTypePtr m_hdr(new fpi::FDSP_MsgHdrType);
+    fpi::FDSP_DltCloseTypePtr d_msg(new fpi::FDSP_DltCloseType());
+    this->init_msg_hdr(m_hdr);
+
+    m_hdr->msg_code = fpi::FDSP_MSG_DLT_CLOSE;
+    m_hdr->msg_id = 0;
+    m_hdr->tennant_id = 1;
+    m_hdr->local_domain_id = 1;
+
+    d_msg->DLT_version = cur_dlt_version;
+
+    ndCpClient->NotifyDLTClose(m_hdr, d_msg);
+
+    LOGNORMAL << "OM: send dlt close (version " << cur_dlt_version
+              << ") to " << get_node_name() << " uuid 0x"
+              << std::hex << (get_uuid()).uuid_get_val() << std::dec;
+}
+
+void
 OM_SmAgent::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
 {
     NodeInventory::init_msg_hdr(msgHdr);
@@ -1065,13 +1085,39 @@ om_send_dlt(const DLT* curDlt, NodeAgent::pointer agent)
 // om_bcast_dlt
 // ------------
 //
-void
+fds_uint32_t
 OM_NodeContainer::om_bcast_dlt(const DLT* curDlt)
 {
     dc_sm_nodes->agent_foreach<const DLT*>(curDlt, om_send_dlt);
     dc_dm_nodes->agent_foreach<const DLT*>(curDlt, om_send_dlt);
     dc_am_nodes->agent_foreach<const DLT*>(curDlt, om_send_dlt);
+
+    return (dc_sm_nodes->rs_available_elm() +
+            dc_dm_nodes->rs_available_elm() +
+            dc_am_nodes->rs_available_elm());
 }
+
+// om_send_dlt_close
+// -----------------------
+//
+static void
+om_send_dlt_close(fds_uint64_t cur_dlt_version, NodeAgent::pointer agent)
+{
+    OM_SmAgent::agt_cast_ptr(agent)->om_send_dlt_close(cur_dlt_version);
+}
+
+// om_bcast_dlt_close
+// ------------------
+// @return number of nodes we sent the message to (and
+// we are waiting for that many responses)
+//
+fds_uint32_t
+OM_NodeContainer::om_bcast_dlt_close(fds_uint64_t cur_dlt_version)
+{
+    dc_sm_nodes->agent_foreach<fds_uint64_t>(cur_dlt_version, om_send_dlt_close);
+    return dc_sm_nodes->rs_available_elm();
+}
+
 
 // om_round_robin_dmt
 // ------------------

@@ -60,6 +60,7 @@ enum FDSP_MsgCodeType {
    FDSP_MSG_NOTIFY_NODE_RMV,
    FDSP_MSG_NOTIFY_NODE_ACTIVE,
    FDSP_MSG_DLT_UPDATE,
+   FDSP_MSG_DLT_CLOSE,
    FDSP_MSG_DMT_UPDATE,
    FDSP_MSG_NODE_UPDATE,
    FDSP_MSG_NOTIFY_MIGRATION,
@@ -321,6 +322,10 @@ struct FDSP_DLT_Data_Type {
 struct FDSP_MigrationStatusType {
   1: i64 DLT_version,
   2: i32 context
+}
+
+struct FDSP_DltCloseType {
+  1: i64 DLT_version
 }
 
 struct FDSP_DLT_Resp_Type {
@@ -990,6 +995,7 @@ service FDSP_ControlPathReq {
   oneway void NotifyNodeActive(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ActivateNodeType act_node_req),
   oneway void NotifyNodeRmv(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_Node_Info_Type node_info),
   oneway void NotifyDLTUpdate(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DLT_Data_Type dlt_info),
+  oneway void NotifyDLTClose(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DltCloseType dlt_close),
   oneway void NotifyDMTUpdate(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DMT_Type dmt_info),
   oneway void SetThrottleLevel(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ThrottleMsgType throttle_msg),
   oneway void TierPolicy(1:FDSP_TierPolicy tier),
@@ -1008,6 +1014,7 @@ service FDSP_ControlPathResp {
   oneway void NotifyNodeRmvResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_Node_Info_Type node_info_resp),
   oneway void NotifyNodeActiveResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_Node_Info_Type node_info_resp),
   oneway void NotifyDLTUpdateResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DLT_Resp_Type dlt_resp),
+  oneway void NotifyDLTCloseResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DLT_Resp_Type dlt_resp),
   oneway void NotifyDMTUpdateResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DMT_Type dmt_info_resp)
 }
 

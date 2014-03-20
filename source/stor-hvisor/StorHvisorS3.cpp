@@ -680,7 +680,7 @@ fds::Error StorHvCtrl::deleteCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
    * start accumulating the ack from  DM and  check for the min ack
    */
 
-  if (rxMsg->msg_code == FDSP_MSG_DELETE_OBJ_RSP) {
+  if (rxMsg->msg_code == FDSP_MSG_DELETE_BLOB_RSP) {
      txn->fds_set_dmack_status(rxMsg->src_ip_lo_addr,
                               rxMsg->src_port);
      FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << transId
@@ -1032,7 +1032,7 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   
   FDS_ProtocolInterface::FDSP_DeleteObjTypePtr del_obj_req(new FDSP_DeleteObjType);
   
-  journEntry->trans_state = FDS_TRANS_OPEN;
+//  journEntry->trans_state = FDS_TRANS_OPEN;
   journEntry->sm_msg = NULL; 
   journEntry->dm_msg = NULL;
   journEntry->sm_ack_cnt = 0;
@@ -1043,6 +1043,7 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   journEntry->io = qosReq;
   journEntry->delMsg = del_obj_req;
   
+#if 0
   err = shVol->vol_catalog_cache->Query(blobReq->getBlobName(),
                                         blobReq->getBlobOffset(),
                                         transId,
@@ -1067,6 +1068,7 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
     blobReq->cbWithResult(err.GetErrno());
     return err.GetErrno();
   }
+#endif
   
   FDS_PLOG(storHvisor->GetLog())
           << " StorHvisorTx:" << "IO-XID:" << transId << " volID: 0x" << std::hex
@@ -1075,14 +1077,20 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
 
    // SAN- check the  version of the object. If the object version NULL ( object deleted) return
   
-  // We have a Cache HIT *$###
-  
   del_obj_req->data_obj_id.digest = std::string((const char *)oid.GetId(), (size_t)oid.GetLen());
   del_obj_req->data_obj_len = blobReq->getDataLen();
   
   journEntry->op = FDS_DELETE_BLOB;
   journEntry->data_obj_id.digest = std::string((const char *)oid.GetId(), (size_t)oid.GetLen());
   journEntry->trans_state = FDS_TRANS_DEL_OBJ;
+
+  // Invalidate the local cache entry for the blob.
+  // We can do this here, even before sending the messages to DM
+  // since even if the delete fails, it'll just produce a later
+  // cache miss that will go to DM anyways.
+  err = shVol->vol_catalog_cache->clearEntry(blobReq->getBlobName());
+  fds_verify(err == ERR_OK);
+
   
   // RPC Call DeleteCatalogObject to DataMgr
   FDS_ProtocolInterface::FDSP_DeleteCatalogTypePtr del_cat_obj_req(new FDSP_DeleteCatalogType);
@@ -1138,8 +1146,10 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
             <<  node_ip << " port " << node_port;
 
   }
+#if 0 
   // Schedule a timer here to track the responses and the original request
   shVol->journal_tbl->schedule(journEntry->ioTimerTask, std::chrono::seconds(FDS_IO_LONG_TIME));
+#endif
 
   shVol->readUnlock();
 

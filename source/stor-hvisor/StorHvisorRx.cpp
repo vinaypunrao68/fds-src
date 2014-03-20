@@ -372,7 +372,9 @@ int StorHvCtrl::fds_move_del_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) 
   StorHvJournalEntry *txn = vol->journal_tbl->get_journal_entry(transId);
   fds_verify(txn != NULL);
   switch(txn->trans_state)  {
-    case FDS_TRANS_OPEN:
+    case FDS_TRANS_DEL_OBJ:
+ 
+      FDS_PLOG_SEV(sh_log, fds::fds_log::normal) << "DM Ack: " << txn->dm_ack_cnt;
   
       if (txn->dm_ack_cnt < FDS_MIN_ACK) {
         break;
@@ -402,6 +404,7 @@ int StorHvCtrl::fds_move_del_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) 
         */
        qos_ctrl->markIODone(txn->io);
        if (rxMsg->result == FDSP_ERR_OK) {
+        FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "Invoking the callback";
        blobReq->cbWithResult(0);
        } else {
        /*

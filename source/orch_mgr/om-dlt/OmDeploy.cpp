@@ -48,11 +48,29 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
     {
         typedef mpl::vector<DltCompRebalEvt> deferred_events;
 
+        DST_Commit() : acks_to_wait(0) {}
+
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
         template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
         template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
+
+        fds_uint32_t acks_to_wait;
+    };
+    struct DST_Close : public msm::front::state<>
+    {
+        typedef mpl::vector<DltCompRebalEvt> deferred_events;
+
+        DST_Close() : acks_to_wait(0) {}
+
+        template <class Evt, class Fsm, class State>
+        void operator()(Evt const &, Fsm &, State &) {}
+
+        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
+        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
+
+        fds_uint32_t acks_to_wait;
     };
 
     /**
@@ -73,6 +91,11 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
         template <class Evt, class Fsm, class SrcST, class TgtST>
         void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
     };
+    struct DACT_Close
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
     /**
      * Guard conditions.
      */
@@ -82,6 +105,11 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
         bool operator()(Evt const &, Fsm &, SrcST &, TgtST &);
     };
     struct GRD_DltCommit
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        bool operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
+    struct GRD_DltClose
     {
         template <class Evt, class Fsm, class SrcST, class TgtST>
         bool operator()(Evt const &, Fsm &, SrcST &, TgtST &);
@@ -99,7 +127,9 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
     msf::Row< DST_Rebal  , DltRebalOkEvt  , DST_Commit , DACT_Commit    , GRD_DltRebal  >,
     msf::Row< DST_Rebal  , DltNoRebalEvt  , DST_Idle   , msf::none      , msf::none     >,
     // +-----------------+----------------+------------+----------------+---------------+
-    msf::Row< DST_Commit , DltCommitOkEvt , DST_Idle   , msf::none      , GRD_DltCommit >
+    msf::Row< DST_Commit , DltCommitOkEvt , DST_Close  , DACT_Close     , GRD_DltCommit >,
+    // +-----------------+----------------+------------+----------------+---------------+
+    msf::Row< DST_Close  , DltCloseOkEvt  , DST_Idle   , msf::none      , GRD_DltClose  >
     // +-----------------+----------------+------------+----------------+---------------+
     >{};  // NOLINT
 
@@ -174,6 +204,12 @@ OM_DLTMod::dlt_deploy_event(DltRebalOkEvt const &evt)
 
 void
 OM_DLTMod::dlt_deploy_event(DltCommitOkEvt const &evt)
+{
+    dlt_dply_fsm->process_event(evt);
+}
+
+void
+OM_DLTMod::dlt_deploy_event(DltCloseOkEvt const &evt)
 {
     dlt_dply_fsm->process_event(evt);
 }
@@ -269,7 +305,59 @@ DltDplyFSM::DACT_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST 
 
     // Send new DLT to each node in the cluster map
     // the new DLT now is committed DLT
-    dom_ctrl->om_bcast_dlt(dp->getCommitedDlt());
+    fds_uint32_t count = dom_ctrl->om_bcast_dlt(dp->getCommitedDlt());
+    if (count < 1) {
+        dst.acks_to_wait = 1;
+        fsm.process_event(DltCommitOkEvt(dp->getLatestDltVersion()));
+    } else {
+        // lets wait for majority of acks
+        dst.acks_to_wait = count/2 + 1;
+        if (dst.acks_to_wait < 1) {
+            dst.acks_to_wait = count;
+        }
+    }
+}
+
+// DACT_Close
+// -----------
+// Send DLT close message to SM nodes to notify that all nodes
+// know about the commited DLT
+//
+template <class Evt, class Fsm, class SrcST, class TgtST>
+void
+DltDplyFSM::DACT_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "FSM DACT_Close";
+    DltCommitOkEvt commitOkEvt = (DltCommitOkEvt)evt;
+    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+    OM_NodeContainer* dom_ctrl = domain->om_loc_domain_ctrl();
+
+    // Send DLT close message to SM nodes
+    fds_uint32_t close_cnt = dom_ctrl->om_bcast_dlt_close(commitOkEvt.cur_dlt_version);
+    // if we are here, there must be at least one SM, so we should
+    // not get 'close_cnt' == 0
+    fds_verify(close_cnt > 0);
+    dst.acks_to_wait = close_cnt / 2 + 1;
+    if (dst.acks_to_wait == 0)
+        dst.acks_to_wait = close_cnt;
+}
+
+// GRD_DltClose
+// -------------
+//
+template <class Evt, class Fsm, class SrcST, class TgtST>
+bool
+DltDplyFSM::GRD_DltClose::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    // for now assuming close is always a success
+    fds_verify(src.acks_to_wait > 0);
+    src.acks_to_wait--;
+
+    bool bret = (src.acks_to_wait == 0);
+    LOGDEBUG << "FGR_DltClose: acks to wait " << src.acks_to_wait
+             << " returning " << bret;
+
+    return bret;
 }
 
 // GRD_DltRebal
@@ -316,31 +404,12 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 bool
 DltDplyFSM::GRD_DltCommit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
-    DltCommitOkEvt commitOkEvt = (DltCommitOkEvt)evt;
-    ClusterMap* cm = commitOkEvt.ode_clusmap;
-    fds_verify(cm != NULL);
+    fds_verify(src.acks_to_wait > 0);
+    src.acks_to_wait--;
+    fds_bool_t b_ret = (src.acks_to_wait == 0);
 
-    // when all 'up' nodes are on the latest dlt version
-    // we are getting out of this state
-    fds_bool_t b_ret = true;
-    fds_uint64_t cur_dlt_ver = commitOkEvt.cur_dlt_version;
-    for (ClusterMap::const_iterator it = cm->cbegin();
-         it != cm->cend();
-         ++it) {
-        FDS_PLOG_SEV(g_fdslog, fds_log::debug)
-                << "GRD_DltCommit: Node " << (it->second)->get_node_name()
-                << " state " << (it->second)->node_state()
-                << " dlt_version " << (it->second)->node_dlt_version()
-                << " (cur dlt ver " << cur_dlt_ver << ")";
-        if (((it->second)->node_state() == FDS_ProtocolInterface::FDS_Node_Up) &&
-            ((it->second)->node_dlt_version() != cur_dlt_ver)) {
-            b_ret = false;
-            break;
-        }
-    }
-    FDS_PLOG_SEV(g_fdslog, fds_log::debug)
-            << "FSM GRD_DltCommit: current result: " << b_ret;
+    LOGDEBUG << "GRD_DltCommit: waiting for " << src.acks_to_wait
+             << " acks, result: " << b_ret;
 
     return b_ret;
 }

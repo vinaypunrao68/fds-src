@@ -6,8 +6,13 @@ package com.formationds.web.toolkit;
 
 import org.eclipse.jetty.server.Request;
 
-import javax.servlet.http.HttpServletRequest;
-
 public interface RequestHandler {
     public Resource handle(Request request) throws Exception;
+
+    public default String assertParameter(Request request, String name) throws UsageException {
+        if ((request.getParameter(name) == null)) {
+            throw new UsageException(String.format("Parameter %s is missing", name));
+        }
+        return request.getParameter(name);
+    }
 }
