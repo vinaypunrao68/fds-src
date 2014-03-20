@@ -350,9 +350,10 @@ Error
 OM_PmAgent::handle_register_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_type,
                                     NodeAgent::pointer svc_agent)
 {
-    Error err(ERR_OK);
     // Platform must be in active state
-    fds_verify(node_state() == FDS_ProtocolInterface::FDS_Node_Up);
+    if (node_state() != FDS_ProtocolInterface::FDS_Node_Up) {
+        return Error(ERR_NODE_NOT_ACTIVE);
+    }
 
     // we cannot register more than one service of the same type
     // with the same node (platform)
@@ -372,8 +373,7 @@ OM_PmAgent::handle_register_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_ty
         default:
             fds_verify(false);
     };
-
-    return err;
+    return Error(ERR_OK);
 }
 
 // unregister_service
