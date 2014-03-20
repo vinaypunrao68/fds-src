@@ -126,6 +126,19 @@ void OrchMgr::FDSP_ControlPathRespHandler::NotifyDLTUpdateResp(
             << "OrchMgr: received response for NotifyDLTUpdate";
 }
 
+void OrchMgr::FDSP_ControlPathRespHandler::NotifyDLTCloseResp(
+    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+    const ::FDS_ProtocolInterface::FDSP_DLT_Resp_Type& dlt_info_resp) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+}
+
+void OrchMgr::FDSP_ControlPathRespHandler::NotifyDLTCloseResp(
+    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+    ::FDS_ProtocolInterface::FDSP_DLT_Resp_TypePtr& dlt_info_resp) {
+    FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::notification)
+            << "OrchMgr: received response for NotifyDLTClose";
+}
+
 void OrchMgr::FDSP_ControlPathRespHandler::NotifyDMTUpdateResp(
     const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const FDS_ProtocolInterface::FDSP_DMT_Type& dmt_info_resp) {

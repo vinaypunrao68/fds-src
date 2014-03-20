@@ -400,6 +400,13 @@ class OrchMgr: public FdsProcess {
             ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
             ::FDS_ProtocolInterface::FDSP_DLT_Resp_TypePtr& dlt_info_resp);
 
+        void NotifyDLTCloseResp(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_DLT_Resp_Type& dlt_info_resp);
+        void NotifyDLTCloseResp(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_DLT_Resp_TypePtr& dlt_info_resp);
+
         void NotifyDMTUpdateResp(
             const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
             const FDS_ProtocolInterface::FDSP_DMT_Type& dmt_info_resp);

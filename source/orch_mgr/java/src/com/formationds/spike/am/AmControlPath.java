@@ -64,6 +64,11 @@ public class AmControlPath implements FDSP_ControlPathReq.Iface {
     }
 
     @Override
+    public void NotifyDLTClose(FDSP_MsgHdrType fdsp_msg, FDSP_DltCloseType dlt_close) throws TException {
+        LOG.debug(dlt_close);
+    }
+
+    @Override
     public void NotifyDMTUpdate(FDSP_MsgHdrType fdsp_msg, FDSP_DMT_Type dmt_info) throws TException {
         LOG.debug(dmt_info);
     }
