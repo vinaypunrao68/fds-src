@@ -423,6 +423,7 @@ class ObjectStorMgr :
     void putTokenObjectsInternal(SmIoReq* ioReq);
     void getTokenObjectsInternal(SmIoReq* ioReq);
     void applySyncMetadataInternal(SmIoReq* ioReq);
+    void resolveSyncEntriesInternal(SmIoReq* ioReq);
     Error relocateObject(const ObjectID &objId,
             diskio::DataTier from_tier,
             diskio::DataTier to_tier);

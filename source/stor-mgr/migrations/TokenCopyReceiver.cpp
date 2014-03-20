@@ -488,6 +488,7 @@ Error TokenCopyReceiver::handle_actor_request(FdsActorRequestPtr req)
     Error err = ERR_OK;
     FDSP_CopyTokenReqPtr copy_tok_req;
     switch (req->type) {
+    /* Copy related */
     case FAR_ID(FDSP_CopyTokenResp):
     {
         auto payload = req->get_payload<FDSP_CopyTokenResp>();
@@ -512,7 +513,38 @@ Error TokenCopyReceiver::handle_actor_request(FdsActorRequestPtr req)
     {
         /* Starting token sync statemachine */
         // TODO(Rao): Get the sync start time from config db
-        sync_fsm_->process_event(TSStartEvt(get_fds_timestamp_ms(), 0));
+        sync_fsm_->process_event(TRStartEvt(get_fds_timestamp_ms(), 0));
+        break;
+    }
+    /* Sync related */
+    case FAR_ID(FDSP_SyncTokenResp):
+    {
+        auto payload = req->get_payload<FDSP_SyncTokenResp>();
+        sync_fsm_->process_event(*payload);
+        break;
+    }
+    case FAR_ID(FDSP_PushTokenMetadataReq):
+    {
+        auto payload = req->get_payload<FDSP_PushTokenMetadataReq>();
+        sync_fsm_->process_event(*payload);
+        break;
+    }
+    case FAR_ID(FDSP_NotifyTokenSyncComplete):
+    {
+        auto payload = req->get_payload<FDSP_NotifyTokenSyncComplete>();
+        sync_fsm_->process_event(*payload);
+        break;
+    }
+    case FAR_ID(TRPullDnEvt):
+    {
+        /* Pull is done. Start resolving on the sync fsm */
+        sync_fsm_->process_event(TRResolveEvt());
+        break;
+    }
+    case FAR_ID(TSnapDnEvt):
+    {
+        auto payload = req->get_payload<TSnapDnEvt>();
+        sync_fsm_->process_event(*payload);
         break;
     }
     default:

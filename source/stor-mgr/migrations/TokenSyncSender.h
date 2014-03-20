@@ -24,29 +24,25 @@ namespace fds {
 
 using namespace  ::FDS_ProtocolInterface;
 
-struct SyncReqEvt {};
+/* Forward declarations */
+struct TokenSyncSenderFSM_;
+typedef boost::msm::back::state_machine<TokenSyncSenderFSM_> TokenSyncSenderFSM;
+class TokenCopySender;
 
-/* Snapshot is complete notification event */
-struct TSSnapDnEvt {
-    TSSnapDnEvt(const leveldb::ReadOptions& options, leveldb::DB* db)
-    {
-        this->options = options;
-        this->db = db;
-    }
-    leveldb::ReadOptions options;
-    leveldb::DB* db;
-};
-typedef boost::shared_ptr<TSSnapDnEvt> TSSnapDnEvtPtr;
+/* State machine events */
+/* Sync request event */
+typedef FDSP_SyncTokenReq SyncReqEvt;
+typedef FDSP_PushTokenMetadataResp SendDnEvt;
 
 struct BldSyncLogDnEvt {};
-struct SendDnEvt {};
 struct IoClosedEvt {};
 struct SyncDnAckEvt {};
 
-struct TokenSyncSenderFSM_;
-/* back-end */
-typedef boost::msm::back::state_machine<TokenSyncSenderFSM_> TokenSyncSenderFSM;
+
 struct TokenSyncSender {
+public:
+    TokenSyncSender();
+    virtual ~TokenSyncSender();
     void init(const std::string &mig_stream_id,
             FdsMigrationSvc *migrationSvc,
             TokenCopySender *parent,
@@ -54,9 +50,13 @@ struct TokenSyncSender {
             const std::string &rcvr_ip,
             const int &rcvr_port,
             fds_token_id token_id,
+            netMigrationPathClientSession *rcvr_session,
             boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler);
+    void process_event(const SyncReqEvt& event);
+    void process_event(const SendDnEvt& event);
 private:
-    std::unique_ptr<TokenSyncSenderFSM> fsm_;
+    TokenSyncSenderFSM *fsm_;
+
 };
 }  // namespace fds
 

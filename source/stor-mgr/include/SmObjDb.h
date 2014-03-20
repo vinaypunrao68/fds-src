@@ -282,9 +282,9 @@ public:
 
     Error deleteObjectLocation(const ObjectID& objId);
 
-    Error putSyncEntry(const ObjectID& obj_id,
+    Error putSyncEntry(const ObjectID& objId,
             const FDSP_MigrateObjectMetadata& data);
-
+    Error resolveEntry(const ObjectID& objId);
     void  iterRetrieveObjects(const fds_token_id &token,
             const size_t &max_size,
             FDSP_MigrateObjectList &obj_list,
@@ -294,6 +294,9 @@ public:
     Error get_(const View &view,
             const ObjectID& objId, OnDiskSmObjMetadata& md);
     Error put_(const ObjectID& objId, const OnDiskSmObjMetadata& md);
+
+    static Error get_from_snapshot(leveldb::Iterator* itr,
+            OnDiskSmObjMetadata& md);
 private:
     inline fds_token_id getTokenId_(const ObjectID& objId);
     inline ObjectDB* getObjectDB_(const fds_token_id& tokId);

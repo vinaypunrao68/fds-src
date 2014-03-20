@@ -145,6 +145,7 @@ struct TokenSyncSenderFSM_
             const std::string &rcvr_ip,
             const int &rcvr_port,
             fds_token_id token_id,
+            netMigrationPathClientSession *rcvr_session,
             boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler)
     {
         mig_stream_id_ = mig_stream_id;
@@ -153,6 +154,7 @@ struct TokenSyncSenderFSM_
         data_store_ = data_store;
         rcvr_ip_ = rcvr_ip;
         rcvr_port_ = rcvr_port;
+        rcvr_session_ = rcvr_session;
         client_resp_handler_ = client_resp_handler;
 
         token_id_ = token_id;
@@ -160,7 +162,8 @@ struct TokenSyncSenderFSM_
         snap_msg_.io_type = FDS_SM_SNAPSHOT_TOKEN;
         snap_msg_.smio_snap_resp_cb = std::bind(
             &TokenSyncSenderFSM_::snap_done_cb, this,
-            std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
+            std::placeholders::_1, std::placeholders::_2,
+            std::placeholders::_3, std::placeholders::_4);
 
         push_md_req_.header.base_header.err_code = ERR_OK;
         push_md_req_.header.base_header.src_node_name =
@@ -276,7 +279,27 @@ struct TokenSyncSenderFSM_
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            LOGDEBUG << "ack_sync_req token: " << fsm.token_id_;
+            fds_assert(fsm.token_id_ == static_cast<fds_token_id>(evt.token));
+            fsm.max_entries_per_send_ = evt.max_entries_per_reply;
+            fsm.cur_sync_range_low_ = evt.start_time;
+            /* NOTE: Ignoring evt.end_time for now.  Relying on close event from OM */
+
+            LOGDEBUG << "ack_sync_req token: " << fsm.token_id_
+                    << " cur_sync_range_low_: " << fsm.cur_sync_range_low_;
+
+            /* Send a respones back acking request */
+            boost::shared_ptr<FDSP_SyncTokenResp> response(new FDSP_SyncTokenResp());
+
+            response->header.base_header.err_code = ERR_OK;
+            response->header.base_header.src_node_name = fsm.migrationSvc_->get_ip();
+            response->header.base_header.session_uuid =
+                    evt.header.base_header.session_uuid;
+            response->header.mig_id = evt.header.mig_id;
+            response->header.mig_stream_id = evt.header.mig_stream_id;
+
+            auto resp_client = fsm.migrationSvc_->\
+                    get_resp_client(evt.header.base_header.session_uuid);
+            resp_client->SyncTokenResp(response);
         }
     };
     struct take_snap
@@ -287,10 +310,10 @@ struct TokenSyncSenderFSM_
         {
             LOGDEBUG << "take_snap token: " << fsm.token_id_;
 
-            if (sync_closed_) {
-                cur_sync_range_high_ = sync_closed_time_;
+            if (fsm.sync_closed_) {
+                fsm.cur_sync_range_high_ = fsm.sync_closed_time_;
             } else {
-                cur_sync_range_high_ = get_fds_timestamp_ms();
+                fsm.cur_sync_range_high_ = get_fds_timestamp_ms();
             }
 
             /* Recyle snap_msg_ message */
@@ -314,6 +337,8 @@ struct TokenSyncSenderFSM_
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
             LOGDEBUG << "build_sync_log token: " << fsm.token_id_;
+
+            /* Create new sync log */
             std::string log_name = "TokenSyncLog_" + fsm.token_id_ +
                     "_" + cur_sync_range_high_ + "_" + cur_sync_range_low_;
             fsm.sync_log_.reset(new TokenSyncLog(log_name));
@@ -323,8 +348,10 @@ struct TokenSyncSenderFSM_
             ObjectID start_obj_id, end_obj_id;
             fsm.migrationSvc_->get_cluster_comm_mgr()->get_dlt()->\
                     getTokenObjectRange(fsm.token_id_, start_obj_id, end_obj_id);
-            // TODO(Rao): We should iterate just the token.  Now we are iterating
-            // the whole db, which contains multiple tokens
+
+            /* TODO(Rao): We should iterate just the token.  Now we are iterating
+             * the whole db, which contains multiple tokens
+             */
             for (it->SeekToFirst(); it->Valid(); it->Next()) {
                 ObjectID id(it->key().ToString());
                 /* Range check */
@@ -336,7 +363,7 @@ struct TokenSyncSenderFSM_
                 Error e = fsm.sync_log_.add(id, entry);
                 if (e != ERR_OK) {
                     fds_assert(!"Error");
-                    LOGERROR << " Error: " << e;
+                    LOGERROR << "Error adding synclog. Error: " << e;
                     fsm.process_event(ErrorEvt());
                 }
             }
@@ -363,8 +390,10 @@ struct TokenSyncSenderFSM_
 
             Error err(ERR_OK);
 
+            DBG(uint64_t prev_ts = 0);
             FDSP_MigrateObjectMetadataList &md_list = fsm.push_md_req_.md_list;
             md_list.clear();
+
             for (; fsm.sync_log_itr_->Valid() &&
                    md_list.size() < fsm.max_entries_per_send_;
                  fsm.sync_log_itr_->Next()) {
@@ -379,6 +408,9 @@ struct TokenSyncSenderFSM_
                 // TODO(Rao): Set the size
                 // md.obj_len = entry.len();
                 md.modification_ts = entry.modificationTs;
+
+                fds_assert(static_cast<uint64_t>(md.modification_ts) >= prev_ts);
+                DBG(prev_ts = md.modification_ts);
 
                 md_list.push_back(md);
             }
@@ -458,7 +490,7 @@ struct TokenSyncSenderFSM_
         template <class EVT, class FSM, class SourceState, class TargetState>
         bool operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            return sync_closed_;
+            return fsm.sync_closed_;
         }
     };
     struct sync_dn
@@ -467,7 +499,8 @@ struct TokenSyncSenderFSM_
         template <class EVT, class FSM, class SourceState, class TargetState>
         bool operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            return sync_closed_ && (cur_sync_range_high_ >= sync_closed_time_);
+            return fsm.sync_closed_ &&
+                   (fsm.cur_sync_range_high_ >= fsm.sync_closed_time_);
         }
     };
 
@@ -484,11 +517,12 @@ struct TokenSyncSenderFSM_
                                                     ack_sync_req,
                                                     take_snap> >    , msm_none         >,
     // +------------+----------------+------------+-----------------+------------------+
-    Row< Snapshot   , TSSnapDnEvt    , BldSyncLog , build_sync_log  , msm_none         >,
+    Row< Snapshot   , TSnapDnEvt    , BldSyncLog , build_sync_log  , msm_none         >,
     // +------------+----------------+------------+-----------------+------------------+
     Row< BldSyncLog , msm_none       , Sending    , send_sync_log   , msm_none         >,
     // +------------+----------------+------------+-----------------+------------------+
     Row< Sending    , SendDnEvt      , msm_none   , send_sync_log   , Not_<sync_log_dn>>,
+
     Row< Sending    , SendDnEvt      ,WaitForClose, msm_none        , Not_<sync_closed> >,  // NOLINT
     Row< Sending    , SendDnEvt      , Snapshot   , take_snap       , Not_<sync_dn>    >,
     Row< Sending    , SendDnEvt      , FiniSync   , finish_sync     , msm_none         >,
@@ -517,8 +551,11 @@ struct TokenSyncSenderFSM_
 
     /* Callback from object store that metadata snapshot is complete */
     void snap_done_cb(const Error& e,
+            SmIoSnapshotObjectDB* snap_msg,
             leveldb::ReadOptions& options, leveldb::DB* db)
     {
+        LOGDEBUG << " token: " << token_id_;
+
         if (!e.ok()) {
             LOGERROR << "Error: " << e;
             msm::back::state_machine<TokenSyncSenderFSM_> &fsm =
@@ -526,10 +563,10 @@ struct TokenSyncSenderFSM_
             fsm.process_event(ErrorEvt());
             return;
         }
-        TSSnapDnEvtPtr snap_dn_evt(new TSSnapDnEvt(options, db));
+        TSnapDnEvtPtr snap_dn_evt(new TSnapDnEvt(options, db));
         parent_->send_actor_request(
                 FdsActorRequestPtr(
-                        new FdsActorRequest(FAR_ID(TSSnapDnEvt), snap_dn_evt)));
+                        new FdsActorRequest(FAR_ID(TSnapDnEvt), snap_dn_evt)));
     }
 
     protected:
@@ -782,6 +819,9 @@ struct PullSenderFSM_
     /* Receiver port */
     int rcvr_port_;
 
+    /* Receiver session */
+    netMigrationPathClientSession *rcvr_session_;
+
     /* RPC handler for responses.  NOTE: We don't really use it.  It's just here so
      * it can be passed as a parameter when we create a netClientSession
      */
@@ -791,6 +831,16 @@ struct PullSenderFSM_
     SmIoReqHandler *data_store_;
 };  /* struct PullSenderFSM_ */
 
+TokenSyncSender::TokenSyncSender()
+{
+    fsm_ = nullptr;
+}
+
+TokenSyncSender::~TokenSyncSender()
+{
+    delete fsm_;
+}
+
 void TokenSyncSender::init(const std::string &mig_stream_id,
             FdsMigrationSvc *migrationSvc,
             TokenCopySender *parent,
@@ -798,11 +848,21 @@ void TokenSyncSender::init(const std::string &mig_stream_id,
             const std::string &rcvr_ip,
             const int &rcvr_port,
             fds_token_id token_id,
+            netMigrationPathClientSession *rcvr_session,
             boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler)
 {
-    fsm_.reset(new TokenSyncSenderFSM());
+    fsm_ = new TokenSyncSenderFSM();
     fsm_->init(mig_stream_id, migrationSvc, parent, data_store, rcvr_ip,
-            rcvr_port, token_id, client_resp_handler);
+            rcvr_port, token_id, rcvr_session, client_resp_handler);
 }
 
+void TokenSyncSender::process_event(const SyncReqEvt& event)
+{
+    fsm_->process_event(event);
+}
+
+void TokenSyncSender::process_event(const SendDnEvt& event)
+{
+    fsm_->process_event(event);
+}
 } /* namespace fds */

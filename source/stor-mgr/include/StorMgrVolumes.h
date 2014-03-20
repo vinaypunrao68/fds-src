@@ -393,7 +393,9 @@ namespace fds {
    */
   class SmIoSnapshotObjectDB : public SmIoReq {
   public:
-    typedef std::function<void (const Error&, leveldb::ReadOptions& options,
+    typedef std::function<void (const Error&,
+            SmIoSnapshotObjectDB*,
+            leveldb::ReadOptions& options,
             leveldb::DB* db)> CbType;
   public:
       SmIoSnapshotObjectDB() {
@@ -433,16 +435,15 @@ namespace fds {
   /**
    * @brief Applies meta data transferred as part of sync
    */
-  class SmIoResolveSyncEntries : public SmIoReq {
+  class SmIoResolveSyncEntry : public SmIoReq {
   public:
-      typedef std::function<void (const Error&)> CbType;
+      typedef std::function<void (const Error&, SmIoResolveSyncEntry*)> CbType;
   public:
-      SmIoResolveSyncEntries() {
-          token_id = 0;
+      SmIoResolveSyncEntry() {
       }
 
       /* In: Sync metadata list */
-      fds_token_id token_id;
+      ObjectID object_id;
       /* Response callback */
       CbType smio_resolve_resp_cb;
   };

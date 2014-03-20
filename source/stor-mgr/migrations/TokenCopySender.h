@@ -23,6 +23,7 @@ using namespace  ::FDS_ProtocolInterface;
 
 /* Forward declarations */
 class FdsMigrationSvc;
+struct TokenSyncSender;
 struct TokenCopySenderFSM_;
 typedef boost::msm::back::state_machine<TokenCopySenderFSM_> TokenCopySenderFSM;
 
@@ -57,7 +58,8 @@ public:
     virtual Error handle_actor_request(FdsActorRequestPtr req) override;
 
 private:
-    std::unique_ptr<TokenCopySenderFSM> sm_;
+    std::unique_ptr<TokenCopySenderFSM> copy_fsm_;
+    TokenSyncSender *sync_fsm_;
     fds_log *log_;
 
     /* Reference to cluster communication manager */

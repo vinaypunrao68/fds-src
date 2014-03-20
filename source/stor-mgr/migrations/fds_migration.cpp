@@ -66,31 +66,61 @@ PushTokenObjectsResp(boost::shared_ptr<FDSP_PushTokenObjectsResp>& pushtok_resp)
 void FDSP_MigrationPathRpc::
 SyncToken(boost::shared_ptr<FDSP_SyncTokenReq>& sync_req) // NOLINT
 {
-    fds_assert(!"Not impl");
+    FdsActorRequestPtr sync_far(
+            new FdsActorRequest(FAR_ID(FDSP_SyncTokenReq), sync_req));
+    if (sync_far == nullptr) {
+        LOGERROR << "Failed to allocate memory";
+        return;
+    }
+    mig_svc_.send_actor_request(sync_far);
 }
 
 void FDSP_MigrationPathRpc::
 SyncTokenResp(boost::shared_ptr<FDSP_SyncTokenResp>& synctok_resp) // NOLINT
 {
-    fds_assert(!"Not impl");
+    FdsActorRequestPtr sync_far(
+            new FdsActorRequest(FAR_ID(FDSP_SyncTokenResp), synctok_resp));
+    if (sync_far == nullptr) {
+        LOGERROR << "Failed to allocate memory";
+        return;
+    }
+    mig_svc_.send_actor_request(sync_far);
 }
 
 void FDSP_MigrationPathRpc::
 PushTokenMetadata(boost::shared_ptr<FDSP_PushTokenMetadataReq>& push_md_req) // NOLINT
 {
-    fds_assert(false);
-}
-
-void FDSP_MigrationPathRpc::
-NotifyTokenSyncComplete(boost::shared_ptr<FDSP_NotifyTokenSyncComplete>& sync_complete) // NOLINT
-{
-    fds_assert(false);
+    FdsActorRequestPtr push_md_far(
+            new FdsActorRequest(FAR_ID(FDSP_PushTokenMetadataReq), push_md_req));
+    if (push_md_far == nullptr) {
+        LOGERROR << "Failed to allocate memory";
+        return;
+    }
+    mig_svc_.send_actor_request(push_md_far);
 }
 
 void FDSP_MigrationPathRpc::
 PushTokenMetadataResp(boost::shared_ptr<FDSP_PushTokenMetadataResp>& push_md_resp) // NOLINT
 {
-    fds_assert(false);
+    FdsActorRequestPtr push_md_far(
+            new FdsActorRequest(FAR_ID(FDSP_PushTokenMetadataResp), push_md_resp));
+    if (push_md_far == nullptr) {
+        LOGERROR << "Failed to allocate memory";
+        return;
+    }
+    mig_svc_.send_actor_request(push_md_far);
+}
+
+void FDSP_MigrationPathRpc::
+NotifyTokenSyncComplete(boost::shared_ptr<FDSP_NotifyTokenSyncComplete>& sync_complete) // NOLINT
+{
+    FdsActorRequestPtr sync_complete_far(
+            new FdsActorRequest(FAR_ID(FDSP_NotifyTokenSyncComplete), sync_complete));
+    if (sync_complete_far == nullptr) {
+        LOGERROR << "Failed to allocate memory";
+        return;
+    }
+    mig_svc_.send_actor_request(sync_complete_far);
 }
 
 TokenCopyTracker::TokenCopyTracker(FdsMigrationSvc *migrationSvc,
@@ -203,6 +233,7 @@ Error FdsMigrationSvc::handle_actor_request(FdsActorRequestPtr req)
         handle_migsvc_migration_complete(req);
         break;
     }
+    /* Token copy related */
     case FAR_ID(FDSP_CopyTokenReq):
     {
         handle_migsvc_copy_token_rpc(req);
@@ -224,6 +255,37 @@ Error FdsMigrationSvc::handle_actor_request(FdsActorRequestPtr req)
     {
         auto payload = req->get_payload<FDSP_PushTokenObjectsResp>();
         route_to_mig_actor(payload->mig_id, req);
+        break;
+    }
+    /* Token sync related */
+    case FAR_ID(FDSP_SyncTokenReq):
+    {
+        auto payload = req->get_payload<FDSP_SyncTokenReq>();
+        route_to_mig_actor(payload->header.mig_id, req);
+        break;
+    }
+    case FAR_ID(FDSP_SyncTokenResp):
+    {
+        auto payload = req->get_payload<FDSP_SyncTokenResp>();
+        route_to_mig_actor(payload->header.mig_id, req);
+        break;
+    }
+    case FAR_ID(FDSP_PushTokenMetadataReq):
+    {
+        auto payload = req->get_payload<FDSP_PushTokenMetadataReq>();
+        route_to_mig_actor(payload->header.mig_id, req);
+        break;
+    }
+    case FAR_ID(FDSP_PushTokenMetadataResp):
+    {
+        auto payload = req->get_payload<FDSP_PushTokenMetadataResp>();
+        route_to_mig_actor(payload->header.mig_id, req);
+        break;
+    }
+    case FAR_ID(FDSP_NotifyTokenSyncComplete):
+    {
+        auto payload = req->get_payload<FDSP_NotifyTokenSyncComplete>();
+        route_to_mig_actor(payload->header.mig_id, req);
         break;
     }
     default:

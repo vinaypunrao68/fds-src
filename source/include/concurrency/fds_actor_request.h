@@ -46,16 +46,19 @@ enum FdsActorRequestType {
     FAR_ENUM(TSCopyDnEvt),
 
     /* Token sync snapshot is complete notification event */
-    FAR_ENUM(TSSnapDnEvt),
+    FAR_ENUM(TSnapDnEvt),
 
     /* Token sync transfer is complete */
-    FAR_ENUM(TSXferDnEvt),
+    FAR_ENUM(TRXferDnEvt),
+
+    /* Token sync pull is complete */
+    FAR_ENUM(TRPullDnEvt),
 
     /* Token sync resolve is complete */
-    FAR_ENUM(TSResolveDnEvt),
+    FAR_ENUM(TRResolveDnEvt),
 
     /* Token sync meta data is applied to Object store */
-    FAR_ENUM(TSMdAppldEvt),
+    FAR_ENUM(TRMdAppldEvt),
     /*----------------- Migration RPC -----------------------------------------*/
     /* RPC from receiver->sender to start token copy */
     FAR_ENUM(FDSP_CopyTokenReq),
@@ -69,8 +72,20 @@ enum FdsActorRequestType {
     /* RPC ack response from receiver->sender of token object data */
     FAR_ENUM(FDSP_PushTokenObjectsResp),
 
-    /* RPC ack response from receiver->sender of token metadata */
+    /* RPC from receiver->sender for token sync */
+    FAR_ENUM(FDSP_SyncTokenReq),
+
+    /* RPC from sender->receiver acking token sync request */
+    FAR_ENUM(FDSP_SyncTokenResp),
+
+    /* RPC from sender->receiver with token metadata */
+    FAR_ENUM(FDSP_PushTokenMetadataReq),
+
+    /* RPC from receiver->sender acking token metadata */
     FAR_ENUM(FDSP_PushTokenMetadataResp),
+
+    /* RPC from sender->receiver that token metadata sync transfer is complete */
+    FAR_ENUM(FDSP_NotifyTokenSyncComplete),
     /*----------------- Last Request ------------------------------------------*/
     FAR_ENUM(Max)
 };

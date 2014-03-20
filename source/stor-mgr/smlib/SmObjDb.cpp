@@ -241,6 +241,24 @@ SmObjDb::deleteObjectLocation(const ObjectID& objId) {
     return put_(objId, md);
 }
 
+Error SmObjDb::resolveEntry(const ObjectID& objId)
+{
+    Error err(ERR_OK);
+
+    OnDiskSmObjMetadata md;
+    err = get_(NON_SYNC_MERGED, objId, md);
+
+    if (err != ERR_OK && err != ERR_SM_OBJ_METADATA_NOT_FOUND) {
+        LOGERROR << "Error: " << err << " objId: " << objId;
+        return err;
+    }
+
+    LOGDEBUG << " Object id: " << objId;
+    md.mergeNewAndUnsyncedData();
+
+    return put_(objId, md);
+}
+
 void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
         const size_t &max_size,
         FDSP_MigrateObjectList &obj_list,
@@ -321,6 +339,13 @@ void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
 
     DBG(LOGDEBUG << "token: " << token <<  " dbId: " << GetSmObjDbId(token)
         << " cnt: " << obj_itr_cnt) << " token retrieve complete";
+}
+
+Error SmObjDb::get_from_snapshot(leveldb::Iterator* itr, OnDiskSmObjMetadata& md)
+{
+    leveldb::Slice s = itr->value();
+    md.unmarshall(const_cast<char*>(s.data()), s.size());
+    return ERR_OK;
 }
 
 }  // namespace fds

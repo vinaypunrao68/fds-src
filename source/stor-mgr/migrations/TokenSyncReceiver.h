@@ -26,26 +26,25 @@ using namespace  ::FDS_ProtocolInterface;
 
 /* Forward declarations */
 class TokenCopyReceiver;
-
-/* Statemachine Events */
-struct TokMdEvt {};
-struct SyncAckdEvt{};
-struct TSMdAppldEvt {};
-struct NeedPullEvt {};
-struct TSXferDnEvt {};
-struct PullDnEvt {};
-struct ResolveEvt {};
-struct TSResolveDnEvt {};
-
 struct TokenSyncReceiverFSM_;
-/* back-end */
 typedef boost::msm::back::state_machine<TokenSyncReceiverFSM_> TokenSyncReceiverFSM;
 
+/* Statemachine Events */
+typedef FDSP_SyncTokenResp SyncAckdEvt;
+typedef FDSP_PushTokenMetadataReq TokMdEvt;
+typedef FDSP_NotifyTokenSyncComplete TRXferDnEvt;
+
+struct TRMdAppldEvt {};
+struct NeedPullEvt {};
+struct TRPullDnEvt {};
+struct TRResolveEvt {};
+struct TRSnapDnEvt {};
+struct TRResolveDnEvt {};
 /**
  * Token sync start event
  */
-struct TSStartEvt {
-    TSStartEvt(const uint64_t &start, const uint64_t &end) {
+struct TRStartEvt {
+    TRStartEvt(const uint64_t &start, const uint64_t &end) {
         start_time = start;
         end_time = end;
     }
@@ -69,7 +68,13 @@ public:
             const fds_token_id &token_id,
             netMigrationPathClientSession *sender_session,
             boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler);
-    void process_event(const TSStartEvt& evt);
+    void process_event(const TRStartEvt& evt);
+    void process_event(const SyncAckdEvt& evt);
+    void process_event(const TokMdEvt& evt);
+    void process_event(const TRXferDnEvt& evt);
+    void process_event(const TSnapDnEvt& evt);
+    void process_event(const TRResolveEvt& evt);
+
  private:
     TokenSyncReceiverFSM *fsm_;
 };

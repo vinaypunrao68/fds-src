@@ -13,6 +13,7 @@
 
 #include <fds_migration.h>
 #include <TokenCopySender.h>
+#include <TokenSyncSender.h>
 
 namespace fds {
 
@@ -40,6 +41,7 @@ struct TokenCopySenderFSM_
             const std::string &rcvr_ip,
             const int &rcvr_port,
             const std::set<fds_token_id> &tokens,
+            netMigrationPathClientSession *rcvr_session,
             boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler)
     {
         mig_stream_id_ = mig_stream_id;
@@ -49,6 +51,7 @@ struct TokenCopySenderFSM_
         rcvr_ip_ = rcvr_ip;
         rcvr_port_ = rcvr_port;
         pending_tokens_ = tokens;
+        rcvr_session_ = rcvr_session;
         client_resp_handler_ = client_resp_handler;
 
         objstor_read_req_.io_type = FDS_SM_READ_TOKEN_OBJECTS;
@@ -165,15 +168,7 @@ struct TokenCopySenderFSM_
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
             LOGDEBUG << "connect";
-
-            fsm.rcvr_session_ = fsm.migrationSvc_->get_migration_client(fsm.rcvr_ip_,
-                    fsm.rcvr_port_);
-            if (fsm.rcvr_session_ == nullptr) {
-                fds_assert(!"Null session");
-                // TODO(rao:) Go into error state
-                LOGERROR << "rcvr_session is null";
-                return;
-            }
+            // TODO(Rao): This action isn't needed anymore.  Clean it up
         }
     };
     struct update_tok
@@ -310,7 +305,7 @@ struct TokenCopySenderFSM_
     Row< Connecting , msm_none       , UpdatingTok, update_tok      , msm_none         >,
     // +------------+----------------+------------+-----------------+------------------+
     Row< UpdatingTok, msm_none       , Reading    , read_tok        , more_toks        >,
-    Row< UpdatingTok, msm_none       , Complete   , teardown        , Not_<more_toks > >,
+    Row< UpdatingTok, msm_none       , Complete   , msm_none        , Not_<more_toks > >,
     // +------------+----------------+------------+-----------------+------------------+
     Row< Reading    , TokReadEvt     , Sending    , send_tok        , msm_none         >,
     // +------------+----------------+------------+-----------------+------------------+
@@ -400,19 +395,39 @@ TokenCopySender::TokenCopySender(FdsMigrationSvc *migrationSvc,
       log_(log),
       clust_comm_mgr_(clust_comm_mgr)
 {
-    sm_.reset(new TokenCopySenderFSM());
-    sm_->init(mig_stream_id, migrationSvc, this, data_store,
-            rcvr_ip, rcvr_port, tokens, client_resp_handler);
+    // TODO(Rao): Make copy and sync be based on one token and not
+    // mutiple tokens
+    fds_verify(tokens.size() == 1);
+
+    auto rcvr_session = migrationSvc->get_migration_client(rcvr_ip, rcvr_port);
+    if (rcvr_session == nullptr) {
+        fds_assert(!"Null session");
+        LOGERROR << "rcvr_session is null";
+        // TODO(Rao): return an error back to parent
+        return;
+    }
+
+    copy_fsm_.reset(new TokenCopySenderFSM());
+    copy_fsm_->init(mig_stream_id, migrationSvc, this, data_store,
+            rcvr_ip, rcvr_port, tokens, rcvr_session, client_resp_handler);
+
+    sync_fsm_ = new TokenSyncSender();
+    sync_fsm_->init(mig_stream_id, migrationSvc, this, data_store,
+            rcvr_ip, rcvr_port, *tokens.begin(), rcvr_session, client_resp_handler);
+
+    LOGNORMAL << " New sender stream.  Migration id: " << mig_id
+            << "Stream id: " << mig_stream_id << " receiver ip : " << rcvr_ip;
 }
 
 TokenCopySender::~TokenCopySender()
 {
+    delete sync_fsm_;
 }
 
 
 void TokenCopySender::start()
 {
-    sm_->start();
+    copy_fsm_->start();
 }
 
 Error TokenCopySender::handle_actor_request(FdsActorRequestPtr req)
@@ -421,16 +436,35 @@ Error TokenCopySender::handle_actor_request(FdsActorRequestPtr req)
 
     switch (req->type) {
     case FAR_ID(FDSP_PushTokenObjectsResp):
+    {
         /* Posting TokSentEvt */
-        sm_->process_event(TokSentEvt());
+        copy_fsm_->process_event(TokSentEvt());
         break;
+    }
     case FAR_ID(TcsDataReadDone):
+    {
         /* Notification from datastore that token data has been read */
-        sm_->process_event(TokReadEvt());
+        copy_fsm_->process_event(TokReadEvt());
         break;
+    }
+    /* Sync related */
+    case FAR_ID(FDSP_SyncTokenReq):
+    {
+        auto payload = req->get_payload<FDSP_SyncTokenReq>();
+        sync_fsm_->process_event(*payload);
+        break;
+    }
+    case FAR_ID(FDSP_PushTokenMetadataResp):
+    {
+        auto payload = req->get_payload<FDSP_PushTokenMetadataResp>();
+        sync_fsm_->process_event(*payload);
+        break;
+    }
     default:
+    {
         err = ERR_FAR_INVALID_REQUEST;
         break;
+    }
     }
     return err;
 }

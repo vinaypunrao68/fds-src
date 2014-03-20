@@ -1607,6 +1607,13 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
             LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
         }
         break;
+    case FDS_SM_SYNC_RESOLVE_SYNC_ENTRY:
+        objectId = static_cast<SmIoResolveSyncEntry*>(ioReq)->object_id;
+        err =  enqTransactionIo(nullptr, objectId, ioReq, trans_id);
+        if (err != fds::ERR_OK) {
+            LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
+        }
+        break;
     default:
         fds_assert(!"Unknown message");
         LOGERROR << "Unknown message: " << ioReq->io_type;
@@ -1696,8 +1703,22 @@ ObjectStorMgr::applySyncMetadataInternal(SmIoReq* ioReq)
         fds_assert(!"error");
         LOGERROR << "Error in applying sync metadata.  Object Id: "
                 << applyMdReq->md.object_id.digest;
-        return;
     }
+    // TODO(Rao): return missing objects
+    applyMdReq->smio_sync_md_resp_cb(e, applyMdReq, std::set<ObjectID>());
+}
+
+void
+ObjectStorMgr::resolveSyncEntriesInternal(SmIoReq* ioReq)
+{
+    SmIoResolveSyncEntry *resolve_entry =  static_cast<SmIoResolveSyncEntry*>(ioReq);
+    Error e = smObjDb->resolveEntry(resolve_entry->object_id);
+    if (e != ERR_OK) {
+        fds_assert(!"error");
+        LOGERROR << "Error in resolving metadata entry.  Object Id: "
+                << resolve_entry->object_id;
+    }
+    resolve_entry->smio_resolve_resp_cb(e, resolve_entry);
 }
 
 inline void ObjectStorMgr::swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg) {
@@ -1775,10 +1796,10 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
             threadPool->schedule(&ObjectStorMgr::applySyncMetadataInternal, objStorMgr, io);
             break;
         }
-        case FDS_SM_SYNC_RESOLVE_SYNC_ENTRIES:
+        case FDS_SM_SYNC_RESOLVE_SYNC_ENTRY:
         {
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a read token objects";
-            // threadPool->schedule(&ObjectStorMgr::resolveSyncEntriesInternal, objStorMgr, io);
+            threadPool->schedule(&ObjectStorMgr::resolveSyncEntriesInternal, objStorMgr, io);
             break;
         }
         default:
