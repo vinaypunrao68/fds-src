@@ -459,8 +459,8 @@ class BlobNode {
 };
 
 
-  class VolumeMeta {
- private:
+class VolumeMeta {
+  private:
     fds_mutex  *vol_mtx;
 
     /*
@@ -516,8 +516,9 @@ class BlobNode {
     Error QueryVcat(const std::string blob_name,
                     BlobNode*& bnode);
     Error DeleteVcat(const std::string blob_name);
+    fds_bool_t isEmpty() const;
     Error listBlobs(std::list<BlobNode>& bNodeList);
-  };
+};
 
 }  // namespace fds
 

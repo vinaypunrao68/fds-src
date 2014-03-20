@@ -158,25 +158,16 @@ Error DataMgr::_process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
   }
   vol_map_mtx->unlock();
 
-  std::list<BlobNode> bNodeList;
-  err = _process_list(vol_uuid, bNodeList);
-  fds_verify(err == ERR_OK);
-  if (bNodeList.size() != 0) {
+  fds_bool_t isEmpty = _process_isEmpty(vol_uuid);
+  if (isEmpty == false) {
       LOGERROR << "Volume is NOT Empty:"
                << std::hex << vol_uuid << std::dec;
       err = ERR_VOL_NOT_EMPTY;
       return err;
   }
-  /*
-  VolumeMeta *vm = vol_meta_map[vol_uuid];
-  if (vm->getVcat()->DbEmpty() == true) {
-    FDS_PLOG(dataMgr->GetLog()) << "Volume is NOT Empty:"
-                                << std::hex << vol_uuid << std::dec;
-    err = ERR_VOL_NOT_EMPTY;
-    vol_map_mtx->unlock();
-    return err;
-  }
-  */
+  // TODO(Andrew): Here we may want to prevent further I/Os
+  // to the volume as we're going to remove it but a blob
+  // may be written in the mean time.
 
   // if notify delete asked to only check if deleting volume
   // was ok; so we return with success here; DM will get 
@@ -185,10 +176,13 @@ Error DataMgr::_process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
   if (!check_only) {
       // TODO(Andrew): Here we want to delete each blob in the
       // volume and then mark the volume as deleted.
-      // vol_meta_map.erase(vol_uuid);
+      vol_map_mtx->lock();
+      VolumeMeta *vol_meta = vol_meta_map[vol_uuid];
+      vol_meta_map.erase(vol_uuid);
+      vol_map_mtx->unlock();
       dataMgr->qosCtrl->deregisterVolume(vol_uuid);
-      // delete vm->dmVolQueue;
-      // delete vm;
+      delete vol_meta->dmVolQueue;
+      delete vol_meta;
       FDS_PLOG(dataMgr->GetLog()) << "Removed vol meta for vol uuid "
                                   << vol_uuid;
   } else {
@@ -277,6 +271,17 @@ Error DataMgr::_process_abort() {
    */
 
   return err;
+}
+
+fds_bool_t
+DataMgr::_process_isEmpty(fds_volid_t volId) {
+    // Get a local reference to the vol meta.
+    vol_map_mtx->lock();
+    VolumeMeta *vol_meta = vol_meta_map[volId];
+    vol_map_mtx->unlock();
+    fds_verify(vol_meta != NULL);
+
+    return vol_meta->isEmpty();
 }
 
 Error DataMgr::_process_list(fds_volid_t volId,
