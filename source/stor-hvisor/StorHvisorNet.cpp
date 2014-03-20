@@ -13,7 +13,6 @@
 #include "NetSession.h"
 #include <am-platform.h>
 
-#define FDS_REPLICATION_FACTOR 2
 
 StorHvCtrl *storHvisor;
 

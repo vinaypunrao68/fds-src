@@ -134,6 +134,45 @@ class PlatRpcResp : public FDSP_OMControlPathRespIf
     const Platform   *plf_mgr;
 };
 
+class PlatDataPathResp : public FDSP_DataPathRespIf
+{
+  public:
+    explicit PlatDataPathResp(Platform *mgr);
+    virtual ~PlatDataPathResp();
+
+    void GetObjectResp(const FDSP_MsgHdrType& fdsp_msg,
+                       const FDSP_GetObjType& get_obj_req);
+    virtual void
+    GetObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
+                  boost::shared_ptr<FDSP_GetObjType>& get_obj_req);
+
+    void PutObjectResp(const FDSP_MsgHdrType& fdsp_msg,
+                       const FDSP_PutObjType& put_obj_req);
+    virtual void
+    PutObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
+                  boost::shared_ptr<FDSP_PutObjType>& put_obj_req);
+
+    void DeleteObjectResp(const FDSP_MsgHdrType& fdsp_msg,
+                          const FDSP_DeleteObjType& del_obj_req);
+    virtual void
+    DeleteObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
+                     boost::shared_ptr<FDSP_DeleteObjType>& del_obj_req);
+
+    void OffsetWriteObjectResp(const FDSP_MsgHdrType& fdsp_msg,
+                               const FDSP_OffsetWriteObjType& req);
+    virtual void
+    OffsetWriteObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
+                          boost::shared_ptr<FDSP_OffsetWriteObjType>& req);
+
+    void RedirReadObjectResp(const FDSP_MsgHdrType& fdsp_msg,
+                             const FDSP_RedirReadObjType& redir_write_obj_req);
+    virtual void RedirReadObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
+                            boost::shared_ptr<FDSP_RedirReadObjType>& req);
+
+  protected:
+    Platform     *plf_mgr;
+};
+
 };  // namespace fds
 
 #endif  // SOURCE_INCLUDE_PLATFORM_PLATFORM_LIB_H_

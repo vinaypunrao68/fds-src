@@ -15,7 +15,7 @@
 		    "volume-id": 2,
                     "blob-name": "blob-a",
     		    "blob-off":  0,
-		    "blob-ver":  1
+		    "blob-version": 0
                 },
 		{
 		    "blob-op":   "update",
@@ -50,6 +50,13 @@
 		    "object-len": 3145728
                 },
 		{
+		    "blob-op":   "query",
+		    "volume-id": 2,
+                    "blob-name": "blob-a",
+    		    "blob-off":  0,
+		    "blob-version": 0
+                },
+		{
 		    "blob-op":   "delete",
 		    "volume-id": 2,
                     "blob-name": "blob-a",
@@ -57,6 +64,13 @@
 		    "blob-version": 0,
                     "object-id": "0xaaaadeadc94fcfb415dbe95f408b9ce9beefaaaa",
 		    "object-len": 3145728
+                },
+		{
+		    "blob-op":   "query",
+		    "volume-id": 2,
+                    "blob-name": "blob-a",
+    		    "blob-off":  0,
+		    "blob-version":  0
                 }
             ]
         }

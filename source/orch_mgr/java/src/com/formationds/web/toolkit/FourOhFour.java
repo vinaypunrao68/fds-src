@@ -1,5 +1,7 @@
 package com.formationds.web.toolkit;
 
+import org.eclipse.jetty.server.Request;
+
 import javax.servlet.http.HttpServletRequest;
 
 /*
@@ -11,7 +13,7 @@ public class FourOhFour extends TextResource implements RequestHandler  {
     }
 
     @Override
-    public Resource handle(HttpServletRequest request) throws Exception {
+    public Resource handle(Request request) throws Exception {
         return this;
     }
 }

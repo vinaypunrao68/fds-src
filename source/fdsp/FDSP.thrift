@@ -229,6 +229,7 @@ struct FDSP_QueryCatalogType {
 
 struct  FDSP_DeleteCatalogType { /* This is a SH-->SM msg to delete the objectId */
   1: string   blob_name,       /* User visible name of the blob*/
+  2: i64 blob_version, /* Version to delete */
 }
 
 struct FDSP_BlobInfoType{
@@ -969,7 +970,8 @@ service FDSP_ConfigPathReq {
   i32 auditTierPolicy(1: tier_pol_audit audit),
   i32 RemoveNode(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RemoveNodeType rm_node_req),
   i32 ActivateAllNodes(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ActivateAllNodesType act_node_req),
-  list<FDSP_Node_Info_Type> ListServices(1:FDSP_MsgHdrType fdsp_msg)
+  list<FDSP_Node_Info_Type> ListServices(1:FDSP_MsgHdrType fdsp_msg),
+  list <FDSP_VolumeDescType> ListVolumes(1:FDSP_MsgHdrType fdsp_msg)
 }
 
 /* Not needed.  But created for symemtry */

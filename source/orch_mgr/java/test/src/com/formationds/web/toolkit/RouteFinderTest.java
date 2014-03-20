@@ -1,8 +1,8 @@
 package com.formationds.web.toolkit;
 
+import org.eclipse.jetty.server.Request;
+import org.eclipse.jetty.util.MultiMap;
 import org.junit.Test;
-
-import javax.servlet.http.HttpServletRequest;
 
 import static org.junit.Assert.assertEquals;
 
@@ -13,22 +13,79 @@ public class RouteFinderTest {
     @Test
     public void testResolve() throws Exception {
         RouteFinder routeFinder = new RouteFinder();
-        routeFinder.route(HttpMethod.get, "/hello/foo", () -> new Foo());
-        routeFinder.route(HttpMethod.post, "/hello/bar", () -> new Bar());
-        assertEquals(200, routeFinder.resolve(HttpMethod.get, "/hello/foo").get().handle(null).getHttpStatus());
-        assertEquals(404, routeFinder.resolve(HttpMethod.post, "/hello/foo").get().handle(null).getHttpStatus());
-        assertEquals(200, routeFinder.resolve(HttpMethod.post, "/hello/bar").get().handle(null).getHttpStatus());
-        assertEquals(404, routeFinder.resolve(HttpMethod.head, "/hello/bar").get().handle(null).getHttpStatus());
-        assertEquals(404, routeFinder.resolve(HttpMethod.get, "/").get().handle(null).getHttpStatus());
+        routeFinder.route(HttpMethod.GET, "/hello/foo", () -> new Foo());
+        routeFinder.route(HttpMethod.POST, "/hello/bar", () -> new Bar());
+
+        Route route = resolve(HttpMethod.GET, routeFinder, "/hello/foo");
+        assertEquals(200, route.getHandler().get().handle(route.getRequest()).getHttpStatus());
+
+        route = resolve(HttpMethod.GET, routeFinder, "/hello/foo/");
+        assertEquals(200, route.getHandler().get().handle(route.getRequest()).getHttpStatus());
+
+        route = resolve(HttpMethod.POST, routeFinder, "/hello/bar");
+        assertEquals(200, route.getHandler().get().handle(route.getRequest()).getHttpStatus());
+
+        route = resolve(HttpMethod.POST, routeFinder, "/hello/foo");
+        assertEquals(404, route.getHandler().get().handle(route.getRequest()).getHttpStatus());
+
+        route = resolve(HttpMethod.POST, routeFinder, "poop");
+        assertEquals(404, route.getHandler().get().handle(route.getRequest()).getHttpStatus());
     }
 
+    @Test
+    public void testExpandArgs() throws Exception {
+        RouteFinder routeFinder = new RouteFinder();
+        routeFinder.route(HttpMethod.GET, "/a/:color/b/:metal", () -> new Foo());
+
+        Route route = resolve(HttpMethod.GET, routeFinder, "/a/blue/b/iron");
+        assertEquals(200, route.getHandler().get().handle(route.getRequest()).getHttpStatus());
+        assertEquals("blue", route.getRequest().getParameter("color"));
+        assertEquals("iron", route.getRequest().getParameter("metal"));
+    }
+
+    private Route resolve(HttpMethod httpMethod, RouteFinder routeFinder, String q) {
+        Request request = new MockRequest(httpMethod.toString(), q, new MultiMap<>());
+        return routeFinder.resolve(request);
+    }
+
+    class MockRequest extends Request {
+        private String httpMethod;
+        private String requestUri;
+        private MultiMap<String> parameters;
+
+        MockRequest(String httpMethod, String requestUri, MultiMap<String> parameters) {
+            this.httpMethod = httpMethod;
+            this.requestUri = requestUri;
+            this.parameters = parameters;
+        }
+
+        @Override
+        public String getMethod() {
+            return httpMethod;
+        }
+
+        @Override
+        public String getRequestURI() {
+            return requestUri;
+        }
+
+        @Override
+        public void setParameters(MultiMap<String> parameters) {
+            this.parameters = parameters;
+        }
+
+        @Override
+        public String getParameter(String name) {
+            return (String) parameters.getValue(name, 0);
+        }
+    }
     class Foo extends TextResource implements RequestHandler {
         public Foo() {
             super("foo");
         }
 
         @Override
-        public Resource handle(HttpServletRequest request) throws Exception {
+        public Resource handle(Request request) throws Exception {
             return new TextResource("foo");
         }
     }
@@ -39,7 +96,7 @@ public class RouteFinderTest {
         }
 
         @Override
-        public Resource handle(HttpServletRequest request) throws Exception {
+        public Resource handle(Request request) throws Exception {
             return new TextResource("foo");
         }
     }

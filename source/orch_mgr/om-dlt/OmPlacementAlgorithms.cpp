@@ -29,13 +29,15 @@ PlacementMetrics::PlacementMetrics(const ClusterMap *cm,
     ClusterMap::const_iterator node_it, it2;
     fds_uint32_t l1_tok_count, l12_tok_count;
     fds_uint32_t token_count = 0;
+
+    fds_verify(totalWeight > 0);
     for (node_it = cm->cbegin(); node_it != cm->cend(); node_it++) {
         NodeUuid uuid = (*node_it).first;
         // Ensure we haven't counted this node before
         fds_verify(node_weight_toks.count(uuid) == 0);
 
         // Extract node's weight
-        fds_uint32_t weight = ((*node_it).second)->node_stor_weight();
+        fds_uint64_t weight = ((*node_it).second)->node_stor_weight();
 
         // calculate ideal tokens rounded down
         l1_tok_count = primaryTokens(weight);
@@ -44,10 +46,16 @@ PlacementMetrics::PlacementMetrics(const ClusterMap *cm,
         // keep the mapping
         std::pair<double, fds_uint32_t> info(weight, l1_tok_count);
         node_weight_toks[uuid] = info;
+
+        LOGDEBUG << "Node " << std::hex << uuid.uuid_get_val() << std::dec
+                 << " weight " << weight << " of total " << totalWeight
+                 << " optimal rounded down L1 tokens " << l1_tok_count;
     }
     // Since we rounded down all nodes' optimal tokens, assign
     // remaining tokens (so they add up to total number of tokens)
     // to first set of nodes in the node map
+    LOGDEBUG << "Allocated token_count " << token_count
+             << "tokens, will finish allocatating total " << numTokens;
     node_it = cm->cbegin();
     while (token_count < numTokens) {
         fds_verify(node_it != cm->cend());

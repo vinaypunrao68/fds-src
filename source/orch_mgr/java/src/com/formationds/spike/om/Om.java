@@ -29,7 +29,7 @@ public class Om {
         serverFactory.startConfigPathServer(configPath, omConfigPort);
 
         WebApp webApp = new WebApp("");
-        webApp.route(HttpMethod.get, "services", () -> new ListServices(serviceDirectory));
+        webApp.route(HttpMethod.GET, "services", () -> new ListServices(serviceDirectory));
         webApp.start(omHttpPort);
     }
 }

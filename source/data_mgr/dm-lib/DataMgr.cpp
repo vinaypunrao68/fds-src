@@ -149,30 +149,46 @@ Error DataMgr::_process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
    */
   vol_map_mtx->lock();
   if (volExistsLocked(vol_uuid) == false) {
-    FDS_PLOG(dataMgr->GetLog()) << "Received Delete request for " << vol_uuid;
+    FDS_PLOG(dataMgr->GetLog()) << "Received Delete request for:"
+                                << std::hex << vol_uuid << std::dec
+                                << " that doesn't exist.";
     err = ERR_INVALID_ARG;
     vol_map_mtx->unlock();
     return err;
   }
+  vol_map_mtx->unlock();
 
+  std::list<BlobNode> bNodeList;
+  err = _process_list(vol_uuid, bNodeList);
+  fds_verify(err == ERR_OK);
+  if (bNodeList.size() != 0) {
+      LOGERROR << "Volume is NOT Empty:"
+               << std::hex << vol_uuid << std::dec;
+      err = ERR_VOL_NOT_EMPTY;
+      return err;
+  }
+  /*
   VolumeMeta *vm = vol_meta_map[vol_uuid];
-
   if (vm->getVcat()->DbEmpty() == true) {
-    FDS_PLOG(dataMgr->GetLog()) << "Volume is NOT Empty" << vol_uuid;
+    FDS_PLOG(dataMgr->GetLog()) << "Volume is NOT Empty:"
+                                << std::hex << vol_uuid << std::dec;
     err = ERR_VOL_NOT_EMPTY;
     vol_map_mtx->unlock();
     return err;
   }
+  */
 
   // if notify delete asked to only check if deleting volume
   // was ok; so we return with success here; DM will get 
   // another notify volume delete with check_only ==false to
   // actually cleanup all other datastructures for this volume
   if (!check_only) {
-      vol_meta_map.erase(vol_uuid);
+      // TODO(Andrew): Here we want to delete each blob in the
+      // volume and then mark the volume as deleted.
+      // vol_meta_map.erase(vol_uuid);
       dataMgr->qosCtrl->deregisterVolume(vol_uuid);
-      delete vm->dmVolQueue;
-      delete vm;
+      // delete vm->dmVolQueue;
+      // delete vm;
       FDS_PLOG(dataMgr->GetLog()) << "Removed vol meta for vol uuid "
                                   << vol_uuid;
   } else {
@@ -189,7 +205,7 @@ Error DataMgr::_process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
 Error DataMgr::_process_open(fds_volid_t vol_uuid,
                              std::string blob_name,
                              fds_uint32_t trans_id,
-                             const BlobNode*& bnode) {
+                             const BlobNode* bnode) {
   Error err(ERR_OK);
 
   /*
@@ -222,8 +238,7 @@ Error DataMgr::_process_open(fds_volid_t vol_uuid,
   if (err.ok()) {
     FDS_PLOG(dataMgr->GetLog()) << "Opened transaction for volume "
                                 << vol_uuid << ",  blob "
-                                << blob_name << " and mapped to bnode "
-                                << bnode->ToString();
+                                << blob_name;
   } else {
     FDS_PLOG(dataMgr->GetLog()) << "Failed to open transaction for volume "
                                 << vol_uuid;
@@ -235,7 +250,7 @@ Error DataMgr::_process_open(fds_volid_t vol_uuid,
 Error DataMgr::_process_commit(fds_volid_t vol_uuid,
                                std::string blob_name,
                                fds_uint32_t trans_id,
-                               const BlobNode*& bnode) {
+                               const BlobNode* bnode) {
   Error err(ERR_OK);
 
   /*
@@ -339,7 +354,7 @@ Error DataMgr::_process_query(fds_volid_t vol_uuid,
   if (err.ok()) {
     FDS_PLOG(dataMgr->GetLog()) << "Vol meta query for volume "
                                 << vol_uuid << " , blob "
-                                << blob_name << " found bnode " << bnode->ToString();
+                                << blob_name;
   } else {
     FDS_PLOG(dataMgr->GetLog()) << "Vol meta query FAILED for volume "
                                 << vol_uuid;
@@ -748,9 +763,13 @@ DataMgr::applyBlobUpdate(const BlobObjectList &offsetList, BlobNode *bnode) {
                 }
             }
 
-            // Delete ref to old object at offset.
-            // TODO(Andrew): Intergrate with SM-agent data path
-            // interface.
+            // Expunge the old object id
+            // TODO(Andrew): We shouldn't actually expunge until the
+            // a specific version is garbage collected or if there is
+            // no versioning for the volume. For now we expunge since
+            // there's no GC and don't want to leak the object.
+            err = expungeObject(bnode->vol_id, oldBlobObj.data_obj_id);
+            fds_verify(err == ERR_OK);
         }
     }
     // Bump the version since we modified the blob node
@@ -793,7 +812,8 @@ DataMgr::updateCatalogProcess(const dmCatReq  *updCatReq, BlobNode **bnode) {
         // If this blob doesn't already exist, allocate a new one
         LOGDEBUG << "No blob found with name " << updCatReq->blob_name
                  << ", so allocating a new one";
-        *bnode = new BlobNode();
+        *bnode = new BlobNode(updCatReq->volId,
+                              updCatReq->blob_name);
         fds_verify(bnode != NULL);
         err = ERR_OK;
     } else {
@@ -818,13 +838,13 @@ DataMgr::updateCatalogProcess(const dmCatReq  *updCatReq, BlobNode **bnode) {
         err = dataMgr->_process_open((fds_volid_t)updCatReq->volId,
                                      updCatReq->blob_name,
                                      updCatReq->transId,
-                                     (const BlobNode *&)(*bnode));
+                                     (*bnode));
     } else if (updCatReq->transOp ==
                FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_COMMITED) {
         err = dataMgr->_process_commit(updCatReq->volId,
                                        updCatReq->blob_name,
                                        updCatReq->transId,
-                                       (const BlobNode *&)*bnode);
+                                       (*bnode));
     } else {
         fds_panic("Unknown catalog operation!");
     }
@@ -1069,14 +1089,80 @@ DataMgr::blobListBackend(dmCatReq *listBlobReq) {
   delete listBlobReq;
 }
 
+/**
+ * Queries a particular blob version.
+ *
+ * @param[in] The DM query request struct
+ * @param[out] The blob node queried.
+ * The pointer is only valid if err is OK.
+ * @return The result of the query.
+ */
+Error
+DataMgr::queryCatalogProcess(dmCatReq  *qryCatReq, BlobNode **bnode) {
+    Error err(ERR_OK);
+    
+    // TODO(Andrew): All we're doing here is retrieving
+    // the latest version. This needs to be fixed when
+    // we actually have versioning structures.
+    err = _process_query(qryCatReq->volId,
+                         qryCatReq->blob_name,
+                         (*bnode));
+    if (err == ERR_CAT_ENTRY_NOT_FOUND) {
+        // We couldn't locate the blob
+        LOGDEBUG << "No blob found with name " << qryCatReq->blob_name
+                 << ", so nothing to query";
+        err = ERR_BLOB_NOT_FOUND;
+    } else {
+        fds_verify((*bnode) != NULL);
+        fds_verify((*bnode)->version != blob_version_invalid);
+
+        if ((*bnode)->version == blob_version_deleted) {
+            // The version we located was a delete marker, which
+            // is effectively deleted
+            LOGDEBUG << "Found blob name " << (*bnode)->blob_name
+                     << " delete marker. Returning not found.";
+            err = ERR_BLOB_NOT_FOUND;
+            delete (*bnode);
+            (*bnode) = NULL;
+        } else if (qryCatReq->blob_version != blob_version_invalid) {
+            // A specific version was requested, check if we found
+            // that version
+            if (qryCatReq->blob_version == (*bnode)->version) {
+                // We found the version, so return it
+                LOGDEBUG << "Located requested blob " << (*bnode)->blob_name
+                         << " with specific version " << (*bnode)->version;
+            } else {
+                // The version we found doesn't match the requested
+                // version
+                LOGDEBUG << "Located requested blob " << (*bnode)->blob_name
+                         << " with version " << (*bnode)->version
+                         << " that did NOT match requested version "
+                         << qryCatReq->blob_version;
+                err = ERR_BLOB_NOT_FOUND;
+                delete (*bnode);
+                (*bnode) = NULL;
+            }
+        } else {
+            // No version was reqested. Just return the most recent
+            // version that we found.
+            LOGDEBUG << "Located requested blob " << (*bnode)->blob_name
+                     << " with version " << (*bnode)->version;
+        }
+    }
+
+    return err;
+}
+
 void
 DataMgr::queryCatalogBackend(dmCatReq  *qryCatReq) {
   Error err(ERR_OK);
    
   BlobNode *bnode = NULL;
-  err = dataMgr->_process_query(qryCatReq->volId,
-                                qryCatReq->blob_name,
-                                bnode);
+  err = queryCatalogProcess(qryCatReq, &bnode);
+  if (err == ERR_OK) {
+      fds_verify(bnode != NULL);
+      fds_verify(bnode->version != blob_version_invalid);
+  }
 
   FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
   FDS_ProtocolInterface::FDSP_QueryCatalogTypePtr query_catalog(new FDSP_QueryCatalogType);
@@ -1237,6 +1323,114 @@ void DataMgr::ReqHandler::QueryCatalogObject(FDS_ProtocolInterface::
 }
 
 /**
+ * Populates an fdsp message header with stock fields.
+ *
+ * @param[in] Ptr to msg header to modify
+ */
+void
+DataMgr::initSmMsgHdr(FDSP_MsgHdrTypePtr msgHdr) {
+    msgHdr->minor_ver = 0;
+    msgHdr->msg_id    = 1;
+    
+    msgHdr->major_ver = 0xa5;
+    msgHdr->minor_ver = 0x5a;
+    
+    msgHdr->num_objects = 1;
+    msgHdr->frag_len    = 0;
+    msgHdr->frag_num    = 0;
+    
+    msgHdr->tennant_id      = 0;
+    msgHdr->local_domain_id = 0;
+    
+    msgHdr->src_id = FDSP_DATA_MGR;
+    msgHdr->dst_id = FDSP_STOR_MGR;
+    
+    msgHdr->src_node_name = *(plf_mgr->plf_get_my_name());
+
+    msgHdr->err_code = ERR_OK;
+    msgHdr->result   = FDSP_ERR_OK;
+}
+
+/**
+ * Issues delete calls for an object when it is dereferenced
+ * by a blob. Objects should only be expunged whenever a
+ * blob's reference to a object is permanently removed.
+ *
+ * @param[in] The volume in which the obj is being deleted
+ * @param[in] The object to expunge
+ * return The result of the expunge
+ */
+Error
+DataMgr::expungeObject(fds_volid_t volId, const ObjectID &objId) {
+    Error err(ERR_OK);
+
+    // Locate the SMs holding this blob
+    DltTokenGroupPtr tokenGroup = 
+            omClient->getDLTNodesForDoidKey(objId);
+
+    FDSP_MsgHdrTypePtr msgHdr(new FDSP_MsgHdrType);
+    initSmMsgHdr(msgHdr);
+    msgHdr->msg_code       = FDSP_MSG_DELETE_OBJ_REQ;
+    msgHdr->glob_volume_id = volId;
+    msgHdr->req_cookie     = 1;
+    FDSP_DeleteObjTypePtr delReq(new FDSP_DeleteObjType);
+    delReq->data_obj_id.digest.assign((const char *)objId.GetId(),
+                                      (size_t)objId.GetLen());
+    delReq->dlt_version = omClient->getDltVersion();
+    delReq->data_obj_len = 0;  // What is this...?
+
+    // Issue async delete object calls to each SM
+    for (fds_uint32_t i = 0; i < tokenGroup->getLength(); i++) {
+        NodeUuid uuid = tokenGroup->get(i);
+        NodeAgent::pointer node = plf_mgr->plf_node_inventory()->
+                dc_get_sm_nodes()->agent_info(uuid);
+        SmAgent::pointer sm = SmAgent::agt_cast_ptr(node);
+        NodeAgentDpClientPtr smClient = sm->get_sm_client();
+
+        msgHdr->session_uuid = sm->get_sm_sess_id();
+        smClient->DeleteObject(msgHdr, delReq);
+    }
+
+    return err;
+}
+
+/**
+ * Permanetly deletes a blob and the objects that
+ * it refers to.
+ * Expunge differs from delete in that it's a hard delete
+ * that frees resources permanently and is not recoverable.
+ *
+ * @paramp[in] The blob node to expunge
+ * @return The result of the expunge
+ */
+Error
+DataMgr::expungeBlob(const BlobNode *bnode) {
+    Error err(ERR_OK);
+
+    // Grab some kind of lock on the blob?
+
+    // Iterate the entries in the blob list
+    for (BlobObjectList::const_iterator it = bnode->obj_list.cbegin();
+         it != bnode->obj_list.cend();
+         it++) {
+        ObjectID objId = it->data_obj_id;
+
+        if (use_om) {
+            err = expungeObject(bnode->vol_id, objId);
+            fds_verify(err == ERR_OK);
+        } else {
+            // No OM means no DLT, which means
+            // no way to contact SMs. Just keep going.
+            continue;
+        }       
+    }
+
+    // Wait for delete object responses
+
+    return err;
+}
+
+/**
  * "Deletes" a blob in a volume. Deleting may be a lazy or soft
  * delete or a hard delete, depending on the volume's paramters
  * and the blob's version.
@@ -1284,26 +1478,52 @@ DataMgr::deleteBlobProcess(const dmCatReq  *delCatReq, BlobNode **bnode) {
     }
     fds_verify(err == ERR_OK);
 
-    // Allocate a delete marker blob node. The
-    // marker is just a place holder marking the
-    // blobs is deleted. It doesn't actually point
-    // to any offsets or object ids.
-    (*bnode) = new BlobNode();
-    fds_verify((*bnode) != NULL);
-    (*bnode)->version = blob_version_deleted;
+    if (delCatReq->blob_version == blob_version_invalid) {
+        // Allocate a delete marker blob node. The
+        // marker is just a place holder marking the
+        // blob is deleted. It doesn't actually point
+        // to any offsets or object ids.
+        // Blobs with delete markers may have older versions
+        // garbage collected after some time.
+        BlobNode *deleteMarker = new BlobNode(delCatReq->volId,
+                                              delCatReq->blob_name);
+        fds_verify(deleteMarker != NULL);
+        deleteMarker->version   = blob_version_deleted;
 
-    /*
-     * TODO(Andrew): For now, just write the marker bnode
-     * to disk. We'll eventually need open/commit if we're
-     * going to use a 2-phase commit, like puts().
-     */
+        // TODO(Andrew): For now, just write the marker bnode
+        // to disk. We'll eventually need open/commit if we're
+        // going to use a 2-phase commit, like puts().
+        err = _process_open((fds_volid_t)delCatReq->volId,
+                            delCatReq->blob_name,
+                            delCatReq->transId,
+                            deleteMarker);
+        fds_verify(err == ERR_OK);
 
-    // Currently, this processes the entire blob at once.
-    // Any modifications to it need to be made before hand.
-    err = dataMgr->_process_open((fds_volid_t)delCatReq->volId,
-                                 delCatReq->blob_name,
-                                 delCatReq->transId,
-                                 (const BlobNode *&)(*bnode));
+        // We can delete the bnode we received from our
+        // query since we're going to create new blob
+        // node to represent to delete marker and return that
+        delete (*bnode);
+        (*bnode) = deleteMarker;
+    } else if (delCatReq->blob_version == (*bnode)->version) {
+        // We're explicity deleting this version.
+        // We don't use a delete marker and instead
+        // just delete this particular version
+
+        // We dereference count the objects in the blob here
+        // prior to freeing the structure.
+        // TODO(Andrew): We should persistently mark the blob
+        // as being deleted so that we know to clean it up
+        // after a crash. We may also need to persist deref
+        // state so we don't double dereference an object.
+        err = expungeBlob((*bnode));
+        fds_verify(err == ERR_OK);
+
+        // Remove the blob node structure
+        err = _process_delete(delCatReq->volId,
+                              delCatReq->blob_name);
+        fds_verify(err == ERR_OK);
+    }
+
     return err;
 }
 
@@ -1312,8 +1532,9 @@ DataMgr::deleteCatObjBackend(dmCatReq  *delCatReq) {
     Error err(ERR_OK);
 
     BlobNode *bnode = NULL;
-    err = dataMgr->_process_delete(delCatReq->volId,
-                                   delCatReq->blob_name);
+    // Process the delete blob. The deleted or modified
+    // bnode will be allocated and returned on success
+    err = deleteBlobProcess(delCatReq, &bnode);
 
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
     FDS_ProtocolInterface::FDSP_DeleteCatalogTypePtr delete_catalog(new FDSP_DeleteCatalogType);
@@ -1354,33 +1575,31 @@ DataMgr::deleteCatObjBackend(dmCatReq  *delCatReq) {
     delete delCatReq;
 }
 
-
-
 Error
 DataMgr::deleteCatObjInternal(FDSP_DeleteCatalogTypePtr delCatReq, 
-                              fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
+                              fds_volid_t volId, long srcIp, long dstIp, fds_uint32_t srcPort,
 			      fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie) {
-  fds::Error err(fds::ERR_OK);
-
+    fds::Error err(fds::ERR_OK);
     
     /*
      * allocate a new query cat log  class and  queue  to per volume queue.
      */
-  dmCatReq *dmDelReq = new DataMgr::dmCatReq(volId, delCatReq->blob_name, srcIp,0,0,
-					     dstIp, srcPort,dstPort,session_uuid, reqCookie, FDS_DELETE_BLOB, NULL); 
+    dmCatReq *dmDelReq = new DataMgr::dmCatReq(volId, delCatReq->blob_name, srcIp, 0, 0,
+                                               dstIp, srcPort, dstPort, session_uuid,
+                                               reqCookie, FDS_DELETE_BLOB, NULL);
+    dmDelReq->blob_version = delCatReq->blob_version;
 
     err = qosCtrl->enqueueIO(dmDelReq->getVolId(), static_cast<FDS_IOType*>(dmDelReq));
     if (err != ERR_OK) {
-      FDS_PLOG(dataMgr->GetLog()) << "Unable to enqueue Deletye Catalog request "
-                                     << reqCookie;
-      return err;
+        LOGERROR << "Unable to enqueue Deletye Catalog request "
+                 << reqCookie;
+        return err;
     }
-    else 
-    	FDS_PLOG(dataMgr->GetLog()) << "Successfully enqueued  delete Catalog  request "
-                                   << reqCookie;
-
+    else {
+    	LOGDEBUG << "Successfully enqueued  delete Catalog  request "
+                 << reqCookie;
+    }
    return err;
-
 }
 
 void DataMgr::ReqHandler::DeleteCatalogObject(FDS_ProtocolInterface::

@@ -14,6 +14,8 @@ import java.lang.management.ManagementFactory;
 
 public class Main {
     private static Logger LOG = Logger.getLogger(Main.class);
+    public static final int OM_PORT = 8903;
+    private static String OM_HOST = "localhost";
 
     public void start(String[] args) throws Exception {
         ClientFactory clientFactory = new ClientFactory();
@@ -22,9 +24,15 @@ public class Main {
         LOG.info("Process info: " + ManagementFactory.getRuntimeMXBean().getName());
         WebApp webApp = new WebApp("../lib/admin-webapp/");
 
-        webApp.route(HttpMethod.get, "", () -> new LandingPage());
-        webApp.route(HttpMethod.get, "nodes", () -> new ListNodes(clientFactory.configPathClient("localhost", 8903)));
-        webApp.start(4242);
+        webApp.route(HttpMethod.GET, "", () -> new LandingPage());
+        webApp.route(HttpMethod.GET, "/config/nodes", () -> new ListNodes(clientFactory.configPathClient(OM_HOST, OM_PORT)));
+
+        webApp.route(HttpMethod.GET, "/config/volumes", () -> new ListTheVolumes(clientFactory.configPathClient(OM_HOST, OM_PORT)));
+        webApp.route(HttpMethod.POST, "/config/volumes/:name", () -> new CreateVolume(clientFactory.configPathClient(OM_HOST, OM_PORT)));
+        webApp.route(HttpMethod.DELETE, "/config/volumes/:name", () -> new DeleteVolume(clientFactory.configPathClient(OM_HOST, OM_PORT)));
+
+        webApp.route(HttpMethod.GET, "/config/globaldomain", () -> new ShowGlobalDomain());
+        webApp.start(7777);
     }
 
     public static void main(String[] args) throws Exception {

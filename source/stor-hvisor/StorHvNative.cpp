@@ -34,7 +34,8 @@ void FDS_NativeAPI::initVolInfo(FDSP_VolumeInfoTypePtr vol_info, const std::stri
   vol_info->localDomainId = 0;
   vol_info->globDomainId = 0;
 
-  vol_info->capacity = (1024*1024*100);
+  // Volume capacity is in MB
+  vol_info->capacity = (1024*10);  // for now presetting to 10GB
   vol_info->maxQuota = 0;
   vol_info->volType = FDSP_VOL_S3_TYPE;
 
@@ -56,7 +57,8 @@ void FDS_NativeAPI::initVolDesc(FDSP_VolumeDescTypePtr vol_desc, const std::stri
   vol_desc->localDomainId = 0;
   vol_desc->globDomainId = 0;
 
-  vol_desc->capacity = (1024*1024*100);
+  // Volume capacity is in MB
+  vol_desc->capacity = (1024*10);  // for now presetting to 10GB
   vol_desc->maxQuota = 0;
   vol_desc->volType = FDSP_VOL_S3_TYPE;
 
@@ -168,6 +170,7 @@ void FDS_NativeAPI::DeleteBucket(BucketContext* bucketCtxt,
 				 void *callbackData)
 {
     fds_volid_t ret_id; 
+   FDS_PLOG(storHvisor->GetLog()) << "FDS_NativeAPI:DeleteBucket for bucket " << bucketCtxt->bucketName;
    // check the bucket is already attached. 
    ret_id = storHvisor->vol_table->getVolumeUUID(bucketCtxt->bucketName);
    if (ret_id == invalid_vol_id) {
@@ -357,6 +360,7 @@ void FDS_NativeAPI::PutObject(BucketContext *bucket_ctxt,
 			      PutProperties *put_properties,
 			      void *req_context,
 			      char *buffer,
+                              fds_uint64_t startByte, 
 			      fds_uint64_t buflen,
 			      fdsnPutObjectHandler putObjHandler, 
 			      void *callback_data)

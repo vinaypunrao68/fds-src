@@ -55,10 +55,27 @@ void OMgrClientRPCI::DetachVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hd
     om_client->recvVolAttachState(vdb, fds_notify_vol_detach, msg_hdr->result, msg_hdr->session_uuid);
 }
 
-void OMgrClientRPCI::NotifyNodeAdd(FDSP_MsgHdrTypePtr& msg_hdr, 
+void OMgrClientRPCI::NotifyNodeAdd(FDSP_MsgHdrTypePtr& msg_hdr,
 				   FDSP_Node_Info_TypePtr& node_info) {
-  om_client->recvNodeEvent(node_info->node_id, node_info->node_type,
-                           (unsigned int) node_info->ip_lo_addr, node_info->node_state, node_info);
+    Platform *plat = PlatformProcess::plf_manager();
+    FdspNodeRegPtr reg = FdspNodeRegPtr(new FDSP_RegisterNodeType());
+    NodeUuid svc_uuid(node_info->service_uuid);
+
+    reg->node_type      = node_info->node_type;
+    reg->node_name      = node_info->node_name;
+    reg->domain_id      = 0;  // node_info doesn't have it.
+    reg->ip_hi_addr     = node_info->ip_hi_addr;
+    reg->ip_lo_addr     = node_info->ip_lo_addr;
+    reg->control_port   = node_info->control_port;
+    reg->data_port      = node_info->data_port;
+    reg->migration_port = node_info->migration_port;
+    reg->node_uuid.uuid    = node_info->node_uuid;
+    reg->service_uuid.uuid = node_info->service_uuid;
+
+    plat->plf_reg_node_info(svc_uuid, reg);
+    om_client->recvNodeEvent(node_info->node_id, node_info->node_type,
+                             (unsigned int) node_info->ip_lo_addr,
+                              node_info->node_state, node_info);
 }
 
 void OMgrClientRPCI::NotifyNodeRmv(FDSP_MsgHdrTypePtr& msg_hdr, 
@@ -585,7 +602,7 @@ int OMgrClient::recvNodeEvent(int node_id,
 
   node_info_t node;
 
-  node.node_id = node_info->node_uuid;
+  node.node_id = node_info->service_uuid;
   node.node_ip_address = node_ip;
   node.port = node_info->data_port;
   node.node_state = (FDSP_NodeState) node_state;
@@ -907,8 +924,8 @@ OMgrClient::getMigClient(fds_uint64_t node_id) {
     return clustMap->getMigClient(node_id);
 }
 
-DltTokenGroupPtr OMgrClient::getDLTNodesForDoidKey(ObjectID *objId) {
- return dltMgr.getDLT()->getNodes(*objId);
+DltTokenGroupPtr OMgrClient::getDLTNodesForDoidKey(const ObjectID &objId) {
+ return dltMgr.getDLT()->getNodes(objId);
 
 }
 

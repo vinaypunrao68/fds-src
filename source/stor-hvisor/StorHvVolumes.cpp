@@ -146,7 +146,7 @@ StorHvVolumeTable::StorHvVolumeTable(StorHvCtrl *sh_ctrl, fds_log *parent_log)
     vdesc.iops_min = 200;
     vdesc.iops_max = 500;
     vdesc.relativePrio = 8;
-    vdesc.capacity = 100000;
+    vdesc.capacity = 10*1024;
     StorHvVolume *vol = 
     volume_map[FDS_DEFAULT_VOL_UUID] = new StorHvVolume(vdesc, parent_sh, vt_log);
     sh_ctrl->qos_ctrl->registerVolume(vdesc.volUUID,vol->volQueue);

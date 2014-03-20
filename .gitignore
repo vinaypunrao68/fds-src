@@ -15,10 +15,12 @@
 # Other tmp files and files we generated.
 *~
 *.swp
+*.swo
 cscope.*
 tags
 core
 *.orig
+*.pyc
 
 # Built directories
 build.*
@@ -32,14 +34,12 @@ linux-*
 /source/net-proxies/*_server.c
 /source/net-proxies/*_xdr.c
 
-# All ICE stuffs.
-*Ice-3.5.0/cpp/bin/*
-*Ice-3.5.0/cpp/lib/*
-*Ice-3.5.0/cpp/demo/*
-*Ice-3.5.0/cpp/include/*
-*Ice-3.5.0/cpp/src/*
-*Ice-3.5.0/cpp/test/*
+# All Thrift gen stuffs.
 /source/include/fdsp/*
+/source/unit-test/fds-probe/thrift/thrift-gen/*
+/source/orch_mgr/java/gen-java/*
+/source/orch_mgr/java/target/*
+/thrift-0.9.0/compiler/cpp/src/thrift*
 
 # All Pharos stuffs
 /source/tools/pharos/libposix-aio-0.8.1/*
@@ -53,5 +53,17 @@ linux-*
 /source/stor_hvisor/?odule*
 /source/stor_hvisor/*.mod.*
 
-# gmock
+node_modules
+dist
+test/temp
+.sass-cache
+app/bower_components
+.tmp
+test/bower_components/
+*.DS_Store
+.ruby-version
+
+# gmock/nginx
 gmock-1.7.0/gmock_test
+nginx/src/main/ngx_modules.c
+/source/am-engine/am-urls.cpp

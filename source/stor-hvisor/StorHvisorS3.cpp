@@ -14,7 +14,6 @@
 #include <dlt.h>
 #include <ObjectId.h>
 
-#define FDS_REPLICATION_FACTOR 2
 
 extern StorHvCtrl *storHvisor;
 using namespace std;
@@ -82,7 +81,7 @@ StorHvCtrl::dispatchSmPutMsg(StorHvJournalEntry *journEntry) {
 
     // Get DLT node list from dlt
     DltTokenGroupPtr dltPtr;
-    dltPtr = dataPlacementTbl->getDLTNodesForDoidKey(&objId);
+    dltPtr = dataPlacementTbl->getDLTNodesForDoidKey(objId);
     fds_verify(dltPtr != NULL);
 
     fds_uint32_t numNodes = dltPtr->getLength();
@@ -159,7 +158,7 @@ StorHvCtrl::dispatchSmGetMsg(StorHvJournalEntry *journEntry) {
 
     // Look up primary SM from DLT entries
     boost::shared_ptr<DltTokenGroup> dltPtr;
-    dltPtr = dataPlacementTbl->getDLTNodesForDoidKey(&objId);
+    dltPtr = dataPlacementTbl->getDLTNodesForDoidKey(objId);
     fds_verify(dltPtr != NULL);
 
     fds_int32_t numNodes = dltPtr->getLength();
@@ -220,7 +219,7 @@ StorHvCtrl::dispatchSmDelMsg(StorHvJournalEntry *journEntry) {
     // Lookup the Primary SM node-id/ip-address to send the DeleteObject to
     // TODO(Andrew): Send to all nodes...not just primary
     boost::shared_ptr<DltTokenGroup> dltPtr;
-    dltPtr = dataPlacementTbl->getDLTNodesForDoidKey(&objId);
+    dltPtr = dataPlacementTbl->getDLTNodesForDoidKey(objId);
     fds_verify(dltPtr != NULL);
 
     fds_int32_t numNodes = dltPtr->getLength();
@@ -634,6 +633,7 @@ fds::Error StorHvCtrl::upCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
 fds::Error StorHvCtrl::deleteCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
                                      const FDSP_DeleteCatalogTypePtr& delCatRsp) {
   fds::Error err(ERR_OK);
+  fds_int32_t result = 0;
 
   fds_verify(rxMsg->msg_code == FDSP_MSG_DELETE_BLOB_RSP);
 
@@ -671,6 +671,29 @@ fds::Error StorHvCtrl::deleteCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
    * only the resonse from a single DM. We need to finish this transaction by
    * tracking all of the responses from all SMs/DMs in the journal.
    */
+
+   /*
+    *  check the version of the object, return if the version is NULL
+    */
+
+  /*
+   * start accumulating the ack from  DM and  check for the min ack
+   */
+
+  if (rxMsg->msg_code == FDSP_MSG_DELETE_BLOB_RSP) {
+     txn->fds_set_dmack_status(rxMsg->src_ip_lo_addr,
+                              rxMsg->src_port);
+     FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << transId
+                                   << " volID: 0x" << std::hex << volId << std::dec
+                                   << " -  Recvd DM TXN_STATUS_OPEN RSP "
+                                   << " ip " << rxMsg->src_ip_lo_addr
+                                   << " port " << rxMsg->src_port;
+   result = fds_move_del_req_state_machine(rxMsg);
+   fds_verify(result == 0);
+   return err;
+  }
+
+#if 0
   fds::AmQosReq *qosReq  = static_cast<fds::AmQosReq *>(txn->io);
   fds_verify(qosReq != NULL);
   fds::FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
@@ -702,6 +725,7 @@ fds::Error StorHvCtrl::deleteCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
    * was invoked.
    */
   delete blobReq;
+#endif
 
   return err;
 }
@@ -1006,16 +1030,10 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
           <<" StorHvisorTx:" << "IO-XID:" << transId << " volID: 0x" << std::hex
           << vol_id << std::dec << " - Activated txn for req :" << transId;
   
-  FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr(new FDSP_MsgHdrType);
   FDS_ProtocolInterface::FDSP_DeleteObjTypePtr del_obj_req(new FDSP_DeleteObjType);
   
-  storHvisor->InitSmMsgHdr(fdsp_msg_hdr);
-  fdsp_msg_hdr->msg_code = FDSP_MSG_DELETE_OBJ_REQ;
-  fdsp_msg_hdr->msg_id =  1;
-  
-  
-  journEntry->trans_state = FDS_TRANS_OPEN;
-  journEntry->sm_msg = fdsp_msg_hdr; 
+//  journEntry->trans_state = FDS_TRANS_OPEN;
+  journEntry->sm_msg = NULL; 
   journEntry->dm_msg = NULL;
   journEntry->sm_ack_cnt = 0;
   journEntry->dm_ack_cnt = 0;
@@ -1025,8 +1043,7 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   journEntry->io = qosReq;
   journEntry->delMsg = del_obj_req;
   
-  fdsp_msg_hdr->req_cookie = transId;
-  
+#if 0
   err = shVol->vol_catalog_cache->Query(blobReq->getBlobName(),
                                         blobReq->getBlobOffset(),
                                         transId,
@@ -1051,28 +1068,29 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
     blobReq->cbWithResult(err.GetErrno());
     return err.GetErrno();
   }
+#endif
   
   FDS_PLOG(storHvisor->GetLog())
           << " StorHvisorTx:" << "IO-XID:" << transId << " volID: 0x" << std::hex
           << vol_id << std::dec << " - object ID: " << oid.ToHex(oid)
           << "  ObjLen:" << journEntry->data_obj_len;
+
+   // SAN- check the  version of the object. If the object version NULL ( object deleted) return
   
-  // We have a Cache HIT *$###
-  
-  fdsp_msg_hdr->glob_volume_id = vol_id;;
-  fdsp_msg_hdr->req_cookie = transId;
-  fdsp_msg_hdr->msg_code = FDSP_MSG_DELETE_OBJ_REQ;
-  fdsp_msg_hdr->msg_id =  1;
-  fdsp_msg_hdr->src_ip_lo_addr = SRC_IP;
-  fdsp_msg_hdr->src_port = 0;
-//  fdsp_msg_hdr->src_node_name = storHvisor->my_node_name;
-  fdsp_msg_hdr->src_node_name = storHvisor->myIp;
   del_obj_req->data_obj_id.digest = std::string((const char *)oid.GetId(), (size_t)oid.GetLen());
   del_obj_req->data_obj_len = blobReq->getDataLen();
   
   journEntry->op = FDS_DELETE_BLOB;
   journEntry->data_obj_id.digest = std::string((const char *)oid.GetId(), (size_t)oid.GetLen());
   journEntry->trans_state = FDS_TRANS_DEL_OBJ;
+
+  // Invalidate the local cache entry for the blob.
+  // We can do this here, even before sending the messages to DM
+  // since even if the delete fails, it'll just produce a later
+  // cache miss that will go to DM anyways.
+  err = shVol->vol_catalog_cache->clearEntry(blobReq->getBlobName());
+  fds_verify(err == ERR_OK);
+
   
   // RPC Call DeleteCatalogObject to DataMgr
   FDS_ProtocolInterface::FDSP_DeleteCatalogTypePtr del_cat_obj_req(new FDSP_DeleteCatalogType);
@@ -1084,9 +1102,10 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   fdsp_msg_hdr_dm->req_cookie = transId;
   fdsp_msg_hdr_dm->src_ip_lo_addr = SRC_IP;
 //  fdsp_msg_hdr_dm->src_node_name = storHvisor->my_node_name;
-  fdsp_msg_hdr->src_node_name = storHvisor->myIp;
+  fdsp_msg_hdr_dm->src_node_name = storHvisor->myIp;
   fdsp_msg_hdr_dm->src_port = 0;
   fdsp_msg_hdr_dm->dst_port = node_port;
+  journEntry->dm_msg = fdsp_msg_hdr_dm;
   storHvisor->dataPlacementTbl->getDMTNodesForVolume(vol_id, node_ids, &num_nodes);
   
   for (i = 0; i < num_nodes; i++) {
@@ -1106,7 +1125,9 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
     journEntry->dm_ack[i].commit_status = FDS_CLS_ACK;
     journEntry->num_dm_nodes = num_nodes;
     del_cat_obj_req->blob_name = blobReq->getBlobName();
-    
+    // TODO(Andrew): Set to a specific version rather than
+    // always just the current
+    del_cat_obj_req->blob_version = blob_version_invalid;
 
     // Call Update Catalog RPC call to DM
     netMetaDataPathClientSession *sessionCtx =
@@ -1116,8 +1137,8 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
     boost::shared_ptr<FDSP_MetaDataPathReqClient> client =
             sessionCtx->getClient();
 
-    fdsp_msg_hdr->session_uuid = sessionCtx->getSessionId();
-    journEntry->session_uuid = fdsp_msg_hdr->session_uuid;
+    fdsp_msg_hdr_dm->session_uuid = sessionCtx->getSessionId();
+    journEntry->session_uuid = fdsp_msg_hdr_dm->session_uuid;
     client->DeleteCatalogObject(fdsp_msg_hdr_dm, del_cat_obj_req);
     FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTx:" << "IO-XID:"
             << transId << " volID:" << std::hex << vol_id << std::dec
@@ -1125,8 +1146,10 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
             <<  node_ip << " port " << node_port;
 
   }
+#if 0 
   // Schedule a timer here to track the responses and the original request
   shVol->journal_tbl->schedule(journEntry->ioTimerTask, std::chrono::seconds(FDS_IO_LONG_TIME));
+#endif
 
   shVol->readUnlock();
 

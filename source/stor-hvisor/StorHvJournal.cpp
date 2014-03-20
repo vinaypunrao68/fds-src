@@ -118,6 +118,8 @@ int StorHvJournalEntry::fds_set_dmack_status(int ipAddr,
         (dm_ack[node].port == port)) {
       if (dm_ack[node].ack_status < FDS_SET_ACK) {
         dm_ack_cnt++; 
+        FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::normal)
+                             << "updating the DM ACK: " << dm_ack_cnt;
         dm_ack[node].ack_status = FDS_SET_ACK;
         return 0;
       }

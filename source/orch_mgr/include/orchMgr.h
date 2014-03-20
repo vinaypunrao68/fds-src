@@ -242,6 +242,13 @@ class OrchMgr: public FdsProcess {
         void ListServices(std::vector<FDSP_Node_Info_Type> & ret,
                           boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg);
 
+        void ListVolumes(
+            std::vector<FDS_ProtocolInterface::FDSP_VolumeDescType> & _return,
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg);
+        void ListVolumes(
+            std::vector<FDS_ProtocolInterface::FDSP_VolumeDescType> & _return,
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg);
+
   private:
         OrchMgr *orchMgr;
     };

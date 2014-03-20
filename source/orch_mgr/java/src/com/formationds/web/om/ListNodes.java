@@ -10,6 +10,7 @@ import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 import org.codehaus.jackson.map.ObjectMapper;
+import org.eclipse.jetty.server.Request;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
@@ -22,7 +23,7 @@ public class ListNodes implements RequestHandler {
     }
 
     @Override
-    public Resource handle(HttpServletRequest request) throws Exception {
+    public Resource handle(Request request) throws Exception {
         List<FDSP_Node_Info_Type> list = configPathClient.ListServices(new FDSP_MsgHdrType());
         return new TextResource(new ObjectMapper().writeValueAsString(list));
     }

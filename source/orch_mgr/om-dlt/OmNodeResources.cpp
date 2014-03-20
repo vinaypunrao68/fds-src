@@ -179,7 +179,7 @@ OM_SmAgent::om_send_vol_cmd(VolumeInfo::pointer    vol,
                 attach->vol_desc.volUUID   = 9876;
                 attach->vol_desc.tennantId = 0;
                 attach->vol_desc.localDomainId = 0;
-                attach->vol_desc.capacity = 1000000;
+                attach->vol_desc.capacity = 1000;
                 attach->vol_desc.volType  = FDS_ProtocolInterface::FDSP_VOL_S3_TYPE;
             }
             m_hdr->msg_code = cmd_type;

@@ -276,7 +276,28 @@ Error VolumeCatalogCache::Update(const std::string& blobName,
   return err;
 }
 
-/*
+/**
+ * Clears a single blob entry from the cache. This
+ * simply removes the in memory cache entry.
+ * @return returns result of the clear. The function is
+ * meant to be idempotent and return success even if the
+ * entry didn't exist.
+ */
+Error VolumeCatalogCache::clearEntry(const std::string &blobName) {
+    Error err(ERR_OK);
+
+    blobRwLock.write_lock();
+    if (blobMap.count(blobName) > 0) {
+        CatalogCache *blobCache = blobMap[blobName];
+        blobMap.erase(blobName);
+        delete blobCache;
+    }
+    blobRwLock.write_unlock();
+
+    return err;
+}
+
+/**
  * Clears the local in-memory cache for a volume.
  */
 void VolumeCatalogCache::Clear() {

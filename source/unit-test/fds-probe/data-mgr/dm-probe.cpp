@@ -149,6 +149,42 @@ Dm_ProbeMod::pr_get(ProbeRequest *req)
 void
 Dm_ProbeMod::sendQuery(const OpParams &queryParams)
 {
+    std::cout << "Doing a query" << std::endl;
+
+    // Allocate a dm request using the fdsp message
+    DataMgr::dmCatReq *dmQueryReq = new DataMgr::dmCatReq(
+        queryParams.volId,
+        queryParams.blobName,
+        0,  // Dm trans id is 0
+        0,  // Dm op id is 0
+        0,  // Source IP is 0
+        0,  // Dst IP is 0
+        0,  // Source port is 0
+        0,  // Dst port is 0
+        "0",  // Session UUID is 0
+        0,  // Request cookie is 0
+        FDS_CAT_QRY,
+        NULL);
+    dmQueryReq->setBlobVersion(queryParams.blobVersion);
+
+    BlobNode *bnode = NULL;
+    Error err = dataMgr->queryCatalogProcess(dmQueryReq, &bnode);
+    if (err == ERR_BLOB_NOT_FOUND) {
+        std::cout << "Blob " << dmQueryReq->blob_name
+                  << " was NOT found" << std::endl;
+    } else {
+        fds_verify(err == ERR_OK);
+        fds_verify(bnode != NULL);
+        std::cout << "Queried blob " << dmQueryReq->blob_name
+                  << " OK with size " << bnode->blob_size
+                  << " and " << bnode->obj_list.size()
+                  << " entries" << std::endl;
+    }
+
+    if (bnode != NULL) {
+        delete bnode;
+    }
+    delete dmQueryReq;
 }
 
 // pr_delete
@@ -260,6 +296,8 @@ UT_ObjectOp::js_exec_obj(JsObject *parent,
             gl_Dm_ProbeMod.sendUpdate(*info);
         } else if (info->op == "delete") {
             gl_Dm_ProbeMod.sendDelete(*info);
+        } else if (info->op == "query") {
+            gl_Dm_ProbeMod.sendQuery(*info);
         }
     }
 

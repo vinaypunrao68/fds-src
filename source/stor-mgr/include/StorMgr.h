@@ -449,7 +449,7 @@ class ObjectStorMgr :
         return omClient->getCurrentDLT()->getToken(objId);
     }
     TVIRTUAL bool isTokenInSyncMode(const fds_token_id &tokId) {
-        fds_assert(!"not implemented");
+        // fds_assert(!"not implemented");
         return false;
     }
     TVIRTUAL uint64_t getTokenSyncTimeStamp(const fds_token_id &tokId) {

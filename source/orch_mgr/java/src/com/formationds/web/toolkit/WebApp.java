@@ -2,7 +2,6 @@ package com.formationds.web.toolkit;
 
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.Server;
-import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.server.nio.NetworkTrafficSelectChannelConnector;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
@@ -29,7 +28,7 @@ public class WebApp {
 
     public void start(int httpPort) {
         Server server = new Server();
-        ServerConnector connector = new NetworkTrafficSelectChannelConnector(server);
+        Connector connector = new NetworkTrafficSelectChannelConnector();
         connector.setPort(httpPort);
         connector.setHost("0.0.0.0");
 

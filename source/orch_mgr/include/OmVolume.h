@@ -297,6 +297,22 @@ class VolumeContainer : public RsContainer
             }
         }
     }
+
+    /**
+     * Iteration over volumes that are not in 'delete pending' state
+     */
+    template <typename T>
+    void vol_up_foreach (T arg, void (*fn)(T arg, VolumeInfo::pointer elm)) {
+        for (fds_uint32_t i = 0; i < rs_cur_idx; i++) {
+            VolumeInfo::pointer vol = VolumeInfo::vol_cast_ptr(rs_array[i]);
+            if (rs_array[i] != NULL) {
+                if (!vol->is_delete_pending()) {
+                    (*fn)(arg, vol);
+                }
+            }
+        }
+    }
+
     /**
      * Register the discovery manager for volume discovery tasks.
      */

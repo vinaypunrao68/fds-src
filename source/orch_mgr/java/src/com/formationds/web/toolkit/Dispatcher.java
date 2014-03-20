@@ -2,6 +2,7 @@ package com.formationds.web.toolkit;
 
 import com.google.common.collect.Multimap;
 import org.apache.log4j.Logger;
+import org.eclipse.jetty.server.Request;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -25,13 +26,37 @@ public class Dispatcher extends HttpServlet {
     }
 
 
-    protected void service(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        service(req, resp);
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        service(req, resp);
+    }
+
+    @Override
+    protected void doPut(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        service(req, resp);
+    }
+
+    @Override
+    protected void doDelete(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        service(req, resp);
+    }
+
+    @Override
+    public void service(HttpServletRequest httpServletRequest, HttpServletResponse response) throws IOException, ServletException {
+        Request request = (Request) httpServletRequest;
         RequestHandler requestHandler;
 
         if (isStaticAsset(request)) {
             requestHandler = new StaticFileHandler(webDir);
         } else {
-            requestHandler = routeFinder.resolve(request).get();
+            Route route = routeFinder.resolve(request);
+            requestHandler = route.getHandler().get();
+            request = route.getRequest();
         }
 
         Resource resource = new FourOhFour();
@@ -45,7 +70,7 @@ public class Dispatcher extends HttpServlet {
         }
 
         Arrays.stream(resource.cookies()).forEach(c -> response.addCookie(c));
-
+        response.addHeader("Access-Control-Allow-Origin", "*");
         response.setContentType(resource.getContentType());
         response.setStatus(resource.getHttpStatus());
         Multimap<String, String> extraHeaders = resource.extraHeaders();

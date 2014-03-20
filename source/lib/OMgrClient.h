@@ -177,7 +177,7 @@ namespace fds {
 
     fds_uint64_t getDltVersion();
     fds_uint32_t getLatestDlt(std::string& dlt_data);
-    DltTokenGroupPtr getDLTNodesForDoidKey(ObjectID *objId);
+    DltTokenGroupPtr getDLTNodesForDoidKey(const ObjectID &objId);
     const DLT* getCurrentDLT();
     const DLT* getPreviousDLT();
     const TokenList& getTokensForNode(const NodeUuid &uuid) const;

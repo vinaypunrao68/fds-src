@@ -57,21 +57,22 @@ namespace fds {
     void Clear();
   };
 
-  /*
-   * TODO: This should be broken up into the volume object
-   * that will eventually be implemented on the client-side.
-   * That means there won't need to be this map to each
-   * volume cache, instead a map to the volumes.
-   */
-  class VolumeCatalogCache {
- private:
+/*
+ * TODO: This should be broken up into the volume object
+ * that will eventually be implemented on the client-side.
+ * That means there won't need to be this map to each
+ * volume cache, instead a map to the volumes.
+ */
+class VolumeCatalogCache {
+  private:
     /*
      * ID of vol associate with the cache.
      */
     fds_volid_t vol_id;
 
-    /*
+    /**
      * Local map to catalog/offset cache for each blob
+     * TODO(Andrew): Make these smart pointers, not raw.
      */
     typedef std::unordered_map<std::string, CatalogCache *> BlobMap;
     BlobMap blobMap;
@@ -116,12 +117,13 @@ namespace fds {
     Error Update(const std::string& blobName,
                  fds_uint64_t blobOffset,
                  const ObjectID &oid);
+    Error clearEntry(const std::string &blobName);
     void Clear();
 
     fds_volid_t GetID() const {
       return vol_id;
     }
-  };
+};
 }  // namespace fds
 
 #endif  // SOURCE_STOR_HVISOR_ICE_VOLUMECATALOGCACHE_H_

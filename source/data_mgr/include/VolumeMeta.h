@@ -156,6 +156,16 @@ class BlobObjectList {
         return obj_list.back();
     }
 
+    typedef std::vector<BlobObjectInfo>::iterator iterator;
+    typedef std::vector<BlobObjectInfo>::const_iterator const_iterator;
+    const_iterator cbegin() const {
+        return obj_list.cbegin();
+    }
+
+    const_iterator cend() const {
+        return obj_list.cend();
+    }
+
     const BlobObjectInfo& objectForOffset(const fds_uint64_t offset) const {
         uint i;
         for (i = 0; 
@@ -277,6 +287,12 @@ class BlobNode {
         version = blob_version_invalid;
         blob_size = 0;
         meta_list.clear();
+    }
+
+    BlobNode(fds_volid_t volId, const std::string &name)
+            : BlobNode() {
+        vol_id = volId;
+        blob_name = name;
     }
 
     std::string metaListToString() const {

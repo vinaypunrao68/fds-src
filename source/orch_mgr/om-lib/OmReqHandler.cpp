@@ -492,6 +492,35 @@ void OrchMgr::FDSP_ConfigPathReqHandler::ListServices(
         agent_foreach<std::vector<FDSP_Node_Info_Type> &>(vec, add_to_vector);
 }
 
+void OrchMgr::FDSP_ConfigPathReqHandler::ListVolumes(
+    std::vector<FDS_ProtocolInterface::FDSP_VolumeDescType> & _return,
+    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+}
+
+static void
+add_vol_to_vector(std::vector<FDS_ProtocolInterface::FDSP_VolumeDescType> &vec,  // NOLINT
+                  VolumeInfo::pointer vol) {
+    FDS_ProtocolInterface::FDSP_VolumeDescType voldesc;
+    vol->vol_fmt_desc_pkt(&voldesc);
+    FDS_PLOG_SEV(g_fdslog, fds_log::notification)
+            << "Volume in list: " << voldesc.vol_name << ":"
+            << std::hex << voldesc.volUUID << std::dec
+            << "min iops " << voldesc.iops_min << ",max iops "
+            << voldesc.iops_max << ", prio " << voldesc.rel_prio;
+    vec.push_back(voldesc);
+}
+
+void OrchMgr::FDSP_ConfigPathReqHandler::ListVolumes(
+    std::vector<FDS_ProtocolInterface::FDSP_VolumeDescType> & _return,
+    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg) {
+    LOGNOTIFY<< "OM received ListVolumes message";
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    VolumeContainer::pointer vols = local->om_vol_mgr();
+    // list volumes that are not in 'delete pending' state
+    vols->vol_up_foreach<std::vector<FDSP_VolumeDescType> &>(_return, add_vol_to_vector);
+}
+
 int32_t OrchMgr::FDSP_ConfigPathReqHandler::applyTierPolicy(
     const ::FDS_ProtocolInterface::tier_pol_time_unit& policy) {
     // Don't do anything here. This stub is just to keep cpp compiler happy

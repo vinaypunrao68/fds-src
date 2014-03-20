@@ -109,6 +109,7 @@ Atmos_PutObject::ame_request_handler()
     int           len;
     char          *buf;
     FDS_NativeAPI *api;
+    fds_uint64_t  offset = 0;
     BucketContext bucket_ctx("host", get_bucket_id(), "accessid", "secretkey");
 
     buf = ame_reqt_iter_data(&len);
@@ -118,7 +119,7 @@ Atmos_PutObject::ame_request_handler()
     }
     api = ame->ame_fds_hook();
     api->PutObject(&bucket_ctx, get_object_id(), NULL,
-                   static_cast<void *>(ame_ctx), buf, len,
+                   static_cast<void *>(ame_ctx), buf, len, offset,
                    atmos_putobj_cbfn, static_cast<void *>(this));
 }
 

@@ -524,6 +524,7 @@ class FDS_NativeAPI {
                  PutProperties *putproperties,
                  void *reqContext,
                  char *buffer, 
+                 fds_uint64_t startByte, 
                  fds_uint64_t buflen,
                  fdsnPutObjectHandler putObjHandler, 
                  void *callbackData);

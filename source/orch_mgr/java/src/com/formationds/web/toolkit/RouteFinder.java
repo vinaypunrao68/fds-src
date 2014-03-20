@@ -1,64 +1,42 @@
 package com.formationds.web.toolkit;
 
-import javax.servlet.http.HttpServletRequest;
-import java.util.HashMap;
-import java.util.Map;
+import com.formationds.web.toolkit.route.LexicalTrie;
+import com.formationds.web.toolkit.route.QueryResult;
+import org.eclipse.jetty.server.Request;
+import org.eclipse.jetty.util.MultiMap;
+
 import java.util.function.Supplier;
 
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
 public class RouteFinder {
-
-    private Map<Key, Supplier<RequestHandler>> map;
+    private LexicalTrie<Supplier<RequestHandler>> map;
 
     public RouteFinder() {
-        map = new HashMap<>();
+        map = LexicalTrie.newTrie();
     }
 
     public void route(HttpMethod method, String name, Supplier<RequestHandler> handler) {
-        map.put(new Key(method, name), handler);
+        name = method.toString() + name
+                .replaceAll("^/", "")
+                .replaceAll("$/", "");
+        map.put(name, handler);
     }
 
-    public Supplier<RequestHandler> resolve(HttpServletRequest request) {
-        String path = request.getRequestURI()
+    public Route resolve(Request request) {
+        String path = request.getMethod().toString() + request.getRequestURI()
                 .replaceAll("^" + request.getServletPath() + "/", "")
-                .replaceAll("^/", "");
-        HttpMethod method = HttpMethod.valueOf(request.getMethod().toLowerCase());
-        return resolve(method, path);
-    }
-
-    public Supplier<RequestHandler> resolve(HttpMethod method, String path) {
-        return map.computeIfAbsent(new Key(method, path), k -> () -> new FourOhFour());
-    }
-
-    private class Key {
-        private HttpMethod method;
-        private String path;
-
-        private Key(HttpMethod method, String path) {
-            this.method = method;
-            this.path = path;
+                .replaceAll("^/", "")
+                .replaceAll("/$", "");
+        QueryResult<Supplier<RequestHandler>> result = map.find(path);
+            MultiMap<String> parameters = request.getParameters() == null ? new MultiMap<>() : request.getParameters();
+        if (result.found()) {
+            result.getMatches().forEach((k, v) -> parameters.add(k, v));
+            request.setParameters(parameters);
+            return new Route(request, result.getValue());
         }
 
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
-
-            Key key = (Key) o;
-
-            if (method != key.method) return false;
-            if (!path.equals(key.path)) return false;
-
-            return true;
-        }
-
-        @Override
-        public int hashCode() {
-            int result = method.hashCode();
-            result = 31 * result + path.hashCode();
-            return result;
-        }
+        return new Route(request, () -> new FourOhFour());
     }
 }

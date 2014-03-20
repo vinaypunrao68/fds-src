@@ -7,13 +7,14 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 
 import javax.servlet.http.Cookie;
+import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.OutputStream;
 
 public interface Resource {
-    public int getHttpStatus();
-
     public String getContentType();
+
+    public void render(OutputStream outputStream) throws IOException;
 
     public default Multimap<String, String> extraHeaders() {
         return ArrayListMultimap.create();
@@ -23,5 +24,8 @@ public interface Resource {
         return new Cookie[0];
     }
 
-    public void render(OutputStream outputStream) throws IOException;
+    public default int getHttpStatus() {
+        return HttpServletResponse.SC_OK;
+    }
+
 }
