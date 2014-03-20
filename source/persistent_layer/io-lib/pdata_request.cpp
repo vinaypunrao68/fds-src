@@ -15,7 +15,7 @@ IndexRequest::IndexRequest(meta_obj_id_t const &oid,
 {
     idx_oid = oid;
     obj_map_init(&idx_vmap);
-    vadr_set_inval(idx_vio.vol_adr);
+    memset(&idx_phy_loc, 0, sizeof(idx_phy_loc));
 }
 
 IndexRequest::IndexRequest(meta_vol_io_t const &vio,
@@ -25,6 +25,7 @@ IndexRequest::IndexRequest(meta_vol_io_t const &vio,
     idx_vio = vio;
     obj_id_set_inval(&idx_oid);
     obj_map_init(&idx_vmap);
+    memset(&idx_phy_loc, 0, sizeof(idx_phy_loc));
 }
 
 IndexRequest::IndexRequest(meta_obj_id_t const &oid,
@@ -34,7 +35,8 @@ IndexRequest::IndexRequest(meta_obj_id_t const &oid,
 {
     idx_oid = oid;
     idx_vio = vio;
-    obj_map_init(&idx_vmap);
+    memset(&idx_vmap, 0, sizeof(idx_vmap));
+    memset(&idx_phy_loc, 0, sizeof(idx_phy_loc));
 }
 
 // \IndexRequest::req_abort
@@ -82,7 +84,6 @@ DiskRequest::DiskRequest(meta_vol_io_t       &vio,
       datTier(diskTier)
 {
     obj_id_set_inval(&dat_old_oid);
-    vadr_set_inval(dat_new_vol.vol_adr);
 }
 
 DiskRequest::DiskRequest(meta_vol_io_t       &vio,
@@ -111,8 +112,6 @@ DiskRequest::DiskRequest(meta_vol_io_t       &vio,
     }
     if (new_vol != nullptr) {
         dat_new_vol = *new_vol;
-    } else {
-        vadr_set_inval(dat_new_vol.vol_adr);
     }
 }
 

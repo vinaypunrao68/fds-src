@@ -50,7 +50,7 @@ namespace fds {
 
 typedef fds_uint32_t fds_token_id;
 
-
+#if 0
 class SmObjMetadata
 {
 public:
@@ -229,11 +229,13 @@ public:
     uint8_t version;
     /* Data mask to indicate which of the metadata is valid */
     uint8_t data_mask;
+    // 
     /* Current metadata for client io */
     SmObjMetadata meta_data;
     /* Sync related metadata */
     SmObjMetadata sync_meta_data;
 };
+#endif
 
 /**
  * Stores storage manages object metadata
@@ -273,6 +275,7 @@ public:
 
     fds::Error Put(const ObjectID& obj_id, ObjectBuf& obj_buf);
 
+#if 0
     Error readObjectLocations(const View &view, const ObjectID &objId,
             diskio::MetaObjMap &objMaps);
 
@@ -281,6 +284,7 @@ public:
             fds_bool_t      append);
 
     Error deleteObjectLocation(const ObjectID& objId);
+#endif
 
     Error putSyncEntry(const ObjectID& obj_id,
             const FDSP_MigrateObjectMetadata& data);
@@ -291,9 +295,11 @@ public:
             SMTokenItr &itr);
 
     // TODO(Rao:) Make these private.  Exposed for mock testing
+#if 0
     Error get_(const View &view,
             const ObjectID& objId, OnDiskSmObjMetadata& md);
     Error put_(const ObjectID& objId, const OnDiskSmObjMetadata& md);
+#endif
 private:
     inline fds_token_id getTokenId_(const ObjectID& objId);
     inline ObjectDB* getObjectDB_(const fds_token_id& tokId);

@@ -13,20 +13,22 @@
 #include <iostream>
 #include <persistent_layer/dm_io.h>
 #include <fds_process.h>
+#include <tokFileMgr.h>
 
 namespace diskio {
 
 static const int  sgt_ssd_count = 2;
 static const int  sgt_hdd_count = 11;
-static const char *sgt_dt_file = "/data-";
+static const char *sgt_dt_file = "";
 
 // ----------------------------------------------------------------------------
 DataIOModule            gl_dataIOMod("Disk IO Module");
 DataDiscoveryModule     dataDiscoveryMod("Data Discovery Module");
+tokenFileDb *g_tokenFileMgr;
 
 static DataIO           *sgt_dataIO;
-static PersisDataIO     *sgt_hddIO[sgt_hdd_count];
-static PersisDataIO     *sgt_ssdIO[sgt_ssd_count];
+// static FilePersisDataIO     *sgt_hddIO[sgt_hdd_count];
+static FilePersisDataIO     *sgt_ssdIO[sgt_ssd_count];
 
 // ----------------------------------------------------------------------------
 
@@ -56,14 +58,13 @@ DataIOModule::mod_init(fds::SysParams const *const param)
 
     std::cout << "DataIOModule init..." << std::endl;
     sgt_dataIO = new DataIO;
-    for (int i = 0; i < sgt_hdd_count; i++) {
-        sgt_hddIO[i] =
-            new FilePersisDataIO(dataDiscoveryMod.disk_hdd_path(i), i);
-    }
     for (int  i = 0; i < sgt_ssd_count; i++) {
+      std::string file = dataDiscoveryMod.disk_ssd_path(i);
+       file = file + "/data-" + std::to_string(i);
       sgt_ssdIO[i] =
-          new FilePersisDataIO(dataDiscoveryMod.disk_ssd_path(i), i);
+          new FilePersisDataIO(file.c_str(), i);
     }
+    g_tokenFileMgr = new tokenFileDb();
     return 0;
 }
 
@@ -117,7 +118,7 @@ bool
 DataDiscoveryModule::disk_detect_label(std::string *path, DataTier tier)
 {
     int         fd, limit;
-    std::string file, base = *path + std::string(sgt_dt_file);
+    std::string file, base = *path;
 
     limit = tier == diskTier ? sgt_hdd_count : sgt_ssd_count;
     for (int i = 0; i < limit; i++) {
@@ -125,9 +126,9 @@ DataDiscoveryModule::disk_detect_label(std::string *path, DataTier tier)
         if ((fd = open(file.c_str(), O_DIRECT | O_NOATIME)) > 0) {
             // Found the valid label.
             if (tier == diskTier) {
-                pd_hdd_labeled[i] = file;
+                pd_hdd_labeled[i].assign(file);
             } else if (tier == flashTier) {
-                pd_ssd_labeled[i] = file;
+                pd_ssd_labeled[i].assign(file);
             } else {
               fds_panic("Unknown tier label!");
             }
@@ -201,15 +202,15 @@ DataDiscoveryModule::parse_device_dir(const std::string& path, DataTier tier)
             }
             if (tier == diskTier) {
                 if (pd_hdd_found < pd_hdd_count) {
+                    pd_hdd_raw[pd_hdd_found].assign(subdir);
                     /* Located a new hdd path */
-                    pd_hdd_raw[pd_hdd_found] = subdir;
                     disk_detect_label(&pd_hdd_raw[pd_hdd_found], diskTier);
                     pd_hdd_found++;
                 }
             } else if (tier == flashTier) {
                 if (pd_ssd_found < pd_ssd_count) {
+                    pd_ssd_raw[pd_ssd_found].assign(subdir);
                     /* Located a new ssd path */
-                    pd_ssd_raw[pd_ssd_found] = subdir;
                     disk_detect_label(&pd_ssd_raw[pd_ssd_found], flashTier);
                     pd_ssd_found++;
                 }
@@ -303,10 +304,9 @@ DataDiscoveryModule::mod_init(fds::SysParams const *const param)
             pd_ssd_raw[pd_ssd_found++] = ssd;
         }
     }
+#if 0
     for (int i = 0; i < pd_hdd_found; i++) {
         if (!pd_hdd_raw[i].empty()) {
-            fds_verify(pd_hdd_labeled[i].empty());
-
             disk_make_label(&pd_hdd_raw[i], diskTier, i);
             fds_verify(!pd_hdd_labeled[i].empty());
         } else {
@@ -315,14 +315,13 @@ DataDiscoveryModule::mod_init(fds::SysParams const *const param)
     }
     for (int i = 0; i < pd_ssd_found; i++) {
         if (!pd_ssd_raw[i].empty()) {
-            fds_verify(pd_ssd_labeled[i].empty());
-
             disk_make_label(&pd_ssd_raw[i], flashTier, i);
             fds_verify(!pd_ssd_labeled[i].empty());
         } else {
             fds_verify(!pd_ssd_labeled[i].empty());
         }
     }
+#endif
     return 0;
 }
 
@@ -330,26 +329,26 @@ DataDiscoveryModule::mod_init(fds::SysParams const *const param)
 // --------------
 // Return the root path to access the disk at given route index.
 //
-char const *const
+const char *
 DataDiscoveryModule::disk_hdd_path(int route_idx)
 {
     fds_verify(route_idx < pd_hdd_found);
-    fds_verify(!pd_hdd_labeled[route_idx].empty());
+    fds_verify(!pd_hdd_raw[route_idx].empty());
 
-    return pd_hdd_labeled[route_idx].c_str();
+    return pd_hdd_raw[route_idx].c_str();
 }
 
 // \disk_ssd_path
 // --------------
 // Return the root path to access the disk at given route index.
 //
-char const *const
+const char *
 DataDiscoveryModule::disk_ssd_path(int route_idx)
 {
     fds_verify(route_idx < pd_ssd_found);
-    fds_verify(!pd_ssd_labeled[route_idx].empty());
+    fds_verify(!pd_ssd_raw[route_idx].empty());
 
-    return pd_ssd_labeled[route_idx].c_str();
+    return pd_ssd_raw[route_idx].c_str();
 }
 
 // \mod_startup
@@ -499,20 +498,16 @@ DataIO::disk_route_request(DiskRequest *req)
         memcpy(&idx, oid->metaDigest, 4);
         idx = idx % dev_count;
     //   idx = (oid->metaoid_hash_hi + oid->oid_hash_lo) % dev_count;
-    } else {
-        meta_vol_io_t const *const vio = req->req_get_vio();
-
-        if (vadr_is_valid(vio->vol_adr)) {
-            idx = (vio->vol_uuid + vio->vol_blk_off) % dev_count;
-        }
     }
 
     if (req->getTier() == flashTier) {
-      return sgt_ssdIO[idx];
+      return static_cast<PersisDataIO *>(sgt_ssdIO[idx]);
     }
 
     fds_verify(req->getTier() == diskTier);
-    return sgt_hddIO[idx];
+    return static_cast<PersisDataIO *>
+           (g_tokenFileMgr->openTokenFile(req->getTier(),
+                                          idx, oid->metaDigest[0], 0));
 }
 
 // \DataIO::disk_read
@@ -521,7 +516,7 @@ DataIO::disk_route_request(DiskRequest *req)
 fds::Error
 diskio::DataIO::disk_read(DiskRequest *req)
 {
-    PersisDataIO *iop = disk_route_request(req);
+    FilePersisDataIO *iop = static_cast<FilePersisDataIO *>(disk_route_request(req));
     return iop->disk_read(req);
 }
 
@@ -531,7 +526,7 @@ diskio::DataIO::disk_read(DiskRequest *req)
 fds::Error
 diskio::DataIO::disk_write(DiskRequest *req)
 {
-    PersisDataIO *iop = disk_route_request(req);
+    FilePersisDataIO *iop = static_cast<FilePersisDataIO *>(disk_route_request(req));
     return iop->disk_write(req);
 }
 

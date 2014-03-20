@@ -8,9 +8,10 @@ user_cpp         :=               \
     dm_write.cpp                  \
     dm_io_lib.cpp                 \
     dm_index.cpp                  \
+    tokFileMgr.cpp                  \
     pdata_request.cpp
 
-user_no_style    := dm_read.cpp
+user_no_style    := dm_read.cpp tokFileMgr.cpp
 user_ar_libs     := fds-dsk-io
 fds-dsk-io       := $(user_cpp)
 

@@ -91,6 +91,7 @@ fds::Error SmObjDb::Put(const ObjectID& obj_id, ObjectBuf& obj_buf) {
     return err;
 }
 
+#if 0
 fds::Error SmObjDb::get_(const View &view,
         const ObjectID& objId, OnDiskSmObjMetadata& md)
 {
@@ -132,6 +133,7 @@ fds::Error SmObjDb::put_(const ObjectID& objId, const OnDiskSmObjMetadata& md)
 
     return err;
 }
+#endif
 inline fds_token_id SmObjDb::getTokenId_(const ObjectID& objId)
 {
     return objStorMgr->getTokenId(objId);
@@ -146,6 +148,7 @@ inline ObjectDB* SmObjDb::getObjectDB_(const fds_token_id& tokId)
     return odb;
 }
 
+#if 0
 inline bool SmObjDb::isTokenInSyncMode_(const fds_token_id& tokId)
 {
     return objStorMgr->isTokenInSyncMode(tokId);
@@ -240,6 +243,7 @@ SmObjDb::deleteObjectLocation(const ObjectID& objId) {
 
     return put_(objId, md);
 }
+#endif
 
 void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
         const size_t &max_size,

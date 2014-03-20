@@ -1,8 +1,6 @@
 probe_topdir      := ..
 user_fds_so_libs  :=
-user_fds_ar_libs  := \
-    fds-dsk-mgnt \
-    fds-dsk-io
+user_fds_ar_libs  :=
 
 user_non_fds_libs :=
 

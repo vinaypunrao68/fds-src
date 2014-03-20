@@ -5,11 +5,7 @@ user_incl_dir     := \
 
 user_cpp_flags    :=
 user_fds_so_libs  :=
-user_fds_ar_libs  := \
-    fds-dsk-io \
-    fds-StorHvisor \
-    fds-ubd \
-    fds-dsk-mgnt
+user_fds_ar_libs  :=
 
 user_cc           := ngx_modules.c
 user_cpp          := s3-pm-probe.cpp

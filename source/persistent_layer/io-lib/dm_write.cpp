@@ -13,7 +13,7 @@ namespace diskio {
 FilePersisDataIO::FilePersisDataIO(char const *const file, int loc)
     : fi_path(file), fi_loc(loc), fi_mutex("file mutex")
 {
-    fi_fd = open(file, O_RDWR);
+    fi_fd = open(file, O_RDWR | O_CREAT);
     if (fi_fd < 0) {
         printf("Can't open file %s\n", file);
         perror("Reason: ");
@@ -39,7 +39,6 @@ diskio::FilePersisDataIO::disk_do_write(DiskRequest *req)
     ssize_t         len;
     fds_blk_t       off_blk, blk, shft;
     meta_obj_map_t  *map;
-    IndexRequest    *idx;
     fds::ObjectBuf const *const buf = req->req_obj_buf();
 
     blk = DataIO::disk_io_round_up_blk(buf->size);
@@ -53,14 +52,11 @@ diskio::FilePersisDataIO::disk_do_write(DiskRequest *req)
     shft = DataIO::disk_io_blk_shift();
 
     map->obj_blk_len     = blk;
-    map->obj_stor_offset = off_blk;
-    map->obj_stor_loc_id = disk_loc_id();
-    map->obj_tier        = static_cast<fds_uint8_t>(req->getTier());
+    obj_phy_loc_t *idx_phy_loc = req->req_get_phy_loc();
+    idx_phy_loc->obj_stor_offset = off_blk;
+    idx_phy_loc->obj_stor_loc_id = disk_loc_id();
+    idx_phy_loc->obj_tier        = static_cast<fds_uint8_t>(req->getTier());
     map->obj_size        = buf->size;
-
-    idx = new IndexRequest(*req->req_get_oid(), true);
-    idx->req_set_peer(req);
-    req->req_set_peer(idx);
 
     len = pwrite64(fi_fd, static_cast<const void *>(buf->data.c_str()),
                    buf->size, off_blk << shft);
@@ -68,9 +64,6 @@ diskio::FilePersisDataIO::disk_do_write(DiskRequest *req)
         perror("Error: ");
         return fds::ERR_DISK_WRITE_FAILED;
     }
-    DataIndexProxy &index = DataIndexProxy::disk_index_singleton();
-    index.disk_index_put(idx, map);
-    delete idx;
     disk_write_done(req);
     return fds::ERR_OK;
 }

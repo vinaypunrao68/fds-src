@@ -43,9 +43,7 @@ pdio_write(fds_threadpool *wr, fds_threadpool *rd, DiskReqTest *cur)
     diskio::DataTier tier;
 
     if (cur == nullptr) {
-        vadr_set_inval(vio.vol_adr);
         vio.vol_rsvd    = 0;
-        vio.vol_blk_len = 0;
 //        oid.oid_hash_hi = random();
 //        oid.oid_hash_lo = random();
         for (unsigned  int i = 0; i < sizeof(oid); i++)

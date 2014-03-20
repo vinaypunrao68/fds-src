@@ -86,10 +86,7 @@ vadr_is_valid(meta_vol_adr_t const *const vadr)
 typedef struct meta_vol_io         meta_vol_io_t;
 struct __attribute__((__packed__)) meta_vol_io
 {
-    meta_vol_adr_t       vol_adr[0];
-    fds_uint64_t         vol_uuid;
-    fds_uint64_t         vol_blk_off;
-    fds_uint16_t         vol_blk_len;         /* var blk io 512 to 32M.      */
+    fds_int64_t         vol_uuid;
     fds_uint16_t         vol_rsvd;
 };
 
@@ -97,90 +94,63 @@ cc_assert(vio1, fds_offset_of(meta_vol_adr_t, vol_uuid) ==
     fds_offset_of(meta_vol_io_t, vol_uuid)
 );
 
-cc_assert(vio2, fds_offset_of(meta_vol_adr_t, vol_blk_off) ==
-    fds_offset_of(meta_vol_io_t, vol_blk_off)
-);
-
 /*
  * ----------------------------------------------------------------------------
  * On disk format to map an object ID to physical location.  Append new fields
  * and update the version if changed.
+ *    meta_obj_map_v0
+ *    obj_phys_loc1
+ *    obj_phys_loc2
+ *    obj_phys_loc3
+ *    assoc_entry1
+ *    assoc_entry2
+ *    assoc_entry3
  * ----------------------------------------------------------------------------
  */
+#define MAX_PHY_LOC_MAP 3
+#define MAX_ASSOC_ENTRY 64
+struct __attribute__((__packed__)) obj_phy_loc_v0 {
+    fds_int8_t          obj_tier;            /* tier location               */
+    fds_uint16_t         obj_stor_loc_id;     /* physical location in tier   */
+    fds_uint16_t         obj_file_id;         /* FileId of the tokenFile */
+    fds_uint32_t         obj_stor_offset;     /* offset to the physical loc. */
+};
+typedef struct meta_obj_map_v0     meta_obj_map_t;
+typedef struct obj_phy_loc_v0     obj_phy_loc_t;
+typedef struct obj_assoc_entry_v0     obj_assoc_entry_t;
+typedef obj_phy_loc_t     ObjPhyLoc;
+
 struct __attribute__((__packed__)) meta_obj_map_v0
 {
     fds_uint8_t          obj_map_ver;         /* current version.            */
+    fds_uint32_t         obj_map_len;
     fds_uint8_t          obj_rsvd;
+    //fds_crc_t            crc_hdr_chksum;
+    fds_uint8_t          compress_type;       /* Obj Compression type */
+    fds_uint32_t         compress_len;        /* If compressed the obj compress length */
+    meta_obj_id_t        obj_id;              /* check sum for data.         */
     fds_uint16_t         obj_blk_len;         /* var blk: 512 to 32M.        */
     fds_uint32_t         obj_size;            /* var, size in bytes */
-    fds_uint16_t         obj_io_func;         /* f(t) = io characteristic.   */
-    fds_uint16_t         obj_rd_cnt;          /* read stat.                  */
     fds_uint16_t         obj_refcnt;          /* de-dupe refcnt.             */
-    fds_uint8_t          obj_tier;            /* tier location               */
-    fds_uint16_t         obj_stor_loc_id;     /* physical location in tier   */
-    fds_uint32_t         obj_stor_offset;     /* offset to the physical loc. */
-    meta_obj_id_t        obj_id;              /* check sum for data.         */
+    fds_uint16_t         obj_num_assoc_entry; /* Number association entries in the array.             */
+    fds_uint64_t         obj_create_time;     /* creation time.         */
+    fds_uint64_t         obj_del_time;         /* deletion time.         */
+    fds_uint64_t         assoc_mod_time;         /* Modification time.         */
+    obj_phy_loc_t        loc_map[MAX_PHY_LOC_MAP];
 };
 
-typedef struct meta_obj_map_v0     meta_obj_map_v0_t;
-typedef struct meta_obj_map_v0     meta_obj_map_t;
+struct __attribute__((__packed__)) obj_assoc_entry_v0 {
+    fds_int64_t         vol_uuid;
+    fds_uint32_t         ref_cnt;
+};
+
+
 
 /*
  * The below is an attempt to make the persistent layer
  * organization a bit more c++-y/object-oriented.
  * We can evaluate if it's good/stupid/whatever...
  */
-
-/*
- * Abstract base class that defines what a class needs to
- * implement in order to be suitable for persistent storage.
- */
-class PersistentClass {
-private:
-public:
-  /*
-   * TODO: Should have a constructor that takes
-   * a marshalled buffer. This prevents the need
-   * to allocate the structure and recopy the fields.
-   */
-
-  /*
-   * Returns a marshalled buffer to the class
-   */
-  virtual const char* marshalling() const = 0;
-  /*
-   * Takes a marshalled buffer to the class and
-   * populates the current object based on this
-   * buffer.
-   */
-  virtual void unmarshalling(const char   *persistBuf,
-                             fds_uint32_t  bufSize) = 0;
-};
-
-static __inline__ std::string obj_map_to_string(meta_obj_map_t *obj_map) {
-  std::string obj_map_str = 
-      std::to_string(obj_map->obj_tier) + ":" +
-      std::to_string(obj_map->obj_stor_loc_id) + ":" + std::to_string(obj_map->obj_stor_offset) 
-      + ":"  + std::to_string(obj_map->obj_blk_len) + ":"  + std::to_string(obj_map->obj_size);
-
-  return obj_map_str;
-}
-
-static __inline__ void string_to_obj_map(std::string    &obj_map_str,
-                                         meta_obj_map_t *obj_map) {
-
-  fds_uint32_t tier;
-  unsigned int loc_id, offset, len, size;
-
-  sscanf(obj_map_str.c_str(), "%u:%u:%u:%u:%u", &tier, &loc_id, &offset, &len, &size);
-  obj_map->obj_stor_loc_id = loc_id;
-  // Note we're losing precision assigning to 8 bit uint
-  obj_map->obj_tier = tier;
-  obj_map->obj_stor_offset = offset;
-  obj_map->obj_blk_len = len;
-  obj_map->obj_size = size;
-
-}
 
 #define OID_MAP_CURR_VER           (0)
 
@@ -189,9 +159,12 @@ static __inline__ void string_to_obj_map(std::string    &obj_map_str,
  * ---------------
  */
 static inline void
-obj_map_init_v0(meta_obj_map_v0_t *map)
+obj_map_init_v0(meta_obj_map_v0 *map)
 {
     memset(map, 0, sizeof(*map));
+    map->loc_map[0].obj_tier = -1;
+    map->loc_map[1].obj_tier = -1;
+    map->loc_map[2].obj_tier = -1;
 }
 
 /*
@@ -201,7 +174,7 @@ obj_map_init_v0(meta_obj_map_v0_t *map)
 static inline void
 obj_map_init(meta_obj_map_t *map)
 {
-    obj_map_init_v0((meta_obj_map_v0_t *)map);
+    obj_map_init_v0((meta_obj_map_v0 *)map);
 }
 
 /*
