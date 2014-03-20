@@ -163,9 +163,9 @@ class OM_PmAgent : public NodeAgent
     /**
      * Send 'activate services' message to Platform
      */
-    void send_activate_services(fds_bool_t activate_sm,
-                                fds_bool_t activate_dm,
-                                fds_bool_t activate_am);
+    Error send_activate_services(fds_bool_t activate_sm,
+                                 fds_bool_t activate_dm,
+                                 fds_bool_t activate_am);
 
     /**
      * Tell platform Agent about new active service
@@ -427,6 +427,10 @@ class OM_NodeContainer : public DomainContainer
     virtual void om_cond_bcast_activate_services(fds_bool_t activate_sm,
                                                  fds_bool_t activate_dm,
                                                  fds_bool_t activate_am);
+    virtual Error om_activate_node_services(const NodeUuid& node_uuid,
+                                            fds_bool_t activate_sm,
+                                            fds_bool_t activate_md,
+                                            fds_bool_t activate_am);
 
   private:
     friend class OM_NodeDomainMod;

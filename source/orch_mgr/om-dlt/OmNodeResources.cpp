@@ -409,36 +409,71 @@ OM_PmAgent::handle_unregister_service(const NodeUuid& uuid)
     }
 }
 
-// start_activate_services
+// send_activate_services
 // -----------------------
 //
-void
+Error
 OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
                                    fds_bool_t activate_dm,
                                    fds_bool_t activate_am)
 {
-    // we only activate services from 'discovered' state
-    if (node_state() != FDS_ProtocolInterface::FDS_Node_Discovered) {
-        return;
+    Error err(ERR_OK);
+    fds_bool_t do_activate_sm = activate_sm;
+    fds_bool_t do_activate_dm = activate_dm;
+    fds_bool_t do_activate_am = activate_am;
+
+    // we only activate services from 'discovered' state or
+    // 'node up' state
+    if ((node_state() != FDS_ProtocolInterface::FDS_Node_Discovered) &&
+        (node_state() != FDS_ProtocolInterface::FDS_Node_Up)) {
+        return Error(ERR_INVALID_ARG);
     }
     FDS_PLOG_SEV(g_fdslog, fds_log::normal)
             << "OM_PmAgent: will send node activate message to " << get_node_name()
             << "; activate sm: " << activate_sm << "; activate dm: "<< activate_dm
             << "; activate am: " << activate_am;
 
-    // TODO(anna) we should set node active state when we get a response
-    // for node activate + update config DB with node info
-    // but for now assume always success and set active state here
-    set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
-    kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
-    NodeInvData node_data;
-    if (!configDB->getNode(get_uuid(), node_data)) {
-        // for now store only if the node was not known to DB
-        configDB->addNode(*node_inv);
-        FDS_PLOG_SEV(g_fdslog, fds_log::notification)
-                << "Adding node info for " << get_node_name() << ":"
-                << std::hex << get_uuid().uuid_get_val() << std::dec
-                << " in configDB";
+    // we are ok to activate a service after we already activate another
+    // services on this node, but check if the requested services are already
+    // running
+    if (node_state() == FDS_ProtocolInterface::FDS_Node_Up) {
+        if (activate_sm && service_exists(FDS_ProtocolInterface::FDSP_STOR_MGR)) {
+            LOGNOTIFY << "OM_PmAgent: SM service already running, "
+                      << "not going to restart...";
+            do_activate_sm = false;
+        }
+        if (activate_dm && service_exists(FDS_ProtocolInterface::FDSP_DATA_MGR)) {
+            LOGNOTIFY << "OM_PmAgent: DM service already running, "
+                      << "not going to restart...";
+            do_activate_dm = false;
+        }
+        if (activate_am && service_exists(FDS_ProtocolInterface::FDSP_STOR_HVISOR)) {
+            LOGNOTIFY << "OM_PmAgent: AM service already running, "
+                      << "not going to restart...";
+            do_activate_am = false;
+        }
+
+        //  if all requested services already active, nothing to do
+        if (!activate_sm && !activate_dm && !activate_am) {
+            LOGNOTIFY << "All services already running, nothing to activate"
+                      << " on node " << get_node_name();
+            return err;
+        }
+    } else {
+        // TODO(anna) we should set node active state when we get a response
+        // for node activate + update config DB with node info
+        // but for now assume always success and set active state here
+        set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
+        kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
+        NodeInvData node_data;
+        if (!configDB->getNode(get_uuid(), node_data)) {
+            // for now store only if the node was not known to DB
+            configDB->addNode(*node_inv);
+            FDS_PLOG_SEV(g_fdslog, fds_log::notification)
+                    << "Adding node info for " << get_node_name() << ":"
+                    << std::hex << get_uuid().uuid_get_val() << std::dec
+                    << " in configDB";
+        }
     }
 
     fpi::FDSP_MsgHdrTypePtr    m_hdr(new fpi::FDSP_MsgHdrType);
@@ -458,6 +493,8 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
     node_msg->has_om_service = false;
 
     ndCpClient->NotifyNodeActive(m_hdr, node_msg);
+
+    return err;
 }
 
 // ---------------------------------------------------------------------------------
@@ -877,6 +914,21 @@ OM_NodeContainer::om_cond_bcast_activate_services(fds_bool_t activate_sm,
 {
     dc_pm_nodes->agent_foreach<fds_bool_t, fds_bool_t, fds_bool_t>
             (activate_sm, activate_dm, activate_am, om_activate_services);
+}
+
+// om_activate_service
+//
+//
+Error
+OM_NodeContainer::om_activate_node_services(const NodeUuid& node_uuid,
+                                            fds_bool_t activate_sm,
+                                            fds_bool_t activate_dm,
+                                            fds_bool_t activate_am) {
+    OM_PmAgent::pointer agent = om_pm_agent(node_uuid);
+    Error err = agent->send_activate_services(activate_sm,
+                                              activate_dm,
+                                              activate_am);
+    return err;
 }
 
 // om_send_vol_info

@@ -133,6 +133,11 @@ public class OmConfigPath implements FDSP_ConfigPathReq.Iface {
     }
 
     @Override
+    public int ActivateNode(FDSP_MsgHdrType fdsp_msg, FDSP_ActivateOneNodeType act_node_req) throws TException {
+        return 0;
+    }
+
+    @Override
     public List<FDSP_Node_Info_Type> ListServices(FDSP_MsgHdrType fdsp_msg) throws TException {
         return null;
     }

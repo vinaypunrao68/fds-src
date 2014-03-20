@@ -453,6 +453,41 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::ActivateAllNodes(
     return err;
 }
 
+int32_t OrchMgr::FDSP_ConfigPathReqHandler::ActivateNode(
+    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+    const ::FDS_ProtocolInterface::FDSP_ActivateOneNodeType& act_node_msg) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+    return 0;
+}
+
+int32_t OrchMgr::FDSP_ConfigPathReqHandler::ActivateNode(
+    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+    ::FDS_ProtocolInterface::FDSP_ActivateOneNodeTypePtr& act_node_msg) {
+    Error err(ERR_OK);
+    try {
+        int domain_id = act_node_msg->domain_id;
+        // use default domain for now
+        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+        NodeUuid node_uuid((act_node_msg->node_uuid).uuid);
+
+        LOGNORMAL << "Received Activate Node Req for domain " << domain_id
+                  << " node uuid " << std::hex
+                  << node_uuid.uuid_get_val() << std::dec;
+
+        err = local->om_activate_node_services(node_uuid,
+                                               act_node_msg->activate_sm,
+                                               act_node_msg->activate_dm,
+                                               act_node_msg->activate_am);
+    }
+    catch(...) {
+        LOGERROR << "Orch Mgr encountered exception while "
+                 << "processing activate all nodes";
+        err = Error(ERR_NOT_FOUND);  // need some better error code
+    }
+
+    return err.GetErrno();
+}
+
 void OrchMgr::FDSP_ConfigPathReqHandler::ListServices(
     std::vector<FDSP_Node_Info_Type> & ret,
     const FDSP_MsgHdrType& fdsp_msg) {
