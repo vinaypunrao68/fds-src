@@ -12,13 +12,12 @@ import com.formationds.web.toolkit.TextResource;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.eclipse.jetty.server.Request;
 
-import javax.servlet.http.HttpServletRequest;
 import java.util.List;
 
-public class ListNodes implements RequestHandler {
+public class ListServices implements RequestHandler {
     private FDSP_ConfigPathReq.Iface configPathClient;
 
-    public ListNodes(FDSP_ConfigPathReq.Iface configPathClient) {
+    public ListServices(FDSP_ConfigPathReq.Iface configPathClient) {
         this.configPathClient = configPathClient;
     }
 
