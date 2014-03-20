@@ -67,6 +67,7 @@ RsContainer::rs_register_mtx(Resource::pointer rs)
         if (rs_array[i] == NULL) {
             // Found an empty slot, use it.
             rs_array[i] = rs;
+            rs->rs_index = i;
             return;
         }
     }
