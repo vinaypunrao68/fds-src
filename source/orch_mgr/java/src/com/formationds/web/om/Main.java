@@ -22,9 +22,11 @@ public class Main {
         new NativeApi();
         NativeApi.startOm(args);
         LOG.info("Process info: " + ManagementFactory.getRuntimeMXBean().getName());
-        WebApp webApp = new WebApp("../lib/admin-webapp/");
+        String webDir = "../lib/admin-webapp/";
 
-        webApp.route(HttpMethod.GET, "", () -> new LandingPage());
+        WebApp webApp = new WebApp(webDir);
+
+        webApp.route(HttpMethod.GET, "", () -> new LandingPage(webDir));
 
         webApp.route(HttpMethod.POST, "/session/authenticate", new AuthenticateAction());
         webApp.route(HttpMethod.GET, "/config/services", () -> new ListServices(clientFactory.configPathClient(OM_HOST, OM_PORT)));
