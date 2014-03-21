@@ -1045,7 +1045,7 @@ ObjectStorMgr::checkDuplicate(const ObjectID&  objId,
             fds_panic("Encountered a hash collision checking object %s. Bailing out now!",
                     objId.ToHex().c_str());
         }
-    } else if (err == ERR_SM_OBJ_METADATA_NOT_FOUND) {
+    } else if (err == ERR_SM_OBJ_METADATA_NOT_FOUND || err == ERR_DISK_READ_FAILED) {
         /*
          * This error indicates the DB entry was empty
          * so we can reset the error to OK.
