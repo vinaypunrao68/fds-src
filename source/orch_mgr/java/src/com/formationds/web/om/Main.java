@@ -28,7 +28,9 @@ public class Main {
 
         webApp.route(HttpMethod.GET, "", () -> new LandingPage(webDir));
 
-        webApp.route(HttpMethod.POST, "/session/authenticate", new AuthenticateAction());
+        webApp.route(HttpMethod.POST, "/session/authenticate", () -> new AuthenticateAction());
+        webApp.route(HttpMethod.GET, "/session/authenticate", () -> new AuthenticateAction());
+
         webApp.route(HttpMethod.GET, "/config/services", () -> new ListServices(clientFactory.configPathClient(OM_HOST, OM_PORT)));
 
         webApp.route(HttpMethod.GET, "/config/volumes", () -> new ListVolumes(clientFactory.configPathClient(OM_HOST, OM_PORT)));
