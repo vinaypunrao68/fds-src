@@ -14,10 +14,10 @@ import org.eclipse.jetty.server.Request;
 
 import java.util.List;
 
-public class ListTheVolumes implements RequestHandler {
+public class ListVolumes implements RequestHandler {
     private FDSP_ConfigPathReq.Iface iface;
 
-    public ListTheVolumes(FDSP_ConfigPathReq.Iface iface) {
+    public ListVolumes(FDSP_ConfigPathReq.Iface iface) {
         this.iface = iface;
     }
 
