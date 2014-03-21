@@ -68,9 +68,9 @@ if __name__ == '__main__':
     for n in nodes:
         n.nd_start_platform()
 
-    time.sleep(15)
+    time.sleep(5)
     cli = cfg.config_cli()
-    cli.run_cli('--activate-nodes abc -k 1 -e am,sm,dm')
+    cli.run_cli('--activate-nodes abc -k 1 -e sm,dm')
 
     if options.manual:
         print('You need to run fdscli --activate-nodes manually.')
