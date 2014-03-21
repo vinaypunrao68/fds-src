@@ -147,6 +147,11 @@ public:
         // TODO(Rao):
     }
 
+    bool objectExists() {
+        // TODO(Rao)
+        return true;
+    }
+
     void setSyncMetaData(const SmObjMetadata& md) {
         data_mask |= SMOBJ_SYNC_METADATA_MASK;
         sync_meta_data = md;
@@ -290,6 +295,8 @@ public:
             FDSP_MigrateObjectList &obj_list,
             SMTokenItr &itr);
 
+    bool objectExists(const ObjectID& obj_id, bool fModifyMode = false);
+
     // TODO(Rao:) Make these private.  Exposed for mock testing
     Error get_(const View &view,
             const ObjectID& objId, OnDiskSmObjMetadata& md);
@@ -303,6 +310,7 @@ private:
     inline bool isTokenInSyncMode_(const fds_token_id& tokId);
 
     std::unordered_map<fds_token_id, ObjectDB *> tokenTbl;
+    using TokenTblIter = std::unordered_map<fds_token_id, ObjectDB *>::const_iterator;
     std::string stor_prefix;
     fds_mutex *smObjDbMutex;
     ObjectStorMgr *objStorMgr;
