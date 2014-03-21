@@ -330,9 +330,6 @@ void ObjectStorMgr::setup()
     // Refactor into functions or make it part of module vector
 
     std::string     myIp;
-    DmDiskInfo     *info;
-    DmDiskQuery     in;
-    DmDiskQueryOut  out;
 
     proc_root->fds_mkdir(proc_root->dir_user_repo_objs().c_str());
     std::string obj_dir = proc_root->dir_user_repo_objs();
@@ -353,12 +350,9 @@ void ObjectStorMgr::setup()
     omClient = new OMgrClient(FDSP_STOR_MGR,
                               *plf_mgr->plf_get_om_ip(),
                               plf_mgr->plf_get_om_ctrl_port(),
-                              myIp,
-                              plf_mgr->plf_get_my_data_port(),
                               "localhost-sm",
                               GetLog(),
-                              nst_,
-                              plf_mgr->plf_get_my_migration_port());
+                              nst_, plf_mgr);
 
     /*
      * Create local volume table. Create after omClient
@@ -404,7 +398,7 @@ void ObjectStorMgr::setup()
     omClient->registerEventHandlerForVolEvents((volume_event_handler_t)volEventOmHandler);
     omClient->registerEventHandlerForMigrateEvents((migration_event_handler_t)migrationEventOmHandler);
     omClient->omc_srv_pol = &sg_SMVolPolicyServ;
-    omClient->startAcceptingControlMessages(conf_helper_.get<int>("control_port"));
+    omClient->startAcceptingControlMessages();
     omClient->registerNodeWithOM(plf_mgr);
 
     clust_comm_mgr_.reset(new ClusterCommMgr(omClient));
@@ -479,7 +473,7 @@ void ObjectStorMgr::setup_migration_svc()
 {
     migrationSvc_.reset(new FdsMigrationSvc(this,
                 FdsConfigAccessor(conf_helper_.get_fds_config(),
-                        conf_helper_.get_base_path() + "migration."),
+                    conf_helper_.get_base_path() + "migration."),
                 GetLog(),
                 nst_,
                 clust_comm_mgr_));

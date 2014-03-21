@@ -4,8 +4,11 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/time.h>
 #include <sys/types.h>
+#include <sys/resource.h>
 #include <fds_assert.h>
+#include <shared/fds_types.h>
 #include <platform/fds-osdep.h>
 
 #define STACK_TRACE_SIZE             (32)
@@ -36,6 +39,27 @@ fds_panic(const char *fmt, ...)
     abort();
 }
 
+int
+fds_get_fd_limit(void)
+{
+    fds_int64_t   slim, rlim;
+    struct rlimit rl;
+
+    slim = sysconf(_SC_OPEN_MAX);
+    if (getrlimit(RLIMIT_NOFILE, &rl) < 0) {
+        rlim = 0;
+    } else {
+        rlim = rl.rlim_max;
+    }
+    if (slim > rlim) {
+        return (slim);
+    }
+    if (slim < 0) {
+        return (10000);
+    }
+    return (rlim);
+}
+
 /*
  * fds_spawn
  * ---------
@@ -43,7 +67,7 @@ fds_panic(const char *fmt, ...)
 pid_t
 fds_spawn(char *const argv[], int daemonize)
 {
-    int     res;
+    int     flim, fd, res;
     pid_t   child_pid;
     pid_t   res_pid;
 
@@ -58,7 +82,13 @@ fds_spawn(char *const argv[], int daemonize)
             return (child_pid);
         }
     }
+    /* Child process, close all file descriptors. */
+    flim = fds_get_fd_limit();
+    printf("Close fd up to %d\n", flim);
 
+    for (fd = 2; fd < flim; fd++) {
+        close(fd);
+    }
     if (daemonize) {
         res = daemon(0, 1);
         if (res != 0) {
@@ -66,7 +96,6 @@ fds_spawn(char *const argv[], int daemonize)
             abort();
         }
     }
-
     /* actual child process */
     execvp(argv[0], argv);
     printf("Fatal error, can't spawn %s\n", argv[0]);

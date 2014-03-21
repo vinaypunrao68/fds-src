@@ -394,8 +394,6 @@ Error DataMgr::_process_delete(fds_volid_t vol_uuid,
 
 DataMgr::DataMgr(int argc, char *argv[], Platform *platform, Module **vec)
     : PlatformProcess(argc, argv, "fds.dm.", "dm.log", platform, vec),
-      port_num(0),
-      cp_port_num(0),
       omConfigPort(0),
       use_om(true),
       numTestVols(10),
@@ -475,7 +473,7 @@ void DataMgr::setup_metadatapath_server(const std::string &ip)
     metadatapath_session = nstable->\
                            createServerSession<netMetaDataPathServerSession>(
                                myIpInt,
-                               port_num,
+                               plf_mgr->plf_get_my_data_port(),
                                node_name,
                                FDSP_STOR_HVISOR,
                                metadatapath_handler);
@@ -499,8 +497,6 @@ void DataMgr::setup()
 
     // Get config values from that platform lib.
     //
-    cp_port_num  = plf_mgr->plf_get_my_ctrl_port();
-    port_num     = plf_mgr->plf_get_my_data_port();
     omConfigPort = plf_mgr->plf_get_om_ctrl_port();
     omIpStr      = *plf_mgr->plf_get_om_ip();
 
@@ -512,9 +508,8 @@ void DataMgr::setup()
     if (useTestMode == true) {
         runMode = TEST_MODE;
     }
-    fds_assert((port_num != 0) && (cp_port_num != 0));
-    FDS_PLOG(dm_log) << "Data Manager using port " << port_num
-                     << "Data Manager using control port " << cp_port_num;
+    FDS_PLOG(dm_log) << "Data Manager using port " << plf_mgr->plf_get_my_data_port()
+        << "Data Manager using control port " << plf_mgr->plf_get_my_ctrl_port();
 
     /* Set up FDSP RPC endpoints */
     nstable = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_DATA_MGR));
@@ -535,11 +530,9 @@ void DataMgr::setup()
       omClient = new OMgrClient(FDSP_DATA_MGR,
                                 omIpStr,
                                 omConfigPort,
-                                myIp,
-                                port_num,
                                 node_name,
                                 dm_log,
-                                nstable);
+                                nstable, plf_mgr);
       omClient->initialize();
       omClient->registerEventHandlerForNodeEvents(node_handler);
       omClient->registerEventHandlerForVolEvents(vol_handler);
@@ -548,7 +541,8 @@ void DataMgr::setup()
        * This does not require OM to be running and can
        * be used for testing DM by itself.
        */
-      omClient->startAcceptingControlMessages(cp_port_num);
+      omClient->startAcceptingControlMessages();
+
       /*
        * Registers the DM with the OM. Uses OM for bootstrapping
        * on start. Requires the OM to be up and running prior.
