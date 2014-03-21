@@ -6,11 +6,13 @@ package com.formationds.web.om;
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import FDS_ProtocolInterface.FDSP_MsgHdrType;
 import FDS_ProtocolInterface.FDSP_Node_Info_Type;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsonorg.JsonOrgModule;
+import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
-import com.formationds.web.toolkit.TextResource;
-import org.codehaus.jackson.map.ObjectMapper;
 import org.eclipse.jetty.server.Request;
+import org.json.JSONArray;
 
 import java.util.List;
 
@@ -24,6 +26,14 @@ public class ListServices implements RequestHandler {
     @Override
     public Resource handle(Request request) throws Exception {
         List<FDSP_Node_Info_Type> list = configPathClient.ListServices(new FDSP_MsgHdrType());
-        return new TextResource(new ObjectMapper().writeValueAsString(list));
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new JsonOrgModule());
+        JSONArray jsonArray = mapper.convertValue(list, JSONArray.class);
+        for (int i = 0; i < jsonArray.length(); i++) {
+            jsonArray.getJSONObject(i)
+                    .put("site", "Fremont")
+                    .put("domain", "Formation Data Systems");
+        }
+        return new JsonResource(jsonArray);
     }
 }

@@ -25,6 +25,8 @@ public class Main {
         WebApp webApp = new WebApp("../lib/admin-webapp/");
 
         webApp.route(HttpMethod.GET, "", () -> new LandingPage());
+
+        webApp.route(HttpMethod.POST, "/session/authenticate", new AuthenticateAction());
         webApp.route(HttpMethod.GET, "/config/services", () -> new ListServices(clientFactory.configPathClient(OM_HOST, OM_PORT)));
 
         webApp.route(HttpMethod.GET, "/config/volumes", () -> new ListVolumes(clientFactory.configPathClient(OM_HOST, OM_PORT)));
