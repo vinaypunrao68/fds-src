@@ -4,6 +4,8 @@
 /*
  * Define all basic fds types portable in all platforms and run time
  * environments.  Don't include any header files not under this directory.
+ *
+ * This directory is shared between C/C++, so all header files here must be C only.
  */
 #ifdef __cplusplus
 #define c_decls_begin        extern "C" {
@@ -60,17 +62,5 @@ typedef enum {
 } fds_tier_type_e;
 
 c_decls_end
-
-/**
- * NOTE!!! include only std typedefs here. Dont use any fds objects !!!!
- */
-#include <string>
-#include <vector>
-
-namespace fds {
-    // new c++11 typedef convention - pretty cool !!!
-    using StringList  = std::vector<std::string> ;
-    using ConstString = const std::string& ;
-}  // namespace fds
 
 #endif /* INCLUDE_SHARED_FDS_TYPES_H_ */

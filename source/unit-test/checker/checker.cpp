@@ -14,6 +14,7 @@
 #include <checker.h>
 #include <FdsCrypto.h>
 #include <ObjectId.h>
+#include <am-platform.h>
 
 namespace fs = boost::filesystem;
 
@@ -111,12 +112,10 @@ void DirBasedChecker::mod_startup()
     om_client = new OMgrClient(FDSP_STOR_HVISOR,
                               conf_helper_.get<std::string>("om_ip"),
                               conf_helper_.get<int>("om_port"),
-                              myIp,
-                              0,
                               "localhost-checker",
                               GetLog(),
                               nst,
-                              0);
+                              &gl_AmPlatform);
 
     om_client->initialize();
 
@@ -135,8 +134,7 @@ void DirBasedChecker::mod_startup()
     dInfo->ssd_latency_min = 3; /* in milli second */
     dInfo->disk_type =  FDS_DISK_SATA;
 #endif
-    int ctrl_port = conf_helper_.get<int>("control_port");
-    om_client->startAcceptingControlMessages(ctrl_port);
+    om_client->startAcceptingControlMessages();
 
     om_client->registerNodeWithOM(this);
 

@@ -74,10 +74,6 @@ namespace fds {
     std::string my_node_name;
     std::string omIpStr;
     fds_uint32_t omConfigPort;
-    std::string hostIp;
-    fds_uint32_t my_control_port;
-    fds_uint32_t my_data_port;
-    fds_uint32_t my_migration_port;
     const DLT *dlt;
     DLTManager dltMgr;
     int dmt_version;
@@ -88,7 +84,8 @@ namespace fds {
      * Map of current cluster members
      */
     LocalClusterMap *clustMap;
-    
+    Platform        *plf_mgr;
+
     fds_rwlock omc_lock; // to protect node_map
 
     node_event_handler_t node_evt_hdlr;
@@ -115,7 +112,7 @@ namespace fds {
     /**
      * omrpc_handler_ server is run on this thread
      */
-    boost::shared_ptr<std::thread> omrpc_handler_thread_;
+    boost::shared_ptr<boost::thread> omrpc_handler_thread_;
 
     /**
      * client for sending messages to OM
@@ -124,19 +121,16 @@ namespace fds {
     boost::shared_ptr<FDS_ProtocolInterface::FDSP_OMControlPathReqClient> om_client_prx;
 
     void initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
-    int initRPCComm();
 
   public:
 
     OMgrClient(FDSP_MgrIdType node_type,
                const std::string& _omIpStr,
                fds_uint32_t _omPort,
-               const std::string& _hostIp,
-               fds_uint32_t data_port,
                const std::string& node_name,
                fds_log *parent_log,
                boost::shared_ptr<netSessionTbl> nst,
-               fds_uint32_t mig_port = 9876);
+               Platform *plf_mgr);
     ~OMgrClient();
     int initialize();
     void start_omrpc_handler();
@@ -160,7 +154,6 @@ namespace fds {
 
     //    int subscribeToOmEvents(unsigned int om_ip_addr, int tennant_id, int domain_id, int omc_port_num=0);
     int startAcceptingControlMessages();
-    int startAcceptingControlMessages(fds_uint32_t port_num);
     int registerNodeWithOM(Platform *plat);
     int pushCreateBucketToOM(const FDS_ProtocolInterface::FDSP_VolumeInfoTypePtr& volInfo);
     int pushDeleteBucketToOM(const FDS_ProtocolInterface::FDSP_DeleteVolTypePtr& volInfo);
