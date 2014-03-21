@@ -9,6 +9,7 @@ user_incl_dir     := \
 	$(topdir) \
 	$(topdir)/stor-mgr/include \
 	$(topdir)/stor-mgr/migrations \
+    $(topdir)/am-app/include \
 	$(topdir)/lib
 
 user_cpp_flags    :=
