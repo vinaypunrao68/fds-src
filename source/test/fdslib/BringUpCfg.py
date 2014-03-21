@@ -291,7 +291,8 @@ class FdsCliConfig(FdsConfig):
         if (self.nd_verbose):
             print "Run %s on OM %s" % (command, om.nd_host_name())
 
-        om.nd_rmt_agent.ssh_exec_fds("fdscli" + command)
+        om.nd_rmt_agent.ssh_exec_fds(
+            ('fdscli --fds-root %s ') % om.nd_rmt_agent.get_fds_root() + command)
 
 ###
 # Handle fds bring up config parsing
