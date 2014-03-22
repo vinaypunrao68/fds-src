@@ -16,6 +16,7 @@
 #include <leveldb/comparator.h>
 #include <leveldb/env.h>
 
+#include <fdsp_utils.h>
 #include <SmObjDb.h>
 #include <fds_timestamp.h>
 #include <fds_migration.h>
@@ -34,12 +35,12 @@ typedef msm::front::none msm_none;
 
 /**
  * Leveldb based Token sync log
- * Can be made generic by either templating the underneath db or
- * via inheritance
+ * Can be made generic persistent log collector by either templating the underneath db
+ * or via inheritance
  */
 class TokenSyncLog {
  public:
-    /* Modificatin timestamp comparator */
+    /* Comparator for ordering synclog based on modification timestamp */
     class ModTSComparator : public leveldb::Comparator {
        public:
         int Compare(const leveldb::Slice& a, const leveldb::Slice& b) const {
@@ -66,6 +67,7 @@ class TokenSyncLog {
  public:
     explicit TokenSyncLog(const std::string& name) {
         name_ = name;
+        cnt_ = 0;
         leveldb::Options options;
         options.create_if_missing = true;
         leveldb::Status status = leveldb::DB::Open(options, name, &db_);
@@ -78,7 +80,7 @@ class TokenSyncLog {
         delete db_;
     }
 
-    Error add(const ObjectID& id, const SmObjMetadata &entry) {
+    Error add(const ObjectID& id, const OnDiskSmObjMetadata &entry) {
         fds::Error err(fds::ERR_OK);
 
         ObjectBuf buf;
@@ -94,9 +96,15 @@ class TokenSyncLog {
         if (!status.ok()) {
             LOGERROR << "Failed to write key: " << id;
             err = fds::Error(fds::ERR_DISK_WRITE_FAILED);
+        } else {
+            cnt_++;
         }
 
         return err;
+    }
+
+    size_t size() {
+        return cnt_;
     }
 
     leveldb::Iterator* iterator() {
@@ -105,19 +113,18 @@ class TokenSyncLog {
 
     /* Extracts objectid and entry from the iterator */
     static void parse_iterator(leveldb::Iterator* itr,
-            ObjectID &id, SmObjMetadata &entry) {
+            ObjectID &id, OnDiskSmObjMetadata &entry)
+    {
         uint64_t ts;
         parse_key(itr->key(), ts, id);
-        size_t sz = entry.unmarshall(const_cast<char*>(itr->value().data()),
-                                     itr->value().size());
-        fds_assert(sz == itr->value().size());
+        (void) entry.unmarshall(itr->value());
     }
 
  private:
-    static std::string create_key(const ObjectID& id, const SmObjMetadata &entry)
+    static std::string create_key(const ObjectID& id, const OnDiskSmObjMetadata &entry)
     {
         std::ostringstream oss;
-        oss << entry.modificationTs << "\n" << id;
+        oss << entry.getModificationTs()<< "\n" << id;
         return oss.str();
     }
 
@@ -132,6 +139,7 @@ class TokenSyncLog {
     std::string name_;
     leveldb::WriteOptions write_options_;
     leveldb::DB* db_;
+    size_t cnt_;
 };
 typedef boost::shared_ptr<TokenSyncLog> TokenSyncLogPtr;
 
@@ -339,9 +347,10 @@ struct TokenSyncSenderFSM_
             LOGDEBUG << "build_sync_log token: " << fsm.token_id_;
 
             /* Create new sync log */
-            std::string log_name = "TokenSyncLog_" + fsm.token_id_ +
-                    "_" + cur_sync_range_high_ + "_" + cur_sync_range_low_;
-            fsm.sync_log_.reset(new TokenSyncLog(log_name));
+            /* std::ostringstream oss;
+            oss << "TokenSyncLog_" << fsm.token_id_ <<
+                    "_" << fsm.cur_sync_range_low_ << "_" + fsm.cur_sync_range_high_; */
+            fsm.sync_log_.reset(new TokenSyncLog(/*oss.str()*/"Synclog.sl"));
 
             /* Iterate the snapshot and add entries to sync log */
             leveldb::Iterator* it = evt.db->NewIterator(evt.options);
@@ -358,9 +367,11 @@ struct TokenSyncSenderFSM_
                 if (id < start_obj_id || end_obj_id > id) {
                     continue;
                 }
-                SmObjMetadata entry(it->value().ToString());
 
-                Error e = fsm.sync_log_.add(id, entry);
+                OnDiskSmObjMetadata entry;
+                entry.unmarshall(it->value());
+                // TODO(rao): Only add if entry is in sync time range
+                Error e = fsm.sync_log_->add(id, entry);
                 if (e != ERR_OK) {
                     fds_assert(!"Error");
                     LOGERROR << "Error adding synclog. Error: " << e;
@@ -368,6 +379,8 @@ struct TokenSyncSenderFSM_
                 }
             }
             assert(it->status().ok());  // Check for any errors found during the scan
+
+            LOGDEBUG << "build_sync_log: sync log size: " << fsm.sync_log_->size();
 
             /* Position sync log iterator to beginning */
             fsm.sync_log_itr_ = fsm.sync_log_->iterator();
@@ -395,19 +408,20 @@ struct TokenSyncSenderFSM_
             md_list.clear();
 
             for (; fsm.sync_log_itr_->Valid() &&
-                   md_list.size() < fsm.max_entries_per_send_;
+                 md_list.size() < fsm.max_entries_per_send_;
                  fsm.sync_log_itr_->Next()) {
                 FDSP_MigrateObjectMetadata md;
-                SmObjMetadata entry;
+                OnDiskSmObjMetadata entry;
 
-                md.token_id = fsm.token_id_;
                 ObjectID obj_id;
                 TokenSyncLog::parse_iterator(fsm.sync_log_itr_, obj_id, entry);
-                md.object_id.digest.assign(reinterpret_cast<const char*>(obj_id.GetId()),
-                        obj_id.GetLen());
+                entry.extractSyncData(md);
+                md.token_id = fsm.token_id_;
+                assign(md.object_id, obj_id);
                 // TODO(Rao): Set the size
                 // md.obj_len = entry.len();
-                md.modification_ts = entry.modificationTs;
+                md.token_id = fsm.token_id_;
+                md.modification_ts = entry.getModificationTs();
 
                 fds_assert(static_cast<uint64_t>(md.modification_ts) >= prev_ts);
                 DBG(prev_ts = md.modification_ts);
@@ -439,7 +453,15 @@ struct TokenSyncSenderFSM_
             LOGDEBUG << "finish_sync token: " << fsm.token_id_;
 
             FDSP_NotifyTokenSyncComplete sync_compl;
+            sync_compl.header.base_header.err_code = ERR_OK;
+            sync_compl.header.base_header.src_node_name =
+                    fsm.migrationSvc_->get_ip();
+            sync_compl.header.base_header.session_uuid =
+                    fsm.rcvr_session_->getSessionId();
+            sync_compl.header.mig_id = fsm.parent_->get_mig_id();
+            sync_compl.header.mig_stream_id = fsm.mig_stream_id_;
             sync_compl.token_id = fsm.token_id_;
+
             fsm.rcvr_session_->getClient()->NotifyTokenSyncComplete(sync_compl);
         }
     };
@@ -481,7 +503,9 @@ struct TokenSyncSenderFSM_
         template <class EVT, class FSM, class SourceState, class TargetState>
         bool operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            return !(fsm.sync_log_itr_->Valid());
+            bool ret = !(fsm.sync_log_itr_->Valid());
+            LOGDEBUG << "sync_log_dn?: " << ret;
+            return ret;
         }
     };
     struct sync_closed
@@ -490,6 +514,7 @@ struct TokenSyncSenderFSM_
         template <class EVT, class FSM, class SourceState, class TargetState>
         bool operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
+            LOGDEBUG << "sync_closed?: " << fsm.sync_closed_;
             return fsm.sync_closed_;
         }
     };
@@ -499,8 +524,10 @@ struct TokenSyncSenderFSM_
         template <class EVT, class FSM, class SourceState, class TargetState>
         bool operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            return fsm.sync_closed_ &&
-                   (fsm.cur_sync_range_high_ >= fsm.sync_closed_time_);
+            bool ret = fsm.sync_closed_ &&
+                    (fsm.cur_sync_range_high_ >= fsm.sync_closed_time_);
+            LOGDEBUG << "sync_dn?: " << ret;
+            return ret;
         }
     };
 
@@ -862,6 +889,11 @@ void TokenSyncSender::process_event(const SyncReqEvt& event)
 }
 
 void TokenSyncSender::process_event(const SendDnEvt& event)
+{
+    fsm_->process_event(event);
+}
+
+void TokenSyncSender::process_event(const TSnapDnEvt& event)
 {
     fsm_->process_event(event);
 }

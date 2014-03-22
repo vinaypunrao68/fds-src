@@ -143,8 +143,19 @@ public:
             return &sync_meta_data;
     }
 
+    uint64_t getModificationTs() const {
+        return meta_data.modificationTs;
+    }
+
+    void setModificationTs(const uint64_t &ts) {
+        meta_data.modificationTs = ts;
+    }
+
     void applySyncData(const FDSP_MigrateObjectMetadata& data) {
-        // TODO(Rao):
+        // TODO(Rao): impl
+    }
+    void extractSyncData(FDSP_MigrateObjectMetadata& data) {
+        // TODO(Rao): impl
     }
 
     void setSyncMetaData(const SmObjMetadata& md) {
@@ -215,6 +226,13 @@ public:
                 meta_data.marshalledSize() + sync_meta_data.marshalledSize();
     }
 
+    size_t unmarshall(const leveldb::Slice& s)
+    {
+        size_t sz = this->unmarshall(const_cast<char*>(s.data()), s.size());
+        fds_assert(sz == s.size());
+        return sz;
+    }
+
     bool operator==(const OnDiskSmObjMetadata& md) const
     {
         return (version == md.version &&
@@ -268,6 +286,9 @@ public:
     void closeObjectDB(fds_token_id tokId);
 
     ObjectDB *getObjectDB(fds_token_id tokId);
+
+    void snapshot(const fds_token_id& tokId,
+            leveldb::DB*& db, leveldb::ReadOptions& options);
 
     fds::Error Get(const ObjectID& obj_id, ObjectBuf& obj_buf);
 

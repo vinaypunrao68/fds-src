@@ -228,6 +228,28 @@ namespace fds {
         return  memcmp(lhs.digest, rhs.digest, sizeof(lhs.digest));
     }
 
+    void ObjectID::getTokenRange(const fds_token_id& tokenInput,
+            const uint32_t& nTokenBits,
+            ObjectID &start, ObjectID &end)
+    {
+        fds_verify(nTokenBits % 8 == 0 &&
+                nTokenBits / 8 <= sizeof(fds_token_id));
+
+        fds_token_id token = tokenInput;
+        uint32_t nTokenBytes = nTokenBits / 8;
+        uint32_t nBytes = sizeof(start.digest);
+        uint8_t* b = start.digest;
+        uint8_t* e = end.digest;
+
+        memset(b,  0, nBytes);
+        memset(e, 0xFF, nBytes);
+        for (uint32_t i = 0; i < nTokenBytes; i++) {
+            b[nTokenBytes-1-i] = token & 0xFF;
+            e[nTokenBytes-1-i] = token & 0xFF;
+            token = token >> 8;
+        }
+    }
+
     /* NullObjectID */
     extern ObjectID NullObjectID;
 

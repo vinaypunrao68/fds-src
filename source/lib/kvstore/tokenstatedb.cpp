@@ -10,14 +10,96 @@
 namespace fds { namespace kvstore {
 using redis::Reply;
 using redis::RedisException;
+
+
+TokenStateInfo::TokenStateInfo()
+{
+    state = UNKNOWN;
+    latestSyncTs = 0;
+}
+
 TokenStateDB::TokenStateDB(const std::string& host,
                            uint port,
-                           uint poolsize) : KVStore(host, port, poolsize) {
+                           uint poolsize)
+    : KVStore(host, port, poolsize),
+      lock_("TokenStateDBLock")
+{
     LOGNORMAL << "instantiating tokenstatedb";
 }
 
 TokenStateDB::~TokenStateDB() {
     LOGNORMAL << "destroying tokenstatedb";
+}
+
+Error TokenStateDB::addToken(const fds_token_id &tokId)
+{
+    fds_spinlock::scoped_lock l(lock_);
+    auto itr = tokenTbl_.find(tokId);
+    if (itr != tokenTbl_.end()) {
+        fds_assert(!"Token already exists");
+        return ERR_SM_TOKENSTATEDB_DUPLICATE_KEY;
+    }
+    tokenTbl_[tokId] = TokenStateInfo();
+    return ERR_OK;
+}
+
+Error TokenStateDB::removeToken(const fds_token_id &tokId)
+{
+    fds_spinlock::scoped_lock l(lock_);
+    tokenTbl_.erase(tokId);
+    return ERR_OK;
+}
+
+Error TokenStateDB::setTokenState(const fds_token_id &tokId,
+        const TokenStateInfo::State& state)
+{
+    fds_spinlock::scoped_lock l(lock_);
+    auto itr = tokenTbl_.find(tokId);
+    if (itr == tokenTbl_.end()) {
+        fds_assert(!"Token doesn't exist");
+        return ERR_SM_TOKENSTATEDB_KEY_NOT_FOUND;
+    }
+    itr->second.state = state;
+    return ERR_OK;
+}
+
+Error TokenStateDB::setTokenSyncTimestamp(const fds_token_id &tokId,
+        const uint64_t &ts)
+{
+    fds_spinlock::scoped_lock l(lock_);
+    auto itr = tokenTbl_.find(tokId);
+    if (itr == tokenTbl_.end()) {
+        fds_assert(!"Token doesn't exist");
+        return ERR_SM_TOKENSTATEDB_KEY_NOT_FOUND;
+    }
+    itr->second.latestSyncTs = ts;
+    return ERR_OK;
+}
+
+Error TokenStateDB::getTokenState(const fds_token_id &tokId,
+        TokenStateInfo::State& state)
+{
+    fds_spinlock::scoped_lock l(lock_);
+    auto itr = tokenTbl_.find(tokId);
+    if (itr == tokenTbl_.end()) {
+        fds_assert(!"Token doesn't exist");
+        return ERR_SM_TOKENSTATEDB_KEY_NOT_FOUND;
+    }
+    state = itr->second.state;
+    return ERR_OK;
+}
+
+Error TokenStateDB::getTokenSyncTimestamp(const fds_token_id &tokId,
+        uint64_t &ts)
+{
+    fds_spinlock::scoped_lock l(lock_);
+    auto itr = tokenTbl_.find(tokId);
+    if (itr == tokenTbl_.end()) {
+        fds_assert(!"Token doesn't exist");
+        return ERR_SM_TOKENSTATEDB_KEY_NOT_FOUND;
+    }
+    ts = itr->second.latestSyncTs;
+    return ERR_OK;
 }
 
 bool TokenStateDB::getTokens(const NodeUuid& uuid, std::vector<fds_token_id>& vecTokens) {

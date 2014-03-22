@@ -44,14 +44,17 @@ struct TcrWrittenEvt {
 typedef boost::shared_ptr<TcrWrittenEvt> TcrWrittenEvtPtr;
 
 /* Triggered when migration stream needs to be destroyed */
-struct TSCopyDnEvt {
-    explicit TSCopyDnEvt(const std::string &mig_stream_id)
-    : mig_stream_id_(mig_stream_id)
+struct TRCopyDnEvt {
+    explicit TRCopyDnEvt(const std::string &mig_stream_id,
+            const fds_token_id& token_id)
+    : mig_stream_id_(mig_stream_id),
+      token_id_(token_id)
     {}
 
     std::string mig_stream_id_;
+    fds_token_id token_id_;
 };
-typedef boost::shared_ptr<TSCopyDnEvt> TSCopyDnEvtPtr;
+typedef boost::shared_ptr<TRCopyDnEvt> TRCopyDnEvtPtr;
 
 /* State machine */
 struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
@@ -286,10 +289,11 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
         {
             LOGDEBUG << "teardown " << fsm.mig_stream_id_;
 
-            TSCopyDnEvtPtr destroy_evt(new TSCopyDnEvt(fsm.mig_stream_id_));
+            TRCopyDnEvtPtr destroy_evt(new TRCopyDnEvt(fsm.mig_stream_id_,
+                    *fsm.completed_tokens_.begin()));
             fsm.parent_->send_actor_request(
                     FdsActorRequestPtr(
-                            new FdsActorRequest(FAR_ID(TSCopyDnEvt), destroy_evt)));
+                            new FdsActorRequest(FAR_ID(TRCopyDnEvt), destroy_evt)));
         }
     };
 
@@ -432,7 +436,7 @@ TokenCopyReceiver::TokenCopyReceiver(FdsMigrationSvc *migrationSvc,
     std::string sender_ip = netSessionTbl::ipAddr2String(int_ip);
 
     // TODO(Rao): Don't need mig_stream_id anymore remove it
-    std::string mig_stream_id = "" + token;
+    std::string mig_stream_id = std::to_string(token);
 
     auto sender_session = migrationSvc->get_migration_client(
             sender_ip,
@@ -509,10 +513,13 @@ Error TokenCopyReceiver::handle_actor_request(FdsActorRequestPtr req)
         copy_fsm_->process_event(*payload);
         break;
     }
-    case FAR_ID(TSCopyDnEvt):
+    case FAR_ID(TRCopyDnEvt):
     {
+        /* notify parent that copy is done*/
+        migrationSvc_->send_actor_request(req);
+
         /* Starting token sync statemachine */
-        // TODO(Rao): Get the sync start time from config db
+        // TODO(Rao): Get the sync start time from token db
         sync_fsm_->process_event(TRStartEvt(get_fds_timestamp_ms(), 0));
         break;
     }
@@ -533,18 +540,29 @@ Error TokenCopyReceiver::handle_actor_request(FdsActorRequestPtr req)
     {
         auto payload = req->get_payload<FDSP_NotifyTokenSyncComplete>();
         sync_fsm_->process_event(*payload);
+        // TODO(rao): issue mark pull stop to pull fsm
         break;
     }
     case FAR_ID(TRPullDnEvt):
     {
-        /* Pull is done. Start resolving on the sync fsm */
-        sync_fsm_->process_event(TRResolveEvt());
+        fds_assert(!"not impl");
+        break;
+    }
+    case FAR_ID(TRMdAppldEvt):
+    {
+        auto payload = req->get_payload<TRMdAppldEvt>();
+        sync_fsm_->process_event(*payload);
         break;
     }
     case FAR_ID(TSnapDnEvt):
     {
         auto payload = req->get_payload<TSnapDnEvt>();
         sync_fsm_->process_event(*payload);
+        break;
+    }
+    case FAR_ID(TRResolveDnEvt):
+    {
+        sync_fsm_->process_event(TRResolveDnEvt());
         break;
     }
     default:

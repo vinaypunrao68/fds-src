@@ -32,9 +32,11 @@ typedef boost::msm::back::state_machine<TokenSyncReceiverFSM_> TokenSyncReceiver
 /* Statemachine Events */
 typedef FDSP_SyncTokenResp SyncAckdEvt;
 typedef FDSP_PushTokenMetadataReq TokMdEvt;
-typedef FDSP_NotifyTokenSyncComplete TRXferDnEvt;
+typedef FDSP_NotifyTokenSyncComplete TRMdXferDnEvt;
 
 struct TRMdAppldEvt {};
+typedef boost::shared_ptr<TRMdAppldEvt> TRMdAppldEvtPtr;
+
 struct NeedPullEvt {};
 struct TRPullDnEvt {};
 struct TRResolveEvt {};
@@ -71,9 +73,11 @@ public:
     void process_event(const TRStartEvt& evt);
     void process_event(const SyncAckdEvt& evt);
     void process_event(const TokMdEvt& evt);
-    void process_event(const TRXferDnEvt& evt);
+    void process_event(const TRMdAppldEvt& evt);
+    void process_event(const TRMdXferDnEvt& evt);
     void process_event(const TSnapDnEvt& evt);
     void process_event(const TRResolveEvt& evt);
+    void process_event(const TRResolveDnEvt& evt);
 
  private:
     TokenSyncReceiverFSM *fsm_;

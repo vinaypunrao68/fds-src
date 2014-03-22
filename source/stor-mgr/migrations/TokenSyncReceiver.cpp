@@ -12,6 +12,7 @@
 #include <boost/msm/front/euml/common.hpp>
 #include <boost/msm/front/euml/operator.hpp>
 
+#include <fdsp_utils.h>
 #include <SmObjDb.h>
 #include <fds_migration.h>
 #include <TokenCopyReceiver.h>
@@ -198,8 +199,19 @@ struct TokenSyncReceiverFSM_
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            LOGDEBUG << "apply_tok_md token: " << fsm.token_id_;
+            LOGDEBUG << "apply_tok_md token: " << fsm.token_id_
+                    << ". cnt: " << evt.md_list.size();
 
+            /* Cache the session uuid */
+            fsm.resp_session_uuid_ = evt.header.base_header.session_uuid;
+
+            /* Increment upfront.  We compare this value against # acked back
+             * from object store.  When they match we know this metadata batch
+             * has been applied.  We increment upfront to avoid race conditions.
+             */
+            fsm.sent_apply_md_msgs_+= evt.md_list.size();
+
+            uint32_t to_send = evt.md_list.size();
             for (auto itr : evt.md_list) {
                 auto apply_md_msg = new SmIoApplySyncMetadata();
                 apply_md_msg->io_type = FDS_SM_SYNC_APPLY_METADATA;
@@ -211,10 +223,12 @@ struct TokenSyncReceiverFSM_
                     fds_assert(!"Hit an error in enqueing");
                     LOGERROR << "Failed to enqueue to snap_msg_ to StorMgr.  Error: "
                             << err;
+                    delete apply_md_msg;
+                    fsm.sent_apply_md_msgs_ -= to_send;
                     fsm.process_event(ErrorEvt());
                     return;
                 }
-                fsm.sent_apply_md_msgs_++;
+                to_send--;
             }
         }
     };
@@ -231,13 +245,12 @@ struct TokenSyncReceiverFSM_
             resp.header.base_header.err_code = ERR_OK;
             resp.header.base_header.src_node_name = fsm.migrationSvc_->get_ip();
             resp.header.base_header.src_port = fsm.migrationSvc_->get_port();
-            resp.header.base_header.session_uuid =
-                    fsm.sender_session_->getSessionId();
+            resp.header.base_header.session_uuid = fsm.resp_session_uuid_;
             resp.header.mig_id = fsm.parent_->get_mig_id();
             resp.header.mig_stream_id = fsm.mig_stream_id_;
 
             auto resp_client = fsm.migrationSvc_->get_resp_client(
-                    evt.header.base_header.session_uuid);
+                    fsm.resp_session_uuid_);
             resp_client->PushTokenMetadataResp(resp);
         }
     };
@@ -262,19 +275,6 @@ struct TokenSyncReceiverFSM_
 
             fds_assert(!fsm.sync_stream_done_);
             fsm.sync_stream_done_ = true;
-
-            // TODO(Rao): Send a message to mark pull stop
-            // For now, since pull isn't implmented we'll issue
-            // pull done event to simulate pull is done
-            FdsActorRequestPtr far(new FdsActorRequest(
-                    FAR_ID(TRPullDnEvt), nullptr));
-
-            Error err = fsm.parent_->send_actor_request(far);
-            if (err != ERR_OK) {
-                fds_assert(!"Failed to send message");
-                LOGERROR << "Failed to send actor message.  Error: "
-                        << err;
-            }
         }
     };
     struct take_snap
@@ -411,13 +411,15 @@ struct TokenSyncReceiverFSM_
     };
 
     /* Guards */
-    struct none_to_resolve
+    struct need_resolve
     {
         /* Returns true if there is nothing to resolve */
         template <class EVT, class FSM, class SourceState, class TargetState>
         bool operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            return fsm.sent_apply_md_msgs_ == 0;
+            bool ret = (fsm.sent_apply_md_msgs_ > 0);
+            LOGDEBUG << "need_resolve?: " << ret;
+            return ret;
         }
     };
 
@@ -453,11 +455,11 @@ struct TokenSyncReceiverFSM_
 
     Row< Receiving  , NeedPullEvt    , msm_none   , req_for_pull    , msm_none         >,
 
-    Row< Receiving  , TRXferDnEvt    , RecvDone   , mark_sync_dn    , msm_none         >,
+    Row< Receiving  , TRMdXferDnEvt  , RecvDone   , mark_sync_dn    , msm_none         >,
     // +------------+----------------+------------+-----------------+------------------+
-    Row< RecvDone   , msm_none       , Complete   , teardown        , none_to_resolve  >,
+    Row< RecvDone   , TRResolveEvt   , Snapshot   , take_snap       , need_resolve     >,
 
-    Row< RecvDone   , TRResolveEvt   , Snapshot   , take_snap       , msm_none         >,
+    Row< RecvDone   , msm_none       , Complete   , teardown        , Not_<need_resolve>>, // NOLINT
     // +------------+----------------+------------+-----------------+------------------+
     Row< Snapshot   , TSnapDnEvt     , Resolving  , issue_resolve   , msm_none         >,
     // +------------+----------------+------------+-----------------+------------------+
@@ -496,9 +498,12 @@ struct TokenSyncReceiverFSM_
         ackd_apply_md_msgs_++;
 
         if (ackd_apply_md_msgs_ == sent_apply_md_msgs_) {
-            LOGDEBUG << "Applied a batch of token sync metadata";
+            LOGDEBUG << "Applied a batch of token sync metadata. Cnt: "
+                    << ackd_apply_md_msgs_;
+
+            TRMdAppldEvtPtr md_applied_evt(new TRMdAppldEvt());
             FdsActorRequestPtr far(new FdsActorRequest(
-                    FAR_ID(TRMdAppldEvt), nullptr));
+                    FAR_ID(TRMdAppldEvt), md_applied_evt));
 
             Error err = parent_->send_actor_request(far);
             if (err != ERR_OK) {
@@ -582,6 +587,11 @@ struct TokenSyncReceiverFSM_
 
     /* Sender session */
     netMigrationPathClientSession *sender_session_;
+
+    /* We cache session uuid of the incoming request so we can respond
+     * back on the same socket
+     */
+    std::string resp_session_uuid_;
 
     /* RPC handler for responses.  NOTE: We don't really use it.  It's just here so
      * it can be passed as a parameter when we create a netClientSession
@@ -883,7 +893,12 @@ void TokenSyncReceiver::process_event(const TokMdEvt& evt) {
     fsm_->process_event(evt);
 }
 
-void TokenSyncReceiver::process_event(const TRXferDnEvt& evt) {
+void TokenSyncReceiver::process_event(const TRMdAppldEvt& evt)
+{
+    fsm_->process_event(evt);
+}
+
+void TokenSyncReceiver::process_event(const TRMdXferDnEvt& evt) {
     fsm_->process_event(evt);
 }
 
@@ -892,6 +907,10 @@ void TokenSyncReceiver::process_event(const TSnapDnEvt& evt) {
 }
 
 void TokenSyncReceiver::process_event(const TRResolveEvt& evt) {
+    fsm_->process_event(evt);
+}
+
+void TokenSyncReceiver::process_event(const TRResolveDnEvt& evt) {
     fsm_->process_event(evt);
 }
 

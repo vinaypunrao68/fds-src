@@ -28,7 +28,20 @@ namespace fds
 /* Forward declarations */
 class FDSP_MigrationPathRpc;
 
-typedef std::function<void (const Error&)> MigSvcCbType;
+/**
+ * Migration status
+ */
+enum MigrationStatus {
+    /* Copy is complete */
+    TOKEN_COPY_COMPLETE,
+    /* Token sync is complete */
+    TOKEN_SYNC_COMPLETE,
+    /* Entire migration operation is complete */
+    MIGRATION_OP_COMPLETE
+};
+
+typedef std::function<void (const Error&,
+        const MigrationStatus& mig_status)> MigSvcCbType;
 
 /**
  * Send this message to FdsMigrationSvc for bulk copying tokens
@@ -74,22 +87,30 @@ class MigrationCounters : public FdsCounters
 
 /**
  * Token copy tracker for copying multiple tokens.  This is temporary and should
- * go away once OM starts doing granulat token migrations
+ * go away once OM starts doing granular token migrations
  */
 class TokenCopyTracker {
  public:
     TokenCopyTracker(FdsMigrationSvc *migrationSvc,
-            std::set<fds_token_id> tokens, MigSvcCbType cb);
+            std::set<fds_token_id> tokens, MigSvcCbType copy_cb);
     void start();
-    void token_complet_cb(const Error& e);
+    void token_complete_cb(const Error& e,
+            const MigrationStatus& mig_status);
 
  private:
     void issue_copy_req();
 
     FdsMigrationSvc *migrationSvc_;
+    /* Tokens to copy and sync */
     std::set<fds_token_id> tokens_;
-    std::set<fds_token_id>::iterator cur_itr_;
-    MigSvcCbType cb_;
+    /* next token to issue a copy request for */
+    std::set<fds_token_id>::iterator cur_copy_itr_;
+    /* Completed copy count */
+    uint32_t copy_completed_cnt_;
+    /* Completed sync count */
+    uint32_t sync_completed_cnt_;
+    /* Callback to issue after token copy is done (not token sync) */
+    MigSvcCbType copy_cb_;
 };
 
 /* Service for migrating objects */

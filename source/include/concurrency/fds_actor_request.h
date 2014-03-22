@@ -43,13 +43,13 @@ enum FdsActorRequestType {
     FAR_ENUM(TcrWrittenEvt),
 
     /* Token copy done event */
-    FAR_ENUM(TSCopyDnEvt),
+    FAR_ENUM(TRCopyDnEvt),
 
     /* Token sync snapshot is complete notification event */
     FAR_ENUM(TSnapDnEvt),
 
     /* Token sync transfer is complete */
-    FAR_ENUM(TRXferDnEvt),
+    FAR_ENUM(TRMdXferDnEvt),
 
     /* Token sync pull is complete */
     FAR_ENUM(TRPullDnEvt),

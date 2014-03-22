@@ -117,6 +117,9 @@ namespace fds {
     static std::string ToHex(const char *key, fds_uint32_t len);
     static std::string ToHex(const fds_uint32_t *key, fds_uint32_t len);
     static int compare(const ObjectID &lhs, const ObjectID &rhs);
+    static void getTokenRange(const fds_token_id& token,
+            const uint32_t& nTokenBits,
+            ObjectID &start, ObjectID &end);
 
     friend class ObjectLess;
     friend class ObjIdGen;
@@ -124,6 +127,8 @@ namespace fds {
 
   /* NullObjectID */
   extern ObjectID NullObjectID;
+
+  /* Operators on ObjectID */
   std::ostream& operator<<(std::ostream& out, const ObjectID& oid);
 
   class ObjectHash {

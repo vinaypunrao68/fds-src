@@ -24,12 +24,12 @@ class ClusterCommMgr {
     explicit ClusterCommMgr(OMgrClient *omClient);
     ClusterCommMgr(OMgrClient *omClient, netSessionTblPtr nst);
 
-    virtual NodeTokenTbl partition_tokens_by_node(const std::set<fds_token_id> &tokens);
+    TVIRTUAL NodeTokenTbl partition_tokens_by_node(const std::set<fds_token_id> &tokens);
 
-    virtual bool get_node_mig_ip_port(const NodeUuid &node_id,
+    TVIRTUAL bool get_node_mig_ip_port(const NodeUuid &node_id,
                                       uint32_t &ip,
                                       uint32_t &port);
-    const DLT* get_dlt();
+    TVIRTUAL const DLT* get_dlt();
 
     OMgrClient* get_om_client();
 

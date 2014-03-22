@@ -268,7 +268,9 @@ struct TokenCopySenderFSM_
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
             LOGDEBUG << "teardown ";
-
+            // TODO(Rao): For now we will not send a shutdown to parent as
+            // sync will start
+            /*
             FdsActorRequestPtr far(new FdsActorRequest(
                     FAR_ID(FdsActorShutdown), nullptr));
 
@@ -278,6 +280,7 @@ struct TokenCopySenderFSM_
                 LOGERROR << "Failed to send actor message.  Error: "
                         << err;
             }
+            */
         }
     };
 
@@ -457,6 +460,12 @@ Error TokenCopySender::handle_actor_request(FdsActorRequestPtr req)
     case FAR_ID(FDSP_PushTokenMetadataResp):
     {
         auto payload = req->get_payload<FDSP_PushTokenMetadataResp>();
+        sync_fsm_->process_event(*payload);
+        break;
+    }
+    case FAR_ID(TSnapDnEvt):
+    {
+        auto payload = req->get_payload<TSnapDnEvt>();
         sync_fsm_->process_event(*payload);
         break;
     }

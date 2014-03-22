@@ -63,6 +63,21 @@ ObjectDB *SmObjDb::getObjectDB(fds_token_id tokId) {
     return objdb;
 }
 
+/**
+ * Takes snapshot of db identified tokId
+ * @param tokId
+ * @param db - returns a pointer to snapshotted db
+ * @param options - level db specifics for snapshot
+ */
+void SmObjDb::snapshot(const fds_token_id& tokId,
+        leveldb::DB*& db, leveldb::ReadOptions& options)
+{
+    ObjectDB *odb = getObjectDB_(tokId);
+    db = odb->GetDB();
+    options.snapshot = db->GetSnapshot();
+    return;
+}
+
 fds::Error SmObjDb::Get(const ObjectID& obj_id, ObjectBuf& obj_buf) {
     fds_token_id tokId = getTokenId_(obj_id);
     fds::Error err = ERR_OK;
@@ -326,8 +341,8 @@ void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
                 } else {
                     itr.objId = objId;
                     DBG(LOGDEBUG << "token: " << token <<  " dbId: " << GetSmObjDbId(token)
-                        << " cnt: " << obj_itr_cnt) << " token retrieve not completly with "
-                        << " max size" << max_size << " and total msg len " << tot_msg_len;
+                        << " cnt: " << obj_itr_cnt << " token retrieve not completly with "
+                        << " max size" << max_size << " and total msg len " << tot_msg_len);
                     return;
                 }
             }

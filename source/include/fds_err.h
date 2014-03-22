@@ -84,6 +84,8 @@ namespace fds {
     /* Storage manager error range [2000-2500) */
     ERR_SM_NOT_IN_SYNC_MODE = 2000,
     ERR_SM_OBJ_METADATA_NOT_FOUND = 2001,
+    ERR_SM_TOKENSTATEDB_KEY_NOT_FOUND = 2002,
+    ERR_SM_TOKENSTATEDB_DUPLICATE_KEY = 2003,
 
     ERR_MAX
   } fds_errno_t;

@@ -24,7 +24,8 @@ user_cpp         :=      \
     fds_types.cpp        \
     ClusterCommMgr.cpp   \
     fds_volume.cpp       \
-    TransJournal.cpp
+    TransJournal.cpp     \
+    fdsp_utils.cpp
 
 user_incl_dir    := $(topdir)
 user_no_style    := \

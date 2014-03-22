@@ -67,6 +67,7 @@
 #include <platform/platform-lib.h>
 
 #include <NetSession.h>
+#include <kvstore/tokenstatedb.h>
 
 #undef FDS_TEST_SM_NOOP      /* if defined, IO completes as soon as it arrives to SM */
 
@@ -189,6 +190,9 @@ class ObjectStorMgr :
 
     /* Migrations related */
     FdsMigrationSvcPtr migrationSvc_;
+
+    /* Token state db */
+    kvstore::TokenStateDBPtr tokenStateDb_;
 
     /* Counters */
     SMCounters counters_;
@@ -406,11 +410,6 @@ class ObjectStorMgr :
         return volTbl;
     }
 
-    const DLT* getDLT() {
-        return omClient->getCurrentDLT();
-    }
-
-
     void PutObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
             const FDS_ProtocolInterface::FDSP_PutObjTypePtr& put_obj);
     void GetObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
@@ -422,8 +421,9 @@ class ObjectStorMgr :
     Error deleteObjectInternal(SmIoReq* delReq);
     void putTokenObjectsInternal(SmIoReq* ioReq);
     void getTokenObjectsInternal(SmIoReq* ioReq);
+    void snapshotTokenInternal(SmIoReq* ioReq);
     void applySyncMetadataInternal(SmIoReq* ioReq);
-    void resolveSyncEntriesInternal(SmIoReq* ioReq);
+    void resolveSyncEntryInternal(SmIoReq* ioReq);
     Error relocateObject(const ObjectID &objId,
             diskio::DataTier from_tier,
             diskio::DataTier to_tier);
@@ -440,27 +440,21 @@ class ObjectStorMgr :
                                    fds_bool_t check_only,
                                    FDSP_ResultType resut);
     static void migrationEventOmHandler(bool dlt_type);
-    void migrationSvcResponseCb(const Error& err);
+    void migrationSvcResponseCb(const Error& err, const MigrationStatus& status);
 
     virtual Error enqueueMsg(fds_volid_t volId, SmIoReq* ioReq);
 
     /* Made virtual for google mock */
-    TVIRTUAL fds_token_id getTokenId(const ObjectID& objId) {
-        return omClient->getCurrentDLT()->getToken(objId);
-    }
-    TVIRTUAL bool isTokenInSyncMode(const fds_token_id &tokId) {
-        // fds_assert(!"not implemented");
-        return false;
-    }
-    TVIRTUAL uint64_t getTokenSyncTimeStamp(const fds_token_id &tokId) {
-        fds_assert(!"not implemented");
-        return 0;
-    }
+    TVIRTUAL const DLT* getDLT();
+    TVIRTUAL fds_token_id getTokenId(const ObjectID& objId);
+    TVIRTUAL kvstore::TokenStateDBPtr getTokenStateDb();
+    TVIRTUAL bool isTokenInSyncMode(const fds_token_id &tokId);
+    TVIRTUAL uint64_t getTokenSyncTimeStamp(const fds_token_id &tokId);
 
     Error putTokenObjects(const fds_token_id &token, 
                           FDSP_MigrateObjectList &obj_list);
     void unitTest();
-    Error readObject(const SmObjDb::View& view,
+    TVIRTUAL Error readObject(const SmObjDb::View& view,
             const ObjectID   &objId,
             ObjectBuf        &objCompData,
             diskio::DataTier &tier);

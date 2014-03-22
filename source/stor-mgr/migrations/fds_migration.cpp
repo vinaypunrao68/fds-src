@@ -124,38 +124,56 @@ NotifyTokenSyncComplete(boost::shared_ptr<FDSP_NotifyTokenSyncComplete>& sync_co
 }
 
 TokenCopyTracker::TokenCopyTracker(FdsMigrationSvc *migrationSvc,
-        std::set<fds_token_id> tokens, MigSvcCbType cb) {
+        std::set<fds_token_id> tokens, MigSvcCbType copy_cb) {
     migrationSvc_ = migrationSvc;
     tokens_ = tokens;
-    cur_itr_ = tokens.begin();
-    cb_ = cb;
+    cur_copy_itr_ = tokens_.begin();
+    copy_completed_cnt_ = 0;
+    sync_completed_cnt_ = 0;
+    copy_cb_ = copy_cb;
 }
 
-void TokenCopyTracker::start() {
-    if (cur_itr_ != tokens_.end()) {
+void TokenCopyTracker::start()
+{
+    if (cur_copy_itr_ != tokens_.end()) {
         issue_copy_req();
     }
 }
 
-void TokenCopyTracker::token_complet_cb(const Error& e) {
+void TokenCopyTracker::token_complete_cb(const Error& e,
+        const MigrationStatus& mig_status)
+{
     fds_assert(e == ERR_OK);
-    cur_itr_++;
-    if (cur_itr_ != tokens_.end()) {
-        issue_copy_req();
-    } else {
-        cb_(ERR_OK);
+
+    if (mig_status == TOKEN_COPY_COMPLETE) {
+        copy_completed_cnt_++;
+        cur_copy_itr_++;
+        if (cur_copy_itr_ != tokens_.end()) {
+            issue_copy_req();
+        } else {
+            copy_cb_(ERR_OK, TOKEN_COPY_COMPLETE);
+        }
+    } else if (mig_status == TOKEN_SYNC_COMPLETE ||
+               mig_status == MIGRATION_OP_COMPLETE) {
+        sync_completed_cnt_++;
     }
+
+    fds_assert(sync_completed_cnt_ <= copy_completed_cnt_);
+    LOGDEBUG << "copy completed cnt: " << copy_completed_cnt_
+            << " sync completed cnt: " << sync_completed_cnt_;
 }
 
-void TokenCopyTracker::issue_copy_req() {
-    LOGDEBUG << "token id: " << *cur_itr_;
+void TokenCopyTracker::issue_copy_req()
+{
+    LOGDEBUG << "token id: " << *cur_copy_itr_;
+
     MigSvcCopyTokensReqPtr copy_req(new MigSvcCopyTokensReq());
-    copy_req->token = *cur_itr_;
+    copy_req->token = *cur_copy_itr_;
     // Send migration request to migration service
     copy_req->migsvc_resp_cb = std::bind(
-            &TokenCopyTracker::token_complet_cb,
+            &TokenCopyTracker::token_complete_cb,
             this,
-            std::placeholders::_1);
+            std::placeholders::_1, std::placeholders::_2);
     FdsActorRequestPtr copy_far(new FdsActorRequest(
             FAR_ID(MigSvcCopyTokensReq), copy_req));
     migrationSvc_->send_actor_request(copy_far);
@@ -255,6 +273,12 @@ Error FdsMigrationSvc::handle_actor_request(FdsActorRequestPtr req)
     {
         auto payload = req->get_payload<FDSP_PushTokenObjectsResp>();
         route_to_mig_actor(payload->mig_id, req);
+        break;
+    }
+    case FAR_ID(TRCopyDnEvt):
+    {
+        /* Copy completed notification from copy receiver */
+        copy_tracker_->token_complete_cb(ERR_OK, TOKEN_COPY_COMPLETE);
         break;
     }
     /* Token sync related */
@@ -408,13 +432,10 @@ handle_migsvc_migration_complete(FdsActorRequestPtr req)
 
     /* Remove and then issue the callback */
     auto migsvc_resp_cb = itr->second.migsvc_resp_cb;
-    // TODO(rao): We need to remove the migrator.  I am experiencing crash
-    // when I do this.  I suspect fds actor queue is still scheduled even
-    // after removing the migration actor
     mig_actors_.erase(itr);
 
     if (migsvc_resp_cb) {
-        migsvc_resp_cb(ERR_OK);
+        migsvc_resp_cb(ERR_OK, MIGRATION_OP_COMPLETE);
     }
 
     LOGNORMAL << " Migration id: " << payload->far_id;

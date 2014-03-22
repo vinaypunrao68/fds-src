@@ -54,6 +54,7 @@ public:
             boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler);
     void process_event(const SyncReqEvt& event);
     void process_event(const SendDnEvt& event);
+    void process_event(const TSnapDnEvt& event);
 private:
     TokenSyncSenderFSM *fsm_;
 

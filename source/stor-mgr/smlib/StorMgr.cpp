@@ -341,6 +341,9 @@ void ObjectStorMgr::setup()
     // init the checksum verification class
     chksumPtr =  new checksum_calc();
 
+    /* Token state db */
+    tokenStateDb_.reset(new kvstore::TokenStateDB());
+
     /* Set up FDSP RPC endpoints */
     nst_ = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_MGR));
     myIp = netSession::getLocalIp();
@@ -522,6 +525,28 @@ ObjectStorMgr::getUuid() const {
     return omClient->getUuid();
 }
 
+const DLT* ObjectStorMgr::getDLT() {
+    return omClient->getCurrentDLT();
+}
+
+fds_token_id ObjectStorMgr::getTokenId(const ObjectID& objId) {
+    return omClient->getCurrentDLT()->getToken(objId);
+}
+
+kvstore::TokenStateDBPtr ObjectStorMgr::getTokenStateDb()
+{
+    return tokenStateDb_;
+}
+bool ObjectStorMgr::isTokenInSyncMode(const fds_token_id &tokId) {
+    // fds_assert(!"not implemented");
+    return false;
+}
+
+uint64_t ObjectStorMgr::getTokenSyncTimeStamp(const fds_token_id &tokId) {
+    fds_assert(!"not implemented");
+    return 0;
+}
+
 void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
 {
     GLOGDEBUG << "ObjectStorMgr - Migration  event Handler " << dlt_type;
@@ -536,18 +561,20 @@ void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
         copy_req->migsvc_resp_cb = std::bind(
             &ObjectStorMgr::migrationSvcResponseCb,
             objStorMgr,
-            std::placeholders::_1);
+            std::placeholders::_1,
+            std::placeholders::_2);
         FdsActorRequestPtr copy_far(new FdsActorRequest(
             FAR_ID(MigSvcBulkCopyTokensReq), copy_req));
         objStorMgr->migrationSvc_->send_actor_request(copy_far);
     } else {
         GLOGDEBUG << "No tokens to copy";
-        objStorMgr->migrationSvcResponseCb(Error(ERR_OK));
+        objStorMgr->migrationSvcResponseCb(Error(ERR_OK), MIGRATION_OP_COMPLETE);
     }
 
 }
 
-void ObjectStorMgr::migrationSvcResponseCb(const Error& err) {
+void ObjectStorMgr::migrationSvcResponseCb(const Error& err,
+        const MigrationStatus& status) {
     omClient->sendMigrationStatusToOM(err);
 }
 
@@ -1691,6 +1718,24 @@ ObjectStorMgr::getTokenObjectsInternal(SmIoReq* ioReq)
     getTokReq->response_cb(err, getTokReq);
     /* NOTE: We expect the caller to free up ioReq */
 }
+/**
+ * Takes snapshot of sm object metadata db identifed by
+ * token
+ * @param ioReq
+ */
+void
+ObjectStorMgr::snapshotTokenInternal(SmIoReq* ioReq)
+{
+    Error err(ERR_OK);
+    SmIoSnapshotObjectDB *snapReq = static_cast<SmIoSnapshotObjectDB*>(ioReq);
+
+    leveldb::DB *db;
+    leveldb::ReadOptions options;
+
+    smObjDb->snapshot(snapReq->token_id, db, options);
+
+    snapReq->smio_snap_resp_cb(err, snapReq, options, db);
+}
 
 void
 ObjectStorMgr::applySyncMetadataInternal(SmIoReq* ioReq)
@@ -1708,7 +1753,7 @@ ObjectStorMgr::applySyncMetadataInternal(SmIoReq* ioReq)
 }
 
 void
-ObjectStorMgr::resolveSyncEntriesInternal(SmIoReq* ioReq)
+ObjectStorMgr::resolveSyncEntryInternal(SmIoReq* ioReq)
 {
     SmIoResolveSyncEntry *resolve_entry =  static_cast<SmIoResolveSyncEntry*>(ioReq);
     Error e = smObjDb->resolveEntry(resolve_entry->object_id);
@@ -1786,7 +1831,7 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
         case FDS_SM_SNAPSHOT_TOKEN:
         {
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a read token objects";
-            // threadPool->schedule(&ObjectStorMgr::snapshotTokenInternal, objStorMgr, io);
+            threadPool->schedule(&ObjectStorMgr::snapshotTokenInternal, objStorMgr, io);
             break;
         }
         case FDS_SM_SYNC_APPLY_METADATA:
@@ -1798,7 +1843,7 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
         case FDS_SM_SYNC_RESOLVE_SYNC_ENTRY:
         {
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a read token objects";
-            threadPool->schedule(&ObjectStorMgr::resolveSyncEntriesInternal, objStorMgr, io);
+            threadPool->schedule(&ObjectStorMgr::resolveSyncEntryInternal, objStorMgr, io);
             break;
         }
         default:
