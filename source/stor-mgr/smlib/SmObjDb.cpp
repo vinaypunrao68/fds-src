@@ -27,14 +27,14 @@ ObjectDB *SmObjDb::openObjectDB(fds_token_id tokId) {
     ObjectDB *objdb = NULL;
     fds_token_id dbId = GetSmObjDbId(tokId);
 
-    smObjDbMutex->lock();
-    if ( (objdb = tokenTbl[dbId]) == NULL ) {
-        // Create leveldb
-        std::string filename= stor_prefix + "SNodeObjIndex_" + std::to_string(dbId);
-        objdb  = new ObjectDB(filename);
-        tokenTbl[dbId] = objdb;
-    }
-    smObjDbMutex->unlock();
+    FDSGUARD(*smObjDbMutex);
+    TokenTblIter iter = tokenTbl.find(tokId);
+    if (iter != tokenTbl.end()) return iter->second;
+
+    // Create leveldb
+    std::string filename= stor_prefix + "SNodeObjIndex_" + std::to_string(dbId);
+    objdb  = new ObjectDB(filename);
+    tokenTbl[dbId] = objdb;
 
     return objdb;
 }
@@ -42,14 +42,12 @@ ObjectDB *SmObjDb::openObjectDB(fds_token_id tokId) {
 void SmObjDb::closeObjectDB(fds_token_id tokId) {
     fds_token_id dbId = GetSmObjDbId(tokId);
     ObjectDB *objdb = NULL;
-
-    smObjDbMutex->lock();
-    if ( (objdb = tokenTbl[dbId]) == NULL ) {
-        smObjDbMutex->unlock();
-        return;
-    }
-    tokenTbl[dbId] = NULL;
-    smObjDbMutex->unlock();
+    
+    FDSGUARD(*smObjDbMutex);
+    TokenTblIter iter = tokenTbl.find(dbId);
+    if (iter == tokenTbl.end()) return;
+    objdb = iter->second;
+    tokenTbl.erase(iter);
     delete objdb;
 }
 
@@ -57,9 +55,14 @@ ObjectDB *SmObjDb::getObjectDB(fds_token_id tokId) {
     ObjectDB *objdb = NULL;
     fds_token_id dbId = GetSmObjDbId(tokId);
 
-    smObjDbMutex->lock();
-    objdb = tokenTbl[dbId];
-    smObjDbMutex->unlock();
+    FDSGUARD(*smObjDbMutex);
+    TokenTblIter iter = tokenTbl.find(dbId);
+    if (iter != tokenTbl.end()) return iter->second;
+
+    // Create leveldb
+    std::string filename= stor_prefix + "SNodeObjIndex_" + std::to_string(dbId);
+    objdb  = new ObjectDB(filename);
+    tokenTbl[dbId] = objdb;
     return objdb;
 }
 
@@ -77,15 +80,19 @@ void SmObjDb::snapshot(const fds_token_id& tokId,
     options.snapshot = db->GetSnapshot();
     return;
 }
+bool SmObjDb::objectExists(const ObjectID& objId, bool fModifyMode) {
+    OnDiskSmObjMetadata md;
+    View view = fModifyMode?NON_SYNC_MERGED:SYNC_MERGED;
+    Error err = get_(view, objId, md);
+    if (err != ERR_OK) return false;
+    return md.objectExists();
+}
 
 fds::Error SmObjDb::Get(const ObjectID& obj_id, ObjectBuf& obj_buf) {
     fds_token_id tokId = getTokenId_(obj_id);
     fds::Error err = ERR_OK;
     ObjectDB *odb = getObjectDB(tokId);
     if (odb) {
-        err =  odb->Get(obj_id, obj_buf);
-    } else {
-        odb = openObjectDB(tokId);
         err =  odb->Get(obj_id, obj_buf);
     }
     return err;
@@ -96,9 +103,6 @@ fds::Error SmObjDb::Put(const ObjectID& obj_id, ObjectBuf& obj_buf) {
     fds::Error err = ERR_OK;
     ObjectDB *odb = getObjectDB(tokId);
     if (odb) {
-        err =  odb->Put(obj_id, obj_buf);
-    } else {
-        odb = openObjectDB(tokId);
         err =  odb->Put(obj_id, obj_buf);
     }
     DBG(LOGDEBUG << "token: " << tokId <<  " dbId: " << GetSmObjDbId(tokId)

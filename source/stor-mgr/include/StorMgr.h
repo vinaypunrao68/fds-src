@@ -82,7 +82,8 @@ using namespace std;
 using namespace diskio;
 
 namespace fds {
-
+    using DPReqClientPtr = boost::shared_ptr<FDSP_DataPathReqClient>;
+    using DPRespClientPtr = boost::shared_ptr<FDSP_DataPathRespClient>;
 void log_ocache_stats();
 
 /*
@@ -198,11 +199,12 @@ class ObjectStorMgr :
     SMCounters counters_;
 
     /* Helper for accessing datapth response client */
-    inline boost::shared_ptr<FDS_ProtocolInterface::FDSP_DataPathRespClient> 
-    fdspDataPathClient(const std::string& session_uuid)
-    {
+    inline DPRespClientPtr fdspDataPathClient(const std::string& session_uuid) {
         return datapath_session_->getRespClient(session_uuid);
     }
+
+    DPReqClientPtr getProxyClient(ObjectID& oid, const FDSP_MsgHdrTypePtr& msg);
+
     /*
      * TODO: this one should be the singleton by itself.  Need to make it
      * a stand-alone module like resource manager for volume.
