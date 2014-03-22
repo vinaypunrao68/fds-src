@@ -32,6 +32,10 @@ TEST_CASE ("Assigning values", "[dlt]" ) {
 
     fillDltNodes(&dlt,10);
     verifyDltNodes(&dlt,10);
+
+    fillDltNodes(&dlt,0);
+    dlt.generateNodeTokenMap();
+    LOGNORMAL << dlt ;
 }
 
 TEST_CASE ("Node Positions", "[dlt]") {
@@ -245,6 +249,4 @@ TEST_CASE ("DLT Manager Serialize" ,"[dlt][serialize][mgr]") {
     verifyDltNodes(ptr,20);
 
     const_cast<DLT*>(ptr)->generateNodeTokenMap();
-    ptr->dump();
-
 }
