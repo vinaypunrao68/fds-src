@@ -43,7 +43,7 @@ void printData(std::string data) {
 ConfigDBTool::ConfigDBTool(std::string host, int port) {
     db = new kvstore::ConfigDB(host,port,1);
 
-    setHistoryFile("~/.confidbtool.hist");
+    setHistoryFile("/tmp/.confidbtool.hist");
     if (!db->isConnected()) {
         ERRORLINE << "unable to connect to db @ [" << host << ":" << port << "]\n";
         exit(1);
@@ -54,6 +54,18 @@ ConfigDBTool::ConfigDBTool(std::string host, int port) {
     REGISTERCMD("listvolumes",ListVolumes);
     REGISTERCMD("volume",Volume);
     REGISTERCMD("listpolicies",ListPolicies);
+    REGISTERCMD("dlt",Dlt);
+    REGISTERCMD("help",Help);
+
+    // help data
+
+    helpInfo.push_back( {"help","[command]", "display help for all or a specific command(s)"});
+    helpInfo.push_back( {"info","", "display basic info about the config db"});
+    helpInfo.push_back( {"dlt","[next/current]", "show the dlt "});
+    helpInfo.push_back( {"volume","[volid ...]", "show volume info for the given ids "});
+    helpInfo.push_back( {"listvolumes","", "show the list of volumes"});
+    helpInfo.push_back( {"listpolicies","", "show the list of policies "});
+
 }
 
 bool ConfigDBTool::check() {
@@ -128,6 +140,38 @@ void ConfigDBTool::cmdVolume(std::vector <std::string>& args) {
             cout << "\n";
         }    
     }
+}
+
+void ConfigDBTool::cmdDlt(std::vector <std::string>& args) {
+    if (!check()) return;
+    std::string type = "current";
+    if (!args.empty()) {
+        if (args[0] != "next" || args[0] != "current" ) {
+            ERRORLINE << "invalid arg : " << args[0] << "\n";
+            return;
+        }
+        type = args[0];
+    }
+    
+    fds_uint64_t version = db->getDltVersionForType(type);
+    if (version > 0 ) {
+        DLT dlt(0, 0, 0, false);
+        if (!db->getDlt(dlt, version)) {
+            WARNLINE << "unable to get  dlt version [" << version << "]" <<"\n";
+            return;
+        }
+        dlt.generateNodeTokenMap();
+        LINE << dlt << "\n";
+    }
+}
+
+void ConfigDBTool::cmdHelp(std::vector <std::string>& args) {
+    for ( uint i = 0 ; i < helpInfo.size() ; i++) {
+        LINE << "\n";
+        LINE << Color::Yellow << helpInfo[i].command << Color::End << " : " << helpInfo[i].args << "\n";
+        LINE << "desc: " << helpInfo[i].description << "\n";
+    }
+    LINE "\n";
 }
 
 void usage() {
