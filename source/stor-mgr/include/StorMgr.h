@@ -157,7 +157,7 @@ class ObjectStorMgr :
         public PlatformProcess,
         public SmIoReqHandler
         {
- private:
+ protected:
     typedef enum {
         NORMAL_MODE = 0,
         TEST_MODE   = 1,

@@ -48,17 +48,20 @@ enum FdsActorRequestType {
     /* Token sync snapshot is complete notification event */
     FAR_ENUM(TSnapDnEvt),
 
-    /* Token sync transfer is complete */
+    /* Token receiver sync meta data is applied to Object store */
+    FAR_ENUM(TRMdAppldEvt),
+
+    /* Token receiver sync transfer is complete */
     FAR_ENUM(TRMdXferDnEvt),
 
-    /* Token sync pull is complete */
-    FAR_ENUM(TRPullDnEvt),
-
-    /* Token sync resolve is complete */
+    /* Token receiver sync resolve is complete */
     FAR_ENUM(TRResolveDnEvt),
 
-    /* Token sync meta data is applied to Object store */
-    FAR_ENUM(TRMdAppldEvt),
+    /* Token receiver sync process is complete */
+    FAR_ENUM(TRSyncDnEvt),
+
+    /* Token receiver sync pull is complete */
+    FAR_ENUM(TRPullDnEvt),
     /*----------------- Migration RPC -----------------------------------------*/
     /* RPC from receiver->sender to start token copy */
     FAR_ENUM(FDSP_CopyTokenReq),
@@ -96,17 +99,13 @@ class FdsRequestQueueActor;
 
 class FdsActorRequest {
 public:
-    FdsActorRequest()
-    : FdsActorRequest(FAR_ID(Max), nullptr)
-    {
-    }
+    FdsActorRequest();
 
-    FdsActorRequest(FdsActorRequestType type, boost::shared_ptr<void> payload) {
-        this->type = type;
-        owner_ = nullptr;
-        prev_owner_ = nullptr;
-        this->payload = payload;
-    }
+    FdsActorRequest(const FdsActorRequestType &type,
+            boost::shared_ptr<void> payload);
+
+    void recycle(const FdsActorRequestType &type,
+            boost::shared_ptr<void> payload);
 
     template <class PayloadT>
     boost::shared_ptr<PayloadT> get_payload() {
@@ -136,9 +135,7 @@ typedef std::queue<FdsActorRequestPtr> FdsActorRequestQueue;
  */
 class FdsActorShutdownComplete {
 public:
-    FdsActorShutdownComplete(const std::string &id)
-    : far_id(id)
-    {}
+    FdsActorShutdownComplete(const std::string &id);
 
     std::string far_id;
 };

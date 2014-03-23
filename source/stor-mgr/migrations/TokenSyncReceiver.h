@@ -42,6 +42,8 @@ struct TRPullDnEvt {};
 struct TRResolveEvt {};
 struct TRSnapDnEvt {};
 struct TRResolveDnEvt {};
+struct TRSyncDnEvt {};
+
 /**
  * Token sync start event
  */

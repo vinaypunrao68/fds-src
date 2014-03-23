@@ -399,7 +399,7 @@ struct TokenSyncReceiverFSM_
             }
 
             FdsActorRequestPtr far(new FdsActorRequest(
-                    FAR_ID(FdsActorShutdown), nullptr));
+                    FAR_ID(TRSyncDnEvt), nullptr));
 
             Error err = fsm.parent_->send_actor_request(far);
             if (err != ERR_OK) {
@@ -764,16 +764,7 @@ struct PullReceiverFSM_
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
             LOGDEBUG << "teardown ";
-
-            FdsActorRequestPtr far(new FdsActorRequest(
-                    FAR_ID(FdsActorShutdown), nullptr));
-
-            Error err = fsm.parent_->send_actor_request(far);
-            if (err != ERR_OK) {
-                fds_assert(!"Failed to send message");
-                LOGERROR << "Failed to send actor message.  Error: "
-                        << err;
-            }
+            // TODO(Rao): Notify pull done
         }
     };
 

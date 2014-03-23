@@ -36,7 +36,8 @@ class MObjStore : public ObjectStorMgr {
        dlt_(8, 3, 1)
     {
         threadpool_.reset(new fds_threadpool(2));
-        smObjDb_ = new  SmObjDb(this, prefix, g_fdslog);
+        smObjDb = new SmObjDb(this, prefix, g_fdslog);
+        tokenStateDb_.reset(new kvstore::TokenStateDB());
         prefix_ = prefix;
     }
     ~MObjStore() {
@@ -69,7 +70,7 @@ class MObjStore : public ObjectStorMgr {
     {
         meta_obj_map_t loc;
         loc.obj_tier = diskio::DataTier::diskTier;
-        Error err = smObjDb_->writeObjectLocation(oid, &loc, false);
+        Error err = smObjDb->writeObjectLocation(oid, &loc, false);
         fds_verify(err == ERR_OK);
         object_db_[oid] = data;
         tokens_.insert(dlt_.getToken(oid));
@@ -130,7 +131,7 @@ class MObjStore : public ObjectStorMgr {
              * write we don't need this check
              */
             diskio::MetaObjMap objMap;
-            err = smObjDb_->readObjectLocations(SmObjDb::NON_SYNC_MERGED, objId, objMap);
+            err = smObjDb->readObjectLocations(SmObjDb::NON_SYNC_MERGED, objId, objMap);
             if (err == ERR_OK) {
                 continue;
             }
@@ -157,7 +158,7 @@ class MObjStore : public ObjectStorMgr {
     {
         Error err(ERR_OK);
         SmIoGetTokObjectsReq *getTokReq = static_cast<SmIoGetTokObjectsReq*>(ioReq);
-        smObjDb_->iterRetrieveObjects(getTokReq->token_id,
+        smObjDb->iterRetrieveObjects(getTokReq->token_id,
                 getTokReq->max_size, getTokReq->obj_list, getTokReq->itr);
 
         getTokReq->response_cb(err, getTokReq);
@@ -214,7 +215,7 @@ class MObjStore : public ObjectStorMgr {
         leveldb::DB *db;
         leveldb::ReadOptions options;
 
-        smObjDb_->snapshot(snapReq->token_id, db, options);
+        smObjDb->snapshot(snapReq->token_id, db, options);
 
         snapReq->smio_snap_resp_cb(err, snapReq, options, db);
     }
@@ -226,7 +227,7 @@ class MObjStore : public ObjectStorMgr {
 
         LOGDEBUG << prefix_ << " oid: " << applyMdReq->md.object_id.digest;
 
-        Error e = smObjDb_->putSyncEntry(ObjectID(applyMdReq->md.object_id.digest),
+        Error e = smObjDb->putSyncEntry(ObjectID(applyMdReq->md.object_id.digest),
                 applyMdReq->md);
         if (e != ERR_OK) {
             fds_assert(!"error");
@@ -241,7 +242,7 @@ class MObjStore : public ObjectStorMgr {
     resolveSyncEntryInternal(SmIoReq* ioReq)
     {
         SmIoResolveSyncEntry *resolve_entry =  static_cast<SmIoResolveSyncEntry*>(ioReq);
-        Error e = smObjDb_->resolveEntry(resolve_entry->object_id);
+        Error e = smObjDb->resolveEntry(resolve_entry->object_id);
         if (e != ERR_OK) {
             fds_assert(!"error");
             LOGERROR << "Error in resolving metadata entry.  Object Id: "
@@ -286,7 +287,6 @@ class MObjStore : public ObjectStorMgr {
     fds_threadpoolPtr threadpool_;
     DLT dlt_;
     std::unordered_map<ObjectID, std::string, ObjectHash> object_db_;
-    SmObjDb        *smObjDb_;
     std::set<fds_token_id> tokens_;
     std::string prefix_;
 };

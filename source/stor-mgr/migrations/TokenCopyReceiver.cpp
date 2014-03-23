@@ -420,6 +420,7 @@ TokenCopyReceiver::TokenCopyReceiver(FdsMigrationSvc *migrationSvc,
         ClusterCommMgrPtr clust_comm_mgr)
     : MigrationReceiver(mig_id),
       FdsRequestQueueActor(mig_id, migrationSvc, threadpool),
+      token_id_(token),
       migrationSvc_(migrationSvc),
       log_(log),
       clust_comm_mgr_(clust_comm_mgr)
@@ -520,6 +521,8 @@ Error TokenCopyReceiver::handle_actor_request(FdsActorRequestPtr req)
 
         /* Starting token sync statemachine */
         // TODO(Rao): Get the sync start time from token db
+        migrationSvc_->getTokenStateDb()->setTokenState(token_id_,
+                kvstore::TokenStateInfo::SYNCING);
         sync_fsm_->process_event(TRStartEvt(get_fds_timestamp_ms(), 0));
         break;
     }
@@ -563,6 +566,16 @@ Error TokenCopyReceiver::handle_actor_request(FdsActorRequestPtr req)
     case FAR_ID(TRResolveDnEvt):
     {
         sync_fsm_->process_event(TRResolveDnEvt());
+        break;
+    }
+    case FAR_ID(TRSyncDnEvt):
+    {
+        // TODO(Rao): Move this to pull
+        migrationSvc_->getTokenStateDb()->setTokenState(token_id_,
+                kvstore::TokenStateInfo::IN_SYNC);
+        /* Self message to destruct */
+        req->recycle(FAR_ID(FdsActorShutdown), nullptr);
+        this->send_actor_request(req);
         break;
     }
     default:

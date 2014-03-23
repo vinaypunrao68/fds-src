@@ -151,11 +151,17 @@ void TokenCopyTracker::token_complete_cb(const Error& e,
         if (cur_copy_itr_ != tokens_.end()) {
             issue_copy_req();
         } else {
+            LOGDEBUG << "All copies complete";
             copy_cb_(ERR_OK, TOKEN_COPY_COMPLETE);
         }
     } else if (mig_status == TOKEN_SYNC_COMPLETE ||
                mig_status == MIGRATION_OP_COMPLETE) {
         sync_completed_cnt_++;
+        if (cur_copy_itr_ == tokens_.end() &&
+            copy_completed_cnt_ == sync_completed_cnt_) {
+            LOGDEBUG << "All syncs complete";
+            copy_cb_(ERR_OK, MIGRATION_OP_COMPLETE);
+        }
     }
 
     fds_assert(sync_completed_cnt_ <= copy_completed_cnt_);
@@ -189,14 +195,16 @@ void TokenCopyTracker::issue_copy_req()
 FdsMigrationSvc::FdsMigrationSvc(SmIoReqHandler *data_store,
         const FdsConfigAccessor &conf_helper,
         fds_log *log, netSessionTblPtr nst,
-        ClusterCommMgrPtr clust_comm_mgr)
+        ClusterCommMgrPtr clust_comm_mgr,
+        kvstore::TokenStateDBPtr tokenStateDb)
     : Module("FdsMigrationSvc"),
       FdsRequestQueueActor("FdsMigrationSvc", nullptr),
       mig_cntrs("Migration", g_cntrs_mgr.get()),
       data_store_(data_store),
       conf_helper_(conf_helper),
       nst_(nst),
-      clust_comm_mgr_(clust_comm_mgr)
+      clust_comm_mgr_(clust_comm_mgr),
+      tokenStateDb_(tokenStateDb)
 {
     SetLog(log);
 }
@@ -532,6 +540,10 @@ ClusterCommMgrPtr FdsMigrationSvc::get_cluster_comm_mgr()
     return clust_comm_mgr_;
 }
 
+kvstore::TokenStateDBPtr FdsMigrationSvc::getTokenStateDb()
+{
+    return tokenStateDb_;
+}
 /**
  * return ip of migration service server
  * @return

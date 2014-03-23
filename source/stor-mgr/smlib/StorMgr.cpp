@@ -484,7 +484,8 @@ void ObjectStorMgr::setup_migration_svc()
                                                               conf_helper_.get_base_path() + "migration."),
                                             GetLog(),
                                             nst_,
-                                            clust_comm_mgr_));
+                                            clust_comm_mgr_,
+                                            tokenStateDb_));
     migrationSvc_->mod_startup();
 }
 
@@ -551,10 +552,25 @@ void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
 {
     GLOGDEBUG << "ObjectStorMgr - Migration  event Handler " << dlt_type;
 
-    std::set<fds_token_id> tokens = DLT::token_diff(objStorMgr->getUuid(),
-                                                    objStorMgr->omClient->getCurrentDLT(), objStorMgr->omClient->getPreviousDLT());
+    std::set<fds_token_id> tokens =
+            DLT::token_diff(objStorMgr->getUuid(),
+                    objStorMgr->omClient->getCurrentDLT(),
+                    objStorMgr->omClient->getPreviousDLT());
 
     if (tokens.size() > 0) {
+        /* Add each new token token db
+         * TODO(Rao): Adding/removing token from tokenstate db
+         * should happen as token ownership changes
+         */
+        for (auto t : tokens) {
+            Error e = objStorMgr->tokenStateDb_->addToken(t);
+            if (e != ERR_OK) {
+                GLOGERROR << "Failed to add token: " << t << " tokenstate db";
+                fds_assert(!"Failed add token to token state db");
+            }
+        }
+
+        /* Issue bulk copy request */
         MigSvcBulkCopyTokensReqPtr copy_req(new MigSvcBulkCopyTokensReq());
         copy_req->tokens = tokens;
         // Send migration request to migration service

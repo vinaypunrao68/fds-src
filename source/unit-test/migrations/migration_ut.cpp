@@ -112,7 +112,8 @@ public:
                 config_helper,
                 log_,
                 nst_,
-                clust_comm_mgr_);
+                clust_comm_mgr_,
+                obj_store->getTokenStateDb());
     }
 
     void mig_svc_cb(const Error& e, const MigrationStatus& mig_status)
@@ -131,7 +132,7 @@ public:
         sleep(5);
 
         /* Put some data in sender object store */
-        for (int i = 0; i < 1; i++) {
+        for (int i = 0; i < 2; i++) {
             sender_store_->putObject("Hello world" + i);
         }
 
@@ -143,6 +144,9 @@ public:
         copy_req->migsvc_resp_cb = std::bind(
             &MigrationTester::mig_svc_cb, this,
             std::placeholders::_1, std::placeholders::_2);
+        for (auto t : copy_req->tokens) {
+            rcvr_store_->getTokenStateDb()->addToken(t);
+        }
 
         LOGDEBUG << "Tokens count: " << copy_req->tokens.size();
 

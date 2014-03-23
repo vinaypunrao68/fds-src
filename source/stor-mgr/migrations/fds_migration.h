@@ -19,6 +19,7 @@
 #include <ClusterCommMgr.h>
 #include <TokenCopySender.h>
 #include <TokenCopyReceiver.h>
+#include <kvstore/tokenstatedb.h>
 
 using namespace  ::FDS_ProtocolInterface;
 
@@ -130,7 +131,8 @@ public:
             const FdsConfigAccessor &conf_helper,
             fds_log *log,
             netSessionTblPtr nst,
-            ClusterCommMgrPtr clust_comm_mgr);
+            ClusterCommMgrPtr clust_comm_mgr,
+            kvstore::TokenStateDBPtr tokenStateDb);
 
     virtual std::string log_string() {
         return "FdsMigrationSvc";
@@ -151,6 +153,7 @@ public:
     get_resp_client(const std::string &session_uuid);
 
     ClusterCommMgrPtr get_cluster_comm_mgr();
+    kvstore::TokenStateDBPtr getTokenStateDb();
 
     std::string get_ip();
     int get_port();
@@ -185,6 +188,9 @@ private:
 
     /* Communication manager */
     ClusterCommMgrPtr clust_comm_mgr_;
+
+    /* Token state db */
+    kvstore::TokenStateDBPtr tokenStateDb_;
 
     /* Migrations that are in progress.  Keyed by migration id */
     std::unordered_map<std::string, MigratorInfo> mig_actors_;

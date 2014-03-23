@@ -61,6 +61,9 @@ public:
 protected:
     void destroy_migration_stream(const std::string &mig_stream_id);
 
+    /* Token we are copying */
+    fds_token_id token_id_;
+
     std::unique_ptr<TokenCopyReceiverFSM> copy_fsm_;
     /* sync state machine.  Couldn't make it unique_ptr.  I was getting compiler
      * errors that I couldn't figure out

@@ -14,7 +14,7 @@ using redis::RedisException;
 
 TokenStateInfo::TokenStateInfo()
 {
-    state = UNKNOWN;
+    state = UNINITIALIZED;
     latestSyncTs = 0;
 }
 

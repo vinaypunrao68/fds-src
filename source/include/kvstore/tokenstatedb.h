@@ -21,7 +21,7 @@ namespace fds {
 class TokenStateInfo {
  public:
     enum State {
-        UNKNOWN,
+        UNINITIALIZED,
         IN_SYNC,
         SYNCING
     };
