@@ -10,7 +10,9 @@ user_cpp_flags    := -Wall
 user_cpp          :=                   \
     TokenCopyReceiver.cpp \
     TokenCopySender.cpp \
-    fds_migration.cpp
+    fds_migration.cpp \
+    TokenSyncReceiver.cpp \
+    TokenSyncSender.cpp
 
 user_no_style     :=
 user_ar_libs      := fds-migrations

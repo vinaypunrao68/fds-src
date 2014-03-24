@@ -36,6 +36,23 @@
 #include <serialize.h>
 
 namespace fds {
+
+#define SYNCMETADATA_MASK 0x1
+
+struct SyncMetaData {
+    struct header_t{
+        /* Born timestamp */
+        uint64_t born_ts;
+        /* Modification timestamp */
+        uint64_t mod_ts;
+        /* Association entry count */
+        uint8_t assoc_entry_cnt;
+    } *header;
+
+    /* Association entries */
+    obj_assoc_entry_t* assoc_entries;
+};
+
 /*
  * Persistent class for storing MetaObjMap, which
  * maps an object ID to its locations in the persistent
@@ -45,14 +62,59 @@ class ObjMetaData : public serialize::Serializable {
 private:
     char *persistBuffer;
     fds_uint32_t size;
+
+    uint8_t *mask;
     meta_obj_map_t *obj_map; // Pointer to the meta_obj_map in the buffer
     obj_phy_loc_t *phy_loc;
     obj_assoc_entry_t *assoc_entry;
-    std::vector<obj_assoc_entry_t> pods;
+
+    SyncMetaData sync_data;
 
 public:
     ObjMetaData();
     virtual ~ObjMetaData();
+
+    void newPersistentBuffer(int num_assoc_entries, bool sync_entry,
+            int num_sync_assoc_entries)
+    {
+        /* Allocate buffer */
+        size = sizeof(uint8_t) + sizeof(meta_obj_map_t);
+        size += sizeof(obj_assoc_entry_t) * num_assoc_entries;
+        if (sync_entry) {
+            size += sizeof(SyncMetaData::header_t);
+            size += sizeof(obj_assoc_entry_t) * num_sync_assoc_entries;
+        }
+
+        persistBuffer = new char[size];
+        uint32_t offset = 0;
+
+        /* assign pointers */
+        mask = (uint8_t*) (persistBuffer + offset);
+        offset += sizeof(uint8_t);
+
+        obj_map = (meta_obj_map_t*) (persistBuffer + offset);
+        offset += sizeof(meta_obj_map_t);
+
+        assoc_entry = nullptr;
+        if (num_assoc_entries > 0) {
+            assoc_entry = (obj_assoc_entry_t*) (persistBuffer + offset);
+            offset += (sizeof(obj_assoc_entry_t) * num_assoc_entries);
+        }
+
+        sync_data.header = nullptr;
+        sync_data.assoc_entries = nullptr;
+        if (sync_entry) {
+            sync_data.header = (SyncMetaData::header_t*) (persistBuffer + offset);
+            offset += sizeof(SyncMetaData::header_t);
+            if (num_sync_assoc_entries > 0) {
+                sync_data.assoc_entries = (obj_assoc_entry_t*) (persistBuffer + offset);
+                offset += (sizeof(obj_assoc_entry_t) * num_sync_assoc_entries);
+            }
+        }
+
+        fds_assert(size == offset);
+    }
+
     void initialize(const ObjectID& objid, fds_uint32_t obj_size) {
         size = sizeof(meta_obj_map_t) + sizeof(obj_assoc_entry_t);
         persistBuffer = new char[size];
@@ -69,8 +131,8 @@ public:
 
         // Association entry setup
         assoc_entry = (obj_assoc_entry_t *)(persistBuffer + sizeof(meta_obj_map_t ));
-
     }
+
     ObjMetaData(const ObjectBuf& buf) {
         persistBuffer = new char[buf.data.length()];
         size = buf.data.length();
@@ -79,6 +141,7 @@ public:
         phy_loc = &obj_map->loc_map[0];
         assoc_entry = (obj_assoc_entry_t *)(persistBuffer + sizeof(meta_obj_map_t ));
     }
+
     void unmarshall(const ObjectBuf& buf) { 
         persistBuffer = new char[buf.data.length()];
         size = buf.data.length();
@@ -117,9 +180,6 @@ public:
 
     bool objectExists();
 
-    meta_obj_map_t*   getObjMap() {
-        return obj_map;
-    }
     fds_uint32_t   getObjSize() {
         return obj_map->obj_size;
     }

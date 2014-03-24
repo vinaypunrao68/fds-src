@@ -880,7 +880,7 @@ ObjectStorMgr::readObjMetaData(const ObjectID &objId,
         //string_to_obj_map(objData.data, objMap);
         LOGDEBUG << "Retrieving object location for object "
                 << objId << " as " << objData.data;
-       objMap.unmarshall(objData);
+       objMap.deserializeFrom(objData);
     } else {
         LOGDEBUG << "No object location found for object " << objId << " in index DB";
     }

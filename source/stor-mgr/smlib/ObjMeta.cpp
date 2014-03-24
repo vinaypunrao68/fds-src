@@ -6,6 +6,20 @@
 
 namespace fds {
 
+uint32_t SyncMetaData::write(serialize::Serializer* serializer) const
+{
+
+}
+
+uint32_t SyncMetaData::read(serialize::Deserializer* deserializer)
+{
+
+}
+uint32_t SyncMetaData::getEstimatedSize() const
+{
+
+}
+
 ObjMetaData::ObjMetaData()
 {
 }
@@ -16,22 +30,25 @@ ObjMetaData::~ObjMetaData()
 
 uint32_t ObjMetaData::write(serialize::Serializer* serializer) const
 {
-    // todo(Rao): Impl
-    fds_assert(!"Not impl");
-    return 0;
+    serializer->writeString(persistBuffer);
+    return persistBuffer.size();
 }
 
 uint32_t ObjMetaData::read(serialize::Deserializer* deserializer)
 {
-    // todo(Rao): Impl
-    fds_assert(!"Not impl");
-    return 0;
+    deserializer->readString(persistBuffer);
+
+    uint8_t* buf = const_cast<uint8_t*>(persistBuffer.data());
+    obj_map = (meta_obj_map_t *)buf;
+    phy_loc = &obj_map->loc_map[0];
+    assoc_entry = (obj_assoc_entry_t *)(buf + sizeof(meta_obj_map_t ));
+
+    return persistBuffer.size();
 }
 
 uint32_t ObjMetaData::getEstimatedSize() const
 {
-    fds_assert(!"Not impl");
-    return 0;
+    return persistBuffer.size();
 }
 
 uint32_t ObjMetaData::serializeTo(ObjectBuf& buf) const
