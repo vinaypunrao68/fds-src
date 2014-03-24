@@ -40,7 +40,8 @@ namespace fds {
     "Invalid fds actor request",
     "fds actor has been shutdown",
     "Token is not sync mode",
-    "SM object metadata not found"
+    "SM object metadata not found",
+    "error during network communication"
   };
   
   /* DO NOT change the order */
@@ -86,6 +87,8 @@ namespace fds {
     ERR_SM_OBJ_METADATA_NOT_FOUND = 2001,
     ERR_SM_TOKENSTATEDB_KEY_NOT_FOUND = 2002,
     ERR_SM_TOKENSTATEDB_DUPLICATE_KEY = 2003,
+
+    ERR_NETWORK_TRANSPORT = 3000,
 
     ERR_MAX
   } fds_errno_t;

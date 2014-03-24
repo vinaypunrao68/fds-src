@@ -81,23 +81,23 @@ public:
     ~FDSP_DataPathRespCbackI() {
     }
 
-   virtual void GetObjectResp(const FDSP_MsgHdrType& fdsp_msg, const FDSP_GetObjType& get_obj_req) {
-   }
-   virtual void GetObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg, boost::shared_ptr<FDSP_GetObjType>& get_obj_req);
-   virtual void PutObjectResp(const FDSP_MsgHdrType& fdsp_msg, const FDSP_PutObjType& put_obj_req) {
-   }
-   virtual void PutObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg, boost::shared_ptr<FDSP_PutObjType>& put_obj_req);
-   virtual void DeleteObjectResp(const FDSP_MsgHdrType& fdsp_msg, const FDSP_DeleteObjType& del_obj_req) {
-   }
-   virtual void DeleteObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg, boost::shared_ptr<FDSP_DeleteObjType>& del_obj_req);
-   virtual void OffsetWriteObjectResp(const FDSP_MsgHdrType& fdsp_msg, const FDSP_OffsetWriteObjType& offset_write_obj_req) {
-   }
-   virtual void OffsetWriteObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg, boost::shared_ptr<FDSP_OffsetWriteObjType>& offset_write_obj_req) {
-   }
-   virtual void RedirReadObjectResp(const FDSP_MsgHdrType& fdsp_msg, const FDSP_RedirReadObjType& redir_write_obj_req) {
-   }
-   virtual void RedirReadObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg, boost::shared_ptr<FDSP_RedirReadObjType>& redir_write_obj_req){
-   }
+    virtual void GetObjectResp(const FDSP_MsgHdrType& fdsp_msg, const FDSP_GetObjType& get_obj_req) {
+    }
+    virtual void GetObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg, boost::shared_ptr<FDSP_GetObjType>& get_obj_req);
+    virtual void PutObjectResp(const FDSP_MsgHdrType& fdsp_msg, const FDSP_PutObjType& put_obj_req) {
+    }
+    virtual void PutObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg, boost::shared_ptr<FDSP_PutObjType>& put_obj_req);
+    virtual void DeleteObjectResp(const FDSP_MsgHdrType& fdsp_msg, const FDSP_DeleteObjType& del_obj_req) {
+    }
+    virtual void DeleteObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg, boost::shared_ptr<FDSP_DeleteObjType>& del_obj_req);
+    virtual void OffsetWriteObjectResp(const FDSP_MsgHdrType& fdsp_msg, const FDSP_OffsetWriteObjType& offset_write_obj_req) {
+    }
+    virtual void OffsetWriteObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg, boost::shared_ptr<FDSP_OffsetWriteObjType>& offset_write_obj_req) {
+    }
+    virtual void RedirReadObjectResp(const FDSP_MsgHdrType& fdsp_msg, const FDSP_RedirReadObjType& redir_write_obj_req) {
+    }
+    virtual void RedirReadObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg, boost::shared_ptr<FDSP_RedirReadObjType>& redir_write_obj_req){
+    }
 
 };
 
@@ -128,16 +128,16 @@ public:
 
 
 typedef struct {
-  double   hash_high;
-  double   hash_low;
-  char    conflict_id;
+    double   hash_high;
+    double   hash_low;
+    char    conflict_id;
 } fds_object_id_t;
 
 
 typedef union {
 
-  fds_object_id_t obj_id; // object id fields
-  unsigned char bytes[20]; // byte array
+    fds_object_id_t obj_id; // object id fields
+    unsigned char bytes[20]; // byte array
 
 } fds_doid_t;
 
@@ -145,103 +145,98 @@ typedef unsigned char doid_t[20];
 
 /*************************************************************************** */
 
-class StorHvCtrl
- {
-
-
+class StorHvCtrl : public HasLogger {
 public:
-  /*
-   * Defines specific test modes used to
-   * construct the object.
-   */
-  typedef enum {
-    DATA_MGR_TEST, /* Only communicate with DMs */
-    STOR_MGR_TEST, /* Only communicate with SMs */
-    TEST_BOTH,     /* Communication with DMs and SMs */
-    NORMAL,        /* Normal, non-test mode */
-    MAX
-  } sh_comm_modes;
+    /*
+     * Defines specific test modes used to
+     * construct the object.
+     */
+    typedef enum {
+        DATA_MGR_TEST, /* Only communicate with DMs */
+        STOR_MGR_TEST, /* Only communicate with SMs */
+        TEST_BOTH,     /* Communication with DMs and SMs */
+        NORMAL,        /* Normal, non-test mode */
+        MAX
+    } sh_comm_modes;
   
-  StorHvCtrl(int argc, char *argv[], SysParams *params);
-  StorHvCtrl(int argc, char *argv[], SysParams *params,
-      sh_comm_modes _mode);
-  StorHvCtrl(int argc,
-             char *argv[],
-             SysParams *params,
-             sh_comm_modes _mode,
-             fds_uint32_t sm_port_num,
-             fds_uint32_t dm_port_num);
-  ~StorHvCtrl();
-  hv_create_blkdev cr_blkdev;
-  hv_delete_blkdev del_blkdev;
+    StorHvCtrl(int argc, char *argv[], SysParams *params);
+    StorHvCtrl(int argc, char *argv[], SysParams *params,
+               sh_comm_modes _mode);
+    StorHvCtrl(int argc,
+               char *argv[],
+               SysParams *params,
+               sh_comm_modes _mode,
+               fds_uint32_t sm_port_num,
+               fds_uint32_t dm_port_num);
+    ~StorHvCtrl();
+    hv_create_blkdev cr_blkdev;
+    hv_delete_blkdev del_blkdev;
 
-  //imcremental checksum  for header and payload 
-  checksum_calc   *chksumPtr;
+    //imcremental checksum  for header and payload 
+    checksum_calc   *chksumPtr;
   
-  // Data Members
-  StorHvDataPlacement        *dataPlacementTbl;
-  boost::shared_ptr<netSessionTbl> rpcSessionTbl; // RPC calls Switch Table
-  StorHvVolumeTable          *vol_table;  
-  fds::StorHvQosCtrl             *qos_ctrl; // Qos Controller object
-  OMgrClient                 *om_client;
-  FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr dInfo;
+    // Data Members
+    StorHvDataPlacement        *dataPlacementTbl;
+    boost::shared_ptr<netSessionTbl> rpcSessionTbl; // RPC calls Switch Table
+    StorHvVolumeTable          *vol_table;  
+    fds::StorHvQosCtrl             *qos_ctrl; // Qos Controller object
+    OMgrClient                 *om_client;
+    FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr dInfo;
 
-  std::string                 myIp;
-  std::string                 my_node_name;
+    std::string                 myIp;
+    std::string                 my_node_name;
 
-  fds::Error pushBlobReq(FdsBlobReq *blobReq);
-  fds::Error putBlob(AmQosReq *qosReq);
-  fds::Error getBlob(AmQosReq *qosReq);
-  fds::Error deleteBlob(AmQosReq *qosReq);
-  fds::Error listBucket(AmQosReq *qosReq);
-  fds::Error getBucketStats(AmQosReq *qosReq);
-  fds::Error putObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
-                        const FDSP_PutObjTypePtr& putObjRsp);
-  fds::Error upCatResp(const FDSP_MsgHdrTypePtr& rxMsg, 
-                       const FDSP_UpdateCatalogTypePtr& catObjRsp);
-  fds::Error deleteCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
-                           const FDSP_DeleteCatalogTypePtr& delCatRsp);
-  fds::Error getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
-                        const FDSP_GetObjTypePtr& getObjRsp);
-  fds::Error deleteObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
-                        const FDSP_DeleteObjTypePtr& cat_obj_req);
-  fds::Error getBucketResp(const FDSP_MsgHdrTypePtr& rxMsg,
-			   const FDSP_GetVolumeBlobListRespTypePtr& blobListResp);
+    fds::Error pushBlobReq(FdsBlobReq *blobReq);
+    fds::Error putBlob(AmQosReq *qosReq);
+    fds::Error getBlob(AmQosReq *qosReq);
+    fds::Error deleteBlob(AmQosReq *qosReq);
+    fds::Error listBucket(AmQosReq *qosReq);
+    fds::Error getBucketStats(AmQosReq *qosReq);
+    fds::Error putObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
+                          const FDSP_PutObjTypePtr& putObjRsp);
+    fds::Error upCatResp(const FDSP_MsgHdrTypePtr& rxMsg, 
+                         const FDSP_UpdateCatalogTypePtr& catObjRsp);
+    fds::Error deleteCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
+                             const FDSP_DeleteCatalogTypePtr& delCatRsp);
+    fds::Error getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
+                          const FDSP_GetObjTypePtr& getObjRsp);
+    fds::Error deleteObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
+                             const FDSP_DeleteObjTypePtr& cat_obj_req);
+    fds::Error getBucketResp(const FDSP_MsgHdrTypePtr& rxMsg,
+                             const FDSP_GetVolumeBlobListRespTypePtr& blobListResp);
 
-  static void bucketStatsRespHandler(const FDSP_MsgHdrTypePtr& rx_msg,
-				     const FDSP_BucketStatsRespTypePtr& buck_stats);
-  void getBucketStatsResp(const FDSP_MsgHdrTypePtr& rx_msg,
-			  const FDSP_BucketStatsRespTypePtr& buck_stats);
+    static void bucketStatsRespHandler(const FDSP_MsgHdrTypePtr& rx_msg,
+                                       const FDSP_BucketStatsRespTypePtr& buck_stats);
+    void getBucketStatsResp(const FDSP_MsgHdrTypePtr& rx_msg,
+                            const FDSP_BucketStatsRespTypePtr& buck_stats);
 
-  void InitDmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
-  void InitSmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
+    void InitDmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
+    void InitSmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
   
-  void fbd_process_req_timeout(unsigned long arg);
+    void fbd_process_req_timeout(unsigned long arg);
 
-  int fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rx_msg);  
-  int fds_move_del_req_state_machine(const FDSP_MsgHdrTypePtr& rx_msg);  
-  int fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const FDSP_GetObjTypePtr& get_obj_rsp );
-  int fds_process_put_obj_resp(const FDSP_MsgHdrTypePtr& rx_msg,const  FDSP_PutObjTypePtr& put_obj_rsp );
-  int fds_process_update_catalog_resp(const FDSP_MsgHdrTypePtr& rx_msg,const  FDSP_UpdateCatalogTypePtr& cat_obj_rsp );
-  fds_log* GetLog();
-  SysParams* getSysParams();
-  void StartOmClient();
-  sh_comm_modes GetRunTimeMode() { return mode; }
-  boost::shared_ptr<FDSP_DataPathRespCbackI> dPathRespCback;
-  boost::shared_ptr<FDSP_MetaDataPathRespCbackI> mPathRespCback;
+    int fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rx_msg);  
+    int fds_move_del_req_state_machine(const FDSP_MsgHdrTypePtr& rx_msg);  
+    int fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const FDSP_GetObjTypePtr& get_obj_rsp );
+    int fds_process_put_obj_resp(const FDSP_MsgHdrTypePtr& rx_msg,const  FDSP_PutObjTypePtr& put_obj_rsp );
+    int fds_process_update_catalog_resp(const FDSP_MsgHdrTypePtr& rx_msg,const  FDSP_UpdateCatalogTypePtr& cat_obj_rsp );
+    SysParams* getSysParams();
+    void StartOmClient();
+    sh_comm_modes GetRunTimeMode() { return mode; }
+    boost::shared_ptr<FDSP_DataPathRespCbackI> dPathRespCback;
+    boost::shared_ptr<FDSP_MetaDataPathRespCbackI> mPathRespCback;
 
 private:
-  void handleDltMismatch(StorHvVolume *vol,
-                         StorHvJournalEntry *journEntry);
-  void procNewDlt(fds_uint64_t newDltVer);
+    void handleDltMismatch(StorHvVolume *vol,
+                           StorHvJournalEntry *journEntry);
+    void procNewDlt(fds_uint64_t newDltVer);
 
-  Error dispatchSmPutMsg(StorHvJournalEntry *journEntry);
-  Error dispatchSmGetMsg(StorHvJournalEntry *journEntry);
-  Error dispatchSmDelMsg(StorHvJournalEntry *journEntry);
+    Error dispatchSmPutMsg(StorHvJournalEntry *journEntry);
+    Error dispatchSmGetMsg(StorHvJournalEntry *journEntry);
+    Error dispatchSmDelMsg(StorHvJournalEntry *journEntry);
 
-  fds_log *sh_log;
-  SysParams *sysParams;
-  sh_comm_modes mode;
+    SysParams *sysParams;
+    sh_comm_modes mode;
 };
 
 extern StorHvCtrl *storHvisor;
@@ -250,38 +245,38 @@ extern StorHvCtrl *storHvisor;
  * Static function for process IO via a threadpool
  */
 static void processBlobReq(AmQosReq *qosReq) {
-  fds_verify(qosReq->io_module == FDS_IOType::STOR_HV_IO);
-  fds_verify(qosReq->magicInUse() == true);
+    fds_verify(qosReq->io_module == FDS_IOType::STOR_HV_IO);
+    fds_verify(qosReq->magicInUse() == true);
 
-  fds::Error err(ERR_OK);
-  switch (qosReq->io_type) { 
-    case fds::FDS_IO_READ :
-    case fds::FDS_GET_BLOB :
-      err = storHvisor->getBlob(qosReq);
-      break;
+    fds::Error err(ERR_OK);
+    switch (qosReq->io_type) { 
+        case fds::FDS_IO_READ :
+        case fds::FDS_GET_BLOB :
+            err = storHvisor->getBlob(qosReq);
+            break;
 
-    case fds::FDS_IO_WRITE :
-    case fds::FDS_PUT_BLOB:
-      err = storHvisor->putBlob(qosReq);
-      break;
+        case fds::FDS_IO_WRITE :
+        case fds::FDS_PUT_BLOB:
+            err = storHvisor->putBlob(qosReq);
+            break;
 
-    case fds::FDS_DELETE_BLOB: 
-      err = storHvisor->deleteBlob(qosReq);
-      break;
+        case fds::FDS_DELETE_BLOB: 
+            err = storHvisor->deleteBlob(qosReq);
+            break;
 
-  case fds::FDS_LIST_BUCKET:
-    err = storHvisor->listBucket(qosReq);
-    break;
+        case fds::FDS_LIST_BUCKET:
+            err = storHvisor->listBucket(qosReq);
+            break;
 
-  case fds::FDS_BUCKET_STATS:
-    err = storHvisor->getBucketStats(qosReq);
-    break;
+        case fds::FDS_BUCKET_STATS:
+            err = storHvisor->getBucketStats(qosReq);
+            break;
 
-    default :
-      break;
-  }
+        default :
+            break;
+    }
 
-  fds_verify((err == ERR_OK) || (err == ERR_NOT_IMPLEMENTED));
+    fds_verify((err == ERR_OK) || (err == ERR_NOT_IMPLEMENTED));
 }
 
 #endif

@@ -314,7 +314,7 @@ case "${CMD}" in
 esac
 
 case "${APP}" in
-    om|am|dm|sm|all|redis) ;;
+    om|am|dm|sm|pm|all|redis) ;;
     *) usage ;;
 esac
 

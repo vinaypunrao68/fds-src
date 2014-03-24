@@ -483,7 +483,7 @@ DataIO::disk_singleton()
 PersisDataIO *
 DataIO::disk_route_request(DiskRequest *req)
 {
-    fds_uint32_t idx = 0;
+    uint8_t idx = 0;
     meta_obj_id_t const *const oid = req->req_get_oid();
 
     fds_uint32_t dev_count = sgt_hdd_count;
@@ -495,7 +495,7 @@ DataIO::disk_route_request(DiskRequest *req)
 
     //  we will have to revisit this  schema  -- SAN
     if (obj_id_is_valid(oid)) {
-        memcpy(&idx, oid->metaDigest, 4);
+        idx =  oid->metaDigest[0];
         idx = idx % dev_count;
     //   idx = (oid->metaoid_hash_hi + oid->oid_hash_lo) % dev_count;
     }

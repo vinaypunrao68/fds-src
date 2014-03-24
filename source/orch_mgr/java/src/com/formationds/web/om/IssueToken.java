@@ -12,11 +12,15 @@ import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 
 import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
+import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletResponse;
 
-public class AuthenticateAction implements RequestHandler {
-    private static final SecretKey KEY = new SecretKeySpec(new byte[]{35, -37, -53, -105, 107, -37, -14, -64, 28, -74, -98, 124, -8, -7, 68, 54}, "AES");
+public class IssueToken implements RequestHandler {
+    private SecretKey secretKey;
+
+    public IssueToken(SecretKey secretKey) {
+        this.secretKey = secretKey;
+    }
 
     @Override
     public Resource handle(Request request) throws Exception {
@@ -24,8 +28,15 @@ public class AuthenticateAction implements RequestHandler {
         String password = assertParameter(request, "password");
 
         if ("admin".equals(login) && "admin".equals(password)) {
-            AuthenticationToken token = new AuthenticationToken(KEY, new UserPrincipal("admin"));
-            return new JsonResource(new JSONObject().put("token", token.toString()));
+            AuthenticationToken token = new AuthenticationToken(secretKey, new UserPrincipal("admin"));
+            return new JsonResource(new JSONObject().put("token", token.toString())) {
+                @Override
+                public Cookie[] cookies() {
+                    Cookie cookie = new Cookie(Authorizer.FDS_TOKEN, token.toString());
+                    cookie.setPath("/");
+                    return new Cookie[] {cookie};
+                }
+            };
         } else {
             JSONObject message = new JSONObject().put("message", "Invalid credentials.");
             return new JsonResource(message, HttpServletResponse.SC_UNAUTHORIZED);
