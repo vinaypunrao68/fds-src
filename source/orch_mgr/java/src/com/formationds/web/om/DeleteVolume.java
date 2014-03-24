@@ -21,7 +21,7 @@ public class DeleteVolume implements RequestHandler {
 
     @Override
     public Resource handle(Request request) throws Exception {
-        String volumeName = assertParameter(request, "name");
+        String volumeName = requiredString(request, "name");
         int result = iface.DeleteVol(new FDSP_MsgHdrType(), new FDSP_DeleteVolType(volumeName, 0));
         return new JsonResource(new JSONObject().put("status", result));
     }

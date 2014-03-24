@@ -40,6 +40,7 @@ public class Main {
         webApp.route(HttpMethod.GET, "/auth/token", () -> new IssueToken(KEY));
 
         authorize(HttpMethod.GET, "/config/services", () -> new ListServices(clientFactory.configPathClient(OM_HOST, OM_PORT)));
+        authorize(HttpMethod.PUT, "/config/services/:node_uuid/:domain_id", () -> new ActivatePlatform(clientFactory.configPathClient(OM_HOST, OM_PORT)));
 
         authorize(HttpMethod.GET, "/config/volumes", () -> new ListVolumes(clientFactory.configPathClient(OM_HOST, OM_PORT)));
         authorize(HttpMethod.POST, "/config/volumes/:name", () -> new CreateVolume(clientFactory.configPathClient(OM_HOST, OM_PORT)));

@@ -24,8 +24,8 @@ public class IssueToken implements RequestHandler {
 
     @Override
     public Resource handle(Request request) throws Exception {
-        String login = assertParameter(request, "login");
-        String password = assertParameter(request, "password");
+        String login = requiredString(request, "login");
+        String password = requiredString(request, "password");
 
         if ("admin".equals(login) && "admin".equals(password)) {
             AuthenticationToken token = new AuthenticationToken(secretKey, new UserPrincipal("admin"));
