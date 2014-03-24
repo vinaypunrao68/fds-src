@@ -79,4 +79,19 @@ bool ObjMetaData::syncMetadataExists()
     return false;
 }
 
+void ObjMetaData::applySyncData(const FDSP_MigrateObjectMetadata& data)
+{
+    fds_assert(!"not impl");
+}
+
+void ObjMetaData::mergeNewAndUnsyncedData()
+{
+    fds_assert(!"not impl");
+}
+
+bool ObjMetaData::objectExists()
+{
+    fds_assert(!"not impl");
+    return true;
+}
 }  // namespace fds

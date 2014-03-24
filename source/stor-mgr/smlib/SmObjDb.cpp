@@ -82,14 +82,10 @@ void SmObjDb::snapshot(const fds_token_id& tokId,
 }
 bool SmObjDb::objectExists(const ObjectID& objId, bool fModifyMode) {
 
-    // TODO(Rao): impl
-    fds_assert(!"not impl");
-    return true;
-//    OnDiskSmObjMetadata md;
-//    View view = fModifyMode?NON_SYNC_MERGED:SYNC_MERGED;
-//    Error err = get_(view, objId, md);
-//    if (err != ERR_OK) return false;
-//    return md.objectExists();
+    ObjMetaData md;
+    Error err = get(objId, md);
+    if (err != ERR_OK) return false;
+    return md.objectExists();
 }
 
 fds::Error SmObjDb::Get(const ObjectID& obj_id, ObjectBuf& obj_buf) {
@@ -170,121 +166,36 @@ inline bool SmObjDb::isTokenInSyncMode_(const fds_token_id& tokId)
     return objStorMgr->isTokenInSyncMode(tokId);
 }
 
-#if 0
-/**
- * Writes obj_map
- * @param objId
- * @param obj_map
- * @param append
- * @return
- */
-Error
-SmObjDb::writeObjectLocation(const ObjectID& objId,
-        meta_obj_map_t *obj_map,
-        fds_bool_t      append)
-{
-    Error err(ERR_OK);
-
-    OnDiskSmObjMetadata md;
-    err = get_(NON_SYNC_MERGED, objId, md);
-
-    if (err != ERR_OK && err != ERR_SM_OBJ_METADATA_NOT_FOUND) {
-        LOGERROR << "Error: " << err << " objId: " << objId;
-        return err;
-    }
-
-    LOGDEBUG << " Object id: " << objId;
-    md.writeObjectLocation(append, obj_map);
-
-    return put_(objId, md);
-}
-
-/**
- *
- * @param view
- * @param objId
- * @param objMaps
- * @return
- */
-Error
-SmObjDb::readObjectLocations(const View &view,
-        const ObjectID     &objId,
-        diskio::MetaObjMap &objMaps) {
-    Error err(ERR_OK);
-
-    OnDiskSmObjMetadata md;
-
-    err = get_(view, objId, md);
-    if (err != ERR_OK) {
-        return err;
-    }
-
-    md.readObjectLocations(objMaps);
-    return err;
-}
-
-/**
- *
- * @param objId
- * @return
- */
-Error
-SmObjDb::deleteObjectLocation(const ObjectID& objId) {
-    Error err(ERR_OK);
-
-    OnDiskSmObjMetadata md;
-    err = get_(NON_SYNC_MERGED, objId, md);
-
-    if (err != ERR_OK && err != ERR_SM_OBJ_METADATA_NOT_FOUND) {
-        LOGERROR << "Error: " << err << " objId: " << objId;
-        return err;
-    }
-
-    LOGDEBUG << " Object id: " << objId;
-    md.deleteObjectLocation();
-
-    return put_(objId, md);
-}
-#endif
-
 fds::Error SmObjDb::putSyncEntry(const ObjectID& objId,
         const FDSP_MigrateObjectMetadata& data)
 {
-    Error err(ERR_OK);
-    // TODO(Rao): impl
-    fds_assert(!"Not impl");
-    return err;
-//    ObjMetaData md;
-//    Error err = get_(NON_SYNC_MERGED, objId, md);
-//
-//    if (err != ERR_OK && err != ERR_SM_OBJ_METADATA_NOT_FOUND) {
-//        LOGERROR << "Error while applying sync entry.  objId: " << objId;
-//        return err;
-//    }
-//    md.applySyncData(data);
-//
-//    return put_(objId, md);
+    ObjMetaData md;
+    Error err = get(objId, md);
+
+    if (err != ERR_OK && err != ERR_SM_OBJ_METADATA_NOT_FOUND) {
+        LOGERROR << "Error while applying sync entry.  objId: " << objId;
+        return err;
+    }
+    md.applySyncData(data);
+
+    return put(objId, md);
 }
 
 Error SmObjDb::resolveEntry(const ObjectID& objId)
 {
     Error err(ERR_OK);
-    // TODO(Rao): impl
-    fds_assert(!"Not impl");
-    return err;
+    ObjMetaData md;
+    err = get(objId, md);
 
-//    ObjMetaData md;
-//    err = get_(NON_SYNC_MERGED, objId, md);
-//
-//    if (err != ERR_OK && err != ERR_SM_OBJ_METADATA_NOT_FOUND) {
-//        LOGERROR << "Error: " << err << " objId: " << objId;
-//        return err;
-//    }
-//
-//    LOGDEBUG << " Object id: " << objId;
-//    md.mergeNewAndUnsyncedData();
-//
-//    return put_(objId, md);
+    if (err != ERR_OK && err != ERR_SM_OBJ_METADATA_NOT_FOUND) {
+        LOGERROR << "Error: " << err << " objId: " << objId;
+        return err;
+    }
+
+    LOGDEBUG << " Object id: " << objId;
+    md.mergeNewAndUnsyncedData();
+
+    return put(objId, md);
 }
 
 void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
@@ -375,4 +286,80 @@ Error SmObjDb::get_from_snapshot(leveldb::Iterator* itr, ObjMetaData& md)
     return ERR_OK;
 }
 
+#if 0
+/**
+ * Writes obj_map
+ * @param objId
+ * @param obj_map
+ * @param append
+ * @return
+ */
+Error
+SmObjDb::writeObjectLocation(const ObjectID& objId,
+        meta_obj_map_t *obj_map,
+        fds_bool_t      append)
+{
+    Error err(ERR_OK);
+
+    OnDiskSmObjMetadata md;
+    err = get_(NON_SYNC_MERGED, objId, md);
+
+    if (err != ERR_OK && err != ERR_SM_OBJ_METADATA_NOT_FOUND) {
+        LOGERROR << "Error: " << err << " objId: " << objId;
+        return err;
+    }
+
+    LOGDEBUG << " Object id: " << objId;
+    md.writeObjectLocation(append, obj_map);
+
+    return put_(objId, md);
+}
+
+/**
+ *
+ * @param view
+ * @param objId
+ * @param objMaps
+ * @return
+ */
+Error
+SmObjDb::readObjectLocations(const View &view,
+        const ObjectID     &objId,
+        diskio::MetaObjMap &objMaps) {
+    Error err(ERR_OK);
+
+    OnDiskSmObjMetadata md;
+
+    err = get_(view, objId, md);
+    if (err != ERR_OK) {
+        return err;
+    }
+
+    md.readObjectLocations(objMaps);
+    return err;
+}
+
+/**
+ *
+ * @param objId
+ * @return
+ */
+Error
+SmObjDb::deleteObjectLocation(const ObjectID& objId) {
+    Error err(ERR_OK);
+
+    OnDiskSmObjMetadata md;
+    err = get_(NON_SYNC_MERGED, objId, md);
+
+    if (err != ERR_OK && err != ERR_SM_OBJ_METADATA_NOT_FOUND) {
+        LOGERROR << "Error: " << err << " objId: " << objId;
+        return err;
+    }
+
+    LOGDEBUG << " Object id: " << objId;
+    md.deleteObjectLocation();
+
+    return put_(objId, md);
+}
+#endif
 }  // namespace fds

@@ -111,6 +111,12 @@ public:
 
     bool syncMetadataExists();
 
+    void applySyncData(const FDSP_MigrateObjectMetadata& data);
+
+    void mergeNewAndUnsyncedData();
+
+    bool objectExists();
+
     meta_obj_map_t*   getObjMap() {
         return obj_map;
     }
