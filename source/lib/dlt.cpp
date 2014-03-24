@@ -225,62 +225,122 @@ void DLT::getTokens(TokenList* tokenList, const NodeUuid &uid, uint index) const
 void DLT::dump() const {
     // go thru with the fn iff loglevel is debug or lesser.
 
-    LOGNORMAL<< "Dlt :"
-             << "[version: " << version  << "] "
-             << "[timestamp: " << timestamp  << "] "
-             << "[depth: " << depth  << "] "
-             << "[num.Tokens: " << numTokens  << "] "
-             << "[num.Nodes: " << mapNodeTokens->size() << "]";
+    LEVELCHECK(debug) {
+        LOGDEBUG << (*this);
+    } else {
+        LOGNORMAL<< "Dlt :"
+                 << "[version: " << version  << "] "
+                 << "[timestamp: " << timestamp  << "] "
+                 << "[depth: " << depth  << "] "
+                 << "[num.Tokens: " << numTokens  << "] "
+                 << "[num.Nodes: " << mapNodeTokens->size() << "]";
+    }
+}
 
-    LEVELCHECK(debug){} else return; // NOLINT
+std::ostream& operator<< (std::ostream &oss, const DLT& dlt) {
+    oss << "[version:" << dlt.version
+        << " timestamp:" << dlt.timestamp
+        << " depth:" << dlt.depth
+        << " num.Tokens:" << dlt.numTokens
+        << " num.Nodes:" << dlt.mapNodeTokens->size()
+        << "]\n";
 
-    LOGDEBUG << "token groups : --- ";
+    oss << "token -> nodegroups :> \n";
     // print the whole dlt
     std::vector<DltTokenGroupPtr>::const_iterator iter;
-    std::ostringstream oss;
+    std::ostringstream ossNodeList;
     uint count = 0;
-    for (iter = distList->begin(); iter != distList->end(); iter++) {
+    std::string prevNodeListStr, curNodeListStr;
+    fds_uint64_t token = 0, prevToken = 0 , firstToken = 0;
+
+    size_t listSize = dlt.distList->size()-1;
+    for (iter = dlt.distList->begin(); iter != dlt.distList->end(); iter++, count++) {
         const DltTokenGroupPtr& nodeList= *iter;
-        oss.str("");
-        oss<< std::setw(6) << count++ <<":";
-        for (uint i = 0; i < depth; i++) {
-            oss<< std::setw(8) << nodeList->get(i).uuid_get_val() << ",";
+        ossNodeList.str("");
+        for (uint i = 0; i < dlt.getDepth(); i++) {
+            ossNodeList << nodeList->get(i).uuid_get_val();
+            if (i != dlt.getDepth()-1) {
+                ossNodeList << ",";
+            }
         }
-        LOGDEBUG << oss.str();
+        curNodeListStr = ossNodeList.str();
+        if (curNodeListStr != prevNodeListStr) {
+            if (!prevNodeListStr.empty()) {
+                if (firstToken != prevToken) {
+                    oss << std::setw(8)
+                        << firstToken
+                        <<" - " << prevToken <<" : " << prevNodeListStr << "\n";
+                } else {
+                    oss << std::setw(8)
+                        << firstToken
+                        << " : " << prevNodeListStr << "\n";
+                }
+                firstToken =  count;
+            }
+            prevNodeListStr = curNodeListStr;
+        }
+        prevToken = count;
+
+        if (count == listSize) {
+            // this is the end of the loop
+            if (firstToken != prevToken) {
+                oss << std::setw(8)
+                    << firstToken
+                    <<" - " << prevToken <<" : " << prevNodeListStr << "\n";
+            } else {
+                oss << std::setw(8)
+                    << firstToken
+                    << " : " << prevNodeListStr << "\n";
+            }
+        }
     }
 
-    LOGDEBUG  << "node token map : --- ";
+    oss << "node -> token map :> \n";
     NodeTokenMap::const_iterator tokenMapiter;
 
     // build the unique uuid list
-    fds_uint64_t token = 0, prevToken = 0 , firstToken = 0;
+    token = 0, prevToken = 0 , firstToken = 0;
 
-    for (tokenMapiter = mapNodeTokens->begin(); tokenMapiter != mapNodeTokens->end(); ++tokenMapiter) { // NOLINT
+    for (tokenMapiter = dlt.mapNodeTokens->begin(); tokenMapiter != dlt.mapNodeTokens->end(); ++tokenMapiter) { // NOLINT
         TokenList::const_iterator tokenIter;
         const TokenList& tlist = tokenMapiter->second;
-        oss.str("");
-        oss << std::setw(8) << tokenMapiter->first.uuid_get_val() << ":";
+        oss << std::setw(8) << tokenMapiter->first.uuid_get_val() << " : ";
         prevToken = 0;
         firstToken = 0;
-        for (tokenIter = tlist.begin(); tokenIter != tlist.end(); ++tokenIter) {
+        bool fFirst = true;
+        size_t last = tlist.size() - 1;
+        count = 0;
+        for (tokenIter = tlist.begin(); tokenIter != tlist.end(); ++tokenIter, ++count) {
             token = *tokenIter;
-            if (firstToken == 0) {
-                oss << token;
+            if (fFirst) {
                 firstToken = token;
+                oss << token;
+                fFirst = false;
             } else if (token == (prevToken + 1)) {
                 // do nothing .. this is a range
             } else {
                 if (prevToken != firstToken) {
                     // this is a range
-                    oss << " - " << prevToken;
+                    oss << "-" << prevToken;
                 }
-                oss << "," << token;
+                oss << "," << token << "\n";
                 firstToken = token;
             }
             prevToken = token;
+
+            if (count == last) {
+                // end of loop
+                if (prevToken != firstToken) {
+                    // this is a range
+                    oss << "-" << prevToken << "\n";
+                } else {
+                    oss << "\n";
+                }
+            }
         }
-        LOGDEBUG << oss.str();
     }
+
+    return oss;
 }
 
 uint32_t DLT::write(serialize::Serializer*  s) const {

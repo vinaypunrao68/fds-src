@@ -457,7 +457,7 @@ void FdsMigrationSvc::setup_migpath_server()
     migpath_handler_.reset(new FDSP_MigrationPathRpc(*this, GetLog()));
 
     std::string ip = netSession::getLocalIp();
-    int port = conf_helper_.get<int>("port");
+    int port = PlatformProcess::plf_manager()->plf_get_my_migration_port();
     int myIpInt = netSession::ipString2Addr(ip);
     // TODO(rao): Do not hard code.  Get from config
     std::string node_name = "localhost-mig";

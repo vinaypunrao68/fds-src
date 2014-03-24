@@ -77,9 +77,7 @@ PM_ProbeMod::pr_put(ProbeRequest *probe)
     ProbeIORequest *io = reinterpret_cast<ProbeIORequest *>(&probe);
     diskio::DataIO &pio = diskio::DataIO::disk_singleton();
 
-    vadr_set_inval(vio.vol_adr);
     vio.vol_rsvd    = 0;
-    vio.vol_blk_len = 0;
 //    oid.oid_hash_hi = hash_hi++;
 //    oid.oid_hash_lo = hash_lo++;
     buf = new ObjectBuf;

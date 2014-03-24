@@ -81,6 +81,29 @@ Error VolumeMeta::OpenTransaction(const std::string blob_name,
   return err;
 }
 
+/**
+ * Returns true of the volume does not contain any
+ * valid blobs. A valid blob is a non-deleted blob version.
+ */
+fds_bool_t VolumeMeta::isEmpty() const {
+    // Lock the entire DB for now since levelDB's iterator
+    // isn't thread-safe
+    vol_mtx->lock();
+    Catalog::catalog_iterator_t *dbIt = vcat->NewIterator();
+    for (dbIt->SeekToFirst(); dbIt->Valid(); dbIt->Next()) {
+        Record key = dbIt->key();
+        std::string value(dbIt->value().ToString());
+        BlobNode bnode(value);
+        if (bnode.version != blob_version_deleted) {
+            // Found a non-deleted blob in the volume
+            return false;
+        }
+    }
+    vol_mtx->unlock();
+
+    return true;
+}
+
 Error VolumeMeta::listBlobs(std::list<BlobNode>& bNodeList) {
   Error err(ERR_OK);
 

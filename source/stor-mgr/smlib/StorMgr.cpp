@@ -6,6 +6,7 @@
 #include <thread>
 #include <functional>
 
+#include "ObjMeta.h"
 #include "SmObjDb.h"
 #include <policy_rpc.h>
 #include <policy_tier.h>
@@ -329,9 +330,6 @@ void ObjectStorMgr::setup()
     // Refactor into functions or make it part of module vector
 
     std::string     myIp;
-    DmDiskInfo     *info;
-    DmDiskQuery     in;
-    DmDiskQueryOut  out;
 
     proc_root->fds_mkdir(proc_root->dir_user_repo_objs().c_str());
     std::string obj_dir = proc_root->dir_user_repo_objs();
@@ -355,12 +353,9 @@ void ObjectStorMgr::setup()
     omClient = new OMgrClient(FDSP_STOR_MGR,
                               *plf_mgr->plf_get_om_ip(),
                               plf_mgr->plf_get_om_ctrl_port(),
-                              myIp,
-                              plf_mgr->plf_get_my_data_port(),
                               "localhost-sm",
                               GetLog(),
-                              nst_,
-                              plf_mgr->plf_get_my_migration_port());
+                              nst_, plf_mgr);
 
     /*
      * Create local volume table. Create after omClient
@@ -406,7 +401,7 @@ void ObjectStorMgr::setup()
     omClient->registerEventHandlerForVolEvents((volume_event_handler_t)volEventOmHandler);
     omClient->registerEventHandlerForMigrateEvents((migration_event_handler_t)migrationEventOmHandler);
     omClient->omc_srv_pol = &sg_SMVolPolicyServ;
-    omClient->startAcceptingControlMessages(conf_helper_.get<int>("control_port"));
+    omClient->startAcceptingControlMessages();
     omClient->registerNodeWithOM(plf_mgr);
 
     clust_comm_mgr_.reset(new ClusterCommMgr(omClient));
@@ -748,7 +743,7 @@ Error ObjectStorMgr::writeBackObj(const ObjectID &objId) {
     /*
      * Write object back to disk tier.
      */
-    err = writeObject(objId, objData, diskio::diskTier);
+    err = writeObjectToTier(objId, objData, diskio::diskTier);
     if (err != ERR_OK) {
         return err;
     }
@@ -812,9 +807,132 @@ void ObjectStorMgr::unitTest() {
 }
 
 Error
-ObjectStorMgr::readObject(const SmObjDb::View& view,
-                          const ObjectID& objId,
-                          ObjectBuf& objData) {
+ObjectStorMgr::writeObjectMetaData(const ObjectID& objId,
+        fds_uint32_t obj_size,
+        obj_phy_loc_t  *obj_phy_loc,
+        fds_bool_t     relocate_flag,
+        DataTier       fromTier,
+        meta_vol_io_t  *vol) {
+
+    Error err(ERR_OK);
+
+    ObjMetaData objMap;
+    ObjectBuf          objData;
+
+    LOGDEBUG << "Appending new location for object " << objId;
+
+   /*
+   * Get existing object locations
+   */
+    err = readObjMetaData(objId, objMap);
+    if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
+        LOGERROR << "Failed to read existing object locations"
+                    << " during location write";
+        return err;
+     } else if (err == ERR_DISK_READ_FAILED) {
+            /*
+             * Assume this error means the key just did not exist.
+             * TODO: Add an err to differention "no key" from "failed read".
+             */
+            objMap.initialize(objId, obj_size);
+            LOGDEBUG << "Not able to read existing object locations"
+                    << ", assuming no prior entry existed";
+            err = ERR_OK;
+     }
+
+    /*
+     * Add new location to existing locations
+     */
+    objMap.updatePhysLocation(obj_phy_loc);
+    objMap.updateAssocEntry(objId, (fds_volid_t)vol->vol_uuid);
+
+    if(relocate_flag) { 
+      objMap.removePhyLocation(fromTier);
+    }
+
+    objData.data = objMap.marshall();
+    objData.size = objMap.getObjSize();
+    err = smObjDb->Put(objId, objData);
+    if (err == ERR_OK) {
+        LOGDEBUG << "Updating object location for object "
+                << objId << " to " << objMap;
+    } else {
+        LOGERROR << "Failed to put object " << objId
+                << " into odb with error " << err;
+    }
+
+    return err;
+}
+
+/*
+ * Reads all object locations
+ */
+Error
+ObjectStorMgr::readObjMetaData(const ObjectID &objId,
+        ObjMetaData& objMap) {
+    Error err(ERR_OK);
+    ObjectBuf objData;
+
+    objData.size = 0;
+    objData.data = "";
+    err = smObjDb->Get(objId, objData);
+    if (err == ERR_OK) {
+        //string_to_obj_map(objData.data, objMap);
+        LOGDEBUG << "Retrieving object location for object "
+                << objId << " as " << objData.data;
+       objMap.unmarshall(objData);
+    } else {
+        LOGDEBUG << "No object location found for object " << objId << " in index DB";
+    }
+    return err;
+}
+
+Error
+ObjectStorMgr::deleteObjectMetaData(const ObjectID& objId, fds_volid_t vol_id) { 
+
+    Error err(ERR_OK);
+    // NOTE !!!
+    ObjectBuf          objData;
+    ObjMetaData objMap;
+
+    /*
+     * Get existing object locations
+     */
+    err = readObjMetaData(objId, objMap);
+    if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
+        LOGERROR << "Failed to read existing object locations"
+                << " during location write";
+        return err;
+    } else if (err == ERR_DISK_READ_FAILED) {
+        /*
+         * Assume this error means the key just did not exist.
+         * TODO: Add an err to differention "no key" from "failed read".
+         */
+        LOGDEBUG << "Not able to read existing object locations"
+                << ", assuming no prior entry existed";
+        err = ERR_OK;
+        return err;
+    }
+
+    /*
+     * Set the ref_cnt to 0, which will be the delete marker for this object and Garbage collector feeds on these objects
+     */
+    objMap.deleteAssocEntry(objId, vol_id);
+    err = smObjDb->Put(objId, objData);
+    if (err == ERR_OK) {
+        LOGDEBUG << "Setting the delete marker for object "
+                << objId << " to " << objMap;
+    } else {
+        LOGERROR << "Failed to put object " << objId
+                << " into odb with error " << err;
+    }
+
+    return err;
+}
+
+Error
+ObjectStorMgr::readObject(const SmObjDb::View& view, const ObjectID& objId,
+        ObjectBuf& objData) {
     diskio::DataTier tier;
     return readObject(view, objId, objData, tier);
 }
@@ -837,7 +955,8 @@ ObjectStorMgr::readObject(const SmObjDb::View& view,
     SmPlReq     *disk_req;
     meta_vol_io_t   vio;
     meta_obj_id_t   oid;
-    vadr_set_inval(vio.vol_adr);
+    diskio::DataTier tierToUse;
+    ObjMetaData objMap;
 
     /*
      * TODO: Why to we create another oid structure here?
@@ -851,37 +970,28 @@ ObjectStorMgr::readObject(const SmObjDb::View& view,
     /*
      * Read all of the object's locations
      */
-    diskio::MetaObjMap objMap;
-    err = smObjDb->readObjectLocations(view, objId, objMap);
+    err = readObjMetaData(objId, objMap);
     if (err == ERR_OK) {
         /*
          * Read obj from flash if we can
          */
-        if (objMap.hasFlashMap() == true) {
-            err = objMap.getFlashMap(*(disk_req->req_get_vmap()));
-            if(err != ERR_OK) {
-                delete disk_req;
-                return err;
-            }
+        if (objMap.onFlashTier() ) {
+            tierToUse = flashTier;
         } else {
             /*
              * Read obj from disk
              */
-            fds_verify(objMap.hasDiskMap() == true);
-            err = objMap.getDiskMap(*(disk_req->req_get_vmap()));
-            if(err != ERR_OK) {
-                delete disk_req;
-                return err;
-            }
+            tierToUse = diskTier;
         }
         // Update the request with the tier info from disk
-        disk_req->setTierFromMap();
-        tierUsed = disk_req->getTier();
+        disk_req->setTier(tierToUse);
+        disk_req->set_phy_loc(objMap.getObjPhyLoc(tierToUse));
+        tierUsed = tierToUse;
 
         LOGDEBUG << "Reading object " << objId << " from "
-                 << ((disk_req->getTier() == diskio::diskTier) ? "disk" : "flash")
-                 << " tier";
-        objData.size = disk_req->req_get_vmap()->obj_size;
+                << ((disk_req->getTier() == diskio::diskTier) ? "disk" : "flash")
+                << " tier";
+        objData.size = objMap.getObjSize();
         objData.data.resize(objData.size, 0);
         err = dio_mgr.disk_read(disk_req);
         if ( err != ERR_OK) {
@@ -939,7 +1049,7 @@ ObjectStorMgr::checkDuplicate(const ObjectID&  objId,
             fds_panic("Encountered a hash collision checking object %s. Bailing out now!",
                       objId.ToHex().c_str());
         }
-    } else if (err == ERR_SM_OBJ_METADATA_NOT_FOUND) {
+    } else if (err == ERR_SM_OBJ_METADATA_NOT_FOUND || err == ERR_DISK_READ_FAILED) {
         /*
          * This error indicates the DB entry was empty
          * so we can reset the error to OK.
@@ -966,13 +1076,13 @@ ObjectStorMgr::writeObject(const ObjectID   &objId,
      * Ask the tiering engine which tier to place this object
      */
     tier = tierEngine->selectTier(objId, volId);
-    return writeObject(objId, objData, tier);
+    return writeObjectToTier(objId, objData, tier);
 }
 
 Error 
-ObjectStorMgr::writeObject(const ObjectID  &objId, 
-                           const ObjectBuf &objData,
-                           diskio::DataTier tier) {
+ObjectStorMgr::writeObjectToTier(const ObjectID  &objId, 
+        const ObjectBuf &objData,
+        diskio::DataTier tier) {
     Error err(ERR_OK);
 
     fds_verify((tier == diskio::diskTier) ||
@@ -983,7 +1093,6 @@ ObjectStorMgr::writeObject(const ObjectID  &objId,
     meta_vol_io_t   vio;
     meta_obj_id_t   oid;
     fds_bool_t      pushOk;
-    vadr_set_inval(vio.vol_adr);
 
     /*
      * TODO: Why to we create another oid structure here?
@@ -1001,7 +1110,9 @@ ObjectStorMgr::writeObject(const ObjectID  &objId,
         delete disk_req;
         return err;
     }
-    err = smObjDb->writeObjectLocation(objId, disk_req->req_get_vmap(), true);
+    
+    err = writeObjectMetaData(objId, objData.data.length(),
+            disk_req->req_get_phy_loc(), false, diskTier, &vio);
     if ((err == ERR_OK) &&
         (tier == diskio::flashTier)) {
         /*
@@ -1033,11 +1144,8 @@ ObjectStorMgr::relocateObject(const ObjectID &objId,
     SmPlReq     *disk_req;
     meta_vol_io_t   vio;
     meta_obj_id_t   oid;
-    vadr_set_inval(vio.vol_adr);
 
     memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
-    //    oid.oid_hash_lo = objId.GetLow();
-    //    oid.oid_hash_lo = objId.GetLow();
 
     disk_req = new SmPlReq(vio, oid, (ObjectBuf *)&objGetData, true, to_tier);
     err = dio_mgr.disk_write(disk_req);
@@ -1046,7 +1154,8 @@ ObjectStorMgr::relocateObject(const ObjectID &objId,
         delete disk_req;
         return err;
     }
-    err = smObjDb->writeObjectLocation(objId, disk_req->req_get_vmap(), false);
+    err = writeObjectMetaData(objId, objGetData.data.length(),
+            disk_req->req_get_phy_loc(), true, from_tier, &vio);
 
     if (to_tier == diskio::diskTier) {
         perfStats->recordIO(flashToDisk, 0, diskio::diskTier, FDS_IO_WRITE);
@@ -1314,9 +1423,9 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
 
     objStorMutex->lock();
     /*
-     * Delete the object
+     * Delete the object, decrement refcnt of the assoc entry & overall refcnt
      */
-    err = smObjDb->deleteObjectLocation(objId);
+    err = deleteObjectMetaData(objId, volId);
     objStorMutex->unlock();
     if (err != fds::ERR_OK) {
         LOGERROR << "Failed to delete object " << err;
@@ -1735,8 +1844,8 @@ ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq)
         /* TODO:  Ideally if writeObject returns us an error for duplicate
          * write we don't need this check
          */ 
-        diskio::MetaObjMap objMap;
-        err = smObjDb->readObjectLocations(SmObjDb::NON_SYNC_MERGED, objId, objMap);
+        ObjMetaData objMap;
+        err = readObjMetaData(objId, objMap);
         if (err == ERR_OK) {
             continue;
         }
@@ -1753,7 +1862,7 @@ ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq)
         fds_assert(temp_data == objData.data);
         obj.data.clear();
 
-        err = writeObject(objId, objData, DataTier::diskTier);
+        err = writeObjectToTier(objId, objData, DataTier::diskTier);
         if (err != ERR_OK) {
             LOGERROR << "Failed to write the object: " << objId;
             break; 

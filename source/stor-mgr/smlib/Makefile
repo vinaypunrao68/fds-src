@@ -15,6 +15,7 @@ user_cpp          :=                   \
     ObjStats.cpp                       \
     TierEngine.cpp                     \
     TierPutAlgorithms.cpp              \
+    ObjMeta.cpp                        \
     SmObjDb.cpp
 
 user_no_style     := $(user_cpp) $(user_cc)

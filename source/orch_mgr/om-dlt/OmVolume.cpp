@@ -941,6 +941,11 @@ VolumeContainer::om_cleanup_vol(const ResourceUUID& vol_uuid)
     fds_verify(vol != NULL);
     rs_unregister(vol);
     rs_free_resource(vol);
+
+    // remove the volume from configDB
+    if (!gl_orch_mgr->getConfigDB()->deleteVolume(vol_uuid.uuid_get_val())) {
+        LOGWARN << "unable to delete volume from config db " << vol_uuid;
+    }
 }
 
 

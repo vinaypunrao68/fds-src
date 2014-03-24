@@ -50,8 +50,8 @@ class DataDiscoveryModule : public fds::Module
     virtual void mod_startup();
     virtual void mod_shutdown();
 
-    char const *const disk_hdd_path(int route_idx);
-    char const *const disk_ssd_path(int route_idx);
+    const char *disk_hdd_path(int route_idx);
+    const char *disk_ssd_path(int route_idx);
 
   private:
     void parse_device_dir(const std::string &path, DataTier tier);
@@ -116,12 +116,12 @@ class FilePersisDataIO : public PersisDataIO
     fds::Error disk_do_write(DiskRequest *req);
 
     inline int disk_loc_id() { return fi_loc; }
+    FilePersisDataIO(char const *const path, int loc);
+    ~FilePersisDataIO();
 
   private:
     friend class DataIOModule;
 
-    FilePersisDataIO(char const *const path, int loc);
-    ~FilePersisDataIO();
 
     fds::fds_mutex           fi_mutex;
     int                      fi_loc;

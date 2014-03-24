@@ -336,7 +336,7 @@ struct TokenSyncReceiverFSM_
                     continue;
                 }
 
-                OnDiskSmObjMetadata md;
+                ObjMetaData md;
                 SmObjDb::get_from_snapshot(it, md);
                 if (md.syncMetadataExists()) {
                     resolve_list.push_back(id);

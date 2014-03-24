@@ -107,8 +107,8 @@ StorHvCtrl::StorHvCtrl(int argc,
    * some in ubd. We need to unify this.
    */
   if (mode == NORMAL) {
-    omIpStr = config.get<string>("om_ip");
-    omConfigPort = config.get<int>("om_port");
+    omIpStr = config.get_abs<string>("fds.plat.om_ip");
+    omConfigPort = config.get_abs<int>("fds.plat.om_port");
   }
   for (int i = 1; i < argc; i++) {
     if (strncmp(argv[i], "--om_ip=", 8) == 0) {
@@ -162,11 +162,10 @@ StorHvCtrl::StorHvCtrl(int argc,
   om_client = new OMgrClient(FDSP_STOR_HVISOR,
                              omIpStr,
                              omConfigPort,
-                             myIp,
-                             config.get<int>("om_data_port"),
                              node_name,
                              sh_log,
-                             rpcSessionTbl);
+                             rpcSessionTbl,
+                             &gl_AmPlatform);
   if (om_client) {
     om_client->initialize();
   }
@@ -182,7 +181,7 @@ StorHvCtrl::StorHvCtrl(int argc,
   qos_ctrl = new StorHvQosCtrl(50, fds::FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET, sh_log);
   om_client->registerThrottleCmdHandler(StorHvQosCtrl::throttleCmdHandler);
   qos_ctrl->registerOmClient(om_client); /* so it will start periodically pushing perfstats to OM */
-  om_client->startAcceptingControlMessages(config.get<int>("om_control_port"));
+  om_client->startAcceptingControlMessages();
 
 
   /* TODO: for now StorHvVolumeTable constructor will create

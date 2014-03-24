@@ -3,6 +3,7 @@ package com.formationds.web.toolkit;
 import com.google.common.collect.Multimap;
 import org.apache.log4j.Logger;
 import org.eclipse.jetty.server.Request;
+import org.json.JSONObject;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -62,6 +63,8 @@ public class Dispatcher extends HttpServlet {
         Resource resource = new FourOhFour();
         try {
             resource = requestHandler.handle(request);
+        } catch (UsageException e) {
+            resource = new JsonResource(new JSONObject().put("message", e.getMessage()), HttpServletResponse.SC_BAD_REQUEST);
         } catch (Throwable t) {
             LOG.error(t.getMessage(), t);
             resource = new ErrorPage(t.getMessage(), t);

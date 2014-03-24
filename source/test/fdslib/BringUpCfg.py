@@ -117,10 +117,14 @@ class FdsNodeConfig(FdsConfig):
     # Kill all fds daemons and cleanup any cores.
     #
     def nd_cleanup_daemons(self):
-        bin_dir = self.nd_conf_dict['fds_root'] + '/bin'
+        fds_dir = self.nd_conf_dict['fds_root']
+        bin_dir = fds_dir + '/bin'
+        var_dir = fds_dir + '/var'
         print("Cleanup running processes in: %s, %s" % (self.nd_host_name(), bin_dir))
         self.nd_rmt_agent.ssh_exec('pkill -9 java; pkill -9 Mgr; pkill -9 AMAgent; '
-            'pkill -9 platformd; cd %s; rm core *.core' % bin_dir)
+            'pkill -9 platformd; (cd %s && rm core *.core); ' % bin_dir +
+            '(cd %s && rm -r logs stats); ' % var_dir +
+            '(cd /corefiles && rm *.core); ' )
 
 ###
 # Handle AM config section
@@ -287,7 +291,8 @@ class FdsCliConfig(FdsConfig):
         if (self.nd_verbose):
             print "Run %s on OM %s" % (command, om.nd_host_name())
 
-        om.nd_rmt_agent.ssh_exec_fds("fdscli" + command)
+        om.nd_rmt_agent.ssh_exec_fds(
+            ('fdscli --fds-root %s ') % om.nd_rmt_agent.get_fds_root() + command)
 
 ###
 # Handle fds bring up config parsing

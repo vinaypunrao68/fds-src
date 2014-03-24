@@ -134,11 +134,15 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
             ("activate-nodes", po::value<std::string>(),
              "Activate discovered nodes: activate-nodes <domain name> -k <domain-id>"
              "[ -e \"am,dm,sm\" ]")
+            ("activate-services", po::value<std::string>(),
+             "Activate nodes: activate-services <domain> -k <domain-id> -w <node-uuid>"
+             "[ -e \"am,dm,sm\" ]")
             ("throttle", "Throttle traffic: throttle -t <throttle_level> ")
             ("policy-show", po::value<std::string>(), "Show policy")
             ("volume-size,s", po::value<double>(), "volume capacity")
             ("volume-policy,p", po::value<int>(), "volume policy")
             ("node-id,n", po::value<std::string>(), "node id")
+            ("node-uuid,w", po::value<fds_uint64_t>(), "node uuid")
             ("volume-id,i", po::value<int>(), "volume id")
             ("domain-id,k", po::value<int>(), "domain id")
             ("throttle-level,t", po::value<float>(), "throttle level")
@@ -456,6 +460,48 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         }
 
         cfgPrx->ActivateAllNodes(msg_hdr, activateNodesData);
+    }  else if (vm.count("activate-services")) {
+        FDS_PLOG_SEV(cli_log, fds_log::notification)
+                << " Activate Services: domain name "
+                << vm["activate-services"].as<std::string>()
+                << " (domain name ignored for now, using default domain)"
+                << " services: " << vm["enable-service"].as<std::string>()
+                << " on node " << std::hex << vm["node-uuid"].as<fds_uint64_t>()
+                << std::dec;
+
+        FDS_ProtocolInterface::FDSP_ActivateOneNodeType activateNodeData;
+        activateNodeData.domain_id = vm["domain-id"].as<int>();
+        activateNodeData.node_uuid.uuid = vm["node-uuid"].as<fds_uint64_t>();
+        activateNodeData.activate_sm = false;
+        activateNodeData.activate_dm = false;
+        activateNodeData.activate_am = false;
+        std::string svc_str = vm["enable-service"].as<std::string>();
+        boost::char_separator<char> sep(",");
+        boost::tokenizer<boost::char_separator<char>> tokens(svc_str, sep);
+        for (const auto& t : tokens) {
+            if (t.compare("am") == 0) {
+                activateNodeData.activate_am = true;
+                FDS_PLOG(cli_log) << "   -- activate AM";
+            } else if (t.compare("sm") == 0) {
+                activateNodeData.activate_sm = true;
+                FDS_PLOG(cli_log) << "   -- activate SM";
+            } else if (t.compare("dm") == 0) {
+                activateNodeData.activate_dm = true;
+                FDS_PLOG(cli_log) << "   -- activate DM";
+            } else {
+                cout << "Unknown service " << t << ", will ignore" << std::endl;
+                FDS_PLOG_SEV(cli_log, fds_log::warning)
+                        << "Unknown service " << t << "is specified; "
+                        << "will ignore, but check your fdscli command";
+            }
+        }
+
+        return_code = cfgPrx->ActivateNode(msg_hdr, activateNodeData);
+        if (return_code != 0) {
+            Error err(return_code);
+            cout << "Failed to activate services, result "
+                 << err.GetErrstr() << std::endl;
+        }
     }  else if (vm.count("domain-delete") && vm.count("domain-id")) {
         FDS_PLOG_SEV(cli_log, fds_log::notification)
                 << " Domain Delete ";

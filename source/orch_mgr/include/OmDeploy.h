@@ -52,14 +52,17 @@ class DltRebalOkEvt
 class DltCommitOkEvt
 {
   public:
-    DltCommitOkEvt(ClusterMap *cm,
-                   fds_uint64_t dlt_ver)
-            : ode_clusmap(cm),
-            cur_dlt_version(dlt_ver) {}
+    explicit DltCommitOkEvt(fds_uint64_t dlt_ver)
+            : cur_dlt_version(dlt_ver) {}
 
-    ClusterMap      *ode_clusmap;
     fds_uint64_t    cur_dlt_version;
     NodeAgent::pointer        ode_done_node;
+};
+
+class DltCloseOkEvt
+{
+  public:
+    DltCloseOkEvt() {}
 };
 
 /**
@@ -83,6 +86,7 @@ class OM_DLTMod : public Module
     void dlt_deploy_event(DltNoRebalEvt const &evt);
     void dlt_deploy_event(DltRebalOkEvt const &evt);
     void dlt_deploy_event(DltCommitOkEvt const &evt);
+    void dlt_deploy_event(DltCloseOkEvt const &evt);
 
     /**
      * Module methods

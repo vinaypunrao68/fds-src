@@ -169,6 +169,8 @@ namespace fds {
         static std::set<fds_token_id> token_diff(const NodeUuid &uid,
                 const DLT* new_dlt, const DLT* old_dlt);
 
+        friend std::ostream& operator<< (std::ostream &out, const DLT& dlt);
+
   private:
         /**
          * Maps token ids to the group of nodes.

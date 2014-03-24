@@ -158,25 +158,16 @@ Error DataMgr::_process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
   }
   vol_map_mtx->unlock();
 
-  std::list<BlobNode> bNodeList;
-  err = _process_list(vol_uuid, bNodeList);
-  fds_verify(err == ERR_OK);
-  if (bNodeList.size() != 0) {
+  fds_bool_t isEmpty = _process_isEmpty(vol_uuid);
+  if (isEmpty == false) {
       LOGERROR << "Volume is NOT Empty:"
                << std::hex << vol_uuid << std::dec;
       err = ERR_VOL_NOT_EMPTY;
       return err;
   }
-  /*
-  VolumeMeta *vm = vol_meta_map[vol_uuid];
-  if (vm->getVcat()->DbEmpty() == true) {
-    FDS_PLOG(dataMgr->GetLog()) << "Volume is NOT Empty:"
-                                << std::hex << vol_uuid << std::dec;
-    err = ERR_VOL_NOT_EMPTY;
-    vol_map_mtx->unlock();
-    return err;
-  }
-  */
+  // TODO(Andrew): Here we may want to prevent further I/Os
+  // to the volume as we're going to remove it but a blob
+  // may be written in the mean time.
 
   // if notify delete asked to only check if deleting volume
   // was ok; so we return with success here; DM will get 
@@ -185,10 +176,13 @@ Error DataMgr::_process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
   if (!check_only) {
       // TODO(Andrew): Here we want to delete each blob in the
       // volume and then mark the volume as deleted.
-      // vol_meta_map.erase(vol_uuid);
+      vol_map_mtx->lock();
+      VolumeMeta *vol_meta = vol_meta_map[vol_uuid];
+      vol_meta_map.erase(vol_uuid);
+      vol_map_mtx->unlock();
       dataMgr->qosCtrl->deregisterVolume(vol_uuid);
-      // delete vm->dmVolQueue;
-      // delete vm;
+      delete vol_meta->dmVolQueue;
+      delete vol_meta;
       FDS_PLOG(dataMgr->GetLog()) << "Removed vol meta for vol uuid "
                                   << vol_uuid;
   } else {
@@ -277,6 +271,17 @@ Error DataMgr::_process_abort() {
    */
 
   return err;
+}
+
+fds_bool_t
+DataMgr::_process_isEmpty(fds_volid_t volId) {
+    // Get a local reference to the vol meta.
+    vol_map_mtx->lock();
+    VolumeMeta *vol_meta = vol_meta_map[volId];
+    vol_map_mtx->unlock();
+    fds_verify(vol_meta != NULL);
+
+    return vol_meta->isEmpty();
 }
 
 Error DataMgr::_process_list(fds_volid_t volId,
@@ -389,8 +394,6 @@ Error DataMgr::_process_delete(fds_volid_t vol_uuid,
 
 DataMgr::DataMgr(int argc, char *argv[], Platform *platform, Module **vec)
     : PlatformProcess(argc, argv, "fds.dm.", "dm.log", platform, vec),
-      port_num(0),
-      cp_port_num(0),
       omConfigPort(0),
       use_om(true),
       numTestVols(10),
@@ -470,7 +473,7 @@ void DataMgr::setup_metadatapath_server(const std::string &ip)
     metadatapath_session = nstable->\
                            createServerSession<netMetaDataPathServerSession>(
                                myIpInt,
-                               port_num,
+                               plf_mgr->plf_get_my_data_port(),
                                node_name,
                                FDSP_STOR_HVISOR,
                                metadatapath_handler);
@@ -494,8 +497,6 @@ void DataMgr::setup()
 
     // Get config values from that platform lib.
     //
-    cp_port_num  = plf_mgr->plf_get_my_ctrl_port();
-    port_num     = plf_mgr->plf_get_my_data_port();
     omConfigPort = plf_mgr->plf_get_om_ctrl_port();
     omIpStr      = *plf_mgr->plf_get_om_ip();
 
@@ -507,9 +508,8 @@ void DataMgr::setup()
     if (useTestMode == true) {
         runMode = TEST_MODE;
     }
-    fds_assert((port_num != 0) && (cp_port_num != 0));
-    FDS_PLOG(dm_log) << "Data Manager using port " << port_num
-                     << "Data Manager using control port " << cp_port_num;
+    FDS_PLOG(dm_log) << "Data Manager using port " << plf_mgr->plf_get_my_data_port()
+        << "Data Manager using control port " << plf_mgr->plf_get_my_ctrl_port();
 
     /* Set up FDSP RPC endpoints */
     nstable = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_DATA_MGR));
@@ -530,11 +530,9 @@ void DataMgr::setup()
       omClient = new OMgrClient(FDSP_DATA_MGR,
                                 omIpStr,
                                 omConfigPort,
-                                myIp,
-                                port_num,
                                 node_name,
                                 dm_log,
-                                nstable);
+                                nstable, plf_mgr);
       omClient->initialize();
       omClient->registerEventHandlerForNodeEvents(node_handler);
       omClient->registerEventHandlerForVolEvents(vol_handler);
@@ -543,7 +541,8 @@ void DataMgr::setup()
        * This does not require OM to be running and can
        * be used for testing DM by itself.
        */
-      omClient->startAcceptingControlMessages(cp_port_num);
+      omClient->startAcceptingControlMessages();
+
       /*
        * Registers the DM with the OM. Uses OM for bootstrapping
        * on start. Requires the OM to be up and running prior.

@@ -80,13 +80,11 @@ class TokenSyncLog {
         delete db_;
     }
 
-    Error add(const ObjectID& id, const OnDiskSmObjMetadata &entry) {
+    Error add(const ObjectID& id, const ObjMetaData &entry) {
         fds::Error err(fds::ERR_OK);
 
         ObjectBuf buf;
-        buf.resize(entry.marshalledSize());
-        size_t sz = entry.marshall(const_cast<char*>(buf.data.data()), buf.data.size());
-        fds_assert(sz == buf.data.size());
+        entry.serializeTo(buf);
 
         std::string k = create_key(id, entry);
         leveldb::Slice key(k);
@@ -113,15 +111,15 @@ class TokenSyncLog {
 
     /* Extracts objectid and entry from the iterator */
     static void parse_iterator(leveldb::Iterator* itr,
-            ObjectID &id, OnDiskSmObjMetadata &entry)
+            ObjectID &id, ObjMetaData &entry)
     {
         uint64_t ts;
         parse_key(itr->key(), ts, id);
-        (void) entry.unmarshall(itr->value());
+        entry.deserializeFrom(itr->value());
     }
 
  private:
-    static std::string create_key(const ObjectID& id, const OnDiskSmObjMetadata &entry)
+    static std::string create_key(const ObjectID& id, const ObjMetaData& entry)
     {
         std::ostringstream oss;
         oss << entry.getModificationTs()<< "\n" << id;
@@ -368,8 +366,8 @@ struct TokenSyncSenderFSM_
                     continue;
                 }
 
-                OnDiskSmObjMetadata entry;
-                entry.unmarshall(it->value());
+                ObjMetaData entry;
+                entry.deserializeFrom(it->value());
                 // TODO(rao): Only add if entry is in sync time range
                 Error e = fsm.sync_log_->add(id, entry);
                 if (e != ERR_OK) {
@@ -411,7 +409,7 @@ struct TokenSyncSenderFSM_
                  md_list.size() < fsm.max_entries_per_send_;
                  fsm.sync_log_itr_->Next()) {
                 FDSP_MigrateObjectMetadata md;
-                OnDiskSmObjMetadata entry;
+                ObjMetaData entry;
 
                 ObjectID obj_id;
                 TokenSyncLog::parse_iterator(fsm.sync_log_itr_, obj_id, entry);

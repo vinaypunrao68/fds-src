@@ -260,6 +260,26 @@ OM_SmAgent::om_send_dlt(const DLT *curDlt) {
 }
 
 void
+OM_SmAgent::om_send_dlt_close(fds_uint64_t cur_dlt_version) {
+    fpi::FDSP_MsgHdrTypePtr m_hdr(new fpi::FDSP_MsgHdrType);
+    fpi::FDSP_DltCloseTypePtr d_msg(new fpi::FDSP_DltCloseType());
+    this->init_msg_hdr(m_hdr);
+
+    m_hdr->msg_code = fpi::FDSP_MSG_DLT_CLOSE;
+    m_hdr->msg_id = 0;
+    m_hdr->tennant_id = 1;
+    m_hdr->local_domain_id = 1;
+
+    d_msg->DLT_version = cur_dlt_version;
+
+    ndCpClient->NotifyDLTClose(m_hdr, d_msg);
+
+    LOGNORMAL << "OM: send dlt close (version " << cur_dlt_version
+              << ") to " << get_node_name() << " uuid 0x"
+              << std::hex << (get_uuid()).uuid_get_val() << std::dec;
+}
+
+void
 OM_SmAgent::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
 {
     NodeInventory::init_msg_hdr(msgHdr);
@@ -330,9 +350,10 @@ Error
 OM_PmAgent::handle_register_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_type,
                                     NodeAgent::pointer svc_agent)
 {
-    Error err(ERR_OK);
     // Platform must be in active state
-    fds_verify(node_state() == FDS_ProtocolInterface::FDS_Node_Up);
+    if (node_state() != FDS_ProtocolInterface::FDS_Node_Up) {
+        return Error(ERR_NODE_NOT_ACTIVE);
+    }
 
     // we cannot register more than one service of the same type
     // with the same node (platform)
@@ -352,8 +373,7 @@ OM_PmAgent::handle_register_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_ty
         default:
             fds_verify(false);
     };
-
-    return err;
+    return Error(ERR_OK);
 }
 
 // unregister_service
@@ -389,36 +409,71 @@ OM_PmAgent::handle_unregister_service(const NodeUuid& uuid)
     }
 }
 
-// start_activate_services
+// send_activate_services
 // -----------------------
 //
-void
+Error
 OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
                                    fds_bool_t activate_dm,
                                    fds_bool_t activate_am)
 {
-    // we only activate services from 'discovered' state
-    if (node_state() != FDS_ProtocolInterface::FDS_Node_Discovered) {
-        return;
+    Error err(ERR_OK);
+    fds_bool_t do_activate_sm = activate_sm;
+    fds_bool_t do_activate_dm = activate_dm;
+    fds_bool_t do_activate_am = activate_am;
+
+    // we only activate services from 'discovered' state or
+    // 'node up' state
+    if ((node_state() != FDS_ProtocolInterface::FDS_Node_Discovered) &&
+        (node_state() != FDS_ProtocolInterface::FDS_Node_Up)) {
+        return Error(ERR_INVALID_ARG);
     }
     FDS_PLOG_SEV(g_fdslog, fds_log::normal)
             << "OM_PmAgent: will send node activate message to " << get_node_name()
             << "; activate sm: " << activate_sm << "; activate dm: "<< activate_dm
             << "; activate am: " << activate_am;
 
-    // TODO(anna) we should set node active state when we get a response
-    // for node activate + update config DB with node info
-    // but for now assume always success and set active state here
-    set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
-    kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
-    NodeInvData node_data;
-    if (!configDB->getNode(get_uuid(), node_data)) {
-        // for now store only if the node was not known to DB
-        configDB->addNode(*node_inv);
-        FDS_PLOG_SEV(g_fdslog, fds_log::notification)
-                << "Adding node info for " << get_node_name() << ":"
-                << std::hex << get_uuid().uuid_get_val() << std::dec
-                << " in configDB";
+    // we are ok to activate a service after we already activate another
+    // services on this node, but check if the requested services are already
+    // running
+    if (node_state() == FDS_ProtocolInterface::FDS_Node_Up) {
+        if (activate_sm && service_exists(FDS_ProtocolInterface::FDSP_STOR_MGR)) {
+            LOGNOTIFY << "OM_PmAgent: SM service already running, "
+                      << "not going to restart...";
+            do_activate_sm = false;
+        }
+        if (activate_dm && service_exists(FDS_ProtocolInterface::FDSP_DATA_MGR)) {
+            LOGNOTIFY << "OM_PmAgent: DM service already running, "
+                      << "not going to restart...";
+            do_activate_dm = false;
+        }
+        if (activate_am && service_exists(FDS_ProtocolInterface::FDSP_STOR_HVISOR)) {
+            LOGNOTIFY << "OM_PmAgent: AM service already running, "
+                      << "not going to restart...";
+            do_activate_am = false;
+        }
+
+        //  if all requested services already active, nothing to do
+        if (!activate_sm && !activate_dm && !activate_am) {
+            LOGNOTIFY << "All services already running, nothing to activate"
+                      << " on node " << get_node_name();
+            return err;
+        }
+    } else {
+        // TODO(anna) we should set node active state when we get a response
+        // for node activate + update config DB with node info
+        // but for now assume always success and set active state here
+        set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
+        kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
+        NodeInvData node_data;
+        if (!configDB->getNode(get_uuid(), node_data)) {
+            // for now store only if the node was not known to DB
+            configDB->addNode(*node_inv);
+            FDS_PLOG_SEV(g_fdslog, fds_log::notification)
+                    << "Adding node info for " << get_node_name() << ":"
+                    << std::hex << get_uuid().uuid_get_val() << std::dec
+                    << " in configDB";
+        }
     }
 
     fpi::FDSP_MsgHdrTypePtr    m_hdr(new fpi::FDSP_MsgHdrType);
@@ -438,6 +493,8 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
     node_msg->has_om_service = false;
 
     ndCpClient->NotifyNodeActive(m_hdr, node_msg);
+
+    return err;
 }
 
 // ---------------------------------------------------------------------------------
@@ -859,6 +916,27 @@ OM_NodeContainer::om_cond_bcast_activate_services(fds_bool_t activate_sm,
             (activate_sm, activate_dm, activate_am, om_activate_services);
 }
 
+// om_activate_service
+//
+//
+Error
+OM_NodeContainer::om_activate_node_services(const NodeUuid& node_uuid,
+                                            fds_bool_t activate_sm,
+                                            fds_bool_t activate_dm,
+                                            fds_bool_t activate_am) {
+    OM_PmAgent::pointer agent = om_pm_agent(node_uuid);
+    if (agent == NULL) {
+        LOGERROR << "activate node services: platform service is not "
+                 << "running (or node uuid is not correct) on node "
+                 << std::hex << node_uuid.uuid_get_val() << std::dec;
+        return Error(ERR_NOT_FOUND);
+    }
+
+    return agent->send_activate_services(activate_sm,
+                                         activate_dm,
+                                         activate_am);
+}
+
 // om_send_vol_info
 // ----------------
 //
@@ -1065,13 +1143,39 @@ om_send_dlt(const DLT* curDlt, NodeAgent::pointer agent)
 // om_bcast_dlt
 // ------------
 //
-void
+fds_uint32_t
 OM_NodeContainer::om_bcast_dlt(const DLT* curDlt)
 {
     dc_sm_nodes->agent_foreach<const DLT*>(curDlt, om_send_dlt);
     dc_dm_nodes->agent_foreach<const DLT*>(curDlt, om_send_dlt);
     dc_am_nodes->agent_foreach<const DLT*>(curDlt, om_send_dlt);
+
+    return (dc_sm_nodes->rs_available_elm() +
+            dc_dm_nodes->rs_available_elm() +
+            dc_am_nodes->rs_available_elm());
 }
+
+// om_send_dlt_close
+// -----------------------
+//
+static void
+om_send_dlt_close(fds_uint64_t cur_dlt_version, NodeAgent::pointer agent)
+{
+    OM_SmAgent::agt_cast_ptr(agent)->om_send_dlt_close(cur_dlt_version);
+}
+
+// om_bcast_dlt_close
+// ------------------
+// @return number of nodes we sent the message to (and
+// we are waiting for that many responses)
+//
+fds_uint32_t
+OM_NodeContainer::om_bcast_dlt_close(fds_uint64_t cur_dlt_version)
+{
+    dc_sm_nodes->agent_foreach<fds_uint64_t>(cur_dlt_version, om_send_dlt_close);
+    return dc_sm_nodes->rs_available_elm();
+}
+
 
 // om_round_robin_dmt
 // ------------------

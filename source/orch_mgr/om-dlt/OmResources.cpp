@@ -232,31 +232,27 @@ OM_NodeDomainMod::om_recv_migration_done(const NodeUuid& uuid,
     ClusterMap* cm = om->om_clusmap_mod();
     dltMod->dlt_deploy_event(DltRebalOkEvt(cm, dp));
 
-    // in case no nodes need the new DLT (eg. we just added the
-    // first node and it already got the new DLT when we sent
-    // start migration event), the commit ok guard will check
-    // if all nodes already have new DLT and move to the next state
-    // otherwise, it will wait for dlt commit responses
-    dltMod->dlt_deploy_event(DltCommitOkEvt(cm, cur_dlt_ver));
-
     return err;
 }
 
 //
-// Called when OM receives response for DLT commit from an SM node
+// Called when OM receives response for DLT commit from a node
 //
 Error
-OM_NodeDomainMod::om_recv_sm_dlt_commit_resp(const NodeUuid& uuid,
-                                             fds_uint64_t dlt_version) {
+OM_NodeDomainMod::om_recv_dlt_commit_resp(FdspNodeType node_type,
+                                          const NodeUuid& uuid,
+                                          fds_uint64_t dlt_version) {
     Error err(ERR_OK);
     OM_Module *om = OM_Module::om_singleton();
     OM_DLTMod *dltMod = om->om_dlt_mod();
     DataPlacement *dp = om->om_dataplace_mod();
-    OM_SmAgent::pointer agent = om_sm_agent(uuid);
+    OM_NodeContainer *local = om_loc_domain_ctrl();
+    AgentContainer::pointer agent_container = local->dc_container_frm_msg(node_type);
+    NodeAgent::pointer agent = agent_container->agent_info(uuid);
     if (agent == NULL) {
         FDS_PLOG_SEV(g_fdslog, fds_log::error)
-                << "OM: Received DLT commit ack from unknown/or not SM node "
-                << ": uuid " << uuid.uuid_get_val();
+                << "OM: Received DLT commit ack from unknown node: uuid "
+                << std::hex << uuid.uuid_get_val() << std::dec;
         err = Error(ERR_NOT_FOUND);
         return err;
     }
@@ -275,8 +271,33 @@ OM_NodeDomainMod::om_recv_sm_dlt_commit_resp(const NodeUuid& uuid,
 
     // commit ok event, will transition to next state when
     // when all 'up' nodes acked this dlt commit
-    ClusterMap* cm = om->om_clusmap_mod();
-    dltMod->dlt_deploy_event(DltCommitOkEvt(cm, cur_dlt_ver));
+    dltMod->dlt_deploy_event(DltCommitOkEvt(cur_dlt_ver));
+
+    return err;
+}
+
+//
+// Called when OM receives response for DLT commit from a node
+//
+Error
+OM_NodeDomainMod::om_recv_dlt_close_resp(const NodeUuid& uuid,
+                                         fds_uint64_t dlt_version) {
+    Error err(ERR_OK);
+    OM_Module *om = OM_Module::om_singleton();
+    OM_DLTMod *dltMod = om->om_dlt_mod();
+    DataPlacement *dp = om->om_dataplace_mod();
+
+    // we should only count acks for the current dlt version
+    // TODO(anna) properly handle version mismatch
+    // for now ignoring acks for old dlt version
+    fds_uint64_t cur_dlt_ver = dp->getLatestDltVersion();
+    if (cur_dlt_ver > dlt_version) {
+        return err;
+    }
+    fds_verify(cur_dlt_ver == dlt_version);
+
+    // tell state machine that we received ack for close
+    dltMod->dlt_deploy_event(DltCloseOkEvt());
 
     return err;
 }
@@ -483,15 +504,33 @@ OM_ControlRespHandler::NotifyDLTUpdateResp(
             << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec
             << " for DLT version " << dlt_resp->DLT_version;
 
-    // if we got response from non-SM node, nothing to do
-    if (fdsp_msg->src_id != FDSP_STOR_MGR) {
-        return;
-    }
-
-    // if this is from SM, notify DLT state machine
+    // notify DLT state machine
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
     NodeUuid node_uuid((fdsp_msg->src_service_uuid).uuid);
-    domain->om_recv_sm_dlt_commit_resp(node_uuid, dlt_resp->DLT_version);
+    domain->om_recv_dlt_commit_resp(fdsp_msg->src_id, node_uuid, dlt_resp->DLT_version);
+}
+
+void
+OM_ControlRespHandler::NotifyDLTCloseResp(
+    const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+    const FDS_ProtocolInterface::FDSP_DLT_Resp_Type& dlt_resp) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+}
+
+void
+OM_ControlRespHandler::NotifyDLTCloseResp(
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+    FDS_ProtocolInterface::FDSP_DLT_Resp_TypePtr& dlt_resp) {
+    FDS_PLOG_SEV(g_fdslog, fds_log::notification)
+            << "OM received response for NotifyDltClose from node "
+            << fdsp_msg->src_node_name << ":"
+            << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec
+            << " for DLT version " << dlt_resp->DLT_version;
+
+    // notify DLT state machine
+    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+    NodeUuid node_uuid((fdsp_msg->src_service_uuid).uuid);
+    domain->om_recv_dlt_close_resp(node_uuid, dlt_resp->DLT_version);
 }
 
 void

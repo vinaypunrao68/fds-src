@@ -18,26 +18,6 @@ void fillDltNodes(DLT* dlt,int multiplier) {
     }
 }
 
-void printDlt(const DLT* dlt) {
-    cout<<"NumBits:"<<dlt->getNumBitsForToken()<<endl;
-    cout<<"Depth:"<<dlt->getDepth()<<endl;
-    cout<<"NumTokens:"<<dlt->getNumTokens()<<endl;
-    cout <<setw(6)<<"[pos]"<<":";
-    for (uint j=0;j<dlt->getDepth();j++) {
-        cout<<setw(10)<<j;
-    }
-    cout<<endl;
-
-    for (uint i=0;i<dlt->getNumTokens();i++) {
-        cout <<setw(6)<<i<<":";
-        DltTokenGroupPtr ptr=dlt->getNodes(i);
-        for (uint j=0;j<dlt->getDepth();j++) {
-            cout<<setw(10)<<ptr->get(j).uuid_get_val();
-        }
-        cout <<endl;
-    }
-}
-
 
 void verifyDltNodes(const DLT* dlt,int multiplier) {
     for (uint i=0;i<dlt->getNumTokens();i++) {

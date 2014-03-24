@@ -168,6 +168,16 @@ class ControlPathReq : public FDS_ProtocolInterface::FDSP_ControlPathReqIf {
 #endif
     }
 
+    void NotifyDLTClose(const FDSP_MsgHdrType& fdsp_msg,
+                        const FDSP_DltCloseType& dlt_info) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
+    void NotifyDLTClose(FDSP_MsgHdrTypePtr& msg_hdr,
+                        FDSP_DltCloseTypePtr& dlt_info) {
+        FDS_PLOG(test_log) << "Received a DLT close notification";
+    }
+
     void NotifyDMTUpdate(const FDSP_MsgHdrType& msg_hdr,
 			 const FDSP_DMT_Type& dmt_info) {
         // Don't do anything here. This stub is just to keep cpp compiler happy

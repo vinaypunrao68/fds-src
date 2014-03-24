@@ -47,6 +47,7 @@
 #include <atomic>
 #include <unordered_map>
 #include <ObjStats.h>
+#include <ObjMeta.h>
 
 /*
  * TODO: Move this header out of lib/
@@ -122,8 +123,9 @@ class SmPlReq : public diskio::DiskRequest {
     void req_complete() {
         fdsio::Request::req_complete();
     }
-    void setTierFromMap() {
-        datTier = static_cast<diskio::DataTier>(idx_vmap.obj_tier);
+    void setTier(DataTier tier) {
+
+        datTier = tier;
     }
 };
 
@@ -320,11 +322,20 @@ class ObjectStorMgr :
             fds_uint32_t       transId);
     Error checkDuplicate(const ObjectID  &objId,
             const ObjectBuf &objCompData);
+    Error writeObjectMetaData(const ObjectID &objId, 
+            fds_uint32_t  obj_size,
+            obj_phy_loc_t *obj_phy_lo,
+            fds_bool_t    relocate_flag,
+            DataTier      from_tier,
+            meta_vol_io_t  *vio);
+    Error readObjMetaData(const ObjectID &objId, 
+            ObjMetaData &objMaps);
+    Error deleteObjectMetaData(const ObjectID     &objId, fds_volid_t vol_id);
     Error writeObject(const ObjectID   &objId,
             const ObjectBuf  &objCompData,
             fds_volid_t       volId,
             diskio::DataTier &tier);
-    Error writeObject(const ObjectID  &objId, 
+    Error writeObjectToTier(const ObjectID  &objId, 
             const ObjectBuf &objData,
             diskio::DataTier tier);
     Error readObject(const SmObjDb::View& view,

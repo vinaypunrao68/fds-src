@@ -8,7 +8,6 @@ user_build_dir :=      \
     umod-lib           \
     util               \
     data-mgr           \
-    stor-mgr	       \
     dlt                \
     migrations         \
     checker            \

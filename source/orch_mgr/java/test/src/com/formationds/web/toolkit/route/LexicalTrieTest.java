@@ -12,7 +12,7 @@ import static org.junit.Assert.*;
 public class LexicalTrieTest {
     @Test
     public void testSimpleMatch() {
-        LexicalTrie<Object> trie = LexicalTrie.newTrie();
+        LexicalTrie<Integer> trie = LexicalTrie.newTrie();
         trie.put("a", 42);
         trie.put("aba", 44);
         trie.put("abb", 45);
@@ -27,11 +27,11 @@ public class LexicalTrieTest {
     }
     @Test
     public void testIndex() {
-        Root<Integer> trie = new Root<Integer>().put("/a/:panda/b/:human", 42);
+        LexicalTrie<Integer> trie = LexicalTrie.<Integer>newTrie().put("/a/:panda/b/:human", 42);
         System.out.println(trie);
         QueryResult result = trie.find("/a/henry/b/bob");
         assertTrue(result.found());
-        Map<String, String> matches = result.getMatches();
+        Map matches = result.getMatches();
         assertEquals("henry", matches.get("panda"));
         assertEquals("bob", matches.get("human"));
         assertEquals(42, result.getValue());
@@ -49,7 +49,7 @@ public class LexicalTrieTest {
 
     @Test(expected = RuntimeException.class)
     public void testAmbiguousPatterns() {
-        Root<Integer> trie = new Root<Integer>()
+        LexicalTrie<Integer> trie = LexicalTrie.<Integer>newTrie()
                 .put("/a/:color/b/:metal", 42)
                 .put("/a/:color", 43);
         QueryResult<Integer> goldResult = trie.find("/a/blue/b/gold");

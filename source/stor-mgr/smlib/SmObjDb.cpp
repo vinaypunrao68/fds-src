@@ -81,11 +81,15 @@ void SmObjDb::snapshot(const fds_token_id& tokId,
     return;
 }
 bool SmObjDb::objectExists(const ObjectID& objId, bool fModifyMode) {
-    OnDiskSmObjMetadata md;
-    View view = fModifyMode?NON_SYNC_MERGED:SYNC_MERGED;
-    Error err = get_(view, objId, md);
-    if (err != ERR_OK) return false;
-    return md.objectExists();
+
+    // TODO(Rao): impl
+    fds_assert(!"not impl");
+    return true;
+//    OnDiskSmObjMetadata md;
+//    View view = fModifyMode?NON_SYNC_MERGED:SYNC_MERGED;
+//    Error err = get_(view, objId, md);
+//    if (err != ERR_OK) return false;
+//    return md.objectExists();
 }
 
 fds::Error SmObjDb::Get(const ObjectID& obj_id, ObjectBuf& obj_buf) {
@@ -110,8 +114,7 @@ fds::Error SmObjDb::Put(const ObjectID& obj_id, ObjectBuf& obj_buf) {
     return err;
 }
 
-fds::Error SmObjDb::get_(const View &view,
-        const ObjectID& objId, OnDiskSmObjMetadata& md)
+fds::Error SmObjDb::get(const ObjectID& objId, ObjMetaData& md)
 {
     Error err = ERR_OK;
 
@@ -124,18 +127,15 @@ fds::Error SmObjDb::get_(const View &view,
         return ERR_SM_OBJ_METADATA_NOT_FOUND;
     }
 
-    md.unmarshall(const_cast<char*>(buf.data.data()), buf.data.size());
+    md.deserializeFrom(buf);
 
     if (isTokenInSyncMode_(tokId)) {
         md.checkAndDemoteUnsyncedData(objStorMgr->getTokenSyncTimeStamp(tokId));
-        if (view == SYNC_MERGED) {
-            md.mergeNewAndUnsyncedData();
-        }
     }
     return err;
 }
 
-fds::Error SmObjDb::put_(const ObjectID& objId, const OnDiskSmObjMetadata& md)
+fds::Error SmObjDb::put(const ObjectID& objId, const ObjMetaData& md)
 {
     Error err = ERR_OK;
 
@@ -144,13 +144,13 @@ fds::Error SmObjDb::put_(const ObjectID& objId, const OnDiskSmObjMetadata& md)
 
     /* Store the data back */
     ObjectBuf buf;
-    buf.resize(md.marshalledSize());
-    size_t sz = md.marshall(const_cast<char*>(buf.data.data()), buf.data.size());
-    fds_assert(sz == buf.data.size());
+    md.serializeTo(buf);
+
     err = odb->Put(objId, buf);
 
     return err;
 }
+
 inline fds_token_id SmObjDb::getTokenId_(const ObjectID& objId)
 {
     return objStorMgr->getTokenId(objId);
@@ -170,21 +170,7 @@ inline bool SmObjDb::isTokenInSyncMode_(const fds_token_id& tokId)
     return objStorMgr->isTokenInSyncMode(tokId);
 }
 
-fds::Error SmObjDb::putSyncEntry(const ObjectID& objId,
-        const FDSP_MigrateObjectMetadata& data)
-{
-    OnDiskSmObjMetadata md;
-    Error err = get_(NON_SYNC_MERGED, objId, md);
-
-    if (err != ERR_OK && err != ERR_SM_OBJ_METADATA_NOT_FOUND) {
-        LOGERROR << "Error while applying sync entry.  objId: " << objId;
-        return err;
-    }
-    md.applySyncData(data);
-
-    return put_(objId, md);
-}
-
+#if 0
 /**
  * Writes obj_map
  * @param objId
@@ -259,23 +245,46 @@ SmObjDb::deleteObjectLocation(const ObjectID& objId) {
 
     return put_(objId, md);
 }
+#endif
+
+fds::Error SmObjDb::putSyncEntry(const ObjectID& objId,
+        const FDSP_MigrateObjectMetadata& data)
+{
+    Error err(ERR_OK);
+    // TODO(Rao): impl
+    fds_assert(!"Not impl");
+    return err;
+//    ObjMetaData md;
+//    Error err = get_(NON_SYNC_MERGED, objId, md);
+//
+//    if (err != ERR_OK && err != ERR_SM_OBJ_METADATA_NOT_FOUND) {
+//        LOGERROR << "Error while applying sync entry.  objId: " << objId;
+//        return err;
+//    }
+//    md.applySyncData(data);
+//
+//    return put_(objId, md);
+}
 
 Error SmObjDb::resolveEntry(const ObjectID& objId)
 {
     Error err(ERR_OK);
+    // TODO(Rao): impl
+    fds_assert(!"Not impl");
+    return err;
 
-    OnDiskSmObjMetadata md;
-    err = get_(NON_SYNC_MERGED, objId, md);
-
-    if (err != ERR_OK && err != ERR_SM_OBJ_METADATA_NOT_FOUND) {
-        LOGERROR << "Error: " << err << " objId: " << objId;
-        return err;
-    }
-
-    LOGDEBUG << " Object id: " << objId;
-    md.mergeNewAndUnsyncedData();
-
-    return put_(objId, md);
+//    ObjMetaData md;
+//    err = get_(NON_SYNC_MERGED, objId, md);
+//
+//    if (err != ERR_OK && err != ERR_SM_OBJ_METADATA_NOT_FOUND) {
+//        LOGERROR << "Error: " << err << " objId: " << objId;
+//        return err;
+//    }
+//
+//    LOGDEBUG << " Object id: " << objId;
+//    md.mergeNewAndUnsyncedData();
+//
+//    return put_(objId, md);
 }
 
 void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
@@ -360,10 +369,9 @@ void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
         << " cnt: " << obj_itr_cnt) << " token retrieve complete";
 }
 
-Error SmObjDb::get_from_snapshot(leveldb::Iterator* itr, OnDiskSmObjMetadata& md)
+Error SmObjDb::get_from_snapshot(leveldb::Iterator* itr, ObjMetaData& md)
 {
-    leveldb::Slice s = itr->value();
-    md.unmarshall(const_cast<char*>(s.data()), s.size());
+    md.deserializeFrom(itr->value());
     return ERR_OK;
 }
 

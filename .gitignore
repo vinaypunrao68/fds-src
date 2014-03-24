@@ -14,17 +14,17 @@
 
 # Other tmp files and files we generated.
 *~
-*.swp
-*.swo
+*.sw?
 cscope.*
 tags
 core
 *.orig
 *.pyc
 
-# Built directories
+# Built directories and outputs
 build.*
 linux-*
+.devsetup.chk
 
 # All RPC stuffs
 /source/include/net-proxies/iomsg.h

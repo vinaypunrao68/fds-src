@@ -19,12 +19,44 @@ public abstract class LexicalTrie<T> {
         return find(s, new HashMap<>());
     }
 
-    protected abstract QueryResult<T> find(String s, Map<String, String> captured);
+    public final LexicalTrie<T> put(String s, T t) {
+        return put(new StringView(s), t)    ;
+    }
 
-    public abstract LexicalTrie<T> put(String s, T t);
+    public final QueryResult<T> find(String s, Map<String, String> captured) {
+        return find(new StringView(s), captured);
+    }
+
+    protected abstract QueryResult<T> find(StringView s, Map<String, String> captured);
+
+    protected abstract LexicalTrie<T> put(StringView s, T t);
+
 
     public static <T> LexicalTrie<T> newTrie() {
-        return new Root<T>();
+        return new Root<>();
+    }
+}
+
+class StringView {
+    private String s;
+    private int offset;
+
+    public StringView(String s) {
+        this.s = s;
+        offset = 0;
+    }
+
+    public Character charAt(int i) {
+        return s.charAt(i + offset);
+    }
+
+    public int length() {
+        return s.length() - offset;
+    }
+
+    public StringView substring(int i) {
+        offset += i;
+        return this;
     }
 }
 
@@ -32,19 +64,19 @@ class Root<T> extends LexicalTrie<T> {
     private Capture<T> capture;
 
     @Override
-    public QueryResult<T> find(String s, Map<String, String> captured) {
+    public QueryResult<T> find(StringView s, Map<String, String> captured) {
         if (capture != null) {
-            return capture.find(s, new HashMap<String, String>());
+            return capture.find(s, new HashMap<>());
         } else if (children.containsKey(s.charAt(0))) {
-            return children.get(s.charAt(0)).find(s, new HashMap<String, String>());
+            return children.get(s.charAt(0)).find(s, new HashMap<>());
 
         } else {
-            return new QueryResult<T>();
+            return new QueryResult<>();
         }
     }
 
     @Override
-    public Root<T> put(String s, T t) {
+    public Root<T> put(StringView s, T t) {
         if (s.length() == 0) {
             return this;
         } else if (s.charAt(0) == ':') {
@@ -53,7 +85,7 @@ class Root<T> extends LexicalTrie<T> {
             }
             capture = new Capture<T>().put(s.substring(1), t);
         } else {
-            LexicalTrie<T> child = children.getOrDefault(s.charAt(0), new Char<T>(s.charAt(0)));
+            LexicalTrie<T> child = children.getOrDefault(s.charAt(0), new Char<>(s.charAt(0)));
             children.put(s.charAt(0), child.put(s.substring(1), t));
         }
         return this;
@@ -70,8 +102,8 @@ class Capture<T> extends LexicalTrie<T> {
     private T t;
 
     @Override
-    public QueryResult<T> find(String s, Map<String, String> captured) {
-        StringBuffer value = new StringBuffer();
+    public QueryResult<T> find(StringView s, Map<String, String> captured) {
+        StringBuilder value = new StringBuilder();
         int i = 0;
         for (; i < s.length() && s.charAt(i) != '/'; i++) {
             value.append(s.charAt(i));
@@ -92,8 +124,8 @@ class Capture<T> extends LexicalTrie<T> {
 
 
     @Override
-    public Capture<T> put(String s, T t) {
-        StringBuffer bindingName = new StringBuffer();
+    public Capture<T> put(StringView s, T t) {
+        StringBuilder bindingName = new StringBuilder();
         int i = 0;
         for (; i < s.length() && s.charAt(i) != '/'; i++) {
             if (s.charAt(i) == ':') {
@@ -104,7 +136,7 @@ class Capture<T> extends LexicalTrie<T> {
         binding = bindingName.toString();
         s = s.substring(i);
         if (s.length() > 0) {
-            LexicalTrie<T> child = children.getOrDefault(s.charAt(0), new Char<T>(s.charAt(0)));
+            LexicalTrie<T> child = children.getOrDefault(s.charAt(0), new Char<>(s.charAt(0)));
             children.put(s.charAt(0), child.put(s.substring(1), t));
         } else {
             this.t = t;
@@ -128,14 +160,14 @@ class Char<T> extends LexicalTrie<T> {
     }
 
     @Override
-    public QueryResult<T> find(String s, Map<String, String> captured) {
+    public QueryResult<T> find(StringView s, Map<String, String> captured) {
         if (s.charAt(0) != c) {
             return new QueryResult<>();
         }
 
         if (s.length() == 1) {
             if (t != null) {
-                return new QueryResult<T>(captured, t);
+                return new QueryResult<>(captured, t);
             } else {
                 return new QueryResult<>();
             }
@@ -151,7 +183,7 @@ class Char<T> extends LexicalTrie<T> {
     }
 
     @Override
-    public Char<T> put(String s, T t) {
+    public Char<T> put(StringView s, T t) {
         if (s.length() == 0) {
             this.t = t;
         } else {
@@ -159,7 +191,7 @@ class Char<T> extends LexicalTrie<T> {
             if (next == ':') {
                 capture = new Capture<T>().put(s.substring(1), t);
             } else {
-                LexicalTrie<T> child = children.getOrDefault(next, new Char(next));
+                LexicalTrie<T> child = children.getOrDefault(next, new Char<>(next));
                 children.put(next, child.put(s.substring(1), t));
             }
         }

@@ -55,6 +55,10 @@ class PlatRpcReqt : public fpi::FDSP_ControlPathReqIf
     void NotifyDLTUpdate(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
                          fpi::FDSP_DLT_Data_TypePtr &dlt_info);
 
+    void NotifyDLTClose(const FDSP_MsgHdrType &, const FDSP_DltCloseType &);
+    void NotifyDLTClose(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
+                        fpi::FDSP_DltCloseTypePtr &dlt_close);
+
     void NotifyDMTUpdate(const FDSP_MsgHdrType &, const FDSP_DMT_Type &);
     void NotifyDMTUpdate(fpi::FDSP_MsgHdrTypePtr &msg_hdr,
                          fpi::FDSP_DMT_TypePtr   &dmt_info);

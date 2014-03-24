@@ -1,6 +1,6 @@
 #include "OMgrClient.h"
 #include <fds_assert.h>
-
+#include <boost/thread.hpp>
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/server/TSimpleServer.h>
 #include <thrift/transport/TServerSocket.h>
@@ -88,8 +88,14 @@ void OMgrClientRPCI::NotifyDLTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
 				     FDSP_DLT_Data_TypePtr& dlt_info) {
     om_client->recvDLTUpdate(dlt_info, msg_hdr->session_uuid);
 }
+
+void OMgrClientRPCI::NotifyDLTClose(FDSP_MsgHdrTypePtr& fdsp_msg,
+                                    FDSP_DltCloseTypePtr& dlt_close) {
+    om_client->recvDLTClose(dlt_close, fdsp_msg->session_uuid);
+}
+
 void OMgrClientRPCI::NotifyStartMigration(FDSP_MsgHdrTypePtr& msg_hdr,
-			 FDSP_DLT_Data_TypePtr& dlt_info) {
+                                          FDSP_DLT_Data_TypePtr& dlt_info) {
     // Only SM needs to process these migrations
     if (om_client->getNodeType() == FDS_ProtocolInterface::FDSP_STOR_MGR) {
         om_client->recvDLTStartMigration(dlt_info);
@@ -141,18 +147,13 @@ void OMgrClientRPCI::NotifyBucketStats(FDSP_MsgHdrTypePtr& msg_hdr,
 OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
                        const std::string& _omIpStr,
                        fds_uint32_t _omPort,
-                       const std::string& _hostIp,
-                       fds_uint32_t data_port,
                        const std::string& node_name,
                        fds_log *parent_log,
                        boost::shared_ptr<netSessionTbl> nst,
-                       fds_uint32_t mig_port) {
+                       Platform *plf) {
   my_node_type = node_type;
   omIpStr      = _omIpStr;
   omConfigPort = _omPort;
-  hostIp       = _hostIp;
-  my_data_port = data_port;
-  my_migration_port = mig_port;
   my_node_name = node_name;
   node_evt_hdlr = NULL;
   vol_evt_hdlr = NULL;
@@ -164,12 +165,10 @@ OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
     omc_log = new fds_log("omc", "logs");
   }
   nst_ = nst;
-  initRPCComm();
 
   clustMap = new LocalClusterMap();
+  plf_mgr  = plf;
 }
-
-
 
 OMgrClient::~OMgrClient()
 {
@@ -209,42 +208,6 @@ int OMgrClient::registerBucketStatsCmdHandler(bucket_stats_cmd_handler_t cmd_hdl
   return 0;
 }
 
-int OMgrClient::initRPCComm() {
-
-    //int argc = 0;
-    //char **argv = 0;
-
-  // TODO: Load config using libconfig
-  //initData.properties->load("om_client.conf");
-
-  /*
-   * If the OM's IP wasn't given via cmdline
-   * pull it from the config file.
-   */
-  if (omIpStr.empty() == true) {
-      // TODO: 
-      // omIpStr = rpc_props->getProperty("OMgr.IP");
-  }
-
-  if (hostIp.empty() == true) {
-      // TODO
-      // hostIp = rpc_props->getProperty("OMgrClient.MyIPAddr");
-  }
-  /*
-   * If the OM's config port wasn't given via cmdline
-   * pull it from the config file
-   */
-  if (omConfigPort == 0) {
-      //TODO
-      // omConfigPort = strtoul(rpc_props->getProperty("OMgr.ConfigPort").c_str(),
-      //                     NULL,
-      //                     0);
-  }
-  
-  return (0);
-
-}  
-
 /**
  * @brief Starts OM RPC handling server.  This function is to be run on a
  * separate thread.  OMgrClient destructor does a join() on this thread
@@ -256,17 +219,7 @@ void OMgrClient::start_omrpc_handler()
 
 // Call this to setup the (receiving side) endpoint to lister for control path requests from OM.
 int OMgrClient::startAcceptingControlMessages() {
-  return startAcceptingControlMessages(0);
-}
 
-int OMgrClient::startAcceptingControlMessages(fds_uint32_t port_num) {
-
-  my_control_port = port_num;
-  if (my_control_port == 0) {
-      // TODO: config 
-      // my_control_port = rpc_props->getPropertyAsInt("OMgrClient.PortNumber");
-      fds_verify(0);
-  }
   std::string myIp = netSession::getLocalIp();
   int myIpInt = netSession::ipString2Addr(myIp);
   omrpc_handler_.reset(new OMgrClientRPCI(this));
@@ -275,38 +228,16 @@ int OMgrClient::startAcceptingControlMessages(fds_uint32_t port_num) {
   // end up with a pointer leak.
   omrpc_handler_session_ = 
       nst_->createServerSession<netControlPathServerSession>(myIpInt,
-                                my_control_port, 
+                                plf_mgr->plf_get_my_ctrl_port(),
                                 my_node_name,
                                 FDSP_ORCH_MGR,
                                 omrpc_handler_);
 
-  omrpc_handler_thread_.reset(new std::thread(&OMgrClient::start_omrpc_handler, this));
+  omrpc_handler_thread_.reset(new boost::thread(&OMgrClient::start_omrpc_handler, this));
 
-#if 0
-  //om_client_rpc_i.reset(new OMgrClientRPCI(this));
-  boost::shared_ptr<OMgrClientRPCI> omc_handler(new OMgrClientRPCI(this));
-  boost::shared_ptr<apache::thrift::TProcessor>
-          processor(new FDSP_ControlPathReqProcessor(omc_handler));
-  boost::shared_ptr<apache::thrift::transport::TServerTransport>
-          serverTransport(new apache::thrift::transport::TServerSocket(my_control_port));
-  boost::shared_ptr<apache::thrift::transport::TTransportFactory>
-          transportFactory(new apache::thrift::transport::TBufferedTransportFactory());
-  boost::shared_ptr<apache::thrift::protocol::TProtocolFactory>
-          protocolFactory(new apache::thrift::protocol::TBinaryProtocolFactory());
-
-  apache::thrift::server::TSimpleServer
-          *server = new apache::thrift::server::TSimpleServer(processor,
-                                                              serverTransport,
-                                                              transportFactory,
-                                                              protocolFactory);
-
-#endif
-
- 
-  FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient accepting control requests at port " << my_control_port;
+  FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient accepting control requests at port " << plf_mgr->plf_get_my_ctrl_port();
 
   return (0);
-
 }
 
 void OMgrClient::initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
@@ -362,13 +293,12 @@ int OMgrClient::registerNodeWithOM(Platform *plat)
         reg_node_msg->node_type    = plat->plf_get_node_type();
         reg_node_msg->node_name    = *plat->plf_get_my_name();
         reg_node_msg->ip_hi_addr   = 0;
-        // reg_node_msg->ip_lo_addr   = fds::str_to_ipv4_addr(*plat->plf_get_my_ip());
-        reg_node_msg->ip_lo_addr   = fds::str_to_ipv4_addr(hostIp); //my_address!
-        reg_node_msg->control_port = my_control_port; // plat->plf_get_my_ctrl_port();
-        reg_node_msg->data_port    = my_data_port; // plat->plf_get_my_data_port();
+        reg_node_msg->ip_lo_addr   = fds::str_to_ipv4_addr(*plat->plf_get_my_ip());
+        reg_node_msg->control_port = plat->plf_get_my_ctrl_port();
+        reg_node_msg->data_port    = plat->plf_get_my_data_port();
 
         // TODO(Andrew): Move to SM specific
-        reg_node_msg->migration_port = my_migration_port; // plat->plf_get_my_migration_port();
+        reg_node_msg->migration_port = plat->plf_get_my_migration_port();
 
         // TODO(Vy): simple service uuid from node uuid.
         reg_node_msg->node_uuid.uuid    = plat->plf_get_my_uuid()->uuid_get_val();
@@ -613,8 +543,9 @@ int OMgrClient::recvNodeEvent(int node_id,
 
   // TODO(Andrew): Hack to figure out my own node uuid
   // since the OM doesn't reply to my registration yet.
-  if ((node.node_ip_address == (uint)netSession::ipString2Addr(hostIp)) &&
-      (node.port == my_data_port) &&
+  if ((node.node_ip_address ==
+              (uint)netSession::ipString2Addr(*plf_mgr->plf_get_my_ip())) &&
+      (node.port == plf_mgr->plf_get_my_data_port()) &&
       (myUuid.uuid_get_val() == 0)) {
       myUuid.uuid_set_val(node_info->node_uuid);
       LOGDEBUG << "Setting my UUID to " << myUuid.uuid_get_val();
@@ -781,6 +712,38 @@ int OMgrClient::recvDLTUpdate(FDSP_DLT_Data_TypePtr& dlt_info,
         resp_client_prx->NotifyDLTUpdateResp(msg_hdr, dlt_resp);
         FDS_PLOG_SEV(omc_log, fds_log::notification)
                 << "OMClient sent response for DLT update to OM";
+    } catch (...) {
+        FDS_PLOG_SEV(omc_log, fds_log::error) << "OMClient failed to send response to OM";
+        return -1;
+    }
+
+    return (0);
+}
+
+/**
+ * DLT close event notifies that nodes in the cluster received
+ * the commited (new) DLT
+ */
+int OMgrClient::recvDLTClose(FDSP_DltCloseTypePtr& dlt_close,
+                             const std::string& session_uuid) {
+    FDS_PLOG_SEV(omc_log, fds::fds_log::notification)
+            << "OMClient received DLT close event for DLT version "
+            << dlt_close->DLT_version;
+
+    // TODO(rao) if this is SM node, do something
+
+    // send ack back to OM
+    boost::shared_ptr<FDS_ProtocolInterface::FDSP_ControlPathRespClient> resp_client_prx =
+            omrpc_handler_session_->getRespClient(session_uuid);
+
+    try {
+        FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
+        initOMMsgHdr(msg_hdr);
+        FDSP_DLT_Resp_TypePtr dlt_resp(new FDSP_DLT_Resp_Type);
+        dlt_resp->DLT_version = dlt_close->DLT_version;
+        resp_client_prx->NotifyDLTCloseResp(msg_hdr, dlt_resp);
+        FDS_PLOG_SEV(omc_log, fds_log::notification)
+                << "OMClient sent response for DLT close to OM";
     } catch (...) {
         FDS_PLOG_SEV(omc_log, fds_log::error) << "OMClient failed to send response to OM";
         return -1;

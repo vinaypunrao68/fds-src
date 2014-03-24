@@ -1,0 +1,105 @@
+#!/bin/bash
+
+###########################################################################
+# NOTE:: space/newline separated list of needed pkgs
+# the pkgs will be checked / installed in the order as they are 
+# mentioned here!!!
+# NOTE!!!:  no space between =(  , 
+# () means array
+# if you wanto specify a specific version , the output of the following 
+# command should be specified:
+#  ---> dpkg-query -f '${Package}_${Version}' -W $pkgname 
+###########################################################################
+
+needed_packages=(
+    redis-server
+    oracle-java8-installer oracle-java8-set-default maven
+)
+
+python_packages=(
+    paramiko
+    redis
+    requests
+)
+
+###########################################################################
+# Fill in the blanks if you need additional actions before installing 
+# a specific pkg 
+# eg : add a specific ppa.
+###########################################################################
+function preinstall() {
+    local pkgname=$1
+
+    case $pkgname in
+        oracle-java8.*) 
+            sudo add-apt-repository ppa:webupd8team/java
+            sudo apt-get update
+            ;;
+        redis-server)
+            sudo add-apt-repository ppa:chris-lea/redis-server
+            
+            ;;
+    esac
+}
+
+###########################################################################
+# actions to be taken after installing a specific package
+###########################################################################
+function postinstall() {
+    local pkgname=$1
+
+    case $pkgname in
+        oracle-java8.*) 
+            ;;
+        redis-server)
+            ;;
+    esac
+}
+
+###########################################################################
+# ------- MAIN PROGRAM --------
+###########################################################################
+
+echo "checking ubuntu packages...."
+
+for pkg in ${needed_packages[@]} 
+do 
+    pkgname=${pkg%%_*}
+    if [[ $pkg == *_* ]]; then 
+        pkgversion=${pkg##*_}
+    else
+        pkgversion=""
+    fi
+
+    if [[ -z $pkgversion ]] ; then
+        pkginfo=$( dpkg-query -f '${Package}' -W $pkgname 2>/dev/null)
+    else
+        pkginfo=$( dpkg-query -f '${Package}_${Version}' -W $pkgname 2>/dev/null)
+    fi
+    #echo "${pkginfo} , $pkgname, $pkgversion , $pkg"
+    #exit
+    if  [[ -z $pkginfo ]] || [[ $pkginfo != $pkg ]] ; then 
+        echo "$pkg is not installed, but needed .. installing."
+        preinstall $pkgname
+        if [[ -z $pkgversion ]] ; then
+            sudo apt-get install ${pkgname}
+        else
+            sudo apt-get install ${pkgname}=${pkgversion}
+        fi
+        postinstall $pkgname
+    fi
+done
+
+echo "checking python packages...."
+
+for pkg in ${python_packages[@]} 
+do 
+    pkgname=${pkg}
+    name=$(pip freeze 2>/dev/null | grep ^${pkgname}= | cut -f1 -d=)
+    if  [[ -z $name ]] ; then 
+        echo "$pkg is not installed, but needed .. installing."
+        preinstall $pkg
+        sudo pip install $pkg
+        postinstall $pkg
+    fi
+done

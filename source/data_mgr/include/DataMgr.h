@@ -213,8 +213,6 @@ class DataMgr : public PlatformProcess
     /*
      * Cmdline configurables
      */
-    fds_uint32_t port_num;      /* Data path port num */
-    fds_uint32_t cp_port_num;   /* Control path port num */
     std::string  stor_prefix;   /* String prefix to make file unique */
     fds_uint32_t  scheduleRate;
     fds_bool_t   use_om;        /* Whether to bootstrap from OM */
@@ -264,6 +262,7 @@ class DataMgr : public PlatformProcess
                          BlobNode*& bnode);
     Error _process_delete(fds_volid_t vol_uuid,
                          std::string blob_name);
+    fds_bool_t _process_isEmpty(fds_volid_t volId);
     Error _process_list(fds_volid_t volId,
                         std::list<BlobNode>& bNodeList);
 

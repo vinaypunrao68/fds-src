@@ -7,6 +7,7 @@
 #include <fds_types.h>
 #include <arpa/inet.h>
 #include <unordered_map>
+#include <boost/thread.hpp>
 #include <thrift/concurrency/ThreadManager.h>
 #include <thrift/concurrency/PosixThreadFactory.h>
 #include <thrift/protocol/TBinaryProtocol.h>
@@ -186,7 +187,7 @@ class netClientSessionEx : public netSession , public net::SocketEventHandler {
               LOGDEBUG << "starting the recv thread" ;
               /* Create the interface for receiving responses */
               resp_processor_.reset(new RespProcessorT(resp_handler_));
-              recv_thread_.reset(new std::thread(
+              recv_thread_.reset(new boost::thread(
                       &netClientSessionEx<ReqClientT,
                       RespProcessorT, RespHandlerT>::run, this));
           }
@@ -289,7 +290,7 @@ class netClientSessionEx : public netSession , public net::SocketEventHandler {
   boost::shared_ptr<RespHandlerT> resp_handler_;
 
   /* Responses to client requests are serviced on this thread */
-  boost::shared_ptr<std::thread> recv_thread_;
+  boost::shared_ptr<boost::thread> recv_thread_;
 };
 
 typedef netClientSessionEx<FDSP_DataPathReqClient,
@@ -421,7 +422,7 @@ class netServerSessionEx: public netSession {
   void listenServerNb()
   {
       std::cerr << "Starting the server on a separate thread..." << std::endl;
-      listen_thread_.reset(new std::thread(&TThreadedServer::serve, server_.get()));
+      listen_thread_.reset(new boost::thread(&TThreadedServer::serve, server_.get()));
   }
 
   /**
@@ -608,7 +609,7 @@ class netServerSessionEx: public netSession {
   /* For running the server listen on a seperate thread.  This way we don't
    * block the caller.
    */
-  boost::shared_ptr<std::thread> listen_thread_;
+  boost::shared_ptr<boost::thread> listen_thread_;
 };
 
 typedef netServerSessionEx<FDSP_DataPathReqProcessor,

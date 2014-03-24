@@ -227,6 +227,13 @@ class OrchMgr: public FdsProcess {
             ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
             ::FDS_ProtocolInterface::FDSP_ActivateAllNodesTypePtr& act_node_msg);
 
+        int32_t ActivateNode(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_ActivateOneNodeType& act_node_msg);
+        int32_t ActivateNode(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_ActivateOneNodeTypePtr& act_node_msg);
+
         int32_t applyTierPolicy(
             const ::FDS_ProtocolInterface::tier_pol_time_unit& policy);
         int32_t applyTierPolicy(
@@ -397,6 +404,13 @@ class OrchMgr: public FdsProcess {
             const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
             const ::FDS_ProtocolInterface::FDSP_DLT_Resp_Type& dlt_info_resp);
         void NotifyDLTUpdateResp(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_DLT_Resp_TypePtr& dlt_info_resp);
+
+        void NotifyDLTCloseResp(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_DLT_Resp_Type& dlt_info_resp);
+        void NotifyDLTCloseResp(
             ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
             ::FDS_ProtocolInterface::FDSP_DLT_Resp_TypePtr& dlt_info_resp);
 
