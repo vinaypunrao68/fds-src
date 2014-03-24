@@ -1130,11 +1130,12 @@ VolumeContainer::om_test_bucket(const FdspMsgHdrPtr     &hdr,
         LOGNOTIFY << "OM does not know about node " << hdr->src_node_name;
     }
     vol = get_volume(req->bucket_name);
-    if ((vol == NULL) || (vol->is_delete_pending())) {
-        LOGNOTIFY << "Bucket " << vname << " does not exist (delete pending? "
-                  << vol->is_delete_pending() << "), notify node "
-                  << hdr->src_node_name;
-
+    if (vol == NULL || vol->is_delete_pending()) {
+        if (vol) {
+            LOGNORMAL << "delete pending on bucket " << vname;
+        } else {
+            LOGNOTIFY << "invalid bucket " << vname;
+        }
         if (am != NULL) {
             am->om_send_vol_cmd(NULL, &vname, fpi::FDSP_MSG_ATTACH_VOL_CTRL);
         }
