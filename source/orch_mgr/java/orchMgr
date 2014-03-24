@@ -7,6 +7,6 @@ for i in ../lib/java/om-1.0-bin/om-1.0/* ; do {
 
 CLASSPATH=$CLASSPATH:../lib/java/classes
 
-java -Dlog4j.configuration=file:///fds-root/etc/log4j-console.properties \
+java -Dfds.config=file:///fds-root/etc/app.properties \
      -classpath $CLASSPATH \
      com.formationds.web.om.Main $*

@@ -6,14 +6,11 @@ package com.formationds.om;
 import java.io.File;
 
 public class NativeApi {
-    static {
-        String gluePath = new File("./liborchmgr.so").getAbsolutePath();
-        System.load(gluePath);
-    }
-
     public static native void init(String[] args);
 
     public static void startOm(String[] args) {
+        String gluePath = new File("./liborchmgr.so").getAbsolutePath();
+        System.load(gluePath);
         new Thread(() -> init(args)).start();
     }
 }
