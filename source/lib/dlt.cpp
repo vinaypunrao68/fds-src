@@ -569,7 +569,7 @@ bool DLTManager::add(const DLT& _newDlt) {
     const DLT& current = *curPtr;
 
     for (uint i = 0; i < newDlt.numTokens; i++) {
-        if (current.distList->at(i) != newDlt.distList->at(i)) {
+        if (current.distList->at(i) != newDlt.distList->at(i) && (current.depth == newDlt.depth)) { //NOLINT
             // There is the diff in pointer data
             // so check if there is a diff in actual data
             bool fSame = true;
