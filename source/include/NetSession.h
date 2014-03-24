@@ -40,6 +40,9 @@ using namespace ::apache::thrift;
 using namespace ::apache::thrift::protocol;
 using namespace ::apache::thrift::concurrency;
 
+namespace att = apache::thrift::transport;
+namespace atc = apache::thrift::concurrency;
+
 using namespace FDS_ProtocolInterface;
 using namespace std;
 using namespace fds;
