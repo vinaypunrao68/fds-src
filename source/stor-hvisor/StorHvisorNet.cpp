@@ -135,12 +135,11 @@ StorHvCtrl::StorHvCtrl(int argc,
 
   sysParams = params;
 
-  sh_log = g_fdslog;
-  FDS_PLOG(sh_log) << "StorHvisorNet - Constructing the Storage Hvisor";
+  LOGNORMAL << "StorHvisorNet - Constructing the Storage Hvisor";
 
   /* create OMgr client if in normal mode */
   om_client = NULL;
-  FDS_PLOG(sh_log) << "StorHvisorNet - Will create and initialize OMgrClient";
+  LOGNORMAL << "StorHvisorNet - Will create and initialize OMgrClient";
 
   struct ifaddrs *ifAddrStruct = NULL;
   struct ifaddrs *ifa          = NULL;
@@ -150,7 +149,7 @@ StorHvCtrl::StorHvCtrl(int argc,
 
    myIp = netSession::getLocalIp();
    assert(myIp.empty() == false);
-   FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "StorHvisorNet - My IP: " << myIp;
+   LOGNOTIFY << "StorHvisorNet - My IP: " << myIp;
 
    dPathRespCback.reset(new FDSP_DataPathRespCbackI());
    mPathRespCback.reset(new FDSP_MetaDataPathRespCbackI());
@@ -163,14 +162,14 @@ StorHvCtrl::StorHvCtrl(int argc,
                              omIpStr,
                              omConfigPort,
                              node_name,
-                             sh_log,
+                             GetLog(),
                              rpcSessionTbl,
                              &gl_AmPlatform);
   if (om_client) {
     om_client->initialize();
   }
   else {
-    FDS_PLOG_SEV(sh_log, fds::fds_log::error) << "StorHvisorNet - Failed to create OMgrClient, will not receive any OM events";
+    LOGERROR << "StorHvisorNet - Failed to create OMgrClient, will not receive any OM events";
   }
 
 
@@ -178,7 +177,7 @@ StorHvCtrl::StorHvCtrl(int argc,
   om_client->registerBucketStatsCmdHandler(bucketStatsRespHandler);
 
   /*  Create the QOS Controller object */
-  qos_ctrl = new StorHvQosCtrl(50, fds::FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET, sh_log);
+  qos_ctrl = new StorHvQosCtrl(50, fds::FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET, GetLog());
   om_client->registerThrottleCmdHandler(StorHvQosCtrl::throttleCmdHandler);
   qos_ctrl->registerOmClient(om_client); /* so it will start periodically pushing perfstats to OM */
   om_client->startAcceptingControlMessages();
@@ -187,7 +186,7 @@ StorHvCtrl::StorHvCtrl(int argc,
   /* TODO: for now StorHvVolumeTable constructor will create
    * volume 1, revisit this soon when we add multi-volume support
    * in other parts of the system */
-  vol_table = new StorHvVolumeTable(this, sh_log);
+  vol_table = new StorHvVolumeTable(this, GetLog());
 
   chksumPtr =  new checksum_calc();
 
@@ -195,7 +194,7 @@ StorHvCtrl::StorHvCtrl(int argc,
    * Set basic thread properties.
    */
 
-  FDS_PLOG(sh_log) << "StorHvisorNet - StorHvCtrl basic infra init successfull ";
+  LOGNORMAL << "StorHvisorNet - StorHvCtrl basic infra init successfull ";
 
   /*
    * Parse options out of config file
@@ -259,7 +258,7 @@ StorHvCtrl::StorHvCtrl(int argc,
                                                 dataMgrPortNum,
                                                 om_client);
   } else {
-    FDS_PLOG(sh_log) <<"StorHvisorNet -  Entring Normal Data placement mode";
+    LOGNORMAL <<"StorHvisorNet -  Entring Normal Data placement mode";
     dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NORMAL_MODE,
                                                 om_client);
   }
@@ -288,11 +287,6 @@ StorHvCtrl::~StorHvCtrl()
   if (om_client)
     delete om_client;
   delete qos_ctrl;
-  delete sh_log;
-}
-
-fds_log* StorHvCtrl::GetLog() {
-  return sh_log;
 }
 
 SysParams* StorHvCtrl::getSysParams() {
@@ -306,7 +300,7 @@ void StorHvCtrl::StartOmClient() {
    * Appropriate callbacks were setup by data placement and volume table objects
    */
   if (om_client) {
-    FDS_PLOG_SEV(sh_log, fds::fds_log::notification) << "StorHvisorNet - Started accepting control messages from OM";
+    LOGNOTIFY << "StorHvisorNet - Started accepting control messages from OM";
     om_client->registerNodeWithOM(&gl_AmPlatform);
   }
 
@@ -320,7 +314,7 @@ void cppOut( char *format, ... ) {
   if( *format != '\0' ) {
    	if( *format == 's' ) {
        		char* s = va_arg( argptr, char * );
-       		FDS_PLOG(storHvisor->GetLog()) << s;
+                FDS_PLOG(storHvisor->GetLog()) << s;
     	}
   }
   va_end( argptr);

@@ -145,10 +145,7 @@ typedef unsigned char doid_t[20];
 
 /*************************************************************************** */
 
-class StorHvCtrl
- {
-
-
+class StorHvCtrl : public HasLogger {
 public:
   /*
    * Defines specific test modes used to
@@ -223,7 +220,6 @@ public:
   int fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const FDSP_GetObjTypePtr& get_obj_rsp );
   int fds_process_put_obj_resp(const FDSP_MsgHdrTypePtr& rx_msg,const  FDSP_PutObjTypePtr& put_obj_rsp );
   int fds_process_update_catalog_resp(const FDSP_MsgHdrTypePtr& rx_msg,const  FDSP_UpdateCatalogTypePtr& cat_obj_rsp );
-  fds_log* GetLog();
   SysParams* getSysParams();
   void StartOmClient();
   sh_comm_modes GetRunTimeMode() { return mode; }
@@ -239,7 +235,6 @@ private:
   Error dispatchSmGetMsg(StorHvJournalEntry *journEntry);
   Error dispatchSmDelMsg(StorHvJournalEntry *journEntry);
 
-  fds_log *sh_log;
   SysParams *sysParams;
   sh_comm_modes mode;
 };
