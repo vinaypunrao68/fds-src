@@ -616,6 +616,7 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
 
 
         obj_id.SetId( (const char *)cat_obj_info.data_obj_id.digest.c_str(), cat_obj_info.data_obj_id.digest.length());
+        FDS_PLOG(storHvisor->GetLog()) << " Query Cat StorHvisorRx:" << obj_id ;
         /*
          * TODO: Don't just grab the hard coded first catalog object in the list.
          * Actually loop here.

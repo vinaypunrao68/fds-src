@@ -853,6 +853,9 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
     /*
      * Get the object ID from vcc and add it to journal entry and get msg
      */
+#ifdef VVC_CACHE_DISABLE
+   shVol->vol_catalog_cache->Clear();
+#endif
     ObjectID objId;
     err = shVol->vol_catalog_cache->Query(blobReq->getBlobName(),
                                           blobReq->getBlobOffset(),
