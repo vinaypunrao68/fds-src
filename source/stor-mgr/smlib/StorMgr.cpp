@@ -846,8 +846,8 @@ ObjectStorMgr::writeObjectMetaData(const ObjectID& objId,
       objMap.removePhyLocation(fromTier);
     }
 
-    objData.data = objMap.marshall();
-    objData.size = objMap.getObjSize();
+    objData.size = objMap.getMapSize();
+    objData.data.assign(objMap.marshall(), objData.size);
     err = smObjDb->Put(objId, objData);
     if (err == ERR_OK) {
         LOGDEBUG << "Updating object location for object "
@@ -914,6 +914,8 @@ ObjectStorMgr::deleteObjectMetaData(const ObjectID& objId, fds_volid_t vol_id) {
      * Set the ref_cnt to 0, which will be the delete marker for this object and Garbage collector feeds on these objects
      */
     objMap.deleteAssocEntry(objId, vol_id);
+    objData.size = objMap.getMapSize();
+    objData.data.assign(objMap.marshall(), objData.size);
     err = smObjDb->Put(objId, objData);
     if (err == ERR_OK) {
         LOGDEBUG << "Setting the delete marker for object "

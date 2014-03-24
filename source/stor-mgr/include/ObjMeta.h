@@ -53,7 +53,8 @@ class ObjMetaData {
        persistBuffer = new char[size];
        memset(persistBuffer, 0, size);
        obj_map = (meta_obj_map_t *)persistBuffer;
-       memcpy(&obj_map->obj_id.metaDigest, objid.GetId(), sizeof(obj_map->obj_id.metaDigest));
+       obj_map->obj_map_len = size;
+       memcpy(obj_map->obj_id.metaDigest, objid.GetId(), sizeof(obj_map->obj_id.metaDigest));
        obj_map->obj_size = obj_size;
 
        //Initialize the physical location array
@@ -90,6 +91,9 @@ class ObjMetaData {
    meta_obj_map_t*   getObjMap() { 
        return obj_map;
    }
+   fds_uint32_t   getMapSize() { 
+       return obj_map->obj_map_len;
+   }
    fds_uint32_t   getObjSize() { 
        return obj_map->obj_size;
    }
@@ -119,6 +123,8 @@ class ObjMetaData {
        persistBuffer = new_buf;
        obj_map = (meta_obj_map_t *)persistBuffer;
        obj_map->obj_num_assoc_entry++;
+       obj_map->obj_map_len = new_size;
+       size = new_size;
        phy_loc = &obj_map->loc_map[0];
        assoc_entry = (obj_assoc_entry_t *)(persistBuffer + sizeof(meta_obj_map_t ));
        return &assoc_entry[obj_map->obj_num_assoc_entry - 1];
@@ -140,6 +146,7 @@ class ObjMetaData {
             assoc_entry[0].ref_cnt++;
             assoc_entry[0].vol_uuid = vol_id;
             obj_map->obj_refcnt++;
+            obj_map->obj_num_assoc_entry = 1;
         } else {
            obj_assoc_entry_t *new_entry = appendAssocEntry();
            new_entry->vol_uuid = vol_id;
@@ -183,14 +190,14 @@ class ObjMetaData {
 inline std::ostream& operator<<(std::ostream& out, const ObjMetaData& objMd)
 {
      out << "Object MetaData: Version" << objMd.obj_map->obj_map_ver 
-             << " len : " << objMd.obj_map->obj_map_len
-             << "objId : " << objMd.obj_map->obj_id.metaDigest
-             << "obj_size " << objMd.obj_map->obj_size
-             << "obj_ref_cnt " << objMd.obj_map->obj_refcnt
-             << "num_assoc_entry " << objMd.obj_map->obj_num_assoc_entry
-             << "create_time " << objMd.obj_map->obj_create_time
-             << "del_time " << objMd.obj_map->obj_del_time
-             << "mod_time " << objMd.obj_map->assoc_mod_time
+             << "   len : " << objMd.obj_map->obj_map_len
+             << "  objId : " << objMd.obj_map->obj_id.metaDigest
+             << "  obj_size " << objMd.obj_map->obj_size
+             << "  obj_ref_cnt " << objMd.obj_map->obj_refcnt
+             << "  num_assoc_entry " << objMd.obj_map->obj_num_assoc_entry
+             << "  create_time " << objMd.obj_map->obj_create_time
+             << "  del_time " << objMd.obj_map->obj_del_time
+             << "  mod_time " << objMd.obj_map->assoc_mod_time
             << std::endl;
      for (fds_uint32_t i = 0; i < MAX_PHY_LOC_MAP; i++) {
          out << "Object MetaData: "
