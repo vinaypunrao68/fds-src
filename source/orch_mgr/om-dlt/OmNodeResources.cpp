@@ -546,6 +546,7 @@ OM_PmContainer::agent_register(const NodeUuid       &uuid,
     if (OM_NodeDomainMod::om_in_test_mode() || (err != ERR_OK)) {
         return err;
     }
+    try {
     OM_PmAgent::pointer agent = OM_PmAgent::agt_cast_ptr(*out);
     NodeAgentCpSessionPtr session(
         ac_cpSessTbl->startSession<netControlPathClientSession>(
@@ -565,6 +566,10 @@ OM_PmContainer::agent_register(const NodeUuid       &uuid,
 
         // TODO(Vy): must save service cfg in db or better node provisioning.
         agent->send_activate_services(true, true, true);
+    }
+    } catch(const att::TTransportException& e) {
+        LOGERROR << "error during network call : " << e.what();
+        return ERR_NETWORK_TRANSPORT;
     }
     return err;
 }
@@ -688,6 +693,7 @@ OM_SmContainer::agent_register(const NodeUuid       &uuid,
     if (OM_NodeDomainMod::om_in_test_mode() || (err != ERR_OK)) {
         return err;
     }
+    try {
     OM_SmAgent::pointer agent = OM_SmAgent::agt_cast_ptr(*out);
     NodeAgentCpSessionPtr session(
             ac_cpSessTbl->startSession<netControlPathClientSession>(
@@ -700,6 +706,10 @@ OM_SmContainer::agent_register(const NodeUuid       &uuid,
     fds_verify(agent != NULL);
     fds_verify(session != NULL);
     agent->setCpSession(session, fpi::FDSP_STOR_MGR);
+    } catch(const att::TTransportException& e) {
+        LOGERROR << "error during network call : " << e.what();
+        return ERR_NETWORK_TRANSPORT;
+    }
     return err;
 }
 
@@ -735,6 +745,7 @@ OM_DmContainer::agent_register(const NodeUuid       &uuid,
     if (OM_NodeDomainMod::om_in_test_mode() || (err != ERR_OK)) {
         return err;
     }
+    try {
     OM_DmAgent::pointer agent = OM_DmAgent::agt_cast_ptr(*out);
     NodeAgentCpSessionPtr session(
             ac_cpSessTbl->startSession<netControlPathClientSession>(
@@ -747,6 +758,10 @@ OM_DmContainer::agent_register(const NodeUuid       &uuid,
     fds_verify(agent != NULL);
     fds_verify(session != NULL);
     agent->setCpSession(session, fpi::FDSP_DATA_MGR);
+    } catch(const att::TTransportException& e) {
+        LOGERROR << "error during network call : " << e.what();
+        return ERR_NETWORK_TRANSPORT;
+    }
     return err;
 }
 
@@ -771,6 +786,7 @@ OM_AmContainer::agent_register(const NodeUuid       &uuid,
     if (OM_NodeDomainMod::om_in_test_mode() || (err != ERR_OK)) {
         return err;
     }
+    try {
     OM_AmAgent::pointer agent = OM_AmAgent::agt_cast_ptr(*out);
 
     NodeAgentCpSessionPtr session(
@@ -784,6 +800,10 @@ OM_AmContainer::agent_register(const NodeUuid       &uuid,
     fds_verify(agent != NULL);
     fds_verify(session != NULL);
     agent->setCpSession(session, fpi::FDSP_DATA_MGR);
+    } catch(const att::TTransportException& e) {
+        LOGERROR << "error during network call : " << e.what();
+        return ERR_NETWORK_TRANSPORT;
+    }
     return err;
 }
 
