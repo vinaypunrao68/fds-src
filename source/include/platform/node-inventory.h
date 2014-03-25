@@ -11,6 +11,7 @@
 #include <fds_module.h>
 #include <platform/platform-rpc.h>
 #include <ostream>
+#include <serialize.h>
 namespace fds {
 
 typedef fpi::FDSP_RegisterNodeType     FdspNodeReg;
@@ -69,6 +70,13 @@ class NodeInvData
     FdspNodeState            nd_node_state;
     fds_uint64_t             nd_dlt_version;
     friend std::ostream& operator<< (std::ostream &os, const NodeInvData& node);
+};
+
+struct NodeServices : serialize::Serializable {
+    NodeUuid sm,dm,am;
+    uint32_t virtual write(serialize::Serializer*  s) const;
+    uint32_t virtual read(serialize::Deserializer* s);
+    friend std::ostream& operator<< (std::ostream &os, const NodeServices& node);
 };
 
 /**
@@ -520,4 +528,4 @@ class DomainContainer
 };
 
 }  // namespace fds
-#endif  // SOURCE_INCLUDE_INVENTORY_NODE_INVENTORY_H_
+#endif  // SOURCE_INCLUDE_PLATFORM_NODE_INVENTORY_H_

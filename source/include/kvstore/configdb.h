@@ -52,6 +52,9 @@ namespace fds {
             bool getNodeIds(std::vector<NodeUuid>& nodes, int localDomain = 0);
             bool getAllNodes(std::vector<NodeInvData>& nodes, int localDomain = 0);
             std::string getNodeName(const NodeUuid& uuid);
+
+            bool getNodeServices(const NodeUuid& uuid, NodeServices& services); 
+            bool setNodeServices(const NodeUuid& uuid, const NodeServices& services); 
             uint getNodeNameCounter();
             
             // volume policies            

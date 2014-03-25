@@ -540,6 +540,30 @@ std::string ConfigDB::getNodeName(const NodeUuid& uuid) {
     return "";    
 }
 
+bool ConfigDB::getNodeServices(const NodeUuid& uuid, NodeServices& services) {
+    try{
+        Reply reply = r.sendCommand("get %ld:services", uuid);
+        if (reply.isNil()) return false;
+        services.loadSerialized(reply.getString());
+        return true;
+    } catch (const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+    return false;
+}
+
+bool ConfigDB::setNodeServices(const NodeUuid& uuid, const NodeServices& services) {
+    try{
+        std::string serialized;
+        services.getSerialized(serialized);
+        Reply reply = r.sendCommand("set %ld:services %b", uuid, serialized.data(), serialized.length());
+        return reply.isOk();
+    } catch (const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+    return false;
+}
+
 uint ConfigDB::getNodeNameCounter() {
     try{
         Reply reply = r.sendCommand("incr node:name.counter");
