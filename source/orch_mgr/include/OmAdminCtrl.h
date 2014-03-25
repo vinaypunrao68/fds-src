@@ -64,6 +64,9 @@ class FdsAdminCtrl {
   private:
     void initDiskCapabilities();
 
+    /* number of nodes reported disk capacity */
+    fds_uint32_t num_nodes;
+
     /* parent log */
     fds_log* parent_log;
 };

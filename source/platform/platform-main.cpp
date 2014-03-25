@@ -88,8 +88,10 @@ NodePlatformProc::plf_start_node_services(const fpi::FDSP_ActivateNodeTypePtr &m
 void
 NodePlatformProc::plf_fill_disk_capacity_pkt(fpi::FDSP_RegisterNodeTypePtr pkt)
 {
-    pkt->disk_info.disk_iops_max    = 3000;
-    pkt->disk_info.disk_iops_min    = 100;
+    // for disk_iops_max -- report a little less than it could do
+    // to reserve some iops for local background tasks (such as migration, etc)
+    pkt->disk_info.disk_iops_max    = 3600;
+    pkt->disk_info.disk_iops_min    = 1000;
     pkt->disk_info.disk_capacity    = 0x7ffff;
     pkt->disk_info.disk_latency_max = 1000000 / pkt->disk_info.disk_iops_min;
     pkt->disk_info.disk_latency_min = 1000000 / pkt->disk_info.disk_iops_max;
