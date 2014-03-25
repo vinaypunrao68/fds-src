@@ -38,7 +38,7 @@ OM_SmAgent::setCpSession(NodeAgentCpSessionPtr session, fpi::FDSP_MgrIdType myId
     ndCpClient  = ndCpSession->getClient();
     ndMyServId  = myId;
 
-    FDS_PLOG_SEV(g_fdslog, fds_log::normal) << "Established connection with new node";
+    LOGNORMAL << "Established connection with new node";
 }
 
 // om_send_myinfo
@@ -70,8 +70,7 @@ OM_SmAgent::om_send_myinfo(NodeAgent::pointer peer)
         n_inf->node_state = fpi::FDS_Node_Up;
         OM_SmAgent::agt_cast_ptr(peer)->ndCpClient->NotifyNodeAdd(m_hdr, n_inf);
     }
-    FDS_PLOG_SEV(g_fdslog, fds_log::normal)
-        << "Send node info from " << get_node_name()
+    LOGNORMAL << "Send node info from " << get_node_name()
         << " to " << peer->get_node_name() << std::endl;
 }
 
@@ -104,7 +103,7 @@ OM_SmAgent::om_send_node_cmd(const om_node_msg_t &msg)
             fds_panic("Unsupported command code");
     }
     fds_assert(log != NULL);
-    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << log << get_node_name() << std::endl;
+    LOGDEBUG << log << get_node_name() << std::endl;
 }
 
 // om_send_vol_cmd
@@ -198,12 +197,10 @@ OM_SmAgent::om_send_vol_cmd(VolumeInfo::pointer    vol,
         }
     }
     if (desc != NULL) {
-        FDS_PLOG_SEV(g_fdslog, fds_log::normal)
-                << log << desc->volUUID << " " << desc->name
+        LOGNORMAL << log << desc->volUUID << " " << desc->name
                 << " to node " << get_node_name();
     } else {
-        FDS_PLOG_SEV(g_fdslog, fds_log::normal)
-                << log << ", no vol to node " << get_node_name();
+        LOGNORMAL << log << ", no vol to node " << get_node_name();
     }
 }
 
@@ -221,8 +218,7 @@ OM_SmAgent::om_send_reg_resp(const Error &err)
     m_hdr->err_code     = err.GetErrno();
     m_hdr->session_uuid = ndSessionId;
 
-    FDS_PLOG_SEV(g_fdslog, fds_log::normal)
-        << "Sending registration result to node " << get_node_name() << std::endl;
+    LOGNORMAL << "Sending registration result to node " << get_node_name() << std::endl;
 
     // TODO(Andrew): OM needs an interface to response to these messages.
     // ndCpClient->RegisterNodeResp(m_hdr, r_msg);
@@ -314,8 +310,7 @@ OM_PmAgent::setCpSession(NodeAgentCpSessionPtr session)
     ndSessionId = ndCpSession->getSessionId();
     ndCpClient  = ndCpSession->getClient();
 
-    FDS_PLOG_SEV(g_fdslog, fds_log::normal)
-            << "PMAgent: Established connection with new node";
+    LOGNORMAL << "PMAgent: Established connection with new node";
 }
 
 // service_exists
@@ -428,8 +423,7 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
         (node_state() != FDS_ProtocolInterface::FDS_Node_Up)) {
         return Error(ERR_INVALID_ARG);
     }
-    FDS_PLOG_SEV(g_fdslog, fds_log::normal)
-            << "OM_PmAgent: will send node activate message to " << get_node_name()
+    LOGNORMAL << "OM_PmAgent: will send node activate message to " << get_node_name()
             << "; activate sm: " << activate_sm << "; activate dm: "<< activate_dm
             << "; activate am: " << activate_am;
 
@@ -469,8 +463,7 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
         if (!configDB->getNode(get_uuid(), node_data)) {
             // for now store only if the node was not known to DB
             configDB->addNode(*node_inv);
-            FDS_PLOG_SEV(g_fdslog, fds_log::notification)
-                    << "Adding node info for " << get_node_name() << ":"
+            LOGNOTIFY << "Adding node info for " << get_node_name() << ":"
                     << std::hex << get_uuid().uuid_get_val() << std::dec
                     << " in configDB";
         }
@@ -642,8 +635,7 @@ OM_SmContainer::~OM_SmContainer()
 void
 OM_SmContainer::agent_activate(NodeAgent::pointer agent)
 {
-    FDS_PLOG_SEV(g_fdslog, fds_log::normal)
-            << "Activate node uuid " << std::hex
+    LOGNORMAL << "Activate node uuid " << std::hex
             << "0x" << agent->get_uuid().uuid_get_val() << std::dec;
 
     rs_mtx.lock();
@@ -658,8 +650,7 @@ OM_SmContainer::agent_activate(NodeAgent::pointer agent)
 void
 OM_SmContainer::agent_deactivate(NodeAgent::pointer agent)
 {
-    FDS_PLOG_SEV(g_fdslog, fds_log::normal)
-            << "Deactivate node uuid " << std::hex
+    LOGNORMAL << "Deactivate node uuid " << std::hex
             << "0x" << agent->get_uuid().uuid_get_val() << std::dec;
 
     rs_mtx.lock();
@@ -1114,8 +1105,7 @@ OM_NodeContainer::om_set_throttle_lvl(float level)
 {
     om_cur_throttle_level = level;
 
-    FDS_PLOG_SEV(g_fdslog, fds_log::notification)
-        << "Setting throttle level for local domain at " << level << std::endl;
+    LOGNOTIFY << "Setting throttle level for local domain at " << level << std::endl;
 
     om_bcast_throttle_lvl(level);
 }
