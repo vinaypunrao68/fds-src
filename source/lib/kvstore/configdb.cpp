@@ -482,7 +482,7 @@ bool ConfigDB::nodeExists(const NodeUuid& uuid) {
     return false;
 }
 
-bool ConfigDB::getNodeIds(std::vector<NodeUuid>& nodes, int localDomain) {
+bool ConfigDB::getNodeIds(std::unordered_set<NodeUuid, UuidHash>& nodes, int localDomain) {
     std::vector<long long> nodeIds;
 
     try {
@@ -495,7 +495,9 @@ bool ConfigDB::getNodeIds(std::vector<NodeUuid>& nodes, int localDomain) {
         }
 
         for (uint i = 0; i < nodeIds.size() ; i++ ) {
-            nodes.push_back(NodeUuid(nodeIds[i]));
+            LOGDEBUG << "ConfigDB::getNodeIds node "
+                     << std::hex << nodeIds[i] << std::dec;
+            nodes.insert(NodeUuid(nodeIds[i]));
         }
 
         return true;
