@@ -219,7 +219,7 @@ ObjectStorMgrI::RedirReadObject(FDSP_MsgHdrTypePtr &msg_hdr, FDSP_RedirReadObjTy
 ObjectStorMgr::ObjectStorMgr(int argc, char *argv[],
                              Platform *platform, Module **mod_vec)
     : PlatformProcess(argc, argv, "fds.sm.", "sm.log", platform, mod_vec),
-    totalRate(3000),
+    totalRate(2000),
     qosThrds(10),
     shuttingDown(false),
     numWBThreads(1),
@@ -636,8 +636,13 @@ ObjectStorMgr::volEventOmHandler(fds_volid_t  volumeId,
                 fds_assert(vol != NULL);
                 err = objStorMgr->qosCtrl->registerVolume(vol->getVolId(),
                                                           dynamic_cast<FDS_VolumeQueue*>(vol->getQueue()));
-                objStorMgr->objCache->vol_cache_create(volumeId, 1024 * 1024 * 8, 1024 * 1024 * 256);
-                fds_assert(err == ERR_OK);
+		
+		if (err.ok()) {
+		  objStorMgr->objCache->vol_cache_create(volumeId, 1024 * 1024 * 8, 1024 * 1024 * 256);
+		} else {
+		  // most likely axceeded min iops
+		  objStorMgr->volTbl->deregisterVolume(volumeId);
+		}
             }
             if (!err.ok()) {
                 GLOGERROR << "Registration failed for vol id " << std::hex << volumeId

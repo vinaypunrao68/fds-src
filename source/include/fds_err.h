@@ -35,6 +35,7 @@ namespace fds {
     "Volume is not empty",
     "Blob does not exist",
     "Not ready, re-try later",
+    "Operation not permitted: would exceed total min iops",
     "Dlt mismatch",
     "Invalid blob offset",
     "Duplicate migration request",
@@ -69,6 +70,7 @@ namespace fds {
     ERR_VOL_NOT_EMPTY        = 19,
     ERR_BLOB_NOT_FOUND       = 20,
     ERR_NOT_READY            = 21,
+    ERR_EXCEED_MIN_IOPS      = 22,
 
     /* I/O error range */
     ERR_IO_DLT_MISMATCH      = 100,
@@ -96,23 +98,13 @@ namespace fds {
   class Error {
  private:
     fds_errno_t _errno;
-    /*
-     * TODO: Change the local errstr to be a table
-     * lookup rather than a member variable.
-     */
-    std::string errstr;
 
  public:
     Error()
-        : _errno(ERR_OK),
-        errstr(fds_errstrs[ERR_OK]) {
-    }
+            : _errno(ERR_OK) {}
 
     Error(fds_errno_t errno_arg)
         : _errno(errno_arg) {
-        if (_errno != ERR_OK) {
-            errstr = "Error no: " + _errno;
-        }
     }
 
     /**
@@ -120,16 +112,10 @@ namespace fds {
      */
     Error(fds_uint32_t errno_fdsp)
             : _errno(static_cast<fds_errno_t>(errno_fdsp)) {
-        if (_errno != ERR_OK) {
-            errstr = "Error no: " + _errno;
-        }
     }
 
     Error(const Error& err)
         : _errno(err._errno) {
-        if (_errno != ERR_OK) {
-            errstr = "Error no: " + _errno;
-        }
     }
 
     bool OK() const {
@@ -145,7 +131,11 @@ namespace fds {
     }
 
     std::string GetErrstr() const {
-      return errstr;
+        if (_errno <= ERR_EXCEED_MIN_IOPS) {
+            return fds_errstrs[_errno];
+        }
+        std::string ret = "Error no: " + std::to_string(_errno);
+        return ret;
     }
 
     FDS_ProtocolInterface::FDSP_ErrType getFdspErr() const
@@ -165,13 +155,11 @@ namespace fds {
 
     Error& operator=(const Error& rhs) {
       _errno = rhs._errno;
-      errstr = rhs.errstr;
       return *this;
     }
 
     Error& operator=(const fds_errno_t& rhs) {
       _errno = rhs;
-      errstr = fds_errstrs[_errno];
       return *this;
     }
 
