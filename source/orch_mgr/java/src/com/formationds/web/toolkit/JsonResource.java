@@ -12,23 +12,23 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 
 public class JsonResource implements Resource {
-    private Object o;
+    private String s;
     private int httpResponseCode;
 
     public JsonResource(JSONObject object) {
-        init(object, HttpServletResponse.SC_OK);
+        init(object.toString(4), HttpServletResponse.SC_OK);
     }
 
     public JsonResource(JSONArray array) {
-        init(array, HttpServletResponse.SC_OK);
+        init(array.toString(4), HttpServletResponse.SC_OK);
     }
 
     public JsonResource(JSONObject o, int httpResponseCode) {
-        init(o, httpResponseCode);
+        init(o.toString(4), httpResponseCode);
     }
 
-    private void init(Object o, int httpResponseCode) {
-        this.o = o;
+    private void init(String s, int httpResponseCode) {
+        this.s = s;
         this.httpResponseCode = httpResponseCode;
     }
 
@@ -45,7 +45,7 @@ public class JsonResource implements Resource {
     @Override
     public void render(OutputStream outputStream) throws IOException {
         OutputStreamWriter writer = new OutputStreamWriter(outputStream);
-        writer.write(o.toString());
+        writer.write(s);
         writer.write('\n');
         writer.flush();
     }
