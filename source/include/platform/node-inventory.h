@@ -10,7 +10,7 @@
 #include <fds_resource.h>
 #include <fds_module.h>
 #include <platform/platform-rpc.h>
-
+#include <ostream>
 namespace fds {
 
 typedef fpi::FDSP_RegisterNodeType     FdspNodeReg;
@@ -68,6 +68,7 @@ class NodeInvData
     FdspNodeType             nd_node_type;
     FdspNodeState            nd_node_state;
     fds_uint64_t             nd_dlt_version;
+    friend std::ostream& operator<< (std::ostream &os, const NodeInvData& node);
 };
 
 /**

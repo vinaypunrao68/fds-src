@@ -150,6 +150,35 @@ NodeInventory::set_node_dlt_version(fds_uint64_t dlt_version)
     const_cast<NodeInvData *>(node_inv)->nd_dlt_version = dlt_version;
 }
 
+std::ostream& operator<< (std::ostream &os, const NodeInvData& node) {
+    os << "["
+       << " uuid:" << node.nd_uuid
+       << " capacity:" << node.nd_gbyte_cap
+       << " ipnum:" << node.nd_ip_addr
+       << " ip:" << node.nd_ip_str.c_str()
+       << " data.port:" << node.nd_data_port
+       << " ctrl.port:" << node.nd_ctrl_port
+       << " migration.port:" << node.nd_migration_port
+       << " disk.type:" << node.nd_disk_type
+       << " name:" << node.nd_node_name
+       << " type:" << node.nd_node_type
+       << " state:" << node.nd_node_state
+       << " dlt.version:" << node.nd_dlt_version
+       << " disk.capacity:" << node.nd_capability.disk_capacity
+       << " disk.iops.max:" << node.nd_capability.disk_iops_max
+       << " disk.iops.min:" << node.nd_capability.disk_iops_min
+       << " disk.latency.max:" << node.nd_capability.disk_latency_max
+       << " disk.latency.min:" << node.nd_capability.disk_latency_min
+       << " ssd.iops.max:" << node.nd_capability.ssd_iops_max
+       << " ssd.iops.min:" << node.nd_capability.ssd_iops_min
+       << " ssd.capacity:" << node.nd_capability.ssd_capacity
+       << " ssd.latency.max:" << node.nd_capability.ssd_latency_max
+       << " ssd.latency.min:" << node.nd_capability.ssd_latency_min
+       << "]";
+
+    return os;
+}
+
 // --------------------------------------------------------------------------------------
 // Node Agents
 // --------------------------------------------------------------------------------------

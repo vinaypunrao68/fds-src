@@ -131,9 +131,37 @@ bool ConfigDB::deleteVolume(fds_volid_t volumeId, int localDomainId) {
     return false;
 }
 
-bool ConfigDB::volumeExists(fds_volid_t volumeId){ return false; }
+bool ConfigDB::volumeExists(fds_volid_t volumeId) {
+    try {
+        Reply reply = r.sendCommand("exists vol:%ld", volumeId);
+        return reply.getLong()==1;
+    } catch(RedisException& e) {
+        LOGERROR << e.what();
+    }
+    return false;
+}
 bool ConfigDB::volumeExists(ConstString volumeName, int localDomain){ return false; }
-bool ConfigDB::getVolumeIds(std::vector<fds_volid_t>& volumeIds, int localDomain){ return false; }
+bool ConfigDB::getVolumeIds(std::vector<fds_volid_t>& volIds, int localDomain) {
+    std::vector<long long> volumeIds;
+
+    try {
+        Reply reply = r.sendCommand("smembers %d:volumes", localDomain);
+        reply.toVector(volumeIds);
+
+        if (volumeIds.empty()) {
+            LOGWARN << "no volumes found for domain [" << localDomain << "]";
+            return false;
+        }
+
+        for (uint i = 0; i < volumeIds.size() ; i++ ) {
+            volIds.push_back(volumeIds[i]);
+        }
+        return true;
+    } catch(RedisException& e) {
+        LOGERROR << e.what();
+    }
+    return false;
+}
 
 bool ConfigDB::getVolumes(std::vector<VolumeDesc>& volumes, int localDomain) { 
     std::vector<long long> volumeIds;
@@ -454,7 +482,53 @@ bool ConfigDB::nodeExists(const NodeUuid& uuid) {
     return false;
 }
 
-bool ConfigDB::getAllNodes(std::vector<NodeInvData>& nodes, int localDomain){ return false; }
+bool ConfigDB::getNodeIds(std::vector<NodeUuid>& nodes, int localDomain) {
+    std::vector<long long> nodeIds;
+
+    try {
+        Reply reply = r.sendCommand("smembers %d:cluster:nodes", localDomain);
+        reply.toVector(nodeIds);
+
+        if (nodeIds.empty()) {
+            LOGWARN << "no nodes found for domain [" << localDomain << "]";
+            return false;
+        }
+
+        for (uint i = 0; i < nodeIds.size() ; i++ ) {
+            nodes.push_back(NodeUuid(nodeIds[i]));
+        }
+
+        return true;
+    } catch(RedisException& e) {
+        LOGERROR << e.what();
+    }
+    return false;
+}
+
+bool ConfigDB::getAllNodes(std::vector<NodeInvData>& nodes, int localDomain) {
+    std::vector<long long> nodeIds;
+
+    try {
+        Reply reply = r.sendCommand("smembers %d:cluster:nodes", localDomain);
+        reply.toVector(nodeIds);
+
+        if (nodeIds.empty()) {
+            LOGWARN << "no nodes found for domain [" << localDomain << "]";
+            return false;
+        }
+
+        for (uint i = 0; i < nodeIds.size() ; i++ ) {
+            NodeInvData node;
+            getNode(nodeIds[i],node);
+            nodes.push_back(node);
+        }
+        return true;
+    } catch(RedisException& e) {
+        LOGERROR << e.what();
+    }
+    return false;
+
+}
 
 std::string ConfigDB::getNodeName(const NodeUuid& uuid) {
     try {
