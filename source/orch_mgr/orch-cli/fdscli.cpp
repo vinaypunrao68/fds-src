@@ -12,6 +12,16 @@
 #include <boost/foreach.hpp>
 #include <fds_process.h>
 
+#define NETWORKCHECK(expr) \
+    try {    \
+        expr ;   \
+    } catch(const att::TTransportException& e) {  \
+        LOGERROR << "error during network call : " << e.what(); \
+        cerr     << "error during network call : " << e.what(); \
+        return 1;  \
+    }
+
+
 namespace fds {
 FdsCli  *fdsCli;
 
@@ -79,11 +89,13 @@ FDS_ProtocolInterface::FDSP_VolType FdsCli::stringToVolType(
 
 FDSP_ConfigPathReqClientPtr FdsCli::startClientSession() {
     netConfigPathClientSession *client_session =
-            net_session_tbl->startSession<netConfigPathClientSession>(om_ip,
-                                                                      om_cfg_port,
-                                                                      FDS_ProtocolInterface::FDSP_ORCH_MGR,
-                                                                      1,
-                                                                      boost::shared_ptr<FDSP_ConfigPathRespIf>());
+            net_session_tbl->
+            startSession
+            <netConfigPathClientSession>(om_ip,
+                                         om_cfg_port,
+                                         FDS_ProtocolInterface::FDSP_ORCH_MGR,
+                                         1,
+                                         boost::shared_ptr<FDSP_ConfigPathRespIf>());
     fds_verify(client_session != NULL);
     return client_session->getClient();
 }
@@ -205,7 +217,8 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         volData.vol_info.placementPolicy = 0;
         volData.vol_info.appWorkload = FDS_ProtocolInterface::FDSP_APP_WKLD_TRANSACTION;
 
-        if ((return_code = cfgPrx->CreateVol(msg_hdr, volData)) !=0) {
+        NETWORKCHECK(return_code = cfgPrx->CreateVol(msg_hdr, volData));
+        if (return_code !=0) {
             std::system("clear");
             cout << "Error: Creating the Volume \n";
         }
@@ -256,8 +269,7 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
             volData.vol_desc.iops_max = vm["iops-max"].as<double>();
             volData.vol_desc.rel_prio = vm["rel-prio"].as<int>();
         }
-
-        cfgPrx->ModifyVol(msg_hdr, volData);
+        NETWORKCHECK(cfgPrx->ModifyVol(msg_hdr, volData));
 
     } else if (vm.count("volume-delete") && vm.count("volume-id")) {
         LOGNOTIFY << " Delete Volume ";
@@ -267,7 +279,7 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         FDS_ProtocolInterface::FDSP_DeleteVolType volData;
         volData.vol_name = vm["volume-delete"].as<std::string>();
 
-        cfgPrx->DeleteVol(msg_hdr, volData);
+        NETWORKCHECK(cfgPrx->DeleteVol(msg_hdr, volData));
 
     } else if (vm.count("volume-attach") &&
                vm.count("volume-id") &&
@@ -282,7 +294,7 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         volData.node_id = vm["node-id"].as<std::string>();
         msg_hdr.src_node_name = vm["node-id"].as<std::string>();
 
-        cfgPrx->AttachVol(msg_hdr, volData);
+        NETWORKCHECK(cfgPrx->AttachVol(msg_hdr, volData));
 
     } else if (vm.count("volume-detach") &&
                vm.count("volume-id") &&
@@ -297,12 +309,12 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         volData.node_id = vm["node-id"].as<std::string>();
         msg_hdr.src_node_name = vm["node-id"].as<std::string>();
 
-        cfgPrx->DetachVol(msg_hdr, volData);
+        NETWORKCHECK(cfgPrx->DetachVol(msg_hdr, volData));
     } else if (vm.count("list-volumes")) {
         LOGNOTIFY << "List volumes";
 
         std::vector<FDS_ProtocolInterface::FDSP_VolumeDescType> vec;
-        cfgPrx->ListVolumes(vec, msg_hdr);
+        NETWORKCHECK(cfgPrx->ListVolumes(vec, msg_hdr));
 
         for (fds_uint32_t i = 0; i < vec.size(); ++i) {
             cout << "Volume " << vec[i].vol_name << ":"
@@ -330,7 +342,7 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         policyData.policy_info.iops_max = vm["iops-max"].as<double>();
         policyData.policy_info.rel_prio = vm["rel-prio"].as<int>();
 
-        cfgPrx->CreatePolicy(msg_hdr, policyData);
+        NETWORKCHECK(cfgPrx->CreatePolicy(msg_hdr, policyData));
 
     } else if (vm.count("policy-delete") && vm.count("volume-policy")) {
         LOGNOTIFY << " Delete Policy ";
@@ -342,7 +354,7 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         policyData.policy_name = vm["policy-delete"].as<std::string>();
         policyData.policy_id = vm["volume-policy"].as<int>();
 
-        cfgPrx->DeletePolicy(msg_hdr, policyData);
+        NETWORKCHECK(cfgPrx->DeletePolicy(msg_hdr, policyData));
 
     } else if (vm.count("policy-modify") && vm.count("volume-policy") && \
                vm.count("iops-max") && vm.count("iops-max") && vm.count("rel-prio")) {
@@ -362,7 +374,7 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         policyData.policy_info.iops_max = vm["iops-max"].as<double>();
         policyData.policy_info.rel_prio = vm["rel-prio"].as<int>();
 
-        cfgPrx->ModifyPolicy(msg_hdr, policyData);
+        NETWORKCHECK(cfgPrx->ModifyPolicy(msg_hdr, policyData));
 
     } else if (vm.count("domain-create") && vm.count("domain-id")) {
         LOGNOTIFY << " Domain Create ";
@@ -373,14 +385,14 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         domainData.domain_name = vm["domain-create"].as<std::string>();
         domainData.domain_id = vm["domain-id"].as<int>();
 
-        cfgPrx->CreateDomain(msg_hdr, domainData);
+        NETWORKCHECK(cfgPrx->CreateDomain(msg_hdr, domainData));
     }  else if (vm.count("remove-node")) {
         LOGNOTIFY << " Remove Node ";
         LOGNOTIFY << vm["remove-node"].as<std::string>() << "- node name";
         FDS_ProtocolInterface::FDSP_RemoveNodeType removeNodeData;
         removeNodeData.node_name = vm["remove-node"].as<std::string>();
 
-        cfgPrx->RemoveNode(msg_hdr, removeNodeData);
+        NETWORKCHECK(cfgPrx->RemoveNode(msg_hdr, removeNodeData));
     }  else if (vm.count("activate-nodes")) {
         LOGNOTIFY << " Activate Nodes: domain name "
                   << vm["activate-nodes"].as<std::string>()
@@ -412,7 +424,7 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
             }
         }
 
-        cfgPrx->ActivateAllNodes(msg_hdr, activateNodesData);
+        NETWORKCHECK(cfgPrx->ActivateAllNodes(msg_hdr, activateNodesData));
     }  else if (vm.count("activate-services")) {
         LOGNOTIFY << " Activate Services: domain name "
                   << vm["activate-services"].as<std::string>()
@@ -447,7 +459,7 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
             }
         }
 
-        return_code = cfgPrx->ActivateNode(msg_hdr, activateNodeData);
+        NETWORKCHECK(return_code = cfgPrx->ActivateNode(msg_hdr, activateNodeData));
         if (return_code != 0) {
             Error err(return_code);
             cout << "Failed to activate services, result "
@@ -462,7 +474,7 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         domainData.domain_name = vm["domain-delete"].as<std::string>();
         domainData.domain_id = vm["domain-id"].as<int>();
 
-        cfgPrx->DeleteDomain(msg_hdr, domainData);
+        NETWORKCHECK(cfgPrx->DeleteDomain(msg_hdr, domainData));
     } else if (vm.count("domain-stats") && vm.count("domain-id")) {
         LOGNOTIFY << " Domain Stats ";
         LOGNOTIFY << vm["domain-id"].as<int>() <<  " -domain id ";
@@ -470,7 +482,7 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         FDS_ProtocolInterface::FDSP_GetDomainStatsType domainData;
         domainData.domain_id = vm["domain-id"].as<int>();
 
-        cfgPrx->GetDomainStats(msg_hdr, domainData);
+        NETWORKCHECK(cfgPrx->GetDomainStats(msg_hdr, domainData));
 
     } else if (vm.count("throttle") && vm.count("throttle-level")) {
         LOGNOTIFY << " Throttle ";
@@ -480,7 +492,7 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         throttle_msg.domain_id = 0;
         throttle_msg.throttle_level = vm["throttle-level"].as<float>();
 
-        cfgPrx->SetThrottleLevel(msg_hdr, throttle_msg);
+        NETWORKCHECK(cfgPrx->SetThrottleLevel(msg_hdr, throttle_msg));
     } else {
         gl_OMCli.setCliClient(cfgPrx);
         gl_OMCli.mod_run();
@@ -526,8 +538,7 @@ int FdsCli::run(int argc, char* argv[])
                           10,
                           FDS_ProtocolInterface::FDSP_CLI_MGR));
 
-    fdsCli->fdsCliParser(argc, argv);
-    return 0;
+    return fdsCli->fdsCliParser(argc, argv);
 }
 
 }  // namespace fds
@@ -540,10 +551,9 @@ int main(int argc, char* argv[])
     };
     fds::fdsCli = new fds::FdsCli(argc, argv,
                                   "orch_mgr.conf", "fds.om.", "cli.log", cliVec);
-
     fds::fdsCli->setup();
-    fds::fdsCli->run(argc, argv);
+    int retcode = fds::fdsCli->run(argc, argv);
     delete fds::fdsCli;
-    return 0;
+    return retcode;
 }
 
