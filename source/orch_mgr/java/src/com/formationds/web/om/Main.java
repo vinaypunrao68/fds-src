@@ -22,13 +22,10 @@ public class Main {
     public static final String WEB_DIR = "../lib/admin-webapp/";
 
     private WebApp webApp;
-    private final Configuration configuration;
+    private Configuration configuration;
 
-    public Main() throws Exception {
-        configuration = new Configuration();
-    }
-
-    public void start(String[] args) throws Exception {
+    public Main(String[] args) throws Exception {
+        configuration = new Configuration(args);
         ClientFactory clientFactory = new ClientFactory();
         NativeApi.startOm(args);
 
@@ -48,7 +45,9 @@ public class Main {
 
         authorize(HttpMethod.GET, "/config/globaldomain", ShowGlobalDomain::new);
         authorize(HttpMethod.GET, "/config/domains", ListDomains::new);
+    }
 
+    public void start() throws Exception {
         webApp.start(7777);
     }
 
@@ -62,7 +61,7 @@ public class Main {
     }
 
     public static void main(String[] args) throws Exception {
-            new Main().start(args);
+            new Main(args).start();
     }
 }
 
