@@ -707,8 +707,7 @@ void OrchMgr::FDSP_OMControlPathReqHandler::RegisterNode(
     }
     LOGNORMAL << "Done Registered new node " << reg_node_req->node_name << std::hex
               << ", node uuid " << reg_node_req->node_uuid.uuid
-              << ", node type " << reg_node_req->node_type
-              << ", service uuid " << new_node_uuid.uuid_get_val() << std::dec;
+              << ", node type " << reg_node_req->node_type << std::dec;
 
     // TODO(Andrew): for now, let's start the cluster update process now.
     // This should eventually be decoupled from registration.
