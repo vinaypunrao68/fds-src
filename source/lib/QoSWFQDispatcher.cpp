@@ -213,6 +213,7 @@ namespace fds {
       num_rate_based_slots_serviced = 0;
       last_reset_time = boost::posix_time::microsec_clock::universal_time();
 
+      cur_total_min_rate = 0;
       total_capacity = total_svc_rate = total_server_rate;
       rate_based_qlist.clear();
       next_rate_based_spot = 0;
@@ -274,7 +275,6 @@ namespace fds {
 
       Error err(ERR_OK);
 
-
       if (queue->iops_min == 0) {
 	queue->iops_min = 1;
       }
@@ -289,6 +289,20 @@ namespace fds {
       qd->max_rate_based_credits = queue->iops_min/2 + 1; // Can accumulate up to half a second worth of spots. 
 
       qda_lock.write_lock();
+      // do not allow registering the queue that will exceed total
+      // server rate, so that we can still promise min iops to everyone
+      if ((queue->iops_min + cur_total_min_rate) > total_capacity) {
+          qda_lock.write_unlock();
+          delete qd;
+          FDS_PLOG_SEV(qda_log, fds_log::error)
+                  << "QoSWFQDispatcher: could not admit this volume, because "
+                  << " total min iops would exceed total rate" << std::endl
+                  << "  cur_total_min_rate " << cur_total_min_rate
+                  << " volume's min rate " << queue->iops_min
+                  << " total server rate " << total_capacity;
+          return Error(ERR_EXCEED_MIN_IOPS);
+      }
+
       err = FDS_QoSDispatcher::registerQueueWithLockHeld(queue_id, queue);
       if (err != ERR_OK) {
 	qda_lock.write_unlock();
@@ -298,10 +312,11 @@ namespace fds {
       if (queue_desc_map.count(queue_id) != 0) {
 	qda_lock.write_unlock();
 	delete qd;
-	err = ERR_DUPLICATE;
-	return err;
+	return Error(ERR_DUPLICATE);
       }
- 
+
+      // we are admitting this queue, update total min rate
+      cur_total_min_rate += queue->iops_min;
 
       // Now fill the vacant spots in the rate based qlist based on the queue_rate
       // Start at the first vacant spot and fill at intervals of capacity/queue_rate.
@@ -314,26 +329,43 @@ namespace fds {
 
   }
 
-  Error QoSWFQDispatcher::modifyQueueQosParams(fds_qid_t queue_id,
-					       fds_uint64_t iops_min,
-					       fds_uint64_t iops_max,
-					       fds_uint32_t prio)
+Error QoSWFQDispatcher::modifyQueueQosParams(fds_qid_t queue_id,
+                                             fds_uint64_t iops_min,
+                                             fds_uint64_t iops_max,
+                                             fds_uint32_t prio)
   {
-    Error err(ERR_OK);
+      Error err(ERR_OK);
+      fds_uint64_t q_min_rate = iops_min;
 
-    qda_lock.write_lock();
-    if  (queue_desc_map.count(queue_id) == 0) {
-      qda_lock.write_unlock();
-      err = ERR_INVALID_ARG;
-      return err;
-    }
-    err = FDS_QoSDispatcher::modifyQueueQosWithLockHeld(queue_id, iops_min, iops_max, prio);
-    if (err != ERR_OK) {
-      qda_lock.write_unlock();
-      return err;
-    }
+      if (q_min_rate < 1)
+          q_min_rate = 1;
+      
+      qda_lock.write_lock();
+      if  (queue_desc_map.count(queue_id) == 0) {
+          qda_lock.write_unlock();
+          return Error(ERR_NOT_FOUND);
+      }
+      WFQQueueDesc *qd = queue_desc_map[queue_id];
 
-    WFQQueueDesc *qd = queue_desc_map[queue_id];
+      // check if we can admit modified min iops
+      if ((q_min_rate > qd->queue_rate) &&
+          ((q_min_rate - qd->queue_rate + cur_total_min_rate) > total_capacity)) {
+          qda_lock.write_unlock();
+          FDS_PLOG_SEV(qda_log, fds_log::error)
+                  << "QoSWFQDispatcher: could not admit increased vol rate, because "
+                  << " total min iops would exceed total rate" << std::endl
+                  << "  cur_total_min_rate " << cur_total_min_rate
+                  << " volume's old min rate " << qd->queue_rate
+                  << " volume's new min rate " << q_min_rate
+                  << " total server rate " << total_capacity;
+          return Error(ERR_EXCEED_MIN_IOPS);
+      }
+      
+      err = FDS_QoSDispatcher::modifyQueueQosWithLockHeld(queue_id, iops_min, iops_max, prio);
+      if (!err.ok()) {
+          qda_lock.write_unlock();
+          return err;
+      }
 
     // Save the old parameters
     // fds_uint32_t old_rb_wt = qd->rate_based_weight;
@@ -374,6 +406,10 @@ namespace fds {
 	return err;
       }
       WFQQueueDesc *qd = queue_desc_map[queue_id];
+
+      // update current total min rate
+      assert(qd->queue_rate  <= cur_total_min_rate);
+      cur_total_min_rate -= qd->queue_rate;
 
       revokeSpotsFromQueue(qd);
 

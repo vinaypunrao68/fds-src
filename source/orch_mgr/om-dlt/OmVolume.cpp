@@ -1181,6 +1181,9 @@ VolumeContainer::om_notify_vol_resp(om_vol_notify_t type,
                 vol->vol_event(VolCrtOkEvt());
             } else {
                 // TODO(anna) send response to volume create here with error
+                LOGERROR << "Received volume create response with error ("
+                         << resp_err.GetErrstr() << ")"
+                         << ", will revert volume create for " << vol_name;
 
                 // start remove volume process (here we don't need to check
                 // with DMs if there are any objects, since volume was never

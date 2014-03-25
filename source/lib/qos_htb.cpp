@@ -102,7 +102,7 @@ Error QoSHTBDispatcher::registerQueue(fds_qid_t queue_id,
     FDS_PLOG_SEV(qda_log, fds::fds_log::error) << "QoSHTBDispatcher: invalid qos rates.  q_min_rate: "
     		<< q_min_rate << " total_min_rate: " << total_min_rate << " total_rate: "
     		<< total_rate;
-    err = Error(ERR_INVALID_ARG);
+    err = Error(ERR_EXCEED_MIN_IOPS);
     return err;
   }
 
@@ -184,7 +184,7 @@ Error QoSHTBDispatcher::modifyQueueQosParams(fds_qid_t queue_id,
 					       << q_min_rate << " total_min_rate: " 
 					       << total_min_rate-qstate->min_rate+q_min_rate 
 					       << "  total_rate: " << total_rate;
-    err = Error(ERR_INVALID_ARG);
+    err = Error(ERR_EXCEED_MIN_IOPS);
     return err;
   }
 

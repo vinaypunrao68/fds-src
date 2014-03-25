@@ -51,6 +51,7 @@ namespace fds {
   private:
 
     fds_uint64_t total_capacity;
+    fds_uint64_t cur_total_min_rate;  // sum of min rates of all queues
     int num_queues;
     std::map<fds_qid_t, WFQQueueDesc *> queue_desc_map;
     std::vector<fds_qid_t> rate_based_qlist;
