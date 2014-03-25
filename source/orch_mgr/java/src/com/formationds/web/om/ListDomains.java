@@ -22,12 +22,12 @@ public class ListDomains implements RequestHandler {
         array.put(new JSONObject()
                 .put("site", "San Francisco")
                 .put("domain", "Formation Data Systems")
-                .put("id", 0));
+                .put("id", 1));
 
         array.put(new JSONObject()
                 .put("site", "Boulder")
                 .put("domain", "QuickLeft, Inc.")
-                .put("id", 0));
+                .put("id", 2));
 
         return new JsonResource(array);
     }
