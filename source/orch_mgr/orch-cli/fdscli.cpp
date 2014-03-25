@@ -19,8 +19,8 @@ FdsCli::FdsCli(int argc, char *argv[],
                const std::string &def_cfg_file,
                const std::string &base_path,
                const std::string &def_log_file, Module **mod_vec)
-    : FdsProcess(argc, argv, def_cfg_file, base_path, def_log_file, mod_vec),
-      my_node_name("fdscli")
+        : FdsProcess(argc, argv, def_cfg_file, base_path, def_log_file, mod_vec),
+          my_node_name("fdscli")
 {
     cli_log = g_fdslog;
     cli_log->setSeverityFilter(
@@ -80,10 +80,10 @@ FDS_ProtocolInterface::FDSP_VolType FdsCli::stringToVolType(
 FDSP_ConfigPathReqClientPtr FdsCli::startClientSession() {
     netConfigPathClientSession *client_session =
             net_session_tbl->startSession<netConfigPathClientSession>(om_ip,
-                                          om_cfg_port,
-                                          FDS_ProtocolInterface::FDSP_ORCH_MGR,
-                                          1,
-                                          boost::shared_ptr<FDSP_ConfigPathRespIf>());
+                                                                      om_cfg_port,
+                                                                      FDS_ProtocolInterface::FDSP_ORCH_MGR,
+                                                                      1,
+                                                                      boost::shared_ptr<FDSP_ConfigPathRespIf>());
     fds_verify(client_session != NULL);
     return client_session->getClient();
 }
@@ -218,14 +218,14 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
             LOGNOTIFY << vm["volume-policy"].as<int>() << " -volume policy";
             if (vm.count("iops-min") || vm.count("iops-max") || vm.count("rel-prio")) {
                 LOGNOTIFY << "Since prolicy id is specified, "
-                        << "min/max iops and priority will be ignored";
+                          << "min/max iops and priority will be ignored";
             }
         } else {
             if ((vm.count("iops-min") == 0) ||
                 (vm.count("iops-max") == 0) ||
                 (vm.count("rel-prio") == 0)) {
                 LOGERROR << "If 'volume-policy' is not specified, "
-                        << "must specify min/max iops and relative priority";
+                         << "must specify min/max iops and relative priority";
                 return 0;
             }
             LOGNOTIFY << vm["iops-min"].as<double>() << " -minimum iops";
@@ -383,10 +383,10 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         cfgPrx->RemoveNode(msg_hdr, removeNodeData);
     }  else if (vm.count("activate-nodes")) {
         LOGNOTIFY << " Activate Nodes: domain name "
-                << vm["activate-nodes"].as<std::string>()
-                << " (domain name ignored for now, using default domain)"
-                << " and enable services: "
-                << vm["enable-service"].as<std::string>();
+                  << vm["activate-nodes"].as<std::string>()
+                  << " (domain name ignored for now, using default domain)"
+                  << " and enable services: "
+                  << vm["enable-service"].as<std::string>();
         FDS_ProtocolInterface::FDSP_ActivateAllNodesType activateNodesData;
         activateNodesData.domain_id = vm["domain-id"].as<int>();
         activateNodesData.activate_sm = false;
@@ -415,11 +415,11 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         cfgPrx->ActivateAllNodes(msg_hdr, activateNodesData);
     }  else if (vm.count("activate-services")) {
         LOGNOTIFY << " Activate Services: domain name "
-                << vm["activate-services"].as<std::string>()
-                << " (domain name ignored for now, using default domain)"
-                << " services: " << vm["enable-service"].as<std::string>()
-                << " on node " << std::hex << vm["node-uuid"].as<fds_uint64_t>()
-                << std::dec;
+                  << vm["activate-services"].as<std::string>()
+                  << " (domain name ignored for now, using default domain)"
+                  << " services: " << vm["enable-service"].as<std::string>()
+                  << " on node " << std::hex << vm["node-uuid"].as<fds_uint64_t>()
+                  << std::dec;
 
         FDS_ProtocolInterface::FDSP_ActivateOneNodeType activateNodeData;
         activateNodeData.domain_id = vm["domain-id"].as<int>();
