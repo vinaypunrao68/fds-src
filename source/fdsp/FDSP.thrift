@@ -825,15 +825,24 @@ struct FDSP_SyncTokenResp
 {
 	/* Header */
 	1: FDSP_MigMsgHdrType         header;
+}
+
+/* Volume associations */
+struct FDSP_ObjectVolumeAssociation
+{
+	1: FDSP_Uuid				vol_id
+	2: i32						ref_cnt
 } 
+typedef list<FDSP_ObjectVolumeAssociation> FDSP_ObjectVolumeAssociationList
 
 /* Meta data for migration object */
 struct FDSP_MigrateObjectMetadata
 {
     1: FDSP_Token              token_id
     2: FDS_ObjectIdType        object_id
-    3: i32                     obj_len;
-    4: i64                     modification_ts;
+    3: i32                     obj_len
+    4: i64                     modification_ts
+    5: FDSP_ObjectVolumeAssociationList associations
 }
 
 /* Complete data (metadata included) for migration object */

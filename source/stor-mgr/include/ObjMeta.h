@@ -40,7 +40,8 @@ namespace fds {
 #define SYNCMETADATA_MASK 0x1
 
 struct SyncMetaData {
-    struct header_t{
+    SyncMetaData();
+    struct header_t {
         /* Born timestamp */
         uint64_t born_ts;
         /* Modification timestamp */
@@ -66,6 +67,10 @@ private:
     uint8_t *mask;
     meta_obj_map_t *obj_map; // Pointer to the meta_obj_map in the buffer
     obj_phy_loc_t *phy_loc;
+
+    /* NOTE: We always start with atleast one association entry.  It's
+     * possible that it's not populated
+     */
     obj_assoc_entry_t *assoc_entry;
 
     SyncMetaData sync_data;
@@ -74,82 +79,33 @@ public:
     ObjMetaData();
     virtual ~ObjMetaData();
 
-    void newPersistentBuffer(int num_assoc_entries, bool sync_entry,
-            int num_sync_assoc_entries)
-    {
-        /* Allocate buffer */
-        size = sizeof(uint8_t) + sizeof(meta_obj_map_t);
-        size += sizeof(obj_assoc_entry_t) * num_assoc_entries;
-        if (sync_entry) {
-            size += sizeof(SyncMetaData::header_t);
-            size += sizeof(obj_assoc_entry_t) * num_sync_assoc_entries;
-        }
-
-        persistBuffer = new char[size];
-        uint32_t offset = 0;
-
-        /* assign pointers */
-        mask = (uint8_t*) (persistBuffer + offset);
-        offset += sizeof(uint8_t);
-
-        obj_map = (meta_obj_map_t*) (persistBuffer + offset);
-        offset += sizeof(meta_obj_map_t);
-
-        assoc_entry = nullptr;
-        if (num_assoc_entries > 0) {
-            assoc_entry = (obj_assoc_entry_t*) (persistBuffer + offset);
-            offset += (sizeof(obj_assoc_entry_t) * num_assoc_entries);
-        }
-
-        sync_data.header = nullptr;
-        sync_data.assoc_entries = nullptr;
-        if (sync_entry) {
-            sync_data.header = (SyncMetaData::header_t*) (persistBuffer + offset);
-            offset += sizeof(SyncMetaData::header_t);
-            if (num_sync_assoc_entries > 0) {
-                sync_data.assoc_entries = (obj_assoc_entry_t*) (persistBuffer + offset);
-                offset += (sizeof(obj_assoc_entry_t) * num_sync_assoc_entries);
-            }
-        }
-
-        fds_assert(size == offset);
-    }
 
     void initialize(const ObjectID& objid, fds_uint32_t obj_size) {
-        size = sizeof(meta_obj_map_t) + sizeof(obj_assoc_entry_t);
+        size = sizeof(uint8_t) + sizeof(meta_obj_map_t) + sizeof(obj_assoc_entry_t);
         persistBuffer = new char[size];
         memset(persistBuffer, 0, size);
-        obj_map = (meta_obj_map_t *)persistBuffer;
+
+        adjustPointers_(true);
+
         memcpy(&obj_map->obj_id.metaDigest, objid.GetId(), sizeof(obj_map->obj_id.metaDigest));
         obj_map->obj_size = obj_size;
+        obj_map->obj_map_len = size;
 
         //Initialize the physical location array
         phy_loc = &obj_map->loc_map[0];
         phy_loc[diskio::flashTier].obj_tier = -1;
         phy_loc[diskio::diskTier].obj_tier = -1;
         phy_loc[3].obj_tier = -1;
-
-        // Association entry setup
-        assoc_entry = (obj_assoc_entry_t *)(persistBuffer + sizeof(meta_obj_map_t ));
     }
 
     ObjMetaData(const ObjectBuf& buf) {
-        persistBuffer = new char[buf.data.length()];
-        size = buf.data.length();
-        memcpy(persistBuffer, buf.data.c_str(), size);
-        obj_map = (meta_obj_map_t *)persistBuffer;
-        phy_loc = &obj_map->loc_map[0];
-        assoc_entry = (obj_assoc_entry_t *)(persistBuffer + sizeof(meta_obj_map_t ));
+        deserializeFrom(buf);
     }
 
     void unmarshall(const ObjectBuf& buf) { 
-        persistBuffer = new char[buf.data.length()];
-        size = buf.data.length();
-        memcpy(persistBuffer, buf.data.c_str(), size);
-        obj_map = (meta_obj_map_t *)persistBuffer;
-        phy_loc = &obj_map->loc_map[0];
-        assoc_entry = (obj_assoc_entry_t *)(persistBuffer + sizeof(meta_obj_map_t ));
+        deserializeFrom(buf);
     }
+
     char *marshall()  { 
         return persistBuffer;
     }
@@ -172,7 +128,7 @@ public:
 
     void checkAndDemoteUnsyncedData(const uint64_t& syncTs);
 
-    bool syncMetadataExists();
+    bool syncDataExists();
 
     void applySyncData(const FDSP_MigrateObjectMetadata& data);
 
@@ -189,7 +145,7 @@ public:
    meta_obj_map_t*   getObjMap() { 
        return obj_map;
    }
-   fds_uint32_t   getMapSize() { 
+   fds_uint32_t   getMapSize() {
        return obj_map->obj_map_len;
    }
    fds_uint32_t   getObjSize() { 
@@ -213,21 +169,39 @@ public:
     // Association Tbl manipulation routines
     obj_assoc_entry_t * appendAssocEntry()
     {
+        /* Create new buffer */
        fds_uint32_t new_size = size + sizeof(obj_assoc_entry_t);
        char *new_buf = new char[new_size];
-       memcpy(new_buf, persistBuffer, size);
+
+       /* Increment obj_num_assoc_entry upfront to allow adjustPointers_()
+        * to work
+        */
+       DBG(uint32_t prev_assoc_cnt = obj_map->obj_num_assoc_entry);
+       obj_map->obj_num_assoc_entry++;
+
+       /* copy existing data */
+       if (syncDataExists()) {
+           fds_assert(sync_data.header != nullptr);
+           uint32_t copy_sz =  (char*)sync_data.header - persistBuffer;
+           memcpy(new_buf, persistBuffer, copy_sz);
+           memcpy(new_buf+copy_sz+size(obj_assoc_entry_t),
+                   persistBuffer+copy_sz,
+                   size-copy_sz);
+       } else {
+           memcpy(new_buf, persistBuffer, size);
+       }
        delete persistBuffer;
        persistBuffer = new_buf;
-       obj_map = (meta_obj_map_t *)persistBuffer;
-       obj_map->obj_num_assoc_entry++;
-       obj_map->obj_map_len = new_size;
        size = new_size;
-       phy_loc = &obj_map->loc_map[0];
-       assoc_entry = (obj_assoc_entry_t *)(persistBuffer + sizeof(meta_obj_map_t ));
-       return &assoc_entry[obj_map->obj_num_assoc_entry - 1];
-    }
 
-    void updateAssocEntry(obj_assoc_entry_t *assocent) { 
+       /* update pointers */
+       adjustPointers_();
+
+       obj_map->obj_map_len = size;
+
+       fds_assert(prev_assoc_cnt+1 == obj_map->obj_num_assoc_entry);
+
+       return &assoc_entry[obj_map->obj_num_assoc_entry - 1];
     }
 
     void updateAssocEntry(ObjectID objId, fds_volid_t vol_id) { 
@@ -280,6 +254,10 @@ public:
     removePhyLocation(diskio::DataTier tier) {
         phy_loc[tier].obj_tier = -1;
     }
+
+private:
+    bool syncDataExists();
+    void adjustPointers_(bool init = false);
 
     friend std::ostream& operator<<(std::ostream& out, const ObjMetaData& objMap);
 };

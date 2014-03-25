@@ -174,12 +174,12 @@ public:
         DBG(memset(&sync_meta_data, 0, sizeof(sync_meta_data)));
     }
 
-    bool syncMetadataExists() const {
+    bool syncDataExists() const {
         return (data_mask & SMOBJ_SYNC_METADATA_MASK) > 0;
     }
 
     void checkAndDemoteUnsyncedData(const uint64_t &syncTs) {
-        if (!syncMetadataExists() &&
+        if (!syncDataExists() &&
             meta_data.modificationTs != 0 &&
             meta_data.modificationTs < syncTs) {
             setSyncMetaData(meta_data);
@@ -244,7 +244,7 @@ public:
         return (version == md.version &&
                 data_mask == md.data_mask/* &&
                 meta_data == md.meta_data &&
-                (!syncMetadataExists() || (sync_meta_data == md.sync_meta_data)) */);
+                (!syncDataExists() || (sync_meta_data == md.sync_meta_data)) */);
     }
 
 public:

@@ -338,7 +338,7 @@ struct TokenSyncReceiverFSM_
 
                 ObjMetaData md;
                 SmObjDb::get_from_snapshot(it, md);
-                if (md.syncMetadataExists()) {
+                if (md.syncDataExists()) {
                     resolve_list.push_back(id);
                 }
             }
