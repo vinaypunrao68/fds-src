@@ -62,6 +62,8 @@ app/bower_components
 test/bower_components/
 *.DS_Store
 .ruby-version
+/source/orch_mgr/java/gmon.out
+/source/fdsp/gmon.out
 
 # gmock/nginx
 gmock-1.7.0/gmock_test

@@ -63,19 +63,20 @@ Error
 OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
                                    const FdspNodeRegPtr msg)
 {
-    Error err(ERR_OK);
-    NodeAgent::pointer newNode;
-    /* XXX: TODO (vy), remove this code once we have node FSM */
-    OM_Module *om = OM_Module::om_singleton();
+    NodeAgent::pointer      newNode;
+    OM_PmContainer::pointer pmNodes;
 
     // TODO(anna) the below code would not work yet, because
     // register node message from SM/DM does not contain node
     // (platform) uuid yet.
-    if ((msg->node_type == FDS_ProtocolInterface::FDSP_STOR_MGR) ||
-        (msg->node_type == FDS_ProtocolInterface::FDSP_DATA_MGR)) {
+    //
+    pmNodes = om_locDomain->om_pm_nodes();
+    fds_assert(pmNodes != NULL);
+
+    if ((msg->node_type == fpi::FDSP_STOR_MGR) ||
+        (msg->node_type == fpi::FDSP_DATA_MGR)) {
         // we must have a node (platform) that runs any service
         // registered with OM and node must be in active state
-        OM_PmContainer::pointer pmNodes = om_locDomain->om_pm_nodes();
         if (!pmNodes->check_new_service((msg->node_uuid).uuid, msg->node_type)) {
             FDS_PLOG_SEV(g_fdslog, fds_log::error)
                     << "Error: cannot register service " << msg->node_name
@@ -85,18 +86,14 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         }
     }
 
-    err = om_locDomain->dc_register_node(uuid, msg, &newNode);
-    if (err.ok() && (msg->node_type == FDS_ProtocolInterface::FDSP_PLATFORM)) {
-        FDS_PLOG(g_fdslog) << "om_reg_node: Registered Platform";
-        om_locDomain->om_add_capacity(newNode);
-    } else if (err.ok()) {
+    Error err = om_locDomain->dc_register_node(uuid, msg, &newNode);
+    if (err.ok() && (msg->node_type != fpi::FDSP_PLATFORM)) {
         fds_verify(newNode != NULL);
 
         // tell parent PM Agent about its new service
-        newNode->set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
+        newNode->set_node_state(fpi::FDS_Node_Up);
 
         if ((msg->node_uuid).uuid != 0) {
-            OM_PmContainer::pointer pmNodes = om_locDomain->om_pm_nodes();
             err = pmNodes->handle_register_service((msg->node_uuid).uuid,
                                                    msg->node_type,
                                                    newNode);
@@ -119,13 +116,24 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         // Let this new node know about exisiting node list.
         // TODO(Andrew): this should change into dissemination of the cur cluster map.
         //
-        om_locDomain->om_add_capacity(newNode);
+        if (msg->node_type == fpi::FDSP_STOR_MGR) {
+            // Activate and account node capacity only when SM registers with OM.
+            //
+            NodeAgent::pointer pm = pmNodes->agent_info(NodeUuid(msg->node_uuid.uuid));
+            if (pm != NULL) {
+                om_locDomain->om_add_capacity(pm);
+            } else {
+                FDS_PLOG(g_fdslog) << "Can not find platform agant for node uuid "
+                    << std::hex << msg->node_uuid.uuid << std::dec;
+            }
+        }
         om_locDomain->om_update_node_list(newNode, msg);
         om_locDomain->om_bcast_vol_list(newNode);
 
         // Let this new node know about existing dlt (if this is an SM, we are
         // sending commited DLT first and then new DLT to start migration)
         // TODO(Andrew): this should change into dissemination of the cur cluster map.
+        OM_Module *om = OM_Module::om_singleton();
         DataPlacement *dp = om->om_dataplace_mod();
         OM_SmAgent::agt_cast_ptr(newNode)->om_send_dlt(dp->getCommitedDlt());
 
@@ -133,7 +141,6 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         om_locDomain->om_round_robin_dmt();
         om_locDomain->om_bcast_dmt_table();
     }
-
     return err;
 }
 
