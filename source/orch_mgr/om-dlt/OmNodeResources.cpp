@@ -18,11 +18,11 @@ namespace fds {
 // ---------------------------------------------------------------------------------
 // OM SM NodeAgent
 // ---------------------------------------------------------------------------------
-OM_SmAgent::~OM_SmAgent() {}
-OM_SmAgent::OM_SmAgent(const NodeUuid &uuid) : NodeAgent(uuid) {}
+OM_NodeAgent::~OM_NodeAgent() {}
+OM_NodeAgent::OM_NodeAgent(const NodeUuid &uuid) : NodeAgent(uuid) {}
 
 int
-OM_SmAgent::node_calc_stor_weight()
+OM_NodeAgent::node_calc_stor_weight()
 {
     return 0;
 }
@@ -31,7 +31,7 @@ OM_SmAgent::node_calc_stor_weight()
 // ------------
 //
 void
-OM_SmAgent::setCpSession(NodeAgentCpSessionPtr session, fpi::FDSP_MgrIdType myId)
+OM_NodeAgent::setCpSession(NodeAgentCpSessionPtr session, fpi::FDSP_MgrIdType myId)
 {
     ndCpSession = session;
     ndSessionId = ndCpSession->getSessionId();
@@ -46,7 +46,7 @@ OM_SmAgent::setCpSession(NodeAgentCpSessionPtr session, fpi::FDSP_MgrIdType myId
 // Send a node event taken from the new node agent to a peer agent.
 //
 void
-OM_SmAgent::om_send_myinfo(NodeAgent::pointer peer)
+OM_NodeAgent::om_send_myinfo(NodeAgent::pointer peer)
 {
     // TODO(Andrew): Add this back when OM actually responds
     // to node registrations
@@ -79,7 +79,7 @@ OM_SmAgent::om_send_myinfo(NodeAgent::pointer peer)
 // TODO(Vy): define messages in inheritance tree.
 //
 void
-OM_SmAgent::om_send_node_cmd(const om_node_msg_t &msg)
+OM_NodeAgent::om_send_node_cmd(const om_node_msg_t &msg)
 {
     const char              *log;
     fpi::FDSP_MsgHdrTypePtr  m_hdr(new fpi::FDSP_MsgHdrType);
@@ -111,7 +111,7 @@ OM_SmAgent::om_send_node_cmd(const om_node_msg_t &msg)
 // TODO(Vy): have 2 separate APIs, 1 to format the packet and 1 to send it.
 //
 void
-OM_SmAgent::om_send_vol_cmd(VolumeInfo::pointer vol,
+OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer vol,
                             fpi::FDSP_MsgCodeType cmd_type,
                             fds_bool_t check_only)
 {
@@ -119,7 +119,7 @@ OM_SmAgent::om_send_vol_cmd(VolumeInfo::pointer vol,
 }
 
 void
-OM_SmAgent::om_send_vol_cmd(VolumeInfo::pointer    vol,
+OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer    vol,
                             std::string           *vname,
                             fpi::FDSP_MsgCodeType  cmd_type,
                             fds_bool_t check_only)
@@ -208,7 +208,7 @@ OM_SmAgent::om_send_vol_cmd(VolumeInfo::pointer    vol,
 // ----------------
 //
 void
-OM_SmAgent::om_send_reg_resp(const Error &err)
+OM_NodeAgent::om_send_reg_resp(const Error &err)
 {
     fpi::FDSP_MsgHdrTypePtr       m_hdr(new fpi::FDSP_MsgHdrType);
     fpi::FDSP_RegisterNodeTypePtr r_msg(new fpi::FDSP_RegisterNodeType);
@@ -225,7 +225,7 @@ OM_SmAgent::om_send_reg_resp(const Error &err)
 }
 
 void
-OM_SmAgent::om_send_dlt(const DLT *curDlt) {
+OM_NodeAgent::om_send_dlt(const DLT *curDlt) {
     if (curDlt == NULL) {
         LOGNORMAL << "No current DLT to send to " << get_node_name();
         return;
@@ -256,7 +256,7 @@ OM_SmAgent::om_send_dlt(const DLT *curDlt) {
 }
 
 void
-OM_SmAgent::om_send_dlt_close(fds_uint64_t cur_dlt_version) {
+OM_NodeAgent::om_send_dlt_close(fds_uint64_t cur_dlt_version) {
     fpi::FDSP_MsgHdrTypePtr m_hdr(new fpi::FDSP_MsgHdrType);
     fpi::FDSP_DltCloseTypePtr d_msg(new fpi::FDSP_DltCloseType());
     this->init_msg_hdr(m_hdr);
@@ -276,7 +276,7 @@ OM_SmAgent::om_send_dlt_close(fds_uint64_t cur_dlt_version) {
 }
 
 void
-OM_SmAgent::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
+OM_NodeAgent::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
 {
     NodeInventory::init_msg_hdr(msgHdr);
 
@@ -289,7 +289,7 @@ OM_SmAgent::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
 // OM PM NodeAgent
 // ---------------------------------------------------------------------------------
 OM_PmAgent::~OM_PmAgent() {}
-OM_PmAgent::OM_PmAgent(const NodeUuid &uuid) : NodeAgent(uuid) {}
+OM_PmAgent::OM_PmAgent(const NodeUuid &uuid) : OM_NodeAgent(uuid) {}
 
 void
 OM_PmAgent::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
@@ -300,18 +300,6 @@ OM_PmAgent::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
     msgHdr->session_uuid = ndSessionId;
 }
 
-// setCpSession
-// ------------
-//
-void
-OM_PmAgent::setCpSession(NodeAgentCpSessionPtr session)
-{
-    ndCpSession = session;
-    ndSessionId = ndCpSession->getSessionId();
-    ndCpClient  = ndCpSession->getClient();
-
-    LOGNORMAL << "PMAgent: Established connection with new node";
-}
 
 // service_exists
 // --------------
@@ -491,13 +479,69 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
 }
 
 // ---------------------------------------------------------------------------------
-// OM Platform NodeAgent Container
+// Common OM Service Container
 // ---------------------------------------------------------------------------------
-OM_PmContainer::OM_PmContainer() : PmContainer(FDSP_ORCH_MGR)
+OM_AgentContainer::OM_AgentContainer(FdspNodeType id) : AgentContainer(FDSP_ORCH_MGR)
 {
+    ac_node_type = id;
     ctrlRspHndlr = boost::shared_ptr<OM_ControlRespHandler>(new OM_ControlRespHandler());
 }
 
+// agent_register
+// --------------
+//
+Error
+OM_AgentContainer::agent_register(const NodeUuid       &uuid,
+                                  const FdspNodeRegPtr  msg,
+                                  NodeAgent::pointer   *out,
+                                  bool                  activate)
+{
+    Error err = AgentContainer::agent_register(uuid, msg, out, false);
+
+    if (OM_NodeDomainMod::om_in_test_mode() || (err != ERR_OK)) {
+        return err;
+    }
+    OM_NodeAgent::pointer agent = OM_NodeAgent::agt_cast_ptr(*out);
+
+    try {
+        NodeAgentCpSessionPtr session(
+                ac_cpSessTbl->startSession<netControlPathClientSession>(
+                    agent->get_ip_str(),
+                    agent->get_ctrl_port(),
+                    ac_node_type,      // TODO(Andrew): should be just a node
+                    1,                 // just 1 channel for now...
+                    ctrlRspHndlr));
+
+        fds_verify(agent != NULL);
+        fds_verify(session != NULL);
+        agent->setCpSession(session, fpi::FDSP_DATA_MGR);
+    } catch(const att::TTransportException& e) {
+        rs_free_resource(agent);
+        LOGERROR << "error during network call : " << e.what();
+        return ERR_NETWORK_TRANSPORT;
+    }
+    // Only make it known to the container when we have the endpoint.
+    // XXX(Vy): it's possible that we can lost the endpoint during the activate call.
+    //
+    agent_activate(agent);
+    return err;
+}
+
+// agent_unregister
+// ----------------
+//
+Error
+OM_AgentContainer::agent_unregister(const NodeUuid &uuid, const std::string &name)
+{
+    Error err = AgentContainer::agent_unregister(uuid, name);
+
+    return err;
+}
+
+// ---------------------------------------------------------------------------------
+// OM Platform NodeAgent Container
+// ---------------------------------------------------------------------------------
+OM_PmContainer::OM_PmContainer() : OM_AgentContainer(FDSP_PLATFORM) {}
 
 // agent_register
 // --------------
@@ -505,7 +549,8 @@ OM_PmContainer::OM_PmContainer() : PmContainer(FDSP_ORCH_MGR)
 Error
 OM_PmContainer::agent_register(const NodeUuid       &uuid,
                                const FdspNodeRegPtr  msg,
-                               NodeAgent::pointer   *out)
+                               NodeAgent::pointer   *out,
+                               bool                  activate)
 {
     // check if this is a known Node
     bool        known;
@@ -533,36 +578,16 @@ OM_PmContainer::agent_register(const NodeUuid       &uuid,
             LOGNORMAL << "autonamed node : " << msg->node_name;
         }
     }
-
-    Error err = AgentContainer::agent_register(uuid, msg, out);
-
-    if (OM_NodeDomainMod::om_in_test_mode() || (err != ERR_OK)) {
-        return err;
-    }
-    try {
+    Error err = OM_AgentContainer::agent_register(uuid, msg, out, activate);
+    if ((err == ERR_OK) && (known == true)) {
+        fds_verify(out != NULL);
         OM_PmAgent::pointer agent = OM_PmAgent::agt_cast_ptr(*out);
-        NodeAgentCpSessionPtr session(
-            ac_cpSessTbl->startSession<netControlPathClientSession>(
-                agent->get_ip_str(),
-                agent->get_ctrl_port(),
-                FDSP_PLATFORM,  // TODO(Andrew): should be just a node
-                1,              // just 1 channel for now...
-                ctrlRspHndlr));
 
-        fds_verify(agent != NULL);
-        fds_verify(session != NULL);
-        agent->setCpSession(session);
+        LOGNORMAL << "Known node uuid " << agent->get_uuid().uuid_get_val()
+            << ", name " << agent->get_node_name() << ", start all services";
 
-        if (known == true) {
-            LOGNORMAL << "Known node uuid " << agent->get_uuid().uuid_get_val()
-                      << ", name " << agent->get_node_name() << ", start all services";
-
-            // TODO(Vy): must save service cfg in db or better node provisioning.
-            agent->send_activate_services(true, true, true);
-        }
-    } catch(const att::TTransportException& e) {
-        LOGERROR << "error during network call : " << e.what();
-        return ERR_NETWORK_TRANSPORT;
+        // TODO(Vy): must save service cfg in db or better node provisioning.
+        agent->send_activate_services(true, true, true);
     }
     return err;
 }
@@ -620,14 +645,7 @@ OM_PmContainer::handle_unregister_service(const NodeUuid& svc_uuid)
 // ---------------------------------------------------------------------------------
 // OM SM NodeAgent Container
 // ---------------------------------------------------------------------------------
-OM_SmContainer::OM_SmContainer() : SmContainer(FDSP_ORCH_MGR)
-{
-    ctrlRspHndlr = boost::shared_ptr<OM_ControlRespHandler>(new OM_ControlRespHandler());
-}
-
-OM_SmContainer::~OM_SmContainer()
-{
-}
+OM_SmContainer::OM_SmContainer() : OM_AgentContainer(FDSP_STOR_MGR) {}
 
 // agent_activate
 // --------------
@@ -671,146 +689,28 @@ OM_SmContainer::om_splice_nodes_pend(NodeList *addNodes, NodeList *rmNodes)
     rs_mtx.unlock();
 }
 
-// agent_register
-// --------------
-//
-Error
-OM_SmContainer::agent_register(const NodeUuid       &uuid,
-                               const FdspNodeRegPtr  msg,
-                               NodeAgent::pointer   *out)
-{
-    Error err = AgentContainer::agent_register(uuid, msg, out);
-
-    if (OM_NodeDomainMod::om_in_test_mode() || (err != ERR_OK)) {
-        return err;
-    }
-    try {
-        OM_SmAgent::pointer agent = OM_SmAgent::agt_cast_ptr(*out);
-        NodeAgentCpSessionPtr session(
-            ac_cpSessTbl->startSession<netControlPathClientSession>(
-                agent->get_ip_str(),
-                agent->get_ctrl_port(),
-                FDSP_STOR_MGR,  // TODO(Andrew): should be just a node
-                1,              // just 1 channel for now...
-                ctrlRspHndlr));
-
-        fds_verify(agent != NULL);
-        fds_verify(session != NULL);
-        agent->setCpSession(session, fpi::FDSP_STOR_MGR);
-    } catch(const att::TTransportException& e) {
-        LOGERROR << "error during network call : " << e.what();
-        return ERR_NETWORK_TRANSPORT;
-    }
-    return err;
-}
-
-// agent_unregister
-// ----------------
-//
-Error
-OM_SmContainer::agent_unregister(const NodeUuid &uuid, const std::string &name)
-{
-    Error err = AgentContainer::agent_unregister(uuid, name);
-
-    return err;
-}
-
 // --------------------------------------------------------------------------------------
 // OM DM NodeAgent Container
 // --------------------------------------------------------------------------------------
-OM_DmContainer::OM_DmContainer() : DmContainer(FDSP_ORCH_MGR)
-{
-    ctrlRspHndlr = boost::shared_ptr<OM_ControlRespHandler>(new OM_ControlRespHandler());
-}
-
-// agent_register
-// --------------
-//
-Error
-OM_DmContainer::agent_register(const NodeUuid       &uuid,
-                               const FdspNodeRegPtr  msg,
-                               NodeAgent::pointer   *out)
-{
-    Error err = AgentContainer::agent_register(uuid, msg, out);
-
-    if (OM_NodeDomainMod::om_in_test_mode() || (err != ERR_OK)) {
-        return err;
-    }
-    try {
-        OM_DmAgent::pointer agent = OM_DmAgent::agt_cast_ptr(*out);
-        NodeAgentCpSessionPtr session(
-            ac_cpSessTbl->startSession<netControlPathClientSession>(
-                agent->get_ip_str(),
-                agent->get_ctrl_port(),
-                FDSP_DATA_MGR,  // TODO(Andrew): should be just a node
-                1,              // just 1 channel for now...
-                ctrlRspHndlr));
-
-        fds_verify(agent != NULL);
-        fds_verify(session != NULL);
-        agent->setCpSession(session, fpi::FDSP_DATA_MGR);
-    } catch(const att::TTransportException& e) {
-        LOGERROR << "error during network call : " << e.what();
-        return ERR_NETWORK_TRANSPORT;
-    }
-    return err;
-}
+OM_DmContainer::OM_DmContainer() : OM_AgentContainer(FDSP_DATA_MGR) {}
 
 // -------------------------------------------------------------------------------------
 // OM AM NodeAgent Container
 // -------------------------------------------------------------------------------------
-OM_AmContainer::OM_AmContainer() : AmContainer(FDSP_ORCH_MGR)
-{
-    ctrlRspHndlr = boost::shared_ptr<OM_ControlRespHandler>(new OM_ControlRespHandler());
-}
-
-// agent_register
-// --------------
-//
-Error
-OM_AmContainer::agent_register(const NodeUuid       &uuid,
-                               const FdspNodeRegPtr  msg,
-                               NodeAgent::pointer   *out)
-{
-    Error err = AgentContainer::agent_register(uuid, msg, out);
-
-    if (OM_NodeDomainMod::om_in_test_mode() || (err != ERR_OK)) {
-        return err;
-    }
-    try {
-        OM_AmAgent::pointer agent = OM_AmAgent::agt_cast_ptr(*out);
-
-        NodeAgentCpSessionPtr session(
-            ac_cpSessTbl->startSession<netControlPathClientSession>(
-                agent->get_ip_str(),
-                agent->get_ctrl_port(),
-                FDSP_STOR_HVISOR,  // TODO(Andrew): should be just a node
-                1,                 // just 1 channel for now...
-                ctrlRspHndlr));
-
-        fds_verify(agent != NULL);
-        fds_verify(session != NULL);
-        agent->setCpSession(session, fpi::FDSP_DATA_MGR);
-    } catch(const att::TTransportException& e) {
-        LOGERROR << "error during network call : " << e.what();
-        return ERR_NETWORK_TRANSPORT;
-    }
-    return err;
-}
+OM_AmContainer::OM_AmContainer() : OM_AgentContainer(FDSP_STOR_HVISOR) {}
 
 // --------------------------------------------------------------------------------------
 // OM Node Container
 // --------------------------------------------------------------------------------------
 OM_NodeContainer::OM_NodeContainer()
-        : DomainContainer("OM-Domain",
-                          NULL,
-                          new OM_SmContainer(),
-                          new OM_DmContainer(),
-                          new OM_AmContainer(),
-                          new OM_PmContainer(),
-                          new OmContainer(FDSP_ORCH_MGR),
-                          NULL),
-          om_dmt_mtx("DMT-Mtx")
+    : DomainContainer("OM-Domain",
+                      NULL,
+                      new OM_SmContainer(),
+                      new OM_DmContainer(),
+                      new OM_AmContainer(),
+                      new OM_PmContainer(),
+                      new OmContainer(FDSP_ORCH_MGR)),
+    om_dmt_mtx("DMT-Mtx")
 {
     om_volumes    = new VolumeContainer();
 }
