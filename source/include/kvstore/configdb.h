@@ -49,6 +49,7 @@ namespace fds {
             bool removeNode(const NodeUuid& uuid);
             bool getNode(const NodeUuid& uuid, NodeInvData& node);
             bool nodeExists(const NodeUuid& uuid);
+            bool getNodeIds(std::vector<NodeUuid>& nodes, int localDomain = 0);
             bool getAllNodes(std::vector<NodeInvData>& nodes, int localDomain = 0);
             std::string getNodeName(const NodeUuid& uuid);
             uint getNodeNameCounter();

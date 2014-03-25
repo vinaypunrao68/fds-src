@@ -25,6 +25,8 @@ public:
     COMMAND(Volume);
     COMMAND(ListPolicies);
     COMMAND(Dlt);
+    COMMAND(ListNodes);
+    COMMAND(Node);
     COMMAND(Help);
 
     kvstore::ConfigDB* db;

@@ -54,6 +54,8 @@ ConfigDBTool::ConfigDBTool(std::string host, int port) {
     REGISTERCMD("listvolumes",ListVolumes);
     REGISTERCMD("volume",Volume);
     REGISTERCMD("listpolicies",ListPolicies);
+    REGISTERCMD("listnodes",ListNodes);
+    REGISTERCMD("node",Node);
     REGISTERCMD("dlt",Dlt);
     REGISTERCMD("help",Help);
 
@@ -63,8 +65,10 @@ ConfigDBTool::ConfigDBTool(std::string host, int port) {
     helpInfo.push_back( {"info","", "display basic info about the config db"});
     helpInfo.push_back( {"dlt","[next/current]", "show the dlt "});
     helpInfo.push_back( {"volume","[volid ...]", "show volume info for the given ids "});
+    helpInfo.push_back( {"node","[nodeid ...]", "show node info for the given ids "});
     helpInfo.push_back( {"listvolumes","", "show the list of volumes"});
     helpInfo.push_back( {"listpolicies","", "show the list of policies "});
+    helpInfo.push_back( {"listnodes","", "show the list of nodes"});
 
 }
 
@@ -107,6 +111,19 @@ void ConfigDBTool::cmdListVolumes(std::vector <std::string>& args) {
     }
 }
 
+void ConfigDBTool::cmdListNodes(std::vector <std::string>& args) {
+    if (!check()) return;
+
+    std::vector<NodeInvData> nodes;
+    db->getAllNodes(nodes);
+    LINE << Color::BoldWhite << "Num nodes : " << Color::End << nodes.size() << "\n";
+
+    for (uint i=0 ; i < nodes.size() ; i++) {
+        LINE << (i+1) << " : " << nodes[i].nd_uuid << " : " << nodes[i].nd_node_name << "\n";
+    }
+}
+
+
 void ConfigDBTool::cmdListPolicies(std::vector <std::string>& args) {
     if (!check()) return;
 
@@ -139,6 +156,26 @@ void ConfigDBTool::cmdVolume(std::vector <std::string>& args) {
             PRINTSTREAM(volumeDesc);
             cout << "\n";
         }    
+    }
+}
+
+void ConfigDBTool::cmdNode(std::vector <std::string>& args) {
+    if (!check()) return;
+    if (args.empty()) {
+        ERRORLINE << "need atleast one node uuid" << "\n";
+        return;                
+    }
+
+    for (uint i = 0 ; i < args.size() ; i++ ) {
+        fds_volid_t nodeId = strtoull(args[i].c_str(),NULL,10);
+        NodeInvData node;
+        if (!db->getNode(nodeId,node)) {
+            WARNLINE << "could not find node info for uuid : " << nodeId << "\n";
+        } else {
+            LINE << Color::BoldWhite << nodeId << Color::End << "\n";
+            PRINTSTREAM(node);
+            cout << "\n";
+        }
     }
 }
 
