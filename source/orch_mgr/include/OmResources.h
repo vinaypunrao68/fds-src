@@ -9,6 +9,7 @@
 #include <list>
 #include <fstream>
 #include <unordered_map>
+#include <boost/msm/back/state_machine.hpp>
 #include <fds_typedefs.h>
 #include <fds_err.h>
 #include <OmVolume.h>
@@ -16,6 +17,7 @@
 #include <fds_placement_table.h>
 #include <platform/node-inventory.h>
 #include <dlt.h>
+#include <kvstore/configdb.h>
 
 namespace fds {
 
@@ -23,9 +25,11 @@ class PerfStats;
 class FdsAdminCtrl;
 class OM_NodeDomainMod;
 class OM_ControlRespHandler;
+struct NodeDomainFSM;
 
 typedef boost::shared_ptr<fpi::FDSP_ControlPathReqClient> NodeAgentCpReqClientPtr;
 typedef netControlPathClientSession *                     NodeAgentCpSessionPtr;
+typedef boost::msm::back::state_machine<NodeDomainFSM> FSM_NodeDomain;
 
 /**
  * TODO(Vy): temp. interface for now to define generic node message.
@@ -372,23 +376,23 @@ class OM_NodeContainer : public DomainContainer
     inline VolumeContainer::pointer om_vol_mgr() {
         return om_volumes;
     }
-    inline int om_create_vol(const FDSP_MsgHdrTypePtr &hdr,
-                             const FdspCrtVolPtr      &creat_msg,
-                             fds_bool_t from_omcontrol_path) {
+    inline Error om_create_vol(const FDSP_MsgHdrTypePtr &hdr,
+                               const FdspCrtVolPtr      &creat_msg,
+                               fds_bool_t from_omcontrol_path) {
         return om_volumes->om_create_vol(hdr, creat_msg, from_omcontrol_path);
     }
-    inline int om_delete_vol(const FDSP_MsgHdrTypePtr &hdr,
-                             const FdspDelVolPtr &del_msg) {
+    inline Error om_delete_vol(const FDSP_MsgHdrTypePtr &hdr,
+                               const FdspDelVolPtr &del_msg) {
         return om_volumes->om_delete_vol(hdr, del_msg);
     }
-    inline int om_modify_vol(const FdspModVolPtr &mod_msg) {
+    inline Error om_modify_vol(const FdspModVolPtr &mod_msg) {
         return om_volumes->om_modify_vol(mod_msg);
     }
-    inline int om_attach_vol(const FDSP_MsgHdrTypePtr &hdr,
-                             const FdspAttVolCmdPtr   &attach) {
+    inline Error om_attach_vol(const FDSP_MsgHdrTypePtr &hdr,
+                               const FdspAttVolCmdPtr   &attach) {
         return om_volumes->om_attach_vol(hdr, attach);
     }
-    inline int om_detach_vol(const FDSP_MsgHdrTypePtr &hdr,
+    inline Error om_detach_vol(const FDSP_MsgHdrTypePtr &hdr,
                              const FdspAttVolCmdPtr   &detach) {
         return om_volumes->om_detach_vol(hdr, detach);
     }
@@ -474,6 +478,36 @@ class OM_NodeContainer : public DomainContainer
  * These nodes may not be in ClusterMap membership.
  * -------------------------------------------------------------------------------------
  */
+class WaitNdsEvt
+{
+ public:
+    WaitNdsEvt() {}
+};
+
+class LoadVolsEvt
+{
+ public:
+    LoadVolsEvt() {}
+};
+
+class RegNdDoneEvt
+{
+ public:
+    RegNdDoneEvt() {}
+};
+
+class TimeoutEvt
+{
+ public:
+    TimeoutEvt() {}
+};
+
+class DltUpEvt
+{
+ public:
+    DltUpEvt() {}
+};
+
 class OM_NodeDomainMod : public Module
 {
   public:
@@ -487,6 +521,16 @@ class OM_NodeDomainMod : public Module
     static inline OM_NodeContainer *om_loc_domain_ctrl() {
         return om_local_domain()->om_locDomain;
     }
+    /**
+     * Initially, local domain is not up and waiting
+     * for all the nodes that were up before and in
+     * config db to come up again + bring up all known
+     * volumes. In this state, the method returns false
+     * and all volumes evens are rejected, and most
+     * node events are put on hold until local domain is up.
+     */
+    static fds_bool_t om_local_domain_up();
+
     /**
      * Accessor methods to retrive the local node domain.  Retyping it here to avoid
      * using multiple inheritance for this class.
@@ -509,6 +553,15 @@ class OM_NodeDomainMod : public Module
     inline OM_AmAgent::pointer om_am_agent(const NodeUuid &uuid) {
         return om_locDomain->om_am_agent(uuid);
     }
+
+    /**
+     * Read persistent state from config db and see if we
+     * get the cluster to the same state -- will wait for
+     * some time to see if all known nodes will come up or
+     * otherwise will update DLT (relative to persisted DLT)
+     * appropriately. Will also bring up all known volumes.
+     */
+    virtual Error om_load_state(kvstore::ConfigDB* configDB);
 
     /**
      * Register node info to the domain manager.
@@ -567,9 +620,19 @@ class OM_NodeDomainMod : public Module
     virtual void mod_startup();
     virtual void mod_shutdown();
 
+    /**
+     * Apply an event to domain state machine
+     */
+    void local_domain_event(WaitNdsEvt const &evt);
+    void local_domain_event(DltUpEvt const &evt);
+    void local_domain_event(RegNdDoneEvt const &evt);
+    void local_domain_event(TimeoutEvt const &evt);
+
   protected:
     fds_bool_t                       om_test_mode;
     OM_NodeContainer                *om_locDomain;
+
+    FSM_NodeDomain                  *domain_fsm;
 };
 
 /**

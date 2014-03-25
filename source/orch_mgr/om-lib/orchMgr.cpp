@@ -124,8 +124,6 @@ void OrchMgr::setup()
 
     defaultS3BucketPolicy();
 
-    loadFromConfigDB();
-
     /*
      * Setup server session to listen to OMControl path messages from
      * DM, SM, and SH
@@ -165,6 +163,11 @@ void OrchMgr::setup()
 
     cfgserver_thread.reset(new std::thread(&OrchMgr::start_cfgpath_server, this));
     om_policy_srv = new Orch_VolPolicyServ();
+
+    fds_bool_t config_db_up = loadFromConfigDB();
+    // load persistent state to local domain
+    OM_NodeDomainMod* local_domain = OM_NodeDomainMod::om_local_domain();
+    local_domain->om_load_state(config_db_up ? configDB : NULL);
 }
 
 void OrchMgr::run()
@@ -392,9 +395,6 @@ void OrchMgr::defaultS3BucketPolicy()
 bool OrchMgr::loadFromConfigDB() {
     LOGNORMAL << "loading data from configdb...";
 
-    DataPlacement *dp = OM_Module::om_singleton()->om_dataplace_mod();
-    dp->setConfigDB(configDB);
-
     // check connection
     if (!configDB->isConnected()) {
         LOGCRITICAL << "unable to talk to config db ";
@@ -425,45 +425,10 @@ bool OrchMgr::loadFromConfigDB() {
         return false;
     }
 
-    std::vector<VolumeDesc> vecVolumes;
-    std::vector<VolumeDesc>::const_iterator volumeIter;
-    std::map<int, std::string>::const_iterator domainIter;
-    for (domainIter = mapDomains.begin() ; domainIter != mapDomains.end() ; ++domainIter) { // NOLINT
-        int domainId = domainIter->first;
-        LOGNORMAL << "loading data for domain "
-                  << "[" << domainId << ":" << domainIter->second << "]";
+    // keep the pointer in data placement module
+    DataPlacement *dp = OM_Module::om_singleton()->om_dataplace_mod();
+    dp->setConfigDB(configDB);
 
-        OM_NodeContainer *domainCtrl = OM_NodeDomainMod::om_loc_domain_ctrl();
-
-        vecVolumes.clear();
-        configDB->getVolumes(vecVolumes, domainId);
-
-        if (vecVolumes.empty()) {
-            LOGWARN << "no volumes found for domain "
-                    << "[" << domainId << ":" << domainIter->second << "]";
-        } else {
-            LOGNORMAL << vecVolumes.size() << " volumes found for domain "
-                      << "[" << domainId << ":" << domainIter->second << "]";
-        }
-
-        for (volumeIter = vecVolumes.begin() ; volumeIter != vecVolumes.end() ; ++volumeIter) { //NOLINT
-            LOGDEBUG << "processing volume "
-                     << "[" << volumeIter->volUUID << ":" << volumeIter->name << "]";
-
-            if (!domainCtrl->addVolume(*volumeIter)) {
-                LOGERROR << "unable to add volume "
-                         << "[" << volumeIter->volUUID << ":" << volumeIter->name << "]";
-            }
-        }
-    }
-
-    // load the dlts
-    /**
-       TODO(prem): Disabling load dlts for now... till we decide on how it should work..
-    if (!dp->loadDltsFromConfigDB()) {
-        LOGWARN << "errors during loading dlts";
-    }
-    */
     return true;
 }
 

@@ -34,6 +34,7 @@ namespace fds {
     "Node is not in active state",
     "Volume is not empty",
     "Blob does not exist",
+    "Not ready, re-try later",
     "Dlt mismatch",
     "Invalid blob offset",
     "Duplicate migration request",
@@ -67,6 +68,7 @@ namespace fds {
     ERR_NODE_NOT_ACTIVE      = 18,
     ERR_VOL_NOT_EMPTY        = 19,
     ERR_BLOB_NOT_FOUND       = 20,
+    ERR_NOT_READY            = 21,
 
     /* I/O error range */
     ERR_IO_DLT_MISMATCH      = 100,

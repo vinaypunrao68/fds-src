@@ -3,6 +3,9 @@
  */
 #include <iostream>
 #include <string>
+#include <vector>
+#include <boost/msm/front/state_machine_def.hpp>
+#include <boost/msm/front/functor_row.hpp>
 #include <orch-mgr/om-service.h>
 #include <OmDeploy.h>
 #include <OmResources.h>
@@ -13,14 +16,192 @@ namespace fds {
 
 OM_NodeDomainMod             gl_OMNodeDomainMod("OM-Node");
 
+//---------------------------------------------------------
+// Node Domain state machine
+//--------------------------------------------------------
+namespace msm = boost::msm;
+namespace mpl = boost::mpl;
+namespace msf = msm::front;
+
+/**
+ * Flags -- allow info about a property of the current state
+ */
+struct LocalDomainUp {};
+
+/**
+ * OM Node Domain state machine structure
+ */
+struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
+{
+    template <class Event, class FSM> void on_entry(Event const &, FSM &);
+    template <class Event, class FSM> void on_exit(Event const &, FSM &);
+
+    /**
+     * Node Domain states
+     */
+    struct DST_Start : public msm::front::state<>
+    {
+        template <class Evt, class Fsm, class State>
+        void operator()(Evt const &, Fsm &, State &) {}
+
+        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
+        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
+    };
+    struct DST_WaitNds : public msm::front::state<>
+    {
+        template <class Evt, class Fsm, class State>
+        void operator()(Evt const &, Fsm &, State &) {}
+
+        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
+        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
+    };
+    struct DST_WaitDlt : public msm::front::state<>
+    {
+        template <class Evt, class Fsm, class State>
+        void operator()(Evt const &, Fsm &, State &) {}
+
+        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
+        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
+    };
+    struct DST_DomainUp : public msm::front::state<>
+    {
+        typedef mpl::vector1<LocalDomainUp> flag_list;
+
+        template <class Evt, class Fsm, class State>
+        void operator()(Evt const &, Fsm &, State &) {}
+
+        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
+        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
+    };
+
+    /**
+     * Define the initial state.
+     */
+    typedef DST_Start initial_state;
+
+    /**
+     * Transition actions.
+     */
+    struct DACT_NodesUp
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
+    struct DACT_UpdDlt
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
+    struct DACT_DomainUp
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
+
+    /**
+     * Guard conditions.
+     */
+    struct GRD_NdsUp
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        bool operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
+
+    /**                                                                                                                         
+     * Transition table for OM Node Domain
+     */
+    struct transition_table : mpl::vector<
+        // +-------------------+-------------+-------------+--------------+------------+
+        // | Start             | Event       | Next        | Action       | Guard      |
+        // +-------------------+-------------+-------------+--------------+------------+
+        msf::Row< DST_Start    , WaitNdsEvt  , DST_WaitNds , msf::none    , msf::none >,
+        msf::Row< DST_Start    , DltUpEvt    , DST_DomainUp, DACT_NodesUp , msf::none >,
+        // +-------------------+-------------+------------+---------------+------------+
+        msf::Row< DST_WaitNds  , RegNdDoneEvt, DST_DomainUp, DACT_NodesUp , GRD_NdsUp >,
+        msf::Row< DST_WaitNds  , TimeoutEvt  , DST_WaitDlt , DACT_UpdDlt  , msf::none >,
+        // +-------------------+-------------+------------+---------------+------------+
+        msf::Row< DST_WaitDlt  , DltUpEvt    , DST_DomainUp, DACT_NodesUp , msf::none >
+        // +-------------------+-------------+------------+---------------+-------------+
+        >{};  // NOLINT
+
+    template <class Event, class FSM> void no_transition(Event const &, FSM &, int);
+};
+
+template <class Event, class Fsm>
+void NodeDomainFSM::on_entry(Event const &evt, Fsm &fsm)
+{
+    LOGDEBUG << "NodeDomainFSM on entry";
+}
+
+template <class Event, class Fsm>
+void NodeDomainFSM::on_exit(Event const &evt, Fsm &fsm)
+{
+    LOGDEBUG << "NodeDomainFSM on exit";
+}
+
+template <class Event, class Fsm>
+void NodeDomainFSM::no_transition(Event const &evt, Fsm &fsm, int state)
+{
+    LOGDEBUG << "NodeDomainFSM no transition";
+}
+
+/**
+ * GRD_NdsUp
+ * ------------
+ * Checks if all nodes that were up previously (known from config db) are again up
+ */
+template <class Evt, class Fsm, class SrcST, class TgtST>
+bool
+NodeDomainFSM::GRD_NdsUp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    return true;
+}
+
+/**
+ * DACT_NodesUp
+ * ------------
+ * Handle all nodes up. This is either: we previously did not have any nodes up (configdb
+ * does not contain any nodes); all nodes that were previously up are up again; or
+ * some (or none) of nodes that were previously up are up again but we already updated the
+ * DLT accordingly. This method tries to bring all volumes from config db up.
+ */
+template <class Evt, class Fsm, class SrcST, class TgtST>
+void
+NodeDomainFSM::DACT_NodesUp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    LOGDEBUG << "NodeDomainFSM DACT_NodesUp";
+}
+
+/**
+ * DACT_UpdDlt
+ * ------------
+ * Handle the case when only some or none of nodes that were previously up (known from config db)
+ * are up again, and we are not going to wait for the remaining nodes any longer. Will
+ * recompute the DLT for the current nodes (as if nodes that did not come up were removed,
+ * in order to minimize the amount of token migrations) and start migration.
+ */
+template <class Evt, class Fsm, class SrcST, class TgtST>
+void
+NodeDomainFSM::DACT_UpdDlt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    LOGDEBUG << "NodeDomainFSM DACT_UpdDlt";
+}
+
+
+
+//--------------------------------------------------------------------
+// OM Node Domain
+//--------------------------------------------------------------------
 OM_NodeDomainMod::OM_NodeDomainMod(char const *const name) : Module(name)
 {
     om_locDomain = new OM_NodeContainer();
+    domain_fsm = new FSM_NodeDomain();
 }
 
 OM_NodeDomainMod::~OM_NodeDomainMod()
 {
     delete om_locDomain;
+    delete domain_fsm;
 }
 
 /**
@@ -40,6 +221,7 @@ OM_NodeDomainMod::mod_init(SysParams const *const param)
 void
 OM_NodeDomainMod::mod_startup()
 {
+    domain_fsm->start();
 }
 
 void
@@ -54,6 +236,90 @@ OM_NodeDomainMod *
 OM_NodeDomainMod::om_local_domain()
 {
     return &gl_OMNodeDomainMod;
+}
+
+// om_local_domain_up
+// ------------------
+//
+fds_bool_t
+OM_NodeDomainMod::om_local_domain_up()
+{
+    return om_local_domain()->domain_fsm->is_flag_active<LocalDomainUp>();
+}
+
+// domain_event
+// ------------
+//
+void OM_NodeDomainMod::local_domain_event(WaitNdsEvt const &evt) {
+    domain_fsm->process_event(evt);
+}
+void OM_NodeDomainMod::local_domain_event(DltUpEvt const &evt) {
+    domain_fsm->process_event(evt);
+}
+void OM_NodeDomainMod::local_domain_event(RegNdDoneEvt const &evt) {
+    domain_fsm->process_event(evt);
+}
+void OM_NodeDomainMod::local_domain_event(TimeoutEvt const &evt) {
+    domain_fsm->process_event(evt);
+}
+
+// om_load_state
+// ------------------
+//
+Error
+OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* configDB)
+{
+    Error err(ERR_OK);
+    LOGNOTIFY << "Loading persistent state to local domain";
+
+    // TODO(anna) actually load from configDB, for now going to
+    // domain up state
+    local_domain_event(DltUpEvt());
+
+    // TODO(anna) move to after we get nodes and DLT matched
+    // in any case, below code does not work anyway (vols not
+    // accepted by admission control
+    /*
+    std::vector<VolumeDesc> vecVolumes;
+    std::vector<VolumeDesc>::const_iterator volumeIter;
+    std::map<int, std::string>::const_iterator domainIter;
+    for (domainIter = mapDomains.begin() ; domainIter != mapDomains.end() ; ++domainIter) { // NOLINT                                                      
+        int domainId = domainIter->first;
+        LOGNORMAL << "loading data for domain "
+                  << "[" << domainId << ":" << domainIter->second << "]";
+
+        OM_NodeContainer *domainCtrl = OM_NodeDomainMod::om_loc_domain_ctrl();
+
+        vecVolumes.clear();
+        configDB->getVolumes(vecVolumes, domainId);
+
+        if (vecVolumes.empty()) {
+            LOGWARN << "no volumes found for domain "
+                    << "[" << domainId << ":" << domainIter->second << "]";
+        } else {
+            LOGNORMAL << vecVolumes.size() << " volumes found for domain "
+                      << "[" << domainId << ":" << domainIter->second << "]";
+        }
+
+        for (volumeIter = vecVolumes.begin() ; volumeIter != vecVolumes.end() ; ++volumeIter) { //NOLINT                                                   
+            LOGDEBUG << "processing volume "
+                     << "[" << volumeIter->volUUID << ":" << volumeIter->name << "]";
+
+            if (!domainCtrl->addVolume(*volumeIter)) {
+                LOGERROR << "unable to add volume "
+                         << "[" << volumeIter->volUUID << ":" << volumeIter->name << "]";
+            }
+        }
+    }
+    */
+
+    // load the dlts
+    /*
+      if (!dp->loadDltsFromConfigDB()) {                                                                                                                        LOGWARN << "errors during loading dlts";
+      }
+    */
+
+    return err;
 }
 
 // om_reg_node_info

@@ -828,11 +828,12 @@ VolumeContainer::VolumeContainer() : RsContainer() {}
 // om_create_vol
 // -------------
 //
-int
+Error
 VolumeContainer::om_create_vol(const FdspMsgHdrPtr &hdr,
                                const FdspCrtVolPtr &creat_msg,
                                fds_bool_t from_omcontrol_path)
 {
+    Error err(ERR_OK);
     OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     VolPolicyMgr        *v_pol = OrchMgr::om_policy_mgr();
     FdsAdminCtrl        *admin = local->om_get_admin_ctrl();
@@ -843,12 +844,12 @@ VolumeContainer::om_create_vol(const FdspMsgHdrPtr &hdr,
     vol = VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
     if (vol != NULL) {
         LOGWARN << "Received CreateVol for existing volume " << vname;
-        return -1;
+        return Error(ERR_DUPLICATE);
     }
     vol = VolumeInfo::vol_cast_ptr(rs_alloc_new(uuid));
     vol->vol_mk_description(creat_msg->vol_info);
 
-    Error err = v_pol->fillVolumeDescPolicy(vol->vol_get_properties());
+    err = v_pol->fillVolumeDescPolicy(vol->vol_get_properties());
     if (err == ERR_CAT_ENTRY_NOT_FOUND) {
         // TODO(xxx): policy not in the catalog.  Should we return error or use the
         // default policy?
@@ -861,7 +862,7 @@ VolumeContainer::om_create_vol(const FdspMsgHdrPtr &hdr,
         //
         LOGERROR << "Create volume " << vname
                  << ": failed to get policy info";
-        return -1;
+        return err;
     }
 
     err = admin->volAdminControl(vol->vol_get_properties());
@@ -870,7 +871,7 @@ VolumeContainer::om_create_vol(const FdspMsgHdrPtr &hdr,
         LOGERROR << "Unable to create volume " << vname
                  << " error: " << err.GetErrstr();
         rs_free_resource(vol);
-        return -1;
+        return err;
     }
     rs_register(vol);
 
@@ -894,16 +895,18 @@ VolumeContainer::om_create_vol(const FdspMsgHdrPtr &hdr,
                                 FDS_ProtocolInterface::FDSP_MSG_ATTACH_VOL_CMD,
                                 NodeUuid(hdr->src_service_uuid.uuid)));
     }
-    return 0;
+
+    return err;
 }
 
 // om_delete_vol
 // -------------
 //
-int
+Error
 VolumeContainer::om_delete_vol(const FdspMsgHdrPtr &hdr,
                                const FdspDelVolPtr &del_msg)
 {
+    Error err(ERR_OK);
     OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     FdsAdminCtrl        *admin = local->om_get_admin_ctrl();
     std::string         &vname = del_msg->vol_name;
@@ -913,7 +916,7 @@ VolumeContainer::om_delete_vol(const FdspMsgHdrPtr &hdr,
     vol = VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
     if (vol == NULL) {
         LOGWARN << "Received DeleteVol for non-existing volume " << vname;
-        return -1;
+        return Error(ERR_NOT_FOUND);
     }
     // TODO(Vy): abstraction in vol class for this
     // for (int i = 0; i < del_vol->hv_nodes.size(); i++)
@@ -928,7 +931,7 @@ VolumeContainer::om_delete_vol(const FdspMsgHdrPtr &hdr,
     fds_uint32_t count = local->om_bcast_vol_delete(vol, true);
     vol->vol_event(VolDelChkEvt(vol.get(), Error(ERR_OK), count+1));
 
-    return 0;
+    return err;
 }
 
 // om_cleanup_vol
@@ -962,9 +965,10 @@ VolumeContainer::get_volume(const std::string& vol_name)
 // om_modify_vol
 // -------------
 //
-int
+Error
 VolumeContainer::om_modify_vol(const FdspModVolPtr &mod_msg)
 {
+    Error err(ERR_OK);
     OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     VolPolicyMgr        *v_pol = OrchMgr::om_policy_mgr();
     FdsAdminCtrl        *admin = local->om_get_admin_ctrl();
@@ -973,14 +977,13 @@ VolumeContainer::om_modify_vol(const FdspModVolPtr &mod_msg)
     VolumeInfo::pointer  vol = get_volume(vname);
     if (vol == NULL) {
         LOGWARN << "Received ModifyVol for non-existing volume " << vname;
-        return -1;
+        return Error(ERR_NOT_FOUND);
     } else if (vol->is_delete_pending()) {
         LOGWARN << "Received ModifyVol for volume " << vname
                 << " for which delete is pending";
-        return -1;
+        return Error(ERR_NOT_FOUND);
     }
 
-    Error      err(ERR_OK);
     boost::shared_ptr<VolumeDesc> new_desc(new VolumeDesc(*(vol->vol_get_properties())));
 
     // We will not modify capacity for now; just policy id or min/max and priority.
@@ -1000,7 +1003,7 @@ VolumeContainer::om_modify_vol(const FdspModVolPtr &mod_msg)
                      << mod_msg->vol_desc.volPolicyId
                      << " keeping original policy "
                      << vol->vol_get_properties()->volPolicyId;
-            return -1;
+            return err;
         }
     } else {
         // Don't modify policy id, just min/max ips and priority.
@@ -1017,25 +1020,26 @@ VolumeContainer::om_modify_vol(const FdspModVolPtr &mod_msg)
     vol->vol_event(VolOpEvt(vol.get(),
                             FDS_ProtocolInterface::FDSP_MSG_MODIFY_VOL,
                             new_desc));
-    return 0;
+    return err;
 }
 
 // om_attach_vol
 // -------------
 //
-int
+Error
 VolumeContainer::om_attach_vol(const FDSP_MsgHdrTypePtr &hdr,
                                const FdspAttVolCmdPtr   &attach)
 {
+    Error err(ERR_OK);
     OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     VolumeInfo::pointer vol = get_volume(attach->vol_name);
     if (vol == NULL) {
         LOGWARN << "Received AttachVol for non-existing volume " << attach->vol_name;
-        return -1;
+        return Error(ERR_NOT_FOUND);
     } else if (vol->is_delete_pending()) {
         LOGWARN << "Received AttachVol for volume " << attach->vol_name
                 << " for which delete is pending";
-        return -1;
+        return Error(ERR_NOT_FOUND);
     }
 
     NodeUuid node_uuid(hdr->src_service_uuid.uuid);
@@ -1049,7 +1053,7 @@ VolumeContainer::om_attach_vol(const FDSP_MsgHdrTypePtr &hdr,
         if (am == NULL) {
             LOGWARN << "Received AttachVol " << attach->vol_name
                     << " for unknown node " << hdr->src_node_name;
-            return -1;
+            return Error(ERR_NOT_FOUND);
         }
         node_uuid = am->rs_get_uuid();
         LOGNOTIFY << "uuid for  the node:" << hdr->src_node_name << ":"
@@ -1058,16 +1062,17 @@ VolumeContainer::om_attach_vol(const FDSP_MsgHdrTypePtr &hdr,
     vol->vol_event(VolOpEvt(vol.get(),
                             FDS_ProtocolInterface::FDSP_MSG_ATTACH_VOL_CMD,
                             node_uuid));
-    return 0;
+    return err;
 }
 
 // om_detach_vol
 // -------------
 //
-int
+Error
 VolumeContainer::om_detach_vol(const FDSP_MsgHdrTypePtr &hdr,
                                const FdspAttVolCmdPtr   &detach)
 {
+    Error err(ERR_OK);
     OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     std::string         &vname = detach->vol_name;
     VolumeInfo::pointer  vol;
@@ -1078,11 +1083,11 @@ VolumeContainer::om_detach_vol(const FDSP_MsgHdrTypePtr &hdr,
     vol = get_volume(vname);
     if (vol == NULL) {
         LOGWARN << "Received detach Vol for non-existing volume " << vname;
-        return -1;
+        return Error(ERR_NOT_FOUND);
     } else if (vol->is_delete_pending()) {
         LOGWARN << "Received detach Vol for volume " << vname
                 << " in delete pending state";
-        return -1;
+        return Error(ERR_NOT_FOUND);
     }
 
     NodeUuid node_uuid(hdr->src_service_uuid.uuid);
@@ -1096,7 +1101,7 @@ VolumeContainer::om_detach_vol(const FDSP_MsgHdrTypePtr &hdr,
         if (am == NULL) {
             LOGWARN << "Received DetachVol " << detach->vol_name
                     << " for unknown node " << hdr->src_node_name;
-            return -1;
+            return Error(ERR_NOT_FOUND);
         }
 
         node_uuid = am->rs_get_uuid();
@@ -1106,7 +1111,7 @@ VolumeContainer::om_detach_vol(const FDSP_MsgHdrTypePtr &hdr,
     vol->vol_event(VolOpEvt(vol.get(),
                             FDS_ProtocolInterface::FDSP_MSG_DETACH_VOL_CMD,
                             node_uuid));
-    return 0;
+    return err;
 }
 
 // om_test_bucket
