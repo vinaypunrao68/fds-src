@@ -631,6 +631,10 @@ fds::Error StorHvCtrl::upCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
     StorHvJournalEntryLock je_lock(txn);
     fds_verify(txn->isActive() == true); // Should not get resp for inactive txns
     fds_verify(txn->trans_state != FDS_TRANS_EMPTY);  // Should not get resp for empty txns
+
+    // Check response code
+    Error msgRespErr(rxMsg->err_code);
+    fds_verify(msgRespErr == ERR_OK);
   
     if (catObjRsp->dm_operation == FDS_DMGR_TXN_STATUS_OPEN) {
         result = txn->fds_set_dmack_status(rxMsg->src_ip_lo_addr,
@@ -703,6 +707,10 @@ fds::Error StorHvCtrl::deleteCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
     /*
      * start accumulating the ack from  DM and  check for the min ack
      */
+
+    // Check response code
+    Error msgRespErr(rxMsg->err_code);
+    fds_verify(msgRespErr == ERR_OK);
 
     if (rxMsg->msg_code == FDSP_MSG_DELETE_BLOB_RSP) {
         txn->fds_set_dmack_status(rxMsg->src_ip_lo_addr,
@@ -937,6 +945,8 @@ fds::Error StorHvCtrl::getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
         // move the state machine forward.
         return err;
     }
+
+    fds_verify(msgRespErr == ERR_OK);
     fds_verify(txn->trans_state == FDS_TRANS_GET_OBJ);
 
     /*
