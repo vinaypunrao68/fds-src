@@ -66,7 +66,6 @@ namespace fds {
         memcpy(digest, objId, length);
     }
 
-
     ObjectID::ObjectID(const ObjectID& rhs) {
         memcpy(digest, rhs.digest, sizeof(digest));
     }

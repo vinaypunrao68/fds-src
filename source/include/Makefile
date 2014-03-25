@@ -23,7 +23,6 @@ user_no_style  := \
 	fds_obj_cache.h       \
 	fds_placement_table.h \
 	fds_qos.h             \
-	fds_types.h           \
 	fds_volume.h          \
 	native_api.h          \
 	odb.h                 \
