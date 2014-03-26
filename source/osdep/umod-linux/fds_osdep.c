@@ -86,7 +86,7 @@ fds_spawn(char *const argv[], int daemonize)
     flim = fds_get_fd_limit();
     printf("Close fd up to %d\n", flim);
 
-    for (fd = 2; fd < flim; fd++) {
+    for (fd = 3; fd < flim; fd++) {
         close(fd);
     }
     if (daemonize) {
