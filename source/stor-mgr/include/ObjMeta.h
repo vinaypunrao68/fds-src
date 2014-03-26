@@ -43,10 +43,11 @@ class ObjMetaData {
     meta_obj_map_t *obj_map; // Pointer to the meta_obj_map in the buffer
     obj_phy_loc_t *phy_loc;
     obj_assoc_entry_t *assoc_entry;
-    std::vector<obj_assoc_entry_t> pods;
+    //std::vector<obj_assoc_entry_t> pods;
 
   public:
     ObjMetaData() {
+     persistBuffer = NULL;
     }
     void initialize(const ObjectID& objid, fds_uint32_t obj_size) {
        size = sizeof(meta_obj_map_t) + sizeof(obj_assoc_entry_t);
@@ -67,7 +68,11 @@ class ObjMetaData {
        assoc_entry = (obj_assoc_entry_t *)(persistBuffer + sizeof(meta_obj_map_t ));
 
     }
-    ~ObjMetaData() {}
+    ~ObjMetaData() {
+       if (persistBuffer) {
+         delete persistBuffer;
+       }
+    }
     ObjMetaData(const ObjectBuf& buf) {
         persistBuffer = new char[buf.data.length()];
         size = buf.data.length();

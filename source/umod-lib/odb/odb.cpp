@@ -139,7 +139,7 @@ fds::Error ObjectDB::Put(const ObjectID& object_id,
                          const ObjectBuf& obj_buf) {
   fds::Error err(fds::ERR_OK);
 
-  leveldb::Slice key((const char *)&object_id, sizeof(ObjectID));
+  leveldb::Slice key((const char *)object_id.GetId(), sizeof(ObjectID));
   leveldb::Slice value(obj_buf.data.data(), obj_buf.size);
 
   timer_start();
@@ -219,7 +219,7 @@ fds::Error ObjectDB::Get(const ObjectID& obj_id,
                          ObjectBuf& obj_buf) {
   fds::Error err(fds::ERR_OK);
 
-  leveldb::Slice key((const char *)&obj_id, sizeof(ObjectID));
+  leveldb::Slice key((const char *)obj_id.GetId(), sizeof(ObjectID));
   std::string value;
 
   timer_start();
