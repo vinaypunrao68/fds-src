@@ -224,6 +224,15 @@ DataPlacement::commitDlt() {
     placementMutex->unlock();
 }
 
+void
+DataPlacement::revertDlt() {
+    placementMutex->lock();
+    delete newDlt;
+    newDlt = NULL;
+    // keeping commited DLT and all other state the same
+    placementMutex->unlock();
+}
+
 const DLT*
 DataPlacement::getCommitedDlt() const {
     return commitedDlt;
@@ -318,9 +327,9 @@ Error DataPlacement::loadDltsFromConfigDB(const NodeUuidSet& sm_services) {
             err = checkDltValid(dlt, sm_services);
             if (err.ok()) {
                 LOGNOTIFY << "Current DLT in config DB is valid!";
-                // TODO(anna) set the current dlt
-                delete dlt;
-                // commitedDlt = dlt;
+                // we will set newDLT because we don't know yet if
+                // the nodes in DLT will actually come up...
+                newDlt = dlt;
             }
         }
 
@@ -347,6 +356,8 @@ Error DataPlacement::loadDltsFromConfigDB(const NodeUuidSet& sm_services) {
         LOGWARN << "We are not yet supporting recovering persistent state "
                 << "when we were in the middle of migration, so will for now "
                 << " ignore persisted DLT and nodes";
+        delete newDlt;
+        newDlt = NULL;
         return Error(ERR_NOT_IMPLEMENTED);
         /*
         DLT* dlt = new DLT(0, 0, 0, false);

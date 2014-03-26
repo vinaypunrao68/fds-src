@@ -4,13 +4,17 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <map>
 #include <boost/msm/front/state_machine_def.hpp>
 #include <boost/msm/front/functor_row.hpp>
+#include <fds_timer.h>
 #include <orch-mgr/om-service.h>
 #include <OmDeploy.h>
 #include <OmResources.h>
 #include <OmDataPlacement.h>
 #include <fds_process.h>
+
+#define OM_WAIT_NODES_UP_SECONDS   5*60
 
 namespace fds {
 
@@ -37,6 +41,18 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
     template <class Event, class FSM> void on_exit(Event const &, FSM &);
 
     /**
+     * Timer task to come out from waiting state
+     */
+    class WaitTimerTask : public FdsTimerTask {
+      public:
+        explicit WaitTimerTask(FdsTimer &timer)  // NOLINT
+        : FdsTimerTask(timer) {}
+        ~WaitTimerTask() {}
+
+        virtual void runTimerTask() override;
+    };
+
+    /**
      * Node Domain states
      */
     struct DST_Start : public msm::front::state<>
@@ -49,11 +65,27 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
     };
     struct DST_WaitNds : public msm::front::state<>
     {
+        DST_WaitNds() : waitTimer(new FdsTimer()),
+                        waitTimerTask(new WaitTimerTask(*waitTimer)) {}
+
+        ~DST_WaitNds() {
+            waitTimer->destroy();
+        }
+
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
         template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
         template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
+
+        NodeUuidSet sm_services;  // services we are waiting to come up
+        NodeUuidSet sm_up;  // services that are already up
+
+        /**
+         * timer to come out of this state if we don't get all SMs up
+         */
+        FdsTimerPtr waitTimer;
+        FdsTimerTaskPtr waitTimerTask;
     };
     struct DST_WaitDlt : public msm::front::state<>
     {
@@ -82,12 +114,22 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
     /**
      * Transition actions.
      */
+    struct DACT_WaitNds
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
     struct DACT_NodesUp
     {
         template <class Evt, class Fsm, class SrcST, class TgtST>
         void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
     };
     struct DACT_UpdDlt
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
+    struct DACT_LoadVols
     {
         template <class Evt, class Fsm, class SrcST, class TgtST>
         void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
@@ -107,25 +149,33 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
         bool operator()(Evt const &, Fsm &, SrcST &, TgtST &);
     };
 
-    /**                                                                                                                         
+    /**
      * Transition table for OM Node Domain
      */
     struct transition_table : mpl::vector<
-        // +-------------------+-------------+-------------+--------------+------------+
-        // | Start             | Event       | Next        | Action       | Guard      |
-        // +-------------------+-------------+-------------+--------------+------------+
-        msf::Row< DST_Start    , WaitNdsEvt  , DST_WaitNds , msf::none    , msf::none >,
-        msf::Row< DST_Start    , DltUpEvt    , DST_DomainUp, DACT_NodesUp , msf::none >,
-        // +-------------------+-------------+------------+---------------+------------+
-        msf::Row< DST_WaitNds  , RegNdDoneEvt, DST_DomainUp, DACT_NodesUp , GRD_NdsUp >,
-        msf::Row< DST_WaitNds  , TimeoutEvt  , DST_WaitDlt , DACT_UpdDlt  , msf::none >,
-        // +-------------------+-------------+------------+---------------+------------+
-        msf::Row< DST_WaitDlt  , DltUpEvt    , DST_DomainUp, DACT_NodesUp , msf::none >
-        // +-------------------+-------------+------------+---------------+-------------+
+        // +-----------------+-------------+-------------+--------------+------------+
+        // | Start           | Event       | Next        | Action       | Guard      |
+        // +-----------------+-------------+-------------+--------------+------------+
+        msf::Row< DST_Start  , WaitNdsEvt  , DST_WaitNds , DACT_WaitNds , msf::none >,
+        msf::Row< DST_Start  , NoPersistEvt, DST_DomainUp, msf::none    , msf::none >,
+        // +-----------------+-------------+------------+---------------+------------+
+        msf::Row< DST_WaitNds, RegNodeEvt  , DST_WaitDlt , DACT_NodesUp , GRD_NdsUp >,
+        msf::Row< DST_WaitNds, TimeoutEvt  , DST_WaitDlt , DACT_UpdDlt  , msf::none >,
+        // +-----------------+-------------+------------+---------------+------------+
+        msf::Row< DST_WaitDlt, DltUpEvt    , DST_DomainUp, DACT_LoadVols, msf::none >
+        // +------------------+-------------+------------+---------------+-------------+
         >{};  // NOLINT
 
     template <class Event, class FSM> void no_transition(Event const &, FSM &, int);
 };
+
+void NodeDomainFSM::WaitTimerTask::runTimerTask()
+{
+    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+    LOGNOTIFY << "Timeout waiting for SM(s) to come up, will proceed with"
+              << " SM(s) that came up so far";
+    domain->local_domain_event(TimeoutEvt());
+}
 
 template <class Event, class Fsm>
 void NodeDomainFSM::on_entry(Event const &evt, Fsm &fsm)
@@ -154,23 +204,107 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 bool
 NodeDomainFSM::GRD_NdsUp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    return true;
+    fds_bool_t b_ret = false;
+    RegNodeEvt regEvt = (RegNodeEvt)evt;
+
+    // check if this is one of the services we are waiting for
+    if (src.sm_services.count(regEvt.svc_uuid) > 0) {
+        src.sm_up.insert(regEvt.svc_uuid);
+        if (src.sm_services.size() == src.sm_up.size()) {
+            b_ret = true;
+        }
+    }
+    LOGDEBUG << "GRD_NdsUp: register svc uuid " << std::hex
+             << regEvt.svc_uuid.uuid_get_val() << std::dec << "; waiting for "
+             << src.sm_services.size() << " Sms, already got "
+             << src.sm_up.size() << " SMs; returning " << b_ret;
+
+    return b_ret;
 }
 
 /**
  * DACT_NodesUp
  * ------------
- * Handle all nodes up. This is either: we previously did not have any nodes up (configdb
- * does not contain any nodes); all nodes that were previously up are up again; or
- * some (or none) of nodes that were previously up are up again but we already updated the
- * DLT accordingly. This method tries to bring all volumes from config db up.
+ * We got all SMs that we were waiting for up.
+ * Commit the DLT we loaded from configDB.
  */
 template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 NodeDomainFSM::DACT_NodesUp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
+    OM_Module *om = OM_Module::om_singleton();
+    OM_NodeContainer* local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    OM_DLTMod *dltMod = om->om_dlt_mod();
+    DataPlacement *dp = om->om_dataplace_mod();
+    ClusterMap *cm = om->om_clusmap_mod();
+
     LOGDEBUG << "NodeDomainFSM DACT_NodesUp";
+
+    // cancel timeout timer
+    src.waitTimer->cancel(src.waitTimerTask);
+
+    // start DLT deploy from the point where we ready to commit
+
+    // cluster map must not have pending nodes, but remember that
+    // sm nodes in container may have pending nodes that are already in DLT
+    fds_verify((cm->getAddedNodes()).size() == 0);
+    fds_verify((cm->getRemovedNodes()).size() == 0);
+    dltMod->dlt_deploy_event(DltLoadedDbEvt());
+
+    // remove nodes that are already in DLT from pending list
+    // so that we will not try to update DLT with those nodes again
+    OM_SmContainer::pointer smNodes = local->om_sm_nodes();
+    smNodes->om_rm_nodes_added_pend(src.sm_up);
 }
+
+/**
+ * DACT_LoadVols
+ * -------------
+ * We are done with initial bringing up nodes, now load volumes.
+ */
+template <class Evt, class Fsm, class SrcST, class TgtST>
+void
+NodeDomainFSM::DACT_LoadVols::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    LOGDEBUG << "NodeDomainFSM DACT_LoadVols";
+    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+    domain->om_load_volumes();
+
+    // if we are here, there was a time interval when OM was deferring
+    // new SMs (that were not persisted) from being added to the cluster
+    // (we did not add them to the DLT) -- they are in pending nodes in SM
+    // container.
+    // Start update cluster process to see if we have such deferred SMs
+    domain->om_update_cluster();
+}
+
+
+/**
+ * DACT_WaitNds
+ * ------------
+ * Action to wait for a set of nodes to come up. Just stores the nodes
+ * to wait for in dst state. 
+ */
+template <class Evt, class Fsm, class SrcST, class TgtST>
+void
+NodeDomainFSM::DACT_WaitNds::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    WaitNdsEvt waitEvt = (WaitNdsEvt)evt;
+    dst.sm_services.swap(waitEvt.sm_services);
+
+    LOGDEBUG << "NodeDomainFSM DACT_WaitNds: will wait for " << dst.sm_services.size()
+             << " SM(s) to come up";
+
+    // start timer to timeout in case services do not come up
+    if (!dst.waitTimer->schedule(dst.waitTimerTask,
+                                 std::chrono::seconds(OM_WAIT_NODES_UP_SECONDS))) {
+        // couldn't start timer, so don't wait for services to come up
+        LOGWARN << "DACT_WaitNds: failed to start timer -- will not wait for "
+                << "services to come up";
+        fsm.process_event(TimeoutEvt());
+    }
+}
+
 
 /**
  * DACT_UpdDlt
@@ -184,9 +318,19 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 NodeDomainFSM::DACT_UpdDlt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    LOGDEBUG << "NodeDomainFSM DACT_UpdDlt";
-}
+    OM_Module *om = OM_Module::om_singleton();
+    DataPlacement *dp = om->om_dataplace_mod();
 
+    LOGDEBUG << "NodeDomainFSM DACT_UpdDlt";
+
+    // TODO(anna) commit part of DLT and remove nodes that we didn't get up
+    // For now, we will throw away DLT we got from configDB and proceed as if
+    // we didn't have any nodes stored in configDB
+    dp->revertDlt();
+
+    // since we are just throwing away dlt for now, go directly to next state
+    fsm.process_event(DltUpEvt());
+}
 
 
 //--------------------------------------------------------------------
@@ -256,10 +400,13 @@ void OM_NodeDomainMod::local_domain_event(WaitNdsEvt const &evt) {
 void OM_NodeDomainMod::local_domain_event(DltUpEvt const &evt) {
     domain_fsm->process_event(evt);
 }
-void OM_NodeDomainMod::local_domain_event(RegNdDoneEvt const &evt) {
+void OM_NodeDomainMod::local_domain_event(RegNodeEvt const &evt) {
     domain_fsm->process_event(evt);
 }
 void OM_NodeDomainMod::local_domain_event(TimeoutEvt const &evt) {
+    domain_fsm->process_event(evt);
+}
+void OM_NodeDomainMod::local_domain_event(NoPersistEvt const &evt) {
     domain_fsm->process_event(evt);
 }
 
@@ -267,13 +414,14 @@ void OM_NodeDomainMod::local_domain_event(TimeoutEvt const &evt) {
 // ------------------
 //
 Error
-OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* configDB)
+OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
 {
     Error err(ERR_OK);
     OM_Module *om = OM_Module::om_singleton();
     DataPlacement *dp = om->om_dataplace_mod();
 
     LOGNOTIFY << "Loading persistent state to local domain";
+    configDB = _configDB;  // cache config db in local domain
 
     // get SMs that were up before and persistent in config db
     // if no SMs were up, even if platforms were running, we
@@ -313,50 +461,48 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* configDB)
     if (sm_services.size() > 0) {
         LOGNOTIFY << "Will wait for " << sm_services.size()
                   << " SMs to come up within next few minutes";
-        local_domain_event(DltUpEvt());
+        local_domain_event(WaitNdsEvt(sm_services));
     } else {
         LOGNOTIFY << "We didn't persist any SMs or we couldn't load "
                   << "persistent state, so OM will come up in a moment.";
-        local_domain_event(DltUpEvt());
+        local_domain_event(NoPersistEvt());
     }
 
-    // TODO(anna) move to after we get nodes and DLT matched
-    // in any case, below code does not work anyway (vols not
-    // accepted by admission control
-    /*
+    return err;
+}
+
+Error
+OM_NodeDomainMod::om_load_volumes()
+{
+    Error err(ERR_OK);
+
+    // load volumes for this domain
+    // so far we are assuming this is domain with id 0
+    int my_domainId = 0;
+
     std::vector<VolumeDesc> vecVolumes;
     std::vector<VolumeDesc>::const_iterator volumeIter;
-    std::map<int, std::string>::const_iterator domainIter;
-    for (domainIter = mapDomains.begin() ; domainIter != mapDomains.end() ; ++domainIter) { // NOLINT                                                      
-        int domainId = domainIter->first;
-        LOGNORMAL << "loading data for domain "
-                  << "[" << domainId << ":" << domainIter->second << "]";
+    configDB->getVolumes(vecVolumes, my_domainId);
+    if (vecVolumes.empty()) {
+        LOGWARN << "no volumes found for domain "
+                << "[" << my_domainId << "]";
+    } else {
+        LOGNORMAL << vecVolumes.size() << " volumes found for domain "
+                  << "[" << my_domainId << "]";
+    }
 
-        OM_NodeContainer *domainCtrl = OM_NodeDomainMod::om_loc_domain_ctrl();
+    // add each volume we found in configDB
+    for (volumeIter = vecVolumes.begin();
+         volumeIter != vecVolumes.end();
+         ++volumeIter) {
+        LOGDEBUG << "processing volume "
+                 << "[" << volumeIter->volUUID << ":" << volumeIter->name << "]";
 
-        vecVolumes.clear();
-        configDB->getVolumes(vecVolumes, domainId);
-
-        if (vecVolumes.empty()) {
-            LOGWARN << "no volumes found for domain "
-                    << "[" << domainId << ":" << domainIter->second << "]";
-        } else {
-            LOGNORMAL << vecVolumes.size() << " volumes found for domain "
-                      << "[" << domainId << ":" << domainIter->second << "]";
-        }
-
-        for (volumeIter = vecVolumes.begin() ; volumeIter != vecVolumes.end() ; ++volumeIter) { //NOLINT                                                   
-            LOGDEBUG << "processing volume "
+        if (!om_locDomain->addVolume(*volumeIter)) {
+            LOGERROR << "unable to add volume "
                      << "[" << volumeIter->volUUID << ":" << volumeIter->name << "]";
-
-            if (!domainCtrl->addVolume(*volumeIter)) {
-                LOGERROR << "unable to add volume "
-                         << "[" << volumeIter->volUUID << ":" << volumeIter->name << "]";
-            }
         }
     }
-    */
-
     return err;
 }
 
@@ -370,10 +516,6 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
     NodeAgent::pointer      newNode;
     OM_PmContainer::pointer pmNodes;
 
-    // TODO(anna) the below code would not work yet, because
-    // register node message from SM/DM does not contain node
-    // (platform) uuid yet.
-    //
     pmNodes = om_locDomain->om_pm_nodes();
     fds_assert(pmNodes != NULL);
 
@@ -427,8 +569,8 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
             if (pm != NULL) {
                 om_locDomain->om_add_capacity(pm);
             } else {
-                FDS_PLOG(g_fdslog) << "Can not find platform agant for node uuid "
-                    << std::hex << msg->node_uuid.uuid << std::dec;
+                LOGERROR << "Can not find platform agent for node uuid "
+                         << std::hex << msg->node_uuid.uuid << std::dec;
             }
         }
         om_locDomain->om_update_node_list(newNode, msg);
@@ -444,6 +586,12 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         // Send the DMT to DMs.
         om_locDomain->om_round_robin_dmt();
         om_locDomain->om_bcast_dmt_table();
+
+        if (om_local_domain_up()) {
+            om_update_cluster();
+        } else {
+            local_domain_event(RegNodeEvt(uuid, msg->node_type));
+        }
     }
     return err;
 }
@@ -459,6 +607,9 @@ OM_NodeDomainMod::om_del_node_info(const NodeUuid& uuid,
     OM_PmContainer::pointer pmNodes = om_locDomain->om_pm_nodes();
     // make sure that platform agents do not hold references to this node
     pmNodes->handle_unregister_service(uuid);
+    if (om_local_domain_up()) {
+        om_update_cluster();
+    }
     return err;
 }
 

@@ -733,6 +733,26 @@ OM_SmContainer::om_splice_nodes_pend(NodeList *addNodes, NodeList *rmNodes)
     rs_mtx.unlock();
 }
 
+void
+OM_SmContainer::om_rm_nodes_added_pend(const NodeUuidSet& rm_nodes)
+{
+    rs_mtx.lock();
+    for (NodeUuidSet::const_iterator cit = rm_nodes.cbegin();
+         cit != rm_nodes.cend();
+         ++cit) {
+        NodeList::iterator it = node_up_pend.begin();
+        while (it != node_up_pend.end()) {
+            NodeUuid uuid = (*it)->get_uuid();
+            if (uuid == (*cit)) {
+                node_up_pend.erase(it);
+                break;
+            }
+            ++it;
+        }
+    }
+    rs_mtx.unlock();
+}
+
 // --------------------------------------------------------------------------------------
 // OM DM NodeAgent Container
 // --------------------------------------------------------------------------------------

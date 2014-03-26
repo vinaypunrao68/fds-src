@@ -471,6 +471,12 @@ namespace fds {
         void commitDlt();
 
         /**
+         * Likely a temp method -- throw away new DLT, but
+         * keep commited Dlt unchanged.
+         */
+        void revertDlt();
+
+        /**
          * Returns the current commited version of the DLT.
          * So if we are in the process of computing/rebalancing
          * nodes for new DLT, this method returns the previous DLT

@@ -6,6 +6,7 @@
 #include <boost/msm/front/state_machine_def.hpp>
 #include <boost/msm/front/functor_row.hpp>
 #include <OmDeploy.h>
+#include <orch-mgr/om-service.h>
 
 namespace fds {
 
@@ -123,6 +124,7 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
     // | Start           | Event          | Next       | Action         | Guard         |
     // +-----------------+----------------+------------+----------------+---------------+
     msf::Row< DST_Idle   , DltCompRebalEvt, DST_Rebal  , DACT_CompRebal , msf::none     >,
+    msf::Row< DST_Idle   , DltLoadedDbEvt , DST_Commit , DACT_Commit    , msf::none     >,
     // +-----------------+----------------+------------+----------------+---------------+
     msf::Row< DST_Rebal  , DltRebalOkEvt  , DST_Commit , DACT_Commit    , GRD_DltRebal  >,
     msf::Row< DST_Rebal  , DltNoRebalEvt  , DST_Idle   , msf::none      , msf::none     >,
@@ -214,6 +216,12 @@ OM_DLTMod::dlt_deploy_event(DltCloseOkEvt const &evt)
     dlt_dply_fsm->process_event(evt);
 }
 
+void
+OM_DLTMod::dlt_deploy_event(DltLoadedDbEvt const &evt)
+{
+    dlt_dply_fsm->process_event(evt);
+}
+
 // --------------------------------------------------------------------------------------
 // OM DLT Deployment FSM Implementation
 // --------------------------------------------------------------------------------------
@@ -289,11 +297,11 @@ void
 DltDplyFSM::DACT_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "FSM DACT_Commit";
-    DltRebalOkEvt rebalOkEvt = (DltRebalOkEvt)evt;
+    OM_Module *om = OM_Module::om_singleton();
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
     OM_NodeContainer* dom_ctrl = domain->om_loc_domain_ctrl();
-    DataPlacement *dp = rebalOkEvt.ode_dp;
-    ClusterMap* cm = rebalOkEvt.ode_clusmap;
+    DataPlacement *dp = om->om_dataplace_mod();
+    ClusterMap* cm = om->om_clusmap_mod();
     fds_verify((dp != NULL) && (cm != NULL));
 
     // commit as an 'official' version in the data placement engine
@@ -340,6 +348,10 @@ DltDplyFSM::DACT_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
     dst.acks_to_wait = close_cnt / 2 + 1;
     if (dst.acks_to_wait == 0)
         dst.acks_to_wait = close_cnt;
+
+    // in case we are in domain bring up state, notify domain that current
+    // DLT is up (we got quorum number of acks for DLT commit)
+    domain->local_domain_event(DltUpEvt());
 }
 
 // GRD_DltClose
