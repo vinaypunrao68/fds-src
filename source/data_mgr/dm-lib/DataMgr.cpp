@@ -814,6 +814,7 @@ DataMgr::applyBlobUpdate(const BlobObjectList &offsetList, BlobNode *bnode) {
     LOGDEBUG << "Applied pdate to blob " << *bnode;
 
     return err;
+   }
 }
 
 /**
