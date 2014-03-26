@@ -402,6 +402,7 @@ class GetConditions {
  * @param buffer gives the buffer to fill with at most bufferSize bytes of
  *        data as the next chunk of data to send to S3 as the contents of this
  *        object
+ * @param offset of the buffer that was put
  * @param callbackData is the callback data as specified when the request
  *        was issued.
  * @return < 0 to abort the request with the S3StatusAbortedByCallback, which
@@ -409,7 +410,8 @@ class GetConditions {
  *        0 to indicate the end of data, or > 0 to identify the number of
  *        bytes that were written into the buffer by this callback
  **/
-typedef int (*fdsnPutObjectHandler)(void *reqContext, fds_uint64_t bufferSize, char *buffer, 
+typedef int (*fdsnPutObjectHandler)(void *reqContext, fds_uint64_t bufferSize,
+                                    fds_off_t offset, char *buffer, 
 				    void *callbackData, FDSN_Status status, ErrorDetails* errDetails);
 
 
@@ -516,8 +518,7 @@ class FDS_NativeAPI {
                  fds_uint64_t buflen,
                  void *reqcontext,
                  fdsnGetObjectHandler getObjCallback,
-                 void *callbackdata
-                 );
+                 void *callbackdata);
 
   void PutObject(BucketContext *bucket_ctxt, 
                  std::string ObjKey, 
