@@ -331,6 +331,7 @@ class ObjectStorMgr :
             diskio::DataTier &tier);
     Error writeObjectToTier(const ObjectID  &objId, 
             const ObjectBuf &objData,
+            fds_volid_t       volId,
             diskio::DataTier tier);
     Error readObject(const SmObjDb::View& view,
             const ObjectID &objId,

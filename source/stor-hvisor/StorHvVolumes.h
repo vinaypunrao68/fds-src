@@ -228,40 +228,41 @@ public:
 
 
 class PutBlobReq: public FdsBlobReq {
- public:
-  BucketContext *bucket_ctxt;
-  std::string ObjKey;
-  PutProperties *putProperties;
-  void *req_context;
-  fdsnPutObjectHandler putObjCallback;
-  void *callback_data;
+  public:
+    BucketContext *bucket_ctxt;
+    std::string ObjKey;
+    PutProperties *putProperties;
+    void *req_context;
+    fdsnPutObjectHandler putObjCallback;
+    void *callback_data;
   
- PutBlobReq(fds_volid_t _volid,
-	    const std::string& _blob_name, //same as objKey
-	    fds_uint64_t _blob_offset,
-	    fds_uint64_t _data_len,
-	    char* _data_buf,
-	    BucketContext* _bucket_ctxt,
-	    PutProperties* _put_props,
-	    void* _req_context,
-	    fdsnPutObjectHandler _put_obj_handler,
-	    void* _callback_data) 
-   : FdsBlobReq(FDS_PUT_BLOB, _volid, _blob_name, _blob_offset,
-                _data_len, _data_buf, FDS_NativeAPI::DoCallback, this, Error(ERR_OK), 0),
-    bucket_ctxt(_bucket_ctxt),
-    ObjKey(_blob_name),
-    putProperties(_put_props),
-    req_context(_req_context),
-    putObjCallback(_put_obj_handler),
-    callback_data(_callback_data)
-    {
+    PutBlobReq(fds_volid_t _volid,
+               const std::string& _blob_name, //same as objKey
+               fds_uint64_t _blob_offset,
+               fds_uint64_t _data_len,
+               char* _data_buf,
+               BucketContext* _bucket_ctxt,
+               PutProperties* _put_props,
+               void* _req_context,
+               fdsnPutObjectHandler _put_obj_handler,
+               void* _callback_data)
+            : FdsBlobReq(FDS_PUT_BLOB, _volid, _blob_name, _blob_offset,
+                         _data_len, _data_buf, FDS_NativeAPI::DoCallback,
+                         this, Error(ERR_OK), 0),
+              bucket_ctxt(_bucket_ctxt),
+              ObjKey(_blob_name),
+              putProperties(_put_props),
+              req_context(_req_context),
+              putObjCallback(_put_obj_handler),
+              callback_data(_callback_data) {
     }
 
-  ~PutBlobReq() { };
+    ~PutBlobReq() { };
 
-  void DoCallback(FDSN_Status status, ErrorDetails* errDetails) {
-    (putObjCallback)(req_context, dataLen, dataBuf, callback_data, status, errDetails);
-  }
+    void DoCallback(FDSN_Status status, ErrorDetails* errDetails) {
+        (putObjCallback)(req_context, dataLen, blobOffset, dataBuf,
+                         callback_data, status, errDetails);
+    }
 };
 
 

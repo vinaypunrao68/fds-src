@@ -399,9 +399,10 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
     msgHdrSm->req_cookie = transId;
 
     LOGNOTIFY << "Putting object " << objId << " for blob "
-              << blobReq->getBlobName() << " and offset "
-              << blobReq->getBlobOffset() << "src node ip"
-              << msgHdrSm->src_node_name << "in Trans"
+              << blobReq->getBlobName() << " at offset "
+              << blobReq->getBlobOffset() << " with length "
+              << blobReq->getDataLen() << " src node ip"
+              << msgHdrSm->src_node_name << " in trans"
               << transId;
 
     err = dispatchSmPutMsg(journEntry);

@@ -347,10 +347,10 @@ fds_uint32_t StorHvJournal::get_trans_id_for_blob(const std::string& blobName,
     rwlog_tbl[trans_id].blobName = blobName;
     rwlog_tbl[trans_id].blobOffset = blobOffset;
   }
-  FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::normal) << "Assigned trans id "
-							   << trans_id << " for blob "
-							   << blobName << " offset "
-							   << blobOffset;
+  LOGNORMAL << "Assigned trans id "
+            << trans_id << " for blob "
+            << blobName << " offset "
+            << blobOffset;
   return trans_id;
 }
 

@@ -725,6 +725,7 @@ void ObjectStorMgr::writeBackFunc(ObjectStorMgr *parent) {
 
 Error ObjectStorMgr::writeBackObj(const ObjectID &objId) {
     Error err(ERR_OK);
+    fds_volid_t  vol = 0;
 
     LOGDEBUG << "Writing back object " << objId
             << " from flash to disk";
@@ -744,7 +745,7 @@ Error ObjectStorMgr::writeBackObj(const ObjectID &objId) {
     /*
      * Write object back to disk tier.
      */
-    err = writeObjectToTier(objId, objData, diskio::diskTier);
+    err = writeObjectToTier(objId, objData, vol, diskio::diskTier);
     if (err != ERR_OK) {
         return err;
     }
@@ -845,10 +846,11 @@ ObjectStorMgr::writeObjectMetaData(const ObjectID& objId,
      * Add new location to existing locations
      */
     objMap.updatePhysLocation(obj_phy_loc);
-    objMap.updateAssocEntry(objId, (fds_volid_t)vol->vol_uuid);
 
     if(relocate_flag) { 
       objMap.removePhyLocation(fromTier);
+    } else {
+      objMap.updateAssocEntry(objId, (fds_volid_t)vol->vol_uuid);
     }
 
     objData.size = objMap.getMapSize();
@@ -1079,12 +1081,13 @@ ObjectStorMgr::writeObject(const ObjectID   &objId,
      * Ask the tiering engine which tier to place this object
      */
     tier = tierEngine->selectTier(objId, volId);
-    return writeObjectToTier(objId, objData, tier);
+    return writeObjectToTier(objId, objData, volId, tier);
 }
 
 Error 
 ObjectStorMgr::writeObjectToTier(const ObjectID  &objId, 
         const ObjectBuf &objData,
+        fds_volid_t volId,
         diskio::DataTier tier) {
     Error err(ERR_OK);
 
@@ -1097,6 +1100,7 @@ ObjectStorMgr::writeObjectToTier(const ObjectID  &objId,
     meta_obj_id_t   oid;
     fds_bool_t      pushOk;
 
+    vio.vol_uuid = volId;
     /*
      * TODO: Why to we create another oid structure here?
      * Just pass a ref to objId?
@@ -1543,6 +1547,7 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
 
     objStorMutex->lock();
     objBufPtr = objCache->object_retrieve(volId, objId);
+    objBufPtr = NULL; //Disable the object cache lookup 
 
     if (!objBufPtr) {
         ObjectBuf objData;
@@ -1778,6 +1783,7 @@ ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq)
     Error err(ERR_OK);
     SmIoPutTokObjectsReq *putTokReq = static_cast<SmIoPutTokObjectsReq*>(ioReq);
     FDSP_MigrateObjectList &objList = putTokReq->obj_list;
+    fds_volid_t  vol = 0;
     
     for (auto obj : objList) {
         ObjectID objId(obj.meta_data.object_id.digest);
@@ -1805,7 +1811,7 @@ ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq)
         fds_assert(temp_data == objData.data);
         obj.data.clear();
 
-        err = writeObjectToTier(objId, objData, DataTier::diskTier);
+        err = writeObjectToTier(objId, objData, vol, DataTier::diskTier);
         if (err != ERR_OK) {
             LOGERROR << "Failed to write the object: " << objId;
            break; 
