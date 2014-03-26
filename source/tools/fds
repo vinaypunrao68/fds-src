@@ -38,12 +38,13 @@ apps["pm"]="platformd"
 function usage() {
     log "$(yellow usage: $(basename $0) [cmd] [app] [options])"
     log " cmd : "
-    log "   - $(yellow start)   : start the app " 
-    log "   - $(yellow stop)    : stop  the app " 
-    log "   - $(yellow restart) : stop & start  the app " 
-    log "   - $(yellow status)  : print status of the apps"
-    log "   - $(yellow clogs)   : remove the logs"
-    log "   - $(yellow clean)   : remove the data"
+    log "   - $(yellow start)     : start the app " 
+    log "   - $(yellow stop)      : stop  the app " 
+    log "   - $(yellow restart)   : stop & start  the app " 
+    log "   - $(yellow status)    : print status of the apps"
+    log "   - $(yellow clogs)     : remove the logs"
+    log "   - $(yellow clean)     : remove the data"
+    log "   - $(yellow cleanstart): stop+clean+start all"
     log " options :"
     log "   : --fds-root rootdir"
     log " app : om/pm/sm/am/dm/all"
@@ -309,7 +310,7 @@ FDSROOT=${FDSROOT:=/fds}
 #exit 0
 
 case "${CMD}" in
-    start|stop|restart|status|clean|clogs) ;;
+    start|stop|restart|status|clean|clogs|cleanstart|startclean) ;;
     *) usage ;;
 esac
 
@@ -333,5 +334,12 @@ case "${CMD}" in
             waitForAll
             statusApp $APP
             ;;
+    cleanstart|startclean)        
+        stopApp "all"
+        clean
+        startApp "all"
+        waitForAll
+        statusApp "all"
+        ;;
     *) usage ;;
 esac
