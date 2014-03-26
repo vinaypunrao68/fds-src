@@ -274,7 +274,10 @@ class AME_Request : public fdsio::Request
     //
     void  ame_reqt_iter_reset();
     int   ame_reqt_iter_next();
-    char *ame_reqt_iter_data(int *len);
+    char *ame_reqt_iter_data(fds_uint32_t *len);
+
+    char *ame_reqt_iter_data_next(fds_uint32_t data_len,
+                                  fds_uint32_t *len);
 
     // Common response path.
     // The request handler then prepares response data.
@@ -346,12 +349,17 @@ class Conn_PutObject : public AME_Request
     // returns the object id
     virtual std::string get_object_id() = 0;
 
+    /// returns the max buffer length to write
+    virtual fds_uint32_t get_max_buf_len() const;
+
     // Connector method to handle/resume PutObject request.
     //
     virtual void ame_request_handler();
     virtual int  ame_request_resume();
 
   protected:
+    /// Maximum buf size for stream chunking
+    fds_uint32_t put_obj_max_buf_len;
 };
 
 // ---------------------------------------------------------------------------

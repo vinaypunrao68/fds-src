@@ -404,6 +404,10 @@ namespace fds {
  */
 AME_Ctx::AME_Ctx() : ame_req(NULL), ame_next(NULL), ame_temp_buf(NULL)
 {
+    // Start the ctx stream at the beginning
+    ame_buf_off   = 0;
+    ame_ack_count = 0;
+    ame_map_lock  = new fds_mutex("ame ctx lock");
     ame_init_ngx_ctx();
 }
 
@@ -487,6 +491,110 @@ AME_Ctx::ame_free_context()
 {
     delete ame_req;
     ame_unregister_ctx();
+}
+
+fds_off_t
+AME_Ctx::ame_get_offset() {
+    return ame_buf_off;
+}
+
+/**
+ * Adds a pending offset request to the
+ * context.
+
+ * @param[in] The stream offset being modified
+ * @return The result of the update
+ */
+Error
+AME_Ctx::ame_add_ctx_req(fds_off_t offset) {
+    ame_map_lock->lock();
+    if (ame_req_map.count(offset) != 0) {
+        ame_map_lock->unlock();
+        return Error(ERR_DUPLICATE);
+    }
+    ame_req_map[offset] = WAITING;
+    ame_map_lock->unlock();
+    return Error(ERR_OK);
+}
+
+/**
+ * Updates the state of a pending offset
+ * request
+ */
+Error
+AME_Ctx::ame_upd_ctx_req(fds_off_t offset,
+                         AME_Ctx_Ack ack_status) {
+    ame_map_lock->lock();
+    if (ame_req_map.count(offset) == 0) {
+        ame_map_lock->unlock();
+        return Error(ERR_NOT_FOUND);
+    }
+    ame_req_map[offset] = ack_status;
+    ame_map_lock->unlock();
+    return Error(ERR_OK);
+}
+
+/**
+ * Sets the number of acks expected to
+ * be received in order to call the request
+ * complete.
+ * We do not lock because we expect to be
+ * called in a single threaded env.
+ */
+void
+AME_Ctx::set_ack_count(fds_uint32_t count) {
+    ame_ack_count = count;
+}
+
+/**
+ * Returns the status of all of the
+ * currently received acks.
+ */
+AME_Ctx::AME_Ctx_Ack
+AME_Ctx::ame_check_status() {
+    ame_map_lock->lock();
+    if (ame_req_map.size() < ame_ack_count) {
+        // We haven't sent all of the requests
+        // that we're going to send.
+        ame_map_lock->unlock();
+        return WAITING;
+    }
+
+    // Check the status of each request that
+    // we did send to see if
+    // the request passed or failed or is pending
+    fds_bool_t failed = false;
+    for (AME_Ack_Map::const_iterator it = ame_req_map.cbegin();
+         it != ame_req_map.cend();
+         it++) {
+        if (it->second == WAITING) {
+            ame_map_lock->unlock();
+            return WAITING;
+        } else if (it->second == FAILED) {
+            failed = true;
+        }
+    }
+    ame_map_lock->unlock();
+
+    if (failed == true) {
+        return FAILED;
+    }
+    return OK;
+}
+
+/**
+ * Moves the context offset by len
+ * Note, no lock is acquired because we're assuming
+ * the caller will not call from multi-threaded envs
+ */
+void
+AME_Ctx::ame_mv_off(fds_uint32_t len) {
+    ame_buf_off += len;
+}
+
+fds_off_t
+AME_Ctx::ame_get_off() const {
+    return ame_buf_off;
 }
 
 /*
@@ -618,6 +726,10 @@ AME_CtxList::ame_get_ctx(AME_Request *req)
         ctx->ame_next  = NULL;
         ctx->ame_req   = req;
         ctx->ame_state = 0;
+
+        ctx->ame_buf_off = 0;
+        ctx->ame_req_map.clear();
+        ctx->ame_ack_count = 0;
         return ctx;
     }
     return NULL;

@@ -92,7 +92,7 @@ probe_obj_read(ProbeMod        *probe,
 int
 Probe_GetObject::ame_request_resume()
 {
-    int        len;
+    fds_uint32_t len;
     char      *adr;
     ame_buf_t *buf;
 
@@ -205,7 +205,7 @@ Probe_PutObject::ame_request_resume()
 void
 Probe_PutObject::ame_request_handler()
 {
-    int            len;
+    fds_uint32_t   len;
     char           *buf;
     fds_uint64_t   vid;
     ObjectID        oid(reinterpret_cast<uint8_t *> (&len));
@@ -280,7 +280,7 @@ ctrl_obj_write(ProbeS3Eng *s3eng, ProbeS3 *clnt, Probe_PutBucket *put, char *buf
 int
 Probe_PutBucket::ame_request_resume()
 {
-    int        len;
+    fds_uint32_t len;
     char      *adr;
     ame_buf_t *buf;
 
@@ -299,7 +299,7 @@ Probe_PutBucket::ame_request_resume()
 void
 Probe_PutBucket::ame_request_handler()
 {
-    int           len;
+    fds_uint32_t len;
     char         *buf;
     ProbeS3      *clnt;
     ProbeS3Eng   *s3p;
