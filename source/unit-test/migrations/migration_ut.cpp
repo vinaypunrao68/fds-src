@@ -55,6 +55,47 @@ private:
     DLT* dlt_;
 };
 
+/**
+ * Mock migration service
+ */
+class MockMigrationSvc : public FdsMigrationSvc {
+public:
+    MockMigrationSvc(SmIoReqHandler *data_store,
+            const FdsConfigAccessor &conf_helper,
+            fds_log *log,
+            netSessionTblPtr nst,
+            ClusterCommMgrPtr clust_comm_mgr,
+            kvstore::TokenStateDBPtr tokenStateDb)
+    : FdsMigrationSvc(data_store,
+            conf_helper,
+            log,
+            nst,
+            clust_comm_mgr,
+            tokenStateDb)
+    {
+    }
+protected:
+    virtual void setup_migpath_server()
+    {
+        migpath_handler_.reset(new FDSP_MigrationPathRpc(*this, GetLog()));
+
+        std::string ip = netSession::getLocalIp();
+        int port = conf_helper_.get<int>("port");
+        int myIpInt = netSession::ipString2Addr(ip);
+        // TODO(rao): Do not hard code.  Get from config
+        std::string node_name = "localhost-mig";
+        migpath_session_ = nst_->createServerSession<netMigrationPathServerSession>(
+                myIpInt,
+                port,
+                node_name,
+                FDSP_MIGRATION_MGR,
+                migpath_handler_);
+
+        LOGNORMAL << "Migration path server setup ip: "
+                << ip << " port: " << port;
+    }
+};
+
 class MigrationTester : public FdsProcess
 {
 public:
@@ -108,7 +149,7 @@ public:
     FdsMigrationSvc* create_mig_svc(FdsConfigAccessor config_helper,
             ClusterCommMgrPtr clust_comm_mgr_, MObjStore *obj_store)
     {
-        return new FdsMigrationSvc(obj_store,
+        return new MockMigrationSvc(obj_store,
                 config_helper,
                 log_,
                 nst_,

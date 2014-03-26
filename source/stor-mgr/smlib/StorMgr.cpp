@@ -1920,6 +1920,8 @@ ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq)
             break;
         }
 
+        err = ERR_OK;
+
         /* Apply metadata */
         objMetadata.apply(obj.meta_data);
 

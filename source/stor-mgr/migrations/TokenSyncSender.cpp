@@ -33,113 +33,74 @@ using namespace msm::front;  // NOLINT
 using namespace msm::front::euml;   // NOLINT
 typedef msm::front::none msm_none;
 
-/**
- * Leveldb based Token sync log
- * Can be made generic persistent log collector by either templating the underneath db
- * or via inheritance
- */
-class TokenSyncLog {
- public:
-    /* Comparator for ordering synclog based on modification timestamp */
-    class ModTSComparator : public leveldb::Comparator {
-       public:
-        int Compare(const leveldb::Slice& a, const leveldb::Slice& b) const {
-          uint64_t ts1;
-          ObjectID id1;
-          uint64_t ts2;
-          ObjectID id2;
-          TokenSyncLog::parse_key(a, ts1, id1);
-          TokenSyncLog::parse_key(a, ts2, id2);
 
-          if (ts1 < ts2) {
-              return -1;
-          } else if (ts1 > ts2) {
-              return 1;
-          }
-          return ObjectID::compare(id1, id2);
-        }
-        // Ignore the following methods for now:
-        const char* Name() { return "TwoPartComparator"; }
-        void FindShortestSeparator(std::string*, const leveldb::Slice&) const { }
-        void FindShortSuccessor(std::string*) const { }
-      };
+TokenSyncLog::TokenSyncLog(const std::string& name) {
+    name_ = name;
+    cnt_ = 0;
+    leveldb::Options options;
+    options.create_if_missing = true;
+    leveldb::Status status = leveldb::DB::Open(options, name, &db_);
+    LOGDEBUG << "Opening tokendb: " << name;
+    assert(status.ok());
+}
 
- public:
-    explicit TokenSyncLog(const std::string& name) {
-        name_ = name;
-        cnt_ = 0;
-        leveldb::Options options;
-        options.create_if_missing = true;
-        leveldb::Status status = leveldb::DB::Open(options, name, &db_);
-        LOGDEBUG << "Opening tokendb: " << name;
-        assert(status.ok());
+TokenSyncLog::~TokenSyncLog() {
+    LOGDEBUG << "Closing tokendb: " << name_;
+    delete db_;
+}
+
+Error TokenSyncLog::add(const ObjectID& id, const ObjMetaData &entry) {
+    fds::Error err(fds::ERR_OK);
+
+    ObjectBuf buf;
+    entry.serializeTo(buf);
+
+    std::string k = create_key(id, entry);
+    leveldb::Slice key(k);
+    leveldb::Slice value(buf.data.data(), buf.data.length());
+    leveldb::Status status = db_->Put(write_options_, key, value);
+
+    if (!status.ok()) {
+        LOGERROR << "Failed to write key: " << id;
+        err = fds::Error(fds::ERR_DISK_WRITE_FAILED);
+    } else {
+        cnt_++;
     }
 
-    virtual ~TokenSyncLog() {
-        LOGDEBUG << "Closing tokendb: " << name_;
-        delete db_;
-    }
+    return err;
+}
 
-    Error add(const ObjectID& id, const ObjMetaData &entry) {
-        fds::Error err(fds::ERR_OK);
+size_t TokenSyncLog::size() {
+    return cnt_;
+}
 
-        ObjectBuf buf;
-        entry.serializeTo(buf);
+leveldb::Iterator* TokenSyncLog::iterator() {
+    return db_->NewIterator(leveldb::ReadOptions());
+}
 
-        std::string k = create_key(id, entry);
-        leveldb::Slice key(k);
-        leveldb::Slice value(buf.data.data(), buf.data.length());
-        leveldb::Status status = db_->Put(write_options_, key, value);
+/* Extracts objectid and entry from the iterator */
+void TokenSyncLog::parse_iterator(leveldb::Iterator* itr,
+        ObjectID &id, ObjMetaData &entry)
+{
+    uint64_t ts;
+    parse_key(itr->key(), ts, id);
+    entry.deserializeFrom(itr->value());
+}
 
-        if (!status.ok()) {
-            LOGERROR << "Failed to write key: " << id;
-            err = fds::Error(fds::ERR_DISK_WRITE_FAILED);
-        } else {
-            cnt_++;
-        }
+std::string TokenSyncLog::create_key(const ObjectID& id, const ObjMetaData& entry)
+{
+    std::ostringstream oss;
+    oss << entry.getModificationTs()<< "\n" << id;
+    return oss.str();
+}
 
-        return err;
-    }
-
-    size_t size() {
-        return cnt_;
-    }
-
-    leveldb::Iterator* iterator() {
-        return db_->NewIterator(leveldb::ReadOptions());
-    }
-
-    /* Extracts objectid and entry from the iterator */
-    static void parse_iterator(leveldb::Iterator* itr,
-            ObjectID &id, ObjMetaData &entry)
-    {
-        uint64_t ts;
-        parse_key(itr->key(), ts, id);
-        entry.deserializeFrom(itr->value());
-    }
-
- private:
-    static std::string create_key(const ObjectID& id, const ObjMetaData& entry)
-    {
-        std::ostringstream oss;
-        oss << entry.getModificationTs()<< "\n" << id;
-        return oss.str();
-    }
-
-    static void parse_key(const leveldb::Slice& s, uint64_t &ts, ObjectID& id) {
-        // TODO(Rao): Make this more efficient to remove unncessary data copying
-        istringstream iss(s.ToString());
-        std::string id_str;
-        iss >> ts >> id_str;
-        id.SetId(id_str.data(), id_str.length());
-    }
-
-    std::string name_;
-    leveldb::WriteOptions write_options_;
-    leveldb::DB* db_;
-    size_t cnt_;
-};
-typedef boost::shared_ptr<TokenSyncLog> TokenSyncLogPtr;
+void TokenSyncLog::parse_key(const leveldb::Slice& s, uint64_t &ts, ObjectID& id) {
+    // TODO(Rao): Make this more efficient to remove unncessary data copying
+    istringstream iss(s.ToString());
+    std::string id_str;
+    iss >> ts >> id_str;
+    id.SetId(id_str.data(), id_str.length());
+}
 
 /* State machine */
 struct TokenSyncSenderFSM_

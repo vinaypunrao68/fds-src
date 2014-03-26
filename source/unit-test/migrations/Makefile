@@ -43,12 +43,20 @@ user_non_fds_libs := \
     fuse \
     config++ \
     thrift \
-    hiredis
+    hiredis \
+    gmock
 
-user_cpp          := migration_ut.cpp 
-user_no_style     := $(user_cpp) $(user_cc)
+user_cpp          := \
+	migration_ut.cpp \
+	SyncLog_ut.cpp
 
-user_bin_exe      := migration_ut 
+user_no_style     := migration_ut.cpp
+
+user_bin_exe      := \
+	migration_ut \
+	SyncLog_ut
+
 migration_ut	  := migration_ut.cpp
+SyncLog_ut	  := SyncLog_ut.cpp
 
 include $(topdir)/Makefile.incl

@@ -350,6 +350,7 @@ private:
     ObjectStorMgr *objStorMgr;
 
     friend class ObjectStorMgr;
+    friend class MObjStore;
 };
 
 }  // namespace fds

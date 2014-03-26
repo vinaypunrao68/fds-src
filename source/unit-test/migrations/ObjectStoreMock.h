@@ -69,7 +69,7 @@ class MObjStore : public ObjectStorMgr {
 
     void writeObject(const ObjectID& oid, const std::string &data)
     {
-        OpCtx opCtx(OpCtx::PUT, get_fds_timestamp_ms())
+        OpCtx opCtx(OpCtx::PUT, get_fds_timestamp_ms());
         obj_phy_loc_t obj_phy_loc;
         meta_vol_io_t vol;
         vol.vol_uuid = 1;
@@ -149,13 +149,14 @@ class MObjStore : public ObjectStorMgr {
                 LOGERROR << "Failed to write the object: " << objId;
                 break;
             }
+            err = ERR_OK;
 
             /* Apply metadata */
             objMetadata.apply(obj.meta_data);
 
             if (objMetadata.dataPhysicallyExists()) {
                 /* write metadata */
-                smObjDb->put(objId, objMetadata);
+                smObjDb->put_(objId, objMetadata);
                 /* No need to write the object data.  It already exits */
                 continue;
             }
@@ -175,7 +176,7 @@ class MObjStore : public ObjectStorMgr {
             obj_phy_loc_t phy_loc;
             phy_loc.obj_tier = diskio::DataTier::diskTier;
             objMetadata.updatePhysLocation(&phy_loc);
-            smObjDb->put(objId, objMetadata);
+            smObjDb->put_(objId, objMetadata);
         }
         putTokReq->response_cb(err, putTokReq);
 

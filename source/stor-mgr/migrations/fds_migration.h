@@ -162,12 +162,12 @@ public:
     /* Migration counters */
     MigrationCounters mig_cntrs;
 
-private:
+protected:
+    virtual void setup_migpath_server();
     void route_to_mig_actor(const std::string &mig_id, FdsActorRequestPtr req);
     void handle_migsvc_copy_token(FdsActorRequestPtr req);
     void handle_migsvc_copy_token_rpc(FdsActorRequestPtr req);
     void handle_migsvc_migration_complete(FdsActorRequestPtr req);
-    void setup_migpath_server();
     Error ack_copy_token_req(FdsActorRequestPtr req);
 
     inline boost::shared_ptr<FDSP_MigrationPathRespClient>
