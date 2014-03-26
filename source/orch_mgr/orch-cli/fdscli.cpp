@@ -12,13 +12,13 @@
 #include <boost/foreach.hpp>
 #include <fds_process.h>
 
-#define NETWORKCHECK(expr) \
-    try {    \
-        expr ;   \
-    } catch(const att::TTransportException& e) {  \
-        LOGERROR << "error during network call : " << e.what(); \
-        cerr     << "error during network call : " << e.what(); \
-        return 1;  \
+#define NETWORKCHECK(expr)                                     \
+    try {                                                      \
+        expr ;                                                 \
+    } catch(const att::TTransportException& e) {               \
+        LOGERROR << "error during network call : " << e.what();\
+        cerr     << "error during network call : " << e.what();\
+        return 1;                                              \
     }
 
 
