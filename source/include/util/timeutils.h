@@ -10,10 +10,11 @@
 #include "fds_types.h"
 
 namespace fds {
+    using TimeStamp = fds_int64_t;
     namespace util {
 
         extern const boost::posix_time::ptime epoch;
-        fds_int64_t getTimeStampMillis() ;
+        TimeStamp getTimeStampMillis() ;
 
     } // namespace util
 } // namespace fds

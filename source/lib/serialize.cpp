@@ -38,6 +38,10 @@ uint32_t Serializer::writeI64(const int64_t i64) {
     return proto->writeI64(i64);
 }
 
+uint32_t Serializer::writeTimeStamp(const fds::TimeStamp timestamp) {
+    return proto->writeI64(timestamp);
+}
+
 uint32_t Serializer::writeDouble(const double dub) {
     return proto->writeDouble(dub);
 }
@@ -101,6 +105,10 @@ uint32_t Deserializer::readI32(fds_uint32_t& ui32) {
 
 uint32_t Deserializer::readI64(fds_uint64_t& ui64) {
     return proto->readI64((int64_t&)ui64);
+}
+
+uint32_t Deserializer::readTimeStamp(fds::TimeStamp& timestamp) {
+    return proto->readI64((int64_t&)timestamp);
 }
 
 Deserializer::~Deserializer() {
