@@ -37,13 +37,12 @@ void printData(std::string data) {
     for (uint i = 0 ; i < nameValues.size() ; i++ ) {
         LINE << std::setw(20) << nameValues[i].first <<  " : " << nameValues[i].second << "\n";
     }
-    
 }
 
 unsigned long long getUUID(const std::string& encoded) {
-    std::string decoded;
-    redis::Redis::decodeHex(encoded,decoded);
-    return *((unsigned long long*) decoded.c_str());
+    unsigned long long l;
+    sscanf(encoded.c_str() , "%llx", &l);
+    return l;
 }
 
 ConfigDBTool::ConfigDBTool(std::string host, int port) {
