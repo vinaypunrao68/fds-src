@@ -762,7 +762,7 @@ bool DLTManager::storeToFile(std::string filename) {
 void DLTManager::dump() const {
     LOGNORMAL << "Dlt Manager : "
               << "[num.dlts : " << dltList.size() << "] "
-              << "[maxDlts  : " << maxDlts << "]";
+              << "[maxDlts  : " << static_cast<int>(maxDlts) << "]";
 
     std::vector<DLT*>::const_iterator iter;
 
