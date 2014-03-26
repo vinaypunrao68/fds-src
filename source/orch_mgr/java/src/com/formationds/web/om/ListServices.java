@@ -25,7 +25,7 @@ public class ListServices implements RequestHandler {
         this.configPathClient = configPathClient;
     }
 
-    public Resource _handle(Request request) throws Exception {
+    public Resource handle(Request request) throws Exception {
         return new TextResource(canned) {
             @Override
             public String getContentType() {
@@ -34,7 +34,7 @@ public class ListServices implements RequestHandler {
         };
     }
 
-    public Resource handle(Request request) throws Exception {
+    public Resource _handle(Request request) throws Exception {
         List<FDSP_Node_Info_Type> list = configPathClient.ListServices(new FDSP_MsgHdrType());
         ObjectMapper mapper = new ObjectMapper();
         mapper.registerModule(new JsonOrgModule());
