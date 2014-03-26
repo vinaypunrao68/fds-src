@@ -716,27 +716,6 @@ DataMgr::applyBlobUpdate(const BlobObjectList &offsetList, BlobNode *bnode) {
         LOGDEBUG << "Applying update to offset " << offset
                  << " with object id " << offsetList[i].data_obj_id
                  << " and size " << size;
-        FDS_PLOG(dataMgr->GetLog()) << "Apply Blob update BlobName : " << bnode->blob_name << " offset: " << offset << "oid : " << offsetList[i].data_obj_id;
-        // Check if we're appending or not
-        if (offset == bnode->blob_size) {
-            // We're appending. In order to append, the
-            // previous offset's object must be complete
-            // (i.e., at the max object size)
-            // otherwise it'd be a sparse blob.
-            if (bnode->blob_size > 0) {
-                // Check that tail object's size matches
-                // the head object's size.
-                // TODO(Andrew): We're assuming the first
-                // object fixes the object size for the
-                // blob. This should actually be based on
-                // the volume defined max object size.
-                fds_verify(bnode->obj_list[0].size ==
-                           (bnode->obj_list.back()).size);
-
-                // Check that the new object's size is
-                // not larger than the existing object's size.
-                fds_verify(size <= bnode->obj_list[0].size);
-            }
 
         fds_uint32_t blobOffsetIndex = 0;
 
@@ -814,7 +793,6 @@ DataMgr::applyBlobUpdate(const BlobObjectList &offsetList, BlobNode *bnode) {
     LOGDEBUG << "Applied pdate to blob " << *bnode;
 
     return err;
-   }
 }
 
 /**
