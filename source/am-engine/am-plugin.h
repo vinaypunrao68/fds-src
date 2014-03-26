@@ -81,15 +81,15 @@ class AME_Ctx
         fds_uint32_t remaining_len;
         char *buf_pos = ame_curr_input_buf(&remaining_len);
         if (buf_pos != NULL) {
-            unsigned char *end  = ame_in_chain->buf->end;
+            unsigned char *last  = ame_in_chain->buf->last;
 
             // Check if we're able to return len bytes
-            if (end < ((unsigned char *)buf_pos + *len)) {
-                *len = (end - (unsigned char *)buf_pos);
+            if (last < ((unsigned char *)buf_pos + *len)) {
+                *len = (last - (unsigned char *)buf_pos);
                 fds_verify(*len == remaining_len);
                 // The next buffer read will now just read
                 // the end
-                ame_in_chain->buf->pos = end;
+                ame_in_chain->buf->pos = last;
             } else {
                 // Move the next buffer read forward by len
                 ame_in_chain->buf->pos += (*len);
