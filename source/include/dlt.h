@@ -18,6 +18,7 @@
 #include <string>
 #include <ostream>
 #include <util/Log.h>
+#include <util/timeutils.h>
 
 namespace fds {
 #define DLT_VER_INVALID 0  /**< Defines 0 as invalid DLT version */
@@ -184,7 +185,7 @@ namespace fds {
         friend class DLTDiff;
 
         fds_uint64_t version;    /**< OM DLT version */
-        time_t       timestamp;  /**< Time OM created DLT */
+        TimeStamp    timestamp;  /**< Time OM created DLT */
         fds_uint32_t numBitsForToken;      /**< numTokens = 2^numBitsForToken */
         fds_uint32_t numTokens;  /**< Expanded version of width */
         fds_uint32_t depth;      /**< Depth of each token group */
@@ -216,7 +217,7 @@ namespace fds {
         TokenList& getChangedTokens();
 
         fds_uint64_t version;
-        time_t timestamp;
+        TimeStamp timestamp;
 
   private:
         bool fNewDlt;
