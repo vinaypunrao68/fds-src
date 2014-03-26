@@ -65,6 +65,17 @@ uint32_t SyncMetaData::getEstimatedSize() const
     return sz;
 }
 
+bool SyncMetaData::operator==(const SyncMetaData &rhs) const
+{
+    if (born_ts == rhs.born_ts && mod_ts == rhs.mod_ts &&
+        assoc_entries.size() == rhs.assoc_entries.size()) {
+        return (memcmp(assoc_entries.data(),
+                rhs.assoc_entries.data(),
+                sizeof(obj_assoc_entry_t) * assoc_entries.size()) == 0);
+    }
+    return false;
+}
+
 ObjMetaData::ObjMetaData()
 {
     mask = 0;
@@ -77,8 +88,36 @@ ObjMetaData::ObjMetaData()
     phy_loc[3].obj_tier = -1;
 }
 
+ObjMetaData::ObjMetaData(const ObjectBuf& buf) {
+    deserializeFrom(buf);
+}
+
 ObjMetaData::~ObjMetaData()
 {
+}
+
+/**
+ *
+ * @param objid
+ * @param obj_size
+ */
+void ObjMetaData::initialize(const ObjectID& objid, fds_uint32_t obj_size) {
+    memcpy(&obj_map.obj_id.metaDigest, objid.GetId(), sizeof(obj_map.obj_id.metaDigest));
+    obj_map.obj_size = obj_size;
+
+    //Initialize the physical location array
+    phy_loc = &obj_map.loc_map[0];
+    phy_loc[diskio::flashTier].obj_tier = -1;
+    phy_loc[diskio::diskTier].obj_tier = -1;
+    phy_loc[3].obj_tier = -1;
+}
+
+/**
+ *
+ * @param buf
+ */
+void ObjMetaData::unmarshall(const ObjectBuf& buf) {
+    deserializeFrom(buf);
 }
 /**
  * Serialization routine
@@ -116,8 +155,10 @@ uint32_t ObjMetaData::read(serialize::Deserializer* deserializer)
 
     uint32_t nread = deserializer->\
             readBuffer(reinterpret_cast<int8_t*>(&obj_map),sizeof(obj_map));
-    fds_assert(sz == sizeof(obj_map));
+    fds_assert(nread == sizeof(obj_map));
     sz += nread;
+
+    phy_loc = &obj_map.loc_map[0];
 
     sz += deserializer->readVector(assoc_entry);
     fds_assert(assoc_entry.size() == obj_map.obj_num_assoc_entry);
@@ -125,6 +166,7 @@ uint32_t ObjMetaData::read(serialize::Deserializer* deserializer)
     if (syncDataExists()) {
         sz += sync_data.read(deserializer);
     }
+
     fds_assert(sz == getEstimatedSize());
     return sz;
 }
@@ -194,6 +236,119 @@ uint64_t ObjMetaData::getModificationTs() const
     return obj_map.assoc_mod_time;
 }
 
+/**
+ *
+ * @return
+ */
+fds_uint32_t   ObjMetaData::getObjSize() const
+{
+    return obj_map.obj_size;
+}
+
+/**
+ *
+ * @param tier
+ * @return
+ */
+obj_phy_loc_t*   ObjMetaData::getObjPhyLoc(diskio::DataTier tier) {
+    return &phy_loc[tier];
+}
+
+/**
+ *
+ * @return
+ */
+meta_obj_map_t*   ObjMetaData::getObjMap() {
+    return &obj_map;
+}
+
+/**
+ *
+ * @param refcnt
+ */
+void ObjMetaData::setRefCnt(fds_uint16_t refcnt) {
+    obj_map.obj_refcnt = refcnt;
+}
+
+/**
+ *
+ */
+void ObjMetaData::incRefCnt() {
+    obj_map.obj_refcnt++;
+}
+
+/**
+ *
+ */
+void ObjMetaData::decRefCnt() {
+    obj_map.obj_refcnt--;
+}
+/**
+ * Updates volume association entry
+ * @param objId
+ * @param vol_id
+ */
+void ObjMetaData::updateAssocEntry(ObjectID objId, fds_volid_t vol_id) {
+    fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
+    for(int i = 0; i < obj_map.obj_num_assoc_entry; i++) {
+        if (vol_id == assoc_entry[i].vol_uuid) {
+            assoc_entry[i].ref_cnt++;
+            obj_map.obj_refcnt++;
+            return;
+        }
+    }
+    obj_assoc_entry_t new_association;
+    new_association.vol_uuid = vol_id;
+    new_association.ref_cnt = 1;
+    obj_map.obj_refcnt++;
+    assoc_entry.push_back(new_association);
+    obj_map.obj_num_assoc_entry = assoc_entry.size();
+
+}
+
+/**
+ * Delete volumes association
+ * @param objId
+ * @param vol_id
+ */
+void ObjMetaData::deleteAssocEntry(ObjectID objId, fds_volid_t vol_id) {
+    fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
+    for(int i = 0; i < obj_map.obj_num_assoc_entry; i++) {
+        if (vol_id == assoc_entry[i].vol_uuid) {
+            assoc_entry[i].ref_cnt--;
+            obj_map.obj_refcnt--;
+            return;
+        }
+    }
+    // If Volume did not put this objId then it delete is a noop
+}
+
+/**
+ *
+ * @return
+ */
+fds_bool_t ObjMetaData::onFlashTier() {
+    if (phy_loc[diskio::flashTier].obj_tier == diskio::flashTier) {
+        return true;
+    }
+    return false;
+}
+
+/**
+ *
+ * @param in_phy_loc
+ */
+void ObjMetaData::updatePhysLocation(obj_phy_loc_t *in_phy_loc) {
+    memcpy(&phy_loc[(fds_uint32_t)in_phy_loc->obj_tier], in_phy_loc, sizeof(obj_phy_loc_t));
+}
+
+/**
+ *
+ * @param tier
+ */
+void ObjMetaData::removePhyLocation(diskio::DataTier tier) {
+    phy_loc[tier].obj_tier = -1;
+}
 /**
  * Applies incoming data to metadata.
  * @param data
@@ -293,12 +448,13 @@ void ObjMetaData::checkAndDemoteUnsyncedData(const uint64_t& syncTs)
         /* association entries */
         sync_data.assoc_entries = assoc_entry;
 
-        /* clear association information from existing metadata */
+        /* Clear existing modification time.  NOTE: We keep the creation
+         * time.  However, during merge we'll use creation time from replica
+         */
+        obj_map.assoc_mod_time = 0;
+        /* Clear association information from existing metadata */
         obj_map.obj_refcnt = 0;
         obj_map.obj_num_assoc_entry = 0;
-        obj_map.obj_create_time = 0;
-        obj_map.obj_del_time = 0;
-        obj_map.assoc_mod_time = 0;
         assoc_entry.clear();
     }
 }
@@ -444,6 +600,19 @@ bool ObjMetaData::dataPhysicallyExists()
 bool ObjMetaData::syncDataExists() const
 {
     return (mask & SYNCMETADATA_MASK) != 0;
+}
+
+bool ObjMetaData::operator==(const ObjMetaData &rhs) const
+{
+    if (mask == rhs.mask && assoc_entry.size() == rhs.assoc_entry.size() &&
+        memcmp(assoc_entry.data(), rhs.assoc_entry.data(),
+                sizeof(obj_assoc_entry_t) * assoc_entry.size()) == 0) {
+        if (syncDataExists()) {
+            return (sync_data == rhs.sync_data);
+        }
+        return true;
+    }
+    return false;
 }
 
 #if 0

@@ -51,14 +51,14 @@ user_non_fds_libs := \
 
 user_cpp          := \
 	sm_unit_test.cpp \
-	SmObjDb_ut.cpp \
+	ObjMeta_ut.cpp \
 
 user_no_style     := sm_unit_test.cpp
 user_bin_exe      := \
 	sm_unit_test \
-	SmObjDb_ut \
+	ObjMeta_ut \
 
 sm_unit_test      := sm_unit_test.cpp
-SmObjDb_ut	  := SmObjDb_ut.cpp
+ObjMeta_ut	  := ObjMeta_ut.cpp
 
 include $(topdir)/Makefile.incl

@@ -25,6 +25,7 @@
 #include <concurrency/ThreadPool.h>
 #include <SmObjDb.h>
 #include <StorMgr.h>
+#include <fds_timestamp.h>
 
 using namespace FDS_ProtocolInterface;  // NOLINT
 namespace fds {
@@ -68,12 +69,13 @@ class MObjStore : public ObjectStorMgr {
 
     void writeObject(const ObjectID& oid, const std::string &data)
     {
+        OpCtx opCtx(OpCtx::PUT, get_fds_timestamp_ms())
         obj_phy_loc_t obj_phy_loc;
         meta_vol_io_t vol;
         vol.vol_uuid = 1;
         obj_phy_loc.obj_tier = diskio::DataTier::diskTier;
 
-        Error err = this->writeObjectMetaData(oid, data.size(), &obj_phy_loc,
+        Error err = this->writeObjectMetaData(opCtx, oid, data.size(), &obj_phy_loc,
                 false, diskio::DataTier::flashTier, &vol);
         fds_verify(err == ERR_OK);
         writeObjectData(oid, data);

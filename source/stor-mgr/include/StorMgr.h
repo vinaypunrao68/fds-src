@@ -322,7 +322,8 @@ class ObjectStorMgr :
             fds_uint32_t       transId);
     Error checkDuplicate(const ObjectID  &objId,
             const ObjectBuf &objCompData);
-    Error writeObjectMetaData(const ObjectID &objId, 
+    Error writeObjectMetaData(const OpCtx &opCtx,
+            const ObjectID &objId,
             fds_uint32_t  obj_size,
             obj_phy_loc_t *obj_phy_lo,
             fds_bool_t    relocate_flag,
@@ -330,12 +331,15 @@ class ObjectStorMgr :
             meta_vol_io_t  *vio);
     Error readObjMetaData(const ObjectID &objId, 
             ObjMetaData &objMaps);
-    Error deleteObjectMetaData(const ObjectID     &objId, fds_volid_t vol_id);
-    Error writeObject(const ObjectID   &objId,
+    Error deleteObjectMetaData(const OpCtx &opCtx,
+            const ObjectID &objId, fds_volid_t vol_id);
+    Error writeObject(const OpCtx &opCtx,
+            const ObjectID   &objId,
             const ObjectBuf  &objCompData,
             fds_volid_t       volId,
             diskio::DataTier &tier);
-    Error writeObjectToTier(const ObjectID  &objId, 
+    Error writeObjectToTier(const OpCtx &opCtx,
+            const ObjectID  &objId,
             const ObjectBuf &objData,
             diskio::DataTier tier);
     Error writeObjectDataToTier(const ObjectID  &objId,

@@ -261,6 +261,17 @@ public:
 };
 #endif
 
+struct OpCtx {
+    enum OpType {
+        GET,
+        PUT,
+        DELETE,
+        RELOCATE
+    };
+    OpCtx(const OpType &t, const uint64_t &timestamp);
+    OpType type;
+    uint64_t ts;
+};
 /**
  * Stores storage manages object metadata
  * Present implementation is based on level db
@@ -322,13 +333,14 @@ public:
     // TODO(Rao:) Make these private.  Exposed for mock testing
 
     Error get(const ObjectID& objId, ObjMetaData& md);
-    Error put(const ObjectID& objId, const ObjMetaData& md);
+    Error put(const OpCtx &opCtx, const ObjectID& objId, ObjMetaData& md);
 
 
     static Error get_from_snapshot(leveldb::Iterator* itr, ObjMetaData& md);
 private:
     inline fds_token_id getTokenId_(const ObjectID& objId);
     inline ObjectDB* getObjectDB_(const fds_token_id& tokId);
+    Error put_(const ObjectID& objId, const ObjMetaData& md);
     inline bool isTokenInSyncMode_(const fds_token_id& tokId);
 
     std::unordered_map<fds_token_id, ObjectDB *> tokenTbl;
@@ -336,6 +348,8 @@ private:
     std::string stor_prefix;
     fds_mutex *smObjDbMutex;
     ObjectStorMgr *objStorMgr;
+
+    friend class ObjectStorMgr;
 };
 
 }  // namespace fds

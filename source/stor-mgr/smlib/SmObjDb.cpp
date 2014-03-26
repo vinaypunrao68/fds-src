@@ -5,6 +5,12 @@ namespace fds {
 
 extern ObjectStorMgr *objStorMgr;
 
+OpCtx::OpCtx(const OpCtx::OpType &t, const uint64_t &timestamp)
+{
+    type = t;
+    ts = timestamp;
+}
+
 SmObjDb::SmObjDb(ObjectStorMgr *storMgr,
         std::string stor_prefix_,
         fds_log* _log) {
@@ -109,7 +115,28 @@ fds::Error SmObjDb::get(const ObjectID& objId, ObjMetaData& md)
     return err;
 }
 
-fds::Error SmObjDb::put(const ObjectID& objId, const ObjMetaData& md)
+fds::Error SmObjDb::put(const OpCtx &opCtx,
+        const ObjectID& objId, ObjMetaData& md)
+{
+    Error err = ERR_OK;
+
+    if (opCtx.type == OpCtx::RELOCATE) {
+        return put_(objId, md);
+    }
+
+    /* Update timestamps */
+    fds_assert(opCtx.type == OpCtx::PUT || opCtx.type == OpCtx::DELETE);
+    if (opCtx.type == OpCtx::PUT) {
+        if (md.obj_map.obj_create_time == 0) {
+            md.obj_map.obj_create_time = opCtx.ts;
+        }
+    }
+    md.obj_map.assoc_mod_time = opCtx.ts;
+
+    return put_(objId, md);
+}
+
+fds::Error SmObjDb::put_(const ObjectID& objId, const ObjMetaData& md)
 {
     Error err = ERR_OK;
 
@@ -156,7 +183,7 @@ fds::Error SmObjDb::putSyncEntry(const ObjectID& objId,
     }
     md.applySyncData(data);
 
-    return put(objId, md);
+    return put_(objId, md);
 }
 
 Error SmObjDb::resolveEntry(const ObjectID& objId)
@@ -173,7 +200,7 @@ Error SmObjDb::resolveEntry(const ObjectID& objId)
     LOGDEBUG << " Object id: " << objId;
     md.mergeNewAndUnsyncedData();
 
-    return put(objId, md);
+    return put_(objId, md);
 }
 
 void SmObjDb::iterRetrieveObjects(const fds_token_id &token,

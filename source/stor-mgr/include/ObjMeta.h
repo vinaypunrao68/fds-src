@@ -48,6 +48,8 @@ struct SyncMetaData : public serialize::Serializable{
     virtual uint32_t read(serialize::Deserializer* deserializer) override;
     virtual uint32_t getEstimatedSize() const override;
 
+    bool operator== (const SyncMetaData &rhs) const;
+
     /* Born timestamp */
     uint64_t born_ts;
     /* Modification timestamp */
@@ -63,36 +65,17 @@ struct SyncMetaData : public serialize::Serializable{
  */
 class ObjMetaData : public serialize::Serializable {
 private:
-    uint8_t mask;
-    meta_obj_map_t obj_map; // Pointer to the meta_obj_map in the buffer
-    obj_phy_loc_t *phy_loc;
-    std::vector<obj_assoc_entry_t> assoc_entry;
-
-    SyncMetaData sync_data;
 
 public:
     ObjMetaData();
     virtual ~ObjMetaData();
 
 
-    void initialize(const ObjectID& objid, fds_uint32_t obj_size) {
-        memcpy(&obj_map.obj_id.metaDigest, objid.GetId(), sizeof(obj_map.obj_id.metaDigest));
-        obj_map.obj_size = obj_size;
+    void initialize(const ObjectID& objid, fds_uint32_t obj_size);
 
-        //Initialize the physical location array
-        phy_loc = &obj_map.loc_map[0];
-        phy_loc[diskio::flashTier].obj_tier = -1;
-        phy_loc[diskio::diskTier].obj_tier = -1;
-        phy_loc[3].obj_tier = -1;
-    }
+    ObjMetaData(const ObjectBuf& buf);
 
-    ObjMetaData(const ObjectBuf& buf) {
-        deserializeFrom(buf);
-    }
-
-    void unmarshall(const ObjectBuf& buf) { 
-        deserializeFrom(buf);
-    }
+    void unmarshall(const ObjectBuf& buf);
 
     virtual uint32_t write(serialize::Serializer* serializer) const override;
 
@@ -122,81 +105,51 @@ public:
 
     bool dataPhysicallyExists();
 
-    fds_uint32_t   getObjSize() const
-    {
-        return obj_map.obj_size;
-    }
-    obj_phy_loc_t*   getObjPhyLoc(diskio::DataTier tier) {
-        return &phy_loc[tier];
-    }
-    meta_obj_map_t*   getObjMap() {
-        return &obj_map;
-    }
+    fds_uint32_t   getObjSize() const;
+    obj_phy_loc_t*   getObjPhyLoc(diskio::DataTier tier);
+    meta_obj_map_t*   getObjMap();
 
-    void setRefCnt(fds_uint16_t refcnt) { 
-        obj_map.obj_refcnt = refcnt;
-    }
+    void setRefCnt(fds_uint16_t refcnt);
 
-    void incRefCnt() { 
-        obj_map.obj_refcnt++;
-    }
+    void incRefCnt();
 
-    void decRefCnt() { 
-        obj_map.obj_refcnt--;
-    }
+    void decRefCnt();
 
-    void updateAssocEntry(ObjectID objId, fds_volid_t vol_id) { 
-        fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
-        for(int i = 0; i < obj_map.obj_num_assoc_entry; i++) {
-            if (vol_id == assoc_entry[i].vol_uuid) {
-                assoc_entry[i].ref_cnt++;
-                obj_map.obj_refcnt++;
-                return;
-            }
-        }
-        obj_assoc_entry_t new_association;
-        new_association.vol_uuid = vol_id;
-        new_association.ref_cnt = 1;
-        obj_map.obj_refcnt++;
-        assoc_entry.push_back(new_association);
-        obj_map.obj_num_assoc_entry = assoc_entry.size();
+    void updateAssocEntry(ObjectID objId, fds_volid_t vol_id);
 
-    }
-
-    void deleteAssocEntry(ObjectID objId, fds_volid_t vol_id) { 
-        fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
-        for(int i = 0; i < obj_map.obj_num_assoc_entry; i++) {
-            if (vol_id == assoc_entry[i].vol_uuid) {
-                assoc_entry[i].ref_cnt--;
-                obj_map.obj_refcnt--;
-                return;
-            }
-        }
-        // If Volume did not put this objId then it delete is a noop
-    }
+    void deleteAssocEntry(ObjectID objId, fds_volid_t vol_id);
 
     // Tiering/Physical Location update routines
-    fds_bool_t   onFlashTier() { 
-        if (phy_loc[diskio::flashTier].obj_tier == diskio::flashTier) {
-            return true;
-        }
-        return false;
-    }  
+    fds_bool_t onFlashTier();
 
-    void 
-    updatePhysLocation(obj_phy_loc_t *in_phy_loc) { 
-        memcpy(&phy_loc[(fds_uint32_t)in_phy_loc->obj_tier], in_phy_loc, sizeof(obj_phy_loc_t));
-    }
+    void updatePhysLocation(obj_phy_loc_t *in_phy_loc);
+    void removePhyLocation(diskio::DataTier tier);
 
-    void 
-    removePhyLocation(diskio::DataTier tier) {
-        phy_loc[tier].obj_tier = -1;
-    }
+    bool operator==(const ObjMetaData &rhs) const;
 
 private:
     void mergeAssociationArrays_();
 
     friend std::ostream& operator<<(std::ostream& out, const ObjMetaData& objMap);
+    friend class SmObjDb;
+
+    /* Data mask to indicate which metadata members are valid.
+     * When sync is in progress mask will be set to indicate sync_data
+     * is valid.
+     */
+    uint8_t mask;
+
+    /* current object meta data */
+    meta_obj_map_t obj_map;
+
+    /* Physical location entries.  Pointer to field inside obj_map */
+    obj_phy_loc_t *phy_loc;
+
+    /* Volume association entries */
+    std::vector<obj_assoc_entry_t> assoc_entry;
+
+    /* Sync related metadata.  Valid only when mask is set appropriately */
+    SyncMetaData sync_data;
 };
 
 inline std::ostream& operator<<(std::ostream& out, const ObjMetaData& objMd)
