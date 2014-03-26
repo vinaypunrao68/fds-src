@@ -206,5 +206,29 @@ void VolumeMeta::dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol) {
   v_desc->relativePrio = pVol->relativePrio;
 }
 
+std::ostream&
+operator<<(std::ostream& out, const BlobNode& bnode) {
+    out << "Blob " << bnode.blob_name << ", version " << bnode.version
+        << ", size " << bnode.blob_size << ", volume " << bnode.vol_id
+        << ", entries: ";
+
+    for (BlobObjectList::const_iterator it = bnode.obj_list.cbegin();
+         it != bnode.obj_list.cend();
+         it++) {
+        out << "offset " << (*it).offset << " and size "
+            << (*it).size << ", ";
+    }
+
+    return out;
+}
+
+std::ostream&
+operator<<(std::ostream& out, const BlobObjectInfo& binfo) {
+    out << "Blob info offset " << binfo.offset
+        << ", object id " << binfo.data_obj_id
+        << ", size " << binfo.size;
+
+    return out;
+}
 
 }  // namespace fds
