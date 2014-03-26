@@ -46,7 +46,7 @@ function usage() {
     log "   - $(yellow clean)     : remove the data"
     log "   - $(yellow cleanstart): stop+clean+start all"
     log " options :"
-    log "   : --fds-root rootdir"
+    log "   : $(yellow --fds-root/-f) rootdir"
     log " app : om/pm/sm/am/dm/all"
     exit 0
 }
@@ -277,46 +277,53 @@ function cleanlogs() {
 
 # parse input
 # parse out the options & leave the rest is saved
-saved=( "$@" )
-n=0
-num=$#
-for ((n=0; num>0 && n<num; n++ ))
+args=( "$@" )
+for ((n=0; n<$#; n++ ))
 do
-    #echo "$n, $#, $num"
-    opt=${saved[$n]}
+    opt=${args[$n]}
     case $opt in
         -f|--fds-root)
-            k=$((n+1))
-            FDSROOT=${saved[${k}]}
-            unset saved[${n}]
-            unset saved[${k}]
-            (( n-=2 ))
-            (( num-=2 ))
+            (( n++ ))
+            if [[ $n -ge $# ]]; then 
+                logerror "value expected for fdsroot"
+                usage
+            fi
+            FDSROOT=${args[$n]}
             ;;
+        -h|--help)
+            usage
+            ;;
+        *)
+            if [[ -z $CMD ]] ; then CMD=$opt
+            elif [[ -z $APP ]] ; then APP=$opt
+            else
+                logerror "unknown option [$opt] "
+                usage
+            fi
     esac
 done
 
-CMD=${saved[0]}
-APP=${saved[1]}
-
+# check the values
 CMD=${CMD:="status"}
 APP=${APP:="all"}
-
 FDSROOT=${FDSROOT:=/fds}
-#echo ${saved[@]}
 
+#echo ${args[@]}
 #echo "CMD=${CMD} APP=${APP} ROOT=${FDSROOT} SOURCEDIR=${SOURCEDIR}"
-
 #exit 0
 
 case "${CMD}" in
     start|stop|restart|status|clean|clogs|cleanstart|startclean) ;;
-    *) usage ;;
+    *) 
+        logerror "unknown cmd [$CMD] "
+        usage ;;
 esac
 
 case "${APP}" in
     om|am|dm|sm|pm|all|redis) ;;
-    *) usage ;;
+    *) 
+        logerror "unknown app [$APP]"
+        usage ;;
 esac
 
 case "${CMD}" in
