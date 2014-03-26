@@ -256,6 +256,7 @@ class OM_SmContainer : public OM_AgentContainer
     virtual ~OM_SmContainer() {}
 
     void om_splice_nodes_pend(NodeList *addNodes, NodeList *rmNodes);
+    void om_rm_nodes_added_pend(const NodeUuidSet& rm_nodes);
 
     virtual void agent_activate(NodeAgent::pointer agent);
     virtual void agent_deactivate(NodeAgent::pointer agent);
@@ -457,7 +458,16 @@ class OM_NodeContainer : public DomainContainer
 class WaitNdsEvt
 {
  public:
-    WaitNdsEvt() {}
+    explicit WaitNdsEvt(const NodeUuidSet& sms)
+            : sm_services(sms.begin(), sms.end()) {}
+
+    NodeUuidSet sm_services;
+};
+
+class NoPersistEvt
+{
+ public:
+    NoPersistEvt() {}
 };
 
 class LoadVolsEvt
@@ -466,10 +476,15 @@ class LoadVolsEvt
     LoadVolsEvt() {}
 };
 
-class RegNdDoneEvt
+class RegNodeEvt
 {
  public:
-    RegNdDoneEvt() {}
+    RegNodeEvt(const NodeUuid& uuid,
+               fpi::FDSP_MgrIdType type)
+            : svc_uuid(uuid), svc_type(type) {}
+
+    NodeUuid svc_uuid;
+    fpi::FDSP_MgrIdType svc_type;
 };
 
 class TimeoutEvt
@@ -537,7 +552,8 @@ class OM_NodeDomainMod : public Module
      * otherwise will update DLT (relative to persisted DLT)
      * appropriately. Will also bring up all known volumes.
      */
-    virtual Error om_load_state(kvstore::ConfigDB* configDB);
+    virtual Error om_load_state(kvstore::ConfigDB* _configDB);
+    virtual Error om_load_volumes();
 
     /**
      * Register node info to the domain manager.
@@ -601,12 +617,14 @@ class OM_NodeDomainMod : public Module
      */
     void local_domain_event(WaitNdsEvt const &evt);
     void local_domain_event(DltUpEvt const &evt);
-    void local_domain_event(RegNdDoneEvt const &evt);
+    void local_domain_event(RegNodeEvt const &evt);
     void local_domain_event(TimeoutEvt const &evt);
+    void local_domain_event(NoPersistEvt const &evt);
 
   protected:
     fds_bool_t                       om_test_mode;
     OM_NodeContainer                *om_locDomain;
+    kvstore::ConfigDB               *configDB;
 
     FSM_NodeDomain                  *domain_fsm;
 };

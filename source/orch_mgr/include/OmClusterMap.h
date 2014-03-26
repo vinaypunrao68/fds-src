@@ -27,7 +27,6 @@ namespace fds {
  */
 typedef std::atomic<fds_uint64_t>           AtomicMapVersion;
 typedef std::unordered_map<NodeUuid, OM_SmAgent::pointer, UuidHash> NodeMap;
-typedef std::unordered_set<NodeUuid, UuidHash> NodeUuidSet;
 
 /**
  * Defines the current state of the cluster at given points in time.

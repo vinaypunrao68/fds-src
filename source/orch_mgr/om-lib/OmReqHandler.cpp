@@ -303,7 +303,6 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::RemoveNode(
                      << std::dec << ", result: " << err.GetErrstr();
             return -1;
         }
-        domain->om_update_cluster();
     }
     catch(...) {
         LOGERROR << "Orch Mgr encountered exception while "
@@ -721,11 +720,6 @@ void OrchMgr::FDSP_OMControlPathReqHandler::RegisterNode(
     LOGNORMAL << "Done Registered new node " << reg_node_req->node_name << std::hex
               << ", node uuid " << reg_node_req->node_uuid.uuid
               << ", node type " << reg_node_req->node_type << std::dec;
-
-    // TODO(Andrew): for now, let's start the cluster update process now.
-    // This should eventually be decoupled from registration.
-    //
-    domain->om_update_cluster();
 }
 
 void OrchMgr::FDSP_OMControlPathReqHandler::NotifyQueueFull(
