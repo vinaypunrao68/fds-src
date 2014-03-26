@@ -383,7 +383,8 @@ AgentContainer::~AgentContainer()
 Error
 AgentContainer::agent_register(const NodeUuid       &uuid,
                                const FdspNodeRegPtr  msg,
-                               NodeAgent::pointer   *out)
+                               NodeAgent::pointer   *out,
+                               bool                  activate)
 {
     fds_bool_t         add;
     std::string        name;
@@ -394,7 +395,7 @@ AgentContainer::agent_register(const NodeUuid       &uuid,
     name  = msg->node_name;
     agent = NodeAgent::agt_cast_ptr(agent_info(uuid));
     if (agent == NULL) {
-        add   = true;
+        add   = activate;
         agent = NodeAgent::agt_cast_ptr(rs_alloc_new(uuid));
         agent->node_fill_inventory(msg);
 
@@ -438,19 +439,17 @@ DomainContainer::~DomainContainer() {}
 DomainContainer::DomainContainer(char const *const name)
     : dc_om_master(NULL), dc_om_nodes(NULL),
       dc_sm_nodes(NULL), dc_dm_nodes(NULL),
-      dc_am_nodes(NULL), dc_pm_nodes(NULL), dc_nodes(NULL) {}
+      dc_am_nodes(NULL), dc_pm_nodes(NULL) {}
 
 DomainContainer::DomainContainer(char const *const       name,
                                  OmAgent::pointer        master,
-                                 SmContainer::pointer    sm,
-                                 DmContainer::pointer    dm,
-                                 AmContainer::pointer    am,
-                                 PmContainer::pointer    pm,
-                                 OmContainer::pointer    om,
-                                 AgentContainer::pointer node)
+                                 AgentContainer::pointer sm,
+                                 AgentContainer::pointer dm,
+                                 AgentContainer::pointer am,
+                                 AgentContainer::pointer pm,
+                                 AgentContainer::pointer om)
     : dc_om_master(master), dc_om_nodes(om),
-      dc_sm_nodes(sm), dc_dm_nodes(dm), dc_am_nodes(am),
-      dc_pm_nodes(pm), dc_nodes(node) {}
+      dc_sm_nodes(sm), dc_dm_nodes(dm), dc_am_nodes(am), dc_pm_nodes(pm) {}
 
 // dc_container_frm_msg
 // --------------------
@@ -507,7 +506,7 @@ DomainContainer::dc_register_node(const NodeUuid       &uuid,
     // should not register until its control interface is
     // fully initialized.
     sleep(2);
-    return nodes->agent_register(uuid, msg, agent);
+    return nodes->agent_register(uuid, msg, agent, true);
 }
 
 // dc_unregister_node

@@ -349,7 +349,8 @@ class AgentContainer : public RsContainer
      */
     virtual Error agent_register(const NodeUuid       &uuid,
                                  const FdspNodeRegPtr  msg,
-                                 NodeAgent::pointer   *out);
+                                 NodeAgent::pointer   *out,
+                                 bool                  activate = true);
     virtual Error agent_unregister(const NodeUuid &uuid, const std::string &name);
 
     /**
@@ -361,6 +362,7 @@ class AgentContainer : public RsContainer
                     NodeAgent::pointer               agent);
 
   protected:
+    FdspNodeType                       ac_id;
     boost::shared_ptr<netSessionTbl>   ac_cpSessTbl;
 
     virtual ~AgentContainer();
@@ -372,6 +374,10 @@ class PmContainer : public AgentContainer
   public:
     typedef boost::intrusive_ptr<PmContainer> pointer;
     PmContainer(FdspNodeType id) : AgentContainer(id) {}
+
+    static inline PmContainer::pointer agt_cast_ptr(RsContainer::pointer ptr) {
+        return static_cast<PmContainer *>(get_pointer(ptr));
+    }
 
   protected:
     virtual ~PmContainer() {}
@@ -391,6 +397,10 @@ class SmContainer : public AgentContainer
                     NodeAgentDpRespPtr               resp,
                     NodeAgent::pointer               agent);
 
+    static inline SmContainer::pointer agt_cast_ptr(RsContainer::pointer ptr) {
+        return static_cast<SmContainer *>(get_pointer(ptr));
+    }
+
   protected:
     virtual ~SmContainer() {}
     virtual Resource *rs_new(const ResourceUUID &uuid) {
@@ -403,6 +413,10 @@ class DmContainer : public AgentContainer
   public:
     typedef boost::intrusive_ptr<DmContainer> pointer;
     DmContainer(FdspNodeType id) : AgentContainer(id) {}
+
+    static inline DmContainer::pointer agt_cast_ptr(RsContainer::pointer ptr) {
+        return static_cast<DmContainer *>(get_pointer(ptr));
+    }
 
   protected:
     virtual ~DmContainer() {}
@@ -417,6 +431,10 @@ class AmContainer : public AgentContainer
     typedef boost::intrusive_ptr<AmContainer> pointer;
     AmContainer(FdspNodeType id) : AgentContainer(id) {}
 
+    static inline AmContainer::pointer agt_cast_ptr(RsContainer::pointer ptr) {
+        return static_cast<AmContainer *>(get_pointer(ptr));
+    }
+
   protected:
     virtual ~AmContainer() {}
     virtual Resource *rs_new(const ResourceUUID &uuid) {
@@ -429,6 +447,10 @@ class OmContainer : public AgentContainer
   public:
     typedef boost::intrusive_ptr<OmContainer> pointer;
     OmContainer(FdspNodeType id) : AgentContainer(id) {}
+
+    static inline OmContainer::pointer agt_cast_ptr(RsContainer::pointer ptr) {
+        return static_cast<OmContainer *>(get_pointer(ptr));
+    }
 
   protected:
     virtual ~OmContainer() {}
@@ -450,12 +472,11 @@ class DomainContainer
     explicit DomainContainer(char const *const name);
     DomainContainer(char const *const       name,
                     OmAgent::pointer        master,
-                    SmContainer::pointer    sm,
-                    DmContainer::pointer    dm,
-                    AmContainer::pointer    am,
-                    PmContainer::pointer    pm,
-                    OmContainer::pointer    om,
-                    AgentContainer::pointer node);
+                    AgentContainer::pointer sm,
+                    AgentContainer::pointer dm,
+                    AgentContainer::pointer am,
+                    AgentContainer::pointer pm,
+                    AgentContainer::pointer om);
 
     virtual Error dc_register_node(const NodeUuid       &uuid,
                                    const FdspNodeRegPtr  msg,
@@ -473,7 +494,7 @@ class DomainContainer
      * Get/set methods for different containers.
      */
     inline SmContainer::pointer dc_get_sm_nodes() {
-        return dc_sm_nodes;
+        return SmContainer::agt_cast_ptr(dc_sm_nodes);
     }
     inline void dc_set_sm_nodes(SmContainer::pointer sm) {
         fds_assert(dc_sm_nodes == NULL);
@@ -481,7 +502,7 @@ class DomainContainer
     }
 
     inline DmContainer::pointer dc_get_dm_nodes() {
-        return dc_dm_nodes;
+        return DmContainer::agt_cast_ptr(dc_dm_nodes);
     }
     inline void dc_set_dm_nodes(DmContainer::pointer dm) {
         fds_assert(dc_dm_nodes == NULL);
@@ -489,7 +510,7 @@ class DomainContainer
     }
 
     inline AmContainer::pointer dc_get_am_nodes() {
-        return dc_am_nodes;
+        return AmContainer::agt_cast_ptr(dc_am_nodes);
     }
     inline void dc_set_am_nodes(AmContainer::pointer am) {
         fds_assert(dc_am_nodes == NULL);
@@ -497,7 +518,7 @@ class DomainContainer
     }
 
     inline PmContainer::pointer dc_get_pm_nodes() {
-        return dc_pm_nodes;
+        return PmContainer::agt_cast_ptr(dc_pm_nodes);
     }
     inline void dc_set_pm_nodes(PmContainer::pointer pm) {
         fds_assert(dc_pm_nodes == NULL);
@@ -505,7 +526,7 @@ class DomainContainer
     }
 
     inline OmContainer::pointer dc_get_om_nodes() {
-        return dc_om_nodes;
+        return OmContainer::agt_cast_ptr(dc_om_nodes);
     }
     inline void dc_set_om_nodes(OmContainer::pointer om) {
         fds_assert(dc_om_nodes == NULL);
@@ -514,12 +535,11 @@ class DomainContainer
 
   protected:
     OmAgent::pointer         dc_om_master;
-    OmContainer::pointer     dc_om_nodes;
-    SmContainer::pointer     dc_sm_nodes;
-    DmContainer::pointer     dc_dm_nodes;
-    AmContainer::pointer     dc_am_nodes;
-    PmContainer::pointer     dc_pm_nodes;
-    AgentContainer::pointer  dc_nodes;
+    AgentContainer::pointer  dc_om_nodes;
+    AgentContainer::pointer  dc_sm_nodes;
+    AgentContainer::pointer  dc_dm_nodes;
+    AgentContainer::pointer  dc_am_nodes;
+    AgentContainer::pointer  dc_pm_nodes;
 
   private:
     mutable boost::atomic<int>  rs_refcnt;
