@@ -46,6 +46,20 @@ uint32_t Serializer::writeString(const std::string& str) {
     return proto->writeString(str);
 }
 
+uint32_t Serializer::writeBuffer(const int8_t* buf, const uint32_t& len) {
+    // TODO(Rao): Thrift has write(buf,sz_bytes) method.  Use that instead
+    // of this inefficient loop
+    uint32_t cnt = 0;
+    for (uint32_t i = 0; i < len; i++) {
+        uint32_t ret = writeByte(buf[i]);
+        if (ret == 0) {
+            break;
+        }
+        cnt += ret;
+    }
+    return cnt;
+}
+
 std::string Serializer::getBufferAsString() {
     TMemoryBuffer *memBuffer = dynamic_cast<TMemoryBuffer*>(proto->getTransport().get());
     if (!memBuffer) return "";
@@ -101,6 +115,20 @@ uint32_t Deserializer::readI32(fds_uint32_t& ui32) {
 
 uint32_t Deserializer::readI64(fds_uint64_t& ui64) {
     return proto->readI64((int64_t&)ui64);
+}
+
+uint32_t Deserializer::readBuffer(int8_t* buf, const uint32_t& len)
+{
+    // TODO(Rao): Use efficient thrift read than this inefficient loop
+    uint32_t readCnt = 0;
+    for (uint32_t i = 0; i < len; i++) {
+        uint32_t ret = readByte(buf[i]);
+        if (ret == 0) {
+            break;
+        }
+        readCnt += ret;
+    }
+    return readCnt;
 }
 
 Deserializer::~Deserializer() {

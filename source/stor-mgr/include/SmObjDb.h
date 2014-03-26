@@ -159,7 +159,7 @@ public:
         // TODO(Rao): impl
     }
 
-    bool objectExists() {
+    bool dataPhysicallyExists() {
         // TODO(Rao)
         return true;
     }
@@ -298,10 +298,6 @@ public:
     void snapshot(const fds_token_id& tokId,
             leveldb::DB*& db, leveldb::ReadOptions& options);
 
-    fds::Error Get(const ObjectID& obj_id, ObjectBuf& obj_buf);
-
-    fds::Error Put(const ObjectID& obj_id, ObjectBuf& obj_buf);
-
 #if 0
     Error readObjectLocations(const View &view, const ObjectID &objId,
             diskio::MetaObjMap &objMaps);
@@ -321,7 +317,7 @@ public:
             FDSP_MigrateObjectList &obj_list,
             SMTokenItr &itr);
 
-    bool objectExists(const ObjectID& obj_id, bool fModifyMode = false);
+    bool dataPhysicallyExists(const ObjectID& obj_id);
 
     // TODO(Rao:) Make these private.  Exposed for mock testing
 

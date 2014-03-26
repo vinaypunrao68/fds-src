@@ -841,8 +841,9 @@ struct FDSP_MigrateObjectMetadata
     1: FDSP_Token              token_id
     2: FDS_ObjectIdType        object_id
     3: i32                     obj_len
-    4: i64                     modification_ts
-    5: FDSP_ObjectVolumeAssociationList associations
+    4: i64                     born_ts
+    5: i64                     modification_ts
+    6: FDSP_ObjectVolumeAssociationList associations
 }
 
 /* Complete data (metadata included) for migration object */

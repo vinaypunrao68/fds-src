@@ -817,7 +817,6 @@ ObjectStorMgr::writeObjectMetaData(const ObjectID& objId,
     Error err(ERR_OK);
 
     ObjMetaData objMap;
-    ObjectBuf          objData;
 
     LOGDEBUG << "Appending new location for object " << objId;
 
@@ -850,9 +849,7 @@ ObjectStorMgr::writeObjectMetaData(const ObjectID& objId,
       objMap.removePhyLocation(fromTier);
     }
 
-    objData.size = objMap.getMapSize();
-    objData.data.assign(objMap.marshall(), objData.size);
-    err = smObjDb->Put(objId, objData);
+    err = smObjDb->put(objId, objMap);
     if (err == ERR_OK) {
         LOGDEBUG << "Updating object location for object "
                 << objId << " to " << objMap;
@@ -870,21 +867,7 @@ ObjectStorMgr::writeObjectMetaData(const ObjectID& objId,
 Error
 ObjectStorMgr::readObjMetaData(const ObjectID &objId,
         ObjMetaData& objMap) {
-    Error err(ERR_OK);
-    ObjectBuf objData;
-
-    objData.size = 0;
-    objData.data = "";
-    err = smObjDb->Get(objId, objData);
-    if (err == ERR_OK) {
-        //string_to_obj_map(objData.data, objMap);
-        LOGDEBUG << "Retrieving object location for object "
-                << objId << " as " << objData.data;
-       objMap.deserializeFrom(objData);
-    } else {
-        LOGDEBUG << "No object location found for object " << objId << " in index DB";
-    }
-    return err;
+    return smObjDb->get(objId, objMap);
 }
 
 Error
@@ -892,7 +875,6 @@ ObjectStorMgr::deleteObjectMetaData(const ObjectID& objId, fds_volid_t vol_id) {
 
     Error err(ERR_OK);
     // NOTE !!!
-    ObjectBuf          objData;
     ObjMetaData objMap;
 
     /*
@@ -918,9 +900,7 @@ ObjectStorMgr::deleteObjectMetaData(const ObjectID& objId, fds_volid_t vol_id) {
      * Set the ref_cnt to 0, which will be the delete marker for this object and Garbage collector feeds on these objects
      */
     objMap.deleteAssocEntry(objId, vol_id);
-    objData.size = objMap.getMapSize();
-    objData.data.assign(objMap.marshall(), objData.size);
-    err = smObjDb->Put(objId, objData);
+    err = smObjDb->put(objId, objMap);
     if (err == ERR_OK) {
         LOGDEBUG << "Setting the delete marker for object "
                 << objId << " to " << objMap;
@@ -934,9 +914,18 @@ ObjectStorMgr::deleteObjectMetaData(const ObjectID& objId, fds_volid_t vol_id) {
 
 Error
 ObjectStorMgr::readObject(const SmObjDb::View& view, const ObjectID& objId,
+        ObjMetaData& objMetadata,
         ObjectBuf& objData) {
     diskio::DataTier tier;
-    return readObject(view, objId, objData, tier);
+    return readObject(view, objId, objMetadata, objData, tier);
+}
+
+Error
+ObjectStorMgr::readObject(const SmObjDb::View& view, const ObjectID& objId,
+        ObjectBuf& objData) {
+    ObjMetaData objMetadata;
+    diskio::DataTier tier;
+    return readObject(view, objId, objMetadata, objData, tier);
 }
 
 /*
@@ -949,6 +938,7 @@ ObjectStorMgr::readObject(const SmObjDb::View& view, const ObjectID& objId,
 Error 
 ObjectStorMgr::readObject(const SmObjDb::View& view,
                           const ObjectID   &objId,
+                          ObjMetaData      &objMetadata,
                           ObjectBuf        &objData,
                           diskio::DataTier &tierUsed) {
     Error err(ERR_OK);
@@ -958,7 +948,6 @@ ObjectStorMgr::readObject(const SmObjDb::View& view,
     meta_vol_io_t   vio;
     meta_obj_id_t   oid;
     diskio::DataTier tierToUse;
-    ObjMetaData objMap;
 
     /*
      * TODO: Why to we create another oid structure here?
@@ -972,12 +961,12 @@ ObjectStorMgr::readObject(const SmObjDb::View& view,
     /*
      * Read all of the object's locations
      */
-    err = readObjMetaData(objId, objMap);
+    err = readObjMetaData(objId, objMetadata);
     if (err == ERR_OK) {
         /*
          * Read obj from flash if we can
          */
-        if (objMap.onFlashTier() ) {
+        if (objMetadata.onFlashTier() ) {
             tierToUse = flashTier;
         } else {
             /*
@@ -987,13 +976,13 @@ ObjectStorMgr::readObject(const SmObjDb::View& view,
         }
         // Update the request with the tier info from disk
         disk_req->setTier(tierToUse);
-        disk_req->set_phy_loc(objMap.getObjPhyLoc(tierToUse));
+        disk_req->set_phy_loc(objMetadata.getObjPhyLoc(tierToUse));
         tierUsed = tierToUse;
 
         LOGDEBUG << "Reading object " << objId << " from "
                 << ((disk_req->getTier() == diskio::diskTier) ? "disk" : "flash")
                 << " tier";
-        objData.size = objMap.getObjSize();
+        objData.size = objMetadata.getObjSize();
         objData.data.resize(objData.size, 0);
         err = dio_mgr.disk_read(disk_req);
         if ( err != ERR_OK) {
@@ -1051,7 +1040,7 @@ ObjectStorMgr::checkDuplicate(const ObjectID&  objId,
             fds_panic("Encountered a hash collision checking object %s. Bailing out now!",
                       objId.ToHex().c_str());
         }
-    } else if (err == ERR_SM_OBJ_METADATA_NOT_FOUND || err == ERR_DISK_READ_FAILED) {
+    } else if (err == ERR_DISK_READ_FAILED) {
         /*
          * This error indicates the DB entry was empty
          * so we can reset the error to OK.
@@ -1081,10 +1070,83 @@ ObjectStorMgr::writeObject(const ObjectID   &objId,
     return writeObjectToTier(objId, objData, tier);
 }
 
+/**
+ * Based on bWriteMetaData writes/updates the object metadata.
+ * Then writes object data to tier
+ * @param objId
+ * @param objData
+ * @param tier
+ * @return
+ */
 Error 
 ObjectStorMgr::writeObjectToTier(const ObjectID  &objId, 
         const ObjectBuf &objData,
         diskio::DataTier tier) {
+    Error err(ERR_OK);
+
+    fds_verify((tier == diskio::diskTier) ||
+               (tier == diskio::flashTier));
+
+    // TODO(Rao): Use writeObjectDataToTier() here
+
+    diskio::DataIO& dio_mgr = diskio::DataIO::disk_singleton();
+    SmPlReq     *disk_req;
+    meta_vol_io_t   vio;
+    meta_obj_id_t   oid;
+    fds_bool_t      pushOk;
+
+    /*
+     * TODO: Why to we create another oid structure here?
+     * Just pass a ref to objId?
+     */
+    memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
+
+    LOGDEBUG << "Writing object " << objId << " into the "
+             << ((tier == diskio::diskTier) ? "disk" : "flash")
+             << " tier";
+
+    /* Disk write */
+    disk_req = new SmPlReq(vio, oid, (ObjectBuf *)&objData, true, tier); // blocking call
+    err = dio_mgr.disk_write(disk_req);
+    if (err != ERR_OK) {
+        LOGDEBUG << " 1. Disk Write Err: " << err; 
+        delete disk_req;
+        return err;
+    }
+    
+    /* Metadata update */
+    // TODO(Rao): Looks like were are writing wrong vio (volume association)
+    // here.
+    err = writeObjectMetaData(objId, objData.data.length(),
+                disk_req->req_get_phy_loc(), false, diskTier, &vio);
+
+
+    if ((err == ERR_OK) &&
+        (tier == diskio::flashTier)) {
+        /*
+         * If written to flash, add to dirty flash list
+         */
+        pushOk = dirtyFlashObjs->push(new ObjectID(objId));
+        fds_verify(pushOk == true);
+    }
+
+    delete disk_req;
+    return err;
+}
+
+/**
+ * Writes the object data to storage tier.
+ * @param objId
+ * @param objData
+ * @param tier
+ * @param phys_loc - on return phys_loc is returned
+ * @return
+ */
+Error
+ObjectStorMgr::writeObjectDataToTier(const ObjectID  &objId,
+        const ObjectBuf &objData,
+        diskio::DataTier tier,
+        obj_phy_loc_t& phys_loc) {
     Error err(ERR_OK);
 
     fds_verify((tier == diskio::diskTier) ||
@@ -1102,32 +1164,31 @@ ObjectStorMgr::writeObjectToTier(const ObjectID  &objId,
      */
     memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
 
-    LOGDEBUG << "Writing object " << objId << " into the "
+    LOGDEBUG << "Writing object data " << objId << " into the "
              << ((tier == diskio::diskTier) ? "disk" : "flash")
              << " tier";
+
+    /* Disk write */
     disk_req = new SmPlReq(vio, oid, (ObjectBuf *)&objData, true, tier); // blocking call
     err = dio_mgr.disk_write(disk_req);
     if (err != ERR_OK) {
-        LOGDEBUG << " 1. Disk Write Err: " << err; 
+        LOGDEBUG << " 1. Disk Write Err: " << err;
         delete disk_req;
         return err;
     }
-    
-    err = writeObjectMetaData(objId, objData.data.length(),
-            disk_req->req_get_phy_loc(), false, diskTier, &vio);
-    if ((err == ERR_OK) &&
-        (tier == diskio::flashTier)) {
+
+    if (tier == diskio::flashTier) {
         /*
          * If written to flash, add to dirty flash list
          */
         pushOk = dirtyFlashObjs->push(new ObjectID(objId));
         fds_verify(pushOk == true);
     }
-
+    phys_loc = *disk_req->req_get_phy_loc();
     delete disk_req;
+
     return err;
 }
-
 
 Error 
 ObjectStorMgr::relocateObject(const ObjectID &objId,
@@ -1547,9 +1608,10 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
 
     if (!objBufPtr) {
         ObjectBuf objData;
+        ObjMetaData objMetadata;
         objData.size = 0;
         objData.data = "";
-        err = readObject(SmObjDb::SYNC_MERGED, objId, objData, tierUsed);
+        err = readObject(SmObjDb::SYNC_MERGED, objId, objMetadata, objData, tierUsed);
         if (err == fds::ERR_OK) {
             objBufPtr = objCache->object_alloc(volId, objId, objData.size);
             memcpy((void *)objBufPtr->data.c_str(), (void *)objData.data.c_str(), objData.size);
@@ -1724,7 +1786,7 @@ ObjectStorMgr::GetObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
     // TODO (Rao) - Uncomment this code
     // check if we have the object or else we need to proxy it 
     /**
-    if (!smObjDb->objectExists(oid,false)) {
+    if (!smObjDb->dataPhysicallyExists(oid)) {
         LOGWARN << "object id " << oid << " is not here , find it else where";
         
         getProxyClient(oid,fdsp_msg)->GetObject(*fdsp_msg, *get_obj_req);
@@ -1840,21 +1902,24 @@ ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq)
     
     for (auto obj : objList) {
         ObjectID objId(obj.meta_data.object_id.digest);
-        /* TODO: Update obj metadata */
 
-        /* Doing a look up before a commit a write */
-        /* TODO:  Ideally if writeObject returns us an error for duplicate
-         * write we don't need this check
-         */ 
-        ObjMetaData objMap;
-        err = readObjMetaData(objId, objMap);
-        if (err == ERR_OK) {
+        ObjMetaData objMetadata;
+        err = smObjDb->get(objId, objMetadata);
+        if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
+            fds_assert(!"ObjMetadata read failed" );
+            LOGERROR << "Failed to write the object: " << objId;
+            break;
+        }
+
+        /* Apply metadata */
+        objMetadata.apply(obj.meta_data);
+
+        if (objMetadata.dataPhysicallyExists()) {
+            /* write metadata */
+            smObjDb->put(objId, objMetadata);
+            /* No need to write the object data.  It already exits */
             continue;
         }
-        /* NOTE: Not checking for other errors.  If read failed then write should also
-         * fail
-         */
-        err = ERR_OK;
 
         /* Moving the data to not incur copy penalty */
         DBG(std::string temp_data = obj.data);
@@ -1864,12 +1929,17 @@ ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq)
         fds_assert(temp_data == objData.data);
         obj.data.clear();
 
-        err = writeObjectToTier(objId, objData, DataTier::diskTier);
+        /* write data to storage tier */
+        obj_phy_loc_t phys_loc;
+        err = writeObjectDataToTier(objId, objData, DataTier::diskTier, phys_loc);
         if (err != ERR_OK) {
             LOGERROR << "Failed to write the object: " << objId;
             break; 
         }
 
+        /* write the metadata */
+        objMetadata.updatePhysLocation(&phys_loc);
+        smObjDb->put(objId, objMetadata);
         counters_.put_tok_objs.incr();
     }
 
@@ -1997,8 +2067,6 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
         case FDS_SM_WRITE_TOKEN_OBJECTS:
         {
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a write token ibjects";
-            // SmIoPutTokObjectsReq *putTokReq = static_cast<SmIoPutTokObjectsReq*>(io);
-            // putTokReq->response_cb(err, putTokReq);
             threadPool->schedule(&ObjectStorMgr::putTokenObjectsInternal, objStorMgr, io);
             break;
         }

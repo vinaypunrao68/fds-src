@@ -80,34 +80,12 @@ void SmObjDb::snapshot(const fds_token_id& tokId,
     options.snapshot = db->GetSnapshot();
     return;
 }
-bool SmObjDb::objectExists(const ObjectID& objId, bool fModifyMode) {
+bool SmObjDb::dataPhysicallyExists(const ObjectID& objId) {
 
     ObjMetaData md;
     Error err = get(objId, md);
     if (err != ERR_OK) return false;
-    return md.objectExists();
-}
-
-fds::Error SmObjDb::Get(const ObjectID& obj_id, ObjectBuf& obj_buf) {
-    fds_token_id tokId = getTokenId_(obj_id);
-    fds::Error err = ERR_OK;
-    ObjectDB *odb = getObjectDB(tokId);
-    if (odb) {
-        err =  odb->Get(obj_id, obj_buf);
-    }
-    return err;
-}
-
-fds::Error SmObjDb::Put(const ObjectID& obj_id, ObjectBuf& obj_buf) {
-    fds_token_id tokId = getTokenId_(obj_id);
-    fds::Error err = ERR_OK;
-    ObjectDB *odb = getObjectDB(tokId);
-    if (odb) {
-        err =  odb->Put(obj_id, obj_buf);
-    }
-    DBG(LOGDEBUG << "token: " << tokId <<  " dbId: " << GetSmObjDbId(tokId)
-            << " Obj id: " << obj_id);
-    return err;
+    return md.dataPhysicallyExists();
 }
 
 fds::Error SmObjDb::get(const ObjectID& objId, ObjMetaData& md)
@@ -120,7 +98,7 @@ fds::Error SmObjDb::get(const ObjectID& objId, ObjMetaData& md)
     err = odb->Get(objId, buf);
     if (err != ERR_OK) {
         /* Object not found. Return. */
-        return ERR_SM_OBJ_METADATA_NOT_FOUND;
+        return ERR_DISK_READ_FAILED;
     }
 
     md.deserializeFrom(buf);
@@ -172,7 +150,7 @@ fds::Error SmObjDb::putSyncEntry(const ObjectID& objId,
     ObjMetaData md;
     Error err = get(objId, md);
 
-    if (err != ERR_OK && err != ERR_SM_OBJ_METADATA_NOT_FOUND) {
+    if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
         LOGERROR << "Error while applying sync entry.  objId: " << objId;
         return err;
     }
@@ -187,7 +165,7 @@ Error SmObjDb::resolveEntry(const ObjectID& objId)
     ObjMetaData md;
     err = get(objId, md);
 
-    if (err != ERR_OK && err != ERR_SM_OBJ_METADATA_NOT_FOUND) {
+    if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
         LOGERROR << "Error: " << err << " objId: " << objId;
         return err;
     }
@@ -247,16 +225,22 @@ void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
         // TODO: process the key/data
         if ((objId == start_obj_id || id_less(start_obj_id, objId)) &&
             (objId == end_obj_id || id_less(objId, end_obj_id))) {
-            // Get the object buffer
-            err = objStorMgr->readObject(NON_SYNC_MERGED, objId, objData, tierUsed);
+
+            /* Read metadata and object */
+            ObjMetaData objMetadata;
+            err = objStorMgr->readObject(NON_SYNC_MERGED, objId,
+                    objMetadata, objData, tierUsed);
             if (err == ERR_OK ) {
                 if ((max_size - tot_msg_len) >= objData.size) {
-                    FDSP_MigrateObjectData mig_obj;
-                    mig_obj.meta_data.token_id = token;
                     LOGDEBUG << "Adding a new objectId to objList" << objId;
-                    mig_obj.meta_data.object_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
-                    mig_obj.meta_data.obj_len = objData.size;
+
+                    FDSP_MigrateObjectData mig_obj;
+
+                    mig_obj.meta_data.token_id = token;
+                    objMetadata.extractSyncData(mig_obj.meta_data);
+
                     mig_obj.data = objData.data;
+
                     obj_list.push_back(mig_obj);
                     tot_msg_len += objData.size;
 
@@ -304,7 +288,7 @@ SmObjDb::writeObjectLocation(const ObjectID& objId,
     OnDiskSmObjMetadata md;
     err = get_(NON_SYNC_MERGED, objId, md);
 
-    if (err != ERR_OK && err != ERR_SM_OBJ_METADATA_NOT_FOUND) {
+    if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
         LOGERROR << "Error: " << err << " objId: " << objId;
         return err;
     }
@@ -351,7 +335,7 @@ SmObjDb::deleteObjectLocation(const ObjectID& objId) {
     OnDiskSmObjMetadata md;
     err = get_(NON_SYNC_MERGED, objId, md);
 
-    if (err != ERR_OK && err != ERR_SM_OBJ_METADATA_NOT_FOUND) {
+    if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
         LOGERROR << "Error: " << err << " objId: " << objId;
         return err;
     }

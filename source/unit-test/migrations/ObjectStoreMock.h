@@ -68,10 +68,19 @@ class MObjStore : public ObjectStorMgr {
 
     void writeObject(const ObjectID& oid, const std::string &data)
     {
-        meta_obj_map_t loc;
-        loc.obj_tier = diskio::DataTier::diskTier;
-        Error err = smObjDb->writeObjectLocation(oid, &loc, false);
+        obj_phy_loc_t obj_phy_loc;
+        meta_vol_io_t vol;
+        vol.vol_uuid = 1;
+        obj_phy_loc.obj_tier = diskio::DataTier::diskTier;
+
+        Error err = this->writeObjectMetaData(oid, data.size(), &obj_phy_loc,
+                false, diskio::DataTier::flashTier, &vol);
         fds_verify(err == ERR_OK);
+        writeObjectData(oid, data);
+    }
+
+    void writeObjectData(const ObjectID& oid, const std::string &data)
+    {
         object_db_[oid] = data;
         tokens_.insert(dlt_.getToken(oid));
         LOGDEBUG << prefix_ << " oid: " << oid << " data: " << data;
@@ -84,12 +93,16 @@ class MObjStore : public ObjectStorMgr {
 
     virtual Error readObject(const SmObjDb::View& view,
             const ObjectID   &objId,
+            ObjMetaData      &objMetadata,
             ObjectBuf        &objCompData,
             diskio::DataTier &tier) {
-        fds_mutex::scoped_lock l(lock_);
         auto itr = object_db_.find(objId);
         if (itr == object_db_.end()) {
-            return ERR_SM_OBJ_METADATA_NOT_FOUND;
+            return ERR_DISK_READ_FAILED;
+        }
+        Error err = smObjDb->get(objId, objMetadata);
+        if (err != ERR_OK) {
+            return ERR_DISK_READ_FAILED;
         }
         objCompData = ObjectBuf(itr->second);
         return ERR_OK;
@@ -118,27 +131,32 @@ class MObjStore : public ObjectStorMgr {
 
     void putTokenObjectsInternal(SmIoReq* ioReq)
     {
+        fds_mutex::scoped_lock l(lock_);
+
         Error err(ERR_OK);
         SmIoPutTokObjectsReq *putTokReq = static_cast<SmIoPutTokObjectsReq*>(ioReq);
         FDSP_MigrateObjectList &objList = putTokReq->obj_list;
 
         for (auto obj : objList) {
             ObjectID objId(obj.meta_data.object_id.digest);
-            /* TODO: Update obj metadata */
 
-            /* Doing a look up before a commit a write */
-            /* TODO:  Ideally if writeObject returns us an error for duplicate
-             * write we don't need this check
-             */
-            diskio::MetaObjMap objMap;
-            err = smObjDb->readObjectLocations(SmObjDb::NON_SYNC_MERGED, objId, objMap);
-            if (err == ERR_OK) {
+            ObjMetaData objMetadata;
+            err = smObjDb->get(objId, objMetadata);
+            if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
+                fds_assert(!"ObjMetadata read failed" );
+                LOGERROR << "Failed to write the object: " << objId;
+                break;
+            }
+
+            /* Apply metadata */
+            objMetadata.apply(obj.meta_data);
+
+            if (objMetadata.dataPhysicallyExists()) {
+                /* write metadata */
+                smObjDb->put(objId, objMetadata);
+                /* No need to write the object data.  It already exits */
                 continue;
             }
-            /* NOTE: Not checking for other errors.  If read failed then write should also
-             * fail
-             */
-            err = ERR_OK;
 
             /* Moving the data to not incur copy penalty */
             DBG(std::string temp_data = obj.data);
@@ -148,7 +166,14 @@ class MObjStore : public ObjectStorMgr {
             fds_assert(temp_data == objData.data);
             obj.data.clear();
 
-            writeObject(objId, objData.data);
+            /* write data to storage tier */
+            writeObjectData(objId, objData.data);
+
+            /* write the metadata */
+            obj_phy_loc_t phy_loc;
+            phy_loc.obj_tier = diskio::DataTier::diskTier;
+            objMetadata.updatePhysLocation(&phy_loc);
+            smObjDb->put(objId, objMetadata);
         }
         putTokReq->response_cb(err, putTokReq);
 
@@ -156,8 +181,11 @@ class MObjStore : public ObjectStorMgr {
 
     void getTokenObjectsInternal(SmIoReq* ioReq)
     {
+        fds_mutex::scoped_lock l(lock_);
+
         Error err(ERR_OK);
         SmIoGetTokObjectsReq *getTokReq = static_cast<SmIoGetTokObjectsReq*>(ioReq);
+
         smObjDb->iterRetrieveObjects(getTokReq->token_id,
                 getTokReq->max_size, getTokReq->obj_list, getTokReq->itr);
 

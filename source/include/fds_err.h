@@ -11,7 +11,9 @@
 #include <fdsp/FDSP_types.h>
 
 namespace fds {
-  
+  // TODO(Rao): There is already a mismatch between enums and strings.
+  // Ideally this errstrs isn't needed.  We need an error string catalog
+  // that we lookup.  We need to remove this array.
   static const char* fds_errstrs[] = {
     "ALL OK",
     "Data is a duplicate",
@@ -80,14 +82,14 @@ namespace fds {
     /* FdsActor err range [1500-2000) */
     ERR_FAR_INVALID_REQUEST = 1500,
     /* FDS actor is shutdown */
-    ERR_FAR_SHUTDOWN = 1501,
+    ERR_FAR_SHUTDOWN,
 
     /* Storage manager error range [2000-2500) */
     ERR_SM_NOT_IN_SYNC_MODE = 2000,
-    ERR_SM_OBJ_METADATA_NOT_FOUND = 2001,
-    ERR_SM_TOKENSTATEDB_KEY_NOT_FOUND = 2002,
-    ERR_SM_TOKENSTATEDB_DUPLICATE_KEY = 2003,
+    ERR_SM_TOKENSTATEDB_KEY_NOT_FOUND,
+    ERR_SM_TOKENSTATEDB_DUPLICATE_KEY,
 
+    /* Network errors */
     ERR_NETWORK_TRANSPORT = 3000,
 
     ERR_MAX

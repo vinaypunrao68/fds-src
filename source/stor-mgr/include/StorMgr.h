@@ -338,6 +338,14 @@ class ObjectStorMgr :
     Error writeObjectToTier(const ObjectID  &objId, 
             const ObjectBuf &objData,
             diskio::DataTier tier);
+    Error writeObjectDataToTier(const ObjectID  &objId,
+                const ObjectBuf &objData,
+                diskio::DataTier tier,
+                obj_phy_loc_t& phys_loc);
+    Error readObject(const SmObjDb::View& view,
+            const ObjectID& objId,
+            ObjMetaData& objMetadata,
+            ObjectBuf& objData);
     Error readObject(const SmObjDb::View& view,
             const ObjectID &objId,
             ObjectBuf      &objCompData);
@@ -469,6 +477,7 @@ class ObjectStorMgr :
     void unitTest();
     TVIRTUAL Error readObject(const SmObjDb::View& view,
             const ObjectID   &objId,
+            ObjMetaData      &objMetadata,
             ObjectBuf        &objCompData,
             diskio::DataTier &tier);
 

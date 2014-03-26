@@ -24,6 +24,10 @@ namespace fds {
             uint32_t writeI64(const int64_t i64);
             uint32_t writeDouble(const double dub);
             uint32_t writeString(const std::string& str);
+            uint32_t writeBuffer(const int8_t* buf, const uint32_t& len);
+            template <class T>
+            uint32_t writeVector(const std::vector<T>& v);
+
             std::string getBufferAsString();
             virtual ~Serializer();
           private:
@@ -52,6 +56,10 @@ namespace fds {
             uint32_t readI32(fds_uint32_t& ui32);
             uint32_t readI64(fds_uint64_t& ui64);
 
+            uint32_t readBuffer(int8_t* buf, const uint32_t& len);
+            template <class T>
+            uint32_t readVector(std::vector<T>& v);
+
             virtual ~Deserializer();
           private:
             TProtocolPtr proto;
@@ -78,8 +86,51 @@ namespace fds {
         // File Based
         Serializer* getFileSerializer(const std::string& filename);
         Deserializer* getFileDeserializer(const std::string& filename);
-    }
-}
+
+        template <class T>
+        static uint32_t getEstimatedSize(const std::vector<T>& v)
+        {
+            return sizeof(int32_t) + (sizeof(T) * v.size());
+        }
+
+        template <class T>
+        uint32_t Serializer::writeVector(const std::vector<T>& v)
+        {
+            /* Write size */
+            uint32_t cnt = 0;
+            cnt = writeI32(v.size());
+            if (cnt == 0) {
+                return cnt;
+            }
+            /* Write the vector buffer */
+            if (v.size() > 0) {
+                cnt += writeBuffer(reinterpret_cast<int8_t*>(const_cast<T*>(v.data())),
+                        sizeof(T) * v.size());
+            }
+            return cnt;
+        }
+
+        template <class T>
+        uint32_t Deserializer::readVector(std::vector<T>& v)
+        {
+            int32_t sz;
+            /* read vector size */
+            uint32_t ret = readI32(sz);
+            if (ret == 0) {
+                return 0;
+            }
+
+            /* Read the vector */
+            v.resize(sz);
+            if (sz > 0) {
+                ret += readBuffer(reinterpret_cast<int8_t*>(const_cast<T*>(v.data())),
+                        sizeof(T) * v.size());
+            }
+
+            return ret;
+        }
+    }  // namespace serialize
+}  // namespace fds
 
 
 #endif

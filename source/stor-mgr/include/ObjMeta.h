@@ -39,19 +39,21 @@ namespace fds {
 
 #define SYNCMETADATA_MASK 0x1
 
-struct SyncMetaData {
+struct SyncMetaData : public serialize::Serializable{
     SyncMetaData();
-    struct header_t {
-        /* Born timestamp */
-        uint64_t born_ts;
-        /* Modification timestamp */
-        uint64_t mod_ts;
-        /* Association entry count */
-        uint8_t assoc_entry_cnt;
-    } *header;
+    void reset();
 
+    /* Overrides from Serializable */
+    virtual uint32_t write(serialize::Serializer* serializer) const override;
+    virtual uint32_t read(serialize::Deserializer* deserializer) override;
+    virtual uint32_t getEstimatedSize() const override;
+
+    /* Born timestamp */
+    uint64_t born_ts;
+    /* Modification timestamp */
+    uint64_t mod_ts;
     /* Association entries */
-    obj_assoc_entry_t* assoc_entries;
+    std::vector<obj_assoc_entry_t> assoc_entries;
 };
 
 /*
@@ -61,17 +63,10 @@ struct SyncMetaData {
  */
 class ObjMetaData : public serialize::Serializable {
 private:
-    char *persistBuffer;
-    fds_uint32_t size;
-
-    uint8_t *mask;
-    meta_obj_map_t *obj_map; // Pointer to the meta_obj_map in the buffer
+    uint8_t mask;
+    meta_obj_map_t obj_map; // Pointer to the meta_obj_map in the buffer
     obj_phy_loc_t *phy_loc;
-
-    /* NOTE: We always start with atleast one association entry.  It's
-     * possible that it's not populated
-     */
-    obj_assoc_entry_t *assoc_entry;
+    std::vector<obj_assoc_entry_t> assoc_entry;
 
     SyncMetaData sync_data;
 
@@ -81,18 +76,11 @@ public:
 
 
     void initialize(const ObjectID& objid, fds_uint32_t obj_size) {
-        size = sizeof(uint8_t) + sizeof(meta_obj_map_t) + sizeof(obj_assoc_entry_t);
-        persistBuffer = new char[size];
-        memset(persistBuffer, 0, size);
-
-        adjustPointers_(true);
-
-        memcpy(&obj_map->obj_id.metaDigest, objid.GetId(), sizeof(obj_map->obj_id.metaDigest));
-        obj_map->obj_size = obj_size;
-        obj_map->obj_map_len = size;
+        memcpy(&obj_map.obj_id.metaDigest, objid.GetId(), sizeof(obj_map.obj_id.metaDigest));
+        obj_map.obj_size = obj_size;
 
         //Initialize the physical location array
-        phy_loc = &obj_map->loc_map[0];
+        phy_loc = &obj_map.loc_map[0];
         phy_loc[diskio::flashTier].obj_tier = -1;
         phy_loc[diskio::diskTier].obj_tier = -1;
         phy_loc[3].obj_tier = -1;
@@ -104,10 +92,6 @@ public:
 
     void unmarshall(const ObjectBuf& buf) { 
         deserializeFrom(buf);
-    }
-
-    char *marshall()  { 
-        return persistBuffer;
     }
 
     virtual uint32_t write(serialize::Serializer* serializer) const override;
@@ -124,113 +108,67 @@ public:
 
     uint64_t getModificationTs() const;
 
+    void apply(const FDSP_MigrateObjectMetadata& data);
+
     void extractSyncData(FDSP_MigrateObjectMetadata &md) const;
 
     void checkAndDemoteUnsyncedData(const uint64_t& syncTs);
 
-    bool syncDataExists();
+    bool syncDataExists() const;
 
     void applySyncData(const FDSP_MigrateObjectMetadata& data);
 
     void mergeNewAndUnsyncedData();
 
-    bool objectExists();
+    bool dataPhysicallyExists();
 
-    fds_uint32_t   getObjSize() {
-        return obj_map->obj_size;
+    fds_uint32_t   getObjSize() const
+    {
+        return obj_map.obj_size;
     }
     obj_phy_loc_t*   getObjPhyLoc(diskio::DataTier tier) {
         return &phy_loc[tier];
     }
-   meta_obj_map_t*   getObjMap() { 
-       return obj_map;
-   }
-   fds_uint32_t   getMapSize() {
-       return obj_map->obj_map_len;
-   }
-   fds_uint32_t   getObjSize() { 
-       return obj_map->obj_size;
-   }
-   obj_phy_loc_t*   getObjPhyLoc(DataTier tier) { 
-       return &phy_loc[tier];
-   }
+    meta_obj_map_t*   getObjMap() {
+        return &obj_map;
+    }
+
     void setRefCnt(fds_uint16_t refcnt) { 
-        obj_map->obj_refcnt = refcnt;
+        obj_map.obj_refcnt = refcnt;
     }
 
     void incRefCnt() { 
-        obj_map->obj_refcnt++;
+        obj_map.obj_refcnt++;
     }
 
     void decRefCnt() { 
-        obj_map->obj_refcnt--;
-    }
-
-    // Association Tbl manipulation routines
-    obj_assoc_entry_t * appendAssocEntry()
-    {
-        /* Create new buffer */
-       fds_uint32_t new_size = size + sizeof(obj_assoc_entry_t);
-       char *new_buf = new char[new_size];
-
-       /* Increment obj_num_assoc_entry upfront to allow adjustPointers_()
-        * to work
-        */
-       DBG(uint32_t prev_assoc_cnt = obj_map->obj_num_assoc_entry);
-       obj_map->obj_num_assoc_entry++;
-
-       /* copy existing data */
-       if (syncDataExists()) {
-           fds_assert(sync_data.header != nullptr);
-           uint32_t copy_sz =  (char*)sync_data.header - persistBuffer;
-           memcpy(new_buf, persistBuffer, copy_sz);
-           memcpy(new_buf+copy_sz+size(obj_assoc_entry_t),
-                   persistBuffer+copy_sz,
-                   size-copy_sz);
-       } else {
-           memcpy(new_buf, persistBuffer, size);
-       }
-       delete persistBuffer;
-       persistBuffer = new_buf;
-       size = new_size;
-
-       /* update pointers */
-       adjustPointers_();
-
-       obj_map->obj_map_len = size;
-
-       fds_assert(prev_assoc_cnt+1 == obj_map->obj_num_assoc_entry);
-
-       return &assoc_entry[obj_map->obj_num_assoc_entry - 1];
+        obj_map.obj_refcnt--;
     }
 
     void updateAssocEntry(ObjectID objId, fds_volid_t vol_id) { 
-        for(int i=0; i < obj_map->obj_num_assoc_entry; i++) { 
+        fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
+        for(int i = 0; i < obj_map.obj_num_assoc_entry; i++) {
             if (vol_id == assoc_entry[i].vol_uuid) {
                 assoc_entry[i].ref_cnt++;
-                obj_map->obj_refcnt++;
+                obj_map.obj_refcnt++;
                 return;
             }
         }
-        // Did not find any match vol_id's assoc_entry, append one
-        if (obj_map->obj_refcnt == 0) { 
-            assoc_entry[0].ref_cnt++;
-            assoc_entry[0].vol_uuid = vol_id;
-            obj_map->obj_refcnt++;
-            obj_map->obj_num_assoc_entry = 1;
-        } else {
-            obj_assoc_entry_t *new_entry = appendAssocEntry();
-            new_entry->vol_uuid = vol_id;
-            new_entry->ref_cnt = 1;
-            obj_map->obj_refcnt++;
-        }
+        obj_assoc_entry_t new_association;
+        new_association.vol_uuid = vol_id;
+        new_association.ref_cnt = 1;
+        obj_map.obj_refcnt++;
+        assoc_entry.push_back(new_association);
+        obj_map.obj_num_assoc_entry = assoc_entry.size();
+
     }
 
     void deleteAssocEntry(ObjectID objId, fds_volid_t vol_id) { 
-        for(int i=0; i < obj_map->obj_num_assoc_entry; i++) { 
+        fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
+        for(int i = 0; i < obj_map.obj_num_assoc_entry; i++) {
             if (vol_id == assoc_entry[i].vol_uuid) {
                 assoc_entry[i].ref_cnt--;
-                obj_map->obj_refcnt--;
+                obj_map.obj_refcnt--;
                 return;
             }
         }
@@ -256,24 +194,22 @@ public:
     }
 
 private:
-    bool syncDataExists();
-    void adjustPointers_(bool init = false);
+    void mergeAssociationArrays_();
 
     friend std::ostream& operator<<(std::ostream& out, const ObjMetaData& objMap);
 };
 
 inline std::ostream& operator<<(std::ostream& out, const ObjMetaData& objMd)
 {
-     out << "Object MetaData: Version" << objMd.obj_map->obj_map_ver 
-             << "   len : " << objMd.obj_map->obj_map_len
-             << "  objId : " << objMd.obj_map->obj_id.metaDigest
-             << "  obj_size " << objMd.obj_map->obj_size
-             << "  obj_ref_cnt " << objMd.obj_map->obj_refcnt
-             << "  num_assoc_entry " << objMd.obj_map->obj_num_assoc_entry
-             << "  create_time " << objMd.obj_map->obj_create_time
-             << "  del_time " << objMd.obj_map->obj_del_time
-             << "  mod_time " << objMd.obj_map->assoc_mod_time
-            << std::endl;
+     out << "Object MetaData: Version" << objMd.obj_map.obj_map_ver
+             << "  objId : " << objMd.obj_map.obj_id.metaDigest
+             << "  obj_size " << objMd.obj_map.obj_size
+             << "  obj_ref_cnt " << objMd.obj_map.obj_refcnt
+             << "  num_assoc_entry " << objMd.obj_map.obj_num_assoc_entry
+             << "  create_time " << objMd.obj_map.obj_create_time
+             << "  del_time " << objMd.obj_map.obj_del_time
+             << "  mod_time " << objMd.obj_map.assoc_mod_time
+             << std::endl;
      for (fds_uint32_t i = 0; i < MAX_PHY_LOC_MAP; i++) {
          out << "Object MetaData: "
              << " Tier (" << objMd.phy_loc[i].obj_tier
