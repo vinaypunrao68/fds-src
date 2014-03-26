@@ -609,11 +609,29 @@ OM_PmContainer::agent_register(const NodeUuid       &uuid,
         fds_verify(out != NULL);
         OM_PmAgent::pointer agent = OM_PmAgent::agt_cast_ptr(*out);
 
+        // start services that were running on that node
+        NodeServices services;
+        fds_bool_t has_am = false;
+        fds_bool_t has_sm = false;
+        fds_bool_t has_dm = false;
+        if (configDB->getNodeServices(uuid, services)) {
+            if (services.am.uuid_get_val() != 0) {
+                has_am = true;
+            }
+            if (services.sm.uuid_get_val() != 0) {
+                has_sm = true;
+            }
+            if (services.dm.uuid_get_val() != 0) {
+                has_dm = true;
+            }
+        }
         LOGNORMAL << "Known node uuid " << agent->get_uuid().uuid_get_val()
-            << ", name " << agent->get_node_name() << ", start all services";
+                  << ", name " << agent->get_node_name() << ", start services:"
+                  << " am:" << has_am << " sm:" << has_sm << " dm:" << has_dm;
 
-        // TODO(Vy): must save service cfg in db or better node provisioning.
-        agent->send_activate_services(true, true, true);
+        if (has_am || has_sm || has_dm) {
+            agent->send_activate_services(has_sm, has_dm, has_am);
+        }
     }
     return err;
 }
