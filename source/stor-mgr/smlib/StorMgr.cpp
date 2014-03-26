@@ -1298,8 +1298,10 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
 
     if (err == ERR_OK) {
         msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_OK;
+        msgHdr->err_code = err.getFdspErr();
     } else {
         msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_FAILED;
+        msgHdr->err_code = err.getFdspErr();
     }
 
     msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_PUT_OBJ_RSP;
@@ -1453,8 +1455,10 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
 
     if (err == ERR_OK) {
         msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_OK;
+        msgHdr->err_code = err.getFdspErr();
     } else {
         msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_FAILED;
+        msgHdr->err_code = err.getFdspErr();
     }
 
     msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_DELETE_OBJ_RSP;
@@ -1497,6 +1501,7 @@ ObjectStorMgr::PutObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
         fdsp_msg->err_code = err.getFdspErr();
     } else {
         fdsp_msg->result = FDSP_ERR_OK;
+        fdsp_msg->err_code = err.getFdspErr();
     }
 
     counters_.put_reqs.incr();
@@ -1526,6 +1531,7 @@ ObjectStorMgr::DeleteObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
         fdsp_msg->err_code = err.getFdspErr();
     } else {
         fdsp_msg->result = FDSP_ERR_OK;
+        fdsp_msg->err_code = err.getFdspErr();
     }
 }
 
@@ -1598,8 +1604,10 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
 
     if (err == ERR_OK) {
         msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_OK;
+        msgHdr->err_code = err.getFdspErr();
     } else {
         msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_FAILED;
+        msgHdr->err_code = err.getFdspErr();
     }
     msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_GET_OBJ_RSP;
     swapMgrId(msgHdr);
@@ -1694,6 +1702,7 @@ ObjectStorMgr::GetObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
         fdsp_msg->err_code = err.getFdspErr();
     } else {
         fdsp_msg->result = FDSP_ERR_OK;
+        fdsp_msg->err_code = err.getFdspErr();
     }
     
     counters_.get_reqs.incr();

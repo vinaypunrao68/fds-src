@@ -947,7 +947,7 @@ fds::Error StorHvCtrl::getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
         return err;
     }
 
-    fds_verify(msgRespErr == ERR_OK);
+    fds_verify(rxMsg->result == FDS_ProtocolInterface::FDSP_ERR_OK);
     fds_verify(txn->trans_state == FDS_TRANS_GET_OBJ);
 
     /*
