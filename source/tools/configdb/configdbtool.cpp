@@ -40,6 +40,12 @@ void printData(std::string data) {
     
 }
 
+unsigned long long getUUID(const std::string& encoded) {
+    std::string decoded;
+    redis::Redis::decodeHex(encoded,decoded);
+    return *((unsigned long long*) decoded.c_str());
+}
+
 ConfigDBTool::ConfigDBTool(std::string host, int port) {
     db = new kvstore::ConfigDB(host,port,1);
 
@@ -148,12 +154,21 @@ void ConfigDBTool::cmdVolume(std::vector <std::string>& args) {
 
     for (uint i = 0 ; i < args.size() ; i++ ) {
         fds_volid_t volumeId = strtoull(args[i].c_str(),NULL,10);
-        VolumeDesc volumeDesc("",1);
-        if (!db->getVolume(volumeId,volumeDesc)) {
-            WARNLINE << "could not find volume info for uuid : " << volumeId << "\n";
+        VolumeDesc volume("",1);
+
+        bool fFound = true;
+        if (!db->getVolume(volumeId,volume)) {
+            volumeId = getUUID(args[i]);
+            if (!db->getVolume(volumeId,volume)) {
+                fFound = false;
+            }
+        }
+
+        if (!fFound) {
+            WARNLINE << "could not find volume info for uuid : " << args[i] << "\n";
         } else {
             LINE << Color::BoldWhite << volumeId << Color::End << "\n";
-            PRINTSTREAM(volumeDesc);
+            PRINTSTREAM(volume);
             cout << "\n";
         }    
     }
@@ -166,11 +181,20 @@ void ConfigDBTool::cmdNode(std::vector <std::string>& args) {
         return;                
     }
 
+    bool fFound = false;
     for (uint i = 0 ; i < args.size() ; i++ ) {
         fds_volid_t nodeId = strtoull(args[i].c_str(),NULL,10);
         NodeInvData node;
+        fFound = true;
         if (!db->getNode(nodeId,node)) {
-            WARNLINE << "could not find node info for uuid : " << nodeId << "\n";
+            nodeId = getUUID(args[i]);
+            if (!db->getNode(nodeId,node)) {
+                fFound = false;
+            }
+        }
+
+        if (!fFound) {
+            WARNLINE << "could not find node info for uuid : " << args[i]  << "\n";
         } else {
             LINE << Color::BoldWhite << nodeId << Color::End << "\n";
             PRINTSTREAM(node);
