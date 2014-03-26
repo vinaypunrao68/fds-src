@@ -74,6 +74,13 @@ class NodeInvData
 
 struct NodeServices : serialize::Serializable {
     NodeUuid sm,dm,am;
+
+    inline void reset() {
+        sm.uuid_set_val(0);
+        dm.uuid_set_val(0);
+        am.uuid_set_val(0);
+    }
+
     uint32_t virtual write(serialize::Serializer*  s) const;
     uint32_t virtual read(serialize::Deserializer* s);
     friend std::ostream& operator<< (std::ostream &os, const NodeServices& node);

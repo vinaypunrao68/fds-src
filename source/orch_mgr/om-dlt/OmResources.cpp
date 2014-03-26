@@ -285,13 +285,25 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* configDB)
         NodeUuidSet nodes;  // actual nodes (platform)
         configDB->getNodeIds(nodes);
 
-        // TODO(anna) get set of SMs that were running on those nodes
+        // get set of SMs that were running on those nodes
+        NodeUuidSet::const_iterator cit;
+        for (cit = nodes.cbegin(); cit != nodes.cend(); ++cit) {
+            NodeServices services;
+            if (configDB->getNodeServices(*cit, services)) {
+                if (services.sm.uuid_get_val() != 0) {
+                    sm_services.insert(services.sm);
+                    LOGDEBUG << "om_load_state: found SM on node "
+                             << std::hex << (*cit).uuid_get_val() << " (SM "
+                             << services.sm.uuid_get_val() << std::dec << ")";
+                }
+            }
+        }
 
         // load DLT (and save as not commited) from config DB and
         // check if DLT matches the set of persisted nodes
         err = dp->loadDltsFromConfigDB(sm_services);
         if (!err.ok()) {
-            LOGWARN << "loadDltsFromConfigDB retured " << err.GetErrstr()
+            LOGWARN << "loadDltsFromConfigDB returned " << err.GetErrstr()
                     << " - will ignore persistent state and bring up OM "
                     << " without bringing up volumes";
             sm_services.clear();

@@ -345,29 +345,42 @@ Error
 OM_PmAgent::handle_register_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_type,
                                     NodeAgent::pointer svc_agent)
 {
-    // Platform must be in active state
-    if (node_state() != FDS_ProtocolInterface::FDS_Node_Up) {
-        return Error(ERR_NODE_NOT_ACTIVE);
-    }
-
     // we cannot register more than one service of the same type
     // with the same node (platform)
     if (service_exists(svc_type)) {
         return Error(ERR_DUPLICATE);
     }
+
+    // update configDB with which services this platform has
+    kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
+    NodeServices services;
+    if (configDB && !configDB->getNodeServices(get_uuid(), services)) {
+        // just in case reset services to 0
+        services.reset();
+    }
+
     switch (svc_type) {
         case FDS_ProtocolInterface::FDSP_STOR_MGR:
             activeSmAgent = OM_SmAgent::agt_cast_ptr(svc_agent);
+            services.sm = svc_agent->get_uuid();
             break;
         case FDS_ProtocolInterface::FDSP_DATA_MGR:
             activeDmAgent = OM_DmAgent::agt_cast_ptr(svc_agent);
+            services.dm = svc_agent->get_uuid();
             break;
         case FDS_ProtocolInterface::FDSP_STOR_HVISOR:
             activeAmAgent = OM_AmAgent::agt_cast_ptr(svc_agent);
+            services.am = svc_agent->get_uuid();
             break;
         default:
             fds_verify(false);
     };
+
+    // actually update config DB
+    if (configDB) {
+        configDB->setNodeServices(get_uuid(), services);
+    }
+
     return Error(ERR_OK);
 }
 
@@ -377,30 +390,43 @@ OM_PmAgent::handle_register_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_ty
 void
 OM_PmAgent::handle_unregister_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_type)
 {
+    // update configDB -- remove the service
+    kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
+    NodeServices services;
+    fds_bool_t found_services = configDB ?
+            configDB->getNodeServices(get_uuid(), services) : false;
+
     switch (svc_type) {
         case FDS_ProtocolInterface::FDSP_STOR_MGR:
             activeSmAgent = NULL;
+            services.sm.uuid_set_val(0);
             break;
         case FDS_ProtocolInterface::FDSP_DATA_MGR:
             activeDmAgent = NULL;
+            services.dm.uuid_set_val(0);
             break;
         case FDS_ProtocolInterface::FDSP_STOR_HVISOR:
             activeAmAgent = NULL;
+            services.am.uuid_set_val(0);
             break;
         default:
             fds_verify(false);
     };
+
+    if (found_services) {
+        configDB->setNodeServices(get_uuid(), services);
+    }
 }
 
 void
 OM_PmAgent::handle_unregister_service(const NodeUuid& uuid)
 {
     if (activeSmAgent->get_uuid() == uuid) {
-        activeSmAgent = NULL;
+        handle_unregister_service(FDS_ProtocolInterface::FDSP_STOR_MGR);
     } else if (activeDmAgent->get_uuid() == uuid) {
-        activeDmAgent = NULL;
+        handle_unregister_service(FDS_ProtocolInterface::FDSP_DATA_MGR);
     } else if (activeAmAgent->get_uuid() == uuid) {
-        activeAmAgent = NULL;
+        handle_unregister_service(FDS_ProtocolInterface::FDSP_STOR_HVISOR);
     }
 }
 
