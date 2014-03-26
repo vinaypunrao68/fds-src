@@ -19,7 +19,7 @@ public class FakeAm {
 
         AmControlPath controlPath = new AmControlPath(dltCache);
 
-        int myControlPort = 6666;
+        int myControlPort = 6667;
         int omPort = 8904;
         serverFactory.startControlPathServer(controlPath, myControlPort);
         String omHost = "localhost";
@@ -30,8 +30,8 @@ public class FakeAm {
         Dlt dlt = dltCache.awaitValue();
 
         FdspProxy<FDSP_DataPathReq.Iface, FDSP_DataPathResp.Iface> proxy = new FdspProxy<>(FDSP_DataPathReq.Iface.class, FDSP_DataPathResp.Iface.class);
-        int port = 6666;
-        serverFactory.startDataPathRespServer(proxy.responseProxy(), port);
+        int myDataPort = 6668;
+        serverFactory.startDataPathRespServer(proxy.responseProxy(), myDataPort);
         CountDownLatch latch = new CountDownLatch(1);
         FDSP_DataPathReq.Iface client = clientFactory.dataPathClient("localhost", 7012);
         FDSP_DataPathReq.Iface clientProxy = proxy.requestProxy(client, new FdspResponseHandler<Object>() {

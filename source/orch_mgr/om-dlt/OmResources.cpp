@@ -270,11 +270,55 @@ Error
 OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* configDB)
 {
     Error err(ERR_OK);
+    OM_Module *om = OM_Module::om_singleton();
+    DataPlacement *dp = om->om_dataplace_mod();
+
     LOGNOTIFY << "Loading persistent state to local domain";
 
-    // TODO(anna) actually load from configDB, for now going to
-    // domain up state
-    local_domain_event(DltUpEvt());
+    // get SMs that were up before and persistent in config db
+    // if no SMs were up, even if platforms were running, we
+    // don't need to wait for the platforms/DMs/AMs to come up
+    // since we cannot admit any volumes anyway. So, we will go
+    // directly to 'domain up' state if no SMs were running...
+    NodeUuidSet sm_services;
+    if (configDB) {
+        NodeUuidSet nodes;  // actual nodes (platform)
+        configDB->getNodeIds(nodes);
+
+        // get set of SMs that were running on those nodes
+        NodeUuidSet::const_iterator cit;
+        for (cit = nodes.cbegin(); cit != nodes.cend(); ++cit) {
+            NodeServices services;
+            if (configDB->getNodeServices(*cit, services)) {
+                if (services.sm.uuid_get_val() != 0) {
+                    sm_services.insert(services.sm);
+                    LOGDEBUG << "om_load_state: found SM on node "
+                             << std::hex << (*cit).uuid_get_val() << " (SM "
+                             << services.sm.uuid_get_val() << std::dec << ")";
+                }
+            }
+        }
+
+        // load DLT (and save as not commited) from config DB and
+        // check if DLT matches the set of persisted nodes
+        err = dp->loadDltsFromConfigDB(sm_services);
+        if (!err.ok()) {
+            LOGWARN << "loadDltsFromConfigDB returned " << err.GetErrstr()
+                    << " - will ignore persistent state and bring up OM "
+                    << " without bringing up volumes";
+            sm_services.clear();
+        }
+    }
+
+    if (sm_services.size() > 0) {
+        LOGNOTIFY << "Will wait for " << sm_services.size()
+                  << " SMs to come up within next few minutes";
+        local_domain_event(DltUpEvt());
+    } else {
+        LOGNOTIFY << "We didn't persist any SMs or we couldn't load "
+                  << "persistent state, so OM will come up in a moment.";
+        local_domain_event(DltUpEvt());
+    }
 
     // TODO(anna) move to after we get nodes and DLT matched
     // in any case, below code does not work anyway (vols not
@@ -311,12 +355,6 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* configDB)
             }
         }
     }
-    */
-
-    // load the dlts
-    /*
-      if (!dp->loadDltsFromConfigDB()) {                                                                                                                        LOGWARN << "errors during loading dlts";
-      }
     */
 
     return err;

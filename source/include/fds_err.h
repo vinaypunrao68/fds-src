@@ -35,6 +35,8 @@ namespace fds {
     "Volume is not empty",
     "Blob does not exist",
     "Not ready, re-try later",
+    "Invalid DLT",
+    "Mismatch in persistent state",
     "Operation not permitted: would exceed total min iops",
     "Dlt mismatch",
     "Invalid blob offset",
@@ -70,7 +72,9 @@ namespace fds {
     ERR_VOL_NOT_EMPTY        = 19,
     ERR_BLOB_NOT_FOUND       = 20,
     ERR_NOT_READY            = 21,
-    ERR_EXCEED_MIN_IOPS      = 22,
+    ERR_INVALID_DLT          = 22,
+    ERR_PERSIST_STATE_MISMATCH = 23,
+    ERR_EXCEED_MIN_IOPS      = 24,
 
     /* I/O error range */
     ERR_IO_DLT_MISMATCH      = 100,

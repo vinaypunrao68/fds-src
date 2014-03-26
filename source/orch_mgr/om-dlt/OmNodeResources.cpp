@@ -18,11 +18,11 @@ namespace fds {
 // ---------------------------------------------------------------------------------
 // OM SM NodeAgent
 // ---------------------------------------------------------------------------------
-OM_SmAgent::~OM_SmAgent() {}
-OM_SmAgent::OM_SmAgent(const NodeUuid &uuid) : NodeAgent(uuid) {}
+OM_NodeAgent::~OM_NodeAgent() {}
+OM_NodeAgent::OM_NodeAgent(const NodeUuid &uuid) : NodeAgent(uuid) {}
 
 int
-OM_SmAgent::node_calc_stor_weight()
+OM_NodeAgent::node_calc_stor_weight()
 {
     return 0;
 }
@@ -31,14 +31,14 @@ OM_SmAgent::node_calc_stor_weight()
 // ------------
 //
 void
-OM_SmAgent::setCpSession(NodeAgentCpSessionPtr session, fpi::FDSP_MgrIdType myId)
+OM_NodeAgent::setCpSession(NodeAgentCpSessionPtr session, fpi::FDSP_MgrIdType myId)
 {
     ndCpSession = session;
     ndSessionId = ndCpSession->getSessionId();
     ndCpClient  = ndCpSession->getClient();
     ndMyServId  = myId;
 
-    FDS_PLOG_SEV(g_fdslog, fds_log::normal) << "Established connection with new node";
+    LOGNORMAL << "Established connection with new node";
 }
 
 // om_send_myinfo
@@ -46,7 +46,7 @@ OM_SmAgent::setCpSession(NodeAgentCpSessionPtr session, fpi::FDSP_MgrIdType myId
 // Send a node event taken from the new node agent to a peer agent.
 //
 void
-OM_SmAgent::om_send_myinfo(NodeAgent::pointer peer)
+OM_NodeAgent::om_send_myinfo(NodeAgent::pointer peer)
 {
     // TODO(Andrew): Add this back when OM actually responds
     // to node registrations
@@ -70,9 +70,8 @@ OM_SmAgent::om_send_myinfo(NodeAgent::pointer peer)
         n_inf->node_state = fpi::FDS_Node_Up;
         OM_SmAgent::agt_cast_ptr(peer)->ndCpClient->NotifyNodeAdd(m_hdr, n_inf);
     }
-    FDS_PLOG_SEV(g_fdslog, fds_log::normal)
-        << "Send node info from " << get_node_name()
-        << " to " << peer->get_node_name() << std::endl;
+    LOGNORMAL << "Send node info from " << get_node_name()
+              << " to " << peer->get_node_name() << std::endl;
 }
 
 // om_send_node_cmd
@@ -80,7 +79,7 @@ OM_SmAgent::om_send_myinfo(NodeAgent::pointer peer)
 // TODO(Vy): define messages in inheritance tree.
 //
 void
-OM_SmAgent::om_send_node_cmd(const om_node_msg_t &msg)
+OM_NodeAgent::om_send_node_cmd(const om_node_msg_t &msg)
 {
     const char              *log;
     fpi::FDSP_MsgHdrTypePtr  m_hdr(new fpi::FDSP_MsgHdrType);
@@ -104,7 +103,7 @@ OM_SmAgent::om_send_node_cmd(const om_node_msg_t &msg)
             fds_panic("Unsupported command code");
     }
     fds_assert(log != NULL);
-    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << log << get_node_name() << std::endl;
+    LOGDEBUG << log << get_node_name() << std::endl;
 }
 
 // om_send_vol_cmd
@@ -112,7 +111,7 @@ OM_SmAgent::om_send_node_cmd(const om_node_msg_t &msg)
 // TODO(Vy): have 2 separate APIs, 1 to format the packet and 1 to send it.
 //
 void
-OM_SmAgent::om_send_vol_cmd(VolumeInfo::pointer vol,
+OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer vol,
                             fpi::FDSP_MsgCodeType cmd_type,
                             fds_bool_t check_only)
 {
@@ -120,7 +119,7 @@ OM_SmAgent::om_send_vol_cmd(VolumeInfo::pointer vol,
 }
 
 void
-OM_SmAgent::om_send_vol_cmd(VolumeInfo::pointer    vol,
+OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer    vol,
                             std::string           *vname,
                             fpi::FDSP_MsgCodeType  cmd_type,
                             fds_bool_t check_only)
@@ -198,12 +197,10 @@ OM_SmAgent::om_send_vol_cmd(VolumeInfo::pointer    vol,
         }
     }
     if (desc != NULL) {
-        FDS_PLOG_SEV(g_fdslog, fds_log::normal)
-                << log << desc->volUUID << " " << desc->name
-                << " to node " << get_node_name();
+        LOGNORMAL << log << desc->volUUID << " " << desc->name
+                  << " to node " << get_node_name();
     } else {
-        FDS_PLOG_SEV(g_fdslog, fds_log::normal)
-                << log << ", no vol to node " << get_node_name();
+        LOGNORMAL << log << ", no vol to node " << get_node_name();
     }
 }
 
@@ -211,7 +208,7 @@ OM_SmAgent::om_send_vol_cmd(VolumeInfo::pointer    vol,
 // ----------------
 //
 void
-OM_SmAgent::om_send_reg_resp(const Error &err)
+OM_NodeAgent::om_send_reg_resp(const Error &err)
 {
     fpi::FDSP_MsgHdrTypePtr       m_hdr(new fpi::FDSP_MsgHdrType);
     fpi::FDSP_RegisterNodeTypePtr r_msg(new fpi::FDSP_RegisterNodeType);
@@ -221,15 +218,14 @@ OM_SmAgent::om_send_reg_resp(const Error &err)
     m_hdr->err_code     = err.GetErrno();
     m_hdr->session_uuid = ndSessionId;
 
-    FDS_PLOG_SEV(g_fdslog, fds_log::normal)
-        << "Sending registration result to node " << get_node_name() << std::endl;
+    LOGNORMAL << "Sending registration result to node " << get_node_name() << std::endl;
 
     // TODO(Andrew): OM needs an interface to response to these messages.
     // ndCpClient->RegisterNodeResp(m_hdr, r_msg);
 }
 
 void
-OM_SmAgent::om_send_dlt(const DLT *curDlt) {
+OM_NodeAgent::om_send_dlt(const DLT *curDlt) {
     if (curDlt == NULL) {
         LOGNORMAL << "No current DLT to send to " << get_node_name();
         return;
@@ -260,7 +256,7 @@ OM_SmAgent::om_send_dlt(const DLT *curDlt) {
 }
 
 void
-OM_SmAgent::om_send_dlt_close(fds_uint64_t cur_dlt_version) {
+OM_NodeAgent::om_send_dlt_close(fds_uint64_t cur_dlt_version) {
     fpi::FDSP_MsgHdrTypePtr m_hdr(new fpi::FDSP_MsgHdrType);
     fpi::FDSP_DltCloseTypePtr d_msg(new fpi::FDSP_DltCloseType());
     this->init_msg_hdr(m_hdr);
@@ -280,7 +276,7 @@ OM_SmAgent::om_send_dlt_close(fds_uint64_t cur_dlt_version) {
 }
 
 void
-OM_SmAgent::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
+OM_NodeAgent::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
 {
     NodeInventory::init_msg_hdr(msgHdr);
 
@@ -293,7 +289,7 @@ OM_SmAgent::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
 // OM PM NodeAgent
 // ---------------------------------------------------------------------------------
 OM_PmAgent::~OM_PmAgent() {}
-OM_PmAgent::OM_PmAgent(const NodeUuid &uuid) : NodeAgent(uuid) {}
+OM_PmAgent::OM_PmAgent(const NodeUuid &uuid) : OM_NodeAgent(uuid) {}
 
 void
 OM_PmAgent::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
@@ -304,19 +300,6 @@ OM_PmAgent::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
     msgHdr->session_uuid = ndSessionId;
 }
 
-// setCpSession
-// ------------
-//
-void
-OM_PmAgent::setCpSession(NodeAgentCpSessionPtr session)
-{
-    ndCpSession = session;
-    ndSessionId = ndCpSession->getSessionId();
-    ndCpClient  = ndCpSession->getClient();
-
-    FDS_PLOG_SEV(g_fdslog, fds_log::normal)
-            << "PMAgent: Established connection with new node";
-}
 
 // service_exists
 // --------------
@@ -350,29 +333,42 @@ Error
 OM_PmAgent::handle_register_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_type,
                                     NodeAgent::pointer svc_agent)
 {
-    // Platform must be in active state
-    if (node_state() != FDS_ProtocolInterface::FDS_Node_Up) {
-        return Error(ERR_NODE_NOT_ACTIVE);
-    }
-
     // we cannot register more than one service of the same type
     // with the same node (platform)
     if (service_exists(svc_type)) {
         return Error(ERR_DUPLICATE);
     }
+
+    // update configDB with which services this platform has
+    kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
+    NodeServices services;
+    if (configDB && !configDB->getNodeServices(get_uuid(), services)) {
+        // just in case reset services to 0
+        services.reset();
+    }
+
     switch (svc_type) {
         case FDS_ProtocolInterface::FDSP_STOR_MGR:
             activeSmAgent = OM_SmAgent::agt_cast_ptr(svc_agent);
+            services.sm = svc_agent->get_uuid();
             break;
         case FDS_ProtocolInterface::FDSP_DATA_MGR:
             activeDmAgent = OM_DmAgent::agt_cast_ptr(svc_agent);
+            services.dm = svc_agent->get_uuid();
             break;
         case FDS_ProtocolInterface::FDSP_STOR_HVISOR:
             activeAmAgent = OM_AmAgent::agt_cast_ptr(svc_agent);
+            services.am = svc_agent->get_uuid();
             break;
         default:
             fds_verify(false);
     };
+
+    // actually update config DB
+    if (configDB) {
+        configDB->setNodeServices(get_uuid(), services);
+    }
+
     return Error(ERR_OK);
 }
 
@@ -382,30 +378,43 @@ OM_PmAgent::handle_register_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_ty
 void
 OM_PmAgent::handle_unregister_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_type)
 {
+    // update configDB -- remove the service
+    kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
+    NodeServices services;
+    fds_bool_t found_services = configDB ?
+            configDB->getNodeServices(get_uuid(), services) : false;
+
     switch (svc_type) {
         case FDS_ProtocolInterface::FDSP_STOR_MGR:
             activeSmAgent = NULL;
+            services.sm.uuid_set_val(0);
             break;
         case FDS_ProtocolInterface::FDSP_DATA_MGR:
             activeDmAgent = NULL;
+            services.dm.uuid_set_val(0);
             break;
         case FDS_ProtocolInterface::FDSP_STOR_HVISOR:
             activeAmAgent = NULL;
+            services.am.uuid_set_val(0);
             break;
         default:
             fds_verify(false);
     };
+
+    if (found_services) {
+        configDB->setNodeServices(get_uuid(), services);
+    }
 }
 
 void
 OM_PmAgent::handle_unregister_service(const NodeUuid& uuid)
 {
     if (activeSmAgent->get_uuid() == uuid) {
-        activeSmAgent = NULL;
+        handle_unregister_service(FDS_ProtocolInterface::FDSP_STOR_MGR);
     } else if (activeDmAgent->get_uuid() == uuid) {
-        activeDmAgent = NULL;
+        handle_unregister_service(FDS_ProtocolInterface::FDSP_DATA_MGR);
     } else if (activeAmAgent->get_uuid() == uuid) {
-        activeAmAgent = NULL;
+        handle_unregister_service(FDS_ProtocolInterface::FDSP_STOR_HVISOR);
     }
 }
 
@@ -428,10 +437,9 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
         (node_state() != FDS_ProtocolInterface::FDS_Node_Up)) {
         return Error(ERR_INVALID_ARG);
     }
-    FDS_PLOG_SEV(g_fdslog, fds_log::normal)
-            << "OM_PmAgent: will send node activate message to " << get_node_name()
-            << "; activate sm: " << activate_sm << "; activate dm: "<< activate_dm
-            << "; activate am: " << activate_am;
+    LOGNORMAL << "OM_PmAgent: will send node activate message to " << get_node_name()
+              << "; activate sm: " << activate_sm << "; activate dm: "<< activate_dm
+              << "; activate am: " << activate_am;
 
     // we are ok to activate a service after we already activate another
     // services on this node, but check if the requested services are already
@@ -469,10 +477,9 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
         if (!configDB->getNode(get_uuid(), node_data)) {
             // for now store only if the node was not known to DB
             configDB->addNode(*node_inv);
-            FDS_PLOG_SEV(g_fdslog, fds_log::notification)
-                    << "Adding node info for " << get_node_name() << ":"
-                    << std::hex << get_uuid().uuid_get_val() << std::dec
-                    << " in configDB";
+            LOGNOTIFY << "Adding node info for " << get_node_name() << ":"
+                      << std::hex << get_uuid().uuid_get_val() << std::dec
+                      << " in configDB";
         }
     }
 
@@ -498,13 +505,69 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
 }
 
 // ---------------------------------------------------------------------------------
-// OM Platform NodeAgent Container
+// Common OM Service Container
 // ---------------------------------------------------------------------------------
-OM_PmContainer::OM_PmContainer() : PmContainer(FDSP_ORCH_MGR)
+OM_AgentContainer::OM_AgentContainer(FdspNodeType id) : AgentContainer(FDSP_ORCH_MGR)
 {
+    ac_node_type = id;
     ctrlRspHndlr = boost::shared_ptr<OM_ControlRespHandler>(new OM_ControlRespHandler());
 }
 
+// agent_register
+// --------------
+//
+Error
+OM_AgentContainer::agent_register(const NodeUuid       &uuid,
+                                  const FdspNodeRegPtr  msg,
+                                  NodeAgent::pointer   *out,
+                                  bool                  activate)
+{
+    Error err = AgentContainer::agent_register(uuid, msg, out, false);
+
+    if (OM_NodeDomainMod::om_in_test_mode() || (err != ERR_OK)) {
+        return err;
+    }
+    OM_NodeAgent::pointer agent = OM_NodeAgent::agt_cast_ptr(*out);
+
+    try {
+        NodeAgentCpSessionPtr session(
+                ac_cpSessTbl->startSession<netControlPathClientSession>(
+                    agent->get_ip_str(),
+                    agent->get_ctrl_port(),
+                    ac_node_type,      // TODO(Andrew): should be just a node
+                    1,                 // just 1 channel for now...
+                    ctrlRspHndlr));
+
+        fds_verify(agent != NULL);
+        fds_verify(session != NULL);
+        agent->setCpSession(session, fpi::FDSP_DATA_MGR);
+    } catch(const att::TTransportException& e) {
+        rs_free_resource(agent);
+        LOGERROR << "error during network call : " << e.what();
+        return ERR_NETWORK_TRANSPORT;
+    }
+    // Only make it known to the container when we have the endpoint.
+    // XXX(Vy): it's possible that we can lost the endpoint during the activate call.
+    //
+    agent_activate(agent);
+    return err;
+}
+
+// agent_unregister
+// ----------------
+//
+Error
+OM_AgentContainer::agent_unregister(const NodeUuid &uuid, const std::string &name)
+{
+    Error err = AgentContainer::agent_unregister(uuid, name);
+
+    return err;
+}
+
+// ---------------------------------------------------------------------------------
+// OM Platform NodeAgent Container
+// ---------------------------------------------------------------------------------
+OM_PmContainer::OM_PmContainer() : OM_AgentContainer(FDSP_PLATFORM) {}
 
 // agent_register
 // --------------
@@ -512,7 +575,8 @@ OM_PmContainer::OM_PmContainer() : PmContainer(FDSP_ORCH_MGR)
 Error
 OM_PmContainer::agent_register(const NodeUuid       &uuid,
                                const FdspNodeRegPtr  msg,
-                               NodeAgent::pointer   *out)
+                               NodeAgent::pointer   *out,
+                               bool                  activate)
 {
     // check if this is a known Node
     bool        known;
@@ -540,31 +604,34 @@ OM_PmContainer::agent_register(const NodeUuid       &uuid,
             LOGNORMAL << "autonamed node : " << msg->node_name;
         }
     }
+    Error err = OM_AgentContainer::agent_register(uuid, msg, out, activate);
+    if ((err == ERR_OK) && (known == true)) {
+        fds_verify(out != NULL);
+        OM_PmAgent::pointer agent = OM_PmAgent::agt_cast_ptr(*out);
 
-    Error err = AgentContainer::agent_register(uuid, msg, out);
-
-    if (OM_NodeDomainMod::om_in_test_mode() || (err != ERR_OK)) {
-        return err;
-    }
-    OM_PmAgent::pointer agent = OM_PmAgent::agt_cast_ptr(*out);
-    NodeAgentCpSessionPtr session(
-        ac_cpSessTbl->startSession<netControlPathClientSession>(
-            agent->get_ip_str(),
-            agent->get_ctrl_port(),
-            FDSP_PLATFORM,  // TODO(Andrew): should be just a node
-            1,              // just 1 channel for now...
-            ctrlRspHndlr));
-
-    fds_verify(agent != NULL);
-    fds_verify(session != NULL);
-    agent->setCpSession(session);
-
-    if (known == true) {
+        // start services that were running on that node
+        NodeServices services;
+        fds_bool_t has_am = false;
+        fds_bool_t has_sm = false;
+        fds_bool_t has_dm = false;
+        if (configDB->getNodeServices(uuid, services)) {
+            if (services.am.uuid_get_val() != 0) {
+                has_am = true;
+            }
+            if (services.sm.uuid_get_val() != 0) {
+                has_sm = true;
+            }
+            if (services.dm.uuid_get_val() != 0) {
+                has_dm = true;
+            }
+        }
         LOGNORMAL << "Known node uuid " << agent->get_uuid().uuid_get_val()
-            << ", name " << agent->get_node_name() << ", start all services";
+                  << ", name " << agent->get_node_name() << ", start services:"
+                  << " am:" << has_am << " sm:" << has_sm << " dm:" << has_dm;
 
-        // TODO(Vy): must save service cfg in db or better node provisioning.
-        agent->send_activate_services(true, true, true);
+        if (has_am || has_sm || has_dm) {
+            agent->send_activate_services(has_sm, has_dm, has_am);
+        }
     }
     return err;
 }
@@ -622,14 +689,7 @@ OM_PmContainer::handle_unregister_service(const NodeUuid& svc_uuid)
 // ---------------------------------------------------------------------------------
 // OM SM NodeAgent Container
 // ---------------------------------------------------------------------------------
-OM_SmContainer::OM_SmContainer() : SmContainer(FDSP_ORCH_MGR)
-{
-    ctrlRspHndlr = boost::shared_ptr<OM_ControlRespHandler>(new OM_ControlRespHandler());
-}
-
-OM_SmContainer::~OM_SmContainer()
-{
-}
+OM_SmContainer::OM_SmContainer() : OM_AgentContainer(FDSP_STOR_MGR) {}
 
 // agent_activate
 // --------------
@@ -637,9 +697,8 @@ OM_SmContainer::~OM_SmContainer()
 void
 OM_SmContainer::agent_activate(NodeAgent::pointer agent)
 {
-    FDS_PLOG_SEV(g_fdslog, fds_log::normal)
-            << "Activate node uuid " << std::hex
-            << "0x" << agent->get_uuid().uuid_get_val() << std::dec;
+    LOGNORMAL << "Activate node uuid " << std::hex
+              << "0x" << agent->get_uuid().uuid_get_val() << std::dec;
 
     rs_mtx.lock();
     rs_register_mtx(agent);
@@ -653,9 +712,8 @@ OM_SmContainer::agent_activate(NodeAgent::pointer agent)
 void
 OM_SmContainer::agent_deactivate(NodeAgent::pointer agent)
 {
-    FDS_PLOG_SEV(g_fdslog, fds_log::normal)
-            << "Deactivate node uuid " << std::hex
-            << "0x" << agent->get_uuid().uuid_get_val() << std::dec;
+    LOGNORMAL << "Deactivate node uuid " << std::hex
+              << "0x" << agent->get_uuid().uuid_get_val() << std::dec;
 
     rs_mtx.lock();
     rs_unregister_mtx(agent);
@@ -675,117 +733,15 @@ OM_SmContainer::om_splice_nodes_pend(NodeList *addNodes, NodeList *rmNodes)
     rs_mtx.unlock();
 }
 
-// agent_register
-// --------------
-//
-Error
-OM_SmContainer::agent_register(const NodeUuid       &uuid,
-                               const FdspNodeRegPtr  msg,
-                               NodeAgent::pointer   *out)
-{
-    Error err = AgentContainer::agent_register(uuid, msg, out);
-
-    if (OM_NodeDomainMod::om_in_test_mode() || (err != ERR_OK)) {
-        return err;
-    }
-    OM_SmAgent::pointer agent = OM_SmAgent::agt_cast_ptr(*out);
-    NodeAgentCpSessionPtr session(
-            ac_cpSessTbl->startSession<netControlPathClientSession>(
-                agent->get_ip_str(),
-                agent->get_ctrl_port(),
-                FDSP_STOR_MGR,  // TODO(Andrew): should be just a node
-                1,              // just 1 channel for now...
-                ctrlRspHndlr));
-
-    fds_verify(agent != NULL);
-    fds_verify(session != NULL);
-    agent->setCpSession(session, fpi::FDSP_STOR_MGR);
-    return err;
-}
-
-// agent_unregister
-// ----------------
-//
-Error
-OM_SmContainer::agent_unregister(const NodeUuid &uuid, const std::string &name)
-{
-    Error err = AgentContainer::agent_unregister(uuid, name);
-
-    return err;
-}
-
 // --------------------------------------------------------------------------------------
 // OM DM NodeAgent Container
 // --------------------------------------------------------------------------------------
-OM_DmContainer::OM_DmContainer() : DmContainer(FDSP_ORCH_MGR)
-{
-    ctrlRspHndlr = boost::shared_ptr<OM_ControlRespHandler>(new OM_ControlRespHandler());
-}
-
-// agent_register
-// --------------
-//
-Error
-OM_DmContainer::agent_register(const NodeUuid       &uuid,
-                               const FdspNodeRegPtr  msg,
-                               NodeAgent::pointer   *out)
-{
-    Error err = AgentContainer::agent_register(uuid, msg, out);
-
-    if (OM_NodeDomainMod::om_in_test_mode() || (err != ERR_OK)) {
-        return err;
-    }
-    OM_DmAgent::pointer agent = OM_DmAgent::agt_cast_ptr(*out);
-    NodeAgentCpSessionPtr session(
-            ac_cpSessTbl->startSession<netControlPathClientSession>(
-                agent->get_ip_str(),
-                agent->get_ctrl_port(),
-                FDSP_DATA_MGR,  // TODO(Andrew): should be just a node
-                1,              // just 1 channel for now...
-                ctrlRspHndlr));
-
-    fds_verify(agent != NULL);
-    fds_verify(session != NULL);
-    agent->setCpSession(session, fpi::FDSP_DATA_MGR);
-    return err;
-}
+OM_DmContainer::OM_DmContainer() : OM_AgentContainer(FDSP_DATA_MGR) {}
 
 // -------------------------------------------------------------------------------------
 // OM AM NodeAgent Container
 // -------------------------------------------------------------------------------------
-OM_AmContainer::OM_AmContainer() : AmContainer(FDSP_ORCH_MGR)
-{
-    ctrlRspHndlr = boost::shared_ptr<OM_ControlRespHandler>(new OM_ControlRespHandler());
-}
-
-// agent_register
-// --------------
-//
-Error
-OM_AmContainer::agent_register(const NodeUuid       &uuid,
-                               const FdspNodeRegPtr  msg,
-                               NodeAgent::pointer   *out)
-{
-    Error err = AgentContainer::agent_register(uuid, msg, out);
-
-    if (OM_NodeDomainMod::om_in_test_mode() || (err != ERR_OK)) {
-        return err;
-    }
-    OM_AmAgent::pointer agent = OM_AmAgent::agt_cast_ptr(*out);
-
-    NodeAgentCpSessionPtr session(
-            ac_cpSessTbl->startSession<netControlPathClientSession>(
-                agent->get_ip_str(),
-                agent->get_ctrl_port(),
-                FDSP_STOR_HVISOR,  // TODO(Andrew): should be just a node
-                1,                 // just 1 channel for now...
-                ctrlRspHndlr));
-
-    fds_verify(agent != NULL);
-    fds_verify(session != NULL);
-    agent->setCpSession(session, fpi::FDSP_DATA_MGR);
-    return err;
-}
+OM_AmContainer::OM_AmContainer() : OM_AgentContainer(FDSP_STOR_HVISOR) {}
 
 // --------------------------------------------------------------------------------------
 // OM Node Container
@@ -797,8 +753,7 @@ OM_NodeContainer::OM_NodeContainer()
                       new OM_DmContainer(),
                       new OM_AmContainer(),
                       new OM_PmContainer(),
-                      new OmContainer(FDSP_ORCH_MGR),
-                      NULL),
+                      new OmContainer(FDSP_ORCH_MGR)),
     om_dmt_mtx("DMT-Mtx")
 {
     om_volumes    = new VolumeContainer();
@@ -1094,8 +1049,7 @@ OM_NodeContainer::om_set_throttle_lvl(float level)
 {
     om_cur_throttle_level = level;
 
-    FDS_PLOG_SEV(g_fdslog, fds_log::notification)
-        << "Setting throttle level for local domain at " << level << std::endl;
+    LOGNOTIFY << "Setting throttle level for local domain at " << level << std::endl;
 
     om_bcast_throttle_lvl(level);
 }

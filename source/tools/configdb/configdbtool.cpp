@@ -83,19 +83,19 @@ bool ConfigDBTool::check() {
 void ConfigDBTool::cmdInfo(std::vector <std::string>& args) {
     if (!check()) return;
 
-    LINE << "global.domain : " << db->getGlobalDomain() << "\n";
+    LINE << "global.domain   : " << db->getGlobalDomain() << "\n";
 
     std::map<int,std::string> mapDomains;
     db->getLocalDomains(mapDomains);
-    LINE << "localdomains  : " << mapDomains.size() << "\n";
+    LINE << "localdomains    : " << mapDomains.size() << "\n";
     
     std::vector<VolumeDesc> volumes;
     db->getVolumes(volumes);
-    LINE << "no.of volumes : " << volumes.size() << "\n";
+    LINE << "no.of volumes   : " << volumes.size() << "\n";
 
     std::vector<FDS_VolumePolicy> policies;
     db->getPolicies(policies);
-    LINE << "no.of policies : " << policies.size() << "\n";
+    LINE << "no.of policies  : " << policies.size() << "\n";
     
 }
 
@@ -174,6 +174,10 @@ void ConfigDBTool::cmdNode(std::vector <std::string>& args) {
         } else {
             LINE << Color::BoldWhite << nodeId << Color::End << "\n";
             PRINTSTREAM(node);
+            NodeServices services;
+            if (db->getNodeServices(nodeId, services)) {
+                LINE << Color::BoldWhite << "Services::" << Color::End << services << "\n";
+            }
             cout << "\n";
         }
     }

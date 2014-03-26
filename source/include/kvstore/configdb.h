@@ -3,6 +3,7 @@
  */
 #ifndef SOURCE_INCLUDE_KVSTORE_CONFIGDB_H_
 #define SOURCE_INCLUDE_KVSTORE_CONFIGDB_H_
+#include <unordered_set>
 #include <kvstore/kvstore.h>
 #include <platform/node-inventory.h>
 #include <fds_volume.h>
@@ -49,9 +50,12 @@ namespace fds {
             bool removeNode(const NodeUuid& uuid);
             bool getNode(const NodeUuid& uuid, NodeInvData& node);
             bool nodeExists(const NodeUuid& uuid);
-            bool getNodeIds(std::vector<NodeUuid>& nodes, int localDomain = 0);
+            bool getNodeIds(std::unordered_set<NodeUuid, UuidHash>& nodes, int localDomain = 0);
             bool getAllNodes(std::vector<NodeInvData>& nodes, int localDomain = 0);
             std::string getNodeName(const NodeUuid& uuid);
+
+            bool getNodeServices(const NodeUuid& uuid, NodeServices& services); 
+            bool setNodeServices(const NodeUuid& uuid, const NodeServices& services); 
             uint getNodeNameCounter();
             
             // volume policies            

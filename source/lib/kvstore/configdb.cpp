@@ -482,7 +482,7 @@ bool ConfigDB::nodeExists(const NodeUuid& uuid) {
     return false;
 }
 
-bool ConfigDB::getNodeIds(std::vector<NodeUuid>& nodes, int localDomain) {
+bool ConfigDB::getNodeIds(std::unordered_set<NodeUuid, UuidHash>& nodes, int localDomain) {
     std::vector<long long> nodeIds;
 
     try {
@@ -495,7 +495,9 @@ bool ConfigDB::getNodeIds(std::vector<NodeUuid>& nodes, int localDomain) {
         }
 
         for (uint i = 0; i < nodeIds.size() ; i++ ) {
-            nodes.push_back(NodeUuid(nodeIds[i]));
+            LOGDEBUG << "ConfigDB::getNodeIds node "
+                     << std::hex << nodeIds[i] << std::dec;
+            nodes.insert(NodeUuid(nodeIds[i]));
         }
 
         return true;
@@ -538,6 +540,30 @@ std::string ConfigDB::getNodeName(const NodeUuid& uuid) {
         LOGCRITICAL << "error with redis " << e.what();
     }
     return "";    
+}
+
+bool ConfigDB::getNodeServices(const NodeUuid& uuid, NodeServices& services) {
+    try{
+        Reply reply = r.sendCommand("get %ld:services", uuid);
+        if (reply.isNil()) return false;
+        services.loadSerialized(reply.getString());
+        return true;
+    } catch (const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+    return false;
+}
+
+bool ConfigDB::setNodeServices(const NodeUuid& uuid, const NodeServices& services) {
+    try{
+        std::string serialized;
+        services.getSerialized(serialized);
+        Reply reply = r.sendCommand("set %ld:services %b", uuid, serialized.data(), serialized.length());
+        return reply.isOk();
+    } catch (const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+    return false;
 }
 
 uint ConfigDB::getNodeNameCounter() {
