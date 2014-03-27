@@ -45,6 +45,7 @@ class FdsEnv(object):
             'debug-base': 'Build/linux-x86_64.debug/',
             'package'   : 'fds.tar',
             'pkg-sbin'  : 'test',
+            'pkg-tools' : 'tools',
             'root-sbin' : 'sbin'
         }
 
@@ -262,6 +263,9 @@ class FdsPackage:
             with pushd(self.p_env.get_fds_source()):
                 subprocess.call(['tar', 'rf', tar_ball, 'test'])
 
+            with pushd(self.p_env.get_fds_source()):
+                subprocess.call(['tar', 'rf', tar_ball, 'tools'])
+
             with pushd(self.p_env.get_build_dir(debug, fds_bin = False)):
                 subprocess.call(['cp', '../../leveldb-1.12.0/libleveldb.so.1', 'lib'])
                 subprocess.call(['tar', 'rf', tar_ball, 'lib'])
@@ -296,6 +300,10 @@ class FdsPackage:
                          '; tar xf ' + self.p_env.env_fdsDict['package'] +
                          '; cd ' + self.p_env.get_fds_root() +
                          '; rm ' + self.p_env.env_fdsDict['package'] +
-                         '; mv ' + self.p_env.env_fdsDict['pkg-sbin'] + ' ' +
+                         '; cp -rf ' + self.p_env.env_fdsDict['pkg-sbin'] + ' ' +
                                    self.p_env.env_fdsDict['root-sbin'] +
+                         '; rm -rf ' + self.p_env.env_fdsDict['pkg-sbin'] +
+                         '; cp -rf ' + self.p_env.env_fdsDict['pkg-tools'] + ' ' +
+                                   self.p_env.env_fdsDict['root-sbin'] +
+                         '; rm -rf ' + self.p_env.env_fdsDict['pkg-tools']  +
                          '; mkdir -p var/logs')

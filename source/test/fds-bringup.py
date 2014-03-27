@@ -22,6 +22,8 @@ if __name__ == '__main__':
                       help = 'bring up cluster')
     parser.add_option('-d', '--down', action = 'store_true', dest = 'clus_down',
                       help = 'bring down cluster')
+    parser.add_option('-c', '--clean', action = 'store_true', dest = 'clus_clean',
+                      help = 'cleanup cluster')
 
     (options, args) = parser.parse_args()
 
@@ -56,6 +58,10 @@ if __name__ == '__main__':
     if options.clus_down:
         for n in nodes:
             n.nd_cleanup_daemons()
+
+    if options.clus_clean:
+        for n in nodes:
+            n.nd_cleanup_node()
 
     if options.clus_up is None:
         sys.exit(0)

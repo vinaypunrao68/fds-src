@@ -93,7 +93,7 @@ class FdsNodeConfig(FdsConfig):
                 print "You need to call nd_connect_rmt_agent() first"
                 sys.exit(0)
 
-            print "Start OM in", self.nd_host_name()
+            print "\nStart OM in", self.nd_host_name()
             self.nd_rmt_agent.ssh_exec_fds(
                 "orchMgr --fds-root=%s" % self.nd_conf_dict['fds_root'])
             time.sleep(2)
@@ -109,22 +109,38 @@ class FdsNodeConfig(FdsConfig):
             port = self.nd_conf_dict['fds_port']
             port_arg = port_arg + (' --fds.plat.control_port=%s' % port)
 
-        print "Start platform daemon in", self.nd_host_name()
+        print "\nStart platform daemon in", self.nd_host_name()
         self.nd_rmt_agent.ssh_exec_fds('platformd ' + port_arg + ' >> /tmp/foo')
         time.sleep(4)
 
     ###
-    # Kill all fds daemons and cleanup any cores.
+    # Kill all fds daemons
     #
     def nd_cleanup_daemons(self):
         fds_dir = self.nd_conf_dict['fds_root']
         bin_dir = fds_dir + '/bin'
+        sbin_dir = fds_dir + '/sbin'
+        tools_dir = sbin_dir + '/tools'
         var_dir = fds_dir + '/var'
-        print("Cleanup running processes in: %s, %s" % (self.nd_host_name(), bin_dir))
+        print("\nCleanup running processes in: %s, %s" % (self.nd_host_name(), bin_dir))
+        # TODO (Bao): order to kill: AM, SM/DM, OM
         self.nd_rmt_agent.ssh_exec('pkill -9 java; pkill -9 Mgr; pkill -9 AMAgent; '
-            'pkill -9 platformd; (cd %s && rm core *.core); ' % bin_dir +
+           'pkill -9 platformd;')
+
+    ###
+    # cleanup any cores, redis, and logs.
+    #
+    def nd_cleanup_node(self):
+        fds_dir = self.nd_conf_dict['fds_root']
+        bin_dir = fds_dir + '/bin'
+        sbin_dir = fds_dir + '/sbin'
+        tools_dir = sbin_dir + '/tools'
+        var_dir = fds_dir + '/var'
+        print("\nCleanup cores/logs/redis in: %s, %s" % (self.nd_host_name(), bin_dir))
+        self.nd_rmt_agent.ssh_exec('(cd %s && rm core *.core); ' % bin_dir +
             '(cd %s && rm -r logs stats); ' % var_dir +
-            '(cd /corefiles && rm *.core); ' )
+            '(cd /corefiles && rm *.core); '  +
+            '(cd %s && ./fds clean -i)' % tools_dir)
 
 ###
 # Handle AM config section

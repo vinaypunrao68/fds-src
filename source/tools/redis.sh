@@ -1,6 +1,4 @@
 #!/bin/bash
-
-
 ########################################################################
 # setup correct dirs
 SOURCE="${BASH_SOURCE[0]}"
@@ -11,11 +9,18 @@ while [ -h "$SOURCE" ]; do
   [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
 done
 
+# If run from source dir
 TOOLSDIR="$(cd -P "$( dirname "${SOURCE}" )" && pwd )"
 SOURCEDIR="$( cd ${TOOLSDIR}/.. && pwd)"
-CONFDIR=${SOURCEDIR}/config/etc
-########################################################################
+CONFIG_ETC=${SOURCEDIR}/config/etc
+BINDIR="${SOURCEDIR}/Build/linux-x86_64.debug/bin"
+FDSROOT=/fds
+
+# else run from install dir
+run_from_install_dir=0
+
 source ${TOOLSDIR}/loghelper.sh
+########################################################################
 
 PORTS=()
 versinfo=()
@@ -62,7 +67,7 @@ function init() {
 
 function getRedisConfigFile() {
     local instance="$1"
-    echo -n ${CONFDIR}/redis${instance}.conf
+    echo -n ${CONFIG_ETC}/redis${instance}.conf
 }
 
 function getRedisPort() {
@@ -151,9 +156,46 @@ function cleanRedis() {
 # main
 #################################################################################
 
-CMD=$1
-APP=$2
+# parse input
+# parse out the options & leave the rest is saved
+args=( "$@" )
+for ((n=0; n<$#; n++ ))
+do
+    opt=${args[$n]}
+    case $opt in
+        -f|--fds-root)
+            (( n++ ))
+            if [[ $n -ge $# ]]; then 
+                logerror "value expected for fdsroot"
+                usage
+            fi
+            FDSROOT=${args[$n]}
+            ;;
+        -i|--from-install-dir)
+            run_from_install_dir=1
+            ;;
+        -h|--help)
+            usage
+            ;;
+        *)
+            if [[ -z $CMD ]] ; then CMD=$opt
+            elif [[ -z $APP ]] ; then APP=$opt
+            else
+                logerror "unknown option [$opt] "
+                usage
+            fi
+    esac
+done
 
+# else run from install dir
+if [ $run_from_install_dir -eq 1 ]; then
+    SOURCEDIR="$( cd ${TOOLSDIR}/../.. && pwd)"
+    CONFIG_ETC=${SOURCEDIR}/etc
+    BINDIR=${SOURCEDIR}/bin
+    FDSROOT=${SOURCEDIR}
+fi
+
+# check the values
 CMD=${CMD:="status"}
 APP=${APP:="all"}
 
