@@ -401,7 +401,7 @@ Error DataPlacement::checkDltValid(const DLT* dlt,
         col_set.clear();
         DltTokenGroupPtr column = dlt->getNodes(i);
         for (fds_uint32_t j = 0; j < col_depth; ++j) {
-            NodeUuid cur_uuid = column->get(0);
+            NodeUuid cur_uuid = column->get(j);
             if ((cur_uuid.uuid_get_val() == 0) ||
                 (sm_services.count(cur_uuid) == 0)) {
                 // unexpected uuid in this DLT cell
@@ -414,7 +414,7 @@ Error DataPlacement::checkDltValid(const DLT* dlt,
 
         // make sure that column contains all unique uuids
         if (col_set.size() < col_depth) {
-            LOGWARN << "Found non-unique uuids in DLT column";
+            LOGWARN << "Found non-unique uuids in DLT column " << i;
             return Error(ERR_INVALID_DLT);
         }
     }
