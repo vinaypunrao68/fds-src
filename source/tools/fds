@@ -24,6 +24,7 @@ FDSROOT=/fds
 run_from_install_dir=0
 
 source ${TOOLSDIR}/loghelper.sh
+init_loghelper /tmp/fds_tool.log
 ########################################################################
 
 REDIS_ARG=
@@ -323,10 +324,10 @@ CMD=${CMD:="status"}
 APP=${APP:="all"}
 FDSROOT=${FDSROOT:=/fds}
 
-echo "CMD=${CMD} APP=${APP} ROOT=${FDSROOT} SOURCEDIR=${SOURCEDIR} " \
-     "TOOLSDIR=${TOOLSDIR} CONFIG_ETC=${CONFIG_ETC} BINDIR=${BINDIR}"
+#echo "CMD=${CMD} APP=${APP} ROOT=${FDSROOT} SOURCEDIR=${SOURCEDIR} " \
+#     "TOOLSDIR=${TOOLSDIR} CONFIG_ETC=${CONFIG_ETC} BINDIR=${BINDIR}"
 
-echo "args: ${args[@]}"
+#echo "args: ${args[@]}"
 #exit 0
 
 case "${CMD}" in
