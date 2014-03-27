@@ -131,9 +131,9 @@ class CopyS3Dir:
         for put in self.files_list[self.cur_put:]:
             cnt = cnt + 1
             obj = self.obj_prefix + put.replace("/", "_")
-            self.printDebug("curl POST: " + put + " -> " + obj)
-            ret = subprocess.call(['curl', '-X', 'POST', '--data-binary',
-                    '@' + put, self.bucket_url + '/' + obj])
+            self.printDebug("curl PUT: " + put + " -> " + obj)
+            ret = subprocess.call(['curl', '-X', 'PUT', '--data-binary',
+                                   '@' + put, self.bucket_url + '/' + obj])
             if ret != 0:
                 err = err + 1
                 print "curl error PUT: " + put + ": " + obj
@@ -278,8 +278,8 @@ class CopyS3Dir_Overwrite(CopyS3Dir):
         for put in self.files_list:
             cnt = cnt + 1
             obj = self.obj_prefix + put.replace("/", "_")
-            self.printDebug("curl POST: " + put + " -> " + obj)
-            ret = subprocess.call(['curl', '-X', 'POST', '--data-binary',
+            self.printDebug("curl PUT: " + put + " -> " + obj)
+            ret = subprocess.call(['curl', '-X', 'PUT', '--data-binary',
                     '@' + wr_file, self.bucket_url + '/' + obj])
             if ret != 0:
                 err = err + 1
