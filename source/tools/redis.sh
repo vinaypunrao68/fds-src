@@ -20,6 +20,7 @@ FDSROOT=/fds
 run_from_install_dir=0
 
 source ${TOOLSDIR}/loghelper.sh
+init_loghelper /tmp/redis_tool.log
 ########################################################################
 
 PORTS=()

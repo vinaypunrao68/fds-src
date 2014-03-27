@@ -196,7 +196,7 @@ class FdsRmtEnv(FdsEnv):
     ###
     # Execute command to a remote node through ssh client.
     #
-    def ssh_exec(self, cmd, fds_bin = False):
+    def ssh_exec(self, cmd, wait_compl = False, fds_bin = False):
         if fds_bin:
             cmd_exec = (self.env_ldLibPath + 'cd ' + self.get_fds_root() +
                         'bin; ulimit -c unlimited; ulimit -n 12800; ./' + cmd)
@@ -208,15 +208,23 @@ class FdsRmtEnv(FdsEnv):
 
         stdin, stdout, stderr = self.env_ssh_clnt.exec_command(cmd_exec)
 
+        if wait_compl:
+            channel = stdout.channel
+            status  = channel.recv_exit_status()
+        else:
+            status  = 0
+
         stdin.close()
         stdout.close()
         stderr.close()
 
+        return status
+
     ###
     # Execute command from $fds_root/bin directory.  Prefix with needed stuffs.
     #
-    def ssh_exec_fds(self, cmd):
-        self.ssh_exec(cmd, True)
+    def ssh_exec_fds(self, cmd, wait_compl = False):
+        self.ssh_exec(cmd, wait_compl, True)
 
     def ssh_close(self):
         env_ssh_clnt.close()
@@ -230,7 +238,8 @@ class FdsRmtEnv(FdsEnv):
     def ssh_setup_env(self, cmd):
         self.ssh_exec(cmd +
             '; echo "%e-%p.core" | sudo tee /proc/sys/kernel/core_pattern ' +
-            '; sudo sysctl -w "kernel.core_pattern=%e-%p.core"')
+            '; sudo sysctl -w "kernel.core_pattern=%e-%p.core"' +
+            '; sysctl -p')
 
 ###
 # Package FDS tar ball and unpackage it to a remote host

@@ -11,23 +11,42 @@
 
 namespace fds {
 
+void
+HttpUtils::initEtag(ngx_md5_t *ctx)
+{
+    ngx_md5_init(ctx);
+}
+
+void
+HttpUtils::updateEtag(ngx_md5_t *ctx, const char* data, size_t len)
+{
+    ngx_md5_update(ctx, data, len);
+}
+
 std::string
-HttpUtils::computeEtag(const char* data, size_t len)
+HttpUtils::finalEtag(ngx_md5_t *ctx)
 {
     const int buf_len = 16;
-    ngx_md5_t ctx;
     unsigned char result[buf_len];
     char md5string[34];
 
-    ngx_md5_init(&ctx);
-    ngx_md5_update(&ctx, data, len);
-    ngx_md5_final(result, &ctx);
+    ngx_md5_final(result, ctx);
 
     for (int i = 0; i < buf_len; ++i) {
         snprintf(&md5string[i*2], buf_len, "%02x", (unsigned int)result[i]);
     }
     md5string[33] = '\0';
     return std::string((const char*)md5string);
+}
+
+std::string
+HttpUtils::computeEtag(const char* data, size_t len)
+{
+    ngx_md5_t ctx;
+
+    initEtag(&ctx);
+    updateEtag(&ctx, data, len);
+    return finalEtag(&ctx);
 }
 
 HttpRequest::HttpRequest(ngx_http_request_t* ngx_req)

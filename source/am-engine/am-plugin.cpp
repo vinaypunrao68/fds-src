@@ -619,6 +619,11 @@ AME_Ctx::ame_get_off() const {
     return ame_buf_off;
 }
 
+ngx_md5_t *
+AME_Ctx::ame_get_etag() {
+    return &ame_etag_ctx;
+}
+
 /*
  * ame_notify_handler
  * ------------------
@@ -752,6 +757,9 @@ AME_CtxList::ame_get_ctx(AME_Request *req)
         ctx->ame_buf_off = 0;
         ctx->ame_req_map.clear();
         ctx->ame_ack_count = 0;
+
+        fds_verify(ctx->ame_alloc_bufs.empty() == true);
+        HttpUtils::initEtag(&(ctx->ame_etag_ctx));
         return ctx;
     }
     return NULL;
