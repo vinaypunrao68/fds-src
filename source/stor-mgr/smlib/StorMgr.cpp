@@ -737,7 +737,8 @@ Error ObjectStorMgr::writeBackObj(const ObjectID &objId) {
      * than flash.
      */
     ObjectBuf objData;
-    err = readObject(SmObjDb::NON_SYNC_MERGED, objId, objData);
+    ObjMetaData objMap;
+    err = readObject(SmObjDb::NON_SYNC_MERGED, objId, objData, objMap);
     if (err != ERR_OK) {
         return err;
     }
@@ -918,7 +919,7 @@ ObjectStorMgr::deleteObjectMetaData(const ObjectID& objId, fds_volid_t vol_id) {
     }
 
     /*
-     * Set the ref_cnt to 0, which will be the delete marker for this object and Garbage collector feeds on these objects
+     * Set the ref_cnt to 0, which will be the delete marker for the Garbage collector
      */
     objMap.deleteAssocEntry(objId, vol_id);
     objData.size = objMap.getMapSize();
@@ -937,9 +938,9 @@ ObjectStorMgr::deleteObjectMetaData(const ObjectID& objId, fds_volid_t vol_id) {
 
 Error
 ObjectStorMgr::readObject(const SmObjDb::View& view, const ObjectID& objId,
-        ObjectBuf& objData) {
+        ObjectBuf& objData, ObjMetaData& objMap) {
     diskio::DataTier tier;
-    return readObject(view, objId, objData, tier);
+    return readObject(view, objId, objData, tier, objMap);
 }
 
 /*
@@ -953,7 +954,8 @@ Error
 ObjectStorMgr::readObject(const SmObjDb::View& view,
         const ObjectID   &objId,
         ObjectBuf        &objData,
-        diskio::DataTier &tierUsed) {
+        diskio::DataTier &tierUsed,
+        ObjMetaData   &objMap) {
     Error err(ERR_OK);
 
     diskio::DataIO& dio_mgr = diskio::DataIO::disk_singleton();
@@ -961,7 +963,6 @@ ObjectStorMgr::readObject(const SmObjDb::View& view,
     meta_vol_io_t   vio;
     meta_obj_id_t   oid;
     diskio::DataTier tierToUse;
-    ObjMetaData objMap;
 
     /*
      * TODO: Why to we create another oid structure here?
@@ -1020,7 +1021,7 @@ ObjectStorMgr::readObject(const SmObjDb::View& view,
  */
 Error
 ObjectStorMgr::checkDuplicate(const ObjectID&  objId,
-        const ObjectBuf& objCompData) {
+        const ObjectBuf& objCompData, ObjMetaData &objMap) {
     Error err(ERR_OK);
 
     ObjectBuf objGetData;
@@ -1035,7 +1036,7 @@ ObjectStorMgr::checkDuplicate(const ObjectID&  objId,
     objGetData.size = 0;
     objGetData.data = "";
 
-    err = readObject(SmObjDb::NON_SYNC_MERGED, objId, objGetData);
+    err = readObject(SmObjDb::NON_SYNC_MERGED, objId, objGetData, objMap);
 
     if (err == ERR_OK) {
         /*
@@ -1140,11 +1141,12 @@ ObjectStorMgr::relocateObject(const ObjectID &objId,
 
     Error err(ERR_OK);
     ObjectBuf objGetData;
+    ObjMetaData objMeta;
 
     objGetData.size = 0;
     objGetData.data = "";
 
-    err = readObject(SmObjDb::NON_SYNC_MERGED, objId, objGetData);
+    err = readObject(SmObjDb::NON_SYNC_MERGED, objId, objGetData, objMeta);
 
     diskio::DataIO& dio_mgr = diskio::DataIO::disk_singleton();
     SmPlReq     *disk_req;
@@ -1195,6 +1197,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
     const FDSP_PutObjTypePtr& putObjReq = putReq->getPutObjReq();
     bool new_buff_allocated = false, added_cache = false;
 
+    ObjMetaData objMap;
     objStorMutex->lock();
 
     objBufPtr = objCache->object_retrieve(volId, objId);
@@ -1222,7 +1225,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
         new_buff_allocated = true;
 
         err = checkDuplicate(objId,
-                *objBufPtr);
+                *objBufPtr, objMap);
 
     }
 
@@ -1234,6 +1237,23 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
         }
         LOGDEBUG << "Put dup:  " << err
                 << ", returning success";
+        if (objMap.isInitialized() == false) { 
+            readObjMetaData(objId, objMap);
+        }
+
+        // Update  the AssocEntry for dedupe-ing
+        objMap.updateAssocEntry(objId, volId);
+        ObjectBuf objData;
+        objData.size = objMap.getMapSize();
+        objData.data.assign(objMap.marshall(), objData.size);
+        err = smObjDb->Put(objId, objData);
+        if (err == ERR_OK) {
+            LOGDEBUG << "Dedupe object Assoc Entry for object "
+                    << objId << " to " << objMap;
+        } else {
+            LOGERROR << "Failed to put ObjMetaData " << objId
+                    << " into odb with error " << err;
+        }
         /*
          * Reset the err to OK to ack the metadata update.
          */
@@ -1543,6 +1563,7 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
     diskio::DataTier tierUsed = diskio::maxTier;
     const FDSP_GetObjTypePtr& getObjReq = getReq->getGetObjReq();
     ObjBufPtrType objBufPtr = NULL;
+    ObjMetaData objMap;
 
     /*
      * We need to fix this once diskmanager keeps track of object size
@@ -1559,11 +1580,18 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
         ObjectBuf objData;
         objData.size = 0;
         objData.data = "";
-        err = readObject(SmObjDb::SYNC_MERGED, objId, objData, tierUsed);
+        err = readObject(SmObjDb::SYNC_MERGED, objId, objData, tierUsed, objMap);
         if (err == fds::ERR_OK) {
             objBufPtr = objCache->object_alloc(volId, objId, objData.size);
             memcpy((void *)objBufPtr->data.c_str(), (void *)objData.data.c_str(), objData.size);
             objCache->object_add(volId, objId, objBufPtr, false); // read data is always clean
+            // ACL: If this Volume never put this object, then it should not access the object
+            if (!objMap.isVolumeAssociated(volId)) { 
+               err = ERR_UNAUTH_ACCESS;
+               LOGDEBUG << "Volume " << volId << " unauth-access of object " << objId
+                // << " and data " << objData.data
+                << " for request ID " << getReq->io_req_id;
+            }
         }
     } else {
         fds_verify(!(objCache->is_object_io_in_progress(volId, objId, objBufPtr)));

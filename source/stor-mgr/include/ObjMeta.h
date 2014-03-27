@@ -73,6 +73,9 @@ class ObjMetaData {
          delete persistBuffer;
        }
     }
+    fds_bool_t isInitialized() { 
+        return (persistBuffer != 0 );
+    }
     ObjMetaData(const ObjectBuf& buf) {
         persistBuffer = new char[buf.data.length()];
         size = buf.data.length();
@@ -169,6 +172,15 @@ class ObjMetaData {
             }
         }
        // If Volume did not put this objId then it delete is a noop
+    }
+
+    fds_bool_t isVolumeAssociated(fds_volid_t vol_id) { 
+        for(int i=0; i < obj_map->obj_num_assoc_entry; i++) { 
+            if (vol_id == assoc_entry[i].vol_uuid) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // Tiering/Physical Location update routines

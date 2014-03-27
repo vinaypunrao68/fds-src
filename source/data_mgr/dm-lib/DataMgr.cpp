@@ -1232,8 +1232,10 @@ DataMgr::queryCatalogBackend(dmCatReq  *qryCatReq) {
 
   // print the object ID  from for  testing only 
   FDS_ProtocolInterface::FDSP_BlobObjectInfo& cat_obj_info = query_catalog->obj_list[0];
-  obj_id.SetId( (const char *)cat_obj_info.data_obj_id.digest.c_str(), cat_obj_info.data_obj_id.digest.length());
-  FDS_PLOG(dataMgr->GetLog()) << "  Object ID  in  Query Catalog response: " << obj_id;
+  if (err.ok() ) { 
+     obj_id.SetId( (const char *)cat_obj_info.data_obj_id.digest.c_str(), cat_obj_info.data_obj_id.digest.length());
+     FDS_PLOG(dataMgr->GetLog()) << "  Object ID  in  Query Catalog response: " << obj_id;
+  }
 
   dataMgr->respMapMtx.read_lock();
   dataMgr->respHandleCli(qryCatReq->session_uuid)->QueryCatalogObjectResp(*msg_hdr, *query_catalog);

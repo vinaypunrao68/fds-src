@@ -711,7 +711,7 @@ fds::Error StorHvCtrl::deleteCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
 
     // Check response code
     Error msgRespErr(rxMsg->err_code);
-    fds_verify(msgRespErr == ERR_OK);
+    fds_verify(msgRespErr == ERR_OK || msgRespErr == ERR_BLOB_NOT_FOUND);
 
     if (rxMsg->msg_code == FDSP_MSG_DELETE_BLOB_RSP) {
         txn->fds_set_dmack_status(rxMsg->src_ip_lo_addr,

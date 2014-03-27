@@ -368,7 +368,7 @@ void FDS_NativeAPI::PutObject(BucketContext *bucket_ctxt,
     fds_volid_t volid;
     FdsBlobReq *blob_req = NULL;
     FDS_PLOG(storHvisor->GetLog()) << "FDS_NativeAPI::PutObject bucket " << bucket_ctxt->bucketName
-                                   << " objKey " << ObjKey;
+                                   << " objKey " << ObjKey << "startByte :" << startByte << "buffer-len : " << buflen;
 
 
     /* check if bucket is attached to this AM, if not, ask OM to attach */

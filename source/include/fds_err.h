@@ -46,6 +46,7 @@ namespace fds {
     "Token is not sync mode",
     "SM object metadata not found",
     "error during network communication"
+    "Unauthorized access to the object/bucket "
   };
   
   /* DO NOT change the order */
@@ -75,6 +76,7 @@ namespace fds {
     ERR_INVALID_DLT          = 22,
     ERR_PERSIST_STATE_MISMATCH = 23,
     ERR_EXCEED_MIN_IOPS      = 24,
+    ERR_UNAUTH_ACCESS      = 25,
 
     /* I/O error range */
     ERR_IO_DLT_MISMATCH      = 100,

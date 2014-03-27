@@ -315,7 +315,8 @@ class ObjectStorMgr :
             fds_volid_t        volId,
             fds_uint32_t       transId);
     Error checkDuplicate(const ObjectID  &objId,
-            const ObjectBuf &objCompData);
+            const ObjectBuf &objCompData,
+            ObjMetaData &objMeta);
     Error writeObjectMetaData(const ObjectID &objId, 
             fds_uint32_t  obj_size,
             obj_phy_loc_t *obj_phy_lo,
@@ -335,7 +336,8 @@ class ObjectStorMgr :
             diskio::DataTier tier);
     Error readObject(const SmObjDb::View& view,
             const ObjectID &objId,
-            ObjectBuf      &objCompData);
+            ObjectBuf      &objCompData,
+            ObjMetaData    &objMeta);
 
     inline fds_uint32_t getSysTaskIopsMin() {
         return totalRate/10; // 10% of total rate
@@ -474,7 +476,8 @@ class ObjectStorMgr :
     Error readObject(const SmObjDb::View& view,
             const ObjectID   &objId,
             ObjectBuf        &objCompData,
-            diskio::DataTier &tier);
+            diskio::DataTier &tier,
+            ObjMetaData &objMeta);
 
     const std::string getStorPrefix() {
         return conf_helper_.get<std::string>("prefix");
