@@ -462,7 +462,7 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
         }
 
         //  if all requested services already active, nothing to do
-        if (!activate_sm && !activate_dm && !activate_am) {
+        if (!do_activate_sm && !do_activate_dm && !do_activate_am) {
             LOGNOTIFY << "All services already running, nothing to activate"
                       << " on node " << get_node_name();
             return err;
@@ -642,6 +642,7 @@ OM_PmContainer::agent_register(const NodeUuid       &uuid,
 fds_bool_t
 OM_PmContainer::check_new_service(const NodeUuid &pm_uuid,
                                   FDS_ProtocolInterface::FDSP_MgrIdType svc_role) {
+    fds_bool_t bret = false;
     NodeAgent::pointer agent = agent_info(pm_uuid);
     if (agent == NULL) {
         LOGDEBUG << "WARNING: agent for PM node does not exit";
@@ -652,7 +653,10 @@ OM_PmContainer::check_new_service(const NodeUuid &pm_uuid,
         return false;  // must be in active state
     }
 
-    return (OM_PmAgent::agt_cast_ptr(agent)->service_exists(svc_role) == false);
+    bret = (OM_PmAgent::agt_cast_ptr(agent)->service_exists(svc_role) == false);
+    LOGDEBUG << "Service of type " << svc_role << " on node " << std::hex
+             << pm_uuid.uuid_get_val() << std::dec << " exists? " << bret;
+    return bret;
 }
 
 // handle_register_service

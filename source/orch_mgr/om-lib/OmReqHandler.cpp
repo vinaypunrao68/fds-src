@@ -714,6 +714,7 @@ void OrchMgr::FDSP_OMControlPathReqHandler::RegisterNode(
         LOGERROR << "Node Registration failed for "
                  << reg_node_req->node_name << ":" << std::hex
                  << new_node_uuid.uuid_get_val() << std::dec
+                 << " node_type " << reg_node_req->node_type
                  << ", result: " << err.GetErrstr();
         return;
     }
