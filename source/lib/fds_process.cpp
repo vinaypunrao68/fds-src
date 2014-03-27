@@ -95,6 +95,9 @@ FdsProcess::FdsProcess(int argc, char *argv[],
     } else {
         g_fdslog  = new fds_log(def_log_file, proc_root->dir_fds_logs());
     }
+    /* Set the logger level */
+    g_fdslog->setSeverityFilter(
+        (fds_log::severity_level) conf_helper_.get<int>("log_severity"));
 }
 
 FdsProcess::~FdsProcess()
