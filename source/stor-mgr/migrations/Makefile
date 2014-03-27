@@ -12,7 +12,8 @@ user_cpp          :=                   \
     TokenCopySender.cpp \
     fds_migration.cpp \
     TokenSyncReceiver.cpp \
-    TokenSyncSender.cpp
+    TokenSyncSender.cpp \
+    TokenPullReceiver.cpp
 
 user_no_style     :=
 user_ar_libs      := fds-migrations

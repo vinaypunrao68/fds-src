@@ -123,6 +123,27 @@ NotifyTokenSyncComplete(boost::shared_ptr<FDSP_NotifyTokenSyncComplete>& sync_co
     mig_svc_.send_actor_request(sync_complete_far);
 }
 
+void FDSP_MigrationPathRpc::PullObjects(boost::shared_ptr<FDSP_PullObjectsReq>& pull_req) // NOLINT
+{
+    FdsActorRequestPtr pull_far(
+            new FdsActorRequest(FAR_ID(FDSP_PullObjectsReq), pull_far));
+    if (pull_far == nullptr) {
+        LOGERROR << "Failed to allocate memory";
+        return;
+    }
+    mig_svc_.send_actor_request(pull_far);
+}
+void FDSP_MigrationPathRpc::PushObjects(boost::shared_ptr<FDSP_PushObjectsReq>& push_req) // NOLINT
+{
+    FdsActorRequestPtr push_far(
+            new FdsActorRequest(FAR_ID(FDSP_PushObjectsReq), push_far));
+    if (push_far == nullptr) {
+        LOGERROR << "Failed to allocate memory";
+        return;
+    }
+    mig_svc_.send_actor_request(push_far);
+}
+
 TokenCopyTracker::TokenCopyTracker(FdsMigrationSvc *migrationSvc,
         std::set<fds_token_id> tokens, MigSvcCbType copy_cb) {
     migrationSvc_ = migrationSvc;

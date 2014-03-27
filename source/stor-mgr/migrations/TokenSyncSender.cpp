@@ -45,8 +45,11 @@ TokenSyncLog::TokenSyncLog(const std::string& name) {
 }
 
 TokenSyncLog::~TokenSyncLog() {
-    LOGDEBUG << "Closing tokendb: " << name_;
+    LOGDEBUG << "Destryoing tokendb: " << name_;
     delete db_;
+
+    leveldb::Status status  = leveldb::DestroyDB(name_, leveldb::Options());
+    fds_assert(status.ok());
 }
 
 Error TokenSyncLog::add(const ObjectID& id, const ObjMetaData &entry) {
@@ -61,6 +64,7 @@ Error TokenSyncLog::add(const ObjectID& id, const ObjMetaData &entry) {
     leveldb::Status status = db_->Put(write_options_, key, value);
 
     if (!status.ok()) {
+        fds_assert(!"Failed to write");
         LOGERROR << "Failed to write key: " << id;
         err = fds::Error(fds::ERR_DISK_WRITE_FAILED);
     } else {
@@ -306,10 +310,10 @@ struct TokenSyncSenderFSM_
             LOGDEBUG << "build_sync_log token: " << fsm.token_id_;
 
             /* Create new sync log */
-            /* std::ostringstream oss;
-            oss << "TokenSyncLog_" << fsm.token_id_ <<
-                    "_" << fsm.cur_sync_range_low_ << "_" + fsm.cur_sync_range_high_; */
-            fsm.sync_log_.reset(new TokenSyncLog(/*oss.str()*/"Synclog.sl"));
+            std::ostringstream oss;
+            oss << "TokenSyncLog_" << fsm.token_id_
+                    << "_" << fsm.cur_sync_range_low_ << "_" << fsm.cur_sync_range_high_;
+            fsm.sync_log_.reset(new TokenSyncLog(oss.str()));
 
             /* Iterate the snapshot and add entries to sync log */
             leveldb::Iterator* it = evt.db->NewIterator(evt.options);
@@ -390,6 +394,7 @@ struct TokenSyncSenderFSM_
 
             if (md_list.size() > 0) {
                 fsm.rcvr_session_->getClient()->PushTokenMetadata(fsm.push_md_req_);
+                fsm.migrationSvc_->mig_cntrs.tok_sync_md_sent.incr(md_list.size());
             } else {
                 /* When there is nothing to send we simulate an ack from network
                  * to make the statemachine transitioning easy
@@ -442,6 +447,7 @@ struct TokenSyncSenderFSM_
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
             LOGDEBUG << "teardown token: " << fsm.token_id_;
+            LOGDEBUG << fsm.migrationSvc_->mig_cntrs.toString();
 
             FdsActorRequestPtr far(new FdsActorRequest(
                     FAR_ID(FdsActorShutdown), nullptr));

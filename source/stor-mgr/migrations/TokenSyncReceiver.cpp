@@ -202,6 +202,8 @@ struct TokenSyncReceiverFSM_
             LOGDEBUG << "apply_tok_md token: " << fsm.token_id_
                     << ". cnt: " << evt.md_list.size();
 
+            fsm.migrationSvc_->mig_cntrs.tok_sync_md_rcvd.incr(evt.md_list.size());
+
             /* Cache the session uuid */
             fsm.resp_session_uuid_ = evt.header.base_header.session_uuid;
 
@@ -391,6 +393,7 @@ struct TokenSyncReceiverFSM_
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
             LOGDEBUG << "teardown  token: " << fsm.token_id_;
+            LOGDEBUG << fsm.migrationSvc_->mig_cntrs.toString();
 
             /* Cleanup snapshot taken during resolve */
             if (fsm.db_) {

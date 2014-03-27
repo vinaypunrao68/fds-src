@@ -228,8 +228,6 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
                 fsm.pending_tokens_.erase(fsm.write_token_id_);
                 fsm.completed_tokens_.push_back(fsm.write_token_id_);
 
-                fsm.migrationSvc_->mig_cntrs.tokens_rcvd.incr();
-
                 LOGNORMAL << "Token " << fsm.write_token_id_ << " received completely";
             }
         }
@@ -241,6 +239,8 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
             LOGDEBUG << "ack_tok " << fsm.mig_stream_id_;
+
+            fsm.migrationSvc_->mig_cntrs.tok_copy_rcvd.incr(evt.obj_list.size());
 
             auto resp_client = fsm.migrationSvc_->get_resp_client(
                     evt.header.base_header.session_uuid);
@@ -288,6 +288,7 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
             LOGDEBUG << "teardown " << fsm.mig_stream_id_;
+            LOGDEBUG << fsm.migrationSvc_->mig_cntrs.toString();
 
             TRCopyDnEvtPtr destroy_evt(new TRCopyDnEvt(fsm.mig_stream_id_,
                     *fsm.completed_tokens_.begin()));

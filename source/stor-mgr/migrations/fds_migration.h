@@ -75,15 +75,29 @@ typedef boost::shared_ptr<MigSvcCopyTokensReq> MigSvcCopyTokensReqPtr;
 class MigrationCounters : public FdsCounters
 {
  public:
-  MigrationCounters(const std::string &id, FdsCountersMgr *mgr)
-      : FdsCounters(id, mgr),
-        tokens_sent("tokens_sent", this),
-        tokens_rcvd("tokens_rcvd", this)
-  {
-  }
+    MigrationCounters(const std::string &id, FdsCountersMgr *mgr)
+     : FdsCounters(id, mgr),
+       tok_copy_sent("tok_copy_sent", this),
+       tok_copy_rcvd("tok_copy_rcvd", this),
+       tok_sync_md_sent("tok_sync_md_sent", this),
+       tok_sync_md_rcvd("tok_sync_md_rcvd", this),
+       tok_pull_obj_sent("tok_pull_obj_sent", this),
+       tok_pull_obj_rcvd("tok_pull_obj_rcvd", this)
+    {
+    }
 
-  NumericCounter tokens_sent; 
-  NumericCounter tokens_rcvd;
+    /* Number of token sent */
+    NumericCounter tok_copy_sent;
+    /* Number of token received */
+    NumericCounter tok_copy_rcvd;
+    /* Number of metadata entries sent */
+    NumericCounter tok_sync_md_sent;
+    /* Number of metadata entries received */
+    NumericCounter tok_sync_md_rcvd;
+    /* Number of pull objects sent */
+    NumericCounter tok_pull_obj_sent;
+    /* Number of pull objects received */
+    NumericCounter tok_pull_obj_rcvd;
 };
 
 /**
@@ -247,6 +261,16 @@ public:
 
     void PushTokenMetadataResp(boost::shared_ptr<FDSP_PushTokenMetadataResp>& push_md_resp);
     void PushTokenMetadataResp(const FDSP_PushTokenMetadataResp& push_md_resp) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
+    void PullObjects(boost::shared_ptr<FDSP_PullObjectsReq>& pull_req);
+    void PullObjects(const FDSP_PullObjectsReq& pull_req) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
+    void PushObjects(boost::shared_ptr<FDSP_PushObjectsReq>& push_req);
+    void PushObjects(const FDSP_PushObjectsReq& push_req) {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
 

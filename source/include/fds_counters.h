@@ -63,6 +63,8 @@ class FdsCounters : public boost::noncopyable {
       return id_;
   }
 
+  std::string toString();
+
  protected:
   /**
    * @brief Marks the counter for export.  Only export counters
@@ -149,6 +151,10 @@ class NumericCounter : public FdsBaseCounter
   inline void incr() {
       val_++;
   } 
+
+  inline void incr(const uint64_t v) {
+      val_ += v;
+  }
 
  private:
   std::atomic<uint64_t> val_;

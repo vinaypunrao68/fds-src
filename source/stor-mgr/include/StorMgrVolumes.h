@@ -447,6 +447,26 @@ namespace fds {
       /* Response callback */
       CbType smio_resolve_resp_cb;
   };
+
+  /**
+   * @brief Applies object data
+   */
+  class SmIoApplyObjectdata : public SmIoReq {
+  public:
+      typedef std::function<void (const Error&,
+              SmIoApplyObjectdata *sync_md)> CbType;
+  public:
+      SmIoApplyObjectdata() {
+      }
+
+      /* In: object id */
+      ObjectID obj_id;
+      /* In: object_data */
+      std::string obj_data;
+
+      /* Response callback */
+      CbType smio_apply_data_resp_cb;
+  };
 }  // namespace fds
 
 #endif  // SOURCE_STOR_MGR_STORMGRVOLUMES_H_

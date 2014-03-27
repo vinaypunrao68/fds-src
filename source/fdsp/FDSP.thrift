@@ -827,6 +827,29 @@ struct FDSP_SyncTokenResp
 	1: FDSP_MigMsgHdrType         header;
 }
 
+/* Payload for SyncToken RPC */
+struct FDSP_PullObjectsReq
+{
+	/* Header */
+	1: FDSP_MigMsgHdrType         header
+
+    /* Token to sync*/
+    2: list<FDS_ObjectIdType>     obj_ids
+}
+
+/* Payload for SyncToken response path */
+struct FDSP_PushObjectsReq
+{
+	/* Header */
+	1: FDSP_MigMsgHdrType         header;
+	
+    /* Object ids */
+    2: list<FDS_ObjectIdType>     obj_ids
+
+    /* Object data */
+    3: list<FDSP_ObjectData>      obj_data_list
+}
+
 /* Volume associations */
 struct FDSP_ObjectVolumeAssociation
 {
@@ -1076,6 +1099,8 @@ service FDSP_MigrationPathReq {
     oneway void PushTokenObjects(1:FDSP_PushTokenObjectsReq mig_put_req)
     oneway void PushTokenMetadata(1:FDSP_PushTokenMetadataReq push_md_req)
     oneway void NotifyTokenSyncComplete(1:FDSP_NotifyTokenSyncComplete sync_complete)
+    oneway void PullObjects(1:FDSP_PullObjectsReq pull_req)
+    oneway void PushObjects(1:FDSP_PushObjectsReq push_req)
 }
 
 service FDSP_MigrationPathResp {

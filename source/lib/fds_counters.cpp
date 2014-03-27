@@ -6,6 +6,15 @@
 #include <ctime>
 namespace fds {
 
+std::string FdsCounters::toString()
+{
+    std::ostringstream oss;
+    for (auto c : exp_counters_) {
+        oss << id_ << "." << "." << c->id() << " = " << c->value() << "; ";
+    }
+    return oss.str();
+}
+
 FdsCountersMgr::FdsCountersMgr(const std::string &id)
     : id_(id),
       lock_("Counters mutex")

@@ -60,7 +60,10 @@ enum FdsActorRequestType {
     /* Token receiver sync process is complete */
     FAR_ENUM(TRSyncDnEvt),
 
-    /* Token receiver sync pull is complete */
+    /* Pull receiver object data is applied to Object store */
+    FAR_ENUM(TRPullDataWrittenEvt),
+
+    /* Token receiver pull is complete */
     FAR_ENUM(TRPullDnEvt),
     /*----------------- Migration RPC -----------------------------------------*/
     /* RPC from receiver->sender to start token copy */
@@ -89,6 +92,12 @@ enum FdsActorRequestType {
 
     /* RPC from sender->receiver that token metadata sync transfer is complete */
     FAR_ENUM(FDSP_NotifyTokenSyncComplete),
+
+    /* RPC from receiver->sender pull objects request */
+    FAR_ENUM(FDSP_PullObjectsReq),
+
+    /* RPC from sender->receiver with object data */
+    FAR_ENUM(FDSP_PushObjectsReq),
     /*----------------- Last Request ------------------------------------------*/
     FAR_ENUM(Max)
 };

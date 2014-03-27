@@ -204,8 +204,6 @@ struct TokenCopySenderFSM_
                     fsm.objstor_read_req_.token_id = *fsm.pending_tokens_.begin();
                 }
 
-                fsm.migrationSvc_->mig_cntrs.tokens_sent.incr();
-
             } else {
                 /* Still processing the current token.  Nothing to do*/
                 LOGDEBUG << "Still processing token " << *fsm.pending_tokens_.begin();
@@ -259,6 +257,9 @@ struct TokenCopySenderFSM_
 
             /* Push to receiver */
             fsm.rcvr_session_->getClient()->PushTokenObjects(fsm.push_tok_req_);
+
+            fsm.migrationSvc_->\
+            mig_cntrs.tok_copy_sent.incr(fsm.push_tok_req_.obj_list.size());
         }
     };
     struct teardown
@@ -268,6 +269,7 @@ struct TokenCopySenderFSM_
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
             LOGDEBUG << "teardown ";
+            LOGDEBUG << fsm.migrationSvc_->mig_cntrs.toString();
             // TODO(Rao): For now we will not send a shutdown to parent as
             // sync will start
             /*
