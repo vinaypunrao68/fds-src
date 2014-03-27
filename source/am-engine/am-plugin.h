@@ -12,6 +12,7 @@
 
 extern "C" {
 #include <ngx_http.h>
+#include <ngx_files.h>
 
 extern void ngx_register_plugin(fds::FDS_NativeAPI::FDSN_ClientType clientType,
                                 fds::AMEngine *engine);
@@ -90,10 +91,18 @@ class AME_Ctx
                 // The next buffer read will now just read
                 // the end
                 ame_in_chain->buf->pos = last;
+
+                // Move to the next chain buffer to read any remaining data
+                fds_bool_t moved = ame_next_input_buf();
+                if (moved == true) {
+                    LOGDEBUG << "Moved buf ptr to next chain link";
+                }
             } else {
                 // Move the next buffer read forward by len
                 ame_in_chain->buf->pos += (*len);
             }
+        } else {
+            *len = 0;
         }
 
         return buf_pos;
@@ -150,6 +159,9 @@ class AME_Ctx
     typedef std::unordered_map<fds_off_t, AME_Ctx_Ack> AME_Ack_Map;
     AME_Ack_Map               ame_req_map;
     fds_uint32_t              ame_ack_count;
+    typedef std::list<char *> AME_Alloc_List;
+    /// Tracks buffers AME allocated to free later    
+    AME_Alloc_List            ame_alloc_bufs;
 
     // Hookup with nginx event loop.
     //
@@ -175,6 +187,8 @@ class AME_Ctx
     void set_ack_count(fds_uint32_t count);
     void ame_mv_off(fds_uint32_t len);
     fds_off_t ame_get_off() const;
+    void ame_add_alloc_buf(char *buf);
+    void ame_free_bufs();
 };
 
 class AME_CtxList

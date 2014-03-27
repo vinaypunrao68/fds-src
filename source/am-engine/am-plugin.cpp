@@ -498,6 +498,28 @@ AME_Ctx::ame_get_offset() {
     return ame_buf_off;
 }
 
+/** We expect this function to be called by a
+ * single nginx thread, so doesn't need locking
+ */
+void
+AME_Ctx::ame_add_alloc_buf(char *buf) {
+    ame_alloc_bufs.push_back(buf);
+}
+
+/**
+ * We expect this function to be called by a single
+ * nginx thread, so doesn't need locking
+ */
+void
+AME_Ctx::ame_free_bufs() {
+    while (ame_alloc_bufs.empty() != true) {
+        char *buf = ame_alloc_bufs.front();
+        ame_alloc_bufs.pop_front();
+        fds_verify(buf != NULL);
+        ngx_pfree(ame_req->ame_req->pool, buf);
+    }
+}
+
 /**
  * Adds a pending offset request to the
  * context.

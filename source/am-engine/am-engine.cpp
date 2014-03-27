@@ -343,6 +343,12 @@ AME_Request::ame_reqt_iter_data_next(fds_uint32_t data_len,
 {
     fds_uint32_t content_len = ame_req->headers_in.content_length_n;
 
+    if (content_len < data_len) {
+        // If the content is smaller than the max buf
+        // adjust the buf to the smaller size
+        data_len = content_len;
+    }
+
     // TODO(Andrew): Don't call this each time to reset the
     // ack count and don't assume the length won't change
     fds_uint32_t ack_count = content_len / data_len;
@@ -355,6 +361,38 @@ AME_Request::ame_reqt_iter_data_next(fds_uint32_t data_len,
     *len = data_len;
     char *data  = ame_ctx->ame_next_buf_ptr(len);
     fds_verify(*len <= data_len);
+
+    if ((data != NULL) && (*len < data_len)) {
+        // We could not get all of the requested data
+        // in one shot because the data is not in a
+        // single nginx buffer. Since the caller expects
+        // a single buffer, we need to copy these
+        char *ame_data = static_cast<char *>(ngx_palloc(ame_req->pool, data_len));
+        fds_verify(ame_data != NULL);
+
+        fds_uint32_t copy_len = 0;
+        while (data != NULL) {
+            ngx_memcpy(ame_data + copy_len, data, *len);
+            copy_len += *len;
+
+            // Get a pointer to the next data even
+            // if it's in another nginx buffer
+            data = ame_ctx->ame_next_buf_ptr(len);
+            fds_verify(*len <= data_len);
+            LOGDEBUG << "Copied " << copy_len
+                     << " bytes from nginx buf into ame buf";
+        }
+        fds_verify(copy_len <= data_len);
+
+        // Track this allocation in the ctx so that we can
+        // free it later
+        ame_ctx->ame_add_alloc_buf(ame_data);
+
+        // Return the single buffer with all of the data
+        // from the fragmented nginx buffers
+        *len = copy_len;
+        return ame_data;
+    }
 
     return data;
 }
@@ -681,13 +719,19 @@ Conn_PutObject::ame_request_resume()
     // ame_etag = "\"" + HttpUtils::computeEtag(buf, len) + "\"";
     // Temp. code because we put our data to this buffer.
     //
-    len = ame_ctx->ame_temp_len;
-    ame_etag = "\"" + HttpUtils::computeEtag(ame_ctx->ame_temp_buf, len) + "\"";
+    // len = ame_ctx->ame_temp_len;
+    // ame_etag = "\"" + HttpUtils::computeEtag(ame_ctx->ame_temp_buf, len) + "\"";
 
     // Temp. code.  We need to have a proper buffer chunking model here.
-    if (ame_ctx->ame_temp_buf != NULL) {
-        ngx_pfree(ame_req->pool, ame_ctx->ame_temp_buf);
-    }
+    // if (ame_ctx->ame_temp_buf != NULL) {
+    // ngx_pfree(ame_req->pool, ame_ctx->ame_temp_buf);
+    // }
+
+    // Release any buffers we allocated from nginx. Often
+    // these buffers were allocated to collect data from
+    // many nginx chain buffers into a single ame put buffer.
+    ame_ctx->ame_free_bufs();
+
     ame_finalize_response(ame_resp_status);
     return NGX_DONE;
 }
