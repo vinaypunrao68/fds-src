@@ -79,9 +79,6 @@ ClusterMap::updateMap(const NodeList &addNodes,
 
     mapMutex->lock();
 
-    addedNodes.clear();
-    removedNodes.clear();
-
     // Remove nodes from the map
     for (NodeList::const_iterator it = rmNodes.cbegin();
          it != rmNodes.cend();
@@ -111,6 +108,21 @@ ClusterMap::updateMap(const NodeList &addNodes,
     version++;
     mapMutex->unlock();
     return err;
+}
+
+//
+// Only add to pending removed nodes. Node should not
+// exist in cluster map at this point. This method is used on OM
+// bringup from persistent state when not all nodes came up and
+// we want to remove those nodes from persisted DLT
+//
+void
+ClusterMap::addPendingRmNode(const NodeUuid& rm_uuid)
+{
+    mapMutex->lock();
+    fds_verify(currClustMap.count(rm_uuid) == 0);
+    removedNodes.insert(rm_uuid);
+    mapMutex->unlock();
 }
 
 std::unordered_set<NodeUuid, UuidHash>

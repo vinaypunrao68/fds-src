@@ -224,15 +224,6 @@ DataPlacement::commitDlt() {
     placementMutex->unlock();
 }
 
-void
-DataPlacement::revertDlt() {
-    placementMutex->lock();
-    delete newDlt;
-    newDlt = NULL;
-    // keeping commited DLT and all other state the same
-    placementMutex->unlock();
-}
-
 const DLT*
 DataPlacement::getCommitedDlt() const {
     return commitedDlt;

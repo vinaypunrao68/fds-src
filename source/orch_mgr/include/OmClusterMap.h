@@ -111,6 +111,13 @@ class ClusterMap : public Module {
     std::unordered_set<NodeUuid, UuidHash> getRemovedNodes() const;
 
     void resetPendNodes();
+    /**
+     * Adds given uuid to removed nodes set, this node should not
+     * be in current cluster map. This method is used on OM bringup
+     * from persistent state when not all nodes come up and we need to
+     * remove those from persisted DLT
+     */
+    void addPendingRmNode(const NodeUuid& rm_uuid);
 
     /**
      * Module methods.

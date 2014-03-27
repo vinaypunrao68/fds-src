@@ -1118,9 +1118,13 @@ om_send_dlt(const DLT* curDlt, NodeAgent::pointer agent)
 // ------------
 //
 fds_uint32_t
-OM_NodeContainer::om_bcast_dlt(const DLT* curDlt)
+OM_NodeContainer::om_bcast_dlt(const DLT* curDlt, fds_bool_t sm_only)
 {
     dc_sm_nodes->agent_foreach<const DLT*>(curDlt, om_send_dlt);
+    if (sm_only) {
+        return dc_sm_nodes->rs_available_elm();
+    }
+
     dc_dm_nodes->agent_foreach<const DLT*>(curDlt, om_send_dlt);
     dc_am_nodes->agent_foreach<const DLT*>(curDlt, om_send_dlt);
 

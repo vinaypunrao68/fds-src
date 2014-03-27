@@ -148,21 +148,26 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
         template <class Evt, class Fsm, class SrcST, class TgtST>
         bool operator()(Evt const &, Fsm &, SrcST &, TgtST &);
     };
+    struct GRD_EnoughNds
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        bool operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
 
     /**
      * Transition table for OM Node Domain
      */
     struct transition_table : mpl::vector<
-        // +-----------------+-------------+-------------+--------------+------------+
-        // | Start           | Event       | Next        | Action       | Guard      |
-        // +-----------------+-------------+-------------+--------------+------------+
-        msf::Row< DST_Start  , WaitNdsEvt  , DST_WaitNds , DACT_WaitNds , msf::none >,
-        msf::Row< DST_Start  , NoPersistEvt, DST_DomainUp, msf::none    , msf::none >,
-        // +-----------------+-------------+------------+---------------+------------+
-        msf::Row< DST_WaitNds, RegNodeEvt  , DST_WaitDlt , DACT_NodesUp , GRD_NdsUp >,
-        msf::Row< DST_WaitNds, TimeoutEvt  , DST_WaitDlt , DACT_UpdDlt  , msf::none >,
-        // +-----------------+-------------+------------+---------------+------------+
-        msf::Row< DST_WaitDlt, DltUpEvt    , DST_DomainUp, DACT_LoadVols, msf::none >
+        // +-----------------+-------------+-------------+--------------+-------------+
+        // | Start           | Event       | Next        | Action       | Guard       |
+        // +-----------------+-------------+-------------+--------------+-------------+
+        msf::Row< DST_Start  , WaitNdsEvt  , DST_WaitNds , DACT_WaitNds , msf::none   >,
+        msf::Row< DST_Start  , NoPersistEvt, DST_DomainUp, msf::none    , msf::none   >,
+        // +-----------------+-------------+------------+---------------+--------------+
+        msf::Row< DST_WaitNds, RegNodeEvt  , DST_WaitDlt , DACT_NodesUp , GRD_NdsUp   >,
+        msf::Row< DST_WaitNds, TimeoutEvt  , DST_WaitDlt , DACT_UpdDlt , GRD_EnoughNds>,
+        // +-----------------+-------------+------------+---------------+--------------+
+        msf::Row< DST_WaitDlt, DltUpEvt    , DST_DomainUp, DACT_LoadVols, msf::none   >
         // +------------------+-------------+------------+---------------+-------------+
         >{};  // NOLINT
 
@@ -172,8 +177,7 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
 void NodeDomainFSM::WaitTimerTask::runTimerTask()
 {
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
-    LOGNOTIFY << "Timeout waiting for SM(s) to come up, will proceed with"
-              << " SM(s) that came up so far";
+    LOGNOTIFY << "Timeout waiting for SM(s) to come up";
     domain->local_domain_event(TimeoutEvt());
 }
 
@@ -305,6 +309,52 @@ NodeDomainFSM::DACT_WaitNds::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
     }
 }
 
+/**
+ * GRD_EnoughNds
+ * ------------
+ * Checks if we have enough nodes up to proceed (updating DLT and bringing
+ * up rest of OM).
+ */
+template <class Evt, class Fsm, class SrcST, class TgtST>
+bool
+NodeDomainFSM::GRD_EnoughNds::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    fds_bool_t b_ret = false;
+
+    // TODO(anna) proceed if more than half nodes are up
+    // for now were are in waiting state until nodes are up
+    // so only way out is for user register those nodes or
+    // kill OM, clean persistent state and restart OM
+
+    // first print out the nodes were are waiting for
+    LOGWARN << "WARNING: OM IS NOT UP: "
+            << "OM is waiting for the nodes to register!!!:";
+    std::cout << std::endl << std::endl << "WARNING: OM IS NOT UP: OM is "
+              << "waiting for the nodes to register: " << std::endl;
+    for (NodeUuidSet::const_iterator cit = src.sm_services.cbegin();
+         cit != src.sm_services.cend();
+         ++cit) {
+        if (src.sm_up.count(*cit) == 0) {
+            std::cout << "   Node " << std::hex << (*cit).uuid_get_val()
+                      << std::dec << std::endl;
+            LOGWARN << "   Node " << std::hex << (*cit).uuid_get_val()
+                    << std::dec;
+        }
+    }
+
+    // restart timeout timer -- use 20x interval than initial
+    if (!src.waitTimer->schedule(src.waitTimerTask,
+                                 std::chrono::seconds(20*OM_WAIT_NODES_UP_SECONDS))) {
+        // we are not going to pring warning messages anymore, will be in
+        // wait state until all nodes are up
+        LOGWARN << "GRD_EnoughNds: Failed to start timer -- bring up ALL nodes or "
+                << "clean persistent state and restart OM";
+    }
+
+    return b_ret;
+}
+
+
 
 /**
  * DACT_UpdDlt
@@ -319,17 +369,40 @@ void
 NodeDomainFSM::DACT_UpdDlt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     OM_Module *om = OM_Module::om_singleton();
+    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+    OM_NodeContainer *dom_ctrl = domain->om_loc_domain_ctrl();
     DataPlacement *dp = om->om_dataplace_mod();
+    ClusterMap *cm = om->om_clusmap_mod();
 
     LOGDEBUG << "NodeDomainFSM DACT_UpdDlt";
 
-    // TODO(anna) commit part of DLT and remove nodes that we didn't get up
-    // For now, we will throw away DLT we got from configDB and proceed as if
-    // we didn't have any nodes stored in configDB
-    dp->revertDlt();
+    // commit the DLT we got from config DB
+    dp->commitDlt();
 
-    // since we are just throwing away dlt for now, go directly to next state
-    fsm.process_event(DltUpEvt());
+    // broadcast DLT to SMs only (so they know the diff when we update the DLT)
+    dom_ctrl->om_bcast_dlt(dp->getCommitedDlt(), true);
+
+    // remove nodes that are already in DLT from pending nodes in SM container
+    OM_SmContainer::pointer smNodes = dom_ctrl->om_sm_nodes();
+    smNodes->om_rm_nodes_added_pend(src.sm_up);
+
+    // at this point there should be no pending add/rm nodes in cluster map
+    fds_verify((cm->getAddedNodes()).size() == 0);
+    fds_verify((cm->getRemovedNodes()).size() == 0);
+
+    // set SMs that did not come up as 'delete pending' in cluster map
+    // -- this will tell DP to remove those nodes from DLT
+    for (NodeUuidSet::const_iterator cit = src.sm_services.cbegin();
+         cit != src.sm_services.cend();
+         ++cit) {
+        if (src.sm_up.count(*cit) == 0) {
+            cm->addPendingRmNode(*cit);
+        }
+    }
+
+    // start cluster update process that will recompute DLT /rebalance /etc
+    // so that we move to DLT that reflects actual nodes that came up
+    domain->om_update_cluster();
 }
 
 
@@ -451,10 +524,10 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
         // check if DLT matches the set of persisted nodes
         err = dp->loadDltsFromConfigDB(sm_services);
         if (!err.ok()) {
-            LOGWARN << "loadDltsFromConfigDB returned " << err.GetErrstr()
-                    << " - will ignore persistent state and bring up OM "
-                    << " without bringing up volumes";
-            sm_services.clear();
+            LOGERROR << "Persistent state mismatch, error " << err.GetErrstr()
+                     << std::endl << "OM will stay DOWN! Kill OM, cleanup "
+                     << "persistent state and restart cluster again";
+            return err;
         }
     }
 
