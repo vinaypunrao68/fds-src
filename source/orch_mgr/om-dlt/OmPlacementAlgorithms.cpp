@@ -679,9 +679,12 @@ ConsistHashAlgorithm::computeNewDlt(const ClusterMap *currMap,
     fds_verify(newDlt != NULL);
 
     // Compute DLT from scratch if this is the first version
+    // or current DLT only had one node (one row) so in any
+    // case the number of token transfers will be the same so
+    // no need to do anything smart,
     // or if the DLT width changed (in this case, all object id
     // to token mapping changed
-    if ((currDlt == NULL) || (total_nodes <= 2) ||
+    if ((currDlt == NULL) || (currDlt->getDepth() < 2) ||
         (newDlt->getWidth() != currDlt->getWidth())) {
         FDS_PLOG(getLog()) << "ConsistHashAlgorithm: compute new DLT for "
                            << total_nodes << " nodes";
