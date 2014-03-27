@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string>
 #include <iostream>  // NOLINT
+#include <disk.h>
 #include <platform.h>
 #include <platform/fds-osdep.h>
 
@@ -132,6 +133,7 @@ int main(int argc, char **argv)
 {
     fds::Module *plat_vec[] = {
         &fds::gl_NodePlatform,
+        &fds::gl_DiskPlatMod,
         NULL
     };
     fds::NodePlatformProc plat(argc, argv, plat_vec);

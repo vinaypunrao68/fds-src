@@ -80,7 +80,8 @@ ifdef user_python
 local_python_lib           := $(shell python-config --ldflags)
 toolchain_python_bind_lib  := $(local_python_lib)
 local_python_cpp           := $(shell python-config --cflags | \
-                                sed 's/-Wstrict-prototypes//')
+                                sed 's/-Wstrict-prototypes//' | \
+								sed 's/-O2//')
 toolchain_python_bind_incl := $(local_python_cpp)
 endif
 
