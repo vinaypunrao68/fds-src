@@ -289,16 +289,21 @@ bool ConfigDB::storeDlt(const DLT& dlt, const std::string type, int localDomain)
 }
 
 bool ConfigDB::getDlt(DLT& dlt, fds_uint64_t version, int localDomain) {
-    Reply reply = r.sendCommand("get %d:dlt:%ld", localDomain, version);
-    std::string serializedData, hexCoded(reply.getString());
-    if (hexCoded.length() < 10) {
-        LOGERROR << "very less data for dlt : [" << version << "] : size = " << hexCoded.length();
-        return false;
+    try {
+        Reply reply = r.sendCommand("get %d:dlt:%ld", localDomain, version);
+        std::string serializedData, hexCoded(reply.getString());
+        if (hexCoded.length() < 10) {
+            LOGERROR << "very less data for dlt : [" << version << "] : size = " << hexCoded.length();
+            return false;
+        }
+        LOGDEBUG << "dlt : [" << version << "] : size = " << hexCoded.length();
+        r.decodeHex(hexCoded,serializedData);
+        dlt.loadSerialized(serializedData);
+        return true;
+    } catch (const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
     }
-    LOGDEBUG << "dlt : [" << version << "] : size = " << hexCoded.length();
-    r.decodeHex(hexCoded,serializedData);
-    dlt.loadSerialized(serializedData);
-    return true;    
+    return false;
 }
 
 bool ConfigDB::loadDlts (DLTManager& dltMgr, int localDomain) {
