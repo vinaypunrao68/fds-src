@@ -255,10 +255,17 @@ NodeDomainFSM::DACT_NodesUp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
     fds_verify((cm->getRemovedNodes()).size() == 0);
     dltMod->dlt_deploy_event(DltLoadedDbEvt());
 
-    // remove nodes that are already in DLT from pending list
-    // so that we will not try to update DLT with those nodes again
+    // move nodes that are already in DLT from pending list
+    // to cluster map (but make them not pending in cluster map
+    // because they are already in DLT), so that we will not try to update DLT
+    // with those nodes again
     OM_SmContainer::pointer smNodes = local->om_sm_nodes();
-    smNodes->om_rm_nodes_added_pend(src.sm_up);
+    NodeList addNodes, rmNodes;
+    smNodes->om_splice_nodes_pend(&addNodes, &rmNodes, src.sm_up);
+    cm->updateMap(addNodes, rmNodes);
+    // since updateMap keeps those nodes as pending, we tell cluster map that
+    // they are not pending, since these nodes are already in the DLT
+    cm->resetPendNodes();
 }
 
 /**
@@ -319,18 +326,26 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 bool
 NodeDomainFSM::GRD_EnoughNds::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    fds_bool_t b_ret = false;
+    // proceed if more than half nodes are up
+    fds_uint32_t total_sms = src.sm_services.size();
+    fds_uint32_t up_sms = src.sm_up.size();
+    fds_verify(total_sms > up_sms);
+    fds_uint32_t wait_more = total_sms - up_sms;
+    if ((total_sms > 2) && (wait_more < total_sms/2)) {
+        wait_more = 0;
+    }
 
-    // TODO(anna) proceed if more than half nodes are up
-    // for now were are in waiting state until nodes are up
-    // so only way out is for user register those nodes or
-    // kill OM, clean persistent state and restart OM
+    if (wait_more == 0) {
+        LOGNOTIFY << "GRD_EnoughNds: " << up_sms << " SMs out of " << total_sms
+                  << " SMs are up, will proceed without waiting for remaining SMs";
+        return true;
+    }
 
     // first print out the nodes were are waiting for
-    LOGWARN << "WARNING: OM IS NOT UP: "
-            << "OM is waiting for the nodes to register!!!:";
-    std::cout << std::endl << std::endl << "WARNING: OM IS NOT UP: OM is "
-              << "waiting for the nodes to register: " << std::endl;
+    LOGWARN << "WARNING: OM IS NOT UP: OM is waiting for at least "
+            << wait_more << " more nodes to register (!!!) out of the following:";
+    std::cout << std::endl << std::endl << "WARNING: OM IS NOT UP: OM is waiting for at"
+              << " least " << wait_more << " more nodes to register out of:" << std::endl;
     for (NodeUuidSet::const_iterator cit = src.sm_services.cbegin();
          cit != src.sm_services.cend();
          ++cit) {
@@ -351,7 +366,7 @@ NodeDomainFSM::GRD_EnoughNds::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
                 << "clean persistent state and restart OM";
     }
 
-    return b_ret;
+    return false;
 }
 
 
@@ -382,13 +397,19 @@ NodeDomainFSM::DACT_UpdDlt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
     // broadcast DLT to SMs only (so they know the diff when we update the DLT)
     dom_ctrl->om_bcast_dlt(dp->getCommitedDlt(), true);
 
-    // remove nodes that are already in DLT from pending nodes in SM container
-    OM_SmContainer::pointer smNodes = dom_ctrl->om_sm_nodes();
-    smNodes->om_rm_nodes_added_pend(src.sm_up);
-
     // at this point there should be no pending add/rm nodes in cluster map
     fds_verify((cm->getAddedNodes()).size() == 0);
     fds_verify((cm->getRemovedNodes()).size() == 0);
+
+    // move nodes that came up (which are already in DLT) from pending nodes in
+    // SM container to cluster map
+    OM_SmContainer::pointer smNodes = dom_ctrl->om_sm_nodes();
+    NodeList addNodes, rmNodes;
+    smNodes->om_splice_nodes_pend(&addNodes, &rmNodes, src.sm_up);
+    cm->updateMap(addNodes, rmNodes);
+    // since updateMap keeps those nodes as pending, we tell cluster map that
+    // they are not pending, since these nodes are already in the DLT
+    cm->resetPendNodes();
 
     // set SMs that did not come up as 'delete pending' in cluster map
     // -- this will tell DP to remove those nodes from DLT
@@ -396,9 +417,15 @@ NodeDomainFSM::DACT_UpdDlt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
          cit != src.sm_services.cend();
          ++cit) {
         if (src.sm_up.count(*cit) == 0) {
+            LOGDEBUG << "DACT_UpdDlt: will remove node " << std::hex
+                     << (*cit).uuid_get_val() << std::dec << " from DLT";
             cm->addPendingRmNode(*cit);
+
+            // also remove that node from configDB
+            domain->om_rm_sm_configDB(*cit);
         }
     }
+    fds_verify((cm->getRemovedNodes()).size() > 0);
 
     // start cluster update process that will recompute DLT /rebalance /etc
     // so that we move to DLT that reflects actual nodes that came up
@@ -577,6 +604,47 @@ OM_NodeDomainMod::om_load_volumes()
         }
     }
     return err;
+}
+
+fds_bool_t
+OM_NodeDomainMod::om_rm_sm_configDB(const NodeUuid& uuid)
+{
+    fds_bool_t found = false;
+    NodeUuid plat_uuid;
+
+    // this is a bit painful because we need to read all the nodes
+    // from configDB and find which node this SM belongs to
+    // but ok because this operation happens very rarely
+    std::unordered_set<NodeUuid, UuidHash> nodes;
+    if (!configDB->getNodeIds(nodes)) {
+        LOGWARN << "Failed to get nodes' infos from configDB, will not remove SM "
+                << std::hex << uuid.uuid_get_val() << std::dec << " from configDB";
+        return false;
+    }
+
+    NodeServices services;
+    for (std::unordered_set<NodeUuid, UuidHash>::const_iterator cit = nodes.cbegin();
+         cit != nodes.cend();
+         ++cit) {
+        if (configDB->getNodeServices(*cit, services)) {
+            if (services.sm == uuid) {
+                found = true;
+                plat_uuid = *cit;
+                break;
+            }
+        }
+    }
+
+    if (found) {
+        services.sm = NodeUuid(0);
+        configDB->setNodeServices(plat_uuid, services);
+    } else {
+        LOGWARN << "Failed to find platform for SM " << std::hex << uuid.uuid_get_val()
+                << std::dec << "; will not remove SM in configDB";
+        return false;
+    }
+
+    return true;
 }
 
 // om_reg_node_info

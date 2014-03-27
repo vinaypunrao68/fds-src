@@ -738,17 +738,26 @@ OM_SmContainer::om_splice_nodes_pend(NodeList *addNodes, NodeList *rmNodes)
 }
 
 void
-OM_SmContainer::om_rm_nodes_added_pend(const NodeUuidSet& rm_nodes)
+OM_SmContainer::om_splice_nodes_pend(NodeList *addNodes,
+                                     NodeList *rmNodes,
+                                     const NodeUuidSet& filter_nodes)
 {
     rs_mtx.lock();
-    for (NodeUuidSet::const_iterator cit = rm_nodes.cbegin();
-         cit != rm_nodes.cend();
+    for (NodeUuidSet::const_iterator cit = filter_nodes.cbegin();
+         cit != filter_nodes.cend();
          ++cit) {
         NodeList::iterator it = node_up_pend.begin();
         while (it != node_up_pend.end()) {
-            NodeUuid uuid = (*it)->get_uuid();
-            if (uuid == (*cit)) {
-                node_up_pend.erase(it);
+            if ((*it)->get_uuid() == (*cit)) {
+                addNodes->splice(addNodes->begin(), node_up_pend, it);
+                break;
+            }
+            ++it;
+        }
+        it = node_down_pend.begin();
+        while (it != node_down_pend.end()) {
+            if ((*it)->get_uuid() == (*cit)) {
+                rmNodes->splice(rmNodes->begin(), node_down_pend, it);
                 break;
             }
             ++it;

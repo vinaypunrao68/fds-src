@@ -255,8 +255,15 @@ class OM_SmContainer : public OM_AgentContainer
     OM_SmContainer();
     virtual ~OM_SmContainer() {}
 
+    /**
+     * Move all pending nodes to addNodes and rmNodes
+     * The second function only moves nodes that are in 'filter_nodes'
+     * set and leaves other pending nodes pending
+     */
     void om_splice_nodes_pend(NodeList *addNodes, NodeList *rmNodes);
-    void om_rm_nodes_added_pend(const NodeUuidSet& rm_nodes);
+    void om_splice_nodes_pend(NodeList *addNodes,
+                              NodeList *rmNodes,
+                              const NodeUuidSet& filter_nodes);
 
     virtual void agent_activate(NodeAgent::pointer agent);
     virtual void agent_deactivate(NodeAgent::pointer agent);
@@ -555,6 +562,7 @@ class OM_NodeDomainMod : public Module
      */
     virtual Error om_load_state(kvstore::ConfigDB* _configDB);
     virtual Error om_load_volumes();
+    virtual fds_bool_t om_rm_sm_configDB(const NodeUuid& uuid);
 
     /**
      * Register node info to the domain manager.
