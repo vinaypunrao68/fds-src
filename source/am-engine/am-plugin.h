@@ -163,6 +163,9 @@ class AME_Ctx
     /// Tracks buffers AME allocated to free later    
     AME_Alloc_List            ame_alloc_bufs;
 
+    // Request etag
+    ngx_md5_t                 ame_etag_ctx;
+
     // Hookup with nginx event loop.
     //
     int                       ame_epoll_fd;
@@ -189,6 +192,7 @@ class AME_Ctx
     fds_off_t ame_get_off() const;
     void ame_add_alloc_buf(char *buf);
     void ame_free_bufs();
+    ngx_md5_t *ame_get_etag();
 };
 
 class AME_CtxList

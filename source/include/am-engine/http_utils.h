@@ -16,6 +16,9 @@ namespace fds {
 
 class HttpUtils {
   public:
+    static void initEtag(ngx_md5_t *ctx);
+    static void updateEtag(ngx_md5_t *ctx, const char* data, size_t len);
+    static std::string finalEtag(ngx_md5_t *ctx);
     static std::string computeEtag(const char* data, size_t len);
 };
 

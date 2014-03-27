@@ -715,17 +715,8 @@ Conn_PutObject::ame_request_resume()
     /* Compute etag to be sent as response.  Ideally this is done by AM */
     buf = ame_ctx->ame_curr_input_buf(&len);
 
-    /* XXX: we're working on the big buffer, not this one. */
-    // ame_etag = "\"" + HttpUtils::computeEtag(buf, len) + "\"";
-    // Temp. code because we put our data to this buffer.
-    //
-    // len = ame_ctx->ame_temp_len;
-    // ame_etag = "\"" + HttpUtils::computeEtag(ame_ctx->ame_temp_buf, len) + "\"";
-
-    // Temp. code.  We need to have a proper buffer chunking model here.
-    // if (ame_ctx->ame_temp_buf != NULL) {
-    // ngx_pfree(ame_req->pool, ame_ctx->ame_temp_buf);
-    // }
+    // Set etag value from ctx
+    ame_etag = "\"" + HttpUtils::finalEtag(ame_ctx->ame_get_etag()) + "\"";
 
     // Release any buffers we allocated from nginx. Often
     // these buffers were allocated to collect data from
@@ -761,6 +752,13 @@ Conn_PutObject::ame_request_handler()
 
         // Updates the stream offset by len bytes
         ame_ctx->ame_mv_off(len);
+
+        // Update the rolling etag calculation
+        // TODO(Andrew): We're calculating the etag from the nginx request
+        // structure, since that has all of the data. We should actually have
+        // AM calcuate this based on what it wrote out over the network so
+        // that the etag tracks what we wrote, not just what was received
+        HttpUtils::updateEtag(ame_ctx->ame_get_etag(), buf, len);
 
         // Issue async request
         api = ame->ame_fds_hook();
