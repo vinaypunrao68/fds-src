@@ -527,6 +527,7 @@ class FDS_NativeAPI {
                  char *buffer, 
                  fds_uint64_t startByte, 
                  fds_uint64_t buflen,
+                 fds_bool_t lastBuf,
                  fdsnPutObjectHandler putObjHandler, 
                  void *callbackData);
 

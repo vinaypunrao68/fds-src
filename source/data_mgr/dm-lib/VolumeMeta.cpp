@@ -226,7 +226,10 @@ std::ostream&
 operator<<(std::ostream& out, const BlobObjectInfo& binfo) {
     out << "Blob info offset " << binfo.offset
         << ", object id " << binfo.data_obj_id
-        << ", size " << binfo.size;
+        << ", size " << binfo.size
+        << std::boolalpha << ", sparse is "
+        << binfo.sparse << ", blob end is "
+        << binfo.blob_end;
 
     return out;
 }

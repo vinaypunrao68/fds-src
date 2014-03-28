@@ -17,7 +17,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 public class Authorizer implements RequestHandler {
-    public static final String FDS_TOKEN = "fds-token";
+    public static final String FDS_TOKEN = "token";
     private Supplier<RequestHandler> supplier;
     private Function<String, Boolean> authorizer;
 

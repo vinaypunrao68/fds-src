@@ -742,6 +742,7 @@ Conn_PutObject::ame_request_handler()
     char          *buf;
     FDS_NativeAPI *api;
     BucketContext bucket_ctx("host", get_bucket_id(), "accessid", "secretkey");
+    fds_bool_t    last_byte;
 
     buf = ame_reqt_iter_data_next(get_max_buf_len(), &len);
     while (len != 0) {
@@ -760,11 +761,21 @@ Conn_PutObject::ame_request_handler()
         // that the etag tracks what we wrote, not just what was received
         HttpUtils::updateEtag(ame_ctx->ame_get_etag(), buf, len);
 
+        // Check if this update is the last buffer in
+        // the request
+        last_byte = false;
+        if ((offset + len) == (fds_off_t)ame_req->headers_in.content_length_n) {
+            last_byte = true;
+            LOGDEBUG << "Setting offset " << offset << " and length " << len
+                     << " as the last update to the blob";
+        }
+
         // Issue async request
         api = ame->ame_fds_hook();
         api->PutObject(&bucket_ctx, get_object_id(), NULL,
                        static_cast<void *>(ame_ctx), buf, offset,
-                       len, fdsn_putobj_cbfn, static_cast<void *>(this));
+                       len, last_byte, fdsn_putobj_cbfn,
+                       static_cast<void *>(this));
 
         // Get the next data and data len
         buf = ame_reqt_iter_data_next(get_max_buf_len(), &len);

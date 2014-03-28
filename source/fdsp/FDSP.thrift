@@ -191,6 +191,7 @@ struct FDSP_BlobObjectInfo {
  1: i64 offset,
  2: FDS_ObjectIdType data_obj_id,
  3: i64 size
+ 4: bool blob_end;
 }
 
 typedef list<FDSP_BlobObjectInfo> FDSP_BlobObjectList

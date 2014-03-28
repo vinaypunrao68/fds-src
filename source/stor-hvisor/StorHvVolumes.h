@@ -235,12 +235,14 @@ class PutBlobReq: public FdsBlobReq {
     void *req_context;
     fdsnPutObjectHandler putObjCallback;
     void *callback_data;
+    fds_bool_t lastBuf;
   
     PutBlobReq(fds_volid_t _volid,
                const std::string& _blob_name, //same as objKey
                fds_uint64_t _blob_offset,
                fds_uint64_t _data_len,
                char* _data_buf,
+               fds_bool_t _last_buf,
                BucketContext* _bucket_ctxt,
                PutProperties* _put_props,
                void* _req_context,
@@ -249,12 +251,17 @@ class PutBlobReq: public FdsBlobReq {
             : FdsBlobReq(FDS_PUT_BLOB, _volid, _blob_name, _blob_offset,
                          _data_len, _data_buf, FDS_NativeAPI::DoCallback,
                          this, Error(ERR_OK), 0),
+              lastBuf(_last_buf),
               bucket_ctxt(_bucket_ctxt),
               ObjKey(_blob_name),
               putProperties(_put_props),
               req_context(_req_context),
               putObjCallback(_put_obj_handler),
               callback_data(_callback_data) {
+    }
+
+    fds_bool_t isLastBuf() const {
+        return lastBuf;
     }
 
     ~PutBlobReq() { };

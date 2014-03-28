@@ -218,7 +218,7 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
     /*
      * Pull out the blob request
      */
-    FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
+    PutBlobReq *blobReq = static_cast<PutBlobReq *>(qosReq->getBlobReqPtr());
     fds_verify(blobReq->magicInUse() == true);
 
     fds_volid_t   volId = blobReq->getVolId();
@@ -303,8 +303,10 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
     upd_obj_req->obj_list.clear();
 
     FDS_ProtocolInterface::FDSP_BlobObjectInfo upd_obj_info;
-    upd_obj_info.offset = blobReq->getBlobOffset();  // May need to change to 0 for now?
-    upd_obj_info.size = blobReq->getDataLen();
+    upd_obj_info.offset   = blobReq->getBlobOffset();  // May need to change to 0 for now?
+    upd_obj_info.size     = blobReq->getDataLen();
+    // Mark whether this update updates the end of the blob
+    upd_obj_info.blob_end = blobReq->isLastBuf();
 
     put_obj_req->data_obj_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
     upd_obj_info.data_obj_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
@@ -312,8 +314,6 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
     upd_obj_req->obj_list.push_back(upd_obj_info);
     upd_obj_req->meta_list.clear();
     upd_obj_req->blob_size = blobReq->getDataLen();  // Size of the whole blob? Or just what I'm putting
-
-  
 
     /*
      * Initialize the journEntry with a open txn

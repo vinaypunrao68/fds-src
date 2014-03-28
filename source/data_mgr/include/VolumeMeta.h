@@ -59,13 +59,17 @@ class BlobObjectInfo {
     fds_uint64_t offset;
     ObjectID data_obj_id;
     fds_uint64_t size;
+    fds_bool_t sparse;
+    fds_bool_t blob_end;
     const char delim = ':';
     const std::string open_seq = "{";
     const std::string end_seq = "}";
 
     BlobObjectInfo()
             : offset(0),
-              size(0) {
+              size(0),
+              sparse(false),
+              blob_end(false) {
     }
 
     BlobObjectInfo(FDS_ProtocolInterface::FDSP_BlobObjectInfo& blob_obj_info)
@@ -73,6 +77,8 @@ class BlobObjectInfo {
         offset = blob_obj_info.offset;
         data_obj_id.SetId((const char *)blob_obj_info.data_obj_id.digest.c_str(), blob_obj_info.data_obj_id.digest.length());
         size = blob_obj_info.size;
+        sparse = false;
+        blob_end = blob_obj_info.blob_end;
     }
 
     BlobObjectInfo(const BlobObjectInfo &rhs) {
@@ -82,9 +88,12 @@ class BlobObjectInfo {
     /**
      * Constructor for a 'sparse' entry
      */
-    BlobObjectInfo(fds_uint64_t off)
+    BlobObjectInfo(fds_uint64_t off,
+                   fds_uint64_t _size)
             : BlobObjectInfo() {
         offset = off;
+        size   = _size;
+        sparse = true;
     }
 
     BlobObjectInfo(std::string& str)
@@ -121,7 +130,9 @@ class BlobObjectInfo {
         std::ostringstream binfoOss;
         binfoOss << offset << delim
                  << "0x" << data_obj_id.ToString() << delim
-                 << size;
+                 << size << delim
+                 << sparse << delim
+                 << blob_end;
         LOGDEBUG << "Serialized blob object info " << *this
                  << " to " << binfoOss.str();
 
@@ -150,10 +161,10 @@ class BlobObjectInfo {
         int next_end = 0;
         ulong next_delim_pos = -1;
         std::string next_sub_str = "";
-        for (fds_uint32_t field_idx = 0; field_idx < 3; field_idx++) {
+        for (fds_uint32_t field_idx = 0; field_idx < 5; field_idx++) {
             next_delim_pos = str.find(delim, next_start);
             if (next_delim_pos == std::string::npos) {
-                fds_verify(field_idx == 2);
+                fds_verify(field_idx == 4);
                 next_end = str.size() - 1;
             } else {
                 next_end = next_delim_pos- 1 ; 
@@ -167,7 +178,13 @@ class BlobObjectInfo {
                     data_obj_id = next_sub_str;
                     break;
                 case 2:
-                    size = strtoul(next_sub_str.c_str(), NULL, 0);
+                    size = strtoull(next_sub_str.c_str(), NULL, 0);
+                    break;
+                case 3:
+                    sparse = (fds_bool_t)strtoul(next_sub_str.c_str(), NULL, 0);
+                    break;
+                case 4:
+                    blob_end = (fds_bool_t)strtoul(next_sub_str.c_str(), NULL, 0);
                     break;
                 default:
                     fds_panic("Unknown blob object info field!");
@@ -183,6 +200,8 @@ class BlobObjectInfo {
         offset      = rhs.offset;
         data_obj_id = rhs.data_obj_id;
         size        = rhs.size;
+        sparse      = rhs.sparse;
+        blob_end    = rhs.blob_end;
         return *this;
     }
 };
@@ -226,6 +245,10 @@ class BlobObjectList {
 
     void pushBack(const BlobObjectInfo &bInfo) {
         obj_list.push_back(bInfo);
+    }
+
+    void popBack() {
+        obj_list.pop_back();
     }
 
     BlobObjectList& operator=(const BlobObjectList &rhs) {
