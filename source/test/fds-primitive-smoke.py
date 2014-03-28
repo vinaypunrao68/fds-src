@@ -63,6 +63,12 @@ class FdsDataSet:
             self.ds_dest_dir = '/tmp'
         ret = subprocess.call(['mkdir', '-p', self.ds_dest_dir])
 
+class FdsStats:
+    def __init__(self):
+        self.total_puts = 0
+        self.total_gets = 0
+        self.total_dels = 0
+
 #########################################################################################
 
 
@@ -121,6 +127,7 @@ class CopyS3Dir:
             print message
 
     def putTest(self, burst=0):
+        global stat
         os.chdir(self.ds.ds_data_dir)
         cnt = 0
         err = 0
@@ -146,9 +153,10 @@ class CopyS3Dir:
         print "Put ", cnt + self.cur_put, " objects... errors: [", err, "]"
         self.cur_put  += cnt
         self.perr_cnt += err
-#total_puts += cnt
+        stat.total_puts += cnt
 
     def get_test(self, burst=0):
+        global stat
         os.chdir(self.ds.ds_data_dir)
         cnt = 0
         err = 0
@@ -188,7 +196,7 @@ class CopyS3Dir:
         self.cur_get  += cnt
         self.gerr_cnt += err
         self.gerr_chk += chk
-#total_gets += cnt
+        stat.total_gets += cnt
 
     def exitOnError(self):
         if self.perr_cnt != 0 or self.gerr_cnt != 0 or self.gerr_chk != 0:
@@ -293,6 +301,7 @@ class CopyS3Dir_Overwrite(CopyS3Dir):
         self.perr_cnt += err
 
     def get_test(self, burst=0):
+        global stat
         os.chdir(self.ds.ds_data_dir)
         cnt = 0
         err = 0
@@ -332,7 +341,7 @@ class CopyS3Dir_Overwrite(CopyS3Dir):
         self.cur_get  += cnt
         self.gerr_cnt += err
         self.gerr_chk += chk
-#total_gets += cnt
+        stat.total_gets += cnt
 
 
 class DelS3Dir(CopyS3Dir):
@@ -357,6 +366,7 @@ class DelS3Dir(CopyS3Dir):
             cnt += burst_cnt
 
     def del_test(self, burst=0):
+        global stat
         os.chdir(self.ds.ds_data_dir)
         cnt = 0
         err = 0
@@ -378,12 +388,9 @@ class DelS3Dir(CopyS3Dir):
                                    self.bucket_url + '/' + obj, '-o', tmp])
             if ret != 0:
                 err = err + 1
-                print "curl error GET: " + get + ": " + obj + " -> " + tmp
+                print "curl error DEL-GET: " + get + ": " + obj + " -> " + tmp
                 if self.exitOnErr == True:
                     sys.exit(1)
-            else:
-                subprocess.call(['rm', tmp])
-
 
             if (cnt % 10) == 0:
                 print "Del ", cnt + self.cur_del , " objects... errors: [", err, "]"
@@ -393,7 +400,7 @@ class DelS3Dir(CopyS3Dir):
         print "Del ", cnt + self.cur_del, " objects... errors: [", err, "]"
         self.cur_del += cnt
         self.perr_cnt += err
-#total_dels += cnt
+        stat.total_dels += cnt
  
 
 #########################################################################################
@@ -499,7 +506,7 @@ def stressIO(volume_name, data_dir, res_dir):
 
     # seq write, then seq read
     smoke_ds1 = FdsDataSet(volume_name, data_dir, res_dir, '*')
-    smoke1 = CopyS3Dir(smoke_ds1)
+    smoke1 = DelS3Dir(smoke_ds1)
 
     smoke1.run_test()
     smoke1.reset_test()
@@ -508,7 +515,7 @@ def stressIO(volume_name, data_dir, res_dir):
 
     # write from in burst of 10
     smoke_ds2 = FdsDataSet(volume_name, data_dir, res_dir, '*')
-    smoke2 = CopyS3Dir(smoke_ds2)
+    smoke2 = DelS3Dir(smoke_ds2)
     smoke2.run_test(10)
     smoke2.exitOnError()
 
@@ -537,6 +544,11 @@ def blobOverwrite(volume_name, data_dir, res_dir):
     smoke1 = CopyS3Dir_Overwrite(smoke_ds1)
     smoke1.run_test()
     smoke1.exitOnError()
+
+def neg_test(volume_name, data_dir, es_dir):
+    print "Negative test..."
+    print "WIN-267, curl PUT object with invalid filename crashed AM, expect non zero from curl"
+    print "WIN-235, list bucket on non-existing volume"
 
 def stressIO_GET(volume_name, data_dir, res_dir):
     # seq write, then seq read
@@ -609,14 +621,17 @@ def waitIODone(p):
 #########################################################################################
 
 def exitTest(env, shutdown):
-    print "Total PUTs: ", -1
-    print "Total GETs: ", -1
-    print "Total DELs: ", -1
+    global stat
+    print "Total PUTs: ", stat.total_puts
+    print "Total GETs: ", stat.total_gets
+    print "Total DELs: ", stat.total_dels
     print "Test Passed, cleaning up..."
     if shutdown:
         env.cleanup()
     sys.exit(0)
 
+global stat
+stat = FdsStats()
 data_set_dir = None
 
 if __name__ == "__main__":
@@ -648,6 +663,11 @@ if __name__ == "__main__":
     else:
         shutdown = False
 
+    #    1) add argument to start a cluster
+    #    2) verify that argument for shutdown a cluster works
+    #    3) pass in IP address for AM, currently its localhost
+    #    4) pass in the number of I/O thread
+    #    5) pass in the work-load that you want to run, default to all. (CopyS3Dir, DelS3Dir, etc)
     #
     # Setup lab key access
     #
