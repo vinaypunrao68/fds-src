@@ -34,12 +34,12 @@ class FdsEnv:
             sys.exit(1)
 
     def shut_down(self):
-         subprocess.call([self.fdsctrl,'stop'])
+         subprocess.call([self.fdsctrl, 'stop', '--fds-root', self.env_root])
 
     def cleanup(self):
         self.shut_down()
-        subprocess.call([self.fdsctrl,'clean'])
-        subprocess.call([self.fdsctrl,'clogs'])
+        subprocess.call([self.fdsctrl, 'clean', '--fds-root', self.env_root])
+        subprocess.call([self.fdsctrl, 'clogs', '--fds-root', self.env_root])
 
     def getRoot(self):
         return self.env_root
@@ -134,6 +134,13 @@ class CopyS3Dir:
         ret = subprocess.call(['curl', '-X' 'PUT', self.bucket_url])
         if ret != 0:
             print "Bucket create failed"
+            sys.exit(1)
+        subprocess.call(['sleep', '3'])
+
+    def delete_bucket(self):
+        ret = subprocess.call(['curl', '-X' 'DELETE', self.bucket_url])
+        if ret != 0:
+            print "Bucket delete failed"
             sys.exit(1)
         subprocess.call(['sleep', '3'])
 
@@ -389,23 +396,16 @@ class DelS3Dir(CopyS3Dir):
 ###
 # cluster bring up
 #
-def bringup_cluster(env, bu, cfgFile, verbose, debug):
+def bringup_cluster(env, verbose, debug):
     env.cleanup()
-    print "\nSetting up private fds-root in " + \
-          bu.getCfgField('node1', 'fds_root') + '[1-4]'
-    root1 = bu.getCfgField('node1', 'fds_root')
-    root2 = bu.getCfgField('node2', 'fds_root')
-    root3 = bu.getCfgField('node3', 'fds_root')
-    root4 = bu.getCfgField('node4', 'fds_root')
+    root1 = env.env_root
+    print "\nSetting up private fds-root in " + root1 + '[1-4]'
     FdsSetupNode(env.srcdir, root1)
-    FdsSetupNode(env.srcdir, root2)
-    FdsSetupNode(env.srcdir, root3)
-    FdsSetupNode(env.srcdir, root4)
     
     os.chdir(env.srcdir + '/Build/linux-x86_64.debug/bin')
 
     print "\n\nStarting fds on ", root1
-    subprocess.call([env.fdsctrl,'start'])
+    subprocess.call([env.fdsctrl, 'start', '--fds-root', root1])
     os.chdir(env.srcdir)
 
 ###
@@ -576,14 +576,14 @@ if __name__ == "__main__":
                         help ='pdb debug on [false]')
     args = parser.parse_args()
 
-    cfgFile = args.cfg_file
-    smokeTest = args.smoke_test
-    vol_prefix = args.vol_prefix
+    cfgFile      = args.cfg_file
+    smokeTest    = args.smoke_test
+    vol_prefix   = args.vol_prefix
     data_set_dir = args.data_set
-    verbose = args.verbose
-    debug = args.debug
-    start_sys = args.up
-    thread_cnt = args.thread
+    verbose      = args.verbose
+    debug        = args.debug
+    start_sys    = args.up
+    thread_cnt   = args.thread
     if args.async == 'true':
         async_io = True
     else:
@@ -600,17 +600,15 @@ if __name__ == "__main__":
     #       (CopyS3Dir, DelS3Dir, etc)
 
     ###
-    # load the configuration files
+    # load the configuration file and build test environment
     #
-    bu = ServiceConfig.TestBringUp(cfgFile, verbose, debug)
-    bu.loadCfg()
-    env = FdsEnv(bu.getCfgField('node1', 'fds_root'))
+    env = FdsEnv('/fds/node1')
 
     ###
     # bring up the cluster
     #
     if start_sys == 'true':
-        bringup_cluster(env, bu, cfgFile, verbose, debug)
+        bringup_cluster(env, verbose, debug)
         time.sleep(2)
 
     if args.smoke_test == 'false':
