@@ -98,6 +98,11 @@ public:
     }
     virtual void RedirReadObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg, boost::shared_ptr<FDSP_RedirReadObjType>& redir_write_obj_req){
     }
+    virtual void GetObjectMetadataResp(
+            boost::shared_ptr<FDSP_GetObjMetadataResp>& metadata_resp) {
+    }
+    virtual void GetObjectMetadataResp(const FDSP_GetObjMetadataResp& metadata_resp) {
+    }
 
 };
 

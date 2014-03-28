@@ -57,6 +57,17 @@ class exampleDataPathRespIf : public FDS_ProtocolInterface::FDSP_DataPathRespIf 
         boost::shared_ptr<FDS_ProtocolInterface::FDSP_RedirReadObjType>&
         redir_write_obj_req) {
     }
+
+    void GetObjectMetadataResp(const FDSP_GetObjMetadataResp& metadata_resp)
+    {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
+    void GetObjectMetadataResp(boost::shared_ptr<FDSP_GetObjMetadataResp>& metadata_resp)
+    {
+        // Your implementation goes here
+        printf("GetObjectMetadataResp\n");
+    }
 };
 
 int main(int argc, char *argv[]) {

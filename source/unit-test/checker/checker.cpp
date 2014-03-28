@@ -4,6 +4,8 @@
 #include <string>
 #include <fstream>
 #include <iostream>
+#include <algorithm>
+#include <vector>
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/progress.hpp>
@@ -19,6 +21,60 @@
 namespace fs = boost::filesystem;
 
 namespace fds {
+
+void BaseChecker::log_corruption(const std::string& info) {
+    if (panic_on_corruption_) {
+        fds_verify(!"Encountered corruption");
+    }
+    // TODO(Rao:) Log corruption
+}
+
+/**
+ * Less than operator
+ */
+struct FDSP_ObjectVolumeAssociationLess {
+    bool operator() (const FDSP_ObjectVolumeAssociation &a,
+            const FDSP_ObjectVolumeAssociation& b)
+    {
+        return a.vol_id < b.vol_id;
+    }
+};
+
+void BaseChecker::compare_against(const FDSP_MigrateObjectMetadata& golden,
+        std::vector<FDSP_MigrateObjectMetadata> md_list)
+{
+#if 0
+    std::sort(golden.associations.begin(), golden.associations.end(),
+            FDSP_ObjectVolumeAssociationLess());
+
+    for (auto entry : md_list) {
+        if (golden.token_id != entry.token_id) {
+            log_corruption("golden.token_id != entry.token_id");
+        }
+
+        if (golden.object_id.digest != entry.object_id.digest) {
+            log_corruption("golden.object_id.digest != entry.object_id.digest");
+        }
+
+        if (golden.obj_len != entry.obj_len) {
+            log_corruption("golden.obj_len != entry.obj_len");
+        }
+
+        if (golden.born_ts != entry.born_ts) {
+            log_corruption("golden.born_ts != entry.born_ts");
+        }
+
+        if (golden.modification_ts != entry.modification_ts) {
+            log_corruption("golden.modification_ts != entry.modification_ts");
+        }
+        std::sort(entry.associations.begin(), entry.associations.end(),
+                FDSP_ObjectVolumeAssociationLess());
+        if (golden.associations != entry.associations) {
+            log_corruption("golden.associatons != entry.associations");
+        }
+    }
+#endif
+}
 
 class DatapathRespImpl : public FDS_ProtocolInterface::FDSP_DataPathRespIf {
  public:
@@ -76,8 +132,21 @@ class DatapathRespImpl : public FDS_ProtocolInterface::FDSP_DataPathRespIf {
          get_resp_monitor_->done();
     }
 
+    void GetObjectMetadataResp(
+                boost::shared_ptr<FDSP_GetObjMetadataResp>& metadata_resp)  // NOLINT
+    {
+        fds_verify(metadata_resp->header.result == FDS_ProtocolInterface::FDSP_ERR_OK ||
+                            !"object ID not exist on SM");
+        *get_md_buf_ = metadata_resp->meta_data;
+        get_resp_monitor_->done();
+    }
+
+    void GetObjectMetadataResp(const FDSP_GetObjMetadataResp& metadata_resp) {
+    }
+
  private:
     std::string *get_obj_buf_;
+    FDSP_MigrateObjectMetadata *get_md_buf_;
     concurrency::TaskStatus *get_resp_monitor_;
     friend class DirBasedChecker;
 };
@@ -224,6 +293,41 @@ bool DirBasedChecker::get_object(const NodeUuid& node_id,
     return true;
 }
 
+bool DirBasedChecker::get_object_metadata(const NodeUuid& node_id,
+        const ObjectID &oid, FDSP_MigrateObjectMetadata &md)
+{
+    auto dp_session = get_datapath_session(node_id);
+
+    FDS_ProtocolInterface::FDSP_GetObjMetadataReqPtr get_req(
+            new FDS_ProtocolInterface::FDSP_GetObjMetadataReq);
+    get_req->header.msg_code = FDS_ProtocolInterface::FDSP_MSG_GET_OBJ_REQ;
+    get_req->header.session_uuid = dp_session->getSessionId();
+    get_req->header.src_id   = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
+    get_req->header.dst_id   = FDS_ProtocolInterface::FDSP_STOR_MGR;
+    get_req->header.result   = FDS_ProtocolInterface::FDSP_ERR_OK;
+    get_req->header.glob_volume_id = FdsSysTaskQueueId;
+    get_req->header.err_code = ERR_OK;
+
+    get_req->obj_id.digest = std::string((const char *)oid.GetId(),
+                                              (size_t)oid.GetLen());
+
+
+    /* response buffer */
+    get_resp_monitor_.reset(1);
+    dp_resp_handler_->get_md_buf_= &md;
+    dp_resp_handler_->get_resp_monitor_ = &get_resp_monitor_;
+
+    dp_session->getClient()->GetObjectMetadata(get_req);
+
+    /* we will block until we get response */
+    get_resp_monitor_.await();
+
+    dp_resp_handler_->get_md_buf_ = nullptr;
+    dp_resp_handler_->get_resp_monitor_ = nullptr;
+
+    return true;
+}
+
 PlatRpcReqt *DirBasedChecker::plat_creat_reqt_disp()
 {
     fds_assert(0);
@@ -257,6 +361,7 @@ void DirBasedChecker::run_checker()
 
         /* Hash the data to object the ID */
         ObjectID objId = ObjIdGen::genObjectId(obj_data.c_str(), obj_data.size());
+        std::vector<FDSP_MigrateObjectMetadata> md_list;
 
         /* Issue gets from SMs */
         auto nodes = clust_comm_mgr_->get_dlt()->getNodes(objId);
@@ -266,11 +371,23 @@ void DirBasedChecker::run_checker()
             fds_verify(ret == true);
             fds_verify(ret_obj_data == obj_data);
 
+#if 0
+            FDSP_MigrateObjectMetadata ret_obj_md;
+            ret = get_object_metadata((*nodes)[i], objId, ret_obj_md);
+            fds_verify(ret == true);
+            md_list.push_back(ret_obj_md);
+#endif
+
             cntrs_.obj_cnt.incr();
 
             LOGDEBUG << "oid: " << objId<< " check passed against: "
                     << std::hex << ((*nodes)[i]).uuid_get_val();
         }
+#if 0
+        if (md_list.size() > 1) {
+            compare_against(md_list[0], md_list);
+        }
+#endif
     }
     LOGNORMAL << "Checker run done!" << std::endl;
 }

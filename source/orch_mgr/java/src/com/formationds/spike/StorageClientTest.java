@@ -86,4 +86,9 @@ class DataResponseHandler implements FDSP_DataPathResp.Iface {
         System.out.println(fdsp_msg);
         System.out.println(redir_write_obj_req);
     }
+
+    @Override
+    public void GetObjectMetadataResp(FDSP_GetObjMetadataResp metadata_resp) throws TException {
+	System.out.println(metadata_resp);
+    }
 }

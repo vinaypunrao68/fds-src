@@ -77,6 +77,10 @@ class exampleDataPathReqIf : virtual public FDSP_DataPathReqIf {
     void RedirReadObject(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,  // NOLINT
                          boost::shared_ptr<FDSP_RedirReadObjType>& redir_write_obj_req) {
     }
+    void GetObjectMetadata(const FDSP_GetObjMetadataReq& metadata_req) {
+    }
+    void GetObjectMetadata(boost::shared_ptr<FDSP_GetObjMetadataReq>& metadata_req) {  // NOLINT
+    }
 };
 }  // namespace FDS_ProtocolInterface
 

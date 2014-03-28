@@ -66,6 +66,11 @@ class exampleDataPathRespIf : public FDS_ProtocolInterface::FDSP_DataPathRespIf 
         boost::shared_ptr<FDS_ProtocolInterface::FDSP_RedirReadObjType>&
         redir_write_obj_req) {
     }
+    void GetObjectMetadataResp(
+                boost::shared_ptr<FDSP_GetObjMetadataResp>& metadata_resp) {
+    }
+    void GetObjectMetadataResp(const FDSP_GetObjMetadataResp& metadata_resp) {
+    }
 };
 
 static probe_mod_param_t fds_net_probe_param =

@@ -209,6 +209,9 @@ ObjectStorMgrI::RedirReadObject(FDSP_MsgHdrTypePtr &msg_hdr, FDSP_RedirReadObjTy
     LOGDEBUG << "In the interface redirread()";
 }
 
+void ObjectStorMgrI::GetObjectMetadata(
+        boost::shared_ptr<FDSP_GetObjMetadataReq>& metadata_req) {  // NOLINT
+}
 /**
  * Storage manager member functions
  * 
@@ -1972,6 +1975,13 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
                 LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
             }
             break;
+        case FDS_SM_READ_OBJECTMETADATA:
+            objectId = static_cast<SmIoReadObjectMetadata*>(ioReq)->getObjectId();
+            err =  enqTransactionIo(nullptr, objectId, ioReq, trans_id);
+            if (err != fds::ERR_OK) {
+                LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
+            }
+            break;
         default:
             fds_assert(!"Unknown message");
             LOGERROR << "Unknown message: " << ioReq->io_type;
@@ -2172,6 +2182,23 @@ ObjectStorMgr::readObjectDataInternal(SmIoReq* ioReq)
     read_entry->smio_readdata_resp_cb(err, read_entry);
 }
 
+void
+ObjectStorMgr::readObjectMetadataInternal(SmIoReq* ioReq)
+{
+    SmIoReadObjectMetadata *read_entry =  static_cast<SmIoReadObjectMetadata*>(ioReq);
+    ObjMetaData objMetadata;
+
+    Error err = smObjDb->get(read_entry->getObjId(), objMetadata);
+    if (err != ERR_OK) {
+        fds_assert(!"failed to read");
+        LOGERROR << "Failed to read object metadata id: " << read_entry->getObjId();
+        read_entry->smio_readmd_resp_cb(err, read_entry);
+    }
+
+    objMetadata.extractSyncData(read_entry->meta_data);
+    read_entry->smio_readmd_resp_cb(err, read_entry);
+}
+
 inline void ObjectStorMgr::swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg) {
     FDSP_MgrIdType temp_id;
     long tmp_addr;
@@ -2235,32 +2262,38 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
             break;
         case FDS_SM_SNAPSHOT_TOKEN:
         {
-            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a read token objects";
+            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing snapshot";
             threadPool->schedule(&ObjectStorMgr::snapshotTokenInternal, objStorMgr, io);
             break;
         }
         case FDS_SM_SYNC_APPLY_METADATA:
         {
-            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a read token objects";
+            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing sync apply metadata";
             threadPool->schedule(&ObjectStorMgr::applySyncMetadataInternal, objStorMgr, io);
             break;
         }
         case FDS_SM_SYNC_RESOLVE_SYNC_ENTRY:
         {
-            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a read token objects";
+            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing sync resolve";
             threadPool->schedule(&ObjectStorMgr::resolveSyncEntryInternal, objStorMgr, io);
             break;
         }
         case FDS_SM_APPLY_OBJECTDATA:
         {
-            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a read token objects";
+            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing sync apply object metadata";
             threadPool->schedule(&ObjectStorMgr::applyObjectDataInternal, objStorMgr, io);
             break;
         }
         case FDS_SM_READ_OBJECTDATA:
         {
-            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a read token objects";
+            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing read object data";
             threadPool->schedule(&ObjectStorMgr::readObjectDataInternal, objStorMgr, io);
+            break;
+        }
+        case FDS_SM_READ_OBJECTMETADATA:
+        {
+            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing read object metadata";
+            threadPool->schedule(&ObjectStorMgr::readObjectMetadataInternal, objStorMgr, io);
             break;
         }
         default:

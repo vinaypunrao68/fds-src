@@ -42,14 +42,20 @@ class BaseChecker : public Platform {
  public:
     BaseChecker(char const *const name)
      : Platform("Checker-Platform", FDSP_STOR_HVISOR, NULL, NULL, NULL, NULL),
-       cntrs_("Checker", g_cntrs_mgr.get())
+       cntrs_("Checker", g_cntrs_mgr.get()),
+       panic_on_corruption_(true)
      {}
     virtual ~BaseChecker() {}
 
     virtual void run_checker() = 0;
 
+    virtual void log_corruption(const std::string& info);
+    virtual void compare_against(
+            const FDSP_MigrateObjectMetadata& golden,
+            std::vector<FDSP_MigrateObjectMetadata> md_list);
  protected:
     CheckerCntrs cntrs_;
+    bool panic_on_corruption_;
 
 };
 typedef boost::shared_ptr<BaseChecker> BaseCheckerPtr;
@@ -82,6 +88,8 @@ class DirBasedChecker : public BaseChecker {
     bool read_file(const std::string &filename, std::string &content);
     bool get_object(const NodeUuid& node_id,
             const ObjectID &oid, std::string &content);
+    bool get_object_metadata(const NodeUuid& node_id,
+            const ObjectID &oid, FDSP_MigrateObjectMetadata &md);
     netDataPathClientSession* get_datapath_session(const NodeUuid& node_id);
 
     virtual PlatRpcReqt *plat_creat_reqt_disp();

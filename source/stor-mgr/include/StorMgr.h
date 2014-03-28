@@ -458,6 +458,7 @@ class ObjectStorMgr :
     void resolveSyncEntryInternal(SmIoReq* ioReq);
     void applyObjectDataInternal(SmIoReq* ioReq);
     void readObjectDataInternal(SmIoReq* ioReq);
+    void readObjectMetadataInternal(SmIoReq* ioReq);
 
     Error relocateObject(const ObjectID &objId,
             diskio::DataTier from_tier,
@@ -541,6 +542,8 @@ class ObjectStorMgrI : virtual public FDSP_DataPathReqIf {
     void RedirReadObject(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
             boost::shared_ptr<FDSP_RedirReadObjType>& redir_write_obj_req);
 
+    void GetObjectMetadata(boost::shared_ptr<FDSP_GetObjMetadataReq>& metadata_req);
+
     void GetObject(const FDSP_MsgHdrType& fdsp_msg, const FDSP_GetObjType& get_obj_req) {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
@@ -554,6 +557,9 @@ class ObjectStorMgrI : virtual public FDSP_DataPathReqIf {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
     void RedirReadObject(const FDSP_MsgHdrType& fdsp_msg, const FDSP_RedirReadObjType& redir_write_obj_req) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+    void GetObjectMetadata(const FDSP_GetObjMetadataReq& metadata_req) {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
 };

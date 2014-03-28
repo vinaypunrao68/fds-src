@@ -365,4 +365,16 @@ PlatDataPathResp::RedirReadObjectResp(
 {
 }
 
+void
+PlatDataPathResp::GetObjectMetadataResp(
+        const FDSP_GetObjMetadataResp& metadata_resp)
+{
+}
+
+void
+PlatDataPathResp::GetObjectMetadataResp(
+        boost::shared_ptr<FDSP_GetObjMetadataResp>& metadata_resp)  // NOLINT
+{
+}
+
 }  // namespace fds

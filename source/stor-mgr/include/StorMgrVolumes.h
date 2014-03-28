@@ -488,6 +488,26 @@ namespace fds {
       /* Response callback */
       CbType smio_readdata_resp_cb;
   };
+
+  /**
+   * @brief For reading object metadata
+   */
+  class SmIoReadObjectMetadata : public SmIoReq {
+  public:
+      typedef std::function<void (const Error&,
+              SmIoReadObjectMetadata *read_data)> CbType;
+  public:
+      SmIoReadObjectMetadata() {
+      }
+      ObjectID getObjectId() {
+          return ObjectID(meta_data.object_id.digest);
+      }
+      /* In/out: In is object id, out is object meta data */
+      FDSP_MigrateObjectMetadata meta_data;
+
+      /* Response callback */
+      CbType smio_readmd_resp_cb;
+  };
 }  // namespace fds
 
 #endif  // SOURCE_STOR_MGR_STORMGRVOLUMES_H_

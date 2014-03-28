@@ -173,6 +173,11 @@ class PlatDataPathResp : public FDSP_DataPathRespIf
     virtual void RedirReadObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
                             boost::shared_ptr<FDSP_RedirReadObjType>& req);
 
+    void GetObjectMetadataResp(const FDSP_GetObjMetadataResp& metadata_resp);
+
+    virtual void GetObjectMetadataResp(
+            boost::shared_ptr<FDSP_GetObjMetadataResp>& metadata_resp);
+
   protected:
     Platform     *plf_mgr;
 };

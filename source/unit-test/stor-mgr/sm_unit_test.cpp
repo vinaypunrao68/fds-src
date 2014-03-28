@@ -239,6 +239,11 @@ class SmUnitTest {
                              FDS_ProtocolInterface::FDSP_RedirReadObjTypePtr&
                              redir_write_obj_req) {
     }
+    void GetObjectMetadataResp(
+            boost::shared_ptr<FDSP_GetObjMetadataResp>& metadata_resp) {
+    }
+    void GetObjectMetadataResp(const FDSP_GetObjMetadataResp& metadata_resp) {
+    }
   };
 
  private:

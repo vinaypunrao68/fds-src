@@ -145,11 +145,6 @@ struct FDSP_GetObjType {
  5: binary           dlt_data,
 }
 
-struct FDSP_GetObjMetadataReq {
- 1: FDSP_MsgHdrType		header
- 2: FDS_ObjectIdType 	obj_id
-}
-
 struct  FDSP_DeleteObjType { /* This is a SH-->SM msg to delete the objectId */
  1: FDS_ObjectIdType data_obj_id,
  2: i32              dlt_version,
