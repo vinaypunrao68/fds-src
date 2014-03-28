@@ -18,25 +18,10 @@ typedef boost::msm::back::state_machine<DltDplyFSM> FSM_DplyDLT;
 /**
  * OM DLT deployment events.
  */
-class DltCompRebalEvt
+class DltComputeEvt
 {
   public:
-    DltCompRebalEvt(ClusterMap *c,
-                DataPlacement *d,
-                OM_SmContainer::pointer sm_nodes)
-           : ode_cm(c),
-            ode_dp(d),
-            ode_sm_nodes(sm_nodes) {}
-
-    ClusterMap               *ode_cm;
-    DataPlacement            *ode_dp;
-    OM_SmContainer::pointer  ode_sm_nodes;
-};
-
-class DltNoRebalEvt
-{
-  public:
-    DltNoRebalEvt() {}
+    DltComputeEvt() {}
 };
 
 class DltLoadedDbEvt
@@ -58,11 +43,13 @@ class DltRebalOkEvt
 class DltCommitOkEvt
 {
   public:
-    explicit DltCommitOkEvt(fds_uint64_t dlt_ver)
-            : cur_dlt_version(dlt_ver) {}
+    DltCommitOkEvt(fds_uint64_t dlt_ver,
+                   const NodeUuid& uuid)
+            : cur_dlt_version(dlt_ver),
+            sm_uuid(uuid) {}
 
     fds_uint64_t    cur_dlt_version;
-    NodeAgent::pointer        ode_done_node;
+    NodeUuid        sm_uuid;
 };
 
 class DltCloseOkEvt
@@ -88,8 +75,7 @@ class OM_DLTMod : public Module
     /**
      * Apply an event to DLT deploy state machine.
      */
-    void dlt_deploy_event(DltCompRebalEvt const &evt);
-    void dlt_deploy_event(DltNoRebalEvt const &evt);
+    void dlt_deploy_event(DltComputeEvt const &evt);
     void dlt_deploy_event(DltRebalOkEvt const &evt);
     void dlt_deploy_event(DltCommitOkEvt const &evt);
     void dlt_deploy_event(DltCloseOkEvt const &evt);

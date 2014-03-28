@@ -717,19 +717,23 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         om_locDomain->om_update_node_list(newNode, msg);
         om_locDomain->om_bcast_vol_list(newNode);
 
-        // Let this new node know about existing dlt (if this is an SM, we are
-        // sending commited DLT first and then new DLT to start migration)
+        // Let this new node know about existing dlt if this is not SM node
+        // DLT deploy state machine will take care of SMs
         // TODO(Andrew): this should change into dissemination of the cur cluster map.
-        OM_Module *om = OM_Module::om_singleton();
-        DataPlacement *dp = om->om_dataplace_mod();
-        OM_SmAgent::agt_cast_ptr(newNode)->om_send_dlt(dp->getCommitedDlt());
+        if (msg->node_type != fpi::FDSP_STOR_MGR) {
+            OM_Module *om = OM_Module::om_singleton();
+            DataPlacement *dp = om->om_dataplace_mod();
+            OM_SmAgent::agt_cast_ptr(newNode)->om_send_dlt(dp->getCommitedDlt());
+        }
 
         // Send the DMT to DMs.
         om_locDomain->om_round_robin_dmt();
         om_locDomain->om_bcast_dmt_table();
 
         if (om_local_domain_up()) {
-            om_update_cluster();
+            if (msg->node_type == fpi::FDSP_STOR_MGR) {
+                om_update_cluster();
+            }
         } else {
             local_domain_event(RegNodeEvt(uuid, msg->node_type));
         }
@@ -780,23 +784,15 @@ OM_NodeDomainMod::om_update_cluster() {
     OM_Module *om = OM_Module::om_singleton();
     OM_DLTMod *dltMod = om->om_dlt_mod();
     DataPlacement *dp = om->om_dataplace_mod();
-    ClusterMap* cm = om->om_clusmap_mod();
-    OM_SmContainer::pointer smNodes = om_locDomain->om_sm_nodes();
 
-    // Recompute the DLT
-    DltCompRebalEvt computeEvent(cm, dp, smNodes);
-    dltMod->dlt_deploy_event(computeEvent);
+    // this will check if we need to compute DLT
+    dltMod->dlt_deploy_event(DltComputeEvt());
 
-    // ClusterMap only contains SM nodes.
-    // If there are not changes in SM nodes, we did not start
-    // rebalance, so go back to idle state
-    if (((cm->getAddedNodes()).size() == 0) &&
-        ((cm->getRemovedNodes()).size() == 0)) {
-        FDS_PLOG_SEV(g_fdslog, fds_log::debug)
-                << "om_update_cluster: cluster map up to date";
-        dltMod->dlt_deploy_event(DltNoRebalEvt());
-        return;
-    }
+    // in case there was no DLT to send and we can
+    // go to rebalances state, send event to check that
+    const DLT* dlt = dp->getCommitedDlt();
+    fds_uint64_t dlt_version = (dlt == NULL) ? 0 : dlt->getVersion();
+    dltMod->dlt_deploy_event(DltCommitOkEvt(dlt_version, NodeUuid(0)));
 }
 
 // Called when OM receives notification that the rebalance is
@@ -864,23 +860,23 @@ OM_NodeDomainMod::om_recv_dlt_commit_resp(FdspNodeType node_type,
     // we are done with current cluster update, so
     // expect to see dlt commit resp for current dlt version
     fds_uint64_t cur_dlt_ver = dp->getLatestDltVersion();
-    if (cur_dlt_ver > dlt_version) {
+    if (cur_dlt_ver > (dlt_version+1)) {
+        LOGWARN << "Received DLT commit for unexpected version:" << dlt_version;
         return err;
     }
-    fds_verify(cur_dlt_ver == dlt_version);
 
     // set node's confirmed dlt version to this version
     agent->set_node_dlt_version(dlt_version);
 
     // commit ok event, will transition to next state when
     // when all 'up' nodes acked this dlt commit
-    dltMod->dlt_deploy_event(DltCommitOkEvt(cur_dlt_ver));
+    dltMod->dlt_deploy_event(DltCommitOkEvt(dlt_version, uuid));
 
     return err;
 }
 
 //
-// Called when OM receives response for DLT commit from a node
+// Called when OM receives response for DLT close from a node
 //
 Error
 OM_NodeDomainMod::om_recv_dlt_close_resp(const NodeUuid& uuid,
