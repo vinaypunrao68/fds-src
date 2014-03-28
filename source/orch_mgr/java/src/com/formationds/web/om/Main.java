@@ -33,18 +33,18 @@ public class Main {
 
         webApp.route(HttpMethod.GET, "", () -> new LandingPage(WEB_DIR));
 
-        webApp.route(HttpMethod.POST, "/auth/token", () -> new IssueToken(KEY));
-        webApp.route(HttpMethod.GET, "/auth/token", () -> new IssueToken(KEY));
+        webApp.route(HttpMethod.POST, "/api/auth/token", () -> new IssueToken(KEY));
+        webApp.route(HttpMethod.GET, "/api/auth/token", () -> new IssueToken(KEY));
 
-        authorize(HttpMethod.GET, "/config/services", () -> new ListServices(clientFactory.configPathClient(OM_HOST, OM_PORT)));
-        authorize(HttpMethod.POST, "/config/services/:node_uuid/:domain_id", () -> new ActivatePlatform(clientFactory.configPathClient(OM_HOST, OM_PORT)));
+        authorize(HttpMethod.GET, "/api/config/services", () -> new ListServices(clientFactory.configPathClient(OM_HOST, OM_PORT)));
+        authorize(HttpMethod.POST, "/api/config/services/:node_uuid/:domain_id", () -> new ActivatePlatform(clientFactory.configPathClient(OM_HOST, OM_PORT)));
 
-        authorize(HttpMethod.GET, "/config/volumes", () -> new ListVolumes(clientFactory.configPathClient(OM_HOST, OM_PORT)));
-        authorize(HttpMethod.POST, "/config/volumes/:name", () -> new CreateVolume(clientFactory.configPathClient(OM_HOST, OM_PORT)));
-        authorize(HttpMethod.DELETE, "/config/volumes/:name", () -> new DeleteVolume(clientFactory.configPathClient(OM_HOST, OM_PORT)));
+        authorize(HttpMethod.GET, "/api/config/volumes", () -> new ListVolumes(clientFactory.configPathClient(OM_HOST, OM_PORT)));
+        authorize(HttpMethod.POST, "/api/config/volumes/:name", () -> new CreateVolume(clientFactory.configPathClient(OM_HOST, OM_PORT)));
+        authorize(HttpMethod.DELETE, "/api/config/volumes/:name", () -> new DeleteVolume(clientFactory.configPathClient(OM_HOST, OM_PORT)));
 
-        authorize(HttpMethod.GET, "/config/globaldomain", ShowGlobalDomain::new);
-        authorize(HttpMethod.GET, "/config/domains", ListDomains::new);
+        authorize(HttpMethod.GET, "/api/config/globaldomain", ShowGlobalDomain::new);
+        authorize(HttpMethod.GET, "/api/config/domains", ListDomains::new);
     }
 
     public void start() throws Exception {
