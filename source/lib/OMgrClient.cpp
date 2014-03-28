@@ -159,6 +159,7 @@ OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
   vol_evt_hdlr = NULL;
   throttle_cmd_hdlr = NULL;
   bucket_stats_cmd_hdlr = NULL;
+  dltclose_evt_hdlr = NULL;
   if (parent_log) {
     omc_log = parent_log;
   } else {
@@ -184,6 +185,11 @@ int OMgrClient::initialize() {
 
 int OMgrClient::registerEventHandlerForMigrateEvents(migration_event_handler_t migrate_event_hdlr) {
   this->migrate_evt_hdlr = migrate_event_hdlr;
+  return 0;
+}
+
+int OMgrClient::registerEventHandlerForDltCloseEvents(dltclose_event_handler_t dltclose_event_hdlr) {
+  this->dltclose_evt_hdlr = dltclose_event_hdlr;
   return 0;
 }
 
@@ -731,6 +737,9 @@ int OMgrClient::recvDLTClose(FDSP_DltCloseTypePtr& dlt_close,
             << dlt_close->DLT_version;
 
     // TODO(rao) if this is SM node, do something
+    if (this->dltclose_evt_hdlr) {
+        this->dltclose_evt_hdlr();
+    }
 
     // send ack back to OM
     boost::shared_ptr<FDS_ProtocolInterface::FDSP_ControlPathRespClient> resp_client_prx =

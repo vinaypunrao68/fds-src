@@ -449,6 +449,9 @@ class ObjectStorMgr :
     void snapshotTokenInternal(SmIoReq* ioReq);
     void applySyncMetadataInternal(SmIoReq* ioReq);
     void resolveSyncEntryInternal(SmIoReq* ioReq);
+    void applyObjectDataInternal(SmIoReq* ioReq);
+    void readObjectDataInternal(SmIoReq* ioReq);
+
     Error relocateObject(const ObjectID &objId,
             diskio::DataTier from_tier,
             diskio::DataTier to_tier);
@@ -465,6 +468,7 @@ class ObjectStorMgr :
                                    fds_bool_t check_only,
                                    FDSP_ResultType resut);
     static void migrationEventOmHandler(bool dlt_type);
+    static void dltcloseEventHandler();
     void migrationSvcResponseCb(const Error& err, const MigrationStatus& status);
 
     virtual Error enqueueMsg(fds_volid_t volId, SmIoReq* ioReq);
@@ -474,7 +478,6 @@ class ObjectStorMgr :
     TVIRTUAL fds_token_id getTokenId(const ObjectID& objId);
     TVIRTUAL kvstore::TokenStateDBPtr getTokenStateDb();
     TVIRTUAL bool isTokenInSyncMode(const fds_token_id &tokId);
-    TVIRTUAL uint64_t getTokenSyncTimeStamp(const fds_token_id &tokId);
 
     Error putTokenObjects(const fds_token_id &token, 
                           FDSP_MigrateObjectList &obj_list);

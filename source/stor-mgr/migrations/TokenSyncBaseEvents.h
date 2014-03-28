@@ -22,6 +22,11 @@ struct TSnapDnEvt {
 };
 typedef boost::shared_ptr<TSnapDnEvt> TSnapDnEvtPtr;
 
+/* Receiver side pull request event */
+struct TRPullReqEvt {
+    std::list<ObjectID> pull_ids;
+};
+typedef boost::shared_ptr<TRPullReqEvt> TRPullReqEvtPtr;
 
 }  // namespace fds
 

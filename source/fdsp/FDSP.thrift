@@ -837,17 +837,22 @@ struct FDSP_PullObjectsReq
     2: list<FDS_ObjectIdType>     obj_ids
 }
 
+/* Object id data pair */
+struct FDSP_ObjectIdDataPair
+{
+	1: FDS_ObjectIdType  obj_id
+	
+	2: FDSP_ObjectData   data
+}
+
 /* Payload for SyncToken response path */
 struct FDSP_PushObjectsReq
 {
 	/* Header */
-	1: FDSP_MigMsgHdrType         header;
+	1: FDSP_MigMsgHdrType         header
 	
     /* Object ids */
-    2: list<FDS_ObjectIdType>     obj_ids
-
-    /* Object data */
-    3: list<FDSP_ObjectData>      obj_data_list
+    2: list<FDSP_ObjectIdDataPair>     obj_data_list
 }
 
 /* Volume associations */
@@ -931,6 +936,16 @@ struct FDSP_NotifyTokenSyncComplete
 	2: FDSP_Token                 token_id;
 } 
 
+
+/* Payload for NotifyTokenPullComplete */
+struct FDSP_NotifyTokenPullComplete
+{
+	/* Header */
+	1: FDSP_MigMsgHdrType         header;
+	
+	/* Token id */
+	2: FDSP_Token                 token_id;
+} 
 
 service FDSP_SessionReq {
     oneway void AssociateRespCallback(1:string src_node_name) // Associate Response callback with DM/SM for this source node.
@@ -1099,6 +1114,7 @@ service FDSP_MigrationPathReq {
     oneway void PushTokenObjects(1:FDSP_PushTokenObjectsReq mig_put_req)
     oneway void PushTokenMetadata(1:FDSP_PushTokenMetadataReq push_md_req)
     oneway void NotifyTokenSyncComplete(1:FDSP_NotifyTokenSyncComplete sync_complete)
+    oneway void NotifyTokenPullComplete(1:FDSP_NotifyTokenPullComplete pull_complete)
     oneway void PullObjects(1:FDSP_PullObjectsReq pull_req)
     oneway void PushObjects(1:FDSP_PushObjectsReq push_req)
 }

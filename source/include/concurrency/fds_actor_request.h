@@ -36,6 +36,9 @@ enum FdsActorRequestType {
     /* Migration service message to initiate token copy */
     FAR_ENUM(MigSvcBulkCopyTokensReq),
 
+    /* Migration service message to close syncs */
+    FAR_ENUM(MigSvcSyncCloseReq),
+
     /* TokenCopySender message that token data has been read */
     FAR_ENUM(TcsDataReadDone),
 
@@ -60,11 +63,17 @@ enum FdsActorRequestType {
     /* Token receiver sync process is complete */
     FAR_ENUM(TRSyncDnEvt),
 
+    /* Token receiver pull request to pull statemachine */
+    FAR_ENUM(TRPullReqEvt),
+
     /* Pull receiver object data is applied to Object store */
     FAR_ENUM(TRPullDataWrittenEvt),
 
     /* Token receiver pull is complete */
     FAR_ENUM(TRPullDnEvt),
+
+    /* Token sender pull data has been read */
+    FAR_ENUM(TSDataReadEvt),
     /*----------------- Migration RPC -----------------------------------------*/
     /* RPC from receiver->sender to start token copy */
     FAR_ENUM(FDSP_CopyTokenReq),
@@ -98,6 +107,9 @@ enum FdsActorRequestType {
 
     /* RPC from sender->receiver with object data */
     FAR_ENUM(FDSP_PushObjectsReq),
+
+    /* RPC from receiver->sender that pull is complete */
+    FAR_ENUM(FDSP_NotifyTokenPullComplete),
     /*----------------- Last Request ------------------------------------------*/
     FAR_ENUM(Max)
 };

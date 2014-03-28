@@ -144,6 +144,18 @@ void FDSP_MigrationPathRpc::PushObjects(boost::shared_ptr<FDSP_PushObjectsReq>& 
     mig_svc_.send_actor_request(push_far);
 }
 
+void FDSP_MigrationPathRpc::
+NotifyTokenPullComplete(boost::shared_ptr<FDSP_NotifyTokenPullComplete>& pull_complete)  // NOLINT
+{
+    FdsActorRequestPtr complete_far(
+            new FdsActorRequest(FAR_ID(FDSP_NotifyTokenPullComplete), complete_far));
+    if (complete_far == nullptr) {
+        LOGERROR << "Failed to allocate memory";
+        return;
+    }
+    mig_svc_.send_actor_request(complete_far);
+}
+
 TokenCopyTracker::TokenCopyTracker(FdsMigrationSvc *migrationSvc,
         std::set<fds_token_id> tokens, MigSvcCbType copy_cb) {
     migrationSvc_ = migrationSvc;
@@ -275,6 +287,11 @@ Error FdsMigrationSvc::handle_actor_request(FdsActorRequestPtr req)
         copy_tracker_->start();
         break;
     }
+    case FAR_ID(MigSvcSyncCloseReq):
+    {
+        handle_migsvc_sync_close(req);
+        break;
+    }
     case FAR_ID(FdsActorShutdownComplete):
     {
         handle_migsvc_migration_complete(req);
@@ -338,6 +355,24 @@ Error FdsMigrationSvc::handle_actor_request(FdsActorRequestPtr req)
     case FAR_ID(FDSP_NotifyTokenSyncComplete):
     {
         auto payload = req->get_payload<FDSP_NotifyTokenSyncComplete>();
+        route_to_mig_actor(payload->header.mig_id, req);
+        break;
+    }
+    case FAR_ID(FDSP_PullObjectsReq):
+    {
+        auto payload = req->get_payload<FDSP_PullObjectsReq>();
+        route_to_mig_actor(payload->header.mig_id, req);
+        break;
+    }
+    case FAR_ID(FDSP_PushObjectsReq):
+    {
+        auto payload = req->get_payload<FDSP_PushObjectsReq>();
+        route_to_mig_actor(payload->header.mig_id, req);
+        break;
+    }
+    case FAR_ID(FDSP_NotifyTokenPullComplete):
+    {
+        auto payload = req->get_payload<FDSP_NotifyTokenPullComplete>();
         route_to_mig_actor(payload->header.mig_id, req);
         break;
     }
@@ -470,6 +505,21 @@ handle_migsvc_migration_complete(FdsActorRequestPtr req)
     LOGNORMAL << " Migration id: " << payload->far_id;
 }
 
+/**
+ * Handler for sync close notification.  We broadcast this notification
+ * to all migrators.  Currently, only senders care about this notification.
+ * @param req
+ */
+void FdsMigrationSvc::
+handle_migsvc_sync_close(FdsActorRequestPtr req)
+{
+    fds_assert(req->type == FAR_ID(MigSvcSyncCloseReq));
+
+    for (auto itr = mig_actors_.begin(); itr != mig_actors_.end(); itr++) {
+        LOGDEBUG << "Broadcasting close to: " << itr->first;
+        itr->second.migrator->send_actor_request(req);
+    }
+}
 /**
  * Sets up migration path server
  */

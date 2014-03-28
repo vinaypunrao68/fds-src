@@ -12,6 +12,7 @@
 #include <policy_tier.h>
 #include "StorMgr.h"
 #include "fds_obj_cache.h"
+#include <fds_timestamp.h>
 
 namespace fds {
 
@@ -400,6 +401,7 @@ void ObjectStorMgr::setup()
     omClient->registerEventHandlerForNodeEvents((node_event_handler_t)nodeEventOmHandler);
     omClient->registerEventHandlerForVolEvents((volume_event_handler_t)volEventOmHandler);
     omClient->registerEventHandlerForMigrateEvents((migration_event_handler_t)migrationEventOmHandler);
+    omClient->registerEventHandlerForDltCloseEvents((dltclose_event_handler_t) dltcloseEventHandler);
     omClient->omc_srv_pol = &sg_SMVolPolicyServ;
     omClient->startAcceptingControlMessages();
     omClient->registerNodeWithOM(plf_mgr);
@@ -533,14 +535,11 @@ kvstore::TokenStateDBPtr ObjectStorMgr::getTokenStateDb()
 {
     return tokenStateDb_;
 }
-bool ObjectStorMgr::isTokenInSyncMode(const fds_token_id &tokId) {
-    // fds_assert(!"not implemented");
-    return false;
-}
 
-uint64_t ObjectStorMgr::getTokenSyncTimeStamp(const fds_token_id &tokId) {
-    fds_assert(!"not implemented");
-    return 0;
+bool ObjectStorMgr::isTokenInSyncMode(const fds_token_id &tokId) {
+    kvstore::TokenStateInfo::State state;
+    tokenStateDb_->getTokenState(tokId, state);
+    return state == kvstore::TokenStateInfo::SYNCING;
 }
 
 void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
@@ -582,6 +581,19 @@ void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
         objStorMgr->migrationSvcResponseCb(Error(ERR_OK), MIGRATION_OP_COMPLETE);
     }
 
+}
+
+void ObjectStorMgr::dltcloseEventHandler()
+{
+    MigSvcSyncCloseReqPtr close_req(new MigSvcSyncCloseReq());
+    close_req->sync_close_ts = get_fds_timestamp_ms();
+
+    FdsActorRequestPtr close_far(new FdsActorRequest(
+            FAR_ID(MigSvcSyncCloseReq), close_far));
+
+    objStorMgr->migrationSvc_->send_actor_request(close_far);
+
+    GLOGNORMAL << "Received ioclose. Time: " << close_req->sync_close_ts;
 }
 
 void ObjectStorMgr::migrationSvcResponseCb(const Error& err,
@@ -1889,6 +1901,20 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
                 LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
             }
             break;
+        case FDS_SM_APPLY_OBJECTDATA:
+            objectId = static_cast<SmIoApplyObjectdata*>(ioReq)->obj_id;
+            err =  enqTransactionIo(nullptr, objectId, ioReq, trans_id);
+            if (err != fds::ERR_OK) {
+                LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
+            }
+            break;
+        case FDS_SM_READ_OBJECTDATA:
+            objectId = static_cast<SmIoReadObjectdata*>(ioReq)->getObjectId();
+            err =  enqTransactionIo(nullptr, objectId, ioReq, trans_id);
+            if (err != fds::ERR_OK) {
+                LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
+            }
+            break;
         default:
             fds_assert(!"Unknown message");
             LOGERROR << "Unknown message: " << ioReq->io_type;
@@ -2001,14 +2027,13 @@ ObjectStorMgr::applySyncMetadataInternal(SmIoReq* ioReq)
 {
     SmIoApplySyncMetadata *applyMdReq =  static_cast<SmIoApplySyncMetadata*>(ioReq);
     Error e = smObjDb->putSyncEntry(ObjectID(applyMdReq->md.object_id.digest),
-                                    applyMdReq->md);
+                                    applyMdReq->md, applyMdReq->dataExists);
     if (e != ERR_OK) {
         fds_assert(!"error");
         LOGERROR << "Error in applying sync metadata.  Object Id: "
                  << applyMdReq->md.object_id.digest;
     }
-    // TODO(Rao): return missing objects
-    applyMdReq->smio_sync_md_resp_cb(e, applyMdReq, std::set<ObjectID>());
+    applyMdReq->smio_sync_md_resp_cb(e, applyMdReq);
 }
 
 void
@@ -2022,6 +2047,72 @@ ObjectStorMgr::resolveSyncEntryInternal(SmIoReq* ioReq)
                 << resolve_entry->object_id;
     }
     resolve_entry->smio_resolve_resp_cb(e, resolve_entry);
+}
+
+void
+ObjectStorMgr::applyObjectDataInternal(SmIoReq* ioReq)
+{
+    SmIoApplyObjectdata *applydata_entry =  static_cast<SmIoApplyObjectdata*>(ioReq);
+    ObjectID objId = applydata_entry->obj_id;
+    ObjMetaData objMetadata;
+    Error err = smObjDb->get(objId, objMetadata);
+    if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
+        fds_assert(!"ObjMetadata read failed" );
+        LOGERROR << "Failed to write the object: " << objId;
+        applydata_entry->smio_apply_data_resp_cb(err, applydata_entry);
+    }
+
+    err = ERR_OK;
+
+    if (objMetadata.dataPhysicallyExists()) {
+        /* No need to write the object data.  It already exits */
+        LOGDEBUG << "Object already exists. Id: " << objId;
+        applydata_entry->smio_apply_data_resp_cb(err, applydata_entry);
+    }
+
+    /* Moving the data to not incur copy penalty */
+    DBG(std::string temp_data = applydata_entry->obj_data);
+    ObjectBuf objData;
+    objData.data = std::move(applydata_entry->obj_data);
+    objData.size = objData.data.size();
+    fds_assert(temp_data == objData.data);
+    applydata_entry->obj_data.clear();
+
+    /* write data to storage tier */
+    obj_phy_loc_t phys_loc;
+    err = writeObjectDataToTier(objId, objData, DataTier::diskTier, phys_loc);
+    if (err != ERR_OK) {
+        fds_assert(!"Failed to write");
+        LOGERROR << "Failed to write the object: " << objId;
+        applydata_entry->smio_apply_data_resp_cb(err, applydata_entry);
+    }
+
+    /* write the metadata */
+    objMetadata.updatePhysLocation(&phys_loc);
+    smObjDb->put_(objId, objMetadata);
+
+    applydata_entry->smio_apply_data_resp_cb(err, applydata_entry);
+}
+
+void
+ObjectStorMgr::readObjectDataInternal(SmIoReq* ioReq)
+{
+    SmIoReadObjectdata *read_entry =  static_cast<SmIoReadObjectdata*>(ioReq);
+    ObjectBuf        objData;
+    ObjMetaData objMetadata;
+    diskio::DataTier tierUsed;
+
+    Error err = readObject(SmObjDb::NON_SYNC_MERGED, read_entry->getObjId(),
+            objMetadata, objData, tierUsed);
+    if (err != ERR_OK) {
+        fds_assert(!"failed to read");
+        LOGERROR << "Failed to read object id: " << read_entry->getObjId();
+    }
+    // TODO(Rao): use std::move here
+    read_entry->obj_data.data = objData.data;
+    fds_assert(read_entry->obj_data.data.size() > 0);
+
+    read_entry->smio_readdata_resp_cb(err, read_entry);
 }
 
 inline void ObjectStorMgr::swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg) {
@@ -2101,6 +2192,18 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
         {
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a read token objects";
             threadPool->schedule(&ObjectStorMgr::resolveSyncEntryInternal, objStorMgr, io);
+            break;
+        }
+        case FDS_SM_APPLY_OBJECTDATA:
+        {
+            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a read token objects";
+            threadPool->schedule(&ObjectStorMgr::applyObjectDataInternal, objStorMgr, io);
+            break;
+        }
+        case FDS_SM_READ_OBJECTDATA:
+        {
+            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a read token objects";
+            threadPool->schedule(&ObjectStorMgr::readObjectDataInternal, objStorMgr, io);
             break;
         }
         default:

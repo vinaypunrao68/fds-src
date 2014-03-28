@@ -59,7 +59,6 @@ class MockObjectStore : public ObjectStorMgr {
     MockObjectStore() {}
     MOCK_METHOD1(getTokenId, fds_token_id(const ObjectID& objId));
     MOCK_METHOD1(isTokenInSyncMode, bool(const fds_token_id &tokId));
-    MOCK_METHOD1(getTokenSyncTimeStamp, uint64_t(const fds_token_id &tokId));
 };
 
 TEST(OnDiskSmObjMetadata, marshall_unmarshall) {

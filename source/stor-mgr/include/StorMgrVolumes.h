@@ -414,8 +414,7 @@ namespace fds {
   class SmIoApplySyncMetadata : public SmIoReq {
   public:
       typedef std::function<void (const Error&,
-              SmIoApplySyncMetadata *sync_md,
-              const std::set<ObjectID>& missing_objs)> CbType;
+              SmIoApplySyncMetadata *sync_md)> CbType;
   public:
       SmIoApplySyncMetadata() {
       }
@@ -428,6 +427,8 @@ namespace fds {
 
       /* In: Sync metadata list */
       FDSP_MigrateObjectMetadata md;
+      /* Out: data physically exists for this md or not */
+      bool dataExists;
       /* Response callback */
       CbType smio_sync_md_resp_cb;
   };
@@ -466,6 +467,26 @@ namespace fds {
 
       /* Response callback */
       CbType smio_apply_data_resp_cb;
+  };
+
+  /**
+   * @brief For reading object data
+   */
+  class SmIoReadObjectdata : public SmIoReq {
+  public:
+      typedef std::function<void (const Error&,
+              SmIoReadObjectdata *read_data)> CbType;
+  public:
+      SmIoReadObjectdata() {
+      }
+      ObjectID getObjectId() {
+          return ObjectID(obj_data.obj_id.digest);
+      }
+      /* In/out: In is object id, out is object data */
+      FDSP_ObjectIdDataPair obj_data;
+
+      /* Response callback */
+      CbType smio_readdata_resp_cb;
   };
 }  // namespace fds
 

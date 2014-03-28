@@ -14,6 +14,7 @@
 #include <fds_migration.h>
 #include <TokenCopySender.h>
 #include <TokenSyncSender.h>
+#include <TokenPullSender.h>
 
 namespace fds {
 
@@ -420,6 +421,10 @@ TokenCopySender::TokenCopySender(FdsMigrationSvc *migrationSvc,
     sync_fsm_->init(mig_stream_id, migrationSvc, this, data_store,
             rcvr_ip, rcvr_port, *tokens.begin(), rcvr_session, client_resp_handler);
 
+    pull_fsm_ = new TokenPullSender();
+    pull_fsm_->init(mig_stream_id, migrationSvc, this, data_store,
+            rcvr_ip, rcvr_port, *tokens.begin(), rcvr_session, client_resp_handler);
+
     LOGNORMAL << " New sender stream.  Migration id: " << mig_id
             << "Stream id: " << mig_stream_id << " receiver ip : " << rcvr_ip;
 }
@@ -427,12 +432,15 @@ TokenCopySender::TokenCopySender(FdsMigrationSvc *migrationSvc,
 TokenCopySender::~TokenCopySender()
 {
     delete sync_fsm_;
+    delete pull_fsm_;
 }
 
 
 void TokenCopySender::start()
 {
     copy_fsm_->start();
+    sync_fsm_->start();
+    pull_fsm_->start();
 }
 
 Error TokenCopySender::handle_actor_request(FdsActorRequestPtr req)
@@ -440,6 +448,13 @@ Error TokenCopySender::handle_actor_request(FdsActorRequestPtr req)
     Error err = ERR_OK;
 
     switch (req->type) {
+    case FAR_ID(MigSvcSyncCloseReq):
+    {
+        /* Notification from migration service to close sync */
+        auto payload = req->get_payload<MigSvcSyncCloseReq>();
+        sync_fsm_->process_event(*payload);
+        break;
+    }
     case FAR_ID(FDSP_PushTokenObjectsResp):
     {
         /* Posting TokSentEvt */
@@ -455,20 +470,45 @@ Error TokenCopySender::handle_actor_request(FdsActorRequestPtr req)
     /* Sync related */
     case FAR_ID(FDSP_SyncTokenReq):
     {
+        /* Sync token request from receiver */
         auto payload = req->get_payload<FDSP_SyncTokenReq>();
         sync_fsm_->process_event(*payload);
         break;
     }
     case FAR_ID(FDSP_PushTokenMetadataResp):
     {
+        /* Ack from receiver for the sync metadata that was pushed */
         auto payload = req->get_payload<FDSP_PushTokenMetadataResp>();
         sync_fsm_->process_event(*payload);
         break;
     }
     case FAR_ID(TSnapDnEvt):
     {
+        /* Notification from object store that taking snapshot for a token is done */
         auto payload = req->get_payload<TSnapDnEvt>();
         sync_fsm_->process_event(*payload);
+        break;
+    }
+    case FAR_ID(FDSP_PullObjectsReq):
+    {
+        /* Pull objects request from receiver */
+        auto payload = req->get_payload<FDSP_PullObjectsReq>();
+        pull_fsm_->process_event(*payload);
+        break;
+    }
+    case FAR_ID(FDSP_NotifyTokenPullComplete):
+    {
+        /* Notification from receiver that pulling object is done.  Pull fsm
+         * can teardown
+         */
+        auto payload = req->get_payload<FDSP_NotifyTokenPullComplete>();
+        pull_fsm_->process_event(*payload);
+
+        /* Sync and pull is complete.
+         * We can safely shut ourselves down now
+         */
+        req->recycle(FAR_ID(FdsActorShutdown), nullptr);
+        this->send_actor_request(req);
         break;
     }
     default:

@@ -60,7 +60,7 @@ struct TokenSyncReceiverFSM_
 
         smio_sync_md_resp_cb_ = std::bind(
             &TokenSyncReceiverFSM_::sync_apply_md_resp_cb, this,
-            std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
+            std::placeholders::_1, std::placeholders::_2);
 
         sync_stream_done_ = false;
 
@@ -256,17 +256,6 @@ struct TokenSyncReceiverFSM_
             resp_client->PushTokenMetadataResp(resp);
         }
     };
-    struct req_for_pull
-    {
-        /* Send a request to pull state machine for pull */
-        template <class EVT, class FSM, class SourceState, class TargetState>
-        void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
-        {
-            LOGDEBUG << "req_for_pull token: " << fsm.token_id_;
-            Error err(ERR_OK);
-            // TODO(Rao):
-        }
-    };
     struct mark_sync_dn
     {
         /* Mark sync is complete */
@@ -334,7 +323,7 @@ struct TokenSyncReceiverFSM_
             for (; it->Valid() && resolve_list.size() < max_to_resolve; it->Next()) {
                 ObjectID id(it->key().ToString());
                 /* Range check */
-                if (id < start_obj_id || end_obj_id > id) {
+                if (id < start_obj_id || id > end_obj_id) {
                     continue;
                 }
 
@@ -456,8 +445,6 @@ struct TokenSyncReceiverFSM_
 
     Row< Receiving  , TRMdAppldEvt   , msm_none   , ack_tok_md      , msm_none         >,
 
-    Row< Receiving  , NeedPullEvt    , msm_none   , req_for_pull    , msm_none         >,
-
     Row< Receiving  , TRMdXferDnEvt  , RecvDone   , mark_sync_dn    , msm_none         >,
     // +------------+----------------+------------+-----------------+------------------+
     Row< RecvDone   , TRResolveEvt   , Snapshot   , take_snap       , need_resolve     >,
@@ -490,9 +477,11 @@ struct TokenSyncReceiverFSM_
 
     /* Callback from object store that apply sync metadata is complete */
     void sync_apply_md_resp_cb(const Error& e,
-            SmIoApplySyncMetadata *sync_md,
-            const std::set<ObjectID>& missing_objs)
+            SmIoApplySyncMetadata *sync_md)
     {
+        bool dataExists = sync_md->dataExists;
+        ObjectID obj_id(sync_md->md.object_id.digest);
+
         delete sync_md;
 
         fds_assert(sent_apply_md_msgs_ > 0 &&
@@ -513,9 +502,25 @@ struct TokenSyncReceiverFSM_
                 fds_assert(!"Failed to send message");
                 LOGERROR << "Failed to send actor message.  Error: "
                         << err;
+                return;
             }
         }
-        // TODO(Rao): Throw pull event if missing_objs exist
+
+        /* For metadata without object data send a pull reques */
+        if (!dataExists) {
+            TRPullReqEvtPtr pull_evt(new TRPullReqEvt());
+            pull_evt->pull_ids.push_back(obj_id);
+            FdsActorRequestPtr far(new FdsActorRequest(
+                    FAR_ID(TRPullReqEvt), pull_evt));
+
+            Error err = parent_->send_actor_request(far);
+            if (err != ERR_OK) {
+                fds_assert(!"Failed to send message");
+                LOGERROR << "Failed to send actor message.  Error: "
+                        << err;
+                return;
+            }
+        }
     }
 
     /* Callback from object store that metadata snapshot is complete */
@@ -873,6 +878,11 @@ void TokenSyncReceiver::init(const std::string &mig_stream_id,
             token_id,
             sender_session,
             client_resp_handler);
+}
+
+void TokenSyncReceiver::start()
+{
+    fsm_->start();
 }
 
 void TokenSyncReceiver::process_event(const TRStartEvt& evt) {

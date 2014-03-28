@@ -15,7 +15,8 @@ using redis::RedisException;
 TokenStateInfo::TokenStateInfo()
 {
     state = UNINITIALIZED;
-    latestSyncTs = 0;
+    syncStartTs = 0;
+    healthyTs = 0;
 }
 
 TokenStateDB::TokenStateDB(const std::string& host,
@@ -63,19 +64,6 @@ Error TokenStateDB::setTokenState(const fds_token_id &tokId,
     return ERR_OK;
 }
 
-Error TokenStateDB::setTokenSyncTimestamp(const fds_token_id &tokId,
-        const uint64_t &ts)
-{
-    fds_spinlock::scoped_lock l(lock_);
-    auto itr = tokenTbl_.find(tokId);
-    if (itr == tokenTbl_.end()) {
-        fds_assert(!"Token doesn't exist");
-        return ERR_SM_TOKENSTATEDB_KEY_NOT_FOUND;
-    }
-    itr->second.latestSyncTs = ts;
-    return ERR_OK;
-}
-
 Error TokenStateDB::getTokenState(const fds_token_id &tokId,
         TokenStateInfo::State& state)
 {
@@ -89,7 +77,20 @@ Error TokenStateDB::getTokenState(const fds_token_id &tokId,
     return ERR_OK;
 }
 
-Error TokenStateDB::getTokenSyncTimestamp(const fds_token_id &tokId,
+Error TokenStateDB::setTokenSyncStartTS(const fds_token_id &tokId,
+        const uint64_t &ts)
+{
+    fds_spinlock::scoped_lock l(lock_);
+    auto itr = tokenTbl_.find(tokId);
+    if (itr == tokenTbl_.end()) {
+        fds_assert(!"Token doesn't exist");
+        return ERR_SM_TOKENSTATEDB_KEY_NOT_FOUND;
+    }
+    itr->second.syncStartTs = ts;
+    return ERR_OK;
+}
+
+Error TokenStateDB::getTokenSyncStartTS(const fds_token_id &tokId,
         uint64_t &ts)
 {
     fds_spinlock::scoped_lock l(lock_);
@@ -98,7 +99,31 @@ Error TokenStateDB::getTokenSyncTimestamp(const fds_token_id &tokId,
         fds_assert(!"Token doesn't exist");
         return ERR_SM_TOKENSTATEDB_KEY_NOT_FOUND;
     }
-    ts = itr->second.latestSyncTs;
+    ts = itr->second.syncStartTs;
+    return ERR_OK;
+}
+
+Error TokenStateDB::setTokenHealthyTS(const fds_token_id &tokId, const uint64_t &ts)
+{
+    fds_spinlock::scoped_lock l(lock_);
+    auto itr = tokenTbl_.find(tokId);
+    if (itr == tokenTbl_.end()) {
+        fds_assert(!"Token doesn't exist");
+        return ERR_SM_TOKENSTATEDB_KEY_NOT_FOUND;
+    }
+    itr->second.healthyTs = ts;
+    return ERR_OK;
+}
+
+Error TokenStateDB::getTokenHealthyTS(const fds_token_id &tokId, uint64_t &ts)
+{
+    fds_spinlock::scoped_lock l(lock_);
+    auto itr = tokenTbl_.find(tokId);
+    if (itr == tokenTbl_.end()) {
+        fds_assert(!"Token doesn't exist");
+        return ERR_SM_TOKENSTATEDB_KEY_NOT_FOUND;
+    }
+    ts = itr->second.healthyTs;
     return ERR_OK;
 }
 

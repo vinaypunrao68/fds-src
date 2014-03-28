@@ -113,14 +113,6 @@ class MObjStore : public ObjectStorMgr {
     virtual fds_token_id getTokenId(const ObjectID& objId) override {
         return dlt_.getToken(objId);
     }
-    virtual bool isTokenInSyncMode(const fds_token_id &tokId) override {
-        // fds_assert(!"not implemented");
-        return false;
-    }
-    virtual uint64_t getTokenSyncTimeStamp(const fds_token_id &tokId) override {
-        fds_assert(!"not implemented");
-        return 0;
-    }
     virtual const DLT* getDLT() override {
         return &dlt_;
     }
@@ -259,14 +251,14 @@ class MObjStore : public ObjectStorMgr {
         LOGDEBUG << prefix_ << " oid: " << applyMdReq->md.object_id.digest;
 
         Error e = smObjDb->putSyncEntry(ObjectID(applyMdReq->md.object_id.digest),
-                applyMdReq->md);
+                applyMdReq->md, applyMdReq->dataExists);
         if (e != ERR_OK) {
             fds_assert(!"error");
             LOGERROR << "Error in applying sync metadata.  Object Id: "
                     << applyMdReq->md.object_id.digest;
         }
         // TODO(Rao): return missing objects
-        applyMdReq->smio_sync_md_resp_cb(e, applyMdReq, std::set<ObjectID>());
+        applyMdReq->smio_sync_md_resp_cb(e, applyMdReq);
     }
 
     void

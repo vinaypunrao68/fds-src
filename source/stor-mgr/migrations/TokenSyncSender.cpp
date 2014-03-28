@@ -307,8 +307,6 @@ struct TokenSyncSenderFSM_
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            LOGDEBUG << "build_sync_log token: " << fsm.token_id_;
-
             /* Create new sync log */
             std::ostringstream oss;
             oss << "TokenSyncLog_" << fsm.token_id_
@@ -326,8 +324,10 @@ struct TokenSyncSenderFSM_
              */
             for (it->SeekToFirst(); it->Valid(); it->Next()) {
                 ObjectID id(it->key().ToString());
+                LOGDEBUG << "range check id: " << id
+                        << " start: " << start_obj_id << " end: " << end_obj_id;
                 /* Range check */
-                if (id < start_obj_id || end_obj_id > id) {
+                if (id < start_obj_id || id > end_obj_id) {
                     continue;
                 }
 
@@ -343,7 +343,10 @@ struct TokenSyncSenderFSM_
             }
             assert(it->status().ok());  // Check for any errors found during the scan
 
-            LOGDEBUG << "build_sync_log: sync log size: " << fsm.sync_log_->size();
+            LOGDEBUG << "build_sync_log token: " << fsm.token_id_
+                    << " low sync_ts: " << fsm.cur_sync_range_low_
+                    << " high_sync_ts: " <<  fsm.cur_sync_range_high_
+                    << " sync log size: " << fsm.sync_log_->size();
 
             /* Position sync log iterator to beginning */
             fsm.sync_log_itr_ = fsm.sync_log_->iterator();
@@ -362,8 +365,6 @@ struct TokenSyncSenderFSM_
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            LOGDEBUG << "send_sync_log token: " << fsm.token_id_;
-
             Error err(ERR_OK);
 
             DBG(uint64_t prev_ts = 0);
@@ -404,8 +405,10 @@ struct TokenSyncSenderFSM_
                 fsm.parent_->send_actor_request(FdsActorRequestPtr(
                         new FdsActorRequest(FAR_ID(FDSP_PushTokenMetadataResp),
                                 send_dn_evt)));
-                LOGDEBUG << "send_sync_log: Nothing to send for token: " << fsm.token_id_;
             }
+
+            LOGDEBUG << "send_sync_log token: " << fsm.token_id_
+                    << " size: " << md_list.size();
         }
     };
     struct finish_sync
@@ -429,6 +432,18 @@ struct TokenSyncSenderFSM_
             fsm.rcvr_session_->getClient()->NotifyTokenSyncComplete(sync_compl);
         }
     };
+    struct set_io_closed
+    {
+        /* Pushes the token data to receiver */
+        template <class EVT, class FSM, class SourceState, class TargetState>
+        void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
+        {
+            LOGDEBUG << "set_io_closed token: " << fsm.token_id_;
+            fds_assert(!fsm.sync_closed_);
+            fsm.sync_closed_time_ = evt.sync_close_ts;
+            fsm.sync_closed_ = true;
+        }
+    };
     struct report_error
     {
         /* Pushes the token data to receiver */
@@ -449,56 +464,75 @@ struct TokenSyncSenderFSM_
             LOGDEBUG << "teardown token: " << fsm.token_id_;
             LOGDEBUG << fsm.migrationSvc_->mig_cntrs.toString();
 
-            FdsActorRequestPtr far(new FdsActorRequest(
-                    FAR_ID(FdsActorShutdown), nullptr));
-
-            Error err = fsm.parent_->send_actor_request(far);
-            if (err != ERR_OK) {
-                fds_assert(!"Failed to send message");
-                LOGERROR << "Failed to send actor message.  Error: "
-                        << err;
-            }
+            // TODO(Rao): Notify parent sync is done.  For now not notifying
+            // is ok, because parent gets to know sync is complete via pull
+            // fsm.
         }
     };
 
     /* Guards */
-    struct sync_log_dn
+    struct send_sync_log_chk
     {
         /* Returns true if we are finished sending the current sync log */
         template <class EVT, class FSM, class SourceState, class TargetState>
         bool operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            bool ret = !(fsm.sync_log_itr_->Valid());
-            LOGDEBUG << "sync_log_dn?: " << ret;
+            bool ret = fsm.sync_log_itr_->Valid();
+            LOGDEBUG << "send_sync_log_chk: " << ret;
             return ret;
         }
     };
-    struct sync_closed
+    struct wait_for_close_chk
     {
-        /* Returns true if client io has been closed  */
+        /* Returns true if fsm can wait for close.  FSM waits for close
+         * after transferring metadata from first snapshot.  Before taking
+         * another snaphot it waits for close.
+         */
         template <class EVT, class FSM, class SourceState, class TargetState>
         bool operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            LOGDEBUG << "sync_closed?: " << fsm.sync_closed_;
-            return fsm.sync_closed_;
+            bool ret =  (!(fsm.sync_log_itr_->Valid()) &&
+                    !fsm.sync_closed_);
+            LOGDEBUG << "wait_for_close_chk: " << ret;
+            return ret;
         }
     };
-    struct sync_dn
+    struct next_snap_chk
     {
-        /* Returns true sync is complete  */
+        /* Returns true if fsm can take another snapshot.  We only take the 2nd
+         * snapshot after close is issued
+         */
         template <class EVT, class FSM, class SourceState, class TargetState>
         bool operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            bool ret = fsm.sync_closed_ &&
+            bool ret = !fsm.sync_log_itr_->Valid() &&
+                    fsm.sync_closed_ &&
+                    (fsm.cur_sync_range_high_ < fsm.sync_closed_time_);
+            LOGDEBUG << "next_snap_chk?: " << ret;
+            return ret;
+        }
+    };
+    struct finish_chk
+    {
+        /* Returns true if fsm is done
+         */
+        template <class EVT, class FSM, class SourceState, class TargetState>
+        bool operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
+        {
+            bool ret = !fsm.sync_log_itr_->Valid() &&
+                    fsm.sync_closed_ &&
                     (fsm.cur_sync_range_high_ >= fsm.sync_closed_time_);
-            LOGDEBUG << "sync_dn?: " << ret;
+            LOGDEBUG << "finish_chk?: " << ret;
             return ret;
         }
     };
 
-    /* Statemachine transition table.  Roughly the statemachine is read objects for
-     * a token and send those objects.  Once a full token is pushed move to the next
-     * token.  Repeat this process until there aren't any tokens left.
+    /* Statemachine psuedo-code
+     * while (!sync_closed && !sent_evertying_upto_high_sync_point) {
+     *  snapshot_token_db()
+     *  build_sync_entries_to_send();
+     *  send();
+     * }
      */
     struct transition_table : mpl::vector< // NOLINT
     // +------------+----------------+------------+-----------------+------------------+
@@ -513,13 +547,18 @@ struct TokenSyncSenderFSM_
     // +------------+----------------+------------+-----------------+------------------+
     Row< BldSyncLog , msm_none       , Sending    , send_sync_log   , msm_none         >,
     // +------------+----------------+------------+-----------------+------------------+
-    Row< Sending    , SendDnEvt      , msm_none   , send_sync_log   , Not_<sync_log_dn>>,
+    Row< Sending    , SendDnEvt      , msm_none   , send_sync_log   , send_sync_log_chk>,
 
-    Row< Sending    , SendDnEvt      ,WaitForClose, msm_none        , Not_<sync_closed> >,  // NOLINT
-    Row< Sending    , SendDnEvt      , Snapshot   , take_snap       , Not_<sync_dn>    >,
-    Row< Sending    , SendDnEvt      , FiniSync   , finish_sync     , msm_none         >,
+    Row< Sending    , SendDnEvt      ,WaitForClose, msm_none        , wait_for_close_chk>,  // NOLINT
+
+    Row< Sending    , SendDnEvt      , Snapshot   , take_snap       , next_snap_chk    >,
+
+    Row< Sending    , SendDnEvt      , FiniSync   , finish_sync     , finish_chk       >,
     // +------------+----------------+------------+-----------------+------------------+
-    Row< WaitForClose, IoClosedEvt   , Snapshot   , take_snap       , msm_none         >,
+    Row< WaitForClose, TSIoClosedEvt , Snapshot   , ActionSequence_
+                                                    <mpl::vector<
+                                                    set_io_closed,
+                                                    take_snap>>     , msm_none         >,
     // +------------+----------------+------------+-----------------+------------------+
     Row< FiniSync   , msm_none       , Complete   , teardown        , msm_none         >,
     // +------------+----------------+------------+-----------------+------------------+
@@ -619,210 +658,6 @@ struct TokenSyncSenderFSM_
     uint32_t max_entries_per_send_;
 };  /* struct TokenSyncSenderFSM_ */
 
-/* PullSenderFSM events */
-struct PullReqEvt {};
-struct DataReadDnEvt {};
-struct DataSendDnEvt {};
-struct PullFiniEvt {};
-
-/* State machine for Pull sender */
-struct PullSenderFSM_
-        : public msm::front::state_machine_def<PullSenderFSM_> {
-    void init(const std::string &mig_stream_id,
-            FdsMigrationSvc *migrationSvc,
-            TokenCopySender *parent,
-            SmIoReqHandler *data_store,
-            const std::string &rcvr_ip,
-            const int &rcvr_port,
-            const std::set<fds_token_id> &tokens,
-            boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler)
-    {
-        mig_stream_id_ = mig_stream_id;
-        migrationSvc_ = migrationSvc;
-        parent_ = parent;
-        data_store_ = data_store;
-        rcvr_ip_ = rcvr_ip;
-        rcvr_port_ = rcvr_port;
-        client_resp_handler_ = client_resp_handler;
-    }
-    // To improve performance --- if no message queue needed
-    // message queue not needed if no action will itself generate
-    // a new event
-    typedef int no_message_queue;
-
-    // To improve performance -- if behaviors will never throw
-    // an exception, below shows how to disable exception handling
-    typedef int no_exception_thrown;
-
-    template <class Event, class FSM>
-    void on_entry(Event const& , FSM&)
-    {
-        LOGDEBUG << "PullSenderFSM_";
-    }
-    template <class Event, class FSM>
-    void on_exit(Event const&, FSM&)
-    {
-        LOGDEBUG << "PullSenderFSM_";
-    }
-
-    /* The list of state machine states */
-    struct Init : public msm::front::state<>
-    {
-        template <class Event, class FSM>
-        void on_entry(Event const& , FSM&)
-        {
-            LOGDEBUG << "Init State";
-        }
-    };
-    struct Sending: public msm::front::state<>
-    {
-        template <class Event, class FSM>
-        void on_entry(Event const& , FSM&)
-        {
-            LOGDEBUG << "Sending State";
-        }
-    };
-    struct Complete : public msm::front::state<>
-    {
-        template <class Event, class FSM>
-        void on_entry(Event const& e, FSM& fsm)
-        {
-            LOGDEBUG << "Complete State";
-        }
-    };
-
-    /* Actions */
-    struct add_for_pull
-    {
-        /* Adds objects for pull */
-        template <class EVT, class FSM, class SourceState, class TargetState>
-        void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
-        {
-            LOGDEBUG << "add_for_pull";
-            // TODO(Rao): Add objects for pull
-        }
-    };
-
-    struct issue_reads
-    {
-        /* Out of to be read objects, picks a few, and issues read */
-        template <class EVT, class FSM, class SourceState, class TargetState>
-        void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
-        {
-            LOGDEBUG << "issue_reads";
-            // TODO(Rao): issue_reads. Only if there are objects to be read
-        }
-    };
-    struct send_data
-    {
-        /* send the read data */
-        template <class EVT, class FSM, class SourceState, class TargetState>
-        void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
-        {
-            Error err(ERR_OK);
-            // TODO(Rao): Send the read data
-            LOGDEBUG << "send_data";
-        }
-    };
-    struct update_sent_data
-    {
-        /* Mark the read data as sent */
-        template <class EVT, class FSM, class SourceState, class TargetState>
-        void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
-        {
-            // TODO(Rao): Mark the read data as sent
-            LOGDEBUG << "update_sent_data";
-        }
-    };
-    struct teardown
-    {
-        /* Tears down.  Notify parent we are done */
-        template <class EVT, class FSM, class SourceState, class TargetState>
-        void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
-        {
-            LOGDEBUG << "teardown ";
-
-            FdsActorRequestPtr far(new FdsActorRequest(
-                    FAR_ID(FdsActorShutdown), nullptr));
-
-            Error err = fsm.parent_->send_actor_request(far);
-            if (err != ERR_OK) {
-                fds_assert(!"Failed to send message");
-                LOGERROR << "Failed to send actor message.  Error: "
-                        << err;
-            }
-        }
-    };
-
-    /* Statemachine transition table.  Roughly the statemachine is
-     * while (object_left_to_pull) {
-     *  read();
-     *  send();
-     *  update_read_objects();
-     * }
-     */
-    struct transition_table : mpl::vector< // NOLINT
-    // +------------+----------------+------------+-----------------+------------------+
-    // | Start      | Event          | Next       | Action          | Guard            |
-    // +------------+----------------+------------+-----------------+------------------+
-    Row< Init       , msm_none       , Sending    , msm_none        , msm_none         >,
-    // +------------+----------------+------------+-----------------+------------------+
-    Row< Sending    , PullReqEvt     , msm_none   , ActionSequence_
-                                                    <mpl::vector<
-                                                    add_for_pull,
-                                                    issue_reads> >  , msm_none         >,
-
-    Row< Sending    , DataReadDnEvt  , msm_none   , send_data       , msm_none         >,
-
-    Row< Sending    , DataSendDnEvt  , msm_none   , ActionSequence_
-                                                    <mpl::vector<
-                                                    update_sent_data,
-                                                    issue_reads> >  , msm_none         >,
-
-    Row< Sending    , PullFiniEvt    , Complete   , teardown        , msm_none         >
-    // +------------+----------------+------------+-----------------+------------------+
-    >
-    {
-    };
-
-    /* Replaces the default no-transition response */
-    template <class FSM, class Event>
-    void no_transition(Event const& e, FSM& fsm, int state)
-    {
-        fds_verify(!"Unexpected event");
-    }
-
-    /* the initial state of the player SM. Must be defined */
-    typedef Init initial_state;
-
-    protected:
-    /* Stream id.  Uniquely identifies the copy stream */
-    std::string mig_stream_id_;
-
-    /* Migration service reference */
-    FdsMigrationSvc *migrationSvc_;
-
-    /* Parent */
-    TokenCopySender *parent_;
-
-    /* Receiver ip */
-    std::string rcvr_ip_;
-
-    /* Receiver port */
-    int rcvr_port_;
-
-    /* Receiver session */
-    netMigrationPathClientSession *rcvr_session_;
-
-    /* RPC handler for responses.  NOTE: We don't really use it.  It's just here so
-     * it can be passed as a parameter when we create a netClientSession
-     */
-    boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler_;
-
-    /* Token data store reference */
-    SmIoReqHandler *data_store_;
-};  /* struct PullSenderFSM_ */
-
 TokenSyncSender::TokenSyncSender()
 {
     fsm_ = nullptr;
@@ -848,6 +683,11 @@ void TokenSyncSender::init(const std::string &mig_stream_id,
             rcvr_port, token_id, rcvr_session, client_resp_handler);
 }
 
+void TokenSyncSender::start()
+{
+    fsm_->start();
+}
+
 void TokenSyncSender::process_event(const SyncReqEvt& event)
 {
     fsm_->process_event(event);
@@ -859,6 +699,10 @@ void TokenSyncSender::process_event(const SendDnEvt& event)
 }
 
 void TokenSyncSender::process_event(const TSnapDnEvt& event)
+{
+    fsm_->process_event(event);
+}
+void TokenSyncSender::process_event(const TSIoClosedEvt& event)
 {
     fsm_->process_event(event);
 }

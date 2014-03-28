@@ -15,6 +15,7 @@
 #include <fds_timestamp.h>
 #include <TokenCopyReceiver.h>
 #include <TokenSyncReceiver.h>
+#include <TokenPullReceiver.h>
 
 namespace fds {
 
@@ -466,6 +467,13 @@ TokenCopyReceiver::TokenCopyReceiver(FdsMigrationSvc *migrationSvc,
                 sender_session,
                 client_resp_handler);
 
+    pull_fsm_ = new TokenPullReceiver();
+    pull_fsm_->init(mig_stream_id,
+                migrationSvc, this, data_store,
+                sender_ip, sender_port,
+                token,
+                sender_session,
+                client_resp_handler);
     LOGNORMAL << " New receiver stream.  Migration id: " << mig_id
             << "Stream id: " << mig_stream_id << " sender ip : " << sender_ip;
 }
@@ -473,6 +481,9 @@ TokenCopyReceiver::TokenCopyReceiver(FdsMigrationSvc *migrationSvc,
 TokenCopyReceiver::~TokenCopyReceiver() {
     if (sync_fsm_) {
         delete sync_fsm_;
+    }
+    if (pull_fsm_) {
+        delete pull_fsm_;
     }
 }
 
@@ -482,6 +493,8 @@ TokenCopyReceiver::~TokenCopyReceiver() {
 void TokenCopyReceiver::start()
 {
     copy_fsm_->start();
+    sync_fsm_->start();
+    pull_fsm_->start();
 }
 
 /**
@@ -494,6 +507,12 @@ Error TokenCopyReceiver::handle_actor_request(FdsActorRequestPtr req)
     Error err = ERR_OK;
     FDSP_CopyTokenReqPtr copy_tok_req;
     switch (req->type) {
+    case FAR_ID(MigSvcSyncCloseReq):
+    {
+        /* Notification from migration service to close sync */
+        /* No Op */
+        break;
+    }
     /* Copy related */
     case FAR_ID(FDSP_CopyTokenResp):
     {
@@ -521,60 +540,105 @@ Error TokenCopyReceiver::handle_actor_request(FdsActorRequestPtr req)
         migrationSvc_->send_actor_request(req);
 
         /* Starting token sync statemachine */
-        // TODO(Rao): Get the sync start time from token db
         migrationSvc_->getTokenStateDb()->setTokenState(token_id_,
                 kvstore::TokenStateInfo::SYNCING);
-        sync_fsm_->process_event(TRStartEvt(get_fds_timestamp_ms(), 0));
+        // TODO(Rao): Get the sync start time from token db.  We should healthy time
+        // stamp here.  As metadata entries are written we need to update the healthy
+        // timestamp
+        uint64_t sync_ts = get_fds_timestamp_ms();
+        migrationSvc_->getTokenStateDb()->setTokenSyncStartTS(token_id_, sync_ts);
+        sync_fsm_->process_event(TRStartEvt(sync_ts, 0));
         break;
     }
     /* Sync related */
     case FAR_ID(FDSP_SyncTokenResp):
     {
+        /* Ack from sender for the sync token request */
         auto payload = req->get_payload<FDSP_SyncTokenResp>();
         sync_fsm_->process_event(*payload);
         break;
     }
     case FAR_ID(FDSP_PushTokenMetadataReq):
     {
+        /* token sync tetadata from sender */
         auto payload = req->get_payload<FDSP_PushTokenMetadataReq>();
         sync_fsm_->process_event(*payload);
         break;
     }
     case FAR_ID(FDSP_NotifyTokenSyncComplete):
     {
+        /* Notification from sender that metadata xfer is complete.  It doens't mean
+         * sync is complete.  sync_fsm will send a notification when the entire
+         * sync process is complete
+         */
         auto payload = req->get_payload<FDSP_NotifyTokenSyncComplete>();
         sync_fsm_->process_event(*payload);
-        // TODO(rao): issue mark pull stop to pull fsm
-        break;
-    }
-    case FAR_ID(TRPullDnEvt):
-    {
-        fds_assert(!"not impl");
         break;
     }
     case FAR_ID(TRMdAppldEvt):
     {
+        /* Notification from object store that sync metadata is applied */
         auto payload = req->get_payload<TRMdAppldEvt>();
         sync_fsm_->process_event(*payload);
         break;
     }
     case FAR_ID(TSnapDnEvt):
     {
+        /* Notification from object store that taking snaphost is complete */
         auto payload = req->get_payload<TSnapDnEvt>();
         sync_fsm_->process_event(*payload);
         break;
     }
     case FAR_ID(TRResolveDnEvt):
     {
+        /* Notification from object store that resolve for a sync metadata
+         * entry is complete.
+         */
         sync_fsm_->process_event(TRResolveDnEvt());
         break;
     }
     case FAR_ID(TRSyncDnEvt):
     {
-        // TODO(Rao): Move this to pull
+        /* Notification sync_fsm that entire sync process is complete */
+
+        /* Set token state to pull remaining */
         migrationSvc_->getTokenStateDb()->setTokenState(token_id_,
-                kvstore::TokenStateInfo::IN_SYNC);
-        /* Self message to destruct */
+                kvstore::TokenStateInfo::PULL_REMAINING);
+
+        /* We will notify pull_fsm that it will not receive anymore pull requests */
+        pull_fsm_->process_event(TRLastPullReqEvt());
+        break;
+    }
+    case FAR_ID(TRPullReqEvt):
+    {
+        /* Notification from sync_fsm_ that a pull is required.  We just
+         * forward this pull_fsm_
+         */
+        auto payload = req->get_payload<TRPullReqEvt>();
+        pull_fsm_->process_event(*payload);
+        break;
+    }
+    case FAR_ID(FDSP_PushObjectsReq):
+    {
+        /* Notification from sender with pull data */
+        auto payload = req->get_payload<FDSP_PushObjectsReq>();
+        pull_fsm_->process_event(*payload);
+        break;
+    }
+    case FAR_ID(TRPullDataWrittenEvt):
+    {
+        /* Notification  from object store that pulled data is written */
+        auto payload = req->get_payload<TRPullDataWrittenEvt>();
+        pull_fsm_->process_event(*payload);
+        break;
+    }
+    case FAR_ID(TRPullDnEvt):
+    {
+        /* Set token state to healthy */
+        migrationSvc_->getTokenStateDb()->setTokenState(token_id_,
+                kvstore::TokenStateInfo::HEALTHY);
+
+        /* Shutting down */
         req->recycle(FAR_ID(FdsActorShutdown), nullptr);
         this->send_actor_request(req);
         break;

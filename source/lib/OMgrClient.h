@@ -48,6 +48,7 @@ namespace fds {
   } fds_vol_notify_t;
   
   typedef void (*migration_event_handler_t)(bool dlt_type);
+  typedef void (*dltclose_event_handler_t)();
   typedef void (*node_event_handler_t)(int node_id,
                                        unsigned int node_ip_addr,
                                        int node_state,
@@ -91,6 +92,7 @@ namespace fds {
     node_event_handler_t node_evt_hdlr;
     volume_event_handler_t vol_evt_hdlr;
     migration_event_handler_t migrate_evt_hdlr;
+    dltclose_event_handler_t dltclose_evt_hdlr;
     throttle_cmd_handler_t throttle_cmd_hdlr;
     tier_cmd_handler_t       tier_cmd_hdlr;
     tier_audit_cmd_handler_t tier_audit_cmd_hdlr;
@@ -141,6 +143,7 @@ namespace fds {
     int registerEventHandlerForNodeEvents(node_event_handler_t node_event_hdlr);
     int registerEventHandlerForVolEvents(volume_event_handler_t vol_event_hdlr);
     int registerEventHandlerForMigrateEvents(migration_event_handler_t migrate_event_hdlr);
+    int registerEventHandlerForDltCloseEvents(dltclose_event_handler_t dltclose_event_hdlr);
     int registerThrottleCmdHandler(throttle_cmd_handler_t throttle_cmd_hdlr);
     int registerBucketStatsCmdHandler(bucket_stats_cmd_handler_t cmd_hdlr);
 

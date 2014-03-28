@@ -5,6 +5,7 @@
 #include <memory>
 #include <unordered_map>
 #include <set>
+#include <list>
 #include <fds_module.h>
 #include <fdsp/FDSP_MigrationPathReq.h>
 #include <fdsp/FDSP_MigrationPathResp.h>
@@ -70,6 +71,16 @@ public:
     MigSvcCbType migsvc_resp_cb;
 };
 typedef boost::shared_ptr<MigSvcCopyTokensReq> MigSvcCopyTokensReqPtr;
+
+/* Notification to close sync.  Once OM starts to do per token sync
+ * this may change
+ */
+class MigSvcSyncCloseReq
+{
+public:
+    uint64_t sync_close_ts;
+};
+typedef boost::shared_ptr<MigSvcSyncCloseReq> MigSvcSyncCloseReqPtr;
 
 /* Migration service counters */
 class MigrationCounters : public FdsCounters
@@ -183,6 +194,7 @@ protected:
     void handle_migsvc_copy_token_rpc(FdsActorRequestPtr req);
     void handle_migsvc_migration_complete(FdsActorRequestPtr req);
     Error ack_copy_token_req(FdsActorRequestPtr req);
+    void handle_migsvc_sync_close(FdsActorRequestPtr req);
 
     inline boost::shared_ptr<FDSP_MigrationPathRespClient>
     migpath_resp_client(const std::string session_uuid) {
@@ -274,7 +286,12 @@ public:
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
 
-protected:
+    void NotifyTokenPullComplete(boost::shared_ptr<FDSP_NotifyTokenPullComplete>& pull_complete);
+    void NotifyTokenPullComplete(const FDSP_NotifyTokenPullComplete& pull_complete) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
+ protected:
     FdsMigrationSvc &mig_svc_;
 };
 }  // namespace fds

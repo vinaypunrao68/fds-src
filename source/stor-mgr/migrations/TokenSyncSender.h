@@ -93,7 +93,11 @@ typedef FDSP_SyncTokenReq SyncReqEvt;
 typedef FDSP_PushTokenMetadataResp SendDnEvt;
 
 struct BldSyncLogDnEvt {};
-struct IoClosedEvt {};
+
+/* IO closed notification.  This provides upper bound timestamp
+ * for sync */
+typedef MigSvcSyncCloseReq TSIoClosedEvt;
+
 struct SyncDnAckEvt {};
 
 
@@ -110,9 +114,11 @@ public:
             fds_token_id token_id,
             netMigrationPathClientSession *rcvr_session,
             boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler);
+    void start();
     void process_event(const SyncReqEvt& event);
     void process_event(const SendDnEvt& event);
     void process_event(const TSnapDnEvt& event);
+    void process_event(const TSIoClosedEvt& event);
 private:
     TokenSyncSenderFSM *fsm_;
 

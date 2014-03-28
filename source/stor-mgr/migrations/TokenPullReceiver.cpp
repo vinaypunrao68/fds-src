@@ -186,23 +186,25 @@ struct TokenPullReceiverFSM_
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            fsm.migrationSvc_->mig_cntrs.tok_pull_obj_rcvd.incr(evt.obj_ids.size());
+            fsm.migrationSvc_->\
+            mig_cntrs.tok_pull_obj_rcvd.incr(evt.obj_data_list.size());
 
             /* Increment upfront to avoid race between issuing message to ObjStore
              * and response coming back from ObjStore on a different thread.
              */
-            fsm.sent_apply_data_msgs_ += evt.obj_ids.size();
+            fsm.sent_apply_data_msgs_ += evt.obj_data_list.size();
 
             LOGDEBUG << "issue_writes token: " << fsm.token_id_
-                    << ". cnt: " << evt.obj_ids.size()
+                    << ". cnt: " << evt.obj_data_list.size()
                     << " total_sent: " << fsm.sent_apply_data_msgs_
                     << " total_acked: " << fsm.ackd_apply_data_msgs_;
 
-            for (uint32_t idx = 0; idx < evt.obj_ids.size(); idx++) {
+            for (uint32_t idx = 0; idx < evt.obj_data_list.size(); idx++) {
                 auto apply_data_msg = new SmIoApplyObjectdata();
                 apply_data_msg->io_type = FDS_SM_APPLY_OBJECTDATA;
-                apply_data_msg->obj_id = ObjectID(evt.obj_ids[idx].digest);
-                apply_data_msg->obj_data = std::move(evt.obj_data_list[idx]);
+                apply_data_msg->obj_id = ObjectID(evt.obj_data_list[idx].obj_id.digest);
+                // TODO(Rao): Use std:;move here
+                apply_data_msg->obj_data = evt.obj_data_list[idx].data;
                 apply_data_msg->smio_apply_data_resp_cb = fsm.pulldata_written_resp_cb_;
 
                 Error err = fsm.data_store_->enqueueMsg(FdsSysTaskQueueId,
@@ -212,7 +214,7 @@ struct TokenPullReceiverFSM_
                     LOGERROR << "Failed to enqueue to snap_msg_ to StorMgr.  Error: "
                             << err;
                     delete apply_data_msg;
-                    fsm.sent_apply_data_msgs_ -= (evt.obj_ids.size() - idx);
+                    fsm.sent_apply_data_msgs_ -= (evt.obj_data_list.size() - idx);
                     fsm.process_event(ErrorEvt());
                     return;
                 }
@@ -226,7 +228,7 @@ struct TokenPullReceiverFSM_
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
             LOGDEBUG << "mark_last_pull  token: " << fsm.token_id_;
-            final_pullreq_issued_ = true;
+            fsm.final_pullreq_issued_ = true;
         }
     };
 
@@ -455,6 +457,11 @@ void TokenPullReceiver::init(const std::string &mig_stream_id,
             client_resp_handler);
 }
 
+void TokenPullReceiver::start()
+{
+    fsm_->start();
+}
+
 void TokenPullReceiver::process_event(const TRPullReqEvt& evt) {
     fsm_->process_event(evt);
 }
@@ -467,4 +474,7 @@ void TokenPullReceiver::process_event(const TRPullDataWrittenEvt& evt) {
     fsm_->process_event(evt);
 }
 
+void TokenPullReceiver::process_event(const TRLastPullReqEvt& evt) {
+    fsm_->process_event(evt);
+}
 } /* namespace fds */

@@ -321,7 +321,8 @@ public:
 #endif
 
     Error putSyncEntry(const ObjectID& objId,
-            const FDSP_MigrateObjectMetadata& data);
+            const FDSP_MigrateObjectMetadata& data,
+            bool &dataExists);
     Error resolveEntry(const ObjectID& objId);
     void  iterRetrieveObjects(const fds_token_id &token,
             const size_t &max_size,

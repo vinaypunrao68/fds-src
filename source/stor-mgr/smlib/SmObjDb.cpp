@@ -110,7 +110,10 @@ fds::Error SmObjDb::get(const ObjectID& objId, ObjMetaData& md)
     md.deserializeFrom(buf);
 
     if (isTokenInSyncMode_(tokId)) {
-        md.checkAndDemoteUnsyncedData(objStorMgr->getTokenSyncTimeStamp(tokId));
+        uint64_t syncStartTs = 0;
+        objStorMgr->getTokenStateDb()->getTokenSyncStartTS(tokId, syncStartTs);
+        fds_assert(syncStartTs != 0);
+        md.checkAndDemoteUnsyncedData(syncStartTs);
     }
     return err;
 }
@@ -171,8 +174,16 @@ inline bool SmObjDb::isTokenInSyncMode_(const fds_token_id& tokId)
     return objStorMgr->isTokenInSyncMode(tokId);
 }
 
+/**
+ * Use this interface for putting sync metadata
+ * @param objId
+ * @param data
+ * @param dataExists
+ * @return
+ */
 fds::Error SmObjDb::putSyncEntry(const ObjectID& objId,
-        const FDSP_MigrateObjectMetadata& data)
+        const FDSP_MigrateObjectMetadata& data,
+        bool &dataExists)
 {
     ObjMetaData md;
     Error err = get(objId, md);
@@ -182,10 +193,16 @@ fds::Error SmObjDb::putSyncEntry(const ObjectID& objId,
         return err;
     }
     md.applySyncData(data);
-
+    dataExists = md.dataPhysicallyExists();
     return put_(objId, md);
 }
 
+/**
+ * Resolves sync metadata with metadata accumulated after syncpoint by
+ * merging them both.
+ * @param objId
+ * @return
+ */
 Error SmObjDb::resolveEntry(const ObjectID& objId)
 {
     Error err(ERR_OK);
@@ -203,6 +220,13 @@ Error SmObjDb::resolveEntry(const ObjectID& objId)
     return put_(objId, md);
 }
 
+/**
+ * Retries objects.  Object iteration starts from itr point
+ * @param token
+ * @param max_size - maximum size (object data size) to pack
+ * @param obj_list
+ * @param itr
+ */
 void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
         const size_t &max_size,
         FDSP_MigrateObjectList &obj_list,
@@ -249,41 +273,39 @@ void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
         memcpy(&objId , dbIter->key().data(), objId.GetLen());
         DBG(LOGDEBUG << "Checking objectId: " << objId << " for token range: " << token);
 
-        // TODO: process the key/data
-        if ((objId == start_obj_id || id_less(start_obj_id, objId)) &&
-            (objId == end_obj_id || id_less(objId, end_obj_id))) {
-
-            /* Read metadata and object */
-            ObjMetaData objMetadata;
-            err = objStorMgr->readObject(NON_SYNC_MERGED, objId,
-                    objMetadata, objData, tierUsed);
-            if (err == ERR_OK ) {
-                if ((max_size - tot_msg_len) >= objData.size) {
-                    LOGDEBUG << "Adding a new objectId to objList" << objId;
-
-                    FDSP_MigrateObjectData mig_obj;
-
-                    mig_obj.meta_data.token_id = token;
-                    objMetadata.extractSyncData(mig_obj.meta_data);
-
-                    mig_obj.data = objData.data;
-
-                    obj_list.push_back(mig_obj);
-                    tot_msg_len += objData.size;
-
-                    objStorMgr->counters_.get_tok_objs.incr();
-                    DBG(obj_itr_cnt++);
-                } else {
-                    itr.objId = objId;
-                    DBG(LOGDEBUG << "token: " << token <<  " dbId: " << GetSmObjDbId(token)
-                        << " cnt: " << obj_itr_cnt << " token retrieve not completly with "
-                        << " max size" << max_size << " and total msg len " << tot_msg_len);
-                    return;
-                }
-            }
-            fds_verify(err == ERR_OK);
+        if (objId < start_obj_id || objId > end_obj_id) {
+            continue;
         }
 
+        /* Read metadata and object */
+        ObjMetaData objMetadata;
+        err = objStorMgr->readObject(NON_SYNC_MERGED, objId,
+                objMetadata, objData, tierUsed);
+        if (err == ERR_OK ) {
+            if ((max_size - tot_msg_len) >= objData.size) {
+                LOGDEBUG << "Adding a new objectId to objList" << objId;
+
+                FDSP_MigrateObjectData mig_obj;
+
+                mig_obj.meta_data.token_id = token;
+                objMetadata.extractSyncData(mig_obj.meta_data);
+
+                mig_obj.data = objData.data;
+
+                obj_list.push_back(mig_obj);
+                tot_msg_len += objData.size;
+
+                objStorMgr->counters_.get_tok_objs.incr();
+                DBG(obj_itr_cnt++);
+            } else {
+                itr.objId = objId;
+                DBG(LOGDEBUG << "token: " << token <<  " dbId: " << GetSmObjDbId(token)
+                        << " cnt: " << obj_itr_cnt << " token retrieve not completly with "
+                        << " max size" << max_size << " and total msg len " << tot_msg_len);
+                return;
+            }
+        }
+        fds_verify(err == ERR_OK);
     } // Enf of for loop
     itr.objId = SMTokenItr::itr_end;
 
@@ -291,86 +313,16 @@ void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
         << " cnt: " << obj_itr_cnt) << " token retrieve complete";
 }
 
+/**
+ * Retries metadata from snapshot iterator
+ * @param itr
+ * @param md
+ * @return
+ */
 Error SmObjDb::get_from_snapshot(leveldb::Iterator* itr, ObjMetaData& md)
 {
     md.deserializeFrom(itr->value());
     return ERR_OK;
 }
 
-#if 0
-/**
- * Writes obj_map
- * @param objId
- * @param obj_map
- * @param append
- * @return
- */
-Error
-SmObjDb::writeObjectLocation(const ObjectID& objId,
-        meta_obj_map_t *obj_map,
-        fds_bool_t      append)
-{
-    Error err(ERR_OK);
-
-    OnDiskSmObjMetadata md;
-    err = get_(NON_SYNC_MERGED, objId, md);
-
-    if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
-        LOGERROR << "Error: " << err << " objId: " << objId;
-        return err;
-    }
-
-    LOGDEBUG << " Object id: " << objId;
-    md.writeObjectLocation(append, obj_map);
-
-    return put_(objId, md);
-}
-
-/**
- *
- * @param view
- * @param objId
- * @param objMaps
- * @return
- */
-Error
-SmObjDb::readObjectLocations(const View &view,
-        const ObjectID     &objId,
-        diskio::MetaObjMap &objMaps) {
-    Error err(ERR_OK);
-
-    OnDiskSmObjMetadata md;
-
-    err = get_(view, objId, md);
-    if (err != ERR_OK) {
-        return err;
-    }
-
-    md.readObjectLocations(objMaps);
-    return err;
-}
-
-/**
- *
- * @param objId
- * @return
- */
-Error
-SmObjDb::deleteObjectLocation(const ObjectID& objId) {
-    Error err(ERR_OK);
-
-    OnDiskSmObjMetadata md;
-    err = get_(NON_SYNC_MERGED, objId, md);
-
-    if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
-        LOGERROR << "Error: " << err << " objId: " << objId;
-        return err;
-    }
-
-    LOGDEBUG << " Object id: " << objId;
-    md.deleteObjectLocation();
-
-    return put_(objId, md);
-}
-#endif
 }  // namespace fds

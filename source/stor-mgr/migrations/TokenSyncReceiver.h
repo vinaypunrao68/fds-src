@@ -72,6 +72,7 @@ public:
             const fds_token_id &token_id,
             netMigrationPathClientSession *sender_session,
             boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler);
+    void start();
     void process_event(const TRStartEvt& evt);
     void process_event(const SyncAckdEvt& evt);
     void process_event(const TokMdEvt& evt);

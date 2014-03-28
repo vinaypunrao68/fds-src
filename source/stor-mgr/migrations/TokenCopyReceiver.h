@@ -27,6 +27,7 @@ using namespace  ::FDS_ProtocolInterface;
 /* Forward declarations */
 class FdsMigrationSvc;
 struct TokenSyncReceiver;
+struct TokenPullReceiver;
 
 struct TokenCopyReceiverFSM_;
 typedef boost::msm::back::state_machine<TokenCopyReceiverFSM_> TokenCopyReceiverFSM;
@@ -69,6 +70,8 @@ protected:
      * errors that I couldn't figure out
      */
     TokenSyncReceiver *sync_fsm_;
+
+    TokenPullReceiver *pull_fsm_;
 
     /* Migration service reference */
     FdsMigrationSvc *migrationSvc_;
