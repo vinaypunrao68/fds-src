@@ -254,10 +254,10 @@ Error DataMgr::_process_commit(fds_volid_t vol_uuid,
    * For now, we don't need to do anything because it was put
    * into the VVC on open.
    */
-  FDS_PLOG(dataMgr->GetLog()) << "Committed transaction for volume "
-                              << vol_uuid << " , blob "
-                              << blob_name << " and mapped to bnode "
-                              << bnode->ToString();
+  LOGNORMAL << "Committed transaction for volume "
+            << vol_uuid << " , blob "
+            << blob_name << " with transaction id "
+            << trans_id;
 
   return err;
 }
@@ -411,6 +411,8 @@ DataMgr::DataMgr(int argc, char *argv[], Platform *platform, Module **vec)
     dm_log = g_fdslog;
     vol_map_mtx = new fds_mutex("Volume map mutex");
 
+    big_fat_lock = new fds_mutex("big fat mutex");
+
     _tp = new fds_threadpool(num_threads);
 
     /*
@@ -446,6 +448,7 @@ DataMgr::~DataMgr()
     vol_meta_map.clear();
 
     delete omClient;
+    delete big_fat_lock;
     delete vol_map_mtx;
     delete qosCtrl;
 }
@@ -671,6 +674,12 @@ void DataMgr::ReqHandler::GetVolumeBlobList(FDSP_MsgHdrTypePtr& msg_hdr,
   }  
 }
 
+// TODO(Andrew): This is a total hack to get a sane blob
+// layout with a maximum object length. Ideally this
+// should come from the volume's metadata, not hard coded
+// based on what AM is using.
+static const fds_uint64_t maxObjSize = 2 * 1024 * 1024;
+
 /**
  * Applies a list of offset/objectId changes to an existing blob.
  * This checks that the change either modifies existing offsets
@@ -687,68 +696,40 @@ DataMgr::applyBlobUpdate(const BlobObjectList &offsetList, BlobNode *bnode) {
     Error err(ERR_OK);
     fds_verify(offsetList.size() != 0);
 
+    LOGDEBUG << "Applying update to blob " << *bnode;
+
     // Iterate over each offset.
     // For now, we're requiring that the list
     // be sorted
     for (fds_uint32_t i = 0; i < offsetList.size(); i++) {
-        // Check that the offset doesn't make the blob sparse.
-        // The offset should either be less than the existing
-        // blob size or extend only from the end.
+
         fds_uint64_t offset = offsetList[i].offset;
-        fds_verify(bnode->blob_size >= offset);
+        // TODO(Andrew): Expect only updates to aligned offsets
+        // Need to handle unaligned updates in the future
+        fds_verify((offset % maxObjSize) == 0);
 
         fds_uint64_t size = offsetList[i].size;
+        // TODO(Andrew): Today no use case for writing 0 size blobs
         fds_verify(size > 0);
+        fds_verify(size <= maxObjSize);
 
-        // Check if we're appending or not
-        if (offset == bnode->blob_size) {
-            // We're appending. In order to append, the
-            // previous offset's object must be complete
-            // (i.e., at the max object size)
-            // otherwise it'd be a sparse blob.
-            if (bnode->blob_size > 0) {
-                // Check that tail object's size matches
-                // the head object's size.
-                // TODO(Andrew): We're assuming the first
-                // object fixes the object size for the
-                // blob. This should actually be based on
-                // the volume defined max object size.
-                fds_verify(bnode->obj_list[0].size ==
-                           (bnode->obj_list.back()).size);
+        LOGDEBUG << "Applying update to offset " << offset
+                 << " with object id " << offsetList[i].data_obj_id
+                 << " and size " << size;
 
-                // Check that the new object's size is
-                // not larger than the existing object's size.
-                fds_verify(size <= bnode->obj_list[0].size);
-            }
+        fds_uint32_t blobOffsetIndex = 0;
 
-            // Append to the end
-            bnode->obj_list.pushBack(offsetList[i]);
-            bnode->blob_size += size;
-        } else {
-            fds_uint32_t maxBlobSize = 0;
-            fds_uint32_t blobOffsetIndex = 0;
+        // Check if we're modifying a new or old offset
+        if (offset < bnode->blob_size) {
+            // We're modifying an existing offset
 
-            // We should already have at least one entry
-            fds_verify(bnode->blob_size > 0);
+            // Determine the offset's index into the BlobObjectList vector.
+            blobOffsetIndex = offset / maxObjSize;
 
-            // Check the size of the new object update.
-            // TODO(Andrew): We're assuming when the first
-            // object is written, that fixes the max object
-            // size for the blob. This should actually be
-            // based on volume defined max obejct size.
-            // TODO(Andrew): Verify that the size is equal
-            // to the max blob size, unless we're overwriting
-            // the last object, in which case, it must be at
-            // least as large as that object.
-            maxBlobSize = bnode->obj_list[0].size;
-            fds_verify(size <= maxBlobSize);
-
-            // Determine the offset's index into the BlobObjectList
-            // vector.
-            // TODO(Andrew): Handle unaligned offset updates. For
-            // now, just assert of offset is aligned.
-            fds_verify((offset % maxBlobSize) == 0);
-            blobOffsetIndex = offset / maxBlobSize;
+            LOGDEBUG << "Overwriting existing offset " << offset
+                     << " with existing size "
+                     << bnode->obj_list[blobOffsetIndex].size
+                     << " and new size " << size;
 
             // Update blob in place. Get old object id and
             // then overwrite it
@@ -767,14 +748,53 @@ DataMgr::applyBlobUpdate(const BlobObjectList &offsetList, BlobNode *bnode) {
             // a specific version is garbage collected or if there is
             // no versioning for the volume. For now we expunge since
             // there's no GC and don't want to leak the object.
-            err = expungeObject(bnode->vol_id, oldBlobObj.data_obj_id);
-            fds_verify(err == ERR_OK);
+            if (oldBlobObj.size > 0) {
+                // TODO(Andrew): We check the 0 size above because sparse
+                // entries will have a 0 size and don't actually needed to
+                // be expunged there wasn't a corresponding object id.
+                if (runMode != TEST_MODE) {
+                    err = expungeObject(bnode->vol_id, oldBlobObj.data_obj_id);
+                    fds_verify(err == ERR_OK);
+                }
+            }
+        } else {
+            // We're extending the blob
+            LOGDEBUG << "Extending blob " << bnode->blob_name
+                     << " from " << bnode->blob_size << " to offset "
+                     << offset;
+
+            // Create 'sparse' blob info entries if the offset
+            // does not directly append
+            // If the blob size is not aligned, start adding
+            // sparse entries at the next aligned offset
+            fds_uint32_t round = (bnode->blob_size % maxObjSize);
+            if (round != 0) {
+                round = (maxObjSize - round);
+            }
+            for (fds_uint64_t j = (bnode->blob_size + round);
+                 j < offset;
+                 j += maxObjSize) {
+                // Append a 'sparse' info entry to the end of the blob
+                bnode->obj_list.pushBack(BlobObjectInfo(j));
+                bnode->blob_size += maxObjSize;
+            }
+
+            // Add the entry into its correct range
+            // and update the size
+            bnode->obj_list.pushBack(offsetList[i]);
+            bnode->blob_size += size;
         }
     }
     // Bump the version since we modified the blob node
     // TODO(Andrew): We should actually be checking the
     // volume's versioning before we bump
-    bnode->version++;
+    if (bnode->version == blob_version_deleted) {
+        bnode->version = blob_version_initial;
+    } else {
+        bnode->version++;
+    }
+
+    LOGDEBUG << "Applied pdate to blob " << *bnode;
 
     return err;
 }
@@ -801,6 +821,11 @@ DataMgr::updateCatalogProcess(const dmCatReq  *updCatReq, BlobNode **bnode) {
               << updCatReq->transId
               << ", OP ID " << updCatReq->transOp
               << ", journ TXID " << updCatReq->reqCookie;
+
+    // Grab a big lock around the entire operation so that
+    // all updates to the same blob get serialized from disk
+    // read, in-memory update, and disk write
+    big_fat_lock->lock();
 
     // Check if this blob exists already and what its current version is.
     *bnode = NULL;
@@ -831,6 +856,8 @@ DataMgr::updateCatalogProcess(const dmCatReq  *updCatReq, BlobNode **bnode) {
         BlobObjectList offsetList(updCatReq->fdspUpdCatReqPtr->obj_list);
         err = applyBlobUpdate(offsetList, (*bnode));
         fds_verify(err == ERR_OK);
+        LOGDEBUG << "Updated blob " << (*bnode)->blob_name
+                 << " to size " << (*bnode)->blob_size;
 
         // Currently, this processes the entire blob at once.
         // Any modifications to it need to be made before hand.
@@ -848,6 +875,7 @@ DataMgr::updateCatalogProcess(const dmCatReq  *updCatReq, BlobNode **bnode) {
         fds_panic("Unknown catalog operation!");
     }
 
+    big_fat_lock->unlock();
     return err;
 }
 
@@ -904,15 +932,15 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
   dataMgr->respHandleCli(updCatReq->session_uuid)->UpdateCatalogObjectResp(*msg_hdr, *update_catalog);
   dataMgr->respMapMtx.read_unlock();
 
-  FDS_PLOG(dataMgr->GetLog()) << "Sending async update catalog response with "
-                              << "volume id: " << msg_hdr->glob_volume_id
-                              << ", blob name: "
-                              << update_catalog->blob_name
-                              << ", blob version: "
-                              << update_catalog->blob_version
-                              << ", Trans ID "
-                              << update_catalog->dm_transaction_id
-                              << ", OP ID " << update_catalog->dm_operation;
+  LOGDEBUG << "Sending async update catalog response with "
+           << "volume id: " << msg_hdr->glob_volume_id
+           << ", blob name: "
+           << update_catalog->blob_name
+           << ", blob version: "
+           << update_catalog->blob_version
+           << ", Trans ID "
+           << update_catalog->dm_transaction_id
+           << ", OP ID " << update_catalog->dm_operation;
 
   if (update_catalog->dm_operation ==
       FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_OPEN) {
@@ -1099,6 +1127,10 @@ DataMgr::blobListBackend(dmCatReq *listBlobReq) {
 Error
 DataMgr::queryCatalogProcess(dmCatReq  *qryCatReq, BlobNode **bnode) {
     Error err(ERR_OK);
+
+    // Lock to prevent reading a blob while it's being
+    // modified
+    big_fat_lock->lock();
     
     // TODO(Andrew): All we're doing here is retrieving
     // the latest version. This needs to be fixed when
@@ -1148,6 +1180,8 @@ DataMgr::queryCatalogProcess(dmCatReq  *qryCatReq, BlobNode **bnode) {
                      << " with version " << (*bnode)->version;
         }
     }
+
+    big_fat_lock->unlock();
 
     return err;
 }
@@ -1199,11 +1233,6 @@ DataMgr::queryCatalogBackend(dmCatReq  *qryCatReq) {
   query_catalog->blob_name = qryCatReq->blob_name;
   query_catalog->dm_transaction_id = qryCatReq->transId;
   query_catalog->dm_operation = qryCatReq->transOp;
-
-  // print the object ID  from for  testing only 
-  FDS_ProtocolInterface::FDSP_BlobObjectInfo& cat_obj_info = query_catalog->obj_list[0];
-  obj_id.SetId( (const char *)cat_obj_info.data_obj_id.digest.c_str(), cat_obj_info.data_obj_id.digest.length());
-  FDS_PLOG(dataMgr->GetLog()) << "  Object ID  in  Query Catalog response: " << obj_id;
 
   dataMgr->respMapMtx.read_lock();
   dataMgr->respHandleCli(qryCatReq->session_uuid)->QueryCatalogObjectResp(*msg_hdr, *query_catalog);
@@ -1502,6 +1531,8 @@ DataMgr::deleteBlobProcess(const dmCatReq  *delCatReq, BlobNode **bnode) {
                             delCatReq->blob_name,
                             delCatReq->transId,
                             deleteMarker);
+        fds_verify(err == ERR_OK);
+        err = expungeBlob((*bnode));
         fds_verify(err == ERR_OK);
 
         // We can delete the bnode we received from our

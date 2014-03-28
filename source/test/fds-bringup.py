@@ -22,6 +22,8 @@ if __name__ == '__main__':
                       help = 'bring up cluster')
     parser.add_option('-d', '--down', action = 'store_true', dest = 'clus_down',
                       help = 'bring down cluster')
+    parser.add_option('-c', '--clean', action = 'store_true', dest = 'clus_clean',
+                      help = 'cleanup cluster')
 
     (options, args) = parser.parse_args()
 
@@ -57,6 +59,10 @@ if __name__ == '__main__':
         for n in nodes:
             n.nd_cleanup_daemons()
 
+    if options.clus_clean:
+        for n in nodes:
+            n.nd_cleanup_node()
+
     if options.clus_up is None:
         sys.exit(0)
 
@@ -68,13 +74,13 @@ if __name__ == '__main__':
     for n in nodes:
         n.nd_start_platform()
 
-    time.sleep(5)
-    cli = cfg.config_cli()
-    cli.run_cli('--activate-nodes abc -k 1 -e sm,dm')
-
     if options.manual:
         print('You need to run fdscli --activate-nodes manually.')
         sys.exit(0)
+
+    time.sleep(5)
+    cli = cfg.config_cli()
+    cli.run_cli('--activate-nodes abc -k 1 -e sm,dm')
 
     for am in cfg.config_am():
         am.am_start_service()

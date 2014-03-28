@@ -9,6 +9,7 @@
 #include <list>
 #include <fstream>
 #include <unordered_map>
+#include <boost/msm/back/state_machine.hpp>
 #include <fds_typedefs.h>
 #include <fds_err.h>
 #include <OmVolume.h>
@@ -16,6 +17,7 @@
 #include <fds_placement_table.h>
 #include <platform/node-inventory.h>
 #include <dlt.h>
+#include <kvstore/configdb.h>
 
 namespace fds {
 
@@ -23,9 +25,11 @@ class PerfStats;
 class FdsAdminCtrl;
 class OM_NodeDomainMod;
 class OM_ControlRespHandler;
+struct NodeDomainFSM;
 
 typedef boost::shared_ptr<fpi::FDSP_ControlPathReqClient> NodeAgentCpReqClientPtr;
 typedef netControlPathClientSession *                     NodeAgentCpSessionPtr;
+typedef boost::msm::back::state_machine<NodeDomainFSM> FSM_NodeDomain;
 
 /**
  * TODO(Vy): temp. interface for now to define generic node message.
@@ -47,17 +51,17 @@ typedef struct om_node_msg_s
  * We'll provide methods to establish the transport in the background and error
  * handling model when the transport is broken.
  */
-class OM_SmAgent : public NodeAgent
+class OM_NodeAgent : public NodeAgent
 {
   public:
-    typedef boost::intrusive_ptr<OM_SmAgent> pointer;
-    typedef boost::intrusive_ptr<const OM_SmAgent> const_ptr;
+    typedef boost::intrusive_ptr<OM_NodeAgent> pointer;
+    typedef boost::intrusive_ptr<const OM_NodeAgent> const_ptr;
 
-    explicit OM_SmAgent(const NodeUuid &uuid);
-    virtual ~OM_SmAgent();
+    explicit OM_NodeAgent(const NodeUuid &uuid);
+    virtual ~OM_NodeAgent();
 
-    static inline OM_SmAgent::pointer agt_cast_ptr(Resource::pointer ptr) {
-        return static_cast<OM_SmAgent *>(get_pointer(ptr));
+    static inline OM_NodeAgent::pointer agt_cast_ptr(Resource::pointer ptr) {
+        return static_cast<OM_NodeAgent *>(get_pointer(ptr));
     }
     inline fpi::FDSP_MgrIdType om_agent_type() const {
         return ndMyServId;
@@ -70,13 +74,6 @@ class OM_SmAgent : public NodeAgent
     inline NodeUuid get_parent_uuid() const {
         return parentUuid;
     }
-
-    /**
-     * TODO(Vy): see if we can move this to NodeAgent, which is generic to all processes.
-     * Returns the client end point for the node. The function
-     * is not constanct since the member pointer returned
-     * is mutable by the caller.
-     */
     inline NodeAgentCpReqClientPtr getCpClient() const {
         return ndCpClient;
     }
@@ -113,22 +110,21 @@ class OM_SmAgent : public NodeAgent
     std::string             ndSessionId;
     fpi::FDSP_MgrIdType     ndMyServId;
     NodeAgentCpReqClientPtr ndCpClient;
-
     NodeUuid                parentUuid;  // Uuid of the node running the service
 
     virtual int node_calc_stor_weight();
 };
 
-typedef OM_SmAgent                      OM_DmAgent;
-typedef OM_SmAgent                      OM_AmAgent;
+typedef OM_NodeAgent                    OM_SmAgent;
+typedef OM_NodeAgent                    OM_DmAgent;
+typedef OM_NodeAgent                    OM_AmAgent;
 typedef std::list<OM_SmAgent::pointer>  NodeList;
-
 
 /**
  * Agent interface to communicate with the platform service on the remote node.
  * This is the communication end-point to the node.
  */
-class OM_PmAgent : public NodeAgent
+class OM_PmAgent : public OM_NodeAgent
 {
   public:
     typedef boost::intrusive_ptr<OM_PmAgent> pointer;
@@ -140,22 +136,6 @@ class OM_PmAgent : public NodeAgent
     static inline OM_PmAgent::pointer agt_cast_ptr(Resource::pointer ptr) {
         return static_cast<OM_PmAgent *>(get_pointer(ptr));
     }
-    void setCpSession(NodeAgentCpSessionPtr session);
-
-    /**
-     * TODO(Vy): see if we can move this to NodeAgent, which is generic to all processes.
-     * Returns the client end point for the node. The function
-     * is not constanct since the member pointer returned
-     * is mutable by the caller.
-     */
-    inline NodeAgentCpReqClientPtr getCpClient() const {
-        return ndCpClient;
-    }
-    inline NodeAgentCpReqClientPtr getCpClient(std::string *id) const {
-        *id = ndSessionId;
-        return ndCpClient;
-    }
-
     /**
      * Allowing only one type of service per Platform
      */
@@ -196,10 +176,6 @@ class OM_PmAgent : public NodeAgent
     virtual void init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const;
 
   protected:
-    NodeAgentCpSessionPtr   ndCpSession;
-    std::string             ndSessionId;
-    NodeAgentCpReqClientPtr ndCpClient;
-
     OM_SmAgent::pointer     activeSmAgent;  // pointer to active SM service or NULL
     OM_DmAgent::pointer     activeDmAgent;  // pointer to active DM service or NULL
     OM_AmAgent::pointer     activeAmAgent;  // pointer to active AM service or NULL
@@ -208,7 +184,24 @@ class OM_PmAgent : public NodeAgent
 // -------------------------------------------------------------------------------------
 // Common OM Node Container
 // -------------------------------------------------------------------------------------
-class OM_PmContainer : public PmContainer
+class OM_AgentContainer : public AgentContainer
+{
+  public:
+    virtual Error agent_register(const NodeUuid       &uuid,
+                                 const FdspNodeRegPtr  msg,
+                                 NodeAgent::pointer   *out,
+                                 bool                  activate = true);
+    virtual Error agent_unregister(const NodeUuid &uuid, const std::string &name);
+
+  protected:
+    FdspNodeType                             ac_node_type;
+    boost::shared_ptr<OM_ControlRespHandler> ctrlRspHndlr;
+
+    explicit OM_AgentContainer(FdspNodeType id);
+    virtual ~OM_AgentContainer() {}
+};
+
+class OM_PmContainer : public OM_AgentContainer
 {
   public:
     typedef boost::intrusive_ptr<OM_PmContainer> pointer;
@@ -216,10 +209,13 @@ class OM_PmContainer : public PmContainer
     OM_PmContainer();
     virtual ~OM_PmContainer() {}
 
+    /**
+     * Consult persistent database before registering the node agent.
+     */
     virtual Error agent_register(const NodeUuid       &uuid,
                                  const FdspNodeRegPtr  msg,
-                                 NodeAgent::pointer   *out);
-
+                                 NodeAgent::pointer   *out,
+                                 bool                  activate = true);
     /**
      * Returns true if this node can accept new service.
      * Node (Platform) that will run the service must be discovered
@@ -227,7 +223,6 @@ class OM_PmContainer : public PmContainer
      */
     fds_bool_t check_new_service(const NodeUuid& pm_uuid,
                                  FDS_ProtocolInterface::FDSP_MgrIdType svc_role);
-
     /**
      * Tell platform agent with uuid 'pm_uuid' about new service registered
      */
@@ -246,87 +241,80 @@ class OM_PmContainer : public PmContainer
 
   protected:
     uint nodeNameCounter = 0;
-    boost::shared_ptr<OM_ControlRespHandler> ctrlRspHndlr;
 
     virtual Resource *rs_new(const ResourceUUID &uuid) {
         return new OM_PmAgent(uuid);
     }
 };
 
-class OM_SmContainer : public SmContainer
+class OM_SmContainer : public OM_AgentContainer
 {
   public:
     typedef boost::intrusive_ptr<OM_SmContainer> pointer;
 
     OM_SmContainer();
-    virtual ~OM_SmContainer();
+    virtual ~OM_SmContainer() {}
 
+    /**
+     * Move all pending nodes to addNodes and rmNodes
+     * The second function only moves nodes that are in 'filter_nodes'
+     * set and leaves other pending nodes pending
+     */
     void om_splice_nodes_pend(NodeList *addNodes, NodeList *rmNodes);
+    void om_splice_nodes_pend(NodeList *addNodes,
+                              NodeList *rmNodes,
+                              const NodeUuidSet& filter_nodes);
 
     virtual void agent_activate(NodeAgent::pointer agent);
     virtual void agent_deactivate(NodeAgent::pointer agent);
 
-    virtual Error agent_register(const NodeUuid       &uuid,
-                                 const FdspNodeRegPtr  msg,
-                                 NodeAgent::pointer   *out);
-    virtual Error agent_unregister(const NodeUuid &uuid, const std::string &name);
-
     static inline OM_SmContainer::pointer agt_cast_ptr(RsContainer::pointer ptr) {
         return static_cast<OM_SmContainer *>(get_pointer(ptr));
     }
+
   protected:
     NodeList                                 node_up_pend;
     NodeList                                 node_down_pend;
-    boost::shared_ptr<OM_ControlRespHandler> ctrlRspHndlr;
 
     virtual Resource *rs_new(const ResourceUUID &uuid) {
         return new OM_SmAgent(uuid);
     }
 };
 
-class OM_DmContainer : public DmContainer
+class OM_DmContainer : public OM_AgentContainer
 {
   public:
     OM_DmContainer();
     virtual ~OM_DmContainer() {}
-
-    virtual Error agent_register(const NodeUuid       &uuid,
-                                 const FdspNodeRegPtr  msg,
-                                 NodeAgent::pointer   *out);
 
     static inline OM_DmContainer::pointer agt_cast_ptr(RsContainer::pointer ptr) {
         return static_cast<OM_DmContainer *>(get_pointer(ptr));
     }
 
   protected:
-    boost::shared_ptr<OM_ControlRespHandler> ctrlRspHndlr;
-
     virtual Resource *rs_new(const ResourceUUID &uuid) {
         return new OM_DmAgent(uuid);
     }
 };
 
-class OM_AmContainer : public AmContainer
+class OM_AmContainer : public OM_AgentContainer
 {
   public:
     OM_AmContainer();
     virtual ~OM_AmContainer() {}
 
-    virtual Error agent_register(const NodeUuid       &uuid,
-                                 const FdspNodeRegPtr  msg,
-                                 NodeAgent::pointer   *out);
-
     static inline OM_AmContainer::pointer agt_cast_ptr(RsContainer::pointer ptr) {
         return static_cast<OM_AmContainer *>(get_pointer(ptr));
     }
   protected:
-    boost::shared_ptr<OM_ControlRespHandler> ctrlRspHndlr;
-
     virtual Resource *rs_new(const ResourceUUID &uuid) {
         return new OM_AmAgent(uuid);
     }
 };
 
+// -----------------------------------------------------------------------------------
+// Domain Container
+// -----------------------------------------------------------------------------------
 class OM_NodeContainer : public DomainContainer
 {
   public:
@@ -372,23 +360,23 @@ class OM_NodeContainer : public DomainContainer
     inline VolumeContainer::pointer om_vol_mgr() {
         return om_volumes;
     }
-    inline int om_create_vol(const FDSP_MsgHdrTypePtr &hdr,
-                             const FdspCrtVolPtr      &creat_msg,
-                             fds_bool_t from_omcontrol_path) {
+    inline Error om_create_vol(const FDSP_MsgHdrTypePtr &hdr,
+                               const FdspCrtVolPtr      &creat_msg,
+                               fds_bool_t from_omcontrol_path) {
         return om_volumes->om_create_vol(hdr, creat_msg, from_omcontrol_path);
     }
-    inline int om_delete_vol(const FDSP_MsgHdrTypePtr &hdr,
-                             const FdspDelVolPtr &del_msg) {
+    inline Error om_delete_vol(const FDSP_MsgHdrTypePtr &hdr,
+                               const FdspDelVolPtr &del_msg) {
         return om_volumes->om_delete_vol(hdr, del_msg);
     }
-    inline int om_modify_vol(const FdspModVolPtr &mod_msg) {
+    inline Error om_modify_vol(const FdspModVolPtr &mod_msg) {
         return om_volumes->om_modify_vol(mod_msg);
     }
-    inline int om_attach_vol(const FDSP_MsgHdrTypePtr &hdr,
-                             const FdspAttVolCmdPtr   &attach) {
+    inline Error om_attach_vol(const FDSP_MsgHdrTypePtr &hdr,
+                               const FdspAttVolCmdPtr   &attach) {
         return om_volumes->om_attach_vol(hdr, attach);
     }
-    inline int om_detach_vol(const FDSP_MsgHdrTypePtr &hdr,
+    inline Error om_detach_vol(const FDSP_MsgHdrTypePtr &hdr,
                              const FdspAttVolCmdPtr   &detach) {
         return om_volumes->om_detach_vol(hdr, detach);
     }
@@ -417,7 +405,8 @@ class OM_NodeContainer : public DomainContainer
     virtual void om_bcast_vol_tier_policy(const FDSP_TierPolicyPtr &tier);
     virtual void om_bcast_vol_tier_audit(const FDSP_TierPolicyAuditPtr &tier);
     virtual void om_bcast_throttle_lvl(float throttle_level);
-    virtual fds_uint32_t om_bcast_dlt(const DLT* curDlt);
+    virtual fds_uint32_t om_bcast_dlt(const DLT* curDlt,
+                                      fds_bool_t sm_only = false);
     virtual fds_uint32_t om_bcast_dlt_close(fds_uint64_t cur_dlt_version);
     /**
      * conditional broadcast to platform (nodes) to
@@ -474,6 +463,50 @@ class OM_NodeContainer : public DomainContainer
  * These nodes may not be in ClusterMap membership.
  * -------------------------------------------------------------------------------------
  */
+class WaitNdsEvt
+{
+ public:
+    explicit WaitNdsEvt(const NodeUuidSet& sms)
+            : sm_services(sms.begin(), sms.end()) {}
+
+    NodeUuidSet sm_services;
+};
+
+class NoPersistEvt
+{
+ public:
+    NoPersistEvt() {}
+};
+
+class LoadVolsEvt
+{
+ public:
+    LoadVolsEvt() {}
+};
+
+class RegNodeEvt
+{
+ public:
+    RegNodeEvt(const NodeUuid& uuid,
+               fpi::FDSP_MgrIdType type)
+            : svc_uuid(uuid), svc_type(type) {}
+
+    NodeUuid svc_uuid;
+    fpi::FDSP_MgrIdType svc_type;
+};
+
+class TimeoutEvt
+{
+ public:
+    TimeoutEvt() {}
+};
+
+class DltUpEvt
+{
+ public:
+    DltUpEvt() {}
+};
+
 class OM_NodeDomainMod : public Module
 {
   public:
@@ -487,6 +520,16 @@ class OM_NodeDomainMod : public Module
     static inline OM_NodeContainer *om_loc_domain_ctrl() {
         return om_local_domain()->om_locDomain;
     }
+    /**
+     * Initially, local domain is not up and waiting
+     * for all the nodes that were up before and in
+     * config db to come up again + bring up all known
+     * volumes. In this state, the method returns false
+     * and all volumes evens are rejected, and most
+     * node events are put on hold until local domain is up.
+     */
+    static fds_bool_t om_local_domain_up();
+
     /**
      * Accessor methods to retrive the local node domain.  Retyping it here to avoid
      * using multiple inheritance for this class.
@@ -509,6 +552,17 @@ class OM_NodeDomainMod : public Module
     inline OM_AmAgent::pointer om_am_agent(const NodeUuid &uuid) {
         return om_locDomain->om_am_agent(uuid);
     }
+
+    /**
+     * Read persistent state from config db and see if we
+     * get the cluster to the same state -- will wait for
+     * some time to see if all known nodes will come up or
+     * otherwise will update DLT (relative to persisted DLT)
+     * appropriately. Will also bring up all known volumes.
+     */
+    virtual Error om_load_state(kvstore::ConfigDB* _configDB);
+    virtual Error om_load_volumes();
+    virtual fds_bool_t om_rm_sm_configDB(const NodeUuid& uuid);
 
     /**
      * Register node info to the domain manager.
@@ -567,9 +621,21 @@ class OM_NodeDomainMod : public Module
     virtual void mod_startup();
     virtual void mod_shutdown();
 
+    /**
+     * Apply an event to domain state machine
+     */
+    void local_domain_event(WaitNdsEvt const &evt);
+    void local_domain_event(DltUpEvt const &evt);
+    void local_domain_event(RegNodeEvt const &evt);
+    void local_domain_event(TimeoutEvt const &evt);
+    void local_domain_event(NoPersistEvt const &evt);
+
   protected:
     fds_bool_t                       om_test_mode;
     OM_NodeContainer                *om_locDomain;
+    kvstore::ConfigDB               *configDB;
+
+    FSM_NodeDomain                  *domain_fsm;
 };
 
 /**

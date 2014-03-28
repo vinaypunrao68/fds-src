@@ -631,6 +631,8 @@ std::string FdsMigrationSvc::get_ip()
  */
 int FdsMigrationSvc::get_port()
 {
-    return conf_helper_.get<int>("port");
+    Platform *plf = PlatformProcess::plf_manager();
+    return plf->plf_get_my_migration_port();
+    // return conf_helper_.get<int>("port");
 }
 }  // namespace fds

@@ -15,7 +15,7 @@ DomainNodeInv::DomainNodeInv(char const *const    name,
                              AmContainer::pointer am,
                              PmContainer::pointer pm,
                              OmContainer::pointer om)
-        : DomainContainer(name, master, sm, dm, am, pm, om, NULL) {}
+        : DomainContainer(name, master, sm, dm, am, pm, om) {}
 
 DomainClusterMap::~DomainClusterMap() {}
 DomainClusterMap::DomainClusterMap(char const *const name) : DomainNodeInv(name) {}

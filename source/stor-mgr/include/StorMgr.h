@@ -321,7 +321,8 @@ class ObjectStorMgr :
             fds_volid_t        volId,
             fds_uint32_t       transId);
     Error checkDuplicate(const ObjectID  &objId,
-            const ObjectBuf &objCompData);
+            const ObjectBuf &objCompData,
+            ObjMetaData &objMeta);
     Error writeObjectMetaData(const OpCtx &opCtx,
             const ObjectID &objId,
             fds_uint32_t  obj_size,
@@ -341,6 +342,7 @@ class ObjectStorMgr :
     Error writeObjectToTier(const OpCtx &opCtx,
             const ObjectID  &objId,
             const ObjectBuf &objData,
+            fds_volid_t       volId,
             diskio::DataTier tier);
     Error writeObjectDataToTier(const ObjectID  &objId,
                 const ObjectBuf &objData,
@@ -353,6 +355,11 @@ class ObjectStorMgr :
     Error readObject(const SmObjDb::View& view,
             const ObjectID &objId,
             ObjectBuf      &objCompData);
+    TVIRTUAL Error readObject(const SmObjDb::View& view,
+            const ObjectID   &objId,
+            ObjMetaData      &objMetadata,
+            ObjectBuf        &objCompData,
+            diskio::DataTier &tier);
 
     inline fds_uint32_t getSysTaskIopsMin() {
         return totalRate/10; // 10% of total rate
@@ -482,11 +489,6 @@ class ObjectStorMgr :
     Error putTokenObjects(const fds_token_id &token, 
                           FDSP_MigrateObjectList &obj_list);
     void unitTest();
-    TVIRTUAL Error readObject(const SmObjDb::View& view,
-            const ObjectID   &objId,
-            ObjMetaData      &objMetadata,
-            ObjectBuf        &objCompData,
-            diskio::DataTier &tier);
 
     const std::string getStorPrefix() {
         return conf_helper_.get<std::string>("prefix");

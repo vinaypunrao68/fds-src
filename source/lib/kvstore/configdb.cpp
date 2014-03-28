@@ -21,19 +21,34 @@ ConfigDB::~ConfigDB() {
 
 // domains
 std::string ConfigDB::getGlobalDomain() {
-    return r.get("global.domain").getString();
+    try {
+        return r.get("global.domain").getString();
+    } catch(const RedisException& e) {
+        LOGERROR << e.what();
+        return "";
+    }
 }
 
 bool ConfigDB::setGlobalDomain(ConstString globalDomain) {
-    return r.set("global.domain",globalDomain).isOk();
+    try {
+        return r.set("global.domain",globalDomain).isOk();
+    } catch(const RedisException& e) {
+        LOGERROR << e.what();
+    }
+    return false;
 }
 
 bool ConfigDB::addLocalDomain (ConstString name, int localDomain, int globalDomain) {
-    Reply reply = r.sendCommand("sadd %d:domains %d", globalDomain, localDomain);
-    if (!reply.wasModified()) {
-        LOGWARN << "domain id: "<<localDomain<<" already exists for global :" <<globalDomain;
+    try {
+        Reply reply = r.sendCommand("sadd %d:domains %d", globalDomain, localDomain);
+        if (!reply.wasModified()) {
+            LOGWARN << "domain id: "<<localDomain<<" already exists for global :" <<globalDomain;
+        }
+        return r.sendCommand("hmset domain:%d id %d name %s", localDomain, localDomain, name.c_str()).isOk();
+    } catch(const RedisException& e) {
+        LOGERROR << e.what();
     }
-    return r.sendCommand("hmset domain:%d id %d name %s", localDomain, localDomain, name.c_str()).isOk();
+    return false;
 }
 
 bool ConfigDB::getLocalDomains(std::map<int,std::string>& mapDomains, int globalDomain) {
@@ -111,48 +126,81 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
     return false;
 }
 
-bool ConfigDB::updateVolume(const VolumeDesc& volumeDesc) {  
-    return addVolume(volumeDesc);
+bool ConfigDB::updateVolume(const VolumeDesc& volumeDesc) {
+    try {
+        return addVolume(volumeDesc);
+    } catch(const RedisException& e) {
+        LOGERROR << e.what();
+    }
+    return false;
 }
 
 bool ConfigDB::deleteVolume(fds_volid_t volumeId, int localDomainId) { 
     try {
-    Reply reply = r.sendCommand("srem %d:volumes %ld", localDomainId, volumeId);
-    if (!reply.wasModified()) {
-        LOGWARN << "volume [" << volumeId << "] does NOT exist for domain [" << localDomainId << "]";
-    }
+        Reply reply = r.sendCommand("srem %d:volumes %ld", localDomainId, volumeId);
+        if (!reply.wasModified()) {
+            LOGWARN << "volume [" << volumeId << "] does NOT exist for domain [" << localDomainId << "]";
+        }
 
-    // del the volume data
-    reply = r.sendCommand("del vol:%ld", volumeId);
-    return reply.isOk(); 
+        // del the volume data
+        reply = r.sendCommand("del vol:%ld", volumeId);
+        return reply.isOk(); 
     } catch(RedisException& e) {
         LOGERROR << e.what();
     }
     return false;
 }
 
-bool ConfigDB::volumeExists(fds_volid_t volumeId){ return false; }
+bool ConfigDB::volumeExists(fds_volid_t volumeId) {
+    try {
+        Reply reply = r.sendCommand("exists vol:%ld", volumeId);
+        return reply.getLong()==1;
+    } catch(RedisException& e) {
+        LOGERROR << e.what();
+    }
+    return false;
+}
 bool ConfigDB::volumeExists(ConstString volumeName, int localDomain){ return false; }
-bool ConfigDB::getVolumeIds(std::vector<fds_volid_t>& volumeIds, int localDomain){ return false; }
+bool ConfigDB::getVolumeIds(std::vector<fds_volid_t>& volIds, int localDomain) {
+    std::vector<long long> volumeIds;
+
+    try {
+        Reply reply = r.sendCommand("smembers %d:volumes", localDomain);
+        reply.toVector(volumeIds);
+
+        if (volumeIds.empty()) {
+            LOGWARN << "no volumes found for domain [" << localDomain << "]";
+            return false;
+        }
+
+        for (uint i = 0; i < volumeIds.size() ; i++ ) {
+            volIds.push_back(volumeIds[i]);
+        }
+        return true;
+    } catch(RedisException& e) {
+        LOGERROR << e.what();
+    }
+    return false;
+}
 
 bool ConfigDB::getVolumes(std::vector<VolumeDesc>& volumes, int localDomain) { 
     std::vector<long long> volumeIds;
 
     try {
-    Reply reply = r.sendCommand("smembers %d:volumes", localDomain);
-    reply.toVector(volumeIds);
+        Reply reply = r.sendCommand("smembers %d:volumes", localDomain);
+        reply.toVector(volumeIds);
 
-    if (volumeIds.empty()) {
-        LOGWARN << "no volumes found for domain [" << localDomain << "]";
-        return false;
-    }
+        if (volumeIds.empty()) {
+            LOGWARN << "no volumes found for domain [" << localDomain << "]";
+            return false;
+        }
 
-    for (uint i = 0; i < volumeIds.size() ; i++ ) {
-        VolumeDesc volume("",1); // dummy init
-        getVolume(volumeIds[i],volume);
-        volumes.push_back(volume);
-    }
-    return true;
+        for (uint i = 0; i < volumeIds.size() ; i++ ) {
+            VolumeDesc volume("",1); // dummy init
+            getVolume(volumeIds[i],volume);
+            volumes.push_back(volume);
+        }
+        return true;
     } catch(RedisException& e) {
         LOGERROR << e.what();
     }
@@ -161,44 +209,44 @@ bool ConfigDB::getVolumes(std::vector<VolumeDesc>& volumes, int localDomain) {
 
 bool ConfigDB::getVolume(fds_volid_t volumeId, VolumeDesc& vol) {
     try {
-    Reply reply = r.sendCommand("hgetall vol:%ld",volumeId);
-    StringList strings;
-    reply.toVector(strings);
+        Reply reply = r.sendCommand("hgetall vol:%ld",volumeId);
+        StringList strings;
+        reply.toVector(strings);
     
-    if (strings.empty()) {
-        LOGWARN << "unable to find volume [" << volumeId <<"]";
-        return false;
-    }
-
-    for ( uint i = 0; i < strings.size() ; i+=2 ) {
-        std::string& key = strings[i];
-        std::string& value = strings[i+1];
-
-        if (key == "uuid") {vol.volUUID = strtoull(value.c_str(),NULL,10);}
-        else if (key == "name") { vol.name = value; }
-        else if (key == "tennant.id") { vol.tennantId = atoi(value.c_str()); }
-        else if (key == "local.domain.id") {vol.localDomainId = atoi(value.c_str());}
-        else if (key == "global.domain.id") { vol.globDomainId = atoi(value.c_str());}
-        else if (key == "type") { vol.volType = (fpi::FDSP_VolType)atoi(value.c_str()); }
-        else if (key == "capacity") { vol.capacity = strtod (value.c_str(),NULL);}
-        else if (key == "quota.max") { vol.maxQuota = strtod (value.c_str(),NULL);}
-        else if (key == "replica.count") {vol.replicaCnt = atoi(value.c_str());}
-        else if (key == "write.quorum") {vol.writeQuorum = atoi(value.c_str());}
-        else if (key == "read.quorum") {vol.readQuorum = atoi(value.c_str());}
-        else if (key == "conistency.protocol") {vol.consisProtocol = (fpi::FDSP_ConsisProtoType)atoi(value.c_str());}
-        else if (key == "volume.policy.id") {vol.volPolicyId = atoi(value.c_str());}
-        else if (key == "archive.policy.id") {vol.archivePolicyId = atoi(value.c_str());}
-        else if (key == "placement.policy.id") {vol.placementPolicy = atoi(value.c_str());}
-        else if (key == "app.workload") {vol.appWorkload = (fpi::FDSP_AppWorkload)atoi(value.c_str());}
-        else if (key == "backup.vol.id") {vol.backupVolume = atol(value.c_str());}
-        else if (key == "iops.min") {vol.iops_min = strtod (value.c_str(),NULL);}
-        else if (key == "iops.max") {vol.iops_max = strtod (value.c_str(),NULL);}
-        else if (key == "relative.priority") {vol.relativePrio = atoi(value.c_str());}
-        else {
-            LOGWARN << "unknown key for volume [" << volumeId <<"] - " << key;
+        if (strings.empty()) {
+            LOGWARN << "unable to find volume [" << volumeId <<"]";
+            return false;
         }
-    }
-    return true;
+
+        for ( uint i = 0; i < strings.size() ; i+=2 ) {
+            std::string& key = strings[i];
+            std::string& value = strings[i+1];
+
+            if (key == "uuid") {vol.volUUID = strtoull(value.c_str(),NULL,10);}
+            else if (key == "name") { vol.name = value; }
+            else if (key == "tennant.id") { vol.tennantId = atoi(value.c_str()); }
+            else if (key == "local.domain.id") {vol.localDomainId = atoi(value.c_str());}
+            else if (key == "global.domain.id") { vol.globDomainId = atoi(value.c_str());}
+            else if (key == "type") { vol.volType = (fpi::FDSP_VolType)atoi(value.c_str()); }
+            else if (key == "capacity") { vol.capacity = strtod (value.c_str(),NULL);}
+            else if (key == "quota.max") { vol.maxQuota = strtod (value.c_str(),NULL);}
+            else if (key == "replica.count") {vol.replicaCnt = atoi(value.c_str());}
+            else if (key == "write.quorum") {vol.writeQuorum = atoi(value.c_str());}
+            else if (key == "read.quorum") {vol.readQuorum = atoi(value.c_str());}
+            else if (key == "conistency.protocol") {vol.consisProtocol = (fpi::FDSP_ConsisProtoType)atoi(value.c_str());}
+            else if (key == "volume.policy.id") {vol.volPolicyId = atoi(value.c_str());}
+            else if (key == "archive.policy.id") {vol.archivePolicyId = atoi(value.c_str());}
+            else if (key == "placement.policy.id") {vol.placementPolicy = atoi(value.c_str());}
+            else if (key == "app.workload") {vol.appWorkload = (fpi::FDSP_AppWorkload)atoi(value.c_str());}
+            else if (key == "backup.vol.id") {vol.backupVolume = atol(value.c_str());}
+            else if (key == "iops.min") {vol.iops_min = strtod (value.c_str(),NULL);}
+            else if (key == "iops.max") {vol.iops_max = strtod (value.c_str(),NULL);}
+            else if (key == "relative.priority") {vol.relativePrio = atoi(value.c_str());}
+            else {
+                LOGWARN << "unknown key for volume [" << volumeId <<"] - " << key;
+            }
+        }
+        return true;
     } catch(RedisException& e) {
         LOGERROR << e.what();
     }
@@ -261,32 +309,37 @@ bool ConfigDB::storeDlt(const DLT& dlt, const std::string type, int localDomain)
 }
 
 bool ConfigDB::getDlt(DLT& dlt, fds_uint64_t version, int localDomain) {
-    Reply reply = r.sendCommand("get %d:dlt:%ld", localDomain, version);
-    std::string serializedData, hexCoded(reply.getString());
-    if (hexCoded.length() < 10) {
-        LOGERROR << "very less data for dlt : [" << version << "] : size = " << hexCoded.length();
-        return false;
+    try {
+        Reply reply = r.sendCommand("get %d:dlt:%ld", localDomain, version);
+        std::string serializedData, hexCoded(reply.getString());
+        if (hexCoded.length() < 10) {
+            LOGERROR << "very less data for dlt : [" << version << "] : size = " << hexCoded.length();
+            return false;
+        }
+        LOGDEBUG << "dlt : [" << version << "] : size = " << hexCoded.length();
+        r.decodeHex(hexCoded,serializedData);
+        dlt.loadSerialized(serializedData);
+        return true;
+    } catch (const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
     }
-    LOGDEBUG << "dlt : [" << version << "] : size = " << hexCoded.length();
-    r.decodeHex(hexCoded,serializedData);
-    dlt.loadSerialized(serializedData);
-    return true;    
+    return false;
 }
 
 bool ConfigDB::loadDlts (DLTManager& dltMgr, int localDomain) {
     try {
-    Reply reply = r.sendCommand("smembers %d:dlts",localDomain);
-    std::vector<long long> dltVersions;
-    reply.toVector(dltVersions);
+        Reply reply = r.sendCommand("smembers %d:dlts",localDomain);
+        std::vector<long long> dltVersions;
+        reply.toVector(dltVersions);
 
-    if (dltVersions.empty()) return false;
+        if (dltVersions.empty()) return false;
     
-    for ( uint i = 0; i < dltVersions.size() ; i++ ) {
-        DLT dlt(16,4,0,false); // dummy init
-        getDlt(dlt, dltVersions[i], localDomain);
-        dltMgr.add(dlt);
-    }
-    return true;
+        for ( uint i = 0; i < dltVersions.size() ; i++ ) {
+            DLT dlt(16,4,0,false); // dummy init
+            getDlt(dlt, dltVersions[i], localDomain);
+            dltMgr.add(dlt);
+        }
+        return true;
     } catch(RedisException& e) {
         LOGERROR << e.what();
     }
@@ -295,16 +348,16 @@ bool ConfigDB::loadDlts (DLTManager& dltMgr, int localDomain) {
 
 bool ConfigDB::storeDlts(DLTManager& dltMgr, int localDomain) {
     try {
-    std::vector<fds_uint64_t> vecVersions;
-    vecVersions = dltMgr.getDltVersions();
+        std::vector<fds_uint64_t> vecVersions;
+        vecVersions = dltMgr.getDltVersions();
     
-    for (uint i = 0; i < vecVersions.size() ; i++) {
-        const DLT* dlt = dltMgr.getDLT(vecVersions.size());
-        if (!storeDlt(*dlt, "",  localDomain)) {
-            LOGERROR << "unable to store dlt : [" << dlt->getVersion() << "] for domain ["<< localDomain <<"]";
+        for (uint i = 0; i < vecVersions.size() ; i++) {
+            const DLT* dlt = dltMgr.getDLT(vecVersions.size());
+            if (!storeDlt(*dlt, "",  localDomain)) {
+                LOGERROR << "unable to store dlt : [" << dlt->getVersion() << "] for domain ["<< localDomain <<"]";
+            }
         }
-    }
-    return true;
+        return true;
     } catch(RedisException& e) {
         LOGERROR << e.what();
     }
@@ -375,21 +428,26 @@ bool ConfigDB::addNode(const NodeInvData& node) {
 }
 
 bool ConfigDB::updateNode(const NodeInvData& node) { 
-    return addNode(node);
+    try {
+        return addNode(node);
+    } catch(const RedisException& e) {
+        LOGERROR << e.what();
+    }
+    return false;
 }
 
 bool ConfigDB::removeNode(const NodeUuid& uuid) {
     try {
-    int domainId = 0 ; // TODO(prem)
-    Reply reply = r.sendCommand("srem %d:cluster:nodes %ld", domainId, uuid);
+        int domainId = 0 ; // TODO(prem)
+        Reply reply = r.sendCommand("srem %d:cluster:nodes %ld", domainId, uuid);
 
-    if (!reply.wasModified()) {
-        LOGWARN << "node [" << uuid << "] does not exist for domain [" << domainId << "]";
-    }
+        if (!reply.wasModified()) {
+            LOGWARN << "node [" << uuid << "] does not exist for domain [" << domainId << "]";
+        }
 
-    // Now remove the node data
-    reply = r.sendCommand("del node:%ld", uuid);
-    return reply.isOk();
+        // Now remove the node data
+        reply = r.sendCommand("del node:%ld", uuid);
+        return reply.isOk();
     } catch(RedisException& e) {
         LOGERROR << e.what();
     }
@@ -446,15 +504,63 @@ bool ConfigDB::getNode(const NodeUuid& uuid, NodeInvData& node) {
 
 bool ConfigDB::nodeExists(const NodeUuid& uuid) { 
     try {
-    Reply reply = r.sendCommand("exists node:%ld", uuid);
-    return reply.isOk();
+        Reply reply = r.sendCommand("exists node:%ld", uuid);
+        return reply.isOk();
     } catch(RedisException& e) {
         LOGERROR << e.what();
     }
     return false;
 }
 
-bool ConfigDB::getAllNodes(std::vector<NodeInvData>& nodes, int localDomain){ return false; }
+bool ConfigDB::getNodeIds(std::unordered_set<NodeUuid, UuidHash>& nodes, int localDomain) {
+    std::vector<long long> nodeIds;
+
+    try {
+        Reply reply = r.sendCommand("smembers %d:cluster:nodes", localDomain);
+        reply.toVector(nodeIds);
+
+        if (nodeIds.empty()) {
+            LOGWARN << "no nodes found for domain [" << localDomain << "]";
+            return false;
+        }
+
+        for (uint i = 0; i < nodeIds.size() ; i++ ) {
+            LOGDEBUG << "ConfigDB::getNodeIds node "
+                     << std::hex << nodeIds[i] << std::dec;
+            nodes.insert(NodeUuid(nodeIds[i]));
+        }
+
+        return true;
+    } catch(RedisException& e) {
+        LOGERROR << e.what();
+    }
+    return false;
+}
+
+bool ConfigDB::getAllNodes(std::vector<NodeInvData>& nodes, int localDomain) {
+    std::vector<long long> nodeIds;
+
+    try {
+        Reply reply = r.sendCommand("smembers %d:cluster:nodes", localDomain);
+        reply.toVector(nodeIds);
+
+        if (nodeIds.empty()) {
+            LOGWARN << "no nodes found for domain [" << localDomain << "]";
+            return false;
+        }
+
+        for (uint i = 0; i < nodeIds.size() ; i++ ) {
+            NodeInvData node;
+            getNode(nodeIds[i],node);
+            nodes.push_back(node);
+        }
+        return true;
+    } catch(RedisException& e) {
+        LOGERROR << e.what();
+    }
+    return false;
+
+}
 
 std::string ConfigDB::getNodeName(const NodeUuid& uuid) {
     try {
@@ -464,6 +570,30 @@ std::string ConfigDB::getNodeName(const NodeUuid& uuid) {
         LOGCRITICAL << "error with redis " << e.what();
     }
     return "";    
+}
+
+bool ConfigDB::getNodeServices(const NodeUuid& uuid, NodeServices& services) {
+    try{
+        Reply reply = r.sendCommand("get %ld:services", uuid);
+        if (reply.isNil()) return false;
+        services.loadSerialized(reply.getString());
+        return true;
+    } catch (const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+    return false;
+}
+
+bool ConfigDB::setNodeServices(const NodeUuid& uuid, const NodeServices& services) {
+    try{
+        std::string serialized;
+        services.getSerialized(serialized);
+        Reply reply = r.sendCommand("set %ld:services %b", uuid, serialized.data(), serialized.length());
+        return reply.isOk();
+    } catch (const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+    return false;
 }
 
 uint ConfigDB::getNodeNameCounter() {
@@ -508,7 +638,12 @@ bool ConfigDB::addPolicy(const FDS_VolumePolicy& policy, int localDomain) {
 }
 
 bool ConfigDB::updatePolicy(const FDS_VolumePolicy& policy, int localDomain) {
-    return addPolicy(policy, localDomain);
+    try {
+        return addPolicy(policy, localDomain);
+    } catch(const RedisException& e) {
+        LOGERROR << e.what();
+    }
+    return false;
 }
 
 bool ConfigDB::deletePolicy(fds_uint32_t volPolicyId, int localDomain) { 
@@ -526,20 +661,20 @@ bool ConfigDB::getPolicies(std::vector<FDS_VolumePolicy>& policies, int localDom
         std::vector<long long> volumePolicyIds;
 
         Reply reply = r.sendCommand("smembers %d:volpolicies", localDomain);
-            reply.toVector(volumePolicyIds);
+        reply.toVector(volumePolicyIds);
 
-            if (volumePolicyIds.empty()) {
-                LOGWARN << "no volPolcies found for domain [" << localDomain << "]";
-                return false;
-            }
+        if (volumePolicyIds.empty()) {
+            LOGWARN << "no volPolcies found for domain [" << localDomain << "]";
+            return false;
+        }
 
-            FDS_VolumePolicy policy;
-            for (uint i = 0; i < volumePolicyIds.size() ; i++ ) {
-                if (getPolicy(volumePolicyIds[i],policy,localDomain)) {
-                    policies.push_back(policy);
-                }
+        FDS_VolumePolicy policy;
+        for (uint i = 0; i < volumePolicyIds.size() ; i++ ) {
+            if (getPolicy(volumePolicyIds[i],policy,localDomain)) {
+                policies.push_back(policy);
             }
-            return true;
+        }
+        return true;
     } catch(RedisException& e) {
         LOGERROR << e.what();
     }

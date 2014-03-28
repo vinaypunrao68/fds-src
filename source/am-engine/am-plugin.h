@@ -4,11 +4,15 @@
 #ifndef INCLUDE_AM_ENGINE_AM_PLUGIN_H_
 #define INCLUDE_AM_ENGINE_AM_PLUGIN_H_
 
+#include <unordered_map>
+
 #include <fds_assert.h>
 #include <am-engine/am-engine.h>
+#include <concurrency/Mutex.h>
 
 extern "C" {
 #include <ngx_http.h>
+#include <ngx_files.h>
 
 extern void ngx_register_plugin(fds::FDS_NativeAPI::FDSN_ClientType clientType,
                                 fds::AMEngine *engine);
@@ -30,11 +34,13 @@ class AME_Ctx
     virtual void ame_invoke_handler();
     virtual void ame_free_context();
 
+    virtual fds_off_t ame_get_offset();
+
     // Map buffer from nginx for AMEngine module to use with fdsn.
     //
     ame_buf_t *ame_alloc_buf(int len, char **buf, int *got);
 
-    inline char *ame_buf_info(ame_buf_t *buf, int *len) {
+    inline char *ame_buf_info(ame_buf_t *buf, fds_uint32_t *len) {
         *len = buf->last - buf->pos;
         return (char *)buf->pos;
     }
@@ -52,13 +58,59 @@ class AME_Ctx
         // ame_in_chain->buf->last += len;
         ame_temp_len = len;
     }
-    inline char *ame_curr_input_buf(int *len) {
+
+    /**
+     * Gets our current offset into the buffer
+     */
+    inline char *ame_curr_input_buf(fds_uint32_t *len) {
         if (ame_in_chain != NULL) {
             return ame_buf_info(ame_in_chain->buf, len);
         }
         *len = 0;
         return NULL;
     }
+    /**
+     * Gets the current offset into the buffer and
+     * moves the buffer pointer forward to next pos.
+     *
+     * @param[in/out] The size of the buffer to use. This
+     * is also how far we move the pos ptr. If the
+     * ptr cannot be moved len bytes, we set len to
+     * how far we did move it.
+     */
+    inline char *ame_next_buf_ptr(fds_uint32_t *len) {
+        fds_uint32_t remaining_len;
+        char *buf_pos = ame_curr_input_buf(&remaining_len);
+        if (buf_pos != NULL) {
+            unsigned char *last  = ame_in_chain->buf->last;
+
+            // Check if we're able to return len bytes
+            if (last < ((unsigned char *)buf_pos + *len)) {
+                *len = (last - (unsigned char *)buf_pos);
+                fds_verify(*len == remaining_len);
+                // The next buffer read will now just read
+                // the end
+                ame_in_chain->buf->pos = last;
+
+                // Move to the next chain buffer to read any remaining data
+                fds_bool_t moved = ame_next_input_buf();
+                if (moved == true) {
+                    LOGDEBUG << "Moved buf ptr to next chain link";
+                }
+            } else {
+                // Move the next buffer read forward by len
+                ame_in_chain->buf->pos += (*len);
+            }
+        } else {
+            *len = 0;
+        }
+
+        return buf_pos;
+    }
+
+    /**
+     * Moves the chain to the next buffer
+     */
     inline bool ame_next_input_buf() {
         if (ame_in_chain != NULL) {
             ame_in_chain = ame_in_chain->next;
@@ -76,7 +128,7 @@ class AME_Ctx
         // TODO: better buffer chunking API.
         ame_temp_len = len;
     }
-    inline char *ame_curr_output_buf(ame_buf_t **buf, int *len) {
+    inline char *ame_curr_output_buf(ame_buf_t **buf, fds_uint32_t *len) {
         *buf = ame_out_buf;
         if (ame_out_buf != NULL) {
             return ame_buf_info(ame_out_buf, len);
@@ -84,6 +136,7 @@ class AME_Ctx
         *len = 0;
         return NULL;
     }
+
     // This call must be made only by nginx event loop thread.
     void ame_pop_output_buf();
 
@@ -91,10 +144,27 @@ class AME_Ctx
     char                     *ame_temp_buf;
     int                       ame_temp_len;
 
+    typedef enum {OK, FAILED, WAITING} AME_Ctx_Ack;
+
   protected:
     AME_Ctx                  *ame_next;
     AME_Request              *ame_req;
     int                       ame_state;
+
+    /// Protects the offset and map members
+    fds_mutex                *ame_map_lock;
+    /// Track which offsets we've received
+    /// acks for
+    fds_off_t                 ame_buf_off;
+    typedef std::unordered_map<fds_off_t, AME_Ctx_Ack> AME_Ack_Map;
+    AME_Ack_Map               ame_req_map;
+    fds_uint32_t              ame_ack_count;
+    typedef std::list<char *> AME_Alloc_List;
+    /// Tracks buffers AME allocated to free later    
+    AME_Alloc_List            ame_alloc_bufs;
+
+    // Request etag
+    ngx_md5_t                 ame_etag_ctx;
 
     // Hookup with nginx event loop.
     //
@@ -107,8 +177,22 @@ class AME_Ctx
     ame_chain_t               ame_free_buf;
 
     friend class AME_CtxList;
-    virtual ~AME_Ctx() {}
+    virtual ~AME_Ctx() {
+        delete ame_map_lock;
+    }
     void ame_init_ngx_ctx();
+
+  public:
+    Error ame_add_ctx_req(fds_off_t offset);
+    Error ame_upd_ctx_req(fds_off_t offset,
+                          AME_Ctx_Ack ack_status);
+    AME_Ctx_Ack ame_check_status();
+    void set_ack_count(fds_uint32_t count);
+    void ame_mv_off(fds_uint32_t len);
+    fds_off_t ame_get_off() const;
+    void ame_add_alloc_buf(char *buf);
+    void ame_free_bufs();
+    ngx_md5_t *ame_get_etag();
 };
 
 class AME_CtxList

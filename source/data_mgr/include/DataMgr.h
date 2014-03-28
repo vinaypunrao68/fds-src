@@ -237,6 +237,15 @@ class DataMgr : public PlatformProcess
      */
     fds_mutex *vol_map_mtx;
 
+    /**
+     * Giant, slow, big hammer lock.
+     * TODO(Andrew): Remove this! It's needed to provide
+     * serialization of update catalog requests to the same
+     * blob. There's a much better solution than this that
+     * needs to be added. It's just more code...
+     */
+    fds_mutex *big_fat_lock;
+
     Error _add_if_no_vol(const std::string& vol_name,
                          fds_volid_t vol_uuid,VolumeDesc* desc);
     Error _add_vol_locked(const std::string& vol_name,

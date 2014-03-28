@@ -290,55 +290,136 @@ void
 DataPlacement::mod_shutdown() {
 }
 
-bool DataPlacement::loadDltsFromConfigDB() {
-    // this function should be called only during init..
+Error DataPlacement::loadDltsFromConfigDB(const NodeUuidSet& sm_services) {
+    Error err(ERR_OK);
 
+    // this function should be called only during init..
     fds_verify(commitedDlt == NULL);
     fds_verify(newDlt == NULL);
 
-    bool fSuccess = true;
+    // if there are no nodes, we are not going to load any dlts
+    if (sm_services.size() == 0) {
+        LOGNOTIFY << "Not loading DLTs from configDB since there are "
+                  << "no persisted SMs";
+        return err;
+    }
 
     fds_uint64_t currentVersion = configDB->getDltVersionForType("current");
     if (currentVersion > 0) {
         DLT* dlt = new DLT(0, 0, 0, false);
         if (!configDB->getDlt(*dlt, currentVersion)) {
-            LOGCRITICAL << "unable to get (current) dlt version "
-                        <<"["<< currentVersion << "]";
-            delete dlt;
-            fSuccess = false;
+            LOGCRITICAL << "unable to load (current) dlt version "
+                        <<"["<< currentVersion << "] from configDB";
+            err = Error(ERR_PERSIST_STATE_MISMATCH);
         } else {
-            // set the current dlt
-            commitedDlt = dlt;
+            // check if DLT is valid with respect to nodes
+            // i.e. only contains node uuis that are in nodes' set
+            // does not contain any zeroes, etc.
+            err = checkDltValid(dlt, sm_services);
+            if (err.ok()) {
+                LOGNOTIFY << "Current DLT in config DB is valid!";
+                // we will set newDLT because we don't know yet if
+                // the nodes in DLT will actually come up...
+                newDlt = dlt;
+            }
+        }
+
+        if (!err.ok()) {
+            delete dlt;
+            return err;
         }
     } else {
-        LOGWARN << "no current dlt set";
+        // we got > 0 nodes from configDB but there is no DLT
+        // going to throw away persistent state, because there is a mismatch
+        LOGWARN << "No current DLT even though we persisted "
+                << sm_services.size() << " nodes";
+        return Error(ERR_PERSIST_STATE_MISMATCH);
     }
 
-    // next dlt
+    // At this point we are not supporting the case when we went down
+    // during migration -- if we see target DLT in configDB, we will just
+    // throw away persistent state
+    // TODO(anna) implement support for recovering from 'in the middle of
+    // migration' state.
     fds_uint64_t nextVersion = configDB->getDltVersionForType("next");
     if (nextVersion > 0 && nextVersion != currentVersion) {
+        // at this moment not handling this case, so return error for now
+        LOGWARN << "We are not yet supporting recovering persistent state "
+                << "when we were in the middle of migration, so will for now "
+                << " ignore persisted DLT and nodes";
+        delete newDlt;
+        newDlt = NULL;
+        return Error(ERR_NOT_IMPLEMENTED);
+        /*
         DLT* dlt = new DLT(0, 0, 0, false);
         if (!configDB->getDlt(*dlt, nextVersion)) {
             LOGCRITICAL << "unable to get (next) dlt version [" << currentVersion << "]";
-            fSuccess = false;
             delete dlt;
         } else {
             // set the next dlt
             newDlt = dlt;
         }
+        */
     } else {
         if (0 == nextVersion) {
-            LOGWARN << "no next dlt set";
+            LOGDEBUG << "There is only commited DLT in configDB (OK)";
         } else {
-            LOGWARN << "both current and next are of same version : " << nextVersion;
+            LOGDEBUG << "Both current and target DLT are of same version (OK): "
+                     << nextVersion;
         }
     }
 
-    return fSuccess;
+    return err;
 }
 
 void DataPlacement::setConfigDB(kvstore::ConfigDB* configDB) {
     this->configDB = configDB;
+}
+
+//
+// Checks if DLT matches the set of given nodes:
+// -- DLT must not contain any uuids that are not in nodes set
+// -- DLT should not have any cells with 0
+// -- nodes in each DLT column must be unique
+//
+Error DataPlacement::checkDltValid(const DLT* dlt,
+                                   const NodeUuidSet& sm_services) {
+    Error err(ERR_OK);
+    fds_uint32_t col_depth = dlt->getDepth();
+    fds_uint32_t num_tokens = dlt->getNumTokens();
+
+    // we should not have more rows than nodes
+    if (col_depth > sm_services.size()) {
+        LOGWARN << "DLT has more rows (" << col_depth
+                << ") than nodes (" << sm_services.size() << ")";
+        return Error(ERR_INVALID_DLT);
+    }
+
+    // check each column in DLT
+    NodeUuidSet col_set;
+    for (fds_token_id i = 0; i < num_tokens; ++i) {
+        col_set.clear();
+        DltTokenGroupPtr column = dlt->getNodes(i);
+        for (fds_uint32_t j = 0; j < col_depth; ++j) {
+            NodeUuid cur_uuid = column->get(j);
+            if ((cur_uuid.uuid_get_val() == 0) ||
+                (sm_services.count(cur_uuid) == 0)) {
+                // unexpected uuid in this DLT cell
+                LOGWARN << "DLT contains unexpected uuid " << std::hex
+                        << cur_uuid.uuid_get_val() << std::dec;
+                return Error(ERR_INVALID_DLT);
+            }
+            col_set.insert(cur_uuid);
+        }
+
+        // make sure that column contains all unique uuids
+        if (col_set.size() < col_depth) {
+            LOGWARN << "Found non-unique uuids in DLT column " << i;
+            return Error(ERR_INVALID_DLT);
+        }
+    }
+
+    return err;
 }
 
 }  // namespace fds

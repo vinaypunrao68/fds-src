@@ -31,7 +31,8 @@ std::map<fds_uint32_t, std::string> written_data;
 std::map<fds_uint32_t, fds_bool_t> verified_data;
 
 
-static int sh_test_put_callback(void* context, fds_uint64_t buf_size, char* buf, void *callback_data,
+static int sh_test_put_callback(void* context, fds_uint64_t buf_size, fds_off_t offset,
+                                char* buf, void *callback_data,
 				FDSN_Status status, ErrorDetails* errDetaills)
 {
   FDS_PLOG(storHvisor->GetLog()) << "sh_test_put_callback is called with status " << status;

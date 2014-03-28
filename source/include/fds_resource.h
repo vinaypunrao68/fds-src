@@ -251,10 +251,6 @@ class QueryOut
             break;
         }
     }
-    inline void query_push(ChainLink *chain)
-    {
-        q_list.chain_add_back(chain);
-    }
     inline T *query_pop()
     {
         ChainLink *elm = q_list.chain_front_elem();
@@ -267,27 +263,15 @@ class QueryOut
         }
         return nullptr;
     }
-    inline T *query_peek()
-    {
-        return q_list.chain_peek_front<T>();
-    }
+    inline void query_push(ChainLink *chain) { q_list.chain_add_back(chain); }
+    inline T *query_peek() { return q_list.chain_peek_front<T>(); }
+
     /* ---------------------------------------------------------------------- */
-    inline void query_iter_reset()
-    {
-        q_list.chain_iter_init(&q_iter);
-    }
-    inline bool query_iter_term()
-    {
-        return q_list.chain_iter_term(q_iter);
-    }
-    inline void query_iter_next()
-    {
-        return q_list.chain_iter_next(&q_iter);
-    }
-    inline T *query_iter_current()
-    {
-        return q_list.chain_iter_current<T>(q_iter);
-    }
+    inline void query_iter_reset() { q_list.chain_iter_init(&q_iter); }
+    inline bool query_iter_term() { return q_list.chain_iter_term(q_iter); }
+    inline void query_iter_next() { return q_list.chain_iter_next(&q_iter); }
+    inline T *query_iter_current() { return q_list.chain_iter_current<T>(q_iter); }
+
   private:
     friend class QueryMgr;
 

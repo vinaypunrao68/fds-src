@@ -219,13 +219,13 @@ ObjectStorMgrI::RedirReadObject(FDSP_MsgHdrTypePtr &msg_hdr, FDSP_RedirReadObjTy
  */
 ObjectStorMgr::ObjectStorMgr(int argc, char *argv[],
                              Platform *platform, Module **mod_vec)
-        : PlatformProcess(argc, argv, "fds.sm.", "sm.log", platform, mod_vec),
-          totalRate(3000),
-          qosThrds(10),
-          shuttingDown(false),
-          numWBThreads(1),
-          maxDirtyObjs(10000),
-          counters_("SM", cntrs_mgrPtr_.get())
+    : PlatformProcess(argc, argv, "fds.sm.", "sm.log", platform, mod_vec),
+    totalRate(2000),
+    qosThrds(10),
+    shuttingDown(false),
+    numWBThreads(1),
+    maxDirtyObjs(10000),
+    counters_("SM", cntrs_mgrPtr_.get())
 {
     /*
      * TODO: Fix the totalRate above to not
@@ -662,8 +662,13 @@ ObjectStorMgr::volEventOmHandler(fds_volid_t  volumeId,
                 fds_assert(vol != NULL);
                 err = objStorMgr->qosCtrl->registerVolume(vol->getVolId(),
                                                           dynamic_cast<FDS_VolumeQueue*>(vol->getQueue()));
-                objStorMgr->objCache->vol_cache_create(volumeId, 1024 * 1024 * 8, 1024 * 1024 * 256);
-                fds_assert(err == ERR_OK);
+		
+		if (err.ok()) {
+		  objStorMgr->objCache->vol_cache_create(volumeId, 1024 * 1024 * 8, 1024 * 1024 * 256);
+		} else {
+		  // most likely axceeded min iops
+		  objStorMgr->volTbl->deregisterVolume(volumeId);
+		}
             }
             if (!err.ok()) {
                 GLOGERROR << "Registration failed for vol id " << std::hex << volumeId
@@ -748,6 +753,7 @@ Error ObjectStorMgr::writeBackObj(const ObjectID &objId)
 {
     Error err(ERR_OK);
     OpCtx opCtx(OpCtx::RELOCATE, 0);
+    fds_volid_t  vol = 0;
 
     LOGDEBUG << "Writing back object " << objId
              << " from flash to disk";
@@ -759,7 +765,8 @@ Error ObjectStorMgr::writeBackObj(const ObjectID &objId)
      * than flash.
      */
     ObjectBuf objData;
-    err = readObject(SmObjDb::NON_SYNC_MERGED, objId, objData);
+    ObjMetaData objMap;
+    err = readObject(SmObjDb::NON_SYNC_MERGED, objId, objMap, objData);
     if (err != ERR_OK) {
         return err;
     }
@@ -767,7 +774,7 @@ Error ObjectStorMgr::writeBackObj(const ObjectID &objId)
     /*
      * Write object back to disk tier.
      */
-    err = writeObjectToTier(opCtx, objId, objData, diskio::diskTier);
+    err = writeObjectToTier(opCtx, objId, objData, vol, diskio::diskTier);
     if (err != ERR_OK) {
         return err;
     }
@@ -868,10 +875,11 @@ ObjectStorMgr::writeObjectMetaData(const OpCtx &opCtx,
      * Add new location to existing locations
      */
     objMap.updatePhysLocation(obj_phy_loc);
-    objMap.updateAssocEntry(objId, (fds_volid_t)vol->vol_uuid);
 
     if(relocate_flag) { 
       objMap.removePhyLocation(fromTier);
+    } else {
+      objMap.updateAssocEntry(objId, (fds_volid_t)vol->vol_uuid);
     }
 
     err = smObjDb->put(opCtx, objId, objMap);
@@ -891,7 +899,8 @@ ObjectStorMgr::writeObjectMetaData(const OpCtx &opCtx,
  */
 Error
 ObjectStorMgr::readObjMetaData(const ObjectID &objId,
-        ObjMetaData& objMap) {
+        ObjMetaData& objMap) 
+{
     return smObjDb->get(objId, objMap);
 }
 
@@ -923,7 +932,7 @@ ObjectStorMgr::deleteObjectMetaData(const OpCtx &opCtx,
     }
 
     /*
-     * Set the ref_cnt to 0, which will be the delete marker for this object and Garbage collector feeds on these objects
+     * Set the ref_cnt to 0, which will be the delete marker for the Garbage collector
      */
     objMap.deleteAssocEntry(objId, vol_id);
     err = smObjDb->put(opCtx, objId, objMap);
@@ -1032,7 +1041,7 @@ ObjectStorMgr::readObject(const SmObjDb::View& view,
  */
 Error
 ObjectStorMgr::checkDuplicate(const ObjectID&  objId,
-                              const ObjectBuf& objCompData) {
+        const ObjectBuf& objCompData, ObjMetaData &objMap) {
     Error err(ERR_OK);
 
     ObjectBuf objGetData;
@@ -1047,7 +1056,7 @@ ObjectStorMgr::checkDuplicate(const ObjectID&  objId,
     objGetData.size = 0;
     objGetData.data = "";
 
-    err = readObject(SmObjDb::NON_SYNC_MERGED, objId, objGetData);
+    err = readObject(SmObjDb::NON_SYNC_MERGED, objId, objMap, objGetData);
 
     if (err == ERR_OK) {
         /*
@@ -1094,7 +1103,7 @@ ObjectStorMgr::writeObject(const OpCtx &opCtx,
      * Ask the tiering engine which tier to place this object
      */
     tier = tierEngine->selectTier(objId, volId);
-    return writeObjectToTier(opCtx, objId, objData, tier);
+    return writeObjectToTier(opCtx, objId, objData, volId, tier);
 }
 
 /**
@@ -1109,6 +1118,7 @@ Error
 ObjectStorMgr::writeObjectToTier(const OpCtx &opCtx,
         const ObjectID  &objId,
         const ObjectBuf &objData,
+        fds_volid_t volId,
         diskio::DataTier tier) {
     Error err(ERR_OK);
 
@@ -1123,6 +1133,7 @@ ObjectStorMgr::writeObjectToTier(const OpCtx &opCtx,
     meta_obj_id_t   oid;
     fds_bool_t      pushOk;
 
+    vio.vol_uuid = volId;
     /*
      * TODO: Why to we create another oid structure here?
      * Just pass a ref to objId?
@@ -1226,11 +1237,12 @@ ObjectStorMgr::relocateObject(const ObjectID &objId,
     Error err(ERR_OK);
     ObjectBuf objGetData;
     OpCtx opCtx(OpCtx::RELOCATE, 0);
+    ObjMetaData objMeta;
 
     objGetData.size = 0;
     objGetData.data = "";
 
-    err = readObject(SmObjDb::NON_SYNC_MERGED, objId, objGetData);
+    err = readObject(SmObjDb::NON_SYNC_MERGED, objId, objMeta, objGetData);
 
     diskio::DataIO& dio_mgr = diskio::DataIO::disk_singleton();
     SmPlReq     *disk_req;
@@ -1285,6 +1297,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
     OpCtx opCtx(OpCtx::PUT, msgHdr->origin_timestamp);
     bool new_buff_allocated = false, added_cache = false;
 
+    ObjMetaData objMap;
     objStorMutex->lock();
 
     objBufPtr = objCache->object_retrieve(volId, objId);
@@ -1312,8 +1325,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
         new_buff_allocated = true;
 
         err = checkDuplicate(objId,
-                             *objBufPtr);
-
+                *objBufPtr, objMap);
     }
 
     if (err == ERR_DUPLICATE) {
@@ -1323,7 +1335,24 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
             objCache->object_release(volId, objId, objBufPtr);
         }
         LOGDEBUG << "Put dup:  " << err
-                 << ", returning success";
+                << ", returning success";
+        if (objMap.isInitialized() == false) { 
+            err = readObjMetaData(objId, objMap);
+            /* At this point object metadata must exist */
+            fds_verify(err == ERR_OK);
+        }
+
+        // Update  the AssocEntry for dedupe-ing
+        objMap.updateAssocEntry(objId, volId);
+        err = smObjDb->put(opCtx, objId, objMap);
+        if (err == ERR_OK) {
+            LOGDEBUG << "Dedupe object Assoc Entry for object "
+                    << objId << " to " << objMap;
+        } else {
+            LOGERROR << "Failed to put ObjMetaData " << objId
+                    << " into odb with error " << err;
+        }
+
         /*
          * Reset the err to OK to ack the metadata update.
          */
@@ -1386,8 +1415,10 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
 
     if (err == ERR_OK) {
         msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_OK;
+        msgHdr->err_code = err.getFdspErr();
     } else {
         msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_FAILED;
+        msgHdr->err_code = err.getFdspErr();
     }
 
     msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_PUT_OBJ_RSP;
@@ -1542,8 +1573,10 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
 
     if (err == ERR_OK) {
         msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_OK;
+        msgHdr->err_code = err.getFdspErr();
     } else {
         msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_FAILED;
+        msgHdr->err_code = err.getFdspErr();
     }
 
     msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_DELETE_OBJ_RSP;
@@ -1586,6 +1619,7 @@ ObjectStorMgr::PutObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
         fdsp_msg->err_code = err.getFdspErr();
     } else {
         fdsp_msg->result = FDSP_ERR_OK;
+        fdsp_msg->err_code = err.getFdspErr();
     }
 
     counters_.put_reqs.incr();
@@ -1615,6 +1649,7 @@ ObjectStorMgr::DeleteObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
         fdsp_msg->err_code = err.getFdspErr();
     } else {
         fdsp_msg->result = FDSP_ERR_OK;
+        fdsp_msg->err_code = err.getFdspErr();
     }
 }
 
@@ -1626,6 +1661,7 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
     diskio::DataTier tierUsed = diskio::maxTier;
     const FDSP_GetObjTypePtr& getObjReq = getReq->getGetObjReq();
     ObjBufPtrType objBufPtr = NULL;
+    ObjMetaData objMap;
 
     /*
      * We need to fix this once diskmanager keeps track of object size
@@ -1636,6 +1672,7 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
 
     objStorMutex->lock();
     objBufPtr = objCache->object_retrieve(volId, objId);
+    objBufPtr = NULL; //Disable the object cache lookup 
 
     if (!objBufPtr) {
         ObjectBuf objData;
@@ -1647,6 +1684,13 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
             objBufPtr = objCache->object_alloc(volId, objId, objData.size);
             memcpy((void *)objBufPtr->data.c_str(), (void *)objData.data.c_str(), objData.size);
             objCache->object_add(volId, objId, objBufPtr, false); // read data is always clean
+            // ACL: If this Volume never put this object, then it should not access the object
+            if (!objMap.isVolumeAssociated(volId)) { 
+               err = ERR_UNAUTH_ACCESS;
+               LOGDEBUG << "Volume " << volId << " unauth-access of object " << objId
+                // << " and data " << objData.data
+                << " for request ID " << getReq->io_req_id;
+            }
         }
     } else {
         fds_verify(!(objCache->is_object_io_in_progress(volId, objId, objBufPtr)));
@@ -1687,8 +1731,10 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
 
     if (err == ERR_OK) {
         msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_OK;
+        msgHdr->err_code = err.getFdspErr();
     } else {
         msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_FAILED;
+        msgHdr->err_code = err.getFdspErr();
     }
     msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_GET_OBJ_RSP;
     swapMgrId(msgHdr);
@@ -1834,6 +1880,7 @@ ObjectStorMgr::GetObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
         fdsp_msg->err_code = err.getFdspErr();
     } else {
         fdsp_msg->result = FDSP_ERR_OK;
+        fdsp_msg->err_code = err.getFdspErr();
     }
     
     counters_.get_reqs.incr();

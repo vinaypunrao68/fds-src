@@ -6,6 +6,7 @@
 #include <string.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <fcntl.h>
 #include <sys/resource.h>
 #include <fds_assert.h>
 #include <shared/fds_types.h>
@@ -86,9 +87,13 @@ fds_spawn(char *const argv[], int daemonize)
     flim = fds_get_fd_limit();
     printf("Close fd up to %d\n", flim);
 
-    for (fd = 2; fd < flim; fd++) {
+    for (fd = 0; fd < flim; fd++) {
         close(fd);
     }
+    fd = open("/dev/null", O_RDWR);  // will be 0
+    dup(fd); // will be 1
+    dup(fd); // will be 2
+
     if (daemonize) {
         res = daemon(0, 1);
         if (res != 0) {

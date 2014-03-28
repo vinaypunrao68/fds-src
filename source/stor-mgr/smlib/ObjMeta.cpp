@@ -114,6 +114,19 @@ void ObjMetaData::initialize(const ObjectID& objid, fds_uint32_t obj_size) {
 
 /**
  *
+ * @return
+ */
+bool ObjMetaData::isInitialized() const
+{
+    for (uint32_t i = 0;i < sizeof(obj_map.obj_id.metaDigest); i++) {
+        if (obj_map.obj_id.metaDigest[i] != 0) {
+            return true;
+        }
+    }
+    return false;
+}
+/**
+ *
  * @param buf
  */
 void ObjMetaData::unmarshall(const ObjectBuf& buf) {
@@ -323,6 +336,20 @@ void ObjMetaData::deleteAssocEntry(ObjectID objId, fds_volid_t vol_id) {
     // If Volume did not put this objId then it delete is a noop
 }
 
+/**
+ * Checks if an association entry exists for volume
+ * @param vol_id
+ * @return
+ */
+fds_bool_t ObjMetaData::isVolumeAssociated(fds_volid_t vol_id)
+{
+    for(int i=0; i < obj_map.obj_num_assoc_entry; i++) {
+        if (vol_id == assoc_entry[i].vol_uuid) {
+            return true;
+        }
+    }
+    return false;
+}
 /**
  *
  * @return

@@ -220,7 +220,13 @@ int OMgrClient::registerBucketStatsCmdHandler(bucket_stats_cmd_handler_t cmd_hdl
  */
 void OMgrClient::start_omrpc_handler()
 {
-    nst_->listenServer(omrpc_handler_session_);
+    try {
+        nst_->listenServer(omrpc_handler_session_);
+    } catch(const att::TTransportException& e) {
+        LOGERROR << "unable to listen at the given port - check the port";
+        LOGERROR << "error during network call : " << e.what();
+        exit(1);
+    }
 }
 
 // Call this to setup the (receiving side) endpoint to lister for control path requests from OM.

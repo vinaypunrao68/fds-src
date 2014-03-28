@@ -93,9 +93,12 @@ class FdsNodeConfig(FdsConfig):
                 print "You need to call nd_connect_rmt_agent() first"
                 sys.exit(0)
 
-            print "Start OM in", self.nd_host_name()
+            fds_dir = self.nd_conf_dict['fds_root']
+            bin_dir = fds_dir + '/bin'
+            print "\nStart OM in", self.nd_host_name()
             self.nd_rmt_agent.ssh_exec_fds(
-                "orchMgr --fds-root=%s" % self.nd_conf_dict['fds_root'])
+                "orchMgr --fds-root=%s > %s/om.out" %
+                    (self.nd_conf_dict['fds_root'], bin_dir))
             time.sleep(2)
             return 1
         return 0
@@ -109,22 +112,41 @@ class FdsNodeConfig(FdsConfig):
             port = self.nd_conf_dict['fds_port']
             port_arg = port_arg + (' --fds.plat.control_port=%s' % port)
 
-        print "Start platform daemon in", self.nd_host_name()
-        self.nd_rmt_agent.ssh_exec_fds('platformd ' + port_arg + ' >> /tmp/foo')
+        fds_dir = self.nd_conf_dict['fds_root']
+        bin_dir = fds_dir + '/bin'
+        print "\nStart platform daemon in", self.nd_host_name()
+        self.nd_rmt_agent.ssh_exec_fds('platformd ' + port_arg +
+            ' > %s/pm.out' % bin_dir)
         time.sleep(4)
 
     ###
-    # Kill all fds daemons and cleanup any cores.
+    # Kill all fds daemons
     #
     def nd_cleanup_daemons(self):
         fds_dir = self.nd_conf_dict['fds_root']
         bin_dir = fds_dir + '/bin'
+        sbin_dir = fds_dir + '/sbin'
+        tools_dir = sbin_dir + '/tools'
         var_dir = fds_dir + '/var'
-        print("Cleanup running processes in: %s, %s" % (self.nd_host_name(), bin_dir))
+        print("\nCleanup running processes in: %s, %s" % (self.nd_host_name(), bin_dir))
+        # TODO (Bao): order to kill: AM, SM/DM, OM
         self.nd_rmt_agent.ssh_exec('pkill -9 java; pkill -9 Mgr; pkill -9 AMAgent; '
-            'pkill -9 platformd; (cd %s && rm core *.core); ' % bin_dir +
+           'pkill -9 platformd;', wait_compl=True)
+
+    ###
+    # cleanup any cores, redis, and logs.
+    #
+    def nd_cleanup_node(self):
+        fds_dir = self.nd_conf_dict['fds_root']
+        bin_dir = fds_dir + '/bin'
+        sbin_dir = fds_dir + '/sbin'
+        tools_dir = sbin_dir + '/tools'
+        var_dir = fds_dir + '/var'
+        print("\nCleanup cores/logs/redis in: %s, %s" % (self.nd_host_name(), bin_dir))
+        self.nd_rmt_agent.ssh_exec('(cd %s && rm core *.core); ' % bin_dir +
             '(cd %s && rm -r logs stats); ' % var_dir +
-            '(cd /corefiles && rm *.core); ' )
+            '(cd /corefiles && rm *.core); '  +
+            '(cd %s && ./fds clean -i)' % tools_dir, wait_compl=True)
 
 ###
 # Handle AM config section
@@ -292,7 +314,8 @@ class FdsCliConfig(FdsConfig):
             print "Run %s on OM %s" % (command, om.nd_host_name())
 
         om.nd_rmt_agent.ssh_exec_fds(
-            ('fdscli --fds-root %s ') % om.nd_rmt_agent.get_fds_root() + command)
+            ('fdscli --fds-root %s ') % om.nd_rmt_agent.get_fds_root() + command,
+            wait_compl=True)
 
 ###
 # Handle fds bring up config parsing

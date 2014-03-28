@@ -37,7 +37,12 @@ void printData(std::string data) {
     for (uint i = 0 ; i < nameValues.size() ; i++ ) {
         LINE << std::setw(20) << nameValues[i].first <<  " : " << nameValues[i].second << "\n";
     }
-    
+}
+
+unsigned long long getUUID(const std::string& encoded) {
+    unsigned long long l;
+    sscanf(encoded.c_str() , "%llx", &l);
+    return l;
 }
 
 ConfigDBTool::ConfigDBTool(std::string host, int port) {
@@ -54,6 +59,8 @@ ConfigDBTool::ConfigDBTool(std::string host, int port) {
     REGISTERCMD("listvolumes",ListVolumes);
     REGISTERCMD("volume",Volume);
     REGISTERCMD("listpolicies",ListPolicies);
+    REGISTERCMD("listnodes",ListNodes);
+    REGISTERCMD("node",Node);
     REGISTERCMD("dlt",Dlt);
     REGISTERCMD("help",Help);
 
@@ -63,8 +70,10 @@ ConfigDBTool::ConfigDBTool(std::string host, int port) {
     helpInfo.push_back( {"info","", "display basic info about the config db"});
     helpInfo.push_back( {"dlt","[next/current]", "show the dlt "});
     helpInfo.push_back( {"volume","[volid ...]", "show volume info for the given ids "});
+    helpInfo.push_back( {"node","[nodeid ...]", "show node info for the given ids "});
     helpInfo.push_back( {"listvolumes","", "show the list of volumes"});
     helpInfo.push_back( {"listpolicies","", "show the list of policies "});
+    helpInfo.push_back( {"listnodes","", "show the list of nodes"});
 
 }
 
@@ -79,19 +88,19 @@ bool ConfigDBTool::check() {
 void ConfigDBTool::cmdInfo(std::vector <std::string>& args) {
     if (!check()) return;
 
-    LINE << "global.domain : " << db->getGlobalDomain() << "\n";
+    LINE << "global.domain   : " << db->getGlobalDomain() << "\n";
 
     std::map<int,std::string> mapDomains;
     db->getLocalDomains(mapDomains);
-    LINE << "localdomains  : " << mapDomains.size() << "\n";
+    LINE << "localdomains    : " << mapDomains.size() << "\n";
     
     std::vector<VolumeDesc> volumes;
     db->getVolumes(volumes);
-    LINE << "no.of volumes : " << volumes.size() << "\n";
+    LINE << "no.of volumes   : " << volumes.size() << "\n";
 
     std::vector<FDS_VolumePolicy> policies;
     db->getPolicies(policies);
-    LINE << "no.of policies : " << policies.size() << "\n";
+    LINE << "no.of policies  : " << policies.size() << "\n";
     
 }
 
@@ -106,6 +115,19 @@ void ConfigDBTool::cmdListVolumes(std::vector <std::string>& args) {
         LINE << (i+1) << " : " << volumes[i].volUUID << " : " << volumes[i].name << "\n";
     }
 }
+
+void ConfigDBTool::cmdListNodes(std::vector <std::string>& args) {
+    if (!check()) return;
+
+    std::vector<NodeInvData> nodes;
+    db->getAllNodes(nodes);
+    LINE << Color::BoldWhite << "Num nodes : " << Color::End << nodes.size() << "\n";
+
+    for (uint i=0 ; i < nodes.size() ; i++) {
+        LINE << (i+1) << " : " << nodes[i].nd_uuid << " : " << nodes[i].nd_node_name << "\n";
+    }
+}
+
 
 void ConfigDBTool::cmdListPolicies(std::vector <std::string>& args) {
     if (!check()) return;
@@ -131,14 +153,56 @@ void ConfigDBTool::cmdVolume(std::vector <std::string>& args) {
 
     for (uint i = 0 ; i < args.size() ; i++ ) {
         fds_volid_t volumeId = strtoull(args[i].c_str(),NULL,10);
-        VolumeDesc volumeDesc("",1);
-        if (!db->getVolume(volumeId,volumeDesc)) {
-            WARNLINE << "could not find volume info for uuid : " << volumeId << "\n";
+        VolumeDesc volume("",1);
+
+        bool fFound = true;
+        if (!db->getVolume(volumeId,volume)) {
+            volumeId = getUUID(args[i]);
+            if (!db->getVolume(volumeId,volume)) {
+                fFound = false;
+            }
+        }
+
+        if (!fFound) {
+            WARNLINE << "could not find volume info for uuid : " << args[i] << "\n";
         } else {
             LINE << Color::BoldWhite << volumeId << Color::End << "\n";
-            PRINTSTREAM(volumeDesc);
+            PRINTSTREAM(volume);
             cout << "\n";
         }    
+    }
+}
+
+void ConfigDBTool::cmdNode(std::vector <std::string>& args) {
+    if (!check()) return;
+    if (args.empty()) {
+        ERRORLINE << "need atleast one node uuid" << "\n";
+        return;                
+    }
+
+    bool fFound = false;
+    for (uint i = 0 ; i < args.size() ; i++ ) {
+        fds_volid_t nodeId = strtoull(args[i].c_str(),NULL,10);
+        NodeInvData node;
+        fFound = true;
+        if (!db->getNode(nodeId,node)) {
+            nodeId = getUUID(args[i]);
+            if (!db->getNode(nodeId,node)) {
+                fFound = false;
+            }
+        }
+
+        if (!fFound) {
+            WARNLINE << "could not find node info for uuid : " << args[i]  << "\n";
+        } else {
+            LINE << Color::BoldWhite << nodeId << Color::End << "\n";
+            PRINTSTREAM(node);
+            NodeServices services;
+            if (db->getNodeServices(nodeId, services)) {
+                LINE << Color::BoldWhite << "Services::" << Color::End << services << "\n";
+            }
+            cout << "\n";
+        }
     }
 }
 

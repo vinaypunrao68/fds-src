@@ -249,6 +249,7 @@ void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
 
     DBG(int obj_itr_cnt = 0);
 
+    ObjMetaData objMeta;
     ObjectID start_obj_id, end_obj_id;
     objStorMgr->getDLT()->getTokenObjectRange(token, start_obj_id, end_obj_id);
     // If the iterator is non-zero then use that as a sarting point for the scan else make up a start from token

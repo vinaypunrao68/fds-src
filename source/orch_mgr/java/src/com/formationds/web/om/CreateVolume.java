@@ -22,7 +22,7 @@ public class CreateVolume implements RequestHandler {
 
     @Override
     public Resource handle(Request request) throws Exception {
-        String name = assertParameter(request, "name");
+        String name = requiredString(request, "name");
         FDSP_MsgHdrType msg = new FDSP_MsgHdrType();
         String policyName = name + "_policy";
         int policyId = (int) UUID.randomUUID().getLeastSignificantBits();

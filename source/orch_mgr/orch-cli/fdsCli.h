@@ -46,7 +46,6 @@ namespace fds {
         void run() {}
         int  run(int argc, char *argv[]);
 
-        fds_log* GetLog();
         int fdsCliParser(int argc, char* argv[]);
 
   private: /* methods */

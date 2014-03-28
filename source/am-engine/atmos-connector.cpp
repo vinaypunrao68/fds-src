@@ -89,8 +89,9 @@ Atmos_PutObject::ame_format_response_hdr()
 }
 
 static int
-atmos_putobj_cbfn(void *reqContext, fds_uint64_t bufferSize, char *buffer,
-    void *callbackData, FDSN_Status status, ErrorDetails* errDetails)
+atmos_putobj_cbfn(void *reqContext, fds_uint64_t bufferSize, fds_off_t offset,
+                  char *buffer, void *callbackData, FDSN_Status status,
+                  ErrorDetails* errDetails)
 {
     AME_Ctx        *ctx = static_cast<AME_Ctx *>(reqContext);
     Conn_PutObject *conn_po = static_cast<Conn_PutObject *>(callbackData);
@@ -106,7 +107,7 @@ atmos_putobj_cbfn(void *reqContext, fds_uint64_t bufferSize, char *buffer,
 void
 Atmos_PutObject::ame_request_handler()
 {
-    int           len;
+    fds_uint32_t  len;
     char          *buf;
     FDS_NativeAPI *api;
     fds_uint64_t  offset = 0;

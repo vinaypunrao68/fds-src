@@ -70,8 +70,9 @@ public:
     ObjMetaData();
     virtual ~ObjMetaData();
 
-
     void initialize(const ObjectID& objid, fds_uint32_t obj_size);
+
+    bool isInitialized() const;
 
     ObjMetaData(const ObjectBuf& buf);
 
@@ -120,6 +121,8 @@ public:
     void updateAssocEntry(ObjectID objId, fds_volid_t vol_id);
 
     void deleteAssocEntry(ObjectID objId, fds_volid_t vol_id);
+
+    fds_bool_t isVolumeAssociated(fds_volid_t vol_id);
 
     // Tiering/Physical Location update routines
     fds_bool_t onFlashTier();

@@ -23,22 +23,29 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::CreateVol(
 int32_t OrchMgr::FDSP_ConfigPathReqHandler::CreateVol(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_CreateVolTypePtr& crt_vol_req) {
-    int err = 0;
+    Error err(ERR_OK);
     LOGNOTIFY << "Received create volume " << crt_vol_req->vol_name
               << " from " << fdsp_msg->src_node_name  << " node uuid: "
               << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec;
 
     try {
+        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-        err = local->om_create_vol(fdsp_msg, crt_vol_req, false);
+        if (domain->om_local_domain_up()) {
+            err = local->om_create_vol(fdsp_msg, crt_vol_req, false);
+        } else {
+            LOGWARN << "OM Local Domain is not up yet, rejecting volume "
+                    << " create; try later";
+            err = Error(ERR_NOT_READY);
+        }
     }
     catch(...) {
         LOGERROR << "Orch Mgr encountered exception while "
                  << "processing create volume";
-        return -1;
+        err = Error(ERR_NETWORK_TRANSPORT);  // only transport throws exceptions
     }
 
-    return err;
+    return err.GetErrno();
 }
 
 int32_t OrchMgr::FDSP_ConfigPathReqHandler::DeleteVol(
@@ -52,18 +59,20 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::DeleteVol(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_DeleteVolTypePtr& del_vol_req) {
 
-    int err = 0;
+    Error err(ERR_OK);
     try {
+        // no need to check if local domain is up, because vol create
+        // would be rejected so om_delete_vol will return error
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         err = local->om_delete_vol(fdsp_msg, del_vol_req);
     }
     catch(...) {
         LOGERROR << "Orch Mgr encountered exception while "
                  << "processing delete volume";
-        return -1;
+        err = Error(ERR_NETWORK_TRANSPORT);  // only transport throws exceptions
     }
 
-    return err;
+    return err.GetErrno();
 }
 
 int32_t OrchMgr::FDSP_ConfigPathReqHandler::ModifyVol(
@@ -76,22 +85,24 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::ModifyVol(
 int32_t OrchMgr::FDSP_ConfigPathReqHandler::ModifyVol(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_ModifyVolTypePtr& mod_vol_req) {
-    int err = 0;
+    Error err(ERR_OK);
     LOGNOTIFY << "Received modify volume " << (mod_vol_req->vol_desc).vol_name
               << " from " << fdsp_msg->src_node_name  << " node uuid: "
               << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec;
 
     try {
+        // no need to check if local domain is up, because volume create
+        // would be rejected so om_modify_vol will return error in that case
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         err = local->om_modify_vol(mod_vol_req);
     }
     catch(...) {
         LOGERROR << "Orch Mgr encountered exception while "
                  << "processing modify volume";
-        return -1;
+        err = Error(ERR_NETWORK_TRANSPORT);  // only transport throws
     }
 
-    return err;
+    return err.GetErrno();
 }
 
 int32_t OrchMgr::FDSP_ConfigPathReqHandler::CreatePolicy(
@@ -176,22 +187,24 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::AttachVol(
 int32_t OrchMgr::FDSP_ConfigPathReqHandler::AttachVol(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_AttachVolCmdTypePtr& atc_vol_req) {
-    int err = 0;
+    Error err(ERR_OK);
     LOGNOTIFY << "Received attach volume " << atc_vol_req->vol_name
               << " from " << fdsp_msg->src_node_name  << " node uuid: "
               << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec;
 
     try {
+        // no need to check if local domain is up, because volume create
+        // would fail in that case so om_attach_vol would return error too
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         err = local->om_attach_vol(fdsp_msg, atc_vol_req);
     }
     catch(...) {
         LOGERROR << "Orch Mgr encountered exception while "
                  << "processing attach volume";
-        return -1;
+        err = Error(ERR_NETWORK_TRANSPORT);
     }
 
-    return err;
+    return err.GetErrno();
 }
 
 int32_t OrchMgr::FDSP_ConfigPathReqHandler::DetachVol(
@@ -204,7 +217,7 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::DetachVol(
 int32_t OrchMgr::FDSP_ConfigPathReqHandler::DetachVol(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_AttachVolCmdTypePtr& dtc_vol_req) {
-    int err = 0;
+    Error err(ERR_OK);
     LOGNOTIFY << "Received detach volume " << dtc_vol_req->vol_name
               << " from " << fdsp_msg->src_node_name << " node uuid: "
               << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec;
@@ -215,10 +228,10 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::DetachVol(
     catch(...) {
         LOGERROR << "Orch Mgr encountered exception while "
                  << "processing detach volume";
-        return -1;
+        err = Error(ERR_NETWORK_TRANSPORT);  // only transport throws
     }
 
-    return err;
+    return err.GetErrno();
 }
 
 int32_t OrchMgr::FDSP_ConfigPathReqHandler::AssociateRespCallback(
@@ -290,7 +303,6 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::RemoveNode(
                      << std::dec << ", result: " << err.GetErrstr();
             return -1;
         }
-        domain->om_update_cluster();
     }
     catch(...) {
         LOGERROR << "Orch Mgr encountered exception while "
@@ -702,18 +714,13 @@ void OrchMgr::FDSP_OMControlPathReqHandler::RegisterNode(
         LOGERROR << "Node Registration failed for "
                  << reg_node_req->node_name << ":" << std::hex
                  << new_node_uuid.uuid_get_val() << std::dec
+                 << " node_type " << reg_node_req->node_type
                  << ", result: " << err.GetErrstr();
         return;
     }
     LOGNORMAL << "Done Registered new node " << reg_node_req->node_name << std::hex
               << ", node uuid " << reg_node_req->node_uuid.uuid
-              << ", node type " << reg_node_req->node_type
-              << ", service uuid " << new_node_uuid.uuid_get_val() << std::dec;
-
-    // TODO(Andrew): for now, let's start the cluster update process now.
-    // This should eventually be decoupled from registration.
-    //
-    domain->om_update_cluster();
+              << ", node type " << reg_node_req->node_type << std::dec;
 }
 
 void OrchMgr::FDSP_OMControlPathReqHandler::NotifyQueueFull(

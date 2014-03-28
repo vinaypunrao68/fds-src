@@ -150,6 +150,61 @@ NodeInventory::set_node_dlt_version(fds_uint64_t dlt_version)
     const_cast<NodeInvData *>(node_inv)->nd_dlt_version = dlt_version;
 }
 
+std::ostream& operator<< (std::ostream &os, const NodeInvData& node) {
+    os << "["
+       << " uuid:" << node.nd_uuid
+       << " capacity:" << node.nd_gbyte_cap
+       << " ipnum:" << node.nd_ip_addr
+       << " ip:" << node.nd_ip_str.c_str()
+       << " data.port:" << node.nd_data_port
+       << " ctrl.port:" << node.nd_ctrl_port
+       << " migration.port:" << node.nd_migration_port
+       << " disk.type:" << node.nd_disk_type
+       << " name:" << node.nd_node_name
+       << " type:" << node.nd_node_type
+       << " state:" << node.nd_node_state
+       << " dlt.version:" << node.nd_dlt_version
+       << " disk.capacity:" << node.nd_capability.disk_capacity
+       << " disk.iops.max:" << node.nd_capability.disk_iops_max
+       << " disk.iops.min:" << node.nd_capability.disk_iops_min
+       << " disk.latency.max:" << node.nd_capability.disk_latency_max
+       << " disk.latency.min:" << node.nd_capability.disk_latency_min
+       << " ssd.iops.max:" << node.nd_capability.ssd_iops_max
+       << " ssd.iops.min:" << node.nd_capability.ssd_iops_min
+       << " ssd.capacity:" << node.nd_capability.ssd_capacity
+       << " ssd.latency.max:" << node.nd_capability.ssd_latency_max
+       << " ssd.latency.min:" << node.nd_capability.ssd_latency_min
+       << "]";
+
+    return os;
+}
+
+uint32_t NodeServices::write(serialize::Serializer*  s) const {
+    uint32_t b = 0;
+    b += s->writeI64(sm.uuid_get_val());
+    b += s->writeI64(dm.uuid_get_val());
+    b += s->writeI64(am.uuid_get_val());
+    return b;
+}
+
+uint32_t NodeServices::read(serialize::Deserializer* s) {
+    uint32_t b = 0;
+    fds_uint64_t uuid;
+    b += s->readI64(uuid); sm = uuid;
+    b += s->readI64(uuid); dm = uuid;
+    b += s->readI64(uuid); am = uuid;
+    return b;
+}
+
+std::ostream& operator<< (std::ostream &os, const NodeServices& node) {
+    os << "["
+       << " sm:" << node.sm
+       << " dm:" << node.dm
+       << " am:" << node.am
+       << "]";
+    return os;
+}
+
 // --------------------------------------------------------------------------------------
 // Node Agents
 // --------------------------------------------------------------------------------------
@@ -328,7 +383,8 @@ AgentContainer::~AgentContainer()
 Error
 AgentContainer::agent_register(const NodeUuid       &uuid,
                                const FdspNodeRegPtr  msg,
-                               NodeAgent::pointer   *out)
+                               NodeAgent::pointer   *out,
+                               bool                  activate)
 {
     fds_bool_t         add;
     std::string        name;
@@ -339,7 +395,7 @@ AgentContainer::agent_register(const NodeUuid       &uuid,
     name  = msg->node_name;
     agent = NodeAgent::agt_cast_ptr(agent_info(uuid));
     if (agent == NULL) {
-        add   = true;
+        add   = activate;
         agent = NodeAgent::agt_cast_ptr(rs_alloc_new(uuid));
         agent->node_fill_inventory(msg);
 
@@ -383,19 +439,17 @@ DomainContainer::~DomainContainer() {}
 DomainContainer::DomainContainer(char const *const name)
     : dc_om_master(NULL), dc_om_nodes(NULL),
       dc_sm_nodes(NULL), dc_dm_nodes(NULL),
-      dc_am_nodes(NULL), dc_pm_nodes(NULL), dc_nodes(NULL) {}
+      dc_am_nodes(NULL), dc_pm_nodes(NULL) {}
 
 DomainContainer::DomainContainer(char const *const       name,
                                  OmAgent::pointer        master,
-                                 SmContainer::pointer    sm,
-                                 DmContainer::pointer    dm,
-                                 AmContainer::pointer    am,
-                                 PmContainer::pointer    pm,
-                                 OmContainer::pointer    om,
-                                 AgentContainer::pointer node)
+                                 AgentContainer::pointer sm,
+                                 AgentContainer::pointer dm,
+                                 AgentContainer::pointer am,
+                                 AgentContainer::pointer pm,
+                                 AgentContainer::pointer om)
     : dc_om_master(master), dc_om_nodes(om),
-      dc_sm_nodes(sm), dc_dm_nodes(dm), dc_am_nodes(am),
-      dc_pm_nodes(pm), dc_nodes(node) {}
+      dc_sm_nodes(sm), dc_dm_nodes(dm), dc_am_nodes(am), dc_pm_nodes(pm) {}
 
 // dc_container_frm_msg
 // --------------------
@@ -452,7 +506,7 @@ DomainContainer::dc_register_node(const NodeUuid       &uuid,
     // should not register until its control interface is
     // fully initialized.
     sleep(2);
-    return nodes->agent_register(uuid, msg, agent);
+    return nodes->agent_register(uuid, msg, agent, true);
 }
 
 // dc_unregister_node

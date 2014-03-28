@@ -7,12 +7,12 @@
 
 #define REPLICATION_FACTOR     (3)
 #define LOAD_FACTOR            (0.5)
-#define BURST_FACTOR           (0.3)
+#define BURST_FACTOR           (0.1)
 
 namespace fds {
 
 FdsAdminCtrl::FdsAdminCtrl(const std::string& om_prefix, fds_log* om_log)
-        : parent_log(om_log) {
+        : parent_log(om_log), num_nodes(0) {
     /* init the disk  resource  variable */
     initDiskCapabilities();
 }
@@ -22,6 +22,8 @@ FdsAdminCtrl::~FdsAdminCtrl() {
 
 void FdsAdminCtrl::addDiskCapacity(const node_capability_t &n_info)
 {
+    ++num_nodes;
+
     total_disk_iops_max += n_info.disk_iops_max;
     total_disk_iops_min += n_info.disk_iops_min;
     total_disk_capacity += n_info.disk_capacity;
@@ -58,8 +60,14 @@ void FdsAdminCtrl::addDiskCapacity(const node_capability_t &n_info)
 
 void FdsAdminCtrl::removeDiskCapacity(const node_capability_t &n_info)
 {
+    fds_verify(num_nodes > 0);
+    --num_nodes;
+
+    fds_verify(total_disk_iops_max >= n_info.disk_iops_max);
     total_disk_iops_max -= n_info.disk_iops_max;
     total_disk_iops_min -= n_info.disk_iops_min;
+
+    fds_verify(total_disk_capacity >= n_info.disk_capacity);
     total_disk_capacity -= n_info.disk_capacity;
     disk_latency_max     = n_info.disk_latency_max;
     disk_latency_min     = n_info.disk_latency_min;
@@ -131,13 +139,18 @@ Error FdsAdminCtrl::volAdminControl(VolumeDesc  *pVolDesc)
     // remember that volume descriptor has capacity in MB
     // but disk and ssd capacity is in GB
     double vol_capacity_GB = pVolDesc->capacity / 1024;
+    fds_uint32_t replication_factor = REPLICATION_FACTOR;
+    if (replication_factor > num_nodes) {
+        // we will access at most num_nodes nodes
+        replication_factor = num_nodes;
+    }
 
     if (pVolDesc->iops_min > pVolDesc->iops_max) {
         LOGERROR << " Cannot admit volume " << pVolDesc->name
                  << " -- iops_min must be below iops_max";
         return Error(ERR_VOL_ADMISSION_FAILED);
     }
-    iopc_subcluster = (avail_disk_iops_max/REPLICATION_FACTOR);
+    iopc_subcluster = (avail_disk_iops_max/replication_factor);
 
     if ((total_vol_disk_cap + vol_capacity_GB) > avail_disk_capacity) {
         LOGERROR << " Cluster is running out of disk capacity \n"
@@ -147,7 +160,8 @@ Error FdsAdminCtrl::volAdminControl(VolumeDesc  *pVolDesc)
     }
 
     LOGNORMAL << *pVolDesc;
-    LOGNORMAL << " iopc_subcluster:" << iopc_subcluster
+    LOGNORMAL << " iopc_subcluster: " << iopc_subcluster
+              << " replication_factor: " << replication_factor
               << " iops_max: " << total_vol_iops_max
               << " iops_min: " << total_vol_iops_min
               << " loadfactor: " << LOAD_FACTOR

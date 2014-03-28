@@ -212,68 +212,6 @@ StorHvCtrl::dispatchSmGetMsg(StorHvJournalEntry *journEntry) {
     return err;
 }
 
-/**
- * Dispatches async FDSP messages to SMs for a del msg.
- * Note, assumes the journal entry lock is held already
- * and that the messages are ready to be dispatched.
- */
-fds::Error
-StorHvCtrl::dispatchSmDelMsg(StorHvJournalEntry *journEntry) {
-    fds::Error err(ERR_OK);
-
-    fds_verify(journEntry != NULL);
-
-    FDSP_MsgHdrTypePtr smMsgHdr = journEntry->sm_msg;
-    fds_verify(smMsgHdr != NULL);
-    FDSP_DeleteObjTypePtr delMsg = journEntry->delMsg;
-    fds_verify(delMsg != NULL);
-
-    ObjectID objId(delMsg->data_obj_id.digest);
-
-    // Lookup the Primary SM node-id/ip-address to send the DeleteObject to
-    // TODO(Andrew): Send to all nodes...not just primary
-    boost::shared_ptr<DltTokenGroup> dltPtr;
-    dltPtr = dataPlacementTbl->getDLTNodesForDoidKey(objId);
-    fds_verify(dltPtr != NULL);
-
-    fds_int32_t numNodes = dltPtr->getLength();
-    fds_verify(numNodes > 0);
-
-    unsigned int node_ip = 0;
-    fds_uint32_t node_port = 0;
-    int node_state = -1;
-    dataPlacementTbl->getNodeInfo(dltPtr->get(0).uuid_get_val(),
-                                  &node_ip,
-                                  &node_port,
-                                  &node_state);
-  
-    smMsgHdr->dst_ip_lo_addr = node_ip;
-    smMsgHdr->dst_port       = node_port;
-  
-    delMsg->dlt_version = om_client->getDltVersion();
-    fds_verify(delMsg->dlt_version != DLT_VER_INVALID);
-
-    // *****CAVEAT: Modification reqd
-    // ******  Need to find out which is the primary SM and send this out to that SM. ********
-    netDataPathClientSession *sessionCtx =
-            rpcSessionTbl->\
-            getClientSession<netDataPathClientSession>(node_ip, node_port);
-    fds_verify(sessionCtx != NULL);
-
-    try {
-        boost::shared_ptr<FDSP_DataPathReqClient> client = sessionCtx->getClient();
-        smMsgHdr->session_uuid = sessionCtx->getSessionId();
-        journEntry->session_uuid = smMsgHdr->session_uuid;
-        client->DeleteObject(smMsgHdr, delMsg);
-        LOGNORMAL << " StorHvisorTx:" << "IO-XID:" << journEntry->trans_id
-                  << " - Sent async DelObj req to SM";
-    } catch (att::TTransportException& e) {
-        LOGERROR << "error during network call : " << e.what() ;
-    }
-
-    return err;
-}
-
 fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
     fds::Error err(ERR_OK);
 
@@ -399,9 +337,10 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
     msgHdrSm->req_cookie = transId;
 
     LOGNOTIFY << "Putting object " << objId << " for blob "
-              << blobReq->getBlobName() << " and offset "
-              << blobReq->getBlobOffset() << "src node ip"
-              << msgHdrSm->src_node_name << "in Trans"
+              << blobReq->getBlobName() << " at offset "
+              << blobReq->getBlobOffset() << " with length "
+              << blobReq->getDataLen() << " src node ip"
+              << msgHdrSm->src_node_name << " in trans"
               << transId;
 
     err = dispatchSmPutMsg(journEntry);
@@ -519,8 +458,6 @@ StorHvCtrl::procNewDlt(fds_uint64_t newDltVer) {
                 dispatchSmPutMsg(journEntry);
             } else if (journEntry->op == FDS_GET_BLOB) {
                 dispatchSmGetMsg(journEntry);
-            } else if (journEntry->op == FDS_DELETE_BLOB) {
-                dispatchSmDelMsg(journEntry);
             } else {
                 fds_panic("Trying to dispatch unknown pending command");
             }
@@ -631,6 +568,10 @@ fds::Error StorHvCtrl::upCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
     StorHvJournalEntryLock je_lock(txn);
     fds_verify(txn->isActive() == true); // Should not get resp for inactive txns
     fds_verify(txn->trans_state != FDS_TRANS_EMPTY);  // Should not get resp for empty txns
+
+    // Check response code
+    Error msgRespErr(rxMsg->err_code);
+    fds_verify(msgRespErr == ERR_OK);
   
     if (catObjRsp->dm_operation == FDS_DMGR_TXN_STATUS_OPEN) {
         result = txn->fds_set_dmack_status(rxMsg->src_ip_lo_addr,
@@ -703,6 +644,10 @@ fds::Error StorHvCtrl::deleteCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
     /*
      * start accumulating the ack from  DM and  check for the min ack
      */
+
+    // Check response code
+    Error msgRespErr(rxMsg->err_code);
+    fds_verify(msgRespErr == ERR_OK || msgRespErr == ERR_BLOB_NOT_FOUND);
 
     if (rxMsg->msg_code == FDSP_MSG_DELETE_BLOB_RSP) {
         txn->fds_set_dmack_status(rxMsg->src_ip_lo_addr,
@@ -844,11 +789,16 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
     journEntry->dm_msg = NULL;
     journEntry->sm_ack_cnt = 0;
     journEntry->dm_ack_cnt = 0;
+    // TODO(Andrew): Depricate FDS_IO_READ in favor
+    // of FDS_GET_BLOB
     journEntry->op = FDS_IO_READ;
     journEntry->data_obj_id.digest.clear(); 
     journEntry->data_obj_len = blobReq->getDataLen();
     journEntry->io = qosReq;
     journEntry->trans_state = FDS_TRANS_GET_OBJ;
+
+    FDSP_GetObjTypePtr get_obj_req(new FDSP_GetObjType);
+    journEntry->getMsg = get_obj_req;
 
     /*
      * Get the object ID from vcc and add it to journal entry and get msg
@@ -874,11 +824,8 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
     fds_verify(err == ERR_OK);
     journEntry->data_obj_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
 
-    FDSP_GetObjTypePtr get_obj_req(new FDSP_GetObjType);
     get_obj_req->data_obj_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
-    get_obj_req->data_obj_len          = blobReq->getDataLen();
-
-    journEntry->getMsg = get_obj_req;
+    get_obj_req->data_obj_len = blobReq->getDataLen();
 
     LOGNOTIFY << "Getting object " << objId << " for blob "
               << blobReq->getBlobName() << " and offset "
@@ -937,6 +884,8 @@ fds::Error StorHvCtrl::getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
         // move the state machine forward.
         return err;
     }
+
+    fds_verify(rxMsg->result == FDS_ProtocolInterface::FDSP_ERR_OK);
     fds_verify(txn->trans_state == FDS_TRANS_GET_OBJ);
 
     /*
@@ -1051,9 +1000,6 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
 
     journEntry->setActive();
 
-    LOGNORMAL <<" StorHvisorTx:" << "IO-XID:" << transId << " volID: 0x" << std::hex
-              << vol_id << std::dec << " - Activated txn for req :" << transId;
-  
     FDS_ProtocolInterface::FDSP_DeleteObjTypePtr del_obj_req(new FDSP_DeleteObjType);
   
     //  journEntry->trans_state = FDS_TRANS_OPEN;
@@ -1066,38 +1012,13 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
     journEntry->data_obj_len = blobReq->getDataLen();
     journEntry->io = qosReq;
     journEntry->delMsg = del_obj_req;
-  
-#if 0
-    err = shVol->vol_catalog_cache->Query(blobReq->getBlobName(),
-                                          blobReq->getBlobOffset(),
-                                          transId,
-                                          &oid);
-    if (err.GetErrno() == ERR_PENDING_RESP) {
-        shVol->readUnlock();
+    journEntry->trans_state = FDS_TRANS_DEL_OBJ;
 
-        LOGNORMAL <<" StorHvisorTx:" << "IO-XID:" << transId << " volID: 0x" << std::hex
-                  << vol_id << std::dec << " - Vol catalog Cache Query pending :" << err.GetErrno();
-        journEntry->trans_state = FDS_TRANS_VCAT_QUERY_PENDING;
-        return err.GetErrno();
-    }
-  
-    if (err.GetErrno() == ERR_CAT_QUERY_FAILED)
-    {
-        shVol->readUnlock();
-
-        LOGNORMAL << " StorHvisorTx:" << "IO-XID:" << transId << " volID: 0x" << std::hex
-                  << vol_id << std::dec << " - Error reading the Vol catalog  Error code : " <<  err.GetErrno() << std::endl;
-        blobReq->cbWithResult(err.GetErrno());
-        return err.GetErrno();
-    }
-#endif
-  
-    LOGNORMAL << " StorHvisorTx:" << "IO-XID:" << transId << " volID: 0x" << std::hex
-              << vol_id << std::dec << " - object ID: " << oid.ToHex(oid)
-              << "  ObjLen:" << journEntry->data_obj_len;
-
+    LOGNORMAL << "Deleting blob " << blobReq->getBlobName() << " in trans "
+              << transId << " and vol 0x" << std::hex << vol_id << std::dec;
+    
     // SAN- check the  version of the object. If the object version NULL ( object deleted) return
-  
+
     del_obj_req->data_obj_id.digest = std::string((const char *)oid.GetId(), (size_t)oid.GetLen());
     del_obj_req->data_obj_len = blobReq->getDataLen();
   
@@ -1111,7 +1032,6 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
     // cache miss that will go to DM anyways.
     err = shVol->vol_catalog_cache->clearEntry(blobReq->getBlobName());
     fds_verify(err == ERR_OK);
-
   
     // RPC Call DeleteCatalogObject to DataMgr
     FDS_ProtocolInterface::FDSP_DeleteCatalogTypePtr del_cat_obj_req(new FDSP_DeleteCatalogType);

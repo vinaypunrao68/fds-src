@@ -39,6 +39,12 @@ class DltNoRebalEvt
     DltNoRebalEvt() {}
 };
 
+class DltLoadedDbEvt
+{
+  public:
+    DltLoadedDbEvt() {}
+};
+
 class DltRebalOkEvt
 {
   public:
@@ -87,6 +93,7 @@ class OM_DLTMod : public Module
     void dlt_deploy_event(DltRebalOkEvt const &evt);
     void dlt_deploy_event(DltCommitOkEvt const &evt);
     void dlt_deploy_event(DltCloseOkEvt const &evt);
+    void dlt_deploy_event(DltLoadedDbEvt const &evt);
 
     /**
      * Module methods

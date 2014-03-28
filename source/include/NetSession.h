@@ -194,21 +194,23 @@ class netClientSessionEx : public netSession , public net::SocketEventHandler {
                       &netClientSessionEx<ReqClientT,
                       RespProcessorT, RespHandlerT>::run, this));
           }
+          return true;
+      } catch(const att::TTransportException& e) {
+          LOGCRITICAL << "error during network call : " << e.what();
       } catch (const std::exception &e) {
-          LOGWARN << e.what();
-          return false;
+          LOGCRITICAL << e.what();
       } catch (...) {
-          LOGWARN << "Exception";
-          return false;
+          LOGCRITICAL << "unknown Exception";
       }
-      return true;
+      return false;
   }
 
-  void run()
-  {
+  void run() {
       LOGDEBUG << "run started" ;
       try {
           for (;socket_->peek() && resp_processor_->process(protocol_, protocol_, NULL);) ;
+      } catch(const att::TTransportException& e) {
+          LOGCRITICAL << "error during network call : " << e.what();
       }
       catch (TException& tx) {
           LOGWARN << "Receiver exception" << tx.what();
@@ -415,8 +417,13 @@ class netServerSessionEx: public netSession {
 
   void listenServer()
   {
-      std::cerr << "Starting the server..." << std::endl;
-      server_->serve();
+      try {
+          LOGNORMAL << "Starting the server...";
+          server_->serve();
+      } catch(const att::TTransportException& e) {
+          LOGERROR << "unable to start server : " << e.what();
+          exit(1);
+      }
   }
 
   /**
@@ -516,16 +523,23 @@ class netServerSessionEx: public netSession {
                                   boost::shared_ptr<TProtocol> output) override
       {
           fds_mutex::scoped_lock l(parent_.lock_);
-          /* Add the new connection */
+         
+ /* Add the new connection */
           TTransportPtr transport = input->getTransport();
           parent_.connections_.insert(transport);
 
           LOGDEBUG << "New connection request: " << getTransportKey(transport);
 
           /* Process the connection request */
-          boost::shared_ptr<FDSP_ServiceIf> iface(new FDSP_ConnectHandler(parent_, transport));
-          FDSP_ServiceProcessor conn_processor(iface);
-          bool ret = conn_processor.process(input, output, NULL);
+          bool ret = false;
+          try {
+              boost::shared_ptr<FDSP_ServiceIf> iface(new FDSP_ConnectHandler(parent_, transport));
+              FDSP_ServiceProcessor conn_processor(iface);
+              ret = conn_processor.process(input, output, NULL);
+          } catch(const att::TTransportException& e) {
+              LOGERROR << "error during network call : " << e.what();
+          }
+          
           if (!ret) {
               LOGWARN << "Processing incoming connection request failed."
                 "Closing the connection: " << getTransportKey(transport);

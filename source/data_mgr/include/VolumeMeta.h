@@ -63,7 +63,13 @@ class BlobObjectInfo {
     const std::string open_seq = "{";
     const std::string end_seq = "}";
 
-    BlobObjectInfo(FDS_ProtocolInterface::FDSP_BlobObjectInfo& blob_obj_info) {
+    BlobObjectInfo()
+            : offset(0),
+              size(0) {
+    }
+
+    BlobObjectInfo(FDS_ProtocolInterface::FDSP_BlobObjectInfo& blob_obj_info)
+            : BlobObjectInfo() {
         offset = blob_obj_info.offset;
         data_obj_id.SetId((const char *)blob_obj_info.data_obj_id.digest.c_str(), blob_obj_info.data_obj_id.digest.length());
         size = blob_obj_info.size;
@@ -74,11 +80,31 @@ class BlobObjectInfo {
     }
 
     /**
+     * Constructor for a 'sparse' entry
+     */
+    BlobObjectInfo(fds_uint64_t off)
+            : BlobObjectInfo() {
+        offset = off;
+    }
+
+    BlobObjectInfo(std::string& str)
+            : BlobObjectInfo() {
+        initFromString(str);
+    }
+
+    ~BlobObjectInfo() {
+    }
+
+    /**
      * Serializes the blob object info into a string.
      * TODO(Andrew): This can just return a char * and
      * avoid the extra copy into a string.
      */
     std::string ToString() const {
+        // TODO(Andrew): Add back a better serialization than ASCII.
+        // We need ASCII for now because all of the parent classes
+        // expect it, so they all need to change together.
+        /*
         size_t serialSize = sizeof(offset) + ObjIdGen::getIdLength() + sizeof(size);
         size_t pos = 0;
         unsigned char serialBuf[serialSize];
@@ -90,6 +116,16 @@ class BlobObjectInfo {
 
         std::string serialStr((const char *)serialBuf, serialSize);
         return serialStr;
+        */
+
+        std::ostringstream binfoOss;
+        binfoOss << offset << delim
+                 << "0x" << data_obj_id.ToString() << delim
+                 << size;
+        LOGDEBUG << "Serialized blob object info " << *this
+                 << " to " << binfoOss.str();
+
+        return binfoOss.str();
     }
 
     /**
@@ -98,6 +134,8 @@ class BlobObjectInfo {
      * avoid the extra copy into a string.
      */
     void initFromString(std::string& str) {
+        // TODO(Andrew): Add back binary serialization
+        /*
         size_t pos = 0;
         const char *serialBuf = str.c_str();
         offset = *((const fds_uint64_t *)serialBuf);
@@ -107,10 +145,38 @@ class BlobObjectInfo {
         pos += ObjIdGen::getIdLength();
 
         size = *((const fds_uint64_t *)(serialBuf + pos));
-    }
- 
-    BlobObjectInfo(std::string& str) {
-        initFromString(str);
+        */
+        int next_start = 0;
+        int next_end = 0;
+        ulong next_delim_pos = -1;
+        std::string next_sub_str = "";
+        for (fds_uint32_t field_idx = 0; field_idx < 3; field_idx++) {
+            next_delim_pos = str.find(delim, next_start);
+            if (next_delim_pos == std::string::npos) {
+                fds_verify(field_idx == 2);
+                next_end = str.size() - 1;
+            } else {
+                next_end = next_delim_pos- 1 ; 
+            }
+            next_sub_str = str.substr(next_start, next_end-next_start + 1);
+            switch (field_idx) {
+                case 0:
+                    offset = strtoull(next_sub_str.c_str(), NULL, 0);
+                    break;
+                case 1:
+                    data_obj_id = next_sub_str;
+                    break;
+                case 2:
+                    size = strtoul(next_sub_str.c_str(), NULL, 0);
+                    break;
+                default:
+                    fds_panic("Unknown blob object info field!");
+            }
+            next_start = next_end+2;
+        }
+
+        LOGDEBUG << "From string " << str << " created blob object info "
+                 << *this;
     }
 
     BlobObjectInfo& operator=(const BlobObjectInfo &rhs) {
@@ -120,6 +186,8 @@ class BlobObjectInfo {
         return *this;
     }
 };
+
+std::ostream& operator<<(std::ostream& out, const BlobObjectInfo& binfo);
 
 class BlobObjectList {
 
@@ -133,6 +201,19 @@ class BlobObjectList {
 
     BlobObjectList() {
         obj_list.clear();
+    }
+
+    BlobObjectList(std::string& str) :
+            BlobObjectList() {
+        initFromString(str);
+    }
+
+    BlobObjectList(FDS_ProtocolInterface::FDSP_BlobObjectList& blob_obj_list)
+            : BlobObjectList() {
+        initFromFDSPObjList(blob_obj_list);
+    }
+
+    ~BlobObjectList() {
     }
 
     const BlobObjectInfo& operator[](const int index) const {
@@ -230,19 +311,11 @@ class BlobObjectList {
         }
     }
 
-    BlobObjectList(std::string& str) {
-        initFromString(str);
-    }
-
     void initFromFDSPObjList(FDS_ProtocolInterface::FDSP_BlobObjectList& blob_obj_list) {
         obj_list.clear();
         for (uint i = 0; i < blob_obj_list.size(); i++) {
             obj_list.push_back(blob_obj_list[i]);
         }
-    }
-    
-    BlobObjectList(FDS_ProtocolInterface::FDSP_BlobObjectList& blob_obj_list) {
-        initFromFDSPObjList(blob_obj_list);
     }
 
     void ToFDSPObjList(FDS_ProtocolInterface::FDSP_BlobObjectList& fdsp_obj_list) const {
@@ -289,10 +362,23 @@ class BlobNode {
         meta_list.clear();
     }
 
+    ~BlobNode() {
+    }
+
     BlobNode(fds_volid_t volId, const std::string &name)
             : BlobNode() {
         vol_id = volId;
         blob_name = name;
+    }
+
+    BlobNode(std::string& str)
+            : BlobNode() {
+        initFromString(str);
+    }
+
+    BlobNode(FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr cat_msg, fds_volid_t _vol_id)
+            : BlobNode() {
+        initFromFDSPPayload(cat_msg, _vol_id);
     }
 
     std::string metaListToString() const {
@@ -395,7 +481,7 @@ class BlobNode {
                     vol_id = strtoull(next_sub_str.c_str(), NULL, 0);
                     break;
                 case 2:
-                    version = strtoul(next_sub_str.c_str(), NULL, 0);
+                    version = strtoull(next_sub_str.c_str(), NULL, 0);
                     break;
                 case 3:
                     blob_size = strtoull(next_sub_str.c_str(), NULL, 0);
@@ -412,10 +498,6 @@ class BlobNode {
             next_start = next_end+2;
             field_idx++;
         }
-    }
-
-    BlobNode(std::string& str) {
-        initFromString(str);
     }
 
     void initFromFDSPPayload(const FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr cat_msg,
@@ -444,11 +526,6 @@ class BlobNode {
         }
     }
 
-    BlobNode(FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr cat_msg, fds_volid_t _vol_id)
-            : BlobNode() {
-        initFromFDSPPayload(cat_msg, _vol_id);
-    }
-
     void ToFdspPayload(FDS_ProtocolInterface::FDSP_QueryCatalogTypePtr& query_msg) const {
         query_msg->blob_name = blob_name;
         query_msg->blob_size = blob_size;
@@ -458,6 +535,7 @@ class BlobNode {
     }
 };
 
+std::ostream& operator<<(std::ostream& out, const BlobNode& bnode);
 
 class VolumeMeta {
   private:

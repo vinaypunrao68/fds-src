@@ -14,12 +14,14 @@
 needed_packages=(
     redis-server
     oracle-java8-installer oracle-java8-set-default maven
+    libudev-dev
 )
 
 python_packages=(
     paramiko
     redis
     requests
+    scp
 )
 
 ###########################################################################

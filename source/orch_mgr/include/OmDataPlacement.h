@@ -496,15 +496,26 @@ namespace fds {
         NodeUuidSet getRebalanceNodes() const;
 
         /**
-         * will load the supplied dlt into proper variables
-         * this fn will be called by configdb load
+         * Both commited DLT and target DLT must be NULL when
+         * this method is called (should be called only during init)
+         * Will read commited and target DLT from configDB
+         * and save commited DLT as non-commited. DLT will be commited
+         * later when all nodes in DLT come up, or DLT will be recomputed.
          */
-        bool loadDltsFromConfigDB();
+        Error loadDltsFromConfigDB(const NodeUuidSet& ms_services);
 
         /**
          * set the config db from orchmgr
          */
         void setConfigDB(kvstore::ConfigDB* configDB);
+
+  private:  // methods
+        /**
+         * Checks if DLT matches the set of given SMs and does basic
+         * sanity check -- basic correctness independent of placement
+         * algorithm.
+         */
+        Error checkDltValid(const DLT* dlt, const NodeUuidSet& sm_services);
     };
 }  // namespace fds
 

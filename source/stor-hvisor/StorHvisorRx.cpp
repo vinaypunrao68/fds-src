@@ -436,6 +436,7 @@ void FDSP_DataPathRespCbackI::DeleteObjectResp(
 void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
     FDSP_MsgHdrTypePtr& fdsp_msg_hdr,
     FDSP_QueryCatalogTypePtr& cat_obj_req) {
+    Error err(ERR_OK);
     int num_nodes=8;
     fds_uint64_t node_ids[8];
     int node_state = -1;
@@ -445,12 +446,12 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
     int doid_dlt_key;
     netSession *endPoint = NULL;
     int trans_id = fdsp_msg_hdr->req_cookie;
-    //fbd_request_t *req;
     fds_volid_t vol_id = fdsp_msg_hdr->glob_volume_id;
 
-    LOGNORMAL << " StorHvisorRx: " << "IO_XID: " << trans_id << " - Volume 0x" << std::hex
-              << vol_id << std::dec << " Received query catalog response" ;
+    LOGNORMAL << " StorHvisorRx: trans " << trans_id << ", volume 0x" << std::hex
+              << vol_id << std::dec << " received query catalog response" ;
 
+    // Get the volume specific to the request
     StorHvVolume *shvol = storHvisor->vol_table->getVolume(vol_id);
     StorHvVolumeLock vol_lock(shvol);    
     if (!shvol || !shvol->isValidLocked()) {
@@ -459,74 +460,42 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
         return;
     }
 
-    StorHvJournalEntry *journEntry = shvol->journal_tbl->get_journal_entry(trans_id);
-    
+    // Get the request journal entry
+    StorHvJournalEntry *journEntry = shvol->journal_tbl->get_journal_entry(trans_id);    
     if (journEntry == NULL) {
         LOGWARN << " StorHvisorRx:" << "IO-XID:" << trans_id << " - Journal Entry  " << trans_id <<  "QueryCatalogObjResp not found";
         return;
     }
-    
-    StorHvJournalEntryLock je_lock(journEntry);
-    if (!journEntry->isActive()) {
-        LOGERROR << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID: 0x"
-                 << std::hex << vol_id << std::dec << " - Journal Entry is In-Active";
-        return;
-    }
 
+    // Lock the journal entry and verify it's active
+    StorHvJournalEntryLock je_lock(journEntry);
+    fds_verify(journEntry->isActive());
+
+    // Get the blob request from the journal
     fds::AmQosReq   *qosReq  = (AmQosReq *)journEntry->io;
     fds_verify(qosReq != NULL);
     fds::FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
     fds_verify(blobReq != NULL);
-    
-    if (journEntry->op !=  FDS_IO_READ && journEntry->op != FDS_GET_BLOB && journEntry->op != FDS_DELETE_BLOB) { 
-        LOGERROR << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID: 0x" << std::hex << vol_id << std::dec
-                 << " - Journal Entry  " << fdsp_msg_hdr->req_cookie <<  "  QueryCatalogObjResp for a non IO_READ transaction" ;
-        journEntry->trans_state = FDS_TRANS_EMPTY;
-        journEntry->write_ctx = 0;
-        LOGERROR << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Responding to AM request with Error" ;
-        blobReq->cbWithResult(-1);
-        journEntry->reset();
-        delete blobReq;
-        shvol->journal_tbl->releaseTransId(trans_id);
-        return;
-    }
-    
-    if (journEntry->trans_state != FDS_TRANS_VCAT_QUERY_PENDING) {
-        LOGERROR << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID: 0x" << std::hex << vol_id << std::dec
-                 << " - Journal Entry  " << fdsp_msg_hdr->req_cookie
-                 <<  " QueryCatalogObjResp for a transaction node not in Query Pending " ;
-        journEntry->trans_state = FDS_TRANS_EMPTY;
-        journEntry->write_ctx = 0;
-        LOGERROR << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID: 0x" << std::hex << vol_id << std::dec
-                 << " - Responding to the block device with Error" ;
-        blobReq->cbWithResult(-1);      
-        journEntry->reset();
-        delete blobReq;
-        shvol->journal_tbl->releaseTransId(trans_id);
-        return;
-    }
-    
-    // If Data Mgr does not have an entry, simply return 0s.
+    fds_verify(blobReq->getBlobName() == cat_obj_req->blob_name);
+
+    // Verify the operation type is valid for a query catalog rsp
+    fds_verify((journEntry->op ==  FDS_IO_READ) ||
+               (journEntry->op == FDS_GET_BLOB));
+
+    // Verify the transaction is expecting a query response
+    fds_verify(journEntry->trans_state == FDS_TRANS_VCAT_QUERY_PENDING);
+
+    // Return err to callback if DM query failed
     if (fdsp_msg_hdr->result != FDS_ProtocolInterface::FDSP_ERR_OK) {
-        LOGERROR << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID: 0x" << std::hex << vol_id << std::dec
-                 << " - Journal Entry  " << fdsp_msg_hdr->req_cookie <<  ":  QueryCatalogObjResp returned error ";
+        LOGERROR << "Query response for trans " << trans_id << " for volume 0x"
+                 << std::hex << vol_id << std::dec
+                 << " journal entry  " << journEntry->trans_id
+                 << " returned error " << fdsp_msg_hdr->result;
+
         storHvisor->qos_ctrl->markIODone(journEntry->io);
         journEntry->trans_state = FDS_TRANS_EMPTY;
         journEntry->write_ctx = 0;
-        // memset(req->buf, 0, req->len);
-#if 0
-        // TODO: We need to do something like below to fill the return buff with zeroes.
-        if (blobReq->getIoType() == FDS_GET_BLOB) {
-            /* NOTE: we are currently supporting only getting the whole blob
-             * so the requester does not know about the blob length, 
-             * we get the blob length in response from SM;
-             * will need to revisit when we also support (don't ignore) byteCount in native api */
-            fds_verify(getObjRsp->data_obj_len <= blobReq->getDataLen());
-            blobReq->setDataLen(getObjRsp->data_obj_len);
-        }
-        fds_verify(getObjRsp->data_obj_len == blobReq->getDataLen());
-        blobReq->setDataBuf(getObjRsp->data_obj.c_str());
-#endif      
+
         blobReq->cbWithResult(-1);  
         journEntry->reset();
         delete blobReq;
@@ -534,136 +503,45 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
         return;
     }
 
-    fds_verify(cat_obj_req->obj_list.size() > 0);
-    FDS_ProtocolInterface::FDSP_BlobObjectInfo& cat_obj_info = cat_obj_req->obj_list[0];
-    LOGNORMAL << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID: 0x"
-              << std::hex << vol_id << std::dec << " - GOT A QUERY RESPONSE! Object ID :- " 
-              << cat_obj_info.data_obj_id.digest;
-    //AmQosReq *qosReq = (AmQosReq *)journEntry->io;
-    //FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
-    
-
-    
-    // Lookup the Primary SM node-id/ip-address to send the GetObject to
-    boost::shared_ptr<DltTokenGroup> dltPtr;
-    dltPtr = storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(obj_id);
-    fds_verify(dltPtr != NULL);
-
-    num_nodes = dltPtr->getLength();
-    // storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(doid_dlt_key, node_ids, &num_nodes);
-    if(num_nodes == 0) {
-        LOGERROR << " StorHvisorRx:" << "IO-XID:" << trans_id 
-                 << " volID: 0x" << std::hex << vol_id << std::dec
-                 << " - DataPlace Error : no nodes in DLT :Jrnl Entry" << fdsp_msg_hdr->req_cookie <<  "QueryCatalogObjResp ";
-        storHvisor->qos_ctrl->markIODone(journEntry->io);
-        journEntry->trans_state = FDS_TRANS_EMPTY;
-        journEntry->write_ctx = 0;
-        blobReq->cbWithResult(0);  
-        journEntry->reset();
-        delete blobReq;
-        shvol->journal_tbl->releaseTransId(trans_id);
-        return;
+    // Insert the returned entries into the cache
+    FDS_ProtocolInterface::FDSP_BlobObjectList blobOffList = cat_obj_req->obj_list;
+    fds_verify(blobOffList.empty() == false);
+    for (FDS_ProtocolInterface::FDSP_BlobObjectList::const_iterator it =
+                 blobOffList.cbegin();
+         it != blobOffList.cend();
+         it++) {
+        ObjectID offsetObjId(((*it).data_obj_id).digest);
+        err = shvol->vol_catalog_cache->Update(blobReq->getBlobName(),
+                                               (*it).offset,
+                                               offsetObjId);
+        fds_verify(err == ERR_OK);
     }
-
-    storHvisor->dataPlacementTbl->getNodeInfo(dltPtr->get(0).uuid_get_val(),
-                                              &node_ip,
-                                              &node_port,
-                                              &node_state);
-    // *****CAVEAT: Modification reqd
-    // ******  Need to find out which is the primary SM and send this out to that SM. ********
-    netDataPathClientSession *sessionCtx =
-            storHvisor->rpcSessionTbl->\
-            getClientSession<netDataPathClientSession>(node_ip, node_port);
-    fds_verify(sessionCtx != NULL);
     
-    // RPC Call GetObject to StorMgr
-    fdsp_msg_hdr->msg_code = FDSP_MSG_GET_OBJ_REQ;
-    fdsp_msg_hdr->msg_id =  1;
-    // fdsp_msg_hdr->src_ip_lo_addr = SRC_IP;
-    fdsp_msg_hdr->dst_ip_lo_addr = node_ip;
-    fdsp_msg_hdr->dst_port = node_port;
-    fdsp_msg_hdr->src_node_name = storHvisor->my_node_name;
-    if ( journEntry->io->io_type == FDS_IO_READ || journEntry->io->io_type == FDS_GET_BLOB) {
-        FDS_ProtocolInterface::FDSP_GetObjTypePtr get_obj_req(new FDSP_GetObjType);
-        get_obj_req->data_obj_id.digest = cat_obj_info.data_obj_id.digest;
-        //        get_obj_req->data_obj_id.hash_low = cat_obj_info.data_obj_id.hash_low;
-        get_obj_req->data_obj_len = journEntry->data_obj_len;
+    // Get the object ID from the cache
+    ObjectID offsetObjId;
+    err = shvol->
+            vol_catalog_cache->Query(blobReq->getBlobName(),
+                                     blobReq->getBlobOffset(),
+                                     journEntry->trans_id,
+                                     &offsetObjId);
+    fds_verify(err == ERR_OK);
+    journEntry->data_obj_id.digest = std::string((const char *)offsetObjId.GetId(),
+                                                 (size_t)offsetObjId.GetLen());
 
+    // Dispatch the SM get request after the
+    // DM response is received
+    fds_verify(journEntry->getMsg != NULL);
+    
+    // Update the request in the journal
+    journEntry->getMsg->data_obj_id.digest =
+            std::string((const char *)offsetObjId.GetId(),
+                        (size_t)offsetObjId.GetLen());
+    journEntry->getMsg->data_obj_len = blobReq->getDataLen();
+    journEntry->trans_state = FDS_TRANS_GET_OBJ;
+    err = storHvisor->dispatchSmGetMsg(journEntry);
+    fds_verify(err == ERR_OK);
 
-        boost::shared_ptr<FDSP_DataPathReqClient> client = sessionCtx->getClient();
-        fdsp_msg_hdr->session_uuid = sessionCtx->getSessionId();
-        client->GetObject(fdsp_msg_hdr, get_obj_req);
-        LOGNORMAL << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << vol_id << " - Sent Async getObj req to SM at " << node_ip ;
-        journEntry->trans_state = FDS_TRANS_GET_OBJ;
-
-
-        obj_id.SetId( (const char *)cat_obj_info.data_obj_id.digest.c_str(), cat_obj_info.data_obj_id.digest.length());
-        FDS_PLOG(storHvisor->GetLog()) << " Query Cat StorHvisorRx:" << obj_id ;
-        /*
-         * TODO: Don't just grab the hard coded first catalog object in the list.
-         * Actually loop here.
-         */
-        LOGNORMAL << "Doing a update catalog request after resp received";
-        shvol->vol_catalog_cache->Update(cat_obj_req->blob_name,
-                                         cat_obj_info.offset,
-                                         obj_id);
-    } else if (journEntry->io->io_type == FDS_DELETE_BLOB) {
-        FDS_ProtocolInterface::FDSP_DeleteObjTypePtr del_obj_req(new FDSP_DeleteObjType);
-        del_obj_req->data_obj_id.digest = cat_obj_info.data_obj_id.digest;
-        del_obj_req->data_obj_len = journEntry->data_obj_len;
-        if (endPoint) {
-            boost::shared_ptr<FDSP_DataPathReqClient> client =
-                    dynamic_cast<netDataPathClientSession *>(endPoint)->getClient();
-            netDataPathClientSession *sessionCtx =  static_cast<netDataPathClientSession *>(endPoint);
-            fdsp_msg_hdr->session_uuid = sessionCtx->getSessionId();
-            client->DeleteObject(fdsp_msg_hdr, del_obj_req);
-            LOGNORMAL << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID:" << std::hex << vol_id << std::dec << " - Sent Async deleteObj req to SM at " << node_ip ;
-            journEntry->trans_state = FDS_TRANS_DEL_OBJ;
-        }
-        // RPC Call DeleteCatalogObject to DataMgr
-        FDS_ProtocolInterface::FDSP_DeleteCatalogTypePtr del_cat_obj_req(new FDSP_DeleteCatalogType);
-        num_nodes = FDS_REPLICATION_FACTOR;
-        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr_dm(new FDSP_MsgHdrType);
-        storHvisor->InitDmMsgHdr(fdsp_msg_hdr_dm);
-        fdsp_msg_hdr_dm->msg_code = FDSP_MSG_DELETE_BLOB_REQ;
-        fdsp_msg_hdr_dm->req_cookie = trans_id;
-        fdsp_msg_hdr_dm->src_ip_lo_addr = SRC_IP;
-        fdsp_msg_hdr_dm->src_node_name = storHvisor->my_node_name;
-        fdsp_msg_hdr_dm->src_port = 0;
-        fdsp_msg_hdr_dm->dst_port = node_port;
-        storHvisor->dataPlacementTbl->getDMTNodesForVolume(vol_id, node_ids, &num_nodes);
-
-        for (int i = 0; i < num_nodes; i++) {
-            node_ip = 0;
-            node_port = 0;
-            node_state = -1;
-            storHvisor->dataPlacementTbl->getNodeInfo(node_ids[i],
-                                                      &node_ip,
-                                                      &node_port,
-                                                      &node_state);
-
-            fdsp_msg_hdr_dm->dst_ip_lo_addr = node_ip;
-            fdsp_msg_hdr_dm->dst_port = node_port;
-            del_cat_obj_req->blob_name = blobReq->getBlobName();
-
-            // Call Update Catalog RPC call to DM
-            netMetaDataPathClientSession *sessionCtx =
-                    storHvisor->rpcSessionTbl->\
-                    getClientSession<netMetaDataPathClientSession>(node_ip, node_port);
-            fds_verify(sessionCtx != NULL);
-
-            boost::shared_ptr<FDSP_MetaDataPathReqClient> client = sessionCtx->getClient();
-            fdsp_msg_hdr_dm->session_uuid = sessionCtx->getSessionId();
-            client->DeleteCatalogObject(fdsp_msg_hdr_dm, del_cat_obj_req);
-            LOGNORMAL << " StorHvisorTx:" << "IO-XID:"
-                      << trans_id << " volID:" << std::hex << vol_id << std::dec
-                      << " - Sent async DELETE_BLOB_REQ request to DM at "
-                      <<  node_ip << " port " << node_port;
-
-        }
-    }
-
-    LOGNORMAL << "Done with a update catalog request after resp received";
+    LOGNORMAL << "Done with a update catalog response processing";
 }
 
 

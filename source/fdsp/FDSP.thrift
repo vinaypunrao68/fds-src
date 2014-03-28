@@ -145,6 +145,11 @@ struct FDSP_GetObjType {
  5: binary           dlt_data,
 }
 
+struct FDSP_GetObjMetadataReq {
+ 1: FDSP_MsgHdrType		header
+ 2: FDS_ObjectIdType 	obj_id
+}
+
 struct  FDSP_DeleteObjType { /* This is a SH-->SM msg to delete the objectId */
  1: FDS_ObjectIdType data_obj_id,
  2: i32              dlt_version,
@@ -947,6 +952,16 @@ struct FDSP_NotifyTokenPullComplete
 	2: FDSP_Token                 token_id;
 } 
 
+struct FDSP_GetObjMetadataReq {
+ 1: FDSP_MsgHdrType		header
+ 2: FDS_ObjectIdType 	obj_id
+}
+
+struct FDSP_GetObjMetadataResp {
+ 1: FDSP_MsgHdrType				header
+ 2: FDSP_MigrateObjectMetadata 	meta_data
+}
+
 service FDSP_SessionReq {
     oneway void AssociateRespCallback(1:string src_node_name) // Associate Response callback with DM/SM for this source node.
 }
@@ -970,8 +985,10 @@ service FDSP_DataPathReq {
 
     oneway void OffsetWriteObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_OffsetWriteObjType offset_write_obj_req),
 
-    oneway void RedirReadObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RedirReadObjType redir_write_obj_req)
-
+    oneway void RedirReadObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RedirReadObjType redir_write_obj_req),
+    
+    /* Exposed for testing */
+	oneway void GetObjectMetadata(1:FDSP_GetObjMetadataReq metadata_req)
 }
 
 service FDSP_DataPathResp {
@@ -983,8 +1000,10 @@ service FDSP_DataPathResp {
 
     oneway void OffsetWriteObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_OffsetWriteObjType offset_write_obj_req),
 
-    oneway void RedirReadObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RedirReadObjType redir_write_obj_req)
-
+    oneway void RedirReadObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RedirReadObjType redir_write_obj_req),
+    
+    /* Exposed for testing */
+	oneway void GetObjectMetadataResp(1:FDSP_GetObjMetadataResp metadata_resp)
 }
 
 service FDSP_MetaDataPathReq {

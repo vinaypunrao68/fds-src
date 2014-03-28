@@ -81,7 +81,8 @@ namespace fds {
 	ObjCacheBufPtrType objBuf = *it;
 	if (objBuf->vol_id == vol_id) {	  
 	  bytes_reclaimed += objBuf->size;
-	  parent_cache->object_evict(objBuf->vol_id, objBuf->obj_id);
+          ObjectID objId = objBuf->obj_id;
+	  parent_cache->object_evict(objBuf->vol_id, objId);
 	}
 	if (bytes_reclaimed >= bytes_required) {
 	  break;

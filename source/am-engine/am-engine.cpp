@@ -330,18 +330,87 @@ AME_Request::ame_reqt_iter_next()
     return NGX_OK;
 }
 
-// ame_reqt_iter_data
-// ------------------
-//
+/**
+ * Gets next data from request buffer.
+ *
+ * @param[in] data_len Max bytes to return
+ * @param[out] len Bytes actually returned
+ * @return pointer to buf, NULL if no data.
+ */
 char *
-AME_Request::ame_reqt_iter_data(int *len)
+AME_Request::ame_reqt_iter_data_next(fds_uint32_t data_len,
+                                     fds_uint32_t *len)
+{
+    fds_uint32_t content_len = ame_req->headers_in.content_length_n;
+
+    if (content_len < data_len) {
+        // If the content is smaller than the max buf
+        // adjust the buf to the smaller size
+        data_len = content_len;
+    }
+
+    // TODO(Andrew): Don't call this each time to reset the
+    // ack count and don't assume the length won't change
+    fds_uint32_t ack_count = content_len / data_len;
+    if ((content_len % data_len) != 0) {
+        // There's a remainder that needs to be acked
+        ack_count++;
+    }
+    ame_ctx->set_ack_count(ack_count);
+
+    *len = data_len;
+    char *data  = ame_ctx->ame_next_buf_ptr(len);
+    fds_verify(*len <= data_len);
+
+    if ((data != NULL) && (*len < data_len)) {
+        // We could not get all of the requested data
+        // in one shot because the data is not in a
+        // single nginx buffer. Since the caller expects
+        // a single buffer, we need to copy these
+        char *ame_data = static_cast<char *>(ngx_palloc(ame_req->pool, data_len));
+        fds_verify(ame_data != NULL);
+
+        fds_uint32_t copy_len = 0;
+        while (data != NULL) {
+            ngx_memcpy(ame_data + copy_len, data, *len);
+            copy_len += *len;
+
+            // Get a pointer to the next data even
+            // if it's in another nginx buffer
+            data = ame_ctx->ame_next_buf_ptr(len);
+            fds_verify(*len <= data_len);
+            LOGDEBUG << "Copied " << copy_len
+                     << " bytes from nginx buf into ame buf";
+        }
+        fds_verify(copy_len <= data_len);
+
+        // Track this allocation in the ctx so that we can
+        // free it later
+        ame_ctx->ame_add_alloc_buf(ame_data);
+
+        // Return the single buffer with all of the data
+        // from the fragmented nginx buffers
+        *len = copy_len;
+        return ame_data;
+    }
+
+    return data;
+}
+
+/**
+ * Gets a buffer from ngx buf pool and
+ * fills with next data.
+ */
+char *
+AME_Request::ame_reqt_iter_data(fds_uint32_t *len)
 {
     char *data, *curr;
-    int   data_len, copy_len;
+    fds_uint32_t   data_len, copy_len;
 
     if (ame_ctx->ame_curr_input_buf(len) == NULL) {
         return NULL;
     }
+
     // Temporary code so that we return a single buffer containing all
     // content in a body.
     *len = 0;
@@ -530,7 +599,7 @@ fdsn_getobj_cbfn(void *req, fds_uint64_t bufsize,
 int
 Conn_GetObject::ame_request_resume()
 {
-    int        len;
+    fds_uint32_t len;
     char      *adr;
     ame_buf_t *buf;
 
@@ -591,6 +660,9 @@ Conn_PutObject::Conn_PutObject(AMEngine *eng, AME_HttpReq *req)
 {
     ame_finalize = true;
     ame_stat_pt  = STAT_NGX_PUT;
+
+    // TODO(Andrew): Don't hard code
+    put_obj_max_buf_len = 2 * 1024 * 1024;
 }
 
 Conn_PutObject::~Conn_PutObject()
@@ -601,14 +673,31 @@ Conn_PutObject::~Conn_PutObject()
 // ---------------
 //
 static int
-fdsn_putobj_cbfn(void *reqContext, fds_uint64_t bufferSize, char *buffer,
-    void *callbackData, FDSN_Status status, ErrorDetails* errDetails)
+fdsn_putobj_cbfn(void *reqContext, fds_uint64_t bufferSize, fds_off_t offset,
+                 char *buffer, void *callbackData, FDSN_Status status,
+                 ErrorDetails* errDetails)
 {
     AME_Ctx        *ctx = static_cast<AME_Ctx *>(reqContext);
     Conn_PutObject *conn_po = static_cast<Conn_PutObject *>(callbackData);
 
-    ctx->ame_update_input_buf(bufferSize);
-    conn_po->ame_signal_resume(AME_Request::ame_map_fdsn_status(status));
+    // Update the status of this single request
+    AME_Ctx::AME_Ctx_Ack ack_status = AME_Ctx::OK;
+    if (status != FDSN_StatusOK) {
+        ack_status = AME_Ctx::FAILED;
+    }
+    Error err = ctx->ame_upd_ctx_req(offset, ack_status);
+
+    // Check the status of the entire put request
+    ack_status = ctx->ame_check_status();
+    if (ack_status == AME_Ctx::OK) {
+        conn_po->ame_signal_resume(AME_Request::ame_map_fdsn_status(FDSN_StatusOK));
+    } else if (ack_status == AME_Ctx::FAILED) {
+        conn_po->ame_signal_resume(
+            AME_Request::ame_map_fdsn_status(FDSN_StatusInternalError));
+    } else {
+        fds_verify(ack_status == AME_Ctx::WAITING);
+    }
+
     return 0;
 }
 
@@ -620,27 +709,27 @@ fdsn_putobj_cbfn(void *reqContext, fds_uint64_t bufferSize, char *buffer,
 int
 Conn_PutObject::ame_request_resume()
 {
-    int   len;
+    fds_uint32_t len;
     char *buf;
 
     /* Compute etag to be sent as response.  Ideally this is done by AM */
     buf = ame_ctx->ame_curr_input_buf(&len);
 
-    /* XXX: we're working on the big buffer, not this one. */
-    // ame_etag = "\"" + HttpUtils::computeEtag(buf, len) + "\"";
-    // Temp. code because we put our data to this buffer.
-    //
-    len = ame_ctx->ame_temp_len;
-    ame_etag = "\"" + HttpUtils::computeEtag(ame_ctx->ame_temp_buf, len) + "\"";
-    // FDS_PLOG(ame_get_log()) << "PutObject bucket: " << get_bucket_id()
-    // << " , object: " << get_object_id();
+    // Set etag value from ctx
+    ame_etag = "\"" + HttpUtils::finalEtag(ame_ctx->ame_get_etag()) + "\"";
 
-    // Temp. code.  We need to have a proper buffer chunking model here.
-    if (ame_ctx->ame_temp_buf != NULL) {
-        ngx_pfree(ame_req->pool, ame_ctx->ame_temp_buf);
-    }
+    // Release any buffers we allocated from nginx. Often
+    // these buffers were allocated to collect data from
+    // many nginx chain buffers into a single ame put buffer.
+    ame_ctx->ame_free_bufs();
+
     ame_finalize_response(ame_resp_status);
     return NGX_DONE;
+}
+
+fds_uint32_t
+Conn_PutObject::get_max_buf_len() const {
+    return put_obj_max_buf_len;
 }
 
 // ame_request_handler
@@ -649,21 +738,39 @@ Conn_PutObject::ame_request_resume()
 void
 Conn_PutObject::ame_request_handler()
 {
-    int           len;
+    fds_uint32_t  len;
     char          *buf;
     FDS_NativeAPI *api;
-    fds_uint64_t  offset= 0;
     BucketContext bucket_ctx("host", get_bucket_id(), "accessid", "secretkey");
 
-    buf = ame_reqt_iter_data(&len);
-    if (buf == NULL || len == 0) {
-        ame_finalize_request(NGX_HTTP_BAD_REQUEST);
-        return;
+    buf = ame_reqt_iter_data_next(get_max_buf_len(), &len);
+    while (len != 0) {
+        // Update the context with the outstanding request
+        fds_off_t offset= ame_ctx->ame_get_offset();
+        Error err = ame_ctx->ame_add_ctx_req(offset);
+        fds_verify(err == ERR_OK);
+
+        // Updates the stream offset by len bytes
+        ame_ctx->ame_mv_off(len);
+
+        // Update the rolling etag calculation
+        // TODO(Andrew): We're calculating the etag from the nginx request
+        // structure, since that has all of the data. We should actually have
+        // AM calcuate this based on what it wrote out over the network so
+        // that the etag tracks what we wrote, not just what was received
+        HttpUtils::updateEtag(ame_ctx->ame_get_etag(), buf, len);
+
+        // Issue async request
+        api = ame->ame_fds_hook();
+        api->PutObject(&bucket_ctx, get_object_id(), NULL,
+                       static_cast<void *>(ame_ctx), buf, offset,
+                       len, fdsn_putobj_cbfn, static_cast<void *>(this));
+
+        // Get the next data and data len
+        buf = ame_reqt_iter_data_next(get_max_buf_len(), &len);
     }
-    api = ame->ame_fds_hook();
-    api->PutObject(&bucket_ctx, get_object_id(), NULL,
-                   static_cast<void *>(ame_ctx), buf, offset, len,
-                   fdsn_putobj_cbfn, static_cast<void *>(this));
+    // We break when our last buffer wasn't the full requested
+    // amount, meaning it was the tail
 }
 
 // ---------------------------------------------------------------------------
@@ -909,7 +1016,7 @@ Conn_GetBucket::ame_fmt_resp_data(int is_truncated, const char *next_marker,
 int
 Conn_GetBucket::ame_request_resume()
 {
-    int        len;
+    fds_uint32_t len;
     char      *adr;
     ame_buf_t *buf;
 
@@ -987,7 +1094,7 @@ Conn_PutBucketParams::ame_request_handler()
     FDS_NativeAPI *api;
     BucketContext bucket_ctx("host", get_bucket_id(), "accessid", "secretkey");
 
-    int   len;
+    fds_uint32_t len;
     char *buf;
 
     buf = ame_reqt_iter_data(&len);
@@ -1200,7 +1307,7 @@ Conn_GetBucketStats::ame_fmt_resp_data(const std::string &timestamp,
 int
 Conn_GetBucketStats::ame_request_resume()
 {
-    int        len;
+    fds_uint32_t len;
     char      *adr;
     ame_buf_t *buf;
 

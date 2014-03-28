@@ -50,6 +50,7 @@ DLT::DLT(fds_uint32_t numBitsForToken,
                 new DltTokenGroup(depth)));
         }
     }
+    timestamp = fds::util::getTimeStampMillis();
 }
 
 DLT::DLT(const DLT& dlt)
@@ -59,6 +60,7 @@ DLT::DLT(const DLT& dlt)
           numTokens(dlt.numTokens),
           version(dlt.version),
           distList(dlt.distList),
+          timestamp(dlt.timestamp),
           mapNodeTokens(dlt.mapNodeTokens) {
 }
 
@@ -348,7 +350,7 @@ uint32_t DLT::write(serialize::Serializer*  s) const {
     uint32_t b = 0;
 
     b += s->writeI64(version);
-    // b += s->writeI64(timestamp);
+    b += s->writeTimeStamp(timestamp);
     b += s->writeI32(numBitsForToken);
     b += s->writeI32(depth);
     b += s->writeI32(numTokens);
@@ -401,9 +403,9 @@ uint32_t DLT::write(serialize::Serializer*  s) const {
 uint32_t DLT::read(serialize::Deserializer* d) {
     LOGNORMAL << "de serializing dlt";
     uint32_t b = 0;
-
+    int64_t i64;
     b += d->readI64(version);
-    // b += s->readI64(timestamp);
+    b += d->readTimeStamp(timestamp);
     b += d->readI32(numBitsForToken);
     b += d->readI32(depth);
     b += d->readI32(numTokens);
@@ -487,6 +489,7 @@ DLTDiff::DLTDiff(DLT* baseDlt, fds_uint64_t version) {
     this->baseDlt = baseDlt;
     baseVersion = baseDlt->version;
     this->version = (version > 0)?version:baseVersion+1;
+    timestamp = fds::util::getTimeStampMillis();
 }
 
 // get all the Nodes for a token/objid
@@ -751,7 +754,7 @@ bool DLTManager::storeToFile(std::string filename) {
 void DLTManager::dump() const {
     LOGNORMAL << "Dlt Manager : "
               << "[num.dlts : " << dltList.size() << "] "
-              << "[maxDlts  : " << maxDlts << "]";
+              << "[maxDlts  : " << static_cast<int>(maxDlts) << "]";
 
     std::vector<DLT*>::const_iterator iter;
 
