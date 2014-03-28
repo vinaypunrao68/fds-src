@@ -1535,6 +1535,8 @@ DataMgr::deleteBlobProcess(const dmCatReq  *delCatReq, BlobNode **bnode) {
                             delCatReq->transId,
                             deleteMarker);
         fds_verify(err == ERR_OK);
+        err = expungeBlob((*bnode));
+        fds_verify(err == ERR_OK);
 
         // We can delete the bnode we received from our
         // query since we're going to create new blob
