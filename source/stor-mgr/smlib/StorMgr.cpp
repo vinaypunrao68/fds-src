@@ -882,8 +882,7 @@ ObjectStorMgr::readObjMetaData(const ObjectID &objId,
     err = smObjDb->Get(objId, objData);
     if (err == ERR_OK) {
         //string_to_obj_map(objData.data, objMap);
-        LOGDEBUG << "Retrieving object location for object "
-                << objId << " as " << objData.data;
+        LOGDEBUG << "Retrieving object location for object " << objId;
        objMap.unmarshall(objData);
     } else {
         LOGDEBUG << "No object location found for object " << objId << " in index DB";
