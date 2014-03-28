@@ -140,9 +140,17 @@ Error FdsAdminCtrl::volAdminControl(VolumeDesc  *pVolDesc)
     // but disk and ssd capacity is in GB
     double vol_capacity_GB = pVolDesc->capacity / 1024;
     fds_uint32_t replication_factor = REPLICATION_FACTOR;
+
+    fds_verify(replication_factor != 0);  // make sure REPLICATION_FACTOR > 0
     if (replication_factor > num_nodes) {
         // we will access at most num_nodes nodes
         replication_factor = num_nodes;
+    }
+    if (replication_factor == 0) {
+        // if we are here, then num_nodes == 0 (whis is # of SMs)
+        LOGERROR << "Cannot admit any volume if there are no SMs! "
+                 << " Start at least on SM and try again!";
+        return Error(ERR_VOL_ADMISSION_FAILED);
     }
 
     if (pVolDesc->iops_min > pVolDesc->iops_max) {
