@@ -206,10 +206,12 @@ class OrchMgr: public FdsProcess {
             ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
             ::FDS_ProtocolInterface::FDSP_ThrottleMsgTypePtr& throttle_msg);
 
-        int32_t GetVolInfo(
+        void GetVolInfo(
+            ::FDS_ProtocolInterface::FDSP_VolumeDescType& _return,
             const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
             const ::FDS_ProtocolInterface::FDSP_GetVolInfoReqType& vol_info_req);
-        int32_t GetVolInfo(
+        void GetVolInfo(
+            ::FDS_ProtocolInterface::FDSP_VolumeDescType& _return,
             ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
             ::FDS_ProtocolInterface::FDSP_GetVolInfoReqTypePtr& vol_info_req);
 

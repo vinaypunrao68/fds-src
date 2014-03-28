@@ -123,6 +123,8 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
             ("volume-modify", po::value<std::string>(),
              "Modify volume: volume-modify <vol name> -s <size> "
              "[-p <policy-id> OR -g <iops-min> -m <iops-max> -r <rel-prio>]")
+            ("volume-get", po::value<std::string>(),
+             "Get volume info: volume-get <vol name>")
             ("volume-attach", po::value<std::string>(),
              "Attach volume: volume-attach <vol name> -i <volume-id> -n <node-id>")
             ("volume-detach", po::value<std::string>(),
@@ -280,6 +282,27 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         volData.vol_name = vm["volume-delete"].as<std::string>();
 
         NETWORKCHECK(cfgPrx->DeleteVol(msg_hdr, volData));
+
+    } else if (vm.count("volume-get")) {
+        LOGNOTIFY << " Get Volume Info";
+        LOGNOTIFY << vm["volume-get"].as<std::string>() << " -volume name";
+
+        FDS_ProtocolInterface::FDSP_GetVolInfoReqType vol_req;
+        vol_req.vol_name = vm["volume-get"].as<std::string>();
+        vol_req.domain_id = 0;
+
+        FDS_ProtocolInterface::FDSP_VolumeDescType vol_info;
+        try {
+            NETWORKCHECK(cfgPrx->GetVolInfo(vol_info, msg_hdr, vol_req));
+            cout << "Volume " << vol_info.vol_name << ":"
+                 << std::hex << vol_info.volUUID << std::dec << std::endl
+                 << "     capacity " << vol_info.capacity << " MB"
+                 << ", iops_min " << vol_info.iops_min
+                 << ", iops_max " << vol_info.iops_max
+                 << ", priority " << vol_info.rel_prio << std::endl;
+        } catch(...) {
+            cout << "Got non-network exception, probably volume not found" << std::endl;
+        }
 
     } else if (vm.count("volume-attach") &&
                vm.count("volume-id") &&
