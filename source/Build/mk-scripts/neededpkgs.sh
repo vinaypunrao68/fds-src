@@ -14,7 +14,7 @@
 needed_packages=(
     redis-server
     oracle-java8-installer oracle-java8-set-default maven
-    libudev-dev
+    libudev-dev libparted-dev
 )
 
 python_packages=(

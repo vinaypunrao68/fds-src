@@ -15,14 +15,12 @@
 #include <iostream>  // NOLINT
 #include <cpplist.h>
 #include <fds_module.h>
-#include <fds_resource.h>
-#include <shared/fds_types.h>
+#include <platform/disk-inventory.h>
 
 namespace fds {
 
-class DiskObj;
-class DiskObjIter;
-class DiskInventory;
+class PmDiskObj;
+class PmDiskInventory;
 class DiskPlatModule;
 
 /**
@@ -33,8 +31,8 @@ class DiskPlatModule;
 class DiskCommon
 {
   protected:
-    friend class DiskObj;
-    friend class DiskInventory;
+    friend class PmDiskObj;
+    friend class PmDiskInventory;
 
     std::string               dsk_blk_path;
     fds_disk_type_t           dsk_type;
@@ -47,15 +45,15 @@ class DiskCommon
     inline const std::string &dsk_get_blk_path() { return dsk_blk_path; }
 };
 
-class DiskObj : public Resource
+class PmDiskObj : public DiskObj
 {
   public:
-    typedef boost::intrusive_ptr<DiskObj> pointer;
-    typedef boost::intrusive_ptr<const DiskObj> const_ptr;
+    typedef boost::intrusive_ptr<PmDiskObj> pointer;
+    typedef boost::intrusive_ptr<const PmDiskObj> const_ptr;
 
   protected:
-    friend class DiskInventory;
-    friend std::ostream &operator<< (std::ostream &, fds::DiskObj::pointer obj);
+    friend class PmDiskInventory;
+    friend std::ostream &operator<< (std::ostream &, fds::PmDiskObj::pointer obj);
 
     ChainLink                 dsk_part_link;      /**< link to dsk_partition list. */
     ChainLink                 dsk_disc_link;      /**< link to discovery list.     */
@@ -69,13 +67,13 @@ class DiskObj : public Resource
     fds_uint64_t              dsk_cap_gb;
 
     dev_t                     dsk_my_devno;
-    DiskObj::pointer          dsk_parent;
+    PmDiskObj::pointer        dsk_parent;
     struct udev_device       *dsk_my_dev;
     DiskCommon               *dsk_common;
 
   public:
-    DiskObj();
-    virtual ~DiskObj();
+    PmDiskObj();
+    virtual ~PmDiskObj();
 
     /**
      * Return HW device path from raw path.
@@ -84,15 +82,18 @@ class DiskObj : public Resource
      * @param dev : /dev/sda
      */
     static bool dsk_blk_dev_path(const char *raw, std::string *blk, std::string *dev);
-    static inline DiskObj::pointer dsk_cast_ptr(Resource::pointer ptr) {
-        return static_cast<DiskObj *>(get_pointer(ptr));
+    static inline PmDiskObj::pointer dsk_cast_ptr(DiskObj::pointer ptr) {
+        return static_cast<PmDiskObj *>(get_pointer(ptr));
+    }
+    static inline PmDiskObj::pointer dsk_cast_ptr(Resource::pointer ptr) {
+        return static_cast<PmDiskObj *>(get_pointer(ptr));
     }
     inline char const *const dsk_dev_name() { return rs_name; }
 
     /**
      * Return the slice device matching with the dev_path (e.g. /dev/sda, /dev/sda1...)
      */
-    virtual DiskObj::pointer dsk_get_info(const std::string &dev_path);
+    virtual PmDiskObj::pointer dsk_get_info(const std::string &dev_path);
 
     /**
      * Update the disk obj during the discovery process.
@@ -102,7 +103,7 @@ class DiskObj : public Resource
      * @param d_path (i) - the device path from dev (e.g. /dev/sda1...)
      */
     virtual void dsk_update_device(struct udev_device *dev,
-                                   DiskObj::pointer    ref,
+                                   PmDiskObj::pointer  ref,
                                    const std::string  &b_path,
                                    const std::string  &d_path);
 
@@ -113,25 +114,12 @@ class DiskObj : public Resource
 
   private:
     void dsk_read_uuid();
-    void dsk_fixup_family_links(DiskObj::pointer ref);
+    void dsk_fixup_family_links(PmDiskObj::pointer ref);
 };
 
-typedef std::unordered_map<std::string, DiskObj::pointer> DiskDevMap;
-typedef std::vector<DiskObj::pointer> DiskObjArray;
+typedef std::unordered_map<std::string, PmDiskObj::pointer> DiskDevMap;
 
-class DiskObjIter
-{
-  public:
-    DiskObjIter() {}
-    virtual ~DiskObjIter() {}
-
-    /**
-     * Return true to continue the iteration loop; false to quit.
-     */
-    virtual bool dsk_iter_fn(DiskObj::pointer curr) = 0;
-};
-
-class DiskInventory : public RsContainer
+class PmDiskInventory : public DiskInventory
 {
   protected:
     DiskDevMap               dsk_dev_map;
@@ -144,25 +132,25 @@ class DiskInventory : public RsContainer
     Resource *rs_new(const ResourceUUID &uuid);
 
   public:
-    typedef boost::intrusive_ptr<DiskInventory> pointer;
-    typedef boost::intrusive_ptr<const DiskInventory> const_ptr;
+    typedef boost::intrusive_ptr<PmDiskInventory> pointer;
+    typedef boost::intrusive_ptr<const PmDiskInventory> const_ptr;
 
-    DiskInventory();
-    virtual ~DiskInventory();
+    PmDiskInventory();
+    virtual ~PmDiskInventory();
 
-    virtual DiskObj::pointer dsk_get_info(const ResourceUUID &uuid) {
-        return DiskObj::dsk_cast_ptr(rs_get_resource(uuid));
+    virtual PmDiskObj::pointer dsk_get_info(const ResourceUUID &uuid) {
+        return PmDiskObj::dsk_cast_ptr(rs_get_resource(uuid));
     }
-    virtual DiskObj::pointer dsk_get_info(dev_t dev_node);
-    virtual DiskObj::pointer dsk_get_info(dev_t dev_node, int partition);
-    virtual DiskObj::pointer dsk_get_info(const std::string &b);
-    virtual DiskObj::pointer dsk_get_info(const std::string &b, const std::string &d);
+    virtual PmDiskObj::pointer dsk_get_info(dev_t dev_node);
+    virtual PmDiskObj::pointer dsk_get_info(dev_t dev_node, int partition);
+    virtual PmDiskObj::pointer dsk_get_info(const std::string &b);
+    virtual PmDiskObj::pointer dsk_get_info(const std::string &b, const std::string &d);
 
     virtual void dsk_dump_all();
     virtual void dsk_discovery_begin();
-    virtual void dsk_discovery_add(DiskObj::pointer disk, DiskObj::pointer ref);
-    virtual void dsk_discovery_update(DiskObj::pointer disk);
-    virtual void dsk_discovery_remove(DiskObj::pointer disk);
+    virtual void dsk_discovery_add(PmDiskObj::pointer disk, PmDiskObj::pointer ref);
+    virtual void dsk_discovery_update(PmDiskObj::pointer disk);
+    virtual void dsk_discovery_remove(PmDiskObj::pointer disk);
     virtual void dsk_discovery_done();
 
     virtual void dsk_foreach(DiskObjIter *iter);
@@ -174,7 +162,7 @@ class DiskInventory : public RsContainer
 class DiskPlatModule : public Module
 {
   protected:
-    DiskInventory            dsk_devices;
+    PmDiskInventory          dsk_devices;
     struct udev             *dsk_ctrl;
     struct udev_enumerate   *dsk_enum;
 
@@ -183,10 +171,10 @@ class DiskPlatModule : public Module
     virtual ~DiskPlatModule();
 
     static DiskPlatModule *dsk_plat_singleton();
-    static inline DiskInventory::pointer dsk_get_hdd_inv() {
+    static inline PmDiskInventory::pointer dsk_get_hdd_inv() {
         return &dsk_plat_singleton()->dsk_devices;
     }
-    static inline DiskInventory::pointer dsk_get_ssd_inv() {
+    static inline PmDiskInventory::pointer dsk_get_ssd_inv() {
         return &dsk_plat_singleton()->dsk_devices;
     }
 

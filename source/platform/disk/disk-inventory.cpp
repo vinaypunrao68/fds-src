@@ -10,7 +10,7 @@ namespace fds {
 DiskCommon::DiskCommon(const std::string &blk) : dsk_blk_path(blk) {}
 DiskCommon::~DiskCommon() {}
 
-DiskObj::~DiskObj()
+PmDiskObj::~PmDiskObj()
 {
     if (dsk_my_dev != NULL) {
         udev_device_unref(dsk_my_dev);
@@ -36,8 +36,8 @@ DiskObj::~DiskObj()
     std::cout << "free " << rs_name << std::endl;
 }
 
-DiskObj::DiskObj()
-    : Resource(ResourceUUID(0)), dsk_part_link(this), dsk_disc_link(this),
+PmDiskObj::PmDiskObj()
+    : dsk_part_link(this), dsk_disc_link(this),
       dsk_type_link(this), dsk_raw_path(NULL), dsk_parent(NULL),
       dsk_my_dev(NULL), dsk_common(NULL)
 {
@@ -52,10 +52,10 @@ DiskObj::DiskObj()
 // -----------------
 //
 void
-DiskObj::dsk_update_device(struct udev_device *dev,
-                           DiskObj::pointer    ref,
-                           const std::string  &blk_path,
-                           const std::string  &dev_path)
+PmDiskObj::dsk_update_device(struct udev_device *dev,
+                             PmDiskObj::pointer    ref,
+                             const std::string  &blk_path,
+                             const std::string  &dev_path)
 {
     if (dev == NULL) {
         dev = dsk_my_dev;
@@ -84,12 +84,12 @@ DiskObj::dsk_update_device(struct udev_device *dev,
 // dsk_get_info
 // ------------
 //
-DiskObj::pointer
-DiskObj::dsk_get_info(const std::string &dev_path)
+PmDiskObj::pointer
+PmDiskObj::dsk_get_info(const std::string &dev_path)
 {
-    ChainList        *slices;
-    ChainIter         iter;
-    DiskObj::pointer  found;
+    ChainList          *slices;
+    ChainIter           iter;
+    PmDiskObj::pointer  found;
 
     found = NULL;
     if (dsk_parent != NULL) {
@@ -100,7 +100,7 @@ DiskObj::dsk_get_info(const std::string &dev_path)
         slices = &dsk_parent->dsk_part_head;
         for (slices->chain_iter_init(&iter);
              !slices->chain_iter_term(iter); slices->chain_iter_next(&iter)) {
-            found = slices->chain_iter_current<DiskObj>(iter);
+            found = slices->chain_iter_current<PmDiskObj>(iter);
             fds_verify(found->dsk_parent == dsk_parent);
             fds_verify(found->dsk_common == dsk_common);
 
@@ -119,7 +119,7 @@ DiskObj::dsk_get_info(const std::string &dev_path)
 // -------------
 //
 void
-DiskObj::dsk_read_uuid()
+PmDiskObj::dsk_read_uuid()
 {
     rs_uuid.uuid_set_val(fds_get_uuid64(get_uuid()));
 }
@@ -128,7 +128,7 @@ DiskObj::dsk_read_uuid()
 // ---------------
 //
 void
-DiskObj::dsk_dev_foreach(DiskObjIter *iter, bool parent_only)
+PmDiskObj::dsk_dev_foreach(DiskObjIter *iter, bool parent_only)
 {
     if ((dsk_parent == NULL) || ((parent_only == true) && (dsk_parent == this))) {
         return;
@@ -142,7 +142,7 @@ DiskObj::dsk_dev_foreach(DiskObjIter *iter, bool parent_only)
     dsk_parent->rs_mutex()->lock();
     l = &dsk_parent->dsk_part_head;
     for (l->chain_iter_init(&i); !l->chain_iter_term(i); l->chain_iter_next(&i)) {
-        disks[cnt++] = l->chain_iter_current<DiskObj>(i);
+        disks[cnt++] = l->chain_iter_current<PmDiskObj>(i);
     }
     dsk_parent->rs_mutex()->unlock();
 
@@ -157,11 +157,11 @@ DiskObj::dsk_dev_foreach(DiskObjIter *iter, bool parent_only)
 // ----------------------
 //
 void
-DiskObj::dsk_fixup_family_links(DiskObj::pointer ref)
+PmDiskObj::dsk_fixup_family_links(PmDiskObj::pointer ref)
 {
-    ChainIter         iter;
-    ChainList        *slices, tmp;
-    DiskObj::pointer  parent, disk;
+    ChainIter           iter;
+    ChainList          *slices, tmp;
+    PmDiskObj::pointer  parent, disk;
 
     parent = ref->dsk_parent;
     fds_assert(parent != NULL);
@@ -175,7 +175,7 @@ DiskObj::dsk_fixup_family_links(DiskObj::pointer ref)
         slices = &ref->dsk_part_head;
         for (slices->chain_iter_init(&iter);
              !slices->chain_iter_term(iter); slices->chain_iter_next(&iter)) {
-            disk = slices->chain_iter_current<DiskObj>(iter);
+            disk = slices->chain_iter_current<PmDiskObj>(iter);
             fds_verify(disk->dsk_parent == parent);
 
             disk->dsk_parent = this;
@@ -204,12 +204,12 @@ class DiskPrintIter : public DiskObjIter
 {
   public:
     bool dsk_iter_fn(DiskObj::pointer disk) {
-        std::cout << disk;
+        std::cout << PmDiskObj::dsk_cast_ptr(disk);
         return true;
     }
 };
 
-std::ostream &operator<< (std::ostream &os, DiskObj::pointer obj)
+std::ostream &operator<< (std::ostream &os, PmDiskObj::pointer obj)
 {
     ChainIter   i;
     ChainList  *l;
@@ -235,7 +235,7 @@ std::ostream &operator<< (std::ostream &os, DiskObj::pointer obj)
 // ----------------
 //
 bool
-DiskObj::dsk_blk_dev_path(const char *raw, std::string *blk, std::string *dev)
+PmDiskObj::dsk_blk_dev_path(const char *raw, std::string *blk, std::string *dev)
 {
     const char *block;
 
@@ -257,8 +257,8 @@ DiskObj::dsk_blk_dev_path(const char *raw, std::string *blk, std::string *dev)
     return true;
 }
 
-DiskInventory::DiskInventory() : RsContainer() {}
-DiskInventory::~DiskInventory()
+PmDiskInventory::PmDiskInventory() : DiskInventory() {}
+PmDiskInventory::~PmDiskInventory()
 {
     dsk_prev_inv.chain_transfer(&dsk_curr_inv);
     dsk_prev_inv.chain_transfer(&dsk_discovery);
@@ -269,30 +269,30 @@ DiskInventory::~DiskInventory()
 // ------
 //
 Resource *
-DiskInventory::rs_new(const ResourceUUID &uuid)
+PmDiskInventory::rs_new(const ResourceUUID &uuid)
 {
-    return new DiskObj();
+    return new PmDiskObj();
 }
 
 // dsk_get_info
 // ------------
 //
-DiskObj::pointer
-DiskInventory::dsk_get_info(dev_t dev_node)
+PmDiskObj::pointer
+PmDiskInventory::dsk_get_info(dev_t dev_node)
 {
     return NULL;
 }
 
-DiskObj::pointer
-DiskInventory::dsk_get_info(dev_t dev_node, int partition)
+PmDiskObj::pointer
+PmDiskInventory::dsk_get_info(dev_t dev_node, int partition)
 {
     return NULL;
 }
 
-DiskObj::pointer
-DiskInventory::dsk_get_info(const std::string &blk_path)
+PmDiskObj::pointer
+PmDiskInventory::dsk_get_info(const std::string &blk_path)
 {
-    DiskObj::pointer disk;
+    PmDiskObj::pointer disk;
 
     rs_mtx.lock();
     disk = dsk_dev_map[blk_path];
@@ -301,10 +301,10 @@ DiskInventory::dsk_get_info(const std::string &blk_path)
     return disk;
 }
 
-DiskObj::pointer
-DiskInventory::dsk_get_info(const std::string &blk_path, const std::string &dev_path)
+PmDiskObj::pointer
+PmDiskInventory::dsk_get_info(const std::string &blk_path, const std::string &dev_path)
 {
-    DiskObj::pointer disk;
+    PmDiskObj::pointer disk;
 
     disk = dsk_get_info(blk_path);
     if (disk != NULL) {
@@ -317,7 +317,7 @@ DiskInventory::dsk_get_info(const std::string &blk_path, const std::string &dev_
 // -------------------
 //
 void
-DiskInventory::dsk_discovery_begin()
+PmDiskInventory::dsk_discovery_begin()
 {
     rs_mtx.lock();
     if (dsk_prev_inv.chain_empty_list() && dsk_discovery.chain_empty_list()) {
@@ -331,7 +331,7 @@ DiskInventory::dsk_discovery_begin()
 // -----------------
 //
 void
-DiskInventory::dsk_discovery_add(DiskObj::pointer disk, DiskObj::pointer ref)
+PmDiskInventory::dsk_discovery_add(PmDiskObj::pointer disk, PmDiskObj::pointer ref)
 {
     fds_verify(disk->dsk_common != NULL);
     rs_mtx.lock();
@@ -344,6 +344,8 @@ DiskInventory::dsk_discovery_add(DiskObj::pointer disk, DiskObj::pointer ref)
     }
     dsk_discovery.chain_add_back(&disk->dsk_disc_link);
     if (disk->dsk_parent == disk) {
+        // TODO(Vy): move this code to disk-inventory.cpp
+        dsk_count++;
         dsk_hdd.chain_add_back(&disk->dsk_type_link);
     }
     // Add to the map indexed by uuid/dev path.
@@ -355,7 +357,7 @@ DiskInventory::dsk_discovery_add(DiskObj::pointer disk, DiskObj::pointer ref)
 // --------------------
 //
 void
-DiskInventory::dsk_discovery_update(DiskObj::pointer disk)
+PmDiskInventory::dsk_discovery_update(PmDiskObj::pointer disk)
 {
     fds_verify(disk->dsk_common != NULL);
     rs_mtx.lock();
@@ -371,7 +373,7 @@ DiskInventory::dsk_discovery_update(DiskObj::pointer disk)
 // --------------------
 //
 void
-DiskInventory::dsk_discovery_remove(DiskObj::pointer disk)
+PmDiskInventory::dsk_discovery_remove(PmDiskObj::pointer disk)
 {
     fds_verify(disk->dsk_common != NULL);
     rs_mtx.lock();
@@ -396,10 +398,10 @@ DiskInventory::dsk_discovery_remove(DiskObj::pointer disk)
 // ------------------
 //
 void
-DiskInventory::dsk_discovery_done()
+PmDiskInventory::dsk_discovery_done()
 {
-    ChainList        rm;
-    DiskObj::pointer disk;
+    ChainList           rm;
+    PmDiskObj::pointer disk;
 
     rs_mtx.lock();
     // Anything left over in the prev inventory list are phantom devices.
@@ -411,7 +413,7 @@ DiskInventory::dsk_discovery_done()
     rs_mtx.unlock();
 
     while (1) {
-        disk = rm.chain_rm_front<DiskObj>();
+        disk = rm.chain_rm_front<PmDiskObj>();
         if (disk == NULL) {
             break;
         }
@@ -425,7 +427,7 @@ DiskInventory::dsk_discovery_done()
 // ------------
 //
 void
-DiskInventory::dsk_dump_all()
+PmDiskInventory::dsk_dump_all()
 {
     DiskPrintIter iter;
     dsk_foreach(&iter);
@@ -435,7 +437,7 @@ DiskInventory::dsk_dump_all()
 // -----------
 //
 void
-DiskInventory::dsk_foreach(DiskObjIter *iter)
+PmDiskInventory::dsk_foreach(DiskObjIter *iter)
 {
     int           cnt;
     ChainIter     i;
@@ -446,7 +448,7 @@ DiskInventory::dsk_foreach(DiskObjIter *iter)
     l = &dsk_hdd;
     rs_mtx.lock();
     for (l->chain_iter_init(&i); !l->chain_iter_term(i); l->chain_iter_next(&i)) {
-        disks[cnt++] = l->chain_iter_current<DiskObj>(i);
+        disks[cnt++] = l->chain_iter_current<PmDiskObj>(i);
     }
     rs_mtx.unlock();
 
@@ -522,7 +524,7 @@ DiskPlatModule::dsk_rescan()
     const char             *path;
     std::string             blk_path;
     std::string             dev_path;
-    DiskObj::pointer        disk, slice;
+    PmDiskObj::pointer      disk, slice;
     struct udev_list_entry *devices, *ptr;
 
     udev_enumerate_scan_devices(dsk_enum);
@@ -531,7 +533,7 @@ DiskPlatModule::dsk_rescan()
     dsk_devices.dsk_discovery_begin();
     udev_list_entry_foreach(ptr, devices) {
         path = udev_list_entry_get_name(ptr);
-        if (DiskObj::dsk_blk_dev_path(path, &blk_path, &dev_path) == false) {
+        if (PmDiskObj::dsk_blk_dev_path(path, &blk_path, &dev_path) == false) {
             //
             // Only process block/sd devices.
             continue;
@@ -546,7 +548,7 @@ DiskPlatModule::dsk_rescan()
             struct udev_device *dev;
             Resource::pointer   rs = dsk_devices.rs_alloc_new(ResourceUUID(0));
 
-            slice = DiskObj::dsk_cast_ptr(rs);
+            slice = PmDiskObj::dsk_cast_ptr(rs);
             dev   = udev_device_new_from_syspath(dsk_ctrl, path);
             slice->dsk_update_device(dev, disk, blk_path, dev_path);
             dsk_devices.dsk_discovery_add(slice, disk);
