@@ -726,21 +726,28 @@ DataMgr::applyBlobUpdate(const BlobObjectList &offsetList, BlobNode *bnode) {
             // Determine the offset's index into the BlobObjectList vector.
             blobOffsetIndex = offset / maxObjSize;
 
-            LOGDEBUG << "Overwriting existing offset " << offset
-                     << " with existing size "
+            LOGDEBUG << "Overwriting offset " << offset
+                     << " with new size " << size
+                     << " at blobList index " << blobOffsetIndex
+                     << " and existing offset "
+                     << bnode->obj_list[blobOffsetIndex].offset
+                     << " and existing size "
                      << bnode->obj_list[blobOffsetIndex].size
-                     << " and new size " << size;
+                     << " that was sparse " << std::boolalpha
+                     << bnode->obj_list[blobOffsetIndex].sparse;
 
-            // Update blob in place. Get old object id and
-            // then overwrite it
+            // Get old blob entry and update blob size
             BlobObjectInfo oldBlobObj = bnode->obj_list[blobOffsetIndex];
-            bnode->obj_list[blobOffsetIndex] = offsetList[i];
-            if (blobOffsetIndex == (bnode->obj_list.size() - 1)) {
-                // We're modifying the last index, so we may need to bump the size
-                fds_verify(size >= oldBlobObj.size);
-                if (size > oldBlobObj.size) {
-                    bnode->blob_size += (size - oldBlobObj.size);
-                }
+            // Update the blob size to reflect new object size
+            if (size > oldBlobObj.size) {
+                bnode->blob_size += (size - oldBlobObj.size);
+            } else if (size < oldBlobObj.size) {
+                // If we're shrinking the size of the entry
+                // it should be because this entry is going to
+                // be the new end of the blob. Otherwise, we'd
+                // expect it to be at max object size
+                fds_verify(offsetList[i].blob_end == true);
+                bnode->blob_size -= (oldBlobObj.size - size);
             }
 
             // Expunge the old object id
@@ -748,13 +755,47 @@ DataMgr::applyBlobUpdate(const BlobObjectList &offsetList, BlobNode *bnode) {
             // a specific version is garbage collected or if there is
             // no versioning for the volume. For now we expunge since
             // there's no GC and don't want to leak the object.
-            if (oldBlobObj.size > 0) {
-                // TODO(Andrew): We check the 0 size above because sparse
-                // entries will have a 0 size and don't actually needed to
-                // be expunged there wasn't a corresponding object id.
+            if (oldBlobObj.sparse == false) {
+                // We check if the entry is sparse because sparse
+                // entries don't actually needed to be expunged
+                // because there wasn't a real corresponding object id.
                 if (runMode != TEST_MODE) {
                     err = expungeObject(bnode->vol_id, oldBlobObj.data_obj_id);
                     fds_verify(err == ERR_OK);
+                }
+            }
+            
+            // Overwrite the entry in place
+            bnode->obj_list[blobOffsetIndex] = offsetList[i];
+
+            // If this offset ends the blob, expunge whatever entries
+            // were after it in the previous version
+            if (offsetList[i].blob_end == true) {
+                for (fds_uint32_t truncIndex = (bnode->obj_list.size() - 1);
+                     truncIndex > blobOffsetIndex;
+                     truncIndex--) {
+                    // Pop the last blob entry from the bnode
+                    BlobObjectInfo truncBlobObj = bnode->obj_list[truncIndex];
+                    LOGDEBUG << "Truncating entry from blob " << bnode->blob_name
+                             << " of size " << bnode->blob_size
+                             << " with offset " << truncBlobObj.offset
+                             << " and size " << truncBlobObj.size
+                             << " and sparse is " << std::boolalpha
+                             << truncBlobObj.sparse;
+                    fds_verify(truncIndex == (bnode->obj_list.size() - 1));
+                    bnode->blob_size -= truncBlobObj.size;
+
+                    // Expunge the entry
+                    if (truncBlobObj.sparse == false) {
+                        // We check if the entry is sparse because sparse
+                        // entries don't actually needed to be expunged
+                        // because there wasn't a real corresponding object id.
+                        if (runMode != TEST_MODE) {
+                            err = expungeObject(bnode->vol_id, truncBlobObj.data_obj_id);
+                            fds_verify(err == ERR_OK);
+                        }
+                    }
+                    bnode->obj_list.popBack();
                 }
             }
         } else {
@@ -775,7 +816,9 @@ DataMgr::applyBlobUpdate(const BlobObjectList &offsetList, BlobNode *bnode) {
                  j < offset;
                  j += maxObjSize) {
                 // Append a 'sparse' info entry to the end of the blob
-                bnode->obj_list.pushBack(BlobObjectInfo(j));
+                bnode->obj_list.pushBack(BlobObjectInfo(j, maxObjSize));
+                // Increase the size as the sparse entry still counts
+                // towards the blob's size
                 bnode->blob_size += maxObjSize;
             }
 
@@ -794,7 +837,7 @@ DataMgr::applyBlobUpdate(const BlobObjectList &offsetList, BlobNode *bnode) {
         bnode->version++;
     }
 
-    LOGDEBUG << "Applied pdate to blob " << *bnode;
+    LOGDEBUG << "Applied update to blob " << *bnode;
 
     return err;
 }
